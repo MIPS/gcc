@@ -6498,7 +6498,7 @@ handle_dll_type_attribute (ttype ** pnode, tree name, tree args, int flags,
   if (!node->name ())
     return NULL_TREE;
 
-  return handle_dll_decl_attribute (&node->name (), name, args, flags,
+  return handle_dll_decl_attribute (node->name_ptr (), name, args, flags,
 				    no_add_attrs);
 }
 
@@ -8879,13 +8879,13 @@ get_narrower (tree op, int *unsignedp_ptr)
   int uns = 0;
   int first = 1;
   tree win = op;
-  bool integral_p = INTEGRAL_TYPE_P (TREE_TYPE (op));
+  bool integral_p = TREE_TTYPE (op)->integral_p ();
 
   while (TREE_CODE (op) == NOP_EXPR)
     {
       int bitschange
-	= (TYPE_PRECISION (TREE_TYPE (op))
-	   - TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (op, 0))));
+	= (TREE_TTYPE (op)->precision ()
+	   - TREE_TTYPE (TREE_OPERAND (op, 0))->precision ());
 
       /* Truncations are many-one so cannot be removed.  */
       if (bitschange < 0)
@@ -8900,11 +8900,11 @@ get_narrower (tree op, int *unsignedp_ptr)
 	  /* An extension: the outermost one can be stripped,
 	     but remember whether it is zero or sign extension.  */
 	  if (first)
-	    uns = TYPE_UNSIGNED (TREE_TYPE (op));
+	    uns = TREE_TTYPE (op)->unsigned_p ();
 	  /* Otherwise, if a sign extension has been stripped,
 	     only sign extensions can now be stripped;
 	     if a zero extension has been stripped, only zero-extensions.  */
-	  else if (uns != TYPE_UNSIGNED (TREE_TYPE (op)))
+	  else if (uns != TREE_TTYPE (op)->unsigned_p ())
 	    break;
 	  first = 0;
 	}
@@ -8913,12 +8913,12 @@ get_narrower (tree op, int *unsignedp_ptr)
 	  /* A change in nominal type can always be stripped, but we must
 	     preserve the unsignedness.  */
 	  if (first)
-	    uns = TYPE_UNSIGNED (TREE_TYPE (op));
+	    uns = TREE_TTYPE (op)->unsigned_p ();
 	  first = 0;
 	  op = TREE_OPERAND (op, 0);
 	  /* Keep trying to narrow, but don't assign op to win if it
 	     would turn an integral type into something else.  */
-	  if (INTEGRAL_TYPE_P (TREE_TYPE (op)) != integral_p)
+	  if (TREE_TTYPE (op)->integral_p () != integral_p)
 	    continue;
 	}
 
@@ -8927,8 +8927,8 @@ get_narrower (tree op, int *unsignedp_ptr)
 
   if (TREE_CODE (op) == COMPONENT_REF
       /* Since type_for_size always gives an integer type.  */
-      && TREE_CODE (TREE_TYPE (op)) != REAL_TYPE
-      && TREE_CODE (TREE_TYPE (op)) != FIXED_POINT_TYPE
+      && TREE_TTYPE (op)->code () != REAL_TYPE
+      && TREE_TTYPE (op)->code () != FIXED_POINT_TYPE
       /* Ensure field is laid out already.  */
       && DECL_SIZE (TREE_OPERAND (op, 1)) != 0
       && tree_fits_uhwi_p (DECL_SIZE (TREE_OPERAND (op, 1))))
@@ -8936,8 +8936,8 @@ get_narrower (tree op, int *unsignedp_ptr)
       unsigned HOST_WIDE_INT innerprec
 	= tree_to_uhwi (DECL_SIZE (TREE_OPERAND (op, 1)));
       int unsignedp = (DECL_UNSIGNED (TREE_OPERAND (op, 1))
-		       || TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (op, 1))));
-      tree type = lang_hooks.types.type_for_size (innerprec, unsignedp);
+		       || TREE_TTYPE (TREE_OPERAND (op, 1))->unsigned_p ());
+      ttype *type = lang_hooks.types.type_for_size (innerprec, unsignedp);
 
       /* We can get this structure field in a narrower type that fits it,
 	 but the resulting extension to its nominal type (a fullword type)
@@ -8947,10 +8947,10 @@ get_narrower (tree op, int *unsignedp_ptr)
 	 because when bit-field insns will be used there is no
 	 advantage in doing this.  */
 
-      if (innerprec < TYPE_PRECISION (TREE_TYPE (op))
+      if (innerprec < TREE_TTYPE (op)->precision ()
 	  && ! DECL_BIT_FIELD (TREE_OPERAND (op, 1))
 	  && (first || uns == DECL_UNSIGNED (TREE_OPERAND (op, 1)))
-	  && type != 0)
+	  && type != NULL)
 	{
 	  if (first)
 	    uns = DECL_UNSIGNED (TREE_OPERAND (op, 1));
@@ -8966,15 +8966,15 @@ get_narrower (tree op, int *unsignedp_ptr)
    for type TYPE (an INTEGER_TYPE).  */
 
 bool
-int_fits_type_p (const_tree c, const_tree type)
+int_fits_type_p (const_tree c, ttype_p type)
 {
   tree type_low_bound, type_high_bound;
   bool ok_for_low_bound, ok_for_high_bound;
-  signop sgn_c = TYPE_SIGN (TREE_TYPE (c));
+  signop sgn_c = TREE_TTYPE (c)->sign ();
 
 retry:
-  type_low_bound = TYPE_MIN_VALUE (type);
-  type_high_bound = TYPE_MAX_VALUE (type);
+  type_low_bound = type->min_value ();
+  type_high_bound = type->max_value ();
 
   /* If at least one bound of the type is a constant integer, we can check
      ourselves and maybe make a decision. If no such decision is possible, but
@@ -9013,18 +9013,18 @@ retry:
   /* Perform some generic filtering which may allow making a decision
      even if the bounds are not constant.  First, negative integers
      never fit in unsigned types, */
-  if (TYPE_UNSIGNED (type) && sgn_c == SIGNED && wi::neg_p (c))
+  if (type->unsigned_p () && sgn_c == SIGNED && wi::neg_p (c))
     return false;
 
   /* Second, narrower types always fit in wider ones.  */
-  if (TYPE_PRECISION (type) > TYPE_PRECISION (TREE_TYPE (c)))
+  if (type->precision () > TREE_TTYPE (c)->precision ())
     return true;
 
   /* Third, unsigned integers with top bit set never fit signed types.  */
-  if (!TYPE_UNSIGNED (type) && sgn_c == UNSIGNED)
+  if (!type->unsigned_p () && sgn_c == UNSIGNED)
     {
-      int prec = GET_MODE_PRECISION (TYPE_MODE (TREE_TYPE (c))) - 1;
-      if (prec < TYPE_PRECISION (TREE_TYPE (c)))
+      unsigned prec = GET_MODE_PRECISION (TREE_TTYPE (c)->mode ()) - 1;
+      if (prec < TREE_TTYPE (c)->precision ())
 	{
 	  /* When a tree_cst is converted to a wide-int, the precision
 	     is taken from the type.  However, if the precision of the
@@ -9042,11 +9042,11 @@ retry:
   /* If we haven't been able to decide at this point, there nothing more we
      can check ourselves here.  Look at the base type if we have one and it
      has the same precision.  */
-  if (TREE_CODE (type) == INTEGER_TYPE
-      && TREE_TYPE (type) != 0
-      && TYPE_PRECISION (type) == TYPE_PRECISION (TREE_TYPE (type)))
+  if (type->code () == INTEGER_TYPE
+      && type->type () != 0
+      && type->precision () == type->type()->precision ())
     {
-      type = TREE_TYPE (type);
+      type = type->type ();
       goto retry;
     }
 

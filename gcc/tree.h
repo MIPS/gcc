@@ -284,6 +284,7 @@ is_a_helper <const ttype *>::test (const_tree t)
 {
   return TYPE_P (t);
 }
+
 /* This routine is used to mark casts to ttype * which we eventually want to
    disappear. When ttype has been propogated throughout the comnpiler, we ought
    to be able to simply drop *all* of these.  Typically it is used to access a 
@@ -310,7 +311,6 @@ ttype *TTYPE (ttype *t) __attribute__((error(" Fix use of TTYPE(ttype *)")));
 const ttype *TTYPE (const ttype *t) 
 		    __attribute__((error(" Fix use of TTYPE(const ttype *)")));
 
-
 /* This is the interface class for incoming parameters to functions/methods
    so that all callers do not need to be ttype-ified all at once. This will
    allow the code withinn a function to treat the parameter exactly as if it
@@ -331,6 +331,19 @@ public:
   // ttype_p type at this location.  Mostly when used in varargs..
   inline ttype *as_a_ttype () { return type; }
 };
+
+/* assert_ttype is a transparent function used by TREE_SET macros when a
+   field which is going to be a TTYPE eventually (like TREE_SET_TYPE).
+   It confirms that a ttype * is passed, or generates a compiler error.  */
+ 
+static inline ttype *assert_ttype (ttype * t) { return t; }
+static inline const ttype *assert_ttype (const ttype * t) { return t; }
+static inline ttype *assert_ttype (ttype_p t) { return t; }
+ttype *assert_ttype (tree t)
+	      __attribute__((error(" Must upgrade parameter to a ttype *")));
+const ttype *assert_ttype (const_tree t) 
+	      __attribute__((error(" Must upgrade parameter to a ttype *")));
+
 
 /* On rare occassions, situations arise which require a temporary situation to
    exist when an explcicit cast needs to be made. These macros are provided
@@ -519,6 +532,8 @@ void ttype::set_chain (tree t) { u.common.chain = t; }
    In VECTOR_TYPE nodes, this is the type of the elements.  */
 #define TREE_TYPE(NODE) \
 (CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->u.typed.type)
+#define TREE_SET_TYPE(NODE, TYPE) \
+((CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->u.typed.type) = assert_ttype (TYPE))
 ttype *ttype::type () const { return TTYPE (u.typed.type); }
 void ttype::set_type (ttype *t) { u.typed.type = t; }
 
@@ -1954,6 +1969,7 @@ void ttype::set_precision (unsigned i) { u.type_common.precision = i; }
 
 #define TYPE_NAME(NODE) (TYPE_CHECK (NODE)->u.type_common.name)
 inline tree ttype::name() const { return u.type_common.name; }
+inline tree *ttype::name_ptr() { return &(u.type_common.name); }
 inline void ttype::set_name(tree t) { u.type_common.name = t; }
 
 #define TYPE_NEXT_VARIANT(NODE) (TYPE_CHECK (NODE)->u.type_common.next_variant)
@@ -5027,7 +5043,7 @@ extern tree strip_float_extensions (tree);
 extern int really_constant_p (const_tree);
 extern bool decl_address_invariant_p (const_tree);
 extern bool decl_address_ip_invariant_p (const_tree);
-extern bool int_fits_type_p (const_tree, const_tree);
+extern bool int_fits_type_p (const_tree, ttype_p);
 #ifndef GENERATOR_FILE
 extern void get_type_static_bounds (const_tree, mpz_t, mpz_t);
 #endif

@@ -1873,6 +1873,7 @@ public:
   inline ttype *domain () const;
   inline void set_domain (ttype *);
   inline tree name () const;
+  inline tree *name_ptr ();
   inline void set_name (tree);
   inline tree context() const;
   inline void set_context (tree);
