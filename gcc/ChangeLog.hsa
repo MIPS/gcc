@@ -1,5 +1,12 @@
 2016-01-18  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa-brig.c (lendian16): New function.  Changed all uses of htole16
+	to use it.
+	(lendian32): New function.  Changed all uses of htole32 to use it.
+	(lendian64): New function.  Changed all uses of htole64 to use it.
+
+2016-01-18  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa-brig-format.h (BrigKind): Fix the value of
 	BRIG_KIND_OPERAND_WAVESIZE.
 

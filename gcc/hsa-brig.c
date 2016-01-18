@@ -44,6 +44,83 @@ along with GCC; see the file COPYING3.  If not see
 #include "hsa.h"
 #include "gomp-constants.h"
 
+/* Convert VAL to little endian form, if necessary.  */
+
+static uint16_t
+lendian16 (uint16_t val)
+{
+#if GCC_VERSION >= 4006
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+  return val;
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+  return __builtin_bswap16 (val);
+#else   /* __ORDER_PDP_ENDIAN__ */
+  return val;
+#endif
+#else
+// provide a safe slower default, with shifts and masking
+#ifndef WORDS_BIGENDIAN
+  return val;
+#else
+  return (val >> 8) | (val << 8);
+#endif
+#endif
+}
+
+/* Convert VAL to little endian form, if necessary.  */
+
+static uint32_t
+lendian32 (uint32_t val)
+{
+#if GCC_VERSION >= 4006
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+  return val;
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+  return __builtin_bswap32 (val);
+#else  /* __ORDER_PDP_ENDIAN__ */
+  return (val >> 16) | (val << 16);
+#endif
+#else
+// provide a safe slower default, with shifts and masking
+#ifndef WORDS_BIGENDIAN
+  return val;
+#else
+  val = ((val & 0xff00ff00) >> 8) | ((val & 0xff00ff) << 8);
+  return (val >> 16) | (val << 16);
+#endif
+#endif
+}
+
+/* Convert VAL to little endian form, if necessary.  */
+
+static uint64_t
+lendian64 (uint64_t val)
+{
+#if GCC_VERSION >= 4006
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+  return val;
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+  return __builtin_bswap64 (val);
+#else  /* __ORDER_PDP_ENDIAN__ */
+  return (((val & 0xffffll) << 48)
+	  | ((val & 0xffff0000ll) << 16)
+	  | ((val & 0xffff00000000ll) >> 16)
+	  | ((val & 0xffff000000000000ll) >> 48));
+#endif
+#else
+// provide a safe slower default, with shifts and masking
+#ifndef WORDS_BIGENDIAN
+  return val;
+#else
+  val = (((val & 0xff00ff00ff00ff00ll) >> 8)
+	 | ((val & 0x00ff00ff00ff00ffll) << 8));
+  val = ((( val & 0xffff0000ffff0000ll) >> 16)
+	 | (( val & 0x0000ffff0000ffffll) << 16));
+  return (val >> 32) | (val << 32);
+#endif
+#endif
+}
+
 #define BRIG_ELF_SECTION_NAME ".brig"
 #define BRIG_LABEL_STRING "hsa_brig"
 #define BRIG_SECTION_DATA_NAME    "hsa_data"
@@ -177,9 +254,9 @@ hsa_brig_section::output ()
   struct BrigSectionHeader section_header;
   char padding[8];
 
-  section_header.byteCount = htole64 (total_size);
-  section_header.headerByteCount = htole32 (header_byte_count);
-  section_header.nameLength = htole32 (strlen (section_name));
+  section_header.byteCount = lendian64 (total_size);
+  section_header.headerByteCount = lendian32 (header_byte_count);
+  section_header.nameLength = lendian32 (strlen (section_name));
   assemble_string ((const char *) &section_header, 16);
   assemble_string (section_name, (section_header.nameLength));
   memset (&padding, 0, sizeof (padding));
@@ -314,7 +391,7 @@ brig_emit_string (const char *str, char prefix = 0, bool sanitize = true)
 {
   unsigned slen = strlen (str);
   unsigned offset, len = slen + (prefix ? 1 : 0);
-  uint32_t hdr_len = htole32 (len);
+  uint32_t hdr_len = lendian32 (len);
   brig_string_slot s_slot;
   brig_string_slot **slot;
   char *str2;
@@ -389,7 +466,7 @@ brig_init (void)
 
   struct BrigDirectiveModule moddir;
   memset (&moddir, 0, sizeof (moddir));
-  moddir.base.byteCount = htole16 (sizeof (moddir));
+  moddir.base.byteCount = lendian16 (sizeof (moddir));
 
   char *modname;
   if (main_input_filename && *main_input_filename != '\0')
@@ -424,9 +501,9 @@ brig_init (void)
     }
   else
     moddir.name = brig_emit_string ("__hsa_module_unnamed", '&');
-  moddir.base.kind = htole16 (BRIG_KIND_DIRECTIVE_MODULE);
-  moddir.hsailMajor = htole32 (BRIG_VERSION_HSAIL_MAJOR);
-  moddir.hsailMinor = htole32 (BRIG_VERSION_HSAIL_MINOR);
+  moddir.base.kind = lendian16 (BRIG_KIND_DIRECTIVE_MODULE);
+  moddir.hsailMajor = lendian32 (BRIG_VERSION_HSAIL_MAJOR);
+  moddir.hsailMinor = lendian32 (BRIG_VERSION_HSAIL_MINOR);
   moddir.profile = hsa_full_profile_p () ? BRIG_PROFILE_FULL: BRIG_PROFILE_BASE;
   if (hsa_machine_large_p ())
     moddir.machineModel = BRIG_MACHINE_LARGE;
@@ -500,8 +577,8 @@ emit_directive_variable (struct hsa_symbol *symbol)
     return symbol->m_directive_offset;
 
   memset (&dirvar, 0, sizeof (dirvar));
-  dirvar.base.byteCount = htole16 (sizeof (dirvar));
-  dirvar.base.kind = htole16 (BRIG_KIND_DIRECTIVE_VARIABLE);
+  dirvar.base.byteCount = lendian16 (sizeof (dirvar));
+  dirvar.base.kind = lendian16 (BRIG_KIND_DIRECTIVE_VARIABLE);
   dirvar.allocation = symbol->m_allocation;
 
   char prefix = symbol->m_global_scope_p ? '&' : '%';
@@ -522,9 +599,9 @@ emit_directive_variable (struct hsa_symbol *symbol)
       name_offset = brig_emit_string (buf, prefix);
     }
 
-  dirvar.name = htole32 (name_offset);
+  dirvar.name = lendian32 (name_offset);
   dirvar.init = 0;
-  dirvar.type = htole16 (symbol->m_type);
+  dirvar.type = lendian16 (symbol->m_type);
   dirvar.segment = symbol->m_segment;
   /* TODO: Once we are able to access global variables, we must copy their
      alignment.  */
@@ -542,7 +619,7 @@ emit_directive_variable (struct hsa_symbol *symbol)
   if (symbol->m_cst_value)
     {
       dirvar.modifier |= BRIG_VARIABLE_CONST;
-      dirvar.init = htole32 (enqueue_op (symbol->m_cst_value));
+      dirvar.init = lendian32 (enqueue_op (symbol->m_cst_value));
     }
 
   symbol->m_directive_offset = brig_code.add (&dirvar, sizeof (dirvar));
@@ -583,15 +660,15 @@ emit_function_directives (hsa_function_representation *f, bool is_declaration)
   next_toplev_off = scoped_off + count * sizeof (struct BrigDirectiveVariable);
 
   memset (&fndir, 0, sizeof (fndir));
-  fndir.base.byteCount = htole16 (sizeof (fndir));
-  fndir.base.kind = htole16 (f->m_kern_p ? BRIG_KIND_DIRECTIVE_KERNEL
-			     : BRIG_KIND_DIRECTIVE_FUNCTION);
-  fndir.name = htole32 (name_offset);
-  fndir.inArgCount = htole16 (f->m_input_args.length ());
-  fndir.outArgCount = htole16 (f->m_output_arg ? 1 : 0);
-  fndir.firstInArg = htole32 (inarg_off);
-  fndir.firstCodeBlockEntry = htole32 (scoped_off);
-  fndir.nextModuleEntry = htole32 (next_toplev_off);
+  fndir.base.byteCount = lendian16 (sizeof (fndir));
+  fndir.base.kind = lendian16 (f->m_kern_p ? BRIG_KIND_DIRECTIVE_KERNEL
+			       : BRIG_KIND_DIRECTIVE_FUNCTION);
+  fndir.name = lendian32 (name_offset);
+  fndir.inArgCount = lendian16 (f->m_input_args.length ());
+  fndir.outArgCount = lendian16 (f->m_output_arg ? 1 : 0);
+  fndir.firstInArg = lendian32 (inarg_off);
+  fndir.firstCodeBlockEntry = lendian32 (scoped_off);
+  fndir.nextModuleEntry = lendian32 (next_toplev_off);
   fndir.linkage = f->get_linkage ();
   if (!f->m_declaration_p)
     fndir.modifier |= BRIG_EXECUTABLE_DEFINITION;
@@ -656,12 +733,12 @@ emit_bb_label_directive (hsa_bb *hbb)
 {
   struct BrigDirectiveLabel lbldir;
 
-  lbldir.base.byteCount = htole16 (sizeof (lbldir));
-  lbldir.base.kind = htole16 (BRIG_KIND_DIRECTIVE_LABEL);
+  lbldir.base.byteCount = lendian16 (sizeof (lbldir));
+  lbldir.base.kind = lendian16 (BRIG_KIND_DIRECTIVE_LABEL);
   char buf[32];
   snprintf (buf, 32, "BB_%u_%i", DECL_UID (current_function_decl),
 	    hbb->m_index);
-  lbldir.name = htole32 (brig_emit_string (buf, '@'));
+  lbldir.name = lendian32 (brig_emit_string (buf, '@'));
 
   hbb->m_label_ref.m_directive_offset = brig_code.add (&lbldir,
 						       sizeof (lbldir));
@@ -921,11 +998,11 @@ emit_immediate_operand (hsa_op_immed *imm)
   struct BrigOperandConstantBytes out;
 
   memset (&out, 0, sizeof (out));
-  out.base.byteCount = htole16 (sizeof (out));
-  out.base.kind = htole16 (BRIG_KIND_OPERAND_CONSTANT_BYTES);
-  uint32_t byteCount = htole32 (imm->m_brig_repr_size);
-  out.type = htole16 (imm->m_type);
-  out.bytes = htole32 (brig_data.add (&byteCount, sizeof (byteCount)));
+  out.base.byteCount = lendian16 (sizeof (out));
+  out.base.kind = lendian16 (BRIG_KIND_OPERAND_CONSTANT_BYTES);
+  uint32_t byteCount = lendian32 (imm->m_brig_repr_size);
+  out.type = lendian16 (imm->m_type);
+  out.bytes = lendian32 (brig_data.add (&byteCount, sizeof (byteCount)));
   brig_operand.add (&out, sizeof (out));
   brig_data.add (imm->m_brig_repr, imm->m_brig_repr_size);
   brig_data.round_size_up (4);
@@ -938,9 +1015,9 @@ emit_register_operand (hsa_op_reg *reg)
 {
   struct BrigOperandRegister out;
 
-  out.base.byteCount = htole16 (sizeof (out));
-  out.base.kind = htole16 (BRIG_KIND_OPERAND_REGISTER);
-  out.regNum = htole32 (reg->m_hard_num);
+  out.base.byteCount = lendian16 (sizeof (out));
+  out.base.kind = lendian16 (BRIG_KIND_OPERAND_REGISTER);
+  out.regNum = lendian32 (reg->m_hard_num);
 
   switch (regtype_for_type (reg->m_type))
     {
@@ -970,21 +1047,21 @@ emit_address_operand (hsa_op_address *addr)
 {
   struct BrigOperandAddress out;
 
-  out.base.byteCount = htole16 (sizeof (out));
-  out.base.kind = htole16 (BRIG_KIND_OPERAND_ADDRESS);
+  out.base.byteCount = lendian16 (sizeof (out));
+  out.base.kind = lendian16 (BRIG_KIND_OPERAND_ADDRESS);
   out.symbol = addr->m_symbol
-    ? htole32 (emit_directive_variable (addr->m_symbol)) : 0;
-  out.reg = addr->m_reg ? htole32 (enqueue_op (addr->m_reg)) : 0;
+    ? lendian32 (emit_directive_variable (addr->m_symbol)) : 0;
+  out.reg = addr->m_reg ? lendian32 (enqueue_op (addr->m_reg)) : 0;
 
   if (sizeof (addr->m_imm_offset) == 8)
     {
-      out.offset.lo = htole32 (addr->m_imm_offset);
-      out.offset.hi = htole32 (addr->m_imm_offset >> 32);
+      out.offset.lo = lendian32 (addr->m_imm_offset);
+      out.offset.hi = lendian32 (addr->m_imm_offset >> 32);
     }
   else
     {
       gcc_assert (sizeof (addr->m_imm_offset) == 4);
-      out.offset.lo = htole32 (addr->m_imm_offset);
+      out.offset.lo = lendian32 (addr->m_imm_offset);
       out.offset.hi = 0;
     }
 
@@ -998,9 +1075,9 @@ emit_code_ref_operand (hsa_op_code_ref *ref)
 {
   struct BrigOperandCodeRef out;
 
-  out.base.byteCount = htole16 (sizeof (out));
-  out.base.kind = htole16 (BRIG_KIND_OPERAND_CODE_REF);
-  out.ref = htole32 (ref->m_directive_offset);
+  out.base.byteCount = lendian16 (sizeof (out));
+  out.base.kind = lendian16 (BRIG_KIND_OPERAND_CODE_REF);
+  out.ref = lendian32 (ref->m_directive_offset);
   brig_operand.add (&out, sizeof (out));
 }
 
@@ -1015,12 +1092,12 @@ emit_code_list_operand (hsa_op_code_list *code_list)
   for (unsigned i = 0; i < args; i++)
     gcc_assert (code_list->m_offsets[i]);
 
-  out.base.byteCount = htole16 (sizeof (out));
-  out.base.kind = htole16 (BRIG_KIND_OPERAND_CODE_LIST);
+  out.base.byteCount = lendian16 (sizeof (out));
+  out.base.kind = lendian16 (BRIG_KIND_OPERAND_CODE_LIST);
 
-  uint32_t byteCount = htole32 (4 * args);
+  uint32_t byteCount = lendian32 (4 * args);
 
-  out.elements = htole32 (brig_data.add (&byteCount, sizeof (byteCount)));
+  out.elements = lendian32 (brig_data.add (&byteCount, sizeof (byteCount)));
   brig_data.add (code_list->m_offsets.address (), args * sizeof (uint32_t));
   brig_data.round_size_up (4);
   brig_operand.add (&out, sizeof (out));
@@ -1037,12 +1114,12 @@ emit_operand_list_operand (hsa_op_operand_list *operand_list)
   for (unsigned i = 0; i < args; i++)
     gcc_assert (operand_list->m_offsets[i]);
 
-  out.base.byteCount = htole16 (sizeof (out));
-  out.base.kind = htole16 (BRIG_KIND_OPERAND_OPERAND_LIST);
+  out.base.byteCount = lendian16 (sizeof (out));
+  out.base.kind = lendian16 (BRIG_KIND_OPERAND_OPERAND_LIST);
 
-  uint32_t byteCount = htole32 (4 * args);
+  uint32_t byteCount = lendian32 (4 * args);
 
-  out.elements = htole32 (brig_data.add (&byteCount, sizeof (byteCount)));
+  out.elements = lendian32 (brig_data.add (&byteCount, sizeof (byteCount)));
   brig_data.add (operand_list->m_offsets.address (), args * sizeof (uint32_t));
   brig_data.round_size_up (4);
   brig_operand.add (&out, sizeof (out));
@@ -1118,10 +1195,10 @@ emit_insn_operands (hsa_insn_basic *insn)
   operand_offsets.safe_grow (l);
 
   for (unsigned i = 0; i < l; i++)
-    operand_offsets[i] = htole32 (enqueue_op (insn->get_op (i)));
+    operand_offsets[i] = lendian32 (enqueue_op (insn->get_op (i)));
 
   /* We have N operands so use 4 * N for the byte_count.  */
-  uint32_t byte_count = htole32 (4 * l);
+  uint32_t byte_count = lendian32 (4 * l);
 
   unsigned offset = brig_data.add (&byte_count, sizeof (byte_count));
   brig_data.add (operand_offsets.address (),
@@ -1155,7 +1232,7 @@ emit_operands (hsa_op_base *op0, hsa_op_base *op1 = NULL,
   unsigned l = operand_offsets.length ();
 
   /* We have N operands so use 4 * N for the byte_count.  */
-  uint32_t byte_count = htole32 (4 * l);
+  uint32_t byte_count = lendian32 (4 * l);
 
   unsigned offset = brig_data.add (&byte_count, sizeof (byte_count));
   brig_data.add (operand_offsets.address (),
@@ -1182,11 +1259,11 @@ emit_memory_insn (hsa_insn_mem *mem)
      random stuff (which we do not want so that we can test things don't
      change).  */
   memset (&repr, 0, sizeof (repr));
-  repr.base.base.byteCount = htole16 (sizeof (repr));
-  repr.base.base.kind = htole16 (BRIG_KIND_INST_MEM);
-  repr.base.opcode = htole16 (mem->m_opcode);
-  repr.base.type = htole16 (mem->m_type);
-  repr.base.operands = htole32 (emit_insn_operands (mem));
+  repr.base.base.byteCount = lendian16 (sizeof (repr));
+  repr.base.base.kind = lendian16 (BRIG_KIND_INST_MEM);
+  repr.base.opcode = lendian16 (mem->m_opcode);
+  repr.base.type = lendian16 (mem->m_type);
+  repr.base.operands = lendian32 (emit_insn_operands (mem));
 
   if (addr->m_symbol)
     repr.segment = addr->m_symbol->m_segment;
@@ -1217,11 +1294,11 @@ emit_signal_insn (hsa_insn_signal *mem)
      random stuff (which we do not want so that we can test things don't
      change).  */
   memset (&repr, 0, sizeof (repr));
-  repr.base.base.byteCount = htole16 (sizeof (repr));
-  repr.base.base.kind = htole16 (BRIG_KIND_INST_SIGNAL);
-  repr.base.opcode = htole16 (mem->m_opcode);
-  repr.base.type = htole16 (mem->m_type);
-  repr.base.operands = htole32 (emit_insn_operands (mem));
+  repr.base.base.byteCount = lendian16 (sizeof (repr));
+  repr.base.base.kind = lendian16 (BRIG_KIND_INST_SIGNAL);
+  repr.base.opcode = lendian16 (mem->m_opcode);
+  repr.base.type = lendian16 (mem->m_type);
+  repr.base.operands = lendian32 (emit_insn_operands (mem));
 
   repr.memoryOrder = mem->m_memoryorder;
   repr.signalOperation = mem->m_atomicop;
@@ -1251,11 +1328,11 @@ emit_atomic_insn (hsa_insn_atomic *mem)
      random stuff (which we do not want so that we can test things don't
      change).  */
   memset (&repr, 0, sizeof (repr));
-  repr.base.base.byteCount = htole16 (sizeof (repr));
-  repr.base.base.kind = htole16 (BRIG_KIND_INST_ATOMIC);
-  repr.base.opcode = htole16 (mem->m_opcode);
-  repr.base.type = htole16 (mem->m_type);
-  repr.base.operands = htole32 (emit_insn_operands (mem));
+  repr.base.base.byteCount = lendian16 (sizeof (repr));
+  repr.base.base.kind = lendian16 (BRIG_KIND_INST_ATOMIC);
+  repr.base.opcode = lendian16 (mem->m_opcode);
+  repr.base.type = lendian16 (mem->m_type);
+  repr.base.operands = lendian32 (emit_insn_operands (mem));
 
   if (addr->m_symbol)
     repr.segment = addr->m_symbol->m_segment;
@@ -1279,11 +1356,11 @@ emit_addr_insn (hsa_insn_basic *insn)
 
   hsa_op_address *addr = as_a <hsa_op_address *> (insn->get_op (1));
 
-  repr.base.base.byteCount = htole16 (sizeof (repr));
-  repr.base.base.kind = htole16 (BRIG_KIND_INST_ADDR);
-  repr.base.opcode = htole16 (insn->m_opcode);
-  repr.base.type = htole16 (insn->m_type);
-  repr.base.operands = htole32 (emit_insn_operands (insn));
+  repr.base.base.byteCount = lendian16 (sizeof (repr));
+  repr.base.base.kind = lendian16 (BRIG_KIND_INST_ADDR);
+  repr.base.opcode = lendian16 (insn->m_opcode);
+  repr.base.type = lendian16 (insn->m_type);
+  repr.base.operands = lendian32 (emit_insn_operands (insn));
 
   if (addr->m_symbol)
     repr.segment = addr->m_symbol->m_segment;
@@ -1303,12 +1380,12 @@ emit_segment_insn (hsa_insn_seg *seg)
 {
   struct BrigInstSegCvt repr;
 
-  repr.base.base.byteCount = htole16 (sizeof (repr));
-  repr.base.base.kind = htole16 (BRIG_KIND_INST_SEG_CVT);
-  repr.base.opcode = htole16 (seg->m_opcode);
-  repr.base.type = htole16 (seg->m_type);
-  repr.base.operands = htole32 (emit_insn_operands (seg));
-  repr.sourceType = htole16 (as_a <hsa_op_reg *> (seg->get_op (1))->m_type);
+  repr.base.base.byteCount = lendian16 (sizeof (repr));
+  repr.base.base.kind = lendian16 (BRIG_KIND_INST_SEG_CVT);
+  repr.base.opcode = lendian16 (seg->m_opcode);
+  repr.base.type = lendian16 (seg->m_type);
+  repr.base.operands = lendian32 (emit_insn_operands (seg));
+  repr.sourceType = lendian16 (as_a <hsa_op_reg *> (seg->get_op (1))->m_type);
   repr.segment = seg->m_segment;
   repr.modifier = 0;
 
@@ -1331,11 +1408,11 @@ emit_alloca_insn (hsa_insn_alloca *alloca)
      random stuff (which we do not want so that we can test things don't
      change).  */
   memset (&repr, 0, sizeof (repr));
-  repr.base.base.byteCount = htole16 (sizeof (repr));
-  repr.base.base.kind = htole16 (BRIG_KIND_INST_MEM);
-  repr.base.opcode = htole16 (alloca->m_opcode);
-  repr.base.type = htole16 (alloca->m_type);
-  repr.base.operands = htole32 (emit_insn_operands (alloca));
+  repr.base.base.byteCount = lendian16 (sizeof (repr));
+  repr.base.base.kind = lendian16 (BRIG_KIND_INST_MEM);
+  repr.base.opcode = lendian16 (alloca->m_opcode);
+  repr.base.type = lendian16 (alloca->m_type);
+  repr.base.operands = lendian32 (emit_insn_operands (alloca));
   repr.segment = BRIG_SEGMENT_PRIVATE;
   repr.modifier = 0;
   repr.equivClass = 0;
@@ -1355,17 +1432,18 @@ emit_cmp_insn (hsa_insn_cmp *cmp)
   struct BrigInstCmp repr;
 
   memset (&repr, 0, sizeof (repr));
-  repr.base.base.byteCount = htole16 (sizeof (repr));
-  repr.base.base.kind = htole16 (BRIG_KIND_INST_CMP);
-  repr.base.opcode = htole16 (cmp->m_opcode);
-  repr.base.type = htole16 (cmp->m_type);
-  repr.base.operands = htole32 (emit_insn_operands (cmp));
+  repr.base.base.byteCount = lendian16 (sizeof (repr));
+  repr.base.base.kind = lendian16 (BRIG_KIND_INST_CMP);
+  repr.base.opcode = lendian16 (cmp->m_opcode);
+  repr.base.type = lendian16 (cmp->m_type);
+  repr.base.operands = lendian32 (emit_insn_operands (cmp));
 
   if (is_a <hsa_op_reg *> (cmp->get_op (1)))
-    repr.sourceType = htole16 (as_a <hsa_op_reg *> (cmp->get_op (1))->m_type);
+    repr.sourceType
+      = lendian16 (as_a <hsa_op_reg *> (cmp->get_op (1))->m_type);
   else
     repr.sourceType
-      = htole16 (as_a <hsa_op_immed *> (cmp->get_op (1))->m_type);
+      = lendian16 (as_a <hsa_op_immed *> (cmp->get_op (1))->m_type);
   repr.modifier = 0;
   repr.compare = cmp->m_compare;
   repr.pack = 0;
@@ -1388,12 +1466,12 @@ emit_branch_insn (hsa_insn_br *br)
 
   /* At the moment we only handle direct conditional jumps.  */
   gcc_assert (br->m_opcode == BRIG_OPCODE_CBR);
-  repr.base.base.byteCount = htole16 (sizeof (repr));
-  repr.base.base.kind = htole16 (BRIG_KIND_INST_BR);
-  repr.base.opcode = htole16 (br->m_opcode);
+  repr.base.base.byteCount = lendian16 (sizeof (repr));
+  repr.base.base.kind = lendian16 (BRIG_KIND_INST_BR);
+  repr.base.opcode = lendian16 (br->m_opcode);
   repr.width = BRIG_WIDTH_1;
   /* For Conditional jumps the type is always B1.  */
-  repr.base.type = htole16 (BRIG_TYPE_B1);
+  repr.base.type = lendian16 (BRIG_TYPE_B1);
 
   FOR_EACH_EDGE (e, ei, br->m_bb->succs)
     if (e->flags & EDGE_TRUE_VALUE)
@@ -1404,8 +1482,8 @@ emit_branch_insn (hsa_insn_br *br)
   gcc_assert (target);
 
   repr.base.operands
-    = htole32 (emit_operands (br->get_op (0),
-			      &hsa_bb_for_bb (target)->m_label_ref));
+    = lendian32 (emit_operands (br->get_op (0),
+				&hsa_bb_for_bb (target)->m_label_ref));
   memset (&repr.reserved, 0, sizeof (repr.reserved));
 
   brig_code.add (&repr, sizeof (repr));
@@ -1420,14 +1498,14 @@ emit_unconditional_jump (hsa_op_code_ref *reference)
 {
   struct BrigInstBr repr;
 
-  repr.base.base.byteCount = htole16 (sizeof (repr));
-  repr.base.base.kind = htole16 (BRIG_KIND_INST_BR);
-  repr.base.opcode = htole16 (BRIG_OPCODE_BR);
-  repr.base.type = htole16 (BRIG_TYPE_NONE);
+  repr.base.base.byteCount = lendian16 (sizeof (repr));
+  repr.base.base.kind = lendian16 (BRIG_KIND_INST_BR);
+  repr.base.opcode = lendian16 (BRIG_OPCODE_BR);
+  repr.base.type = lendian16 (BRIG_TYPE_NONE);
   /* Direct branches to labels must be width(all).  */
   repr.width = BRIG_WIDTH_ALL;
 
-  repr.base.operands = htole32 (emit_operands (reference));
+  repr.base.operands = lendian32 (emit_operands (reference));
   memset (&repr.reserved, 0, sizeof (repr.reserved));
   brig_code.add (&repr, sizeof (repr));
   brig_insn_count++;
@@ -1442,15 +1520,15 @@ emit_switch_insn (hsa_insn_sbr *sbr)
   struct BrigInstBr repr;
 
   gcc_assert (sbr->m_opcode == BRIG_OPCODE_SBR);
-  repr.base.base.byteCount = htole16 (sizeof (repr));
-  repr.base.base.kind = htole16 (BRIG_KIND_INST_BR);
-  repr.base.opcode = htole16 (sbr->m_opcode);
+  repr.base.base.byteCount = lendian16 (sizeof (repr));
+  repr.base.base.kind = lendian16 (BRIG_KIND_INST_BR);
+  repr.base.opcode = lendian16 (sbr->m_opcode);
   repr.width = BRIG_WIDTH_1;
   /* For Conditional jumps the type is always B1.  */
   hsa_op_reg *index = as_a <hsa_op_reg *> (sbr->get_op (0));
-  repr.base.type = htole16 (index->m_type);
+  repr.base.type = lendian16 (index->m_type);
   repr.base.operands
-    = htole32 (emit_operands (sbr->get_op (0), sbr->m_label_code_list));
+    = lendian32 (emit_operands (sbr->get_op (0), sbr->m_label_code_list));
   memset (&repr.reserved, 0, sizeof (repr.reserved));
 
   brig_code.add (&repr, sizeof (repr));
@@ -1470,17 +1548,17 @@ emit_cvt_insn (hsa_insn_cvt *insn)
   struct BrigInstCvt repr;
   BrigType16_t srctype;
 
-  repr.base.base.byteCount = htole16 (sizeof (repr));
-  repr.base.base.kind = htole16 (BRIG_KIND_INST_CVT);
-  repr.base.opcode = htole16 (insn->m_opcode);
-  repr.base.type = htole16 (insn->m_type);
-  repr.base.operands = htole32 (emit_insn_operands (insn));
+  repr.base.base.byteCount = lendian16 (sizeof (repr));
+  repr.base.base.kind = lendian16 (BRIG_KIND_INST_CVT);
+  repr.base.opcode = lendian16 (insn->m_opcode);
+  repr.base.type = lendian16 (insn->m_type);
+  repr.base.operands = lendian32 (emit_insn_operands (insn));
 
   if (is_a <hsa_op_reg *> (insn->get_op (1)))
     srctype = as_a <hsa_op_reg *> (insn->get_op (1))->m_type;
   else
     srctype = as_a <hsa_op_immed *> (insn->get_op (1))->m_type;
-  repr.sourceType = htole16 (srctype);
+  repr.sourceType = lendian16 (srctype);
   repr.modifier = 0;
   /* float to smaller float requires a rounding setting (we default
      to 'near'.  */
@@ -1506,14 +1584,14 @@ emit_call_insn (hsa_insn_call *call)
 {
   struct BrigInstBr repr;
 
-  repr.base.base.byteCount = htole16 (sizeof (repr));
-  repr.base.base.kind = htole16 (BRIG_KIND_INST_BR);
-  repr.base.opcode = htole16 (BRIG_OPCODE_CALL);
-  repr.base.type = htole16 (BRIG_TYPE_NONE);
+  repr.base.base.byteCount = lendian16 (sizeof (repr));
+  repr.base.base.kind = lendian16 (BRIG_KIND_INST_BR);
+  repr.base.opcode = lendian16 (BRIG_OPCODE_CALL);
+  repr.base.type = lendian16 (BRIG_TYPE_NONE);
 
   repr.base.operands
-    = htole32 (emit_operands (call->m_result_code_list, &call->m_func,
-			      call->m_args_code_list));
+    = lendian32 (emit_operands (call->m_result_code_list, &call->m_func,
+				call->m_args_code_list));
 
   /* Internal functions have not set m_called_function.  */
   if (call->m_called_function)
@@ -1548,23 +1626,23 @@ emit_arg_block_insn (hsa_insn_arg_block *insn)
     case BRIG_KIND_DIRECTIVE_ARG_BLOCK_START:
       {
 	struct BrigDirectiveArgBlock repr;
-	repr.base.byteCount = htole16 (sizeof (repr));
-	repr.base.kind = htole16 (insn->m_kind);
+	repr.base.byteCount = lendian16 (sizeof (repr));
+	repr.base.kind = lendian16 (insn->m_kind);
 	brig_code.add (&repr, sizeof (repr));
 
 	for (unsigned i = 0; i < insn->m_call_insn->m_input_args.length (); i++)
 	  {
 	    insn->m_call_insn->m_args_code_list->m_offsets[i]
-	      = htole32 (emit_directive_variable
-			 (insn->m_call_insn->m_input_args[i]));
+	      = lendian32 (emit_directive_variable
+			   (insn->m_call_insn->m_input_args[i]));
 	    brig_insn_count++;
 	  }
 
 	if (insn->m_call_insn->m_output_arg)
 	  {
 	    insn->m_call_insn->m_result_code_list->m_offsets[0]
-	      = htole32 (emit_directive_variable
-			 (insn->m_call_insn->m_output_arg));
+	      = lendian32 (emit_directive_variable
+			   (insn->m_call_insn->m_output_arg));
 	    brig_insn_count++;
 	  }
 
@@ -1573,8 +1651,8 @@ emit_arg_block_insn (hsa_insn_arg_block *insn)
     case BRIG_KIND_DIRECTIVE_ARG_BLOCK_END:
       {
 	struct BrigDirectiveArgBlock repr;
-	repr.base.byteCount = htole16 (sizeof (repr));
-	repr.base.kind = htole16 (insn->m_kind);
+	repr.base.byteCount = lendian16 (sizeof (repr));
+	repr.base.kind = lendian16 (insn->m_kind);
 	brig_code.add (&repr, sizeof (repr));
 	break;
       }
@@ -1593,8 +1671,8 @@ emit_comment_insn (hsa_insn_comment *insn)
   struct BrigDirectiveComment repr;
   memset (&repr, 0, sizeof (repr));
 
-  repr.base.byteCount = htole16 (sizeof (repr));
-  repr.base.kind = htole16 (insn->m_opcode);
+  repr.base.byteCount = lendian16 (sizeof (repr));
+  repr.base.kind = lendian16 (insn->m_opcode);
   repr.name = brig_emit_string (insn->m_comment, '\0', false);
   brig_code.add (&repr, sizeof (repr));
 }
@@ -1607,13 +1685,13 @@ emit_queue_insn (hsa_insn_queue *insn)
   BrigInstQueue repr;
   memset (&repr, 0, sizeof (repr));
 
-  repr.base.base.byteCount = htole16 (sizeof (repr));
-  repr.base.base.kind = htole16 (BRIG_KIND_INST_QUEUE);
-  repr.base.opcode = htole16 (insn->m_opcode);
-  repr.base.type = htole16 (insn->m_type);
+  repr.base.base.byteCount = lendian16 (sizeof (repr));
+  repr.base.base.kind = lendian16 (BRIG_KIND_INST_QUEUE);
+  repr.base.opcode = lendian16 (insn->m_opcode);
+  repr.base.type = lendian16 (insn->m_type);
   repr.segment = BRIG_SEGMENT_GLOBAL;
   repr.memoryOrder = BRIG_MEMORY_ORDER_SC_RELEASE;
-  repr.base.operands = htole32 (emit_insn_operands (insn));
+  repr.base.operands = lendian32 (emit_insn_operands (insn));
   brig_data.round_size_up (4);
   brig_code.add (&repr, sizeof (repr));
 
@@ -1631,13 +1709,13 @@ emit_srctype_insn (hsa_insn_srctype *insn)
   gcc_checking_assert (operand_count >= 2);
 
   memset (&repr, 0, sizeof (repr));
-  repr.sourceType = htole16 (insn->m_source_type);
-  repr.base.base.byteCount = htole16 (sizeof (repr));
-  repr.base.base.kind = htole16 (BRIG_KIND_INST_SOURCE_TYPE);
-  repr.base.opcode = htole16 (insn->m_opcode);
-  repr.base.type = htole16 (insn->m_type);
+  repr.sourceType = lendian16 (insn->m_source_type);
+  repr.base.base.byteCount = lendian16 (sizeof (repr));
+  repr.base.base.kind = lendian16 (BRIG_KIND_INST_SOURCE_TYPE);
+  repr.base.opcode = lendian16 (insn->m_opcode);
+  repr.base.type = lendian16 (insn->m_type);
 
-  repr.base.operands = htole32 (emit_insn_operands (insn));
+  repr.base.operands = lendian32 (emit_insn_operands (insn));
   brig_code.add (&repr, sizeof (struct BrigInstSourceType));
   brig_insn_count++;
 }
@@ -1653,11 +1731,11 @@ emit_packed_insn (hsa_insn_packed *insn)
   gcc_checking_assert (operand_count >= 2);
 
   memset (&repr, 0, sizeof (repr));
-  repr.sourceType = htole16 (insn->m_source_type);
-  repr.base.base.byteCount = htole16 (sizeof (repr));
-  repr.base.base.kind = htole16 (BRIG_KIND_INST_SOURCE_TYPE);
-  repr.base.opcode = htole16 (insn->m_opcode);
-  repr.base.type = htole16 (insn->m_type);
+  repr.sourceType = lendian16 (insn->m_source_type);
+  repr.base.base.byteCount = lendian16 (sizeof (repr));
+  repr.base.base.kind = lendian16 (BRIG_KIND_INST_SOURCE_TYPE);
+  repr.base.opcode = lendian16 (insn->m_opcode);
+  repr.base.type = lendian16 (insn->m_type);
 
   if (insn->m_opcode == BRIG_OPCODE_COMBINE)
     {
@@ -1666,11 +1744,11 @@ emit_packed_insn (hsa_insn_packed *insn)
 	{
 	  gcc_checking_assert (insn->get_op (i));
 	  insn->m_operand_list->m_offsets[i - 1]
-	    = htole32 (enqueue_op (insn->get_op (i)));
+	    = lendian32 (enqueue_op (insn->get_op (i)));
 	}
 
-      repr.base.operands = htole32 (emit_operands (insn->get_op (0),
-						   insn->m_operand_list));
+      repr.base.operands = lendian32 (emit_operands (insn->get_op (0),
+						     insn->m_operand_list));
     }
   else if (insn->m_opcode == BRIG_OPCODE_EXPAND)
     {
@@ -1679,12 +1757,12 @@ emit_packed_insn (hsa_insn_packed *insn)
 	{
 	  gcc_checking_assert (insn->get_op (i));
 	  insn->m_operand_list->m_offsets[i]
-	    = htole32 (enqueue_op (insn->get_op (i)));
+	    = lendian32 (enqueue_op (insn->get_op (i)));
 	}
 
       unsigned ops = emit_operands (insn->m_operand_list,
 				    insn->get_op (insn->operand_count () - 1));
-      repr.base.operands = htole32 (ops);
+      repr.base.operands = lendian32 (ops);
     }
 
 
@@ -1703,9 +1781,9 @@ emit_basic_insn (hsa_insn_basic *insn)
   BrigType16_t type;
 
   memset (&repr, 0, sizeof (repr));
-  repr.base.base.byteCount = htole16 (sizeof (BrigInstBasic));
-  repr.base.base.kind = htole16 (BRIG_KIND_INST_BASIC);
-  repr.base.opcode = htole16 (insn->m_opcode);
+  repr.base.base.byteCount = lendian16 (sizeof (BrigInstBasic));
+  repr.base.base.kind = lendian16 (BRIG_KIND_INST_BASIC);
+  repr.base.opcode = lendian16 (insn->m_opcode);
   switch (insn->m_opcode)
     {
       /* And the bit-logical operations need bit types and whine about
@@ -1720,8 +1798,8 @@ emit_basic_insn (hsa_insn_basic *insn)
 	type = insn->m_type;
 	break;
     }
-  repr.base.type = htole16 (type);
-  repr.base.operands = htole32 (emit_insn_operands (insn));
+  repr.base.type = lendian16 (type);
+  repr.base.operands = lendian32 (emit_insn_operands (insn));
 
   if ((type & BRIG_TYPE_PACK_MASK) != BRIG_TYPE_PACK_NONE)
     {
@@ -1736,8 +1814,8 @@ emit_basic_insn (hsa_insn_basic *insn)
       else
 	repr.pack = BRIG_PACK_P;
       repr.reserved = 0;
-      repr.base.base.byteCount = htole16 (sizeof (BrigInstMod));
-      repr.base.base.kind = htole16 (BRIG_KIND_INST_MOD);
+      repr.base.base.byteCount = lendian16 (sizeof (BrigInstMod));
+      repr.base.base.kind = lendian16 (BRIG_KIND_INST_MOD);
       brig_code.add (&repr, sizeof (struct BrigInstMod));
     }
   else
@@ -2379,7 +2457,7 @@ hsa_output_brig (void)
       BrigOperandCodeRef *code_ref
 	= (BrigOperandCodeRef *) (brig_operand.get_ptr_by_offset (p.offset));
       gcc_assert (code_ref->base.kind == BRIG_KIND_OPERAND_CODE_REF);
-      code_ref->ref = htole32 (*func_offset);
+      code_ref->ref = lendian32 (*func_offset);
     }
 
   /* Iterate all function declarations and if we meet a function that should
@@ -2419,8 +2497,8 @@ hsa_output_brig (void)
   BrigModuleHeader module_header;
   memcpy (&module_header.identification, "HSA BRIG",
 	  sizeof (module_header.identification));
-  module_header.brigMajor = htole32 (BRIG_VERSION_BRIG_MAJOR);
-  module_header.brigMinor = htole32 (BRIG_VERSION_BRIG_MINOR);
+  module_header.brigMajor = lendian32 (BRIG_VERSION_BRIG_MAJOR);
+  module_header.brigMinor = lendian32 (BRIG_VERSION_BRIG_MINOR);
   uint64_t section_index[3];
 
   int data_padding, code_padding, operand_padding;
@@ -2440,18 +2518,18 @@ hsa_output_brig (void)
     + brig_operand.total_size
     + operand_padding;
   gcc_assert ((module_size % 16) == 0);
-  module_header.byteCount = htole64 (module_size);
+  module_header.byteCount = lendian64 (module_size);
   memset (&module_header.hash, 0, sizeof (module_header.hash));
   module_header.reserved = 0;
-  module_header.sectionCount = htole32 (3);
-  module_header.sectionIndex = htole64 (sizeof (module_header));
+  module_header.sectionCount = lendian32 (3);
+  module_header.sectionIndex = lendian64 (sizeof (module_header));
   assemble_string ((const char *) &module_header, sizeof (module_header));
   uint64_t off = sizeof (module_header) + sizeof (section_index);
-  section_index[0] = htole64 (off);
+  section_index[0] = lendian64 (off);
   off += brig_data.total_size + data_padding;
-  section_index[1] = htole64 (off);
+  section_index[1] = lendian64 (off);
   off += brig_code.total_size + code_padding;
-  section_index[2] = htole64 (off);
+  section_index[2] = lendian64 (off);
   assemble_string ((const char *) &section_index, sizeof (section_index));
 
   char padding[HSA_SECTION_ALIGNMENT];
