@@ -1,5 +1,9 @@
 2016-01-18  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa-brig.c: Include target.h and tm_p.h.
+
+2016-01-18  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa-brig.c (lendian16): New function.  Changed all uses of htole16
 	to use it.
 	(lendian32): New function.  Changed all uses of htole32 to use it.
