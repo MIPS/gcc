@@ -720,7 +720,7 @@ dump_hsa_symbol (FILE *f, hsa_symbol *symbol)
 	   hsa_type_name (symbol->m_type & ~BRIG_TYPE_ARRAY_MASK), name);
 
   if (symbol->m_type & BRIG_TYPE_ARRAY_MASK)
-    fprintf (f, "[%lu]", symbol->m_dim);
+    fprintf (f, "[%lu]", (unsigned long) symbol->m_dim);
 }
 
 /* Dump textual representation of HSA IL operand OP to file F.  */

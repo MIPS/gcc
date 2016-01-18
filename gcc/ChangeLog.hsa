@@ -1,3 +1,7 @@
+2016-01-18  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-dump.c (dump_hsa_symbol): Add missing argumet cast.
+
 2016-01-15  Martin Liska  <mliska@suse.cz>
 	    Martin Jambor  <mjambor@suse.cz>
 
