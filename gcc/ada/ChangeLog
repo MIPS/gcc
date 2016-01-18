@@ -1,3 +1,12 @@
+2016-01-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* adaint.c (__gnat_killprocesstree): Avoid -Wparentheses warning.
+
+2016-01-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* adaint.c (__gnat_locate_exec_on_path): Use const char * instead
+	of char * for path_val to avoid warnings.
+
 2016-01-06  Pierre-Marie de Rodat  <derodat@adacore.com>
 
 	* gcc-interface/utils.c: Bump copyright year.

@@ -12292,8 +12292,13 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    SET_DECL_IMPLICIT_INSTANTIATION (r);
 	    register_specialization (r, gen_tmpl, argvec, false, hash);
 	  }
-	else if (!cp_unevaluated_operand)
-	  register_local_specialization (r, t);
+	else
+	  {
+	    if (DECL_LANG_SPECIFIC (r))
+	      DECL_TEMPLATE_INFO (r) = NULL_TREE;
+	    if (!cp_unevaluated_operand)
+	      register_local_specialization (r, t);
+	  }
 
 	DECL_CHAIN (r) = NULL_TREE;
 
@@ -22754,12 +22759,12 @@ type_dependent_expression_p (tree expression)
 	      || dependent_scope_p (scope));
     }
 
+  /* A function template specialization is type-dependent if it has any
+     dependent template arguments.  */
   if (TREE_CODE (expression) == FUNCTION_DECL
       && DECL_LANG_SPECIFIC (expression)
-      && DECL_TEMPLATE_INFO (expression)
-      && (any_dependent_template_arguments_p
-	  (INNERMOST_TEMPLATE_ARGS (DECL_TI_ARGS (expression)))))
-    return true;
+      && DECL_TEMPLATE_INFO (expression))
+    return any_dependent_template_arguments_p (DECL_TI_ARGS (expression));
 
   if (TREE_CODE (expression) == TEMPLATE_DECL
       && !DECL_TEMPLATE_TEMPLATE_PARM_P (expression))

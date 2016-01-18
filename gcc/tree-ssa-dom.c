@@ -390,36 +390,31 @@ record_edge_info (basic_block bb)
              can record an equivalence for OP0 rather than COND.  */
           if ((code == EQ_EXPR || code == NE_EXPR)
               && TREE_CODE (op0) == SSA_NAME
-              && TREE_CODE (TREE_TYPE (op0)) == BOOLEAN_TYPE
+	      && ssa_name_has_boolean_range (op0)
               && is_gimple_min_invariant (op1))
             {
+	      tree true_val = constant_boolean_node (true, TREE_TYPE (op0));
+	      tree false_val = constant_boolean_node (false, TREE_TYPE (op0));
+
               if (code == EQ_EXPR)
                 {
                   edge_info = allocate_edge_info (true_edge);
                   edge_info->lhs = op0;
-                  edge_info->rhs = (integer_zerop (op1)
-                                    ? boolean_false_node
-                                    : boolean_true_node);
+                  edge_info->rhs = (integer_zerop (op1) ? false_val : true_val);
 
                   edge_info = allocate_edge_info (false_edge);
                   edge_info->lhs = op0;
-                  edge_info->rhs = (integer_zerop (op1)
-                                    ? boolean_true_node
-                                    : boolean_false_node);
+                  edge_info->rhs = (integer_zerop (op1) ? true_val : false_val);
                 }
               else
                 {
                   edge_info = allocate_edge_info (true_edge);
                   edge_info->lhs = op0;
-                  edge_info->rhs = (integer_zerop (op1)
-                                    ? boolean_true_node
-                                    : boolean_false_node);
+                  edge_info->rhs = (integer_zerop (op1) ? true_val : false_val);
 
                   edge_info = allocate_edge_info (false_edge);
                   edge_info->lhs = op0;
-                  edge_info->rhs = (integer_zerop (op1)
-                                    ? boolean_false_node
-                                    : boolean_true_node);
+                  edge_info->rhs = (integer_zerop (op1) ? false_val : true_val);
                 }
             }
           else if (is_gimple_min_invariant (op0)
