@@ -6145,6 +6145,12 @@ aarch64_if_then_else_costs (rtx op0, rtx op1, rtx op2, int *cost, bool speed)
           || GET_CODE (op1) == NOT
           || (GET_CODE (op1) == PLUS && XEXP (op1, 1) == const1_rtx))
 	op1 = XEXP (op1, 0);
+      else if (GET_CODE (op1) == ZERO_EXTEND && GET_CODE (op2) == ZERO_EXTEND)
+	{
+	  /* CSEL with zero-extension (*cmovdi_insn_uxtw).  */
+	  op1 = XEXP (op1, 0);
+	  op2 = XEXP (op2, 0);
+	}
 
       *cost += rtx_cost (op1, VOIDmode, IF_THEN_ELSE, 1, speed);
       *cost += rtx_cost (op2, VOIDmode, IF_THEN_ELSE, 2, speed);
@@ -6489,6 +6495,23 @@ aarch64_rtx_costs (rtx x, machine_mode mode, int outer ATTRIBUTE_UNUSED,
               x = op0;
               goto cost_minus;
             }
+
+	  if (GET_CODE (op0) == ZERO_EXTRACT && op1 == const0_rtx
+	      && GET_MODE (x) == CC_NZmode && CONST_INT_P (XEXP (op0, 1))
+	      && CONST_INT_P (XEXP (op0, 2)))
+	    {
+	      /* COMPARE of ZERO_EXTRACT form of TST-immediate.
+		 Handle it here directly rather than going to cost_logic
+		 since we know the immediate generated for the TST is valid
+		 so we can avoid creating an intermediate rtx for it only
+		 for costing purposes.  */
+	      if (speed)
+		*cost += extra_cost->alu.logical;
+
+	      *cost += rtx_cost (XEXP (op0, 0), GET_MODE (op0),
+				 ZERO_EXTRACT, 0, speed);
+	      return true;
+	    }
 
           if (GET_CODE (op1) == NEG)
             {
@@ -8898,6 +8921,7 @@ aarch64_process_one_target_attr (char *arg_str, const char* pragma_or_attr)
       arg++;
     }
   const struct aarch64_attribute_info *p_attr;
+  bool found = false;
   for (p_attr = aarch64_attributes; p_attr->name; p_attr++)
     {
       /* If the names don't match up, or the user has given an argument
@@ -8906,6 +8930,7 @@ aarch64_process_one_target_attr (char *arg_str, const char* pragma_or_attr)
       if (strcmp (str_to_check, p_attr->name) != 0)
 	continue;
 
+      found = true;
       bool attr_need_arg_p = p_attr->attr_type == aarch64_attr_custom
 			      || p_attr->attr_type == aarch64_attr_enum;
 
@@ -8985,7 +9010,10 @@ aarch64_process_one_target_attr (char *arg_str, const char* pragma_or_attr)
 	}
     }
 
-  return true;
+  /* If we reached here we either have found an attribute and validated
+     it or didn't match any.  If we matched an attribute but its arguments
+     were malformed we will have returned false already.  */
+  return found;
 }
 
 /* Count how many times the character C appears in

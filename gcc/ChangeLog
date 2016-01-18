@@ -1,3 +1,255 @@
+2016-01-18  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69297
+	* tree-vect-slp.c (vect_bb_slp_scalar_cost): Count each scalar
+	stmt at most once.
+	(vect_bb_vectorization_profitable_p): Clear visited flag again.
+
+2016-01-18  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR middle-end/68542
+	* fold-const.c (fold_binary_op_with_conditional_arg): Bail out for case
+	of mixind vector and scalar types.
+	(fold_relational_const): Add handling of vector
+	comparison with boolean result.
+	* tree-cfg.c (verify_gimple_comparison): Add argument CODE, allow
+	comparison of vector operands with boolean result for EQ/NE only.
+	(verify_gimple_assign_binary): Adjust call for verify_gimple_comparison.
+	(verify_gimple_cond): Likewise.
+	* tree-vrp.c (extract_code_and_val_from_cond_with_ops): Modify check on
+	valid type of VAL.
+
+2016-01-18  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/mips/mips.h (ISA_HAS_PAIRED_SINGLE): Require
+	!TARGET_OCTEON.
+
+2016-01-18  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/69308
+	* gimple.c (gimple_could_trap_p_1): Handle GIMPLE_COND.
+
+2016-01-18  Tom de Vries  <tom@codesourcery.com>
+
+	* passes.def: Add pass_parallelize_loops to pass_oacc_kernels.
+
+2016-01-18  Tom de Vries  <tom@codesourcery.com>
+
+	* omp-low.c (set_oacc_fn_attrib): Make extern.
+	* omp-low.h (set_oacc_fn_attrib): Declare.
+	* tree-parloops.c (struct reduction_info): Add reduc_addr field.
+	(create_call_for_reduction_1): Handle case that reduc_addr is non-NULL.
+	(create_parallel_loop, gen_parallel_loop, try_create_reduction_list):
+	Add and handle function parameter oacc_kernels_p.
+	(find_reduc_addr, get_omp_data_i_param): New function.
+	(ref_conflicts_with_region, oacc_entry_exit_ok_1)
+	(oacc_entry_exit_single_gang, oacc_entry_exit_ok): New function.
+	(parallelize_loops): Add and handle function parameter oacc_kernels_p.
+	Calculate dominance info.  Skip loops that are not in a kernels region
+	in oacc_kernels_p mode.  Skip inner loops of parallelized loops.
+	(pass_parallelize_loops::execute): Call parallelize_loops with
+	oacc_kernels_p argument.
+	(pass_parallelize_loops::clone, pass_parallelize_loops::set_pass_param):
+	New member function.
+	(pass_parallelize_loops::bool oacc_kernels_p): New member var.
+	* passes.def: Add argument to pass_parallelize_loops instantation.
+
+2016-01-18  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-parloops.c (pass_parallelize_loops::execute): Allow
+	pass_parallelize_loops to be run outside the loop pipeline.
+
+2016-01-18  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* tree-scalar-evolution.c (follow_copies_to_constant): New.
+	(analyze_initial_condition, analyze_scalar_evolution_1): Call previous.
+
+2016-01-18  Alan Lawrence  <alan.lawrence@arm.com>
+
+	PR target/63679
+	* tree-ssa-scopedtables.c (avail_expr_hash): Hash MEM_REF and ARRAY_REF
+	using get_ref_base_and_extent.
+	(equal_mem_array_ref_p): New.
+	(hashable_expr_equal_p): Add call to previous.
+
+2016-01-18  Alan Lawrence  <alan.lawrence@arm.com>
+
+	PR target/63679
+	* tree-sra.c (disqualified_constants, constant_decl_p): New.
+	(sra_initialize): Allocate disqualified_constants.
+	(sra_deinitialize): Free disqualified_constants.
+	(disqualify_candidate): Update disqualified_constants when appropriate.
+	(create_access): Scan for constant-pool entries as we go along.
+	(scalarizable_type_p): Add check against type_contains_placeholder_p.
+	(maybe_add_sra_candidate): Allow constant-pool entries.
+	(load_assign_lhs_subreplacements): Bind debug for constant pool vars.
+	(initialize_constant_pool_replacements): New.
+	(sra_modify_assign): Avoid mangling assignments created by previous,
+	and don't generate writes into constant pool.
+	(sra_modify_function_body): Call initialize_constant_pool_replacements.
+
+2016-01-18  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	* config/i386/i386.c (scalar_to_vector_candidate_p): Support
+	andnot instruction.
+	(scalar_chain::convert_op): Likewise.
+	* config/i386/i386.md (*andndi3_doubleword): New.
+
+2016-01-18  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69170
+	* tree-vect-slp.c (vect_build_slp_tree): Verify we are not
+	building a vector from scalar results of a pattern stmt.
+
+2016-01-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* haifa-sched.c (autopref_multipass_init): Work around
+	-Wmaybe-uninitialized warning.
+
+2016-01-18  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/arm.c (thumb1_reorg): Check that the comparison is
+	against the constant 0.
+
+2016-01-17  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/68799
+	* gimple-ssa-strength-reduction.c (create_phi_basis): Directly
+	look up phi candidates in the statement-candidate map.
+	(phi_add_costs): Likewise.
+	(record_phi_increments): Likewise.
+	(phi_incr_cost): Likewise.
+	(ncd_with_phi): Likewise.
+	(all_phi_incrs_profitable): Likewise.
+
+2016-01-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (mark_loops_in_oacc_kernels_region): Work around
+	-Wmaybe-uninitialized warning.
+
+2016-01-16  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* doc/invoke.texi (Invoking GCC): Add new section to menu.
+	(Option Summary): Update to reflect new section and moved options.
+	(C++ Dialect Options): Move -fvtable-verify and related options.
+	(Debugging Options): Move Sanitizer, Pointer Bounds Checker,
+	and profiling-related options.
+	(Optimization Options): Move profile generation options and
+	-fstack-protector and related options.
+	(Instrumentation Options): New section incorporating moved options.
+	(Code Generation Options): Move -finstrument-functions and
+	related options, -fstack-check, -fstack-limit*, and -fbounds-check.
+
+2016-01-16  Tom de Vries  <tom@codesourcery.com>
+
+	* passes.def: Move pass_expand_omp_ssa out of pass_parallelize_loops.
+
+2016-01-16  Tom de Vries  <tom@codesourcery.com>
+
+	* omp-low.c (expand_omp_atomic_fetch_op):  Release defs of update stmt.
+
+2016-01-16  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* hash-table.h (hash_table::empty): Turn into an inline wrapper
+	that checks whether the table is already empty.  Rename the
+	original implementation to...
+	(hash_table::empty_slot): ...this new private function.
+
+2016-01-15  David Malcolm  <dmalcolm@redhat.com>
+
+	PR diagnostic/68899
+	* diagnostic-show-locus.c (layout::print_source_line): Move x
+	offset of line until after call to
+	get_line_width_without_trailing_whitespace.
+
+2016-01-15  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/69270
+	* tree-ssanames.c (ssa_name_has_boolean_range): Moved here from
+	tree-ssa-dom.c.  Improve test for [0..1] ranve from VRP.
+	* tree-ssa-dom.c (ssa_name_has_boolean_range): Remove.
+	* tree-ssanames.h (ssa_name_has_boolean_range): Prototype.
+	* tree-ssa-uncprop.c (associate_equivalences_with_edges): Use
+	ssa_name_has_boolean_range and constant_boolean_node.
+
+2016-01-15  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/69030
+	* lra-spills.c (remove_pseudos): Check nrefs and make the function
+	returning bool.
+	(spill_pseudos): Delete debug insn for dead pseudo.
+	(lra_spill): Initiate spill_hard_reg and slots memory separately.
+
+2016-01-15  Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/aarch64-builtins.c (aarch64_types_unopus_qualifiers):
+	New.
+	(TYPES_UNOPUS): Likewise.
+	* config/aarch64/aarch64-simd-builtins.def (lbtruncuv2sf): Correct
+	builtin type, from UNOP to UNOPUS.
+	(lbtruncuv4sf): Likewise.
+	(lbtruncuv2df): Likewise.
+	(lrounduv2sf): Likewise.
+	(lrounduv4sf): Likewise.
+	(lrounduv2df): Likewise.
+	(lroundusf): Likewise.
+	(lroundusf): Likewise.
+	(lceiluv2sf): Likewise.
+	(lceiluv4sf): Likewise.
+	(lceiluv2df): Likewise.
+	(lceilusf): Likewise.
+	(lceiludf): Likewise.
+	(lflooruv2sf): Likewise.
+	(lflooruv4sf): Likewise.
+	(lflooruv2df): Likewise.
+	(lfloorusf): Likewise.
+	(lfloorudf): Likewise.
+	(lfrintnuv2sf): Likewise.
+	(lfrintnuv4sf): Likewise.
+	(lfrintnuv2df): Likewise.
+	(lfrintnusf): Likewise.
+	(lfrintnudf): Likewise.
+	* config/aarch64/arm_neon.h (vcvt_u32_f32): Remove unncessary type
+	conversion.
+	(vcvtq_u32_f32): Likewise.
+	(vcvtq_u64_f64): Likewise.
+	(vcvta_u32_f32): Likewise.
+	(vcvtaq_u32_f32): Likewise.
+	(vcvtaq_u64_f64): Likewise.
+	(vcvtm_u32_f32): Likewise.
+	(vcvtmq_u32_f32): Likewise.
+	(vcvtmq_u64_f64): Likewise.
+	(vcvtn_u32_f32): Likwise.
+	(vcvtnq_u32_f32): Likewise.
+	(vcvtnq_u64_f64): Likewise.
+	(vcvtp_u32_f32): Likewise.
+	(vcvtpq_u32_f32): Likewise.
+	(vcvtpq_u64_f64): Likewise.
+	(vcvtmd_u64_f64): Likewise.
+	(vcvtms_u32_f32): Likewise.
+	(vcvtad_u64_f64): Likewise.
+	(vcvtas_u32_f32): Likewise.
+	(vcvtnd_u64_f64): Likewise.
+	(vcvtns_u32_f32): Likewise.
+	(vcvtpd_u64_f64): Likewise.
+	(vcvtps_u32_f32): Likewise.
+
+2016-01-15  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_if_then_else_costs): Handle
+	CSEL of zero_extended registers.
+
+2016-01-15  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_rtx_costs, COMPARE case):
+	Handle COMPARE of ZERO_EXTRACT against zero form of TST-immediate.
+
+2016-01-15  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_process_one_target_attr): Return
+	false when argument string is not found in the attributes table
+	at all.
+
 2016-01-15  David Edelsohn  <dje.gcc@gmail.com>
 
 	PR target/68609

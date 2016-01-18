@@ -12108,10 +12108,14 @@ expand_omp_atomic_fetch_op (basic_block load_bb,
   gcc_assert (gimple_code (gsi_stmt (gsi)) == GIMPLE_OMP_ATOMIC_STORE);
   gsi_remove (&gsi, true);
   gsi = gsi_last_bb (store_bb);
+  stmt = gsi_stmt (gsi);
   gsi_remove (&gsi, true);
 
   if (gimple_in_ssa_p (cfun))
-    update_ssa (TODO_update_ssa_no_phi);
+    {
+      release_defs (stmt);
+      update_ssa (TODO_update_ssa_no_phi);
+    }
 
   return true;
 }
@@ -12485,7 +12489,7 @@ replace_oacc_fn_attrib (tree fn, tree dims)
    function attribute.  Push any that are non-constant onto the ARGS
    list, along with an appropriate GOMP_LAUNCH_DIM tag.  */
 
-static void
+void
 set_oacc_fn_attrib (tree fn, tree clauses, vec<tree> *args)
 {
   /* Must match GOMP_DIM ordering.  */
@@ -12627,7 +12631,7 @@ mark_loops_in_oacc_kernels_region (basic_block region_entry,
   /* Don't parallelize the kernels region if it contains more than one outer
      loop.  */
   unsigned int nr_outer_loops = 0;
-  struct loop *single_outer;
+  struct loop *single_outer = NULL;
   for (struct loop *loop = outer->inner; loop != NULL; loop = loop->next)
     {
       gcc_assert (loop_outer (loop) == outer);
