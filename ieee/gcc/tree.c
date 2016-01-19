@@ -328,6 +328,7 @@ unsigned const char omp_clause_num_ops[] =
   1, /* OMP_CLAUSE_NUM_WORKERS  */
   1, /* OMP_CLAUSE_VECTOR_LENGTH  */
   1, /* OMP_CLAUSE_TILE  */
+  2, /* OMP_CLAUSE__GRIDDIM_  */
 };
 
 const char * const omp_clause_code_name[] =
@@ -398,7 +399,8 @@ const char * const omp_clause_code_name[] =
   "num_gangs",
   "num_workers",
   "vector_length",
-  "tile"
+  "tile",
+  "_griddim_"
 };
 
 
@@ -10393,7 +10395,7 @@ build_tm_vector_builtins (void)
   /* By default, 64 bit vectors go through the long long helpers.  */
 
   /* If a 128-bit vector is supported, declare those builtins.  */
-  if (!builtin_decl_declared_p (BUILT_IN_TM_STORE_M128)
+  if (!builtin_decl_explicit_p (BUILT_IN_TM_STORE_M128)
       && ((vtype = find_tm_vector_type (128, SImode))
 	  || (vtype = find_tm_vector_type (128, SFmode))))
     {
@@ -10430,7 +10432,7 @@ build_tm_vector_builtins (void)
     }
 
   /* If a 256-bit vector is supported, declare those builtins.  */
-  if (!builtin_decl_declared_p (BUILT_IN_TM_STORE_M256)
+  if (!builtin_decl_explicit_p (BUILT_IN_TM_STORE_M256)
       && ((vtype = find_tm_vector_type (256, SImode))
 	  || (vtype = find_tm_vector_type (256, SFmode))))
     {
@@ -11744,6 +11746,7 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
       switch (OMP_CLAUSE_CODE (*tp))
 	{
 	case OMP_CLAUSE_GANG:
+	case OMP_CLAUSE__GRIDDIM_:
 	  WALK_SUBTREE (OMP_CLAUSE_OPERAND (*tp, 1));
 	  /* FALLTHRU */
 

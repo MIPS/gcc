@@ -3521,8 +3521,7 @@ rs6000_builtin_mask_calculate (void)
 	  | ((TARGET_HTM)		    ? RS6000_BTM_HTM	   : 0)
 	  | ((TARGET_DFP)		    ? RS6000_BTM_DFP	   : 0)
 	  | ((TARGET_HARD_FLOAT)	    ? RS6000_BTM_HARD_FLOAT : 0)
-	  | ((TARGET_LONG_DOUBLE_128)	    ? RS6000_BTM_LDBL128   : 0)
-	  | ((TARGET_FLOAT128)		    ? RS6000_BTM_FLOAT128  : 0));
+	  | ((TARGET_LONG_DOUBLE_128)	    ? RS6000_BTM_LDBL128 : 0));
 }
 
 /* Implement TARGET_MD_ASM_ADJUST.  All asm statements are considered
@@ -14606,8 +14605,6 @@ rs6000_invalid_builtin (enum rs6000_builtins fncode)
 	   " -mlong-double-128 options", name);
   else if ((fnmask & RS6000_BTM_HARD_FLOAT) != 0)
     error ("Builtin function %s requires the -mhard-float option", name);
-  else if ((fnmask & RS6000_BTM_FLOAT128) != 0)
-    error ("Builtin function %s requires the -mfloat128 options", name);
   else
     error ("Builtin function %s is not supported with the current options",
 	   name);
@@ -14897,21 +14894,19 @@ rs6000_init_builtins (void)
      IFmode is the IBM extended 128-bit format that is a pair of doubles.
      TFmode will be either IEEE 128-bit floating point or the IBM double-double
      format that uses a pair of doubles, depending on the switches and
-     defaults.  Always create the types even if we don't register the keywords
-     to allow built-in functions using these types to be created.  */
-
-  ibm128_float_type_node = make_node (REAL_TYPE);
-  TYPE_PRECISION (ibm128_float_type_node) = 128;
-  layout_type (ibm128_float_type_node);
-  SET_TYPE_MODE (ibm128_float_type_node, IFmode);
-
-  ieee128_float_type_node = make_node (REAL_TYPE);
-  TYPE_PRECISION (ieee128_float_type_node) = 128;
-  layout_type (ieee128_float_type_node);
-  SET_TYPE_MODE (ieee128_float_type_node, KFmode);
-
+     defaults.  */
   if (TARGET_FLOAT128)
     {
+      ibm128_float_type_node = make_node (REAL_TYPE);
+      TYPE_PRECISION (ibm128_float_type_node) = 128;
+      layout_type (ibm128_float_type_node);
+      SET_TYPE_MODE (ibm128_float_type_node, IFmode);
+
+      ieee128_float_type_node = make_node (REAL_TYPE);
+      TYPE_PRECISION (ieee128_float_type_node) = 128;
+      layout_type (ieee128_float_type_node);
+      SET_TYPE_MODE (ieee128_float_type_node, KFmode);
+
       lang_hooks.types.register_builtin_type (ieee128_float_type_node,
 					      "__float128");
 
@@ -32774,29 +32769,6 @@ rs6000_emit_madd (rtx target, rtx m1, rtx m2, rtx a)
     emit_move_insn (target, dst);
 }
 
-/* Generate a FMSUB instruction: dst = fma(m1, m2, -a).  */
-
-static void
-rs6000_emit_msub (rtx target, rtx m1, rtx m2, rtx a)
-{
-  machine_mode mode = GET_MODE (target);
-  rtx dst;
-
-  /* Altivec does not support fms directly;
-     generate in terms of fma in that case.  */
-  if (optab_handler (fms_optab, mode) != CODE_FOR_nothing)
-    dst = expand_ternary_op (mode, fms_optab, m1, m2, a, target, 0);
-  else
-    {
-      a = expand_unop (mode, neg_optab, a, NULL_RTX, 0);
-      dst = expand_ternary_op (mode, fma_optab, m1, m2, a, target, 0);
-    }
-  gcc_assert (dst != NULL);
-
-  if (dst != target)
-    emit_move_insn (target, dst);
-}
-    
 /* Generate a FNMSUB instruction: dst = -fma(m1, m2, -a).  */
 
 static void
@@ -32895,15 +32867,16 @@ rs6000_emit_swdiv (rtx dst, rtx n, rtx d, bool note_p)
     add_reg_note (get_last_insn (), REG_EQUAL, gen_rtx_DIV (mode, n, d));
 }
 
-/* Newton-Raphson approximation of single/double-precision floating point
-   rsqrt.  Assumes no trapping math and finite arguments.  */
+/* Goldschmidt's Algorithm for single/double-precision floating point
+   sqrt and rsqrt.  Assumes no trapping math and finite arguments.  */
 
 void
 rs6000_emit_swsqrt (rtx dst, rtx src, bool recip)
 {
   machine_mode mode = GET_MODE (src);
-  rtx x0 = gen_reg_rtx (mode);
-  rtx y = gen_reg_rtx (mode);
+  rtx e = gen_reg_rtx (mode);
+  rtx g = gen_reg_rtx (mode);
+  rtx h = gen_reg_rtx (mode);
 
   /* Low precision estimates guarantee 5 bits of accuracy.  High
      precision estimates guarantee 14 bits of accuracy.  SFmode
@@ -32914,55 +32887,68 @@ rs6000_emit_swsqrt (rtx dst, rtx src, bool recip)
   if (mode == DFmode || mode == V2DFmode)
     passes++;
 
-  REAL_VALUE_TYPE dconst3_2;
   int i;
-  rtx halfthree;
+  rtx mhalf;
   enum insn_code code = optab_handler (smul_optab, mode);
   insn_gen_fn gen_mul = GEN_FCN (code);
 
   gcc_assert (code != CODE_FOR_nothing);
 
-  /* Load up the constant 1.5 either as a scalar, or as a vector.  */
-  real_from_integer (&dconst3_2, VOIDmode, 3, SIGNED);
-  SET_REAL_EXP (&dconst3_2, REAL_EXP (&dconst3_2) - 1);
+  mhalf = rs6000_load_constant_and_splat (mode, dconsthalf);
 
-  halfthree = rs6000_load_constant_and_splat (mode, dconst3_2);
-
-  /* x0 = rsqrt estimate */
-  emit_insn (gen_rtx_SET (x0, gen_rtx_UNSPEC (mode, gen_rtvec (1, src),
-					      UNSPEC_RSQRT)));
+  /* e = rsqrt estimate */
+  emit_insn (gen_rtx_SET (e, gen_rtx_UNSPEC (mode, gen_rtvec (1, src),
+					     UNSPEC_RSQRT)));
 
   /* If (src == 0.0) filter infinity to prevent NaN for sqrt(0.0).  */
   if (!recip)
     {
       rtx zero = force_reg (mode, CONST0_RTX (mode));
-      rtx target = emit_conditional_move (x0, GT, src, zero, mode,
-					  x0, zero, mode, 0);
-      if (target != x0)
-	emit_move_insn (x0, target);
+      rtx target = emit_conditional_move (e, GT, src, zero, mode,
+					  e, zero, mode, 0);
+      if (target != e)
+	emit_move_insn (e, target);
     }
 
-  /* y = 0.5 * src = 1.5 * src - src -> fewer constants */
-  rs6000_emit_msub (y, src, halfthree, src);
+  /* g = sqrt estimate.  */
+  emit_insn (gen_mul (g, e, src));
+  /* h = 1/(2*sqrt) estimate.  */
+  emit_insn (gen_mul (h, e, mhalf));
 
-  for (i = 0; i < passes; i++)
+  if (recip)
     {
-      rtx x1 = gen_reg_rtx (mode);
-      rtx u = gen_reg_rtx (mode);
-      rtx v = gen_reg_rtx (mode);
+      if (passes == 1)
+	{
+	  rtx t = gen_reg_rtx (mode);
+	  rs6000_emit_nmsub (t, g, h, mhalf);
+	  /* Apply correction directly to 1/rsqrt estimate.  */
+	  rs6000_emit_madd (dst, e, t, e);
+	}
+      else
+	{
+	  for (i = 0; i < passes; i++)
+	    {
+	      rtx t1 = gen_reg_rtx (mode);
+	      rtx g1 = gen_reg_rtx (mode);
+	      rtx h1 = gen_reg_rtx (mode);
 
-      /* x1 = x0 * (1.5 - y * (x0 * x0)) */
-      emit_insn (gen_mul (u, x0, x0));
-      rs6000_emit_nmsub (v, y, u, halfthree);
-      emit_insn (gen_mul (x1, x0, v));
-      x0 = x1;
+	      rs6000_emit_nmsub (t1, g, h, mhalf);
+	      rs6000_emit_madd (g1, g, t1, g);
+	      rs6000_emit_madd (h1, h, t1, h);
+
+	      g = g1;
+	      h = h1;
+	    }
+	  /* Multiply by 2 for 1/rsqrt.  */
+	  emit_insn (gen_add3_insn (dst, h, h));
+	}
     }
-
-  /* If not reciprocal, multiply by src to produce sqrt.  */
-  if (!recip)
-    emit_insn (gen_mul (dst, src, x0));
   else
-    emit_move_insn (dst, x0);
+    {
+      rtx t = gen_reg_rtx (mode);
+      rs6000_emit_nmsub (t, g, h, mhalf);
+      rs6000_emit_madd (dst, g, t, g);
+    }
 
   return;
 }
@@ -34228,7 +34214,6 @@ static struct rs6000_opt_mask const rs6000_builtin_mask_names[] =
   { "hard-dfp",		 RS6000_BTM_DFP,	false, false },
   { "hard-float",	 RS6000_BTM_HARD_FLOAT,	false, false },
   { "long-double-128",	 RS6000_BTM_LDBL128,	false, false },
-  { "float128",		 RS6000_BTM_FLOAT128,	false, false },
 };
 
 /* Option variables that we want to support inside attribute((target)) and

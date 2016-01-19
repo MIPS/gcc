@@ -1,3 +1,35 @@
+2016-01-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/68767
+	* c-common.c (check_function_arguments_recurse): Fold the whole
+	COND_EXPR, not just the condition.
+
+2016-01-18  Tom de Vries  <tom@codesourcery.com>
+
+	* c-omp.c (c_oacc_split_loop_clauses): Don't copy OMP_CLAUSE_REDUCTION,
+	classify as loop clause.
+
+2016-01-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/68271
+	* c-pragma.c (c_register_pragma_1): Adjust comment to note that
+	C++ FE no longer has limit on number of pragmas.
+
+2015-01-14  Ryan Burn  <contact@rnburn.com>
+
+	PR c++/69048
+	* cilk.c (create_cilk_wrapper_body): Call fold_build_cleanup_point_expr
+	to add missing cleanup point.
+
+2016-01-14  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/68819
+	* c-indentation.c (get_visual_column): Add location_t param.
+	Handle the column number being zero by effectively disabling the
+	warning, with an "inform".
+	(should_warn_for_misleading_indentation): Add location_t argument
+	for all uses of get_visual_column.
+
 2016-01-10  Patrick Palka  <ppalka@gcc.gnu.org>
 
 	PR c++/69029
