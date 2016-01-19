@@ -3029,12 +3029,13 @@ Any VSX register if the -mvsx option was used or NO_REGS.
 
 When using any of the register constraints (@code{wa}, @code{wd},
 @code{wf}, @code{wg}, @code{wh}, @code{wi}, @code{wj}, @code{wk},
-@code{wl}, @code{wm}, @code{ws}, @code{wt}, @code{wu}, @code{wv},
-@code{ww}, or @code{wy}) that take VSX registers, you must use
-@code{%x<n>} in the template so that the correct register is used.
-Otherwise the register number output in the assembly file will be
-incorrect if an Altivec register is an operand of a VSX instruction
-that expects VSX register numbering.
+@code{wl}, @code{wm}, @code{wo}, @code{wp}, @code{wq}, @code{ws},
+@code{wt}, @code{wu}, @code{wv}, @code{ww}, or @code{wy})
+that take VSX registers, you must use @code{%x<n>} in the template so
+that the correct register is used.  Otherwise the register number
+output in the assembly file will be incorrect if an Altivec register
+is an operand of a VSX instruction that expects VSX register
+numbering.
 
 @smallexample
 asm ("xvadddp %x0,%x1,%x2" : "=wa" (v1) : "wa" (v2), "wa" (v3));
@@ -3100,6 +3101,9 @@ VSX register if direct move instructions are enabled, or NO_REGS.
 
 @item wn
 No register (NO_REGS).
+
+@item wo
+VSX register to use for ISA 3.0 vector instructions, or NO_REGS.
 
 @item wr
 General purpose register if 64-bit instructions are enabled or NO_REGS.
