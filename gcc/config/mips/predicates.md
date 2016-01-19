@@ -614,7 +614,7 @@
        (and (match_code "ne") (not (match_test "TARGET_MIPS16")))))
 
 (define_predicate "small_data_pattern"
-  (and (match_code "set,parallel,unspec,unspec_volatile,prefetch")
+  (and (match_code "set,parallel,prefetch")
        (match_test "mips_small_data_pattern_p (op)")))
 
 (define_predicate "mem_noofs_operand"
