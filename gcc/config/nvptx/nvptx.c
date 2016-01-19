@@ -890,7 +890,7 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
   if (sz == 0 && cfun->machine->has_call_with_sc)
     sz = 1;
   bool need_sp = cfun->calls_alloca || cfun->machine->has_call_with_varargs;
-  if (sz > 0 || TARGET_SOFT_STACK && need_sp)
+  if (sz > 0 || (TARGET_SOFT_STACK && need_sp))
     {
       int alignment = crtl->stack_alignment_needed / BITS_PER_UNIT;
 
