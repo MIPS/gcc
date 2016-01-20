@@ -9313,13 +9313,11 @@ mips16_expand_copy (rtx dest, rtx src, rtx length, rtx alignment)
 
   byte_count = INTVAL (length);
 
-  if ((mips_movmem_limit > 0) && (byte_count > mips_movmem_limit))
+  if (mips_movmem_limit > 0 && byte_count > mips_movmem_limit)
     return false;
 
-  if (byte_count > MIPS_MAX_MOVE_BYTES_STRAIGHT * UNITS_PER_WORD)
-    return false;
-
-  if (byte_count > 496)
+  if (mips_movmem_limit == -1
+      && byte_count > MIPS_MAX_MOVE_BYTES_STRAIGHT * UNITS_PER_WORD)
     return false;
 
   word_count = byte_count / UNITS_PER_WORD;
@@ -9329,18 +9327,20 @@ mips16_expand_copy (rtx dest, rtx src, rtx length, rtx alignment)
   mips_split_plus (xsrc, &base_src, &offset_src);
 
   /* In some cases, it's better to move by pieces rather than generating
-     COPYW/UCOPYW.  */
+     COPYW/UCOPYW:
+     1. Copying 4 bytes when both dest and src are aligned but base+offset is
+	likely to be squashed.
+     2. Copying 4 bytes when the lowest alignment is 2-bytes iff the offsets
+	are not the same or not multiples of 16 bytes.  */
 
-  /* Copying 4 bytes when both dest and src are aligned but base+offset is
-     likely to be squashed.  */
+  /* Case (1).  */
   if (word_count == 1
       && MEM_ALIGN (dest) >= 4 * BITS_PER_UNIT
       && MEM_ALIGN (src) >= 4 * BITS_PER_UNIT
       && (offset_dest > 0 || offset_src > 0))
     word_by_pieces_p = true;
 
-  /* Copying 4 bytes when the lowest alignment is 2-bytes. However, it's better
-     to use COPY/UCOPY if offsets match and are multiples of 16 bytes.  */
+  /* Case (2).  */
   if (word_count == 1 && align >= 2
       && !(offset_src == offset_dest && offset_src % 16 != 0))
     word_by_pieces_p = true;
@@ -9382,13 +9382,24 @@ mips16_expand_copy (rtx dest, rtx src, rtx length, rtx alignment)
 				  GEN_INT (new_word_count), alignment));
       offset += new_word_count * 4;
       word_count = word_count >= 4 ? word_count - 4 : 0;
+
+      if (offset > 496)
+	{
+	  rtx dest_reg = copy_addr_to_reg (XEXP (adj_dest, 0));
+	  rtx src_reg = copy_addr_to_reg (XEXP (adj_src, 0));
+	  first_dest = replace_equiv_address (first_dest, dest_reg);
+	  first_src = replace_equiv_address (first_src, src_reg);
+	  offset = 0;
+	}
     }
+
   if (byte_count > 0)
     {
       rtx src2 = adjust_address (src, BLKmode, offset);
       rtx dest2 = adjust_address (dest, BLKmode, offset);
-      move_by_pieces (dest2, src2, byte_count, INTVAL (alignment) , 0);
+      move_by_pieces (dest2, src2, byte_count, align, 0);
     }
+
   return true;
 }
 
