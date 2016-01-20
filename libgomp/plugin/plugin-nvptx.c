@@ -287,8 +287,9 @@ struct ptx_device
   bool overlap;
   bool map;
   bool concur;
-  int  mode;
   bool mkern;
+  int  mode;
+  int clock_khz;
 
   struct ptx_image_data *images;  /* Images loaded on device.  */
   pthread_mutex_t image_lock;     /* Lock for above list.  */
@@ -640,6 +641,12 @@ nvptx_open_device (int n)
     GOMP_PLUGIN_fatal ("cuDeviceGetAttribute error: %s", cuda_error (r));
 
   ptx_dev->mkern = pi;
+
+  r = cuDeviceGetAttribute (&pi, CU_DEVICE_ATTRIBUTE_CLOCK_RATE, dev);
+  if (r != CUDA_SUCCESS)
+    GOMP_PLUGIN_fatal ("cuDeviceGetAttribute error: %s", cuda_error (r));
+
+  ptx_dev->clock_khz = pi;
 
   r = cuDeviceGetAttribute (&async_engines,
 			    CU_DEVICE_ATTRIBUTE_ASYNC_ENGINE_COUNT, dev);
@@ -1505,6 +1512,23 @@ GOMP_OFFLOAD_version (void)
   return GOMP_VERSION;
 }
 
+/* Initialize __nvptx_clocktick, if present in MODULE.  */
+
+static void
+nvptx_set_clocktick (CUmodule module, struct ptx_device *dev)
+{
+  CUdeviceptr dptr;
+  CUresult r = cuModuleGetGlobal (&dptr, NULL, module, "__nvptx_clocktick");
+  if (r == CUDA_ERROR_NOT_FOUND)
+    return;
+  if (r != CUDA_SUCCESS)
+    GOMP_PLUGIN_fatal ("cuModuleGetGlobal error: %s", cuda_error (r));
+  double __nvptx_clocktick = 1e-3 / dev->clock_khz;
+  r = cuMemcpyHtoD (dptr, &__nvptx_clocktick, sizeof (__nvptx_clocktick));
+  if (r != CUDA_SUCCESS)
+    GOMP_PLUGIN_fatal ("cuMemcpyHtoD error: %s", cuda_error (r));
+}
+
 /* Load the (partial) program described by TARGET_DATA to device
    number ORD.  Allocate and return TARGET_TABLE.  */
 
@@ -1589,6 +1613,8 @@ GOMP_OFFLOAD_load_image (int ord, unsigned version, const void *target_data,
       targ_tbl->start = (uintptr_t) var;
       targ_tbl->end = targ_tbl->start + bytes;
     }
+
+  nvptx_set_clocktick (module, dev);
 
   return fn_entries + var_entries;
 }
