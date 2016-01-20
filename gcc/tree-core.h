@@ -1878,6 +1878,7 @@ public:
   inline void set_domain (ttype *);
   inline tree values () const;
   inline void set_values (tree);
+  inline tree values_raw () const;
   inline tree name () const;
   inline tree *name_ptr ();
   inline void set_name (tree);
@@ -1887,14 +1888,17 @@ public:
   inline void set_attributes (tree);
   inline unsigned int align () const;
   inline void set_align (unsigned int u);
+  inline unsigned int align_unit () const;
   inline bool user_align_p () const;
   inline void set_user_align_p (bool f);
   inline alias_set_type alias_set () const;
   inline void set_alias_set (alias_set_type a);
-  inline bool ref_can_alias_all () const;
-  inline void set_ref_can_alias_all (bool f);
+  inline bool ref_can_alias_all_p () const;
+  inline void set_ref_can_alias_all_p (bool f);
   inline unsigned int& hash();
   inline tree identifier () const;
+  inline bool needs_constructing_p () const;
+  inline void set_needs_constructing_p (bool);
 
   inline bool structural_equality_p () const;
   inline void set_structural_equality_p ();
@@ -1909,6 +1913,10 @@ public:
   inline void set_sizes_gimplified_p (bool);
   inline bool string_flag_p () const;
   inline void set_string_flag_p (bool f);
+  inline bool align_ok_p () const;
+  inline void set_align_ok_p (bool);
+  inline bool file_scope_p () const;
+  inline bool alias_set_known_p () const;
 
   /* vector  */
   enum machine_mode vector_mode() const;
@@ -1938,10 +1946,19 @@ public:
   inline void set_binfo (tree);
   inline tree lang_slot_1 () const;
   inline void set_lang_slot_1 (tree);
+  inline bool final_p () const;
+  inline void set_final_p (bool);
+  inline bool transparent_aggr_p () const;
+  inline void set_transparent_aggr_p (bool);
 
   /* array */
   inline tree array_max_size () const;
   inline void set_array_max_size (tree);
+  inline bool nonaliased_component_p () const;
+  inline void set_nonaliased_component_p (bool);
+
+  inline bool ref_is_rvalue_p () const;
+  inline void set_ref_is_rvalue_p (bool);
 
   inline tree max_value () const;
   inline tree *max_value_ptr ();
@@ -1968,12 +1985,14 @@ public:
   inline bool record_or_union_p () const;
   inline bool integral_p () const;
   inline bool any_integral_p () const;
+  inline bool float_p () const;
   inline bool scalar_float_p () const;
   inline bool fixed_point_p () const;
   inline bool aggregate_p () const;
   inline bool saturating_p () const;
   inline bool void_p () const;
   inline bool vector_boolean_p () const;
+  inline bool decimal_float_p () const;
   bool overflow_traps_p () const;
 
   inline void clear_lang_flags ();

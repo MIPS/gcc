@@ -274,7 +274,7 @@ template <>
 inline bool
 is_a_helper <ttype *>::test (tree t)
 {
-  return TYPE_P (t);
+  return (TREE_CODE_CLASS (TREE_CODE (t)) == tcc_type);
 }
 
 template <>
@@ -282,7 +282,7 @@ template <>
 inline bool
 is_a_helper <const ttype *>::test (const_tree t)
 {
-  return TYPE_P (t);
+  return (TREE_CODE_CLASS (TREE_CODE (t)) == tcc_type);
 }
 
 /* This routine is used to mark casts to ttype * which we eventually want to
@@ -722,10 +722,18 @@ bool ttype::scalar_float_p () const { return code() == REAL_TYPE; }
         || VECTOR_TYPE_P (TYPE))		\
        && SCALAR_FLOAT_TYPE_P (TREE_TYPE (TYPE))))
 
+bool ttype::float_p () const
+{
+  return scalar_float_p () || ((code () == COMPLEX_TYPE || vector_p ())
+			       && type()->scalar_float_p ());
+}
+
 /* Nonzero if TYPE represents a decimal floating-point type.  */
 #define DECIMAL_FLOAT_TYPE_P(TYPE)		\
   (SCALAR_FLOAT_TYPE_P (TYPE)			\
    && DECIMAL_FLOAT_MODE_P (TYPE_MODE (TYPE)))
+bool ttype::decimal_float_p () const
+	{ return scalar_float_p () && DECIMAL_FLOAT_MODE_P (mode ()); }
 
 /* Nonzero if TYPE is a record or union type.  */
 #define RECORD_OR_UNION_TYPE_P(TYPE)		\
@@ -884,8 +892,8 @@ void ttype::set_artificial_p (bool f) { u.base.nowarning_flag = f; }
    by this type can alias anything.  */
 #define TYPE_REF_CAN_ALIAS_ALL(NODE) \
   (PTR_OR_REF_CHECK (NODE)->u.base.static_flag)
-bool ttype::ref_can_alias_all () const { return u.base.static_flag; }
-void ttype::set_ref_can_alias_all (bool f) { u.base.static_flag = f; }
+bool ttype::ref_can_alias_all_p () const { return u.base.static_flag; }
+void ttype::set_ref_can_alias_all_p (bool f) { u.base.static_flag = f; }
 
 /* In an INTEGER_CST, REAL_CST, COMPLEX_CST, or VECTOR_CST, this means
    there was an overflow in folding.  */
@@ -1098,6 +1106,9 @@ void ttype::set_asm_written_p (bool f) { u.base.asm_written_flag = f; }
    In an SSA_NAME node, nonzero if the SSA_NAME node is on the SSA_NAME
    freelist.  */
 #define TYPE_ALIGN_OK(NODE) (TYPE_CHECK (NODE)->u.base.nothrow_flag)
+bool ttype::align_ok_p () const { return u.base.nothrow_flag; }
+void ttype::set_align_ok_p (bool f) { u.base.nothrow_flag = f; }
+
 
 /* Used in classes in C++.  */
 #define TREE_PRIVATE(NODE) ((NODE)->u.base.private_flag)
@@ -1107,6 +1118,8 @@ void ttype::set_asm_written_p (bool f) { u.base.asm_written_flag = f; }
 /* True if reference type NODE is a C++ rvalue reference.  */
 #define TYPE_REF_IS_RVALUE(NODE) \
   (REFERENCE_TYPE_CHECK (NODE)->u.base.private_flag)
+bool ttype::ref_is_rvalue_p () const { return u.base.private_flag; }
+void ttype::set_ref_is_rvalue_p (bool f) { u.base.private_flag = f; }
 
 /* Nonzero in a _DECL if the use of the name is defined as a
    deprecated feature by __attribute__((deprecated)).  */
@@ -2038,6 +2051,7 @@ enum machine_mode ttype::mode () const
 void ttype::set_mode (enum machine_mode m) { u.type_common.mode = m; }
 
 
+extern machine_mode element_mode (const ttype *t);
 extern machine_mode element_mode (const_tree t);
 
 /* The "canonical" type for this type node, which is used by frontends to
@@ -2092,6 +2106,7 @@ void ttype::set_alias_set (alias_set_type a) { u.type_common.alias_set = a; }
    calculated.  */
 #define TYPE_ALIAS_SET_KNOWN_P(NODE) \
   (TYPE_CHECK (NODE)->u.type_common.alias_set != -1)
+bool ttype::alias_set_known_p () const { return (alias_set () != -1); }
 
 /* A TREE_LIST of IDENTIFIER nodes of the attributes that apply
    to this type.  */
@@ -2115,6 +2130,7 @@ void ttype::set_user_align_p (bool f) { u.base.u.bits.user_align = f; }
 
 /* The alignment for NODE, in bytes.  */
 #define TYPE_ALIGN_UNIT(NODE) (TYPE_ALIGN (NODE) / BITS_PER_UNIT)
+unsigned int ttype::align_unit () const { return align() / BITS_PER_UNIT; }
 
 /* If your language allows you to declare types, and you want debug info
    for them, then you need to generate corresponding TYPE_DECL nodes.
@@ -2270,6 +2286,10 @@ void ttype::set_vector_opaque_p (bool f) { u.base.default_def_flag = f; }
    function when they are created.  */
 #define TYPE_NEEDS_CONSTRUCTING(NODE) \
   (TYPE_CHECK (NODE)->u.type_common.needs_constructing_flag)
+bool ttype::needs_constructing_p () const
+			      { return u.type_common.needs_constructing_flag; }
+void ttype::set_needs_constructing_p (bool f)
+				{ u.type_common.needs_constructing_flag = f; }
 
 /* Indicates that a UNION_TYPE object should be passed the same way that
    the first union alternative would be passed, or that a RECORD_TYPE
@@ -2277,12 +2297,20 @@ void ttype::set_vector_opaque_p (bool f) { u.base.default_def_flag = f; }
    would be passed.  */
 #define TYPE_TRANSPARENT_AGGR(NODE) \
   (RECORD_OR_UNION_CHECK (NODE)->u.type_common.transparent_aggr_flag)
+bool ttype::transparent_aggr_p () const
+				{ return u.type_common.transparent_aggr_flag; }
+void ttype::set_transparent_aggr_p (bool f)
+				  { u.type_common.transparent_aggr_flag = f; }
 
 /* For an ARRAY_TYPE, indicates that it is not permitted to take the
    address of a component of the type.  This is the counterpart of
    DECL_NONADDRESSABLE_P for arrays, see the definition of this flag.  */
 #define TYPE_NONALIASED_COMPONENT(NODE) \
   (ARRAY_TYPE_CHECK (NODE)->u.type_common.transparent_aggr_flag)
+bool ttype::nonaliased_component_p () const 
+				{ return u.type_common.transparent_aggr_flag; }
+void ttype::set_nonaliased_component_p (bool f)
+				  { u.type_common.transparent_aggr_flag = f; }
 
 /* Indicated that objects of this type should be laid out in as
    compact a way as possible.  */
@@ -2303,6 +2331,8 @@ void ttype::set_contains_placeholder_internal (unsigned int i)
 /* Nonzero if RECORD_TYPE represents a final derivation of class.  */
 #define TYPE_FINAL_P(NODE) \
   (RECORD_OR_UNION_CHECK (NODE)->u.base.default_def_flag)
+bool ttype::final_p () const { return u.base.default_def_flag; }
+void ttype::set_final_p (bool f) { u.base.default_def_flag = f; }
 
 /* The debug output functions use the symtab union field to store
    information specific to the debugging format.  The different debug
@@ -2343,6 +2373,9 @@ void ttype::set_symtab_pointer (const char *p)
 #define TYPE_LANG_SPECIFIC(NODE) \
   (TYPE_CHECK (NODE)->u.type_with_lang_specific.lang_specific)
 
+#define TYPE_VALUES_RAW(NODE) (TYPE_CHECK (NODE)->u.type_non_common.values)
+tree ttype::values_raw () const { return u.type_non_common.values; }
+
 #define TYPE_VALUES(NODE) (ENUMERAL_TYPE_CHECK (NODE)->u.type_non_common.values)
 tree ttype::values () const { return u.type_non_common.values; }
 void ttype::set_values (tree t) { u.type_non_common.values = t; }
@@ -2366,8 +2399,6 @@ void ttype::set_cached_values (tree t) { u.type_non_common.values = t; }
   (FUNC_OR_METHOD_CHECK (NODE)->u.type_non_common.values)
 tree ttype::arg_types () const { return u.type_non_common.values; }
 void ttype::set_arg_types (tree t) { u.type_non_common.values = t; }
-
-#define TYPE_VALUES_RAW(NODE) (TYPE_CHECK (NODE)->u.type_non_common.values)
 
 #define TYPE_METHODS(NODE) \
   (RECORD_OR_UNION_CHECK (NODE)->u.type_non_common.maxval)
@@ -2778,6 +2809,8 @@ tree ttype::identifier () const
 #define DECL_FILE_SCOPE_P(EXP) SCOPE_FILE_SCOPE_P (DECL_CONTEXT (EXP))
 /* Nonzero for a type which is at file scope.  */
 #define TYPE_FILE_SCOPE_P(EXP) SCOPE_FILE_SCOPE_P (TYPE_CONTEXT (EXP))
+bool ttype::file_scope_p () const { return SCOPE_FILE_SCOPE_P (context ()); }
+
 
 /* Nonzero for a decl that is decorated using attribute used.
    This indicates to compiler tools that this decl needs to be preserved.  */
@@ -5015,10 +5048,10 @@ extern const char *get_name (tree);
 extern bool stdarg_p (const_tree);
 extern bool prototype_p (const ttype_p);
 extern bool is_typedef_decl (const_tree x);
-extern bool typedef_variant_p (const_tree);
+extern bool typedef_variant_p (const ttype_p);
 extern bool auto_var_in_fn_p (const_tree, const_tree);
 extern tree build_low_bits_mask (ttype_p, unsigned);
-extern bool tree_nop_conversion_p (const_tree, const_tree);
+extern bool tree_nop_conversion_p (const ttype_p, const ttype_p);
 extern tree tree_strip_nop_conversions (tree);
 extern tree tree_strip_sign_nop_conversions (tree);
 extern const_tree strip_invariant_refs (const_tree);
@@ -5185,7 +5218,7 @@ extern location_t tree_nonartificial_location (tree);
 extern tree block_ultimate_origin (const_tree);
 extern tree get_binfo_at_offset (tree, HOST_WIDE_INT, tree);
 extern bool virtual_method_call_p (const_tree);
-extern tree obj_type_ref_class (const_tree ref);
+extern ttype *obj_type_ref_class (const_tree ref);
 extern bool types_same_for_odr (const_tree type1, const_tree type2,
 				bool strict=false);
 extern bool contains_bitfld_component_ref_p (const_tree);
@@ -5238,10 +5271,10 @@ extern tree component_ref_field_offset (tree);
 extern int tree_map_base_eq (const void *, const void *);
 extern unsigned int tree_map_base_hash (const void *);
 extern int tree_map_base_marked_p (const void *);
-extern void DEBUG_FUNCTION verify_type (const_tree t);
-extern bool gimple_canonical_types_compatible_p (const_tree, const_tree,
+extern void DEBUG_FUNCTION verify_type (const ttype_p t);
+extern bool gimple_canonical_types_compatible_p (ttype_p, ttype_p,
 						 bool trust_type_canonical = true);
-extern bool type_with_interoperable_signedness (const_tree);
+extern bool type_with_interoperable_signedness (const ttype_p);
 
 /* Return simplified tree code of type that is used for canonical type
    merging.  */

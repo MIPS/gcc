@@ -62,7 +62,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "print-tree.h"
 #include "ipa-utils.h"
 
-// #define TTYPE_DEVELOPING
+//#define TTYPE_DEVELOPING
 
 #include "ttype.h"
 
@@ -7984,14 +7984,14 @@ build_pointer_type_for_mode (ttype_p to_type, machine_mode mode,
   /* First, if we already have a type for pointers to TO_TYPE and it's
      the proper mode, use it.  */
   for (t = to_type->pointer_to (); t; t = t->next_ptr_to ())
-    if (t->mode () == mode && t->ref_can_alias_all () == can_alias_all)
+    if (t->mode () == mode && t->ref_can_alias_all_p () == can_alias_all)
       return t;
 
   t = make_type_node (POINTER_TYPE);
 
   t->set_type (to_type);
   t->set_mode (mode);
-  t->set_ref_can_alias_all (can_alias_all);
+  t->set_ref_can_alias_all_p (can_alias_all);
   t->set_next_ptr_to (to_type->pointer_to ());
   to_type->set_pointer_to (t);
 
@@ -8052,14 +8052,14 @@ build_reference_type_for_mode (ttype_p to_type, machine_mode mode,
   /* First, if we already have a type for pointers to TO_TYPE and it's
      the proper mode, use it.  */
   for (t = to_type->reference_to (); t; t = t->next_ref_to ())
-    if (t->mode () == mode && t->ref_can_alias_all () == can_alias_all)
+    if (t->mode () == mode && t->ref_can_alias_all_p () == can_alias_all)
       return t;
 
   t = make_type_node (REFERENCE_TYPE);
 
   t->set_type (to_type);
   t->set_mode (mode);
-  t->set_ref_can_alias_all (can_alias_all);
+  t->set_ref_can_alias_all_p (can_alias_all);
   t->set_next_ref_to (to_type->reference_to ());
   to_type->set_reference_to (t);
 
@@ -10676,13 +10676,13 @@ reconstruct_complex_type (ttype_p type, ttype_p bottom)
     {
       inner = reconstruct_complex_type (type->type (), bottom);
       outer = build_pointer_type_for_mode (inner, type->mode (),
-					   type->ref_can_alias_all ());
+					   type->ref_can_alias_all_p ());
     }
   else if (type->code () == REFERENCE_TYPE)
     {
       inner = reconstruct_complex_type (type->type (), bottom);
       outer = build_reference_type_for_mode (inner, type->mode (),
-					     type->ref_can_alias_all ());
+					     type->ref_can_alias_all_p ());
     }
   else if (type->code () == ARRAY_TYPE)
     {
@@ -11293,7 +11293,7 @@ signed_or_unsigned_type_for (int unsignedp, ttype_p type)
   if (type->code () == INTEGER_TYPE && type->unsigned_p () == unsignedp)
     return type;
 
-  if (TREE_CODE (type) == VECTOR_TYPE)
+  if (type->code () == VECTOR_TYPE)
     {
       tree inner = type->type ();
       tree inner2 = signed_or_unsigned_type_for (unsignedp, inner);
@@ -11831,7 +11831,7 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
       if (TREE_CODE (DECL_EXPR_DECL (*tp)) == TYPE_DECL)
 	{
 	  ttype **type_p = TREE_TYPE_PTR (DECL_EXPR_DECL (*tp));
-	  if (TREE_CODE (*type_p) == ERROR_MARK)
+	  if ((*type_p)->code () == ERROR_MARK)
 	    return NULL_TREE;
 
 	  /* Call the function for the type.  See if it returns anything or
@@ -12282,21 +12282,21 @@ block_ultimate_origin (const_tree block)
    no instruction.  */
 
 bool
-tree_nop_conversion_p (const_tree outer_type, const_tree inner_type)
+tree_nop_conversion_p (const ttype_p outer_type, const ttype_p inner_type)
 {
   /* Use precision rather then machine mode when we can, which gives
      the correct answer even for submode (bit-field) types.  */
-  if ((INTEGRAL_TYPE_P (outer_type)
-       || POINTER_TYPE_P (outer_type)
-       || TREE_CODE (outer_type) == OFFSET_TYPE)
-      && (INTEGRAL_TYPE_P (inner_type)
-	  || POINTER_TYPE_P (inner_type)
-	  || TREE_CODE (inner_type) == OFFSET_TYPE))
-    return TYPE_PRECISION (outer_type) == TYPE_PRECISION (inner_type);
+  if ((outer_type->integral_p ()
+       || outer_type->integral_p ()
+       || outer_type->code () == OFFSET_TYPE)
+      && (inner_type->integral_p ()
+	  || inner_type->pointer_p ()
+	  || inner_type->code () == OFFSET_TYPE))
+    return outer_type->precision () == inner_type->precision ();
 
   /* Otherwise fall back on comparing machine modes (e.g. for
      aggregate types, floats).  */
-  return TYPE_MODE (outer_type) == TYPE_MODE (inner_type);
+  return outer_type->mode () == inner_type->mode ();
 }
 
 /* Return true iff conversion in EXP generates no instruction.  Mark
@@ -12329,7 +12329,7 @@ tree_nop_conversion (const_tree exp)
 static bool
 tree_sign_nop_conversion (const_tree exp)
 {
-  tree outer_type, inner_type;
+  ttype *outer_type, *inner_type;
 
   if (!tree_nop_conversion (exp))
     return false;
@@ -12337,8 +12337,8 @@ tree_sign_nop_conversion (const_tree exp)
   outer_type = TREE_TYPE (exp);
   inner_type = TREE_TYPE (TREE_OPERAND (exp, 0));
 
-  return (TYPE_UNSIGNED (outer_type) == TYPE_UNSIGNED (inner_type)
-	  && POINTER_TYPE_P (outer_type) == POINTER_TYPE_P (inner_type));
+  return (outer_type->unsigned_p () == inner_type->unsigned_p ()
+	  && outer_type->pointer_p () == inner_type->pointer_p ());
 }
 
 /* Strip conversions from EXP according to tree_nop_conversion and
@@ -12367,24 +12367,25 @@ tree_strip_sign_nop_conversions (tree exp)
 tree
 strip_float_extensions (tree exp)
 {
-  tree sub, expt, subt;
+  tree sub;
+  ttype *expt, *subt;
 
   /*  For floating point constant look up the narrowest type that can hold
       it properly and handle it like (type)(narrowest_type)constant.
       This way we can optimize for instance a=a*2.0 where "a" is float
       but 2.0 is double constant.  */
-  if (TREE_CODE (exp) == REAL_CST && !DECIMAL_FLOAT_TYPE_P (TREE_TYPE (exp)))
+  if (TREE_CODE (exp) == REAL_CST && !TREE_TYPE (exp)->decimal_float_p ())
     {
       REAL_VALUE_TYPE orig;
       tree type = NULL;
 
       orig = TREE_REAL_CST (exp);
-      if (TYPE_PRECISION (TREE_TYPE (exp)) > TYPE_PRECISION (float_type_node)
-	  && exact_real_truncate (TYPE_MODE (float_type_node), &orig))
+      if (TREE_TYPE (exp)->precision () > float_type_node->precision ()
+	  && exact_real_truncate (float_type_node->mode (), &orig))
 	type = float_type_node;
-      else if (TYPE_PRECISION (TREE_TYPE (exp))
-	       > TYPE_PRECISION (double_type_node)
-	       && exact_real_truncate (TYPE_MODE (double_type_node), &orig))
+      else if (TREE_TYPE (exp)->precision ()
+	       > double_type_node->precision ()
+	       && exact_real_truncate (double_type_node->mode (), &orig))
 	type = double_type_node;
       if (type)
 	return build_real_truncate (type, orig);
@@ -12397,13 +12398,13 @@ strip_float_extensions (tree exp)
   subt = TREE_TYPE (sub);
   expt = TREE_TYPE (exp);
 
-  if (!FLOAT_TYPE_P (subt))
+  if (!subt->float_p ())
     return exp;
 
-  if (DECIMAL_FLOAT_TYPE_P (expt) != DECIMAL_FLOAT_TYPE_P (subt))
+  if (expt->decimal_float_p () != subt->decimal_float_p ())
     return exp;
 
-  if (TYPE_PRECISION (subt) > TYPE_PRECISION (expt))
+  if (subt->precision () > expt->precision ())
     return exp;
 
   return strip_float_extensions (sub);
@@ -12473,28 +12474,29 @@ virtual_method_call_p (const_tree target)
   /* If we do not have BINFO associated, it means that type was built
      without devirtualization enabled.  Do not consider this a virtual
      call.  */
-  if (!TYPE_BINFO (obj_type_ref_class (target)))
+  if (!obj_type_ref_class (target)->binfo ())
     return false;
   return true;
 }
 
 /* REF is OBJ_TYPE_REF, return the class the ref corresponds to.  */
 
-tree
+ttype *
 obj_type_ref_class (const_tree ref)
 {
+  ttype *reft;
   gcc_checking_assert (TREE_CODE (ref) == OBJ_TYPE_REF);
-  ref = TREE_TYPE (ref);
-  gcc_checking_assert (TREE_CODE (ref) == POINTER_TYPE);
-  ref = TREE_TYPE (ref);
+  reft = TREE_TYPE (ref);
+  gcc_checking_assert (reft->code () == POINTER_TYPE);
+  reft = reft->type ();
   /* We look for type THIS points to.  ObjC also builds
      OBJ_TYPE_REF with non-method calls, Their first parameter
      ID however also corresponds to class type. */
-  gcc_checking_assert (TREE_CODE (ref) == METHOD_TYPE
-		       || TREE_CODE (ref) == FUNCTION_TYPE);
-  ref = TREE_VALUE (TYPE_ARG_TYPES (ref));
-  gcc_checking_assert (TREE_CODE (ref) == POINTER_TYPE);
-  return TREE_TYPE (ref);
+  gcc_checking_assert (reft->code () == METHOD_TYPE
+		       || reft->code () == FUNCTION_TYPE);
+  reft = TREE_VALUE_TTYPE (reft->arg_types ());
+  gcc_checking_assert (reft->code () == POINTER_TYPE);
+  return reft->type ();
 }
 
 /* Lookup sub-BINFO of BINFO of TYPE at offset POS.  */
@@ -12521,7 +12523,7 @@ lookup_binfo_at_offset (tree binfo, tree type, HOST_WIDE_INT pos)
 tree
 get_binfo_at_offset (tree binfo, HOST_WIDE_INT offset, tree expected_type)
 {
-  tree type = BINFO_TYPE (binfo);
+  ttype *type = BINFO_TYPE (binfo);
 
   while (true)
     {
@@ -12534,7 +12536,7 @@ get_binfo_at_offset (tree binfo, HOST_WIDE_INT offset, tree expected_type)
       if (offset < 0)
 	return NULL_TREE;
 
-      for (fld = TYPE_FIELDS (type); fld; fld = DECL_CHAIN (fld))
+      for (fld = type->fields (); fld; fld = DECL_CHAIN (fld))
 	{
 	  if (TREE_CODE (fld) != FIELD_DECL || !DECL_ARTIFICIAL (fld))
 	    continue;
@@ -12544,7 +12546,7 @@ get_binfo_at_offset (tree binfo, HOST_WIDE_INT offset, tree expected_type)
 	  if (pos <= offset && (pos + size) > offset)
 	    break;
 	}
-      if (!fld || TREE_CODE (TREE_TYPE (fld)) != RECORD_TYPE)
+      if (!fld || TREE_TYPE (fld)->code () != RECORD_TYPE)
 	return NULL_TREE;
 
       /* Offset 0 indicates the primary base, whose vtable contents are
@@ -12588,14 +12590,14 @@ is_typedef_decl (const_tree x)
 /* Returns true iff TYPE is a type variant created for a typedef. */
 
 bool
-typedef_variant_p (const_tree type)
+typedef_variant_p (const ttype_p type)
 {
-  return is_typedef_decl (TYPE_NAME (type));
+  return is_typedef_decl (type->name ());
 }
 
 /* Warn about a use of an identifier which was marked deprecated.  */
 void
-warn_deprecated_use (tree node, tree attr)
+warn_deprecated_use (ttype *node, tree attr)
 {
   const char *msg;
 
@@ -12604,15 +12606,10 @@ warn_deprecated_use (tree node, tree attr)
 
   if (!attr)
     {
-      if (DECL_P (node))
-	attr = DECL_ATTRIBUTES (node);
-      else if (TYPE_P (node))
-	{
-	  tree decl = TYPE_STUB_DECL (node);
-	  if (decl)
-	    attr = lookup_attribute ("deprecated",
-				     TYPE_ATTRIBUTES (TREE_TYPE (decl)));
-	}
+      tree decl = node->stub_decl ();
+      if (decl)
+	attr = lookup_attribute ("deprecated",
+				 TREE_TYPE (decl)->attributes ());
     }
 
   if (attr)
@@ -12624,74 +12621,101 @@ warn_deprecated_use (tree node, tree attr)
     msg = NULL;
 
   bool w;
-  if (DECL_P (node))
+  tree what = NULL_TREE;
+  tree decl = node->stub_decl ();
+
+  if (node->name ())
     {
-      if (msg)
-	w = warning (OPT_Wdeprecated_declarations,
-		     "%qD is deprecated: %s", node, msg);
+      if (TREE_CODE (node->name ()) == IDENTIFIER_NODE)
+	what = node->name ();
+      else if (TREE_CODE (node->name ()) == TYPE_DECL
+	       && DECL_NAME (node->name ()))
+	what = DECL_NAME (node->name ());
+    }
+
+  if (decl)
+    {
+      if (what)
+	{
+	  if (msg)
+	    w = warning (OPT_Wdeprecated_declarations,
+			 "%qE is deprecated: %s", what, msg);
+	  else
+	    w = warning (OPT_Wdeprecated_declarations,
+			 "%qE is deprecated", what);
+	}
       else
-	w = warning (OPT_Wdeprecated_declarations,
-		     "%qD is deprecated", node);
+	{
+	  if (msg)
+	    w = warning (OPT_Wdeprecated_declarations,
+			 "type is deprecated: %s", msg);
+	  else
+	    w = warning (OPT_Wdeprecated_declarations,
+			 "type is deprecated");
+	}
       if (w)
-	inform (DECL_SOURCE_LOCATION (node), "declared here");
+	inform (DECL_SOURCE_LOCATION (decl), "declared here");
     }
-  else if (TYPE_P (node))
+  else
     {
-      tree what = NULL_TREE;
-      tree decl = TYPE_STUB_DECL (node);
-
-      if (TYPE_NAME (node))
+      if (what)
 	{
-	  if (TREE_CODE (TYPE_NAME (node)) == IDENTIFIER_NODE)
-	    what = TYPE_NAME (node);
-	  else if (TREE_CODE (TYPE_NAME (node)) == TYPE_DECL
-		   && DECL_NAME (TYPE_NAME (node)))
-	    what = DECL_NAME (TYPE_NAME (node));
-	}
-
-      if (decl)
-	{
-	  if (what)
-	    {
-	      if (msg)
-		w = warning (OPT_Wdeprecated_declarations,
-			     "%qE is deprecated: %s", what, msg);
-	      else
-		w = warning (OPT_Wdeprecated_declarations,
-			     "%qE is deprecated", what);
-	    }
+	  if (msg)
+	    warning (OPT_Wdeprecated_declarations, "%qE is deprecated: %s",
+		     what, msg);
 	  else
-	    {
-	      if (msg)
-		w = warning (OPT_Wdeprecated_declarations,
-			     "type is deprecated: %s", msg);
-	      else
-		w = warning (OPT_Wdeprecated_declarations,
-			     "type is deprecated");
-	    }
-	  if (w)
-	    inform (DECL_SOURCE_LOCATION (decl), "declared here");
+	    warning (OPT_Wdeprecated_declarations, "%qE is deprecated", what);
 	}
       else
 	{
-	  if (what)
-	    {
-	      if (msg)
-		warning (OPT_Wdeprecated_declarations, "%qE is deprecated: %s",
-			 what, msg);
-	      else
-		warning (OPT_Wdeprecated_declarations, "%qE is deprecated", what);
-	    }
+	  if (msg)
+	    warning (OPT_Wdeprecated_declarations, "type is deprecated: %s",
+		     msg);
 	  else
-	    {
-	      if (msg)
-		warning (OPT_Wdeprecated_declarations, "type is deprecated: %s",
-			 msg);
-	      else
-		warning (OPT_Wdeprecated_declarations, "type is deprecated");
-	    }
+	    warning (OPT_Wdeprecated_declarations, "type is deprecated");
 	}
     }
+}
+
+
+/* Warn about a use of an identifier which was marked deprecated.  */
+void
+warn_deprecated_use (tree node, tree attr)
+{
+  const char *msg;
+  bool w;
+
+  if (node == 0 || !warn_deprecated_decl)
+    return;
+
+  if (is_a<ttype *>(node))
+    {
+      warn_deprecated_use (as_a<ttype *>(node), attr);
+      return ;
+    }
+
+  if (!DECL_P( node))
+    return;
+
+  if (!attr)
+    attr = DECL_ATTRIBUTES (node);
+
+  if (attr)
+    attr = lookup_attribute ("deprecated", attr);
+
+  if (attr)
+    msg = TREE_STRING_POINTER (TREE_VALUE (TREE_VALUE (attr)));
+  else
+    msg = NULL;
+
+  if (msg)
+    w = warning (OPT_Wdeprecated_declarations,
+		 "%qD is deprecated: %s", node, msg);
+  else
+    w = warning (OPT_Wdeprecated_declarations,
+		 "%qD is deprecated", node);
+  if (w)
+    inform (DECL_SOURCE_LOCATION (node), "declared here");
 }
 
 /* Return true if REF has a COMPONENT_REF with a bit-field field declaration
@@ -12916,7 +12940,7 @@ tree
 array_ref_element_size (tree exp)
 {
   tree aligned_size = TREE_OPERAND (exp, 3);
-  tree elmt_type = TREE_TYPE (TREE_OPERAND (exp, 0))->type ();
+  ttype *elmt_type = TREE_TYPE (TREE_OPERAND (exp, 0))->type ();
   location_t loc = EXPR_LOCATION (exp);
 
   /* If a size was specified in the ARRAY_REF, it's the size measured
@@ -12928,13 +12952,13 @@ array_ref_element_size (tree exp)
       if (TREE_TYPE (aligned_size) != sizetype)
 	aligned_size = fold_convert_loc (loc, sizetype, aligned_size);
       return size_binop_loc (loc, MULT_EXPR, aligned_size,
-			     size_int (TYPE_ALIGN_UNIT (elmt_type)));
+			     size_int (elmt_type->align_unit ()));
     }
 
   /* Otherwise, take the size from that of the element type.  Substitute
      any PLACEHOLDER_EXPR that we have.  */
   else
-    return SUBSTITUTE_PLACEHOLDER_IN_EXPR (TYPE_SIZE_UNIT (elmt_type), exp);
+    return SUBSTITUTE_PLACEHOLDER_IN_EXPR (elmt_type->size_unit (), exp);
 }
 
 /* Return a tree representing the lower bound of the array mentioned in
@@ -12943,7 +12967,7 @@ array_ref_element_size (tree exp)
 tree
 array_ref_low_bound (tree exp)
 {
-  tree domain_type = TYPE_DOMAIN (TREE_TYPE (TREE_OPERAND (exp, 0)));
+  ttype *domain_type = TREE_TYPE (TREE_OPERAND (exp, 0))->domain ();
 
   /* If a lower bound is specified in EXP, use it.  */
   if (TREE_OPERAND (exp, 2))
@@ -12951,8 +12975,8 @@ array_ref_low_bound (tree exp)
 
   /* Otherwise, if there is a domain type and it has a lower bound, use it,
      substituting for a PLACEHOLDER_EXPR as needed.  */
-  if (domain_type && TYPE_MIN_VALUE (domain_type))
-    return SUBSTITUTE_PLACEHOLDER_IN_EXPR (TYPE_MIN_VALUE (domain_type), exp);
+  if (domain_type && domain_type->min_value ())
+    return SUBSTITUTE_PLACEHOLDER_IN_EXPR (domain_type->min_value (), exp);
 
   /* Otherwise, return a zero of the appropriate type.  */
   return build_int_cst (TREE_TYPE (TREE_OPERAND (exp, 1)), 0);
@@ -12964,12 +12988,12 @@ array_ref_low_bound (tree exp)
 tree
 array_ref_up_bound (tree exp)
 {
-  tree domain_type = TYPE_DOMAIN (TREE_TYPE (TREE_OPERAND (exp, 0)));
+  ttype *domain_type = TREE_TYPE (TREE_OPERAND (exp, 0))->domain ();
 
   /* If there is a domain type and it has an upper bound, use it, substituting
      for a PLACEHOLDER_EXPR as needed.  */
-  if (domain_type && TYPE_MAX_VALUE (domain_type))
-    return SUBSTITUTE_PLACEHOLDER_IN_EXPR (TYPE_MAX_VALUE (domain_type), exp);
+  if (domain_type && domain_type->max_value ())
+    return SUBSTITUTE_PLACEHOLDER_IN_EXPR (domain_type->max_value (), exp);
 
   /* Otherwise fail.  */
   return NULL_TREE;
@@ -12992,7 +13016,7 @@ array_at_struct_end_p (tree ref)
          non-union type and there follows another field the reference
 	 is not at the end of a structure.  */
       if (TREE_CODE (ref) == COMPONENT_REF
-	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (ref, 0))) == RECORD_TYPE)
+	  && TREE_TYPE (TREE_OPERAND (ref, 0))->code () == RECORD_TYPE)
 	{
 	  tree nextf = DECL_CHAIN (TREE_OPERAND (ref, 1));
 	  while (nextf && TREE_CODE (nextf) != FIELD_DECL)
@@ -13047,21 +13071,27 @@ component_ref_field_offset (tree exp)
    avoiding the BLKmode that a direct TYPE_MODE (T) might return.  */
 
 machine_mode
-element_mode (const_tree t)
+element_mode (const ttype *t)
 {
-  if (!TYPE_P (t))
-    t = TREE_TYPE (t);
-  if (VECTOR_TYPE_P (t) || TREE_CODE (t) == COMPLEX_TYPE)
-    t = TREE_TYPE (t);
-  return TYPE_MODE (t);
+  if (t->vector_p () || t->code () == COMPLEX_TYPE)
+    t = t->type ();
+  return t->mode ();
 }
  
+machine_mode
+element_mode (const_tree t)
+{
+  if (is_a<const ttype *>(t))
+    return element_mode (as_a<const ttype *>(t));
+  else
+    return element_mode (TREE_TYPE (t));
+}
 
 /* Veirfy that basic properties of T match TV and thus T can be a variant of
    TV.  TV should be the more specified variant (i.e. the main variant).  */
 
 static bool
-verify_type_variant (const_tree t, tree tv)
+verify_type_variant (const ttype_p t, ttype_p tv)
 {
   /* Type variant can differ by:
 
@@ -13088,7 +13118,7 @@ verify_type_variant (const_tree t, tree tv)
   /* Convenience macro for matching individual fields.  */
 #define verify_variant_match(flag)					    \
   do {									    \
-    if (flag (tv) != flag (t))						    \
+    if (tv->flag () != t->flag ())						    \
       {									    \
 	error ("type variant differs by " #flag ".");			    \
 	debug_tree (tv);						    \
@@ -13098,63 +13128,63 @@ verify_type_variant (const_tree t, tree tv)
 
   /* tree_base checks.  */
 
-  verify_variant_match (TREE_CODE);
+  verify_variant_match (code);
   /* FIXME: Ada builds non-artificial variants of artificial types.  */
-  if (TYPE_ARTIFICIAL (tv) && 0)
-    verify_variant_match (TYPE_ARTIFICIAL);
-  if (POINTER_TYPE_P (tv))
-    verify_variant_match (TYPE_REF_CAN_ALIAS_ALL);
+  if (tv->artificial_p () && 0)
+    verify_variant_match (artificial_p);
+  if (tv->pointer_p())
+    verify_variant_match (ref_can_alias_all_p);
   /* FIXME: TYPE_SIZES_GIMPLIFIED may differs for Ada build.  */
-  verify_variant_match (TYPE_UNSIGNED);
-  verify_variant_match (TYPE_ALIGN_OK);
-  verify_variant_match (TYPE_PACKED);
-  if (TREE_CODE (t) == REFERENCE_TYPE)
-    verify_variant_match (TYPE_REF_IS_RVALUE);
-  if (AGGREGATE_TYPE_P (t))
-    verify_variant_match (TYPE_REVERSE_STORAGE_ORDER);
+  verify_variant_match (unsigned_p);
+  verify_variant_match (align_ok_p);
+  verify_variant_match (packed_p);
+  if (t->code () == REFERENCE_TYPE)
+    verify_variant_match (ref_is_rvalue_p);
+  if (t->aggregate_p ())
+    verify_variant_match (reverse_storage_order_p);
   else
-    verify_variant_match (TYPE_SATURATING);
+    verify_variant_match (saturating_p);
   /* FIXME: This check trigger during libstdc++ build.  */
-  if (RECORD_OR_UNION_TYPE_P (t) && COMPLETE_TYPE_P (t) && 0)
-    verify_variant_match (TYPE_FINAL_P);
+  if (t->record_or_union_p () && t->complete_p () && 0)
+    verify_variant_match (final_p);
 
   /* tree_type_common checks.  */
 
-  if (COMPLETE_TYPE_P (t))
+  if (t->complete_p ())
     {
-      verify_variant_match (TYPE_SIZE);
-      verify_variant_match (TYPE_MODE);
-      if (TYPE_SIZE_UNIT (t) != TYPE_SIZE_UNIT (tv)
+      verify_variant_match (size);
+      verify_variant_match (mode);
+      if (t->size_unit () != tv->size_unit ()
 	  /* FIXME: ideally we should compare pointer equality, but java FE
 	     produce variants where size is INTEGER_CST of different type (int
 	     wrt size_type) during libjava biuld.  */
-	  && !operand_equal_p (TYPE_SIZE_UNIT (t), TYPE_SIZE_UNIT (tv), 0))
+	  && !operand_equal_p (t->size_unit (), tv->size_unit (), 0))
 	{
-	  error ("type variant has different TYPE_SIZE_UNIT");
+	  error ("type variant has different size_unit");
 	  debug_tree (tv);
-	  error ("type variant's TYPE_SIZE_UNIT");
-	  debug_tree (TYPE_SIZE_UNIT (tv));
-	  error ("type's TYPE_SIZE_UNIT");
-	  debug_tree (TYPE_SIZE_UNIT (t));
+	  error ("type variant's size_unit");
+	  debug_tree (tv->size_unit());
+	  error ("type's size_unit");
+	  debug_tree (t->size_unit());
 	  return false;
 	}
     }
-  verify_variant_match (TYPE_PRECISION);
-  verify_variant_match (TYPE_NEEDS_CONSTRUCTING);
-  if (RECORD_OR_UNION_TYPE_P (t))
-    verify_variant_match (TYPE_TRANSPARENT_AGGR);
-  else if (TREE_CODE (t) == ARRAY_TYPE)
-    verify_variant_match (TYPE_NONALIASED_COMPONENT);
+  verify_variant_match (precision);
+  verify_variant_match (needs_constructing_p);
+  if (t->record_or_union_p ())
+    verify_variant_match (transparent_aggr_p);
+  else if (t->code () == ARRAY_TYPE)
+    verify_variant_match (nonaliased_component_p);
   /* During LTO we merge variant lists from diferent translation units
      that may differ BY TYPE_CONTEXT that in turn may point 
      to TRANSLATION_UNIT_DECL.
      Ada also builds variants of types with different TYPE_CONTEXT.   */
-  if ((!in_lto_p || !TYPE_FILE_SCOPE_P (t)) && 0)
-    verify_variant_match (TYPE_CONTEXT);
-  verify_variant_match (TYPE_STRING_FLAG);
-  if (TYPE_ALIAS_SET_KNOWN_P (t))
+  if ((!in_lto_p || !t->file_scope_p ()) && 0)
+    verify_variant_match (context);
+  verify_variant_match (string_flag_p);
+  if (t->alias_set_known_p())
     {
-      error ("type variant with TYPE_ALIAS_SET_KNOWN_P");
+      error ("type variant with alias_set_known_p");
       debug_tree (tv);
       return false;
     }
@@ -13163,35 +13193,35 @@ verify_type_variant (const_tree t, tree tv)
 
   /* FIXME: C FE uses TYPE_VFIELD to record C_TYPE_INCOMPLETE_VARS
      and dangle the pointer from time to time.  */
-  if (RECORD_OR_UNION_TYPE_P (t) && TYPE_VFIELD (t) != TYPE_VFIELD (tv)
-      && (in_lto_p || !TYPE_VFIELD (tv)
-	  || TREE_CODE (TYPE_VFIELD (tv)) != TREE_LIST))
+  if (t->record_or_union_p () && t->vfield () != tv->vfield ()
+      && (in_lto_p || !tv->vfield ()
+	  || TREE_CODE (tv->vfield ()) != TREE_LIST))
     {
-      error ("type variant has different TYPE_VFIELD");
+      error ("type variant has different vfield");
       debug_tree (tv);
       return false;
     }
-  if ((TREE_CODE (t) == ENUMERAL_TYPE && COMPLETE_TYPE_P (t))
-       || TREE_CODE (t) == INTEGER_TYPE
-       || TREE_CODE (t) == BOOLEAN_TYPE
-       || TREE_CODE (t) == REAL_TYPE
-       || TREE_CODE (t) == FIXED_POINT_TYPE)
+  if ((t->code () == ENUMERAL_TYPE && t->complete_p ())
+       || t->code () == INTEGER_TYPE
+       || t->code () == BOOLEAN_TYPE
+       || t->code () == REAL_TYPE
+       || t->code () == FIXED_POINT_TYPE)
     {
-      verify_variant_match (TYPE_MAX_VALUE);
-      verify_variant_match (TYPE_MIN_VALUE);
+      verify_variant_match (max_value);
+      verify_variant_match (min_value);
     }
-  if (TREE_CODE (t) == METHOD_TYPE)
-    verify_variant_match (TYPE_METHOD_BASETYPE);
-  if (RECORD_OR_UNION_TYPE_P (t) && TYPE_METHODS (t))
+  if (t->code () == METHOD_TYPE)
+    verify_variant_match (method_basetype);
+  if (t->record_or_union_p () && t->methods ())
     {
-      error ("type variant has TYPE_METHODS");
+      error ("type variant has methods");
       debug_tree (tv);
       return false;
     }
-  if (TREE_CODE (t) == OFFSET_TYPE)
-    verify_variant_match (TYPE_OFFSET_BASETYPE);
-  if (TREE_CODE (t) == ARRAY_TYPE)
-    verify_variant_match (TYPE_ARRAY_MAX_SIZE);
+  if (t->code () == OFFSET_TYPE)
+    verify_variant_match (offset_basetype);
+  if (t->code () == ARRAY_TYPE)
+    verify_variant_match (array_max_size);
   /* FIXME: Be lax and allow TYPE_BINFO to be missing in variant types
      or even type's main variant.  This is needed to make bootstrap pass
      and the bug seems new in GCC 5.
@@ -13202,56 +13232,56 @@ verify_type_variant (const_tree t, tree tv)
      Also disable the check for Java for now because of parser hack that builds
      first an dummy BINFO and then sometimes replace it by real BINFO in some
      of the copies.  */
-  if (RECORD_OR_UNION_TYPE_P (t) && TYPE_BINFO (t) && TYPE_BINFO (tv)
-      && TYPE_BINFO (t) != TYPE_BINFO (tv)
+  if (t->record_or_union_p () && t->binfo () && tv->binfo ()
+      && t->binfo () != tv->binfo ()
       /* FIXME: Java sometimes keep dump TYPE_BINFOs on variant types.
 	 Since there is no cheap way to tell C++/Java type w/o LTO, do checking
 	 at LTO time only.  */
       && (in_lto_p && odr_type_p (t)))
     {
-      error ("type variant has different TYPE_BINFO");
+      error ("type variant has different binfo");
       debug_tree (tv);
-      error ("type variant's TYPE_BINFO");
-      debug_tree (TYPE_BINFO (tv));
-      error ("type's TYPE_BINFO");
-      debug_tree (TYPE_BINFO (t));
+      error ("type variant's binfo");
+      debug_tree (tv->binfo ());
+      error ("type's binfo");
+      debug_tree (t->binfo ());
       return false;
     }
 
   /* Check various uses of TYPE_VALUES_RAW.  */
-  if (TREE_CODE (t) == ENUMERAL_TYPE)
-    verify_variant_match (TYPE_VALUES);
-  else if (TREE_CODE (t) == ARRAY_TYPE)
-    verify_variant_match (TYPE_DOMAIN);
+  if (t->code () == ENUMERAL_TYPE)
+    verify_variant_match (values);
+  else if (t->code () == ARRAY_TYPE)
+    verify_variant_match (domain);
   /* Permit incomplete variants of complete type.  While FEs may complete
      all variants, this does not happen for C++ templates in all cases.  */
-  else if (RECORD_OR_UNION_TYPE_P (t)
-	   && COMPLETE_TYPE_P (t)
-	   && TYPE_FIELDS (t) != TYPE_FIELDS (tv))
+  else if (t->record_or_union_p ()
+	   && t->complete_p ()
+	   && t->fields () != tv->fields ())
     {
       tree f1, f2;
 
       /* Fortran builds qualified variants as new records with items of
 	 qualified type. Verify that they looks same.  */
-      for (f1 = TYPE_FIELDS (t), f2 = TYPE_FIELDS (tv);
+      for (f1 = t->fields (), f2 = tv->fields ();
 	   f1 && f2;
 	   f1 = TREE_CHAIN (f1), f2 = TREE_CHAIN (f2))
 	if (TREE_CODE (f1) != FIELD_DECL || TREE_CODE (f2) != FIELD_DECL
-	    || (TYPE_MAIN_VARIANT (TREE_TYPE (f1))
-		 != TYPE_MAIN_VARIANT (TREE_TYPE (f2))
+	    || (TREE_TYPE (f1)->main_variant ()
+		 != TREE_TYPE (f2)->main_variant ()
 		/* FIXME: gfc_nonrestricted_type builds all types as variants
 		   with exception of pointer types.  It deeply copies the type
 		   which means that we may end up with a variant type
 		   referring non-variant pointer.  We may change it to
 		   produce types as variants, too, like
 		   objc_get_protocol_qualified_type does.  */
-		&& !POINTER_TYPE_P (TREE_TYPE (f1)))
+		&& !TREE_TYPE (f1)->pointer_p ())
 	    || DECL_FIELD_OFFSET (f1) != DECL_FIELD_OFFSET (f2)
 	    || DECL_FIELD_BIT_OFFSET (f1) != DECL_FIELD_BIT_OFFSET (f2))
 	  break;
       if (f1 || f2)
 	{
-	  error ("type variant has different TYPE_FIELDS");
+	  error ("type variant has different fields");
 	  debug_tree (tv);
 	  error ("first mismatch is field");
 	  debug_tree (f1);
@@ -13260,24 +13290,22 @@ verify_type_variant (const_tree t, tree tv)
           return false;
 	}
     }
-  else if ((TREE_CODE (t) == FUNCTION_TYPE || TREE_CODE (t) == METHOD_TYPE))
-    verify_variant_match (TYPE_ARG_TYPES);
+  else if ((t->code () == FUNCTION_TYPE || t->code () == METHOD_TYPE))
+    verify_variant_match (arg_types);
   /* For C++ the qualified variant of array type is really an array type
      of qualified TREE_TYPE.
      objc builds variants of pointer where pointer to type is a variant, too
      in objc_get_protocol_qualified_type.  */
-  if (TREE_TYPE (t) != TREE_TYPE (tv)
-      && ((TREE_CODE (t) != ARRAY_TYPE
-	   && !POINTER_TYPE_P (t))
-	  || TYPE_MAIN_VARIANT (TREE_TYPE (t))
-	     != TYPE_MAIN_VARIANT (TREE_TYPE (tv))))
+  if (t->type () != tv->type ()
+      && ((t->code () != ARRAY_TYPE && !t->pointer_p ())
+	  || t->type()->main_variant () != tv->type()->main_variant ()))
     {
-      error ("type variant has different TREE_TYPE");
+      error ("type variant has different type");
       debug_tree (tv);
-      error ("type variant's TREE_TYPE");
-      debug_tree (TREE_TYPE (tv));
-      error ("type's TREE_TYPE");
-      debug_tree (TREE_TYPE (t));
+      error ("type variant's type");
+      debug_tree (tv->type ());
+      error ("type's type");
+      debug_tree (t->type ());
       return false;
     }
   if (type_with_alias_set_p (t)
@@ -13285,10 +13313,10 @@ verify_type_variant (const_tree t, tree tv)
     {
       error ("type is not compatible with its vairant");
       debug_tree (tv);
-      error ("type variant's TREE_TYPE");
-      debug_tree (TREE_TYPE (tv));
-      error ("type's TREE_TYPE");
-      debug_tree (TREE_TYPE (t));
+      error ("type variant's type");
+      debug_tree (tv->type ());
+      error ("type's type");
+      debug_tree (t->type ());
       return false;
     }
   return true;
@@ -13310,16 +13338,16 @@ verify_type_variant (const_tree t, tree tv)
    and unsigned variants.  */
 
 bool
-type_with_interoperable_signedness (const_tree type)
+type_with_interoperable_signedness (const ttype_p type)
 {
   /* Fortran standard require C_SIGNED_CHAR to be interoperable with both
      signed char and unsigned char.  Similarly fortran FE builds
      C_SIZE_T as signed type, while C defines it unsigned.  */
 
-  return tree_code_for_canonical_type_merging (TREE_CODE (type))
+  return tree_code_for_canonical_type_merging (type->code ())
 	   == INTEGER_TYPE
-         && (TYPE_PRECISION (type) == TYPE_PRECISION (signed_char_type_node)
-	     || TYPE_PRECISION (type) == TYPE_PRECISION (size_type_node));
+         && (type->precision () == signed_char_type_node->precision ()
+	     || type->precision () == size_type_node->precision ());
 }
 
 /* Return true iff T1 and T2 are structurally identical for what
@@ -13331,15 +13359,15 @@ type_with_interoperable_signedness (const_tree type)
    correspond to one defined by gimple_canonical_types_compatible_p.  */
 
 bool
-gimple_canonical_types_compatible_p (const_tree t1, const_tree t2,
+gimple_canonical_types_compatible_p (ttype_p t1, ttype_p t2,
 				     bool trust_type_canonical)
 {
   /* Type variants should be same as the main variant.  When not doing sanity
      checking to verify this fact, go to main variants and save some work.  */
   if (trust_type_canonical)
     {
-      t1 = TYPE_MAIN_VARIANT (t1);
-      t2 = TYPE_MAIN_VARIANT (t2);
+      t1 = t1->main_variant ();
+      t2 = t2->main_variant ();
     }
 
   /* Check first for the obvious case of pointer identity.  */
@@ -13370,7 +13398,7 @@ gimple_canonical_types_compatible_p (const_tree t1, const_tree t2,
   /* If the types have been previously registered and found equal
      they still are.  */
 
-  if (TYPE_CANONICAL (t1) && TYPE_CANONICAL (t2)
+  if (t1->canonical () && t2->canonical ()
       && trust_type_canonical)
     {
       /* Do not use TYPE_CANONICAL of pointer types.  For LTO streamed types
@@ -13381,41 +13409,41 @@ gimple_canonical_types_compatible_p (const_tree t1, const_tree t2,
 	 negatives.  */
       gcc_checking_assert (canonical_type_used_p (t1)
 			   && canonical_type_used_p (t2));
-      return TYPE_CANONICAL (t1) == TYPE_CANONICAL (t2);
+      return t1->canonical () == t2->canonical ();
     }
 
   /* Can't be the same type if the types don't have the same code.  */
-  enum tree_code code = tree_code_for_canonical_type_merging (TREE_CODE (t1));
-  if (code != tree_code_for_canonical_type_merging (TREE_CODE (t2)))
+  enum tree_code code = tree_code_for_canonical_type_merging (t1->code ());
+  if (code != tree_code_for_canonical_type_merging (t2->code ()))
     return false;
 
   /* Qualifiers do not matter for canonical type comparison purposes.  */
 
   /* Void types and nullptr types are always the same.  */
-  if (TREE_CODE (t1) == VOID_TYPE
-      || TREE_CODE (t1) == NULLPTR_TYPE)
+  if (t1->code () == VOID_TYPE
+      || t1->code () == NULLPTR_TYPE)
     return true;
 
   /* Can't be the same type if they have different mode.  */
-  if (TYPE_MODE (t1) != TYPE_MODE (t2))
+  if (t1->mode () != t2->mode ())
     return false;
 
   /* Non-aggregate types can be handled cheaply.  */
-  if (INTEGRAL_TYPE_P (t1)
-      || SCALAR_FLOAT_TYPE_P (t1)
-      || FIXED_POINT_TYPE_P (t1)
-      || TREE_CODE (t1) == VECTOR_TYPE
-      || TREE_CODE (t1) == COMPLEX_TYPE
-      || TREE_CODE (t1) == OFFSET_TYPE
-      || POINTER_TYPE_P (t1))
+  if (t1->integral_p ()
+      || t1->scalar_float_p ()
+      || t1->fixed_point_p ()
+      || t1->code () == VECTOR_TYPE
+      || t1->code () == COMPLEX_TYPE
+      || t1->code () == OFFSET_TYPE
+      || t1->pointer_p ())
     {
       /* Can't be the same type if they have different recision.  */
-      if (TYPE_PRECISION (t1) != TYPE_PRECISION (t2))
+      if (t1->precision () != t2->precision ())
 	return false;
 
       /* In some cases the signed and unsigned types are required to be
 	 inter-operable.  */
-      if (TYPE_UNSIGNED (t1) != TYPE_UNSIGNED (t2)
+      if (t1->unsigned_p () != t2->unsigned_p ()
 	  && !type_with_interoperable_signedness (t1))
 	return false;
 
@@ -13426,52 +13454,52 @@ gimple_canonical_types_compatible_p (const_tree t1, const_tree t2,
       /* Fortran standard define C_PTR type that is compatible with every
  	 C pointer.  For this reason we need to glob all pointers into one.
 	 Still pointers in different address spaces are not compatible.  */
-      if (POINTER_TYPE_P (t1))
+      if (t1->pointer_p ())
 	{
-	  if (TYPE_ADDR_SPACE (TREE_TYPE (t1))
-	      != TYPE_ADDR_SPACE (TREE_TYPE (t2)))
+	  if (t1->type()->addr_space ()
+	      != t2->type()->addr_space ())
 	    return false;
 	}
 
       /* Tail-recurse to components.  */
-      if (TREE_CODE (t1) == VECTOR_TYPE
-	  || TREE_CODE (t1) == COMPLEX_TYPE)
-	return gimple_canonical_types_compatible_p (TREE_TYPE (t1),
-						    TREE_TYPE (t2),
+      if (t1->code () == VECTOR_TYPE
+	  || t1->code () == COMPLEX_TYPE)
+	return gimple_canonical_types_compatible_p (t1->type (),
+						    t2->type (),
 						    trust_type_canonical);
 
       return true;
     }
 
   /* Do type-specific comparisons.  */
-  switch (TREE_CODE (t1))
+  switch (t1->code ())
     {
     case ARRAY_TYPE:
       /* Array types are the same if the element types are the same and
 	 the number of elements are the same.  */
-      if (!gimple_canonical_types_compatible_p (TREE_TYPE (t1), TREE_TYPE (t2),
+      if (!gimple_canonical_types_compatible_p (t1->type (), t2->type (),
 						trust_type_canonical)
-	  || TYPE_STRING_FLAG (t1) != TYPE_STRING_FLAG (t2)
-	  || TYPE_REVERSE_STORAGE_ORDER (t1) != TYPE_REVERSE_STORAGE_ORDER (t2)
-	  || TYPE_NONALIASED_COMPONENT (t1) != TYPE_NONALIASED_COMPONENT (t2))
+	  || t1->string_flag_p () != t2->string_flag_p ()
+	  || t1->reverse_storage_order_p () != t2->reverse_storage_order_p ()
+	  || t1->nonaliased_component_p () != t2->nonaliased_component_p ())
 	return false;
       else
 	{
-	  tree i1 = TYPE_DOMAIN (t1);
-	  tree i2 = TYPE_DOMAIN (t2);
+	  ttype *i1 = t1->domain ();
+	  ttype *i2 = t2->domain ();
 
 	  /* For an incomplete external array, the type domain can be
  	     NULL_TREE.  Check this condition also.  */
-	  if (i1 == NULL_TREE && i2 == NULL_TREE)
+	  if (i1 == NULL && i2 == NULL)
 	    return true;
-	  else if (i1 == NULL_TREE || i2 == NULL_TREE)
+	  else if (i1 == NULL || i2 == NULL)
 	    return false;
 	  else
 	    {
-	      tree min1 = TYPE_MIN_VALUE (i1);
-	      tree min2 = TYPE_MIN_VALUE (i2);
-	      tree max1 = TYPE_MAX_VALUE (i1);
-	      tree max2 = TYPE_MAX_VALUE (i2);
+	      tree min1 = i1->min_value ();
+	      tree min2 = i2->min_value ();
+	      tree max1 = i1->max_value ();
+	      tree max2 = i2->max_value ();
 
 	      /* The minimum/maximum values have to be the same.  */
 	      if ((min1 == min2
@@ -13494,22 +13522,22 @@ gimple_canonical_types_compatible_p (const_tree t1, const_tree t2,
     case FUNCTION_TYPE:
       /* Function types are the same if the return type and arguments types
 	 are the same.  */
-      if (!gimple_canonical_types_compatible_p (TREE_TYPE (t1), TREE_TYPE (t2),
+      if (!gimple_canonical_types_compatible_p (t1->type (), t2->type (),
 						trust_type_canonical))
 	return false;
 
-      if (TYPE_ARG_TYPES (t1) == TYPE_ARG_TYPES (t2))
+      if (t1->arg_types () == t2->arg_types ())
 	return true;
       else
 	{
 	  tree parms1, parms2;
 
-	  for (parms1 = TYPE_ARG_TYPES (t1), parms2 = TYPE_ARG_TYPES (t2);
+	  for (parms1 = t1->arg_types (), parms2 = t2->arg_types ();
 	       parms1 && parms2;
 	       parms1 = TREE_CHAIN (parms1), parms2 = TREE_CHAIN (parms2))
 	    {
 	      if (!gimple_canonical_types_compatible_p
-		     (TREE_VALUE (parms1), TREE_VALUE (parms2),
+		     (TREE_VALUE_TTYPE (parms1), TREE_VALUE_TTYPE (parms2),
 		      trust_type_canonical))
 		return false;
 	    }
@@ -13528,15 +13556,15 @@ gimple_canonical_types_compatible_p (const_tree t1, const_tree t2,
 
 	/* Don't try to compare variants of an incomplete type, before
 	   TYPE_FIELDS has been copied around.  */
-	if (!COMPLETE_TYPE_P (t1) && !COMPLETE_TYPE_P (t2))
+	if (!t1->complete_p () && !t2->complete_p ())
 	  return true;
 
 
-	if (TYPE_REVERSE_STORAGE_ORDER (t1) != TYPE_REVERSE_STORAGE_ORDER (t2))
+	if (t1->reverse_storage_order_p () != t2->reverse_storage_order_p ())
 	  return false;
 
 	/* For aggregate types, all the fields must be the same.  */
-	for (f1 = TYPE_FIELDS (t1), f2 = TYPE_FIELDS (t2);
+	for (f1 = t1->fields (), f2 = t2->fields ();
 	     f1 || f2;
 	     f1 = TREE_CHAIN (f1), f2 = TREE_CHAIN (f2))
 	  {
@@ -13576,30 +13604,30 @@ gimple_canonical_types_compatible_p (const_tree t1, const_tree t2,
 /* Verify type T.  */
 
 void
-verify_type (const_tree t)
+verify_type (ttype_p t)
 {
   bool error_found = false;
-  tree mv = TYPE_MAIN_VARIANT (t);
+  ttype *mv = t->main_variant ();
   if (!mv)
     {
       error ("Main variant is not defined");
       error_found = true;
     }
-  else if (mv != TYPE_MAIN_VARIANT (mv))
+  else if (mv != mv->main_variant ())
     {
-      error ("TYPE_MAIN_VARIANT has different TYPE_MAIN_VARIANT");
+      error ("Main_variant has different main_variant");
       debug_tree (mv);
       error_found = true;
     }
   else if (t != mv && !verify_type_variant (t, mv))
     error_found = true;
 
-  tree ct = TYPE_CANONICAL (t);
+  ttype *ct = t->canonical ();
   if (!ct)
     ;
-  else if (TYPE_CANONICAL (t) != ct)
+  else if (t->canonical () != ct)
     {
-      error ("TYPE_CANONICAL has different TYPE_CANONICAL");
+      error ("Canonical has different canonical");
       debug_tree (ct);
       error_found = true;
     }
@@ -13608,7 +13636,7 @@ verify_type (const_tree t)
 
      FIXME: C++ FE produce declarations of builtin functions that are not
      compatible with main variants.  */
-  else if (TREE_CODE (t) == FUNCTION_TYPE)
+  else if (t->code () == FUNCTION_TYPE)
     ;
   else if (t != ct
 	   /* FIXME: gimple_canonical_types_compatible_p can not compare types
@@ -13617,63 +13645,63 @@ verify_type (const_tree t)
 	   && !variably_modified_type_p (ct, NULL)
 	   && !gimple_canonical_types_compatible_p (t, ct, false))
     {
-      error ("TYPE_CANONICAL is not compatible");
+      error ("Canonical is not compatible");
       debug_tree (ct);
       error_found = true;
     }
 
-  if (COMPLETE_TYPE_P (t) && TYPE_CANONICAL (t)
-      && TYPE_MODE (t) != TYPE_MODE (TYPE_CANONICAL (t)))
+  if (t->complete_p () && t->canonical ()
+      && t->mode () != t->canonical()->mode ())
     {
-      error ("TYPE_MODE of TYPE_CANONICAL is not compatible");
+      error ("Mode of canonical is not compatible");
       debug_tree (ct);
       error_found = true;
     }
-  if (TYPE_MAIN_VARIANT (t) == t && ct && TYPE_MAIN_VARIANT (ct) != ct)
+  if (t->main_variant () == t && ct && ct->main_variant () != ct)
    {
-      error ("TYPE_CANONICAL of main variant is not main variant");
+      error ("Canonical of main variant is not main variant");
       debug_tree (ct);
-      debug_tree (TYPE_MAIN_VARIANT (ct));
+      debug_tree (ct->main_variant ());
       error_found = true;
    }
 
 
   /* Check various uses of TYPE_MINVAL.  */
-  if (RECORD_OR_UNION_TYPE_P (t))
+  if (t->record_or_union_p ())
     {
       /* FIXME: C FE uses TYPE_VFIELD to record C_TYPE_INCOMPLETE_VARS
 	 and danagle the pointer from time to time.  */
-      if (TYPE_VFIELD (t)
-	  && TREE_CODE (TYPE_VFIELD (t)) != FIELD_DECL
-	  && TREE_CODE (TYPE_VFIELD (t)) != TREE_LIST)
+      if (t->vfield ()
+	  && TREE_CODE (t->vfield ()) != FIELD_DECL
+	  && TREE_CODE (t->vfield ()) != TREE_LIST)
 	{
-	  error ("TYPE_VFIELD is not FIELD_DECL nor TREE_LIST");
-	  debug_tree (TYPE_VFIELD (t));
+	  error ("Vfield is not FIELD_DECL nor TREE_LIST");
+	  debug_tree (t->vfield ());
 	  error_found = true;
 	}
     }
-  else if (TREE_CODE (t) == POINTER_TYPE)
+  else if (t->code () == POINTER_TYPE)
     {
-      if (TYPE_NEXT_PTR_TO (t)
-	  && TREE_CODE (TYPE_NEXT_PTR_TO (t)) != POINTER_TYPE)
+      if (t->next_ptr_to ()
+	  && t->next_ptr_to()->code () != POINTER_TYPE)
 	{
-	  error ("TYPE_NEXT_PTR_TO is not POINTER_TYPE");
-	  debug_tree (TYPE_NEXT_PTR_TO (t));
+	  error ("Next_ptr_to is not POINTER_TYPE");
+	  debug_tree (t->next_ptr_to ());
 	  error_found = true;
 	}
     }
-  else if (TREE_CODE (t) == REFERENCE_TYPE)
+  else if (t->code () == REFERENCE_TYPE)
     {
-      if (TYPE_NEXT_REF_TO (t)
-	  && TREE_CODE (TYPE_NEXT_REF_TO (t)) != REFERENCE_TYPE)
+      if (t->next_ref_to ()
+	  && t->next_ref_to()->code () != REFERENCE_TYPE)
 	{
-	  error ("TYPE_NEXT_REF_TO is not REFERENCE_TYPE");
-	  debug_tree (TYPE_NEXT_REF_TO (t));
+	  error ("Next_ref_to is not REFERENCE_TYPE");
+	  debug_tree (t->next_ref_to ());
 	  error_found = true;
 	}
     }
-  else if (INTEGRAL_TYPE_P (t) || TREE_CODE (t) == REAL_TYPE
-	   || TREE_CODE (t) == FIXED_POINT_TYPE)
+  else if (t->integral_p () || t->code () == REAL_TYPE
+	   || t->code () == FIXED_POINT_TYPE)
     {
       /* FIXME: The following check should pass:
 	  useless_type_conversion_p (const_cast <tree> (t),
@@ -13681,104 +13709,104 @@ verify_type (const_tree t)
 	 but does not for C sizetypes in LTO.  */
     }
   /* Java uses TYPE_MINVAL for TYPE_ARGUMENT_SIGNATURE.  */
-  else if (TYPE_MINVAL (t)
-	   && ((TREE_CODE (t) != METHOD_TYPE && TREE_CODE (t) != FUNCTION_TYPE)
+  else if (t->minval ()
+	   && ((t->code () != METHOD_TYPE && t->code () != FUNCTION_TYPE)
 	       || in_lto_p))
     {
-      error ("TYPE_MINVAL non-NULL");
-      debug_tree (TYPE_MINVAL (t));
+      error ("Minval non-NULL");
+      debug_tree (t->minval ());
       error_found = true;
     }
 
   /* Check various uses of TYPE_MAXVAL.  */
-  if (RECORD_OR_UNION_TYPE_P (t))
+  if (t->record_or_union_p ())
     {
-      if (TYPE_METHODS (t) && TREE_CODE (TYPE_METHODS (t)) != FUNCTION_DECL
-	  && TREE_CODE (TYPE_METHODS (t)) != TEMPLATE_DECL
-	  && TYPE_METHODS (t) != error_mark_node)
+      if (t->methods () && TREE_CODE (t->methods ()) != FUNCTION_DECL
+	  && TREE_CODE (t->methods ()) != TEMPLATE_DECL
+	  && t->methods () != error_mark_node)
 	{
-	  error ("TYPE_METHODS is not FUNCTION_DECL, TEMPLATE_DECL nor error_mark_node");
-	  debug_tree (TYPE_METHODS (t));
+	  error ("Methods is not FUNCTION_DECL, TEMPLATE_DECL nor error_mark_node");
+	  debug_tree (t->methods ());
 	  error_found = true;
 	}
     }
-  else if (TREE_CODE (t) == FUNCTION_TYPE || TREE_CODE (t) == METHOD_TYPE)
+  else if (t->code () == FUNCTION_TYPE || t->code () == METHOD_TYPE)
     {
-      if (TYPE_METHOD_BASETYPE (t)
-	  && TREE_CODE (TYPE_METHOD_BASETYPE (t)) != RECORD_TYPE
-	  && TREE_CODE (TYPE_METHOD_BASETYPE (t)) != UNION_TYPE)
+      if (t->method_basetype ()
+	  && t->method_basetype()->code () != RECORD_TYPE
+	  && t->method_basetype()->code () != UNION_TYPE)
 	{
-	  error ("TYPE_METHOD_BASETYPE is not record nor union");
-	  debug_tree (TYPE_METHOD_BASETYPE (t));
+	  error ("Method_basetype is not record nor union");
+	  debug_tree (t->method_basetype ());
 	  error_found = true;
 	}
     }
-  else if (TREE_CODE (t) == OFFSET_TYPE)
+  else if (t->code () == OFFSET_TYPE)
     {
-      if (TYPE_OFFSET_BASETYPE (t)
-	  && TREE_CODE (TYPE_OFFSET_BASETYPE (t)) != RECORD_TYPE
-	  && TREE_CODE (TYPE_OFFSET_BASETYPE (t)) != UNION_TYPE)
+      if (t->offset_basetype ()
+	  && t->offset_basetype()->code () != RECORD_TYPE
+	  && t->offset_basetype()->code () != UNION_TYPE)
 	{
-	  error ("TYPE_OFFSET_BASETYPE is not record nor union");
-	  debug_tree (TYPE_OFFSET_BASETYPE (t));
+	  error ("Offset_basetype is not record nor union");
+	  debug_tree (t->offset_basetype ());
 	  error_found = true;
 	}
     }
-  else if (INTEGRAL_TYPE_P (t) || TREE_CODE (t) == REAL_TYPE
-	   || TREE_CODE (t) == FIXED_POINT_TYPE)
+  else if (t->integral_p () || t->code () == REAL_TYPE
+	   || t->code () == FIXED_POINT_TYPE)
     {
       /* FIXME: The following check should pass:
 	  useless_type_conversion_p (const_cast <tree> (t),
 				     TREE_TYPE (TYPE_MAX_VALUE (t))
 	 but does not for C sizetypes in LTO.  */
     }
-  else if (TREE_CODE (t) == ARRAY_TYPE)
+  else if (t->code () == ARRAY_TYPE)
     {
-      if (TYPE_ARRAY_MAX_SIZE (t)
-	  && TREE_CODE (TYPE_ARRAY_MAX_SIZE (t)) != INTEGER_CST)
+      if (t->array_max_size ()
+	  && TREE_CODE (t->array_max_size ()) != INTEGER_CST)
         {
-	  error ("TYPE_ARRAY_MAX_SIZE not INTEGER_CST");
-	  debug_tree (TYPE_ARRAY_MAX_SIZE (t));
+	  error ("Array_max_size not INTEGER_CST");
+	  debug_tree (t->array_max_size ());
 	  error_found = true;
         } 
     }
-  else if (TYPE_MAXVAL (t))
+  else if (t->maxval ())
     {
-      error ("TYPE_MAXVAL non-NULL");
-      debug_tree (TYPE_MAXVAL (t));
+      error ("Maxval non-NULL");
+      debug_tree (t->maxval ());
       error_found = true;
     }
 
   /* Check various uses of TYPE_BINFO.  */
-  if (RECORD_OR_UNION_TYPE_P (t))
+  if (t->record_or_union_p ())
     {
-      if (!TYPE_BINFO (t))
+      if (!t->binfo ())
 	;
-      else if (TREE_CODE (TYPE_BINFO (t)) != TREE_BINFO)
+      else if (TREE_CODE (t->binfo ()) != TREE_BINFO)
 	{
-	  error ("TYPE_BINFO is not TREE_BINFO");
-	  debug_tree (TYPE_BINFO (t));
+	  error ("Binfo is not TREE_BINFO");
+	  debug_tree (t->binfo ());
 	  error_found = true;
 	}
       /* FIXME: Java builds invalid empty binfos that do not have
          TREE_TYPE set.  */
-      else if (TREE_TYPE (TYPE_BINFO (t)) != TYPE_MAIN_VARIANT (t) && 0)
+      else if (TREE_TYPE (t->binfo ()) != t->main_variant () && 0)
 	{
-	  error ("TYPE_BINFO type is not TYPE_MAIN_VARIANT");
-	  debug_tree (TREE_TYPE (TYPE_BINFO (t)));
+	  error ("Binfo type is not main_variant");
+	  debug_tree (TREE_TYPE (t->binfo ()));
 	  error_found = true;
 	}
     }
-  else if (TYPE_LANG_SLOT_1 (t) && in_lto_p)
+  else if (t->lang_slot_1 () && in_lto_p)
     {
-      error ("TYPE_LANG_SLOT_1 (binfo) field is non-NULL");
-      debug_tree (TYPE_LANG_SLOT_1 (t));
+      error ("Lang_slot_1 (binfo) field is non-NULL");
+      debug_tree (t->lang_slot_1 ());
       error_found = true;
     }
 
   /* Check various uses of TYPE_VALUES_RAW.  */
-  if (TREE_CODE (t) == ENUMERAL_TYPE)
-    for (tree l = TYPE_VALUES (t); l; l = TREE_CHAIN (l))
+  if (t->code () == ENUMERAL_TYPE)
+    for (tree l = t->values (); l; l = TREE_CHAIN (l))
       {
 	tree value = TREE_VALUE (l);
 	tree name = TREE_PURPOSE (l);
@@ -13792,8 +13820,8 @@ verify_type (const_tree t)
 	    debug_tree (name);
 	    error_found = true;
 	  }
-	if (TREE_CODE (TREE_TYPE (value)) != INTEGER_TYPE
-	    && !useless_type_conversion_p (const_cast <tree> (t), TREE_TYPE (value)))
+	if (TREE_TYPE (value)->code () != INTEGER_TYPE
+	    && !useless_type_conversion_p (t, TREE_TYPE (value)))
 	  {
 	    error ("Enum value type is not INTEGER_TYPE nor convertible to the enum");
 	    debug_tree (value);
@@ -13808,23 +13836,23 @@ verify_type (const_tree t)
 	    error_found = true;
 	  }
       }
-  else if (TREE_CODE (t) == ARRAY_TYPE)
+  else if (t->code () == ARRAY_TYPE)
     {
-      if (TYPE_DOMAIN (t) && TREE_CODE (TYPE_DOMAIN (t)) != INTEGER_TYPE)
+      if (t->domain () && t->domain()->code () != INTEGER_TYPE)
 	{
-	  error ("Array TYPE_DOMAIN is not integer type");
-	  debug_tree (TYPE_DOMAIN (t));
+	  error ("Array domain is not integer type");
+	  debug_tree (t->domain ());
 	  error_found = true;
 	}
     }
-  else if (RECORD_OR_UNION_TYPE_P (t))
+  else if (t->record_or_union_p ())
     {
-      if (TYPE_FIELDS (t) && !COMPLETE_TYPE_P (t) && in_lto_p)
+      if (t->fields () && !t->complete_p () && in_lto_p)
 	{
-	  error ("TYPE_FIELDS defined in incomplete type");
+	  error ("Fields defined in incomplete type");
 	  error_found = true;
 	}
-      for (tree fld = TYPE_FIELDS (t); fld; fld = TREE_CHAIN (fld))
+      for (tree fld = t->fields (); fld; fld = TREE_CHAIN (fld))
 	{
 	  /* TODO: verify properties of decls.  */
 	  if (TREE_CODE (fld) == FIELD_DECL)
@@ -13841,49 +13869,50 @@ verify_type (const_tree t)
 	    ;
 	  else
 	    {
-	      error ("Wrong tree in TYPE_FIELDS list");
+	      error ("Wrong tree in fields list");
 	      debug_tree (fld);
 	      error_found = true;
 	    }
 	}
     }
-  else if (TREE_CODE (t) == INTEGER_TYPE
-	   || TREE_CODE (t) == BOOLEAN_TYPE
-	   || TREE_CODE (t) == OFFSET_TYPE
-	   || TREE_CODE (t) == REFERENCE_TYPE
-	   || TREE_CODE (t) == NULLPTR_TYPE
-	   || TREE_CODE (t) == POINTER_TYPE)
+  else if (t->code () == INTEGER_TYPE
+	   || t->code () == BOOLEAN_TYPE
+	   || t->code () == OFFSET_TYPE
+	   || t->code () == REFERENCE_TYPE
+	   || t->code () == NULLPTR_TYPE
+	   || t->code () == POINTER_TYPE)
     {
-      if (TYPE_CACHED_VALUES_P (t) != (TYPE_CACHED_VALUES (t) != NULL))
+      if (t->cached_values_p () != (t->cached_values () != NULL))
 	{
 	  error ("TYPE_CACHED_VALUES_P is %i while TYPE_CACHED_VALUES is %p",
-		 TYPE_CACHED_VALUES_P (t), (void *)TYPE_CACHED_VALUES (t));
+		 t->cached_values_p (), (void *)(t->cached_values ()));
 	  error_found = true;
 	}
-      else if (TYPE_CACHED_VALUES_P (t) && TREE_CODE (TYPE_CACHED_VALUES (t)) != TREE_VEC)
+      else if (t->cached_values_p () 
+	       && TREE_CODE (t->cached_values ()) != TREE_VEC)
 	{
 	  error ("TYPE_CACHED_VALUES is not TREE_VEC");
-	  debug_tree (TYPE_CACHED_VALUES (t));
+	  debug_tree (t->cached_values ());
 	  error_found = true;
 	}
       /* Verify just enough of cache to ensure that no one copied it to new type.
  	 All copying should go by copy_node that should clear it.  */
-      else if (TYPE_CACHED_VALUES_P (t))
+      else if (t->cached_values_p ())
 	{
 	  int i;
-	  for (i = 0; i < TREE_VEC_LENGTH (TYPE_CACHED_VALUES (t)); i++)
-	    if (TREE_VEC_ELT (TYPE_CACHED_VALUES (t), i)
-		&& TREE_TYPE (TREE_VEC_ELT (TYPE_CACHED_VALUES (t), i)) != t)
+	  for (i = 0; i < TREE_VEC_LENGTH (t->cached_values ()); i++)
+	    if (TREE_VEC_ELT (t->cached_values (), i)
+		&& TREE_TYPE (TREE_VEC_ELT (t->cached_values (), i)) != t)
 	      {
 		error ("wrong TYPE_CACHED_VALUES entry");
-		debug_tree (TREE_VEC_ELT (TYPE_CACHED_VALUES (t), i));
+		debug_tree (TREE_VEC_ELT (t->cached_values (), i));
 		error_found = true;
 		break;
 	      }
 	}
     }
-  else if (TREE_CODE (t) == FUNCTION_TYPE || TREE_CODE (t) == METHOD_TYPE)
-    for (tree l = TYPE_ARG_TYPES (t); l; l = TREE_CHAIN (l))
+  else if (t->code () == FUNCTION_TYPE || t->code () == METHOD_TYPE)
+    for (tree l = t->arg_types (); l; l = TREE_CHAIN (l))
       {
 	/* C++ FE uses TREE_PURPOSE to store initial values.  */
 	if (TREE_PURPOSE (l) && in_lto_p)
@@ -13892,44 +13921,44 @@ verify_type (const_tree t)
 	    debug_tree (l);
 	    error_found = true;
 	  }
-	if (!TYPE_P (TREE_VALUE (l)))
+	if (!is_a<ttype *> (TREE_VALUE (l)))
 	  {
 	    error ("Wrong entry in TYPE_ARG_TYPES list");
 	    debug_tree (l);
 	    error_found = true;
 	  }
       }
-  else if (!is_lang_specific (t) && TYPE_VALUES_RAW (t))
+  else if (!is_lang_specific (t) && t->values_raw ())
     {
       error ("TYPE_VALUES_RAW field is non-NULL");
-      debug_tree (TYPE_VALUES_RAW (t));
+      debug_tree (t->values_raw ());
       error_found = true;
     }
-  if (TREE_CODE (t) != INTEGER_TYPE
-      && TREE_CODE (t) != BOOLEAN_TYPE
-      && TREE_CODE (t) != OFFSET_TYPE
-      && TREE_CODE (t) != REFERENCE_TYPE
-      && TREE_CODE (t) != NULLPTR_TYPE
-      && TREE_CODE (t) != POINTER_TYPE
-      && TYPE_CACHED_VALUES_P (t))
+  if (t->code () != INTEGER_TYPE
+      && t->code () != BOOLEAN_TYPE
+      && t->code () != OFFSET_TYPE
+      && t->code () != REFERENCE_TYPE
+      && t->code () != NULLPTR_TYPE
+      && t->code () != POINTER_TYPE
+      && t->cached_values_p ())
     {
       error ("TYPE_CACHED_VALUES_P is set while it should not");
       error_found = true;
     }
-  if (TYPE_STRING_FLAG (t)
-      && TREE_CODE (t) != ARRAY_TYPE && TREE_CODE (t) != INTEGER_TYPE)
+  if (t->string_flag_p ()
+      && t->code () != ARRAY_TYPE && t->code () != INTEGER_TYPE)
     {
       error ("TYPE_STRING_FLAG is set on wrong type code");
       error_found = true;
     }
-  else if (TYPE_STRING_FLAG (t))
+  else if (t->string_flag_p ())
     {
-      const_tree b = t;
-      if (TREE_CODE (b) == ARRAY_TYPE)
-	b = TREE_TYPE (t);
+      ttype *b = t;
+      if (b->code () == ARRAY_TYPE)
+	b = t->type ();
       /* Java builds arrays with TYPE_STRING_FLAG of promoted_char_type
 	 that is 32bits.  */
-      if (TREE_CODE (b) != INTEGER_TYPE)
+      if (b->code () != INTEGER_TYPE)
 	{
 	  error ("TYPE_STRING_FLAG is set on type that does not look like "
 		 "char nor array of chars");
@@ -13940,8 +13969,8 @@ verify_type (const_tree t)
   /* ipa-devirt makes an assumption that TYPE_METHOD_BASETYPE is always
      TYPE_MAIN_VARIANT and it would be odd to add methods only to variatns
      of a type. */
-  if (TREE_CODE (t) == METHOD_TYPE
-      && TYPE_MAIN_VARIANT (TYPE_METHOD_BASETYPE (t)) != TYPE_METHOD_BASETYPE (t))
+  if (t->code () == METHOD_TYPE
+      && t->method_basetype()->main_variant () != t->method_basetype ())
     {
 	error ("TYPE_METHOD_BASETYPE is not main variant");
 	error_found = true;
@@ -13949,7 +13978,7 @@ verify_type (const_tree t)
 
   if (error_found)
     {
-      debug_tree (const_cast <tree> (t));
+      debug_tree (t);
       internal_error ("verify_type failed");
     }
 }
@@ -13961,30 +13990,31 @@ verify_type (const_tree t)
 bool
 nonnull_arg_p (const_tree arg)
 {
-  tree t, attrs, fntype;
+  tree t, attrs;
+  ttype *fntype;
   unsigned HOST_WIDE_INT arg_num;
 
   gcc_assert (TREE_CODE (arg) == PARM_DECL
-	      && (POINTER_TYPE_P (TREE_TYPE (arg))
-		  || TREE_CODE (TREE_TYPE (arg)) == OFFSET_TYPE));
+	      && (TREE_TYPE (arg)->pointer_p ()
+		  || TREE_TYPE (arg)->code () == OFFSET_TYPE));
 
   /* The static chain decl is always non null.  */
   if (arg == cfun->static_chain_decl)
     return true;
 
   /* THIS argument of method is always non-NULL.  */
-  if (TREE_CODE (TREE_TYPE (cfun->decl)) == METHOD_TYPE
+  if (TREE_TYPE (cfun->decl)->code () == METHOD_TYPE
       && arg == DECL_ARGUMENTS (cfun->decl)
       && flag_delete_null_pointer_checks)
     return true;
 
   /* Values passed by reference are always non-NULL.  */
-  if (TREE_CODE (TREE_TYPE (arg)) == REFERENCE_TYPE
+  if (TREE_TYPE (arg)->code () == REFERENCE_TYPE
       && flag_delete_null_pointer_checks)
     return true;
 
   fntype = TREE_TYPE (cfun->decl);
-  for (attrs = TYPE_ATTRIBUTES (fntype); attrs; attrs = TREE_CHAIN (attrs))
+  for (attrs = fntype->attributes (); attrs; attrs = TREE_CHAIN (attrs))
     {
       attrs = lookup_attribute ("nonnull", attrs);
 
