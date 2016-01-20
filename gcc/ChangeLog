@@ -1,3 +1,42 @@
+2016-01-18  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/69320
+	* tree-ssa-dom.c (record_edge_info): For comparisons against a boolean
+	ranged object, do nothing if the RHS constant is not [0..1].
+	(optimize_stmt): Comparing a boolean ranged object against a
+	constant outside [0..1] results in a compile-time constant.
+
+	* tree-ssanames.c (ssa_name_has_boolean_range): Remove unnecessary
+	test.
+
+2016-01-18  Sandra Loosemore <sandra@codesourcery.com>
+
+	* doc/invoke.texi (Invoking GCC): Add new section to menu.
+	(Option Summary): Update to reflect new section and moved options.
+	(C++ Dialect Options): Move -fstats to new section.
+	(Debugging Options): Move all dump, statistics, and other GCC
+	developer options to new section.  Rewrite section introduction
+	and re-order remaining options to put the more basic ones first.
+	(Optimization Options): Move -fira-verbose and -flto-report* to
+	new section.
+	(Developer Options): New section incorporating moved options.
+	* doc/cppopts.texi (-dM): Update cross-reference.
+
+2016-01-18  Richard Henderson  <rth@redhat.com>
+
+	PR target/69176
+	* config/aarch64/aarch64.md (add<GPI>3): Move long immediate
+	operands to pseudo only if CSE is expected.  Split long immediate
+	operands only after reload, and for the stack pointer.
+	(*add<GPI>3_pluslong): Remove.
+	(*addsi3_aarch64, *adddi3_aarch64): Merge into...
+	(*add<GPI>3_aarch64): ... here.  Add r/rk/Upl alternative.
+	(*addsi3_aarch64_uxtw): Add r/rk/Upl alternative.
+	(*add<GPI>3 peepholes): New.
+	(*add<GPI>3 splitters): New.
+	* config/aarch64/constraints.md (Upl): New.
+	* config/aarch64/predicates.md (aarch64_pluslong_strict_immedate): New.
+
 2016-01-18  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/69297
@@ -408,7 +447,7 @@
 
 2016-01-14  Nicklas Bo Jensen  <nbjensen@gmail.com>
 
-        * doc/loop.texi (Loop Analysis and Representation): Document
+	* doc/loop.texi (Loop Analysis and Representation): Document
 	loop_depth function.
 
 2016-01-14  Tom de Vries  <tom@codesourcery.com>
