@@ -363,6 +363,7 @@ extern char *gomp_bind_var_list;
 extern unsigned long gomp_bind_var_list_len;
 extern void **gomp_places_list;
 extern unsigned long gomp_places_list_len;
+extern unsigned int gomp_num_teams_var;
 extern int gomp_debug_var;
 extern int goacc_device_num;
 extern char *goacc_device_type;
@@ -648,7 +649,7 @@ enum gomp_cancel_kind
 /* ... and here is that TLS data.  */
 
 #if defined __nvptx__
-extern struct gomp_thread *nvptx_thrs;
+extern struct gomp_thread *nvptx_thrs __attribute__((shared));
 static inline struct gomp_thread *gomp_thread (void)
 {
   int tid;

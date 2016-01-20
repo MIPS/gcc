@@ -35,5 +35,16 @@ GOMP_teams (unsigned int num_teams, unsigned int thread_limit)
       icv->thread_limit_var
 	= thread_limit > INT_MAX ? UINT_MAX : thread_limit;
     }
-  (void) num_teams;
+  unsigned int num_blocks, block_id;
+  asm ("mov.u32 %0, %%nctaid.x;" : "=r" (num_blocks));
+  asm ("mov.u32 %0, %%ctaid.x;" : "=r" (block_id));
+  if (!num_teams || num_teams >= num_blocks)
+    num_teams = num_blocks;
+  else if (block_id >= num_teams)
+    {
+      gomp_free_thread (nvptx_thrs);
+      free (nvptx_thrs);
+      asm ("exit;");
+    }
+  gomp_num_teams_var = num_teams - 1;
 }

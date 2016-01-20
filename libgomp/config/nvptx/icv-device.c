@@ -47,15 +47,15 @@ omp_get_num_devices (void)
 int
 omp_get_num_teams (void)
 {
-  /* FORNOW.  */
-  return 1;
+  return gomp_num_teams_var + 1;
 }
 
 int
 omp_get_team_num (void)
 {
-  /* FORNOW.  */
-  return 0;
+  int ctaid;
+  asm ("mov.u32 %0, %%ctaid.x;" : "=r" (ctaid));
+  return ctaid;
 }
 
 int

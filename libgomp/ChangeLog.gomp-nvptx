@@ -1,5 +1,15 @@
 2016-01-20  Alexander Monakov  <amonakov@ispras.ru>
 
+	* config/nvptx/icv-device.c (omp_get_num_teams): Update.
+	(omp_get_team_num): Ditto.
+	* config/nvptx/target.c (GOMP_teams): Update.
+	* config/nvptx/team.c (nvptx_thrs): Place in shared memory.
+	* icv.c (gomp_num_teams_var): Define.
+	* libgomp.h (gomp_num_teams_var): Declare.
+	(nvptx_thrs): Place in shared memory.
+
+2016-01-20  Alexander Monakov  <amonakov@ispras.ru>
+
 	* testsuite/libgomp.fortran/fortran.exp (lang_link_flags): Pass
 	-foffload=-lgfortran in addition to -lgfortran.
 	* testsuite/libgomp.oacc-fortran/fortran.exp (lang_link_flags): Ditto.

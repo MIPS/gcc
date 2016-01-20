@@ -56,6 +56,7 @@ unsigned long gomp_bind_var_list_len;
 void **gomp_places_list;
 unsigned long gomp_places_list_len;
 int gomp_debug_var;
+unsigned int gomp_num_teams_var;
 char *goacc_device_type;
 int goacc_device_num;
 

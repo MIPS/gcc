@@ -29,7 +29,7 @@
 #include "libgomp.h"
 #include <stdlib.h>
 
-struct gomp_thread *nvptx_thrs;
+struct gomp_thread *nvptx_thrs __attribute__((shared));
 
 static void gomp_thread_start (struct gomp_thread_pool *);
 
