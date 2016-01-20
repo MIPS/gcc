@@ -106,11 +106,8 @@ static void kdn_dump_all_blocks(FILE *stream, loop_p loop_ptr) {
 
     if (the_head != NULL) {
       fprintf(stream,
-	      "Dumping all basic blocks of the method:\n");
-
-      /* the following statement causes an internal compiler error,
-	 apparently because, in some cases, the_head is not a
-	 <const rtx_insn *> */
+	      "Dumping all basic blocks of the function: %s\n",
+	      function_name(cfun));
 
       an_instruction = as_a <const rtx_insn *> (the_head);
 

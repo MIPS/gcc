@@ -43,7 +43,7 @@ along with GCC; see the file COPYING3.  If not see
       sum of incoming edge frequencies for the loop header block.
    b. The sum of predecessor edge frequencies for every block
       in the loop equals the frequency of that block. */
-#undef KELVIN_NOISE
+#define KELVIN_NOISE
 #ifdef KELVIN_NOISE
 #include "kelvin-debugs.c"
 #endif
@@ -165,7 +165,7 @@ recursively_calculate_exit_probability (struct loop *loop_ptr,
 					edge incoming_edge,
 					float path_probability)
 {
-#ifdef KELVIN_NOISE
+#ifdef KELVIN_EXTRA_NOISE
   fprintf(stderr,
 	  "recursively_calculate_exit_probability (block: %d, prob: %f)\n",
 	  incoming_edge->dest->index, path_probability);
@@ -173,14 +173,14 @@ recursively_calculate_exit_probability (struct loop *loop_ptr,
   if (incoming_edge->dest == loop_ptr->header)
     {
       /* This path iterated without exiting */
-#ifdef KELVIN_NOISE
+#ifdef KELVIN_EXTRA_NOISE
       fprintf(stderr, " returning 0.0 because path iterates to header\n");
 #endif
       return 0.0F;
     }
   else if (in_edge_set_p (incoming_edge, exit_edges))
     {
-#ifdef KELVIN_NOISE
+#ifdef KELVIN_EXTRA_NOISE
       fprintf(stderr, " returning %f because path exits loop\n",
 	      path_probability);
 #endif
@@ -217,7 +217,7 @@ recursively_calculate_exit_probability (struct loop *loop_ptr,
       a_rung.block = block;
       a_rung.lower_rung = ladder_rung;
 
-#ifdef KELVIN_NOISE
+#ifdef KELVIN_EXTRA_NOISE
       fprintf(stderr, " iterating over successors\n");
 #endif
       FOR_EACH_EDGE (successor, ei, block->succs)
@@ -232,7 +232,7 @@ recursively_calculate_exit_probability (struct loop *loop_ptr,
 						       edge_probability);
 	    }
 	}
-#ifdef KELVIN_NOISE
+#ifdef KELVIN_EXTRA_NOISE
       fprintf(stderr,
 	      " done iterating over successors of block %d, prob: %f\n",
 	      block->index, exit_probability);
@@ -451,7 +451,7 @@ recursively_increment_frequency (struct loop *loop_ptr, vec<edge> exit_edges,
       basic_block block = incoming_edge->dest;
       struct block_ladder_rung a_rung;
  
-#ifdef KELVIN_NOISE
+#ifdef KELVIN_EXTRA_NOISE
       fprintf(stderr,
 	      "recursively_increment_frequency "
 	      "(block %d: %f = %f + %f)\n",
@@ -706,9 +706,16 @@ check_loop_frequency_integrity (struct loop *loop_ptr)
       if (delta < 0)
 	delta = -delta;
       if (delta > tolerance)
-	fatal_error (input_location,
-		     "Inconsistent predecessor frequencies "
-		     " while unrolling loop.");
+	{
+	  fprintf (stderr, 
+		   "Block %d, frequency %d, sum of pred frequencies: %d\n",
+		   a_block->index, a_block->frequency, 
+		   predecessor_frequencies);
+
+	  fatal_error (input_location,
+		       "Inconsistent predecessor frequencies "
+		       " while unrolling loop.");
+	}
     }
   free(loop_body);
 
