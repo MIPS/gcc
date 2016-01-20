@@ -1,5 +1,14 @@
 2016-01-20  Alexander Monakov  <amonakov@ispras.ru>
 
+	* plugin/plugin-nvptx.c (struct targ_fn_descriptor): Add new fields.
+	(struct ptx_device): Ditto.  Set them...
+	(nvptx_open_device): ...here.
+	(GOMP_OFFLOAD_load_image): Set new targ_fn_descriptor fields.
+	(nvptx_adjust_launch_bounds): New.  Use it...
+	(GOMP_OFFLOAD_run): ...here.
+
+2016-01-20  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/nvptx/icv-device.c (omp_get_num_teams): Update.
 	(omp_get_team_num): Ditto.
 	* config/nvptx/target.c (GOMP_teams): Update.

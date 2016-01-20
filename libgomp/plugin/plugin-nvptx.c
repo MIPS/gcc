@@ -254,6 +254,8 @@ struct targ_fn_descriptor
 {
   CUfunction fn;
   const struct targ_fn_launch *launch;
+  int regs_per_thread;
+  int max_threads_per_block;
 };
 
 /* A loaded PTX image.  */
@@ -290,6 +292,9 @@ struct ptx_device
   bool mkern;
   int  mode;
   int clock_khz;
+  int num_sms;
+  int regs_per_block;
+  int regs_per_sm;
 
   struct ptx_image_data *images;  /* Images loaded on device.  */
   pthread_mutex_t image_lock;     /* Lock for above list.  */
@@ -647,6 +652,36 @@ nvptx_open_device (int n)
     GOMP_PLUGIN_fatal ("cuDeviceGetAttribute error: %s", cuda_error (r));
 
   ptx_dev->clock_khz = pi;
+
+  r = cuDeviceGetAttribute (&pi, CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT, dev);
+  if (r != CUDA_SUCCESS)
+    GOMP_PLUGIN_fatal ("cuDeviceGetAttribute error: %s", cuda_error (r));
+
+  ptx_dev->num_sms = pi;
+
+  r = cuDeviceGetAttribute (&pi, CU_DEVICE_ATTRIBUTE_MAX_REGISTERS_PER_BLOCK,
+			    dev);
+  if (r != CUDA_SUCCESS)
+    GOMP_PLUGIN_fatal ("cuDeviceGetAttribute error: %s", cuda_error (r));
+
+  ptx_dev->regs_per_block = pi;
+
+  /* CU_DEVICE_ATTRIBUTE_MAX_REGISTERS_PER_MULTIPROCESSOR = 82 is defined only
+     in CUDA 6.0 and newer.  */
+  r = cuDeviceGetAttribute (&pi, 82, dev);
+  /* Fallback: use limit of registers per block, which is usually equal.  */
+  if (r == CUDA_ERROR_INVALID_VALUE)
+    pi = ptx_dev->regs_per_block;
+  else if (r != CUDA_SUCCESS)
+    GOMP_PLUGIN_fatal ("cuDeviceGetAttribute error: %s", cuda_error (r));
+
+  ptx_dev->regs_per_sm = pi;
+
+  r = cuDeviceGetAttribute (&pi, CU_DEVICE_ATTRIBUTE_WARP_SIZE, dev);
+  if (r != CUDA_SUCCESS)
+    GOMP_PLUGIN_fatal ("cuDeviceGetAttribute error: %s", cuda_error (r));
+  if (pi != 32)
+    GOMP_PLUGIN_fatal ("Only warp size 32 is supported");
 
   r = cuDeviceGetAttribute (&async_engines,
 			    CU_DEVICE_ATTRIBUTE_ASYNC_ENGINE_COUNT, dev);
@@ -1589,13 +1624,23 @@ GOMP_OFFLOAD_load_image (int ord, unsigned version, const void *target_data,
   for (i = 0; i < fn_entries; i++, targ_fns++, targ_tbl++)
     {
       CUfunction function;
+      int nregs, mthrs;
 
       r = cuModuleGetFunction (&function, module, fn_descs[i].fn);
       if (r != CUDA_SUCCESS)
 	GOMP_PLUGIN_fatal ("cuModuleGetFunction error: %s", cuda_error (r));
+      r = cuFuncGetAttribute (&nregs, CU_FUNC_ATTRIBUTE_NUM_REGS, function);
+      if (r != CUDA_SUCCESS)
+	GOMP_PLUGIN_fatal ("cuFuncGetAttribute error: %s", cuda_error (r));
+      r = cuFuncGetAttribute (&mthrs, CU_FUNC_ATTRIBUTE_MAX_THREADS_PER_BLOCK,
+			      function);
+      if (r != CUDA_SUCCESS)
+	GOMP_PLUGIN_fatal ("cuFuncGetAttribute error: %s", cuda_error (r));
 
       targ_fns->fn = function;
       targ_fns->launch = &fn_descs[i];
+      targ_fns->regs_per_thread = nregs;
+      targ_fns->max_threads_per_block = mthrs;
 
       targ_tbl->start = (uintptr_t) targ_fns;
       targ_tbl->end = targ_tbl->start + 1;
@@ -1822,19 +1867,67 @@ GOMP_OFFLOAD_openacc_set_cuda_stream (int async, void *stream)
   return nvptx_set_cuda_stream (async, stream);
 }
 
+/* Adjust launch dimensions: pick good values for number of blocks and warps
+   and ensure that number of warps does not exceed CUDA limits as well as GCC's
+   own limits.  */
+
+static void
+nvptx_adjust_launch_bounds (struct targ_fn_descriptor *fn,
+			    struct ptx_device *ptx_dev,
+			    long *teams_p, long *threads_p)
+{
+  int max_warps_block = fn->max_threads_per_block / 32;
+  /* Maximum 32 warps per block is an implementation limit in NVPTX backend
+     and libgcc, which matches documented limit of all GPUs as of 2015.  */
+  if (max_warps_block > 32)
+    max_warps_block = 32;
+  if (*threads_p <= 0)
+    *threads_p = 8;
+  if (*threads_p > max_warps_block)
+    *threads_p = max_warps_block;
+
+  int regs_per_block = fn->regs_per_thread * 32 * *threads_p;
+  /* This is an estimate of how many blocks the device can host simultaneously.
+     Actual limit, which may be lower, can be queried with "occupancy control"
+     driver interface (since CUDA 6.0).  */
+  int max_blocks = ptx_dev->regs_per_sm / regs_per_block * ptx_dev->num_sms;
+  if (*teams_p <= 0 || *teams_p > max_blocks)
+    *teams_p = max_blocks;
+}
+
 void
-GOMP_OFFLOAD_run (int ord, void *tgt_fn, void *tgt_vars)
+GOMP_OFFLOAD_run (int ord, void *tgt_fn, void *tgt_vars, void **args)
 {
   CUfunction function = ((struct targ_fn_descriptor *) tgt_fn)->fn;
   CUresult r;
   struct ptx_device *ptx_dev = ptx_devices[ord];
   const char *maybe_abort_msg = "(perhaps abort was called)";
-  void *args = &tgt_vars;
+  void *fn_args = &tgt_vars;
+  long teams = 0, threads = 0;
+
+  if (!args)
+    GOMP_PLUGIN_fatal ("No target arguments provided");
+  while (*args)
+    {
+      long id = (long) *args++, val;
+      if (id & GOMP_TARGET_ARG_SUBSEQUENT_PARAM)
+	val = (long) *args++;
+      else
+        val = id >> GOMP_TARGET_ARG_VALUE_SHIFT;
+      if ((id & GOMP_TARGET_ARG_DEVICE_MASK) != GOMP_TARGET_ARG_DEVICE_ALL)
+	continue;
+      id &= GOMP_TARGET_ARG_ID_MASK;
+      if (id == GOMP_TARGET_ARG_NUM_TEAMS)
+	teams = val;
+      else if (id == GOMP_TARGET_ARG_THREAD_LIMIT)
+	threads = val;
+    }
+  nvptx_adjust_launch_bounds (tgt_fn, ptx_dev, &teams, &threads);
 
   r = cuLaunchKernel (function,
-		      1, 1, 1,
-		      32, 8, 1,
-		      0, ptx_dev->null_stream->stream, &args, 0);
+		      teams, 1, 1,
+		      32, threads, 1,
+		      0, ptx_dev->null_stream->stream, &fn_args, 0);
   if (r != CUDA_SUCCESS)
     GOMP_PLUGIN_fatal ("cuLaunchKernel error: %s", cuda_error (r));
 
@@ -1847,7 +1940,8 @@ GOMP_OFFLOAD_run (int ord, void *tgt_fn, void *tgt_vars)
 }
 
 void
-GOMP_OFFLOAD_async_run (int ord, void *tgt_fn, void *tgt_vars, void *async_data)
+GOMP_OFFLOAD_async_run (int ord, void *tgt_fn, void *tgt_vars, void **args,
+			void *async_data)
 {
   GOMP_PLUGIN_fatal ("GOMP_OFFLOAD_async_run unimplemented");
 }
