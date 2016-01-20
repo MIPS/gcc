@@ -1,3 +1,49 @@
+2016-01-20  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* doc/sourcebuild.texi (arm_crypto_pragma_ok): Document new entry.
+	(arm_fp_ok): Likewise.
+	(arm_fp): Likewise.
+	(arm_crypto): Likewise.
+
+2016-01-20  Ilya Enkovich  <enkovich.gnu@gmail.com>
+	    Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69328
+	* tree-vect-stmts.c (vect_is_simple_cond): Check compared
+	vectors have same number of elements.
+	(vectorizable_condition): Fix masked version recognition.
+
+2016-01-20  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69345
+	* tree-ssa-sccvn.h (VN_INFO_RANGE_INFO): New inline function.
+	(VN_INFO_PTR_INFO): Likewise.
+	* tree-ssa-sccvn.c (set_ssa_val_to): Avoid clearing points-to
+	info when it is equal between non-dominating SSA names.
+	* tree-ssa-pre.c (eliminate_dom_walker::before_dom_children):
+	Make sure to look at original SSA infos.
+
+2016-01-20  Jeff Law  <law@redhat.com>
+
+	PR target/25114
+	* config/m68k/predicates.md (pow2_m1_operand): New predicate
+	extracted from ...
+	(reg_or_pow2_m1_operand): Call pow2_m1_operand.
+	(pc_or_label_operand): New predicate.
+	* config/m68k/m68k.md: Add new peephole2 patterns for GTU/LEU
+	tests for small integers that are 2^n - 1.
+	
+2016-01-20  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/invoke.texi (Options Summary): Add '.' after @xref.
+
+2016-01-19  Jeff Law  <law@redhat.com>
+
+	PR middle-end/69347
+	* tree-ssa-threadbackwards.c
+	(fsm_find_control_statement_thread_paths): Do not try to lookup
+	FSM paths for SSA_NAMEs appearing in abnormal PHIs.
+
 2016-01-20  Kugan Vivekanandarajah  <kuganv@linaro.org>
 
 	* doc/lto.texi: Remove text that says only Gold has linker plugin
