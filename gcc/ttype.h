@@ -140,9 +140,25 @@ along with GCC; see the file COPYING3.  If not see
 #undef COMPLETE_OR_VOID_TYPE_P
 #undef COMPLETE_OR_UNBOUND_ARRAY_TYPE_P
 #undef FUNC_OR_METHOD_TYPE_P
+
+
+#undef TREE_CODE
+static inline enum tree_code TREE_CODE (tree n) { return n->u.base.code; }
+static inline enum tree_code TREE_CODE (const_tree n) { return n->u.base.code; }
+enum tree_code TREE_CODE (ttype *node) __attribute__((error(" Fix use of TREE_CODE(ttype *)")));
+enum tree_code TREE_CODE (ttype_p node) __attribute__((error(" Fix use of TREE_CODE(ttype_p)")));
+
+#undef TREE_SET_CODE
+static inline void TREE_SET_CODE (tree n, enum tree_code v)
+							{ n->u.base.code = v; }
+void TREE_SET_CODE (ttype *node, enum tree_code v) __attribute__((error(" Fix use of TREE_CODE(ttype *)")));
+void TREE_SET_CODE (ttype_p node, enum tree_code v) __attribute__((error(" Fix use of TREE_CODE(ttype_p)")));
+
+
+
 #endif
 
-/* THese macros are defined using one of hte above, and thus need to be
+/* These macros are defined using one of the above, and thus need to be
    redefined in tree.h as they are here once this comes into full production
    and this file is removed. */
 
@@ -161,6 +177,15 @@ static inline ttype *TREE_TYPE (tree NODE)
 ttype *TREE_TYPE (ttype *node)  __attribute__((error(" Fix use of TREE_TTYPE(ttype *)")));
 
 ttype *TREE_TYPE (ttype_p node)  __attribute__((error(" Fix use of TREE_TTYPE(ttype_p)")));
+
+#undef TREE_TYPE_PTR
+static inline ttype **TREE_TYPE_PTR (tree NODE)
+{ 
+  return TTYPE_PTR (&(CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->u.typed.type));
+}
+ttype **TREE_TYPE_PTR (ttype *node)  __attribute__((error(" Fix use of TREE_TTYPE_PTR(ttype *)")));
+
+ttype **TREE_TYPE_PTR (ttype_p node)  __attribute__((error(" Fix use of TREE_TTYPE_PTR(ttype_p)")));
 
 
 #endif 

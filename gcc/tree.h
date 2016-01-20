@@ -538,6 +538,7 @@ void ttype::set_chain (tree t) { u.common.chain = t; }
 #define TREE_TYPE_PTR(NODE) \
 (&(CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->u.typed.type))
 ttype *ttype::type () const { return TTYPE (u.typed.type); }
+ttype **ttype::type_ptr () { return TTYPE_PTR (&(u.typed.type)); }
 void ttype::set_type (ttype *t) { u.typed.type = t; }
 
 /* TREE_TTYPE is the equivilent of TREE_TYPE, except it returns the field as a
@@ -2241,6 +2242,9 @@ void ttype::set_visited_p (bool f) { u.base.visited = f; }
    that distinguish string from array of char).
    If set in a INTEGER_TYPE, indicates a character type.  */
 #define TYPE_STRING_FLAG(NODE) (TYPE_CHECK (NODE)->u.type_common.string_flag)
+bool ttype::string_flag_p () const { return u.type_common.string_flag; }
+void ttype::set_string_flag_p (bool f) { u.type_common.string_flag = f; }
+
 
 /* For a VECTOR_TYPE, this is the number of sub-parts of the vector.  */
 #define TYPE_VECTOR_SUBPARTS(VECTOR_TYPE) \
@@ -2258,6 +2262,9 @@ void ttype::set_vector_subparts (unsigned u) { set_precision (exact_log2 (u)); }
    about missing conversions to other vector types of the same size.  */
 #define TYPE_VECTOR_OPAQUE(NODE) \
   (VECTOR_TYPE_CHECK (NODE)->u.base.default_def_flag)
+bool ttype::vector_opaque_p () const { return u.base.default_def_flag; }
+void ttype::set_vector_opaque_p (bool f) { u.base.default_def_flag = f; }
+
 
 /* Indicates that objects of this type must be initialized by calling a
    function when they are created.  */
@@ -2342,6 +2349,7 @@ void ttype::set_values (tree t) { u.type_non_common.values = t; }
 
 #define TYPE_DOMAIN(NODE) (ARRAY_TYPE_CHECK (NODE)->u.type_non_common.values)
 ttype *ttype::domain () const { return TTYPE (u.type_non_common.values); }
+ttype **ttype::domain_ptr () { return TTYPE_PTR (&(u.type_non_common.values)); }
 void ttype::set_domain (ttype *t) { u.type_non_common.values = t; }
 
 #define TYPE_FIELDS(NODE) \
@@ -2375,12 +2383,16 @@ void ttype::set_vfield (tree t) { u.type_non_common.minval = t; }
   (FUNC_OR_METHOD_CHECK (NODE)->u.type_non_common.maxval)
 ttype *ttype::method_basetype() const
 				  { return TTYPE (u.type_non_common.maxval); }
+ttype **ttype::method_basetype_ptr ()
+			    { return TTYPE_PTR (&(u.type_non_common.maxval)); }
 void ttype::set_method_basetype (ttype* t) { u.type_non_common.maxval = t; }
 
 #define TYPE_OFFSET_BASETYPE(NODE) \
   (OFFSET_TYPE_CHECK (NODE)->u.type_non_common.maxval)
 ttype *ttype::offset_basetype () const
 				  { return TTYPE (u.type_non_common.maxval); }
+ttype **ttype::offset_basetype_ptr ()
+			    { return TTYPE_PTR (&(u.type_non_common.maxval)); }
 void ttype::set_offset_basetype (ttype *t) { u.type_non_common.maxval = t; }
 
 #define TYPE_MAXVAL(NODE) (TYPE_CHECK (NODE)->u.type_non_common.maxval)
@@ -4349,10 +4361,10 @@ extern tree build_string_literal (int, const char *);
 
 /* Construct various nodes representing data types.  */
 
-extern tree signed_or_unsigned_type_for (int, tree);
-extern tree signed_type_for (tree);
-extern tree unsigned_type_for (tree);
-extern tree truth_type_for (tree);
+extern tree signed_or_unsigned_type_for (int, ttype_p);
+extern tree signed_type_for (ttype_p);
+extern tree unsigned_type_for (ttype_p);
+extern tree truth_type_for (ttype_p );
 extern ttype *build_pointer_type_for_mode (ttype_p, machine_mode, bool);
 extern ttype *build_pointer_type (ttype_p);
 extern ttype *build_reference_type_for_mode (ttype_p, machine_mode, bool);
@@ -4360,7 +4372,7 @@ extern ttype *build_reference_type (ttype_p);
 extern ttype *build_vector_type_for_mode (ttype_p, machine_mode);
 extern ttype *build_vector_type (ttype_p innertype, int nunits);
 extern tree build_truth_vector_type (unsigned, unsigned);
-extern tree build_same_sized_truth_vector_type (tree vectype);
+extern tree build_same_sized_truth_vector_type (ttype_p vectype);
 extern ttype *build_opaque_vector_type (ttype_p innertype, int nunits);
 extern ttype *build_index_type (tree);
 extern ttype *build_array_type (ttype_p, ttype_p);
@@ -4995,13 +5007,13 @@ extern bool commutative_tree_code (enum tree_code);
 extern bool commutative_ternary_tree_code (enum tree_code);
 extern bool operation_can_overflow (enum tree_code);
 extern bool operation_no_trapping_overflow (ttype_p, enum tree_code);
-extern tree upper_bound_in_type (tree, tree);
-extern tree lower_bound_in_type (tree, tree);
+extern tree upper_bound_in_type (ttype_p, ttype_p);
+extern tree lower_bound_in_type (ttype_p, ttype_p);
 extern int operand_equal_for_phi_arg_p (const_tree, const_tree);
 extern tree create_artificial_label (location_t);
 extern const char *get_name (tree);
 extern bool stdarg_p (const_tree);
-extern bool prototype_p (const_tree);
+extern bool prototype_p (const ttype_p);
 extern bool is_typedef_decl (const_tree x);
 extern bool typedef_variant_p (const_tree);
 extern bool auto_var_in_fn_p (const_tree, const_tree);
@@ -5185,6 +5197,10 @@ extern void set_call_expr_flags (tree, int);
 extern tree walk_tree_1 (tree*, walk_tree_fn, void*, hash_set<tree>*,
 			 walk_tree_lh);
 extern tree walk_tree_without_duplicates_1 (tree*, walk_tree_fn, void*,
+					    walk_tree_lh);
+extern tree walk_tree_1 (ttype **, walk_tree_fn, void*, hash_set<tree>*,
+			 walk_tree_lh);
+extern tree walk_tree_without_duplicates_1 (ttype **, walk_tree_fn, void*,
 					    walk_tree_lh);
 #define walk_tree(a,b,c,d) \
 	walk_tree_1 (a, b, c, d, NULL)

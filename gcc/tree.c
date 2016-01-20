@@ -62,7 +62,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "print-tree.h"
 #include "ipa-utils.h"
 
-//#define TTYPE_DEVELOPING
+// #define TTYPE_DEVELOPING
 
 #include "ttype.h"
 
@@ -1154,7 +1154,7 @@ ttype *
 copy_node_stat (ttype *node MEM_STAT_DECL)
 {
   ttype *t;
-  enum tree_code code = TREE_CODE (node);
+  enum tree_code code = node->code ();
   size_t length;
 
   length = tree_size (node);
@@ -4335,7 +4335,7 @@ do { tree _node = (NODE); \
 	 so ignore all the operands.  */
       if ((TREE_CODE (node) == ARRAY_REF
 	   || TREE_CODE (node) == ARRAY_RANGE_REF)
-	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (node, 0))) == ARRAY_TYPE)
+	  && TREE_TYPE (TREE_OPERAND (node, 0))->code () == ARRAY_TYPE)
 	{
 	  UPDATE_FLAGS (TREE_OPERAND (node, 1));
 	  if (TREE_OPERAND (node, 2))
@@ -9248,7 +9248,7 @@ variably_modified_type_p (ttype_p type, tree fn)
 	    RETURN_TRUE_IF_VAR (DECL_SIZE (t));
 	    RETURN_TRUE_IF_VAR (DECL_SIZE_UNIT (t));
 
-	    if (TREE_CODE (type) == QUAL_UNION_TYPE)
+	    if (type->code () == QUAL_UNION_TYPE)
 	      RETURN_TRUE_IF_VAR (DECL_QUALIFIER (t));
 	  }
       break;
@@ -9929,13 +9929,13 @@ make_vector_type (ttype *innertype, int nunits, machine_mode mode)
   SET_TYPE_VECTOR_SUBPARTS (t, nunits);
   SET_TYPE_MODE (t, mode);
 
-  if (TYPE_STRUCTURAL_EQUALITY_P (mv_innertype) || in_lto_p)
-    SET_TYPE_STRUCTURAL_EQUALITY (t);
-  else if ((TYPE_CANONICAL (mv_innertype) != innertype
+  if (mv_innertype->structural_equality_p () || in_lto_p)
+    t->set_structural_equality_p ();
+  else if ((mv_innertype->canonical () != innertype
 	    || mode != VOIDmode)
 	   && !t->vector_boolean_p ())
-    TYPE_CANONICAL (t)
-      = make_vector_type (mv_innertype->canonical (), nunits, VOIDmode);
+    t->set_canonical (make_vector_type (mv_innertype->canonical (),
+					nunits, VOIDmode));
 
   layout_type (t);
 
@@ -9947,11 +9947,11 @@ make_vector_type (ttype *innertype, int nunits, machine_mode mode)
 
   /* We have built a main variant, based on the main variant of the
      inner type. Use it to build the variant we return.  */
-  if ((TYPE_ATTRIBUTES (innertype) || TYPE_QUALS (innertype))
+  if ((innertype->attributes () || innertype->quals ())
       && t->type () != innertype)
     return build_type_attribute_qual_variant (t,
-					      TYPE_ATTRIBUTES (innertype),
-					      TYPE_QUALS (innertype));
+					      innertype->attributes (),
+					      innertype->quals ());
 
   return t;
 }
@@ -10080,7 +10080,7 @@ build_atomic_base (tree type, unsigned int align)
   set_type_quals (t, TYPE_QUAL_ATOMIC);
 
   if (align)
-    TYPE_ALIGN (t) = align;
+    t->set_align (align);
 
   return t;
 }
@@ -10102,9 +10102,9 @@ build_common_tree_nodes (bool signed_char, bool short_double)
 
   /* Define both `signed char' and `unsigned char'.  */
   signed_char_type_node = make_signed_type (CHAR_TYPE_SIZE);
-  TYPE_STRING_FLAG (signed_char_type_node) = 1;
+  signed_char_type_node->set_string_flag_p (true);
   unsigned_char_type_node = make_unsigned_type (CHAR_TYPE_SIZE);
-  TYPE_STRING_FLAG (unsigned_char_type_node) = 1;
+  unsigned_char_type_node->set_string_flag_p (true);
 
   /* Define `char', which is like either `signed char' or `unsigned char'
      but not the same as either.  */
@@ -10112,7 +10112,7 @@ build_common_tree_nodes (bool signed_char, bool short_double)
     = (signed_char
        ? make_signed_type (CHAR_TYPE_SIZE)
        : make_unsigned_type (CHAR_TYPE_SIZE));
-  TYPE_STRING_FLAG (char_type_node) = 1;
+  char_type_node->set_string_flag_p (true);
 
   short_integer_type_node = make_signed_type (SHORT_TYPE_SIZE);
   short_unsigned_type_node = make_unsigned_type (SHORT_TYPE_SIZE);
@@ -10127,8 +10127,10 @@ build_common_tree_nodes (bool signed_char, bool short_double)
     {
       int_n_trees[i].signed_type = make_signed_type (int_n_data[i].bitsize);
       int_n_trees[i].unsigned_type = make_unsigned_type (int_n_data[i].bitsize);
-      TYPE_SIZE (int_n_trees[i].signed_type) = bitsize_int (int_n_data[i].bitsize);
-      TYPE_SIZE (int_n_trees[i].unsigned_type) = bitsize_int (int_n_data[i].bitsize);
+      int_n_trees[i].signed_type
+		      ->set_size (bitsize_int (int_n_data[i].bitsize));
+      int_n_trees[i].unsigned_type
+		      ->set_size (bitsize_int (int_n_data[i].bitsize));
 
       if (int_n_data[i].bitsize > LONG_LONG_TYPE_SIZE
 	  && int_n_enabled_p[i])
@@ -10141,9 +10143,9 @@ build_common_tree_nodes (bool signed_char, bool short_double)
   /* Define a boolean type.  This type only represents boolean values but
      may be larger than char depending on the value of BOOL_TYPE_SIZE.  */
   boolean_type_node = make_unsigned_type (BOOL_TYPE_SIZE);
-  TREE_SET_CODE (boolean_type_node, BOOLEAN_TYPE);
-  TYPE_PRECISION (boolean_type_node) = 1;
-  TYPE_MAX_VALUE (boolean_type_node) = build_int_cst (boolean_type_node, 1);
+  boolean_type_node->set_code (BOOLEAN_TYPE);
+  boolean_type_node->set_precision (1);
+  boolean_type_node->set_max_value (build_int_cst (boolean_type_node, 1));
 
   /* Define what type to use for size_t.  */
   if (strcmp (SIZE_TYPE, "unsigned int") == 0)
@@ -10221,8 +10223,8 @@ build_common_tree_nodes (bool signed_char, bool short_double)
   bitsize_one_node = bitsize_int (1);
   bitsize_unit_node = bitsize_int (BITS_PER_UNIT);
 
-  boolean_false_node = TYPE_MIN_VALUE (boolean_type_node);
-  boolean_true_node = TYPE_MAX_VALUE (boolean_type_node);
+  boolean_false_node = boolean_type_node->min_value ();
+  boolean_true_node = boolean_type_node->max_value ();
 
   void_type_node = make_type_node (VOID_TYPE);
   layout_type (void_type_node);
@@ -10231,8 +10233,8 @@ build_common_tree_nodes (bool signed_char, bool short_double)
 
   /* We are not going to have real types in C with less than byte alignment,
      so we might as well not have any types that claim to have it.  */
-  TYPE_ALIGN (void_type_node) = BITS_PER_UNIT;
-  TYPE_USER_ALIGN (void_type_node) = 0;
+  void_type_node->set_align (BITS_PER_UNIT);
+  void_type_node->set_user_align_p (false);
 
   void_node = make_node (VOID_CST);
   TREE_SET_TYPE (void_node, void_type_node);
@@ -10248,18 +10250,18 @@ build_common_tree_nodes (bool signed_char, bool short_double)
   pointer_sized_int_node = build_nonstandard_integer_type (POINTER_SIZE, 1);
 
   float_type_node = make_type_node (REAL_TYPE);
-  TYPE_PRECISION (float_type_node) = FLOAT_TYPE_SIZE;
+  float_type_node->set_precision (FLOAT_TYPE_SIZE);
   layout_type (float_type_node);
 
   double_type_node = make_type_node (REAL_TYPE);
   if (short_double)
-    TYPE_PRECISION (double_type_node) = FLOAT_TYPE_SIZE;
+    double_type_node->set_precision (FLOAT_TYPE_SIZE);
   else
-    TYPE_PRECISION (double_type_node) = DOUBLE_TYPE_SIZE;
+    double_type_node->set_precision (DOUBLE_TYPE_SIZE);
   layout_type (double_type_node);
 
   long_double_type_node = make_type_node (REAL_TYPE);
-  TYPE_PRECISION (long_double_type_node) = LONG_DOUBLE_TYPE_SIZE;
+  long_double_type_node->set_precision (LONG_DOUBLE_TYPE_SIZE);
   layout_type (long_double_type_node);
 
   float_ptr_type_node = build_pointer_type (float_type_node);
@@ -10274,21 +10276,21 @@ build_common_tree_nodes (bool signed_char, bool short_double)
 
   /* Decimal float types. */
   dfloat32_type_node = make_type_node (REAL_TYPE);
-  TYPE_PRECISION (dfloat32_type_node) = DECIMAL32_TYPE_SIZE;
+  dfloat32_type_node->set_precision (DECIMAL32_TYPE_SIZE);
   layout_type (dfloat32_type_node);
-  SET_TYPE_MODE (dfloat32_type_node, SDmode);
+  dfloat32_type_node->set_mode (SDmode);
   dfloat32_ptr_type_node = build_pointer_type (dfloat32_type_node);
 
   dfloat64_type_node = make_type_node (REAL_TYPE);
-  TYPE_PRECISION (dfloat64_type_node) = DECIMAL64_TYPE_SIZE;
+  dfloat64_type_node->set_precision (DECIMAL64_TYPE_SIZE);
   layout_type (dfloat64_type_node);
-  SET_TYPE_MODE (dfloat64_type_node, DDmode);
+  dfloat64_type_node->set_mode (DDmode);
   dfloat64_ptr_type_node = build_pointer_type (dfloat64_type_node);
 
   dfloat128_type_node = make_type_node (REAL_TYPE);
-  TYPE_PRECISION (dfloat128_type_node) = DECIMAL128_TYPE_SIZE;
+  dfloat128_type_node->set_precision (DECIMAL128_TYPE_SIZE);
   layout_type (dfloat128_type_node);
-  SET_TYPE_MODE (dfloat128_type_node, TDmode);
+  dfloat128_type_node->set_mode (TDmode);
   dfloat128_ptr_type_node = build_pointer_type (dfloat128_type_node);
 
   complex_integer_type_node = build_complex_type (integer_type_node);
@@ -10357,7 +10359,7 @@ build_common_tree_nodes (bool signed_char, bool short_double)
        record type without a name.  This breaks name mangling.  So,
        don't copy record types and let c_common_nodes_and_builtins()
        declare the type to be __builtin_va_list.  */
-    if (TREE_CODE (t) != RECORD_TYPE)
+    if (t->code () != RECORD_TYPE)
       t = build_variant_type_copy (t);
 
     va_list_type_node = t;
@@ -10670,49 +10672,49 @@ reconstruct_complex_type (ttype_p type, ttype_p bottom)
 {
   ttype *inner, *outer;
 
-  if (TREE_CODE (type) == POINTER_TYPE)
+  if (type->code () == POINTER_TYPE)
     {
       inner = reconstruct_complex_type (type->type (), bottom);
-      outer = build_pointer_type_for_mode (inner, TYPE_MODE (type),
-					   TYPE_REF_CAN_ALIAS_ALL (type));
+      outer = build_pointer_type_for_mode (inner, type->mode (),
+					   type->ref_can_alias_all ());
     }
-  else if (TREE_CODE (type) == REFERENCE_TYPE)
+  else if (type->code () == REFERENCE_TYPE)
     {
       inner = reconstruct_complex_type (type->type (), bottom);
-      outer = build_reference_type_for_mode (inner, TYPE_MODE (type),
-					     TYPE_REF_CAN_ALIAS_ALL (type));
+      outer = build_reference_type_for_mode (inner, type->mode (),
+					     type->ref_can_alias_all ());
     }
-  else if (TREE_CODE (type) == ARRAY_TYPE)
+  else if (type->code () == ARRAY_TYPE)
     {
       inner = reconstruct_complex_type (type->type (), bottom);
-      outer = build_array_type (inner, TYPE_DOMAIN (type));
+      outer = build_array_type (inner, type->domain ());
     }
-  else if (TREE_CODE (type) == FUNCTION_TYPE)
+  else if (type->code () == FUNCTION_TYPE)
     {
       inner = reconstruct_complex_type (type->type (), bottom);
-      outer = build_function_type (inner, TYPE_ARG_TYPES (type));
+      outer = build_function_type (inner, type->arg_types ());
     }
-  else if (TREE_CODE (type) == METHOD_TYPE)
+  else if (type->code () == METHOD_TYPE)
     {
       inner = reconstruct_complex_type (type->type (), bottom);
       /* The build_method_type_directly() routine prepends 'this' to argument list,
          so we must compensate by getting rid of it.  */
       outer
 	= build_method_type_directly
-	    (TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (type))),
+	    (TREE_TYPE (TREE_VALUE (type->arg_types ())),
 	     inner,
-	     TREE_CHAIN (TYPE_ARG_TYPES (type)));
+	     TREE_CHAIN (type->arg_types ()));
     }
-  else if (TREE_CODE (type) == OFFSET_TYPE)
+  else if (type->code () == OFFSET_TYPE)
     {
       inner = reconstruct_complex_type (type->type (), bottom);
-      outer = build_offset_type (TYPE_OFFSET_BASETYPE (type), inner);
+      outer = build_offset_type (type->offset_basetype (), inner);
     }
   else
     return bottom;
 
-  return build_type_attribute_qual_variant (outer, TYPE_ATTRIBUTES (type),
-					    TYPE_QUALS (type));
+  return build_type_attribute_qual_variant (outer, type->attributes (),
+					    type->quals ());
 }
 
 /* Returns a vector tree node given a mode (integer, vector, or BLKmode) and
@@ -10785,17 +10787,17 @@ build_truth_vector_type (unsigned nunits, unsigned vector_size)
 /* Returns a vector type corresponding to a comparison of VECTYPE.  */
 
 tree
-build_same_sized_truth_vector_type (tree vectype)
+build_same_sized_truth_vector_type (ttype_p vectype)
 {
-  if (VECTOR_BOOLEAN_TYPE_P (vectype))
+  if (vectype->vector_boolean_p ())
     return vectype;
 
-  unsigned HOST_WIDE_INT size = GET_MODE_SIZE (TYPE_MODE (vectype));
+  unsigned HOST_WIDE_INT size = GET_MODE_SIZE (vectype->mode ());
 
   if (!size)
-    size = tree_to_uhwi (TYPE_SIZE_UNIT (vectype));
+    size = tree_to_uhwi (vectype->size_unit ());
 
-  return build_truth_vector_type (TYPE_VECTOR_SUBPARTS (vectype), size);
+  return build_truth_vector_type (vectype->vector_subparts (), size);
 }
 
 /* Similarly, but builds a variant type with TYPE_VECTOR_OPAQUE set.  */
@@ -10809,13 +10811,13 @@ build_opaque_vector_type (ttype_p innertype, int nunits)
      so if it already exists, it is TYPE_NEXT_VARIANT of this one.  */
   cand = t->next_variant ();
   if (cand
-      && TYPE_VECTOR_OPAQUE (cand)
-      && check_qualified_type (cand, t, TYPE_QUALS (t)))
+      && cand->vector_opaque_p ()
+      && check_qualified_type (cand, t, t->quals ()))
     return cand;
   /* Othewise build a variant type and make sure to queue it after
      the non-opaque type.  */
   cand = build_distinct_type_copy (t);
-  TYPE_VECTOR_OPAQUE (cand) = true;
+  cand->set_vector_opaque_p (true);
   cand->set_canonical (t->canonical ());
   cand->set_next_variant (t->next_variant ());
   t->set_next_variant (cand);
@@ -10906,7 +10908,7 @@ uniform_vector_p (const_tree vec)
   if (vec == NULL_TREE)
     return NULL_TREE;
 
-  gcc_assert (VECTOR_TYPE_P (TREE_TYPE (vec)));
+  gcc_assert (TREE_TYPE (vec)->vector_p ());
 
   if (TREE_CODE (vec) == VECTOR_CST)
     {
@@ -10932,7 +10934,7 @@ uniform_vector_p (const_tree vec)
 	  if (!operand_equal_p (first, t, 0))
 	    return NULL_TREE;
         }
-      if (i != TYPE_VECTOR_SUBPARTS (TREE_TYPE (vec)))
+      if (i != TREE_TYPE (vec)->vector_subparts ())
 	return NULL_TREE;
 
       return first;
@@ -11263,7 +11265,7 @@ needs_to_live_in_memory (const_tree t)
 HOST_WIDE_INT
 int_cst_value (const_tree x)
 {
-  unsigned bits = TYPE_PRECISION (TREE_TYPE (x));
+  unsigned bits = TREE_TYPE (x)->precision ();
   unsigned HOST_WIDE_INT val = TREE_INT_CST_LOW (x);
 
   /* Make sure the sign-extended value will fit in a HOST_WIDE_INT.  */
@@ -11286,28 +11288,28 @@ int_cst_value (const_tree x)
    if TYPE is already an integer type of signedness UNSIGNEDP.  */
 
 tree
-signed_or_unsigned_type_for (int unsignedp, tree type)
+signed_or_unsigned_type_for (int unsignedp, ttype_p type)
 {
-  if (TREE_CODE (type) == INTEGER_TYPE && TYPE_UNSIGNED (type) == unsignedp)
+  if (type->code () == INTEGER_TYPE && type->unsigned_p () == unsignedp)
     return type;
 
   if (TREE_CODE (type) == VECTOR_TYPE)
     {
-      tree inner = TREE_TYPE (type);
+      tree inner = type->type ();
       tree inner2 = signed_or_unsigned_type_for (unsignedp, inner);
       if (!inner2)
 	return NULL_TREE;
       if (inner == inner2)
 	return type;
-      return build_vector_type (inner2, TYPE_VECTOR_SUBPARTS (type));
+      return build_vector_type (inner2, type->vector_subparts ());
     }
 
-  if (!INTEGRAL_TYPE_P (type)
-      && !POINTER_TYPE_P (type)
-      && TREE_CODE (type) != OFFSET_TYPE)
+  if (!type->integral_p ()
+      && !type->pointer_p ()
+      && type->code () != OFFSET_TYPE)
     return NULL_TREE;
 
-  return build_nonstandard_integer_type (TYPE_PRECISION (type), unsignedp);
+  return build_nonstandard_integer_type (type->precision (), unsignedp);
 }
 
 /* If TYPE is an integral or pointer type, return an integer type with
@@ -11315,7 +11317,7 @@ signed_or_unsigned_type_for (int unsignedp, tree type)
    unsigned integer type.  */
 
 tree
-unsigned_type_for (tree type)
+unsigned_type_for (ttype_p type)
 {
   return signed_or_unsigned_type_for (1, type);
 }
@@ -11325,7 +11327,7 @@ unsigned_type_for (tree type)
    signed integer type.  */
 
 tree
-signed_type_for (tree type)
+signed_type_for (ttype_p type)
 {
   return signed_or_unsigned_type_for (0, type);
 }
@@ -11334,14 +11336,14 @@ signed_type_for (tree type)
    same width and number of subparts. Otherwise return boolean_type_node.  */
 
 tree
-truth_type_for (tree type)
+truth_type_for (ttype_p type)
 {
-  if (TREE_CODE (type) == VECTOR_TYPE)
+  if (type->code () == VECTOR_TYPE)
     {
-      if (VECTOR_BOOLEAN_TYPE_P (type))
+      if (type->vector_boolean_p ())
 	return type;
-      return build_truth_vector_type (TYPE_VECTOR_SUBPARTS (type),
-				      GET_MODE_SIZE (TYPE_MODE (type)));
+      return build_truth_vector_type (type->vector_subparts (),
+				      GET_MODE_SIZE (type->mode ()));
     }
   else
     return boolean_type_node;
@@ -11351,17 +11353,17 @@ truth_type_for (tree type)
    OUTER type.  */
 
 tree
-upper_bound_in_type (tree outer, tree inner)
+upper_bound_in_type (ttype_p outer, ttype_p inner)
 {
   unsigned int det = 0;
-  unsigned oprec = TYPE_PRECISION (outer);
-  unsigned iprec = TYPE_PRECISION (inner);
+  unsigned oprec = outer->precision ();
+  unsigned iprec = inner->precision ();
   unsigned prec;
 
   /* Compute a unique number for every combination.  */
   det |= (oprec > iprec) ? 4 : 0;
-  det |= TYPE_UNSIGNED (outer) ? 2 : 0;
-  det |= TYPE_UNSIGNED (inner) ? 1 : 0;
+  det |= outer->unsigned_p () ? 2 : 0;
+  det |= inner->unsigned_p () ? 1 : 0;
 
   /* Determine the exponent to use.  */
   switch (det)
@@ -11397,25 +11399,25 @@ upper_bound_in_type (tree outer, tree inner)
     }
 
   return wide_int_to_tree (outer,
-			   wi::mask (prec, false, TYPE_PRECISION (outer)));
+			   wi::mask (prec, false, outer->precision ()));
 }
 
 /* Returns the smallest value obtainable by casting something in INNER type to
    OUTER type.  */
 
 tree
-lower_bound_in_type (tree outer, tree inner)
+lower_bound_in_type (ttype_p outer, ttype_p inner)
 {
-  unsigned oprec = TYPE_PRECISION (outer);
-  unsigned iprec = TYPE_PRECISION (inner);
+  unsigned oprec = outer->precision ();
+  unsigned iprec = inner->precision ();
 
   /* If OUTER type is unsigned, we can definitely cast 0 to OUTER type
      and obtain 0.  */
-  if (TYPE_UNSIGNED (outer)
+  if (outer->unsigned_p ()
       /* If we are widening something of an unsigned type, OUTER type
 	 contains all values of INNER type.  In particular, both INNER
 	 and OUTER types have zero in common.  */
-      || (oprec > iprec && TYPE_UNSIGNED (inner)))
+      || (oprec > iprec && inner->unsigned_p ()))
     return build_int_cst (outer, 0);
   else
     {
@@ -11425,8 +11427,7 @@ lower_bound_in_type (tree outer, tree inner)
 	 -2^(oprec-1).  */
       unsigned prec = oprec > iprec ? iprec : oprec;
       return wide_int_to_tree (outer,
-			       wi::mask (prec - 1, true,
-					 TYPE_PRECISION (outer)));
+			       wi::mask (prec - 1, true, outer->precision ()));
     }
 }
 
@@ -11469,12 +11470,12 @@ num_ending_zeros (const_tree x)
    value are as for walk_tree.  */
 
 static tree
-walk_type_fields (tree type, walk_tree_fn func, void *data,
+walk_type_fields (ttype *type, walk_tree_fn func, void *data,
 		  hash_set<tree> *pset, walk_tree_lh lh)
 {
   tree result = NULL_TREE;
 
-  switch (TREE_CODE (type))
+  switch (type->code ())
     {
     case POINTER_TYPE:
     case REFERENCE_TYPE:
@@ -11486,13 +11487,14 @@ walk_type_fields (tree type, walk_tree_fn func, void *data,
 	 points to another pointer, that one does too, and we have no htab.
 	 If so, get a hash table.  We check three levels deep to avoid
 	 the cost of the hash table if we don't need one.  */
-      if (POINTER_TYPE_P (TREE_TYPE (type))
-	  && POINTER_TYPE_P (TREE_TYPE (type)->type ())
-	  && POINTER_TYPE_P (TREE_TYPE (type)->type()->type ())
+      if (type->type()->pointer_p ()
+	  && type->type()->type()->pointer_p ()
+	  && type->type()->type()->type()->pointer_p ()
 	  && !pset)
 	{
-	  result = walk_tree_without_duplicates (TREE_TYPE_PTR (type),
-						 func, data);
+	  result 
+	    = walk_tree_without_duplicates (type->type_ptr (),
+					    func, data);
 	  if (result)
 	    return result;
 
@@ -11502,21 +11504,21 @@ walk_type_fields (tree type, walk_tree_fn func, void *data,
       /* ... fall through ... */
 
     case COMPLEX_TYPE:
-      WALK_SUBTREE (TREE_TYPE_PTR (type));
+      WALK_SUBTREE (type->type_ptr ());
       break;
 
     case METHOD_TYPE:
-      WALK_SUBTREE (&(TYPE_METHOD_BASETYPE (type)));
+      WALK_SUBTREE (type->method_basetype_ptr ());
 
       /* Fall through.  */
 
     case FUNCTION_TYPE:
-      WALK_SUBTREE (TREE_TYPE_PTR (type));
+      WALK_SUBTREE (type->type_ptr ());
       {
 	tree arg;
 
 	/* We never want to walk into default arguments.  */
-	for (arg = TYPE_ARG_TYPES (type); arg; arg = TREE_CHAIN (arg))
+	for (arg = type->arg_types (); arg; arg = TREE_CHAIN (arg))
 	  WALK_SUBTREE (&(TREE_VALUE (arg)));
       }
       break;
@@ -11526,15 +11528,15 @@ walk_type_fields (tree type, walk_tree_fn func, void *data,
 	 we'll have infinite recursion.  If we have a PSET, then we
 	 need not fear.  */
       if (pset
-	  || (!POINTER_TYPE_P (TREE_TYPE (type))
-	      && TREE_CODE (TREE_TYPE (type)) != OFFSET_TYPE))
-	WALK_SUBTREE (TREE_TYPE_PTR (type));
-      WALK_SUBTREE (&(TYPE_DOMAIN (type)));
+	  || (!type->type()->pointer_p ()
+	      && type->type()->code () != OFFSET_TYPE))
+	WALK_SUBTREE (type->type_ptr ());
+      WALK_SUBTREE (type->domain_ptr ());
       break;
 
     case OFFSET_TYPE:
-      WALK_SUBTREE (TREE_TYPE_PTR (type));
-      WALK_SUBTREE (&(TYPE_OFFSET_BASETYPE (type)));
+      WALK_SUBTREE (type->type_ptr ());
+      WALK_SUBTREE (type->offset_basetype_ptr ());
       break;
 
     default:
@@ -11549,6 +11551,12 @@ walk_type_fields (tree type, walk_tree_fn func, void *data,
    non-NULL value, the traversal is stopped, and the value returned by FUNC
    is returned.  If PSET is non-NULL it is used to record the nodes visited,
    and to avoid visiting a node more than once.  */
+tree
+walk_tree_1 (ttype **tp, walk_tree_fn func, void *data,
+	     hash_set<tree> *pset, walk_tree_lh lh)
+{
+  return walk_tree_1 (TREE_PTR_CAST (tp), func, data, pset, lh);
+}
 
 tree
 walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
@@ -11561,7 +11569,7 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 #define WALK_SUBTREE_TAIL(NODE)				\
   do							\
     {							\
-       tp = & (NODE);					\
+       tp = NODE;					\
        goto tail_recurse;				\
     }							\
   while (0)
@@ -11592,9 +11600,9 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
     {
       /* But we still need to check our siblings.  */
       if (code == TREE_LIST)
-	WALK_SUBTREE_TAIL (TREE_CHAIN (*tp));
+	WALK_SUBTREE_TAIL (&(TREE_CHAIN (*tp)));
       else if (code == OMP_CLAUSE)
-	WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
+	WALK_SUBTREE_TAIL (&(OMP_CLAUSE_CHAIN (*tp)));
       else
 	return NULL_TREE;
     }
@@ -11626,7 +11634,7 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 
     case TREE_LIST:
       WALK_SUBTREE (&(TREE_VALUE (*tp)));
-      WALK_SUBTREE_TAIL (TREE_CHAIN (*tp));
+      WALK_SUBTREE_TAIL (&(TREE_CHAIN (*tp)));
       break;
 
     case TREE_VEC:
@@ -11641,12 +11649,12 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	  WALK_SUBTREE (&(TREE_VEC_ELT (*tp, len)));
 
 	/* Now walk the first one as a tail call.  */
-	WALK_SUBTREE_TAIL (TREE_VEC_ELT (*tp, 0));
+	WALK_SUBTREE_TAIL (&(TREE_VEC_ELT (*tp, 0)));
       }
 
     case COMPLEX_CST:
       WALK_SUBTREE (&(TREE_REALPART (*tp)));
-      WALK_SUBTREE_TAIL (TREE_IMAGPART (*tp));
+      WALK_SUBTREE_TAIL (&(TREE_IMAGPART (*tp)));
 
     case CONSTRUCTOR:
       {
@@ -11660,7 +11668,7 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
       break;
 
     case SAVE_EXPR:
-      WALK_SUBTREE_TAIL (TREE_OPERAND (*tp, 0));
+      WALK_SUBTREE_TAIL (&(TREE_OPERAND (*tp, 0)));
 
     case BIND_EXPR:
       {
@@ -11676,7 +11684,7 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	    WALK_SUBTREE (&(DECL_SIZE (decl)));
 	    WALK_SUBTREE (&(DECL_SIZE_UNIT (decl)));
 	  }
-	WALK_SUBTREE_TAIL (BIND_EXPR_BODY (*tp));
+	WALK_SUBTREE_TAIL (&(BIND_EXPR_BODY (*tp)));
       }
 
     case STATEMENT_LIST:
@@ -11753,26 +11761,26 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_AUTO:
 	case OMP_CLAUSE_SEQ:
 	case OMP_CLAUSE_TILE:
-	  WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
+	  WALK_SUBTREE_TAIL (&(OMP_CLAUSE_CHAIN (*tp)));
 
 	case OMP_CLAUSE_LASTPRIVATE:
 	  WALK_SUBTREE (&(OMP_CLAUSE_DECL (*tp)));
 	  WALK_SUBTREE (&(OMP_CLAUSE_LASTPRIVATE_STMT (*tp)));
-	  WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
+	  WALK_SUBTREE_TAIL (&(OMP_CLAUSE_CHAIN (*tp)));
 
 	case OMP_CLAUSE_COLLAPSE:
 	  {
 	    int i;
 	    for (i = 0; i < 3; i++)
 	      WALK_SUBTREE (&(OMP_CLAUSE_OPERAND (*tp, i)));
-	    WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
+	    WALK_SUBTREE_TAIL (&(OMP_CLAUSE_CHAIN (*tp)));
 	  }
 
 	case OMP_CLAUSE_LINEAR:
 	  WALK_SUBTREE (&(OMP_CLAUSE_DECL (*tp)));
 	  WALK_SUBTREE (&(OMP_CLAUSE_LINEAR_STEP (*tp)));
 	  WALK_SUBTREE (&(OMP_CLAUSE_LINEAR_STMT (*tp)));
-	  WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
+	  WALK_SUBTREE_TAIL (&(OMP_CLAUSE_CHAIN (*tp)));
 
 	case OMP_CLAUSE_ALIGNED:
 	case OMP_CLAUSE_FROM:
@@ -11781,14 +11789,14 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE__CACHE_:
 	  WALK_SUBTREE (&(OMP_CLAUSE_DECL (*tp)));
 	  WALK_SUBTREE (&(OMP_CLAUSE_OPERAND (*tp, 1)));
-	  WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
+	  WALK_SUBTREE_TAIL (&(OMP_CLAUSE_CHAIN (*tp)));
 
 	case OMP_CLAUSE_REDUCTION:
 	  {
 	    int i;
 	    for (i = 0; i < 5; i++)
 	      WALK_SUBTREE (&(OMP_CLAUSE_OPERAND (*tp, i)));
-	    WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
+	    WALK_SUBTREE_TAIL (&(OMP_CLAUSE_CHAIN (*tp)));
 	  }
 
 	default:
@@ -11805,7 +11813,7 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	len = (TREE_OPERAND (*tp, 3) == TREE_OPERAND (*tp, 1)) ? 2 : 3;
 	for (i = 0; i < len; ++i)
 	  WALK_SUBTREE (&(TREE_OPERAND (*tp, i)));
-	WALK_SUBTREE_TAIL (TREE_OPERAND (*tp, len));
+	WALK_SUBTREE_TAIL (&(TREE_OPERAND (*tp, len)));
       }
 
     case DECL_EXPR:
@@ -11822,20 +11830,20 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	 Note that DECLs get walked as part of processing the BIND_EXPR.  */
       if (TREE_CODE (DECL_EXPR_DECL (*tp)) == TYPE_DECL)
 	{
-	  tree *type_p = TREE_TYPE_PTR (DECL_EXPR_DECL (*tp));
+	  ttype **type_p = TREE_TYPE_PTR (DECL_EXPR_DECL (*tp));
 	  if (TREE_CODE (*type_p) == ERROR_MARK)
 	    return NULL_TREE;
 
 	  /* Call the function for the type.  See if it returns anything or
 	     doesn't want us to continue.  If we are to continue, walk both
 	     the normal fields and those for the declaration case.  */
-	  result = (*func) (type_p, &walk_subtrees, data);
+	  result = (*func) (TREE_PTR_CAST (type_p), &walk_subtrees, data);
 	  if (result || !walk_subtrees)
 	    return result;
 
 	  /* But do not walk a pointed-to type since it may itself need to
 	     be walked in the declaration case if it isn't anonymous.  */
-	  if (!POINTER_TYPE_P (*type_p))
+	  if (!(*type_p)->pointer_p ())
 	    {
 	      result = walk_type_fields (*type_p, func, data, pset, lh);
 	      if (result)
@@ -11843,11 +11851,11 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	    }
 
 	  /* If this is a record type, also walk the fields.  */
-	  if (RECORD_OR_UNION_TYPE_P (*type_p))
+	  if ((*type_p)->record_or_union_p ())
 	    {
 	      tree field;
 
-	      for (field = TYPE_FIELDS (*type_p); field;
+	      for (field = (*type_p)->fields (); field;
 		   field = DECL_CHAIN (field))
 		{
 		  /* We'd like to look at the type of the field, but we can
@@ -11860,24 +11868,24 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 		  WALK_SUBTREE (&(DECL_FIELD_OFFSET (field)));
 		  WALK_SUBTREE (&(DECL_SIZE (field)));
 		  WALK_SUBTREE (&(DECL_SIZE_UNIT (field)));
-		  if (TREE_CODE (*type_p) == QUAL_UNION_TYPE)
+		  if ((*type_p)->code () == QUAL_UNION_TYPE)
 		    WALK_SUBTREE (&(DECL_QUALIFIER (field)));
 		}
 	    }
 
 	  /* Same for scalar types.  */
-	  else if (TREE_CODE (*type_p) == BOOLEAN_TYPE
-		   || TREE_CODE (*type_p) == ENUMERAL_TYPE
-		   || TREE_CODE (*type_p) == INTEGER_TYPE
-		   || TREE_CODE (*type_p) == FIXED_POINT_TYPE
-		   || TREE_CODE (*type_p) == REAL_TYPE)
+	  else if ((*type_p)->code () == BOOLEAN_TYPE
+		   || (*type_p)->code ()  == ENUMERAL_TYPE
+		   || (*type_p)->code ()  == INTEGER_TYPE
+		   || (*type_p)->code ()  == FIXED_POINT_TYPE
+		   || (*type_p)->code ()  == REAL_TYPE)
 	    {
-	      WALK_SUBTREE (&(TYPE_MIN_VALUE (*type_p)));
-	      WALK_SUBTREE (&(TYPE_MAX_VALUE (*type_p)));
+	      WALK_SUBTREE ((*type_p)->min_value_ptr ());
+	      WALK_SUBTREE ((*type_p)->max_value_ptr ());
 	    }
 
-	  WALK_SUBTREE (&(TYPE_SIZE (*type_p)));
-	  WALK_SUBTREE_TAIL (TYPE_SIZE_UNIT (*type_p));
+	  WALK_SUBTREE ((*type_p)->size_ptr ());
+	  WALK_SUBTREE_TAIL ((*type_p)->size_unit_ptr ());
 	}
       /* FALLTHRU */
 
@@ -11895,12 +11903,12 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	    {
 	      for (i = 0; i < len - 1; ++i)
 		WALK_SUBTREE (&(TREE_OPERAND (*tp, i)));
-	      WALK_SUBTREE_TAIL (TREE_OPERAND (*tp, len - 1));
+	      WALK_SUBTREE_TAIL (&(TREE_OPERAND (*tp, len - 1)));
 	    }
 	}
       /* If this is a type, walk the needed fields in the type.  */
       else if (TYPE_P (*tp))
-	return walk_type_fields (*tp, func, data, pset, lh);
+	return walk_type_fields (as_a<ttype *> (*tp), func, data, pset, lh);
       break;
     }
 
@@ -11912,6 +11920,13 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 #undef WALK_SUBTREE
 
 /* Like walk_tree, but does not walk duplicate nodes more than once.  */
+
+tree
+walk_tree_without_duplicates_1 (ttype **tp, walk_tree_fn func, void *data,
+				walk_tree_lh lh)
+{
+  return walk_tree_without_duplicates_1 (TREE_PTR_CAST (tp), func, data, lh);
+}
 
 tree
 walk_tree_without_duplicates_1 (tree *tp, walk_tree_fn func, void *data,
@@ -12019,13 +12034,13 @@ stdarg_p (const_tree fntype)
 /* Return true if TYPE has a prototype.  */
 
 bool
-prototype_p (const_tree fntype)
+prototype_p (const ttype_p fntype)
 {
   tree t;
 
-  gcc_assert (fntype != NULL_TREE);
+  gcc_assert (fntype != NULL_TYPE);
 
-  t = TYPE_ARG_TYPES (fntype);
+  t = fntype->arg_types ();
   return (t != NULL_TREE);
 }
 

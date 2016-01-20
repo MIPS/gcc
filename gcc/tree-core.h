@@ -1824,6 +1824,7 @@ public:
   inline tree chain() const;
   inline void set_chain (tree t);
   inline ttype *type () const;
+  inline ttype **type_ptr ();
   inline void set_type (ttype *);
 
   inline bool asm_written_p() const;
@@ -1873,6 +1874,7 @@ public:
   inline ttype *next_ref_to () const;
   inline void set_next_ref_to (ttype *);
   inline ttype *domain () const;
+  inline ttype **domain_ptr ();
   inline void set_domain (ttype *);
   inline tree values () const;
   inline void set_values (tree);
@@ -1905,11 +1907,15 @@ public:
   inline void set_artificial_p (bool);
   inline bool sizes_gimplified_p () const;
   inline void set_sizes_gimplified_p (bool);
+  inline bool string_flag_p () const;
+  inline void set_string_flag_p (bool f);
 
   /* vector  */
   enum machine_mode vector_mode() const;
   inline unsigned vector_subparts() const;
   inline void set_vector_subparts(unsigned);
+  inline bool vector_opaque_p () const;
+  inline void set_vector_opaque_p (bool );
 
   /* method or function */
   inline tree arg_types () const;
@@ -1917,8 +1923,10 @@ public:
   inline tree methods () const;
   inline void set_methods (tree t);
   inline ttype *method_basetype() const;
+  inline ttype **method_basetype_ptr ();
   inline void set_method_basetype (ttype*);
   inline ttype *offset_basetype () const;
+  inline ttype **offset_basetype_ptr ();
   inline void set_offset_basetype (ttype *);
 
   /* record or union. */
