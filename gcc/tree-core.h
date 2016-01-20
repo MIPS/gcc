@@ -1816,8 +1816,10 @@ public:
   inline unsigned int uid () const;
   inline void set_uid (unsigned int n);
   inline tree size () const;
+  inline tree *size_ptr ();
   inline void set_size (tree t);
   inline tree size_unit () const;
+  inline tree *size_unit_ptr ();
   inline void set_size_unit (tree t);
   inline tree chain() const;
   inline void set_chain (tree t);
@@ -1872,6 +1874,8 @@ public:
   inline void set_next_ref_to (ttype *);
   inline ttype *domain () const;
   inline void set_domain (ttype *);
+  inline tree values () const;
+  inline void set_values (tree);
   inline tree name () const;
   inline tree *name_ptr ();
   inline void set_name (tree);
@@ -1897,11 +1901,17 @@ public:
   inline enum machine_mode mode_raw () const;
   inline enum machine_mode mode () const;
   inline void set_mode (enum machine_mode m);
+  inline bool artificial_p () const;
+  inline void set_artificial_p (bool);
+  inline bool sizes_gimplified_p () const;
+  inline void set_sizes_gimplified_p (bool);
 
+  /* vector  */
   enum machine_mode vector_mode() const;
   inline unsigned vector_subparts() const;
   inline void set_vector_subparts(unsigned);
 
+  /* method or function */
   inline tree arg_types () const;
   inline void set_arg_types (tree);
   inline tree methods () const;
@@ -1910,11 +1920,35 @@ public:
   inline void set_method_basetype (ttype*);
   inline ttype *offset_basetype () const;
   inline void set_offset_basetype (ttype *);
-  
+
+  /* record or union. */
+  inline tree fields () const;
+  inline void set_fields (tree);
+  inline tree vfield () const;
+  inline void set_vfield (tree);
+  inline tree binfo () const;
+  inline void set_binfo (tree);
+  inline tree lang_slot_1 () const;
+  inline void set_lang_slot_1 (tree);
+
+  /* array */
+  inline tree array_max_size () const;
+  inline void set_array_max_size (tree);
+
   inline tree max_value () const;
+  inline tree *max_value_ptr ();
   inline void set_max_value (tree);
   inline tree min_value () const;
+  inline tree *min_value_ptr ();
   inline void set_min_value (tree);
+  inline unsigned int contains_placeholder_internal () const;
+  inline void set_contains_placeholder_internal (unsigned int);
+  inline tree maxval () const;
+  inline void set_maxval (tree);
+  inline tree minval () const;
+  inline void set_minval (tree);
+  inline tree stub_decl () const;
+  inline void set_stub_decl (tree);
 
   inline int quals () const;
   inline int quals_no_addr_space () const;
@@ -1925,9 +1959,16 @@ public:
   inline bool pointer_p () const;
   inline bool record_or_union_p () const;
   inline bool integral_p () const;
+  inline bool any_integral_p () const;
   inline bool scalar_float_p () const;
   inline bool fixed_point_p () const;
+  inline bool aggregate_p () const;
+  inline bool saturating_p () const;
+  inline bool void_p () const;
+  inline bool vector_boolean_p () const;
+  bool overflow_traps_p () const;
 
+  inline void clear_lang_flags ();
 
 };
 

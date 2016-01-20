@@ -453,9 +453,6 @@ extern const REAL_VALUE_TYPE *dconst_ninth_ptr (void);
 /* Returns the special REAL_VALUE_TYPE corresponding to sqrt(2).  */
 extern const REAL_VALUE_TYPE * dconst_sqrt2_ptr (void);
 
-/* Function to return a real value (not a tree node)
-   from a given integer constant.  */
-REAL_VALUE_TYPE real_value_from_int_cst (const_tree, const_tree);
 
 /* Return a CONST_DOUBLE with value R and mode M.  */
 extern rtx const_double_from_real_value (REAL_VALUE_TYPE, machine_mode);

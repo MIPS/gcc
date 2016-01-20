@@ -19,11 +19,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_TTYPE_H
 #define GCC_TTYPE_H
 
-#undef TREE_TYPE
-#define TREE_TYPE(NODE) \
-      TTYPE ((CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->u.typed.type))
-
-#ifndef TTYPE_DEVELOPING
+#ifdef TTYPE_DEVELOPING
 #undef TREE_TTYPE
 
 #undef TYPE_HASH
@@ -120,7 +116,51 @@ along with GCC; see the file COPYING3.  If not see
 #undef TYPE_FILE_SCOPE_P
 #undef TYPE_DECL_SUPPRESS_DEBUG
 
+#undef VECTOR_TYPE_P
+#undef VECTOR_BOOLEAN_TYPE_P
+#undef INTEGRAL_TYPE_P
+#undef ANY_INTEGRAL_TYPE_P
+#undef NON_SAT_FIXED_POINT_TYPE_P
+#undef SAT_FIXED_POINT_TYPE_P
+#undef FIXED_POINT_TYPE_P
+#undef SCALAR_FLOAT_TYPE_P
+#undef COMPLEX_FLOAT_TYPE_P
+#undef VECTOR_INTEGER_TYPE_P
+#undef VECTOR_FLOAT_TYPE_P
+#undef FLOAT_TYPE_P
+#undef DECIMAL_FLOAT_TYPE_P
+#undef RECORD_OR_UNION_TYPE_P
+#undef AGGREGATE_TYPE_P
+#undef POINTER_TYPE_P
+#undef FUNCTION_POINTER_TYPE_P
+#undef COMPLETE_TYPE_P
+#undef POINTER_BOUNDS_TYPE_P
+#undef BOUNDED_TYPE_P
+#undef VOID_TYPE_P
+#undef COMPLETE_OR_VOID_TYPE_P
+#undef COMPLETE_OR_UNBOUND_ARRAY_TYPE_P
+#undef FUNC_OR_METHOD_TYPE_P
 #endif
+
+/* THese macros are defined using one of hte above, and thus need to be
+   redefined in tree.h as they are here once this comes into full production
+   and this file is removed. */
+
+#undef VECTOR_CST_NELTS
+#define VECTOR_CST_NELTS(NODE)  (TREE_TYPE (NODE)->vector_subparts())
+#define DECL_CONTEXT_TYPE_P(NODE) (TYPE_P (DECL_CONTEXT (NODE)))
+#define DECL_CONTEXT_TYPE(NODE) (TTYPE (DECL_CONTEXT (NODE)))
+
+#undef TREE_TYPE
+
+static inline ttype *TREE_TYPE (const_tree NODE) 
+    { return TTYPE ((CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->u.typed.type)); }
+static inline ttype *TREE_TYPE (tree NODE) 
+    { return TTYPE ((CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->u.typed.type)); }
+
+ttype *TREE_TYPE (ttype *node)  __attribute__((error(" Fix use of TREE_TTYPE(ttype *)")));
+
+ttype *TREE_TYPE (ttype_p node)  __attribute__((error(" Fix use of TREE_TTYPE(ttype_p)")));
 
 
 #endif 

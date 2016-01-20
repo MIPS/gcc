@@ -6907,7 +6907,7 @@ ix86_handle_tm_regparm_get_attr ()
     alt = tree_cons (get_identifier ("fastcall"), NULL, NULL);
   else
     {
-      alt = tree_cons (NULL, build_int_cst (NULL, 2), NULL);
+      alt = tree_cons (NULL, build_int_cst (NULL_TYPE, 2), NULL);
       alt = tree_cons (get_identifier ("regparm"), alt, NULL);
     }
   return alt;

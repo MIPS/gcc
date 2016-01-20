@@ -2300,9 +2300,9 @@ int_safely_convertible_to_real_p (const_tree from_type, const_tree to_type)
   tree type_low_bound = TYPE_MIN_VALUE (from_type);
   tree type_high_bound = TYPE_MAX_VALUE (from_type);
   REAL_VALUE_TYPE real_low_bound =
-	  real_value_from_int_cst (0, type_low_bound);
+	  real_value_from_int_cst (NULL_TYPE, type_low_bound);
   REAL_VALUE_TYPE real_high_bound =
-	  real_value_from_int_cst (0, type_high_bound);
+	  real_value_from_int_cst (NULL_TYPE, type_high_bound);
 
   return exact_real_truncate (TYPE_MODE (to_type), &real_low_bound)
 	 && exact_real_truncate (TYPE_MODE (to_type), &real_high_bound);
@@ -2376,7 +2376,7 @@ unsafe_conversion_p (location_t loc, tree type, tree expr, bool produce_warns)
 	  /* Warn for an integer constant that does not fit into real type.  */
 	  if (TREE_CODE (expr_type) == INTEGER_TYPE)
 	    {
-	      REAL_VALUE_TYPE a = real_value_from_int_cst (0, expr);
+	      REAL_VALUE_TYPE a = real_value_from_int_cst (NULL_TYPE, expr);
 	      if (!exact_real_truncate (TYPE_MODE (type), &a))
 		give_warning = UNSAFE_REAL;
 	    }
