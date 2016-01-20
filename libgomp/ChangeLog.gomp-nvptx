@@ -1,3 +1,7 @@
+2016-01-20  Dmitry Melnik  <dm@ispras.ru>
+
+	* config/nvptx/time.c: New.
+
 2016-01-20  Alexander Monakov  <amonakov@ispras.ru>
 
 	* config/nvptx/section.c: Delete.
