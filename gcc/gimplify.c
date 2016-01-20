@@ -8505,6 +8505,26 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
       gcc_unreachable ();
     }
 
+  /* Strip out reductions, as they are not handled yet.  */
+  if (gimplify_omp_ctxp != NULL
+      && (gimplify_omp_ctxp->region_type == ORT_ACC_KERNELS
+	  || (gimplify_omp_ctxp->outer_context != NULL
+	      && (gimplify_omp_ctxp->outer_context->region_type
+		  == ORT_ACC_KERNELS))))
+    {
+      tree *prev_ptr = &OMP_FOR_CLAUSES (for_stmt);
+
+      while (tree probe = *prev_ptr)
+	{
+	  tree *next_ptr = &OMP_CLAUSE_CHAIN (probe);
+
+	  if (OMP_CLAUSE_CODE (probe) == OMP_CLAUSE_REDUCTION)
+	    *prev_ptr = *next_ptr;
+	  else
+	    prev_ptr = next_ptr;
+	}
+    }
+
   if (ort == ORT_ACC)
     localize_reductions (expr_p, false);
 

@@ -17,6 +17,4 @@ end subroutine
 
 ! { dg-final { scan-tree-dump-times "target oacc_parallel firstprivate.a." 1 "gimple" } }
 ! { dg-final { scan-tree-dump-times "acc loop reduction..:a. private.p." 1 "gimple" } }
-! { dg-final { scan-tree-dump-times "target oacc_kernels map.force_tofrom:a .len: 4.." 1 "gimple" } }
-! { dg-final { scan-tree-dump-times "acc loop reduction..:a. private.k." 1 "gimple" } }
 

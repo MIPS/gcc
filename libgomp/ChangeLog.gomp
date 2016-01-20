@@ -1,3 +1,8 @@
+2016-01-20  Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libgomp.oacc-fortran/kernels-acc-loop-reduction-2.f90: New test.
+	* testsuite/libgomp.oacc-fortran/kernels-acc-loop-reduction.f90: New test.
+
 2016-01-15  Cesar Philippidis  <cesar@codesourcery.com>
 
 	Backport from trunk:

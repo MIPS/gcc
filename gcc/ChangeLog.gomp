@@ -1,3 +1,8 @@
+2016-01-20  Tom de Vries  <tom@codesourcery.com>
+
+	* gimplify.c (gimplify_omp_for): Remove reduction clauses in kernels
+	region.
+
 2016-01-15  Cesar Philippidis  <cesar@codesourcery.com>
 
 	Backport from trunk:
