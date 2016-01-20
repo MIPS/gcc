@@ -1283,6 +1283,13 @@
 #endif
 
 
+/* Define if the gold linker supports split stack and is available as a
+   non-default */
+#ifndef USED_FOR_TARGET
+#undef HAVE_GOLD_NON_DEFAULT_SPLIT_STACK
+#endif
+
+
 /* Define if you have the iconv() function. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_ICONV
@@ -1416,9 +1423,9 @@
 #endif
 
 
-/* Define to if the gold linker with split stack is available as a non-default. */
+/* Define if your PowerPC64 gold linker supports split stack. */
 #ifndef USED_FOR_TARGET
-#undef HAVE_GOLD_NON_DEFAULT_SPLIT_STACK
+#undef HAVE_LD_GOLD_SUPPORTS_SPLIT_STACK
 #endif
 
 
@@ -2006,6 +2013,12 @@
 /* GNU C Library minor version number used on the target, or 0. */
 #ifndef USED_FOR_TARGET
 #undef TARGET_GLIBC_MINOR
+#endif
+
+
+/* Define if your target C Library provides the AT_HWCAP value in the TCB */
+#ifndef USED_FOR_TARGET
+#undef TARGET_LIBC_PROVIDES_HWCAP_IN_TCB
 #endif
 
 
