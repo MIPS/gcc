@@ -3459,7 +3459,7 @@ mips_regno_mode_ok_for_base_p (int regno, machine_mode mode,
     return GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8;
 
   if (MIPS16_GP_LOADS && regno == GLOBAL_POINTER_REGNUM)
-    return GET_MODE_SIZE (mode) <= 4;
+    return (UNITS_PER_WORD > 4 ? GET_MODE_SIZE (mode) <= 4 : true);
 
   return TARGET_MIPS16 ? M16_REG_P (regno) : GP_REG_P (regno);
 }
