@@ -25,7 +25,7 @@ fp128_softfp_obj	= $(fp128_softfp_static_obj) $(fp128_softfp_shared_obj)
 # New functions for software emulation
 fp128_ppc_funcs		= floattikf floatuntikf fixkfti fixunskfti \
 			  extendkftf2-sw trunctfkf2-sw \
-			  sfp-exceptions float128-ifunc
+			  sfp-exceptions
 
 fp128_ppc_src		= $(addprefix $(srcdir)/config/rs6000/,$(addsuffix \
 				.c,$(fp128_ppc_funcs)))
@@ -35,15 +35,15 @@ fp128_ppc_obj		= $(fp128_ppc_static_obj) $(fp128_ppc_shared_obj)
 
 # All functions
 fp128_funcs		= $(fp128_softfp_funcs) $(fp128_ppc_funcs) \
-			  $(fp128_hw_funcs)
+			  $(fp128_hw_funcs) $(fp128_ifunc_funcs)
 
 fp128_src		= $(fp128_softfp_src) $(fp128_ppc_src) \
-			  $(fp128_hw_src)
+			  $(fp128_hw_src) $(fp128_ifunc_src)
 
 fp128_obj		= $(fp128_softfp_obj) $(fp128_ppc_obj) \
-			  $(fp128_hw_obj)
+			  $(fp128_hw_obj) $(fp128_ifunc_obj)
 
-fp128_sed		= $(srcdir)/config/rs6000/float128-sed
+fp128_sed		= $(srcdir)/config/rs6000/float128-sed$(fp128_sed_hw)
 fp128_dep		= $(fp128_sed) $(srcdir)/config/rs6000/t-float128
 
 fp128_includes		= $(srcdir)/soft-fp/double.h \

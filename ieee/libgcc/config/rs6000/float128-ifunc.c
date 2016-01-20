@@ -37,7 +37,14 @@
 #include <stdlib.h>
 #include <ctype.h>
 
-#ifdef FLOAT128_HW_INSNS
+#ifndef FLOAT128_HW_INSNS
+#error "float128-ifunc.c needs access to ISA 3.0 instructions and ifunc"
+#endif
+
+#ifdef __FLOAT128_HARDWARE__
+#error "This module must not be compiled with IEEE 128-bit hardware support"
+#endif
+
 #include <sys/auxv.h>
 
 /* Use the namespace clean version of getauxval.  However, not all versions of
@@ -79,9 +86,6 @@ have_ieee_hw_p (void)
 }
 
 #define SW_OR_HW(SW, HW) (have_ieee_hw_p () ? HW : SW)
-#else
-#define SW_OR_HW(SW, HW) (SW)
-#endif	/* ISA 3.0 hardware available.  */
 
 /* Resolvers.  */
 
@@ -351,8 +355,8 @@ TFtype __floatunsikf (USItype_ppc)
 TFtype __floatundikf (UDItype_ppc)
   __attribute__ ((__ifunc__ ("__floatundikf_resolve")));
 
-__ibm128 __extendkftf2 (TFtype)
+IBM128_TYPE __extendkftf2 (TFtype)
   __attribute__ ((__ifunc__ ("__extendkftf2_resolve")));
 
-TFtype __trunctfkf2 (__ibm128)
+TFtype __trunctfkf2 (IBM128_TYPE)
   __attribute__ ((__ifunc__ ("__trunctfkf2_resolve")));

@@ -39,10 +39,10 @@
 #include "soft-fp.h"
 #include "quad-float128.h"
 
-__ibm128
+IBM128_TYPE
 __extendkftf2_sw (__float128 value)
 {
-  __ibm128 ret;
+  IBM128_TYPE ret;
 
   CVT_FLOAT128_TO_IBM128 (ret, value);
   return ret;

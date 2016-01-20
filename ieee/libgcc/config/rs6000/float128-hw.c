@@ -187,10 +187,10 @@ __unordkf2_hw (TFtype a, TFtype b)
 }
 
 /* Convert __float128 to __ibm128.  */
-__ibm128
+IBM128_TYPE
 __extendkftf2_hw (TFtype value)
 {
-  __ibm128 ret;
+  IBM128_TYPE ret;
 
   CVT_FLOAT128_TO_IBM128 (ret, value);
   return ret;
@@ -198,7 +198,7 @@ __extendkftf2_hw (TFtype value)
 
 /* Convert __ibm128 to __float128.  */
 TFtype
-__trunctfkf2_hw (__ibm128 value)
+__trunctfkf2_hw (IBM128_TYPE value)
 {
   TFtype ret;
 

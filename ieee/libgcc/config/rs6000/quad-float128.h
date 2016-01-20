@@ -40,6 +40,13 @@
 
 #include <quad.h>
 
+#ifdef __LONG_DOUBLE_IEEE128__
+#define IBM128_TYPE		__ibm128
+
+#else
+#define IBM128_TYPE		long double
+#endif
+
 /* Add prototypes of the library functions created.  In case the appropriate
    int/long types are not declared in scope by the time quad.h is included,
    provide our own version.  */
@@ -75,8 +82,8 @@ extern TFtype __floatsikf_sw (SItype_ppc);
 extern TFtype __floatdikf_sw (DItype_ppc);
 extern TFtype __floatunsikf_sw (USItype_ppc);
 extern TFtype __floatundikf_sw (UDItype_ppc);
-extern __ibm128 __extendkftf2_sw (TFtype);
-extern TFtype __trunctfkf2_sw (__ibm128);
+extern IBM128_TYPE __extendkftf2_sw (TFtype);
+extern TFtype __trunctfkf2_sw (IBM128_TYPE);
 
 #ifdef _ARCH_PPC64
 /* We do not provide ifunc resolvers for __fixkfti, __fixunskfti, __floattikf,
@@ -115,8 +122,8 @@ extern TFtype __floatsikf_hw (SItype_ppc);
 extern TFtype __floatdikf_hw (DItype_ppc);
 extern TFtype __floatunsikf_hw (USItype_ppc);
 extern TFtype __floatundikf_hw (UDItype_ppc);
-extern __ibm128 __extendkftf2_hw (TFtype);
-extern TFtype __trunctfkf2_hw (__ibm128);
+extern IBM128_TYPE __extendkftf2_hw (TFtype);
+extern TFtype __trunctfkf2_hw (IBM128_TYPE);
 
 /* Ifunc function declarations, to automatically switch between software
    emulation and hardware support.  */
@@ -144,25 +151,23 @@ extern TFtype __floatsikf (SItype_ppc);
 extern TFtype __floatdikf (DItype_ppc);
 extern TFtype __floatunsikf (USItype_ppc);
 extern TFtype __floatundikf (UDItype_ppc);
-extern __ibm128 __extendkftf2 (TFtype);
-extern TFtype __trunctfkf2 (__ibm128);
-
-#ifdef __LITTLE_ENDIAN__
-#define HIGH_WORD	1
-#define LOW_WORD	0
-#else
-#define HIGH_WORD	0
-#define LOW_WORD	1
-#endif
+extern IBM128_TYPE __extendkftf2 (TFtype);
+extern TFtype __trunctfkf2 (IBM128_TYPE);
 
 /* Implementation of conversions between __ibm128 and __float128, to allow the
    same code to be used on systems with IEEE 128-bit emulation and with IEEE
    128-bit hardware support.  */
 
+union ibm128_union {
+  IBM128_TYPE ibm128;
+  double dbl[2];
+};
+
 #define CVT_FLOAT128_TO_IBM128(RESULT, VALUE)				\
 {									\
   double __high, __low;							\
   __float128 __value = (VALUE);						\
+  union ibm128_union u;							\
 									\
   __high = (double) __value;						\
   if (__builtin_isnan (__high) || __builtin_isinf (__high))		\
@@ -180,14 +185,19 @@ extern TFtype __trunctfkf2 (__ibm128);
       __high = __high_temp;						\
     }									\
 									\
-  RESULT = __builtin_pack_ibm128 (__high, __low);			\
+  u.dbl[0] = __high;							\
+  u.dbl[1] = __low;							\
+  RESULT = u.ibm128;							\
 }
 
 #define CVT_IBM128_TO_FLOAT128(RESULT, VALUE)				\
 {									\
-  __ibm128 __value = (VALUE);						\
-  double __high = __builtin_unpack_ibm128 (__value, HIGH_WORD);		\
-  double __low = __builtin_unpack_ibm128 (__value, LOW_WORD);		\
+  union ibm128_union u;							\
+  double __high, __low;							\
+									\
+  u.ibm128 = (VALUE);							\
+  __high = u.dbl[0];							\
+  __low = u.dbl[1];							\
 									\
   /* Handle the special cases of NAN and infinity.  */			\
   if (__builtin_isnan (__high) || __builtin_isinf (__high))		\
