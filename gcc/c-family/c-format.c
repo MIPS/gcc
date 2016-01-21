@@ -143,7 +143,8 @@ location_from_offset (location_t loc, int offset)
    for type compatibility.   the langhooks type_compatible_p() routine will
    not consider a derived class to be the same.  */
 static ttype *tree_ptr_node = NULL;
-static ttype *ttype_ptr_node = NULL;
+static ttype *ttype_node = NULL;
+static ttype *ttype_p_node = NULL;
 
 /* Check that we have a pointer to a string suitable for use as a format.
    The default is to check for a char type.
@@ -2551,6 +2552,11 @@ check_format_types (location_t loc, format_wanted_type *types)
 	    }
 	  else
 	    {
+	      /* Hack to allow ttype_p to be compatible with tree_node *.  */
+	      if (cur_type == ttype_p_node && i == 0 
+		  && wanted_type == tree_ptr_node)
+		continue;
+
               format_type_warning (loc, types, wanted_type, orig_cur_type);
 	      break;
 	    }
@@ -2574,9 +2580,10 @@ check_format_types (location_t loc, format_wanted_type *types)
 
       /* ttype is derived from tree, but types_compatible_p wont match derived
 	 types... so manually check for ttype passed to a tree.  */
-      if (cur_type == ttype_ptr_node && wanted_type == tree_ptr_node
-	  && tree_ptr_node && ttype_ptr_node)
-        continue;
+      if (tree_ptr_node && wanted_type == tree_ptr_node
+	  && ((ttype_node && cur_type == ttype_node)
+	      || (ttype_p_node && cur_type == ttype_p_node)))
+	continue;
 
       /* If we want 'void *', allow any pointer type.
 	 (Anything else would already have got a warning.)
@@ -2873,7 +2880,7 @@ init_dynamic_diag_info (void)
   tree x;
 
 
-  if (!loc || !hwi || !tree_ptr_node || !ttype_ptr_node)
+  if (!loc || !hwi || !tree_ptr_node || !ttype_node || !ttype_p_node)
     {
       static format_char_info *diag_fci, *tdiag_fci, *cdiag_fci, *cxxdiag_fci;
       static format_length_info *diag_ls;
@@ -2881,7 +2888,8 @@ init_dynamic_diag_info (void)
 
       loc = hwi = NULL;
       tree_ptr_node = NULL;
-      ttype_ptr_node = NULL;
+      ttype_node = NULL;
+      ttype_p_node = NULL;
 
       /* For the GCC-diagnostics custom format specifiers to work, one
 	 must have declared 'tree' and/or 'location_t' prior to using
@@ -2926,9 +2934,23 @@ init_dynamic_diag_info (void)
 	      if (TREE_CODE (x) != TYPE_DECL)
 		error ("%<ttype%> is not defined as a type");
 	      else
-		ttype_ptr_node = TREE_TTYPE (x);
+		ttype_node = TREE_TTYPE (x);
 	    }
 	}
+
+      /* Set the ttype_p pointer node.  */
+      if ((x = maybe_get_identifier ("ttype_p")))
+	{
+	  x = identifier_global_value (x);
+	  if (x)
+	    {
+	      if (TREE_CODE (x) != TYPE_DECL)
+		error ("%<ttype%> is not defined as a type");
+	      else
+		ttype_p_node = TREE_TTYPE (x);
+	    }
+	}
+
 
 
       /* Find the underlying type for HOST_WIDE_INT.  For the %w
