@@ -398,12 +398,12 @@ finalize_type_attribute (ttype **node, const struct attribute_spec *spec,
   tree args = TREE_VALUE (a);
   ttype **anode = node;
 
-  if (spec->function_type_required && TREE_CODE (*anode) != FUNCTION_TYPE
-      && TREE_CODE (*anode) != METHOD_TYPE)
+  if (spec->function_type_required && (*anode)->code () != FUNCTION_TYPE
+      && (*anode)->code () != METHOD_TYPE)
     {
-      if (TREE_CODE (*anode) == POINTER_TYPE
-	  && (TREE_CODE (TREE_TYPE (*anode)) == FUNCTION_TYPE
-	      || TREE_CODE (TREE_TYPE (*anode)) == METHOD_TYPE))
+      if ((*anode)->code () == POINTER_TYPE
+	  && ((*anode)->type()->code () == FUNCTION_TYPE
+	      || (*anode)->type()->code () == METHOD_TYPE))
 	{
 	  /* OK, this is a bit convoluted.  We can't just make a copy
 	     of the pointer type and modify its TREE_TYPE, because if
@@ -414,8 +414,8 @@ finalize_type_attribute (ttype **node, const struct attribute_spec *spec,
 
 	     This would all be simpler if attributes were part of the
 	     declarator, grumble grumble.  */
-	  fn_ptr_tmp = TREE_TTYPE (*anode);
-	  fn_ptr_quals = TYPE_QUALS (*anode);
+	  fn_ptr_tmp = (*anode)->type ();
+	  fn_ptr_quals = (*anode)->quals ();
 	  anode = &fn_ptr_tmp;
 	  flags &= ~(int) ATTR_FLAG_TYPE_IN_PLACE;
 	}
@@ -426,8 +426,8 @@ finalize_type_attribute (ttype **node, const struct attribute_spec *spec,
 	  return returned_attrs;
 	}
 
-      if (TREE_CODE (*anode) != FUNCTION_TYPE
-	  && TREE_CODE (*anode) != METHOD_TYPE)
+      if ((*anode)->code () != FUNCTION_TYPE
+	  && (*anode)->code () != METHOD_TYPE)
 	{
 	  warning (OPT_Wattributes,
 		   "%qE attribute only applies to function types",
@@ -437,7 +437,7 @@ finalize_type_attribute (ttype **node, const struct attribute_spec *spec,
     }
 
   if ((flags & (int) ATTR_FLAG_TYPE_IN_PLACE)
-      && TYPE_SIZE (*anode) != NULL_TREE)
+      && (*anode)->size () != NULL_TREE)
     {
       warning (OPT_Wattributes, "type attributes ignored after type is already defined");
       return returned_attrs;
@@ -466,7 +466,7 @@ finalize_type_attribute (ttype **node, const struct attribute_spec *spec,
       tree old_attrs;
       tree a;
 
-      old_attrs = TYPE_ATTRIBUTES (*anode);
+      old_attrs = (*anode)->attributes ();
 
       for (a = lookup_attribute (spec->name, old_attrs);
 	   a != NULL_TREE;
@@ -480,22 +480,21 @@ finalize_type_attribute (ttype **node, const struct attribute_spec *spec,
 	{
 	  if (flags & (int) ATTR_FLAG_TYPE_IN_PLACE)
 	    {
-	      TYPE_ATTRIBUTES (*anode) = tree_cons (name, args, old_attrs);
+	      (*anode)->set_attributes (tree_cons (name, args, old_attrs));
 	      /* If this is the main variant, also push the attributes
 		 out to the other variants.  */
-	      if (*anode == TYPE_MAIN_VARIANT (*anode))
+	      if (*anode == (*anode)->main_variant ())
 		{
-		  tree variant;
+		  ttype *variant;
 		  for (variant = *anode; variant;
-		       variant = TYPE_NEXT_VARIANT (variant))
+		       variant = variant->next_variant ())
 		    {
-		      if (TYPE_ATTRIBUTES (variant) == old_attrs)
-			TYPE_ATTRIBUTES (variant)
-			  = TYPE_ATTRIBUTES (*anode);
+		      if (variant->attributes () == old_attrs)
+			variant->set_attributes ((*anode)->attributes ());
 		      else if (!lookup_attribute
-			       (spec->name, TYPE_ATTRIBUTES (variant)))
-			TYPE_ATTRIBUTES (variant) = tree_cons
-			  (name, args, TYPE_ATTRIBUTES (variant));
+			       (spec->name, variant->attributes ()))
+			variant->set_attributes (tree_cons
+					(name, args, variant->attributes ()));
 		    }
 		}
 	    }
@@ -517,7 +516,7 @@ finalize_type_attribute (ttype **node, const struct attribute_spec *spec,
         TREE_TYPE (*decl_node) = fn_ptr_tmp;
       else
         {
-	  gcc_assert (TREE_CODE (*node) == POINTER_TYPE);
+	  gcc_assert ((*node)->code () == POINTER_TYPE);
 	  *node = fn_ptr_tmp;
 	}
     }
@@ -588,8 +587,8 @@ type_attributes (tree *node, tree attributes, int flags)
 	    }
 	}
 
-      returned_attrs = finalize_type_attribute (TTYPE_PTR (node), spec, a, returned_attrs,
-						flags);
+      returned_attrs = finalize_type_attribute (TTYPE_PTR (node), spec, a,
+						returned_attrs, flags);
     }
 
   return returned_attrs;

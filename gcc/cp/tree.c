@@ -1143,8 +1143,7 @@ cp_build_qualified_type_real (ttype_p type,
   else
     {
       ttype *bad_type = build_qualified_type (ptr_type_node, bad_quals);
-      error ("%qV qualifiers cannot be applied to %qT",
-	     bad_type, type.as_a_ttype ());
+      error ("%qV qualifiers cannot be applied to %qT", bad_type, type);
     }
 
   /* Retrieve (or create) the appropriately qualified variant.  */

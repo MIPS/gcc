@@ -330,7 +330,6 @@ public:
   inline ttype * operator->() const { return type; }
   // Used to mark locations which will simply be ttype when we can remove the
   // ttype_p type at this location.  Mostly when used in varargs..
-  inline ttype *as_a_ttype () { return type; }
 };
 
 /* assert_ttype is a transparent function used by TREE_SET macros when a

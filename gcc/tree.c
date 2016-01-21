@@ -61,9 +61,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "print-tree.h"
 #include "ipa-utils.h"
-
-//#define TTYPE_DEVELOPING
-
 #include "ttype.h"
 
 /* Tree code classes.  */
@@ -5659,9 +5656,9 @@ find_decls_types_r (tree *tp, int *ws, void *data)
 	fld_worklist_push (TREE_CHAIN (t), fld);
       *ws = 0;
     }
-  else if (TYPE_P (t))
+  else if (is_a<ttype *>(t))
     {
-      ttype *tt = TTYPE (t);
+      ttype *tt = as_a<ttype *>(t);
       /* Note that walk_tree does not traverse every possible field in
 	 types, so we have to do our own traversals here.  */
       add_tree_to_fld_list (t, fld);
@@ -5999,7 +5996,7 @@ free_lang_data_in_cgraph (void)
   /* Traverse every type found freeing its language data.  */
   FOR_EACH_VEC_ELT (fld.types, i, t)
     {
-      ttype *tt = TTYPE (t);
+      ttype *tt = as_a<ttype *>(t);
       free_lang_data_in_type (tt);
     }
 
@@ -7648,8 +7645,8 @@ element_precision (const ttype *type)
 unsigned int
 element_precision (const_tree t)
 {
-  if (TYPE_P (t))
-    return element_precision (TTYPE (t));
+  if (is_a<const ttype *>(t))
+    return element_precision (as_a<const ttype *>(t));
 
   return element_precision (TREE_TYPE (t));
 }
@@ -9282,7 +9279,8 @@ get_containing_scope (const ttype *t)
 tree
 get_containing_scope (const_tree t)
 {
-  return (TYPE_P (t) ? TTYPE (t)->context () : DECL_CONTEXT (t));
+  return (is_a<const ttype *>(t) ? as_a<const ttype *>(t)->context ()
+				 : DECL_CONTEXT (t));
 }
 
 /* Return the innermost context enclosing DECL that is
@@ -10229,7 +10227,7 @@ build_common_tree_nodes (bool signed_char, bool short_double)
   void_type_node = make_type_node (VOID_TYPE);
   layout_type (void_type_node);
 
-  pointer_bounds_type_node = TTYPE (targetm.chkp_bound_type ());
+  pointer_bounds_type_node = as_a<ttype *>(targetm.chkp_bound_type ());
 
   /* We are not going to have real types in C with less than byte alignment,
      so we might as well not have any types that claim to have it.  */
@@ -10352,7 +10350,7 @@ build_common_tree_nodes (bool signed_char, bool short_double)
   MAKE_FIXED_MODE_NODE (accum, ta, TA)
 
   {
-    ttype *t = TTYPE (targetm.build_builtin_va_list ());
+    ttype *t = as_a<ttype *>(targetm.build_builtin_va_list ());
 
     /* Many back-ends define record types without setting TYPE_NAME.
        If we copied the record type here, we'd keep the original
