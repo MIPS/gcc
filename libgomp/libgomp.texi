@@ -1818,6 +1818,14 @@ flag @option{-fopenacc} must be specified.  This enables the OpenACC directive
 arranges for automatic linking of the OpenACC runtime library 
 (@ref{OpenACC Runtime Library Routines}).
 
+Offloading is enabled by default.  In some cases, the compiler may
+come to the conclusion that offloading incurs too much overhead, and
+suggest to the runtime to avoid it.  To counteract that, you can use
+the option @option{-foffload-force} to force offloading in such cases.
+Alternatively, offloading is also enabled if a specific device type is
+requested, in a call to @code{acc_init} or by setting the
+@env{ACC_DEVICE_TYPE} environment variable, for example.
+
 A complete description of all OpenACC directives accepted may be found in 
 the @uref{http://www.openacc.org/, OpenACC} Application Programming
 Interface manual, version 2.0.

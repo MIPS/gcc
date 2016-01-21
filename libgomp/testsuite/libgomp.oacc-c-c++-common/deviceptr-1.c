@@ -1,4 +1,6 @@
-/* { dg-do run } */
+/* { dg-additional-options "-ftree-parallelize-loops=32" } */
+/* Override the compiler's "avoid offloading" decision.
+   { dg-additional-options "-foffload-force" } */
 
 #include <stdlib.h>
 

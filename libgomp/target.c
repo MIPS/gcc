@@ -130,8 +130,9 @@ resolve_device (int device)
     }
   gomp_mutex_unlock (&devices[device_id].lock);
 
-  /* If the device-var ICV does not actually have offload data available, don't
-     try use it (which will fail), and use host fallback instead.  */
+  /* Use host fallback instead of the device-var ICV if the latter doesn't
+     actually have offload data available (offloading will fail), or has an
+     "avoid offloading" flag set.  */
   if (device == GOMP_DEVICE_ICV
       && !gomp_offload_target_available_p (devices[device_id].type))
     return NULL;
@@ -1139,12 +1140,19 @@ gomp_unload_image_from_device (struct gomp_device_descr *devicep,
 
 /* This function should be called from every offload image while loading.
    It gets the descriptor of the host func and var tables HOST_TABLE, TYPE of
-   the target, and TARGET_DATA needed by target plugin.  */
+   the target, and TARGET_DATA needed by target plugin.
+
+   If HOST_TABLE is NULL, this image (TARGET_DATA) is stored as an "avoid
+   offloading" flag, and the TARGET_TYPE will not be considered by default
+   until this image gets unregistered.  */
 
 void
 GOMP_offload_register_ver (unsigned version, const void *host_table,
 			   int target_type, const void *target_data)
 {
+  gomp_debug (0, "%s (%u, %p, %d, %p)\n", __FUNCTION__,
+	      version, host_table, target_type, target_data);
+
   int i;
 
   if (GOMP_VERSION_LIB (version) > GOMP_VERSION)
@@ -1153,16 +1161,19 @@ GOMP_offload_register_ver (unsigned version, const void *host_table,
   
   gomp_mutex_lock (&register_lock);
 
-  /* Load image to all initialized devices.  */
-  for (i = 0; i < num_devices; i++)
+  if (host_table != NULL)
     {
-      struct gomp_device_descr *devicep = &devices[i];
-      gomp_mutex_lock (&devicep->lock);
-      if (devicep->type == target_type
-	  && devicep->state == GOMP_DEVICE_INITIALIZED)
-	gomp_load_image_to_device (devicep, version,
-				   host_table, target_data, true);
-      gomp_mutex_unlock (&devicep->lock);
+      /* Load image to all initialized devices.  */
+      for (i = 0; i < num_devices; i++)
+	{
+	  struct gomp_device_descr *devicep = &devices[i];
+	  gomp_mutex_lock (&devicep->lock);
+	  if (devicep->type == target_type
+	      && devicep->state == GOMP_DEVICE_INITIALIZED)
+	    gomp_load_image_to_device (devicep, version,
+				       host_table, target_data, true);
+	  gomp_mutex_unlock (&devicep->lock);
+	}
     }
 
   /* Insert image to array of pending images.  */
@@ -1188,26 +1199,36 @@ GOMP_offload_register (const void *host_table, int target_type,
 
 /* This function should be called from every offload image while unloading.
    It gets the descriptor of the host func and var tables HOST_TABLE, TYPE of
-   the target, and TARGET_DATA needed by target plugin.  */
+   the target, and TARGET_DATA needed by target plugin.
+
+   If HOST_TABLE is NULL, the "avoid offloading" flag gets cleared for this
+   image (TARGET_DATA), and this TARGET_TYPE may again be considered by
+   default.  */
 
 void
 GOMP_offload_unregister_ver (unsigned version, const void *host_table,
 			     int target_type, const void *target_data)
 {
+  gomp_debug (0, "%s (%u, %p, %d, %p)\n", __FUNCTION__,
+	      version, host_table, target_type, target_data);
+
   int i;
 
   gomp_mutex_lock (&register_lock);
 
-  /* Unload image from all initialized devices.  */
-  for (i = 0; i < num_devices; i++)
+  if (host_table != NULL)
     {
-      struct gomp_device_descr *devicep = &devices[i];
-      gomp_mutex_lock (&devicep->lock);
-      if (devicep->type == target_type
-	  && devicep->state == GOMP_DEVICE_INITIALIZED)
-	gomp_unload_image_from_device (devicep, version,
-				       host_table, target_data);
-      gomp_mutex_unlock (&devicep->lock);
+      /* Unload image from all initialized devices.  */
+      for (i = 0; i < num_devices; i++)
+	{
+	  struct gomp_device_descr *devicep = &devices[i];
+	  gomp_mutex_lock (&devicep->lock);
+	  if (devicep->type == target_type
+	      && devicep->state == GOMP_DEVICE_INITIALIZED)
+	    gomp_unload_image_from_device (devicep, version,
+					   host_table, target_data);
+	  gomp_mutex_unlock (&devicep->lock);
+	}
     }
 
   /* Remove image from array of pending images.  */
@@ -1241,7 +1262,8 @@ gomp_init_device (struct gomp_device_descr *devicep)
   for (i = 0; i < num_offload_images; i++)
     {
       struct offload_image_descr *image = &offload_images[i];
-      if (image->type == devicep->type)
+      if (image->type == devicep->type
+	  && image->host_table != NULL)
 	gomp_load_image_to_device (devicep, image->version,
 				   image->host_table, image->target_data,
 				   false);
@@ -1261,7 +1283,8 @@ gomp_unload_device (struct gomp_device_descr *devicep)
       for (i = 0; i < num_offload_images; i++)
 	{
 	  struct offload_image_descr *image = &offload_images[i];
-	  if (image->type == devicep->type)
+	  if (image->type == devicep->type
+	      && image->host_table != NULL)
 	    gomp_unload_image_from_device (devicep, image->version,
 					   image->host_table,
 					   image->target_data);
@@ -1272,7 +1295,9 @@ gomp_unload_device (struct gomp_device_descr *devicep)
 /* Do we have offload data available for the given offload target type?
    Instead of verifying that *all* offload data is available that could
    possibly be required, we instead just look for *any*.  If we later find any
-   offload data missing, that's user error.  */
+   offload data missing, that's user error.  If any offload data of this target
+   type is tagged with an "avoid offloading" flag, do not consider this target
+   type available unless it has been initialized already.  */
 
 attribute_hidden bool
 gomp_offload_target_available_p (int type)
@@ -1290,6 +1315,9 @@ gomp_offload_target_available_p (int type)
       gomp_mutex_unlock (&devicep->lock);
     }
 
+  /* If the offload target has been initialized already, we ignore "avoid
+     offloading" flags.  This is important, because data/state may be present
+     on the device, that we must continue to use.  */
   if (!available)
     {
       gomp_mutex_lock (&register_lock);
@@ -1303,8 +1331,14 @@ gomp_offload_target_available_p (int type)
 
       /* Can the offload target be initialized?  */
       for (int i = 0; !available && i < num_offload_images; i++)
-	if (offload_images[i].type == type)
+	if (offload_images[i].type == type
+	    && offload_images[i].host_table != NULL)
 	  available = true;
+      /* If yes, is an "avoid offloading" flag set?  */
+      for (int i = 0; available && i < num_offload_images; i++)
+	if (offload_images[i].type == type
+	    && offload_images[i].host_table == NULL)
+	  available = false;
 
       gomp_mutex_unlock (&register_lock);
     }

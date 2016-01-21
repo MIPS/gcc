@@ -1,7 +1,8 @@
 // Ensure that a non-scalar dummy arguments which are implicitly used inside
 // offloaded regions are properly mapped using present_or_copy.
 
-// { dg-do run }
+// Override the compiler's "avoid offloading" decision.
+// { dg-additional-options "-foffload-force" }
 
 #include <cassert>
 

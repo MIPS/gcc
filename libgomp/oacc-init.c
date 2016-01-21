@@ -123,8 +123,9 @@ resolve_device (acc_device_t d, bool fail_is_error)
 	if (goacc_device_type)
 	  {
 	    /* Lookup the device that has been explicitly named, so do not pay
-	       attention to gomp_offload_target_available_p.  (That is, hard
-	       error if not actually available.)  */
+	       attention to gomp_offload_target_available_p.  (That is,
+	       enforced usage even with an "avoid offloading" flag set, and
+	       hard error if not actually available.)  */
 	    while (++d != _ACC_device_hwm)
 	      if (dispatchers[d]
 		  && !strcasecmp (goacc_device_type,
@@ -154,7 +155,8 @@ resolve_device (acc_device_t d, bool fail_is_error)
 	    && dispatchers[d]->get_num_devices_func () > 0
 	    /* No device has been explicitly named, so pay attention to
 	       gomp_offload_target_available_p, to not decide on an offload
-	       target that we don't have offload data available for.  */
+	       target that we don't have offload data available for, or have an
+	       "avoid offloading" flag set for.  */
 	    && gomp_offload_target_available_p (dispatchers[d]->type))
 	  goto found;
       /* No non-host device found.  */

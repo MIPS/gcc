@@ -1,4 +1,4 @@
-/* { dg-do run } */
+/* { dg-additional-options "-ftree-parallelize-loops=32" } */
 
 #include <openacc.h>
 #include <stdlib.h>

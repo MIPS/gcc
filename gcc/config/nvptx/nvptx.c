@@ -3811,6 +3811,9 @@ static const struct attribute_spec nvptx_attribute_table[] =
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
        affects_type_identity } */
   { "kernel", 0, 0, true, false,  false, nvptx_handle_kernel_attribute, false },
+  /* Avoid offloading.  For example, because there is no sufficient
+     parallelism.  */
+  { "omp avoid offloading", 0, 0, true, false, false, NULL, false },
   { NULL, 0, 0, false, false, false, NULL, false }
 };
 
@@ -3875,7 +3878,10 @@ nvptx_record_offload_symbol (tree decl)
 	tree dims = TREE_VALUE (attr);
 	unsigned ix;
 
-	fprintf (asm_out_file, "//:FUNC_MAP \"%s\"",
+	fprintf (asm_out_file, "//:FUNC_MAP %s\"%s\"",
+		 (lookup_attribute ("omp avoid offloading",
+				    DECL_ATTRIBUTES (decl))
+		  ? "(avoid offloading) " : ""),
 		 IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
 
 	for (ix = 0; ix != GOMP_DIM_MAX; ix++, dims = TREE_CHAIN (dims))
@@ -4135,6 +4141,40 @@ nvptx_expand_builtin (tree exp, rtx target, rtx ARG_UNUSED (subtarget),
 static bool
 nvptx_goacc_validate_dims (tree decl, int dims[], int fn_level)
 {
+  /* Detect if a function is unsuitable for offloading.  */
+  if (!flag_offload_force && decl)
+    {
+      tree oacc_function_attr = get_oacc_fn_attrib (decl);
+      if (oacc_function_attr
+	  && oacc_fn_attrib_kernels_p (oacc_function_attr))
+	{
+	  bool avoid_offloading_p = true;
+	  for (unsigned ix = 0; ix != GOMP_DIM_MAX; ix++)
+	    {
+	      if (dims[ix] > 1)
+		{
+		  avoid_offloading_p = false;
+		  break;
+		}
+	    }
+	  if (avoid_offloading_p)
+	    {
+	      /* OpenACC kernels constructs will never be parallelized for
+		 optimization levels smaller than -O2; avoid the diagnostic in
+		 this case.  */
+	      if (optimize >= 2)
+		warning_at (DECL_SOURCE_LOCATION (decl), 0,
+			    "OpenACC kernels construct will be executed "
+			    "sequentially; will by default avoid offloading "
+			    "to prevent data copy penalty");
+	      DECL_ATTRIBUTES (decl)
+		= tree_cons (get_identifier ("omp avoid offloading"),
+			     NULL_TREE, DECL_ATTRIBUTES (decl));
+
+	    }
+	}
+    }
+
   bool changed = false;
 
   /* The vector size must be 32, unless this is a SEQ routine.  */

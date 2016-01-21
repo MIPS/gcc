@@ -1,3 +1,17 @@
+2016-01-21  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* common.opt: Add -foffload-force.
+	* lto-wrapper.c (merge_and_complain, append_compiler_options):
+	Handle it.
+	* doc/invoke.texi: Document it.
+	* config/nvptx/mkoffload.c (struct id_map): Add "flags" member.
+	(record_id): Parse, and set it.
+	(process): Use it.
+	* config/nvptx/nvptx.c (nvptx_attribute_table): Add "omp avoid
+	offloading".
+	(nvptx_record_offload_symbol): Use it.
+	(nvptx_goacc_validate_dims): Set it.
+
 2016-01-20  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gimplify.c (gimplify_scan_omp_clauses):  Consider OACC_{DATA,

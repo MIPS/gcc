@@ -2,6 +2,8 @@
 
 ! { dg-do run }
 ! { dg-additional-options "-ftree-parallelize-loops=32" }
+! Override the compiler's "avoid offloading" decision.
+! { dg-additional-options "-foffload-force" }
 
 program collapse3
   integer :: a(3,3,3), k, kk, kkk, l, ll, lll

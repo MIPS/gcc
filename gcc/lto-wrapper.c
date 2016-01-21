@@ -275,6 +275,7 @@ merge_and_complain (struct cl_decoded_option **decoded_options,
 	case OPT_fsigned_zeros:
 	case OPT_ftrapping_math:
 	case OPT_fwrapv:
+	case OPT_foffload_force:
 	case OPT_fopenmp:
 	case OPT_fopenacc:
 	case OPT_fcheck_pointer_bounds:
@@ -516,6 +517,7 @@ append_compiler_options (obstack *argv_obstack, struct cl_decoded_option *opts,
 	case OPT_fsigned_zeros:
 	case OPT_ftrapping_math:
 	case OPT_fwrapv:
+	case OPT_foffload_force:
 	case OPT_fopenmp:
 	case OPT_fopenacc:
 	case OPT_fopenacc_dim_:

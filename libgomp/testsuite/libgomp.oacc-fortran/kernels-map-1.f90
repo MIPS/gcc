@@ -1,6 +1,9 @@
 ! Test the copy, copyin, copyout, pcopy, pcopyin, pcopyout, and pcreate
 ! clauses on kernels constructs.
 
+! { dg-do run }
+! { dg-additional-options "-ftree-parallelize-loops=32" }
+
 program map
   integer, parameter     :: n = 20, c = 10
   integer                :: i, a(n), b(n), d(n)

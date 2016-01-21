@@ -1786,6 +1786,10 @@ Enum(offload_alias) String(pointer) Value(OFFLOAD_ALIAS_POINTER)
 EnumValue
 Enum(offload_alias) String(none) Value(OFFLOAD_ALIAS_NONE)
 
+foffload-force
+Common Var(flag_offload_force)
+Force offloading if the compiler wanted to avoid it.
+
 fomit-frame-pointer
 Common Report Var(flag_omit_frame_pointer) Optimization
 When possible do not generate stack frames.

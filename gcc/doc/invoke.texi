@@ -1153,7 +1153,7 @@ See S/390 and zSeries Options.
 -finstrument-functions-exclude-function-list=@var{sym},@var{sym},@dots{} @gol
 -finstrument-functions-exclude-file-list=@var{file},@var{file},@dots{} @gol
 -fno-common  -fno-ident @gol
--foffload-alias=@r{[}none@r{|}pointer@r{|}all@r{]} @gol
+-foffload-alias=@r{[}none@r{|}pointer@r{|}all@r{]}  -foffload-force @gol
 -fpcc-struct-return  -fpic  -fPIC -fpie -fPIE -fno-plt @gol
 -fno-jump-tables @gol
 -frecord-gcc-switches @gol
@@ -24229,6 +24229,15 @@ objects references in an offload region do not alias.  The option
 @option{-foffload-alias=all} instructs the compiler to make no assumptions about
 aliasing in offload regions.  The default value is
 @option{-foffload-alias=none}.
+
+@item -foffload-force
+@opindex -foffload-force
+The option @option{-foffload-force} forces offloading if the compiler
+wanted to avoid it.  For example, when there isn't sufficient
+parallelism in certain offloading constructs, the compiler may come to
+the conclusion that offloading incurs too much overhead (for data
+transfers, for example), and unless overridden with this flag, it then
+suggests to the runtime (libgomp) to avoid offloading.
 
 @item -fexceptions
 @opindex fexceptions

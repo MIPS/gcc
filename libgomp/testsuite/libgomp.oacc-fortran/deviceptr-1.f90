@@ -1,8 +1,9 @@
-! { dg-do run }
-
 ! Test the deviceptr clause with various directives
 ! and in combination with other directives where
 ! the deviceptr variable is implied.
+
+! { dg-do run }
+! { dg-additional-options "-ftree-parallelize-loops=32" }
 
 subroutine subr1 (a, b)
   implicit none

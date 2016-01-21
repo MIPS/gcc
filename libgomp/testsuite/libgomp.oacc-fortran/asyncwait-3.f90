@@ -1,4 +1,5 @@
 ! { dg-do run }
+! { dg-additional-options "-ftree-parallelize-loops=32" }
 
 program asyncwait
   integer, parameter :: N = 64

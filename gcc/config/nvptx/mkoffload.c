@@ -41,9 +41,19 @@ const char tool_name[] = "nvptx mkoffload";
 
 #define COMMENT_PREFIX "#"
 
+enum id_map_flag
+  {
+    /* All clear.  */
+    ID_MAP_FLAG_NONE = 0,
+    /* Avoid offloading.  For example, because there is no sufficient
+       parallelism.  */
+    ID_MAP_FLAG_AVOID_OFFLOADING = 1
+  };
+
 struct id_map
 {
   id_map *next;
+  int flags;
   char *ptx_name;
 };
 
@@ -107,6 +117,38 @@ record_id (const char *p1, id_map ***where)
     fatal_error (input_location, "malformed ptx file");
 
   id_map *v = XNEW (id_map);
+
+  /* Do we have any flags?  */
+  v->flags = ID_MAP_FLAG_NONE;
+  if (p1[0] == '(')
+    {
+      /* Current flag.  */
+      const char *cur = p1 + 1;
+
+      /* Seek to the beginning of ") ".  */
+      p1 = strchr (cur, ')');
+      if (!p1 || p1 > end || p1[1] != ' ')
+	fatal_error (input_location, "malformed ptx file: "
+		     "expected \") \" at \"%s\"", cur);
+
+      while (cur < p1)
+	{
+	  const char *next = strchr (cur, ',');
+	  if (!next || next > p1)
+	    next = p1;
+
+	  if (strncmp (cur, "avoid offloading", next - cur - 1) == 0)
+	    v->flags |= ID_MAP_FLAG_AVOID_OFFLOADING;
+	  else
+	    fatal_error (input_location, "malformed ptx file: "
+			 "unknown flag at \"%s\"", cur);
+
+	  cur = next;
+	}
+
+      /* Skip past ") ".  */
+      p1 += 2;
+    }
   size_t len = end - p1;
   v->ptx_name = XNEWVEC (char, len + 1);
   memcpy (v->ptx_name, p1, len);
@@ -296,12 +338,17 @@ process (FILE *in, FILE *out)
   fprintf (out, "\n};\n\n");
 
   /* Dump out function idents.  */
+  bool avoid_offloading_p = false;
   fprintf (out, "static const struct nvptx_fn {\n"
 	   "  const char *name;\n"
 	   "  unsigned short dim[%d];\n"
 	   "} func_mappings[] = {\n", GOMP_DIM_MAX);
   for (comma = "", id = func_ids; id; comma = ",", id = id->next)
-    fprintf (out, "%s\n\t{%s}", comma, id->ptx_name);
+    {
+      if (id->flags & ID_MAP_FLAG_AVOID_OFFLOADING)
+	avoid_offloading_p = true;
+      fprintf (out, "%s\n\t{%s}", comma, id->ptx_name);
+    }
   fprintf (out, "\n};\n\n");
 
   fprintf (out,
@@ -318,7 +365,11 @@ process (FILE *in, FILE *out)
 	   "  sizeof (var_mappings) / sizeof (var_mappings[0]),\n"
 	   "  func_mappings,"
 	   "  sizeof (func_mappings) / sizeof (func_mappings[0])\n"
-	   "};\n\n");
+	   "};\n");
+  if (avoid_offloading_p)
+    /* Need a unique handle for target_data.  */
+    fprintf (out, "static int target_data_avoid_offloading;\n");
+  fprintf (out, "\n");
 
   fprintf (out, "#ifdef __cplusplus\n"
 	   "extern \"C\" {\n"
@@ -338,18 +389,28 @@ process (FILE *in, FILE *out)
   fprintf (out, "static __attribute__((constructor)) void init (void)\n"
 	   "{\n"
 	   "  GOMP_offload_register_ver (%#x, __OFFLOAD_TABLE__,"
-	   "%d/*NVIDIA_PTX*/, &target_data);\n"
-	   "};\n",
+	   "%d/*NVIDIA_PTX*/, &target_data);\n",
 	   GOMP_VERSION_PACK (GOMP_VERSION, GOMP_VERSION_NVIDIA_PTX),
 	   GOMP_DEVICE_NVIDIA_PTX);
+  if (avoid_offloading_p)
+    fprintf (out, "  GOMP_offload_register_ver (%#x, (void *) 0,"
+	     "%d/*NVIDIA_PTX*/, &target_data_avoid_offloading);\n",
+	     GOMP_VERSION_PACK (GOMP_VERSION, GOMP_VERSION_NVIDIA_PTX),
+	     GOMP_DEVICE_NVIDIA_PTX);
+  fprintf (out, "};\n");
 
   fprintf (out, "static __attribute__((destructor)) void fini (void)\n"
 	   "{\n"
 	   "  GOMP_offload_unregister_ver (%#x, __OFFLOAD_TABLE__,"
-	   "%d/*NVIDIA_PTX*/, &target_data);\n"
-	   "};\n",
+	   "%d/*NVIDIA_PTX*/, &target_data);\n",
 	   GOMP_VERSION_PACK (GOMP_VERSION, GOMP_VERSION_NVIDIA_PTX),
 	   GOMP_DEVICE_NVIDIA_PTX);
+  if (avoid_offloading_p)
+    fprintf (out, "  GOMP_offload_unregister_ver (%#x, (void *) 0,"
+	     "%d/*NVIDIA_PTX*/, &target_data_avoid_offloading);\n",
+	     GOMP_VERSION_PACK (GOMP_VERSION, GOMP_VERSION_NVIDIA_PTX),
+	     GOMP_DEVICE_NVIDIA_PTX);
+  fprintf (out, "};\n");
 }
 
 static void

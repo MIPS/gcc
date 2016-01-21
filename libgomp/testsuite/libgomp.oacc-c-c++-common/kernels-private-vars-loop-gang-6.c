@@ -1,3 +1,7 @@
+/* { dg-additional-options "-ftree-parallelize-loops=32" } */
+/* Override the compiler's "avoid offloading" decision.
+   { dg-additional-options "-foffload-force" } */
+
 #include <assert.h>
 
 /* Test of gang-private aggregate variable declared on loop directive, with
