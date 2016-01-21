@@ -1775,6 +1775,13 @@
 #endif
 
 
+/* Define this macro if C++ __builtin_constant_p with constexpr does not crash
+   with a variable. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_WORKING_CXX_BUILTIN_CONSTANT_P
+#endif
+
+
 /* Define to 1 if `fork' works. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_WORKING_FORK

@@ -726,7 +726,7 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 #define gcc_unreachable() (fancy_abort (__FILE__, __LINE__, __FUNCTION__))
 #endif
 
-#if GCC_VERSION >= 3001
+#if GCC_VERSION >= 3001 && defined HAVE_WORKING_CXX_BUILTIN_CONSTANT_P
 #define STATIC_CONSTANT_P(X) (__builtin_constant_p (X) && (X))
 #else
 #define STATIC_CONSTANT_P(X) (false && (X))
