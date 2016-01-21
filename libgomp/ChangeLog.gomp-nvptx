@@ -1,3 +1,10 @@
+2016-01-21  Alexander Monakov  <amonakov@ispras.ru>
+
+	* config/posix/affinity.c: Move to...
+	* affinity.c: ...here (new file).  Guard use of PThreads-specific
+	interface by LIBGOMP_USE_PTHREADS. 
+	* config/nvptx/affinity.c: Delete (identical to affinity.c).
+
 2016-01-20  Alexander Monakov  <amonakov@ispras.ru>
 
 	* plugin/plugin-nvptx.c (struct targ_fn_descriptor): Add new fields.

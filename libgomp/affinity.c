@@ -1,4 +1,4 @@
-/* Copyright (C) 2006-2015 Free Software Foundation, Inc.
+/* Copyright (C) 2006-2016 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>.
 
    This file is part of the GNU Offloading and Multi Processing Library
@@ -32,12 +32,14 @@ gomp_init_affinity (void)
 {
 }
 
+#ifdef LIBGOMP_USE_PTHREADS
 void
 gomp_init_thread_affinity (pthread_attr_t *attr, unsigned int place)
 {
   (void) attr;
   (void) place;
 }
+#endif
 
 void **
 gomp_affinity_alloc (unsigned long count, bool quiet)
