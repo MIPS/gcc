@@ -416,6 +416,33 @@ struct X<long long> { typedef long long t; };
 ]], [[X<int64_t>::t x;]])],[],[AC_MSG_ERROR([error verifying int64_t uses long long])])
 fi
 
+# Check if C++ __builtin_constant_p works properly.  Without the fix
+# for PR 65656, g++ miscompiles __builtin_constant_p in wi::lrshift in
+# wide-int.h.  Add a check with PR 65656 testcase to verify that C++
+# __builtin_constant_p works properly.
+if test "$GCC" = yes; then
+  saved_CFLAGS="$CFLAGS"
+  saved_CXXFLAGS="$CXXFLAGS"
+  CFLAGS="$CFLAGS -O -x c++ -std=c++11"
+  CXXFLAGS="$CXXFLAGS -O -x c++ -std=c++11"
+  AC_MSG_CHECKING(whether $CXX __builtin_constant_p works with constexpr)
+  AC_COMPILE_IFELSE([
+int
+foo (int argc)
+{
+  constexpr bool x = __builtin_constant_p(argc);
+  return x ? 1 : 0;
+}
+],
+    [AC_MSG_RESULT([yes])
+     AC_DEFINE(HAVE_WORKING_CXX_BUILTIN_CONSTANT_P, 1,
+[Define this macro if C++ __builtin_constant_p with constexpr does not
+ crash with a variable.])],
+    [AC_MSG_RESULT([no])])
+  CFLAGS="$saved_CFLAGS"
+  CXXFLAGS="$saved_CXXFLAGS"
+fi
+
 # Check whether compiler is affected by placement new aliasing bug (PR 29286).
 # If the host compiler is affected by the bug, and we build with optimization
 # enabled (which happens e.g. when cross-compiling), the pool allocator may
