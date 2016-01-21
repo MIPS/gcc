@@ -154,9 +154,7 @@ static inline void TREE_SET_CODE (tree n, enum tree_code v)
 void TREE_SET_CODE (ttype *node, enum tree_code v) __attribute__((error(" Fix use of TREE_CODE(ttype *)")));
 void TREE_SET_CODE (ttype_p node, enum tree_code v) __attribute__((error(" Fix use of TREE_CODE(ttype_p)")));
 
-
-
-#endif
+#endif  /* TTYPE_DEVELOPING */
 
 /* These macros are defined using one of the above, and thus need to be
    redefined in tree.h as they are here once this comes into full production

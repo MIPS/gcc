@@ -115,6 +115,6 @@ extern void relayout_decl (tree);
 extern tree variable_size (tree);
 
 /* Vector types need to check target flags to determine type.  */
-extern machine_mode vector_type_mode (const_tree);
+extern machine_mode vector_type_mode (const ttype_p);
 
 #endif  // GCC_STOR_LAYOUT_H

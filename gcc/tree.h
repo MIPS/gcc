@@ -332,6 +332,20 @@ public:
   // ttype_p type at this location.  Mostly when used in varargs..
 };
 
+class ttype_pp {
+  ttype **type;
+public:
+  inline ttype_pp (tree *t) 
+      { if (t) TTYPE (*t);  type = reinterpret_cast<ttype **> (t); }
+  inline ttype_pp (ttype_p *t) { type = reinterpret_cast<ttype **> (t); }
+  inline ttype_pp (ttype **t) { type = t; }
+  inline ttype_pp& operator= (ttype **t) { type = t; return *this; }
+  inline operator ttype **() const { return type; }
+  inline ttype ** operator->() { return type; }
+  inline ttype ** operator->() const { return type; }
+};
+
+
 /* assert_ttype is a transparent function used by TREE_SET macros when a
    field which is going to be a TTYPE eventually (like TREE_SET_TYPE).
    It confirms that a ttype * is passed, or generates a compiler error.  */

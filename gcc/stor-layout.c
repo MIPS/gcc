@@ -2476,10 +2476,9 @@ enum machine_mode ttype::vector_mode() const
 }
 
 enum machine_mode
-vector_type_mode (const_tree t)
+vector_type_mode (const ttype_p t)
 {
-  const ttype *tt = TTYPE (t);
-  return tt->vector_mode();
+  return t->vector_mode();
 }
 
 

@@ -773,7 +773,7 @@ cplus_array_hasher::hash (ttype *t)
 bool
 cplus_array_hasher::equal (ttype *t1, cplus_array_info *t2)
 {
-  return (TREE_TTYPE (t1) == t2->type && TYPE_DOMAIN (t1) == t2->domain);
+  return (TREE_TYPE (t1) == t2->type && TYPE_DOMAIN (t1) == t2->domain);
 }
 
 /* Hash table containing dependent array types, which are unsuitable for

@@ -369,7 +369,7 @@ make_class (void)
   type = make_type_node (RECORD_TYPE);
   /* Unfortunately we must create the binfo here, so that class
      loading works.  */
-  TYPE_BINFO (type) = make_tree_binfo (0);
+  type->set_binfo (make_tree_binfo (0));
   MAYBE_CREATE_TYPE_TYPE_LANG_SPECIFIC (type);
   TYPE_CATCH_CLASSES (type) = NULL;
   /* Push a dummy entry; we can't call make_catch_class_record here

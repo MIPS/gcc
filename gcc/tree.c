@@ -5117,7 +5117,7 @@ comp_type_attributes (const ttype_p type1, const ttype_p type2)
   return targetm.comp_type_attributes (type1, type2);
 }
 
-/* Return a type like TTYPE except that its TYPE_ATTRIBUTE
+/* Return a type like TYPE except that its TYPE_ATTRIBUTE
    is ATTRIBUTE.
 
    Record such modified types already made so we don't make duplicates.  */

@@ -28,6 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "langhooks.h"
 #include "plugin.h"
+#include "ttype.h"
 
 /* Table of the tables of attributes (common, language, format, machine)
    searched.  */
@@ -513,7 +514,7 @@ finalize_type_attribute (ttype **node, const struct attribute_spec *spec,
       if (fn_ptr_quals)
 	fn_ptr_tmp = build_qualified_type (fn_ptr_tmp, fn_ptr_quals);
       if (decl_node)
-        TREE_TYPE (*decl_node) = fn_ptr_tmp;
+        TREE_SET_TYPE (*decl_node, fn_ptr_tmp);
       else
         {
 	  gcc_assert ((*node)->code () == POINTER_TYPE);
@@ -533,12 +534,12 @@ finalize_type_attribute (ttype **node, const struct attribute_spec *spec,
    declaration rather than to its type).  */
 
 tree
-type_attributes (tree *node, tree attributes, int flags)
+type_attributes (ttype_pp node, tree attributes, int flags)
 {
   tree a;
   tree returned_attrs = NULL_TREE;
 
-  if (TREE_TYPE (*node) == error_mark_node || attributes == error_mark_node)
+  if ((*node)->type () == error_type_node || attributes == error_mark_node)
     return NULL_TREE;
 
   gcc_checking_assert (TYPE_P (*node));
@@ -587,7 +588,7 @@ type_attributes (tree *node, tree attributes, int flags)
 	    }
 	}
 
-      returned_attrs = finalize_type_attribute (TTYPE_PTR (node), spec, a,
+      returned_attrs = finalize_type_attribute (node, spec, a,
 						returned_attrs, flags);
     }
 
@@ -688,7 +689,7 @@ decl_attributes (tree *node, tree attributes, int flags)
 	 the decl's type in place here.  */
       if (spec->type_required)
 	{
-	  ttype **ttype_node = TREE_TTYPE_PTR (*anode);
+	  ttype **ttype_node = TREE_TYPE_PTR (*anode);
 	  flags &= ~(int) ATTR_FLAG_TYPE_IN_PLACE;
 	  returned_attrs = finalize_type_attribute (ttype_node, spec, a,
 						    returned_attrs, flags,
@@ -771,7 +772,7 @@ get_attribute_name (const_tree attr)
 void
 apply_tm_attr (tree fndecl, tree attr)
 {
-  type_attributes (&TREE_TYPE (fndecl), tree_cons (attr, NULL, NULL), 0);
+  type_attributes (TREE_TYPE_PTR (fndecl), tree_cons (attr, NULL, NULL), 0);
 }
 
 /* Makes a function attribute of the form NAME(ARG_NAME) and chains

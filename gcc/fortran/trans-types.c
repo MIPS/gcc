@@ -1952,7 +1952,7 @@ gfc_build_pointer_type (gfc_symbol * sym, ttype *type)
     return build_pointer_type (type);
 }
 
-static ttype *gfc_nonrestricted_type (ttype *t);
+static ttype *gfc_nonrestricted_type (ttype_p t);
 /* Given two record or union type nodes TO and FROM, ensure
    that all fields in FROM have a corresponding field in TO,
    their type being nonrestrict variants.  This accepts a TO
@@ -1991,7 +1991,7 @@ mirror_fields (tree to, tree from)
 
       if (TREE_CODE (ffrom) == FIELD_DECL)
 	{
-	  tree elemtype = gfc_nonrestricted_type (TREE_TTYPE (ffrom));
+	  tree elemtype = gfc_nonrestricted_type (TREE_TYPE (ffrom));
 	  TREE_TYPE (newfield) = elemtype;
 	}
     }
@@ -2002,7 +2002,7 @@ mirror_fields (tree to, tree from)
    except that all types it refers to (recursively) are always
    non-restrict qualified types.  */
 static ttype *
-gfc_nonrestricted_type (ttype *t)
+gfc_nonrestricted_type (ttype_p t)
 {
   ttype *ret = t;
 
@@ -2035,7 +2035,7 @@ gfc_nonrestricted_type (ttype *t)
       case POINTER_TYPE:
       case REFERENCE_TYPE:
 	{
-	  tree totype = gfc_nonrestricted_type (TREE_TTYPE (t));
+	  tree totype = gfc_nonrestricted_type (TREE_TYPE (t));
 	  if (totype == TREE_TYPE (t))
 	    ;
 	  else if (TREE_CODE (t) == POINTER_TYPE)
@@ -2049,7 +2049,7 @@ gfc_nonrestricted_type (ttype *t)
 
       case ARRAY_TYPE:
 	{
-	  tree elemtype = gfc_nonrestricted_type (TREE_TTYPE (t));
+	  tree elemtype = gfc_nonrestricted_type (TREE_TYPE (t));
 	  if (elemtype == TREE_TYPE (t))
 	    ;
 	  else
@@ -2091,7 +2091,7 @@ gfc_nonrestricted_type (ttype *t)
 	  for (field = TYPE_FIELDS (t); field; field = DECL_CHAIN (field))
 	    if (TREE_CODE (field) == FIELD_DECL)
 	      {
-		ttype *elemtype = gfc_nonrestricted_type (TREE_TTYPE (field));
+		ttype *elemtype = gfc_nonrestricted_type (TREE_TYPE (field));
 		if (elemtype != TREE_TYPE (field))
 		  break;
 	      }

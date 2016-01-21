@@ -556,7 +556,7 @@ remap_type (ttype_p type, copy_body_data *id)
   /* See if we have remapped this type.  */
   node = id->decl_map->get (type);
   if (node)
-    return as_a<ttype *>(*node);
+    return TTYPE (*node);
 
   /* The type only needs remapping if it's variably modified.  */
   if (! variably_modified_type_p (type, id->src_fn))
