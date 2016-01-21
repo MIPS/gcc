@@ -138,6 +138,14 @@ set_separate_option (__isl_take isl_schedule_node *node, void *user)
 }
 #endif
 
+enum phi_node_kind
+{
+  unknown_phi,
+  loop_phi,
+  close_phi,
+  cond_phi
+};
+
 class translate_isl_ast_to_gimple
 {
  public:
@@ -328,14 +336,14 @@ class translate_isl_ast_to_gimple
      SSA form.  */
 
   bool is_valid_rename (tree rename, basic_block def_bb, basic_block use_bb,
-			bool loop_phi, tree old_name, basic_block old_bb) const;
+			phi_node_kind, tree old_name, basic_block old_bb) const;
 
   /* Returns the expression associated to OLD_NAME (which is used in OLD_BB), in
      NEW_BB from RENAME_MAP.  LOOP_PHI is true when we want to rename OLD_NAME
      within a loop PHI instruction.  */
 
   tree get_rename (basic_block new_bb, tree old_name,
-		   basic_block old_bb, bool loop_phi) const;
+		   basic_block old_bb, phi_node_kind) const;
 
   /* For ops which are scev_analyzeable, we can regenerate a new name from
   its scalar evolution around LOOP.  */
@@ -355,7 +363,7 @@ class translate_isl_ast_to_gimple
      true when we want to rename an OP within a loop PHI instruction.  */
 
   tree get_new_name (basic_block new_bb, tree op,
-		     basic_block old_bb, bool loop_phi) const;
+		     basic_block old_bb, phi_node_kind) const;
 
   /* Collect all the operands of NEW_EXPR by recursively visiting each
      operand.  */
@@ -507,8 +515,8 @@ private:
 /* Return the tree variable that corresponds to the given isl ast identifier
    expression (an isl_ast_expr of type isl_ast_expr_id).
 
-   FIXME: We should replace blind conversation of id's type with derivation
-   of the optimal type when we get the corresponding isl support. Blindly
+   FIXME: We should replace blind conversion of id's type with derivation
+   of the optimal type when we get the corresponding isl support.  Blindly
    converting type sizes may be problematic when we switch to smaller
    types.  */
 
@@ -527,7 +535,11 @@ gcc_expression_from_isl_ast_expr_id (tree type,
 	      "Could not map isl_id to tree expression");
   isl_ast_expr_free (expr_id);
   tree t = res->second;
-  return fold_convert (type, t);
+  tree *val = region->parameter_rename_map->get(t);
+
+  if (!val)
+   val = &t;
+  return fold_convert (type, *val);
 }
 
 /* Converts an isl_ast_expr_int expression E to a GCC expression tree of
@@ -1254,6 +1266,16 @@ translate_isl_ast_to_gimple::translate_isl_ast (loop_p context_loop,
       return translate_isl_ast_node_block (context_loop, node,
 					   next_e, ip);
 
+#ifdef HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS
+    case isl_ast_node_mark:
+      {
+	isl_ast_node *n = isl_ast_node_mark_get_node (node);
+	edge e = translate_isl_ast (context_loop, n, next_e, ip);
+	isl_ast_node_free (n);
+	return e;
+      }
+#endif
+
     default:
       gcc_unreachable ();
     }
@@ -1359,7 +1381,7 @@ phi_uses_name (basic_block bb, tree name)
 bool
 translate_isl_ast_to_gimple::
 is_valid_rename (tree rename, basic_block def_bb, basic_block use_bb,
-		 bool loop_phi, tree old_name, basic_block old_bb) const
+		 phi_node_kind phi_kind, tree old_name, basic_block old_bb) const
 {
   /* The def of the rename must either dominate the uses or come from a
      back-edge.  Also the def must respect the loop closed ssa form.  */
@@ -1377,7 +1399,7 @@ is_valid_rename (tree rename, basic_block def_bb, basic_block use_bb,
   if (dominated_by_p (CDI_DOMINATORS, use_bb, def_bb))
     return true;
 
-  if (bb_contains_loop_phi_nodes (use_bb) && loop_phi)
+  if (bb_contains_loop_phi_nodes (use_bb) && phi_kind == loop_phi)
     {
       /* The loop-header dominates the loop-body.  */
       if (!dominated_by_p (CDI_DOMINATORS, def_bb, use_bb))
@@ -1396,14 +1418,13 @@ is_valid_rename (tree rename, basic_block def_bb, basic_block use_bb,
 }
 
 /* Returns the expression associated to OLD_NAME (which is used in OLD_BB), in
-   NEW_BB from RENAME_MAP.  LOOP_PHI is true when we want to rename OLD_NAME
-   within a loop PHI instruction.  */
+   NEW_BB from RENAME_MAP.  PHI_KIND determines the kind of phi node.  */
 
 tree
 translate_isl_ast_to_gimple::get_rename (basic_block new_bb,
 					 tree old_name,
 					 basic_block old_bb,
-					 bool loop_phi) const
+					 phi_node_kind phi_kind) const
 {
   gcc_assert (TREE_CODE (old_name) == SSA_NAME);
   vec <tree> *renames = region->rename_map->get (old_name);
@@ -1417,7 +1438,9 @@ translate_isl_ast_to_gimple::get_rename (basic_block new_bb,
       if (TREE_CODE (rename) == SSA_NAME)
 	{
 	  basic_block bb = gimple_bb (SSA_NAME_DEF_STMT (rename));
-	  if (is_valid_rename (rename, bb, new_bb, loop_phi, old_name, old_bb))
+	  if (is_valid_rename (rename, bb, new_bb, phi_kind, old_name, old_bb)
+	      && (phi_kind == close_phi
+		  || flow_bb_inside_loop_p (bb->loop_father, new_bb)))
 	    return rename;
 	  return NULL_TREE;
 	}
@@ -1443,6 +1466,9 @@ translate_isl_ast_to_gimple::get_rename (basic_block new_bb,
 
       /* NEW_BB and T2_BB are in two unrelated if-clauses.  */
       if (!dominated_by_p (CDI_DOMINATORS, new_bb, t2_bb))
+	continue;
+
+      if (!flow_bb_inside_loop_p (t2_bb->loop_father, new_bb))
 	continue;
 
       /* Compute the nearest dominator.  */
@@ -1485,6 +1511,13 @@ translate_isl_ast_to_gimple::set_rename (tree old_name, tree expr)
       r.safe_push (expr);
       region->rename_map->put (old_name, r);
     }
+
+  tree t;
+  int i;
+  /* For a parameter of a scop we don't want to rename it.  */
+  FOR_EACH_VEC_ELT (region->params, i, t)
+    if (old_name == t)
+      region->parameter_rename_map->put(old_name, expr);
 }
 
 /* Return an iterator to the instructions comes last in the execution order.
@@ -1766,7 +1799,7 @@ translate_isl_ast_to_gimple::rename_all_uses (tree new_expr, basic_block new_bb,
   tree t;
   int i;
   FOR_EACH_VEC_ELT (ssa_names, i, t)
-    if (tree r = get_rename (new_bb, t, old_bb, false))
+    if (tree r = get_rename (new_bb, t, old_bb, unknown_phi))
       new_expr = substitute_ssa_name (new_expr, t, r);
 
   return new_expr;
@@ -1897,7 +1930,7 @@ translate_isl_ast_to_gimple::rename_uses (gimple *copy,
 
       changed = true;
       tree new_expr = get_rename (gsi_tgt->bb, old_name,
-				  old_bb, false);
+				  old_bb, unknown_phi);
 
       if (new_expr)
 	{
@@ -1996,19 +2029,19 @@ translate_isl_ast_to_gimple::get_def_bb_for_const (basic_block bb,
   return b1;
 }
 
-/* Get the new name of OP (from OLD_BB) to be used in NEW_BB.  LOOP_PHI is true
-   when we want to rename an OP within a loop PHI instruction.  */
+/* Get the new name of OP (from OLD_BB) to be used in NEW_BB.  PHI_KIND
+   determines the kind of phi node.  */
 
 tree
 translate_isl_ast_to_gimple::
 get_new_name (basic_block new_bb, tree op,
-	      basic_block old_bb, bool loop_phi) const
+	      basic_block old_bb, phi_node_kind phi_kind) const
 {
   /* For constants the names are the same.  */
   if (is_constant (op))
     return op;
 
-  return get_rename (new_bb, op, old_bb, loop_phi);
+  return get_rename (new_bb, op, old_bb, phi_kind);
 }
 
 /* Return a debug location for OP.  */
@@ -2063,7 +2096,7 @@ copy_loop_phi_args (gphi *old_phi, init_back_edge_pair_t &ibp_old_bb,
 
       tree old_name = gimple_phi_arg_def (old_phi, i);
       tree new_name = get_new_name (new_bb, old_name,
-				    gimple_bb (old_phi), true);
+				    gimple_bb (old_phi), loop_phi);
       if (new_name)
 	{
 	  add_phi_arg (new_phi, new_name, e, get_loc (old_name));
@@ -2325,7 +2358,7 @@ translate_isl_ast_to_gimple::copy_loop_close_phi_args (basic_block old_bb,
       set_rename (res, new_res);
 
       tree old_name = gimple_phi_arg_def (old_close_phi, 0);
-      tree new_name = get_new_name (new_bb, old_name, old_bb, false);
+      tree new_name = get_new_name (new_bb, old_name, old_bb, close_phi);
 
       /* Predecessor basic blocks of a loop close phi should have been code
 	 generated before.  FIXME: This is fixable by merging PHIs from inner
@@ -2599,7 +2632,7 @@ translate_isl_ast_to_gimple::copy_cond_phi_args (gphi *phi, gphi *new_phi,
   for (unsigned i = 0; i < gimple_phi_num_args (phi); i++)
     {
       tree old_name = gimple_phi_arg_def (phi, i);
-      tree new_name = get_new_name (new_bb, old_name, old_bb, false);
+      tree new_name = get_new_name (new_bb, old_name, old_bb, cond_phi);
       old_phi_args[i] = old_name;
       if (new_name)
 	{
@@ -2745,6 +2778,14 @@ should_copy_to_new_region (gimple *stmt, sese_info_p region)
       && scev_analyzable_p (lhs, region->region))
     return false;
 
+  /* Do not copy parameters that have been generated in the header of the
+     scop.  */
+  if (is_gimple_assign (stmt)
+      && (lhs = gimple_assign_lhs (stmt))
+      && TREE_CODE (lhs) == SSA_NAME
+      && region->parameter_rename_map->get(lhs))
+    return false;
+
   return true;
 }
 
@@ -2809,6 +2850,25 @@ translate_isl_ast_to_gimple::graphite_copy_stmts_from_block (basic_block bb,
 
       if (codegen_error_p ())
 	return false;
+
+      /* For each SSA_NAME in the parameter_rename_map rename their usage.  */
+      ssa_op_iter iter;
+      use_operand_p use_p;
+      if (!is_gimple_debug (copy))
+	FOR_EACH_SSA_USE_OPERAND (use_p, copy, iter, SSA_OP_USE)
+	  {
+	    tree old_name = USE_FROM_PTR (use_p);
+
+	    if (TREE_CODE (old_name) != SSA_NAME
+		|| SSA_NAME_IS_DEFAULT_DEF (old_name))
+	      continue;
+
+	    tree *new_expr = region->parameter_rename_map->get (old_name);
+	    if (!new_expr)
+	      continue;
+
+	    replace_exp (use_p, *new_expr);
+	  }
 
       update_stmt (copy);
     }
@@ -3160,9 +3220,11 @@ translate_isl_ast_to_gimple::generate_isl_schedule (scop_p scop)
       bb_schedule = isl_map_intersect_domain (bb_schedule,
 					      isl_set_copy (pbb->domain));
       bb_schedule = extend_schedule (bb_schedule, nb_schedule_dims);
+      bb_schedule = isl_map_coalesce (bb_schedule);
       schedule_isl
 	= isl_union_map_union (schedule_isl,
 			       isl_union_map_from_map (bb_schedule));
+      schedule_isl = isl_union_map_coalesce (schedule_isl);
     }
   return schedule_isl;
 }
@@ -3258,6 +3320,70 @@ translate_isl_ast_to_gimple::scop_to_isl_ast (scop_p scop, ivs_params &ip)
   return ast_isl;
 }
 
+/* Copy def from sese REGION to the newly created TO_REGION. TR is defined by
+   DEF_STMT. GSI points to entry basic block of the TO_REGION.  */
+
+static void
+copy_def (tree tr, gimple *def_stmt, sese_info_p region, sese_info_p to_region,
+	  gimple_stmt_iterator *gsi)
+{
+  if (!defined_in_sese_p (tr, region->region))
+    return;
+
+  ssa_op_iter iter;
+  use_operand_p use_p;
+  FOR_EACH_SSA_USE_OPERAND (use_p, def_stmt, iter, SSA_OP_USE)
+    {
+      tree use_tr = USE_FROM_PTR (use_p);
+
+      /* Do not copy parameters that have been generated in the header of the
+	 scop.  */
+      if (region->parameter_rename_map->get(use_tr))
+	continue;
+
+      gimple *def_of_use = SSA_NAME_DEF_STMT (use_tr);
+      if (!def_of_use)
+	continue;
+
+      copy_def (use_tr, def_of_use, region, to_region, gsi);
+    }
+
+  gimple *copy = gimple_copy (def_stmt);
+  gsi_insert_after (gsi, copy, GSI_NEW_STMT);
+
+  /* Create new names for all the definitions created by COPY and
+     add replacement mappings for each new name.  */
+  def_operand_p def_p;
+  ssa_op_iter op_iter;
+  FOR_EACH_SSA_DEF_OPERAND (def_p, copy, op_iter, SSA_OP_ALL_DEFS)
+    {
+      tree old_name = DEF_FROM_PTR (def_p);
+      tree new_name = create_new_def_for (old_name, copy, def_p);
+      region->parameter_rename_map->put(old_name, new_name);
+    }
+
+  update_stmt (copy);
+}
+
+static void
+copy_internal_parameters (sese_info_p region, sese_info_p to_region)
+{
+  /* For all the parameters which definitino is in the if_region->false_region,
+     insert code on true_region (if_region->true_region->entry). */
+
+  int i;
+  tree tr;
+  gimple_stmt_iterator gsi = gsi_start_bb(to_region->region.entry->dest);
+
+  FOR_EACH_VEC_ELT (region->params, i, tr)
+    {
+      // If def is not in region.
+      gimple *def_stmt = SSA_NAME_DEF_STMT (tr);
+      if (def_stmt)
+	copy_def (tr, def_stmt, region, to_region, &gsi);
+    }
+}
+
 /* GIMPLE Loop Generator: generates loops from STMT in GIMPLE form for
    the given SCOP.  Return true if code generation succeeded.
 
@@ -3291,6 +3417,9 @@ graphite_regenerate_ast_isl (scop_p scop)
   recompute_all_dominators ();
 
   loop_p context_loop = region->region.entry->src->loop_father;
+
+  /* Copy all the parameters which are defined in the region.  */
+  copy_internal_parameters(if_region->false_region, if_region->true_region);
 
   edge e = single_succ_edge (if_region->true_region->region.entry->dest);
   basic_block bb = split_edge (e);

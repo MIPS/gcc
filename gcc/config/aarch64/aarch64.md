@@ -271,18 +271,17 @@
   ""
   "")
 
-(define_insn "ccmp_and<mode>"
-  [(set (match_operand 1 "ccmp_cc_register" "")
-	(compare
-	 (and:SI
+(define_insn "ccmp<mode>"
+  [(set (match_operand:CC 1 "cc_register" "")
+	(if_then_else:CC
 	  (match_operator 4 "aarch64_comparison_operator"
-	   [(match_operand 0 "ccmp_cc_register" "")
+	   [(match_operand 0 "cc_register" "")
 	    (const_int 0)])
-	  (match_operator 5 "aarch64_comparison_operator"
-	   [(match_operand:GPI 2 "register_operand" "r,r,r")
-	    (match_operand:GPI 3 "aarch64_ccmp_operand" "r,Uss,Usn")]))
-	 (const_int 0)))]
-  "aarch64_ccmp_mode_to_code (GET_MODE (operands[1])) == GET_CODE (operands[5])"
+	  (compare:CC
+	    (match_operand:GPI 2 "register_operand" "r,r,r")
+	    (match_operand:GPI 3 "aarch64_ccmp_operand" "r,Uss,Usn"))
+	  (match_operand 5 "immediate_operand")))]
+  ""
   "@
    ccmp\\t%<w>2, %<w>3, %k5, %m4
    ccmp\\t%<w>2, %<w>3, %k5, %m4
@@ -290,37 +289,34 @@
   [(set_attr "type" "alus_sreg,alus_imm,alus_imm")]
 )
 
-(define_insn "ccmp_ior<mode>"
-  [(set (match_operand 1 "ccmp_cc_register" "")
-	(compare
-	 (ior:SI
+(define_insn "fccmp<mode>"
+  [(set (match_operand:CCFP 1 "cc_register" "")
+	(if_then_else:CCFP
 	  (match_operator 4 "aarch64_comparison_operator"
-	   [(match_operand 0 "ccmp_cc_register" "")
+	   [(match_operand 0 "cc_register" "")
 	    (const_int 0)])
-	  (match_operator 5 "aarch64_comparison_operator"
-	   [(match_operand:GPI 2 "register_operand" "r,r,r")
-	    (match_operand:GPI 3 "aarch64_ccmp_operand" "r,Uss,Usn")]))
-	 (const_int 0)))]
-  "aarch64_ccmp_mode_to_code (GET_MODE (operands[1])) == GET_CODE (operands[5])"
-  "@
-   ccmp\\t%<w>2, %<w>3, %K5, %M4
-   ccmp\\t%<w>2, %<w>3, %K5, %M4
-   ccmn\\t%<w>2, #%n3, %K5, %M4"
-  [(set_attr "type" "alus_sreg,alus_imm,alus_imm")]
+	  (compare:CCFP
+	    (match_operand:GPF 2 "register_operand" "w")
+	    (match_operand:GPF 3 "register_operand" "w"))
+	  (match_operand 5 "immediate_operand")))]
+  "TARGET_FLOAT"
+  "fccmp\\t%<s>2, %<s>3, %k5, %m4"
+  [(set_attr "type" "fcmp<s>")]
 )
 
-(define_expand "cmp<mode>"
-  [(set (match_operand 0 "cc_register" "")
-        (match_operator:CC 1 "aarch64_comparison_operator"
-         [(match_operand:GPI 2 "register_operand" "")
-          (match_operand:GPI 3 "aarch64_plus_operand" "")]))]
-  ""
-  {
-    operands[1] = gen_rtx_fmt_ee (COMPARE,
-				  SELECT_CC_MODE (GET_CODE (operands[1]),
-						  operands[2], operands[3]),
-				  operands[2], operands[3]);
-  }
+(define_insn "fccmpe<mode>"
+  [(set (match_operand:CCFPE 1 "cc_register" "")
+	 (if_then_else:CCFPE
+	  (match_operator 4 "aarch64_comparison_operator"
+	   [(match_operand 0 "cc_register" "")
+	  (const_int 0)])
+	   (compare:CCFPE
+	    (match_operand:GPF 2 "register_operand" "w")
+	    (match_operand:GPF 3 "register_operand" "w"))
+	  (match_operand 5 "immediate_operand")))]
+  "TARGET_FLOAT"
+  "fccmpe\\t%<s>2, %<s>3, %k5, %m4"
+  [(set_attr "type" "fcmp<s>")]
 )
 
 ;; Expansion of signed mod by a power of 2 using CSNEG.
@@ -2874,7 +2870,7 @@
 ;; Comparison insns
 ;; -------------------------------------------------------------------
 
-(define_insn "*cmp<mode>"
+(define_insn "cmp<mode>"
   [(set (reg:CC CC_REGNUM)
 	(compare:CC (match_operand:GPI 0 "register_operand" "r,r,r")
 		    (match_operand:GPI 1 "aarch64_plus_operand" "r,I,J")))]
@@ -2886,7 +2882,7 @@
   [(set_attr "type" "alus_sreg,alus_imm,alus_imm")]
 )
 
-(define_insn "*cmp<mode>"
+(define_insn "fcmp<mode>"
   [(set (reg:CCFP CC_REGNUM)
         (compare:CCFP (match_operand:GPF 0 "register_operand" "w,w")
 		      (match_operand:GPF 1 "aarch64_fp_compare_operand" "Y,w")))]
@@ -2897,7 +2893,7 @@
   [(set_attr "type" "fcmp<s>")]
 )
 
-(define_insn "*cmpe<mode>"
+(define_insn "fcmpe<mode>"
   [(set (reg:CCFPE CC_REGNUM)
         (compare:CCFPE (match_operand:GPF 0 "register_operand" "w,w")
 		       (match_operand:GPF 1 "aarch64_fp_compare_operand" "Y,w")))]
@@ -2961,7 +2957,7 @@
 (define_expand "cstorecc4"
   [(set (match_operand:SI 0 "register_operand")
        (match_operator 1 "aarch64_comparison_operator"
-        [(match_operand 2 "ccmp_cc_register")
+	[(match_operand 2 "cc_register")
          (match_operand 3 "const0_operand")]))]
   ""
 "{
@@ -3164,19 +3160,15 @@
 			   (match_operand:ALLI 3 "register_operand" "")))]
   ""
   {
+    rtx ccreg;
     enum rtx_code code = GET_CODE (operands[1]);
 
     if (code == UNEQ || code == LTGT)
       FAIL;
 
-    if (!ccmp_cc_register (XEXP (operands[1], 0),
-			   GET_MODE (XEXP (operands[1], 0))))
-      {
-	rtx ccreg;
-	ccreg = aarch64_gen_compare_reg (code, XEXP (operands[1], 0),
-					 XEXP (operands[1], 1));
-	operands[1] = gen_rtx_fmt_ee (code, VOIDmode, ccreg, const0_rtx);
-      }
+    ccreg = aarch64_gen_compare_reg (code, XEXP (operands[1], 0),
+				     XEXP (operands[1], 1));
+    operands[1] = gen_rtx_fmt_ee (code, VOIDmode, ccreg, const0_rtx);
   }
 )
 

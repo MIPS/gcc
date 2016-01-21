@@ -1,3 +1,227 @@
+2016-01-21  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58046
+	* g++.dg/cpp0x/pr58046.C: New.
+
+2016-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/69187
+	PR target/65624
+	* gcc.target/arm/pr69187.c: New test.
+
+	PR c++/69355
+	* g++.dg/torture/pr69355.C: New test.
+
+2016-01-21  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	* gfortran.dg/graphite/interchange-3.f90: Adjust pattern.
+
+2016-01-21  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+        * gcc.dg/graphite/pr68976.c: New test.
+
+2016-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/67653
+	* c-c++-common/pr67653.c: New test.
+	* gcc.dg/torture/pr29119.c: Add dg-warning.
+
+2016-01-20  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* gcc.target/powerpc/cpu-builtin-1.c: New test.
+
+2016-01-20  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	PR c/24293
+	* gcc.dg/pr24293.c: New test.
+	* gcc.dg/Wcxx-compat-8.c: Adjust to accept error due to
+	incomplete struct type.
+	* gcc.dg/declspec-1.c: Likewise.
+	* gcc.dg/pr63549.c: Likewise.
+
+2016-01-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/66612
+	* gcc.target/powerpc/20050830-1.c: Xfail the scan-assembler test
+	for bdn instruction.
+
+2016-01-20  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* lib/target-supports.exp
+	(check_effective_target_arm_fp_ok_nocache): New.
+	(check_effective_target_arm_fp_ok): New.
+	(add_options_for_arm_fp): New.
+	(check_effective_target_arm_crypto_ok_nocache): Require
+	target_arm_v8_neon_ok instead of arm32.
+	(check_effective_target_arm_crypto_pragma_ok_nocache): New.
+	(check_effective_target_arm_crypto_pragma_ok): New.
+	(add_options_for_arm_vfp): New.
+	* gcc.target/arm/attr-crypto.c: Use arm_crypto_pragma_ok effective
+	target. Do not force -mfloat-abi=softfp, use arm_fp_ok effective
+	target instead. Force initial fpu to vfp.
+	* gcc.target/arm/attr-neon-builtin-fail.c: Do not force
+	-mfloat-abi=softfp, use arm_fp_ok effective target instead.
+	* gcc.target/arm/attr-neon-fp16.c: Likewise. Remove arm_neon_ok
+	dependency.
+	* gcc.target/arm/attr-neon2.c: Do not force -mfloat-abi=softfp,
+	use arm_vfp effective target instead. Force initial fpu to vfp.
+	* gcc.target/arm/attr-neon3.c: Likewise.
+	* gcc.target/arm/cmp-2.c: Use arm_fp_ok effective target instead of
+	arm_vfp_ok.
+	* gcc.target/arm/unsigned-float.c: Likewise.
+	* gcc.target/arm/vfp-1.c: Likewise.
+	* gcc.target/arm/vfp-ldmdbd.c: Likewise.
+	* gcc.target/arm/vfp-ldmdbs.c: Likewise.
+	* gcc.target/arm/vfp-ldmiad.c: Likewise.
+	* gcc.target/arm/vfp-ldmias.c: Likewise.
+	* gcc.target/arm/vfp-stmdbd.c: Likewise.
+	* gcc.target/arm/vfp-stmdbs.c: Likewise.
+	* gcc.target/arm/vfp-stmiad.c: Likewise.
+	* gcc.target/arm/vfp-stmias.c: Likewise.
+	* gcc.target/arm/vnmul-1.c: Likewise.
+	* gcc.target/arm/vnmul-2.c: Likewise.
+	* gcc.target/arm/vnmul-3.c: Likewise.
+	* gcc.target/arm/vnmul-4.c: Likewise.
+
+2016-01-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/69366
+	* g++.dg/pr63995-1.C: Require non-x32 target, instead of,
+	the MPX run-time library, for compile-time MPX test.
+	* gcc.target/i386/chkp-always_inline.c: Likewise.
+	* gcc.target/i386/chkp-bndret.c: Likewise.
+	* gcc.target/i386/chkp-builtins-1.c: Likewise.
+	* gcc.target/i386/chkp-builtins-2.c: Likewise.
+	* gcc.target/i386/chkp-builtins-3.c: Likewise.
+	* gcc.target/i386/chkp-builtins-4.c: Likewise.
+	* gcc.target/i386/chkp-const-check-1.c: Likewise.
+	* gcc.target/i386/chkp-const-check-2.c: Likewise.
+	* gcc.target/i386/chkp-hidden-def.c: Likewise.
+	* gcc.target/i386/chkp-label-address.c: Likewise.
+	* gcc.target/i386/chkp-lifetime-1.c: Likewise.
+	* gcc.target/i386/chkp-narrow-bounds.c: Likewise.
+	* gcc.target/i386/chkp-pr69044.c: Likewise.
+	* gcc.target/i386/chkp-remove-bndint-1.c: Likewise.
+	* gcc.target/i386/chkp-remove-bndint-2.c: Likewise.
+	* gcc.target/i386/chkp-strchr.c: Likewise.
+	* gcc.target/i386/chkp-strlen-1.c: Likewise.
+	* gcc.target/i386/chkp-strlen-2.c: Likewise.
+	* gcc.target/i386/chkp-strlen-3.c: Likewise.
+	* gcc.target/i386/chkp-strlen-4.c: Likewise.
+	* gcc.target/i386/chkp-strlen-5.c: Likewise.
+	* gcc.target/i386/chkp-stropt-1.c: Likewise.
+	* gcc.target/i386/chkp-stropt-10.c: Likewise.
+	* gcc.target/i386/chkp-stropt-11.c: Likewise.
+	* gcc.target/i386/chkp-stropt-12.c: Likewise.
+	* gcc.target/i386/chkp-stropt-13.c: Likewise.
+	* gcc.target/i386/chkp-stropt-14.c: Likewise.
+	* gcc.target/i386/chkp-stropt-15.c: Likewise.
+	* gcc.target/i386/chkp-stropt-16.c: Likewise.
+	* gcc.target/i386/chkp-stropt-2.c: Likewise.
+	* gcc.target/i386/chkp-stropt-3.c: Likewise.
+	* gcc.target/i386/chkp-stropt-4.c: Likewise.
+	* gcc.target/i386/chkp-stropt-5.c: Likewise.
+	* gcc.target/i386/chkp-stropt-6.c: Likewise.
+	* gcc.target/i386/chkp-stropt-7.c: Likewise.
+	* gcc.target/i386/chkp-stropt-8.c: Likewise.
+	* gcc.target/i386/chkp-stropt-9.c: Likewise.
+	* gcc.target/i386/pr63995-2.c: Likewise.
+	* gcc.target/i386/pr64805.c: Likewise.
+	* gcc.target/i386/pr65044.c: Likewise.
+	* gcc.target/i386/pr65167.c: Likewise.
+	* gcc.target/i386/pr65183.c: Likewise.
+	* gcc.target/i386/pr65184.c: Likewise.
+	* gcc.target/i386/thunk-retbnd.c: Likewise.
+
+2016-01-20  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR tree-optimization/69328
+	* gcc.dg/pr69328.c: New test.
+
+2016-01-20  Jeff Law  <law@redhat.com>
+
+	PR target/25114
+	* gcc.target/m68k/pr25114.c: New test.
+
+2016-01-20  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	* gcc.target/arm/memset-inline-10.c: Added
+	dg-require-effective-target arm_thumb2_ok.
+
+2016-01-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/debug/dwarf2/sso.c: New test.
+
+2016-01-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR testsuite/68820
+	* gcc.c-torture/execute/builtins/memops-asm.x: New file.
+	* gcc.c-torture/execute/builtins/strstr-asm.x: Ditto.
+	* gcc.c-torture/execute/builtins/strstr-asm.c: Remove dg-options.
+
+2016-01-19  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/66223
+	* g++.dg/ipa/devirt-50.C: New testcase.
+
+2016-01-19  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/68965
+	* g++.dg/cpp1y/parameter-pack-1.C: New test.
+	* g++.dg/cpp1y/parameter-pack-2.C: New test.
+
+2016-01-19  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/69135
+	* gcc.target/arm/pr69135_1.c: New test.
+
+2015-01-19  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* gcc.target/aarch64/ccmp_1.c: Add new tests.
+
+2015-01-19  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* gcc.target/aarch64/ccmp_1.c: New testcase.
+
+2016-01-19  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/68586
+	* g++.dg/cpp0x/enum30.C: New test.
+
+2016-01-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69336
+	* g++.dg/tree-ssa/pr69336.C: New testcase.
+
+2016-01-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/65779
+	* gcc.dg/pr65779.c: New test.
+
+2016-01-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69352
+	* gcc.dg/torture/pr69352.c: New testcase.
+
+2016-01-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/68955
+	PR rtl-optimization/64557
+	* gcc.dg/torture/pr68955.c: New test.
+
+2016-01-19  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR lto/69136
+	* g++.dg/torture/pr69136.C: New testcase.
+
+2016-01-19  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR lto/69133
+	* g++.dg/lto/pr69133_0.C: New testcase.
+	* g++.dg/lto/pr69133_1.C: New testcase.
+
 2016-01-15  Jeff Law  <law@redhat.com>
 
 	PR tree-optimization/69320
@@ -277,8 +501,7 @@
 
 2016-01-15  Dominik Vogt  <vogt@linux.vnet.ibm.com>
 
-	* gfortran.dg/bind_c_array_params_2.f90: Fix test patterns for
-	S/390.
+	* gfortran.dg/bind_c_array_params_2.f90: Fix test patterns for S/390.
 
 2016-01-15  Dominik Vogt  <vogt@linux.vnet.ibm.com>
 
