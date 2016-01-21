@@ -1,6 +1,6 @@
 /* This file is part of the Intel(R) Cilk(TM) Plus support
    This file contains the CilkPlus Intrinsics
-   Copyright (C) 2013-2015 Free Software Foundation, Inc.
+   Copyright (C) 2013-2016 Free Software Foundation, Inc.
    Contributed by Balaji V. Iyer <balaji.v.iyer@intel.com>,
    Intel Corporation
 
@@ -591,6 +591,11 @@ create_cilk_wrapper_body (tree stmt, struct wrapper_data *wd)
 
   for (p = wd->parms; p; p = TREE_CHAIN (p))
     DECL_CONTEXT (p) = fndecl;
+
+  /* The statement containing the spawn expression might create temporaries with
+     destructors defined; if so we need to add a CLEANUP_POINT_EXPR to ensure
+     the expression is properly gimplified.  */
+  stmt = fold_build_cleanup_point_expr (void_type_node, stmt);
 
   gcc_assert (!DECL_SAVED_TREE (fndecl));
   cilk_install_body_with_frame_cleanup (fndecl, stmt, (void *) wd);

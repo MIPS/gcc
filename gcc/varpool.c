@@ -1,5 +1,5 @@
 /* Callgraph handling code.
-   Copyright (C) 2003-2015 Free Software Foundation, Inc.
+   Copyright (C) 2003-2016 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -158,7 +158,6 @@ varpool_node::get_create (tree decl)
 	  g->have_offload = true;
 	  if (!in_lto_p)
 	    vec_safe_push (offload_vars, decl);
-	  node->force_output = 1;
 	}
     }
 
@@ -296,9 +295,11 @@ varpool_node::get_constructor (void)
 
   /* We may have renamed the declaration, e.g., a static function.  */
   name = lto_get_decl_name_mapping (file_data, name);
+  struct lto_in_decl_state *decl_state
+	 = lto_get_function_in_decl_state (file_data, decl);
 
   data = lto_get_section_data (file_data, LTO_section_function_body,
-			       name, &len);
+			       name, &len, decl_state->compressed);
   if (!data)
     fatal_error (input_location, "%s: section %s is missing",
 		 file_data->file_name,
@@ -308,7 +309,7 @@ varpool_node::get_constructor (void)
   gcc_assert (DECL_INITIAL (decl) != error_mark_node);
   lto_stats.num_function_bodies++;
   lto_free_section_data (file_data, LTO_section_function_body, name,
-			 data, len);
+			 data, len, decl_state->compressed);
   lto_free_function_in_decl_state_for_node (this);
   timevar_pop (TV_IPA_LTO_CTORS_IN);
   return DECL_INITIAL (decl);
@@ -490,7 +491,7 @@ varpool_node::get_availability (void)
   if (DECL_IN_CONSTANT_POOL (decl)
       || DECL_VIRTUAL_P (decl))
     return AVAIL_AVAILABLE;
-  if (transparent_alias)
+  if (transparent_alias && definition)
     {
       enum availability avail;
 
@@ -667,11 +668,11 @@ symbol_table::remove_unreferenced_decls (void)
 	    enqueue_node (vnode, &first);
 	  else
 	    {
-	      referenced.add (node);
-	      while (node->alias && node->definition)
+	      referenced.add (vnode);
+	      while (vnode && vnode->alias && vnode->definition)
 		{
-		  node = node->get_alias_target ();
-	          referenced.add (node);
+		  vnode = vnode->get_alias_target ();
+	          referenced.add (vnode);
 		}
 	    }
 	}
@@ -746,6 +747,13 @@ symbol_table::output_variables (void)
       /* Handled in output_in_order.  */
       if (node->no_reorder)
 	continue;
+#ifdef ACCEL_COMPILER
+      /* Do not assemble "omp declare target link" vars.  */
+      if (DECL_HAS_VALUE_EXPR_P (node->decl)
+	  && lookup_attribute ("omp declare target link",
+			       DECL_ATTRIBUTES (node->decl)))
+	continue;
+#endif
       if (node->assemble_decl ())
         changed = true;
     }

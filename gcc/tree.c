@@ -1,5 +1,5 @@
 /* Language-independent node constructors for parse phase of GNU compiler.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -282,7 +282,6 @@ unsigned const char omp_clause_num_ops[] =
   1, /* OMP_CLAUSE_IS_DEVICE_PTR  */
   2, /* OMP_CLAUSE__CACHE_  */
   1, /* OMP_CLAUSE_DEVICE_RESIDENT  */
-  1, /* OMP_CLAUSE_USE_DEVICE  */
   2, /* OMP_CLAUSE_GANG  */
   1, /* OMP_CLAUSE_ASYNC  */
   1, /* OMP_CLAUSE_WAIT  */
@@ -329,6 +328,7 @@ unsigned const char omp_clause_num_ops[] =
   1, /* OMP_CLAUSE_NUM_WORKERS  */
   1, /* OMP_CLAUSE_VECTOR_LENGTH  */
   1, /* OMP_CLAUSE_TILE  */
+  2, /* OMP_CLAUSE__GRIDDIM_  */
 };
 
 const char * const omp_clause_code_name[] =
@@ -354,7 +354,6 @@ const char * const omp_clause_code_name[] =
   "is_device_ptr",
   "_cache_",
   "device_resident",
-  "use_device",
   "gang",
   "async",
   "wait",
@@ -400,7 +399,8 @@ const char * const omp_clause_code_name[] =
   "num_gangs",
   "num_workers",
   "vector_length",
-  "tile"
+  "tile",
+  "_griddim_"
 };
 
 
@@ -1245,11 +1245,9 @@ static unsigned int
 get_int_cst_ext_nunits (tree type, const wide_int &cst)
 {
   gcc_checking_assert (cst.get_precision () == TYPE_PRECISION (type));
-  /* We need an extra zero HWI if CST is an unsigned integer with its
-     upper bit set, and if CST occupies a whole number of HWIs.  */
-  if (TYPE_UNSIGNED (type)
-      && wi::neg_p (cst)
-      && (cst.get_precision () % HOST_BITS_PER_WIDE_INT) == 0)
+  /* We need extra HWIs if CST is an unsigned integer with its
+     upper bit set.  */
+  if (TYPE_UNSIGNED (type) && wi::neg_p (cst))
     return cst.get_precision () / HOST_BITS_PER_WIDE_INT + 1;
   return cst.get_len ();
 }
@@ -1266,7 +1264,8 @@ build_new_int_cst (tree type, const wide_int &cst)
   if (len < ext_len)
     {
       --ext_len;
-      TREE_INT_CST_ELT (nt, ext_len) = 0;
+      TREE_INT_CST_ELT (nt, ext_len)
+	= zext_hwi (-1, cst.get_precision () % HOST_BITS_PER_WIDE_INT);
       for (unsigned int i = len; i < ext_len; ++i)
 	TREE_INT_CST_ELT (nt, i) = -1;
     }
@@ -3581,9 +3580,10 @@ type_contains_placeholder_1 (const_tree type)
 	      || CONTAINS_PLACEHOLDER_P (TYPE_MAX_VALUE (type)));
 
     case ARRAY_TYPE:
-      /* We have already checked the component type above, so just check the
-	 domain type.  */
-      return type_contains_placeholder_p (TYPE_DOMAIN (type));
+      /* We have already checked the component type above, so just check
+	 the domain type.  Flexible array members have a null domain.  */
+      return TYPE_DOMAIN (type) ?
+	type_contains_placeholder_p (TYPE_DOMAIN (type)) : false;
 
     case RECORD_TYPE:
     case UNION_TYPE:
@@ -5191,7 +5191,10 @@ free_lang_data_in_type (tree type)
       while (member)
 	{
 	  if (TREE_CODE (member) == FIELD_DECL
-	      || TREE_CODE (member) == TYPE_DECL)
+	      || (TREE_CODE (member) == TYPE_DECL
+		  && !DECL_IGNORED_P (member)
+		  && debug_info_level > DINFO_LEVEL_TERSE
+		  && !is_redundant_typedef (member)))
 	    {
 	      if (prev)
 		TREE_CHAIN (prev) = member;
@@ -5216,7 +5219,7 @@ free_lang_data_in_type (tree type)
       /* Remove TYPE_METHODS list.  While it would be nice to keep it
  	 to enable ODR warnings about different method lists, doing so
 	 seems to impractically increase size of LTO data streamed.
-	 Keep the infrmation if TYPE_METHODS was non-NULL. This is used
+	 Keep the information if TYPE_METHODS was non-NULL. This is used
 	 by function.c and pretty printers.  */
       if (TYPE_METHODS (type))
         TYPE_METHODS (type) = error_mark_node;
@@ -5666,7 +5669,10 @@ find_decls_types_r (tree *tp, int *ws, void *data)
 	  while (tem)
 	    {
 	      if (TREE_CODE (tem) == FIELD_DECL
-		  || TREE_CODE (tem) == TYPE_DECL)
+		  || (TREE_CODE (tem) == TYPE_DECL
+		      && !DECL_IGNORED_P (tem)
+		      && debug_info_level > DINFO_LEVEL_TERSE
+		      && !is_redundant_typedef (tem)))
 		fld_worklist_push (tem, fld);
 	      tem = TREE_CHAIN (tem);
 	    }
@@ -11602,11 +11608,11 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
       switch (OMP_CLAUSE_CODE (*tp))
 	{
 	case OMP_CLAUSE_GANG:
+	case OMP_CLAUSE__GRIDDIM_:
 	  WALK_SUBTREE (OMP_CLAUSE_OPERAND (*tp, 1));
 	  /* FALLTHRU */
 
 	case OMP_CLAUSE_DEVICE_RESIDENT:
-	case OMP_CLAUSE_USE_DEVICE:
 	case OMP_CLAUSE_ASYNC:
 	case OMP_CLAUSE_WAIT:
 	case OMP_CLAUSE_WORKER:

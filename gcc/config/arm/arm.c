@@ -1,5 +1,5 @@
 /* Output routines for GCC for ARM.
-   Copyright (C) 1991-2015 Free Software Foundation, Inc.
+   Copyright (C) 1991-2016 Free Software Foundation, Inc.
    Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
    and Martin Simmons (@harleqn.co.uk).
    More major hacks by Richard Earnshaw (rearnsha@arm.com).
@@ -816,6 +816,9 @@ int arm_arch7em = 0;
 
 /* Nonzero if instructions present in ARMv8 can be used.  */
 int arm_arch8 = 0;
+
+/* Nonzero if this chip supports the ARMv8.1 extensions.  */
+int arm_arch8_1 = 0;
 
 /* Nonzero if this chip can benefit from load scheduling.  */
 int arm_ld_sched = 0;
@@ -2951,6 +2954,10 @@ arm_option_override_internal (struct gcc_options *opts,
   /* Thumb2 inline assembly code should always use unified syntax.
      This will apply to ARM and Thumb1 eventually.  */
   opts->x_inline_asm_unified = TARGET_THUMB2_P (opts->x_target_flags);
+
+#ifdef SUBTARGET_OVERRIDE_INTERNAL_OPTIONS
+  SUBTARGET_OVERRIDE_INTERNAL_OPTIONS;
+#endif
 }
 
 /* Fix up any incompatible options that the user has specified.  */
@@ -3154,6 +3161,7 @@ arm_option_override (void)
   arm_arch7 = ARM_FSET_HAS_CPU1 (insn_flags, FL_ARCH7);
   arm_arch7em = ARM_FSET_HAS_CPU1 (insn_flags, FL_ARCH7EM);
   arm_arch8 = ARM_FSET_HAS_CPU1 (insn_flags, FL_ARCH8);
+  arm_arch8_1 = ARM_FSET_HAS_CPU2 (insn_flags, FL2_ARCH8_1);
   arm_arch_thumb2 = ARM_FSET_HAS_CPU1 (insn_flags, FL_THUMB2);
   arm_arch_xscale = ARM_FSET_HAS_CPU1 (insn_flags, FL_XSCALE);
 
@@ -5842,7 +5850,10 @@ aapcs_vfp_allocate_return_reg (enum arm_pcs pcs_variant ATTRIBUTE_UNUSED,
   if (!use_vfp_abi (pcs_variant, false))
     return NULL;
 
-  if (mode == BLKmode || (mode == TImode && !TARGET_NEON))
+  if (mode == BLKmode
+      || (GET_MODE_CLASS (mode) == MODE_INT
+	  && GET_MODE_SIZE (mode) >= GET_MODE_SIZE (TImode)
+	  && !TARGET_NEON))
     {
       int count;
       machine_mode ag_mode;
@@ -17195,7 +17206,7 @@ thumb1_reorg (void)
   FOR_EACH_BB_FN (bb, cfun)
     {
       rtx dest, src;
-      rtx pat, op0, set = NULL;
+      rtx cmp, op0, op1, set = NULL;
       rtx_insn *prev, *insn = BB_END (bb);
       bool insn_clobbered = false;
 
@@ -17208,8 +17219,13 @@ thumb1_reorg (void)
 	continue;
 
       /* Get the register with which we are comparing.  */
-      pat = PATTERN (insn);
-      op0 = XEXP (XEXP (SET_SRC (pat), 0), 0);
+      cmp = XEXP (SET_SRC (PATTERN (insn)), 0);
+      op0 = XEXP (cmp, 0);
+      op1 = XEXP (cmp, 1);
+
+      /* Check that comparison is against ZERO.  */
+      if (!CONST_INT_P (op1) || INTVAL (op1) != 0)
+	continue;
 
       /* Find the first flag setting insn before INSN in basic block BB.  */
       gcc_assert (insn != BB_HEAD (bb));
@@ -17249,7 +17265,7 @@ thumb1_reorg (void)
 	  PATTERN (prev) = gen_rtx_SET (dest, src);
 	  INSN_CODE (prev) = -1;
 	  /* Set test register in INSN to dest.  */
-	  XEXP (XEXP (SET_SRC (pat), 0), 0) = copy_rtx (dest);
+	  XEXP (cmp, 0) = copy_rtx (dest);
 	  INSN_CODE (insn) = -1;
 	}
     }
@@ -29925,9 +29941,6 @@ arm_valid_target_attribute_tree (tree args, struct gcc_options *opts,
 
   /* Do any overrides, such as global options arch=xxx.  */
   arm_option_override_internal (opts, opts_set);
-
-  if (TARGET_NEON)
-    arm_init_neon_builtins ();
 
   return build_target_option_node (opts);
 }

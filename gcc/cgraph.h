@@ -1,5 +1,5 @@
 /* Callgraph handling code.
-   Copyright (C) 2003-2015 Free Software Foundation, Inc.
+   Copyright (C) 2003-2016 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -355,8 +355,13 @@ public:
 
   /* Return 0 if symbol is known to have different address than S2,
      Return 1 if symbol is known to have same address as S2,
-     return 2 otherwise.   */
-  int equal_address_to (symtab_node *s2);
+     return 2 otherwise. 
+
+     If MEMORY_ACCESSED is true, assume that both memory pointer to THIS
+     and S2 is going to be accessed.  This eliminates the situations when
+     either THIS or S2 is NULL and is seful for comparing bases when deciding
+     about memory aliasing.  */
+  int equal_address_to (symtab_node *s2, bool memory_accessed = false);
 
   /* Return true if symbol's address may possibly be compared to other
      symbol's address.  */
@@ -1065,7 +1070,7 @@ public:
   cgraph_edge *get_edge (gimple *call_stmt);
 
   /* Collect all callers of cgraph_node and its aliases that are known to lead
-     to NODE (i.e. are not overwritable).  */
+     to NODE (i.e. are not overwritable) and that are not thunks.  */
   vec<cgraph_edge *> collect_callers (void);
 
   /* Remove all callers from the node.  */

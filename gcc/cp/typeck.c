@@ -1,5 +1,5 @@
 /* Build expressions with type checking for C++ compiler.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -1909,11 +1909,10 @@ unlowered_expr_type (const_tree exp)
 
 /* Perform the conversions in [expr] that apply when an lvalue appears
    in an rvalue context: the lvalue-to-rvalue, array-to-pointer, and
-   function-to-pointer conversions.  In addition, manifest constants
-   are replaced by their values, and bitfield references are converted
-   to their declared types. Note that this function does not perform the
-   lvalue-to-rvalue conversion for class types. If you need that conversion
-   to for class types, then you probably need to use force_rvalue.
+   function-to-pointer conversions.  In addition, bitfield references are
+   converted to their declared types. Note that this function does not perform
+   the lvalue-to-rvalue conversion for class types. If you need that conversion
+   for class types, then you probably need to use force_rvalue.
 
    Although the returned value is being used as an rvalue, this
    function does not wrap the returned expression in a
@@ -1932,8 +1931,6 @@ decay_conversion (tree exp,
   type = TREE_TYPE (exp);
   if (type == error_mark_node)
     return error_mark_node;
-
-  exp = mark_rvalue_use (exp, loc, reject_builtin);
 
   exp = resolve_nondeduced_context (exp);
   if (type_unknown_p (exp))
@@ -1962,11 +1959,18 @@ decay_conversion (tree exp,
   if (invalid_nonstatic_memfn_p (loc, exp, complain))
     return error_mark_node;
   if (code == FUNCTION_TYPE || is_overloaded_fn (exp))
-    return cp_build_addr_expr (exp, complain);
+    {
+      exp = mark_lvalue_use (exp);
+      if (reject_builtin && reject_gcc_builtin (exp, loc))
+	return error_mark_node;
+      return cp_build_addr_expr (exp, complain);
+    }
   if (code == ARRAY_TYPE)
     {
       tree adr;
       tree ptrtype;
+
+      exp = mark_lvalue_use (exp);
 
       if (INDIRECT_REF_P (exp))
 	return build_nop (build_pointer_type (TREE_TYPE (type)),
@@ -2013,6 +2017,9 @@ decay_conversion (tree exp,
       return cp_convert (ptrtype, adr, complain);
     }
 
+  /* Otherwise, it's the lvalue-to-rvalue conversion.  */
+  exp = mark_rvalue_use (exp, loc, reject_builtin);
+
   /* If a bitfield is used in a context where integral promotion
      applies, then the caller is expected to have used
      default_conversion.  That function promotes bitfields correctly
@@ -2031,6 +2038,9 @@ decay_conversion (tree exp,
   type = TREE_TYPE (exp);
   if (!CLASS_TYPE_P (type) && cv_qualified_p (type))
     exp = build_nop (cv_unqualified (type), exp);
+
+  if (!complete_type_or_maybe_complain (type, exp, complain))
+    return error_mark_node;
 
   return exp;
 }
@@ -2358,8 +2368,11 @@ build_class_member_access_expr (cp_expr object, tree member,
       int type_quals;
       tree member_type;
 
-      null_object_p = (INDIRECT_REF_P (object)
-		       && integer_zerop (TREE_OPERAND (object, 0)));
+      if (INDIRECT_REF_P (object))
+	null_object_p =
+	  integer_zerop (tree_strip_nop_conversions (TREE_OPERAND (object, 0)));
+      else
+	null_object_p = false;
 
       /* Convert OBJECT to the type of MEMBER.  */
       if (!same_type_p (TYPE_MAIN_VARIANT (object_type),
@@ -2902,6 +2915,7 @@ build_x_indirect_ref (location_t loc, tree expr, ref_operator errorstring,
 {
   tree orig_expr = expr;
   tree rval;
+  tree overload = NULL_TREE;
 
   if (processing_template_decl)
     {
@@ -2914,12 +2928,18 @@ build_x_indirect_ref (location_t loc, tree expr, ref_operator errorstring,
     }
 
   rval = build_new_op (loc, INDIRECT_REF, LOOKUP_NORMAL, expr,
-		       NULL_TREE, NULL_TREE, /*overload=*/NULL, complain);
+		       NULL_TREE, NULL_TREE, &overload, complain);
   if (!rval)
     rval = cp_build_indirect_ref (expr, errorstring, complain);
 
   if (processing_template_decl && rval != error_mark_node)
-    return build_min_non_dep (INDIRECT_REF, rval, orig_expr);
+    {
+      if (overload != NULL_TREE)
+	return (build_min_non_dep_op_overload
+		(INDIRECT_REF, rval, overload, orig_expr));
+
+      return build_min_non_dep (INDIRECT_REF, rval, orig_expr);
+    }
   else
     return rval;
 }
@@ -3588,7 +3608,7 @@ cp_build_function_call_vec (tree function, vec<tree, va_gc> **params,
 
   /* Check for errors in format strings and inappropriately
      null parameters.  */
-  check_function_arguments (fntype, nargs, argarray);
+  check_function_arguments (input_location, fntype, nargs, argarray);
 
   ret = build_cxx_call (function, nargs, argarray, complain);
 
@@ -3811,12 +3831,13 @@ convert_arguments (tree typelist, vec<tree, va_gc> **values, tree fndecl,
 tree
 build_x_binary_op (location_t loc, enum tree_code code, tree arg1,
 		   enum tree_code arg1_code, tree arg2,
-		   enum tree_code arg2_code, tree *overload,
+		   enum tree_code arg2_code, tree *overload_p,
 		   tsubst_flags_t complain)
 {
   tree orig_arg1;
   tree orig_arg2;
   tree expr;
+  tree overload = NULL_TREE;
 
   orig_arg1 = arg1;
   orig_arg2 = arg2;
@@ -3834,7 +3855,10 @@ build_x_binary_op (location_t loc, enum tree_code code, tree arg1,
     expr = build_m_component_ref (arg1, arg2, complain);
   else
     expr = build_new_op (loc, code, LOOKUP_NORMAL, arg1, arg2, NULL_TREE,
-			 overload, complain);
+			 &overload, complain);
+
+  if (overload_p != NULL)
+    *overload_p = overload;
 
   /* Check for cases such as x+y<<z which users are likely to
      misinterpret.  But don't warn about obj << x + y, since that is a
@@ -3850,7 +3874,13 @@ build_x_binary_op (location_t loc, enum tree_code code, tree arg1,
 			    arg2_code, orig_arg2);
 
   if (processing_template_decl && expr != error_mark_node)
-    return build_min_non_dep (code, expr, orig_arg1, orig_arg2);
+    {
+      if (overload != NULL_TREE)
+	return (build_min_non_dep_op_overload
+		(code, expr, overload, orig_arg1, orig_arg2));
+
+      return build_min_non_dep (code, expr, orig_arg1, orig_arg2);
+    }
 
   return expr;
 }
@@ -3864,6 +3894,7 @@ build_x_array_ref (location_t loc, tree arg1, tree arg2,
   tree orig_arg1 = arg1;
   tree orig_arg2 = arg2;
   tree expr;
+  tree overload = NULL_TREE;
 
   if (processing_template_decl)
     {
@@ -3876,11 +3907,17 @@ build_x_array_ref (location_t loc, tree arg1, tree arg2,
     }
 
   expr = build_new_op (loc, ARRAY_REF, LOOKUP_NORMAL, arg1, arg2,
-		       NULL_TREE, /*overload=*/NULL, complain);
+		       NULL_TREE, &overload, complain);
 
   if (processing_template_decl && expr != error_mark_node)
-    return build_min_non_dep (ARRAY_REF, expr, orig_arg1, orig_arg2,
-			      NULL_TREE, NULL_TREE);
+    {
+      if (overload != NULL_TREE)
+	return (build_min_non_dep_op_overload
+		(ARRAY_REF, expr, overload, orig_arg1, orig_arg2));
+
+      return build_min_non_dep (ARRAY_REF, expr, orig_arg1, orig_arg2,
+				NULL_TREE, NULL_TREE);
+    }
   return expr;
 }
 
@@ -4881,7 +4918,13 @@ cp_build_binary_op (location_t location,
 	      || !vector_types_compatible_elements_p (type0, type1))
 	    {
 	      if (complain & tf_error)
-		binary_op_error (location, code, type0, type1);
+		{
+		  /* "location" already embeds the locations of the
+		     operands, so we don't need to add them separately
+		     to richloc.  */
+		  rich_location richloc (line_table, location);
+		  binary_op_error (&richloc, code, type0, type1);
+		}
 	      return error_mark_node;
 	    }
 	  arithmetic_types_p = 1;
@@ -4904,8 +4947,9 @@ cp_build_binary_op (location_t location,
   if (!result_type)
     {
       if (complain & tf_error)
-	error ("invalid operands of types %qT and %qT to binary %qO",
-	       TREE_TYPE (orig_op0), TREE_TYPE (orig_op1), code);
+	error_at (location,
+		  "invalid operands of types %qT and %qT to binary %qO",
+		  TREE_TYPE (orig_op0), TREE_TYPE (orig_op1), code);
       return error_mark_node;
     }
 
@@ -5275,6 +5319,7 @@ build_x_unary_op (location_t loc, enum tree_code code, cp_expr xarg,
   tree orig_expr = xarg;
   tree exp;
   int ptrmem = 0;
+  tree overload = NULL_TREE;
 
   if (processing_template_decl)
     {
@@ -5302,7 +5347,8 @@ build_x_unary_op (location_t loc, enum tree_code code, cp_expr xarg,
     /* Don't look for a function.  */;
   else
     exp = build_new_op (loc, code, LOOKUP_NORMAL, xarg, NULL_TREE,
-			NULL_TREE, /*overload=*/NULL, complain);
+			NULL_TREE, &overload, complain);
+
   if (!exp && code == ADDR_EXPR)
     {
       if (is_overloaded_fn (xarg))
@@ -5368,8 +5414,14 @@ build_x_unary_op (location_t loc, enum tree_code code, cp_expr xarg,
     }
 
   if (processing_template_decl && exp != error_mark_node)
-    exp = build_min_non_dep (code, exp, orig_expr,
-			     /*For {PRE,POST}{INC,DEC}REMENT_EXPR*/NULL_TREE);
+    {
+      if (overload != NULL_TREE)
+	return (build_min_non_dep_op_overload
+		(code, exp, overload, orig_expr, integer_zero_node));
+
+      exp = build_min_non_dep (code, exp, orig_expr,
+			       /*For {PRE,POST}{INC,DEC}REMENT_EXPR*/NULL_TREE);
+    }
   if (TREE_CODE (exp) == ADDR_EXPR)
     PTRMEM_OK_P (exp) = ptrmem;
   return exp;
@@ -6332,6 +6384,7 @@ build_x_compound_expr (location_t loc, tree op1, tree op2,
   tree result;
   tree orig_op1 = op1;
   tree orig_op2 = op2;
+  tree overload = NULL_TREE;
 
   if (processing_template_decl)
     {
@@ -6343,12 +6396,18 @@ build_x_compound_expr (location_t loc, tree op1, tree op2,
     }
 
   result = build_new_op (loc, COMPOUND_EXPR, LOOKUP_NORMAL, op1, op2,
-			 NULL_TREE, /*overload=*/NULL, complain);
+			 NULL_TREE, &overload, complain);
   if (!result)
     result = cp_build_compound_expr (op1, op2, complain);
 
   if (processing_template_decl && result != error_mark_node)
-    return build_min_non_dep (COMPOUND_EXPR, result, orig_op1, orig_op2);
+    {
+      if (overload != NULL_TREE)
+	return (build_min_non_dep_op_overload
+		(COMPOUND_EXPR, result, overload, orig_op1, orig_op2));
+
+      return build_min_non_dep (COMPOUND_EXPR, result, orig_op1, orig_op2);
+    }
 
   return result;
 }
@@ -7791,19 +7850,42 @@ cp_expr
 build_x_modify_expr (location_t loc, tree lhs, enum tree_code modifycode,
 		     tree rhs, tsubst_flags_t complain)
 {
+  tree orig_lhs = lhs;
+  tree orig_rhs = rhs;
+  tree overload = NULL_TREE;
+  tree op = build_nt (modifycode, NULL_TREE, NULL_TREE);
+
   if (processing_template_decl)
-    return build_min_nt_loc (loc, MODOP_EXPR, lhs,
-			     build_min_nt_loc (loc, modifycode, NULL_TREE,
-					       NULL_TREE), rhs);
+    {
+      if (modifycode == NOP_EXPR
+	  || type_dependent_expression_p (lhs)
+	  || type_dependent_expression_p (rhs))
+        return build_min_nt_loc (loc, MODOP_EXPR, lhs,
+				 build_min_nt_loc (loc, modifycode, NULL_TREE,
+						   NULL_TREE), rhs);
+
+      lhs = build_non_dependent_expr (lhs);
+      rhs = build_non_dependent_expr (rhs);
+    }
 
   if (modifycode != NOP_EXPR)
     {
-      tree rval = build_new_op (loc, MODIFY_EXPR, LOOKUP_NORMAL, lhs, rhs,
-				make_node (modifycode), /*overload=*/NULL,
-				complain);
+      tree rval = build_new_op (loc, MODIFY_EXPR, LOOKUP_NORMAL,
+				lhs, rhs, op, &overload, complain);
       if (rval)
 	{
+	  if (rval == error_mark_node)
+	    return rval;
 	  TREE_NO_WARNING (rval) = 1;
+	  if (processing_template_decl)
+	    {
+	      if (overload != NULL_TREE)
+		return (build_min_non_dep_op_overload
+			(MODIFY_EXPR, rval, overload, orig_lhs, orig_rhs));
+
+	      return (build_min_non_dep
+		      (MODOP_EXPR, rval, orig_lhs, op, orig_rhs));
+	    }
 	  return rval;
 	}
     }
@@ -8414,13 +8496,15 @@ convert_for_initialization (tree exp, tree type, tree rhs, int flags,
       || (TREE_CODE (rhs) == TREE_LIST && TREE_VALUE (rhs) == error_mark_node))
     return error_mark_node;
 
-  if ((TREE_CODE (TREE_TYPE (rhs)) == ARRAY_TYPE
-       && TREE_CODE (type) != ARRAY_TYPE
-       && (TREE_CODE (type) != REFERENCE_TYPE
-	   || TREE_CODE (TREE_TYPE (type)) != ARRAY_TYPE))
-      || (TREE_CODE (TREE_TYPE (rhs)) == FUNCTION_TYPE
-	  && !TYPE_REFFN_P (type))
-      || TREE_CODE (TREE_TYPE (rhs)) == METHOD_TYPE)
+  if (MAYBE_CLASS_TYPE_P (non_reference (type)))
+    ;
+  else if ((TREE_CODE (TREE_TYPE (rhs)) == ARRAY_TYPE
+	    && TREE_CODE (type) != ARRAY_TYPE
+	    && (TREE_CODE (type) != REFERENCE_TYPE
+		|| TREE_CODE (TREE_TYPE (type)) != ARRAY_TYPE))
+	   || (TREE_CODE (TREE_TYPE (rhs)) == FUNCTION_TYPE
+	       && !TYPE_REFFN_P (type))
+	   || TREE_CODE (TREE_TYPE (rhs)) == METHOD_TYPE)
     rhs = decay_conversion (rhs, complain);
 
   rhstype = TREE_TYPE (rhs);

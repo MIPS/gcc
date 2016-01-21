@@ -1,5 +1,5 @@
 /* Analyze RTL for GNU compiler.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1534,7 +1534,7 @@ set_noop_p (const_rtx set)
 
   if (GET_CODE (dst) == ZERO_EXTRACT)
     return rtx_equal_p (XEXP (dst, 0), src)
-	   && ! BYTES_BIG_ENDIAN && XEXP (dst, 2) == const0_rtx
+	   && !BITS_BIG_ENDIAN && XEXP (dst, 2) == const0_rtx
 	   && !side_effects_p (src);
 
   if (GET_CODE (dst) == STRICT_LOW_PART)

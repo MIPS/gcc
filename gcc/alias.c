@@ -1,5 +1,5 @@
 /* Alias analysis for GNU C
-   Copyright (C) 1997-2015 Free Software Foundation, Inc.
+   Copyright (C) 1997-2016 Free Software Foundation, Inc.
    Contributed by John Carr (jfc@mit.edu).
 
 This file is part of GCC.
@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "cfganal.h"
 #include "rtl-iter.h"
+#include "cgraph.h"
 
 /* The aliasing API provided here solves related but different problems:
 
@@ -157,6 +158,7 @@ static tree decl_for_component_ref (tree);
 static int write_dependence_p (const_rtx,
 			       const_rtx, machine_mode, rtx,
 			       bool, bool, bool);
+static int compare_base_symbol_refs (const_rtx, const_rtx);
 
 static void memory_modified_1 (rtx, const_rtx, void *);
 
@@ -990,6 +992,14 @@ get_alias_set (tree t)
 	   || TREE_CODE (p) == VECTOR_TYPE;
 	   p = TREE_TYPE (p))
 	{
+	  /* Ada supports recusive pointers.  Instead of doing recrusion check
+	     just give up once the preallocated space of 8 elements is up.
+	     In this case just punt to void * alias set.  */
+	  if (reference.length () == 8)
+	    {
+	      p = ptr_type_node;
+	      break;
+	    }
 	  if (TREE_CODE (p) == REFERENCE_TYPE)
 	    /* In LTO we want languages that use references to be compatible
  	       with languages that use pointers.  */
@@ -1747,7 +1757,7 @@ rtx_equal_for_memref_p (const_rtx x, const_rtx y)
       return LABEL_REF_LABEL (x) == LABEL_REF_LABEL (y);
 
     case SYMBOL_REF:
-      return XSTR (x, 0) == XSTR (y, 0);
+      return compare_base_symbol_refs (x, y) == 1;
 
     case ENTRY_VALUE:
       /* This is magic, don't go through canonicalization et al.  */
@@ -2010,6 +2020,96 @@ may_be_sp_based_p (rtx x)
   return !base || base == static_reg_base_value[STACK_POINTER_REGNUM];
 }
 
+/* BASE1 and BASE2 are decls.  Return 1 if they refer to same object, 0
+   if they refer to different objects and -1 if we can not decide.  */
+
+int
+compare_base_decls (tree base1, tree base2)
+{
+  int ret;
+  gcc_checking_assert (DECL_P (base1) && DECL_P (base2));
+  if (base1 == base2)
+    return 1;
+
+  /* Declarations of non-automatic variables may have aliases.  All other
+     decls are unique.  */
+  if (!decl_in_symtab_p (base1)
+      || !decl_in_symtab_p (base2))
+    return 0;
+
+  /* Don't cause symbols to be inserted by the act of checking.  */
+  symtab_node *node1 = symtab_node::get (base1);
+  if (!node1)
+    return 0;
+  symtab_node *node2 = symtab_node::get (base2);
+  if (!node2)
+    return 0;
+  
+  ret = node1->equal_address_to (node2, true);
+  return ret;
+}
+
+/* Same as compare_base_decls but for SYMBOL_REF.  */
+
+static int
+compare_base_symbol_refs (const_rtx x_base, const_rtx y_base)
+{
+  tree x_decl = SYMBOL_REF_DECL (x_base);
+  tree y_decl = SYMBOL_REF_DECL (y_base);
+  bool binds_def = true;
+
+  if (XSTR (x_base, 0) == XSTR (y_base, 0))
+    return 1;
+  if (x_decl && y_decl)
+    return compare_base_decls (x_decl, y_decl);
+  if (x_decl || y_decl)
+    {
+      if (!x_decl)
+	{
+	  std::swap (x_decl, y_decl);
+	  std::swap (x_base, y_base);
+	}
+      /* We handle specially only section anchors and assume that other
+ 	 labels may overlap with user variables in an arbitrary way.  */
+      if (!SYMBOL_REF_HAS_BLOCK_INFO_P (y_base))
+        return -1;
+      /* Anchors contains static VAR_DECLs and CONST_DECLs.  We are safe
+	 to ignore CONST_DECLs because they are readonly.  */
+      if (TREE_CODE (x_decl) != VAR_DECL
+	  || (!TREE_STATIC (x_decl) && !TREE_PUBLIC (x_decl)))
+	return 0;
+
+      symtab_node *x_node = symtab_node::get_create (x_decl)
+			    ->ultimate_alias_target ();
+      /* External variable can not be in section anchor.  */
+      if (!x_node->definition)
+	return 0;
+      x_base = XEXP (DECL_RTL (x_node->decl), 0);
+      /* If not in anchor, we can disambiguate.  */
+      if (!SYMBOL_REF_HAS_BLOCK_INFO_P (x_base))
+	return 0;
+
+      /* We have an alias of anchored variable.  If it can be interposed;
+ 	 we must assume it may or may not alias its anchor.  */
+      binds_def = decl_binds_to_current_def_p (x_decl);
+    }
+  /* If we have variable in section anchor, we can compare by offset.  */
+  if (SYMBOL_REF_HAS_BLOCK_INFO_P (x_base)
+      && SYMBOL_REF_HAS_BLOCK_INFO_P (y_base))
+    {
+      if (SYMBOL_REF_BLOCK (x_base) != SYMBOL_REF_BLOCK (y_base))
+	return 0;
+      if (SYMBOL_REF_BLOCK_OFFSET (x_base) == SYMBOL_REF_BLOCK_OFFSET (y_base))
+	return binds_def ? 1 : -1;
+      if (SYMBOL_REF_ANCHOR_P (x_base) != SYMBOL_REF_ANCHOR_P (y_base))
+	return -1;
+      return 0;
+    }
+  /* In general we assume that memory locations pointed to by different labels
+     may overlap in undefined ways.  */
+  return -1;
+}
+
 /* Return 0 if the addresses X and Y are known to point to different
    objects, 1 if they might be pointers to the same object.  */
 
@@ -2066,6 +2166,9 @@ base_alias_check (rtx x, rtx x_base, rtx y, rtx y_base,
     return 1;
 
   /* Differing symbols not accessed via AND never alias.  */
+  if (GET_CODE (x_base) == SYMBOL_REF && GET_CODE (y_base) == SYMBOL_REF)
+    return compare_base_symbol_refs (x_base, y_base) != 0;
+
   if (GET_CODE (x_base) != ADDRESS && GET_CODE (y_base) != ADDRESS)
     return 0;
 
@@ -2076,7 +2179,7 @@ base_alias_check (rtx x, rtx x_base, rtx y, rtx y_base,
 }
 
 /* Return TRUE if EXPR refers to a VALUE whose uid is greater than
-   that of V.  */
+   (or equal to) that of V.  */
 
 static bool
 refs_newer_value_p (const_rtx expr, rtx v)
@@ -2084,14 +2187,14 @@ refs_newer_value_p (const_rtx expr, rtx v)
   int minuid = CSELIB_VAL_PTR (v)->uid;
   subrtx_iterator::array_type array;
   FOR_EACH_SUBRTX (iter, array, expr, NONCONST)
-    if (GET_CODE (*iter) == VALUE && CSELIB_VAL_PTR (*iter)->uid > minuid)
+    if (GET_CODE (*iter) == VALUE && CSELIB_VAL_PTR (*iter)->uid >= minuid)
       return true;
   return false;
 }
 
 /* Convert the address X into something we can use.  This is done by returning
-   it unchanged unless it is a value; in the latter case we call cselib to get
-   a more useful rtx.  */
+   it unchanged unless it is a VALUE or VALUE +/- constant; for VALUE
+   we call cselib to get a more useful rtx.  */
 
 rtx
 get_addr (rtx x)
@@ -2100,7 +2203,23 @@ get_addr (rtx x)
   struct elt_loc_list *l;
 
   if (GET_CODE (x) != VALUE)
-    return x;
+    {
+      if ((GET_CODE (x) == PLUS || GET_CODE (x) == MINUS)
+	  && GET_CODE (XEXP (x, 0)) == VALUE
+	  && CONST_SCALAR_INT_P (XEXP (x, 1)))
+	{
+	  rtx op0 = get_addr (XEXP (x, 0));
+	  if (op0 != XEXP (x, 0))
+	    {
+	      if (GET_CODE (x) == PLUS
+		  && GET_CODE (XEXP (x, 1)) == CONST_INT)
+		return plus_constant (GET_MODE (x), op0, INTVAL (XEXP (x, 1)));
+	      return simplify_gen_binary (GET_CODE (x), GET_MODE (x),
+					  op0, XEXP (x, 1));
+	    }
+	}
+      return x;
+    }
   v = CSELIB_VAL_PTR (x);
   if (v)
     {
@@ -2268,7 +2387,27 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
   else
     y = addr_side_effect_eval (y, abs (ysize), 0);
 
-  if (rtx_equal_for_memref_p (x, y))
+  if (GET_CODE (x) == SYMBOL_REF && GET_CODE (y) == SYMBOL_REF)
+    {
+      int cmp = compare_base_symbol_refs (x,y);
+
+      /* If both decls are the same, decide by offsets.  */
+      if (cmp == 1)
+        return offset_overlap_p (c, xsize, ysize);
+      /* Assume a potential overlap for symbolic addresses that went
+	 through alignment adjustments (i.e., that have negative
+	 sizes), because we can't know how far they are from each
+	 other.  */
+      if (xsize < 0 || ysize < 0)
+	return -1;
+      /* If decls are different or we know by offsets that there is no overlap,
+	 we win.  */
+      if (!cmp || !offset_overlap_p (c, xsize, ysize))
+	return 0;
+      /* Decls may or may not be different and offsets overlap....*/
+      return -1;
+    }
+  else if (rtx_equal_for_memref_p (x, y))
     {
       return offset_overlap_p (c, xsize, ysize);
     }
@@ -2636,7 +2775,7 @@ nonoverlapping_memrefs_p (const_rtx x, const_rtx y, bool loop_invariant)
      are constants or if one is a constant and the other a pointer into the
      stack frame.  Otherwise a different base means we can't tell if they
      overlap or not.  */
-  if (! rtx_equal_p (basex, basey))
+  if (compare_base_decls (exprx, expry) == 0)
     return ((CONSTANT_P (basex) && CONSTANT_P (basey))
 	    || (CONSTANT_P (basex) && REG_P (basey)
 		&& REGNO_PTR_FRAME_P (REGNO (basey)))
@@ -2646,6 +2785,10 @@ nonoverlapping_memrefs_p (const_rtx x, const_rtx y, bool loop_invariant)
   /* Offset based disambiguation not appropriate for loop invariant */
   if (loop_invariant)
     return 0;              
+
+  /* Offset based disambiguation is OK even if we do not know that the
+     declarations are necessarily different
+    (i.e. compare_base_decls (exprx, expry) == -1)  */
 
   sizex = (!MEM_P (rtlx) ? (int) GET_MODE_SIZE (GET_MODE (rtlx))
 	   : MEM_SIZE_KNOWN_P (rtlx) ? MEM_SIZE (rtlx)

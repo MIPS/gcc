@@ -1,5 +1,5 @@
 /* Symbol table.
-   Copyright (C) 2012-2015 Free Software Foundation, Inc.
+   Copyright (C) 2012-2016 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -504,7 +504,7 @@ const char *
 symtab_node::asm_name () const
 {
   if (!DECL_ASSEMBLER_NAME_SET_P (decl))
-    return lang_hooks.decl_printable_name (decl, 2);
+    return name ();
   return IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
 }
 
@@ -513,6 +513,13 @@ symtab_node::asm_name () const
 const char *
 symtab_node::name () const
 {
+  if (!DECL_NAME (decl))
+    {
+      if (DECL_ASSEMBLER_NAME_SET_P (decl))
+	return asm_name ();
+      else
+        return "<unnamed>";
+    }
   return lang_hooks.decl_printable_name (decl, 2);
 }
 
@@ -1005,7 +1012,7 @@ symtab_node::verify_base (void)
 	}
       if (!hashed_node
 	  && !(is_a <varpool_node *> (this)
-	       || DECL_HARD_REGISTER (decl)))
+	       && DECL_HARD_REGISTER (decl)))
 	{
           error ("node not found in symtab assembler name hash");
           error_found = true;
@@ -1363,7 +1370,6 @@ symtab_node::fixup_same_cpp_alias_visibility (symtab_node *target)
       DECL_EXTERNAL (decl) = DECL_EXTERNAL (target->decl);
       DECL_VISIBILITY (decl) = DECL_VISIBILITY (target->decl);
     }
-  DECL_VIRTUAL_P (decl) = DECL_VIRTUAL_P (target->decl);
   if (TREE_PUBLIC (decl))
     {
       tree group;
@@ -1637,7 +1643,7 @@ symtab_node::resolve_alias (symtab_node *target, bool transparent)
 bool
 symtab_node::noninterposable_alias (symtab_node *node, void *data)
 {
-  if (decl_binds_to_current_def_p (node->decl))
+  if (!node->transparent_alias && decl_binds_to_current_def_p (node->decl))
     {
       symtab_node *fn = node->ultimate_alias_target ();
 
@@ -1878,13 +1884,28 @@ symtab_node::nonzero_address ()
 
 /* Return 0 if symbol is known to have different address than S2,
    Return 1 if symbol is known to have same address as S2,
-   return 2 otherwise.   */
+   return -1 otherwise.  
+
+   If MEMORY_ACCESSED is true, assume that both memory pointer to THIS
+   and S2 is going to be accessed.  This eliminates the situations when
+   either THIS or S2 is NULL and is seful for comparing bases when deciding
+   about memory aliasing.  */
 int
-symtab_node::equal_address_to (symtab_node *s2)
+symtab_node::equal_address_to (symtab_node *s2, bool memory_accessed)
 {
   enum availability avail1, avail2;
 
   /* A Shortcut: equivalent symbols are always equivalent.  */
+  if (this == s2)
+    return 1;
+
+  /* Unwind transparent aliases first; those are always equal to their
+     target.  */
+  if (this->transparent_alias && this->analyzed)
+    return this->get_alias_target ()->equal_address_to (s2);
+  while (s2->transparent_alias && s2->analyzed)
+    s2 = s2->get_alias_target();
+
   if (this == s2)
     return 1;
 
@@ -1924,9 +1945,10 @@ symtab_node::equal_address_to (symtab_node *s2)
       return 1;
     }
 
-  /* If both symbols may resolve to NULL, we can not really prove them different.  */
-  if (!nonzero_address () && !s2->nonzero_address ())
-    return 2;
+  /* If both symbols may resolve to NULL, we can not really prove them
+     different.  */
+  if (!memory_accessed && !nonzero_address () && !s2->nonzero_address ())
+    return -1;
 
   /* Except for NULL, functions and variables never overlap.  */
   if (TREE_CODE (decl) != TREE_CODE (s2->decl))
@@ -1934,7 +1956,7 @@ symtab_node::equal_address_to (symtab_node *s2)
 
   /* If one of the symbols is unresolved alias, punt.  */
   if (rs1->alias || rs2->alias)
-    return 2;
+    return -1;
 
   /* If we have a non-interposale definition of at least one of the symbols
      and the other symbol is different, we know other unit can not interpose
@@ -1956,11 +1978,12 @@ symtab_node::equal_address_to (symtab_node *s2)
     }
 
   /* TODO: Alias oracle basically assume that addresses of global variables
-     are different unless they are declared as alias of one to another.
-     We probably should be consistent and use this fact here, too, and update
-     alias oracle to use this predicate.  */
+     are different unless they are declared as alias of one to another while
+     the code folding comparsions doesn't.
+     We probably should be consistent and use this fact here, too, but for
+     the moment return false only when we are called from the alias oracle.  */
 
-  return 2;
+  return memory_accessed && rs1 != rs2 ? 0 : -1;
 }
 
 /* Worker for call_for_symbol_and_aliases.  */

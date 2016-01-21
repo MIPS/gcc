@@ -1,5 +1,5 @@
 /* Code translation -- generate GCC trees from gfc_code.
-   Copyright (C) 2002-2015 Free Software Foundation, Inc.
+   Copyright (C) 2002-2016 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -335,10 +335,13 @@ gfc_build_array_ref (tree base, tree offset, tree decl, tree vptr)
      references.  */
   if (type && TREE_CODE (type) == ARRAY_TYPE
       && TYPE_MAXVAL (TYPE_DOMAIN (type)) != NULL_TREE
-      && TREE_CODE (TYPE_MAXVAL (TYPE_DOMAIN (type))) == VAR_DECL
+      && (TREE_CODE (TYPE_MAXVAL (TYPE_DOMAIN (type))) == VAR_DECL
+	  || TREE_CODE (TYPE_MAXVAL (TYPE_DOMAIN (type))) == INDIRECT_REF)
       && decl
-      && DECL_CONTEXT (TYPE_MAXVAL (TYPE_DOMAIN (type)))
-					== DECL_CONTEXT (decl))
+      && (TREE_CODE (TYPE_MAXVAL (TYPE_DOMAIN (type))) == INDIRECT_REF
+	  || TREE_CODE (decl) == FUNCTION_DECL
+	  || DECL_CONTEXT (TYPE_MAXVAL (TYPE_DOMAIN (type)))
+					== DECL_CONTEXT (decl)))
     span = TYPE_MAXVAL (TYPE_DOMAIN (type));
   else
     span = NULL_TREE;
@@ -354,7 +357,8 @@ gfc_build_array_ref (tree base, tree offset, tree decl, tree vptr)
      and reference the element with pointer arithmetic.  */
   if ((decl && (TREE_CODE (decl) == FIELD_DECL
 		|| TREE_CODE (decl) == VAR_DECL
-		|| TREE_CODE (decl) == PARM_DECL)
+		|| TREE_CODE (decl) == PARM_DECL
+		|| TREE_CODE (decl) == FUNCTION_DECL)
        && ((GFC_DECL_SUBREF_ARRAY_P (decl)
 	    && !integer_zerop (GFC_DECL_SPAN (decl)))
 	   || GFC_DECL_CLASS (decl)
@@ -745,6 +749,14 @@ gfc_allocate_using_lib (stmtblock_t * block, tree pointer, tree size,
   tmp = fold_build2_loc (input_location, MODIFY_EXPR,
 			 TREE_TYPE (pointer), pointer,
 			 fold_convert ( TREE_TYPE (pointer), tmp));
+  gfc_add_expr_to_block (block, tmp);
+
+  /* It guarantees memory consistency within the same segment */
+  tmp = gfc_build_string_const (strlen ("memory")+1, "memory"),
+  tmp = build5_loc (input_location, ASM_EXPR, void_type_node,
+		    gfc_build_string_const (1, ""), NULL_TREE, NULL_TREE,
+		    tree_cons (NULL_TREE, tmp, NULL_TREE), NULL_TREE);
+  ASM_VOLATILE_P (tmp) = 1;
   gfc_add_expr_to_block (block, tmp);
 }
 
@@ -1354,6 +1366,14 @@ gfc_deallocate_with_status (tree pointer, tree status, tree errmsg,
       tmp = build_call_expr_loc (input_location,
 	     gfor_fndecl_caf_deregister, 4,
 	     token, pstat, errmsg, errlen);
+      gfc_add_expr_to_block (&non_null, tmp);
+
+      /* It guarantees memory consistency within the same segment */
+      tmp = gfc_build_string_const (strlen ("memory")+1, "memory"),
+      tmp = build5_loc (input_location, ASM_EXPR, void_type_node,
+			gfc_build_string_const (1, ""), NULL_TREE, NULL_TREE,
+			tree_cons (NULL_TREE, tmp, NULL_TREE), NULL_TREE);
+      ASM_VOLATILE_P (tmp) = 1;
       gfc_add_expr_to_block (&non_null, tmp);
 
       if (status != NULL_TREE)

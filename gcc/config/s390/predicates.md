@@ -1,5 +1,5 @@
 ;; Predicate definitions for S/390 and zSeries.
-;; Copyright (C) 2005-2015 Free Software Foundation, Inc.
+;; Copyright (C) 2005-2016 Free Software Foundation, Inc.
 ;; Contributed by Hartmut Penner (hpenner@de.ibm.com) and
 ;;                Ulrich Weigand (uweigand@de.ibm.com).
 ;;
@@ -26,12 +26,13 @@
 
 ;; Return true if OP a const 0 operand (int/float/vector).
 (define_predicate "const0_operand"
-  (and (match_code "const_int,const_double,const_vector")
+  (and (match_code "const_int,const_wide_int,const_double,const_vector")
        (match_test "op == CONST0_RTX (mode)")))
 
-;; Return true if OP an all ones operand (int/float/vector).
-(define_predicate "constm1_operand"
-  (and (match_code "const_int, const_double,const_vector")
+;; Return true if OP an all ones operand (int/vector).
+(define_predicate "all_ones_operand"
+  (and (match_code "const_int, const_wide_int, const_vector")
+       (match_test "INTEGRAL_MODE_P (GET_MODE (op))")
        (match_test "op == CONSTM1_RTX (mode)")))
 
 ;; Return true if OP is a 4 bit mask operand
@@ -42,7 +43,7 @@
 ;; Return true if OP is constant.
 
 (define_special_predicate "consttable_operand"
-  (and (match_code "symbol_ref, label_ref, const, const_int, const_double, const_vector")
+  (and (match_code "symbol_ref, label_ref, const, const_int, const_wide_int, const_double, const_vector")
        (match_test "CONSTANT_P (op)")))
 
 ;; Return true if OP is a valid S-type operand.
@@ -121,7 +122,7 @@
 ;;  Return true if OP a valid operand for the LARL instruction.
 
 (define_predicate "larl_operand"
-  (match_code "label_ref, symbol_ref, const, const_int, const_double")
+  (match_code "label_ref, symbol_ref, const")
 {
   /* Allow labels and local symbols.  */
   if (GET_CODE (op) == LABEL_REF)

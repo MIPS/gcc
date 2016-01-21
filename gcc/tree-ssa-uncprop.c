@@ -1,5 +1,5 @@
 /* Routines for discovering and unpropagating edge equivalences.
-   Copyright (C) 2005-2015 Free Software Foundation, Inc.
+   Copyright (C) 2005-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -94,23 +94,26 @@ associate_equivalences_with_edges (void)
 		 can record an equivalence for OP0 rather than COND.  */
 	      if (TREE_CODE (op0) == SSA_NAME
 		  && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (op0)
-		  && TREE_CODE (TREE_TYPE (op0)) == BOOLEAN_TYPE
+		  && ssa_name_has_boolean_range (op0)
 		  && is_gimple_min_invariant (op1))
 		{
+		  tree true_val = constant_boolean_node (true, TREE_TYPE (op0));
+		  tree false_val = constant_boolean_node (false,
+							  TREE_TYPE (op0));
 		  if (code == EQ_EXPR)
 		    {
 		      equivalency = XNEW (struct edge_equivalency);
 		      equivalency->lhs = op0;
 		      equivalency->rhs = (integer_zerop (op1)
-					  ? boolean_false_node
-					  : boolean_true_node);
+					  ? false_val
+					  : true_val);
 		      true_edge->aux = equivalency;
 
 		      equivalency = XNEW (struct edge_equivalency);
 		      equivalency->lhs = op0;
 		      equivalency->rhs = (integer_zerop (op1)
-					  ? boolean_true_node
-					  : boolean_false_node);
+					  ? true_val
+					  : false_val);
 		      false_edge->aux = equivalency;
 		    }
 		  else
@@ -118,15 +121,15 @@ associate_equivalences_with_edges (void)
 		      equivalency = XNEW (struct edge_equivalency);
 		      equivalency->lhs = op0;
 		      equivalency->rhs = (integer_zerop (op1)
-					  ? boolean_true_node
-					  : boolean_false_node);
+					  ? true_val
+					  : false_val);
 		      true_edge->aux = equivalency;
 
 		      equivalency = XNEW (struct edge_equivalency);
 		      equivalency->lhs = op0;
 		      equivalency->rhs = (integer_zerop (op1)
-					  ? boolean_false_node
-					  : boolean_true_node);
+					  ? false_val
+					  : true_val);
 		      false_edge->aux = equivalency;
 		    }
 		}
@@ -303,7 +306,7 @@ class uncprop_dom_walker : public dom_walker
 public:
   uncprop_dom_walker (cdi_direction direction) : dom_walker (direction) {}
 
-  virtual void before_dom_children (basic_block);
+  virtual edge before_dom_children (basic_block);
   virtual void after_dom_children (basic_block);
 
 private:
@@ -433,7 +436,7 @@ single_incoming_edge_ignoring_loop_edges (basic_block bb)
   return retval;
 }
 
-void
+edge
 uncprop_dom_walker::before_dom_children (basic_block bb)
 {
   basic_block parent;
@@ -462,6 +465,7 @@ uncprop_dom_walker::before_dom_children (basic_block bb)
     m_equiv_stack.safe_push (NULL_TREE);
 
   uncprop_into_successor_phis (bb);
+  return NULL;
 }
 
 namespace {

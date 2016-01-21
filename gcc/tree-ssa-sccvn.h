@@ -1,5 +1,5 @@
 /* Tree SCC value numbering
-   Copyright (C) 2007-2015 Free Software Foundation, Inc.
+   Copyright (C) 2007-2016 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>
 
    This file is part of GCC.
@@ -169,6 +169,9 @@ typedef struct vn_ssa_aux
   /* Statements to insert if needs_insertion is true.  */
   gimple_seq expr;
 
+  /* Saved SSA name info.  */
+  tree_ssa_name::ssa_name_info_type info;
+
   /* Unique identifier that all expressions with the same value have. */
   unsigned int value_id;
 
@@ -238,6 +241,26 @@ vn_valueize (tree name)
       return tem == VN_TOP ? name : tem;
     }
   return name;
+}
+
+/* Get at the original range info for NAME.  */
+
+inline range_info_def *
+VN_INFO_RANGE_INFO (tree name)
+{
+  return (VN_INFO (name)->info.range_info
+	  ? VN_INFO (name)->info.range_info
+	  : SSA_NAME_RANGE_INFO (name));
+}
+
+/* Get at the original pointer info for NAME.  */
+
+inline ptr_info_def *
+VN_INFO_PTR_INFO (tree name)
+{
+  return (VN_INFO (name)->info.ptr_info
+	  ? VN_INFO (name)->info.ptr_info
+	  : SSA_NAME_PTR_INFO (name));
 }
 
 #endif /* TREE_SSA_SCCVN_H  */

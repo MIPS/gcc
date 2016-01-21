@@ -1,5 +1,5 @@
 /* Process declarations and variables for C++ compiler.
-   Copyright (C) 1988-2015 Free Software Foundation, Inc.
+   Copyright (C) 1988-2016 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -7479,7 +7479,8 @@ cp_complete_array_type (tree *ptype, tree initial_value, bool do_default)
 
   /* Don't get confused by a CONSTRUCTOR for some other type.  */
   if (initial_value && TREE_CODE (initial_value) == CONSTRUCTOR
-      && !BRACE_ENCLOSED_INITIALIZER_P (initial_value))
+      && !BRACE_ENCLOSED_INITIALIZER_P (initial_value)
+      && TREE_CODE (TREE_TYPE (initial_value)) != ARRAY_TYPE)
     return 1;
 
   if (initial_value)
@@ -8627,14 +8628,18 @@ fold_sizeof_expr (tree t)
 }
 
 /* Given the SIZE (i.e., number of elements) in an array, compute an
-   appropriate index type for the array.  If non-NULL, NAME is the
-   name of the thing being declared.  */
+   appropriate index type for the array.  When SIZE is null, the array
+   is a flexible array member.  If non-NULL, NAME is the name of
+   the entity being declared.  */
 
 tree
 compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 {
   tree itype;
   tree osize = size;
+
+  if (size == NULL_TREE)
+    return build_index_type (NULL_TREE);
 
   if (error_operand_p (size))
     return error_mark_node;
@@ -9765,11 +9770,18 @@ grokdeclarator (const cp_declarator *declarator,
   if (storage_class == sc_static)
     staticp = 1 + (decl_context == FIELD);
 
-  if (virtualp && staticp == 2)
+  if (virtualp)
     {
-      error ("member %qD cannot be declared both virtual and static", dname);
-      storage_class = sc_none;
-      staticp = 0;
+      if (staticp == 2)
+	{
+	  error ("member %qD cannot be declared both %<virtual%> "
+		 "and %<static%>", dname);
+	  storage_class = sc_none;
+	  staticp = 0;
+	}
+      if (constexpr_p)
+	error ("member %qD cannot be declared both %<virtual%> "
+	       "and %<constexpr%>", dname);
     }
   friendp = decl_spec_seq_has_spec_p (declspecs, ds_friend);
 
@@ -10149,7 +10161,8 @@ grokdeclarator (const cp_declarator *declarator,
 		      explicitp = 2;
 		    if (virtualp)
 		      {
-			permerror (input_location, "constructors cannot be declared virtual");
+			permerror (input_location,
+				   "constructors cannot be declared %<virtual%>");
 			virtualp = 0;
 		      }
 		    if (decl_context == FIELD
@@ -10885,8 +10898,13 @@ grokdeclarator (const cp_declarator *declarator,
 
       if (TREE_CODE (type) == ARRAY_TYPE)
 	{
-	  /* Transfer const-ness of array into that of type pointed to.  */
-	  type = build_pointer_type (TREE_TYPE (type));
+	  /* Withhold decaying a dependent array type so that that during
+	     instantiation we can detect type deduction failure cases such as
+	     creating an array of void, creating a zero-size array, etc.  */
+	  if (dependent_type_p (type))
+	    ;
+	  else
+	    type = build_pointer_type (TREE_TYPE (type));
 	  type_quals = TYPE_UNQUALIFIED;
 	  array_parameter_p = true;
 	}
@@ -10905,7 +10923,7 @@ grokdeclarator (const cp_declarator *declarator,
     }
 
   {
-    tree decl;
+    tree decl = NULL_TREE;
 
     if (decl_context == PARM)
       {
@@ -10929,9 +10947,19 @@ grokdeclarator (const cp_declarator *declarator,
 	if (!staticp && TREE_CODE (type) == ARRAY_TYPE
 	    && TYPE_DOMAIN (type) == NULL_TREE)
 	  {
-	    tree itype = compute_array_index_type (dname, integer_zero_node,
-						   tf_warning_or_error);
-	    type = build_cplus_array_type (TREE_TYPE (type), itype);
+	    if (ctype
+		&& (TREE_CODE (ctype) == UNION_TYPE
+		    || TREE_CODE (ctype) == QUAL_UNION_TYPE))
+	      {
+		error ("flexible array member in union");
+		type = error_mark_node;
+	      }
+	    else
+	      {
+		tree itype = compute_array_index_type (dname, NULL_TREE,
+						       tf_warning_or_error);
+		type = build_cplus_array_type (TREE_TYPE (type), itype);
+	      }
 	  }
 
 	if (type == error_mark_node)
@@ -10974,7 +11002,7 @@ grokdeclarator (const cp_declarator *declarator,
 		   ARM 9.5 */
 		if (virtualp && TREE_CODE (ctype) == UNION_TYPE)
 		  {
-		    error ("function %qD declared virtual inside a union",
+		    error ("function %qD declared %<virtual%> inside a union",
 			   unqualified_id);
 		    return error_mark_node;
 		  }
@@ -10983,7 +11011,7 @@ grokdeclarator (const cp_declarator *declarator,
 		  {
 		    if (virtualp)
 		      {
-			error ("%qD cannot be declared virtual, since it "
+			error ("%qD cannot be declared %<virtual%>, since it "
 			       "is always static",
 			       unqualified_id);
 			virtualp = 0;
@@ -11099,17 +11127,21 @@ grokdeclarator (const cp_declarator *declarator,
 		     || !COMPLETE_TYPE_P (TREE_TYPE (type))
 		     || initialized == 0))
 	  {
-	    if (unqualified_id)
+	    if (TREE_CODE (type) != ARRAY_TYPE
+		|| !COMPLETE_TYPE_P (TREE_TYPE (type)))
 	      {
-		error ("field %qD has incomplete type %qT",
-		       unqualified_id, type);
-		cxx_incomplete_type_inform (strip_array_types (type));
-	      }
-	    else
-	      error ("name %qT has incomplete type", type);
+		if (unqualified_id)
+		  {
+		    error ("field %qD has incomplete type %qT",
+			   unqualified_id, type);
+		    cxx_incomplete_type_inform (strip_array_types (type));
+		  }
+		else
+		  error ("name %qT has incomplete type", type);
 
-	    type = error_mark_node;
-	    decl = NULL_TREE;
+		type = error_mark_node;
+		decl = NULL_TREE;
+	      }
 	  }
 	else
 	  {
@@ -11669,7 +11701,8 @@ grokparms (tree parmlist, tree *parms)
 
 	  /* Top-level qualifiers on the parameters are
 	     ignored for function types.  */
-	  type = cp_build_qualified_type (type, 0);
+	  type = strip_top_quals (type);
+
 	  if (TREE_CODE (type) == METHOD_TYPE)
 	    {
 	      error ("parameter %qD invalidly declared method type", decl);
@@ -13359,6 +13392,11 @@ finish_enum_value_list (tree enumtype)
 
   /* Finish debugging output for this type.  */
   rest_of_type_compilation (enumtype, namespace_bindings_p ());
+
+  /* Each enumerator now has the type of its enumeration.  Clear the cache
+     so that this change in types doesn't confuse us later on.  */
+  clear_cv_cache ();
+  clear_fold_cache ();
 }
 
 /* Finishes the enum type. This is called only the first time an

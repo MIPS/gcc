@@ -1,5 +1,5 @@
 /* Expands front end tree to back end RTL for GCC.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -955,6 +955,10 @@ assign_temp (tree type_or_decl, int memory_required,
 #ifdef PROMOTE_MODE
   unsignedp = TYPE_UNSIGNED (type);
 #endif
+
+  /* Allocating temporaries of TREE_ADDRESSABLE type must be done in the front
+     end.  See also create_tmp_var for the gimplification-time check.  */
+  gcc_assert (!TREE_ADDRESSABLE (type) && COMPLETE_TYPE_P (type));
 
   if (mode == BLKmode || memory_required)
     {
@@ -4181,14 +4185,14 @@ locate_and_pad_parm (machine_mode passed_mode, tree type, int in_regs,
 	locate->slot_offset.var = size_binop (MINUS_EXPR, ssize_int (0),
 					      initial_offset_ptr->var);
 
-	{
-	  tree s2 = sizetree;
-	  if (where_pad != none
-	      && (!tree_fits_uhwi_p (sizetree)
-		  || (tree_to_uhwi (sizetree) * BITS_PER_UNIT) % round_boundary))
-	    s2 = round_up (s2, round_boundary / BITS_PER_UNIT);
-	  SUB_PARM_SIZE (locate->slot_offset, s2);
-	}
+      {
+	tree s2 = sizetree;
+	if (where_pad != none
+	    && (!tree_fits_uhwi_p (sizetree)
+		|| (tree_to_uhwi (sizetree) * BITS_PER_UNIT) % round_boundary))
+	  s2 = round_up (s2, round_boundary / BITS_PER_UNIT);
+	SUB_PARM_SIZE (locate->slot_offset, s2);
+      }
 
       locate->slot_offset.constant += part_size_in_regs;
 

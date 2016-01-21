@@ -1,5 +1,5 @@
 /* Check functions
-   Copyright (C) 2002-2015 Free Software Foundation, Inc.
+   Copyright (C) 2002-2016 Free Software Foundation, Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
 This file is part of GCC.
@@ -3863,7 +3863,7 @@ gfc_check_reshape (gfc_expr *source, gfc_expr *shape,
 		{
 		  gfc_error ("%qs argument of %qs intrinsic at %L has "
 			     "invalid permutation of dimensions (dimension "
-			     "%<%d%> duplicated)",
+			     "%qd duplicated)",
 			     gfc_current_intrinsic_arg[3]->name,
 			     gfc_current_intrinsic, &e->where, dim);
 		  return false;

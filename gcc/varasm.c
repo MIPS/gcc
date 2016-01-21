@@ -1,5 +1,5 @@
 /* Output variables, constants and external declarations, for GNU compiler.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1420,6 +1420,9 @@ make_decl_rtl (tree decl)
 	 specifications.  */
       SET_DECL_ASSEMBLER_NAME (decl, NULL_TREE);
       DECL_HARD_REGISTER (decl) = 0;
+      /* Also avoid SSA inconsistencies by pretending this is an external
+	 decl now.  */
+      DECL_EXTERNAL (decl) = 1;
       return;
     }
   /* Now handle ordinary static variables and functions (in memory).
@@ -4974,13 +4977,15 @@ output_constructor_regular_field (oc_local_state *local)
 	 but we cannot do this until the deprecated support for
 	 initializing zero-length array members is removed.  */
       if (TREE_CODE (TREE_TYPE (local->field)) == ARRAY_TYPE
-	  && TYPE_DOMAIN (TREE_TYPE (local->field))
-	  && ! TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (local->field))))
+	  && (!TYPE_DOMAIN (TREE_TYPE (local->field))
+	      || !TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (local->field)))))
 	{
 	  fieldsize = array_size_for_constructor (local->val);
-	  /* Given a non-empty initialization, this field had
-	     better be last.  */
-	  gcc_assert (!fieldsize || !DECL_CHAIN (local->field));
+	  /* Given a non-empty initialization, this field had better
+	     be last.  Given a flexible array member, the next field
+	     on the chain is a TYPE_DECL of the enclosing struct.  */
+	  const_tree next = DECL_CHAIN (local->field);
+	  gcc_assert (!fieldsize || !next || TREE_CODE (next) != FIELD_DECL);
 	}
       else
 	fieldsize = tree_to_uhwi (DECL_SIZE_UNIT (local->field));
@@ -5196,7 +5201,7 @@ output_constructor (tree exp, unsigned HOST_WIDE_INT size, unsigned int align,
   if (TREE_CODE (local.type) == ARRAY_TYPE && TYPE_DOMAIN (local.type))
     local.min_index = TYPE_MIN_VALUE (TYPE_DOMAIN (local.type));
   else
-    local.min_index = NULL_TREE;
+    local.min_index = integer_zero_node;
 
   local.total_bytes = 0;
   local.byte_buffer_in_use = outer != NULL;

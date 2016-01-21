@@ -1,5 +1,5 @@
 /* Definitions for C parsing and type checking.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -730,5 +730,7 @@ set_c_expr_source_range (c_expr *expr,
 
 /* In c-fold.c */
 extern tree decl_constant_value_for_optimization (tree);
+
+extern vec<tree> incomplete_record_decls;
 
 #endif /* ! GCC_C_TREE_H */

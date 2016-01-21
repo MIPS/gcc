@@ -1,5 +1,5 @@
 ;; Machine description for AArch64 architecture.
-;; Copyright (C) 2009-2015 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2016 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 ;;
 ;; This file is part of GCC.
@@ -42,23 +42,6 @@
 (define_predicate "aarch64_ccmp_operand"
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "aarch64_ccmp_immediate")))
-
-(define_special_predicate "ccmp_cc_register"
-  (and (match_code "reg")
-       (and (match_test "REGNO (op) == CC_REGNUM")
-	    (ior (match_test "mode == GET_MODE (op)")
-		 (match_test "mode == VOIDmode
-			      && (GET_MODE (op) == CC_DNEmode
-				  || GET_MODE (op) == CC_DEQmode
-				  || GET_MODE (op) == CC_DLEmode
-				  || GET_MODE (op) == CC_DLTmode
-				  || GET_MODE (op) == CC_DGEmode
-				  || GET_MODE (op) == CC_DGTmode
-				  || GET_MODE (op) == CC_DLEUmode
-				  || GET_MODE (op) == CC_DLTUmode
-				  || GET_MODE (op) == CC_DGEUmode
-				  || GET_MODE (op) == CC_DGTUmode)"))))
-)
 
 (define_predicate "aarch64_simd_register"
   (and (match_code "reg")
@@ -106,6 +89,10 @@
 (define_predicate "aarch64_pluslong_immediate"
   (and (match_code "const_int")
        (match_test "(INTVAL (op) < 0xffffff && INTVAL (op) > -0xffffff)")))
+
+(define_predicate "aarch64_pluslong_strict_immedate"
+  (and (match_operand 0 "aarch64_pluslong_immediate")
+       (not (match_operand 0 "aarch64_plus_immediate"))))
 
 (define_predicate "aarch64_pluslong_operand"
   (ior (match_operand 0 "register_operand")

@@ -1,5 +1,5 @@
 /* Redundant Extension Elimination pass for the GNU compiler.
-   Copyright (C) 2010-2015 Free Software Foundation, Inc.
+   Copyright (C) 2010-2016 Free Software Foundation, Inc.
    Contributed by Ilya Enkovich (ilya.enkovich@intel.com)
 
    Based on the Redundant Zero-extension elimination pass contributed by
@@ -1085,7 +1085,7 @@ add_removable_extension (const_rtx expr, rtx_insn *insn,
 	 code in combine_reaching_defs will handle that case correctly.  */
       if ((HARD_REGNO_NREGS (REGNO (dest), mode)
 	   != HARD_REGNO_NREGS (REGNO (reg), GET_MODE (reg)))
-	  && REGNO (dest) == REGNO (reg))
+	  && reg_overlap_mentioned_p (dest, reg))
 	return;
 
       /* Then add the candidate to the list and insert the reaching definitions
