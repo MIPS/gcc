@@ -123,8 +123,7 @@ host_host2dev (int n __attribute__ ((unused)),
 }
 
 static void
-host_run (int n __attribute__ ((unused)), void *fn_ptr, void *vars,
-	  void **args __attribute__((unused)))
+host_run (int n __attribute__ ((unused)), void *fn_ptr, void *vars)
 {
   void (*fn)(void *) = (void (*)(void *)) fn_ptr;
 

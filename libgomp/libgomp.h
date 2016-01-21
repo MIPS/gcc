@@ -500,10 +500,6 @@ struct gomp_target_task
   struct target_mem_desc *tgt;
   struct gomp_task *task;
   struct gomp_team *team;
-  /* Copies of firstprivate mapped data for shared memory accelerators.  */
-  void *firstprivate_copies;
-  /* Device-specific target arguments.  */
-  void **args;
   void *hostaddrs[];
 };
 
@@ -770,8 +766,7 @@ extern void gomp_task_maybe_wait_for_dependencies (void **);
 extern bool gomp_create_target_task (struct gomp_device_descr *,
 				     void (*) (void *), size_t, void **,
 				     size_t *, unsigned short *, unsigned int,
-				     void **, void **,
-				     enum gomp_target_task_state);
+				     void **, enum gomp_target_task_state);
 
 static void inline
 gomp_finish_task (struct gomp_task *task)
@@ -945,9 +940,8 @@ struct gomp_device_descr
   void *(*dev2host_func) (int, void *, const void *, size_t);
   void *(*host2dev_func) (int, void *, const void *, size_t);
   void *(*dev2dev_func) (int, void *, const void *, size_t);
-  bool (*can_run_func) (void *);
-  void (*run_func) (int, void *, void *, void **);
-  void (*async_run_func) (int, void *, void *, void **, void *);
+  void (*run_func) (int, void *, void *);
+  void (*async_run_func) (int, void *, void *, void *);
 
   /* Splay tree containing information about mapped memory regions.  */
   struct splay_tree_s mem_map;
