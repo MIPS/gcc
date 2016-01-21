@@ -4236,6 +4236,15 @@ rs6000_option_override_internal (bool global_init_p)
 	}
     }
 
+  /* At present, we only build the __float128 emulator on PowerPC Linux.
+     Enable default __float128 support for PowerPC Linux systems, but not for
+     others.  */
+#ifdef POWERPC_LINUX
+  if (TARGET_VSX && !TARGET_FLOAT128
+      && (rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128) == 0)
+    rs6000_isa_flags |= OPTION_MASK_FLOAT128;
+#endif
+
   /* __float128 requires VSX support.  */
   if (TARGET_FLOAT128 && !TARGET_VSX)
     {
