@@ -21,6 +21,11 @@ main(int argc, char **argv)
     for (i = 0; i < N; i++)
         a[i] = 4.0;
 
+    /* Are we actually offloading?  */
+    bool offloading;
+#pragma acc parallel copyout(offloading)
+    offloading = acc_on_device (acc_device_not_host);
+
 #pragma acc parallel copyin(a[0:N]) copyout(b[0:N]) if(1)
     {
         int ii;
@@ -34,11 +39,10 @@ main(int argc, char **argv)
         }
     }
 
-#if ACC_MEM_SHARED
-    exp = 5.0;
-#else
-    exp = 4.0;
-#endif
+    if (offloading)
+      exp = 4.0;
+    else
+      exp = 5.0;
 
     for (i = 0; i < N; i++)
     {
@@ -84,11 +88,10 @@ main(int argc, char **argv)
         }
     }
 
-#if ACC_MEM_SHARED
-    exp = 9.0;
-#else
-    exp = 8.0;
-#endif
+    if (offloading)
+      exp = 8.0;
+    else
+      exp = 9.0;
 
     for (i = 0; i < N; i++)
     {
@@ -134,11 +137,10 @@ main(int argc, char **argv)
         }
     }
 
-#if ACC_MEM_SHARED
-    exp = 17.0;
-#else
-    exp = 16.0;
-#endif
+    if (offloading)
+      exp = 16.0;
+    else
+      exp = 17.0;
 
     for (i = 0; i < N; i++)
     {
@@ -186,11 +188,10 @@ main(int argc, char **argv)
         }
     }
 
-#if ACC_MEM_SHARED
-    exp = 23.0;
-#else
-    exp = 22.0;
-#endif
+    if (offloading)
+      exp = 22.0;
+    else
+      exp = 23.0;
 
     for (i = 0; i < N; i++)
     {
@@ -240,11 +241,10 @@ main(int argc, char **argv)
         }
     }
 
-#if ACC_MEM_SHARED
-    exp = 50.0;
-#else
-    exp = 49.0;
-#endif
+    if (offloading)
+      exp = 49.0;
+    else
+      exp = 50.0;
 
     for (i = 0; i < N; i++)
     {
@@ -292,11 +292,10 @@ main(int argc, char **argv)
         }
     }
 
-#if ACC_MEM_SHARED
-    exp = 92.0;
-#else
-    exp = 91.0;
-#endif
+    if (offloading)
+      exp = 91.0;
+    else
+      exp = 92.0;
 
     for (i = 0; i < N; i++)
     {
@@ -320,11 +319,10 @@ main(int argc, char **argv)
         }
     }
 
-#if ACC_MEM_SHARED
-    exp = 44.0;
-#else
-    exp = 43.0;
-#endif
+    if (offloading)
+      exp = 43.0;
+    else
+      exp = 44.0;
 
     for (i = 0; i < N; i++)
     {
@@ -360,15 +358,18 @@ main(int argc, char **argv)
         b[i] = 9.0;
     }
 
-#if ACC_MEM_SHARED
-    exp = 0.0;
-    exp2 = 0.0;
-#else
-    acc_map_data (a, d_a, N * sizeof (float));
-    acc_map_data (b, d_b, N * sizeof (float));
-    exp = 3.0;
-    exp2 = 9.0;
-#endif
+    if (offloading)
+      {
+	acc_map_data (a, d_a, N * sizeof (float));
+	acc_map_data (b, d_b, N * sizeof (float));
+	exp = 3.0;
+	exp2 = 9.0;
+      }
+    else
+      {
+	exp = 0.0;
+	exp2 = 0.0;
+      }
 
 #pragma acc update device(a[0:N], b[0:N]) if(1)
 
@@ -439,10 +440,11 @@ main(int argc, char **argv)
             abort();
     }
 
-#if !ACC_MEM_SHARED
-    acc_unmap_data (a);
-    acc_unmap_data (b);
-#endif
+    if (offloading)
+      {
+	acc_unmap_data (a);
+	acc_unmap_data (b);
+      }
 
     acc_free (d_a);
     acc_free (d_b);
@@ -479,17 +481,15 @@ main(int argc, char **argv)
     }
 
 #pragma acc data copyin(a[0:N]) copyout(b[0:N]) if(0)
-{
-#if !ACC_MEM_SHARED
-    if (acc_is_present (a, N * sizeof (float)))
-        abort ();
-#endif
-
-#if !ACC_MEM_SHARED
-    if (acc_is_present (b, N * sizeof (float)))
-        abort ();
-#endif
-}
+    {
+      if (offloading)
+	{
+	  if (acc_is_present (a, N * sizeof (float)))
+	    abort ();
+	  if (acc_is_present (b, N * sizeof (float)))
+	    abort ();
+	}
+    }
 
     for (i = 0; i < N; i++)
     {
@@ -498,18 +498,20 @@ main(int argc, char **argv)
     }
 
 #pragma acc data copyin(a[0:N]) if(1)
-{
-#if !ACC_MEM_SHARED
-    if (!acc_is_present (a, N * sizeof (float)))
-        abort ();
-#endif
+    {
+      if (offloading)
+	{
+	  if (!acc_is_present (a, N * sizeof (float)))
+	    abort ();
+	}
 
 #pragma acc data copyout(b[0:N]) if(0)
-    {
-#if !ACC_MEM_SHARED
-        if (acc_is_present (b, N * sizeof (float)))
-            abort ();
-#endif
+      {
+	if (offloading)
+	  {
+	    if (acc_is_present (b, N * sizeof (float)))
+	      abort ();
+	  }
 
 #pragma acc data copyout(b[0:N]) if(1)
         {
@@ -524,10 +526,11 @@ main(int argc, char **argv)
             }
         }
 
-#if !ACC_MEM_SHARED
-        if (acc_is_present (b, N * sizeof (float)))
-            abort ();
-#endif
+	if (offloading)
+	  {
+	    if (acc_is_present (b, N * sizeof (float)))
+	      abort ();
+	  }
     }
 }
 
@@ -539,72 +542,81 @@ main(int argc, char **argv)
 
 #pragma acc enter data copyin (b[0:N]) if (0)
 
-#if !ACC_MEM_SHARED
-    if (acc_is_present (b, N * sizeof (float)))
-	abort ();
-#endif
+    if (offloading)
+      {
+	if (acc_is_present (b, N * sizeof (float)))
+	  abort ();
+      }
 
 #pragma acc exit data delete (b[0:N]) if (0)
 
 #pragma acc enter data copyin (b[0:N]) if (1)
 
-#if !ACC_MEM_SHARED
-    if (!acc_is_present (b, N * sizeof (float)))
-	abort ();
-#endif
+    if (offloading)
+      {
+	if (!acc_is_present (b, N * sizeof (float)))
+	  abort ();
+      }
 
 #pragma acc exit data delete (b[0:N]) if (1)
 
-#if !ACC_MEM_SHARED
-    if (acc_is_present (b, N * sizeof (float)))
-	abort ();
-#endif
+    if (offloading)
+      {
+	if (acc_is_present (b, N * sizeof (float)))
+	  abort ();
+      }
 
 #pragma acc enter data copyin (b[0:N]) if (zero)
 
-#if !ACC_MEM_SHARED
-    if (acc_is_present (b, N * sizeof (float)))
-	abort ();
-#endif
+    if (offloading)
+      {
+	if (acc_is_present (b, N * sizeof (float)))
+	  abort ();
+      }
 
 #pragma acc exit data delete (b[0:N]) if (zero)
 
 #pragma acc enter data copyin (b[0:N]) if (one)
 
-#if !ACC_MEM_SHARED
-    if (!acc_is_present (b, N * sizeof (float)))
-	abort ();
-#endif
+    if (offloading)
+      {
+	if (!acc_is_present (b, N * sizeof (float)))
+	  abort ();
+      }
 
 #pragma acc exit data delete (b[0:N]) if (one)
 
-#if !ACC_MEM_SHARED
-    if (acc_is_present (b, N * sizeof (float)))
-	abort ();
-#endif
+    if (offloading)
+      {
+	if (acc_is_present (b, N * sizeof (float)))
+	  abort ();
+      }
 
 #pragma acc enter data copyin (b[0:N]) if (one == 0)
 
-#if !ACC_MEM_SHARED
-    if (acc_is_present (b, N * sizeof (float)))
-	abort ();
-#endif
+    if (offloading)
+      {
+	if (acc_is_present (b, N * sizeof (float)))
+	  abort ();
+      }
 
 #pragma acc exit data delete (b[0:N]) if (one == 0)
 
 #pragma acc enter data copyin (b[0:N]) if (one == 1)
 
-#if !ACC_MEM_SHARED
-    if (!acc_is_present (b, N * sizeof (float)))
-	abort ();
-#endif
+    if (offloading)
+      {
+	if (!acc_is_present (b, N * sizeof (float)))
+	  abort ();
+      }
 
 #pragma acc exit data delete (b[0:N]) if (one == 1)
 
-#if !ACC_MEM_SHARED
-    if (acc_is_present (b, N * sizeof (float)))
-	abort ();
-#endif
+    if (offloading)
+      {
+	if (acc_is_present (b, N * sizeof (float)))
+	  abort ();
+      }
 
     for (i = 0; i < N; i++)
         a[i] = 4.0;
@@ -622,11 +634,10 @@ main(int argc, char **argv)
         }
     }
 
-#if ACC_MEM_SHARED
-    exp = 5.0;
-#else
-    exp = 4.0;
-#endif
+    if (offloading)
+      exp = 4.0;
+    else
+      exp = 5.0;
 
     for (i = 0; i < N; i++)
     {
@@ -672,11 +683,10 @@ main(int argc, char **argv)
         }
     }
 
-#if ACC_MEM_SHARED
-    exp = 9.0;
-#else
-    exp = 8.0;
-#endif
+    if (offloading)
+      exp = 8.0;
+    else
+      exp = 9.0;
 
     for (i = 0; i < N; i++)
     {
@@ -722,11 +732,10 @@ main(int argc, char **argv)
         }
     }
 
-#if ACC_MEM_SHARED
-    exp = 17.0;
-#else
-    exp = 16.0;
-#endif
+    if (offloading)
+      exp = 16.0;
+    else
+      exp = 17.0;
 
     for (i = 0; i < N; i++)
     {
@@ -774,11 +783,10 @@ main(int argc, char **argv)
         }
     }
 
-#if ACC_MEM_SHARED
-    exp = 23.0;
-#else
-    exp = 22.0;
-#endif
+    if (offloading)
+      exp = 22.0;
+    else
+      exp = 23.0;
 
     for (i = 0; i < N; i++)
     {
@@ -828,11 +836,10 @@ main(int argc, char **argv)
         }
     }
 
-#if ACC_MEM_SHARED
-    exp = 50.0;
-#else
-    exp = 49.0;
-#endif
+    if (offloading)
+      exp = 49.0;
+    else
+      exp = 50.0;
 
     for (i = 0; i < N; i++)
     {
@@ -880,11 +887,10 @@ main(int argc, char **argv)
         }
     }
 
-#if ACC_MEM_SHARED
-    exp = 92.0;
-#else
-    exp = 91.0;
-#endif
+    if (offloading)
+      exp = 91.0;
+    else
+      exp = 92.0;
 
     for (i = 0; i < N; i++)
     {
@@ -908,11 +914,10 @@ main(int argc, char **argv)
         }
     }
 
-#if ACC_MEM_SHARED
-    exp = 44.0;
-#else
-    exp = 43.0;
-#endif
+    if (offloading)
+      exp = 43.0;
+    else
+      exp = 44.0;
 
     for (i = 0; i < N; i++)
     {
@@ -948,15 +953,18 @@ main(int argc, char **argv)
         b[i] = 9.0;
     }
 
-#if ACC_MEM_SHARED
-    exp = 0.0;
-    exp2 = 0.0;
-#else
-    acc_map_data (a, d_a, N * sizeof (float));
-    acc_map_data (b, d_b, N * sizeof (float));
-    exp = 3.0;
-    exp2 = 9.0;
-#endif
+    if (offloading)
+      {
+	acc_map_data (a, d_a, N * sizeof (float));
+	acc_map_data (b, d_b, N * sizeof (float));
+	exp = 3.0;
+	exp2 = 9.0;
+      }
+    else
+      {
+	exp = 0.0;
+	exp2 = 0.0;
+      }
 
     return 0;
 }

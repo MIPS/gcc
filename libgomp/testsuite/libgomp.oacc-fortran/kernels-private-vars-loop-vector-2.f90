@@ -1,6 +1,8 @@
 ! Test of vector-private variables declared on loop directive. Array type.
 
 ! { dg-do run }
+! Override the compiler's "avoid offloading" decision.
+! { dg-additional-options "-foffload-force" }
 
 program main
   integer :: i, j, k, idx, arr(0:32*32*32), pt(2)

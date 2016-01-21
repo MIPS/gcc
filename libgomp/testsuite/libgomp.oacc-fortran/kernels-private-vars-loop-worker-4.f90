@@ -2,6 +2,8 @@
 ! to vector-partitioned mode.  Successive vector loops.  */
 
 ! { dg-do run }
+! Override the compiler's "avoid offloading" decision.
+! { dg-additional-options "-foffload-force" }
 
 program main
   integer :: x, i, j, k, idx, arr(0:32*32*32)

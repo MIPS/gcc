@@ -1,6 +1,8 @@
 /* OpenACC parallelism dimensions clauses: num_gangs, num_workers,
    vector_length.  */
 
+/* { dg-additional-options "-foffload-force" } */
+
 #include <limits.h>
 #include <openacc.h>
 
@@ -166,7 +168,7 @@ int main ()
     gangs_min = workers_min = vectors_min = INT_MAX;
     gangs_max = workers_max = vectors_max = INT_MIN;
 #pragma acc parallel copy (vectors_actual) /* { dg-warning "region contains vector partitoned code but is not vector partitioned" } */ \
-  /* { dg-warning "using vector_length \\(32\\), ignoring 1" "" { target openacc_nvidia_accel_selected } 168 } */ \
+  /* { dg-warning "using vector_length \\(32\\), ignoring 1" "" { target openacc_nvidia_accel_selected } 170 } */ \
   vector_length (VECTORS) /* { dg-warning "'vector_length' value must be positive" "" { target c++ } } */
     {
       /* We're actually executing with vector_length (1), just the GCC nvptx

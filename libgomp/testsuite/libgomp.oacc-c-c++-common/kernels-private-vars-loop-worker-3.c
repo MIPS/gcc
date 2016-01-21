@@ -1,3 +1,6 @@
+/* Override the compiler's "avoid offloading" decision.
+   { dg-additional-options "-foffload-force" } */
+
 #include <assert.h>
 
 /* Test of worker-private variables declared on a loop directive, broadcasting

@@ -1,4 +1,6 @@
 ! { dg-do run }
+! Override the compiler's "avoid offloading" decision.
+! { dg-additional-options "-foffload-force" }
 
 program main
   implicit none

@@ -1,3 +1,6 @@
+/* Override the compiler's "avoid offloading" decision.
+   { dg-additional-options "-foffload-force" } */
+
 #include <assert.h>
 
 /* Test of vector-private variables declared on loop directive. Array type.  */

@@ -1,3 +1,6 @@
+/* Override the compiler's "avoid offloading" decision.
+   { dg-additional-options "-foffload-force" } */
+
 #include <stdlib.h>
 
 int main (void)

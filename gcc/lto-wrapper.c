@@ -280,6 +280,7 @@ merge_and_complain (struct cl_decoded_option **decoded_options,
 	  pie_option = foption;
 	  break;
 
+	case OPT_foffload_force:
 	case OPT_fopenmp:
 	case OPT_fopenacc:
 	case OPT_fcheck_pointer_bounds:
@@ -544,6 +545,7 @@ append_compiler_options (obstack *argv_obstack, struct cl_decoded_option *opts,
 	case OPT_fpie:
 	case OPT_fcommon:
 	case OPT_fgnu_tm:
+	case OPT_foffload_force:
 	case OPT_fopenmp:
 	case OPT_fopenacc:
 	case OPT_fopenacc_dim_:

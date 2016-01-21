@@ -1,4 +1,6 @@
 /* { dg-do run } */
+/* Override the compiler's "avoid offloading" decision.
+   { dg-additional-options "-foffload-force" } */
 
 /* Based on asyncwait-1.f90.  */
 

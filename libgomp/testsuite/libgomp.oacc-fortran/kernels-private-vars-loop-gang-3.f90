@@ -2,6 +2,8 @@
 ! to partitioned vectors.
 
 ! { dg-do run }
+! Override the compiler's "avoid offloading" decision.
+! { dg-additional-options "-foffload-force" }
 
 program main
   integer :: x, i, j, arr(0:32*32)

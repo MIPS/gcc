@@ -1,6 +1,8 @@
 ! Test a simple acc loop reduction inside a kernels region. 
 
 ! { dg-do run }
+! Override the compiler's "avoid offloading" decision.
+! { dg-additional-options "-foffload-force" }
 
 program reduction
   integer, parameter     :: n = 20

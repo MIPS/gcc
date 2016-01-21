@@ -1,6 +1,8 @@
 ! Test the collapse and reduction loop clauses inside a kernels region.
 
 ! { dg-do run }
+! Override the compiler's "avoid offloading" decision.
+! { dg-additional-options "-foffload-force" }
 
 program collapse4
   integer :: i, j, k, a(1:7, -3:5, 12:19), b(1:7, -3:5, 12:19)

@@ -31,6 +31,9 @@ validate_results (int n, float *a, float *b)
 int
 main()
 {
+  /* We're using cuBLAS, so excpect to be using a Nvidia GPU.  */
+  acc_init (acc_device_nvidia);
+
 #define N 8
   int i;
   float x_ref[N], y_ref[N];

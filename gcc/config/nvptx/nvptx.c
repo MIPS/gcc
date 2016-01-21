@@ -4699,6 +4699,9 @@ static const struct attribute_spec nvptx_attribute_table[] =
        affects_type_identity, handler, exclude } */
   { "kernel", 0, 0, true, false,  false, false, nvptx_handle_kernel_attribute,
     NULL },
+  /* Avoid offloading.  For example, because there is no sufficient
+     parallelism.  */
+  { "omp avoid offloading", 0, 0, true, false, false, false, NULL, NULL },
   { "shared", 0, 0, true, false,  false, false, nvptx_handle_shared_attribute,
     NULL },
   { NULL, 0, 0, false, false, false, false, NULL, NULL }
@@ -4765,7 +4768,10 @@ nvptx_record_offload_symbol (tree decl)
 	/* OpenMP offloading does not set this attribute.  */
 	tree dims = attr ? TREE_VALUE (attr) : NULL_TREE;
 
-	fprintf (asm_out_file, "//:FUNC_MAP \"%s\"",
+	fprintf (asm_out_file, "//:FUNC_MAP %s\"%s\"",
+		 (lookup_attribute ("omp avoid offloading",
+				    DECL_ATTRIBUTES (decl))
+		  ? "(avoid offloading) " : ""),
 		 IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
 
 	for (; dims; dims = TREE_CHAIN (dims))
@@ -5048,6 +5054,28 @@ nvptx_simt_vf ()
 static bool
 nvptx_goacc_validate_dims (tree decl, int dims[], int fn_level)
 {
+  /* Detect if a function is unsuitable for offloading.  */
+  if (!flag_offload_force && decl)
+    {
+      /* Trigger the "avoid offloading" mechanism if a OpenACC kernels
+	 construct could not be parallelized, but only do that for -O2 and
+	 higher, as otherwise we're not expecting any parallelization to
+	 happen.  */
+      if (optimize >= 2
+	  && lookup_attribute ("oacc kernels", DECL_ATTRIBUTES (decl))
+	  && !lookup_attribute ("oacc kernels parallelized",
+				DECL_ATTRIBUTES (decl)))
+	{
+	  warning_at (DECL_SOURCE_LOCATION (decl), 0,
+		      "OpenACC kernels construct will be executed"
+		      " sequentially; will by default avoid offloading to"
+		      " prevent data copy penalty");
+	  DECL_ATTRIBUTES (decl)
+	    = tree_cons (get_identifier ("omp avoid offloading"),
+			 NULL_TREE, DECL_ATTRIBUTES (decl));
+	}
+    }
+
   bool changed = false;
 
   /* The vector size must be 32, unless this is a SEQ routine.  */

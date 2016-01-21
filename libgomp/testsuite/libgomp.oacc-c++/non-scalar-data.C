@@ -2,6 +2,8 @@
 // offloaded regions are properly mapped using present_or_copy.
 
 // { dg-do run }
+// Override the compiler's "avoid offloading" decision.
+// { dg-additional-options "-foffload-force" }
 // { dg-xfail-if "TODO" { *-*-* } }
 
 #include <cassert>

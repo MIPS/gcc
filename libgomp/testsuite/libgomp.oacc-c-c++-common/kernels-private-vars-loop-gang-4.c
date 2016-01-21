@@ -1,3 +1,6 @@
+/* Override the compiler's "avoid offloading" decision.
+   { dg-additional-options "-foffload-force" } */
+
 #include <assert.h>
 
 /* Test of gang-private addressable variable declared on loop directive, with
