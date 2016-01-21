@@ -1165,6 +1165,9 @@ struct mips_cpu_info {
 				|| (TARGET_MIPS16 && TARGET_MIPS16_INS_EXT \
 				   && !TARGET_64BIT))
 
+#define ISA_HAS_ULW_USW		(TARGET_MIPS16E2 && TARGET_MIPS16_ULW_USW \
+				 && !TARGET_64BIT)
+
 /* ISA has instructions for accessing top part of 64-bit fp regs.  */
 #define ISA_HAS_MXHC1		(!TARGET_FLOAT32	\
 				 && mips_isa_rev >= 2)
