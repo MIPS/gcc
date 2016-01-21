@@ -5807,7 +5807,7 @@ finish_omp_clauses (tree clauses, bool is_oacc, bool allow_fields,
 	  t = OMP_CLAUSE_DECL (c);
 	  if (TREE_CODE (t) == TREE_LIST)
 	    {
-	      if (handle_omp_array_sections (c, allow_fields))
+	      if (handle_omp_array_sections (c, allow_fields && !is_oacc))
 		{
 		  remove = true;
 		  break;
@@ -6567,7 +6567,7 @@ finish_omp_clauses (tree clauses, bool is_oacc, bool allow_fields,
 	    }
 	  if (TREE_CODE (t) == TREE_LIST)
 	    {
-	      if (handle_omp_array_sections (c, allow_fields))
+	      if (handle_omp_array_sections (c, allow_fields && !is_oacc))
 		remove = true;
 	      break;
 	    }
@@ -6601,7 +6601,7 @@ finish_omp_clauses (tree clauses, bool is_oacc, bool allow_fields,
 	  t = OMP_CLAUSE_DECL (c);
 	  if (TREE_CODE (t) == TREE_LIST)
 	    {
-	      if (handle_omp_array_sections (c, allow_fields))
+	      if (handle_omp_array_sections (c, allow_fields && !is_oacc))
 		remove = true;
 	      else
 		{

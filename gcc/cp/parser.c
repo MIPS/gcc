@@ -32324,7 +32324,7 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
   cp_parser_skip_to_pragma_eol (parser, pragma_tok);
 
   if (finish_p)
-    return finish_omp_clauses (clauses, true, false);
+    return finish_omp_clauses (clauses, true, true);
 
   return clauses;
 }
@@ -35140,7 +35140,7 @@ cp_parser_oacc_cache (cp_parser *parser, cp_token *pragma_tok)
   tree stmt, clauses;
 
   clauses = cp_parser_omp_var_list (parser, OMP_CLAUSE__CACHE_, NULL_TREE);
-  clauses = finish_omp_clauses (clauses, true, false);
+  clauses = finish_omp_clauses (clauses, true, true);
 
   cp_parser_require_pragma_eol (parser, cp_lexer_peek_token (parser->lexer));
 
@@ -35471,9 +35471,9 @@ cp_parser_oacc_loop (cp_parser *parser, cp_token *pragma_tok, char *p_name,
     {
       clauses = c_oacc_split_loop_clauses (clauses, cclauses);
       if (*cclauses)
-	finish_omp_clauses (*cclauses, true, false);
+	finish_omp_clauses (*cclauses, true, true);
       if (clauses)
-	finish_omp_clauses (clauses, true, false);
+	finish_omp_clauses (clauses, true, true);
     }
 
   tree block = begin_omp_structured_block ();

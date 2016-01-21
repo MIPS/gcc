@@ -1,3 +1,9 @@
+2016-01-20  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gimplify.c (gimplify_scan_omp_clauses):  Consider OACC_{DATA,
+	PARALLEL, KERNELS} when processing firstprivate pointers and
+	references, and setting target_kind_firstprivatize_array_bases.
+
 2016-01-20  Tom de Vries  <tom@codesourcery.com>
 
 	* gimplify.c (gimplify_omp_for): Remove reduction clauses in kernels

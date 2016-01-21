@@ -6092,7 +6092,7 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 	{
 	  unsigned nflags = flags;
 	  if (ctx->target_map_pointers_as_0len_arrays
-	      || ctx->target_map_scalars_firstprivate)
+	       || ctx->target_map_scalars_firstprivate)
 	    {
 	      bool is_declare_target = false;
 	      bool is_scalar = false;
@@ -6456,7 +6456,10 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
       case OMP_TARGET_DATA:
       case OMP_TARGET_ENTER_DATA:
       case OMP_TARGET_EXIT_DATA:
+      case OACC_DATA:
       case OACC_HOST_DATA:
+      case OACC_PARALLEL:
+      case OACC_KERNELS:
 	ctx->target_firstprivatize_array_bases = true;
       default:
 	break;
@@ -6726,7 +6729,10 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	    case OMP_TARGET_DATA:
 	    case OMP_TARGET_ENTER_DATA:
 	    case OMP_TARGET_EXIT_DATA:
+	    case OACC_DATA:
 	    case OACC_HOST_DATA:
+	    case OACC_ENTER_DATA:
+	    case OACC_EXIT_DATA:
 	      if (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FIRSTPRIVATE_POINTER
 		  || (OMP_CLAUSE_MAP_KIND (c)
 		      == GOMP_MAP_FIRSTPRIVATE_REFERENCE))
