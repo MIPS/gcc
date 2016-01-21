@@ -1,3 +1,47 @@
+2016-01-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/59759
+	* pt.c (convert_template_argument): Handle VAR_DECL properly.
+
+2016-01-19  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/68586
+	* constexpr.c (clear_cv_cache): New.
+	* cp-gimplify.c (clear_fold_cache): New.
+	* cp-tree.h (clear_cv_cache, clear_fold_cache): Declare.
+	* decl.c (finish_enum_value_list): Call them.
+
+	PR c++/68965
+	* pt.c (tsubst_copy): Mark elements in expanded vector as used.
+
+2016-01-18  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/11858
+	PR c++/24663
+	PR c++/24664
+	* decl.c (grokdeclarator): Don't decay array parameter type to
+	a pointer type if it's dependent.
+	(grokparms): Invoke strip_top_quals instead of directly invoking
+	cp_build_qualified_type.
+	* pt.c (decay_dependent_array_parm_type): New static function.
+	(type_unification_real): Call decay_dependent_array_parm_type
+	to decay a dependent array parameter type to its corresponding
+	pointer type before unification.
+	(more_specialized_fn): Likewise.
+	(get_bindings): Likewise.
+	* tree.c (cp_build_qualified_type): Trivial typofix in
+	documentation.
+
+2016-01-18  Jason Merrill  <jason@redhat.com>
+
+	* cp-gimplify.c (cp_fold) [CONSTRUCTOR]: Don't clobber the input.
+
+	* cp-gimplify.c (cp_fold): Remove unnecessary special cases.
+
+	PR c++/68767
+	* cp-gimplify.c (cp_fold) [COND_EXPR]: Simplify.  Do fold COND_EXPR.
+	(contains_label_1, contains_label_p): Remove.
+
 2016-01-16  Patrick Palka  <ppalka@gcc.gnu.org>
 
 	PR c++/69091

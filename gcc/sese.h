@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_SESE_H
 #define GCC_SESE_H
 
+typedef hash_map<tree, tree> parameter_rename_map_t;
 typedef hash_map<basic_block, vec<basic_block> > bb_map_t;
 typedef hash_map<tree, vec<tree> > rename_map_t;
 typedef struct ifsese_s *ifsese;
@@ -85,8 +86,10 @@ typedef struct sese_info_t
      dominator.  */
   rename_map_t *rename_map;
 
+  /* Parameters to be renamed.  */
+  parameter_rename_map_t *parameter_rename_map;
+
   /* Loops completely contained in this SESE.  */
-  bitmap loops;
   vec<loop_p> loop_nest;
 
   /* Basic blocks contained in this SESE.  */
@@ -107,19 +110,10 @@ typedef struct sese_info_t
 extern sese_info_p new_sese_info (edge, edge);
 extern void free_sese_info (sese_info_p);
 extern void sese_insert_phis_for_liveouts (sese_info_p, basic_block, edge, edge);
-extern void build_sese_loop_nests (sese_info_p);
 extern struct loop *outermost_loop_in_sese (sese_l &, basic_block);
 extern tree scalar_evolution_in_region (const sese_l &, loop_p, tree);
 extern bool scev_analyzable_p (tree, sese_l &);
 extern bool invariant_in_sese_p_rec (tree, const sese_l &, bool *);
-
-/* Check that SESE contains LOOP.  */
-
-static inline bool
-sese_contains_loop (sese_info_p sese, struct loop *loop)
-{
-  return bitmap_bit_p (sese->loops, loop->num);
-}
 
 /* The number of parameters in REGION. */
 

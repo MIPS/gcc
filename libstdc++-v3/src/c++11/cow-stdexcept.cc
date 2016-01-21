@@ -179,6 +179,13 @@ _GLIBCXX_END_NAMESPACE_VERSION
 // Furthermore, _Rep will always have been allocated or deallocated via
 // global new or delete, so nontransactional writes we do to _Rep cannot
 // interfere with transactional accesses.
+
+// We depend on having support for referencing functions declared weak that
+// are not defined by us.  Without such support, the exceptions will not be
+// declared transaction-safe, so we just don't provide transactional clones
+// in this case.
+#if _GLIBCXX_USE_WEAK_REF
+
 extern "C" {
 
 #ifndef _GLIBCXX_MANGLE_SIZE_T
@@ -195,7 +202,6 @@ extern "C" {
 # define ITM_REGPARM
 #endif
 
-#if __GXX_WEAK__
 // Declare all libitm symbols we rely on, but make them weak so that we do
 // not depend on libitm.
 extern void* _ZGTtnaX (size_t sz) __attribute__((weak));
@@ -213,26 +219,14 @@ extern void _ITM_memcpyRnWt(void *, const void *, size_t)
 extern void _ITM_addUserCommitAction(void (*)(void *), uint64_t, void *)
   ITM_REGPARM __attribute__((weak));
 
-#else
-// If there is no support for weak symbols, create dummies.  The exceptions
-// will not be declared transaction_safe in this case.
-void* _ZGTtnaX (size_t) { return NULL; }
-void _ZGTtdlPv (void*) { }
-uint8_t _ITM_RU1(const uint8_t *) { return 0; }
-uint32_t _ITM_RU4(const uint32_t *) { return 0; }
-uint64_t _ITM_RU8(const uint64_t *) { return 0; }
-void _ITM_memcpyRtWn(void *, const void *, size_t) { }
-void _ITM_memcpyRnWt(void *, const void *, size_t) { }
-void _ITM_addUserCommitAction(void (*)(void *), uint64_t, void *) { };
-#endif
-
 }
 
 // A transactional version of basic_string::basic_string(const char *s)
 // that also notifies the TM runtime about allocations belonging to this
 // exception.
 void
-_txnal_cow_string_C1_for_exceptions(void* that, const char* s, void *exc)
+_txnal_cow_string_C1_for_exceptions(void* that, const char* s,
+				    void *exc __attribute__((unused)))
 {
   typedef std::basic_string<char> bs_type;
   bs_type *bs = (bs_type*) that;
@@ -249,17 +243,17 @@ _txnal_cow_string_C1_for_exceptions(void* that, const char* s, void *exc)
   // TODO Once this is supported, link the following allocation to this
   // exception: void *prev = _ITM_setAssociatedException(exc);
   bs_type::_Rep *rep;
-  try
+  __try
     {
       rep = (bs_type::_Rep*) _ZGTtnaX (len + sizeof (bs_type::_Rep));
     }
-  catch (...)
+  __catch (...)
     {
       // Pop the association with this exception.
       // TODO Once this is supported, link the following allocation to this
       // exception: _ITM_setAssociatedException(prev);
       // We do not need to instrument a rethrow.
-      throw;
+      __throw_exception_again;
     }
   // Pop the association with this exception.
   // TODO Once this is supported, link the following allocation to this
@@ -440,3 +434,5 @@ CTORDTOR(14overflow_error, std::overflow_error, runtime_error)
 CTORDTOR(15underflow_error, std::underflow_error, runtime_error)
 
 }
+
+#endif  // _GLIBCXX_USE_WEAK_REF

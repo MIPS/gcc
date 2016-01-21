@@ -940,6 +940,13 @@ AC_SUBST(accel_dir_suffix)
 
 for tgt in `echo $enable_offload_targets | sed 's/,/ /g'`; do
   tgt=`echo $tgt | sed 's/=.*//'`
+
+  if echo "$tgt" | grep "^hsa" > /dev/null ; then
+    enable_hsa=1
+  else
+    enable_offloading=1
+  fi
+
   if test x"$offload_targets" = x; then
     offload_targets=$tgt
   else
@@ -948,12 +955,17 @@ for tgt in `echo $enable_offload_targets | sed 's/,/ /g'`; do
 done
 AC_DEFINE_UNQUOTED(OFFLOAD_TARGETS, "$offload_targets",
   [Define to offload targets, separated by commas.])
-if test x"$offload_targets" != x; then
+if test x"$enable_offloading" != x; then
   AC_DEFINE(ENABLE_OFFLOADING, 1,
     [Define this to enable support for offloading.])
 else
   AC_DEFINE(ENABLE_OFFLOADING, 0,
     [Define this to enable support for offloading.])
+fi
+
+if test x"$enable_hsa" = x1 ; then
+  AC_DEFINE(ENABLE_HSA, 1,
+    [Define this to enable support for generating HSAIL.])
 fi
 
 AC_ARG_WITH(multilib-list,
@@ -5602,6 +5614,19 @@ esac
 if test x$gcc_cv_target_ldbl128 = xyes; then
   AC_DEFINE(TARGET_DEFAULT_LONG_DOUBLE_128, 1,
 	    [Define if TFmode long double should be the default])
+fi
+
+# Check if the target LIBC supports exporting the AT_PLATFORM and AT_HWCAP
+# values in the TCB.  Currently, only GLIBC 2.23 and later support this.
+gcc_cv_libc_provides_hwcap_in_tcb=no
+case "$target" in
+  powerpc*-*-linux*)
+    GCC_GLIBC_VERSION_GTE_IFELSE([2], [23], [gcc_cv_libc_provides_hwcap_in_tcb=yes], )
+    ;;
+esac
+if test x$gcc_cv_libc_provides_hwcap_in_tcb = xyes; then
+  AC_DEFINE(TARGET_LIBC_PROVIDES_HWCAP_IN_TCB, 1,
+	    [Define if your target C Library provides the AT_HWCAP value in the TCB])
 fi
 
 AC_MSG_CHECKING(dl_iterate_phdr in target C library)
