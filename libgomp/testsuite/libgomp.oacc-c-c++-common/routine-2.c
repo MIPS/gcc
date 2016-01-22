@@ -27,7 +27,7 @@ main()
 
 #pragma acc parallel copy (a[0:n]) vector_length (32)
   {
-#pragma acc loop
+#pragma acc loop vector
     for (i = 0; i < n; i++)
       a[i] = fact (i);
   }

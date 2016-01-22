@@ -1,3 +1,8 @@
+2016-01-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/routine-1.c: Specify vector.
+	* testsuite/libgomp.oacc-c-c++-common/routine-2.c: Likewise.
+
 2016-01-21  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* target.c (GOMP_offload_register_ver)
