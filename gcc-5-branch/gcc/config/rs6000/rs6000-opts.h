@@ -80,6 +80,7 @@ enum fpu_type_t
   FPU_DF_FULL			/* Full Double Single Precision FPU */
 };
 
+
 /* Types of costly dependences.  */
 enum rs6000_dependence_cost
 {

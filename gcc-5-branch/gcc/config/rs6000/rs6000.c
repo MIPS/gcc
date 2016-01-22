@@ -1842,6 +1842,12 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #define TARGET_LIBGCC_SHIFT_COUNT_MODE rs6000_abi_word_mode
 #undef TARGET_UNWIND_WORD_MODE
 #define TARGET_UNWIND_WORD_MODE rs6000_abi_word_mode
+
+#undef TARGET_C_MODE_FOR_SUFFIX
+#define TARGET_C_MODE_FOR_SUFFIX rs6000_c_mode_for_suffix
+
+#undef TARGET_INVALID_BINARY_OP
+#define TARGET_INVALID_BINARY_OP rs6000_invalid_binary_op
 
 
 /* Processor table.  */
@@ -1895,9 +1901,11 @@ rs6000_hard_regno_nregs_internal (int regno, machine_mode mode)
 {
   unsigned HOST_WIDE_INT reg_size;
 
-  /* TF/TD modes are special in that they always take 2 registers.  */
+  /* 128-bit floating point usually takes 2 registers, unless it is IEEE
+     128-bit floating point that can go in vector registers, which has VSX
+     memory addressing.  */
   if (FP_REGNO_P (regno))
-    reg_size = ((VECTOR_MEM_VSX_P (mode) && mode != TDmode && mode != TFmode)
+    reg_size = (VECTOR_MEM_VSX_P (mode)
 		? UNITS_PER_VSX_WORD
 		: UNITS_PER_FP_WORD);
 
@@ -1944,6 +1952,7 @@ rs6000_hard_regno_mode_ok (int regno, machine_mode mode)
      asked for it.  */
   if (TARGET_VSX && VSX_REGNO_P (regno)
       && (VECTOR_MEM_VSX_P (mode)
+	  || FLOAT128_VECTOR_P (mode)
 	  || reg_addr[mode].scalar_in_vmx_p
 	  || (TARGET_VSX_TIMODE && mode == TImode)
 	  || (TARGET_VADDUQM && mode == V1TImode)))
@@ -1969,6 +1978,9 @@ rs6000_hard_regno_mode_ok (int regno, machine_mode mode)
      modes and DImode.  */
   if (FP_REGNO_P (regno))
     {
+      if (FLOAT128_VECTOR_P (mode))
+	return false;
+
       if (SCALAR_FLOAT_MODE_P (mode)
 	  && (mode != TDmode || (regno % 2) == 0)
 	  && FP_REGNO_P (last_regno))
@@ -2308,6 +2320,8 @@ rs6000_debug_reg_global (void)
     SFmode,
     DFmode,
     TFmode,
+    IFmode,
+    KFmode,
     SDmode,
     DDmode,
     TDmode,
@@ -2394,6 +2408,8 @@ rs6000_debug_reg_global (void)
 	   "wl reg_class = %s\n"
 	   "wm reg_class = %s\n"
 	   "wo reg_class = %s\n"
+	   "wp reg_class = %s\n"
+	   "wq reg_class = %s\n"
 	   "wr reg_class = %s\n"
 	   "ws reg_class = %s\n"
 	   "wt reg_class = %s\n"
@@ -2420,6 +2436,8 @@ rs6000_debug_reg_global (void)
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wl]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wm]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wo]],
+	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wp]],
+	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wq]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wr]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_ws]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wt]],
@@ -2758,6 +2776,7 @@ rs6000_setup_reg_addr_masks (void)
 		  && (rc == RELOAD_REG_GPR || rc == RELOAD_REG_FPR)
 		  && GET_MODE_SIZE (m2) <= 8
 		  && !VECTOR_MODE_P (m2)
+		  && !FLOAT128_VECTOR_P (m2)
 		  && !COMPLEX_MODE_P (m2)
 		  && !indexed_only_p
 		  && !(TARGET_E500_DOUBLE && GET_MODE_SIZE (m2) == 8)
@@ -2909,6 +2928,20 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
     {
       align64 = 128;
       align32 = 128;
+    }
+
+  /* KF mode (IEEE 128-bit in VSX registers).  We do not have arithmetic, so
+     only set the memory modes.  Include TFmode if -mabi=ieeelongdouble.  */
+  if (TARGET_FLOAT128)
+    {
+      rs6000_vector_mem[KFmode] = VECTOR_VSX;
+      rs6000_vector_align[KFmode] = 128;
+
+      if (FLOAT128_IEEE_P (TFmode))
+	{
+	  rs6000_vector_mem[TFmode] = VECTOR_VSX;
+	  rs6000_vector_align[TFmode] = 128;
+	}
     }
 
   /* V2DF mode, VSX only.  */
@@ -3118,6 +3151,13 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
   if (TARGET_DIRECT_MOVE_128)
     rs6000_constraints[RS6000_CONSTRAINT_we] = VSX_REGS;
 
+  if (TARGET_FLOAT128)
+    {
+      rs6000_constraints[RS6000_CONSTRAINT_wq] = VSX_REGS;	/* KFmode  */
+      if (FLOAT128_IEEE_P (TFmode))
+	rs6000_constraints[RS6000_CONSTRAINT_wp] = VSX_REGS;	/* TFmode  */
+    }
+
   /* Set up the reload helper and direct move functions.  */
   if (TARGET_VSX || TARGET_ALTIVEC)
     {
@@ -3137,12 +3177,20 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  reg_addr[V4SFmode].reload_load   = CODE_FOR_reload_v4sf_di_load;
 	  reg_addr[V2DFmode].reload_store  = CODE_FOR_reload_v2df_di_store;
 	  reg_addr[V2DFmode].reload_load   = CODE_FOR_reload_v2df_di_load;
+	  reg_addr[KFmode].reload_store    = CODE_FOR_reload_kf_di_store;
+	  reg_addr[KFmode].reload_load     = CODE_FOR_reload_kf_di_load;
 	  reg_addr[DFmode].reload_store    = CODE_FOR_reload_df_di_store;
 	  reg_addr[DFmode].reload_load     = CODE_FOR_reload_df_di_load;
 	  reg_addr[DDmode].reload_store    = CODE_FOR_reload_dd_di_store;
 	  reg_addr[DDmode].reload_load     = CODE_FOR_reload_dd_di_load;
 	  reg_addr[SFmode].reload_store    = CODE_FOR_reload_sf_di_store;
 	  reg_addr[SFmode].reload_load     = CODE_FOR_reload_sf_di_load;
+
+	  if (FLOAT128_IEEE_P (TFmode))
+	    {
+	      reg_addr[TFmode].reload_store = CODE_FOR_reload_tf_di_store;
+	      reg_addr[TFmode].reload_load  = CODE_FOR_reload_tf_di_load;
+	    }
 
 	  /* Only provide a reload handler for SDmode if lfiwzx/stfiwx are
 	     available.  */
@@ -3197,12 +3245,20 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  reg_addr[V4SFmode].reload_load   = CODE_FOR_reload_v4sf_si_load;
 	  reg_addr[V2DFmode].reload_store  = CODE_FOR_reload_v2df_si_store;
 	  reg_addr[V2DFmode].reload_load   = CODE_FOR_reload_v2df_si_load;
+	  reg_addr[KFmode].reload_store    = CODE_FOR_reload_kf_si_store;
+	  reg_addr[KFmode].reload_load     = CODE_FOR_reload_kf_si_load;
 	  reg_addr[DFmode].reload_store    = CODE_FOR_reload_df_si_store;
 	  reg_addr[DFmode].reload_load     = CODE_FOR_reload_df_si_load;
 	  reg_addr[DDmode].reload_store    = CODE_FOR_reload_dd_si_store;
 	  reg_addr[DDmode].reload_load     = CODE_FOR_reload_dd_si_load;
 	  reg_addr[SFmode].reload_store    = CODE_FOR_reload_sf_si_store;
 	  reg_addr[SFmode].reload_load     = CODE_FOR_reload_sf_si_load;
+
+	  if (FLOAT128_IEEE_P (TFmode))
+	    {
+	      reg_addr[TFmode].reload_store = CODE_FOR_reload_tf_si_store;
+	      reg_addr[TFmode].reload_load  = CODE_FOR_reload_tf_si_load;
+	    }
 
 	  /* Only provide a reload handler for SDmode if lfiwzx/stfiwx are
 	     available.  */
@@ -3391,9 +3447,9 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  machine_mode m2 = (machine_mode)m;
 	  int reg_size2 = reg_size;
 
-	  /* TFmode/TDmode always takes 2 registers, even in VSX.  */
-	  if (TARGET_VSX && VSX_REG_CLASS_P (c)
-	      && (m == TDmode || m == TFmode))
+	  /* TDmode & IBM 128-bit floating point always takes 2 registers, even
+	     in VSX.  */
+	  if (TARGET_VSX && VSX_REG_CLASS_P (c) && FLOAT128_2REG_P (m))
 	    reg_size2 = UNITS_PER_FP_WORD;
 
 	  rs6000_class_max_nregs[m][c]
@@ -3935,6 +3991,24 @@ rs6000_option_override_internal (bool global_init_p)
 			   | OPTION_MASK_DIRECT_MOVE)
 		         & ~rs6000_isa_flags_explicit);
 
+  /* At present, we only build the __float128 emulator on PowerPC Linux.
+     Enable default __float128 support for PowerPC Linux systems, but not for
+     others.  */
+#ifdef POWERPC_LINUX
+  if (TARGET_VSX && !TARGET_FLOAT128
+      && (rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128) == 0)
+    rs6000_isa_flags |= OPTION_MASK_FLOAT128;
+#endif
+
+  /* __float128 requires VSX support.  */
+  if (TARGET_FLOAT128 && !TARGET_VSX)
+    {
+      if ((rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128) != 0)
+	error ("-mfloat128 requires VSX support");
+
+      rs6000_isa_flags &= ~OPTION_MASK_FLOAT128;
+    }
+
   if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
     rs6000_print_isa_options (stderr, 0, "before defaults", rs6000_isa_flags);
 
@@ -4223,14 +4297,6 @@ rs6000_option_override_internal (bool global_init_p)
 	}
     }
 
-  /* GCC 6.x options -mfloat128 and -mfloat128-hardware are not (yet) supported
-     in GCC 5.x.  */
-  if (TARGET_FLOAT128_HW)
-    error ("-mfloat128-hardware is not supported in this revision of GCC");
-
-  if (TARGET_FLOAT128)
-    error ("-mfloat128 is not supported in this revision of GCC");
-
   /* Print the options after updating the defaults.  */
   if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
     rs6000_print_isa_options (stderr, 0, "after defaults", rs6000_isa_flags);
@@ -4312,7 +4378,8 @@ rs6000_option_override_internal (bool global_init_p)
      unless the altivec ABI was set.  This is set by default for 64-bit, but
      not for 32-bit.  */
   if (main_target_opt != NULL && !main_target_opt->x_rs6000_altivec_abi)
-    rs6000_isa_flags &= ~((OPTION_MASK_VSX | OPTION_MASK_ALTIVEC)
+    rs6000_isa_flags &= ~((OPTION_MASK_VSX | OPTION_MASK_ALTIVEC
+			   | OPTION_MASK_FLOAT128)
 			  & ~rs6000_isa_flags_explicit);
 
   /* Enable Altivec ABI for AIX -maltivec.  */
@@ -6638,13 +6705,16 @@ invalid_e500_subreg (rtx op, machine_mode mode)
 	      || mode == DDmode || mode == TDmode || mode == PTImode)
 	  && REG_P (SUBREG_REG (op))
 	  && (GET_MODE (SUBREG_REG (op)) == DFmode
-	      || GET_MODE (SUBREG_REG (op)) == TFmode))
+	      || GET_MODE (SUBREG_REG (op)) == TFmode
+	      || GET_MODE (SUBREG_REG (op)) == IFmode
+	      || GET_MODE (SUBREG_REG (op)) == KFmode))
 	return true;
 
       /* Reject (subreg:DF (reg:DI)); likewise with subreg:TF and
 	 reg:TI.  */
       if (GET_CODE (op) == SUBREG
-	  && (mode == DFmode || mode == TFmode)
+	  && (mode == DFmode || mode == TFmode || mode == IFmode
+	      || mode == KFmode)
 	  && REG_P (SUBREG_REG (op))
 	  && (GET_MODE (SUBREG_REG (op)) == DImode
 	      || GET_MODE (SUBREG_REG (op)) == TImode
@@ -7006,10 +7076,13 @@ reg_offset_addressing_ok_p (machine_mode mode)
     case V2DImode:
     case V1TImode:
     case TImode:
+    case TFmode:
+    case KFmode:
       /* AltiVec/VSX vector modes.  Only reg+reg addressing is valid.  While
 	 TImode is not a vector mode, if we want to use the VSX registers to
-	 move it around, we need to restrict ourselves to reg+reg
-	 addressing.  */
+	 move it around, we need to restrict ourselves to reg+reg addressing.
+	 Similarly for IEEE 128-bit floating point that is passed in a single
+	 vector register.  */
       if (VECTOR_MEM_ALTIVEC_OR_VSX_P (mode))
 	return false;
       break;
@@ -7275,6 +7348,8 @@ rs6000_legitimate_offset_address_p (machine_mode mode, rtx x,
       break;
 
     case TFmode:
+    case IFmode:
+    case KFmode:
       if (TARGET_E500_DOUBLE)
 	return (SPE_CONST_OFFSET_OK (offset)
 		&& SPE_CONST_OFFSET_OK (offset + 8));
@@ -7468,6 +7543,8 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
     case TDmode:
     case TImode:
     case PTImode:
+    case IFmode:
+    case KFmode:
       /* As in legitimate_offset_address_p we do not assume
 	 worst-case.  The mode here is just a hint as to the registers
 	 used.  A TImode is usually in gprs, but may actually be in
@@ -8241,6 +8318,8 @@ rs6000_legitimize_reload_address (rtx x, machine_mode mode,
       && !reg_addr[mode].scalar_in_vmx_p
       && mode != TFmode
       && mode != TDmode
+      && mode != IFmode
+      && mode != KFmode
       && (mode != TImode || !TARGET_VSX_TIMODE)
       && mode != PTImode
       && (mode != DImode || TARGET_POWERPC64)
@@ -8396,8 +8475,7 @@ rs6000_legitimate_address_p (machine_mode mode, rtx x, bool reg_ok_strict)
     return 1;
   if (rs6000_legitimate_offset_address_p (mode, x, reg_ok_strict, false))
     return 1;
-  if (mode != TFmode
-      && mode != TDmode
+  if (!FLOAT128_2REG_P (mode)
       && ((TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT)
 	  || TARGET_POWERPC64
 	  || (mode != DFmode && mode != DDmode)
@@ -8889,8 +8967,14 @@ rs6000_const_vec (machine_mode mode)
 rtx
 rs6000_gen_le_vsx_permute (rtx source, machine_mode mode)
 {
-  rtx par = gen_rtx_PARALLEL (VOIDmode, rs6000_const_vec (mode));
-  return gen_rtx_VEC_SELECT (mode, source, par);
+  /* Use ROTATE instead of VEC_SELECT on IEEE 128-bit floating point.  */
+  if (FLOAT128_VECTOR_P (mode))
+    return gen_rtx_ROTATE (mode, source, GEN_INT (64));
+  else
+    {
+      rtx par = gen_rtx_PARALLEL (VOIDmode, rs6000_const_vec (mode));
+      return gen_rtx_VEC_SELECT (mode, source, par);
+    }
 }
 
 /* Emit a little-endian load from vector memory location SOURCE to VSX
@@ -8930,7 +9014,7 @@ rs6000_emit_le_vsx_store (rtx dest, rtx source, machine_mode mode)
      during expand.  */
   gcc_assert (!reload_in_progress && !lra_in_progress && !reload_completed);
 
-  /* Use V2DImode to do swaps of types with 128-bit scalare parts (TImode,
+  /* Use V2DImode to do swaps of types with 128-bit scalar parts (TImode,
      V1TImode).  */
   if (mode == TImode || mode == V1TImode)
     {
@@ -9066,9 +9150,8 @@ rs6000_emit_move (rtx dest, rtx source, machine_mode mode)
   /* 128-bit constant floating-point values on Darwin should really be loaded
      as two parts.  However, this premature splitting is a problem when DFmode
      values can go into Altivec registers.  */
-  if (!TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128
-      && !reg_addr[DFmode].scalar_in_vmx_p
-      && mode == TFmode && GET_CODE (operands[1]) == CONST_DOUBLE)
+  if (FLOAT128_IBM_P (mode) && !reg_addr[DFmode].scalar_in_vmx_p
+      && GET_CODE (operands[1]) == CONST_DOUBLE)
     {
       rs6000_emit_move (simplify_gen_subreg (DFmode, operands[0], mode, 0),
 			simplify_gen_subreg (DFmode, operands[1], mode, 0),
@@ -9260,7 +9343,10 @@ rs6000_emit_move (rtx dest, rtx source, machine_mode mode)
 
     case TFmode:
     case TDmode:
-      rs6000_eliminate_indexed_memrefs (operands);
+    case IFmode:
+    case KFmode:
+      if (FLOAT128_2REG_P (mode))
+	rs6000_eliminate_indexed_memrefs (operands);
       /* fall through */
 
     case DFmode:
@@ -9485,7 +9571,7 @@ rs6000_member_type_forces_blk (const_tree field, machine_mode mode)
 
 /* Nonzero if we can use a floating-point register to pass this arg.  */
 #define USE_FP_FOR_ARG_P(CUM,MODE)		\
-  (SCALAR_FLOAT_MODE_P (MODE)			\
+  (SCALAR_FLOAT_MODE_NOT_VECTOR_P (MODE)		\
    && (CUM)->fregno <= FP_ARG_MAX_REG		\
    && TARGET_HARD_FLOAT && TARGET_FPRS)
 
@@ -9686,7 +9772,7 @@ rs6000_discover_homogeneous_aggregate (machine_mode mode, const_tree type,
 
       if (field_count > 0)
 	{
-	  int n_regs = (SCALAR_FLOAT_MODE_P (field_mode)?
+	  int n_regs = (SCALAR_FLOAT_MODE_P (field_mode) ?
 			(GET_MODE_SIZE (field_mode) + 7) >> 3 : 1);
 
 	  /* The ELFv2 ABI allows homogeneous aggregates to occupy
@@ -9796,7 +9882,8 @@ rs6000_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
       return true;
     }
 
-  if (DEFAULT_ABI == ABI_V4 && TARGET_IEEEQUAD && TYPE_MODE (type) == TFmode)
+  if (DEFAULT_ABI == ABI_V4 && TARGET_IEEEQUAD
+      && FLOAT128_IEEE_P (TYPE_MODE (type)))
     return true;
 
   return false;
@@ -9868,6 +9955,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
 		      ? CALL_LIBCALL : CALL_NORMAL);
   cum->sysv_gregno = GP_ARG_MIN_REG;
   cum->stdarg = stdarg_p (fntype);
+  cum->libcall = libcall;
 
   cum->nargs_prototype = 0;
   if (incoming || cum->prototype)
@@ -9926,7 +10014,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
 		      <= 8))
 		rs6000_returns_struct = true;
 	    }
-	  if (SCALAR_FLOAT_MODE_P (return_mode))
+	  if (SCALAR_FLOAT_MODE_NOT_VECTOR_P (return_mode))
 	    rs6000_passes_float = true;
 	  else if (ALTIVEC_OR_VSX_VECTOR_MODE (return_mode)
 		   || SPE_VECTOR_MODE (return_mode))
@@ -10064,8 +10152,10 @@ rs6000_function_arg_boundary (machine_mode mode, const_tree type)
       && (GET_MODE_SIZE (mode) == 8
 	  || (TARGET_HARD_FLOAT
 	      && TARGET_FPRS
-	      && (mode == TFmode || mode == TDmode))))
+	      && FLOAT128_2REG_P (mode))))
     return 64;
+  else if (FLOAT128_VECTOR_P (mode))
+    return 128;
   else if (SPE_VECTOR_MODE (mode)
 	   || (type && TREE_CODE (type) == VECTOR_TYPE
 	       && int_size_in_bytes (type) >= 8
@@ -10337,7 +10427,7 @@ rs6000_function_arg_advance_1 (CUMULATIVE_ARGS *cum, machine_mode mode,
   if (DEFAULT_ABI == ABI_V4
       && cum->escapes)
     {
-      if (SCALAR_FLOAT_MODE_P (mode))
+      if (SCALAR_FLOAT_MODE_NOT_VECTOR_P (mode))
 	rs6000_passes_float = true;
       else if (named && ALTIVEC_OR_VSX_VECTOR_MODE (mode))
 	rs6000_passes_vector = true;
@@ -10444,21 +10534,21 @@ rs6000_function_arg_advance_1 (CUMULATIVE_ARGS *cum, machine_mode mode,
       if (TARGET_HARD_FLOAT && TARGET_FPRS
 	  && ((TARGET_SINGLE_FLOAT && mode == SFmode)
 	      || (TARGET_DOUBLE_FLOAT && mode == DFmode)
-	      || (mode == TFmode && !TARGET_IEEEQUAD)
-	      || mode == SDmode || mode == DDmode || mode == TDmode))
+	      || FLOAT128_2REG_P (mode)
+	      || DECIMAL_FLOAT_MODE_P (mode)))
 	{
 	  /* _Decimal128 must use an even/odd register pair.  This assumes
 	     that the register number is odd when fregno is odd.  */
 	  if (mode == TDmode && (cum->fregno % 2) == 1)
 	    cum->fregno++;
 
-	  if (cum->fregno + (mode == TFmode || mode == TDmode ? 1 : 0)
+	  if (cum->fregno + (FLOAT128_2REG_P (mode) ? 1 : 0)
 	      <= FP_ARG_V4_MAX_REG)
 	    cum->fregno += (GET_MODE_SIZE (mode) + 7) >> 3;
 	  else
 	    {
 	      cum->fregno = FP_ARG_V4_MAX_REG + 1;
-	      if (mode == DFmode || mode == TFmode
+	      if (mode == DFmode || FLOAT128_IBM_P (mode)
 		  || mode == DDmode || mode == TDmode)
 		cum->words += cum->words & 1;
 	      cum->words += rs6000_arg_size (mode, type);
@@ -10510,8 +10600,7 @@ rs6000_function_arg_advance_1 (CUMULATIVE_ARGS *cum, machine_mode mode,
 
       cum->words = align_words + n_words;
 
-      if (SCALAR_FLOAT_MODE_P (elt_mode)
-	  && TARGET_HARD_FLOAT && TARGET_FPRS)
+      if (SCALAR_FLOAT_MODE_P (elt_mode) && TARGET_HARD_FLOAT && TARGET_FPRS)
 	{
 	  /* _Decimal128 must be passed in an even/odd float register pair.
 	     This assumes that the register number is odd when fregno is
@@ -10753,7 +10842,7 @@ rs6000_darwin64_record_arg_recurse (CUMULATIVE_ARGS *cum, const_tree type,
 	      = gen_rtx_EXPR_LIST (VOIDmode,
 				   gen_rtx_REG (mode, cum->fregno++),
 				   GEN_INT (bitpos / BITS_PER_UNIT));
-	    if (mode == TFmode || mode == TDmode)
+	    if (FLOAT128_2REG_P (mode))
 	      cum->fregno++;
 	  }
 	else if (cum->named && USE_ALTIVEC_FOR_ARG_P (cum, mode, 1))
@@ -11029,9 +11118,11 @@ rs6000_function_arg (cumulative_args_t cum_v, machine_mode mode,
       rtx r, off;
       int i, k = 0;
 
-      /* Do we also need to pass this argument in the parameter
-	 save area?  */
-      if (TARGET_64BIT && ! cum->prototype)
+      /* Do we also need to pass this argument in the parameter save area?
+	 Library support functions for IEEE 128-bit are assumed to not need the
+	 value passed both in GPRs and in vector registers.  */
+      if (TARGET_64BIT && !cum->prototype
+	  && (!cum->libcall || !FLOAT128_VECTOR_P (elt_mode)))
 	{
 	  int align_words = (cum->words + 1) & ~1;
 	  k = rs6000_psave_function_arg (mode, type, align_words, rvec);
@@ -11104,15 +11195,15 @@ rs6000_function_arg (cumulative_args_t cum_v, machine_mode mode,
       if (TARGET_HARD_FLOAT && TARGET_FPRS
 	  && ((TARGET_SINGLE_FLOAT && mode == SFmode)
 	      || (TARGET_DOUBLE_FLOAT && mode == DFmode)
-	      || (mode == TFmode && !TARGET_IEEEQUAD)
-	      || mode == SDmode || mode == DDmode || mode == TDmode))
+	      || FLOAT128_2REG_P (mode)
+	      || DECIMAL_FLOAT_MODE_P (mode)))
 	{
 	  /* _Decimal128 must use an even/odd register pair.  This assumes
 	     that the register number is odd when fregno is odd.  */
 	  if (mode == TDmode && (cum->fregno % 2) == 1)
 	    cum->fregno++;
 
-	  if (cum->fregno + (mode == TFmode || mode == TDmode ? 1 : 0)
+	  if (cum->fregno + (FLOAT128_2REG_P (mode) ? 1 : 0)
 	      <= FP_ARG_V4_MAX_REG)
 	    return gen_rtx_REG (mode, cum->fregno);
 	  else
@@ -11174,7 +11265,7 @@ rs6000_function_arg (cumulative_args_t cum_v, machine_mode mode,
 	      machine_mode fmode = elt_mode;
 	      if (cum->fregno + (i + 1) * n_fpreg > FP_ARG_MAX_REG + 1)
 		{
-		  gcc_assert (fmode == TFmode || fmode == TDmode);
+		  gcc_assert (FLOAT128_2REG_P (fmode));
 		  fmode = DECIMAL_FLOAT_MODE_P (fmode) ? DDmode : DFmode;
 		}
 
@@ -11262,11 +11353,14 @@ rs6000_arg_partial_bytes (cumulative_args_t cum_v, machine_mode mode,
 
   if (USE_ALTIVEC_FOR_ARG_P (cum, elt_mode, named))
     {
-      /* If we are passing this arg in the fixed parameter save area
-         (gprs or memory) as well as VRs, we do not use the partial
-	 bytes mechanism; instead, rs6000_function_arg will return a
-	 PARALLEL including a memory element as necessary.  */
-      if (TARGET_64BIT && ! cum->prototype)
+      /* If we are passing this arg in the fixed parameter save area (gprs or
+         memory) as well as VRs, we do not use the partial bytes mechanism;
+         instead, rs6000_function_arg will return a PARALLEL including a memory
+         element as necessary.  Library support functions for IEEE 128-bit are
+         assumed to not need the value passed both in GPRs and in vector
+         registers.  */
+      if (TARGET_64BIT && !cum->prototype
+	  && (!cum->libcall || !FLOAT128_VECTOR_P (elt_mode)))
 	return 0;
 
       /* Otherwise, we pass in VRs only.  Check for partial copies.  */
@@ -11348,15 +11442,16 @@ rs6000_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
 			  machine_mode mode, const_tree type,
 			  bool named ATTRIBUTE_UNUSED)
 {
-  if (DEFAULT_ABI == ABI_V4 && TARGET_IEEEQUAD && mode == TFmode)
-    {
-      if (TARGET_DEBUG_ARG)
-	fprintf (stderr, "function_arg_pass_by_reference: V4 long double\n");
-      return 1;
-    }
-
   if (!type)
     return 0;
+
+  if (DEFAULT_ABI == ABI_V4 && TARGET_IEEEQUAD
+      && FLOAT128_IEEE_P (TYPE_MODE (type)))
+    {
+      if (TARGET_DEBUG_ARG)
+	fprintf (stderr, "function_arg_pass_by_reference: V4 IEEE 128-bit\n");
+      return 1;
+    }
 
   if (DEFAULT_ABI == ABI_V4 && AGGREGATE_TYPE_P (type))
     {
@@ -12028,10 +12123,8 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
       && ((TARGET_SINGLE_FLOAT && TYPE_MODE (type) == SFmode)
           || (TARGET_DOUBLE_FLOAT 
               && (TYPE_MODE (type) == DFmode 
- 	          || TYPE_MODE (type) == TFmode
-	          || TYPE_MODE (type) == SDmode
-	          || TYPE_MODE (type) == DDmode
-	          || TYPE_MODE (type) == TDmode))))
+		  || FLOAT128_2REG_P (TYPE_MODE (type))
+		  || DECIMAL_FLOAT_MODE_P (TYPE_MODE (type))))))
     {
       /* FP args go in FP registers, if present.  */
       reg = fpr;
@@ -15022,6 +15115,30 @@ rs6000_init_builtins (void)
   dfloat128_type_internal_node = dfloat128_type_node;
   void_type_internal_node = void_type_node;
 
+  /* 128-bit floating point support.  KFmode is IEEE 128-bit floating point.
+     IFmode is the IBM extended 128-bit format that is a pair of doubles.
+     TFmode will be either IEEE 128-bit floating point or the IBM double-double
+     format that uses a pair of doubles, depending on the switches and
+     defaults.  */
+  if (TARGET_FLOAT128)
+    {
+      ibm128_float_type_node = make_node (REAL_TYPE);
+      TYPE_PRECISION (ibm128_float_type_node) = 128;
+      layout_type (ibm128_float_type_node);
+      SET_TYPE_MODE (ibm128_float_type_node, IFmode);
+
+      ieee128_float_type_node = make_node (REAL_TYPE);
+      TYPE_PRECISION (ieee128_float_type_node) = 128;
+      layout_type (ieee128_float_type_node);
+      SET_TYPE_MODE (ieee128_float_type_node, KFmode);
+
+      lang_hooks.types.register_builtin_type (ieee128_float_type_node,
+					      "__float128");
+
+      lang_hooks.types.register_builtin_type (ibm128_float_type_node,
+					      "__ibm128");
+    }
+
   /* Initialize the modes for builtin_function_type, mapping a machine mode to
      tree type node.  */
   builtin_mode_to_type[QImode][0] = integer_type_node;
@@ -15034,6 +15151,8 @@ rs6000_init_builtins (void)
   builtin_mode_to_type[TImode][1] = unsigned_intTI_type_node;
   builtin_mode_to_type[SFmode][0] = float_type_node;
   builtin_mode_to_type[DFmode][0] = double_type_node;
+  builtin_mode_to_type[IFmode][0] = ibm128_float_type_node;
+  builtin_mode_to_type[KFmode][0] = ieee128_float_type_node;
   builtin_mode_to_type[TFmode][0] = long_double_type_node;
   builtin_mode_to_type[DDmode][0] = dfloat64_type_node;
   builtin_mode_to_type[TDmode][0] = dfloat128_type_node;
@@ -16532,75 +16651,182 @@ rs6000_common_init_builtins (void)
     }
 }
 
+/* Set up AIX/Darwin/64-bit Linux quad floating point routines.  */
+static void
+init_float128_ibm (machine_mode mode)
+{
+  if (!TARGET_XL_COMPAT)
+    {
+      set_optab_libfunc (add_optab, mode, "__gcc_qadd");
+      set_optab_libfunc (sub_optab, mode, "__gcc_qsub");
+      set_optab_libfunc (smul_optab, mode, "__gcc_qmul");
+      set_optab_libfunc (sdiv_optab, mode, "__gcc_qdiv");
+
+      if (!(TARGET_HARD_FLOAT && (TARGET_FPRS || TARGET_E500_DOUBLE)))
+	{
+	  set_optab_libfunc (neg_optab, mode, "__gcc_qneg");
+	  set_optab_libfunc (eq_optab, mode, "__gcc_qeq");
+	  set_optab_libfunc (ne_optab, mode, "__gcc_qne");
+	  set_optab_libfunc (gt_optab, mode, "__gcc_qgt");
+	  set_optab_libfunc (ge_optab, mode, "__gcc_qge");
+	  set_optab_libfunc (lt_optab, mode, "__gcc_qlt");
+	  set_optab_libfunc (le_optab, mode, "__gcc_qle");
+
+	  set_conv_libfunc (sext_optab, mode, SFmode, "__gcc_stoq");
+	  set_conv_libfunc (sext_optab, mode, DFmode, "__gcc_dtoq");
+	  set_conv_libfunc (trunc_optab, SFmode, mode, "__gcc_qtos");
+	  set_conv_libfunc (trunc_optab, DFmode, mode, "__gcc_qtod");
+	  set_conv_libfunc (sfix_optab, SImode, mode, "__gcc_qtoi");
+	  set_conv_libfunc (ufix_optab, SImode, mode, "__gcc_qtou");
+	  set_conv_libfunc (sfloat_optab, mode, SImode, "__gcc_itoq");
+	  set_conv_libfunc (ufloat_optab, mode, SImode, "__gcc_utoq");
+	}
+
+      if (!(TARGET_HARD_FLOAT && TARGET_FPRS))
+	set_optab_libfunc (unord_optab, mode, "__gcc_qunord");
+    }
+  else
+    {
+      set_optab_libfunc (add_optab, mode, "_xlqadd");
+      set_optab_libfunc (sub_optab, mode, "_xlqsub");
+      set_optab_libfunc (smul_optab, mode, "_xlqmul");
+      set_optab_libfunc (sdiv_optab, mode, "_xlqdiv");
+    }
+
+  /* Add various conversions for IFmode to use the traditional TFmode
+     names.  */
+  if (mode == IFmode)
+    {
+      set_conv_libfunc (sext_optab, mode, SDmode, "__dpd_extendsdtf2");
+      set_conv_libfunc (sext_optab, mode, DDmode, "__dpd_extendddtf2");
+      set_conv_libfunc (trunc_optab, mode, TDmode, "__dpd_trunctftd2");
+      set_conv_libfunc (trunc_optab, SDmode, mode, "__dpd_trunctfsd2");
+      set_conv_libfunc (trunc_optab, DDmode, mode, "__dpd_trunctfdd2");
+      set_conv_libfunc (sext_optab, TDmode, mode, "__dpd_extendtdtf2");
+
+      if (TARGET_POWERPC64)
+	{
+	  set_conv_libfunc (sfix_optab, TImode, mode, "__fixtfti");
+	  set_conv_libfunc (ufix_optab, TImode, mode, "__fixunstfti");
+	  set_conv_libfunc (sfloat_optab, mode, TImode, "__floattitf");
+	  set_conv_libfunc (ufloat_optab, mode, TImode, "__floatuntitf");
+	}
+    }
+}
+
+/* Set up IEEE 128-bit floating point routines.  Use different names if the
+   arguments can be passed in a vector register.  The historical PowerPC
+   implementation of IEEE 128-bit floating point used _q_<op> for the names, so
+   continue to use that if we aren't using vector registers to pass IEEE
+   128-bit floating point.  */
+
+static void
+init_float128_ieee (machine_mode mode)
+{
+  if (FLOAT128_VECTOR_P (mode))
+    {
+      set_optab_libfunc (add_optab, mode, "__addkf3");
+      set_optab_libfunc (sub_optab, mode, "__subkf3");
+      set_optab_libfunc (neg_optab, mode, "__negkf2");
+      set_optab_libfunc (smul_optab, mode, "__mulkf3");
+      set_optab_libfunc (sdiv_optab, mode, "__divkf3");
+      set_optab_libfunc (sqrt_optab, mode, "__sqrtkf2");
+      set_optab_libfunc (abs_optab, mode, "__abstkf2");
+
+      set_optab_libfunc (eq_optab, mode, "__eqkf2");
+      set_optab_libfunc (ne_optab, mode, "__nekf2");
+      set_optab_libfunc (gt_optab, mode, "__gtkf2");
+      set_optab_libfunc (ge_optab, mode, "__gekf2");
+      set_optab_libfunc (lt_optab, mode, "__ltkf2");
+      set_optab_libfunc (le_optab, mode, "__lekf2");
+      set_optab_libfunc (unord_optab, mode, "__unordkf2");
+
+      set_conv_libfunc (sext_optab, mode, SFmode, "__extendsfkf2");
+      set_conv_libfunc (sext_optab, mode, DFmode, "__extenddfkf2");
+      set_conv_libfunc (trunc_optab, SFmode, mode, "__trunckfsf2");
+      set_conv_libfunc (trunc_optab, DFmode, mode, "__trunckfdf2");
+
+      set_conv_libfunc (sext_optab, mode, IFmode, "__extendtfkf2");
+      if (mode != TFmode && FLOAT128_IBM_P (TFmode))
+	set_conv_libfunc (sext_optab, mode, TFmode, "__extendtfkf2");
+
+      set_conv_libfunc (trunc_optab, IFmode, mode, "__trunckftf2");
+      if (mode != TFmode && FLOAT128_IBM_P (TFmode))
+	set_conv_libfunc (trunc_optab, TFmode, mode, "__trunckftf2");
+
+      set_conv_libfunc (sext_optab, mode, SDmode, "__dpd_extendsdkf2");
+      set_conv_libfunc (sext_optab, mode, DDmode, "__dpd_extendddkf2");
+      set_conv_libfunc (trunc_optab, mode, TDmode, "__dpd_trunckftd2");
+      set_conv_libfunc (trunc_optab, SDmode, mode, "__dpd_trunckfsd2");
+      set_conv_libfunc (trunc_optab, DDmode, mode, "__dpd_trunckfdd2");
+      set_conv_libfunc (sext_optab, TDmode, mode, "__dpd_extendtdkf2");
+
+      set_conv_libfunc (sfix_optab, SImode, mode, "__fixkfsi");
+      set_conv_libfunc (ufix_optab, SImode, mode, "__fixunskfsi");
+      set_conv_libfunc (sfix_optab, DImode, mode, "__fixkfdi");
+      set_conv_libfunc (ufix_optab, DImode, mode, "__fixunskfdi");
+
+      set_conv_libfunc (sfloat_optab, mode, SImode, "__floatsikf");
+      set_conv_libfunc (ufloat_optab, mode, SImode, "__floatunsikf");
+      set_conv_libfunc (sfloat_optab, mode, DImode, "__floatdikf");
+      set_conv_libfunc (ufloat_optab, mode, DImode, "__floatundikf");
+
+      if (TARGET_POWERPC64)
+	{
+	  set_conv_libfunc (sfix_optab, TImode, mode, "__fixkfti");
+	  set_conv_libfunc (ufix_optab, TImode, mode, "__fixunskfti");
+	  set_conv_libfunc (sfloat_optab, mode, TImode, "__floattikf");
+	  set_conv_libfunc (ufloat_optab, mode, TImode, "__floatuntikf");
+	}
+    }
+
+  else
+    {
+      set_optab_libfunc (add_optab, mode, "_q_add");
+      set_optab_libfunc (sub_optab, mode, "_q_sub");
+      set_optab_libfunc (neg_optab, mode, "_q_neg");
+      set_optab_libfunc (smul_optab, mode, "_q_mul");
+      set_optab_libfunc (sdiv_optab, mode, "_q_div");
+      if (TARGET_PPC_GPOPT)
+	set_optab_libfunc (sqrt_optab, mode, "_q_sqrt");
+
+      set_optab_libfunc (eq_optab, mode, "_q_feq");
+      set_optab_libfunc (ne_optab, mode, "_q_fne");
+      set_optab_libfunc (gt_optab, mode, "_q_fgt");
+      set_optab_libfunc (ge_optab, mode, "_q_fge");
+      set_optab_libfunc (lt_optab, mode, "_q_flt");
+      set_optab_libfunc (le_optab, mode, "_q_fle");
+
+      set_conv_libfunc (sext_optab, mode, SFmode, "_q_stoq");
+      set_conv_libfunc (sext_optab, mode, DFmode, "_q_dtoq");
+      set_conv_libfunc (trunc_optab, SFmode, mode, "_q_qtos");
+      set_conv_libfunc (trunc_optab, DFmode, mode, "_q_qtod");
+      set_conv_libfunc (sfix_optab, SImode, mode, "_q_qtoi");
+      set_conv_libfunc (ufix_optab, SImode, mode, "_q_qtou");
+      set_conv_libfunc (sfloat_optab, mode, SImode, "_q_itoq");
+      set_conv_libfunc (ufloat_optab, mode, SImode, "_q_utoq");
+    }
+}
+
 static void
 rs6000_init_libfuncs (void)
 {
-  if (!TARGET_IEEEQUAD)
-      /* AIX/Darwin/64-bit Linux quad floating point routines.  */
-    if (!TARGET_XL_COMPAT)
-      {
-	set_optab_libfunc (add_optab, TFmode, "__gcc_qadd");
-	set_optab_libfunc (sub_optab, TFmode, "__gcc_qsub");
-	set_optab_libfunc (smul_optab, TFmode, "__gcc_qmul");
-	set_optab_libfunc (sdiv_optab, TFmode, "__gcc_qdiv");
-
-	if (!(TARGET_HARD_FLOAT && (TARGET_FPRS || TARGET_E500_DOUBLE)))
-	  {
-	    set_optab_libfunc (neg_optab, TFmode, "__gcc_qneg");
-	    set_optab_libfunc (eq_optab, TFmode, "__gcc_qeq");
-	    set_optab_libfunc (ne_optab, TFmode, "__gcc_qne");
-	    set_optab_libfunc (gt_optab, TFmode, "__gcc_qgt");
-	    set_optab_libfunc (ge_optab, TFmode, "__gcc_qge");
-	    set_optab_libfunc (lt_optab, TFmode, "__gcc_qlt");
-	    set_optab_libfunc (le_optab, TFmode, "__gcc_qle");
-
-	    set_conv_libfunc (sext_optab, TFmode, SFmode, "__gcc_stoq");
-	    set_conv_libfunc (sext_optab, TFmode, DFmode, "__gcc_dtoq");
-	    set_conv_libfunc (trunc_optab, SFmode, TFmode, "__gcc_qtos");
-	    set_conv_libfunc (trunc_optab, DFmode, TFmode, "__gcc_qtod");
-	    set_conv_libfunc (sfix_optab, SImode, TFmode, "__gcc_qtoi");
-	    set_conv_libfunc (ufix_optab, SImode, TFmode, "__gcc_qtou");
-	    set_conv_libfunc (sfloat_optab, TFmode, SImode, "__gcc_itoq");
-	    set_conv_libfunc (ufloat_optab, TFmode, SImode, "__gcc_utoq");
-	  }
-
-	if (!(TARGET_HARD_FLOAT && TARGET_FPRS))
-	  set_optab_libfunc (unord_optab, TFmode, "__gcc_qunord");
-      }
-    else
-      {
-	set_optab_libfunc (add_optab, TFmode, "_xlqadd");
-	set_optab_libfunc (sub_optab, TFmode, "_xlqsub");
-	set_optab_libfunc (smul_optab, TFmode, "_xlqmul");
-	set_optab_libfunc (sdiv_optab, TFmode, "_xlqdiv");
-      }
-  else
+  /* __float128 support.  */
+  if (TARGET_FLOAT128)
     {
-      /* 32-bit SVR4 quad floating point routines.  */
+      init_float128_ibm (IFmode);
+      init_float128_ieee (KFmode);
+    }
 
-      set_optab_libfunc (add_optab, TFmode, "_q_add");
-      set_optab_libfunc (sub_optab, TFmode, "_q_sub");
-      set_optab_libfunc (neg_optab, TFmode, "_q_neg");
-      set_optab_libfunc (smul_optab, TFmode, "_q_mul");
-      set_optab_libfunc (sdiv_optab, TFmode, "_q_div");
-      if (TARGET_PPC_GPOPT)
-	set_optab_libfunc (sqrt_optab, TFmode, "_q_sqrt");
+  /* AIX/Darwin/64-bit Linux quad floating point routines.  */
+  if (TARGET_LONG_DOUBLE_128)
+    {
+      if (!TARGET_IEEEQUAD)
+	init_float128_ibm (TFmode);
 
-      set_optab_libfunc (eq_optab, TFmode, "_q_feq");
-      set_optab_libfunc (ne_optab, TFmode, "_q_fne");
-      set_optab_libfunc (gt_optab, TFmode, "_q_fgt");
-      set_optab_libfunc (ge_optab, TFmode, "_q_fge");
-      set_optab_libfunc (lt_optab, TFmode, "_q_flt");
-      set_optab_libfunc (le_optab, TFmode, "_q_fle");
-
-      set_conv_libfunc (sext_optab, TFmode, SFmode, "_q_stoq");
-      set_conv_libfunc (sext_optab, TFmode, DFmode, "_q_dtoq");
-      set_conv_libfunc (trunc_optab, SFmode, TFmode, "_q_qtos");
-      set_conv_libfunc (trunc_optab, DFmode, TFmode, "_q_qtod");
-      set_conv_libfunc (sfix_optab, SImode, TFmode, "_q_qtoi");
-      set_conv_libfunc (ufix_optab, SImode, TFmode, "_q_qtou");
-      set_conv_libfunc (sfloat_optab, TFmode, SImode, "_q_itoq");
-      set_conv_libfunc (ufloat_optab, TFmode, SImode, "_q_utoq");
+      /* IEEE 128-bit including 32-bit SVR4 quad floating point routines.  */
+      else
+	init_float128_ieee (TFmode);
     }
 }
 
@@ -17373,7 +17599,7 @@ rs6000_secondary_reload_toc_costs (addr_mask_type addr_mask)
 static int
 rs6000_secondary_reload_memory (rtx addr,
 				enum reg_class rclass,
-				enum machine_mode mode)
+				machine_mode mode)
 {
   int extra_cost = 0;
   rtx reg, and_arg, plus_arg0, plus_arg1;
@@ -18683,6 +18909,8 @@ rs6000_cannot_change_mode_class (machine_mode from,
 	{
 	  unsigned to_nregs = hard_regno_nregs[FIRST_FPR_REGNO][to];
 	  unsigned from_nregs = hard_regno_nregs[FIRST_FPR_REGNO][from];
+	  bool to_float128_vector_p = FLOAT128_VECTOR_P (to);
+	  bool from_float128_vector_p = FLOAT128_VECTOR_P (from);
 
 	  /* Don't allow 64-bit types to overlap with 128-bit types that take a
 	     single register under VSX because the scalar part of the register
@@ -18691,7 +18919,10 @@ rs6000_cannot_change_mode_class (machine_mode from,
 	     IEEE floating point can't overlap, and neither can small
 	     values.  */
 
-	  if (TARGET_IEEEQUAD && (to == TFmode || from == TFmode))
+	  if (to_float128_vector_p && from_float128_vector_p)
+	    return false;
+
+	  else if (to_float128_vector_p || from_float128_vector_p)
 	    return true;
 
 	  /* TDmode in floating-mode registers must always go into a register
@@ -18719,6 +18950,8 @@ rs6000_cannot_change_mode_class (machine_mode from,
   if (TARGET_E500_DOUBLE
       && ((((to) == DFmode) + ((from) == DFmode)) == 1
 	  || (((to) == TFmode) + ((from) == TFmode)) == 1
+	  || (((to) == IFmode) + ((from) == IFmode)) == 1
+	  || (((to) == KFmode) + ((from) == KFmode)) == 1
 	  || (((to) == DDmode) + ((from) == DDmode)) == 1
 	  || (((to) == TDmode) + ((from) == TDmode)) == 1
 	  || (((to) == DImode) + ((from) == DImode)) == 1))
@@ -18925,13 +19158,7 @@ rs6000_output_move_128bit (rtx operands[])
 	return output_vec_const_move (operands);
     }
 
-  if (TARGET_DEBUG_ADDR)
-    {
-      fprintf (stderr, "\n===== Bad 128 bit move:\n");
-      debug_rtx (gen_rtx_SET (VOIDmode, dest, src));
-    }
-
-  gcc_unreachable ();
+  fatal_insn ("Bad 128-bit move", gen_rtx_SET (VOIDmode, dest, src));
 }
 
 /* Validate a 128-bit move.  */
@@ -19706,7 +19933,7 @@ print_operand (FILE *file, rtx x, int code)
 	/* Ugly hack because %y is overloaded.  */
 	if ((TARGET_SPE || TARGET_E500_DOUBLE)
 	    && (GET_MODE_SIZE (GET_MODE (x)) == 8
-		|| GET_MODE (x) == TFmode
+		|| FLOAT128_2REG_P (GET_MODE (x))
 		|| GET_MODE (x) == TImode
 		|| GET_MODE (x) == PTImode))
 	  {
@@ -20034,7 +20261,9 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
   rtx op0 = XEXP (cmp, 0);
   rtx op1 = XEXP (cmp, 1);
 
-  if (FLOAT_MODE_P (mode))
+  if (!TARGET_FLOAT128_HW && FLOAT128_VECTOR_P (mode))
+    comp_mode = CCmode;
+  else if (FLOAT_MODE_P (mode))
     comp_mode = CCFPmode;
   else if (code == GTU || code == LTU
 	   || code == GEU || code == LEU)
@@ -20118,6 +20347,8 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
 	      break;
 
 	    case TFmode:
+	    case IFmode:
+	    case KFmode:
 	      cmp = (flag_finite_math_only && !flag_trapping_math)
 		? gen_tsttfeq_gpr (compare_result, op0, op1)
 		: gen_cmptfeq_gpr (compare_result, op0, op1);
@@ -20145,6 +20376,8 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
 	      break;
 
 	    case TFmode:
+	    case IFmode:
+	    case KFmode:
 	      cmp = (flag_finite_math_only && !flag_trapping_math)
 		? gen_tsttfgt_gpr (compare_result, op0, op1)
 		: gen_cmptfgt_gpr (compare_result, op0, op1);
@@ -20172,6 +20405,8 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
 	      break;
 
 	    case TFmode:
+	    case IFmode:
+	    case KFmode:
 	      cmp = (flag_finite_math_only && !flag_trapping_math)
 		? gen_tsttflt_gpr (compare_result, op0, op1)
 		: gen_cmptflt_gpr (compare_result, op0, op1);
@@ -20209,6 +20444,8 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
 	      break;
 
 	    case TFmode:
+	    case IFmode:
+	    case KFmode:
 	      cmp = (flag_finite_math_only && !flag_trapping_math)
 		? gen_tsttfeq_gpr (compare_result2, op0, op1)
 		: gen_cmptfeq_gpr (compare_result2, op0, op1);
@@ -20231,14 +20468,90 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
 
       emit_insn (cmp);
     }
+
+  /* IEEE 128-bit support in VSX registers when we do not have hardware
+     support.  */
+  else if (!TARGET_FLOAT128_HW && FLOAT128_VECTOR_P (mode))
+    {
+      rtx libfunc = NULL_RTX;
+      bool uneq_or_ltgt = false;
+      rtx dest = gen_reg_rtx (SImode);
+
+      switch (code)
+	{
+	case EQ:
+	case NE:
+	  libfunc = optab_libfunc (eq_optab, mode);
+	  break;
+
+	case GT:
+	case GE:
+	  libfunc = optab_libfunc (ge_optab, mode);
+	  break;
+
+	case LT:
+	case LE:
+	  libfunc = optab_libfunc (le_optab, mode);
+	  break;
+
+	case UNORDERED:
+	case ORDERED:
+	  libfunc = optab_libfunc (unord_optab, mode);
+	  code = (code == UNORDERED) ? NE : EQ;
+	  break;
+
+	case UNGE:
+	case UNGT:
+	  libfunc = optab_libfunc (le_optab, mode);
+	  code = (code == UNGE) ? GE : GT;
+	  break;
+
+	case UNLE:
+	case UNLT:
+	  libfunc = optab_libfunc (ge_optab, mode);
+	  code = (code == UNLE) ? LE : LT;
+	  break;
+
+	case UNEQ:
+	case LTGT:
+	  libfunc = optab_libfunc (le_optab, mode);
+	  uneq_or_ltgt = true;
+	  code = (code = UNEQ) ? NE : EQ;
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+
+      gcc_assert (libfunc);
+      dest = emit_library_call_value (libfunc, NULL_RTX, LCT_CONST,
+				      SImode, 2, op0, mode, op1, mode);
+
+      /* If this is UNEQ or LTGT, we call __lekf2, which returns -1 for less
+	 than, 0 for equal, +1 for greater, and +2 for nan.  We add 1, to give
+	 a value of 0..3, and then do and AND immediate of 1 to isolate whether
+	 it is 0/Nan (i.e. bottom bit is 0), or less than/greater than
+	 (i.e. bottom bit is 1).  */
+      if (uneq_or_ltgt)
+	{
+	  rtx add_result = gen_reg_rtx (SImode);
+	  rtx and_result = gen_reg_rtx (SImode);
+	  emit_insn (gen_addsi3 (add_result, dest, GEN_INT (1)));
+	  emit_insn (gen_andsi3 (and_result, add_result, GEN_INT (1)));
+	  dest = and_result;
+	}
+
+      emit_insn (gen_rtx_SET (VOIDmode, compare_result,
+			      gen_rtx_COMPARE (comp_mode, dest, const0_rtx)));
+    }
+
   else
     {
       /* Generate XLC-compatible TFmode compare as PARALLEL with extra
 	 CLOBBERs to match cmptf_internal2 pattern.  */
       if (comp_mode == CCFPmode && TARGET_XL_COMPAT
-	  && GET_MODE (op0) == TFmode
-	  && !TARGET_IEEEQUAD
-	  && TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_LONG_DOUBLE_128)
+	  && FLOAT128_IBM_P (GET_MODE (op0))
+	  && TARGET_HARD_FLOAT && TARGET_FPRS)
 	emit_insn (gen_rtx_PARALLEL (VOIDmode,
 	  gen_rtvec (10,
 		     gen_rtx_SET (VOIDmode,
@@ -20272,6 +20585,7 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
   /* Some kinds of FP comparisons need an OR operation;
      under flag_finite_math_only we don't bother.  */
   if (FLOAT_MODE_P (mode)
+      && (!FLOAT128_IEEE_P (mode) || TARGET_FLOAT128_HW)
       && !flag_finite_math_only
       && !(TARGET_HARD_FLOAT && !TARGET_FPRS)
       && (code == LE || code == GE
@@ -20310,7 +20624,377 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
   return gen_rtx_fmt_ee (code, VOIDmode, compare_result, const0_rtx);
 }
 
+
+/* Return the diagnostic message string if the binary operation OP is
+   not permitted on TYPE1 and TYPE2, NULL otherwise.  */
 
+static const char*
+rs6000_invalid_binary_op (int op ATTRIBUTE_UNUSED,
+			  const_tree type1,
+			  const_tree type2)
+{
+  enum machine_mode mode1 = TYPE_MODE (type1);
+  enum machine_mode mode2 = TYPE_MODE (type2);
+
+  /* For complex modes, use the inner type.  */
+  if (COMPLEX_MODE_P (mode1))
+    mode1 = GET_MODE_INNER (mode1);
+
+  if (COMPLEX_MODE_P (mode2))
+    mode2 = GET_MODE_INNER (mode2);
+
+  /* Don't allow IEEE 754R 128-bit binary floating point and IBM extended
+     double to intermix unless -mfloat128-convert.  */
+  if (mode1 == mode2)
+    return NULL;
+
+  if (!TARGET_FLOAT128_CVT)
+    {
+      if ((mode1 == KFmode && mode2 == IFmode)
+	  || (mode1 == IFmode && mode2 == KFmode))
+	return N_("__float128 and __ibm128 cannot be used in the same "
+		  "expression");
+
+      if (TARGET_IEEEQUAD
+	  && ((mode1 == IFmode && mode2 == TFmode)
+	      || (mode1 == TFmode && mode2 == IFmode)))
+	return N_("__ibm128 and long double cannot be used in the same "
+		  "expression");
+
+      if (!TARGET_IEEEQUAD
+	  && ((mode1 == KFmode && mode2 == TFmode)
+	      || (mode1 == TFmode && mode2 == KFmode)))
+	return N_("__float128 and long double cannot be used in the same "
+		  "expression");
+    }
+
+  return NULL;
+}
+
+
+/* Expand floating point conversion to/from __float128 and __ibm128.  */
+
+void
+rs6000_expand_float128_convert (rtx dest, rtx src, bool unsigned_p)
+{
+  machine_mode dest_mode = GET_MODE (dest);
+  machine_mode src_mode = GET_MODE (src);
+  convert_optab cvt = unknown_optab;
+  bool do_move = false;
+  rtx libfunc = NULL_RTX;
+  rtx dest2;
+  typedef rtx (*rtx_2func_t) (rtx, rtx);
+  rtx_2func_t hw_convert = (rtx_2func_t)0;
+  size_t kf_or_tf;
+
+  struct hw_conv_t {
+    rtx_2func_t	from_df;
+    rtx_2func_t from_sf;
+    rtx_2func_t from_si_sign;
+    rtx_2func_t from_si_uns;
+    rtx_2func_t from_di_sign;
+    rtx_2func_t from_di_uns;
+    rtx_2func_t to_df;
+    rtx_2func_t to_sf;
+    rtx_2func_t to_si_sign;
+    rtx_2func_t to_si_uns;
+    rtx_2func_t to_di_sign;
+    rtx_2func_t to_di_uns;
+  } hw_conversions[2] = {
+    /* convertions to/from KFmode */
+    {
+      gen_extenddfkf2_hw,		/* KFmode <- DFmode.  */
+      gen_extendsfkf2_hw,		/* KFmode <- SFmode.  */
+      gen_float_kfsi2_hw,		/* KFmode <- SImode (signed).  */
+      gen_floatuns_kfsi2_hw,		/* KFmode <- SImode (unsigned).  */
+      gen_float_kfdi2_hw,		/* KFmode <- DImode (signed).  */
+      gen_floatuns_kfdi2_hw,		/* KFmode <- DImode (unsigned).  */
+      gen_trunckfdf2_hw,		/* DFmode <- KFmode.  */
+      gen_trunckfsf2_hw,		/* SFmode <- KFmode.  */
+      gen_fix_kfsi2_hw,			/* SImode <- KFmode (signed).  */
+      gen_fixuns_kfsi2_hw,		/* SImode <- KFmode (unsigned).  */
+      gen_fix_kfdi2_hw,			/* DImode <- KFmode (signed).  */
+      gen_fixuns_kfdi2_hw,		/* DImode <- KFmode (unsigned).  */
+    },
+
+    /* convertions to/from TFmode */
+    {
+      gen_extenddftf2_hw,		/* TFmode <- DFmode.  */
+      gen_extendsftf2_hw,		/* TFmode <- SFmode.  */
+      gen_float_tfsi2_hw,		/* TFmode <- SImode (signed).  */
+      gen_floatuns_tfsi2_hw,		/* TFmode <- SImode (unsigned).  */
+      gen_float_tfdi2_hw,		/* TFmode <- DImode (signed).  */
+      gen_floatuns_tfdi2_hw,		/* TFmode <- DImode (unsigned).  */
+      gen_trunctfdf2_hw,		/* DFmode <- TFmode.  */
+      gen_trunctfsf2_hw,		/* SFmode <- TFmode.  */
+      gen_fix_tfsi2_hw,			/* SImode <- TFmode (signed).  */
+      gen_fixuns_tfsi2_hw,		/* SImode <- TFmode (unsigned).  */
+      gen_fix_tfdi2_hw,			/* DImode <- TFmode (signed).  */
+      gen_fixuns_tfdi2_hw,		/* DImode <- TFmode (unsigned).  */
+    },
+  };
+
+  if (dest_mode == src_mode)
+    gcc_unreachable ();
+
+  /* Eliminate memory operations.  */
+  if (MEM_P (src))
+    src = force_reg (src_mode, src);
+
+  if (MEM_P (dest))
+    {
+      rtx tmp = gen_reg_rtx (dest_mode);
+      rs6000_expand_float128_convert (tmp, src, unsigned_p);
+      rs6000_emit_move (dest, tmp, dest_mode);
+      return;
+    }
+
+  /* Convert to IEEE 128-bit floating point.  */
+  if (FLOAT128_IEEE_P (dest_mode))
+    {
+      if (dest_mode == KFmode)
+	kf_or_tf = 0;
+      else if (dest_mode == TFmode)
+	kf_or_tf = 1;
+      else
+	gcc_unreachable ();
+
+      switch (src_mode)
+	{
+	case DFmode:
+	  cvt = sext_optab;
+	  hw_convert = hw_conversions[kf_or_tf].from_df;
+	  break;
+
+	case SFmode:
+	  cvt = sext_optab;
+	  hw_convert = hw_conversions[kf_or_tf].from_sf;
+	  break;
+
+	case KFmode:
+	case IFmode:
+	case TFmode:
+	  if (FLOAT128_IBM_P (src_mode))
+	    cvt = sext_optab;
+	  else
+	    do_move = true;
+	  break;
+
+	case SImode:
+	  if (unsigned_p)
+	    {
+	      cvt = ufloat_optab;
+	      hw_convert = hw_conversions[kf_or_tf].from_si_uns;
+	    }
+	  else
+	    {
+	      cvt = sfloat_optab;
+	      hw_convert = hw_conversions[kf_or_tf].from_si_sign;
+	    }
+	  break;
+
+	case DImode:
+	  if (unsigned_p)
+	    {
+	      cvt = ufloat_optab;
+	      hw_convert = hw_conversions[kf_or_tf].from_di_uns;
+	    }
+	  else
+	    {
+	      cvt = sfloat_optab;
+	      hw_convert = hw_conversions[kf_or_tf].from_di_sign;
+	    }
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+    }
+
+  /* Convert from IEEE 128-bit floating point.  */
+  else if (FLOAT128_IEEE_P (src_mode))
+    {
+      if (src_mode == KFmode)
+	kf_or_tf = 0;
+      else if (src_mode == TFmode)
+	kf_or_tf = 1;
+      else
+	gcc_unreachable ();
+
+      switch (dest_mode)
+	{
+	case DFmode:
+	  cvt = trunc_optab;
+	  hw_convert = hw_conversions[kf_or_tf].to_df;
+	  break;
+
+	case SFmode:
+	  cvt = trunc_optab;
+	  hw_convert = hw_conversions[kf_or_tf].to_sf;
+	  break;
+
+	case KFmode:
+	case IFmode:
+	case TFmode:
+	  if (FLOAT128_IBM_P (dest_mode))
+	    cvt = trunc_optab;
+	  else
+	    do_move = true;
+	  break;
+
+	case SImode:
+	  if (unsigned_p)
+	    {
+	      cvt = ufix_optab;
+	      hw_convert = hw_conversions[kf_or_tf].to_si_uns;
+	    }
+	  else
+	    {
+	      cvt = sfix_optab;
+	      hw_convert = hw_conversions[kf_or_tf].to_si_sign;
+	    }
+	  break;
+
+	case DImode:
+	  if (unsigned_p)
+	    {
+	      cvt = ufix_optab;
+	      hw_convert = hw_conversions[kf_or_tf].to_di_uns;
+	    }
+	  else
+	    {
+	      cvt = sfix_optab;
+	      hw_convert = hw_conversions[kf_or_tf].to_di_sign;
+	    }
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+    }
+
+  /* Both IBM format.  */
+  else if (FLOAT128_IBM_P (dest_mode) && FLOAT128_IBM_P (src_mode))
+    do_move = true;
+
+  else
+    gcc_unreachable ();
+
+  /* Handle conversion between TFmode/KFmode.  */
+  if (do_move)
+    emit_move_insn (dest, gen_lowpart (dest_mode, src));
+
+  /* Handle conversion if we have hardware support.  */
+  else if (TARGET_FLOAT128_HW && hw_convert)
+    emit_insn ((hw_convert) (dest, src));
+
+  /* Call an external function to do the conversion.  */
+  else if (cvt != unknown_optab)
+    {
+      libfunc = convert_optab_libfunc (cvt, dest_mode, src_mode);
+      gcc_assert (libfunc != NULL_RTX);
+
+      dest2 = emit_library_call_value (libfunc, dest, LCT_CONST, dest_mode, 1, src,
+				       src_mode);
+
+      gcc_assert (dest2 != NULL_RTX);
+      if (!rtx_equal_p (dest, dest2))
+	emit_move_insn (dest, dest2);
+    }
+
+  else
+    gcc_unreachable ();
+
+  return;
+}
+
+/* Split a conversion from __float128 to an integer type into separate insns.
+   OPERANDS points to the destination, source, and V2DI temporary
+   register. CODE is either FIX or UNSIGNED_FIX.  */
+
+void
+convert_float128_to_int (rtx *operands, enum rtx_code code)
+{
+  rtx dest = operands[0];
+  rtx src = operands[1];
+  rtx tmp = operands[2];
+  rtx cvt;
+  rtvec cvt_vec;
+  rtx cvt_unspec;
+  rtvec move_vec;
+  rtx move_unspec;
+
+  if (GET_CODE (tmp) == SCRATCH)
+    tmp = gen_reg_rtx (V2DImode);
+
+  if (MEM_P (dest))
+    dest = rs6000_address_for_fpconvert (dest);
+
+  /* Generate the actual convert insn of the form:
+     (set (tmp) (unspec:V2DI [(fix:SI (reg:KF))] UNSPEC_IEEE128_CONVERT)).  */
+  cvt = gen_rtx_fmt_e (code, GET_MODE (dest), src);
+  cvt_vec = gen_rtvec (1, cvt);
+  cvt_unspec = gen_rtx_UNSPEC (V2DImode, cvt_vec, UNSPEC_IEEE128_CONVERT);
+  emit_insn (gen_rtx_SET (VOIDmode, tmp, cvt_unspec));
+
+  /* Generate the move insn of the form:
+     (set (dest:SI) (unspec:SI [(tmp:V2DI))] UNSPEC_IEEE128_MOVE)).  */
+  move_vec = gen_rtvec (1, tmp);
+  move_unspec = gen_rtx_UNSPEC (GET_MODE (dest), move_vec, UNSPEC_IEEE128_MOVE);
+  emit_insn (gen_rtx_SET (VOIDmode, dest, move_unspec));
+}
+
+/* Split a conversion from an integer type to __float128 into separate insns.
+   OPERANDS points to the destination, source, and V2DI temporary
+   register. CODE is either FLOAT or UNSIGNED_FLOAT.  */
+
+void
+convert_int_to_float128 (rtx *operands, enum rtx_code code)
+{
+  rtx dest = operands[0];
+  rtx src = operands[1];
+  rtx tmp = operands[2];
+  rtx cvt;
+  rtvec cvt_vec;
+  rtx cvt_unspec;
+  rtvec move_vec;
+  rtx move_unspec;
+  rtx unsigned_flag;
+
+  if (GET_CODE (tmp) == SCRATCH)
+    tmp = gen_reg_rtx (V2DImode);
+
+  if (MEM_P (src))
+    src = rs6000_address_for_fpconvert (src);
+
+  /* Generate the move of the integer into the Altivec register of the form:
+     (set (tmp:V2DI) (unspec:V2DI [(src:SI)
+				   (const_int 0)] UNSPEC_IEEE128_MOVE)).
+
+     or:
+     (set (tmp:V2DI) (unspec:V2DI [(src:DI)] UNSPEC_IEEE128_MOVE)).  */
+
+  if (GET_MODE (src) == SImode)
+    {
+      unsigned_flag = (code == UNSIGNED_FLOAT) ? const1_rtx : const0_rtx;
+      move_vec = gen_rtvec (2, src, unsigned_flag);
+    }
+  else
+    move_vec = gen_rtvec (1, src);
+
+  move_unspec = gen_rtx_UNSPEC (V2DImode, move_vec, UNSPEC_IEEE128_MOVE);
+  emit_insn (gen_rtx_SET (VOIDmode, tmp, move_unspec));
+
+  /* Generate the actual convert insn of the form:
+     (set (dest:KF) (float:KF (unspec:DI [(tmp:V2DI)]
+					 UNSPEC_IEEE128_CONVERT))).  */
+  cvt_vec = gen_rtvec (1, tmp);
+  cvt_unspec = gen_rtx_UNSPEC (DImode, cvt_vec, UNSPEC_IEEE128_CONVERT);
+  cvt = gen_rtx_fmt_e (code, GET_MODE (dest), cvt_unspec);
+  emit_insn (gen_rtx_SET (VOIDmode, dest, cvt));
+}
+
+
 /* Emit the RTL for an sISEL pattern.  */
 
 void
@@ -21668,7 +22352,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 	((TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT) ? DFmode : SFmode);
   else if (ALTIVEC_REGNO_P (reg))
     reg_mode = V16QImode;
-  else if (TARGET_E500_DOUBLE && mode == TFmode)
+  else if (TARGET_E500_DOUBLE && FLOAT128_2REG_P (mode))
     reg_mode = DFmode;
   else
     reg_mode = word_mode;
@@ -22745,7 +23429,8 @@ spe_func_has_64bit_regs_p (void)
 
 	      if (SPE_VECTOR_MODE (mode))
 		return true;
-	      if (TARGET_E500_DOUBLE && (mode == DFmode || mode == TFmode))
+	      if (TARGET_E500_DOUBLE
+		  && (mode == DFmode || FLOAT128_2REG_P (mode)))
 		return true;
 	    }
 	}
@@ -26522,6 +27207,8 @@ rs6000_output_function_epilogue (FILE *file,
 			case DDmode:
 			case TFmode:
 			case TDmode:
+			case IFmode:
+			case KFmode:
 			  bits = 0x3;
 			  break;
 
@@ -27200,7 +27887,8 @@ output_toc (FILE *file, rtx x, int labelno, machine_mode mode)
      TOC, things we put here aren't actually in the TOC, so we can allow
      FP constants.  */
   if (GET_CODE (x) == CONST_DOUBLE &&
-      (GET_MODE (x) == TFmode || GET_MODE (x) == TDmode))
+      (GET_MODE (x) == TFmode || GET_MODE (x) == TDmode
+       || GET_MODE (x) == IFmode || GET_MODE (x) == KFmode))
     {
       REAL_VALUE_TYPE rv;
       long k[4];
@@ -29927,6 +30615,21 @@ rs6000_mangle_type (const_tree type)
   if (type == bool_int_type_node) return "U6__booli";
   if (type == bool_long_type_node) return "U6__booll";
 
+  /* Use a unique name for __float128 rather than trying to use "e" or "g". Use
+     "g" for IBM extended double, no matter whether it is long double (using
+     -mabi=ibmlongdouble) or the distinct __ibm128 type.  */
+  if (TARGET_FLOAT128)
+    {
+      if (type == ieee128_float_type_node)
+	return "U10__float128";
+
+      if (type == ibm128_float_type_node)
+	return "g";
+
+      if (type == long_double_type_node && TARGET_LONG_DOUBLE_128)
+	return (TARGET_IEEEQUAD) ? "U10__float128" : "g";
+    }
+
   /* Mangle IBM extended float long double as `g' (__float128) on
      powerpc*-linux where long-double-64 previously was the default.  */
   if (TYPE_MAIN_VARIANT (type) == long_double_type_node
@@ -31758,7 +32461,7 @@ rs6000_register_move_cost (machine_mode mode,
 
   /* Moving between two similar registers is just one instruction.  */
   else if (reg_classes_intersect_p (to, from))
-    ret = (mode == TFmode || mode == TDmode) ? 4 : 2;
+    ret = (FLOAT128_2REG_P (mode)) ? 4 : 2;
 
   /* Everything else has to go through GENERAL_REGS.  */
   else
@@ -32827,7 +33530,7 @@ rs6000_function_value (const_tree valtype,
     {
       int first_reg, n_regs;
 
-      if (SCALAR_FLOAT_MODE_P (elt_mode))
+      if (SCALAR_FLOAT_MODE_NOT_VECTOR_P (elt_mode))
 	{
 	  /* _Decimal128 must use even/odd register pairs.  */
 	  first_reg = (elt_mode == TDmode) ? FP_ARG_RETURN + 1 : FP_ARG_RETURN;
@@ -32864,7 +33567,7 @@ rs6000_function_value (const_tree valtype,
   if (DECIMAL_FLOAT_MODE_P (mode) && TARGET_HARD_FLOAT && TARGET_FPRS)
     /* _Decimal128 must use an even/odd register pair.  */
     regno = (mode == TDmode) ? FP_ARG_RETURN + 1 : FP_ARG_RETURN;
-  else if (SCALAR_FLOAT_TYPE_P (valtype) && TARGET_HARD_FLOAT && TARGET_FPRS
+  else if (SCALAR_FLOAT_MODE_NOT_VECTOR_P (mode) && TARGET_HARD_FLOAT && TARGET_FPRS
 	   && ((TARGET_SINGLE_FLOAT && (mode == SFmode)) || TARGET_DOUBLE_FLOAT))
     regno = FP_ARG_RETURN;
   else if (TREE_CODE (valtype) == COMPLEX_TYPE
@@ -32873,13 +33576,13 @@ rs6000_function_value (const_tree valtype,
   /* VSX is a superset of Altivec and adds V2DImode/V2DFmode.  Since the same
      return register is used in both cases, and we won't see V2DImode/V2DFmode
      for pure altivec, combine the two cases.  */
-  else if (TREE_CODE (valtype) == VECTOR_TYPE
+  else if ((TREE_CODE (valtype) == VECTOR_TYPE || FLOAT128_VECTOR_P (mode))
 	   && TARGET_ALTIVEC && TARGET_ALTIVEC_ABI
 	   && ALTIVEC_OR_VSX_VECTOR_MODE (mode))
     regno = ALTIVEC_ARG_RETURN;
   else if (TARGET_E500_DOUBLE && TARGET_HARD_FLOAT
 	   && (mode == DFmode || mode == DCmode
-	       || mode == TFmode || mode == TCmode))
+	       || FLOAT128_IBM_P (mode) || mode == TCmode))
     return spe_build_register_parallel (mode, GP_ARG_RETURN);
   else
     regno = GP_ARG_RETURN;
@@ -32901,7 +33604,7 @@ rs6000_libcall_value (machine_mode mode)
   if (DECIMAL_FLOAT_MODE_P (mode) && TARGET_HARD_FLOAT && TARGET_FPRS)
     /* _Decimal128 must use an even/odd register pair.  */
     regno = (mode == TDmode) ? FP_ARG_RETURN + 1 : FP_ARG_RETURN;
-  else if (SCALAR_FLOAT_MODE_P (mode)
+  else if (SCALAR_FLOAT_MODE_NOT_VECTOR_P (mode)
 	   && TARGET_HARD_FLOAT && TARGET_FPRS
            && ((TARGET_SINGLE_FLOAT && mode == SFmode) || TARGET_DOUBLE_FLOAT))
     regno = FP_ARG_RETURN;
@@ -32915,7 +33618,7 @@ rs6000_libcall_value (machine_mode mode)
     return rs6000_complex_function_value (mode);
   else if (TARGET_E500_DOUBLE && TARGET_HARD_FLOAT
 	   && (mode == DFmode || mode == DCmode
-	       || mode == TFmode || mode == TCmode))
+	       || FLOAT128_IBM_P (mode) || mode == TCmode))
     return spe_build_register_parallel (mode, GP_ARG_RETURN);
   else
     regno = GP_ARG_RETURN;
@@ -33141,6 +33844,8 @@ rs6000_scalar_mode_supported_p (machine_mode mode)
 
   if (DECIMAL_FLOAT_MODE_P (mode))
     return default_decimal_float_supported_p ();
+  else if (TARGET_FLOAT128 && (mode == KFmode || mode == IFmode))
+    return true;
   else
     return default_scalar_mode_supported_p (mode);
 }
@@ -33156,11 +33861,34 @@ rs6000_vector_mode_supported_p (machine_mode mode)
   if (TARGET_SPE && SPE_VECTOR_MODE (mode))
     return true;
 
-  else if (VECTOR_MEM_ALTIVEC_OR_VSX_P (mode))
+  /* There is no vector form for IEEE 128-bit.  If we return true for IEEE
+     128-bit, the compiler might try to widen IEEE 128-bit to IBM
+     double-double.  */
+  else if (VECTOR_MEM_ALTIVEC_OR_VSX_P (mode) && !FLOAT128_IEEE_P (mode))
     return true;
 
   else
     return false;
+}
+
+/* Target hook for c_mode_for_suffix.  */
+static machine_mode
+rs6000_c_mode_for_suffix (char suffix)
+{
+  if (TARGET_FLOAT128)
+    {
+      if (suffix == 'q' || suffix == 'Q')
+	return (FLOAT128_IEEE_P (TFmode)) ? TFmode : KFmode;
+
+      /* At the moment, we are not defining a suffix for IBM extended double.
+	 If/when the default for -mabi=ieeelongdouble is changed, and we want
+	 to support __ibm128 constants in legacy library code, we may need to
+	 re-evalaute this decision.  Currently, c-lex.c only supports 'w' and
+	 'q' as machine dependent suffixes.  The x86_64 port uses 'w' for
+	 __float80 constants.  */
+    }
+
+  return VOIDmode;
 }
 
 /* Target hook for invalid_arg_for_unprototyped_fn. */
@@ -33248,6 +33976,7 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "dlmzb",			OPTION_MASK_DLMZB,		false, true  },
   { "efficient-unaligned-vsx",	OPTION_MASK_EFFICIENT_UNALIGNED_VSX,
 								false, true  },
+  { "float128",			OPTION_MASK_FLOAT128,		false, true  },
   { "fprnd",			OPTION_MASK_FPRND,		false, true  },
   { "hard-dfp",			OPTION_MASK_DFP,		false, true  },
   { "htm",			OPTION_MASK_HTM,		false, true  },
@@ -33332,7 +34061,7 @@ static struct rs6000_opt_mask const rs6000_builtin_mask_names[] =
 struct rs6000_opt_var {
   const char *name;		/* option name */
   size_t global_offset;		/* offset of the option in global_options.  */
-  size_t target_offset;		/* offset of the option in target optiosn.  */
+  size_t target_offset;		/* offset of the option in target options.  */
 };
 
 static struct rs6000_opt_var const rs6000_opt_vars[] =
@@ -35935,7 +36664,7 @@ chain_contains_only_swaps (swap_web_entry *insn_entry, struct df_link *link,
 
   for (; link; link = link->next)
     {
-      if (!VECTOR_MODE_P (GET_MODE (DF_REF_REG (link->ref))))
+      if (!ALTIVEC_OR_VSX_VECTOR_MODE (GET_MODE (DF_REF_REG (link->ref))))
 	continue;
 
       if (DF_REF_IS_ARTIFICIAL (link->ref))
@@ -36034,7 +36763,7 @@ mark_swaps_for_removal (swap_web_entry *insn_entry, unsigned int i)
 	{
 	  /* Ignore uses for addressability.  */
 	  machine_mode mode = GET_MODE (DF_REF_REG (use));
-	  if (!VECTOR_MODE_P (mode))
+	  if (!ALTIVEC_OR_VSX_VECTOR_MODE (mode))
 	    continue;
 
 	  struct df_link *link = DF_REF_CHAIN (use);
@@ -36388,10 +37117,11 @@ rs6000_analyze_swaps (function *fun)
 		    mode = V4SImode;
 		}
 
-	      if (VECTOR_MODE_P (mode) || mode == TImode)
+	      if (ALTIVEC_OR_VSX_VECTOR_MODE (mode) || mode == TImode)
 		{
 		  insn_entry[uid].is_relevant = 1;
-		  if (mode == TImode || mode == V1TImode)
+		  if (mode == TImode || mode == V1TImode
+		      || FLOAT128_VECTOR_P (mode))
 		    insn_entry[uid].is_128_int = 1;
 		  if (DF_REF_INSN_INFO (mention))
 		    insn_entry[uid].contains_subreg
@@ -36412,13 +37142,14 @@ rs6000_analyze_swaps (function *fun)
 		 isn't sufficient to ensure we union the call into the
 		 web with the parameter setup code.  */
 	      if (mode == DImode && GET_CODE (insn) == SET
-		  && VECTOR_MODE_P (GET_MODE (SET_DEST (insn))))
+		  && ALTIVEC_OR_VSX_VECTOR_MODE (GET_MODE (SET_DEST (insn))))
 		mode = GET_MODE (SET_DEST (insn));
 
-	      if (VECTOR_MODE_P (mode) || mode == TImode)
+	      if (ALTIVEC_OR_VSX_VECTOR_MODE (mode) || mode == TImode)
 		{
 		  insn_entry[uid].is_relevant = 1;
-		  if (mode == TImode || mode == V1TImode)
+		  if (mode == TImode || mode == V1TImode
+		      || FLOAT128_VECTOR_P (mode))
 		    insn_entry[uid].is_128_int = 1;
 		  if (DF_REF_INSN_INFO (mention))
 		    insn_entry[uid].contains_subreg

@@ -1,3 +1,621 @@
+2016-01-22   Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Enable
+	-mfloat128 by default on PowerPC Linux systems with the VSX
+	instruction enabled.
+
+2016-01-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline:
+	2016-01-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-cpus.def (ISA_3_0_MASKS_SERVER): Add
+	OPTION_MASK_P9_DFORM.
+
+	* config/rs6000/constraints.md (wo constraint): New constraint for
+	ISA 3.0 (power9).
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Add support
+	for wo constraint.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+
+	* config/rs6000/rs6000.h (r6000_reg_class_enum): Add support for
+	wo constraint.
+
+	* config/rs6000/altivec.md (altivec_vperm_<mode>): Clean up vperm
+	expanders not to have constraints.  Add support for ISA 3.0 xxperm
+	instruction.  Add support for fusing xxlor with xxperm.
+	(altivec_vperm_<mode>_internal): Likewise.
+	(altivec_vperm_v8hiv16qi): Likewise.
+	(altivec_vperm_<mode>v16q): Likewise.
+	(altivec_vperm_<mode>_uns): Likewise.
+	(vperm_v8hiv4si): Likewise.
+	(vperm_v16qiv8hi): Likewise.
+
+	* doc/md.texi (RS/6000 constraints): Document wo constraint.
+
+	Backport from mainline:
+	2015-12-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (init_float128_ieee): Remove IEEE 128-bit
+	comparison functions in cmp_optab and ucmp_optab.
+	(rs6000_generate_compare): Rewrite IEEE 128-bit floating point
+	software emulation comparisons to only use __eqkf2, __gekf2,
+	__lekf2, and __unordkf2 functions.
+	(rs6000_invalid_binary_op): Add support for -mfloat128-convert.
+
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Define
+	__FLOAT128_HARDWARE__ if hardware IEEE 128-bit support is
+	available.
+
+	* config/rs6000/rs6000.opt (-mfloat128-convert): Add debug switch
+	to allow IBM extended double and IEEE 128-bit floating point to be
+	converted with default conversions.
+
+	* config/rs6000/rs6000.md (extendkftf2): Add converters between
+	KFmode and TFmode if -mabi=ieeelongdouble.
+	(trunctfkf2): Likewise.
+	(ieee128_mfvsrd): Split 64-bit integer conversions into 32-bit and
+	64-bit insns.
+	(ieee128_mfvsrd_64bit): Likewise.
+	(ieee128_mfvsrd_32bit): Likewise.
+	(ieee128_mtvsrd): Likewise.
+	(ieee128_mtvsrd_64bit): Likewise.
+	(ieee128_mtvsrd_32bit): Likewise.
+
+	* doc/extend.texi (Floating Types): Document that complex
+	__float128 does not work currently.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document that
+	-mfloat128 is only supported on PowerPC 64-bit Linux systems.
+
+	Backport from mainline:
+	2015-12-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/68805
+	* config/rs6000/rs6000.c (rs6000_gen_le_vsx_permute): Use ROTATE
+	instead of VEC_SELECT for TImode.
+
+	* config/rs6000/vsx.md (VSX_LE): Move TImode from VSX_LE to
+	VSX_LE_128, so that we use ROTATE to swap the 64-bit words instead
+	of using VEC_SELECT.
+	(VSX_LE_128): Likewise.
+	(define_peephole2): Add peephole to eliminate double xxpermdi when
+	copying TImode.
+
+	Backport from mainline:
+	2015-11-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (VSX_L): Do not include IBM extended double
+	128-bit types, just types that fit in a single vector.
+	* config/rs6000/rs6000.md (FMOVE128_GPR): Likewise.
+
+	Backport from mainline:
+	2015-11-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (we constraint): New constraint for
+	64-bit power9 vector support.
+	(wL constraint): New constraint for the element in a vector that
+	can be addressed by the MFVSRLD instruction.
+
+	* config/rs6000/rs6000-protos.h (convert_float128_to_int): Add
+	declaration.
+	(convert_int_to_float128): Likewise.
+	(rs6000_generate_compare): Add support for ISA 3.0 (power9)
+	hardware support for IEEE 128-bit floating point.
+	(rs6000_expand_float128_convert): Likewise.
+	(convert_float128_to_int): Likewise.
+	(convert_int_to_float128): Likewise.
+
+	* config/rs6000/rs6000.md (UNSPEC_ROUND_TO_ODD): New unspecs for
+	ISA 3.0 hardware IEEE 128-bit floating point.
+	(UNSPEC_IEEE128_MOVE): Likewise.
+	(UNSPEC_IEEE128_CONVERT): Likewise.
+	(FMA_F): Add support for IEEE 128-bit floating point hardware support.
+	(Ff): Add support for DImode.
+	(Fv): Likewise.
+	(any_fix code iterator): New and updated iterators for IEEE
+	128-bit floating point hardware support.
+	(any_float code iterator): Likewise.
+	(s code attribute): Likewise.
+	(su code attribute): Likewise.
+	(az code attribute): Likewise.
+	(uns code attribute): Likewise.
+	(neg<mode>2, FLOAT128 iterator): Add support for IEEE 128-bit
+	floating point hardware support.
+	(abs<mode>2, FLOAT128 iterator): Likewise.
+	(add<mode>3, IEEE128 iterator): New insns for IEEE 128-bit
+	floating point hardware.
+	(sub<mode>3, IEEE128 iterator): Likewise.
+	(mul<mode>3, IEEE128 iterator): Likewise.
+	(div<mode>3, IEEE128 iterator): Likewise.
+	(copysign<mode>3, IEEE128 iterator): Likewise.
+	(sqrt<mode>2, IEEE128 iterator): Likewise.
+	(neg<mode>2, IEEE128 iterator): Likewise.
+	(abs<mode>2, IEEE128 iterator): Likewise.
+	(nabs<mode>2, IEEE128 iterator): Likewise.
+	(fma<mode>4_hw, IEEE128 iterator): Likewise.
+	(fms<mode>4_hw, IEEE128 iterator): Likewise.
+	(nfma<mode>4_hw, IEEE128 iterator): Likewise.
+	(nfms<mode>4_hw, IEEE128 iterator): Likewise.
+	(extend<SFDF:mode><IEEE128:mode>2_hw): Likewise.
+	(trunc<mode>df2_hw, IEEE128 iterator): Likewise.
+	(trunc<mode>sf2_hw, IEEE128 iterator): Likewise.
+	(fix_fixuns code attribute): Likewise.
+	(float_floatuns code attribute): Likewise.
+	(fix<uns>_<mode>si2_hw): Likewise.
+	(fix<uns>_<mode>di2_hw): Likewise.
+	(float<uns>_<mode>si2_hw): Likewise.
+	(float<uns>_<mode>di2_hw): Likewise.
+	(xscvqp<su>wz_<mode>): Likewise.
+	(xscvqp<su>dz_<mode>): Likewise.
+	(xscv<su>dqp_<mode): Likewise.
+	(ieee128_mfvsrd): Likewise.
+	(ieee128_mfvsrwz): Likewise.
+	(ieee128_mtvsrw): Likewise.
+	(ieee128_mtvsrd): Likewise.
+	(trunc<mode>df2_odd): Likewise.
+	(cmp<mode>_h): Likewise.
+	(128-bit GPR splitters): Don't split a 128-bit move that is a
+	direct move between GPR and vector registers using ISA 3.0 direct
+	move instructions.
+	(maddld4): Add support for the ISA 3.0 integer multiply-add
+	instruction.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Add ISA 3.0
+	debugging.
+	(rs6000_init_hard_regno_mode_ok): If ISA 3.0 and 64-bit, enable we
+	constraint.  Disable the VSX<->GPR direct move helpers if we have
+	the MFVSRLD and MTVSRDD instructions.
+	(rs6000_secondary_reload_simple_move): Add support for doing
+	vector direct moves directly without additional scratch registers
+	if we have ISA 3.0 instructions.
+	(rs6000_secondary_reload_direct_move): Update comments.
+	(rs6000_output_move_128bit): Add support for ISA 3.0 vector
+	instructions.
+
+	* config/rs6000/vsx.md (vsx_mov<mode>): Add support for ISA 3.0
+	direct move instructions.
+	(vsx_movti_64bit): Likewise.
+	(vsx_extract_<mode>): Likewise.
+
+	* config/rs6000/rs6000.h (VECTOR_ELEMENT_MFVSRLD_64BIT): New
+	macros for ISA 3.0 direct move instructions.
+	(TARGET_DIRECT_MOVE_128): Likewise.
+	(TARGET_MADDLD): Add support for the ISA 3.0 integer multiply-add
+	instruction.
+
+	* doc/md.texi (RS/6000 constraints): Document we, wF, wG, wL
+	constraints.  Update wa documentation to say not to use %x<n> on
+	instructions that only take Altivec registers.
+
+	Backport from mainline:
+	2015-10-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_init_libfuncs): Split libfunc
+	setup into 3 functions: init_float128_ibm, init_float128_ieee, and
+	rs6000_init_libfuncs. If -mfloat128, add IFmode functions for all
+	of the traditional names that TFmode uses for handling IEEE
+	extended double. If -mfloat128, add KFmode functions for all of
+	the emulation functions. If -mabi=ieeelongdouble and -mfloat128,
+	make TFmode use the same emulation functions as KFmode.
+	(init_float128_ibm): Likewise.
+	(init_float128_ieee): Likewise.
+	(rs6000_generate_compare): For IEEE 128-bit floating point
+	comparisons, call the unordered comparison function instead of the
+	ordered comparison function.
+	(rs6000_expand_float128_convert): Deal with operands that are
+	memory operands. Restructure the code to use a switch statement on
+	the mode. Add support for TFmode defaulting to either IBM extended
+	double or IEEE 128-bit floating point. If the underlying types are
+	the same, use a move instead of a conversion function.
+	(TARGET_C_MODE_FOR_SUFFIX): Define 'q' and 'Q' as the suffix to
+	use for IEEE 128-bit floating point constants with -mfloat128.
+	(rs6000_c_mode_for_suffix): Likewise.
+	(TARGET_INVALID_BINARY_OP): Do not allow inter-mixing of IEEE
+	128-bit floating point with IBM extended double floating point.
+	(rs6000_invalid_binary_op): Likewise.
+	(rs6000_gen_le_vsx_permute): On little endian systems generate a
+	ROTATE insn instead of VEC_SELECT for IEEE 128-bit floating point
+	types that can go in vector registers.
+	(chain_contains_only_swaps): Properly swap IEEE 128-bit floating
+	point types that can go in vector registers on little endian
+	PowerPC systems.
+	(mark_swaps_for_removal): Likewise.
+	(rs6000_analyze_swaps): Likewise.
+	(rs6000_mangle_type): Use U10__float128 for IEEE 128-bit floating point.
+
+	* config/rs6000/rs6000.md (FLOAT128_SFDFTF): Delete iterator,
+	rework IEEE 128-bit floating point insns to deal with TFmode being
+	either IBM extended double or IEEE 128-bit floating point.
+	(IFKF): Likewise.
+	(IBM128): Update iterator to add condition that the mode is IBM
+	extended double.
+	(IEEE128): New iterator for IEEE 128-bit floating point.
+	(TFIFKF): Rename TFIFKF iterator to FLOAT128.
+	(FLOAT128): Likewise.
+	(signbit<mode>2): FLOAT128_IBM_P condition test moved into IBM128
+	iterator.
+	(neg<mode>2): Replace TFIFKF iterator with FLOAT128. Add support
+	for TFmode being IEEE 128-bit floating point. Use IEEE128 iterator
+	instead of hard coding TFmode or KFmode.
+	(negtf2_internal): Likewise.
+	(neg<mode>2_internal): Likewise.
+	(abs<mode>2): Likewise.
+	(abstf2_internal): Likewise.
+	(abs<mode>2_internal): Likewise.
+	(ieee_128bit_neg<mode>2): Likewise.
+	(ieee_128bit_neg<mode>2_internal): Likewise.
+	(ieee_128bit_abs<mode>2): Likewise.
+	(ieee_128bit_abs<mode>2_internal): Likewise.
+	(ieee_128bit_nabs<mode>2): Likewise.
+	(ieee_128bit_nabs<mode>2_internal): Likewise.
+	(extendiftf2): Add explicit conversions between 128-bit floating
+	point types. Drop the old conversions that had become unwieldy.
+	(extend<FLOAT128_SFDFTF:mode><IFKF:mode>2): Likewise.
+	(extendifkf2): Likewise.
+	(trunc<IFKF:mode><FLOAT128_SFDFTF:mode>2): Likewise.
+	(extendtfkf2): Likewise.
+	(fix_trunc<IFKF:mode><SDI:mode>2): Likewise.
+	(trunciftf2): Likewise.
+	(fixuns_trunc<IFKF:mode><SDI:mode>2): Likewise.
+	(truncifkf2): Likewise.
+	(float<SDI:mode><IFKF:mode>2): Likewise.
+	(trunckftf2): Likewise.
+	(floatuns<SDI:mode><IFKF:mode>2): Likewise.
+	(trunctfif2): Likewise.
+	(FP iterator): Allow TFmode to be IEEE 128-bit floating point.
+	(extenddftf2): Rework 128-bit floating point conversions to
+	properly handle -mabi=ieeelongdouble. Merge IFmode, TFmode, and
+	KFmode expanders into one function.
+	(extenddf<mode>2): Likewise.
+	(extenddftf2_fprs): Likewise.
+	(extenddf<mode>2_fprs): Likewise.
+	(extenddftf2_vsx): Likewise.
+	(extenddf<mode>2_vsx): Likewise.
+	(extendsftf2): Likewise.
+	(extendsf<mode>2): Likewise.
+	(trunctfdf2): Likewise.
+	(trunc<mode>df2): Likewise.
+	(trunctfdf2_internal1): Likewise.
+	(trunc<mode>df2_internal1): Likewise.
+	(trunctfdf2_internal2): Likewise.
+	(trunc<mode>df2_internal2): Likewise.
+	(trunctfsf2): Likewise.
+	(trunc<mode>sf2): Likewise.
+	(trunctfsf2_fprs): Likewise.
+	(trunc<mode>sf2_fprs): Likewise.
+	(floatsit2f): Likewise.
+	(floatsi<mode>2): Likewise.
+	(fix_trunc_helper): Likewise.
+	(fix_trunc_helper<mode>): Likewise.
+	(fix_trunctfsi2): Likewise.
+	(fix_trunc<mode>si2): Likewise.
+	(fix_trunctfsi2_fprs): Likewise.
+	(fix_trunc<mode>si2_fprs): Likewise.
+	(fix_trunctfsi2_internal): Likewise.
+	(fix_trunc<mode>si2_internal): Likewise.
+	(fix_trunctfdi2): Likewise.
+	(fix_trunc<mode>di2): Likewise.
+	(fixuns_trunctf<mode>2): Likewise.
+	(fixuns_trunc<IEEE128:mode><SDI:mode>2): Likewise.
+	(floatditf2): Likewise.
+	(floatdi<mode>2): Likewise.
+	(floatuns<mode>tf2): Likewise.
+	(floatuns<SDI:mode><IEEE128:mode>): Likewise.
+	(cmptf_internal1): Use a mode iterator to add support for both
+	types (IFmode, TFmode) that support IBM extended double.
+	(cmp<mode>_internal1): Likewise.
+	(cmptf_internal2): Likewise.
+	(cmp<mode>_internal2): Likewise.
+
+	* doc/extend.texi (Floating Types): Document __ibm128 and
+	__float128 on PowerPC.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
+	-mfloat128 and -mno-float128.
+
+	Backport from mainline:
+	2015-10-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.h (ALTIVEC_VECTOR_MODE): Add IEEE 128-bit
+	floating point modes that can go in vector registers.
+	(MODES_TIEABLE_P): Move tests for vector modes before tests for
+	scalar floating point, so that IEEE 128-bit floating point that
+	can go in vector registers bind with vectors and not FP.
+	(struct rs6000_args): Add libcall field.
+
+	* config/rs6000/rs6000.opt (-mfloat128-*): Delete -mfloat128-none
+	and -mfloat128-software switches.  Replace them with a binary
+	-mfloat128 switch.
+	(-mfloat128): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Allow
+	128-bit floating point types in GPRs, even if the appropriate
+	option enabling the type was not used.
+	(rs6000_debug_reg_global): Remove -mfloat128-{software,none}
+	debugging.
+	(rs6000_setup_reg_addr_masks): Do not allow pre-increment and
+	pre-decrement on IEEE 128-bit floating point values.
+	(rs6000_init_hard_regno_mode_ok): Change test for whether TFmode
+	is IEEE 128-bit floating point.
+	(rs6000_init_hard_regno_mode_ok): Add reload handlers for IEEE
+	128-bit floating point types that can go in vector registers.
+	(rs6000_option_override_internal): Change -mfloat128-none and
+	-mfloat128-software to -mfloat128, and move code to be near other
+	VSX option handling.
+	(rs6000_option_override_internal): Disable -mfloat128 if we don't
+	have the Altivec ABI.
+	(rs6000_init_builtins): Don't make TFmode use either IFmode or
+	KFmode floating point nodes. Instead, have three separate nodes.
+	(rs6000_scalar_mode_supported_p): Add support for IFmode to allow
+	eventually moving the long double default to IEEE 128-bit floating
+	point.
+	(rs6000_opt_masks): Add -mfloat128.
+	(struct rs6000_opt_var): Fix typo in comment.
+	(init_cumulative_args): Initialize libcall field in
+	CUMULATIVE_ARGS.
+	(rs6000_function_arg): Treat library functions as if they had
+	prototypes to prevent IEEE 128-bit support functions from passing
+	arguments in both GPRs and vector registers.
+	(rs6000_arg_partial_bytes): Likewise.
+
+	* config/rs6000/rs6000-cpus.def (POWERPC_MASKS): Add -mfloat128 as
+	an option that can be turned on via -mcpu=<xxx>.
+
+	* config/rs6000/rs6000-opts.h (enum float128_type_t): Delete, no
+	longer used.
+
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Define
+	__FLOAT128__ if -mfloat128. Define __LONG_DOUBLE_IEEE128__ if long
+	double is IEEE 128-bit. Define __LONG_DOUBLE_IBM128__ if long
+	double is IBM extended double.
+
+	* config/rs6000/predicates.md (reg_or_indexed_operand): Allow
+	SUBREGs.
+
+	Backport from mainline:
+	2015-10-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+		    Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/67808
+	* config/rs6000/rs6000.md (extenddftf2): In the expander, only
+	allow registers, but provide insns for the combiner to create for
+	loads from memory. Separate VSX code from non-VSX code. For
+	non-VSX code, combine extenddftf2_fprs into extenddftf2 and rename
+	externaldftf2_internal to externaldftf2_fprs. Reorder constraints
+	so that registers come before memory operations. Drop support from
+	converting DFmode to TFmode, if the DFmode value is in a GPR
+	register.
+	(extenddftf2_fprs): Likewise.
+	(extenddftf2_internal): Likewise.
+	(extenddftf2_vsx): Likewise.
+	(extendsftf2): In the expander, only allow registers, but provide
+	insns for the combiner to create for stores and loads.
+
+	Backport from mainline:
+	2015-08-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-protos.h (rs6000_expand_float128_convert):
+	Add declaration.
+
+	* config/rs6000/rs6000.c (rs6000_emit_le_vsx_store): Fix a
+	comment.
+	(rs6000_cannot_change_mode_class): Add support for IEEE 128-bit
+	floating point in VSX registers.
+	(rs6000_output_move_128bit): Always print out the set insn if we
+	can't generate an appropriate 128-bit move.
+	(rs6000_generate_compare): Add support for IEEE 128-bit floating
+	point in VSX registers comparisons.
+	(rs6000_expand_float128_convert): Likewise.
+
+	* config/rs6000/predicates.md (int_reg_operand_not_pseudo): New
+	predicate for only GPR hard registers.
+
+	* config/rs6000/rs6000.md (FP): Add IEEE 128-bit floating point
+	modes to iterators. Add new iterators for moving 128-bit values in
+	scalar FPR registers and VSX registers.
+	(FMOVE128): Likewise.
+	(FMOVE128_FPR): Likewise.
+	(FMOVE128_GPR): Likewise.
+	(FMOVE128_VSX): Likewise.
+	(FLOAT128_SFDFTF): New iterators for IEEE 128-bit floating point
+	in VSX registers.
+	(IFKF): Likewise.
+	(IBM128): Likewise.
+	(TFIFKF): Likewise.
+	(RELOAD): Add IEEE 128-bit floating point modes.
+	(signbittf2): Convert TF insns to add support for new IEEE 128-bit
+	floating point in VSX registers modes.
+	(signbit<mode>2, IBM128 iterator): Likewise.
+	(mov<mode>_64bit_dm, FMOVE128_FPR iterator): Likewise.
+	(mov<mode>_32bit, FMOVE128_FPR iterator): Likewise.
+	(negtf2): Likewise.
+	(neg<mode>2, TFIFKF iterator): Likewise.
+	(negtf2_internal): Likewise.
+	(abstf2): Likewise.
+	(abs<mode>2, TFIFKF iterator): Likewise.
+	(ieee_128bit_negative_zero): New IEEE 128-bit floating point in
+	VSX insn support for negate, absolute value, and negative absolute
+	value.
+	(ieee_128bit_vsx_neg<mode>2): Likewise.
+	(ieee_128bit_vsx_neg<mode>2_internal): Likewise.
+	(ieee_128bit_vsx_abs<mode>2): Likewise.
+	(ieee_128bit_vsx_abs<mode>2_internal): Likewise.
+	(ieee_128bit_vsx_nabs<mode>2): Likewise.
+	(ieee_128bit_vsx_nabs<mode>2_internal): Likewise.
+	(FP128_64): Update pack/unpack 128-bit insns for IEEE 128-bit
+	floating point in VSX registers.
+	(unpack<mode>_dm): Likewise.
+	(unpack<mode>_nodm): Likewise.
+	(pack<mode>): Likewise.
+	(unpackv1ti): Likewise.
+	(unpack<mode>, FMOVE128_VSX iterator): Likewise.
+	(packv1ti): Likewise.
+	(pack<mode>, FMOVE128_VSX iterator): Likewise.
+	(extenddftf2): Add support for IEEE 128-bit floating point in VSX
+	registers.
+	(extenddftf2_internal): Likewise.
+	(trunctfdf2): Likewise.
+	(trunctfdf2_internal2): Likewise.
+	(fix_trunc_helper): Likewise.
+	(fix_trunctfdi2"): Likewise.
+	(floatditf2): Likewise.
+	(floatuns<mode>tf2): Likewise.
+	(extend<FLOAT128_SFDFTF:mode><IFKF:mode>2): Likewise.
+	(trunc<IFKF:mode><FLOAT128_SFDFTF:mode>2): Likewise.
+	(fix_trunc<IFKF:mode><SDI:mode>2): Likewise.
+	(fixuns_trunc<IFKF:mode><SDI:mode>2): Likewise.
+	(float<SDI:mode><IFKF:mode>2): Likewise.
+	(floatuns<SDI:mode><IFKF:mode>2): Likewise.
+
+	Backport from mainline:
+	2015-08-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (VEC_L): Add KFmode and TFmode.
+	(VEC_M): Likewise.
+	(VEC_N): Likewise.
+	(mov<mode>, VEC_M iterator): Add support for IEEE 128-bit floating
+	point in VSX registers.
+
+	* config/rs6000/constraints.md (wb constraint): Document unused
+	w<x> constraint.
+	(we constraint): Likewise.
+	(wo constraint): Likewise.
+	(wp constraint): New constraint for IEEE 128-bit floating point in
+	VSX registers.
+	(wq constraint): Likewise.
+
+	* config/rs6000/predicates.md (easy_fp_constant): Add support for
+	IEEE 128-bit floating point in VSX registers.
+	(easy_scalar_constant): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Add new
+	constraints (wp, wq) for IEEE 128-bit floating point in VSX
+	registers.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+
+	* config/rs6000/vsx.md (VSX_LE_128): Add support for IEEE 128-bit
+	floating point in VSX registers.
+	(VSX_L): Likewise.
+	(VSX_M): Likewise.
+	(VSX_M2): Likewise.
+	(VSm): Likewise.
+	(VSs): Likewise.
+	(VSr): Likewise.
+	(VSa): Likewise.
+	(VSv): Likewise.
+	(vsx_le_permute_<mode>): Add support to properly swap bytes for
+	IEEE 128-bit floating point in VSX registers on little endian.
+	(vsx_le_undo_permute_<mode>): Likewise.
+	(vsx_le_perm_load_<mode>): Likewise.
+	(vsx_le_perm_store_<mode>): Likewise.
+	(splitters for IEEE 128-bit fp moves): Likewise.
+
+	* config/rs6000/rs6000.h (enum r6000_reg_class_enum): Add wp and
+	wq constraints.
+
+	* config/rs6000/altivec.md (VM): Add support for IEEE 128-bit
+	floating point in VSX registers.
+	(VM2): Likewise.
+
+	* doc/md.text (Machine Constraints): Document wp and wq
+	constraints on PowerPC.
+
+	Backport from mainline:
+	2015-07-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/66854
+	* config/rs6000/rs6000.c (rs6000_pass_by_reference): Move test for
+	null before IEEE 128-bit floating point support patch.
+
+	Backport from mainline:
+	2015-07-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-protos.h (rs6000_secondary_reload_memory):
+	Use machine mode, not enum machine_mode in the prototype.
+
+	* config/rs6000/rs6000.h (FLOAT128_IEEE_P): New helper macros to
+	classify 128-bit floating point support.
+	(FLOAT128_IBM_P): Likewise.
+	(FLOAT128_VECTOR_P): Likewise.
+	(FLOAT128_2REG_P): Likewise.
+	(SCALAR_FLOAT_MODE_NOT_VECTOR_P): Likewise.
+	(SLOW_UNALIGNED_ACCESS): Add IEEE 128-bit floating point support.
+	(HARD_REGNO_CALLER_SAVE_MODE): Likewise.
+	(HARD_REGNO_CALL_PART_CLOBBERED): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_nregs_internal): Drop
+	tests against TFmode/TDmode, since those modes do not use VSX
+	addresses.
+	(rs6000_hard_regno_mode_ok): Add IEEE 128-bit floating point
+	support.
+	(rs6000_init_hard_regno_mode_ok): Use new helper macros instead of
+	tests against TFmode, etc.
+	(invalid_e500_subreg): Add tests against IFmode/KFmode.
+	(reg_offset_addressing_ok_p): Likewise.
+	(rs6000_legitimate_offset_address_p): Likewise.
+	(rs6000_legitimize_address): Likewise.
+	(rs6000_legitimize_reload_address): Likewise.
+	(rs6000_legitimate_address_p): Clean up tests against TFmode and
+	TDmode to use the new helper macros, which will include IFmode and
+	KFmode.
+	(rs6000_emit_move): Likewise.
+	(rs6000_darwin64_record_arg_recurse): Likewise.
+	(print_operand): Likewise.
+	(rs6000_member_type_forces_blk): Treat IEEE 128-bit floating point
+	that uses a single vector register as a vector and not as a
+	floating point register in terms of the calling sequence.
+	(rs6000_discover_homogeneous_aggregate): Likewise.
+	(rs6000_return_in_memory): Likewise.
+	(init_cumulative_args): Likewise.
+	(rs6000_function_arg_boundary): Likewise.
+	(rs6000_function_arg_advance_1): Likewise.
+	(rs6000_function_arg): Likewise.
+	(rs6000_pass_by_reference): Likewise.
+	(rs6000_gimplify_va_arg): Likewise.
+	(rs6000_secondary_reload_memory): Use machine_mode not enum
+	machine mode.
+	(rs6000_split_multireg_move): Use new helper macros.
+	(spe_func_has_64bit_regs_p): Likewise.
+	(rs6000_output_function_epilogue): Add IFmode/KFmode support.
+	(output_toc): Use new helper macros.
+	(rs6000_register_move_cost): Likewise.
+	(rs6000_function_value): Add IEEE 128-bit floating point calling
+	sequence support.
+	(rs6000_libcall_value): Likewise.
+	(rs6000_scalar_mode_supported_p): Add support for IEEE 128-bit
+	floating point support.
+	(rs6000_vector_mode_supported_p): Likewise.
+
+	Backport from mainline:
+	2015-06-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-modes.def (IFmode): Define IFmode to
+	provide access to the IBM extended double floating point mode if
+	long double is IEEE 128-bit floating point.
+	(KFmode): Define KFmode to provide access to IEEE 128-bit floating
+	point if long double is the IBM extended double type.
+
+	* config/rs6000/rs6000.opt (-mfloat128-none): New switches to
+	enable adding IEEE 128-bit floating point support.
+	(-mfloat128-software): Likewise.
+	(-mfloat128-sw): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Do not allow
+	128-bit floating point types to occupy any register if
+	-mlong-double-64.  Do not allow use of IFmode/KFmode unless
+	-mfloat128-software is enabled.
+	(rs6000_debug_reg_global): Add IEEE 128-bit floating point debug
+	support.
+	(rs6000_option_override_internal): Add -mfloat128-* support.
+	(rs6000_init_builtins): Setup __ibm128 and __float128 type modes.
+
+	* config/rs6000/rs6000.h (rs6000_builtin_type_index): Add ibm128
+	and float128 type nodes.
+	(ieee128_float_type_node): Likewise.
+	(ibm128_float_type_node): Likewise.
+
 2016-01-20  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Backport from mainline:

@@ -3105,6 +3105,12 @@ No register (NO_REGS).
 @item wo
 VSX register to use for ISA 3.0 vector instructions, or NO_REGS.
 
+@item wp
+VSX register to use for IEEE 128-bit floating point TFmode, or NO_REGS.
+
+@item wq
+VSX register to use for IEEE 128-bit floating point, or NO_REGS.
+
 @item wr
 General purpose register if 64-bit instructions are enabled or NO_REGS.
 

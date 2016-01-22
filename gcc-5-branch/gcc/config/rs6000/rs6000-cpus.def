@@ -62,6 +62,7 @@
 /* Add ISEL back into ISA 3.0, since it is supposed to be a win.  Do not add
    P9_DFORM or P9_MINMAX until they are fully debugged.  */
 #define ISA_3_0_MASKS_SERVER	(ISA_2_7_MASKS_SERVER			\
+				 | OPTION_MASK_FLOAT128_HW		\
 				 | OPTION_MASK_ISEL			\
 				 | OPTION_MASK_MODULO			\
 				 | OPTION_MASK_P9_FUSION		\
