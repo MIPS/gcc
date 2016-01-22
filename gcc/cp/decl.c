@@ -227,10 +227,14 @@ struct GTY((for_user)) named_label_entry {
    function, two inside the body of a function in a local class, etc.)  */
 int function_depth;
 
-/* To avoid unwanted recursion, finish_function defers all mark_used calls
-   encountered during its execution until it finishes.  */
+/* To avoid unwanted recursion, finish_function defers all mark_used
+   calls encountered during its execution until it finishes.
+   finish_function refuses to be called recursively, unless the
+   recursion occurs during folding, which often requires instantiating
+   and evaluating template functions.  */
 bool defer_mark_used_calls;
 vec<tree, va_gc> *deferred_mark_used_calls;
+static bool is_folding_function;
 
 /* States indicating how grokdeclarator() should handle declspecs marked
    with __attribute__((deprecated)).  An object declared as
@@ -14528,8 +14532,11 @@ finish_function (int flags)
   if (c_dialect_objc ())
     objc_finish_function ();
 
-  gcc_assert (!defer_mark_used_calls);
+  gcc_assert (!defer_mark_used_calls
+	      || (is_folding_function && DECL_DECLARED_CONSTEXPR_P (fndecl)));
   defer_mark_used_calls = true;
+  bool save_folding_function = is_folding_function;
+  is_folding_function = false;
 
   record_key_method_defined (fndecl);
 
@@ -14636,7 +14643,14 @@ finish_function (int flags)
 
   /* Perform delayed folding before NRV transformation.  */
   if (!processing_template_decl)
-    cp_fold_function (fndecl);
+    {
+      is_folding_function = true;
+      cp_fold_function (fndecl);
+      /* Check that our controlling variables were restored to the
+	 expect state.  */
+      gcc_assert (is_folding_function && defer_mark_used_calls);
+      is_folding_function = false;
+    }
 
   /* Set up the named return value optimization, if we can.  Candidate
      variables are selected in check_return_expr.  */
@@ -14780,8 +14794,13 @@ finish_function (int flags)
   /* Clean up.  */
   current_function_decl = NULL_TREE;
 
-  defer_mark_used_calls = false;
-  if (deferred_mark_used_calls)
+  is_folding_function = save_folding_function;
+  /* Iff we were called recursively for a constexpr function,
+     is_folding_function was just restored to TRUE.  If we weren't
+     called recursively, it was restored to FALSE.  That's just how
+     defer_mark_used_call ought to be set.  */
+  defer_mark_used_calls = is_folding_function;
+  if (!defer_mark_used_calls && deferred_mark_used_calls)
     {
       unsigned int i;
       tree decl;
