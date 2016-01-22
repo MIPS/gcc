@@ -1,3 +1,409 @@
+2016-01-22  Richard Henderson  <rth@redhat.com>
+
+	PR target/69416
+	* config/aarch64/aarch64.md (UNSPEC_NZCV): New.
+	(ccmp<mode>, fccmp<mode>, fccmpe<mode>): Use it.
+
+2016-01-22  Michael Matz  <matz@suse.de>
+
+	* system.h (string, algorithm): Include only conditionally.
+	(new): Include always under C++.
+	* bb-reorder.c (toplevel): Define INCLUDE_ALGORITHM.
+	* final.c (toplevel): Ditto.
+	* ipa-chkp.c (toplevel): Define INCLUDE_STRING.
+	* genconditions.c (write_header): Make gencondmd.c define
+	INCLUDE_STRING.
+	* mem-stats.h (mem_usage::print_dash_line): Don't use std::string.
+
+	* config/aarch64/aarch64.c (toplevel): Define INCLUDE_STRING.
+	* common/config/aarch64/aarch64-common.c (toplevel): Ditto.
+
+2016-01-22  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/pr63354.c: Restrict to Linux targets with
+	64-bit support.
+
+2016-01-22  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/68674
+	* expr.c (expand_expr_real_1): Reset DECL_MODE if VECTOR_TYPE_P changed.
+
+2016-01-22  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/69403
+	* config/arm/thumb2.md (*thumb2_ior_scc_strict_it): Convert to
+	define_insn_and_split.  Ensure operands[1] and operands[0] do not
+	get assigned the same register.
+
+2016-01-22  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* ipa-prop.c (ipa_set_jf_constant): Remove redundant unshare_expr.
+
+2016-01-22  Christian Bruel  <christian.bruel@st.com>
+
+	* config/arm/arm-c.c (arm_pragma_target_parse):
+	Remove warn_builtin_macro_redefined overwrite.
+
+2016-01-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* ipa-inline.c (can_inline_edge_p): Back out overzealous check on
+	flag_non_call_exceptions compatibility.
+
+2016-01-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/66668
+	* dwarf2out.c (add_child_die_after): New function.
+	(dwarf_qual_info_t): New type.
+	(dwarf_qual_info): New variable.
+	(qualified_die_p): New function.
+	(modified_type_die): For -fdebug-types-section, ensure
+	canonical order of qualifiers.  Put qualified DIEs adjacent
+	to the corresponding non-qualified type DIE and search there
+	for existing qualified DIEs.
+
+2016-01-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* doc/extend.texi (scalar_storage_order type attribute): Document
+	restriction on type punning and aliasing, and remove future tense.
+
+2016-01-21  Roman Zhuykov  <zhroma@ispras.ru>
+
+	PR target/69252
+	* modulo-sched.c (optimize_sc):	Allow branch-scheduling to add a new
+	first stage.
+
+2016-01-21  Jeff Law  <law@redhat.com>
+
+	PR middle-end/69347
+	* tree-ssa-dom.c (dom_opt_dom_walker::thread_across_edge): Avoid
+	useless call to record_temporary_equivalences.
+	* tree-ssa-threadbackward.c (find_jump_threads_backwards): Just
+	allocate 10 slots in the bb_path vector and let it grow as needed.
+	(fsm_find_control_statement_thread_paths): Similarly for the next_path
+	vector.
+
+2016-01-21  David Edelsohn  <dje.gcc@gmail.com>
+
+	* configure.ac (gcc_cv_as_powerpc_mfcrf, gcc_cv_as_machine_directive):
+	Detangle.
+	* configure: Regenerate.
+
+2016-01-21  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* config/rs6000/aix71.h (ASM_CPU_SPEC): Add entry for Power9.
+	* config/rs6000/driver-rs6000.c (struct asm_names): Likewise.
+
+2016-01-21  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR middle-end/66178
+	* expr.c (expand_expr_real_2) [PLUS_EXPR, MINUS_EXPR]: Don't
+	drop EXPAND_INITIALIZER.
+	* rtl.h (contains_symbolic_reference_p): Declare.
+	* rtlanal.c (contains_symbolic_reference_p): New function.
+	* simplify-rtx.c (simplify_binary_operation_1): Don't turn
+	a subtraction into a NOT if symbolic constants are involved.
+
+2016-01-21  Anton Blanchard  <anton@samba.org>
+	    Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/63354
+	* config/rs6000/linux64.h (TARGET_KEEP_LEAF_WHEN_PROFILED): New
+	#define.
+	* config/rs6000/rs6000.c (rs6000_keep_leaf_when_profiled): New
+	function.
+
+2016-01-21  Ajit Agarwal  <ajitkum@xilinx.com>
+
+	* config/microblaze/microblaze.c
+	(get_branch_target): New.
+	(insert_wic_for_ilb_runout): New.
+	(insert_wic): New.
+	(microblaze_machine_dependent_reorg): New.
+	(TARGET_MACHINE_DEPENDENT_REORG): Define macro.
+	* config/microblaze/microblaze.md
+	(UNSPEC_IPREFETCH): Define.
+	(iprefetch): New pattern
+	* config/microblaze/microblaze.opt
+	(mxl-prefetch): New flag.
+
+2016-01-21  Ajit Agarwal  <ajitkum@xilinx.com>
+
+	* config/microblaze/microblaze.h
+	(FIXED_REGISTERS): Update in macro.
+	(CALL_USED_REGISTERS): Update in macro.
+
+2016-01-21  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR rtl-optimization/68920
+	* ifcvt.c (cond_move_process_if_block): Limit number of conditional
+	moves.
+
+2016-01-21  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/68990
+	* lra-coalesce.c (lra_coalesce): Invalidate value for the result
+	pseudo instead of inheritance ones.
+
+2016-01-21  Bernd Enlinger  <bernd.edlinger@hotmail.de>
+	    Nick Clifton  <nickc@redhat.com>
+
+	PR target/69129
+	PR target/69012
+	* config/mips/mips.c (mips_compute_frame_info): Initialise
+	args_size and hard_frame_pointer_offset fields of the frame
+	structure before calling mips_global_pointer.
+
+2016-01-21  David Edelsohn  <dje.gcc@gmail.com>
+
+	* configure.ac (gcc_cv_as_dwloc): Test support for debug frame section
+	label reference.
+	* configure: Regenerate.
+
+2016-01-21  Richard Biener  <rguenther@suse.de>
+
+	* graphite-optimize-isl.c (get_schedule_map): Fix typo.
+
+2016-01-21  Marcin Kościelnicki  <koriakin@0x04.net>
+
+	* config/s390/s390.c (s390_asm_declare_function_size): Add code
+	to actually emit the .size directive.
+
+2016-01-21   Stefan Sørensen  <stefan.sorensen@spectralink.com>
+	     Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/69187
+	PR target/65624
+	* config/arm/arm-builtins.c (arm_expand_neon_builtin): Increase
+	args array size by one to avoid buffer overflow.
+
+2016-01-21  Marcin Kościelnicki  <koriakin@0x04.net>
+
+	* config/s390/s390.md (pool_section_start): Use switch_to_section
+	to select proper read-only data section instead of hardcoding
+	.rodata.
+	(pool_section_end): Use switch_to_section to match the above.
+
+2016-01-21  Richard Biener  <rguenther@suse.de>
+
+        PR tree-optimization/69378
+	* tree-ssa-sccvn.c (dominated_by_p_w_unex): New function.
+	(set_ssa_val_to): Use it for dominance checks taking into
+	account not executable edges.
+
+2016-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/69355
+	* tree-dfa.c (get_ref_base_and_extent): Use GET_MODE_BITSIZE (mode)
+	for bitsize instead of GET_MODE_PRECISION (mode).
+
+2016-01-20  Martin Sebor  <msebor@redhat.com>
+
+	PR c/52291
+	* extend.texi (__sync Builtins): Clarify the semantics of
+	__sync_fetch_and_OP built-ins on pointers.
+	(__atomic Builtins): Same.
+
+2016-01-21  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	* graphite-isl-ast-to-gimple.c (enum phi_node_kind): New.
+	(class translate_isl_ast_to_gimple): Use phi_node_kind instead of bool.
+	(is_valid_rename): Same.
+	(translate_isl_ast_to_gimple::get_rename): Same.
+	(translate_isl_ast_to_gimple::rename_all_uses): Same.
+	(translate_isl_ast_to_gimple::rename_uses): Same.
+	(get_new_name): Check for close_phi nodes.
+	(copy_loop_phi_args): Use phi_node_kind.
+	(translate_isl_ast_to_gimple::copy_loop_close_phi_args): Same.
+	(translate_isl_ast_to_gimple::copy_cond_phi_args): Same.
+
+2016-01-21  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	Revert commit r229783.
+	* graphite-isl-ast-to-gimple.c (gcc_expression_from_isl_ast_expr_id):
+	Remove use of parameter_rename_map.
+	(copy_def): Remove.
+	(copy_internal_parameters): Remove.
+	(graphite_regenerate_ast_isl): Remove call to copy_internal_parameters.
+	* sese.c (new_sese_info): Do not initialize parameter_rename_map.
+	(free_sese_info): Do not free parameter_rename_map.
+	(set_rename): Do not use parameter_rename_map.
+	(rename_uses): Update call to set_rename.
+	(graphite_copy_stmts_from_block): Do not use parameter_rename_map.
+	* sese.h (parameter_rename_map_t): Remove.
+	(struct sese_info_t): Remove field parameter_rename_map.
+
+2016-01-21  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+        * graphite-isl-ast-to-gimple.c: Fix comment.
+        * graphite-scop-detection.c (defined_in_loop_p): New.
+        (canonicalize_loop_closed_ssa): Do not add close phi nodes for SSA
+        names defined in loop.
+
+2016-01-21  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	* graphite-scop-detection.c (scop_detection::harmful_loop_in_region):
+	Discard unstructured if-then-else regions.
+
+2016-01-21  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+        * graphite-sese-to-poly.c (set_scop_parameter_dim): Remove.
+        (cleanup_loop_iter_dom): Remove.
+        (build_loop_iteration_domains): Remove.
+        (build_scop_context): Remove.
+        (build_scop_iteration_domain): Remove.
+        (add_loop_constraints): New.
+        (build_iteration_domains): New.
+        (build_poly_scop): Call build_iteration_domains.
+
+2016-01-21  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+        * graphite-scop-detection.c
+        (scop_detection::harmful_loop_in_region): Free dom and loops.
+        (scop_detection::loop_body_is_valid_scop): Free bbs.
+
+2016-01-21  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	* graphite-scop-detection.c (record_loop_in_sese): New.
+	(gather_bbs::before_dom_children): Call record_loop_in_sese.
+	(build_scops): Remove call to build_sese_loop_nests.
+	* sese.c (sese_record_loop): Remove.
+	(build_sese_loop_nests): Remove.
+	(new_sese_info): Remove region->loops.
+	(free_sese_info): Same.
+	* sese.h (sese_contains_loop): Same.
+	(build_sese_loop_nests): Remove.
+	(sese_contains_loop): Remove.
+
+2016-01-21  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	* graphite-scop-detection.c (loop_is_valid_scop): Renamed loop_is_valid_in_scop.
+	(scop_detection::harmful_stmt_in_region): Renamed harmful_loop_in_region.
+	Call loop_is_valid_in_scop.
+
+2016-01-21  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	* graphite-isl-ast-to-gimple.c (translate_isl_ast): Also handle
+	isl_ast_node_mark.
+
+2016-01-21  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	* graphite-poly.c (new_poly_bb): Remove use of PBB_IS_REDUCTION.
+	* graphite.h (struct poly_bb): Remove field is_reduction.
+        (PBB_IS_REDUCTION): Remove.
+
+2016-01-21  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	* graphite-dependences.c (constrain_domain): Add call to isl_*_coalesce.
+	(add_pdr_constraints): Same.
+	(scop_get_reads): Same.
+	(scop_get_must_writes): Same.
+	(scop_get_may_writes): Same.
+	(scop_get_original_schedule): Same.
+	(extend_schedule): Same.
+	(apply_schedule_on_deps): Same.
+	(carries_deps): Same.
+	(compute_deps): Same.
+	(scop_get_dependences): Same.
+	* graphite-isl-ast-to-gimple.c
+	(translate_isl_ast_to_gimple::generate_isl_schedule): Same.
+	* graphite-optimize-isl.c (get_schedule_for_band): Same.
+	(get_schedule_for_band_list): Same.
+	(get_schedule_map): Same.
+	(apply_schedule_map_to_scop): Same.
+	* graphite-sese-to-poly.c (build_pbb_scattering_polyhedrons): Same.
+	(build_loop_iteration_domains): Same.
+	(add_condition_to_pbb): Same.
+	(add_param_constraints): Same.
+	(pdr_add_memory_accesses): Same.
+	(pdr_add_data_dimensions): Same.
+
+2016-01-20  Sandra Loosemore <sandra@codesourcery.com>
+
+	* doc/invoke.texi (Instrumentation Options): Clarify -mmpx linking
+	requirements.
+
+2016-01-20  Sandra Loosemore <sandra@codesourcery.com>
+
+	* common.opt (feliminate-dwarf2-dups): Replace references to
+	"DWARF 2" with just "DWARF".
+	* config/ia64/ia64.opt (mdwarf2-asm): Likewise.
+	* doc/extend.texi: Likewise.
+	* doc/cpp.texi: Likewise.
+	* doc/invoke.texi: Likewise.
+	(Option Summary): Add -gdwarf to list of Debugging Options.
+	(Debugging Options): Document -gdwarf.
+	* doc/contrib.texi: Spell "DWARF" like that.
+
+2016-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (expand_omp_target): Avoid -Wmaybe-uninitialized
+	warning.  Fix up formatting.
+
+	PR middle-end/67653
+	* gimplify.c (gimplify_asm_expr): Warn if it is too late to
+	attempt to mark memory input operand addressable and
+	call prepare_gimple_addressable in that case.  Don't adjust
+	input_location for diagnostics, use error_at instead.
+
+2016-01-20  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config/rs6000/ppc-auxv.h: New file.
+	* config/rs6000/rs6000-builtin.def (cpu_init): Add new builtin.
+	(cpu_is): Likewise.
+	(cpu_supports): Likewise.
+	* config/rs6000/rs6000.c: include "ppc-auxv.h".
+	(cpu_is_info): New variable.
+	(cpu_supports_info): Likewise.
+	(tcb_verification_symbol): Likewise.
+	(cpu_builtin_p): Likewise.
+	(cpu_expand_builtin): New function.
+	(rs6000_expand_ternop_builtin): Add support for CPU builtin functions.
+	(rs6000_init_builtins): Likewise.
+	(rs6000_elf_file_end): Emit HWCAP in TCB verification symbol.
+	* config/rs6000/rs6000.h (TLS_REGNUM): New define.
+	* configure.ac (gcc_cv_libc_provides_hwcap_in_tcb): New test.
+	* configure: Regenerate.
+	* config.in: Likewise.
+	* doc/extend.texi (PowerPC Built-in Functions): Document
+	__builtin_cpu_init, __builtin_cpu_is and __builtin_cpu_supports.
+
+2016-01-20  David Edelsohn  <dje.gcc@gmail.com>
+
+	PR target/68609
+	* config/rs6000/rs6000.c (rs6000_emit_swsqrt): Add vector sqrt
+	domain check.
+	* config/rs6000/vector.md (sqrt<mode>2): Call rs6000_emit_swsqrt
+	for V4SFmode.
+
+2016-01-20  Richard Henderson  <rth@redhat.com>
+
+	PR bootstrap/69343
+	PR bootstrap/69339
+	PR tree-opt/68964
+	Revert:
+	* tree.c (tm_define_builtin): New.
+	(find_tm_vector_type): New.
+	(build_tm_vector_builtins): New.
+	(build_common_builtin_nodes): Call it.
+
+2016-01-20  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* doc/sourcebuild.texi (arm_crypto_pragma_ok): Document new entry.
+	(arm_fp_ok): Likewise.
+	(arm_fp): Likewise.
+	(arm_crypto): Likewise.
+
 2016-01-20  Ilya Enkovich  <enkovich.gnu@gmail.com>
 	    Richard Biener  <rguenther@suse.de>
 
@@ -25,7 +431,7 @@
 	(pc_or_label_operand): New predicate.
 	* config/m68k/m68k.md: Add new peephole2 patterns for GTU/LEU
 	tests for small integers that are 2^n - 1.
-	
+
 2016-01-20  Jonathan Wakely  <jwakely@redhat.com>
 
 	* doc/invoke.texi (Options Summary): Add '.' after @xref.

@@ -4172,10 +4172,8 @@ value:'
     ;;
 
   powerpc*-*-*)
+
     case $target in
-      *-*-aix*) conftest_s='	.machine "pwr5"
-	.csect .text[[PR]]
-	mfcr 3,128';;
       *-*-darwin*)
 	gcc_GAS_CHECK_FEATURE([.machine directive support],
 	  gcc_cv_as_machine_directive,,,
@@ -4185,7 +4183,14 @@ value:'
 	  echo you can get it from: ftp://gcc.gnu.org/pub/gcc/infrastructure/cctools-528.5.dmg >&2
 	  test x$build = x$target && exit 1
 	fi
-	conftest_s='	.text
+        ;;
+    esac
+
+    case $target in
+      *-*-aix*) conftest_s='	.machine "pwr5"
+	.csect .text[[PR]]
+	mfcr 3,128';;
+      *-*-darwin*) conftest_s='	.text
 	mfcr r3,128';;
       *) conftest_s='	.machine power4
 	.text
@@ -4396,7 +4401,7 @@ LCF0:
 
     case $target in
       *-*-aix*)
-	gcc_GAS_CHECK_FEATURE([.ref support],
+	gcc_GAS_CHECK_FEATURE([AIX .ref support],
 	  gcc_cv_as_aix_ref, [2,21,0],,
 	  [	.csect stuff[[rw]]
 	     stuff:
@@ -4406,17 +4411,15 @@ LCF0:
 	  ],,
 	  [AC_DEFINE(HAVE_AS_REF, 1,
 	    [Define if your assembler supports .ref])])
-	;;
-    esac
 
-    case $target in
-      *-*-aix*)
-	gcc_GAS_CHECK_FEATURE([dwarf location lists section support],
+	gcc_GAS_CHECK_FEATURE([AIX DWARF location lists section support],
 	  gcc_cv_as_aix_dwloc, [2,21,0],,
-	  [	.dwsect 0xB0000
+	  [	.dwsect 0xA0000
+	Lframe..0:
+		.vbyte 4,Lframe..0:
 	  ],,
 	  [AC_DEFINE(HAVE_XCOFF_DWARF_EXTRAS, 1,
-	    [Define if your assembler supports .dwsect 0xB0000])])
+	    [Define if your assembler supports AIX debug frame section label reference.])])
 	;;
     esac
     ;;
@@ -5542,6 +5545,19 @@ esac
 if test x$gcc_cv_target_ldbl128 = xyes; then
   AC_DEFINE(TARGET_DEFAULT_LONG_DOUBLE_128, 1,
 	    [Define if TFmode long double should be the default])
+fi
+
+# Check if the target LIBC supports exporting the AT_PLATFORM and AT_HWCAP
+# values in the TCB.  Currently, only GLIBC 2.23 and later support this.
+gcc_cv_libc_provides_hwcap_in_tcb=no
+case "$target" in
+  powerpc*-*-linux*)
+    GCC_GLIBC_VERSION_GTE_IFELSE([2], [23], [gcc_cv_libc_provides_hwcap_in_tcb=yes], )
+    ;;
+esac
+if test x$gcc_cv_libc_provides_hwcap_in_tcb = xyes; then
+  AC_DEFINE(TARGET_LIBC_PROVIDES_HWCAP_IN_TCB, 1,
+	    [Define if your target C Library provides the AT_HWCAP value in the TCB])
 fi
 
 AC_MSG_CHECKING(dl_iterate_phdr in target C library)
