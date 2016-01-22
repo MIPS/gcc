@@ -1,3 +1,9 @@
+2016-01-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/atomic_capture-1.c: Don't
+	assume atomic op ordering.
+	* testsuite/libgomp.oacc-fortran/atomic_capture-1.f90: Likewise.
+
 2016-01-22  James Norris  <jnorris@codesourcery.com>
 
 	* oacc-mem.c (delete_copyout, update_dev_host): Fix device address.

@@ -257,7 +257,6 @@ program main
     end do
   !$acc end parallel loop
 
-  if (itmp /= iexp - 1) call abort
   if (igot /= iexp) call abort
 
   igot = N
@@ -272,7 +271,6 @@ program main
     end do
   !$acc end parallel loop
 
-  if (itmp /= iexp) call abort
   if (igot /= iexp) call abort
 
   igot = -1
@@ -288,7 +286,6 @@ program main
     end do
   !$acc end parallel loop
 
-  if (itmp /= ibset (iexp, N - 1)) call abort
   if (igot /= iexp) call abort
 
   igot = 0
@@ -304,7 +301,6 @@ program main
     end do
   !$acc end parallel loop
 
-  if (itmp /= ieor (iexp, lshift (1, N - 1))) call abort
   if (igot /= iexp) call abort
 
   igot = -1
@@ -320,7 +316,6 @@ program main
     end do
   !$acc end parallel loop
 
-  if (itmp /= ior (iexp, lshift (1, N - 1))) call abort
   if (igot /= iexp) call abort
 
   igot = 1
@@ -335,7 +330,6 @@ program main
     end do
   !$acc end parallel loop
 
-  if (itmp /= iexp - 1) call abort
   if (igot /= iexp) call abort
 
   igot = N
@@ -350,7 +344,6 @@ program main
     end do
   !$acc end parallel loop
 
-  if (itmp /= iexp) call abort
   if (igot /= iexp) call abort
 
   igot = -1
@@ -366,7 +359,6 @@ program main
     end do
   !$acc end parallel loop
 
-  if (itmp /= ibset (iexp, N - 1)) call abort
   if (igot /= iexp) call abort
 
   igot = 0
@@ -382,7 +374,6 @@ program main
     end do
   !$acc end parallel loop
 
-  if (itmp /= ieor (iexp, lshift (1, N - 1))) call abort
   if (igot /= iexp) call abort
 
   igot = -1
@@ -398,7 +389,6 @@ program main
     end do
   !$acc end parallel loop
 
-  if (itmp /= ior (iexp, lshift (1, N - 1))) call abort
   if (igot /= iexp) call abort
 
   fgot = 1234.0
@@ -525,7 +515,6 @@ program main
     end do
   !$acc end parallel loop
 
-  if (ftmp /= fexp) call abort
   if (fgot /= fexp) call abort
 
   fgot = 1.0
