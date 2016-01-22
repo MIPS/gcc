@@ -1938,6 +1938,11 @@ standard_type_bitsize (int bitsize)
 static void
 do_compile ()
 {
+  /* process_options () performs target-specific initialization.  Upon
+     return from process_options (), Pmode has a meaningful value. */
+  process_options ();
+  finish_deferred_option_handling ();
+
   /* Don't do any more if an error has already occurred.  */
   if (!seen_error ())
     {
@@ -2069,11 +2074,6 @@ toplev::main (int argc, char **argv)
   decode_options (&global_options, &global_options_set,
 		  save_decoded_options, save_decoded_options_count,
 		  UNKNOWN_LOCATION, global_dc);
-
-  /* process_options() must execute before handle_common_deferred_options()
-     because handle_common_deferred_options() makes use of variables
-     initialized by process_options() (e.g. Pmode) */
-  process_options ();
 
   handle_common_deferred_options ();
 
