@@ -1,5 +1,8 @@
 2016-01-22  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* testsuite/libgomp.oacc-c-c++-common/loop-auto-1.c: Adjust
+	expected partitioning.
+
 	* testsuite/libgomp.oacc-c-c++-common/atomic_capture-1.c: Don't
 	assume atomic op ordering.
 	* testsuite/libgomp.oacc-fortran/atomic_capture-1.f90: Likewise.
