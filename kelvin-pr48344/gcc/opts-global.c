@@ -449,7 +449,8 @@ handle_common_deferred_options (void)
 /* Finish handling options that handle_common_deferred_options () left
    unhandled because target-specific initialization had not yet been
    completed. */
-void finish_deferred_option_handling()
+void 
+finish_deferred_option_handling (void)
 {
   if (opt_fstack_limit_symbol_arg != NULL)
     stack_limit_rtx 
