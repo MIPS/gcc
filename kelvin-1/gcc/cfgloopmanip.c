@@ -43,7 +43,7 @@ along with GCC; see the file COPYING3.  If not see
       sum of incoming edge frequencies for the loop header block.
    b. The sum of predecessor edge frequencies for every block
       in the loop equals the frequency of that block. */
-#define KELVIN_NOISE
+#undef KELVIN_NOISE
 #ifdef KELVIN_NOISE
 #include "kelvin-debugs.c"
 #endif
@@ -680,6 +680,11 @@ check_loop_frequency_integrity (struct loop *loop_ptr)
   basic_block* loop_body = get_loop_body (loop_ptr);
   basic_block header;
   unsigned int i, k;
+
+#ifdef KELVIN_NOISE
+  fprintf (stderr, "check_loop_frequency_integrity\n");
+  kdn_dump_all_blocks (stderr, loop_ptr);
+#endif
 
   for (k = 0; k < loop_ptr->num_nodes; k++)
     {

@@ -45,7 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "dumpfile.h"
 
-#define KELVIN_NOISE
+#undef KELVIN_NOISE
 #ifdef KELVIN_NOISE
 #define INCLUDE_DUMP_LOOP
 #define INCLUDE_DUMP_NITER_DESC
