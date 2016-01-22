@@ -1,3 +1,10 @@
+2016-01-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* c-c++-common/goacc/reduction-1.c: Explicit vector partitioning.
+	* c-c++-common/goacc/reduction-3.c: Likewise.
+	* c-c++-common/goacc/reduction-2.c: Likewise.
+	* c-c++-common/goacc/reduction-4.c: Likewise.
+
 2016-01-20  Tom de Vries  <tom@codesourcery.com>
 
 	* gfortran.dg/goacc/reduction-2.f95: Remove scans related to reductions

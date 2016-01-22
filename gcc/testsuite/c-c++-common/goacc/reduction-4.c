@@ -12,13 +12,13 @@ main(void)
 
   /* '+' reductions.  */
 #pragma acc parallel vector_length (vl)
-#pragma acc loop reduction (+:result)
+#pragma acc loop vector reduction (+:result)
   for (i = 0; i < n; i++)
     result += array[i];
 
   /* '*' reductions.  */
 #pragma acc parallel vector_length (vl)
-#pragma acc loop reduction (*:result)
+#pragma acc loop vector reduction (*:result)
   for (i = 0; i < n; i++)
     result *= array[i];
 
@@ -26,7 +26,7 @@ main(void)
 #if 0
   // error: 'result' has invalid type for 'reduction(max)'
 #pragma acc parallel vector_length (vl)
-#pragma acc loop reduction (max:result)
+#pragma acc loop vector reduction (max:result)
   for (i = 0; i < n; i++)
     result = result > array[i] ? result : array[i];
 #endif
@@ -35,20 +35,20 @@ main(void)
 #if 0
   // error: 'result' has invalid type for 'reduction(min)'
 #pragma acc parallel vector_length (vl)
-#pragma acc loop reduction (min:result)
+#pragma acc loop vector reduction (min:result)
   for (i = 0; i < n; i++)
     result = result < array[i] ? result : array[i];
 #endif
 
   /* '&&' reductions.  */
 #pragma acc parallel vector_length (vl)
-#pragma acc loop reduction (&&:lresult)
+#pragma acc loop vector reduction (&&:lresult)
   for (i = 0; i < n; i++)
     lresult = lresult && (__real__(result) > __real__(array[i]));
 
   /* '||' reductions.  */
 #pragma acc parallel vector_length (vl)
-#pragma acc loop reduction (||:lresult)
+#pragma acc loop vector reduction (||:lresult)
   for (i = 0; i < n; i++)
     lresult = lresult || (__real__(result) > __real__(array[i]));
 
