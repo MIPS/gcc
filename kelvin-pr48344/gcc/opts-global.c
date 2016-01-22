@@ -311,7 +311,7 @@ decode_options (struct gcc_options *opts, struct gcc_options *opts_set,
 }
 
 static const char *opt_fstack_limit_symbol_arg = NULL;
-static const char *opt_fstack_limit_register_arg = NULL;
+static int opt_fstack_limit_register_no = -1;
 
 /* Process common options that have been deferred until after the
    handlers have been called for all options.  */
@@ -420,7 +420,7 @@ handle_common_deferred_options (void)
 	    if (reg < 0)
 	      error ("unrecognized register name %qs", opt->arg);
 	    else
-	      opt_fstack_limit_register_arg = opt->arg;
+	      opt_fstack_limit_register_no = reg;
 	  }
 	  break;
 
@@ -456,7 +456,6 @@ finish_deferred_option_handling (void)
     stack_limit_rtx 
       = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (opt_fstack_limit_symbol_arg));
 
-  if (opt_fstack_limit_register_arg != NULL)
-    stack_limit_rtx 
-      = gen_rtx_REG (Pmode, decode_reg_name (opt_fstack_limit_register_arg));
+  if (opt_fstack_limit_register_no >= 0)
+    stack_limit_rtx = gen_rtx_REG (Pmode, opts_fstack_limit_register_no);
 }
