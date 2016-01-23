@@ -1,4 +1,99 @@
+2016-01-22  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/pr63354c: Adjust target selector to include
+	32-bit targets testing an -m64 multilib.
+
+2016-01-22  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/pr63354.c: Restrict to Linux targets with
+	64-bit support.
+
+2016-01-22  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.dg/vect/bb-slp-pr68892.c: Require vect_double.
+
+2016-01-21  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/68674
+	* gcc.target/i386/pr68674.c
+	* gcc.target/aarch64/pr68674.c
+	* gcc.target/arm/pr68674.c
+
+2016-01-22  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/69403
+	* gcc.c-torture/execute/pr69403.c: New test.
+
+2016-01-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/55843
+	* g++.dg/template/pr55843.C: New.
+
+2016-01-22  Alan Lawrence  <alan.lawrence@arm.com>
+
+	PR testsuite/66877
+	* gcc.dg/vect/vect-over-widen-3-big-array.c: Only look for 1
+	vect_recog_over_widening_pattern in dump if we have vect_widen_shift.
+
+2016-01-21  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR testsuite/67489
+	* gcc.target/powerpc/p8vector-builtin-8.c: Remove { target int128
+	} from dg-do compile directive, and instead add {
+	dg-require-effective-target int128 }.
+
+2016-01-20  Martin Sebor  <msebor@redhat.com>
+
+	PR c/69405
+	* gcc.dg/sync-fetch.c: New test.
+
+2016-01-21  Martin Sebor  <msebor@redhat.com>
+
+	PR target/69252
+	* gcc.target/powerpc/pr69252.c: New test.
+
+2016-01-21  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/65996
+	gfortran.dg/pr65996.f90: New test.
+
+2016-01-21  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	PR c++/68810
+	* g++.dg/cpp0x/constexpr-reinterpret1.C: Fix line number that is
+	expected to generate an error.
+
+2016-01-21  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR middle-end/66178
+	* gcc.dg/torture/pr66178.c: New test.
+
+2016-01-21  Anton Blanchard  <anton@samba.org>
+	    Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/63354
+	* gcc.target/powerpc/pr63354.c:  New test.
+
+2016-01-21  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/68990
+	* gcc.target/i386/pr68990: New.
+
+2016-01-21  Nick Clifton  <nickc@redhat.com>
+
+	PR target/69129
+	* gcc.target/mips/pr69129.c: New.
+
+2016-01-21  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58046
+	* g++.dg/cpp0x/pr58046.C: New.
+
 2016-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/69187
+	PR target/65624
+	* gcc.target/arm/pr69187.c: New test.
 
 	PR c++/69355
 	* g++.dg/torture/pr69355.C: New test.

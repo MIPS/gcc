@@ -11595,9 +11595,13 @@ type_is_deprecated (tree type)
   enum tree_code code;
   if (TREE_DEPRECATED (type))
     return type;
-  if (TYPE_NAME (type)
-      && TREE_DEPRECATED (TYPE_NAME (type)))
-    return type;
+  if (TYPE_NAME (type))
+    {
+      if (TREE_DEPRECATED (TYPE_NAME (type)))
+	return type;
+      else
+	return NULL_TREE;
+    }
 
   /* Do warn about using typedefs to a deprecated class.  */
   if (OVERLOAD_TYPE_P (type) && type != TYPE_MAIN_VARIANT (type))
@@ -13030,8 +13034,12 @@ copy_type_enum (tree dst, tree src)
       TYPE_SIZE_UNIT (t) = TYPE_SIZE_UNIT (src);
       SET_TYPE_MODE (dst, TYPE_MODE (src));
       TYPE_PRECISION (t) = TYPE_PRECISION (src);
-      TYPE_ALIGN (t) = TYPE_ALIGN (src);
-      TYPE_USER_ALIGN (t) = TYPE_USER_ALIGN (src);
+      unsigned valign = TYPE_ALIGN (src);
+      if (TYPE_USER_ALIGN (t))
+	valign = MAX (valign, TYPE_ALIGN (t));
+      else
+	TYPE_USER_ALIGN (t) = TYPE_USER_ALIGN (src);
+      TYPE_ALIGN (t) = valign;
       TYPE_UNSIGNED (t) = TYPE_UNSIGNED (src);
     }
 }
@@ -13045,6 +13053,8 @@ copy_type_enum (tree dst, tree src)
    the enumeration type. This should be NULL_TREE if no storage type
    was specified.
 
+   ATTRIBUTES are any attributes specified after the enum-key.
+
    SCOPED_ENUM_P is true if this is a scoped enumeration type.
 
    if IS_NEW is not NULL, gets TRUE iff a new type is created.
@@ -13055,7 +13065,7 @@ copy_type_enum (tree dst, tree src)
 
 tree
 start_enum (tree name, tree enumtype, tree underlying_type,
-	    bool scoped_enum_p, bool *is_new)
+	    tree attributes, bool scoped_enum_p, bool *is_new)
 {
   tree prevtype = NULL_TREE;
   gcc_assert (identifier_p (name));
@@ -13162,6 +13172,8 @@ start_enum (tree name, tree enumtype, tree underlying_type,
     }
 
   SET_SCOPED_ENUM_P (enumtype, scoped_enum_p);
+
+  cplus_decl_attributes (&enumtype, attributes, (int)ATTR_FLAG_TYPE_IN_PLACE);
 
   if (underlying_type)
     {

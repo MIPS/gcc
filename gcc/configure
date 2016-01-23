@@ -26021,10 +26021,8 @@ fi
     ;;
 
   powerpc*-*-*)
+
     case $target in
-      *-*-aix*) conftest_s='	.machine "pwr5"
-	.csect .text[PR]
-	mfcr 3,128';;
       *-*-darwin*)
 	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking assembler for .machine directive support" >&5
 $as_echo_n "checking assembler for .machine directive support... " >&6; }
@@ -26057,7 +26055,14 @@ $as_echo "$gcc_cv_as_machine_directive" >&6; }
 	  echo you can get it from: ftp://gcc.gnu.org/pub/gcc/infrastructure/cctools-528.5.dmg >&2
 	  test x$build = x$target && exit 1
 	fi
-	conftest_s='	.text
+        ;;
+    esac
+
+    case $target in
+      *-*-aix*) conftest_s='	.machine "pwr5"
+	.csect .text[PR]
+	mfcr 3,128';;
+      *-*-darwin*) conftest_s='	.text
 	mfcr r3,128';;
       *) conftest_s='	.machine power4
 	.text
@@ -26732,8 +26737,8 @@ fi
 
     case $target in
       *-*-aix*)
-	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking assembler for .ref support" >&5
-$as_echo_n "checking assembler for .ref support... " >&6; }
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking assembler for AIX .ref support" >&5
+$as_echo_n "checking assembler for AIX .ref support... " >&6; }
 if test "${gcc_cv_as_aix_ref+set}" = set; then :
   $as_echo_n "(cached) " >&6
 else
@@ -26771,13 +26776,9 @@ if test $gcc_cv_as_aix_ref = yes; then
 $as_echo "#define HAVE_AS_REF 1" >>confdefs.h
 
 fi
-	;;
-    esac
 
-    case $target in
-      *-*-aix*)
-	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking assembler for dwarf location lists section support" >&5
-$as_echo_n "checking assembler for dwarf location lists section support... " >&6; }
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking assembler for AIX DWARF location lists section support" >&5
+$as_echo_n "checking assembler for AIX DWARF location lists section support... " >&6; }
 if test "${gcc_cv_as_aix_dwloc+set}" = set; then :
   $as_echo_n "(cached) " >&6
 else
@@ -26787,7 +26788,9 @@ else
   then gcc_cv_as_aix_dwloc=yes
 fi
   elif test x$gcc_cv_as != x; then
-    $as_echo '	.dwsect 0xB0000
+    $as_echo '	.dwsect 0xA0000
+	Lframe..0:
+		.vbyte 4,Lframe..0:
 	  ' > conftest.s
     if { ac_try='$gcc_cv_as $gcc_cv_as_flags  -o conftest.o conftest.s >&5'
   { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_try\""; } >&5

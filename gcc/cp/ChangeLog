@@ -1,3 +1,22 @@
+2016-01-21  Jason Merrill  <jason@redhat.com>
+
+	PR c++/69392
+	* lambda.c (lambda_capture_field_type): Handle 'this' specially
+	for init-capture, too.
+
+	PR c++/65687
+	* decl.c (type_is_deprecated): Don't look into a typedef.
+
+	PR c++/40751
+	PR c++/64987
+	* decl.c (copy_type_enum): Respect TYPE_USER_ALIGN.
+
+	PR c++/43407
+	* decl.c (start_enum): Add attributes parameter.
+	* parser.c (cp_parser_enum_specifier): Pass it.
+	* pt.c (lookup_template_class_1): Pass it.
+	* cp-tree.h: Adjust.
+
 2016-01-19  Jason Merrill  <jason@redhat.com>
 
 	PR c++/59759
