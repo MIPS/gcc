@@ -8824,11 +8824,45 @@ mips_expand_call (enum mips_call_type type, rtx result, rtx addr,
   insn = mips16_build_call_stub (result, &addr, args_size, fp_code);
   if (insn)
     {
-      gcc_assert (!lazy_p && type == MIPS_CALL_NORMAL);
+      gcc_assert (!lazy_p && (type == MIPS_CALL_NORMAL
+			      || (type == MIPS_CALL_SIBCALL
+				  && TARGET_MIPS16
+				  && (TARGET_MIPS16_TAIL_INDIRECT
+				      || TARGET_MIPS16_TAIL_BRANCH))));
       return insn;
     }
 
   orig_addr = addr;
+
+  if (TARGET_MIPS16
+      && (TARGET_MIPS16_TAIL_INDIRECT
+	  || TARGET_MIPS16_TAIL_BRANCH)
+      && type == MIPS_CALL_SIBCALL
+      && GET_CODE (addr) == SYMBOL_REF
+      && !const_sibcall_insn_operand (addr, VOIDmode)
+      && (!TARGET_ABICALLS || (TARGET_ABICALLS && TARGET_ABSOLUTE_ABICALLS
+			       && mips_symbol_binds_local_p (addr))))
+    {
+      rtx high, low_out, local_addr;
+      rtx new_addr = gen_reg_rtx (Pmode);
+
+      /* We want to do a shallow copy to change flags only for this symbol.  */
+      local_addr = shallow_copy_rtx (addr);
+      SYMBOL_REF_FLAGS (local_addr) |= SYMBOL_FLAG_LONG_CALL;
+
+      if (mips_code_readable == CODE_READABLE_NO)
+	{
+	  high = gen_rtx_HIGH (Pmode, local_addr);
+	  mips_emit_move (new_addr, high);
+	  low_out = gen_rtx_LO_SUM (Pmode, new_addr, local_addr);
+	  mips_emit_move (new_addr, low_out);
+	}
+      else
+	mips_emit_move (new_addr, local_addr);
+
+      addr = new_addr;
+    }
+
   if (!call_insn_operand (addr, VOIDmode))
     {
       if (type == MIPS_CALL_EPILOGUE)
@@ -8899,7 +8933,7 @@ mips_split_call (rtx insn, rtx call_pattern)
 
 /* Return true if a call to DECL may need to use JALX.  */
 
-static bool
+bool
 mips_call_may_need_jalx_p (tree decl)
 {
   /* If the current translation unit would use a different mode for DECL,
@@ -8944,7 +8978,7 @@ mips_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
   /* Direct Js are only possible to functions that use the same ISA encoding.
      There is no JX counterpoart of JALX.  */
   if (decl
-      && const_call_insn_operand (XEXP (DECL_RTL (decl), 0), VOIDmode)
+      && const_sibcall_insn_operand (XEXP (DECL_RTL (decl), 0), VOIDmode)
       && mips_call_may_need_jalx_p (decl))
     return false;
 
@@ -15101,7 +15135,10 @@ mips_output_jump (rtx *operands, int target_opno, int size_opno, bool link_p)
   const char *compact = "";
   const char *nop = "%/";
   const char *short_delay = link_p ? "%!" : "";
-  const char *insn_name = TARGET_CB_NEVER || reg_p ? "j" : "b";
+  const char *insn_name = (TARGET_CB_NEVER
+			   && (!(TARGET_MIPS16 && TARGET_MIPS16_TAIL_BRANCH)
+			       || link_p)
+			   || reg_p ? "j" : "b");
 
   /* Compact branches can only be described when the ISA has support for them
      as both the compact formatter '%:' and the delay slot NOP formatter '%/'
@@ -20661,7 +20698,7 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   /* Determine if we can use a sibcall to call FUNCTION directly.  */
   fnaddr = XEXP (DECL_RTL (function), 0);
   use_sibcall_p = (mips_function_ok_for_sibcall (function, NULL)
-		   && const_call_insn_operand (fnaddr, Pmode));
+		   && const_sibcall_insn_operand (fnaddr, Pmode));
 
   /* Determine if we need to load FNADDR from the GOT.  */
   if (!use_sibcall_p

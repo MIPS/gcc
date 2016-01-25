@@ -154,7 +154,10 @@ struct mips_cpu_info {
       - TARGET_USE_GOT && !TARGET_EXPLICIT_RELOCS.  call_insn_operand
 	accepts global constants, but all sibcalls must be indirect.  */
 #define TARGET_SIBCALLS \
-  (!TARGET_MIPS16 && (!TARGET_USE_GOT || TARGET_EXPLICIT_RELOCS))
+  ((!TARGET_MIPS16							\
+    || (TARGET_MIPS16 && (TARGET_MIPS16_TAIL_INDIRECT			\
+			  || TARGET_MIPS16_TAIL_BRANCH)))		\
+   && (!TARGET_USE_GOT || TARGET_EXPLICIT_RELOCS))
 
 /* True if we need to use a global offset table to access some symbols.  */
 #define TARGET_USE_GOT (TARGET_ABICALLS || TARGET_RTP_PIC)
@@ -2054,6 +2057,7 @@ struct mips_cpu_info {
 enum reg_class
 {
   NO_REGS,			/* no registers in set */
+  M16_TAIL_REGS,		/* mips sibling call registers  */
   M16_STORE_REGS,		/* microMIPS store registers  */
   M16_REGS,			/* mips16 directly accessible registers */
   M16_SP_REGS,			/* mips16 + $sp */
@@ -2094,9 +2098,10 @@ enum reg_class
 #define REG_CLASS_NAMES							\
 {									\
   "NO_REGS",								\
+  "M16_TAIL_REGS",							\
   "M16_STORE_REGS",							\
   "M16_REGS",								\
-  "M16_SP_REGS",								\
+  "M16_SP_REGS",							\
   "T_REG",								\
   "M16_T_REGS",								\
   "PIC_FN_ADDR_REG",							\
@@ -2137,9 +2142,10 @@ enum reg_class
 #define REG_CLASS_CONTENTS						                                \
 {									                                \
   { 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* NO_REGS */		\
+  { 0x000000fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_TAIL_REGS */	\
   { 0x000200fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_STORE_REGS */	\
   { 0x000300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_REGS */		\
-  { 0x200300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_SP_REGS */		\
+  { 0x200300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_SP_REGS */	\
   { 0x01000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* T_REG */		\
   { 0x010300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_T_REGS */	\
   { 0x02000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* PIC_FN_ADDR_REG */	\
