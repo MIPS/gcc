@@ -13786,10 +13786,7 @@ c_parser_oacc_declare (c_parser *parser)
 		    {
 		      g->have_offload = true;
 		      if (is_a <varpool_node *> (node))
-			{
-			  vec_safe_push (offload_vars, decl);
-			  node->force_output = 1;
-			}
+			vec_safe_push (offload_vars, decl);
 		    }
 		}
 	    }
@@ -16703,10 +16700,7 @@ c_parser_omp_declare_target (c_parser *parser)
 		{
 		  g->have_offload = true;
 		  if (is_a <varpool_node *> (node))
-		    {
-		      vec_safe_push (offload_vars, t);
-		      node->force_output = 1;
-		    }
+		    vec_safe_push (offload_vars, t);
 		}
 	    }
 	}

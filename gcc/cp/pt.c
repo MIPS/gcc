@@ -12292,8 +12292,13 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    SET_DECL_IMPLICIT_INSTANTIATION (r);
 	    register_specialization (r, gen_tmpl, argvec, false, hash);
 	  }
-	else if (!cp_unevaluated_operand)
-	  register_local_specialization (r, t);
+	else
+	  {
+	    if (DECL_LANG_SPECIFIC (r))
+	      DECL_TEMPLATE_INFO (r) = NULL_TREE;
+	    if (!cp_unevaluated_operand)
+	      register_local_specialization (r, t);
+	  }
 
 	DECL_CHAIN (r) = NULL_TREE;
 
@@ -17729,6 +17734,23 @@ fn_type_unification (tree fn,
   return r;
 }
 
+/* TYPE is the type of a function parameter.  If TYPE is a (dependent)
+   ARRAY_TYPE, return the corresponding POINTER_TYPE to which it decays.
+   Otherwise return TYPE.  (We shouldn't see non-dependent ARRAY_TYPE
+   parameters because they get decayed as soon as they are declared.)  */
+
+static tree
+decay_dependent_array_parm_type (tree type)
+{
+  if (TREE_CODE (type) == ARRAY_TYPE)
+    {
+      gcc_assert (uses_template_parms (type));
+      return type_decays_to (type);
+    }
+
+  return type;
+}
+
 /* Adjust types before performing type deduction, as described in
    [temp.deduct.call] and [temp.deduct.conv].  The rules in these two
    sections are symmetric.  PARM is the type of a function parameter
@@ -18166,6 +18188,8 @@ type_unification_real (tree tparms,
 
       arg = args[ia];
       ++ia;
+
+      parm = decay_dependent_array_parm_type (parm);
 
       if (unify_one_argument (tparms, targs, parm, arg, subr, strict,
 			      explain_p))
@@ -20169,6 +20193,9 @@ more_specialized_fn (tree pat1, tree pat2, int len)
           len = 0;
         }
 
+      arg1 = decay_dependent_array_parm_type (arg1);
+      arg2 = decay_dependent_array_parm_type (arg2);
+
       if (TREE_CODE (arg1) == REFERENCE_TYPE)
 	{
 	  ref1 = TYPE_REF_IS_RVALUE (arg1) + 1;
@@ -20454,7 +20481,10 @@ get_bindings (tree fn, tree decl, tree explicit_args, bool check_rettype)
   for (arg = decl_arg_types, ix = 0;
        arg != NULL_TREE && arg != void_list_node;
        arg = TREE_CHAIN (arg), ++ix)
-    args[ix] = TREE_VALUE (arg);
+    {
+      args[ix] = TREE_VALUE (arg);
+      args[ix] = decay_dependent_array_parm_type (args[ix]);
+    }
 
   if (fn_type_unification (fn, explicit_args, targs,
 			   args, ix,
@@ -22759,12 +22789,12 @@ type_dependent_expression_p (tree expression)
 	      || dependent_scope_p (scope));
     }
 
+  /* A function template specialization is type-dependent if it has any
+     dependent template arguments.  */
   if (TREE_CODE (expression) == FUNCTION_DECL
       && DECL_LANG_SPECIFIC (expression)
-      && DECL_TEMPLATE_INFO (expression)
-      && (any_dependent_template_arguments_p
-	  (INNERMOST_TEMPLATE_ARGS (DECL_TI_ARGS (expression)))))
-    return true;
+      && DECL_TEMPLATE_INFO (expression))
+    return any_dependent_template_arguments_p (DECL_TI_ARGS (expression));
 
   if (TREE_CODE (expression) == TEMPLATE_DECL
       && !DECL_TEMPLATE_TEMPLATE_PARM_P (expression))

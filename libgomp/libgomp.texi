@@ -94,35 +94,34 @@ changed to GNU Offloading and Multi Processing Runtime Library.
 @comment  better formatting.
 @comment
 @menu
-* Enabling OpenMP::                  How to enable OpenMP for your
-                                     applications.
+* Enabling OpenMP::            How to enable OpenMP for your applications.
 * OpenMP Runtime Library Routines: Runtime Library Routines.
-                                     The OpenMP runtime application programming
-                                     interface.
+                               The OpenMP runtime application programming
+                               interface.
 * OpenMP Environment Variables: Environment Variables.
-                                     Influencing OpenMP runtime behavior with
-                                     environment variables.
-* Enabling OpenACC::                 How to enable OpenACC for your
-                                     applications.
+                               Influencing OpenMP runtime behavior with
+                               environment variables.
+* Enabling OpenACC::           How to enable OpenACC for your
+                               applications.
 * OpenACC Runtime Library Routines:: The OpenACC runtime application
-                                      programming interface.
-* OpenACC Environment Variables::    Influencing OpenACC runtime behavior with
-                                     environment variables.
-* CUDA Streams Usage::               Notes on the implementation of
-                                     asynchronous operations.
+                               programming interface.
+* OpenACC Environment Variables:: Influencing OpenACC runtime behavior with
+                               environment variables.
+* CUDA Streams Usage::         Notes on the implementation of
+                               asynchronous operations.
 * OpenACC Library Interoperability:: OpenACC library interoperability with the
-                                     NVIDIA CUBLAS library.
-* The libgomp ABI::                  Notes on the external libgomp ABI.
-* Reporting Bugs::                   How to report bugs in the GNU Offloading
-                                     and Multi Processing Runtime Library.
-* Copying::                          GNU general public license says how you
-                                     can copy and share libgomp.
-* GNU Free Documentation License::   How you can copy and share this manual.
-* Funding::                          How to help assure continued work for free
-                                     software.
-* Library Index::                    Index of this documentation.
+                               NVIDIA CUBLAS library.
+* The libgomp ABI::            Notes on the external ABI presented by libgomp.
+* Reporting Bugs::             How to report bugs in the GNU Offloading and
+                               Multi Processing Runtime Library.
+* Copying::                    GNU general public license says
+                               how you can copy and share libgomp.
+* GNU Free Documentation License::
+                               How you can copy and share this manual.
+* Funding::                    How to help assure continued work for free 
+                               software.
+* Library Index::              Index of this documentation.
 @end menu
-
 
 
 @c ---------------------------------------------------------------------

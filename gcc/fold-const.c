@@ -2182,11 +2182,8 @@ fold_convertible_p (const_tree type, const_tree arg)
     case INTEGER_TYPE: case ENUMERAL_TYPE: case BOOLEAN_TYPE:
     case POINTER_TYPE: case REFERENCE_TYPE:
     case OFFSET_TYPE:
-      if (INTEGRAL_TYPE_P (orig) || POINTER_TYPE_P (orig)
-	  || TREE_CODE (orig) == OFFSET_TYPE)
-        return true;
-      return (TREE_CODE (orig) == VECTOR_TYPE
-	      && tree_int_cst_equal (TYPE_SIZE (type), TYPE_SIZE (orig)));
+      return (INTEGRAL_TYPE_P (orig) || POINTER_TYPE_P (orig)
+	      || TREE_CODE (orig) == OFFSET_TYPE);
 
     case REAL_TYPE:
     case FIXED_POINT_TYPE:
@@ -2241,11 +2238,11 @@ fold_convert_loc (location_t loc, tree type, tree arg)
 	return fold_build1_loc (loc, NOP_EXPR, type, arg);
       if (TREE_CODE (orig) == COMPLEX_TYPE)
 	return fold_convert_loc (loc, type,
-			     fold_build1_loc (loc, REALPART_EXPR,
-					  TREE_TYPE (orig), arg));
+				 fold_build1_loc (loc, REALPART_EXPR,
+						  TREE_TYPE (orig), arg));
       gcc_assert (TREE_CODE (orig) == VECTOR_TYPE
 		  && tree_int_cst_equal (TYPE_SIZE (type), TYPE_SIZE (orig)));
-      return fold_build1_loc (loc, NOP_EXPR, type, arg);
+      return fold_build1_loc (loc, VIEW_CONVERT_EXPR, type, arg);
 
     case REAL_TYPE:
       if (TREE_CODE (arg) == INTEGER_CST)
@@ -6449,13 +6446,17 @@ fold_binary_op_with_conditional_arg (location_t loc,
       if (VOID_TYPE_P (TREE_TYPE (false_value)))
 	rhs = false_value;
     }
-  else
+  else if (!(TREE_CODE (type) != VECTOR_TYPE
+	     && TREE_CODE (TREE_TYPE (cond)) == VECTOR_TYPE))
     {
       tree testtype = TREE_TYPE (cond);
       test = cond;
       true_value = constant_boolean_node (true, testtype);
       false_value = constant_boolean_node (false, testtype);
     }
+  else
+    /* Detect the case of mixing vector and scalar types - bail out.  */
+    return NULL_TREE;
 
   if (TREE_CODE (TREE_TYPE (test)) == VECTOR_TYPE)
     cond_code = VEC_COND_EXPR;
@@ -13987,6 +13988,23 @@ fold_relational_const (enum tree_code code, tree type, tree op0, tree op1)
 
   if (TREE_CODE (op0) == VECTOR_CST && TREE_CODE (op1) == VECTOR_CST)
     {
+      if (!VECTOR_TYPE_P (type))
+	{
+	  /* Have vector comparison with scalar boolean result.  */
+	  bool result = true;
+	  gcc_assert ((code == EQ_EXPR || code == NE_EXPR)
+		      && VECTOR_CST_NELTS (op0) == VECTOR_CST_NELTS (op1));
+	  for (unsigned i = 0; i < VECTOR_CST_NELTS (op0); i++)
+	    {
+	      tree elem0 = VECTOR_CST_ELT (op0, i);
+	      tree elem1 = VECTOR_CST_ELT (op1, i);
+	      tree tmp = fold_relational_const (code, type, elem0, elem1);
+	      result &= integer_onep (tmp);
+	    }
+	  if (code == NE_EXPR)
+	    result = !result;
+	  return constant_boolean_node (result, type);
+	}
       unsigned count = VECTOR_CST_NELTS (op0);
       tree *elts =  XALLOCAVEC (tree, count);
       gcc_assert (VECTOR_CST_NELTS (op1) == count

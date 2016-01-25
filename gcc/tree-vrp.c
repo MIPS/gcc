@@ -4259,6 +4259,27 @@ adjust_range_with_scev (value_range *vr, struct loop *loop,
 	      /* Likewise if the addition did.  */
 	      if (maxvr.type == VR_RANGE)
 		{
+		  value_range initvr = VR_INITIALIZER;
+
+		  if (TREE_CODE (init) == SSA_NAME)
+		    initvr = *(get_value_range (init));
+		  else if (is_gimple_min_invariant (init))
+		    set_value_range_to_value (&initvr, init, NULL);
+		  else
+		    return;
+
+		  /* Check if init + nit * step overflows.  Though we checked
+		     scev {init, step}_loop doesn't wrap, it is not enough
+		     because the loop may exit immediately.  Overflow could
+		     happen in the plus expression in this case.  */
+		  if ((dir == EV_DIR_DECREASES
+		       && (is_negative_overflow_infinity (maxvr.min)
+			   || compare_values (maxvr.min, initvr.min) != -1))
+		      || (dir == EV_DIR_GROWS
+			  && (is_positive_overflow_infinity (maxvr.max)
+			      || compare_values (maxvr.max, initvr.max) != 1)))
+		    return;
+
 		  tmin = maxvr.min;
 		  tmax = maxvr.max;
 		}
@@ -5046,8 +5067,9 @@ extract_code_and_val_from_cond_with_ops (tree name, enum tree_code cond_code,
   if (invert)
     comp_code = invert_tree_comparison (comp_code, 0);
 
-  /* VRP does not handle float types.  */
-  if (SCALAR_FLOAT_TYPE_P (TREE_TYPE (val)))
+  /* VRP only handles integral and pointer types.  */
+  if (! INTEGRAL_TYPE_P (TREE_TYPE (val))
+      && ! POINTER_TYPE_P (TREE_TYPE (val)))
     return false;
 
   /* Do not register always-false predicates.
@@ -9478,7 +9500,8 @@ simplify_cond_using_ranges (gcond *stmt)
 
       if (TREE_CODE (innerop) == SSA_NAME
 	  && !POINTER_TYPE_P (TREE_TYPE (innerop))
-         && desired_pro_or_demotion_p (TREE_TYPE (innerop), TREE_TYPE (op0)))
+	  && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (innerop)
+	  && desired_pro_or_demotion_p (TREE_TYPE (innerop), TREE_TYPE (op0)))
 	{
 	  value_range *vr = get_value_range (innerop);
 
@@ -9509,8 +9532,8 @@ simplify_cond_using_ranges (gcond *stmt)
 		  else
 		    location = gimple_location (stmt);
 		  warning_at (location, OPT_Wstrict_overflow,
-		      "assuming signed overflow does not occur when "
-		      "simplifying conditional");
+			      "assuming signed overflow does not occur when "
+			      "simplifying conditional");
 		}
 
 	      tree newconst = fold_convert (TREE_TYPE (innerop), op1);
