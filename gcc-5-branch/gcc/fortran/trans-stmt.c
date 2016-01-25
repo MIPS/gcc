@@ -1,5 +1,5 @@
 /* Statement translation -- generate GCC trees from gfc_code.
-   Copyright (C) 2002-2015 Free Software Foundation, Inc.
+   Copyright (C) 2002-2016 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -829,6 +829,17 @@ gfc_trans_lock_unlock (gfc_code *code, gfc_exec_op op)
 				   errmsg, errmsg_len);
       gfc_add_expr_to_block (&se.pre, tmp);
 
+      /* It guarantees memory consistency within the same segment */
+      tmp = gfc_build_string_const (strlen ("memory")+1, "memory"),
+	tmp = build5_loc (input_location, ASM_EXPR, void_type_node,
+			  gfc_build_string_const (1, ""),
+			  NULL_TREE, NULL_TREE,
+			  tree_cons (NULL_TREE, tmp, NULL_TREE),
+			  NULL_TREE);
+      ASM_VOLATILE_P (tmp) = 1;
+
+      gfc_add_expr_to_block (&se.pre, tmp);
+
       if (stat2 != NULL_TREE)
 	gfc_add_modify (&se.pre, stat2,
 			fold_convert (TREE_TYPE (stat2), stat));
@@ -929,6 +940,20 @@ gfc_trans_sync (gfc_code *code, gfc_exec_op type)
 			       &code->expr1->where, "Invalid image number "
 			       "%d in SYNC IMAGES",
 			       fold_convert (integer_type_node, images));
+    }
+
+  /* Per F2008, 8.5.1, a SYNC MEMORY is implied by calling the
+     image control statements SYNC IMAGES and SYNC ALL.  */
+  if (flag_coarray == GFC_FCOARRAY_LIB)
+    {
+      tmp = gfc_build_string_const (strlen ("memory")+1, "memory"),
+	tmp = build5_loc (input_location, ASM_EXPR, void_type_node,
+			  gfc_build_string_const (1, ""),
+			  NULL_TREE, NULL_TREE,
+			  tree_cons (NULL_TREE, tmp, NULL_TREE),
+			  NULL_TREE);
+      ASM_VOLATILE_P (tmp) = 1;
+      gfc_add_expr_to_block (&se.pre, tmp);
     }
 
   if (flag_coarray != GFC_FCOARRAY_LIB)
@@ -1250,6 +1275,17 @@ gfc_trans_critical (gfc_code *code)
 				 null_pointer_node, null_pointer_node,
 				 null_pointer_node, integer_zero_node);
       gfc_add_expr_to_block (&block, tmp);
+
+      /* It guarantees memory consistency within the same segment */
+      tmp = gfc_build_string_const (strlen ("memory")+1, "memory"),
+	tmp = build5_loc (input_location, ASM_EXPR, void_type_node,
+			  gfc_build_string_const (1, ""),
+			  NULL_TREE, NULL_TREE,
+			  tree_cons (NULL_TREE, tmp, NULL_TREE),
+			  NULL_TREE);
+      ASM_VOLATILE_P (tmp) = 1;
+
+      gfc_add_expr_to_block (&block, tmp);
     }
 
   tmp = gfc_trans_code (code->block->next);
@@ -1262,8 +1298,18 @@ gfc_trans_critical (gfc_code *code)
 				 null_pointer_node, null_pointer_node,
 				 integer_zero_node);
       gfc_add_expr_to_block (&block, tmp);
-    }
 
+      /* It guarantees memory consistency within the same segment */
+      tmp = gfc_build_string_const (strlen ("memory")+1, "memory"),
+	tmp = build5_loc (input_location, ASM_EXPR, void_type_node,
+			  gfc_build_string_const (1, ""),
+			  NULL_TREE, NULL_TREE,
+			  tree_cons (NULL_TREE, tmp, NULL_TREE),
+			  NULL_TREE);
+      ASM_VOLATILE_P (tmp) = 1;
+
+      gfc_add_expr_to_block (&block, tmp);
+    }
 
   return gfc_finish_block (&block);
 }
@@ -5073,6 +5119,7 @@ gfc_trans_allocate (gfc_code * code)
   tree label_finish;
   tree memsz;
   tree al_vptr, al_len;
+  tree def_str_len = NULL_TREE;
   /* If an expr3 is present, then store the tree for accessing its
      _vptr, and _len components in the variables, respectively.  The
      element size, i.e. _vptr%size, is stored in expr3_esize.  Any of
@@ -5335,6 +5382,7 @@ gfc_trans_allocate (gfc_code * code)
 	  expr3_esize = fold_build2_loc (input_location, MULT_EXPR,
 					 TREE_TYPE (se_sz.expr),
 					 tmp, se_sz.expr);
+	  def_str_len = gfc_evaluate_now (se_sz.expr, &block);
 	}
     }
 
@@ -5386,6 +5434,17 @@ gfc_trans_allocate (gfc_code * code)
 
       se.want_pointer = 1;
       se.descriptor_only = 1;
+
+      if (expr->ts.type == BT_CHARACTER
+	  && expr->ts.deferred
+	  && TREE_CODE (expr->ts.u.cl->backend_decl) == VAR_DECL
+	  && def_str_len != NULL_TREE)
+	{
+	  tmp = expr->ts.u.cl->backend_decl;
+	  gfc_add_modify (&block, tmp,
+			  fold_convert (TREE_TYPE (tmp), def_str_len));
+	}
+
       gfc_conv_expr (&se, expr);
       if (expr->ts.type == BT_CHARACTER && expr->ts.deferred)
 	/* se.string_length now stores the .string_length variable of expr
