@@ -3588,16 +3588,6 @@ convert_scalars_to_vector ()
   bitmap_obstack_release (NULL);
   df_process_deferred_rescans ();
 
-  /* Conversion means we may have 128bit register spills/fills
-     which require aligned stack.  */
-  if (converted_insns)
-    {
-      if (crtl->stack_alignment_needed < 128)
-	crtl->stack_alignment_needed = 128;
-      if (crtl->stack_alignment_estimated < 128)
-	crtl->stack_alignment_estimated = 128;
-    }
-
   return 0;
 }
 
@@ -29299,8 +29289,10 @@ ix86_minimum_alignment (tree exp, machine_mode mode,
     return align;
 
   /* Don't do dynamic stack realignment for long long objects with
-     -mpreferred-stack-boundary=2.  */
-  if ((mode == DImode || (type && TYPE_MODE (type) == DImode))
+     -mpreferred-stack-boundary=2.  The STV pass uses SSE2 instructions
+     on DImode which needs 64-bit alignment for DImode.  */
+  if (!(TARGET_STV && TARGET_SSE2 && optimize > 1)
+      && (mode == DImode || (type && TYPE_MODE (type) == DImode))
       && (!type || !TYPE_USER_ALIGN (type))
       && (!decl || !DECL_USER_ALIGN (decl)))
     return 32;
