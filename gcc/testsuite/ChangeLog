@@ -1,3 +1,72 @@
+2016-01-25  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69376
+	* gcc.dg/torture/pr69376.c: New testcase.
+
+2016-01-24  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/69397
+	PR fortran/68442
+	* gfortran.dg/interface_38.f90: New test.
+	* gfortran.dg/interface_39.f90: New test.
+	
+2016-01-24  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	Revert:
+	2016-01-18  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/11858
+	PR c++/24663
+	PR c++/24664
+	* g++.dg/template/pr11858.C: New test.
+	* g++.dg/template/pr24663.C: New test.
+	* g++.dg/template/unify12.C: New test.
+	* g++.dg/template/unify13.C: New test.
+	* g++.dg/template/unify14.C: New test.
+	* g++.dg/template/unify15.C: New test.
+	* g++.dg/template/unify16.C: New test.
+	* g++.dg/template/unify17.C: New test.
+
+2016-01-24  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR fortran/68283
+	gfortran.dg/pr68283.f90: New test.
+
+2016-01-24  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/66094
+	* gfortran.dg/inline_matmul_13.f90:  New test.
+	* gfortran.dg/matmul_bounds_8.f90:  New test.
+	* gfortran.dg/matmul_bounds_9.f90:  New test.
+	* gfortran.dg/matmul_bounds_10.f90:  New test.
+
+2016-01-23  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/69426
+	* gcc.dg/autopar/pr69426.c: New test.
+
+2016-01-23  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/58109
+	PR c++/69022
+	* g++.dg/cpp0x/alignas5.C: New test.
+	* g++.dg/ext/vector29.C: Same.
+
+2016-01-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/chkp-strlen-2.c: Define _GNU_SOURCE.
+	* gcc.target/i386/chkp-strlen-4.c: Move the definition of
+	_GNU_SOURCE from compile flags to the source.
+	* gcc.target/i386/chkp-stropt-12.c: Ditto.
+	* gcc.target/i386/chkp-stropt-16.c: Ditto.
+	* gcc.target/i386/chkp-stropt-4.c: Ditto.
+	* gcc.target/i386/chkp-stropt-8.c: Ditto.
+
+2016-01-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/69432
+	* g++.dg/opt/pr69432.C: New test.
+
 2016-01-22  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/pr63354c: Adjust target selector to include
@@ -38,9 +107,9 @@
 2016-01-21  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	PR testsuite/67489
-	* gcc.target/powerpc/p8vector-builtin-8.c: Remove { target int128
-	} from dg-do compile directive, and instead add {
-	dg-require-effective-target int128 }.
+	* gcc.target/powerpc/p8vector-builtin-8.c: Remove { target int128 }
+	from dg-do compile directive, and instead add
+	{ dg-require-effective-target int128 }.
 
 2016-01-20  Martin Sebor  <msebor@redhat.com>
 
@@ -55,7 +124,7 @@
 2016-01-21  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR fortran/65996
-	gfortran.dg/pr65996.f90: New test.
+	* gfortran.dg/pr65996.f90: New test.
 
 2016-01-21  Dominik Vogt  <vogt@linux.vnet.ibm.com>
 
@@ -106,7 +175,7 @@
 2016-01-21  Aditya Kumar  <aditya.k7@samsung.com>
 	    Sebastian Pop  <s.pop@samsung.com>
 
-        * gcc.dg/graphite/pr68976.c: New test.
+	* gcc.dg/graphite/pr68976.c: New test.
 
 2016-01-21  Jakub Jelinek  <jakub@redhat.com>
 

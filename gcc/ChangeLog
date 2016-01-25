@@ -1,3 +1,69 @@
+2016-01-25  Richard Biener  <rguenther@suse.de>
+
+	PR lto/69393
+	* dwarf2out.c (is_naming_typedef_decl): Not when DECL_NAMELESS.
+	* tree-streamer-out.c (pack_ts_base_value_fields): Stream
+	DECL_NAMELESS.
+	* tree-streamer-in.c (unpack_ts_base_value_fields): Likewise.
+
+2016-01-25  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69376
+	* tree-ssa-sccvn.h (struct vn_ssa_aux): Add range_info_anti_range_p
+	flag.
+	(VN_INFO_ANTI_RANGE_P): New inline.
+	(VN_INFO_RANGE_TYPE): Likewise.
+	* tree-ssa-sccvn.c (set_ssa_val_to): Also record and copy
+	SSA_NAME_ANTI_RANGE_P.
+	(free_scc_vn): Restore SSA_NAME_ANTI_RANGE_P.
+	* tree-ssa-pre.c (eliminate_dom_walker::before_dom_children):
+	Properly query VN_INFO_RANGE_TYPE.
+
+2016-01-25  Nick Clifton  <nickc@redhat.com>
+
+	PR target/66655
+	* config/i386/cygming.h (MAKE_DECL_ONE_ONLY): Remove definition.
+
+2016-01-23  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/69426
+	* tree-parloops.c (eliminate_local_variables_stmt): Handle vdef of
+	removed clobber.
+
+2016-01-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-ssanames.c (release_free_names_and_compact_live_names): Replace
+	"the the" with "the" in the comments.
+	* ipa-devirt.c (build_type_inheritance_graph,
+	update_type_inheritance_graph): Likewise.
+	* tree.c (build_function_type_list_1): Likewise.
+	* cfgloopmanip.c (scale_loop_profile): Likewise.
+	* tree-ssa-loop-ivopts.c (get_shiftadd_cost): Likewise.
+	* gimple-ssa-split-paths.c
+	(find_block_to_duplicate_for_splitting_paths): Likewise.
+	* tree-sra.c (init_subtree_with_zero, clobber_subtree): Likewise.
+	* expr.c (convert_move): Likewise.
+	* var-tracking.c (vt_stack_adjustments): Likewise.
+	* tree-vect-data-refs.c (vect_enhance_data_refs_alignment): Likewise.
+	* tree-vrp.c (test_for_singularity): Likewise.
+
+	* tree-vect-stmts.c (vectorizable_condition): Build a VEC_COND_EXPR
+	directly instead of building a temporary tree.
+
+	PR bootstrap/69434
+	* genrecog.c: Define INCLUDE_ALGORITHM before including system.h,
+	remove <algorithm> include.
+
+2016-01-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/69432
+	* config/i386/i386.c: Include dojump.h.
+	(expand_small_movmem_or_setmem,
+	expand_set_or_movmem_prologue_epilogue_by_misaligned_moves): Spelling
+	fixes.
+	(ix86_expand_set_or_movmem): Call do_pending_stack_adjust () early
+	if dynamic_check != -1.
+
 2016-01-21  Jeff Law  <law@redhat.com>
 
 	PR middle-end/69347
