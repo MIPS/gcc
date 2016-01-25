@@ -510,3 +510,11 @@ mfunc-opt-list=FILE	Use to specify per function optimizations.
 
 mblockmov-limit=
 Target RejectNegative Undocumented Joined UInteger Var(mips_movmem_limit) Init(-1)
+
+mmips16-tail-indirect
+Target Var(TARGET_MIPS16_TAIL_INDIRECT) Init(0)
+Enable tail optimization using a long style call.
+
+mmips16-tail-branch
+Target Var(TARGET_MIPS16_TAIL_BRANCH) Init(0)
+Enable tail optimization using a branch.
