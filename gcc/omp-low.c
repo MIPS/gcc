@@ -12733,7 +12733,6 @@ grid_get_kernel_launch_attributes (gimple_stmt_iterator *gsi,
 				   gomp_target *tgt_stmt)
 {
   grid_create_kernel_launch_attr_types ();
-  tree u32_one = build_one_cst (uint32_type_node);
   tree lattrs = create_tmp_var (grid_attr_trees->kernel_launch_attributes_type,
 				"__kernel_launch_attrs");
 
@@ -12758,10 +12757,10 @@ grid_get_kernel_launch_attributes (gimple_stmt_iterator *gsi,
 
   tree dimref = build3 (COMPONENT_REF, uint32_type_node, lattrs,
 			grid_attr_trees->kernel_lattrs_dimnum_decl, NULL_TREE);
-  /* At this moment we cannot gridify a loop with a collapse clause.  */
-  /* TODO: Adjust when we support bigger collapse.  */
-  gcc_assert (max_dim == 0);
-  gsi_insert_before (gsi, gimple_build_assign (dimref, u32_one), GSI_SAME_STMT);
+  gcc_checking_assert (max_dim <= 2);
+  tree dimensions = build_int_cstu (uint32_type_node, max_dim + 1);
+  gsi_insert_before (gsi, gimple_build_assign (dimref, dimensions),
+		     GSI_SAME_STMT);
   TREE_ADDRESSABLE (lattrs) = 1;
   return build_fold_addr_expr (lattrs);
 }
@@ -13409,53 +13408,59 @@ expand_omp_target (struct omp_region *region)
 static void
 grid_expand_omp_for_loop (struct omp_region *kfor)
 {
-  tree t, threadid;
-  tree type, itype;
   gimple_stmt_iterator gsi;
-  tree n1, step;
-  struct omp_for_data fd;
-
   gomp_for *for_stmt = as_a <gomp_for *> (last_stmt (kfor->entry));
   gcc_checking_assert (gimple_omp_for_kind (for_stmt)
 		       == GF_OMP_FOR_KIND_GRID_LOOP);
+  size_t collapse = gimple_omp_for_collapse (for_stmt);
+  struct omp_for_data_loop *loops
+    = (struct omp_for_data_loop *)
+    alloca (gimple_omp_for_collapse (for_stmt)
+	    * sizeof (struct omp_for_data_loop));
+
+  struct omp_for_data fd;
+
   basic_block body_bb = FALLTHRU_EDGE (kfor->entry)->dest;
 
-  gcc_assert (gimple_omp_for_collapse (for_stmt) == 1);
   gcc_assert (kfor->cont);
-  extract_omp_for_data (for_stmt, &fd, NULL);
-
-  itype = type = TREE_TYPE (fd.loop.v);
-  if (POINTER_TYPE_P (type))
-    itype = signed_type_for (type);
+  extract_omp_for_data (for_stmt, &fd, loops);
 
   gsi = gsi_start_bb (body_bb);
 
-  n1 = fd.loop.n1;
-  step = fd.loop.step;
-  n1 = force_gimple_operand_gsi (&gsi, fold_convert (type, n1),
-				 true, NULL_TREE, true, GSI_SAME_STMT);
-  step = force_gimple_operand_gsi (&gsi, fold_convert (itype, step),
-				   true, NULL_TREE, true, GSI_SAME_STMT);
-  threadid = build_call_expr (builtin_decl_explicit
-			      (BUILT_IN_OMP_GET_THREAD_NUM), 0);
-  threadid = fold_convert (itype, threadid);
-  threadid = force_gimple_operand_gsi (&gsi, threadid, true, NULL_TREE,
-				       true, GSI_SAME_STMT);
+  for (size_t dim = 0; dim < collapse; dim++)
+    {
+      tree type, itype;
+      itype = type = TREE_TYPE (fd.loops[dim].v);
+      if (POINTER_TYPE_P (type))
+	itype = signed_type_for (type);
 
-  tree startvar = fd.loop.v;
-  t = fold_build2 (MULT_EXPR, itype, threadid, step);
-  if (POINTER_TYPE_P (type))
-    t = fold_build_pointer_plus (n1, t);
-  else
-    t = fold_build2 (PLUS_EXPR, type, t, n1);
-  t = fold_convert (type, t);
-  t = force_gimple_operand_gsi (&gsi, t,
-				DECL_P (startvar)
-				&& TREE_ADDRESSABLE (startvar),
-				NULL_TREE, true, GSI_SAME_STMT);
-  gassign *assign_stmt = gimple_build_assign (startvar, t);
-  gsi_insert_before (&gsi, assign_stmt, GSI_SAME_STMT);
+      tree n1 = fd.loops[dim].n1;
+      tree step = fd.loops[dim].step;
+      n1 = force_gimple_operand_gsi (&gsi, fold_convert (type, n1),
+				     true, NULL_TREE, true, GSI_SAME_STMT);
+      step = force_gimple_operand_gsi (&gsi, fold_convert (itype, step),
+				       true, NULL_TREE, true, GSI_SAME_STMT);
+      tree threadid = build_call_expr (builtin_decl_explicit
+				       (BUILT_IN_HSA_GET_WORKITEM_ABSID), 1,
+				       build_int_cstu (unsigned_type_node, dim));
+      threadid = fold_convert (itype, threadid);
+      threadid = force_gimple_operand_gsi (&gsi, threadid, true, NULL_TREE,
+					   true, GSI_SAME_STMT);
 
+      tree startvar = fd.loops[dim].v;
+      tree t = fold_build2 (MULT_EXPR, itype, threadid, step);
+      if (POINTER_TYPE_P (type))
+	t = fold_build_pointer_plus (n1, t);
+      else
+	t = fold_build2 (PLUS_EXPR, type, t, n1);
+      t = fold_convert (type, t);
+      t = force_gimple_operand_gsi (&gsi, t,
+				    DECL_P (startvar)
+				    && TREE_ADDRESSABLE (startvar),
+				    NULL_TREE, true, GSI_SAME_STMT);
+      gassign *assign_stmt = gimple_build_assign (startvar, t);
+      gsi_insert_before (&gsi, assign_stmt, GSI_SAME_STMT);
+    }
   /* Remove the omp for statement */
   gsi = gsi_last_bb (kfor->entry);
   gsi_remove (&gsi, true);
@@ -14837,7 +14842,8 @@ lower_omp_for_lastprivate (struct omp_for_data *fd, gimple_seq *body_p,
   tree n2 = fd->loop.n2;
   if (fd->collapse > 1
       && TREE_CODE (n2) != INTEGER_CST
-      && gimple_omp_for_combined_into_p (fd->for_stmt))
+      && gimple_omp_for_combined_into_p (fd->for_stmt)
+      && gimple_omp_for_kind (fd->for_stmt) != GF_OMP_FOR_KIND_GRID_LOOP)
     {
       struct omp_context *taskreg_ctx = NULL;
       if (gimple_code (ctx->outer->stmt) == GIMPLE_OMP_FOR)
@@ -17324,13 +17330,13 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
 			 "distribute construct\n ");
       return false;
     }
-  if (dist->collapse > 1)
+  if (dist->collapse > 3)
     {
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_NOTE, tloc,
 			 "Will not turn target construct into a gridified GPGPU "
 			 "kernel because the distribute construct contains "
-			 "collapse clause\n");
+			 "collapse clause with parameter greater than 3\n");
       return false;
     }
   struct omp_for_data fd;
@@ -17405,13 +17411,13 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
 			 "loop\n");
       return false;
     }
-  if (gfor->collapse > 1)
+  if (gfor->collapse > 3)
     {
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_NOTE, tloc,
 			 "Will not turn target construct into a gridified GPGPU "
 			 "kernel because the inner loop contains collapse "
-			 "clause\n");
+			 "clause with parameter greater than 3\n");
       return false;
     }
 

@@ -1148,16 +1148,41 @@ parse_target_attributes (void **input,
   struct GOMP_kernel_launch_attributes *kla;
   kla = (struct GOMP_kernel_launch_attributes *) *input;
   *result = kla;
-  if (kla->ndim != 1)
-    GOMP_PLUGIN_fatal ("HSA does not yet support number of dimensions "
-		       "different from one.");
-  if (kla->gdims[0] == 0)
-    return false;
+  if (kla->ndim == 0 || kla->ndim > 3)
+    GOMP_PLUGIN_fatal ("Invalid number of dimensions (%u)", kla->ndim);
 
-  HSA_DEBUG ("GOMP_OFFLOAD_run called with grid size %u and group size %u\n",
-	     kla->gdims[0], kla->wdims[0]);
-
+  HSA_DEBUG ("GOMP_OFFLOAD_run called with %u dimensions:\n", kla->ndim);
+  unsigned i;
+  for (i = 0; i < kla->ndim; i++)
+    {
+      HSA_DEBUG ("  Dimension %u: grid size %u and group size %u\n", i,
+		 kla->gdims[i], kla->wdims[i]);
+      if (kla->gdims[i] == 0)
+	return false;
+    }
   return true;
+}
+
+/* Return the group size given the requested GROUP size, GRID size and number
+   of grid dimensions NDIM.  */
+
+static uint32_t
+get_group_size (uint32_t ndim, uint32_t grid, uint32_t group)
+{
+  if (group == 0)
+    {
+      /* TODO: Provide a default via environment or device characteristics.  */
+      if (ndim == 1)
+	group = 64;
+      else if (ndim == 2)
+	group = 8;
+      else
+	group = 4;
+    }
+
+  if (group > grid)
+    group = grid;
+  return group;
 }
 
 /* Return true if the HSA runtime can run function FN_PTR.  */
@@ -1232,19 +1257,36 @@ GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, void **args)
 	   + index % agent->command_q->size;
 
   memset (((uint8_t *) packet) + 4, 0, sizeof (*packet) - 4);
-  packet->setup |= (uint16_t) 1 << HSA_KERNEL_DISPATCH_PACKET_SETUP_DIMENSIONS;
+  packet->setup
+    |= (uint16_t) kla->ndim << HSA_KERNEL_DISPATCH_PACKET_SETUP_DIMENSIONS;
   packet->grid_size_x = kla->gdims[0];
-  uint32_t wgs = kla->wdims[0];
-  if (wgs == 0)
-    /* TODO: Provide a default via environment.  */
-    wgs = 64;
-  else if (wgs > kla->gdims[0])
-    wgs = kla->gdims[0];
-  packet->workgroup_size_x = wgs;
-  packet->grid_size_y = 1;
-  packet->workgroup_size_y = 1;
-  packet->grid_size_z = 1;
-  packet->workgroup_size_z = 1;
+  packet->workgroup_size_x = get_group_size (kla->ndim, kla->gdims[0],
+					     kla->wdims[0]);
+
+  if (kla->ndim >= 2)
+    {
+      packet->grid_size_y = kla->gdims[1];
+      packet->workgroup_size_y = get_group_size (kla->ndim, kla->gdims[1],
+						 kla->wdims[1]);
+    }
+  else
+    {
+      packet->grid_size_y = 1;
+      packet->workgroup_size_y = 1;
+    }
+
+  if (kla->ndim == 3)
+    {
+      packet->grid_size_z = kla->gdims[2];
+      packet->workgroup_size_z = get_group_size (kla->ndim, kla->gdims[2],
+					     kla->wdims[2]);
+    }
+  else
+    {
+      packet->grid_size_z = 1;
+      packet->workgroup_size_z = 1;
+    }
+
   packet->private_segment_size = kernel->private_segment_size;
   packet->group_segment_size = kernel->group_segment_size;
   packet->kernel_object = kernel->object;

@@ -3722,15 +3722,11 @@ hsa_insn_basic::set_output_in_type (hsa_op_reg *dest, unsigned op_index,
    HBB.  */
 
 static void
-query_hsa_grid (hsa_op_reg *dest, BrigType16_t opcode, int dimension,
+query_hsa_grid (hsa_op_reg *dest, BrigType16_t opcode,  hsa_op_immed *dimension,
 		hsa_bb *hbb)
 {
-  /* We're using just one-dimensional kernels, so hard-coded
-     dimension X.  */
-  hsa_op_immed *imm
-    = new hsa_op_immed (dimension, (BrigKind16_t) BRIG_TYPE_U32);
   hsa_insn_basic *insn = new hsa_insn_basic (2, opcode, BRIG_TYPE_U32, NULL,
-					     imm);
+					     dimension);
   hbb->append_insn (insn);
   insn->set_output_in_type (dest, 0, hbb);
 }
@@ -3739,7 +3735,7 @@ query_hsa_grid (hsa_op_reg *dest, BrigType16_t opcode, int dimension,
    Instructions are appended to basic block HBB.  */
 
 static void
-query_hsa_grid (gimple *stmt, BrigOpcode16_t opcode, int dimension,
+query_hsa_grid (gimple *stmt, BrigOpcode16_t opcode, hsa_op_immed *dimension,
 		hsa_bb *hbb)
 {
   tree lhs = gimple_call_lhs (dyn_cast <gcall *> (stmt));
@@ -3749,6 +3745,18 @@ query_hsa_grid (gimple *stmt, BrigOpcode16_t opcode, int dimension,
   hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa (lhs);
 
   query_hsa_grid (dest, opcode, dimension, hbb);
+}
+
+/* Generate a special HSA-related instruction for gimple STMT.
+   Instructions are appended to basic block HBB.  */
+
+static void
+query_hsa_grid (gimple *stmt, BrigOpcode16_t opcode, int dimension,
+		hsa_bb *hbb)
+{
+  hsa_op_immed *bdim = new hsa_op_immed (dimension,
+					 (BrigKind16_t) BRIG_TYPE_U32);
+  query_hsa_grid (stmt, opcode, bdim, hbb);
 }
 
 /* Emit instructions that set hsa_num_threads according to provided VALUE.
@@ -5504,6 +5512,14 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 	hsa_add_kernel_dependency (hsa_cfun->m_decl, name);
 	gen_hsa_insns_for_kernel_call (hbb, as_a <gcall *> (stmt));
 
+	break;
+      }
+    case BUILT_IN_HSA_GET_WORKITEM_ABSID:
+      {
+	hsa_op_immed *bdim = new hsa_op_immed (gimple_call_arg (stmt, 0), true);
+	if (bdim->m_type != BRIG_TYPE_U32)
+	  bdim->get_in_type (BRIG_TYPE_U32, hbb);
+	query_hsa_grid (stmt, BRIG_OPCODE_WORKITEMABSID, bdim, hbb);
 	break;
       }
     case BUILT_IN_OMP_GET_THREAD_NUM:
