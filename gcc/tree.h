@@ -248,14 +248,14 @@ as_internal_fn (combined_fn code)
    with a tree or a ttype *.  This resolves the problem.  When ttype work is
    completed, and the parameters are changed to 'ttype *', we can simply
    replace NULL_TYPE with just 'NULL' everywhere.  */
-#define NULL_TYPE (ttype *) NULL
+#define NULL_TYPE (ttype *)NULL
 
 /* Define  the error_* nodes early for the inlined ttype methods.  */
 #define error_mark_node			global_trees[TI_ERROR_MARK]
 /* error_type_node will eventually be distinct from error_mark_node, but 
    for now it must be identical for code to execute. */
 // #define error_type_node		global_types[TPI_ERROR_TYPE]
-#define error_type_node			((ttype *)error_mark_node)
+#define error_type_node		   (reinterpret_cast<ttype *>(error_mark_node))
 
 /* Define accessors for the fields that all tree nodes have
    (though some fields are not used for all kinds of nodes).  */
@@ -264,8 +264,16 @@ as_internal_fn (combined_fn code)
    Codes are defined in tree.def.  */
 #define TREE_CODE(NODE) ((enum tree_code) (NODE)->u.base.code)
 #define TREE_SET_CODE(NODE, VALUE) ((NODE)->u.base.code = (VALUE))
-enum tree_code ttype::code () const { return (enum tree_code)(u.base.code); }
-void ttype::set_code (enum tree_code c) { u.base.code = c; }
+enum tree_code
+ttype::code () const
+{
+  return (enum tree_code)(u.base.code);
+}
+void
+ttype::set_code (enum tree_code c)
+{
+  u.base.code = c;
+}
 
 
 /* Helper routine to enable as_a<ttype *> */
@@ -289,7 +297,8 @@ is_a_helper <const ttype *>::test (const_tree t)
    disappear. When ttype has been propogated throughout the comnpiler, we ought
    to be able to simply drop *all* of these.  Typically it is used to access a 
    tree field in a struct that will eventually be a ttype * field.  */
-static inline ttype *TTYPE (tree t) 
+static inline ttype *
+TTYPE (tree t) 
 { 
   if (t == NULL_TREE)
     return NULL;
@@ -297,7 +306,8 @@ static inline ttype *TTYPE (tree t)
     return error_type_node;
   return as_a <ttype *>(t); 
 }
-static inline const ttype *TTYPE (const_tree t)
+static inline const ttype *
+TTYPE (const_tree t)
 { 
   if (t == NULL_TREE)
     return NULL;
@@ -305,11 +315,14 @@ static inline const ttype *TTYPE (const_tree t)
     return error_type_node;
   return as_a <const ttype *>(t); 
 }
+
 /* This will generate a compiler error when a tree is turned into a ttype *,
    but a reference to a TTYPE() call was not removed.  */
-ttype *TTYPE (ttype *t) __attribute__((error(" Fix use of TTYPE(ttype *)")));
-const ttype *TTYPE (const ttype *t) 
-		    __attribute__((error(" Fix use of TTYPE(const ttype *)")));
+ttype *
+TTYPE (ttype *t) __attribute__((error(" Fix use of TTYPE(ttype *)")));
+const ttype *
+TTYPE (const ttype *t) 
+    __attribute__((error(" Fix use of TTYPE(const ttype *)")));
 
 /* This is the interface class for incoming parameters to functions/methods
    so that all callers do not need to be ttype-ified all at once. This will
@@ -329,8 +342,6 @@ public:
   ttype_p * operator &() const __attribute__((error("Don't take address of ttype_p ")));
   inline ttype * operator->() { return type; }
   inline ttype * operator->() const { return type; }
-  // Used to mark locations which will simply be ttype when we can remove the
-  // ttype_p type at this location.  Mostly when used in varargs..
 };
 
 
@@ -346,19 +357,6 @@ public:
   inline ttype ** operator->() { return type; }
   inline ttype ** operator->() const { return type; }
 };
-
-
-/* assert_ttype is a transparent function used by TREE_SET macros when a
-   field which is going to be a TTYPE eventually (like TREE_SET_TYPE).
-   It confirms that a ttype * is passed, or generates a compiler error.  */
- 
-static inline ttype *assert_ttype (ttype * t) { return t; }
-static inline const ttype *assert_ttype (const ttype * t) { return t; }
-static inline ttype *assert_ttype (ttype_p t) { return t; }
-ttype *assert_ttype (tree t)
-	      __attribute__((error(" Must upgrade parameter to a ttype *")));
-const ttype *assert_ttype (const_tree t) 
-	      __attribute__((error(" Must upgrade parameter to a ttype *")));
 
 
 /* On rare occassions, situations arise which require a temporary situation to
@@ -433,10 +431,6 @@ const ttype *assert_ttype (const_tree t)
 /* These checks have to be special cased.  */
 #define NON_TYPE_CHECK(T) \
 (non_type_check ((T), __FILE__, __LINE__, __FUNCTION__))
-
-/* These checks have to be special cased.  */
-#define ANY_INTEGRAL_TYPE_CHECK(T) \
-(any_integral_type_check ((T), __FILE__, __LINE__, __FUNCTION__))
 
 #define TREE_INT_CST_ELT_CHECK(T, I) \
 (*tree_int_cst_elt_check ((T), (I), __FILE__, __LINE__, __FUNCTION__))
@@ -539,8 +533,16 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 
 #define TREE_CHAIN(NODE) \
 (CONTAINS_STRUCT_CHECK (NODE, TS_COMMON)->u.common.chain)
-tree ttype::chain() const { return u.common.chain; }
-void ttype::set_chain (tree t) { u.common.chain = t; }
+tree
+ttype::chain() const
+{
+  return u.common.chain;
+}
+void
+ttype::set_chain (tree t)
+{
+  u.common.chain = t;
+}
 
 /* In all nodes that are expressions, this is the data type of the expression.
    In POINTER_TYPE nodes, this is the type that the pointer points to.
@@ -548,24 +550,35 @@ void ttype::set_chain (tree t) { u.common.chain = t; }
    In VECTOR_TYPE nodes, this is the type of the elements.  */
 #define TREE_TYPE(NODE) \
 (CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->u.typed.type)
-#define TREE_SET_TYPE(NODE, TYPE) \
-((CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->u.typed.type) = assert_ttype (TYPE))
 #define TREE_TYPE_PTR(NODE) \
 (&(CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->u.typed.type))
-ttype *ttype::type () const { return TTYPE (u.typed.type); }
-ttype **ttype::type_ptr () { return TTYPE_PTR (&(u.typed.type)); }
-void ttype::set_type (ttype *t) { u.typed.type = t; }
+ttype *
+ttype::type () const
+{
+  return reinterpret_cast<ttype *> (u.typed.type);
+}
+ttype **
+ttype::type_ptr ()
+{
+  return reinterpret_cast<ttype **> (&(u.typed.type));
+}
+void
+ttype::set_type (ttype *t)
+{
+  u.typed.type = t;
+}
 
 /* TREE_TTYPE is the equivilent of TREE_TYPE, except it returns the field as a
-   ttype *.  TsH is used in places where we will need to no cast the day
-   the type field become a ttype *.  All occurences can be replaced with
-   the normal TREE_TYPE field then.  */
+   ttype *.  This used in places where we havent' converted to ttype yet,
+   but need to for some reason.  When the file is converted to use ttype.h,
+   this will be replaced with the normal TREE_TYPE() macro.  */
 #define TREE_TTYPE(NODE) TTYPE (TREE_TYPE (NODE))
 
 /* When the idiom &(TREE_TYPE(NODE)) is used, and the result needs to be treated
    as a ttype **, this macro is used.  This is usually when the address of a
-   tree type is passed to a function which requires a ttype **.  When the type
-   fiedl becomes a 'ttype *', it can simply revert to &(TREE_TYPE (NODE)).  */
+   tree type is passed to a function which requires a ttype **.  When the file
+   is converted to use ttype.h, this will be replaced with the normal
+   TREE_TYPE_PTR() macro.  */
 #define TREE_TTYPE_PTR(NODE)  TTYPE_PTR (&TREE_TYPE (NODE))
 
 
@@ -586,6 +599,10 @@ void ttype::set_type (ttype *t) { u.typed.type = t; }
 #define FUNC_OR_METHOD_CHECK(T)	TREE_CHECK2 (T, FUNCTION_TYPE, METHOD_TYPE)
 #define PTR_OR_REF_CHECK(T)	TREE_CHECK2 (T, POINTER_TYPE, REFERENCE_TYPE)
 
+/* These checks have to be special cased.  */
+#define ANY_INTEGRAL_TYPE_CHECK(T) \
+(any_integral_type_check ((T), __FILE__, __LINE__, __FUNCTION__))
+
 #define RECORD_OR_UNION_CHECK(T)	\
   TREE_CHECK3 (T, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE)
 #define NOT_RECORD_OR_UNION_CHECK(T) \
@@ -598,9 +615,21 @@ void ttype::set_type (ttype *t) { u.typed.type = t; }
 /* Here is how primitive or already-canonicalized types' hash codes
    are made.  */
 #define TYPE_HASH(TYPE) (TYPE_UID (TYPE))
-unsigned int &ttype::hash() { return u.type_common.uid; }
-unsigned int *ttype::hash_ptr() { return &(u.type_common.uid); }
-void ttype::set_hash(unsigned int i) { u.type_common.uid = i; }
+unsigned int &
+ttype::hash()
+{
+  return u.type_common.uid;
+}
+unsigned int *
+ttype::hash_ptr()
+{
+  return &(u.type_common.uid);
+}
+void
+ttype::set_hash(unsigned int i)
+{
+  u.type_common.uid = i;
+}
 
 /* A simple hash function for an arbitrary tree node.  This must not be
    used in hash tables which are saved to a PCH.  */
@@ -651,15 +680,22 @@ void ttype::set_hash(unsigned int i) { u.type_common.uid = i; }
 
 #define VECTOR_TYPE_P(TYPE) (TREE_CODE (TYPE) == VECTOR_TYPE)
 
-bool ttype::vector_p () const { return code() == VECTOR_TYPE; }
+bool
+ttype::vector_p () const
+{
+  return code() == VECTOR_TYPE;
+}
 
 /* Nonzero if TYPE represents a vector of booleans.  */
 
 #define VECTOR_BOOLEAN_TYPE_P(TYPE)				\
   (TREE_CODE (TYPE) == VECTOR_TYPE			\
    && TREE_CODE (TREE_TYPE (TYPE)) == BOOLEAN_TYPE)
-bool ttype::vector_boolean_p () const
-  { return code () == VECTOR_TYPE && type()->code() == BOOLEAN_TYPE; }
+bool
+ttype::vector_boolean_p () const
+{
+  return code () == VECTOR_TYPE && type()->code() == BOOLEAN_TYPE;
+}
 
 /* Nonzero if TYPE represents an integral type.  Note that we do not
    include COMPLEX types here.  Keep these checks in ascending code
@@ -669,7 +705,8 @@ bool ttype::vector_boolean_p () const
   (TREE_CODE (TYPE) == ENUMERAL_TYPE  \
    || TREE_CODE (TYPE) == BOOLEAN_TYPE \
    || TREE_CODE (TYPE) == INTEGER_TYPE)
-bool ttype::integral_p () const
+bool
+ttype::integral_p () const
 {
   return code () == ENUMERAL_TYPE || code () == BOOLEAN_TYPE
 	 || code() == INTEGER_TYPE;
@@ -683,7 +720,8 @@ bool ttype::integral_p () const
    || ((TREE_CODE (TYPE) == COMPLEX_TYPE 	\
         || VECTOR_TYPE_P (TYPE))		\
        && INTEGRAL_TYPE_P (TREE_TYPE (TYPE))))
-bool ttype::any_integral_p () const 
+bool
+ttype::any_integral_p () const 
 {
   return integral_p () 
 	 || ((code() == COMPLEX_TYPE || vector_p ()) && type()->integral_p ());
@@ -694,32 +732,47 @@ bool ttype::any_integral_p () const
 
 #define NON_SAT_FIXED_POINT_TYPE_P(TYPE) \
   (TREE_CODE (TYPE) == FIXED_POINT_TYPE && !TYPE_SATURATING (TYPE))
-bool ttype::non_sat_fixed_point_p () const 
-  { return code () == FIXED_POINT_TYPE && !saturating_p (); }
+bool
+ttype::non_sat_fixed_point_p () const 
+{
+  return code () == FIXED_POINT_TYPE && !saturating_p ();
+}
 
 /* Nonzero if TYPE represents a saturating fixed-point type.  */
 
 #define SAT_FIXED_POINT_TYPE_P(TYPE) \
   (TREE_CODE (TYPE) == FIXED_POINT_TYPE && TYPE_SATURATING (TYPE))
-bool ttype::sat_fixed_point_p () const 
-  { return code () == FIXED_POINT_TYPE && saturating_p (); }
+bool
+ttype::sat_fixed_point_p () const 
+{
+  return code () == FIXED_POINT_TYPE && saturating_p ();
+}
 
 /* Nonzero if TYPE represents a fixed-point type.  */
 
 #define FIXED_POINT_TYPE_P(TYPE)	(TREE_CODE (TYPE) == FIXED_POINT_TYPE)
-bool ttype::fixed_point_p () const { return code() == FIXED_POINT_TYPE; }
+bool
+ttype::fixed_point_p () const
+{
+  return code() == FIXED_POINT_TYPE;
+}
 
 /* Nonzero if TYPE represents a scalar floating-point type.  */
 
 #define SCALAR_FLOAT_TYPE_P(TYPE) (TREE_CODE (TYPE) == REAL_TYPE)
-bool ttype::scalar_float_p () const { return code() == REAL_TYPE; }
+bool
+ttype::scalar_float_p () const
+{
+  return code() == REAL_TYPE;
+}
 
 /* Nonzero if TYPE represents a complex floating-point type.  */
 
 #define COMPLEX_FLOAT_TYPE_P(TYPE)	\
   (TREE_CODE (TYPE) == COMPLEX_TYPE	\
    && TREE_CODE (TREE_TYPE (TYPE)) == REAL_TYPE)
-bool ttype::complex_float_p () const
+bool
+ttype::complex_float_p () const
 {
   return (code() == COMPLEX_TYPE) && (type()->code () == REAL_TYPE);
 }
@@ -730,8 +783,11 @@ bool ttype::complex_float_p () const
 #define VECTOR_INTEGER_TYPE_P(TYPE)			\
   (VECTOR_TYPE_P (TYPE)					\
    && TREE_CODE (TREE_TYPE (TYPE)) == INTEGER_TYPE)
-bool ttype::vector_integer_p () const
-  { return vector_p () && type()->code () == INTEGER_TYPE; }
+bool
+ttype::vector_integer_p () const
+{
+  return vector_p () && type()->code () == INTEGER_TYPE;
+}
 
 /* Nonzero if TYPE represents a vector floating-point type.  */
 
@@ -749,7 +805,8 @@ bool ttype::vector_integer_p () const
         || VECTOR_TYPE_P (TYPE))		\
        && SCALAR_FLOAT_TYPE_P (TREE_TYPE (TYPE))))
 
-bool ttype::float_p () const
+bool
+ttype::float_p () const
 {
   return scalar_float_p () || ((code () == COMPLEX_TYPE || vector_p ())
 			       && type()->scalar_float_p ());
@@ -759,8 +816,11 @@ bool ttype::float_p () const
 #define DECIMAL_FLOAT_TYPE_P(TYPE)		\
   (SCALAR_FLOAT_TYPE_P (TYPE)			\
    && DECIMAL_FLOAT_MODE_P (TYPE_MODE (TYPE)))
-bool ttype::decimal_float_p () const
-	{ return scalar_float_p () && DECIMAL_FLOAT_MODE_P (mode ()); }
+bool
+ttype::decimal_float_p () const
+{
+  return scalar_float_p () && DECIMAL_FLOAT_MODE_P (mode ());
+}
 
 /* Nonzero if TYPE is a record or union type.  */
 #define RECORD_OR_UNION_TYPE_P(TYPE)		\
@@ -768,7 +828,8 @@ bool ttype::decimal_float_p () const
    || TREE_CODE (TYPE) == UNION_TYPE		\
    || TREE_CODE (TYPE) == QUAL_UNION_TYPE)
 
-inline bool ttype::record_or_union_p () const
+bool
+ttype::record_or_union_p () const
 {
   return code () == RECORD_TYPE || code () == UNION_TYPE
 	 || code () == QUAL_UNION_TYPE;
@@ -779,8 +840,11 @@ inline bool ttype::record_or_union_p () const
 
 #define AGGREGATE_TYPE_P(TYPE) \
   (TREE_CODE (TYPE) == ARRAY_TYPE || RECORD_OR_UNION_TYPE_P (TYPE))
-bool ttype::aggregate_p () const
-		{ return code () == ARRAY_TYPE || record_or_union_p (); }
+bool
+ttype::aggregate_p () const
+{
+  return code () == ARRAY_TYPE || record_or_union_p ();
+}
 
 /* Nonzero if TYPE represents a pointer or reference type.
    (It should be renamed to INDIRECT_TYPE_P.)  Keep these checks in
@@ -788,7 +852,8 @@ bool ttype::aggregate_p () const
 
 #define POINTER_TYPE_P(TYPE) \
   (TREE_CODE (TYPE) == POINTER_TYPE || TREE_CODE (TYPE) == REFERENCE_TYPE)
-inline bool ttype::pointer_p() const
+bool
+ttype::pointer_p() const
 {
   return code () == POINTER_TYPE || code () == REFERENCE_TYPE;
 }
@@ -799,7 +864,11 @@ inline bool ttype::pointer_p() const
 
 /* Nonzero if this type is a complete type.  */
 #define COMPLETE_TYPE_P(NODE) (TYPE_SIZE (NODE) != NULL_TREE)
-bool ttype::complete_p () const { return size() != NULL_TREE; }
+bool
+ttype::complete_p () const
+{
+  return size() != NULL_TREE;
+}
 
 /* Nonzero if this type is a pointer bounds type.  */
 #define POINTER_BOUNDS_TYPE_P(NODE) \
@@ -818,7 +887,11 @@ bool ttype::complete_p () const { return size() != NULL_TREE; }
 
 /* Nonzero if this type is the (possibly qualified) void type.  */
 #define VOID_TYPE_P(NODE) (TREE_CODE (NODE) == VOID_TYPE)
-bool ttype::void_p () const { return code () == VOID_TYPE; }
+bool
+ttype::void_p () const
+{
+  return code () == VOID_TYPE;
+}
 
 /* Nonzero if this type is complete or is cv void.  */
 #define COMPLETE_OR_VOID_TYPE_P(NODE) \
@@ -906,8 +979,16 @@ bool ttype::void_p () const { return code () == VOID_TYPE; }
 
 /* Used to indicate that this TYPE represents a compiler-generated entity.  */
 #define TYPE_ARTIFICIAL(NODE) (TYPE_CHECK (NODE)->u.base.nowarning_flag)
-bool ttype::artificial_p () const { return u.base.nowarning_flag; }
-void ttype::set_artificial_p (bool f) { u.base.nowarning_flag = f; }
+bool
+ttype::artificial_p () const
+{
+  return u.base.nowarning_flag;
+}
+void
+ttype::set_artificial_p (bool f)
+{
+  u.base.nowarning_flag = f;
+}
 
 
 /* In an IDENTIFIER_NODE, this means that assemble_name was called with
@@ -919,8 +1000,18 @@ void ttype::set_artificial_p (bool f) { u.base.nowarning_flag = f; }
    by this type can alias anything.  */
 #define TYPE_REF_CAN_ALIAS_ALL(NODE) \
   (PTR_OR_REF_CHECK (NODE)->u.base.static_flag)
-bool ttype::ref_can_alias_all_p () const { return u.base.static_flag; }
-void ttype::set_ref_can_alias_all_p (bool f) { u.base.static_flag = f; }
+bool
+ttype::ref_can_alias_all_p () const 
+{
+  ptr_or_ref_check ();
+  return u.base.static_flag;
+}
+void
+ttype::set_ref_can_alias_all_p (bool f)
+{
+  ptr_or_ref_check ();
+  u.base.static_flag = f;
+}
 
 /* In an INTEGER_CST, REAL_CST, COMPLEX_CST, or VECTOR_CST, this means
    there was an overflow in folding.  */
@@ -942,8 +1033,16 @@ void ttype::set_ref_can_alias_all_p (bool f) { u.base.static_flag = f; }
 /* In a _TYPE, indicates whether TYPE_CACHED_VALUES contains a vector
    of cached values, or is something else.  */
 #define TYPE_CACHED_VALUES_P(NODE) (TYPE_CHECK (NODE)->u.base.public_flag)
-bool ttype::cached_values_p () const { return u.base.public_flag; }
-void ttype::set_cached_values_p (bool f) { u.base.public_flag = f; }
+bool
+ttype::cached_values_p () const
+{
+  return u.base.public_flag;
+}
+void
+ttype::set_cached_values_p (bool f)
+{
+  u.base.public_flag = f;
+}
 
 /* In a SAVE_EXPR, indicates that the original expression has already
    been substituted with a VAR_DECL that contains the value.  */
@@ -1009,8 +1108,16 @@ void ttype::set_cached_values_p (bool f) { u.base.public_flag = f; }
 /* Nonzero if NODE, a type, has had its sizes gimplified.  */
 #define TYPE_SIZES_GIMPLIFIED(NODE) \
   (TYPE_CHECK (NODE)->u.base.constant_flag)
-bool ttype::sizes_gimplified_p () const { return u.base.constant_flag; }
-void ttype::set_sizes_gimplified_p (bool f) { u.base.constant_flag = f; }
+bool
+ttype::sizes_gimplified_p () const
+{
+  return u.base.constant_flag;
+}
+void
+ttype::set_sizes_gimplified_p (bool f)
+{
+  u.base.constant_flag = f;
+}
 
 
 /* In a decl (most significantly a FIELD_DECL), means an unsigned field.  */
@@ -1019,12 +1126,24 @@ void ttype::set_sizes_gimplified_p (bool f) { u.base.constant_flag = f; }
 
 /* In integral and pointer types, means an unsigned type.  */
 #define TYPE_UNSIGNED(NODE) (TYPE_CHECK (NODE)->u.base.u.bits.unsigned_flag)
-bool ttype::unsigned_p () const { return (u.base.u.bits.unsigned_flag); }
-void ttype::set_unsigned_p (bool f) { u.base.u.bits.unsigned_flag = f; }
+bool
+ttype::unsigned_p () const
+{
+  return (u.base.u.bits.unsigned_flag);
+}
+void
+ttype::set_unsigned_p (bool f)
+{
+  u.base.u.bits.unsigned_flag = f;
+}
 
 /* Same as TYPE_UNSIGNED but converted to SIGNOP.  */
 #define TYPE_SIGN(NODE) ((signop) TYPE_UNSIGNED (NODE))
-signop ttype::sign () const { return (signop) unsigned_p (); }
+signop
+ttype::sign () const
+{
+  return (signop) unsigned_p ();
+}
 
 /* True if overflow wraps around for the given integral type.  That
    is, TYPE_MAX + 1 == TYPE_MIN.  */
@@ -1073,8 +1192,16 @@ signop ttype::sign () const { return (signop) unsigned_p (); }
    In an SSA_NAME node, nonzero if the SSA_NAME occurs in an abnormal
    PHI node.  */
 #define TREE_ASM_WRITTEN(NODE) ((NODE)->u.base.asm_written_flag)
-bool ttype::asm_written_p () const { return u.base.asm_written_flag; }
-void ttype::set_asm_written_p (bool f) { u.base.asm_written_flag = f; }
+bool
+ttype::asm_written_p () const
+{
+  return u.base.asm_written_flag;
+}
+void
+ttype::set_asm_written_p (bool f)
+{
+  u.base.asm_written_flag = f;
+}
 
 /* Nonzero in a _DECL if the name is used in its scope.
    Nonzero in an expr node means inhibit warning if value is unused.
@@ -1137,8 +1264,16 @@ void ttype::set_asm_written_p (bool f) { u.base.asm_written_flag = f; }
    In an SSA_NAME node, nonzero if the SSA_NAME node is on the SSA_NAME
    freelist.  */
 #define TYPE_ALIGN_OK(NODE) (TYPE_CHECK (NODE)->u.base.nothrow_flag)
-bool ttype::align_ok_p () const { return u.base.nothrow_flag; }
-void ttype::set_align_ok_p (bool f) { u.base.nothrow_flag = f; }
+bool
+ttype::align_ok_p () const
+{
+  return u.base.nothrow_flag;
+}
+void
+ttype::set_align_ok_p (bool f)
+{
+  u.base.nothrow_flag = f;
+}
 
 
 /* Used in classes in C++.  */
@@ -1149,8 +1284,18 @@ void ttype::set_align_ok_p (bool f) { u.base.nothrow_flag = f; }
 /* True if reference type NODE is a C++ rvalue reference.  */
 #define TYPE_REF_IS_RVALUE(NODE) \
   (REFERENCE_TYPE_CHECK (NODE)->u.base.private_flag)
-bool ttype::ref_is_rvalue_p () const { return u.base.private_flag; }
-void ttype::set_ref_is_rvalue_p (bool f) { u.base.private_flag = f; }
+bool
+ttype::ref_is_rvalue_p () const 
+{
+  code_check (REFERENCE_TYPE);
+  return u.base.private_flag;
+}
+void
+ttype::set_ref_is_rvalue_p (bool f)
+{
+  code_check (REFERENCE_TYPE);
+  u.base.private_flag = f;
+}
 
 /* Nonzero in a _DECL if the use of the name is defined as a
    deprecated feature by __attribute__((deprecated)).  */
@@ -1167,15 +1312,29 @@ void ttype::set_ref_is_rvalue_p (bool f) { u.base.private_flag = f; }
    toggles BYTES_BIG_ENDIAN and WORDS_BIG_ENDIAN within the type.  */
 #define TYPE_REVERSE_STORAGE_ORDER(NODE) \
   (TREE_CHECK4 (NODE, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE, ARRAY_TYPE)->u.base.u.bits.saturating_flag)
-bool ttype::reverse_storage_order_p () const 
-				      { return u.base.u.bits.saturating_flag; }
-void ttype::set_reverse_storage_order_p (bool f) 
-					{ u.base.u.bits.saturating_flag = f; }
+bool
+ttype::reverse_storage_order_p () const 
+{ 
+  code_check (RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE, ARRAY_TYPE);
+  return u.base.u.bits.saturating_flag;
+}
+
+void
+ttype::set_reverse_storage_order_p (bool f) 
+{ 
+  code_check (RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE, ARRAY_TYPE);
+  u.base.u.bits.saturating_flag = f;
+}
 
 /* In a non-aggregate type, indicates a saturating type.  */
 #define TYPE_SATURATING(NODE) \
   (TREE_NOT_CHECK4 (NODE, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE, ARRAY_TYPE)->u.base.u.bits.saturating_flag)
-bool ttype::saturating_p () const { return u.base.u.bits.saturating_flag; }
+bool
+ttype::saturating_p () const 
+{ 
+  code_not_check (RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE, ARRAY_TYPE);
+  return u.base.u.bits.saturating_flag;
+}
 
 /* In a BIT_FIELD_REF and MEM_REF, indicates that the reference is to a group
    of bits stored in reverse order from the target order.  This effectively
@@ -1206,8 +1365,10 @@ bool ttype::saturating_p () const { return u.base.u.bits.saturating_flag; }
   (TREE_NOT_CHECK2 (NODE, TREE_VEC, SSA_NAME)->u.base.u.bits.lang_flag_5)
 #define TREE_LANG_FLAG_6(NODE) \
   (TREE_NOT_CHECK2 (NODE, TREE_VEC, SSA_NAME)->u.base.u.bits.lang_flag_6)
-inline void ttype::clear_lang_flags ()
+void
+ttype::clear_lang_flags ()
 { 
+  code_not_check (TREE_VEC, SSA_NAME);
   u.base.u.bits.lang_flag_0 = 0; u.base.u.bits.lang_flag_1 = 0;
   u.base.u.bits.lang_flag_2 = 0; u.base.u.bits.lang_flag_3 = 0;
   u.base.u.bits.lang_flag_4 = 0; u.base.u.bits.lang_flag_5 = 0;
@@ -1266,9 +1427,7 @@ inline void ttype::clear_lang_flags ()
 
 /* In a TREE_LIST node.  */
 #define TREE_PURPOSE(NODE) (TREE_LIST_CHECK (NODE)->u.list.purpose)
-#define TREE_VALUE(NODE) (TREE_LIST_CHECK (NODE)->u.list.value)\
-/* Ideally this becomes a TREE_LIST of ttypes someday.  */
-#define TREE_VALUE_TTYPE(NODE) TTYPE(TREE_VALUE(NODE))
+#define TREE_VALUE(NODE) (TREE_LIST_CHECK (NODE)->u.list.value)
 
 /* In a TREE_VEC node.  */
 #define TREE_VEC_LENGTH(NODE) (TREE_VEC_CHECK (NODE)->u.base.u.length)
@@ -2018,58 +2177,152 @@ extern void protected_set_expr_location (tree, location_t);
    so they must be checked as well.  */
 
 #define TYPE_UID(NODE) (TYPE_CHECK (NODE)->u.type_common.uid)
-unsigned int ttype::uid () const { return u.type_common.uid; }
-void ttype::set_uid (unsigned n) { u.type_common.uid = n; }
+unsigned int
+ttype::uid () const
+{
+  return u.type_common.uid;
+}
+void
+ttype::set_uid (unsigned n)
+{
+  u.type_common.uid = n;
+}
 
 #define TYPE_SIZE(NODE) (TYPE_CHECK (NODE)->u.type_common.size)
-tree ttype::size () const { return u.type_common.size; }
-tree *ttype::size_ptr () { return &(u.type_common.size); }
-void ttype::set_size (tree t) { u.type_common.size = t; }
+tree
+ttype::size () const
+{
+  return u.type_common.size;
+}
+tree *
+ttype::size_ptr ()
+{
+  return &(u.type_common.size);
+}
+void
+ttype::set_size (tree t)
+{
+  u.type_common.size = t;
+}
 
 #define TYPE_SIZE_UNIT(NODE) (TYPE_CHECK (NODE)->u.type_common.size_unit)
-tree ttype::size_unit () const { return u.type_common.size_unit; }
-tree *ttype::size_unit_ptr () { return &(u.type_common.size_unit); }
-void ttype::set_size_unit (tree t) { u.type_common.size_unit = t; }
+tree
+ttype::size_unit () const
+{
+  return u.type_common.size_unit;
+}
+tree *
+ttype::size_unit_ptr ()
+{
+  return &(u.type_common.size_unit);
+}
+void
+ttype::set_size_unit (tree t)
+{
+  u.type_common.size_unit = t;
+}
 
 #define TYPE_POINTER_TO(NODE) (TYPE_CHECK (NODE)->u.type_common.pointer_to)
-ttype *ttype::pointer_to () const { return TTYPE (u.type_common.pointer_to); }
-void ttype::set_pointer_to (ttype *t) { u.type_common.pointer_to = t; }
+ttype *
+ttype::pointer_to () const
+{
+  return reinterpret_cast<ttype *>(u.type_common.pointer_to);
+}
+void
+ttype::set_pointer_to (ttype *t)
+{
+  u.type_common.pointer_to = t;
+}
 
 #define TYPE_REFERENCE_TO(NODE) (TYPE_CHECK (NODE)->u.type_common.reference_to)
-ttype *ttype::reference_to () const
-				  { return TTYPE (u.type_common.reference_to); }
-void ttype::set_reference_to (ttype *t) { u.type_common.reference_to = t; }
+ttype *
+ttype::reference_to () const
+{
+  return reinterpret_cast<ttype *>(u.type_common.reference_to);
+}
+void
+ttype::set_reference_to (ttype *t)
+{
+  u.type_common.reference_to = t;
+}
 
 #define TYPE_PRECISION(NODE) (TYPE_CHECK (NODE)->u.type_common.precision)
-unsigned ttype::precision () const { return u.type_common.precision; }
-void ttype::set_precision (unsigned i) { u.type_common.precision = i; }
+unsigned
+ttype::precision () const
+{
+  return u.type_common.precision;
+}
+void
+ttype::set_precision (unsigned i)
+{
+  u.type_common.precision = i;
+}
 
 #define TYPE_NAME(NODE) (TYPE_CHECK (NODE)->u.type_common.name)
-inline tree ttype::name() const { return u.type_common.name; }
-inline tree *ttype::name_ptr() { return &(u.type_common.name); }
-inline void ttype::set_name(tree t) { u.type_common.name = t; }
+tree
+ttype::name() const
+{
+  return u.type_common.name;
+}
+tree *
+ttype::name_ptr()
+{
+  return &(u.type_common.name);
+}
+void
+ttype::set_name(tree t)
+{
+  u.type_common.name = t;
+}
 
 #define TYPE_NEXT_VARIANT(NODE) (TYPE_CHECK (NODE)->u.type_common.next_variant)
-ttype *ttype::next_variant () const
-				{ return TTYPE (u.type_common.next_variant); }
-void ttype::set_next_variant (ttype *t) { u.type_common.next_variant = t; }
+ttype *
+ttype::next_variant () const
+{
+  return reinterpret_cast<ttype *> (u.type_common.next_variant);
+}
+void
+ttype::set_next_variant (ttype *t)
+{
+  u.type_common.next_variant = t;
+}
 
 #define TYPE_MAIN_VARIANT(NODE) (TYPE_CHECK (NODE)->u.type_common.main_variant)
-ttype *ttype::main_variant () const
-				  { return TTYPE (u.type_common.main_variant); }
-void ttype::set_main_variant (ttype *t) { u.type_common.main_variant = t; }
+ttype *
+ttype::main_variant () const
+{
+  return reinterpret_cast<ttype *> (u.type_common.main_variant);
+}
+void
+ttype::set_main_variant (ttype *t)
+{
+  u.type_common.main_variant = t;
+}
 
 #define TYPE_CONTEXT(NODE) (TYPE_CHECK (NODE)->u.type_common.context)
-inline tree ttype::context () const { return u.type_common.context; }
-inline void ttype::set_context (tree t) { u.type_common.context = t; }
+tree
+ttype::context () const
+{
+  return u.type_common.context;
+}
+void
+ttype::set_context (tree t)
+{
+  u.type_common.context = t;
+}
 
 #define TYPE_MODE_RAW(NODE) (TYPE_CHECK (NODE)->u.type_common.mode)
-enum machine_mode ttype::mode_raw () const { return u.type_common.mode; }
+enum machine_mode
+ttype::mode_raw () const
+{
+  return u.type_common.mode;
+}
 
 #define TYPE_MODE(NODE) \
   (VECTOR_TYPE_P (TYPE_CHECK (NODE)) \
    ? vector_type_mode (NODE) : (NODE)->u.type_common.mode)
-enum machine_mode ttype::mode () const
+enum machine_mode
+ttype::mode () const
 {
   if (vector_p ())
     return vector_mode ();
@@ -2079,7 +2332,11 @@ enum machine_mode ttype::mode () const
 
 #define SET_TYPE_MODE(NODE, MODE) \
   (TYPE_CHECK (NODE)->u.type_common.mode = (MODE))
-void ttype::set_mode (enum machine_mode m) { u.type_common.mode = m; }
+void
+ttype::set_mode (enum machine_mode m)
+{
+  u.type_common.mode = m;
+}
 
 
 extern machine_mode element_mode (const ttype *t);
@@ -2102,8 +2359,16 @@ extern machine_mode element_mode (const_tree t);
    to assign the same alias-sets to the type partition with equal
    TYPE_CANONICAL of their unqualified variants.  */
 #define TYPE_CANONICAL(NODE) (TYPE_CHECK (NODE)->u.type_common.canonical)
-ttype *ttype::canonical () const { return TTYPE(u.type_common.canonical); }
-void ttype::set_canonical (ttype *t) { u.type_common.canonical = t; }
+ttype *
+ttype::canonical () const
+{
+  return reinterpret_cast<ttype *> (u.type_common.canonical);
+}
+void
+ttype::set_canonical (ttype *t)
+{
+  u.type_common.canonical = t;
+}
 
 /* Indicates that the type node requires structural equality
    checks.  The compiler will need to look at the composition of the
@@ -2115,10 +2380,16 @@ void ttype::set_canonical (ttype *t) { u.type_common.canonical = t; }
 /* Sets the TYPE_CANONICAL field to NULL_TREE, indicating that the
    type node requires structural equality.  */
 #define SET_TYPE_STRUCTURAL_EQUALITY(NODE) (TYPE_CANONICAL (NODE) = NULL_TREE)
-inline bool ttype::structural_equality_p () const
-					      { return canonical () == NULL; }
-inline void ttype::set_structural_equality_p () { set_canonical (NULL); }
-
+bool
+ttype::structural_equality_p () const
+{
+  return canonical () == NULL;
+}
+void
+ttype::set_structural_equality_p ()
+{
+  set_canonical (NULL);
+}
 
 #define TYPE_IBIT(NODE) (GET_MODE_IBIT (TYPE_MODE (NODE)))
 #define TYPE_FBIT(NODE) (GET_MODE_FBIT (TYPE_MODE (NODE)))
@@ -2129,39 +2400,77 @@ inline void ttype::set_structural_equality_p () { set_canonical (NULL); }
    assigned to this type.  If the TYPE_ALIAS_SET is 0, objects of this
    type can alias objects of any type.  */
 #define TYPE_ALIAS_SET(NODE) (TYPE_CHECK (NODE)->u.type_common.alias_set)
-alias_set_type ttype::alias_set () const { return u.type_common.alias_set; }
-void ttype::set_alias_set (alias_set_type a) { u.type_common.alias_set = a; }
+alias_set_type
+ttype::alias_set () const
+{
+  return u.type_common.alias_set;
+}
+void
+ttype::set_alias_set (alias_set_type a)
+{
+  u.type_common.alias_set = a;
+}
 
 
 /* Nonzero iff the typed-based alias set for this type has been
    calculated.  */
 #define TYPE_ALIAS_SET_KNOWN_P(NODE) \
   (TYPE_CHECK (NODE)->u.type_common.alias_set != -1)
-bool ttype::alias_set_known_p () const { return (alias_set () != -1); }
+bool
+ttype::alias_set_known_p () const
+{
+  return (alias_set () != -1);
+}
 
 /* A TREE_LIST of IDENTIFIER nodes of the attributes that apply
    to this type.  */
 #define TYPE_ATTRIBUTES(NODE) (TYPE_CHECK (NODE)->u.type_common.attributes)
-inline tree ttype::attributes () const
-					  { return u.type_common.attributes; }
-inline void ttype::set_attributes (tree t)
-					  { u.type_common.attributes = t; }
+tree
+ttype::attributes () const
+{
+  return u.type_common.attributes;
+}
+void
+ttype::set_attributes (tree t)
+{
+  u.type_common.attributes = t;
+}
 
 /* The alignment necessary for objects of this type.
    The value is an int, measured in bits.  */
 #define TYPE_ALIGN(NODE) (TYPE_CHECK (NODE)->u.type_common.align)
-unsigned int ttype::align () const { return u.type_common.align; }
-void ttype::set_align (unsigned int i) { u.type_common.align = i; }
+unsigned int
+ttype::align () const
+{
+  return u.type_common.align;
+}
+void
+ttype::set_align (unsigned int i)
+{
+  u.type_common.align = i;
+}
 
 /* 1 if the alignment for this type was requested by "aligned" attribute,
    0 if it is the default for this type.  */
 #define TYPE_USER_ALIGN(NODE) (TYPE_CHECK (NODE)->u.base.u.bits.user_align)
-bool ttype::user_align_p () const { return u.base.u.bits.user_align; }
-void ttype::set_user_align_p (bool f) { u.base.u.bits.user_align = f; }
+bool
+ttype::user_align_p () const
+{
+  return u.base.u.bits.user_align;
+}
+void
+ttype::set_user_align_p (bool f)
+{
+ u.base.u.bits.user_align = f;
+}
 
 /* The alignment for NODE, in bytes.  */
 #define TYPE_ALIGN_UNIT(NODE) (TYPE_ALIGN (NODE) / BITS_PER_UNIT)
-unsigned int ttype::align_unit () const { return align() / BITS_PER_UNIT; }
+unsigned int
+ttype::align_unit () const
+{
+  return align() / BITS_PER_UNIT;
+}
 
 /* If your language allows you to declare types, and you want debug info
    for them, then you need to generate corresponding TYPE_DECL nodes.
@@ -2171,8 +2480,16 @@ unsigned int ttype::align_unit () const { return align() / BITS_PER_UNIT; }
    to know that the two nodes represent the same type, so that we only
    get one debug info record for them.  */
 #define TYPE_STUB_DECL(NODE) (TREE_CHAIN (TYPE_CHECK (NODE)))
-tree ttype::stub_decl () const { return chain (); }
-void ttype::set_stub_decl (tree t) { set_chain (t); }
+tree
+ttype::stub_decl () const
+{
+  return chain ();
+}
+void
+ttype::set_stub_decl (tree t)
+{
+  set_chain (t);
+}
 
 
 /* In a RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE or ARRAY_TYPE, it means
@@ -2183,33 +2500,72 @@ void ttype::set_stub_decl (tree t) { set_chain (t); }
 
 /* Nonzero in a type considered volatile as a whole.  */
 #define TYPE_VOLATILE(NODE) (TYPE_CHECK (NODE)->u.base.volatile_flag)
-bool ttype::volatile_p () const { return u.base.volatile_flag; }
-void ttype::set_volatile_p (bool f) { u.base.volatile_flag = f; }
+bool
+ttype::volatile_p () const
+{
+  return u.base.volatile_flag;
+}
+void
+ttype::set_volatile_p (bool f)
+{
+  u.base.volatile_flag = f;
+}
 
 /* Nonzero in a type considered atomic as a whole.  */
 #define TYPE_ATOMIC(NODE) (TYPE_CHECK (NODE)->u.base.u.bits.atomic_flag)
-bool ttype::atomic_p () const { return u.base.u.bits.atomic_flag; }
-void ttype::set_atomic_p (bool f) { u.base.u.bits.atomic_flag = f; }
+bool
+ttype::atomic_p () const
+{
+  return u.base.u.bits.atomic_flag;
+}
+void
+ttype::set_atomic_p (bool f)
+{
+  u.base.u.bits.atomic_flag = f;
+}
 
 /* Means this type is const-qualified.  */
 #define TYPE_READONLY(NODE) (TYPE_CHECK (NODE)->u.base.readonly_flag)
-bool ttype::readonly_p () const { return u.base.readonly_flag; }
-void ttype::set_readonly_p (bool f) { u.base.readonly_flag = f; }
+bool
+ttype::readonly_p () const
+{
+  return u.base.readonly_flag;
+}
+void
+ttype::set_readonly_p (bool f)
+{
+  u.base.readonly_flag = f;
+}
 
 /* If nonzero, this type is `restrict'-qualified, in the C sense of
    the term.  */
 #define TYPE_RESTRICT(NODE) (TYPE_CHECK (NODE)->u.type_common.restrict_flag)
-bool ttype::restrict_p () const { return u.type_common.restrict_flag; }
-void ttype::set_restrict_p (bool f) { u.type_common.restrict_flag = f; }
+bool
+ttype::restrict_p () const
+{
+  return u.type_common.restrict_flag;
+}
+void
+ttype::set_restrict_p (bool f)
+{
+  u.type_common.restrict_flag = f;
+}
 
 /* If nonzero, type's name shouldn't be emitted into debug info.  */
 #define TYPE_NAMELESS(NODE) (TYPE_CHECK (NODE)->u.base.u.bits.nameless_flag)
 
 /* The address space the type is in.  */
 #define TYPE_ADDR_SPACE(NODE) (TYPE_CHECK (NODE)->u.base.u.bits.address_space)
-unsigned char ttype::addr_space () const { return u.base.u.bits.address_space; }
-void ttype::set_addr_space (unsigned char c)
-					    { u.base.u.bits.address_space = c; }
+unsigned char
+ttype::addr_space () const
+{
+  return u.base.u.bits.address_space;
+}
+void
+ttype::set_addr_space (unsigned char c)
+{
+  u.base.u.bits.address_space = c;
+}
 
 /* Encode/decode the named memory support as part of the qualifier.  If more
    than 8 qualifiers are added, these macros need to be adjusted.  */
@@ -2245,7 +2601,8 @@ void ttype::set_addr_space (unsigned char c)
 	  | (TYPE_VOLATILE (NODE) * TYPE_QUAL_VOLATILE)		\
 	  | (TYPE_RESTRICT (NODE) * TYPE_QUAL_RESTRICT)))
 
-int ttype::quals () const
+int
+ttype::quals () const
 {
   return (int) ((readonly_p () * TYPE_QUAL_CONST)
 		| (volatile_p () *  TYPE_QUAL_VOLATILE)
@@ -2254,7 +2611,8 @@ int ttype::quals () const
 		| ENCODE_QUAL_ADDR_SPACE (addr_space()));
 }
 
-int ttype::quals_no_addr_space () const
+int
+ttype::quals_no_addr_space () const
 {
   return (int) ((readonly_p () * TYPE_QUAL_CONST)
 		| (volatile_p () *  TYPE_QUAL_VOLATILE)
@@ -2262,7 +2620,8 @@ int ttype::quals_no_addr_space () const
 		| (restrict_p () * TYPE_QUAL_RESTRICT));
 }
 
-int ttype::quals_no_addr_space_no_atomic () const
+int
+ttype::quals_no_addr_space_no_atomic () const
 {
   return (int) ((readonly_p () * TYPE_QUAL_CONST)
 		| (volatile_p () *  TYPE_QUAL_VOLATILE)
@@ -2282,45 +2641,86 @@ int ttype::quals_no_addr_space_no_atomic () const
 /* Used to keep track of visited nodes in tree traversals.  This is set to
    0 by copy_node and make_node.  */
 #define TREE_VISITED(NODE) ((NODE)->u.base.visited)
-bool ttype::visited_p () const { return u.base.visited; }
-void ttype::set_visited_p (bool f) { u.base.visited = f; }
+bool
+ttype::visited_p () const
+{
+  return u.base.visited;
+}
+void
+ttype::set_visited_p (bool f)
+{
+  u.base.visited = f;
+}
 
 /* If set in an ARRAY_TYPE, indicates a string type (for languages
    that distinguish string from array of char).
    If set in a INTEGER_TYPE, indicates a character type.  */
 #define TYPE_STRING_FLAG(NODE) (TYPE_CHECK (NODE)->u.type_common.string_flag)
-bool ttype::string_flag_p () const { return u.type_common.string_flag; }
-void ttype::set_string_flag_p (bool f) { u.type_common.string_flag = f; }
+bool
+ttype::string_flag_p () const 
+{
+  return u.type_common.string_flag;
+}
+void
+ttype::set_string_flag_p (bool f)
+{
+  u.type_common.string_flag = f;
+}
 
 
 /* For a VECTOR_TYPE, this is the number of sub-parts of the vector.  */
 #define TYPE_VECTOR_SUBPARTS(VECTOR_TYPE) \
   (((unsigned HOST_WIDE_INT) 1) \
    << VECTOR_TYPE_CHECK (VECTOR_TYPE)->u.type_common.precision)
-unsigned ttype::vector_subparts () const
-			{ return ((unsigned HOST_WIDE_INT) 1) << precision (); }
+unsigned
+ttype::vector_subparts () const
+{ 
+  code_check (VECTOR_TYPE);
+  return ((unsigned HOST_WIDE_INT) 1) << precision ();
+}
 
 /* Set precision to n when we have 2^n sub-parts of the vector.  */
 #define SET_TYPE_VECTOR_SUBPARTS(VECTOR_TYPE, X) \
   (VECTOR_TYPE_CHECK (VECTOR_TYPE)->u.type_common.precision = exact_log2 (X))
-void ttype::set_vector_subparts (unsigned u) { set_precision (exact_log2 (u)); }
+void
+ttype::set_vector_subparts (unsigned u)
+{
+  code_check (VECTOR_TYPE);
+  set_precision (exact_log2 (u));
+}
 
 /* Nonzero in a VECTOR_TYPE if the frontends should not emit warnings
    about missing conversions to other vector types of the same size.  */
 #define TYPE_VECTOR_OPAQUE(NODE) \
   (VECTOR_TYPE_CHECK (NODE)->u.base.default_def_flag)
-bool ttype::vector_opaque_p () const { return u.base.default_def_flag; }
-void ttype::set_vector_opaque_p (bool f) { u.base.default_def_flag = f; }
+bool
+ttype::vector_opaque_p () const
+{
+  code_check (VECTOR_TYPE);
+  return u.base.default_def_flag;
+}
+void
+ttype::set_vector_opaque_p (bool f)
+{
+  code_check (VECTOR_TYPE);
+  u.base.default_def_flag = f;
+}
 
 
 /* Indicates that objects of this type must be initialized by calling a
    function when they are created.  */
 #define TYPE_NEEDS_CONSTRUCTING(NODE) \
   (TYPE_CHECK (NODE)->u.type_common.needs_constructing_flag)
-bool ttype::needs_constructing_p () const
-			      { return u.type_common.needs_constructing_flag; }
-void ttype::set_needs_constructing_p (bool f)
-				{ u.type_common.needs_constructing_flag = f; }
+bool
+ttype::needs_constructing_p () const
+{
+  return u.type_common.needs_constructing_flag;
+}
+void
+ttype::set_needs_constructing_p (bool f)
+{
+  u.type_common.needs_constructing_flag = f;
+}
 
 /* Indicates that a UNION_TYPE object should be passed the same way that
    the first union alternative would be passed, or that a RECORD_TYPE
@@ -2328,42 +2728,82 @@ void ttype::set_needs_constructing_p (bool f)
    would be passed.  */
 #define TYPE_TRANSPARENT_AGGR(NODE) \
   (RECORD_OR_UNION_CHECK (NODE)->u.type_common.transparent_aggr_flag)
-bool ttype::transparent_aggr_p () const
-				{ return u.type_common.transparent_aggr_flag; }
-void ttype::set_transparent_aggr_p (bool f)
-				  { u.type_common.transparent_aggr_flag = f; }
+bool
+ttype::transparent_aggr_p () const
+{
+  record_or_union_check ();
+  return u.type_common.transparent_aggr_flag;
+}
+void
+ttype::set_transparent_aggr_p (bool f)
+{
+  record_or_union_check ();
+  u.type_common.transparent_aggr_flag = f;
+}
 
 /* For an ARRAY_TYPE, indicates that it is not permitted to take the
    address of a component of the type.  This is the counterpart of
    DECL_NONADDRESSABLE_P for arrays, see the definition of this flag.  */
 #define TYPE_NONALIASED_COMPONENT(NODE) \
   (ARRAY_TYPE_CHECK (NODE)->u.type_common.transparent_aggr_flag)
-bool ttype::nonaliased_component_p () const 
-				{ return u.type_common.transparent_aggr_flag; }
-void ttype::set_nonaliased_component_p (bool f)
-				  { u.type_common.transparent_aggr_flag = f; }
+bool
+ttype::nonaliased_component_p () const 
+{
+  code_check (ARRAY_TYPE);
+  return u.type_common.transparent_aggr_flag;
+}
+void
+ttype::set_nonaliased_component_p (bool f)
+{
+  code_check (ARRAY_TYPE);
+  u.type_common.transparent_aggr_flag = f;
+}
 
 /* Indicated that objects of this type should be laid out in as
    compact a way as possible.  */
 #define TYPE_PACKED(NODE) (TYPE_CHECK (NODE)->u.base.u.bits.packed_flag)
-bool ttype::packed_p () const { return u.base.u.bits.packed_flag; }
-void ttype::set_packed_p (bool f) { u.base.u.bits.packed_flag = f; }
+bool
+ttype::packed_p () const
+{
+  return u.base.u.bits.packed_flag;
+}
+void
+ttype::set_packed_p (bool f)
+{
+  u.base.u.bits.packed_flag = f;
+}
 
 /* Used by type_contains_placeholder_p to avoid recomputation.
    Values are: 0 (unknown), 1 (false), 2 (true).  Never access
    this field directly.  */
 #define TYPE_CONTAINS_PLACEHOLDER_INTERNAL(NODE) \
   (TYPE_CHECK (NODE)->u.type_common.contains_placeholder_bits)
-unsigned int ttype::contains_placeholder_internal () const
-			    { return u.type_common.contains_placeholder_bits; }
-void ttype::set_contains_placeholder_internal (unsigned int i)
-			      { u.type_common.contains_placeholder_bits = i; }
+unsigned int
+ttype::contains_placeholder_internal () const
+{
+  return u.type_common.contains_placeholder_bits;
+}
+void
+ttype::set_contains_placeholder_internal (unsigned int i)
+{
+  u.type_common.contains_placeholder_bits = i;
+}
 
 /* Nonzero if RECORD_TYPE represents a final derivation of class.  */
 #define TYPE_FINAL_P(NODE) \
   (RECORD_OR_UNION_CHECK (NODE)->u.base.default_def_flag)
-bool ttype::final_p () const { return u.base.default_def_flag; }
-void ttype::set_final_p (bool f) { u.base.default_def_flag = f; }
+bool
+ttype::final_p () const
+{
+  record_or_union_check ();
+  return u.base.default_def_flag;
+}
+void
+ttype::set_final_p (bool f)
+{
+  record_or_union_check ();
+  u.base.default_def_flag = f;
+}
 
 /* The debug output functions use the symtab union field to store
    information specific to the debugging format.  The different debug
@@ -2376,17 +2816,31 @@ void ttype::set_final_p (bool f) { u.base.default_def_flag = f; }
    hold the type's number in the generated stabs.  */
 #define TYPE_SYMTAB_ADDRESS(NODE) \
   (TYPE_CHECK (NODE)->u.type_common.symtab.address)
-int ttype::symtab_address () const { return u.type_common.symtab.address; }
-void ttype::set_symtab_address (int n) { u.type_common.symtab.address = n; }
+int
+ttype::symtab_address () const
+{
+  return u.type_common.symtab.address;
+}
+void
+ttype::set_symtab_address (int n)
+{
+  u.type_common.symtab.address = n;
+}
 
 /* Symtab field as a string.  Used by COFF generator in sdbout.c to
    hold struct/union type tag names.  */
 #define TYPE_SYMTAB_POINTER(NODE) \
   (TYPE_CHECK (NODE)->u.type_common.symtab.pointer)
-const char *ttype::symtab_pointer () const
-				      { return u.type_common.symtab.pointer; }
-void ttype::set_symtab_pointer (const char *p)
-					  { u.type_common.symtab.pointer = p; }
+const char *
+ttype::symtab_pointer () const
+{
+  return u.type_common.symtab.pointer;
+}
+void
+ttype::set_symtab_pointer (const char *p)
+{
+  u.type_common.symtab.pointer = p;
+}
 
 /* Symtab field as a pointer to a DWARF DIE.  Used by DWARF generator
    in dwarf2out.c to point to the DIE generated for the type.  */
@@ -2405,107 +2859,304 @@ void ttype::set_symtab_pointer (const char *p)
   (TYPE_CHECK (NODE)->u.type_with_lang_specific.lang_specific)
 
 #define TYPE_VALUES_RAW(NODE) (TYPE_CHECK (NODE)->u.type_non_common.values)
-tree ttype::values_raw () const { return u.type_non_common.values; }
+tree
+ttype::values_raw () const
+{
+  return u.type_non_common.values;
+}
 
 #define TYPE_VALUES(NODE) (ENUMERAL_TYPE_CHECK (NODE)->u.type_non_common.values)
-tree ttype::values () const { return u.type_non_common.values; }
-void ttype::set_values (tree t) { u.type_non_common.values = t; }
+tree
+ttype::values () const
+{
+  code_check (ENUMERAL_TYPE);
+  return u.type_non_common.values;
+}
+void
+ttype::set_values (tree t)
+{
+  code_check (ENUMERAL_TYPE);
+  u.type_non_common.values = t;
+}
 
 #define TYPE_DOMAIN(NODE) (ARRAY_TYPE_CHECK (NODE)->u.type_non_common.values)
-ttype *ttype::domain () const { return TTYPE (u.type_non_common.values); }
-ttype **ttype::domain_ptr () { return TTYPE_PTR (&(u.type_non_common.values)); }
-void ttype::set_domain (ttype *t) { u.type_non_common.values = t; }
+ttype *
+ttype::domain () const
+{
+  code_check (ARRAY_TYPE);
+  return reinterpret_cast<ttype *> (u.type_non_common.values);
+}
+ttype **
+ttype::domain_ptr ()
+{
+  code_check (ARRAY_TYPE);
+  return reinterpret_cast<ttype **> (&(u.type_non_common.values));
+}
+void
+ttype::set_domain (ttype *t)
+{
+  code_check (ARRAY_TYPE);
+  u.type_non_common.values = t;
+}
 
 #define TYPE_FIELDS(NODE) \
   (RECORD_OR_UNION_CHECK (NODE)->u.type_non_common.values)
-tree ttype::fields () const { return u.type_non_common.values; }
-void ttype::set_fields (tree t) { u.type_non_common.values = t; }
+tree
+ttype::fields () const
+{
+  record_or_union_check ();
+  return u.type_non_common.values;
+}
+void
+ttype::set_fields (tree t)
+{
+  record_or_union_check ();
+  u.type_non_common.values = t;
+}
 
 
 #define TYPE_CACHED_VALUES(NODE) (TYPE_CHECK (NODE)->u.type_non_common.values)
-tree ttype::cached_values () const { return u.type_non_common.values; }
-void ttype::set_cached_values (tree t) { u.type_non_common.values = t; }
+tree
+ttype::cached_values () const
+{
+  return u.type_non_common.values;
+}
+void
+ttype::set_cached_values (tree t)
+{
+  u.type_non_common.values = t;
+}
 
 #define TYPE_ARG_TYPES(NODE) \
   (FUNC_OR_METHOD_CHECK (NODE)->u.type_non_common.values)
-tree ttype::arg_types () const { return u.type_non_common.values; }
-void ttype::set_arg_types (tree t) { u.type_non_common.values = t; }
+tree
+ttype::arg_types () const
+{
+  func_or_method_check ();
+  return u.type_non_common.values;
+}
+void
+ttype::set_arg_types (tree t)
+{
+  func_or_method_check ();
+  u.type_non_common.values = t;
+}
 
 #define TYPE_METHODS(NODE) \
   (RECORD_OR_UNION_CHECK (NODE)->u.type_non_common.maxval)
-tree ttype::methods () const { return u.type_non_common.maxval; }
-void ttype::set_methods (tree t) { u.type_non_common.maxval = t; }
+tree
+ttype::methods () const
+{
+  record_or_union_check ();
+  return u.type_non_common.maxval;
+}
+void
+ttype::set_methods (tree t)
+{
+  record_or_union_check ();
+  u.type_non_common.maxval = t;
+}
 
 #define TYPE_VFIELD(NODE) \
   (RECORD_OR_UNION_CHECK (NODE)->u.type_non_common.minval)
-tree ttype::vfield () const { return u.type_non_common.minval; }
-void ttype::set_vfield (tree t) { u.type_non_common.minval = t; }
+tree
+ttype::vfield () const
+{
+  record_or_union_check ();
+  return u.type_non_common.minval;
+}
+void
+ttype::set_vfield (tree t)
+{
+  record_or_union_check ();
+  u.type_non_common.minval = t;
+}
 
 #define TYPE_METHOD_BASETYPE(NODE) \
   (FUNC_OR_METHOD_CHECK (NODE)->u.type_non_common.maxval)
-ttype *ttype::method_basetype() const
-				  { return TTYPE (u.type_non_common.maxval); }
-ttype **ttype::method_basetype_ptr ()
-			    { return TTYPE_PTR (&(u.type_non_common.maxval)); }
-void ttype::set_method_basetype (ttype* t) { u.type_non_common.maxval = t; }
+ttype *
+ttype::method_basetype() const
+{
+  func_or_method_check ();
+  return reinterpret_cast<ttype *>(u.type_non_common.maxval);
+}
+ttype **
+ttype::method_basetype_ptr ()
+{
+  func_or_method_check ();
+  return reinterpret_cast<ttype **>(&(u.type_non_common.maxval));
+}
+void
+ttype::set_method_basetype (ttype* t)
+{
+  u.type_non_common.maxval = t;
+}
 
 #define TYPE_OFFSET_BASETYPE(NODE) \
   (OFFSET_TYPE_CHECK (NODE)->u.type_non_common.maxval)
-ttype *ttype::offset_basetype () const
-				  { return TTYPE (u.type_non_common.maxval); }
-ttype **ttype::offset_basetype_ptr ()
-			    { return TTYPE_PTR (&(u.type_non_common.maxval)); }
-void ttype::set_offset_basetype (ttype *t) { u.type_non_common.maxval = t; }
+ttype *
+ttype::offset_basetype () const
+{
+  code_check (OFFSET_TYPE);
+  return reinterpret_cast<ttype *> (u.type_non_common.maxval);
+}
+ttype **
+ttype::offset_basetype_ptr ()
+{
+  code_check (OFFSET_TYPE);
+  return reinterpret_cast<ttype **> (&(u.type_non_common.maxval));
+}
+void
+ttype::set_offset_basetype (ttype *t)
+{
+  u.type_non_common.maxval = t;
+}
 
 #define TYPE_MAXVAL(NODE) (TYPE_CHECK (NODE)->u.type_non_common.maxval)
-tree ttype::maxval () const { return u.type_non_common.maxval; }
-void ttype::set_maxval (tree t) { u.type_non_common.maxval = t; }
+tree
+ttype::maxval () const
+{
+  return u.type_non_common.maxval;
+}
+void
+ttype::set_maxval (tree t)
+{
+  u.type_non_common.maxval = t;
+}
 
 #define TYPE_MINVAL(NODE) (TYPE_CHECK (NODE)->u.type_non_common.minval)
-tree ttype::minval () const { return u.type_non_common.minval; }
-void ttype::set_minval (tree t) { u.type_non_common.minval = t; }
+tree
+ttype::minval () const
+{
+  return u.type_non_common.minval;
+}
+void
+ttype::set_minval (tree t)
+{
+  u.type_non_common.minval = t;
+}
 
 #define TYPE_NEXT_PTR_TO(NODE) \
   (POINTER_TYPE_CHECK (NODE)->u.type_non_common.minval)
-ttype *ttype::next_ptr_to () const { return TTYPE (u.type_non_common.minval); }
-void ttype::set_next_ptr_to (ttype *t) { u.type_non_common.minval = t; }
+ttype *
+ttype::next_ptr_to () const
+{
+  code_check (POINTER_TYPE);
+  return reinterpret_cast<ttype *> (u.type_non_common.minval);
+}
+void
+ttype::set_next_ptr_to (ttype *t)
+{
+  code_check (POINTER_TYPE);
+  u.type_non_common.minval = t;
+}
 
 #define TYPE_NEXT_REF_TO(NODE) \
   (REFERENCE_TYPE_CHECK (NODE)->u.type_non_common.minval)
-ttype *ttype::next_ref_to () const { return TTYPE (u.type_non_common.minval); }
-void ttype::set_next_ref_to (ttype *t) { u.type_non_common.minval = t; }
+ttype *
+ttype::next_ref_to () const
+{
+  code_check (REFERENCE_TYPE);
+  return reinterpret_cast<ttype *> (u.type_non_common.minval);
+}
+void
+ttype::set_next_ref_to (ttype *t)
+{
+  code_check (REFERENCE_TYPE);
+  u.type_non_common.minval = t;
+}
 
 #define TYPE_MIN_VALUE(NODE) \
   (NUMERICAL_TYPE_CHECK (NODE)->u.type_non_common.minval)
-tree ttype::min_value () const { return u.type_non_common.minval; }
-tree *ttype::min_value_ptr () { return &(u.type_non_common.minval); }
-void ttype::set_min_value (tree t) { u.type_non_common.minval = t; }
+tree
+ttype::min_value () const
+{
+  numerical_check ();
+  return u.type_non_common.minval;
+}
+tree *
+ttype::min_value_ptr ()
+{
+  numerical_check ();
+  return &(u.type_non_common.minval);
+}
+void
+ttype::set_min_value (tree t)
+{
+  numerical_check ();
+  u.type_non_common.minval = t;
+}
 #define TYPE_MAX_VALUE(NODE) \
   (NUMERICAL_TYPE_CHECK (NODE)->u.type_non_common.maxval)
-tree ttype::max_value () const { return u.type_non_common.maxval; }
-tree *ttype::max_value_ptr () { return &(u.type_non_common.maxval); }
-void ttype::set_max_value (tree t) { u.type_non_common.maxval = t; }
+tree
+ttype::max_value () const
+{
+  numerical_check ();
+  return u.type_non_common.maxval;
+}
+tree *
+ttype::max_value_ptr ()
+{
+  numerical_check ();
+  return &(u.type_non_common.maxval);
+}
+void
+ttype::set_max_value (tree t)
+{
+  numerical_check ();
+  u.type_non_common.maxval = t;
+}
 
 /* If non-NULL, this is an upper bound of the size (in bytes) of an
    object of the given ARRAY_TYPE_NON_COMMON.  This allows temporaries to be
    allocated.  */
 #define TYPE_ARRAY_MAX_SIZE(ARRAY_TYPE) \
   (ARRAY_TYPE_CHECK (ARRAY_TYPE)->u.type_non_common.maxval)
-tree ttype::array_max_size () const { return u.type_non_common.maxval; }
-void ttype::set_array_max_size (tree t) { u.type_non_common.maxval = t; }
+tree
+ttype::array_max_size () const
+{
+  code_check (ARRAY_TYPE);
+  return u.type_non_common.maxval;
+}
+void
+ttype::set_array_max_size (tree t)
+{
+  code_check (ARRAY_TYPE);
+  u.type_non_common.maxval = t;
+}
 
 /* For record and union types, information about this type, as a base type
    for itself.  */
 #define TYPE_BINFO(NODE) (RECORD_OR_UNION_CHECK (NODE)->u.type_non_common.binfo)
-tree ttype::binfo () const { return u.type_non_common.binfo; }
-void ttype::set_binfo (tree t) { u.type_non_common.binfo = t; }
+tree
+ttype::binfo () const
+{
+  record_or_union_check ();
+  return u.type_non_common.binfo;
+}
+void
+ttype::set_binfo (tree t)
+{
+  record_or_union_check ();
+  u.type_non_common.binfo = t;
+}
 
 
 /* For non record and union types, used in a language-dependent way.  */
 #define TYPE_LANG_SLOT_1(NODE) \
   (NOT_RECORD_OR_UNION_CHECK (NODE)->u.type_non_common.binfo)
-tree ttype::lang_slot_1 () const { return u.type_non_common.binfo; }
-void ttype::set_lang_slot_1 (tree t) { u.type_non_common.binfo = t; }
+tree
+ttype::lang_slot_1 () const
+{
+  not_record_or_union_check ();
+  return u.type_non_common.binfo;
+}
+void
+ttype::set_lang_slot_1 (tree t)
+{
+  not_record_or_union_check ();
+  u.type_non_common.binfo = t;
+}
 
 
 /* Define accessor macros for information about type inheritance
@@ -2539,11 +3190,6 @@ void ttype::set_lang_slot_1 (tree t) { u.type_non_common.binfo = t; }
 
 /* The actual data type node being inherited in this basetype.  */
 #define BINFO_TYPE(NODE) TREE_TYPE (TREE_BINFO_CHECK (NODE))
-
-/* When the type needs to be a ttype *.  For use until typed.type becomes a
-   'ttype *', and then it can be reverted to a BINFO_TYPE. */
-#define BINFO_TTYPE(NODE) TREE_TTYPE (TREE_BINFO_CHECK (NODE))
-
 
 /* The offset where this basetype appears in its containing type.
    BINFO_OFFSET slot holds the offset (in bytes)
@@ -2639,7 +3285,8 @@ void ttype::set_lang_slot_1 (tree t) { u.type_non_common.binfo = t; }
 #define TYPE_IDENTIFIER(NODE) \
   (TYPE_NAME (NODE) && DECL_P (TYPE_NAME (NODE)) \
    ? DECL_NAME (TYPE_NAME (NODE)) : TYPE_NAME (NODE))
-tree ttype::identifier () const
+tree
+ttype::identifier () const
 {
   return (name() && DECL_P (name())) ? DECL_NAME (name()) : name ();
 }
@@ -2840,7 +3487,11 @@ tree ttype::identifier () const
 #define DECL_FILE_SCOPE_P(EXP) SCOPE_FILE_SCOPE_P (DECL_CONTEXT (EXP))
 /* Nonzero for a type which is at file scope.  */
 #define TYPE_FILE_SCOPE_P(EXP) SCOPE_FILE_SCOPE_P (TYPE_CONTEXT (EXP))
-bool ttype::file_scope_p () const { return SCOPE_FILE_SCOPE_P (context ()); }
+bool
+ttype::file_scope_p () const
+{
+  return SCOPE_FILE_SCOPE_P (context ());
+}
 
 
 /* Nonzero for a decl that is decorated using attribute used.
@@ -5902,6 +6553,111 @@ desired_pro_or_demotion_p (const_tree to_type, const_tree from_type)
 
   /* Otherwise, allow only if narrowing or same precision conversions. */
   return to_type_precision <= TYPE_PRECISION (from_type);
+}
+
+void
+tree_node::class_check (enum tree_code_class c) const
+{
+  ::tree_class_check (this, c, __FILE__, __LINE__, __FUNCTION__);
+}
+void
+tree_node::code_check (enum tree_code c) const
+{
+  ::tree_check (this, __FILE__, __LINE__, __FUNCTION__, c);
+}
+void
+tree_node::code_check (enum tree_code c1, enum tree_code c2) const
+{ 
+  ::tree_check2 (this, __FILE__, __LINE__, __FUNCTION__, c1, c2);
+}
+void
+tree_node::code_check (enum tree_code c1, enum tree_code c2,
+			    enum tree_code c3) const
+{
+  ::tree_check3 (this, __FILE__, __LINE__, __FUNCTION__, c1, c2, c3);
+}
+void
+tree_node::code_check (enum tree_code c1, enum tree_code c2,
+			    enum tree_code c3, enum tree_code c4) const
+{
+  ::tree_check4 (this, __FILE__, __LINE__, __FUNCTION__, c1, c2, c3, c4);
+}
+void
+tree_node::code_check (enum tree_code c1, enum tree_code c2,
+			    enum tree_code c3, enum tree_code c4,
+			    enum tree_code c5) const
+{
+  ::tree_check5 (this, __FILE__, __LINE__, __FUNCTION__, c1, c2, c3, c4, c5);
+}
+
+void
+tree_node::code_not_check (enum tree_code c1) const
+{
+  ::tree_not_check (this, __FILE__, __LINE__, __FUNCTION__, c1);
+}
+void
+tree_node::code_not_check (enum tree_code c1, enum tree_code c2) const
+{
+  ::tree_not_check2 (this, __FILE__, __LINE__, __FUNCTION__, c1, c2);
+}
+void
+tree_node::code_not_check (enum tree_code c1, enum tree_code c2,
+				enum tree_code c3) const
+{
+  ::tree_not_check3 (this, __FILE__, __LINE__, __FUNCTION__, c1, c2, c3);
+}
+void
+tree_node::code_not_check (enum tree_code c1, enum tree_code c2,
+				enum tree_code c3, enum tree_code c4) const
+{
+  ::tree_not_check4 (this, __FILE__, __LINE__, __FUNCTION__, c1, c2, c3, c4);
+}
+void
+tree_node::code_not_check (enum tree_code c1, enum tree_code c2,
+				enum tree_code c3, enum tree_code c4,
+				enum tree_code c5) const
+{
+  ::tree_not_check5 (this, __FILE__, __LINE__, __FUNCTION__, c1, c2, c3, c4,
+		     c5);
+}
+void
+tree_node::type_check () const
+{
+  class_check (tcc_type);
+}
+
+
+void
+ttype::any_integral_check () const 
+{
+  ::any_integral_type_check (this, __FILE__, __LINE__, __FUNCTION__);
+}
+void
+ttype::ptr_or_ref_check () const 
+{
+  code_check (POINTER_TYPE, REFERENCE_TYPE);
+}
+void
+ttype::record_or_union_check () const 
+{
+  code_check (RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE);
+}
+void
+ttype::not_record_or_union_check () const 
+{
+  code_not_check (RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE);
+}
+void
+ttype::func_or_method_check () const
+{
+  code_check (FUNCTION_TYPE, METHOD_TYPE);
+}
+
+void
+ttype::numerical_check () const
+{
+  code_check (INTEGER_TYPE, ENUMERAL_TYPE, BOOLEAN_TYPE, REAL_TYPE,
+	      FIXED_POINT_TYPE);
 }
 
 #endif  /* GCC_TREE_H  */

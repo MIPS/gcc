@@ -409,71 +409,66 @@ along with GCC; see the file COPYING3.  If not see
 #define TYPE_DECL_SUPPRESS_DEBUG_PTR(NODE) ((NODE)->decl_surpress_debug_ptr ())
 
 
+/* DECL_CONTEXT can be either a tree or a ttype*, so add a checking flag and
+   accessor.  */
 #define DECL_CONTEXT_TYPE_P(NODE) (TYPE_P (DECL_CONTEXT (NODE)))
 #define DECL_CONTEXT_TYPE(NODE) (TTYPE (DECL_CONTEXT (NODE)))
+/* TREE_LIST can be a list of trees or of typesd.  Use this when it is to be
+   accessed as a type.  Ideally, these are all replaced with TYPE_LIST's at
+   some point.  */
+#define TREE_VALUE_TYPE(NODE) TTYPE(TREE_VALUE(NODE))
 
 #undef TREE_TYPE
-static inline ttype *TREE_TYPE (const_tree NODE) 
-    { return TTYPE ((CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->u.typed.type)); }
-static inline ttype *TREE_TYPE (tree NODE) 
-    { return TTYPE ((CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->u.typed.type)); }
-
-#undef TREE_TYPE_PTR
-static inline ttype **TREE_TYPE_PTR (tree NODE)
-{ 
-  return TTYPE_PTR (&(CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->u.typed.type));
+static inline ttype *
+TREE_TYPE (const_tree node) 
+{
+  return reinterpret_cast<ttype *>
+	   (CONTAINS_STRUCT_CHECK (node, TS_TYPED)->u.typed.type);
+}
+static inline ttype *
+TREE_TYPE (tree node) 
+{
+  return reinterpret_cast<ttype *>
+	   (CONTAINS_STRUCT_CHECK (node, TS_TYPED)->u.typed.type);
+}
+static inline ttype *
+TREE_TYPE (const ttype *node)
+{
+  return reinterpret_cast<ttype *>(node->u.typed.type);
+}
+static inline ttype *
+TREE_TYPE (const ttype_p node)
+{
+  return reinterpret_cast<ttype *>(node->u.typed.type);
 }
 
-#define TYPE_TYPE(NODE) ((NODE)->type ())
-#define TYPE_SET_TYPE(NODE, VAL) ((NODE)->type (VAL))
-#define TYPE_TYPE_PTR(NODE) ((NODE)->type_ptr ())
+/* Once a file is converted, the type field should only be settable with a 
+   ttype * node.  */
+#undef TREE_SET_TYPE
+static inline void
+TREE_SET_TYPE (tree node, ttype *t)
+{
+  (CONTAINS_STRUCT_CHECK (node, TS_TYPED)->u.typed.type) = t;
+}
 
-#define TYPE_CODE(NODE) ((NODE)->code ())
-#define TYPE_SET_CODE(NODE, VAL) ((NODE)->set_code (VAL))
+#undef TREE_TYPE_PTR
+static inline ttype **TREE_TYPE_PTR (tree node)
+{ 
+  return reinterpret_cast<ttype **>
+	   (&(CONTAINS_STRUCT_CHECK (node, TS_TYPED)->u.typed.type));
+}
 
+static inline ttype **
+TREE_TYPE_PTR (ttype *node)
+{
+  return node->type_ptr ();
+}
 
+static inline ttype **
+TREE_TYPE_PTR (ttype_p node)
+{
+  return node->type_ptr ();
+} 
 
-static inline ttype *TREE_TYPE (const ttype *node) { return node->type(); }
-static inline ttype *TREE_TYPE (const ttype_p node) { return node->type (); }
-static inline ttype **TREE_TYPE_PTR (ttype *node) { return node->type_ptr (); }
-static inline ttype **TREE_TYPE_PTR (ttype_p node) { return node->type_ptr (); } 
-
-/* In order to separate types from tree, all the TREE_ accessors which share 
-   fields with ttype's will have to be changed as well. THis is fairly invasive,
-   so is left during the initial conversion phase, deferring the decision to 
-   physically separate then until it is understood just how big that job is.
-   
-   These macros are examples of how to make sure accessors like TREE_CODE and
-   TREE_TYPE catch all occurences.  */
-#if 0
-
-ttype *TREE_TYPE (ttype *node)  __attribute__((error(" Fix use of TREE_TTYPE(ttype *)")));
-ttype *TREE_TYPE (ttype_p node)  __attribute__((error(" Fix use of TREE_TTYPE(ttype_p)")));
-
-ttype **TREE_TYPE_PTR (ttype *node)  __attribute__((error(" Fix use of TREE_TTYPE_PTR(ttype *)")));
-
-ttype **TREE_TYPE_PTR (ttype_p node)  __attribute__((error(" Fix use of TREE_TTYPE_PTR(ttype_p)")));
-
-
-
-
-#undef TREE_CODE
-static inline enum tree_code TREE_CODE (tree n) { return n->u.base.code; }
-static inline enum tree_code TREE_CODE (const_tree n) { return n->u.base.code; }
-enum tree_code TREE_CODE (ttype *node) __attribute__((error(" Fix use of TREE_CODE(ttype *)")));
-enum tree_code TREE_CODE (ttype_p node) __attribute__((error(" Fix use of TREE_CODE(ttype_p)")));
-
-
-#undef TREE_SET_CODE
-static inline void TREE_SET_CODE (tree n, enum tree_code v)
-							{ n->u.base.code = v; }
-void TREE_SET_CODE (ttype *node, enum tree_code v) __attribute__((error(" Fix use of TREE_CODE(ttype *)")));
-void TREE_SET_CODE (ttype_p node, enum tree_code v) __attribute__((error(" Fix use of TREE_CODE(ttype_p)")));
-
-/* These macros are defined using one of the above, and thus need to be
-   redefined in tree.h as they are here once this comes into full production
-   and this file is removed. */
-
-#endif
 
 #endif 

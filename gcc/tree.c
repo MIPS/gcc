@@ -5192,7 +5192,7 @@ free_lang_data_in_type (ttype *type)
 
       for (p = type->arg_types (); p; p = TREE_CHAIN (p))
 	{
-	  ttype *arg_type = TREE_VALUE_TTYPE (p);
+	  ttype *arg_type = TREE_VALUE_TYPE (p);
 
 	  if (arg_type->readonly_p () || arg_type->volatile_p ())
 	    {
@@ -5200,7 +5200,7 @@ free_lang_data_in_type (ttype *type)
 			  & ~TYPE_QUAL_CONST
 			  & ~TYPE_QUAL_VOLATILE;
 	      TREE_VALUE (p) = build_qualified_type (arg_type, quals);
-	      free_lang_data_in_type (TREE_VALUE_TTYPE (p));
+	      free_lang_data_in_type (TREE_VALUE_TYPE (p));
 	    }
 	  /* C++ FE uses TREE_PURPOSE to store initial values.  */
 	  TREE_PURPOSE (p) = NULL;
@@ -7022,8 +7022,8 @@ type_hash_list (const_tree list, inchash::hash &hstate)
   const_tree tail;
 
   for (tail = list; tail; tail = TREE_CHAIN (tail))
-    if (TREE_VALUE_TTYPE (tail) != error_type_node)
-      hstate.add_object (TREE_VALUE_TTYPE (tail)->hash ());
+    if (TREE_VALUE_TYPE (tail) != error_type_node)
+      hstate.add_object (TREE_VALUE_TYPE (tail)->hash ());
 }
 
 /* These are the Hashtable callback functions.  */
@@ -7304,7 +7304,7 @@ type_num_arguments (const ttype_p type)
   for (t = type->arg_types (); t; t = TREE_CHAIN (t))
     /* If the function does not take a variable number of arguments,
        the last element in the list will have type `void'.  */
-    if (TREE_VALUE_TTYPE (t)->void_p ())
+    if (TREE_VALUE_TYPE (t)->void_p ())
       break;
     else
       ++i;
@@ -8385,12 +8385,12 @@ maybe_canonicalize_argtypes (tree argtypes,
 
   for (arg = argtypes; arg && !(*any_structural_p); arg = TREE_CHAIN (arg))
     {
-      if (!TREE_VALUE (arg) || TREE_VALUE_TTYPE (arg) == error_type_node)
+      if (!TREE_VALUE (arg) || TREE_VALUE_TYPE (arg) == error_type_node)
 	/* Fail gracefully by stating that the type is structural.  */
 	*any_structural_p = true;
-      else if (TREE_VALUE_TTYPE (arg)->structural_equality_p ())
+      else if (TREE_VALUE_TYPE (arg)->structural_equality_p ())
 	*any_structural_p = true;
-      else if (TREE_VALUE_TTYPE (arg)->canonical () != TREE_VALUE_TTYPE (arg)
+      else if (TREE_VALUE_TYPE (arg)->canonical () != TREE_VALUE_TYPE (arg)
 	       || TREE_PURPOSE (arg))
 	/* If the argument has a default argument, we consider it
 	   non-canonical even though the type itself is canonical.
@@ -8415,7 +8415,7 @@ maybe_canonicalize_argtypes (tree argtypes,
             is_void = true;
           else
             canon_argtypes = tree_cons (NULL_TREE,
-                                        TREE_VALUE_TTYPE (arg)->canonical (),
+                                        TREE_VALUE_TYPE (arg)->canonical (),
                                         canon_argtypes);
         }
 
@@ -12492,7 +12492,7 @@ obj_type_ref_class (const_tree ref)
      ID however also corresponds to class type. */
   gcc_checking_assert (reft->code () == METHOD_TYPE
 		       || reft->code () == FUNCTION_TYPE);
-  reft = TREE_VALUE_TTYPE (reft->arg_types ());
+  reft = TREE_VALUE_TYPE (reft->arg_types ());
   gcc_checking_assert (reft->code () == POINTER_TYPE);
   return reft->type ();
 }
@@ -13535,7 +13535,7 @@ gimple_canonical_types_compatible_p (ttype_p t1, ttype_p t2,
 	       parms1 = TREE_CHAIN (parms1), parms2 = TREE_CHAIN (parms2))
 	    {
 	      if (!gimple_canonical_types_compatible_p
-		     (TREE_VALUE_TTYPE (parms1), TREE_VALUE_TTYPE (parms2),
+		     (TREE_VALUE_TYPE (parms1), TREE_VALUE_TYPE (parms2),
 		      trust_type_canonical))
 		return false;
 	    }
@@ -14135,6 +14135,7 @@ combined_fn_name (combined_fn fn)
    implemented here.  */
 bool ttype::overflow_traps_p () const
 { 
+  any_integral_check();
   return !u.base.u.bits.unsigned_flag && flag_trapv;
 }
 
@@ -14142,6 +14143,7 @@ bool ttype::overflow_traps_p () const
    implemented here.  */
 bool ttype::overflow_wraps_p () const
 { 
+  any_integral_check();
   return u.base.u.bits.unsigned_flag || flag_wrapv;
 }
 
@@ -14153,6 +14155,7 @@ bool ttype::overflow_sanitized_p () const
 
 bool ttype::overflow_undefined_p () const
 { 
+  any_integral_check();
   return !u.base.u.bits.unsigned_flag && !flag_wrapv && !flag_trapv
 	 && flag_strict_overflow;
 }

@@ -1636,7 +1636,7 @@ lookup_field (ttype **typep, tree name)
       for (binfo = TYPE_BINFO (*typep), i = 0;
 	   BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
 	{
-	  ttype *t = BINFO_TTYPE (base_binfo);
+	  ttype *t = TTYPE (BINFO_TYPE (base_binfo));
 	  if ((field = lookup_field (&t, name)))
 	    {
 	      if (save_field == field)

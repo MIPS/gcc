@@ -1805,11 +1805,37 @@ union GTY ((desc ("tree_node_structure (&%h)"), variable_size)) tree_node_u {
 };
 
 struct GTY ((ptr_alias (union lang_tree_node), desc("0"), tag("0"))) tree_node {
+protected:
+  inline void code_check (enum tree_code) const;
+  inline void code_check (enum tree_code, enum tree_code) const;
+  inline void code_check (enum tree_code, enum tree_code, enum tree_code) const;
+  inline void code_check (enum tree_code, enum tree_code, enum tree_code,
+			  enum tree_code) const;
+  inline void code_check (enum tree_code, enum tree_code, enum tree_code,
+			  enum tree_code, enum tree_code) const;
+  inline void code_not_check (enum tree_code) const;
+  inline void code_not_check (enum tree_code, enum tree_code) const;
+  inline void code_not_check (enum tree_code, enum tree_code,
+			      enum tree_code) const;
+  inline void code_not_check (enum tree_code, enum tree_code, enum tree_code,
+			      enum tree_code) const;
+  inline void code_not_check (enum tree_code, enum tree_code, enum tree_code,
+			      enum tree_code, enum tree_code) const;
+  inline void class_check (enum tree_code_class) const;
+  inline void type_check () const;
+public:
   union tree_node_u u;
 };
 
 
 class GTY(()) ttype : public tree_node {
+protected:
+  inline void ptr_or_ref_check () const;
+  inline void any_integral_check () const;
+  inline void record_or_union_check () const;
+  inline void not_record_or_union_check () const;
+  inline void func_or_method_check () const;
+  inline void numerical_check () const;
 public:
   inline enum tree_code code () const;
   inline void set_code (enum tree_code c);
