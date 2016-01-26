@@ -329,8 +329,8 @@ decode_options (struct gcc_options *opts, struct gcc_options *opts_set,
    numbers are all >= 0.)
 
    Note that these two command-line options are mutually exclusive.  
-   If both are specified, subsequent options overwrite earlier
-   options. */
+   If both are specified, subsequent option processing overwrites 
+   earlier option processing. */
 
 static const char *opt_fstack_limit_symbol_arg = NULL;
 static int opt_fstack_limit_register_no = -1;
