@@ -1895,7 +1895,9 @@ public:
   inline void set_alias_set (alias_set_type a);
   inline bool ref_can_alias_all_p () const;
   inline void set_ref_can_alias_all_p (bool f);
-  inline unsigned int& hash();
+  inline unsigned int &hash();
+  inline unsigned int *hash_ptr();
+  inline void set_hash (unsigned int);
   inline tree identifier () const;
   inline bool needs_constructing_p () const;
   inline void set_needs_constructing_p (bool);
@@ -1993,7 +1995,15 @@ public:
   inline bool void_p () const;
   inline bool vector_boolean_p () const;
   inline bool decimal_float_p () const;
+  inline bool non_sat_fixed_point_p () const;
+  inline bool sat_fixed_point_p () const;
+  inline bool complex_float_p () const;
+  inline bool vector_integer_p () const;
+
   bool overflow_traps_p () const;
+  bool overflow_wraps_p () const;
+  bool overflow_sanitized_p () const;
+  bool overflow_undefined_p () const;
 
   inline void clear_lang_flags ();
 

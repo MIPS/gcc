@@ -39,6 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa.h"
 #include "cfgloop.h"
 #include "cfgexpand.h"
+#include "ttype.h"
 
 /* Pointer map of variable mappings, keyed by edge.  */
 static hash_map<edge, auto_vec<edge_var_map> > *edge_var_maps;
@@ -429,7 +430,7 @@ insert_debug_temp_for_var_def (gimple_stmt_iterator *gsi, tree var)
 					      def_stmt);
 
 	  DECL_ARTIFICIAL (vexpr) = 1;
-	  TREE_TYPE (vexpr) = TREE_TYPE (value);
+	  TREE_SET_TYPE (vexpr, TREE_TYPE (value));
 	  if (DECL_P (value))
 	    DECL_MODE (vexpr) = DECL_MODE (value);
 	  else

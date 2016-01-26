@@ -10760,7 +10760,7 @@ build_vector_type (ttype_p innertype, int nunits)
 
 /* Build truth vector with specified length and number of units.  */
 
-tree
+ttype *
 build_truth_vector_type (unsigned nunits, unsigned vector_size)
 {
   machine_mode mask_mode = targetm.vectorize.get_mask_mode (nunits,
@@ -10784,7 +10784,7 @@ build_truth_vector_type (unsigned nunits, unsigned vector_size)
 
 /* Returns a vector type corresponding to a comparison of VECTYPE.  */
 
-tree
+ttype *
 build_same_sized_truth_vector_type (ttype_p vectype)
 {
   if (vectype->vector_boolean_p ())
@@ -11285,7 +11285,7 @@ int_cst_value (const_tree x)
    the same precision which is unsigned iff UNSIGNEDP is true, or itself
    if TYPE is already an integer type of signedness UNSIGNEDP.  */
 
-tree
+ttype *
 signed_or_unsigned_type_for (int unsignedp, ttype_p type)
 {
   if (type->code () == INTEGER_TYPE && type->unsigned_p () == unsignedp)
@@ -11296,7 +11296,7 @@ signed_or_unsigned_type_for (int unsignedp, ttype_p type)
       tree inner = type->type ();
       tree inner2 = signed_or_unsigned_type_for (unsignedp, inner);
       if (!inner2)
-	return NULL_TREE;
+	return NULL;
       if (inner == inner2)
 	return type;
       return build_vector_type (inner2, type->vector_subparts ());
@@ -11305,7 +11305,7 @@ signed_or_unsigned_type_for (int unsignedp, ttype_p type)
   if (!type->integral_p ()
       && !type->pointer_p ()
       && type->code () != OFFSET_TYPE)
-    return NULL_TREE;
+    return NULL;
 
   return build_nonstandard_integer_type (type->precision (), unsignedp);
 }
@@ -11314,7 +11314,7 @@ signed_or_unsigned_type_for (int unsignedp, ttype_p type)
    the same precision which is unsigned, or itself if TYPE is already an
    unsigned integer type.  */
 
-tree
+ttype *
 unsigned_type_for (ttype_p type)
 {
   return signed_or_unsigned_type_for (1, type);
@@ -11324,7 +11324,7 @@ unsigned_type_for (ttype_p type)
    the same precision which is signed, or itself if TYPE is already a
    signed integer type.  */
 
-tree
+ttype *
 signed_type_for (ttype_p type)
 {
   return signed_or_unsigned_type_for (0, type);
@@ -11333,7 +11333,7 @@ signed_type_for (ttype_p type)
 /* If TYPE is a vector type, return a signed integer vector type with the
    same width and number of subparts. Otherwise return boolean_type_node.  */
 
-tree
+ttype *
 truth_type_for (ttype_p type)
 {
   if (type->code () == VECTOR_TYPE)
@@ -14137,5 +14137,25 @@ bool ttype::overflow_traps_p () const
 { 
   return !u.base.u.bits.unsigned_flag && flag_trapv;
 }
+
+/* flag_wrap_v is not available in tree.h, so this function must be
+   implemented here.  */
+bool ttype::overflow_wraps_p () const
+{ 
+  return u.base.u.bits.unsigned_flag || flag_wrapv;
+}
+
+bool ttype::overflow_sanitized_p () const
+{
+  return integral_p() && !overflow_wraps_p ()
+	 && (flag_sanitize & SANITIZE_SI_OVERFLOW);
+}
+
+bool ttype::overflow_undefined_p () const
+{ 
+  return !u.base.u.bits.unsigned_flag && !flag_wrapv && !flag_trapv
+	 && flag_strict_overflow;
+}
+
 
 #include "gt-tree.h"

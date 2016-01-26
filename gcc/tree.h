@@ -326,11 +326,13 @@ public:
   inline ttype_p (ttype *t) { type = t; }
   inline ttype_p& operator= (ttype *t) { type = t; return *this; }
   inline operator ttype *() const { return type; }
+  ttype_p * operator &() const __attribute__((error("Don't take address of ttype_p ")));
   inline ttype * operator->() { return type; }
   inline ttype * operator->() const { return type; }
   // Used to mark locations which will simply be ttype when we can remove the
   // ttype_p type at this location.  Mostly when used in varargs..
 };
+
 
 class ttype_pp {
   ttype **type;
@@ -597,6 +599,8 @@ void ttype::set_type (ttype *t) { u.typed.type = t; }
    are made.  */
 #define TYPE_HASH(TYPE) (TYPE_UID (TYPE))
 unsigned int &ttype::hash() { return u.type_common.uid; }
+unsigned int *ttype::hash_ptr() { return &(u.type_common.uid); }
+void ttype::set_hash(unsigned int i) { u.type_common.uid = i; }
 
 /* A simple hash function for an arbitrary tree node.  This must not be
    used in hash tables which are saved to a PCH.  */
@@ -690,11 +694,15 @@ bool ttype::any_integral_p () const
 
 #define NON_SAT_FIXED_POINT_TYPE_P(TYPE) \
   (TREE_CODE (TYPE) == FIXED_POINT_TYPE && !TYPE_SATURATING (TYPE))
+bool ttype::non_sat_fixed_point_p () const 
+  { return code () == FIXED_POINT_TYPE && !saturating_p (); }
 
 /* Nonzero if TYPE represents a saturating fixed-point type.  */
 
 #define SAT_FIXED_POINT_TYPE_P(TYPE) \
   (TREE_CODE (TYPE) == FIXED_POINT_TYPE && TYPE_SATURATING (TYPE))
+bool ttype::sat_fixed_point_p () const 
+  { return code () == FIXED_POINT_TYPE && saturating_p (); }
 
 /* Nonzero if TYPE represents a fixed-point type.  */
 
@@ -711,13 +719,19 @@ bool ttype::scalar_float_p () const { return code() == REAL_TYPE; }
 #define COMPLEX_FLOAT_TYPE_P(TYPE)	\
   (TREE_CODE (TYPE) == COMPLEX_TYPE	\
    && TREE_CODE (TREE_TYPE (TYPE)) == REAL_TYPE)
+bool ttype::complex_float_p () const
+{
+  return (code() == COMPLEX_TYPE) && (type()->code () == REAL_TYPE);
+}
+
 
 /* Nonzero if TYPE represents a vector integer type.  */
                 
 #define VECTOR_INTEGER_TYPE_P(TYPE)			\
   (VECTOR_TYPE_P (TYPE)					\
    && TREE_CODE (TREE_TYPE (TYPE)) == INTEGER_TYPE)
-
+bool ttype::vector_integer_p () const
+  { return vector_p () && type()->code () == INTEGER_TYPE; }
 
 /* Nonzero if TYPE represents a vector floating-point type.  */
 
@@ -1016,6 +1030,8 @@ signop ttype::sign () const { return (signop) unsigned_p (); }
    is, TYPE_MAX + 1 == TYPE_MIN.  */
 #define TYPE_OVERFLOW_WRAPS(TYPE) \
   (ANY_INTEGRAL_TYPE_CHECK(TYPE)->u.base.u.bits.unsigned_flag || flag_wrapv)
+/* Defined in tree.c due to lack of flag_wrapv being visible here.  
+   bool overflow_wraps_p () const;  */
 
 /* True if overflow is undefined for the given integral type.  We may
    optimize on the assumption that values in the type never overflow.
@@ -1028,6 +1044,7 @@ signop ttype::sign () const { return (signop) unsigned_p (); }
 #define TYPE_OVERFLOW_UNDEFINED(TYPE)				\
   (!ANY_INTEGRAL_TYPE_CHECK(TYPE)->u.base.u.bits.unsigned_flag	\
    && !flag_wrapv && !flag_trapv && flag_strict_overflow)
+/* Defined in tree.c due to lack of flags being visible here.   */
 
 /* True if overflow for the given integral type should issue a
    trap.  */
@@ -1041,8 +1058,9 @@ signop ttype::sign () const { return (signop) unsigned_p (); }
   (INTEGRAL_TYPE_P (TYPE)				\
    && !TYPE_OVERFLOW_WRAPS (TYPE)			\
    && (flag_sanitize & SANITIZE_SI_OVERFLOW))
+/* Defined in tree.c due to lack of flag's being visible here.  
+   bool overflow_sanitized_p () const;  */
 
-/* True if pointer types have undefined overflow.  */
 #define POINTER_TYPE_OVERFLOW_UNDEFINED (flag_strict_overflow)
 
 /* Nonzero in a VAR_DECL or STRING_CST means assembler code has been written.
@@ -4407,18 +4425,18 @@ extern tree build_string_literal (int, const char *);
 
 /* Construct various nodes representing data types.  */
 
-extern tree signed_or_unsigned_type_for (int, ttype_p);
-extern tree signed_type_for (ttype_p);
-extern tree unsigned_type_for (ttype_p);
-extern tree truth_type_for (ttype_p );
+extern ttype *signed_or_unsigned_type_for (int, ttype_p);
+extern ttype *signed_type_for (ttype_p);
+extern ttype *unsigned_type_for (ttype_p);
+extern ttype *truth_type_for (ttype_p );
 extern ttype *build_pointer_type_for_mode (ttype_p, machine_mode, bool);
 extern ttype *build_pointer_type (ttype_p);
 extern ttype *build_reference_type_for_mode (ttype_p, machine_mode, bool);
 extern ttype *build_reference_type (ttype_p);
 extern ttype *build_vector_type_for_mode (ttype_p, machine_mode);
 extern ttype *build_vector_type (ttype_p innertype, int nunits);
-extern tree build_truth_vector_type (unsigned, unsigned);
-extern tree build_same_sized_truth_vector_type (ttype_p vectype);
+extern ttype *build_truth_vector_type (unsigned, unsigned);
+extern ttype *build_same_sized_truth_vector_type (ttype_p vectype);
 extern ttype *build_opaque_vector_type (ttype_p innertype, int nunits);
 extern ttype *build_index_type (tree);
 extern ttype *build_array_type (ttype_p, ttype_p);
