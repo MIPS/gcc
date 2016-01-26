@@ -314,7 +314,7 @@ decode_options (struct gcc_options *opts, struct gcc_options *opts_set,
    variable cannot be used because it has not yet been initialized.
    For this reason, handling of the OPT_fstack_limit_register_ and
    OPT_fstack_limit_symbol_ options is deferred until execution
-   of fnish_deferred_option_handling (), which is invoked following
+   of finish_deferred_option_handling (), which is invoked following
    target-specific initialization.
 
    The variable opt_fstack_limit_symbol_arg represents the name
