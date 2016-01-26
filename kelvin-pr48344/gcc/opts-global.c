@@ -310,6 +310,28 @@ decode_options (struct gcc_options *opts, struct gcc_options *opts_set,
   finish_options (opts, opts_set, loc);
 }
 
+/* During execution of handle_common_deferred_options (), the Pmode
+   variable cannot be used because it has not yet been initialized.
+   For this reason, handling of the OPT_fstack_limit_register_ and
+   OPT_fstack_limit_symbol_ options is deferred until execution
+   of fnish_deferred_option_handling (), which is invoked following
+   target-specific initialization.
+
+   The variable opt_fstack_limit_symbol_arg represents the name
+   of the register specified in an OPT_fstack_limit_symbol_ command
+   line option, or NULL to represent that no OPT_fstack_limit_symbol_
+   option is active.
+
+   The variable opt_fstack_limit_register_no represents the number of
+   the register specified in an OPT_fstack_limit_register_
+   command-line option, or -1 to indicate that no
+   OPT_fstack_limit_register_ option is active.  (Legal register
+   numbers are all >= 0.)
+
+   Note that these two command-line options are mutually exclusive.  
+   If both are specified, subsequent options overwrite earlier
+   options. */
+
 static const char *opt_fstack_limit_symbol_arg = NULL;
 static int opt_fstack_limit_register_no = -1;
 
@@ -420,11 +442,17 @@ handle_common_deferred_options (void)
 	    if (reg < 0)
 	      error ("unrecognized register name %qs", opt->arg);
 	    else
-	      opt_fstack_limit_register_no = reg;
+	      {
+		/* Deactivate previous OPT_fstack_limit_symbol_ options */
+		opt_fstack_limit_symbol_arg = NULL;
+		opt_fstack_limit_register_no = reg;
+	      }
 	  }
 	  break;
 
 	case OPT_fstack_limit_symbol_:
+	  /* Deactivate previous OPT_fstack_limit_register_ options */
+	  opt_fstack_limit_register_no = -1;
           opt_fstack_limit_symbol_arg = opt->arg;
 	  break;
 
@@ -457,5 +485,5 @@ finish_deferred_option_handling (void)
       = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (opt_fstack_limit_symbol_arg));
 
   if (opt_fstack_limit_register_no >= 0)
-    stack_limit_rtx = gen_rtx_REG (Pmode, opts_fstack_limit_register_no);
+    stack_limit_rtx = gen_rtx_REG (Pmode, opt_fstack_limit_register_no);
 }
