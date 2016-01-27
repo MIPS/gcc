@@ -9335,13 +9335,13 @@ mips16_expand_copy (rtx dest, rtx src, rtx length, rtx alignment)
      1. Copying 4 bytes when both dest and src are aligned but base+offset is
 	likely to be squashed.
      2. Copying 4 bytes when the lowest alignment is 2-bytes iff the offsets
-	are not the same or not multiples of 16 bytes.  */
+	are not the same or multiples of 16 bytes.  */
 
   /* Case (1).  */
   if (word_count == 1
       && MEM_ALIGN (dest) >= 4 * BITS_PER_UNIT
       && MEM_ALIGN (src) >= 4 * BITS_PER_UNIT
-      && (offset_dest > 0 || offset_src > 0))
+      && (offset_dest >= 0 || offset_src >= 0))
     word_by_pieces_p = true;
 
   /* Case (2).  */
