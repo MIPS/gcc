@@ -453,7 +453,7 @@ handle_common_deferred_options (void)
 	case OPT_fstack_limit_symbol_:
 	  /* Deactivate previous OPT_fstack_limit_register_ options */
 	  opt_fstack_limit_register_no = -1;
-          opt_fstack_limit_symbol_arg = opt->arg;
+	  opt_fstack_limit_symbol_arg = opt->arg;
 	  break;
 
 	case OPT_fasan_shadow_offset_:
