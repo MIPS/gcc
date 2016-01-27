@@ -725,6 +725,22 @@ slpeel_duplicate_current_defs_from_edges (edge from, edge to)
 {
   gimple_stmt_iterator gsi_from, gsi_to;
 
+  /* Check that we're looking at two blocks with analogous PHI
+     nodes before changing anything.  */
+  for (gsi_from = gsi_start_phis (from->dest),
+       gsi_to = gsi_start_phis (to->dest);
+       !gsi_end_p (gsi_from) && !gsi_end_p (gsi_to);
+       gsi_next (&gsi_from), gsi_next (&gsi_to))
+    {
+      gimple *from_phi = gsi_stmt (gsi_from);
+      gimple *to_phi = gsi_stmt (gsi_to);
+      if (SSA_NAME_VAR (PHI_RESULT (from_phi))
+	  != SSA_NAME_VAR (PHI_RESULT (to_phi)))
+	return;
+    }
+  if (gsi_end_p (gsi_from) != gsi_end_p (gsi_to))
+    return;
+
   for (gsi_from = gsi_start_phis (from->dest),
        gsi_to = gsi_start_phis (to->dest);
        !gsi_end_p (gsi_from) && !gsi_end_p (gsi_to);
