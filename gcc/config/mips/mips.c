@@ -993,9 +993,9 @@ static const struct attr_desc mips_func_opt_list_strings[] = {
 
 /* Argument list...  */
 
-struct mips_func_opt_list_arg
+struct GTY((chain_next("%h.next"))) mips_func_opt_list_arg
 {
-  char * arg;
+  char * GTY((skip(""))) arg;
   unsigned int optimization;
   mips_func_opt_list_arg_t arg_type;
   struct mips_func_opt_list_arg * next;
@@ -1003,18 +1003,18 @@ struct mips_func_opt_list_arg
 
 /* Unknown attribute list.  */
 
-struct mips_func_opt_unknown_list
+struct GTY ((chain_next ("%h.next"))) mips_func_opt_unknown_list
 {
-  char * attribute;
+  char * GTY((skip(""))) attribute;
   struct mips_func_opt_list_arg * args;
   struct mips_func_opt_unknown_list * next;
 };
 
 /* ... For this.  */
 
-struct mips_func_opt_list
+struct GTY ((chain_next ("%h.next"))) mips_func_opt_list
 {
-  char * func_name;
+  char * GTY((skip(""))) func_name;
   sbitmap attributes;
   struct mips_func_opt_unknown_list * unknowns;
   struct mips_func_opt_list_arg * args;
@@ -1023,7 +1023,7 @@ struct mips_func_opt_list
 
 /* Head of the function optimization list.  */
 
-static struct mips_func_opt_list * mips_fn_opt_list;
+static struct GTY ((chain_next ("%h.next"))) mips_func_opt_list * mips_fn_opt_list;
 
 /* Search the func-opt-list for func's entry and return it.  */
 
@@ -1071,7 +1071,8 @@ mips_func_opt_list_parse_arg_1 (const char * line,
 				unsigned int opt)
 {
   struct mips_func_opt_list_arg * arg
-    = (struct mips_func_opt_list_arg *)xmalloc (sizeof (struct mips_func_opt_list_arg));
+    = (struct mips_func_opt_list_arg *)xcalloc (1,
+				       sizeof (struct mips_func_opt_list_arg));
 
   arg->arg = xstrndup (&(line[pos]), length);
   arg->optimization = opt;
@@ -1242,7 +1243,8 @@ mips_func_opt_list_read_line (const char * line, const char * file, int lineno)
 
   /* Construct a new struct mips_func_opt_list temporarily and search for an
      existing entry.  Use existing entry over a new one.  */
-  fl = (struct mips_func_opt_list *)xmalloc (sizeof (struct mips_func_opt_list));
+  fl = (struct mips_func_opt_list *)
+	xcalloc (1, sizeof (struct mips_func_opt_list));
   fl->func_name = xstrndup (&line[pos], identifier_length);
   if (mips_func_opt_list_find (fl->func_name) == NULL)
     {
@@ -1321,7 +1323,7 @@ mips_func_opt_list_read_line (const char * line, const char * file, int lineno)
       {
 	struct mips_func_opt_unknown_list * e
 	 = (struct mips_func_opt_unknown_list*)
-	     xmalloc (sizeof (struct mips_func_opt_unknown_list));
+	     xcalloc (1, sizeof (struct mips_func_opt_unknown_list));
 	e->next = fl->unknowns;
 	e->attribute = xstrndup (&(line[pos]), identifier_length);
 	warning (OPT_Wattributes, "%s:%d:%d: Unknown attribute %qs for %qs",
@@ -2360,8 +2362,6 @@ mips_insert_fol_attributes (struct mips_func_opt_list * func_opt_list,
 				     *attributes);
 	  }
       }
-
-  sbitmap_free (func_opt_list->attributes);
 
   if (func_opt_list->unknowns)
     {
