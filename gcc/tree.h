@@ -5670,10 +5670,10 @@ function_args_iter_cond_ptr (function_args_iterator *i)
 /* Return the next argument if there are more arguments to handle, otherwise
    return NULL.  */
 
-static inline tree
+static inline ttype *
 function_args_iter_cond (function_args_iterator *i)
 {
-  return (i->next) ? TREE_VALUE (i->next) : NULL_TREE;
+  return (i->next) ? TTYPE (TREE_VALUE (i->next)) : NULL;
 }
 
 /* Advance to the next argument.  */
@@ -5705,7 +5705,7 @@ inlined_function_outer_scope_p (const_tree block)
    used to iterate the arguments.  */
 #define FOREACH_FUNCTION_ARGS(FNTYPE, TREE, ITER)			\
   for (function_args_iter_init (&(ITER), (FNTYPE));			\
-       (TREE = function_args_iter_cond (&(ITER))) != NULL_TREE;		\
+       (TREE = function_args_iter_cond (&(ITER))) != NULL;		\
        function_args_iter_next (&(ITER)))
 
 /* In tree.c */
@@ -5727,7 +5727,7 @@ extern tree lower_bound_in_type (ttype_p, ttype_p);
 extern int operand_equal_for_phi_arg_p (const_tree, const_tree);
 extern tree create_artificial_label (location_t);
 extern const char *get_name (tree);
-extern bool stdarg_p (const_tree);
+extern bool stdarg_p (const ttype_p);
 extern bool prototype_p (const ttype_p);
 extern bool is_typedef_decl (const_tree x);
 extern bool typedef_variant_p (const ttype_p);

@@ -252,7 +252,7 @@ along with GCC; see the file COPYING3.  If not see
 #define AGGREGATE_TYPE_P(NODE) ((NODE)->aggregate_p ())
 #define POINTER_TYPE_P(NODE) ((NODE)->pointer_p ())
 #define FUNCTION_POINTER_TYPE_P(NODE) ((NODE)->function_pointer_p ())
-#define COMPLETE_TYPE_P(NODE) ((NODE)->complex_p ())
+#define COMPLETE_TYPE_P(NODE) ((NODE)->complete_p ())
 #define POINTER_BOUNDS_TYPE_P(NODE) ((NODE)->pointer_bounds_p ())
 #define BOUNDED_TYPE_P(NODE) ((NODE)->bounded_p ())
 #define VOID_TYPE_P(NODE) ((NODE)->void_p ())
@@ -469,6 +469,5 @@ TREE_TYPE_PTR (ttype_p node)
 {
   return node->type_ptr ();
 } 
-
 
 #endif 

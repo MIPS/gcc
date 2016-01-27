@@ -12013,10 +12013,10 @@ get_name (tree t)
 /* Return true if TYPE has a variable argument list.  */
 
 bool
-stdarg_p (const_tree fntype)
+stdarg_p (const ttype_p fntype)
 {
   function_args_iterator args_iter;
-  tree n = NULL_TREE, t;
+  ttype *n = NULL, *t;
 
   if (!fntype)
     return false;
@@ -12026,7 +12026,7 @@ stdarg_p (const_tree fntype)
       n = t;
     }
 
-  return n != NULL_TREE && n != void_type_node;
+  return n != NULL && n != void_type_node;
 }
 
 /* Return true if TYPE has a prototype.  */
