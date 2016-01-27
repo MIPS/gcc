@@ -871,7 +871,7 @@ vt_stack_adjustments (void)
 	     pointer is often restored via a load-multiple instruction
 	     and so no stack_adjust offset is recorded for it.  This means
 	     that the stack offset at the end of the epilogue block is the
-	     the same as the offset before the epilogue, whereas other paths
+	     same as the offset before the epilogue, whereas other paths
 	     to the exit block will have the correct stack_adjust.
 
 	     It is safe to ignore these differences because (a) we never
@@ -5128,7 +5128,8 @@ tracked_record_parameter_p (tree t)
   if (TREE_CODE (type) != RECORD_TYPE)
     return false;
 
-  if (DECL_CHAIN (TYPE_FIELDS (type)) == NULL_TREE)
+  if (TYPE_FIELDS (type) == NULL_TREE
+      || DECL_CHAIN (TYPE_FIELDS (type)) == NULL_TREE)
     return false;
 
   return true;

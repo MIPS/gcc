@@ -1,3 +1,81 @@
+2016-01-26  Jason Merrill  <jason@redhat.com>
+
+	PR c++/68949
+	* constexpr.c (register_constexpr_fundef): Keep the un-massaged body.
+	(cxx_eval_call_expression): Don't look through clones.
+	* optimize.c (maybe_clone_body): Clear DECL_SAVED_TREE of the alias.
+	* semantics.c (expand_or_defer_fn_1): Keep DECL_SAVED_TREE of
+	maybe-in-charge *tor.
+
+2016-01-26  Jason Merrill  <jason@redhat.com>
+
+	PR c++/68782
+	* constexpr.c (cxx_eval_bare_aggregate): Update TREE_CONSTANT
+	and TREE_SIDE_EFFECTS.
+	(cxx_eval_constant_expression) [CONSTRUCTOR]: Call
+	verify_constructor_flags.
+
+2016-01-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/68357
+	* cp-gimplify.c (cp_fold): If some operand folds to error_mark_node,
+	return error_mark_node instead of building trees with error_mark_node
+	operands.
+
+2016-01-26  David Malcolm  <dmalcolm@redhat.com>
+
+	PR other/69006
+	* error.c (print_instantiation_partial_context_line): Add missing
+	newlines from output for the t == NULL case.
+	(print_instantiation_partial_context): Remove call to pp_newline.
+
+2016-01-24  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	Revert:
+	2016-01-18  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/11858
+	PR c++/24663
+	PR c++/24664
+	* decl.c (grokdeclarator): Don't decay array parameter type to
+	a pointer type if it's dependent.
+	(grokparms): Invoke strip_top_quals instead of directly invoking
+	cp_build_qualified_type.
+	* pt.c (decay_dependent_array_parm_type): New static function.
+	(type_unification_real): Call decay_dependent_array_parm_type
+	to decay a dependent array parameter type to its corresponding
+	pointer type before unification.
+	(more_specialized_fn): Likewise.
+	(get_bindings): Likewise.
+	* tree.c (cp_build_qualified_type): Trivial typofix in
+	documentation.
+
+2016-01-23  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/58109
+	PR c++/69022
+	* decl2.c (is_late_template_attribute): Handle dependent argument
+	to attribute align and attribute vector_size.
+
+2016-01-21  Jason Merrill  <jason@redhat.com>
+
+	PR c++/69392
+	* lambda.c (lambda_capture_field_type): Handle 'this' specially
+	for init-capture, too.
+
+	PR c++/65687
+	* decl.c (type_is_deprecated): Don't look into a typedef.
+
+	PR c++/40751
+	PR c++/64987
+	* decl.c (copy_type_enum): Respect TYPE_USER_ALIGN.
+
+	PR c++/43407
+	* decl.c (start_enum): Add attributes parameter.
+	* parser.c (cp_parser_enum_specifier): Pass it.
+	* pt.c (lookup_template_class_1): Pass it.
+	* cp-tree.h: Adjust.
+
 2016-01-19  Jason Merrill  <jason@redhat.com>
 
 	PR c++/59759

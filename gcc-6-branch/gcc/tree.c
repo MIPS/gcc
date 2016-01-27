@@ -1790,34 +1790,66 @@ build_vector_from_val (tree vectype, tree sc)
     }
 }
 
+/* Something has messed with the elements of CONSTRUCTOR C after it was built;
+   calculate TREE_CONSTANT and TREE_SIDE_EFFECTS.  */
+
+void
+recompute_constructor_flags (tree c)
+{
+  unsigned int i;
+  tree val;
+  bool constant_p = true;
+  bool side_effects_p = false;
+  vec<constructor_elt, va_gc> *vals = CONSTRUCTOR_ELTS (c);
+
+  FOR_EACH_CONSTRUCTOR_VALUE (vals, i, val)
+    {
+      /* Mostly ctors will have elts that don't have side-effects, so
+	 the usual case is to scan all the elements.  Hence a single
+	 loop for both const and side effects, rather than one loop
+	 each (with early outs).  */
+      if (!TREE_CONSTANT (val))
+	constant_p = false;
+      if (TREE_SIDE_EFFECTS (val))
+	side_effects_p = true;
+    }
+
+  TREE_SIDE_EFFECTS (c) = side_effects_p;
+  TREE_CONSTANT (c) = constant_p;
+}
+
+/* Make sure that TREE_CONSTANT and TREE_SIDE_EFFECTS are correct for
+   CONSTRUCTOR C.  */
+
+void
+verify_constructor_flags (tree c)
+{
+  unsigned int i;
+  tree val;
+  bool constant_p = TREE_CONSTANT (c);
+  bool side_effects_p = TREE_SIDE_EFFECTS (c);
+  vec<constructor_elt, va_gc> *vals = CONSTRUCTOR_ELTS (c);
+
+  FOR_EACH_CONSTRUCTOR_VALUE (vals, i, val)
+    {
+      if (constant_p && !TREE_CONSTANT (val))
+	internal_error ("non-constant element in constant CONSTRUCTOR");
+      if (!side_effects_p && TREE_SIDE_EFFECTS (val))
+	internal_error ("side-effects element in no-side-effects CONSTRUCTOR");
+    }
+}
+
 /* Return a new CONSTRUCTOR node whose type is TYPE and whose values
    are in the vec pointed to by VALS.  */
 tree
 build_constructor (tree type, vec<constructor_elt, va_gc> *vals)
 {
   tree c = make_node (CONSTRUCTOR);
-  unsigned int i;
-  constructor_elt *elt;
-  bool constant_p = true;
-  bool side_effects_p = false;
 
   TREE_TYPE (c) = type;
   CONSTRUCTOR_ELTS (c) = vals;
 
-  FOR_EACH_VEC_SAFE_ELT (vals, i, elt)
-    {
-      /* Mostly ctors will have elts that don't have side-effects, so
-	 the usual case is to scan all the elements.  Hence a single
-	 loop for both const and side effects, rather than one loop
-	 each (with early outs).  */
-      if (!TREE_CONSTANT (elt->value))
-	constant_p = false;
-      if (TREE_SIDE_EFFECTS (elt->value))
-	side_effects_p = true;
-    }
-
-  TREE_SIDE_EFFECTS (c) = side_effects_p;
-  TREE_CONSTANT (c) = constant_p;
+  recompute_constructor_flags (c);
 
   return c;
 }
@@ -8406,7 +8438,7 @@ build_function_type (tree value_type, tree arg_types)
 
 /* Build a function type.  The RETURN_TYPE is the type returned by the
    function.  If VAARGS is set, no void_type_node is appended to the
-   the list.  ARGP must be always be terminated be a NULL_TREE.  */
+   list.  ARGP must be always be terminated be a NULL_TREE.  */
 
 static tree
 build_function_type_list_1 (bool vaargs, tree return_type, va_list argp)
@@ -10332,143 +10364,6 @@ local_define_builtin (const char *name, tree type, enum built_in_function code,
   set_builtin_decl (code, decl, true);
 }
 
-/* A subroutine of build_tm_vector_builtins.  Define a builtin with
-   all of the appropriate attributes.  */
-static void
-tm_define_builtin (const char *name, tree type, built_in_function code,
-		   tree decl_attrs, tree type_attrs)
-{
-  tree decl = add_builtin_function (name, type, code, BUILT_IN_NORMAL,
-			            name + strlen ("__builtin_"), decl_attrs);
-  decl_attributes (&TREE_TYPE (decl), type_attrs, ATTR_FLAG_BUILT_IN);
-  set_builtin_decl (code, decl, true);
-}
-
-/* A subroutine of build_tm_vector_builtins.  Find a supported vector
-   type VECTOR_BITS wide with inner mode ELEM_MODE.  */
-static tree
-find_tm_vector_type (unsigned vector_bits, machine_mode elem_mode)
-{
-  unsigned elem_bits = GET_MODE_BITSIZE (elem_mode);
-  unsigned nunits = vector_bits / elem_bits;
-
-  gcc_assert (elem_bits * nunits == vector_bits);
-
-  machine_mode vector_mode = mode_for_vector (elem_mode, nunits);
-  if (!VECTOR_MODE_P (vector_mode)
-      || !targetm.vector_mode_supported_p (vector_mode))
-    return NULL_TREE;
-
-  tree innertype = lang_hooks.types.type_for_mode (elem_mode, 0);
-  return build_vector_type_for_mode (innertype, vector_mode);
-}
-
-/* A subroutine of build_common_builtin_nodes.  Define TM builtins for
-   vector types.  This is done after the target hook, so that the target
-   has a chance to override these.  */
-static void
-build_tm_vector_builtins (void)
-{
-  tree vtype, pvtype, ftype, decl;
-  tree attrs_load, attrs_type_load;
-  tree attrs_store, attrs_type_store;
-  tree attrs_log, attrs_type_log;
-
-  /* Do nothing if TM is turned off, either with switch or
-     not enabled in the language.  */
-  if (!flag_tm || !builtin_decl_explicit_p (BUILT_IN_TM_LOAD_1))
-    return;
-
-  /* Use whatever attributes a normal TM load has.  */
-  decl = builtin_decl_explicit (BUILT_IN_TM_LOAD_1);
-  attrs_load = DECL_ATTRIBUTES (decl);
-  attrs_type_load = TYPE_ATTRIBUTES (TREE_TYPE (decl));
-  /* Use whatever attributes a normal TM store has.  */
-  decl = builtin_decl_explicit (BUILT_IN_TM_STORE_1);
-  attrs_store = DECL_ATTRIBUTES (decl);
-  attrs_type_store = TYPE_ATTRIBUTES (TREE_TYPE (decl));
-  /* Use whatever attributes a normal TM log has.  */
-  decl = builtin_decl_explicit (BUILT_IN_TM_LOG);
-  attrs_log = DECL_ATTRIBUTES (decl);
-  attrs_type_log = TYPE_ATTRIBUTES (TREE_TYPE (decl));
-
-  /* By default, 64 bit vectors go through the long long helpers.  */
-
-  /* If a 128-bit vector is supported, declare those builtins.  */
-  if (!builtin_decl_explicit_p (BUILT_IN_TM_STORE_M128)
-      && ((vtype = find_tm_vector_type (128, SImode))
-	  || (vtype = find_tm_vector_type (128, SFmode))))
-    {
-      pvtype = build_pointer_type (vtype);
-
-      ftype = build_function_type_list (void_type_node, pvtype, vtype, NULL);
-      tm_define_builtin ("__builtin__ITM_WM128", ftype,
-			 BUILT_IN_TM_STORE_M128,
-			 attrs_store, attrs_type_store);
-      tm_define_builtin ("__builtin__ITM_WaRM128", ftype,
-			 BUILT_IN_TM_STORE_WAR_M128,
-			 attrs_store, attrs_type_store);
-      tm_define_builtin ("__builtin__ITM_WaWM128", ftype,
-			 BUILT_IN_TM_STORE_WAW_M128,
-			 attrs_store, attrs_type_store);
-
-      ftype = build_function_type_list (vtype, pvtype, NULL);
-      tm_define_builtin ("__builtin__ITM_RM128", ftype,
-			 BUILT_IN_TM_LOAD_M128,
-			 attrs_load, attrs_type_load);
-      tm_define_builtin ("__builtin__ITM_RaRM128", ftype,
-			 BUILT_IN_TM_LOAD_RAR_M128,
-			 attrs_load, attrs_type_load);
-      tm_define_builtin ("__builtin__ITM_RaWM128", ftype,
-			 BUILT_IN_TM_LOAD_RAW_M128,
-			 attrs_load, attrs_type_load);
-      tm_define_builtin ("__builtin__ITM_RfWM128", ftype,
-			 BUILT_IN_TM_LOAD_RFW_M128,
-			 attrs_load, attrs_type_load);
-
-      ftype = build_function_type_list (void_type_node, pvtype, NULL);
-      tm_define_builtin ("__builtin__ITM_LM128", ftype,
-			 BUILT_IN_TM_LOG_M128, attrs_log, attrs_type_log);
-    }
-
-  /* If a 256-bit vector is supported, declare those builtins.  */
-  if (!builtin_decl_explicit_p (BUILT_IN_TM_STORE_M256)
-      && ((vtype = find_tm_vector_type (256, SImode))
-	  || (vtype = find_tm_vector_type (256, SFmode))))
-    {
-      pvtype = build_pointer_type (vtype);
-
-      ftype = build_function_type_list (void_type_node, pvtype, vtype, NULL);
-      tm_define_builtin ("__builtin__ITM_WM256", ftype,
-			 BUILT_IN_TM_STORE_M256,
-			 attrs_store, attrs_type_store);
-      tm_define_builtin ("__builtin__ITM_WaRM256", ftype,
-			 BUILT_IN_TM_STORE_WAR_M256,
-			 attrs_store, attrs_type_store);
-      tm_define_builtin ("__builtin__ITM_WaWM256", ftype,
-			 BUILT_IN_TM_STORE_WAW_M256,
-			 attrs_store, attrs_type_store);
-
-      ftype = build_function_type_list (vtype, pvtype, NULL);
-      tm_define_builtin ("__builtin__ITM_RM256", ftype,
-			 BUILT_IN_TM_LOAD_M256,
-			 attrs_load, attrs_type_load);
-      tm_define_builtin ("__builtin__ITM_RaRM256", ftype,
-			 BUILT_IN_TM_LOAD_RAR_M256,
-			 attrs_load, attrs_type_load);
-      tm_define_builtin ("__builtin__ITM_RaWM256", ftype,
-			 BUILT_IN_TM_LOAD_RAW_M256,
-			 attrs_load, attrs_type_load);
-      tm_define_builtin ("__builtin__ITM_RfWM256", ftype,
-			 BUILT_IN_TM_LOAD_RFW_M256,
-			 attrs_load, attrs_type_load);
-
-      ftype = build_function_type_list (void_type_node, pvtype, NULL);
-      tm_define_builtin ("__builtin__ITM_LM256", ftype,
-			 BUILT_IN_TM_LOG_M256, attrs_log, attrs_type_log);
-    }
-}
-
 /* Call this function after instantiating all builtins that the language
    front end cares about.  This will build the rest of the builtins
    and internal functions that are relied upon by the tree optimizers and
@@ -10707,7 +10602,6 @@ build_common_builtin_nodes (void)
       }
   }
 
-  build_tm_vector_builtins ();
   init_internal_fns ();
 }
 
