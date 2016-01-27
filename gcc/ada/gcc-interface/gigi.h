@@ -533,7 +533,7 @@ extern ttype *gnat_type_for_size (unsigned precision, int unsignedp);
 
 /* Return a data type that has machine mode MODE.  UNSIGNEDP selects
    an unsigned type; otherwise a signed type is returned.  */
-extern tree gnat_type_for_mode (machine_mode mode, int unsignedp);
+extern ttype *gnat_type_for_mode (machine_mode mode, int unsignedp);
 
 /* Perform final processing on global declarations.  */
 extern void gnat_write_global_declarations (void);
@@ -546,7 +546,7 @@ extern ttype *gnat_signed_type (tree type_node);
 
 /* Return 1 if the types T1 and T2 are compatible, i.e. if they can be
    transparently converted to each other.  */
-extern int gnat_types_compatible_p (tree t1, tree t2);
+extern int gnat_types_compatible_p (ttype_p t1, ttype_p t2);
 
 /* Return true if EXPR is a useless type conversion.  */
 extern bool gnat_useless_type_conversion (tree expr);

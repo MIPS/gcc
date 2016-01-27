@@ -915,7 +915,7 @@ lto_type_for_size (unsigned precision, int unsignedp)
    If the mode is a fixed-point mode,
    then UNSIGNEDP selects between saturating and nonsaturating types.  */
 
-static tree
+static ttype *
 lto_type_for_mode (machine_mode mode, int unsigned_p)
 {
   tree t;
@@ -984,7 +984,7 @@ lto_type_for_mode (machine_mode mode, int unsigned_p)
   if (COMPLEX_MODE_P (mode))
     {
       machine_mode inner_mode;
-      tree inner_type;
+      ttype *inner_type;
 
       if (mode == TYPE_MODE (complex_float_type_node))
 	return complex_float_type_node;
@@ -1004,7 +1004,7 @@ lto_type_for_mode (machine_mode mode, int unsigned_p)
   else if (VECTOR_MODE_P (mode))
     {
       machine_mode inner_mode = GET_MODE_INNER (mode);
-      tree inner_type = lto_type_for_mode (inner_mode, unsigned_p);
+      ttype *inner_type = lto_type_for_mode (inner_mode, unsigned_p);
       if (inner_type != NULL_TREE)
 	return build_vector_type_for_mode (inner_type, mode);
     }
@@ -1107,9 +1107,9 @@ lto_type_for_mode (machine_mode mode, int unsigned_p)
 
   for (t = registered_builtin_types; t; t = TREE_CHAIN (t))
     if (TYPE_MODE (TREE_VALUE (t)) == mode)
-      return TREE_VALUE (t);
+      return TREE_VALUE_TYPE (t);
 
-  return NULL_TREE;
+  return NULL;
 }
 
 /* Return true if we are in the global binding level.  */
@@ -1166,7 +1166,7 @@ lto_builtin_function (tree decl)
 }
 
 static void
-lto_register_builtin_type (tree type, const char *name)
+lto_register_builtin_type (ttype_p type, const char *name)
 {
   tree decl;
 

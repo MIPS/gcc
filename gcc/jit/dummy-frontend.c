@@ -127,7 +127,7 @@ jit_langhook_parse_file (void)
   gcc::jit::active_playback_ctxt->replay ();
 }
 
-static tree
+static ttype *
 jit_langhook_type_for_mode (enum machine_mode mode, int unsignedp)
 {
   if (mode == TYPE_MODE (float_type_node))

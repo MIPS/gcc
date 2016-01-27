@@ -182,7 +182,7 @@ static GTY((length ("max_gnat_nodes"))) tree *dummy_node_table;
 static GTY(()) ttype *signed_and_unsigned_types[2 * MAX_BITS_PER_WORD + 1][2];
 
 /* Likewise for float types, but record these by mode.  */
-static GTY(()) tree float_types[NUM_MACHINE_MODES];
+static GTY(()) ttype *float_types[NUM_MACHINE_MODES];
 
 /* For each binding contour we allocate a binding_level structure to indicate
    the binding depth.  */
@@ -236,7 +236,7 @@ static GTY ((cache))
 static tree merge_sizes (tree, tree, tree, bool, bool);
 static tree compute_related_constant (tree, tree);
 static tree split_plus (tree, tree *);
-static tree float_type_for_precision (int, machine_mode);
+static ttype *float_type_for_precision (int, machine_mode);
 static tree convert_to_fat_pointer (tree, tree);
 static unsigned int scale_by_factor_of (tree, unsigned int);
 static bool potential_alignment_gap (tree, tree, tree);
@@ -3305,16 +3305,16 @@ gnat_type_for_size (unsigned precision, int unsignedp)
 
 /* Likewise for floating-point types.  */
 
-static tree
+static ttype *
 float_type_for_precision (int precision, machine_mode mode)
 {
-  tree t;
+  ttype *t;
   char type_name[20];
 
   if (float_types[(int) mode])
     return float_types[(int) mode];
 
-  float_types[(int) mode] = t = make_node (REAL_TYPE);
+  float_types[(int) mode] = t = make_type_node (REAL_TYPE);
   TYPE_PRECISION (t) = precision;
   layout_type (t);
 
@@ -3331,17 +3331,17 @@ float_type_for_precision (int precision, machine_mode mode)
 /* Return a data type that has machine mode MODE.  UNSIGNEDP selects
    an unsigned type; otherwise a signed type is returned.  */
 
-tree
+ttype *
 gnat_type_for_mode (machine_mode mode, int unsignedp)
 {
   if (mode == BLKmode)
-    return NULL_TREE;
+    return NULL;
 
   if (mode == VOIDmode)
     return void_type_node;
 
   if (COMPLEX_MODE_P (mode))
-    return NULL_TREE;
+    return NULL;
 
   if (SCALAR_FLOAT_MODE_P (mode))
     return float_type_for_precision (GET_MODE_PRECISION (mode), mode);
@@ -3352,12 +3352,12 @@ gnat_type_for_mode (machine_mode mode, int unsignedp)
   if (VECTOR_MODE_P (mode))
     {
       machine_mode inner_mode = GET_MODE_INNER (mode);
-      tree inner_type = gnat_type_for_mode (inner_mode, unsignedp);
+      ttype * inner_type = gnat_type_for_mode (inner_mode, unsignedp);
       if (inner_type)
 	return build_vector_type_for_mode (inner_type, mode);
     }
 
-  return NULL_TREE;
+  return NULL;
 }
 
 /* Return the unsigned version of a TYPE_NODE, a scalar type.  */
@@ -3410,7 +3410,7 @@ gnat_signed_type (tree type_node)
    transparently converted to each other.  */
 
 int
-gnat_types_compatible_p (tree t1, tree t2)
+gnat_types_compatible_p (ttype_p t1, ttype_p t2)
 {
   enum tree_code code;
 

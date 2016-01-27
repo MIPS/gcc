@@ -1411,10 +1411,10 @@ cp_check_const_attributes (tree attributes)
 
 /* Return true if TYPE is an OpenMP mappable type.  */
 bool
-cp_omp_mappable_type (tree type)
+cp_omp_mappable_type (ttype_p type)
 {
   /* Mappable type has to be complete.  */
-  if (type == error_mark_node || !COMPLETE_TYPE_P (type))
+  if (type == error_type_node || !COMPLETE_TYPE_P (type))
     return false;
   /* Arrays have mappable type if the elements have mappable type.  */
   while (TREE_CODE (type) == ARRAY_TYPE)

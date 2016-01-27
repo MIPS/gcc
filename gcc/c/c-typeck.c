@@ -207,8 +207,9 @@ require_complete_type (tree value)
    and TYPE is the type that was invalid.  */
 
 void
-c_incomplete_type_error (const_tree value, const_tree type)
+c_incomplete_type_error (const_tree value, const ttype_p t)
 {
+  tree type = t;
   /* Avoid duplicate error message.  */
   if (TREE_CODE (type) == ERROR_MARK)
     return;

@@ -1428,6 +1428,10 @@ ttype::clear_lang_flags ()
 /* In a TREE_LIST node.  */
 #define TREE_PURPOSE(NODE) (TREE_LIST_CHECK (NODE)->u.list.purpose)
 #define TREE_VALUE(NODE) (TREE_LIST_CHECK (NODE)->u.list.value)
+/* TREE_LIST can be a list of trees or of typesd.  Use this when it is to be
+   accessed as a type.  Ideally, these are all replaced with TYPE_LIST's at
+   some point.  */
+#define TREE_VALUE_TYPE(NODE) TTYPE (TREE_VALUE(NODE))
 
 /* In a TREE_VEC node.  */
 #define TREE_VEC_LENGTH(NODE) (TREE_VEC_CHECK (NODE)->u.base.u.length)

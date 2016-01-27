@@ -154,7 +154,7 @@ convert (tree type, tree expr)
    If the mode is an integer,
    then UNSIGNEDP selects between signed and unsigned types.  */
 
-tree
+ttype *
 java_type_for_mode (machine_mode mode, int unsignedp)
 {
   if (mode == TYPE_MODE (int_type_node))

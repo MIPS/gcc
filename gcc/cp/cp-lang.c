@@ -30,11 +30,11 @@ along with GCC; see the file COPYING3.  If not see
 enum c_language_kind c_language = clk_cxx;
 static void cp_init_ts (void);
 static const char * cxx_dwarf_name (tree t, int verbosity);
-static enum classify_record cp_classify_record (tree type);
+static enum classify_record cp_classify_record (ttype_p type);
 static tree cp_eh_personality (void);
 static tree get_template_innermost_arguments_folded (const_tree);
 static tree get_template_argument_pack_elems_folded (const_tree);
-static tree cxx_enum_underlying_base_type (const_tree);
+static ttype *cxx_enum_underlying_base_type (const ttype_p);
 
 /* Lang hooks common to C++ and ObjC++ are declared in cp/cp-objcp-common.h;
    consequently, there should be very few hooks below.  */
@@ -122,7 +122,7 @@ cxx_dwarf_name (tree t, int verbosity)
 }
 
 static enum classify_record
-cp_classify_record (tree type)
+cp_classify_record (ttype_p type)
 {
   if (TYPE_LANG_SPECIFIC (type)
       && CLASSTYPE_DECLARED_CLASS (type))
@@ -220,9 +220,9 @@ get_template_argument_pack_elems_folded (const_tree t)
    See also cp/semantics.c (finish_underlying_type).  */
 
 static
-tree cxx_enum_underlying_base_type (const_tree type)
+ttype *cxx_enum_underlying_base_type (const ttype_p type)
 {
-  tree underlying_type = ENUM_UNDERLYING_TYPE (type);
+  ttype *underlying_type = TTYPE (ENUM_UNDERLYING_TYPE (type));
 
   if (! ENUM_FIXED_UNDERLYING_TYPE_P (type))
     underlying_type

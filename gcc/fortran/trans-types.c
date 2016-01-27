@@ -2997,7 +2997,7 @@ gfc_type_for_size (unsigned bits, int unsignedp)
 /* Return a data type that has machine mode MODE.  If the mode is an
    integer, then UNSIGNEDP selects between signed and unsigned types.  */
 
-tree
+ttype *
 gfc_type_for_mode (machine_mode mode, int unsignedp)
 {
   int i;
@@ -3009,28 +3009,28 @@ gfc_type_for_mode (machine_mode mode, int unsignedp)
     base = gfc_complex_types;
   else if (SCALAR_INT_MODE_P (mode))
     {
-      tree type = gfc_type_for_size (GET_MODE_PRECISION (mode), unsignedp);
-      return type != NULL_TREE && mode == TYPE_MODE (type) ? type : NULL_TREE;
+      ttype *type = gfc_type_for_size (GET_MODE_PRECISION (mode), unsignedp);
+      return type != NULL && mode == TYPE_MODE (type) ? type : NULL;
     }
   else if (VECTOR_MODE_P (mode))
     {
       machine_mode inner_mode = GET_MODE_INNER (mode);
-      tree inner_type = gfc_type_for_mode (inner_mode, unsignedp);
-      if (inner_type != NULL_TREE)
+      ttype *inner_type = gfc_type_for_mode (inner_mode, unsignedp);
+      if (inner_type != NULL)
         return build_vector_type_for_mode (inner_type, mode);
-      return NULL_TREE;
+      return NULL;
     }
   else
-    return NULL_TREE;
+    return NULL;
 
   for (i = 0; i <= MAX_REAL_KINDS; ++i)
     {
-      tree type = base[i];
+      ttype *type = base[i];
       if (type && mode == TYPE_MODE (type))
 	return type;
     }
 
-  return NULL_TREE;
+  return NULL;
 }
 
 /* Return TRUE if TYPE is a type with a hidden descriptor, fill in INFO

@@ -3855,7 +3855,7 @@ optimize_bit_field_compare (location_t loc, enum tree_code code,
 
   /* Set signed and unsigned types of the precision of this mode for the
      shifts below.  */
-  unsigned_type = TTYPE (lang_hooks.types.type_for_mode (nmode, 1));
+  unsigned_type = lang_hooks.types.type_for_mode (nmode, 1);
 
   /* Compute the bit position and size for the new reference and our offset
      within it. If the new reference is the same size as the original, we
@@ -4455,11 +4455,11 @@ make_range_step (location_t loc, enum tree_code code, tree arg0, tree arg1,
 	     as the 2nd parameter.  */
 	  if (ALL_FIXED_POINT_MODE_P (TYPE_MODE (arg0_type)))
 	    equiv_type
-	      = TTYPE (lang_hooks.types.type_for_mode (TYPE_MODE (arg0_type),
-						TYPE_SATURATING (arg0_type)));
+	      = lang_hooks.types.type_for_mode (TYPE_MODE (arg0_type),
+						TYPE_SATURATING (arg0_type));
 	  else
 	    equiv_type
-	      = TTYPE (lang_hooks.types.type_for_mode (TYPE_MODE (arg0_type), 1));
+	      = lang_hooks.types.type_for_mode (TYPE_MODE (arg0_type), 1);
 
 	  /* A range without an upper bound is, naturally, unbounded.
 	     Since convert would have cropped a very large value, use

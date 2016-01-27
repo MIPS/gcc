@@ -413,10 +413,6 @@ along with GCC; see the file COPYING3.  If not see
    accessor.  */
 #define DECL_CONTEXT_TYPE_P(NODE) (TYPE_P (DECL_CONTEXT (NODE)))
 #define DECL_CONTEXT_TYPE(NODE) (TTYPE (DECL_CONTEXT (NODE)))
-/* TREE_LIST can be a list of trees or of typesd.  Use this when it is to be
-   accessed as a type.  Ideally, these are all replaced with TYPE_LIST's at
-   some point.  */
-#define TREE_VALUE_TYPE(NODE) TTYPE(TREE_VALUE(NODE))
 
 #undef TREE_TYPE
 static inline ttype *
