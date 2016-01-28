@@ -1955,6 +1955,7 @@ public:
 
   /* method or function */
   inline tree arg_types () const;
+  inline tree *arg_types_ptr ();
   inline void set_arg_types (tree);
   inline tree methods () const;
   inline void set_methods (tree);
@@ -2010,6 +2011,7 @@ public:
   inline bool complete_p ()const;
   inline bool vector_p () const;
   inline bool pointer_p () const;
+  inline bool bounded_p () const;
   inline bool record_or_union_p () const;
   inline bool integral_p () const;
   inline bool any_integral_p () const;
@@ -2025,6 +2027,7 @@ public:
   inline bool sat_fixed_point_p () const;
   inline bool complex_float_p () const;
   inline bool vector_integer_p () const;
+  inline bool pointer_bounds_p () const;
 
   bool overflow_traps_p () const;
   bool overflow_wraps_p () const;

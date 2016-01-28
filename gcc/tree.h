@@ -887,6 +887,11 @@ ttype::complete_p () const
 /* Nonzero if this type is a pointer bounds type.  */
 #define POINTER_BOUNDS_TYPE_P(NODE) \
   (TREE_CODE (NODE) == POINTER_BOUNDS_TYPE)
+bool
+ttype::pointer_bounds_p () const
+{
+  return code() == POINTER_BOUNDS_TYPE;
+}
 
 /* Nonzero if this node has a pointer bounds type.  */
 #define POINTER_BOUNDS_P(NODE) \
@@ -894,6 +899,11 @@ ttype::complete_p () const
 
 /* Nonzero if this type supposes bounds existence.  */
 #define BOUNDED_TYPE_P(type) (POINTER_TYPE_P (type))
+bool
+ttype::bounded_p () const
+{
+  return pointer_p ();
+}
 
 /* Nonzero for objects with bounded type.  */
 #define BOUNDED_P(node) \
@@ -2952,6 +2962,12 @@ ttype::arg_types () const
 {
   func_or_method_check ();
   return u.type_non_common.values;
+}
+tree *
+ttype::arg_types_ptr ()
+{
+  func_or_method_check ();
+  return &(u.type_non_common.values);
 }
 void
 ttype::set_arg_types (tree t)

@@ -57,6 +57,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "builtins.h"
 #include "tree-chkp.h"
+#include "ttype.h"
 
 
 /* I'm not real happy about this, but we need to handle gimple and
@@ -213,7 +214,7 @@ remap_ssa_name (tree name, copy_body_data *id)
 	    }
 	  def_temp = gimple_build_debug_source_bind (vexpr, val, NULL);
 	  DECL_ARTIFICIAL (vexpr) = 1;
-	  TREE_TYPE (vexpr) = TREE_TYPE (name);
+	  TREE_SET_TYPE (vexpr, TREE_TYPE (name));
 	  DECL_MODE (vexpr) = DECL_MODE (SSA_NAME_VAR (name));
 	  gsi = gsi_after_labels (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
 	  gsi_insert_before (&gsi, def_temp, GSI_SAME_STMT);
@@ -356,9 +357,9 @@ remap_decl (tree decl, copy_body_data *id)
 	return t;
 
       /* Remap types, if necessary.  */
-      TREE_TYPE (t) = remap_type (TREE_TYPE (t), id);
+      TREE_SET_TYPE (t, remap_type (TREE_TYPE (t), id));
       if (TREE_CODE (t) == TYPE_DECL)
-        DECL_ORIGINAL_TYPE (t) = remap_type (DECL_ORIGINAL_TYPE (t), id);
+        DECL_SET_ORIGINAL_TYPE (t, remap_type (DECL_ORIGINAL_TYPE (t), id));
 
       /* Remap sizes as necessary.  */
       walk_tree (&DECL_SIZE (t), copy_tree_body_r, id, NULL);
@@ -435,7 +436,7 @@ remap_type_1 (ttype_p type, copy_body_data *id)
     }
 
   if (TYPE_STUB_DECL (type))
-    TYPE_STUB_DECL (new_type) = remap_decl (TYPE_STUB_DECL (type), id);
+    TYPE_SET_STUB_DECL (new_type, remap_decl (TYPE_STUB_DECL (type), id));
 
   /* Lazily create pointer and reference types.  */
   new_type->set_pointer_to (NULL);
@@ -455,48 +456,53 @@ remap_type_1 (ttype_p type, copy_body_data *id)
 	  gcc_checking_assert (TYPE_MIN_VALUE (type) == TYPE_MIN_VALUE (TYPE_MAIN_VARIANT (type)));
 	  gcc_checking_assert (TYPE_MAX_VALUE (type) == TYPE_MAX_VALUE (TYPE_MAIN_VARIANT (type)));
 
-	  TYPE_MIN_VALUE (new_type) = TYPE_MIN_VALUE (new_type->main_variant ());
-	  TYPE_MAX_VALUE (new_type) = TYPE_MAX_VALUE (new_type->main_variant ());
+	  TYPE_SET_MIN_VALUE (new_type,
+			      TYPE_MIN_VALUE (new_type->main_variant ()));
+	  TYPE_SET_MAX_VALUE (new_type,
+			      TYPE_MAX_VALUE (new_type->main_variant ()));
 	}
       else
 	{
 	  tree tmp = TYPE_MIN_VALUE (new_type);
 	  if (tmp && TREE_CODE (tmp) != INTEGER_CST)
-	    walk_tree (&TYPE_MIN_VALUE (new_type), copy_tree_body_r, id, NULL);
+	    walk_tree (TYPE_MIN_VALUE_PTR (new_type), copy_tree_body_r, id,
+		       NULL);
 
 	  tmp = TYPE_MAX_VALUE (new_type);
 	  if (tmp && TREE_CODE (tmp) != INTEGER_CST)
-	    walk_tree (&TYPE_MAX_VALUE (new_type), copy_tree_body_r, id, NULL);
+	    walk_tree (TYPE_MAX_VALUE_PTR (new_type), copy_tree_body_r, id,
+		       NULL);
 	}
       return new_type;
 
     case FUNCTION_TYPE:
       if (new_type->main_variant () != new_type
 	  && TREE_TYPE (type) == TREE_TYPE (type->main_variant ()))
-	TREE_TYPE (new_type) = TREE_TYPE (new_type->main_variant ());
+	TREE_SET_TYPE (new_type, TREE_TYPE (new_type->main_variant ()));
       else
-        TREE_TYPE (new_type) = remap_type (TREE_TYPE (new_type), id);
+        TREE_SET_TYPE (new_type, remap_type (TREE_TYPE (new_type), id));
       if (new_type->main_variant () != new_type
 	  && TYPE_ARG_TYPES (type) == TYPE_ARG_TYPES (type->main_variant ()))
-	TYPE_ARG_TYPES (new_type) = TYPE_ARG_TYPES (new_type->main_variant ());
+	TYPE_SET_ARG_TYPES (new_type,
+			    TYPE_ARG_TYPES (new_type->main_variant ()));
       else
-        walk_tree (&TYPE_ARG_TYPES (new_type), copy_tree_body_r, id, NULL);
+        walk_tree (TYPE_ARG_TYPES_PTR (new_type), copy_tree_body_r, id, NULL);
       return new_type;
 
     case ARRAY_TYPE:
       if (new_type->main_variant () != new_type
 	  && TREE_TYPE (type) == TREE_TYPE (type->main_variant ()))
-	TREE_TYPE (new_type) = TREE_TYPE (new_type->main_variant ());
+	TREE_SET_TYPE (new_type, TREE_TYPE (new_type->main_variant ()));
       else
-	TREE_TYPE (new_type) = remap_type (TREE_TYPE (new_type), id);
+	TREE_SET_TYPE (new_type, remap_type (TREE_TYPE (new_type), id));
 
       if (new_type->main_variant () != new_type)
 	{
 	  gcc_checking_assert (TYPE_DOMAIN (type) == TYPE_DOMAIN (type->main_variant ()));
-	  TYPE_DOMAIN (new_type) = TYPE_DOMAIN (new_type->main_variant ());
+	  TYPE_SET_DOMAIN (new_type, TYPE_DOMAIN (new_type->main_variant ()));
 	}
       else
-	TYPE_DOMAIN (new_type) = remap_type (TYPE_DOMAIN (new_type), id);
+	TYPE_SET_DOMAIN (new_type, remap_type (TYPE_DOMAIN (new_type), id));
       break;
 
     case RECORD_TYPE:
@@ -504,7 +510,7 @@ remap_type_1 (ttype_p type, copy_body_data *id)
     case QUAL_UNION_TYPE:
       if (type->main_variant () != type
 	  && TYPE_FIELDS (type) == TYPE_FIELDS (type->main_variant ()))
-	TYPE_FIELDS (new_type) = TYPE_FIELDS (new_type->main_variant ());
+	TYPE_SET_FIELDS (new_type, TYPE_FIELDS (new_type->main_variant ()));
       else
 	{
 	  tree f, nf = NULL;
@@ -516,7 +522,7 @@ remap_type_1 (ttype_p type, copy_body_data *id)
 	      DECL_CHAIN (tmp) = nf;
 	      nf = tmp;
 	    }
-	  TYPE_FIELDS (new_type) = nreverse (nf);
+	  TYPE_SET_FIELDS (new_type, nreverse (nf));
 	}
       break;
 
@@ -532,13 +538,14 @@ remap_type_1 (ttype_p type, copy_body_data *id)
       gcc_checking_assert (TYPE_SIZE (type) == TYPE_SIZE (type->main_variant ()));
       gcc_checking_assert (TYPE_SIZE_UNIT (type) == TYPE_SIZE_UNIT (type->main_variant ()));
 
-      TYPE_SIZE (new_type) = TYPE_SIZE (new_type->main_variant ());
-      TYPE_SIZE_UNIT (new_type) = TYPE_SIZE_UNIT (new_type->main_variant ());
+      TYPE_SET_SIZE (new_type, TYPE_SIZE (new_type->main_variant ()));
+      TYPE_SET_SIZE_UNIT (new_type,
+			  TYPE_SIZE_UNIT (new_type->main_variant ()));
     }
   else
     {
-      walk_tree (&TYPE_SIZE (new_type), copy_tree_body_r, id, NULL);
-      walk_tree (&TYPE_SIZE_UNIT (new_type), copy_tree_body_r, id, NULL);
+      walk_tree (TYPE_SIZE_PTR (new_type), copy_tree_body_r, id, NULL);
+      walk_tree (TYPE_SIZE_UNIT_PTR (new_type), copy_tree_body_r, id, NULL);
     }
 
   return new_type;
@@ -726,7 +733,7 @@ copy_statement_list (tree *tp)
   new_tree = alloc_stmt_list ();
   ni = tsi_start (new_tree);
   oi = tsi_start (*tp);
-  TREE_TYPE (new_tree) = TREE_TYPE (*tp);
+  TREE_SET_TYPE (new_tree, TREE_TYPE (*tp));
   *tp = new_tree;
 
   for (; !tsi_end_p (oi); tsi_next (&oi))
@@ -908,7 +915,7 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
     {
       /* If this is a constant, we have to copy the node iff the type
 	 will be remapped.  copy_tree_r will not copy a constant.  */
-      tree new_type = remap_type (TREE_TYPE (*tp), id);
+      ttype *new_type = remap_type (TREE_TYPE (*tp), id);
 
       if (new_type == TREE_TYPE (*tp))
 	*walk_subtrees = 0;
@@ -918,7 +925,7 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
       else
 	{
 	  *tp = copy_node (*tp);
-	  TREE_TYPE (*tp) = new_type;
+	  TREE_SET_TYPE (*tp, new_type);
 	}
     }
   else
@@ -962,7 +969,7 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
       copy_tree_r (tp, walk_subtrees, NULL);
 
       if (TREE_CODE (*tp) != OMP_CLAUSE)
-	TREE_TYPE (*tp) = remap_type (TREE_TYPE (*tp), id);
+	TREE_SET_TYPE (*tp, remap_type (TREE_TYPE (*tp), id));
 
       if (TREE_CODE (*tp) == TARGET_EXPR && TREE_OPERAND (*tp, 3))
 	{
@@ -1092,7 +1099,7 @@ copy_tree_body_r (tree *tp, int *walk_subtrees, void *data)
      remapped.  copy_tree_r will not copy a constant.  */
   else if (CONSTANT_CLASS_P (*tp))
     {
-      tree new_type = remap_type (TREE_TYPE (*tp), id);
+      ttype *new_type = remap_type (TREE_TYPE (*tp), id);
 
       if (new_type == TREE_TYPE (*tp))
 	*walk_subtrees = 0;
@@ -1102,7 +1109,7 @@ copy_tree_body_r (tree *tp, int *walk_subtrees, void *data)
       else
 	{
 	  *tp = copy_node (*tp);
-	  TREE_TYPE (*tp) = new_type;
+	  TREE_SET_TYPE (*tp, new_type);
 	}
     }
 
@@ -1236,7 +1243,7 @@ copy_tree_body_r (tree *tp, int *walk_subtrees, void *data)
 	}
 
       if (TREE_CODE (*tp) != OMP_CLAUSE)
-	TREE_TYPE (*tp) = remap_type (TREE_TYPE (*tp), id);
+	TREE_SET_TYPE (*tp, remap_type (TREE_TYPE (*tp), id));
 
       /* The copied TARGET_EXPR has never been expanded, even if the
 	 original node was expanded already.  */
@@ -3248,7 +3255,7 @@ initialize_inlined_parameters (copy_body_data *id, gimple *stmt,
 	  tree def = (gimple_in_ssa_p (cfun) && is_gimple_reg (p)
 		      ? ssa_default_def (id->src_cfun, p) : NULL);
 	  tree var = *varp;
-	  TREE_TYPE (var) = remap_type (TREE_TYPE (var), id);
+	  TREE_SET_TYPE (var, remap_type (TREE_TYPE (var), id));
 	  /* Also remap the default definition if it was remapped
 	     to the default definition of the parameter replacement
 	     by the parameter setup.  */
@@ -3258,7 +3265,7 @@ initialize_inlined_parameters (copy_body_data *id, gimple *stmt,
 	      if (defp
 		  && TREE_CODE (*defp) == SSA_NAME
 		  && SSA_NAME_VAR (*defp) == var)
-		TREE_TYPE (*defp) = TREE_TYPE (var);
+		TREE_SET_TYPE (*defp, TREE_TYPE (var));
 	    }
 	}
     }
@@ -3298,8 +3305,8 @@ declare_return_variable (copy_body_data *id, tree return_slot, tree modify_dest,
 {
   tree callee = id->src_fn;
   tree result = DECL_RESULT (callee);
-  tree callee_type = TREE_TYPE (result);
-  tree caller_type;
+  ttype *callee_type = TREE_TYPE (result);
+  ttype *caller_type;
   tree var, use;
 
   /* Handle type-mismatches in the function declaration return type
@@ -3806,7 +3813,7 @@ tree_inlinable_function_p (tree fn)
    cost based on whether optimizing for size or speed according to SPEED_P.  */
 
 int
-estimate_move_cost (tree type, bool ARG_UNUSED (speed_p))
+estimate_move_cost (ttype_p type, bool ARG_UNUSED (speed_p))
 {
   HOST_WIDE_INT size;
 
@@ -5759,7 +5766,8 @@ tree_function_versioning (tree old_decl, tree new_decl,
 	      {
 		int p = replace_info->parm_num;
 		tree parm;
-		tree req_type, new_type;
+		ttype *req_type;
+		ttype *new_type;
 
 		for (parm = DECL_ARGUMENTS (old_decl); p;
 		     parm = DECL_CHAIN (parm))
@@ -5968,7 +5976,7 @@ tree_function_versioning (tree old_decl, tree new_decl,
 	      }
 	    ddecl = make_node (DEBUG_EXPR_DECL);
 	    DECL_ARTIFICIAL (ddecl) = 1;
-	    TREE_TYPE (ddecl) = TREE_TYPE (parm);
+	    TREE_SET_TYPE (ddecl, TREE_TYPE (parm));
 	    DECL_MODE (ddecl) = DECL_MODE (parm);
 	    vec_safe_push (*debug_args, DECL_ORIGIN (parm));
 	    vec_safe_push (*debug_args, ddecl);
@@ -6000,7 +6008,7 @@ tree_function_versioning (tree old_decl, tree new_decl,
 	      vexpr = make_node (DEBUG_EXPR_DECL);
 	      parm = (**debug_args)[i];
 	      DECL_ARTIFICIAL (vexpr) = 1;
-	      TREE_TYPE (vexpr) = TREE_TYPE (parm);
+	      TREE_SET_TYPE (vexpr, TREE_TYPE (parm));
 	      DECL_MODE (vexpr) = DECL_MODE (parm);
 	      def_temp = gimple_build_debug_bind (var, vexpr, NULL);
 	      gsi_insert_before (&cgsi, def_temp, GSI_NEW_STMT);
@@ -6097,7 +6105,7 @@ build_duplicate_type (tree type)
   if (id.debug_map)
     delete id.debug_map;
 
-  TYPE_CANONICAL (dup) = dup;
+  TYPE_SET_CANONICAL (dup, dup);
 
   return dup;
 }
