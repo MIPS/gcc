@@ -7478,7 +7478,7 @@ vectorizable_condition (gimple *stmt, gimple_stmt_iterator *gsi,
   tree comp_vectype = NULL_TREE;
   tree vec_cond_lhs = NULL_TREE, vec_cond_rhs = NULL_TREE;
   tree vec_then_clause = NULL_TREE, vec_else_clause = NULL_TREE;
-  tree vec_compare, vec_cond_expr;
+  tree vec_compare;
   tree new_temp;
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
   enum vect_def_type dt, dts[4];
@@ -7528,6 +7528,7 @@ vectorizable_condition (gimple *stmt, gimple_stmt_iterator *gsi,
 
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   int nunits = TYPE_VECTOR_SUBPARTS (vectype);
+  tree vectype1 = NULL_TREE, vectype2 = NULL_TREE;
 
   if (slp_node || PURE_SLP_STMT (stmt_info))
     ncopies = 1;
@@ -7547,9 +7548,17 @@ vectorizable_condition (gimple *stmt, gimple_stmt_iterator *gsi,
     return false;
 
   gimple *def_stmt;
-  if (!vect_is_simple_use (then_clause, stmt_info->vinfo, &def_stmt, &dt))
+  if (!vect_is_simple_use (then_clause, stmt_info->vinfo, &def_stmt, &dt,
+			   &vectype1))
     return false;
-  if (!vect_is_simple_use (else_clause, stmt_info->vinfo, &def_stmt, &dt))
+  if (!vect_is_simple_use (else_clause, stmt_info->vinfo, &def_stmt, &dt,
+			   &vectype2))
+    return false;
+
+  if (vectype1 && !useless_type_conversion_p (vectype, vectype1))
+    return false;
+
+  if (vectype2 && !useless_type_conversion_p (vectype, vectype2))
     return false;
 
   masked = !COMPARISON_CLASS_P (cond_expr);
@@ -7691,12 +7700,10 @@ vectorizable_condition (gimple *stmt, gimple_stmt_iterator *gsi,
 	      vec_compare = build2 (TREE_CODE (cond_expr), vec_cmp_type,
 				    vec_cond_lhs, vec_cond_rhs);
 	    }
-          vec_cond_expr = build3 (VEC_COND_EXPR, vectype,
- 		         vec_compare, vec_then_clause, vec_else_clause);
-
-          new_stmt = gimple_build_assign (vec_dest, vec_cond_expr);
-          new_temp = make_ssa_name (vec_dest, new_stmt);
-          gimple_assign_set_lhs (new_stmt, new_temp);
+          new_temp = make_ssa_name (vec_dest);
+          new_stmt = gimple_build_assign (new_temp, VEC_COND_EXPR,
+					  vec_compare, vec_then_clause,
+					  vec_else_clause);
           vect_finish_stmt_generation (stmt, new_stmt, gsi);
           if (slp_node)
             SLP_TREE_VEC_STMTS (slp_node).quick_push (new_stmt);

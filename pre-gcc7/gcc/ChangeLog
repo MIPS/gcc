@@ -1,3 +1,648 @@
+2016-01-27  Richard Henderson  <rth@redhat.com>
+
+	PR rtl-opt/69447
+	* lra-remat.c (subreg_regs): New.
+	(dump_candidates_and_remat_bb_data): Dump it.
+	(operand_to_remat): Reject if operand in subreg_regs.
+	(set_bb_regs): Collect subreg_regs.
+	(lra_remat): Init and free subreg_regs.  Compute
+	calculate_local_reg_remat_bb_data before create_cands.
+
+2016-01-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/68986
+	* config/i386/i386.c (ix86_update_stack_boundary): Don't
+	change stack_alignment_needed for __tls_get_addr call.
+
+2016-01-27  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.c (print_operand): Rollback 's' removal.
+
+2016-01-27  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/68398
+	PR tree-optimization/69196
+	* params.def (PARAM_FSM_SCALE_PATH_STMTS): New parameter.
+	(PARAM_FSM_SCALE_PATH_BLOCKS): Likewise.
+	* tree-ssa-threadbackward.c (fsm_find_control_statement_thread_paths):
+	Only count PHIs in the last block in the path.  The others will
+	const/copy propagate away.  Add heuristic to allow more irreducible
+	subloops to be created when it is likely profitable to do so.
+
+	* tree-ssa-threadbackward.c (fsm_find_control_statement_thread_paths):
+	Fix typo in comment.  Use gsi_after_labels and remove the GIMPLE_LABEL
+	check from within the loop.  Use gsi_next_nondebug rather than gsi_next.
+
+2016-01-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR lto/69254
+	* sanitizer.def: Add BEGIN_SANITIZER_BUILTINS and
+	END_SANITIZER_BUILTINS markers using DEF_BUILTIN_STUB.
+	* asan.c (DEF_BUILTIN_STUB): Temporarily define.
+	* tree-streamer-in.c: Include asan.h.
+	(streamer_get_builtin_tree): For builtins in sanitizer
+	range call initialize_sanitizer_builtins and retry.
+
+2016-01-27  Ian Lance Taylor  <iant@google.com>
+
+	* common.opt (fkeep-gc-roots-live): New undocumented option.
+	* tree-ssa-loop-ivopts.c (add_candidate_1): If
+	-fkeep-gc-roots-live, skip pointers.
+	(add_iv_candidate_for_biv): Handle add_candidate_1 returning
+	NULL.
+
+2016-01-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/69512
+	* config/i386/i386.md (*zext<mode>_doubleword_and): New pattern.
+	(*zext<mode>_doubleword): Disable for TARGET_ZERO_EXTEND_WITH_AND.
+
+2016-01-27  Thomas Klausner  <wiz@NetBSD.org>
+
+	PR target/68380
+	* configure.ac: NetBSD provides SSP in its C library.
+	* configure: Updated.
+
+2016-01-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69166
+	* tree-vect-loop.c (vect_is_simple_reduction): Always check
+	reduction code for commutativity / associativity.
+
+2016-01-27  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/69355
+	* tree-sra.c (analyze_access_subtree): Correct hole detection when
+	total_scalarization fails.
+
+2016-01-27  David Edelsohn  <dje.gcc@gmail.com>
+
+	* config/rs6000/driver-rs6000.c (detect_processor_aix): Add
+	power9.
+
+2016-01-27  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/69245
+	* config/arm/arm-c.c (arm_pragma_target_parse): Add comments.
+	Move arm_reset_previous_fndecl and set_target_option_current_node in
+	the conditional part.  Call save_restore_target_globals.
+	* config/arm/arm.c (arm_set_current_function):
+	Refactor to better support #pragma target and attribute mix.
+	Call save_restore_target_globals.
+	* config/arm/arm-protos.h (save_restore_target_globals): New function.
+
+2016-01-27  Martin Liska  <mliska@suse.cz>
+
+	* hsa.c (hsa_summary_t::link_functions): Create IPA_REF_ADDR
+	reference for an HSA kernel and its host function.
+
+2016-01-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/69399
+	* wide-int.h (wi::lrshift): For larger precisions, only
+	use fast path if shift is known to be < HOST_BITS_PER_WIDE_INT.
+
+2016-01-27  Claudiu Zissulescu  <claziss@synopsys.com>
+
+        * config/arc/predicates.md (proper_comparison_operator): Reject
+        constant-constant comparison.
+
+2016-01-26  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/69110
+	* tree-data-ref.c (initialize_data_dependence_relation): Handle
+	DR_NUM_DIMENSIONS == 0.
+
+2016-01-26  Abderrazek Zaafrani  <a.zaafrani@samsung.com>
+            Sebastian Pop  <s.pop@samsung.com>
+
+	* graphite-isl-ast-to-gimple.c (ternary_op_to_tree): Handle
+	isl_ast_op_cond and isl_ast_op_select.
+	(gcc_expression_from_isl_expr_op): Same.
+
+2016-01-26  Jason Merrill  <jason@redhat.com>
+
+	PR c++/68782
+	* tree.c (recompute_constructor_flags): Split out from
+	build_constructor.
+	(verify_constructor_flags): New.
+	* tree.h: Declare them.
+
+2016-01-26  Iain Buclaw  <ibuclaw@gdcproject.org>
+
+	PR rtl-optimization/69217
+	* var-tracking.c (tracked_record_parameter_p): Don't segfault if there
+	are no TYPE_FIELDS set for the record type.
+
+2016-01-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/68662
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Initialize
+	toc_label_name unconditionally.
+	(rs6000_emit_load_toc_table): Call ggc_strdup on toc_label_name for
+	SYMBOL_REF string.  Use toc_label_name instead of constructing
+	LCTOC1.
+	(rs6000_elf_declare_function_name): Use toc_label_name instead of
+	constructing LCTOC1.
+
+2016-01-26  Martin Sebor  <msebor@redhat.com>
+
+	PR other/69477
+	* doc/extend.texi (Common Type Attributes): Move text that talks about
+	attribute packed from attribute aligned to the section discussing
+	the former attribute for clarity.
+
+2016-01-26  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/60908
+	* trans-mem.c (tm_region_init): Mark entry block as visited.
+
+2016-01-26  David Malcolm  <dmalcolm@redhat.com>
+
+	PR other/69006
+	* diagnostic-show-locus.c (layout::print_source_line): Replace
+	call to pp_newline with call to layout::print_newline.
+	(layout::print_annotation_line): Likewise.
+	(layout::move_to_column): Likewise.
+	(layout::print_any_fixits): After printing any fixits, print a
+	trailing newline, if necessary.
+	(layout::print_newline): New method, resetting any colorization
+	before a newline.
+	(diagnostic_show_locus): Move the pp_newline to before the
+	early bailout.  Remove dummy block enclosing the layout instance.
+	* diagnostic.c (default_diagnostic_finalizer): Replace invocation
+	of pp_newline_and_flush with pp_flush.
+	(diagnostic_append_note): Delete use of pp_newline.
+	(diagnostic_append_note_at_rich_loc): Delete.
+	* diagnostic.h (diagnostic_append_note_at_rich_loc): Delete.
+	* pretty-print.h (output_buffer_append_r): Reset buff->line_length
+	when newline characters are added to the buffer.
+
+2016-01-26  Michael Matz  <matz@suse.de>
+
+	* configure.ac (ac_cv_std_swap_in_utility): New test.
+	* system.h (<algorithm>): Check HAVE_SWAP_IN_UTILITY as well.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+
+2016-01-26  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/arc.md (cstoresi4): Force operand into register.
+	(arcset<code>): Fix predicate.
+	(arcsetltu): Likewise.
+	(arcsetgeu): Likewise.
+	(arcsethi): Likewise.
+	(arcsetls): Likewise.
+
+2016-01-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/69483
+	* gimple-fold.c (canonicalize_constructor_val): Return NULL
+	if base has error_mark_node type.
+
+2016-01-26  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	PR target/68620
+	* config/arm/arm.c (neon_valid_immediate): Handle FP16 vectors.
+	* config/arm/arm_neon.h (__ARM_NUM_LANES, __arm_lane, arm_lanq):
+	New helper macros.
+	(vget_lane_f16): Handle big-endian.
+	(vgetq_lane_f16): Likewise.
+	(vset_lane_f16): Likewise.
+	(vsetq_lane_f16): Likewise.
+	* config/arm/iterators.md (VQXMOV): Add V8HF.
+	(VDQ): Add V4HF and V8HF.
+	(V_reg): Handle V4HF and V8HF.
+	(Is_float_mode): Likewise.
+	* config/arm/neon.md (movv4hf, movv8hf, neon_vdup_nv4hf,
+	neon_vdup_nv8hf): New patterns.
+	(vec_set<mode>_internal, vec_extract<mode>, neon_vld1_dup<mode>):
+	Use VD_LANE iterator.
+	(neon_vld1_dup<mode>): Use VQ2 iterator.
+
+2016-01-26  Nathan Sidwell  <nathan@acm.org>
+
+	* omp-low.h (oacc_fn_attrib_kernels_p): Declare.
+	(set_oacc_fn_attrib): Add IS_KERNEL arg.
+	* omp-low.c (set_oacc_fn_attrib): Add IS_KERNEL arg.
+	(oacc_fn_attrib_kernels_p, oacc_fn_attrib_level): New.
+	(expand_omp_target): Pass is_kernel to set_oacc_fn_attrib.
+	(oacc_validate_dims): Add LEVEL arg, don't return level.
+	(new_oacc_loop_routine): Use oacc_fn_attrib_level, not
+	oacc_validate_dims.
+	(execute_oacc_device_lower): Adjust, add more dump output.
+	* tree-ssa-loop.c (gate_oacc_kernels): Use
+	oacc_fn_attrib_kernels_p.
+	* tree-parloops.c (create_parallel_loop): Adjust
+	set_oacc_fn_attrib call.
+
+2016-01-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR lto/69254
+	* lto-wrapper.c (merge_and_complain): Handle -fcilkplus.
+	(append_compiler_options): Handle -fcilkplus.
+	(append_linker_options): Ignore -fno-{openmp,openacc,cilkplus}.
+
+2016-01-26  Nick Clifton  <nickc@redhat.com>
+
+	PR target/66655
+	* config/i386/winnt.c (i386_pe_binds_local_p): If a function has
+	been marked as DECL_ONE_ONLY but we do not the means to make it
+	so, then do not allow it to bind locally.
+
+2016-01-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR lto/69254
+	* opts.h (parse_sanitizer_options): New prototype.
+	* opts.c (sanitizer_opts): New array.
+	(parse_sanitizer_options): New function.
+	(common_handle_option): Use parse_sanitizer_options.
+
+2016-01-26  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/68986
+	* config/i386/i386.c (ix86_compute_frame_layout): Move stack
+	alignment adjustment to ...
+	(ix86_update_stack_boundary): Here.  Don't over-align stack for
+	__tls_get_addr.
+	(ix86_finalize_stack_realign_flags): Use stack_alignment_needed
+	if __tls_get_addr is called.
+
+2016-01-26  Christian Bruel  <christian.bruel@st.com>
+
+	* doc/sourcebuild.texi (arm_crypto_pragma_ok): Remove.
+
+2016-01-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/ia64/ia64.c (ia64_expand_vecint_compare): Use gen_int_mode.
+
+2016-01-26  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/69467
+	* match.pd: Guard X * CST CMP 0 pattern with single_use.
+
+2016-01-26  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69452
+	* tree-ssa-loop-im.c (move_computations_dom_walker): Remove.
+	(move_computations_dom_walker::before_dom_children): Rename
+	to ...
+	(move_computations_worker): This.
+	(move_computations): Perform an RPO rather than a DOM walk.
+
+2016-01-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/69442
+	* combine.c (combine_instructions): For REG_EQUAL note with
+	SET_DEST being ZERO_EXTRACT, also temporarily set SET_DEST
+	to the underlying register.
+	* doc/rtl.texi (REG_EQUAL): Document the behavior of
+	REG_EQUAL/REG_EQUIV notes if SET_DEST is ZERO_EXTRACT.
+
+2016-01-26  Roger Ferrer Ibáñez  <rofirrim@gmail.com>
+
+	PR target/67896
+	* config/aarch64/aarch64-builtins.c
+	(aarch64_init_simd_builtin_types): Do not set structural
+	equality to __Poly{8,16,64,128}_t types.
+
+2016-01-26  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR tree-optimization/69400
+	* wide-int.cc (wi_pack): Take the precision as argument and
+	perform canonicalization here rather than in the callers.
+	Use the main loop to handle all full-width HWIs.  Add a
+	zero HWI if in_len isn't a full result.
+	(wi::divmod_internal): Update accordingly.
+	(wi::mul_internal): Likewise.  Simplify.
+
+2016-01-25  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	* graphite-poly.c (apply_poly_transforms): Simplify.
+	(print_isl_set): Use more readable format: ISL_YAML_STYLE_BLOCK.
+	(print_isl_map): Same.
+	(print_isl_union_map): Same.
+	(print_isl_schedule): New.
+	(debug_isl_schedule): New.
+	* graphite-dependences.c (scop_get_reads): Do not call
+	isl_union_map_add_map that is undocumented isl functionality.
+	(scop_get_must_writes): Same.
+	(scop_get_may_writes): Same.
+	(scop_get_original_schedule): Remove.
+	(scop_get_dependences): Do not call isl_union_map_compute_flow that
+	is deprecated in isl 0.15.  Instead, use isl_union_access_* interface.
+	(compute_deps): Remove.
+	* graphite-isl-ast-to-gimple.c (print_schedule_ast): New.
+	(debug_schedule_ast): New.
+	(translate_isl_ast_to_gimple::scop_to_isl_ast): Call set_separate_option.
+	(graphite_regenerate_ast_isl): Add dump.
+	(translate_isl_ast_to_gimple::scop_to_isl_ast): Generate code
+	from scop->transformed_schedule.
+	(graphite_regenerate_ast_isl): Add more dump.
+	* graphite-optimize-isl.c (optimize_isl): Set
+	scop->transformed_schedule.  Check whether schedules are equal.
+	(apply_poly_transforms): Move here.
+	* graphite-poly.c (apply_poly_transforms): ... from here.
+	(free_poly_bb): Static.
+	(free_scop): Static.
+	(pbb_number_of_iterations_at_time): Remove.
+	(print_isl_ast): New.
+	(debug_isl_ast): New.
+	(debug_scop_pbb): New.
+	* graphite-scop-detection.c (print_edge): Move.
+	(print_sese): Move.
+	* graphite-sese-to-poly.c (build_pbb_scattering_polyhedrons): Remove.
+	(build_scop_scattering): Remove.
+	(create_pw_aff_from_tree): Assert instead of bailing out.
+	(add_condition_to_pbb): Remove unused code, do not fail.
+	(add_conditions_to_domain): Same.
+	(add_conditions_to_constraints): Remove.
+	(build_scop_context): New.
+	(add_iter_domain_dimension): New.
+	(build_iteration_domains): Initialize pbb->iterators.
+	Call add_conditions_to_domain.
+	(nested_in): New.
+	(loop_at): New.
+	(index_outermost_in_loop): New.
+	(index_pbb_in_loop): New.
+	(outermost_pbb_in): New.
+	(add_in_sequence): New.
+	(add_outer_projection): New.
+	(outer_projection_mupa): New.
+	(add_loop_schedule): New.
+	(build_schedule_pbb): New.
+	(build_schedule_loop): New.
+	(embed_in_surrounding_loops): New.
+	(build_schedule_loop_nest): New.
+	(build_original_schedule): New.
+	(build_poly_scop): Call build_original_schedule.
+	* graphite.h: Declare print_isl_schedule and debug_isl_schedule.
+	(free_poly_dr): Remove.
+	(struct poly_bb): Add iterators.  Remove schedule, transformed, saved.
+	(free_poly_bb): Remove.
+	(debug_loop_vec): Remove.
+	(print_isl_ast): Declare.
+	(debug_isl_ast): Declare.
+	(scop_do_interchange): Remove.
+	(scop_do_strip_mine): Remove.
+	(scop_do_block): Remove.
+	(flatten_all_loops): Remove.
+	(optimize_isl): Remove.
+	(pbb_number_of_iterations_at_time): Remove.
+	(debug_scop_pbb): Declare.
+	(print_schedule_ast): Declare.
+	(debug_schedule_ast): Declare.
+	(struct scop): Remove schedule.  Add original_schedule,
+	transformed_schedule.
+	(free_gimple_poly_bb): Remove.
+	(print_generated_program): Remove.
+	(debug_generated_program): Remove.
+	(unify_scattering_dimensions): Remove.
+	* sese.c (print_edge): ... here.
+	(print_sese): ... here.
+	(debug_edge): ... here.
+	(debug_sese): ... here.
+	* sese.h (print_edge): Declare.
+	(print_sese): Declare.
+	(dump_edge): Declare.
+	(dump_sese): Declare.
+
+2016-01-25  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	* Makefile.in: Set ISLVER in site.exp.
+
+2016-01-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (lower_omp_target) <case USE_DEVICE_PTR>: Set
+	DECL_VALUE_EXPR of new_var even for the non-array case.  Look
+	through DECL_VALUE_EXPR for expansion.
+
+2016-01-25  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* config/mips/mips.c (mips_compute_frame_info): Skip re-computing
+	the frame info after reload completed.
+
+2016-01-25  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/69196
+	PR tree-optimization/68398
+	* tree-ssa-threadupdate.h (enum bb_dom_status): Moved here from
+	tree-ssa-threadupdate.c.
+	(determine_bb_domination_status): Prototype
+	* tree-ssa-threadupdate.c (enum bb_dom_status): Remove
+	(determine_bb_domination_status): No longer static.
+	(valid_jump_thread_path): Remove code to detect characteristics
+	of the jump thread path not associated with correctness.
+	* tree-ssa-threadbackward.c (fsm_find_control_statment_thread_paths):
+	Correct test for thread path length.  Count PHIs for real operands as
+	statements that need to be copied.  Do not count ASSERT_EXPRs.
+	Look at all the blocks in the thread path.  Compute and selectively
+	filter thread paths based on threading through the latch, threading
+	a multiway branch or crossing a multiway branch.
+
+2016-01-25  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_keep_leaf_when_profiled):  Add
+	decl with __attribute__ ((unused)) annotation.
+
+2016-01-25  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR target/69421
+	* tree-vect-stmts.c (vectorizable_condition): Check vectype
+	of operands is compatible with a statement vectype.
+
+2016-01-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* doc/extend.texi (scalar_storage_order type attribute): Fix typo and
+	improve wording for mixed storage order support.
+
+2016-01-25  Bilyan Borisov  <bilyan.borisov@arm.com>
+
+	* config/aarch64/arm_neon.h (vcvt_s64_f64): New intrinsic.
+	(vcvt_u64_f64): Likewise.
+	(vcvta_s64_f64): Likewise.
+	(vcvta_u64_f64): Likewise.
+	(vcvtm_s64_f64): Likewise.
+	(vcvtm_u64_f64): Likewise.
+	(vcvtn_s64_f64): Likewise.
+	(vcvtn_u64_f64): Likewise.
+	(vcvtp_s64_f64): Likewise.
+	(vcvtp_u64_f64): Likewise.
+
+2016-01-25  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/arc.c (TARGET_DWARF_REGISTER_SPAN): Define.
+	(arc_init): Check validity mll64 option.
+	(arc_save_restore): Use double load/store instruction.
+	(arc_expand_movmem): Likewise.
+	(arc_split_move): Don't split if we have double load/store
+	instructions. Returns a boolean.
+	(arc_process_double_reg_moves): Change function to return boolean
+	instead of a sequence of instructions.
+	(arc_dwarf_register_span): New function.
+	* config/arc/arc-protos.h (arc_split_move): Change prototype.
+	* config/arc/arc.h (TARGET_CPU_CPP_BUILTINS): Define __ARC_LL64__.
+	* config/arc/arc.md (*movdi_insn): Emit ldd/std instructions.
+	(*movdf_insn): Likewise.
+	* config/arc/arc.opt (mll64): New option.
+	* config/arc/predicates.md (even_register_operand): New predicate.
+	* doc/invoke.texi (ARC Options): Add mll64 documentation.
+
+2016-01-25  Richard Biener  <rguenther@suse.de>
+
+	PR lto/69393
+	* dwarf2out.c (is_naming_typedef_decl): Not when DECL_NAMELESS.
+	* tree-streamer-out.c (pack_ts_base_value_fields): Stream
+	DECL_NAMELESS.
+	* tree-streamer-in.c (unpack_ts_base_value_fields): Likewise.
+
+2016-01-25  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69376
+	* tree-ssa-sccvn.h (struct vn_ssa_aux): Add range_info_anti_range_p
+	flag.
+	(VN_INFO_ANTI_RANGE_P): New inline.
+	(VN_INFO_RANGE_TYPE): Likewise.
+	* tree-ssa-sccvn.c (set_ssa_val_to): Also record and copy
+	SSA_NAME_ANTI_RANGE_P.
+	(free_scc_vn): Restore SSA_NAME_ANTI_RANGE_P.
+	* tree-ssa-pre.c (eliminate_dom_walker::before_dom_children):
+	Properly query VN_INFO_RANGE_TYPE.
+
+2016-01-25  Nick Clifton  <nickc@redhat.com>
+
+	PR target/66655
+	* config/i386/cygming.h (MAKE_DECL_ONE_ONLY): Remove definition.
+
+2016-01-23  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/69426
+	* tree-parloops.c (eliminate_local_variables_stmt): Handle vdef of
+	removed clobber.
+
+2016-01-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-ssanames.c (release_free_names_and_compact_live_names): Replace
+	"the the" with "the" in the comments.
+	* ipa-devirt.c (build_type_inheritance_graph,
+	update_type_inheritance_graph): Likewise.
+	* tree.c (build_function_type_list_1): Likewise.
+	* cfgloopmanip.c (scale_loop_profile): Likewise.
+	* tree-ssa-loop-ivopts.c (get_shiftadd_cost): Likewise.
+	* gimple-ssa-split-paths.c
+	(find_block_to_duplicate_for_splitting_paths): Likewise.
+	* tree-sra.c (init_subtree_with_zero, clobber_subtree): Likewise.
+	* expr.c (convert_move): Likewise.
+	* var-tracking.c (vt_stack_adjustments): Likewise.
+	* tree-vect-data-refs.c (vect_enhance_data_refs_alignment): Likewise.
+	* tree-vrp.c (test_for_singularity): Likewise.
+
+	* tree-vect-stmts.c (vectorizable_condition): Build a VEC_COND_EXPR
+	directly instead of building a temporary tree.
+
+	PR bootstrap/69434
+	* genrecog.c: Define INCLUDE_ALGORITHM before including system.h,
+	remove <algorithm> include.
+
+2016-01-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/69432
+	* config/i386/i386.c: Include dojump.h.
+	(expand_small_movmem_or_setmem,
+	expand_set_or_movmem_prologue_epilogue_by_misaligned_moves): Spelling
+	fixes.
+	(ix86_expand_set_or_movmem): Call do_pending_stack_adjust () early
+	if dynamic_check != -1.
+
+2016-01-21  Jeff Law  <law@redhat.com>
+
+	PR middle-end/69347
+	* tree-ssa-dom.c (back_propagate_equivalences): Factored out of
+	record_temporary_equivalences.  Rewritten to avoid unnecessary calls
+	into dominated_by_p.
+	(cprop_into_successor_phis): Avoid unnecessary tests.
+
+2016-01-22  Richard Henderson  <rth@redhat.com>
+
+	PR target/69416
+	* config/aarch64/aarch64.md (UNSPEC_NZCV): New.
+	(ccmp<mode>, fccmp<mode>, fccmpe<mode>): Use it.
+
+2016-01-22  Michael Matz  <matz@suse.de>
+
+	* system.h (string, algorithm): Include only conditionally.
+	(new): Include always under C++.
+	* bb-reorder.c (toplevel): Define INCLUDE_ALGORITHM.
+	* final.c (toplevel): Ditto.
+	* ipa-chkp.c (toplevel): Define INCLUDE_STRING.
+	* genconditions.c (write_header): Make gencondmd.c define
+	INCLUDE_STRING.
+	* mem-stats.h (mem_usage::print_dash_line): Don't use std::string.
+
+	* config/aarch64/aarch64.c (toplevel): Define INCLUDE_STRING.
+	* common/config/aarch64/aarch64-common.c (toplevel): Ditto.
+
+2016-01-22  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/68674
+	* expr.c (expand_expr_real_1): Reset DECL_MODE if VECTOR_TYPE_P changed.
+
+2016-01-22  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/69403
+	* config/arm/thumb2.md (*thumb2_ior_scc_strict_it): Convert to
+	define_insn_and_split.  Ensure operands[1] and operands[0] do not
+	get assigned the same register.
+
+2016-01-22  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* ipa-prop.c (ipa_set_jf_constant): Remove redundant unshare_expr.
+
+2016-01-22  Christian Bruel  <christian.bruel@st.com>
+
+	* config/arm/arm-c.c (arm_pragma_target_parse):
+	Remove warn_builtin_macro_redefined overwrite.
+
+2016-01-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* ipa-inline.c (can_inline_edge_p): Back out overzealous check on
+	flag_non_call_exceptions compatibility.
+
+2016-01-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/66668
+	* dwarf2out.c (add_child_die_after): New function.
+	(dwarf_qual_info_t): New type.
+	(dwarf_qual_info): New variable.
+	(qualified_die_p): New function.
+	(modified_type_die): For -fdebug-types-section, ensure
+	canonical order of qualifiers.  Put qualified DIEs adjacent
+	to the corresponding non-qualified type DIE and search there
+	for existing qualified DIEs.
+
+2016-01-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* doc/extend.texi (scalar_storage_order type attribute): Document
+	restriction on type punning and aliasing, and remove future tense.
+
+2016-01-21  Roman Zhuykov  <zhroma@ispras.ru>
+
+	PR target/69252
+	* modulo-sched.c (optimize_sc):	Allow branch-scheduling to add a new
+	first stage.
+
+2016-01-21  Jeff Law  <law@redhat.com>
+
+	PR middle-end/69347
+	* tree-ssa-dom.c (dom_opt_dom_walker::thread_across_edge): Avoid
+	useless call to record_temporary_equivalences.
+	* tree-ssa-threadbackward.c (find_jump_threads_backwards): Just
+	allocate 10 slots in the bb_path vector and let it grow as needed.
+	(fsm_find_control_statement_thread_paths): Similarly for the next_path
+	vector.
+
 2016-01-21  David Edelsohn  <dje.gcc@gmail.com>
 
 	* configure.ac (gcc_cv_as_powerpc_mfcrf, gcc_cv_as_machine_directive):
@@ -60,7 +705,7 @@
 	* lra-coalesce.c (lra_coalesce): Invalidate value for the result
 	pseudo instead of inheritance ones.
 
-2016-01-21  Bernd Enlinger  <bernd.edlinger@hotmail.de>
+2016-01-21  Bernd Edlinger  <bernd.edlinger@hotmail.de>
 	    Nick Clifton  <nickc@redhat.com>
 
 	PR target/69129
