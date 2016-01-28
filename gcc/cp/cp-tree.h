@@ -5465,7 +5465,7 @@ bool decl_spec_seq_has_spec_p (const cp_decl_specifier_seq *, cp_decl_spec);
 /* Return the type of the `this' parameter of FNTYPE.  */
 
 inline tree
-type_of_this_parm (const_tree fntype)
+type_of_this_parm (const ttype_p fntype)
 {
   function_args_iterator iter;
   gcc_assert (TREE_CODE (fntype) == METHOD_TYPE);

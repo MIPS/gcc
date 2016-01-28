@@ -689,16 +689,16 @@ common_pointer_type (tree t1, tree t2)
    This is the type for the result of most arithmetic operations
    if the operands have the given two types.  */
 
-static tree
-c_common_type (tree t1, tree t2)
+static ttype *
+c_common_type (ttype_p t1, ttype_p t2)
 {
   enum tree_code code1;
   enum tree_code code2;
 
   /* If one type is nonsense, use the other.  */
-  if (t1 == error_mark_node)
+  if (t1 == error_type_node)
     return t2;
-  if (t2 == error_mark_node)
+  if (t2 == error_type_node)
     return t1;
 
   if (TYPE_QUALS (t1) != TYPE_UNQUALIFIED)
@@ -736,17 +736,17 @@ c_common_type (tree t1, tree t2)
       if (code1 == VECTOR_TYPE || code2 == VECTOR_TYPE)
 	{
 	  error ("can%'t mix operands of decimal float and vector types");
-	  return error_mark_node;
+	  return error_type_node;
 	}
       if (code1 == COMPLEX_TYPE || code2 == COMPLEX_TYPE)
 	{
 	  error ("can%'t mix operands of decimal float and complex types");
-	  return error_mark_node;
+	  return error_type_node;
 	}
       if (code1 == REAL_TYPE && code2 == REAL_TYPE)
 	{
 	  error ("can%'t mix operands of decimal float and other float types");
-	  return error_mark_node;
+	  return error_type_node;
 	}
     }
 
@@ -764,8 +764,8 @@ c_common_type (tree t1, tree t2)
      required type.  */
   if (code1 == COMPLEX_TYPE || code2 == COMPLEX_TYPE)
     {
-      tree subtype1 = code1 == COMPLEX_TYPE ? TREE_TYPE (t1) : t1;
-      tree subtype2 = code2 == COMPLEX_TYPE ? TREE_TYPE (t2) : t2;
+      tree subtype1 = code1 == COMPLEX_TYPE ? TREE_TTYPE (t1) : TTYPE (t1);
+      tree subtype2 = code2 == COMPLEX_TYPE ? TREE_TTYPE (t2) : TTYPE (t2);
       tree subtype = c_common_type (subtype1, subtype2);
 
       if (code1 == COMPLEX_TYPE && TREE_TYPE (t1) == subtype)
@@ -949,8 +949,8 @@ c_common_type (tree t1, tree t2)
    are allowed here and are converted to their compatible integer types.
    BOOLEAN_TYPEs are allowed here and return either boolean_type_node or
    preferably a non-Boolean type as the common type.  */
-tree
-common_type (tree t1, tree t2)
+ttype *
+common_type (ttype_p t1, ttype_p t2)
 {
   if (TREE_CODE (t1) == ENUMERAL_TYPE)
     t1 = c_common_type_for_size (TYPE_PRECISION (t1), 1);

@@ -324,6 +324,7 @@ const ttype *
 TTYPE (const ttype *t) 
     __attribute__((error(" Fix use of TTYPE(const ttype *)")));
 
+
 /* This is the interface class for incoming parameters to functions/methods
    so that all callers do not need to be ttype-ified all at once. This will
    allow the code withinn a function to treat the parameter exactly as if it
@@ -357,6 +358,19 @@ public:
   inline ttype ** operator->() { return type; }
   inline ttype ** operator->() const { return type; }
 };
+
+
+/* These exist because there are cases where ttype_p is used as a parameter, 
+   then used in a condition with types:   cond ? ttype * : ttype_p  .
+   The cast cant be autromcatically done by the compiler, we
+   allow TTYPE to work with ttype_p.  When they are changed to ttype *, they
+   will automatically trigger the above errors and require fixing.  */
+
+static inline ttype *
+TTYPE (const ttype_p t)
+{
+  return t;
+}
 
 
 /* On rare occassions, situations arise which require a temporary situation to

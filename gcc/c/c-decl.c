@@ -9312,6 +9312,12 @@ identifier_global_value	(tree t)
   return 0;
 }
 
+ttype *
+identifier_global_type (tree t)
+{
+  return TREE_TTYPE (identifier_global_value (t));
+}
+
 /* In C, the only C-linkage public declaration is at file scope.  */
 
 tree

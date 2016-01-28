@@ -20,6 +20,13 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_TTYPE_H
 
 #undef TREE_TTYPE
+#undef TREE_TTYPE_PTR
+
+/* It would be better to replace this old form with the new.  */
+#undef SET_TYPE_STRUCTURAL_EQUALITY
+#define TYPE_SET_STRUCTURAL_EQUALITY_P(NODE) ((NODE)->set_structural_equality_p ())
+#define SET_TYPE_STRUCTURAL_EQUALITY(NODE)  TYPE_SET_STRUCTURAL_EQUALITY_P(NODE)
+
 
 #undef TYPE_HASH
 #undef TYPE_ARTIFICIAL
@@ -289,7 +296,6 @@ along with GCC; see the file COPYING3.  If not see
 #define TYPE_SET_MODE_RAW(NODE, VAL) ((NODE)->set_mode_raw (VAL))
 #define TYPE_SET_MODE(NODE, VAL) ((NODE)->set_mode (VAL))
 #define TYPE_SET_CANONICAL(NODE, VAL) ((NODE)->set_canonical (VAL))
-#define TYPE_SET_STRUCTURAL_EQUALITY_P(NODE, VAL) ((NODE)->set_structural_equality_p (VAL))
 #define TYPE_SET_IBIT(NODE, VAL) ((NODE)->set_ibit (VAL))
 #define TYPE_SET_FBIT(NODE, VAL) ((NODE)->set_fbit (VAL))
 #define TYPE_SET_ALIAS_SET(NODE, VAL) ((NODE)->set_alias_set (VAL))
@@ -413,6 +419,15 @@ along with GCC; see the file COPYING3.  If not see
    accessor.  */
 #define DECL_CONTEXT_TYPE_P(NODE) (TYPE_P (DECL_CONTEXT (NODE)))
 #define DECL_CONTEXT_TYPE(NODE) (TTYPE (DECL_CONTEXT (NODE)))
+
+#undef DECL_ORIGINAL_TYPE
+#define DECL_ORIGINAL_TYPE(NODE) \
+  TTYPE ((TYPE_DECL_CHECK (NODE)->u.decl_non_common.result))
+static inline void
+DECL_SET_ORIGINAL_TYPE(tree node, ttype *val)
+{
+  TYPE_DECL_CHECK (node)->u.decl_non_common.result = val;
+}
 
 #undef TREE_TYPE
 static inline ttype *

@@ -261,8 +261,8 @@ original_type (tree t)
    been applied, and enumerated types converted to their compatible
    integer types.  */
 
-static tree
-cp_common_type (tree t1, tree t2)
+static ttype *
+cp_common_type (ttype_p t1, ttype_p t2)
 {
   enum tree_code code1 = TREE_CODE (t1);
   enum tree_code code2 = TREE_CODE (t2);
@@ -280,7 +280,7 @@ cp_common_type (tree t1, tree t2)
       if (TYPE_MAIN_VARIANT (t1) == TYPE_MAIN_VARIANT (t2))
 	return build_type_attribute_variant (t1, attributes);
       else
-	return NULL_TREE;
+	return NULL;
     }
 
   /* FIXME: Attributes.  */
@@ -296,8 +296,8 @@ cp_common_type (tree t1, tree t2)
      required type.  */
   if (code1 == COMPLEX_TYPE || code2 == COMPLEX_TYPE)
     {
-      tree subtype1 = code1 == COMPLEX_TYPE ? TREE_TYPE (t1) : t1;
-      tree subtype2 = code2 == COMPLEX_TYPE ? TREE_TYPE (t2) : t2;
+      tree subtype1 = code1 == COMPLEX_TYPE ? TREE_TTYPE (t1) : TTYPE (t1);
+      tree subtype2 = code2 == COMPLEX_TYPE ? TREE_TTYPE (t2) : TTYPE (t2);
       tree subtype
 	= type_after_usual_arithmetic_conversions (subtype1, subtype2);
 
@@ -942,13 +942,13 @@ strip_array_domain (tree type)
    been applied, and enumerated types converted to their compatible
    integer types.  */
 
-tree
-common_type (tree t1, tree t2)
+ttype *
+common_type (ttype_p t1, ttype_p t2)
 {
   /* If one type is nonsense, use the other  */
-  if (t1 == error_mark_node)
+  if (t1 == error_type_node)
     return t2;
-  if (t2 == error_mark_node)
+  if (t2 == error_type_node)
     return t1;
 
   return cp_common_type (t1, t2);

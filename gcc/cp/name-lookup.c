@@ -1983,6 +1983,11 @@ identifier_global_value	(tree t)
   return IDENTIFIER_GLOBAL_VALUE (t);
 }
 
+ttype *
+identifier_global_type (tree t)
+{
+  return TREE_TTYPE (IDENTIFIER_GLOBAL_VALUE (t));
+}
 /* Push a definition of struct, union or enum tag named ID.  into
    binding_level B.  DECL is a TYPE_DECL for the type.  We assume that
    the tag ID is not already defined.  */
