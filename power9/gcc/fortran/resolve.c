@@ -1,5 +1,5 @@
 /* Perform type resolution on the various structures.
-   Copyright (C) 2001-2015 Free Software Foundation, Inc.
+   Copyright (C) 2001-2016 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -2565,8 +2565,13 @@ generic:
      that possesses a matching interface.  14.1.2.4  */
   if (sym  && !intr && !gfc_is_intrinsic (sym, 0, expr->where))
     {
-      gfc_error ("There is no specific function for the generic %qs "
-		 "at %L", expr->symtree->n.sym->name, &expr->where);
+      if (gfc_init_expr_flag)
+	gfc_error ("Function %qs in initialization expression at %L "
+		   "must be an intrinsic function",
+		   expr->symtree->n.sym->name, &expr->where);
+      else
+	gfc_error ("There is no specific function for the generic %qs "
+		   "at %L", expr->symtree->n.sym->name, &expr->where);
       return false;
     }
 
@@ -15320,9 +15325,9 @@ check_uop_procedure (gfc_symbol *sym, locus where)
     }
 
   if (sym->ts.type == BT_CHARACTER
-      && !(sym->ts.u.cl && sym->ts.u.cl->length)
-      && !(sym->result && sym->result->ts.u.cl
-	   && sym->result->ts.u.cl->length))
+      && !((sym->ts.u.cl && sym->ts.u.cl->length) || sym->ts.deferred)
+      && !(sym->result && ((sym->result->ts.u.cl
+	   && sym->result->ts.u.cl->length) || sym->result->ts.deferred)))
     {
       gfc_error ("User operator procedure %qs at %L cannot be assumed "
 		 "character length", sym->name, &where);

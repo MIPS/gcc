@@ -1,5 +1,5 @@
 /* Analyze RTL for GNU compiler.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -6238,6 +6238,19 @@ contains_symbol_ref_p (const_rtx x)
   subrtx_iterator::array_type array;
   FOR_EACH_SUBRTX (iter, array, x, ALL)
     if (SYMBOL_REF_P (*iter))
+      return true;
+
+  return false;
+}
+
+/* Return true if RTL X contains a SYMBOL_REF or LABEL_REF.  */
+
+bool
+contains_symbolic_reference_p (const_rtx x)
+{
+  subrtx_iterator::array_type array;
+  FOR_EACH_SUBRTX (iter, array, x, ALL)
+    if (SYMBOL_REF_P (*iter) || GET_CODE (*iter) == LABEL_REF)
       return true;
 
   return false;

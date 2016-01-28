@@ -1,5 +1,5 @@
 /* Process declarations and variables for C++ compiler.
-   Copyright (C) 1988-2015 Free Software Foundation, Inc.
+   Copyright (C) 1988-2016 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -1193,7 +1193,8 @@ is_late_template_attribute (tree attr, tree decl)
 	 second and following arguments.  Attributes like mode, format,
 	 cleanup and several target specific attributes aren't late
 	 just because they have an IDENTIFIER_NODE as first argument.  */
-      if (arg == args && identifier_p (t))
+      if (arg == args && attribute_takes_identifier_p (name)
+	  && identifier_p (t))
 	continue;
 
       if (value_dependent_expression_p (t)
@@ -1820,7 +1821,8 @@ comdat_linkage (tree decl)
 	}
     }
 
-  DECL_COMDAT (decl) = 1;
+  if (TREE_PUBLIC (decl))
+    DECL_COMDAT (decl) = 1;
 }
 
 /* For win32 we also want to put explicit instantiations in

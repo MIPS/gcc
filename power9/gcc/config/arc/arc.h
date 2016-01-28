@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, Synopsys DesignWare ARC cpu.
-   Copyright (C) 1994-2015 Free Software Foundation, Inc.
+   Copyright (C) 1994-2016 Free Software Foundation, Inc.
 
    Sources derived from work done by Sankhya Technologies (www.sankhya.com) on
    behalf of Synopsys Inc.
@@ -96,6 +96,10 @@ along with GCC; see the file COPYING3.  If not see
       {					\
 	builtin_define ("__ARC_NORM__");\
 	builtin_define ("__Xnorm");	\
+      }					\
+    if (TARGET_LL64)			\
+      {					\
+	builtin_define ("__ARC_LL64__");\
       }					\
     if (TARGET_MUL64_SET)		\
       builtin_define ("__ARC_MUL64__");\

@@ -1,5 +1,5 @@
 /* Target code for NVPTX.
-   Copyright (C) 2014-2015 Free Software Foundation, Inc.
+   Copyright (C) 2014-2016 Free Software Foundation, Inc.
    Contributed by Bernd Schmidt <bernds@codesourcery.com>
 
    This file is part of GCC.
@@ -1718,6 +1718,11 @@ nvptx_globalize_label (FILE *, const char *)
 static void
 nvptx_assemble_undefined_decl (FILE *file, const char *name, const_tree decl)
 {
+  /* The middle end can place constant pool decls into the varpool as
+     undefined.  Until that is fixed, catch the problem here.  */
+  if (DECL_IN_CONSTANT_POOL (decl))
+    return;
+
   write_var_marker (file, false, TREE_PUBLIC (decl), name);
 
   fprintf (file, "\t.extern ");

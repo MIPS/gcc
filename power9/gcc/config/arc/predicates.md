@@ -1,5 +1,5 @@
 ;; Predicate definitions for Synopsys DesignWare ARC.
-;; Copyright (C) 2007-2015 Free Software Foundation, Inc.
+;; Copyright (C) 2007-2016 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -510,6 +510,8 @@
     /* From combiner.  */
     case QImode: case HImode: case DImode: case SFmode: case DFmode:
       return 0;
+    case VOIDmode:
+      return 0;
     default:
       gcc_unreachable ();
   }
@@ -784,3 +786,14 @@
 
 (define_predicate "any_mem_operand"
   (match_code "mem"))
+
+; Special predicate to match even-odd double register pair
+(define_predicate "even_register_operand"
+  (match_code "reg")
+  {
+   if ((GET_MODE (op) != mode) && (mode != VOIDmode))
+      return 0;
+
+   return (REG_P (op) && ((REGNO (op) >= FIRST_PSEUDO_REGISTER)
+			  || ((REGNO (op) & 1) == 0)));
+  })

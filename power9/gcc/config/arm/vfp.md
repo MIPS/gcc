@@ -1,5 +1,5 @@
 ;; ARM VFP instruction patterns
-;; Copyright (C) 2003-2015 Free Software Foundation, Inc.
+;; Copyright (C) 2003-2016 Free Software Foundation, Inc.
 ;; Written by CodeSourcery.
 ;;
 ;; This file is part of GCC.
@@ -1334,8 +1334,9 @@
                         [(match_operand:SDF 1
                            "register_operand" "<F_constraint>")] VCVT)))]
   "TARGET_HARD_FLOAT && TARGET_FPU_ARMV8 <vfp_double_cond>"
-  "vcvt<vrint_variant>%?.<su>32.<V_if_elem>\\t%0, %<V_reg>1"
+  "vcvt<vrint_variant>.<su>32.<V_if_elem>\\t%0, %<V_reg>1"
   [(set_attr "predicable" "no")
+   (set_attr "conds" "unconditional")
    (set_attr "type" "f_cvtf2i")]
 )
 

@@ -1,5 +1,5 @@
 /* Fold a constant sub-tree into a single node for C-compiler
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -74,6 +74,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-into-ssa.h"
 #include "md5.h"
 #include "case-cfn-macros.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
 
 #ifndef LOAD_EXTEND_OP
 #define LOAD_EXTEND_OP(M) UNKNOWN
@@ -2180,11 +2182,8 @@ fold_convertible_p (const_tree type, const_tree arg)
     case INTEGER_TYPE: case ENUMERAL_TYPE: case BOOLEAN_TYPE:
     case POINTER_TYPE: case REFERENCE_TYPE:
     case OFFSET_TYPE:
-      if (INTEGRAL_TYPE_P (orig) || POINTER_TYPE_P (orig)
-	  || TREE_CODE (orig) == OFFSET_TYPE)
-        return true;
-      return (TREE_CODE (orig) == VECTOR_TYPE
-	      && tree_int_cst_equal (TYPE_SIZE (type), TYPE_SIZE (orig)));
+      return (INTEGRAL_TYPE_P (orig) || POINTER_TYPE_P (orig)
+	      || TREE_CODE (orig) == OFFSET_TYPE);
 
     case REAL_TYPE:
     case FIXED_POINT_TYPE:
@@ -2239,11 +2238,11 @@ fold_convert_loc (location_t loc, tree type, tree arg)
 	return fold_build1_loc (loc, NOP_EXPR, type, arg);
       if (TREE_CODE (orig) == COMPLEX_TYPE)
 	return fold_convert_loc (loc, type,
-			     fold_build1_loc (loc, REALPART_EXPR,
-					  TREE_TYPE (orig), arg));
+				 fold_build1_loc (loc, REALPART_EXPR,
+						  TREE_TYPE (orig), arg));
       gcc_assert (TREE_CODE (orig) == VECTOR_TYPE
 		  && tree_int_cst_equal (TYPE_SIZE (type), TYPE_SIZE (orig)));
-      return fold_build1_loc (loc, NOP_EXPR, type, arg);
+      return fold_build1_loc (loc, VIEW_CONVERT_EXPR, type, arg);
 
     case REAL_TYPE:
       if (TREE_CODE (arg) == INTEGER_CST)
@@ -6447,13 +6446,17 @@ fold_binary_op_with_conditional_arg (location_t loc,
       if (VOID_TYPE_P (TREE_TYPE (false_value)))
 	rhs = false_value;
     }
-  else
+  else if (!(TREE_CODE (type) != VECTOR_TYPE
+	     && TREE_CODE (TREE_TYPE (cond)) == VECTOR_TYPE))
     {
       tree testtype = TREE_TYPE (cond);
       test = cond;
       true_value = constant_boolean_node (true, testtype);
       false_value = constant_boolean_node (false, testtype);
     }
+  else
+    /* Detect the case of mixing vector and scalar types - bail out.  */
+    return NULL_TREE;
 
   if (TREE_CODE (TREE_TYPE (test)) == VECTOR_TYPE)
     cond_code = VEC_COND_EXPR;
@@ -9099,6 +9102,45 @@ tree_expr_nonzero_p (tree t)
 			    "non-zero"),
 			   WARN_STRICT_OVERFLOW_MISC);
   return ret;
+}
+
+/* Return true if T is known not to be equal to an integer W.  */
+
+bool
+expr_not_equal_to (tree t, const wide_int &w)
+{
+  wide_int min, max, nz;
+  value_range_type rtype;
+  switch (TREE_CODE (t))
+    {
+    case INTEGER_CST:
+      return wi::ne_p (t, w);
+
+    case SSA_NAME:
+      if (!INTEGRAL_TYPE_P (TREE_TYPE (t)))
+	return false;
+      rtype = get_range_info (t, &min, &max);
+      if (rtype == VR_RANGE)
+	{
+	  if (wi::lt_p (max, w, TYPE_SIGN (TREE_TYPE (t))))
+	    return true;
+	  if (wi::lt_p (w, min, TYPE_SIGN (TREE_TYPE (t))))
+	    return true;
+	}
+      else if (rtype == VR_ANTI_RANGE
+	       && wi::le_p (min, w, TYPE_SIGN (TREE_TYPE (t)))
+	       && wi::le_p (w, max, TYPE_SIGN (TREE_TYPE (t))))
+	return true;
+      /* If T has some known zero bits and W has any of those bits set,
+	 then T is known not to be equal to W.  */
+      if (wi::ne_p (wi::zext (wi::bit_and_not (w, get_nonzero_bits (t)),
+			      TYPE_PRECISION (TREE_TYPE (t))), 0))
+	return true;
+      return false;
+
+    default:
+      return false;
+    }
 }
 
 /* Fold a binary expression of code CODE and type TYPE with operands
@@ -13946,6 +13988,23 @@ fold_relational_const (enum tree_code code, tree type, tree op0, tree op1)
 
   if (TREE_CODE (op0) == VECTOR_CST && TREE_CODE (op1) == VECTOR_CST)
     {
+      if (!VECTOR_TYPE_P (type))
+	{
+	  /* Have vector comparison with scalar boolean result.  */
+	  bool result = true;
+	  gcc_assert ((code == EQ_EXPR || code == NE_EXPR)
+		      && VECTOR_CST_NELTS (op0) == VECTOR_CST_NELTS (op1));
+	  for (unsigned i = 0; i < VECTOR_CST_NELTS (op0); i++)
+	    {
+	      tree elem0 = VECTOR_CST_ELT (op0, i);
+	      tree elem1 = VECTOR_CST_ELT (op1, i);
+	      tree tmp = fold_relational_const (code, type, elem0, elem1);
+	      result &= integer_onep (tmp);
+	    }
+	  if (code == NE_EXPR)
+	    result = !result;
+	  return constant_boolean_node (result, type);
+	}
       unsigned count = VECTOR_CST_NELTS (op0);
       tree *elts =  XALLOCAVEC (tree, count);
       gcc_assert (VECTOR_CST_NELTS (op1) == count

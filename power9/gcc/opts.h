@@ -1,5 +1,5 @@
 /* Command line option handling.
-   Copyright (C) 2002-2015 Free Software Foundation, Inc.
+   Copyright (C) 2002-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -372,6 +372,8 @@ extern void control_warning_option (unsigned int opt_index, int kind,
 extern char *write_langs (unsigned int mask);
 extern void print_ignored_options (void);
 extern void handle_common_deferred_options (void);
+unsigned int parse_sanitizer_options (const char *, location_t, int,
+				      unsigned int, int, bool);
 extern bool common_handle_option (struct gcc_options *opts,
 				  struct gcc_options *opts_set,
 				  const struct cl_decoded_option *decoded,

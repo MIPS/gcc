@@ -1,5 +1,5 @@
 /* Parser for C and Objective-C.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
    Parser actions based on the old Bison parser; structure somewhat
    influenced by and fragments based on the C++ parser.
@@ -58,6 +58,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-indentation.h"
 #include "gimple-expr.h"
 #include "context.h"
+
+/* We need to walk over decls with incomplete struct/union/enum types
+   after parsing the whole translation unit.
+   In finish_decl(), if the decl is static, has incomplete
+   struct/union/enum type, it is appeneded to incomplete_record_decls.
+   In c_parser_translation_unit(), we iterate over incomplete_record_decls
+   and report error if any of the decls are still incomplete.  */ 
+
+vec<tree> incomplete_record_decls = vNULL;
 
 void
 set_c_expr_source_range (c_expr *expr,
@@ -1421,6 +1430,15 @@ c_parser_translation_unit (c_parser *parser)
 	}
       while (c_parser_next_token_is_not (parser, CPP_EOF));
     }
+
+  unsigned int i;
+  tree decl;
+  FOR_EACH_VEC_ELT (incomplete_record_decls, i, decl)
+    if (DECL_SIZE (decl) == NULL_TREE && TREE_TYPE (decl) != error_mark_node)
+      {
+	error ("storage size of %q+D isn%'t known", decl);
+	TREE_TYPE (decl) = error_mark_node;
+      }
 }
 
 /* Parse an external declaration (C90 6.7, C99 6.9).
@@ -6759,14 +6777,18 @@ c_parser_unary_expression (c_parser *parser)
       mark_exp_read (op.value);
       return parser_build_unary_op (op_loc, ADDR_EXPR, op);
     case CPP_MULT:
-      c_parser_consume_token (parser);
-      exp_loc = c_parser_peek_token (parser)->location;
-      op = c_parser_cast_expression (parser, NULL);
-      finish = op.get_finish ();
-      op = convert_lvalue_to_rvalue (exp_loc, op, true, true);
-      ret.value = build_indirect_ref (op_loc, op.value, RO_UNARY_STAR);
-      set_c_expr_source_range (&ret, op_loc, finish);
-      return ret;
+      {
+	c_parser_consume_token (parser);
+	exp_loc = c_parser_peek_token (parser)->location;
+	op = c_parser_cast_expression (parser, NULL);
+	finish = op.get_finish ();
+	op = convert_lvalue_to_rvalue (exp_loc, op, true, true);
+	location_t combined_loc = make_location (op_loc, op_loc, finish);
+	ret.value = build_indirect_ref (combined_loc, op.value, RO_UNARY_STAR);
+	ret.src_range.m_start = op_loc;
+	ret.src_range.m_finish = finish;
+	return ret;
+      }
     case CPP_PLUS:
       if (!c_dialect_objc () && !in_system_header_at (input_location))
 	warning_at (op_loc,
@@ -13595,10 +13617,7 @@ c_parser_oacc_declare (c_parser *parser)
 		    {
 		      g->have_offload = true;
 		      if (is_a <varpool_node *> (node))
-			{
-			  vec_safe_push (offload_vars, decl);
-			  node->force_output = 1;
-			}
+			vec_safe_push (offload_vars, decl);
 		    }
 		}
 	    }
@@ -16480,10 +16499,7 @@ c_parser_omp_declare_target (c_parser *parser)
 		{
 		  g->have_offload = true;
 		  if (is_a <varpool_node *> (node))
-		    {
-		      vec_safe_push (offload_vars, t);
-		      node->force_output = 1;
-		    }
+		    vec_safe_push (offload_vars, t);
 		}
 	    }
 	}

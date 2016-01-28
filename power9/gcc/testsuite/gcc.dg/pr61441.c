@@ -1,5 +1,6 @@
-/* { dg-do run } */
-/* { dg-options "-O1 -lm" } */
+/* { dg-do run { target { *-*-linux* *-*-gnu* } } } */
+/* { dg-options "-O1 -lm -fexcess-precision=standard" } */
+/* { dg-require-effective-target issignaling } */
 
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -56,6 +57,8 @@ int main (void)
   operation(Add);
   operation(Mult);
   operation(Div);
+#if __FLT_EVAL_METHOD__ == 0
   operation(Abs);
+#endif
   return 0;
 }

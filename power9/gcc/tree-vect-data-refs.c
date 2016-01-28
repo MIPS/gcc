@@ -1,5 +1,5 @@
 /* Data References Analysis and Manipulation Utilities for Vectorization.
-   Copyright (C) 2003-2015 Free Software Foundation, Inc.
+   Copyright (C) 2003-2016 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
    and Ira Rosen <irar@il.ibm.com>
 
@@ -1495,7 +1495,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
                  size (vector size / 8).  Vectorization factor will 8.  If both
                  access are misaligned by 3, the first one needs one scalar
                  iteration to be aligned, and the second one needs 5.  But the
-                 the first one will be aligned also by peeling 5 scalar
+		 first one will be aligned also by peeling 5 scalar
                  iterations, and in that case both accesses will be aligned.
                  Hence, except for the immediate peeling amount, we also want
                  to try to add full vector size, while we don't exceed
@@ -1826,7 +1826,16 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
              misalignment of DR_i must be set to unknown.  */
 	  FOR_EACH_VEC_ELT (datarefs, i, dr)
 	    if (dr != dr0)
-	      vect_update_misalignment_for_peel (dr, dr0, npeel);
+	      {
+		/* Strided accesses perform only component accesses, alignment
+		   is irrelevant for them.  */
+		stmt_info = vinfo_for_stmt (DR_STMT (dr));
+		if (STMT_VINFO_STRIDED_P (stmt_info)
+		    && !STMT_VINFO_GROUPED_ACCESS (stmt_info))
+		  continue;
+
+		vect_update_misalignment_for_peel (dr, dr0, npeel);
+	      }
 
           LOOP_VINFO_UNALIGNED_DR (loop_vinfo) = dr0;
           if (npeel)

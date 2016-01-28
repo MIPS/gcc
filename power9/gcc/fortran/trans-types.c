@@ -1,5 +1,5 @@
 /* Backend support for Fortran 95 basic types and derived types.
-   Copyright (C) 2002-2015 Free Software Foundation, Inc.
+   Copyright (C) 2002-2016 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -1045,6 +1045,8 @@ gfc_get_character_type (int kind, gfc_charlen * cl)
   tree len;
 
   len = (cl == NULL) ? NULL_TREE : cl->backend_decl;
+  if (len && POINTER_TYPE_P (TREE_TYPE (len)))
+    len = build_fold_indirect_ref (len);
 
   return gfc_get_character_type_len (kind, len);
 }

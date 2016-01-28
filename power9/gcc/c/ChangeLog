@@ -1,3 +1,67 @@
+2016-01-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/66869
+	* c-decl.c (c_write_global_declarations_1): Warn with
+	warn_unused_function if static prototype without definition
+	is not C_DECL_USED.
+
+2016-01-27  Marek Polacek  <polacek@redhat.com>
+
+	PR c/68062
+	* c-typeck.c (build_binary_op) [EQ_EXPR, GE_EXPR]: Promote operand
+	to unsigned, if needed.  Add -Wsign-compare warning.
+
+2016-01-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/69483
+	* c-parser.c (c_parser_translation_unit): Use FOR_EACH_VEC_ELT.
+
+2016-01-20  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	PR c/24293
+	* c-tree.h (incomplete_record_decls): Declare.
+	* c-parser.c (incomplete_record_decls): Define.
+	(c_parser_translation_unit): Iterate through incomplete_record_decls and
+	report error if any decl has zero size.
+	* c-decl.c (finish_decl): Append static decl with incomplete struct/union
+	or enum type to incomplete_record_decls.
+
+2016-01-14  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/68773
+	* c-parser.c (c_parser_oacc_declare, c_parser_omp_declare_target): Don't
+	set force_output.
+
+2016-01-14  Marek Polacek  <polacek@redhat.com>
+
+	PR c/69262
+	* c-decl.c (grokdeclarator): Provide more information for invalid
+	array declarations.
+
+2016-01-06  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-parser.c (c_parser_unary_expression): For dereferences, build
+	a combined location before calling build_indirect_ref, so that
+	error reports cover the full range, manually updating the c_expr
+	src_range.
+
+2016-01-06  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/69099
+	* c-convert.c (convert) [INTEGER_TYPE]: Drop ARG.  Don't pass ARG to
+	ubsan_instrument_float_cast.  Fold EXPR.  Use NULL_TREE instead of
+	NULL.
+
+2016-01-04  Jakub Jelinek  <jakub@redhat.com>
+
+	Update copyright years.
+
+2016-01-04  Marek Polacek  <polacek@redhat.com>
+
+	PR c/68908
+	* c-typeck.c (build_atomic_assign): Improve commentary.  Add
+	optimization to use __atomic_fetch_* built-in if possible.
+
 2015-12-23  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-parser.c (c_parser_oacc_clause_use_device): Merge function
@@ -3154,7 +3218,7 @@
 	* c-decl.c: Likewise.  Include gt-c-c-decl.h, not gt-c-decl.h.
 	* c-parser.c: Likewise.  Include gt-c-c-parser.h, not gt-c-parser.h.
 
-Copyright (C) 2012-2015 Free Software Foundation, Inc.
+Copyright (C) 2012-2016 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright

@@ -1,5 +1,5 @@
 /* Core data structures for the 'tree' type.
-   Copyright (C) 1989-2015 Free Software Foundation, Inc.
+   Copyright (C) 1989-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -458,7 +458,11 @@ enum omp_clause_code {
   OMP_CLAUSE_VECTOR_LENGTH,
 
   /* OpenACC clause: tile ( size-expr-list ).  */
-  OMP_CLAUSE_TILE
+  OMP_CLAUSE_TILE,
+
+  /* OpenMP internal-only clause to specify grid dimensions of a gridified
+     kernel.  */
+  OMP_CLAUSE__GRIDDIM_
 };
 
 #undef DEFTREESTRUCT
@@ -1375,6 +1379,9 @@ struct GTY(()) tree_omp_clause {
     enum tree_code                 reduction_code;
     enum omp_clause_linear_kind    linear_kind;
     enum tree_code                 if_modifier;
+    /* The dimension a OMP_CLAUSE__GRIDDIM_ clause of a gridified target
+       construct describes.  */
+    unsigned int		   dimension;
   } GTY ((skip)) subcode;
 
   /* The gimplification of OMP_CLAUSE_REDUCTION_{INIT,MERGE} for omp-low's

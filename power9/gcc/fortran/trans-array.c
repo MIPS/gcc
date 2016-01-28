@@ -1,5 +1,5 @@
 /* Array translation routines
-   Copyright (C) 2002-2015 Free Software Foundation, Inc.
+   Copyright (C) 2002-2016 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -3165,7 +3165,8 @@ gfc_conv_scalarized_array_ref (gfc_se * se, gfc_array_ref * ar)
 			     index, info->offset);
 
   if (expr && (is_subref_array (expr)
-	       || (expr->ts.deferred && expr->expr_type == EXPR_VARIABLE)))
+	       || (expr->ts.deferred && (expr->expr_type == EXPR_VARIABLE
+					 || expr->expr_type == EXPR_FUNCTION))))
     decl = expr->symtree->n.sym->backend_decl;
 
   tmp = build_fold_indirect_ref_loc (input_location, info->data);
@@ -3601,7 +3602,8 @@ gfc_trans_scalarized_loop_end (gfc_loopinfo * loop, int n,
   tree init;
   tree incr;
 
-  if ((ompws_flags & (OMPWS_WORKSHARE_FLAG | OMPWS_SCALARIZER_WS))
+  if ((ompws_flags & (OMPWS_WORKSHARE_FLAG | OMPWS_SCALARIZER_WS
+		      | OMPWS_SCALARIZER_BODY))
       == (OMPWS_WORKSHARE_FLAG | OMPWS_SCALARIZER_WS)
       && n == loop->dimen - 1)
     {
@@ -3821,10 +3823,10 @@ evaluate_bound (stmtblock_t *block, tree *bounds, gfc_expr ** values,
       gfc_add_block_to_block (block, &se.pre);
       *output = se.expr;
     }
-  else if (deferred)
+  else if (deferred && GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (desc)))
     {
       /* The gfc_conv_array_lbound () routine returns a constant zero for
-	 deferred length arrays, which in the scalarizer wrecks havoc, when
+	 deferred length arrays, which in the scalarizer wreaks havoc, when
 	 copying to a (newly allocated) one-based array.
 	 Keep returning the actual result in sync for both bounds.  */
       *output = lbound ? gfc_conv_descriptor_lbound_get (desc,
@@ -5037,7 +5039,7 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 		     gfc_expr ** lower, gfc_expr ** upper, stmtblock_t * pblock,
 		     stmtblock_t * descriptor_block, tree * overflow,
 		     tree expr3_elem_size, tree *nelems, gfc_expr *expr3,
-		     tree expr3_desc, bool e3_is_array_constr)
+		     tree expr3_desc, bool e3_is_array_constr, gfc_expr *expr)
 {
   tree type;
   tree tmp;
@@ -5062,8 +5064,19 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
   offset = gfc_index_zero_node;
 
   /* Set the dtype.  */
-  tmp = gfc_conv_descriptor_dtype (descriptor);
-  gfc_add_modify (descriptor_block, tmp, gfc_get_dtype (type));
+  if (expr->ts.type == BT_CHARACTER && expr->ts.deferred
+      && TREE_CODE (expr->ts.u.cl->backend_decl) == VAR_DECL)
+    {
+      type = gfc_typenode_for_spec (&expr->ts);
+      tmp = gfc_conv_descriptor_dtype (descriptor);
+      gfc_add_modify (descriptor_block, tmp,
+		      gfc_get_dtype_rank_type (rank, type));
+    }
+  else
+    {
+      tmp = gfc_conv_descriptor_dtype (descriptor);
+      gfc_add_modify (descriptor_block, tmp, gfc_get_dtype (type));
+    }
 
   or_expr = boolean_false_node;
 
@@ -5445,7 +5458,7 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
 			      ref->u.ar.as->corank, &offset, lower, upper,
 			      &se->pre, &set_descriptor_block, &overflow,
 			      expr3_elem_size, nelems, expr3, e3_arr_desc,
-			      e3_is_array_constr);
+			      e3_is_array_constr, expr);
 
   if (dimension)
     {
@@ -7113,7 +7126,7 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 				    gfc_array_index_type,
 				    stride, info->stride[n]);
 
-	  if (se->direct_byref
+	  if ((se->direct_byref || se->use_offset)
 	      && ((info->ref && info->ref->u.ar.type != AR_FULL)
 		  || (expr->expr_type == EXPR_ARRAY && se->use_offset)))
 	    {

@@ -1,5 +1,5 @@
 /* Process declarations and variables for C compiler.
-   Copyright (C) 1988-2015 Free Software Foundation, Inc.
+   Copyright (C) 1988-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -4791,6 +4791,12 @@ finish_decl (tree decl, location_t init_loc, tree init,
 	   TREE_TYPE (decl) = error_mark_node;
 	 }
 
+      if ((RECORD_OR_UNION_TYPE_P (TREE_TYPE (decl))
+	  || TREE_CODE (TREE_TYPE (decl)) == ENUMERAL_TYPE)
+	  && DECL_SIZE (decl) == NULL_TREE
+	  && TREE_STATIC (decl))
+	incomplete_record_decls.safe_push (decl);
+
       if (is_global_var (decl) && DECL_SIZE (decl) != 0)
 	{
 	  if (TREE_CODE (DECL_SIZE (decl)) == INTEGER_CST)
@@ -5951,6 +5957,18 @@ grokdeclarator (const struct c_declarator *declarator,
 	      {
 		error_at (loc, "array type has incomplete element type %qT",
 			  type);
+		/* See if we can be more helpful.  */
+		if (TREE_CODE (type) == ARRAY_TYPE)
+		  {
+		    if (name)
+		      inform (loc, "declaration of %qE as multidimensional "
+			      "array must have bounds for all dimensions "
+			      "except the first", name);
+		    else
+		      inform (loc, "declaration of multidimensional array "
+			      "must have bounds for all dimensions except "
+			      "the first");
+		  }
 		type = error_mark_node;
 	      }
 	    else
@@ -10723,11 +10741,22 @@ c_write_global_declarations_1 (tree globals)
       if (TREE_CODE (decl) == FUNCTION_DECL
 	  && DECL_INITIAL (decl) == 0
 	  && DECL_EXTERNAL (decl)
-	  && !TREE_PUBLIC (decl)
-	  && C_DECL_USED (decl))
+	  && !TREE_PUBLIC (decl))
 	{
-	  pedwarn (input_location, 0, "%q+F used but never defined", decl);
-	  TREE_NO_WARNING (decl) = 1;
+	  if (C_DECL_USED (decl))
+	    {
+	      pedwarn (input_location, 0, "%q+F used but never defined", decl);
+	      TREE_NO_WARNING (decl) = 1;
+	    }
+	  /* For -Wunused-function warn about unused static prototypes.  */
+	  else if (warn_unused_function
+		   && ! DECL_ARTIFICIAL (decl)
+		   && ! TREE_NO_WARNING (decl))
+	    {
+	      warning (OPT_Wunused_function,
+		       "%q+F declared %<static%> but never defined", decl);
+	      TREE_NO_WARNING (decl) = 1;
+	    }
 	}
 
       wrapup_global_declaration_1 (decl);

@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on IBM S/390 and zSeries
-   Copyright (C) 1999-2015 Free Software Foundation, Inc.
+   Copyright (C) 1999-2016 Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com) and
                   Ulrich Weigand (uweigand@de.ibm.com) and
                   Andreas Krebbel (Andreas.Krebbel@de.ibm.com).
@@ -6834,8 +6834,10 @@ s390_asm_output_function_prefix (FILE *asm_out_file,
 
 void
 s390_asm_declare_function_size (FILE *asm_out_file,
-				const char *fnname ATTRIBUTE_UNUSED, tree decl)
+				const char *fnname, tree decl)
 {
+  if (!flag_inhibit_size_directive)
+    ASM_OUTPUT_MEASURED_SIZE (asm_out_file, fnname);
   if (DECL_FUNCTION_SPECIFIC_TARGET (decl) == NULL)
     return;
   fprintf (asm_out_file, "\t.machine pop\n");

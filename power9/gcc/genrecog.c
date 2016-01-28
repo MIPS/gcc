@@ -1,5 +1,5 @@
 /* Generate code from machine description to recognize rtl as insns.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -105,6 +105,7 @@
    5. Write out C++ code for each function.  */
 
 #include "bconfig.h"
+#define INCLUDE_ALGORITHM
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
@@ -112,7 +113,6 @@
 #include "errors.h"
 #include "read-md.h"
 #include "gensupport.h"
-#include <algorithm>
 
 #undef GENERATOR_FILE
 enum true_rtx_doe {

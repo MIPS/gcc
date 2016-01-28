@@ -1,5 +1,5 @@
 /* Output routines for GCC for ARM.
-   Copyright (C) 1991-2015 Free Software Foundation, Inc.
+   Copyright (C) 1991-2016 Free Software Foundation, Inc.
    Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
    and Martin Simmons (@harleqn.co.uk).
    More major hacks by Richard Earnshaw (rearnsha@arm.com).
@@ -2954,6 +2954,10 @@ arm_option_override_internal (struct gcc_options *opts,
   /* Thumb2 inline assembly code should always use unified syntax.
      This will apply to ARM and Thumb1 eventually.  */
   opts->x_inline_asm_unified = TARGET_THUMB2_P (opts->x_target_flags);
+
+#ifdef SUBTARGET_OVERRIDE_INTERNAL_OPTIONS
+  SUBTARGET_OVERRIDE_INTERNAL_OPTIONS;
+#endif
 }
 
 /* Fix up any incompatible options that the user has specified.  */
@@ -3442,8 +3446,7 @@ arm_option_override (void)
 
   /* Save the initial options in case the user does function specific
      options.  */
-  target_option_default_node = target_option_current_node
-    = build_target_option_node (&global_options);
+  target_option_default_node = build_target_option_node (&global_options);
 
   /* Init initial mode for testing.  */
   thumb_flipper = TARGET_THUMB;
@@ -5846,7 +5849,10 @@ aapcs_vfp_allocate_return_reg (enum arm_pcs pcs_variant ATTRIBUTE_UNUSED,
   if (!use_vfp_abi (pcs_variant, false))
     return NULL;
 
-  if (mode == BLKmode || (mode == TImode && !TARGET_NEON))
+  if (mode == BLKmode
+      || (GET_MODE_CLASS (mode) == MODE_INT
+	  && GET_MODE_SIZE (mode) >= GET_MODE_SIZE (TImode)
+	  && !TARGET_NEON))
     {
       int count;
       machine_mode ag_mode;
@@ -12374,6 +12380,10 @@ neon_valid_immediate (rtx op, machine_mode mode, int inverse,
       if (!vfp3_const_double_rtx (el0) && el0 != CONST0_RTX (GET_MODE (el0)))
         return -1;
 
+      /* FP16 vectors cannot be represented.  */
+      if (GET_MODE_INNER (mode) == HFmode)
+	return -1;
+
       r0 = CONST_DOUBLE_REAL_VALUE (el0);
 
       for (i = 1; i < n_elts; i++)
@@ -17199,7 +17209,7 @@ thumb1_reorg (void)
   FOR_EACH_BB_FN (bb, cfun)
     {
       rtx dest, src;
-      rtx pat, op0, set = NULL;
+      rtx cmp, op0, op1, set = NULL;
       rtx_insn *prev, *insn = BB_END (bb);
       bool insn_clobbered = false;
 
@@ -17212,8 +17222,13 @@ thumb1_reorg (void)
 	continue;
 
       /* Get the register with which we are comparing.  */
-      pat = PATTERN (insn);
-      op0 = XEXP (XEXP (SET_SRC (pat), 0), 0);
+      cmp = XEXP (SET_SRC (PATTERN (insn)), 0);
+      op0 = XEXP (cmp, 0);
+      op1 = XEXP (cmp, 1);
+
+      /* Check that comparison is against ZERO.  */
+      if (!CONST_INT_P (op1) || INTVAL (op1) != 0)
+	continue;
 
       /* Find the first flag setting insn before INSN in basic block BB.  */
       gcc_assert (insn != BB_HEAD (bb));
@@ -17253,7 +17268,7 @@ thumb1_reorg (void)
 	  PATTERN (prev) = gen_rtx_SET (dest, src);
 	  INSN_CODE (prev) = -1;
 	  /* Set test register in INSN to dest.  */
-	  XEXP (XEXP (SET_SRC (pat), 0), 0) = copy_rtx (dest);
+	  XEXP (cmp, 0) = copy_rtx (dest);
 	  INSN_CODE (insn) = -1;
 	}
     }
@@ -29734,6 +29749,25 @@ arm_is_constant_pool_ref (rtx x)
 /* Remember the last target of arm_set_current_function.  */
 static GTY(()) tree arm_previous_fndecl;
 
+/* Restore or save the TREE_TARGET_GLOBALS from or to NEW_TREE.  */
+
+void
+save_restore_target_globals (tree new_tree)
+{
+  /* If we have a previous state, use it.  */
+  if (TREE_TARGET_GLOBALS (new_tree))
+    restore_target_globals (TREE_TARGET_GLOBALS (new_tree));
+  else if (new_tree == target_option_default_node)
+    restore_target_globals (&default_target_globals);
+  else
+    {
+      /* Call target_reinit and save the state for TARGET_GLOBALS.  */
+      TREE_TARGET_GLOBALS (new_tree) = save_target_globals_default_opts ();
+    }
+
+  arm_option_params_internal ();
+}
+
 /* Invalidate arm_previous_fndecl.  */
 void
 arm_reset_previous_fndecl (void)
@@ -29756,38 +29790,23 @@ arm_set_current_function (tree fndecl)
 
   tree new_tree = DECL_FUNCTION_SPECIFIC_TARGET (fndecl);
 
-  arm_previous_fndecl = fndecl;
+  /* If current function has no attributes but previous one did,
+     use the default node."  */
+  if (! new_tree && old_tree)
+    new_tree = target_option_default_node;
+
+  /* If nothing to do return.  #pragma GCC reset or #pragma GCC pop to
+     the default have been handled by save_restore_target_globals from
+     arm_pragma_target_parse.  */
   if (old_tree == new_tree)
     return;
 
-  if (new_tree && new_tree != target_option_default_node)
-    {
-      cl_target_option_restore (&global_options,
-				TREE_TARGET_OPTION (new_tree));
+  arm_previous_fndecl = fndecl;
 
-      if (TREE_TARGET_GLOBALS (new_tree))
-	restore_target_globals (TREE_TARGET_GLOBALS (new_tree));
-      else
-	TREE_TARGET_GLOBALS (new_tree)
-	  = save_target_globals_default_opts ();
-    }
+  /* First set the target options.  */
+  cl_target_option_restore (&global_options, TREE_TARGET_OPTION (new_tree));
 
-  else if (old_tree && old_tree != target_option_default_node)
-    {
-      new_tree = target_option_current_node;
-
-      cl_target_option_restore (&global_options,
-				TREE_TARGET_OPTION (new_tree));
-      if (TREE_TARGET_GLOBALS (new_tree))
-	restore_target_globals (TREE_TARGET_GLOBALS (new_tree));
-      else if (new_tree == target_option_default_node)
-	restore_target_globals (&default_target_globals);
-      else
-	TREE_TARGET_GLOBALS (new_tree)
-	  = save_target_globals_default_opts ();
-    }
-
-  arm_option_params_internal ();
+  save_restore_target_globals (new_tree);
 }
 
 /* Implement TARGET_OPTION_PRINT.  */
@@ -29929,9 +29948,6 @@ arm_valid_target_attribute_tree (tree args, struct gcc_options *opts,
 
   /* Do any overrides, such as global options arch=xxx.  */
   arm_option_override_internal (opts, opts_set);
-
-  if (TARGET_NEON)
-    arm_init_neon_builtins ();
 
   return build_target_option_node (opts);
 }

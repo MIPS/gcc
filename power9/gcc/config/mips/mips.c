@@ -1,5 +1,5 @@
 /* Subroutines used for MIPS code generation.
-   Copyright (C) 1989-2015 Free Software Foundation, Inc.
+   Copyright (C) 1989-2016 Free Software Foundation, Inc.
    Contributed by A. Lichnewsky, lich@inria.inria.fr.
    Changes by Michael Meissner, meissner@osf.org.
    64-bit r4000 support by Ian Lance Taylor, ian@cygnus.com, and
@@ -10321,6 +10321,10 @@ mips_compute_frame_info (void)
   HOST_WIDE_INT offset, size;
   unsigned int regno, i;
 
+  /* Skip re-computing the frame info after reload completed.  */
+  if (reload_completed)
+    return;
+
   /* Set this function's interrupt properties.  */
   if (mips_interrupt_type_p (TREE_TYPE (current_function_decl)))
     {
@@ -10346,8 +10350,6 @@ mips_compute_frame_info (void)
   frame = &cfun->machine->frame;
   memset (frame, 0, sizeof (*frame));
   size = get_frame_size ();
-
-  cfun->machine->global_pointer = mips_global_pointer ();
 
   /* The first two blocks contain the outgoing argument area and the $gp save
      slot.  This area isn't needed in leaf functions.  We can also skip it
@@ -10375,6 +10377,26 @@ mips_compute_frame_info (void)
       frame->args_size = crtl->outgoing_args_size;
       frame->cprestore_size = MIPS_GP_SAVE_AREA_SIZE;
     }
+
+  /* MIPS16 code offsets the frame pointer by the size of the outgoing
+     arguments.  This tends to increase the chances of using unextended
+     instructions for local variables and incoming arguments.  */
+  if (TARGET_MIPS16)
+    frame->hard_frame_pointer_offset = frame->args_size;
+
+  /* PR 69129 / 69012: Beware of a possible race condition.  mips_global_pointer
+     might call mips_cfun_has_inflexible_gp_ref_p which in turn can call
+     mips_find_gp_ref which will iterate over the current insn sequence.
+     If any of these insns use the cprestore_save_slot_operand or
+     cprestore_load_slot_operand predicates in order to be recognised then
+     they will call mips_cprestore_address_p which calls
+     mips_get_cprestore_base_and_offset which expects the frame information
+     to be filled in...  In fact mips_get_cprestore_base_and_offset only
+     needs the args_size and hard_frame_pointer_offset fields to be filled
+     in, which is why the global_pointer field is initialised here and not
+     earlier.  */
+  cfun->machine->global_pointer = mips_global_pointer ();
+
   offset = frame->args_size + frame->cprestore_size;
 
   /* Move above the local variables.  */
@@ -10520,12 +10542,6 @@ mips_compute_frame_info (void)
     frame->acc_save_offset = frame->acc_sp_offset - offset;
   if (frame->num_cop0_regs > 0)
     frame->cop0_save_offset = frame->cop0_sp_offset - offset;
-
-  /* MIPS16 code offsets the frame pointer by the size of the outgoing
-     arguments.  This tends to increase the chances of using unextended
-     instructions for local variables and incoming arguments.  */
-  if (TARGET_MIPS16)
-    frame->hard_frame_pointer_offset = frame->args_size;
 }
 
 /* Return the style of GP load sequence that is being used for the

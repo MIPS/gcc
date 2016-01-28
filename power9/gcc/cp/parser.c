@@ -1,5 +1,5 @@
 /* -*- C++ -*- Parser.
-   Copyright (C) 2000-2015 Free Software Foundation, Inc.
+   Copyright (C) 2000-2016 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
    This file is part of GCC.
@@ -48,7 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 
 static cp_token eof_token =
 {
-  CPP_EOF, RID_MAX, 0, PRAGMA_NONE, false, false, false, 0, { NULL }
+  CPP_EOF, RID_MAX, 0, false, false, false, 0, { NULL }
 };
 
 /* The various kinds of non integral constant we encounter. */
@@ -706,11 +706,21 @@ cp_lexer_destroy (cp_lexer *lexer)
   ggc_free (lexer);
 }
 
+/* This needs to be set to TRUE before the lexer-debugging infrastructure can
+   be used.  The point of this flag is to help the compiler to fold away calls
+   to cp_lexer_debugging_p within this source file at compile time, when the
+   lexer is not being debugged.  */
+
+#define LEXER_DEBUGGING_ENABLED_P false
+
 /* Returns nonzero if debugging information should be output.  */
 
 static inline bool
 cp_lexer_debugging_p (cp_lexer *lexer)
 {
+  if (!LEXER_DEBUGGING_ENABLED_P)
+    return false;
+
   return lexer->debugging_p;
 }
 
@@ -782,7 +792,6 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer, cp_token *token)
     = c_lex_with_flags (&token->u.value, &token->location, &token->flags,
 			lexer == NULL ? 0 : C_LEX_STRING_NO_JOIN);
   token->keyword = RID_MAX;
-  token->pragma_kind = PRAGMA_NONE;
   token->purged_p = false;
   token->error_reported = false;
 
@@ -847,13 +856,6 @@ cp_lexer_get_preprocessor_token (cp_lexer *lexer, cp_token *token)
 	case RID_SYNCHRONIZED: token->keyword = RID_AT_SYNCHRONIZED; break;
 	default:            token->keyword = C_RID_CODE (token->u.value);
 	}
-    }
-  else if (token->type == CPP_PRAGMA)
-    {
-      /* We smuggled the cpp_token->u.pragma value in an INTEGER_CST.  */
-      token->pragma_kind = ((enum pragma_kind)
-			    TREE_INT_CST_LOW (token->u.value));
-      token->u.value = NULL_TREE;
     }
 }
 
@@ -1304,6 +1306,10 @@ debug (cp_token *ptr)
 static void
 cp_lexer_start_debugging (cp_lexer* lexer)
 {
+  if (!LEXER_DEBUGGING_ENABLED_P)
+    fatal_error (input_location,
+		 "LEXER_DEBUGGING_ENABLED_P is not set to true");
+
   lexer->debugging_p = true;
   cp_lexer_debug_stream = stderr;
 }
@@ -1313,6 +1319,10 @@ cp_lexer_start_debugging (cp_lexer* lexer)
 static void
 cp_lexer_stop_debugging (cp_lexer* lexer)
 {
+  if (!LEXER_DEBUGGING_ENABLED_P)
+    fatal_error (input_location,
+		 "LEXER_DEBUGGING_ENABLED_P is not set to true");
+
   lexer->debugging_p = false;
   cp_lexer_debug_stream = NULL;
 }
@@ -2687,6 +2697,18 @@ static bool
 cp_parser_is_keyword (cp_token* token, enum rid keyword)
 {
   return token->keyword == keyword;
+}
+
+/* Return TOKEN's pragma_kind if it is CPP_PRAGMA, otherwise
+   PRAGMA_NONE.  */
+
+static enum pragma_kind
+cp_parser_pragma_kind (cp_token *token)
+{
+  if (token->type != CPP_PRAGMA)
+    return PRAGMA_NONE;
+  /* We smuggled the cpp_token->u.pragma value in an INTEGER_CST.  */
+  return (enum pragma_kind) TREE_INT_CST_LOW (token->u.value);
 }
 
 /* Helper function for cp_parser_error.
@@ -6717,7 +6739,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	    bool saved_non_integral_constant_expression_p = false;
 	    tsubst_flags_t complain = complain_flags (decltype_p);
 	    vec<tree, va_gc> *args;
-	    location_t close_paren_loc;
+	    location_t close_paren_loc = UNKNOWN_LOCATION;
 
             is_member_access = false;
 
@@ -6879,10 +6901,13 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 				    koenig_p,
 				    complain);
 
-	    location_t combined_loc = make_location (token->location,
-						     start_loc,
-						     close_paren_loc);
-	    postfix_expression.set_location (combined_loc);
+	    if (close_paren_loc != UNKNOWN_LOCATION)
+	      {
+		location_t combined_loc = make_location (token->location,
+							 start_loc,
+							 close_paren_loc);
+		postfix_expression.set_location (combined_loc);
+	      }
 
 	    /* The POSTFIX_EXPRESSION is certainly no longer an id.  */
 	    idk = CP_ID_KIND_NONE;
@@ -7351,7 +7376,10 @@ cp_parser_postfix_dot_deref_expression (cp_parser *parser,
    plain identifier argument, normal_attr for an attribute that wants
    an expression, or non_attr if we aren't parsing an attribute list.  If
    NON_CONSTANT_P is non-NULL, *NON_CONSTANT_P indicates whether or
-   not all of the expressions in the list were constant.  */
+   not all of the expressions in the list were constant.
+   If CLOSE_PAREN_LOC is non-NULL, and no errors occur, then *CLOSE_PAREN_LOC
+   will be written to with the location of the closing parenthesis.  If
+   an error occurs, it may or may not be written to.  */
 
 static vec<tree, va_gc> *
 cp_parser_parenthesized_expression_list (cp_parser* parser,
@@ -17122,7 +17150,7 @@ cp_parser_enum_specifier (cp_parser* parser)
        brace so the enum will be recorded as being on the line of its
        tag (or the 'enum' keyword, if there is no tag).  */
     type = start_enum (identifier, type, underlying_type,
-		       scoped_enum_p, &is_new_type);
+		       attributes, scoped_enum_p, &is_new_type);
 
   /* If the next token is not '{' it is an opaque-enum-specifier or an
      elaborated-type-specifier.  */
@@ -17238,7 +17266,6 @@ cp_parser_enum_specifier (cp_parser* parser)
   if (cp_parser_allow_gnu_extensions_p (parser))
     {
       tree trailing_attr = cp_parser_gnu_attributes_opt (parser);
-      trailing_attr = chainon (trailing_attr, attributes);
       cplus_decl_attributes (&type,
 			     trailing_attr,
 			     (int) ATTR_FLAG_TYPE_IN_PLACE);
@@ -33931,7 +33958,8 @@ cp_parser_omp_sections_scope (cp_parser *parser)
 
   stmt = push_stmt_list ();
 
-  if (cp_lexer_peek_token (parser->lexer)->pragma_kind != PRAGMA_OMP_SECTION)
+  if (cp_parser_pragma_kind (cp_lexer_peek_token (parser->lexer))
+      != PRAGMA_OMP_SECTION)
     {
       substmt = cp_parser_omp_structured_block (parser);
       substmt = build1 (OMP_SECTION, void_type_node, substmt);
@@ -33946,7 +33974,7 @@ cp_parser_omp_sections_scope (cp_parser *parser)
       if (tok->type == CPP_EOF)
 	break;
 
-      if (tok->pragma_kind == PRAGMA_OMP_SECTION)
+      if (cp_parser_pragma_kind (tok) == PRAGMA_OMP_SECTION)
 	{
 	  cp_lexer_consume_token (parser->lexer);
 	  cp_parser_require_pragma_eol (parser, tok);
@@ -35158,10 +35186,7 @@ cp_parser_oacc_declare (cp_parser *parser, cp_token *pragma_tok)
 		    {
 		      g->have_offload = true;
 		      if (is_a <varpool_node *> (node))
-			{
-			  vec_safe_push (offload_vars, decl);
-			  node->force_output = 1;
-			}
+			vec_safe_push (offload_vars, decl);
 		    }
 		}
 	    }
@@ -35353,7 +35378,7 @@ cp_parser_oacc_kernels_parallel (cp_parser *parser, cp_token *pragma_tok,
 {
   omp_clause_mask mask;
   enum tree_code code;
-  switch (pragma_tok->pragma_kind)
+  switch (cp_parser_pragma_kind (pragma_tok))
     {
     case PRAGMA_OACC_KERNELS:
       strcat (p_name, " kernels");
@@ -35698,10 +35723,7 @@ cp_parser_omp_declare_target (cp_parser *parser, cp_token *pragma_tok)
 		{
 		  g->have_offload = true;
 		  if (is_a <varpool_node *> (node))
-		    {
-		      vec_safe_push (offload_vars, t);
-		      node->force_output = 1;
-		    }
+		    vec_safe_push (offload_vars, t);
 		}
 	    }
 	}
@@ -36572,7 +36594,7 @@ cp_parser_omp_construct (cp_parser *parser, cp_token *pragma_tok)
   char p_name[sizeof "#pragma omp teams distribute parallel for simd"];
   omp_clause_mask mask (0);
 
-  switch (pragma_tok->pragma_kind)
+  switch (cp_parser_pragma_kind (pragma_tok))
     {
     case PRAGMA_OACC_ATOMIC:
       cp_parser_omp_atomic (parser, pragma_tok);
@@ -36971,7 +36993,7 @@ cp_parser_initial_pragma (cp_token *first_token)
   tree name = NULL;
 
   cp_lexer_get_preprocessor_token (NULL, first_token);
-  if (first_token->pragma_kind != PRAGMA_GCC_PCH_PREPROCESS)
+  if (cp_parser_pragma_kind (first_token) != PRAGMA_GCC_PCH_PREPROCESS)
     return;
 
   cp_lexer_get_preprocessor_token (NULL, first_token);
@@ -37046,7 +37068,7 @@ cp_parser_pragma (cp_parser *parser, enum pragma_context context)
   gcc_assert (pragma_tok->type == CPP_PRAGMA);
   parser->lexer->in_pragma = true;
 
-  id = pragma_tok->pragma_kind;
+  id = cp_parser_pragma_kind (pragma_tok);
   if (id != PRAGMA_OMP_DECLARE_REDUCTION && id != PRAGMA_OACC_ROUTINE)
     cp_ensure_no_omp_declare_simd (parser);
   switch (id)
