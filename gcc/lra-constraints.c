@@ -240,6 +240,39 @@ get_reg_class (int regno)
   return NO_REGS;
 }
 
+/* Return TRUE iff there are any registers of REG_MODE available for
+   allocation in COMMON_CLASS.  */
+
+static bool
+available_regs_for_mode_in_class_p (enum machine_mode reg_mode,
+				    enum reg_class common_class)
+{
+  if (hard_reg_set_subset_p (reg_class_contents[common_class],
+			     lra_no_alloc_regs))
+    return false;
+
+  /* Check that there are enough allocatable regs.  */
+  int class_size = ira_class_hard_regs_num[common_class];
+  for (int i = 0; i < class_size; i++)
+    {
+      int hard_regno = ira_class_hard_regs[common_class][i];
+      if (!HARD_REGNO_MODE_OK (hard_regno, reg_mode))
+	continue;
+      int nregs = hard_regno_nregs[hard_regno][reg_mode];
+      if (nregs == 1)
+	return true;
+      int j;
+      for (j = 0; j < nregs; j++)
+	if (TEST_HARD_REG_BIT (lra_no_alloc_regs, hard_regno + j)
+	    || ! TEST_HARD_REG_BIT (reg_class_contents[common_class],
+				    hard_regno + j))
+	  break;
+      if (j >= nregs)
+	return true;
+    }
+  return false;
+}
+
 /* Return true if REG satisfies (or will satisfy) reg class constraint
    CL.  Use elimination first if REG is a hard register.  If REG is a
    reload pseudo created by this constraints pass, assume that it will
@@ -253,7 +286,6 @@ in_class_p (rtx reg, enum reg_class cl, enum reg_class *new_class)
 {
   enum reg_class rclass, common_class;
   machine_mode reg_mode;
-  int class_size, hard_regno, nregs, i, j;
   int regno = REGNO (reg);
 
   if (new_class != NULL)
@@ -292,26 +324,7 @@ in_class_p (rtx reg, enum reg_class cl, enum reg_class *new_class)
       common_class = ira_reg_class_subset[rclass][cl];
       if (new_class != NULL)
 	*new_class = common_class;
-      if (hard_reg_set_subset_p (reg_class_contents[common_class],
-				 lra_no_alloc_regs))
-	return false;
-      /* Check that there are enough allocatable regs.  */
-      class_size = ira_class_hard_regs_num[common_class];
-      for (i = 0; i < class_size; i++)
-	{
-	  hard_regno = ira_class_hard_regs[common_class][i];
-	  nregs = hard_regno_nregs[hard_regno][reg_mode];
-	  if (nregs == 1)
-	    return true;
-	  for (j = 0; j < nregs; j++)
-	    if (TEST_HARD_REG_BIT (lra_no_alloc_regs, hard_regno + j)
-		|| ! TEST_HARD_REG_BIT (reg_class_contents[common_class],
-					hard_regno + j))
-	      break;
-	  if (j >= nregs)
-	    return true;
-	}
-      return false;
+      return available_regs_for_mode_in_class_p (reg_mode, common_class);
     }
 }
 
@@ -1409,7 +1422,9 @@ simplify_operand_subreg (int nop, machine_mode reg_mode)
       if (! valid_address_p (innermode, XEXP (reg, 0),
 			     MEM_ADDR_SPACE (reg))
 	  || valid_address_p (GET_MODE (subst), XEXP (subst, 0),
-			      MEM_ADDR_SPACE (subst)))
+			      MEM_ADDR_SPACE (subst))
+	  || ! available_regs_for_mode_in_class_p (GET_MODE (subst),
+						   goal_alt [nop]))
 	return true;
       /* If the address was valid and became invalid, prefer to reload
 	 the memory.  Typical case is when the index scale should
