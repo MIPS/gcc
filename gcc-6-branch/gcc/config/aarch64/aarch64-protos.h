@@ -156,9 +156,10 @@ struct cpu_vector_cost
   const int scalar_load_cost;		 /* Cost of scalar load.  */
   const int scalar_store_cost;		 /* Cost of scalar store.  */
   const int vec_stmt_cost;		 /* Cost of any vector operation,
-					    excluding load, store,
+					    excluding load, store, permute,
 					    vector-to-scalar and
 					    scalar-to-vector operation.  */
+  const int vec_permute_cost;		 /* Cost of permute operation.  */
   const int vec_to_scalar_cost;		 /* Cost of vec-to-scalar operation.  */
   const int scalar_to_vec_cost;		 /* Cost of scalar-to-vector
 					    operation.  */
@@ -289,6 +290,7 @@ void aarch64_declare_function_name (FILE *, const char*, tree);
 bool aarch64_legitimate_pic_operand_p (rtx);
 bool aarch64_modes_tieable_p (machine_mode mode1,
 			      machine_mode mode2);
+bool aarch64_zero_extend_const_eq (machine_mode, rtx, machine_mode, rtx);
 bool aarch64_move_imm (HOST_WIDE_INT, machine_mode);
 bool aarch64_mov_operand_p (rtx, machine_mode);
 int aarch64_simd_attr_length_rglist (enum machine_mode);

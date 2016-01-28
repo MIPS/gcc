@@ -1,3 +1,224 @@
+2016-01-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/69542
+	* lra-remat.c (calculate_local_reg_remat_bb_data): Only consider
+	non-debug insns.
+
+2016-01-28  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* config/rs6000/rs6000.c (output_cbranch): Don't statically predict
+	branches if using guessed profile.
+
+2016-01-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* graphite-optimize-isl.c (optimize_isl): Fix dump.
+
+2016-01-28  Richard Henderson  <rth@redhat.com>
+
+	PR target/69305
+	* config/aarch64/aarch64-modes.def (CC_Cmode): New
+	* config/aarch64/aarch64-protos.h: Update.
+	* config/aarch64/aarch64.c (aarch64_zero_extend_const_eq): New.
+	(aarch64_select_cc_mode): Add check for use of CC_Cmode.
+	(aarch64_get_condition_code_1): Handle CC_Cmode.
+	* config/aarch64/aarch64.md (addti3): Use adddi3_compareC.
+	(*add<mode>3_compareC_cconly_imm): New.
+	(*add<mode>3_compareC_cconly): New.
+	(*add<mode>3_compareC_imm): New.
+	(add<mode>3_compareC): New.
+	(add<mode>3_carryin, *addsi3_carryin_uxtw): Sort compare operand
+	to be first.  Use aarch64_carry_operation.
+	(*add<mode>3_carryin_alt1, *addsi3_carryin_alt1_uxtw): Remove.
+	(*add<mode>3_carryin_alt2, *addsi3_carryin_alt2_uxtw): Remove.
+	(*add<mode>3_carryin_alt3, *addsi3_carryin_alt3_uxtw): Remove.
+	(subti3): Use subdi3_compare1.
+	(*sub<mode>3_compare0): Rename from sub<mode>3_compare0.
+	(sub<mode>3_compare1): New.
+	(*sub<mode>3_carryin0, *subsi3_carryin_uxtw): New.
+	(*sub<mode>3_carryin): Use aarch64_borrow_operation.
+	(*subsi3_carryin_uxtw): Likewise.
+	(*ngc<mode>, *ngcsi_uxtw): Likewise.
+	(*sub<mode>3_carryin_alt, *subsi3_carryin_alt_uxtw): New.
+	* config/aarch64/iterators.md (DWI): New.
+	* config/aarch64/predicates.md (aarch64_carry_operation): New.
+	(aarch64_borrow_operation): New.
+
+2016-01-28  Abderrazek Zaafrani  <a.zaafrani@samsung.com>
+
+	* graphite-optimize-isl.c (optimize_isl): Print a different debug
+	message when isl does not return a valid schedule.
+
+2016-01-28  Sebastian Pop  <s.pop@samsung.com>
+
+	* graphite-isl-ast-to-gimple.c (class translate_isl_ast_to_gimple):
+	Remove comments from class declarations: they are already in the code
+	close by the defs.
+
+2016-01-28  Sebastian Pop  <s.pop@samsung.com>
+
+	* graphite-isl-ast-to-gimple.c (binary_op_to_tree): Call codegen_error_p.
+	(ternary_op_to_tree): Same.
+	(unary_op_to_tree): Same.
+	(nary_op_to_tree): Same.
+	(gcc_expression_from_isl_expr_op): Same.
+	(gcc_expression_from_isl_expression): Same.
+	(graphite_create_new_loop): Same.
+	(graphite_create_new_loop_guard): Same.
+	(build_iv_mapping): Same.
+	(graphite_create_new_guard): Same.
+	(translate_isl_ast_to_gimple::copy_loop_phi_nodes): Same.
+	(translate_isl_ast_to_gimple::translate_pending_phi_nodes): Same.
+
+2016-01-28  Sebastian Pop  <s.pop@samsung.com>
+
+	* graphite-isl-ast-to-gimple.c (get_rename_from_scev): Assert instead of
+	setting codegen_error to fail codegen.
+
+2016-01-28  Jason Merrill  <jason@redhat.com>
+
+	* tree.h (BINFO_FLAG_0): Rename from BINFO_MARKED.
+
+2016-01-28  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_if_then_else_costs):
+	Remove CONST_INT_P check in CCMP cost calculation.
+
+2016-01-28  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64.c (generic_vector_cost):
+	Set vec_permute_cost.
+	(cortexa57_vector_cost): Likewise.
+	(exynosm1_vector_cost): Likewise.
+	(xgene1_vector_cost): Likewise.
+	(aarch64_builtin_vectorization_cost): Use vec_permute_cost.
+	* config/aarch64/aarch64-protos.h (cpu_vector_cost):
+	Add vec_permute_cost entry.
+
+2016-01-28  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64.md (ccmp<mode>): Disassemble
+	immediate as %1.
+	(add<mode>3_compare0): Likewise.
+	(addsi3_compare0_uxtw): Likewise.
+	(add<mode>3nr_compare0): Likewise.
+	(compare_neg<mode>): Likewise.
+	(<optab><mode>3): Likewise.
+
+2016-01-28  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	* tree-vect-stmts.c (vectorizable_comparison): Add
+	NULL check for vectype.
+
+2016-01-28  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69466
+	* tree-vect-loop-manip.c (slpeel_duplicate_current_defs_from_edges):
+	Account for PHIs we couldn't duplicate.
+
+2016-01-28  Martin Liska  <mliska@suse.cz>
+
+	PR pch/68758
+	* ggc-common.c (gt_pch_save): Use ENABLE_VALGRIND_ANNOTATIONS macro
+	instead of ENABLE_VALGRIND_CHECKING.
+
+2016-01-27  Richard Henderson  <rth@redhat.com>
+
+	PR rtl-opt/69447
+	* lra-remat.c (subreg_regs): New.
+	(dump_candidates_and_remat_bb_data): Dump it.
+	(operand_to_remat): Reject if operand in subreg_regs.
+	(set_bb_regs): Collect subreg_regs.
+	(lra_remat): Init and free subreg_regs.  Compute
+	calculate_local_reg_remat_bb_data before create_cands.
+
+2016-01-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/68986
+	* config/i386/i386.c (ix86_update_stack_boundary): Don't
+	change stack_alignment_needed for __tls_get_addr call.
+
+2016-01-27  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.c (print_operand): Rollback 's' removal.
+
+2016-01-27  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/68398
+	PR tree-optimization/69196
+	* params.def (PARAM_FSM_SCALE_PATH_STMTS): New parameter.
+	(PARAM_FSM_SCALE_PATH_BLOCKS): Likewise.
+	* tree-ssa-threadbackward.c (fsm_find_control_statement_thread_paths):
+	Only count PHIs in the last block in the path.  The others will
+	const/copy propagate away.  Add heuristic to allow more irreducible
+	subloops to be created when it is likely profitable to do so.
+
+	* tree-ssa-threadbackward.c (fsm_find_control_statement_thread_paths):
+	Fix typo in comment.  Use gsi_after_labels and remove the GIMPLE_LABEL
+	check from within the loop.  Use gsi_next_nondebug rather than gsi_next.
+
+2016-01-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR lto/69254
+	* sanitizer.def: Add BEGIN_SANITIZER_BUILTINS and
+	END_SANITIZER_BUILTINS markers using DEF_BUILTIN_STUB.
+	* asan.c (DEF_BUILTIN_STUB): Temporarily define.
+	* tree-streamer-in.c: Include asan.h.
+	(streamer_get_builtin_tree): For builtins in sanitizer
+	range call initialize_sanitizer_builtins and retry.
+
+2016-01-27  Ian Lance Taylor  <iant@google.com>
+
+	* common.opt (fkeep-gc-roots-live): New undocumented option.
+	* tree-ssa-loop-ivopts.c (add_candidate_1): If
+	-fkeep-gc-roots-live, skip pointers.
+	(add_iv_candidate_for_biv): Handle add_candidate_1 returning
+	NULL.
+
+2016-01-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/69512
+	* config/i386/i386.md (*zext<mode>_doubleword_and): New pattern.
+	(*zext<mode>_doubleword): Disable for TARGET_ZERO_EXTEND_WITH_AND.
+
+2016-01-27  Thomas Klausner  <wiz@NetBSD.org>
+
+	PR target/68380
+	* configure.ac: NetBSD provides SSP in its C library.
+	* configure: Updated.
+
+2016-01-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69166
+	* tree-vect-loop.c (vect_is_simple_reduction): Always check
+	reduction code for commutativity / associativity.
+
+2016-01-27  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/69355
+	* tree-sra.c (analyze_access_subtree): Correct hole detection when
+	total_scalarization fails.
+
+2016-01-27  David Edelsohn  <dje.gcc@gmail.com>
+
+	* config/rs6000/driver-rs6000.c (detect_processor_aix): Add
+	power9.
+
+2016-01-27  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/69245
+	* config/arm/arm-c.c (arm_pragma_target_parse): Add comments.
+	Move arm_reset_previous_fndecl and set_target_option_current_node in
+	the conditional part.  Call save_restore_target_globals.
+	* config/arm/arm.c (arm_set_current_function):
+	Refactor to better support #pragma target and attribute mix.
+	Call save_restore_target_globals.
+	* config/arm/arm-protos.h (save_restore_target_globals): New function.
+
+2016-01-27  Martin Liska  <mliska@suse.cz>
+
+	* hsa.c (hsa_summary_t::link_functions): Create IPA_REF_ADDR
+	reference for an HSA kernel and its host function.
+
 2016-01-27  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/69399

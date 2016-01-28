@@ -1846,7 +1846,12 @@ cxx_eval_array_reference (const constexpr_ctx *ctx, tree t,
 
   if (!found)
     {
-      if (tree_int_cst_lt (index, array_type_nelts_top (TREE_TYPE (ary))))
+      tree nelts = array_type_nelts_top (TREE_TYPE (ary));
+      /* For VLAs, the number of elements won't be an integer constant.  */
+      nelts = cxx_eval_constant_expression (ctx, nelts, false, non_constant_p,
+					    overflow_p);
+      VERIFY_CONSTANT (nelts);
+      if (tree_int_cst_lt (index, nelts))
 	{
 	  if (TREE_CODE (ary) == CONSTRUCTOR
 	      && CONSTRUCTOR_NO_IMPLICIT_ZERO (ary))
@@ -3654,6 +3659,20 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 	if (TREE_CODE (op) == PTRMEM_CST
 	    && !TYPE_PTRMEM_P (type))
 	  op = cplus_expand_constant (op);
+	if (TREE_CODE (op) == PTRMEM_CST && tcode == NOP_EXPR)
+	  {
+	    if (same_type_ignoring_top_level_qualifiers_p (type,
+							   TREE_TYPE (op)))
+	      STRIP_NOPS (t);
+	    else
+	      {
+		if (!ctx->quiet)
+		  error_at (EXPR_LOC_OR_LOC (t, input_location),
+			    "a reinterpret_cast is not a constant-expression");
+		*non_constant_p = true;
+		return t;
+	      }
+	  }
 	if (POINTER_TYPE_P (type)
 	    && TREE_CODE (op) == INTEGER_CST
 	    && !integer_zerop (op))

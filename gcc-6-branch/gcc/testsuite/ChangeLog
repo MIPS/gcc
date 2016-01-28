@@ -1,3 +1,137 @@
+2016-01-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/69542
+	* gcc.dg/torture/pr69542.c: New test.
+
+2016-01-28  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* gcc.target/aarch64/ccmp_1.c: Fix test issue.
+
+2016-01-28  David Edelsohn  <dje.gcc@gmail.com>
+
+	* gcc.dg/pr65980.c: Skip on AIX.
+	* gcc.dg/pr66688.c: Same.
+
+2016-01-28  David Edelsohn  <dje.gcc@gmail.com>
+
+	PR target/63679
+	* gcc.dg/tree-ssa/sra-17.c: Adjust regex for more label styles.
+	* gcc.dg/tree-ssa/sra-18.c: Same.
+
+2016-01-28  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/62536
+	* gfortran.dg/block_15.f08: New test.
+	* gfortran.dg/block_end_error_1.f90: Need to catch additional error
+	on incorrectly closed BLOCK.
+
+2016-01-28  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	* gcc.dg/declare-simd.c: New test.
+2016-01-28  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69466
+	* gfortran.dg/vect/pr69466.f90: New testcase.
+
+2016-01-28  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* g++.dg/pr67989.C: Remove ARM-specific option.
+	* gcc.target/arm/pr67989.C: New file.
+
+2016-01-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/torture/pr68264.c: Disable log1p test for glibc < 2.22
+	and expm1 test for glibc < 2.11.
+
+2016-01-27  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/execute/pr69447.c: New test.
+
+2016-01-27  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/69422
+	* gfortran.dg/alloc_comp_assign_15.f03: New test.
+
+2016-01-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/66869
+	* gcc.dg/pr66869.c: New test.
+
+2016-01-25  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/68398
+        PR tree-optimization/69196
+	* gcc.dg/tree-ssa/pr66752-3.c: Update expected output.
+	* gcc.dg/tree-ssa/ssa-dom-thread-2c.c: Add extra statements on thread
+	path to avoid new heuristic allowing more irreducible regions
+	* gcc.dg/tree-ssa/ssa-dom-thread-2d.c: Likewise.
+	* gcc.dg/tree-ssa/vrp46.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-dom-thread-7.c: Update expected output.
+	* gcc.dg/tree-ssa/ssa-dom-thread-2g.c: New test.
+	* gcc.dg/tree-ssa/ssa-dom-thread-2h.c: Likewise.
+
+2016-01-27  Marek Polacek  <polacek@redhat.com>
+
+	PR c/68062
+	* c-c++-common/vector-compare-4.c: New test.
+
+2016-01-27  David Malcolm  <dmalcolm@redhat.com>
+
+	PR preprocessor/69126
+	* c-c++-common/pr69126.c: New test case.
+
+2016-01-27  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.dg/tree-ssa/ivopt_5.c: New test.
+
+2016-01-27  Ryan Burn  <contact@rnburn.com>
+
+	PR cilkplus/69267
+	* g++.dg/cilk-plus/CK/pr69267.cc: New test.
+
+2016-01-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/69512
+	* gcc.target/i386/pr69512.c: New test.
+
+2016-01-27  Rainer Emrich  <rainer@emrich-ebersheim.de>
+
+	PR ada/69488
+	* gnat.dg/sso/*.adb: Robustify dg-output directives.
+
+2016-01-27  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/69379
+	* g++.dg/pr69379.C: New test.
+
+2016-01-27  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/69317
+	* g++.dg/abi/Wabi-2-2.C: New test.
+	* g++.dg/abi/Wabi-2-3.C: New test.
+	* g++.dg/abi/Wabi-3-2.C: New test.
+	* g++.dg/abi/Wabi-3-3.C: New test.
+
+2016-01-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69166
+	* gcc.dg/torture/pr69166.c: New testcase.
+
+2016-01-27  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/69355
+	* gcc.dg/tree-ssa/pr69355.c: New test.
+
+2016-01-27  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/69496
+	* g++.dg/ext/constexpr-vla1.C: New test.
+
+2016-01-20  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/69245
+	* gcc.target/arm/pr69245.c: New test.
+
 2016-01-27  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/69399
@@ -17,7 +151,7 @@
 	* gcc.dg/autopar/pr69110.c: New test.
 
 2016-01-26  Abderrazek Zaafrani  <a.zaafrani@samsung.com>
-            Sebastian Pop  <s.pop@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
 
 	* gcc.dg/graphite/isl-ast-op-select.c: New.
 

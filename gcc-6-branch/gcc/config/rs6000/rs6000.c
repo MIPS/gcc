@@ -19949,6 +19949,14 @@ print_operand (FILE *file, rtx x, int code)
 	fprintf (file, "%d", 128 >> (REGNO (x) - CR0_REGNO));
       return;
 
+    case 's':
+      /* Low 5 bits of 32 - value */
+      if (! INT_P (x))
+	output_operand_lossage ("invalid %%s value");
+      else
+	fprintf (file, HOST_WIDE_INT_PRINT_DEC, (32 - INTVAL (x)) & 31);
+      return;
+
     case 't':
       /* Like 'J' but get to the OVERFLOW/UNORDERED bit.  */
       gcc_assert (REG_P (x) && GET_MODE (x) == CCmode);
@@ -21424,14 +21432,15 @@ output_cbranch (rtx op, const char *label, int reversed, rtx_insn *insn)
       /* PROB is the difference from 50%.  */
       int prob = XINT (note, 0) - REG_BR_PROB_BASE / 2;
 
-      /* Only hint for highly probable/improbable branches on newer
-	 cpus as static prediction overrides processor dynamic
-	 prediction.  For older cpus we may as well always hint, but
+      /* Only hint for highly probable/improbable branches on newer cpus when
+	 we have real profile data, as static prediction overrides processor
+	 dynamic prediction.  For older cpus we may as well always hint, but
 	 assume not taken for branches that are very close to 50% as a
 	 mispredicted taken branch is more expensive than a
 	 mispredicted not-taken branch.  */
       if (rs6000_always_hint
 	  || (abs (prob) > REG_BR_PROB_BASE / 100 * 48
+	      && (profile_status_for_fn (cfun) != PROFILE_GUESSED)
 	      && br_prob_note_reliable_p (note)))
 	{
 	  if (abs (prob) > REG_BR_PROB_BASE / 20
