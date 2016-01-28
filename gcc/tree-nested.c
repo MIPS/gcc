@@ -2695,6 +2695,7 @@ remap_vla_decls (tree block, struct nesting_info *root)
   memset (&id, 0, sizeof (id));
   id.cb.copy_decl = nesting_copy_decl;
   id.cb.decl_map = new hash_map<tree, tree>;
+  id.cb.type_map = new hash_map<ttype *, ttype *>;
   id.root = root;
 
   for (; var; var = DECL_CHAIN (var))
@@ -2755,6 +2756,7 @@ remap_vla_decls (tree block, struct nesting_info *root)
       }
 
   delete id.cb.decl_map;
+  delete id.cb.type_map;
 }
 
 /* Fold the MEM_REF *E.  */
@@ -2984,6 +2986,7 @@ finalize_nesting_tree_1 (struct nesting_info *root)
 	  memset (&id, 0, sizeof (id));
 	  id.cb.copy_decl = nesting_copy_decl;
 	  id.cb.decl_map = new hash_map<tree, tree>;
+	  id.cb.type_map = new hash_map<ttype *, ttype *>;
 	  id.root = root;
 
 	  for (; debug_var; debug_var = DECL_CHAIN (debug_var))
@@ -3019,6 +3022,7 @@ finalize_nesting_tree_1 (struct nesting_info *root)
 	      }
 
 	  delete id.cb.decl_map;
+	  delete id.cb.type_map;
 	}
 
       scope = gimple_seq_first_stmt_as_a_bind (gimple_body (root->context));

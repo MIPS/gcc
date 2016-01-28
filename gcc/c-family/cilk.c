@@ -64,6 +64,7 @@ struct wrapper_data
   tree context;
   /* Disposition of all variables in the inner statement.  */
   hash_map<tree, tree> *decl_map;
+  hash_map<ttype *, ttype *> *type_map;
   /* True if this function needs a static chain.  */
   bool nested;
   /* Arguments to be passed to wrapper function, currently a list.  */
@@ -532,6 +533,7 @@ cilk_outline (tree inner_fn, tree *stmt_p, void *w)
   /* There shall be no RETURN in spawn helper.  */
   id.retvar = 0; 
   id.decl_map = wd->decl_map;
+  id.type_map = wd->type_map;
   id.copy_decl = nested ? copy_decl_no_change : copy_decl_for_cilk;
   id.block = DECL_INITIAL (inner_fn);
   id.transform_lang_insert_block = NULL;
@@ -612,6 +614,7 @@ init_wd (struct wrapper_data *wd, enum cilk_block_type type)
   wd->fntype = NULL_TREE;
   wd->context = current_function_decl;
   wd->decl_map = new hash_map<tree, tree>;
+  wd->type_map = new hash_map<ttype *, ttype *>;
   /* _Cilk_for bodies are always nested.  Others start off as 
      normal functions.  */
   wd->nested = (type == CILK_BLOCK_FOR);
@@ -626,6 +629,7 @@ static void
 free_wd (struct wrapper_data *wd)
 {
   delete wd->decl_map;
+  delete wd->type_map;
   wd->nested = false;
   wd->arglist = NULL_TREE;
   wd->argtypes = NULL_TREE;

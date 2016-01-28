@@ -72,6 +72,7 @@ struct copy_body_data
   /* The map from local declarations in the inlined function to
      equivalents in the function into which it is being inlined.  */
   hash_map<tree, tree> *decl_map;
+  hash_map<ttype *, ttype *> *type_map;
 
   /* Create a new decl to replace DECL in the destination function.  */
   tree (*copy_decl) (tree, struct copy_body_data *);

@@ -12465,6 +12465,7 @@ c_clone_omp_udr (tree stmt, tree omp_decl1, tree omp_decl2,
 {
   copy_body_data id;
   hash_map<tree, tree> decl_map;
+  hash_map<ttype *, ttype *> type_map;
 
   decl_map.put (omp_decl1, placeholder);
   decl_map.put (omp_decl2, decl);
@@ -12473,6 +12474,7 @@ c_clone_omp_udr (tree stmt, tree omp_decl1, tree omp_decl2,
   id.dst_fn = current_function_decl;
   id.src_cfun = DECL_STRUCT_FUNCTION (id.src_fn);
   id.decl_map = &decl_map;
+  id.type_map = &type_map;
 
   id.copy_decl = copy_decl_no_change;
   id.transform_call_graph_edges = CB_CGE_DUPLICATE;

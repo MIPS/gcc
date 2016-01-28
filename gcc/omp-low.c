@@ -1688,6 +1688,7 @@ new_omp_context (gimple *stmt, omp_context *outer_ctx)
     }
 
   ctx->cb.decl_map = new hash_map<tree, tree>;
+  ctx->cb.type_map = new hash_map<ttype *, ttype *>;
 
   return ctx;
 }
@@ -1739,6 +1740,7 @@ delete_omp_context (splay_tree_value value)
   omp_context *ctx = (omp_context *) value;
 
   delete ctx->cb.decl_map;
+  delete ctx->cb.type_map;
 
   if (ctx->field_map)
     splay_tree_delete (ctx->field_map);
@@ -14682,6 +14684,7 @@ create_task_copyfn (gomp_task *task_stmt, omp_context *ctx)
       tcctx.cb.eh_lp_nr = 0;
       tcctx.cb.transform_call_graph_edges = CB_CGE_MOVE;
       tcctx.cb.decl_map = new hash_map<tree, tree>;
+      tcctx.cb.type_map = new hash_map<ttype *, ttype *>;
       tcctx.ctx = ctx;
 
       if (record_needs_remap)
@@ -14690,7 +14693,10 @@ create_task_copyfn (gomp_task *task_stmt, omp_context *ctx)
 	srecord_type = task_copyfn_remap_type (&tcctx, srecord_type);
     }
   else
-    tcctx.cb.decl_map = NULL;
+    {
+      tcctx.cb.decl_map = NULL;
+      tcctx.cb.type_map = NULL;
+    }
 
   arg = DECL_ARGUMENTS (child_fn);
   TREE_TYPE (arg) = build_pointer_type (record_type);

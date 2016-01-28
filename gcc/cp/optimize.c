@@ -77,6 +77,7 @@ clone_body (tree clone, tree fn, void *arg_map)
   id.dst_fn = clone;
   id.src_cfun = DECL_STRUCT_FUNCTION (fn);
   id.decl_map = static_cast<hash_map<tree, tree> *> (arg_map);
+  id.type_map = static_cast<hash_map<ttype *, ttype*> *> (arg_map);
 
   id.copy_decl = copy_decl_no_change;
   id.transform_call_graph_edges = CB_CGE_DUPLICATE;

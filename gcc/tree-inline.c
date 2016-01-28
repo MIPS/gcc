@@ -140,6 +140,8 @@ static void insert_init_stmt (copy_body_data *, basic_block, gimple *);
 void
 insert_decl_map (copy_body_data *id, tree key, tree value)
 {
+  if (value)
+    gcc_assert (!TYPE_P (value));
   id->decl_map->put (key, value);
 
   /* Always insert an identity map as well.  If we see this same new
@@ -148,6 +150,16 @@ insert_decl_map (copy_body_data *id, tree key, tree value)
     id->decl_map->put (value, value);
 }
 
+void
+insert_type_map (copy_body_data *id, ttype *key, ttype *value)
+{
+  id->type_map->put (key, value);
+
+  /* Always insert an identity map as well.  If we see this same new
+     node again, we won't want to duplicate it a second time.  */
+  if (key != value)
+    id->type_map->put (value, value);
+}
 /* Insert a tree->tree mapping for ID.  This is only used for
    variables.  */
 
@@ -399,7 +411,7 @@ remap_type_1 (ttype_p type, copy_body_data *id)
 	new_type = build_type_attribute_qual_variant (new_type,
 						      TYPE_ATTRIBUTES (type),
 						      TYPE_QUALS (type));
-      insert_decl_map (id, type, new_type);
+      insert_type_map (id, type, new_type);
       return new_type;
     }
   else if (type->code () == REFERENCE_TYPE)
@@ -411,13 +423,13 @@ remap_type_1 (ttype_p type, copy_body_data *id)
 	new_type = build_type_attribute_qual_variant (new_type,
 						      TYPE_ATTRIBUTES (type),
 						      TYPE_QUALS (type));
-      insert_decl_map (id, type, new_type);
+      insert_type_map (id, type, new_type);
       return new_type;
     }
   else
     new_type = copy_node (type);
 
-  insert_decl_map (id, type, new_type);
+  insert_type_map (id, type, new_type);
 
   /* This is a new type, not a copy of an old type.  Need to reassociate
      variants.  We can handle everything except the main variant lazily.  */
@@ -554,21 +566,21 @@ remap_type_1 (ttype_p type, copy_body_data *id)
 ttype *
 remap_type (ttype_p type, copy_body_data *id)
 {
-  tree *node;
+  ttype **node;
   ttype *tmp;
 
   if (type == NULL)
     return NULL;
 
   /* See if we have remapped this type.  */
-  node = id->decl_map->get (type);
+  node = id->type_map->get (type);
   if (node)
-    return TTYPE (*node);
+    return *node;
 
   /* The type only needs remapping if it's variably modified.  */
   if (! variably_modified_type_p (type, id->src_fn))
     {
-      insert_decl_map (id, type, type);
+      insert_type_map (id, type, type);
       return type;
     }
 
@@ -4372,6 +4384,7 @@ expand_call_inline (basic_block bb, gimple *stmt, copy_body_data *id)
   tree fn;
   hash_map<tree, tree> *dst;
   hash_map<tree, tree> *st = NULL;
+  hash_map<ttype *, ttype *> *stt = NULL;
   tree return_slot;
   tree modify_dest;
   tree return_bounds = NULL;
@@ -4539,7 +4552,9 @@ expand_call_inline (basic_block bb, gimple *stmt, copy_body_data *id)
   /* Local declarations will be replaced by their equivalents in this
      map.  */
   st = id->decl_map;
+  stt = id->type_map;
   id->decl_map = new hash_map<tree, tree>;
+  id->type_map = new hash_map<ttype *, ttype *>;
   dst = id->debug_map;
   id->debug_map = NULL;
 
@@ -4696,7 +4711,9 @@ expand_call_inline (basic_block bb, gimple *stmt, copy_body_data *id)
       id->debug_map = dst;
     }
   delete id->decl_map;
+  delete id->type_map;
   id->decl_map = st;
+  id->type_map = stt;
 
   /* Unlink the calls virtual operands before replacing it.  */
   unlink_stmt_vdef (stmt);
@@ -5275,6 +5292,7 @@ copy_gimple_seq_and_replace_locals (gimple_seq seq)
   id.src_fn = current_function_decl;
   id.dst_fn = current_function_decl;
   id.decl_map = new hash_map<tree, tree>;
+  id.type_map = new hash_map<ttype *, ttype *>;
   id.debug_map = NULL;
 
   id.copy_decl = copy_decl_no_change;
@@ -5300,6 +5318,7 @@ copy_gimple_seq_and_replace_locals (gimple_seq seq)
 
   /* Clean up.  */
   delete id.decl_map;
+  delete id.type_map;
   if (id.debug_map)
     delete id.debug_map;
   if (id.dependence_map)
@@ -5721,6 +5740,7 @@ tree_function_versioning (tree old_decl, tree new_decl,
   id.statements_to_fold = new hash_set<gimple *>;
 
   id.decl_map = new hash_map<tree, tree>;
+  id.type_map = new hash_map<ttype *, ttype *>;
   id.debug_map = NULL;
   id.src_fn = old_decl;
   id.dst_fn = new_decl;
@@ -5917,6 +5937,7 @@ tree_function_versioning (tree old_decl, tree new_decl,
 
   /* Clean up.  */
   delete id.decl_map;
+  delete id.type_map;
   if (id.debug_map)
     delete id.debug_map;
   free_dominance_info (CDI_DOMINATORS);
@@ -6044,6 +6065,7 @@ maybe_inline_call_in_expr (tree exp)
       copy_body_data id;
       tree param, arg, t;
       hash_map<tree, tree> decl_map;
+      hash_map<ttype *, ttype *> type_map;
 
       /* Remap the parameters.  */
       for (param = DECL_ARGUMENTS (fn), arg = first_call_expr_arg (exp, &iter);
@@ -6056,6 +6078,7 @@ maybe_inline_call_in_expr (tree exp)
       id.dst_fn = current_function_decl;
       id.src_cfun = DECL_STRUCT_FUNCTION (fn);
       id.decl_map = &decl_map;
+      id.type_map = &type_map;
 
       id.copy_decl = copy_decl_no_change;
       id.transform_call_graph_edges = CB_CGE_DUPLICATE;
@@ -6096,12 +6119,14 @@ build_duplicate_type (tree type)
   id.dst_fn = current_function_decl;
   id.src_cfun = cfun;
   id.decl_map = new hash_map<tree, tree>;
+  id.type_map = new hash_map<ttype *, ttype *>;
   id.debug_map = NULL;
   id.copy_decl = copy_decl_no_change;
 
   dup = remap_type_1 (type, &id);
 
   delete id.decl_map;
+  delete id.type_map;
   if (id.debug_map)
     delete id.debug_map;
 
@@ -6120,6 +6145,7 @@ copy_fn (tree fn, tree& parms, tree& result)
   copy_body_data id;
   tree param;
   hash_map<tree, tree> decl_map;
+  hash_map<ttype *, ttype *> type_map;
 
   tree *p = &parms;
   *p = NULL_TREE;
@@ -6129,6 +6155,7 @@ copy_fn (tree fn, tree& parms, tree& result)
   id.dst_fn = current_function_decl;
   id.src_cfun = DECL_STRUCT_FUNCTION (fn);
   id.decl_map = &decl_map;
+  id.type_map = &type_map;
 
   id.copy_decl = copy_decl_no_change;
   id.transform_call_graph_edges = CB_CGE_DUPLICATE;
