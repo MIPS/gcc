@@ -388,48 +388,48 @@ TTYPE (const ttype_p t)
 #if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
 
 #define TREE_CHECK(T, CODE) \
-(tree_check ((T), __FILE__, __LINE__, __FUNCTION__, (CODE)))
+(::tree_check ((T), __FILE__, __LINE__, __FUNCTION__, (CODE)))
 
 #define TREE_NOT_CHECK(T, CODE) \
-(tree_not_check ((T), __FILE__, __LINE__, __FUNCTION__, (CODE)))
+(::tree_not_check ((T), __FILE__, __LINE__, __FUNCTION__, (CODE)))
 
 #define TREE_CHECK2(T, CODE1, CODE2) \
-(tree_check2 ((T), __FILE__, __LINE__, __FUNCTION__, (CODE1), (CODE2)))
+(::tree_check2 ((T), __FILE__, __LINE__, __FUNCTION__, (CODE1), (CODE2)))
 
 #define TREE_NOT_CHECK2(T, CODE1, CODE2) \
-(tree_not_check2 ((T), __FILE__, __LINE__, __FUNCTION__, (CODE1), (CODE2)))
+(::tree_not_check2 ((T), __FILE__, __LINE__, __FUNCTION__, (CODE1), (CODE2)))
 
 #define TREE_CHECK3(T, CODE1, CODE2, CODE3) \
-(tree_check3 ((T), __FILE__, __LINE__, __FUNCTION__, (CODE1), (CODE2), (CODE3)))
+(::tree_check3 ((T), __FILE__, __LINE__, __FUNCTION__, (CODE1), (CODE2), (CODE3)))
 
 #define TREE_NOT_CHECK3(T, CODE1, CODE2, CODE3) \
-(tree_not_check3 ((T), __FILE__, __LINE__, __FUNCTION__, \
+(::tree_not_check3 ((T), __FILE__, __LINE__, __FUNCTION__, \
                                (CODE1), (CODE2), (CODE3)))
 
 #define TREE_CHECK4(T, CODE1, CODE2, CODE3, CODE4) \
-(tree_check4 ((T), __FILE__, __LINE__, __FUNCTION__, \
+(::tree_check4 ((T), __FILE__, __LINE__, __FUNCTION__, \
                            (CODE1), (CODE2), (CODE3), (CODE4)))
 
 #define TREE_NOT_CHECK4(T, CODE1, CODE2, CODE3, CODE4) \
-(tree_not_check4 ((T), __FILE__, __LINE__, __FUNCTION__, \
+(::tree_not_check4 ((T), __FILE__, __LINE__, __FUNCTION__, \
                                (CODE1), (CODE2), (CODE3), (CODE4)))
 
 #define TREE_CHECK5(T, CODE1, CODE2, CODE3, CODE4, CODE5) \
-(tree_check5 ((T), __FILE__, __LINE__, __FUNCTION__, \
+(::tree_check5 ((T), __FILE__, __LINE__, __FUNCTION__, \
                            (CODE1), (CODE2), (CODE3), (CODE4), (CODE5)))
 
 #define TREE_NOT_CHECK5(T, CODE1, CODE2, CODE3, CODE4, CODE5) \
-(tree_not_check5 ((T), __FILE__, __LINE__, __FUNCTION__, \
+(::tree_not_check5 ((T), __FILE__, __LINE__, __FUNCTION__, \
                                (CODE1), (CODE2), (CODE3), (CODE4), (CODE5)))
 
 #define CONTAINS_STRUCT_CHECK(T, STRUCT) \
 (contains_struct_check ((T), (STRUCT), __FILE__, __LINE__, __FUNCTION__))
 
 #define TREE_CLASS_CHECK(T, CLASS) \
-(tree_class_check ((T), (CLASS), __FILE__, __LINE__, __FUNCTION__))
+(::tree_class_check ((T), (CLASS), __FILE__, __LINE__, __FUNCTION__))
 
 #define TREE_RANGE_CHECK(T, CODE1, CODE2) \
-(tree_range_check ((T), (CODE1), (CODE2), __FILE__, __LINE__, __FUNCTION__))
+(::tree_range_check ((T), (CODE1), (CODE2), __FILE__, __LINE__, __FUNCTION__))
 
 #define OMP_CLAUSE_SUBCODE_CHECK(T, CODE) \
 (omp_clause_subcode_check ((T), (CODE), __FILE__, __LINE__, __FUNCTION__))
@@ -443,12 +443,12 @@ TTYPE (const ttype_p t)
 (expr_check ((T), __FILE__, __LINE__, __FUNCTION__))
 
 /* These checks have to be special cased.  */
-#define ANY_INTEGRAL_TYPE_CHECK(T) \
-(any_integral_type_check ((T), __FILE__, __LINE__, __FUNCTION__))
-
-/* These checks have to be special cased.  */
 #define NON_TYPE_CHECK(T) \
 (non_type_check ((T), __FILE__, __LINE__, __FUNCTION__))
+
+/* These checks have to be special cased.  */
+#define ANY_INTEGRAL_TYPE_CHECK(T) \
+(any_integral_type_check ((T), __FILE__, __LINE__, __FUNCTION__))
 
 #define TREE_INT_CST_ELT_CHECK(T, I) \
 (*tree_int_cst_elt_check ((T), (I), __FILE__, __LINE__, __FUNCTION__))
@@ -6590,81 +6590,92 @@ desired_pro_or_demotion_p (const_tree to_type, const_tree from_type)
 }
 
 void
-tree_node::class_check (enum tree_code_class c) const
+tree_node::class_check (enum tree_code_class c __attribute__((unused))) const
 {
-  ::tree_class_check (this, c, __FILE__, __LINE__, __FUNCTION__);
+  TREE_CLASS_CHECK (this, c);
 }
 void
-tree_node::code_check (enum tree_code c) const
+tree_node::code_check (enum tree_code c __attribute__((unused))) const
 {
-  ::tree_check (this, __FILE__, __LINE__, __FUNCTION__, c);
+  TREE_CHECK (this, c);
 }
 void
-tree_node::code_check (enum tree_code c1, enum tree_code c2) const
+tree_node::code_check (enum tree_code c1 __attribute__((unused)),
+		       enum tree_code c2 __attribute__((unused))) const
 { 
-  ::tree_check2 (this, __FILE__, __LINE__, __FUNCTION__, c1, c2);
+  TREE_CHECK2 (this, c1, c2);
 }
 void
-tree_node::code_check (enum tree_code c1, enum tree_code c2,
-			    enum tree_code c3) const
+tree_node::code_check (enum tree_code c1 __attribute__((unused)),
+		       enum tree_code c2 __attribute__((unused)),
+		       enum tree_code c3 __attribute__((unused))) const
 {
-  ::tree_check3 (this, __FILE__, __LINE__, __FUNCTION__, c1, c2, c3);
+  TREE_CHECK3 (this, c1, c2, c3);
 }
 void
-tree_node::code_check (enum tree_code c1, enum tree_code c2,
-			    enum tree_code c3, enum tree_code c4) const
+tree_node::code_check (enum tree_code c1 __attribute__((unused)),
+		       enum tree_code c2 __attribute__((unused)),
+		       enum tree_code c3 __attribute__((unused)),
+		       enum tree_code c4 __attribute__((unused))) const
 {
-  ::tree_check4 (this, __FILE__, __LINE__, __FUNCTION__, c1, c2, c3, c4);
+  TREE_CHECK4 (this, c1, c2, c3, c4);
 }
 void
-tree_node::code_check (enum tree_code c1, enum tree_code c2,
-			    enum tree_code c3, enum tree_code c4,
-			    enum tree_code c5) const
+tree_node::code_check (enum tree_code c1 __attribute__((unused)),
+		       enum tree_code c2 __attribute__((unused)),
+		       enum tree_code c3 __attribute__((unused)),
+		       enum tree_code c4 __attribute__((unused)),
+		       enum tree_code c5 __attribute__((unused))) const
 {
-  ::tree_check5 (this, __FILE__, __LINE__, __FUNCTION__, c1, c2, c3, c4, c5);
+  TREE_CHECK5 (this, c1, c2, c3, c4, c5);
 }
 
 void
-tree_node::code_not_check (enum tree_code c1) const
+tree_node::code_not_check (enum tree_code c1 __attribute__((unused))) const
 {
-  ::tree_not_check (this, __FILE__, __LINE__, __FUNCTION__, c1);
+  TREE_NOT_CHECK (this, c1);
 }
 void
-tree_node::code_not_check (enum tree_code c1, enum tree_code c2) const
+tree_node::code_not_check (enum tree_code c1 __attribute__((unused)),
+			   enum tree_code c2 __attribute__((unused))) const
 {
-  ::tree_not_check2 (this, __FILE__, __LINE__, __FUNCTION__, c1, c2);
+  TREE_NOT_CHECK2 (this, c1, c2);
 }
 void
-tree_node::code_not_check (enum tree_code c1, enum tree_code c2,
-				enum tree_code c3) const
+tree_node::code_not_check (enum tree_code c1 __attribute__((unused)),
+			   enum tree_code c2 __attribute__((unused)),
+			   enum tree_code c3 __attribute__((unused))) const
 {
-  ::tree_not_check3 (this, __FILE__, __LINE__, __FUNCTION__, c1, c2, c3);
+  TREE_NOT_CHECK3 (this, c1, c2, c3);
 }
 void
-tree_node::code_not_check (enum tree_code c1, enum tree_code c2,
-				enum tree_code c3, enum tree_code c4) const
+tree_node::code_not_check (enum tree_code c1 __attribute__((unused)),
+			   enum tree_code c2 __attribute__((unused)),
+			   enum tree_code c3 __attribute__((unused)),
+			   enum tree_code c4 __attribute__((unused))) const
 {
-  ::tree_not_check4 (this, __FILE__, __LINE__, __FUNCTION__, c1, c2, c3, c4);
+  TREE_NOT_CHECK4 (this, c1, c2, c3, c4);
 }
 void
-tree_node::code_not_check (enum tree_code c1, enum tree_code c2,
-				enum tree_code c3, enum tree_code c4,
-				enum tree_code c5) const
+tree_node::code_not_check (enum tree_code c1 __attribute__((unused)),
+			   enum tree_code c2 __attribute__((unused)),
+			   enum tree_code c3 __attribute__((unused)),
+			   enum tree_code c4 __attribute__((unused)),
+			   enum tree_code c5 __attribute__((unused))) const
 {
-  ::tree_not_check5 (this, __FILE__, __LINE__, __FUNCTION__, c1, c2, c3, c4,
-		     c5);
+  TREE_NOT_CHECK5 (this, c1, c2, c3, c4, c5);
 }
+
 void
 tree_node::type_check () const
 {
   class_check (tcc_type);
 }
 
-
 void
 ttype::any_integral_check () const 
 {
-  ::any_integral_type_check (this, __FILE__, __LINE__, __FUNCTION__);
+  ANY_INTEGRAL_TYPE_CHECK (this);
 }
 void
 ttype::ptr_or_ref_check () const 
