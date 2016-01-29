@@ -443,6 +443,10 @@ TTYPE (const ttype_p t)
 (expr_check ((T), __FILE__, __LINE__, __FUNCTION__))
 
 /* These checks have to be special cased.  */
+#define ANY_INTEGRAL_TYPE_CHECK(T) \
+(any_integral_type_check ((T), __FILE__, __LINE__, __FUNCTION__))
+
+/* These checks have to be special cased.  */
 #define NON_TYPE_CHECK(T) \
 (non_type_check ((T), __FILE__, __LINE__, __FUNCTION__))
 
@@ -612,10 +616,6 @@ ttype::set_type (ttype *t)
 #define VL_EXP_CHECK(T)		TREE_CLASS_CHECK (T, tcc_vl_exp)
 #define FUNC_OR_METHOD_CHECK(T)	TREE_CHECK2 (T, FUNCTION_TYPE, METHOD_TYPE)
 #define PTR_OR_REF_CHECK(T)	TREE_CHECK2 (T, POINTER_TYPE, REFERENCE_TYPE)
-
-/* These checks have to be special cased.  */
-#define ANY_INTEGRAL_TYPE_CHECK(T) \
-(any_integral_type_check ((T), __FILE__, __LINE__, __FUNCTION__))
 
 #define RECORD_OR_UNION_CHECK(T)	\
   TREE_CHECK3 (T, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE)
