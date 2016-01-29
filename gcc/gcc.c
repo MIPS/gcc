@@ -7289,6 +7289,7 @@ driver::decode_argv (int argc, const char **argv)
   global_init_params ();
   finish_params ();
 
+  init_opts_obstack ();
   init_options_struct (&global_options, &global_options_set);
 
   decode_cmdline_options_to_array (argc, argv,

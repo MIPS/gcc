@@ -279,8 +279,7 @@ extern void GOMP_set_offload_targets (const char *);
 extern void GOMP_target (int, void (*) (void *), const void *,
 			 size_t, void **, size_t *, unsigned char *);
 extern void GOMP_target_ext (int, void (*) (void *), size_t, void **, size_t *,
-			     unsigned short *, unsigned int, void **,
-			     int, int);
+			     unsigned short *, unsigned int, void **, void **);
 extern void GOMP_target_data (int, const void *,
 			      size_t, void **, size_t *, unsigned char *);
 extern void GOMP_target_data_ext (int, size_t, void **, size_t *,

@@ -98,7 +98,7 @@ cilk_cp_gimplify_call_params_in_spawned_fn (tree *expr_p, gimple_seq *pre_p,
 {
   int ii = 0;
 
-  cilk_gimplify_call_params_in_spawned_fn (expr_p, pre_p, post_p);  
+  cilk_gimplify_call_params_in_spawned_fn (expr_p, pre_p);
   if (TREE_CODE (*expr_p) == AGGR_INIT_EXPR)
     for (ii = 0; ii < aggr_init_expr_nargs (*expr_p); ii++)
       gimplify_expr (&AGGR_INIT_EXPR_ARG (*expr_p, ii), pre_p, post_p,
@@ -1897,6 +1897,14 @@ c_fully_fold (tree x, bool /*in_init*/, bool */*maybe_const*/)
 
 static GTY((cache, deletable)) cache_map fold_cache;
 
+/* Dispose of the whole FOLD_CACHE.  */
+
+void
+clear_fold_cache (void)
+{
+  gt_cleare_cache (fold_cache);
+}
+
 /*  This function tries to fold an expression X.
     To avoid combinatorial explosion, folding results are kept in fold_cache.
     If we are processing a template or X is invalid, we don't fold at all.
@@ -1947,7 +1955,12 @@ cp_fold (tree x)
       op0 = cp_fold_maybe_rvalue (TREE_OPERAND (x, 0), rval_ops);
 
       if (op0 != TREE_OPERAND (x, 0))
-        x = fold_build1_loc (loc, code, TREE_TYPE (x), op0);
+	{
+	  if (op0 == error_mark_node)
+	    x = error_mark_node;
+	  else
+	    x = fold_build1_loc (loc, code, TREE_TYPE (x), op0);
+	}
       else
 	x = fold (x);
 
@@ -1979,7 +1992,12 @@ cp_fold (tree x)
       op0 = cp_fold_maybe_rvalue (TREE_OPERAND (x, 0), rval_ops);
 
       if (op0 != TREE_OPERAND (x, 0))
-        x = fold_build1_loc (loc, code, TREE_TYPE (x), op0);
+	{
+	  if (op0 == error_mark_node)
+	    x = error_mark_node;
+	  else
+	    x = fold_build1_loc (loc, code, TREE_TYPE (x), op0);
+	}
       else
 	x = fold (x);
 
@@ -2036,7 +2054,12 @@ cp_fold (tree x)
       op1 = cp_fold_rvalue (TREE_OPERAND (x, 1));
 
       if (op0 != TREE_OPERAND (x, 0) || op1 != TREE_OPERAND (x, 1))
-	x = fold_build2_loc (loc, code, TREE_TYPE (x), op0, op1);
+	{
+	  if (op0 == error_mark_node || op1 == error_mark_node)
+	    x = error_mark_node;
+	  else
+	    x = fold_build2_loc (loc, code, TREE_TYPE (x), op0, op1);
+	}
       else
 	x = fold (x);
 
@@ -2059,7 +2082,14 @@ cp_fold (tree x)
       if (op0 != TREE_OPERAND (x, 0)
 	  || op1 != TREE_OPERAND (x, 1)
 	  || op2 != TREE_OPERAND (x, 2))
-	x = fold_build3_loc (loc, code, TREE_TYPE (x), op0, op1, op2);
+	{
+	  if (op0 == error_mark_node
+	      || op1 == error_mark_node
+	      || op2 == error_mark_node)
+	    x = error_mark_node;
+	  else
+	    x = fold_build3_loc (loc, code, TREE_TYPE (x), op0, op1, op2);
+	}
       else
 	x = fold (x);
 
@@ -2086,9 +2116,18 @@ cp_fold (tree x)
 	  {
 	    r = cp_fold (CALL_EXPR_ARG (x, i));
 	    if (r != CALL_EXPR_ARG (x, i))
-	      changed = 1;
+	      {
+		if (r == error_mark_node)
+		  {
+		    x = error_mark_node;
+		    break;
+		  }
+		changed = 1;
+	      }
 	    CALL_EXPR_ARG (x, i) = r;
 	  }
+	if (x == error_mark_node)
+	  break;
 
 	optimize = nw;
 	r = fold (x);
@@ -2136,7 +2175,15 @@ cp_fold (tree x)
 	    constructor_elt e = { p->index, op };
 	    nelts->quick_push (e);
 	    if (op != p->value)
-	      changed = true;
+	      {
+		if (op == error_mark_node)
+		  {
+		    x = error_mark_node;
+		    changed = false;
+		    break;
+		  }
+		changed = true;
+	      }
 	  }
 	if (changed)
 	  x = build_constructor (TREE_TYPE (x), nelts);
@@ -2181,9 +2228,19 @@ cp_fold (tree x)
       op2 = cp_fold (TREE_OPERAND (x, 2));
       op3 = cp_fold (TREE_OPERAND (x, 3));
 
-      if (op0 != TREE_OPERAND (x, 0) || op1 != TREE_OPERAND (x, 1)
-	  || op2 != TREE_OPERAND (x, 2) || op3 != TREE_OPERAND (x, 3))
-	x = build4_loc (loc, code, TREE_TYPE (x), op0, op1, op2, op3);
+      if (op0 != TREE_OPERAND (x, 0)
+	  || op1 != TREE_OPERAND (x, 1)
+	  || op2 != TREE_OPERAND (x, 2)
+	  || op3 != TREE_OPERAND (x, 3))
+	{
+	  if (op0 == error_mark_node
+	      || op1 == error_mark_node
+	      || op2 == error_mark_node
+	      || op3 == error_mark_node)
+	    x = error_mark_node;
+	  else
+	    x = build4_loc (loc, code, TREE_TYPE (x), op0, op1, op2, op3);
+	}
 
       x = fold (x);
       break;
