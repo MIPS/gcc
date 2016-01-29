@@ -1,3 +1,43 @@
+2016-01-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (wL constraint): New constraint for
+	ISA 3.0 vector d-form addresses.
+
+	* config/rs6000/predicates.md (quad_memory_operand): Rework to use
+	quad_address_p.
+	(vsx_quad_memory_operand): New predicate for vector d-form
+	instructions.
+
+	* config/rs6000/rs6000-cpus.def (ISA_3_0_MASKS_SERVER): Split
+	d-form addressing into scalar, vector options.
+	(POWERPC_MASKS): Likewise.
+
+	* config/rs6000/rs6000-protos.h (quad_address_p): Add
+	declaration.
+
+	* config/rs6000/rs6000.c (RELOAD_REG_QUAD_OFFSET): Add support for
+	ISA 3.0 vector d-form addressing.
+	(mode_supports_vsx_dform_quad): Likewise.
+	(rs6000_debug_addr_mask): Likewise.
+	(rs6000_setup_reg_addr_masks): Likewise.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(rs6000_option_override_internal): Likewise.
+	(quad_address_p): Likewise.
+	(rs6000_legitimate_offset_address_p): Likewise.
+	(rs6000_legitimize_address): Likewise.
+	(rs6000_legitimate_address_p): Likewise.
+	(rs6000_secondary_reload_memory): Likewise.
+	(rs6000_secondary_reload_inner): Likewise.
+	(rs6000_output_move_128bit): Likewise.
+	(rs6000_opt_masks): Likewise.
+
+	* config/rs6000/vsx.md (p9_vecload_<mode>): Add support for ISA
+	3.0 vector d-form addressing.
+	(p9_vecstore_<mode>): Likewise.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document new
+	switches.
+
 2016-01-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone pre-gcc7 branch for power9 work.

@@ -304,18 +304,22 @@
 ;; VSX (P9) moves
 
 (define_insn "*p9_vecload_<mode>"
-  [(set (match_operand:VSX_M2 0 "vsx_register_operand" "=<VSa>")
-        (match_operand:VSX_M2 1 "memory_operand" "Z"))]
+  [(set (match_operand:VSX_M2 0 "vsx_register_operand" "=<VSa>,<VSa>")
+        (match_operand:VSX_M2 1 "memory_operand" "Z,Wo"))]
   "TARGET_P9_VECTOR"
-  "lxvx %x0,%y1"
+  "@
+   lxvx %x0,%y1
+   lxv %x0,%1"
   [(set_attr "type" "vecload")
    (set_attr "length" "4")])
 
 (define_insn "*p9_vecstore_<mode>"
-  [(set (match_operand:VSX_M2 0 "memory_operand" "=Z")
-        (match_operand:VSX_M2 1 "vsx_register_operand" "<VSa>"))]
+  [(set (match_operand:VSX_M2 0 "memory_operand" "=Z,Wo")
+        (match_operand:VSX_M2 1 "vsx_register_operand" "<VSa>,<VSa>"))]
   "TARGET_P9_VECTOR"
-  "stxvx %x1,%y0"
+  "@
+   stxvx %x1,%y0
+   stxv %x1,%0"
   [(set_attr "type" "vecstore")
    (set_attr "length" "4")])
 
