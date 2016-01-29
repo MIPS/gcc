@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "domwalk.h"
+#include "ttype.h"
 
 #define PERCENT(x,y) ((float)(x) * 100.0 / (float)(y))
 
@@ -1223,7 +1224,7 @@ rewrite_debug_stmt_uses (gimple *stmt)
 		  def = make_node (DEBUG_EXPR_DECL);
 		  def_temp = gimple_build_debug_source_bind (def, var, NULL);
 		  DECL_ARTIFICIAL (def) = 1;
-		  TREE_TYPE (def) = TREE_TYPE (var);
+		  TREE_SET_TYPE (def, TREE_TYPE (var));
 		  DECL_MODE (def) = DECL_MODE (var);
 		  gsi =
 		 gsi_after_labels (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)));

@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "langhooks.h"
 #include "c-format.h"
+#include "ttype.h"
 
 /* Handle attributes associated with format checking.  */
 
@@ -431,7 +432,7 @@ static const char *kind_descriptions[] = {
 struct format_wanted_type
 {
   /* The type wanted.  */
-  tree wanted_type;
+  ttype *wanted_type;
   /* The name of this type to use in diagnostics.  */
   const char *wanted_type_name;
   /* Should be type checked just for scalar width identity.  */
@@ -1040,7 +1041,8 @@ static const format_flag_spec *get_flag_spec (const format_flag_spec *,
 					      int, const char *);
 
 static void check_format_types (location_t, format_wanted_type *);
-static void format_type_warning (location_t, format_wanted_type *, tree, tree);
+static void format_type_warning (location_t, format_wanted_type *, ttype *,
+				 ttype *);
 
 /* Decode a format type from a string, returning the type, or
    format_type_error if not valid, in which case the caller should print an
@@ -1733,7 +1735,7 @@ check_format_info_main (format_check_results *res,
       enum format_std_version length_chars_std = STD_C89;
       int format_char;
       tree cur_param;
-      tree wanted_type;
+      ttype *wanted_type;
       int main_arg_num = 0;
       tree main_arg_params = 0;
       enum format_std_version wanted_type_std;
@@ -2456,9 +2458,9 @@ check_format_types (location_t loc, format_wanted_type *types)
   for (; types != 0; types = types->next)
     {
       tree cur_param;
-      tree cur_type;
-      tree orig_cur_type;
-      tree wanted_type;
+      ttype *cur_type;
+      ttype *orig_cur_type;
+      ttype *wanted_type;
       int arg_num;
       int i;
       int char_type_flag;
@@ -2615,7 +2617,7 @@ check_format_types (location_t loc, format_wanted_type *types)
 	  && cur_param != NULL_TREE
 	  && TREE_CODE (cur_param) == NOP_EXPR)
 	{
-	  tree t = TREE_TYPE (TREE_OPERAND (cur_param, 0));
+	  ttype *t = TREE_TYPE (TREE_OPERAND (cur_param, 0));
 	  if (TYPE_UNSIGNED (t)
 	      && cur_type == lang_hooks.types.type_promotes_to (t))
 	    continue;
@@ -2647,7 +2649,7 @@ check_format_types (location_t loc, format_wanted_type *types)
    or NULL if it is missing.  */
 static void
 format_type_warning (location_t loc, format_wanted_type *type,
-		     tree wanted_type, tree arg_type)
+		     ttype *wanted_type, ttype *arg_type)
 {
   int kind = type->kind;
   const char *wanted_type_name = type->wanted_type_name;
@@ -2848,7 +2850,7 @@ init_dynamic_gfc_info (void)
 		  locus = 0;
 		}
 	      else
-		locus = TREE_TTYPE (locus_id);
+		locus = TREE_TYPE (locus_id);
 	    }
 	}
 
@@ -2905,7 +2907,7 @@ init_dynamic_diag_info (void)
 	      if (TREE_CODE (x) != TYPE_DECL)
 		error ("%<location_t%> is not defined as a type");
 	      else
-		loc = TREE_TTYPE (x);
+		loc = TREE_TYPE (x);
 	    }
 	}
 
@@ -2921,7 +2923,7 @@ init_dynamic_diag_info (void)
 	      else if (TREE_CODE (TREE_TYPE (x)) != POINTER_TYPE)
 		error ("%<tree%> is not defined as a pointer type");
 	      else
-		tree_ptr_node = TREE_TTYPE (TREE_TYPE (x));
+		tree_ptr_node = TREE_TYPE (TREE_TYPE (x));
 	    }
 	}
 
@@ -2934,7 +2936,7 @@ init_dynamic_diag_info (void)
 	      if (TREE_CODE (x) != TYPE_DECL)
 		error ("%<ttype%> is not defined as a type");
 	      else
-		ttype_node = TREE_TTYPE (x);
+		ttype_node = TREE_TYPE (x);
 	    }
 	}
 
@@ -2947,7 +2949,7 @@ init_dynamic_diag_info (void)
 	      if (TREE_CODE (x) != TYPE_DECL)
 		error ("%<ttype%> is not defined as a type");
 	      else
-		ttype_p_node = TREE_TTYPE (x);
+		ttype_p_node = TREE_TYPE (x);
 	    }
 	}
 
@@ -2966,7 +2968,7 @@ init_dynamic_diag_info (void)
 		error ("%<__gcc_host_wide_int__%> is not defined as a type");
 	      else
 		{
-		  hwi = TTYPE (DECL_ORIGINAL_TYPE (x));
+		  hwi = DECL_ORIGINAL_TYPE (x);
 		  gcc_assert (hwi);
 		  if (hwi != long_integer_type_node
 		      && hwi != long_long_integer_type_node)

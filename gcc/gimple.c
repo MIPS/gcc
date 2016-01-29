@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-walk.h"
 #include "gimplify.h"
 #include "target.h"
+#include "ttype.h"
 
 
 /* All the tuples have their operand vector (if present) at the very bottom
@@ -1376,7 +1377,8 @@ gimple_call_flags (const gimple *stmt)
 static const_tree
 gimple_call_fnspec (const gcall *stmt)
 {
-  tree type, attr;
+  ttype *type;
+  tree attr;
 
   if (gimple_call_internal_p (stmt))
     return internal_fn_fnspec (gimple_call_internal_fn (stmt));
@@ -1897,7 +1899,8 @@ gimple_has_side_effects (const gimple *s)
 bool
 gimple_could_trap_p_1 (gimple *s, bool include_mem, bool include_stores)
 {
-  tree t, div = NULL_TREE;
+  tree t;
+  tree div = NULL_TREE;
   enum tree_code op;
 
   if (include_mem)
@@ -1922,13 +1925,14 @@ gimple_could_trap_p_1 (gimple *s, bool include_mem, bool include_stores)
       return false;
 
     case GIMPLE_ASSIGN:
-      t = gimple_expr_type (s);
+      ttype *type;
+      type = gimple_expr_type (s);
       op = gimple_assign_rhs_code (s);
       if (get_gimple_rhs_class (op) == GIMPLE_BINARY_RHS)
 	div = gimple_assign_rhs2 (s);
-      return (operation_could_trap_p (op, FLOAT_TYPE_P (t),
-				      (INTEGRAL_TYPE_P (t)
-				       && TYPE_OVERFLOW_TRAPS (t)),
+      return (operation_could_trap_p (op, FLOAT_TYPE_P (type),
+				      (INTEGRAL_TYPE_P (type)
+				       && TYPE_OVERFLOW_TRAPS (type)),
 				      div));
 
     default:
@@ -2176,8 +2180,8 @@ gimple_compare_field_offset (tree f1, tree f2)
 /* Return a type the same as TYPE except unsigned or
    signed according to UNSIGNEDP.  */
 
-static tree
-gimple_signed_or_unsigned_type (bool unsignedp, tree type)
+static ttype *
+gimple_signed_or_unsigned_type (bool unsignedp, ttype *type)
 {
   tree type1;
   int i;
@@ -2353,8 +2357,8 @@ gimple_signed_or_unsigned_type (bool unsignedp, tree type)
 
 /* Return an unsigned type the same as TYPE in other respects.  */
 
-tree
-gimple_unsigned_type (tree type)
+ttype *
+gimple_unsigned_type (ttype_p type)
 {
   return gimple_signed_or_unsigned_type (true, type);
 }
@@ -2362,8 +2366,8 @@ gimple_unsigned_type (tree type)
 
 /* Return a signed type the same as TYPE in other respects.  */
 
-tree
-gimple_signed_type (tree type)
+ttype *
+gimple_signed_type (ttype_p type)
 {
   return gimple_signed_or_unsigned_type (false, type);
 }
@@ -2371,6 +2375,32 @@ gimple_signed_type (tree type)
 
 /* Return the typed-based alias set for T, which may be an expression
    or a type.  Return -1 if we don't do anything special.  */
+
+alias_set_type
+gimple_get_alias_set (ttype *t)
+{
+
+  /* For convenience, follow the C standard when dealing with
+     character types.  Any object may be accessed via an lvalue that
+     has character type.  */
+  if (t == char_type_node
+      || t == signed_char_type_node
+      || t == unsigned_char_type_node)
+    return 0;
+
+  /* Allow aliasing between signed and unsigned variants of the same
+     type.  We treat the signed variant as canonical.  */
+  if (TREE_CODE (t) == INTEGER_TYPE && TYPE_UNSIGNED (t))
+    {
+      tree t1 = gimple_signed_type (t);
+
+      /* t1 == t can happen for boolean nodes which are always unsigned.  */
+      if (t1 != t)
+	return get_alias_set (t1);
+    }
+
+  return -1;
+}
 
 alias_set_type
 gimple_get_alias_set (tree t)
@@ -2394,26 +2424,7 @@ gimple_get_alias_set (tree t)
   if (!TYPE_P (t))
     return -1;
 
-  /* For convenience, follow the C standard when dealing with
-     character types.  Any object may be accessed via an lvalue that
-     has character type.  */
-  if (t == char_type_node
-      || t == signed_char_type_node
-      || t == unsigned_char_type_node)
-    return 0;
-
-  /* Allow aliasing between signed and unsigned variants of the same
-     type.  We treat the signed variant as canonical.  */
-  if (TREE_CODE (t) == INTEGER_TYPE && TYPE_UNSIGNED (t))
-    {
-      tree t1 = gimple_signed_type (t);
-
-      /* t1 == t can happen for boolean nodes which are always unsigned.  */
-      if (t1 != t)
-	return get_alias_set (t1);
-    }
-
-  return -1;
+  return gimple_get_alias_set (as_a<ttype *> (t));
 }
 
 
@@ -2449,7 +2460,7 @@ gimple_ior_addresses_taken (bitmap addresses_taken, gimple *stmt)
    processing.  */
 
 static bool
-validate_type (tree type1, tree type2)
+validate_type (ttype *type1, ttype *type2)
 {
   if (INTEGRAL_TYPE_P (type1)
       && INTEGRAL_TYPE_P (type2))
@@ -2484,11 +2495,11 @@ gimple_builtin_call_types_compatible_p (const gimple *stmt, tree fndecl)
       if (!targs)
 	return true;
       tree arg = gimple_call_arg (stmt, i);
-      if (!validate_type (TREE_TYPE (arg), TREE_VALUE (targs)))
+      if (!validate_type (TREE_TYPE (arg), TREE_VALUE_TYPE (targs)))
 	return false;
       targs = TREE_CHAIN (targs);
     }
-  if (targs && !VOID_TYPE_P (TREE_VALUE (targs)))
+  if (targs && !VOID_TYPE_P (TREE_VALUE_TYPE (targs)))
     return false;
   return true;
 }
@@ -2715,7 +2726,7 @@ infer_nonnull_range_by_attribute (gimple *stmt, tree op)
 
   if (is_gimple_call (stmt) && !gimple_call_internal_p (stmt))
     {
-      tree fntype = gimple_call_fntype (stmt);
+      ttype *fntype = gimple_call_fntype (stmt);
       tree attrs = TYPE_ATTRIBUTES (fntype);
       for (; attrs; attrs = TREE_CHAIN (attrs))
 	{
@@ -2813,7 +2824,7 @@ sort_case_labels (vec<tree> label_vec)
 
 void
 preprocess_case_label_vec_for_gimple (vec<tree> labels,
-				      tree index_type,
+				      ttype_p index_type,
 				      tree *default_casep)
 {
   tree min_value, max_value;

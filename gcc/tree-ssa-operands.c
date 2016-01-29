@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stmt.h"
 #include "print-tree.h"
 #include "dumpfile.h"
+#include "ttype.h"
 
 
 /* This file contains the code required to manage the operands cache of the

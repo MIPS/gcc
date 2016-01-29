@@ -348,7 +348,7 @@ struct GTY((tag("GSS_CALL")))
 
   /* [ WORD 14 ]  */
   union GTY ((desc ("%1.subcode & GF_CALL_INTERNAL"))) {
-    tree GTY ((tag ("0"))) fntype;
+    ttype *GTY ((tag ("0"))) fntype;
     enum internal_fn GTY ((tag ("GF_CALL_INTERNAL"))) internal_fn;
   } u;
 
@@ -1498,8 +1498,8 @@ unsigned get_gimple_rhs_num_ops (enum tree_code);
 extern tree canonicalize_cond_expr_cond (tree);
 gcall *gimple_call_copy_skip_args (gcall *, bitmap);
 extern bool gimple_compare_field_offset (tree, tree);
-extern tree gimple_unsigned_type (tree);
-extern tree gimple_signed_type (tree);
+extern ttype *gimple_unsigned_type (ttype_p);
+extern ttype *gimple_signed_type (ttype_p);
 extern alias_set_type gimple_get_alias_set (tree);
 extern bool gimple_ior_addresses_taken (bitmap, gimple *);
 extern bool gimple_builtin_call_types_compatible_p (const gimple *, tree);
@@ -1515,7 +1515,7 @@ extern bool infer_nonnull_range (gimple *, tree);
 extern bool infer_nonnull_range_by_dereference (gimple *, tree);
 extern bool infer_nonnull_range_by_attribute (gimple *, tree);
 extern void sort_case_labels (vec<tree>);
-extern void preprocess_case_label_vec_for_gimple (vec<tree>, tree, tree *);
+extern void preprocess_case_label_vec_for_gimple (vec<tree>, ttype_p, tree *);
 extern void gimple_seq_set_location (gimple_seq, location_t);
 extern void gimple_seq_discard (gimple_seq);
 extern void maybe_remove_unused_call_args (struct function *, gimple *);
@@ -2950,15 +2950,15 @@ gimple_call_ctrl_altering_p (const gimple *gs)
 
 /* Return the function type of the function called by GS.  */
 
-static inline tree
+static inline ttype *
 gimple_call_fntype (const gcall *gs)
 {
   if (gimple_call_internal_p (gs))
-    return NULL_TREE;
+    return NULL;
   return gs->u.fntype;
 }
 
-static inline tree
+static inline ttype *
 gimple_call_fntype (const gimple *gs)
 {
   const gcall *call_stmt = GIMPLE_CHECK2<const gcall *> (gs);
@@ -2968,7 +2968,7 @@ gimple_call_fntype (const gimple *gs)
 /* Set the type of the function called by CALL_STMT to FNTYPE.  */
 
 static inline void
-gimple_call_set_fntype (gcall *call_stmt, tree fntype)
+gimple_call_set_fntype (gcall *call_stmt, ttype_p fntype)
 {
   gcc_gimple_checking_assert (!gimple_call_internal_p (call_stmt));
   call_stmt->u.fntype = fntype;
@@ -3066,17 +3066,17 @@ gimple_call_fndecl (const gimple *gs)
 
 /* Return the type returned by call statement GS.  */
 
-static inline tree
+static inline ttype *
 gimple_call_return_type (const gcall *gs)
 {
-  tree type = gimple_call_fntype (gs);
+  ttype *type = gimple_call_fntype (gs);
 
-  if (type == NULL_TREE)
-    return TREE_TYPE (gimple_call_lhs (gs));
+  if (type == NULL)
+    return TREE_TTYPE (gimple_call_lhs (gs));
 
   /* The type returned by a function is the type of its
      function type.  */
-  return TREE_TYPE (type);
+  return TREE_TTYPE (type);
 }
 
 
@@ -6097,7 +6097,7 @@ is_gimple_resx (const gimple *gs)
 /* Return the type of the main expression computed by STMT.  Return
    void_type_node if the statement computes nothing.  */
 
-static inline tree
+static inline ttype *
 gimple_expr_type (const gimple *stmt)
 {
   enum gimple_code code = gimple_code (stmt);
@@ -6110,17 +6110,17 @@ gimple_expr_type (const gimple *stmt)
       const gcall *call_stmt = as_a <const gcall *> (stmt);
       if (gimple_call_internal_p (call_stmt)
           && gimple_call_internal_fn (call_stmt) == IFN_MASK_STORE)
-        return TREE_TYPE (gimple_call_arg (call_stmt, 3));
+        return TREE_TTYPE (gimple_call_arg (call_stmt, 3));
       else
         return gimple_call_return_type (call_stmt);
     }
   else if (code == GIMPLE_ASSIGN)
     {
       if (gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR)
-        return TREE_TYPE (gimple_assign_rhs1 (stmt));
+        return TREE_TTYPE (gimple_assign_rhs1 (stmt));
       else
         /* As fallback use the type of the LHS.  */
-        return TREE_TYPE (gimple_get_lhs (stmt));
+        return TREE_TTYPE (gimple_get_lhs (stmt));
     }
   else if (code == GIMPLE_COND)
     return boolean_type_node;
