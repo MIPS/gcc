@@ -1,3 +1,120 @@
+2016-01-29  Sebastian Pop  <s.pop@samsung.com>
+
+	* doc/install.texi: Document that isl-0.16 is supported.
+
+2016-01-29  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/69299
+	* config/i386/constraints.md (Bm): Describe as special memory
+	constraint.
+	* doc/md.texi (DEFINE_SPECIAL_MEMORY_CONSTRAINT): Describe it.
+	* genoutput.c (main): Process DEFINE_SPECIAL_MEMORY_CONSTRAINT.
+	* genpreds.c (struct constraint_data): Add is_special_memory.
+	(have_special_memory_constraints, special_memory_start): New
+	static vars.
+	(special_memory_end): Ditto.
+	(add_constraint): Add new arg is_special_memory.  Add code to
+	process its true value.  Update have_special_memory_constraints.
+	(process_define_constraint): Pass the new arg.
+	(process_define_register_constraint): Ditto.
+	(choose_enum_order): Process special memory.
+	(write_tm_preds_h): Generate enum const CT_SPECIAL_MEMORY and
+	function insn_extra_special_memory_constraint.
+	(main): Process DEFINE_SPECIAL_MEMORY_CONSTRAINT.
+	* gensupport.c (process_rtx): Process
+	DEFINE_SPECIAL_MEMORY_CONSTRAINT.
+	* ira-costs.c (record_reg_classes): Process CT_SPECIAL_MEMORY.
+	* ira-lives.c (single_reg_class): Use
+	insn_extra_special_memory_constraint.
+	* ira.c (ira_setup_alts): Process CT_SPECIAL_MEMORY.
+	* lra-constraints.c (process_alt_operands): Ditto.
+	(curr_insn_transform): Use insn_extra_special_memory_constraint.
+	* recog.c (asm_operand_ok, preprocess_constraints): Process
+	CT_SPECIAL_MEMORY.
+	* reload.c (find_reloads): Ditto.
+	* rtl.def (DEFINE_SPECIFAL_MEMORY_CONSTRAINT): New.
+	* stmt.c (parse_input_constraint): Use
+	insn_extra_special_memory_constraint.
+
+2016-01-29  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/69530
+	* lra-splill.c (lra_final_code_change): Revert r229087 by
+	removing all sub-registers.
+
+2016-01-29  Steve Ellcey  <sellcey@imgtec.com>
+
+	PR target/65604
+	* config/mips/mips.c (mips_output_division): Check flag_delayed_branch.
+
+2016-01-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/69551
+	* config/i386/i386.c (ix86_expand_vector_set) <case V4SImode>: For
+	SSE1, copy target into the temporary reg first before recursing
+	on it.
+
+2016-01-29  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/sse.md (sse2_cvtps2pd<mask_name>): Replace vBm
+	with vm.
+
+2016-01-29  Jonathan Wakely  <jwakely@redhat.com>
+
+	* ginclude/stdarg.h: Test __cplusplus instead of
+	__GXX_EXPERIMENTAL_CXX0X__.
+
+2016-01-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69547
+	* tree-ssa-dce.c (mark_aliased_reaching_defs_necessary_1):
+	Do not mark clobbers necessary.
+	(mark_all_reaching_defs_necessary_1): Likewise.
+
+2016-01-29  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* config/s390/s390-c.c (s390_resolve_overloaded_builtin): Format
+	declaration name with %qs and print it in both error messages.
+	Also fix indentation.
+
+2016-01-29  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	PR other/69006
+	* config/s390/s390-c.c (s390_resolve_overloaded_builtin): Remove
+	trailing blank line from error message.
+
+2016-01-29  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR c++/69462
+	* ginclude/float.h: Also provide FLT_EVAL_METHOD and DECIMAL_DIG
+	for C++-11.
+
+2016-01-29  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/69537
+	* match.pd: Allow all integral types when simplifying a
+	widening or sign-changing conversion.
+
+2016-01-28  Sebastian Pop  <s.pop@samsung.com>
+
+	* graphite-isl-ast-to-gimple.c (get_rename_from_scev): Revert assert
+	back to setting codegen_error to fail codegen.
+
+2016-01-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/69459
+	* config/i386/constraints.md (C): Only accept constant zero operand.
+	(BC): New constraint.
+	* config/i386/sse.md (*mov<mode>_internal): Use BC constraint
+	instead of C constraint.
+	* doc/md.texi (Machine Constraints): Update description
+	of C constraint.
+
+2016-01-28  Steve Ellcey  <sellcey@imgtec.com>
+
+	PR target/68400
+	* config/mips/mips.c (and_operands_ok): Add MIPS16 check.
+
 2016-01-28  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/69542
@@ -56,7 +173,8 @@
 
 2016-01-28  Sebastian Pop  <s.pop@samsung.com>
 
-	* graphite-isl-ast-to-gimple.c (binary_op_to_tree): Call codegen_error_p.
+	* graphite-isl-ast-to-gimple.c (binary_op_to_tree): Call
+	codegen_error_p.
 	(ternary_op_to_tree): Same.
 	(unary_op_to_tree): Same.
 	(nary_op_to_tree): Same.
@@ -71,8 +189,8 @@
 
 2016-01-28  Sebastian Pop  <s.pop@samsung.com>
 
-	* graphite-isl-ast-to-gimple.c (get_rename_from_scev): Assert instead of
-	setting codegen_error to fail codegen.
+	* graphite-isl-ast-to-gimple.c (get_rename_from_scev): Assert
+	instead of setting codegen_error to fail codegen.
 
 2016-01-28  Jason Merrill  <jason@redhat.com>
 
@@ -227,8 +345,8 @@
 
 2016-01-27  Claudiu Zissulescu  <claziss@synopsys.com>
 
-        * config/arc/predicates.md (proper_comparison_operator): Reject
-        constant-constant comparison.
+	* config/arc/predicates.md (proper_comparison_operator): Reject
+	constant-constant comparison.
 
 2016-01-26  Tom de Vries  <tom@codesourcery.com>
 
@@ -237,7 +355,7 @@
 	DR_NUM_DIMENSIONS == 0.
 
 2016-01-26  Abderrazek Zaafrani  <a.zaafrani@samsung.com>
-            Sebastian Pop  <s.pop@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
 
 	* graphite-isl-ast-to-gimple.c (ternary_op_to_tree): Handle
 	isl_ast_op_cond and isl_ast_op_select.
@@ -458,7 +576,8 @@
 	(compute_deps): Remove.
 	* graphite-isl-ast-to-gimple.c (print_schedule_ast): New.
 	(debug_schedule_ast): New.
-	(translate_isl_ast_to_gimple::scop_to_isl_ast): Call set_separate_option.
+	(translate_isl_ast_to_gimple::scop_to_isl_ast): Call
+	set_separate_option.
 	(graphite_regenerate_ast_isl): Add dump.
 	(translate_isl_ast_to_gimple::scop_to_isl_ast): Generate code
 	from scop->transformed_schedule.
@@ -869,7 +988,7 @@
 
 2016-01-21  Richard Biener  <rguenther@suse.de>
 
-        PR tree-optimization/69378
+	PR tree-optimization/69378
 	* tree-ssa-sccvn.c (dominated_by_p_w_unex): New function.
 	(set_ssa_val_to): Use it for dominance checks taking into
 	account not executable edges.
@@ -921,10 +1040,10 @@
 2016-01-21  Aditya Kumar  <aditya.k7@samsung.com>
 	    Sebastian Pop  <s.pop@samsung.com>
 
-        * graphite-isl-ast-to-gimple.c: Fix comment.
-        * graphite-scop-detection.c (defined_in_loop_p): New.
-        (canonicalize_loop_closed_ssa): Do not add close phi nodes for SSA
-        names defined in loop.
+	* graphite-isl-ast-to-gimple.c: Fix comment.
+	* graphite-scop-detection.c (defined_in_loop_p): New.
+	(canonicalize_loop_closed_ssa): Do not add close phi nodes for SSA
+	names defined in loop.
 
 2016-01-21  Aditya Kumar  <aditya.k7@samsung.com>
 	    Sebastian Pop  <s.pop@samsung.com>
@@ -935,21 +1054,21 @@
 2016-01-21  Aditya Kumar  <aditya.k7@samsung.com>
 	    Sebastian Pop  <s.pop@samsung.com>
 
-        * graphite-sese-to-poly.c (set_scop_parameter_dim): Remove.
-        (cleanup_loop_iter_dom): Remove.
-        (build_loop_iteration_domains): Remove.
-        (build_scop_context): Remove.
-        (build_scop_iteration_domain): Remove.
-        (add_loop_constraints): New.
-        (build_iteration_domains): New.
-        (build_poly_scop): Call build_iteration_domains.
+	* graphite-sese-to-poly.c (set_scop_parameter_dim): Remove.
+	(cleanup_loop_iter_dom): Remove.
+	(build_loop_iteration_domains): Remove.
+	(build_scop_context): Remove.
+	(build_scop_iteration_domain): Remove.
+	(add_loop_constraints): New.
+	(build_iteration_domains): New.
+	(build_poly_scop): Call build_iteration_domains.
 
 2016-01-21  Aditya Kumar  <aditya.k7@samsung.com>
 	    Sebastian Pop  <s.pop@samsung.com>
 
-        * graphite-scop-detection.c
-        (scop_detection::harmful_loop_in_region): Free dom and loops.
-        (scop_detection::loop_body_is_valid_scop): Free bbs.
+	* graphite-scop-detection.c
+	(scop_detection::harmful_loop_in_region): Free dom and loops.
+	(scop_detection::loop_body_is_valid_scop): Free bbs.
 
 2016-01-21  Aditya Kumar  <aditya.k7@samsung.com>
 	    Sebastian Pop  <s.pop@samsung.com>
@@ -968,8 +1087,10 @@
 2016-01-21  Aditya Kumar  <aditya.k7@samsung.com>
 	    Sebastian Pop  <s.pop@samsung.com>
 
-	* graphite-scop-detection.c (loop_is_valid_scop): Renamed loop_is_valid_in_scop.
-	(scop_detection::harmful_stmt_in_region): Renamed harmful_loop_in_region.
+	* graphite-scop-detection.c (loop_is_valid_scop): Renamed
+	loop_is_valid_in_scop.
+	(scop_detection::harmful_stmt_in_region): Renamed
+	harmful_loop_in_region.
 	Call loop_is_valid_in_scop.
 
 2016-01-21  Aditya Kumar  <aditya.k7@samsung.com>
@@ -983,7 +1104,7 @@
 
 	* graphite-poly.c (new_poly_bb): Remove use of PBB_IS_REDUCTION.
 	* graphite.h (struct poly_bb): Remove field is_reduction.
-        (PBB_IS_REDUCTION): Remove.
+	(PBB_IS_REDUCTION): Remove.
 
 2016-01-21  Aditya Kumar  <aditya.k7@samsung.com>
 	    Sebastian Pop  <s.pop@samsung.com>
@@ -1447,7 +1568,7 @@
 	* lto-section-in.c (lto_section_name): Add hsa section name.
 	* lto-streamer.h (lto_section_type): Add hsa section.
 	* timevar.def (TV_IPA_HSA): New.
-        * hsa-brig-format.h: New file.
+	* hsa-brig-format.h: New file.
 	* hsa-brig.c: New file.
 	* hsa-dump.c: Likewise.
 	* hsa-gen.c: Likewise.
@@ -1917,7 +2038,7 @@
 	* loop-doloop.c (record_reg_sets): New.
 	(doloop_optimize): Reject the transform if the sequence
 	clobbers registers live at the end of the loop block.
-	(doloop_optimize_loops): Enable df_live if needed. 
+	(doloop_optimize_loops): Enable df_live if needed.
 
 2016-01-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
@@ -2358,14 +2479,18 @@
 
 	* config/i386/xm-djgpp.h (NATIVE_SYSTEM_HEADER_DIR): Define.
 	(MD_EXEC_PREFIX): Define (moved from config/i386/djgpp.h).
-	(STANDARD_STARTFILE_PREFIX_1): Define (moved from MD_STARTFILE_PREFIX in config/i386/djgpp.h).
-	(STANDARD_STARTFILE_PREFIX_2): Define identical to STANDARD_STARTFILE_PREFIX_1.
+	(STANDARD_STARTFILE_PREFIX_1): Define (moved from MD_STARTFILE_PREFIX
+	in config/i386/djgpp.h).
+	(STANDARD_STARTFILE_PREFIX_2): Define identical to
+	STANDARD_STARTFILE_PREFIX_1.
 	(LOCAL_INCLUDE_DIR): Define (moved from config/i386/djgpp.h).
-	(GCC_DRIVER_HOST_INITIALIZATION): Fix reporting fatal installation errors.
+	(GCC_DRIVER_HOST_INITIALIZATION): Fix reporting fatal
+	installation errors.
 	(MAX_OFILE_ALIGNMENT): Define to 128.
 	(HAVE_FTW_H): Undefine as DJGPP do not have nftw, but have ftw.h.
 
-	* config/i386/djgpp.c: New file. Add implementation of i386_djgpp_asm_named_section.
+	* config/i386/djgpp.c: New file. Add implementation of
+	i386_djgpp_asm_named_section.
 
 	* config/i386/djgpp.opt: Remove obsolete option -mbnu210.
 
@@ -2562,10 +2687,10 @@
 	PR middle-end/68743
 	* match.pd: Require target has function_c99_misc before doing
 	truncl(extend(x)) and trunc(extend(x)) -> extend(truncf(x)), etc.
-	
+
 2016-01-09  Gerald Pfeifer  <gerald@pfeifer.com>
 
-	* configure.ac (isl_options_set_schedule_serialize_sccs): Also 
+	* configure.ac (isl_options_set_schedule_serialize_sccs): Also
 	use GMPINC.
 	* configure: Regenerate.
 

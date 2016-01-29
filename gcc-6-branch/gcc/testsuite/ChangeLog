@@ -1,3 +1,77 @@
+2016-01-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/69518
+	* gcc.dg/torture/pr69518.c: New test.
+
+2016-01-29  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/69530
+	* gcc.target/i386/pr69530.c: New test.
+
+2016-01-29  Steve Ellcey  <sellcey@imgtec.com>
+
+	PR target/65604
+	* gcc.target/mips/div-delay.c: New test.
+
+2016-01-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/69551
+	* gcc.target/i386/pr69551.c: New test.
+
+	PR target/66137
+	* gcc.target/i386/pr66137.c: New test.
+
+2016-01-29  Andrew Bennett  <andrew.bennett@imgtec.com>
+
+	* gcc.target/mips/p5600-bonding.c (dg-options): Force the test to be
+	always built for p5600.
+	* gcc.target/mips/mips.exp (mips-dg-options): Add support for the
+	isa=p5600 dg-option.
+
+2016-01-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69547
+	* g++.dg/tree-ssa/pr69547.C: New testcase.
+
+2016-01-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/66869
+	* g++.dg/warn/Wunused-function2.C: New test.
+
+2016-01-29  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* gcc.dg/tree-ssa/ssa-dom-cse-2.c: Require a hardware vector
+	support for test to succeed.
+
+2016-01-29  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/69509
+	PR c++/69516
+	* g++.dg/ext/constexpr-vla2.C: New test.
+	* g++.dg/ext/constexpr-vla3.C: New test.
+	* g++.dg/ubsan/vla-1.C: Remove dg-shouldfail.
+
+2016-01-29  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/69537
+	* gcc.dg/uninit-21.c: New testcase.
+
+2016-01-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/69459
+	* gcc.target/i386/pr69459.c: New test.
+
+2016-01-28  Steve Ellcey  <sellcey@imgtec.com>
+
+	PR target/68400
+	* gcc.target/mips/mips.exp (mips_option_groups): Add stack-protector.
+	* gcc.target/mips/pr68400.c: New test.
+
+2016-01-28  Martin Sebor  <msebor@redhat.com>
+
+	PR target/17381
+	* gcc.target/powerpc/pr17381.c: New test.
+
 2016-01-28  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/69542
@@ -60,7 +134,7 @@
 2016-01-25  Jeff Law  <law@redhat.com>
 
 	PR tree-optimization/68398
-        PR tree-optimization/69196
+	PR tree-optimization/69196
 	* gcc.dg/tree-ssa/pr66752-3.c: Update expected output.
 	* gcc.dg/tree-ssa/ssa-dom-thread-2c.c: Add extra statements on thread
 	path to avoid new heuristic allowing more irreducible regions
