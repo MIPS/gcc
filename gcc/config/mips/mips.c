@@ -9301,6 +9301,7 @@ bool
 mips16_expand_copy (rtx dest, rtx src, rtx length, rtx alignment)
 {
   rtx base_dest, base_src;
+  rtx temp;
   HOST_WIDE_INT offset_dest, offset_src;
   int word_count, byte_count, offset = 0;
   rtx first_dest = dest, first_src = src;
@@ -9378,12 +9379,26 @@ mips16_expand_copy (rtx dest, rtx src, rtx length, rtx alignment)
       new_offset = offset;
       new_word_count = word_count >= 4 ? 4 : word_count;
 
-      adj_src = adjust_address (first_src, BLKmode, new_offset);
-      adj_dest = adjust_address (first_dest, BLKmode, new_offset);
-      set_mem_size (adj_src, new_word_count * 4);
-      set_mem_size (adj_dest, new_word_count * 4);
-      emit_insn (gen_mips16_copy (adj_dest, adj_src, GEN_INT (new_offset),
-				  GEN_INT (new_word_count), alignment));
+      /* Using a COPYW dst,src,*,1 instruction causes the core to stall
+	 so we generate a lw/sw sequence to get around this core bug.  */
+      if (new_word_count == 1 && align >= 4)
+	{
+	  temp = gen_reg_rtx (SImode);
+	  adj_src = adjust_address (first_src, Pmode, new_offset);
+	  adj_dest = adjust_address (first_dest, Pmode, new_offset);
+	  mips_emit_move (temp, adj_src);
+	  mips_emit_move (adj_dest, temp);
+	}
+      else
+	{
+	  adj_src = adjust_address (first_src, BLKmode, new_offset);
+	  adj_dest = adjust_address (first_dest, BLKmode, new_offset);
+	  set_mem_size (adj_src, new_word_count * 4);
+	  set_mem_size (adj_dest, new_word_count * 4);
+	  emit_insn (gen_mips16_copy (adj_dest, adj_src, GEN_INT (new_offset),
+				      GEN_INT (new_word_count), alignment));
+	}
+
       offset += new_word_count * 4;
       word_count = word_count >= 4 ? word_count - 4 : 0;
 

@@ -4691,7 +4691,11 @@
      (clobber (reg:SI 14))
      (clobber (reg:SI 15))])]
   "TARGET_MIPS16 && TARGET_MIPS16_COPY"
-  "")
+  {
+    /* Using a COPYW dst,src,*,1 instruction causes the core to stall
+       so we can not use mips16_copy in this case.  */
+    gcc_assert (!(INTVAL (operands[3]) == 1 && INTVAL (operands[4]) >= 4));
+  })
 
 (define_insn ""
   [(set (mem:BLK (match_operand:SI 0 "register_operand" "d"))
