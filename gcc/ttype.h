@@ -445,12 +445,7 @@ TREE_TYPE (tree node)
 static inline ttype *
 TREE_TYPE (const ttype *node)
 {
-  return reinterpret_cast<ttype *>(node->u.typed.type);
-}
-static inline ttype *
-TREE_TYPE (const ttype_p node)
-{
-  return reinterpret_cast<ttype *>(node->u.typed.type);
+  return node->type ();
 }
 
 /* Once a file is converted, the type field should only be settable with a 
@@ -462,6 +457,11 @@ TREE_SET_TYPE (tree node, ttype *t)
   (CONTAINS_STRUCT_CHECK (node, TS_TYPED)->u.typed.type) = t;
 }
 
+static inline void
+TREE_SET_TYPE (ttype *node, ttype *t)
+{
+  node->set_type (t);
+}
 #undef TREE_TYPE_PTR
 static inline ttype **TREE_TYPE_PTR (tree node)
 { 
@@ -474,11 +474,5 @@ TREE_TYPE_PTR (ttype *node)
 {
   return node->type_ptr ();
 }
-
-static inline ttype **
-TREE_TYPE_PTR (ttype_p node)
-{
-  return node->type_ptr ();
-} 
 
 #endif 
