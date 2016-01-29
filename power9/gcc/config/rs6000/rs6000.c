@@ -19658,7 +19658,7 @@ rs6000_output_move_128bit (rtx operands[])
 	    return "stxv %x1,%0";
 
 	  else if (TARGET_P9_VECTOR)
-	    return "stxvx %x1,%0";
+	    return "stxvx %x1,%y0";
 
 	  else if (mode == V16QImode || mode == V8HImode || mode == V4SImode)
 	    return "stxvw4x %x1,%y0";
