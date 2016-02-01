@@ -1,3 +1,50 @@
+2016-02-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* ifcvt.c (bb_ok_for_noce_convert_multiple_sets): Return false
+	when count is incremented above limit, don't analyze further
+	insns afterwards.
+
+	* omp-low.c (oacc_parse_default_dims): Avoid
+	-Wsign-compare warning, make sure value fits into int
+	rather than just unsigned int.
+
+2016-02-01  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/67921
+	* fold-const.c (split_tree): New parameters.  Convert pointer
+	type variable part to proper type before negating. 
+	(fold_binary_loc): Pass new arguments to split_tree.
+
+2016-02-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.c (PTX_GANG_DEFAULT): New.
+	(nvptx_goacc_validate_dims): Extend to handle global defaults.
+	* target.def (OACC_VALIDATE_DIMS): Extend documentation.
+	* doc/tm.texti: Rebuilt.
+	* doc/invoke.texi (fopenacc-dim): Document.
+	* lto-wrapper.c (merge_and_complain): Add OPT_fopenacc_dim_ case.
+	(append_compiler_options): Likewise.
+	* omp-low.c (oacc_default_dims, oacc_min_dims): New.
+	(oacc_parse_default_dims): New.
+	(oacc_validate_dims): Add USED arg.  Select non-unity default when
+	possible.
+	(oacc_loop_fixed_partitions): Return mask of used partitions.
+	(oacc_loop_auto_partitions): Emit dump info.
+	(oacc_loop_partition): Return mask of used partitions.
+	(execute_oacc_device_lower): Parse default dimension arg.  Adjust
+	loop partitioning and validation calls.
+
+2016-02-01  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/69556
+	* match.pd: Guard (C1/X)*C2 -> (C1*C2)/X with single_use.
+
+2016-02-01  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69574
+	* tree-chrec.c (hide_evolution_in_other_loops_than_loop): Instead
+	of asserting return chrec_dont_know.
+
 2016-02-01  Martin Liska  <mliska@suse.cz>
 
 	* mem-stats-traits.h: Add copyright header.
