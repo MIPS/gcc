@@ -1,5 +1,9 @@
 /* { dg-do compile } */
 /* { dg-options "-O3 -fno-tree-fre -fno-tree-pre -fdump-tree-optimized --param sra-max-scalarization-size-Ospeed=32" } */
+/* S390 needs hardware vector support for this to work (the optimization gets
+ * too complex without it.
+ * { dg-additional-options "-march=z13" { target { s390*-*-* } } } */
+
 
 int
 foo ()
@@ -21,4 +25,4 @@ foo ()
    but the loop reads only one element at a time, and DOM cannot resolve these.
    The same happens on powerpc depending on the SIMD support available.  */
 
-/* { dg-final { scan-tree-dump "return 28;" "optimized" { xfail alpha*-*-* powerpc64*-*-* } } } */
+/* { dg-final { scan-tree-dump "return 28;" "optimized" { xfail { { alpha*-*-* powerpc64*-*-* } || { sparc*-*-* && lp64 } } } } } */

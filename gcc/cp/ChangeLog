@@ -1,3 +1,122 @@
+2016-01-31  Jakub Jelinek  <jakub@redhat.com>
+	    Jason Merrill  <jason@redhat.com>
+
+	PR c++/68763
+	* tree.c (strip_typedefs) [FUNCTION_TYPE]: Avoid building a new
+	function type if nothing is changing.
+
+2016-01-31  Jason Merrill  <jason@redhat.com>
+
+	PR c++/69009
+	* pt.c (partial_specialization_p, impartial_args): New.
+	(instantiate_decl): Call impartial_args.
+
+	* mangle.c (maybe_check_abi_tags): New.
+	(write_guarded_var_name): Call it.
+	(mangle_ref_init_variable): Call check_abi_tags.
+
+	* pt.c (lookup_template_class_1): Don't share TYPE_ATTRIBUTES
+	between template and instantiation.
+
+2016-01-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/66869
+	* decl.c (wrapup_globals_for_namespace): Warn about unused static
+	function declarations.
+
+2016-01-29  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/69509
+	PR c++/69516
+	* constexpr.c (cxx_eval_array_reference): Give the "array subscript
+	out of bound" error earlier.
+	* init.c (build_vec_init): Change NE_EXPR into GT_EXPR.  Update the
+	commentary.
+
+2016-01-29  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	* name-lookup.c (begin_scope): After reusing a cp_binding_level
+	structure, update free_binding_level before the structure's
+	level_chain field gets cleared, not after.
+
+2016-01-28  Jason Merrill  <jason@redhat.com>
+
+	PR c++/67407
+	* search.c (dfs_walk_once, dfs_walk_once_r)
+	(dfs_walk_once_accessible_r, dfs_walk_once_accessible): Use
+	hash_set instead of BINFO_MARKED.
+	(dfs_unmark_r): Remove.
+
+2016-01-28  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/24208
+	* parser.c (LEXER_DEBUGGING_ENABLED_P): New macro.
+	(cp_lexer_debugging_p): Use it.
+	(cp_lexer_start_debugging): Likewise.
+	(cp_lexer_stop_debugging): Likewise.
+
+2016-01-27  Marek Polacek  <polacek@redhat.com>
+
+	PR c/68062
+	* typeck.c (cp_build_binary_op): Promote operand to unsigned, if
+	needed.  Add -Wsign-compare warning.
+
+2016-01-27  Ryan Burn  <contact@rnburn.com>
+
+	PR cilkplus/69267
+	* cp-gimplify.c (cilk_cp_gimplify_call_params_in_spawned_fn): Removed
+	superfluous post_p argument in call to
+	cilk_gimplify_call_params_in_spawned_fn.
+
+2016-01-27  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/69379
+	* constexpr.c (cxx_eval_constant_expression): Handle PTRMEM_CSTs
+	wrapped in NOP_EXPRs.
+
+2016-01-27  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/69317
+	* mangle.c (mangle_decl): Reference the correct (saved) version
+	of the ABI in -Wabi diagnostics.
+
+2016-01-27  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/69496
+	* constexpr.c (cxx_eval_array_reference): Evaluate the number of
+	elements of the array.
+
+2016-01-26  Jason Merrill  <jason@redhat.com>
+
+	PR c++/68949
+	* constexpr.c (register_constexpr_fundef): Keep the un-massaged body.
+	(cxx_eval_call_expression): Don't look through clones.
+	* optimize.c (maybe_clone_body): Clear DECL_SAVED_TREE of the alias.
+	* semantics.c (expand_or_defer_fn_1): Keep DECL_SAVED_TREE of
+	maybe-in-charge *tor.
+
+2016-01-26  Jason Merrill  <jason@redhat.com>
+
+	PR c++/68782
+	* constexpr.c (cxx_eval_bare_aggregate): Update TREE_CONSTANT
+	and TREE_SIDE_EFFECTS.
+	(cxx_eval_constant_expression) [CONSTRUCTOR]: Call
+	verify_constructor_flags.
+
+2016-01-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/68357
+	* cp-gimplify.c (cp_fold): If some operand folds to error_mark_node,
+	return error_mark_node instead of building trees with error_mark_node
+	operands.
+
+2016-01-26  David Malcolm  <dmalcolm@redhat.com>
+
+	PR other/69006
+	* error.c (print_instantiation_partial_context_line): Add missing
+	newlines from output for the t == NULL case.
+	(print_instantiation_partial_context): Remove call to pp_newline.
+
 2016-01-24  Patrick Palka  <ppalka@gcc.gnu.org>
 
 	Revert:
