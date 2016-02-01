@@ -535,3 +535,15 @@ Enable use of the MIPS16 COPY and UCOPY instructions
 mmips16-ins-ext
 Target Var(TARGET_MIPS16_INS_EXT) Init(0)
 Enable use of the MIPS16 INS, INS0 and EXT instructions
+
+mmips16-lwx
+Target Var(TARGET_MIPS16_LWX) Init(0)
+Enable use of the MIPS16 LWX instruction.
+
+mmips16-andi
+Target Var(TARGET_MIPS16_ANDI) Init(0)
+Enable use of the MIPS16 ANDI instruction.
+
+mmips16-xori
+Target Var(TARGET_MIPS16_XORI) Init(0)
+Enable use of the MIPS16 XORI instruction.

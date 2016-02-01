@@ -367,6 +367,13 @@
   (and (match_code "const_vector")
        (match_test "mips_const_vector_same_byte_p (op, mode)")))
 
+(define_constraint "ZB"
+  "An unsigned 16-bit constant (for logic instructions)."
+  (and (match_code "const_int")
+       (match_test "SMALL_OPERAND_UNSIGNED (ival)")
+       (not (match_operand 0 "db8_operand"))
+       (not (match_operand 0 "extend_operator"))))
+
 (define_memory_constraint "ZC"
   "When compiling microMIPS code, this constraint matches a memory operand
    whose address is formed from a base register and a 12-bit offset.  These

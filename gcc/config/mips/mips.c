@@ -4611,6 +4611,7 @@ mips16_constant_cost (int code, HOST_WIDE_INT x)
 	return COSTS_N_INSNS (1);
       return -1;
 
+    case AND:
     case IOR:
       if (TARGET_MIPS16E2 && SMALL_OPERAND_UNSIGNED (x))
 	return COSTS_N_INSNS (1);
@@ -4787,7 +4788,7 @@ mips_zero_extend_cost (machine_mode mode, rtx op)
     /* We can use ZEB or ZEH.  */
     return COSTS_N_INSNS (1);
 
-  if (TARGET_MIPS16)
+  if (TARGET_MIPS16 && !TARGET_MIPS16_ANDI)
     /* We need to load 0xff or 0xffff into a register and use AND.  */
     return COSTS_N_INSNS (GET_MODE (op) == QImode ? 2 : 3);
 

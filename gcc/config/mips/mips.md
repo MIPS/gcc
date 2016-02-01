@@ -450,7 +450,9 @@
 		     ;; PC-relative references.
 		     (eq_attr "move_type" "sll0,loadpool,ext_ins")
 		     (eq_attr "jal" "direct")
-		     (eq_attr "got" "load"))
+		     (eq_attr "got" "load")
+		     (and (match_test ("TARGET_MIPS16_ANDI"))
+			  (eq_attr "move_type" "andi")))
 		(const_string "yes")
 		(const_string "no")))
 
@@ -3232,7 +3234,7 @@
   [(set (match_operand:GPR 0 "register_operand" "=d,d,d,d,d,d,d")
 	(and:GPR (match_operand:GPR 1 "nonimmediate_operand" "%W,W,W,d,0,d,0")
 		 (match_operand:GPR 2 "and_operand" "Yb,Yh,Yw,Yw,d,Yx,Yz")))]
-  "TARGET_MIPS16 && and_operands_ok (<MODE>mode, operands[1], operands[2])"
+  "TARGET_MIPS16 && !TARGET_MIPS16_ANDI && and_operands_ok (<MODE>mode, operands[1], operands[2])"
 {
   int len;
   int pos;
@@ -3267,6 +3269,49 @@
 }
   [(set_attr "move_type" "load,load,load,shift_shift,logical,ext_ins,ext_ins")
    (set_attr "mode" "<MODE>")])
+
+(define_insn "*and<mode>3_mips16e2"
+  [(set (match_operand:GPR 0 "register_operand" "=d,d,d,d,d,d,d,d")
+	(and:GPR (match_operand:GPR 1 "nonimmediate_operand" "%W,W,W,0,d,0,d,0")
+		 (match_operand:GPR 2 "and_operand" "Yb,Yh,Yw,ZB,Yw,d,Yx,Yz")))]
+  "TARGET_MIPS16 && TARGET_MIPS16_ANDI && and_operands_ok (<MODE>mode, operands[1], operands[2])"
+{
+  int len;
+  int pos;
+
+  switch (which_alternative)
+    {
+    case 0:
+      operands[1] = gen_lowpart (QImode, operands[1]);
+      return "lbu\t%0,%1";
+    case 1:
+      operands[1] = gen_lowpart (HImode, operands[1]);
+      return "lhu\t%0,%1";
+    case 2:
+      operands[1] = gen_lowpart (SImode, operands[1]);
+      return "lwu\t%0,%1";
+    case 3:
+      return "li\t$2,0xabab # andi\t%0,%2";
+    case 4:
+      return "#";
+    case 5:
+      return "and\t%0,%2";
+    case 6:
+      len = low_bitmask_len (<MODE>mode, INTVAL (operands[2]));
+      operands[2] = GEN_INT (len);
+      return "ext\t%0,%1,0,%2";
+    case 7:
+      mips_bit_clear_info (<MODE>mode, INTVAL (operands[2]), &pos, &len);
+      operands[1] = GEN_INT (pos);
+      operands[2] = GEN_INT (len);
+      return "ins\t%0,$0,%1,%2";
+    default:
+      gcc_unreachable ();
+    }
+}
+  [(set_attr "move_type" "load,load,load,andi,shift_shift,logical,ext_ins,ext_ins")
+   (set_attr "mode" "<MODE>")])
+
 
 (define_expand "ior<mode>3"
   [(set (match_operand:GPR 0 "register_operand")
@@ -3332,11 +3377,26 @@
    (set_attr "compression" "micromips,*,*")
    (set_attr "mode" "<MODE>")])
 
+(define_insn "*xor<mode>3_mips16e2"
+  [(set (match_operand:GPR 0 "register_operand"          "=d,t,   t,d,t")
+	(xor:GPR (match_operand:GPR 1 "register_operand" "%0,d,   d,0,d")
+		 (match_operand:GPR 2 "uns_arith_operand" "d,Uub8,K,ZB,d")))]
+  "TARGET_MIPS16 && TARGET_MIPS16_XORI"
+  "@
+   xor\t%0,%2
+   cmpi\t%1,%2
+   cmpi\t%1,%2
+   li\t$2,0xabab # cmpi\t%1,%2
+   cmp\t%1,%2"
+  [(set_attr "alu_type" "xor")
+   (set_attr "mode" "<MODE>")
+   (set_attr "extended_mips16" "no,no,yes,yes,no")])
+
 (define_insn "*xor<mode>3_mips16"
   [(set (match_operand:GPR 0 "register_operand" "=d,t,t,t")
 	(xor:GPR (match_operand:GPR 1 "register_operand" "%0,d,d,d")
 		 (match_operand:GPR 2 "uns_arith_operand" "d,Uub8,K,d")))]
-  "TARGET_MIPS16"
+  "TARGET_MIPS16 && !TARGET_MIPS16_XORI"
   "@
    xor\t%0,%2
    cmpi\t%1,%2

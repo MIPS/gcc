@@ -1157,11 +1157,22 @@
   DONE;
 })
 
+(define_insn "mips_lwx_mips16"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(mem:SI (plus:SI (match_operand:SI 1 "register_operand" "%d")
+			 (match_operand:SI 2 "register_operand" "d"))))]
+  "TARGET_MIPS16_LWX"
+  "li\t$2,0xabab #mips16_lwx\t%0,%2(%1)"
+  [(set_attr "type"	"load")
+   (set_attr "extended_mips16" "yes")
+   (set_attr "mode"	"SI")])
+
+
 (define_insn "mips_l<GPR:size>x_<P:mode>"
   [(set (match_operand:GPR 0 "register_operand" "=d")
 	(mem:GPR (plus:P (match_operand:P 1 "register_operand" "d")
 			 (match_operand:P 2 "register_operand" "d"))))]
-  "ISA_HAS_L<GPR:SIZE>X"
+  "ISA_HAS_L<GPR:SIZE>X && !TARGET_MIPS16_LWX"
   "l<GPR:size>x\t%0,%2(%1)"
   [(set_attr "type"	"load")
    (set_attr "mode"	"<GPR:MODE>")])
