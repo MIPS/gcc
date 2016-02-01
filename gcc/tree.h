@@ -275,7 +275,6 @@ ttype::set_code (enum tree_code c)
   u.base.code = c;
 }
 
-
 /* Helper routine to enable as_a<ttype *> */
 template <>
 template <>
@@ -293,95 +292,6 @@ is_a_helper <const ttype *>::test (const_tree t)
   return (TREE_CODE_CLASS (TREE_CODE (t)) == tcc_type);
 }
 
-/* This routine is used to mark casts to ttype * which we eventually want to
-   disappear. When ttype has been propogated throughout the comnpiler, we ought
-   to be able to simply drop *all* of these.  Typically it is used to access a 
-   tree field in a struct that will eventually be a ttype * field.  */
-static inline ttype *
-TTYPE (tree t) 
-{ 
-  if (t == NULL_TREE)
-    return NULL;
-  if (t == error_mark_node)
-    return error_type_node;
-  return as_a <ttype *>(t); 
-}
-static inline const ttype *
-TTYPE (const_tree t)
-{ 
-  if (t == NULL_TREE)
-    return NULL;
-  if (t == error_mark_node)
-    return error_type_node;
-  return as_a <const ttype *>(t); 
-}
-
-/* This will generate a compiler error when a tree is turned into a ttype *,
-   but a reference to a TTYPE() call was not removed.  */
-ttype *
-TTYPE (ttype *t) __attribute__((error(" Fix use of TTYPE(ttype *)")));
-const ttype *
-TTYPE (const ttype *t) 
-    __attribute__((error(" Fix use of TTYPE(const ttype *)")));
-
-
-/* This is the interface class for incoming parameters to functions/methods
-   so that all callers do not need to be ttype-ified all at once. This will
-   allow the code withinn a function to treat the parameter exactly as if it
-   were a 'ttype *', yet allow callers to pass either a ttype * or a tree.
-   When ttype has been propogated enoguh, this can be changed from 'ttype_p'
-   to 'ttype *' by text replacement and will just work.  */
-
-class ttype_p {
-  ttype *type;
-public:
-  inline ttype_p (tree t) { type = TTYPE (t); }
-  inline ttype_p (const_tree t) { type = const_cast<ttype *>(TTYPE (t)); }
-  inline ttype_p (ttype *t) { type = t; }
-  inline ttype_p& operator= (ttype *t) { type = t; return *this; }
-  inline operator ttype *() const { return type; }
-  ttype_p * operator &() const __attribute__((error("Don't take address of ttype_p ")));
-  inline ttype * operator->() { return type; }
-  inline ttype * operator->() const { return type; }
-};
-
-
-class ttype_pp {
-  ttype **type;
-public:
-  inline ttype_pp (tree *t) 
-      { if (t) TTYPE (*t);  type = reinterpret_cast<ttype **> (t); }
-  inline ttype_pp (ttype_p *t) { type = reinterpret_cast<ttype **> (t); }
-  inline ttype_pp (ttype **t) { type = t; }
-  inline ttype_pp& operator= (ttype **t) { type = t; return *this; }
-  inline operator ttype **() const { return type; }
-  inline ttype ** operator->() { return type; }
-  inline ttype ** operator->() const { return type; }
-};
-
-
-/* These exist because there are cases where ttype_p is used as a parameter, 
-   then used in a condition with types:   cond ? ttype * : ttype_p  .
-   The cast cant be autromcatically done by the compiler, we
-   allow TTYPE to work with ttype_p.  When they are changed to ttype *, they
-   will automatically trigger the above errors and require fixing.  */
-
-static inline ttype *
-TTYPE (const ttype_p t)
-{
-  return t;
-}
-
-
-/* On rare occassions, situations arise which require a temporary situation to
-   exist when an explcicit cast needs to be made. These macros are provided
-   to enable performing the cast, and provide a searchable name so they can be
-   removed at the earliest convenience.  This will not remain in the compiler
-   long term.   Each use should be accompanied by a comment indicating WHY 
-   it is required so its obvious what work is required to remove them.  */
-#define TREE_CAST(NODE) ((tree)(NODE))
-#define TREE_PTR_CAST(NODE) ((tree *)(NODE))
-#define TTYPE_PTR(NODE)  ((ttype **)(NODE))
 
 /* When checking is enabled, errors will be generated if a tree node
    is accessed incorrectly. The macros die with a fatal error.  */
@@ -512,7 +422,46 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 			       enum omp_clause_code)
     ATTRIBUTE_NORETURN;
 
+/* This routine is used to mark casts to ttype * which we eventually want to
+   disappear. When ttype has been propogated throughout the comnpiler, we ought
+   to be able to simply drop *all* of these.  Typically it is used to access a 
+   tree field in a struct that will eventually be a ttype * field.  */
+static inline ttype *
+TTYPE (tree t) 
+{ 
+  if (t == NULL_TREE)
+    return NULL;
+  if (t == error_mark_node)
+    return error_type_node;
+  return as_a <ttype *>(t); 
+}
+static inline const ttype *
+TTYPE (const_tree t)
+{ 
+  if (t == NULL_TREE)
+    return NULL;
+  if (t == error_mark_node)
+    return error_type_node;
+  return as_a <const ttype *>(t); 
+}
+
 #else /* not ENABLE_TREE_CHECKING, or not gcc */
+
+/* This routine is used to mark casts to ttype * which we eventually want to
+   disappear. When ttype has been propogated throughout the comnpiler, we ought
+   to be able to simply drop *all* of these.  Typically it is used to access a 
+   tree field in a struct that will eventually be a ttype * field.  */
+static inline ttype *
+TTYPE (tree t) 
+{ 
+  return reinterpret_cast<ttype *> (t); 
+}
+
+static inline const ttype *
+TTYPE (const_tree t)
+{ 
+  return reinterpret_cast<const ttype *> (t); 
+}
 
 #define CONTAINS_STRUCT_CHECK(T, ENUM)          (T)
 #define TREE_CHECK(T, CODE)			(T)
@@ -539,6 +488,73 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define ANY_INTEGRAL_TYPE_CHECK(T)		(T)
 
 #endif
+
+/* This is the interface class for incoming parameters to functions/methods
+   so that all callers do not need to be ttype-ified all at once. This will
+   allow the code withinn a function to treat the parameter exactly as if it
+   were a 'ttype *', yet allow callers to pass either a ttype * or a tree.
+   When ttype has been propogated enoguh, this can be changed from 'ttype_p'
+   to 'ttype *' by text replacement and will just work.  */
+
+class ttype_p {
+  ttype *type;
+public:
+  inline ttype_p (tree t) { type = TTYPE (t); }
+  inline ttype_p (const_tree t) { type = const_cast<ttype *>(TTYPE (t)); }
+  inline ttype_p (ttype *t) { type = t; }
+  inline ttype_p& operator= (ttype *t) { type = t; return *this; }
+  inline operator ttype *() const { return type; }
+  ttype_p * operator &() const __attribute__((error("Don't take address of ttype_p ")));
+  inline ttype * operator->() { return type; }
+  inline ttype * operator->() const { return type; }
+};
+
+
+class ttype_pp {
+  ttype **type;
+public:
+  inline ttype_pp (tree *t) 
+      { if (t) TTYPE (*t);  type = reinterpret_cast<ttype **> (t); }
+  inline ttype_pp (ttype_p *t) { type = reinterpret_cast<ttype **> (t); }
+  inline ttype_pp (ttype **t) { type = t; }
+  inline ttype_pp& operator= (ttype **t) { type = t; return *this; }
+  inline operator ttype **() const { return type; }
+  inline ttype ** operator->() { return type; }
+  inline ttype ** operator->() const { return type; }
+};
+
+
+/* This will generate a compiler error when a tree is turned into a ttype *,
+   but a reference to a TTYPE() call was not removed.  */
+ttype *
+TTYPE (ttype *t) __attribute__((error(" Fix use of TTYPE(ttype *)")));
+const ttype *
+TTYPE (const ttype *t) 
+    __attribute__((error(" Fix use of TTYPE(const ttype *)")));
+
+/* These exist because there are cases where ttype_p is used as a parameter, 
+   then used in a condition with types:   cond ? ttype * : ttype_p  .
+   The cast cant be autromcatically done by the compiler, we
+   allow TTYPE to work with ttype_p.  When they are changed to ttype *, they
+   will automatically trigger the above errors and require fixing.  */
+
+static inline ttype *
+TTYPE (const ttype_p t)
+{
+  return t;
+}
+
+
+/* On rare occassions, situations arise which require a temporary situation to
+   exist when an explcicit cast needs to be made. These macros are provided
+   to enable performing the cast, and provide a searchable name so they can be
+   removed at the earliest convenience.  This will not remain in the compiler
+   long term.   Each use should be accompanied by a comment indicating WHY 
+   it is required so its obvious what work is required to remove them.  */
+#define TREE_CAST(NODE) ((tree)(NODE))
+#define TREE_PTR_CAST(NODE) ((tree *)(NODE))
+#define TTYPE_PTR(NODE)  ((ttype **)(NODE))
+
 
 /* Nodes are chained together for many purposes.
    Types are chained together to record them for being output to the debugger
