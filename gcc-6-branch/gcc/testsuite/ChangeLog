@@ -1,3 +1,60 @@
+2016-02-01  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69579
+	* gcc.dg/setjmp-6.c: New testcase.
+
+2016-02-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/69570
+	* g++.dg/opt/pr69570.C: New test.
+
+2016-02-01  Richard Henderson  <rth@redhat.com>
+
+	* gcc.dg/pr69535.c: New test.
+
+2016-01-31  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR testsuite/69584
+	* gcc.dg/tree-ssa/sra-17.c: Fix regexps to work on hpux.
+	* gcc.dg/tree-ssa/sra-18.c: Likewise.
+
+	PR debug/68244
+	* g++.dg/parse/parens3.C: Use register "4" on hppa.
+
+	* gcc.dg/tree-ssa/vector-5.c: Add -fno-common option on hppa*-*-hpux*.
+
+2016-01-31  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/67564
+	* gfortran.dg/allocate_with_source_17.f03: New test.
+
+2016-01-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/69546
+	* gcc.dg/torture/pr69546.c: New test.
+
+2016-01-30  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/69566
+	* gfortran.dg/unlimited_polymorphic_25.f03: New test.
+
+2016-01-30  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/68490
+	* g++.dg/ext/flexary10.C: New test.
+
+2016-01-30  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR fortran/66707
+	gfortran.dg/common_23.f90: New test.
+
+2016-01-29  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/65546
+	* gcc.dg/vect/costmodel/ppc/costmodel-vect-31a.c: Correct
+	condition being checked, and disable it when the target supports
+	misaligned loads and stores.
+
 2016-01-29  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/69518

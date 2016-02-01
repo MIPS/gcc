@@ -1,3 +1,16 @@
+2016-01-31  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/67564
+	* trans-expr.c (gfc_conv_procedure_call): For the vtable copy
+	subroutines, add a string length argument, when the actual
+	argument is an unlimited polymorphic class object.
+
+2016-01-30  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/69566
+	* trans-expr.c (gfc_conv_procedure_call): Correct expression
+	for 'ulim_copy', which was missing a test for 'comp'.
+
 2016-01-28  Andre Vehreschild  <vehre@gcc.gnu.org>
 
 	PR fortran/62536
