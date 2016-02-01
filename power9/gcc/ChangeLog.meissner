@@ -1,7 +1,32 @@
-2016-01-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+2016-02-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	* config/rs6000/constraints.md (wL constraint): New constraint for
-	ISA 3.0 vector d-form addresses.
+	* config/rs6000/constraints.md (wV constraint): New constraint for
+	ISA 3.0 vector d-form memory.
+
+	* config/rs6000/predicates.md (vsx_quad_memory_operand): Eliminate
+	alignment checks.
+
+	* config/rs6000/rs6000.c (quad_address_offset_p): Move checking
+	quad address offset from quad_address_p to quad_address_offset_p.
+	(quad_address_p): Likewise.
+	(rs6000_secondary_reload_memory): Separate normal offset memory
+	processing from 128-bit d-form offset processing.  Change the text
+	printed out for some debug strings.
+	(rs6000_secondary_reload_inner): Likewise.
+	(rs6000_emit_prologue): If we have vector d-form addressing,
+	generate ISA 3.0 LXV and STXV instead of Altivec LVX and STVX.
+	(rs6000_emit_epilogue): Likewise.
+
+	* config/rs6000/vsx.md (p9_vecload_<mode>): Delete, use general
+	moves for ISA 3.0.
+	(p9_vecstore_<mode>): Likewise.
+	(mov<mode>): Simplify, eliminate notion of preferred and
+	non-preferred register classes.  Add support for ISA 3.0 d-form
+	addressing.
+	(vsx_movti_64bit): Likewise.
+	(vsx_movti_32bit): Likewise.
+
+2016-01-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/predicates.md (quad_memory_operand): Rework to use
 	quad_address_p.

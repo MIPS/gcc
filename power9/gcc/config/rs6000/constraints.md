@@ -166,6 +166,13 @@
   "Memory operand suitable for the load/store quad instructions"
   (match_operand 0 "quad_memory_operand"))
 
+;; Suitable vector address for the current machine
+(define_memory_constraint "wV"
+  "VSX memory operand suitable to load 128-bit values"
+  (ior (match_operand 0 "indexed_or_indirect_operand")
+       (and (match_test "TARGET_P9_DFORM_VECTOR")
+	    (match_operand 0 "vsx_quad_memory_operand"))))
+
 ;; Altivec style load/store that ignores the bottom bits of the address
 (define_memory_constraint "wZ"
   "Indexed or indirect memory operand, ignoring the bottom 4 bits"
