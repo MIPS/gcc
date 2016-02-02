@@ -532,7 +532,7 @@ cgraph_node::get_create (tree decl)
       first_clone->clone_of = node;
       node->clones = first_clone;
       symtab->symtab_prevail_in_asm_name_hash (node);
-      node->decl->decl_with_vis.symtab_node = node;
+      DECL_SYMTAB_NODE (node->decl) = node;
       if (dump_file)
 	fprintf (dump_file, "Introduced new external node "
 		 "(%s/%i) and turned into root of the clone tree.\n",
