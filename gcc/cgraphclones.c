@@ -518,7 +518,7 @@ struct cgraph_node *
 cgraph_create_virtual_clone (struct cgraph_node *old_node,
 			     vec<cgraph_edge_p> redirect_callers,
 			     vec<ipa_replace_map_p, va_gc> *tree_map,
-			     bitmap args_to_skip,
+			     bitmap args_to_skip, bitmap args_to_decompose,
 			     const char * suffix)
 {
   tree old_decl = old_node->decl;
@@ -526,25 +526,11 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
   tree new_decl;
   size_t len, i;
   struct ipa_replace_map *map;
-  char *name;
-  bitmap args_to_decompose = 0; 
+  char *name;  
 
 
   if (!in_lto_p)
     gcc_checking_assert  (tree_versionable_function_p (old_decl));
-
-  /* Build arg_to_decompose bitmap.  */
-  if (tree_map)
-    for (i = 0; i < tree_map->length (); i++)
-      {
-	map = (*tree_map)[i];
-	if (map->decompose_p)
-	  {
-	    if (!args_to_decompose)
-	      args_to_decompose = BITMAP_ALLOC (NULL);
-	    bitmap_set_bit (args_to_decompose, map->parm_num);
-	  }
-      }
 
   gcc_assert (old_node->local.can_change_signature 
 	      || !(args_to_skip || args_to_decompose));
@@ -598,6 +584,7 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
   DECL_STATIC_DESTRUCTOR (new_node->decl) = 0;
   new_node->clone.tree_map = tree_map;
   new_node->clone.args_to_skip = args_to_skip;
+  new_node->clone.args_to_decompose = args_to_decompose;
 
   /* Clones of global symbols or symbols with unique names are unique.  */
   if ((TREE_PUBLIC (old_decl)
@@ -610,41 +597,54 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
     if (map->new_tree)
       ipa_maybe_record_reference (new_node, map->new_tree,
 				  IPA_REF_ADDR, NULL);
-  /* Process arguments to skip.  */
-  if (!args_to_skip)
-    new_node->clone.combined_args_to_skip = old_node->clone.combined_args_to_skip;
-  else if (old_node->clone.combined_args_to_skip)
+  /* Process arguments to skip and arguments to decompose.  */
+  if (old_node->clone.combined_args_to_skip
+      && old_node->clone.combined_args_to_decompose)
     {
-      int newi = 0, oldi = 0;
-      tree arg;
-      bitmap new_args_to_skip = BITMAP_GGC_ALLOC ();
-      struct cgraph_node *orig_node;
-      for (orig_node = old_node; orig_node->clone_of; orig_node = orig_node->clone_of)
-        ;
-      for (arg = DECL_ARGUMENTS (orig_node->decl);
-	   arg; arg = DECL_CHAIN (arg), oldi++)
+      int nskip = vec_safe_length (old_node->clone.combined_args_to_skip);
+      int ndecomp = vec_safe_length (old_node->clone.combined_args_to_decompose);
+      gcc_assert (nskip == ndecomp);
+
+      for (int j = 0; j < nskip; j++)
 	{
-	  if (bitmap_bit_p (old_node->clone.combined_args_to_skip, oldi))
-	    {
-	      bitmap_set_bit (new_args_to_skip, oldi);
-	      continue;
-	    }
-	  if (bitmap_bit_p (args_to_skip, newi))
-	    bitmap_set_bit (new_args_to_skip, oldi);
-	  newi++;
+	  vec_safe_push (new_node->clone.combined_args_to_skip,
+			 (*old_node->clone.combined_args_to_skip)[j]);
+	  vec_safe_push (new_node->clone.combined_args_to_decompose, 
+			 (*old_node->clone.combined_args_to_decompose)[j]);
 	}
-      new_node->clone.combined_args_to_skip = new_args_to_skip;
     }
   else
-    new_node->clone.combined_args_to_skip = args_to_skip;
+    gcc_assert (!old_node->clone.combined_args_to_skip
+		&& !old_node->clone.combined_args_to_decompose);
+  
+  if (args_to_skip)
+    {
+      vec_safe_push (new_node->clone.combined_args_to_skip, args_to_skip);
+      if (!args_to_decompose)
+	{
+	  bitmap tmp = BITMAP_GGC_ALLOC ();
+
+	  bitmap_clear (tmp);
+	  vec_safe_push (new_node->clone.combined_args_to_decompose, tmp);	  
+	}
+    }
+  if (args_to_decompose)
+    {
+      vec_safe_push (new_node->clone.combined_args_to_decompose, args_to_decompose);
+      if (!args_to_skip)
+	{
+	  bitmap tmp = BITMAP_GGC_ALLOC ();
+
+	  bitmap_clear (tmp);
+	  vec_safe_push (new_node->clone.combined_args_to_skip, tmp);	  
+	}
+    }
+
   new_node->externally_visible = 0;
   new_node->local.local = 1;
   new_node->lowered = true;
 
   cgraph_call_node_duplication_hooks (old_node, new_node);
-
-  if (args_to_decompose)
-    BITMAP_FREE (args_to_decompose);  
   return new_node;
 }
 
@@ -984,7 +984,6 @@ cgraph_function_versioning (struct cgraph_node *old_version_node,
   tree old_decl = old_version_node->decl;
   struct cgraph_node *new_version_node = NULL;
   tree new_decl;
-  bitmap args_to_decompose = 0;
 
   if (!tree_versionable_function_p (old_decl))
     return NULL;
@@ -997,7 +996,7 @@ cgraph_function_versioning (struct cgraph_node *old_version_node,
   else
     new_decl
       = build_function_decl_skip_decomp_args (old_decl, args_to_skip, 
-					      args_to_decompose, skip_return);
+					      NULL, skip_return);
 
   /* Generate a new name for the new version. */
   DECL_NAME (new_decl) = clone_function_name (old_decl, clone_name);
@@ -1015,8 +1014,9 @@ cgraph_function_versioning (struct cgraph_node *old_version_node,
 				     redirect_callers, bbs_to_copy);
 
   /* Copy the OLD_VERSION_NODE function tree to the new version.  */
-  tree_function_versioning (old_decl, new_decl, tree_map, false, args_to_skip,
-			    skip_return, bbs_to_copy, new_entry_block);
+  tree_function_versioning (old_decl, new_decl, tree_map, false, 
+			    args_to_skip, NULL, skip_return,
+			    bbs_to_copy, new_entry_block);
 
   /* Update the new version's properties.
      Make The new version visible only within this translation unit.  Make sure
@@ -1055,8 +1055,9 @@ cgraph_materialize_clone (struct cgraph_node *node)
   /* Copy the OLD_VERSION_NODE function tree to the new version.  */
   tree_function_versioning (node->clone_of->decl, node->decl,
   			    node->clone.tree_map, true,
-			    node->clone.args_to_skip, false,
-			    NULL, NULL);
+			    node->clone.args_to_skip, 
+			    node->clone.args_to_decompose,
+			    false, NULL, NULL);
   if (cgraph_dump_file)
     {
       dump_function_to_file (node->clone_of->decl, cgraph_dump_file, dump_flags);
@@ -1148,8 +1149,26 @@ cgraph_materialize_all_clones (void)
 			}
 		      if (node->clone.combined_args_to_skip)
 			{
+			  int j;
+			  bitmap bm;
+
 		          fprintf (cgraph_dump_file, "   combined_args_to_skip:");
-		          dump_bitmap (cgraph_dump_file, node->clone.combined_args_to_skip);
+			  FOR_EACH_VEC_SAFE_ELT (node->clone.combined_args_to_skip, j, bm)
+			      dump_bitmap (cgraph_dump_file, bm);
+			}
+		      if (node->clone.args_to_decompose)
+			{
+		          fprintf (cgraph_dump_file, "   args_to_skip: ");
+		          dump_bitmap (cgraph_dump_file, node->clone.args_to_decompose);
+			}
+		      if (node->clone.combined_args_to_decompose)
+			{
+			  int j;
+			  bitmap bm;
+
+		          fprintf (cgraph_dump_file, "   combined_args_to_decompose:");
+			  FOR_EACH_VEC_SAFE_ELT (node->clone.combined_args_to_decompose, j, bm)
+			      dump_bitmap (cgraph_dump_file, bm);
 			}
 		    }
 		  cgraph_materialize_clone (node);

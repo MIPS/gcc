@@ -2002,22 +2002,55 @@ canonicalize_cond_expr_cond (tree t)
    the positions marked by the set ARGS_TO_SKIP.  */
 
 gimple
-gimple_call_copy_skip_args (gimple stmt, bitmap args_to_skip)
+gimple_call_copy_skip_args (gimple stmt, vec<bitmap, va_gc> *args_to_skip,
+			    vec<bitmap, va_gc> *args_to_decomp)
 {
-  int i;
+  int i, j;
   int nargs = gimple_call_num_args (stmt);
-  auto_vec<tree> vargs (nargs);
+  auto_vec<tree> orig_vargs (nargs);
+  auto_vec<tree> new_vargs (nargs);
+  auto_vec<tree> *ovargs;
+  auto_vec<tree> *nvargs;
+  auto_vec<tree> *tvargs;
   gimple new_stmt;
+  int nargs_skip, nargs_decomp; 
 
+  nargs_skip = vec_safe_length (args_to_skip);
+  nargs_decomp = vec_safe_length (args_to_decomp);
+  gcc_assert (nargs_skip == nargs_decomp);
+
+  /* Copy original arguments.  */
   for (i = 0; i < nargs; i++)
-    if (!bitmap_bit_p (args_to_skip, i))
-      vargs.quick_push (gimple_call_arg (stmt, i));
+    orig_vargs.quick_push (gimple_call_arg (stmt, i));
+
+  ovargs = &orig_vargs;
+  nvargs = &new_vargs;
+  for (j = 0; j < nargs_decomp; j++)
+    {
+      bitmap decomp = (*args_to_decomp)[j];
+      bitmap skip = (*args_to_skip)[j];
+
+      /* First decompose, then skip.  */
+      for (i = 0; i < (int)ovargs->length (); i++)
+	{
+	  if (bitmap_bit_p (decomp, i))
+	    {	      
+	      //TBD nvargs->safe_push (new element);
+	    }
+	  if (!bitmap_bit_p (skip, i))
+	    nvargs->safe_push ((*ovargs)[i]); 
+	}
+      tvargs = ovargs;
+      ovargs = nvargs;
+      nvargs = tvargs;
+      nvargs->truncate (0);
+    }
 
   if (gimple_call_internal_p (stmt))
     new_stmt = gimple_build_call_internal_vec (gimple_call_internal_fn (stmt),
-					       vargs);
+					       *ovargs);
   else
-    new_stmt = gimple_build_call_vec (gimple_call_fn (stmt), vargs);
+    new_stmt = gimple_build_call_vec (gimple_call_fn (stmt), *ovargs);
 
   if (gimple_call_lhs (stmt))
     gimple_call_set_lhs (new_stmt, gimple_call_lhs (stmt));

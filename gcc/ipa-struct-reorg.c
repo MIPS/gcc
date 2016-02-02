@@ -158,6 +158,7 @@ struct func_to_clone_d {
   vec<cgraph_edge_p> callers;
   vec<ipa_replace_map_p, va_gc> *tree_map;
   bitmap args_to_skip;  
+  bitmap args_to_decompose;  
 };
 
 typedef struct func_to_clone_d *func_to_clone;
@@ -207,6 +208,7 @@ add_func_to_funcs_to_clone_vec (struct cgraph_node *node)
   func->callers.create (0);
   func->tree_map = NULL;
   func->args_to_skip = 0;
+  func->args_to_decompose = 0;
   if (!funcs_to_clone.exists ())
     funcs_to_clone.create (0);
   funcs_to_clone.safe_push (func);
@@ -2192,10 +2194,13 @@ collect_funcs_with_struct_params (void)
    structure types to be transformed.  */
 
 static void
-gen_args_to_skip (func_to_clone func)
+gen_args_to_decompose (func_to_clone func)
 {
   tree parm, fndecl;
   int i, ii;
+
+
+  func->args_to_decompose = BITMAP_GGC_ALLOC ();
   //func->args_to_skip = BITMAP_GGC_ALLOC ();
   fndecl = func->old_node->decl;
 
@@ -2213,9 +2218,11 @@ gen_args_to_skip (func_to_clone func)
 	  /* We record the same parameter index for 
 	     both: decomposition and skip.  */
 	  //bitmap_set_bit (func->args_to_skip, i);
+	  bitmap_set_bit (func->args_to_decompose, i);
 	  if (dump_file)
 	    fprintf (dump_file, "\nArg to skip is %d", i);
 
+	  /* TBD actually we do not use replace_map structure.  */
 	  replace_map = ggc_alloc_ipa_replace_map ();
 	  replace_map->old_tree = NULL;
 	  replace_map->parm_num = i;
@@ -2250,11 +2257,11 @@ clone_funcs_with_struct_params (void)
   FOR_EACH_VEC_ELT (funcs_to_clone, i, func)
     {
       func->callers = collect_callers_of_node (func->old_node);
-      gen_args_to_skip (func);
+      gen_args_to_decompose (func);
       func->new_node = 
 	cgraph_create_virtual_clone (func->old_node, func->callers, 
 				     func->tree_map, func->args_to_skip, 
-				     "structreorg");
+				     func->args_to_decompose, "structreorg");
     }    
 }
 

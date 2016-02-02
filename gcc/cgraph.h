@@ -91,7 +91,9 @@ public:
   unsigned forced_by_abi : 1;
   /* True when the name is known to be unique and thus it does not need mangling.  */
   unsigned unique_name : 1;
-
+  /* True when body and other characteristics have been removed by
+     symtab_remove_unreachable_nodes. */
+  unsigned body_removed : 1;
 
   /*** WHOPR Partitioning flags.
        These flags are used at ltrans stage when only part of the callgraph is
@@ -249,13 +251,18 @@ struct GTY(()) ipa_replace_map
   /* True when we replace a reference to old_tree.  */
   bool ref_p;
 };
+
 typedef struct ipa_replace_map *ipa_replace_map_p;
 
 struct GTY(()) cgraph_clone_info
 {
   vec<ipa_replace_map_p, va_gc> *tree_map;
   bitmap args_to_skip;
-  bitmap combined_args_to_skip;
+  /* The same number of elements should be in both combined_args_to_skip 
+     and combined_args_to_decompose vectors. First we apply decompose, then skip.  */
+  vec<bitmap, va_gc> *combined_args_to_skip;
+  bitmap args_to_decompose;
+  vec<bitmap, va_gc> *combined_args_to_decompose;
 };
 
 enum cgraph_simd_clone_arg_type
@@ -901,7 +908,7 @@ tree clone_function_name (tree decl, const char *);
 struct cgraph_node * cgraph_create_virtual_clone (struct cgraph_node *old_node,
 			                          vec<cgraph_edge_p>,
 			                          vec<ipa_replace_map_p, va_gc> *tree_map,
-			                          bitmap args_to_skip,
+			                          bitmap args_to_skip, bitmap args_to_decompose,
 						  const char *clone_name);
 struct cgraph_node *cgraph_find_replacement_node (struct cgraph_node *);
 bool cgraph_remove_node_and_inline_clones (struct cgraph_node *, struct cgraph_node *);
@@ -920,7 +927,7 @@ struct cgraph_node *cgraph_function_versioning (struct cgraph_node *,
 						bitmap, bool, bitmap,
 						basic_block, const char *);
 void tree_function_versioning (tree, tree, vec<ipa_replace_map_p, va_gc> *,
-			       bool, bitmap, bool, bitmap, basic_block);
+			       bool, bitmap, bitmap, bool, bitmap, basic_block);
 struct cgraph_edge *cgraph_resolve_speculation (struct cgraph_edge *, tree);
 
 /* In cgraphbuild.c  */

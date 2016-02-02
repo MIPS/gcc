@@ -1626,8 +1626,10 @@ output_cgraph_opt_summary_p (struct cgraph_node *node)
 {
   return (node->clone_of
 	  && (node->clone.tree_map
-	      || node->clone.args_to_skip
-	      || node->clone.combined_args_to_skip));
+	      || node->clone.args_to_skip 
+	      || node->clone.combined_args_to_skip
+	      || node->clone.args_to_decompose 
+	      || node->clone.combined_args_to_decompose));
 }
 
 /* Output optimization summary for EDGE to OB.  */
@@ -1650,6 +1652,7 @@ output_node_opt_summary (struct output_block *ob,
   struct bitpack_d bp;
   int i;
   struct cgraph_edge *e;
+  bitmap bm;
 
   if (node->clone.args_to_skip)
     {
@@ -1661,9 +1664,33 @@ output_node_opt_summary (struct output_block *ob,
     streamer_write_uhwi (ob, 0);
   if (node->clone.combined_args_to_skip)
     {
-      streamer_write_uhwi (ob, bitmap_count_bits (node->clone.combined_args_to_skip));
-      EXECUTE_IF_SET_IN_BITMAP (node->clone.combined_args_to_skip, 0, index, bi)
+      streamer_write_uhwi (ob, vec_safe_length (node->clone.combined_args_to_skip));
+      FOR_EACH_VEC_SAFE_ELT (node->clone.combined_args_to_skip, i, bm)
+	{
+	  streamer_write_uhwi (ob, bitmap_count_bits (bm));
+	  EXECUTE_IF_SET_IN_BITMAP (bm, 0, index, bi)
+	    streamer_write_uhwi (ob, index);
+	}
+    }
+  else
+    streamer_write_uhwi (ob, 0);
+  if (node->clone.args_to_decompose)
+    {
+      streamer_write_uhwi (ob, bitmap_count_bits (node->clone.args_to_decompose));
+      EXECUTE_IF_SET_IN_BITMAP (node->clone.args_to_decompose, 0, index, bi)
 	streamer_write_uhwi (ob, index);
+    }
+  else
+    streamer_write_uhwi (ob, 0);
+  if (node->clone.combined_args_to_decompose)
+    {
+      streamer_write_uhwi (ob, vec_safe_length (node->clone.combined_args_to_decompose));
+      FOR_EACH_VEC_SAFE_ELT (node->clone.combined_args_to_decompose, i, bm)
+	{
+	  streamer_write_uhwi (ob, bitmap_count_bits (bm));
+	  EXECUTE_IF_SET_IN_BITMAP (bm, 0, index, bi)
+	    streamer_write_uhwi (ob, index);
+	}
     }
   else
     streamer_write_uhwi (ob, 0);
@@ -1743,7 +1770,7 @@ input_node_opt_summary (struct cgraph_node *node,
 			struct lto_input_block *ib_main,
 			struct data_in *data_in)
 {
-  int i;
+  int i,j;
   int count;
   int bit;
   struct bitpack_d bp;
@@ -1758,12 +1785,45 @@ input_node_opt_summary (struct cgraph_node *node,
       bitmap_set_bit (node->clone.args_to_skip, bit);
     }
   count = streamer_read_uhwi (ib_main);
+  node->clone.combined_args_to_skip = NULL;
   if (count)
-    node->clone.combined_args_to_skip = BITMAP_GGC_ALLOC ();
+    {
+      for (i = 0; i < count; i++)
+	{	  
+	  int len = streamer_read_uhwi (ib_main);
+	  bitmap bm = BITMAP_GGC_ALLOC ();
+	  vec_safe_push (node->clone.combined_args_to_skip, bm);
+	  for (j = 0; j < len; j++)
+	    {
+	      bit = streamer_read_uhwi (ib_main);
+	      bitmap_set_bit (bm, bit);
+	    }
+	}
+    }
+  count = streamer_read_uhwi (ib_main);
+  if (count)
+    node->clone.args_to_decompose = BITMAP_GGC_ALLOC ();
   for (i = 0; i < count; i++)
     {
       bit = streamer_read_uhwi (ib_main);
-      bitmap_set_bit (node->clone.combined_args_to_skip, bit);
+      bitmap_set_bit (node->clone.args_to_decompose, bit);
+    }
+  count = streamer_read_uhwi (ib_main);
+  node->clone.combined_args_to_decompose = NULL;
+  if (count)
+    {
+      for (i = 0; i < count; i++)
+	{	  
+	  int len = streamer_read_uhwi (ib_main);
+	  bitmap bm = BITMAP_GGC_ALLOC ();
+
+	  vec_safe_push (node->clone.combined_args_to_decompose, bm);
+	  for (j = 0; j < len; j++)
+	    {
+	      bit = streamer_read_uhwi (ib_main);
+	      bitmap_set_bit (bm, bit);
+	    }
+	}
     }
   count = streamer_read_uhwi (ib_main);
   for (i = 0; i < count; i++)

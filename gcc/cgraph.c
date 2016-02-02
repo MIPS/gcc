@@ -1419,10 +1419,12 @@ cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
   if (decl)
     {
       node = cgraph_get_node (decl);
-      gcc_assert (!node || !node->clone.combined_args_to_skip);
+      gcc_assert (!node || !(node->clone.combined_args_to_skip
+			     || node->clone.combined_args_to_decompose));
     }
 #endif
 
+  //debug_tree (decl);
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "updating call of %s/%i -> %s/%i: ",
@@ -1431,9 +1433,21 @@ cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
       print_gimple_stmt (cgraph_dump_file, e->call_stmt, 0, dump_flags);
       if (e->callee->clone.combined_args_to_skip)
 	{
+	  bitmap bm;
+	  int i;
+
 	  fprintf (cgraph_dump_file, " combined args to skip: ");
-	  dump_bitmap (cgraph_dump_file,
-		       e->callee->clone.combined_args_to_skip);
+	  FOR_EACH_VEC_SAFE_ELT (e->callee->clone.combined_args_to_skip, i, bm)
+	      dump_bitmap (cgraph_dump_file, bm);
+	}
+      if (e->callee->clone.combined_args_to_decompose)
+	{
+	  bitmap bm;
+	  int i;
+
+	  fprintf (cgraph_dump_file, " combined args to decompose: ");
+	  FOR_EACH_VEC_SAFE_ELT (e->callee->clone.combined_args_to_decompose, i, bm)
+	      dump_bitmap (cgraph_dump_file, bm);
 	}
     }
 
@@ -1441,9 +1455,11 @@ cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
     {
       int lp_nr;
 
+      gcc_assert (e->callee->clone.combined_args_to_decompose);
       new_stmt
 	= gimple_call_copy_skip_args (e->call_stmt,
-				      e->callee->clone.combined_args_to_skip);
+				      e->callee->clone.combined_args_to_skip,
+				      e->callee->clone.combined_args_to_decompose);
       gimple_call_set_fndecl (new_stmt, e->callee->decl);
       gimple_call_set_fntype (new_stmt, gimple_call_fntype (e->call_stmt));
 

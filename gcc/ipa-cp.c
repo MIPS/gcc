@@ -2792,7 +2792,7 @@ create_specialized_node (struct cgraph_node *node,
     }
 
   new_node = cgraph_create_virtual_clone (node, callers, replace_trees,
-					  args_to_skip, "constprop");
+					  args_to_skip, NULL, "constprop");
   ipa_set_node_agg_value_chain (new_node, aggvals);
   for (av = aggvals; av; av = av->next)
     ipa_maybe_record_reference (new_node, av->value,
