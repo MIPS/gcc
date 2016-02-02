@@ -1,3 +1,27 @@
+2016-01-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/69518
+	* c-decl.c (finish_struct): Clear C_TYPE_INCOMPLETE_VARS in
+	all type variants, not just TYPE_MAIN_VARIANT.
+
+2016-01-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/66869
+	* c-decl.c (c_write_global_declarations_1): Warn with
+	warn_unused_function if static prototype without definition
+	is not C_DECL_USED.
+
+2016-01-27  Marek Polacek  <polacek@redhat.com>
+
+	PR c/68062
+	* c-typeck.c (build_binary_op) [EQ_EXPR, GE_EXPR]: Promote operand
+	to unsigned, if needed.  Add -Wsign-compare warning.
+
+2016-01-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/69483
+	* c-parser.c (c_parser_translation_unit): Use FOR_EACH_VEC_ELT.
+
 2016-01-20  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
 
 	PR c/24293

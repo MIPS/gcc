@@ -75,6 +75,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "dbgcnt.h"
 #include "case-cfn-macros.h"
 #include "regrename.h"
+#include "dojump.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -11359,18 +11360,6 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
       crtl->preferred_stack_boundary = 128;
       crtl->stack_alignment_needed = 128;
     }
-  /* preferred_stack_boundary is never updated for call
-     expanded from tls descriptor. Update it here. We don't update it in
-     expand stage because according to the comments before
-     ix86_current_function_calls_tls_descriptor, tls calls may be optimized
-     away.  */
-  else if (ix86_current_function_calls_tls_descriptor
-	   && crtl->preferred_stack_boundary < PREFERRED_STACK_BOUNDARY)
-    {
-      crtl->preferred_stack_boundary = PREFERRED_STACK_BOUNDARY;
-      if (crtl->stack_alignment_needed < PREFERRED_STACK_BOUNDARY)
-	crtl->stack_alignment_needed = PREFERRED_STACK_BOUNDARY;
-    }
 
   stack_alignment_needed = crtl->stack_alignment_needed / BITS_PER_UNIT;
   preferred_alignment = crtl->preferred_stack_boundary / BITS_PER_UNIT;
@@ -12042,6 +12031,11 @@ ix86_update_stack_boundary (void)
       && cfun->stdarg
       && crtl->stack_alignment_estimated < 128)
     crtl->stack_alignment_estimated = 128;
+
+  /* __tls_get_addr needs to be called with 16-byte aligned stack.  */
+  if (ix86_tls_descriptor_calls_expanded_in_cfun
+      && crtl->preferred_stack_boundary < 128)
+    crtl->preferred_stack_boundary = 128;
 }
 
 /* Handle the TARGET_GET_DRAP_RTX hook.  Return NULL if no DRAP is
@@ -12504,10 +12498,11 @@ ix86_finalize_stack_realign_flags (void)
   unsigned int incoming_stack_boundary
     = (crtl->parm_stack_boundary > ix86_incoming_stack_boundary
        ? crtl->parm_stack_boundary : ix86_incoming_stack_boundary);
-  unsigned int stack_realign = (incoming_stack_boundary
-				< (crtl->is_leaf
-				   ? crtl->max_used_stack_slot_alignment
-				   : crtl->stack_alignment_needed));
+  unsigned int stack_realign
+    = (incoming_stack_boundary
+       < (crtl->is_leaf && !ix86_current_function_calls_tls_descriptor
+	  ? crtl->max_used_stack_slot_alignment
+	  : crtl->stack_alignment_needed));
 
   if (crtl->stack_realign_finalized)
     {
@@ -25700,7 +25695,7 @@ expand_small_movmem_or_setmem (rtx destmem, rtx srcmem,
        if (DYNAMIC_CHECK)
 	 Round COUNT down to multiple of SIZE
        << optional caller supplied zero size guard is here >>
-       << optional caller suppplied dynamic check is here >>
+       << optional caller supplied dynamic check is here >>
        << caller supplied main copy loop is here >>
      }
    done_label:
@@ -25875,8 +25870,8 @@ expand_set_or_movmem_prologue_epilogue_by_misaligned_moves (rtx destmem, rtx src
       else
 	*min_size = 0;
 
-      /* Our loops always round down the bock size, but for dispatch to library
-	 we need precise value.  */
+      /* Our loops always round down the block size, but for dispatch to
+         library we need precise value.  */
       if (dynamic_check)
 	*count = expand_simple_binop (GET_MODE (*count), AND, *count,
 				      GEN_INT (-size), *count, 1, OPTAB_DIRECT);
@@ -26468,6 +26463,13 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
     }
   size_needed = GET_MODE_SIZE (move_mode) * unroll_factor;
   epilogue_size_needed = size_needed;
+
+  /* If we are going to call any library calls conditionally, make sure any
+     pending stack adjustment happen before the first conditional branch,
+     otherwise they will be emitted before the library call only and won't
+     happen from the other branches.  */
+  if (dynamic_check != -1)
+    do_pending_stack_adjust ();
 
   desired_align = decide_alignment (align, alg, expected_size, move_mode);
   if (!TARGET_ALIGN_STRINGOPS || noalign)
@@ -46742,6 +46744,7 @@ ix86_expand_vector_set (bool mmx_ok, rtx target, rtx val, int elt)
 	{
 	  /* For SSE1, we have to reuse the V4SF code.  */
 	  rtx t = gen_reg_rtx (V4SFmode);
+	  emit_move_insn (t, gen_lowpart (V4SFmode, target));
 	  ix86_expand_vector_set (false, t, gen_lowpart (SFmode, val), elt);
 	  emit_move_insn (target, gen_lowpart (mode, t));
 	}

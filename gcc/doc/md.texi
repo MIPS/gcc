@@ -4100,7 +4100,7 @@ Integer constant in the range 0 @dots{} 127, for 128-bit shifts.
 Standard 80387 floating point constant.
 
 @item C
-Standard SSE floating point constant.
+SSE constant zero operand.
 
 @item e
 32-bit signed integer constant, or a symbolic reference known
@@ -4419,6 +4419,20 @@ memory address of this type.  If @samp{Q} is defined with
 memory operand, because @code{reload} knows it can simply copy the
 memory address into a base register if required.  This is analogous to
 the way an @samp{o} constraint can handle any memory operand.
+
+The syntax and semantics are otherwise identical to
+@code{define_constraint}.
+@end deffn
+
+@deffn {MD Expression} define_special_memory_constraint name docstring exp
+Use this expression for constraints that match a subset of all memory
+operands: that is, @code{reload} can not make them match by reloading
+the address as it is described for @code{define_memory_constraint} or
+such address reload is undesirable with the performance point of view.
+
+For example, @code{define_special_memory_constraint} can be useful if
+specifically aligned memory is necessary or desirable for some insn
+operand.
 
 The syntax and semantics are otherwise identical to
 @code{define_constraint}.

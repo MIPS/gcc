@@ -879,6 +879,24 @@ wrapup_globals_for_namespace (tree name_space, void* data ATTRIBUTE_UNUSED)
   tree *vec = statics->address ();
   int len = statics->length ();
 
+  if (warn_unused_function)
+    {
+      tree decl;
+      unsigned int i;
+      FOR_EACH_VEC_SAFE_ELT (statics, i, decl)
+	if (TREE_CODE (decl) == FUNCTION_DECL
+	    && DECL_INITIAL (decl) == 0
+	    && DECL_EXTERNAL (decl)
+	    && !TREE_PUBLIC (decl)
+	    && !DECL_ARTIFICIAL (decl)
+	    && !TREE_NO_WARNING (decl))
+	  {
+	    warning (OPT_Wunused_function,
+		     "%q+F declared %<static%> but never defined", decl);
+	    TREE_NO_WARNING (decl) = 1;
+	  }
+    }
+
   /* Write out any globals that need to be output.  */
   return wrapup_global_declarations (vec, len);
 }
@@ -10898,13 +10916,8 @@ grokdeclarator (const cp_declarator *declarator,
 
       if (TREE_CODE (type) == ARRAY_TYPE)
 	{
-	  /* Withhold decaying a dependent array type so that that during
-	     instantiation we can detect type deduction failure cases such as
-	     creating an array of void, creating a zero-size array, etc.  */
-	  if (dependent_type_p (type))
-	    ;
-	  else
-	    type = build_pointer_type (TREE_TYPE (type));
+	  /* Transfer const-ness of array into that of type pointed to.  */
+	  type = build_pointer_type (TREE_TYPE (type));
 	  type_quals = TYPE_UNQUALIFIED;
 	  array_parameter_p = true;
 	}
@@ -11595,9 +11608,13 @@ type_is_deprecated (tree type)
   enum tree_code code;
   if (TREE_DEPRECATED (type))
     return type;
-  if (TYPE_NAME (type)
-      && TREE_DEPRECATED (TYPE_NAME (type)))
-    return type;
+  if (TYPE_NAME (type))
+    {
+      if (TREE_DEPRECATED (TYPE_NAME (type)))
+	return type;
+      else
+	return NULL_TREE;
+    }
 
   /* Do warn about using typedefs to a deprecated class.  */
   if (OVERLOAD_TYPE_P (type) && type != TYPE_MAIN_VARIANT (type))
@@ -11701,8 +11718,7 @@ grokparms (tree parmlist, tree *parms)
 
 	  /* Top-level qualifiers on the parameters are
 	     ignored for function types.  */
-	  type = strip_top_quals (type);
-
+	  type = cp_build_qualified_type (type, 0);
 	  if (TREE_CODE (type) == METHOD_TYPE)
 	    {
 	      error ("parameter %qD invalidly declared method type", decl);
@@ -13030,8 +13046,12 @@ copy_type_enum (tree dst, tree src)
       TYPE_SIZE_UNIT (t) = TYPE_SIZE_UNIT (src);
       SET_TYPE_MODE (dst, TYPE_MODE (src));
       TYPE_PRECISION (t) = TYPE_PRECISION (src);
-      TYPE_ALIGN (t) = TYPE_ALIGN (src);
-      TYPE_USER_ALIGN (t) = TYPE_USER_ALIGN (src);
+      unsigned valign = TYPE_ALIGN (src);
+      if (TYPE_USER_ALIGN (t))
+	valign = MAX (valign, TYPE_ALIGN (t));
+      else
+	TYPE_USER_ALIGN (t) = TYPE_USER_ALIGN (src);
+      TYPE_ALIGN (t) = valign;
       TYPE_UNSIGNED (t) = TYPE_UNSIGNED (src);
     }
 }
@@ -13045,6 +13065,8 @@ copy_type_enum (tree dst, tree src)
    the enumeration type. This should be NULL_TREE if no storage type
    was specified.
 
+   ATTRIBUTES are any attributes specified after the enum-key.
+
    SCOPED_ENUM_P is true if this is a scoped enumeration type.
 
    if IS_NEW is not NULL, gets TRUE iff a new type is created.
@@ -13055,7 +13077,7 @@ copy_type_enum (tree dst, tree src)
 
 tree
 start_enum (tree name, tree enumtype, tree underlying_type,
-	    bool scoped_enum_p, bool *is_new)
+	    tree attributes, bool scoped_enum_p, bool *is_new)
 {
   tree prevtype = NULL_TREE;
   gcc_assert (identifier_p (name));
@@ -13162,6 +13184,8 @@ start_enum (tree name, tree enumtype, tree underlying_type,
     }
 
   SET_SCOPED_ENUM_P (enumtype, scoped_enum_p);
+
+  cplus_decl_attributes (&enumtype, attributes, (int)ATTR_FLAG_TYPE_IN_PLACE);
 
   if (underlying_type)
     {

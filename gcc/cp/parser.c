@@ -706,11 +706,21 @@ cp_lexer_destroy (cp_lexer *lexer)
   ggc_free (lexer);
 }
 
+/* This needs to be set to TRUE before the lexer-debugging infrastructure can
+   be used.  The point of this flag is to help the compiler to fold away calls
+   to cp_lexer_debugging_p within this source file at compile time, when the
+   lexer is not being debugged.  */
+
+#define LEXER_DEBUGGING_ENABLED_P false
+
 /* Returns nonzero if debugging information should be output.  */
 
 static inline bool
 cp_lexer_debugging_p (cp_lexer *lexer)
 {
+  if (!LEXER_DEBUGGING_ENABLED_P)
+    return false;
+
   return lexer->debugging_p;
 }
 
@@ -1296,6 +1306,10 @@ debug (cp_token *ptr)
 static void
 cp_lexer_start_debugging (cp_lexer* lexer)
 {
+  if (!LEXER_DEBUGGING_ENABLED_P)
+    fatal_error (input_location,
+		 "LEXER_DEBUGGING_ENABLED_P is not set to true");
+
   lexer->debugging_p = true;
   cp_lexer_debug_stream = stderr;
 }
@@ -1305,6 +1319,10 @@ cp_lexer_start_debugging (cp_lexer* lexer)
 static void
 cp_lexer_stop_debugging (cp_lexer* lexer)
 {
+  if (!LEXER_DEBUGGING_ENABLED_P)
+    fatal_error (input_location,
+		 "LEXER_DEBUGGING_ENABLED_P is not set to true");
+
   lexer->debugging_p = false;
   cp_lexer_debug_stream = NULL;
 }
@@ -17132,7 +17150,7 @@ cp_parser_enum_specifier (cp_parser* parser)
        brace so the enum will be recorded as being on the line of its
        tag (or the 'enum' keyword, if there is no tag).  */
     type = start_enum (identifier, type, underlying_type,
-		       scoped_enum_p, &is_new_type);
+		       attributes, scoped_enum_p, &is_new_type);
 
   /* If the next token is not '{' it is an opaque-enum-specifier or an
      elaborated-type-specifier.  */
@@ -17248,7 +17266,6 @@ cp_parser_enum_specifier (cp_parser* parser)
   if (cp_parser_allow_gnu_extensions_p (parser))
     {
       tree trailing_attr = cp_parser_gnu_attributes_opt (parser);
-      trailing_attr = chainon (trailing_attr, attributes);
       cplus_decl_attributes (&type,
 			     trailing_attr,
 			     (int) ATTR_FLAG_TYPE_IN_PLACE);

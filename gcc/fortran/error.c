@@ -1096,7 +1096,6 @@ gfc_diagnostic_starter (diagnostic_context *context,
       /* Fortran uses an empty line between locus and caret line.  */
       pp_newline (context->printer);
       diagnostic_show_locus (context, diagnostic);
-      pp_newline (context->printer);
       /* If the caret line was shown, the prefix does not contain the
 	 locus.  */
       pp_set_prefix (context->printer, kind_prefix);
@@ -1226,6 +1225,7 @@ gfc_error (const char *gmsgid, va_list ap)
 {
   va_list argp;
   va_copy (argp, ap);
+  bool saved_abort_on_error = false;
 
   if (warnings_not_errors)
     {
@@ -1250,10 +1250,14 @@ gfc_error (const char *gmsgid, va_list ap)
 
   if (buffered_p)
     {
+      /* To prevent -dH from triggering an abort on a buffered error,
+	 save abort_on_error and restore it below.  */
+      saved_abort_on_error = global_dc->abort_on_error;
+      global_dc->abort_on_error = false;
       pp->buffer = pp_error_buffer;
       global_dc->fatal_errors = false;
       /* To prevent -fmax-errors= triggering, we decrease it before
-     report_diagnostic increases it.  */
+	 report_diagnostic increases it.  */
       --errorcount;
     }
 
@@ -1264,6 +1268,8 @@ gfc_error (const char *gmsgid, va_list ap)
     {
       pp->buffer = tmp_buffer;
       global_dc->fatal_errors = fatal_errors;
+      global_dc->abort_on_error = saved_abort_on_error;
+
     }
 
   va_end (argp);
