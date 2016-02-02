@@ -5309,8 +5309,8 @@ void
 tree_function_versioning (tree old_decl, tree new_decl,
 			  vec<ipa_replace_map_p, va_gc> *tree_map,
 			  bool update_clones, bitmap args_to_skip,
-			  bool skip_return, bitmap blocks_to_copy,
-			  basic_block new_entry)
+			  bitmap args_to_decompose, bool skip_return, 
+			  bitmap blocks_to_copy, basic_block new_entry)
 {
   struct cgraph_node *old_version_node;
   struct cgraph_node *new_version_node;
@@ -5321,11 +5321,8 @@ tree_function_versioning (tree old_decl, tree new_decl,
   basic_block old_entry_block, bb;
   auto_vec<gimple, 10> init_stmts;
   tree vars = NULL_TREE;
-  /* Do not forget BITMAP_FREE (args_to_decompose).  */
-  bitmap args_to_decompose = BITMAP_ALLOC (NULL);
 
 
-  bitmap_clear (args_to_decompose);  
   gcc_assert (TREE_CODE (old_decl) == FUNCTION_DECL
 	      && TREE_CODE (new_decl) == FUNCTION_DECL);
   DECL_POSSIBLY_INLINED (old_decl) = 1;
@@ -5462,8 +5459,6 @@ tree_function_versioning (tree old_decl, tree new_decl,
 		  init_stmts.safe_push (init);
 	      }
 	  }
-	else if (replace_info->decompose_p)
-	  bitmap_set_bit (args_to_decompose, replace_info->parm_num);
       }
   /* Copy the function's arguments.  */
   if (DECL_ARGUMENTS (old_decl) != NULL_TREE)
@@ -5585,7 +5580,6 @@ tree_function_versioning (tree old_decl, tree new_decl,
 
   gcc_assert (!id.debug_stmts.exists ());
   pop_cfun ();
-  BITMAP_FREE (args_to_decompose);  
   return;
 }
 
