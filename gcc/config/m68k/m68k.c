@@ -324,15 +324,15 @@ static void m68k_init_sync_libfuncs (void) ATTRIBUTE_UNUSED;
 
 static const struct attribute_spec m68k_attribute_table[] =
 {
-  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
-       affects_type_identity } */
-  { "interrupt", 0, 0, true,  false, false, m68k_handle_fndecl_attribute,
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, decl_handler,
+       type_handler, affects_type_identity } */
+  { "interrupt", 0, 0, true,  false, false, m68k_handle_fndecl_attribute, NULL,
     false },
   { "interrupt_handler", 0, 0, true,  false, false,
-    m68k_handle_fndecl_attribute, false },
+    m68k_handle_fndecl_attribute, NULL, false },
   { "interrupt_thread", 0, 0, true,  false, false,
-    m68k_handle_fndecl_attribute, false },
-  { NULL,                0, 0, false, false, false, NULL, false }
+    m68k_handle_fndecl_attribute, NULL, false },
+  { NULL,                0, 0, false, false, false, NULL, NULL, false }
 };
 
 struct gcc_target targetm = TARGET_INITIALIZER;

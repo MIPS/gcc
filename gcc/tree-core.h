@@ -1835,7 +1835,7 @@ struct attribute_spec {
      and from a function return type (which is not itself a function
      pointer type) to the function type.  */
   bool function_type_required;
-  /* Function to handle this attribute.  NODE points to the node to which
+  /* Functions to handle this attribute.  NODE points to the node to which
      the attribute is to be applied.  If a DECL, it should be modified in
      place; if a TYPE, a copy should be created.  NAME is the name of the
      attribute (possibly with leading or trailing __).  ARGS is the TREE_LIST
@@ -1849,7 +1849,9 @@ struct attribute_spec {
      otherwise the return value should be NULL_TREE.  This pointer may be
      NULL if no special handling is required beyond the checks implied
      by the rest of this structure.  */
-  tree (*handler) (tree *node, tree name, tree args,
+  tree (*decl_handler) (tree *node, tree name, tree args,
+		   int flags, bool *no_add_attrs);
+  tree (*type_handler) (tree *node, tree name, tree args,
 		   int flags, bool *no_add_attrs);
   /* Specifies if attribute affects type's identity.  */
   bool affects_type_identity;

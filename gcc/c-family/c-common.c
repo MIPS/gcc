@@ -303,7 +303,8 @@ static tree check_case_value (location_t, tree);
 static bool check_case_bounds (location_t, tree, tree, tree *, tree *,
 			       bool *);
 
-static tree handle_packed_attribute (tree *, tree, tree, int, bool *);
+static tree handle_packed_decl_attribute (tree *, tree, tree, int, bool *);
+static tree handle_packed_type_attribute (tree *, tree, tree, int, bool *);
 static tree handle_nocommon_attribute (tree *, tree, tree, int, bool *);
 static tree handle_common_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noreturn_attribute (tree *, tree, tree, int, bool *);
@@ -327,29 +328,37 @@ static tree handle_artificial_attribute (tree *, tree, tree, int, bool *);
 static tree handle_flatten_attribute (tree *, tree, tree, int, bool *);
 static tree handle_error_attribute (tree *, tree, tree, int, bool *);
 static tree handle_used_attribute (tree *, tree, tree, int, bool *);
-static tree handle_unused_attribute (tree *, tree, tree, int, bool *);
+static tree handle_unused_decl_attribute (tree *, tree, tree, int, bool *);
+static tree handle_unused_type_attribute (tree *, tree, tree, int, bool *);
 static tree handle_externally_visible_attribute (tree *, tree, tree, int,
 						 bool *);
 static tree handle_no_reorder_attribute (tree *, tree, tree, int,
 						 bool *);
 static tree handle_const_attribute (tree *, tree, tree, int, bool *);
-static tree handle_transparent_union_attribute (tree *, tree, tree,
-						int, bool *);
-static tree handle_scalar_storage_order_attribute (tree *, tree, tree,
-						   int, bool *);
+static tree handle_transparent_union_decl_attribute (tree *, tree, tree,
+						     int, bool *);
+static tree handle_transparent_union_type_attribute (tree *, tree, tree,
+						     int, bool *);
+static tree handle_scalar_storage_order_type_attribute (tree *, tree, tree,
+						        int, bool *);
+static tree handle_scalar_storage_order_decl_attribute (tree *, tree, tree,
+						        int, bool *);
 static tree handle_constructor_attribute (tree *, tree, tree, int, bool *);
 static tree handle_destructor_attribute (tree *, tree, tree, int, bool *);
 static tree handle_mode_attribute (tree *, tree, tree, int, bool *);
 static tree handle_section_attribute (tree *, tree, tree, int, bool *);
-static tree handle_aligned_attribute (tree *, tree, tree, int, bool *);
+static tree handle_aligned_type_attribute (tree *, tree, tree, int, bool *);
+static tree handle_aligned_decl_attribute (tree *, tree, tree, int, bool *);
 static tree handle_weak_attribute (tree *, tree, tree, int, bool *) ;
 static tree handle_noplt_attribute (tree *, tree, tree, int, bool *) ;
 static tree handle_alias_ifunc_attribute (bool, tree *, tree, tree, bool *);
 static tree handle_ifunc_attribute (tree *, tree, tree, int, bool *);
 static tree handle_alias_attribute (tree *, tree, tree, int, bool *);
 static tree handle_weakref_attribute (tree *, tree, tree, int, bool *) ;
-static tree handle_visibility_attribute (tree *, tree, tree, int,
-					 bool *);
+static tree handle_visibility_decl_attribute (tree *, tree, tree, int,
+					      bool *);
+static tree handle_visibility_type_attribute (tree *, tree, tree, int,
+					      bool *);
 static tree handle_tls_model_attribute (tree *, tree, tree, int,
 					bool *);
 static tree handle_no_instrument_function_attribute (tree *, tree,
@@ -359,11 +368,14 @@ static tree handle_returns_twice_attribute (tree *, tree, tree, int, bool *);
 static tree handle_no_limit_stack_attribute (tree *, tree, tree, int,
 					     bool *);
 static tree handle_pure_attribute (tree *, tree, tree, int, bool *);
-static tree handle_tm_attribute (tree *, tree, tree, int, bool *);
+static tree handle_tm_decl_attribute (tree *, tree, tree, int, bool *);
+static tree handle_tm_type_attribute (tree *, tree, tree, int, bool *);
 static tree handle_tm_wrap_attribute (tree *, tree, tree, int, bool *);
 static tree handle_novops_attribute (tree *, tree, tree, int, bool *);
-static tree handle_deprecated_attribute (tree *, tree, tree, int,
-					 bool *);
+static tree handle_deprecated_type_attribute (tree *, tree, tree, int,
+					      bool *);
+static tree handle_deprecated_decl_attribute (tree *, tree, tree, int,
+					      bool *);
 static tree handle_vector_size_attribute (tree *, tree, tree, int,
 					  bool *);
 static tree handle_nonnull_attribute (tree *, tree, tree, int, bool *);
@@ -382,7 +394,8 @@ static tree handle_optimize_attribute (tree *, tree, tree, int, bool *);
 static tree ignore_attribute (tree *, tree, tree, int, bool *);
 static tree handle_no_split_stack_attribute (tree *, tree, tree, int, bool *);
 static tree handle_fnspec_attribute (tree *, tree, tree, int, bool *);
-static tree handle_warn_unused_attribute (tree *, tree, tree, int, bool *);
+static tree handle_warn_unused_decl_attribute (tree *, tree, tree, int, bool *);
+static tree handle_warn_unused_type_attribute (tree *, tree, tree, int, bool *);
 static tree handle_returns_nonnull_attribute (tree *, tree, tree, int, bool *);
 static tree handle_omp_declare_simd_attribute (tree *, tree, tree, int,
 					       bool *);
@@ -645,196 +658,214 @@ const unsigned int num_c_common_reswords =
    Current list of processed common attributes: nonnull.  */
 const struct attribute_spec c_common_attribute_table[] =
 {
-  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
-       affects_type_identity } */
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, decl_handler,
+       type_handler, affects_type_identity } */
   { "packed",                 0, 0, false, false, false,
-			      handle_packed_attribute , false},
+			      handle_packed_decl_attribute,
+			      handle_packed_type_attribute, false},
   { "nocommon",               0, 0, true,  false, false,
-			      handle_nocommon_attribute, false},
+			      handle_nocommon_attribute, NULL, false},
   { "common",                 0, 0, true,  false, false,
-			      handle_common_attribute, false },
+			      handle_common_attribute, NULL, false },
   /* FIXME: logically, noreturn attributes should be listed as
      "false, true, true" and apply to function types.  But implementing this
      would require all the places in the compiler that use TREE_THIS_VOLATILE
      on a decl to identify non-returning functions to be located and fixed
      to check the function type instead.  */
   { "noreturn",               0, 0, true,  false, false,
-			      handle_noreturn_attribute, false },
+			      handle_noreturn_attribute, NULL, false },
   { "volatile",               0, 0, true,  false, false,
-			      handle_noreturn_attribute, false },
+			      handle_noreturn_attribute, NULL, false },
   { "stack_protect",          0, 0, true,  false, false,
-			      handle_stack_protect_attribute, false },
+			      handle_stack_protect_attribute, NULL, false },
   { "noinline",               0, 0, true,  false, false,
-			      handle_noinline_attribute, false },
+			      handle_noinline_attribute, NULL, false },
   { "noclone",                0, 0, true,  false, false,
-			      handle_noclone_attribute, false },
+			      handle_noclone_attribute, NULL, false },
   { "no_icf",                 0, 0, true,  false, false,
-			      handle_noicf_attribute, false },
+			      handle_noicf_attribute, NULL, false },
   { "leaf",                   0, 0, true,  false, false,
-			      handle_leaf_attribute, false },
+			      handle_leaf_attribute, NULL, false },
   { "always_inline",          0, 0, true,  false, false,
-			      handle_always_inline_attribute, false },
+			      handle_always_inline_attribute, NULL, false },
   { "gnu_inline",             0, 0, true,  false, false,
-			      handle_gnu_inline_attribute, false },
+			      handle_gnu_inline_attribute, NULL, false },
   { "artificial",             0, 0, true,  false, false,
-			      handle_artificial_attribute, false },
+			      handle_artificial_attribute, NULL, false },
   { "flatten",                0, 0, true,  false, false,
-			      handle_flatten_attribute, false },
+			      handle_flatten_attribute, NULL, false },
   { "used",                   0, 0, true,  false, false,
-			      handle_used_attribute, false },
+			      handle_used_attribute, NULL, false },
   { "unused",                 0, 0, false, false, false,
-			      handle_unused_attribute, false },
+			      handle_unused_decl_attribute,
+			      handle_unused_type_attribute, false },
   { "externally_visible",     0, 0, true,  false, false,
-			      handle_externally_visible_attribute, false },
+			      handle_externally_visible_attribute, NULL,
+			      false },
   { "no_reorder",	      0, 0, true, false, false,
-                              handle_no_reorder_attribute, false },
+                              handle_no_reorder_attribute, NULL, false },
   /* The same comments as for noreturn attributes apply to const ones.  */
   { "const",                  0, 0, true,  false, false,
-			      handle_const_attribute, false },
+			      handle_const_attribute, NULL, false },
   { "scalar_storage_order",   1, 1, false, false, false,
-			      handle_scalar_storage_order_attribute, false },
+			      handle_scalar_storage_order_decl_attribute, 
+			      handle_scalar_storage_order_type_attribute, 
+			      false },
   { "transparent_union",      0, 0, false, false, false,
-			      handle_transparent_union_attribute, false },
+			      handle_transparent_union_decl_attribute,
+			      handle_transparent_union_type_attribute, false },
   { "constructor",            0, 1, true,  false, false,
-			      handle_constructor_attribute, false },
+			      handle_constructor_attribute, NULL, false },
   { "destructor",             0, 1, true,  false, false,
-			      handle_destructor_attribute, false },
-  { "mode",                   1, 1, false,  true, false,
+			      handle_destructor_attribute, NULL, false },
+  { "mode",                   1, 1, false,  true, false, NULL,
 			      handle_mode_attribute, false },
   { "section",                1, 1, true,  false, false,
-			      handle_section_attribute, false },
+			      handle_section_attribute, NULL, false },
   { "aligned",                0, 1, false, false, false,
-			      handle_aligned_attribute, false },
+			      handle_aligned_decl_attribute,
+			      handle_aligned_type_attribute, false },
   { "weak",                   0, 0, true,  false, false,
-			      handle_weak_attribute, false },
+			      handle_weak_attribute, NULL, false },
   { "noplt",                   0, 0, true,  false, false,
-			      handle_noplt_attribute, false },
+			      handle_noplt_attribute, NULL, false },
   { "ifunc",                  1, 1, true,  false, false,
-			      handle_ifunc_attribute, false },
+			      handle_ifunc_attribute, NULL, false },
   { "alias",                  1, 1, true,  false, false,
-			      handle_alias_attribute, false },
+			      handle_alias_attribute, NULL, false },
   { "weakref",                0, 1, true,  false, false,
-			      handle_weakref_attribute, false },
+			      handle_weakref_attribute, NULL, false },
   { "no_instrument_function", 0, 0, true,  false, false,
 			      handle_no_instrument_function_attribute,
-			      false },
+			      NULL, false },
   { "malloc",                 0, 0, true,  false, false,
-			      handle_malloc_attribute, false },
+			      handle_malloc_attribute, NULL, false },
   { "returns_twice",          0, 0, true,  false, false,
-			      handle_returns_twice_attribute, false },
+			      handle_returns_twice_attribute, NULL, false },
   { "no_stack_limit",         0, 0, true,  false, false,
-			      handle_no_limit_stack_attribute, false },
+			      handle_no_limit_stack_attribute, NULL, false },
   { "pure",                   0, 0, true,  false, false,
-			      handle_pure_attribute, false },
+			      handle_pure_attribute, NULL, false },
   { "transaction_callable",   0, 0, false, true,  false,
-			      handle_tm_attribute, false },
+			      handle_tm_decl_attribute,
+			      handle_tm_type_attribute, false },
   { "transaction_unsafe",     0, 0, false, true,  false,
-			      handle_tm_attribute, true },
+			      handle_tm_decl_attribute,
+			      handle_tm_type_attribute, true },
   { "transaction_safe",       0, 0, false, true,  false,
-			      handle_tm_attribute, true },
+			      handle_tm_decl_attribute,
+			      handle_tm_type_attribute, true },
   { "transaction_safe_dynamic", 0, 0, true, false,  false,
-			      handle_tm_attribute, false },
+			      handle_tm_decl_attribute,
+			      handle_tm_type_attribute, false },
   { "transaction_may_cancel_outer", 0, 0, false, true, false,
-			      handle_tm_attribute, false },
+			      handle_tm_decl_attribute,
+			      handle_tm_type_attribute, false },
   /* ??? These two attributes didn't make the transition from the
      Intel language document to the multi-vendor language document.  */
   { "transaction_pure",       0, 0, false, true,  false,
-			      handle_tm_attribute, false },
+			      handle_tm_decl_attribute,
+			      handle_tm_type_attribute, false },
   { "transaction_wrap",       1, 1, true,  false,  false,
-			     handle_tm_wrap_attribute, false },
+			     handle_tm_wrap_attribute, NULL, false },
   /* For internal use (marking of builtins) only.  The name contains space
      to prevent its usage in source code.  */
   { "no vops",                0, 0, true,  false, false,
-			      handle_novops_attribute, false },
+			      handle_novops_attribute, NULL, false },
   { "deprecated",             0, 1, false, false, false,
-			      handle_deprecated_attribute, false },
+			      handle_deprecated_decl_attribute, 
+			      handle_deprecated_type_attribute, false },
   { "vector_size",	      1, 1, false, true, false,
-			      handle_vector_size_attribute, false },
+			      NULL, handle_vector_size_attribute, false },
   { "visibility",	      1, 1, false, false, false,
-			      handle_visibility_attribute, false },
+			      handle_visibility_decl_attribute,
+			      handle_visibility_type_attribute, false },
   { "tls_model",	      1, 1, true,  false, false,
-			      handle_tls_model_attribute, false },
+			      handle_tls_model_attribute, NULL, false },
   { "nonnull",                0, -1, false, true, true,
-			      handle_nonnull_attribute, false },
+			      NULL, handle_nonnull_attribute, false },
   { "nothrow",                0, 0, true,  false, false,
-			      handle_nothrow_attribute, false },
-  { "may_alias",	      0, 0, false, true, false, NULL, false },
+			      handle_nothrow_attribute, NULL, false },
+  { "may_alias",	      0, 0, false, true, false, NULL, NULL, false },
   { "cleanup",		      1, 1, true, false, false,
-			      handle_cleanup_attribute, false },
-  { "warn_unused_result",     0, 0, false, true, true,
+			      handle_cleanup_attribute, NULL, false },
+  { "warn_unused_result",     0, 0, false, true, true, NULL,
 			      handle_warn_unused_result_attribute, false },
   { "sentinel",               0, 1, false, true, true,
-			      handle_sentinel_attribute, false },
+			      NULL, handle_sentinel_attribute, false },
   /* For internal use (marking of builtins) only.  The name contains space
      to prevent its usage in source code.  */
   { "type generic",           0, 0, false, true, true,
-			      handle_type_generic_attribute, false },
+			      NULL, handle_type_generic_attribute, false },
   { "alloc_size",	      1, 2, false, true, true,
-			      handle_alloc_size_attribute, false },
+			      NULL, handle_alloc_size_attribute, false },
   { "cold",                   0, 0, true,  false, false,
-			      handle_cold_attribute, false },
+			      handle_cold_attribute, NULL, false },
   { "hot",                    0, 0, true,  false, false,
-			      handle_hot_attribute, false },
+			      handle_hot_attribute, NULL, false },
   { "no_address_safety_analysis",
 			      0, 0, true, false, false,
 			      handle_no_address_safety_analysis_attribute,
-			      false },
+			      NULL, false },
   { "no_sanitize_address",    0, 0, true, false, false,
 			      handle_no_sanitize_address_attribute,
-			      false },
+			      NULL, false },
   { "no_sanitize_thread",     0, 0, true, false, false,
 			      handle_no_sanitize_address_attribute,
-			      false },
+			      NULL, false },
   { "no_sanitize_undefined",  0, 0, true, false, false,
 			      handle_no_sanitize_undefined_attribute,
-			      false },
+			      NULL, false },
   { "warning",		      1, 1, true,  false, false,
-			      handle_error_attribute, false },
+			      handle_error_attribute, NULL, false },
   { "error",		      1, 1, true,  false, false,
-			      handle_error_attribute, false },
+			      handle_error_attribute, NULL, false },
   { "target",                 1, -1, true, false, false,
-			      handle_target_attribute, false },
+			      handle_target_attribute, NULL, false },
   { "target_clones",          1, -1, true, false, false,
-			      handle_target_clones_attribute, false },
+			      handle_target_clones_attribute, NULL, false },
   { "optimize",               1, -1, true, false, false,
-			      handle_optimize_attribute, false },
+			      handle_optimize_attribute, NULL, false },
   /* For internal use only.  The leading '*' both prevents its usage in
      source code and signals that it may be overridden by machine tables.  */
   { "*tm regparm",            0, 0, false, true, true,
-			      ignore_attribute, false },
+			      NULL, ignore_attribute, false },
   { "no_split_stack",	      0, 0, true,  false, false,
-			      handle_no_split_stack_attribute, false },
+			      handle_no_split_stack_attribute, NULL, false },
   /* For internal use (marking of builtins and runtime functions) only.
      The name contains space to prevent its usage in source code.  */
   { "fn spec",	 	      1, 1, false, true, true,
-			      handle_fnspec_attribute, false },
+			      NULL, handle_fnspec_attribute, false },
   { "warn_unused",            0, 0, false, false, false,
-			      handle_warn_unused_attribute, false },
+			      handle_warn_unused_decl_attribute,
+			      handle_warn_unused_type_attribute, false },
   { "returns_nonnull",        0, 0, false, true, true,
-			      handle_returns_nonnull_attribute, false },
+			      NULL, handle_returns_nonnull_attribute, false },
   { "omp declare simd",       0, -1, true,  false, false,
-			      handle_omp_declare_simd_attribute, false },
+			      handle_omp_declare_simd_attribute, NULL, false },
   { "cilk simd function",     0, -1, true,  false, false,
-			      handle_omp_declare_simd_attribute, false },
+			      handle_omp_declare_simd_attribute, NULL, false },
   { "simd",		      0, 1, true,  false, false,
-			      handle_simd_attribute, false },
+			      handle_simd_attribute, NULL, false },
   { "omp declare target",     0, 0, true, false, false,
-			      handle_omp_declare_target_attribute, false },
+			      handle_omp_declare_target_attribute, NULL,
+			      false },
   { "omp declare target link", 0, 0, true, false, false,
-			      handle_omp_declare_target_attribute, false },
+			      handle_omp_declare_target_attribute, NULL,
+			      false },
   { "alloc_align",	      1, 1, false, true, true,
-			      handle_alloc_align_attribute, false },
+			      NULL, handle_alloc_align_attribute, false },
   { "assume_aligned",	      1, 2, false, true, true,
-			      handle_assume_aligned_attribute, false },
+			      NULL, handle_assume_aligned_attribute, false },
   { "designated_init",        0, 0, false, true, false,
-			      handle_designated_init_attribute, false },
+			      NULL, handle_designated_init_attribute, false },
   { "bnd_variable_size",      0, 0, true,  false, false,
-			      handle_bnd_variable_size_attribute, false },
+			      handle_bnd_variable_size_attribute, NULL, false },
   { "bnd_legacy",             0, 0, true, false, false,
-			      handle_bnd_legacy, false },
+			      handle_bnd_legacy, NULL, false },
   { "bnd_instrument",         0, 0, true, false, false,
-			      handle_bnd_instrument, false },
-  { NULL,                     0, 0, false, false, false, NULL, false }
+			      handle_bnd_instrument, NULL, false },
+  { NULL,                     0, 0, false, false, false, NULL, NULL, false }
 };
 
 /* Give the specifications for the format attributes, used by C and all
@@ -849,10 +880,10 @@ const struct attribute_spec c_common_format_attribute_table[] =
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
        affects_type_identity } */
   { "format",                 3, 3, false, true,  true,
-			      handle_format_attribute, false },
+			      NULL, handle_format_attribute, false },
   { "format_arg",             1, 1, false, true,  true,
-			      handle_format_arg_attribute, false },
-  { NULL,                     0, 0, false, false, false, NULL, false }
+			      NULL, handle_format_arg_attribute, false },
+  { NULL,                     0, 0, false, false, false, NULL, NULL, false }
 };
 
 /* Return identifier for address space AS.  */
@@ -6553,20 +6584,14 @@ attribute_takes_identifier_p (const_tree attr_id)
 
 /* Attribute handlers common to C front ends.  */
 
-/* Handle a "packed" attribute; arguments as in
+/* Handle a "packed" decl attribute; arguments as in
    struct attribute_spec.handler.  */
 
 static tree
-handle_packed_attribute (tree *node, tree name, tree ARG_UNUSED (args),
-			 int flags, bool *no_add_attrs)
+handle_packed_decl_attribute (tree *node, tree name, tree ARG_UNUSED (args),
+			      int ARG_UNUSED (flags), bool *no_add_attrs)
 {
-  if (TYPE_P (*node))
-    {
-      if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
-	*node = build_variant_type_copy (*node);
-      TYPE_PACKED (*node) = 1;
-    }
-  else if (TREE_CODE (*node) == FIELD_DECL)
+  if (TREE_CODE (*node) == FIELD_DECL)
     {
       if (TYPE_ALIGN (TREE_TYPE (*node)) <= BITS_PER_UNIT
 	  /* Still pack bitfields.  */
@@ -6586,6 +6611,21 @@ handle_packed_attribute (tree *node, tree name, tree ARG_UNUSED (args),
       warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
+
+  return NULL_TREE;
+}
+
+/* Handle a "packed" type attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_packed_type_attribute (tree *node, tree ARG_UNUSED (name),
+			      tree ARG_UNUSED (args),
+			      int flags, bool *ARG_UNUSED (no_add_attrs))
+{
+  if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
+    *node = build_variant_type_copy (*node);
+  TYPE_PACKED (*node) = 1;
 
   return NULL_TREE;
 }
@@ -7018,38 +7058,44 @@ handle_used_attribute (tree *pnode, tree name, tree ARG_UNUSED (args),
   return NULL_TREE;
 }
 
-/* Handle a "unused" attribute; arguments as in
+/* Handle a "unused" decl attribute; arguments as in
    struct attribute_spec.handler.  */
 
 static tree
-handle_unused_attribute (tree *node, tree name, tree ARG_UNUSED (args),
-			 int flags, bool *no_add_attrs)
+handle_unused_decl_attribute (tree *node, tree name, tree ARG_UNUSED (args),
+			      int ARG_UNUSED (flags), bool *no_add_attrs)
 {
-  if (DECL_P (*node))
-    {
-      tree decl = *node;
+  tree decl = *node;
 
-      if (TREE_CODE (decl) == PARM_DECL
-	  || VAR_OR_FUNCTION_DECL_P (decl)
-	  || TREE_CODE (decl) == LABEL_DECL
-	  || TREE_CODE (decl) == TYPE_DECL)
-	{
-	  TREE_USED (decl) = 1;
-	  if (VAR_P (decl) || TREE_CODE (decl) == PARM_DECL)
-	    DECL_READ_P (decl) = 1;
-	}
-      else
-	{
-	  warning (OPT_Wattributes, "%qE attribute ignored", name);
-	  *no_add_attrs = true;
-	}
+  if (TREE_CODE (decl) == PARM_DECL
+      || VAR_OR_FUNCTION_DECL_P (decl)
+      || TREE_CODE (decl) == LABEL_DECL
+      || TREE_CODE (decl) == TYPE_DECL)
+    {
+      TREE_USED (decl) = 1;
+      if (VAR_P (decl) || TREE_CODE (decl) == PARM_DECL)
+	DECL_READ_P (decl) = 1;
     }
   else
     {
-      if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
-	*node = build_variant_type_copy (*node);
-      TREE_USED (*node) = 1;
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
     }
+
+  return NULL_TREE;
+}
+
+/* Handle a "unused" type attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_unused_type_attribute (tree *node, tree ARG_UNUSED (name),
+			      tree ARG_UNUSED (args), int flags,
+			      bool *ARG_UNUSED (no_add_attrs))
+{
+  if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
+    *node = build_variant_type_copy (*node);
+  TREE_USED (*node) = 1;
 
   return NULL_TREE;
 }
@@ -7137,20 +7183,15 @@ handle_const_attribute (tree *node, tree name, tree ARG_UNUSED (args),
   return NULL_TREE;
 }
 
-/* Handle a "scalar_storage_order" attribute; arguments as in
+/* Handle a "scalar_storage_order" type attribute; arguments as in
    struct attribute_spec.handler.  */
 
 static tree
-handle_scalar_storage_order_attribute (tree *node, tree name, tree args,
-				       int flags, bool *no_add_attrs)
+handle_scalar_storage_order_type_attribute (tree *node, tree name, tree args,
+					    int flags, bool *no_add_attrs)
 {
   tree id = TREE_VALUE (args);
-  tree type;
-
-  if (TREE_CODE (*node) == TYPE_DECL
-      && ! (flags & ATTR_FLAG_CXX11))
-    node = &TREE_TYPE (*node);
-  type = *node;
+  tree type = *node;
 
   if (BYTES_BIG_ENDIAN != WORDS_BIG_ENDIAN)
     {
@@ -7193,22 +7234,36 @@ handle_scalar_storage_order_attribute (tree *node, tree name, tree args,
   return NULL_TREE;
 }
 
-/* Handle a "transparent_union" attribute; arguments as in
+/* Handle a "scalar_storage_order" decl attribute; arguments as in
    struct attribute_spec.handler.  */
 
 static tree
-handle_transparent_union_attribute (tree *node, tree name,
-				    tree ARG_UNUSED (args), int flags,
-				    bool *no_add_attrs)
+handle_scalar_storage_order_decl_attribute (tree *node, tree name, tree args,
+					    int flags, bool *no_add_attrs)
 {
-  tree type;
+  if (TREE_CODE (*node) == TYPE_DECL && ! (flags & ATTR_FLAG_CXX11))
+    {
+      node = &TREE_TYPE (*node);
+      return handle_scalar_storage_order_type_attribute (node, name, args,
+							 flags, no_add_attrs);
+    }
+
+  warning (OPT_Wattributes, "%qE attribute ignored", name);
+  *no_add_attrs = true;
+  return NULL_TREE;
+}
+
+/* Handle a "transparent_union" type attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_transparent_union_type_attribute (tree *node, tree name,
+					 tree ARG_UNUSED (args), int flags,
+					 bool *no_add_attrs)
+{
+  tree type = *node;
 
   *no_add_attrs = true;
-
-  if (TREE_CODE (*node) == TYPE_DECL
-      && ! (flags & ATTR_FLAG_CXX11))
-    node = &TREE_TYPE (*node);
-  type = *node;
 
   if (TREE_CODE (type) == UNION_TYPE)
     {
@@ -7246,6 +7301,23 @@ handle_transparent_union_attribute (tree *node, tree name,
     }
 
  ignored:
+  warning (OPT_Wattributes, "%qE attribute ignored", name);
+  return NULL_TREE;
+}
+
+/* Handle a "transparent_union" decl attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_transparent_union_decl_attribute (tree *node, tree name, tree args,
+					 int flags, bool *no_add_attrs)
+{
+  *no_add_attrs = true;
+
+  if (TREE_CODE (*node) == TYPE_DECL && !(flags & ATTR_FLAG_CXX11))
+    return handle_transparent_union_type_attribute (&TREE_TYPE (*node), name,
+						    args, flags, no_add_attrs);
+
   warning (OPT_Wattributes, "%qE attribute ignored", name);
   return NULL_TREE;
 }
@@ -7771,18 +7843,12 @@ check_cxx_fundamental_alignment_constraints (tree node,
   return !alignment_too_large_p;
 }
 
-/* Handle a "aligned" attribute; arguments as in
-   struct attribute_spec.handler.  */
+/* Return the alignment expression from tree_list element ARGS.  */
 
 static tree
-handle_aligned_attribute (tree *node, tree ARG_UNUSED (name), tree args,
-			  int flags, bool *no_add_attrs)
+get_align_expr (tree args)
 {
-  tree decl = NULL_TREE;
-  tree *type = NULL;
-  int is_type = 0;
   tree align_expr;
-  int i;
 
   if (args)
     {
@@ -7794,40 +7860,62 @@ handle_aligned_attribute (tree *node, tree ARG_UNUSED (name), tree args,
   else
     align_expr = size_int (ATTRIBUTE_ALIGNED_VALUE / BITS_PER_UNIT);
 
-  if (DECL_P (*node))
-    {
-      decl = *node;
-      type = &TREE_TYPE (decl);
-      is_type = TREE_CODE (*node) == TYPE_DECL;
-    }
-  else if (TYPE_P (*node))
-    type = node, is_type = 1;
+  return align_expr;
+}
+
+/* Set the type alignment fields of NODE, based on FLAGS to I.  */
+
+static void
+handle_aligned_type (tree *node, int flags, int i)
+{
+  if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
+    *node = build_variant_type_copy (*node);
+
+  TYPE_ALIGN (*node) = (1U << i) * BITS_PER_UNIT;
+  TYPE_USER_ALIGN (*node) = 1;
+}
+
+/* Handle a "aligned" type attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_aligned_type_attribute (tree *node, tree ARG_UNUSED (name), tree args,
+			       int flags, bool *no_add_attrs)
+{
+  tree align_expr;
+  int i;
+
+  align_expr = get_align_expr (args);
 
   if ((i = check_user_alignment (align_expr, false)) == -1
       || !check_cxx_fundamental_alignment_constraints (*node, i, flags))
     *no_add_attrs = true;
-  else if (is_type)
-    {
-      if ((flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
-	/* OK, modify the type in place.  */;
-      /* If we have a TYPE_DECL, then copy the type, so that we
-	 don't accidentally modify a builtin type.  See pushdecl.  */
-      else if (decl && TREE_TYPE (decl) != error_mark_node
-	       && DECL_ORIGINAL_TYPE (decl) == NULL_TREE)
-	{
-	  tree tt = TREE_TYPE (decl);
-	  *type = build_variant_type_copy (*type);
-	  DECL_ORIGINAL_TYPE (decl) = tt;
-	  TYPE_NAME (*type) = decl;
-	  TREE_USED (*type) = TREE_USED (decl);
-	  TREE_TYPE (decl) = *type;
-	}
-      else
-	*type = build_variant_type_copy (*type);
+  else 
+    handle_aligned_type (node, flags, i);
 
-      TYPE_ALIGN (*type) = (1U << i) * BITS_PER_UNIT;
-      TYPE_USER_ALIGN (*type) = 1;
+  return NULL_TREE;
+}
+
+/* Handle a "aligned" decl attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_aligned_decl_attribute (tree *node, tree ARG_UNUSED (name), tree args,
+			       int flags, bool *no_add_attrs)
+{
+  tree align_expr;
+  tree decl = *node;
+  int i;
+
+  align_expr = get_align_expr (args);
+
+  if ((i = check_user_alignment (align_expr, false)) == -1
+      || !check_cxx_fundamental_alignment_constraints (*node, i, flags))
+    {
+      *no_add_attrs = true;
     }
+  else if (TREE_CODE (*node) == TYPE_DECL)
+    handle_aligned_type (&TREE_TYPE (*node), flags, i);
   else if (! VAR_OR_FUNCTION_DECL_P (decl)
 	   && TREE_CODE (decl) != FIELD_DECL)
     {
@@ -8089,57 +8177,10 @@ handle_weakref_attribute (tree *node, tree ARG_UNUSED (name), tree args,
 /* Handle an "visibility" attribute; arguments as in
    struct attribute_spec.handler.  */
 
-static tree
-handle_visibility_attribute (tree *node, tree name, tree args,
-			     int ARG_UNUSED (flags),
-			     bool *ARG_UNUSED (no_add_attrs))
+static void
+handle_decl_visibility (tree decl, tree id, tree attributes)
 {
-  tree decl = *node;
-  tree id = TREE_VALUE (args);
   enum symbol_visibility vis;
-
-  if (TYPE_P (*node))
-    {
-      if (TREE_CODE (*node) == ENUMERAL_TYPE)
-	/* OK */;
-      else if (!RECORD_OR_UNION_TYPE_P (*node))
-	{
-	  warning (OPT_Wattributes, "%qE attribute ignored on non-class types",
-		   name);
-	  return NULL_TREE;
-	}
-      else if (TYPE_FIELDS (*node))
-	{
-	  error ("%qE attribute ignored because %qT is already defined",
-		 name, *node);
-	  return NULL_TREE;
-	}
-    }
-  else if (decl_function_context (decl) != 0 || !TREE_PUBLIC (decl))
-    {
-      warning (OPT_Wattributes, "%qE attribute ignored", name);
-      return NULL_TREE;
-    }
-
-  if (TREE_CODE (id) != STRING_CST)
-    {
-      error ("visibility argument not a string");
-      return NULL_TREE;
-    }
-
-  /*  If this is a type, set the visibility on the type decl.  */
-  if (TYPE_P (decl))
-    {
-      decl = TYPE_NAME (decl);
-      if (!decl)
-	return NULL_TREE;
-      if (TREE_CODE (decl) == IDENTIFIER_NODE)
-	{
-	   warning (OPT_Wattributes, "%qE attribute ignored on types",
-		    name);
-	   return NULL_TREE;
-	}
-    }
 
   if (strcmp (TREE_STRING_POINTER (id), "default") == 0)
     vis = VISIBILITY_DEFAULT;
@@ -8158,9 +8199,6 @@ handle_visibility_attribute (tree *node, tree name, tree args,
   if (DECL_VISIBILITY_SPECIFIED (decl)
       && vis != DECL_VISIBILITY (decl))
     {
-      tree attributes = (TYPE_P (*node)
-			 ? TYPE_ATTRIBUTES (*node)
-			 : DECL_ATTRIBUTES (decl));
       if (lookup_attribute ("visibility", attributes))
 	error ("%qD redeclared with different visibility", decl);
       else if (TARGET_DLLIMPORT_DECL_ATTRIBUTES
@@ -8175,6 +8213,84 @@ handle_visibility_attribute (tree *node, tree name, tree args,
 
   DECL_VISIBILITY (decl) = vis;
   DECL_VISIBILITY_SPECIFIED (decl) = 1;
+}
+
+/* Handle a "visibility" decl attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_visibility_decl_attribute (tree *node, tree name, tree args,
+				  int ARG_UNUSED (flags),
+				  bool *ARG_UNUSED (no_add_attrs))
+{
+  tree decl = *node;
+  tree id = TREE_VALUE (args);
+
+  if (decl_function_context (decl) != 0 || !TREE_PUBLIC (decl))
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      return NULL_TREE;
+    }
+
+  if (TREE_CODE (id) != STRING_CST)
+    {
+      error ("visibility argument not a string");
+      return NULL_TREE;
+    }
+
+  handle_decl_visibility (decl, id, DECL_ATTRIBUTES (decl));
+  /* Go ahead and attach the attribute to the node as well.  This is needed
+     so we can determine whether we have VISIBILITY_DEFAULT because the
+     visibility was not specified, or because it was explicitly overridden
+     from the containing scope.  */
+
+  return NULL_TREE;
+}
+
+/* Handle a "visibility" type attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_visibility_type_attribute (tree *node, tree name, tree args,
+				  int ARG_UNUSED (flags),
+				  bool *ARG_UNUSED (no_add_attrs))
+{
+  tree decl;
+  tree id = TREE_VALUE (args);
+
+  if (TREE_CODE (*node) == ENUMERAL_TYPE)
+    /* OK */;
+  else if (!RECORD_OR_UNION_TYPE_P (*node))
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored on non-class types",
+	       name);
+      return NULL_TREE;
+    }
+  else if (TYPE_FIELDS (*node))
+    {
+      error ("%qE attribute ignored because %qT is already defined",
+	     name, *node);
+      return NULL_TREE;
+    }
+
+  if (TREE_CODE (id) != STRING_CST)
+    {
+      error ("visibility argument not a string");
+      return NULL_TREE;
+    }
+
+  decl = TYPE_NAME (*node);
+  if (!decl)
+    return NULL_TREE;
+
+  if (TREE_CODE (decl) == IDENTIFIER_NODE)
+    {
+       warning (OPT_Wattributes, "%qE attribute ignored on types",
+		name);
+       return NULL_TREE;
+    }
+
+  handle_decl_visibility (decl, id, TYPE_ATTRIBUTES (*node));
 
   /* Go ahead and attach the attribute to the node as well.  This is needed
      so we can determine whether we have VISIBILITY_DEFAULT because the
@@ -8398,7 +8514,7 @@ handle_fnspec_attribute (tree *node ATTRIBUTE_UNUSED, tree ARG_UNUSED (name),
 			 tree args, int ARG_UNUSED (flags),
 			 bool *no_add_attrs ATTRIBUTE_UNUSED)
 {
-  gcc_assert (args
+  gcc_assert (TYPE_P (*node) && args
 	      && TREE_CODE (TREE_VALUE (args)) == STRING_CST
 	      && !TREE_CHAIN (args));
   return NULL_TREE;
@@ -8452,24 +8568,33 @@ handle_bnd_instrument (tree *node, tree name, tree ARG_UNUSED (args),
   return NULL_TREE;
 }
 
-/* Handle a "warn_unused" attribute; arguments as in
+/* Handle a "warn_unused" type attribute; arguments as in
    struct attribute_spec.handler.  */
 
 static tree
-handle_warn_unused_attribute (tree *node, tree name,
-			      tree args ATTRIBUTE_UNUSED,
-			      int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+handle_warn_unused_type_attribute (tree *node ATTRIBUTE_UNUSED,
+				   tree name ATTRIBUTE_UNUSED,
+				   tree args ATTRIBUTE_UNUSED,
+				   int flags ATTRIBUTE_UNUSED,
+				   bool *no_add_attrs ATTRIBUTE_UNUSED)
 {
-  if (TYPE_P (*node))
-    /* Do nothing else, just set the attribute.  We'll get at
-       it later with lookup_attribute.  */
-    ;
-  else
-    {
-      warning (OPT_Wattributes, "%qE attribute ignored", name);
-      *no_add_attrs = true;
-    }
+  /* Do nothing else, just set the attribute.  We'll get at
+     it later with lookup_attribute.  */
+  return NULL_TREE;
+}
 
+/* Handle a "warn_unused" decl attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_warn_unused_decl_attribute (tree *node ATTRIBUTE_UNUSED,
+				   tree name ATTRIBUTE_UNUSED,
+				   tree args ATTRIBUTE_UNUSED,
+				   int flags ATTRIBUTE_UNUSED,
+				   bool *no_add_attrs ATTRIBUTE_UNUSED)
+{
+  /* Do nothing else, just set the attribute.  We'll get at
+     it later with lookup_attribute.  */
   return NULL_TREE;
 }
 
@@ -8727,7 +8852,49 @@ find_tm_attribute (tree list)
    processing given by function_type_required.  */
 
 static tree
-handle_tm_attribute (tree *node, tree name, tree args,
+handle_tm_decl_attribute (tree *node, tree name, tree args,
+		     int flags, bool *no_add_attrs)
+{
+  /* Only one path adds the attribute; others don't.  */
+  *no_add_attrs = true;
+
+  switch (TREE_CODE (*node))
+    {
+    case FUNCTION_DECL:
+      {
+	/* transaction_safe_dynamic goes on the FUNCTION_DECL, but we also
+	   want to set transaction_safe on the type.  */
+	gcc_assert (is_attribute_p ("transaction_safe_dynamic", name));
+	if (!TYPE_P (DECL_CONTEXT (*node)))
+	  error_at (DECL_SOURCE_LOCATION (*node),
+		    "%<transaction_safe_dynamic%> may only be specified for "
+		    "a virtual function");
+	*no_add_attrs = false;
+	type_attributes (&TREE_TYPE (*node),
+			 build_tree_list (get_identifier ("transaction_safe"),
+					  NULL_TREE),
+			 0);
+	break;
+      }
+
+    default:
+      /* If a function is next, pass it on to be tried next.  */
+      if (flags & (int) ATTR_FLAG_FUNCTION_NEXT)
+	return tree_cons (name, args, NULL);
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle the TM attributes; arguments as in struct attribute_spec.handler.
+   Here we accept only function types, and verify that none of the other
+   function TM attributes are also applied.  */
+/* ??? We need to accept class types for C++, but not C.  This greatly
+   complicates this function, since we can no longer rely on the extra
+   processing given by function_type_required.  */
+
+static tree
+handle_tm_type_attribute (tree *node, tree name, tree args,
 		     int flags, bool *no_add_attrs)
 {
   /* Only one path adds the attribute; others don't.  */
@@ -8755,30 +8922,13 @@ handle_tm_attribute (tree *node, tree name, tree args,
       }
       break;
 
-    case FUNCTION_DECL:
-      {
-	/* transaction_safe_dynamic goes on the FUNCTION_DECL, but we also
-	   want to set transaction_safe on the type.  */
-	gcc_assert (is_attribute_p ("transaction_safe_dynamic", name));
-	if (!TYPE_P (DECL_CONTEXT (*node)))
-	  error_at (DECL_SOURCE_LOCATION (*node),
-		    "%<transaction_safe_dynamic%> may only be specified for "
-		    "a virtual function");
-	*no_add_attrs = false;
-	decl_attributes (&TREE_TYPE (*node),
-			 build_tree_list (get_identifier ("transaction_safe"),
-					  NULL_TREE),
-			 0);
-	break;
-      }
-
     case POINTER_TYPE:
       {
 	enum tree_code subcode = TREE_CODE (TREE_TYPE (*node));
 	if (subcode == FUNCTION_TYPE || subcode == METHOD_TYPE)
 	  {
 	    tree fn_tmp = TREE_TYPE (*node);
-	    decl_attributes (&fn_tmp, tree_cons (name, args, NULL), 0);
+	    type_attributes (&fn_tmp, tree_cons (name, args, NULL), 0);
 	    *node = build_pointer_type (fn_tmp);
 	    break;
 	  }
@@ -8866,16 +9016,38 @@ handle_novops_attribute (tree *node, tree ARG_UNUSED (name),
   return NULL_TREE;
 }
 
-/* Handle a "deprecated" attribute; arguments as in
+/* Handle a "deprecated" type attribute; arguments as in
    struct attribute_spec.handler.  */
 
 static tree
-handle_deprecated_attribute (tree *node, tree name,
-			     tree args, int flags,
-			     bool *no_add_attrs)
+handle_deprecated_type_attribute (tree *node, tree ARG_UNUSED (name),
+				  tree args, int flags,
+				  bool *no_add_attrs)
 {
-  tree type = NULL_TREE;
-  int warn = 0;
+  if (!args)
+    *no_add_attrs = true;
+  else if (TREE_CODE (TREE_VALUE (args)) != STRING_CST)
+    {
+      error ("deprecated message is not a string");
+      *no_add_attrs = true;
+    }
+
+  if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
+    *node = build_variant_type_copy (*node);
+  TREE_DEPRECATED (*node) = 1;
+
+  return NULL_TREE;
+}
+
+/* Handle a "deprecated" decl attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_deprecated_decl_attribute (tree *node, tree ARG_UNUSED (name),
+				  tree args, int ARG_UNUSED (flags),
+				  bool *no_add_attrs)
+{
+  tree decl = *node;
   tree what = NULL_TREE;
 
   if (!args)
@@ -8886,33 +9058,16 @@ handle_deprecated_attribute (tree *node, tree name,
       *no_add_attrs = true;
     }
 
-  if (DECL_P (*node))
-    {
-      tree decl = *node;
-      type = TREE_TYPE (decl);
-
-      if (TREE_CODE (decl) == TYPE_DECL
-	  || TREE_CODE (decl) == PARM_DECL
-	  || VAR_OR_FUNCTION_DECL_P (decl)
-	  || TREE_CODE (decl) == FIELD_DECL
-	  || TREE_CODE (decl) == CONST_DECL
-	  || objc_method_decl (TREE_CODE (decl)))
-	TREE_DEPRECATED (decl) = 1;
-      else
-	warn = 1;
-    }
-  else if (TYPE_P (*node))
-    {
-      if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
-	*node = build_variant_type_copy (*node);
-      TREE_DEPRECATED (*node) = 1;
-      type = *node;
-    }
+  if (TREE_CODE (decl) == TYPE_DECL
+      || TREE_CODE (decl) == PARM_DECL
+      || VAR_OR_FUNCTION_DECL_P (decl)
+      || TREE_CODE (decl) == FIELD_DECL
+      || TREE_CODE (decl) == CONST_DECL
+      || objc_method_decl (TREE_CODE (decl)))
+    TREE_DEPRECATED (decl) = 1;
   else
-    warn = 1;
-
-  if (warn)
     {
+      tree type = TREE_TYPE (decl);
       *no_add_attrs = true;
       if (type && TYPE_NAME (type))
 	{
@@ -8930,7 +9085,6 @@ handle_deprecated_attribute (tree *node, tree name,
 
   return NULL_TREE;
 }
-
 /* Handle a "vector_size" attribute; arguments as in
    struct attribute_spec.handler.  */
 
