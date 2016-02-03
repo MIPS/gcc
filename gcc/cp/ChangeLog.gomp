@@ -1,3 +1,7 @@
+2016-02-03  James Norris  <jnorris@codesourcery.com>
+
+	* semantics.c (finish_id_expression): Remove usage check.
+
 2016-01-20  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* parser.c (cp_parser_oacc_all_clauses): Call finish_omp_clauses

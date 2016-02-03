@@ -3712,25 +3712,6 @@ finish_id_expression (tree id_expression,
 
 	  decl = convert_from_reference (decl);
 	}
-
-      if (decl != error_mark_node
-	  && current_function_decl
-	  && TREE_CODE (decl) == VAR_DECL
-	  && is_global_var (decl)
-          && get_oacc_fn_attrib (current_function_decl))
-	{
-	  /* Validate data type for use with routine directive.  */
-	  if (lookup_attribute ("omp declare target link",
-				DECL_ATTRIBUTES (decl))
-	      || ((!lookup_attribute ("omp declare target",
-				  DECL_ATTRIBUTES (decl))
-		   && ((TREE_STATIC (decl) && !DECL_EXTERNAL (decl))
-			|| (!TREE_STATIC (decl) && DECL_EXTERNAL (decl))))))
-	    {
-	      *error_msg = "invalid use in %<routine%> function";
-	      return error_mark_node;
-	    }
-	}
     }
 
   return cp_expr (decl, location);

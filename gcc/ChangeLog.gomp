@@ -1,3 +1,9 @@
+2016-02-03  James Norris  <jnorris@codesourcery.com
+
+	Backport form trunk:
+	2016-02-02  James Norris  <jnorris@codesourcery.com>
+	* gimplify.c (omp_notice_variable): Add usage check.
+
 2016-01-22  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* omp-low.c (struct oacc_loop): Add 'inner' field.

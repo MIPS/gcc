@@ -1,3 +1,9 @@
+2016-02-03  James Norris  <jnorris@codesourcery.com>
+
+	Backport from trunk:
+	2016-02-02  James Norris  <jnorris@codesourcery.com>
+	* c-c++-common/goacc/routine-5.c: Add tests.
+
 2016-01-22  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* c-c++-common/goacc/loop-auto-1.c: Adjust expected warnings.
