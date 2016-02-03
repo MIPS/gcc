@@ -14897,7 +14897,7 @@ mips_output_jump (rtx *operands, int target_opno, int size_opno, bool link_p)
   const char *nop = "%/";
   const char *short_delay = link_p ? "%!" : "";
   const char *insn_name = (TARGET_CB_NEVER
-			   && ((TARGET_MIPS16 && !TARGET_MIPS16_TAIL_BRANCH)
+			   && (!(TARGET_MIPS16 && TARGET_MIPS16_TAIL_BRANCH)
 			       || link_p)
 			   || reg_p ? "j" : "b");
 
