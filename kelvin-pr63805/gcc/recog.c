@@ -40,6 +40,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "reload.h"
 #include "tree-pass.h"
 
+#define KELVIN_NOISE
+
 #ifndef STACK_POP_CODE
 #if STACK_GROWS_DOWNWARD
 #define STACK_POP_CODE POST_INC
@@ -2221,6 +2223,14 @@ extract_insn (rtx_insn *insn)
   int noperands;
   rtx body = PATTERN (insn);
 
+#ifdef KELVIN_NOISE
+  fprintf (stderr, "in extract_insn (), insn is: \n");
+  print_rtl_single (stderr, insn);
+  fprintf (stderr, "body is: \n");
+  print_rtl (stderr, (const_rtx) body);
+  fprintf (stderr, "\n");
+#endif
+
   recog_data.n_operands = 0;
   recog_data.n_alternatives = 0;
   recog_data.n_dups = 0;
@@ -2234,14 +2244,33 @@ extract_insn (rtx_insn *insn)
     case ADDR_VEC:
     case ADDR_DIFF_VEC:
     case VAR_LOCATION:
+#ifdef KELVIN_NOISE
+      fprintf (stderr, "GET_CODE (body) is simple %d\n", GET_CODE (body));
+#endif
       return;
 
     case SET:
+#ifdef KELVIN_NOISE
+      fprintf (stderr, "GET_CODE (body) is SET\n");
+#endif
       if (GET_CODE (SET_SRC (body)) == ASM_OPERANDS)
-	goto asm_insn;
+	{
+#ifdef KELVIN_NOISE
+	  fprintf (stderr, "GET_CODE (SET_SRC (body)) is ASM_OPERANDS\n");
+#endif
+	  goto asm_insn;
+	}
       else
-	goto normal_insn;
+	{
+#ifdef KELVIN_NOISE
+	  fprintf (stderr, "GET_CODE (SET_SRC (body)) is NOT ASM_OPERANDS\n");
+#endif
+	  goto normal_insn;
+	}
     case PARALLEL:
+#ifdef KELVIN_NOISE
+      fprintf (stderr, "GET_CODE (body) is PARALLEL\n");
+#endif
       if ((GET_CODE (XVECEXP (body, 0, 0)) == SET
 	   && GET_CODE (SET_SRC (XVECEXP (body, 0, 0))) == ASM_OPERANDS)
 	  || GET_CODE (XVECEXP (body, 0, 0)) == ASM_OPERANDS)
@@ -2250,6 +2279,9 @@ extract_insn (rtx_insn *insn)
 	goto normal_insn;
     case ASM_OPERANDS:
     asm_insn:
+#ifdef KELVIN_NOISE
+      fprintf (stderr, "GET_CODE (body) is ASM_OPERANDS (or come-from)\n");
+#endif
       recog_data.n_operands = noperands = asm_noperands (body);
       if (noperands >= 0)
 	{
@@ -2274,14 +2306,26 @@ extract_insn (rtx_insn *insn)
 	  recog_data.is_asm = true;
 	  break;
 	}
+#ifdef KELVIN_NOISE
+      fprintf (stderr, "  not finding asm insn\n");
+#endif
       fatal_insn_not_found (insn);
 
     default:
     normal_insn:
+#ifdef KELVIN_NOISE
+      fprintf (stderr, "GET_CODE (body) is default (or come from): %d\n", 
+	       GET_CODE (body));
+#endif
       /* Ordinary insn: recognize it, get the operands via insn_extract
 	 and get the constraints.  */
 
       icode = recog_memoized (insn);
+
+#ifdef KELVIN_NOISE
+      fprintf (stderr, "icode is %d (< 0 means insn not found)\n", icode);
+#endif
+
       if (icode < 0)
 	fatal_insn_not_found (insn);
 
