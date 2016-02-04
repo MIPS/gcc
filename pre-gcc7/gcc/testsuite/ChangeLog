@@ -1,3 +1,65 @@
+2016-02-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/69667
+	* g++.dg/pr69667.C: New file.
+
+2016-02-04  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	PR target/69619
+	* gcc.dg/pr69619.c: Add new test.
+
+2016-02-04  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR rtl-optimization/69577
+	* gcc.target/i386/pr69577.c: New test.
+
+2016-02-04  Martin Liska  <mliska@suse.cz>
+
+	* g++.dg/asan/pr69276.C: New test.
+
+2016-02-04  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/65932
+	PR target/67714
+	* gcc.target/arm/wmul-3.c: Simplify test to generate just
+	a single smulbb instruction.
+	* gcc.target/amr/wmul-1.c: Add -mtune=cortex-a9 to dg-options.
+	* gcc.target/amr/wmul-2.c: Likewise.
+
+2016-02-04  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/65932
+	PR target/67714
+	* gcc.c-torture/execute/pr67714.c: New test.
+
+2016-02-04  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR target/69454
+	* gcc.target/i386/pr69454-1.c: New test.
+	* gcc.target/i386/pr69454-2.c: New test.
+
+2016-02-03  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/69251
+	PR c++/69253
+	PR c++/69290
+	PR c++/69277
+	PR c++/69349
+	* g++.dg/ext/flexarray-mangle-2.C: New test.
+	* g++.dg/ext/flexarray-mangle.C: New test.
+	* g++.dg/ext/flexarray-subst.C: New test.
+	* g++.dg/ext/flexary11.C: New test.
+	* g++.dg/ext/flexary12.C: New test.
+	* g++.dg/ext/flexary13.C: New test.
+	* g++.dg/ext/flexary14.C: New test.
+	* g++.dg/other/dump-ada-spec-2.C: Adjust.
+
+2016-02-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/iamcu/test_passing_unions.c (check_union_passing6):
+	Define only if CHECK_FLOAT128 is defined.
+	(main): Properly initialize u5.
+
 2016-02-03  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/69627
