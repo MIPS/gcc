@@ -1648,11 +1648,12 @@ DEFHOOK
 (validate_dims,
 "This hook should check the launch dimensions provided for an OpenACC\n\
 compute region, or routine.  Defaulted values are represented as -1\n\
-and non-constant values as 0. The @var{fn_level} is negative for the\n\
+and non-constant values as 0.  The @var{fn_level} is negative for the\n\
 function corresponding to the compute region.  For a routine is is the\n\
-outermost level at which partitioned execution may be spawned.  It\n\
-should fill in anything that needs to default to non-unity and verify\n\
-non-defaults.  Diagnostics should be issued as appropriate.  Return\n\
+outermost level at which partitioned execution may be spawned.  The hook\n\
+should verify non-default values.  If DECL is NULL, global defaults\n\
+are being validated and unspecified defaults should be filled in.\n\
+Diagnostics should be issued as appropriate.  Return\n\
 true, if changes have been made.  You must override this hook to\n\
 provide dimensions larger than 1.",
 bool, (tree decl, int *dims, int fn_level),
@@ -4873,10 +4874,10 @@ This is currently used only by the C and C++ front ends.",
 DEFHOOK
 (ira_change_pseudo_allocno_class,
  "A target hook which can change allocno class for given pseudo from\n\
-  allocno class calculated by IRA.\n\
+  allocno and best class calculated by IRA.\n\
   \n\
   The default version of this target hook always returns given class.",
- reg_class_t, (int, reg_class_t),
+ reg_class_t, (int, reg_class_t, reg_class_t),
  default_ira_change_pseudo_allocno_class)
 
 /* Return true if we use LRA instead of reload.  */

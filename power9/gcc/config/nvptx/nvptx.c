@@ -2031,28 +2031,20 @@ nvptx_print_operand (FILE *file, rtx x, int code)
 	    fputs (".ne", file);
 	  break;
 	case LE:
+	case LEU:
 	  fputs (".le", file);
 	  break;
 	case GE:
+	case GEU:
 	  fputs (".ge", file);
 	  break;
 	case LT:
+	case LTU:
 	  fputs (".lt", file);
 	  break;
 	case GT:
-	  fputs (".gt", file);
-	  break;
-	case LEU:
-	  fputs (".ls", file);
-	  break;
-	case GEU:
-	  fputs (".hs", file);
-	  break;
-	case LTU:
-	  fputs (".lo", file);
-	  break;
 	case GTU:
-	  fputs (".hi", file);
+	  fputs (".gt", file);
 	  break;
 	case LTGT:
 	  fputs (".ne", file);
@@ -4122,10 +4114,12 @@ nvptx_expand_builtin (tree exp, rtx target, rtx ARG_UNUSED (subtarget),
 /* Define dimension sizes for known hardware.  */
 #define PTX_VECTOR_LENGTH 32
 #define PTX_WORKER_LENGTH 32
+#define PTX_GANG_DEFAULT  32
 
 /* Validate compute dimensions of an OpenACC offload or routine, fill
    in non-unity defaults.  FN_LEVEL indicates the level at which a
-   routine might spawn a loop.  It is negative for non-routines.  */
+   routine might spawn a loop.  It is negative for non-routines.  If
+   DECL is null, we are validating the default dimensions.  */
 
 static bool
 nvptx_goacc_validate_dims (tree decl, int dims[], int fn_level)
@@ -4133,11 +4127,12 @@ nvptx_goacc_validate_dims (tree decl, int dims[], int fn_level)
   bool changed = false;
 
   /* The vector size must be 32, unless this is a SEQ routine.  */
-  if (fn_level <= GOMP_DIM_VECTOR
+  if (fn_level <= GOMP_DIM_VECTOR && fn_level >= -1
+      && dims[GOMP_DIM_VECTOR] >= 0
       && dims[GOMP_DIM_VECTOR] != PTX_VECTOR_LENGTH)
     {
-      if (dims[GOMP_DIM_VECTOR] >= 0 && fn_level < 0)
-	warning_at (DECL_SOURCE_LOCATION (decl), 0,
+      if (fn_level < 0 && dims[GOMP_DIM_VECTOR] >= 0)
+	warning_at (decl ? DECL_SOURCE_LOCATION (decl) : UNKNOWN_LOCATION, 0,
 		    dims[GOMP_DIM_VECTOR]
 		    ? "using vector_length (%d), ignoring %d"
 		    : "using vector_length (%d), ignoring runtime setting",
@@ -4149,10 +4144,20 @@ nvptx_goacc_validate_dims (tree decl, int dims[], int fn_level)
   /* Check the num workers is not too large.  */
   if (dims[GOMP_DIM_WORKER] > PTX_WORKER_LENGTH)
     {
-      warning_at (DECL_SOURCE_LOCATION (decl), 0,
+      warning_at (decl ? DECL_SOURCE_LOCATION (decl) : UNKNOWN_LOCATION, 0,
 		  "using num_workers (%d), ignoring %d",
 		  PTX_WORKER_LENGTH, dims[GOMP_DIM_WORKER]);
       dims[GOMP_DIM_WORKER] = PTX_WORKER_LENGTH;
+      changed = true;
+    }
+
+  if (!decl)
+    {
+      dims[GOMP_DIM_VECTOR] = PTX_VECTOR_LENGTH;
+      if (dims[GOMP_DIM_WORKER] < 0)
+	dims[GOMP_DIM_WORKER] = PTX_WORKER_LENGTH;
+      if (dims[GOMP_DIM_GANG] < 0)
+	dims[GOMP_DIM_GANG] = PTX_GANG_DEFAULT;
       changed = true;
     }
 

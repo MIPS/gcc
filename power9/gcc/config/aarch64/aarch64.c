@@ -315,6 +315,7 @@ static const struct cpu_vector_cost generic_vector_cost =
   1, /* scalar_load_cost  */
   1, /* scalar_store_cost  */
   1, /* vec_stmt_cost  */
+  2, /* vec_permute_cost  */
   1, /* vec_to_scalar_cost  */
   1, /* scalar_to_vec_cost  */
   1, /* vec_align_load_cost  */
@@ -332,6 +333,7 @@ static const struct cpu_vector_cost cortexa57_vector_cost =
   4, /* scalar_load_cost  */
   1, /* scalar_store_cost  */
   3, /* vec_stmt_cost  */
+  3, /* vec_permute_cost  */
   8, /* vec_to_scalar_cost  */
   8, /* scalar_to_vec_cost  */
   5, /* vec_align_load_cost  */
@@ -348,6 +350,7 @@ static const struct cpu_vector_cost exynosm1_vector_cost =
   5, /* scalar_load_cost  */
   1, /* scalar_store_cost  */
   3, /* vec_stmt_cost  */
+  3, /* vec_permute_cost  */
   3, /* vec_to_scalar_cost  */
   3, /* scalar_to_vec_cost  */
   5, /* vec_align_load_cost  */
@@ -365,6 +368,7 @@ static const struct cpu_vector_cost xgene1_vector_cost =
   5, /* scalar_load_cost  */
   1, /* scalar_store_cost  */
   2, /* vec_stmt_cost  */
+  2, /* vec_permute_cost  */
   4, /* vec_to_scalar_cost  */
   4, /* scalar_to_vec_cost  */
   10, /* vec_align_load_cost  */
@@ -718,6 +722,37 @@ aarch64_err_no_fpadvsimd (machine_mode mode, const char *msg)
     error ("%qs is incompatible with %s %s", "-mgeneral-regs-only", mc, msg);
   else
     error ("%qs feature modifier is incompatible with %s %s", "+nofp", mc, msg);
+}
+
+/* Implement TARGET_IRA_CHANGE_PSEUDO_ALLOCNO_CLASS.
+   The register allocator chooses ALL_REGS if FP_REGS and GENERAL_REGS have
+   the same cost even if ALL_REGS has a much larger cost.  ALL_REGS is also
+   used if the cost of both FP_REGS and GENERAL_REGS is lower than the memory
+   cost (in this case the best class is the lowest cost one).  Using ALL_REGS
+   irrespectively of its cost results in bad allocations with many redundant
+   int<->FP moves which are expensive on various cores.
+   To avoid this we don't allow ALL_REGS as the allocno class, but force a
+   decision between FP_REGS and GENERAL_REGS.  We use the allocno class if it
+   isn't ALL_REGS.  Similarly, use the best class if it isn't ALL_REGS.
+   Otherwise set the allocno class depending on the mode.
+   The result of this is that it is no longer inefficient to have a higher
+   memory move cost than the register move cost.
+*/
+
+static reg_class_t
+aarch64_ira_change_pseudo_allocno_class (int regno, reg_class_t allocno_class,
+					 reg_class_t best_class)
+{
+  enum machine_mode mode;
+
+  if (allocno_class != ALL_REGS)
+    return allocno_class;
+
+  if (best_class != ALL_REGS)
+    return best_class;
+
+  mode = PSEUDO_REGNO_MODE (regno);
+  return FLOAT_MODE_P (mode) || VECTOR_MODE_P (mode) ? FP_REGS : GENERAL_REGS;
 }
 
 static unsigned int
@@ -1488,6 +1523,16 @@ aarch64_split_simd_move (rtx dst, rtx src)
       return;
     }
 }
+
+bool
+aarch64_zero_extend_const_eq (machine_mode xmode, rtx x,
+			      machine_mode ymode, rtx y)
+{
+  rtx r = simplify_const_unary_operation (ZERO_EXTEND, xmode, y, ymode);
+  gcc_assert (r != NULL);
+  return rtx_equal_p (x, r);
+}
+			      
 
 static rtx
 aarch64_force_temporary (machine_mode mode, rtx x, rtx value)
@@ -4185,6 +4230,13 @@ aarch64_select_cc_mode (RTX_CODE code, rtx x, rtx y)
     return ((code == GT || code == GE || code == LE || code == LT)
 	    ? CC_SESWPmode : CC_ZESWPmode);
 
+  /* A test for unsigned overflow.  */
+  if ((GET_MODE (x) == DImode || GET_MODE (x) == TImode)
+      && code == NE
+      && GET_CODE (x) == PLUS
+      && GET_CODE (y) == ZERO_EXTEND)
+    return CC_Cmode;
+
   /* For everything else, return CCmode.  */
   return CCmode;
 }
@@ -4280,6 +4332,15 @@ aarch64_get_condition_code_1 (enum machine_mode mode, enum rtx_code comp_code)
 	{
 	case NE: return AARCH64_NE;
 	case EQ: return AARCH64_EQ;
+	default: return -1;
+	}
+      break;
+
+    case CC_Cmode:
+      switch (comp_code)
+	{
+	case NE: return AARCH64_CS;
+	case EQ: return AARCH64_CC;
 	default: return -1;
 	}
       break;
@@ -6006,7 +6067,7 @@ aarch64_if_then_else_costs (rtx op0, rtx op1, rtx op2, int *cost, bool speed)
   else if (GET_MODE_CLASS (GET_MODE (inner)) == MODE_CC)
     {
       /* CCMP.  */
-      if ((GET_CODE (op1) == COMPARE) && CONST_INT_P (op2))
+      if (GET_CODE (op1) == COMPARE)
 	{
 	  /* Increase cost of CCMP reg, 0, imm, CC to prefer CMP reg, 0.  */
 	  if (XEXP (op1, 1) == const0_rtx)
@@ -7574,6 +7635,8 @@ aarch64_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
 	return aarch64_tune_params.vec_costs->cond_not_taken_branch_cost;
 
       case vec_perm:
+	return aarch64_tune_params.vec_costs->vec_permute_cost;
+
       case vec_promote_demote:
 	return aarch64_tune_params.vec_costs->vec_stmt_cost;
 
@@ -13976,6 +14039,10 @@ aarch64_optab_supported_p (int op, machine_mode, machine_mode,
 
 #undef  TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS  aarch64_init_builtins
+
+#undef TARGET_IRA_CHANGE_PSEUDO_ALLOCNO_CLASS
+#define TARGET_IRA_CHANGE_PSEUDO_ALLOCNO_CLASS \
+  aarch64_ira_change_pseudo_allocno_class
 
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P aarch64_legitimate_address_hook_p
