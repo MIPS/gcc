@@ -445,8 +445,9 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
 
 /* Fold (C1/X)*C2 into (C1*C2)/X.  */
 (simplify
- (mult (rdiv:s REAL_CST@0 @1) REAL_CST@2)
-  (if (flag_associative_math)
+ (mult (rdiv@3 REAL_CST@0 @1) REAL_CST@2)
+  (if (flag_associative_math
+       && single_use (@3))
    (with
     { tree tem = const_binop (MULT_EXPR, type, @0, @2); }
     (if (tem)
@@ -2093,6 +2094,24 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
  (bit_and:c (ordered @0 @0) (ordered:c@2 @0 @1))
  @2)
 
+/* Simple range test simplifications.  */
+/* A < B || A >= B -> true.  */
+(for test1 (lt le ne)
+     test2 (ge gt eq)
+ (simplify
+  (bit_ior:c (test1 @0 @1) (test2 @0 @1))
+  (if (INTEGRAL_TYPE_P (TREE_TYPE (@0))
+       || VECTOR_INTEGER_TYPE_P (TREE_TYPE (@0)))
+   { constant_boolean_node (true, type); })))
+/* A < B && A >= B -> false.  */
+(for test1 (lt lt lt le ne eq)
+     test2 (ge gt eq gt eq gt)
+ (simplify
+  (bit_and:c (test1 @0 @1) (test2 @0 @1))
+  (if (INTEGRAL_TYPE_P (TREE_TYPE (@0))
+       || VECTOR_INTEGER_TYPE_P (TREE_TYPE (@0)))
+   { constant_boolean_node (false, type); })))
+
 /* -A CMP -B -> B CMP A.  */
 (for cmp (tcc_comparison)
      scmp (swapped_tcc_comparison)
@@ -2121,7 +2140,7 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
 (for cmp (simple_comparison)
  (simplify
   (cmp (convert@0 @00) (convert?@1 @10))
-  (if (TREE_CODE (TREE_TYPE (@0)) == INTEGER_TYPE
+  (if (INTEGRAL_TYPE_P (TREE_TYPE (@0))
        /* Disable this optimization if we're casting a function pointer
 	  type on targets that require function pointer canonicalization.  */
        && !(targetm.have_canonicalize_funcptr_for_compare ()

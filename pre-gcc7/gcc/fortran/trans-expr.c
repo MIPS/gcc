@@ -1103,7 +1103,14 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems, bool unlimited)
 	}
       else
 	{
-	  from_data = gfc_class_data_get (from);
+	  /* Check that from is a class.  When the class is part of a coarray,
+	     then from is a common pointer and is to be used as is.  */
+	  tmp = POINTER_TYPE_P (TREE_TYPE (from))
+	      ? build_fold_indirect_ref (from) : from;
+	  from_data =
+	      (GFC_CLASS_TYPE_P (TREE_TYPE (tmp))
+	       || (DECL_P (tmp) && GFC_DECL_CLASS (tmp)))
+	      ? gfc_class_data_get (from) : from;
 	  is_from_desc = GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (from_data));
 	}
      }
@@ -4723,8 +4730,9 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
      is the third and fourth argument to such a function call a value
      denoting the number of elements to copy (i.e., most of the time the
      length of a deferred length string).  */
-  ulim_copy = formal == NULL && UNLIMITED_POLY (sym)
-      && strcmp ("_copy", comp->name) == 0;
+  ulim_copy = (formal == NULL)
+	       && UNLIMITED_POLY (sym)
+	       && comp && (strcmp ("_copy", comp->name) == 0);
 
   /* Evaluate the arguments.  */
   for (arg = args, argc = 0; arg != NULL;
@@ -5620,7 +5628,8 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
       if (sym->name[0] == '_' && e && e->ts.type == BT_CHARACTER
 	  && strncmp (sym->name, "__vtab_CHARACTER", 16) == 0
 	  && arg->next && arg->next->expr
-	  && arg->next->expr->ts.type == BT_DERIVED
+	  && (arg->next->expr->ts.type == BT_DERIVED
+	      || arg->next->expr->ts.type == BT_CLASS)
 	  && arg->next->expr->ts.u.derived->attr.unlimited_polymorphic)
 	vec_safe_push (stringargs, parmse.string_length);
 

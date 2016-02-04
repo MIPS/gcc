@@ -1,3 +1,36 @@
+2016-02-03  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/67451
+	PR fortran/69418
+	* trans-expr.c (gfc_copy_class_to_class): For coarrays just the
+	pointer is passed.  Take it as is without trying to deref the
+	_data component.
+	* trans-stmt.c (gfc_trans_allocate): Take care of coarrays as
+	argument to source=-expression.
+
+2016-02-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* lang.opt (fopenacc-dim=): New option.
+
+2016-01-31  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/67564
+	* trans-expr.c (gfc_conv_procedure_call): For the vtable copy
+	subroutines, add a string length argument, when the actual
+	argument is an unlimited polymorphic class object.
+
+2016-01-30  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/69566
+	* trans-expr.c (gfc_conv_procedure_call): Correct expression
+	for 'ulim_copy', which was missing a test for 'comp'.
+
+2016-01-28  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/62536
+	* decl.c (gfc_match_end): Only unnest and remove BLOCK namespaces
+	when the END encountered does not match a BLOCK's end.
+
 2016-01-27  Janus Weil  <janus@gcc.gnu.org>
 
 	PR fortran/69484
@@ -5,7 +38,7 @@
 
 2016-01-27  Paul Thomas  <pault@gcc.gnu.org>
 
-	PR fortran/69385
+	PR fortran/69422
 	* trans-expr.c (is_scalar_reallocatable_lhs): Remove the check
 	for allocatable components, whilst checking if the symbol is a
 	derived or class entity..

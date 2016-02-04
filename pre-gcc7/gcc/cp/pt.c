@@ -8482,11 +8482,7 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
 	      tree attributes
 		= lookup_attribute (tags[ix], TYPE_ATTRIBUTES (template_type));
 
-	      if (!attributes)
-		;
-	      else if (!TREE_CHAIN (attributes) && !TYPE_ATTRIBUTES (t))
-		TYPE_ATTRIBUTES (t) = attributes;
-	      else
+	      if (attributes)
 		TYPE_ATTRIBUTES (t)
 		  = tree_cons (TREE_PURPOSE (attributes),
 			       TREE_VALUE (attributes),
@@ -18740,6 +18736,28 @@ try_one_overload (tree tparms,
 	   template args used in the function parm list with our own
 	   template parms.  Discard them.  */
 	TREE_VEC_ELT (tempargs, i) = NULL_TREE;
+      else if (oldelt && ARGUMENT_PACK_P (oldelt))
+	{
+	  /* Check that the argument at each index of the deduced argument pack
+	     is equivalent to the corresponding explicitly specified argument.
+	     We may have deduced more arguments than were explicitly specified,
+	     and that's OK.  */
+	  gcc_assert (ARGUMENT_PACK_INCOMPLETE_P (oldelt));
+	  gcc_assert (ARGUMENT_PACK_ARGS (oldelt)
+		      == ARGUMENT_PACK_EXPLICIT_ARGS (oldelt));
+
+	  tree explicit_pack = ARGUMENT_PACK_ARGS (oldelt);
+	  tree deduced_pack = ARGUMENT_PACK_ARGS (elt);
+
+	  if (TREE_VEC_LENGTH (deduced_pack)
+	      < TREE_VEC_LENGTH (explicit_pack))
+	    return 0;
+
+	  for (int j = 0; j < TREE_VEC_LENGTH (explicit_pack); j++)
+	    if (!template_args_equal (TREE_VEC_ELT (explicit_pack, j),
+				      TREE_VEC_ELT (deduced_pack, j)))
+	      return 0;
+	}
       else if (oldelt && !template_args_equal (oldelt, elt))
 	return 0;
     }
@@ -20750,6 +20768,36 @@ most_general_template (tree decl)
   return decl;
 }
 
+/* True iff the TEMPLATE_DECL tmpl is a partial specialization.  */
+
+static bool
+partial_specialization_p (tree tmpl)
+{
+  /* Any specialization has DECL_TEMPLATE_SPECIALIZATION.  */
+  if (!DECL_TEMPLATE_SPECIALIZATION (tmpl))
+    return false;
+  tree t = DECL_TI_TEMPLATE (tmpl);
+  /* A specialization that fully specializes one of the containing classes is
+     not a partial specialization.  */
+  return (list_length (DECL_TEMPLATE_PARMS (tmpl))
+	  == list_length (DECL_TEMPLATE_PARMS (t)));
+}
+
+/* If TMPL is a partial specialization, return the arguments for its primary
+   template.  */
+
+static tree
+impartial_args (tree tmpl, tree args)
+{
+  if (!partial_specialization_p (tmpl))
+    return args;
+
+  /* If TMPL is a partial specialization, we need to substitute to get
+     the args for the primary template.  */
+  return tsubst_template_args (DECL_TI_ARGS (tmpl), args,
+			       tf_warning_or_error, tmpl);
+}
+
 /* Return the most specialized of the template partial specializations
    which can produce TARGET, a specialization of some class or variable
    template.  The value returned is actually a TREE_LIST; the TREE_VALUE is
@@ -21574,7 +21622,7 @@ instantiate_decl (tree d, int defer_ok,
     return d;
 
   gen_tmpl = most_general_template (tmpl);
-  gen_args = DECL_TI_ARGS (d);
+  gen_args = impartial_args (tmpl, DECL_TI_ARGS (d));
 
   if (tmpl != gen_tmpl)
     /* We should already have the extra args.  */
