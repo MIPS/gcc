@@ -10318,8 +10318,10 @@ arm_new_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code,
 	      /* SMUL[TB][TB].  */
 	      if (speed_p)
 		*cost += extra_cost->mult[0].extend;
-	      *cost += rtx_cost (XEXP (x, 0), mode, SIGN_EXTEND, 0, speed_p);
-	      *cost += rtx_cost (XEXP (x, 1), mode, SIGN_EXTEND, 1, speed_p);
+	      *cost += rtx_cost (XEXP (XEXP (x, 0), 0), mode,
+				 SIGN_EXTEND, 0, speed_p);
+	      *cost += rtx_cost (XEXP (XEXP (x, 1), 0), mode,
+				 SIGN_EXTEND, 1, speed_p);
 	      return true;
 	    }
 	  if (speed_p)
@@ -23603,13 +23605,6 @@ arm_scalar_mode_supported_p (machine_mode mode)
     return default_scalar_mode_supported_p (mode);
 }
 
-/* Emit code to reinterpret one Neon type as another, without altering bits.  */
-void
-neon_reinterpret (rtx dest, rtx src)
-{
-  emit_move_insn (dest, gen_lowpart (GET_MODE (dest), src));
-}
-
 /* Set up OPERANDS for a register copy from SRC to DEST, taking care
    not to early-clobber SRC registers in the process.
 
@@ -29769,6 +29764,7 @@ save_restore_target_globals (tree new_tree)
 }
 
 /* Invalidate arm_previous_fndecl.  */
+
 void
 arm_reset_previous_fndecl (void)
 {
@@ -29778,6 +29774,7 @@ arm_reset_previous_fndecl (void)
 /* Establish appropriate back-end context for processing the function
    FNDECL.  The argument might be NULL to indicate processing at top
    level, outside of any function scope.  */
+
 static void
 arm_set_current_function (tree fndecl)
 {
@@ -29791,7 +29788,7 @@ arm_set_current_function (tree fndecl)
   tree new_tree = DECL_FUNCTION_SPECIFIC_TARGET (fndecl);
 
   /* If current function has no attributes but previous one did,
-     use the default node."  */
+     use the default node.  */
   if (! new_tree && old_tree)
     new_tree = target_option_default_node;
 
