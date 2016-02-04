@@ -41,6 +41,7 @@
 #include <cuda.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <limits.h>
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -1874,7 +1875,7 @@ GOMP_OFFLOAD_openacc_set_cuda_stream (int async, void *stream)
 static void
 nvptx_adjust_launch_bounds (struct targ_fn_descriptor *fn,
 			    struct ptx_device *ptx_dev,
-			    long *teams_p, long *threads_p)
+			    int *teams_p, int *threads_p)
 {
   int max_warps_block = fn->max_threads_per_block / 32;
   /* Maximum 32 warps per block is an implementation limit in NVPTX backend
@@ -1903,19 +1904,20 @@ GOMP_OFFLOAD_run (int ord, void *tgt_fn, void *tgt_vars, void **args)
   struct ptx_device *ptx_dev = ptx_devices[ord];
   const char *maybe_abort_msg = "(perhaps abort was called)";
   void *fn_args = &tgt_vars;
-  long teams = 0, threads = 0;
+  int teams = 0, threads = 0;
 
   if (!args)
     GOMP_PLUGIN_fatal ("No target arguments provided");
   while (*args)
     {
-      long id = (long) *args++, val;
+      intptr_t id = (intptr_t) *args++, val;
       if (id & GOMP_TARGET_ARG_SUBSEQUENT_PARAM)
-	val = (long) *args++;
+	val = (intptr_t) *args++;
       else
         val = id >> GOMP_TARGET_ARG_VALUE_SHIFT;
       if ((id & GOMP_TARGET_ARG_DEVICE_MASK) != GOMP_TARGET_ARG_DEVICE_ALL)
 	continue;
+      val = val > INT_MAX ? INT_MAX : val;
       id &= GOMP_TARGET_ARG_ID_MASK;
       if (id == GOMP_TARGET_ARG_NUM_TEAMS)
 	teams = val;
