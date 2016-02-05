@@ -1300,7 +1300,7 @@ build_v1_property_table_initializer (tree type, tree context)
 			      objc_build_constructor (type, elemlist));
     }
 
-  return objc_build_constructor (build_array_type (type, 0),inits);
+  return objc_build_constructor (build_array_type (type, NULL_TYPE),inits);
 }
 
 /* This routine builds the 'struct _prop_list_t' variable declaration and

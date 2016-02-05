@@ -43,7 +43,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Data type for the expressions representing sizes of data types.
    It is the first integer type laid out.  */
-tree sizetype_tab[(int) stk_type_kind_last];
+ttype *sizetype_tab[(int) stk_type_kind_last];
 
 /* If nonzero, this is an upper limit on alignment of structure fields.
    The value is measured in bits.  */
@@ -2446,24 +2446,24 @@ min_align_of_type (tree type)
    referenced by a function and re-compute the TYPE_MODE once, rather
    than make the TYPE_MODE macro call a function.  */
 
-machine_mode
-vector_type_mode (const_tree t)
+enum machine_mode
+ttype::vector_mode () const
 {
   machine_mode mode;
 
-  gcc_assert (TREE_CODE (t) == VECTOR_TYPE);
+  gcc_assert (code () == VECTOR_TYPE);
 
-  mode = t->u.type_common.mode;
+  mode = mode_raw ();
   if (VECTOR_MODE_P (mode)
       && (!targetm.vector_mode_supported_p (mode)
 	  || !have_regs_of_mode[mode]))
     {
-      machine_mode innermode = TREE_TYPE (t)->u.type_common.mode;
+      machine_mode innermode = type()->mode_raw ();
 
       /* For integers, try mapping it to a same-sized scalar mode.  */
       if (GET_MODE_CLASS (innermode) == MODE_INT)
 	{
-	  mode = mode_for_size (TYPE_VECTOR_SUBPARTS (t)
+	  mode = mode_for_size (vector_subparts ()
 				* GET_MODE_BITSIZE (innermode), MODE_INT, 0);
 
 	  if (mode != VOIDmode && have_regs_of_mode[mode])
@@ -2475,13 +2475,23 @@ vector_type_mode (const_tree t)
 
   return mode;
 }
+
+/* For any remaining external calls to vector_type_mode().  This will
+   eventually be obsolete.  */
+
+enum machine_mode
+vector_type_mode (const ttype_p t)
+{
+  return t->vector_mode();
+}
+
 
 /* Create and return a type for signed integers of PRECISION bits.  */
 
-tree
+ttype *
 make_signed_type (int precision)
 {
-  tree type = make_node (INTEGER_TYPE);
+  ttype *type = make_type_node (INTEGER_TYPE);
 
   TYPE_PRECISION (type) = precision;
 
@@ -2491,10 +2501,10 @@ make_signed_type (int precision)
 
 /* Create and return a type for unsigned integers of PRECISION bits.  */
 
-tree
+ttype *
 make_unsigned_type (int precision)
 {
-  tree type = make_node (INTEGER_TYPE);
+  ttype *type = make_type_node (INTEGER_TYPE);
 
   TYPE_PRECISION (type) = precision;
 
@@ -2505,10 +2515,10 @@ make_unsigned_type (int precision)
 /* Create and return a type for fract of PRECISION bits, UNSIGNEDP,
    and SATP.  */
 
-tree
+ttype *
 make_fract_type (int precision, int unsignedp, int satp)
 {
-  tree type = make_node (FIXED_POINT_TYPE);
+  ttype *type = make_type_node (FIXED_POINT_TYPE);
 
   TYPE_PRECISION (type) = precision;
 
@@ -2531,10 +2541,10 @@ make_fract_type (int precision, int unsignedp, int satp)
 /* Create and return a type for accum of PRECISION bits, UNSIGNEDP,
    and SATP.  */
 
-tree
+ttype *
 make_accum_type (int precision, int unsignedp, int satp)
 {
-  tree type = make_node (FIXED_POINT_TYPE);
+  ttype *type = make_type_node (FIXED_POINT_TYPE);
 
   TYPE_PRECISION (type) = precision;
 
@@ -2598,11 +2608,11 @@ initialize_sizetypes (void)
     bprecision = HOST_BITS_PER_DOUBLE_INT;
 
   /* Create stubs for sizetype and bitsizetype so we can create constants.  */
-  sizetype = make_node (INTEGER_TYPE);
+  sizetype = make_type_node (INTEGER_TYPE);
   TYPE_NAME (sizetype) = get_identifier ("sizetype");
   TYPE_PRECISION (sizetype) = precision;
   TYPE_UNSIGNED (sizetype) = 1;
-  bitsizetype = make_node (INTEGER_TYPE);
+  bitsizetype = make_type_node (INTEGER_TYPE);
   TYPE_NAME (bitsizetype) = get_identifier ("bitsizetype");
   TYPE_PRECISION (bitsizetype) = bprecision;
   TYPE_UNSIGNED (bitsizetype) = 1;

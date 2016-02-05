@@ -318,8 +318,8 @@ build_java_array_type (tree element_type, HOST_WIDE_INT length)
 
 /* Promote TYPE to the type actually used for fields and parameters. */
 
-tree
-promote_type (tree type)
+ttype *
+promote_type (ttype_p type)
 {
   switch (TREE_CODE (type))
     {

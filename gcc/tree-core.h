@@ -509,28 +509,6 @@ enum cv_qualifier {
 /* Standard named or nameless data types of the C compiler.  */
 enum tree_index {
   TI_ERROR_MARK,
-  TI_INTQI_TYPE,
-  TI_INTHI_TYPE,
-  TI_INTSI_TYPE,
-  TI_INTDI_TYPE,
-  TI_INTTI_TYPE,
-
-  TI_UINTQI_TYPE,
-  TI_UINTHI_TYPE,
-  TI_UINTSI_TYPE,
-  TI_UINTDI_TYPE,
-  TI_UINTTI_TYPE,
-
-  TI_ATOMICQI_TYPE,
-  TI_ATOMICHI_TYPE,
-  TI_ATOMICSI_TYPE,
-  TI_ATOMICDI_TYPE,
-  TI_ATOMICTI_TYPE,
-
-  TI_UINT16_TYPE,
-  TI_UINT32_TYPE,
-  TI_UINT64_TYPE,
-
   TI_VOID,
 
   TI_INTEGER_ZERO,
@@ -553,114 +531,12 @@ enum tree_index {
   TI_BOOLEAN_FALSE,
   TI_BOOLEAN_TRUE,
 
-  TI_COMPLEX_INTEGER_TYPE,
-  TI_COMPLEX_FLOAT_TYPE,
-  TI_COMPLEX_DOUBLE_TYPE,
-  TI_COMPLEX_LONG_DOUBLE_TYPE,
-
-  TI_FLOAT_TYPE,
-  TI_DOUBLE_TYPE,
-  TI_LONG_DOUBLE_TYPE,
-
-  TI_FLOAT_PTR_TYPE,
-  TI_DOUBLE_PTR_TYPE,
-  TI_LONG_DOUBLE_PTR_TYPE,
-  TI_INTEGER_PTR_TYPE,
-
-  TI_VOID_TYPE,
-  TI_PTR_TYPE,
-  TI_CONST_PTR_TYPE,
-  TI_SIZE_TYPE,
-  TI_PID_TYPE,
-  TI_PTRDIFF_TYPE,
-  TI_VA_LIST_TYPE,
   TI_VA_LIST_GPR_COUNTER_FIELD,
   TI_VA_LIST_FPR_COUNTER_FIELD,
-  TI_BOOLEAN_TYPE,
-  TI_FILEPTR_TYPE,
-  TI_POINTER_SIZED_TYPE,
-
-  TI_POINTER_BOUNDS_TYPE,
-
-  TI_DFLOAT32_TYPE,
-  TI_DFLOAT64_TYPE,
-  TI_DFLOAT128_TYPE,
-  TI_DFLOAT32_PTR_TYPE,
-  TI_DFLOAT64_PTR_TYPE,
-  TI_DFLOAT128_PTR_TYPE,
 
   TI_VOID_LIST_NODE,
 
   TI_MAIN_IDENTIFIER,
-
-  TI_SAT_SFRACT_TYPE,
-  TI_SAT_FRACT_TYPE,
-  TI_SAT_LFRACT_TYPE,
-  TI_SAT_LLFRACT_TYPE,
-  TI_SAT_USFRACT_TYPE,
-  TI_SAT_UFRACT_TYPE,
-  TI_SAT_ULFRACT_TYPE,
-  TI_SAT_ULLFRACT_TYPE,
-  TI_SFRACT_TYPE,
-  TI_FRACT_TYPE,
-  TI_LFRACT_TYPE,
-  TI_LLFRACT_TYPE,
-  TI_USFRACT_TYPE,
-  TI_UFRACT_TYPE,
-  TI_ULFRACT_TYPE,
-  TI_ULLFRACT_TYPE,
-  TI_SAT_SACCUM_TYPE,
-  TI_SAT_ACCUM_TYPE,
-  TI_SAT_LACCUM_TYPE,
-  TI_SAT_LLACCUM_TYPE,
-  TI_SAT_USACCUM_TYPE,
-  TI_SAT_UACCUM_TYPE,
-  TI_SAT_ULACCUM_TYPE,
-  TI_SAT_ULLACCUM_TYPE,
-  TI_SACCUM_TYPE,
-  TI_ACCUM_TYPE,
-  TI_LACCUM_TYPE,
-  TI_LLACCUM_TYPE,
-  TI_USACCUM_TYPE,
-  TI_UACCUM_TYPE,
-  TI_ULACCUM_TYPE,
-  TI_ULLACCUM_TYPE,
-  TI_QQ_TYPE,
-  TI_HQ_TYPE,
-  TI_SQ_TYPE,
-  TI_DQ_TYPE,
-  TI_TQ_TYPE,
-  TI_UQQ_TYPE,
-  TI_UHQ_TYPE,
-  TI_USQ_TYPE,
-  TI_UDQ_TYPE,
-  TI_UTQ_TYPE,
-  TI_SAT_QQ_TYPE,
-  TI_SAT_HQ_TYPE,
-  TI_SAT_SQ_TYPE,
-  TI_SAT_DQ_TYPE,
-  TI_SAT_TQ_TYPE,
-  TI_SAT_UQQ_TYPE,
-  TI_SAT_UHQ_TYPE,
-  TI_SAT_USQ_TYPE,
-  TI_SAT_UDQ_TYPE,
-  TI_SAT_UTQ_TYPE,
-  TI_HA_TYPE,
-  TI_SA_TYPE,
-  TI_DA_TYPE,
-  TI_TA_TYPE,
-  TI_UHA_TYPE,
-  TI_USA_TYPE,
-  TI_UDA_TYPE,
-  TI_UTA_TYPE,
-  TI_SAT_HA_TYPE,
-  TI_SAT_SA_TYPE,
-  TI_SAT_DA_TYPE,
-  TI_SAT_TA_TYPE,
-  TI_SAT_UHA_TYPE,
-  TI_SAT_USA_TYPE,
-  TI_SAT_UDA_TYPE,
-  TI_SAT_UTA_TYPE,
 
   TI_OPTIMIZATION_DEFAULT,
   TI_OPTIMIZATION_CURRENT,
@@ -670,6 +546,136 @@ enum tree_index {
   TI_CURRENT_OPTIMIZE_PRAGMA,
 
   TI_MAX
+};
+
+enum type_index {
+  TPI_ERROR_TYPE,
+  TPI_INTQI_TYPE,
+  TPI_INTHI_TYPE,
+  TPI_INTSI_TYPE,
+  TPI_INTDI_TYPE,
+  TPI_INTTI_TYPE,
+
+  TPI_UINTQI_TYPE,
+  TPI_UINTHI_TYPE,
+  TPI_UINTSI_TYPE,
+  TPI_UINTDI_TYPE,
+  TPI_UINTTI_TYPE,
+
+  TPI_ATOMICQI_TYPE,
+  TPI_ATOMICHI_TYPE,
+  TPI_ATOMICSI_TYPE,
+  TPI_ATOMICDI_TYPE,
+  TPI_ATOMICTI_TYPE,
+
+  TPI_UINT16_TYPE,
+  TPI_UINT32_TYPE,
+  TPI_UINT64_TYPE,
+
+  TPI_COMPLEX_INTEGER_TYPE,
+  TPI_COMPLEX_FLOAT_TYPE,
+  TPI_COMPLEX_DOUBLE_TYPE,
+  TPI_COMPLEX_LONG_DOUBLE_TYPE,
+
+  TPI_FLOAT_TYPE,
+  TPI_DOUBLE_TYPE,
+  TPI_LONG_DOUBLE_TYPE,
+
+  TPI_FLOAT_PTR_TYPE,
+  TPI_DOUBLE_PTR_TYPE,
+  TPI_LONG_DOUBLE_PTR_TYPE,
+  TPI_INTEGER_PTR_TYPE,
+
+  TPI_VOID_TYPE,
+  TPI_PTR_TYPE,
+  TPI_CONST_PTR_TYPE,
+  TPI_SIZE_TYPE,
+  TPI_PID_TYPE,
+  TPI_PTRDIFF_TYPE,
+  TPI_VA_LIST_TYPE,
+  TPI_BOOLEAN_TYPE,
+  TPI_FILEPTR_TYPE,
+  TPI_POINTER_SIZED_TYPE,
+
+  TPI_POINTER_BOUNDS_TYPE,
+
+  TPI_DFLOAT32_TYPE,
+  TPI_DFLOAT64_TYPE,
+  TPI_DFLOAT128_TYPE,
+  TPI_DFLOAT32_PTR_TYPE,
+  TPI_DFLOAT64_PTR_TYPE,
+  TPI_DFLOAT128_PTR_TYPE,
+
+  TPI_SAT_SFRACT_TYPE,
+  TPI_SAT_FRACT_TYPE,
+  TPI_SAT_LFRACT_TYPE,
+  TPI_SAT_LLFRACT_TYPE,
+  TPI_SAT_USFRACT_TYPE,
+  TPI_SAT_UFRACT_TYPE,
+  TPI_SAT_ULFRACT_TYPE,
+  TPI_SAT_ULLFRACT_TYPE,
+  TPI_SFRACT_TYPE,
+  TPI_FRACT_TYPE,
+  TPI_LFRACT_TYPE,
+  TPI_LLFRACT_TYPE,
+  TPI_USFRACT_TYPE,
+  TPI_UFRACT_TYPE,
+  TPI_ULFRACT_TYPE,
+  TPI_ULLFRACT_TYPE,
+  TPI_SAT_SACCUM_TYPE,
+  TPI_SAT_ACCUM_TYPE,
+  TPI_SAT_LACCUM_TYPE,
+  TPI_SAT_LLACCUM_TYPE,
+  TPI_SAT_USACCUM_TYPE,
+  TPI_SAT_UACCUM_TYPE,
+  TPI_SAT_ULACCUM_TYPE,
+  TPI_SAT_ULLACCUM_TYPE,
+  TPI_SACCUM_TYPE,
+  TPI_ACCUM_TYPE,
+  TPI_LACCUM_TYPE,
+  TPI_LLACCUM_TYPE,
+  TPI_USACCUM_TYPE,
+  TPI_UACCUM_TYPE,
+  TPI_ULACCUM_TYPE,
+  TPI_ULLACCUM_TYPE,
+  TPI_QQ_TYPE,
+  TPI_HQ_TYPE,
+  TPI_SQ_TYPE,
+  TPI_DQ_TYPE,
+  TPI_TQ_TYPE,
+  TPI_UQQ_TYPE,
+  TPI_UHQ_TYPE,
+  TPI_USQ_TYPE,
+  TPI_UDQ_TYPE,
+  TPI_UTQ_TYPE,
+  TPI_SAT_QQ_TYPE,
+  TPI_SAT_HQ_TYPE,
+  TPI_SAT_SQ_TYPE,
+  TPI_SAT_DQ_TYPE,
+  TPI_SAT_TQ_TYPE,
+  TPI_SAT_UQQ_TYPE,
+  TPI_SAT_UHQ_TYPE,
+  TPI_SAT_USQ_TYPE,
+  TPI_SAT_UDQ_TYPE,
+  TPI_SAT_UTQ_TYPE,
+  TPI_HA_TYPE,
+  TPI_SA_TYPE,
+  TPI_DA_TYPE,
+  TPI_TA_TYPE,
+  TPI_UHA_TYPE,
+  TPI_USA_TYPE,
+  TPI_UDA_TYPE,
+  TPI_UTA_TYPE,
+  TPI_SAT_HA_TYPE,
+  TPI_SAT_SA_TYPE,
+  TPI_SAT_DA_TYPE,
+  TPI_SAT_TA_TYPE,
+  TPI_SAT_UHA_TYPE,
+  TPI_SAT_USA_TYPE,
+  TPI_SAT_UDA_TYPE,
+  TPI_SAT_UTA_TYPE,
+
+  TPI_MAX
 };
 
 /* An enumeration of the standard C integer types.  These must be
@@ -818,6 +824,7 @@ typedef tree (*walk_tree_fn) (tree *, int *, void *);
 typedef tree (*walk_tree_lh) (tree *, int *, tree (*) (tree *, int *, void *),
 			      void *, hash_set<tree> *);
 
+class ttype;
 
 /*---------------------------------------------------------------------------
                               Main data structures
@@ -1804,10 +1811,271 @@ union GTY ((desc ("tree_node_structure (&%h)"), variable_size)) tree_node_u {
   struct tree_target_option GTY ((tag ("TS_TARGET_OPTION"))) target_option;
 };
 
-struct GTY ((ptr_alias (union lang_tree_node))) tree_node {
+struct GTY ((ptr_alias (union lang_tree_node), desc("0"), tag("0"))) tree_node {
+protected:
+  inline void code_check (enum tree_code) const;
+  inline void code_check (enum tree_code, enum tree_code) const;
+  inline void code_check (enum tree_code, enum tree_code, enum tree_code) const;
+  inline void code_check (enum tree_code, enum tree_code, enum tree_code,
+			  enum tree_code) const;
+  inline void code_check (enum tree_code, enum tree_code, enum tree_code,
+			  enum tree_code, enum tree_code) const;
+  inline void code_not_check (enum tree_code) const;
+  inline void code_not_check (enum tree_code, enum tree_code) const;
+  inline void code_not_check (enum tree_code, enum tree_code,
+			      enum tree_code) const;
+  inline void code_not_check (enum tree_code, enum tree_code, enum tree_code,
+			      enum tree_code) const;
+  inline void code_not_check (enum tree_code, enum tree_code, enum tree_code,
+			      enum tree_code, enum tree_code) const;
+  inline void class_check (enum tree_code_class) const;
+  inline void type_check () const;
+public:
   union tree_node_u u;
 };
 
+
+class GTY(()) ttype : public tree_node {
+protected:
+  inline void ptr_or_ref_check () const;
+  inline void any_integral_check () const;
+  inline void record_or_union_check () const;
+  inline void not_record_or_union_check () const;
+  inline void func_or_method_check () const;
+  inline void numerical_check () const;
+public:
+  inline enum tree_code code () const;
+  inline void set_code (enum tree_code);
+  inline unsigned int uid () const;
+  inline void set_uid (unsigned int);
+  inline tree size () const;
+  inline tree *size_ptr ();
+  inline void set_size (tree);
+  inline tree size_unit () const;
+  inline tree *size_unit_ptr ();
+  inline void set_size_unit (tree);
+  inline tree chain() const;
+  inline void set_chain (tree);
+  inline ttype *type () const;
+  inline ttype **type_ptr ();
+  inline void set_type (ttype *);
+
+  inline bool asm_written_p() const;
+  inline void set_asm_written_p (bool);
+  inline bool visited_p () const;
+  inline void set_visited_p (bool);
+  inline bool unsigned_p () const;
+  inline void set_unsigned_p (bool);
+  inline signop sign () const;
+
+  inline unsigned precision () const;
+  inline void set_precision (unsigned);
+  inline const char *symtab_pointer () const;
+  inline void set_symtab_pointer (const char *p);
+  inline int symtab_address () const;
+  inline void set_symtab_address (int);
+
+  inline bool cached_values_p () const;
+  inline void set_cached_values_p (bool);
+  inline tree cached_values () const;
+  inline void set_cached_values (tree);
+  inline bool readonly_p () const;
+  inline void set_readonly_p (bool);
+  inline bool volatile_p () const;
+  inline void set_volatile_p (bool);
+  inline bool restrict_p () const;
+  inline void set_restrict_p (bool);
+  inline bool atomic_p () const;
+  inline void set_atomic_p (bool);
+  inline bool packed_p () const;
+  inline void set_packed_p (bool);
+
+  inline unsigned char addr_space () const;
+  inline void set_addr_space (unsigned char);
+  inline ttype *canonical () const;
+  inline void set_canonical (ttype *);
+  inline ttype *main_variant () const;
+  inline void set_main_variant (ttype *);
+  inline ttype *next_variant () const;
+  inline void set_next_variant (ttype *);
+  inline ttype *pointer_to () const;
+  inline void set_pointer_to (ttype *);
+  inline ttype *next_ptr_to () const;
+  inline void set_next_ptr_to (ttype *);
+  inline ttype *reference_to () const;
+  inline void set_reference_to(ttype *);
+  inline ttype *next_ref_to () const;
+  inline void set_next_ref_to (ttype *);
+  inline ttype *domain () const;
+  inline ttype **domain_ptr ();
+  inline void set_domain (ttype *);
+  inline tree values () const;
+  inline void set_values (tree);
+  inline tree values_raw () const;
+  inline tree name () const;
+  inline tree *name_ptr ();
+  inline void set_name (tree);
+  inline tree context() const;
+  inline void set_context (tree);
+  inline tree attributes () const;
+  inline void set_attributes (tree);
+  inline unsigned int align () const;
+  inline void set_align (unsigned int);
+  inline unsigned int align_unit () const;
+  inline bool user_align_p () const;
+  inline void set_user_align_p (bool);
+  inline alias_set_type alias_set () const;
+  inline void set_alias_set (alias_set_type);
+  inline bool ref_can_alias_all_p () const;
+  inline void set_ref_can_alias_all_p (bool);
+  inline unsigned int &hash();
+  inline unsigned int *hash_ptr();
+  inline void set_hash (unsigned int);
+  inline tree identifier () const;
+  inline bool needs_constructing_p () const;
+  inline void set_needs_constructing_p (bool);
+
+  inline bool structural_equality_p () const;
+  inline void set_structural_equality_p ();
+  inline bool reverse_storage_order_p () const;
+  inline void set_reverse_storage_order_p (bool);
+  inline enum machine_mode mode_raw () const;
+  inline enum machine_mode mode () const;
+  inline void set_mode (enum machine_mode);
+  inline bool artificial_p () const;
+  inline void set_artificial_p (bool);
+  inline bool sizes_gimplified_p () const;
+  inline void set_sizes_gimplified_p (bool);
+  inline bool string_flag_p () const;
+  inline void set_string_flag_p (bool);
+  inline bool align_ok_p () const;
+  inline void set_align_ok_p (bool);
+  inline bool file_scope_p () const;
+  inline bool alias_set_known_p () const;
+  inline bool no_force_blk_p () const;
+  inline void set_no_force_blk_p (bool);
+  inline bool nameless_p () const;
+  inline void set_nameless_p (bool);
+  inline struct die_struct *symtab_die () const;
+  inline void set_symtab_die (struct die_struct *);
+
+  inline bool type_flag_0 () const;
+  inline void set_type_flag_0 (bool f);
+  inline bool type_flag_1 () const;
+  inline void set_type_flag_1 (bool f);
+  inline bool type_flag_2 () const;
+  inline void set_type_flag_2 (bool f);
+  inline bool type_flag_3 () const;
+  inline void set_type_flag_3 (bool f);
+  inline bool type_flag_4 () const;
+  inline void set_type_flag_4 (bool f);
+  inline bool type_flag_5 () const;
+  inline void set_type_flag_5 (bool f);
+  inline bool type_flag_6 () const;
+  inline void set_type_flag_6 (bool f);
+
+  inline struct lang_type *lang_specific() const;
+  inline void set_lang_specfic (struct lang_type *);
+
+  /* vector  */
+  enum machine_mode vector_mode() const;
+  inline unsigned vector_subparts() const;
+  inline void set_vector_subparts(unsigned);
+  inline bool vector_opaque_p () const;
+  inline void set_vector_opaque_p (bool);
+
+  /* method or function */
+  inline tree arg_types () const;
+  inline tree *arg_types_ptr ();
+  inline void set_arg_types (tree);
+  inline tree methods () const;
+  inline void set_methods (tree);
+  inline ttype *method_basetype() const;
+  inline ttype **method_basetype_ptr ();
+  inline void set_method_basetype (ttype*);
+  inline ttype *offset_basetype () const;
+  inline ttype **offset_basetype_ptr ();
+  inline void set_offset_basetype (ttype *);
+
+  /* record or union. */
+  inline tree fields () const;
+  inline void set_fields (tree);
+  inline tree vfield () const;
+  inline void set_vfield (tree);
+  inline tree binfo () const;
+  inline void set_binfo (tree);
+  inline tree lang_slot_1 () const;
+  inline void set_lang_slot_1 (tree);
+  inline bool final_p () const;
+  inline void set_final_p (bool);
+  inline bool transparent_aggr_p () const;
+  inline void set_transparent_aggr_p (bool);
+
+  /* array */
+  inline tree array_max_size () const;
+  inline void set_array_max_size (tree);
+  inline bool nonaliased_component_p () const;
+  inline void set_nonaliased_component_p (bool);
+
+  inline bool ref_is_rvalue_p () const;
+  inline void set_ref_is_rvalue_p (bool);
+
+  inline tree max_value () const;
+  inline tree *max_value_ptr ();
+  inline void set_max_value (tree);
+  inline tree min_value () const;
+  inline tree *min_value_ptr ();
+  inline void set_min_value (tree);
+  inline unsigned int contains_placeholder_internal () const;
+  inline void set_contains_placeholder_internal (unsigned int);
+  inline tree maxval () const;
+  inline void set_maxval (tree);
+  inline tree minval () const;
+  inline void set_minval (tree);
+  inline tree stub_decl () const;
+  inline void set_stub_decl (tree);
+
+  inline int quals () const;
+  inline int quals_no_addr_space () const;
+  inline int quals_no_addr_space_no_atomic () const;
+
+  inline bool complete_p () const;
+  inline bool void_p () const;
+  inline bool complete_or_void_p () const;
+  inline bool function_pointer_p () const;
+  inline bool vector_p () const;
+  inline bool pointer_p () const;
+  inline bool bounded_p () const;
+  inline bool record_or_union_p () const;
+  inline bool integral_p () const;
+  inline bool any_integral_p () const;
+  inline bool float_p () const;
+  inline bool vector_float_p () const;
+  inline bool scalar_float_p () const;
+  inline bool fixed_point_p () const;
+  inline bool aggregate_p () const;
+  inline bool saturating_p () const;
+  inline bool vector_boolean_p () const;
+  inline bool decimal_float_p () const;
+  inline bool non_sat_fixed_point_p () const;
+  inline bool sat_fixed_point_p () const;
+  inline bool complex_float_p () const;
+  inline bool vector_integer_p () const;
+  inline bool pointer_bounds_p () const;
+  inline bool complete_or_unbound_array_p () const;
+  inline bool func_or_method_p () const;
+
+  bool overflow_traps_p () const;
+  bool overflow_wraps_p () const;
+  bool overflow_sanitized_p () const;
+  bool overflow_undefined_p () const;
+
+  inline void clear_lang_flags ();
+
+};
+
+extern void gt_ggc_mx (class ttype *&);
+extern void gt_pch_nx (class ttype *&);
 
 /* Structure describing an attribute and a function to handle it.  */
 struct attribute_spec {
@@ -1989,13 +2257,14 @@ extern GTY (()) vec<tree, va_gc> *all_translation_units;
 
 /* Vector of standard trees used by the C compiler.  */
 extern GTY(()) tree global_trees[TI_MAX];
+extern GTY(()) ttype *global_types[TPI_MAX];
 
 /* The standard C integer types.  Use integer_type_kind to index into
    this array.  */
-extern GTY(()) tree integer_types[itk_none];
+extern GTY(()) ttype *integer_types[itk_none];
 
 /* Types used to represent sizes.  */
-extern GTY(()) tree sizetype_tab[(int) stk_type_kind_last];
+extern GTY(()) ttype *sizetype_tab[(int) stk_type_kind_last];
 
 /* Arrays for keeping track of tree node statistics.  */
 extern int tree_node_counts[];

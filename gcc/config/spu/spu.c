@@ -124,7 +124,7 @@ enum spu_builtin_type_index
 #define unsigned_V4SI_type_node       (spu_builtin_types[SPU_BTI_UV4SI])
 #define unsigned_V2DI_type_node       (spu_builtin_types[SPU_BTI_UV2DI])
 
-static GTY(()) tree spu_builtin_types[SPU_BTI_MAX];
+static GTY(()) ttype *spu_builtin_types[SPU_BTI_MAX];
 
 struct spu_builtin_range
 {
@@ -5523,32 +5523,32 @@ spu_init_builtins (void)
 
   spu_builtin_types[SPU_BTI_QUADWORD] = V16QI_type_node;
 
-  spu_builtin_types[SPU_BTI_7] = global_trees[TI_INTSI_TYPE];
-  spu_builtin_types[SPU_BTI_S7] = global_trees[TI_INTSI_TYPE];
-  spu_builtin_types[SPU_BTI_U7] = global_trees[TI_INTSI_TYPE];
-  spu_builtin_types[SPU_BTI_S10] = global_trees[TI_INTSI_TYPE];
-  spu_builtin_types[SPU_BTI_S10_4] = global_trees[TI_INTSI_TYPE];
-  spu_builtin_types[SPU_BTI_U14] = global_trees[TI_INTSI_TYPE];
-  spu_builtin_types[SPU_BTI_16] = global_trees[TI_INTSI_TYPE];
-  spu_builtin_types[SPU_BTI_S16] = global_trees[TI_INTSI_TYPE];
-  spu_builtin_types[SPU_BTI_S16_2] = global_trees[TI_INTSI_TYPE];
-  spu_builtin_types[SPU_BTI_U16] = global_trees[TI_INTSI_TYPE];
-  spu_builtin_types[SPU_BTI_U16_2] = global_trees[TI_INTSI_TYPE];
-  spu_builtin_types[SPU_BTI_U18] = global_trees[TI_INTSI_TYPE];
+  spu_builtin_types[SPU_BTI_7] = global_types[TPI_INTSI_TYPE];
+  spu_builtin_types[SPU_BTI_S7] = global_types[TPI_INTSI_TYPE];
+  spu_builtin_types[SPU_BTI_U7] = global_types[TPI_INTSI_TYPE];
+  spu_builtin_types[SPU_BTI_S10] = global_types[TPI_INTSI_TYPE];
+  spu_builtin_types[SPU_BTI_S10_4] = global_types[TPI_INTSI_TYPE];
+  spu_builtin_types[SPU_BTI_U14] = global_types[TPI_INTSI_TYPE];
+  spu_builtin_types[SPU_BTI_16] = global_types[TPI_INTSI_TYPE];
+  spu_builtin_types[SPU_BTI_S16] = global_types[TPI_INTSI_TYPE];
+  spu_builtin_types[SPU_BTI_S16_2] = global_types[TPI_INTSI_TYPE];
+  spu_builtin_types[SPU_BTI_U16] = global_types[TPI_INTSI_TYPE];
+  spu_builtin_types[SPU_BTI_U16_2] = global_types[TPI_INTSI_TYPE];
+  spu_builtin_types[SPU_BTI_U18] = global_types[TPI_INTSI_TYPE];
 
-  spu_builtin_types[SPU_BTI_INTQI] = global_trees[TI_INTQI_TYPE];
-  spu_builtin_types[SPU_BTI_INTHI] = global_trees[TI_INTHI_TYPE];
-  spu_builtin_types[SPU_BTI_INTSI] = global_trees[TI_INTSI_TYPE];
-  spu_builtin_types[SPU_BTI_INTDI] = global_trees[TI_INTDI_TYPE];
-  spu_builtin_types[SPU_BTI_UINTQI] = global_trees[TI_UINTQI_TYPE];
-  spu_builtin_types[SPU_BTI_UINTHI] = global_trees[TI_UINTHI_TYPE];
-  spu_builtin_types[SPU_BTI_UINTSI] = global_trees[TI_UINTSI_TYPE];
-  spu_builtin_types[SPU_BTI_UINTDI] = global_trees[TI_UINTDI_TYPE];
+  spu_builtin_types[SPU_BTI_INTQI] = global_types[TPI_INTQI_TYPE];
+  spu_builtin_types[SPU_BTI_INTHI] = global_types[TPI_INTHI_TYPE];
+  spu_builtin_types[SPU_BTI_INTSI] = global_types[TPI_INTSI_TYPE];
+  spu_builtin_types[SPU_BTI_INTDI] = global_types[TPI_INTDI_TYPE];
+  spu_builtin_types[SPU_BTI_UINTQI] = global_types[TPI_UINTQI_TYPE];
+  spu_builtin_types[SPU_BTI_UINTHI] = global_types[TPI_UINTHI_TYPE];
+  spu_builtin_types[SPU_BTI_UINTSI] = global_types[TPI_UINTSI_TYPE];
+  spu_builtin_types[SPU_BTI_UINTDI] = global_types[TPI_UINTDI_TYPE];
 
-  spu_builtin_types[SPU_BTI_FLOAT] = global_trees[TI_FLOAT_TYPE];
-  spu_builtin_types[SPU_BTI_DOUBLE] = global_trees[TI_DOUBLE_TYPE];
+  spu_builtin_types[SPU_BTI_FLOAT] = global_types[TPI_FLOAT_TYPE];
+  spu_builtin_types[SPU_BTI_DOUBLE] = global_types[TPI_DOUBLE_TYPE];
 
-  spu_builtin_types[SPU_BTI_VOID] = global_trees[TI_VOID_TYPE];
+  spu_builtin_types[SPU_BTI_VOID] = global_types[TPI_VOID_TYPE];
 
   spu_builtin_types[SPU_BTI_PTR] =
     build_pointer_type (build_qualified_type

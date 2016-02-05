@@ -82,7 +82,7 @@ static void
 solaris_pragma_align (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   tree t, x;
-  enum cpp_ttype ttype;
+  enum cpp_ttype tok_type;
   unsigned HOST_WIDE_INT low;
 
   if (pragma_lex (&x) != CPP_NUMBER
@@ -101,8 +101,8 @@ solaris_pragma_align (cpp_reader *pfile ATTRIBUTE_UNUSED)
       return;
     }
 
-  ttype = pragma_lex (&t);
-  if (ttype != CPP_NAME)
+  tok_type = pragma_lex (&t);
+  if (tok_type != CPP_NAME)
     {
       warning (0, "malformed %<#pragma align%>, ignoring");
       return;
@@ -118,17 +118,17 @@ solaris_pragma_align (cpp_reader *pfile ATTRIBUTE_UNUSED)
 	solaris_pending_aligns = tree_cons (t, build_tree_list (NULL, x),
 					    solaris_pending_aligns);
 
-      ttype = pragma_lex (&t);
-      if (ttype == CPP_COMMA)
+      tok_type = pragma_lex (&t);
+      if (tok_type == CPP_COMMA)
 	{
-	  ttype = pragma_lex (&t);
-	  if (ttype != CPP_NAME)
+	  tok_type = pragma_lex (&t);
+	  if (tok_type != CPP_NAME)
 	    {
 	      warning (0, "malformed %<#pragma align%>");
 	      return;
 	    }
 	}
-      else if (ttype == CPP_CLOSE_PAREN)
+      else if (tok_type == CPP_CLOSE_PAREN)
 	{
 	  if (pragma_lex (&t) != CPP_EOF)
 	    warning (0, "junk at end of %<#pragma align%>");
@@ -148,7 +148,7 @@ static void
 solaris_pragma_init (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   tree t;
-  enum cpp_ttype ttype;
+  enum cpp_ttype tok_type;
 
   if (pragma_lex (&t) != CPP_OPEN_PAREN)
     {
@@ -156,8 +156,8 @@ solaris_pragma_init (cpp_reader *pfile ATTRIBUTE_UNUSED)
       return;
     }
 
-  ttype = pragma_lex (&t);
-  if (ttype != CPP_NAME)
+  tok_type = pragma_lex (&t);
+  if (tok_type != CPP_NAME)
     {
       warning (0, "malformed %<#pragma init%>, ignoring");
       return;
@@ -177,17 +177,17 @@ solaris_pragma_init (cpp_reader *pfile ATTRIBUTE_UNUSED)
       else
 	solaris_pending_inits = tree_cons (t, NULL, solaris_pending_inits);
 
-      ttype = pragma_lex (&t);
-      if (ttype == CPP_COMMA)
+      tok_type = pragma_lex (&t);
+      if (tok_type == CPP_COMMA)
 	{
-	  ttype = pragma_lex (&t);
-	  if (ttype != CPP_NAME)
+	  tok_type = pragma_lex (&t);
+	  if (tok_type != CPP_NAME)
 	    {
 	      warning (0, "malformed %<#pragma init%>");
 	      return;
 	    }
 	}
-      else if (ttype == CPP_CLOSE_PAREN)
+      else if (tok_type == CPP_CLOSE_PAREN)
 	{
 	  if (pragma_lex (&t) != CPP_EOF)
 	    warning (0, "junk at end of %<#pragma init%>");
@@ -207,7 +207,7 @@ static void
 solaris_pragma_fini (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   tree t;
-  enum cpp_ttype ttype;
+  enum cpp_ttype tok_type;
 
   if (pragma_lex (&t) != CPP_OPEN_PAREN)
     {
@@ -215,8 +215,8 @@ solaris_pragma_fini (cpp_reader *pfile ATTRIBUTE_UNUSED)
       return;
     }
 
-  ttype = pragma_lex (&t);
-  if (ttype != CPP_NAME)
+  tok_type = pragma_lex (&t);
+  if (tok_type != CPP_NAME)
     {
       warning (0, "malformed %<#pragma fini%>, ignoring");
       return;
@@ -236,17 +236,17 @@ solaris_pragma_fini (cpp_reader *pfile ATTRIBUTE_UNUSED)
       else
 	solaris_pending_finis = tree_cons (t, NULL, solaris_pending_finis);
 
-      ttype = pragma_lex (&t);
-      if (ttype == CPP_COMMA)
+      tok_type = pragma_lex (&t);
+      if (tok_type == CPP_COMMA)
 	{
-	  ttype = pragma_lex (&t);
-	  if (ttype != CPP_NAME)
+	  tok_type = pragma_lex (&t);
+	  if (tok_type != CPP_NAME)
 	    {
 	      warning (0, "malformed %<#pragma fini%>");
 	      return;
 	    }
 	}
-      else if (ttype == CPP_CLOSE_PAREN)
+      else if (tok_type == CPP_CLOSE_PAREN)
 	{
 	  if (pragma_lex (&t) != CPP_EOF)
 	    warning (0, "junk at end of %<#pragma fini%>");

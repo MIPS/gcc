@@ -1354,8 +1354,9 @@ expand_java_NEW (tree type)
 tree
 build_get_class (tree value)
 {
-  tree class_field = lookup_field (&dtable_type, get_identifier ("class"));
-  tree vtable_field = lookup_field (&object_type_node,
+  tree class_field = lookup_field (TREE_PTR_CAST (&dtable_type),
+				   get_identifier ("class"));
+  tree vtable_field = lookup_field (TREE_PTR_CAST (&object_type_node),
 				    get_identifier ("vtable"));
   tree tmp = build3 (COMPONENT_REF, dtable_ptr_type,
 		     build_java_indirect_ref (object_type_node, value,
@@ -1612,7 +1613,7 @@ expand_java_binop (tree type, enum tree_code op)
    class containing the field. */
 
 tree
-lookup_field (tree *typep, tree name)
+lookup_field (ttype_pp typep, tree name)
 {
   if (CLASS_P (*typep) && !CLASS_LOADED_P (*typep))
     {
@@ -1659,7 +1660,7 @@ lookup_field (tree *typep, tree name)
       if (save_field != NULL_TREE)
 	return save_field;
 
-      *typep = CLASSTYPE_SUPER (*typep);
+      *typep = TTYPE (CLASSTYPE_SUPER (*typep));
     } while (*typep);
   return NULL_TREE;
 }
