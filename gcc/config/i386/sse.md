@@ -1075,6 +1075,16 @@
    (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "TI")])
 
+;; Used by STV to load a DI into an xmm register.
+(define_insn "*movdi_to_v2di"
+  [(set (match_operand:V2DI 0 "register_operand" "=x")
+        (subreg:V2DI (match_operand:DI 1 "nonimmediate_operand" "xm") 0))]
+  "!TARGET_64BIT && TARGET_SSE2"
+  "%vmovq\t{%1, %0|%0, %1}"
+  [(set_attr "type" "ssemov")
+   (set_attr "prefix" "maybe_vex")
+   (set_attr "mode" "DI")])
+
 ;; Move a DI from a 32-bit register pair (e.g. %edx:%eax) to an xmm.
 ;; We'd rather avoid this entirely; if the 32-bit reg pair was loaded
 ;; from memory, we'd prefer to load the memory directly into the %xmm

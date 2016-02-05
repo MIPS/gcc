@@ -3588,14 +3588,21 @@ convert_scalars_to_vector ()
   bitmap_obstack_release (NULL);
   df_process_deferred_rescans ();
 
-  /* Conversion means we may have 128bit register spills/fills
-     which require aligned stack.  */
-  if (converted_insns)
+  /* Conversion means we may have 64-bit register spills/fills which
+     require aligned stack.  No stack realignment is needed to get
+     64-bit stack alignment since the incoming stack boundary >= 64
+     bits. */
+  if (converted_insns && crtl->stack_alignment_estimated < 64)
     {
-      if (crtl->stack_alignment_needed < 128)
-	crtl->stack_alignment_needed = 128;
-      if (crtl->stack_alignment_estimated < 128)
-	crtl->stack_alignment_estimated = 128;
+      unsigned int incoming_stack_boundary
+	= (crtl->parm_stack_boundary > ix86_incoming_stack_boundary
+	   ? crtl->parm_stack_boundary : ix86_incoming_stack_boundary);
+      if (incoming_stack_boundary < 64)
+	gcc_unreachable ();
+
+      /* Increase stack_alignment_estimated up to incoming_stack_boundary
+	 won't affect stack realignment.  */
+      crtl->stack_alignment_estimated = 64;
     }
 
   return 0;
@@ -3661,7 +3668,21 @@ public:
   /* opt_pass methods: */
   virtual bool gate (function *)
     {
-      return !TARGET_64BIT && TARGET_STV && TARGET_SSE2 && optimize > 1;
+      if (!TARGET_64BIT && TARGET_STV && TARGET_SSE2 && optimize > 1)
+	{
+	  /* STV may need 64-bit register spills/fills which require
+	     aligned stack. */
+	  if (crtl->stack_alignment_estimated >= 64)
+	    return true;
+
+	  /* No stack realignment is needed to get 64-bit stack
+	     alignment if incoming stack boundary >= 64 bits. */
+	  unsigned int incoming_stack_boundary
+	    = (crtl->parm_stack_boundary > ix86_incoming_stack_boundary
+	       ? crtl->parm_stack_boundary : ix86_incoming_stack_boundary);
+	  return incoming_stack_boundary >= 64;
+	}
+      return false;
     }
 
   virtual unsigned int execute (function *)
@@ -5453,13 +5474,6 @@ ix86_option_override_internal (bool main_args_p,
     opts->x_target_flags |= MASK_VZEROUPPER;
   if (!(opts_set->x_target_flags & MASK_STV))
     opts->x_target_flags |= MASK_STV;
-  /* Disable STV if -mpreferred-stack-boundary={2,3} or
-     -mincoming-stack-boundary={2,3} - the needed
-     stack realignment will be extra cost the pass doesn't take into
-     account and the pass can't realign the stack.  */
-  if (ix86_preferred_stack_boundary < 128
-      || ix86_incoming_stack_boundary < 128)
-    opts->x_target_flags &= ~MASK_STV;
   if (!ix86_tune_features[X86_TUNE_AVX256_UNALIGNED_LOAD_OPTIMAL]
       && !(opts_set->x_target_flags & MASK_AVX256_SPLIT_UNALIGNED_LOAD))
     opts->x_target_flags |= MASK_AVX256_SPLIT_UNALIGNED_LOAD;
@@ -29330,10 +29344,7 @@ ix86_minimum_alignment (tree exp, machine_mode mode,
   if ((mode == DImode || (type && TYPE_MODE (type) == DImode))
       && (!type || !TYPE_USER_ALIGN (type))
       && (!decl || !DECL_USER_ALIGN (decl)))
-    {
-      gcc_checking_assert (!TARGET_STV);
-      return 32;
-    }
+    return 32;
 
   return align;
 }
