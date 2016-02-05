@@ -308,6 +308,10 @@
    "@internal"
    (match_operand 0 "low_bitmask_operand"))
 
+(define_constraint "Yz"
+   "@internal"
+   (match_operand 0 "bit_clear_operand"))
+
 (define_memory_constraint "ZC"
   "A memory operand whose address is formed by a base register and offset
    that is suitable for use in instructions with the same addressing mode
