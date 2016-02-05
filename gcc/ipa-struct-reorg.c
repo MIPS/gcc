@@ -2160,34 +2160,36 @@ is_alloc_or_free (symtab_node *sbl)
 static void
 collect_funcs_with_struct_params (void)
 {
-  unsigned int i, j;
-  symtab_node *sbl;
-  struct_symbols symbols;
+  struct cgraph_node *c_node;
 
-  FOR_EACH_VEC_ELT (struct_symbols_vec, i, symbols)
-    {
-      if (symbols->symbols.exists ())
-	{
-	  FOR_EACH_VEC_ELT (symbols->symbols, j, sbl)
-	    {
-	      /* If cgraph_node is in some structure symbols, 
-		 at least one of its parameters should be of structure type.  */
-	      cgraph_node *node = dyn_cast <cgraph_node> (sbl);
-	      if (node) 
-		{
-		  if (!is_alloc_or_free (sbl))
-		    {
-		      add_func_to_funcs_to_clone_vec (node);
-		      if (dump_file) 
-			{ 
-			  fprintf (dump_file, "\nFunction  %s", sbl->name ());
-			  fprintf (dump_file, "\nis candidate for cloning.");
-			}
-		    }
-		}
-	    }
-	}
-    }
+  /* We have to traverse all functions again, 
+     since some functions might be cloned.  */
+  FOR_EACH_FUNCTION (c_node)
+  {
+    fprintf (dump_file, "\nFunction  %s is clone of %s\n", c_node->name (), 
+	     c_node->clone_of? c_node->clone_of->name (): "");    
+    //dump_cgraph_node (dump_file, c_node);
+    if (!c_node->body_removed && !is_alloc_or_free (c_node))
+      {
+	tree p;
+	for (p = TYPE_ARG_TYPES (TREE_TYPE(c_node->decl)); p; p = TREE_CHAIN (p))
+	  {
+	    tree arg_type = TREE_VALUE (p);
+	    if (is_in_struct_symbols_vec (strip_type (arg_type)) != -1)
+	      {
+		if (is_in_funcs_to_clone (c_node) == -1)
+		  {
+		    add_func_to_funcs_to_clone_vec (c_node);
+		    if (dump_file) 
+		      { 
+			fprintf (dump_file, "\nFunction  %s", c_node->name ());
+			fprintf (dump_file, "\nis candidate for cloning.");
+		      }
+		  }
+	      }
+	  }
+      }    
+  }
 }
 
 /* Find and skip arguments of function FUNC that are of

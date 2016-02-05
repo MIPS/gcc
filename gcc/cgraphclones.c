@@ -597,26 +597,8 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
     if (map->new_tree)
       ipa_maybe_record_reference (new_node, map->new_tree,
 				  IPA_REF_ADDR, NULL);
-  /* Process arguments to skip and arguments to decompose.  */
-  if (old_node->clone.combined_args_to_skip
-      && old_node->clone.combined_args_to_decompose)
-    {
-      int nskip = vec_safe_length (old_node->clone.combined_args_to_skip);
-      int ndecomp = vec_safe_length (old_node->clone.combined_args_to_decompose);
-      gcc_assert (nskip == ndecomp);
 
-      for (int j = 0; j < nskip; j++)
-	{
-	  vec_safe_push (new_node->clone.combined_args_to_skip,
-			 (*old_node->clone.combined_args_to_skip)[j]);
-	  vec_safe_push (new_node->clone.combined_args_to_decompose, 
-			 (*old_node->clone.combined_args_to_decompose)[j]);
-	}
-    }
-  else
-    gcc_assert (!old_node->clone.combined_args_to_skip
-		&& !old_node->clone.combined_args_to_decompose);
-  
+  /* Process arguments to skip and arguments to decompose.  */
   if (args_to_skip)
     {
       vec_safe_push (new_node->clone.combined_args_to_skip, args_to_skip);
@@ -637,6 +619,43 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
 
 	  bitmap_clear (tmp);
 	  vec_safe_push (new_node->clone.combined_args_to_skip, tmp);	  
+	}
+    }
+
+  /* Print what we got.  */
+  fprintf (stderr, "\nNew node name is %s\n", new_node->name ());
+  if (new_node->clone.args_to_skip)
+    {
+      fprintf (stderr, "   args_to_skip: ");
+      dump_bitmap (stderr, new_node->clone.args_to_skip);
+    }
+  if (new_node->clone.combined_args_to_skip)
+    {
+      int j;
+      bitmap bm;
+      
+      fprintf (stderr, "   combined_args_to_skip: \n");
+      FOR_EACH_VEC_SAFE_ELT (new_node->clone.combined_args_to_skip, j, bm)
+	{
+	  fprintf (stderr, "mb %d: ", j);
+	  dump_bitmap (stderr, bm);
+	}
+    }
+  if (new_node->clone.args_to_decompose)
+    {
+      fprintf (stderr, "   args_to_decompose: ");
+      dump_bitmap (stderr, new_node->clone.args_to_decompose);
+    }
+  if (new_node->clone.combined_args_to_decompose)
+    {
+      int j;
+      bitmap bm;
+      
+      fprintf (stderr, "   combined_args_to_decompose: \n");
+      FOR_EACH_VEC_SAFE_ELT (new_node->clone.combined_args_to_decompose, j, bm)
+	{
+	  fprintf (stderr, "mb %d: ", j);
+	  dump_bitmap (stderr, bm);
 	}
     }
 
@@ -1158,7 +1177,7 @@ cgraph_materialize_all_clones (void)
 			}
 		      if (node->clone.args_to_decompose)
 			{
-		          fprintf (cgraph_dump_file, "   args_to_skip: ");
+		          fprintf (cgraph_dump_file, "   args_to_decompose: ");
 		          dump_bitmap (cgraph_dump_file, node->clone.args_to_decompose);
 			}
 		      if (node->clone.combined_args_to_decompose)
