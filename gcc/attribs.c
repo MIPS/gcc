@@ -494,9 +494,18 @@ decl_attributes (tree *node, tree attributes, int flags)
 	  flags &= ~(int) ATTR_FLAG_TYPE_IN_PLACE;
 	}
 
+      tree array_type = (TREE_CODE (*anode) == ARRAY_TYPE
+			 ? *anode
+			 : NULL_TREE);
+
       if (spec->function_type_required && TREE_CODE (*anode) != FUNCTION_TYPE
 	  && TREE_CODE (*anode) != METHOD_TYPE)
 	{
+	  /* We need to rebuid array with the updated function pointer
+	     type later. */
+	  if (array_type)
+	    *anode = TREE_TYPE (*anode);
+
 	  if (TREE_CODE (*anode) == POINTER_TYPE
 	      && (TREE_CODE (TREE_TYPE (*anode)) == FUNCTION_TYPE
 		  || TREE_CODE (TREE_TYPE (*anode)) == METHOD_TYPE))
@@ -617,7 +626,14 @@ decl_attributes (tree *node, tree attributes, int flags)
 	  if (fn_ptr_quals)
 	    fn_ptr_tmp = build_qualified_type (fn_ptr_tmp, fn_ptr_quals);
 	  if (DECL_P (*node))
-	    TREE_TYPE (*node) = fn_ptr_tmp;
+	    {
+	      if (array_type)
+		TREE_TYPE (*node)
+		  = build_array_type (fn_ptr_tmp,
+				      TYPE_DOMAIN (array_type));
+	      else
+		TREE_TYPE (*node) = fn_ptr_tmp;
+	    }
 	  else
 	    {
 	      gcc_assert (TREE_CODE (*node) == POINTER_TYPE);
