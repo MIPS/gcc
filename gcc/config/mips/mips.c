@@ -8867,7 +8867,9 @@ mips_expand_call (enum mips_call_type type, rtx result, rtx addr,
 	  || TARGET_MIPS16_TAIL_BRANCH)
       && type == MIPS_CALL_SIBCALL
       && GET_CODE (addr) == SYMBOL_REF
-      && !const_sibcall_insn_operand (addr, VOIDmode))
+      && !const_sibcall_insn_operand (addr, VOIDmode)
+      && (!TARGET_ABICALLS || (TARGET_ABICALLS && TARGET_ABSOLUTE_ABICALLS
+			       && mips_symbol_binds_local_p (addr))))
     {
       rtx high, low_out, local_addr;
       rtx new_addr = gen_reg_rtx (Pmode);
