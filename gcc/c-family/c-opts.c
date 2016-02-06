@@ -1190,7 +1190,7 @@ c_common_parse_file (void)
       c_parse_file ();
       /* Generate UPC global initialization code, if required.  */
       if (flag_upc)
-        (*lang_hooks.upc.write_global_declarations) ();
+        (*lang_hooks.upc.write_global_init_func) ();
       pop_file_scope ();
       /* And end the main input file, if the debug writer wants it  */
       if (debug_hooks->start_end_main_source_file)

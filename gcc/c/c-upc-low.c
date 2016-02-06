@@ -1487,7 +1487,7 @@ upc_decl_init (tree decl, tree init)
    parsing the main source file.  */
 
 void
-upc_write_global_declarations (void)
+upc_write_global_init (void)
 {
   upc_write_init_func ();
   upc_genericize_finish ();

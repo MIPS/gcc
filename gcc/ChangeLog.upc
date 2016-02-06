@@ -1,3 +1,16 @@
+2016-02-06  Gary Funck  <gary@intrepid.com>
+
+	* langhooks.h (lang_hooks_for_upc): Fix incomplete comment.
+	* langhooks.h (upc.write_global_init_func):
+	Rename - was: upc.write_global_declarations
+	* langhooks-def.h (LANG_HOOKS_UPC_WRITE_GLOBAL_INIT_FUNC):
+	Rename - was: LANG_HOOKS_UPC_WRITE_GLOBAL_DECLS
+	* langhooks-def.h (LANG_HOOKS_UPC): Adjust for rename.
+	* c/c-lang.c: Adjust for rename.
+	* c/c-upc-low.c: Ditto.
+	* c/c-upc-low.h: Ditto.
+	* c-family/c-opts.c: Ditto.
+
 2016-02-01  Gary Funck  <gary@intrepid.com>
 
 	Merge trunk version 233033 into gupc branch.

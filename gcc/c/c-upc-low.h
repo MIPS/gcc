@@ -28,6 +28,6 @@ extern void upc_genericize_finish (void);
 
 extern int upc_check_decl_init (tree, tree);
 extern void upc_decl_init (tree, tree);
-extern void upc_write_global_declarations (void);
+extern void upc_write_global_init (void);
 
 #endif /* !GCC_C_UPC_LOW_H */

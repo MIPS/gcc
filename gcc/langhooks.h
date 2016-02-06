@@ -286,12 +286,12 @@ struct lang_hooks_for_lto
 
 struct lang_hooks_for_upc
 {
-
   /* Enable/Disable UPC keywords.  */
   void (*toggle_keywords) (bool);
 
-  /* For the current compilation unit, write */
-  void (*write_global_declarations) (void);
+  /* Write the UPC global initialization function
+     for the current compilation unit.  */
+  void (*write_global_init_func) (void);
 };
 
 /* Language-specific hooks.  See langhooks-def.h for defaults.  */

@@ -179,7 +179,7 @@ extern tree lhd_make_node (enum tree_code);
 #define LANG_HOOKS_DESCRIPTIVE_TYPE	NULL
 #define LANG_HOOKS_RECONSTRUCT_COMPLEX_TYPE reconstruct_complex_type
 #define LANG_HOOKS_UPC_TOGGLE_KEYWORDS  lhd_do_nothing_b
-#define LANG_HOOKS_UPC_WRITE_GLOBAL_DECLS lhd_do_nothing
+#define LANG_HOOKS_UPC_WRITE_GLOBAL_INIT_FUNC lhd_do_nothing
 #define LANG_HOOKS_ENUM_UNDERLYING_BASE_TYPE lhd_enum_underlying_base_type
 #define LANG_HOOKS_GET_DEBUG_TYPE	NULL
 #define LANG_HOOKS_GET_FIXED_POINT_TYPE_INFO NULL
@@ -277,7 +277,7 @@ extern void lhd_end_section (void);
 
 #define LANG_HOOKS_UPC { \
   LANG_HOOKS_UPC_TOGGLE_KEYWORDS, \
-  LANG_HOOKS_UPC_WRITE_GLOBAL_DECLS \
+  LANG_HOOKS_UPC_WRITE_GLOBAL_INIT_FUNC \
 }
 
 /* The whole thing.  The structure is defined in langhooks.h.  */
