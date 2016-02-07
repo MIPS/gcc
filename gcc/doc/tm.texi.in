@@ -7392,6 +7392,8 @@ floating-point support; they are not included in this mechanism.
 
 @hook TARGET_CXX_IMPORT_EXPORT_CLASS
 
+@hook TARGET_CXX_FUNCTION_SKIP_EMPTY_CLASS_P
+
 @hook TARGET_CXX_CDTOR_RETURNS_THIS
 
 @hook TARGET_CXX_KEY_METHOD_MAY_BE_INLINE

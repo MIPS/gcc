@@ -5393,6 +5393,16 @@ modified value and perform any other actions necessary to support the\n\
 backend's targeted operating system.",
  int, (tree type, int import_export), NULL)
 
+/* Returns true if no memory slot nor register should be used to pass
+   or return an object of empty C++ class.  */
+DEFHOOK
+(function_skip_empty_class_p,
+ "This hook should return true if no memory slot nor register should be\n\
+used to pass or return an object of empty C++ class.  The default is to\n\
+return @code{false}.",
+ bool, (void),
+ hook_bool_void_false)
+
 /* Returns true if constructors and destructors return "this".  */
 DEFHOOK
 (cdtor_returns_this,

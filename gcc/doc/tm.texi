@@ -10238,6 +10238,12 @@ modified value and perform any other actions necessary to support the
 backend's targeted operating system.
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_CXX_FUNCTION_SKIP_EMPTY_CLASS_P (void)
+This hook should return true if no memory slot nor register should be
+used to pass or return an object of empty C++ class.  The default is to
+return @code{false}.
+@end deftypefn
+
 @deftypefn {Target Hook} bool TARGET_CXX_CDTOR_RETURNS_THIS (void)
 This hook should return @code{true} if constructors and destructors return
 the address of the object created/destroyed.  The default is to return

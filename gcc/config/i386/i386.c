@@ -54598,6 +54598,9 @@ ix86_addr_space_zero_address_valid (addr_space_t as)
 #undef TARGET_PROMOTE_FUNCTION_MODE
 #define TARGET_PROMOTE_FUNCTION_MODE ix86_promote_function_mode
 
+#undef TARGET_CXX_FUNCTION_SKIP_EMPTY_CLASS_P
+#define TARGET_CXX_FUNCTION_SKIP_EMPTY_CLASS_P hook_bool_void_true
+
 #undef  TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE
 #define TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE ix86_override_options_after_change
 

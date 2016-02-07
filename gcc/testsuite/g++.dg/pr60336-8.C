@@ -1,4 +1,4 @@
-// { dg-do compile }
+// { dg-do compile { target i?86-*-* x86_64-*-* } }
 // { dg-options "-O2" }
 
 struct dummy { struct{} a[7][3]; };

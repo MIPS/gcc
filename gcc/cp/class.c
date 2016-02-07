@@ -6885,6 +6885,9 @@ is_empty_type (tree type)
 static bool
 is_really_empty_type (tree type)
 {
+  if (!targetm.cxx.function_skip_empty_class_p ())
+    return false;
+
   if (type == error_mark_node)
     return false;
 
