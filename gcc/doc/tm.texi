@@ -969,6 +969,12 @@ also define the hook to @code{default_promote_function_mode_always_promote}
 if you would like to apply the same rules given by @code{PROMOTE_MODE}.
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_FUNCTION_SKIP_EMPTY_TYPE_P (void)
+This hook should return true if no memory slot nor register should be
+used to pass or return an object of empty type.  The default is to
+return @code{false}.
+@end deftypefn
+
 @defmac PARM_BOUNDARY
 Normal alignment required for function parameters on the stack, in
 bits.  All stack parameters receive at least this much alignment

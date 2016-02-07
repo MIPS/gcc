@@ -14078,6 +14078,9 @@ is_empty_type (tree type)
 bool
 type_is_empty_type_p (const_tree type)
 {
+  if (!targetm.calls.function_skip_empty_type_p ())
+    return false;
+
   if (!abi_version_at_least (10))
     return false;
 

@@ -1,5 +1,5 @@
 // PR c++/60336
-// { dg-do run }
+// { dg-do run { target i?86-*-* x86_64-*-* } }
 // { dg-options "-x c -fabi-version=9" }
 // { dg-additional-sources "empty13a.c" }
 // { dg-prune-output "command line option" }

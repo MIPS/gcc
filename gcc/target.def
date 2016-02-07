@@ -4035,6 +4035,16 @@ supported by the target.",
 /* Members of struct call have no special macro prefix.  */
 HOOK_VECTOR (TARGET_CALLS, calls)
 
+/* Returns true if no memory slot nor register should be used to pass
+   or return an object of empty type.  */
+DEFHOOK
+(function_skip_empty_type_p,
+ "This hook should return true if no memory slot nor register should be\n\
+used to pass or return an object of empty type.  The default is to\n\
+return @code{false}.",
+ bool, (void),
+ hook_bool_void_false)
+
 DEFHOOK
 (promote_function_mode,
  "Like @code{PROMOTE_MODE}, but it is applied to outgoing function arguments or\n\
