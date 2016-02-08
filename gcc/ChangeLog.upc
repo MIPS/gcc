@@ -1,3 +1,7 @@
+2016-02-08  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 233210 into gupc branch.
+
 2016-02-06  Gary Funck  <gary@intrepid.com>
 
 	* langhooks.h (lang_hooks_for_upc): Fix incomplete comment.
