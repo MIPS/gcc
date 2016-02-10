@@ -92,8 +92,7 @@ struct cond_equivalence
 };
 
 
-/* Structure for recording edge equivalences as well as any pending
-   edge redirections during the dominator optimizer.
+/* Structure for recording edge equivalences.
 
    Computing and storing the edge equivalences instead of creating
    them on-demand can save significant amounts of time, particularly
@@ -101,10 +100,7 @@ struct cond_equivalence
 
    These structures live for a single iteration of the dominator
    optimizer in the edge's AUX field.  At the end of an iteration we
-   free each of these structures and update the AUX field to point
-   to any requested redirection target (the code for updating the
-   CFG and SSA graph for edge redirection expects redirection edge
-   targets to be in the AUX field for each edge.  */
+   free each of these structures.  */
 
 struct edge_info
 {
@@ -1168,7 +1164,7 @@ pass_dominator::execute (function *fun)
   /* Create our hash tables.  */
   avail_exprs = new hash_table<expr_elt_hasher> (1024);
   avail_exprs_stack.create (20);
-  const_and_copies = new class const_and_copies (dump_file, dump_flags);
+  const_and_copies = new class const_and_copies ();
   need_eh_cleanup = BITMAP_ALLOC (NULL);
   need_noreturn_fixup.create (0);
 

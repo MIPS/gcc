@@ -289,7 +289,7 @@ build_addr_func (tree function, tsubst_flags_t complain)
       function = build_address (function);
     }
   else
-    function = decay_conversion (function, complain);
+    function = decay_conversion (function, complain, /*reject_builtin=*/false);
 
   return function;
 }

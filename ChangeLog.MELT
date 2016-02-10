@@ -1,6 +1,11 @@
 
 2016-02-10   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{merging with even more of GCC 6, using subversion 1.9
+	svn merge -r227401:227700 ^/trunk
+	}}
+
+2016-02-10   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merging with even more of GCC 6, using subversion 1.9
 	     svn merge -r227001:227400 ^/trunk ;
 	  there is some gengtype issue before svn r228000... }}
 

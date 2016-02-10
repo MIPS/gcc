@@ -7182,7 +7182,6 @@ native_interpret_real (tree type, const unsigned char *ptr, int len)
 {
   machine_mode mode = TYPE_MODE (type);
   int total_bytes = GET_MODE_SIZE (mode);
-  int byte, offset, word, words, bitpos;
   unsigned char value;
   /* There are always 32 bits in each long, no matter the size of
      the hosts long.  We handle floating point representations with
@@ -7193,16 +7192,18 @@ native_interpret_real (tree type, const unsigned char *ptr, int len)
   total_bytes = GET_MODE_SIZE (TYPE_MODE (type));
   if (total_bytes > len || total_bytes > 24)
     return NULL_TREE;
-  words = (32 / BITS_PER_UNIT) / UNITS_PER_WORD;
+  int words = (32 / BITS_PER_UNIT) / UNITS_PER_WORD;
 
   memset (tmp, 0, sizeof (tmp));
-  for (bitpos = 0; bitpos < total_bytes * BITS_PER_UNIT;
+  for (int bitpos = 0; bitpos < total_bytes * BITS_PER_UNIT;
        bitpos += BITS_PER_UNIT)
     {
-      byte = (bitpos / BITS_PER_UNIT) & 3;
+      /* Both OFFSET and BYTE index within a long;
+	 bitpos indexes the whole float.  */
+      int offset, byte = (bitpos / BITS_PER_UNIT) & 3;
       if (UNITS_PER_WORD < 4)
 	{
-	  word = byte / UNITS_PER_WORD;
+	  int word = byte / UNITS_PER_WORD;
 	  if (WORDS_BIG_ENDIAN)
 	    word = (words - 1) - word;
 	  offset = word * UNITS_PER_WORD;
@@ -7212,7 +7213,16 @@ native_interpret_real (tree type, const unsigned char *ptr, int len)
 	    offset += byte % UNITS_PER_WORD;
 	}
       else
-	offset = BYTES_BIG_ENDIAN ? 3 - byte : byte;
+	{
+	  offset = byte;
+	  if (BYTES_BIG_ENDIAN)
+	    {
+	      /* Reverse bytes within each long, or within the entire float
+		 if it's smaller than a long (for HFmode).  */
+	      offset = MIN (3, total_bytes - 1) - offset;
+	      gcc_assert (offset >= 0);
+	    }
+	}
       value = ptr[offset + ((bitpos / BITS_PER_UNIT) & ~3)];
 
       tmp[bitpos / 32] |= (unsigned long)value << (bitpos & 31);
@@ -10411,32 +10421,6 @@ fold_binary_loc (location_t loc,
 	return NULL_TREE;
 
       prec = element_precision (type);
-
-      /* Transform (x >> c) << c into x & (-1<<c), or transform (x << c) >> c
-         into x & ((unsigned)-1 >> c) for unsigned types.  */
-      if (((code == LSHIFT_EXPR && TREE_CODE (arg0) == RSHIFT_EXPR)
-           || (TYPE_UNSIGNED (type)
-	       && code == RSHIFT_EXPR && TREE_CODE (arg0) == LSHIFT_EXPR))
-	  && tree_fits_uhwi_p (arg1)
-	  && tree_to_uhwi (arg1) < prec
-	  && tree_fits_uhwi_p (TREE_OPERAND (arg0, 1))
-	  && tree_to_uhwi (TREE_OPERAND (arg0, 1)) < prec)
-	{
-	  HOST_WIDE_INT low0 = tree_to_uhwi (TREE_OPERAND (arg0, 1));
-	  HOST_WIDE_INT low1 = tree_to_uhwi (arg1);
-	  tree lshift;
-	  tree arg00;
-
-	  if (low0 == low1)
-	    {
-	      arg00 = fold_convert_loc (loc, type, TREE_OPERAND (arg0, 0));
-
-	      lshift = build_minus_one_cst (type);
-	      lshift = const_binop (code, lshift, arg1);
-
-	      return fold_build2_loc (loc, BIT_AND_EXPR, type, arg00, lshift);
-	    }
-	}
 
       /* If we have a rotate of a bit operation with the rotate count and
 	 the second operand of the bit operation both constant,
