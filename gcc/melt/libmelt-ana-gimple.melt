@@ -2,7 +2,7 @@
 ;; file libmelt-ana-gimple.melt
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright 2008 - 2015  Free Software Foundation, Inc.
+    Copyright 2008 - 2016  Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
                 and Jeremie Salvucci  <jeremie.salvucci@free.fr>
                 and Pierre Vittet  <piervit@pvittet.com>
@@ -31,6 +31,7 @@
 ;; This MELT module is GPL compatible since it is GPLv3+ licensed.
 (module_is_gpl_compatible "GPLv3+")
 
+;;; perhaps we want a (cheader #{ #include "gimple-predict.h" }#) here
 
 ;;;****************************************************************
 ;; list of still unhandled GIMPLE codes from gimple.def

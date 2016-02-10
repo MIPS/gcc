@@ -1,5 +1,9 @@
 
 2016-02-10   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-run.proto.h: include "gimple-predict.h" for GCC >= 5.0
+	* melt/libmelt-ana-gimple.h: mention that it might go here.
+
+2016-02-10   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{ merging with trunk 226090 ; UNSTABLE }}
 	* melt-run.proto.h: include tree-ssa-scopedtables.h
 	* tree-ssa-dom.c: skip second record_edge_info

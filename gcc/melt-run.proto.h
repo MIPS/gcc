@@ -81,6 +81,10 @@ along with GCC; see the file COPYING3.   If not see
 #include "ggc.h"
 #include "cgraph.h"
 
+#if GCCPLUGIN_VERSION >= 5000
+#include "gimple-predict.h"	/* at least for GCC 6 */
+#endif	/* GCC 5 or better */
+
 /* Notice that gtype-desc.h is included thru ggc.h so all the
    gt_ggc_mx_* marking routines are visible.  */
 
