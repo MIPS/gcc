@@ -17,10 +17,13 @@
 # Return 1 if compilation with -fsanitize=address is error-free for trivial
 # code, 0 otherwise.
 
+# Google-local: Disable ASAN tests; we don't use GCC asan, and these
+# tests all fail due to ulimits in our test environment.
 proc check_effective_target_faddress_sanitizer {} {
-    return [check_no_compiler_messages faddress_sanitizer object {
-	void foo (void) { }
-    } "-fsanitize=address"]
+    # return [check_no_compiler_messages faddress_sanitizer object {
+    #	void foo (void) { }
+    # } "-fsanitize=address"]
+    return 0
 }
 
 proc asan_include_flags {} {
