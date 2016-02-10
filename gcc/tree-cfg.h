@@ -59,6 +59,7 @@ extern bool simple_goto_p (gimple);
 extern bool stmt_ends_bb_p (gimple);
 extern bool assert_unreachable_fallthru_edge_p (edge);
 extern void delete_tree_cfg_annotations (void);
+extern gphi *get_virtual_phi (basic_block);
 extern gimple first_stmt (basic_block);
 extern gimple last_stmt (basic_block);
 extern gimple last_and_only_stmt (basic_block);
@@ -103,5 +104,6 @@ extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
 extern unsigned int execute_fixup_cfg (void);
 extern unsigned int split_critical_edges (void);
 extern basic_block insert_cond_bb (basic_block, gimple, gimple);
+extern bool gimple_find_sub_bbs (gimple_seq, gimple_stmt_iterator *);
 
 #endif /* _TREE_CFG_H  */

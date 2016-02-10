@@ -15,8 +15,6 @@
 
 @SET_MAKE@
 
-# Makefile.am is used by automake 1.11 to generate Makefile.in.
-
 VPATH = @srcdir@
 am__make_dryrun = \
   { \

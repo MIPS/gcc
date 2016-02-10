@@ -1,5 +1,5 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O2 -fdump-tree-isolate-paths -fdump-tree-optimized" } */
+/* { dg-options "-O2 -fdelete-null-pointer-checks -fdump-tree-isolate-paths -fdump-tree-optimized" } */
 /* { dg-skip-if "" keeps_null_pointer_checks } */
 
 struct demangle_component
@@ -52,5 +52,3 @@ d_type (struct d_info *di)
 /* { dg-final { scan-tree-dump-times "->type" 1 "optimized"} } */
 /* { dg-final { scan-tree-dump-times "\\.type" 1 "optimized"} } */
 /* { dg-final { scan-tree-dump-times "->zzz" 1 "isolate-paths"} } */
-/* { dg-final { cleanup-tree-dump "isolate-paths" } } */
-/* { dg-final { cleanup-tree-dump "optimized" } } */

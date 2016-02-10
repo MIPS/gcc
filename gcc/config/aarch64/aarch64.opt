@@ -71,6 +71,10 @@ mfix-cortex-a53-835769
 Target Report Var(aarch64_fix_a53_err835769) Init(2)
 Workaround for ARM Cortex-A53 Erratum number 835769
 
+mfix-cortex-a53-843419
+Target Report
+Workaround for ARM Cortex-A53 Erratum number 843419
+
 mlittle-endian
 Target Report RejectNegative InverseMask(BIG_END)
 Assume target CPU is configured as little endian
@@ -106,6 +110,10 @@ Target RejectNegative ToLower Joined Var(aarch64_tune_string)
 mabi=
 Target RejectNegative Joined Enum(aarch64_abi) Var(aarch64_abi) Init(AARCH64_ABI_DEFAULT)
 -mabi=ABI	Generate code that conforms to the specified ABI
+
+moverride=
+Target RejectNegative ToLower Joined Var(aarch64_override_tune_string)
+-moverride=STRING	Power users only! Override CPU optimization parameters
 
 Enum
 Name(aarch64_abi) Type(int)

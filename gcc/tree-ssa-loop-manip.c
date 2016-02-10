@@ -20,41 +20,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "hard-reg-set.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "tm_p.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-ssa-loop-ivopts.h"
 #include "tree-ssa-loop-manip.h"
 #include "tree-ssa-loop-niter.h"
@@ -567,6 +547,57 @@ rewrite_into_loop_closed_ssa (bitmap changed_bbs, unsigned update_flag)
 
   bitmap_obstack_release (&loop_renamer_obstack);
   free (use_blocks);
+}
+
+/* Replace uses of OLD_VAL with NEW_VAL in bbs dominated by BB.  */
+
+static void
+replace_uses_in_dominated_bbs (tree old_val, tree new_val, basic_block bb)
+{
+  gimple use_stmt;
+  imm_use_iterator imm_iter;
+
+  FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, old_val)
+    {
+      if (!dominated_by_p (CDI_DOMINATORS, gimple_bb (use_stmt), bb))
+	  continue;
+
+      use_operand_p use_p;
+      FOR_EACH_IMM_USE_ON_STMT (use_p, imm_iter)
+	SET_USE (use_p, new_val);
+    }
+}
+
+/* Ensure a virtual phi is present in the exit block, if LOOP contains a vdef.
+   In other words, ensure loop-closed ssa normal form for virtuals.  Handles
+   only loops with a single exit that dominates the latch.  */
+
+void
+rewrite_virtuals_into_loop_closed_ssa (struct loop *loop)
+{
+  gphi *phi;
+  /* TODO: Handle !single_dom_exit loops.  */
+  edge exit = single_dom_exit (loop);
+  gcc_assert (exit != NULL);
+
+  phi = get_virtual_phi (loop->header);
+  if (phi == NULL)
+    return;
+
+  tree final_loop = PHI_ARG_DEF_FROM_EDGE (phi, single_succ_edge (loop->latch));
+
+  phi = get_virtual_phi (exit->dest);
+  if (phi != NULL)
+    {
+      tree final_exit = PHI_ARG_DEF_FROM_EDGE (phi, exit);
+      gcc_assert (operand_equal_p (final_loop, final_exit, 0));
+      return;
+    }
+
+  tree res_new = copy_ssa_name (final_loop, NULL);
+  gphi *nphi = create_phi_node (res_new, exit->dest);
+  replace_uses_in_dominated_bbs (final_loop, res_new, exit->dest);
+  add_phi_arg (nphi, final_loop, exit, UNKNOWN_LOCATION);
 }
 
 /* Check invariants of the loop closed ssa form for the USE in BB.  */
@@ -1328,15 +1359,14 @@ rewrite_all_phi_nodes_with_iv (loop_p loop, tree main_iv)
   free (bbs);
 }
 
-/* Bases all the induction variables in LOOP on a single induction
-   variable (unsigned with base 0 and step 1), whose final value is
-   compared with *NIT.  When the IV type precision has to be larger
-   than *NIT type precision, *NIT is converted to the larger type, the
-   conversion code is inserted before the loop, and *NIT is updated to
-   the new definition.  When BUMP_IN_LATCH is true, the induction
-   variable is incremented in the loop latch, otherwise it is
-   incremented in the loop header.  Return the induction variable that
-   was created.  */
+/* Bases all the induction variables in LOOP on a single induction variable
+   (with base 0 and step 1), whose final value is compared with *NIT.  When the
+   IV type precision has to be larger than *NIT type precision, *NIT is
+   converted to the larger type, the conversion code is inserted before the
+   loop, and *NIT is updated to the new definition.  When BUMP_IN_LATCH is true,
+   the induction variable is incremented in the loop latch, otherwise it is
+   incremented in the loop header.  Return the induction variable that was
+   created.  */
 
 tree
 canonicalize_loop_ivs (struct loop *loop, tree *nit, bool bump_in_latch)

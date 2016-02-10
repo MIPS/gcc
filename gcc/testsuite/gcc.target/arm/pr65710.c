@@ -1,5 +1,7 @@
 /* { dg-do compile } */
-/* { dg-options "-march=armv6-m -mthumb -O3 -w -mfloat-abi=soft" } */
+/* { dg-skip-if "do not override -mfloat-abi" { *-*-* } { "-mfloat-abi=*" } {"-mfloat-abi=soft" } } */
+/* { dg-options "-mthumb -O2 -mfloat-abi=soft -w" } */
+/* { dg-skip-if "" { ! { arm_thumb1_ok || arm_thumb2_ok } } } */
 
 struct ST {
   char *buffer;

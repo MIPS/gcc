@@ -1,3 +1,36 @@
+2015-07-14  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/66861
+	* io/unix.c (compare_file_filename): Verify that u->filename is
+	non-NULL before strcmp.
+	(find_file0): Likewise.
+
+2015-07-06  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR libfortran/40267
+	* Makefile.am: Remove libgfortranbegin targets.
+	* Makefile.in: Regenerate.
+	* fmain.c: Remove.
+
+2015-04-22  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	* acinclude.m4 (GTHREAD_USE_WEAK): Define as 0 for *-*-musl*.
+	* configure: Regenerate.
+
+2015-04-21 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/65234
+	* io/format.c (parse_format_list): Set the seen_dd flag in all
+	cases where a data descriptor has been seen.
+
+2015-04-21 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/56743
+	* io/list_read.c (CASE_SEPARATORS): Add case for '!'.
+	(is_separator): Add condition for '!'.
+	(eat_separator): Use notify_std to warn or errord if '!' is
+	encountered before a proper separator.
+
 2015-04-14 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR libgfortran/65089

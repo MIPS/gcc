@@ -1,4 +1,9 @@
 
+2016-02-10   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{ merging with trunk 226090 ; UNSTABLE }}
+	* melt-run.proto.h: include tree-ssa-scopedtables.h
+	* tree-ssa-dom.c: skip second record_edge_info
+
 2015-07-24   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{ MELT 1.2.0 for GCC 4.9 & GCC 5.x release }}
 

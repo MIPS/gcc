@@ -99,6 +99,14 @@ case ${host} in
 esac
 
 case ${host} in
+  aarch64*-*-linux*)
+    case ${target} in
+      aarch64*-*-*)
+	host_extra_gcc_objs="driver-aarch64.o"
+	host_xmake_file="${host_xmake_file} aarch64/x-aarch64"
+	;;
+    esac
+    ;;
   arm*-*-freebsd* | arm*-*-linux*)
     case ${target} in
       arm*-*-*)
@@ -163,6 +171,10 @@ case ${host} in
 	fi
 	;;
     esac
+    ;;
+  s390-*-* | s390x-*-*)
+    host_extra_gcc_objs="driver-native.o"
+    host_xmake_file="${host_xmake_file} s390/x-native"
     ;;
   sparc*-*-solaris2*)
     case ${target} in

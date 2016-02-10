@@ -22,6 +22,9 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_GIMPLE_H
 #define GCC_GIMPLE_H
 
+#include "tree-ssa-alias.h"
+#include "gimple-expr.h"
+
 typedef gimple gimple_seq_node;
 
 enum gimple_code {
@@ -1355,7 +1358,6 @@ gomp_teams *gimple_build_omp_teams (gimple_seq, tree);
 gomp_atomic_load *gimple_build_omp_atomic_load (tree, tree);
 gomp_atomic_store *gimple_build_omp_atomic_store (tree);
 gtransaction *gimple_build_transaction (gimple_seq, tree);
-gimple gimple_build_predict (enum br_predictor, enum prediction);
 extern void gimple_seq_add_stmt (gimple_seq *, gimple);
 extern void gimple_seq_add_stmt_without_update (gimple_seq *, gimple);
 void gimple_seq_add_seq (gimple_seq *, gimple_seq);
@@ -2766,7 +2768,9 @@ gimple_call_set_fndecl (gimple gs, tree decl)
 {
   GIMPLE_CHECK (gs, GIMPLE_CALL);
   gcc_gimple_checking_assert (!gimple_call_internal_p (gs));
-  gimple_set_op (gs, 1, build_fold_addr_expr_loc (gimple_location (gs), decl));
+  gimple_set_op (gs, 1, build1_loc (gimple_location (gs), ADDR_EXPR,
+				     build_pointer_type (TREE_TYPE (decl)),
+				     decl));
 }
 
 
@@ -3183,9 +3187,9 @@ gimple_cond_false_label (const gcond *gs)
 static inline void
 gimple_cond_make_false (gcond *gs)
 {
-  gimple_cond_set_lhs (gs, boolean_true_node);
+  gimple_cond_set_lhs (gs, boolean_false_node);
   gimple_cond_set_rhs (gs, boolean_false_node);
-  gs->subcode = EQ_EXPR;
+  gs->subcode = NE_EXPR;
 }
 
 
@@ -3195,8 +3199,8 @@ static inline void
 gimple_cond_make_true (gcond *gs)
 {
   gimple_cond_set_lhs (gs, boolean_true_node);
-  gimple_cond_set_rhs (gs, boolean_true_node);
-  gs->subcode = EQ_EXPR;
+  gimple_cond_set_rhs (gs, boolean_false_node);
+  gs->subcode = NE_EXPR;
 }
 
 /* Check if conditional statemente GS is of the form 'if (1 == 1)',
@@ -5666,50 +5670,6 @@ is_gimple_resx (const_gimple gs)
   return gimple_code (gs) == GIMPLE_RESX;
 }
 
-/* Return the predictor of GIMPLE_PREDICT statement GS.  */
-
-static inline enum br_predictor
-gimple_predict_predictor (gimple gs)
-{
-  GIMPLE_CHECK (gs, GIMPLE_PREDICT);
-  return (enum br_predictor) (gs->subcode & ~GF_PREDICT_TAKEN);
-}
-
-
-/* Set the predictor of GIMPLE_PREDICT statement GS to PREDICT.  */
-
-static inline void
-gimple_predict_set_predictor (gimple gs, enum br_predictor predictor)
-{
-  GIMPLE_CHECK (gs, GIMPLE_PREDICT);
-  gs->subcode = (gs->subcode & GF_PREDICT_TAKEN)
-		       | (unsigned) predictor;
-}
-
-
-/* Return the outcome of GIMPLE_PREDICT statement GS.  */
-
-static inline enum prediction
-gimple_predict_outcome (gimple gs)
-{
-  GIMPLE_CHECK (gs, GIMPLE_PREDICT);
-  return (gs->subcode & GF_PREDICT_TAKEN) ? TAKEN : NOT_TAKEN;
-}
-
-
-/* Set the outcome of GIMPLE_PREDICT statement GS to OUTCOME.  */
-
-static inline void
-gimple_predict_set_outcome (gimple gs, enum prediction outcome)
-{
-  GIMPLE_CHECK (gs, GIMPLE_PREDICT);
-  if (outcome == TAKEN)
-    gs->subcode |= GF_PREDICT_TAKEN;
-  else
-    gs->subcode &= ~GF_PREDICT_TAKEN;
-}
-
-
 /* Return the type of the main expression computed by STMT.  Return
    void_type_node if the statement computes nothing.  */
 
@@ -5717,36 +5677,26 @@ static inline tree
 gimple_expr_type (const_gimple stmt)
 {
   enum gimple_code code = gimple_code (stmt);
-
-  if (code == GIMPLE_ASSIGN || code == GIMPLE_CALL)
+  /* In general we want to pass out a type that can be substituted
+     for both the RHS and the LHS types if there is a possibly
+     useless conversion involved.  That means returning the
+     original RHS type as far as we can reconstruct it.  */
+  if (code == GIMPLE_CALL)
     {
-      tree type;
-      /* In general we want to pass out a type that can be substituted
-         for both the RHS and the LHS types if there is a possibly
-	 useless conversion involved.  That means returning the
-	 original RHS type as far as we can reconstruct it.  */
-      if (code == GIMPLE_CALL)
-	{
-	  const gcall *call_stmt = as_a <const gcall *> (stmt);
-	  if (gimple_call_internal_p (call_stmt)
-	      && gimple_call_internal_fn (call_stmt) == IFN_MASK_STORE)
-	    type = TREE_TYPE (gimple_call_arg (call_stmt, 3));
-	  else
-	    type = gimple_call_return_type (call_stmt);
-	}
+      const gcall *call_stmt = as_a <const gcall *> (stmt);
+      if (gimple_call_internal_p (call_stmt)
+          && gimple_call_internal_fn (call_stmt) == IFN_MASK_STORE)
+        return TREE_TYPE (gimple_call_arg (call_stmt, 3));
       else
-	switch (gimple_assign_rhs_code (stmt))
-	  {
-	  case POINTER_PLUS_EXPR:
-	    type = TREE_TYPE (gimple_assign_rhs1 (stmt));
-	    break;
-
-	  default:
-	    /* As fallback use the type of the LHS.  */
-	    type = TREE_TYPE (gimple_get_lhs (stmt));
-	    break;
-	  }
-      return type;
+        return gimple_call_return_type (call_stmt);
+    }
+  else if (code == GIMPLE_ASSIGN)
+    {
+      if (gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR)
+        return TREE_TYPE (gimple_assign_rhs1 (stmt));
+      else
+        /* As fallback use the type of the LHS.  */
+        return TREE_TYPE (gimple_get_lhs (stmt));
     }
   else if (code == GIMPLE_COND)
     return boolean_type_node;

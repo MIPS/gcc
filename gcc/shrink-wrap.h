@@ -20,12 +20,6 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_SHRINK_WRAP_H
 #define GCC_SHRINK_WRAP_H
 
-#include "hashtab.h"
-#include "vec.h"
-#include "machmode.h"
-
-#ifdef HAVE_simple_return
-
 #include "function.h"
 
 /* In shrink-wrap.c.  */
@@ -42,10 +36,8 @@ extern void convert_to_simple_return (edge entry_edge, edge orig_entry_edge,
 				      bitmap_head bb_flags,
 				      rtx_insn *returnjump,
 				      vec<edge> unconverted_simple_returns);
-#define SHRINK_WRAPPING_ENABLED (flag_shrink_wrap && HAVE_simple_return)
-#else
-#define SHRINK_WRAPPING_ENABLED false
-#endif
+#define SHRINK_WRAPPING_ENABLED \
+  (flag_shrink_wrap && targetm.have_simple_return ())
 
 #endif  /* GCC_SHRINK_WRAP_H  */
 

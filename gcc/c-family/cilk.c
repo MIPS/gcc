@@ -23,20 +23,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
+#include "options.h"
 #include "fold-const.h"
 #include "stringpool.h"
-#include "calls.h"
 #include "langhooks.h"
 #include "gimple-expr.h"
 #include "gimplify.h"
@@ -44,21 +35,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "c-family/c-common.h"
 #include "toplev.h" 
-#include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "vec.h"
-#include "hashtab.h"
-#include "hash-set.h"
-#include "machmode.h"
 #include "tm.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
-#include "ipa-ref.h"
+#include "calls.h"
 #include "cgraph.h"
 #include "diagnostic.h"
-#include "vec.h"
 #include "cilk.h"
 
 enum add_variable_type {
@@ -397,7 +379,7 @@ create_parm_list (struct wrapper_data *wd, tree *val0, tree arg)
 	 argument list.  Because register variables are
 	 worker-local we don't need to work hard to support
 	 them in code that spawns.  */
-      if ((TREE_CODE (arg) == VAR_DECL) && DECL_HARD_REGISTER (arg))
+      if (VAR_P (arg) && DECL_HARD_REGISTER (arg))
 	{
 	  error_at (EXPR_LOCATION (arg),
 		    "explicit register variable %qD may not be modified in "
@@ -409,7 +391,7 @@ create_parm_list (struct wrapper_data *wd, tree *val0, tree arg)
 
       val = TREE_OPERAND (val, 0);
       *val0 = val;
-      gcc_assert (TREE_CODE (val) == INDIRECT_REF);
+      gcc_assert (INDIRECT_REF_P (val));
       parm = TREE_OPERAND (val, 0);
       STRIP_NOPS (parm);
     }
@@ -970,7 +952,7 @@ add_variable (struct wrapper_data *wd, tree var, enum add_variable_type how)
 	 work anyway.  Warn here.  This misses one case: if the
 	 register variable is used as the loop bound or increment it
 	 has already been added to the map.  */
-      if ((how != ADD_BIND) && (TREE_CODE (var) == VAR_DECL)
+      if ((how != ADD_BIND) && VAR_P (var)
 	  && !DECL_EXTERNAL (var) && DECL_HARD_REGISTER (var))
 	warning (0, "register assignment ignored for %qD used in Cilk block",
 		 var);
@@ -1078,7 +1060,7 @@ extract_free_variables (tree t, struct wrapper_data *wd,
 	TREE_ADDRESSABLE (t) = 1;
     case VAR_DECL:
     case PARM_DECL:
-      if (!TREE_STATIC (t) && !DECL_EXTERNAL (t))
+      if (!is_global_var (t))
 	add_variable (wd, t, how);
       return;
 

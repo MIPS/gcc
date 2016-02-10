@@ -21,12 +21,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "flags.h"
 #include "gfortran.h"
 #include "arith.h"
 #include "match.h"
 #include "parse.h"
-#include "hash-set.h"
 #include "diagnostic.h"
 #include "gomp-constants.h"
 

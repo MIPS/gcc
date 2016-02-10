@@ -458,6 +458,9 @@ struct gomp_thread_pool
   struct gomp_thread **threads;
   unsigned threads_size;
   unsigned threads_used;
+  /* The last team is used for non-nested teams to delay their destruction to
+     make sure all the threads in the team move on to the pool's barrier before
+     the team's barrier is destroyed.  */
   struct gomp_team *last_team;
   /* Number of threads running in this contention group.  */
   unsigned long threads_busy;
@@ -745,8 +748,8 @@ struct gomp_device_descr
   int (*get_num_devices_func) (void);
   void (*init_device_func) (int);
   void (*fini_device_func) (int);
-  int (*load_image_func) (int, void *, struct addr_pair **);
-  void (*unload_image_func) (int, void *);
+  int (*load_image_func) (int, const void *, struct addr_pair **);
+  void (*unload_image_func) (int, const void *);
   void *(*alloc_func) (int, size_t);
   void (*free_func) (int, void *);
   void *(*dev2host_func) (int, void *, const void *, size_t);
@@ -779,6 +782,7 @@ extern void gomp_unmap_vars (struct target_mem_desc *, bool);
 extern void gomp_init_device (struct gomp_device_descr *);
 extern void gomp_free_memmap (struct splay_tree_s *);
 extern void gomp_fini_device (struct gomp_device_descr *);
+extern void gomp_unload_device (struct gomp_device_descr *);
 
 /* work.c */
 

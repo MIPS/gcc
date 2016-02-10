@@ -2247,6 +2247,49 @@ range of 1 to 2047.
 
 @end table
 
+@item FT32---@file{config/ft32/constraints.md}
+@table @code
+@item A
+An absolute address
+
+@item B
+An offset address
+
+@item W
+A register indirect memory operand
+
+@item e
+An offset address.
+
+@item f
+An offset address.
+
+@item O
+The constant zero or one
+
+@item I
+A 16-bit signed constant (@minus{}32768 @dots{} 32767)
+
+@item w
+A bitfield mask suitable for bext or bins
+
+@item x
+An inverted bitfield mask suitable for bext or bins
+
+@item L
+A 16-bit unsigned constant, multiple of 4 (0 @dots{} 65532)
+
+@item S
+A 20-bit signed constant (@minus{}524288 @dots{} 524287)
+
+@item b
+A constant for a bitfield width (1 @dots{} 16)
+
+@item KA
+A 10-bit signed constant (@minus{}512 @dots{} 511)
+
+@end table
+
 @item Hewlett-Packard PA-RISC---@file{config/pa/pa.h}
 @table @code
 @item a
@@ -2948,10 +2991,25 @@ instead of @code{0} in the assembly output.
 Integer that is valid as an immediate operand for
 a custom instruction opcode. Range 0 to 255.
 
+@item P
+An immediate operand for R2 andchi/andci instructions. 
+
 @item S
 Matches immediates which are addresses in the small
 data section and therefore can be added to @code{gp}
 as a 16-bit immediate to re-create their 32-bit value.
+
+@item U
+Matches constants suitable as an operand for the rdprs and
+cache instructions.
+
+@item v
+A memory operand suitable for Nios II R2 load/store
+exclusive instructions.
+
+@item w
+A memory operand suitable for load/store IO and cache
+instructions.
 
 @ifset INTERNALS
 @item T
@@ -3027,6 +3085,27 @@ Altivec vector register
 @item wa
 Any VSX register if the -mvsx option was used or NO_REGS.
 
+When using any of the register constraints (@code{wa}, @code{wd},
+@code{wf}, @code{wg}, @code{wh}, @code{wi}, @code{wj}, @code{wk},
+@code{wl}, @code{wm}, @code{ws}, @code{wt}, @code{wu}, @code{wv},
+@code{ww}, or @code{wy}) that take VSX registers, you must use
+@code{%x<n>} in the template so that the correct register is used.
+Otherwise the register number output in the assembly file will be
+incorrect if an Altivec register is an operand of a VSX instruction
+that expects VSX register numbering.
+
+@smallexample
+asm ("xvadddp %x0,%x1,%x2" : "=wa" (v1) : "wa" (v2), "wa" (v3));
+@end smallexample
+
+is correct, but:
+
+@smallexample
+asm ("xvadddp %0,%1,%2" : "=wa" (v1) : "wa" (v2), "wa" (v3));
+@end smallexample
+
+is not correct.
+
 @item wd
 VSX vector register to hold vector double data or NO_REGS.
 
@@ -3093,9 +3172,6 @@ instructions.
 
 @item h
 @samp{MQ}, @samp{CTR}, or @samp{LINK} register
-
-@item q
-@samp{MQ} register
 
 @item c
 @samp{CTR} register
@@ -3189,17 +3265,8 @@ AIX TOC entry
 Address operand that is an indexed or indirect from a register (@samp{p} is
 preferable for @code{asm} statements)
 
-@item S
-Constant suitable as a 64-bit mask operand
-
-@item T
-Constant suitable as a 32-bit mask operand
-
 @item U
 System V Release 4 small data area reference
-
-@item t
-AND masks that can be performed by two rldic@{l, r@} instructions
 
 @item W
 Vector constant that does not require memory

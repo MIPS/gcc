@@ -505,6 +505,7 @@ Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	    echo ' cd $(top_builddir) && $(SHELL) ./config.status $@ $(am__depfiles_maybe)'; \
 	    cd $(top_builddir) && $(SHELL) ./config.status $@ $(am__depfiles_maybe);; \
 	esac;
+$(top_srcdir)/plugin/Makefrag.am:
 
 $(top_builddir)/config.status: $(top_srcdir)/configure $(CONFIG_STATUS_DEPENDENCIES)
 	$(SHELL) ./config.status --recheck
@@ -571,11 +572,11 @@ clean-toolexeclibLTLIBRARIES:
 	  echo "rm -f \"$${dir}/so_locations\""; \
 	  rm -f "$${dir}/so_locations"; \
 	done
-libgomp-plugin-host_nonshm.la: $(libgomp_plugin_host_nonshm_la_OBJECTS) $(libgomp_plugin_host_nonshm_la_DEPENDENCIES) 
+libgomp-plugin-host_nonshm.la: $(libgomp_plugin_host_nonshm_la_OBJECTS) $(libgomp_plugin_host_nonshm_la_DEPENDENCIES) $(EXTRA_libgomp_plugin_host_nonshm_la_DEPENDENCIES) 
 	$(libgomp_plugin_host_nonshm_la_LINK) -rpath $(toolexeclibdir) $(libgomp_plugin_host_nonshm_la_OBJECTS) $(libgomp_plugin_host_nonshm_la_LIBADD) $(LIBS)
-libgomp-plugin-nvptx.la: $(libgomp_plugin_nvptx_la_OBJECTS) $(libgomp_plugin_nvptx_la_DEPENDENCIES) 
+libgomp-plugin-nvptx.la: $(libgomp_plugin_nvptx_la_OBJECTS) $(libgomp_plugin_nvptx_la_DEPENDENCIES) $(EXTRA_libgomp_plugin_nvptx_la_DEPENDENCIES) 
 	$(libgomp_plugin_nvptx_la_LINK) $(am_libgomp_plugin_nvptx_la_rpath) $(libgomp_plugin_nvptx_la_OBJECTS) $(libgomp_plugin_nvptx_la_LIBADD) $(LIBS)
-libgomp.la: $(libgomp_la_OBJECTS) $(libgomp_la_DEPENDENCIES) 
+libgomp.la: $(libgomp_la_OBJECTS) $(libgomp_la_DEPENDENCIES) $(EXTRA_libgomp_la_DEPENDENCIES) 
 	$(libgomp_la_LINK) -rpath $(toolexeclibdir) $(libgomp_la_OBJECTS) $(libgomp_la_LIBADD) $(LIBS)
 
 mostlyclean-compile:

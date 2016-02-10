@@ -24,30 +24,20 @@
 // include it here before tree.h includes it later.
 #include <gmp.h>
 
-#include "hash-set.h"
-#include "machmode.h"
 #include "vec.h"
-#include "double-int.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
-#include "wide-int.h"
-#include "inchash.h"
 #include "tree.h"
+#include "options.h"
+#include "inchash.h"
 #include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "tree-iterator.h"
 #include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
 #include "tm.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "convert.h"
 #include "gimple-expr.h"
@@ -55,7 +45,6 @@
 #include "langhooks.h"
 #include "toplev.h"
 #include "output.h"
-#include "real.h"
 #include "realmpfr.h"
 #include "builtins.h"
 
@@ -323,6 +312,9 @@ class Gcc_backend : public Backend
   Bexpression*
   call_expression(Bexpression* fn, const std::vector<Bexpression*>& args,
                   Bexpression* static_chain, Location);
+
+  Bexpression*
+  stack_allocation_expression(int64_t size, Location);
 
   // Statements.
 
@@ -1884,6 +1876,17 @@ Gcc_backend::call_expression(Bexpression* fn_expr,
   return this->make_expression(ret);
 }
 
+// Return an expression that allocates SIZE bytes on the stack.
+
+Bexpression*
+Gcc_backend::stack_allocation_expression(int64_t size, Location location)
+{
+  tree alloca = builtin_decl_explicit(BUILT_IN_ALLOCA);
+  tree size_tree = build_int_cst(integer_type_node, size);
+  tree ret = build_call_expr_loc(location.gcc_location(), alloca, 1, size_tree);
+  return this->make_expression(ret);
+}
+
 // An expression as a statement.
 
 Bstatement*
@@ -3010,7 +3013,8 @@ Gcc_backend::lookup_builtin(const std::string& name)
 }
 
 // Write the definitions for all TYPE_DECLS, CONSTANT_DECLS,
-// FUNCTION_DECLS, and VARIABLE_DECLS declared globally.
+// FUNCTION_DECLS, and VARIABLE_DECLS declared globally, as well as
+// emit early debugging information.
 
 void
 Gcc_backend::write_global_definitions(
@@ -3082,11 +3086,6 @@ Gcc_backend::write_global_definitions(
   // Pass everything back to the middle-end.
 
   wrapup_global_declarations(defs, i);
-
-  symtab->finalize_compilation_unit();
-
-  check_global_declarations(defs, i);
-  emit_debug_global_declarations(defs, i);
 
   delete[] defs;
 }

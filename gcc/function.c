@@ -34,31 +34,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "rtl-error.h"
-#include "hash-set.h"
-#include "machmode.h"
-#include "vec.h"
-#include "double-int.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "wide-int.h"
-#include "inchash.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "rtl.h"
+#include "df.h"
+#include "rtl-error.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "stringpool.h"
 #include "flags.h"
 #include "except.h"
-#include "hashtab.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "rtl.h"
-#include "statistics.h"
-#include "real.h"
-#include "fixed-value.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -80,15 +68,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-expr.h"
 #include "gimplify.h"
 #include "tree-pass.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "basic-block.h"
-#include "df.h"
 #include "params.h"
 #include "bb-reorder.h"
 #include "shrink-wrap.h"
@@ -133,7 +116,7 @@ struct function *cfun = 0;
 
 /* These hashes record the prologue and epilogue insns.  */
 
-struct insn_cache_hasher : ggc_cache_hasher<rtx>
+struct insn_cache_hasher : ggc_cache_ptr_hash<rtx_def>
 {
   static hashval_t hash (rtx x) { return htab_hash_pointer (x); }
   static bool equal (rtx a, rtx b) { return a == b; }
@@ -227,6 +210,7 @@ free_after_compilation (struct function *f)
   f->eh = NULL;
   f->machine = NULL;
   f->cfg = NULL;
+  f->curr_properties &= ~PROP_cfg;
 
   regno_reg_rtx = NULL;
 }
@@ -585,7 +569,7 @@ struct GTY((for_user)) temp_slot_address_entry {
   struct temp_slot *temp_slot;
 };
 
-struct temp_address_hasher : ggc_hasher<temp_slot_address_entry *>
+struct temp_address_hasher : ggc_ptr_hash<temp_slot_address_entry>
 {
   static hashval_t hash (temp_slot_address_entry *);
   static bool equal (temp_slot_address_entry *, temp_slot_address_entry *);
@@ -2170,7 +2154,7 @@ use_register_for_decl (const_tree decl)
       /* When not optimizing, disregard register keyword for variables with
 	 types containing methods, otherwise the methods won't be callable
 	 from the debugger.  */
-      if (TYPE_METHODS (TREE_TYPE (decl)))
+      if (TYPE_METHODS (TYPE_MAIN_VARIANT (TREE_TYPE (decl))))
 	return false;
       break;
     default:
@@ -2178,49 +2162,6 @@ use_register_for_decl (const_tree decl)
     }
 
   return true;
-}
-
-/* Return true if TYPE should be passed by invisible reference.  */
-
-bool
-pass_by_reference (CUMULATIVE_ARGS *ca, machine_mode mode,
-		   tree type, bool named_arg)
-{
-  if (type)
-    {
-      /* If this type contains non-trivial constructors, then it is
-	 forbidden for the middle-end to create any new copies.  */
-      if (TREE_ADDRESSABLE (type))
-	return true;
-
-      /* GCC post 3.4 passes *all* variable sized types by reference.  */
-      if (!TYPE_SIZE (type) || TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
-	return true;
-
-      /* If a record type should be passed the same as its first (and only)
-	 member, use the type and mode of that member.  */
-      if (TREE_CODE (type) == RECORD_TYPE && TYPE_TRANSPARENT_AGGR (type))
-	{
-	  type = TREE_TYPE (first_field (type));
-	  mode = TYPE_MODE (type);
-	}
-    }
-
-  return targetm.calls.pass_by_reference (pack_cumulative_args (ca), mode,
-					  type, named_arg);
-}
-
-/* Return true if TYPE, which is passed by reference, should be callee
-   copied instead of caller copied.  */
-
-bool
-reference_callee_copied (CUMULATIVE_ARGS *ca, machine_mode mode,
-			 tree type, bool named_arg)
-{
-  if (type && TREE_ADDRESSABLE (type))
-    return false;
-  return targetm.calls.callee_copies (pack_cumulative_args (ca), mode, type,
-				      named_arg);
 }
 
 /* Structures to communicate between the subroutines of assign_parms.
@@ -3114,8 +3055,8 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 	    }
 	  else
 	    t = op1;
-	  rtx pat = gen_extend_insn (op0, t, promoted_nominal_mode,
-				     data->passed_mode, unsignedp);
+	  rtx_insn *pat = gen_extend_insn (op0, t, promoted_nominal_mode,
+					   data->passed_mode, unsignedp);
 	  emit_insn (pat);
 	  insns = get_insns ();
 
@@ -3500,9 +3441,11 @@ assign_parm_load_bounds (struct assign_parm_data_one *data,
 
 static void
 assign_bounds (vec<bounds_parm_data> &bndargs,
-	       struct assign_parm_data_all &all)
+	       struct assign_parm_data_all &all,
+	       bool assign_regs, bool assign_special,
+	       bool assign_bt)
 {
-  unsigned i, pass, handled = 0;
+  unsigned i, pass;
   bounds_parm_data *pbdata;
 
   if (!bndargs.exists ())
@@ -3516,17 +3459,20 @@ assign_bounds (vec<bounds_parm_data> &bndargs,
       {
 	/* Pass 0 => regs only.  */
 	if (pass == 0
-	    && (!pbdata->parm_data.entry_parm
-		|| GET_CODE (pbdata->parm_data.entry_parm) != REG))
+	    && (!assign_regs
+		||(!pbdata->parm_data.entry_parm
+		   || GET_CODE (pbdata->parm_data.entry_parm) != REG)))
 	  continue;
 	/* Pass 1 => slots only.  */
 	else if (pass == 1
-		 && (!pbdata->parm_data.entry_parm
-		     || GET_CODE (pbdata->parm_data.entry_parm) == REG))
+		 && (!assign_special
+		     || (!pbdata->parm_data.entry_parm
+			 || GET_CODE (pbdata->parm_data.entry_parm) == REG)))
 	  continue;
 	/* Pass 2 => BT only.  */
 	else if (pass == 2
-		 && pbdata->parm_data.entry_parm)
+		 && (!assign_bt
+		     || pbdata->parm_data.entry_parm))
 	  continue;
 
 	if (!pbdata->parm_data.entry_parm
@@ -3547,14 +3493,7 @@ assign_bounds (vec<bounds_parm_data> &bndargs,
 	else
 	  assign_parm_setup_stack (&all, pbdata->bounds_parm,
 				   &pbdata->parm_data);
-
-	/* Count handled bounds to make sure we miss nothing.  */
-	handled++;
       }
-
-  gcc_assert (handled == bndargs.length ());
-
-  bndargs.release ();
 }
 
 /* Assign RTL expressions to the function's parameters.  This may involve
@@ -3679,12 +3618,14 @@ assign_parms (tree fndecl)
 	      /* We expect this is the last parm.  Otherwise it is wrong
 		 to assign bounds right now.  */
 	      gcc_assert (i == (fnargs.length () - 1));
-	      assign_bounds (bndargs, all);
+	      assign_bounds (bndargs, all, true, false, false);
 	      targetm.calls.setup_incoming_vararg_bounds (all.args_so_far,
 							  data.promoted_mode,
 							  data.passed_type,
 							  &pretend_bytes,
 							  false);
+	      assign_bounds (bndargs, all, false, true, true);
+	      bndargs.release ();
 	    }
 	}
 
@@ -3696,7 +3637,8 @@ assign_parms (tree fndecl)
 	bound_no++;
     }
 
-  assign_bounds (bndargs, all);
+  assign_bounds (bndargs, all, true, true, true);
+  bndargs.release ();
 
   if (targetm.calls.split_complex_arg)
     assign_parms_unsplit_complex (&all, fnargs);
@@ -3771,15 +3713,16 @@ assign_parms (tree fndecl)
   crtl->args.size = CEIL_ROUND (crtl->args.size,
 					   PARM_BOUNDARY / BITS_PER_UNIT);
 
-#ifdef ARGS_GROW_DOWNWARD
-  crtl->args.arg_offset_rtx
-    = (all.stack_args_size.var == 0 ? GEN_INT (-all.stack_args_size.constant)
-       : expand_expr (size_diffop (all.stack_args_size.var,
-				   size_int (-all.stack_args_size.constant)),
-		      NULL_RTX, VOIDmode, EXPAND_NORMAL));
-#else
-  crtl->args.arg_offset_rtx = ARGS_SIZE_RTX (all.stack_args_size);
-#endif
+  if (ARGS_GROW_DOWNWARD)
+    {
+      crtl->args.arg_offset_rtx
+	= (all.stack_args_size.var == 0 ? GEN_INT (-all.stack_args_size.constant)
+	   : expand_expr (size_diffop (all.stack_args_size.var,
+				       size_int (-all.stack_args_size.constant)),
+			  NULL_RTX, VOIDmode, EXPAND_NORMAL));
+    }
+  else
+    crtl->args.arg_offset_rtx = ARGS_SIZE_RTX (all.stack_args_size);
 
   /* See how many bytes, if any, of its args a function should try to pop
      on return.  */
@@ -4070,68 +4013,71 @@ locate_and_pad_parm (machine_mode passed_mode, tree type, int in_regs,
   if (crtl->preferred_stack_boundary < boundary)
     crtl->preferred_stack_boundary = boundary;
 
-#ifdef ARGS_GROW_DOWNWARD
-  locate->slot_offset.constant = -initial_offset_ptr->constant;
-  if (initial_offset_ptr->var)
-    locate->slot_offset.var = size_binop (MINUS_EXPR, ssize_int (0),
-					  initial_offset_ptr->var);
+  if (ARGS_GROW_DOWNWARD)
+    {
+      locate->slot_offset.constant = -initial_offset_ptr->constant;
+      if (initial_offset_ptr->var)
+	locate->slot_offset.var = size_binop (MINUS_EXPR, ssize_int (0),
+					      initial_offset_ptr->var);
 
-  {
-    tree s2 = sizetree;
-    if (where_pad != none
-	&& (!tree_fits_uhwi_p (sizetree)
-	    || (tree_to_uhwi (sizetree) * BITS_PER_UNIT) % round_boundary))
-      s2 = round_up (s2, round_boundary / BITS_PER_UNIT);
-    SUB_PARM_SIZE (locate->slot_offset, s2);
-  }
+	{
+	  tree s2 = sizetree;
+	  if (where_pad != none
+	      && (!tree_fits_uhwi_p (sizetree)
+		  || (tree_to_uhwi (sizetree) * BITS_PER_UNIT) % round_boundary))
+	    s2 = round_up (s2, round_boundary / BITS_PER_UNIT);
+	  SUB_PARM_SIZE (locate->slot_offset, s2);
+	}
 
-  locate->slot_offset.constant += part_size_in_regs;
+      locate->slot_offset.constant += part_size_in_regs;
 
-  if (!in_regs || reg_parm_stack_space > 0)
-    pad_to_arg_alignment (&locate->slot_offset, boundary,
-			  &locate->alignment_pad);
+      if (!in_regs || reg_parm_stack_space > 0)
+	pad_to_arg_alignment (&locate->slot_offset, boundary,
+			      &locate->alignment_pad);
 
-  locate->size.constant = (-initial_offset_ptr->constant
-			   - locate->slot_offset.constant);
-  if (initial_offset_ptr->var)
-    locate->size.var = size_binop (MINUS_EXPR,
-				   size_binop (MINUS_EXPR,
-					       ssize_int (0),
-					       initial_offset_ptr->var),
-				   locate->slot_offset.var);
+      locate->size.constant = (-initial_offset_ptr->constant
+			       - locate->slot_offset.constant);
+      if (initial_offset_ptr->var)
+	locate->size.var = size_binop (MINUS_EXPR,
+				       size_binop (MINUS_EXPR,
+						   ssize_int (0),
+						   initial_offset_ptr->var),
+				       locate->slot_offset.var);
 
-  /* Pad_below needs the pre-rounded size to know how much to pad
-     below.  */
-  locate->offset = locate->slot_offset;
-  if (where_pad == downward)
-    pad_below (&locate->offset, passed_mode, sizetree);
+      /* Pad_below needs the pre-rounded size to know how much to pad
+	 below.  */
+      locate->offset = locate->slot_offset;
+      if (where_pad == downward)
+	pad_below (&locate->offset, passed_mode, sizetree);
 
-#else /* !ARGS_GROW_DOWNWARD */
-  if (!in_regs || reg_parm_stack_space > 0)
-    pad_to_arg_alignment (initial_offset_ptr, boundary,
-			  &locate->alignment_pad);
-  locate->slot_offset = *initial_offset_ptr;
+    }
+  else
+    {
+      if (!in_regs || reg_parm_stack_space > 0)
+	pad_to_arg_alignment (initial_offset_ptr, boundary,
+			      &locate->alignment_pad);
+      locate->slot_offset = *initial_offset_ptr;
 
 #ifdef PUSH_ROUNDING
-  if (passed_mode != BLKmode)
-    sizetree = size_int (PUSH_ROUNDING (TREE_INT_CST_LOW (sizetree)));
+      if (passed_mode != BLKmode)
+	sizetree = size_int (PUSH_ROUNDING (TREE_INT_CST_LOW (sizetree)));
 #endif
 
-  /* Pad_below needs the pre-rounded size to know how much to pad below
-     so this must be done before rounding up.  */
-  locate->offset = locate->slot_offset;
-  if (where_pad == downward)
-    pad_below (&locate->offset, passed_mode, sizetree);
+      /* Pad_below needs the pre-rounded size to know how much to pad below
+	 so this must be done before rounding up.  */
+      locate->offset = locate->slot_offset;
+      if (where_pad == downward)
+	pad_below (&locate->offset, passed_mode, sizetree);
 
-  if (where_pad != none
-      && (!tree_fits_uhwi_p (sizetree)
-	  || (tree_to_uhwi (sizetree) * BITS_PER_UNIT) % round_boundary))
-    sizetree = round_up (sizetree, round_boundary / BITS_PER_UNIT);
+      if (where_pad != none
+	  && (!tree_fits_uhwi_p (sizetree)
+	      || (tree_to_uhwi (sizetree) * BITS_PER_UNIT) % round_boundary))
+	sizetree = round_up (sizetree, round_boundary / BITS_PER_UNIT);
 
-  ADD_PARM_SIZE (locate->size, sizetree);
+      ADD_PARM_SIZE (locate->size, sizetree);
 
-  locate->size.constant -= part_size_in_regs;
-#endif /* ARGS_GROW_DOWNWARD */
+      locate->size.constant -= part_size_in_regs;
+    }
 
 #ifdef FUNCTION_ARG_OFFSET
   locate->offset.constant += FUNCTION_ARG_OFFSET (passed_mode, type);
@@ -4175,11 +4121,11 @@ pad_to_arg_alignment (struct args_size *offset_ptr, int boundary,
 	  tree offset = size_binop (PLUS_EXPR,
 				    ARGS_SIZE_TREE (*offset_ptr),
 				    sp_offset_tree);
-#ifdef ARGS_GROW_DOWNWARD
-	  tree rounded = round_down (offset, boundary / BITS_PER_UNIT);
-#else
-	  tree rounded = round_up   (offset, boundary / BITS_PER_UNIT);
-#endif
+	  tree rounded;
+	  if (ARGS_GROW_DOWNWARD)
+	    rounded = round_down (offset, boundary / BITS_PER_UNIT);
+	  else
+	    rounded = round_up   (offset, boundary / BITS_PER_UNIT);
 
 	  offset_ptr->var = size_binop (MINUS_EXPR, rounded, sp_offset_tree);
 	  /* ARGS_SIZE_TREE includes constant term.  */
@@ -4191,11 +4137,10 @@ pad_to_arg_alignment (struct args_size *offset_ptr, int boundary,
       else
 	{
 	  offset_ptr->constant = -sp_offset +
-#ifdef ARGS_GROW_DOWNWARD
-	    FLOOR_ROUND (offset_ptr->constant + sp_offset, boundary_in_bytes);
-#else
-	    CEIL_ROUND (offset_ptr->constant + sp_offset, boundary_in_bytes);
-#endif
+	    (ARGS_GROW_DOWNWARD
+	    ? FLOOR_ROUND (offset_ptr->constant + sp_offset, boundary_in_bytes)
+	    : CEIL_ROUND (offset_ptr->constant + sp_offset, boundary_in_bytes));
+
 	    if (boundary > PARM_BOUNDARY)
 	      alignment_pad->constant = offset_ptr->constant - save_constant;
 	}
@@ -4924,38 +4869,24 @@ init_function_start (tree subr)
 /* Expand code to verify the stack_protect_guard.  This is invoked at
    the end of a function to be protected.  */
 
-#ifndef HAVE_stack_protect_test
-# define HAVE_stack_protect_test		0
-# define gen_stack_protect_test(x, y, z)	(gcc_unreachable (), NULL_RTX)
-#endif
-
 void
 stack_protect_epilogue (void)
 {
   tree guard_decl = targetm.stack_protect_guard ();
   rtx_code_label *label = gen_label_rtx ();
   rtx x, y, tmp;
+  rtx_insn *seq;
 
   x = expand_normal (crtl->stack_protect_guard);
   y = expand_normal (guard_decl);
 
   /* Allow the target to compare Y with X without leaking either into
      a register.  */
-  switch ((int) (HAVE_stack_protect_test != 0))
-    {
-    case 1:
-      tmp = gen_stack_protect_test (x, y, label);
-      if (tmp)
-	{
-	  emit_insn (tmp);
-	  break;
-	}
-      /* FALLTHRU */
-
-    default:
-      emit_cmp_and_jump_insns (x, y, EQ, NULL_RTX, ptr_mode, 1, label);
-      break;
-    }
+  if (targetm.have_stack_protect_test ()
+      && ((seq = targetm.gen_stack_protect_test (x, y, label)) != NULL_RTX))
+    emit_insn (seq);
+  else
+    emit_cmp_and_jump_insns (x, y, EQ, NULL_RTX, ptr_mode, 1, label);
 
   /* The noreturn predictor has been moved to the tree level.  The rtl-level
      predictors estimate this branch about 20%, which isn't enough to get
@@ -5091,7 +5022,8 @@ expand_function_start (tree subr)
   if (cfun->static_chain_decl)
     {
       tree parm = cfun->static_chain_decl;
-      rtx local, chain, insn;
+      rtx local, chain;
+     rtx_insn *insn;
 
       local = gen_reg_rtx (Pmode);
       chain = targetm.calls.static_chain (current_function_decl, true);
@@ -5220,8 +5152,8 @@ diddle_return_value_1 (void (*doit) (rtx, void *), void *arg, rtx outgoing)
 void
 diddle_return_value (void (*doit) (rtx, void *), void *arg)
 {
-  diddle_return_value_1 (doit, arg, crtl->return_rtx);
   diddle_return_value_1 (doit, arg, crtl->return_bnd);
+  diddle_return_value_1 (doit, arg, crtl->return_rtx);
 }
 
 static void
@@ -5259,20 +5191,6 @@ use_return_register (void)
   diddle_return_value (do_use_return_reg, NULL);
 }
 
-/* Possibly warn about unused parameters.  */
-void
-do_warn_unused_parameter (tree fn)
-{
-  tree decl;
-
-  for (decl = DECL_ARGUMENTS (fn);
-       decl; decl = DECL_CHAIN (decl))
-    if (!TREE_USED (decl) && TREE_CODE (decl) == PARM_DECL
-	&& DECL_NAME (decl) && !DECL_ARTIFICIAL (decl)
-	&& !TREE_NO_WARNING (decl))
-      warning (OPT_Wunused_parameter, "unused parameter %q+D", decl);
-}
-
 /* Set the location of the insn chain starting at INSN to LOC.  */
 
 static void
@@ -5291,8 +5209,6 @@ set_insn_locations (rtx_insn *insn, int loc)
 void
 expand_function_end (void)
 {
-  rtx clobber_after;
-
   /* If arg_pointer_save_area was referenced only from a nested
      function, we will not have initialized it yet.  Do that now.  */
   if (arg_pointer_save_area && ! crtl->arg_pointer_save_area_init)
@@ -5341,7 +5257,7 @@ expand_function_end (void)
 
      We delay actual code generation after the current_function_value_rtx
      is computed.  */
-  clobber_after = get_last_insn ();
+  rtx_insn *clobber_after = get_last_insn ();
 
   /* Output the label for the actual return from the function.  */
   emit_label (return_label);
@@ -5491,11 +5407,9 @@ expand_function_end (void)
      certainly doesn't fall thru into the exit block.  */
   if (!BARRIER_P (clobber_after))
     {
-      rtx seq;
-
       start_sequence ();
       clobber_return_register ();
-      seq = get_insns ();
+      rtx_insn *seq = get_insns ();
       end_sequence ();
 
       emit_insn_after (seq, clobber_after);
@@ -5522,11 +5436,11 @@ expand_function_end (void)
   if (! EXIT_IGNORE_STACK
       && cfun->calls_alloca)
     {
-      rtx tem = 0, seq;
+      rtx tem = 0;
 
       start_sequence ();
       emit_stack_save (SAVE_FUNCTION, &tem);
-      seq = get_insns ();
+      rtx_insn *seq = get_insns ();
       end_sequence ();
       emit_insn_before (seq, parm_birth_insn);
 
@@ -5553,15 +5467,13 @@ get_arg_pointer_save_area (void)
 
   if (! crtl->arg_pointer_save_area_init)
     {
-      rtx seq;
-
       /* Save the arg pointer at the beginning of the function.  The
 	 generated stack slot may not be a valid memory address, so we
 	 have to check it and fix it if necessary.  */
       start_sequence ();
       emit_move_insn (validize_mem (copy_rtx (ret)),
                       crtl->args.internal_arg_pointer);
-      seq = get_insns ();
+      rtx_insn *seq = get_insns ();
       end_sequence ();
 
       push_topmost_sequence ();
@@ -5649,22 +5561,19 @@ prologue_epilogue_contains (const_rtx insn)
   return 0;
 }
 
-#ifdef HAVE_return
 /* Insert use of return register before the end of BB.  */
 
 static void
 emit_use_return_register_into_block (basic_block bb)
 {
-  rtx seq, insn;
   start_sequence ();
   use_return_register ();
-  seq = get_insns ();
+  rtx_insn *seq = get_insns ();
   end_sequence ();
-  insn = BB_END (bb);
-#ifdef HAVE_cc0
-  if (reg_mentioned_p (cc0_rtx, PATTERN (insn)))
+  rtx_insn *insn = BB_END (bb);
+  if (HAVE_cc0 && reg_mentioned_p (cc0_rtx, PATTERN (insn)))
     insn = prev_cc0_setter (insn);
-#endif
+
   emit_insn_before (seq, insn);
 }
 
@@ -5672,15 +5581,12 @@ emit_use_return_register_into_block (basic_block bb)
 /* Create a return pattern, either simple_return or return, depending on
    simple_p.  */
 
-static rtx
+static rtx_insn *
 gen_return_pattern (bool simple_p)
 {
-#ifdef HAVE_simple_return
-  return simple_p ? gen_simple_return () : gen_return ();
-#else
-  gcc_assert (!simple_p);
-  return gen_return ();
-#endif
+  return (simple_p
+	  ? targetm.gen_simple_return ()
+	  : targetm.gen_return ());
 }
 
 /* Insert an appropriate return pattern at the end of block BB.  This
@@ -5690,20 +5596,19 @@ gen_return_pattern (bool simple_p)
 void
 emit_return_into_block (bool simple_p, basic_block bb)
 {
-  rtx jump, pat;
-  jump = emit_jump_insn_after (gen_return_pattern (simple_p), BB_END (bb));
-  pat = PATTERN (jump);
+  rtx_jump_insn *jump = emit_jump_insn_after (gen_return_pattern (simple_p),
+					      BB_END (bb));
+  rtx pat = PATTERN (jump);
   if (GET_CODE (pat) == PARALLEL)
     pat = XVECEXP (pat, 0, 0);
   gcc_assert (ANY_RETURN_P (pat));
   JUMP_LABEL (jump) = pat;
 }
-#endif
 
 /* Set JUMP_LABEL for a return insn.  */
 
 void
-set_return_jump_label (rtx returnjump)
+set_return_jump_label (rtx_insn *returnjump)
 {
   rtx pat = PATTERN (returnjump);
   if (GET_CODE (pat) == PARALLEL)
@@ -5714,7 +5619,6 @@ set_return_jump_label (rtx returnjump)
     JUMP_LABEL (returnjump) = ret_rtx;
 }
 
-#if defined (HAVE_return) || defined (HAVE_simple_return)
 /* Return true if there are any active insns between HEAD and TAIL.  */
 bool
 active_insn_between (rtx_insn *head, rtx_insn *tail)
@@ -5739,7 +5643,6 @@ convert_jumps_to_returns (basic_block last_bb, bool simple_p,
 {
   int i;
   basic_block bb;
-  rtx label;
   edge_iterator ei;
   edge e;
   auto_vec<basic_block> src_bbs (EDGE_COUNT (last_bb->preds));
@@ -5748,7 +5651,7 @@ convert_jumps_to_returns (basic_block last_bb, bool simple_p,
     if (e->src != ENTRY_BLOCK_PTR_FOR_FN (cfun))
       src_bbs.quick_push (e->src);
 
-  label = BB_HEAD (last_bb);
+  rtx_insn *label = BB_HEAD (last_bb);
 
   FOR_EACH_VEC_ELT (src_bbs, i, bb)
     {
@@ -5787,17 +5690,15 @@ convert_jumps_to_returns (basic_block last_bb, bool simple_p,
 	    dest = simple_return_rtx;
 	  else
 	    dest = ret_rtx;
-	  if (!redirect_jump (jump, dest, 0))
+	  if (!redirect_jump (as_a <rtx_jump_insn *> (jump), dest, 0))
 	    {
-#ifdef HAVE_simple_return
-	      if (simple_p)
+	      if (targetm.have_simple_return () && simple_p)
 		{
 		  if (dump_file)
 		    fprintf (dump_file,
 			     "Failed to redirect bb %d branch.\n", bb->index);
 		  unconverted.safe_push (e);
 		}
-#endif
 	      continue;
 	    }
 
@@ -5812,15 +5713,13 @@ convert_jumps_to_returns (basic_block last_bb, bool simple_p,
 	}
       else
 	{
-#ifdef HAVE_simple_return
-	  if (simple_p)
+	  if (targetm.have_simple_return () && simple_p)
 	    {
 	      if (dump_file)
 		fprintf (dump_file,
 			 "Failed to redirect bb %d branch.\n", bb->index);
 	      unconverted.safe_push (e);
 	    }
-#endif
 	  continue;
 	}
 
@@ -5848,7 +5747,6 @@ emit_return_for_exit (edge exit_fallthru_edge, bool simple_p)
   exit_fallthru_edge->flags &= ~EDGE_FALLTHRU;
   return last_bb;
 }
-#endif
 
 
 /* Generate the prologue and epilogue RTL if the machine supports it.  Thread
@@ -5903,10 +5801,8 @@ void
 thread_prologue_and_epilogue_insns (void)
 {
   bool inserted;
-#ifdef HAVE_simple_return
   vec<edge> unconverted_simple_returns = vNULL;
   bitmap_head bb_flags;
-#endif
   rtx_insn *returnjump;
   rtx_insn *epilogue_end ATTRIBUTE_UNUSED;
   rtx_insn *prologue_seq ATTRIBUTE_UNUSED, *split_prologue_seq ATTRIBUTE_UNUSED;
@@ -5933,27 +5829,20 @@ thread_prologue_and_epilogue_insns (void)
       && (lookup_attribute ("no_split_stack", DECL_ATTRIBUTES (cfun->decl))
 	  == NULL))
     {
-#ifndef HAVE_split_stack_prologue
-      gcc_unreachable ();
-#else
-      gcc_assert (HAVE_split_stack_prologue);
-
       start_sequence ();
-      emit_insn (gen_split_stack_prologue ());
+      emit_insn (targetm.gen_split_stack_prologue ());
       split_prologue_seq = get_insns ();
       end_sequence ();
 
       record_insns (split_prologue_seq, NULL, &prologue_insn_hash);
       set_insn_locations (split_prologue_seq, prologue_location);
-#endif
     }
 
   prologue_seq = NULL;
-#ifdef HAVE_prologue
-  if (HAVE_prologue)
+  if (targetm.have_prologue ())
     {
       start_sequence ();
-      rtx_insn *seq = safe_as_a <rtx_insn *> (gen_prologue ());
+      rtx_insn *seq = targetm.gen_prologue ();
       emit_insn (seq);
 
       /* Insert an explicit USE for the frame pointer
@@ -5975,9 +5864,7 @@ thread_prologue_and_epilogue_insns (void)
       end_sequence ();
       set_insn_locations (prologue_seq, prologue_location);
     }
-#endif
 
-#ifdef HAVE_simple_return
   bitmap_initialize (&bb_flags, &bitmap_default_obstack);
 
   /* Try to perform a kind of shrink-wrapping, making sure the
@@ -5985,7 +5872,6 @@ thread_prologue_and_epilogue_insns (void)
      function that require it.  */
 
   try_shrink_wrapping (&entry_edge, orig_entry_edge, &bb_flags, prologue_seq);
-#endif
 
   if (split_prologue_seq != NULL_RTX)
     {
@@ -6010,15 +5896,12 @@ thread_prologue_and_epilogue_insns (void)
 
   exit_fallthru_edge = find_fallthru_edge (EXIT_BLOCK_PTR_FOR_FN (cfun)->preds);
 
-#ifdef HAVE_simple_return
-  if (entry_edge != orig_entry_edge)
+  if (targetm.have_simple_return () && entry_edge != orig_entry_edge)
     exit_fallthru_edge
 	= get_unconverted_simple_return (exit_fallthru_edge, bb_flags,
 					 &unconverted_simple_returns,
 					 &returnjump);
-#endif
-#ifdef HAVE_return
-  if (HAVE_return)
+  if (targetm.have_return ())
     {
       if (exit_fallthru_edge == NULL)
 	goto epilogue_done;
@@ -6036,17 +5919,17 @@ thread_prologue_and_epilogue_insns (void)
 	    {
 	      last_bb = emit_return_for_exit (exit_fallthru_edge, false);
 	      epilogue_end = returnjump = BB_END (last_bb);
-#ifdef HAVE_simple_return
+
 	      /* Emitting the return may add a basic block.
 		 Fix bb_flags for the added block.  */
-	      if (last_bb != exit_fallthru_edge->src)
+	      if (targetm.have_simple_return ()
+		  && last_bb != exit_fallthru_edge->src)
 		bitmap_set_bit (&bb_flags, last_bb->index);
-#endif
+
 	      goto epilogue_done;
 	    }
 	}
     }
-#endif
 
   /* A small fib -- epilogue is not yet completed, but we wish to re-use
      this marker for the splits of EH_RETURN patterns, and nothing else
@@ -6085,12 +5968,11 @@ thread_prologue_and_epilogue_insns (void)
   if (exit_fallthru_edge == NULL)
     goto epilogue_done;
 
-#ifdef HAVE_epilogue
-  if (HAVE_epilogue)
+  if (targetm.have_epilogue ())
     {
       start_sequence ();
       epilogue_end = emit_note (NOTE_INSN_EPILOGUE_BEG);
-      rtx_insn *seq = as_a <rtx_insn *> (gen_epilogue ());
+      rtx_insn *seq = targetm.gen_epilogue ();
       if (seq)
 	emit_jump_insn (seq);
 
@@ -6109,7 +5991,6 @@ thread_prologue_and_epilogue_insns (void)
 	set_return_jump_label (returnjump);
     }
   else
-#endif
     {
       basic_block cur_bb;
 
@@ -6158,12 +6039,10 @@ epilogue_done:
 	}
     }
 
-#ifdef HAVE_simple_return
-  convert_to_simple_return (entry_edge, orig_entry_edge, bb_flags, returnjump,
-			    unconverted_simple_returns);
-#endif
+  if (targetm.have_simple_return ())
+    convert_to_simple_return (entry_edge, orig_entry_edge, bb_flags,
+			      returnjump, unconverted_simple_returns);
 
-#ifdef HAVE_sibcall_epilogue
   /* Emit sibling epilogues before any sibling call sites.  */
   for (ei = ei_start (EXIT_BLOCK_PTR_FOR_FN (cfun)->preds); (e =
 							     ei_safe_edge (ei));
@@ -6171,22 +6050,18 @@ epilogue_done:
     {
       basic_block bb = e->src;
       rtx_insn *insn = BB_END (bb);
-      rtx ep_seq;
 
       if (!CALL_P (insn)
 	  || ! SIBLING_CALL_P (insn)
-#ifdef HAVE_simple_return
-	  || (entry_edge != orig_entry_edge
-	      && !bitmap_bit_p (&bb_flags, bb->index))
-#endif
-	  )
+	  || (targetm.have_simple_return ()
+	      && entry_edge != orig_entry_edge
+	      && !bitmap_bit_p (&bb_flags, bb->index)))
 	{
 	  ei_next (&ei);
 	  continue;
 	}
 
-      ep_seq = gen_sibcall_epilogue ();
-      if (ep_seq)
+      if (rtx_insn *ep_seq = targetm.gen_sibcall_epilogue ())
 	{
 	  start_sequence ();
 	  emit_note (NOTE_INSN_EPILOGUE_BEG);
@@ -6204,9 +6079,7 @@ epilogue_done:
 	}
       ei_next (&ei);
     }
-#endif
 
-#ifdef HAVE_epilogue
   if (epilogue_end)
     {
       rtx_insn *insn, *next;
@@ -6224,11 +6097,8 @@ epilogue_done:
 	    reorder_insns (insn, insn, PREV_INSN (epilogue_end));
 	}
     }
-#endif
 
-#ifdef HAVE_simple_return
   bitmap_clear (&bb_flags);
-#endif
 
   /* Threading the prologue and epilogue changes the artificial refs
      in the entry and exit blocks.  */
@@ -6242,8 +6112,11 @@ epilogue_done:
 void
 reposition_prologue_and_epilogue_notes (void)
 {
-#if defined (HAVE_prologue) || defined (HAVE_epilogue) \
-    || defined (HAVE_sibcall_epilogue)
+  if (!targetm.have_prologue ()
+      && !targetm.have_epilogue ()
+      && !targetm.have_sibcall_epilogue ())
+    return;
+
   /* Since the hash table is created on demand, the fact that it is
      non-null is a signal that it is non-empty.  */
   if (prologue_insn_hash != NULL)
@@ -6340,7 +6213,6 @@ reposition_prologue_and_epilogue_notes (void)
 	    }
 	}
     }
-#endif /* HAVE_prologue or HAVE_epilogue */
 }
 
 /* Returns the name of function declared by FNDECL.  */

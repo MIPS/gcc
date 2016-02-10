@@ -278,6 +278,7 @@
     UNSPEC_PMULL        ; Used in aarch64-simd.md.
     UNSPEC_PMULL2       ; Used in aarch64-simd.md.
     UNSPEC_REV_REGLIST  ; Used in aarch64-simd.md.
+    UNSPEC_VEC_SHR      ; Used in aarch64-simd.md.
 ])
 
 ;; -------------------------------------------------------------------
@@ -655,6 +656,10 @@
 (define_mode_attr VSI2QI [(V2SI "V8QI") (V4SI "V16QI")])
 
 (define_mode_attr insn_count [(OI "8") (CI "12") (XI "16")])
+
+;; -fpic small model GOT reloc modifers: gotpage_lo15/lo14 for ILP64/32.
+;; No need of iterator for -fPIC as it use got_lo12 for both modes.
+(define_mode_attr got_modifier [(SI "gotpage_lo14") (DI "gotpage_lo15")])
 
 ;; -------------------------------------------------------------------
 ;; Code Iterators

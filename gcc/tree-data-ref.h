@@ -22,7 +22,6 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_TREE_DATA_REF_H
 
 #include "graphds.h"
-#include "omega.h"
 #include "tree-chrec.h"
 
 /*
@@ -81,6 +80,10 @@ struct indices
 
   /* A list of chrecs.  Access functions of the indices.  */
   vec<tree> access_fns;
+
+  /* Whether BASE_OBJECT is an access representing the whole object
+     or whether the access could not be constrained.  */
+  bool unconstrained_base;
 };
 
 struct dr_alias
@@ -129,6 +132,7 @@ struct data_reference
 #define DR_STMT(DR)                (DR)->stmt
 #define DR_REF(DR)                 (DR)->ref
 #define DR_BASE_OBJECT(DR)         (DR)->indices.base_object
+#define DR_UNCONSTRAINED_BASE(DR)  (DR)->indices.unconstrained_base
 #define DR_ACCESS_FNS(DR)	   (DR)->indices.access_fns
 #define DR_ACCESS_FN(DR, I)        DR_ACCESS_FNS (DR)[I]
 #define DR_NUM_DIMENSIONS(DR)      DR_ACCESS_FNS (DR).length ()
@@ -296,9 +300,6 @@ extern bool compute_data_dependences_for_loop (struct loop *, bool,
 					       vec<loop_p> *,
 					       vec<data_reference_p> *,
 					       vec<ddr_p> *);
-extern bool compute_data_dependences_for_bb (basic_block, bool,
-                                             vec<data_reference_p> *,
-                                             vec<ddr_p> *);
 extern void debug_ddrs (vec<ddr_p> );
 extern void dump_data_reference (FILE *, struct data_reference *);
 extern void debug (data_reference &ref);
@@ -338,8 +339,6 @@ extern bool dr_may_alias_p (const struct data_reference *,
 			    const struct data_reference *, bool);
 extern bool dr_equal_offsets_p (struct data_reference *,
                                 struct data_reference *);
-extern void tree_check_data_deps (void);
-
 
 /* Return true when the base objects of data references A and B are
    the same memory object.  */
