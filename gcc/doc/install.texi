@@ -383,11 +383,11 @@ installed but it is not in your default library search path, the
 @option{--with-mpc} configure option should be used.  See also
 @option{--with-mpc-lib} and @option{--with-mpc-include}.
 
-@item ISL Library version 0.14 (or 0.12.2)
+@item ISL Library version 0.15, 0.14, 0.13, or 0.12.2
 
 Necessary to build GCC with the Graphite loop optimizations.
-It can be downloaded from @uref{ftp://gcc.gnu.org/pub/gcc/infrastructure/}
-as @file{isl-0.12.2.tar.bz2}.  If an ISL source distribution is found
+It can be downloaded from @uref{ftp://gcc.gnu.org/pub/gcc/infrastructure/}.
+If an ISL source distribution is found
 in a subdirectory of your GCC sources named @file{isl}, it will be
 built together with GCC.  Alternatively, the @option{--with-isl} configure
 option should be used if ISL is not installed in your default library
@@ -1853,36 +1853,27 @@ include and lib options directly.
 These flags are applicable to the host platform only.  When building
 a cross compiler, they will not be used to configure target libraries.
 
-@item --with-host-libstdcxx=@var{linker-args}
-If you are linking with a static copy of PPL, you can use this option
-to specify how the linker should find the standard C++ library used
-internally by PPL.  Typical values of @var{linker-args} might be
-@samp{-lstdc++} or @samp{-Wl,-Bstatic,-lstdc++,-Bdynamic -lm}.  If you are
-linking with a shared copy of PPL, you probably do not need this
-option; shared library dependencies will cause the linker to search
-for the standard C++ library automatically.
-
 @item --with-stage1-ldflags=@var{flags}
 This option may be used to set linker flags to be used when linking
 stage 1 of GCC.  These are also used when linking GCC if configured with
-@option{--disable-bootstrap}.  By default no special flags are used.
+@option{--disable-bootstrap}.  If @option{–with-stage1-libs} is not set to a
+value, then the default is @samp{-static-libstdc++ -static-libgcc}, if
+supported.
 
 @item --with-stage1-libs=@var{libs}
 This option may be used to set libraries to be used when linking stage 1
 of GCC.  These are also used when linking GCC if configured with
-@option{--disable-bootstrap}.  The default is the argument to
-@option{--with-host-libstdcxx}, if specified.
+@option{--disable-bootstrap}.
 
 @item --with-boot-ldflags=@var{flags}
 This option may be used to set linker flags to be used when linking
-stage 2 and later when bootstrapping GCC.  If neither --with-boot-libs
-nor --with-host-libstdcxx is set to a value, then the default is
+stage 2 and later when bootstrapping GCC.  If --with-boot-libs
+is not is set to a value, then the default is
 @samp{-static-libstdc++ -static-libgcc}.
 
 @item --with-boot-libs=@var{libs}
 This option may be used to set libraries to be used when linking stage 2
-and later when bootstrapping GCC.  The default is the argument to
-@option{--with-host-libstdcxx}, if specified.
+and later when bootstrapping GCC.
 
 @item --with-debug-prefix-map=@var{map}
 Convert source directory names using @option{-fdebug-prefix-map} when
@@ -2108,7 +2099,7 @@ machine.  In general, if the Java front end is enabled, the GCJ
 libraries will be enabled too, unless they're known to not work on
 the target platform.  If GCJ is enabled but @samp{libgcj} isn't built, you
 may need to port it; in this case, before modifying the top-level
-@file{configure.in} so that @samp{libgcj} is enabled by default on this platform,
+@file{configure.ac} so that @samp{libgcj} is enabled by default on this platform,
 you may use @option{--enable-libgcj} to override the default.
 
 @end table

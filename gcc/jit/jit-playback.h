@@ -215,6 +215,8 @@ public:
     return m_recording_ctxt->errors_occurred ();
   }
 
+  timer *get_timer () const { return m_recording_ctxt->get_timer (); }
+
 private:
   void dump_generated_code ();
 
@@ -271,6 +273,9 @@ protected:
 		 timevar_id_t tv_id,
 		 bool shared,
 		 bool run_linker);
+
+  void
+  add_multilib_driver_arguments (vec <char *> *argvec);
 
   result *
   dlopen_built_dso ();

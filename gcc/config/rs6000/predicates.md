@@ -460,6 +460,8 @@
 
   switch (mode)
     {
+    case KFmode:
+    case IFmode:
     case TFmode:
     case DFmode:
     case SFmode:
@@ -485,6 +487,12 @@
      no easy way to load a CONST_VECTOR without using memory.  */
   if (TARGET_PAIRED_FLOAT)
     return false;
+
+  /* Because IEEE 128-bit floating point is considered a vector type
+     in order to pass it in VSX registers, it might use this function
+     instead of easy_fp_constant.  */
+  if (FLOAT128_VECTOR_P (mode))
+    return easy_fp_constant (op, mode);
 
   if (VECTOR_MEM_ALTIVEC_OR_VSX_P (mode))
     {
@@ -553,6 +561,14 @@
   val = const_vector_elt_as_int (op, elt);
   return EASY_VECTOR_MSB (val, GET_MODE_INNER (mode));
 })
+
+;; Return true if this is an easy altivec constant that we form
+;; by using VSLDOI.
+(define_predicate "easy_vector_constant_vsldoi"
+  (and (match_code "const_vector")
+       (and (match_test "TARGET_ALTIVEC")
+	    (and (match_test "easy_altivec_constant (op, mode)")
+		 (match_test "vspltis_shifted (op) != 0")))))
 
 ;; Return 1 if operand is constant zero (scalars and vectors).
 (define_predicate "zero_constant"

@@ -2730,11 +2730,11 @@ try_combine (rtx_insn *i3, rtx_insn *i2, rtx_insn *i1, rtx_insn *i0,
   /* If multiple insns feed into one of I2 or I3, they can be in any
      order.  To simplify the code below, reorder them in sequence.  */
   if (i0 && DF_INSN_LUID (i0) > DF_INSN_LUID (i2))
-    temp_insn = i2, i2 = i0, i0 = temp_insn;
+    std::swap (i0, i2);
   if (i0 && DF_INSN_LUID (i0) > DF_INSN_LUID (i1))
-    temp_insn = i1, i1 = i0, i0 = temp_insn;
+    std::swap (i0, i1);
   if (i1 && DF_INSN_LUID (i1) > DF_INSN_LUID (i2))
-    temp_insn = i1, i1 = i2, i2 = temp_insn;
+    std::swap (i1, i2);
 
   added_links_insn = 0;
 
@@ -11194,10 +11194,8 @@ gen_lowpart_for_combine (machine_mode omode, rtx x)
      include an explicit SUBREG or we may simplify it further in combine.  */
   else
     {
-      int offset = 0;
       rtx res;
 
-      offset = subreg_lowpart_offset (omode, imode);
       if (imode == VOIDmode)
 	{
 	  imode = int_mode_for_mode (omode);
@@ -11205,7 +11203,7 @@ gen_lowpart_for_combine (machine_mode omode, rtx x)
 	  if (x == NULL)
 	    goto fail;
 	}
-      res = simplify_gen_subreg (omode, x, imode, offset);
+      res = lowpart_subreg (omode, x, imode);
       if (res)
 	return res;
     }
@@ -12059,14 +12057,15 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
 	      continue;
 	    }
 
-	  /* If this is (and:M1 (subreg:M2 X 0) (const_int C1)) where C1
+	  /* If this is (and:M1 (subreg:M1 X:M2 0) (const_int C1)) where C1
 	     fits in both M1 and M2 and the SUBREG is either paradoxical
 	     or represents the low part, permute the SUBREG and the AND
 	     and try again.  */
-	  if (GET_CODE (XEXP (op0, 0)) == SUBREG)
+	  if (GET_CODE (XEXP (op0, 0)) == SUBREG
+	      && CONST_INT_P (XEXP (op0, 1)))
 	    {
-	      unsigned HOST_WIDE_INT c1;
 	      tmode = GET_MODE (SUBREG_REG (XEXP (op0, 0)));
+	      unsigned HOST_WIDE_INT c1 = INTVAL (XEXP (op0, 1));
 	      /* Require an integral mode, to avoid creating something like
 		 (AND:SF ...).  */
 	      if (SCALAR_INT_MODE_P (tmode)
@@ -12076,16 +12075,20 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
 		     have a defined value due to the AND operation.
 		     However, if we commute the AND inside the SUBREG then
 		     they no longer have defined values and the meaning of
-		     the code has been changed.  */
+		     the code has been changed.
+		     Also C1 should not change value in the smaller mode,
+		     see PR67028 (a positive C1 can become negative in the
+		     smaller mode, so that the AND does no longer mask the
+		     upper bits).  */
 		  && ((WORD_REGISTER_OPERATIONS
 		       && mode_width > GET_MODE_PRECISION (tmode)
-		       && mode_width <= BITS_PER_WORD)
+		       && mode_width <= BITS_PER_WORD
+		       && trunc_int_for_mode (c1, tmode) == (HOST_WIDE_INT) c1)
 		      || (mode_width <= GET_MODE_PRECISION (tmode)
 			  && subreg_lowpart_p (XEXP (op0, 0))))
-		  && CONST_INT_P (XEXP (op0, 1))
 		  && mode_width <= HOST_BITS_PER_WIDE_INT
 		  && HWI_COMPUTABLE_MODE_P (tmode)
-		  && ((c1 = INTVAL (XEXP (op0, 1))) & ~mask) == 0
+		  && (c1 & ~mask) == 0
 		  && (c1 & ~GET_MODE_MASK (tmode)) == 0
 		  && c1 != mask
 		  && c1 != GET_MODE_MASK (tmode))

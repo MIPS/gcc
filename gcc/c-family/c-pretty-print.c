@@ -173,7 +173,6 @@ void
 pp_c_cv_qualifiers (c_pretty_printer *pp, int qualifiers, bool func_type)
 {
   const char *p = pp_last_position_in_text (pp);
-  bool previous = false;
 
   if (!qualifiers)
     return;
@@ -185,34 +184,14 @@ pp_c_cv_qualifiers (c_pretty_printer *pp, int qualifiers, bool func_type)
     pp_c_whitespace (pp);
 
   if (qualifiers & TYPE_QUAL_ATOMIC)
-    {
-      pp_c_ws_string (pp, "_Atomic");
-      previous = true;
-    }
-
+    pp_c_ws_string (pp, "_Atomic");
   if (qualifiers & TYPE_QUAL_CONST)
-    {
-      if (previous)
-        pp_c_whitespace (pp);
-      pp_c_ws_string (pp, func_type ? "__attribute__((const))" : "const");
-      previous = true;
-    }
-
+    pp_c_ws_string (pp, func_type ? "__attribute__((const))" : "const");
   if (qualifiers & TYPE_QUAL_VOLATILE)
-    {
-      if (previous)
-        pp_c_whitespace (pp);
-      pp_c_ws_string (pp, func_type ? "__attribute__((noreturn))" : "volatile");
-      previous = true;
-    }
-
+    pp_c_ws_string (pp, func_type ? "__attribute__((noreturn))" : "volatile");
   if (qualifiers & TYPE_QUAL_RESTRICT)
-    {
-      if (previous)
-        pp_c_whitespace (pp);
-      pp_c_ws_string (pp, (flag_isoc99 && !c_dialect_cxx ()
-			   ? "restrict" : "__restrict__"));
-    }
+    pp_c_ws_string (pp, (flag_isoc99 && !c_dialect_cxx ()
+			 ? "restrict" : "__restrict__"));
 }
 
 /* Pretty-print T using the type-cast notation '( type-name )'.  */
@@ -1774,7 +1753,13 @@ c_pretty_printer::unary_expression (tree e)
       if (code == ADDR_EXPR && TREE_CODE (TREE_OPERAND (e, 0)) != STRING_CST)
 	pp_ampersand (this);
       else if (code == INDIRECT_REF)
-	pp_c_star (this);
+	{
+	  tree type = TREE_TYPE (TREE_OPERAND (e, 0));
+	  if (type && TREE_CODE (type) == REFERENCE_TYPE)
+	    /* Reference decay is implicit, don't print anything.  */;
+	  else
+	    pp_c_star (this);
+	}
       else if (code == NEGATE_EXPR)
 	pp_minus (this);
       else if (code == BIT_NOT_EXPR || code == CONJ_EXPR)

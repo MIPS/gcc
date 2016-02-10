@@ -241,7 +241,7 @@ Objective-C and Objective-C++ Dialects}.
 -pedantic-errors @gol
 -w  -Wextra  -Wall  -Waddress  -Waggregate-return  @gol
 -Waggressive-loop-optimizations -Warray-bounds -Warray-bounds=@var{n} @gol
--Wbool-compare @gol
+-Wbool-compare -Wframe-address @gol
 -Wno-attributes -Wno-builtin-macro-redefined @gol
 -Wc90-c99-compat -Wc99-c11-compat @gol
 -Wc++-compat -Wc++11-compat -Wc++14-compat -Wcast-align  -Wcast-qual  @gol
@@ -260,6 +260,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wimplicit  -Wimplicit-function-declaration  -Wimplicit-int @gol
 -Winit-self  -Winline  -Wno-int-conversion @gol
 -Wno-int-to-pointer-cast -Wno-invalid-offsetof @gol
+-Wnull-dereference @gol
 -Winvalid-pch -Wlarger-than=@var{len}  -Wunsafe-loop-optimizations @gol
 -Wlogical-op -Wlogical-not-parentheses -Wlong-long @gol
 -Wmain -Wmaybe-uninitialized -Wmemset-transposed-args @gol
@@ -283,7 +284,8 @@ Objective-C and Objective-C++ Dialects}.
 -Wsuggest-final-types @gol -Wsuggest-final-methods -Wsuggest-override @gol
 -Wmissing-format-attribute @gol
 -Wswitch  -Wswitch-default  -Wswitch-enum -Wswitch-bool -Wsync-nand @gol
--Wsystem-headers  -Wtrampolines  -Wtrigraphs  -Wtype-limits  -Wundef @gol
+-Wsystem-headers  -Wtautological-compare  -Wtrampolines  -Wtrigraphs @gol
+-Wtype-limits  -Wundef @gol
 -Wuninitialized  -Wunknown-pragmas  -Wno-pragmas @gol
 -Wunsuffixed-float-constants  -Wunused  -Wunused-function @gol
 -Wunused-label  -Wunused-local-typedefs -Wunused-parameter @gol
@@ -340,7 +342,6 @@ Objective-C and Objective-C++ Dialects}.
 -fdump-tree-phiprop@r{[}-@var{n}@r{]} @gol
 -fdump-tree-phiopt@r{[}-@var{n}@r{]} @gol
 -fdump-tree-forwprop@r{[}-@var{n}@r{]} @gol
--fdump-tree-copyrename@r{[}-@var{n}@r{]} @gol
 -fdump-tree-nrv -fdump-tree-vect @gol
 -fdump-tree-sink @gol
 -fdump-tree-sra@r{[}-@var{n}@r{]} @gol
@@ -446,9 +447,8 @@ Objective-C and Objective-C++ Dialects}.
 -fstack-protector-explicit -fstdarg-opt -fstrict-aliasing @gol
 -fstrict-overflow -fthread-jumps -ftracer -ftree-bit-ccp @gol
 -ftree-builtin-call-dce -ftree-ccp -ftree-ch @gol
--ftree-coalesce-inline-vars -ftree-coalesce-vars -ftree-copy-prop @gol
--ftree-copyrename -ftree-dce -ftree-dominator-opts -ftree-dse @gol
--ftree-forwprop -ftree-fre -ftree-loop-if-convert @gol
+-ftree-coalesce-vars -ftree-copy-prop -ftree-dce -ftree-dominator-opts @gol
+-ftree-dse -ftree-forwprop -ftree-fre -ftree-loop-if-convert @gol
 -ftree-loop-if-convert-stores -ftree-loop-im @gol
 -ftree-phiprop -ftree-loop-distribution -ftree-loop-distribute-patterns @gol
 -ftree-loop-ivcanon -ftree-loop-linear -ftree-loop-optimize @gol
@@ -962,6 +962,7 @@ See RS/6000 and PowerPC Options.
 -mbackchain  -mno-backchain -mpacked-stack  -mno-packed-stack @gol
 -msmall-exec  -mno-small-exec  -mmvcle -mno-mvcle @gol
 -m64  -m31  -mdebug  -mno-debug  -mesa  -mzarch @gol
+-mhtm -mvx -mzvector @gol
 -mtpf-trace -mno-tpf-trace  -mfused-madd  -mno-fused-madd @gol
 -mwarn-framesize  -mwarn-dynamicstack  -mstack-size -mstack-guard @gol
 -mhotpatch=@var{halfwords},@var{halfwords}}
@@ -1117,6 +1118,7 @@ See RS/6000 and PowerPC Options.
 -mforce-no-pic @gol
 -mserialize-volatile  -mno-serialize-volatile @gol
 -mtext-section-literals  -mno-text-section-literals @gol
+-mauto-litpools  -mno-auto-litpools @gol
 -mtarget-align  -mno-target-align @gol
 -mlongcalls  -mno-longcalls}
 
@@ -3456,6 +3458,7 @@ Options} and @ref{Objective-C and Objective-C++ Dialect Options}.
 -Wenum-compare @r{(in C/ObjC; this is on by default in C++)} @gol
 -Wimplicit-int @r{(C and Objective-C only)} @gol
 -Wimplicit-function-declaration @r{(C and Objective-C only)} @gol
+-Wbool-compare  @gol
 -Wcomment  @gol
 -Wformat   @gol
 -Wmain @r{(only for C/ObjC and unless} @option{-ffreestanding}@r{)}  @gol
@@ -3472,6 +3475,7 @@ Options} and @ref{Objective-C and Objective-C++ Dialect Options}.
 -Wstrict-aliasing  @gol
 -Wstrict-overflow=1  @gol
 -Wswitch  @gol
+-Wtautological-compare  @gol
 -Wtrigraphs  @gol
 -Wuninitialized  @gol
 -Wunknown-pragmas  @gol
@@ -3720,6 +3724,15 @@ requiring a non-null value by the @code{nonnull} function attribute.
 
 @option{-Wnonnull} is included in @option{-Wall} and @option{-Wformat}.  It
 can be disabled with the @option{-Wno-nonnull} option.
+
+@item -Wnull-dereference
+@opindex Wnull-dereference
+@opindex Wno-null-dereference
+Warn if the compiler detects paths that trigger erroneous or
+undefined behavior due to dereferencing a null pointer.  This option
+is only active when @option{-fdelete-null-pointer-checks} is active,
+which is enabled by optimizations in most targets.  The precision of
+the warnings depends on the optimization options used.
 
 @item -Winit-self @r{(C, C++, Objective-C and Objective-C++ only)}
 @opindex Winit-self
@@ -4463,6 +4476,13 @@ if ((n > 1) == 2) @{ @dots{} @}
 @end smallexample
 This warning is enabled by @option{-Wall}.
 
+@item -Wframe-address
+@opindex Wno-frame-address
+@opindex Wframe-address
+Warn when the @samp{__builtin_frame_address} or @samp{__builtin_return_address}
+is called with an argument greater than 0.  Such calls may return indeterminate
+values or crash the program.  The warning is included in @option{-Wall}.
+
 @item -Wno-discarded-qualifiers @r{(C and Objective-C only)}
 @opindex Wno-discarded-qualifiers
 @opindex Wdiscarded-qualifiers
@@ -4516,6 +4536,18 @@ GCC to emit warnings from system headers as if they occurred in user
 code.  However, note that using @option{-Wall} in conjunction with this
 option does @emph{not} warn about unknown pragmas in system
 headers---for that, @option{-Wunknown-pragmas} must also be used.
+
+@item -Wtautological-compare
+@opindex Wtautological-compare
+@opindex Wno-tautological-compare
+Warn if a self-comparison always evaluates to true or false.  This
+warning detects various mistakes such as:
+@smallexample
+int i = 1;
+@dots{}
+if (i > i) @{ @dots{} @}
+@end smallexample
+This warning is enabled by @option{-Wall}.
 
 @item -Wtrampolines
 @opindex Wtrampolines
@@ -7104,11 +7136,6 @@ name is made by appending @file{.phiopt} to the source file name.
 Dump each function after forward propagating single use variables.  The file
 name is made by appending @file{.forwprop} to the source file name.
 
-@item copyrename
-@opindex fdump-tree-copyrename
-Dump each function after applying the copy rename optimization.  The file
-name is made by appending @file{.copyrename} to the source file name.
-
 @item nrv
 @opindex fdump-tree-nrv
 Dump each function after applying the named return value optimization on
@@ -7573,8 +7600,8 @@ compilation time.
 -ftree-ccp @gol
 -fssa-phiopt @gol
 -ftree-ch @gol
+-ftree-coalesce-vars @gol
 -ftree-copy-prop @gol
--ftree-copyrename @gol
 -ftree-dce @gol
 -ftree-dominator-opts @gol
 -ftree-dse @gol
@@ -8838,6 +8865,15 @@ be parallelized.  Parallelize all the loops that can be analyzed to
 not contain loop carried dependences without checking that it is
 profitable to parallelize the loops.
 
+@item -ftree-coalesce-vars
+@opindex ftree-coalesce-vars
+Tell the compiler to attempt to combine small user-defined variables
+too, instead of just compiler temporaries.  This may severely limit the
+ability to debug an optimized program compiled with
+@option{-fno-var-tracking-assignments}.  In the negated form, this flag
+prevents SSA coalescing of user variables.  This option is enabled by
+default if optimization is enabled.
+
 @item -ftree-loop-if-convert
 @opindex ftree-loop-if-convert
 Attempt to transform conditional jumps in the innermost loops to
@@ -8950,32 +8986,6 @@ enabled by default at @option{-O} and higher.
 Perform scalar replacement of aggregates.  This pass replaces structure
 references with scalars to prevent committing structures to memory too
 early.  This flag is enabled by default at @option{-O} and higher.
-
-@item -ftree-copyrename
-@opindex ftree-copyrename
-Perform copy renaming on trees.  This pass attempts to rename compiler
-temporaries to other variables at copy locations, usually resulting in
-variable names which more closely resemble the original variables.  This flag
-is enabled by default at @option{-O} and higher.
-
-@item -ftree-coalesce-inlined-vars
-@opindex ftree-coalesce-inlined-vars
-Tell the copyrename pass (see @option{-ftree-copyrename}) to attempt to
-combine small user-defined variables too, but only if they are inlined
-from other functions.  It is a more limited form of
-@option{-ftree-coalesce-vars}.  This may harm debug information of such
-inlined variables, but it keeps variables of the inlined-into
-function apart from each other, such that they are more likely to
-contain the expected values in a debugging session.
-
-@item -ftree-coalesce-vars
-@opindex ftree-coalesce-vars
-Tell the copyrename pass (see @option{-ftree-copyrename}) to attempt to
-combine small user-defined variables too, instead of just compiler
-temporaries.  This may severely limit the ability to debug an optimized
-program compiled with @option{-fno-var-tracking-assignments}.  In the
-negated form, this flag prevents SSA coalescing of user variables,
-including inlined ones.  This option is enabled by default.
 
 @item -ftree-ter
 @opindex ftree-ter
@@ -13309,7 +13319,7 @@ of the @option{-mcpu=} option.  Permissible names are: @samp{armv2},
 @samp{armv2a}, @samp{armv3}, @samp{armv3m}, @samp{armv4}, @samp{armv4t},
 @samp{armv5}, @samp{armv5t}, @samp{armv5e}, @samp{armv5te},
 @samp{armv6}, @samp{armv6j},
-@samp{armv6t2}, @samp{armv6z}, @samp{armv6zk}, @samp{armv6-m},
+@samp{armv6t2}, @samp{armv6z}, @samp{armv6kz}, @samp{armv6-m},
 @samp{armv7}, @samp{armv7-a}, @samp{armv7-r}, @samp{armv7-m}, @samp{armv7e-m},
 @samp{armv7ve}, @samp{armv8-a}, @samp{armv8-a+crc},
 @samp{iwmmxt}, @samp{iwmmxt2}, @samp{ep9312}.
@@ -20483,6 +20493,46 @@ When generating code compliant to the GNU/Linux for S/390 ABI,
 the default is @option{-mesa}.  When generating code compliant
 to the GNU/Linux for zSeries ABI, the default is @option{-mzarch}.
 
+@item -mhtm
+@itemx -mno-htm
+@opindex mhtm
+@opindex mno-htm
+The @option{-mhtm} option enables a set of builtins making use of
+instructions available with the transactional execution facility
+introduced with the IBM zEnterprise EC12 machine generation
+@ref{S/390 System z Built-in Functions}.
+@option{-mhtm} is enabled by default when using @option{-march=zEC12}.
+
+@item -mvx
+@itemx -mno-vx
+@opindex mvx
+@opindex mno-vx
+When @option{-mvx} is specified, generate code using the instructions
+available with the vector extension facility introduced with the IBM
+z13 machine generation.
+This option changes the ABI for some vector type values with regard to
+alignment and calling conventions.  In case vector type values are
+being used in an ABI-relevant context a GAS @samp{.gnu_attribute}
+command will be added to mark the resulting binary with the ABI used.
+@option{-mvx} is enabled by default when using @option{-march=z13}.
+
+@item -mzvector
+@itemx -mno-zvector
+@opindex mzvector
+@opindex mno-zvector
+The @option{-mzvector} option enables vector language extensions and
+builtins using instructions available with the vector extension
+facility introduced with the IBM z13 machine generation.
+This option adds support for @samp{vector} to be used as a keyword to
+define vector type variables and arguments.  @samp{vector} is only
+available when GNU extensions are enabled.  It will not be expanded
+when requesting strict standard compliance e.g. with @option{-std=c99}.
+In addition to the GCC low-level builtins @option{-mzvector} enables
+a set of builtins added for compatibility with Altivec-style
+implementations like Power and Cell.  In order to make use of these
+builtins the header file @file{vecintrin.h} needs to be included.
+@option{-mzvector} is disabled by default.
+
 @item -mmvcle
 @itemx -mno-mvcle
 @opindex mmvcle
@@ -22335,6 +22385,12 @@ Intel Broadwell CPU with 64-bit extensions, MOVBE, MMX, SSE, SSE2, SSE3, SSSE3,
 SSE4.1, SSE4.2, POPCNT, AVX, AVX2, AES, PCLMUL, FSGSBASE, RDRND, FMA,
 BMI, BMI2, F16C, RDSEED, ADCX and PREFETCHW instruction set support.
 
+@item skylake
+Intel Skylake CPU with 64-bit extensions, MOVBE, MMX, SSE, SSE2, SSE3, SSSE3,
+SSE4.1, SSE4.2, POPCNT, AVX, AVX2, AES, PCLMUL, FSGSBASE, RDRND, FMA,
+BMI, BMI2, F16C, RDSEED, ADCX, PREFETCHW, CLFLUSHOPT, XSAVEC and
+XSAVES instruction set support.
+
 @item bonnell
 Intel Bonnell CPU with 64-bit extensions, MOVBE, MMX, SSE, SSE2, SSE3 and SSSE3
 instruction set support.
@@ -23537,7 +23593,23 @@ pools from separate object files to remove redundant literals and
 improve code size.  With @option{-mtext-section-literals}, the literals
 are interspersed in the text section in order to keep them as close as
 possible to their references.  This may be necessary for large assembly
-files.
+files.  Literals for each function are placed right before that function.
+
+@item -mauto-litpools
+@itemx -mno-auto-litpools
+@opindex mauto-litpools
+@opindex mno-auto-litpools
+These options control the treatment of literal pools.  The default is
+@option{-mno-auto-litpools}, which places literals in a separate
+section in the output file unless @option{-mtext-section-literals} is
+used.  With @option{-mauto-litpools} the literals are interspersed in
+the text section by the assembler.  Compiler does not produce explicit
+@code{.literal} directives and loads literals into registers with
+@code{MOVI} instructions instead of @code{L32R} to let the assembler
+do relaxation and place literals as necessary.  This option allows
+assembler to create several literal pools per function and assemble
+very big functions, which may not be possible with
+@option{-mtext-section-literals}.
 
 @item -mtarget-align
 @itemx -mno-target-align

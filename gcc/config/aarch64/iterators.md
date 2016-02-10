@@ -38,6 +38,9 @@
 ;; Iterator for General Purpose Floating-point registers (32- and 64-bit modes)
 (define_mode_iterator GPF [SF DF])
 
+;; Iterator for General Purpose Float registers, inc __fp16.
+(define_mode_iterator GPF_F16 [HF SF DF])
+
 ;; Integer vector modes.
 (define_mode_iterator VDQ_I [V8QI V16QI V4HI V8HI V2SI V4SI V2DI])
 
@@ -342,9 +345,6 @@
 ;; Attribute to describe constants acceptable in logical operations
 (define_mode_attr lconst [(SI "K") (DI "L")])
 
-;; Attribute to describe constants acceptable in atomic logical operations
-(define_mode_attr lconst_atomic [(QI "K") (HI "K") (SI "K") (DI "L")])
-
 ;; Map a mode to a specific constraint character.
 (define_mode_attr cmode [(QI "q") (HI "h") (SI "s") (DI "d")])
 
@@ -540,24 +540,15 @@
 
 (define_mode_attr VRL2 [(V8QI "V32QI") (V4HI "V16HI")
 			(V2SI "V8SI")  (V2SF "V8SF")
-			(DI   "V4DI")  (DF   "V4DF")
-			(V16QI "V32QI") (V8HI "V16HI")
-			(V4SI "V8SI")  (V4SF "V8SF")
-			(V2DI "V4DI")  (V2DF "V4DF")])
+			(DI   "V4DI")  (DF   "V4DF")])
 
 (define_mode_attr VRL3 [(V8QI "V48QI") (V4HI "V24HI")
 			(V2SI "V12SI")  (V2SF "V12SF")
-			(DI   "V6DI")  (DF   "V6DF")
-			(V16QI "V48QI") (V8HI "V24HI")
-			(V4SI "V12SI")  (V4SF "V12SF")
-			(V2DI "V6DI")  (V2DF "V6DF")])
+			(DI   "V6DI")  (DF   "V6DF")])
 
 (define_mode_attr VRL4 [(V8QI "V64QI") (V4HI "V32HI")
 			(V2SI "V16SI")  (V2SF "V16SF")
-			(DI   "V8DI")  (DF   "V8DF")
-			(V16QI "V64QI") (V8HI "V32HI")
-			(V4SI "V16SI")  (V4SF "V16SF")
-			(V2DI "V8DI")  (V2DF "V8DF")])
+			(DI   "V8DI")  (DF   "V8DF")])
 
 (define_mode_attr VSTRUCT_DREG [(OI "TI") (CI "EI") (XI "OI")])
 
@@ -848,6 +839,16 @@
    (and "aarch64_logical_operand")
    (plus "aarch64_plus_operand")
    (minus "aarch64_plus_operand")])
+
+;; Constants acceptable for atomic operations.
+;; This definition must appear in this file before the iterators it refers to.
+(define_code_attr const_atomic
+ [(plus "IJ") (minus "IJ")
+  (xor "<lconst_atomic>") (ior "<lconst_atomic>")
+  (and "<lconst_atomic>")])
+
+;; Attribute to describe constants acceptable in atomic logical operations
+(define_mode_attr lconst_atomic [(QI "K") (HI "K") (SI "K") (DI "L")])
 
 ;; -------------------------------------------------------------------
 ;; Int Iterators.

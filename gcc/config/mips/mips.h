@@ -1876,6 +1876,9 @@ FP_ASM_SPEC "\
 #define HARD_REGNO_MODE_OK(REGNO, MODE)					\
   mips_hard_regno_mode_ok[ (int)(MODE) ][ (REGNO) ]
 
+#define HARD_REGNO_RENAME_OK(OLD_REG, NEW_REG)				\
+  mips_hard_regno_rename_ok (OLD_REG, NEW_REG)
+
 /* Select a register mode required for caller save of hard regno REGNO.  */
 #define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS, MODE) \
   mips_hard_regno_caller_save_mode (REGNO, NREGS, MODE)
@@ -3177,5 +3180,5 @@ extern GTY(()) struct target_globals *micromips_globals;
    performance can be degraded for those targets.  Hence, do not bond for
    micromips or fix_24k.  */
 #define ENABLE_LD_ST_PAIRS \
-  (TARGET_LOAD_STORE_PAIRS && TUNE_P5600 \
+  (TARGET_LOAD_STORE_PAIRS && (TUNE_P5600 || TUNE_I6400) \
    && !TARGET_MICROMIPS && !TARGET_FIX_24K)

@@ -772,7 +772,6 @@ with_gmp_dir
 with_gmp
 with_gmp_include
 with_gmp_lib
-with_host_libstdcxx
 with_stage1_libs
 with_stage1_ldflags
 with_boot_libs
@@ -1540,8 +1539,6 @@ Optional Packages:
                           --with-gmp-lib=PATH/lib
   --with-gmp-include=PATH specify directory for installed GMP include files
   --with-gmp-lib=PATH     specify directory for the installed GMP library
-  --with-host-libstdcxx=L use linker arguments L to link with libstdc++ when
-                          linking with PPL
   --with-stage1-libs=LIBS libraries for stage1
   --with-stage1-ldflags=FLAGS
                           linker flags for stage1
@@ -3168,9 +3165,8 @@ if test x$enable_static_libjava != xyes ; then
 fi
 
 
-# Disable libgomp on non POSIX hosted systems.
+# Enable libgomp by default on hosted POSIX systems, and a few others.
 if test x$enable_libgomp = x ; then
-    # Enable libgomp by default on hosted POSIX systems.
     case "${target}" in
     *-*-linux* | *-*-gnu* | *-*-k*bsd*-gnu | *-*-kopensolaris*-gnu)
 	;;
@@ -3179,6 +3175,8 @@ if test x$enable_libgomp = x ; then
     *-*-solaris2* | *-*-hpux11*)
 	;;
     *-*-darwin* | *-*-aix*)
+	;;
+    nvptx*-*-*)
 	;;
     *)
 	noconfigdirs="$noconfigdirs target-libgomp"
@@ -3917,7 +3915,6 @@ case "${target}" in
     noconfigdirs="$noconfigdirs gdb"
     ;;
   nvptx*-*-*)
-    # nvptx is just a compiler
     noconfigdirs="$noconfigdirs target-libssp target-libstdc++-v3 target-libobjc"
     ;;
   or1k*-*-*)
@@ -5849,20 +5846,6 @@ fi
 
 
 
-# Allow host libstdc++ to be specified for static linking with PPL.
-
-# Check whether --with-host-libstdcxx was given.
-if test "${with_host_libstdcxx+set}" = set; then :
-  withval=$with_host_libstdcxx;
-fi
-
-
-case $with_host_libstdcxx in
-  no|yes)
-    as_fn_error "-with-host-libstdcxx needs an argument" "$LINENO" 5
-    ;;
-esac
-
 # Libraries to use for stage1 or when not bootstrapping.
 
 # Check whether --with-stage1-libs was given.
@@ -5873,7 +5856,7 @@ if test "${with_stage1_libs+set}" = set; then :
    stage1_libs=$withval
  fi
 else
-  stage1_libs=$with_host_libstdcxx
+  stage1_libs=
 fi
 
 
@@ -5899,8 +5882,7 @@ fi
 
 
 
-# Libraries to use for stage2 and later builds.  This defaults to the
-# argument passed to --with-host-libstdcxx.
+# Libraries to use for stage2 and later builds.
 
 # Check whether --with-boot-libs was given.
 if test "${with_boot_libs+set}" = set; then :
@@ -5910,7 +5892,7 @@ if test "${with_boot_libs+set}" = set; then :
    poststage1_libs=$withval
  fi
 else
-  poststage1_libs=$with_host_libstdcxx
+  poststage1_libs=
 fi
 
 
@@ -6176,7 +6158,7 @@ if test -d ${srcdir}/gcc; then
   if test x"${enable_languages+set}" != xset; then
     if test x"${LANGUAGES+set}" = xset; then
       enable_languages="${LANGUAGES}"
-        echo configure.in: warning: setting LANGUAGES is deprecated, use --enable-languages instead 1>&2
+        echo configure.ac: warning: setting LANGUAGES is deprecated, use --enable-languages instead 1>&2
     else
       enable_languages=all
     fi
@@ -6184,7 +6166,7 @@ if test -d ${srcdir}/gcc; then
     if test x"${enable_languages}" = x ||
        test x"${enable_languages}" = xyes;
        then
-      echo configure.in: --enable-languages needs at least one language argument 1>&2
+      echo configure.ac: --enable-languages needs at least one language argument 1>&2
       exit 1
     fi
   fi
@@ -6194,7 +6176,7 @@ if test -d ${srcdir}/gcc; then
   # and make the substitution.
   case ,${enable_languages}, in
     *,f95,*)
-      echo configure.in: warning: 'f95' as language name is deprecated, use 'fortran' instead 1>&2
+      echo configure.ac: warning: 'f95' as language name is deprecated, use 'fortran' instead 1>&2
       enable_languages=`echo "${enable_languages}" | sed -e 's/f95/fortran/g'`
       ;;
   esac
@@ -6816,7 +6798,7 @@ fi
 # have requested that this magic not happen.
 #
 # The command line options always override the explicit settings in
-# configure.in, and the settings in configure.in override this magic.
+# configure.ac, and the settings in configure.ac override this magic.
 #
 # If the default for a toolchain is to use GNU as and ld, and you don't
 # want to do that, then you should use the --without-gnu-as and

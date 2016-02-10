@@ -62,6 +62,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "cgraph.h"
 #include "attribs.h"
+#include "vtable-verify.h"
 
 /* Debugging support.  */
 
@@ -2821,7 +2822,9 @@ write_expression (tree expr)
     {
       tree fn = TREE_OPERAND (expr, 0);
       if (is_overloaded_fn (fn))
-	fn = DECL_NAME (get_first_fn (fn));
+	fn = get_first_fn (fn);
+      if (DECL_P (fn))
+	fn = DECL_NAME (fn);
       if (IDENTIFIER_OPNAME_P (fn))
 	write_string ("on");
       write_unqualified_id (fn);
@@ -3633,15 +3636,17 @@ mangle_decl (const tree decl)
 	{
 	  if (flag_abi_compat_version != 0
 	      && abi_version_at_least (flag_abi_compat_version))
-	    warning (OPT_Wabi, "the mangled name of %q+D changed between "
-		     "-fabi-version=%d (%D) and -fabi-version=%d (%D)",
-		     G.entity, flag_abi_compat_version, id2,
-		     flag_abi_version, id);
+	    warning_at (DECL_SOURCE_LOCATION (G.entity), OPT_Wabi,
+			"the mangled name of %qD changed between "
+			"-fabi-version=%d (%D) and -fabi-version=%d (%D)",
+			G.entity, flag_abi_compat_version, id2,
+			flag_abi_version, id);
 	  else
-	    warning (OPT_Wabi, "the mangled name of %q+D changes between "
-		     "-fabi-version=%d (%D) and -fabi-version=%d (%D)",
-		     G.entity, flag_abi_version, id,
-		     flag_abi_compat_version, id2);
+	    warning_at (DECL_SOURCE_LOCATION (G.entity), OPT_Wabi,
+			"the mangled name of %qD changes between "
+			"-fabi-version=%d (%D) and -fabi-version=%d (%D)",
+			G.entity, flag_abi_version, id,
+			flag_abi_compat_version, id2);
 	}
 
       note_mangling_alias (decl, id2);
@@ -4034,6 +4039,13 @@ get_mangled_vtable_map_var_name (tree class_type)
   gcc_assert (TREE_CODE (class_type) == RECORD_TYPE);
 
   tree class_id = DECL_ASSEMBLER_NAME (TYPE_NAME (class_type));
+
+  if (strstr (IDENTIFIER_POINTER (class_id), "<anon>") != NULL)
+    {
+      class_id = get_mangled_id (TYPE_NAME (class_type));
+      vtbl_register_mangled_name (TYPE_NAME (class_type), class_id);
+    }
+
   unsigned int len = strlen (IDENTIFIER_POINTER (class_id)) +
                      strlen (prefix) +
                      strlen (postfix) + 1;

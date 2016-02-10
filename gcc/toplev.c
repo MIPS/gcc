@@ -548,10 +548,11 @@ check_global_declaration (tree decl)
 	      && !DECL_STATIC_DESTRUCTOR (decl)))
       /* Otherwise, ask the language.  */
       && lang_hooks.decls.warn_unused_global (decl))
-    warning ((TREE_CODE (decl) == FUNCTION_DECL)
-	     ? OPT_Wunused_function
-             : OPT_Wunused_variable,
-	     "%q+D defined but not used", decl);
+    warning_at (DECL_SOURCE_LOCATION (decl),
+		(TREE_CODE (decl) == FUNCTION_DECL)
+		? OPT_Wunused_function
+		: OPT_Wunused_variable,
+		"%qD defined but not used", decl);
 }
 
 /* Compile an entire translation unit.  Write a file of assembly
@@ -1519,6 +1520,10 @@ process_options (void)
   else if (write_symbols == VMS_DEBUG || write_symbols == VMS_AND_DWARF2_DEBUG)
     debug_hooks = &vmsdbg_debug_hooks;
 #endif
+#ifdef DWARF2_LINENO_DEBUGGING_INFO
+  else if (write_symbols == DWARF2_DEBUG)
+    debug_hooks = &dwarf2_lineno_debug_hooks;
+#endif
   else
     error ("target system does not support the %qs debug format",
 	   debug_type_names[write_symbols]);
@@ -1818,7 +1823,7 @@ static int rtl_initialized;
 void
 initialize_rtl (void)
 {
-  auto_timevar tv (TV_INITIALIZE_RTL);
+  auto_timevar tv (g_timer, TV_INITIALIZE_RTL);
 
   /* Initialization done just once per compilation, but delayed
      till code generation.  */
@@ -2091,23 +2096,28 @@ do_compile ()
     }
 }
 
-toplev::toplev (bool use_TV_TOTAL, bool init_signals)
-  : m_use_TV_TOTAL (use_TV_TOTAL),
+toplev::toplev (timer *external_timer,
+		bool init_signals)
+  : m_use_TV_TOTAL (external_timer == NULL),
     m_init_signals (init_signals)
 {
-  if (!m_use_TV_TOTAL)
-    start_timevars ();
+  if (external_timer)
+    g_timer = external_timer;
 }
 
 toplev::~toplev ()
 {
-  if (g_timer)
+  if (g_timer && m_use_TV_TOTAL)
     {
       g_timer->stop (TV_TOTAL);
       g_timer->print (stderr);
+      delete g_timer;
+      g_timer = NULL;
     }
 }
 
+/* Potentially call timevar_init (which will create g_timevars if it
+   doesn't already exist).  */
 
 void
 toplev::start_timevars ()

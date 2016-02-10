@@ -1,7 +1,11 @@
 
 2016-02-10   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merging with more of GCC 6, using
+	svn merge -r225091:227000 ^/trunk }}
+ 
+2016-02-10   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{merging with some of GCC 6, using
-	svn merge -r222130:226090 ^/trunk ; UNSTABLE}}
+	svn merge -r222130:225090 ^/trunk ; UNSTABLE}}
 
 2015-07-24   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{ MELT 1.2.0 for GCC 4.9 & GCC 5.x release }}

@@ -1,3 +1,856 @@
+2015-08-18  Bill Schmidt  <wschmidt@vnet.linux.ibm.com>
+
+	* gcc.target/powerpc/altivec-35.c: New test.
+	* gcc.target/powerpc/p8vector-builtin-8.c: New test.
+	* gcc.target/powerpc/vsx-vector-7.c: New test.
+
+2015-08-18  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR middle-end/36757
+	* gcc.dg/builtins-error.c: Add checks for __builtin_signbit.
+	* gcc.dg/tg-tests.h: Add checks for __builtin_signbit.
+
+2015-08-18  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR rtl-optimization/67218
+	* gcc.c-torture/execute/ieee/pr67218.c,
+	gcc.target/aarch64/fcvt_int_float_double1.c,
+	gcc.target/aarch64/fcvt_int_float_double2.c,
+	gcc.target/aarch64/fcvt_int_float_double3.c,
+	gcc.target/aarch64/fcvt_int_float_double4.c,
+	gcc.target/aarch64/fcvt_uint_float_double1.c,
+	gcc.target/aarch64/fcvt_uint_float_double2.c,
+	gcc.target/aarch64/fcvt_uint_float_double3.c,
+	gcc.target/aarch64/fcvt_uint_float_double4.c: New tests.
+
+2015-08-18  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* gcc.target/aarch64/atomic-comp-swap-release-acquire.c: Adjust
+	dg-options to disable LSE extensions.
+	* gcc.target/aarch64/atomic-op-acq_rel.c: Likewise.
+	* gcc.target/aarch64/atomic-op-acquire.c: Likewise.
+	* gcc.target/aarch64/atomic-op-char.c: Likewise.
+	* gcc.target/aarch64/atomic-op-consume.c: Likewise.
+	* gcc.target/aarch64/atomic-op-imm.c: Likewise.
+	* gcc.target/aarch64/atomic-op-int.c: Likewise.
+	* gcc.target/aarch64/atomic-op-long.c: Likewise.
+	* gcc.target/aarch64/atomic-op-relaxed.c: Likewise.
+	* gcc.target/aarch64/atomic-op-seq_cst.c: Likewise.
+	* gcc.target/aarch64/atomic-op-release.c: Likewise.
+	* gcc.target/aarch64/atomic-op-short.c: Likewise.
+	* gcc.target/aarch64/sync-comp-swap.c: Likewise.
+	* gcc.target/aarch64/sync-op-acquire.c: Likewise.
+	* gcc.target/aarch64/sync-op-full.c: Likewise.
+	* gcc.target/aarch64/sync-op-release.c: Likewise.
+
+2015-08-18  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/67160
+	* g++.dg/cpp1z/feat-cxx1z.C: New.
+
+2015-08-18  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/67222
+	* gcc.dg/torture/pr67222.c: New test.
+
+2015-08-18  Robert Suchanek  <robert.suchanek@imgtec.com>
+
+	* gcc.target/mips/interrupt_handler-bug-1.c: New test.
+
+2015-08-18  Bin Cheng  <bin.cheng@arm.com>
+
+	* gcc.dg/tree-ssa/loop-bound-1.c: New test.
+	* gcc.dg/tree-ssa/loop-bound-3.c: New test.
+	* gcc.dg/tree-ssa/loop-bound-5.c: New test.
+
+2015-08-17  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	* gcc.target/mips/mips.exp (mips-dg-options): Redefine isa
+	which is used in later code.
+
+2015-08-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/67216
+	* g++.dg/cpp0x/nullptr34.C: New.
+	* g++.dg/warn/Wconversion2.C: Adjust.
+	* g++.dg/warn/Wnull-conversion-1.C: Likewise.
+	* g++.old-deja/g++.other/null3.C: Likewise.
+
+	* g++.dg/cpp0x/pr51313.C: Adjust.
+
+2015-08-17  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/67221
+	* gcc.dg/torture/pr67221.c: New testcase.
+
+2015-08-17 Mike Stump  <mikestump@comcast.net>
+           Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/arm/memcpy-aligned-1.c: New test.
+
+2015-08-16  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/54656
+	* gfortran.dg/norm_4.f90: Rename to...
+	* gfortran.dg/norm2_4.f90: this.
+	* gfortran.dg/norm2_5.f90: New test.
+
+2015-08-14  Alexandre Oliva <aoliva@redhat.com>
+
+	* gcc.dg/guality/pr54200.c: Add -fno-tree-coalesce-vars.
+	* gcc.dg/ssp-1.c: Make counter a register.
+	* gcc.dg/ssp-2.c: Likewise.
+	* gcc.dg/torture/parm-coalesce.c: New.
+
+2015-08-14  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/67133
+	* gcc.dg/torture/pr67133.c: New test.
+
+2015-08-14  Matthew Wahab  <matthew.wahab@arm.com>
+	    Matthias Klose  <doko@debian.org>
+
+	PR target/67143
+	* gcc.c-torture/compile/pr67143.c: New
+	* gcc.target/aarch64/atomic-op-imm.c
+	(atomic_fetch_add_negative_RELAXED): New.
+	(atomic_fetch_sub_negative_ACQUIRE): New.
+
+2015-08-14  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/target_attr_5.c: Add static modifier to bar.
+	* gcc.target/aarch64/target_attr_8.c: Likewise.
+	* gcc.target/aarch64/target_attr_14.c: Likewise.
+
+2015-08-14  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/target_attr_1.c: Make test compile-only.
+
+2015-08-14  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	* gcc.target/i386/builtin_target.c: Add skylake check.
+
+2015-08-13  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/pr66314.c: Moved from here to ..
+	* gcc.dg/asan/pr66314.c: Here.  Use -fno-sanitize=all
+	to clear all sanitizers before -fsanitize=kernel-address.
+
+2015-08-13  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/cinc_common_1.c: New test.
+
+2015-08-13  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/53421
+	* g++.dg/ext/attribute-may-alias-1.C: New.
+	* g++.dg/ext/attribute-may-alias-2.C: Likewise.
+
+2015-08-13  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* gcc.target/aarch64/atomic-inst-cas.c: New.
+	* gcc.target/aarch64/atomic-inst-ops.inc: New.
+
+2015-08-13  Andreas Schwab  <schwab@suse.de>
+
+	* gcc.dg/tree-ssa/vrp33.c: Add -fno-tree-fre.
+
+2015-08-13  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/62164
+	* g++.dg/torture/pr62164.C: New.
+
+2015-08-13  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/67191
+	* gcc.dg/torture/pr67191.c: New testcase.
+	* g++.dg/torture/pr67191.C: Likewise.
+
+2015-08-13  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66502
+	PR tree-optimization/67167
+	* gcc.dg/tree-ssa/ssa-fre-46.c: New testcase.
+
+2015-08-12  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/53330
+	* g++.dg/init/new42.C: New.
+
+2015-08-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/67071
+	* gcc.target/powerpc/pr67071-1.c: New file to test PR 67071 new
+	vector constants.
+	* gcc.target/powerpc/pr67071-2.c: Likewise.
+	* gcc.target/powerpc/pr67071-3.c: Likewise.
+
+2015-08-12  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/55095
+	* c-c++-common/Wshift-overflow-6.c: New test.
+	* c-c++-common/Wshift-overflow-7.c: New test.
+	* g++.dg/cpp1y/left-shift-2.C: New test.
+
+2015-08-12  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/52742
+	* g++.dg/cpp0x/pr52742.C: New.
+
+2015-08-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/builtin_target.c (check_intel_cpu_model):
+	Check Knights Landing support.
+
+2015-08-12  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/47461
+	* g++.dg/warn/Wunused-result-1.C: New.
+
+2015-08-12  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/ssa-fre-47.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-fre-48.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-fre-49.c: Likewise.
+	* g++.dg/tree-ssa/pr61034.C: Adjust.
+	* gcc.dg/fold-compare-2.c: Likewise.
+	* gcc.dg/pr50763.c: Likewise.
+	* gcc.dg/predict-3.c: Likewise.
+	* gcc.dg/tree-ssa/20030709-2.c: Likewise.
+	* gcc.dg/tree-ssa/pr19831-3.c: Likewise.
+	* gcc.dg/tree-ssa/pr20657.c: Likewise.
+	* gcc.dg/tree-ssa/pr21001.c: Likewise.
+	* gcc.dg/tree-ssa/pr37508.c: Likewise.
+	* gcc.dg/tree-ssa/vrp04.c: Likewise.
+	* gcc.dg/tree-ssa/vrp07.c: Likewise.
+	* gcc.dg/tree-ssa/vrp09.c: Likewise.
+	* gcc.dg/tree-ssa/vrp16.c: Likewise.
+	* gcc.dg/tree-ssa/vrp20.c: Likewise.
+	* gcc.dg/tree-ssa/vrp25.c: Likewise.
+	* gcc.dg/tree-ssa/vrp87.c: Likewise.
+
+2015-08-12  Nathan Sidwell  <nathan@acm.org>
+
+	* gcc.dg/vrp-min-max-1.c: New.
+	* gcc.dg/vrp-min-max-2.c: New.
+
+2015-08-12  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/ssa-fre-43.c: Adjust.
+
+2015-08-12  Tom de Vries  <tom@codesourcery.com>
+
+	PR testsuite/67175
+	* gcc.dg/vect/trapv-vect-reduc-4.c: Add reduction detection scan.
+	Handle absence of vector min/max for sparc.
+
+2015-08-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66954
+	* g++.dg/ext/mv25.C: New test.
+
+2015-08-11  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	* gcc.target/i386/avx2-vect-shift.c: New test.
+
+2015-08-11  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c/66098
+	PR c/66711
+	* gcc.dg/pragma-diag-3.c: New test.
+	* gcc.dg/pragma-diag-4.c: New test.
+
+2015-08-11  Nathan Sidwell  <nathan@acm.org>
+
+	* c-c++-common/dfp/operator-comma.c: Call init function.
+	* c-c++-common/dfp/convert-dfp-2.c: New test.
+
+2015-08-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/builtin_target.c (check_intel_cpu_model):
+	Treat model == 0x4f as Broadwell.
+
+2015-08-10  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR libfortran/67140
+	* gfortran.dg/pr67140.f90: New test.
+
+2015-08-10  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR libgomp/65742
+	PR middle-end/66332
+	* c-c++-common/goacc/acc_on_device-2.c: Remove XFAIL for C.
+
+2015-08-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR fortran/64022
+	* gfortran.dg/ieee/large_4.f90: New test.
+
+2015-08-08  Bud Davis  <jmdavis@link.com>
+
+	PR fortran/59746
+	* gfortran.dg/common_22.f90: New.
+
+2015-08-08  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/67028
+	* gcc.dg/pr67028.c: New testcase.
+
+2015-08-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/67029
+	* gcc.dg/pr67029.c: New test.
+
+2015-08-07  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/64104
+	* gfortran.dg/ieee/ieee_8.f90: New test.
+
+2015-08-07  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/aarch64/noplt_1.c: Check branch type instead of relocation
+	modifers.
+	* gcc.target/aarch64/noplt_2.c: Likewise.
+	* gcc.target/aarch64/noplt_3.c: Likewise.
+
+2015-08-06  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-benchmark.c (main): Record all elapsed times at each
+	optimization level, and print a summary at the end.
+
+2015-08-06  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/aarch64/tlsdesc_hoist.c: New testcase.
+
+2015-08-06  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/aarch64/noplt_3.c: New testcase.
+
+2015-08-06  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/aarch64/noplt_1.c: New testcase.
+	* gcc.target/aarch64/noplt_2.c: Likewise.
+
+2015-08-06  Venkataramanan Kumar  <Venkataramanan.kumar@amd.com>
+
+	* gcc.dg/vect/vect-mult-pattern-1.c: New test.
+	* gcc.dg/vect/vect-mult-pattern-2.c: New test.
+
+2015-08-06  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/dwarfregtable-1.c: New test.
+	* gcc.target/s390/dwarfregtable-2.c: New test.
+	* gcc.target/s390/dwarfregtable-3.c: New test.
+
+2015-08-06  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/htm-builtins-z13-1.c: New test.
+
+2015-08-06  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/64022
+	* gfortran.dg/ieee/large_2.f90: New test.
+	* gfortran.dg/ieee/large_3.F90: New test.
+
+2015-08-06  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/64022
+	* gfortran.dg/ieee/large_1.f90: Adjust test.
+
+2015-08-05  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+	    Jeff Law  <law@redhat.com>
+
+	PR c/16351
+	* gcc.dg/tree-ssa/isolate-2.c: Close comment.
+	* gcc.dg/tree-ssa/isolate-4.c: Likewise.
+	* gcc.dg/tree-ssa/wnull-dereference.c: New test.
+	* gcc.dg/tree-ssa/isolate-1.c: Test warnings with -Wnull-dereference.
+	* gcc.dg/tree-ssa/isolate-3.c: Likewise.
+	* gcc.dg/tree-ssa/isolate-5.c: Likewise.
+
+2015-08-05  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR middle-end/66311
+	* gfortran.dg/pr66311.f90: New file.
+
+2015-08-05  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/67121
+	* gcc.dg/torture/pr67121.c: New testcase.
+
+2015-08-05  Nick Clifton  <nickc@redhat.com>
+
+	* gcc.target/rl78: New directory.
+	* gcc.target/rl78/rl78.exp: New file: Test driver.
+	* gcc.target/rl78/test_addm3.c: New file: Test adds.
+
+2015-08-05  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/67120
+	* gcc.dg/torture/pr67120.c: New testcase.
+
+2015-08-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/52846
+
+	* lib/fortran-modules.exp: Call cleanup-submodules from
+	cleanup-modules.
+	* gfortran.dg/public_private_module_2.f90: Add two XFAILS to
+	cover the cases where private entities are no longer optimized
+	away.
+	* gfortran.dg/public_private_module_6.f90: Add an XFAIL for the
+	same reason.
+	* gfortran.dg/submodule_1.f08: Change cleanup module names.
+	* gfortran.dg/submodule_5.f08: The same.
+	* gfortran.dg/submodule_9.f08: The same.
+	* gfortran.dg/submodule_10.f08: New test.
+
+2015-08-05  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/66595
+	* g++.dg/cpp1y/var-templ35.C: New.
+
+2015-08-05  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/67055
+	* g++.dg/torture/pr67055.C: New testcase.
+
+2015-08-05  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/67109
+	* gcc.dg/torture/pr67109.c: New testcase.
+	* gcc.dg/vect/vect-119.c: Adjust.
+
+2015-08-05  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/67107
+	* gcc.dg/pr67107.c: New testcase.
+
+2015-08-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/66197
+	* g++.dg/cpp1z/abbrev2.C: New.
+
+2015-08-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/cpp1z/static_assert-nomsg.C: Fix DejaGnu directive.
+
+2015-08-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/66392
+	* g++.dg/init/explicit4.C: New.
+
+2015-08-04  Bill Schmidt  <wschmidt@vnet.linux.ibm.com>
+
+	* gcc.target/powerpc/vec-cmp-sel.c: Avoid test failure on machines
+	without VSX an Power8 vector support.
+
+2015-08-04  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/ssa-ccp-38.c: New testcase.
+
+2015-08-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/67110
+	* gcc.target/i386/iamcu/abi-iamcu.exp (additional_flags): Add
+	-fno-pie -no-pie.
+
+2015-08-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/66427
+	* g++.dg/cpp1y/var-templ34.C: New.
+
+2015-08-04  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/pragma_cpp_predefs_1.c: New test.
+	* gcc.target/aarch64/target_attr_1.c: Likewise.
+	* gcc.target/aarch64/target_attr_2.c: Likewise.
+	* gcc.target/aarch64/target_attr_3.c: Likewise.
+	* gcc.target/aarch64/target_attr_4.c: Likewise.
+	* gcc.target/aarch64/target_attr_5.c: Likewise.
+	* gcc.target/aarch64/target_attr_6.c: Likewise.
+	* gcc.target/aarch64/target_attr_7.c: Likewise.
+	* gcc.target/aarch64/target_attr_8.c: Likewise.
+	* gcc.target/aarch64/target_attr_9.c: Likewise.
+	* gcc.target/aarch64/target_attr_10.c: Likewise.
+	* gcc.target/aarch64/target_attr_11.c: Likewise.
+	* gcc.target/aarch64/target_attr_12.c: Likewise.
+	* gcc.target/aarch64/target_attr_13.c: Likewise.
+	* gcc.target/aarch64/target_attr_14.c: Likewise.
+	* gcc.target/aarch64/target_attr_15.c: Likewise.
+
+2015-08-04  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/target_attr_crypto_ice_1.c: New test.
+
+2015-08-04  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/arm_neon-nosimd-error.c: Delete.
+
+2015-08-04  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/cpu-diagnostics-3.c: Update expected error
+	message.
+
+2015-08-04  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/64022
+	* gfortran.dg/ieee/ieee_7.f90: Adjust test.
+	* gfortran.dg/ieee/large_1.f90: New test.
+
+2015-08-04  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR tree-optimization/67043
+	* gcc.dg/pr67043.c: New test.
+
+2015-08-03  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* gcc.target/powerpc/htm-tabort-no-r0.c: New test.
+
+2015-08-03  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-benchmark.c (test_jit): Add param "timer" and use
+	it to push/pop timing items.
+	(main): For each optimization level, create a gcc_jit_timer, and
+	time all of the iteration within that level cumulatively.
+	* jit.dg/test-error-gcc_jit_timer_pop-mismatch.c: New test case.
+	* jit.dg/test-error-gcc_jit_timer_pop-too-many.c: New test case.
+
+2015-08-03  Alexander Basov <coohpt@gmail.com>
+
+	PR middle-end/64744
+	PR middle-end/48470
+	PR middle-end/43404
+	* gcc.target/arm/pr43404.c : New testcase.
+	* gcc.target/arm/pr48470.c : New testcase.
+	* gcc.target/arm/pr64744-1.c : New testcase.
+	* gcc.target/arm/pr64744-2.c : New testcase.
+
+2015-08-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR tree-optimization/67077
+	* gcc.dg/pr67077.c: New test.
+
+2015-08-03  Jeff Law  <law@redhat.com>
+
+	PR middle-end/66314
+	PR gcov-profile/66899
+	* gcc.dg/pr66899.c: New test.
+	* gcc.dg/pr66314.c: New test.
+
+2015-08-03  Marek Polacek  <polacek@redhat.com>
+
+	PR c/67088
+	* gcc.dg/pr67088.c: New test.
+
+2015-08-03  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	PR target/66731
+	* gcc.target/arm/vnmul-1.c: New.
+	* gcc.target/arm/vnmul-2.c: New.
+	* gcc.target/arm/vnmul-3.c: New.
+	* gcc.target/arm/vnmul-4.c: New.
+
+2015-08-03  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/64921
+	* gfortran.dg/class_allocate_20.f90: New.
+
+2015-08-03  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/csel_bfx_1.c: New test.
+	* gcc.target/aarch64/csel_imms_inc_1.c: Likewise.
+
+2015-08-02  Martin Sebor  <msebor@redhat.com>
+
+	* g++.dg/Wframe-address-in-Wall.C: New test.
+	* g++.dg/Wframe-address.C: New test.
+	* g++.dg/Wno-frame-address.C: New test.
+	* gcc.dg/Wframe-address-in-Wall.c: New test.
+	* gcc.dg/Wframe-address.c: New test.
+	* gcc.dg/Wno-frame-address.c: New test.
+
+2015-08-02  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	* c-c++-common/Wmisleading-indentation.c: Add more tests.
+
+2015-08-01  Michael Collison  <michael.collison@linaro.org
+	    Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+
+	* gcc.target/arm/mincmp.c: New test.
+
+2015-08-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/67091
+	* gfortran.dg/associated_target_6.f03: New test
+
+2015-08-01  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/autopar/reduc-2char.c (init_arrays): Mark with attribute
+	optimize ("-ftree-parallelize-loops=0").
+	Add successful scans for 2 detected reductions.	 Add xfail scans for 3
+	detected reductions.
+	* gcc.dg/autopar/reduc-2short.c: Same.
+	* gcc.dg/autopar/reduc-8.c (init_arrays): Mark with attribute
+	optimize ("-ftree-parallelize-loops=0").  Add successful scans for 2
+	detected reductions.
+	* gcc.dg/vect/trapv-vect-reduc-4.c: Update scan to match vectorized min
+	and max reductions.
+
+2015-07-31  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/66977
+	* g++.dg/ubsan/pr66977.C: New test.
+
+2015-07-30  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/Wtautological-compare-3.c: New test.
+
+2015-07-29  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* gcc.target/aarch64/vld1_lane.c (main): Remove unused test data.
+	(CHECK): Pass address of scalar, rather than array.
+
+2015-07-29  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* gcc.target/aarch64/vld1-vst1_1.c: Add missing float32x4_t case.
+
+2015-07-29  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* gcc.target/aarch64/fp16/fp16.exp: New.
+	* gcc.target/aarch64/fp16/f16_convs_1.c: New.
+	* gcc.target/aarch64/fp16/f16_convs_2.c: New.
+
+2015-07-29  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* gcc.target/aarch64/f16_movs_1.c: New test.
+
+2015-07-28  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/autopar/uns-outer-4.c: Remove xfail on scan for parallelizing
+	outer loop.
+
+2015-07-28  Luis Felipe Strano Moraes  <luis.strano@gmail.com>
+	    Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* gcc.dg/parm-incomplete-1.c: Update.
+	* gcc.dg/pr18809-1.c: Update.
+	* gcc.dg/pr27953.c: Update.
+	* gcc.dg/vla-11.c: Update.
+
+2015-07-27  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/Wtautological-compare-2.c: Remove unused line.
+
+2015-07-27  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/autopar/outer-4.c (parloop): Remove superfluous noinline
+	attribute.  Update comment.
+	(main): Remove.
+	Add scan for not parallelizing inner loop.
+	* gcc.dg/autopar/uns-outer-4.c (parloop): Remove superfluous noinline
+	attribute.
+	(main): Remove.
+
+2015-07-27  Marek Polacek  <polacek@redhat.com>
+
+	PR bootstrap/67030
+	* c-c++-common/Wtautological-compare-2.c: New test.
+
+2015-07-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/66232
+	* gcc.target/i386/pr66232-6.c: New tests.
+	* gcc.target/i386/pr66232-7.c: Likewise.
+	* gcc.target/i386/pr66232-8.c: Likewise.
+	* gcc.target/i386/pr66232-9.c: Likewise.
+
+2015-07-27  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/66555
+	PR c/54979
+	* c-c++-common/Wtautological-compare-1.c: New test.
+
+2015-07-26  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/18969
+	* g++.dg/template/pr18969.C: New test.
+	* g++.dg/template/pr18969-2.C: New test.
+	* g++.old-deja/g++.jason/overload.C: Remove return value in
+	template function returning void.
+
+2015-07-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/alpha/pr66140.c (lpfc_bg_setup_bpl): Use unsigned
+	immediates to avoid shift-overflow warnings.
+
+2015-07-25  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/66857
+	* g++.dg/init/pr66857.C: New test.
+
+2015-07-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66648
+	* gcc.target/i386/pr66648.c: New test.
+
+2015-07-25  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/graphite/graphite.exp: Include uns-*.c files in
+	interchange_files and block_files variables.
+	* gcc.dg/graphite/uns-block-1.c (main): Change signed into unsigned
+	arithmetic.
+	* gcc.dg/graphite/uns-interchange-12.c: Same.
+	* gcc.dg/graphite/uns-interchange-14.c: Same.
+	* gcc.dg/graphite/uns-interchange-15.c: Same.
+	* gcc.dg/graphite/uns-interchange-9.c (foo): Same.
+	* gcc.dg/graphite/uns-interchange-mvt.c: Same.
+
+2015-07-25  Jeff Law  <law@redhat.com>
+
+	Revert:
+	PR lto/66752
+	* gcc.dg/tree-ssa/pr66752-2.c: New test.
+	* gcc.dg/torture/pr66752-1.c: New test
+	* g++.dg/torture/pr66752-2.C: New test.
+
+2015-07-25  David Edelsohn  <dje.gcc@gmail.com>
+
+	Revert:
+	2015-07-23  Alexandre Oliva <aoliva@redhat.com>
+
+	PR rtl-optimization/64164
+	* gcc.dg/guality/pr54200.c: Add -fno-tree-coalesce-vars.
+	* gcc.dg/ssp-1.c: Make counter a register.
+	* gcc.dg/ssp-2.c: Likewise.
+	* gcc.dg/torture/parm-coalesce.c: New.
+
+2015-07-24  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/graphite/block-1.c: Xfail scan.
+	* gcc.dg/graphite/interchange-12.c: Same.
+	* gcc.dg/graphite/interchange-14.c: Same.
+	* gcc.dg/graphite/interchange-15.c: Same.
+	* gcc.dg/graphite/interchange-9.c: Same.
+	* gcc.dg/graphite/interchange-mvt.c: Same.
+	* gcc.dg/graphite/uns-block-1.c: New test.
+	* gcc.dg/graphite/uns-interchange-12.c: New test.
+	* gcc.dg/graphite/uns-interchange-14.c: New test.
+	* gcc.dg/graphite/uns-interchange-15.c: New test.
+	* gcc.dg/graphite/uns-interchange-9.c: New test.
+	* gcc.dg/graphite/uns-interchange-mvt.c: New test.
+
+2015-07-24  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c++/64079
+	* c-c++-common/Wunused-function-1.c: New.
+
+2015-07-24  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/parloops-exit-first-loop-alt-2.c: Use debug print for
+	alternative exit-first loop transform.
+	* gcc.dg/parloops-exit-first-loop-alt-3.c: Same.
+	* gcc.dg/parloops-exit-first-loop-alt-4.c: Same.
+	* gcc.dg/parloops-exit-first-loop-alt-5.c: Same.
+	* gcc.dg/parloops-exit-first-loop-alt-6.c: Same.
+	* gcc.dg/parloops-exit-first-loop-alt-7.c: Same.
+	* gcc.dg/parloops-exit-first-loop-alt-pr66652.c: Same.
+	* gcc.dg/parloops-exit-first-loop-alt.c: Same.
+	* gfortran.dg/parloops-exit-first-loop-alt-2.f95: Same.
+	* gfortran.dg/parloops-exit-first-loop-alt.f95: Same.
+
+2015-07-24  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR ipa/66566
+	* gcc.target/i386/mpx/pr66566.c: New test.
+
+2015-07-24  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR bootstrap/66978
+	* gcc.target/i386/pr66978.c: New test.
+
+2015-07-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/gpr2fprsavecfi.c: New test.
+
+2015-07-24  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/insv-1.c: New test.
+	* gcc.target/s390/insv-2.c: New test.
+	* gcc.target/s390/insv-3.c: New test.
+
+2015-07-24  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/autopar/uns-outer-4.c: Remove loopfn xfail.
+
+2015-07-24  Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+
+	PR middle-end/25530
+	* gcc.dg/pr25530.c: New test.
+
+2015-07-24  Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+
+	PR middle-end/25529
+	* gcc.dg/pr25529.c: New test.
+
+2015-07-23  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* gcc.target/arm/reg_equal_test.c: New test.
+
+2015-07-23  Jeff Law  <law@redhat.com>
+
+	PR lto/66752
+	* gcc.dg/tree-ssa/pr66752-2.c: New test.
+	* gcc.dg/torture/pr66752-1.c: New test
+	* g++.dg/torture/pr66752-2.C: New test.
+
+2015-07-23  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/66572
+	* g++.dg/warn/Wlogical-op-2.C: New test.
+
+2015-07-23  Alexandre Oliva <aoliva@redhat.com>
+
+	PR rtl-optimization/64164
+	* gcc.dg/guality/pr54200.c: Add -fno-tree-coalesce-vars.
+	* gcc.dg/ssp-1.c: Make counter a register.
+	* gcc.dg/ssp-2.c: Likewise.
+	* gcc.dg/torture/parm-coalesce.c: New.
+
+2015-07-23  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/66908
+	* c-c++-common/ubsan/pr66908.c: New test.
+
+2015-07-23  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/autopar/outer-4.c: Add xfail.
+	* gcc.dg/autopar/outer-5.c: Same.
+	* gcc.dg/autopar/outer-6.c: Same.
+	* gcc.dg/autopar/reduc-2.c: Same.
+	* gcc.dg/autopar/reduc-2char.c: Same.
+	* gcc.dg/autopar/reduc-2short.c: Same.
+	* gcc.dg/autopar/reduc-8.c: Same.
+	* gcc.dg/autopar/uns-outer-4.c: New test.
+	* gcc.dg/autopar/uns-outer-5.c: New test.
+	* gcc.dg/autopar/uns-outer-6.c: New test.
+
+2015-07-23  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66952
+	* gcc.dg/torture/pr66952.c: Use signed char.
+
+2015-07-23  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR tree-optimization/66926,66951
+	* gcc.dg/vect/pr66951.c: New test.
+
+2015-07-23  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/52987
+	* g++.dg/parse/error57.C: New.
+	* g++.dg/expr/string-2.C: Update.
+
 2015-07-23  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/66945
@@ -26,269 +879,269 @@
 
 2015-07-22  Charles Baylis  <charles.baylis@linaro.org>
 
-        * gcc.target/aarch64/advsimd-intrinsics/vld2_lane_f32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld2_lane_f32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld2_lane_f64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld2_lane_f64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld2_lane_p8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld2_lane_p8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld2_lane_s16_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld2_lane_s16_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld2_lane_s32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld2_lane_s32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld2_lane_s64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld2_lane_s64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld2_lane_s8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld2_lane_s8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld2_lane_u16_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld2_lane_u16_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld2_lane_u32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld2_lane_u32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld2_lane_u64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld2_lane_u64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld2_lane_u8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld2_lane_u8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld2q_lane_f32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld2q_lane_f32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld2q_lane_f64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld2q_lane_f64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld2q_lane_p8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld2q_lane_p8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld2q_lane_s16_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld2q_lane_s16_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld2q_lane_s32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld2q_lane_s32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld2q_lane_s64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld2q_lane_s64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld2q_lane_s8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld2q_lane_s8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld2q_lane_u16_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld2q_lane_u16_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld2q_lane_u32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld2q_lane_u32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld2q_lane_u64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld2q_lane_u64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld2q_lane_u8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld2q_lane_u8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld3_lane_f32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld3_lane_f32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld3_lane_f64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld3_lane_f64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld3_lane_p8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld3_lane_p8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld3_lane_s16_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld3_lane_s16_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld3_lane_s32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld3_lane_s32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld3_lane_s64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld3_lane_s64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld3_lane_s8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld3_lane_s8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld3_lane_u16_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld3_lane_u16_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld3_lane_u32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld3_lane_u32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld3_lane_u64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld3_lane_u64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld3_lane_u8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld3_lane_u8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld3q_lane_f32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld3q_lane_f32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld3q_lane_f64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld3q_lane_f64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld3q_lane_p8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld3q_lane_p8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld3q_lane_s16_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld3q_lane_s16_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld3q_lane_s32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld3q_lane_s32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld3q_lane_s64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld3q_lane_s64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld3q_lane_s8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld3q_lane_s8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld3q_lane_u16_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld3q_lane_u16_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld3q_lane_u32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld3q_lane_u32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld3q_lane_u64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld3q_lane_u64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld3q_lane_u8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld3q_lane_u8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld4_lane_f32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld4_lane_f32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld4_lane_f64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld4_lane_f64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld4_lane_p8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld4_lane_p8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld4_lane_s16_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld4_lane_s16_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld4_lane_s32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld4_lane_s32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld4_lane_s64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld4_lane_s64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld4_lane_s8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld4_lane_s8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld4_lane_u16_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld4_lane_u16_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld4_lane_u32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld4_lane_u32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld4_lane_u64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld4_lane_u64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld4_lane_u8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld4_lane_u8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld4q_lane_f32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld4q_lane_f32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld4q_lane_f64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld4q_lane_f64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld4q_lane_p8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld4q_lane_p8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld4q_lane_s16_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld4q_lane_s16_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld4q_lane_s32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld4q_lane_s32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld4q_lane_s64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld4q_lane_s64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld4q_lane_s8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld4q_lane_s8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld4q_lane_u16_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld4q_lane_u16_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld4q_lane_u32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld4q_lane_u32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld4q_lane_u64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld4q_lane_u64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vld4q_lane_u8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vld4q_lane_u8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst2_lane_f32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst2_lane_f32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst2_lane_f64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst2_lane_f64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst2_lane_p8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst2_lane_p8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst2_lane_s16_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst2_lane_s16_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst2_lane_s32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst2_lane_s32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst2_lane_s64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst2_lane_s64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst2_lane_s8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst2_lane_s8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst2_lane_u16_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst2_lane_u16_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst2_lane_u32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst2_lane_u32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst2_lane_u64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst2_lane_u64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst2_lane_u8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst2_lane_u8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst2q_lane_f32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst2q_lane_f32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst2q_lane_f64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst2q_lane_f64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst2q_lane_p8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst2q_lane_p8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst2q_lane_s16_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst2q_lane_s16_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst2q_lane_s32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst2q_lane_s32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst2q_lane_s64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst2q_lane_s64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst2q_lane_s8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst2q_lane_s8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst2q_lane_u16_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst2q_lane_u16_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst2q_lane_u32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst2q_lane_u32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst2q_lane_u64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst2q_lane_u64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst2q_lane_u8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst2q_lane_u8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst3_lane_f32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst3_lane_f32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst3_lane_f64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst3_lane_f64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst3_lane_p8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst3_lane_p8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst3_lane_s16_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst3_lane_s16_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst3_lane_s32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst3_lane_s32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst3_lane_s64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst3_lane_s64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst3_lane_s8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst3_lane_s8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst3_lane_u16_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst3_lane_u16_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst3_lane_u32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst3_lane_u32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst3_lane_u64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst3_lane_u64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst3_lane_u8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst3_lane_u8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst3q_lane_f32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst3q_lane_f32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst3q_lane_f64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst3q_lane_f64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst3q_lane_p8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst3q_lane_p8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst3q_lane_s16_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst3q_lane_s16_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst3q_lane_s32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst3q_lane_s32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst3q_lane_s64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst3q_lane_s64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst3q_lane_s8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst3q_lane_s8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst3q_lane_u16_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst3q_lane_u16_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst3q_lane_u32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst3q_lane_u32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst3q_lane_u64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst3q_lane_u64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst3q_lane_u8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst3q_lane_u8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst4_lane_f32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst4_lane_f32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst4_lane_f64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst4_lane_f64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst4_lane_p8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst4_lane_p8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst4_lane_s16_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst4_lane_s16_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst4_lane_s32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst4_lane_s32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst4_lane_s64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst4_lane_s64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst4_lane_s8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst4_lane_s8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst4_lane_u16_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst4_lane_u16_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst4_lane_u32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst4_lane_u32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst4_lane_u64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst4_lane_u64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst4_lane_u8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst4_lane_u8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst4q_lane_f32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst4q_lane_f32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst4q_lane_f64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst4q_lane_f64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst4q_lane_p8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst4q_lane_p8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst4q_lane_s16_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst4q_lane_s16_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst4q_lane_s32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst4q_lane_s32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst4q_lane_s64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst4q_lane_s64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst4q_lane_s8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst4q_lane_s8_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst4q_lane_u16_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst4q_lane_u16_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst4q_lane_u32_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst4q_lane_u32_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst4q_lane_u64_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst4q_lane_u64_indices_1.c: New
 	test.
-        * gcc.target/aarch64/advsimd-intrinsics/vst4q_lane_u8_indices_1.c: New
+	* gcc.target/aarch64/advsimd-intrinsics/vst4q_lane_u8_indices_1.c: New
 	test.
 
 2015-07-21  Paolo Carlini  <paolo.carlini@oracle.com>

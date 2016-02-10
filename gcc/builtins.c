@@ -4551,32 +4551,36 @@ expand_builtin_frame_address (tree fndecl, tree exp)
 {
   /* The argument must be a nonnegative integer constant.
      It counts the number of frames to scan up the stack.
-     The value is the return address saved in that frame.  */
+     The value is either the frame pointer value or the return
+     address saved in that frame.  */
   if (call_expr_nargs (exp) == 0)
     /* Warning about missing arg was already issued.  */
     return const0_rtx;
   else if (! tree_fits_uhwi_p (CALL_EXPR_ARG (exp, 0)))
     {
-      if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_FRAME_ADDRESS)
-	error ("invalid argument to %<__builtin_frame_address%>");
-      else
-	error ("invalid argument to %<__builtin_return_address%>");
+      error ("invalid argument to %qD", fndecl);
       return const0_rtx;
     }
   else
     {
-      rtx tem
-	= expand_builtin_return_addr (DECL_FUNCTION_CODE (fndecl),
-				      tree_to_uhwi (CALL_EXPR_ARG (exp, 0)));
+      /* Number of frames to scan up the stack.  */
+      unsigned HOST_WIDE_INT count = tree_to_uhwi (CALL_EXPR_ARG (exp, 0));
+
+      rtx tem = expand_builtin_return_addr (DECL_FUNCTION_CODE (fndecl), count);
 
       /* Some ports cannot access arbitrary stack frames.  */
       if (tem == NULL)
 	{
-	  if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_FRAME_ADDRESS)
-	    warning (0, "unsupported argument to %<__builtin_frame_address%>");
-	  else
-	    warning (0, "unsupported argument to %<__builtin_return_address%>");
+	  warning (0, "unsupported argument to %qD", fndecl);
 	  return const0_rtx;
+	}
+
+      if (count)
+	{
+	  /* Warn since no effort is made to ensure that any frame
+	     beyond the current one exists or can be safely reached.  */
+	  warning (OPT_Wframe_address, "calling %qD with "
+		   "a nonzero argument is unsafe", fndecl);
 	}
 
       /* For __builtin_frame_address, return what we've got.  */
@@ -4949,11 +4953,9 @@ expand_builtin_adjust_trampoline (tree exp)
    function.  The function first checks whether the back end provides
    an insn to implement signbit for the respective mode.  If not, it
    checks whether the floating point format of the value is such that
-   the sign bit can be extracted.  If that is not the case, the
-   function returns NULL_RTX to indicate that a normal call should be
-   emitted rather than expanding the function in-line.  EXP is the
-   expression that is a call to the builtin function; if convenient,
-   the result should be placed in TARGET.  */
+   the sign bit can be extracted.  If that is not the case, error out.
+   EXP is the expression that is a call to the builtin function; if
+   convenient, the result should be placed in TARGET.  */
 static rtx
 expand_builtin_signbit (tree exp, rtx target)
 {
@@ -4996,8 +4998,7 @@ expand_builtin_signbit (tree exp, rtx target)
   if (bitpos < 0)
   {
     /* But we can't do this if the format supports signed zero.  */
-    if (fmt->has_signed_zero && HONOR_SIGNED_ZEROS (fmode))
-      return NULL_RTX;
+    gcc_assert (!fmt->has_signed_zero || !HONOR_SIGNED_ZEROS (fmode));
 
     arg = fold_build2_loc (loc, LT_EXPR, TREE_TYPE (exp), arg,
 		       build_real (TREE_TYPE (arg), dconst0));
@@ -5007,8 +5008,7 @@ expand_builtin_signbit (tree exp, rtx target)
   if (GET_MODE_SIZE (fmode) <= UNITS_PER_WORD)
     {
       imode = int_mode_for_mode (fmode);
-      if (imode == BLKmode)
-	return NULL_RTX;
+      gcc_assert (imode != BLKmode);
       temp = gen_lowpart (imode, temp);
     }
   else
@@ -5587,12 +5587,6 @@ expand_builtin_atomic_fetch_op (machine_mode mode, tree exp, rtx target,
   return ret;
 }
 
-
-#ifndef HAVE_atomic_clear
-# define HAVE_atomic_clear 0
-# define gen_atomic_clear(x,y) (gcc_unreachable (), NULL_RTX)
-#endif
-
 /* Expand an atomic clear operation.
 	void _atomic_clear (BOOL *obj, enum memmodel)
    EXP is the call expression.  */
@@ -5613,12 +5607,6 @@ expand_builtin_atomic_clear (tree exp)
       warning (OPT_Winvalid_memory_model,
 	       "invalid memory model for %<__atomic_store%>");
       model = MEMMODEL_SEQ_CST;
-    }
-
-  if (HAVE_atomic_clear)
-    {
-      emit_insn (gen_atomic_clear (mem, model));
-      return const0_rtx;
     }
 
   /* Try issuing an __atomic_store, and allow fallback to __sync_lock_release.
@@ -5887,10 +5875,8 @@ expand_stack_save (void)
    acceleration device (ACCEL_COMPILER conditional).  */
 
 static rtx
-expand_builtin_acc_on_device (tree exp ATTRIBUTE_UNUSED,
-			      rtx target ATTRIBUTE_UNUSED)
+expand_builtin_acc_on_device (tree exp, rtx target)
 {
-#ifdef ACCEL_COMPILER
   if (!validate_arglist (exp, INTEGER_TYPE, VOID_TYPE))
     return NULL_RTX;
 
@@ -5899,8 +5885,13 @@ expand_builtin_acc_on_device (tree exp ATTRIBUTE_UNUSED,
   /* Return (arg == v1 || arg == v2) ? 1 : 0.  */
   machine_mode v_mode = TYPE_MODE (TREE_TYPE (arg));
   rtx v = expand_normal (arg), v1, v2;
+#ifdef ACCEL_COMPILER
   v1 = GEN_INT (GOMP_DEVICE_NOT_HOST);
   v2 = GEN_INT (ACCEL_COMPILER_acc_device);
+#else
+  v1 = GEN_INT (GOMP_DEVICE_NONE);
+  v2 = GEN_INT (GOMP_DEVICE_HOST);
+#endif
   machine_mode target_mode = TYPE_MODE (integer_type_node);
   if (!target || !register_operand (target, target_mode))
     target = gen_reg_rtx (target_mode);
@@ -5914,9 +5905,6 @@ expand_builtin_acc_on_device (tree exp ATTRIBUTE_UNUSED,
   emit_label (done_label);
 
   return target;
-#else
-  return NULL;
-#endif
 }
 
 
