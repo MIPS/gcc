@@ -1333,9 +1333,6 @@ GLIBCXX_3.4.18 {
     # std::this_thread::__sleep_for
     _ZNSt11this_thread11__sleep_for*;
 
-    # operator delete(void*, , unsigned long)
-    _ZdlPv[jmy];
-
     # std::bad_function_call::what()
     _ZNKSt17bad_function_call4whatEv;
 
@@ -1589,9 +1586,9 @@ CXXABI_1.3.8 {
 CXXABI_1.3.9 {
 
     # operator delete(void*, std::size_t)
-    _ZdlPvm;
+    _ZdlPv[jmy];
     # operator delete[](void*, std::size_t)
-    _ZdaPvm;
+    _ZdaPv[jmy];
 
 } CXXABI_1.3.8;
 
