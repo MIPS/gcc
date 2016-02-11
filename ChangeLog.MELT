@@ -1,3 +1,8 @@
+2016-02-11   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{the gengtype issue happens with r227941
+	merging with
+	svn merge -r227936:227939 ^/trunk
+	}}
 
 2016-02-11   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{merging with even more of GCC 6, using subversion 1.9
