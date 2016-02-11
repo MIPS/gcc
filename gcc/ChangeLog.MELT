@@ -1,7 +1,12 @@
 
+2016-02-11   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{ merging with trunk r227925 }}
+	* melt/libmelt-ana-tree.melt:
+	(pragma_lex): Can take a 2nd argument for GCC 6.
+
 2016-02-10   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-run.proto.h: include "gimple-predict.h" for GCC >= 5.0
-	* melt/libmelt-ana-gimple.h: mention that it might go here.
+	* melt/libmelt-ana-gimple.melt: mention that it might go here.
 
 2016-02-10   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{ merging with trunk 226090 ; UNSTABLE }}

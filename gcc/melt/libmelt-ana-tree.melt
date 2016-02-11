@@ -2,7 +2,7 @@
 ;; file libmelt-ana-tree.melt
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright 2008 - 2015  Free Software Foundation, Inc.
+    Copyright 2008 - 2016  Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
                 and Jeremie Salvucci  <jeremie.salvucci@free.fr>
                 and Pierre Vittet  <piervit@pvittet.com>
@@ -3472,8 +3472,15 @@ pointer type node.}#
      use lto (it loses langage specific informations).  If you use one
      of those functions you must check them to be not NULL.
 ***/
+#if GCCPLUGIN_VERSION <= 5009 /* GCC 5.x */
 // Function pragma_lex is declared in c-family/c-pragma.h
 extern enum cpp_ttype pragma_lex (tree *) MELT_WEAK_ON_HOST;
+#else /* GCC 6 */
+// Function pragma_lex has an additional argument
+extern enum cpp_ttype pragma_lex (tree *, location_t *loc)
+   MELT_WEAK_ON_HOST;
+#endif /* GCC 6 */
+
 
 // Function c_register_pragma_with_expansion_and_data from c-family/c-pragma.h
 extern void
@@ -3616,7 +3623,11 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
      if (!pragma_lex)
        melt_fatal_error ("pragma_lex @%p called outside of C [cc1] or C++ compiler [cc1plus] e.g. from [lto1]",
 			 (void*) pragma_lex);
-     $TRTYPERANK = (long) pragma_lex (& ($TR));
+#if GCCPLUGIN_VERSION <= 5009 /* GCC 5.x */
+        $TRTYPERANK = (long) pragma_lex (& ($TR));
+#else /* GCC 6*/
+	$TRTYPERANK = (long) pragma_lex (& ($TR), NULL);
+#endif /* GCC 6*/
      }#)
     (if trtyperank
 	(let ( (trtype (multiple_nth cpp_ttype_tuple trtyperank))
