@@ -296,6 +296,10 @@ struct cl_option_handlers
   struct cl_option_handler_func handlers[3];
 };
 
+/* Hold command-line options associated with stack limitation.  */
+extern const char *opt_fstack_limit_symbol_arg;
+extern int opt_fstack_limit_register_no;
+
 /* Input file names.  */
 
 extern const char **in_fnames;
@@ -372,7 +376,6 @@ extern void control_warning_option (unsigned int opt_index, int kind,
 extern char *write_langs (unsigned int mask);
 extern void print_ignored_options (void);
 extern void handle_common_deferred_options (void);
-extern void finish_deferred_option_handling (void);
 extern bool common_handle_option (struct gcc_options *opts,
 				  struct gcc_options *opts_set,
 				  const struct cl_decoded_option *decoded,

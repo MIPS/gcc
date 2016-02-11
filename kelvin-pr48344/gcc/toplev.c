@@ -1938,10 +1938,7 @@ standard_type_bitsize (int bitsize)
 static void
 do_compile ()
 {
-  /* process_options () performs target-specific initialization.  Upon
-     return from process_options (), Pmode has a meaningful value. */
   process_options ();
-  finish_deferred_option_handling ();
 
   /* Don't do any more if an error has already occurred.  */
   if (!seen_error ())

@@ -310,30 +310,9 @@ decode_options (struct gcc_options *opts, struct gcc_options *opts_set,
   finish_options (opts, opts_set, loc);
 }
 
-/* During execution of handle_common_deferred_options (), the Pmode
-   variable cannot be used because it has not yet been initialized.
-   For this reason, handling of the OPT_fstack_limit_register_ and
-   OPT_fstack_limit_symbol_ options is deferred until execution
-   of finish_deferred_option_handling (), which is invoked following
-   target-specific initialization.
-
-   The variable opt_fstack_limit_symbol_arg represents the name
-   of the register specified in an OPT_fstack_limit_symbol_ command
-   line option, or NULL to represent that no OPT_fstack_limit_symbol_
-   option is active.
-
-   The variable opt_fstack_limit_register_no represents the number of
-   the register specified in an OPT_fstack_limit_register_
-   command-line option, or -1 to indicate that no
-   OPT_fstack_limit_register_ option is active.  (Legal register
-   numbers are all >= 0.)
-
-   Note that these two command-line options are mutually exclusive.  
-   If both are specified, subsequent option processing overwrites 
-   earlier option processing. */
-
-static const char *opt_fstack_limit_symbol_arg = NULL;
-static int opt_fstack_limit_register_no = -1;
+/* Hold command-line options associated with stack limitation.  */
+const char *opt_fstack_limit_symbol_arg = NULL;
+int opt_fstack_limit_register_no = -1;
 
 /* Process common options that have been deferred until after the
    handlers have been called for all options.  */
@@ -443,7 +422,7 @@ handle_common_deferred_options (void)
 	      error ("unrecognized register name %qs", opt->arg);
 	    else
 	      {
-		/* Deactivate previous OPT_fstack_limit_symbol_ options */
+		/* Deactivate previous OPT_fstack_limit_symbol_ options.  */
 		opt_fstack_limit_symbol_arg = NULL;
 		opt_fstack_limit_register_no = reg;
 	      }
@@ -451,7 +430,7 @@ handle_common_deferred_options (void)
 	  break;
 
 	case OPT_fstack_limit_symbol_:
-	  /* Deactivate previous OPT_fstack_limit_register_ options */
+	  /* Deactivate previous OPT_fstack_limit_register_ options.  */
 	  opt_fstack_limit_register_no = -1;
 	  opt_fstack_limit_symbol_arg = opt->arg;
 	  break;
@@ -474,16 +453,3 @@ handle_common_deferred_options (void)
     }
 }
 
-/* Finish handling options that handle_common_deferred_options () left
-   unhandled because target-specific initialization had not yet been
-   completed. */
-void 
-finish_deferred_option_handling (void)
-{
-  if (opt_fstack_limit_symbol_arg != NULL)
-    stack_limit_rtx 
-      = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (opt_fstack_limit_symbol_arg));
-
-  if (opt_fstack_limit_register_no >= 0)
-    stack_limit_rtx = gen_rtx_REG (Pmode, opt_fstack_limit_register_no);
-}
