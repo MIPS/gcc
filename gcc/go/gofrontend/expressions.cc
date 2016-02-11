@@ -1904,6 +1904,13 @@ Integer_expression::do_check_types(Gogo*)
 Bexpression*
 Integer_expression::do_get_backend(Translate_context* context)
 {
+  if (this->is_error_expression()
+      || (this->type_ != NULL && this->type_->is_error_type()))
+    {
+      go_assert(saw_errors());
+      return context->gogo()->backend()->error_expression();
+    }
+
   Type* resolved_type = NULL;
   if (this->type_ != NULL && !this->type_->is_abstract())
     resolved_type = this->type_;
@@ -2266,6 +2273,13 @@ Float_expression::do_check_types(Gogo*)
 Bexpression*
 Float_expression::do_get_backend(Translate_context* context)
 {
+  if (this->is_error_expression()
+      || (this->type_ != NULL && this->type_->is_error_type()))
+    {
+      go_assert(saw_errors());
+      return context->gogo()->backend()->error_expression();
+    }
+
   Type* resolved_type;
   if (this->type_ != NULL && !this->type_->is_abstract())
     resolved_type = this->type_;
@@ -2448,6 +2462,13 @@ Complex_expression::do_check_types(Gogo*)
 Bexpression*
 Complex_expression::do_get_backend(Translate_context* context)
 {
+  if (this->is_error_expression()
+      || (this->type_ != NULL && this->type_->is_error_type()))
+    {
+      go_assert(saw_errors());
+      return context->gogo()->backend()->error_expression();
+    }
+
   Type* resolved_type;
   if (this->type_ != NULL && !this->type_->is_abstract())
     resolved_type = this->type_;
@@ -2826,8 +2847,12 @@ Const_expression::do_check_types(Gogo*)
 Bexpression*
 Const_expression::do_get_backend(Translate_context* context)
 {
-  if (this->type_ != NULL && this->type_->is_error())
-    return context->backend()->error_expression();
+  if (this->is_error_expression()
+      || (this->type_ != NULL && this->type_->is_error()))
+    {
+      go_assert(saw_errors());
+      return context->backend()->error_expression();
+    }
 
   // If the type has been set for this expression, but the underlying
   // object is an abstract int or float, we try to get the abstract
@@ -3447,6 +3472,15 @@ Unsafe_type_conversion_expression::do_get_backend(Translate_context* context)
 
   Type* t = this->type_;
   Type* et = this->expr_->type();
+
+  if (t->is_error_type()
+      || this->expr_->is_error_expression()
+      || et->is_error_type())
+    {
+      go_assert(saw_errors());
+      return context->backend()->error_expression();
+    }
+
   if (t->array_type() != NULL)
     go_assert(et->array_type() != NULL
               && t->is_slice_type() == et->is_slice_type());
@@ -13468,9 +13502,14 @@ Expression::make_heap_expression(Expression* expr, Location location)
 Type*
 Receive_expression::do_type()
 {
+  if (this->is_error_expression())
+    return Type::make_error_type();
   Channel_type* channel_type = this->channel_->type()->channel_type();
   if (channel_type == NULL)
-    return Type::make_error_type();
+    {
+      this->report_error(_("expected channel"));
+      return Type::make_error_type();
+    }
   return channel_type->element_type();
 }
 
@@ -13482,6 +13521,7 @@ Receive_expression::do_check_types(Gogo*)
   Type* type = this->channel_->type();
   if (type->is_error())
     {
+      go_assert(saw_errors());
       this->set_is_error();
       return;
     }

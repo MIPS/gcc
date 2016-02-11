@@ -1,3 +1,64 @@
+2015-09-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/67619
+	* gcc.dg/torture/pr67619.c: New test.
+
+2015-09-18  Alan Lawrence  <alan.lawrence@arm.com>
+
+	PR tree-optimization/67283
+	* gcc.dg/tree-ssa/sra-15.c: New.
+	* gcc.dg/tree-ssa/sra-16.c: New.
+
+2015-09-17  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR sanitizer/64078
+	* c-c++-common/ubsan/object-size-9.c (s): Add alignment attribute.
+	(f2, f3): Make the function static.
+	* c-c++-common/ubsan/object-size-10.c (a, b): Add alignment attribute.
+
+2015-09-17  Christian Bruel  <christian.bruel@st.com>
+
+	* gcc.target/arm/attr_thumb-static2.c: New test.
+
+2015-09-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/overflow_sum3.adb: New test.
+
+2015-09-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/arm/stack-checking.c: New test.
+
+2015-09-17  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/52846
+	* gfortran.dg/public_private_module_5.f90: Add module procedure
+	trigger_smod to ensure that the smod file is written.
+
+2015-09-17  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.target/aarch64/copysign_1.c: New.
+	* gcc.target/aarch64/copysign_2.c: New.
+
+2015-09-17  Bin Cheng  <bin.cheng@arm.com>
+
+	* gcc.dg/tree-ssa/loop-bound-2.c: New test.
+	* gcc.dg/tree-ssa/loop-bound-4.c: New test.
+	* gcc.dg/tree-ssa/loop-bound-6.c: New test.
+
+2015-09-16  John Marino  <gnugcc@marino.st>
+
+	* gfortran.dg/read_dir.f90: XFAIL this testcase on DragonFly.
+
+2015-09-16  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/67253
+	* gcc.dg/torture/pr67253.c: New testcase.
+
+2015-09-16  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/67271
+	* gcc.dg/pr67271.c: New testcase.
+
 2015-09-16  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gnat.dg/opt49.adb: New test.

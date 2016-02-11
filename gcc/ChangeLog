@@ -1,3 +1,335 @@
+2015-09-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR middle-end/67619
+	* except.c (expand_builtin_eh_return): Use copy_addr_to_reg to copy
+	the address to a register.
+
+2015-09-18  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/47679
+	* Makefile.in (OBJS): Add tree-ssa-phionlycprop.o
+	* tree-ssa-dom.c: Remove unnecessary header includes.
+	(remove_stmt_or_phi): Moved from here into tree-ssa-phionlycprop.c
+	(get_rhs_or_phi_arg, get_lhs_or_phi_result): Likewise.
+	(propagate_rhs_into_lhs, eliminate_const_or_copy): Likewise.
+	(eliminate_degenerate_phis_1, pass_phi_only_cprop): Likewise.
+	(pass_phi_only_cprop::execute): Likewise.
+	(make_pass_phi_only_cprop): Likewise.
+	* tree-ssa-phionlycprop.c: New file with moved code.  Eliminate
+	uses of file scoped statics by passing the required objects
+	as parameters wherever needed.
+
+2015-09-18  Andrew Dixie  <andrewd@gentrack.com>
+	    David Edelsohn  <dje.gcc@gmail.com>
+
+	* defaults.h (EH_FRAME_SECTION_NAME): Depend on
+	EH_FRAME_THROUGH_COLLECT2.
+	* dwarf2asm.c (dw2_asm_output_encoded_addr_rtx): Add case for
+	DW_EH_PE_datarel.
+	* dwarf2out.c (switch_to_eh_frame_section): Use a read-only section
+	even if EH_FRAME_SECTION_NAME is undefined.  Restrict special
+	collect2 labels to EH_FRAME_THROUGH_COLLECT2.
+	* except.c (switch_to_exception_section): Use a read-only section
+	even if EH_FRAME_SECTION_NAME is undefined.
+	* system.h (EH_FRAME_IN_DATA_SECTION): Poison.
+	* collect2.c (write_c_file_stat): Provide dbase on AIX.
+	(scan_prog_file): Don't export __dso_handle nor
+	__gcc_unwind_dbase.
+	* config/rs6000/aix.h (ASM_PREFERRED_EH_DATA_FORMAT): Define.
+	(EH_TABLES_CAN_BE_READ_ONLY): Define.
+	(ASM_OUTPUT_DWARF_PCREL): Define.
+	(ASM_OUTPUT_DWARF_DATAREL): Define.
+	(EH_FRAME_THROUGH_COLLECT2): Define.
+	(EH_FRAME_IN_DATA_SECTION): Delete.
+	* config/rs6000/aix61.h (STARTFILE_SPEC): Add crtdbase.o.
+	* config/rs6000/rs6000-protos.h (rs6000_asm_output_dwarf_pcrel):
+	Declare.
+	(rs6000_asm_output_dwarf_datarel): Declare.
+	* config/rs6000/rs6000.c (rs6000_aix_asm_output_dwarf_pcrel): New.
+	(rs6000_aix_asm_output_dwarf_datarel): New.
+	(rs6000_xcoff_asm_init_sections): Don't	set exception_section.
+	* config/spu/spu-elf.h (EH_FRAME_IN_DATA_SECTION): Delete.
+	(EH_FRAME_THROUGH_COLLECT2): Define.
+	* config/i386/i386-interix.h (EH_FRAME_IN_DATA_SECTION): Delete.
+	(EH_FRAME_THROUGH_COLLECT2): Define.
+	(EH_TABLES_CAN_BE_READ_ONLY): Define.
+	* doc/tm.texi.in (EH_FRAME_IN_DATA_SECTION): Delete.
+	(EH_FRAME_THROUGH_COLLECT2): New.
+	(ASM_OUTPUT_DWARF_DATAREL): New.
+	* doc/tm.texi: Regenerate.
+
+2015-09-18  Richard Biener  <rguenther@suse.de>
+
+	* dwarf2out.c (append_entry_to_tmpl_value_parm_die_table): Assert
+	we're in early phase.
+	(schedule_generic_params_dies_gen): Likewise.
+	(gen_remaining_tmpl_value_param_die_attribute): Do only as much
+	work as possible, retaining unhandled cases.
+	(gen_scheduled_generic_parms_dies): Set early-dwarf flag and
+	clear out generic_type_instances at the end.
+	(dwarf2out_finish): Move call to gen_scheduled_generic_parms_dies...
+	(dwarf2out_early_finish): ... here.  Do most of
+	gen_remaining_tmpl_value_param_die_attribute here.
+
+2015-09-18  Alan Lawrence  <alan.lawrence@arm.com>
+
+	PR tree-optimization/67283
+	* tree-sra.c (type_consists_of_records_p): Rename to...
+	(scalarizable_type_p): ...this, add case for ARRAY_TYPE.
+	(completely_scalarize_record): Rename to...
+	(completely_scalarize): ...this, add ARRAY_TYPE case, move some code to:
+	(scalarize_elem): New.
+	(analyze_all_variable_accesses): Follow renamings.
+
+2015-09-18  Richard Biener  <rguenther@suse.de>
+
+	* dwarf2out.c (add_location_or_const_value_attribute): Do nothing
+	in early-dwarf.
+
+2015-09-18  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66142
+	* fold-const.c (operand_equal_p): When OEP_ADDRESS_OF
+	treat MEM[&x] and x the same.
+	* tree-ssa-sccvn.h (vn_reference_fold_indirect): Remove.
+	* tree-ssa-sccvn.c (vn_reference_fold_indirect): Return true
+	when we simplified sth.
+	(vn_reference_maybe_forwprop_address): Likewise.
+	(valueize_refs_1): When we simplified through
+	vn_reference_fold_indirect or vn_reference_maybe_forwprop_address
+	set valueized_anything to true.
+	(vn_reference_lookup_3): Use stmt_kills_ref_p to see whether
+	one ref kills the other instead of just a offset-based test.
+	* tree-ssa-alias.c (stmt_kills_ref_p): Use OEP_ADDRESS_OF
+	for the operand_equal_p test to compare bases and also compare
+	sizes.
+
+2015-09-17  Christian Bruel  <christian.bruel@st.com>
+
+	* config/arm/arm.md (*call_value_symbol): Fix operand for interworking.
+
+2015-09-17  Richard Henderson  <rth@redhat.com>
+
+	PR libstdc++/65913
+	* builtins.c (fold_builtin_atomic_always_lock_free): Handle fake
+	pointers that encode the alignment of the object.
+
+2015-09-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/66790
+	* df-problems.c (LIVE): Amend documentation.
+
+2015-09-17  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* Makefile.in (OBJS): Add optabs-libfuncs.o, optabs-query.o
+	and optabs-tree.o.
+	(GTFILES): Replace optabs.c with optabs-libfunc.c.
+	* genopinit.c (main): Add an include guard to insn-opinit.h.
+	Protect the rtx_code parts with NUM_RTX_CODE.
+	* optabs.h: Split parts out to...
+	* optabs-libfuncs.h, optabs-query.h, optabs-tree.h: ...these
+	new files.
+	* optabs.c: Split parts out to...
+	* optabs-libfuncs.c, optabs-query.c, optabs-tree.c: ...these
+	new files.
+	* cilk-common.c: Include optabs-query.h rather than optabs.h.
+	* fold-const.c: Likewise.
+	* target-globals.c: Likewise.
+	* tree-if-conv.c: Likewise.
+	* tree-ssa-forwprop.c: Likewise.
+	* tree-ssa-loop-prefetch.c: Likewise.
+	* tree-ssa-math-opts.c: Include optabs-tree.h rather than
+	optabs.h.  Remove unncessary include files.
+	* tree-ssa-phiopt.c: Likewise.
+	* tree-ssa-reassoc.c: Likewise.
+	* tree-switch-conversion.c: Likewise.
+	* tree-vect-data-refs.c: Likewise.
+	* tree-vect-generic.c: Likewise.
+	* tree-vect-loop.c: Likewise.
+	* tree-vect-patterns.c: Likewise.
+	* tree-vect-slp.c: Likewise.
+	* tree-vect-stmts.c: Likewise.
+	* tree-vrp.c: Likewise.
+	* toplev.c: Include optabs-query.h and optabs-libfuncs.h
+	rather than optabs.h.
+	* expr.c: Include optabs-tree.h.
+	* function.c: Likewise.
+
+2015-09-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/65958
+	* config/arm/linux-elf.h (STACK_CHECK_STATIC_BUILTIN): Define.
+	* config/arm/arm-protos.h (output_probe_stack_range): Declare.
+	* config/arm/arm.c: Include common/common-target.h.
+	(use_return_insn): Return 0 if the static chain register was saved
+	above a non-APCS frame.
+	(arm_compute_static_chain_stack_bytes): Adjust for stack checking.
+	(struct scratch_reg): New.
+	(get_scratch_register_on_entry): New function.
+	(release_scratch_register_on_entry): Likewise.
+	(arm_emit_probe_stack_range): Likewise.
+	(output_probe_stack_range): Likewise.
+	(arm_expand_prologue): Factor out code dealing with the IP register
+	for nested function and adjust it for stack checking.
+	Invoke arm_emit_probe_stack_range if static builtin stack checking
+	is enabled.
+	(thumb1_expand_prologue): Sorry out if static builtin stack checking
+	is enabled.
+	(arm_expand_epilogue): Add the saved static chain register, if any, to
+	the amount of pre-pushed registers to pop.
+	(arm_frame_pointer_required): Return true if static stack checking is
+	enabled and we want to catch the exception with the EABI unwinder.
+	* config/arm/unspecs.md (UNSPEC_PROBE_STACK): New constant.
+	(UNSPEC_PROBE_STACK_RANGE): Likewise.
+	* config/arm/arm.md (probe_stack): New insn.
+	(probe_stack_range): Likewise.
+
+2015-09-17  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (parser::parse_expr): Improve error message
+	for mis-placed flags.
+
+2015-09-17  Richard Biener  <rguenther@suse.de>
+
+	* passes.c (rest_of_decl_compilation): Always call early_global_decl
+	debug hook when we created a varpool node.
+	* dwarf2out.c (dwarf2out_late_global_decl): When in LTO call
+	dwarf2out_early_global_decl, when not just add location or
+	value attributes to existing DIEs.
+
+2015-09-17  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64.md (copysigndf3): New.
+	(copysignsf3): Likewise.
+
+2015-09-17  David S. Miller  <davem@davemloft.net>
+
+	* config/sparc/sparc-protos.h (sparc_secondary_memory_needed):
+	Declare.
+	* config/sparc/sparc.c (sparc_secondary_memory_needed): New
+	function.
+	* config/sparc/sparc.h (SECONDARY_MEMORY_NEEDED): Use it.
+	(HARD_REGNO_CALLER_SAVE_MODE): Define.
+	* config/sparc/sparc.md (sethi_di_medlow, losum_di_medlow, seth44)
+	(setm44, setl44, sethh, setlm, sethm, setlo, embmedany_sethi)
+	(embmedany_losum, embmedany_brsum, embmedany_textuhi)
+	(embmedany_texthi, embmedany_textulo, embmedany_textlo): Do not
+	provide when flag_pic.
+
+2015-09-17  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c (label_ref_list_d_pool): Adjust to
+	object_allocator change.
+
+2015-09-17  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/66388
+	* tree-ssa-loop-ivopts.c (struct iv, iv_cand, ivopts_data): New
+	fields.
+	(dump_iv): Dump no_overflow information.
+	(alloc_iv): Initialize new field for struct iv.
+	(mark_bivs): Count number of no_overflow bivs.
+	(find_deriving_biv_for_expr, record_biv_for_address_use): New
+	functions.
+	(idx_find_step): Call new functions above.
+	(add_candidate_1, add_candidate): New paramter.
+	(add_iv_candidate_for_biv): Add sizetype cand for BIV.
+	(get_computation_aff): Simplify convertion of cand for BIV.
+	(get_computation_cost_at): Step cand's base if necessary.
+
+2015-09-17  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-ssa-loop-niter.c (tree_simplify_using_condition_1): New
+	parameter.
+	(tree_simplify_using_condition): Ditto.
+	(simplify_using_initial_conditions): Ditto.
+	(loop_exits_before_overflow): Pass new argument to function
+	simplify_using_initial_conditions.  Remove case for type conversions
+	simplification.
+	* tree-ssa-loop-niter.h (simplify_using_initial_conditions): New
+	parameter.
+	* tree-scalar-evolution.c (simple_iv): Simplify type conversions
+	in iv base using loop initial conditions.
+
+2015-09-16  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/47679
+	* tree-ssa-dom.c (free_edge_info): Factored out of free_all_edge_infos.
+	(free_all_edge_infos): Use it.
+	(allocate_edge_info): Free preexisting edge info data.
+	(pass_dominator::execute): Set up initial edge info structures.
+	(dom_opt_dom_walker::thread_across_edge): Pass avail_expr_stack to
+	thread_across_edge.
+	* tree-ssa-threadedge.c (thread_across_edge): Accept new argument.  If
+	non-null, then push/pop markers appropriately.
+	* tree-ssa-threadedge.h (thread_across_edge): Update prototype.
+	* tree-vrp.c (identify_jump_threads): Pass NULL for new argument to
+	thread-across_edge.
+
+2015-09-16  James Bowman  <james.bowman@ftdichip.com>
+
+	* config/ft32/ft32.c Fix the memory address space predicate.
+
+2015-09-16  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/67573
+	* config/sh/sh.md (call_pcrel): Add early clobber to scratch
+	operand.
+	(call_value_pcrel, sibcall_pcrel, sibcall_value_pcrel): Likewise.
+
+2015-09-16  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* toplev.h (check_global_declaration): Remove declaration.
+	* toplev.c (check_global_declaration): Move to ...
+	* cgraphunit.c: ... here. Make it static and pass a symtab_node *.
+	(analyze_functions): Update call.
+
+2015-09-16  David S. Miller  <davem@davemloft.net>
+
+	* lra-constraints.c (simplify_operand_subreg): Do not assume that
+	lowpart of a SUBREG has offset zero.
+
+2015-09-16  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/47679
+	* tree-ssa-dom.c (enum expr_kind): Moved from here to
+	tree-ssa-scopedtables.h.
+	(struct hashable_expr, class expr_hash_elt): Likewise.
+	(struct expr_elt_hasher, class avail_exprs_stack): Likewise.
+	Move associated methods into tree-ssa-scopedtables.c.
+	(avail_expr_hash, initialize_expr_from_cond): Similarly.
+	(hashable_expr_equal_p, add_expr_commutative): Likewise.
+	(add_hashable_expr): Likewise.
+	(record_cond): Delete element directly.
+	* tree-ssa-scopedtables.h (avail_expr_stack, const_and_copies): Add
+	private copy ctor and assignment operator methods.
+	(expr_elt_hasher): Inline trivial methods.
+	(initialize_expr_from_cond): Prototype.
+	* tree-ssa-scopedtables.c: Add necessary includes, functions and
+	methods that were previously in tree-ssa-dom.c.  Improve various
+	comments.
+
+2015-09-16  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* doc/invoke.texi ([Wsubobject-linkage]): Extend documentation.
+
+2015-09-16  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR bootstrap/67587
+	* function.c (rest_of_handle_thread_prologue_and_epilogue): Call
+	fixup_partitions.
+
+2015-09-16  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/67253
+	* cfgexpand.c (expand_gimple_stmt_1): Do not clobber
+	location of possibly shared trees.
+
+2015-09-16  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/67271
+	* fold-const.c (native_encode_expr): Bail out on bogus offsets.
+
 2015-09-16  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* tree-ssa-sccvn.c (ao_ref_init_from_vn_reference): Use offset_int for
