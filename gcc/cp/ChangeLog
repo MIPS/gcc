@@ -1,3 +1,137 @@
+2016-02-10  Jason Merrill  <jason@redhat.com>
+
+	PR c++/68926
+	* pt.c (resolve_nondeduced_context): Add complain parm.
+	(do_auto_deduction): Pass it.
+	* cvt.c (convert_to_void): Likewise.
+	* decl.c (cp_finish_decl): Likewise.
+	* init.c (build_new): Likewise.
+	* rtti.c (get_tinfo_decl_dynamic): Likewise.
+	* semantics.c (finish_decltype_type): Likewise.
+	* typeck.c (decay_conversion): Likewise.
+	* cp-tree.h: Adjust declaration.
+	* call.c (standard_conversion): Add complain parm, pass it along.
+	(implicit_conversion): Pass it.
+
+	PR c++/69657
+	* name-lookup.c (ambiguous_decl): Call remove_hidden_names.
+	(lookup_name_real_1): Likewise.
+	(remove_hidden_names): Handle non-functions too.
+
+	PR c++/10200
+	* parser.c (cp_parser_lookup_name): When looking for a template
+	after . or ->, only consider class templates.
+	(cp_parser_postfix_dot_deref_expression): Handle the current
+	instantiation.  Remember a dependent object expression.
+	* typeck2.c (build_x_arrow): Handle the current instantiation.
+
+	* ptree.c (debug_tree): Implement for cp_expr.
+
+2016-02-08  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/69139
+	* parser.c (cp_parser_simple_type_specifier): Make the check
+	for disambiguating between an 'auto' placeholder and an implicit
+	template parameter more robust.
+
+2016-02-08  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/69283
+	PR c++/67835
+	* decl2.c (mark_used): When given a TEMPLATE_DECL, return after
+	setting its TREE_USED flag.
+
+2016-02-08  Jason Merrill  <jason@redhat.com>
+
+	PR c++/69657
+	* name-lookup.c (do_nonmember_using_decl): Leave anticipated
+	built-ins alone.
+
+2016-02-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/59627
+	* parser.c (cp_parser_omp_declare_reduction): Set assembler name
+	of the DECL_OMP_DECLARE_REDUCTION_P decls.
+
+2016-02-08  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/69688
+	* constexpr.c (clear_cv_and_fold_caches): Renamed from clear_cv_cache.
+	Call clear_fold_cache.
+	* cp-tree.h: Adjust declaration.
+	* decl.c (finish_enum_value_list): Call clear_cv_and_fold_caches
+	rather than clear_cv_cache and clear_fold_cache.
+	* typeck2.c (store_init_value): Call clear_cv_and_fold_caches.
+
+2016-02-08  Jason Merrill  <jason@redhat.com>
+
+	* cp-tree.h (CONV_FOLD, CONV_BACKEND_CONVERT): New.
+	* cvt.c (convert): Pass CONV_BACKEND_CONVERT.
+	(ocp_convert): Use *_maybe_fold.
+	(cp_convert_to_pointer): Add dofold parameter.
+	* cp-gimplify.c (cp_fold) [CONVERT_EXPR]: Call convert.
+
+2016-02-05  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/69662
+	* init.c (find_field_init): New function.
+	(warn_placement_new_too_small): Call it.  Handle one-element arrays
+	at ends of structures special.
+
+2016-02-05  Jason Merrill  <jason@redhat.com>
+
+	PR c++/68948
+	* semantics.c (finish_expr_stmt): If expr is error_mark_node,
+	make sure we've seen_error().
+
+2016-02-05  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/68948
+	* pt.c (tsubst_baselink): Diagnose an invalid constructor call
+	if lookup_fnfields returns NULL_TREE and the name being looked
+	up has the form A::A.
+
+2016-02-04  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	* constexpr.c (cxx_eval_binary_expression): Fold equality
+	comparisons involving PTRMEM_CSTs.
+
+2016-02-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* class.c (find_flexarrays): Don't declare dom variable.
+	(diagnose_flexarray): Likewise.
+
+2016-02-02  Martain Sebor  <msebor@redhat.com>
+
+	PR c++/69251
+	PR c++/69253
+	PR c++/69290
+	PR c++/69277
+	PR c++/69349
+	* class.c (walk_subobject_offsets): Avoid testing the upper bound
+	of a flexible array member for equality to null.
+	(find_flexarrays): Remove spurious whitespace introduced in r231665.
+	(diagnose_flexarrays): Avoid checking the upper bound of arrays.
+	(check_flexarrays): Same.
+	* decl.c (compute_array_index_type): Avoid special case for flexible
+	array members.
+	(grokdeclarator): Avoid calling compute_array_index_type for flexible
+	array members.
+	* error.c (dump_type_suffix): Revert changes introduced in r231665
+	and rendered unnecessary by the changes above.
+	* pt.c (tsubst):  Same.
+	* tree.c (build_ctor_subob_ref): Handle flexible array members.
+	* typeck2.c (digest_init_r): Revert changes introduced in r231665.
+	(process_init_constructor_array): Same.
+	(process_init_constructor_record): Same.
+
+2016-02-03  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/69056
+	* pt.c (try_one_overload): Handle comparing argument packs so
+	that there is no conflict if we deduced more arguments of an
+	argument pack than were explicitly specified.
+
 2016-01-31  Jakub Jelinek  <jakub@redhat.com>
 	    Jason Merrill  <jason@redhat.com>
 

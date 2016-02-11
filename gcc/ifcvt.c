@@ -1274,7 +1274,10 @@ noce_try_store_flag_constants (struct noce_if_info *if_info)
       && CONST_INT_P (XEXP (a, 1))
       && CONST_INT_P (XEXP (b, 1))
       && rtx_equal_p (XEXP (a, 0), XEXP (b, 0))
-      && noce_operand_ok (XEXP (a, 0))
+      /* Allow expressions that are not using the result or plain
+         registers where we handle overlap below.  */
+      && (REG_P (XEXP (a, 0))
+	  || ! reg_overlap_mentioned_p (if_info->x, XEXP (a, 0)))
       && if_info->branch_cost >= 2)
     {
       common = XEXP (a, 0);
@@ -3286,14 +3289,12 @@ bb_ok_for_noce_convert_multiple_sets (basic_block test_bb,
       if (!can_conditionally_move_p (GET_MODE (dest)))
 	return false;
 
-      ++count;
+      /* FORNOW: Our cost model is a count of the number of instructions we
+	 would if-convert.  This is suboptimal, and should be improved as part
+	 of a wider rework of branch_cost.  */
+      if (++count > limit)
+	return false;
     }
-
-  /* FORNOW: Our cost model is a count of the number of instructions we
-     would if-convert.  This is suboptimal, and should be improved as part
-     of a wider rework of branch_cost.  */
-  if (count > limit)
-    return false;
 
   return count > 1;
 }

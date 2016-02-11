@@ -595,17 +595,17 @@ struct processor_costs geode_cost = {
   {4, 6, 6},				/* cost of storing fp registers
 					   in SFmode, DFmode and XFmode */
 
-  1,					/* cost of moving MMX register */
-  {1, 1},				/* cost of loading MMX registers
+  2,					/* cost of moving MMX register */
+  {2, 2},				/* cost of loading MMX registers
 					   in SImode and DImode */
-  {1, 1},				/* cost of storing MMX registers
+  {2, 2},				/* cost of storing MMX registers
 					   in SImode and DImode */
-  1,					/* cost of moving SSE register */
-  {1, 1, 1},				/* cost of loading SSE registers
+  2,					/* cost of moving SSE register */
+  {2, 2, 8},				/* cost of loading SSE registers
 					   in SImode, DImode and TImode */
-  {1, 1, 1},				/* cost of storing SSE registers
+  {2, 2, 8},				/* cost of storing SSE registers
 					   in SImode, DImode and TImode */
-  1,					/* MMX or SSE register to integer */
+  3,					/* MMX or SSE register to integer */
   64,					/* size of l1 cache.  */
   128,					/* size of l2 cache.  */
   32,					/* size of prefetch block */
@@ -5453,6 +5453,13 @@ ix86_option_override_internal (bool main_args_p,
     opts->x_target_flags |= MASK_VZEROUPPER;
   if (!(opts_set->x_target_flags & MASK_STV))
     opts->x_target_flags |= MASK_STV;
+  /* Disable STV if -mpreferred-stack-boundary={2,3} or
+     -mincoming-stack-boundary={2,3} - the needed
+     stack realignment will be extra cost the pass doesn't take into
+     account and the pass can't realign the stack.  */
+  if (ix86_preferred_stack_boundary < 128
+      || ix86_incoming_stack_boundary < 128)
+    opts->x_target_flags &= ~MASK_STV;
   if (!ix86_tune_features[X86_TUNE_AVX256_UNALIGNED_LOAD_OPTIMAL]
       && !(opts_set->x_target_flags & MASK_AVX256_SPLIT_UNALIGNED_LOAD))
     opts->x_target_flags |= MASK_AVX256_SPLIT_UNALIGNED_LOAD;
@@ -21684,6 +21691,30 @@ ix86_expand_branch (enum rtx_code code, rtx op0, rtx op1, rtx label)
   machine_mode mode = GET_MODE (op0);
   rtx tmp;
 
+  /* Handle special case - vector comparsion with boolean result, transform
+     it using ptest instruction.  */
+  if (GET_MODE_CLASS (mode) == MODE_VECTOR_INT)
+    {
+      rtx flag = gen_rtx_REG (CCZmode, FLAGS_REG);
+      machine_mode p_mode = GET_MODE_SIZE (mode) == 32 ? V4DImode : V2DImode;
+
+      gcc_assert (code == EQ || code == NE);
+      /* Generate XOR since we can't check that one operand is zero vector.  */
+      tmp = gen_reg_rtx (mode);
+      emit_insn (gen_rtx_SET (tmp, gen_rtx_XOR (mode, op0, op1)));
+      tmp = gen_lowpart (p_mode, tmp);
+      emit_insn (gen_rtx_SET (gen_rtx_REG (CCmode, FLAGS_REG),
+			      gen_rtx_UNSPEC (CCmode,
+					      gen_rtvec (2, tmp, tmp),
+					      UNSPEC_PTEST)));
+      tmp = gen_rtx_fmt_ee (code, VOIDmode, flag, const0_rtx);
+      tmp = gen_rtx_IF_THEN_ELSE (VOIDmode, tmp,
+				  gen_rtx_LABEL_REF (VOIDmode, label),
+				  pc_rtx);
+      emit_jump_insn (gen_rtx_SET (pc_rtx, tmp));
+      return;
+    }
+
   switch (mode)
     {
     case SFmode:
@@ -29299,7 +29330,10 @@ ix86_minimum_alignment (tree exp, machine_mode mode,
   if ((mode == DImode || (type && TYPE_MODE (type) == DImode))
       && (!type || !TYPE_USER_ALIGN (type))
       && (!decl || !DECL_USER_ALIGN (decl)))
-    return 32;
+    {
+      gcc_checking_assert (!TARGET_STV);
+      return 32;
+    }
 
   return align;
 }
@@ -43259,24 +43293,11 @@ ix86_cannot_change_mode_class (machine_mode from, machine_mode to,
 
   if (MAYBE_SSE_CLASS_P (regclass) || MAYBE_MMX_CLASS_P (regclass))
     {
-      int from_size = GET_MODE_SIZE (from);
-      int to_size = GET_MODE_SIZE (to);
-
       /* Vector registers do not support QI or HImode loads.  If we don't
 	 disallow a change to these modes, reload will assume it's ok to
 	 drop the subreg from (subreg:SI (reg:HI 100) 0).  This affects
 	 the vec_dupv4hi pattern.  */
-      if (from_size < 4)
-	return true;
-
-      /* Further, we cannot allow word_mode subregs of full vector modes.
-         Otherwise the middle-end will assume it's ok to store to
-         (subreg:DI (reg:TI 100) 0) in order to modify only the low 64 bits
-         of the 128-bit register.  However, after reload the subreg will
-         be dropped leaving a plain DImode store.  This is indistinguishable
-         from a "normal" DImode move, and so we're justified to use movsd,
-         which modifies the entire 128-bit register.  */
-      if (to_size == UNITS_PER_WORD && from_size > UNITS_PER_WORD)
+      if (GET_MODE_SIZE (from) < 4)
 	return true;
     }
 

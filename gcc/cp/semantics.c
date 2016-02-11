@@ -673,6 +673,9 @@ finish_expr_stmt (tree expr)
 
   if (expr != NULL_TREE)
     {
+      /* If we ran into a problem, make sure we complained.  */
+      gcc_assert (expr != error_mark_node || seen_error ());
+
       if (!processing_template_decl)
 	{
 	  if (warn_sequence_point)
@@ -8696,7 +8699,7 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
 
   /* The type denoted by decltype(e) is defined as follows:  */
 
-  expr = resolve_nondeduced_context (expr);
+  expr = resolve_nondeduced_context (expr, complain);
 
   if (invalid_nonstatic_memfn_p (input_location, expr, complain))
     return error_mark_node;

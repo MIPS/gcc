@@ -1,3 +1,64 @@
+2016-02-09  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/69599
+	* testsuite/libgomp.c/omp-nested-3.c: New test.
+	* testsuite/libgomp.c/pr46032-2.c: New test.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-2.c: New test.
+	* testsuite/libgomp.oacc-c-c++-common/parallel-2.c: New test.
+
+2016-02-09  Tom de Vries  <tom@codesourcery.com>
+
+	PR lto/69707
+	* testsuite/libgomp.oacc-c-c++-common/parallel-dims-2.c: New test.
+
+2016-02-02  Alexander Monakov  <amonakov@ispras.ru>
+
+	* testsuite/libgomp.c/target-31.c: Fix testcase.
+
+2016-02-02  Alexander Monakov  <amonakov@ispras.ru>
+
+	* testsuite/libgomp.c/examples-4/teams-3.c: Add missing reduction
+	clause.
+	* testsuite/libgomp.c/examples-4/teams-4.c: Likewise.
+	* testsuite/libgomp.fortran/examples-4/teams-3.f90: Add missing
+	reduction and map clauses.
+	* testsuite/libgomp.fortran/examples-4/teams-4.f90: Likewise.
+
+2016-02-02  James Norris  <jnorris@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/declare-4.c: Fix clause.
+
+2016-02-02  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* libgomp.map (GOACC_2.0): Remove GOACC_host_data.
+	* oacc-parallel.c (GOACC_host_data): Remove function definition.
+
+	* testsuite/lib/libgomp.exp: Skip hsa offloading for OpenACC test
+	cases.
+
+	* plugin/configfrag.ac (HSA_KMT_LIB, HSA_KMT_LDFLAGS): New
+	variables.
+	* testsuite/libgomp-test-support.exp.in (hsa_runtime_lib)
+	(hsa_kmt_lib): Set variables.
+	* testsuite/lib/libgomp.exp (libgomp_init): Use them to amend
+	always_ld_library_path.
+	* Makefile.in: Regenerate.
+	* configure: Likewise.
+	* testsuite/Makefile.in: Likewise.
+
+	* plugin/configfrag.ac (offload_additional_options)
+	(offload_additional_lib_paths): Don't amend for hsa offloading.
+	* configure: Regenerate.
+
+	* plugin/configfrag.ac: Don't configure for offloading target if
+	we don't build the corresponding plugin.
+	* configure: Regenerate.
+
+2016-02-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/loop-dim-default.c: New.
+	* testsuite/libgomp.oacc-fortran/routine-7.f90: Serialize loop.
+
 2016-01-26  Tom de Vries  <tom@codesourcery.com>
 
 	PR tree-optimization/69110

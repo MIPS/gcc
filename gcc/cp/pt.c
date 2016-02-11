@@ -12846,14 +12846,9 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       if (t == integer_type_node)
 	return t;
 
-      if (TREE_CODE (TYPE_MIN_VALUE (t)) == INTEGER_CST)
-        {
-          if (!TYPE_MAX_VALUE (t))
-            return compute_array_index_type (NULL_TREE, NULL_TREE, complain);
-          
-          if (TREE_CODE (TYPE_MAX_VALUE (t)) == INTEGER_CST)
-            return t;
-        }
+      if (TREE_CODE (TYPE_MIN_VALUE (t)) == INTEGER_CST
+          && TREE_CODE (TYPE_MAX_VALUE (t)) == INTEGER_CST)
+        return t;
 
       {
 	tree max, omax = TREE_OPERAND (TYPE_MAX_VALUE (t), 0);
@@ -13588,7 +13583,15 @@ tsubst_baselink (tree baselink, tree object_type,
       name = mangle_conv_op_name_for_type (optype);
     baselink = lookup_fnfields (qualifying_scope, name, /*protect=*/1);
     if (!baselink)
-      return error_mark_node;
+      {
+	if (constructor_name_p (name, qualifying_scope))
+	  {
+	    if (complain & tf_error)
+	      error ("cannot call constructor %<%T::%D%> directly",
+		     qualifying_scope, name);
+	  }
+	return error_mark_node;
+      }
 
     /* If lookup found a single function, mark it as used at this
        point.  (If it lookup found multiple functions the one selected
@@ -18572,7 +18575,7 @@ resolve_overloaded_unification (tree tparms,
    lvalue for the function template specialization.  */
 
 tree
-resolve_nondeduced_context (tree orig_expr)
+resolve_nondeduced_context (tree orig_expr, tsubst_flags_t complain)
 {
   tree expr, offset, baselink;
   bool addr;
@@ -18655,16 +18658,16 @@ resolve_nondeduced_context (tree orig_expr)
 	    {
 	      tree base
 		= TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (offset, 0)));
-	      expr = build_offset_ref (base, expr, addr, tf_warning_or_error);
+	      expr = build_offset_ref (base, expr, addr, complain);
 	    }
 	  if (addr)
-	    expr = cp_build_addr_expr (expr, tf_warning_or_error);
+	    expr = cp_build_addr_expr (expr, complain);
 	  return expr;
 	}
-      else if (good == 0 && badargs)
+      else if (good == 0 && badargs && (complain & tf_error))
 	/* There were no good options and at least one bad one, so let the
 	   user know what the problem is.  */
-	instantiate_template (badfn, badargs, tf_warning_or_error);
+	instantiate_template (badfn, badargs, complain);
     }
   return orig_expr;
 }
@@ -18736,6 +18739,28 @@ try_one_overload (tree tparms,
 	   template args used in the function parm list with our own
 	   template parms.  Discard them.  */
 	TREE_VEC_ELT (tempargs, i) = NULL_TREE;
+      else if (oldelt && ARGUMENT_PACK_P (oldelt))
+	{
+	  /* Check that the argument at each index of the deduced argument pack
+	     is equivalent to the corresponding explicitly specified argument.
+	     We may have deduced more arguments than were explicitly specified,
+	     and that's OK.  */
+	  gcc_assert (ARGUMENT_PACK_INCOMPLETE_P (oldelt));
+	  gcc_assert (ARGUMENT_PACK_ARGS (oldelt)
+		      == ARGUMENT_PACK_EXPLICIT_ARGS (oldelt));
+
+	  tree explicit_pack = ARGUMENT_PACK_ARGS (oldelt);
+	  tree deduced_pack = ARGUMENT_PACK_ARGS (elt);
+
+	  if (TREE_VEC_LENGTH (deduced_pack)
+	      < TREE_VEC_LENGTH (explicit_pack))
+	    return 0;
+
+	  for (int j = 0; j < TREE_VEC_LENGTH (explicit_pack); j++)
+	    if (!template_args_equal (TREE_VEC_ELT (explicit_pack, j),
+				      TREE_VEC_ELT (deduced_pack, j)))
+	      return 0;
+	}
       else if (oldelt && !template_args_equal (oldelt, elt))
 	return 0;
     }
@@ -23855,7 +23880,7 @@ do_auto_deduction (tree type, tree init, tree auto_node,
   if (type == error_mark_node)
     return error_mark_node;
 
-  init = resolve_nondeduced_context (init);
+  init = resolve_nondeduced_context (init, complain);
 
   if (AUTO_IS_DECLTYPE (auto_node))
     {
