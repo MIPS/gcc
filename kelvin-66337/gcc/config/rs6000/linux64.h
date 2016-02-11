@@ -290,16 +290,10 @@ extern int dot_symbols;
 #define PROFILE_HOOK(LABEL) \
   do { if (TARGET_64BIT) output_profile_hook (LABEL); } while (0)
 
-/* PowerPC64 Linux word-aligns FP doubles when -malign-power is given.  */
 #undef  ADJUST_FIELD_ALIGN
 #define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
   (rs6000_special_adjust_field_align_p ((FIELD), (COMPUTED))		\
-   ? 128								\
-   : (TARGET_64BIT							\
-      && TARGET_ALIGN_NATURAL == 0					\
-      && TYPE_MODE (strip_array_types (TREE_TYPE (FIELD))) == DFmode)	\
-   ? MIN ((COMPUTED), 32)						\
-   : (COMPUTED))
+   ? 128: (COMPUTED))
 
 /* PowerPC64 Linux increases natural record alignment to doubleword if
    the first field is an FP double, only if in power alignment mode.  */

@@ -363,16 +363,10 @@ extern int dot_symbols;
 /* Use standard DWARF numbering for DWARF debugging information.  */
 #define RS6000_USE_DWARF_NUMBERING
 
-/* PowerPC64 Linux word-aligns FP doubles when -malign-power is given.  */
 #undef  ADJUST_FIELD_ALIGN
 #define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
   (rs6000_special_adjust_field_align_p ((FIELD), (COMPUTED))		\
-   ? 128                                                                \
-   : (TARGET_64BIT                                                      \
-      && TARGET_ALIGN_NATURAL == 0                                      \
-      && TYPE_MODE (strip_array_types (TREE_TYPE (FIELD))) == DFmode)   \
-   ? MIN ((COMPUTED), 32)                                               \
-   : (COMPUTED))
+   ? 128: (COMPUTED))
 
 #undef  TOC_SECTION_ASM_OP
 #define TOC_SECTION_ASM_OP \
