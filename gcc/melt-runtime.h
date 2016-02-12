@@ -1,7 +1,7 @@
 /** -*- C++ -*-
    MELT header melt-runtime.h
    [[middle end lisp translator, see http://gcc-melt.org/ for more.]]
-   Copyright (C)  2008 - 2015 Free Software Foundation, Inc.
+   Copyright (C)  2008 - 2016 Free Software Foundation, Inc.
    Contributed by Basile Starynkevitch <basile@starynkevitch.net>
    and Pierre Vittet <piervit@pvittet.com>
 
@@ -161,7 +161,7 @@ MELT_EXTERN int melt_count_runtime_extensions;
 /* The version string of MELT; this is parsed by make, so spaces are
    important, don't add spaces after the terminating double-quote!
    That version string is extracted by scripts or makefiles... */
-#define MELT_VERSION_STRING "1.2.0"
+#define MELT_VERSION_STRING "1.3.pre"
 
 /* return a read only version string */
 extern const char* melt_version_str(void);
@@ -429,6 +429,8 @@ const char* melt_argument(const char* argname);
 union meltparam_un; /* declared in file meltrunsup.h */
 
 /* used in file meltrunsup.h */
+typedef tree melt_treeptr_t;
+typedef gimple melt_gimpleptr_t;
 
 #ifndef melt_ptr_t_TYPEDEFINED
 typedef union melt_un* melt_ptr_t ;

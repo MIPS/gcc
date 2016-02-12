@@ -2,7 +2,7 @@
 ;; file warmelt-first.melt
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright 2008 - 2015  Free Software Foundation, Inc.
+    Copyright 2008 - 2016  Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
 
     This file is part of GCC.
@@ -2772,7 +2772,7 @@ list.}#
   :predef CTYPE_TREE
   :named_name  '"CTYPE_TREE"
   :ctype_keyword ':tree
-  :ctype_cname  '"tree"
+  :ctype_cname  '"melt_treeptr_t"
   :ctype_parchar '"MELTBPAR_TREE"
   :ctype_parstring '"MELTBPARSTR_TREE"
   :ctype_argfield '"meltbp_tree"
@@ -2813,7 +2813,7 @@ list.}#
   :predef CTYPE_GIMPLE
   :named_name  '"CTYPE_GIMPLE"
   :ctype_keyword ':gimple
-  :ctype_cname '"gimple"
+  :ctype_cname '"melt_gimpleptr_t"
   :ctype_parchar '"MELTBPAR_GIMPLE"
   :ctype_parstring '"MELTBPARSTR_GIMPLE"
   :ctype_argfield '"meltbp_gimple"
