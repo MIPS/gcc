@@ -1,3 +1,115 @@
+2016-02-12  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/69098
+	* pt.c (lookup_and_finish_template_variable): New function,
+	extracted from ...
+	(tsubst_copy_and_build) [TEMPLATE_ID_EXPR]: ... here.  Use it.
+	(tsubst_qualified_id): Consider that EXPR might be a variable
+	template.
+	* typeck.c (check_template_keyword): Don't emit an error
+	if DECL is a variable template.
+
+2016-02-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* error.c: Spelling fixes - behaviour -> behavior and
+	neighbour -> neighbor.
+	* decl.c: Likewise.
+	* typeck.c (cp_build_binary_op): Fix up behavior spelling in
+	diagnostics.
+	* init.c (build_delete): Likewise.
+
+2016-02-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/69768
+	* typeck.c (cp_build_binary_op): cp_fully_fold integer_zerop
+	arguments for -Waddress warning.  Fix up formatting.
+
+2016-02-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/68726
+	* pt.c (lookup_template_class_1): Check tsubst return value for
+	error_mark_node.
+
+2016-02-10  Jason Merrill  <jason@redhat.com>
+
+	PR c++/68926
+	* pt.c (resolve_nondeduced_context): Add complain parm.
+	(do_auto_deduction): Pass it.
+	* cvt.c (convert_to_void): Likewise.
+	* decl.c (cp_finish_decl): Likewise.
+	* init.c (build_new): Likewise.
+	* rtti.c (get_tinfo_decl_dynamic): Likewise.
+	* semantics.c (finish_decltype_type): Likewise.
+	* typeck.c (decay_conversion): Likewise.
+	* cp-tree.h: Adjust declaration.
+	* call.c (standard_conversion): Add complain parm, pass it along.
+	(implicit_conversion): Pass it.
+
+	PR c++/69657
+	* name-lookup.c (ambiguous_decl): Call remove_hidden_names.
+	(lookup_name_real_1): Likewise.
+	(remove_hidden_names): Handle non-functions too.
+
+	PR c++/10200
+	* parser.c (cp_parser_lookup_name): When looking for a template
+	after . or ->, only consider class templates.
+	(cp_parser_postfix_dot_deref_expression): Handle the current
+	instantiation.  Remember a dependent object expression.
+	* typeck2.c (build_x_arrow): Handle the current instantiation.
+
+	* ptree.c (debug_tree): Implement for cp_expr.
+
+2016-02-08  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/69139
+	* parser.c (cp_parser_simple_type_specifier): Make the check
+	for disambiguating between an 'auto' placeholder and an implicit
+	template parameter more robust.
+
+2016-02-08  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/69283
+	PR c++/67835
+	* decl2.c (mark_used): When given a TEMPLATE_DECL, return after
+	setting its TREE_USED flag.
+
+2016-02-08  Jason Merrill  <jason@redhat.com>
+
+	PR c++/69657
+	* name-lookup.c (do_nonmember_using_decl): Leave anticipated
+	built-ins alone.
+
+2016-02-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/59627
+	* parser.c (cp_parser_omp_declare_reduction): Set assembler name
+	of the DECL_OMP_DECLARE_REDUCTION_P decls.
+
+2016-02-08  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/69688
+	* constexpr.c (clear_cv_and_fold_caches): Renamed from clear_cv_cache.
+	Call clear_fold_cache.
+	* cp-tree.h: Adjust declaration.
+	* decl.c (finish_enum_value_list): Call clear_cv_and_fold_caches
+	rather than clear_cv_cache and clear_fold_cache.
+	* typeck2.c (store_init_value): Call clear_cv_and_fold_caches.
+
+2016-02-08  Jason Merrill  <jason@redhat.com>
+
+	* cp-tree.h (CONV_FOLD, CONV_BACKEND_CONVERT): New.
+	* cvt.c (convert): Pass CONV_BACKEND_CONVERT.
+	(ocp_convert): Use *_maybe_fold.
+	(cp_convert_to_pointer): Add dofold parameter.
+	* cp-gimplify.c (cp_fold) [CONVERT_EXPR]: Call convert.
+
+2016-02-05  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/69662
+	* init.c (find_field_init): New function.
+	(warn_placement_new_too_small): Call it.  Handle one-element arrays
+	at ends of structures special.
+
 2016-02-05  Jason Merrill  <jason@redhat.com>
 
 	PR c++/68948
