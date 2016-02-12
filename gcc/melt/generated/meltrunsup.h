@@ -1,4 +1,4 @@
-/** Copyright (C) 2015 Free Software Foundation, Inc.
+/** Copyright (C) 2016 Free Software Foundation, Inc.
   This generated file meltrunsup.h is part of GCC.
 
                   [DON'T EDIT THIS GENERATED FILE]
@@ -171,9 +171,9 @@ struct GTY (()) meltbasicblock_st   /* when MELTOBMAG_BASICBLOCK*/
     meltobject_ptr_t discr;
     basic_block val;
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 }; /* end of meltbasicblock_st */
 
 struct GTY (()) entrybasicblockmelt_st   /* for MELTOBMAG_MAPBASICBLOCKS*/
@@ -199,9 +199,9 @@ struct GTY (()) meltbitmap_st   /* when MELTOBMAG_BITMAP*/
     meltobject_ptr_t discr;
     bitmap val;
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 }; /* end of meltbitmap_st */
 
 struct GTY (()) entrybitmapmelt_st   /* for MELTOBMAG_MAPBITMAPS*/
@@ -227,9 +227,9 @@ struct GTY (()) meltedge_st   /* when MELTOBMAG_EDGE*/
     meltobject_ptr_t discr;
     edge val;
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 }; /* end of meltedge_st */
 
 struct GTY (()) entryedgemelt_st   /* for MELTOBMAG_MAPEDGES*/
@@ -253,16 +253,16 @@ struct GTY (()) meltmapedges_st   /* when MELTOBMAG_MAPEDGES*/
 struct GTY (()) meltgimple_st   /* when MELTOBMAG_GIMPLE*/
 {
     meltobject_ptr_t discr;
-    gimple val;
+    melt_gimpleptr_t val;
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 }; /* end of meltgimple_st */
 
 struct GTY (()) entrygimplemelt_st   /* for MELTOBMAG_MAPGIMPLES*/
 {
-    gimple e_at;
+    melt_gimpleptr_t e_at;
     melt_ptr_t e_va;
 };
 struct GTY (()) meltmapgimples_st   /* when MELTOBMAG_MAPGIMPLES*/
@@ -283,9 +283,9 @@ struct GTY (()) meltgimpleseq_st   /* when MELTOBMAG_GIMPLESEQ*/
     meltobject_ptr_t discr;
     gimple_seq val;
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 }; /* end of meltgimpleseq_st */
 
 struct GTY (()) entrygimpleseqmelt_st   /* for MELTOBMAG_MAPGIMPLESEQS*/
@@ -311,9 +311,9 @@ struct GTY (()) meltloop_st   /* when MELTOBMAG_LOOP*/
     meltobject_ptr_t discr;
     loop_p val;
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 }; /* end of meltloop_st */
 
 struct GTY (()) entryloopmelt_st   /* for MELTOBMAG_MAPLOOPS*/
@@ -339,9 +339,9 @@ struct GTY (()) meltrtvec_st   /* when MELTOBMAG_RTVEC*/
     meltobject_ptr_t discr;
     rtvec val;
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 }; /* end of meltrtvec_st */
 
 struct GTY (()) entryrtvecmelt_st   /* for MELTOBMAG_MAPRTVECS*/
@@ -367,9 +367,9 @@ struct GTY (()) meltrtx_st   /* when MELTOBMAG_RTX*/
     meltobject_ptr_t discr;
     rtx val;
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 }; /* end of meltrtx_st */
 
 struct GTY (()) entryrtxmelt_st   /* for MELTOBMAG_MAPRTXS*/
@@ -393,16 +393,16 @@ struct GTY (()) meltmaprtxs_st   /* when MELTOBMAG_MAPRTXS*/
 struct GTY (()) melttree_st   /* when MELTOBMAG_TREE*/
 {
     meltobject_ptr_t discr;
-    tree val;
+    melt_treeptr_t val;
     operator melt_ptr_t ()
-{
-    return reinterpret_cast<melt_ptr_t>(this);
-}
+    {
+        return reinterpret_cast<melt_ptr_t>(this);
+    }
 }; /* end of melttree_st */
 
 struct GTY (()) entrytreemelt_st   /* for MELTOBMAG_MAPTREES*/
 {
-    tree e_at;
+    melt_treeptr_t e_at;
     melt_ptr_t e_va;
 };
 struct GTY (()) meltmaptrees_st   /* when MELTOBMAG_MAPTREES*/
@@ -1373,9 +1373,9 @@ union meltparam_un /* generated union for MELT parameters */
 
     edge *meltbp_edgeptr; /*result param.*/
     /*ctype #6 CTYPE_GIMPLE*/
-    gimple meltbp_gimple; /*argument param.*/
+    melt_gimpleptr_t meltbp_gimple; /*argument param.*/
 
-    gimple *meltbp_gimpleptr; /*result param.*/
+    melt_gimpleptr_t *meltbp_gimpleptr; /*result param.*/
     /*ctype #7 CTYPE_GIMPLE_SEQ*/
     gimple_seq meltbp_gimpleseq; /*argument param.*/
 
@@ -1397,9 +1397,9 @@ union meltparam_un /* generated union for MELT parameters */
 
     rtx *meltbp_rtxptr; /*result param.*/
     /*ctype #12 CTYPE_TREE*/
-    tree meltbp_tree; /*argument param.*/
+    melt_treeptr_t meltbp_tree; /*argument param.*/
 
-    tree *meltbp_treeptr; /*result param.*/
+    melt_treeptr_t *meltbp_treeptr; /*result param.*/
     /*ctype #13 CTYPE_VALUE*/
     melt_ptr_t meltbp_vptr; /*argument param.*/
 
@@ -1455,14 +1455,14 @@ static inline edge melt_edge_content(melt_ptr_t box_p)
 } /* end generated melt_edge_content */
 
 /*runtypesupport gtyctype #4 CTYPE_GIMPLE*/
-melt_ptr_t meltgc_new_gimple(meltobject_ptr_t discr, gimple val);
-void meltgc_gimple_updatebox(melt_ptr_t boxp, gimple val);
+melt_ptr_t meltgc_new_gimple(meltobject_ptr_t discr, melt_gimpleptr_t val);
+void meltgc_gimple_updatebox(melt_ptr_t boxp, melt_gimpleptr_t val);
 
-static inline gimple melt_gimple_content(melt_ptr_t box_p)
+static inline melt_gimpleptr_t melt_gimple_content(melt_ptr_t box_p)
 {
     if (melt_magic_discr(box_p) == MELTOBMAG_GIMPLE)
         return ((struct meltgimple_st*)box_p)->val;
-    return (gimple)0;
+    return (melt_gimpleptr_t)0;
 } /* end generated melt_gimple_content */
 
 /*runtypesupport gtyctype #5 CTYPE_GIMPLE_SEQ*/
@@ -1510,14 +1510,14 @@ static inline rtx melt_rtx_content(melt_ptr_t box_p)
 } /* end generated melt_rtx_content */
 
 /*runtypesupport gtyctype #9 CTYPE_TREE*/
-melt_ptr_t meltgc_new_tree(meltobject_ptr_t discr, tree val);
-void meltgc_tree_updatebox(melt_ptr_t boxp, tree val);
+melt_ptr_t meltgc_new_tree(meltobject_ptr_t discr, melt_treeptr_t val);
+void meltgc_tree_updatebox(melt_ptr_t boxp, melt_treeptr_t val);
 
-static inline tree melt_tree_content(melt_ptr_t box_p)
+static inline melt_treeptr_t melt_tree_content(melt_ptr_t box_p)
 {
     if (melt_magic_discr(box_p) == MELTOBMAG_TREE)
         return ((struct melttree_st*)box_p)->val;
-    return (tree)0;
+    return (melt_treeptr_t)0;
 } /* end generated melt_tree_content */
 
 
@@ -1834,7 +1834,7 @@ static inline melt_ptr_t /*New map for CTYPE_GIMPLE*/ meltgc_new_mapgimples (mel
     return (melt_ptr_t) meltgc_raw_new_mappointers (discr, len) ;
 } /*end generated new map for CTYPE_GIMPLE */
 
-static inline melt_ptr_t /* Map getter for CTYPE_GIMPLE*/ melt_get_mapgimples (melt_ptr_t map_p, gimple attr)
+static inline melt_ptr_t /* Map getter for CTYPE_GIMPLE*/ melt_get_mapgimples (melt_ptr_t map_p, melt_gimpleptr_t attr)
 {
     if (!map_p || !attr
             || melt_magic_discr ((melt_ptr_t) map_p) != MELTOBMAG_MAPGIMPLES)
@@ -1842,14 +1842,14 @@ static inline melt_ptr_t /* Map getter for CTYPE_GIMPLE*/ melt_get_mapgimples (m
     return melt_raw_get_mappointers ((void*)map_p, (void*)attr);
 } /*end generated map getter for CTYPE_GIMPLE*/
 
-static inline void /* Map putter for CTYPE_GIMPLE*/ melt_put_mapgimples (melt_ptr_t map_p, gimple attr, melt_ptr_t valu_p)
+static inline void /* Map putter for CTYPE_GIMPLE*/ melt_put_mapgimples (melt_ptr_t map_p, melt_gimpleptr_t attr, melt_ptr_t valu_p)
 {
     if (!map_p || !attr || !valu_p
             || melt_magic_discr ((melt_ptr_t) map_p) != MELTOBMAG_MAPGIMPLES)
         return;
     meltgc_raw_put_mappointers ((void*)map_p, (void*)attr, valu_p);
 } /*end generated map putter for CTYPE_GIMPLE*/
-static inline void /* Map remover for CTYPE_GIMPLE*/ melt_remove_mapgimples (melt_ptr_t map_p, gimple attr)
+static inline void /* Map remover for CTYPE_GIMPLE*/ melt_remove_mapgimples (melt_ptr_t map_p, melt_gimpleptr_t attr)
 {
     if (!map_p || !attr
             || melt_magic_discr ((melt_ptr_t) map_p) != MELTOBMAG_MAPGIMPLES)
@@ -1870,9 +1870,9 @@ static inline unsigned /* Map size for CTYPE_GIMPLE*/ melt_size_mapgimples (stru
         return 0;
     return melt_primtab[map_s->lenix];
 } /*end generated map size for CTYPE_GIMPLE*/
-static inline gimple/* Map nth attr for CTYPE_GIMPLE*/ melt_nthattr_mapgimples (struct meltmapgimples_st* map_s, int ix)
+static inline melt_gimpleptr_t/* Map nth attr for CTYPE_GIMPLE*/ melt_nthattr_mapgimples (struct meltmapgimples_st* map_s, int ix)
 {
-    gimple at = 0;
+    melt_gimpleptr_t at = 0;
     if (!map_s
             || melt_magic_discr ((melt_ptr_t) map_s) != MELTOBMAG_MAPGIMPLES)
         return 0;
@@ -1882,7 +1882,7 @@ static inline gimple/* Map nth attr for CTYPE_GIMPLE*/ melt_nthattr_mapgimples (
 } /*end generated map nth attr for CTYPE_GIMPLE*/
 static inline melt_ptr_t /* Map nth value for CTYPE_GIMPLE*/ melt_nthval_mapgimples (struct meltmapgimples_st* map_s, int ix)
 {
-    gimple at = 0;
+    melt_gimpleptr_t at = 0;
     if (!map_s
             || melt_magic_discr ((melt_ptr_t) map_s) != MELTOBMAG_MAPGIMPLES)
         return 0;
@@ -2324,7 +2324,7 @@ static inline melt_ptr_t /*New map for CTYPE_TREE*/ meltgc_new_maptrees (meltobj
     return (melt_ptr_t) meltgc_raw_new_mappointers (discr, len) ;
 } /*end generated new map for CTYPE_TREE */
 
-static inline melt_ptr_t /* Map getter for CTYPE_TREE*/ melt_get_maptrees (melt_ptr_t map_p, tree attr)
+static inline melt_ptr_t /* Map getter for CTYPE_TREE*/ melt_get_maptrees (melt_ptr_t map_p, melt_treeptr_t attr)
 {
     if (!map_p || !attr
             || melt_magic_discr ((melt_ptr_t) map_p) != MELTOBMAG_MAPTREES)
@@ -2332,14 +2332,14 @@ static inline melt_ptr_t /* Map getter for CTYPE_TREE*/ melt_get_maptrees (melt_
     return melt_raw_get_mappointers ((void*)map_p, (void*)attr);
 } /*end generated map getter for CTYPE_TREE*/
 
-static inline void /* Map putter for CTYPE_TREE*/ melt_put_maptrees (melt_ptr_t map_p, tree attr, melt_ptr_t valu_p)
+static inline void /* Map putter for CTYPE_TREE*/ melt_put_maptrees (melt_ptr_t map_p, melt_treeptr_t attr, melt_ptr_t valu_p)
 {
     if (!map_p || !attr || !valu_p
             || melt_magic_discr ((melt_ptr_t) map_p) != MELTOBMAG_MAPTREES)
         return;
     meltgc_raw_put_mappointers ((void*)map_p, (void*)attr, valu_p);
 } /*end generated map putter for CTYPE_TREE*/
-static inline void /* Map remover for CTYPE_TREE*/ melt_remove_maptrees (melt_ptr_t map_p, tree attr)
+static inline void /* Map remover for CTYPE_TREE*/ melt_remove_maptrees (melt_ptr_t map_p, melt_treeptr_t attr)
 {
     if (!map_p || !attr
             || melt_magic_discr ((melt_ptr_t) map_p) != MELTOBMAG_MAPTREES)
@@ -2360,9 +2360,9 @@ static inline unsigned /* Map size for CTYPE_TREE*/ melt_size_maptrees (struct m
         return 0;
     return melt_primtab[map_s->lenix];
 } /*end generated map size for CTYPE_TREE*/
-static inline tree/* Map nth attr for CTYPE_TREE*/ melt_nthattr_maptrees (struct meltmaptrees_st* map_s, int ix)
+static inline melt_treeptr_t/* Map nth attr for CTYPE_TREE*/ melt_nthattr_maptrees (struct meltmaptrees_st* map_s, int ix)
 {
-    tree at = 0;
+    melt_treeptr_t at = 0;
     if (!map_s
             || melt_magic_discr ((melt_ptr_t) map_s) != MELTOBMAG_MAPTREES)
         return 0;
@@ -2372,7 +2372,7 @@ static inline tree/* Map nth attr for CTYPE_TREE*/ melt_nthattr_maptrees (struct
 } /*end generated map nth attr for CTYPE_TREE*/
 static inline melt_ptr_t /* Map nth value for CTYPE_TREE*/ melt_nthval_maptrees (struct meltmaptrees_st* map_s, int ix)
 {
-    tree at = 0;
+    melt_treeptr_t at = 0;
     if (!map_s
             || melt_magic_discr ((melt_ptr_t) map_s) != MELTOBMAG_MAPTREES)
         return 0;
@@ -2722,10 +2722,10 @@ MELT_EXTERN void melthookproc_HOOK_EARLY_GIMPLE_PASSES_START();
 MELT_EXTERN void melthookproc_HOOK_EXIT_FINALIZER();
 
 /*predefined hook declaration HOOK_FINISH_DECL #119*/
-MELT_EXTERN void melthookproc_HOOK_FINISH_DECL(tree meltin_TFNDECL_p0);
+MELT_EXTERN void melthookproc_HOOK_FINISH_DECL(melt_treeptr_t meltin_TFNDECL_p0);
 
 /*predefined hook declaration HOOK_FINISH_TYPE #120*/
-MELT_EXTERN void melthookproc_HOOK_FINISH_TYPE(tree meltin_TFNDECL_p0);
+MELT_EXTERN void melthookproc_HOOK_FINISH_TYPE(melt_treeptr_t meltin_TFNDECL_p0);
 
 /*predefined hook declaration HOOK_FINISH_UNIT #121*/
 MELT_EXTERN void melthookproc_HOOK_FINISH_UNIT();
@@ -2740,7 +2740,7 @@ MELT_EXTERN long melthookproc_HOOK_GIMPLE_EXECUTE();
 MELT_EXTERN long melthookproc_HOOK_GIMPLE_GATE();
 
 /*predefined hook declaration HOOK_HANDLE_ATTRIBUTE #125*/
-MELT_EXTERN tree melthookproc_HOOK_HANDLE_ATTRIBUTE(tree meltin_TR_IN_NODE_p0, tree meltin_TR_NAME_p1, tree meltin_TR_ARGS_p2, long meltin_FLAGS_p3, tree* meltout_TR_OUT_NODE_o0, long* meltout_OUT_NO_ADD_ATTRS_o1);
+MELT_EXTERN melt_treeptr_t melthookproc_HOOK_HANDLE_ATTRIBUTE(melt_treeptr_t meltin_TR_IN_NODE_p0, melt_treeptr_t meltin_TR_NAME_p1, melt_treeptr_t meltin_TR_ARGS_p2, long meltin_FLAGS_p3, melt_treeptr_t* meltout_TR_OUT_NODE_o0, long* meltout_OUT_NO_ADD_ATTRS_o1);
 
 /*predefined hook declaration HOOK_HANDLE_SIGALRM #126*/
 MELT_EXTERN void melthookproc_HOOK_HANDLE_SIGALRM();
@@ -2797,7 +2797,7 @@ MELT_EXTERN void melthookproc_HOOK_PATMACRO_EXPORTER(melt_ptr_t meltin_SYM_p0, m
 MELT_EXTERN void melthookproc_HOOK_POLL_INPUTS(long meltin_DELAYMS_p0);
 
 /*predefined hook declaration HOOK_PRE_GENERICIZE #144*/
-MELT_EXTERN void melthookproc_HOOK_PRE_GENERICIZE(tree meltin_TFNDECL_p0);
+MELT_EXTERN void melthookproc_HOOK_PRE_GENERICIZE(melt_treeptr_t meltin_TFNDECL_p0);
 
 /*predefined hook declaration HOOK_PROCESS_PRAGMA #145*/
 MELT_EXTERN void melthookproc_HOOK_PROCESS_PRAGMA(long meltin_LIX_p0);
@@ -2827,5 +2827,5 @@ MELT_EXTERN melt_ptr_t melthookproc_HOOK_SYMBOL_IMPORTER(const char* meltin_SYMN
 MELT_EXTERN void melthookproc_HOOK_VALUE_EXPORTER(melt_ptr_t meltin_SYM_p0, melt_ptr_t meltin_VAL_p1, melt_ptr_t meltin_CONTENV_p2);
 /* end of declarations generated by generate_runtypesupport_predefined_hooks for 161 predefined */
 
-/*** End of declaration file meltbuild-sources/generated/meltrunsup.h generated on 2015 Jun 12
- * by GCC MELT 6.0.0 20150415 (experimental) [melt-branch revision 224408] MELT_1.2-pre-merged . ***/
+/*** End of declaration file meltbuild-sources/generated/meltrunsup.h generated on 2016 Feb 12
+ * by GCC MELT 6.0.0 20150919 (experimental) [melt-branch revision 233370] MELT_1.3.pre . ***/
