@@ -1,6 +1,3 @@
-# 2014/03/29 merge from trunk
-FAIL: 23_containers/map/pthread6.cc execution test
-
 # Google b/13175515 -- r208255 disabled self-assign in templates.
 FAIL: g++.dg/warn/Wself-assign-non-pod-3.C -std=gnu++98  (test for warnings, line 30)
 FAIL: g++.dg/warn/Wself-assign-non-pod-3.C -std=gnu++11  (test for warnings, line 30)
@@ -18,19 +15,13 @@ FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 20)
 FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 21)
 FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 22)
 
-# http://gcc.gnu.org/bugzilla/show_bug.cgi?id=60037
-FAIL: ext/random/hypergeometric_distribution/operators/values.cc execution test
-
 # Google b/20184248
 FAIL: 17_intro/headers/c++1998/complex.cc (test for excess errors)
 FAIL: 26_numerics/complex/c99.cc (test for excess errors)
 
-# Google b/14137212
-FAIL: 29_atomics/atomic/cons/user_pod.cc (test for excess errors)
-
-# Google b/14140971
-FAIL: 29_atomics/atomic_flag/test_and_set/explicit-hle.cc scan-assembler-times xacquire|.byte[^\n\r]*0xf2 14
-FAIL: 29_atomics/atomic_flag/test_and_set/explicit-hle.cc scan-assembler-times xrelease|.byte[^\n\r]*0xf3 14
+# Google b/14140971.  Flaky because these only occur in some test configurations.
+flaky | FAIL: 29_atomics/atomic_flag/test_and_set/explicit-hle.cc scan-assembler-times xacquire|.byte[^\n\r]*0xf2 14
+flaky | FAIL: 29_atomics/atomic_flag/test_and_set/explicit-hle.cc scan-assembler-times xrelease|.byte[^\n\r]*0xf3 14
 
 # Google b/4094190: we disable libquadmath support, causing these failures:
 FAIL: gfortran.dg/erf_3.F90 -O0  execution test
@@ -49,3 +40,7 @@ flaky | FAIL: g++.dg/tls/thread_local4g.C -std=gnu++11 execution test
 flaky | FAIL: g++.dg/tls/thread_local4g.C -std=gnu++1y execution test
 flaky | FAIL: g++.dg/tls/thread_local4.C -std=gnu++11 execution test
 flaky | FAIL: g++.dg/tls/thread_local4.C -std=gnu++1y execution test
+
+# Sporadic OOMs in nightly testing.
+flaky | FAIL: libgomp.c++/cancel-parallel-2.C execution test
+flaky | FAIL: libgomp.c/cancel-parallel-2.c execution test
