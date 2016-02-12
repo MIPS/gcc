@@ -1,3 +1,112 @@
+2016-02-10  Jason Merrill  <jason@redhat.com>
+
+	PR c++/68926
+	* pt.c (resolve_nondeduced_context): Add complain parm.
+	(do_auto_deduction): Pass it.
+	* cvt.c (convert_to_void): Likewise.
+	* decl.c (cp_finish_decl): Likewise.
+	* init.c (build_new): Likewise.
+	* rtti.c (get_tinfo_decl_dynamic): Likewise.
+	* semantics.c (finish_decltype_type): Likewise.
+	* typeck.c (decay_conversion): Likewise.
+	* cp-tree.h: Adjust declaration.
+	* call.c (standard_conversion): Add complain parm, pass it along.
+	(implicit_conversion): Pass it.
+
+2016-02-10  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2016-02-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/59627
+	* parser.c (cp_parser_omp_declare_reduction): Set assembler name
+	of the DECL_OMP_DECLARE_REDUCTION_P decls.
+
+2016-01-31  Jason Merrill  <jason@redhat.com>
+
+	PR c++/69009
+	* pt.c (partial_specialization_p, impartial_args): New.
+	(instantiate_decl): Call impartial_args.
+
+2016-01-27  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2016-01-27  Marek Polacek  <polacek@redhat.com>
+
+	PR c/68062
+	* typeck.c (cp_build_binary_op): Promote operand to unsigned, if
+	needed.  Add -Wsign-compare warning.
+
+2016-01-27  Jason Merrill  <jason@redhat.com>
+
+	PR c++/68949
+	* optimize.c (maybe_clone_body): Clear DECL_SAVED_TREE of the alias.
+	* semantics.c (expand_or_defer_fn_1): Keep DECL_SAVED_TREE of
+	maybe-in-charge *tor.
+
+	PR c++/69131
+	* method.c (walk_field_subobs): Add dtor_from_ctor parm.
+	(process_subob_fn): Likewise.  Don't consider triviality if true.
+	(synthesize_method_walk): Pass it.
+
+2016-01-19  Marek Polacek  <polacek@redhat.com>
+
+	Backported from mainline
+	2016-01-19  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/68965
+	* pt.c (tsubst_copy): Mark elements in expanded vector as used.
+
+2016-01-08  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/68449
+	* constexpr.c (cxx_eval_constant_expression): Handle NULL initializer.
+
+2016-01-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/68983
+	PR c++/67557
+	* call.c (unsafe_copy_elision_p): Look through COMPOUND_EXPR.
+
+2015-12-22  Jason Merrill  <jason@redhat.com>
+
+	PR c++/66921
+	* decl.c (cp_complete_array_type): Allow an initializer that
+	already has array type.
+
+	PR c++/67339
+	* parser.c (cp_parser_elaborated_type_specifier): Use CLASS_TYPE_P
+	rather than check for RECORD_TYPE.
+
+2015-12-20  Jason Merrill  <jason@redhat.com>
+
+	PR c++/67411
+	* decl2.c (decl_maybe_constant_var_p): Use DECL_HAS_VALUE_EXPR_P.
+
+	PR c++/67411
+	* decl2.c (decl_maybe_constant_var_p): A proxy isn't constant.
+
+2015-12-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/67550
+	* init.c (constant_value_1): Don't return a CONSTRUCTOR missing
+	non-constant elements.
+
+	PR c++/67576
+	PR c++/25466
+	* rtti.c (build_typeid): Use save_expr, not stabilize_reference.
+
+2015-12-16  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/68162
+	* tree.c (c_build_qualified_type): Add extra arguments.
+
+2015-12-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/63628
+	* pt.c (tsubst_pack_expansion): Also make dummy decls if
+	retrieve_local_specialization fails.
+
 2015-12-04  Markus Trippelsdorf  <markus@trippelsdorf.de>
 
 	PR c++/67337
