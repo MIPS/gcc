@@ -287,4 +287,5 @@ AM_CONDITIONAL([ARCH_X86_AVX], [test "$libitm_cv_as_avx" = yes])
 AM_CONDITIONAL([ARCH_FUTEX], [test $enable_linux_futex = yes])
 
 AC_CONFIG_FILES(Makefile testsuite/Makefile libitm.spec)
+AC_CONFIG_FILES(testsuite/itmconfig.exp)
 AC_OUTPUT

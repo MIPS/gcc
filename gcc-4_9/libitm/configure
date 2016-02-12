@@ -17633,6 +17633,8 @@ fi
 
 ac_config_files="$ac_config_files Makefile testsuite/Makefile libitm.spec"
 
+ac_config_files="$ac_config_files testsuite/itmconfig.exp"
+
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
 # tests run on this system so they can be shared between configure
@@ -18794,6 +18796,7 @@ do
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "testsuite/Makefile") CONFIG_FILES="$CONFIG_FILES testsuite/Makefile" ;;
     "libitm.spec") CONFIG_FILES="$CONFIG_FILES libitm.spec" ;;
+    "testsuite/itmconfig.exp") CONFIG_FILES="$CONFIG_FILES testsuite/itmconfig.exp" ;;
 
   *) as_fn_error "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac
