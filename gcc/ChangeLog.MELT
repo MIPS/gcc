@@ -1,10 +1,14 @@
 
 2016-02-12   Basile Starynkevitch  <basile@starynkevitch.net>
+	* Makefile.in (MELT_H): Order of header files matter
+
+2016-02-12   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{ preparing for GCC 6 svn rev227941 change where gimple is no
 	more a pointer, but a class... See
 	https://gcc.gnu.org/ml/gcc/2016-02/msg00149.html for more}}
 	* melt-runtime.h (melt_treeptr_t, melt_gimpleptr_t):
 	New typedefs.
+	(MELT_VERSION_STRING): Bump to 1.3.pre
 	* melt/warmelt-first.melt (ctype_tree, ctype_gimple):
 	Use them.
 

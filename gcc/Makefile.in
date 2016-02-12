@@ -1545,10 +1545,10 @@ BACKEND = libbackend.a main.o libcommon-target.a libcommon.a \
 	$(CPPLIB) $(LIBDECNUMBER)
 
 
-## now we always have MELT enabled
-MELT_H= $(srcdir)/melt/generated/meltrunsup.h \
-    $(srcdir)/melt-runtime.h \
-    melt-predef.h 
+## now we always have MELT enabled; the order of header files below matters
+MELT_H=  $(srcdir)/melt-runtime.h \
+	 $(srcdir)/melt/generated/meltrunsup.h \
+         melt-predef.h 
 
 MELT_RUNTIME_CC= $(srcdir)/melt-runtime.cc
 #### end of MELT things
