@@ -47,6 +47,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "demangle.h"
 #include "langhooks.h"
 #include "bitmap.h"
+#include "print-tree.h" // for debug_tree 
+#include "tree-pretty-print.h" // for print_generic_expr 
+#include "gimple-ssa.h"
+#include "gimple-pretty-print.h" //for print_gimple_stmt
+#include "dumpfile.h"
 
 
 /* All the tuples have their operand vector (if present) at the very bottom
@@ -1998,6 +2003,149 @@ canonicalize_cond_expr_cond (tree t)
   return NULL_TREE;
 }
 
+/* Strip TYPE tree from pointers and arrays.  */
+
+static inline tree
+strip_type (tree type)
+{
+  gcc_assert (TYPE_P (type));
+
+  while (POINTER_TYPE_P (type)
+	 || TREE_CODE (type) == ARRAY_TYPE)
+    type = TREE_TYPE (type);
+
+  return  type;
+}
+
+/* This structure is used to represent array of
+   wrappers of structure type. For example, if type1 
+   is structure type, then for type1 ** we generate 
+   two type_wrapper structures with wrap = 0 each one.
+   It's used to unwind the original type up to
+   structure type, replace it with the new structure type
+   and wrap it back in the opposite order.  */
+
+typedef struct type_wrapper
+{
+  /* 0 stand for pointer wrapper, and 1 for array wrapper.  */
+  bool wrap;
+
+  /* Relevant for arrays as domain or index.  */
+  tree domain;
+}type_wrapper_t;
+
+/* This function wraps NEW_TYPE in pointers or arrays wrapper
+   in the same way it was wraped in ORIG_TYPE.
+   It returns the generated type.  */
+
+static inline tree
+wrap_new_type (tree orig_type, tree new_type)
+{
+  tree otype = orig_type;
+  tree ntype = new_type;
+  vec<type_wrapper_t> wrapper;
+  type_wrapper_t wr;
+
+  wrapper.create (10); 
+  while (POINTER_TYPE_P (otype)
+	 || TREE_CODE (otype) == ARRAY_TYPE)
+    {
+      if (POINTER_TYPE_P (otype))
+	{
+	  //pointers_count++;
+	  wr.wrap = 0;
+	  wr.domain = NULL_TREE;
+	}
+      else
+	{
+	  gcc_assert (TREE_CODE (otype) == ARRAY_TYPE);
+	  wr.wrap = 1;
+	  wr.domain = TYPE_DOMAIN (otype);
+	}
+      wrapper.safe_push (wr);
+      otype = TREE_TYPE (otype);
+    }
+
+  while (!wrapper.is_empty ())
+    {
+      wr = wrapper.last ();
+
+      if (wr.wrap) /* Array.  */
+	{
+	  ntype = build_array_type (ntype, wr.domain);
+	}
+      else /* Pointer.  */
+	{
+	  if (TREE_CODE (ntype) == RECORD_TYPE)
+	    ntype = build_pointer_type (ntype);
+	  else
+	    {	      
+	      //if (--pointers_count)
+		ntype = build_pointer_type (ntype);
+	    }
+	}
+      wrapper.pop ();
+    }
+
+  wrapper.release ();
+  return ntype;
+}
+
+
+/* This function generates stmt of the type equal 
+   to the type of FDECL like: tmp = arg->a, 
+   where ARG is of record type (or of its derivation type)
+   and <a> is ARG field defined by FDECL. It returns tmp.  */
+
+static tree
+gen_new_actual_param (tree fdecl, tree arg, gimple stmt)
+{
+  tree type = TREE_TYPE (fdecl);
+  tree ntype;
+  tree lhs, rhs;
+  gimple nstmt;
+  gimple_stmt_iterator bsi;
+  tree var = arg;
+
+
+  /* Create temporary variable for left hand side of new stmt.  */
+  //debug_tree (arg);	
+  ntype = wrap_new_type (TREE_TYPE (arg), type);
+  lhs = create_tmp_var (ntype, "tmp");
+  fprintf (stderr, "\nCODE = %s\n", get_tree_code_name (TREE_CODE (arg)));
+
+  if (TREE_CODE (var) == SSA_NAME || TREE_CODE (var) == VAR_DECL)
+      {
+	tree var_type = TREE_TYPE (var);
+	int i = 0;
+
+	while (POINTER_TYPE_P (var_type))
+	  {	  
+	    var = build_simple_mem_ref (var);
+	    var_type = TREE_TYPE (var_type);
+	    i++;
+	  }
+	gcc_assert (TREE_CODE (var_type) == RECORD_TYPE);
+	rhs = build3 (COMPONENT_REF, type, var, fdecl, NULL_TREE);
+	while (i)
+	  {
+	    tree t = build_pointer_type (TREE_TYPE (rhs));
+	    rhs = build1 (ADDR_EXPR, t, rhs);
+	    i--;
+	  }
+	print_generic_expr (stderr, rhs, 0);
+	gcc_assert (TREE_TYPE (lhs) == TREE_TYPE (rhs));
+	nstmt = gimple_build_assign (lhs, rhs);
+	update_stmt (nstmt);
+	print_gimple_stmt (stderr, nstmt, 0, TDF_VOPS);
+
+	bsi = gsi_for_stmt (stmt);
+	gsi_insert_before (&bsi, nstmt, GSI_SAME_STMT);
+
+      }
+  return lhs;
+}
+
 /* Build a GIMPLE_CALL identical to STMT but skipping the arguments in
    the positions marked by the set ARGS_TO_SKIP.  */
 
@@ -2013,7 +2161,7 @@ gimple_call_copy_skip_args (gimple stmt, vec<bitmap, va_gc> *args_to_skip,
   auto_vec<tree> *nvargs;
   auto_vec<tree> *tvargs;
   gimple new_stmt;
-  int nargs_skip, nargs_decomp; 
+  int nargs_skip, nargs_decomp;
 
   nargs_skip = vec_safe_length (args_to_skip);
   nargs_decomp = vec_safe_length (args_to_decomp);
@@ -2034,7 +2182,18 @@ gimple_call_copy_skip_args (gimple stmt, vec<bitmap, va_gc> *args_to_skip,
       for (i = 0; i < (int)ovargs->length (); i++)
 	{
 	  if (bitmap_bit_p (decomp, i))
-	    {	      
+	    {
+	      tree arg = (*ovargs)[i];
+	      tree stype = strip_type (TREE_TYPE (arg));
+	      tree t, new_parm;
+
+	      gcc_assert (TREE_CODE (stype) == RECORD_TYPE);
+	      for (t = TYPE_FIELDS (stype); t; t = TREE_CHAIN (t))
+		{
+		  new_parm = gen_new_actual_param (t, arg, stmt);
+		  nvargs->safe_push (new_parm); 
+		}
+
 	      //TBD nvargs->safe_push (new element);
 	    }
 	  if (!bitmap_bit_p (skip, i))
