@@ -992,6 +992,7 @@ struct mips_cpu_info {
    ST Loongson 2E/2F.  */
 #define ISA_HAS_CONDMOVE        (ISA_HAS_FP_CONDMOVE			\
 				 || TARGET_MIPS5900			\
+				 || ISA_HAS_MIPS16E2			\
 				 || TARGET_LOONGSON_2EF)
 
 /* ISA has LDC1 and SDC1.  */
@@ -1144,7 +1145,7 @@ struct mips_cpu_info {
 				 && !TARGET_MIPS16)
 
 /* ISA has data prefetch with limited 9-bit displacement.  */
-#define ISA_HAS_PREF_LL_9BIT	(mips_isa_rev >= 6)
+#define ISA_HAS_PREF_LL_9BIT	(mips_isa_rev >= 6 || ISA_HAS_MIPS16E2)
 
 /* ISA has data indexed prefetch instructions.  This controls use of
    'prefx', along with TARGET_HARD_FLOAT and TARGET_DOUBLE_FLOAT.
