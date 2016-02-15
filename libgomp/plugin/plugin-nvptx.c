@@ -694,10 +694,6 @@ nvptx_open_device (int n)
 
   init_streams_for_device (ptx_dev, async_engines);
 
-  r = cuCtxSetLimit (CU_LIMIT_MALLOC_HEAP_SIZE, 1<<30);
-  if (r != CUDA_SUCCESS)
-    GOMP_PLUGIN_fatal ("cuCtxSetLimit error: %s", cuda_error (r));
-
   return ptx_dev;
 }
 

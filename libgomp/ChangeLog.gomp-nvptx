@@ -1,5 +1,12 @@
 2016-02-15  Alexander Monakov  <amonakov@ispras.ru>
 
+	Revert
+	2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
+
+	* plugin/plugin-nvptx.c (nvptx_open_device): Adjust heap size.
+
+2016-02-15  Alexander Monakov  <amonakov@ispras.ru>
+
 	* plugin/plugin-nvptx.c (nvptx_adjust_launch_bounds): Adjust types.
 	(GOMP_OFFLOAD_run): Ditto.
 
