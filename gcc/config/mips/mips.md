@@ -3246,9 +3246,9 @@
    (set_attr "mode" "<MODE>")])
 
 (define_insn "*and<mode>3_mips16"
-  [(set (match_operand:GPR 0 "register_operand" "=d,d,d,d,d,d,d")
-	(and:GPR (match_operand:GPR 1 "nonimmediate_operand" "%W,W,W,d,0,d,0")
-		 (match_operand:GPR 2 "and_operand" "Yb,Yh,Yw,Yw,d,Yx,Yz")))]
+  [(set (match_operand:GPR 0 "register_operand" "=d,d,d,d,d,d,d,d")
+	(and:GPR (match_operand:GPR 1 "nonimmediate_operand" "%W,W,W,d,0,d,0,0?")
+		 (match_operand:GPR 2 "and_operand" "Yb,Yh,Yw,Yw,d,Yx,Yz,K")))]
   "TARGET_MIPS16 && and_operands_ok (<MODE>mode, operands[1], operands[2])"
 {
   int len;
@@ -3278,12 +3278,20 @@
       operands[1] = GEN_INT (pos);
       operands[2] = GEN_INT (len);
       return "ins\t%0,$0,%1,%2";
+    case 7:
+      return "andi\t%0,%x2";
     default:
       gcc_unreachable ();
     }
 }
-  [(set_attr "move_type" "load,load,load,shift_shift,logical,ext_ins,ext_ins")
-   (set_attr "mode" "<MODE>")])
+  [(set_attr "move_type" "load,load,load,shift_shift,logical,ext_ins,ext_ins,andi")
+   (set_attr "mode" "<MODE>")
+   (set_attr "extended_mips16" "no,no,no,no,no,yes,yes,yes")
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "7")
+		    (not (match_test "ISA_HAS_MIPS16E2")))
+		  (const_string "no")]
+	      (const_string "yes")))])
 
 (define_expand "ior<mode>3"
   [(set (match_operand:GPR 0 "register_operand")
@@ -3349,19 +3357,31 @@
    (set_attr "compression" "micromips,*,*")
    (set_attr "mode" "<MODE>")])
 
+;; We increase statically the cost of the output register for XORI
+;; to counterweight LRA cost calculation as XORI tends to be chosen
+;; frequently hurting the code size.  The reason of not choosing CMPI is
+;; that LRA tends to add up the cost of the T register as it is in a small
+;; class and a possible reload.  In reality, the use of T register comes for
+;; free in a number of cases as we don't need any MIPS16 registers.
 (define_insn "*xor<mode>3_mips16"
-  [(set (match_operand:GPR 0 "register_operand" "=d,t,t,t")
-	(xor:GPR (match_operand:GPR 1 "register_operand" "%0,d,d,d")
-		 (match_operand:GPR 2 "uns_arith_operand" "d,Uub8,K,d")))]
+  [(set (match_operand:GPR 0 "register_operand" "=d,t,t,t,d?")
+	(xor:GPR (match_operand:GPR 1 "register_operand" "%0,d,d,d,0")
+		 (match_operand:GPR 2 "uns_arith_operand" "d,Uub8,K,d,K")))]
   "TARGET_MIPS16"
   "@
    xor\t%0,%2
    cmpi\t%1,%2
    cmpi\t%1,%2
-   cmp\t%1,%2"
+   cmp\t%1,%2
+   xori\t%0,%x2"
   [(set_attr "alu_type" "xor")
    (set_attr "mode" "<MODE>")
-   (set_attr "extended_mips16" "no,no,yes,no")])
+   (set_attr "extended_mips16" "no,no,yes,no,yes")
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "4")
+		    (not (match_test "ISA_HAS_MIPS16E2")))
+		  (const_string "no")]
+	      (const_string "yes")))])
 
 (define_insn "*nor<mode>3"
   [(set (match_operand:GPR 0 "register_operand" "=d")
@@ -4154,7 +4174,7 @@
 	(sign_extract:GPR (match_operand:BLK 1 "memory_operand")
 			  (match_operand 2 "const_int_operand")
 			  (match_operand 3 "const_int_operand")))]
-  "ISA_HAS_LWL_LWR"
+  "ISA_HAS_LWL_LWR || ISA_HAS_MIPS16E2"
 {
   if (mips_expand_ext_as_unaligned_load (operands[0], operands[1],
 					 INTVAL (operands[2]),
@@ -4191,7 +4211,7 @@
 	(zero_extract:GPR (match_operand:BLK 1 "memory_operand")
 			  (match_operand 2 "const_int_operand")
 			  (match_operand 3 "const_int_operand")))]
-  "ISA_HAS_LWL_LWR"
+  "ISA_HAS_LWL_LWR || ISA_HAS_MIPS16E2"
 {
   if (mips_expand_ext_as_unaligned_load (operands[0], operands[1],
 					 INTVAL (operands[2]),
@@ -4243,7 +4263,7 @@
 			  (match_operand 1 "const_int_operand")
 			  (match_operand 2 "const_int_operand"))
 	(match_operand:GPR 3 "reg_or_0_operand"))]
-  "ISA_HAS_LWL_LWR"
+  "ISA_HAS_LWL_LWR || ISA_HAS_MIPS16E2"
 {
   if (mips_expand_ins_as_unaligned_store (operands[0], operands[3],
 					  INTVAL (operands[1]),
@@ -4316,10 +4336,15 @@
 	(unspec:GPR [(match_operand:BLK 1 "memory_operand" "m")
 		     (match_operand:QI 2 "memory_operand" "ZC")]
 		    UNSPEC_LOAD_LEFT))]
-  "!TARGET_MIPS16 && mips_mem_fits_mode_p (<MODE>mode, operands[1])"
+  "(!TARGET_MIPS16 || ISA_HAS_MIPS16E2)
+   && mips_mem_fits_mode_p (<MODE>mode, operands[1])"
   "<load>l\t%0,%2"
   [(set_attr "move_type" "load")
-   (set_attr "mode" "<MODE>")])
+   (set_attr "mode" "<MODE>")
+   (set (attr "extended_mips16")
+	(cond [(match_test "TARGET_MIPS16")
+	       (const_string "yes")]
+	      (const_string "no")))])
 
 (define_insn "mov_<load>r"
   [(set (match_operand:GPR 0 "register_operand" "=d")
@@ -4327,20 +4352,30 @@
 		     (match_operand:QI 2 "memory_operand" "ZC")
 		     (match_operand:GPR 3 "register_operand" "0")]
 		    UNSPEC_LOAD_RIGHT))]
-  "!TARGET_MIPS16 && mips_mem_fits_mode_p (<MODE>mode, operands[1])"
+  "(!TARGET_MIPS16 || ISA_HAS_MIPS16E2)
+   && mips_mem_fits_mode_p (<MODE>mode, operands[1])"
   "<load>r\t%0,%2"
   [(set_attr "move_type" "load")
-   (set_attr "mode" "<MODE>")])
+   (set_attr "mode" "<MODE>")
+   (set (attr "extended_mips16")
+	(cond [(match_test "TARGET_MIPS16")
+	       (const_string "yes")]
+	      (const_string "no")))])
 
 (define_insn "mov_<store>l"
   [(set (match_operand:BLK 0 "memory_operand" "=m")
 	(unspec:BLK [(match_operand:GPR 1 "reg_or_0_operand" "dJ")
 		     (match_operand:QI 2 "memory_operand" "ZC")]
 		    UNSPEC_STORE_LEFT))]
-  "!TARGET_MIPS16 && mips_mem_fits_mode_p (<MODE>mode, operands[0])"
+  "(!TARGET_MIPS16 || ISA_HAS_MIPS16E2)
+   && mips_mem_fits_mode_p (<MODE>mode, operands[0])"
   "<store>l\t%z1,%2"
   [(set_attr "move_type" "store")
-   (set_attr "mode" "<MODE>")])
+   (set_attr "mode" "<MODE>")
+   (set (attr "extended_mips16")
+	(cond [(match_test "TARGET_MIPS16")
+	       (const_string "yes")]
+	      (const_string "no")))])
 
 (define_insn "mov_<store>r"
   [(set (match_operand:BLK 0 "memory_operand" "+m")
@@ -4348,10 +4383,15 @@
 		     (match_operand:QI 2 "memory_operand" "ZC")
 		     (match_dup 0)]
 		    UNSPEC_STORE_RIGHT))]
-  "!TARGET_MIPS16 && mips_mem_fits_mode_p (<MODE>mode, operands[0])"
+  "(!TARGET_MIPS16 || ISA_HAS_MIPS16E2)
+   && mips_mem_fits_mode_p (<MODE>mode, operands[0])"
   "<store>r\t%z1,%2"
   [(set_attr "move_type" "store")
-   (set_attr "mode" "<MODE>")])
+   (set_attr "mode" "<MODE>")
+   (set (attr "extended_mips16")
+	(cond [(match_test "TARGET_MIPS16")
+	       (const_string "yes")]
+	      (const_string "no")))])
 
 ;; An instruction to calculate the high part of a 64-bit SYMBOL_ABSOLUTE.
 ;; The required value is:
@@ -7399,25 +7439,59 @@
 		 (const_int 0)])
 	 (match_operand:GPR 2 "reg_or_0_operand" "dJ,0")
 	 (match_operand:GPR 3 "reg_or_0_operand" "0,dJ")))]
-  "ISA_HAS_CONDMOVE"
+  "!TARGET_MIPS16 && ISA_HAS_CONDMOVE"
   "@
     mov%T4\t%0,%z2,%1
     mov%t4\t%0,%z3,%1"
   [(set_attr "type" "condmove")
    (set_attr "mode" "<GPR:MODE>")])
 
+(define_insn "*mov<GPR:mode>_on_<MOVECC:mode>_mips16e2"
+  [(set (match_operand:GPR 0 "register_operand" "=d,d,d,d")
+	(if_then_else:GPR
+	 (match_operator 4 "equality_operator"
+		[(match_operand:MOVECC 1 "register_operand" "<MOVECC:reg>,<MOVECC:reg>,t,t")
+		 (const_int 0)])
+	 (match_operand:GPR 2 "reg_or_0_operand_mips16e2" "dJ,0,dJ,0")
+	 (match_operand:GPR 3 "reg_or_0_operand_mips16e2" "0,dJ,0,dJ")))]
+  "ISA_HAS_CONDMOVE"
+  "@
+    mov%T4\t%0,%z2,%1
+    mov%t4\t%0,%z3,%1
+    movt%T4\t%0,%z2
+    movt%t4\t%0,%z3"
+  [(set_attr "type" "condmove")
+   (set_attr "mode" "<GPR:MODE>")
+   (set_attr "extended_mips16" "yes")])
+
 (define_insn "*mov<GPR:mode>_on_<GPR2:mode>_ne"
   [(set (match_operand:GPR 0 "register_operand" "=d,d")
-       (if_then_else:GPR
-        (match_operand:GPR2 1 "register_operand" "<GPR2:reg>,<GPR2:reg>")
-        (match_operand:GPR 2 "reg_or_0_operand" "dJ,0")
-        (match_operand:GPR 3 "reg_or_0_operand" "0,dJ")))]
-  "ISA_HAS_CONDMOVE"
+	(if_then_else:GPR
+	 (match_operand:GPR2 1 "register_operand" "<GPR2:reg>,<GPR2:reg>")
+	 (match_operand:GPR 2 "reg_or_0_operand" "dJ,0")
+	 (match_operand:GPR 3 "reg_or_0_operand" "0,dJ")))]
+  "!TARGET_MIPS16 && ISA_HAS_CONDMOVE"
   "@
     movn\t%0,%z2,%1
     movz\t%0,%z3,%1"
   [(set_attr "type" "condmove")
    (set_attr "mode" "<GPR:MODE>")])
+
+(define_insn "*mov<GPR:mode>_on_<GPR2:mode>_ne_mips16e2"
+  [(set (match_operand:GPR 0 "register_operand" "=d,d,d,d")
+       (if_then_else:GPR
+	(match_operand:GPR2 1 "register_operand" "<GPR2:reg>,<GPR2:reg>,t,t")
+	(match_operand:GPR 2 "reg_or_0_operand_mips16e2" "dJ,0,dJ,0")
+	(match_operand:GPR 3 "reg_or_0_operand_mips16e2" "0,dJ,0,dJ")))]
+  "ISA_HAS_CONDMOVE"
+  "@
+    movn\t%0,%z2,%1
+    movz\t%0,%z3,%1
+    movtn\t%0,%z2
+    movtz\t%0,%z3"
+  [(set_attr "type" "condmove")
+   (set_attr "mode" "<GPR:MODE>")
+   (set_attr "extended_mips16" "yes")])
 
 (define_insn "*mov<SCALARF:mode>_on_<MOVECC:mode>"
   [(set (match_operand:SCALARF 0 "register_operand" "=f,f")
