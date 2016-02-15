@@ -1,5 +1,10 @@
 2016-02-15  Alexander Monakov  <amonakov@ispras.ru>
 
+	* config/nvptx/team.c: (gomp_nvptx_main_1): Rename back to...
+	(gomp_nvptx_main): ...this; delete the wrapper.
+
+2016-02-15  Alexander Monakov  <amonakov@ispras.ru>
+
 	Revert
 	2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
 
