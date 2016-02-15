@@ -7350,32 +7350,56 @@
 ;; MIPS4 Conditional move instructions.
 
 (define_insn "*mov<GPR:mode>_on_<MOVECC:mode>"
-  [(set (match_operand:GPR 0 "register_operand" "=d,d")
+  [(set (match_operand:GPR 0 "register_operand" "=d,d,d,d")
 	(if_then_else:GPR
 	 (match_operator 4 "equality_operator"
-		[(match_operand:MOVECC 1 "register_operand" "<MOVECC:reg>,<MOVECC:reg>")
+		[(match_operand:MOVECC 1 "register_operand" "<MOVECC:reg>,<MOVECC:reg>,<MOVECC:reg>,<MOVECC:reg>")
 		 (const_int 0)])
-	 (match_operand:GPR 2 "reg_or_0_operand" "dJ,0")
-	 (match_operand:GPR 3 "reg_or_0_operand" "0,dJ")))]
+	 (match_operand:GPR 2 "reg_or_0_operand" "d,0,J,0")
+	 (match_operand:GPR 3 "reg_or_0_operand" "0,d,0,J")))]
   "ISA_HAS_CONDMOVE"
   "@
     mov%T4\t%0,%z2,%1
+    mov%t4\t%0,%z3,%1
+    mov%T4\t%0,%z2,%1
     mov%t4\t%0,%z3,%1"
   [(set_attr "type" "condmove")
-   (set_attr "mode" "<GPR:MODE>")])
+   (set_attr "mode" "<GPR:MODE>")
+   (set (attr "extended_mips16")
+	(cond [(and (eq_attr "alternative" "0,1")
+		    (match_test "TARGET_MIPS16"))
+		  (const_string "yes")]
+	      (const_string "no")))
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "2,3")
+		    (match_test "TARGET_MIPS16"))
+		  (const_string "no")]
+	      (const_string "yes")))])
 
 (define_insn "*mov<GPR:mode>_on_<GPR2:mode>_ne"
-  [(set (match_operand:GPR 0 "register_operand" "=d,d")
+  [(set (match_operand:GPR 0 "register_operand" "=d,d,d,d")
        (if_then_else:GPR
-        (match_operand:GPR2 1 "register_operand" "<GPR2:reg>,<GPR2:reg>")
-        (match_operand:GPR 2 "reg_or_0_operand" "dJ,0")
-        (match_operand:GPR 3 "reg_or_0_operand" "0,dJ")))]
+	(match_operand:GPR2 1 "register_operand" "<GPR2:reg>,<GPR2:reg>,<GPR2:reg>,<GPR2:reg>")
+	(match_operand:GPR 2 "reg_or_0_operand" "d,0,J,0")
+	(match_operand:GPR 3 "reg_or_0_operand" "0,d,0,J")))]
   "ISA_HAS_CONDMOVE"
   "@
     movn\t%0,%z2,%1
+    movz\t%0,%z3,%1
+    movn\t%0,%z2,%1
     movz\t%0,%z3,%1"
   [(set_attr "type" "condmove")
-   (set_attr "mode" "<GPR:MODE>")])
+   (set_attr "mode" "<GPR:MODE>")
+   (set (attr "extended_mips16")
+	(cond [(and (eq_attr "alternative" "0,1")
+		    (match_test "TARGET_MIPS16"))
+		  (const_string "yes")]
+	      (const_string "no")))
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "2,3")
+		    (match_test "TARGET_MIPS16"))
+		  (const_string "no")]
+	      (const_string "yes")))])
 
 (define_insn "*mov<SCALARF:mode>_on_<MOVECC:mode>"
   [(set (match_operand:SCALARF 0 "register_operand" "=f,f")
