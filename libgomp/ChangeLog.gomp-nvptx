@@ -1,5 +1,14 @@
 2016-02-15  Alexander Monakov  <amonakov@ispras.ru>
 
+	* plugin/plugin-nvptx.c (nvptx_stacks_size): New.
+	(nvptx_stacks_alloc): New.
+	(nvptx_stacks_free): New.
+	(GOMP_OFFLOAD_run): Allocate soft-stacks storage from the host using
+	the above new functions.  Use kernel launch interface that allows
+	checking for mismatched total size of entry function arguments.
+
+2016-02-15  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/nvptx/team.c: (gomp_nvptx_main_1): Rename back to...
 	(gomp_nvptx_main): ...this; delete the wrapper.
 

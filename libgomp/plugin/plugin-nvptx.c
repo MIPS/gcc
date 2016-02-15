@@ -1892,6 +1892,37 @@ nvptx_adjust_launch_bounds (struct targ_fn_descriptor *fn,
     *teams_p = max_blocks;
 }
 
+/* Return the size of per-warp stacks (see gcc -msoft-stack) to use for OpenMP
+   target regions.  */
+
+static size_t
+nvptx_stacks_size ()
+{
+  return 128 * 1024;
+}
+
+/* Return contiguous storage for NUM stacks, each SIZE bytes.  */
+
+static void *
+nvptx_stacks_alloc (size_t size, int num)
+{
+  CUdeviceptr stacks;
+  CUresult r = cuMemAlloc (&stacks, size * num);
+  if (r != CUDA_SUCCESS)
+    GOMP_PLUGIN_fatal ("cuMemAlloc error: %s", cuda_error (r));
+  return (void *) stacks;
+}
+
+/* Release storage previously allocated by nvptx_stacks_alloc.  */
+
+static void
+nvptx_stacks_free (void *p, int num)
+{
+  CUresult r = cuMemFree ((CUdeviceptr) p);
+  if (r != CUDA_SUCCESS)
+    GOMP_PLUGIN_fatal ("cuMemFree error: %s", cuda_error (r));
+}
+
 void
 GOMP_OFFLOAD_run (int ord, void *tgt_fn, void *tgt_vars, void **args)
 {
@@ -1899,7 +1930,6 @@ GOMP_OFFLOAD_run (int ord, void *tgt_fn, void *tgt_vars, void **args)
   CUresult r;
   struct ptx_device *ptx_dev = ptx_devices[ord];
   const char *maybe_abort_msg = "(perhaps abort was called)";
-  void *fn_args = &tgt_vars;
   int teams = 0, threads = 0;
 
   if (!args)
@@ -1922,10 +1952,19 @@ GOMP_OFFLOAD_run (int ord, void *tgt_fn, void *tgt_vars, void **args)
     }
   nvptx_adjust_launch_bounds (tgt_fn, ptx_dev, &teams, &threads);
 
+  size_t stack_size = nvptx_stacks_size ();
+  void *stacks = nvptx_stacks_alloc (stack_size, teams * threads);
+  void *fn_args[] = {tgt_vars, stacks, (void *) stack_size};
+  size_t fn_args_size = sizeof fn_args;
+  void *config[] = {
+    CU_LAUNCH_PARAM_BUFFER_POINTER, fn_args,
+    CU_LAUNCH_PARAM_BUFFER_SIZE, &fn_args_size,
+    CU_LAUNCH_PARAM_END
+  };
   r = cuLaunchKernel (function,
 		      teams, 1, 1,
 		      32, threads, 1,
-		      0, ptx_dev->null_stream->stream, &fn_args, 0);
+		      0, ptx_dev->null_stream->stream, NULL, config);
   if (r != CUDA_SUCCESS)
     GOMP_PLUGIN_fatal ("cuLaunchKernel error: %s", cuda_error (r));
 
@@ -1935,6 +1974,7 @@ GOMP_OFFLOAD_run (int ord, void *tgt_fn, void *tgt_vars, void **args)
 		       maybe_abort_msg);
   else if (r != CUDA_SUCCESS)
     GOMP_PLUGIN_fatal ("cuCtxSynchronize error: %s", cuda_error (r));
+  nvptx_stacks_free (stacks, teams * threads);
 }
 
 void
