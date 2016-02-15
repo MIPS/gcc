@@ -979,8 +979,10 @@ nvptx_init_unisimt_predicate (FILE *file)
 /* Emit kernel NAME for function ORIG outlined for an OpenMP 'target' region:
 
    extern void gomp_nvptx_main (void (*fn)(void*), void *fnarg);
-   void __attribute__((kernel)) NAME(void *arg)
+   void __attribute__((kernel)) NAME (void *arg, char *stack, size_t stacksize)
    {
+     __nvptx_stacks[tid.y] = stack + stacksize * (ctaid.x * ntid.y + tid.y + 1);
+     __nvptx_uni[tid.y] = 0;
      gomp_nvptx_main (ORIG, arg);
    }
    ORIG itself should not be emitted as a PTX .entry function.  */
@@ -1000,21 +1002,44 @@ write_omp_entry (std::stringstream &s, const char *name, const char *orig)
       s << ".extern .func gomp_nvptx_main";
       s << "(.param" << sfx << " %in_ar1, .param" << sfx << " %in_ar2);\n";
     }
-  s << ".visible .entry " << name << "(.param" << sfx << " %in_ar1)\n";
-  s << "{\n";
-  s << "\t.reg" << sfx << " %ar1;\n";
-  s << "\t.reg" << sfx << " %r1;\n";
-  s << "\tld.param" << sfx << " %ar1, [%in_ar1];\n";
-  s << "\tmov" << sfx << " %r1, " << orig << ";\n";
-  s << "\t{\n";
-  s << "\t\t.param" << sfx << " %out_arg0;\n";
-  s << "\t\t.param" << sfx << " %out_arg1;\n";
-  s << "\t\tst.param" << sfx << " [%out_arg0], %r1;\n";
-  s << "\t\tst.param" << sfx << " [%out_arg1], %ar1;\n";
-  s << "\t\tcall.uni gomp_nvptx_main, (%out_arg0, %out_arg1);\n";
-  s << "\t}\n";
-  s << "\tret;\n";
-  s << "}\n";
+#define ENTRY_TEMPLATE(PS, PS_BYTES, MAD_PS_32) "\
+ (.param.u" PS " %arg, .param.u" PS " %stack, .param.u" PS " %sz)\n\
+{\n\
+	.reg.u32 %r<3>;\n\
+	.reg.u" PS " %R<4>;\n\
+	mov.u32 %r0, %tid.y;\n\
+	mov.u32 %r1, %ntid.y;\n\
+	mov.u32 %r2, %ctaid.x;\n\
+	cvt.u" PS ".u32 %R1, %r0;\n\
+	" MAD_PS_32 " %R1, %r1, %r2, %R1;\n\
+	mov.u" PS " %R0, __nvptx_stacks;\n\
+	" MAD_PS_32 " %R0, %r0, " PS_BYTES ", %R0;\n\
+	ld.param.u" PS " %R2, [%stack];\n\
+	ld.param.u" PS " %R3, [%sz];\n\
+	add.u" PS " %R2, %R2, %R3;\n\
+	mad.lo.u" PS " %R2, %R1, %R3, %R2;\n\
+	st.shared.u" PS " [%R0], %R2;\n\
+	mov.u" PS " %R0, __nvptx_uni;\n\
+	" MAD_PS_32 " %R0, %r0, 4, %R0;\n\
+	mov.u32 %r0, 0;\n\
+	st.shared.u32 [%R0], %r0;\n\
+	mov.u" PS " %R0, \0;\n\
+	ld.param.u" PS " %R1, [%arg];\n\
+	{\n\
+		.param.u" PS " %P<2>;\n\
+		st.param.u" PS " [%P0], %R0;\n\
+		st.param.u" PS " [%P1], %R1;\n\
+		call.uni gomp_nvptx_main, (%P0, %P1);\n\
+	}\n\
+	ret.uni;\n\
+}\n"
+  static const char template64[] = ENTRY_TEMPLATE ("64", "8", "mad.wide.u32");
+  static const char template32[] = ENTRY_TEMPLATE ("32", "4", "mad.lo.u32  ");
+#undef ENTRY_TEMPLATE
+  const char *template_1 = TARGET_ABI64 ? template64 : template32;
+  const char *template_2 = template_1 + strlen (template64) + 1;
+  s << ".visible .entry " << name << template_1 << orig << template_2;
+  need_softstack_decl = need_unisimt_decl = true;
 }
 
 /* Implement ASM_DECLARE_FUNCTION_NAME.  Writes the start of a ptx
