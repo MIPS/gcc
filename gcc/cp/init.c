@@ -3364,7 +3364,7 @@ build_new (vec<tree, va_gc> **placement, tree type, tree nelts,
       if (auto_node)
 	{
 	  tree d_init = (**init)[0];
-	  d_init = resolve_nondeduced_context (d_init);
+	  d_init = resolve_nondeduced_context (d_init, complain);
 	  type = do_auto_deduction (type, d_init, auto_node);
 	}
     }
@@ -4390,12 +4390,12 @@ build_delete (tree otype, tree addr, special_function_kind auto_delete,
 		    warning (OPT_Wdelete_non_virtual_dtor,
 			     "deleting object of abstract class type %qT"
 			     " which has non-virtual destructor"
-			     " will cause undefined behaviour", type);
+			     " will cause undefined behavior", type);
 		  else
 		    warning (OPT_Wdelete_non_virtual_dtor,
 			     "deleting object of polymorphic class type %qT"
 			     " which has non-virtual destructor"
-			     " might cause undefined behaviour", type);
+			     " might cause undefined behavior", type);
 		}
 	    }
 	}

@@ -1,8 +1,502 @@
+2016-02-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69783
+	* tree-vect-data-refs.c (vect_prune_runtime_alias_test_list):
+	Add trivially correct cases.
+
+2016-02-15  Tom de Vries  <tom@codesourcery.com>
+
+	PR lto/69655
+	* lto-cgraph.c (input_offload_tables): Add and handle bool parameter
+	do_force_output.
+	* lto-streamer.h (input_offload_tables): Add and handle bool parameter.
+
+2016-02-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69776
+	* tree-ssa-sccvn.h (vn_reference_lookup): Adjust prototype.
+	* tree-ssa-sccvn.c (vn_reference_lookup): Add parameter to
+	indicate whether we can use TBAA to disambiguate against stores.
+	Use alias-set zero if not.
+	(visit_reference_op_store): Do not use TBAA when looking up
+	redundant stores.
+	* tree-ssa-pre.c (compute_avail): Use TBAA here.
+	(eliminate_dom_walker::before_dom_children): But not when looking
+	up redundant stores.
+
+2016-02-14  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.md (absqi2, absghi2, bswaphi2, bswapsi2, bswapdi2): New.
+
+2016-02-14  Venkataramanan Kumar  <venkataramanan.kumar@amd.com>
+
+	*  config/i386/znver1.md
+	(znver1_pop, znver1_pop_mem,
+	znver1_load_imov_double_store,
+	znver1_load_imov_direct_store,
+	znver1_load_imov_direct_load,
+	znver1_load_imov_double_load): Add new.
+	(znver1_insn, znver1_insn_load): Add icmov type.
+	(znver1_sseavx_fma,
+	znver1_sseavx_fma_load,
+	znver1_avx256_fma,
+	znver1_avx256_fma_load): Fix pipe usage.
+
+2016-02-14  Alan Modra  <amodra@gmail.com>
+
+	PR target/68973
+	* reloads.c (find_reloads_address_1): For pre/post-inc/dec
+	with an invalid hard reg, reload just the reg not the entire
+	pre/post-inc/dec address expression.
+
+2016-02-13  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/67260
+	* config/sh/sh.md (sibcall_value_pcrel): Replace =&k scratch reg with
+	fixed R1_REG scratch reg.
+	(sibcall_value_pcrel_fdpic): Likewise.
+
+2016-02-13  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/67636
+	PR target/64345
+	* config/sh/sh.md (*zero_extract_3): New insn_and_split pattern.
+
+2016-02-12  Walter Lee  <walt@tilera.com>
+
+	* config/tilepro/t-tilepro: Replace CC_FOR_BUILD with CXX_FOR_BUILD.
+	* config/tilegx/t-tilegx: Likewise.
+
+2016-02-12  David Malcolm  <dmalcolm@redhat.com>
+
+	PR other/69554
+	* diagnostic-show-locus.c (struct line_span): New struct.
+	(layout::get_first_line): Delete.
+	(layout::get_last_line): Delete.
+	(layout::get_num_line_spans): New member function.
+	(layout::get_line_span): Likewise.
+	(layout::print_heading_for_line_span_index_p): Likewise.
+	(layout::get_expanded_location): Likewise.
+	(layout::calculate_line_spans): Likewise.
+	(layout::m_first_line): Delete.
+	(layout::m_last_line): Delete.
+	(layout::m_line_spans): New field.
+	(layout::layout): Update comment.  Replace m_first_line and
+	m_last_line with m_line_spans, replacing their initialization
+	with a call to calculate_line_spans.
+	(diagnostic_show_locus): When printing source lines and
+	annotations, rather than looping over a single span
+	of lines, instead loop over each line_span within
+	the layout, with an inner loop over the lines within them.
+	Call the context's start_span callback when changing line spans.
+	* diagnostic.c (diagnostic_initialize): Initialize start_span.
+	(diagnostic_build_prefix): Break out the building of the location
+	part of the string into...
+	(diagnostic_get_location_text): ...this new function, rewriting
+	it from nested ternary expressions to a sequence of "if"
+	statements.
+	(default_diagnostic_start_span_fn): New function.
+	* diagnostic.h (diagnostic_start_span_fn): New typedef.
+	(diagnostic_context::start_span): New field.
+	(default_diagnostic_start_span_fn): New prototype.
+
+2016-02-12  David Malcolm  <dmalcolm@redhat.com>
+
+	PR driver/69779
+	* gcc.c (driver::finalize): Fix cleanup of "specs".
+
+2016-02-12  David Malcolm  <dmalcolm@redhat.com>
+
+	PR driver/69265
+	PR driver/69453
+	* gcc.c (driver::driver): Initialize m_option_suggestions.
+	(driver::~driver): Clean up m_option_suggestions.
+	(suggest_option): Convert to...
+	(driver::suggest_option): ...this, and split out into
+	driver::build_option_suggestions and find_closest_string.
+	(driver::build_option_suggestions): New function, from
+	first half of suggest_option.  Special-case
+	OPT_fsanitize_ and OPT_fsanitize_recover_, making use of
+	the sanitizer_opts array.  For options of enum types, add the
+	various enum values to the candidate strings.
+	(driver::handle_unrecognized_options): Remove "const".
+	* gcc.h (driver::handle_unrecognized_options): Likewise.
+	(driver::build_option_suggestions): New decl.
+	(driver::suggest_option): New decl.
+	(driver::m_option_suggestions): New field.
+	* opts-common.c (add_misspelling_candidates): New function.
+	* opts.c (sanitizer_opts): Remove decl of struct sanitizer_opts_s
+	and make non-static.
+	* opts.h (sanitizer_opts): New array decl.
+	(add_misspelling_candidates): New function decl.
+	* spellcheck.c (find_closest_string): New function.
+	* spellcheck.h (find_closest_string): New function decl.
+
+2016-02-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/69764
+	PR rtl-optimization/69771
+	* optabs.c (expand_binop_directly): For shift_optab_p, force
+	convert_modes with VOIDmode if xop1 has VOIDmode.
+
+2016-02-12  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR target/69729
+	* lto-streamer-out.c (lto_output): Use thunk.add_pointer_bounds_args
+	to correctly determine instrumentation thunks.
+
+2016-02-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR ipa/69241
+	* ipa-split.c (split_function): If split part returns TREE_ADDRESSABLE
+	type by reference, force lhs on the call.
+
+	PR ipa/68672
+	* ipa-split.c (split_function): Don't compute/use main_part_return_p.
+	Compute retval and retbnd early in all cases if split_part_return_p
+	and return_bb is not EXIT.  Remove all clobber stmts and reset
+	all debug stmts that refer to SSA_NAMEs defined in split part,
+	except if it is retval, in that case replace the old retval with the
+	lhs of the call to the split part.
+
+2016-02-12  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	revert:
+	2016-02-12  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/66726
+	* tree-ssa-reassoc.c (optimize_range_tests): Handle tcc_compare stmt
+	whose result is used in PHI.
+	(maybe_optimize_range_tests): Likewise.
+	(final_range_test_p): Likweise.
+
+2016-02-12  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/66726
+	* tree-ssa-reassoc.c (optimize_range_tests): Handle tcc_compare stmt
+	whose result is used in PHI.
+	(maybe_optimize_range_tests): Likewise.
+	(final_range_test_p): Likweise.
+
+2016-02-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* cgraph.c: Spelling fixes - behaviour -> behavior and
+	neighbour -> neighbor.
+	* target.def: Likewise.
+	* sel-sched.c: Likewise.
+	* config/mips/mips.c: Likewise.
+	* config/arc/arc.md: Likewise.
+	* config/arm/cortex-a57.md: Likewise.
+	* config/arm/arm.c: Likewise.
+	* config/arm/neon.md: Likewise.
+	* config/arm/arm-c.c: Likewise.
+	* config/vms/vms-c.c: Likewise.
+	* config/s390/s390.c: Likewise.
+	* config/i386/znver1.md: Likewise.
+	* config/i386/i386.c: Likewise.
+	* config/ia64/hpux-unix2003.h: Likewise.
+	* config/msp430/msp430.md: Likewise.
+	* config/rx/rx.c: Likewise.
+	* config/rx/rx.md: Likewise.
+	* config/aarch64/aarch64-simd.md: Likewise.
+	* config/aarch64/aarch64.c: Likewise.
+	* config/nvptx/nvptx.c: Likewise.
+	* config/bfin/bfin.c: Likewise.
+	* config/cris/cris.opt: Likewise.
+	* config/rs6000/rs6000.c: Likewise.
+	* target.h: Likewise.
+	* spellcheck.c: Likewise.
+	* ira-build.c: Likewise.
+	* tree-inline.c: Likewise.
+	* builtins.c: Likewise.
+	* lra-constraints.c: Likewise.
+	* explow.c: Likewise.
+	* hwint.h: Likewise.
+	* targhooks.c: Likewise.
+	* tree-vect-data-refs.c: Likewise.
+	* expr.c: Likewise.
+	* doc/tm.texi: Likewise.
+	* doc/extend.texi: Likewise.
+	* doc/install.texi: Likewise.
+	* doc/md.texi: Likewise.
+	* tree-ssa-tail-merge.c: Likewise.
+	* sched-int.h: Likewise.
+	* match.pd: Likewise.
+	* sched-ebb.c: Likewise.
+	* target.def (omit_struct_return_reg): Likewise.
+	* gimple-ssa-isolate-paths.c: Likewise.
+	(find_implicit_erroneous_behaviour): Renamed to...
+	(find_implicit_erroneous_behavior): ... this.
+	(find_explicit_erroneous_behaviour): Renamed to...
+	(find_explicit_erroneous_behavior): ... this.
+	(gimple_ssa_isolate_erroneous_paths): Adjust caller.
+
+2016-02-11  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/64682
+	PR rtl-optimization/69567
+	PR rtl-optimization/69737
+	* combine.c (distribute_notes) <REG_DEAD>: If the register is set
+	in I2 as well, just lose it.
+
+2016-02-11  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_last_printed_arch_string):
+	New variable.
+	(aarch64_last_printed_tune_string): Likewise.
+	(aarch64_declare_function_name): Only output .arch assembler
+	directive if it will be different from the previously output
+	directive.  Same for .tune comment but only if -dA is set.
+	(aarch64_start_file): New function.
+	(TARGET_ASM_FILE_START): Define.
+
+2016-02-11  David Malcolm  <dmalcolm@redhat.com>
+
+	PR plugins/69758
+	* Makefile.in (PLUGIN_HEADERS): Add params.list.
+
+2016-02-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/65313
+	* tree-vect-slp.c (vect_schedule_slp_instance): Avoid
+	-Wmaybe-uninitialized warning.
+
+2016-02-11  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/69713
+	* config/sh/sh.md (casesi_worker_0): Add T_REG use.
+
+2016-02-11  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/69291
+	* ifcvt.c (noce_try_store_flag_constants): Do not allow
+	subexpressions affected by changing the result.
+
+2016-02-10  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/69148
+	* lra-constraints.c (curr_insn_transform): Find in/out operands
+	for secondary memory moves.  Update dups.
+
+2016-02-10  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR tree-optimization/69652
+	* tree-vect-loop.c (optimize_mask_stores): Move declaration of STMT1
+	to nested loop, did source re-formatting, skip debug statements,
+	add check on statement with volatile operand, remove dead scalar
+	statements.
+
+2016-02-10  Jakub Jelinek  <jakub@redhat.com>
+	    Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR ipa/69241
+	PR c++/69649
+	* gimplify.c (gimplify_modify_expr): Set lhs even for noreturn
+	calls if the return type is TREE_ADDRESSABLE.
+	* cgraphunit.c (cgraph_node::expand_thunk): Likewise.
+	* ipa-split.c (split_function): Fix doubled "we" in comment.
+	Use void return type for the split part even if
+	!split_point->split_part_set_retval.
+
+2016-02-10  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/68021
+	* tree-ssa-loop-ivopts.c (get_computation_aff): Set ratio to 1 if
+	when computing the value of biv cand by itself.
+
+2016-02-10  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64.c (cortexa53_tunings): Enable AES fusion.
+	(cortexa57_tunings): Likewise.
+	(cortexa72_tunings): Likewise.
+	(arch_macro_fusion_pair_p): Add support for AES fusion.
+	* config/aarch64/aarch64-fusion-pairs.def: Add AES_AESMC entry.
+	* config/arm/aarch-common.c (aarch_crypto_can_dual_issue):
+	Allow virtual registers before reload so early scheduling works.
+	* config/arm/cortex-a57.md (cortex_a57_crypto_simple): Use
+	correct latency and pipeline.
+	(cortex_a57_crypto_complex): Likewise.
+	(cortex_a57_crypto_xor): Likewise.
+	(define_bypass): Add AES bypass.
+
+2016-02-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69726
+	* passes.def: Add DCE pass before late uninit.
+	* match.pd: Add A ? B : (!A ? C : X) -> A ? B : C patterns to
+	really fixup if-conversions job.
+
+2016-02-10  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/arm/arm.c (arm_cortex_a53_tune): Enable AES fusion.
+	(arm_cortex_a57_tune): Likewise.
+	(aarch_macro_fusion_pair_p): Add support for AES fusion.
+	* config/arm/arm-protos.h (fuse_ops): Add FUSE_AES_AESMC.
+
+2016-02-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* timevar.def (TV_PHASE_DBGINFO): Delete.
+	(TV_PHASE_CHECK_DBGINFO): Likewise.
+	* varpool.c (varpool_node::assemble_decl): Do not change timevar.
+
+2016-02-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69719
+	* tree-vect-data-refs.c (vect_prune_runtime_alias_test_list):
+	Adjust previous fix by ensuring that dr_a1 is left of dr_a2.
+
+2016-02-09  Andrew Pinski  <apinski@cavium.com>
+
+	PR tree-opt/69282
+	* optabs-tree.c (expand_vec_cond_expr_p): Don't early return if
+	get_vcond_mask_icode returns false.
+
+2016-02-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/68404
+	* config/rs6000/predicates.md (fusion_gpr_addis): Prevent fusing
+	an ADDIS that adds a pointer to a large constant that sets the
+	upper16 bits with a load operation.
+
+2016-02-09  Charles Baylis  <charles.baylis@linaro.org>
+
+	PR target/68532
+	* config/arm/arm.c (arm_evpc_neon_vzip): Allow for big endian lane
+	order.
+	* config/arm/arm_neon.h (vzipq_s8): Adjust shuffle patterns for big
+	endian.
+	(vzipq_s16): Likewise.
+	(vzipq_s32): Likewise.
+	(vzipq_f32): Likewise.
+	(vzipq_u8): Likewise.
+	(vzipq_u16): Likewise.
+	(vzipq_u32): Likewise.
+	(vzipq_p8): Likewise.
+	(vzipq_p16): Likewise.
+
+2016-02-09  Charles Baylis  <charles.baylis@linaro.org>
+
+	PR target/68532
+	* config/arm/arm.c (neon_endian_lane_map): New function.
+	(neon_vector_pair_endian_lane_map): New function.
+	(arm_evpc_neon_vuzp): Allow for big endian lane order.
+	* config/arm/arm_neon.h (vuzpq_s8): Adjust shuffle patterns for big
+	endian.
+	(vuzpq_s16): Likewise.
+	(vuzpq_s32): Likewise.
+	(vuzpq_f32): Likewise.
+	(vuzpq_u8): Likewise.
+	(vuzpq_u16): Likewise.
+	(vuzpq_u32): Likewise.
+	(vuzpq_p8): Likewise.
+	(vuzpq_p16): Likewise.
+
+2016-02-11  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR target/69634
+	* regstat.c (regstat_bb_compute_calls_crossed): Disregard
+	debug insns.
+
+2016-02-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (insv<mode>_1): Use gen_int_mode to
+	truncate const_int operand 1 to QImode.
+
+2016-02-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gimple-ssa-backprop.c (optimize_phi): Do not replace an argument
+	corresponding to an abnormal edge.
+
+2016-02-09  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/69599
+	* tree-ssa-structalias.c (fndecl_maybe_in_other_partition): New
+	function.
+	(find_func_aliases_for_builtin_call, find_func_clobbers)
+	(ipa_pta_execute):  Handle case that foo and foo._0 are not in same lto
+	partition.
+
+2016-02-09  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69715
+	* tree-ssa.c (execute_update_addresses_taken): Mark non-decl
+	LHS on calls as non-rewritable.
+
+2016-02-09  Tom de Vries  <tom@codesourcery.com>
+
+	PR lto/69707
+	* lto-wrapper.c (append_diag_options): New function.
+	(compile_offload_image): Call append_diag_options.
+
+2016-02-08  Sandra Loosemore <sandra@codesourcery.com>
+
+	PR other/69722
+	* doc/extend.texi (Flag Output Operands): Correct sectioning.
+	Minor copy-edit to fix verb tenses.
+
+2016-02-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/69209
+	* ipa-split.c (split_function): If split part is not
+	returning retval, retval has gimple type but is not
+	gimple value, force it into a SSA_NAME first.
+
+2016-02-08  Nicklas Bo Jensen  <nbjensen@gmail.com>
+
+	* doc/tree-ssa.texi (Preserving the virtual SSA form): Remove
+	outdated section.
+
+2016-02-08  Jason Merrill  <jason@redhat.com>
+
+	PR c++/69631
+	* convert.c (convert_to_integer_1): Check dofold on truncation
+	distribution.
+	(convert_to_pointer_maybe_fold, convert_to_real_maybe_fold)
+	(convert_to_integer_maybe_fold, convert_to_complex_maybe_fold):
+	Rename from *_nofold.
+	* convert.h (convert_to_pointer_nofold, convert_to_integer_nofold)
+	(convert_to_real_nofold, convert_to_complex_nofold): New inlines.
+
+2016-02-08  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR target/60410
+	* tree.c (build_common_tree_nodes): Remove short_double argument.
+	All callers changed.
+	* tree.h (build_common_tree_nodes): Adjust declaration.
+	* doc/invoke.texi (-fshort-double): Remove documentation.
+	* config/mips/t-img-elf (MULTILIB_OPTIONS, MULTILIB_DIRNAMES,
+	MULTILIB_EXCEPTIONS): Remove -fshort-double variant.
+	* lto-wrapper.c (merge_and_complain, append_compiler_options)
+	(append_linker_options): Don't handle OPT_fshort_double.
+
+	PR rtl-optimization/68730
+	* lra-remat.c (insn_to_cand_activation): New static variable.
+	(lra_remat): Allocate and free it.
+	(create_cand): New arg activation. Initialize a field in
+	insn_to_cand_activation if it is nonnull.
+	(create_cands): Pass the activation insn to create_cand when making
+	a candidate involving an output reload.  Reorganize code a little.
+	(do_remat): Keep track of active status of candidates in a separate
+	bitmap.
+
+2016-02-08  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69719
+	* tree-vect-data-refs.c (vect_prune_runtime_alias_test_list):
+	Properly use absolute of the difference of the two offsets to
+	compare or adjust the segment length.
+
+2016-02-08  Richard Biener  <rguenther@suse.de>
+	    Jeff Law  <law@redhat.com>
+
+	PR target/68273
+	* tree-ssanames.c (make_ssa_name_fn): Always use unqualified
+	types for anonymous SSA names.
+
 2016-02-08   Richard Biener  <rguenther@suse.de>
 
 	PR rtl-optimization/69274
-	* ira.c (ira_setup_alts): Do not change recog_data.operand
-	order.
+	* ira.c (ira_setup_alts): Do not change recog_data.operand order.
 
 2016-02-08  Jeff Law  <law@redhat.com>
 
@@ -16,7 +510,6 @@
 	* tree-ssa-scopedtables.c
 	(const_and_copies::record_const_or_copy_raw): New, factored out of
 	(const_and_copies::record_const_or_copy): Call new member function.
-	
 
 2016-02-05  Jeff Law  <law@redhat.com>
 
@@ -91,8 +584,7 @@
 2016-02-05  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
 
 	PR target/69625
-	* config/s390/s390.c (SAVE_SLOT_NONE, SAVE_SLOT_STACK): New
-	defines.
+	* config/s390/s390.c (SAVE_SLOT_NONE, SAVE_SLOT_STACK): New defines.
 	(s390_register_info_gprtofpr): Use new macros above.
 	(s390_register_info_stdarg_fpr): Adjust max_fpr to better match
 	its name.
