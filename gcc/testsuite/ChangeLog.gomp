@@ -1,3 +1,10 @@
+2016-02-15  James Norris  <jnorris@codesourcery.com>
+
+	Backport from trunk:
+	PR c/64748
+	* c-c++-common/goacc/deviceptr-1.c: Add tests.
+	* g++.dg/goacc/deviceptr-1.c: New file.
+
 2016-02-03  James Norris  <jnorris@codesourcery.com>
 
 	Backport from trunk:
