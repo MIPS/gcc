@@ -6845,41 +6845,45 @@ check_flexarrays (tree t, flexmems_t *fmem /* = NULL */)
     }
 }
 
-/* An empty collection is:
-   1. A class without member.  Or
-   3. A class with only empty collections.  Or
-   2. An array of empty collections.
-
-   Returns true if TYPE is an empty collection.  */
+/* Returns true if TYPE is an empty type, which is a trivially-copyable
+   aggregate occupying zero bytes (excluding any padding).  */
 
 static bool
-is_empty_collection (tree type)
+is_empty_type (tree type)
 {
   if (CLASS_TYPE_P (type))
     {
       if (CLASSTYPE_EMPTY_P (type))
 	return true;
 
-      tree field;
+      tree base_binfo;
+      tree binfo;
+      int i;
+      for (binfo = TYPE_BINFO (type), i = 0;
+	   BINFO_BASE_ITERATE (binfo, i, base_binfo); ++i)
+	if (!is_empty_type (BINFO_TYPE (base_binfo)))
+	  return false;
 
+      tree field;
       for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
 	if (TREE_CODE (field) == FIELD_DECL
 	    && !DECL_ARTIFICIAL (field)
-	    && !is_empty_collection (TREE_TYPE (field)))
+	    && (DECL_NAME (field)
+		|| RECORD_OR_UNION_TYPE_P (TREE_TYPE (field)))
+	    && !is_empty_type (TREE_TYPE (field)))
 	  return false;
       return true;
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
-    return is_empty_collection (TREE_TYPE (type));
+    return is_empty_type (TREE_TYPE (type));
   return false;
 }
 
-/* Returns true if TYPE is POD for the purpose of layout and
-   1. A class without member.  Or
-   2. A class with only empty collections.  */
+/* Returns true if TYPE is an empty type, excluding array of empty
+   type.  */
 
 static bool
-is_empty_record (tree type)
+is_really_empty_type (tree type)
 {
   if (type == error_mark_node)
     return false;
@@ -6887,23 +6891,12 @@ is_empty_record (tree type)
   if (!CLASS_TYPE_P (type))
     return false;
 
-  if (CLASSTYPE_NON_LAYOUT_POD_P (type))
-    return false;
-
   gcc_assert (COMPLETE_TYPE_P (type));
 
   if (CLASSTYPE_EMPTY_P (type))
     return true;
 
-  tree field;
-
-  for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
-    if (TREE_CODE (field) == FIELD_DECL
-	&& !DECL_ARTIFICIAL (field)
-	&& !is_empty_collection (TREE_TYPE (field)))
-      return false;
-
-  return true;
+  return is_empty_type (type);
 }
 
 /* Perform processing required when the definition of T (a class type)
@@ -7118,7 +7111,7 @@ finish_struct_1 (tree t)
     }
 
   if (abi_version_at_least (10))
-    TYPE_EMPTY_RECORD (t) = is_empty_record (t);
+    TYPE_EMPTY_RECORD (t) = is_really_empty_type (t);
 }
 
 /* Insert FIELDS into T for the sorted case if the FIELDS count is
