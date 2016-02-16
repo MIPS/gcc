@@ -6,4 +6,3 @@ void foo ()
   int slots[N];
 
 }
-

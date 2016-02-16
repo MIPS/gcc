@@ -452,4 +452,3 @@ handle_common_deferred_options (void)
 	}
     }
 }
-
