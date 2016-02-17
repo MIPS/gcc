@@ -2,7 +2,7 @@
 /* { dg-options "-std=c++11 -malign-power -O2" } */
 
 /* Power ABI for 32-bit and 64-bit compilers place the same alignment
-   restrictions on longs and doubles. */
+   restrictions on long longs and doubles. */
 
 typedef double _Tp;
 
@@ -10,7 +10,7 @@ struct _Tp2 {
   char b;
   int i;
   char c;
-  long l;
+  long long l;
   _Tp _M_t; 
 };
 
@@ -51,7 +51,7 @@ int main ()
   int e = alignof(_Tp2::_M_t);
 
   int f = __alignof__(_Tp2::l);
-  int g = alignof (long);
+  int g = alignof (long long);
   int h = __alignof__(tp2e.l);
   int i = alignof(_Tp2::l);
 
