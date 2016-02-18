@@ -5449,7 +5449,7 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
       cst2 = NULL_TREE;
       if (rhs_code == BIT_AND_EXPR
 	  || (CONVERT_EXPR_CODE_P (rhs_code)
-	      && TREE_CODE (TREE_TYPE (val)) == INTEGER_TYPE
+	      && INTEGRAL_TYPE_P (TREE_TYPE (val))
 	      && TYPE_UNSIGNED (TREE_TYPE (val))
 	      && TYPE_PRECISION (TREE_TYPE (gimple_assign_rhs1 (def_stmt)))
 		 > prec))
@@ -9257,8 +9257,8 @@ test_for_singularity (enum tree_code cond_code, tree op0,
   tree min = NULL;
   tree max = NULL;
 
-  /* Extract minimum/maximum values which satisfy the
-     the conditional as it was written.  */
+  /* Extract minimum/maximum values which satisfy the conditional as it was
+     written.  */
   if (cond_code == LE_EXPR || cond_code == LT_EXPR)
     {
       /* This should not be negative infinity; there is no overflow

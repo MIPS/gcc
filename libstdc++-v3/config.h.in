@@ -300,8 +300,11 @@
 /* Define to 1 if you have the <nan.h> header file. */
 #undef HAVE_NAN_H
 
-/* Define if <math.h> defines obsolete isinf and isnan functions. */
-#undef HAVE_OBSOLETE_ISINF_ISNAN
+/* Define if <math.h> defines obsolete isinf function. */
+#undef HAVE_OBSOLETE_ISINF
+
+/* Define if <math.h> defines obsolete isnan function. */
+#undef HAVE_OBSOLETE_ISNAN
 
 /* Define if poll is available in <poll.h>. */
 #undef HAVE_POLL
@@ -767,6 +770,10 @@
 /* Define if C99 functions or macros in <stdio.h> should be imported in
    <cstdio> in namespace std for C++98. */
 #undef _GLIBCXX98_USE_C99_STDIO
+
+/* Define if C99 functions or macros in <stdlib.h> should be imported in
+   <cstdlib> in namespace std for C++98. */
+#undef _GLIBCXX98_USE_C99_STDLIB
 
 /* Define if C99 functions or macros in <wchar.h> should be imported in
    <cwchar> in namespace std for C++98. */

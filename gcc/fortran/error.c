@@ -1096,12 +1096,25 @@ gfc_diagnostic_starter (diagnostic_context *context,
       /* Fortran uses an empty line between locus and caret line.  */
       pp_newline (context->printer);
       diagnostic_show_locus (context, diagnostic);
-      pp_newline (context->printer);
       /* If the caret line was shown, the prefix does not contain the
 	 locus.  */
       pp_set_prefix (context->printer, kind_prefix);
     }
 }
+
+static void
+gfc_diagnostic_start_span (diagnostic_context *context,
+			   expanded_location exploc)
+{
+  char *locus_prefix;
+  locus_prefix = gfc_diagnostic_build_locus_prefix (context, exploc);
+  pp_verbatim (context->printer, locus_prefix);
+  free (locus_prefix);
+  pp_newline (context->printer);
+  /* Fortran uses an empty line between locus and caret line.  */
+  pp_newline (context->printer);
+}
+
 
 static void
 gfc_diagnostic_finalizer (diagnostic_context *context,
@@ -1427,6 +1440,7 @@ void
 gfc_diagnostics_init (void)
 {
   diagnostic_starter (global_dc) = gfc_diagnostic_starter;
+  global_dc->start_span = gfc_diagnostic_start_span;
   diagnostic_finalizer (global_dc) = gfc_diagnostic_finalizer;
   diagnostic_format_decoder (global_dc) = gfc_format_decoder;
   global_dc->caret_chars[0] = '1';

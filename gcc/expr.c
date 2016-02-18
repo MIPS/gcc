@@ -485,7 +485,7 @@ convert_move (rtx to, rtx from, int unsignedp)
       /* No special multiword conversion insn; do it by hand.  */
       start_sequence ();
 
-      /* Since we will turn this into a no conflict block, we must ensure the
+      /* Since we will turn this into a no conflict block, we must ensure
          the source does not overlap the target so force it into an isolated
          register when maybe so.  Likewise for any MEM input, since the
          conversion sequence might require several references to it and we
@@ -8238,7 +8238,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
         else
           {
 	    /* For disjoint address spaces, converting anything but a null
-	       pointer invokes undefined behaviour.  We truncate or extend the
+	       pointer invokes undefined behavior.  We truncate or extend the
 	       value as if we'd converted via integers, which handles 0 as
 	       required, and all others as the programmer likely expects.  */
 #ifndef POINTERS_EXTEND_UNSIGNED

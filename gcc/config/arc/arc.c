@@ -420,6 +420,9 @@ static void arc_finalize_pic (void);
 #undef TARGET_ASM_ALIGNED_SI_OP
 #define TARGET_ASM_ALIGNED_SI_OP "\t.word\t"
 
+#undef TARGET_DWARF_REGISTER_SPAN
+#define TARGET_DWARF_REGISTER_SPAN arc_dwarf_register_span
+
 /* Try to keep the (mov:DF _, reg) as early as possible so
    that the d<add/sub/mul>h-lr insns appear together and can
    use the peephole2 pattern.  */
@@ -716,8 +719,15 @@ arc_init (void)
 
   /* FPX-3. No FPX extensions on pre-ARC600 cores.  */
   if ((TARGET_DPFP || TARGET_SPFP)
-      && !TARGET_ARCOMPACT_FAMILY)
+      && (!TARGET_ARCOMPACT_FAMILY && !TARGET_EM))
     error ("FPX extensions not available on pre-ARC600 cores");
+
+  /* FPX-4.  No FPX extensions mixed with FPU extensions for ARC HS
+     cpus.  */
+  if ((TARGET_DPFP || TARGET_SPFP)
+      && TARGET_HARD_FLOAT
+      && TARGET_HS)
+    error ("No FPX/FPU mixing allowed");
 
   /* Only selected multiplier configurations are available for HS.  */
   if (TARGET_HS && ((arc_mpy_option > 2 && arc_mpy_option < 7)
@@ -735,6 +745,23 @@ arc_init (void)
 
   if (TARGET_ATOMIC && !(TARGET_ARC700 || TARGET_HS))
     error ("-matomic is only supported for ARC700 or ARC HS cores");
+
+  /* ll64 ops only available for HS.  */
+  if (TARGET_LL64 && !TARGET_HS)
+    error ("-mll64 is only supported for ARC HS cores");
+
+  /* FPU support only for V2.  */
+  if (TARGET_HARD_FLOAT)
+    {
+      if (TARGET_EM
+	  && (arc_fpu_build & ~(FPU_SP | FPU_SF | FPU_SC | FPU_SD | FPX_DP)))
+	error ("FPU double precision options are available for ARC HS only");
+      if (TARGET_HS && (arc_fpu_build & FPX_DP))
+	error ("FPU double precision assist "
+	       "options are not available for ARC HS");
+      if (!TARGET_HS && !TARGET_EM)
+	error ("FPU options are available for ARCv2 architecture only");
+    }
 
   arc_init_reg_tables ();
 
@@ -919,6 +946,33 @@ get_arc_condition_code (rtx comparison)
 	case UNEQ      : return ARC_CC_LS;
 	default : gcc_unreachable ();
 	}
+    case CC_FPUmode:
+      switch (GET_CODE (comparison))
+	{
+	case EQ	       : return ARC_CC_EQ;
+	case NE	       : return ARC_CC_NE;
+	case GT	       : return ARC_CC_GT;
+	case GE	       : return ARC_CC_GE;
+	case LT	       : return ARC_CC_C;
+	case LE	       : return ARC_CC_LS;
+	case UNORDERED : return ARC_CC_V;
+	case ORDERED   : return ARC_CC_NV;
+	case UNGT      : return ARC_CC_HI;
+	case UNGE      : return ARC_CC_HS;
+	case UNLT      : return ARC_CC_LT;
+	case UNLE      : return ARC_CC_LE;
+	  /* UNEQ and LTGT do not have representation.  */
+	case LTGT      : /* Fall through.  */
+	case UNEQ      : /* Fall through.  */
+	default : gcc_unreachable ();
+	}
+    case CC_FPU_UNEQmode:
+      switch (GET_CODE (comparison))
+	{
+	case LTGT : return ARC_CC_NE;
+	case UNEQ : return ARC_CC_EQ;
+	default : gcc_unreachable ();
+	}
     default : gcc_unreachable ();
     }
   /*NOTREACHED*/
@@ -1002,19 +1056,46 @@ arc_select_cc_mode (enum rtx_code op, rtx x, rtx y)
 	return CC_FP_GEmode;
       default: gcc_unreachable ();
       }
-  else if (GET_MODE_CLASS (mode) == MODE_FLOAT && TARGET_OPTFPE)
+  else if (TARGET_HARD_FLOAT
+	   && ((mode == SFmode && TARGET_FP_SP_BASE)
+	       || (mode == DFmode && TARGET_FP_DP_BASE)))
     switch (op)
       {
-      case EQ: case NE: return CC_Zmode;
-      case LT: case UNGE:
-      case GT: case UNLE: return CC_FP_GTmode;
-      case LE: case UNGT:
-      case GE: case UNLT: return CC_FP_GEmode;
-      case UNEQ: case LTGT: return CC_FP_UNEQmode;
-      case ORDERED: case UNORDERED: return CC_FP_ORDmode;
-      default: gcc_unreachable ();
-      }
+      case EQ:
+      case NE:
+      case UNORDERED:
+      case ORDERED:
+      case UNLT:
+      case UNLE:
+      case UNGT:
+      case UNGE:
+      case LT:
+      case LE:
+      case GT:
+      case GE:
+	return CC_FPUmode;
 
+      case LTGT:
+      case UNEQ:
+	return CC_FPU_UNEQmode;
+
+      default:
+	gcc_unreachable ();
+      }
+  else if (GET_MODE_CLASS (mode) == MODE_FLOAT && TARGET_OPTFPE)
+    {
+      switch (op)
+	{
+	case EQ: case NE: return CC_Zmode;
+	case LT: case UNGE:
+	case GT: case UNLE: return CC_FP_GTmode;
+	case LE: case UNGT:
+	case GE: case UNLT: return CC_FP_GEmode;
+	case UNEQ: case LTGT: return CC_FP_UNEQmode;
+	case ORDERED: case UNORDERED: return CC_FP_ORDmode;
+	default: gcc_unreachable ();
+	}
+    }
   return CCmode;
 }
 
@@ -1141,7 +1222,8 @@ arc_init_reg_tables (void)
 	     we must explicitly check for them here.  */
 	  if (i == (int) CCmode || i == (int) CC_ZNmode || i == (int) CC_Zmode
 	      || i == (int) CC_Cmode
-	      || i == CC_FP_GTmode || i == CC_FP_GEmode || i == CC_FP_ORDmode)
+	      || i == CC_FP_GTmode || i == CC_FP_GEmode || i == CC_FP_ORDmode
+	      || i == CC_FPUmode || i == CC_FPU_UNEQmode)
 	    arc_mode_class[i] = 1 << (int) C_MODE;
 	  else
 	    arc_mode_class[i] = 0;
@@ -1275,6 +1357,16 @@ arc_conditional_register_usage (void)
 	arc_hard_regno_mode_ok[60] = 1 << (int) S_MODE;
     }
 
+  /* ARCHS has 64-bit data-path which makes use of the even-odd paired
+     registers.  */
+  if (TARGET_HS)
+    {
+      for (regno = 1; regno < 32; regno +=2)
+	{
+	  arc_hard_regno_mode_ok[regno] = S_MODES;
+	}
+    }
+
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
       if (i < 29)
@@ -1369,6 +1461,19 @@ arc_conditional_register_usage (void)
 
   /* pc : r63 */
   arc_regno_reg_class[PROGRAM_COUNTER_REGNO] = GENERAL_REGS;
+
+  /*ARCV2 Accumulator.  */
+  if (TARGET_V2
+      && (TARGET_FP_DP_FUSED || TARGET_FP_SP_FUSED))
+  {
+    arc_regno_reg_class[ACCL_REGNO] = WRITABLE_CORE_REGS;
+    arc_regno_reg_class[ACCH_REGNO] = WRITABLE_CORE_REGS;
+    SET_HARD_REG_BIT (reg_class_contents[WRITABLE_CORE_REGS], ACCL_REGNO);
+    SET_HARD_REG_BIT (reg_class_contents[WRITABLE_CORE_REGS], ACCH_REGNO);
+    SET_HARD_REG_BIT (reg_class_contents[CHEAP_CORE_REGS], ACCL_REGNO);
+    SET_HARD_REG_BIT (reg_class_contents[CHEAP_CORE_REGS], ACCH_REGNO);
+    arc_hard_regno_mode_ok[ACC_REG_FIRST] = D_MODES;
+  }
 }
 
 /* Handle an "interrupt" attribute; arguments as in
@@ -1538,6 +1643,10 @@ gen_compare_reg (rtx comparison, machine_mode omode)
 						 gen_rtx_REG (CC_FPXmode, 61),
 						 const0_rtx)));
     }
+  else if (TARGET_HARD_FLOAT
+	   && ((cmode == SFmode && TARGET_FP_SP_BASE)
+	       || (cmode == DFmode && TARGET_FP_DP_BASE)))
+    emit_insn (gen_rtx_SET (cc_reg, gen_rtx_COMPARE (mode, x, y)));
   else if (GET_MODE_CLASS (cmode) == MODE_FLOAT && TARGET_OPTFPE)
     {
       rtx op0 = gen_rtx_REG (cmode, 0);
@@ -1631,10 +1740,11 @@ arc_setup_incoming_varargs (cumulative_args_t args_so_far,
   /* We must treat `__builtin_va_alist' as an anonymous arg.  */
 
   next_cum = *get_cumulative_args (args_so_far);
-  arc_function_arg_advance (pack_cumulative_args (&next_cum), mode, type, 1);
+  arc_function_arg_advance (pack_cumulative_args (&next_cum),
+			    mode, type, true);
   first_anon_arg = next_cum;
 
-  if (first_anon_arg < MAX_ARC_PARM_REGS)
+  if (FUNCTION_ARG_REGNO_P (first_anon_arg))
     {
       /* First anonymous (unnamed) argument is in a reg.  */
 
@@ -2175,9 +2285,26 @@ arc_save_restore (rtx base_reg,
 
       for (regno = 0; regno <= 31; regno++)
 	{
-	  if ((gmask & (1L << regno)) != 0)
+	  enum machine_mode mode = SImode;
+	  bool found = false;
+
+	  if (TARGET_LL64
+	      && (regno % 2 == 0)
+	      && ((gmask & (1L << regno)) != 0)
+	      && ((gmask & (1L << (regno+1))) != 0))
 	    {
-	      rtx reg = gen_rtx_REG (SImode, regno);
+	      found = true;
+	      mode  = DImode;
+	    }
+	  else if ((gmask & (1L << regno)) != 0)
+	    {
+	      found = true;
+	      mode  = SImode;
+	    }
+
+	  if (found)
+	    {
+	      rtx reg = gen_rtx_REG (mode, regno);
 	      rtx addr, mem;
 	      int cfa_adjust = *first_offset;
 
@@ -2193,7 +2320,7 @@ arc_save_restore (rtx base_reg,
 		  gcc_assert (SMALL_INT (offset));
 		  addr = plus_constant (Pmode, base_reg, offset);
 		}
-	      mem = gen_frame_mem (SImode, addr);
+	      mem = gen_frame_mem (mode, addr);
 	      if (epilogue_p)
 		{
 		  rtx insn =
@@ -2212,6 +2339,11 @@ arc_save_restore (rtx base_reg,
 	      else
 		frame_move_inc (mem, reg, base_reg, addr);
 	      offset += UNITS_PER_WORD;
+	      if (mode == DImode)
+		{
+		  offset += UNITS_PER_WORD;
+		  ++regno;
+		}
 	    } /* if */
 	} /* for */
     }/* if */
@@ -4827,8 +4959,6 @@ arc_arg_partial_bytes (cumulative_args_t cum_v, machine_mode mode,
   return ret;
 }
 
-
-
 /* This function is used to control a function argument is passed in a
    register, and which register.
 
@@ -4866,8 +4996,10 @@ arc_arg_partial_bytes (cumulative_args_t cum_v, machine_mode mode,
    and the rest are pushed.  */
 
 static rtx
-arc_function_arg (cumulative_args_t cum_v, machine_mode mode,
-		  const_tree type ATTRIBUTE_UNUSED, bool named ATTRIBUTE_UNUSED)
+arc_function_arg (cumulative_args_t cum_v,
+		  machine_mode mode,
+		  const_tree type ATTRIBUTE_UNUSED,
+		  bool named ATTRIBUTE_UNUSED)
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   int arg_num = *cum;
@@ -4913,8 +5045,10 @@ arc_function_arg (cumulative_args_t cum_v, machine_mode mode,
    course function_arg_partial_nregs will come into play.  */
 
 static void
-arc_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
-			  const_tree type, bool named ATTRIBUTE_UNUSED)
+arc_function_arg_advance (cumulative_args_t cum_v,
+			  machine_mode mode,
+			  const_tree type,
+			  bool named ATTRIBUTE_UNUSED)
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   int bytes = (mode == BLKmode
@@ -6369,6 +6503,11 @@ arc_reorg (void)
 
 	  pc_target = SET_SRC (pattern);
 
+	  /* Avoid FPU instructions.  */
+	  if ((GET_MODE (XEXP (XEXP (pc_target, 0), 0)) == CC_FPUmode)
+	      || (GET_MODE (XEXP (XEXP (pc_target, 0), 0)) == CC_FPU_UNEQmode))
+	    continue;
+
 	  /* Now go back and search for the set cc insn.  */
 
 	  label = XEXP (pc_target, 1);
@@ -6391,7 +6530,7 @@ arc_reorg (void)
 		      break;
 		    }
 		}
-	      if (! link_insn)
+	      if (!link_insn)
 		continue;
 	      else
 		/* Check if this is a data dependency.  */
@@ -6986,9 +7125,8 @@ force_offsettable (rtx addr, HOST_WIDE_INT size, bool reuse)
   return addr;
 }
 
-/* Like move_by_pieces, but take account of load latency,
-   and actual offset ranges.
-   Return true on success.  */
+/* Like move_by_pieces, but take account of load latency, and actual
+   offset ranges.  Return true on success.  */
 
 bool
 arc_expand_movmem (rtx *operands)
@@ -7009,14 +7147,23 @@ arc_expand_movmem (rtx *operands)
   size = INTVAL (operands[2]);
   /* move_by_pieces_ninsns is static, so we can't use it.  */
   if (align >= 4)
-    n_pieces = (size + 2) / 4U + (size & 1);
+    {
+      if (TARGET_LL64)
+	n_pieces = (size + 4) / 8U + ((size >> 1) & 1) + (size & 1);
+      else
+	n_pieces = (size + 2) / 4U + (size & 1);
+    }
   else if (align == 2)
     n_pieces = (size + 1) / 2U;
   else
     n_pieces = size;
   if (n_pieces >= (unsigned int) (optimize_size ? 3 : 15))
     return false;
-  if (piece > 4)
+  /* Force 32 bit aligned and larger datum to use 64 bit transfers, if
+     possible.  */
+  if (TARGET_LL64 && (piece >= 4) && (size >= 8))
+    piece = 8;
+  else if (piece > 4)
     piece = 4;
   dst_addr = force_offsettable (XEXP (operands[0], 0), size, 0);
   src_addr = force_offsettable (XEXP (operands[1], 0), size, 0);
@@ -7027,8 +7174,8 @@ arc_expand_movmem (rtx *operands)
       rtx tmp;
       machine_mode mode;
 
-      if (piece > size)
-	piece = size & -size;
+      while (piece > size)
+	piece >>= 1;
       mode = smallest_mode_for_size (piece * BITS_PER_UNIT, MODE_INT);
       /* If we don't re-use temporaries, the scheduler gets carried away,
 	 and the register pressure gets unnecessarily high.  */
@@ -8463,12 +8610,11 @@ split_subsi (rtx *operands)
    Operand 0: destination register
    Operand 1: source register  */
 
-static rtx
+static bool
 arc_process_double_reg_moves (rtx *operands)
 {
   rtx dest = operands[0];
   rtx src  = operands[1];
-  rtx val;
 
   enum usesDxState { none, srcDx, destDx, maxDx };
   enum usesDxState state = none;
@@ -8483,9 +8629,7 @@ arc_process_double_reg_moves (rtx *operands)
     }
 
   if (state == none)
-    return NULL_RTX;
-
-  start_sequence ();
+    return false;
 
   if (state == srcDx)
     {
@@ -8532,29 +8676,35 @@ arc_process_double_reg_moves (rtx *operands)
   else
     gcc_unreachable ();
 
-  val = get_insns ();
-  end_sequence ();
-  return val;
+  return true;
 }
 
 /* operands 0..1 are the operands of a 64 bit move instruction.
    split it into two moves with operands 2/3 and 4/5.  */
 
-rtx
+void
 arc_split_move (rtx *operands)
 {
   machine_mode mode = GET_MODE (operands[0]);
   int i;
   int swap = 0;
   rtx xop[4];
-  rtx val;
 
   if (TARGET_DPFP)
   {
-    val = arc_process_double_reg_moves (operands);
-    if (val)
-      return val;
+    if (arc_process_double_reg_moves (operands))
+      return;
   }
+
+  if (TARGET_LL64
+      && ((memory_operand (operands[0], mode)
+	   && even_register_operand (operands[1], mode))
+	  || (memory_operand (operands[1], mode)
+	      && even_register_operand (operands[0], mode))))
+    {
+      emit_move_insn (operands[0], operands[1]);
+      return;
+    }
 
   for (i = 0; i < 2; i++)
     {
@@ -8603,18 +8753,10 @@ arc_split_move (rtx *operands)
       swap = 2;
       gcc_assert (!reg_overlap_mentioned_p (xop[2], xop[1]));
     }
-  operands[2+swap] = xop[0];
-  operands[3+swap] = xop[1];
-  operands[4-swap] = xop[2];
-  operands[5-swap] = xop[3];
 
-  start_sequence ();
-  emit_insn (gen_rtx_SET (operands[2], operands[3]));
-  emit_insn (gen_rtx_SET (operands[4], operands[5]));
-  val = get_insns ();
-  end_sequence ();
+  emit_move_insn (xop[0 + swap], xop[1 + swap]);
+  emit_move_insn (xop[2 - swap], xop[3 - swap]);
 
-  return val;
 }
 
 /* Select between the instruction output templates s_tmpl (for short INSNs)
@@ -9328,6 +9470,28 @@ arc_no_speculation_in_delay_slots_p ()
 {
   return true;
 }
+
+/* Return a parallel of registers to represent where to find the
+   register pieces if required, otherwise NULL_RTX.  */
+
+static rtx
+arc_dwarf_register_span (rtx rtl)
+{
+   enum machine_mode mode = GET_MODE (rtl);
+   unsigned regno;
+   rtx p;
+
+   if (GET_MODE_SIZE (mode) != 8)
+     return NULL_RTX;
+
+   p = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (2));
+   regno = REGNO (rtl);
+   XVECEXP (p, 0, 0) = gen_rtx_REG (SImode, regno);
+   XVECEXP (p, 0, 1) = gen_rtx_REG (SImode, regno + 1);
+
+   return p;
+}
+
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

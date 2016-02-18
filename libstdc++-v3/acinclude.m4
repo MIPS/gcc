@@ -1059,6 +1059,35 @@ AC_DEFUN([GLIBCXX_ENABLE_C99], [
         in <cstdio> in namespace std for C++98.])
     fi
 
+    # Check for the existence in <stdlib.h> of lldiv_t, et. al.
+    AC_MSG_CHECKING([for ISO C99 support in <stdlib.h> for C++98])
+    AC_CACHE_VAL(glibcxx_cv_c99_stdlib_cxx98, [
+      GCC_TRY_COMPILE_OR_LINK(
+        [#include <stdlib.h>
+         volatile float f;
+         volatile long double ld;
+         volatile unsigned long long ll;
+         lldiv_t mydivt;],
+        [char* tmp;
+         f = strtof("gnu", &tmp);
+         ld = strtold("gnu", &tmp);
+         ll = strtoll("gnu", &tmp, 10);
+         ll = strtoull("gnu", &tmp, 10);
+         ll = llabs(10);
+         mydivt = lldiv(10,1);
+         ll = mydivt.quot;
+         ll = mydivt.rem;
+         ll = atoll("10");
+         _Exit(0);
+        ], [glibcxx_cv_c99_stdlib_cxx98=yes], [glibcxx_cv_c99_stdlib_cxx98=no])
+    ])
+    AC_MSG_RESULT($glibcxx_cv_c99_stdlib_cxx98)
+    if test x"$glibcxx_cv_c99_stdlib_cxx98" = x"yes"; then
+      AC_DEFINE(_GLIBCXX98_USE_C99_STDLIB, 1,
+        [Define if C99 functions or macros in <stdlib.h> should be imported
+        in <cstdlib> in namespace std for C++98.])
+    fi
+
     # Check for the existence in <wchar.h> of wcstold, etc.
     if test x"$ac_has_wchar_h" = xyes &&
        test x"$ac_has_wctype_h" = xyes; then
@@ -2186,39 +2215,55 @@ AC_DEFUN([GLIBCXX_CHECK_MATH11_PROTO], [
       fi
       AC_MSG_RESULT([$glibcxx_cv_math11_overload])
       ;;
-    *-*-*gnu* | *-*-aix*)
+    *)
       # If <math.h> defines the obsolete isinf(double) and isnan(double)
       # functions (instead of or as well as the C99 generic macros) then we
       # can't define std::isinf(double) and std::isnan(double) in <cmath>
       # and must use the ones from <math.h> instead.
-      AC_MSG_CHECKING([for obsolete isinf and isnan functions in <math.h>])
-        AC_CACHE_VAL(glibcxx_cv_obsolete_isinf_isnan, [
+      AC_MSG_CHECKING([for obsolete isinf function in <math.h>])
+        AC_CACHE_VAL(glibcxx_cv_obsolete_isinf, [
           AC_COMPILE_IFELSE([AC_LANG_SOURCE(
-            [#include <math.h>
+            [#define _GLIBCXX_INCLUDE_NEXT_C_HEADERS
+             #include <math.h>
              #undef isinf
-             #undef isnan
              namespace std {
                using ::isinf;
                bool isinf(float);
                bool isinf(long double);
+             }
+             using std::isinf;
+             bool b = isinf(0.0);
+          ])],
+          [glibcxx_cv_obsolete_isinf=yes],
+          [glibcxx_cv_obsolete_isinf=no]
+        )])
+      AC_MSG_RESULT([$glibcxx_cv_obsolete_isinf])
+      if test $glibcxx_cv_obsolete_isinf = yes; then
+        AC_DEFINE(HAVE_OBSOLETE_ISINF, 1,
+                  [Define if <math.h> defines obsolete isinf function.])
+      fi
+
+      AC_MSG_CHECKING([for obsolete isnan function in <math.h>])
+        AC_CACHE_VAL(glibcxx_cv_obsolete_isnan, [
+          AC_COMPILE_IFELSE([AC_LANG_SOURCE(
+            [#include <math.h>
+             #undef isnan
+             namespace std {
                using ::isnan;
                bool isnan(float);
                bool isnan(long double);
              }
-             using std::isinf;
              using std::isnan;
-             bool b = isinf(0.0) || isnan(0.0);
+             bool b = isnan(0.0);
           ])],
-          [glibcxx_cv_obsolete_isinf_isnan=yes],
-          [glibcxx_cv_obsolete_isinf_isnan=no]
+          [glibcxx_cv_obsolete_isnan=yes],
+          [glibcxx_cv_obsolete_isnan=no]
         )])
-
-
-      if test $glibcxx_cv_obsolete_isinf_isnan = yes; then
-        AC_DEFINE(HAVE_OBSOLETE_ISINF_ISNAN, 1,
-                  [Define if <math.h> defines obsolete isinf and isnan functions.])
+      AC_MSG_RESULT([$glibcxx_cv_obsolete_isnan])
+      if test $glibcxx_cv_obsolete_isnan = yes; then
+        AC_DEFINE(HAVE_OBSOLETE_ISNAN, 1,
+                  [Define if <math.h> defines obsolete isnan function.])
       fi
-      AC_MSG_RESULT([$glibcxx_cv_obsolete_isinf_isnan])
       ;;
   esac
 

@@ -305,6 +305,10 @@
    (V8SI "TARGET_AVX") (V4DI "TARGET_AVX")
    (V8SF "TARGET_AVX") (V4DF"TARGET_AVX")])
 
+(define_mode_iterator VI48_AVX
+ [V4SI V2DI
+  (V8SI "TARGET_AVX") (V4DI "TARGET_AVX")])
+
 (define_mode_iterator VI8
   [(V8DI "TARGET_AVX512F") (V4DI "TARGET_AVX") V2DI])
 
@@ -833,7 +837,7 @@
 
 (define_insn "*mov<mode>_internal"
   [(set (match_operand:VMOVE 0 "nonimmediate_operand"               "=v,v ,m")
-	(match_operand:VMOVE 1 "nonimmediate_or_sse_const_operand"  "C ,vm,v"))]
+	(match_operand:VMOVE 1 "nonimmediate_or_sse_const_operand"  "BC,vm,v"))]
   "TARGET_SSE
    && (register_operand (operands[0], <MODE>mode)
        || register_operand (operands[1], <MODE>mode))"
@@ -2784,7 +2788,7 @@
 	(match_operator:<avx512fmaskmode> 3 "sse_comparison_operator"
 	  [(match_operand:VF 1 "register_operand" "v")
 	   (match_operand:VF 2 "nonimmediate_operand" "vm")]))]
-  "TARGET_SSE"
+  "TARGET_AVX512F"
   "vcmp%D3<ssemodesuffix>\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "type" "ssecmp")
    (set_attr "length_immediate" "1")
@@ -5464,7 +5468,7 @@
   [(set (match_operand:V2DF 0 "register_operand" "=v")
 	(float_extend:V2DF
 	  (vec_select:V2SF
-	    (match_operand:V4SF 1 "vector_operand" "vBm")
+	    (match_operand:V4SF 1 "vector_operand" "vm")
 	    (parallel [(const_int 0) (const_int 1)]))))]
   "TARGET_SSE2 && <mask_avx512vl_condition>"
   "%vcvtps2pd\t{%1, %0<mask_operand2>|%0<mask_operand2>, %q1}"
@@ -18224,6 +18228,23 @@
 	  (match_dup 0)
 	  (match_operand:<avx512fmaskmode> 2 "register_operand")))]
   "TARGET_AVX512BW")
+
+(define_expand "cbranch<mode>4"
+  [(set (reg:CC FLAGS_REG)
+	(compare:CC (match_operand:VI48_AVX 1 "register_operand")
+		    (match_operand:VI48_AVX 2 "nonimmediate_operand")))
+   (set (pc) (if_then_else
+	       (match_operator 0 "bt_comparison_operator"
+		[(reg:CC FLAGS_REG) (const_int 0)])
+	       (label_ref (match_operand 3))
+	       (pc)))]
+  "TARGET_SSE4_1"
+{
+  ix86_expand_branch (GET_CODE (operands[0]),
+		      operands[1], operands[2], operands[3]);
+  DONE;
+})
+
 
 (define_insn_and_split "avx_<castmode><avxsizesuffix>_<castmode>"
   [(set (match_operand:AVX256MODE2P 0 "nonimmediate_operand" "=x,m")

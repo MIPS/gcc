@@ -899,7 +899,8 @@ default_branch_target_register_class (void)
 
 reg_class_t
 default_ira_change_pseudo_allocno_class (int regno ATTRIBUTE_UNUSED,
-					 reg_class_t cl)
+					 reg_class_t cl,
+					 reg_class_t best_cl ATTRIBUTE_UNUSED)
 {
   return cl;
 }
@@ -1445,7 +1446,7 @@ default_register_move_cost (machine_mode mode ATTRIBUTE_UNUSED,
 }
 
 /* For hooks which use the MOVE_RATIO macro, this gives the legacy default
-   behaviour.  SPEED_P is true if we are compiling for speed.  */
+   behavior.  SPEED_P is true if we are compiling for speed.  */
 
 unsigned int
 get_move_ratio (bool speed_p ATTRIBUTE_UNUSED)

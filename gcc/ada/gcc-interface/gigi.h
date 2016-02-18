@@ -342,7 +342,7 @@ extern bool fp_arith_may_widen;
 
 /* Data structures used to represent attributes.  */
 
-enum attr_type
+enum attrib_type
 {
   ATTR_MACHINE_ATTRIBUTE,
   ATTR_LINK_ALIAS,
@@ -356,7 +356,7 @@ enum attr_type
 struct attrib
 {
   struct attrib *next;
-  enum attr_type type;
+  enum attrib_type type;
   tree name;
   tree args;
   Node_Id error_point;
@@ -1163,4 +1163,15 @@ maybe_character_value (tree expr)
     }
 
   return expr;
+}
+
+/* Return the debug type of TYPE if it exists, otherwise TYPE itself.  */
+
+static inline tree
+maybe_debug_type (tree type)
+{
+  if (TYPE_CAN_HAVE_DEBUG_TYPE_P (type) && TYPE_DEBUG_TYPE (type))
+    type = TYPE_DEBUG_TYPE (type);
+
+  return type;
 }

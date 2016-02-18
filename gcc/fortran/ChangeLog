@@ -1,3 +1,159 @@
+2015-02-16  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/69742
+	* frontend-passes.c (cfe-expr_0):  Don't register functions
+	from within an ASSOCIATE statement.
+
+2016-02-14  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/60526
+	* decl.c (build_sym):  If the name has already been defined as a
+	type, it has a symtree with an upper case letter at the beginning.
+	If such a symtree exists, issue an error and exit.  Don't do
+	this if there is no corresponding upper case letter.
+
+2016-02-14  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/60526
+	PR bootstrap/69816
+	* decl.c (build_sym):  Reverted previous patch.
+
+2016-02-14  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/60526
+	* decl.c (build_sym):  If the name has already been defined as a
+	type, issue error and return false.
+
+2016-02-12  David Malcolm  <dmalcolm@redhat.com>
+
+	PR other/69554
+	* error.c (gfc_diagnostic_start_span): New function.
+	(gfc_diagnostics_init): Initialize global_dc's start_span.
+
+2016-02-11  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/69296
+	* gfortran.h: Added flag to gfc_association_list indicating that
+	the rank of an associate variable has been guessed only.
+	* parse.c (parse_associate): Set the guess flag mentioned above
+	when guessing the rank of an expression.
+	* resolve.c (resolve_assoc_var): When the rank has been guessed,
+	make sure, that the guess was correct else overwrite with the actual
+	rank.
+	* trans-stmt.c (trans_associate_var): For subref_array_pointers in
+	class objects, take the span from the _data component.
+
+2016-02-07  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/50555
+	* primary.c (match_actual_arg): If symbol has attribute flavor of
+	namelist, generate an error. (gfc_match_rvalue): Likewise return
+	MATCH_ERROR.
+	* resolve.c (resolve_symbol): Scan arument list of procedures and
+	generate an error if a namelist is found.
+
+2016-02-05  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/66089
+	* trans-expr.c (expr_is_variable, gfc_expr_is_variable): Rename
+	the former to the latter and make it non-static.  Update callers.
+	* gfortran.h (gfc_expr_is_variable): New declaration.
+	(struct gfc_ss_info): Add field needs_temporary.
+	* trans-array.c (gfc_scalar_elemental_arg_saved_as_argument):
+	Tighten the condition on aggregate expressions with a check
+	that the expression is a variable and doesn't need a temporary.
+	(gfc_conv_resolve_dependency): Add intermediary reference variable.
+	Set the needs_temporary field.
+
+2016-02-03  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/67451
+	PR fortran/69418
+	* trans-expr.c (gfc_copy_class_to_class): For coarrays just the
+	pointer is passed.  Take it as is without trying to deref the
+	_data component.
+	* trans-stmt.c (gfc_trans_allocate): Take care of coarrays as
+	argument to source=-expression.
+
+2016-02-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* lang.opt (fopenacc-dim=): New option.
+
+2016-01-31  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/67564
+	* trans-expr.c (gfc_conv_procedure_call): For the vtable copy
+	subroutines, add a string length argument, when the actual
+	argument is an unlimited polymorphic class object.
+
+2016-01-30  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/69566
+	* trans-expr.c (gfc_conv_procedure_call): Correct expression
+	for 'ulim_copy', which was missing a test for 'comp'.
+
+2016-01-28  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/62536
+	* decl.c (gfc_match_end): Only unnest and remove BLOCK namespaces
+	when the END encountered does not match a BLOCK's end.
+
+2016-01-27  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/69484
+	* invoke.texi: Fix documentation of -Wall with respect to -Wtabs.
+
+2016-01-27  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/69422
+	* trans-expr.c (is_scalar_reallocatable_lhs): Remove the check
+	for allocatable components, whilst checking if the symbol is a
+	derived or class entity..
+
+2016-01-26  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/69385
+	* trans-expr.c (gfc_trans_assignment_1): Exclude initialization
+	assignments from check on assignment of scalars to unassigned
+	arrays and correct wrong code within the corresponding block.
+
+2016-01-26  David Malcolm  <dmalcolm@redhat.com>
+
+	PR other/69006
+	* error.c (gfc_diagnostic_starter): Delete use of pp_newline.
+
+2016-01-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/69397
+	PR fortran/68442
+	* interface.c (gfc_arglist_matches_symbol): Replace assert with
+	a return false if not a procedure.
+	* resolve.c (resolve_generic_f): Test if we are resolving an
+	initialization expression and adjust error message accordingly.
+
+2016-01-24  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/66094
+	* frontend-passes.c (matmul_lhs_realloc):  Add
+	forgotten break statement.
+
+2016-01-24  Dominique d'Humieres <dominiq@lps.ens.fr>
+
+	PR fortran/68283
+	* primary.c (gfc_variable_attr): revert revision r221955,
+	call gfc_internal_error only if there is no error.
+
+2016-01-24  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/66094
+	* frontend-passes.c (enum matrix_case):  Add case A2B2T for
+	MATMUL(A,TRANSPoSE(B)) where A and B are rank 2.
+	(inline_limit_check):  Also add A2B2T.
+	(matmul_lhs_realloc):  Handle A2B2T.
+	(check_conjg_variable):  Rename to
+	(check_conjg_transpose_variable):  and also count TRANSPOSE.
+	(inline_matmul_assign):  Handle A2B2T.
+
 2016-01-21  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR fortran/65996

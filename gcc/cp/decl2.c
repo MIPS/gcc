@@ -1193,7 +1193,8 @@ is_late_template_attribute (tree attr, tree decl)
 	 second and following arguments.  Attributes like mode, format,
 	 cleanup and several target specific attributes aren't late
 	 just because they have an IDENTIFIER_NODE as first argument.  */
-      if (arg == args && identifier_p (t))
+      if (arg == args && attribute_takes_identifier_p (name)
+	  && identifier_p (t))
 	continue;
 
       if (value_dependent_expression_p (t)
@@ -2684,14 +2685,22 @@ reset_type_linkage_2 (tree type)
 	  reset_decl_linkage (ti);
 	}
       for (tree m = TYPE_FIELDS (type); m; m = DECL_CHAIN (m))
-	if (VAR_P (m))
-	  reset_decl_linkage (m);
+	{
+	  tree mem = STRIP_TEMPLATE (m);
+	  if (VAR_P (mem))
+	    reset_decl_linkage (mem);
+	}
       for (tree m = TYPE_METHODS (type); m; m = DECL_CHAIN (m))
 	{
-	  reset_decl_linkage (m);
-	  if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (m))
-	    /* Also update its name, for cxx_dwarf_name.  */
-	    DECL_NAME (m) = TYPE_IDENTIFIER (type);
+	  tree mem = STRIP_TEMPLATE (m);
+	  reset_decl_linkage (mem);
+	  if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (mem))
+	    {
+	      /* Also update its name, for cxx_dwarf_name.  */
+	      DECL_NAME (mem) = TYPE_IDENTIFIER (type);
+	      if (m != mem)
+		DECL_NAME (m) = TYPE_IDENTIFIER (type);
+	    }
 	}
       binding_table_foreach (CLASSTYPE_NESTED_UTDS (type),
 			     bt_reset_linkage_2, NULL);
@@ -5067,6 +5076,10 @@ mark_used (tree decl, tsubst_flags_t complain)
 
   /* Set TREE_USED for the benefit of -Wunused.  */
   TREE_USED (decl) = 1;
+
+  if (TREE_CODE (decl) == TEMPLATE_DECL)
+    return true;
+
   if (DECL_CLONED_FUNCTION_P (decl))
     TREE_USED (DECL_CLONED_FUNCTION (decl)) = 1;
 

@@ -277,6 +277,7 @@ merge_and_complain (struct cl_decoded_option **decoded_options,
 	case OPT_fwrapv:
 	case OPT_fopenmp:
 	case OPT_fopenacc:
+	case OPT_fcilkplus:
 	case OPT_fcheck_pointer_bounds:
 	  /* For selected options we can merge conservatively.  */
 	  for (j = 0; j < *decoded_options_count; ++j)
@@ -286,15 +287,27 @@ merge_and_complain (struct cl_decoded_option **decoded_options,
 	    append_option (decoded_options, decoded_options_count, foption);
 	  /* -fmath-errno > -fno-math-errno,
 	     -fsigned-zeros > -fno-signed-zeros,
-	     -ftrapping-math -> -fno-trapping-math,
+	     -ftrapping-math > -fno-trapping-math,
 	     -fwrapv > -fno-wrapv.  */
 	  else if (foption->value > (*decoded_options)[j].value)
 	    (*decoded_options)[j] = *foption;
 	  break;
 
+	case OPT_fopenacc_dim_:
+	  /* Append or check identical.  */
+	  for (j = 0; j < *decoded_options_count; ++j)
+	    if ((*decoded_options)[j].opt_index == foption->opt_index)
+	      break;
+	  if (j == *decoded_options_count)
+	    append_option (decoded_options, decoded_options_count, foption);
+	  else if (strcmp ((*decoded_options)[j].arg, foption->arg))
+	    fatal_error (input_location,
+			 "Option %s with different values",
+			 foption->orig_option_with_args_text);
+	  break;
+
 	case OPT_freg_struct_return:
 	case OPT_fpcc_struct_return:
-	case OPT_fshort_double:
 	  for (j = 0; j < *decoded_options_count; ++j)
 	    if ((*decoded_options)[j].opt_index == foption->opt_index)
 	      break;
@@ -497,7 +510,6 @@ append_compiler_options (obstack *argv_obstack, struct cl_decoded_option *opts,
 	case OPT_fgnu_tm:
 	case OPT_freg_struct_return:
 	case OPT_fpcc_struct_return:
-	case OPT_fshort_double:
 	case OPT_ffp_contract_:
 	case OPT_fmath_errno:
 	case OPT_fsigned_zeros:
@@ -505,6 +517,8 @@ append_compiler_options (obstack *argv_obstack, struct cl_decoded_option *opts,
 	case OPT_fwrapv:
 	case OPT_fopenmp:
 	case OPT_fopenacc:
+	case OPT_fopenacc_dim_:
+	case OPT_fcilkplus:
 	case OPT_ftrapv:
 	case OPT_fstrict_overflow:
 	case OPT_foffload_abi_:
@@ -525,6 +539,36 @@ append_compiler_options (obstack *argv_obstack, struct cl_decoded_option *opts,
 	obstack_ptr_grow (argv_obstack, option->canonical_option[i]);
     }
 }
+
+/* Append diag options in OPTS with length COUNT to ARGV_OBSTACK.  */
+
+static void
+append_diag_options (obstack *argv_obstack, struct cl_decoded_option *opts,
+		     unsigned int count)
+{
+  /* Append compiler driver arguments as far as they were merged.  */
+  for (unsigned int j = 1; j < count; ++j)
+    {
+      struct cl_decoded_option *option = &opts[j];
+
+      switch (option->opt_index)
+	{
+	case OPT_fdiagnostics_color_:
+	case OPT_fdiagnostics_show_caret:
+	case OPT_fdiagnostics_show_option:
+	case OPT_fdiagnostics_show_location_:
+	case OPT_fshow_column:
+	  break;
+	default:
+	  continue;
+	}
+
+      /* Pass the option on.  */
+      for (unsigned int i = 0; i < option->canonical_option_num_elements; ++i)
+	obstack_ptr_grow (argv_obstack, option->canonical_option[i]);
+    }
+}
+
 
 /* Append linker options OPTS to ARGV_OBSTACK.  */
 
@@ -553,10 +597,18 @@ append_linker_options (obstack *argv_obstack, struct cl_decoded_option *opts,
 
 	case OPT_freg_struct_return:
 	case OPT_fpcc_struct_return:
-	case OPT_fshort_double:
 	  /* Ignore these, they are determined by the input files.
 	     ???  We fail to diagnose a possible mismatch here.  */
 	  continue;
+
+	case OPT_fopenmp:
+	case OPT_fopenacc:
+	case OPT_fcilkplus:
+	  /* Ignore -fno-XXX form of these options, as otherwise
+	     corresponding builtins will not be enabled.  */
+	  if (option->value == 0)
+	    continue;
+	  break;
 
 	default:
 	  break;
@@ -699,6 +751,7 @@ compile_offload_image (const char *target, const char *compiler_path,
       /* Append options from offload_lto sections.  */
       append_compiler_options (&argv_obstack, compiler_opts,
 			       compiler_opt_count);
+      append_diag_options (&argv_obstack, linker_opts, linker_opt_count);
 
       /* Append options specified by -foffload last.  In case of conflicting
 	 options we expect offload compiler to choose the latest.  */
