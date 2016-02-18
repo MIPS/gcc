@@ -7091,7 +7091,10 @@ mem_operand_gpr (rtx op, machine_mode mode)
   return offset + 0x8000 < 0x10000u - extra;
 }
 
-/* Subroutines of rs6000_legitimize_address and rs6000_legitimate_address_p.  */
+/* Subroutines of rs6000_legitimize_address and rs6000_legitimate_address_p.
+   This function does not return true for ISA 3.0 vector d-form addressing,
+   since the offset for LXV and STXV is more restricted than normal offset
+   addressing.  */
 
 static bool
 reg_offset_addressing_ok_p (machine_mode mode)
@@ -7335,6 +7338,9 @@ rs6000_legitimate_offset_address_p (machine_mode mode, rtx x,
     return false;
   if (!INT_REG_OK_FOR_BASE_P (XEXP (x, 0), strict))
     return false;
+  if (mode_supports_vsx_dform_quad (mode))
+    return (virtual_stack_registers_memory_p (x)
+	    || quad_address_p (x, mode, false));
   if (!reg_offset_addressing_ok_p (mode))
     return virtual_stack_registers_memory_p (x);
   if (legitimate_constant_pool_address_p (x, mode, strict || lra_in_progress))
@@ -7547,6 +7553,11 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	 but just in case it is generated, optimize it away.  */
       if (GET_CODE (x) == PLUS && XEXP (x, 1) == const0_rtx)
 	return force_reg (Pmode, XEXP (x, 0));
+
+      /* Check if this is a valid ISA 3.0 vector d-form address.  */
+      if (mode_supports_vsx_dform_quad (mode)
+	  && quad_address_p (x, mode, false))
+	return x;
 
       /* For TImode with load/store quad, restrict addresses to just a single
 	 pointer, so it works with both GPRs and VSX registers.  */
@@ -8508,6 +8519,11 @@ rs6000_legitimate_address_p (machine_mode mode, rtx x, bool reg_ok_strict)
   if (reg_offset_p && reg_addr[mode].fused_toc && GET_CODE (x) == UNSPEC
       && XINT (x, 1) == UNSPEC_FUSION_ADDIS)
     return 1;
+
+  /* Handle restricted vector d-form offsets in ISA 3.0.  */
+  if (mode_supports_vsx_dform_quad (mode) && quad_address_p (x, mode, false))
+    return 1;
+
   /* For TImode, if we have load/store quad and TImode in VSX registers, only
      allow register indirect addresses.  This will allow the values to go in
      either GPRs or VSX registers without reloading.  The vector types would
@@ -18200,10 +18216,25 @@ rs6000_secondary_reload_memory (rtx addr,
 	 push_reload processing, so handle it now.  */
       if (GET_CODE (plus_arg0) == PLUS && CONST_INT_P (plus_arg1))
 	{
-	  if ((addr_mask & RELOAD_REG_OFFSET) == 0)
+	  /* Make sure ISA 3.0 vector d-form addressing is supported if the
+	     offset is compatible.  */
+	  if ((addr_mask & RELOAD_REG_QUAD_OFFSET) != 0
+	      && CONST_INT_P (XEXP (plus_arg0, 1)))
+	    {
+	      HOST_WIDE_INT offset = (INTVAL (plus_arg1)
+				      + INTVAL (XEXP (plus_arg0, 1)));
+
+	      if (!quad_address_offset_p (offset))
+		{
+		  extra_cost = 1;
+		  type = "reload vector offset";
+		}
+	    }
+
+	  else if ((addr_mask & RELOAD_REG_OFFSET) == 0)
 	    {
 	      extra_cost = 1;
-	      type = "offset";
+	      type = "reload offset";
 	    }
 	}
 
@@ -18214,7 +18245,7 @@ rs6000_secondary_reload_memory (rtx addr,
 	  if ((addr_mask & RELOAD_REG_INDEXED) == 0)
 	    {
 	      extra_cost = 1;
-	      type = "indexed #2";
+	      type = "reload indexed";
 	    }
 	}
 
@@ -18234,13 +18265,23 @@ rs6000_secondary_reload_memory (rtx addr,
 	    }
 	}
 
+      else if ((addr_mask & RELOAD_REG_QUAD_OFFSET) != 0
+	       && CONST_INT_P (plus_arg1))
+	{
+	  if (!quad_address_offset_p (INTVAL (plus_arg1)))
+	    {
+	      extra_cost = 1;
+	      type = "vector d-form offset";
+	    }
+	}
+
       /* Make sure the register class can handle offset addresses.  */
       else if (rs6000_legitimate_offset_address_p (mode, addr, false, true))
 	{
 	  if ((addr_mask & RELOAD_REG_OFFSET) == 0)
 	    {
 	      extra_cost = 1;
-	      type = "offset";
+	      type = "offset #2";
 	    }
 	}
 
@@ -18253,7 +18294,14 @@ rs6000_secondary_reload_memory (rtx addr,
       break;
 
     case LO_SUM:
-      if (!legitimate_lo_sum_address_p (mode, addr, false))
+      /* Quad offsets are restricted and can't handle normal addresses.  */
+      if ((addr_mask & RELOAD_REG_QUAD_OFFSET) != 0)
+	{
+	  extra_cost = -1;
+	  type = "vector d-form lo_sum";
+	}
+
+      else if (!legitimate_lo_sum_address_p (mode, addr, false))
 	{
 	  fail_msg = "bad LO_SUM";
 	  extra_cost = -1;
@@ -18270,8 +18318,17 @@ rs6000_secondary_reload_memory (rtx addr,
     case CONST:
     case SYMBOL_REF:
     case LABEL_REF:
-      type = "address";
-      extra_cost = rs6000_secondary_reload_toc_costs (addr_mask);
+      if ((addr_mask & RELOAD_REG_QUAD_OFFSET) != 0)
+	{
+	  extra_cost = -1;
+	  type = "vector d-form lo_sum #2";
+	}
+
+      else
+	{
+	  type = "address";
+	  extra_cost = rs6000_secondary_reload_toc_costs (addr_mask);
+	}
       break;
 
       /* TOC references look like offsetable memory.  */
@@ -18280,6 +18337,12 @@ rs6000_secondary_reload_memory (rtx addr,
 	{
 	  fail_msg = "bad UNSPEC";
 	  extra_cost = -1;
+	}
+
+      else if ((addr_mask & RELOAD_REG_QUAD_OFFSET) != 0)
+	{
+	  extra_cost = -1;
+	  type = "vector d-form lo_sum #3";
 	}
 
       else if ((addr_mask & RELOAD_REG_OFFSET) == 0)
@@ -18909,6 +18972,16 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	    }
 	}
 
+      else if (mode_supports_vsx_dform_quad (mode) && CONST_INT_P (op1))
+	{
+	  if (((addr_mask & RELOAD_REG_QUAD_OFFSET) == 0)
+	      || !quad_address_p (addr, mode, false))
+	    {
+	      emit_insn (gen_rtx_SET (scratch, addr));
+	      new_addr = scratch;
+	    }
+	}
+
       /* Make sure the register class can handle offset addresses.  */
       else if (rs6000_legitimate_offset_address_p (mode, addr, false, true))
 	{
@@ -18937,6 +19010,13 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	      emit_insn (gen_rtx_SET (scratch, addr));
 	      new_addr = scratch;
 	    }
+	}
+
+      /* Quad offsets are restricted and can't handle normal addresses.  */
+      else if (mode_supports_vsx_dform_quad (mode))
+	{
+	  emit_insn (gen_rtx_SET (scratch, addr));
+	  new_addr = scratch;
 	}
 
       /* Make sure the register class can handle offset addresses.  */
@@ -26177,18 +26257,30 @@ rs6000_emit_prologue (void)
 
 	    savereg = gen_rtx_REG (V4SImode, i);
 
-	    NOT_INUSE (0);
-	    areg = gen_rtx_REG (Pmode, 0);
-	    emit_move_insn (areg, GEN_INT (offset));
+	    if (TARGET_P9_DFORM_VECTOR && quad_address_offset_p (offset))
+	      {
+		mem = gen_frame_mem (V4SImode,
+				     gen_rtx_PLUS (Pmode, frame_reg_rtx,
+						   GEN_INT (offset)));
+		insn = emit_insn (gen_rtx_SET (mem, savereg));
+		areg = NULL_RTX;
+	      }
+	    else
+	      {
+		NOT_INUSE (0);
+		areg = gen_rtx_REG (Pmode, 0);
+		emit_move_insn (areg, GEN_INT (offset));
 
-	    /* AltiVec addressing mode is [reg+reg].  */
-	    mem = gen_frame_mem (V4SImode,
-				 gen_rtx_PLUS (Pmode, frame_reg_rtx, areg));
+		/* AltiVec addressing mode is [reg+reg].  */
+		mem = gen_frame_mem (V4SImode,
+				     gen_rtx_PLUS (Pmode, frame_reg_rtx, areg));
 
-	    /* Rather than emitting a generic move, force use of the stvx
-	       instruction, which we always want.  In particular we don't
-	       want xxpermdi/stxvd2x for little endian.  */
-	    insn = emit_insn (gen_altivec_stvx_v4si_internal (mem, savereg));
+		/* Rather than emitting a generic move, force use of the stvx
+		   instruction, which we always want on ISA 2.07 (power8) systems.
+		   In particular we don't want xxpermdi/stxvd2x for little
+		   endian.  */
+		insn = emit_insn (gen_altivec_stvx_v4si_internal (mem, savereg));
+	      }
 
 	    rs6000_frame_related (insn, frame_reg_rtx, sp_off - frame_off,
 				  areg, GEN_INT (offset));
@@ -26908,23 +27000,36 @@ rs6000_emit_epilogue (int sibcall)
 	  for (i = info->first_altivec_reg_save; i <= LAST_ALTIVEC_REGNO; ++i)
 	    if (info->vrsave_mask & ALTIVEC_REG_BIT (i))
 	      {
-		rtx addr, areg, mem, reg;
+		rtx addr, areg, mem, insn;
+		rtx reg = gen_rtx_REG (V4SImode, i);
+		HOST_WIDE_INT offset
+		  = (info->altivec_save_offset + frame_off
+		     + 16 * (i - info->first_altivec_reg_save));
 
-		areg = gen_rtx_REG (Pmode, 0);
-		emit_move_insn
-		  (areg, GEN_INT (info->altivec_save_offset
-				  + frame_off
-				  + 16 * (i - info->first_altivec_reg_save)));
+		fprintf (stderr, "quad_address_offset_p %ld\n", (long)offset);
+		if (TARGET_P9_DFORM_VECTOR && quad_address_offset_p (offset))
+		  {
+		    mem = gen_frame_mem (V4SImode,
+					 gen_rtx_PLUS (Pmode, frame_reg_rtx,
+						       GEN_INT (offset)));
+		    insn = gen_rtx_SET (reg, mem);
+		  }
+		else
+		  {
+		    areg = gen_rtx_REG (Pmode, 0);
+		    emit_move_insn (areg, GEN_INT (offset));
 
-		/* AltiVec addressing mode is [reg+reg].  */
-		addr = gen_rtx_PLUS (Pmode, frame_reg_rtx, areg);
-		mem = gen_frame_mem (V4SImode, addr);
+		    /* AltiVec addressing mode is [reg+reg].  */
+		    addr = gen_rtx_PLUS (Pmode, frame_reg_rtx, areg);
+		    mem = gen_frame_mem (V4SImode, addr);
 
-		reg = gen_rtx_REG (V4SImode, i);
-		/* Rather than emitting a generic move, force use of the
-		   lvx instruction, which we always want.  In particular
-		   we don't want lxvd2x/xxpermdi for little endian.  */
-		(void) emit_insn (gen_altivec_lvx_v4si_internal (reg, mem));
+		    /* Rather than emitting a generic move, force use of the
+		       lvx instruction, which we always want.  In particular we
+		       don't want lxvd2x/xxpermdi for little endian.  */
+		    insn = gen_altivec_lvx_v4si_internal (reg, mem);
+		  }
+
+		(void) emit_insn (insn);
 	      }
 	}
 
@@ -27111,23 +27216,35 @@ rs6000_emit_epilogue (int sibcall)
 	  for (i = info->first_altivec_reg_save; i <= LAST_ALTIVEC_REGNO; ++i)
 	    if (info->vrsave_mask & ALTIVEC_REG_BIT (i))
 	      {
-		rtx addr, areg, mem, reg;
+		rtx addr, areg, mem, insn;
+		rtx reg = gen_rtx_REG (V4SImode, i);
+		HOST_WIDE_INT offset
+		  = (info->altivec_save_offset + frame_off
+		     + 16 * (i - info->first_altivec_reg_save));
 
-		areg = gen_rtx_REG (Pmode, 0);
-		emit_move_insn
-		  (areg, GEN_INT (info->altivec_save_offset
-				  + frame_off
-				  + 16 * (i - info->first_altivec_reg_save)));
+		if (TARGET_P9_DFORM_VECTOR && quad_address_offset_p (offset))
+		  {
+		    mem = gen_frame_mem (V4SImode,
+					 gen_rtx_PLUS (Pmode, frame_reg_rtx,
+						       GEN_INT (offset)));
+		    insn = gen_rtx_SET (reg, mem);
+		  }
+		else
+		  {
+		    areg = gen_rtx_REG (Pmode, 0);
+		    emit_move_insn (areg, GEN_INT (offset));
 
-		/* AltiVec addressing mode is [reg+reg].  */
-		addr = gen_rtx_PLUS (Pmode, frame_reg_rtx, areg);
-		mem = gen_frame_mem (V4SImode, addr);
+		    /* AltiVec addressing mode is [reg+reg].  */
+		    addr = gen_rtx_PLUS (Pmode, frame_reg_rtx, areg);
+		    mem = gen_frame_mem (V4SImode, addr);
 
-		reg = gen_rtx_REG (V4SImode, i);
-		/* Rather than emitting a generic move, force use of the
-		   lvx instruction, which we always want.  In particular
-		   we don't want lxvd2x/xxpermdi for little endian.  */
-		(void) emit_insn (gen_altivec_lvx_v4si_internal (reg, mem));
+		    /* Rather than emitting a generic move, force use of the
+		       lvx instruction, which we always want.  In particular we
+		       don't want lxvd2x/xxpermdi for little endian.  */
+		    insn = gen_altivec_lvx_v4si_internal (reg, mem);
+		  }
+
+		(void) emit_insn (insn);
 	      }
 	}
 

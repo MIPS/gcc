@@ -1,5 +1,31 @@
 2016-02-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/constraints.md (wO constraint): New constraint for
+	ISA 3.0 vector d-form instructions.
+
+	* config/rs6000/rs6000.c (reg_offset_addressing_ok_p): Add support
+	for ISA 3.0 vector d-form instructions.
+	(rs6000_legitimate_address_p): Likewise.
+	(rs6000_secondary_reload_memory): Likewise.
+	(rs6000_secondary_reload_inner): Likewise.
+	(rs6000_emit_prologue): Likewise.
+	(rs6000_emit_epilogue): Likewise.
+
+	* config/rs6000/vsx.md (p9_vecload_<mode>): Delete, use standard
+	moves.
+	(p9_vecstore_<mode>): Likewise.
+	(vsx_mov<mode>): Add support for ISA 3.0 register +offset (d-form)
+	memory operations.  Delete using <VSr> for the favored register,
+	and <VSa> for any register, and just use <VSa>.  Split
+	vsx_mov<mode> into 64-bit and 32-bit moves into separate patterns,
+	and adjust the lengths appropriately.
+	(vsx_mov<mode>_64bit): Likewise.
+	(vsx_mov<mode>_32bit): Likewise.
+	(vsx_movti_64bit): Likewise.
+	(vsx_movti_32bit): Likewise.
+
+2016-02-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Clone pre-gcc7 branch.
 	Merge from pre-gcc7 subversion id 233534
 	Pre-gcc7 subversion id is based on trunk 233527
