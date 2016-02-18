@@ -18218,9 +18218,13 @@ rs6000_secondary_reload_memory (rtx addr,
 	{
 	  /* Make sure ISA 3.0 vector d-form addressing is supported if the
 	     offset is compatible.  */
-	  if ((addr_mask & RELOAD_REG_QUAD_OFFSET) != 0)
+	  if ((addr_mask & RELOAD_REG_QUAD_OFFSET) != 0
+	      && CONST_INT_P (XEXP (plus_arg0, 1)))
 	    {
-	      if (!quad_address_p (addr, mode, false))
+	      HOST_WIDE_INT offset = (INTVAL (plus_arg1)
+				      + INTVAL (XEXP (plus_arg0, 1)));
+
+	      if (!quad_address_offset_p (offset))
 		{
 		  extra_cost = 1;
 		  type = "reload vector offset";
@@ -18261,6 +18265,16 @@ rs6000_secondary_reload_memory (rtx addr,
 	    }
 	}
 
+      else if ((addr_mask & RELOAD_REG_QUAD_OFFSET) != 0
+	       && CONST_INT_P (plus_arg1))
+	{
+	  if (!quad_address_offset_p (INTVAL (plus_arg1)))
+	    {
+	      extra_cost = 1;
+	      type = "vector d-form offset";
+	    }
+	}
+
       /* Make sure the register class can handle offset addresses.  */
       else if (rs6000_legitimate_offset_address_p (mode, addr, false, true))
 	{
@@ -18281,10 +18295,10 @@ rs6000_secondary_reload_memory (rtx addr,
 
     case LO_SUM:
       /* Quad offsets are restricted and can't handle normal addresses.  */
-      if (mode_supports_vsx_dform_quad (mode))
+      if ((addr_mask & RELOAD_REG_QUAD_OFFSET) != 0)
 	{
-	  extra_cost = 1;
-	  type = "lo_sum";
+	  extra_cost = -1;
+	  type = "vector d-form lo_sum";
 	}
 
       else if (!legitimate_lo_sum_address_p (mode, addr, false))
@@ -18304,8 +18318,17 @@ rs6000_secondary_reload_memory (rtx addr,
     case CONST:
     case SYMBOL_REF:
     case LABEL_REF:
-      type = "address";
-      extra_cost = rs6000_secondary_reload_toc_costs (addr_mask);
+      if ((addr_mask & RELOAD_REG_QUAD_OFFSET) != 0)
+	{
+	  extra_cost = -1;
+	  type = "vector d-form lo_sum #2";
+	}
+
+      else
+	{
+	  type = "address";
+	  extra_cost = rs6000_secondary_reload_toc_costs (addr_mask);
+	}
       break;
 
       /* TOC references look like offsetable memory.  */
@@ -18314,6 +18337,12 @@ rs6000_secondary_reload_memory (rtx addr,
 	{
 	  fail_msg = "bad UNSPEC";
 	  extra_cost = -1;
+	}
+
+      else if ((addr_mask & RELOAD_REG_QUAD_OFFSET) != 0)
+	{
+	  extra_cost = -1;
+	  type = "vector d-form lo_sum #3";
 	}
 
       else if ((addr_mask & RELOAD_REG_OFFSET) == 0)
