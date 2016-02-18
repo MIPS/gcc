@@ -52,6 +52,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-ssa.h"
 #include "gimple-pretty-print.h" //for print_gimple_stmt
 #include "dumpfile.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h" //for SSA_OP_USE and SSA_OP_VUSE
 
 
 /* All the tuples have their operand vector (if present) at the very bottom
@@ -2028,7 +2030,8 @@ strip_type (tree type)
 typedef struct type_wrapper
 {
   /* 0 stand for pointer wrapper, and 1 for array wrapper.  */
-  bool wrap;
+  //bool wrap;
+  enum tree_code code;
 
   /* Relevant for arrays as domain or index.  */
   tree domain;
@@ -2053,15 +2056,16 @@ wrap_new_type (tree orig_type, tree new_type)
       if (POINTER_TYPE_P (otype))
 	{
 	  //pointers_count++;
-	  wr.wrap = 0;
+	  wr.code = TREE_CODE (otype);
 	  wr.domain = NULL_TREE;
 	}
-      else
+      else if (TREE_CODE (otype) == ARRAY_TYPE)
 	{
-	  gcc_assert (TREE_CODE (otype) == ARRAY_TYPE);
-	  wr.wrap = 1;
+	  wr.code = TREE_CODE (otype);
 	  wr.domain = TYPE_DOMAIN (otype);
 	}
+      else
+	gcc_assert (0);
       wrapper.safe_push (wr);
       otype = TREE_TYPE (otype);
     }
@@ -2070,20 +2074,16 @@ wrap_new_type (tree orig_type, tree new_type)
     {
       wr = wrapper.last ();
 
-      if (wr.wrap) /* Array.  */
+      if (wr.code == ARRAY_TYPE) /* Array.  */
 	{
 	  ntype = build_array_type (ntype, wr.domain);
 	}
-      else /* Pointer.  */
+      else if (wr.code == POINTER_TYPE || wr.code == REFERENCE_TYPE) /* Pointer.  */
 	{
-	  if (TREE_CODE (ntype) == RECORD_TYPE)
-	    ntype = build_pointer_type (ntype);
-	  else
-	    {	      
-	      //if (--pointers_count)
-		ntype = build_pointer_type (ntype);
-	    }
+	  ntype = build_pointer_type (ntype);
 	}
+      else
+	gcc_assert (0);
       wrapper.pop ();
     }
 
@@ -2091,9 +2091,100 @@ wrap_new_type (tree orig_type, tree new_type)
   return ntype;
 }
 
+#define STRUCT_REORG_DEBUG 0
+
+/* This function 
+ (1) unwraps variable ORIG_VAR,
+ (2) finds new variable of type TYPE correspoding to it,
+ (3) wraps new varible in the way similar to original ORIG_VAR and
+ (4) returns it.  */
+
+static tree
+wrap_new_var (tree orig_var, tree nvar)
+{
+  tree var = orig_var;
+  tree new_var = nvar;
+  vec<type_wrapper_t> wrapper;
+
+  wrapper.create (10);
+
+  if (STRUCT_REORG_DEBUG)
+    {
+      fprintf (stderr, "\nvar is before stripping");
+      print_generic_expr (stderr, var, 0);
+    }
+ 
+  while (TREE_CODE (var) == MEM_REF 
+	 || TREE_CODE (var) == ARRAY_REF
+	 || TREE_CODE (var) == ADDR_EXPR)
+    {
+      type_wrapper_t wr;
+
+      if (TREE_CODE (var) == MEM_REF)
+	{
+	  wr.code = MEM_REF;
+	  wr.domain = 0;
+	}
+      else if (TREE_CODE (var) == ARRAY_REF)
+	{
+	  wr.code = ARRAY_REF;
+	  wr.domain = TREE_OPERAND (var, 1);
+	}
+      else if (TREE_CODE (var) == ADDR_EXPR)
+	{
+	  wr.code = ADDR_EXPR;
+	  wr.domain = 0;
+	}
+      else
+	gcc_assert (0);
+      wrapper.safe_push (wr);
+      var = TREE_OPERAND (var, 0);
+
+      if (STRUCT_REORG_DEBUG)
+	{
+	  fprintf (stderr, "\nvar is after stripping");
+	  print_generic_expr (stderr, var, 0);
+	}
+    }
+
+  if (STRUCT_REORG_DEBUG)
+    {
+      fprintf (stderr, "\nvar is ");
+      print_generic_expr (stderr, var, 0);
+
+
+      fprintf (stderr, "\nnew_var is before wrapping");
+      print_generic_expr (stderr, new_var, 0);
+    }
+
+  while (!wrapper.is_empty ())
+    {
+      tree type = TREE_TYPE (TREE_TYPE (new_var));
+      type_wrapper_t wr = wrapper.last ();
+
+      if (wr.code == ARRAY_REF)
+	new_var = build4 (ARRAY_REF, type, new_var,
+			  wr.domain, NULL_TREE, NULL_TREE);
+      else if (wr.code == MEM_REF) 
+	new_var = build_simple_mem_ref (new_var);
+      else if (wr.code == ADDR_EXPR)
+	new_var = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (new_var)), new_var);
+      wrapper.pop ();
+    } 
+
+  if (STRUCT_REORG_DEBUG)
+    {
+      fprintf (stderr, "\nnew_var is after wrap");
+      print_generic_expr (stderr, new_var, 0);
+    }
+
+  wrapper.release ();
+  return new_var;
+
+}
 
 /* This function generates stmt of the type equal 
-   to the type of FDECL like: tmp = arg->a, 
+   to the type of FDECL. Statement has a form: tmp = arg->a, 
    where ARG is of record type (or of its derivation type)
    and <a> is ARG field defined by FDECL. It returns tmp.  */
 
@@ -2105,44 +2196,62 @@ gen_new_actual_param (tree fdecl, tree arg, gimple stmt)
   tree lhs, rhs;
   gimple nstmt;
   gimple_stmt_iterator bsi;
-  tree var = arg;
+  tree var;
+  tree var_type;
+  int i = 0;
 
 
   /* Create temporary variable for left hand side of new stmt.  */
-  //debug_tree (arg);	
   ntype = wrap_new_type (TREE_TYPE (arg), type);
-  lhs = create_tmp_var (ntype, "tmp");
-  fprintf (stderr, "\nCODE = %s\n", get_tree_code_name (TREE_CODE (arg)));
+  lhs = create_tmp_var (ntype, "tmp");  
+  if (STRUCT_REORG_DEBUG)
+    fprintf (stderr, "\nCODE = %s\n", get_tree_code_name (TREE_CODE (ntype)));
+ 
+  var = arg;
+  while (TREE_CODE (var) != SSA_NAME && TREE_CODE (var) != VAR_DECL)
+    {
+      if (STRUCT_REORG_DEBUG)
+	fprintf (stderr, "\nNext derivation is: \n");
+      var = TREE_OPERAND (var, 0);
+      if (STRUCT_REORG_DEBUG)
+	debug_tree (var);
+    } 
 
-  if (TREE_CODE (var) == SSA_NAME || TREE_CODE (var) == VAR_DECL)
-      {
-	tree var_type = TREE_TYPE (var);
-	int i = 0;
+  gcc_assert (TREE_CODE (var) == SSA_NAME || TREE_CODE (var) == VAR_DECL);
 
-	while (POINTER_TYPE_P (var_type))
-	  {	  
-	    var = build_simple_mem_ref (var);
-	    var_type = TREE_TYPE (var_type);
-	    i++;
-	  }
-	gcc_assert (TREE_CODE (var_type) == RECORD_TYPE);
-	rhs = build3 (COMPONENT_REF, type, var, fdecl, NULL_TREE);
-	while (i)
-	  {
-	    tree t = build_pointer_type (TREE_TYPE (rhs));
-	    rhs = build1 (ADDR_EXPR, t, rhs);
-	    i--;
-	  }
-	print_generic_expr (stderr, rhs, 0);
-	gcc_assert (TREE_TYPE (lhs) == TREE_TYPE (rhs));
-	nstmt = gimple_build_assign (lhs, rhs);
-	update_stmt (nstmt);
-	print_gimple_stmt (stderr, nstmt, 0, TDF_VOPS);
+  var_type = TREE_TYPE (var);
+  while (POINTER_TYPE_P (var_type))
+    {	  
+      var = build_simple_mem_ref (var);
+      var_type = TREE_TYPE (var_type);
+      i++;
+    }
+  gcc_assert (TREE_CODE (var_type) == RECORD_TYPE);
+  rhs = build3 (COMPONENT_REF, type, var, fdecl, NULL_TREE);
+  while (i)
+    {
+      tree t = build_pointer_type (TREE_TYPE (rhs));
+      rhs = build1 (ADDR_EXPR, t, rhs);
+      i--;
+    }
 
-	bsi = gsi_for_stmt (stmt);
-	gsi_insert_before (&bsi, nstmt, GSI_SAME_STMT);
+  rhs = wrap_new_var (arg, rhs);
+  if (STRUCT_REORG_DEBUG)
+    print_generic_expr (stderr, rhs, 0);
+  gcc_assert (TREE_TYPE (lhs) == TREE_TYPE (rhs));
+  nstmt = gimple_build_assign (lhs, rhs);
+  
+  /* Clear virtual operands.  */
+  gimple_set_vuse (nstmt, NULL_TREE);
+  gimple_set_vdef (nstmt, NULL_TREE);
 
-      }
+  update_stmt (nstmt);
+  if (1)
+    print_gimple_stmt (stderr, nstmt, 0, TDF_VOPS);
+
+  bsi = gsi_for_stmt (stmt);
+  gsi_insert_before (&bsi, nstmt, GSI_SAME_STMT);
+
   return lhs;
 }
 
@@ -2162,6 +2271,30 @@ gimple_call_copy_skip_args (gimple stmt, vec<bitmap, va_gc> *args_to_skip,
   auto_vec<tree> *tvargs;
   gimple new_stmt;
   int nargs_skip, nargs_decomp;
+  tree vuse = NULL_TREE, vdef = NULL_TREE;  
+  unsigned num;
+
+  print_gimple_stmt (stderr, stmt, 0, TDF_VOPS);
+ 
+  if (0) {
+
+    num = NUM_SSA_OPERANDS (stmt, (SSA_OP_USE | SSA_OP_VUSE));
+    fprintf (stderr, "\nnumber of uses is %d\n", num);
+    vuse = gimple_vuse (stmt);
+    if (vuse)
+      {
+	fprintf (stderr, "\nVuse of stmt is ");
+	print_generic_expr (stderr, vuse, 0);
+	debug_tree (vuse);
+      }
+    vdef = gimple_vdef (stmt);
+    if (vdef)
+      {
+	fprintf (stderr, "\nVdef of stmt is ");
+	print_generic_expr (stderr, vdef, 0);
+	debug_tree (vdef);
+      }
+  }
 
   nargs_skip = vec_safe_length (args_to_skip);
   nargs_decomp = vec_safe_length (args_to_decomp);
@@ -2224,6 +2357,7 @@ gimple_call_copy_skip_args (gimple stmt, vec<bitmap, va_gc> *args_to_skip,
 
   gimple_set_modified (new_stmt, true);
 
+  print_gimple_stmt (stderr, new_stmt, 0, TDF_VOPS);
   return new_stmt;
 }
 
