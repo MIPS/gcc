@@ -5116,11 +5116,12 @@ copy_arguments_for_versioning (tree orig_parm, copy_body_data * id,
 	  arg_name = IDENTIFIER_POINTER (DECL_NAME (arg));
 	  for (t = TYPE_FIELDS (stype); t; t = TREE_CHAIN (t))
 	    {
-	      debug_tree (TREE_VALUE (ntype));
+	      //debug_tree (TREE_VALUE (ntype));
 	      field_name = IDENTIFIER_POINTER (DECL_NAME (t));
 	      sprintf (buf, "%s.%s", arg_name, field_name);
 	      parm_name = get_identifier (buf);
 	      parm_decl = build_decl (UNKNOWN_LOCATION, PARM_DECL, parm_name, TREE_VALUE (ntype));
+	      DECL_ARG_TYPE (parm_decl) = TREE_VALUE (ntype);
 	      lang_hooks.dup_lang_specific_decl (parm_decl);
 	      *parg = parm_decl;
 	      parg = &DECL_CHAIN (parm_decl);

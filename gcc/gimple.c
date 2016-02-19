@@ -2246,7 +2246,7 @@ gen_new_actual_param (tree fdecl, tree arg, gimple stmt)
   gimple_set_vdef (nstmt, NULL_TREE);
 
   update_stmt (nstmt);
-  if (1)
+  if (STRUCT_REORG_DEBUG)
     print_gimple_stmt (stderr, nstmt, 0, TDF_VOPS);
 
   bsi = gsi_for_stmt (stmt);
@@ -2357,7 +2357,8 @@ gimple_call_copy_skip_args (gimple stmt, vec<bitmap, va_gc> *args_to_skip,
 
   gimple_set_modified (new_stmt, true);
 
-  print_gimple_stmt (stderr, new_stmt, 0, TDF_VOPS);
+  if (STRUCT_REORG_DEBUG)
+    print_gimple_stmt (stderr, new_stmt, 0, TDF_VOPS);
   return new_stmt;
 }
 
