@@ -1,9 +1,9 @@
 Version: 1
-Previous: 06dc41fc0487ced3bef027597f91c946addde820
-Head: 73afe7af7a4aee9bbe02c34d5d98cc76caa73f38
+Previous: 6c46deccebffc17e40999a77e375b0eff56c22da
+Head: a63d78e18413a855742c1d76467b90f455e3ed0e
 Applied:
+  debug-aliases-and-trampolines.patch: a63d78e18413a855742c1d76467b90f455e3ed0e
 Unapplied:
-  debug-aliases-and-trampolines.patch: b020ad3330c61e78bf7ae81ff87a53a313f4785d
   template-support.patch: c3b14057ecdc49ab621d171a43a303c4fea5e202
   special-memfuncs-testing.patch: 88d7df2eb7f1a4d2054b3eedc79bb97f03d661ee
 Hidden:
