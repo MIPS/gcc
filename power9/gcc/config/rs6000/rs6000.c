@@ -27006,7 +27006,6 @@ rs6000_emit_epilogue (int sibcall)
 		  = (info->altivec_save_offset + frame_off
 		     + 16 * (i - info->first_altivec_reg_save));
 
-		fprintf (stderr, "quad_address_offset_p %ld\n", (long)offset);
 		if (TARGET_P9_DFORM_VECTOR && quad_address_offset_p (offset))
 		  {
 		    mem = gen_frame_mem (V4SImode,
