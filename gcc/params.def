@@ -66,6 +66,11 @@ DEFPARAM (PARAM_MAX_INLINE_INSNS_SINGLE,
 	  "The maximum number of instructions in a single function eligible for inlining",
 	  400, 0, 0)
 
+DEFPARAM (PARAM_MAX_INLINE_INSNS_SMALL_AND_COLD,
+	  "max-inline-insns-small-and-cold",
+	  "The maximum number of instructions in a small and cold function eligible for inlining",
+	  0, 0, 0)
+
 /* The single function inlining limit for functions that are
    inlined by virtue of -finline-functions (-O3).
    This limit should be chosen to be below or equal to the limit
@@ -199,6 +204,10 @@ DEFPARAM(PARAM_EARLY_INLINING_INSNS,
 	 "early-inlining-insns",
 	 "Maximal estimated growth of function body caused by early inlining of single call",
 	 11, 0, 0)
+DEFPARAM(PARAM_EARLY_INLINING_INSNS_COLD,
+	 "early-inlining-insns-cold",
+	 "Maximal estimated growth of function body caused by early inlining of cold call",
+	 0, 0, 0)
 DEFPARAM(PARAM_LARGE_STACK_FRAME,
 	 "large-stack-frame",
 	 "The size of stack frame to be considered large",
