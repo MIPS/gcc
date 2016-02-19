@@ -1056,7 +1056,9 @@ plugin_start_new_enum_type (cc1_plugin::connection *self,
   tree id = name ? get_identifier (name) : make_anon_name ();
 
   tree type = start_enum (id, NULL_TREE,
-			  underlying_int_type, !!scoped_enum_p, &is_new_type);
+			  underlying_int_type,
+			  /* attributes = */ NULL_TREE,
+			  !!scoped_enum_p, &is_new_type);
 
   gcc_assert (is_new_type);
 
