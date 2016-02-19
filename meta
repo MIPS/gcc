@@ -1,8 +1,8 @@
 Version: 1
-Previous: b580ac965fde589f398b80e6acbc9a13632c7de0
-Head: c59370eb5b41e9bd8f5a3a15c482ab684c98bcc0
+Previous: 890e2276eaee084fe371f370bad31e011dee96a5
+Head: 99726e1ccebc2b280ed76cb7375bea3d0a6411b9
 Applied:
-  template-support.patch: c59370eb5b41e9bd8f5a3a15c482ab684c98bcc0
 Unapplied:
+  template-support.patch: c59370eb5b41e9bd8f5a3a15c482ab684c98bcc0
   special-memfuncs-testing.patch: 88d7df2eb7f1a4d2054b3eedc79bb97f03d661ee
 Hidden:
