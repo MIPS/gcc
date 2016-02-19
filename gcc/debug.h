@@ -155,6 +155,14 @@ struct gcc_debug_hooks
      the inline before it gets mangled by optimization.  */
   void (* outlining_inline_function) (tree decl);
 
+  /* ALIAS is a declaration whose symbol was defined as an alias to
+     DECL's symbol.  Called right after outputting the alias
+     definition.  */
+  void (* aliased_decl) (tree alias, tree decl);
+
+  /* TRAMPOLINE is a function defined as a trampoline to DECL.  */
+  void (* trampoline_decl) (tree trampoline, tree decl);
+
   /* Called from final_scan_insn for any CODE_LABEL insn whose
      LABEL_NAME is non-null.  */
   void (* label) (rtx_code_label *);

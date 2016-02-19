@@ -545,8 +545,12 @@ varpool_node::assemble_aliases (void)
     {
       varpool_node *alias = dyn_cast <varpool_node *> (ref->referring);
       if (!alias->transparent_alias)
-	do_assemble_alias (alias->decl,
-			   DECL_ASSEMBLER_NAME (decl));
+	{
+	  do_assemble_alias (alias->decl,
+			     DECL_ASSEMBLER_NAME (decl));
+	  if (!DECL_IGNORED_P (alias->decl) && !DECL_IGNORED_P (decl))
+	    (*debug_hooks->aliased_decl) (alias->decl, decl);
+	}
       alias->assemble_aliases ();
     }
 }

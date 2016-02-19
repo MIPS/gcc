@@ -203,6 +203,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "dbgcnt.h"
 #include "tree-chkp.h"
 #include "lto-section-names.h"
+#include "demangle.h"
 
 /* Queue of cgraph nodes scheduled to be added into cgraph.  This is a
    secondary queue used during optimization to accommodate passes that
@@ -1641,6 +1642,12 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
       assemble_end_function (thunk_fndecl, fnname);
       insn_locations_finalize ();
       init_insn_lengths ();
+
+      timevar_push (TV_SYMOUT);
+      if (!DECL_IGNORED_P (thunk_fndecl))
+	(*debug_hooks->function_decl) (thunk_fndecl);
+      timevar_pop (TV_SYMOUT);
+
       free_after_compilation (cfun);
       TREE_ASM_WRITTEN (thunk_fndecl) = 1;
       thunk.thunk_p = false;
@@ -1682,7 +1689,6 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
       resolve_unique_section (thunk_fndecl, 0,
 			      flag_function_sections);
 
-      DECL_IGNORED_P (thunk_fndecl) = 1;
       bitmap_obstack_initialize (NULL);
 
       if (thunk.virtual_offset_p)
@@ -1897,6 +1903,92 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
   return true;
 }
 
+/* Return true if DECL is a cdtor trampoline for unified cdtor
+   TARGET.  */
+
+static bool
+cxx_cdtor_trampoline_p (tree decl, tree target)
+{
+  if (DECL_ABSTRACT_ORIGIN (decl))
+    return false;
+
+  if (!DECL_CXX_CONSTRUCTOR_P (decl) && !DECL_CXX_DESTRUCTOR_P (decl))
+    return false;
+
+  if (DECL_CXX_CONSTRUCTOR_P (decl) != DECL_CXX_CONSTRUCTOR_P (target))
+    return false;
+
+  if (DECL_CXX_DESTRUCTOR_P (decl) != DECL_CXX_DESTRUCTOR_P (target))
+    return false;
+
+  gcc_assert (DECL_ASSEMBLER_NAME_SET_P (decl));
+  gcc_assert (DECL_ASSEMBLER_NAME_SET_P (target));
+
+  const char *dname = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+  const char *tname = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (target));
+
+  unsigned int i = strlen (dname);
+  if (i != strlen (tname))
+    return false;
+
+  gcc_assert (i);
+
+  /* C1 and C2 ctors may be trampolines to C4; D0, D1 and D2 dtors may
+     be trampolines to D4.  Check their mangled names, so that the
+     test will work even during LTO compilations, when the cdtor
+     clones retrofitted into trampolines might not be right after the
+     unified one in the DECL_CHAIN, and we don't have C++-specific
+     data structures or lang hooks to check that the cdtors are of
+     different kinds and belong to the same class.
+
+     Alas, just checking that the assembler name has e.g. C2 vs C4 as
+     the only difference could find false positives, e.g., if there
+     are cdtors with the same signature (aside from the THIS pointer)
+     in classes whose names contain C2 and C4, say _ZN2C2C1Ev AKA
+     C2::C2() and _ZN2C4C1Ev AKA C4::C4().
+
+     So, after checking that we found viable distinguishing characters
+     at the expected place, we check that the cdtors are of different
+     kinds using the demangler.  Yuck.  */
+  bool found = false;
+  while (i--)
+    if (dname[i] != tname[i])
+      {
+	if (!found
+	    && tname[i] == '4' && i && tname[i-1] == dname[i-1]
+	    && (((dname[i-1] == 'C' || dname[i-1] == 'D')
+		 && (dname[i] == '1' || dname[i] == '2'))
+		|| (dname[i-1] == 'D' && dname[i] == '0')))
+	  found = true;
+	else
+	  return false;
+      }
+
+  if (DECL_CXX_CONSTRUCTOR_P (decl))
+    return is_gnu_v3_mangled_ctor (tname) == gnu_v3_unified_ctor
+      && is_gnu_v3_mangled_ctor (dname) != gnu_v3_unified_ctor;
+  else if (DECL_CXX_DESTRUCTOR_P (decl))
+    return is_gnu_v3_mangled_dtor (tname) == gnu_v3_unified_dtor
+      && is_gnu_v3_mangled_dtor (dname) != gnu_v3_unified_dtor;
+  else
+    gcc_unreachable ();
+}
+
+/* Return true when function is as a language-defined trampoline,
+   e.g., C++ ctor and dtor "thunks" that just call the unified
+   cdtor.  */
+
+bool
+cgraph_node::is_lang_trampoline (void)
+{
+  if (!callees || callees->next_callee)
+    return false;
+
+  tree target = callees->callee->decl;
+
+  return (cxx_cdtor_trampoline_p (decl, target));
+}
+
 /* Assemble thunks and aliases associated to node.  */
 
 void
@@ -1914,9 +2006,17 @@ cgraph_node::assemble_thunks_and_aliases (void)
 	e = e->next_caller;
 	thunk->expand_thunk (true, false);
 	thunk->assemble_thunks_and_aliases ();
+	if (!DECL_IGNORED_P (thunk->decl) && !DECL_IGNORED_P (decl))
+	  (*debug_hooks->trampoline_decl) (thunk->decl, decl);
       }
     else
-      e = e->next_caller;
+      {
+	if (e->caller->is_lang_trampoline ()
+	    && !DECL_IGNORED_P (e->caller->decl) && !DECL_IGNORED_P (decl))
+	  (*debug_hooks->trampoline_decl) (e->caller->decl, decl);
+
+	e = e->next_caller;
+      }
 
   FOR_EACH_ALIAS (this, ref)
     {
@@ -1930,6 +2030,8 @@ cgraph_node::assemble_thunks_and_aliases (void)
 	  TREE_ASM_WRITTEN (decl) = 1;
 	  do_assemble_alias (alias->decl,
 			     DECL_ASSEMBLER_NAME (decl));
+	  if (!DECL_IGNORED_P (alias->decl) && !DECL_IGNORED_P (decl))
+	    (*debug_hooks->aliased_decl) (alias->decl, decl);
 	  alias->assemble_thunks_and_aliases ();
 	  TREE_ASM_WRITTEN (decl) = saved_written;
 	}
@@ -2349,7 +2451,7 @@ symbol_table::output_weakrefs (void)
 	    || !TREE_ASM_WRITTEN (cnode->instrumented_version->decl))
 	&& node->weakref)
       {
-	tree target;
+	tree target, target_decl;
 
 	/* Weakrefs are special by not requiring target definition in current
 	   compilation unit.  It is thus bit hard to work out what we want to
@@ -2357,17 +2459,33 @@ symbol_table::output_weakrefs (void)
 	   When alias target is defined, we need to fetch it from symtab reference,
 	   otherwise it is pointed to by alias_target.  */
 	if (node->alias_target)
-	  target = (DECL_P (node->alias_target)
-		    ? DECL_ASSEMBLER_NAME (node->alias_target)
-		    : node->alias_target);
+	  {
+	    if (DECL_P (node->alias_target))
+	      {
+		target_decl = node->alias_target;
+		target = DECL_ASSEMBLER_NAME (target_decl);
+	      }
+	    else
+	      {
+		target_decl = NULL_TREE;
+		target = node->alias_target;
+	      }
+	  }
 	else if (node->analyzed)
-	  target = DECL_ASSEMBLER_NAME (node->get_alias_target ()->decl);
+	  {
+	    target_decl = node->get_alias_target ()->decl;
+	    target = DECL_ASSEMBLER_NAME (target_decl);
+	  }
 	else
 	  {
 	    gcc_unreachable ();
-	    target = get_alias_symbol (node->decl);
+	    target_decl = node->decl;
+	    target = get_alias_symbol (target_decl);
 	  }
         do_assemble_alias (node->decl, target);
+	if (target_decl && !DECL_IGNORED_P (node->decl)
+	    && !DECL_IGNORED_P (target_decl))
+	  (*debug_hooks->aliased_decl) (node->decl, target_decl);
       }
 }
 

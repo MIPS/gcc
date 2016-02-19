@@ -2503,6 +2503,8 @@ static void dwarf2out_begin_function (tree);
 static void dwarf2out_end_function (unsigned int);
 static void dwarf2out_register_main_translation_unit (tree unit);
 static void dwarf2out_set_name (tree, tree);
+static void dwarf2out_aliased_decl (tree, tree);
+static void dwarf2out_trampoline_decl (tree, tree);
 
 /* The debug hooks structure.  */
 
@@ -2542,6 +2544,8 @@ const struct gcc_debug_hooks dwarf2_debug_hooks =
      emitting the abstract description of inline functions until
      something tries to reference them.  */
   dwarf2out_abstract_function,	/* outlining_inline_function */
+  dwarf2out_aliased_decl,	/* aliased_decl */
+  dwarf2out_trampoline_decl,	/* trampoline_decl */
   debug_nothing_rtx_code_label,	/* label */
   debug_nothing_int,		/* handle_pch */
   dwarf2out_var_location,
@@ -2580,6 +2584,8 @@ const struct gcc_debug_hooks dwarf2_lineno_debug_hooks =
   debug_nothing_tree_tree_tree_bool,	 /* imported_module_or_decl */
   debug_nothing_tree,		         /* deferred_inline_function */
   debug_nothing_tree,		         /* outlining_inline_function */
+  debug_nothing_tree_tree,		 /* aliased_decl */
+  debug_nothing_tree_tree,		 /* trampoline_decl */
   debug_nothing_rtx_code_label,	         /* label */
   debug_nothing_int,		         /* handle_pch */
   debug_nothing_rtx_insn,	         /* var_location */
@@ -9752,7 +9758,10 @@ dwarf2_name (tree decl, int scope)
 {
   if (DECL_NAMELESS (decl))
     return NULL;
-  return lang_hooks.dwarf_name (decl, scope ? 1 : 0);
+  const char *name = lang_hooks.dwarf_name (decl, scope ? 1 : 0);
+  if (name && name[0] == '*')
+    name++;
+  return name;
 }
 
 /* Add a new entry to .debug_pubnames if appropriate.  */
@@ -23798,6 +23807,95 @@ dwarf2out_imported_module_or_decl (tree decl, tree name, tree context,
 
   /* OK, now we have DIEs for decl as well as scope. Emit imported die.  */
   dwarf2out_imported_module_or_decl_1 (decl, name, context, scope_die);
+}
+
+/* Output debug info indicating that ALIAS is an alias to DECL.  */
+
+static void
+dwarf2out_aliased_decl (tree alias, tree decl)
+{
+  if (debug_info_level <= DINFO_LEVEL_TERSE)
+    return;
+
+  if (!(dwarf_version >= 3 || !dwarf_strict))
+    return;
+
+  if (DECL_IGNORED_P (decl) || DECL_IGNORED_P (alias))
+    return;
+
+  dw_die_ref decl_die = lookup_decl_die (decl);
+
+  if (!decl_die)
+    return;
+
+  dw_die_ref old_alias_die = lookup_decl_die (alias);
+
+  if (old_alias_die && TREE_CODE (alias) == FUNCTION_DECL)
+    /* FIXME: we have a specification and probably a definition that
+       turned into an alias.  Location information of the aliased
+       definition is most certainly not suitable for this alias.  */
+    return;
+
+  dw_die_ref alias_die = new_die (DW_TAG_imported_declaration,
+				  comp_unit_die (), NULL_TREE);
+
+  add_AT_die_ref (alias_die, DW_AT_import, decl_die);
+
+  /* ??? It would be nice if we could just link back to the symbol
+     declaration, but DW_AT_specification is not a welcome attribute
+     for a DW_TAG_imported_declaration.  */
+  if (0 && old_alias_die)
+    {
+      add_AT_die_ref (alias_die, DW_AT_specification, old_alias_die);
+      return;
+    }
+
+  equate_decl_number_to_die (alias, alias_die);
+
+  if (TREE_PUBLIC (alias))
+    add_AT_flag (alias_die, DW_AT_external, 1);
+
+  {
+    bool save_artificial = DECL_ARTIFICIAL (alias);
+    /* Temporarily set DECL_ARTIFICIAL so that we don't emit src coords
+       attributes.  */
+    DECL_ARTIFICIAL (alias) = true;
+    add_name_and_src_coords_attributes (alias_die, alias);
+    DECL_ARTIFICIAL (alias) = save_artificial;
+  }
+
+  add_pubname (alias, alias_die);
+  if (DECL_ARTIFICIAL (alias))
+    add_AT_flag (alias_die, DW_AT_artificial, 1);
+  add_accessibility_attribute (alias_die, alias);
+}
+
+/* Output debug info indicating that TRAMPOLINE is a trampoline to
+   DECL.  */
+
+static void
+dwarf2out_trampoline_decl (tree trampoline, tree decl)
+{
+  if (debug_info_level <= DINFO_LEVEL_TERSE)
+    return;
+
+  if (!(dwarf_version >= 3 || !dwarf_strict))
+    return;
+
+  if (DECL_IGNORED_P (decl) || DECL_IGNORED_P (trampoline))
+    return;
+
+  dw_die_ref decl_die = lookup_decl_die (decl);
+
+  if (!decl_die)
+    return;
+
+  dw_die_ref trampoline_die = lookup_decl_die (trampoline);
+
+  if (!trampoline_die)
+    return;
+
+  add_AT_die_ref (trampoline_die, DW_AT_trampoline, decl_die);
 }
 
 /* Output debug information for namelists.   */
