@@ -2116,10 +2116,10 @@ rs6000_debug_addr_mask (addr_mask_type mask, bool keep_spaces)
   else if (keep_spaces)
     *p++ = ' ';
 
-  if ((mask & RELOAD_REG_OFFSET) != 0)
-    *p++ = 'o';
-  else if ((mask & RELOAD_REG_QUAD_OFFSET) != 0)
+  if ((mask & RELOAD_REG_QUAD_OFFSET) != 0)
     *p++ = 'O';
+  else if ((mask & RELOAD_REG_OFFSET) != 0)
+    *p++ = 'o';
   else if (keep_spaces)
     *p++ = ' ';
 
@@ -2782,16 +2782,15 @@ rs6000_setup_reg_addr_masks (void)
 	    }
 
 	  /* GPR and FPR registers can do REG+OFFSET addressing, except
-	     possibly for SDmode.  ISA 3.0 (i.e. power9) adds D-form
-	     addressing for scalars to altivec registers.  */
+	     possibly for SDmode.  ISA 3.0 (i.e. power9) adds D-form addressing
+	     for 64-bit scalars and 32-bit SFmode to altivec registers.  */
 	  if ((addr_mask != 0) && !indexed_only_p
 	      && msize <= 8
 	      && (rc == RELOAD_REG_GPR
-		  || (rc == RELOAD_REG_FPR
-		      && (msize == 8 || m2 == SFmode))
-		  || (rc == RELOAD_REG_VMX
-		      && TARGET_P9_DFORM_SCALAR
-		      && (m2 == DFmode || m2 == SFmode))))
+		  || ((msize == 8 || m2 == SFmode)
+		      && (rc == RELOAD_REG_FPR
+			  || (rc == RELOAD_REG_VMX
+			      && TARGET_P9_DFORM_SCALAR)))))
 	    addr_mask |= RELOAD_REG_OFFSET;
 
 	  /* VSX registers can do REG+OFFSET addresssing if ISA 3.0
@@ -2802,7 +2801,11 @@ rs6000_setup_reg_addr_masks (void)
 		   && msize == 16 && TARGET_P9_DFORM_VECTOR
 		   && (ALTIVEC_OR_VSX_VECTOR_MODE (m2)
 		       || (m2 == TImode && TARGET_VSX_TIMODE)))
-	    addr_mask |= RELOAD_REG_QUAD_OFFSET;
+	    {
+	      addr_mask |= RELOAD_REG_OFFSET;
+	      if (rc == RELOAD_REG_FPR || rc == RELOAD_REG_VMX)
+		addr_mask |= RELOAD_REG_QUAD_OFFSET;
+	    }
 
 	  /* VMX registers can do (REG & -16) and ((REG+REG) & -16)
 	     addressing on 128-bit types.  */
@@ -7079,6 +7082,10 @@ mem_operand_gpr (rtx op, machine_mode mode)
   if (TARGET_POWERPC64 && (offset & 3) != 0)
     return false;
 
+  if (mode_supports_vsx_dform_quad (mode)
+      && !quad_address_offset_p (offset))
+    return false;
+
   extra = GET_MODE_SIZE (mode) - UNITS_PER_WORD;
   if (extra < 0)
     extra = 0;
@@ -7111,13 +7118,14 @@ reg_offset_addressing_ok_p (machine_mode mode)
     case TImode:
     case TFmode:
     case KFmode:
-      /* AltiVec/VSX vector modes.  Only reg+reg addressing is valid.  While
-	 TImode is not a vector mode, if we want to use the VSX registers to
-	 move it around, we need to restrict ourselves to reg+reg addressing.
-	 Similarly for IEEE 128-bit floating point that is passed in a single
-	 vector register.  */
+      /* AltiVec/VSX vector modes.  Only reg+reg addressing was valid until the
+	 ISA 3.0 vector d-form addressing mode was added.  While TImode is not
+	 a vector mode, if we want to use the VSX registers to move it around,
+	 we need to restrict ourselves to reg+reg addressing.  Similarly for
+	 IEEE 128-bit floating point that is passed in a single vector
+	 register.  */
       if (VECTOR_MEM_ALTIVEC_OR_VSX_P (mode))
-	return false;
+	return mode_supports_vsx_dform_quad (mode);
       break;
 
     case V4HImode:
@@ -7182,6 +7190,11 @@ offsettable_ok_by_alignment (rtx op, HOST_WIDE_INT offset,
   unsigned HOST_WIDE_INT dsize, dalign, lsb, mask;
 
   if (GET_CODE (op) != SYMBOL_REF)
+    return false;
+
+  /* ISA 3.0 vector d-form addressing is restricted, don't allow
+     SYMBOL_REF.  */
+  if (mode_supports_vsx_dform_quad (mode))
     return false;
 
   dsize = GET_MODE_SIZE (mode);
@@ -7478,6 +7491,9 @@ legitimate_lo_sum_address_p (machine_mode mode, rtx x, int strict)
   if (GET_CODE (XEXP (x, 0)) != REG)
     return false;
   if (!INT_REG_OK_FOR_BASE_P (XEXP (x, 0), strict))
+    return false;
+  /* quad word addresses are restricted, and can't use LO_SUM.  */
+  if (mode_supports_vsx_dform_quad (mode))
     return false;
   /* Restrict addressing for DI because of our SUBREG hackery.  */
   if (TARGET_E500_DOUBLE && GET_MODE_SIZE (mode) > UNITS_PER_WORD)
@@ -8491,6 +8507,7 @@ static bool
 rs6000_legitimate_address_p (machine_mode mode, rtx x, bool reg_ok_strict)
 {
   bool reg_offset_p = reg_offset_addressing_ok_p (mode);
+  bool quad_offset_p = mode_supports_vsx_dform_quad (mode);
 
   /* If this is an unaligned stvx/ldvx type address, discard the outer AND.  */
   if (VECTOR_MEM_ALTIVEC_P (mode)
@@ -8510,19 +8527,25 @@ rs6000_legitimate_address_p (machine_mode mode, rtx x, bool reg_ok_strict)
     return 1;
   if (virtual_stack_registers_memory_p (x))
     return 1;
-  if (reg_offset_p && legitimate_small_data_p (mode, x))
-    return 1;
-  if (reg_offset_p
-      && legitimate_constant_pool_address_p (x, mode,
-					     reg_ok_strict || lra_in_progress))
-    return 1;
-  if (reg_offset_p && reg_addr[mode].fused_toc && GET_CODE (x) == UNSPEC
-      && XINT (x, 1) == UNSPEC_FUSION_ADDIS)
-    return 1;
 
   /* Handle restricted vector d-form offsets in ISA 3.0.  */
-  if (mode_supports_vsx_dform_quad (mode) && quad_address_p (x, mode, false))
-    return 1;
+  if (quad_offset_p)
+    {
+      if (quad_address_p (x, mode, false))
+	return 1;
+    }
+
+  else if (reg_offset_p)
+    {
+      if (legitimate_small_data_p (mode, x))
+	return 1;
+      if (legitimate_constant_pool_address_p (x, mode,
+					     reg_ok_strict || lra_in_progress))
+	return 1;
+      if (reg_addr[mode].fused_toc && GET_CODE (x) == UNSPEC
+	  && XINT (x, 1) == UNSPEC_FUSION_ADDIS)
+	return 1;
+    }
 
   /* For TImode, if we have load/store quad and TImode in VSX registers, only
      allow register indirect addresses.  This will allow the values to go in
@@ -8562,7 +8585,8 @@ rs6000_legitimate_address_p (machine_mode mode, rtx x, bool reg_ok_strict)
 	      && legitimate_indexed_address_p (XEXP (x, 1), reg_ok_strict)))
       && rtx_equal_p (XEXP (XEXP (x, 1), 0), XEXP (x, 0)))
     return 1;
-  if (reg_offset_p && legitimate_lo_sum_address_p (mode, x, reg_ok_strict))
+  if (reg_offset_p && !quad_offset_p
+      && legitimate_lo_sum_address_p (mode, x, reg_ok_strict))
     return 1;
   return 0;
 }

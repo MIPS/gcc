@@ -1,5 +1,17 @@
 2016-02-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.c (rs6000_debug_addr_mask): Set
+	RELOAD_REG_OFFSET for quad-word addresses, but restrict where it
+	can be used.
+	(rs6000_setup_reg_addr_masks): Likewise.
+	(mem_operand_gpr): Likewise.
+	(reg_offset_addressing_ok_p): Likewise.
+	(offsettable_ok_by_alignment): Likewise.
+	(legitimate_lo_sum_address_p): Likewise.
+	(rs6000_legitimate_address_p): Likewise.
+
+2016-02-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* config/rs6000/rs6000.c (rs6000_emit_epilogue): Remove debug
 	code.
 
