@@ -1,7 +1,334 @@
+2016-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/69850
+	* g++.dg/warn/Wnonnull-compare-4.C: New test.
+
+	PR c++/69851
+	* g++.dg/torture/pr69851.C: New test.
+
+2016-02-19  Martin Sebor  <msebor@redhat.com>
+
+	PR testsuite/69573
+	* gcc.dg/pr61053.c: Tweaked test to avoid bogus failures.
+
+2016-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/69850
+	* g++.dg/warn/Wnonnull-compare-2.C: New test.
+	* g++.dg/warn/Wnonnull-compare-3.C: New test.
+
+	PR c++/67767
+	* g++.dg/cpp0x/pr67767.C: New test.
+
+2016-02-19  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* lib/target-supports.exp: Define aarch64_asm_FUNC_ok checks
+	for fp, simd, crypto, crc, lse.
+	* doc/sourcebuild.texi (AArch64-specific attributes): Document the
+	above.
+	* gcc.target/aarch64/assembler_arch_1.c: Add aarch64_asm_lse_ok
+	effective target check.
+
+2016-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/69820
+	* gcc.target/i386/pr69820.c: New test.
+
+2016-02-19  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/vector/int128-1.c: New test.
+
+2016-02-19  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/vector/vec-vcond-1.c: New test.
+
+2016-02-19  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/md/movstr-1.c: Allow also the z13 strings
+	instruction pattern name to prevent the testcase from failing with
+	-march=z13.
+
+2016-02-19  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/md/movstr-2.c: New test.
+
+2016-02-19  Marcin Kościelnicki  <koriakin@0x04.net>
+
+	* gcc.target/s390/morestack.c: New test.
+
+2016-02-19  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	PR target/69625
+	* gcc.target/s390/pr69625.c: Add test case.
+
+2016-02-18  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR testsuite/68580
+	* c-c++-common/tsan/pr65400-1.c (v, q, o): Make 8-byte aligned.
+
+2016-02-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/68404
+	* gcc.target/powerpc/fusion.c: Revert the 2016-02-09 change.
+	* gcc.target/powerpc/fusion3.c: Likewise.
+
+2016-02-18  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/69553
+	* g++.dg/torture/pr69553.C: New testcase.
+
+2016-02-18  Nick Clifton  <nickc@redhat.com>
+
+	PR target/62254
+	PR target/69610
+	* gcc.target/arm/pr62554.c: New test.
+	* gcc.target/arm/pr69610-1.c: New test.
+	* gcc.target/arm/pr69610-2.c: New test.
+
+2016-02-18  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/69854
+	* gcc.dg/torture/pr69854.c: New testcase.
+
+2016-02-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/69850
+	* g++.dg/warn/Wnonnull-compare-1.C: New test.
+
+2012-02-17  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vec-cg.c: New test.
+
+2016-02-17  Richard Biener  <rguenther@suse.de>
+
+	PR testsuite/69586
+	* gcc.dg/uninit-21.c: Add -fno-short-enums.
+
+2016-02-17  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/69161
+	* gcc.c-torture/compile/pr69161.c: New test.
+
+2016-02-17  David Sherwood  <david.sherwood@arm.com>
+
+	PR target/69532
+	* gcc.target/arm/fmaxmin.c: Change effective target to arm_v8_neon_hw.
+	* gcc.target/arm/vect-fmaxmin.c: Likewise.
+
+2016-02-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/ifcvt-4.c: Skip on Visium.
+
+2016-02-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/atomic8.adb: New test.
+
+2016-02-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/discr46.ad[sb]: New test.
+
+2016-02-16  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	PR Target/48344
+	* gcc.target/powerpc/pr48344-1.c: New test.
+
+2015-02-16  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/69742
+	* gfortran.dg/associate_21.f90:  New test.
+
+2016-02-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/69835
+	* c-c++-common/nonnull-1.c: Use -Wnonnull-compare instead of
+	-Wnonnull in dg-options.
+	* c-c++-common/nonnull-2.c: New test.
+
+2016-02-16  James Greenhalgh  <james.greenhalgh@arm.com>
+	    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* gcc.target/aarch64/vector_initialization_nostack.c: New.
+
+2016-02-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/69801
+	* gcc.dg/pr69801.c: Add empty dg-options.
+
+2016-02-16  James Norris  <jnorris@codesourcery.com>
+
+	* c-c++-common/goacc/deviceptr-1.c: Add tests.
+	* g++.dg/goacc/deviceptr-1.c: New file.
+
+2016-02-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/69820
+	* gcc.dg/vect/pr69820.c: New test.
+
+2016-02-16  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69776
+	* gcc.dg/torture/pr69776-2.c: New testcase.
+
+2016-02-16  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR tree-optimization/69714
+	* gcc.dg/torture/pr69714.c: New test.
+
+2016-02-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/69802
+	* gcc.dg/pr69802.c: New test.
+
+2016-02-16  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/69801
+	* gcc.dg/pr69801.c: New testcase.
+
+2016-02-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/69651
+	* gfortran.dg/read_bang.f90: New test.
+	* gfortran.dg/read_bang4.f90: New test.
+
+2016-02-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/69658
+	* g++.dg/init/pr69658.C: New test.
+
+	PR c++/69797
+	* c-c++-common/pr69797.c: New test.
+
+2016-02-15  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* lib/target-supports.exp (check_effective_target_section_anchors): Add
+	check for aarch64*-*-*.
+
+2016-02-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69783
+	* gcc.dg/vect/pr69783.c: New testcase.
+
+2016-02-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69776
+	* gcc.dg/torture/pr69776.c: New testcase.
+
+2016-02-14  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/60526
+	* gfortran.dg/type_decl_4.f90:  Reinstated.
+
+2016-02-14  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR fortran/68746
+	* gfortran.dg/read_dir.f90: Xfail on hppa*-*-hpux*.
+
+2016-02-14  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/60526
+	PR bootstrap/69816
+	* gfortran.dg/type_decl_4.f90:  Removed.
+
+2016-02-14  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/60526
+	* gfortran.dg/type_decl_4.f90:  New test.
+
+2016-02-14  Alan Modra  <amodra@gmail.com>
+
+	PR testsuite/68886
+	* gcc.c-torture/execute/stkalign.c: Revise test.
+
+2016-02-13  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/67260
+	* gcc.target/sh/torture/pr67260.c: Adjust additional options.
+
+2016-02-13  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/67260
+	* gcc.target/sh/torture/pr67260.c: New.
+
+2016-02-12  John David Anglin  <danglin@gcc.gnu.org>
+
+	* gcc.dg/pr67964.c: Add dg-require-alias.
+
+2016-02-13  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/67636
+	PR target/64345
+	* gcc.target/sh/pr54236-1.c: Adjust optimization level.
+
+2016-02-12  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/69668
+	* gfortran.dg/namelist_88.f90: New test.
+
+2016-02-12  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/69668
+	* gfortran.dg/namelist_38.f90: Update test.
+	* gfortran.dg/namelist_84.f90: Update test.
+
+2016-02-12  David Malcolm  <dmalcolm@redhat.com>
+
+	PR other/69554
+	* gcc.dg/pr69554-1.c: New test.
+	* gfortran.dg/pr69554-1.F90: New test.
+	* gfortran.dg/pr69554-2.F90: New test.
+	* lib/gcc-dg.exp (proc dg-locus): New function.
+	* lib/gfortran-dg.exp (proc gfortran-dg-test): Update comment to
+	distinguish between the caret-printing and non-caret-printing
+	cases.  If caret-printing has been explicitly enabled, bail out
+	without attempting to fix up the output.
+
+2016-02-12  David Malcolm  <dmalcolm@redhat.com>
+
+	PR driver/69265
+	PR driver/69453
+	* gcc.dg/spellcheck-options-3.c: New test case.
+	* gcc.dg/spellcheck-options-4.c: New test case.
+	* gcc.dg/spellcheck-options-5.c: New test case.
+	* gcc.dg/spellcheck-options-6.c: New test case.
+	* gcc.dg/spellcheck-options-7.c: New test case.
+	* gcc.dg/spellcheck-options-8.c: New test case.
+	* gcc.dg/spellcheck-options-9.c: New test case.
+	* gcc.dg/spellcheck-options-10.c: New test case.
+
+2016-02-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/69764
+	PR rtl-optimization/69771
+	* c-c++-common/pr69764.c: New test.
+	* gcc.dg/torture/pr69771.c: New test.
+
+2016-02-12  Marek Polacek  <polacek@redhat.com>
+
+	* g++.dg/torture/init-list1.C: New.
+
+2016-02-12  Marek Polacek  <polacek@redhat.com>
+
+	* gcc.dg/pr69522.c: Add empty dg-options.
+
+2016-02-12  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	* g++.dg/lto/lto.exp: Include and init mpx.
+	* g++.dg/lto/pr69729_0.C: New test.
+
+2016-02-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR ipa/69241
+	* g++.dg/ipa/pr69241-4.C: New test.
+
+	PR ipa/68672
+	* g++.dg/ipa/pr68672-1.C: New test.
+	* g++.dg/ipa/pr68672-2.C: New test.
+	* g++.dg/ipa/pr68672-3.C: New test.
+
 2016-02-12  Bernd Schmidt  <bschmidt@redhat.com>
 
 	PR c/69522
-	gcc.dg/pr69522.c: New test.
+	* gcc.dg/pr69522.c: New test.
 
 2016-02-12  Patrick Palka  <ppalka@gcc.gnu.org>
 

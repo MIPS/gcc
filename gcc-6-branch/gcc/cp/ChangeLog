@@ -1,3 +1,113 @@
+2016-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/69850
+	* rtti.c (ifnonnull): Set TREE_NO_WARNING on the condition, use
+	NE_EXPR instead of EQ_EXPR and swap last two arguments on COND_EXPR.
+
+2016-02-19  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/68948
+	* pt.c (tsubst_baselink): Don't diagnose an invalid constructor
+	call here.
+	* semantics.c (finish_call_expr): Don't assume a constructor
+	call is dependent if only the "this" pointer is dependent.  When
+	building a constructor call, always use a dummy object.
+
+2016-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/69850
+	* init.c (build_vec_delete_1): Set TREE_NO_WARNING on the NE_EXPR
+	condition.
+	* cp-gimplify.c (cp_fold): Propagate TREE_NO_WARNING from binary
+	operators if folding preserved the binop, just with different
+	arguments.
+
+	PR c++/67767
+	* parser.c (cp_parser_std_attribute_spec_seq): Don't assume
+	attr_spec is always single element chain, chain all the attributes
+	properly together in the right order.
+
+2016-02-18  Jason Merrill  <jason@redhat.com>
+
+	* mangle.c (maybe_check_abi_tags): Add for_decl parm.  Call
+	mangle_decl.
+	(mangle_decl): Call maybe_check_abi_tags for function scope.
+	(mangle_guard_variable): Call maybe_check_abi_tags here.
+	(write_guarded_var_name): Not here.
+
+2016-02-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65985
+	* constexpr.c (build_constexpr_constructor_member_initializers):
+	Handle an additional STATEMENT_LIST.
+
+	PR c++/68585
+	* constexpr.c (cxx_eval_bare_aggregate): Fix 'changed' detection.
+
+	PR c++/68679
+	* decl2.c (reset_type_linkage_2): Look through member templates.
+
+2016-02-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/69850
+	* init.c (build_delete): Set TREE_NO_WARNING on ifexp.
+
+2016-02-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/69842
+	* method.c (forward_parm): Split out from...
+	(add_one_base_init): ...here.
+	* lambda.c (maybe_add_lambda_conv_op): Use it.
+
+2016-02-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/10200
+	PR c++/69753
+	* call.c, cp-tree.h, name-lookup.c, pt.c, search.c, semantics.c,
+	tree.c, typeck2.c: Revert earlier changes.
+	* parser.c (cp_parser_lookup_name): Ignore namespace-scope
+	non-type templates after -> or .
+
+2016-02-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/69835
+	* typeck.c (cp_build_binary_op): Revert 2015-09-09 change.
+
+2016-02-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/69657
+	* name-lookup.c (lookup_qualified_name): Add find_hidden parm.
+	(set_decl_namespace): Pass it.  Complain about finding a hidden friend.
+	* name-lookup.h: Adjust.
+
+2016-02-16  James Norris  <jnorris@codesourcery.com>
+
+	* parser.c (cp_parser_oacc_data_clause_deviceptr): Remove checking.
+	* semantics.c (finish_omp_clauses): Add deviceptr checking.
+
+2016-02-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/69658
+	* init.c (expand_default_init): Only call reshape_init
+	in the direct-initialization from an initializer list case.
+
+2016-02-15  Jason Merrill  <jason@redhat.com>
+
+	PR c++/69753
+	* semantics.c (finish_call_expr): Implicit 'this' does not make
+	the call dependent.
+	* search.c (any_dependent_bases_p): Split out...
+	* name-lookup.c (do_class_using_decl): ...from here.
+	* call.c (build_new_method_call_1): Don't complain about missing object
+	if there are dependent bases.  Tweak error.
+	* tree.c (non_static_member_function_p): Remove.
+	* pt.c (type_dependent_expression_p): A member template of a
+	dependent type is dependent.
+	* cp-tree.h: Adjust.
+
+	PR c++/68890
+	* constexpr.c (verify_ctor_sanity): Remove CONSTRUCTOR_NELTS check.
+
 2016-02-12  Patrick Palka  <ppalka@gcc.gnu.org>
 
 	PR c++/69098
