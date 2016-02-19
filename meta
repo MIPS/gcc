@@ -1,10 +1,9 @@
 Version: 1
-Previous: d455dcf76a146512c80fd13e0b357a5f2c48047e
-Head: 63e61a50b94125d5c011ba13ef23ca984de05fe2
+Previous: 22e1ea32055435b611020db1b01b579fbd3565a0
+Head: 770f84da8b11d30b57fb1bdab3ea4d51bed4f870
 Applied:
   debug-aliases-and-trampolines.patch: b020ad3330c61e78bf7ae81ff87a53a313f4785d
-  cxx-start_enum-prototype.patch: 0a203dcde879011f888d31ca5e8a23e52b03be2b
-  refresh-temp: 63e61a50b94125d5c011ba13ef23ca984de05fe2
+  cxx-start_enum-prototype.patch: 770f84da8b11d30b57fb1bdab3ea4d51bed4f870
 Unapplied:
   template-support.patch: c3b14057ecdc49ab621d171a43a303c4fea5e202
   special-memfuncs-testing.patch: 88d7df2eb7f1a4d2054b3eedc79bb97f03d661ee
