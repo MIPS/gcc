@@ -1,0 +1,663 @@
+Bottom: 05fc08246853b151bf6e89c7d5edceb50920283d
+Top:    dcaf7c401839023d2cc93afb6694b0877936c812
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-02-19 19:55:46 -0200
+
+support aliases and trampolines in dwarf2
+
+for  gcc/ChangeLog
+
+	* debug.h (struct gcc_debug_hooks): Add aliased_decl and
+	trampoline_decl.
+	* dwarf2out.c (dwarf2out_aliased_decl): New.
+	(dwarf2out_trampoline_decl): New.
+	(dwarf2_debug_hooks): Add them.
+	(dwarf2_name): Skip leading '*' returned by langhook.
+	(dwarf2_lineno_debug_hooks): Add dummies.
+	* debug.c (do_nothing_debug_hooks): Likewise.
+	* dbxout.c (dbx_debug_hooks, xcoff_debug_hooks): Likewise.
+	* sdbout.c (sdb_debug_hooks): Likewise.
+	* vmsdbgout.c (vmsdbg_debug_hooks): Likewise.
+	* cgraph.h (cgraph_node::is_lang_trampoline): Declare.
+	* cgraphunit.c: Include demangle.h.
+	(cgraph_node::expand_thunk): Call function_decl debug_hook
+	after assembly expansion.  Do not mark thunk as ignored in
+	gimple expansion.
+	(cxx_cdtor_trampoline_p): New.
+	(cgraph_node::is_lang_trampoline): New.
+	(cgraph_node::assemble_thunks_and_aliases): Call the new
+	debug_hooks.
+	(symbol_table::output_weakrefs): Likewise.
+	* varpool.c (varpool_node::assemble_aliases): Likewise.
+
+for  gcc/cp/ChangeLog
+
+	* method.c (make_alias_for): Copy DECL_IGNORED_P.
+
+for  gcc/testsuite/ChangeLog
+
+	* g++.dg/debug/dwarf2/cdtor-1.C: Adjust linkage_name count.
+	* g++.dg/debug/dwarf2/cdtor-2.C: New.
+	* g++.dg/debug/dwarf2/cdtor-3.C: New.
+	* g++.dg/debug/dwarf2/covariant-1.C: New.
+	* gcc.dg/debug/dwarf2/attr-alias-1.c: New.
+	* gcc.dg/debug/dwarf2/attr-alias-2.c: New.
+	* gcc.dg/debug/dwarf2/attr-weakref-1.c: New.
+	* gcc.dg/debug/dwarf2/attr-weakref-2.c: New.
+
+
+---
+
+diff --git a/gcc/cgraph.h b/gcc/cgraph.h
+index fc7bb22..4d8bf05 100644
+--- a/gcc/cgraph.h
++++ b/gcc/cgraph.h
+@@ -1117,6 +1117,10 @@ public:
+      external means.  */
+   inline void mark_force_output (void);
+ 
++  /* Return true when function is a language-defined trampoline, e.g.,
++     C++ ctor and dtor "thunks" that just call the unified cdtor.  */
++  bool is_lang_trampoline (void);
++
+   /* Return true when function can be marked local.  */
+   bool local_p (void);
+ 
+diff --git a/gcc/cgraphunit.c b/gcc/cgraphunit.c
+index 0a745f0..b399d61 100644
+--- a/gcc/cgraphunit.c
++++ b/gcc/cgraphunit.c
+@@ -203,6 +203,7 @@ along with GCC; see the file COPYING3.  If not see
+ #include "dbgcnt.h"
+ #include "tree-chkp.h"
+ #include "lto-section-names.h"
++#include "demangle.h"
+ 
+ /* Queue of cgraph nodes scheduled to be added into cgraph.  This is a
+    secondary queue used during optimization to accommodate passes that
+@@ -1635,6 +1636,12 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
+       assemble_end_function (thunk_fndecl, fnname);
+       insn_locations_finalize ();
+       init_insn_lengths ();
++
++      timevar_push (TV_SYMOUT);
++      if (!DECL_IGNORED_P (thunk_fndecl))
++	(*debug_hooks->function_decl) (thunk_fndecl);
++      timevar_pop (TV_SYMOUT);
++
+       free_after_compilation (cfun);
+       TREE_ASM_WRITTEN (thunk_fndecl) = 1;
+       thunk.thunk_p = false;
+@@ -1676,7 +1683,6 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
+       resolve_unique_section (thunk_fndecl, 0,
+ 			      flag_function_sections);
+ 
+-      DECL_IGNORED_P (thunk_fndecl) = 1;
+       bitmap_obstack_initialize (NULL);
+ 
+       if (thunk.virtual_offset_p)
+@@ -1889,6 +1895,92 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
+   return true;
+ }
+ 
++/* Return true if DECL is a cdtor trampoline for unified cdtor
++   TARGET.  */
++
++static bool
++cxx_cdtor_trampoline_p (tree decl, tree target)
++{
++  if (DECL_ABSTRACT_ORIGIN (decl))
++    return false;
++
++  if (!DECL_CXX_CONSTRUCTOR_P (decl) && !DECL_CXX_DESTRUCTOR_P (decl))
++    return false;
++
++  if (DECL_CXX_CONSTRUCTOR_P (decl) != DECL_CXX_CONSTRUCTOR_P (target))
++    return false;
++
++  if (DECL_CXX_DESTRUCTOR_P (decl) != DECL_CXX_DESTRUCTOR_P (target))
++    return false;
++
++  gcc_assert (DECL_ASSEMBLER_NAME_SET_P (decl));
++  gcc_assert (DECL_ASSEMBLER_NAME_SET_P (target));
++
++  const char *dname = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
++  const char *tname = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (target));
++
++  unsigned int i = strlen (dname);
++  if (i != strlen (tname))
++    return false;
++
++  gcc_assert (i);
++
++  /* C1 and C2 ctors may be trampolines to C4; D0, D1 and D2 dtors may
++     be trampolines to D4.  Check their mangled names, so that the
++     test will work even during LTO compilations, when the cdtor
++     clones retrofitted into trampolines might not be right after the
++     unified one in the DECL_CHAIN, and we don't have C++-specific
++     data structures or lang hooks to check that the cdtors are of
++     different kinds and belong to the same class.
++
++     Alas, just checking that the assembler name has e.g. C2 vs C4 as
++     the only difference could find false positives, e.g., if there
++     are cdtors with the same signature (aside from the THIS pointer)
++     in classes whose names contain C2 and C4, say _ZN2C2C1Ev AKA
++     C2::C2() and _ZN2C4C1Ev AKA C4::C4().
++
++     So, after checking that we found viable distinguishing characters
++     at the expected place, we check that the cdtors are of different
++     kinds using the demangler.  Yuck.  */
++  bool found = false;
++  while (i--)
++    if (dname[i] != tname[i])
++      {
++	if (!found
++	    && tname[i] == '4' && i && tname[i-1] == dname[i-1]
++	    && (((dname[i-1] == 'C' || dname[i-1] == 'D')
++		 && (dname[i] == '1' || dname[i] == '2'))
++		|| (dname[i-1] == 'D' && dname[i] == '0')))
++	  found = true;
++	else
++	  return false;
++      }
++
++  if (DECL_CXX_CONSTRUCTOR_P (decl))
++    return is_gnu_v3_mangled_ctor (tname) == gnu_v3_unified_ctor
++      && is_gnu_v3_mangled_ctor (dname) != gnu_v3_unified_ctor;
++  else if (DECL_CXX_DESTRUCTOR_P (decl))
++    return is_gnu_v3_mangled_dtor (tname) == gnu_v3_unified_dtor
++      && is_gnu_v3_mangled_dtor (dname) != gnu_v3_unified_dtor;
++  else
++    gcc_unreachable ();
++}
++
++/* Return true when function is as a language-defined trampoline,
++   e.g., C++ ctor and dtor "thunks" that just call the unified
++   cdtor.  */
++
++bool
++cgraph_node::is_lang_trampoline (void)
++{
++  if (!callees || callees->next_callee)
++    return false;
++
++  tree target = callees->callee->decl;
++
++  return (cxx_cdtor_trampoline_p (decl, target));
++}
++
+ /* Assemble thunks and aliases associated to node.  */
+ 
+ void
+@@ -1906,9 +1998,17 @@ cgraph_node::assemble_thunks_and_aliases (void)
+ 	e = e->next_caller;
+ 	thunk->expand_thunk (true, false);
+ 	thunk->assemble_thunks_and_aliases ();
++	if (!DECL_IGNORED_P (thunk->decl) && !DECL_IGNORED_P (decl))
++	  (*debug_hooks->trampoline_decl) (thunk->decl, decl);
+       }
+     else
+-      e = e->next_caller;
++      {
++	if (e->caller->is_lang_trampoline ()
++	    && !DECL_IGNORED_P (e->caller->decl) && !DECL_IGNORED_P (decl))
++	  (*debug_hooks->trampoline_decl) (e->caller->decl, decl);
++
++	e = e->next_caller;
++      }
+ 
+   FOR_EACH_ALIAS (this, ref)
+     {
+@@ -1922,6 +2022,8 @@ cgraph_node::assemble_thunks_and_aliases (void)
+ 	  TREE_ASM_WRITTEN (decl) = 1;
+ 	  do_assemble_alias (alias->decl,
+ 			     DECL_ASSEMBLER_NAME (decl));
++	  if (!DECL_IGNORED_P (alias->decl) && !DECL_IGNORED_P (decl))
++	    (*debug_hooks->aliased_decl) (alias->decl, decl);
+ 	  alias->assemble_thunks_and_aliases ();
+ 	  TREE_ASM_WRITTEN (decl) = saved_written;
+ 	}
+@@ -2341,7 +2443,7 @@ symbol_table::output_weakrefs (void)
+ 	    || !TREE_ASM_WRITTEN (cnode->instrumented_version->decl))
+ 	&& node->weakref)
+       {
+-	tree target;
++	tree target, target_decl;
+ 
+ 	/* Weakrefs are special by not requiring target definition in current
+ 	   compilation unit.  It is thus bit hard to work out what we want to
+@@ -2349,17 +2451,33 @@ symbol_table::output_weakrefs (void)
+ 	   When alias target is defined, we need to fetch it from symtab reference,
+ 	   otherwise it is pointed to by alias_target.  */
+ 	if (node->alias_target)
+-	  target = (DECL_P (node->alias_target)
+-		    ? DECL_ASSEMBLER_NAME (node->alias_target)
+-		    : node->alias_target);
++	  {
++	    if (DECL_P (node->alias_target))
++	      {
++		target_decl = node->alias_target;
++		target = DECL_ASSEMBLER_NAME (target_decl);
++	      }
++	    else
++	      {
++		target_decl = NULL_TREE;
++		target = node->alias_target;
++	      }
++	  }
+ 	else if (node->analyzed)
+-	  target = DECL_ASSEMBLER_NAME (node->get_alias_target ()->decl);
++	  {
++	    target_decl = node->get_alias_target ()->decl;
++	    target = DECL_ASSEMBLER_NAME (target_decl);
++	  }
+ 	else
+ 	  {
+ 	    gcc_unreachable ();
+-	    target = get_alias_symbol (node->decl);
++	    target_decl = node->decl;
++	    target = get_alias_symbol (target_decl);
+ 	  }
+         do_assemble_alias (node->decl, target);
++	if (target_decl && !DECL_IGNORED_P (node->decl)
++	    && !DECL_IGNORED_P (target_decl))
++	  (*debug_hooks->aliased_decl) (node->decl, target_decl);
+       }
+ }
+ 
+diff --git a/gcc/cp/method.c b/gcc/cp/method.c
+index f455b32..9bbe0c8 100644
+--- a/gcc/cp/method.c
++++ b/gcc/cp/method.c
+@@ -219,6 +219,7 @@ make_alias_for (tree target, tree newid)
+     }
+   DECL_EXTERNAL (alias) = 0;
+   DECL_ARTIFICIAL (alias) = 1;
++  DECL_IGNORED_P (alias) = DECL_IGNORED_P (target);
+   DECL_TEMPLATE_INSTANTIATED (alias) = 0;
+   if (TREE_CODE (alias) == FUNCTION_DECL)
+     {
+diff --git a/gcc/dbxout.c b/gcc/dbxout.c
+index 25a03ef..8da8eb0 100644
+--- a/gcc/dbxout.c
++++ b/gcc/dbxout.c
+@@ -372,6 +372,8 @@ const struct gcc_debug_hooks dbx_debug_hooks =
+   debug_nothing_tree_tree_tree_bool,	 /* imported_module_or_decl */
+   debug_nothing_tree,		         /* deferred_inline_function */
+   debug_nothing_tree,		         /* outlining_inline_function */
++  debug_nothing_tree_tree,		 /* aliased_decl */
++  debug_nothing_tree_tree,		 /* trampoline_decl */
+   debug_nothing_rtx_code_label,	         /* label */
+   dbxout_handle_pch,		         /* handle_pch */
+   debug_nothing_rtx_insn,	         /* var_location */
+@@ -412,6 +414,8 @@ const struct gcc_debug_hooks xcoff_debug_hooks =
+   debug_nothing_tree_tree_tree_bool,	 /* imported_module_or_decl */
+   debug_nothing_tree,		         /* deferred_inline_function */
+   debug_nothing_tree,		         /* outlining_inline_function */
++  debug_nothing_tree_tree,		 /* aliased_decl */
++  debug_nothing_tree_tree,		 /* trampoline_decl */
+   debug_nothing_rtx_code_label,	         /* label */
+   dbxout_handle_pch,		         /* handle_pch */
+   debug_nothing_rtx_insn,	         /* var_location */
+diff --git a/gcc/debug.c b/gcc/debug.c
+index 9c2caae..c9495c9a 100644
+--- a/gcc/debug.c
++++ b/gcc/debug.c
+@@ -50,6 +50,8 @@ const struct gcc_debug_hooks do_nothing_debug_hooks =
+   debug_nothing_tree_tree_tree_bool,	 /* imported_module_or_decl */
+   debug_nothing_tree,		         /* deferred_inline_function */
+   debug_nothing_tree,		         /* outlining_inline_function */
++  debug_nothing_tree_tree,		 /* aliased_decl */
++  debug_nothing_tree_tree,		 /* trampoline_decl */
+   debug_nothing_rtx_code_label,	         /* label */
+   debug_nothing_int,		         /* handle_pch */
+   debug_nothing_rtx_insn,	         /* var_location */
+diff --git a/gcc/debug.h b/gcc/debug.h
+index 6711f8b..cb6218f 100644
+--- a/gcc/debug.h
++++ b/gcc/debug.h
+@@ -155,6 +155,14 @@ struct gcc_debug_hooks
+      the inline before it gets mangled by optimization.  */
+   void (* outlining_inline_function) (tree decl);
+ 
++  /* ALIAS is a declaration whose symbol was defined as an alias to
++     DECL's symbol.  Called right after outputting the alias
++     definition.  */
++  void (* aliased_decl) (tree alias, tree decl);
++
++  /* TRAMPOLINE is a function defined as a trampoline to DECL.  */
++  void (* trampoline_decl) (tree trampoline, tree decl);
++
+   /* Called from final_scan_insn for any CODE_LABEL insn whose
+      LABEL_NAME is non-null.  */
+   void (* label) (rtx_code_label *);
+diff --git a/gcc/dwarf2out.c b/gcc/dwarf2out.c
+index d8ca1b7..cba37f9 100644
+--- a/gcc/dwarf2out.c
++++ b/gcc/dwarf2out.c
+@@ -2506,6 +2506,8 @@ static void dwarf2out_begin_function (tree);
+ static void dwarf2out_end_function (unsigned int);
+ static void dwarf2out_register_main_translation_unit (tree unit);
+ static void dwarf2out_set_name (tree, tree);
++static void dwarf2out_aliased_decl (tree, tree);
++static void dwarf2out_trampoline_decl (tree, tree);
+ 
+ /* The debug hooks structure.  */
+ 
+@@ -2545,6 +2547,8 @@ const struct gcc_debug_hooks dwarf2_debug_hooks =
+      emitting the abstract description of inline functions until
+      something tries to reference them.  */
+   dwarf2out_abstract_function,	/* outlining_inline_function */
++  dwarf2out_aliased_decl,	/* aliased_decl */
++  dwarf2out_trampoline_decl,	/* trampoline_decl */
+   debug_nothing_rtx_code_label,	/* label */
+   debug_nothing_int,		/* handle_pch */
+   dwarf2out_var_location,
+@@ -2583,6 +2587,8 @@ const struct gcc_debug_hooks dwarf2_lineno_debug_hooks =
+   debug_nothing_tree_tree_tree_bool,	 /* imported_module_or_decl */
+   debug_nothing_tree,		         /* deferred_inline_function */
+   debug_nothing_tree,		         /* outlining_inline_function */
++  debug_nothing_tree_tree,		 /* aliased_decl */
++  debug_nothing_tree_tree,		 /* trampoline_decl */
+   debug_nothing_rtx_code_label,	         /* label */
+   debug_nothing_int,		         /* handle_pch */
+   debug_nothing_rtx_insn,	         /* var_location */
+@@ -9755,7 +9761,10 @@ dwarf2_name (tree decl, int scope)
+ {
+   if (DECL_NAMELESS (decl))
+     return NULL;
+-  return lang_hooks.dwarf_name (decl, scope ? 1 : 0);
++  const char *name = lang_hooks.dwarf_name (decl, scope ? 1 : 0);
++  if (name && name[0] == '*')
++    name++;
++  return name;
+ }
+ 
+ /* Add a new entry to .debug_pubnames if appropriate.  */
+@@ -23797,6 +23806,95 @@ dwarf2out_imported_module_or_decl (tree decl, tree name, tree context,
+   dwarf2out_imported_module_or_decl_1 (decl, name, context, scope_die);
+ }
+ 
++/* Output debug info indicating that ALIAS is an alias to DECL.  */
++
++static void
++dwarf2out_aliased_decl (tree alias, tree decl)
++{
++  if (debug_info_level <= DINFO_LEVEL_TERSE)
++    return;
++
++  if (!(dwarf_version >= 3 || !dwarf_strict))
++    return;
++
++  if (DECL_IGNORED_P (decl) || DECL_IGNORED_P (alias))
++    return;
++
++  dw_die_ref decl_die = lookup_decl_die (decl);
++
++  if (!decl_die)
++    return;
++
++  dw_die_ref old_alias_die = lookup_decl_die (alias);
++
++  if (old_alias_die && TREE_CODE (alias) == FUNCTION_DECL)
++    /* FIXME: we have a specification and probably a definition that
++       turned into an alias.  Location information of the aliased
++       definition is most certainly not suitable for this alias.  */
++    return;
++
++  dw_die_ref alias_die = new_die (DW_TAG_imported_declaration,
++				  comp_unit_die (), NULL_TREE);
++
++  add_AT_die_ref (alias_die, DW_AT_import, decl_die);
++
++  /* ??? It would be nice if we could just link back to the symbol
++     declaration, but DW_AT_specification is not a welcome attribute
++     for a DW_TAG_imported_declaration.  */
++  if (0 && old_alias_die)
++    {
++      add_AT_die_ref (alias_die, DW_AT_specification, old_alias_die);
++      return;
++    }
++
++  equate_decl_number_to_die (alias, alias_die);
++
++  if (TREE_PUBLIC (alias))
++    add_AT_flag (alias_die, DW_AT_external, 1);
++
++  {
++    bool save_artificial = DECL_ARTIFICIAL (alias);
++    /* Temporarily set DECL_ARTIFICIAL so that we don't emit src coords
++       attributes.  */
++    DECL_ARTIFICIAL (alias) = true;
++    add_name_and_src_coords_attributes (alias_die, alias);
++    DECL_ARTIFICIAL (alias) = save_artificial;
++  }
++
++  add_pubname (alias, alias_die);
++  if (DECL_ARTIFICIAL (alias))
++    add_AT_flag (alias_die, DW_AT_artificial, 1);
++  add_accessibility_attribute (alias_die, alias);
++}
++
++/* Output debug info indicating that TRAMPOLINE is a trampoline to
++   DECL.  */
++
++static void
++dwarf2out_trampoline_decl (tree trampoline, tree decl)
++{
++  if (debug_info_level <= DINFO_LEVEL_TERSE)
++    return;
++
++  if (!(dwarf_version >= 3 || !dwarf_strict))
++    return;
++
++  if (DECL_IGNORED_P (decl) || DECL_IGNORED_P (trampoline))
++    return;
++
++  dw_die_ref decl_die = lookup_decl_die (decl);
++
++  if (!decl_die)
++    return;
++
++  dw_die_ref trampoline_die = lookup_decl_die (trampoline);
++
++  if (!trampoline_die)
++    return;
++
++  add_AT_die_ref (trampoline_die, DW_AT_trampoline, decl_die);
++}
++
+ /* Output debug information for namelists.   */
+ 
+ static dw_die_ref
+diff --git a/gcc/sdbout.c b/gcc/sdbout.c
+index dc52716..df26ad8 100644
+--- a/gcc/sdbout.c
++++ b/gcc/sdbout.c
+@@ -301,6 +301,8 @@ const struct gcc_debug_hooks sdb_debug_hooks =
+   debug_nothing_tree_tree_tree_bool,	 /* imported_module_or_decl */
+   debug_nothing_tree,		         /* deferred_inline_function */
+   debug_nothing_tree,		         /* outlining_inline_function */
++  debug_nothing_tree_tree,		 /* aliased_decl */
++  debug_nothing_tree_tree,		 /* trampoline_decl */
+   sdbout_label,			         /* label */
+   debug_nothing_int,		         /* handle_pch */
+   debug_nothing_rtx_insn,	         /* var_location */
+diff --git a/gcc/testsuite/g++.dg/debug/dwarf2/cdtor-1.C b/gcc/testsuite/g++.dg/debug/dwarf2/cdtor-1.C
+index c0d3d22..71efae8 100644
+--- a/gcc/testsuite/g++.dg/debug/dwarf2/cdtor-1.C
++++ b/gcc/testsuite/g++.dg/debug/dwarf2/cdtor-1.C
+@@ -14,4 +14,4 @@ main()
+   K k;
+ }
+ 
+-// { dg-final {scan-assembler-times " DW_AT_\[MIPS_\]*linkage_name" 4 } }
++// { dg-final {scan-assembler-times " DW_AT_\[MIPS_\]*linkage_name" 6 } }
+diff --git a/gcc/testsuite/g++.dg/debug/dwarf2/cdtor-2.C b/gcc/testsuite/g++.dg/debug/dwarf2/cdtor-2.C
+new file mode 100644
+index 0000000..0737e43
+--- /dev/null
++++ b/gcc/testsuite/g++.dg/debug/dwarf2/cdtor-2.C
+@@ -0,0 +1,13 @@
++// { dg-options "-gdwarf-2 -dA" }
++/* { dg-require-alias "" } */
++// { dg-do compile }
++
++struct foo {
++  foo ();
++  ~foo ();
++};
++
++foo::foo () {}
++foo::~foo () {}
++
++// { dg-final { scan-assembler-times " DW_AT_import" 2 } }
+diff --git a/gcc/testsuite/g++.dg/debug/dwarf2/cdtor-3.C b/gcc/testsuite/g++.dg/debug/dwarf2/cdtor-3.C
+new file mode 100644
+index 0000000..d500e82
+--- /dev/null
++++ b/gcc/testsuite/g++.dg/debug/dwarf2/cdtor-3.C
+@@ -0,0 +1,17 @@
++// { dg-options "-gdwarf-2 -fdeclone-ctor-dtor -dA" }
++// { dg-do compile }
++
++struct bar {
++  bar ();
++  ~bar ();
++};
++
++struct foo : virtual bar {
++  foo ();
++  ~foo ();
++};
++
++foo::foo () {}
++foo::~foo () {}
++
++// { dg-final { scan-assembler-times " DW_AT_trampoline" 4 } }
+diff --git a/gcc/testsuite/g++.dg/debug/dwarf2/covariant-1.C b/gcc/testsuite/g++.dg/debug/dwarf2/covariant-1.C
+new file mode 100644
+index 0000000..1f4326a
+--- /dev/null
++++ b/gcc/testsuite/g++.dg/debug/dwarf2/covariant-1.C
+@@ -0,0 +1,24 @@
++// { dg-options "-gdwarf-2 -dA" }
++/* { dg-require-alias "" } */
++// { dg-do compile }
++
++class A {
++public:
++  virtual A* getThis();
++};
++
++class B {
++  int a;
++public:
++  virtual B* getThis();
++};
++
++class AB : public A, public B {
++public:
++  virtual AB* getThis();
++};
++
++AB* AB::getThis() { return this; }
++
++// { dg-final { scan-assembler-times " DW_AT_import" 2 } }
++// { dg-final { scan-assembler-times " DW_AT_trampoline" 1 } }
+diff --git a/gcc/testsuite/gcc.dg/debug/dwarf2/attr-alias-1.c b/gcc/testsuite/gcc.dg/debug/dwarf2/attr-alias-1.c
+new file mode 100644
+index 0000000..9968856
+--- /dev/null
++++ b/gcc/testsuite/gcc.dg/debug/dwarf2/attr-alias-1.c
+@@ -0,0 +1,10 @@
++/* { dg-do compile } */
++/* { dg-require-alias "" } */
++/* { dg-options "-gdwarf-2 -dA" } */
++
++static int f1 (void) { return 0; }
++extern int g1 (void) __attribute__((__alias__("f1")));
++
++int f () { return g1 (); }
++
++// { dg-final { scan-assembler-times " DW_AT_import" 1 } }
+diff --git a/gcc/testsuite/gcc.dg/debug/dwarf2/attr-alias-2.c b/gcc/testsuite/gcc.dg/debug/dwarf2/attr-alias-2.c
+new file mode 100644
+index 0000000..27201d4
+--- /dev/null
++++ b/gcc/testsuite/gcc.dg/debug/dwarf2/attr-alias-2.c
+@@ -0,0 +1,10 @@
++/* { dg-do compile } */
++/* { dg-require-alias "" } */
++/* { dg-options "-gdwarf-2 -dA" } */
++
++static int i1 = 0;
++extern int i2 __attribute__((__alias__("i1")));
++
++int f () { return i2; }
++
++// { dg-final { scan-assembler-times " DW_AT_import" 1 } }
+diff --git a/gcc/testsuite/gcc.dg/debug/dwarf2/attr-weakref-1.c b/gcc/testsuite/gcc.dg/debug/dwarf2/attr-weakref-1.c
+new file mode 100644
+index 0000000..b53bd05
+--- /dev/null
++++ b/gcc/testsuite/gcc.dg/debug/dwarf2/attr-weakref-1.c
+@@ -0,0 +1,10 @@
++/* { dg-do compile } */
++/* { dg-require-weak "" } */
++/* { dg-options "-gdwarf-2 -dA" } */
++
++int f1 (void) { return 0; }
++static int g1 (void) __attribute__((__weakref__("f1")));
++
++int f () { return g1 (); }
++
++// { dg-final { scan-assembler-times " DW_AT_import" 1 } }
+diff --git a/gcc/testsuite/gcc.dg/debug/dwarf2/attr-weakref-2.c b/gcc/testsuite/gcc.dg/debug/dwarf2/attr-weakref-2.c
+new file mode 100644
+index 0000000..6020202
+--- /dev/null
++++ b/gcc/testsuite/gcc.dg/debug/dwarf2/attr-weakref-2.c
+@@ -0,0 +1,10 @@
++/* { dg-do compile } */
++/* { dg-require-weak "" } */
++/* { dg-options "-gdwarf-2 -dA" } */
++
++int i1 = 0;
++static int i2 __attribute__((__weakref__("i1")));
++
++int f () { return i2; }
++
++// { dg-final { scan-assembler-times " DW_AT_import" 1 } }
+diff --git a/gcc/varpool.c b/gcc/varpool.c
+index cbbdda4..878aaee 100644
+--- a/gcc/varpool.c
++++ b/gcc/varpool.c
+@@ -538,8 +538,12 @@ varpool_node::assemble_aliases (void)
+     {
+       varpool_node *alias = dyn_cast <varpool_node *> (ref->referring);
+       if (!alias->transparent_alias)
+-	do_assemble_alias (alias->decl,
+-			   DECL_ASSEMBLER_NAME (decl));
++	{
++	  do_assemble_alias (alias->decl,
++			     DECL_ASSEMBLER_NAME (decl));
++	  if (!DECL_IGNORED_P (alias->decl) && !DECL_IGNORED_P (decl))
++	    (*debug_hooks->aliased_decl) (alias->decl, decl);
++	}
+       alias->assemble_aliases ();
+     }
+ }
+diff --git a/gcc/vmsdbgout.c b/gcc/vmsdbgout.c
+index 7c6d64d..fc87828 100644
+--- a/gcc/vmsdbgout.c
++++ b/gcc/vmsdbgout.c
+@@ -198,6 +198,8 @@ const struct gcc_debug_hooks vmsdbg_debug_hooks
+    debug_nothing_tree_tree_tree_bool, /* imported_module_or_decl */
+    debug_nothing_tree,		  /* deferred_inline_function */
+    vmsdbgout_abstract_function,
++   debug_nothing_tree_tree,	  /* aliased_decl */
++   debug_nothing_tree_tree,	  /* trampoline_decl */
+    debug_nothing_rtx_code_label,  /* label */
+    debug_nothing_int,		  /* handle_pch */
+    debug_nothing_rtx_insn,	  /* var_location */

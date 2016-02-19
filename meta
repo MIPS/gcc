@@ -1,7 +1,8 @@
 Version: 1
-Previous: 88c16aa6387a6d4683af487007b46ce96c763609
-Head: e152e6e4a58ec36f11df96af4fb17285b139d392
+Previous: 772101b3246849333c42884004a16b5913369429
+Head: b020ad3330c61e78bf7ae81ff87a53a313f4785d
 Applied:
+  debug-aliases-and-trampolines.patch: b020ad3330c61e78bf7ae81ff87a53a313f4785d
 Unapplied:
   template-support.patch: c59370eb5b41e9bd8f5a3a15c482ab684c98bcc0
   special-memfuncs-testing.patch: 88d7df2eb7f1a4d2054b3eedc79bb97f03d661ee
