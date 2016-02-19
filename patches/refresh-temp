@@ -1,0 +1,23 @@
+Bottom: dcaf7c401839023d2cc93afb6694b0877936c812
+Top:    210eba9cc201da9abbf865e0f226eea5c6f5b402
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-02-19 20:33:48 -0200
+
+Refresh of cxx-start_enum-prototype.patch
+
+---
+
+diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
+index d6551a6..e0c2a6a 100644
+--- a/libcc1/libcp1plugin.cc
++++ b/libcc1/libcp1plugin.cc
+@@ -1056,7 +1056,9 @@ plugin_start_new_enum_type (cc1_plugin::connection *self,
+   tree id = name ? get_identifier (name) : make_anon_name ();
+ 
+   tree type = start_enum (id, NULL_TREE,
+-			  underlying_int_type, !!scoped_enum_p, &is_new_type);
++			  underlying_int_type,
++			  /* attributes = */ NULL_TREE,
++			  !!scoped_enum_p, &is_new_type);
+ 
+   gcc_assert (is_new_type);
