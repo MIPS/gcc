@@ -51,8 +51,7 @@ lang_identifier {
 union GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE"),
      chain_next ("CODE_CONTAINS_STRUCT (TREE_CODE (&%h.generic), TS_COMMON) ? ((union lang_tree_node *) TREE_CHAIN (&%h.generic)) : NULL")))
 lang_tree_node {
-  union tree_node GTY((tag ("0"),
-		       desc ("tree_node_structure (&%h)"))) generic;
+  struct tree_node GTY((tag ("0"))) generic;
   struct lang_identifier GTY((tag ("1"))) identifier;
 };
 

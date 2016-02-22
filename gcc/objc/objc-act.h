@@ -38,29 +38,29 @@ void objc_common_init_ts (void);
 #define OBJC_INFO_SLOT_ELTS		2
 
 /* KEYWORD_DECL */
-#define KEYWORD_KEY_NAME(DECL) (KEYWORD_DECL_CHECK (DECL)->decl_minimal.name)
-#define KEYWORD_ARG_NAME(DECL) (KEYWORD_DECL_CHECK (DECL)->decl_common.size)
+#define KEYWORD_KEY_NAME(DECL) (KEYWORD_DECL_CHECK (DECL)->u.decl_minimal.name)
+#define KEYWORD_ARG_NAME(DECL) (KEYWORD_DECL_CHECK (DECL)->u.decl_common.size)
 
 #define INSTANCE_METHOD_OR_CLASS_METHOD_DECL_CHECK(NODE) \
   TREE_CHECK2(NODE,INSTANCE_METHOD_DECL,CLASS_METHOD_DECL)
 
 /* INSTANCE_METHOD_DECL, CLASS_METHOD_DECL */
 #define METHOD_SEL_NAME(DECL) \
-  (INSTANCE_METHOD_OR_CLASS_METHOD_DECL_CHECK (DECL)->decl_minimal.name)
+  (INSTANCE_METHOD_OR_CLASS_METHOD_DECL_CHECK (DECL)->u.decl_minimal.name)
 #define METHOD_SEL_ARGS(DECL) \
-  (INSTANCE_METHOD_OR_CLASS_METHOD_DECL_CHECK (DECL)->decl_common.size)
+  (INSTANCE_METHOD_OR_CLASS_METHOD_DECL_CHECK (DECL)->u.decl_common.size)
 #define METHOD_ADD_ARGS(DECL) \
-  (INSTANCE_METHOD_OR_CLASS_METHOD_DECL_CHECK (DECL)->decl_non_common.result)
+  (INSTANCE_METHOD_OR_CLASS_METHOD_DECL_CHECK (DECL)->u.decl_non_common.result)
 #define METHOD_ADD_ARGS_ELLIPSIS_P(DECL) \
-  (INSTANCE_METHOD_OR_CLASS_METHOD_DECL_CHECK (DECL)->decl_common.lang_flag_0)
+  (INSTANCE_METHOD_OR_CLASS_METHOD_DECL_CHECK (DECL)->u.decl_common.lang_flag_0)
 #define METHOD_DEFINITION(DECL) \
-  (INSTANCE_METHOD_OR_CLASS_METHOD_DECL_CHECK (DECL)->decl_common.initial)
+  (INSTANCE_METHOD_OR_CLASS_METHOD_DECL_CHECK (DECL)->u.decl_common.initial)
 #define METHOD_ENCODING(DECL) \
-  (INSTANCE_METHOD_OR_CLASS_METHOD_DECL_CHECK (DECL)->decl_minimal.context)
+  (INSTANCE_METHOD_OR_CLASS_METHOD_DECL_CHECK (DECL)->u.decl_minimal.context)
 #define METHOD_TYPE_ATTRIBUTES(DECL) \
-  (INSTANCE_METHOD_OR_CLASS_METHOD_DECL_CHECK (DECL)->decl_common.abstract_origin)
+  (INSTANCE_METHOD_OR_CLASS_METHOD_DECL_CHECK (DECL)->u.decl_common.abstract_origin)
 #define METHOD_PROPERTY_CONTEXT(DECL) \
-  (INSTANCE_METHOD_OR_CLASS_METHOD_DECL_CHECK (DECL)->decl_common.size_unit)
+  (INSTANCE_METHOD_OR_CLASS_METHOD_DECL_CHECK (DECL)->u.decl_common.size_unit)
 
 
 /* PROPERTY_DECL.  A PROPERTY_DECL repesents a @property declaration
@@ -81,11 +81,11 @@ void objc_common_init_ts (void);
 
 /* PROPERTY_GETTER_NAME is the identifier of the getter method.  */
 #define PROPERTY_GETTER_NAME(DECL)\
-   (PROPERTY_DECL_CHECK (DECL)->decl_common.size)
+   (PROPERTY_DECL_CHECK (DECL)->u.decl_common.size)
 
 /* PROPERTY_SETTER_NAME is the identifier of the setter method.  */
 #define PROPERTY_SETTER_NAME(DECL) \
-   (PROPERTY_DECL_CHECK (DECL)->decl_non_common.result)
+   (PROPERTY_DECL_CHECK (DECL)->u.decl_non_common.result)
 
 /* PROPERTY_READONLY can be 0 or 1.  */
 #define PROPERTY_READONLY(DECL) \
@@ -106,13 +106,13 @@ enum objc_property_assign_semantics {
    store it, so we hijack the alignment, that properties don't
    have.  */
 #define PROPERTY_ASSIGN_SEMANTICS(DECL) \
-   (PROPERTY_DECL_CHECK (DECL)->decl_common.align)
+   (PROPERTY_DECL_CHECK (DECL)->u.decl_common.align)
 
 /* PROPERTY_IVAR_NAME is the identifier of the instance variable.
    This is set only if the PROPERTY_DECL represents a @synthesize;
    otherwise, it is set to TREE_NULL.  */
 #define PROPERTY_IVAR_NAME(DECL) \
-  (PROPERTY_DECL_CHECK (DECL)->decl_common.initial)
+  (PROPERTY_DECL_CHECK (DECL)->u.decl_common.initial)
 
 /* PROPERTY_DYNAMIC can be 0 or 1.  This is 1 if the PROPERTY_DECL
    represents a @dynamic; otherwise, it is set to 0.  */

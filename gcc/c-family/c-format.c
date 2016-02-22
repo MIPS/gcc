@@ -2884,7 +2884,7 @@ init_dynamic_diag_info (void)
 	    }
 	}
 
-      /* We need to grab the underlying 'union tree_node' so peek into
+      /* We need to grab the underlying 'struct tree_node' so peek into
 	 an extra type level.  */
       if ((t = maybe_get_identifier ("tree")))
 	{

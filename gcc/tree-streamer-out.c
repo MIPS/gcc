@@ -211,7 +211,7 @@ pack_ts_decl_common_value_fields (struct bitpack_d *bp, tree expr)
     {
       bp_pack_value (bp, DECL_PACKED (expr), 1);
       bp_pack_value (bp, DECL_NONADDRESSABLE_P (expr), 1);
-      bp_pack_value (bp, expr->decl_common.off_align, 8);
+      bp_pack_value (bp, DECL_OFFSET_ALIGN_RAW (expr), 8);
     }
 
   if (TREE_CODE (expr) == VAR_DECL)
