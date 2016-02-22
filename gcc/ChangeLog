@@ -1,3 +1,485 @@
+2016-02-22  Richard Biener  <rguenther@suse.de>
+
+	PR ipa/37448
+	* ipa-inline-transform.c (inline_call): When not updating
+	overall summaries adjust self size by the growth estimate.
+	* ipa-inline.c (inline_to_all_callers_1): Add to the callers
+	hash-set, do not update overall summaries here.  Renamed from ...
+	(inline_to_all_callers): ... this which is now wrapping the
+	above and performing delayed overall summary update.
+	(early_inline_small_functions): Delay updating of the overall
+	summary.
+
+2016-02-21  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	* tree-chkp.c (chkp_mark_invalid_bounds_walker): Initialize
+	variable.
+
+2016-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR driver/69805
+	* gcc.c (LINK_COMMAND_SPEC, GOMP_SELF_SPECS): Use
+	:%* in %:gt() argument.
+	(greater_than_spec_func): Adjust for expecting only numbers,
+	if there are more than two numbers, compare the last two.
+
+2016-02-19  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/invoke.texi (C++ Dialect Options): Clarify interaction of
+	-Wnarrowing with -std.
+
+2016-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/69851
+	* expr.c (store_field): Don't use bit-field path if exp is
+	COMPONENT_REF with TREE_ADDRESSABLE type, where TYPE_SIZE is
+	different from bitsize, but DECL_SIZE of FIELD_DECL is bitsize
+	and the assignment can be performed by bitwise copy.  Formatting
+	fix.
+
+	PR middle-end/69838
+	* lra.c (lra_process_new_insns): If non-call exceptions are enabled,
+	call copy_reg_eh_region_note_forward on before and/or after sequences
+	and remove note from insn if it no longer can throw.
+
+	PR target/69820
+	* config/i386/sse.md (VI_512): Only include V64QImode and V32HImode
+	if TARGET_AVX512BW.
+
+2016-02-19  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/vector.md: Add missing commutative operand markers
+	to the patterns which qualify for one.
+	* config/s390/vx-builtins.md: Likewise.
+
+2016-02-19  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/vector.md (VI, VI_QHS): Add single element vector
+	types to mode iterators.
+	(vec_double): ... and mode attribute.
+	* config/s390/vx-builtins.md (non_vec_int): Likewise.
+
+2016-02-19  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/vector.md ("<ti*>add<mode>3", "<ti*>sub<mode>3"):
+	Change the predicate of op2 from nonimmediate to general and let
+	reload fix it if necessary.
+
+2016-02-19  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/vecintrin.h (vec_sub_u128): Define missing macro.
+
+2016-02-19  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.c (s390_expand_vcond): Use the compare operand
+	mode.
+
+2016-02-19  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390-protos.h: Add s390_expand_vec_movstr prototype.
+	* config/s390/s390.c (s390_expand_vec_movstr): New function.
+	* config/s390/s390.md ("movstr<P:mode>"): Call
+	s390_expand_vec_movstr.
+
+2016-02-19  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.md: Add missing output modifier for operand 1
+	to print it as address properly.
+
+2016-02-19  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/2827.md: Rename ooo_* insn attributes to zEC12_*.
+	* config/s390/2964.md: New file.
+	* config/s390/s390.c (s390_get_sched_attrmask): Use the right set
+	of insn grouping attributes depending on the CPU level.
+	(s390_get_unit_mask): New function.
+	(s390_sched_score): Remove the OOO from the scheduling macros.
+	Add loop to calculate a score for the instruction mix.
+	(s390_sched_reorder): Likewise plus improve debug output.
+	(s390_sched_variable_issue): Rename macros as above.  Calculate
+	the unit distances after actually scheduling an insn.  Improve
+	debug output.
+	(s390_sched_init): Clear last_scheduled_unit_distance array.
+	* config/s390/s390.md: Include 2964.md.
+
+2016-02-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/69671
+	* config/i386/sse.md (*<floatsuffix>floatv2div2sf2_mask_1,
+	*avx512vl_<code>v2div2qi2_mask_1, *avx512vl_<code><mode>v4qi2_mask_1,
+	*avx512vl_<code><mode>v8qi2_mask_1, *avx512vl_<code><mode>v4hi2_mask_1,
+	*avx512vl_<code>v2div2hi2_mask_1, *avx512vl_<code>v2div2si2_mask_1,
+	*avx512f_<code>v8div16qi2_mask_1): New insns.
+
+2016-02-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/68404
+	* config/rs6000/predicates.md (fusion_gpr_addis): Revert
+	2016-02-09 change.
+
+	* config/rs6000/rs6000.md (fusion_gpr_load_<mode>): Remove
+	earlyclobber from target.  Use wF constraint for fused memory
+	address.
+	(fusion_gpr_<P:mode>_<GPR_FUSION:mode>_load): Likewise.
+
+2016-02-18  Jakub Jelinek  <jakub@redhat.com>
+	    Martin Liska  <mliska@suse.cz>
+
+	PR sanitizer/69863
+	* cfgexpand.c (asan_sanitize_stack_p): New function.
+	(partition_stack_vars): Use the function.
+	(expand_stack_vars): Likewise.
+	(defer_stack_allocation): Likewise.
+	(expand_used_vars): Likewise.
+
+2016-02-18  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/69553
+	* fold-const.c (operand_equal_p): Properly compare offsets for
+	IMAGPART_EXPR and ARRAY_REF.
+
+2016-02-18  Nick Clifton  <nickc@redhat.com>
+
+	PR target/62254
+	PR target/69610
+	* config/arm/arm.c (arm_option_override_internal): Disable
+	interworking if the target does not support thumb instructions.
+	(arm_reload_in_hi): Handle the case where a register to register
+	move needs reloading because there is no simple pattern to handle
+	it.
+	(arm_reload_out_hi): Likewise.
+
+2016-02-18  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/69854
+	* match.pd: Don't use fold_binary or fold_unary for folding
+	constants.
+
+2016-02-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/69850
+	* gimplify.c (gimplify_cond_expr): Call gimple_set_no_warning
+	on the cond_stmt from TREE_NO_WARNING on COND_EXPR_COND.
+	* gimple-ssa-nonnull-compare.c (do_warn_nonnull_compare): Don't
+	warn on gimple_no_warning_p statements.
+
+2016-02-17  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/extend.texi (C++ Attributes): Correct description of
+	warn_unused type attribute.
+
+2016-02-17  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.md (*altivec_lvxl_<mode>_internal): Output
+	correct instruction.
+
+2016-02-17  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/69609
+	* bb-reorder.c (struct bbro_basic_block_data): Add priority member.
+	(find_traces_1_round): When ending a trace update cached priority
+	of successors.
+	(bb_to_key): Use cached priority when available.
+	(copy_bb): Initialize cached priority.
+	(reorder_basic_blocks_software_trace_cache): Likewise.
+
+2016-02-17  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/69161
+	* config/aarch64/predicates.md (aarch64_comparison_operator_mode):
+	New predicate.
+	(aarch64_comparison_operator): Break overly long line into two.
+	(aarch64_comparison_operation): Likewise.
+	* config/aarch64/aarch64.md (cstorecc4): Use
+	aarch64_comparison_operator_mode instead of
+	aarch64_comparison_operator.
+	(cstore<mode>4): Likewise.
+	(aarch64_cstore<mode>): Likewise.
+	(*cstoresi_insn_uxtw): Likewise.
+	(cstore<mode>_neg): Likewise.
+	(*cstoresi_neg_uxtw): Likewise.
+
+2016-02-17  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/69161
+	* config/arm/predicates.md (arm_comparison_operator_mode):
+	New predicate.
+	* config/arm/arm.md (*mov_scc): Use arm_comparison_operator_mode
+	instead of arm_comparison_operator.
+	(*mov_negscc): Likewise.
+	(*mov_notscc): Likewise.
+	* config/arm/thumb2.md (*thumb2_mov_scc): Likewise.
+	(*thumb2_mov_negscc): Likewise.
+	(*thumb2_mov_negscc_strict_it): Likewise.
+	(*thumb2_mov_notscc): Likewise.
+	(*thumb2_mov_notscc_strict_it): Likewise.
+
+2016-02-17  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_internal_mov_immediate):
+	Add missing return.
+
+2016-02-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/visium/visium.c (machine_libfunc_index): New enum.
+	(machine_libfuncs): New structure.
+	(visium_libfuncs): New static variable.
+	(TARGET_INIT_LIBFUNCS): Define to...
+	(visium_init_libfuncs): ...this.  New function.
+	(expand_block_move_4): Use the appropriate libfunc.
+	(expand_block_move_2): Likewise.
+	(expand_block_move_1): Likewise.
+	(expand_block_set_4): Likewise.
+	(expand_block_set_2): Likewise.
+	(expand_block_set_1): Likewise.
+	(visium_trampoline_init): Likewise.
+
+2016-02-17  Nick Clifton  <nickc@redhat.com>
+
+	* config/msp430/msp430.c (msp430_mcu_data): Sync with data from
+	TI's devices.csv file as of March 2016.
+
+2016-02-16  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	PR Target/48344
+	* opts-global.c (handle_common_deferred_options): Introduce and
+	initialize two global variables to remember command-line options
+	specifying a stack-limiting register.
+	* opts.h: Add extern declarations of the two new global variables.
+	* emit-rtl.c (init_emit_once): Initialize the stack_limit_rtx
+	variable based on the values of the two new global variables.
+
+2016-02-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/69835
+	* common.opt (Wnonnull-compare): New warning.
+	* doc/invoke.texi (-Wnonnull): Remove text about comparison
+	of arguments against NULL.
+	(-Wnonnull-compare): Document.
+	* Makefile.in (OBJS): Add gimple-ssa-nonnull-compare.o.
+	* tree-pass.h (make_pass_warn_nonnull_compare): Declare.
+	* passes.def (pass_warn_nonnull_compare): Add.
+	* gimple-ssa-nonnull-compare.c: New file.
+
+2016-02-16  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64.c (cortexa57_tunings): Remove
+	AARCH64_EXTRA_TUNE_RECIP_SQRT.
+
+2016-02-16  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64.c (use_rsqrt_p): Always use software
+	reciprocal sqrt for -mlow-precision-recip-sqrt.
+
+2016-02-16  James Greenhalgh  <james.greenhalgh@arm.com>
+	    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_expand_vector_init): Refactor,
+	always use lane loads to construct non-constant vectors.
+
+2016-02-16  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64.md
+	(arch64_sqrdml<SQRDMLH_AS:rdma_as>h_lane<mode>): Fix register
+	constraints for	operand 3.
+	(aarch64_sqrdml<SQRDMLH_AS:rdma_as>h_laneq<mode>): Likewise.
+
+2016-02-16  Jakub Jelinek  <jakub@redhat.com>
+	    Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69820
+	* tree-vect-patterns.c (type_conversion_p): Return false if
+	*orig_type is unsigned single precision or boolean.
+	(vect_recog_dot_prod_pattern, vect_recog_widen_mult_pattern):
+	Formatting fix.
+
+2016-02-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/69764
+	PR rtl-optimization/69771
+	* optabs.c (expand_binop): Ensure for shift optabs invalid CONST_INT
+	op1 is valid for GET_MODE_INNER (mode) and force it into a reg.
+
+2016-02-16  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69776
+	* tree-ssa-alias.c (indirect_ref_may_alias_decl_p): Get alias
+	sets from caller.
+	(indirect_refs_may_alias_p): Likewise.
+	(refs_may_alias_p_1): Pass alias sets as from ao_ref.
+	* tree-ssa-sccvn.c (vn_reference_lookup): Also adjust vr alias-set
+	according to tbaa_p.
+	* tree-ssa-dom.c (lookup_avail_expr): Add tbaa_p flag.
+	(optimize_stmt): For redundant store discovery do not allow tbaa.
+
+2016-02-16  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR tree-optimization/69714
+	* tree-ssa-math-opts.c (find_bswap_or_nop): Revert previous change.
+	Return NULL if we have irrelevant high bytes on BIG_ENDIAN.
+
+2016-02-16  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/arc-modes.def (CC_FPU, CC_FPU_UNEQ): New modes.
+	* config/arc/arc-opts.h (FPU_SP, FPU_SF, FPU_SC, FPU_SD, FPU_DP)
+	(FPU_DF, FPU_DC, FPU_DD, FXP_DP): Define.
+	* config/arc/arc.c (arc_init): Check FPU options.
+	(get_arc_condition_code): Handle new CC_FPU* modes.
+	(arc_select_cc_mode): Likewise.
+	(arc_conditional_register_usage): Allow 64 bit datum into even-odd
+	register pair only. Allow access for ARCv2 accumulator.
+	(gen_compare_reg): Whenever we have FPU support use FPU compare
+	instructions.
+	(arc_reorg): Don't generate brcc insns when FPU compare
+	instructions are involved.
+	* config/arc/arc.h (TARGET_DPFP): Add TARGET_FP_DPAX condition.
+	(TARGET_OPTFPE): Add condition when ARC EM can use optimized
+	floating point emulation.
+	(ACC_REG_FIRST, ACC_REG_LAST, ACCL_REGNO, ACCH_REGNO): Define.
+	(REVERSE_CONDITION): Add new CC_FPU* modes.
+	(TARGET_FP_SP_BASE): Define.
+	(TARGET_FP_DP_BASE): Likewise.
+	(TARGET_FP_SP_FUSED): Likewise.
+	(TARGET_FP_DP_FUSED): Likewise.
+	(TARGET_FP_SP_CONV): Likewise.
+	(TARGET_FP_DP_CONV): Likewise.
+	(TARGET_FP_SP_SQRT): Likewise.
+	(TARGET_FP_DP_SQRT): Likewise.
+	(TARGET_FP_DP_AX): Likewise.
+	* config/arc/arc.md (ARCV2_ACC): New constant.
+	(type): New fpu type attribute.
+	(SDF): Conditional iterator.
+	(cstore<mode>, cbranch<mode>): Change expand condition.
+	(addsf3, subsf3, mulsf3, adddf3, subdf3, muldf3): New expands,
+	handles FPU/FPX cases as well.
+	* config/arc/arc.opt (mfpu): New option.
+	* config/arc/fpx.md (addsf3_fpx, subsf3_fpx, mulsf3_fpx):
+	Renamed.
+	(adddf3, muldf3, subdf3): Removed.
+	* config/arc/predicates.md (proper_comparison_operator): Recognize
+	CC_FPU* modes.
+	* config/arc/fpu.md: New file.
+	* doc/invoke.texi (ARC Options): Document mfpu option.
+
+2016-02-16  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/69291
+	* ifcvt.c (noce_try_store_flag_constants): Re-instantiate
+	noce_operand_ok check.
+
+2016-02-16  Tom de Vries  <tom@codesourcery.com>
+
+	PR lto/67709
+	* omp-low.c (simd_clone_create): Remove call to
+	symtab->call_cgraph_insertion_hooks.
+
+2016-02-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/69802
+	* tree-ssa-reassoc.c (update_range_test): If op is
+	SSA_NAME_IS_DEFAULT_DEF, give up unless tem is a positive
+	op == 1 test of precision 1 integral op, otherwise handle
+	that case as op itself.  Fix up formatting.
+	(optimize_range_tests_to_bit_test, optimize_range_tests): Fix
+	up formatting.
+
+2016-02-16  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69586
+	* tree-vrp.c (register_edge_assert_for_2): Handle all integral
+	types for conversion sources.
+
+2016-02-16  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/69801
+	* fold-const.c (operand_equal_p): For COND_EXPR zero operand
+	mask OEP_ADDRESS_OF.
+
+2016-02-16  Alan Modra  <amodra@gmail.com>
+
+	PR target/68973
+	* config/rs6000/rs6000.md (reload_vsx_from_gprsf): Rewrite splitter.
+	(p8_mtvsrd_df, p8_mtvsrd_sf): New.
+	(p8_mtvsrd_1, p8_mtvsrd_2): Delete.
+	(p8_mtvsrwz): New.
+	(p8_mtvsrwz_1, p8_mtvsrwz_2): Delete.
+	(p8_xxpermdi_<mode>): Take two DF inputs rather than one TF.
+	(p8_fmrgow_<mode>): Likewise.
+	(reload_vsx_from_gpr<mode>): Make clobber IF.  Adjust for above
+	changes.
+	(reload_fpr_from_gpr<mode>): Similarly. Use "d" for op0 constraint.
+	(reload_vsx_from_gprsf): Use p8_mtvsrd_sf rather than attempting
+	to use movdi_internal64.  Remove op0_di.
+	* config/rs6000/vsx.md (vsx_xscvspdpn_directmove): Make op1 SFmode.
+
+2016-02-15  Evandro Menezes  <e.menezes@samsung.com>
+
+	Add support for the FCCMP insn types
+
+	* config/aarch64/aarch64.md (fccmp): Change insn type.
+	(fccmpe): Likewise.
+	* config/aarch64/thunderx.md (thunderx_fcmp): Add "fccmp{s,d}" types.
+	* config/arm/cortex-a53.md (cortex_a53_fpalu): Likewise.
+	* config/arm/cortex-a57.md (cortex_a57_fp_cmp): Likewise.
+	* config/arm/xgene1.md (xgene1_fcmp): Likewise.
+	* config/arm/exynos-m1.md (exynos_m1_fp_ccmp): New insn reservation.
+	* config/arm/types.md (fccmps): Add new insn type.
+	(fccmpd): Likewise.
+
+2016-02-15  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* alias.c (get_alias_set): Fix a typo in comment.
+
+2016-02-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69595
+	* match.pd: Complete range test simplification to true.
+
+2016-02-15  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR rtl-optimization/69648
+	* lra-constraints.c (update_ebb_live_info): Don't remove sets of
+	pic_offset_table_rtx.
+
+	PR rtl-optimization/69752
+	* ira.c (update_equiv_regs): When looking for more than a single SET,
+	also take other side effects into account.
+
+2016-02-15  Marcin Kościelnicki  <koriakin@0x04.net>
+
+	* config/s390/s390.c (s390_function_profiler): Add a new sequence
+	for z900+ CPUs in 31-bit mode.
+
+2016-02-15  Marcin Kościelnicki  <koriakin@0x04.net>
+
+	* common/config/s390/s390-common.c (s390_supports_split_stack):
+	New function.
+	(TARGET_SUPPORTS_SPLIT_STACK): New macro.
+	* config/s390/s390-protos.h: Add s390_expand_split_stack_prologue.
+	* config/s390/s390.c (struct machine_function): New field
+	split_stack_varargs_pointer.
+	(s390_register_info): Mark r12 as clobbered if it'll be used as temp
+	in s390_emit_prologue.
+	(s390_emit_prologue): Use r12 as temp if r1 is taken by split-stack
+	vararg pointer.
+	(morestack_ref): New global.
+	(SPLIT_STACK_AVAILABLE): New macro.
+	(s390_expand_split_stack_prologue): New function.
+	(s390_live_on_entry): New function.
+	(s390_va_start): Use split-stack vararg pointer if appropriate.
+	(s390_asm_file_end): Emit the split-stack note sections.
+	(TARGET_EXTRA_LIVE_ON_ENTRY): New macro.
+	* config/s390/s390.md (UNSPEC_STACK_CHECK): New unspec.
+	(UNSPECV_SPLIT_STACK_CALL): New unspec.
+	(UNSPECV_SPLIT_STACK_DATA): New unspec.
+	(split_stack_prologue): New expand.
+	(split_stack_space_check): New expand.
+	(split_stack_data): New insn.
+	(split_stack_call): New expand.
+	(split_stack_call_*): New insn.
+	(split_stack_cond_call): New expand.
+	(split_stack_cond_call_*): New insn.
+
 2016-02-15  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/69783

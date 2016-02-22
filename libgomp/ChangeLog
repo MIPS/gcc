@@ -1,3 +1,13 @@
+2016-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR driver/69805
+	* testsuite/libgomp.c/pr69805.c: New test.
+
+2016-02-16  Tom de Vries  <tom@codesourcery.com>
+
+	PR lto/67709
+	* testsuite/libgomp.fortran/declare-simd-4.f90: New test.
+
 2016-02-09  Tom de Vries  <tom@codesourcery.com>
 
 	PR tree-optimization/69599
@@ -1244,7 +1254,7 @@
 	* oacc-init.c (goacc_runtime_initialize): Call goacc_host_init() at end.
 
 2015-09-08  Aditya Kumar  <hiraditya@msn.com>
-            Sebastian Pop  <s.pop@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
 
 	* testsuite/libgomp.graphite/bounds.c (int foo): Modifed test case to
 	match o/p.
@@ -4749,7 +4759,6 @@
 
 	PR fortran/41102
 	omp_lib.h.in: Fix -std=f95 errors.
-
 
 2009-08-14  David Edelsohn  <edelsohn@gnu.org>
 
