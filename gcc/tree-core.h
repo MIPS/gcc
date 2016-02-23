@@ -1416,7 +1416,7 @@ struct GTY(()) tree_block {
   struct die_struct *die;
 };
 
-struct GTY(()) tree_type_common {
+struct GTY(()) tree_type {
   struct tree_common common;
   tree size;
   tree size_unit;
@@ -1455,16 +1455,8 @@ struct GTY(()) tree_type_common {
   tree main_variant;
   tree context;
   tree name;
-};
-
-struct GTY(()) tree_type_with_lang_specific {
-  struct tree_type_common common;
   /* Points to a structure whose details depend on the language in use.  */
   struct lang_type *lang_specific;
-};
-
-struct GTY(()) tree_type_non_common {
-  struct tree_type_with_lang_specific with_lang_specific;
   tree values;
   tree minval;
   tree maxval;
@@ -1495,8 +1487,7 @@ struct GTY(()) tree_decl_minimal {
   tree context;
 };
 
-struct GTY(()) tree_decl_common {
-  struct tree_decl_minimal common;
+struct GTY(()) tree_decl_common : public tree_decl_minimal {
   tree size;
 
   ENUM_BITFIELD(machine_mode) mode : 8;
@@ -1561,14 +1552,11 @@ struct GTY(()) tree_decl_common {
   struct lang_decl *lang_specific;
 };
 
-struct GTY(()) tree_decl_with_rtl {
-  struct tree_decl_common common;
+struct GTY(()) tree_decl_with_rtl : public tree_decl_common {
   rtx rtl;
 };
 
-struct GTY(()) tree_field_decl {
-  struct tree_decl_common common;
-
+struct GTY(()) tree_field_decl : public tree_decl_common {
   tree offset;
   tree bit_field_type;
   tree qualifier;
@@ -1576,27 +1564,22 @@ struct GTY(()) tree_field_decl {
   tree fcontext;
 };
 
-struct GTY(()) tree_label_decl {
-  struct tree_decl_with_rtl common;
+struct GTY(()) tree_label_decl : public tree_decl_with_rtl {
   int label_decl_uid;
   int eh_landing_pad_nr;
 };
 
-struct GTY(()) tree_result_decl {
-  struct tree_decl_with_rtl common;
+struct GTY(()) tree_result_decl : public tree_decl_with_rtl {
 };
 
-struct GTY(()) tree_const_decl {
-  struct tree_decl_common common;
+struct GTY(()) tree_const_decl : public tree_decl_common {
 };
 
-struct GTY(()) tree_parm_decl {
-  struct tree_decl_with_rtl common;
+struct GTY(()) tree_parm_decl : public tree_decl_with_rtl {
   rtx incoming_rtl;
 };
 
-struct GTY(()) tree_decl_with_vis {
- struct tree_decl_with_rtl common;
+struct GTY(()) tree_decl_with_vis : public tree_decl_with_rtl {
  tree assembler_name;
  struct symtab_node *symtab_node;
 
@@ -1631,12 +1614,10 @@ struct GTY(()) tree_decl_with_vis {
  /* 14 unused bits. */
 };
 
-struct GTY(()) tree_var_decl {
-  struct tree_decl_with_vis common;
+struct GTY(()) tree_var_decl : public tree_decl_with_vis {
 };
 
-struct GTY(()) tree_decl_non_common {
-  struct tree_decl_with_vis common;
+struct GTY(()) tree_decl_non_common : public tree_decl_with_vis {
   /* Almost all FE's use this.  */
   tree result;
 };
@@ -1646,9 +1627,7 @@ struct GTY(()) tree_decl_non_common {
    FUNCTION_DECL from non_common, or inherit non_common from FUNCTION_DECL,
    which seemed a bit strange.  */
 
-struct GTY(()) tree_function_decl {
-  struct tree_decl_non_common common;
-
+struct GTY(()) tree_function_decl : public tree_decl_non_common {
   struct function *f;
 
   /* Arguments of the function.  */
@@ -1695,16 +1674,14 @@ struct GTY(()) tree_function_decl {
   /* No bits left.  */
 };
 
-struct GTY(()) tree_translation_unit_decl {
-  struct tree_decl_common common;
+struct GTY(()) tree_translation_unit_decl : public tree_decl_common {
   /* Source language of this translation unit.  Used for DWARF output.  */
   const char * GTY((skip(""))) language;
   /* TODO: Non-optimization used to build this translation unit.  */
   /* TODO: Root of a partial DWARF tree for global types and decls.  */
 };
 
-struct GTY(()) tree_type_decl {
-  struct tree_decl_non_common common;
+struct GTY(()) tree_type_decl : public tree_decl_non_common {
 
 };
 
@@ -1786,11 +1763,7 @@ union GTY ((desc ("tree_node_structure (&%h)"), variable_size)) tree_node_u {
   struct tree_function_decl GTY ((tag ("TS_FUNCTION_DECL"))) function_decl;
   struct tree_translation_unit_decl GTY ((tag ("TS_TRANSLATION_UNIT_DECL")))
     translation_unit_decl;
-  struct tree_type_common GTY ((tag ("TS_TYPE_COMMON"))) type_common;
-  struct tree_type_with_lang_specific GTY ((tag ("TS_TYPE_WITH_LANG_SPECIFIC")))
-    type_with_lang_specific;
-  struct tree_type_non_common GTY ((tag ("TS_TYPE_NON_COMMON")))
-    type_non_common;
+  struct tree_type GTY ((tag ("TS_TYPE_COMMON"))) type_common;
   struct tree_list GTY ((tag ("TS_LIST"))) list;
   struct tree_vec GTY ((tag ("TS_VEC"))) vec;
   struct tree_exp GTY ((tag ("TS_EXP"))) exp;

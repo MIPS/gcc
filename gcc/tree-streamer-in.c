@@ -819,17 +819,7 @@ lto_input_ts_type_common_tree_pointers (struct lto_input_block *ib,
   /* TYPE_CANONICAL gets re-computed during type merging.  */
   TYPE_CANONICAL (expr) = NULL_TREE;
   TYPE_STUB_DECL (expr) = stream_read_tree (ib, data_in);
-}
 
-/* Read all pointer fields in the TS_TYPE_NON_COMMON structure of EXPR
-   from input block IB.  DATA_IN contains tables and descriptors for the
-   file being read.  */
-
-static void
-lto_input_ts_type_non_common_tree_pointers (struct lto_input_block *ib,
-					    struct data_in *data_in,
-					    tree expr)
-{
   if (TREE_CODE (expr) == ENUMERAL_TYPE)
     TYPE_VALUES (expr) = stream_read_tree (ib, data_in);
   else if (TREE_CODE (expr) == ARRAY_TYPE)
@@ -1067,9 +1057,6 @@ streamer_read_tree_body (struct lto_input_block *ib, struct data_in *data_in,
 
   if (CODE_CONTAINS_STRUCT (code, TS_TYPE_COMMON))
     lto_input_ts_type_common_tree_pointers (ib, data_in, expr);
-
-  if (CODE_CONTAINS_STRUCT (code, TS_TYPE_NON_COMMON))
-    lto_input_ts_type_non_common_tree_pointers (ib, data_in, expr);
 
   if (CODE_CONTAINS_STRUCT (code, TS_LIST))
     lto_input_ts_list_tree_pointers (ib, data_in, expr);

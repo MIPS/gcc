@@ -98,12 +98,6 @@ as_internal_fn (combined_fn code)
     tree_contains_struct[C][TS_TYPE_COMMON] = 1;	\
   } while (0)
 
-#define MARK_TS_TYPE_WITH_LANG_SPECIFIC(C)		\
-  do {							\
-    MARK_TS_TYPE_COMMON (C);				\
-    tree_contains_struct[C][TS_TYPE_WITH_LANG_SPECIFIC] = 1;	\
-  } while (0)
-
 #define MARK_TS_DECL_MINIMAL(C)				\
   do {							\
     MARK_TS_COMMON (C);					\
@@ -237,16 +231,6 @@ as_internal_fn (combined_fn code)
 #define CASE_FLT_FN_REENT(FN) case FN##_R: case FN##F_R: case FN##L_R
 #define CASE_INT_FN(FN) case FN: case FN##L: case FN##LL: case FN##IMAX
 
-#define NULL_TREE (tree) NULL
-
-/* Define accessors for the fields that all tree nodes have
-   (though some fields are not used for all kinds of nodes).  */
-
-/* The tree-code says what kind of node it is.
-   Codes are defined in tree.def.  */
-#define TREE_CODE(NODE) ((enum tree_code) (NODE)->u.base.code)
-#define TREE_SET_CODE(NODE, VALUE) ((NODE)->u.base.code = (VALUE))
-
 /* When checking is enabled, errors will be generated if a tree node
    is accessed incorrectly. The macros die with a fatal error.  */
 #if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
@@ -333,25 +317,6 @@ as_internal_fn (combined_fn code)
 (*(tree_operand_check_code ((T), (CODE), (I), \
                                          __FILE__, __LINE__, __FUNCTION__)))
 
-/* Nodes are chained together for many purposes.
-   Types are chained together to record them for being output to the debugger
-   (see the function `chain_type').
-   Decls in the same scope are chained together to record the contents
-   of the scope.
-   Statement nodes for successive statements used to be chained together.
-   Often lists of things are represented by TREE_LIST nodes that
-   are chained together.  */
-
-#define TREE_CHAIN(NODE) \
-(CONTAINS_STRUCT_CHECK (NODE, TS_COMMON)->u.common.chain)
-
-/* In all nodes that are expressions, this is the data type of the expression.
-   In POINTER_TYPE nodes, this is the type that the pointer points to.
-   In ARRAY_TYPE nodes, this is the type of the elements.
-   In VECTOR_TYPE nodes, this is the type of the elements.  */
-#define TREE_TYPE(NODE) \
-(CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->u.typed.type)
-
 extern void tree_contains_struct_check_failed (const_tree,
 					       const enum tree_node_structure_enum,
 					       const char *, int, const char *)
@@ -421,10 +386,37 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define OMP_CLAUSE_SUBCODE_CHECK(T, CODE)	(T)
 #define ANY_INTEGRAL_TYPE_CHECK(T)		(T)
 
-#define TREE_CHAIN(NODE) ((NODE)->u.common.chain)
-#define TREE_TYPE(NODE) ((NODE)->u.typed.type)
-
 #endif
+
+#define NULL_TREE (tree) NULL
+
+/* Define accessors for the fields that all tree nodes have
+   (though some fields are not used for all kinds of nodes).  */
+
+/* The tree-code says what kind of node it is.
+   Codes are defined in tree.def.  */
+#define TREE_CODE(NODE) ((enum tree_code) (NODE)->u.base.code)
+#define TREE_SET_CODE(NODE, VALUE) ((NODE)->u.base.code = (VALUE))
+
+/* Nodes are chained together for many purposes.
+   Types are chained together to record them for being output to the debugger
+   (see the function `chain_type').
+   Decls in the same scope are chained together to record the contents
+   of the scope.
+   Statement nodes for successive statements used to be chained together.
+   Often lists of things are represented by TREE_LIST nodes that
+   are chained together.  */
+
+#define TREE_CHAIN(NODE) \
+(CONTAINS_STRUCT_CHECK (NODE, TS_COMMON)->u.common.chain)
+
+/* In all nodes that are expressions, this is the data type of the expression.
+   In POINTER_TYPE nodes, this is the type that the pointer points to.
+   In ARRAY_TYPE nodes, this is the type of the elements.
+   In VECTOR_TYPE nodes, this is the type of the elements.  */
+
+#define TREE_TYPE(NODE) \
+(CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->u.typed.type)
 
 #define TREE_BLOCK(NODE)		(tree_block (NODE))
 #define TREE_SET_BLOCK(T, B)		(tree_set_block ((T), (B)))
@@ -2032,51 +2024,51 @@ extern machine_mode element_mode (const_tree t);
 #define TYPE_SYMTAB_IS_DIE (2)
 
 #define TYPE_LANG_SPECIFIC(NODE) \
-  (TYPE_CHECK (NODE)->u.type_with_lang_specific.lang_specific)
+  (TYPE_CHECK (NODE)->u.type_common.lang_specific)
 
-#define TYPE_VALUES(NODE) (ENUMERAL_TYPE_CHECK (NODE)->u.type_non_common.values)
-#define TYPE_DOMAIN(NODE) (ARRAY_TYPE_CHECK (NODE)->u.type_non_common.values)
+#define TYPE_VALUES(NODE) (ENUMERAL_TYPE_CHECK (NODE)->u.type_common.values)
+#define TYPE_DOMAIN(NODE) (ARRAY_TYPE_CHECK (NODE)->u.type_common.values)
 #define TYPE_FIELDS(NODE) \
-  (RECORD_OR_UNION_CHECK (NODE)->u.type_non_common.values)
-#define TYPE_CACHED_VALUES(NODE) (TYPE_CHECK (NODE)->u.type_non_common.values)
+  (RECORD_OR_UNION_CHECK (NODE)->u.type_common.values)
+#define TYPE_CACHED_VALUES(NODE) (TYPE_CHECK (NODE)->u.type_common.values)
 #define TYPE_ARG_TYPES(NODE) \
-  (FUNC_OR_METHOD_CHECK (NODE)->u.type_non_common.values)
-#define TYPE_VALUES_RAW(NODE) (TYPE_CHECK (NODE)->u.type_non_common.values)
+  (FUNC_OR_METHOD_CHECK (NODE)->u.type_common.values)
+#define TYPE_VALUES_RAW(NODE) (TYPE_CHECK (NODE)->u.type_common.values)
 
 #define TYPE_METHODS(NODE) \
-  (RECORD_OR_UNION_CHECK (NODE)->u.type_non_common.maxval)
+  (RECORD_OR_UNION_CHECK (NODE)->u.type_common.maxval)
 #define TYPE_VFIELD(NODE) \
-  (RECORD_OR_UNION_CHECK (NODE)->u.type_non_common.minval)
+  (RECORD_OR_UNION_CHECK (NODE)->u.type_common.minval)
 #define TYPE_METHOD_BASETYPE(NODE) \
-  (FUNC_OR_METHOD_CHECK (NODE)->u.type_non_common.maxval)
+  (FUNC_OR_METHOD_CHECK (NODE)->u.type_common.maxval)
 #define TYPE_OFFSET_BASETYPE(NODE) \
-  (OFFSET_TYPE_CHECK (NODE)->u.type_non_common.maxval)
-#define TYPE_MAXVAL(NODE) (TYPE_CHECK (NODE)->u.type_non_common.maxval)
-#define TYPE_MINVAL(NODE) (TYPE_CHECK (NODE)->u.type_non_common.minval)
+  (OFFSET_TYPE_CHECK (NODE)->u.type_common.maxval)
+#define TYPE_MAXVAL(NODE) (TYPE_CHECK (NODE)->u.type_common.maxval)
+#define TYPE_MINVAL(NODE) (TYPE_CHECK (NODE)->u.type_common.minval)
 #define TYPE_NEXT_PTR_TO(NODE) \
-  (POINTER_TYPE_CHECK (NODE)->u.type_non_common.minval)
+  (POINTER_TYPE_CHECK (NODE)->u.type_common.minval)
 #define TYPE_NEXT_REF_TO(NODE) \
-  (REFERENCE_TYPE_CHECK (NODE)->u.type_non_common.minval)
+  (REFERENCE_TYPE_CHECK (NODE)->u.type_common.minval)
 #define TYPE_MIN_VALUE(NODE) \
-  (NUMERICAL_TYPE_CHECK (NODE)->u.type_non_common.minval)
+  (NUMERICAL_TYPE_CHECK (NODE)->u.type_common.minval)
 #define TYPE_MAX_VALUE(NODE) \
-  (NUMERICAL_TYPE_CHECK (NODE)->u.type_non_common.maxval)
+  (NUMERICAL_TYPE_CHECK (NODE)->u.type_common.maxval)
 
 /* If non-NULL, this is an upper bound of the size (in bytes) of an
    object of the given ARRAY_TYPE_NON_COMMON.  This allows temporaries to be
    allocated.  */
 #define TYPE_ARRAY_MAX_SIZE(ARRAY_TYPE) \
-  (ARRAY_TYPE_CHECK (ARRAY_TYPE)->u.type_non_common.maxval)
+  (ARRAY_TYPE_CHECK (ARRAY_TYPE)->u.type_common.maxval)
 
 /* For record and union types, information about this type, as a base type
    for itself.  */
-#define TYPE_BINFO(NODE) (RECORD_OR_UNION_CHECK (NODE)->u.type_non_common.binfo)
+#define TYPE_BINFO(NODE) (RECORD_OR_UNION_CHECK (NODE)->u.type_common.binfo)
 
 /* For non record and union types, used in a language-dependent way.  */
 #define TYPE_LANG_SLOT_1(NODE) \
-  (NOT_RECORD_OR_UNION_CHECK (NODE)->u.type_non_common.binfo)
+  (NOT_RECORD_OR_UNION_CHECK (NODE)->u.type_common.binfo)
 
-#define TYPE_BINFO_RAW(NODE) (TYPE_CHECK (NODE)->u.type_non_common.binfo)
+#define TYPE_BINFO_RAW(NODE) (TYPE_CHECK (NODE)->u.type_common.binfo)
 
 /* Define accessor macros for information about type inheritance
    and basetypes.
