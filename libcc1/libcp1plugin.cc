@@ -301,10 +301,10 @@ address_rewriter (tree *in, int *walk_subtrees, void *arg)
       value.address = build_int_cst_type (ptr_type_node, address);
       decl_addr_value **slot = ctx->address_map.find_slot (&value, INSERT);
       gcc_assert (*slot == NULL);
-      TREE_NO_WARNING (value.decl) = 1;
       *slot
 	= static_cast<decl_addr_value *> (xmalloc (sizeof (decl_addr_value)));
       **slot = value;
+      TREE_NO_WARNING (value.decl) = 1;
       found_value = *slot;
     }
   else
@@ -859,13 +859,13 @@ plugin_new_decl (cc1_plugin::connection *self,
       if (value.address)
 	{
 	  decl_addr_value **slot = ctx->address_map.find_slot (&value, INSERT);
-	  /* We don't want GCC to warn about e.g. static functions
-	     without a code definition.  */
-	  TREE_NO_WARNING (decl) = 1;
 	  gcc_assert (*slot == NULL);
 	  *slot
 	    = static_cast<decl_addr_value *> (xmalloc (sizeof (decl_addr_value)));
 	  **slot = value;
+	  /* We don't want GCC to warn about e.g. static functions
+	     without a code definition.  */
+	  TREE_NO_WARNING (decl) = 1;
 	}
     }
 
