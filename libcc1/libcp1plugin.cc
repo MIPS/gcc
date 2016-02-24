@@ -283,7 +283,6 @@ address_rewriter (tree *in, int *walk_subtrees, void *arg)
   decl_addr_value value;
   value.decl = *in;
   decl_addr_value *found_value = ctx->address_map.find (&value);
-
   if (found_value != NULL)
     ;
   else if (DECL_IS_BUILTIN (*in) && DECL_NAMESPACE_SCOPE_P (*in)
