@@ -2,7 +2,7 @@
    Copyright (C) 2014-2016 Free Software Foundation, Inc.
 
    This file is part of GCC.  As it interacts with GDB through libcc1,
-   they all become a single program.
+   they all become a single program as regards the GNU GPL's requirements.
 
    GCC is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
@@ -122,7 +122,7 @@ struct decl_addr_hasher : free_ptr_hash<decl_addr_value>
 inline hashval_t
 decl_addr_hasher::hash (const decl_addr_value *e)
 {
-  return IDENTIFIER_HASH_VALUE (DECL_NAME (e->decl));
+  return DECL_UID (e->decl);
 }
 
 inline bool
@@ -304,6 +304,7 @@ address_rewriter (tree *in, int *walk_subtrees, void *arg)
       *slot
 	= static_cast<decl_addr_value *> (xmalloc (sizeof (decl_addr_value)));
       **slot = value;
+      TREE_NO_WARNING (value.decl) = 1;
       found_value = *slot;
     }
   else
@@ -862,6 +863,9 @@ plugin_new_decl (cc1_plugin::connection *self,
 	  *slot
 	    = static_cast<decl_addr_value *> (xmalloc (sizeof (decl_addr_value)));
 	  **slot = value;
+	  /* We don't want GCC to warn about e.g. static functions
+	     without a code definition.  */
+	  TREE_NO_WARNING (decl) = 1;
 	}
     }
 
@@ -1300,6 +1304,10 @@ plugin_build_qualified_type (cc1_plugin::connection *,
     quals |= TYPE_QUAL_VOLATILE;
   if ((qualifiers & GCC_CP_QUALIFIER_RESTRICT) != 0)
     quals |= TYPE_QUAL_RESTRICT;
+
+  gcc_assert ((TREE_CODE (unqualified_type) != METHOD_TYPE
+	       && TREE_CODE (unqualified_type) != REFERENCE_TYPE)
+	      || quals == 0);
 
   return convert_out (build_qualified_type (unqualified_type, quals));
 }
