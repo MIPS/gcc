@@ -1039,7 +1039,7 @@ plugin_finish_record_or_union (cc1_plugin::connection *,
 				size_in_bytes) == 0);
 
   // FIXME: end_template_decl if it's a template?  I don't think so,
-  // we're only defining specializations.
+  // we're only defining specializations.  -lxo
 
   return 1;
 }
