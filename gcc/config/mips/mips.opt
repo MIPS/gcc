@@ -551,3 +551,9 @@ Enable use of the MIPS16 ULW and USW instructions.
 
 mmips16-condmove
 Target Undocumented Var(TARGET_MIPS16_CONDMOVE) Init (0)
+
+mmips16-lwl-lwr
+Target Undocumented Var(TARGET_MIPS16_LWL_LWR) Init (0)
+
+mmips16-andi-xori
+Target Undocumented Var(TARGET_MIPS16_ANDI_XORI) Init (0)
