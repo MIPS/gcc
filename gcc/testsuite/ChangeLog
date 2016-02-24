@@ -1,3 +1,315 @@
+2016-02-24  Maxim Kuvyrkov  <maxim.kuvyrkov@linaro.org>
+	    Charles Baylis  <charles.baylis@linaro.org>
+
+	PR debug/61033
+	* g++.dg/pr61033.C: Add a regression testcase for PR debug/61033.
+
+2016-02-24  Richard Biener  <rguenther@suse.de>
+	Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/69760
+	* gcc.dg/torture/pr69760.c: New testcase.
+
+2016-02-24  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/debug/dwarf2/prod-options.c: Use different DW_AT_producer
+	pattern on Solaris with as.
+
+2016-02-24  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/arm/cond_sub_restrict_it.c: New test.
+	* gcc.target/arm/condarith_restrict_it.c: Likewise.
+	* gcc.target/arm/movcond_restrict_it.c: Likewise.
+	* gcc.target/arm/negscc_restrict_it.c: Likewise.
+
+2016-02-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/69915
+	* gcc.dg/pr69915.c: New test.
+
+2016-02-24  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/69886
+	* gcc.dg/torture/pr69886.c: New test.
+
+2016-02-24  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/68963
+	* gcc.dg/torture/pr68963.c: New testcase.
+
+2016-02-24  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/69875
+	* gcc.target/arm/atomic_loaddi_acquire.x: New file.
+	* gcc.target/arm/atomic_loaddi_relaxed.x: Likewise.
+	* gcc.target/arm/atomic_loaddi_seq_cst.x: Likewise.
+	* gcc.target/arm/atomic_loaddi_1.c: New test.
+	* gcc.target/arm/atomic_loaddi_2.c: Likewise.
+	* gcc.target/arm/atomic_loaddi_3.c: Likewise.
+	* gcc.target/arm/atomic_loaddi_4.c: Likewise.
+	* gcc.target/arm/atomic_loaddi_5.c: Likewise.
+	* gcc.target/arm/atomic_loaddi_6.c: Likewise.
+	* gcc.target/arm/atomic_loaddi_7.c: Likewise.
+	* gcc.target/arm/atomic_loaddi_8.c: Likewise.
+	* gcc.target/arm/atomic_loaddi_9.c: Likewise.
+
+2016-02-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/69909
+	* gcc.dg/torture/pr69909.c: New test.
+
+2016-02-24  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69907
+	* gcc.dg/vect/bb-slp-pr69907.c: New testcase.
+	* gcc.dg/vect/bb-slp-34.c: XFAIL.
+	* gcc.dg/vect/bb-slp-pr68892.c: Likewise.
+
+2016-02-24  Christian Bruel  <christian.bruel@st.com>
+
+	* gcc.target/arm/pragma_cpp_fma.c: New test.
+
+2016-02-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/61156
+	* gfortran.dg/include_6.f90: Update test.
+
+2016-02-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR objc/69844
+	* objc.dg/pr69844.m: New test.
+
+2016-02-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/69456
+	* gfortran.dg/namelist_89.f90: New test.
+	* gfortran.dg/pr59700.f90: Update test..
+
+2016-02-23  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/69780
+	* g++.dg/ext/builtin_alloca.C: New test.
+	* gcc.dg/builtins-68.c: New test.
+
+2016-02-23  Richard Henderson  <rth@redhat.com>
+
+	* gcc.target/i386/addr-space-3.c: Remove test.
+
+2016-02-23  David Malcolm  <dmalcolm@redhat.com>
+
+	PR preprocessor/69126
+	PR preprocessor/69543
+	* c-c++-common/pr69126-2-long.c: New test.
+	* c-c++-common/pr69126-2-short.c: New test.
+	* c-c++-common/pr69543-1.c: Remove xfail.
+
+2016-02-23  David Malcolm  <dmalcolm@redhat.com>
+
+	PR preprocessor/69126
+	PR preprocessor/69543
+	PR preprocessor/69558
+	* c-c++-common/pr69126.c (MACRO_1, test_1): New.
+	(f): Rename to...
+	(test_2): ...this, and add leading comment.
+	(MACRO_3, test_3): New.
+	(MACRO_4A, MACRO_4B, test_4): New.
+	(MACRO): Rename to...
+	(MACRO_5): ...this.
+	(g): Rename to...
+	(test_5): ...this, updating for renaming of MACRO, and
+	add leading comment.
+	* c-c++-common/pr69543-1.c: New.
+	* c-c++-common/pr69543-2.c: New.
+	* c-c++-common/pr69543-3.c: New.
+	* c-c++-common/pr69543-4.c: New.
+	* c-c++-common/pr69558-1.c: New.
+	* c-c++-common/pr69558-2.c: New.
+	* c-c++-common/pr69558-3.c: New.
+	* c-c++-common/pr69558-4.c: New.
+	* gcc.dg/pr69558.c: Move to...
+	* c-c++-common/pr69558.c: ...here.  Add dg-bogus directives, with
+	xfail for c++.
+
+2016-02-23  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc/kernels-counter-vars-function-scope.c: Adjust
+	to -ftree-parallelize-loops/-fopenacc changes.
+	* c-c++-common/goacc/kernels-double-reduction-n.c: Likewise.
+	* c-c++-common/goacc/kernels-double-reduction.c: Likewise.
+	* c-c++-common/goacc/kernels-loop-2.c: Likewise.
+	* c-c++-common/goacc/kernels-loop-3.c: Likewise.
+	* c-c++-common/goacc/kernels-loop-g.c: Likewise.
+	* c-c++-common/goacc/kernels-loop-mod-not-zero.c: Likewise.
+	* c-c++-common/goacc/kernels-loop-n.c: Likewise.
+	* c-c++-common/goacc/kernels-loop-nest.c: Likewise.
+	* c-c++-common/goacc/kernels-loop.c: Likewise.
+	* c-c++-common/goacc/kernels-one-counter-var.c: Likewise.
+	* c-c++-common/goacc/kernels-reduction.c: Likewise.
+	* gfortran.dg/goacc/kernels-loop-inner.f95: Likewise.
+	* gfortran.dg/goacc/kernels-loops-adjacent.f95: Likewise.
+
+2016-02-23  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.target/i386/chkp-hidden-def.c: Require alias support.
+
+2016-02-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/69902
+	* g++.dg/warn/Wnonnull-compare-5.C: New test.
+
+	PR c/69900
+	* gcc.dg/pr69900.c: New test.
+
+>>>>>>> .r233653
+2016-02-23  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/69666
+	* gcc.dg/tree-ssa/pr69666.c: New test.
+
+2016-02-23  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/67451
+	* gfortran.dg/coarray_allocate_5.f08: New test.
+
+2016-02-23  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/vcond-shift.c: Move to ...
+	* gcc.target/s390/vector/vcond-shift.c: ... here.
+
+2016-02-23  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/md/movstr-2.c: Move and rename to ...
+	* gcc.target/s390/vector/stpcpy-1.c: ... this one.
+
+2016-02-23  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/md/movstr-1.c: Turn into compile test.
+
+2016-02-20  Mark Wielaard  <mjw@redhat.com>
+
+	PR c/28901
+	* gcc.dg/unused-variable-3.c: New test.
+
+2016-02-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/69888
+	* gcc.target/i386/pr69888.c: New test.
+
+2016-02-22  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69882
+	* gfortran.dg/vect/pr69882.f90: New testcase.
+
+2016-02-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/69885
+	* gcc.dg/pr69885.c: New test.
+
+2016-02-22  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/69806
+	PR target/54089
+	* gcc.target/sh/pr54089-10.c: New.
+
+2016-02-20  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/69423
+	* gfortran.dg/deferred_character_15.f90 : New test.
+
+2016-02-20  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR fortran/57365
+	gfortran.dg/allocate_with_source_18.f03: New test.
+
+2016-02-20  Harald Anlauf  <anlauf@gmx.de>
+
+	PR fortran/52531
+	gfortran.dg/gomp/pr52531.f90: New test.
+
+2016-02-19  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c++/69865
+	* c-c++-common/Wshift-negative-value-6.c: Add -std=c++11 before
+	-std=c++03.
+
+2016-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/69826
+	* c-c++-common/cilk-plus/CK/pr69826-1.c: New test.
+	* c-c++-common/cilk-plus/CK/pr69826-2.c: New test.
+
+	PR c++/69850
+	* g++.dg/warn/Wnonnull-compare-4.C: New test.
+
+	PR c++/69851
+	* g++.dg/torture/pr69851.C: New test.
+
+2016-02-19  Martin Sebor  <msebor@redhat.com>
+
+	PR testsuite/69573
+	* gcc.dg/pr61053.c: Tweaked test to avoid bogus failures.
+
+2016-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/69850
+	* g++.dg/warn/Wnonnull-compare-2.C: New test.
+	* g++.dg/warn/Wnonnull-compare-3.C: New test.
+
+	PR c++/67767
+	* g++.dg/cpp0x/pr67767.C: New test.
+
+2016-02-19  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* lib/target-supports.exp: Define aarch64_asm_FUNC_ok checks
+	for fp, simd, crypto, crc, lse.
+	* doc/sourcebuild.texi (AArch64-specific attributes): Document the
+	above.
+	* gcc.target/aarch64/assembler_arch_1.c: Add aarch64_asm_lse_ok
+	effective target check.
+
+2016-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/69820
+	* gcc.target/i386/pr69820.c: New test.
+
+2016-02-19  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/vector/int128-1.c: New test.
+
+2016-02-19  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/vector/vec-vcond-1.c: New test.
+
+2016-02-19  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/md/movstr-1.c: Allow also the z13 strings
+	instruction pattern name to prevent the testcase from failing with
+	-march=z13.
+
+2016-02-19  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/md/movstr-2.c: New test.
+
+2016-02-19  Marcin Kościelnicki  <koriakin@0x04.net>
+
+	* gcc.target/s390/morestack.c: New test.
+
+2016-02-19  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	PR target/69625
+	* gcc.target/s390/pr69625.c: Add test case.
+
+2016-02-18  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR testsuite/68580
+	* c-c++-common/tsan/pr65400-1.c (v, q, o): Make 8-byte aligned.
+
+2016-02-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/68404
+	* gcc.target/powerpc/fusion.c: Revert the 2016-02-09 change.
+	* gcc.target/powerpc/fusion3.c: Likewise.
+
 2016-02-18  Richard Biener  <rguenther@suse.de>
 
 	PR middle-end/69553
@@ -5,11 +317,11 @@
 
 2016-02-18  Nick Clifton  <nickc@redhat.com>
 
-        PR target/62254
-        PR target/69610
-        * gcc.target/arm/pr62554.c: New test.
-        * gcc.target/arm/pr69610-1.c: New test.
-        * gcc.target/arm/pr69610-2.c: New test.
+	PR target/62254
+	PR target/69610
+	* gcc.target/arm/pr62554.c: New test.
+	* gcc.target/arm/pr69610-1.c: New test.
+	* gcc.target/arm/pr69610-2.c: New test.
 
 2016-02-18  Richard Biener  <rguenther@suse.de>
 
@@ -496,7 +808,7 @@
 	PR tree-optimization/68541
 	* gcc.dg/tree-ssa/split-path-2.c: Make char array explicitly signed.
 
-        PR tree-optimization/65917
+	PR tree-optimization/65917
 	* gcc.dg/tree-ssa/20030922-2.c: No longer xfailed.
 
 2016-02-07  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
@@ -506,7 +818,7 @@
 
 2016-02-05  Jeff Law  <law@redhat.com>
 
-        PR tree-optimization/68541
+	PR tree-optimization/68541
 	* gcc.dg/tree-ssa/split-path-2.c: New test.
 	* gcc.dg/tree-ssa/split-path-3.c: New test.
 	* gcc.dg/tree-ssa/split-path-4.c: New test.

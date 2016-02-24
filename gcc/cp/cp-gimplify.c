@@ -2068,6 +2068,9 @@ cp_fold (tree x)
       else
 	x = fold (x);
 
+      if (TREE_NO_WARNING (org_x)
+	  && TREE_CODE (x) == TREE_CODE (org_x))
+	TREE_NO_WARNING (x) = 1;
       break;
 
     case VEC_COND_EXPR:
@@ -2151,7 +2154,8 @@ cp_fold (tree x)
 	   TODO:
 	   Do constexpr expansion of expressions where the call itself is not
 	   constant, but the call followed by an INDIRECT_REF is.  */
-	if (callee && DECL_DECLARED_CONSTEXPR_P (callee))
+	if (callee && DECL_DECLARED_CONSTEXPR_P (callee)
+	    && !flag_no_inline)
           r = maybe_constant_value (x);
 	optimize = sv;
 
