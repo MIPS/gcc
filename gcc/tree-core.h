@@ -1487,7 +1487,8 @@ struct GTY(()) tree_decl_minimal {
   tree context;
 };
 
-struct GTY(()) tree_decl_common : public tree_decl_minimal {
+struct GTY(()) tree_decl_common {
+  struct tree_decl_minimal common;
   tree size;
 
   ENUM_BITFIELD(machine_mode) mode : 8;
@@ -1552,11 +1553,14 @@ struct GTY(()) tree_decl_common : public tree_decl_minimal {
   struct lang_decl *lang_specific;
 };
 
-struct GTY(()) tree_decl_with_rtl : public tree_decl_common {
+struct GTY(()) tree_decl_with_rtl {
+  struct tree_decl_common common;
   rtx rtl;
 };
 
-struct GTY(()) tree_field_decl : public tree_decl_common {
+struct GTY(()) tree_field_decl {
+  struct tree_decl_common common;
+
   tree offset;
   tree bit_field_type;
   tree qualifier;
@@ -1564,22 +1568,27 @@ struct GTY(()) tree_field_decl : public tree_decl_common {
   tree fcontext;
 };
 
-struct GTY(()) tree_label_decl : public tree_decl_with_rtl {
+struct GTY(()) tree_label_decl {
+  struct tree_decl_with_rtl common;
   int label_decl_uid;
   int eh_landing_pad_nr;
 };
 
-struct GTY(()) tree_result_decl : public tree_decl_with_rtl {
+struct GTY(()) tree_result_decl {
+  struct tree_decl_with_rtl common;
 };
 
-struct GTY(()) tree_const_decl : public tree_decl_common {
+struct GTY(()) tree_const_decl {
+  struct tree_decl_common common;
 };
 
-struct GTY(()) tree_parm_decl : public tree_decl_with_rtl {
+struct GTY(()) tree_parm_decl {
+  struct tree_decl_with_rtl common;
   rtx incoming_rtl;
 };
 
-struct GTY(()) tree_decl_with_vis : public tree_decl_with_rtl {
+struct GTY(()) tree_decl_with_vis {
+ struct tree_decl_with_rtl common;
  tree assembler_name;
  struct symtab_node *symtab_node;
 
@@ -1614,10 +1623,12 @@ struct GTY(()) tree_decl_with_vis : public tree_decl_with_rtl {
  /* 14 unused bits. */
 };
 
-struct GTY(()) tree_var_decl : public tree_decl_with_vis {
+struct GTY(()) tree_var_decl {
+  struct tree_decl_with_vis common;
 };
 
-struct GTY(()) tree_decl_non_common : public tree_decl_with_vis {
+struct GTY(()) tree_decl_non_common {
+  struct tree_decl_with_vis common;
   /* Almost all FE's use this.  */
   tree result;
 };
@@ -1627,7 +1638,9 @@ struct GTY(()) tree_decl_non_common : public tree_decl_with_vis {
    FUNCTION_DECL from non_common, or inherit non_common from FUNCTION_DECL,
    which seemed a bit strange.  */
 
-struct GTY(()) tree_function_decl : public tree_decl_non_common {
+struct GTY(()) tree_function_decl {
+  struct tree_decl_non_common common;
+
   struct function *f;
 
   /* Arguments of the function.  */
@@ -1674,14 +1687,16 @@ struct GTY(()) tree_function_decl : public tree_decl_non_common {
   /* No bits left.  */
 };
 
-struct GTY(()) tree_translation_unit_decl : public tree_decl_common {
+struct GTY(()) tree_translation_unit_decl {
+  struct tree_decl_common common;
   /* Source language of this translation unit.  Used for DWARF output.  */
   const char * GTY((skip(""))) language;
   /* TODO: Non-optimization used to build this translation unit.  */
   /* TODO: Root of a partial DWARF tree for global types and decls.  */
 };
 
-struct GTY(()) tree_type_decl : public tree_decl_non_common {
+struct GTY(()) tree_type_decl {
+  struct tree_decl_non_common common;
 
 };
 
