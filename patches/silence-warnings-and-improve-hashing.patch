@@ -1,0 +1,10 @@
+Bottom: d028f7e8aed6687e53512dfd8a0acd347e0e8b34
+Top:    d028f7e8aed6687e53512dfd8a0acd347e0e8b34
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-02-24 07:04:38 -0300
+
+improve decl hashing in addr rewriter; set TREE_NO_WARNING
+
+---
+
+
