@@ -1,5 +1,5 @@
 Bottom: d028f7e8aed6687e53512dfd8a0acd347e0e8b34
-Top:    f39601900a1518a28293d31894f89f467213492f
+Top:    7a70c6613840cb4d96e60831e25bd0c8c68c279b
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-02-24 07:04:38 -0300
 
@@ -8,7 +8,7 @@ improve decl hashing in addr rewriter; set TREE_NO_WARNING
 ---
 
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index d0cfaf2..b7f1492 100644
+index d0cfaf2..6466de9 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -122,7 +122,7 @@ struct decl_addr_hasher : free_ptr_hash<decl_addr_value>
@@ -20,15 +20,7 @@ index d0cfaf2..b7f1492 100644
  }
  
  inline bool
-@@ -283,6 +283,7 @@ address_rewriter (tree *in, int *walk_subtrees, void *arg)
-   decl_addr_value value;
-   value.decl = *in;
-   decl_addr_value *found_value = ctx->address_map.find (&value);
-+
-   if (found_value != NULL)
-     ;
-   else if (DECL_IS_BUILTIN (*in) && DECL_NAMESPACE_SCOPE_P (*in)
-@@ -301,6 +302,7 @@ address_rewriter (tree *in, int *walk_subtrees, void *arg)
+@@ -301,6 +301,7 @@ address_rewriter (tree *in, int *walk_subtrees, void *arg)
        value.address = build_int_cst_type (ptr_type_node, address);
        decl_addr_value **slot = ctx->address_map.find_slot (&value, INSERT);
        gcc_assert (*slot == NULL);
@@ -36,7 +28,7 @@ index d0cfaf2..b7f1492 100644
        *slot
  	= static_cast<decl_addr_value *> (xmalloc (sizeof (decl_addr_value)));
        **slot = value;
-@@ -858,6 +860,9 @@ plugin_new_decl (cc1_plugin::connection *self,
+@@ -858,6 +859,9 @@ plugin_new_decl (cc1_plugin::connection *self,
        if (value.address)
  	{
  	  decl_addr_value **slot = ctx->address_map.find_slot (&value, INSERT);
@@ -46,7 +38,7 @@ index d0cfaf2..b7f1492 100644
  	  gcc_assert (*slot == NULL);
  	  *slot
  	    = static_cast<decl_addr_value *> (xmalloc (sizeof (decl_addr_value)));
-@@ -1301,6 +1306,10 @@ plugin_build_qualified_type (cc1_plugin::connection *,
+@@ -1301,6 +1305,10 @@ plugin_build_qualified_type (cc1_plugin::connection *,
    if ((qualifiers & GCC_CP_QUALIFIER_RESTRICT) != 0)
      quals |= TYPE_QUAL_RESTRICT;
  
