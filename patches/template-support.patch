@@ -1,5 +1,5 @@
 Bottom: d028f7e8aed6687e53512dfd8a0acd347e0e8b34
-Top:    bd6053d1d6a647dcd0155625cf6f41dbb0d4faf4
+Top:    62d47cba7b3ad41a3212be832fc70c6f8624a5ec
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2015-11-26 18:57:41 -0200
 
@@ -323,7 +323,7 @@ index 77ad7db..371cfcf 100644
    GCC_CP_FLAG_BASE,
  
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index d0cfaf2..1c74b94 100644
+index d0cfaf2..30714ef 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -61,6 +61,7 @@
@@ -381,7 +381,7 @@ index d0cfaf2..1c74b94 100644
  				size_in_bytes) == 0);
  
 +  // FIXME: end_template_decl if it's a template?  I don't think so,
-+  // we're only defining specializations.
++  // we're only defining specializations.  -lxo
 +
    return 1;
  }
