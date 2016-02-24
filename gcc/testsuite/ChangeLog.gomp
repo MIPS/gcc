@@ -1,3 +1,8 @@
+2016-02-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR other/69916
+	* c-c-++-common/goacc/pr69916.c: New.
+
 2016-02-15  James Norris  <jnorris@codesourcery.com>
 
 	Backport from trunk:

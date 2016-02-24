@@ -254,6 +254,7 @@ struct oacc_loop
   unsigned mask;   /* Partitioning mask.  */
   unsigned inner;  /* Partitioning of inner loops.  */
   unsigned flags;  /* Partitioning flags.  */
+  unsigned ifns;   /* Contained loop abstraction functions.  */
   tree chunk_size; /* Chunk size.  */
   gcall *head_end; /* Final marker of head sequence.  */
 };
@@ -20709,6 +20710,7 @@ new_oacc_loop_raw (oacc_loop *parent, location_t loc)
   loop->routine = NULL_TREE;
 
   loop->mask = loop->flags = loop->inner = 0;
+  loop->ifns = 0;
   loop->chunk_size = 0;
   loop->head_end = NULL;
 
@@ -20770,6 +20772,9 @@ new_oacc_loop_routine (oacc_loop *parent, gcall *call, tree decl, tree attrs)
 static oacc_loop *
 finish_oacc_loop (oacc_loop *loop)
 {
+  /* If the loop has been collapsed, don't partition it.  */
+  if (!loop->ifns)
+    loop->mask = loop->flags = 0;
   return loop->parent;
 }
 
@@ -20900,43 +20905,54 @@ oacc_loop_discover_walk (oacc_loop *loop, basic_block bb)
       if (!gimple_call_internal_p (call))
 	continue;
 
-      if (gimple_call_internal_fn (call) != IFN_UNIQUE)
-	continue;
-
-      enum ifn_unique_kind kind
-	= (enum ifn_unique_kind) TREE_INT_CST_LOW (gimple_call_arg (call, 0));
-      if (kind == IFN_UNIQUE_OACC_HEAD_MARK
-	  || kind == IFN_UNIQUE_OACC_TAIL_MARK)
+      switch (gimple_call_internal_fn (call))
 	{
-	  if (gimple_call_num_args (call) == 2)
-	    {
-	      gcc_assert (marker && !remaining);
-	      marker = 0;
-	      if (kind == IFN_UNIQUE_OACC_TAIL_MARK)
-		loop = finish_oacc_loop (loop);
-	      else
-		loop->head_end = call;
-	    }
-	  else
-	    {
-	      int count = TREE_INT_CST_LOW (gimple_call_arg (call, 2));
+	default:
+	  break;
 
-	      if (!marker)
+	case IFN_GOACC_LOOP:
+	  /* Count the goacc loop abstraction fns, to determine if the
+	     loop was collapsed already.  */
+	  loop->ifns++;
+	  break;
+
+	case IFN_UNIQUE:
+	  enum ifn_unique_kind kind
+	    = (enum ifn_unique_kind) (TREE_INT_CST_LOW
+				      (gimple_call_arg (call, 0)));
+	  if (kind == IFN_UNIQUE_OACC_HEAD_MARK
+	      || kind == IFN_UNIQUE_OACC_TAIL_MARK)
+	    {
+	      if (gimple_call_num_args (call) == 2)
 		{
-		  if (kind == IFN_UNIQUE_OACC_HEAD_MARK)
-		    loop = new_oacc_loop (loop, call);
-		  remaining = count;
-		}
-	      gcc_assert (count == remaining);
-	      if (remaining)
-		{
-		  remaining--;
-		  if (kind == IFN_UNIQUE_OACC_HEAD_MARK)
-		    loop->heads[marker] = call;
+		  gcc_assert (marker && !remaining);
+		  marker = 0;
+		  if (kind == IFN_UNIQUE_OACC_TAIL_MARK)
+		    loop = finish_oacc_loop (loop);
 		  else
-		    loop->tails[remaining] = call;
+		    loop->head_end = call;
 		}
-	      marker++;
+	      else
+		{
+		  int count = TREE_INT_CST_LOW (gimple_call_arg (call, 2));
+
+		  if (!marker)
+		    {
+		      if (kind == IFN_UNIQUE_OACC_HEAD_MARK)
+			loop = new_oacc_loop (loop, call);
+		      remaining = count;
+		    }
+		  gcc_assert (count == remaining);
+		  if (remaining)
+		    {
+		      remaining--;
+		      if (kind == IFN_UNIQUE_OACC_HEAD_MARK)
+			loop->heads[marker] = call;
+		      else
+			loop->tails[remaining] = call;
+		    }
+		  marker++;
+		}
 	    }
 	}
     }
@@ -21042,10 +21058,12 @@ oacc_loop_xform_head_tail (gcall *from, int level)
    determined partitioning mask and chunking argument.  */
 
 static void
-oacc_loop_xform_loop (gcall *end_marker, tree mask_arg, tree chunk_arg)
+oacc_loop_xform_loop (gcall *end_marker, unsigned ifns,
+		      tree mask_arg, tree chunk_arg)
 {
   gimple_stmt_iterator gsi = gsi_for_stmt (end_marker);
   
+  gcc_checking_assert (ifns);
   for (;;)
     {
       for (; !gsi_end_p (gsi); gsi_next (&gsi))
@@ -21065,13 +21083,13 @@ oacc_loop_xform_loop (gcall *end_marker, tree mask_arg, tree chunk_arg)
 
 	  *gimple_call_arg_ptr (call, 5) = mask_arg;
 	  *gimple_call_arg_ptr (call, 4) = chunk_arg;
-	  if (TREE_INT_CST_LOW (gimple_call_arg (call, 0))
-	      == IFN_GOACC_LOOP_BOUND)
+	  ifns--;
+	  if (!ifns)
 	    return;
 	}
 
-      /* If we didn't see LOOP_BOUND, it should be in the single
-	 successor block.  */
+      /* The LOOP_BOUND ifn, could be in the single successor
+	 block.  */
       basic_block bb = single_succ (gsi_bb (gsi));
       gsi = gsi_start_bb (bb);
     }
@@ -21094,7 +21112,7 @@ oacc_loop_process (oacc_loop *loop)
       tree mask_arg = build_int_cst (unsigned_type_node, mask);
       tree chunk_arg = loop->chunk_size;
 
-      oacc_loop_xform_loop (loop->head_end, mask_arg, chunk_arg);
+      oacc_loop_xform_loop (loop->head_end, loop->ifns, mask_arg, chunk_arg);
 
       for (ix = 0; ix != GOMP_DIM_MAX && loop->heads[ix]; ix++)
 	{
