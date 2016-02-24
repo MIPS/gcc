@@ -8964,6 +8964,7 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
 {
   rtx label, src_reg, dest_reg, final_src, test;
   HOST_WIDE_INT leftover;
+  HOST_WIDE_INT alignment;
 
   leftover = length % bytes_per_iter;
   length -= leftover;
@@ -8982,7 +8983,10 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
   emit_label (label);
 
   /* Emit the loop body.  */
-  mips_block_move_straight (dest, src, bytes_per_iter);
+  alignment = MIN (MEM_ALIGN (dest), MEM_ALIGN (src)) / BITS_PER_UNIT;
+  if (!mips16_expand_copy (dest, src, GEN_INT (bytes_per_iter),
+			   GEN_INT (alignment)))
+    mips_block_move_straight (dest, src, bytes_per_iter);
 
   /* Move on to the next block.  */
   mips_emit_move (src_reg, plus_constant (Pmode, src_reg, bytes_per_iter));
@@ -8996,7 +9000,9 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
     emit_jump_insn (gen_cbranchsi4 (test, src_reg, final_src, label));
 
   /* Mop up any left-over bytes.  */
-  if (leftover)
+  if (leftover
+      && !mips16_expand_copy (dest, src, GEN_INT (leftover),
+			      GEN_INT (alignment)))
     mips_block_move_straight (dest, src, leftover);
 }
 
@@ -9014,6 +9020,9 @@ mips16_expand_copy (rtx dest, rtx src, rtx length, rtx alignment)
   rtx xsrc = XEXP (src, 0);
   int align = INTVAL (alignment);
   bool word_by_pieces_p = false;
+
+  if (!TARGET_MIPS16_COPY)
+    return false;
 
   gcc_assert (!TARGET_64BIT);
   gcc_assert (MEM_P (src) && MEM_P (dest));
@@ -9033,7 +9042,7 @@ mips16_expand_copy (rtx dest, rtx src, rtx length, rtx alignment)
   word_count = byte_count / UNITS_PER_WORD;
   byte_count = byte_count % UNITS_PER_WORD;
 
-  if (ISA_HAS_ULW_USW
+  if ((ISA_HAS_ULW_USW || TARGET_MIPS16_LWL_LWR)
       && word_count == 1 && align < 4)
     return false;
 
