@@ -1,5 +1,5 @@
-Bottom: dcaf7c401839023d2cc93afb6694b0877936c812
-Top:    6dc21db8ab3c0fbc65d41e6c404fc7c48f92a358
+Bottom: c4ccc5e8023c3fdd52548e3e38657ac71cf3c693
+Top:    4a1fd17c38432e469a16be2fe9f2260877ff41ff
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2015-11-26 18:57:41 -0200
 
@@ -323,7 +323,7 @@ index 77ad7db..371cfcf 100644
    GCC_CP_FLAG_BASE,
  
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index d6551a6..c1ece8a 100644
+index e0c2a6a..ff61611 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -60,6 +60,7 @@
@@ -386,7 +386,7 @@ index d6551a6..c1ece8a 100644
    return 1;
  }
  
-@@ -1208,6 +1214,232 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
+@@ -1210,6 +1216,232 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
    return convert_out (ctx->preserve (memptr_type));
  }
  
@@ -619,7 +619,7 @@ index d6551a6..c1ece8a 100644
  gcc_type
  plugin_int_type (cc1_plugin::connection *self,
  		 int is_unsigned, unsigned long size_in_bytes)
-@@ -1266,6 +1498,14 @@ plugin_build_array_type (cc1_plugin::connection *self,
+@@ -1268,6 +1500,14 @@ plugin_build_array_type (cc1_plugin::connection *self,
  }
  
  gcc_type
