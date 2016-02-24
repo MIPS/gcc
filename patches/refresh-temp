@@ -1,0 +1,41 @@
+Bottom: 7a70c6613840cb4d96e60831e25bd0c8c68c279b
+Top:    5c317dcc13a5e1680021b17d8e338bf56ac98fa2
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-02-24 07:15:57 -0300
+
+Refresh of silence-warnings-and-improve-hashing.patch
+
+---
+
+diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
+index 6466de9..e67ad4e 100644
+--- a/libcc1/libcp1plugin.cc
++++ b/libcc1/libcp1plugin.cc
+@@ -301,10 +301,10 @@ address_rewriter (tree *in, int *walk_subtrees, void *arg)
+       value.address = build_int_cst_type (ptr_type_node, address);
+       decl_addr_value **slot = ctx->address_map.find_slot (&value, INSERT);
+       gcc_assert (*slot == NULL);
+-      TREE_NO_WARNING (value.decl) = 1;
+       *slot
+ 	= static_cast<decl_addr_value *> (xmalloc (sizeof (decl_addr_value)));
+       **slot = value;
++      TREE_NO_WARNING (value.decl) = 1;
+       found_value = *slot;
+     }
+   else
+@@ -859,13 +859,13 @@ plugin_new_decl (cc1_plugin::connection *self,
+       if (value.address)
+ 	{
+ 	  decl_addr_value **slot = ctx->address_map.find_slot (&value, INSERT);
+-	  /* We don't want GCC to warn about e.g. static functions
+-	     without a code definition.  */
+-	  TREE_NO_WARNING (decl) = 1;
+ 	  gcc_assert (*slot == NULL);
+ 	  *slot
+ 	    = static_cast<decl_addr_value *> (xmalloc (sizeof (decl_addr_value)));
+ 	  **slot = value;
++	  /* We don't want GCC to warn about e.g. static functions
++	     without a code definition.  */
++	  TREE_NO_WARNING (decl) = 1;
+ 	}
+     }
