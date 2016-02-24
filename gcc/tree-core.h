@@ -1417,7 +1417,10 @@ struct GTY(()) tree_block {
 };
 
 struct GTY(()) tree_type {
-  struct tree_common common;
+  struct tree_base base;
+  tree type;  /* Added by struct tree_typed.  */
+  tree chain; /* Added by struct tree_common.  */
+
   tree size;
   tree size_unit;
   tree attributes;
@@ -1480,7 +1483,10 @@ struct GTY (()) tree_binfo {
 };
 
 struct GTY(()) tree_decl_minimal {
-  struct tree_common common;
+  struct tree_base base;
+  tree type;  /* Added by struct tree_typed.  */
+  tree chain; /* Added by struct tree_common.  */
+
   location_t locus;
   unsigned int uid;
   tree name;
