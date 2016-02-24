@@ -1,0 +1,10 @@
+Bottom: 5c317dcc13a5e1680021b17d8e338bf56ac98fa2
+Top:    5c317dcc13a5e1680021b17d8e338bf56ac98fa2
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-02-24 07:16:21 -0300
+
+Refresh of silence-warnings-and-improve-hashing.patch
+
+---
+
+
