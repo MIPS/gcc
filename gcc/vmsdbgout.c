@@ -168,6 +168,8 @@ static void vmsdbgout_early_global_decl (tree);
 static void vmsdbgout_late_global_decl (tree);
 static void vmsdbgout_type_decl (tree, int);
 static void vmsdbgout_abstract_function (tree);
+static void vmsdbgout_aliased_decl (tree, tree);
+static void vmsdbgout_trampoline_decl (tree, tree);
 
 /* The debug hooks structure.  */
 
@@ -198,8 +200,8 @@ const struct gcc_debug_hooks vmsdbg_debug_hooks
    debug_nothing_tree_tree_tree_bool, /* imported_module_or_decl */
    debug_nothing_tree,		  /* deferred_inline_function */
    vmsdbgout_abstract_function,
-   debug_nothing_tree_tree,	  /* aliased_decl */
-   debug_nothing_tree_tree,	  /* trampoline_decl */
+   vmsdbgout_aliased_decl,	  /* aliased_decl */
+   vmsdbgout_trampoline_decl,	  /* trampoline_decl */
    debug_nothing_rtx_code_label,  /* label */
    debug_nothing_int,		  /* handle_pch */
    debug_nothing_rtx_insn,	  /* var_location */
@@ -1549,6 +1551,24 @@ vmsdbgout_abstract_function (tree decl)
 {
   if (write_symbols == VMS_AND_DWARF2_DEBUG)
     (*dwarf2_debug_hooks.outlining_inline_function) (decl);
+}
+
+/* Not implemented in VMS Debug.  */
+
+static void
+vmsdbgout_aliased_decl (tree alias, tree decl)
+{
+  if (write_symbols == VMS_AND_DWARF2_DEBUG)
+    (*dwarf2_debug_hooks.aliased_decl) (alias, decl);
+}
+
+/* Not implemented in VMS Debug.  */
+
+static void
+vmsdbgout_trampoline_decl (tree trampoline, tree decl)
+{
+  if (write_symbols == VMS_AND_DWARF2_DEBUG)
+    (*dwarf2_debug_hooks.trampoline_decl) (trampoline, decl);
 }
 
 /* Output stuff that Debug requires at the end of every file and generate the
