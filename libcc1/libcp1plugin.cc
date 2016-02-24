@@ -122,7 +122,7 @@ struct decl_addr_hasher : free_ptr_hash<decl_addr_value>
 inline hashval_t
 decl_addr_hasher::hash (const decl_addr_value *e)
 {
-  return IDENTIFIER_HASH_VALUE (DECL_NAME (e->decl));
+  return DECL_UID (e->decl);
 }
 
 inline bool
@@ -283,6 +283,7 @@ address_rewriter (tree *in, int *walk_subtrees, void *arg)
   decl_addr_value value;
   value.decl = *in;
   decl_addr_value *found_value = ctx->address_map.find (&value);
+
   if (found_value != NULL)
     ;
   else if (DECL_IS_BUILTIN (*in) && DECL_NAMESPACE_SCOPE_P (*in)
@@ -301,6 +302,7 @@ address_rewriter (tree *in, int *walk_subtrees, void *arg)
       value.address = build_int_cst_type (ptr_type_node, address);
       decl_addr_value **slot = ctx->address_map.find_slot (&value, INSERT);
       gcc_assert (*slot == NULL);
+      TREE_NO_WARNING (value.decl) = 1;
       *slot
 	= static_cast<decl_addr_value *> (xmalloc (sizeof (decl_addr_value)));
       **slot = value;
@@ -858,6 +860,9 @@ plugin_new_decl (cc1_plugin::connection *self,
       if (value.address)
 	{
 	  decl_addr_value **slot = ctx->address_map.find_slot (&value, INSERT);
+	  /* We don't want GCC to warn about e.g. static functions
+	     without a code definition.  */
+	  TREE_NO_WARNING (decl) = 1;
 	  gcc_assert (*slot == NULL);
 	  *slot
 	    = static_cast<decl_addr_value *> (xmalloc (sizeof (decl_addr_value)));
@@ -1300,6 +1305,10 @@ plugin_build_qualified_type (cc1_plugin::connection *,
     quals |= TYPE_QUAL_VOLATILE;
   if ((qualifiers & GCC_CP_QUALIFIER_RESTRICT) != 0)
     quals |= TYPE_QUAL_RESTRICT;
+
+  gcc_assert ((TREE_CODE (unqualified_type) != METHOD_TYPE
+	       && TREE_CODE (unqualified_type) != REFERENCE_TYPE)
+	      || quals == 0);
 
   return convert_out (build_qualified_type (unqualified_type, quals));
 }
