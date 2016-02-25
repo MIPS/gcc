@@ -1447,7 +1447,15 @@ strip_typedefs (tree t, bool *remove_attributes)
     }
 
   if (!result)
-      result = TYPE_MAIN_VARIANT (t);
+    {
+      if (typedef_variant_p (t))
+	/* Explicitly get the underlying type, as TYPE_MAIN_VARIANT doesn't
+	   strip typedefs with attributes.  */
+	result = TYPE_MAIN_VARIANT (DECL_ORIGINAL_TYPE (TYPE_NAME (t)));
+      else
+	result = TYPE_MAIN_VARIANT (t);
+    }
+  gcc_assert (!typedef_variant_p (result));
   if (TYPE_USER_ALIGN (t) != TYPE_USER_ALIGN (result)
       || TYPE_ALIGN (t) != TYPE_ALIGN (result))
     {
@@ -2592,8 +2600,10 @@ build_ctor_subob_ref (tree index, tree type, tree obj)
 	{
 	  /* When the destination object refers to a flexible array member
 	     verify that it matches the type of the source object except
-	     for its domain.  */
-	  gcc_assert (comptypes (type, objtype, COMPARE_REDECLARATION));
+	     for its domain and qualifiers.  */
+	  gcc_assert (comptypes (TYPE_MAIN_VARIANT (type),
+	  			 TYPE_MAIN_VARIANT (objtype),
+	  			 COMPARE_REDECLARATION));
 	}
       else
 	gcc_assert (same_type_ignoring_top_level_qualifiers_p (type, objtype));

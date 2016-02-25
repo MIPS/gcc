@@ -1114,7 +1114,7 @@ free_node (tree node)
     {
       tree_code_counts[(int) TREE_CODE (node)]--;
       tree_node_counts[(int) t_kind]--;
-      tree_node_sizes[(int) t_kind] -= tree_code_size (TREE_CODE (node));
+      tree_node_sizes[(int) t_kind] -= tree_size (node);
     }
   if (CODE_CONTAINS_STRUCT (code, TS_CONSTRUCTOR))
     vec_free (CONSTRUCTOR_ELTS (node));
@@ -1749,7 +1749,7 @@ build_vector_from_ctor (tree type, vec<constructor_elt, va_gc> *v)
       else
 	vec[pos++] = value;
     }
-  for (; idx < TYPE_VECTOR_SUBPARTS (type); ++idx)
+  while (pos < TYPE_VECTOR_SUBPARTS (type))
     vec[pos++] = build_zero_cst (TREE_TYPE (type));
 
   return build_vector (type, vec);
