@@ -2252,7 +2252,7 @@ build_v2_descriptor_table_initializer (tree type, tree entries)
     }
   while (entries);
 
-  return objc_build_constructor (build_array_type (type, 0), initlist);
+  return objc_build_constructor (build_array_type (type, NULL_TYPE), initlist);
 }
 
 /* struct method_list_t
@@ -2361,7 +2361,7 @@ build_v2_property_table_initializer (tree type, tree context)
 			      objc_build_constructor (type, elemlist));
     }
 
-  return objc_build_constructor (build_array_type (type, 0),inits);
+  return objc_build_constructor (build_array_type (type, NULL_TYPE),inits);
 }
 
 /* This routine builds the following type:
@@ -2860,7 +2860,7 @@ build_v2_ivar_list_initializer (tree class_name, tree type, tree field_decl)
     }
   while (field_decl);
 
-  return objc_build_constructor (build_array_type (type, 0), inits);
+  return objc_build_constructor (build_array_type (type, NULL_TYPE), inits);
 }
 
 /*

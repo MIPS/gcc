@@ -509,28 +509,6 @@ enum cv_qualifier {
 /* Standard named or nameless data types of the C compiler.  */
 enum tree_index {
   TI_ERROR_MARK,
-  TI_INTQI_TYPE,
-  TI_INTHI_TYPE,
-  TI_INTSI_TYPE,
-  TI_INTDI_TYPE,
-  TI_INTTI_TYPE,
-
-  TI_UINTQI_TYPE,
-  TI_UINTHI_TYPE,
-  TI_UINTSI_TYPE,
-  TI_UINTDI_TYPE,
-  TI_UINTTI_TYPE,
-
-  TI_ATOMICQI_TYPE,
-  TI_ATOMICHI_TYPE,
-  TI_ATOMICSI_TYPE,
-  TI_ATOMICDI_TYPE,
-  TI_ATOMICTI_TYPE,
-
-  TI_UINT16_TYPE,
-  TI_UINT32_TYPE,
-  TI_UINT64_TYPE,
-
   TI_VOID,
 
   TI_INTEGER_ZERO,
@@ -553,114 +531,12 @@ enum tree_index {
   TI_BOOLEAN_FALSE,
   TI_BOOLEAN_TRUE,
 
-  TI_COMPLEX_INTEGER_TYPE,
-  TI_COMPLEX_FLOAT_TYPE,
-  TI_COMPLEX_DOUBLE_TYPE,
-  TI_COMPLEX_LONG_DOUBLE_TYPE,
-
-  TI_FLOAT_TYPE,
-  TI_DOUBLE_TYPE,
-  TI_LONG_DOUBLE_TYPE,
-
-  TI_FLOAT_PTR_TYPE,
-  TI_DOUBLE_PTR_TYPE,
-  TI_LONG_DOUBLE_PTR_TYPE,
-  TI_INTEGER_PTR_TYPE,
-
-  TI_VOID_TYPE,
-  TI_PTR_TYPE,
-  TI_CONST_PTR_TYPE,
-  TI_SIZE_TYPE,
-  TI_PID_TYPE,
-  TI_PTRDIFF_TYPE,
-  TI_VA_LIST_TYPE,
   TI_VA_LIST_GPR_COUNTER_FIELD,
   TI_VA_LIST_FPR_COUNTER_FIELD,
-  TI_BOOLEAN_TYPE,
-  TI_FILEPTR_TYPE,
-  TI_POINTER_SIZED_TYPE,
-
-  TI_POINTER_BOUNDS_TYPE,
-
-  TI_DFLOAT32_TYPE,
-  TI_DFLOAT64_TYPE,
-  TI_DFLOAT128_TYPE,
-  TI_DFLOAT32_PTR_TYPE,
-  TI_DFLOAT64_PTR_TYPE,
-  TI_DFLOAT128_PTR_TYPE,
 
   TI_VOID_LIST_NODE,
 
   TI_MAIN_IDENTIFIER,
-
-  TI_SAT_SFRACT_TYPE,
-  TI_SAT_FRACT_TYPE,
-  TI_SAT_LFRACT_TYPE,
-  TI_SAT_LLFRACT_TYPE,
-  TI_SAT_USFRACT_TYPE,
-  TI_SAT_UFRACT_TYPE,
-  TI_SAT_ULFRACT_TYPE,
-  TI_SAT_ULLFRACT_TYPE,
-  TI_SFRACT_TYPE,
-  TI_FRACT_TYPE,
-  TI_LFRACT_TYPE,
-  TI_LLFRACT_TYPE,
-  TI_USFRACT_TYPE,
-  TI_UFRACT_TYPE,
-  TI_ULFRACT_TYPE,
-  TI_ULLFRACT_TYPE,
-  TI_SAT_SACCUM_TYPE,
-  TI_SAT_ACCUM_TYPE,
-  TI_SAT_LACCUM_TYPE,
-  TI_SAT_LLACCUM_TYPE,
-  TI_SAT_USACCUM_TYPE,
-  TI_SAT_UACCUM_TYPE,
-  TI_SAT_ULACCUM_TYPE,
-  TI_SAT_ULLACCUM_TYPE,
-  TI_SACCUM_TYPE,
-  TI_ACCUM_TYPE,
-  TI_LACCUM_TYPE,
-  TI_LLACCUM_TYPE,
-  TI_USACCUM_TYPE,
-  TI_UACCUM_TYPE,
-  TI_ULACCUM_TYPE,
-  TI_ULLACCUM_TYPE,
-  TI_QQ_TYPE,
-  TI_HQ_TYPE,
-  TI_SQ_TYPE,
-  TI_DQ_TYPE,
-  TI_TQ_TYPE,
-  TI_UQQ_TYPE,
-  TI_UHQ_TYPE,
-  TI_USQ_TYPE,
-  TI_UDQ_TYPE,
-  TI_UTQ_TYPE,
-  TI_SAT_QQ_TYPE,
-  TI_SAT_HQ_TYPE,
-  TI_SAT_SQ_TYPE,
-  TI_SAT_DQ_TYPE,
-  TI_SAT_TQ_TYPE,
-  TI_SAT_UQQ_TYPE,
-  TI_SAT_UHQ_TYPE,
-  TI_SAT_USQ_TYPE,
-  TI_SAT_UDQ_TYPE,
-  TI_SAT_UTQ_TYPE,
-  TI_HA_TYPE,
-  TI_SA_TYPE,
-  TI_DA_TYPE,
-  TI_TA_TYPE,
-  TI_UHA_TYPE,
-  TI_USA_TYPE,
-  TI_UDA_TYPE,
-  TI_UTA_TYPE,
-  TI_SAT_HA_TYPE,
-  TI_SAT_SA_TYPE,
-  TI_SAT_DA_TYPE,
-  TI_SAT_TA_TYPE,
-  TI_SAT_UHA_TYPE,
-  TI_SAT_USA_TYPE,
-  TI_SAT_UDA_TYPE,
-  TI_SAT_UTA_TYPE,
 
   TI_OPTIMIZATION_DEFAULT,
   TI_OPTIMIZATION_CURRENT,
@@ -670,6 +546,136 @@ enum tree_index {
   TI_CURRENT_OPTIMIZE_PRAGMA,
 
   TI_MAX
+};
+
+enum type_index {
+  TPI_ERROR_TYPE,
+  TPI_INTQI_TYPE,
+  TPI_INTHI_TYPE,
+  TPI_INTSI_TYPE,
+  TPI_INTDI_TYPE,
+  TPI_INTTI_TYPE,
+
+  TPI_UINTQI_TYPE,
+  TPI_UINTHI_TYPE,
+  TPI_UINTSI_TYPE,
+  TPI_UINTDI_TYPE,
+  TPI_UINTTI_TYPE,
+
+  TPI_ATOMICQI_TYPE,
+  TPI_ATOMICHI_TYPE,
+  TPI_ATOMICSI_TYPE,
+  TPI_ATOMICDI_TYPE,
+  TPI_ATOMICTI_TYPE,
+
+  TPI_UINT16_TYPE,
+  TPI_UINT32_TYPE,
+  TPI_UINT64_TYPE,
+
+  TPI_COMPLEX_INTEGER_TYPE,
+  TPI_COMPLEX_FLOAT_TYPE,
+  TPI_COMPLEX_DOUBLE_TYPE,
+  TPI_COMPLEX_LONG_DOUBLE_TYPE,
+
+  TPI_FLOAT_TYPE,
+  TPI_DOUBLE_TYPE,
+  TPI_LONG_DOUBLE_TYPE,
+
+  TPI_FLOAT_PTR_TYPE,
+  TPI_DOUBLE_PTR_TYPE,
+  TPI_LONG_DOUBLE_PTR_TYPE,
+  TPI_INTEGER_PTR_TYPE,
+
+  TPI_VOID_TYPE,
+  TPI_PTR_TYPE,
+  TPI_CONST_PTR_TYPE,
+  TPI_SIZE_TYPE,
+  TPI_PID_TYPE,
+  TPI_PTRDIFF_TYPE,
+  TPI_VA_LIST_TYPE,
+  TPI_BOOLEAN_TYPE,
+  TPI_FILEPTR_TYPE,
+  TPI_POINTER_SIZED_TYPE,
+
+  TPI_POINTER_BOUNDS_TYPE,
+
+  TPI_DFLOAT32_TYPE,
+  TPI_DFLOAT64_TYPE,
+  TPI_DFLOAT128_TYPE,
+  TPI_DFLOAT32_PTR_TYPE,
+  TPI_DFLOAT64_PTR_TYPE,
+  TPI_DFLOAT128_PTR_TYPE,
+
+  TPI_SAT_SFRACT_TYPE,
+  TPI_SAT_FRACT_TYPE,
+  TPI_SAT_LFRACT_TYPE,
+  TPI_SAT_LLFRACT_TYPE,
+  TPI_SAT_USFRACT_TYPE,
+  TPI_SAT_UFRACT_TYPE,
+  TPI_SAT_ULFRACT_TYPE,
+  TPI_SAT_ULLFRACT_TYPE,
+  TPI_SFRACT_TYPE,
+  TPI_FRACT_TYPE,
+  TPI_LFRACT_TYPE,
+  TPI_LLFRACT_TYPE,
+  TPI_USFRACT_TYPE,
+  TPI_UFRACT_TYPE,
+  TPI_ULFRACT_TYPE,
+  TPI_ULLFRACT_TYPE,
+  TPI_SAT_SACCUM_TYPE,
+  TPI_SAT_ACCUM_TYPE,
+  TPI_SAT_LACCUM_TYPE,
+  TPI_SAT_LLACCUM_TYPE,
+  TPI_SAT_USACCUM_TYPE,
+  TPI_SAT_UACCUM_TYPE,
+  TPI_SAT_ULACCUM_TYPE,
+  TPI_SAT_ULLACCUM_TYPE,
+  TPI_SACCUM_TYPE,
+  TPI_ACCUM_TYPE,
+  TPI_LACCUM_TYPE,
+  TPI_LLACCUM_TYPE,
+  TPI_USACCUM_TYPE,
+  TPI_UACCUM_TYPE,
+  TPI_ULACCUM_TYPE,
+  TPI_ULLACCUM_TYPE,
+  TPI_QQ_TYPE,
+  TPI_HQ_TYPE,
+  TPI_SQ_TYPE,
+  TPI_DQ_TYPE,
+  TPI_TQ_TYPE,
+  TPI_UQQ_TYPE,
+  TPI_UHQ_TYPE,
+  TPI_USQ_TYPE,
+  TPI_UDQ_TYPE,
+  TPI_UTQ_TYPE,
+  TPI_SAT_QQ_TYPE,
+  TPI_SAT_HQ_TYPE,
+  TPI_SAT_SQ_TYPE,
+  TPI_SAT_DQ_TYPE,
+  TPI_SAT_TQ_TYPE,
+  TPI_SAT_UQQ_TYPE,
+  TPI_SAT_UHQ_TYPE,
+  TPI_SAT_USQ_TYPE,
+  TPI_SAT_UDQ_TYPE,
+  TPI_SAT_UTQ_TYPE,
+  TPI_HA_TYPE,
+  TPI_SA_TYPE,
+  TPI_DA_TYPE,
+  TPI_TA_TYPE,
+  TPI_UHA_TYPE,
+  TPI_USA_TYPE,
+  TPI_UDA_TYPE,
+  TPI_UTA_TYPE,
+  TPI_SAT_HA_TYPE,
+  TPI_SAT_SA_TYPE,
+  TPI_SAT_DA_TYPE,
+  TPI_SAT_TA_TYPE,
+  TPI_SAT_UHA_TYPE,
+  TPI_SAT_USA_TYPE,
+  TPI_SAT_UDA_TYPE,
+  TPI_SAT_UTA_TYPE,
+
+  TPI_MAX
 };
 
 /* An enumeration of the standard C integer types.  These must be
@@ -818,6 +824,7 @@ typedef tree (*walk_tree_fn) (tree *, int *, void *);
 typedef tree (*walk_tree_lh) (tree *, int *, tree (*) (tree *, int *, void *),
 			      void *, hash_set<tree> *);
 
+class ttype;
 
 /*---------------------------------------------------------------------------
                               Main data structures
@@ -1211,9 +1218,19 @@ struct GTY(()) tree_base {
            BIT_FIELD_REF, MEM_REF
 */
 
+/* This marks fields that can be types.  They are still accessed via the tree
+   field normally, but via the ttype field during conversion work.  Eventually
+   this will be replcaed with just ttype *.  */
+union GTY(()) ttype_field {
+  tree GTY((tag("0"))) _tree;
+  ttype * GTY((tag("1"))) _type;
+} GTY ((desc ("(0)")));
+
+#define TTYPE_FIELD  _tree
+
 struct GTY(()) tree_typed {
   struct tree_base base;
-  tree type;
+  union ttype_field GTY ((desc ("(0)"))) type;
 };
 
 struct GTY(()) tree_common {
@@ -1350,7 +1367,7 @@ struct GTY(()) tree_ssa_name {
     struct GTY ((tag ("0"))) ptr_info_def *ptr_info;
     /* Value range attributes used for zero/sign extension elimination.  */
     struct GTY ((tag ("1"))) range_info_def *range_info;
-  } GTY ((desc ("%1.typed.type ?" \
+  } GTY ((desc ("%1.typed.type._tree ?" \
 		"!POINTER_TYPE_P (TREE_TYPE ((tree)&%1)) : 2"))) info;
 
   /* Immediate uses list for this SSA_NAME.  */
@@ -1418,8 +1435,8 @@ struct GTY(()) tree_block {
 
 struct GTY(()) tree_type {
   struct tree_base base;
-  tree type;  /* Added by struct tree_typed.  */
-  tree chain; /* Added by struct tree_common.  */
+  union ttype_field GTY ((desc ("(0)"))) type;  /* From struct tree_typed.  */
+  tree chain; /* From struct tree_common.  */
 
   tree size;
   tree size_unit;
@@ -1446,23 +1463,23 @@ struct GTY(()) tree_type {
 
   unsigned int align;
   alias_set_type alias_set;
-  tree pointer_to;
-  tree reference_to;
+  union ttype_field GTY ((desc ("(0)"))) pointer_to;
+  union ttype_field GTY ((desc ("(0)"))) reference_to;
   union tree_type_symtab {
     int GTY ((tag ("TYPE_SYMTAB_IS_ADDRESS"))) address;
     const char * GTY ((tag ("TYPE_SYMTAB_IS_POINTER"))) pointer;
     struct die_struct * GTY ((tag ("TYPE_SYMTAB_IS_DIE"))) die;
   } GTY ((desc ("debug_hooks->tree_type_symtab_field"))) symtab;
-  tree canonical;
-  tree next_variant;
-  tree main_variant;
+  union ttype_field GTY ((desc ("(0)"))) canonical;
+  union ttype_field GTY ((desc ("(0)"))) next_variant;
+  union ttype_field GTY ((desc ("(0)"))) main_variant;
   tree context;
   tree name;
   /* Points to a structure whose details depend on the language in use.  */
   struct lang_type *lang_specific;
-  tree values;
-  tree minval;
-  tree maxval;
+  union ttype_field GTY ((desc ("(0)"))) values;
+  union ttype_field GTY ((desc ("(0)"))) minval;
+  union ttype_field GTY ((desc ("(0)"))) maxval;
   tree binfo;
 };
 
@@ -1798,8 +1815,11 @@ union GTY ((desc ("tree_node_structure (&%h)"), variable_size)) tree_node_u {
   struct tree_target_option GTY ((tag ("TS_TARGET_OPTION"))) target_option;
 };
 
-struct GTY ((ptr_alias (union lang_tree_node))) tree_node {
+struct GTY ((ptr_alias (union lang_tree_node), desc("0"), tag("0"))) tree_node {
   union tree_node_u u;
+};
+
+class GTY(()) ttype : public tree_node {
 };
 
 
@@ -1981,13 +2001,14 @@ extern GTY (()) vec<tree, va_gc> *all_translation_units;
 
 /* Vector of standard trees used by the C compiler.  */
 extern GTY(()) tree global_trees[TI_MAX];
+extern GTY(()) ttype *global_types[TPI_MAX];
 
 /* The standard C integer types.  Use integer_type_kind to index into
    this array.  */
-extern GTY(()) tree integer_types[itk_none];
+extern GTY(()) ttype *integer_types[itk_none];
 
 /* Types used to represent sizes.  */
-extern GTY(()) tree sizetype_tab[(int) stk_type_kind_last];
+extern GTY(()) ttype *sizetype_tab[(int) stk_type_kind_last];
 
 /* Arrays for keeping track of tree node statistics.  */
 extern int tree_node_counts[];

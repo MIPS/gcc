@@ -1322,8 +1322,8 @@ attributes_naming_typedef_ok (tree attrs)
 
 /* Like reconstruct_complex_type, but handle also template trees.  */
 
-tree
-cp_reconstruct_complex_type (tree type, tree bottom)
+ttype *
+cp_reconstruct_complex_type (ttype_p type, ttype_p bottom)
 {
   tree inner, outer;
   bool late_return_type_p = false;
@@ -1348,7 +1348,7 @@ cp_reconstruct_complex_type (tree type, tree bottom)
 	 element type qualification will be handled by the recursive
 	 cp_reconstruct_complex_type call and cp_build_qualified_type
 	 for ARRAY_TYPEs changes the element type.  */
-      return outer;
+      return TTYPE (outer);
     }
   else if (TREE_CODE (type) == FUNCTION_TYPE)
     {
@@ -1385,7 +1385,7 @@ cp_reconstruct_complex_type (tree type, tree bottom)
   if (late_return_type_p)
     TYPE_HAS_LATE_RETURN_TYPE (outer) = 1;
 
-  return outer;
+  return TTYPE (outer);
 }
 
 /* Replaces any constexpr expression that may be into the attributes

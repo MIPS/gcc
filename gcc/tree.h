@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_TREE_H
 
 #include "tree-core.h"
+#include "is-a.h"
 
 /* Convert a target-independent built-in function code to a combined_fn.  */
 
@@ -231,6 +232,70 @@ as_internal_fn (combined_fn code)
 #define CASE_FLT_FN_REENT(FN) case FN##_R: case FN##F_R: case FN##L_R
 #define CASE_INT_FN(FN) case FN: case FN##L: case FN##LL: case FN##IMAX
 
+#define NULL_TREE (tree) NULL
+
+/* NULL_TYPE is defined for use in places where a 0 is passed in to a ttype_p
+   parameter. A non-typed 0 is ambiguous as to whether it should be constructed
+   with a tree or a ttype *.  When ttype work is completed and the parameters
+   are changed to 'ttype *', simply replace NULL_TYPE with 'NULL'.  */
+#define NULL_TYPE (ttype *)NULL
+
+/* Define  the error_* nodes early for the inlined ttype methods.  */
+#define error_mark_node			global_trees[TI_ERROR_MARK]
+
+/* error_type_node will eventually be distinct from error_mark_node, but 
+   for now it must be identical for comparisons to work .
+   #define error_type_node		global_types[TPI_ERROR_TYPE]  */
+#define error_type_node		   (reinterpret_cast<ttype *>(error_mark_node))
+
+static inline struct tree_base &
+TREE_BASE (tree t)
+{
+  return t->u.base;
+}
+
+static inline const struct tree_base &
+TREE_BASE (const_tree t)
+{
+  return t->u.base;
+}
+
+static inline struct tree_base &
+TREE_BASE (ttype *t)
+{
+  return t->u.base;
+}
+
+static inline const struct tree_base &
+TREE_BASE (const ttype *t)
+{
+  return t->u.base;
+}
+
+/* The tree-code says what kind of node it is.
+   Codes are defined in tree.def.  */
+#define TREE_CODE(NODE) ((enum tree_code) TREE_BASE (NODE).code)
+#define TREE_SET_CODE(NODE, VALUE) (TREE_BASE (NODE).code = (VALUE))
+
+/* Helper routine to enable as_a<ttype *> */
+template <>
+template <>
+inline bool
+is_a_helper <ttype *>::test (tree t)
+{
+  return (TREE_CODE_CLASS (TREE_CODE (t)) == tcc_type);
+}
+
+/* Helper routine to enable as_a<const ttype *> */
+template <>
+template <>
+inline bool
+is_a_helper <const ttype *>::test (const_tree t)
+{
+  return (TREE_CODE_CLASS (TREE_CODE (t)) == tcc_type);
+}
+
+
 /* When checking is enabled, errors will be generated if a tree node
    is accessed incorrectly. The macros die with a fatal error.  */
 #if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
@@ -365,7 +430,50 @@ inline tree contains_struct_check (tree, const enum tree_node_structure_enum,
 inline const_tree contains_struct_check (const_tree,
 					 const enum tree_node_structure_enum,
 					 const char *, int , const char *);
+
+/* This routine is used to mark casts to ttype * which we eventually want to
+   disappear. When ttype has been propogated throughout the comnpiler, we ought
+   to be able to simply drop *all* of these.  Typically it is used to access a 
+   tree field in a struct that will eventually be a ttype * field.  */
+inline ttype *
+TTYPE (tree t)
+{
+  if (t == NULL_TREE)
+    return NULL;
+  if (t == error_mark_node)
+    return error_type_node;
+  return as_a <ttype *>(t);
+}
+
+inline const ttype *
+TTYPE (const_tree t)
+{
+  if (t == NULL_TREE)
+    return NULL;
+  if (t == error_mark_node)
+    return error_type_node;
+  return as_a <const ttype *>(t);
+}
+
 #else /* not ENABLE_TREE_CHECKING, or not gcc */
+
+/* This routine is used to mark casts to ttype * which we eventually want to
+   disappear. When ttype has been propogated throughout the comnpiler, we ought
+   to be able to simply drop *all* of these.  Typically it is used to access a 
+   tree field in a struct that will eventually be a ttype * field.  */
+
+static inline ttype *
+TTYPE (tree t)
+{
+  return reinterpret_cast<ttype *> (t);
+}
+
+static inline const ttype *
+TTYPE (const_tree t)
+{
+  return reinterpret_cast<const ttype *> (t);
+}
+
 
 #define CONTAINS_STRUCT_CHECK(T, ENUM)          (T)
 #define TREE_CHECK(T, CODE)			(T)
@@ -393,28 +501,76 @@ inline const_tree contains_struct_check (const_tree,
 
 #endif
 
-#define NULL_TREE (tree) NULL
+
+/* This is the interface class for incoming parameters to functions/methods
+   so that all callers do not need to be ttype-ified all at once. This will
+   allow the code withinn a function to treat the parameter exactly as if it
+   were a 'ttype *', yet allow callers to pass either a ttype * or a tree.
+   When ttype has been propogated enoguh, this can be changed from 'ttype_p'
+   to 'ttype *' by text replacement and will just work.  */
+
+class ttype_p {
+  ttype *type;
+public:
+  inline ttype_p (tree t) { type = TTYPE (t); }
+  inline ttype_p (const_tree t) { type = const_cast<ttype *>(TTYPE (t)); }
+  inline ttype_p (ttype *t) { type = t; }
+  inline ttype_p& operator= (ttype *t) { type = t; return *this; }
+  inline operator ttype *() const { return type; }
+  ttype_p * operator &() const __attribute__((error("Don't take address of ttype_p ")));
+  inline ttype * operator->() { return type; }
+  inline ttype * operator->() const { return type; }
+};
+
+
+class ttype_pp {
+  ttype **type;
+public:
+  inline ttype_pp (tree *t) 
+      { if (t) TTYPE (*t);  type = reinterpret_cast<ttype **> (t); }
+  inline ttype_pp (ttype_p *t) { type = reinterpret_cast<ttype **> (t); }
+  inline ttype_pp (ttype **t) { type = t; }
+  inline ttype_pp& operator= (ttype **t) { type = t; return *this; }
+  inline operator ttype **() const { return type; }
+  inline ttype ** operator->() { return type; }
+  inline ttype ** operator->() const { return type; }
+};
+
+
+/* This will generate a compiler error when a tree is turned into a ttype *,
+   but a reference to a TTYPE() call was not removed.  */
+ttype *
+TTYPE (ttype *t) __attribute__((error(" Fix use of TTYPE(ttype *)")));
+const ttype *
+TTYPE (const ttype *t) 
+    __attribute__((error(" Fix use of TTYPE(const ttype *)")));
+
+/* These exist because there are cases where ttype_p is used as a parameter, 
+   then used in a condition with types:   cond ? ttype * : ttype_p  .
+   The cast cant be autromcatically done by the compiler, we
+   allow TTYPE to work with ttype_p.  When they are changed to ttype *, they
+   will automatically trigger the above errors and require fixing.  */
+
+static inline ttype *
+TTYPE (const ttype_p t)
+{
+  return t;
+}
+
+
+/* On rare occassions, situations arise which require a temporary situation to
+   exist when an explcicit cast needs to be made. These macros are provided
+   to enable performing the cast, and provide a searchable name so they can be
+   removed at the earliest convenience.  This will not remain in the compiler
+   long term.   Each use should be accompanied by a comment indicating WHY 
+   it is required so its obvious what work is required to remove them.  */
+#define TREE_CAST(NODE) ((tree)(NODE))
+#define TREE_PTR_CAST(NODE) ((tree *)(NODE))
+#define TTYPE_PTR(NODE)  ((ttype **)(NODE))
+
 
 /* Define accessors for the fields that all tree nodes have
    (though some fields are not used for all kinds of nodes).  */
-
-static inline struct tree_base &
-TREE_BASE (tree t)
-{
-  return t->u.base;
-}
-
-static inline const struct tree_base &
-TREE_BASE (const_tree t)
-{
-  return t->u.base;
-}
-
-/* The tree-code says what kind of node it is.
-   Codes are defined in tree.def.  */
-#define TREE_CODE(NODE) ((enum tree_code) TREE_BASE (NODE).code)
-#define TREE_SET_CODE(NODE, VALUE) (TREE_BASE (NODE).code = (VALUE))
-
 /* Nodes are chained together for many purposes.
    Types are chained together to record them for being output to the debugger
    (see the function `chain_type').
@@ -436,21 +592,24 @@ TREE_CHAIN (const_tree t)
   return CONTAINS_STRUCT_CHECK (t, TS_COMMON)->u.common.chain;
 }
 
+static inline tree &
+TREE_CHAIN (ttype *t)
+{
+  return t->u.common.chain;
+}
+
+static inline tree
+TREE_CHAIN (const ttype *t)
+{
+  return t->u.common.chain;
+}
 /* In all nodes that are expressions, this is the data type of the expression.
    In POINTER_TYPE nodes, this is the type that the pointer points to.
    In ARRAY_TYPE nodes, this is the type of the elements.
    In VECTOR_TYPE nodes, this is the type of the elements.  */
 
-static inline tree &
-TREE_TYPE (tree t)
-{
-  return CONTAINS_STRUCT_CHECK (t, TS_TYPED)->u.typed.type;
-}
-static inline tree
-TREE_TYPE (const_tree t)
-{
-  return CONTAINS_STRUCT_CHECK (t, TS_TYPED)->u.typed.type;
-}
+#define TREE_TYPE(NODE) \
+  (CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->u.typed.type.TTYPE_FIELD)
 
 #define TREE_BLOCK(NODE)		(tree_block (NODE))
 #define TREE_SET_BLOCK(T, B)		(tree_set_block ((T), (B)))
@@ -1090,6 +1249,7 @@ TYPE_NODE_PROTO (vector)
 /* In a TREE_LIST node.  */
 #define TREE_PURPOSE(NODE) (TREE_LIST_CHECK (NODE)->u.list.purpose)
 #define TREE_VALUE(NODE) (TREE_LIST_CHECK (NODE)->u.list.value)
+#define TREE_VALUE_TYPE(NODE) (TTYPE(TREE_LIST_CHECK (NODE)->u.list.value))
 
 /* In a TREE_VEC node.  */
 #define TREE_VEC_LENGTH(NODE) (TREE_VEC_CHECK (NODE)->u.base.u.length)
@@ -1850,12 +2010,15 @@ extern void protected_set_expr_location (tree, location_t);
 #define TYPE_UID(NODE) (tree_type_node (NODE).uid)
 #define TYPE_SIZE(NODE) (tree_type_node (NODE).size)
 #define TYPE_SIZE_UNIT(NODE) (tree_type_node (NODE).size_unit)
-#define TYPE_POINTER_TO(NODE) (tree_type_node (NODE).pointer_to)
-#define TYPE_REFERENCE_TO(NODE) (tree_type_node (NODE).reference_to)
+#define TYPE_POINTER_TO(NODE) (tree_type_node (NODE).pointer_to.TTYPE_FIELD)
+#define TYPE_REFERENCE_TO(NODE) \
+  (tree_type_node (NODE).reference_to.TTYPE_FIELD)
 #define TYPE_PRECISION(NODE) (tree_type_node (NODE).precision)
 #define TYPE_NAME(NODE) (tree_type_node (NODE).name)
-#define TYPE_NEXT_VARIANT(NODE) (tree_type_node (NODE).next_variant)
-#define TYPE_MAIN_VARIANT(NODE) (tree_type_node (NODE).main_variant)
+#define TYPE_NEXT_VARIANT(NODE) \
+  (tree_type_node (NODE).next_variant.TTYPE_FIELD)
+#define TYPE_MAIN_VARIANT(NODE) \
+  (tree_type_node (NODE).main_variant.TTYPE_FIELD)
 #define TYPE_CONTEXT(NODE) (tree_type_node (NODE).context)
 
 #define TYPE_MODE_RAW(NODE) (tree_type_node (NODE).mode)
@@ -1881,7 +2044,7 @@ extern machine_mode element_mode (const_tree t);
    to each other without a conversion.  The middle-end also makes sure
    to assign the same alias-sets to the type partition with equal
    TYPE_CANONICAL of their unqualified variants.  */
-#define TYPE_CANONICAL(NODE) (tree_type_node (NODE).canonical)
+#define TYPE_CANONICAL(NODE) (tree_type_node (NODE).canonical.TTYPE_FIELD)
 /* Indicates that the type node requires structural equality
    checks.  The compiler will need to look at the composition of the
    type to determine whether it is equal to another type, rather than
@@ -2081,28 +2244,31 @@ extern machine_mode element_mode (const_tree t);
 
 #define TYPE_LANG_SPECIFIC(NODE) (tree_type_node (NODE).lang_specific)
 
-#define TYPE_VALUES(NODE) (enumeral_type_node (NODE).values)
-#define TYPE_DOMAIN(NODE) (array_type_node (NODE).values)
-#define TYPE_FIELDS(NODE) (record_or_union_type_node (NODE).values)
-#define TYPE_CACHED_VALUES(NODE) (tree_type_node (NODE).values)
-#define TYPE_ARG_TYPES(NODE) (func_or_method_type_node (NODE).values)
-#define TYPE_VALUES_RAW(NODE) (tree_type_node (NODE).values)
+#define TYPE_VALUES(NODE) (enumeral_type_node (NODE).values._tree)
+#define TYPE_DOMAIN(NODE) (array_type_node (NODE).values.TTYPE_FIELD)
+#define TYPE_FIELDS(NODE) (record_or_union_type_node (NODE).values._tree)
+#define TYPE_CACHED_VALUES(NODE) (tree_type_node (NODE).values._tree)
+#define TYPE_ARG_TYPES(NODE) (func_or_method_type_node (NODE).values._tree)
+#define TYPE_VALUES_RAW(NODE) (tree_type_node (NODE).values._tree)
 
-#define TYPE_METHODS(NODE) (record_or_union_type_node (NODE).maxval)
-#define TYPE_VFIELD(NODE) (record_or_union_type_node (NODE).minval)
-#define TYPE_METHOD_BASETYPE(NODE) (func_or_method_type_node (NODE).maxval)
-#define TYPE_OFFSET_BASETYPE(NODE) (offset_type_node (NODE).maxval)
-#define TYPE_MAXVAL(NODE) (tree_type_node (NODE).maxval)
-#define TYPE_MINVAL(NODE) (tree_type_node (NODE).minval)
-#define TYPE_NEXT_PTR_TO(NODE) (pointer_type_node (NODE).minval)
-#define TYPE_NEXT_REF_TO(NODE) (reference_type_node (NODE).minval)
-#define TYPE_MIN_VALUE(NODE) (numerical_type_node (NODE).minval)
-#define TYPE_MAX_VALUE(NODE) (numerical_type_node (NODE).maxval)
+#define TYPE_METHODS(NODE) (record_or_union_type_node (NODE).maxval._tree)
+#define TYPE_VFIELD(NODE) (record_or_union_type_node (NODE).minval._tree)
+#define TYPE_METHOD_BASETYPE(NODE) \
+  (func_or_method_type_node (NODE).maxval.TTYPE_FIELD)
+#define TYPE_OFFSET_BASETYPE(NODE) \
+  (offset_type_node (NODE).maxval.TTYPE_FIELD)
+#define TYPE_MAXVAL(NODE) (tree_type_node (NODE).maxval._tree)
+#define TYPE_MINVAL(NODE) (tree_type_node (NODE).minval._tree)
+#define TYPE_NEXT_PTR_TO(NODE) (pointer_type_node (NODE).minval.TTYPE_FIELD)
+#define TYPE_NEXT_REF_TO(NODE) (reference_type_node (NODE).minval.TTYPE_FIELD)
+#define TYPE_MIN_VALUE(NODE) (numerical_type_node (NODE).minval._tree)
+#define TYPE_MAX_VALUE(NODE) (numerical_type_node (NODE).maxval._tree)
 
 /* If non-NULL, this is an upper bound of the size (in bytes) of an
    object of the given ARRAY_TYPE_NON_COMMON.  This allows temporaries to be
    allocated.  */
-#define TYPE_ARRAY_MAX_SIZE(ARRAY_TYPE) (array_type_node (ARRAY_TYPE).maxval)
+#define TYPE_ARRAY_MAX_SIZE(ARRAY_TYPE) \
+  (array_type_node (ARRAY_TYPE).maxval._tree)
 
 /* For record and union types, information about this type, as a base type
    for itself.  */
@@ -3587,29 +3753,27 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
 
 #endif
 
-#define error_mark_node			global_trees[TI_ERROR_MARK]
+#define intQI_type_node			global_types[TPI_INTQI_TYPE]
+#define intHI_type_node			global_types[TPI_INTHI_TYPE]
+#define intSI_type_node			global_types[TPI_INTSI_TYPE]
+#define intDI_type_node			global_types[TPI_INTDI_TYPE]
+#define intTI_type_node			global_types[TPI_INTTI_TYPE]
 
-#define intQI_type_node			global_trees[TI_INTQI_TYPE]
-#define intHI_type_node			global_trees[TI_INTHI_TYPE]
-#define intSI_type_node			global_trees[TI_INTSI_TYPE]
-#define intDI_type_node			global_trees[TI_INTDI_TYPE]
-#define intTI_type_node			global_trees[TI_INTTI_TYPE]
+#define unsigned_intQI_type_node	global_types[TPI_UINTQI_TYPE]
+#define unsigned_intHI_type_node	global_types[TPI_UINTHI_TYPE]
+#define unsigned_intSI_type_node	global_types[TPI_UINTSI_TYPE]
+#define unsigned_intDI_type_node	global_types[TPI_UINTDI_TYPE]
+#define unsigned_intTI_type_node	global_types[TPI_UINTTI_TYPE]
 
-#define unsigned_intQI_type_node	global_trees[TI_UINTQI_TYPE]
-#define unsigned_intHI_type_node	global_trees[TI_UINTHI_TYPE]
-#define unsigned_intSI_type_node	global_trees[TI_UINTSI_TYPE]
-#define unsigned_intDI_type_node	global_trees[TI_UINTDI_TYPE]
-#define unsigned_intTI_type_node	global_trees[TI_UINTTI_TYPE]
+#define atomicQI_type_node	global_types[TPI_ATOMICQI_TYPE]
+#define atomicHI_type_node	global_types[TPI_ATOMICHI_TYPE]
+#define atomicSI_type_node	global_types[TPI_ATOMICSI_TYPE]
+#define atomicDI_type_node	global_types[TPI_ATOMICDI_TYPE]
+#define atomicTI_type_node	global_types[TPI_ATOMICTI_TYPE]
 
-#define atomicQI_type_node	global_trees[TI_ATOMICQI_TYPE]
-#define atomicHI_type_node	global_trees[TI_ATOMICHI_TYPE]
-#define atomicSI_type_node	global_trees[TI_ATOMICSI_TYPE]
-#define atomicDI_type_node	global_trees[TI_ATOMICDI_TYPE]
-#define atomicTI_type_node	global_trees[TI_ATOMICTI_TYPE]
-
-#define uint16_type_node		global_trees[TI_UINT16_TYPE]
-#define uint32_type_node		global_trees[TI_UINT32_TYPE]
-#define uint64_type_node		global_trees[TI_UINT64_TYPE]
+#define uint16_type_node		global_types[TPI_UINT16_TYPE]
+#define uint32_type_node		global_types[TPI_UINT32_TYPE]
+#define uint64_type_node		global_types[TPI_UINT64_TYPE]
 
 #define void_node			global_trees[TI_VOID]
 
@@ -3630,127 +3794,127 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
 
 #define null_pointer_node		global_trees[TI_NULL_POINTER]
 
-#define float_type_node			global_trees[TI_FLOAT_TYPE]
-#define double_type_node		global_trees[TI_DOUBLE_TYPE]
-#define long_double_type_node		global_trees[TI_LONG_DOUBLE_TYPE]
+#define float_type_node			global_types[TPI_FLOAT_TYPE]
+#define double_type_node		global_types[TPI_DOUBLE_TYPE]
+#define long_double_type_node		global_types[TPI_LONG_DOUBLE_TYPE]
 
-#define float_ptr_type_node		global_trees[TI_FLOAT_PTR_TYPE]
-#define double_ptr_type_node		global_trees[TI_DOUBLE_PTR_TYPE]
-#define long_double_ptr_type_node	global_trees[TI_LONG_DOUBLE_PTR_TYPE]
-#define integer_ptr_type_node		global_trees[TI_INTEGER_PTR_TYPE]
+#define float_ptr_type_node		global_types[TPI_FLOAT_PTR_TYPE]
+#define double_ptr_type_node		global_types[TPI_DOUBLE_PTR_TYPE]
+#define long_double_ptr_type_node	global_types[TPI_LONG_DOUBLE_PTR_TYPE]
+#define integer_ptr_type_node		global_types[TPI_INTEGER_PTR_TYPE]
 
-#define complex_integer_type_node	global_trees[TI_COMPLEX_INTEGER_TYPE]
-#define complex_float_type_node		global_trees[TI_COMPLEX_FLOAT_TYPE]
-#define complex_double_type_node	global_trees[TI_COMPLEX_DOUBLE_TYPE]
-#define complex_long_double_type_node	global_trees[TI_COMPLEX_LONG_DOUBLE_TYPE]
+#define complex_integer_type_node	global_types[TPI_COMPLEX_INTEGER_TYPE]
+#define complex_float_type_node		global_types[TPI_COMPLEX_FLOAT_TYPE]
+#define complex_double_type_node	global_types[TPI_COMPLEX_DOUBLE_TYPE]
+#define complex_long_double_type_node	global_types[TPI_COMPLEX_LONG_DOUBLE_TYPE]
 
-#define pointer_bounds_type_node        global_trees[TI_POINTER_BOUNDS_TYPE]
+#define pointer_bounds_type_node        global_types[TPI_POINTER_BOUNDS_TYPE]
 
-#define void_type_node			global_trees[TI_VOID_TYPE]
+#define void_type_node			global_types[TPI_VOID_TYPE]
 /* The C type `void *'.  */
-#define ptr_type_node			global_trees[TI_PTR_TYPE]
+#define ptr_type_node			global_types[TPI_PTR_TYPE]
 /* The C type `const void *'.  */
-#define const_ptr_type_node		global_trees[TI_CONST_PTR_TYPE]
+#define const_ptr_type_node		global_types[TPI_CONST_PTR_TYPE]
 /* The C type `size_t'.  */
-#define size_type_node                  global_trees[TI_SIZE_TYPE]
-#define pid_type_node                   global_trees[TI_PID_TYPE]
-#define ptrdiff_type_node		global_trees[TI_PTRDIFF_TYPE]
-#define va_list_type_node		global_trees[TI_VA_LIST_TYPE]
+#define size_type_node                  global_types[TPI_SIZE_TYPE]
+#define pid_type_node                   global_types[TPI_PID_TYPE]
+#define ptrdiff_type_node		global_types[TPI_PTRDIFF_TYPE]
+#define va_list_type_node		global_types[TPI_VA_LIST_TYPE]
 #define va_list_gpr_counter_field	global_trees[TI_VA_LIST_GPR_COUNTER_FIELD]
 #define va_list_fpr_counter_field	global_trees[TI_VA_LIST_FPR_COUNTER_FIELD]
 /* The C type `FILE *'.  */
-#define fileptr_type_node		global_trees[TI_FILEPTR_TYPE]
-#define pointer_sized_int_node		global_trees[TI_POINTER_SIZED_TYPE]
+#define fileptr_type_node		global_types[TPI_FILEPTR_TYPE]
+#define pointer_sized_int_node		global_types[TPI_POINTER_SIZED_TYPE]
 
-#define boolean_type_node		global_trees[TI_BOOLEAN_TYPE]
+#define boolean_type_node		global_types[TPI_BOOLEAN_TYPE]
 #define boolean_false_node		global_trees[TI_BOOLEAN_FALSE]
 #define boolean_true_node		global_trees[TI_BOOLEAN_TRUE]
 
 /* The decimal floating point types. */
-#define dfloat32_type_node              global_trees[TI_DFLOAT32_TYPE]
-#define dfloat64_type_node              global_trees[TI_DFLOAT64_TYPE]
-#define dfloat128_type_node             global_trees[TI_DFLOAT128_TYPE]
-#define dfloat32_ptr_type_node          global_trees[TI_DFLOAT32_PTR_TYPE]
-#define dfloat64_ptr_type_node          global_trees[TI_DFLOAT64_PTR_TYPE]
-#define dfloat128_ptr_type_node         global_trees[TI_DFLOAT128_PTR_TYPE]
+#define dfloat32_type_node              global_types[TPI_DFLOAT32_TYPE]
+#define dfloat64_type_node              global_types[TPI_DFLOAT64_TYPE]
+#define dfloat128_type_node             global_types[TPI_DFLOAT128_TYPE]
+#define dfloat32_ptr_type_node          global_types[TPI_DFLOAT32_PTR_TYPE]
+#define dfloat64_ptr_type_node          global_types[TPI_DFLOAT64_PTR_TYPE]
+#define dfloat128_ptr_type_node         global_types[TPI_DFLOAT128_PTR_TYPE]
 
 /* The fixed-point types.  */
-#define sat_short_fract_type_node       global_trees[TI_SAT_SFRACT_TYPE]
-#define sat_fract_type_node             global_trees[TI_SAT_FRACT_TYPE]
-#define sat_long_fract_type_node        global_trees[TI_SAT_LFRACT_TYPE]
-#define sat_long_long_fract_type_node   global_trees[TI_SAT_LLFRACT_TYPE]
+#define sat_short_fract_type_node       global_types[TPI_SAT_SFRACT_TYPE]
+#define sat_fract_type_node             global_types[TPI_SAT_FRACT_TYPE]
+#define sat_long_fract_type_node        global_types[TPI_SAT_LFRACT_TYPE]
+#define sat_long_long_fract_type_node   global_types[TPI_SAT_LLFRACT_TYPE]
 #define sat_unsigned_short_fract_type_node \
-					global_trees[TI_SAT_USFRACT_TYPE]
-#define sat_unsigned_fract_type_node    global_trees[TI_SAT_UFRACT_TYPE]
+					global_types[TPI_SAT_USFRACT_TYPE]
+#define sat_unsigned_fract_type_node    global_types[TPI_SAT_UFRACT_TYPE]
 #define sat_unsigned_long_fract_type_node \
-					global_trees[TI_SAT_ULFRACT_TYPE]
+					global_types[TPI_SAT_ULFRACT_TYPE]
 #define sat_unsigned_long_long_fract_type_node \
-					global_trees[TI_SAT_ULLFRACT_TYPE]
-#define short_fract_type_node           global_trees[TI_SFRACT_TYPE]
-#define fract_type_node                 global_trees[TI_FRACT_TYPE]
-#define long_fract_type_node            global_trees[TI_LFRACT_TYPE]
-#define long_long_fract_type_node       global_trees[TI_LLFRACT_TYPE]
-#define unsigned_short_fract_type_node  global_trees[TI_USFRACT_TYPE]
-#define unsigned_fract_type_node        global_trees[TI_UFRACT_TYPE]
-#define unsigned_long_fract_type_node   global_trees[TI_ULFRACT_TYPE]
+					global_types[TPI_SAT_ULLFRACT_TYPE]
+#define short_fract_type_node           global_types[TPI_SFRACT_TYPE]
+#define fract_type_node                 global_types[TPI_FRACT_TYPE]
+#define long_fract_type_node            global_types[TPI_LFRACT_TYPE]
+#define long_long_fract_type_node       global_types[TPI_LLFRACT_TYPE]
+#define unsigned_short_fract_type_node  global_types[TPI_USFRACT_TYPE]
+#define unsigned_fract_type_node        global_types[TPI_UFRACT_TYPE]
+#define unsigned_long_fract_type_node   global_types[TPI_ULFRACT_TYPE]
 #define unsigned_long_long_fract_type_node \
-					global_trees[TI_ULLFRACT_TYPE]
-#define sat_short_accum_type_node       global_trees[TI_SAT_SACCUM_TYPE]
-#define sat_accum_type_node             global_trees[TI_SAT_ACCUM_TYPE]
-#define sat_long_accum_type_node        global_trees[TI_SAT_LACCUM_TYPE]
-#define sat_long_long_accum_type_node   global_trees[TI_SAT_LLACCUM_TYPE]
+					global_types[TPI_ULLFRACT_TYPE]
+#define sat_short_accum_type_node       global_types[TPI_SAT_SACCUM_TYPE]
+#define sat_accum_type_node             global_types[TPI_SAT_ACCUM_TYPE]
+#define sat_long_accum_type_node        global_types[TPI_SAT_LACCUM_TYPE]
+#define sat_long_long_accum_type_node   global_types[TPI_SAT_LLACCUM_TYPE]
 #define sat_unsigned_short_accum_type_node \
-					global_trees[TI_SAT_USACCUM_TYPE]
-#define sat_unsigned_accum_type_node    global_trees[TI_SAT_UACCUM_TYPE]
+					global_types[TPI_SAT_USACCUM_TYPE]
+#define sat_unsigned_accum_type_node    global_types[TPI_SAT_UACCUM_TYPE]
 #define sat_unsigned_long_accum_type_node \
-					global_trees[TI_SAT_ULACCUM_TYPE]
+					global_types[TPI_SAT_ULACCUM_TYPE]
 #define sat_unsigned_long_long_accum_type_node \
-					global_trees[TI_SAT_ULLACCUM_TYPE]
-#define short_accum_type_node           global_trees[TI_SACCUM_TYPE]
-#define accum_type_node                 global_trees[TI_ACCUM_TYPE]
-#define long_accum_type_node            global_trees[TI_LACCUM_TYPE]
-#define long_long_accum_type_node       global_trees[TI_LLACCUM_TYPE]
-#define unsigned_short_accum_type_node  global_trees[TI_USACCUM_TYPE]
-#define unsigned_accum_type_node        global_trees[TI_UACCUM_TYPE]
-#define unsigned_long_accum_type_node   global_trees[TI_ULACCUM_TYPE]
+					global_types[TPI_SAT_ULLACCUM_TYPE]
+#define short_accum_type_node           global_types[TPI_SACCUM_TYPE]
+#define accum_type_node                 global_types[TPI_ACCUM_TYPE]
+#define long_accum_type_node            global_types[TPI_LACCUM_TYPE]
+#define long_long_accum_type_node       global_types[TPI_LLACCUM_TYPE]
+#define unsigned_short_accum_type_node  global_types[TPI_USACCUM_TYPE]
+#define unsigned_accum_type_node        global_types[TPI_UACCUM_TYPE]
+#define unsigned_long_accum_type_node   global_types[TPI_ULACCUM_TYPE]
 #define unsigned_long_long_accum_type_node \
-					global_trees[TI_ULLACCUM_TYPE]
-#define qq_type_node                    global_trees[TI_QQ_TYPE]
-#define hq_type_node                    global_trees[TI_HQ_TYPE]
-#define sq_type_node                    global_trees[TI_SQ_TYPE]
-#define dq_type_node                    global_trees[TI_DQ_TYPE]
-#define tq_type_node                    global_trees[TI_TQ_TYPE]
-#define uqq_type_node                   global_trees[TI_UQQ_TYPE]
-#define uhq_type_node                   global_trees[TI_UHQ_TYPE]
-#define usq_type_node                   global_trees[TI_USQ_TYPE]
-#define udq_type_node                   global_trees[TI_UDQ_TYPE]
-#define utq_type_node                   global_trees[TI_UTQ_TYPE]
-#define sat_qq_type_node                global_trees[TI_SAT_QQ_TYPE]
-#define sat_hq_type_node                global_trees[TI_SAT_HQ_TYPE]
-#define sat_sq_type_node                global_trees[TI_SAT_SQ_TYPE]
-#define sat_dq_type_node                global_trees[TI_SAT_DQ_TYPE]
-#define sat_tq_type_node                global_trees[TI_SAT_TQ_TYPE]
-#define sat_uqq_type_node               global_trees[TI_SAT_UQQ_TYPE]
-#define sat_uhq_type_node               global_trees[TI_SAT_UHQ_TYPE]
-#define sat_usq_type_node               global_trees[TI_SAT_USQ_TYPE]
-#define sat_udq_type_node               global_trees[TI_SAT_UDQ_TYPE]
-#define sat_utq_type_node               global_trees[TI_SAT_UTQ_TYPE]
-#define ha_type_node                    global_trees[TI_HA_TYPE]
-#define sa_type_node                    global_trees[TI_SA_TYPE]
-#define da_type_node                    global_trees[TI_DA_TYPE]
-#define ta_type_node                    global_trees[TI_TA_TYPE]
-#define uha_type_node                   global_trees[TI_UHA_TYPE]
-#define usa_type_node                   global_trees[TI_USA_TYPE]
-#define uda_type_node                   global_trees[TI_UDA_TYPE]
-#define uta_type_node                   global_trees[TI_UTA_TYPE]
-#define sat_ha_type_node                global_trees[TI_SAT_HA_TYPE]
-#define sat_sa_type_node                global_trees[TI_SAT_SA_TYPE]
-#define sat_da_type_node                global_trees[TI_SAT_DA_TYPE]
-#define sat_ta_type_node                global_trees[TI_SAT_TA_TYPE]
-#define sat_uha_type_node               global_trees[TI_SAT_UHA_TYPE]
-#define sat_usa_type_node               global_trees[TI_SAT_USA_TYPE]
-#define sat_uda_type_node               global_trees[TI_SAT_UDA_TYPE]
-#define sat_uta_type_node               global_trees[TI_SAT_UTA_TYPE]
+					global_types[TPI_ULLACCUM_TYPE]
+#define qq_type_node                    global_types[TPI_QQ_TYPE]
+#define hq_type_node                    global_types[TPI_HQ_TYPE]
+#define sq_type_node                    global_types[TPI_SQ_TYPE]
+#define dq_type_node                    global_types[TPI_DQ_TYPE]
+#define tq_type_node                    global_types[TPI_TQ_TYPE]
+#define uqq_type_node                   global_types[TPI_UQQ_TYPE]
+#define uhq_type_node                   global_types[TPI_UHQ_TYPE]
+#define usq_type_node                   global_types[TPI_USQ_TYPE]
+#define udq_type_node                   global_types[TPI_UDQ_TYPE]
+#define utq_type_node                   global_types[TPI_UTQ_TYPE]
+#define sat_qq_type_node                global_types[TPI_SAT_QQ_TYPE]
+#define sat_hq_type_node                global_types[TPI_SAT_HQ_TYPE]
+#define sat_sq_type_node                global_types[TPI_SAT_SQ_TYPE]
+#define sat_dq_type_node                global_types[TPI_SAT_DQ_TYPE]
+#define sat_tq_type_node                global_types[TPI_SAT_TQ_TYPE]
+#define sat_uqq_type_node               global_types[TPI_SAT_UQQ_TYPE]
+#define sat_uhq_type_node               global_types[TPI_SAT_UHQ_TYPE]
+#define sat_usq_type_node               global_types[TPI_SAT_USQ_TYPE]
+#define sat_udq_type_node               global_types[TPI_SAT_UDQ_TYPE]
+#define sat_utq_type_node               global_types[TPI_SAT_UTQ_TYPE]
+#define ha_type_node                    global_types[TPI_HA_TYPE]
+#define sa_type_node                    global_types[TPI_SA_TYPE]
+#define da_type_node                    global_types[TPI_DA_TYPE]
+#define ta_type_node                    global_types[TPI_TA_TYPE]
+#define uha_type_node                   global_types[TPI_UHA_TYPE]
+#define usa_type_node                   global_types[TPI_USA_TYPE]
+#define uda_type_node                   global_types[TPI_UDA_TYPE]
+#define uta_type_node                   global_types[TPI_UTA_TYPE]
+#define sat_ha_type_node                global_types[TPI_SAT_HA_TYPE]
+#define sat_sa_type_node                global_types[TPI_SAT_SA_TYPE]
+#define sat_da_type_node                global_types[TPI_SAT_DA_TYPE]
+#define sat_ta_type_node                global_types[TPI_SAT_TA_TYPE]
+#define sat_uha_type_node               global_types[TPI_SAT_UHA_TYPE]
+#define sat_usa_type_node               global_types[TPI_SAT_USA_TYPE]
+#define sat_uda_type_node               global_types[TPI_SAT_UDA_TYPE]
+#define sat_uta_type_node               global_types[TPI_SAT_UTA_TYPE]
 
 /* The node that should be placed at the end of a parameter list to
    indicate that the function does not take a variable number of
@@ -3821,7 +3985,9 @@ extern int allocate_decl_uid (void);
    to zero except for a few of the common fields.  */
 
 extern tree make_node_stat (enum tree_code MEM_STAT_DECL);
+extern ttype *make_type_node_stat (enum tree_code MEM_STAT_DECL);
 #define make_node(t) make_node_stat (t MEM_STAT_INFO)
+#define make_type_node(t) make_type_node_stat (t MEM_STAT_INFO)
 
 /* Free tree node.  */
 
@@ -3830,6 +3996,7 @@ extern void free_node (tree);
 /* Make a copy of a node, with all the same contents.  */
 
 extern tree copy_node_stat (tree MEM_STAT_DECL);
+extern ttype *copy_node_stat (ttype *MEM_STAT_DECL);
 #define copy_node(t) copy_node_stat (t MEM_STAT_INFO)
 
 /* Make a copy of a chain of TREE_LIST nodes.  */
@@ -3865,18 +4032,18 @@ extern tree grow_tree_vec_stat (tree v, int MEM_STAT_DECL);
 extern tree build_nt (enum tree_code, ...);
 extern tree build_nt_call_vec (tree, vec<tree, va_gc> *);
 
-extern tree build0_stat (enum tree_code, tree MEM_STAT_DECL);
+extern tree build0_stat (enum tree_code, ttype_p MEM_STAT_DECL);
 #define build0(c,t) build0_stat (c,t MEM_STAT_INFO)
-extern tree build1_stat (enum tree_code, tree, tree MEM_STAT_DECL);
+extern tree build1_stat (enum tree_code, ttype_p, tree MEM_STAT_DECL);
 #define build1(c,t1,t2) build1_stat (c,t1,t2 MEM_STAT_INFO)
-extern tree build2_stat (enum tree_code, tree, tree, tree MEM_STAT_DECL);
+extern tree build2_stat (enum tree_code, ttype_p, tree, tree MEM_STAT_DECL);
 #define build2(c,t1,t2,t3) build2_stat (c,t1,t2,t3 MEM_STAT_INFO)
-extern tree build3_stat (enum tree_code, tree, tree, tree, tree MEM_STAT_DECL);
+extern tree build3_stat (enum tree_code, ttype_p, tree, tree, tree MEM_STAT_DECL);
 #define build3(c,t1,t2,t3,t4) build3_stat (c,t1,t2,t3,t4 MEM_STAT_INFO)
-extern tree build4_stat (enum tree_code, tree, tree, tree, tree,
+extern tree build4_stat (enum tree_code, ttype_p, tree, tree, tree,
 			 tree MEM_STAT_DECL);
 #define build4(c,t1,t2,t3,t4,t5) build4_stat (c,t1,t2,t3,t4,t5 MEM_STAT_INFO)
-extern tree build5_stat (enum tree_code, tree, tree, tree, tree, tree,
+extern tree build5_stat (enum tree_code, ttype_p, tree, tree, tree, tree,
 			 tree MEM_STAT_DECL);
 #define build5(c,t1,t2,t3,t4,t5,t6) build5_stat (c,t1,t2,t3,t4,t5,t6 MEM_STAT_INFO)
 
@@ -3947,45 +4114,55 @@ extern tree build_var_debug_value_stat (tree, tree MEM_STAT_DECL);
 
 /* Constructs double_int from tree CST.  */
 
-extern tree double_int_to_tree (tree, double_int);
+extern tree double_int_to_tree (ttype_p, double_int);
 
-extern tree wide_int_to_tree (tree type, const wide_int_ref &cst);
-extern tree force_fit_type (tree, const wide_int_ref &, int, bool);
+extern tree wide_int_to_tree (ttype_p type, const wide_int_ref &cst);
+extern tree force_fit_type (ttype_p, const wide_int_ref &, int, bool);
+
+/* Function to return a real value (not a tree node) from a given integer
+   constant.  */
+extern REAL_VALUE_TYPE real_value_from_int_cst (const ttype_p, const_tree);
 
 /* Create an INT_CST node with a CST value zero extended.  */
 
 /* static inline */
-extern tree build_int_cst (tree, HOST_WIDE_INT);
-extern tree build_int_cstu (tree type, unsigned HOST_WIDE_INT cst);
-extern tree build_int_cst_type (tree, HOST_WIDE_INT);
+extern tree build_int_cst (ttype_p, HOST_WIDE_INT);
+extern tree build_int_cstu (ttype_p type, unsigned HOST_WIDE_INT cst);
+extern tree build_int_cst_type (ttype_p , HOST_WIDE_INT);
 extern tree make_vector_stat (unsigned MEM_STAT_DECL);
 #define make_vector(n) make_vector_stat (n MEM_STAT_INFO)
-extern tree build_vector_stat (tree, tree * MEM_STAT_DECL);
+extern tree build_vector_stat (ttype_p, tree * MEM_STAT_DECL);
 #define build_vector(t,v) build_vector_stat (t, v MEM_STAT_INFO)
-extern tree build_vector_from_ctor (tree, vec<constructor_elt, va_gc> *);
-extern tree build_vector_from_val (tree, tree);
+extern tree build_vector_from_ctor (ttype_p, vec<constructor_elt, va_gc> *);
+extern tree build_vector_from_val (ttype_p, tree);
 extern void recompute_constructor_flags (tree);
 extern void verify_constructor_flags (tree);
-extern tree build_constructor (tree, vec<constructor_elt, va_gc> *);
-extern tree build_constructor_single (tree, tree, tree);
-extern tree build_constructor_from_list (tree, tree);
-extern tree build_constructor_va (tree, int, ...);
-extern tree build_real_from_int_cst (tree, const_tree);
-extern tree build_complex (tree, tree, tree);
-extern tree build_complex_inf (tree, bool);
+extern tree build_constructor (ttype_p, vec<constructor_elt, va_gc> *);
+extern tree build_constructor_single (ttype_p, tree, tree);
+extern tree build_constructor_from_list (ttype_p, tree);
+extern tree build_constructor_va (ttype_p, int, ...);
+/* Wrap up a REAL_VALUE_TYPE in a tree node.  */
+extern tree build_real (ttype_p, REAL_VALUE_TYPE);
+/* Likewise, but first truncate the value to the type.  */
+extern tree build_real_truncate (ttype_p, REAL_VALUE_TYPE);
+extern tree build_real_from_int_cst (ttype_p, const_tree);
+/* Wrap up a FIXED_VALUE_TYPE in a tree node.  */
+extern tree build_fixed (ttype_p, FIXED_VALUE_TYPE);
+extern tree build_complex (ttype_p, tree, tree);
+extern tree build_complex_inf (ttype_p, bool);
 extern tree build_each_one_cst (tree);
-extern tree build_one_cst (tree);
-extern tree build_minus_one_cst (tree);
-extern tree build_all_ones_cst (tree);
-extern tree build_zero_cst (tree);
+extern tree build_one_cst (ttype_p);
+extern tree build_minus_one_cst (ttype_p);
+extern tree build_all_ones_cst (ttype_p);
+extern tree build_zero_cst (ttype_p);
 extern tree build_string (int, const char *);
 extern tree build_tree_list_stat (tree, tree MEM_STAT_DECL);
 #define build_tree_list(t, q) build_tree_list_stat (t, q MEM_STAT_INFO)
 extern tree build_tree_list_vec_stat (const vec<tree, va_gc> *MEM_STAT_DECL);
 #define build_tree_list_vec(v) build_tree_list_vec_stat (v MEM_STAT_INFO)
 extern tree build_decl_stat (location_t, enum tree_code,
-			     tree, tree MEM_STAT_DECL);
-extern tree build_fn_decl (const char *, tree);
+			     tree, ttype_p MEM_STAT_DECL);
+extern tree build_fn_decl (const char *, ttype_p);
 #define build_decl(l,c,t,q) build_decl_stat (l, c, t, q MEM_STAT_INFO)
 extern tree build_translation_unit_decl (tree);
 extern tree build_block (tree, tree, tree, tree);
@@ -3995,12 +4172,13 @@ extern tree build_omp_clause (location_t, enum omp_clause_code);
 extern tree build_vl_exp_stat (enum tree_code, int MEM_STAT_DECL);
 #define build_vl_exp(c, n) build_vl_exp_stat (c, n MEM_STAT_INFO)
 
-extern tree build_call_nary (tree, tree, int, ...);
-extern tree build_call_valist (tree, tree, int, va_list);
+extern tree build_call_nary (ttype_p, tree, int, ...);
+extern tree build_call_valist (ttype_p, tree, int, va_list);
 #define build_call_array(T1,T2,N,T3)\
    build_call_array_loc (UNKNOWN_LOCATION, T1, T2, N, T3)
-extern tree build_call_array_loc (location_t, tree, tree, int, const tree *);
-extern tree build_call_vec (tree, tree, vec<tree, va_gc> *);
+extern tree build_call_array_loc (location_t, ttype_p , tree, int,
+				  const tree *);
+extern tree build_call_vec (ttype_p, tree, vec<tree, va_gc> *);
 extern tree build_call_expr_loc_array (location_t, tree, int, tree *);
 extern tree build_call_expr_loc_vec (location_t, tree, vec<tree, va_gc> *);
 extern tree build_call_expr_loc (location_t, tree, int, ...);
@@ -4015,42 +4193,55 @@ extern tree build_string_literal (int, const char *);
 
 /* Construct various nodes representing data types.  */
 
-extern tree signed_or_unsigned_type_for (int, tree);
-extern tree signed_type_for (tree);
-extern tree unsigned_type_for (tree);
-extern tree truth_type_for (tree);
-extern tree build_pointer_type_for_mode (tree, machine_mode, bool);
-extern tree build_pointer_type (tree);
-extern tree build_reference_type_for_mode (tree, machine_mode, bool);
-extern tree build_reference_type (tree);
-extern tree build_vector_type_for_mode (tree, machine_mode);
-extern tree build_vector_type (tree innertype, int nunits);
-extern tree build_truth_vector_type (unsigned, unsigned);
-extern tree build_same_sized_truth_vector_type (tree vectype);
-extern tree build_opaque_vector_type (tree innertype, int nunits);
-extern tree build_index_type (tree);
-extern tree build_array_type (tree, tree);
-extern tree build_nonshared_array_type (tree, tree);
-extern tree build_array_type_nelts (tree, unsigned HOST_WIDE_INT);
-extern tree build_function_type (tree, tree);
-extern tree build_function_type_list (tree, ...);
-extern tree build_varargs_function_type_list (tree, ...);
-extern tree build_function_type_array (tree, int, tree *);
-extern tree build_varargs_function_type_array (tree, int, tree *);
+extern ttype *signed_or_unsigned_type_for (int, ttype_p);
+extern ttype *signed_type_for (ttype_p);
+extern ttype *unsigned_type_for (ttype_p);
+extern ttype *truth_type_for (ttype_p );
+extern ttype *build_pointer_type_for_mode (ttype_p, machine_mode, bool);
+extern ttype *build_pointer_type (ttype_p);
+extern ttype *build_reference_type_for_mode (ttype_p, machine_mode, bool);
+extern ttype *build_reference_type (ttype_p);
+extern ttype *build_vector_type_for_mode (ttype_p, machine_mode);
+extern ttype *build_vector_type (ttype_p innertype, int nunits);
+extern ttype *build_truth_vector_type (unsigned, unsigned);
+extern ttype *build_same_sized_truth_vector_type (ttype_p vectype);
+extern ttype *build_opaque_vector_type (ttype_p innertype, int nunits);
+extern ttype *build_index_type (tree);
+extern ttype *build_array_type (ttype_p, ttype_p);
+extern ttype *build_nonshared_array_type (ttype_p, ttype_p);
+extern ttype *build_array_type_nelts (ttype_p, unsigned HOST_WIDE_INT);
+extern ttype *build_function_type (ttype_p, tree);
+extern ttype *build_function_type_list (ttype_p, ...);
+extern ttype *build_varargs_function_type_list (ttype_p, ...);
+
+/* This class is used for parameters that pass in an array of types.  This
+   allows callers to pass in an array of tree or ttype *.
+   Note this is different the ttype_p, which is NOT a vector.  */
+class type_array {
+  void *vec;
+public:
+  inline type_array (tree *t) { vec = t; }
+  inline type_array (ttype **t) { vec = t; }
+  ttype *operator[] (unsigned x) { return ((ttype **)vec)[x]; }
+};
+
+extern ttype *build_function_type_array (ttype_p, int, type_array);
+extern ttype *build_varargs_function_type_array (ttype_p, int, type_array);
 #define build_function_type_vec(RET, V) \
   build_function_type_array (RET, vec_safe_length (V), vec_safe_address (V))
 #define build_varargs_function_type_vec(RET, V) \
   build_varargs_function_type_array (RET, vec_safe_length (V), \
 				     vec_safe_address (V))
-extern tree build_method_type_directly (tree, tree, tree);
-extern tree build_method_type (tree, tree);
-extern tree build_offset_type (tree, tree);
-extern tree build_complex_type (tree);
-extern tree array_type_nelts (const_tree);
+extern ttype *build_method_type_directly (ttype_p, ttype_p, tree);
+extern ttype *build_method_type (ttype_p, ttype_p);
+extern ttype *build_offset_type (ttype_p, ttype_p);
+extern ttype *build_complex_type (ttype_p);
+extern tree array_type_nelts (const ttype_p);
 
 extern tree value_member (tree, tree);
 extern tree purpose_member (const_tree, tree);
 extern bool vec_member (const_tree, vec<tree, va_gc> *);
+extern bool vec_member (const ttype *, vec<ttype *, va_gc> *);
 extern tree chain_index (int, tree);
 
 extern int attribute_list_equal (const_tree, const_tree);
@@ -4087,10 +4278,11 @@ tree_to_uhwi (const_tree t)
 extern int tree_int_cst_sgn (const_tree);
 extern int tree_int_cst_sign_bit (const_tree);
 extern unsigned int tree_int_cst_min_precision (tree, signop);
-extern tree strip_array_types (tree);
-extern tree excess_precision_type (tree);
+extern ttype *strip_array_types (ttype_p);
+extern ttype *excess_precision_type (ttype_p);
 extern bool valid_constant_size_p (const_tree);
-
+extern unsigned int element_precision (const_tree);
+extern unsigned int element_precision (const ttype *);
 
 /* From expmed.c.  Since rtl.h is included after tree.h, we can't
    put the prototype here.  Rtl.h does declare the prototype if
@@ -4104,19 +4296,22 @@ extern tree make_tree (tree, rtx);
    Such modified types already made are recorded so that duplicates
    are not made.  */
 
-extern tree build_type_attribute_variant (tree, tree);
+extern ttype *build_type_attribute_variant (ttype_p, tree);
 extern tree build_decl_attribute_variant (tree, tree);
-extern tree build_type_attribute_qual_variant (tree, tree, int);
+extern ttype *build_type_attribute_qual_variant (ttype_p, tree, int);
 
 extern bool attribute_value_equal (const_tree, const_tree);
 
 /* Return 0 if the attributes for two types are incompatible, 1 if they
    are compatible, and 2 if they are nearly compatible (which causes a
    warning to be generated).  */
-extern int comp_type_attributes (const_tree, const_tree);
+extern int comp_type_attributes (const ttype_p, const ttype_p);
 
 /* Default versions of target-overridable functions.  */
 extern tree merge_decl_attributes (tree, tree);
+
+/* TTYPE. Remove tree version when target.def can be changed to ttype *. */
+extern tree merge_type_attributes (ttype *, ttype *);
 extern tree merge_type_attributes (tree, tree);
 
 /* This function is a private implementation detail of lookup_attribute()
@@ -4205,27 +4400,27 @@ extern tree handle_dll_attribute (tree *, tree, tree, int, bool *);
 
 /* Returns true iff unqualified CAND and BASE are equivalent.  */
 
-extern bool check_base_type (const_tree cand, const_tree base);
+extern bool check_base_type (const ttype_p cand, const ttype_p base);
 
 /* Check whether CAND is suitable to be returned from get_qualified_type
    (BASE, TYPE_QUALS).  */
 
-extern bool check_qualified_type (const_tree, const_tree, int);
+extern bool check_qualified_type (const ttype_p, const ttype_p, int);
 
 /* Return a version of the TYPE, qualified as indicated by the
    TYPE_QUALS, if one exists.  If no qualified version exists yet,
    return NULL_TREE.  */
 
-extern tree get_qualified_type (tree, int);
+extern ttype *get_qualified_type (ttype_p , int);
 
 /* Like get_qualified_type, but creates the type if it does not
    exist.  This function never returns NULL_TREE.  */
 
-extern tree build_qualified_type (tree, int);
+extern ttype *build_qualified_type (ttype_p, int);
 
 /* Create a variant of type T with alignment ALIGN.  */
 
-extern tree build_aligned_type (tree, unsigned int);
+extern ttype *build_aligned_type (ttype_p, unsigned int);
 
 /* Like build_qualified_type, but only deals with the `const' and
    `volatile' qualifiers.  This interface is retained for backwards
@@ -4239,21 +4434,21 @@ extern tree build_aligned_type (tree, unsigned int);
 
 /* Make a copy of a type node.  */
 
-extern tree build_distinct_type_copy (tree);
-extern tree build_variant_type_copy (tree);
+extern ttype *build_distinct_type_copy (ttype_p);
+extern ttype *build_variant_type_copy (ttype_p);
 
 /* Given a hashcode and a ..._TYPE node (for which the hashcode was made),
    return a canonicalized ..._TYPE node, so that duplicates are not made.
    How the hash code is computed is up to the caller, as long as any two
    callers that could hash identical-looking type nodes agree.  */
 
-extern tree type_hash_canon (unsigned int, tree);
+extern ttype *type_hash_canon (unsigned int, ttype_p);
 
 extern tree convert (tree, tree);
 extern unsigned int expr_align (const_tree);
-extern tree size_in_bytes (const_tree);
-extern HOST_WIDE_INT int_size_in_bytes (const_tree);
-extern HOST_WIDE_INT max_int_size_in_bytes (const_tree);
+extern tree size_in_bytes (const ttype_p);
+extern HOST_WIDE_INT int_size_in_bytes (const ttype_p);
+extern HOST_WIDE_INT max_int_size_in_bytes (const ttype_p);
 extern tree bit_position (const_tree);
 extern tree byte_position (const_tree);
 extern HOST_WIDE_INT int_byte_position (const_tree);
@@ -4300,7 +4495,7 @@ extern int list_length (const_tree);
 
 /* Returns the first FIELD_DECL in a type.  */
 
-extern tree first_field (const_tree);
+extern tree first_field (const ttype_p);
 
 /* Given an initializer INIT, return TRUE if INIT is zero or some
    aggregate of zeros.  Otherwise return FALSE.  */
@@ -4410,7 +4605,7 @@ extern bool contains_placeholder_p (const_tree);
    directly.  This includes size, bounds, qualifiers (for QUAL_UNION_TYPE) and
    field positions.  */
 
-extern bool type_contains_placeholder_p (tree);
+extern bool type_contains_placeholder_p (ttype_p);
 
 /* Given a tree EXP, find all occurrences of references to fields
    in a PLACEHOLDER_EXPR and place them in vector REFS without
@@ -4469,7 +4664,7 @@ extern tree stabilize_reference (tree);
    is the same as if EXP were converted to FOR_TYPE.
    If FOR_TYPE is 0, it signifies EXP's type.  */
 
-extern tree get_unwidened (tree, tree);
+extern tree get_unwidened (tree, ttype_p);
 
 /* Return OP or a simpler expression for a narrower value
    which can be sign-extended or zero-extended to give back OP.
@@ -4594,10 +4789,10 @@ function_args_iter_cond_ptr (function_args_iterator *i)
 /* Return the next argument if there are more arguments to handle, otherwise
    return NULL.  */
 
-static inline tree
+static inline ttype *
 function_args_iter_cond (function_args_iterator *i)
 {
-  return (i->next) ? TREE_VALUE (i->next) : NULL_TREE;
+  return (i->next) ? TREE_VALUE_TYPE (i->next) : NULL;
 }
 
 /* Advance to the next argument.  */
@@ -4629,7 +4824,7 @@ inlined_function_outer_scope_p (const_tree block)
    used to iterate the arguments.  */
 #define FOREACH_FUNCTION_ARGS(FNTYPE, TREE, ITER)			\
   for (function_args_iter_init (&(ITER), (FNTYPE));			\
-       (TREE = function_args_iter_cond (&(ITER))) != NULL_TREE;		\
+       (TREE = function_args_iter_cond (&(ITER))) != NULL;		\
        function_args_iter_next (&(ITER)))
 
 /* In tree.c */
@@ -4640,24 +4835,24 @@ extern void clean_symbol_name (char *);
 extern tree get_file_function_name (const char *);
 extern tree get_callee_fndecl (const_tree);
 extern combined_fn get_call_combined_fn (const_tree);
-extern int type_num_arguments (const_tree);
+extern int type_num_arguments (const ttype_p);
 extern bool associative_tree_code (enum tree_code);
 extern bool commutative_tree_code (enum tree_code);
 extern bool commutative_ternary_tree_code (enum tree_code);
 extern bool operation_can_overflow (enum tree_code);
-extern bool operation_no_trapping_overflow (tree, enum tree_code);
-extern tree upper_bound_in_type (tree, tree);
-extern tree lower_bound_in_type (tree, tree);
+extern bool operation_no_trapping_overflow (ttype_p, enum tree_code);
+extern tree upper_bound_in_type (ttype_p, ttype_p);
+extern tree lower_bound_in_type (ttype_p, ttype_p);
 extern int operand_equal_for_phi_arg_p (const_tree, const_tree);
 extern tree create_artificial_label (location_t);
 extern const char *get_name (tree);
-extern bool stdarg_p (const_tree);
-extern bool prototype_p (const_tree);
+extern bool stdarg_p (const ttype_p);
+extern bool prototype_p (const ttype_p);
 extern bool is_typedef_decl (const_tree x);
-extern bool typedef_variant_p (const_tree);
+extern bool typedef_variant_p (const ttype_p);
 extern bool auto_var_in_fn_p (const_tree, const_tree);
-extern tree build_low_bits_mask (tree, unsigned);
-extern bool tree_nop_conversion_p (const_tree, const_tree);
+extern tree build_low_bits_mask (ttype_p, unsigned);
+extern bool tree_nop_conversion_p (const ttype_p, const ttype_p);
 extern tree tree_strip_nop_conversions (tree);
 extern tree tree_strip_sign_nop_conversions (tree);
 extern const_tree strip_invariant_refs (const_tree);
@@ -4773,11 +4968,11 @@ extern tree strip_float_extensions (tree);
 extern int really_constant_p (const_tree);
 extern bool decl_address_invariant_p (const_tree);
 extern bool decl_address_ip_invariant_p (const_tree);
-extern bool int_fits_type_p (const_tree, const_tree);
+extern bool int_fits_type_p (const_tree, ttype_p);
 #ifndef GENERATOR_FILE
-extern void get_type_static_bounds (const_tree, mpz_t, mpz_t);
+extern void get_type_static_bounds (const ttype_p, mpz_t, mpz_t);
 #endif
-extern bool variably_modified_type_p (tree, tree);
+extern bool variably_modified_type_p (ttype_p, tree);
 extern int tree_log2 (const_tree);
 extern int tree_floor_log2 (const_tree);
 extern unsigned int tree_ctz (const_tree);
@@ -4805,26 +5000,26 @@ extern int chain_member (const_tree, const_tree);
 extern void dump_tree_statistics (void);
 extern void recompute_tree_invariant_for_addr_expr (tree);
 extern bool needs_to_live_in_memory (const_tree);
-extern tree reconstruct_complex_type (tree, tree);
+extern ttype *reconstruct_complex_type (ttype_p, ttype_p);
 extern int real_onep (const_tree);
 extern int real_minus_onep (const_tree);
 extern void init_ttree (void);
 extern void build_common_tree_nodes (bool);
 extern void build_common_builtin_nodes (void);
-extern tree build_nonstandard_integer_type (unsigned HOST_WIDE_INT, int);
-extern tree build_nonstandard_boolean_type (unsigned HOST_WIDE_INT);
-extern tree build_range_type (tree, tree, tree);
-extern tree build_nonshared_range_type (tree, tree, tree);
-extern bool subrange_type_for_debug_p (const_tree, tree *, tree *);
+extern ttype *build_nonstandard_integer_type (unsigned HOST_WIDE_INT, int);
+extern ttype *build_nonstandard_boolean_type (unsigned HOST_WIDE_INT);
+extern ttype *build_range_type (ttype_p, tree, tree);
+extern ttype *build_nonshared_range_type (ttype_p, tree, tree);
+extern bool subrange_type_for_debug_p (const ttype_p, tree *, tree *);
 extern HOST_WIDE_INT int_cst_value (const_tree);
 extern tree tree_block (tree);
 extern void tree_set_block (tree, tree);
 extern location_t *block_nonartificial_location (tree);
 extern location_t tree_nonartificial_location (tree);
 extern tree block_ultimate_origin (const_tree);
-extern tree get_binfo_at_offset (tree, HOST_WIDE_INT, tree);
+extern tree get_binfo_at_offset (tree, HOST_WIDE_INT, ttype_p);
 extern bool virtual_method_call_p (const_tree);
-extern tree obj_type_ref_class (const_tree ref);
+extern ttype *obj_type_ref_class (const_tree ref);
 extern bool types_same_for_odr (const_tree type1, const_tree type2,
 				bool strict=false);
 extern bool contains_bitfld_component_ref_p (const_tree);
@@ -4836,6 +5031,10 @@ extern void set_call_expr_flags (tree, int);
 extern tree walk_tree_1 (tree*, walk_tree_fn, void*, hash_set<tree>*,
 			 walk_tree_lh);
 extern tree walk_tree_without_duplicates_1 (tree*, walk_tree_fn, void*,
+					    walk_tree_lh);
+extern tree walk_tree_1 (ttype **, walk_tree_fn, void*, hash_set<tree>*,
+			 walk_tree_lh);
+extern tree walk_tree_without_duplicates_1 (ttype **, walk_tree_fn, void*,
 					    walk_tree_lh);
 #define walk_tree(a,b,c,d) \
 	walk_tree_1 (a, b, c, d, NULL)
@@ -4873,10 +5072,10 @@ extern tree component_ref_field_offset (tree);
 extern int tree_map_base_eq (const void *, const void *);
 extern unsigned int tree_map_base_hash (const void *);
 extern int tree_map_base_marked_p (const void *);
-extern void DEBUG_FUNCTION verify_type (const_tree t);
-extern bool gimple_canonical_types_compatible_p (const_tree, const_tree,
+extern void DEBUG_FUNCTION verify_type (const ttype_p t);
+extern bool gimple_canonical_types_compatible_p (ttype_p, ttype_p,
 						 bool trust_type_canonical = true);
-extern bool type_with_interoperable_signedness (const_tree);
+extern bool type_with_interoperable_signedness (const ttype_p);
 
 /* Return simplified tree code of type that is used for canonical type
    merging.  */
@@ -5387,8 +5586,8 @@ extern tree build_personality_function (const char *);
 
 struct GTY(()) int_n_trees_t {
   /* These parts are initialized at runtime */
-  tree signed_type;
-  tree unsigned_type;
+  ttype *signed_type;
+  ttype *unsigned_type;
 };
 
 /* This is also in machmode.h */

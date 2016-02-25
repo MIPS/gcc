@@ -2772,12 +2772,16 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
     lto_register_canonical_types (integer_types[i], true);
   for (i = 0; i < stk_type_kind_last; ++i)
     lto_register_canonical_types (sizetype_tab[i], true);
+  for (i = 0; i < TPI_MAX; ++i)
+    lto_register_canonical_types (global_types[i], true);
   for (i = 0; i < TI_MAX; ++i)
     lto_register_canonical_types (global_trees[i], true);
   for (i = 0; i < itk_none; ++i)
     lto_register_canonical_types (integer_types[i], false);
   for (i = 0; i < stk_type_kind_last; ++i)
     lto_register_canonical_types (sizetype_tab[i], false);
+  for (i = 0; i < TPI_MAX; ++i)
+    lto_register_canonical_types (global_types[i], false);
   for (i = 0; i < TI_MAX; ++i)
     lto_register_canonical_types (global_trees[i], false);
 

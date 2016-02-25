@@ -250,7 +250,7 @@ cxx_init (void)
 
   current_function_decl = NULL;
 
-  class_type_node = ridpointers[(int) RID_CLASS];
+  class_type_node = reinterpret_cast <ttype *>(ridpointers[(int) RID_CLASS]);
 
   cxx_init_decl_processing ();
 
