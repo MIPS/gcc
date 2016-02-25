@@ -771,16 +771,16 @@
   "")
 
 (define_insn "*vsx_mov<mode>_64bit"
-  [(set (match_operand:VSX_M 0 "nonimmediate_operand" "=Z,   wO,   <VSa>,<VSa>,<VSa>,r, wo,wQ,wO,??Y,?&r,?r,??r,??r,<VSa>,*r,v,wZ,v")
-	(match_operand:VSX_M 1 "input_operand"        "<VSa>,<VSa>,Z,    wO,   <VSa>,wo,r, r, r, r,  wQ, wO,Y,  r,  j,    j, W,v, wZ"))]
+  [(set (match_operand:VSX_M 0 "nonimmediate_operand" "=Z,   wO,   Z,     wO,    <VSr>,<VSr>,?<VSa>,?<VSa>,<VSa>,r, wo,wQ,wO,??Y,?&r,?r,??r,??r,<VSa>,*r,v,wZ,v")
+	(match_operand:VSX_M 1 "input_operand"        "<VSr>,<VSr>,?<VSa>,?<VSa>,Z,    wO,   Z,     wO,   <VSa>,wo,r, r, r, r,  wQ, wO,Y,  r,  j,    j, W,v, wZ"))]
   "TARGET_POWERPC64 && VECTOR_MEM_VSX_P (<MODE>mode)
    && (register_operand (operands[0], <MODE>mode) 
        || register_operand (operands[1], <MODE>mode))"
 {
   return rs6000_output_move_128bit (operands);
 }
-  [(set_attr "type"   "vecstore,vecstore,vecload,vecload,vecsimple,mftgpr,mffgpr,store,store,store,load,load,load,*,vecsimple,*,*,vecstore,vecload")
-   (set_attr "length" "4,       4,       4,      4,      4,        8,     4,     8,    8,    8,    8,   8,   8,   8,4,        8,16,4,      4")])
+  [(set_attr "type"   "vecstore,vecstore,vecstore,vecstore,vecload,vecload,vecload,vecload,vecsimple,mftgpr,mffgpr,store,store,store,load,load,load,*,vecsimple,*,*,vecstore,vecload")
+   (set_attr "length" "4,        4,      4,       4,       4,      4,      4,      4,      4,        8,     4,     8,    8,    8,    8,   8,   8,   8,4,        8,16,4,      4")])
 
 (define_insn "*vsx_mov<mode>_32bit"
   [(set (match_operand:VSX_M 0 "nonimmediate_operand" "=Z,   wO,   <VSa>,<VSa>,<VSa>,wO,??Y,?r,??r,??r,<VSa>,*r,v,wZ,v")

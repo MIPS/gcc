@@ -1,3 +1,22 @@
+2016-02-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (wO constraint): Rename
+	vsx_quad_memory_operand to vsx_quad_dform_memory_operand.
+	* config/rs6000/predicates.md (vsx_quad_memory_operand): Likewise.
+	(vsx_quad_dform_memory_operand): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_legitimize_address): Don't handle
+	quad d-form addresses like normal d-form addresses.
+	(rs6000_legitimize_reload_address): Add debug code.
+	(rs6000_secondary_reload_memory): Handle NO_REGS case where we
+	haven't chosen a register class yet.  Add more debug print outs.
+	(rs6000_preferred_reload_class): Return NO_REGS if the mode can't
+	go in certain registers.  Add support for choosing an appropriate
+	default register class if initial choice is NO_REGS.
+
+	* config/rs600/vsx.md (vsx_mov<mode>_64bit): Add support for
+	'preferred' register class back into the move.
+
 2016-02-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_debug_addr_mask): Set
