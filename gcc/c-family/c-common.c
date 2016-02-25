@@ -5224,6 +5224,12 @@ c_get_ident (const char *id)
   return get_identifier (id);
 }
 
+static inline ttype *
+identifier_global_type (tree t)
+{
+  return TTYPE (TREE_TYPE (identifier_global_value (t)));
+}
+
 /* Build tree nodes and builtin functions common to both C and C++ language
    frontends.  */
 
@@ -5451,8 +5457,8 @@ c_common_nodes_and_builtins (void)
   {
     tree void_name = TYPE_NAME (void_type_node);
     TYPE_NAME (void_type_node) = NULL_TREE;
-    TYPE_NAME (build_qualified_type (void_type_node, TYPE_QUAL_CONST)) = 
-	       void_name;
+    TYPE_NAME (build_qualified_type (void_type_node, TYPE_QUAL_CONST))
+	       = void_name;
     TYPE_NAME (void_type_node) = void_name;
   }
 

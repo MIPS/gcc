@@ -858,12 +858,6 @@ extern bool keyword_is_decl_specifier (enum rid);
 extern bool cxx_fundamental_alignment_p (unsigned);
 extern bool pointer_to_zero_sized_aggr_p (tree);
 
-static inline ttype *
-identifier_global_type (tree t)
-{
-  return TTYPE (TREE_TYPE (identifier_global_value (t)));
-}
-
 #define c_sizeof(LOC, T)  c_sizeof_or_alignof_type (LOC, T, true, false, 1)
 #define c_alignof(LOC, T) c_sizeof_or_alignof_type (LOC, T, false, false, 1)
 
