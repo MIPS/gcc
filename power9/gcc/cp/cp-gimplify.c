@@ -2068,6 +2068,25 @@ cp_fold (tree x)
       else
 	x = fold (x);
 
+      if (TREE_NO_WARNING (org_x)
+	  && warn_nonnull_compare
+	  && COMPARISON_CLASS_P (org_x))
+	{
+	  if (x == error_mark_node || TREE_CODE (x) == INTEGER_CST)
+	    ;
+	  else if (COMPARISON_CLASS_P (x))
+	    TREE_NO_WARNING (x) = 1;
+	  /* Otherwise give up on optimizing these, let GIMPLE folders
+	     optimize those later on.  */
+	  else if (op0 != TREE_OPERAND (org_x, 0)
+		   || op1 != TREE_OPERAND (org_x, 1))
+	    {
+	      x = build2_loc (loc, code, TREE_TYPE (org_x), op0, op1);
+	      TREE_NO_WARNING (x) = 1;
+	    }
+	  else
+	    x = org_x;
+	}
       break;
 
     case VEC_COND_EXPR:
@@ -2151,7 +2170,8 @@ cp_fold (tree x)
 	   TODO:
 	   Do constexpr expansion of expressions where the call itself is not
 	   constant, but the call followed by an INDIRECT_REF is.  */
-	if (callee && DECL_DECLARED_CONSTEXPR_P (callee))
+	if (callee && DECL_DECLARED_CONSTEXPR_P (callee)
+	    && !flag_no_inline)
           r = maybe_constant_value (x);
 	optimize = sv;
 
