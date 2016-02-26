@@ -1,3 +1,9 @@
+2016-02-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (vsx_mov<mode>_64bit): Make GPRs only used
+	if something else needs a GPR.
+	(vsx_mov<mode>_32bit): Likewise.
+
 2016-02-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to pre-GCC 7.0 branch (subversion id 233726), which is
