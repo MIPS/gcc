@@ -1,3 +1,15 @@
+2016-02-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (-mlra): Convert -mlra into target bit
+	instead of using a separate variable.
+	* config/rs6000/rs6000.c (rs6000_lra_p): Likewise.
+	(rs6000_opt_masks): Add -mlra as an option that is printed, but
+	not available to be set.
+
+	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Turn on
+	the -mlra and -mvsx-timode options by default.
+	(POWERPC_MASKS): Add -mlra.
+
 2016-02-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 233725.
