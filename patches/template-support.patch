@@ -1,5 +1,5 @@
-Bottom: d028f7e8aed6687e53512dfd8a0acd347e0e8b34
-Top:    62d47cba7b3ad41a3212be832fc70c6f8624a5ec
+Bottom: 6c5fa688a2157461f400f5328d8c18a78bd42581
+Top:    9ceaf38e96b75532db47e690351b95fe5126ce2b
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2015-11-26 18:57:41 -0200
 
@@ -323,7 +323,7 @@ index 77ad7db..371cfcf 100644
    GCC_CP_FLAG_BASE,
  
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index d0cfaf2..30714ef 100644
+index ad20cb7..7ead02c 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -61,6 +61,7 @@
@@ -334,7 +334,7 @@ index d0cfaf2..30714ef 100644
  
  #include "callbacks.hh"
  #include "connection.hh"
-@@ -476,10 +477,14 @@ plugin_new_decl (cc1_plugin::connection *self,
+@@ -477,10 +478,14 @@ plugin_new_decl (cc1_plugin::connection *self,
        gcc_assert (!sym_flags);
        return convert_out (error_mark_node);
  
@@ -349,7 +349,7 @@ index d0cfaf2..30714ef 100644
    source_location loc = ctx->get_source_location (filename, line_number);
    bool class_member_p = at_class_scope_p ();
    bool ctor = false, dtor = false;
-@@ -977,13 +982,12 @@ plugin_start_new_union_type (cc1_plugin::connection *self,
+@@ -981,13 +986,12 @@ plugin_start_new_union_type (cc1_plugin::connection *self,
  
  int
  plugin_new_field (cc1_plugin::connection *,
@@ -364,7 +364,7 @@ index d0cfaf2..30714ef 100644
    tree field_type = convert_in (field_type_in);
  
    gcc_assert (RECORD_OR_UNION_CODE_P (TREE_CODE (record_or_union_type)));
-@@ -1023,10 +1027,9 @@ plugin_new_field (cc1_plugin::connection *,
+@@ -1027,10 +1031,9 @@ plugin_new_field (cc1_plugin::connection *,
  
  int
  plugin_finish_record_or_union (cc1_plugin::connection *,
@@ -376,7 +376,7 @@ index d0cfaf2..30714ef 100644
  
    gcc_assert (RECORD_OR_UNION_CODE_P (TREE_CODE (record_or_union_type)));
  
-@@ -1035,6 +1038,9 @@ plugin_finish_record_or_union (cc1_plugin::connection *,
+@@ -1039,6 +1042,9 @@ plugin_finish_record_or_union (cc1_plugin::connection *,
    gcc_assert (compare_tree_int (TYPE_SIZE_UNIT (record_or_union_type),
  				size_in_bytes) == 0);
  
@@ -386,7 +386,7 @@ index d0cfaf2..30714ef 100644
    return 1;
  }
  
-@@ -1211,6 +1217,232 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
+@@ -1215,6 +1221,232 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
    return convert_out (ctx->preserve (memptr_type));
  }
  
@@ -619,7 +619,7 @@ index d0cfaf2..30714ef 100644
  gcc_type
  plugin_int_type (cc1_plugin::connection *self,
  		 int is_unsigned, unsigned long size_in_bytes)
-@@ -1269,6 +1501,14 @@ plugin_build_array_type (cc1_plugin::connection *self,
+@@ -1273,6 +1505,14 @@ plugin_build_array_type (cc1_plugin::connection *self,
  }
  
  gcc_type
