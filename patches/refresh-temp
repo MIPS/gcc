@@ -1,0 +1,22 @@
+Bottom: 5c317dcc13a5e1680021b17d8e338bf56ac98fa2
+Top:    6c5fa688a2157461f400f5328d8c18a78bd42581
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-02-26 21:12:56 -0300
+
+Refresh of silence-warnings-and-improve-hashing.patch
+
+---
+
+diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
+index e67ad4e..ad20cb7 100644
+--- a/libcc1/libcp1plugin.cc
++++ b/libcc1/libcp1plugin.cc
+@@ -2,7 +2,7 @@
+    Copyright (C) 2014-2016 Free Software Foundation, Inc.
+ 
+    This file is part of GCC.  As it interacts with GDB through libcc1,
+-   they all become a single program.
++   they all become a single program as regards the GNU GPL's requirements.
+ 
+    GCC is free software; you can redistribute it and/or modify it under
+    the terms of the GNU General Public License as published by the Free
