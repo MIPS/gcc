@@ -1,5 +1,5 @@
 Bottom: c4ccc5e8023c3fdd52548e3e38657ac71cf3c693
-Top:    d028f7e8aed6687e53512dfd8a0acd347e0e8b34
+Top:    48e008a226119948df95bda2046812bb8b23d9d5
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-02-24 02:28:46 -0300
 
@@ -8,7 +8,7 @@ adjust copyright notice
 ---
 
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index e0c2a6a..d0cfaf2 100644
+index e0c2a6a..32f9702 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -1,7 +1,8 @@
@@ -19,7 +19,7 @@ index e0c2a6a..d0cfaf2 100644
  
 -   This file is part of GCC.
 +   This file is part of GCC.  As it interacts with GDB through libcc1,
-+   they all become a single program.
++   they all become a single program as regards the GNU GPL's requirements.
  
     GCC is free software; you can redistribute it and/or modify it under
     the terms of the GNU General Public License as published by the Free
