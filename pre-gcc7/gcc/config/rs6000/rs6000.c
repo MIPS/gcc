@@ -34628,7 +34628,7 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "hard-dfp",			OPTION_MASK_DFP,		false, true  },
   { "htm",			OPTION_MASK_HTM,		false, true  },
   { "isel",			OPTION_MASK_ISEL,		false, true  },
-  { "lra",			OPTION_MASK_LRA,		false, false },
+  { "lra",			OPTION_MASK_NO_LRA,		true,  false },
   { "mfcrf",			OPTION_MASK_MFCRF,		false, true  },
   { "mfpgpr",			OPTION_MASK_MFPGPR,		false, true  },
   { "modulo",			OPTION_MASK_MODULO,		false, true  },

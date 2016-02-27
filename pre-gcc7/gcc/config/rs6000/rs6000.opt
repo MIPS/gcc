@@ -469,9 +469,13 @@ mlong-double-
 Target RejectNegative Joined UInteger Var(rs6000_long_double_type_size) Save
 -mlong-double-<n>	Specify size of long double (64 or 128 bits).
 
+mno-lra
+Target Report RejectNegative Mask(NO_LRA) Var(rs6000_isa_flags)
+Use the old reload register allocator instead of the LRA register allocator.
+
 mlra
-Target Report Mask(LRA) Var(rs6000_isa_flags)
-Use LRA instead of reload.
+Target Report RejectNegative InverseMask(NO_LRA, LRA) Var(rs6000_isa_flags)
+Use the LRA register allocator instead of the reload register allocator.
 
 msched-costly-dep=
 Target RejectNegative Joined Var(rs6000_sched_costly_dep_str)

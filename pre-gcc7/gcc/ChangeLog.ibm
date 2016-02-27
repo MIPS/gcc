@@ -1,5 +1,11 @@
 2016-02-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Make -mlra
+	default for all cpus.
+	(POWERPC_MASKS): Likewise.
+	* config/rs6000/rs6000.opt (-mlra): Likewise.
+	* config/rs6000/rs6000.c (rs6000_opt_masks): Likewise.
+
 	* config/rs6000/rs6000.opt (-mlra): Convert -mlra into target bit
 	instead of using a separate variable.
 	* config/rs6000/rs6000.c (rs6000_lra_p): Likewise.
