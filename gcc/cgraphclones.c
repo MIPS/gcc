@@ -383,12 +383,14 @@ strip_type (tree type)
 
 static tree
 build_function_type_skip_decomp_args (tree orig_type, bitmap args_to_skip,
-				      bitmap args_to_decompose, bool skip_return)
+				      bitmap args_to_decompose, 
+				      parms_added_p parms, bool skip_return)
 {
   tree new_type = NULL;
   tree args, new_args = NULL, t;
   tree new_reversed;
   int i = 0;
+  unsigned j = 0;
 
   for (args = TYPE_ARG_TYPES (orig_type); args && args != void_list_node;
        args = TREE_CHAIN (args), i++)
@@ -398,6 +400,7 @@ build_function_type_skip_decomp_args (tree orig_type, bitmap args_to_skip,
 	  tree type = TREE_VALUE (args);
 	  tree stype = strip_type (type);
 	  tree t;
+	  int num_new_parms = 0;
 
 	  gcc_assert (TREE_CODE (stype) == RECORD_TYPE);
 	  for (t = TYPE_FIELDS (stype); t; t = TREE_CHAIN (t))
@@ -405,12 +408,17 @@ build_function_type_skip_decomp_args (tree orig_type, bitmap args_to_skip,
 	      tree ntype = wrap_new_type (type, TREE_TYPE (t));
 
 	      new_args = tree_cons (NULL_TREE, ntype, new_args);
+	      num_new_parms++;
 	    }
+	  parms->parms[j] = num_new_parms;
+	  j++;
 	}
       if (!args_to_skip || !bitmap_bit_p (args_to_skip, i))
 	new_args = tree_cons (NULL_TREE, TREE_VALUE (args), new_args);
     }
 
+  if (parms)
+    gcc_assert (j == parms->num);
   new_reversed = nreverse (new_args);
   if (args)
     {
@@ -451,7 +459,8 @@ build_function_type_skip_decomp_args (tree orig_type, bitmap args_to_skip,
   if (t != orig_type)
     {
       t = build_function_type_skip_decomp_args (t, args_to_skip, 
-					 args_to_decompose, skip_return);
+						args_to_decompose, 
+						parms, skip_return);
       TYPE_MAIN_VARIANT (new_type) = t;
       TYPE_NEXT_VARIANT (new_type) = TYPE_NEXT_VARIANT (t);
       TYPE_NEXT_VARIANT (t) = new_type;
@@ -474,7 +483,8 @@ build_function_type_skip_decomp_args (tree orig_type, bitmap args_to_skip,
 
 static tree
 build_function_decl_skip_decomp_args (tree orig_decl, bitmap args_to_skip,
-			       bitmap args_to_decompose, bool skip_return)
+				      bitmap args_to_decompose, 
+				      parms_added_p parms, bool skip_return)
 {
   tree new_decl = copy_node (orig_decl);
   tree new_type;
@@ -483,8 +493,8 @@ build_function_decl_skip_decomp_args (tree orig_decl, bitmap args_to_skip,
   if (prototype_p (new_type)
       || (skip_return && !VOID_TYPE_P (TREE_TYPE (new_type))))
     new_type
-      = build_function_type_skip_decomp_args (new_type, args_to_skip, 
-					      args_to_decompose, skip_return);
+      = build_function_type_skip_decomp_args (new_type, args_to_skip, args_to_decompose,
+					      parms, skip_return);
   TREE_TYPE (new_decl) = new_type;
 
   /* For declarations setting DECL_VINDEX (i.e. methods)
@@ -526,8 +536,25 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
   tree new_decl;
   size_t len, i;
   struct ipa_replace_map *map;
-  char *name;  
+  char *name;
+  parms_added_p parms;
+  bitmap_iterator bi;
+  unsigned int index;
+  unsigned int size = 0;
 
+
+  parms = ggc_alloc_parms_added ();
+  /* The size of parms_added vector is equal to number of fields to decompose.  */
+  if (args_to_decompose)
+    {
+      EXECUTE_IF_SET_IN_BITMAP (args_to_decompose, 0, index, bi)
+	size++;
+      parms->num = size;
+    }
+  else
+    parms->num = 0;
+
+  gcc_assert (size <= MAX_PARMS_TO_DECOMPOSE);
 
   if (!in_lto_p)
     gcc_checking_assert  (tree_versionable_function_p (old_decl));
@@ -542,6 +569,7 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
     new_decl = build_function_decl_skip_decomp_args (old_decl, 
 						     args_to_skip, 
 						     args_to_decompose,
+						     parms,
 						     false);
 
   /* These pointers represent function body and will be populated only when clone
@@ -602,6 +630,7 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
   if (args_to_skip)
     {
       vec_safe_push (new_node->clone.combined_args_to_skip, args_to_skip);
+      vec_safe_push (new_node->clone.combined_parms_added, parms);
       if (!args_to_decompose)
 	{
 	  bitmap tmp = BITMAP_GGC_ALLOC ();
@@ -613,6 +642,7 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
   if (args_to_decompose)
     {
       vec_safe_push (new_node->clone.combined_args_to_decompose, args_to_decompose);
+      vec_safe_push (new_node->clone.combined_parms_added, parms);
       if (!args_to_skip)
 	{
 	  bitmap tmp = BITMAP_GGC_ALLOC ();
@@ -656,6 +686,21 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
 	{
 	  fprintf (stderr, "mb %d: ", j);
 	  dump_bitmap (stderr, bm);
+	}
+    }
+  if (new_node->clone.combined_parms_added)
+    {
+      int j;
+      unsigned k;
+      parms_added_p parms;
+      
+      fprintf (stderr, "   combined_parms_added: \n");
+      FOR_EACH_VEC_SAFE_ELT (new_node->clone.combined_parms_added, j, parms)
+	{
+	  fprintf (stderr, "num %d; ", parms->num);
+	  for (k = 0; k < parms->num; k++)
+	    fprintf (stderr, "%d ", parms->parms[k]);
+	  fprintf (stderr, "\n");	      
 	}
     }
 
@@ -1015,7 +1060,7 @@ cgraph_function_versioning (struct cgraph_node *old_version_node,
   else
     new_decl
       = build_function_decl_skip_decomp_args (old_decl, args_to_skip, 
-					      NULL, skip_return);
+					      NULL, NULL, skip_return);
 
   /* Generate a new name for the new version. */
   DECL_NAME (new_decl) = clone_function_name (old_decl, clone_name);

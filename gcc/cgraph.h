@@ -254,6 +254,14 @@ struct GTY(()) ipa_replace_map
 
 typedef struct ipa_replace_map *ipa_replace_map_p;
 
+#define MAX_PARMS_TO_DECOMPOSE 20
+struct GTY(()) parms_added
+{
+  unsigned num; 
+  int parms[MAX_PARMS_TO_DECOMPOSE];
+};
+typedef  parms_added *parms_added_p; 
+ 
 struct GTY(()) cgraph_clone_info
 {
   vec<ipa_replace_map_p, va_gc> *tree_map;
@@ -263,6 +271,9 @@ struct GTY(()) cgraph_clone_info
   vec<bitmap, va_gc> *combined_args_to_skip;
   bitmap args_to_decompose;
   vec<bitmap, va_gc> *combined_args_to_decompose;
+  /* Number parameters added before those who will be decomposed.
+     We need it for adjusting aggregate replacements in ipcp transform.  */
+  vec<parms_added_p, va_gc> *combined_parms_added;
 };
 
 enum cgraph_simd_clone_arg_type

@@ -4793,31 +4793,89 @@ adjust_agg_replacement_values (struct cgraph_node *node,
 			       struct ipa_agg_replacement_value *aggval)
 {
   struct ipa_agg_replacement_value *v;
-  int i, c = 0, d = 0, *adj;
+  int *adj;
+  unsigned j, i, c=0;
 
-  if (!node->clone.combined_args_to_skip)
+  fprintf (stderr, "\nAt the beginning of adjust_agg.\n");
+  if (!node->clone.combined_args_to_skip
+      && !node->clone.combined_args_to_decompose)
     return;
 
   for (v = aggval; v; v = v->next)
     {
       gcc_assert (v->index >= 0);
-      if (c < v->index)
+      if (c < (unsigned)v->index)
 	c = v->index;
     }
   c++;
+  
+  gcc_assert (vec_safe_length (node->clone.combined_args_to_skip)
+	      == vec_safe_length (node->clone.combined_args_to_decompose));
+  gcc_assert (vec_safe_length (node->clone.combined_args_to_skip)
+	      == vec_safe_length (node->clone.combined_parms_added));
 
   adj = XALLOCAVEC (int, c);
+
+  /* Initial mapping.  */
   for (i = 0; i < c; i++)
-    if (bitmap_bit_p (node->clone.combined_args_to_skip, i))
-      {
-	adj[i] = -1;
-	d++;
-      }
-    else
-      adj[i] = i - d;
+    adj[i] = i;
+  
+  for (j = 0; j < vec_safe_length (node->clone.combined_args_to_skip); j++)
+    {
+      bitmap skip = (*node->clone.combined_args_to_skip)[j];
+      bitmap decomp = (*node->clone.combined_args_to_decompose)[j];
+      parms_added_p parms = (*node->clone.combined_parms_added)[j];
+      int k = 0;
+      unsigned n_skip = bitmap_last_set_bit (skip);
+      unsigned n_decomp = bitmap_last_set_bit (decomp);
+      unsigned n = (n_skip > n_decomp) ? n_skip : n_decomp;
+      int * shift = XALLOCAVEC (int, n);
+      int * kill = XALLOCAVEC (int, n);
+      int d = 0;
+
+      for (i = 0; i < n; i++)
+	{
+	  shift[i] = 0;
+	  kill[i] = 0;
+	}
+      
+      for (i = 0; i < n; i++)
+	{
+	  if (bitmap_bit_p (decomp, i))
+	    {
+	      d += parms->parms[k];
+	      k++;
+	    }
+	  shift[i] = d;
+	  if (bitmap_bit_p (skip, i))
+	    {
+	      d--;
+	      kill[i] = 1;
+	    }
+	}
+      shift[n-1] = d;
+      
+      /* Update adjustments.  */
+      for (i = 0; i < c; i++)
+	{
+	  int a = adj[i];
+	  if (a != -1) /* i was not skipped */
+	    {
+	      if ((unsigned)a >= n)
+		adj[i] += shift[n-1];
+	      else
+		{
+		  if (kill[a])
+		    adj[i] = -1;
+		  else
+		    adj[i] += shift[a];
+		}
+	    }
+	}
+    }
 
   for (v = aggval; v; v = v->next)
-    v->index = adj[v->index];
+    v->index = adj[v->index]; 
 }
 
 

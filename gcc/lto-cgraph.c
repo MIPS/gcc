@@ -1629,7 +1629,8 @@ output_cgraph_opt_summary_p (struct cgraph_node *node)
 	      || node->clone.args_to_skip 
 	      || node->clone.combined_args_to_skip
 	      || node->clone.args_to_decompose 
-	      || node->clone.combined_args_to_decompose));
+	      || node->clone.combined_args_to_decompose
+	      || node->clone.combined_parms_added));
 }
 
 /* Output optimization summary for EDGE to OB.  */
@@ -1690,6 +1691,21 @@ output_node_opt_summary (struct output_block *ob,
 	  streamer_write_uhwi (ob, bitmap_count_bits (bm));
 	  EXECUTE_IF_SET_IN_BITMAP (bm, 0, index, bi)
 	    streamer_write_uhwi (ob, index);
+	}
+    }
+  else
+    streamer_write_uhwi (ob, 0);
+  if (node->clone.combined_parms_added)
+    {
+      parms_added_p parms;
+      unsigned j;
+
+      streamer_write_uhwi (ob, vec_safe_length (node->clone.combined_parms_added));
+      FOR_EACH_VEC_SAFE_ELT (node->clone.combined_parms_added, i, parms)
+	{
+	  streamer_write_uhwi (ob, parms->num);
+	  for (j=0; j < parms->num; j++)
+	    streamer_write_uhwi (ob, parms->parms[j]);
 	}
     }
   else
@@ -1823,6 +1839,22 @@ input_node_opt_summary (struct cgraph_node *node,
 	      bit = streamer_read_uhwi (ib_main);
 	      bitmap_set_bit (bm, bit);
 	    }
+	}
+    }
+  count = streamer_read_uhwi (ib_main);
+  node->clone.combined_parms_added = NULL;
+  if (count)
+    {
+      for (i = 0; i < count; i++)
+	{	  
+	  parms_added_p parms = ggc_alloc_parms_added ();
+	  unsigned len = streamer_read_uhwi (ib_main);
+	  unsigned k;
+	  parms->num = len;
+
+	  vec_safe_push (node->clone.combined_parms_added, parms);
+	  for (k = 0; k < len; k++)
+	    parms->parms[k] = streamer_read_uhwi (ib_main);
 	}
     }
   count = streamer_read_uhwi (ib_main);

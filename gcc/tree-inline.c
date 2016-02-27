@@ -5095,11 +5095,11 @@ copy_arguments_for_versioning (tree orig_parm, copy_body_data * id,
   tree new_parm = NULL, ntype;
   int i;
 
-
   i = 0;
   /* dst_fc is a new function declaration, 
      that already defines new types of parameters. */
   ntype = TYPE_ARG_TYPES (TREE_TYPE((*id).dst_fn));
+    
   parg = &new_parm;
   for (arg = orig_parm; arg; arg = DECL_CHAIN (arg), i++)
     {
@@ -5116,7 +5116,6 @@ copy_arguments_for_versioning (tree orig_parm, copy_body_data * id,
 	  arg_name = IDENTIFIER_POINTER (DECL_NAME (arg));
 	  for (t = TYPE_FIELDS (stype); t; t = TREE_CHAIN (t))
 	    {
-	      //debug_tree (TREE_VALUE (ntype));
 	      field_name = IDENTIFIER_POINTER (DECL_NAME (t));
 	      sprintf (buf, "%s.%s", arg_name, field_name);
 	      parm_name = get_identifier (buf);
@@ -5125,7 +5124,8 @@ copy_arguments_for_versioning (tree orig_parm, copy_body_data * id,
 	      lang_hooks.dup_lang_specific_decl (parm_decl);
 	      *parg = parm_decl;
 	      parg = &DECL_CHAIN (parm_decl);
-	      ntype = TREE_CHAIN (ntype);
+	      if (ntype && ntype != void_list_node)
+		ntype = TREE_CHAIN (ntype);
 	    }
 	}
       if (!args_to_skip || !bitmap_bit_p (args_to_skip, i))
@@ -5138,7 +5138,8 @@ copy_arguments_for_versioning (tree orig_parm, copy_body_data * id,
 	  lang_hooks.dup_lang_specific_decl (new_tree);
 	  *parg = new_tree;
 	  parg = &DECL_CHAIN (new_tree);
-	  ntype = TREE_CHAIN (ntype);
+	  if (ntype && ntype != void_list_node)
+	    ntype = TREE_CHAIN (ntype);
 	}
       else if (!pointer_map_contains (id->decl_map, arg))
 	{
