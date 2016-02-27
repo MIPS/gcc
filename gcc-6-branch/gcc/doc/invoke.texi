@@ -303,7 +303,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wunsuffixed-float-constants  -Wunused  -Wunused-function @gol
 -Wunused-label  -Wunused-local-typedefs -Wunused-parameter @gol
 -Wno-unused-result -Wunused-value @gol -Wunused-variable @gol
--Wunused-const-variable @gol
+-Wunused-const-variable -Wunused-const-variable=@var{n} @gol
 -Wunused-but-set-parameter -Wunused-but-set-variable @gol
 -Wuseless-cast -Wvariadic-macros -Wvector-operation-performance @gol
 -Wvla -Wvolatile-register-var  -Wwrite-strings @gol
@@ -4231,22 +4231,38 @@ its return value. The default is @option{-Wunused-result}.
 @opindex Wunused-variable
 @opindex Wno-unused-variable
 Warn whenever a local or static variable is unused aside from its
-declaration. This option implies @option{-Wunused-const-variable} for C,
+declaration. This option implies @option{-Wunused-const-variable=1} for C,
 but not for C++. This warning is enabled by @option{-Wall}.
 
 To suppress this warning use the @code{unused} attribute
 (@pxref{Variable Attributes}).
 
 @item -Wunused-const-variable
+@itemx -Wunused-const-variable=@var{n}
 @opindex Wunused-const-variable
 @opindex Wno-unused-const-variable
 Warn whenever a constant static variable is unused aside from its declaration.
-This warning is enabled by @option{-Wunused-variable} for C, but not for C++.
-In C++ this is normally not an error since const variables take the place of
-@code{#define}s in C++.
+@option{-Wunused-const-variable=1} is enabled by @option{-Wunused-variable}
+for C, but not for C++. In C this declares variable storage, but in C++ this
+is not an error since const variables take the place of @code{#define}s.
 
 To suppress this warning use the @code{unused} attribute
 (@pxref{Variable Attributes}).
+
+@table @gcctabopt
+@item -Wunused-const-variable=1
+This is the warning level that is enabled by @option{-Wunused-variable} for
+C.  It warns only about unused static const variables defined in the main
+compilation unit, but not about static const variables declared in any
+header included.
+
+@item -Wunused-const-variable=2
+This warning level also warns for unused constant static variables in
+headers (excluding system headers).  This is the warning level of
+@option{-Wunused-const-variable} and must be explicitly requested since
+in C++ this isn't an error and in C it might be harder to clean up all
+headers included.
+@end table
 
 @item -Wunused-value
 @opindex Wunused-value
@@ -6793,7 +6809,12 @@ value, and any changes during the lifetime of the object are dead when
 the object is destroyed.  Normally dead store elimination will take
 advantage of this; if your code relies on the value of the object
 storage persisting beyond the lifetime of the object, you can use this
-flag to disable this optimization.
+flag to disable this optimization.  To preserve stores before the
+constructor starts (e.g. because your operator new clears the object
+storage) but still treat the object as dead after the destructor you,
+can use @option{-flifetime-dse=1}.  The default behavior can be
+explicitly selected with @option{-flifetime-dse=2}.
+@option{-flifetime-dse=0} is equivalent to @option{-fno-lifetime-dse}.
 
 @item -flive-range-shrinkage
 @opindex flive-range-shrinkage
@@ -12863,12 +12884,10 @@ corresponding flag to the linker.
 @item -mno-low-precision-recip-sqrt
 @opindex -mlow-precision-recip-sqrt
 @opindex -mno-low-precision-recip-sqrt
-The square root estimate uses two steps instead of three for double-precision,
-and one step instead of two for single-precision.
-Thus reducing latency and precision.
-This is only relevant if @option{-ffast-math} activates
-reciprocal square root estimate instructions.
-Which in turn depends on the target processor.
+When calculating the reciprocal square root approximation,
+uses one less step than otherwise, thus reducing latency and precision.
+This is only relevant if @option{-ffast-math} enables the reciprocal square root
+approximation, which in turn depends on the target processor.
 
 @item -march=@var{name}
 @opindex march
@@ -13959,8 +13978,8 @@ Permissible names are: @samp{arm2}, @samp{arm250},
 @samp{arm1156t2-s}, @samp{arm1156t2f-s}, @samp{arm1176jz-s}, @samp{arm1176jzf-s},
 @samp{generic-armv7-a}, @samp{cortex-a5}, @samp{cortex-a7}, @samp{cortex-a8},
 @samp{cortex-a9}, @samp{cortex-a12}, @samp{cortex-a15}, @samp{cortex-a17},
-@samp{cortex-a35}, @samp{cortex-a53}, @samp{cortex-a57}, @samp{cortex-a72},
-@samp{cortex-r4},
+@samp{cortex-a32}, @samp{cortex-a35}, @samp{cortex-a53}, @samp{cortex-a57},
+@samp{cortex-a72}, @samp{cortex-r4},
 @samp{cortex-r4f}, @samp{cortex-r5}, @samp{cortex-r7}, @samp{cortex-m7},
 @samp{cortex-m4},
 @samp{cortex-m3},

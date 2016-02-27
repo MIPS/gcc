@@ -17395,8 +17395,6 @@ ix86_print_operand_address_as (FILE *file, rtx addr,
     {
       const char *string;
 
-      if (as == ADDR_SPACE_SEG_TLS)
-	as = DEFAULT_TLS_SEG_REG;
       if (as == ADDR_SPACE_SEG_FS)
 	string = (ASSEMBLER_DIALECT == ASM_ATT ? "%fs:" : "fs:");
       else if (as == ADDR_SPACE_SEG_GS)
@@ -26032,11 +26030,12 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
 	    bool memset, bool zero_memset, bool have_as,
 	    int *dynamic_check, bool *noalign)
 {
-  const struct stringop_algs * algs;
+  const struct stringop_algs *algs;
   bool optimize_for_speed;
   int max = 0;
   const struct processor_costs *cost;
   int i;
+  HOST_WIDE_INT orig_expected_size = expected_size;
   bool any_alg_usable_p = false;
 
   *noalign = false;
@@ -26066,7 +26065,7 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
       any_alg_usable_p |= usable;
 
       if (candidate != libcall && candidate && usable)
-	  max = algs->size[i].max;
+	max = algs->size[i].max;
     }
 
   /* If expected size is not known but max size is small enough
@@ -26076,7 +26075,7 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
       && expected_size == -1)
     expected_size = min_size / 2 + max_size / 2;
 
-  /* If user specified the algorithm, honnor it if possible.  */
+  /* If user specified the algorithm, honor it if possible.  */
   if (ix86_stringop_alg != no_stringop
       && alg_usable_p (ix86_stringop_alg, memset, have_as))
     return ix86_stringop_alg;
@@ -26152,20 +26151,20 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
 	  || !alg_usable_p (algs->unknown_size, memset, have_as)))
     {
       enum stringop_alg alg;
+      HOST_WIDE_INT new_expected_size = (max > 0 ? max : 4096) / 2;
 
-      /* If there aren't any usable algorithms, then recursing on
-         smaller sizes isn't going to find anything.  Just return the
-         simple byte-at-a-time copy loop.  */
-      if (!any_alg_usable_p)
+      /* If there aren't any usable algorithms or if recursing with the
+	 same arguments as before, then recursing on smaller sizes or
+	 same size isn't going to find anything.  Just return the simple
+	 byte-at-a-time copy loop.  */
+      if (!any_alg_usable_p || orig_expected_size == new_expected_size)
         {
           /* Pick something reasonable.  */
           if (TARGET_INLINE_STRINGOPS_DYNAMICALLY)
             *dynamic_check = 128;
           return loop_1_byte;
         }
-      if (max <= 0)
-	max = 4096;
-      alg = decide_alg (count, max / 2, min_size, max_size, memset,
+      alg = decide_alg (count, new_expected_size, min_size, max_size, memset,
 			zero_memset, have_as, dynamic_check, noalign);
       gcc_assert (*dynamic_check == -1);
       if (TARGET_INLINE_STRINGOPS_DYNAMICALLY)
@@ -54255,54 +54254,8 @@ ix86_optab_supported_p (int op, machine_mode mode1, machine_mode,
         without resorting to a system call, we cannot convert a
         non-default address space to a default address space.
         Therefore we do not claim %fs or %gs are subsets of generic.
-    (e) However, __seg_tls uses UNSPEC_TP as the base (which itself is
-	stored at __seg_tls:0) so we can map between tls and generic.  */
 
-static bool
-ix86_addr_space_subset_p (addr_space_t subset, addr_space_t superset)
-{
-    return (subset == superset
-	    || (superset == ADDR_SPACE_GENERIC
-		&& subset == ADDR_SPACE_SEG_TLS));
-}
-#undef TARGET_ADDR_SPACE_SUBSET_P
-#define TARGET_ADDR_SPACE_SUBSET_P ix86_addr_space_subset_p
-
-static rtx
-ix86_addr_space_convert (rtx op, tree from_type, tree to_type)
-{
-  addr_space_t from_as = TYPE_ADDR_SPACE (TREE_TYPE (from_type));
-  addr_space_t to_as = TYPE_ADDR_SPACE (TREE_TYPE (to_type));
-
-  /* Conversion between SEG_TLS and GENERIC is handled by adding or
-     subtracting the thread pointer.  */
-  if ((from_as == ADDR_SPACE_GENERIC && to_as == ADDR_SPACE_SEG_TLS)
-      || (from_as == ADDR_SPACE_SEG_TLS && to_as == ADDR_SPACE_GENERIC))
-    {
-      machine_mode mode = GET_MODE (op);
-      if (mode == VOIDmode)
-	mode = ptr_mode;
-      rtx tp = get_thread_pointer (mode, optimize || mode != ptr_mode);
-      return expand_binop (mode, (to_as == ADDR_SPACE_GENERIC
-				  ? add_optab : sub_optab),
-			   op, tp, NULL, 1, OPTAB_WIDEN);
-    }
-
-  return op;
-}
-#undef TARGET_ADDR_SPACE_CONVERT
-#define TARGET_ADDR_SPACE_CONVERT ix86_addr_space_convert
-
-static int
-ix86_addr_space_debug (addr_space_t as)
-{
-  /* Fold __seg_tls to __seg_fs or __seg_gs for debugging.  */
-  if (as == ADDR_SPACE_SEG_TLS)
-    as = DEFAULT_TLS_SEG_REG;
-  return as;
-}
-#undef TARGET_ADDR_SPACE_DEBUG
-#define TARGET_ADDR_SPACE_DEBUG ix86_addr_space_debug
+   Therefore we can (mostly) use the default hooks.  */
 
 /* All use of segmentation is assumed to make address 0 valid.  */
 
