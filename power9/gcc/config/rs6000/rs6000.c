@@ -34471,7 +34471,7 @@ rs6000_libcall_value (machine_mode mode)
 static bool
 rs6000_lra_p (void)
 {
-  return rs6000_lra_flag;
+  return TARGET_LRA;
 }
 
 /* Given FROM and TO register numbers, say whether this elimination is allowed.
@@ -34822,6 +34822,7 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "hard-dfp",			OPTION_MASK_DFP,		false, true  },
   { "htm",			OPTION_MASK_HTM,		false, true  },
   { "isel",			OPTION_MASK_ISEL,		false, true  },
+  { "lra",			OPTION_MASK_LRA,		false, false },
   { "mfcrf",			OPTION_MASK_MFCRF,		false, true  },
   { "mfpgpr",			OPTION_MASK_MFPGPR,		false, true  },
   { "modulo",			OPTION_MASK_MODULO,		false, true  },

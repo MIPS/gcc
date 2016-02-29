@@ -1,3 +1,9 @@
+2016-02-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to pre-GCC 7.0 branch (subversion id 233766), which
+	enables -mlra and -mvsx-timode by default.
+	* REVISION: Update subversion information.
+
 2016-02-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vsx.md (vsx_mov<mode>_64bit): Make GPRs only used
