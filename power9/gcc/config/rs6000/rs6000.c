@@ -4254,6 +4254,34 @@ rs6000_option_override_internal (bool global_init_p)
       rs6000_isa_flags &= ~OPTION_MASK_P9_VECTOR;
     }
 
+  /* There have been bugs with both -mvsx-timode and -mpower9-dform-vector that
+     don't show up with -mlra, but do show up with -mno-lra.  Given -mlra is
+     now the default, turn off the options with problems by default if -mno-lra
+     was used, and warn if the user explicitly asked for the option.  */
+  if (!TARGET_LRA)
+    {
+      if (TARGET_VSX_TIMODE)
+	{
+	  if (rs6000_isa_flags_explicit & OPTION_MASK_VSX_TIMODE)
+	    warning (0, "-mno-lra and -mvsx-timode might be incompatible");
+	  else
+	    rs6000_isa_flags &= ~OPTION_MASK_VSX_TIMODE;
+	}
+
+      if (TARGET_P9_DFORM_VECTOR)
+	{
+	  if (TARGET_P9_DFORM_BOTH > 0)
+	    warning (0, "-mno-lra and -mpower9-dform might be incompatible");
+
+	  else if (rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_VECTOR)
+	    warning (0, "-mno-lra and -mpower9-dform-vector might be "
+		     " incompatible");
+
+	  else
+	    rs6000_isa_flags &= ~OPTION_MASK_P9_DFORM_VECTOR;
+	}
+    }
+
   /* Set -mallow-movmisalign to explicitly on if we have full ISA 2.07
      support. If we only have ISA 2.06 support, and the user did not specify
      the switch, leave it set to -1 so the movmisalign patterns are enabled,
@@ -4263,7 +4291,8 @@ rs6000_option_override_internal (bool global_init_p)
 
   else if (TARGET_ALLOW_MOVMISALIGN && !TARGET_VSX)
     {
-      if (TARGET_ALLOW_MOVMISALIGN > 0)
+      if (TARGET_ALLOW_MOVMISALIGN > 0
+	  && global_options_set.x_TARGET_ALLOW_MOVMISALIGN)
 	error ("-mallow-movmisalign requires -mvsx");
 
       TARGET_ALLOW_MOVMISALIGN = 0;
@@ -17612,9 +17641,12 @@ rs6000_insn_for_shift_mask (machine_mode mode, rtx *operands, bool dot)
 	operands[2] = GEN_INT (32 - INTVAL (operands[2]));
       operands[3] = GEN_INT (31 - nb);
       operands[4] = GEN_INT (31 - ne);
+      /* This insn can also be a 64-bit rotate with mask that really makes
+	 it just a shift right (with mask); the %h below are to adjust for
+	 that situation (shift count is >= 32 in that case).  */
       if (dot)
-	return "rlw%I2nm. %0,%1,%2,%3,%4";
-      return "rlw%I2nm %0,%1,%2,%3,%4";
+	return "rlw%I2nm. %0,%1,%h2,%3,%4";
+      return "rlw%I2nm %0,%1,%h2,%3,%4";
     }
 
   gcc_unreachable ();
@@ -34822,7 +34854,7 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "hard-dfp",			OPTION_MASK_DFP,		false, true  },
   { "htm",			OPTION_MASK_HTM,		false, true  },
   { "isel",			OPTION_MASK_ISEL,		false, true  },
-  { "lra",			OPTION_MASK_LRA,		false, false },
+  { "lra",			OPTION_MASK_NO_LRA,		true,  false },
   { "mfcrf",			OPTION_MASK_MFCRF,		false, true  },
   { "mfpgpr",			OPTION_MASK_MFPGPR,		false, true  },
   { "modulo",			OPTION_MASK_MODULO,		false, true  },
@@ -35466,7 +35498,9 @@ rs6000_print_options_internal (FILE *file,
   size_t i;
   size_t start_column = 0;
   size_t cur_column;
-  size_t max_column = 76;
+  size_t max_column = 120;
+  size_t prefix_len = strlen (prefix);
+  size_t comma_len = 0;
   const char *comma = "";
 
   if (indent)
@@ -35484,27 +35518,45 @@ rs6000_print_options_internal (FILE *file,
   cur_column = start_column;
   for (i = 0; i < num_elements; i++)
     {
-      if ((flags & opts[i].mask) != 0)
-	{
-	  const char *no_str = rs6000_opt_masks[i].invert ? "no-" : "";
-	  size_t len = (strlen (comma)
-			+ strlen (prefix)
-			+ strlen (no_str)
-			+ strlen (rs6000_opt_masks[i].name));
+      bool invert = opts[i].invert;
+      const char *name = opts[i].name;
+      const char *no_str = "";
+      HOST_WIDE_INT mask = opts[i].mask;
+      size_t len = comma_len + prefix_len + strlen (name);
 
-	  cur_column += len;
-	  if (cur_column > max_column)
+      if (!invert)
+	{
+	  if ((flags & mask) == 0)
 	    {
-	      fprintf (stderr, ", \\\n%*s", (int)start_column, "");
-	      cur_column = start_column + len;
-	      comma = "";
+	      no_str = "no-";
+	      len += sizeof ("no-") - 1;
 	    }
 
-	  fprintf (file, "%s%s%s%s", comma, prefix, no_str,
-		   rs6000_opt_masks[i].name);
-	  flags &= ~ opts[i].mask;
-	  comma = ", ";
+	  flags &= ~mask;
 	}
+
+      else
+	{
+	  if ((flags & mask) != 0)
+	    {
+	      no_str = "no-";
+	      len += sizeof ("no-") - 1;
+	    }
+
+	  flags |= mask;
+	}
+
+      cur_column += len;
+      if (cur_column > max_column)
+	{
+	  fprintf (stderr, ", \\\n%*s", (int)start_column, "");
+	  cur_column = start_column + len;
+	  comma = "";
+	}
+
+      fprintf (file, "%s%s%s%s", comma, prefix, no_str, name);
+      comma = ", ";
+      comma_len = sizeof (", ") - 1;
     }
 
   fputs ("\n", file);

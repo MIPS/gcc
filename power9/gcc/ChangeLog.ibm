@@ -1,4 +1,24 @@
+2016-02-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): If the
+	user did -mno-lra, turn off default invocations of -mvsx-timode
+	and -mpower9-dform-vector>.  If the user asked for the options
+	explicitly issue a warning that these two options might have
+	problems with reload.
+	(rs6000_print_options_internal): Print -mdebug=reg options with
+	wider columns.  Print all of the options, even those not
+	selected.  Fix thinko in printing out built-in mask names.
+
+	Merge up to 233819.
+	* REVISION: Update subversion id.
+
 2016-02-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Make -mlra
+	default for all cpus.
+	(POWERPC_MASKS): Likewise.
+	* config/rs6000/rs6000.opt (-mlra): Likewise.
+	* config/rs6000/rs6000.c (rs6000_opt_masks): Likewise.
 
 	* config/rs6000/rs6000.opt (-mlra): Convert -mlra into target bit
 	instead of using a separate variable.
