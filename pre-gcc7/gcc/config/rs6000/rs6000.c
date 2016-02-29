@@ -4267,9 +4267,13 @@ rs6000_option_override_internal (bool global_init_p)
 
       if (TARGET_P9_DFORM_VECTOR)
 	{
-	  if (rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_VECTOR)
+	  if (TARGET_P9_DFORM_BOTH > 0)
+	    warning (0, "-mno-lra and -mpower9-dform might be incompatible");
+
+	  else if (rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_VECTOR)
 	    warning (0, "-mno-lra and -mpower9-dform-vector might be "
 		     " incompatible");
+
 	  else
 	    rs6000_isa_flags &= ~OPTION_MASK_P9_DFORM_VECTOR;
 	}
