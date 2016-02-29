@@ -301,23 +301,6 @@
    UNSPEC_VSX_XVCVDPUXDS
   ])
 
-;; VSX (P9) moves
-
-(define_insn "*p9_vecload_<mode>"
-  [(set (match_operand:VSX_M2 0 "vsx_register_operand" "=<VSa>")
-        (match_operand:VSX_M2 1 "memory_operand" "Z"))]
-  "TARGET_P9_VECTOR"
-  "lxvx %x0,%y1"
-  [(set_attr "type" "vecload")
-   (set_attr "length" "4")])
-
-(define_insn "*p9_vecstore_<mode>"
-  [(set (match_operand:VSX_M2 0 "memory_operand" "=Z")
-        (match_operand:VSX_M2 1 "vsx_register_operand" "<VSa>"))]
-  "TARGET_P9_VECTOR"
-  "stxvx %x1,%y0"
-  [(set_attr "type" "vecstore")
-   (set_attr "length" "4")])
 
 ;; VSX moves
 
@@ -787,36 +770,48 @@
 			   (const_int 64)))]
   "")
 
-(define_insn "*vsx_mov<mode>"
-  [(set (match_operand:VSX_M 0 "nonimmediate_operand" "=Z,<VSr>,<VSr>,?Z,?<VSa>,?<VSa>,r,we,wQ,?&r,??Y,??r,??r,<VSr>,?<VSa>,*r,v,wZ,v")
-	(match_operand:VSX_M 1 "input_operand" "<VSr>,Z,<VSr>,<VSa>,Z,<VSa>,we,b,r,wQ,r,Y,r,j,j,j,W,v,wZ"))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)
+(define_insn "*vsx_mov<mode>_64bit"
+  [(set (match_operand:VSX_M 0 "nonimmediate_operand" "=wOZ, wOZ,   <VSr>,?<VSa>,<VSa>,*r,*wo,*$Y,*$r,*r,<VSr>,?<VSa>,*r,v,wZ,v")
+	(match_operand:VSX_M 1 "input_operand"        "<VSr>,?<VSa>,wOZ,  wOZ,   <VSa>,wo,r,  r,  Y,  r, j,    j,     j, W,v, wZ"))]
+  "TARGET_POWERPC64 && VECTOR_MEM_VSX_P (<MODE>mode)
    && (register_operand (operands[0], <MODE>mode) 
        || register_operand (operands[1], <MODE>mode))"
 {
   return rs6000_output_move_128bit (operands);
 }
-  [(set_attr "type" "vecstore,vecload,vecsimple,vecstore,vecload,vecsimple,mffgpr,mftgpr,load,store,store,load, *,vecsimple,vecsimple,*, *,vecstore,vecload")
-   (set_attr "length" "4,4,4,4,4,4,8,4,12,12,12,12,16,4,4,*,16,4,4")])
+  [(set_attr "type"   "vecstore,vecstore,vecload,vecload,vecsimple,mftgpr,mffgpr,store,load,*,vecsimple,vecsimple,*,vecsimple,vecstore,vecload")
+   (set_attr "length" "4,        4,      4,      4,      4,        8,     4,     8,    8,   8,4,        4,        8,16,       4,       4")])
+
+(define_insn "*vsx_mov<mode>_32bit"
+  [(set (match_operand:VSX_M 0 "nonimmediate_operand" "=wOZ, wOZ,   <VSr>,?<VSa>,<VSa>,*$Y,*$r,*r,<VSr>,?<VSa>,*r,v,wZ,v")
+	(match_operand:VSX_M 1 "input_operand"        "<VSr>,?<VSa>,wOZ,  wOZ,   <VSa>,  r,  Y,r, j,    j,     j, W,v, wZ"))]
+  "!TARGET_POWERPC64 && VECTOR_MEM_VSX_P (<MODE>mode)
+   && (register_operand (operands[0], <MODE>mode) 
+       || register_operand (operands[1], <MODE>mode))"
+{
+  return rs6000_output_move_128bit (operands);
+}
+  [(set_attr "type"   "vecstore,vecstore,vecload,vecload,vecsimple,store,load,*, vecsimple,vecsimple,*, vecsimple,vecstore,vecload")
+   (set_attr "length" "4,        4,      4,      4,      4,        16,   16,  16,4,        4,        16,16,       4,       4")])
 
 ;; Unlike other VSX moves, allow the GPRs even for reloading, since a normal
 ;; use of TImode is for unions.  However for plain data movement, slightly
 ;; favor the vector loads
 (define_insn "*vsx_movti_64bit"
-  [(set (match_operand:TI 0 "nonimmediate_operand" "=Z,wa,wa,wa,r,we,v,v,wZ,wQ,&r,Y,r,r,?r")
-	(match_operand:TI 1 "input_operand" "wa,Z,wa,O,we,b,W,wZ,v,r,wQ,r,Y,r,n"))]
+  [(set (match_operand:TI 0 "nonimmediate_operand" "=Z,wO,wa,wa,wa,wa,r, we,v,v, wZ,wQ,&r,Y,r,r,?r")
+	(match_operand:TI 1 "input_operand"        "wa,wa,Z, wO,wa,O, we,b, W,wZ,v, r, wQ,r,Y,r,n"))]
   "TARGET_POWERPC64 && VECTOR_MEM_VSX_P (TImode)
    && (register_operand (operands[0], TImode) 
        || register_operand (operands[1], TImode))"
 {
   return rs6000_output_move_128bit (operands);
 }
-  [(set_attr "type" "vecstore,vecload,vecsimple,vecsimple,mffgpr,mftgpr,vecsimple,vecstore,vecload,store,load,store,load,*,*")
-   (set_attr "length" "4,4,4,4,8,4,16,4,4,8,8,8,8,8,8")])
+  [(set_attr "type" "vecstore,vecstore,vecload,vecload,vecsimple,vecsimple,mffgpr,mftgpr,vecsimple,vecstore,vecload,store,load,store,load,*,*")
+   (set_attr "length" "4,4,4,4,4,4,8,4,16,4,4,8,8,8,8,8,8")])
 
 (define_insn "*vsx_movti_32bit"
-  [(set (match_operand:TI 0 "nonimmediate_operand" "=Z,wa,wa,wa,v, v,wZ,Q,Y,????r,????r,????r,r")
-	(match_operand:TI 1 "input_operand"        "wa, Z,wa, O,W,wZ, v,r,r,    Q,    Y,    r,n"))]
+  [(set (match_operand:TI 0 "nonimmediate_operand" "=Z,wO,wa,wa,wa,wa,v,v, wZ,Q,Y,????r,????r,????r,r")
+	(match_operand:TI 1 "input_operand"        "wa,wa,Z, wO,wa, O,W,wZ,v, r,r,Q,    Y,    r,    n"))]
   "! TARGET_POWERPC64 && VECTOR_MEM_VSX_P (TImode)
    && (register_operand (operands[0], TImode)
        || register_operand (operands[1], TImode))"
@@ -824,10 +819,10 @@
   switch (which_alternative)
     {
     case 0:
-      return "stxvd2x %x1,%y0";
+      return (TARGET_P9_DFORM_VECTOR ? "stxv %x1,%0" : "stxvd2x %x1,%y0");
 
     case 1:
-      return "lxvd2x %x0,%y1";
+      return (TARGET_P9_DFORM_VECTOR ? "lxv %x0,%1" : "lxvd2x %x0,%y1");
 
     case 2:
       return "xxlor %x0,%x1,%x1";
@@ -867,9 +862,9 @@
       gcc_unreachable ();
     }
 }
-  [(set_attr "type" "vecstore,vecload,vecsimple,vecsimple,vecsimple,vecstore,vecload,store,store,load,load, *, *")
-   (set_attr "update" "     *,      *,        *,       *,         *,       *,      *,  yes,  yes, yes, yes, *, *")
-   (set_attr "length" "     4,      4,        4,       4,         8,       4,      4,   16,   16,  16,  16,16,16")
+  [(set_attr "type" "vecstore,vecstore,vecload,vecload,vecsimple,vecsimple,vecsimple,vecstore,vecload,store,store,load,load, *, *")
+   (set_attr "update" "     *,       *,      *,      *,        *,       *,         *,       *,      *,  yes,  yes, yes, yes, *, *")
+   (set_attr "length" "     4,       4,      4,      4,        4,       4,         8,       4,      4,   16,   16,  16,  16,16,16")
    (set (attr "cell_micro") (if_then_else (match_test "TARGET_STRING")
    			                  (const_string "always")
 					  (const_string "conditional")))])

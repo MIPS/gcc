@@ -714,7 +714,7 @@
 ;; Return 1 if the operand is suitable for load/store to vector registers with
 ;; d-form addressing (register+offset), which was added in ISA 3.0.
 ;; Unlike quad_memory_operand, we do not have to check for alignment.
-(define_predicate "vsx_quad_memory_operand"
+(define_predicate "vsx_quad_dform_memory_operand"
   (match_code "mem")
 {
   if (!TARGET_P9_DFORM_VECTOR || !MEM_P (op) || GET_MODE_SIZE (mode) != 16)
