@@ -5011,7 +5011,10 @@ label:
     }
   if (TARGET_DYNSHIFT
       && CONST_INT_P (operands[2]) && sh_dynamicalize_shift_p (operands[2]))
-      operands[2] = force_reg (SImode, operands[2]);
+    {
+      /* Don't force the constant into a reg yet.  Some other optimizations
+	 might not see through the reg that holds the shift count.  */
+    }
 
   /*  If the ashlsi3_* insn is going to clobber the T_REG it must be
       expanded here.  */
@@ -5567,9 +5570,12 @@ label:
   if (TARGET_DYNSHIFT
       && CONST_INT_P (operands[2]) && sh_dynamicalize_shift_p (operands[2]))
     {
-      rtx neg_count = force_reg (SImode,
-			         gen_int_mode (- INTVAL (operands[2]), SImode));
-      emit_insn (gen_lshrsi3_d (operands[0], operands[1], neg_count));
+      /* Don't force the constant into a reg yet.  Some other optimizations
+	 might not see through the reg that holds the shift count.  */
+      if (sh_lshrsi_clobbers_t_reg_p (operands[2]))
+        emit_insn (gen_lshrsi3_n_clobbers_t (operands[0], operands[1], operands[2]));
+      else
+        emit_insn (gen_lshrsi3_n (operands[0], operands[1], operands[2]));
       DONE;
     }
 
@@ -5621,6 +5627,10 @@ label:
    && ! sh_lshrsi_clobbers_t_reg_p (operands[2])"
   [(const_int 0)]
 {
+  /* The shift count const_int is a negative value for all dynamic
+     right shift insns.  */
+  operands[2] = GEN_INT (- INTVAL (operands[2]));
+
   if (satisfies_constraint_P27 (operands[2]))
     {
       /* This will not be done for a shift amount of 1, because it would
@@ -5679,8 +5689,7 @@ label:
     {
       /* If this pattern was picked and dynamic shifts are supported, switch
 	 to dynamic shift pattern before reload.  */
-      operands[2] = force_reg (SImode,
-			       gen_int_mode (- INTVAL (operands[2]), SImode));
+      operands[2] = GEN_INT (- INTVAL (operands[2]));
       emit_insn (gen_lshrsi3_d (operands[0], operands[1], operands[2]));
     }
   else
@@ -5711,8 +5720,7 @@ label:
     {
       /* If this pattern was picked and dynamic shifts are supported, switch
 	 to dynamic shift pattern before reload.  */
-      operands[2] = force_reg (SImode,
-			       gen_int_mode (- INTVAL (operands[2]), SImode));
+      operands[2] = GEN_INT (- INTVAL (operands[2]));
       emit_insn (gen_lshrsi3_d (operands[0], operands[1], operands[2]));
     }
   else
@@ -10476,12 +10484,16 @@ label:
 		      (const_string "single") (const_string "double")))
    (set_attr "type" "jump_ind")])
 
+;; sibcall_value_pcrel used to have a =&k clobber for the scratch register
+;; that it needs for the branch address.  This causes troubles when there
+;; is a big overlap of argument and return value registers.  Hence, use a
+;; fixed call clobbered register for the address.  See also PR 67260.
 (define_insn_and_split "sibcall_value_pcrel"
   [(set (match_operand 0 "" "=rf")
 	(call (mem:SI (match_operand:SI 1 "symbol_ref_operand" ""))
 	      (match_operand 2 "" "")))
    (use (reg:SI FPSCR_MODES_REG))
-   (clobber (match_scratch:SI 3 "=&k"))
+   (clobber (reg:SI R1_REG))
    (return)]
   "TARGET_SH2 && !TARGET_FDPIC"
   "#"
@@ -10490,6 +10502,8 @@ label:
 {
   rtx lab = PATTERN (gen_call_site ());
   rtx call_insn;
+
+  operands[3] =  gen_rtx_REG (SImode, R1_REG);
 
   sh_expand_sym_label2reg (operands[3], operands[1], lab, true);
   call_insn = emit_call_insn (gen_sibcall_valuei_pcrel (operands[0],
@@ -10505,13 +10519,15 @@ label:
 		      (const_string "single") (const_string "double")))
    (set_attr "type" "jump_ind")])
 
+;; Like for sibcall_value_pcrel, use a fixed call clobbered register for
+;; the branch address.
 (define_insn_and_split "sibcall_value_pcrel_fdpic"
   [(set (match_operand 0 "" "=rf")
 	(call (mem:SI (match_operand:SI 1 "symbol_ref_operand"))
 	      (match_operand 2)))
    (use (reg:SI FPSCR_MODES_REG))
    (use (reg:SI PIC_REG))
-   (clobber (match_scratch:SI 3 "=k"))
+   (clobber (reg:SI R1_REG))
    (return)]
   "TARGET_SH2 && TARGET_FDPIC"
   "#"
@@ -10519,6 +10535,8 @@ label:
   [(const_int 0)]
 {
   rtx lab = PATTERN (gen_call_site ());
+
+  operands[3] =  gen_rtx_REG (SImode, R1_REG);
 
   sh_expand_sym_label2reg (operands[3], operands[1], lab, true);
   rtx i = emit_call_insn (gen_sibcall_valuei_pcrel_fdpic (operands[0],
@@ -14615,6 +14633,31 @@ label:
   "&& 1"
   [(set (reg:SI T_REG)
 	(zero_extract:SI (match_dup 0) (const_int 1) (match_dup 1)))])
+
+(define_insn_and_split "*zero_extract_3"
+  [(set (match_operand:SI 0 "arith_reg_dest")
+  	(and:SI (lshiftrt:SI (match_operand:SI 1 "arith_reg_operand")
+  			     (match_operand 2 "const_int_operand"))
+  		(match_operand 3 "const_int_operand")))
+   (clobber (reg:SI T_REG))]
+  "TARGET_SH1 && can_create_pseudo_p ()
+   && exact_log2 (INTVAL (operands[3])) >= 0"
+  "#"
+  "&& 1"
+  [(const_int 0)]
+{
+  int rshift = INTVAL (operands[2]);
+  int lshift = exact_log2 (INTVAL (operands[3]));
+
+  rtx tmp = gen_reg_rtx (SImode);
+  emit_insn (gen_rtx_PARALLEL (VOIDmode,
+    gen_rtvec (2,
+      gen_rtx_SET (tmp,
+		   gen_rtx_ZERO_EXTRACT (SImode, operands[1], const1_rtx,
+					 GEN_INT (rshift + lshift))),
+      gen_rtx_CLOBBER (VOIDmode, get_t_reg_rtx ()))));
+  emit_insn (gen_ashlsi3 (operands[0], tmp, GEN_INT (lshift)));
+})
 
 ;; -------------------------------------------------------------------------
 ;; SH2A instructions for bitwise operations.

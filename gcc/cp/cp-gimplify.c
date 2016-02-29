@@ -1021,10 +1021,16 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
       && omp_var_to_track (stmt))
     omp_cxx_notice_variable (wtd->omp_ctx, stmt);
 
-  if (is_invisiref_parm (stmt)
-      /* Don't dereference parms in a thunk, pass the references through. */
-      && !(DECL_THUNK_P (current_function_decl)
-	   && TREE_CODE (stmt) == PARM_DECL))
+  /* Don't dereference parms in a thunk, pass the references through. */
+  if ((TREE_CODE (stmt) == CALL_EXPR && CALL_FROM_THUNK_P (stmt))
+      || (TREE_CODE (stmt) == AGGR_INIT_EXPR && AGGR_INIT_FROM_THUNK_P (stmt)))
+    {
+      *walk_subtrees = 0;
+      return NULL;
+    }
+
+  /* Otherwise, do dereference invisible reference parms.  */
+  if (is_invisiref_parm (stmt))
     {
       *stmt_p = convert_from_reference (stmt);
       *walk_subtrees = 0;
@@ -2068,6 +2074,25 @@ cp_fold (tree x)
       else
 	x = fold (x);
 
+      if (TREE_NO_WARNING (org_x)
+	  && warn_nonnull_compare
+	  && COMPARISON_CLASS_P (org_x))
+	{
+	  if (x == error_mark_node || TREE_CODE (x) == INTEGER_CST)
+	    ;
+	  else if (COMPARISON_CLASS_P (x))
+	    TREE_NO_WARNING (x) = 1;
+	  /* Otherwise give up on optimizing these, let GIMPLE folders
+	     optimize those later on.  */
+	  else if (op0 != TREE_OPERAND (org_x, 0)
+		   || op1 != TREE_OPERAND (org_x, 1))
+	    {
+	      x = build2_loc (loc, code, TREE_TYPE (org_x), op0, op1);
+	      TREE_NO_WARNING (x) = 1;
+	    }
+	  else
+	    x = org_x;
+	}
       break;
 
     case VEC_COND_EXPR:
@@ -2151,7 +2176,8 @@ cp_fold (tree x)
 	   TODO:
 	   Do constexpr expansion of expressions where the call itself is not
 	   constant, but the call followed by an INDIRECT_REF is.  */
-	if (callee && DECL_DECLARED_CONSTEXPR_P (callee))
+	if (callee && DECL_DECLARED_CONSTEXPR_P (callee)
+	    && !flag_no_inline)
           r = maybe_constant_value (x);
 	optimize = sv;
 

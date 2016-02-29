@@ -1549,7 +1549,7 @@ see ``RS/6000 and PowerPC Options'' in the main manual.
 @option{--with-aix-soname} is currently supported by @samp{libgcc_s} only, so
 this option is still experimental and not for normal use yet.
 
-Default is the traditional behaviour @option{--with-aix-soname=@samp{aix}}.
+Default is the traditional behavior @option{--with-aix-soname=@samp{aix}}.
 
 @item --enable-languages=@var{lang1},@var{lang2},@dots{}
 Specify that only a particular subset of compilers and
@@ -1757,6 +1757,10 @@ without optimization.
 When this option is specified more detailed information on memory
 allocation is gathered.  This information is printed when using
 @option{-fmem-report}.
+
+@item --enable-valgrind-annotations
+Mark selected memory related operations in the compiler when run under
+valgrind to suppress false positives.
 
 @item --enable-nls
 @itemx --disable-nls

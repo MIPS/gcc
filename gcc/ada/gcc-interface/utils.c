@@ -1625,8 +1625,11 @@ finish_character_type (tree char_type)
   if (TYPE_UNSIGNED (char_type))
     return;
 
-  /* Make a copy of the unsigned version since we'll modify it below.  */
-  tree unsigned_char_type = copy_type (gnat_unsigned_type_for (char_type));
+  /* Make a copy of a generic unsigned version since we'll modify it.  */
+  tree unsigned_char_type
+    = (char_type == char_type_node
+       ? unsigned_char_type_node
+       : copy_type (gnat_unsigned_type_for (char_type)));
 
   TYPE_NAME (unsigned_char_type) = TYPE_NAME (char_type);
   TYPE_STRING_FLAG (unsigned_char_type) = TYPE_STRING_FLAG (char_type);
@@ -2460,6 +2463,22 @@ create_var_decl (tree name, tree asm_name, tree type, tree init,
 		  (constant_p && const_decl_allowed_p
 		   && !AGGREGATE_TYPE_P (type)) ? CONST_DECL : VAR_DECL,
 		  name, type);
+
+  /* Detect constants created by the front-end to hold 'reference to function
+     calls for stabilization purposes.  This is needed for renaming.  */
+  if (const_flag && init && POINTER_TYPE_P (type))
+    {
+      tree inner = init;
+      if (TREE_CODE (inner) == COMPOUND_EXPR)
+	inner = TREE_OPERAND (inner, 1);
+      inner = remove_conversions (inner, true);
+      if (TREE_CODE (inner) == ADDR_EXPR
+	  && ((TREE_CODE (TREE_OPERAND (inner, 0)) == CALL_EXPR
+	       && !call_is_atomic_load (TREE_OPERAND (inner, 0)))
+	      || (TREE_CODE (TREE_OPERAND (inner, 0)) == VAR_DECL
+		  && DECL_RETURN_VALUE_P (TREE_OPERAND (inner, 0)))))
+	DECL_RETURN_VALUE_P (var_decl) = 1;
+    }
 
   /* If this is external, throw away any initializations (they will be done
      elsewhere) unless this is a constant for which we would like to remain

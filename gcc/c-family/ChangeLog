@@ -1,3 +1,41 @@
+2016-02-22  Martin Sebor  <msebor@redhat.com>
+
+	PR middle-end/69780
+	* c-common.c (check_builtin_function_arguments): Validate and
+	reject invalid arguments to __builtin_alloca_with_align.
+
+2016-02-20  Mark Wielaard  <mjw@redhat.com>
+
+	PR c/28901
+	* c.opt (Wunused-const-variable): Turn into Alias for...
+	(Wunused-const-variable=): New option.
+
+2016-02-19  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c++/69865
+	* c-opts.c (c_common_post_options): Move call to set_std_cxx14 from
+	here...
+	(c_common_init_options): ...to here.
+	(set_std_cxx98): Initialize flag_isoc94 and flag_isoc99.
+
+2016-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/69826
+	* c-pragma.c (c_pp_lookup_pragma): Handle PRAGMA_CILK_GRAINSIZE.
+	(init_pragma): Register PRAGMA_CILK_GRAINSIZE even for
+	flag_preprocess_only.
+
+2016-02-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/69835
+	* c.opt (Wnonnull-compare): Enable for -Wall.
+
+2016-02-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/69797
+	* c-common.c (sync_resolve_size): Diagnose too few arguments
+	even when params is non-NULL empty vector.
+
 2016-02-08  Bernd Schmidt  <bschmidt@redhat.com>
 
 	PR target/60410

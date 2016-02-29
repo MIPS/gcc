@@ -17247,7 +17247,7 @@ grid_find_single_omp_among_assignments (gimple_seq seq, location_t target_loc,
 static tree
 grid_find_ungridifiable_statement (gimple_stmt_iterator *gsi,
 				   bool *handled_ops_p,
-				   struct walk_stmt_info *)
+				   struct walk_stmt_info *wi)
 {
   *handled_ops_p = false;
   gimple *stmt = gsi_stmt (*gsi);
@@ -17257,6 +17257,7 @@ grid_find_ungridifiable_statement (gimple_stmt_iterator *gsi,
       if (gimple_call_noreturn_p (as_a <gcall *> (stmt)))
 	{
 	  *handled_ops_p = true;
+	  wi->info = stmt;
 	  return error_mark_node;
 	}
       break;
@@ -17272,7 +17273,18 @@ grid_find_ungridifiable_statement (gimple_stmt_iterator *gsi,
     case GIMPLE_OMP_TARGET:
     case GIMPLE_OMP_ORDERED:
       *handled_ops_p = true;
+      wi->info = stmt;
       return error_mark_node;
+
+    case GIMPLE_OMP_FOR:
+      if ((gimple_omp_for_kind (stmt) & GF_OMP_FOR_SIMD)
+	  && gimple_omp_for_combined_into_p (stmt))
+	{
+	  *handled_ops_p = true;
+	  wi->info = stmt;
+	  return error_mark_node;
+	}
+      break;
 
     default:
       break;
@@ -17515,10 +17527,11 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
 
   struct walk_stmt_info wi;
   memset (&wi, 0, sizeof (wi));
-  if (gimple *bad = walk_gimple_seq (gimple_omp_body (gfor),
-				     grid_find_ungridifiable_statement,
-				     NULL, &wi))
+  if (walk_gimple_seq (gimple_omp_body (gfor),
+		       grid_find_ungridifiable_statement,
+		       NULL, &wi))
     {
+      gimple *bad = (gimple *) wi.info;
       if (dump_enabled_p ())
 	{
 	  if (is_gimple_call (bad))
@@ -17526,6 +17539,11 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
 			     "Will not turn target construct into a gridified "
 			     " GPGPU kernel because the inner loop contains "
 			     "call to a noreturn function\n");
+	  if (gimple_code (bad) == GIMPLE_OMP_FOR)
+	    dump_printf_loc (MSG_NOTE, tloc,
+			     "Will not turn target construct into a gridified "
+			     " GPGPU kernel because the inner loop contains "
+			     "a simd construct\n");
 	  else
 	    dump_printf_loc (MSG_NOTE, tloc,
 			     "Will not turn target construct into a gridified "
@@ -18742,7 +18760,6 @@ simd_clone_create (struct cgraph_node *old_node)
       new_node = old_node->create_version_clone (new_decl, vNULL, NULL);
       if (old_node->in_other_partition)
 	new_node->in_other_partition = 1;
-      symtab->call_cgraph_insertion_hooks (new_node);
     }
   if (new_node == NULL)
     return new_node;

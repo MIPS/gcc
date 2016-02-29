@@ -17,7 +17,7 @@ msgstr ""
 "Project-Id-Version: gcc 6.1-b20160131\n"
 "Report-Msgid-Bugs-To: http://gcc.gnu.org/bugs.html\n"
 "POT-Creation-Date: 2016-01-31 15:50+0000\n"
-"PO-Revision-Date: 2016-02-07 13:57+0100\n"
+"PO-Revision-Date: 2016-02-21 21:15+0100\n"
 "Last-Translator: Göran Uddeborg <goeran@uddeborg.se>\n"
 "Language-Team: Swedish <tp-sv@listor.tp-sv.se>\n"
 "Language: sv\n"
@@ -441,66 +441,46 @@ msgid "  -v                       Display the programs invoked by the compiler.\
 msgstr "  -v                       Visa vilka program som körs av kompilatorn.\n"
 
 #: gcc.c:3429
-#, fuzzy
-#| msgid "  -###                     Like -v but options quoted and commands not executed\n"
 msgid "  -###                     Like -v but options quoted and commands not executed.\n"
-msgstr "  -###                     Som -v men flaggor citerade och kommandon inte körda\n"
+msgstr "  -###                     Som -v men flaggor citerade och kommandon inte körda.\n"
 
 #: gcc.c:3430
-#, fuzzy
-#| msgid "  -E                       Preprocess only; do not compile, assemble or link\n"
 msgid "  -E                       Preprocess only; do not compile, assemble or link.\n"
 msgstr ""
 "  -E                       Preprocessa bara; kompilera, assemblera och\n"
-"                           länka inte\n"
+"                           länka inte.\n"
 
 #: gcc.c:3431
-#, fuzzy
-#| msgid "  -S                       Compile only; do not assemble or link\n"
 msgid "  -S                       Compile only; do not assemble or link.\n"
-msgstr "  -S                       Kompilera bara; assemblera och länka inte\n"
+msgstr "  -S                       Kompilera bara; assemblera och länka inte.\n"
 
 #: gcc.c:3432
-#, fuzzy
-#| msgid "  -c                       Compile and assemble, but do not link\n"
 msgid "  -c                       Compile and assemble, but do not link.\n"
-msgstr "  -c                       Kompilera och assemblera, men länka inte\n"
+msgstr "  -c                       Kompilera och assemblera, men länka inte.\n"
 
 #: gcc.c:3433
-#, fuzzy
-#| msgid "  -o <file>                Place the output into <file>\n"
 msgid "  -o <file>                Place the output into <file>.\n"
-msgstr "  -o <fil>                 Placera utdata i <fil>\n"
+msgstr "  -o <fil>                 Placera utdata i <fil>.\n"
 
 #: gcc.c:3434
-#, fuzzy
-#| msgid "  -pie                     Create a position independent executable\n"
 msgid "  -pie                     Create a position independent executable.\n"
-msgstr "  -pie                     Skapa ett positionsoberoende körbart program\n"
+msgstr "  -pie                     Skapa ett positionsoberoende körbart program.\n"
 
 #: gcc.c:3435
-#, fuzzy
-#| msgid "  -shared                  Create a shared library\n"
 msgid "  -shared                  Create a shared library.\n"
-msgstr "  -shared                  Skapa ett delat bibliotek\n"
+msgstr "  -shared                  Skapa ett delat bibliotek.\n"
 
 #: gcc.c:3436
-#, fuzzy
-#| msgid ""
-#| "  -x <language>            Specify the language of the following input files\n"
-#| "                           Permissible languages include: c c++ assembler none\n"
-#| "                           'none' means revert to the default behavior of\n"
-#| "                           guessing the language based on the file's extension\n"
 msgid ""
 "  -x <language>            Specify the language of the following input files.\n"
 "                           Permissible languages include: c c++ assembler none\n"
 "                           'none' means revert to the default behavior of\n"
 "                           guessing the language based on the file's extension.\n"
 msgstr ""
-"  -x <språk>               Specificera språk för de följande källkodsfilerna\n"
+"  -x <språk>               Specificera språk för de följande källkodsfilerna.\n"
 "                           Bland tillåtna språk finns: c c++ assembler none\n"
 "                           ”none” innebär att man använder standardmetoden\n"
-"                           att gissa språk beroende på filens ändelse\n"
+"                           att gissa språk beroende på filens ändelse.\n"
 
 #: gcc.c:3443
 #, c-format
@@ -777,10 +757,9 @@ msgstr ""
 "Fel på översättningen rapporteras till <tp-sv@listor.tp-sv.se>\n"
 
 #: gcov-tool.c:526
-#, fuzzy, c-format
-#| msgid "Copyright %s 2014-2015 Free Software Foundation, Inc.\n"
+#, c-format
 msgid "Copyright %s 2014-2016 Free Software Foundation, Inc.\n"
-msgstr "Copyright %s 2014-2015 Free Software Foundation, Inc.\n"
+msgstr "Copyright %s 2014-2016 Free Software Foundation, Inc.\n"
 
 #: gcov-tool.c:529 gcov.c:506
 #, c-format
@@ -1232,10 +1211,8 @@ msgstr "kan inte generera omläsningar för:"
 
 #. What to print when a switch has no documentation.
 #: opts.c:184
-#, fuzzy
-#| msgid "This switch lacks documentation"
 msgid "This option lacks documentation."
-msgstr "Denna flagga saknar dokumentation"
+msgstr "Denna flagga saknar dokumentation."
 
 #: opts.c:185
 msgid "Uses of this option are diagnosed."
@@ -1274,10 +1251,9 @@ msgid " No options with the desired characteristics were found\n"
 msgstr " Det finns inga flaggor med de eftersökta egenskaperna\n"
 
 #: opts.c:1241
-#, fuzzy, c-format
-#| msgid " None found.  Use --help=%s to show *all* the options supported by the %s front-end\n"
+#, c-format
 msgid " None found.  Use --help=%s to show *all* the options supported by the %s front-end.\n"
-msgstr " Det fanns inga.  Använd --help=%s för att visa *alla* flaggorna som stödjs av framänden %s\n"
+msgstr " Det fanns inga.  Använd --help=%s för att visa *alla* flaggorna som stödjs av framänden %s.\n"
 
 #: opts.c:1247
 #, c-format
@@ -1416,10 +1392,9 @@ msgid "%s%s%s %sversion %s (%s) compiled by CC, "
 msgstr "%s%s%s %sversion %s (%s) kompilerad med CC, "
 
 #: toplev.c:646
-#, fuzzy, c-format
-#| msgid "GMP version %s, MPFR version %s, MPC version %s\n"
+#, c-format
 msgid "GMP version %s, MPFR version %s, MPC version %s, isl version %s\n"
-msgstr "GMP-version %s, MPFR-version %s, MPC-version %s\n"
+msgstr "GMP-version %s, MPFR-version %s, MPC-version %s, isl-version %s\n"
 
 # Tredje %s blir en förkortning typ GMP
 #: toplev.c:648
@@ -1598,172 +1573,144 @@ msgid "permerror: "
 msgstr "permfel: "
 
 #: params.def:49
-#, fuzzy, no-c-format
-#| msgid "Maximal estimated outcome of branch considered predictable"
+#, no-c-format
 msgid "Maximal estimated outcome of branch considered predictable."
-msgstr "Maximala uppskattade sannolikheten för en gren för att anses förutsägbar"
+msgstr "Maximala uppskattade sannolikheten för en gren för att anses förutsägbar."
 
 #: params.def:54
-#, fuzzy, no-c-format
-#| msgid "The minimal estimated speedup allowing inliner to ignore inline-insns-single and inline-isnsns-auto"
+#, no-c-format
 msgid "The minimal estimated speedup allowing inliner to ignore inline-insns-single and inline-isnsns-auto."
-msgstr "Den minsta uppskattade hastighetsökningen som tillåter inline:aren att ignorera inline-insns-single och inline-insns-auto"
+msgstr "Den minsta uppskattade hastighetsökningen som tillåter inline:aren att ignorera inline-insns-single och inline-insns-auto."
 
 #: params.def:71
-#, fuzzy, no-c-format
-#| msgid "The maximum number of instructions in a single function eligible for inlining"
+#, no-c-format
 msgid "The maximum number of instructions in a single function eligible for inlining."
-msgstr "Det maximala antalet instruktioner i en enskild funktion tänkbar för inline:ing"
+msgstr "Det maximala antalet instruktioner i en enskild funktion tänkbar för inline:ing."
 
 #: params.def:83
-#, fuzzy, no-c-format
-#| msgid "The maximum number of instructions when automatically inlining"
+#, no-c-format
 msgid "The maximum number of instructions when automatically inlining."
-msgstr "Det maximala antalet instruktioner vid automatisk inline:ing"
+msgstr "Det maximala antalet instruktioner vid automatisk inline:ing."
 
 #: params.def:88
-#, fuzzy, no-c-format
-#| msgid "The maximum number of instructions inline function can grow to via recursive inlining"
+#, no-c-format
 msgid "The maximum number of instructions inline function can grow to via recursive inlining."
-msgstr "Det maximala antalet instruktioner inline-funktioner kan växa till via rekursiv inline:ing"
+msgstr "Det maximala antalet instruktioner inline-funktioner kan växa till via rekursiv inline:ing."
 
 #: params.def:93
-#, fuzzy, no-c-format
-#| msgid "The maximum number of instructions non-inline function can grow to via recursive inlining"
+#, no-c-format
 msgid "The maximum number of instructions non-inline function can grow to via recursive inlining."
-msgstr "Det maximala antalet instruktioner icke-inline-funktioner kan växa till via rekursiv inline:ing"
+msgstr "Det maximala antalet instruktioner icke-inline-funktioner kan växa till via rekursiv inline:ing."
 
 #: params.def:98
-#, fuzzy, no-c-format
-#| msgid "The maximum depth of recursive inlining for inline functions"
+#, no-c-format
 msgid "The maximum depth of recursive inlining for inline functions."
-msgstr "Det maximala djupet för rekursiv inline:ing för inline-funktioner"
+msgstr "Det maximala djupet för rekursiv inline:ing för inline-funktioner."
 
 #: params.def:103
-#, fuzzy, no-c-format
-#| msgid "The maximum depth of recursive inlining for non-inline functions"
+#, no-c-format
 msgid "The maximum depth of recursive inlining for non-inline functions."
-msgstr "Det maximala djupet för rekursiv inline:ing för icke-inline-funktioner"
+msgstr "Det maximala djupet för rekursiv inline:ing för icke-inline-funktioner."
 
 #: params.def:108
-#, fuzzy, no-c-format
-#| msgid "Inline recursively only when the probability of call being executed exceeds the parameter"
+#, no-c-format
 msgid "Inline recursively only when the probability of call being executed exceeds the parameter."
-msgstr "Inline:a rekursivt endast när sannolikheten för att ett anrop skall göras överskrider parametern"
+msgstr "Inline:a rekursivt endast när sannolikheten för att ett anrop skall göras överskrider parametern."
 
 #: params.def:116
-#, fuzzy, no-c-format
-#| msgid "The maximum number of nested indirect inlining performed by early inliner"
+#, no-c-format
 msgid "The maximum number of nested indirect inlining performed by early inliner."
-msgstr "Det maximala antalet nästade indirekta inline:ingar som utförs av den tidiga inline:aren"
+msgstr "Det maximala antalet nästade indirekta inline:ingar som utförs av den tidiga inline:aren."
 
 #: params.def:122
-#, fuzzy, no-c-format
-#| msgid "Probability that COMDAT function will be shared with different compilation unit"
+#, no-c-format
 msgid "Probability that COMDAT function will be shared with different compilation unit."
-msgstr "Sannolikheten att COMDAT-funktionen kommer att delas med en annan kompileringsenhet"
+msgstr "Sannolikheten att COMDAT-funktionen kommer att delas med en annan kompileringsenhet."
 
 #: params.def:128
-#, fuzzy, no-c-format
-#| msgid "Maximum probability of the entry BB of split region (in percent relative to entry BB of the function) to make partial inlining happen"
+#, no-c-format
 msgid "Maximum probability of the entry BB of split region (in percent relative to entry BB of the function) to make partial inlining happen."
-msgstr "Maximala sannolikheten för ingång i GB av delad region (i procent i förhållande till ingång i GB av funktionen) för att partiell inlining skall ske"
+msgstr "Maximala sannolikheten för ingång i GB av delad region (i procent i förhållande till ingång i GB av funktionen) för att partiell inlining skall ske."
 
 #: params.def:135
-#, fuzzy, no-c-format
-#| msgid "If -fvariable-expansion-in-unroller is used, the maximum number of times that an individual variable will be expanded during loop unrolling"
+#, no-c-format
 msgid "If -fvariable-expansion-in-unroller is used, the maximum number of times that an individual variable will be expanded during loop unrolling."
-msgstr "Om -fvariable-expansion-in-unroller är på, det maximala antalet gånger som en enskild variabel kommer expanderas under slingutrullning"
+msgstr "Om -fvariable-expansion-in-unroller är på, det maximala antalet gånger som en enskild variabel kommer expanderas under slingutrullning."
 
 #: params.def:141
-#, fuzzy, no-c-format
-#| msgid "If -ftree-vectorize is used, the minimal loop bound of a loop to be considered for vectorization"
+#, no-c-format
 msgid "If -ftree-vectorize is used, the minimal loop bound of a loop to be considered for vectorization."
-msgstr "Om -ftree-vectorize används, den minimala slinggränsen på en slinga för att den skall övervägas för vektorisering"
+msgstr "Om -ftree-vectorize används, den minimala slinggränsen på en slinga för att den skall övervägas för vektorisering."
 
 #: params.def:152
-#, fuzzy, no-c-format
-#| msgid "The maximum number of instructions to consider to fill a delay slot"
+#, no-c-format
 msgid "The maximum number of instructions to consider to fill a delay slot."
-msgstr "Det maximala antalet instruktioner att överväga för att fylla ett fördröjningsutrymme"
+msgstr "Det maximala antalet instruktioner att överväga för att fylla ett fördröjningsutrymme."
 
 #: params.def:163
-#, fuzzy, no-c-format
-#| msgid "The maximum number of instructions to consider to find accurate live register information"
+#, no-c-format
 msgid "The maximum number of instructions to consider to find accurate live register information."
-msgstr "Det maximala antalet instruktioner att överväga för att hitta korrekt information om aktiva register"
+msgstr "Det maximala antalet instruktioner att överväga för att hitta korrekt information om aktiva register."
 
 #: params.def:173
-#, fuzzy, no-c-format
-#| msgid "The maximum length of scheduling's pending operations list"
+#, no-c-format
 msgid "The maximum length of scheduling's pending operations list."
-msgstr "Den maximala längden på schemaläggarens lista över väntande operationer"
+msgstr "Den maximala längden på schemaläggarens lista över väntande operationer."
 
 #: params.def:180
-#, fuzzy, no-c-format
-#| msgid "The maximum number of backtrack attempts the scheduler should make when modulo scheduling a loop"
+#, no-c-format
 msgid "The maximum number of backtrack attempts the scheduler should make when modulo scheduling a loop."
-msgstr "Det maximala antalet försök att gå tillbaka schemaläggaren skall göra vid moduloschemaläggning av en slinga"
+msgstr "Det maximala antalet försök att gå tillbaka schemaläggaren skall göra vid moduloschemaläggning av en slinga."
 
 #: params.def:185
-#, fuzzy, no-c-format
-#| msgid "The size of function body to be considered large"
+#, no-c-format
 msgid "The size of function body to be considered large."
-msgstr "Storleken på en funktionskropp för att betraktas som stor"
+msgstr "Storleken på en funktionskropp för att betraktas som stor."
 
 #: params.def:189
-#, fuzzy, no-c-format
-#| msgid "Maximal growth due to inlining of large function (in percent)"
+#, no-c-format
 msgid "Maximal growth due to inlining of large function (in percent)."
-msgstr "Maximal på grund av inline:ing av stora funktioner (i procent)"
+msgstr "Maximal på grund av inline:ing av stora funktioner (i procent)."
 
 #: params.def:193
-#, fuzzy, no-c-format
-#| msgid "The size of translation unit to be considered large"
+#, no-c-format
 msgid "The size of translation unit to be considered large."
-msgstr "Storleken på en översättningsenhet för att betraktas som stor"
+msgstr "Storleken på en översättningsenhet för att betraktas som stor."
 
 #: params.def:197
-#, fuzzy, no-c-format
-#| msgid "How much can given compilation unit grow because of the inlining (in percent)"
+#, no-c-format
 msgid "How much can given compilation unit grow because of the inlining (in percent)."
-msgstr "Hur mycket kan en given kompileringsenhet växa på grund av inline:ingen (i procent)"
+msgstr "Hur mycket kan en given kompileringsenhet växa på grund av inline:ingen (i procent)."
 
 #: params.def:201
-#, fuzzy, no-c-format
-#| msgid "How much can given compilation unit grow because of the interprocedural constant propagation (in percent)"
+#, no-c-format
 msgid "How much can given compilation unit grow because of the interprocedural constant propagation (in percent)."
-msgstr "hur mycket kan en given kompileringsenhet växa på grund av interprocedurell konstantpropagering (i procent)"
+msgstr "hur mycket kan en given kompileringsenhet växa på grund av interprocedurell konstantpropagering (i procent)."
 
 #: params.def:205
-#, fuzzy, no-c-format
-#| msgid "Maximal estimated growth of function body caused by early inlining of single call"
+#, no-c-format
 msgid "Maximal estimated growth of function body caused by early inlining of single call."
-msgstr "Maximal uppskattad ökning av funktionskropp orsakad av tidigare inline:ing av enkla anrop"
+msgstr "Maximal uppskattad ökning av funktionskropp orsakad av tidigare inline:ing av enkla anrop."
 
 #: params.def:209
-#, fuzzy, no-c-format
-#| msgid "The size of stack frame to be considered large"
+#, no-c-format
 msgid "The size of stack frame to be considered large."
-msgstr "Storleken på en stackram för att betraktas som stor"
+msgstr "Storleken på en stackram för att betraktas som stor."
 
 #: params.def:213
-#, fuzzy, no-c-format
-#| msgid "Maximal stack frame growth due to inlining (in percent)"
+#, no-c-format
 msgid "Maximal stack frame growth due to inlining (in percent)."
-msgstr "Maximal storleksökning på stackram på grund av inline:ing (i procent)"
+msgstr "Maximal storleksökning på stackram på grund av inline:ing (i procent)."
 
 #: params.def:220
-#, fuzzy, no-c-format
-#| msgid "The maximum amount of memory to be allocated by GCSE"
+#, no-c-format
 msgid "The maximum amount of memory to be allocated by GCSE."
-msgstr "Den maximala mängden minne som får allokeras av GCSE"
+msgstr "Den maximala mängden minne som får allokeras av GCSE."
 
 #: params.def:227
-#, fuzzy, no-c-format
-#| msgid "The maximum ratio of insertions to deletions of expressions in GCSE"
+#, no-c-format
 msgid "The maximum ratio of insertions to deletions of expressions in GCSE."
-msgstr "Det maximala förhållandet mellan insättningar och raderingar av uttryck i GCSE"
+msgstr "Det maximala förhållandet mellan insättningar och raderingar av uttryck i GCSE."
 
 #: params.def:238
 #, fuzzy, no-c-format
@@ -10926,7 +10873,7 @@ msgstr "Kända stackskyddsvakter (att användas med flaggan -mstack-protector-gu
 
 #: config/i386/i386.opt:899
 msgid "Attempt to avoid generating instruction sequences containing ret bytes."
-msgstr ""
+msgstr "Försök udvika att generera instruktionssekvenser som innehåller ret-byte:ar."
 
 #: config/i386/stringop.opt:8
 msgid "the Free Software Foundation; either version 3, or (at your option)"
@@ -11277,7 +11224,7 @@ msgstr "Länka med kod för en __main-kärna."
 
 #: config/nvptx/nvptx.opt:34
 msgid "Optimize partition neutering"
-msgstr ""
+msgstr "Optimera partitionssterilisering"
 
 #: config/vxworks.opt:36
 #, fuzzy
@@ -11612,7 +11559,7 @@ msgstr "Ange det maximala antalet byte som måste finnas kvar till stackstorleke
 
 #: config/s390/s390.opt:158
 msgid "Switches off the -mstack-guard= option."
-msgstr ""
+msgstr "Slår av flaggan -mstack-guard=."
 
 #: config/s390/s390.opt:162
 #, fuzzy
@@ -11622,7 +11569,7 @@ msgstr "Mata ut extra kod i funktionsprologen för att fånga om stackstorleken 
 
 #: config/s390/s390.opt:166
 msgid "Switches off the -mstack-size= option."
-msgstr ""
+msgstr "Slår av flaggan -mstack-size=."
 
 #: config/s390/s390.opt:174
 #, fuzzy
@@ -11632,7 +11579,7 @@ msgstr "Generera stränginstruktioner för blockförflyttningar"
 
 #: config/s390/s390.opt:178
 msgid "Enable the z vector language extension providing the context-sensitive"
-msgstr ""
+msgstr "Aktivera språkutökningen z-vektor som ger det kontextkänsliga"
 
 #: config/s390/s390.opt:183
 #, fuzzy
@@ -11662,7 +11609,7 @@ msgstr "Använd simulatorkörtidskod."
 
 #: config/rl78/rl78.opt:31
 msgid "Selects the type of hardware multiplication and division to use (none/g13/g14)."
-msgstr ""
+msgstr "Väljer typen av hårdvarumultiplikation och -division att använda (none/g13/g14)."
 
 #: config/rl78/rl78.opt:50
 msgid "Use all registers, reserving none for interrupt handlers."
@@ -11674,7 +11621,7 @@ msgstr "Aktivera assembler- och länkarlättnader.  Aktiverat som standard med -
 
 #: config/rl78/rl78.opt:58
 msgid "Selects the type of RL78 core being targeted (g10/g13/g14).  The default is the G14.  If set, also selects the hardware multiply support to be used."
-msgstr ""
+msgstr "Väljer typen av RL78-kärna att ha som mål (g10/g13/g14).  Standard är G14.  Om satt väljer det även stödet av hårdvarumultiplikation att använda."
 
 #: config/rl78/rl78.opt:77
 #, fuzzy
@@ -12712,7 +12659,7 @@ msgstr "Använd/använd inte vektor och skalära instruktioner som lades till i 
 
 #: config/rs6000/rs6000.opt:622
 msgid "Fuse medium/large code model toc references with the memory instruction."
-msgstr ""
+msgstr "Slå samman medium/stor modellers toc-referenser med minnesinstruktionen."
 
 #: config/rs6000/rs6000.opt:626
 #, fuzzy
@@ -12722,7 +12669,7 @@ msgstr "Generera isel-instruktioner"
 
 #: config/rs6000/rs6000.opt:630
 msgid "Enable/disable IEEE 128-bit floating point via the __float128 keyword."
-msgstr ""
+msgstr "Aktivera/avaktivera IEEE 128-bitars flyttal via nyckelordet __float128."
 
 #: config/rs6000/rs6000.opt:634
 #, fuzzy
@@ -12732,7 +12679,7 @@ msgstr "Använd decimala flyttalsinstruktioner"
 
 #: config/rs6000/rs6000.opt:638
 msgid "Enable/disable default conversions between __float128 & long double."
-msgstr ""
+msgstr "Aktivera/avaktivera standardkonvertering mellan __float128 & long double."
 
 #: config/rs6000/sysv4.opt:24
 #, fuzzy
@@ -13822,7 +13769,7 @@ msgstr "Heltals-id (N) för anpassad instruktion round"
 
 #: config/nios2/nios2.opt:574
 msgid "Valid Nios II ISA levels (for -march):"
-msgstr ""
+msgstr "Giltiga Nios II ISA-nivåer (för -march):"
 
 #: config/nios2/nios2.opt:584
 #, fuzzy
@@ -13910,7 +13857,7 @@ msgstr "Aktivera användningen av LRA-registerallokeraren."
 
 #: config/rx/rx.opt:151
 msgid "Enables or disables the use of the SMOVF, SMOVB, SMOVU, SUNTIL, SWHILE and RMPA instructions.  Enabled by default."
-msgstr ""
+msgstr "Aktiverar eller avaktiverar användningen av instruktionerna SMOVF, SMOVB, SMOVU, SUNTIL, SWHILE och RMPA.  Normalt aktiverat."
 
 #: config/rx/rx.opt:157
 #, fuzzy
@@ -15760,11 +15707,11 @@ msgstr "Aktivera eliminering av död lagring"
 
 #: config/mips/mips.opt:428
 msgid "Specify the compact branch usage policy."
-msgstr ""
+msgstr "Ange den kompakta grenanvändningspolicyn."
 
 #: config/mips/mips.opt:432
 msgid "Policies available for use with -mcompact-branches=:"
-msgstr ""
+msgstr "Policyer tillgängliga att användas med -mcompact-branches=:"
 
 #: config/mips/mips-tables.opt:24
 msgid "Known MIPS CPUs (for use with the -march= and -mtune= options):"
@@ -15842,7 +15789,7 @@ msgstr "Samma som -mA7"
 
 #: config/arc/arc.opt:58
 msgid "-mmpy-option={0,1,2,3,4,5,6,7,8,9} Compile ARCv2 code with a multiplier design option.  Option 2 is default on."
-msgstr ""
+msgstr "-mmpy-option={0,1,2,3,4,5,6,7,8,9} Kompilera ARCv2-kod med en multiplicerardesignflagga.  Flaggan 2 är normalt på."
 
 #: config/arc/arc.opt:62
 #, fuzzy
@@ -16344,7 +16291,7 @@ msgstr "okänd pekarstorlekmodell %qs"
 
 #: lto/lang.opt:47
 msgid "Set linker output type (used internally during LTO optimization)"
-msgstr ""
+msgstr "Sätt läkningsutdatatyp (används internt under LTO-optimering)"
 
 #: lto/lang.opt:52
 msgid "Run the link-time optimizer in local transformation (LTRANS) mode."
@@ -16536,7 +16483,7 @@ msgstr "-Wlarger-than=<antal>\tVarna för ett objekt är större än <antal> byt
 
 #: common.opt:621
 msgid "Warn if dereferencing a NULL pointer may lead to erroneous or undefined behavior."
-msgstr ""
+msgstr "Varna om dereferering av en NULL-pekare kan leda till felaktigt eller odefinierat beteende."
 
 #: common.opt:625
 msgid "Warn if the loop cannot be optimized due to nontrivial assumptions."
@@ -16556,7 +16503,7 @@ msgstr "Varna för spill i aritmetiska uttryck"
 
 #: common.opt:640
 msgid "During link time optimization warn about mismatched types of global declarations."
-msgstr ""
+msgstr "Varna under länktidsoptimeringar för typer som inte stämmer överens från globala deklarationer."
 
 #: common.opt:644
 #, fuzzy
@@ -16802,7 +16749,7 @@ msgstr "-fasan-shadow-offset=<tal>\tAnvänd anpassat avstånd till skuggminne."
 
 #: common.opt:940
 msgid "-fsanitize-sections=<sec1,sec2,...>\tSanitize global variables"
-msgstr ""
+msgstr "-fsanitize-sections=<sek1,sek2,…>\tSanera globala variabler"
 
 #: common.opt:945
 #, fuzzy
@@ -17110,7 +17057,7 @@ msgstr "Samla och skriv ut felsökningsinformation till en temporärfil om ICE s
 
 #: common.opt:1213
 msgid "Dump detailed information on GCC's internal representation of source code locations."
-msgstr ""
+msgstr "Skriv ut detaljerad information om GCC:s interna representation av källkodsplatser."
 
 #: common.opt:1217
 #, fuzzy
@@ -17270,7 +17217,7 @@ msgstr "Utför global eliminering av gemensamma deluttryck efter registertilldel
 
 #: common.opt:1367
 msgid "-fgnat-encodings=[all|gdb|minimal]\tSelect the balance between GNAT encodings and standard DWARF emitted in the debug information"
-msgstr ""
+msgstr "-fgnat-encodings=[all|gdb|minimal]\tVälj balansen mellan GNAT-kodningar och standard DWARF som skrivs ut i felsökningsinformationen"
 
 #: common.opt:1372
 #, fuzzy
@@ -17827,7 +17774,7 @@ msgstr "Generera positionsoberoende kod för körbara program om möjligt (litet
 
 #: common.opt:1856
 msgid "Use PLT for PIC calls (-fno-plt: load the address from GOT at call site)."
-msgstr ""
+msgstr "Använd PLT för PIC-anrop (-fno-plt: läs adressen från GOT på anropsplatsen)."
 
 #: common.opt:1860
 #, fuzzy
@@ -17961,7 +17908,7 @@ msgstr "Flytta om grundblock för att förbättra kodplacering"
 
 #: common.opt:1967
 msgid "-freorder-blocks-algorithm=[simple|stc] Set the used basic block reordering algorithm."
-msgstr ""
+msgstr "-freorder-blocks-algorithm=[simple|stc] Sätt algoritmen att användas för ordningsändring av grundblock."
 
 #: common.opt:1970
 #, fuzzy, c-format
@@ -18544,7 +18491,7 @@ msgstr "Utför propagering av värdeintervall i träd"
 
 #: common.opt:2452
 msgid "Split paths leading to loop backedges."
-msgstr ""
+msgstr "Dela sökvägar som leder till bakåtbågar i slingor."
 
 #: common.opt:2456
 #, fuzzy
@@ -19517,7 +19464,7 @@ msgstr "argumenttyp %qT som inte stödjs till simd\n"
 #: builtins.c:4297
 #, gcc-internal-format
 msgid "calling %qD with a nonzero argument is unsafe"
-msgstr ""
+msgstr "att anropa %qD med ett nollskilt argument är osäkert"
 
 #: builtins.c:4547
 #, gcc-internal-format
@@ -19942,7 +19889,7 @@ msgstr "slingverifiering på slingträdet som behöver upprättning"
 #: cfgloop.c:1333
 #, gcc-internal-format
 msgid "corrupt loop tree root"
-msgstr ""
+msgstr "trasig rot i slingträd"
 
 #: cfgloop.c:1343
 #, gcc-internal-format, gfc-internal-format
@@ -20862,7 +20809,7 @@ msgstr "bytekodström: för lång sträng för strängtabellen"
 #: data-streamer-in.c:84 data-streamer-in.c:113
 #, gcc-internal-format
 msgid "bytecode stream: found non-null terminated string"
-msgstr "bytekodström: hittade sträng som inte var null-terminerad"
+msgstr "bytekodström: hittade sträng som inte var nollterminerad"
 
 #: dbgcnt.c:133
 #, gcc-internal-format
@@ -21032,12 +20979,12 @@ msgstr "stackgränser stödjs inte på denna målarkitektur"
 #: expmed.c:337
 #, gcc-internal-format
 msgid "reverse scalar storage order"
-msgstr ""
+msgstr "omvänd lagringsordning för skalärer"
 
 #: expmed.c:354
 #, gcc-internal-format
 msgid "reverse floating-point scalar storage order"
-msgstr ""
+msgstr "omvänd lagringsordning för flyttalsskalärer"
 
 #: expmed.c:398
 #, fuzzy, gcc-internal-format, gfc-internal-format
@@ -21559,12 +21506,12 @@ msgstr "%s: %d grundblock och %d register"
 #: gencfn-macros.c:183
 #, gcc-internal-format, gfc-internal-format
 msgid "DEF_INTERNAL_FLT_FN (%s) has no associated built-in functions"
-msgstr ""
+msgstr "DEF_INTERNAL_FLT_FN (%s) har inga associerade inbyggda funktioner"
 
 #: gencfn-macros.c:190
 #, gcc-internal-format, gfc-internal-format
 msgid "DEF_INTERNAL_INT_FN (%s) has no associated built-in functions"
-msgstr ""
+msgstr "DEF_INTERNAL_INT_FN (%s) har inga inbyggda associerade funktioner"
 
 #: gentarget-def.c:126
 #, fuzzy, gcc-internal-format, gfc-internal-format
@@ -21575,7 +21522,7 @@ msgstr "ogiltig operand för ”%%%c”"
 #: gentarget-def.c:131
 #, gcc-internal-format, gfc-internal-format
 msgid "prototype for '%s' has required operands after optional operands"
-msgstr ""
+msgstr "prototypen för ”%s” har nödvändiga operander efter valfria operander"
 
 #: gentarget-def.c:148
 #, fuzzy, gcc-internal-format, gfc-internal-format
@@ -21586,17 +21533,17 @@ msgstr "Nyckelordsargument %qs vid %L finns inte i proceduren"
 #: gentarget-def.c:168
 #, gcc-internal-format, gfc-internal-format
 msgid "'%s' must have %d operands (excluding match_dups)"
-msgstr ""
+msgstr "”%s” måste ha %d operander (exklusive match_dups)"
 
 #: gentarget-def.c:172
 #, gcc-internal-format, gfc-internal-format
 msgid "'%s' must have at least %d operands (excluding match_dups)"
-msgstr ""
+msgstr "”%s” måste ha åtminstone %d operander (exklusive match_dups)"
 
 #: gentarget-def.c:176
 #, gcc-internal-format, gfc-internal-format
 msgid "'%s' must have no more than %d operands (excluding match_dups)"
-msgstr ""
+msgstr "”%s” får inte ha fler än %d operander (exklusive match_dups)"
 
 #: gentarget-def.c:276
 #, fuzzy, gcc-internal-format, gfc-internal-format
@@ -21786,12 +21733,12 @@ msgstr "instansvariabel %qE får inte vara privat"
 #: gimplify.c:6638
 #, gcc-internal-format
 msgid "%<linear%> clause for variable other than loop iterator specified on construct combined with %<distribute%>"
-msgstr ""
+msgstr "%<linear%>-klausul för en annan variabel än en slingiterator angiven vid konstruktion combinerad med %<distribute%>"
 
 #: gimplify.c:6833
 #, gcc-internal-format
 msgid "mapping field %qE of variable length structure"
-msgstr ""
+msgstr "avbildningsfältet %qE med variabel längds post"
 
 #: gimplify.c:7009
 #, fuzzy, gcc-internal-format
@@ -21818,7 +21765,7 @@ msgstr "%<for%> förväntades efter %qs"
 #: gimplify.c:7847
 #, gcc-internal-format
 msgid "same variable used in %<firstprivate%> and %<lastprivate%> clauses on %<distribute%> construct"
-msgstr ""
+msgstr "samma variabel använd i %<firstprivate%>- och %<lastprivate%>-klausuler vid %<distribute%>-konstruktion"
 
 #: gimplify.c:9806 omp-low.c:3611
 #, fuzzy, gcc-internal-format
@@ -21829,7 +21776,7 @@ msgstr "ordnad region måste vara nära innesluten inuti en slinga med en ordnad
 #: gimplify.c:9824
 #, gcc-internal-format
 msgid "variable %qE is not an iteration of outermost loop %d, expected %qE"
-msgstr ""
+msgstr "variabeln %qE är inte en iterator av den yttersta slingan %d, %qE förväntades"
 
 #: gimplify.c:9837
 #, fuzzy, gcc-internal-format
@@ -21840,12 +21787,12 @@ msgstr "antalet resultat stämmer inte med antalet värden"
 #: gimplify.c:9850
 #, gcc-internal-format
 msgid "more than one %<depend(source)%> clause on an %<ordered%> construct"
-msgstr ""
+msgstr "mer än en %<depend(source)%>-klausul på en %<ordered%>-konstruktion"
 
 #: gimplify.c:9860
 #, gcc-internal-format
 msgid "%<depend(source)%> clause specified together with %<depend(sink:)%> clauses on the same construct"
-msgstr ""
+msgstr "%<depend(source)%>-klausul angiven tillsammans med %<depend(sink:)%>-klausuler på samma konstruktion"
 
 #: gimplify.c:10773
 #, gcc-internal-format
@@ -21902,12 +21849,12 @@ msgstr "Graphite-slingoptimeringar kan inte användas (ISL är inte tillgänglig
 #: hsa-brig.c:900
 #, gcc-internal-format
 msgid "Support for HSA does not implement immediate 16 bit FPU operands"
-msgstr ""
+msgstr "Stöd för HSA implementerar inte omedelbara 16-bitars FPU-operander"
 
 #: hsa-gen.c:1191
 #, gcc-internal-format
 msgid "HSA SSA name defined by instruction that is supposed to be using it"
-msgstr ""
+msgstr "HSA SSA-namn definierat av en instruktion som förväntas använda det"
 
 #: hsa-gen.c:1195 hsa-gen.c:1208
 #, fuzzy, gcc-internal-format
@@ -21918,12 +21865,12 @@ msgstr "verifiering misslyckades: %s"
 #: hsa-gen.c:1204
 #, gcc-internal-format
 msgid "HSA SSA name not among operands of instruction that is supposed to use it"
-msgstr ""
+msgstr "HSA SSA-namn inte bland operanderna till instruktionen som förväntas använda det"
 
 #: hsa-gen.c:1464
 #, gcc-internal-format
 msgid "HSA instruction uses a register but is not among recorded register uses"
-msgstr ""
+msgstr "HSA-instruktion använder ett register men är inte bland de noterade registeranvändningarna"
 
 #: hsa-gen.c:1468
 #, fuzzy, gcc-internal-format
@@ -21934,27 +21881,27 @@ msgstr "verifiering misslyckades: %s"
 #: hsa.c:239
 #, gcc-internal-format
 msgid "HSA image ops not handled"
-msgstr ""
+msgstr "HSA-avbildsoperatorer hanteras inte"
 
 #: input.c:1072
 #, gcc-internal-format, gfc-internal-format
 msgid "expansion point is location %i"
-msgstr ""
+msgstr "expansionspunkt är plats %i"
 
 #: input.c:1102
 #, gcc-internal-format, gfc-internal-format
 msgid "token %u has x-location == y-location == %u"
-msgstr ""
+msgstr "symbol %u har x-plats == y-plats == %u"
 
 #: input.c:1110
 #, gcc-internal-format, gfc-internal-format
 msgid "token %u has x-location == %u"
-msgstr ""
+msgstr "symbol %u har x-plats == %u"
 
 #: input.c:1111
 #, gcc-internal-format, gfc-internal-format
 msgid "token %u has y-location == %u"
-msgstr ""
+msgstr "symbol %u har y-plats == %u"
 
 #: ipa-chkp.c:661
 #, gcc-internal-format
@@ -22096,7 +22043,7 @@ msgstr "returvärdets typ stämmer inte"
 #: ipa-devirt.c:1179
 #, gcc-internal-format
 msgid "implicit this pointer type mismatch"
-msgstr ""
+msgstr "typen på implicit this-pekare stämmer inte"
 
 #: ipa-devirt.c:1182
 #, gcc-internal-format, gfc-internal-format
@@ -22557,7 +22504,7 @@ msgstr "attribute(target(”%s”)) är okänt"
 #: multiple_target.c:331
 #, gcc-internal-format
 msgid "attribute(target_clones(\"default\")) is not valid for current target"
-msgstr ""
+msgstr "attribute(target_clones(\"default\")) är inte giltigt för det aktuella målet"
 
 #: omp-low.c:2202 omp-low.c:2370
 #, gcc-internal-format
@@ -22567,22 +22514,22 @@ msgstr "Klausulen stödjs inte än"
 #: omp-low.c:2967 omp-low.c:20751
 #, gcc-internal-format
 msgid "%<seq%> overrides other OpenACC loop specifiers"
-msgstr ""
+msgstr "%<seq%> åsidosätter andra OpenACC-slingspecificerare"
 
 #: omp-low.c:2970
 #, gcc-internal-format
 msgid "%<auto%> conflicts with other OpenACC loop specifiers"
-msgstr ""
+msgstr "%<auto%> står i konflikt med andra OpenACC-slingspecificerare"
 
 #: omp-low.c:2974
 #, gcc-internal-format
 msgid "inner loop uses same OpenACC parallelism as containing loop"
-msgstr ""
+msgstr "den inre slingan använder samma OpenACC-parallellism som den omgivande slingan"
 
 #: omp-low.c:3021
 #, gcc-internal-format
 msgid "argument not permitted on %qs clause in OpenACC %<parallel%>"
-msgstr ""
+msgstr "argument är inte tillåtna på %qs-klausulen i OpenACC %<parallel%>"
 
 #: omp-low.c:3249
 #, gcc-internal-format
@@ -22616,7 +22563,7 @@ msgstr "en distribute-konstruktion måste vara nära nästat inuti en teams-kons
 #: omp-low.c:3352
 #, gcc-internal-format
 msgid "OpenACC loop directive must be associated with an OpenACC compute region"
-msgstr ""
+msgstr "OpenACC-slingdirektiv måste vara associerade med en OpenACC-beräkningsregion"
 
 #: omp-low.c:3374
 #, gcc-internal-format
@@ -22675,7 +22622,7 @@ msgstr "huvudregion får inte vara nära innesluten inuti arbetsdelande eller ex
 #: omp-low.c:3575 omp-low.c:3714
 #, gcc-internal-format
 msgid "%<depend(%s)%> is only allowed in %<omp ordered%>"
-msgstr ""
+msgstr "%<depend(%s)%> är bara tillåtet i %<omp ordered%>"
 
 #: omp-low.c:3603
 #, fuzzy, gcc-internal-format
@@ -22686,7 +22633,7 @@ msgstr "ordnad region måste vara nära innesluten inuti en slinga med en ordnad
 #: omp-low.c:3620
 #, gcc-internal-format
 msgid "invalid depend kind in omp %<ordered%> %<depend%>"
-msgstr ""
+msgstr "ogiltig beroendesort i omp %<ordered%> %<depend%>"
 
 #: omp-low.c:3635
 #, fuzzy, gcc-internal-format
@@ -22743,12 +22690,12 @@ msgstr "setjmp/longjmp inuti simd-konstruktion"
 #: omp-low.c:7936
 #, gcc-internal-format
 msgid "%<depend(sink)%> clause waiting for lexically later iteration"
-msgstr ""
+msgstr "%<depend(sink)%>-klausul väntar på en lexikalt senare iteration"
 
 #: omp-low.c:8023
 #, gcc-internal-format
 msgid "%<depend(sink)%> refers to iteration never in the iteration space"
-msgstr ""
+msgstr "%<depend(sink)%> refererar till en iteration som aldrig är i iterationsrymden"
 
 #: omp-low.c:12563
 #, fuzzy, gcc-internal-format
@@ -22759,12 +22706,12 @@ msgstr "lagringsklass angiven för typnamn"
 #: omp-low.c:14578
 #, gcc-internal-format
 msgid "ignoring sink clause with offset that is not a multiple of the loop step"
-msgstr ""
+msgstr "ignorerar sink-klausul med ett avstånd som inte är en multipel av slingsteget"
 
 #: omp-low.c:14601
 #, gcc-internal-format
 msgid "first offset must be in opposite direction of loop iterations"
-msgstr ""
+msgstr "första avståndet måste vara i motsatt riktning mot slingiterationer"
 
 #: omp-low.c:17957
 #, gcc-internal-format, gfc-internal-format
@@ -22795,7 +22742,7 @@ msgstr "ignorera linjärt steg noll"
 #: omp-low.c:20778
 #, gcc-internal-format, gfc-internal-format
 msgid "%s uses same OpenACC parallelism as containing loop"
-msgstr ""
+msgstr "%s använder samma OpenACC-parallellism som den omgivande slingan"
 
 #: omp-low.c:20780 omp-low.c:20809
 #, fuzzy, gcc-internal-format
@@ -22806,7 +22753,7 @@ msgstr "kringliggande slinga"
 #: omp-low.c:20784
 #, gcc-internal-format, gfc-internal-format
 msgid "%s uses OpenACC parallelism disallowed by containing routine"
-msgstr ""
+msgstr "%s använder OpenACC-parallellism som är otillåtet av den omgivande rutinen"
 
 #: omp-low.c:20789
 #, fuzzy, gcc-internal-format
@@ -22817,12 +22764,12 @@ msgstr "%qD är deklarerad här"
 #: omp-low.c:20802
 #, gcc-internal-format
 msgid "incorrectly nested OpenACC loop parallelism"
-msgstr ""
+msgstr "felaktigt nästad OpenACC-slingeparallellism"
 
 #: omp-low.c:20866
 #, gcc-internal-format
 msgid "insufficient partitioning available to parallelize loop"
-msgstr ""
+msgstr "otillräcklig partitionering tillgänglig för att parallellisera slingor"
 
 #: optabs.c:4177
 #, gcc-internal-format
@@ -23095,7 +23042,7 @@ msgstr "-Werror=%s: ingen flagga -%s"
 #: opts.c:2469
 #, gcc-internal-format, gfc-internal-format
 msgid "-Werror=%s: -%s is not an option that controls warnings"
-msgstr ""
+msgstr "-Werror=%s: -%s är inte en flagga som styr varningar"
 
 #. If we didn't find this parameter, issue an error message.
 #: params.c:184
@@ -23121,7 +23068,7 @@ msgstr "pass %s stödjer inte kloning"
 #: passes.c:87
 #, gcc-internal-format, gfc-internal-format
 msgid "pass %s needs a set_pass_param implementation to handle the extra argument in NEXT_PASS"
-msgstr ""
+msgstr "pass %s behöver en set_pass_param-implementation för att hantera det extra argumentet i NEXT_PASS"
 
 #: passes.c:1023
 #, gcc-internal-format
@@ -23739,7 +23686,7 @@ msgstr "Aliasets och målets sektion skiljer"
 #: symtab.c:1159
 #, gcc-internal-format
 msgid "Chained transparent aliases"
-msgstr ""
+msgstr "Kedjade genomskinliga alias"
 
 #: symtab.c:1182 symtab.c:1219
 #, gcc-internal-format
@@ -24443,7 +24390,7 @@ msgstr "typer stämmer inte i sammansmält multiplicera-addera-uttryck"
 #: tree-cfg.c:3995
 #, gcc-internal-format
 msgid "the first argument of a VEC_COND_EXPR must be of a boolean vector type of the same number of elements as the result"
-msgstr ""
+msgstr "första argumentet till en VEC_COND_EXPR måste vara av boolesk vektortyp med samma antal element som resultatet"
 
 #: tree-cfg.c:4007 c/c-typeck.c:4955
 #, gcc-internal-format
@@ -25270,12 +25217,12 @@ msgstr "antar att teckenspill inte förekommer vid förenkling av %<abs (X)%> ti
 #: tree.c:1836
 #, gcc-internal-format
 msgid "non-constant element in constant CONSTRUCTOR"
-msgstr ""
+msgstr "icke konstant element i konstant CONSTRUCTOR"
 
 #: tree.c:1838
 #, gcc-internal-format
 msgid "side-effects element in no-side-effects CONSTRUCTOR"
-msgstr ""
+msgstr "sidoeffektselement i icke sidoeffekts-CONSTRUCTOR"
 
 #: tree.c:4839
 #, gcc-internal-format
@@ -25465,57 +25412,57 @@ msgstr "typen bör undvikas"
 #: tree.c:13028
 #, gcc-internal-format
 msgid "type variant differs by "
-msgstr ""
+msgstr "typvarianter skiljer i "
 
 #: tree.c:13068
 #, gcc-internal-format
 msgid "type variant has different TYPE_SIZE_UNIT"
-msgstr ""
+msgstr "typvariant har en annan TYPE_SIZE_UNIT"
 
 #: tree.c:13070
 #, gcc-internal-format
 msgid "type variant's TYPE_SIZE_UNIT"
-msgstr ""
+msgstr "typvariantens TYPE_SIZE_UNIT"
 
 #: tree.c:13072
 #, gcc-internal-format
 msgid "type's TYPE_SIZE_UNIT"
-msgstr ""
+msgstr "typens TYPE_SIZE_UNIT"
 
 #: tree.c:13092
 #, gcc-internal-format
 msgid "type variant with TYPE_ALIAS_SET_KNOWN_P"
-msgstr ""
+msgstr "typvariant med TYPE_ALIAS_SET_KNOWN_P"
 
 #: tree.c:13105
 #, gcc-internal-format
 msgid "type variant has different TYPE_VFIELD"
-msgstr ""
+msgstr "typvariant har en annan TYPE_VFIELD"
 
 #: tree.c:13122
 #, gcc-internal-format
 msgid "type variant has TYPE_METHODS"
-msgstr ""
+msgstr "typvariant har TYPE_METHODS"
 
 #: tree.c:13147
 #, gcc-internal-format
 msgid "type variant has different TYPE_BINFO"
-msgstr ""
+msgstr "typvariant har en annan TYPE_BINFO"
 
 #: tree.c:13149
 #, gcc-internal-format
 msgid "type variant's TYPE_BINFO"
-msgstr ""
+msgstr "typvariantens TYPE_BINFO"
 
 #: tree.c:13151
 #, gcc-internal-format
 msgid "type's TYPE_BINFO"
-msgstr ""
+msgstr "typens TYPE_BINFO"
 
 #: tree.c:13189
 #, gcc-internal-format
 msgid "type variant has different TYPE_FIELDS"
-msgstr ""
+msgstr "typvariant har andra TYPE_FIELDS"
 
 #: tree.c:13191
 #, fuzzy, gcc-internal-format
@@ -25526,22 +25473,22 @@ msgstr "%s:stämpel stämmer inte med notfilen\n"
 #: tree.c:13193
 #, gcc-internal-format
 msgid "and field"
-msgstr ""
+msgstr "och fält"
 
 #: tree.c:13210
 #, gcc-internal-format
 msgid "type variant has different TREE_TYPE"
-msgstr ""
+msgstr "typvariant har en annan TREE_TYPE"
 
 #: tree.c:13212 tree.c:13223
 #, gcc-internal-format
 msgid "type variant's TREE_TYPE"
-msgstr ""
+msgstr "typvariantens TREE_TYPE"
 
 #: tree.c:13214 tree.c:13225
 #, gcc-internal-format
 msgid "type's TREE_TYPE"
-msgstr ""
+msgstr "typens TREE_TYPE"
 
 #: tree.c:13221
 #, fuzzy, gcc-internal-format
@@ -25558,102 +25505,102 @@ msgstr "omgivningsvariabeln %qs är inte definierad"
 #: tree.c:13525
 #, gcc-internal-format
 msgid "TYPE_MAIN_VARIANT has different TYPE_MAIN_VARIANT"
-msgstr ""
+msgstr "TYPE_MAIN_VARIANT har en annan TYPE_MAIN_VARIANT"
 
 #: tree.c:13537
 #, gcc-internal-format
 msgid "TYPE_CANONICAL has different TYPE_CANONICAL"
-msgstr ""
+msgstr "TYPE_CANONICAL har en annan TYPE_CANONICAL"
 
 #: tree.c:13555
 #, gcc-internal-format
 msgid "TYPE_CANONICAL is not compatible"
-msgstr ""
+msgstr "TYPE_CANONICAL är inte kompatibla"
 
 #: tree.c:13563
 #, gcc-internal-format
 msgid "TYPE_MODE of TYPE_CANONICAL is not compatible"
-msgstr ""
+msgstr "TYPE_MODE av TYPE_CANONICAL är inte kompatibla"
 
 #: tree.c:13569
 #, gcc-internal-format
 msgid "TYPE_CANONICAL of main variant is not main variant"
-msgstr ""
+msgstr "TYPE_CANONICAL av huvudvarianten är inte en huvudvariant"
 
 #: tree.c:13585
 #, gcc-internal-format
 msgid "TYPE_VFIELD is not FIELD_DECL nor TREE_LIST"
-msgstr ""
+msgstr "TYPE_VFIELD är varken FIELD_DECL eller TREE_LIST"
 
 #: tree.c:13595
 #, gcc-internal-format
 msgid "TYPE_NEXT_PTR_TO is not POINTER_TYPE"
-msgstr ""
+msgstr "TYPE_NEXT_PTR_TO är inte POINTER_TYPE"
 
 #: tree.c:13605
 #, gcc-internal-format
 msgid "TYPE_NEXT_REF_TO is not REFERENCE_TYPE"
-msgstr ""
+msgstr "TYPE_NEXT_REF_TO är inte REFERENCE_TYPE"
 
 #: tree.c:13623
 #, gcc-internal-format
 msgid "TYPE_MINVAL non-NULL"
-msgstr ""
+msgstr "TYPE_MINVAL icke-NULL"
 
 #: tree.c:13635
 #, gcc-internal-format
 msgid "TYPE_METHODS is not FUNCTION_DECL, TEMPLATE_DECL nor error_mark_node"
-msgstr ""
+msgstr "TYPE_METHODS är varken FUNCTION_DECL, TEMPLATE_DECL eller error_mark_node"
 
 #: tree.c:13646
 #, gcc-internal-format
 msgid "TYPE_METHOD_BASETYPE is not record nor union"
-msgstr ""
+msgstr "TYPE_METHOD_BASETYPE är inte en post eller union"
 
 #: tree.c:13657
 #, gcc-internal-format
 msgid "TYPE_OFFSET_BASETYPE is not record nor union"
-msgstr ""
+msgstr "TYPE_OFFSET_BASETYPE är inte en post eller union"
 
 #: tree.c:13675
 #, gcc-internal-format
 msgid "TYPE_ARRAY_MAX_SIZE not INTEGER_CST"
-msgstr ""
+msgstr "TYPE_ARRAY_MAX_SIZE inte INTEGER_CST"
 
 #: tree.c:13682
 #, gcc-internal-format
 msgid "TYPE_MAXVAL non-NULL"
-msgstr ""
+msgstr "TYPE_MAXVAL icke-NULL"
 
 #: tree.c:13694
 #, gcc-internal-format
 msgid "TYPE_BINFO is not TREE_BINFO"
-msgstr ""
+msgstr "TYPE_BINFO är inte TREE_BINFO"
 
 #: tree.c:13702
 #, gcc-internal-format
 msgid "TYPE_BINFO type is not TYPE_MAIN_VARIANT"
-msgstr ""
+msgstr "TYPE_BINFO-typ är inte TYPE_MAIN_VARIANT"
 
 #: tree.c:13709
 #, gcc-internal-format
 msgid "TYPE_LANG_SLOT_1 (binfo) field is non-NULL"
-msgstr ""
+msgstr "TYPE_LANG_SLOT_1 (binfo) fält är icke-NULL"
 
 #: tree.c:13725
 #, gcc-internal-format
 msgid "Enum value is not CONST_DECL or INTEGER_CST"
-msgstr ""
+msgstr "Enum-värde är inte CONST_DECL eller INTEGER_CST"
 
 #: tree.c:13733
 #, gcc-internal-format
 msgid "Enum value type is not INTEGER_TYPE nor convertible to the enum"
-msgstr ""
+msgstr "Enum-värdetyp är varken INTEGER_TYPE eller konvertibel till enum"
 
 #: tree.c:13740
 #, gcc-internal-format
 msgid "Enum value name is not IDENTIFIER_NODE"
-msgstr ""
+msgstr "Enum-värdenamn är inte IDENTIFIER_NODE"
 
 #: tree.c:13750
 #, fuzzy, gcc-internal-format
@@ -25670,57 +25617,57 @@ msgstr "fält %qE har ofullständig typ"
 #: tree.c:13779
 #, gcc-internal-format
 msgid "Wrong tree in TYPE_FIELDS list"
-msgstr ""
+msgstr "Fel träd i TYPE_FIELDS-lista"
 
 #: tree.c:13794
 #, gcc-internal-format
 msgid "TYPE_CACHED_VALUES_P is %i while TYPE_CACHED_VALUES is %p"
-msgstr ""
+msgstr "TYPE_CACHED_VALUES_P är %i medan TYPE_CACHED_VALUES är %p"
 
 #: tree.c:13800
 #, gcc-internal-format
 msgid "TYPE_CACHED_VALUES is not TREE_VEC"
-msgstr ""
+msgstr "TYPE_CACHED_VALUES är inte TREE_VEC"
 
 #: tree.c:13813
 #, gcc-internal-format
 msgid "wrong TYPE_CACHED_VALUES entry"
-msgstr ""
+msgstr "fel TYPE_CACHED_VALUES-post"
 
 #: tree.c:13826
 #, gcc-internal-format
 msgid "TREE_PURPOSE is non-NULL in TYPE_ARG_TYPES list"
-msgstr ""
+msgstr "TREE_PURPOSE är icke-NULL i TYPE_ARG_TYPES-lista"
 
 #: tree.c:13832
 #, gcc-internal-format
 msgid "Wrong entry in TYPE_ARG_TYPES list"
-msgstr ""
+msgstr "Fel post i TYPE_ARG_TYPES-lista"
 
 #: tree.c:13839
 #, gcc-internal-format
 msgid "TYPE_VALUES_RAW field is non-NULL"
-msgstr ""
+msgstr "TYPE_VALUES_RAW-fält är icke-NULL"
 
 #: tree.c:13851
 #, gcc-internal-format
 msgid "TYPE_CACHED_VALUES_P is set while it should not"
-msgstr ""
+msgstr "TYPE_CACHED_VALUES_P är satt när det inte skulle vara det"
 
 #: tree.c:13857
 #, gcc-internal-format
 msgid "TYPE_STRING_FLAG is set on wrong type code"
-msgstr ""
+msgstr "TYPE_STRING_FLAG är satt på fel typkod"
 
 #: tree.c:13869
 #, gcc-internal-format
 msgid "TYPE_STRING_FLAG is set on type that does not look like char nor array of chars"
-msgstr ""
+msgstr "TYPE_STRING_FLAG är satt på på en typ som inte ser ut som vare sig char eller vektor av chars"
 
 #: tree.c:13881
 #, gcc-internal-format
 msgid "TYPE_METHOD_BASETYPE is not main variant"
-msgstr ""
+msgstr "TYPE_METHOD_BASETYPE är inte en huvudvariant"
 
 #: tree.c:13888
 #, fuzzy, gcc-internal-format
@@ -26511,12 +26458,12 @@ msgstr "attributet %qE påverkar bara toppnivåobjekt"
 #: c-family/c-common.c:7157
 #, gcc-internal-format
 msgid "scalar_storage_order is not supported because endianness is not uniform"
-msgstr ""
+msgstr "scalar_storage_order stödjs inte för att byteordningen inte är enhetlig"
 
 #: c-family/c-common.c:7174
 #, gcc-internal-format
 msgid "scalar_storage_order argument must be one of \"big-endian\" or \"little-endian\""
-msgstr ""
+msgstr "scalar_storage_order-argument måste vara ett av ”big-endian” eller ”little-endian”"
 
 #: c-family/c-common.c:7270
 #, gcc-internal-format
@@ -26791,7 +26738,7 @@ msgstr "%<#pragma omp declare simd%> kan inte användas i samma funktion som är
 #: c-family/c-common.c:8524
 #, gcc-internal-format
 msgid "only %<inbranch%> and %<notinbranch%> flags are allowed for %<__simd__%> attribute"
-msgstr ""
+msgstr "endast %<inbranch%>- och %<notinbranch%>-flaggor är tillåtna för %<__simd__%>-attributet"
 
 #: c-family/c-common.c:8593 c-family/c-common.c:9640
 #, gcc-internal-format
@@ -27425,7 +27372,7 @@ msgstr "jämförelse av konstant %qE med booleskt uttryck är alltid sant"
 #: c-family/c-common.c:12175
 #, gcc-internal-format
 msgid "result of %qE requires %u bits to represent, but %qT only has %u bits"
-msgstr ""
+msgstr "resultatet av %qE behöver %u bitar för att representeras, men %qT har bara %u bitar"
 
 #: c-family/c-common.c:12424
 #, gcc-internal-format
@@ -27811,17 +27758,17 @@ msgstr "strftime-format kan inte formatera argument"
 #: c-family/c-indentation.c:56
 #, gcc-internal-format
 msgid "-Wmisleading-indentation is disabled from this point onwards, since column-tracking was disabled due to the size of the code/headers"
-msgstr ""
+msgstr "-Wmisleading-indentation är avaktiverad härifrån och framåt, eftersom kolumnspårning avaktiverades på grund av storleken på kod/huvuden."
 
 #: c-family/c-indentation.c:583
 #, gcc-internal-format
 msgid "statement is indented as if it were guarded by..."
-msgstr ""
+msgstr "satsen är indenterad som om den vore skyddad av …"
 
 #: c-family/c-indentation.c:585
 #, gcc-internal-format
 msgid "...this %qs clause, but it is not"
-msgstr ""
+msgstr "… denna %qs-klausul, men är inte det"
 
 #: c-family/c-lex.c:222
 #, gcc-internal-format
@@ -27980,7 +27927,7 @@ msgstr "ökning av endast läsbar variabel %qD"
 #: c-family/c-omp.c:1300
 #, gcc-internal-format
 msgid "expected %<parallel%> or %<target%> %<if%> clause modifier"
-msgstr ""
+msgstr "%<parallel%>- eller %<target%>-modifierare av %<if%>-klausul förväntades"
 
 #: c-family/c-omp.c:1398 c-family/c-omp.c:1413
 #, gcc-internal-format
@@ -28241,12 +28188,12 @@ msgstr "shared stödjs inte"
 #: c-family/c-pragma.c:420
 #, gcc-internal-format
 msgid "missing [big-endian|little-endian|default] after %<#pragma scalar_storage_order%>"
-msgstr ""
+msgstr "[big-endian|little-endian|default] saknas efter %<#pragma scalar_storage_order%>"
 
 #: c-family/c-pragma.c:429
 #, gcc-internal-format
 msgid "expected [big-endian|little-endian|default] after %<#pragma scalar_storage_order%>"
-msgstr ""
+msgstr "[big-endian|little-endian|default] förväntades efter %<#pragma scalar_storage_order%>"
 
 #: c-family/c-pragma.c:483 c-family/c-pragma.c:485
 #, gcc-internal-format
@@ -28780,7 +28727,7 @@ msgstr "denna målarkitektur stödjer inte %qs"
 #: config/darwin-driver.c:232
 #, gcc-internal-format
 msgid "this compiler does not support PowerPC (arch flags ignored)"
-msgstr ""
+msgstr "denna kompilator stödjer inte PowerPC (arch-flaggor ignoreras)"
 
 #: config/darwin-driver.c:236
 #, fuzzy, gcc-internal-format, gfc-internal-format
@@ -28791,12 +28738,12 @@ msgstr "-mcpu=%s står i konflikt med -march=%s"
 #: config/darwin-driver.c:244
 #, gcc-internal-format, gfc-internal-format
 msgid "%s conflicts with x86_64 (arch flags ignored)"
-msgstr ""
+msgstr "%s står i konflikt med x86_64 (arch-flaggor ignoreras)"
 
 #: config/darwin-driver.c:251
 #, gcc-internal-format
 msgid "this compiler does not support X86 (arch flags ignored)"
-msgstr ""
+msgstr "denna kompilator stödjer inte X86 (arch-flaggor ignoreras)"
 
 #: config/darwin-driver.c:255
 #, fuzzy, gcc-internal-format, gfc-internal-format
@@ -28807,7 +28754,7 @@ msgstr "-mcpu=%s står i konflikt med -march=%s"
 #: config/darwin-driver.c:263
 #, gcc-internal-format, gfc-internal-format
 msgid "%s conflicts with ppc64 (arch flags ignored)"
-msgstr ""
+msgstr "%s står i konflikt med ppc64 (arch-flaggor ignoreras)"
 
 #: config/darwin.c:1650
 #, gcc-internal-format
@@ -28995,12 +28942,12 @@ msgstr "%qs är inkompatibel med %qs"
 #: config/aarch64/aarch64.c:7882
 #, gcc-internal-format, gfc-internal-format
 msgid "unknown flag passed in -moverride=%s (%s)"
-msgstr ""
+msgstr "okänd flagga skickad i -moverride=%s (%s)"
 
 #: config/aarch64/aarch64.c:7926
 #, gcc-internal-format, gfc-internal-format
 msgid "%s string ill-formed\n"
-msgstr ""
+msgstr "%s-sträng är felformad\n"
 
 #: config/aarch64/aarch64.c:7983
 #, fuzzy, gcc-internal-format, gfc-internal-format
@@ -29160,7 +29107,7 @@ msgstr "multilib-val %qs %qs är ogiltigt"
 #: config/aarch64/aarch64.c:9015
 #, gcc-internal-format
 msgid "malformed target %s list %qs"
-msgstr ""
+msgstr "felformad mål-%s-lista %qs"
 
 #: config/aarch64/aarch64.c:10852
 #, fuzzy, gcc-internal-format
@@ -29415,7 +29362,7 @@ msgstr "operanden till trap_s skall vara ett teckenlöst 6-bitars värde"
 #: config/arc/arc.c:5702
 #, gcc-internal-format, gfc-internal-format
 msgid "unknown builtin immediate operand type for operand %d"
-msgstr ""
+msgstr "okänd inbyggd omedelbar operandtyp för operand %d"
 
 #: config/arc/arc.c:5753
 #, gcc-internal-format
@@ -29440,12 +29387,12 @@ msgstr "instruktionsadressen inte frigjord"
 #: config/arm/arm-builtins.c:2226
 #, gcc-internal-format
 msgid "You must enable NEON instructions (e.g. -mfloat-abi=softfp -mfpu=neon) to use these intrinsics."
-msgstr ""
+msgstr "Du måste aktivera NEON-instruktioner (t.ex. -mfloat-abi=softfp -mfpu=neon) för att använda dessa inbyggda."
 
 #: config/arm/arm-builtins.c:2346
 #, gcc-internal-format
 msgid "You must enable crypto intrinsics (e.g. include -mfloat-abi=softfp -mfpu=crypto-neon...) to use these intrinsics."
-msgstr ""
+msgstr "Du måste aktivera inbyggt krypto (t.ex. inkludera -mfloat-abi=softfp -mfpu=crypto-neon …) för att använda dessa inbyggda."
 
 #. @@@ better error message
 #: config/arm/arm-builtins.c:2396 config/arm/arm-builtins.c:2500
@@ -31704,7 +31651,7 @@ msgstr "argumentet till attributet %qE är varken noll eller ett"
 #: config/mips/mips.c:1496
 #, gcc-internal-format
 msgid "interrupt vector to %qE attribute is not vector=(sw0|sw1|hw0|hw1|hw2|hw3|hw4|hw5)"
-msgstr ""
+msgstr "avbrottsvektor till %qE-attributet är inte vector=(sw0|sw1|hw0|hw1|hw2|hw3|hw4|hw5)"
 
 #: config/mips/mips.c:1533
 #, fuzzy, gcc-internal-format
@@ -31997,47 +31944,47 @@ msgstr "-mtune= förväntar sig mn10300, am33, am33-2 eller am34"
 #: config/msp430/driver-msp430.c:646
 #, gcc-internal-format, gfc-internal-format
 msgid "unexpected argument to msp430_select_hwmult_lib: %s"
-msgstr ""
+msgstr "oväntat argument till msp430_select_hwmult_lib: %s"
 
 #: config/msp430/driver-msp430.c:687
 #, gcc-internal-format, gfc-internal-format
 msgid "unrecognised hwpy field in msp430_mcu_data[%d]: %d"
-msgstr ""
+msgstr "okänt hwpy-fält i msp430_mcu_data[%d]: %d"
 
 #: config/msp430/driver-msp430.c:694
 #, gcc-internal-format, gfc-internal-format
 msgid "unexpected first argument to msp430_select_hwmult_lib: %s"
-msgstr ""
+msgstr "oväntat första argument till msp430_select_hwmult_lib: %s"
 
 #: config/msp430/driver-msp430.c:698
 #, gcc-internal-format
 msgid "msp430_select_hwmult_lib needs one or more arguments"
-msgstr ""
+msgstr "msp430_select_hwmult_lib behöver ett eller flera argument"
 
 #: config/msp430/msp430.c:762
 #, gcc-internal-format, gfc-internal-format
 msgid "MCU '%s' supports %s ISA but -mcpu option is set to %s"
-msgstr ""
+msgstr "MCU ”%s” stödjer %s-ISA men -mcpu-flaggan är satt till %s"
 
 #: config/msp430/msp430.c:768
 #, gcc-internal-format, gfc-internal-format
 msgid "MCU '%s' does not have hardware multiply support, but -mhwmult is set to %s"
-msgstr ""
+msgstr "MCU ”%s” har inte stöd för hårdvarumultiplikation, men -mhwmult är satt till %s"
 
 #: config/msp430/msp430.c:774
 #, gcc-internal-format, gfc-internal-format
 msgid "MCU '%s' supports %s hardware multiply, but -mhwmult is set to 16-bit"
-msgstr ""
+msgstr "MCU ”%s” stödjer %s-hårvarumultiplikation, men -mhwmult är satt till 16-bitars"
 
 #: config/msp430/msp430.c:777
 #, gcc-internal-format, gfc-internal-format
 msgid "MCU '%s' supports %s hardware multiply, but -mhwmult is set to 32-bit"
-msgstr ""
+msgstr "MCU ”%s” stödjer %s-hårdvarumultiplikation, men -mhwmult är satt till 32-bitars"
 
 #: config/msp430/msp430.c:780
 #, gcc-internal-format, gfc-internal-format
 msgid "MCU '%s' supports %s hardware multiply, but -mhwmult is set to f5series"
-msgstr ""
+msgstr "MCU ”%s” stödjer %s-hårdvarumultiplikation, men -mhwmult är satt till f5series"
 
 #: config/msp430/msp430.c:796
 #, gcc-internal-format, gfc-internal-format
@@ -32045,6 +31992,8 @@ msgid ""
 "Unrecognised MCU name '%s', assuming that it is just a MSP430 with no hardware multiply.\n"
 "Use the -mcpu and -mhwmult options to set these explicitly."
 msgstr ""
+"Okänt MCU-namn ”%s”, antar att det bara är en MSP430 utan hårdvarumultiplikation.\n"
+"Använd flaggorna -mcpu och -mhwmult för att sätta dessa explicit."
 
 #: config/msp430/msp430.c:800
 #, gcc-internal-format, gfc-internal-format
@@ -32052,6 +32001,8 @@ msgid ""
 "Unrecognised MCU name '%s', assuming that it has no hardware multiply.\n"
 "Use the -mhwmult option to set this explicitly."
 msgstr ""
+"Okänt MCU-namn ”%s”, antar att den inte har hårdvarumultiplikation.\n"
+"använd flaggan -mhwmult för att sätta detta explicit."
 
 #: config/msp430/msp430.c:810
 #, gcc-internal-format, gfc-internal-format
@@ -32059,6 +32010,8 @@ msgid ""
 "Unrecognised MCU name '%s', assuming that it just supports the MSP430 ISA.\n"
 "Use the -mcpu option to set the ISA explicitly."
 msgstr ""
+"Okänt MCU-namn ”%s”, amtar att den bara stödjer ISA:n MSP430.\n"
+"Använd flaggan -mcpu för att sätta ISA:n explicit."
 
 #: config/msp430/msp430.c:817
 #, fuzzy, gcc-internal-format, gfc-internal-format
@@ -32183,7 +32136,7 @@ msgstr "stödjer inte -fpic"
 #: config/nios2/nios2.c:560
 #, gcc-internal-format
 msgid "Unknown form for stack limit expression"
-msgstr ""
+msgstr "Okänd form på stackgränsuttryck"
 
 #: config/nios2/nios2.c:1167
 #, gcc-internal-format
@@ -32228,7 +32181,7 @@ msgstr "positionsoberoende kod behöver Linux-ABI:et"
 #: config/nios2/nios2.c:1350
 #, gcc-internal-format
 msgid "PIC support for -fstack-limit-symbol"
-msgstr ""
+msgstr "PIC-stöd för -fstack-limit-symbol"
 
 #: config/nios2/nios2.c:1376
 #, fuzzy, gcc-internal-format
@@ -32283,7 +32236,7 @@ msgstr "det omedelbara argumentet måste vara en 4-bitars omedelbar"
 #: config/nios2/nios2.c:3517
 #, gcc-internal-format
 msgid "The ENI instruction operand must be either 0 or 1"
-msgstr ""
+msgstr "Operanden till instruktionen ENI måste vara antingen 0 eller 1"
 
 #: config/nios2/nios2.c:3545
 #, fuzzy, gcc-internal-format, gfc-internal-format
@@ -32371,12 +32324,12 @@ msgstr "attributet %qE kräver returtypen void"
 #: config/nvptx/nvptx.c:4142
 #, gcc-internal-format, gfc-internal-format
 msgid "using vector_length (%d), ignoring %d"
-msgstr ""
+msgstr "använder vector_length (%d), ignorerar %d"
 
 #: config/nvptx/nvptx.c:4153
 #, gcc-internal-format, gfc-internal-format
 msgid "using num_workers (%d), ignoring %d"
-msgstr ""
+msgstr "använder num_workers (%d), ignorerar %d"
 
 #: config/pa/pa.c:501
 #, gcc-internal-format
@@ -32714,17 +32667,17 @@ msgstr "-mdirect-move behöver -mvsx"
 #: config/rs6000/rs6000.c:4234
 #, gcc-internal-format
 msgid "-mefficient-unaligned-vsx requires -mallow-movmisalign"
-msgstr ""
+msgstr "-mefficient-unaligned-vsx behöver -mallow-movmisalign"
 
 #: config/rs6000/rs6000.c:4244
 #, gcc-internal-format
 msgid "-mfloat128 requires VSX support"
-msgstr ""
+msgstr "-mfloat128 behöver VSX-stöd"
 
 #: config/rs6000/rs6000.c:4258
 #, gcc-internal-format
 msgid "-mfloat128-hardware requires full ISA 3.0 support"
-msgstr ""
+msgstr "-mfloat128-hardware behöver fullt ISA 3.0-stöd"
 
 #: config/rs6000/rs6000.c:4325
 #, gcc-internal-format, gfc-internal-format
@@ -33359,7 +33312,7 @@ msgstr "använd __builtin_rx_mvtc (0, ...) för att skriva godtyckliga värden t
 #: config/rx/rx.c:2621
 #, gcc-internal-format
 msgid "-mno-allow-string-insns forbids the generation of the RMPA instruction"
-msgstr ""
+msgstr "-mno-allow-string-insns förbjuder genereringen av instruktionen RMPA"
 
 #: config/rx/rx.c:2768
 #, gcc-internal-format
@@ -33369,22 +33322,22 @@ msgstr "RX FPU-instruktioner stödjer inte NaN:er och oändligheter"
 #: config/s390/s390-c.c:451
 #, gcc-internal-format
 msgid "Builtin vec_step can only be used on vector types."
-msgstr ""
+msgstr "Inbyggd vec_step kan endast användas på vektortyper."
 
 #: config/s390/s390-c.c:671
 #, gcc-internal-format
 msgid "valid values for builtin %qF argument %d are 64, 128, 256, 512, 1024, 2048, and 4096"
-msgstr ""
+msgstr "giltiga värden för till inbyggd %qF argument %d är 64, 128, 256, 512, 1024, 2048 och 4096"
 
 #: config/s390/s390-c.c:841
 #, gcc-internal-format
 msgid "Builtin %qF is for GCC internal use only."
-msgstr ""
+msgstr "Inbyggd %qF är endast för GCC:s interna användning."
 
 #: config/s390/s390-c.c:858
 #, gcc-internal-format
 msgid "Mismatch in number of arguments for builtin %qF. Expected: %d got %d"
-msgstr ""
+msgstr "Fel i antalet argument till inbyggd %qF.  Förväntades: %d fick %d"
 
 #: config/s390/s390-c.c:907
 #, fuzzy, gcc-internal-format
@@ -33419,12 +33372,12 @@ msgstr "konstant argument utanför intervallet för %qs"
 #: config/s390/s390.c:800
 #, gcc-internal-format
 msgid "Builtin %qF is not supported without -mhtm (default with -march=zEC12 and higher)."
-msgstr ""
+msgstr "Inbyggd %qF stödjs inte utan -mhtm (standard med -march=zEC12 och högre)."
 
 #: config/s390/s390.c:806
 #, gcc-internal-format
 msgid "Builtin %qF is not supported without -mvx (default with -march=z13 and higher)."
-msgstr ""
+msgstr "Inbyggd %qF stödjs inte utan -mvx (standard med -march=z13 och högre)."
 
 #: config/s390/s390.c:826
 #, fuzzy, gcc-internal-format
@@ -33483,12 +33436,12 @@ msgstr "%qs använder dynamisk stackallokering"
 #: config/s390/s390.c:13657
 #, gcc-internal-format, gfc-internal-format
 msgid "%sarch=%s%s is deprecated and will be removed in future releases; use at least %sarch=z900%s"
-msgstr ""
+msgstr "%sarch=%s%s bör undvikas och kommer tas bort i framtida utgåvor; använd åtminstone %sarch=z900%s"
 
 #: config/s390/s390.c:13669
 #, gcc-internal-format, gfc-internal-format
 msgid "%stune=%s%s is deprecated and will be removed in future releases; use at least %stune=z900%s"
-msgstr ""
+msgstr "%stune=%s%s bör undvikas och kommer tas bort i framtida utgåvor; använd åtminstone %stune=z900%s"
 
 #: config/s390/s390.c:13681
 #, gcc-internal-format, gfc-internal-format
@@ -33509,7 +33462,7 @@ msgstr "hårdvaruinstruktioner för decimala flyttal är inte tillgängliga på 
 #: config/s390/s390.c:13704
 #, gcc-internal-format
 msgid "hardware vector support not available with -msoft-float"
-msgstr ""
+msgstr "stöd för hårdvaruvektorer är inte tillgängligt med -msoft-float"
 
 #: config/s390/s390.c:13732
 #, gcc-internal-format, gfc-internal-format
@@ -33979,7 +33932,7 @@ msgstr "-fexcess-precision=standard för Ada"
 #: ada/gcc-interface/misc.c:277
 #, gcc-internal-format
 msgid "STABS debugging information for Ada is obsolete and not supported anymore"
-msgstr ""
+msgstr "STABS-felsökningsinformation för Ada är föråldrat och stödjs inte längre"
 
 #: ada/gcc-interface/trans.c:1517
 #, gcc-internal-format
@@ -33999,7 +33952,7 @@ msgstr "underprogrammet %q+F är inte markerat Inline"
 #: ada/gcc-interface/trans.c:6222
 #, gcc-internal-format
 msgid "out-of-bounds access may be optimized away"
-msgstr ""
+msgstr "åtkomst utanför gränserna kan optimeras bort"
 
 #: ada/gcc-interface/trans.c:6224
 #, gcc-internal-format
@@ -35243,12 +35196,12 @@ msgstr "parameter %q+D har endast en framåtdeklaration"
 #: c/c-decl.c:7037
 #, gcc-internal-format
 msgid "%<%s %E%> declared inside parameter list will not be visible outside of this definition or declaration"
-msgstr ""
+msgstr "%<%s %E%> deklarerad inuti parameterlista kommer inte vara synlig utanför denna definition eller deklaration"
 
 #: c/c-decl.c:7043
 #, gcc-internal-format, gfc-internal-format
 msgid "anonymous %s declared inside parameter list will not be visible outside of this definition or declaration"
-msgstr ""
+msgstr "anonym %s deklarerad inuti parameterlista kommer inte vara synlig utanför denna definition eller deklaration"
 
 #: c/c-decl.c:7142
 #, gcc-internal-format
@@ -35313,12 +35266,12 @@ msgstr "dubblerad medlem %q+D"
 #: c/c-decl.c:7545
 #, gcc-internal-format
 msgid "empty struct has size 0 in C, size 1 in C++"
-msgstr ""
+msgstr "tom post har storlek 0 i C, storlek 1 i C++"
 
 #: c/c-decl.c:7548
 #, gcc-internal-format
 msgid "empty union has size 0 in C, size 1 in C++"
-msgstr ""
+msgstr "tom union har storlek 0 i C, storlek 1 i C++"
 
 #: c/c-decl.c:7634
 #, gcc-internal-format
@@ -35794,7 +35747,7 @@ msgstr "identifieraren %qE står i konflikt med ett nyckelord i C++"
 #: c/c-parser.c:928 cp/parser.c:2786
 #, gcc-internal-format
 msgid "version control conflict marker in file"
-msgstr ""
+msgstr "markör för versionshanteringskonflikt i filen"
 
 #: c/c-parser.c:1086 cp/parser.c:26844
 #, gcc-internal-format
@@ -35819,17 +35772,17 @@ msgstr "okänt typnamn %qE"
 #: c/c-parser.c:1663
 #, gcc-internal-format
 msgid "use %<struct%> keyword to refer to the type"
-msgstr ""
+msgstr "använd nyckelordet %<struct%> för att referera till typen"
 
 #: c/c-parser.c:1665
 #, gcc-internal-format
 msgid "use %<union%> keyword to refer to the type"
-msgstr ""
+msgstr "använd nyckelordet %<union%> för att referera till typen"
 
 #: c/c-parser.c:1667
 #, gcc-internal-format
 msgid "use %<enum%> keyword to refer to the type"
-msgstr ""
+msgstr "använd nyckelordet %<enum%> för att referera till typen"
 
 #: c/c-parser.c:1687 c/c-parser.c:10141 c/c-parser.c:15125 c/c-parser.c:16010
 #: cp/parser.c:33903 cp/parser.c:34795 cp/parser.c:37305
@@ -36595,7 +36548,7 @@ msgstr "%<catch%> förväntades"
 #: c/c-parser.c:11047 cp/parser.c:30652
 #, gcc-internal-format
 msgid "too many %<if%> clauses with %qs modifier"
-msgstr ""
+msgstr "för många %<if%>-klausuler med %qs-modifierare"
 
 #: c/c-parser.c:11054 cp/parser.c:30659
 #, fuzzy, gcc-internal-format
@@ -36612,7 +36565,7 @@ msgstr "för många %qs-klausuler"
 #: c/c-parser.c:11062 cp/parser.c:30667
 #, gcc-internal-format
 msgid "if any %<if%> clause has modifier, then all %<if%> clauses have to use modifier"
-msgstr ""
+msgstr "om någon %<if%>-klausul har en modifierare måste alla %<if%>-klausuler använda modifierare"
 
 #: c/c-parser.c:11136 c/c-parser.c:11180 c/c-parser.c:11224 c/c-parser.c:11268
 #: c/c-parser.c:11312 c/c-parser.c:11356 c/c-parser.c:11460 c/c-parser.c:11586
@@ -36711,7 +36664,7 @@ msgstr "%<+%>, %<*%>, %<-%>, %<&%>, %<^%>, %<|%>, %<&&%>, %<||%>, %<min%> eller 
 #: c/c-parser.c:12003 cp/parser.c:31171
 #, gcc-internal-format
 msgid "both %<monotonic%> and %<nonmonotonic%> modifiers specified"
-msgstr ""
+msgstr "både %<monotonic%>- och %<nonmonotonic%>-modifierare angivna"
 
 #: c/c-parser.c:12056 cp/parser.c:31187
 #, gcc-internal-format
@@ -36811,7 +36764,7 @@ msgstr "%<#pragma omp%>-klausul förväntades"
 #: c/c-parser.c:13520 cp/parser.c:35090
 #, gcc-internal-format
 msgid "no valid clauses specified in %<#pragma acc declare%>"
-msgstr ""
+msgstr "inga giltiga klausuler angivna i %<#pragma acc declare%>"
 
 #: c/c-parser.c:13530 cp/parser.c:35100
 #, fuzzy, gcc-internal-format
@@ -36822,7 +36775,7 @@ msgstr "omdeklaration av %<pragma omp declare reduction%>"
 #: c/c-parser.c:13554 cp/parser.c:35124
 #, gcc-internal-format
 msgid "%qD must be a global variable in%<#pragma acc declare link%>"
-msgstr ""
+msgstr "%qD måste vara en global variabel i %<#pragma acc declare link%>"
 
 #: c/c-parser.c:13565 cp/parser.c:35135
 #, fuzzy, gcc-internal-format
@@ -36845,7 +36798,7 @@ msgstr "ogiltig användning av etiketten %q+D i %<_Cilk_spawn%>"
 #: c/c-parser.c:13592 cp/parser.c:35162
 #, gcc-internal-format
 msgid "variable %qD used more than once with %<#pragma acc declare%>"
-msgstr ""
+msgstr "variabeln %qD använd mer än en gång med %<#pragma acc declare%>"
 
 #: c/c-parser.c:13678 cp/parser.c:35245
 #, gcc-internal-format
@@ -36882,12 +36835,12 @@ msgstr "en funktion förväntades"
 #: c/c-parser.c:13968
 #, gcc-internal-format
 msgid "%<#pragma acc routine%> %s"
-msgstr ""
+msgstr "%<#pragma acc routine%> %s"
 
 #: c/c-parser.c:13975 cp/parser.c:36565
 #, gcc-internal-format
 msgid "%<#pragma acc routine%> already applied to %D"
-msgstr ""
+msgstr "%<#pragma acc routine%> redan använd på %D"
 
 #: c/c-parser.c:13978 cp/parser.c:36572
 #, fuzzy, gcc-internal-format
@@ -36924,7 +36877,7 @@ msgstr "%<(%> eller filslut förväntades"
 #: c/c-parser.c:14601 cp/parser.c:33421
 #, gcc-internal-format
 msgid "%<ordered%> clause parameter is less than %<collapse%>"
-msgstr ""
+msgstr "%<ordered%>-klausulparameter är mindre än %<collapse%>"
 
 #: c/c-parser.c:14612 cp/parser.c:33432
 #, fuzzy, gcc-internal-format
@@ -37083,7 +37036,7 @@ msgstr "%<#pragma omp end declare target%> utan en motsvarande %<#pragma omp dec
 #: c/c-parser.c:16487 cp/parser.c:35711
 #, gcc-internal-format
 msgid "%qD specified both in declare target %<link%> and %<to%> clauses"
-msgstr ""
+msgstr "%qD angivet både i deklarationsmålets %<link%>- och %<to%>-klausuler"
 
 #: c/c-parser.c:16525 cp/parser.c:35755
 #, gcc-internal-format
@@ -37363,7 +37316,7 @@ msgstr "%qT har ingen medlem med namnet %qE"
 #: c/c-typeck.c:2357
 #, gcc-internal-format
 msgid "accessing a member %qE of an atomic structure %qE"
-msgstr ""
+msgstr "använder en medlem %qE av en atomär struktur %qE"
 
 #: c/c-typeck.c:2360
 #, fuzzy, gcc-internal-format
@@ -37374,7 +37327,7 @@ msgstr "kan inte fånga medlemmen %qD i anonym union"
 #: c/c-typeck.c:2420
 #, gcc-internal-format
 msgid "%qE is a pointer; did you mean to use %<->%>?"
-msgstr ""
+msgstr "%qE är en pekare; tänkte du använda %<->%>?"
 
 #: c/c-typeck.c:2426
 #, gcc-internal-format
@@ -38378,7 +38331,7 @@ msgstr "jämföra flyttal med == eller != är osäkert"
 #: c/c-typeck.c:11091 c/c-typeck.c:11116 cp/typeck.c:4509 cp/typeck.c:4553
 #, gcc-internal-format
 msgid "nonnull argument %qD compared to NULL"
-msgstr ""
+msgstr "icke-null-argument %qD jämfört med NULL"
 
 #: c/c-typeck.c:11099 c/c-typeck.c:11124
 #, gcc-internal-format
@@ -38597,7 +38550,7 @@ msgstr "%qE måste vara %<threadprivate%> för %<copyin%>"
 #: c/c-typeck.c:12807 cp/semantics.c:5811
 #, gcc-internal-format
 msgid "modifier should not be specified in %<linear%> clause on %<simd%> or %<for%> constructs"
-msgstr ""
+msgstr "modifierare skall inte anges i %<linear%>-klausul på %<simd%>- eller %<for%>-konstruktioner"
 
 #: c/c-typeck.c:12815
 #, gcc-internal-format
@@ -38725,7 +38678,7 @@ msgstr "%qE i %<aligned%>-klausul är varken en pekare eller en vektor"
 #: c/c-typeck.c:13324 cp/semantics.c:6216
 #, gcc-internal-format
 msgid "%<nonmonotonic%> modifier specified for %qs schedule kind"
-msgstr ""
+msgstr "%<nonmonotonic%>-modifierare angiven för schemaläggningssort %qs"
 
 #: c/c-typeck.c:13355 cp/semantics.c:6975
 #, gcc-internal-format
@@ -38740,22 +38693,22 @@ msgstr "%qE är förutbestämd som %qs för %qs"
 #: c/c-typeck.c:13425 cp/semantics.c:7057
 #, gcc-internal-format
 msgid "%<simdlen%> clause value is bigger than %<safelen%> clause value"
-msgstr ""
+msgstr "%<simdlen%>-klausulvärde är större än %<safelen%>-klausulvärde"
 
 #: c/c-typeck.c:13437 cp/semantics.c:7070
 #, gcc-internal-format
 msgid "%<nonmonotonic%> schedule modifier specified together with %<ordered%> clause"
-msgstr ""
+msgstr "%<nonmonotonic%>-schemaläggningsmodiferare angiven tillsammans med %<ordered%>-klausul"
 
 #: c/c-typeck.c:13455 cp/semantics.c:7037
 #, gcc-internal-format
 msgid "%<linear%> clause step is a parameter %qD not specified in %<uniform%> clause"
-msgstr ""
+msgstr "%<linear%>-klausulsteg är en parameter %qD inte angiven i %<uniform%>-klausul"
 
 #: c/c-typeck.c:13583
 #, gcc-internal-format
 msgid "cannot use %<va_arg%> with reverse storage order"
-msgstr ""
+msgstr "kan inte använda %<va_arg%> med omvänd lagringsordning"
 
 #: c/c-typeck.c:13588
 #, fuzzy, gcc-internal-format
@@ -39038,7 +38991,7 @@ msgstr "jämförelse mellan %q#T och %q#T"
 #: cp/call.c:5953
 #, gcc-internal-format
 msgid "exception cleanup for this placement new selects non-placement operator delete"
-msgstr ""
+msgstr "undantagsuppstädning för denna placerande new väljer icke-placeringsoperatorn delete"
 
 #: cp/call.c:5956
 #, gcc-internal-format
@@ -39145,7 +39098,7 @@ msgstr "att konvertera till %qT från initierarlista skulle använda den explici
 #: cp/call.c:6374
 #, gcc-internal-format
 msgid "in C++11 and above a default constructor can be explicit"
-msgstr ""
+msgstr "i C++11 och senare kan en standardkonstruerare vara explicit"
 
 #: cp/call.c:6607
 #, gcc-internal-format
@@ -40264,17 +40217,17 @@ msgstr "try-satser är inte tillåtna inuti slingor markerade med #pragma simd"
 #: cp/cp-gimplify.c:1343
 #, gcc-internal-format
 msgid "throw will always call terminate()"
-msgstr ""
+msgstr "throw kommer alltid anropa terminate()"
 
 #: cp/cp-gimplify.c:1346
 #, gcc-internal-format
 msgid "in C++11 destructors default to noexcept"
-msgstr ""
+msgstr "i C++11 är standard för destruerare noexcept"
 
 #: cp/cp-gimplify.c:1357
 #, gcc-internal-format
 msgid "in C++11 this throw will terminate because destructors default to noexcept"
-msgstr ""
+msgstr "i C++11 kommer denna throw att avsluta eftersom standard för destruerare är noexcept"
 
 #: cp/cvt.c:89
 #, gcc-internal-format
@@ -40967,7 +40920,7 @@ msgstr "  går in i OpenMP-strukturerat block"
 #: cp/decl.c:3098 cp/decl.c:3216
 #, gcc-internal-format
 msgid "  enters synchronized or atomic statement"
-msgstr ""
+msgstr "  går in i synkroniserad eller atomär sats"
 
 #: cp/decl.c:3201
 #, fuzzy, gcc-internal-format
@@ -41738,7 +41691,7 @@ msgstr "automatisk variabel %qE kan inte vara %<threadprivate%>"
 #: cp/decl.c:8446
 #, gcc-internal-format
 msgid "concept must have type %<bool%>"
-msgstr ""
+msgstr "concept måste ha typen %<bool%>"
 
 #: cp/decl.c:8559
 #, gcc-internal-format
@@ -42395,7 +42348,7 @@ msgstr "typedef deklarerad %<auto%>"
 #: cp/decl.c:10661
 #, gcc-internal-format
 msgid "requires-clause on typedef"
-msgstr ""
+msgstr "requires-klausul på typedef"
 
 #: cp/decl.c:10669
 #, gcc-internal-format
@@ -42440,7 +42393,7 @@ msgstr "ogiltiga kvalificerare på typ som inte är medlemsfunktion"
 #: cp/decl.c:10857
 #, gcc-internal-format
 msgid "requires-clause on type-id"
-msgstr ""
+msgstr "requires-klausul på type-id"
 
 #: cp/decl.c:10866
 #, gcc-internal-format
@@ -43874,17 +43827,17 @@ msgstr "oinitierad const-medlem i basen %q#T till %q#T"
 #: cp/init.c:2457
 #, gcc-internal-format
 msgid "placement new constructing an object of type %<%T [%wu]%> and size %qwu in a region of type %qT and size %qwi"
-msgstr ""
+msgstr "placerande new konstruerar ett objekt av typen %<%T [%wu]%> och storleken %qwu i en region av typen %qT och storleken %qwi"
 
 #: cp/init.c:2469
 #, gcc-internal-format
 msgid "placement new constructing an array of objects of type %qT and size %qwu in a region of type %qT and size %qwi"
-msgstr ""
+msgstr "placerande new konstruerar en vektor av objekt av typen %qT och storleken %qwu i en region av typen %qT och storleken %qwi"
 
 #: cp/init.c:2480
 #, gcc-internal-format
 msgid "placement new constructing an object of type %qT and size %qwu in a region of type %qT and size %qwi"
-msgstr ""
+msgstr "placerande new konstruerar ett objekt av typen %qT och storleken %qwu i en region av typen %qT och storleken %qwi"
 
 #: cp/init.c:2594
 #, gcc-internal-format
@@ -44582,7 +44535,7 @@ msgstr "identifieraren %qE är ett nyckelord i C++11"
 #: cp/parser.c:1311 cp/parser.c:1324
 #, gcc-internal-format
 msgid "LEXER_DEBUGGING_ENABLED_P is not set to true"
-msgstr ""
+msgstr "LEXER_DEBUGGING_ENABLED_P är inte satt till true"
 
 #: cp/parser.c:1349 cp/parser.c:35541
 #, gcc-internal-format
@@ -45478,7 +45431,7 @@ msgstr "ogiltig mallparameter som inte är en typ"
 #: cp/parser.c:14335
 #, gcc-internal-format
 msgid "variadic constraint introduced without %<...%>"
-msgstr ""
+msgstr "variadisk begränsning introducerad utan %<...%>"
 
 #: cp/parser.c:14399
 #, fuzzy, gcc-internal-format
@@ -46128,7 +46081,7 @@ msgstr "attributet %qE ignoreras eftersom det står i konflikt med attributet %q
 #: cp/parser.c:23938
 #, gcc-internal-format
 msgid "attribute deprecated can appear at most once in an attribute-list"
-msgstr ""
+msgstr "attributet deprecated kan förekomma högst en gång i en attributlista"
 
 #: cp/parser.c:24224
 #, fuzzy, gcc-internal-format
@@ -46614,7 +46567,7 @@ msgstr "%<#pragma cilk grainsize%> måste vara inuti en funktion"
 #: cp/parser.c:36766
 #, gcc-internal-format
 msgid "atomic_cancel"
-msgstr ""
+msgstr "atomic_cancel"
 
 #: cp/parser.c:36809 cp/semantics.c:8516
 #, gcc-internal-format
@@ -47536,7 +47489,7 @@ msgstr "mallinstansieringsdjupet överskrider maxvärdet på %d (använd -ftempl
 #: cp/pt.c:10641
 #, gcc-internal-format
 msgid "fold of empty expansion over %O"
-msgstr ""
+msgstr "fold över tom expansion över %O"
 
 #: cp/pt.c:10932
 #, gcc-internal-format
@@ -47891,7 +47844,7 @@ msgstr "kan inte härleda %qT från %qE"
 #: cp/pt.c:23928
 #, gcc-internal-format
 msgid "placeholder constraints not satisfied"
-msgstr ""
+msgstr "platshållabegränsningar är inte uppfyllt"
 
 #: cp/pt.c:23931
 #, fuzzy, gcc-internal-format
@@ -48253,7 +48206,7 @@ msgstr "offsetof inom icke-standardlayouttypen %qT är odefinierat"
 #: cp/semantics.c:6627
 #, gcc-internal-format
 msgid "%<this%> allowed in OpenMP only in %<declare simd%> clauses"
-msgstr ""
+msgstr "%<this%> tillåtet i OpenMP endast i %<declare simd%>-klausuler"
 
 #: cp/semantics.c:5168
 #, gcc-internal-format
@@ -48431,7 +48384,7 @@ msgstr "%qD är inte en variabel i %<depend%>-klausul"
 #: cp/semantics.c:6746
 #, gcc-internal-format
 msgid "overloaded function name %qE in clause %qs"
-msgstr ""
+msgstr "överlagrad funktion med namnet %qE i klausulen %qs"
 
 #: cp/semantics.c:6750
 #, fuzzy, gcc-internal-format
@@ -48529,7 +48482,7 @@ msgstr "mallargument %qE berör mallparametrar"
 #: cp/semantics.c:9291
 #, gcc-internal-format
 msgid "no unexpanded parameter packs in binary fold"
-msgstr ""
+msgstr "inga oexpanderade parameterpack i binär fold"
 
 #: cp/tree.c:1139
 #, gcc-internal-format
@@ -49611,7 +49564,7 @@ msgstr "  för följande virtuella funktioner är rena inuti %qT:"
 #: cp/typeck2.c:387
 #, gcc-internal-format
 msgid "\t%#D"
-msgstr ""
+msgstr "\t%#D"
 
 #: cp/typeck2.c:440
 #, gcc-internal-format
@@ -49885,7 +49838,7 @@ msgstr "gfc_arith_times(): Felaktig bastyp"
 #: fortran/arith.c:745
 #, gcc-internal-format
 msgid "Integer division truncated to constant %qs at %L"
-msgstr ""
+msgstr "Heltalsdivision havhuggen till konstanten %qs vid %L"
 
 #: fortran/arith.c:791
 #, gcc-internal-format
@@ -51157,7 +51110,7 @@ msgstr "För många argument till %s vid %L"
 #: fortran/check.c:5634
 #, gcc-internal-format
 msgid "fe_runtime_error string must be null terminated"
-msgstr ""
+msgstr "fe_runtime_error-sträng måste vara null-terminerad"
 
 #: fortran/check.c:5646
 #, fuzzy, gcc-internal-format, gfc-internal-format
@@ -51240,7 +51193,7 @@ msgstr "misslyckades att förenkla delsträngreferens i DATA-sats vid %L"
 #: fortran/data.c:170
 #, gcc-internal-format, gfc-internal-format
 msgid "Unused initialization string at %L because variable has zero length"
-msgstr ""
+msgstr "Oanvänd initieringssträng vid %L för att variabeln har nollängd"
 
 #: fortran/data.c:176
 #, fuzzy, gcc-internal-format, gfc-internal-format
@@ -51328,7 +51281,7 @@ msgstr "fördröjd typparameter vid %C"
 #: fortran/decl.c:780
 #, gcc-internal-format, gfc-internal-format
 msgid "Scalar INTEGER expression expected at %L"
-msgstr ""
+msgstr "Skalärt INTEGER-uttryck förväntades vid %L"
 
 #: fortran/decl.c:806
 #, gcc-internal-format, gfc-internal-format
@@ -51522,7 +51475,7 @@ msgstr "Vektor med antagen form vid %L"
 #: fortran/decl.c:2026
 #, gcc-internal-format
 msgid "%qs at %C is a redefinition of the declaration in the corresponding interface for MODULE PROCEDURE %qs"
-msgstr ""
+msgstr "%qs vid %C är en omdefinition av deklarationen i motsvarande gränssnitt för MODULE PROCEDURE %qs"
 
 #: fortran/decl.c:2055 fortran/decl.c:6911
 #, gcc-internal-format, gfc-internal-format
@@ -51929,7 +51882,7 @@ msgstr "Dubblerad symbol %qs i formell argumentlista vid %C"
 #: fortran/decl.c:4844
 #, gcc-internal-format, gfc-internal-format
 msgid "Mismatch in MODULE PROCEDURE formal argument names (%s/%s) at %C"
-msgstr ""
+msgstr "Formella argumentnamnen till MODULE PROCEDURE stämmer inte (%s/%s) vid %C"
 
 #: fortran/decl.c:4850
 #, fuzzy, gcc-internal-format, gfc-internal-format
@@ -53345,7 +53298,7 @@ msgstr "Kod för omallokering av den allokerbara vektorn vid %L kommer läggas t
 #: fortran/frontend-passes.c:2693
 #, gcc-internal-format
 msgid "Scalarization using DIMEN_RANGE unimplemented"
-msgstr ""
+msgstr "Skalärisering med DIMEN_RANGE är oimplementerat"
 
 #: fortran/gfortranspec.c:145
 #, gcc-internal-format
@@ -54264,12 +54217,12 @@ msgstr "Formatetikett saknas vid %C"
 #: fortran/io.c:1261
 #, gcc-internal-format, gfc-internal-format
 msgid "IOMSG must be a scalar-default-char-variable at %L"
-msgstr ""
+msgstr "IOMSG måste vara en scalar-default-char-variable vid %L"
 
 #: fortran/io.c:1275
 #, gcc-internal-format, gfc-internal-format
 msgid "%s requires a scalar-default-char-expr at %L"
-msgstr ""
+msgstr "%s kräver ett scalar-default-char-expr vid %L"
 
 #: fortran/io.c:1298 fortran/io.c:1329 fortran/io.c:1395
 #, gcc-internal-format, gfc-internal-format
@@ -55817,7 +55770,7 @@ msgstr "Ogiltiga argument till $!ACC WAIT vid %L"
 #: fortran/openmp.c:1484
 #, gcc-internal-format, gfc-internal-format
 msgid "Variable is USE-associated with $!ACC DECLARE at %L"
-msgstr ""
+msgstr "Variabel i USE-associated med $!ACC DECLARE vid %L"
 
 #: fortran/openmp.c:1492
 #, fuzzy, gcc-internal-format, gfc-internal-format
@@ -56556,7 +56509,7 @@ msgstr "PARAMETER-objekt %qs är inte tillåtet vid %L"
 #: fortran/openmp.c:4939
 #, gcc-internal-format
 msgid "Array sections: %qs not allowed in $!ACC DECLARE at %L"
-msgstr ""
+msgstr "Vektorsektioner: %qs är inte tillåtet i $!ACC DECLARE vid %L"
 
 #: fortran/openmp.c:5058
 #, gcc-internal-format, gfc-internal-format
@@ -57313,7 +57266,7 @@ msgstr "gfc_range_check() returnerade felaktigt värde"
 #: fortran/primary.c:783
 #, gcc-internal-format
 msgid "Non-significant digits in %qs number at %C, maybe incorrect KIND"
-msgstr ""
+msgstr "Osignifikanta siffror i %qs-tal vid %C, kanske felaktig KIND"
 
 #: fortran/primary.c:875
 #, gcc-internal-format, gfc-internal-format
@@ -59207,22 +59160,22 @@ msgstr "Procedurpekarresultat %qs vid %L saknar pekarattributet"
 #: fortran/resolve.c:11953
 #, gcc-internal-format, gfc-internal-format
 msgid "Mismatch in PURE attribute between MODULE PROCEDURE at %L and its interface in %s"
-msgstr ""
+msgstr "PURE-attribute stämmer inte mellan MODULE PROCEDURE vid %L och dess gränssnitt i %s"
 
 #: fortran/resolve.c:11961
 #, gcc-internal-format, gfc-internal-format
 msgid "Mismatch in ELEMENTAL attribute between MODULE PROCEDURE at %L and its interface in %s"
-msgstr ""
+msgstr "ELEMENTAL-attribut stämmer inte mellan MODULE PROCEDURE vid %L och dess gränssnitt i %s"
 
 #: fortran/resolve.c:11969
 #, gcc-internal-format, gfc-internal-format
 msgid "Mismatch in RECURSIVE attribute between MODULE PROCEDURE at %L and its interface in %s"
-msgstr ""
+msgstr "RECURSIVE-attribut stämmer inte mellan MODULE PROCEDURE vid %L och dess gränssnitt i %s"
 
 #: fortran/resolve.c:11978
 #, gcc-internal-format, gfc-internal-format
 msgid "%s between the MODULE PROCEDURE declaration in module %s and the declaration at %L in SUBMODULE %s"
-msgstr ""
+msgstr "%s mellan MODULE PROCEDURE-deklarationen i modulen %s och deklarationen vid %L i SUBMODULE %s"
 
 #: fortran/resolve.c:12063
 #, gcc-internal-format
@@ -59942,7 +59895,7 @@ msgstr "Gränsen på %d fortsättningar överskrids i sats vid %C"
 #: fortran/scanner.c:1409 fortran/scanner.c:1502
 #, gcc-internal-format, gfc-internal-format
 msgid "Wrong OpenACC continuation at %C: expected !$ACC, got !$OMP"
-msgstr ""
+msgstr "Felaktig OpenACC-fortsättning vid %C: !$ACC förväntades, fick !$OMP"
 
 #: fortran/scanner.c:1422
 #, gcc-internal-format
@@ -60496,6 +60449,8 @@ msgid ""
 "%s procedure at %L is already declared as %s procedure. \n"
 "F2008: A pointer function assignment is ambiguous if it is the first executable statement after the specification block. Please add any other kind of executable statement before it. FIXME"
 msgstr ""
+"%s-proceduren vid %L är redan deklarerad som en %s-procedur. \n"
+"F2008: En tilldelning av funktionspekare är tvetydig om det är dn första exekverbara satsen efter specifikationsblocket.  Lägg någon annan sorts exekverbar sats före den. FIXAMIG"
 
 #: fortran/symbol.c:1639
 #, gcc-internal-format, gfc-internal-format
@@ -60908,7 +60863,7 @@ msgstr "Returvärdet %qs för funktionen %qs deklarerad vid %L är inte satt"
 #: fortran/trans-decl.c:5911
 #, gcc-internal-format, gfc-internal-format
 msgid "Sorry, $!ACC DECLARE at %L is not allowed in BLOCK construct"
-msgstr ""
+msgstr "Ledsen, $!ACC DECLARE vid %L är inte tillåtet i BLOCK-konstruktion"
 
 #: fortran/trans-expr.c:803
 #, gcc-internal-format, gfc-internal-format
@@ -61491,7 +61446,7 @@ msgstr "%q#T deklarerades tidigare här"
 #: lto/lto-symtab.c:703
 #, gcc-internal-format
 msgid "code may be misoptimized unless -fno-strict-aliasing is used"
-msgstr ""
+msgstr "koden kan feloptimeras om inte -fno-strict-aliasing används"
 
 #: lto/lto-symtab.c:789
 #, gcc-internal-format

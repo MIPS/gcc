@@ -677,6 +677,10 @@ Wnonnull
 C ObjC C++ ObjC++ LangEnabledBy(C ObjC C++ ObjC++,Wall)
 ;
 
+Wnonnull-compare
+C ObjC C++ ObjC++ LangEnabledBy(C ObjC C++ ObjC++,Wall)
+;
+
 Wnormalized
 C ObjC C++ ObjC++ Warning Alias(Wnormalized=,nfc,none)
 ;
@@ -945,7 +949,11 @@ C ObjC C++ ObjC++ LangEnabledBy(C ObjC C++ ObjC++,Wunused)
 ; documented in common.opt
 
 Wunused-const-variable
-C ObjC C++ ObjC++ Var(warn_unused_const_variable) Warning LangEnabledBy(C ObjC,Wunused-variable)
+C ObjC C++ ObjC++ Warning Alias(Wunused-const-variable=, 2, 0)
+Warn when a const variable is unused.
+
+Wunused-const-variable=
+C ObjC C++ ObjC++ Joined RejectNegative UInteger Var(warn_unused_const_variable) Warning LangEnabledBy(C ObjC,Wunused-variable, 1, 0)
 Warn when a const variable is unused.
 
 Wvariadic-macros

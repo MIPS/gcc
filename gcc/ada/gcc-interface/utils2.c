@@ -1383,8 +1383,11 @@ build_unary_op (enum tree_code op_code, tree result_type, tree operand)
 	     since the middle-end cannot handle it.  But we don't it in the
 	     general case because it may introduce aliasing issues if the
 	     first operand is an indirect assignment and the second operand
-	     the corresponding address, e.g. for an allocator.  */
-	  if (TREE_CODE (type) == UNCONSTRAINED_ARRAY_TYPE)
+	     the corresponding address, e.g. for an allocator.  However do
+	     it for a return value to expose it for later recognition.  */
+	  if (TREE_CODE (type) == UNCONSTRAINED_ARRAY_TYPE
+	      || (TREE_CODE (TREE_OPERAND (operand, 1)) == VAR_DECL
+		  && DECL_RETURN_VALUE_P (TREE_OPERAND (operand, 1))))
 	    {
 	      result = build_unary_op (ADDR_EXPR, result_type,
 				       TREE_OPERAND (operand, 1));
@@ -2559,12 +2562,11 @@ gnat_protect_expr (tree exp)
     return build3 (code, type, gnat_protect_expr (TREE_OPERAND (exp, 0)),
 		   TREE_OPERAND (exp, 1), TREE_OPERAND (exp, 2));
 
-  /* If this is a fat pointer or something that can be placed in a register,
-     just make a SAVE_EXPR.  Likewise for a CALL_EXPR as large objects are
-     returned via invisible reference in most ABIs so the temporary will
-     directly be filled by the callee.  */
+  /* If this is a fat pointer or a scalar, just make a SAVE_EXPR.  Likewise
+     for a CALL_EXPR as large objects are returned via invisible reference
+     in most ABIs so the temporary will directly be filled by the callee.  */
   if (TYPE_IS_FAT_POINTER_P (type)
-      || TYPE_MODE (type) != BLKmode
+      || !AGGREGATE_TYPE_P (type)
       || code == CALL_EXPR)
     return save_expr (exp);
 

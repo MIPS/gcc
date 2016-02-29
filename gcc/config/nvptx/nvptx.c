@@ -600,7 +600,7 @@ write_arg_mode (std::stringstream &s, int for_reg, int argno,
    is true, if this is a prototyped function, rather than an old-style
    C declaration.  Returns the next argument number to use.
 
-   The promotion behaviour here must match the regular GCC function
+   The promotion behavior here must match the regular GCC function
    parameter marshalling machinery.  */
 
 static int
@@ -652,7 +652,7 @@ write_return_mode (std::stringstream &s, bool for_proto, machine_mode mode)
 
 /* Process a function return TYPE to emit a PTX return as a prototype
    or function prologue declaration.  Returns true if return is via an
-   additional pointer parameter.  The promotion behaviour here must
+   additional pointer parameter.  The promotion behavior here must
    match the regular GCC function return mashalling.  */
 
 static bool
@@ -1306,6 +1306,20 @@ nvptx_gen_shuffle (rtx dst, rtx src, rtx idx, nvptx_shuffle_kind kind)
 	end_sequence ();
       }
       break;
+    case QImode:
+    case HImode:
+      {
+	rtx tmp = gen_reg_rtx (SImode);
+
+	start_sequence ();
+	emit_insn (gen_rtx_SET (tmp, gen_rtx_fmt_e (ZERO_EXTEND, SImode, src)));
+	emit_insn (nvptx_gen_shuffle (tmp, tmp, idx, kind));
+	emit_insn (gen_rtx_SET (dst, gen_rtx_fmt_e (TRUNCATE, GET_MODE (dst),
+						    tmp)));
+	res = get_insns ();
+	end_sequence ();
+      }
+      break;
       
     default:
       gcc_unreachable ();
@@ -1620,7 +1634,7 @@ nvptx_assemble_decl_begin (FILE *file, const char *name, const char *section,
   elt_size &= -elt_size; /* Extract LSB set.  */
 
   init_frag.size = elt_size;
-  /* Avoid undefined shift behaviour by using '2'.  */
+  /* Avoid undefined shift behavior by using '2'.  */
   init_frag.mask = ((unsigned HOST_WIDE_INT)2
 		    << (elt_size * BITS_PER_UNIT - 1)) - 1;
   init_frag.val = 0;

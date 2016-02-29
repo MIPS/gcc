@@ -1293,7 +1293,8 @@ static tree c_parser_simple_asm_expr (c_parser *);
 static tree c_parser_attributes (c_parser *);
 static struct c_type_name *c_parser_type_name (c_parser *);
 static struct c_expr c_parser_initializer (c_parser *);
-static struct c_expr c_parser_braced_init (c_parser *, tree, bool);
+static struct c_expr c_parser_braced_init (c_parser *, tree, bool,
+					   struct obstack *);
 static void c_parser_initelt (c_parser *, struct obstack *);
 static void c_parser_initval (c_parser *, struct c_expr *,
 			      struct obstack *);
@@ -4307,7 +4308,7 @@ static struct c_expr
 c_parser_initializer (c_parser *parser)
 {
   if (c_parser_next_token_is (parser, CPP_OPEN_BRACE))
-    return c_parser_braced_init (parser, NULL_TREE, false);
+    return c_parser_braced_init (parser, NULL_TREE, false, NULL);
   else
     {
       struct c_expr ret;
@@ -4327,7 +4328,8 @@ c_parser_initializer (c_parser *parser)
    top-level initializer in a declaration.  */
 
 static struct c_expr
-c_parser_braced_init (c_parser *parser, tree type, bool nested_p)
+c_parser_braced_init (c_parser *parser, tree type, bool nested_p,
+		      struct obstack *outer_obstack)
 {
   struct c_expr ret;
   struct obstack braced_init_obstack;
@@ -4336,7 +4338,10 @@ c_parser_braced_init (c_parser *parser, tree type, bool nested_p)
   gcc_assert (c_parser_next_token_is (parser, CPP_OPEN_BRACE));
   c_parser_consume_token (parser);
   if (nested_p)
-    push_init_level (brace_loc, 0, &braced_init_obstack);
+    {
+      finish_implicit_inits (brace_loc, outer_obstack);
+      push_init_level (brace_loc, 0, &braced_init_obstack);
+    }
   else
     really_start_incremental_init (type);
   if (c_parser_next_token_is (parser, CPP_CLOSE_BRACE))
@@ -4594,7 +4599,8 @@ c_parser_initval (c_parser *parser, struct c_expr *after,
   location_t loc = c_parser_peek_token (parser)->location;
 
   if (c_parser_next_token_is (parser, CPP_OPEN_BRACE) && !after)
-    init = c_parser_braced_init (parser, NULL_TREE, true);
+    init = c_parser_braced_init (parser, NULL_TREE, true,
+				 braced_init_obstack);
   else
     {
       init = c_parser_expr_no_commas (parser, after);
@@ -5880,13 +5886,30 @@ c_parser_for_statement (c_parser *parser, bool ivdep)
   if (c_parser_next_token_is (parser, CPP_NAME))
     {
       c_token *token = c_parser_peek_token (parser);
-      tree decl = lookup_name (token->value);
-      if (decl == NULL_TREE || VAR_P (decl))
-	/* If DECL is null, we don't know what this token might be.  Treat
-	   it as an ID for better diagnostics; we'll error later on.  */
-	token->id_kind = C_ID_ID;
-      else if (TREE_CODE (decl) == TYPE_DECL)
-	token->id_kind = C_ID_TYPENAME;
+
+      if (token->id_kind != C_ID_CLASSNAME)
+	{
+	  tree decl = lookup_name (token->value);
+
+	  token->id_kind = C_ID_ID;
+	  if (decl)
+	    {
+	      if (TREE_CODE (decl) == TYPE_DECL)
+		token->id_kind = C_ID_TYPENAME;
+	    }
+	  else if (c_dialect_objc ())
+	    {
+	      tree objc_interface_decl = objc_is_class_name (token->value);
+	      /* Objective-C class names are in the same namespace as
+		 variables and typedefs, and hence are shadowed by local
+		 declarations.  */
+	      if (objc_interface_decl)
+		{
+		  token->value = objc_interface_decl;
+		  token->id_kind = C_ID_CLASSNAME;
+		}
+	    }
+	}
     }
 
   token_indent_info next_tinfo
@@ -8083,7 +8106,7 @@ c_parser_postfix_expression_after_paren_type (c_parser *parser,
       error_at (type_loc, "compound literal has variable size");
       type = error_mark_node;
     }
-  init = c_parser_braced_init (parser, type, false);
+  init = c_parser_braced_init (parser, type, false, NULL);
   finish_init ();
   maybe_warn_string_init (type_loc, type, init);
 
@@ -10760,7 +10783,7 @@ c_parser_oacc_data_clause_deviceptr (c_parser *parser, tree list)
 	 c_parser_omp_var_list_parens() should construct a list of
 	 locations to go along with the var list.  */
 
-      if (!VAR_P (v))
+      if (!VAR_P (v) && TREE_CODE (v) != PARM_DECL)
 	error_at (loc, "%qD is not a variable", v);
       else if (TREE_TYPE (v) == error_mark_node)
 	;
