@@ -1,3 +1,36 @@
+2016-02-28  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/68147
+	PR fortran/47674
+	* frontend-passes.c (realloc_string_callback): Don't set
+	walk_subtrees.
+
+2016-02-28  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	* dump-parse-tree.c (show_code_node):  Print association
+	list of a block if present.  Handle EXEC_END_BLOCK.
+
+2016-02-28  Harald Anlauf <anlauf@gmx.de>
+	    Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/56007
+	* match.c (gfc_match_iterator): Add diagnostic for array variable
+	as do loop index.
+
+2016-02-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+	    Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/69910
+	* io.c (gfc_match_open): Check that open status is an expression
+	constant before comparing string to 'scratch' with NEWUNIT.
+
+2016-02-27  Alessandro Fanfarillo  <fanfarillo.gcc@gmail.com>
+
+	* trans.c (gfc_allocate_allocatable): size conversion
+	from byte to number of elements for event variables.
+	* trans-types.c (gfc_get_derived_type): event variables
+	represented as a pointer (like lock variable).
+
 2016-02-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR fortran/61156

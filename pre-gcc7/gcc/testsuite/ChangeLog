@@ -1,3 +1,151 @@
+2016-02-29  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR tree-optimization/69652
+	* gcc.dg/torture/pr69652.c: Delete test.
+	* gcc.dg/vect/pr69652.c: New test.
+
+2016-02-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69980
+	* gfortran.dg/vect/pr69980.f90: New testcase.
+
+2016-02-29  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/sparc/20160229-1.c: New test.
+
+2016-02-29  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/stack_usage3.adb: New test.
+	* gnat.dg/stack_usage3_pkg.ads: New helper.
+
+2016-02-29  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/renaming8.adb: New test.
+	* gnat.dg/renaming8_pkg1.ads: New helper.
+	* gnat.dg/renaming8_pkg2.ad[sb]: Likewise.
+	* gnat.dg/renaming8_pkg3.ad[sb]: Likewise.
+
+2016-02-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69720
+	* gcc.dg/vect/vect-outer-pr69720.c: New testcase.
+
+2016-02-28  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/68147
+	PR fortran/47674
+	* gfortran.dg/realloc_on_assign_26.f90:  New test case.
+
+2016-02-28  Harald Anlauf <anlauf@gmx.de>
+	    Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/56007
+	* gfortran.dg/coarray_8.f90: Adjust error message.
+	* gfortran.dg/pr56007.f90: New test.
+	* gfortran.dg/pr56007.f: New test.
+
+2016-02-28  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR tree-optimization/69989
+	* gcc.dg/torture/pr69989.c: New test.
+
+2016-02-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/i386/stack-realign-win.c: New test.
+
+2016-02-28  Harald Anlauf  <anlauf@gmx.de>
+
+	PR fortran/60126
+	* gfortran.dg/pr60126.f90: New test.
+
+2016-02-27  Jeff Law  <law@redhat.com>
+
+	Revert
+	2016-02-26  Richard Biener  <rguenther@suse.de>
+		    Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/69740
+	* gcc.c-torture/compile/pr69740-1.c: New test.
+	* gcc.c-torture/compile/pr69740-2.c: New test.
+
+2016-02-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/69910
+	* gfortran.dg/newunit_4.f90: New test.
+
+2016-02-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/69613
+	PR rtl-optimization/69886
+	* gcc.dg/torture/pr69886.c: Add -w -Wno-psabi to dg-options.
+	* gcc.dg/torture/pr69613.c: Likewise.  Guard -mavx with avx_runtime
+	target.
+
+2016-02-26  Martin Sebor  <msebor@redhat.com>
+
+	PR tree-optimization/15826
+	* gcc.dg/tree-ssa/pr15826.c: New test.
+
+2016-02-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/69969
+	* gcc.target/powerpc/pr69969.c: New test.
+
+2016-02-26  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/15766
+	* g++.old-deja/g++.other/decl5.C: Add a test case.
+
+2016-02-26  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/69946
+	* gcc.target/powerpc/pr69946.c: New file.
+
+2016-02-26  Richard Biener  <rguenther@suse.de>
+	    Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/69740
+	* gcc.c-torture/compile/pr69740-1.c: New test.
+	* gcc.c-torture/compile/pr69740-2.c: New test.
+
+2016-02-26  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/69920
+	* gcc.dg/torture/pr69932.c: New test.
+	* gcc.dg/torture/pr69936.c: Likewise.
+
+2016-02-26  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	PR target/69709
+	* gcc.target/s390/pr69709.c: New test.
+
+2016-02-26  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/69245
+	* gcc.target/aarch64/pr69245_1.c: New test.
+
+2016-02-26  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/69613
+	* gcc.dg/torture/pr69613.c: New test.
+
+2016-02-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/69891
+	* gcc.target/i386/pr69891.c: New test.
+
+2016-02-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/61397
+	* gcc.target/powerpc/p8vector-ldst.c: Adjust to test desired
+	functionality for both 32-bit and 64-bit.
+
+2016-02-26  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69551
+	* gcc.dg/torture/pr69951.c: New testcase.
+
 2016-02-25  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/48795

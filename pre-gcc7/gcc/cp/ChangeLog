@@ -1,4 +1,23 @@
+2016-02-28  Jason Merrill  <jason@redhat.com>
+
+	PR c++/69995
+	* constexpr.c (cxx_eval_store_expression): Unshare init.
+
+2016-02-26  Jason Merrill  <jason@redhat.com>
+
+	PR c++/69958
+	* pt.c (make_argument_pack): New.
+	(tsubst_copy) [SIZEOF_EXPR]: Handle partial expansion.
+	(tsubst_copy_and_build): Likewise.
+
 2016-02-25  Jason Merrill  <jason@redhat.com>
+
+	PR c++/69889
+	* cp-tree.h (AGGR_INIT_FROM_THUNK_P): New.
+	* tree.c (build_aggr_init_expr): Set it.
+	* semantics.c (simplify_aggr_init_expr): Check it.
+	* cp-gimplify.c (cp_genericize_r): Don't walk into
+	a call/aggr_init from a thunk.
 
 	PR c++/69842
 	* method.c (forward_parm): Handle parameter packs.
