@@ -1,3 +1,487 @@
+2016-02-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69720
+	* tree-vect-loop.c (get_initial_def_for_reduction): Avoid
+	the adjustment_def path for possibly vectorized defs.
+	(vect_create_epilog_for_reduction): Handle vectorized initial
+	defs properly.
+
+2016-02-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/i386/cygming.h (STACK_REALIGN_DEFAULT): Define.
+
+2016-02-27  Jeff Law  <law@redhat.com>
+
+	Revert
+	2016-02-26  Richard Biener  <rguenther@suse.de>
+		    Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/69740
+	* cfghooks.c (remove_edge): Request loop fixups if we delete
+	an edge that might turn an irreducible loop into a natural
+	loop.
+
+2016-02-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/69896
+	* tree-vect-generic.c (get_compute_type): Avoid single element
+	vector types.
+
+2016-02-26  Evandro Menezes  <e.menezes@samsung.com>
+
+	Rename the AArch64 tuning option and related functions to enable the
+	Newton series for the reciprocal square root to reflect its
+	approximative characteristic.
+
+	* config/aarch64/aarch64-protos.h (aarch64_emit_swrsqrt): Rename
+	function to "aarch64_emit_approx_rsqrt".
+	* config/aarch64/aarch64-tuning-flags.def: Rename tuning flag to
+	AARCH64_EXTRA_TUNE_APPROX_RSQRT.
+	* config/aarch64/aarch64.c (exynosm1_tunigs): Use new flag name.
+	(xgene1_tunings): Likewise.
+	(use_rsqrt_p): Likewise.
+	(aarch64_emit_swrsqrt): Use new function name.
+	* config/aarch64/aarch64-simd.md (aarch64_rsqrts_*): Likewise.
+	* config/aarch64/aarch64.opt (mlow-precision-recip-sqrt): Reword the
+	text explaining this option.
+	* doc/invoke.texi (-mlow-precision-recip-sqrt): Likewise.
+
+2016-02-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/69969
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Don't
+	complain about -mallow-movmisalign without -mvsx if
+	TARGET_ALLOW_MOVMISALIGN was not set explicitly.
+
+2016-02-26  Joel Sherrill <joel@rtems.org>
+
+	* config.gcc: Add x86_64-*-rtems*.
+	* gcc/config/i386/rtems-64.h: New file.
+
+2016-02-26  Joel Sherrill <joel@rtems.org>
+
+	* config.gcc: Add aarch64-*-rtems*.
+	* gcc/config/aarch64/rtems.h: New file.
+
+2016-02-26  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/69946
+	* config/rs6000/rs6000.c (rs6000_insn_for_shift_mask): Print rlwinm
+	shift amount using %h.  Add comment.
+
+2016-02-26  Richard Biener  <rguenther@suse.de>
+	    Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/69740
+	* cfghooks.c (remove_edge): Request loop fixups if we delete
+	an edge that might turn an irreducible loop into a natural
+	loop.
+
+2016-02-26  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/69920
+	* tree-sra.c (sra_modify_assign): Do not remove loads of
+	uninitialized aggregates to SSA_NAMEs.
+
+2016-02-26  Richard Henderson  <rth@redhat.com>
+
+	PR target/69709
+	* config/s390/s390.md (risbg and risbgn splitters): Allocate new
+	pseudo in case the target rtx matches the source of the left
+	shift.
+
+2016-02-26  Martin Jambor  <mjambor@suse.cz>
+
+	PR hsa/69568
+	* hsa.h (hsa_type_packed_p): Declare.
+	* hsa.c (hsa_type_packed_p): New function.
+	* hsa-gen.c (mem_type_for_type): Use unsigned type for packed
+	loads.
+	(gen_hsa_insns_for_store): Use hsa_type_packed_p.
+	* hsa-brig.c (emit_basic_insn): Likewise.
+
+2016-02-26  Martin Jambor  <mjambor@suse.cz>
+
+	pr hsa/69674
+	* hsa-gen.c (gen_hsa_phi_from_gimple_phi): Use proper hsa type for
+	pointers.
+	(gen_hsa_addr): Allow integer constants in TMR_INDEX2.
+
+2016-02-26  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.h (is_a_helper): New overload for hsa_op_immed for
+	hsa_op_with_type operands.
+	(hsa_unsigned_type_for_type): Declare.
+	* hsa.c (hsa_unsigned_type_for_type): New function.
+	* hsa-gen.c (gen_hsa_binary_operation): Use hsa_unsigned_type_for_type.
+	(gen_hsa_insns_for_operation_assignment): Satisfy constrains of
+	the finalizer.  Do not emit extra move.
+
+2016-02-26  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (gen_hsa_ternary_atomic_for_builtin): Fail in presence of
+	atomic operations in private segment.
+
+2016-02-26  Martin Jambor  <mjambor@suse.cz>
+
+	* omp-low.c (grid_find_ungridifiable_statement): Store problematic
+	statements to wi->info.  Also disallow omp simd constructs.
+	(grid_target_follows_gridifiable_pattern): Use wi.info to dump reason
+	for not gridifying.  Dump special string for omp_for.
+
+2016-02-26  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/69245
+	* config/aarch64/aarch64.c (aarch64_set_current_function):
+	Save/restore target globals when switching to
+	target_option_default_node.
+
+2016-02-26  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/69613
+	* config/aarch64/aarch64.c (aarch64_shift_truncation_mask):
+	Return 0 if !SHIFT_COUNT_TRUNCATED.
+
+2016-02-26  Jakub Jelinek  <jakub@redhat.com>
+	    Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/69891
+	* dse.c (scan_insn): If we can't figure out memset arguments
+	or they are non-constant, call clear_rhs_from_active_local_stores.
+
+2016-02-26  Martin Liska  <mliska@suse.cz>
+
+	* doc/extend.texi: Mention clog10, clog10f an clog10l
+	in Builtins section.
+
+2016-02-26  Martin Liska  <mliska@suse.cz>
+
+	* dwarf2out.c (new_loc_descr): Replace ENABLE_CHECKING with
+	CHECKING_P.
+	(resolve_args_picking_1): Likewise.
+	* dwarf2out.h (struct GTY): Likewise.
+
+2016-02-26  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (generate_hsa): Replace ENABLE_CHECKING macro
+	with flag_checking.
+	* hsa-regalloc.c (linear_scan_regalloc): Likewise.
+
+2016-02-26  Markus Trippelsdorf  <markus@trippelsdorf.de>
+	    Martin Liska  <mliska@suse.cz>
+
+	* doc/install.texi: Mention --enable-valgrind-annotations.
+
+2016-02-26  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69551
+	* tree-ssa-structalias.c (get_constraint_for_ssa_var): When
+	looking through aliases adjust DECL_PT_UID to refer to the
+	ultimate alias target.
+
+2016-02-25  Martin Liska  <mliska@suse.cz>
+
+	PR middle-end/69919
+	* alloc-pool.c (after_memory_report): New variable.
+	* alloc-pool.h (base_pool_allocator ::release): Do not use
+	the infrastructure if after_memory_report.
+	* toplev.c (toplev::main): Mark after memory report.
+
+2016-02-25  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/48795
+	* tree-vrp.c (check_array_ref): Use array_at_struct_end_p.
+
+2016-02-25  Ilya Verbin  <ilya.verbin@intel.com>
+
+	PR driver/68463
+	* config/gnu-user.h (CRTOFFLOADBEGIN): Define.  Add crtoffloadbegin.o if
+	offloading is enabled and -fopenacc or -fopenmp is specified.
+	(CRTOFFLOADEND): Likewise.
+	(GNU_USER_TARGET_STARTFILE_SPEC): Add CRTOFFLOADBEGIN.
+	(GNU_USER_TARGET_ENDFILE_SPEC): Add CRTOFFLOADEND.
+	* lto-wrapper.c (offloadbegin, offloadend): Remove static vars.
+	(offload_objects_file_name): New static var.
+	(tool_cleanup): Remove offload_objects_file_name file.
+	(find_offloadbeginend): Replace with ...
+	(find_crtoffloadtable): ... this.
+	(run_gcc): Remove offload_argc and offload_argv.
+	Get offload_objects_file_name from -foffload-objects=... option.
+	Read names of object files with offload from this file, pass them to
+	compile_images_for_offload_targets.  Don't call find_offloadbeginend and
+	don't pass offloadbegin and offloadend to the linker.  Don't pass
+	offload non-LTO files to the linker, because now they're not claimed.
+
+2016-02-25  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/69630
+	* ipa-devirt.c (possible_polymorphic_call_targets): Do not ICE
+	on builtin_unreachable.
+
+2016-02-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/69896
+	* regcprop.c: Include cfgrtl.h.
+	(copyprop_hardreg_forward_1): If noop_p insn uses narrower
+	than remembered mode, either delete it (if noop_move_p), or
+	treat like copy_p but not noop_p instruction.
+
+2016-02-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/69705
+	* dwarf2out.c (gen_variable_die): Work around buggy LTO
+	- allow NULL decl for Fortran DW_TAG_common_block variables.
+
+2016-02-24  Jason Merrill  <jason@redhat.com>
+
+	* common.opt (flifetime-dse): Add -flifetime-dse=1.
+
+2016-02-24  Richard Biener  <rguenther@suse.de>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/69760
+	* tree-scalar-evolution.c (interpret_rhs_expr): Re-write
+	conditionally executed ops to well-defined overflow behavior.
+
+2016-02-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/69915
+	* tree.c (build_vector_from_ctor): Fix handling of VECTOR_CST
+	elements.
+
+2016-02-24  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/69886
+	* gcse.c (can_assign_to_reg_without_clobbers_p): Accept mode
+	argument.  Use it when checking validity of set instructions.
+	(want_to_gcse_p): Pass mode to can_assign_to_reg_without_clobbers_p.
+	(compute_ld_motion_mems): Update can_assign_to_reg_without_clobbers_p
+	callsite.
+	* rtl.h (can_assign_to_reg_without_clobbers_p): Update prototype.
+	* store-motion.c (find_moveable_store): Update
+	can_assign_to_reg_without_clobbers_p callsite.
+
+2016-02-24  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/68963
+	* tree-ssa-loop-niter.c (derive_constant_upper_bound_ops): Fix
+	bogus check.
+	(record_nonwrapping_iv): Do not fall back to the low/high bound
+	for non-constant IV bases if the stmt is not always executed.
+
+2016-02-24  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm-cores.def (cortex-a32): New entry.
+	* config/arm/arm-tables.opt: Regenerate.
+	* config/arm/arm-tune.md: Regenerate.
+	* config/arm/bpabi.h (BE8_LINK_SPEC): Add mcpu=cortex-a32.
+	* config/arm/t-aprofile: Handle mcpu=cortex-a32.
+	* doc/invoke.texi (ARM Options): Document cortex-a32 as value
+	for -mcpu and -mtune.
+
+2016-02-24  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/69875
+	* config/arm/arm.h (TARGET_HAVE_LPAE): Define.
+	* config/arm/unspecs.md (VUNSPEC_LDRD_ATOMIC): New value.
+	* config/arm/sync.md (arm_atomic_loaddi2_ldrd): New pattern.
+	(atomic_loaddi_1): Delete.
+	(atomic_loaddi): Rewrite expander using the above changes.
+
+2016-02-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/69918
+	* params.def (PARAM_MAX_SSA_NAME_QUERY_DEPTH): Bump default from
+	2 to 3.
+
+2016-02-24  Jakub Jelinek  <jakub@redhat.com>
+	    Richard Biener  <rguenth@suse.de>
+
+	PR middle-end/69909
+	* expr.c (expand_expr_real_1) <normal_inner_ref>: Avoid
+	set_mem_attributes if tem is SSA_NAME which got expanded
+	as a MEM.
+
+2016-02-24  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69907
+	* tree-vect-stmts.c (vectorizable_load): Check for gaps at the
+	end of permutations for BB vectorization.
+
+2016-02-24  Christian Bruel  <christian.bruel@st.com>
+
+	* config/arm/arm-c.c (arm_option_override): Initialize
+	target_option_current_node.
+	* config/arm/arm.c (arm_pragma_target_parse): Replace
+	build_target_option_node call by target_option_current_node.
+	Set target_option_current_node.
+	Fix comments.
+
+2016-02-23  David Edelsohn  <dje.gcc@gmail.com>
+
+	PR target/69810
+	* config/rs6000/rs6000.md (zero_extendqi<mode>2_dot): Convert from
+	define_insn_and_split to define_insn.
+	(zero_extendqi<mode>2_dot2): Same.
+	(extendqi<mode>2_dot): Same.
+	(extendqi<mode>2_dot2): Same.
+
+2016-02-23  Evandro Menezes  <e.menezes@samsung.com>
+
+	* config/arm/exynos-m1.md: Change cost of STP, fix bypass for stores
+	and add bypass for AES{D,E} and AESMC pairs.
+	* config/aarch64/aarch64.c (exynosm1_tunings): Enable fusion of AES{D,E}
+	and AESMC pairs.
+
+2016-02-23  Evandro Menezes  <e.menezes@samsung.com>
+
+        * config/aarch64/aarch64.c (exynosm1_tunings): Enable the Newton
+        series for reciprocal square root in Exynos M1.
+
+2016-02-23  Martin Sebor  <msebor@redhat.com>
+
+	PR c/69759
+	* doc/extend.texi (Other Builtins): Document __builtin_alloca and
+	__builtin_alloca_with_align.
+
+2016-02-23  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386-c.c (ix86_target_macros): Remove __SEG_TLS.
+	(ix86_register_pragmas): Remove __seg_tls.
+	* config/i386/i386-protos.h (ADDR_SPACE_SEG_TLS): Remove.
+	* config/i386/i386.c (ix86_print_operand_address_as): Don't handle it.
+	(ix86_addr_space_subset_p, TARGET_ADDR_SPACE_SUBSET_P): Remove.
+	(ix86_addr_space_convert, TARGET_ADDR_SPACE_CONVERT): Remove.
+	(ix86_addr_space_debug, TARGET_ADDR_SPACE_DEBUG): Remove.
+	* doc/extend.texi (__seg_tls): Remove item.
+
+2016-02-23  Richard Biener  <rguenther@suse.de>
+
+	* alloc-pool.h (struct allocation_object): Make id member
+	conditional on CHECKING_P again.
+	(get_instance): Adjust.
+	(base_pool_allocator): Likewise.
+
+2016-02-23  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* tree-parloops.c (create_parallel_loop, gen_parallel_loop)
+	(parallelize_loops): In OpenACC kernels mode, set n_threads to
+	zero.
+	(pass_parallelize_loops::gate): In OpenACC kernels mode, gate on
+	flag_openacc.
+	* tree-ssa-loop.c (gate_oacc_kernels): Likewise.
+
+2016-02-23  Richard Biener  <rguenther@suse.de>
+
+	* mem-stats.h (struct mem_usage): Use PRIu64 for printing size_t.
+	* bitmap.h (struct bitmap_usage): Likewise.
+	(bitmap_move): Declare.
+	* bitmap.c (register_overhead): Take size_t argument.
+	(bitmap_move): New function.
+	* df-problems.c (df_rd_transfer_function): Use bitmap_move
+	to properly account overhead.
+	* tree.c (free_node): Use tree_size.
+
+2016-02-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/69902
+	* fold-const.c (fold_truth_not_expr): Propagate TREE_NO_WARNING
+	when inverting comparison.
+
+	PR c/69900
+	* common.opt (Wunreachable-code): Add Warning flag.
+
+2016-02-23  Mark Wielaard  <mjw@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/69911
+	* cgraphunit.c (check_global_declaration): Check main_input_filename
+	and DECL_SOURCE_FILE are not NULL.
+
+2016-02-23  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/69666
+	* tree-sra.c (sra_modify_assign): Do not attempt to create
+	default_def replacements for unscalarizable regions.
+
+2016-02-20  Mark Wielaard  <mjw@redhat.com>
+
+	PR c/28901
+	* cgraphunit.c (check_global_declaration): Check level of
+	warn_unused_const_variable and main_input_filename.
+	* doc/invoke.texi (Warning Options): Add -Wunused-const-variable=.
+	(-Wunused-variable): For C implies -Wunused-const-variable=1.
+	(-Wunused-const-variable): Explain levels 1 and 2.
+
+2016-02-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/69888
+	* config/i386/i386.c (decide_alg): Ensure we don't recurse with
+	identical arguments.  Formatting and spelling fixes.
+
+	PR target/69885
+	* doc/md.texi (ashl@var{m}3): Document that mode of operand 2 must
+	be specified.
+
+	PR target/69894
+	PR target/69895
+	* config/m68k/t-opts (OPTIONS_H_EXTRA): Add m68k-microarchs.def
+	and m68k-devices.def.
+	* config/c6x/t-c6x (OPTIONS_H_EXTRA): Add c6x-isas.def.
+	* config/aarch64/t-aarch64 (OPTIONS_H_EXTRA): Add aarch64-arches.def.
+
+2016-02-22  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_gen_shuffle): Add support for QImode
+	and HImode registers.
+
+2016-02-22  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69882
+	* tree-vect-slp.c (vect_attempt_slp_rearrange_stmts): Properly
+	preserve permutations present because of gaps.
+	(vect_supported_load_permutation_p): Always continue checking
+	permutations after vect_attempt_slp_rearrange_stmts.
+
+2016-02-22  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-vect-loop.c (vect_estimate_min_profitable_iters): Dump
+	min_profitable_estimate, rather than min_profitable_iters.
+
+2016-02-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/69885
+	* config/m68k/m68k.md (ashldi3, ashrdi3, lshrdi3): Use
+	SImode for last match_operand.
+
+2016-02-22  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_clrsb): In case of zero value,
+	return bitsize - 1 as the return value.
+
+2016-02-22  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/69806
+	PR target/54089
+	* config/sh/sh.c (sh_lshrsi_clobbers_t_reg_p, sh_dynamicalize_shift_p):
+	Handle negative shift counts.
+	* config/sh/sh.md (ashlsi3, lshrsi3_n, lshrsi3_n_clobbers_t): Don't use
+	force_reg on the shift constant.
+	(lshrsi3): Likewise.  Expand into lshrsi3_n* instead of lshrsi3_d.
+	(lshrsi3_d): Handle negative shift counts.
+
+2016-02-22  Richard Biener  <rguenther@suse.de>
+	    Tom de Vries  <tom@codesourcery.com>
+
+	* graph.c: Include dumpfile.h.
+	(print_graph_cfg): Split into three overloads.
+	* gdbhooks.py (class DotFn): Add and instantiate, adding command dot-fn.
+
+2016-02-22  Tom de Vries  <tom@codesourcery.com>
+
+	* gdbhooks.py (class DumpFn): Add and instantiate, adding command
+	dump-fn.
+
 2016-02-22  Richard Biener  <rguenther@suse.de>
 
 	PR ipa/37448

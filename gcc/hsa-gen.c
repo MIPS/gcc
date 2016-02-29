@@ -754,11 +754,13 @@ mem_type_for_type (BrigType16_t type)
      unsigned type?).  */
   if ((type & BRIG_TYPE_PACK_MASK) == BRIG_TYPE_PACK_128)
     return BRIG_TYPE_B128;
-  else if (hsa_btype_p (type))
+  else if (hsa_btype_p (type) || hsa_type_packed_p (type))
     {
       unsigned bitsize = hsa_type_bit_size (type);
       if (bitsize < 128)
 	return hsa_uint_for_bitsize (bitsize);
+      else
+	return hsa_bittype_for_bitsize (bitsize);
     }
   return type;
 }
@@ -2105,9 +2107,17 @@ gen_hsa_addr (tree ref, hsa_bb *hbb, HOST_WIDE_INT *output_bitsize = NULL,
 	}
       if (TMR_INDEX2 (ref))
 	{
-	  hsa_op_base *disp2 = hsa_cfun->reg_for_gimple_ssa
-	    (TMR_INDEX2 (ref))->get_in_type (addrtype, hbb);
-	  reg = add_addr_regs_if_needed (reg, as_a <hsa_op_reg *> (disp2), hbb);
+	  if (TREE_CODE (TMR_INDEX2 (ref)) == SSA_NAME)
+	    {
+	      hsa_op_base *disp2 = hsa_cfun->reg_for_gimple_ssa
+		(TMR_INDEX2 (ref))->get_in_type (addrtype, hbb);
+	      reg = add_addr_regs_if_needed (reg, as_a <hsa_op_reg *> (disp2),
+					     hbb);
+	    }
+	  else if (TREE_CODE (TMR_INDEX2 (ref)) == INTEGER_CST)
+	    offset += wi::to_offset (TMR_INDEX2 (ref));
+	  else
+	    gcc_unreachable ();
 	}
       offset += wi::to_offset (TMR_OFFSET (ref));
       break;
@@ -2640,7 +2650,7 @@ gen_hsa_insns_for_store (tree lhs, hsa_op_base *src, hsa_bb *hbb)
      we can modify the above in place.  */
   if (hsa_op_immed *imm = dyn_cast <hsa_op_immed *> (src))
     {
-      if ((imm->m_type & BRIG_TYPE_PACK_MASK) == BRIG_TYPE_PACK_NONE)
+      if (!hsa_type_packed_p (imm->m_type))
 	imm->m_type = mem->m_type;
       else
 	{
@@ -3022,7 +3032,7 @@ gen_hsa_binary_operation (int opcode, hsa_op_reg *dest,
       && is_a <hsa_op_immed *> (op2))
     {
       hsa_op_immed *i = dyn_cast <hsa_op_immed *> (op2);
-      i->set_type (hsa_uint_for_bitsize (hsa_type_bit_size (i->m_type)));
+      i->set_type (hsa_unsigned_type_for_type (i->m_type));
     }
 
   hsa_insn_basic *insn = new hsa_insn_basic (3, opcode, dest->m_type, dest,
@@ -3233,27 +3243,21 @@ gen_hsa_insns_for_operation_assignment (gimple *assign, hsa_bb *hbb)
 	    ctrl = r;
 	  }
 
-	hsa_op_with_type *rhs2_reg = hsa_reg_or_immed_for_gimple_op (rhs2, hbb);
-	hsa_op_with_type *rhs3_reg = hsa_reg_or_immed_for_gimple_op (rhs3, hbb);
+	hsa_op_with_type *op2 = hsa_reg_or_immed_for_gimple_op (rhs2, hbb);
+	hsa_op_with_type *op3 = hsa_reg_or_immed_for_gimple_op (rhs3, hbb);
 
-	BrigType16_t btype = hsa_bittype_for_type (dest->m_type);
-	hsa_op_reg *tmp = new hsa_op_reg (btype);
-
-	rhs2_reg->m_type = btype;
-	rhs3_reg->m_type = btype;
+	BrigType16_t utype = hsa_unsigned_type_for_type (dest->m_type);
+	if (is_a <hsa_op_immed *> (op2))
+	  op2->m_type = utype;
+	if (is_a <hsa_op_immed *> (op3))
+	  op3->m_type = utype;
 
 	hsa_insn_basic *insn
-	  = new hsa_insn_basic (4, BRIG_OPCODE_CMOV, tmp->m_type, tmp, ctrl,
-				rhs2_reg, rhs3_reg);
+	  = new hsa_insn_basic (4, BRIG_OPCODE_CMOV,
+				hsa_bittype_for_type (dest->m_type),
+				dest, ctrl, op2, op3);
 
 	hbb->append_insn (insn);
-
-	/* As operands of a CMOV insn must be Bx types, we have to emit
-	   a conversion insn.  */
-	hsa_insn_basic *mov = new hsa_insn_basic (2, BRIG_OPCODE_MOV,
-						  dest->m_type, dest, tmp);
-	hbb->append_insn (mov);
-
 	return;
       }
     case COMPLEX_EXPR:
@@ -4055,7 +4059,9 @@ gen_hsa_clrsb (gcall *call, hsa_bb *hbb)
   hsa_op_with_type *arg = hsa_reg_or_immed_for_gimple_op (rhs1, hbb);
   BrigType16_t bittype = hsa_bittype_for_type (arg->m_type);
   unsigned bitsize = tree_to_uhwi (TYPE_SIZE (TREE_TYPE (rhs1)));
-  gcc_checking_assert (bitsize >= 32);
+
+  /* FIRSTBIT instruction is defined just for 32 and 64-bits wide integers.  */
+  gcc_checking_assert (bitsize == 32 || bitsize == 64);
 
   /* Set true to MOST_SIG if the most significant bit is set to one.  */
   hsa_op_immed *c = new hsa_op_immed (1ul << (bitsize - 1),
@@ -4098,9 +4104,10 @@ gen_hsa_clrsb (gcall *call, hsa_bb *hbb)
 			  new hsa_op_immed (0, arg->m_type));
   hbb->append_insn (cmp);
 
-  /* Return the number of leading bits, or 31 if the input value is zero.  */
+  /* Return the number of leading bits,
+     or (bitsize - 1) if the input value is zero.  */
   cmov = new hsa_insn_basic (4, BRIG_OPCODE_CMOV, BRIG_TYPE_B32, NULL, is_zero,
-			     new hsa_op_immed (31, BRIG_TYPE_U32),
+			     new hsa_op_immed (bitsize - 1, BRIG_TYPE_U32),
 			     leading_bits->get_in_type (BRIG_TYPE_B32, hbb));
   hbb->append_insn (cmov);
   cmov->set_output_in_type (dest, 0, hbb);
@@ -4554,8 +4561,13 @@ gen_hsa_ternary_atomic_for_builtin (bool ret_orig,
 
   hsa_op_address *addr;
   addr = get_address_from_value (gimple_call_arg (stmt, 0), hbb);
-  /* TODO: Warn if addr has private segment, because the finalizer will not
-     accept that (and it does not make much sense).  */
+  if (addr->m_symbol && addr->m_symbol->m_segment == BRIG_SEGMENT_PRIVATE)
+    {
+      HSA_SORRY_AT (gimple_location (stmt),
+		    "HSA does not implement atomic operations in private "
+		    "segment");
+      return;
+    }
   hsa_op_base *op = hsa_reg_or_immed_for_gimple_op (gimple_call_arg (stmt, 1),
 						    hbb);
 
@@ -5327,7 +5339,8 @@ gen_hsa_phi_from_gimple_phi (gimple *phi_stmt, hsa_bb *hbb)
 	      hsa_op_address *addr = gen_hsa_addr (TREE_OPERAND (op, 0),
 						   hbb_src);
 
-	      hsa_op_reg *dest = new hsa_op_reg (BRIG_TYPE_U64);
+	      hsa_op_reg *dest
+		= new hsa_op_reg (hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT));
 	      hsa_insn_basic *insn
 		= new hsa_insn_basic (2, BRIG_OPCODE_LDA, BRIG_TYPE_U64,
 				      dest, addr);
@@ -6088,21 +6101,22 @@ generate_hsa (bool kernel)
 				 s->m_gridified_kernel_p);
     }
 
-#ifdef ENABLE_CHECKING
-  for (unsigned i = 0; i < hsa_cfun->m_ssa_map.length (); i++)
-    if (hsa_cfun->m_ssa_map[i])
-      hsa_cfun->m_ssa_map[i]->verify_ssa ();
-
-  basic_block bb;
-  FOR_EACH_BB_FN (bb, cfun)
+  if (flag_checking)
     {
-      hsa_bb *hbb = hsa_bb_for_bb (bb);
+      for (unsigned i = 0; i < hsa_cfun->m_ssa_map.length (); i++)
+	if (hsa_cfun->m_ssa_map[i])
+	  hsa_cfun->m_ssa_map[i]->verify_ssa ();
 
-      for (hsa_insn_basic *insn = hbb->m_first_insn; insn; insn = insn->m_next)
-	insn->verify ();
+      basic_block bb;
+      FOR_EACH_BB_FN (bb, cfun)
+	{
+	  hsa_bb *hbb = hsa_bb_for_bb (bb);
+
+	  for (hsa_insn_basic *insn = hbb->m_first_insn; insn;
+	       insn = insn->m_next)
+	    insn->verify ();
+	}
     }
-
-#endif
 
   hsa_regalloc ();
   hsa_brig_emit_function ();
