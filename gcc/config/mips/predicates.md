@@ -125,6 +125,10 @@
 		      (match_test "TARGET_MIPS16_CONDMOVE"))))
        (match_operand 0 "register_operand")))
 
+(define_predicate "reg_or_0_operand_sync"
+  (ior (match_operand 0 "const_0_operand")
+       (match_operand 0 "register_operand")))
+
 (define_predicate "reg_or_0yi_operand"
    (ior (and (ior (match_operand 0 "const_0_operand")
 	          (match_operand 0 "const_yi_operand"))
