@@ -1325,7 +1325,7 @@ new_loc_descr (enum dwarf_location_atom op, unsigned HOST_WIDE_INT oprnd1,
   dw_loc_descr_ref descr = ggc_cleared_alloc<dw_loc_descr_node> ();
 
   descr->dw_loc_opc = op;
-#if ENABLE_CHECKING
+#if CHECKING_P
   descr->dw_loc_frame_offset = -1;
 #endif
   descr->dw_loc_oprnd1.val_class = dw_val_class_unsigned_const;
@@ -15369,14 +15369,14 @@ resolve_args_picking_1 (dw_loc_descr_ref loc, unsigned initial_frame_offset,
       /* If we already met this node, there is nothing to compute anymore.  */
       if (visited.add (l))
 	{
-#if ENABLE_CHECKING
+#if CHECKING_P
 	  /* Make sure that the stack size is consistent wherever the execution
 	     flow comes from.  */
 	  gcc_assert ((unsigned) l->dw_loc_frame_offset == frame_offset_);
 #endif
 	  break;
 	}
-#if ENABLE_CHECKING
+#if CHECKING_P
       l->dw_loc_frame_offset = frame_offset_;
 #endif
 
@@ -21055,7 +21055,7 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
 		 DW_TAG_common_block and DW_TAG_variable.  */
 	      loc = loc_list_from_tree (com_decl, 2, NULL);
 	    }
-          else if (DECL_EXTERNAL (decl))
+	  else if (DECL_EXTERNAL (decl_or_origin))
 	    add_AT_flag (com_die, DW_AT_declaration, 1);
 	  if (want_pubnames ())
 	    add_pubname_string (cnam, com_die); /* ??? needed? */
@@ -21070,8 +21070,9 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
 	  remove_AT (com_die, DW_AT_declaration);
 	}
       var_die = new_die (DW_TAG_variable, com_die, decl);
-      add_name_and_src_coords_attributes (var_die, decl);
-      add_type_attribute (var_die, TREE_TYPE (decl), decl_quals (decl), false,
+      add_name_and_src_coords_attributes (var_die, decl_or_origin);
+      add_type_attribute (var_die, TREE_TYPE (decl_or_origin),
+			  decl_quals (decl_or_origin), false,
 			  context_die);
       add_AT_flag (var_die, DW_AT_external, 1);
       if (loc)
@@ -21093,9 +21094,10 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
 	    }
 	  add_AT_location_description (var_die, DW_AT_location, loc);
 	}
-      else if (DECL_EXTERNAL (decl))
+      else if (DECL_EXTERNAL (decl_or_origin))
 	add_AT_flag (var_die, DW_AT_declaration, 1);
-      equate_decl_number_to_die (decl, var_die);
+      if (decl)
+	equate_decl_number_to_die (decl, var_die);
       return;
     }
 

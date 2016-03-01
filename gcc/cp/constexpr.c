@@ -1983,7 +1983,8 @@ cxx_eval_component_reference (const constexpr_ctx *ctx, tree t,
       return t;
     }
 
-  if (CONSTRUCTOR_NO_IMPLICIT_ZERO (whole))
+  if (CONSTRUCTOR_NO_IMPLICIT_ZERO (whole)
+      && !is_empty_class (TREE_TYPE (part)))
     {
       /* 'whole' is part of the aggregate initializer we're currently
 	 building; if there's no initializer for this member yet, that's an
@@ -2924,6 +2925,8 @@ cxx_eval_store_expression (const constexpr_ctx *ctx, tree t,
 
   init = cxx_eval_constant_expression (&new_ctx, init, false,
 				       non_constant_p, overflow_p);
+  /* Don't share a CONSTRUCTOR that might be changed later.  */
+  init = unshare_expr (init);
   if (target == object)
     {
       /* The hash table might have moved since the get earlier.  */
