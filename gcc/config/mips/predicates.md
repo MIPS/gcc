@@ -193,7 +193,9 @@
 
 (define_predicate "and_reg_operand"
   (ior (match_operand 0 "register_operand")
-       (and (not (match_test "TARGET_MIPS16"))
+       (and (ior (not (match_test "TARGET_MIPS16"))
+		 (and (match_test "TARGET_MIPS16")
+		      (match_test "TARGET_MIPS16_ANDI_XORI")))
 	    (match_operand 0 "const_uns_arith_operand"))
        (match_operand 0 "low_bitmask_operand")
        (match_operand 0 "si_mask_operand")
