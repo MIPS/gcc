@@ -294,6 +294,7 @@
 (define_attr "sync_exclusive_mask" "none,0,1,2,3,4,5" (const_string "none"))
 (define_attr "sync_required_oldval" "none,0,1,2,3,4,5" (const_string "none"))
 (define_attr "sync_insn1_op2" "none,0,1,2,3,4,5" (const_string "none"))
+(define_attr "sync_at" "none,0,1,2,3,4,5,6,7,8" (const_string "none"))
 (define_attr "sync_insn1" "move,li,addu,addiu,subu,and,andi,or,ori,xor,xori"
   (const_string "move"))
 (define_attr "sync_insn2" "nop,and,xor,not"
@@ -555,8 +556,12 @@
 		(symbol_ref "mips_msa_idiv_insns () * 4")]
 	        (symbol_ref "mips_idiv_insns () * 4"))
 
+	 ;; We need to make sure the length calculation for sync insns is based
+	 ;; on the worst case sinario ie. all extended mips16 instructions.
 	 (not (eq_attr "sync_mem" "none"))
-	 (symbol_ref "mips_sync_loop_insns (insn, operands)")]
+	 (if_then_else (match_test "TARGET_MIPS16 && TARGET_MIPS16_SYNC")
+		       (symbol_ref "mips_sync_loop_insns (insn, operands) * 2")
+		       (symbol_ref "mips_sync_loop_insns (insn, operands)"))]
 	(const_int 1)))
 
 ;; Length of instruction in bytes.  The default is derived from "insn_count",

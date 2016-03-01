@@ -125,6 +125,10 @@
 		      (match_test "TARGET_MIPS16_CONDMOVE"))))
        (match_operand 0 "register_operand")))
 
+(define_predicate "reg_or_0_operand_sync"
+  (ior (match_operand 0 "const_0_operand")
+       (match_operand 0 "register_operand")))
+
 (define_predicate "reg_or_0yi_operand"
    (ior (and (ior (match_operand 0 "const_0_operand")
 	          (match_operand 0 "const_yi_operand"))
@@ -239,6 +243,10 @@
   (and (match_code "mem")
        (match_test "m16_based_address_p (XEXP (op, 0), mode, ub8_operand)")))
 
+(define_predicate "mips16_sync_operand"
+  (and (match_code "mem")
+       (match_test "m16_based_address_p (XEXP (op, 0), mode, sb9_operand)")))
+
 (define_predicate "db4_operand"
   (and (match_code "const_int")
        (match_test "mips_unsigned_immediate_p (INTVAL (op) + 1, 4, 0)")))
@@ -266,6 +274,10 @@
 (define_predicate "sb8_operand"
   (and (match_code "const_int")
        (match_test "mips_signed_immediate_p (INTVAL (op), 8, 0)")))
+
+(define_predicate "sb9_operand"
+  (and (match_code "const_int")
+       (match_test "mips_signed_immediate_p (INTVAL (op), 9, 0)")))
 
 (define_predicate "sd8_operand"
   (and (match_code "const_int")

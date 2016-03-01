@@ -391,7 +391,9 @@
 	 (match_test "TARGET_MICROMIPS")
 	 (match_test "umips_12bit_offset_address_p (XEXP (op, 0), mode)")
 	 (if_then_else (match_test "ISA_HAS_PREF_LL_9BIT")
-	   (match_test "mips_9bit_offset_address_p (XEXP (op, 0), mode)")
+	   (if_then_else (match_test "TARGET_MIPS16")
+	     (match_operand 0 "mips16_sync_operand")
+	     (match_test "mips_9bit_offset_address_p (XEXP (op, 0), mode)"))
 	   (match_test "mips_address_insns (XEXP (op, 0), mode, false)")))))
 
 (define_address_constraint "ZD"
