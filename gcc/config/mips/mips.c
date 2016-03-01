@@ -9334,6 +9334,7 @@ mips_expand_atomic_qihi (union mips_gen_fn_ptrs generator,
 {
   rtx orig_addr, memsi_addr, memsi, shift, shiftsi, unshifted_mask;
   rtx unshifted_mask_reg, mask, inverted_mask, si_op;
+  rtx and_mask;
   rtx res = NULL;
   machine_mode mode;
 
@@ -9351,7 +9352,13 @@ mips_expand_atomic_qihi (union mips_gen_fn_ptrs generator,
 
   /* Work out the byte offset of the QImode or HImode value,
      counting from the least significant byte.  */
-  shift = mips_force_binary (Pmode, AND, orig_addr, GEN_INT (3));
+  if (TARGET_MIPS16 && TARGET_MIPS16_SYNC)
+    {
+      and_mask = force_reg (SImode, GEN_INT (3));
+      shift = mips_force_binary (Pmode, AND, orig_addr, and_mask);
+    }
+  else
+    shift = mips_force_binary (Pmode, AND, orig_addr, GEN_INT (3));
   if (TARGET_BIG_ENDIAN)
     mips_emit_binary (XOR, shift, shift, GEN_INT (mode == QImode ? 3 : 2));
 
@@ -15323,7 +15330,7 @@ mips_output_sync (void)
    IS_64BIT_P is true if we want a 64-bit rather than 32-bit operation.  */
 
 static const char *
-mips_sync_insn1_template (enum attr_sync_insn1 type, bool is_64bit_p)
+mips_sync_insn1_template (enum attr_sync_insn1 type, bool is_64bit_p, bool op2_zero)
 {
   switch (type)
     {
@@ -15332,22 +15339,48 @@ mips_sync_insn1_template (enum attr_sync_insn1 type, bool is_64bit_p)
     case SYNC_INSN1_LI:
       return "li\t%0,%2";
     case SYNC_INSN1_ADDU:
+      if (TARGET_MIPS16 && TARGET_MIPS16_SYNC)
+	{
+	  if (op2_zero)
+	    return "move\t%0,%1";
+
+	  return is_64bit_p ? "daddu\t%0,%1,%2" : "addu\t%0,%1,%2";
+	}
       return is_64bit_p ? "daddu\t%0,%1,%z2" : "addu\t%0,%1,%z2";
     case SYNC_INSN1_ADDIU:
       return is_64bit_p ? "daddiu\t%0,%1,%2" : "addiu\t%0,%1,%2";
     case SYNC_INSN1_SUBU:
+      if (TARGET_MIPS16 && TARGET_MIPS16_SYNC)
+	{
+	  if (op2_zero)
+	    return "move\t%0,%1";
+
+	  return is_64bit_p ? "dsubu\t%0,%1,%2" : "subu\t%0,%1,%2";
+	}
       return is_64bit_p ? "dsubu\t%0,%1,%z2" : "subu\t%0,%1,%z2";
     case SYNC_INSN1_AND:
+      if (TARGET_MIPS16 && TARGET_MIPS16_SYNC)
+	return op2_zero ? "li\t%0,0" : "and\t%0,%2";
       return "and\t%0,%1,%z2";
     case SYNC_INSN1_ANDI:
+      if (TARGET_MIPS16 && TARGET_MIPS16_SYNC)
+	return "andi\t%0,%2";
       return "andi\t%0,%1,%2";
     case SYNC_INSN1_OR:
+      if (TARGET_MIPS16 && TARGET_MIPS16_SYNC)
+	return op2_zero ? "nop #or\t%0,%2" : "or\t%0,%2";
       return "or\t%0,%1,%z2";
     case SYNC_INSN1_ORI:
+      if (TARGET_MIPS16 && TARGET_MIPS16_SYNC)
+	return "ori\t%0,%2";
       return "ori\t%0,%1,%2";
     case SYNC_INSN1_XOR:
+      if (TARGET_MIPS16 && TARGET_MIPS16_SYNC)
+	return op2_zero ? "xori\t%0,0" : "xor\t%0,%2";
       return "xor\t%0,%1,%z2";
     case SYNC_INSN1_XORI:
+      if (TARGET_MIPS16 && TARGET_MIPS16_SYNC)
+	return "xori\t%0,%2";
       return "xori\t%0,%1,%2";
     }
   gcc_unreachable ();
@@ -15356,18 +15389,22 @@ mips_sync_insn1_template (enum attr_sync_insn1 type, bool is_64bit_p)
 /* Return the asm template associated with sync_insn2 value TYPE.  */
 
 static const char *
-mips_sync_insn2_template (enum attr_sync_insn2 type)
+mips_sync_insn2_template (enum attr_sync_insn2 type, bool zero_mask)
 {
   switch (type)
     {
     case SYNC_INSN2_NOP:
       gcc_unreachable ();
     case SYNC_INSN2_AND:
+      if (TARGET_MIPS16 && TARGET_MIPS16_SYNC)
+	return zero_mask ? "li\t%0,0" : "and\t%0,%2";
       return "and\t%0,%1,%z2";
     case SYNC_INSN2_XOR:
+      if (TARGET_MIPS16 && TARGET_MIPS16_SYNC)
+	return zero_mask ? "xori\t%0,0" : "xor\t%0,%2";
       return "xor\t%0,%1,%z2";
     case SYNC_INSN2_NOT:
-      return "nor\t%0,%1,%.";
+      return (TARGET_MIPS16 && TARGET_MIPS16_SYNC) ? "not\t%0,%1" : "nor\t%0,%1,%.";
     }
   gcc_unreachable ();
 }
@@ -15412,8 +15449,9 @@ mips_process_sync_loop (rtx insn, rtx *operands)
   gcc_assert (mem);
   is_64bit_p = (GET_MODE_BITSIZE (GET_MODE (mem)) == 64);
 
-  /* Read the other attributes.  */
-  at = gen_rtx_REG (GET_MODE (mem), AT_REGNUM);
+  READ_OPERAND (at, 0);
+  gcc_assert (at);
+
   READ_OPERAND (oldval, at);
   READ_OPERAND (cmp, 0);
   READ_OPERAND (newval, at);
@@ -15515,7 +15553,8 @@ mips_process_sync_loop (rtx insn, rtx *operands)
     tmp2 = insn1_op2;
   else
     {
-      mips_multi_add_insn (mips_sync_insn1_template (insn1, is_64bit_p),
+      mips_multi_add_insn (mips_sync_insn1_template (insn1, is_64bit_p,
+						     (insn1_op2 == const0_rtx)),
 			   newval, oldval, insn1_op2, NULL);
       tmp2 = newval;
     }
@@ -15525,7 +15564,8 @@ mips_process_sync_loop (rtx insn, rtx *operands)
     tmp3 = tmp2;
   else
     {
-      mips_multi_add_insn (mips_sync_insn2_template (insn2),
+      mips_multi_add_insn (mips_sync_insn2_template (insn2,
+						     (inclusive_mask == 0)),
 			   newval, tmp2, inclusive_mask, NULL);
       tmp3 = newval;
     }
@@ -15584,6 +15624,215 @@ mips_process_sync_loop (rtx insn, rtx *operands)
 #undef READ_OPERAND
 }
 
+
+/* INSN is a sync loop with operands OPERANDS.  Build up a multi-insn
+   sequence for it.  */
+
+static void
+mips_process_sync_loop_mips16 (rtx insn, rtx *operands)
+{
+  rtx at, mem, oldval, newval, inclusive_mask, exclusive_mask;
+  rtx required_oldval, insn1_op2, tmp1, tmp2, tmp3, cmp;
+  enum attr_sync_insn1 insn1;
+  enum attr_sync_insn2 insn2;
+  bool is_64bit_p;
+  bool needs_neg_p;
+  int memmodel_attr;
+  enum memmodel model;
+
+  /* Read an operand from the sync_WHAT attribute and store it in
+     variable WHAT.  DEFAULT is the default value if no attribute
+     is specified.  */
+#define READ_OPERAND(WHAT, DEFAULT) \
+  WHAT = mips_get_sync_operand (operands, (int) get_attr_sync_##WHAT (insn), \
+				DEFAULT)
+
+
+  /* Read the memory.  */
+  READ_OPERAND (mem, 0);
+  gcc_assert (mem);
+  is_64bit_p = (GET_MODE_BITSIZE (GET_MODE (mem)) == 64);
+
+  READ_OPERAND (at, 0);
+  gcc_assert (at);
+
+  READ_OPERAND (oldval, at);
+  READ_OPERAND (cmp, 0);
+  READ_OPERAND (newval, at);
+  READ_OPERAND (inclusive_mask, 0);
+  READ_OPERAND (exclusive_mask, 0);
+  READ_OPERAND (required_oldval, 0);
+  READ_OPERAND (insn1_op2, 0);
+  insn1 = get_attr_sync_insn1 (insn);
+  insn2 = get_attr_sync_insn2 (insn);
+
+  /* Don't bother setting CMP result that is never used.  */
+  if (cmp && find_reg_note (insn, REG_UNUSED, cmp))
+    cmp = 0;
+
+  memmodel_attr = get_attr_sync_memmodel (insn);
+  switch (memmodel_attr)
+    {
+    case 10:
+      model = MEMMODEL_ACQ_REL;
+      break;
+    case 11:
+      model = MEMMODEL_ACQUIRE;
+      break;
+    default:
+      model = (enum memmodel) INTVAL (operands[memmodel_attr]);
+    }
+
+  mips_multi_start ();
+
+  /* Output the release side of the memory barrier.  */
+  if (need_atomic_barrier_p (model, true))
+    mips_multi_add_insn ("sync", NULL);
+
+  /* Output the branch-back label.  */
+  mips_multi_add_label ("1:");
+
+  /* OLDVAL = *MEM.  */
+  mips_multi_add_insn (is_64bit_p ? "lld\t%0,%1" : "ll\t%0,%1",
+		       oldval, mem, NULL);
+
+  /* if ((OLDVAL & INCLUSIVE_MASK) != REQUIRED_OLDVAL) goto 2.  */
+  if (required_oldval)
+    {
+      if (inclusive_mask == 0)
+	tmp1 = oldval;
+      else
+	{
+	  gcc_assert (oldval != at);
+
+	  mips_multi_add_insn ("move\t%0,%1", at, inclusive_mask, NULL);
+	  mips_multi_add_insn ("and\t%0,%1", at, oldval, NULL);
+
+	  tmp1 = at;
+	}
+
+      /* CMP = 0 [delay slot].  */
+      if (cmp)
+        mips_multi_add_insn ("li\t%0,0", cmp, NULL);
+
+      if (required_oldval == const0_rtx)
+	mips_multi_add_insn ("bnez\t%0,2f", tmp1, NULL);
+      else
+	{
+	  mips_multi_add_insn ("cmp\t%0,%1", tmp1, required_oldval, NULL);
+	  mips_multi_add_insn ("btnez\t2f", NULL);
+	}
+    }
+
+  /* $TMP1 = OLDVAL & EXCLUSIVE_MASK.  */
+  if (exclusive_mask == 0)
+    tmp1 = const0_rtx;
+  else
+    {
+      gcc_assert (oldval != at);
+
+      mips_multi_add_insn ("move\t%0,%1", at, exclusive_mask, NULL);
+      mips_multi_add_insn ("and\t%0,%1", at, oldval, NULL);
+      tmp1 = at;
+    }
+
+  /* $TMP2 = INSN1 (OLDVAL, INSN1_OP2).
+
+     We can ignore moves if $TMP4 != INSN1_OP2, since we'll still emit
+     at least one instruction in that case.  */
+  if (insn1 == SYNC_INSN1_MOVE
+      && (tmp1 != const0_rtx || insn2 != SYNC_INSN2_NOP))
+    tmp2 = insn1_op2;
+  else
+    {
+      /* The AND/OR/XOR/ANDI/ORI/XORI instructions in MIPS16 only allow
+	 two operands.  So if the register allocated for OLDVAL is the
+	 not the same as the register allocated to NEWVAL we copy OLDVAL
+	 into NEWVAL.  */
+      if (REGNO (newval) != REGNO (oldval)
+	  && (insn1 == SYNC_INSN1_ANDI
+	      || insn1 == SYNC_INSN1_ORI
+	      || insn1 == SYNC_INSN1_XORI
+	      || insn1 == SYNC_INSN1_AND
+	      || insn1 == SYNC_INSN1_OR
+	      || insn1 == SYNC_INSN1_XOR))
+	mips_multi_add_insn ("move\t%0,%1", newval, oldval, NULL);
+
+      /* The MIPS16 LI instruction can only take unsigned values.
+	 If a negative value needs to be loaded into a regsiter we
+	 need to firstly load the positive form of the value, and
+	 then negative it.  */
+      needs_neg_p = (insn1 == SYNC_INSN1_LI
+		     && !SMALL_OPERAND_UNSIGNED (INTVAL (insn1_op2)));
+
+      if (needs_neg_p)
+	insn1_op2 = GEN_INT (-INTVAL (insn1_op2));
+
+      mips_multi_add_insn (mips_sync_insn1_template (insn1, is_64bit_p, (insn1_op2 == const0_rtx)),
+			   newval, oldval, insn1_op2, NULL);
+
+      if (needs_neg_p)
+        mips_multi_add_insn ("neg\t%0,%0", newval);
+
+      tmp2 = newval;
+    }
+
+  /* $TMP3 = INSN2 ($TMP2, INCLUSIVE_MASK).  */
+  if (insn2 == SYNC_INSN2_NOP)
+    tmp3 = tmp2;
+  else
+    {
+      /* The AND/XOR instructions in MIPS16 only allow two operands.  */
+      gcc_assert (tmp2 == newval);
+
+      mips_multi_add_insn (mips_sync_insn2_template (insn2, (inclusive_mask == 0)),
+			   newval, newval, inclusive_mask, NULL);
+      tmp3 = newval;
+    }
+
+  /* $AT = $TMP1 | $TMP3.  */
+  if (tmp1 == const0_rtx && tmp3 != at)
+    mips_multi_add_insn ("move\t%0,%z1", at, tmp3, NULL);
+  else if (tmp3 == const0_rtx && tmp1 != at)
+    mips_multi_add_insn ("move\t%0,%z1", at, tmp1, NULL);
+  else if (tmp1 != const0_rtx && tmp3 != const0_rtx)
+    {
+      gcc_assert (tmp1 != tmp3);
+
+      if (at != tmp1)
+	mips_multi_add_insn ("move\t%0,%1", at, tmp1, NULL);
+      mips_multi_add_insn ("or\t%0,%1", at, tmp3, NULL);
+    }
+
+  /* if (!commit (*MEM = $AT)) goto 1.
+
+     This will sometimes be a delayed branch; see the write code below
+     for details.  */
+  mips_multi_add_insn (is_64bit_p ? "scd\t%0,%1" : "sc\t%0,%1", at, mem, NULL);
+
+  /* When using branch likely (-mfix-r10000), the delay slot instruction
+     will be annulled on false.  The normal delay slot instructions
+     calculate the overall result of the atomic operation and must not
+     be annulled.  To ensure this behaviour unconditionally use a NOP
+     in the delay slot for the branch likely case.  */
+
+  mips_multi_add_insn ("beqz\t%0,1b", at, NULL);
+
+  /* CMP = 1 -- either standalone or in a delay slot.  */
+  if (required_oldval && cmp)
+    mips_multi_add_insn ("li\t%0,1", cmp, NULL);
+
+  /* Output the acquire side of the memory barrier.  */
+  if (TARGET_SYNC_AFTER_SC && need_atomic_barrier_p (model, false))
+    mips_multi_add_insn ("sync", NULL);
+
+  /* Output the exit label, if needed.  */
+  if (required_oldval)
+    mips_multi_add_label ("2:");
+
+#undef READ_OPERAND
+}
+
 /* Output and/or return the asm template for sync loop INSN, which has
    the operands given by OPERANDS.  */
 
@@ -15594,17 +15843,18 @@ mips_output_sync_loop (rtx insn, rtx *operands)
      errata.  */
   mips_branch_likely = TARGET_FIX_R10000;
 
-  mips_process_sync_loop (insn, operands);
+  if (TARGET_MIPS16 && TARGET_MIPS16_SYNC)
+    mips_process_sync_loop_mips16 (insn, operands);
+  else
+    mips_process_sync_loop (insn, operands);
 
   mips_push_asm_switch (&mips_noreorder);
   mips_push_asm_switch (&mips_nomacro);
-  mips_push_asm_switch (&mips_noat);
   mips_start_ll_sc_sync_block ();
 
   mips_multi_write ();
 
   mips_end_ll_sc_sync_block ();
-  mips_pop_asm_switch (&mips_noat);
   mips_pop_asm_switch (&mips_nomacro);
   mips_pop_asm_switch (&mips_noreorder);
 
@@ -15620,7 +15870,12 @@ mips_sync_loop_insns (rtx insn, rtx *operands)
   /* Use branch-likely instructions to work around the LL/SC R10000
      errata.  */
   mips_branch_likely = TARGET_FIX_R10000;
-  mips_process_sync_loop (insn, operands);
+
+  if (TARGET_MIPS16 && TARGET_MIPS16_SYNC)
+    mips_process_sync_loop_mips16 (insn, operands);
+  else
+    mips_process_sync_loop (insn, operands);
+
   return mips_multi_num_insns;
 }
 
