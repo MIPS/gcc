@@ -9505,6 +9505,9 @@ gen_mips16_copy_peep (rtx *operands, int n)
       offsets_dest[i] = ofs_dest;
       offsets_src[i] = ofs_src;
 
+      if (ofs_dest != ofs_src)
+	return false;
+
       if (alignment == 0
 	  || alignment > MIN (MEM_ALIGN (dest),
 			      MEM_ALIGN (src)) / BITS_PER_UNIT)
