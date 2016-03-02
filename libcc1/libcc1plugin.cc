@@ -1,9 +1,7 @@
 /* Library interface to C front end
    Copyright (C) 2014-2016 Free Software Foundation, Inc.
 
-   This file is part of GCC.  As it interacts with GDB through libcc1,
-   they all become single combined work, and the GNU GPL applies to it
-   as a whole.
+   This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
