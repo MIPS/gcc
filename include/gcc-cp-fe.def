@@ -504,7 +504,8 @@ GCC_METHOD4 (gcc_type, build_method_type,
 
 // FIXME: add default expressions for function arguments?
 
-/* Return an integer type with the given properties.  */
+/* Return an integer type with the given properties.
+   Pass zero in IS_UNSIGNED and SIZE_IN_BYTES to get type 'char'.  */
 
 GCC_METHOD2 (gcc_type, int_type,
 	     int /* bool */,		   /* Argument IS_UNSIGNED.  */
