@@ -1365,6 +1365,8 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
 	      tree oparm = TREE_PURPOSE (bound);
 	      tree arg = TREE_VALUE (bound);
 	      gcc_assert (DECL_NAME (remapped) == DECL_NAME (oparm));
+	      /* Don't share a CONSTRUCTOR that might be changed.  */
+	      arg = unshare_expr (arg);
 	      ctx->values->put (remapped, arg);
 	      bound = TREE_CHAIN (bound);
 	      remapped = DECL_CHAIN (remapped);
@@ -1610,15 +1612,14 @@ cxx_eval_binary_expression (const constexpr_ctx *ctx, tree t,
   tree lhs, rhs;
   lhs = cxx_eval_constant_expression (ctx, orig_lhs, /*lval*/false,
 				      non_constant_p, overflow_p);
-  /* Don't VERIFY_CONSTANT if this might be dealing with a pointer to
-     a local array in a constexpr function.  */
-  bool ptr = POINTER_TYPE_P (TREE_TYPE (lhs));
-  if (!ptr)
-    VERIFY_CONSTANT (lhs);
+  /* Don't VERIFY_CONSTANT here, it's unnecessary and will break pointer
+     subtraction.  */
+  if (*non_constant_p)
+    return t;
   rhs = cxx_eval_constant_expression (ctx, orig_rhs, /*lval*/false,
 				      non_constant_p, overflow_p);
-  if (!ptr)
-    VERIFY_CONSTANT (rhs);
+  if (*non_constant_p)
+    return t;
 
   location_t loc = EXPR_LOCATION (t);
   enum tree_code code = TREE_CODE (t);
@@ -1651,6 +1652,9 @@ cxx_eval_binary_expression (const constexpr_ctx *ctx, tree t,
     }
   else if (cxx_eval_check_shift_p (loc, ctx, code, type, lhs, rhs))
     *non_constant_p = true;
+  /* Don't VERIFY_CONSTANT if this might be dealing with a pointer to
+     a local array in a constexpr function.  */
+  bool ptr = POINTER_TYPE_P (TREE_TYPE (lhs));
   if (!ptr)
     VERIFY_CONSTANT (r);
   return r;
@@ -2925,6 +2929,8 @@ cxx_eval_store_expression (const constexpr_ctx *ctx, tree t,
 
   init = cxx_eval_constant_expression (&new_ctx, init, false,
 				       non_constant_p, overflow_p);
+  /* Don't share a CONSTRUCTOR that might be changed later.  */
+  init = unshare_expr (init);
   if (target == object)
     {
       /* The hash table might have moved since the get earlier.  */
@@ -3364,6 +3370,8 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 	    init = cxx_eval_constant_expression (ctx, init,
 						 false,
 						 non_constant_p, overflow_p);
+	    /* Don't share a CONSTRUCTOR that might be changed.  */
+	    init = unshare_expr (init);
 	    ctx->values->put (r, init);
 	  }
 	else if (ctx == &new_ctx)
@@ -3408,6 +3416,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
       if (lval)
 	{
 	  tree slot = TARGET_EXPR_SLOT (t);
+	  r = unshare_expr (r);
 	  ctx->values->put (slot, r);
 	  return slot;
 	}
