@@ -1,5 +1,5 @@
 Bottom: 22e3b80e1c1bc2fd08f8b277615eb4de224b84af
-Top:    67acc7667711c5bf6069c24e52c52666e5013c83
+Top:    478f145350af7d32382520c71f8340d1513f0370
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2015-11-26 18:57:41 -0200
 
@@ -323,7 +323,7 @@ index 77ad7db..371cfcf 100644
    GCC_CP_FLAG_BASE,
  
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index 7032ac0..9dc28e3 100644
+index 7032ac0..d65647d 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -61,6 +61,7 @@
@@ -386,7 +386,7 @@ index 7032ac0..9dc28e3 100644
    return 1;
  }
  
-@@ -1246,6 +1252,232 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
+@@ -1246,6 +1252,235 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
    return convert_out (ctx->preserve (memptr_type));
  }
  
@@ -471,7 +471,7 @@ index 7032ac0..9dc28e3 100644
 +
 +  cp_declarator declarator;
 +  memset (&declarator, 0, sizeof (declarator));
-+  // &declarator = make_id_declarator (NULL, get_identifier (id), sfk_none);
++  // &declarator = make_id_declarator (NULL, get_identifier (id), sfk_none):
 +  declarator.kind = cdk_id;
 +  declarator.u.id.qualifying_scope = NULL;
 +  declarator.u.id.unqualified_name = get_identifier (id);
@@ -479,7 +479,7 @@ index 7032ac0..9dc28e3 100644
 +
 +  cp_decl_specifier_seq declspec;
 +  memset (&declspec, 0, sizeof (declspec));
-+  // cp_parser_set_decl_spec_type (&declspec, convert_in (type), -token-, false);
++  // cp_parser_set_decl_spec_type (&declspec, convert_in (type), -token-, false):
 +  declspec.any_specifiers_p = declspec.any_type_specifiers_p = true;
 +  declspec.type = convert_in (type);
 +  declspec.locations[ds_type_spec] = loc;
@@ -502,6 +502,9 @@ index 7032ac0..9dc28e3 100644
 +			       const char *id,
 +			       const gcc_cp_template_args *targs)
 +{
++  plugin_context *ctx = static_cast<plugin_context *> (self);
++  tree type = convert_in (enclosing_type);
++  
 +  /* FIXME: implement.  */
 +}
 +
@@ -619,7 +622,7 @@ index 7032ac0..9dc28e3 100644
  gcc_type
  plugin_int_type (cc1_plugin::connection *self,
  		 int is_unsigned, unsigned long size_in_bytes)
-@@ -1304,6 +1536,14 @@ plugin_build_array_type (cc1_plugin::connection *self,
+@@ -1304,6 +1539,14 @@ plugin_build_array_type (cc1_plugin::connection *self,
  }
  
  gcc_type
