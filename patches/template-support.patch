@@ -1,5 +1,5 @@
 Bottom: 45dcd80e67e16ed9b39d407a037212a9c5829812
-Top:    f1d1a1b1d5ea452cf91c90379dcd0e4362b2a21b
+Top:    328aa60e362e607ccf1653397f6b91fa58898607
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2015-11-26 18:57:41 -0200
 
@@ -258,9 +258,18 @@ index 7774248..bbd6b8f 100644
     name of a local variable that holds the upper bound of the array;
     it is one less than the array size.  */
 diff --git a/include/gcc-cp-interface.h b/include/gcc-cp-interface.h
-index 8a4a849..af3b786 100644
+index 8a4a849..b5d3095 100644
 --- a/include/gcc-cp-interface.h
 +++ b/include/gcc-cp-interface.h
+@@ -41,7 +41,7 @@ struct gcc_cp_context;
+ 
+ enum gcc_cp_api_version
+ {
+-  GCC_CP_FE_VERSION_0 = 0xffffffff-4
++  GCC_CP_FE_VERSION_0 = 0xffffffff-5
+ };
+ 
+ /* Qualifiers.  */
 @@ -79,6 +79,39 @@ struct gcc_vbase_array
    char /* bool */ *virtualp;
  };
