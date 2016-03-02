@@ -1,0 +1,10 @@
+Bottom: 478f145350af7d32382520c71f8340d1513f0370
+Top:    478f145350af7d32382520c71f8340d1513f0370
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-03-02 01:14:51 -0300
+
+introduce callback to get type char
+
+---
+
+
