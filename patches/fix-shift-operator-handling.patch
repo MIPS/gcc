@@ -1,5 +1,5 @@
-Bottom: 7b61ac1d5a37d47b2a2b722779c081396fa383c1
-Top:    b0e4d692dc69e1b250a334fa631697743e926bc5
+Bottom: 074dfe414fa810a9cde4e395a65970c0b02108c4
+Top:    074dfe414fa810a9cde4e395a65970c0b02108c4
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-03-02 00:16:54 -0300
 
@@ -7,47 +7,4 @@ shift operators are not assignment operators
 
 ---
 
-diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index 4407445..cde8162 100644
---- a/libcc1/libcp1plugin.cc
-+++ b/libcc1/libcp1plugin.cc
-@@ -607,11 +607,9 @@ plugin_new_decl (cc1_plugin::connection *self,
- 	      break;
- 	    case CHARS2 ('l', 's'): // operator <<
- 	      opcode = LSHIFT_EXPR;
--	      assop = true;
- 	      break;
- 	    case CHARS2 ('r', 's'): // operator >>
- 	      opcode = RSHIFT_EXPR;
--	      assop = true;
- 	      break;
- 	    case CHARS2 ('l', 'S'): // operator <<=
- 	      opcode = LSHIFT_EXPR;
-@@ -1335,7 +1333,7 @@ plugin_new_template_value_parm (cc1_plugin::connection *self,
- 
-   cp_declarator declarator;
-   memset (&declarator, 0, sizeof (declarator));
--  // &declarator = make_id_declarator (NULL, get_identifier (id), sfk_none);
-+  // &declarator = make_id_declarator (NULL, get_identifier (id), sfk_none):
-   declarator.kind = cdk_id;
-   declarator.u.id.qualifying_scope = NULL;
-   declarator.u.id.unqualified_name = get_identifier (id);
-@@ -1343,7 +1341,7 @@ plugin_new_template_value_parm (cc1_plugin::connection *self,
- 
-   cp_decl_specifier_seq declspec;
-   memset (&declspec, 0, sizeof (declspec));
--  // cp_parser_set_decl_spec_type (&declspec, convert_in (type), -token-, false);
-+  // cp_parser_set_decl_spec_type (&declspec, convert_in (type), -token-, false):
-   declspec.any_specifiers_p = declspec.any_type_specifiers_p = true;
-   declspec.type = convert_in (type);
-   declspec.locations[ds_type_spec] = loc;
-@@ -1366,6 +1364,10 @@ plugin_new_dependent_typename (cc1_plugin::connection *self,
- 			       const char *id,
- 			       const gcc_cp_template_args *targs)
- {
-+  plugin_context *ctx = static_cast<plugin_context *> (self);
-+  tree type = convert_in (enclosing_type);
-+
-+  
-   /* FIXME: implement.  */
- }
+
