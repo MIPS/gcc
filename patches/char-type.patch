@@ -1,5 +1,5 @@
 Bottom: 478f145350af7d32382520c71f8340d1513f0370
-Top:    6f5cf1816c5e57921d13b1047cf5423269825419
+Top:    6192b3e7a0ac4845b19709be8603490b0c742ea2
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-03-02 01:14:51 -0300
 
@@ -8,7 +8,7 @@ introduce callback to get type char
 ---
 
 diff --git a/include/gcc-c-fe.def b/include/gcc-c-fe.def
-index 25ace1c..4b32ff4 100644
+index 25ace1c..3f3679b 100644
 --- a/include/gcc-c-fe.def
 +++ b/include/gcc-c-fe.def
 @@ -1,6 +1,6 @@
@@ -26,7 +26,7 @@ index 25ace1c..4b32ff4 100644
 +/* Return the 'char' type, a distinct type from both 'signed char' and
 +   'unsigned char' returned by int_type.  */
 +
-+GCC_METHOD2 (gcc_type, char_type)
++GCC_METHOD0 (gcc_type, char_type)
 +
  /* Return a floating point type with the given properties.  */
  
@@ -53,7 +53,7 @@ index bb1e4e6..bee7f4e 100644
  
  /* Qualifiers.  */
 diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
-index 751f12b..74af292 100644
+index 751f12b..bbd6b8f 100644
 --- a/include/gcc-cp-fe.def
 +++ b/include/gcc-cp-fe.def
 @@ -1,6 +1,6 @@
@@ -71,7 +71,7 @@ index 751f12b..74af292 100644
 +/* Return the 'char' type, a distinct type from both 'signed char' and
 +   'unsigned char' returned by int_type.  */
 +
-+GCC_METHOD2 (gcc_type, char_type)
++GCC_METHOD0 (gcc_type, char_type)
 +
  /* Return a floating point type with the given properties.  */
  
