@@ -1,5 +1,5 @@
-Bottom: 478f145350af7d32382520c71f8340d1513f0370
-Top:    a65caa52c334e005020d1dcb7defa6f6ef5348a5
+Bottom: 22e3b80e1c1bc2fd08f8b277615eb4de224b84af
+Top:    0b025914f7b10fb4e46fd87593f2d395c83ef82d
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-03-02 01:14:51 -0300
 
@@ -8,10 +8,10 @@ introduce callback to get type char
 ---
 
 diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
-index 751f12b..e5dc4a0 100644
+index 4a6fb7f..3571834 100644
 --- a/include/gcc-cp-fe.def
 +++ b/include/gcc-cp-fe.def
-@@ -510,6 +510,11 @@ GCC_METHOD2 (gcc_type, int_type,
+@@ -327,6 +327,11 @@ GCC_METHOD2 (gcc_type, int_type,
  	     int /* bool */,		   /* Argument IS_UNSIGNED.  */
  	     unsigned long)                /* Argument SIZE_IN_BYTES.  */
  
@@ -24,10 +24,10 @@ index 751f12b..e5dc4a0 100644
  
  GCC_METHOD1 (gcc_type, float_type,
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index d65647d..8eea7f6 100644
+index 7032ac0..abe42a0 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
-@@ -1498,6 +1498,12 @@ plugin_int_type (cc1_plugin::connection *self,
+@@ -1263,6 +1263,12 @@ plugin_int_type (cc1_plugin::connection *self,
  }
  
  gcc_type

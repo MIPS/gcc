@@ -1,5 +1,5 @@
-Bottom: 22e3b80e1c1bc2fd08f8b277615eb4de224b84af
-Top:    478f145350af7d32382520c71f8340d1513f0370
+Bottom: 0b025914f7b10fb4e46fd87593f2d395c83ef82d
+Top:    a65caa52c334e005020d1dcb7defa6f6ef5348a5
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2015-11-26 18:57:41 -0200
 
@@ -8,7 +8,7 @@ extend API to support templates
 ---
 
 diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
-index 4a6fb7f..751f12b 100644
+index 3571834..e5dc4a0 100644
 --- a/include/gcc-cp-fe.def
 +++ b/include/gcc-cp-fe.def
 @@ -204,6 +204,190 @@ GCC_METHOD2 (gcc_type, build_pointer_to_member_type,
@@ -243,7 +243,7 @@ index 4a6fb7f..751f12b 100644
  
  GCC_METHOD3 (int /* bool */, build_add_enum_constant,
  	     gcc_type,		       /* Argument ENUM_TYPE.  */
-@@ -347,6 +530,13 @@ GCC_METHOD2 (gcc_type, build_array_type,
+@@ -352,6 +535,13 @@ GCC_METHOD2 (gcc_type, build_array_type,
  	     gcc_type,			  /* Argument ELEMENT_TYPE.  */
  	     int)			  /* Argument NUM_ELEMENTS.  */
  
@@ -323,7 +323,7 @@ index 77ad7db..371cfcf 100644
    GCC_CP_FLAG_BASE,
  
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index 7032ac0..d65647d 100644
+index abe42a0..8eea7f6 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -61,6 +61,7 @@
@@ -622,7 +622,7 @@ index 7032ac0..d65647d 100644
  gcc_type
  plugin_int_type (cc1_plugin::connection *self,
  		 int is_unsigned, unsigned long size_in_bytes)
-@@ -1304,6 +1539,14 @@ plugin_build_array_type (cc1_plugin::connection *self,
+@@ -1310,6 +1545,14 @@ plugin_build_array_type (cc1_plugin::connection *self,
  }
  
  gcc_type
