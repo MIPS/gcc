@@ -1,0 +1,66 @@
+Bottom: 0b025914f7b10fb4e46fd87593f2d395c83ef82d
+Top:    8df18e258b71d76573609f28298400e9c9cd6a00
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-03-02 01:18:54 -0300
+
+Refresh of char-type.patch
+
+---
+
+diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
+index 3571834..f0dadc1 100644
+--- a/include/gcc-cp-fe.def
++++ b/include/gcc-cp-fe.def
+@@ -321,17 +321,13 @@ GCC_METHOD4 (gcc_type, build_method_type,
+ 
+ // FIXME: add default expressions for function arguments?
+ 
+-/* Return an integer type with the given properties.  */
++/* Return an integer type with the given properties.
++   Pass zero in IS_UNSIGNED and SIZE_IN_BYTES to get type 'char'.  */
+ 
+ GCC_METHOD2 (gcc_type, int_type,
+ 	     int /* bool */,		   /* Argument IS_UNSIGNED.  */
+ 	     unsigned long)                /* Argument SIZE_IN_BYTES.  */
+ 
+-/* Return the 'char' type, distinct from both 'signed char' and
+-   'unsigned char' returned by the above.  */
+-
+-GCC_METHOD0 (gcc_type, char_type)
+-
+ /* Return a floating point type with the given properties.  */
+ 
+ GCC_METHOD1 (gcc_type, float_type,
+diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
+index abe42a0..9045b7d 100644
+--- a/libcc1/libcp1plugin.cc
++++ b/libcc1/libcp1plugin.cc
+@@ -1250,8 +1250,13 @@ gcc_type
+ plugin_int_type (cc1_plugin::connection *self,
+ 		 int is_unsigned, unsigned long size_in_bytes)
+ {
+-  tree result = c_common_type_for_size (BITS_PER_UNIT * size_in_bytes,
+-					is_unsigned);
++  tree result;
++
++  if (!size_in_bytes && !is_unsigned)
++    result = char_type_node;
++  else
++    result = c_common_type_for_size (BITS_PER_UNIT * size_in_bytes,
++				     is_unsigned);
+   if (result == NULL_TREE)
+     result = error_mark_node;
+   else
+@@ -1263,12 +1268,6 @@ plugin_int_type (cc1_plugin::connection *self,
+ }
+ 
+ gcc_type
+-plugin_char_type (cc1_plugin::connection *self)
+-{
+-  return convert_out (char_type_node);
+-}
+-
+-gcc_type
+ plugin_float_type (cc1_plugin::connection *,
+ 		   unsigned long size_in_bytes)
+ {
