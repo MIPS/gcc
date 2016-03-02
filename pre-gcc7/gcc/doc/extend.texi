@@ -16258,6 +16258,27 @@ vector unsigned short vec_vclzh (vector unsigned short);
 vector int vec_vclzw (vector int);
 vector unsigned int vec_vclzw (vector int);
 
+vector long long vec_vctz (vector long long);
+vector unsigned long long vec_vctz (vector unsigned long long);
+vector int vec_vctz (vector int);
+vector unsigned int vec_vctz (vector int);
+vector short vec_vctz (vector short);
+vector unsigned short vec_vctz (vector unsigned short);
+vector signed char vec_vctz (vector signed char);
+vector unsigned char vec_vctz (vector unsigned char);
+
+vector signed char vec_vctzb (vector signed char);
+vector unsigned char vec_vctzb (vector unsigned char);
+
+vector long long vec_vctzd (vector long long);
+vector unsigned long long vec_vctzd (vector unsigned long long);
+
+vector short vec_vctzh (vector short);
+vector unsigned short vec_vctzh (vector unsigned short);
+
+vector int vec_vctzw (vector int);
+vector unsigned int vec_vctzw (vector int);
+
 vector signed char vec_vgbbd (vector signed char);
 vector unsigned char vec_vgbbd (vector unsigned char);
 
