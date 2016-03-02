@@ -1,5 +1,5 @@
-Bottom: 22e3b80e1c1bc2fd08f8b277615eb4de224b84af
-Top:    5e455342714ec1d87941b7c101230419352aefad
+Bottom: 478f145350af7d32382520c71f8340d1513f0370
+Top:    c6b2c7a762601c2d4f94258bee06327fbe2c5772
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-03-02 01:14:51 -0300
 
@@ -22,10 +22,10 @@ index 25ace1c..25f83f9 100644
  GCC_METHOD2 (gcc_type, int_type,
  	     int /* bool */,               /* Argument IS_UNSIGNED.  */
 diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
-index 4a6fb7f..f0dadc1 100644
+index 751f12b..f0eb8b1 100644
 --- a/include/gcc-cp-fe.def
 +++ b/include/gcc-cp-fe.def
-@@ -321,7 +321,8 @@ GCC_METHOD4 (gcc_type, build_method_type,
+@@ -504,7 +504,8 @@ GCC_METHOD4 (gcc_type, build_method_type,
  
  // FIXME: add default expressions for function arguments?
  
@@ -56,10 +56,10 @@ index 6f7b527..abcf63a 100644
      result = error_mark_node;
    else
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index 7032ac0..9045b7d 100644
+index d65647d..4d9507d 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
-@@ -1250,8 +1250,13 @@ gcc_type
+@@ -1485,8 +1485,13 @@ gcc_type
  plugin_int_type (cc1_plugin::connection *self,
  		 int is_unsigned, unsigned long size_in_bytes)
  {

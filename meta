@@ -1,6 +1,6 @@
 Version: 1
-Previous: a8edc47ef7e71f2915c4d88ae6033ece2eda4a62
-Head: d8bf4ddd8fe9690b627dcf7a957a6ab93dc76970
+Previous: e1d1b02c43f8c3ddd90af104ab1c4df613f5d173
+Head: b4269e23feb59fe00003ebd438fd27e0339e8616
 Applied:
   debug-aliases-and-trampolines.patch: a63d78e18413a855742c1d76467b90f455e3ed0e
   debug-aliases-and-trampolines-inc.patch: cd52961beeb022adabf58deabfda7aaa50d5dcd9
@@ -8,8 +8,8 @@ Applied:
   silence-warnings-and-improve-hashing.patch: a58c4efea078f87c3498615546e2c7d07b376245
   fix-operator-handling.patch: 8d2ccd6a9d6de41a5417b74d0b83798d5d73c76d
   fix-shift-operator-handling.patch: efe325eb7e819dde6e15f9a3d48c6fee527c1ba1
-  char-type.patch: 9eb32fbec3b2b0643f41b8d7ed711dba622ebfd0
-  template-support.patch: d8bf4ddd8fe9690b627dcf7a957a6ab93dc76970
+  template-support.patch: 50bca222d7dc63a9b726149fc6b3110356227e85
+  char-type.patch: b4269e23feb59fe00003ebd438fd27e0339e8616
 Unapplied:
   special-memfuncs-testing.patch: 88d7df2eb7f1a4d2054b3eedc79bb97f03d661ee
 Hidden:
