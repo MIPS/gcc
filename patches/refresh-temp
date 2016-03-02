@@ -1,0 +1,42 @@
+Bottom: 478f145350af7d32382520c71f8340d1513f0370
+Top:    a65caa52c334e005020d1dcb7defa6f6ef5348a5
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-03-02 01:15:05 -0300
+
+Refresh of char-type.patch
+
+---
+
+diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
+index 751f12b..e5dc4a0 100644
+--- a/include/gcc-cp-fe.def
++++ b/include/gcc-cp-fe.def
+@@ -510,6 +510,11 @@ GCC_METHOD2 (gcc_type, int_type,
+ 	     int /* bool */,		   /* Argument IS_UNSIGNED.  */
+ 	     unsigned long)                /* Argument SIZE_IN_BYTES.  */
+ 
++/* Return the 'char' type, distinct from both 'signed char' and
++   'unsigned char' returned by the above.  */
++
++GCC_METHOD0 (gcc_type, char_type)
++
+ /* Return a floating point type with the given properties.  */
+ 
+ GCC_METHOD1 (gcc_type, float_type,
+diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
+index d65647d..8eea7f6 100644
+--- a/libcc1/libcp1plugin.cc
++++ b/libcc1/libcp1plugin.cc
+@@ -1498,6 +1498,12 @@ plugin_int_type (cc1_plugin::connection *self,
+ }
+ 
+ gcc_type
++plugin_char_type (cc1_plugin::connection *self)
++{
++  return convert_out (char_type_node);
++}
++
++gcc_type
+ plugin_float_type (cc1_plugin::connection *,
+ 		   unsigned long size_in_bytes)
+ {
