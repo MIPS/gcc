@@ -1,5 +1,5 @@
 Bottom: 22e3b80e1c1bc2fd08f8b277615eb4de224b84af
-Top:    1fc368bdbf37f2d8144d7bedf1a5c90b219688d6
+Top:    45dcd80e67e16ed9b39d407a037212a9c5829812
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-03-02 01:14:51 -0300
 
@@ -98,22 +98,17 @@ index 77ad7db..8a4a849 100644
  
  /* Qualifiers.  */
 diff --git a/libcc1/libcc1plugin.cc b/libcc1/libcc1plugin.cc
-index 6f7b527..b8dc70f 100644
+index 6f7b527..aa09ea7 100644
 --- a/libcc1/libcc1plugin.cc
 +++ b/libcc1/libcc1plugin.cc
-@@ -1,7 +1,9 @@
+@@ -1,5 +1,5 @@
  /* Library interface to C front end
 -   Copyright (C) 2014 Free Software Foundation, Inc.
 +   Copyright (C) 2014-2016 Free Software Foundation, Inc.
  
--   This file is part of GCC.
-+   This file is part of GCC.  As it interacts with GDB through libcc1,
-+   they all become single combined work, and the GNU GPL applies to it
-+   as a whole.
+    This file is part of GCC.
  
-    GCC is free software; you can redistribute it and/or modify it under
-    the terms of the GNU General Public License as published by the Free
-@@ -711,6 +713,12 @@ plugin_int_type (cc1_plugin::connection *self,
+@@ -711,6 +711,12 @@ plugin_int_type (cc1_plugin::connection *self,
  }
  
  gcc_type
@@ -127,20 +122,10 @@ index 6f7b527..b8dc70f 100644
  		   unsigned long size_in_bytes)
  {
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index 7032ac0..38542a8 100644
+index 7032ac0..abe42a0 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
-@@ -2,7 +2,8 @@
-    Copyright (C) 2014-2016 Free Software Foundation, Inc.
- 
-    This file is part of GCC.  As it interacts with GDB through libcc1,
--   they all become a single program as regards the GNU GPL's requirements.
-+   they all become single combined work, and the GNU GPL applies to it
-+   as a whole.
- 
-    GCC is free software; you can redistribute it and/or modify it under
-    the terms of the GNU General Public License as published by the Free
-@@ -1263,6 +1264,12 @@ plugin_int_type (cc1_plugin::connection *self,
+@@ -1263,6 +1263,12 @@ plugin_int_type (cc1_plugin::connection *self,
  }
  
  gcc_type
