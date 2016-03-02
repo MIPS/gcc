@@ -1263,6 +1263,12 @@ plugin_int_type (cc1_plugin::connection *self,
 }
 
 gcc_type
+plugin_char_type (cc1_plugin::connection *self)
+{
+  return convert_out (char_type_node);
+}
+
+gcc_type
 plugin_float_type (cc1_plugin::connection *,
 		   unsigned long size_in_bytes)
 {
