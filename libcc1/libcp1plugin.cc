@@ -1333,7 +1333,7 @@ plugin_new_template_value_parm (cc1_plugin::connection *self,
 
   cp_declarator declarator;
   memset (&declarator, 0, sizeof (declarator));
-  // &declarator = make_id_declarator (NULL, get_identifier (id), sfk_none);
+  // &declarator = make_id_declarator (NULL, get_identifier (id), sfk_none):
   declarator.kind = cdk_id;
   declarator.u.id.qualifying_scope = NULL;
   declarator.u.id.unqualified_name = get_identifier (id);
@@ -1341,7 +1341,7 @@ plugin_new_template_value_parm (cc1_plugin::connection *self,
 
   cp_decl_specifier_seq declspec;
   memset (&declspec, 0, sizeof (declspec));
-  // cp_parser_set_decl_spec_type (&declspec, convert_in (type), -token-, false);
+  // cp_parser_set_decl_spec_type (&declspec, convert_in (type), -token-, false):
   declspec.any_specifiers_p = declspec.any_type_specifiers_p = true;
   declspec.type = convert_in (type);
   declspec.locations[ds_type_spec] = loc;
@@ -1364,6 +1364,9 @@ plugin_new_dependent_typename (cc1_plugin::connection *self,
 			       const char *id,
 			       const gcc_cp_template_args *targs)
 {
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree type = convert_in (enclosing_type);
+  
   /* FIXME: implement.  */
 }
 
