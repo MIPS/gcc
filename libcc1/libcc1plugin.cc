@@ -1,5 +1,5 @@
 /* Library interface to C front end
-   Copyright (C) 2014 Free Software Foundation, Inc.
+   Copyright (C) 2014-2016 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -708,6 +708,12 @@ plugin_int_type (cc1_plugin::connection *self,
       ctx->preserve (result);
     }
   return convert_out (result);
+}
+
+gcc_type
+plugin_char_type (cc1_plugin::connection *self)
+{
+  return convert_out (char_type_node);
 }
 
 gcc_type
