@@ -4822,7 +4822,7 @@
 	(match_operand:SI 10 "memory_operand" ""))
    (set (match_operand:SI 11 "memory_operand" "")
 	(match_dup 9))]
-  "TARGET_MIPS16_COPY_PEEP"
+  "TARGET_MIPS16 && TARGET_MIPS16_COPY_PEEP"
   [(const_int 0)]
 {
   if (gen_mips16_copy_peep (operands, 4))
@@ -4844,7 +4844,7 @@
 	(match_operand:SI 7 "memory_operand" ""))
    (set (match_operand:SI 8 "memory_operand" "")
 	(match_dup 6))]
-  "TARGET_MIPS16_COPY_PEEP"
+  "TARGET_MIPS16 && TARGET_MIPS16_COPY_PEEP"
   [(const_int 0)]
 {
   if (gen_mips16_copy_peep (operands, 3))
@@ -4862,7 +4862,7 @@
 	(match_operand:SI 4 "memory_operand" ""))
    (set (match_operand:SI 5 "memory_operand" "")
 	(match_dup 3))]
-  "TARGET_MIPS16_COPY_PEEP"
+  "TARGET_MIPS16 && TARGET_MIPS16_COPY_PEEP"
   [(const_int 0)]
 {
   if (gen_mips16_copy_peep (operands, 2))
@@ -4889,7 +4889,7 @@
 	(match_dup 6))
    (set (match_operand:SI 11 "memory_operand" "")
 	(match_dup 9))]
-  "TARGET_MIPS16_COPY_PEEP"
+  "TARGET_MIPS16 && TARGET_MIPS16_COPY_PEEP"
   [(const_int 0)]
 {
   if (gen_mips16_copy_peep (operands, 4))
@@ -4911,7 +4911,7 @@
 	(match_dup 3))
    (set (match_operand:SI 8 "memory_operand" "")
 	(match_dup 6))]
-  "TARGET_MIPS16_COPY_PEEP"
+  "TARGET_MIPS16 && TARGET_MIPS16_COPY_PEEP"
   [(const_int 0)]
 {
   if (gen_mips16_copy_peep (operands, 3))
@@ -4929,7 +4929,7 @@
 	(match_dup 0))
    (set (match_operand:SI 5 "memory_operand" "")
 	(match_dup 3))]
-  "TARGET_MIPS16_COPY_PEEP"
+  "TARGET_MIPS16 && TARGET_MIPS16_COPY_PEEP"
   [(const_int 0)]
 {
   if (gen_mips16_copy_peep (operands, 2))
