@@ -819,34 +819,36 @@
   switch (which_alternative)
     {
     case 0:
+    case 1:
       return (TARGET_P9_DFORM_VECTOR ? "stxv %x1,%0" : "stxvd2x %x1,%y0");
 
-    case 1:
+    case 2:
+    case 3:
       return (TARGET_P9_DFORM_VECTOR ? "lxv %x0,%1" : "lxvd2x %x0,%y1");
 
-    case 2:
+    case 4:
       return "xxlor %x0,%x1,%x1";
 
-    case 3:
+    case 5:
       return "xxlxor %x0,%x0,%x0";
 
-    case 4:
+    case 6:
       return output_vec_const_move (operands);
 
-    case 5:
+    case 7:
       return "stvx %1,%y0";
 
-    case 6:
+    case 8:
       return "lvx %0,%y1";
 
-    case 7:
+    case 9:
       if (TARGET_STRING)
         return \"stswi %1,%P0,16\";
 
-    case 8:
+    case 10:
       return \"#\";
 
-    case 9:
+    case 11:
       /* If the address is not used in the output, we can use lsi.  Otherwise,
 	 fall through to generating four loads.  */
       if (TARGET_STRING
@@ -854,10 +856,11 @@
 	return \"lswi %0,%P1,16\";
       /* ... fall through ...  */
 
-    case 10:
-    case 11:
     case 12:
+    case 13:
+    case 14:
       return \"#\";
+
     default:
       gcc_unreachable ();
     }
