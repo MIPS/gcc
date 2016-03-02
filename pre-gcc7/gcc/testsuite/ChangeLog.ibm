@@ -1,5 +1,9 @@
 2016-03-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 233919.
+
+2016-03-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* gcc.target/powerpc/p9-minmax.c: Make sure compiler
 	supports power9 before doing tests.
 
