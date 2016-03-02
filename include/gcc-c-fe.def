@@ -134,7 +134,7 @@ GCC_METHOD2 (gcc_type, int_type,
 /* Return the 'char' type, a distinct type from both 'signed char' and
    'unsigned char' returned by int_type.  */
 
-GCC_METHOD2 (gcc_type, char_type)
+GCC_METHOD0 (gcc_type, char_type)
 
 /* Return a floating point type with the given properties.  */
 
