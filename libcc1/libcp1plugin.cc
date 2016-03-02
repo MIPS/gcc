@@ -1250,8 +1250,13 @@ gcc_type
 plugin_int_type (cc1_plugin::connection *self,
 		 int is_unsigned, unsigned long size_in_bytes)
 {
-  tree result = c_common_type_for_size (BITS_PER_UNIT * size_in_bytes,
-					is_unsigned);
+  tree result;
+
+  if (!size_in_bytes && !is_unsigned)
+    result = char_type_node;
+  else
+    result = c_common_type_for_size (BITS_PER_UNIT * size_in_bytes,
+				     is_unsigned);
   if (result == NULL_TREE)
     result = error_mark_node;
   else

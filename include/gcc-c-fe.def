@@ -125,7 +125,8 @@ GCC_METHOD3 (gcc_type, build_function_type,
 	     const struct gcc_type_array *, /* Argument ARGUMENT_TYPES.  */
 	     int /* bool */)               /* Argument IS_VARARGS.  */
 
-/* Return an integer type with the given properties.  */
+/* Return an integer type with the given properties.
+   Pass zero in IS_UNSIGNED and SIZE_IN_BYTES to get type 'char'.  */
 
 GCC_METHOD2 (gcc_type, int_type,
 	     int /* bool */,               /* Argument IS_UNSIGNED.  */
