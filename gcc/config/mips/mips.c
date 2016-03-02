@@ -9021,7 +9021,7 @@ mips16_expand_copy (rtx dest, rtx src, rtx length, rtx alignment)
   int align = INTVAL (alignment);
   bool word_by_pieces_p = false;
 
-  if (!TARGET_MIPS16_COPY)
+  if (!TARGET_MIPS16 || !TARGET_MIPS16_COPY)
     return false;
 
   gcc_assert (!TARGET_64BIT);
