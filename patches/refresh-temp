@@ -1,0 +1,38 @@
+Bottom: 1fc368bdbf37f2d8144d7bedf1a5c90b219688d6
+Top:    45dcd80e67e16ed9b39d407a037212a9c5829812
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-03-02 16:13:02 -0300
+
+Refresh of char-type.patch
+
+---
+
+diff --git a/libcc1/libcc1plugin.cc b/libcc1/libcc1plugin.cc
+index b8dc70f..aa09ea7 100644
+--- a/libcc1/libcc1plugin.cc
++++ b/libcc1/libcc1plugin.cc
+@@ -1,9 +1,7 @@
+ /* Library interface to C front end
+    Copyright (C) 2014-2016 Free Software Foundation, Inc.
+ 
+-   This file is part of GCC.  As it interacts with GDB through libcc1,
+-   they all become single combined work, and the GNU GPL applies to it
+-   as a whole.
++   This file is part of GCC.
+ 
+    GCC is free software; you can redistribute it and/or modify it under
+    the terms of the GNU General Public License as published by the Free
+diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
+index 38542a8..abe42a0 100644
+--- a/libcc1/libcp1plugin.cc
++++ b/libcc1/libcp1plugin.cc
+@@ -2,8 +2,7 @@
+    Copyright (C) 2014-2016 Free Software Foundation, Inc.
+ 
+    This file is part of GCC.  As it interacts with GDB through libcc1,
+-   they all become single combined work, and the GNU GPL applies to it
+-   as a whole.
++   they all become a single program as regards the GNU GPL's requirements.
+ 
+    GCC is free software; you can redistribute it and/or modify it under
+    the terms of the GNU General Public License as published by the Free
