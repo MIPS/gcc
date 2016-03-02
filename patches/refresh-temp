@@ -1,0 +1,40 @@
+Bottom: 67acc7667711c5bf6069c24e52c52666e5013c83
+Top:    478f145350af7d32382520c71f8340d1513f0370
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-03-02 00:20:02 -0300
+
+Refresh of template-support.patch
+
+---
+
+diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
+index 9dc28e3..d65647d 100644
+--- a/libcc1/libcp1plugin.cc
++++ b/libcc1/libcp1plugin.cc
+@@ -1333,7 +1333,7 @@ plugin_new_template_value_parm (cc1_plugin::connection *self,
+ 
+   cp_declarator declarator;
+   memset (&declarator, 0, sizeof (declarator));
+-  // &declarator = make_id_declarator (NULL, get_identifier (id), sfk_none);
++  // &declarator = make_id_declarator (NULL, get_identifier (id), sfk_none):
+   declarator.kind = cdk_id;
+   declarator.u.id.qualifying_scope = NULL;
+   declarator.u.id.unqualified_name = get_identifier (id);
+@@ -1341,7 +1341,7 @@ plugin_new_template_value_parm (cc1_plugin::connection *self,
+ 
+   cp_decl_specifier_seq declspec;
+   memset (&declspec, 0, sizeof (declspec));
+-  // cp_parser_set_decl_spec_type (&declspec, convert_in (type), -token-, false);
++  // cp_parser_set_decl_spec_type (&declspec, convert_in (type), -token-, false):
+   declspec.any_specifiers_p = declspec.any_type_specifiers_p = true;
+   declspec.type = convert_in (type);
+   declspec.locations[ds_type_spec] = loc;
+@@ -1364,6 +1364,9 @@ plugin_new_dependent_typename (cc1_plugin::connection *self,
+ 			       const char *id,
+ 			       const gcc_cp_template_args *targs)
+ {
++  plugin_context *ctx = static_cast<plugin_context *> (self);
++  tree type = convert_in (enclosing_type);
++  
+   /* FIXME: implement.  */
+ }
