@@ -1,5 +1,5 @@
-Bottom: 074dfe414fa810a9cde4e395a65970c0b02108c4
-Top:    7b61ac1d5a37d47b2a2b722779c081396fa383c1
+Bottom: 22e3b80e1c1bc2fd08f8b277615eb4de224b84af
+Top:    67acc7667711c5bf6069c24e52c52666e5013c83
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2015-11-26 18:57:41 -0200
 
@@ -323,7 +323,7 @@ index 77ad7db..371cfcf 100644
    GCC_CP_FLAG_BASE,
  
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index ed28443..4407445 100644
+index 7032ac0..9dc28e3 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -61,6 +61,7 @@
@@ -349,7 +349,7 @@ index ed28443..4407445 100644
    source_location loc = ctx->get_source_location (filename, line_number);
    bool class_member_p = at_class_scope_p ();
    bool ctor = false, dtor = false, assop = false;
-@@ -1014,13 +1019,12 @@ plugin_start_new_union_type (cc1_plugin::connection *self,
+@@ -1012,13 +1017,12 @@ plugin_start_new_union_type (cc1_plugin::connection *self,
  
  int
  plugin_new_field (cc1_plugin::connection *,
@@ -364,7 +364,7 @@ index ed28443..4407445 100644
    tree field_type = convert_in (field_type_in);
  
    gcc_assert (RECORD_OR_UNION_CODE_P (TREE_CODE (record_or_union_type)));
-@@ -1060,10 +1064,9 @@ plugin_new_field (cc1_plugin::connection *,
+@@ -1058,10 +1062,9 @@ plugin_new_field (cc1_plugin::connection *,
  
  int
  plugin_finish_record_or_union (cc1_plugin::connection *,
@@ -376,7 +376,7 @@ index ed28443..4407445 100644
  
    gcc_assert (RECORD_OR_UNION_CODE_P (TREE_CODE (record_or_union_type)));
  
-@@ -1072,6 +1075,9 @@ plugin_finish_record_or_union (cc1_plugin::connection *,
+@@ -1070,6 +1073,9 @@ plugin_finish_record_or_union (cc1_plugin::connection *,
    gcc_assert (compare_tree_int (TYPE_SIZE_UNIT (record_or_union_type),
  				size_in_bytes) == 0);
  
@@ -386,7 +386,7 @@ index ed28443..4407445 100644
    return 1;
  }
  
-@@ -1248,6 +1254,232 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
+@@ -1246,6 +1252,232 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
    return convert_out (ctx->preserve (memptr_type));
  }
  
@@ -619,7 +619,7 @@ index ed28443..4407445 100644
  gcc_type
  plugin_int_type (cc1_plugin::connection *self,
  		 int is_unsigned, unsigned long size_in_bytes)
-@@ -1306,6 +1538,14 @@ plugin_build_array_type (cc1_plugin::connection *self,
+@@ -1304,6 +1536,14 @@ plugin_build_array_type (cc1_plugin::connection *self,
  }
  
  gcc_type
