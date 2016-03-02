@@ -602,11 +602,9 @@ plugin_new_decl (cc1_plugin::connection *self,
 	      break;
 	    case CHARS2 ('l', 's'): // operator <<
 	      opcode = LSHIFT_EXPR;
-	      assop = true;
 	      break;
 	    case CHARS2 ('r', 's'): // operator >>
 	      opcode = RSHIFT_EXPR;
-	      assop = true;
 	      break;
 	    case CHARS2 ('l', 'S'): // operator <<=
 	      opcode = LSHIFT_EXPR;
