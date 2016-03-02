@@ -1,5 +1,5 @@
-Bottom: af68f273a85514b3edaafeaaad9e86261e77e765
-Top:    2adb54cbf2c7e6930601c0d682fb1ff0871bf5a9
+Bottom: 328aa60e362e607ccf1653397f6b91fa58898607
+Top:    db6427ba9601706c31a556c2561fa614f9168629
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2015-10-27 04:32:29 -0200
 
@@ -8,10 +8,10 @@ Test special member functions
 ---
 
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index f063c54..2455e04 100644
+index 8eea7f6..2bb3786 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
-@@ -944,7 +944,17 @@ plugin_start_new_class_type (cc1_plugin::connection *self,
+@@ -997,7 +997,17 @@ plugin_start_new_class_type (cc1_plugin::connection *self,
  				      ctx->get_source_location (filename,
  								line_number));
  
@@ -30,7 +30,7 @@ index f063c54..2455e04 100644
  }
  
  gcc_type
-@@ -1336,6 +1346,51 @@ plugin_error (cc1_plugin::connection *,
+@@ -1639,6 +1649,51 @@ plugin_error (cc1_plugin::connection *,
    return convert_out (error_mark_node);
  }
  
