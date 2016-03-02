@@ -2,7 +2,8 @@
    Copyright (C) 2014-2016 Free Software Foundation, Inc.
 
    This file is part of GCC.  As it interacts with GDB through libcc1,
-   they all become a single program as regards the GNU GPL's requirements.
+   they all become single combined work, and the GNU GPL applies to it
+   as a whole.
 
    GCC is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
@@ -1260,6 +1261,12 @@ plugin_int_type (cc1_plugin::connection *self,
       ctx->preserve (result);
     }
   return convert_out (result);
+}
+
+gcc_type
+plugin_char_type (cc1_plugin::connection *self)
+{
+  return convert_out (char_type_node);
 }
 
 gcc_type
