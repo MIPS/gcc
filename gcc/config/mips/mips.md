@@ -3240,7 +3240,7 @@
 
 (define_insn "*and<mode>3_mips16"
   [(set (match_operand:GPR 0 "register_operand" "=d,d,d,d,d,d,d,d")
-	(and:GPR (match_operand:GPR 1 "nonimmediate_operand" "%W,W,W,d,0,d,0,0")
+	(and:GPR (match_operand:GPR 1 "nonimmediate_operand" "%W,W,W,d,0,d,0,0?")
 		 (match_operand:GPR 2 "and_operand" "Yb,Yh,Yw,Yw,d,Yx,Yz,K")))]
   "TARGET_MIPS16 && and_operands_ok (<MODE>mode, operands[1], operands[2])"
 {
@@ -3279,6 +3279,7 @@
 }
   [(set_attr "move_type" "load,load,load,shift_shift,logical,ext_ins,ext_ins,andi")
    (set_attr "mode" "<MODE>")
+   (set_attr "extended_mips16" "no,no,no,no,no,yes,yes,yes")
    (set (attr "enabled")
 	(cond [(and (eq_attr "alternative" "7")
 		    (not (match_test "TARGET_MIPS16_ANDI_XORI")))
