@@ -1,0 +1,10 @@
+Bottom: 9ceaf38e96b75532db47e690351b95fe5126ce2b
+Top:    9ceaf38e96b75532db47e690351b95fe5126ce2b
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-03-01 23:05:41 -0300
+
+fix operator handling
+
+---
+
+
