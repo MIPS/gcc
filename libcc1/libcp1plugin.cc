@@ -483,202 +483,225 @@ plugin_new_decl (cc1_plugin::connection *self,
 
   source_location loc = ctx->get_source_location (filename, line_number);
   bool class_member_p = at_class_scope_p ();
-  bool ctor = false, dtor = false;
+  bool ctor = false, dtor = false, assop = false;
+  tree_code opcode = ERROR_MARK;
 
   if (code == FUNCTION_DECL)
     {
       if (sym_flags & GCC_CP_FLAG_SPECIAL_FUNCTION)
 	{
 #define CHARS2(f,s) (((unsigned char)f << CHAR_BIT) | (unsigned char)s)
-	  switch (CHARS2 (name[0], name[1])) {
-	  case CHARS2 ('C', '1'): // in-charge constructor
-	    identifier = complete_ctor_identifier;
-	    ctor = true;
-	    break;
-	  case CHARS2 ('C', '2'): // not-in-charge constructor
-	    identifier = base_ctor_identifier;
-	    ctor = true;
-	    break;
-	  case CHARS2 ('D', '0'): // deleting destructor
-	    identifier = deleting_dtor_identifier;
-	    dtor = true;
-	    break;
-	  case CHARS2 ('D', '1'): // in-charge destructor
-	    identifier = complete_dtor_identifier;
-	    dtor = true;
-	    break;
-	  case CHARS2 ('D', '2'): // not-in-charge destructor
-	    identifier = base_dtor_identifier;
-	    dtor = true;
-	    break;
-	  case CHARS2 ('n', 'w'): // operator new
-	    identifier = ansi_opname (NEW_EXPR);
-	    break;
-	  case CHARS2 ('n', 'a'): // operator new[]
-	    identifier = ansi_opname (VEC_NEW_EXPR);
-	    break;
-	  case CHARS2 ('d', 'l'): // operator delete
-	    identifier = ansi_opname (DELETE_EXPR);
-	    break;
-	  case CHARS2 ('d', 'a'): // operator delete[]
-	    identifier = ansi_opname (VEC_DELETE_EXPR);
-	    break;
-	  case CHARS2 ('p', 's'): // operator + (unary)
-	    identifier = ansi_opname (PLUS_EXPR);
-	    break;
-	  case CHARS2 ('n', 'g'): // operator - (unary)
-	    identifier = ansi_opname (MINUS_EXPR);
-	    break;
-	  case CHARS2 ('a', 'd'): // operator & (unary)
-	    identifier = ansi_opname (BIT_AND_EXPR);
-	    break;
-	  case CHARS2 ('d', 'e'): // operator * (unary)
-	    identifier = ansi_opname (MULT_EXPR);
-	    break;
-	  case CHARS2 ('c', 'o'): // operator ~
-	    identifier = ansi_opname (BIT_NOT_EXPR);
-	    break;
-	  case CHARS2 ('p', 'l'): // operator +
-	    identifier = ansi_opname (PLUS_EXPR);
-	    break;
-	  case CHARS2 ('m', 'i'): // operator -
-	    identifier = ansi_opname (MINUS_EXPR);
-	    break;
-	  case CHARS2 ('m', 'l'): // operator *
-	    identifier = ansi_opname (MULT_EXPR);
-	    break;
-	  case CHARS2 ('d', 'v'): // operator /
-	    identifier = ansi_opname (TRUNC_DIV_EXPR);
-	    break;
-	  case CHARS2 ('r', 'm'): // operator %
-	    identifier = ansi_opname (TRUNC_MOD_EXPR);
-	    break;
-	  case CHARS2 ('a', 'n'): // operator &
-	    identifier = ansi_opname (BIT_AND_EXPR);
-	    break;
-	  case CHARS2 ('o', 'r'): // operator |
-	    identifier = ansi_opname (BIT_IOR_EXPR);
-	    break;
-	  case CHARS2 ('e', 'o'): // operator ^
-	    identifier = ansi_opname (BIT_XOR_EXPR);
-	    break;
-	  case CHARS2 ('a', 'S'): // operator =
-	    identifier = ansi_assopname (NOP_EXPR);
-	    break;
-	  case CHARS2 ('p', 'L'): // operator +=
-	    identifier = ansi_assopname (PLUS_EXPR);
-	    break;
-	  case CHARS2 ('m', 'I'): // operator -=
-	    identifier = ansi_assopname (MINUS_EXPR);
-	    break;
-	  case CHARS2 ('m', 'L'): // operator *=
-	    identifier = ansi_assopname (MULT_EXPR);
-	    break;
-	  case CHARS2 ('d', 'V'): // operator /=
-	    identifier = ansi_assopname (TRUNC_DIV_EXPR);
-	    break;
-	  case CHARS2 ('r', 'M'): // operator %=
-	    identifier = ansi_assopname (TRUNC_MOD_EXPR);
-	    break;
-	  case CHARS2 ('a', 'N'): // operator &=
-	    identifier = ansi_assopname (BIT_AND_EXPR);
-	    break;
-	  case CHARS2 ('o', 'R'): // operator |=
-	    identifier = ansi_assopname (BIT_IOR_EXPR);
-	    break;
-	  case CHARS2 ('e', 'O'): // operator ^=
-	    identifier = ansi_assopname (BIT_XOR_EXPR);
-	    break;
-	  case CHARS2 ('l', 's'): // operator <<
-	    identifier = ansi_opname (LSHIFT_EXPR);
-	    break;
-	  case CHARS2 ('r', 's'): // operator >>
-	    identifier = ansi_opname (RSHIFT_EXPR);
-	    break;
-	  case CHARS2 ('l', 'S'): // operator <<=
-	    identifier = ansi_assopname (LSHIFT_EXPR);
-	    break;
-	  case CHARS2 ('r', 'S'): // operator >>=
-	    identifier = ansi_assopname (RSHIFT_EXPR);
-	    break;
-	  case CHARS2 ('e', 'q'): // operator ==
-	    identifier = ansi_opname (EQ_EXPR);
-	    break;
-	  case CHARS2 ('n', 'e'): // operator !=
-	    identifier = ansi_opname (NE_EXPR);
-	    break;
-	  case CHARS2 ('l', 't'): // operator <
-	    identifier = ansi_opname (LT_EXPR);
-	    break;
-	  case CHARS2 ('g', 't'): // operator >
-	    identifier = ansi_opname (GT_EXPR);
-	    break;
-	  case CHARS2 ('l', 'e'): // operator <=
-	    identifier = ansi_opname (LE_EXPR);
-	    break;
-	  case CHARS2 ('g', 'e'): // operator >=
-	    identifier = ansi_opname (GE_EXPR);
-	    break;
-	  case CHARS2 ('n', 't'): // operator !
-	    identifier = ansi_opname (TRUTH_NOT_EXPR);
-	    break;
-	  case CHARS2 ('a', 'a'): // operator &&
-	    identifier = ansi_opname (TRUTH_ANDIF_EXPR);
-	    break;
-	  case CHARS2 ('o', 'o'): // operator ||
-	    identifier = ansi_opname (TRUTH_ORIF_EXPR);
-	    break;
-	  case CHARS2 ('p', 'p'): // operator ++
-	    identifier = ansi_opname (POSTINCREMENT_EXPR);
-	    break;
-	  case CHARS2 ('m', 'm'): // operator --
-	    identifier = ansi_opname (POSTDECREMENT_EXPR);
-	    break;
-	  case CHARS2 ('c', 'm'): // operator ,
-	    identifier = ansi_opname (COMPOUND_EXPR);
-	    break;
-	  case CHARS2 ('p', 'm'): // operator ->*
-	    identifier = ansi_opname (MEMBER_REF);
-	    break;
-	  case CHARS2 ('p', 't'): // operator ->
-	    identifier = ansi_opname (COMPONENT_REF);
-	    break;
-	  case CHARS2 ('c', 'l'): // operator ()
-	    identifier = ansi_opname (CALL_EXPR);
-	    break;
-	  case CHARS2 ('i', 'x'): // operator []
-	    identifier = ansi_opname (ARRAY_REF);
-	    break;
-	  case CHARS2 ('c', 'v'): // operator <T> (conversion operator)
-	    identifier = mangle_conv_op_name_for_type (TREE_TYPE (sym_type));
-	    break;
-	    // C++11-only:
-	  case CHARS2 ('l', 'i'): // operator "" <id>
+	  switch (CHARS2 (name[0], name[1]))
 	    {
-	      char *id = (char *)name + 2;
-	      bool freeid = false;
-	      if (*id >= '0' && *id <= '9')
-		{
-		  unsigned len = 0;
-		  do
-		    {
-		      len *= 10;
-		      len += id[0] - '0';
-		      id++;
-		    }
-		  while (*id && *id >= '0' && *id <= '9');
-		  id = xstrndup (id, len);
-		  freeid = true;
-		}
-	      identifier = ansi_litopname (id);
-	      if (freeid)
-		free (id);
+	    case CHARS2 ('C', '1'): // in-charge constructor
+	      identifier = complete_ctor_identifier;
+	      ctor = true;
+	      break;
+	    case CHARS2 ('C', '2'): // not-in-charge constructor
+	      identifier = base_ctor_identifier;
+	      ctor = true;
+	      break;
+	    case CHARS2 ('D', '0'): // deleting destructor
+	      identifier = deleting_dtor_identifier;
+	      dtor = true;
+	      break;
+	    case CHARS2 ('D', '1'): // in-charge destructor
+	      identifier = complete_dtor_identifier;
+	      dtor = true;
+	      break;
+	    case CHARS2 ('D', '2'): // not-in-charge destructor
+	      identifier = base_dtor_identifier;
+	      dtor = true;
+	      break;
+	    case CHARS2 ('n', 'w'): // operator new
+	      opcode = NEW_EXPR;
+	      break;
+	    case CHARS2 ('n', 'a'): // operator new[]
+	      opcode = VEC_NEW_EXPR;
+	      break;
+	    case CHARS2 ('d', 'l'): // operator delete
+	      opcode = DELETE_EXPR;
+	      break;
+	    case CHARS2 ('d', 'a'): // operator delete[]
+	      opcode = VEC_DELETE_EXPR;
+	      break;
+	    case CHARS2 ('p', 's'): // operator + (unary)
+	      opcode = PLUS_EXPR;
+	      break;
+	    case CHARS2 ('n', 'g'): // operator - (unary)
+	      opcode = MINUS_EXPR;
+	      break;
+	    case CHARS2 ('a', 'd'): // operator & (unary)
+	      opcode = BIT_AND_EXPR;
+	      break;
+	    case CHARS2 ('d', 'e'): // operator * (unary)
+	      opcode = MULT_EXPR;
+	      break;
+	    case CHARS2 ('c', 'o'): // operator ~
+	      opcode = BIT_NOT_EXPR;
+	      break;
+	    case CHARS2 ('p', 'l'): // operator +
+	      opcode = PLUS_EXPR;
+	      break;
+	    case CHARS2 ('m', 'i'): // operator -
+	      opcode = MINUS_EXPR;
+	      break;
+	    case CHARS2 ('m', 'l'): // operator *
+	      opcode = MULT_EXPR;
+	      break;
+	    case CHARS2 ('d', 'v'): // operator /
+	      opcode = TRUNC_DIV_EXPR;
+	      break;
+	    case CHARS2 ('r', 'm'): // operator %
+	      opcode = TRUNC_MOD_EXPR;
+	      break;
+	    case CHARS2 ('a', 'n'): // operator &
+	      opcode = BIT_AND_EXPR;
+	      break;
+	    case CHARS2 ('o', 'r'): // operator |
+	      opcode = BIT_IOR_EXPR;
+	      break;
+	    case CHARS2 ('e', 'o'): // operator ^
+	      opcode = BIT_XOR_EXPR;
+	      break;
+	    case CHARS2 ('a', 'S'): // operator =
+	      opcode = NOP_EXPR;
+	      assop = true;
+	      break;
+	    case CHARS2 ('p', 'L'): // operator +=
+	      opcode = PLUS_EXPR;
+	      assop = true;
+	      break;
+	    case CHARS2 ('m', 'I'): // operator -=
+	      opcode = MINUS_EXPR;
+	      assop = true;
+	      break;
+	    case CHARS2 ('m', 'L'): // operator *=
+	      opcode = MULT_EXPR;
+	      assop = true;
+	      break;
+	    case CHARS2 ('d', 'V'): // operator /=
+	      opcode = TRUNC_DIV_EXPR;
+	      assop = true;
+	      break;
+	    case CHARS2 ('r', 'M'): // operator %=
+	      opcode = TRUNC_MOD_EXPR;
+	      assop = true;
+	      break;
+	    case CHARS2 ('a', 'N'): // operator &=
+	      opcode = BIT_AND_EXPR;
+	      assop = true;
+	      break;
+	    case CHARS2 ('o', 'R'): // operator |=
+	      opcode = BIT_IOR_EXPR;
+	      assop = true;
+	      break;
+	    case CHARS2 ('e', 'O'): // operator ^=
+	      opcode = BIT_XOR_EXPR;
+	      assop = true;
+	      break;
+	    case CHARS2 ('l', 's'): // operator <<
+	      opcode = LSHIFT_EXPR;
+	      assop = true;
+	      break;
+	    case CHARS2 ('r', 's'): // operator >>
+	      opcode = RSHIFT_EXPR;
+	      assop = true;
+	      break;
+	    case CHARS2 ('l', 'S'): // operator <<=
+	      opcode = LSHIFT_EXPR;
+	      assop = true;
+	      break;
+	    case CHARS2 ('r', 'S'): // operator >>=
+	      opcode = RSHIFT_EXPR;
+	      assop = true;
+	      break;
+	    case CHARS2 ('e', 'q'): // operator ==
+	      opcode = EQ_EXPR;
+	      break;
+	    case CHARS2 ('n', 'e'): // operator !=
+	      opcode = NE_EXPR;
+	      break;
+	    case CHARS2 ('l', 't'): // operator <
+	      opcode = LT_EXPR;
+	      break;
+	    case CHARS2 ('g', 't'): // operator >
+	      opcode = GT_EXPR;
+	      break;
+	    case CHARS2 ('l', 'e'): // operator <=
+	      opcode = LE_EXPR;
+	      break;
+	    case CHARS2 ('g', 'e'): // operator >=
+	      opcode = GE_EXPR;
+	      break;
+	    case CHARS2 ('n', 't'): // operator !
+	      opcode = TRUTH_NOT_EXPR;
+	      break;
+	    case CHARS2 ('a', 'a'): // operator &&
+	      opcode = TRUTH_ANDIF_EXPR;
+	      break;
+	    case CHARS2 ('o', 'o'): // operator ||
+	      opcode = TRUTH_ORIF_EXPR;
+	      break;
+	    case CHARS2 ('p', 'p'): // operator ++
+	      opcode = POSTINCREMENT_EXPR;
+	      break;
+	    case CHARS2 ('m', 'm'): // operator --
+	      opcode = POSTDECREMENT_EXPR;
+	      break;
+	    case CHARS2 ('c', 'm'): // operator ,
+	      opcode = COMPOUND_EXPR;
+	      break;
+	    case CHARS2 ('p', 'm'): // operator ->*
+	      opcode = MEMBER_REF;
+	      break;
+	    case CHARS2 ('p', 't'): // operator ->
+	      opcode = COMPONENT_REF;
+	      break;
+	    case CHARS2 ('c', 'l'): // operator ()
+	      opcode = CALL_EXPR;
+	      break;
+	    case CHARS2 ('i', 'x'): // operator []
+	      opcode = ARRAY_REF;
+	      break;
+	    case CHARS2 ('c', 'v'): // operator <T> (conversion operator)
+	      identifier = mangle_conv_op_name_for_type (TREE_TYPE (sym_type));
+	      break;
+	      // C++11-only:
+	    case CHARS2 ('l', 'i'): // operator "" <id>
+	      {
+		char *id = (char *)name + 2;
+		bool freeid = false;
+		if (*id >= '0' && *id <= '9')
+		  {
+		    unsigned len = 0;
+		    do
+		      {
+			len *= 10;
+			len += id[0] - '0';
+			id++;
+		      }
+		    while (*id && *id >= '0' && *id <= '9');
+		    id = xstrndup (id, len);
+		    freeid = true;
+		  }
+		identifier = ansi_litopname (id);
+		if (freeid)
+		  free (id);
+	      }
+	      break;
+	    case CHARS2 ('q', 'u'): // ternary operator, not overloadable.
+	    default:
+	      gcc_unreachable ();
 	    }
-	    break;
-	  case CHARS2 ('q', 'u'): // ternary operator, not overloadable.
-	  default:
-	    gcc_unreachable ();
-	  }
+
+	  if (opcode != ERROR_MARK)
+	    {
+	      if (assop)
+		identifier = ansi_assopname (opcode);
+	      else
+		identifier = ansi_opname (opcode);
+	    }
 	}
       decl = build_lang_decl_loc (loc, code,
 				  (ctor || dtor)
@@ -720,7 +743,7 @@ plugin_new_decl (cc1_plugin::connection *self,
 	  gcc_assert (!(sym_flags & (GCC_CP_FLAG_VIRTUAL_FUNCTION
 				     | GCC_CP_FLAG_PURE_VIRTUAL_FUNCTION
 				     | GCC_CP_FLAG_FINAL_VIRTUAL_FUNCTION)));
-	  gcc_assert (!ctor && !dtor);
+	  gcc_assert (!ctor && !dtor && !assop);
 	}
       if (sym_flags & GCC_CP_FLAG_EXPLICIT_FUNCTION)
 	DECL_NONCONVERTING_P (decl) = 1;
@@ -793,6 +816,14 @@ plugin_new_decl (cc1_plugin::connection *self,
 	  TYPE_METHODS (current_class_type)
 	    = nreverse (TYPE_METHODS (current_class_type));
 	  DECL_CHAIN (abstract_decl) = save;
+	}
+      else
+	{
+	  if ((sym_flags & GCC_CP_FLAG_SPECIAL_FUNCTION)
+	      && opcode != ERROR_MARK)
+	    SET_OVERLOADED_OPERATOR_CODE (decl, opcode);
+	  if (assop)
+	    DECL_ASSIGNMENT_OPERATOR_P (decl) = true;
 	}
     }
   else if (class_member_p)
@@ -871,6 +902,8 @@ plugin_new_decl (cc1_plugin::connection *self,
 
   if (class_member_p)
     {
+      if (code == FUNCTION_DECL)
+	grok_special_member_properties (decl);
       if (!(ctor || dtor))
 	finish_member_declaration (decl);
     }
