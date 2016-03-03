@@ -6501,6 +6501,16 @@ rs6000_expand_vector_init (rtx target, rtx vals)
       return;
     }
 
+  /* Word values on ISA 3.0 can use mtvsrws, lxvwsx, or xxspltw.  V4SF is
+     complicated since scalars are stored as doubles in the registers.  */
+  if (TARGET_P9_VECTOR && mode == V4SImode && all_same
+      && VECTOR_MEM_VSX_P (mode))
+    {
+      rtx op0 = XVECEXP (vals, 0, 0);
+      emit_insn (gen_vsx_splat_v4si (target, op0));
+      return;
+    }
+
   /* With single precision floating point on VSX, know that internally single
      precision is actually represented as a double, and either make 2 V2DF
      vectors, and convert these vectors to single precision, or do one
@@ -6509,14 +6519,23 @@ rs6000_expand_vector_init (rtx target, rtx vals)
     {
       if (all_same)
 	{
-	  rtx freg = gen_reg_rtx (V4SFmode);
-	  rtx sreg = force_reg (SFmode, XVECEXP (vals, 0, 0));
-	  rtx cvt  = ((TARGET_XSCVDPSPN)
-		      ? gen_vsx_xscvdpspn_scalar (freg, sreg)
-		      : gen_vsx_xscvdpsp_scalar (freg, sreg));
+	  rtx op0 = XVECEXP (vals, 0, 0);
 
-	  emit_insn (cvt);
-	  emit_insn (gen_vsx_xxspltw_v4sf_direct (target, freg, const0_rtx));
+	  if (TARGET_P9_VECTOR)
+	    emit_insn (gen_vsx_splat_v4sf (target, op0));
+
+	  else
+	    {
+	      rtx freg = gen_reg_rtx (V4SFmode);
+	      rtx sreg = force_reg (SFmode, op0);
+	      rtx cvt  = ((TARGET_XSCVDPSPN)
+			  ? gen_vsx_xscvdpspn_scalar (freg, sreg)
+			  : gen_vsx_xscvdpsp_scalar (freg, sreg));
+
+	      emit_insn (cvt);
+	      emit_insn (gen_vsx_xxspltw_v4sf_direct (target, freg,
+						      const0_rtx));
+	    }
 	}
       else
 	{
@@ -8285,11 +8304,15 @@ rs6000_legitimize_reload_address (rtx x, machine_mode mode,
   bool reg_offset_p = reg_offset_addressing_ok_p (mode);
 
   /* Nasty hack for vsx_splat_V2DF/V2DI load from mem, which takes a
-     DFmode/DImode MEM.  */
+     DFmode/DImode MEM.  Likewise for ISA 3.0 word splat operations.  */
   if (reg_offset_p
       && opnum == 1
       && ((mode == DFmode && recog_data.operand_mode[0] == V2DFmode)
-	  || (mode == DImode && recog_data.operand_mode[0] == V2DImode)))
+	  || (mode == DImode && recog_data.operand_mode[0] == V2DImode)
+	  || (mode == SFmode && recog_data.operand_mode[0] == V4SFmode
+	      && TARGET_P9_VECTOR)
+	  || (mode == SImode && recog_data.operand_mode[0] == V4SImode
+	      && TARGET_P9_VECTOR)))
     reg_offset_p = false;
 
   /* We must recognize output that we have already generated ourselves.  */

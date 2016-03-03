@@ -2226,7 +2226,38 @@
    lxvdsx %x0,%y1"
   [(set_attr "type" "vecperm,vecperm,vecload,vecperm,vecperm,vecload")])
 
-;; V4SF/V4SI splat
+;; V4SI splat (ISA 3.0)
+;; When SI's are allowed in VSX registers, add XXSPLTW support
+(define_insn "vsx_splat_v4si"
+  [(set (match_operand:V4SI 0 "vsx_register_operand" "=wa,wa")
+	(vec_duplicate:V4SI (match_operand:SI 1 "input_operand" "r,Z")))]
+  "TARGET_P9_VECTOR"
+  "@
+   mtvsrws %x0,%1
+   lxvwsx %x0,%y1"
+  [(set_attr "type" "mftgpr,vecload")])
+
+;; V4SF splat (ISA 3.0)
+(define_insn_and_split "vsx_splat_v4sf"
+  [(set (match_operand:V4SF 0 "vsx_register_operand" "=wa,wa,wa")
+	(vec_duplicate:V4SF (match_operand:SF 1 "input_operand" "Z,wy,r")))]
+  "TARGET_P9_VECTOR"
+  "@
+   lxvwsx %x0,%y1
+   #
+   mtvsrws %x0,%1"
+  "&& reload_completed && vsx_register_operand (operands[1], SFmode)"
+  [(set (match_dup 0)
+	(unspec:V4SF [(match_dup 1)] UNSPEC_VSX_CVDPSPN))
+   (set (match_dup 0)
+	(vec_duplicate:V4SF
+	 (vec_select:SF (match_dup 0)
+			(parallel [(const_int 0)]))))]
+  ""
+  [(set_attr "type" "vecload,vecperm,mftgpr")
+   (set_attr "length" "4,8,4")])
+
+;; V4SF/V4SI splat from a vector element
 (define_insn "vsx_xxspltw_<mode>"
   [(set (match_operand:VSX_W 0 "vsx_register_operand" "=wf,?<VSa>")
 	(vec_duplicate:VSX_W
