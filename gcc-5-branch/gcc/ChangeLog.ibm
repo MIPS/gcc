@@ -1,3 +1,28 @@
+2016-03-03  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/69868 + swap optimization backports
+	* config/rs6000/rs6000.c (class swap_web_entry): Enlarge
+	special-handling field.
+	(enum special_handling_values): Add four new values.
+	(const_load_sequence_p): New function.
+	(load_comp_mask_p): Likewise.
+	(v2df_reduction_p): Likewise.
+	(rtx_is_swappable_p): Add handling for XXPERMDI and reductions.
+	(insn_is_swappable_p): Add handling for CONCAT, reductions, and
+	VPERM.
+	(adjust_xxpermdi): New function.
+	(adjust_concat): Likewise.
+	(find_swapped_load_and_const_vector): Likewise.
+	(replace_const_vector_in_load): Likewise.
+	(adjust_vperm): Likewise.
+	(adjust_vperm_comp): Likewise.
+	(handle_special_swappables): Add support for XXPERMDI, CONCAT,
+	and VPERM.
+	(replace_swap_with_copy): Permit replacements of VNOR by copies as
+	well.
+	(dump_swap_insn_table): Add  handling for XXPERMDI, CONCAT, and
+	VPERM.
+
 2016-02-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport from trunk
