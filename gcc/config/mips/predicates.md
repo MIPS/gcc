@@ -121,12 +121,6 @@
 		      (match_test "TARGET_MIPS16_CONDMOVE"))))
        (match_operand 0 "register_operand")))
 
-(define_predicate "reg_or_0yi_operand"
-   (ior (and (ior (match_operand 0 "const_0_operand")
-	          (match_operand 0 "const_yi_operand"))
-	    (match_test "TARGET_MSA"))
-       (match_operand 0 "register_operand")))
-
 (define_predicate "const_1_operand"
   (and (match_code "const_int,const_double,const_vector")
        (match_test "op == CONST1_RTX (GET_MODE (op))")))
