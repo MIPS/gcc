@@ -6286,7 +6286,7 @@ output_vec_const_move (rtx *operands)
 	{
 	  if (mode == V16QImode)
 	    {
-	      operands[2] = CONST_VECTOR_ELT (vec, 0);
+	      operands[2] = GEN_INT (INTVAL (CONST_VECTOR_ELT (vec, 0)) & 0xff);
 	      return "xxspltib %x0,%2";
 	    }
 
