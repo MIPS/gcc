@@ -6,8 +6,8 @@
 #include <altivec.h>
 
 vector long ret_long (void) { return vec_splats ((long) 127); }
-vector long ret_int  (void) { return vec_splats ((int)  127); }
-vector long ret_char (void) { return vec_splats ((char) 127); }
+vector int  ret_int  (void) { return vec_splats ((int)  127); }
+vector char ret_char (void) { return vec_splats ((char) 127); }
 
 
 

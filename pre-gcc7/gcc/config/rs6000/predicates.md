@@ -583,7 +583,7 @@
   if (mode != V4SImode && mode != V2DImode)
     return false;
 
-  return easy_p9_constant (op, mode);
+  return easy_p9_constant (op, mode, false);
 })
 
 ;; Return 1 if the operand is a CONST_VECTOR and can be loaded into a
@@ -610,7 +610,7 @@
       if (TARGET_P8_VECTOR && all_ones_constant (op, mode))
 	return true;
 
-      if (TARGET_P9_VECTOR && easy_p9_constant (op, mode))
+      if (TARGET_P9_VECTOR && easy_p9_constant (op, mode, false))
 	return true;
 
       return easy_altivec_constant (op, mode);

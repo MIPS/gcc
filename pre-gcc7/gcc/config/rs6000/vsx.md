@@ -2527,29 +2527,29 @@
 (define_mode_iterator V4SI_OR_V2DI [V4SI V2DI])
 
 (define_insn "vsx_sign_extend_qi_<mode>"
-  [(set (match_operand:V4SI_OR_V2DI 0 "vsx_register_operand" "=wa")
+  [(set (match_operand:V4SI_OR_V2DI 0 "vsx_register_operand" "=v")
 	(unspec:V4SI_OR_V2DI
-	 [(match_operand:V16QI 1 "vsx_register_operand" "wa")]
+	 [(match_operand:V16QI 1 "vsx_register_operand" "v")]
 	 UNSPEC_VSX_SIGN_EXTEND))]
   "TARGET_P9_VECTOR"
-  "vextsb2<wd> %x0,%x1"
+  "vextsb2<wd> %0,%1"
   [(set_attr "type" "vecsimple")])
 
 (define_insn "vsx_sign_extend_hi_<mode>"
-  [(set (match_operand:V4SI_OR_V2DI 0 "vsx_register_operand" "=wa")
+  [(set (match_operand:V4SI_OR_V2DI 0 "vsx_register_operand" "=v")
 	(unspec:V4SI_OR_V2DI
-	 [(match_operand:V8HI 1 "vsx_register_operand" "wa")]
+	 [(match_operand:V8HI 1 "vsx_register_operand" "v")]
 	 UNSPEC_VSX_SIGN_EXTEND))]
   "TARGET_P9_VECTOR"
-  "vextsh2<wd> %x0,%x1"
+  "vextsh2<wd> %0,%1"
   [(set_attr "type" "vecsimple")])
 
 (define_insn "vsx_sign_extend_hi_di"
-  [(set (match_operand:V2DI 0 "vsx_register_operand" "=wa")
-	(unspec:V2DI [(match_operand:V4SI 1 "vsx_register_operand" "wa")]
+  [(set (match_operand:V2DI 0 "vsx_register_operand" "=v")
+	(unspec:V2DI [(match_operand:V4SI 1 "vsx_register_operand" "v")]
 		     UNSPEC_VSX_SIGN_EXTEND))]
   "TARGET_P9_VECTOR"
-  "vextsw2d %x0,%x1"
+  "vextsw2d %0,%1"
   [(set_attr "type" "vecsimple")])
 
 (define_expand "xxsplitb"

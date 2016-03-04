@@ -141,8 +141,8 @@
        (match_test "TARGET_VSX && (ival == VECTOR_ELEMENT_SCALAR_64BIT)")))
 
 (define_constraint "wE"
-  "vector constant that does not require memory using ISA 3.0 instructions"
-  (match_test "easy_p9_constant (op, mode)"))
+  "vector constant that can be loaded with the XXSPLTIB instruction"
+  (match_test "easy_p9_constant (op, mode, true)"))
 
 ;; Extended fusion store
 (define_memory_constraint "wF"

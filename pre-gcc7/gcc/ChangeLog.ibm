@@ -1,5 +1,23 @@
 2016-03-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/constraints.md (wE constraint): Vext* instructions
+	require Altivec registers.
+	* config/rs6000/predicates.md (easy_p9_constant_split): Likewise.
+	(easy_vector_constant): Likewise.
+	* config/rs6000/rs6000-protos.h (easy_p9_constant): Likewise.
+	* config/rs6000/rs6000.c (easy_p9_constant): Likewise.
+	(output_vec_const_move): Likewise.
+	(rs6000_output_move_128bit): Likewise.
+	* config/rs6000/vsx.md (vsx_mov<mode>_64bit): Likewise.
+	(vsx_mov<mode>_32bit): Likewise.
+	(vsx_movti_64bit): Likewise.
+	(vsx_movti_32bit): Likewise.
+	(vsx_sign_extend_qi_<mode>): Likewise.
+	(vsx_sign_extend_hi_<mode>): Likewise.
+	(vsx_sign_extend_si_<mode>): Likewise.
+	(xxsplitb): Likewise.
+	(ISA 3.0 easy constant splitter): Likewise.
+
 	* config/rs6000/constraints.md (wE constraint): New constraint for
 	ISA 3.0 easy constants.
 

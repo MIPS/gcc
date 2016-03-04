@@ -6198,11 +6198,14 @@ gen_easy_altivec_constant (rtx op)
   gcc_unreachable ();
 }
 
-/* Return true if OP is of the given MODE and can be syntehsized with ISA 3.0
-   instructions (xxspltib, vextsb2w/vextb2d, and possibly xxsldwi).  */
+/* Return true if OP is of the given MODE and can be synthesized with ISA 3.0
+   instructions (xxspltib, vextsb2w/vextb2d, and possibly xxsldwi).  If
+   XXSPLTIB_ONLY, only return true for constants that only generate the
+   XXSPLTIB instruction and can go in any VSX register.  Using the vector sign
+   extend instructions restricts us to the Altivec registers.  */
 
 bool
-easy_p9_constant (rtx op, machine_mode mode)
+easy_p9_constant (rtx op, machine_mode mode, bool xxspltib_only)
 {
   size_t nunits = GET_MODE_NUNITS (mode);
   size_t i;
@@ -6227,7 +6230,11 @@ easy_p9_constant (rtx op, machine_mode mode)
     return false;
 
   /* There is no VEXTSB2H instruction, so we can't do V8HImode.  */
-  if (mode != V16QImode && mode != V4SImode && mode != V2DImode)
+  if (mode == V16QImode)
+    ;
+
+  else if (xxspltib_only
+	   || (mode != V4SImode && mode != V2DImode))
     return false;
 
   element = CONST_VECTOR_ELT (op, 0);
@@ -6275,7 +6282,7 @@ output_vec_const_move (rtx *operands)
 	  && INTVAL (CONST_VECTOR_ELT (vec, 1)) == -1)
 	return (TARGET_P8_VECTOR) ? "xxlorc %x0,%x0,%x0" : "vspltisw %0,-1";
 
-      if (TARGET_P9_VECTOR && easy_p9_constant (vec, mode))
+      if (TARGET_P9_VECTOR && easy_p9_constant (vec, mode, false))
 	{
 	  if (mode == V16QImode)
 	    {
@@ -19916,7 +19923,8 @@ rs6000_output_move_128bit (rtx operands[])
       else if (TARGET_P8_VECTOR && dest_vsx_p && all_ones_constant (src, mode))
 	return "xxlorc %x0,%x0,%x0";
 
-      else if (TARGET_P9_VECTOR && dest_vsx_p && easy_p9_constant (src, mode))
+      else if (TARGET_P9_VECTOR && dest_vsx_p
+	       && easy_p9_constant (src, mode, false))
 	return output_vec_const_move (operands);
 
       else if (TARGET_ALTIVEC && dest_vmx_p)
