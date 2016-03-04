@@ -80,8 +80,6 @@ gomp_team_barrier_wait_end (gomp_barrier_t *bar, gomp_barrier_state_t state)
 {
   unsigned int generation, gen;
 
-  gomp_barrier_wait_end (bar, state);
-
   if (__builtin_expect (state & BAR_WAS_LAST, 0))
     {
       /* Next time we'll be awaiting TOTAL threads again.  */

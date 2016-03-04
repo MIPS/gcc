@@ -1,3 +1,8 @@
+2016-03-04  Alexander Monakov  <amonakov@ispras.ru>
+
+	* config/nvptx/bar.c: Remove wrong invocation of
+	gomp_barrier_wait_end from gomp_team_barrier_wait_end.
+
 2016-02-15  Alexander Monakov  <amonakov@ispras.ru>
 
 	* plugin/plugin-nvptx.c (nvptx_stacks_size): New.
