@@ -1,3 +1,8 @@
+2016-03-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/p9-vec-const.c: New test for ISA 3.0 easy
+	constants.
+
 2016-03-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/p9-splat-1.c: New test for ISA 3.0 word splat

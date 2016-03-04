@@ -1,3 +1,34 @@
+2016-03-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (wE constraint): New constraint for
+	ISA 3.0 easy constants.
+
+	* config/rs6000/predicates.md (easy_p9_constant_split): New
+	predicate for ISA 3.0 easy constants that need splitting.
+	(easy_vector_constant): Add support for vector constant of all 1's
+	and for ISA 3.0 easy constants.
+
+	* config/rs6000/rs6000-protos.h (easy_p9_constant): Add
+	declaration.
+
+	* config/rs6000/rs6000.c (easy_p9_constant): New function to
+	return if we can load up a vector constant with split immediate
+	byte and vector sign extend instructions.
+	(output_vec_const_move): Add support for easy ISA 3.0 vector
+	constants and ISA 2.07 loading a vector with all 1's.
+	(rs6000_output_move_128bit): Likewise.
+
+	* config/rs6000/vsx.md (vsx_mov<mode>_64bit): Add support for new
+	ISA 2.07 and 3.0 easy constants.
+	(vsx_mov<mode>_32bit): Likewise.
+	(vsx_movti_64bit): Likewise.
+	(vsx_movti_32bit): Likewise.
+	(vsx_sign_extend_qi_<mode>): ISA 3.0 vector sign extend support.
+	(vsx_sign_extend_hi_<mode>): Likewise.
+	(vsx_sign_extend_si_<mode>): Likewise.
+	(xxsplitb): Generator for XXSPLITB instruction.
+	(ISA 3.0 easy constant splitter): Split ISA 3.0 easy constants.
+
 2016-03-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Add support

@@ -6092,7 +6092,6 @@ vspltis_shifted (rtx op)
   return 0;
 }
 
-
 /* Return true if OP is of the given MODE and can be synthesized
    with a vspltisb, vspltish or vspltisw.  */
 
@@ -6199,6 +6198,59 @@ gen_easy_altivec_constant (rtx op)
   gcc_unreachable ();
 }
 
+/* Return true if OP is of the given MODE and can be syntehsized with ISA 3.0
+   instructions (xxspltib, vextsb2w/vextb2d, and possibly xxsldwi).  */
+
+bool
+easy_p9_constant (rtx op, machine_mode mode)
+{
+  size_t nunits = GET_MODE_NUNITS (mode);
+  size_t i;
+  HOST_WIDE_INT value;
+  rtx element;
+
+  if (!TARGET_P9_VECTOR)
+    return false;
+
+  if (GET_CODE (op) != CONST_VECTOR)
+    return false;
+
+  if (mode == VOIDmode)
+    mode = GET_MODE (op);
+
+  else if (mode != GET_MODE (op))
+    return false;
+
+  /* All 0's and all 1's are handled in the move insn, don't allow them
+     here.  */
+  if (op == CONST0_RTX (mode) || op == CONSTM1_RTX (mode))
+    return false;
+
+  /* There is no VEXTSB2H instruction, so we can't do V8HImode.  */
+  if (mode != V16QImode && mode != V4SImode && mode != V2DImode)
+    return false;
+
+  element = CONST_VECTOR_ELT (op, 0);
+  if (!CONST_INT_P (element))
+    return false;
+
+  value = INTVAL (element);
+  if (!IN_RANGE (value, -128, 127))
+    return false;
+
+  for (i = 1; i < nunits; i++)
+    {
+      element = CONST_VECTOR_ELT (op, i);
+      if (!CONST_INT_P (element))
+	return false;
+
+      if (value != INTVAL (element))
+	return false;
+    }
+
+  return true;
+}
+
 const char *
 output_vec_const_move (rtx *operands)
 {
@@ -6222,6 +6274,17 @@ output_vec_const_move (rtx *operands)
 	  && INTVAL (CONST_VECTOR_ELT (vec, 0)) == -1
 	  && INTVAL (CONST_VECTOR_ELT (vec, 1)) == -1)
 	return (TARGET_P8_VECTOR) ? "xxlorc %x0,%x0,%x0" : "vspltisw %0,-1";
+
+      if (TARGET_P9_VECTOR && easy_p9_constant (vec, mode))
+	{
+	  if (mode == V16QImode)
+	    {
+	      operands[2] = CONST_VECTOR_ELT (vec, 0);
+	      return "xxspltib %x0,%2";
+	    }
+
+	  return "#";
+	}
     }
 
   if (TARGET_ALTIVEC)
@@ -19849,6 +19912,12 @@ rs6000_output_move_128bit (rtx operands[])
 
       else if (TARGET_VSX && dest_vsx_p && zero_constant (src, mode))
 	return "xxlxor %x0,%x0,%x0";
+
+      else if (TARGET_P8_VECTOR && dest_vsx_p && all_ones_constant (src, mode))
+	return "xxlorc %x0,%x0,%x0";
+
+      else if (TARGET_P9_VECTOR && dest_vsx_p && easy_p9_constant (src, mode))
+	return output_vec_const_move (operands);
 
       else if (TARGET_ALTIVEC && dest_vmx_p)
 	return output_vec_const_move (operands);
