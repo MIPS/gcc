@@ -3236,19 +3236,26 @@ check_omp_nesting_restrictions (gimple *stmt, omp_context *ctx)
   /* No nesting of non-OpenACC STMT (that is, an OpenMP one, or a GOMP builtin)
      inside an OpenACC CTX.  */
   if (!(is_gimple_omp (stmt)
-	&& is_gimple_omp_oacc (stmt)))
+	&& is_gimple_omp_oacc (stmt))
+      /* Except for atomic codes that we share with OpenMP.  */
+      && !(gimple_code (stmt) == GIMPLE_OMP_ATOMIC_LOAD
+	   || gimple_code (stmt) == GIMPLE_OMP_ATOMIC_STORE))
     {
-      for (omp_context *octx = ctx; octx != NULL; octx = octx->outer)
-	if (is_gimple_omp (octx->stmt)
-	    && is_gimple_omp_oacc (octx->stmt)
-	    /* Except for atomic codes that we share with OpenMP.  */
-	    && ! (gimple_code (stmt) == GIMPLE_OMP_ATOMIC_LOAD
-		  || gimple_code (stmt) == GIMPLE_OMP_ATOMIC_STORE))
-	  {
-	    error_at (gimple_location (stmt),
-		      "non-OpenACC construct inside of OpenACC region");
-	    return false;
-	  }
+      if (get_oacc_fn_attrib (cfun->decl) != NULL)
+	{
+	  error_at (gimple_location (stmt),
+		    "non-OpenACC construct inside of OpenACC routine");
+	  return false;
+	}
+      else
+	for (omp_context *octx = ctx; octx != NULL; octx = octx->outer)
+	  if (is_gimple_omp (octx->stmt)
+	      && is_gimple_omp_oacc (octx->stmt))
+	    {
+	      error_at (gimple_location (stmt),
+			"non-OpenACC construct inside of OpenACC region");
+	      return false;
+	    }
     }
 
   if (ctx != NULL)
@@ -3715,6 +3722,14 @@ check_omp_nesting_restrictions (gimple *stmt, omp_context *ctx)
 		      kind == OMP_CLAUSE_DEPEND_SOURCE ? "source" : "sink");
 	    return false;
 	  }
+      if (is_gimple_omp_offloaded (stmt)
+	  && get_oacc_fn_attrib (cfun->decl) != NULL)
+	{
+	  error_at (gimple_location (stmt),
+		    "OpenACC region inside of OpenACC routine, nested "
+		    "parallelism not supported yet");
+	  return false;
+	}
       for (; ctx != NULL; ctx = ctx->outer)
 	{
 	  if (gimple_code (ctx->stmt) != GIMPLE_OMP_TARGET)
@@ -16472,13 +16487,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		    x = build_fold_addr_expr_loc (clause_loc, x);
 		  }
 		else
-		  {
-		    tree atmp
-		      = builtin_decl_explicit (BUILT_IN_ALLOCA_WITH_ALIGN);
-		    tree rtype = TREE_TYPE (TREE_TYPE (new_var));
-		    tree al = size_int (TYPE_ALIGN (rtype));
-		    x = build_call_expr_loc (clause_loc, atmp, 2, x, al);
-		  }
+		  break;
 
 		x = fold_convert_loc (clause_loc, TREE_TYPE (new_var), x);
 		gimplify_expr (&x, &new_body, NULL, is_gimple_val, fb_rvalue);
@@ -16545,7 +16554,8 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  }
       /* Handle GOMP_MAP_FIRSTPRIVATE_{POINTER,REFERENCE} in second pass,
 	 so that firstprivate vars holding OMP_CLAUSE_SIZE if needed
-	 are already handled.  */
+	 are already handled.  Similarly OMP_CLAUSE_PRIVATE for VLAs
+	 or references to VLAs.  */
       for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
 	switch (OMP_CLAUSE_CODE (c))
 	  {
@@ -16686,6 +16696,27 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		gimplify_expr (&x, &new_body, NULL, is_gimple_val, fb_rvalue);
 		gimple_seq_add_stmt (&new_body,
 				     gimple_build_assign (new_pvar, x));
+	      }
+	    else if (is_reference (var) && !is_gimple_omp_oacc (ctx->stmt))
+	      {
+		location_t clause_loc = OMP_CLAUSE_LOCATION (c);
+		tree new_var = lookup_decl (var, ctx);
+		tree x = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (new_var)));
+		if (TREE_CONSTANT (x))
+		  break;
+		else
+		  {
+		    tree atmp
+		      = builtin_decl_explicit (BUILT_IN_ALLOCA_WITH_ALIGN);
+		    tree rtype = TREE_TYPE (TREE_TYPE (new_var));
+		    tree al = size_int (TYPE_ALIGN (rtype));
+		    x = build_call_expr_loc (clause_loc, atmp, 2, x, al);
+		  }
+
+		x = fold_convert_loc (clause_loc, TREE_TYPE (new_var), x);
+		gimplify_expr (&x, &new_body, NULL, is_gimple_val, fb_rvalue);
+		gimple_seq_add_stmt (&new_body,
+				     gimple_build_assign (new_var, x));
 	      }
 	    break;
 	  }

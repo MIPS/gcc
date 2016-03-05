@@ -1,3 +1,242 @@
+2016-03-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/70084
+	* g++.dg/expr/stdarg3.C: New test.
+
+2016-03-04  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/69196
+	* gcc.dg/tree-ssa/pr69196-1.c: Limit this to sparc*-*-* and
+	x86_64-*-*.
+
+2016-03-04  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR c/69973
+	* gcc.dg/pr69973.c: New test.
+
+	PR rtl-optimization/69941
+	* gcc.dg/torture/pr69941.c: New test.
+
+	PR c/69824
+	* gcc.dg/pr69824.c: New test.
+
+2016-03-05  Tom de Vries  <tom@codesourcery.com>
+
+	* c-c++-common/goacc/nesting-fail-1.c (f_acc_routine): New function.
+	* c-c++-common/goacc-gomp/nesting-fail-1.c (f_acc_routine): New
+	function.
+
+2016-03-05  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/66786
+	* g++.dg/cpp1y/var-templ48.C: New test.
+	* g++.dg/cpp1y/var-templ49.C: New test.
+
+2016-03-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* g++.dg/Wno-frame-address.C: Skip on IA-64.
+
+2016-03-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/70035
+	* g++.dg/ubsan/pr70035.C: New test.
+
+	PR target/70062
+	* gcc.target/i386/pr70062.c: New test.
+
+2016-03-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* g++.dg/template/typename21.C: Remove c++98_only.
+
+2016-03-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* g++.dg/template/typename21.C: Replace c++98 with c++98_only.
+
+2016-03-04  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/68187
+	* c-c++-common/Wmisleading-indentation.c (fn_42_a): New test
+	function.
+	(fn_42_b): Likewise.
+	(fn_42_c): Likewise.
+
+2016-03-04  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/68187
+	* c-c++-common/Wmisleading-indentation.c (fn_40_a): New test
+	function.
+	(fn_40_b): Likewise.
+	(fn_41_a): Likewise.
+	(fn_41_b): Likewise.
+
+2016-03-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/70059
+	* gcc.target/i386/avx512f-pr70059.c: New test.
+	* gcc.target/i386/avx512dq-pr70059.c: New test.
+
+2016-03-04  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR rtl-optimization/57676
+	* gcc.dg/torture/pr57676.c: New test.
+
+2016-03-04  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	* gcc.dg/pr70026.c: New test.
+
+2016-03-04  Marek Polacek  <polacek@redhat.com>
+
+	PR c/69798
+	* gcc.dg/cilk-plus/pr69798-1.c: New test.
+	* gcc.dg/cilk-plus/pr69798-2.c: New test.
+
+2016-03-04  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/70004
+	* gcc.target/aarch64/scalar_shift_1.c: (test_corners_sisd_di):
+	Delete.
+	(test_corners_sisd_si): Likewise.
+	(main): Remove checks of the above.
+	* gcc.target/aarch64/shift_wide_invalid_1.c: New test.
+
+2016-03-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/Wno-frame-address.c: Skip on IA-64.
+
+2016-03-04  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.dg/torture/pr69951.c: Accept argc==0.
+
+2016-03-04  Richard Biener  <rguenther@suse.de>
+
+	PR c++/70054
+	* g++.dg/warn/Wstrict-aliasing-bogus-union-2.C: New testcase.
+	* gcc.dg/Wstrict-aliasing-struct-member.c: New testcase.
+
+2016-03-04  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	PR testsuite/69766
+	* go.test/go-test.exp: S/390: Set GOARCH to the current target when
+	testing multiarch.
+
+2016-03-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/69947
+	* gcc.dg/guality/pr69947.c: New test.
+
+2016-03-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR ada/70017
+	* gcc.dg/pr70017.c (foo): Store 0 to first element of each array.
+
+2016-03-03  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/69904
+	* gcc.target/arm/pr69904.c: New test.
+
+2016-03-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/70021
+	* gcc.dg/vect/pr70021.c: New test.
+	* gcc.target/i386/pr70021.c: New test.
+
+2016-03-03  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/70050
+	* gcc.dg/pr70050.c: New test.
+
+2016-03-03  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.dg/vect/bb-slp-34.c: Don't XFAIL for ARM/AArch64.
+
+2016-03-03  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR tree-optimization/70043
+	* gfortran.dg/vect/pr70043.f90: New test.
+
+2016-03-03  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/task1.ads: New test.
+
+2016-03-03  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* lib/gcc-gdb-test.exp (gdb-test): Make log message match command.
+	Invoke gdb with -batch.
+	* lib/gcc-simulate-thread.exp (simulate-thread): Likewise.
+
+2016-03-03  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/55936
+	* gcc.dg/tree-ssa/vrp06.c: Remove XFAIL.
+
+2016-03-02  Jeff Law  <law@redhat.com>
+
+	PR rtl-optimization/69942
+	* gcc.dg/ifcvt-5.c: Use "word_mode" rather than "int" to limit the
+	effects of argument promotions.
+
+	PR tree-optimization/69987
+	* gfortran.dg/pr69987.f90: Use "-w" to avoid failures when the
+	target does not support -fprefetch-loop-arrays.
+
+2016-03-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/bmi2-bzhi-2.c: Change to runtime test.
+
+2016-03-02  Bin Cheng  <bin.cheng@arm.com>
+
+	PR rtl-optimization/69052
+	* gcc.target/i386/pr69052.c: New test.
+
+2016-03-02  Alan Modra  <amodra@gmail.com>
+
+	* gcc.dg/pr69990.c: New.
+
+2016-03-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/68062
+	* c-c++-common/vector-compare-4.c: Add -Wno-psabi to dg-options.
+
+	PR middle-end/70022
+	* gcc.dg/pr70022.c: Add -w -Wno-psabi to dg-options.
+
+	PR target/70028
+	* gcc.target/i386/pr70028.c: New test.
+
+2016-03-02  Maxim Kuvyrkov  <maxim.kuvyrkov@linaro.org>
+
+	* c-c++-common/asan/swapcontext-test-1.c,
+	* c-c++-common/tsan/thread_leak.c,
+	* g++.dg/tsan/aligned_vs_unaligned_race.C,
+	* g++.dg/tsan/benign_race.C,
+	* g++.dg/tsan/fd_close_norace.C,
+	* g++.dg/tsan/fd_close_norace2.C: Print markers to stderr to avoid
+	races with sanitizer output
+
+2016-03-02  Richard Biener  <rguenther@suse.de>
+	    Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/67278
+	* gcc.dg/simd-8.c: New testcase.
+
+2016-03-02  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/67278
+	* gcc.dg/simd-7.c: New testcase.
+
+2016-03-02  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/i386/pr70007.c: Tweak.
+
+2016-03-02  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* gfortran.dg/bessel_6.f90: Reduce accuracy for S/390.
+
+2016-03-02  Marek Polacek  <polacek@redhat.com>
+
+	PR c/67854
+	* gcc.dg/pr67854.c: New test.
+
 2016-03-02  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/70025
@@ -15,7 +254,7 @@
 2016-03-01  Jeff Law  <law@redhat.com>
 
 	PR tree-optimization/69196
-	* gcc.dg/tree-ssa/pr69196.c: New test.
+	* gcc.dg/tree-ssa/pr69196-1.c: New test.
 
 	PR tree-optimization/69196
 	* gcc.dg/tree-ssa/vrp46.c: Twiddle threading params to keep it from
@@ -136,7 +375,7 @@
 	PR fortran/47674
 	* gfortran.dg/realloc_on_assign_26.f90:  New test case.
 
-2016-02-28  Harald Anlauf <anlauf@gmx.de>
+2016-02-28  Harald Anlauf  <anlauf@gmx.de>
 	    Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR fortran/56007
@@ -2358,7 +2597,7 @@
 	PR tree-optimization/69170
 	* gcc.dg/torture/pr69170.c: New testcase.
 
-2016-01-17 John David Anglin  <danglin@gcc.gnu.org>
+2016-01-17  John David Anglin  <danglin@gcc.gnu.org>
 
 	* gcc.dg/torture/builtin-integral-1.c: Require c99_runtime.
 
@@ -2491,11 +2730,11 @@
 
 	* gcc.target/i386/pr65105-5.c: New test.
 
-2016-01-15  Jan Hubicka <hubicka@ucw.cz>
+2016-01-15  Jan Hubicka  <hubicka@ucw.cz>
 
 	* gcc.c-torture/execute/alias-4.c: New testcase.
 
-2016-01-15  Jan Hubicka <hubicka@ucw.cz>
+2016-01-15  Jan Hubicka  <hubicka@ucw.cz>
 
 	PR ipa/68148
 	* g++.dg/ipa/devirt-49.C: New testcase.

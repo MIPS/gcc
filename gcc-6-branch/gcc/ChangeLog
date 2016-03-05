@@ -1,3 +1,191 @@
+2016-03-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/70084
+	* tree-inline.c (copy_tree_body_r): When cancelling ADDR_EXPR
+	of INDIRECT_REF and ADDR_EXPR changed type, fold_convert it
+	to the right type.
+
+2016-03-04  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR c/69973
+	* targhooks.c (default_vector_alignment): Limit to MAX_OFILE_ALIGNMENT.
+
+	PR rtl-optimization/69941
+	* postreload.c (reload_combine_recognize_pattern): Ensure all uses of
+	the reg share its mode.
+
+2016-03-04  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/69196
+	* tree-ssa-threadbackward.c (fsm_find_control_statement_thread_paths):
+	If the both SSA_NAMEs are anonymous, then consider them unassociated
+	and include the PHI in the statement count.
+
+2016-03-05  Tom de Vries  <tom@codesourcery.com>
+
+	* omp-low.c (check_omp_nesting_restrictions): Check for non-oacc
+	construct in oacc routine.  Check for oacc region in oacc routine.
+
+2016-03-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/70062
+	* config/i386/i386.c (decide_alg): Add RECUR argument.  Revert
+	2016-02-22 changes, instead don't recurse if RECUR is already true.
+	Don't change *dynamic_check if RECUR.  Adjust recursive caller
+	to pass true to the new argument.
+	(ix86_expand_set_or_movmem): Adjust decide_alg caller.
+
+	PR target/70059
+	* config/i386/sse.md (vec_set_lo_<mode><mask_name>,
+	<extract_type_2>_vinsert<shuffletype><extract_suf_2>_mask): Formatting
+	fixes.
+	(vec_set_hi_<mode><mask_name>): Likewise.  Swap VEC_CONCAT operands.
+
+2016-03-04  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR rtl-optimization/57676
+	* lra-assigns.c (lra_assign): Guard test for maximum iterations
+	with flag_checking.
+
+2016-03-04  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	* tree-vect-patterns.c (search_type_for_mask): Handle
+	comparison of booleans.
+
+2016-03-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* doc/extend.texi (__builtin_alloca, __builtin_alloca_with_align):
+	Fix @xref usage.
+
+	PR debug/69947
+	* dwarf2out.c (prune_unused_types_walk_loc_descr): Handle
+	all other ops that have dw_val_class_die_ref operands,
+	and DW_OP_GNU_entry_value.
+
+2016-03-03  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/69904
+	* config/arm/arm.c (arm_cannot_copy_insn_p):
+	Return true for load-exclusive instructions.
+
+2016-03-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/70021
+	* tree-vect-stmts.c (vect_mark_relevant): Remove USED_IN_PATTERN
+	argument, if STMT_VINFO_IN_PATTERN_P (stmt_info), always mark
+	the pattern no matter if it is used just by non-pattern, pattern
+	or mix thereof.
+	(process_use, vect_mark_stmts_to_be_vectorized): Adjust callers.
+	* tree-vect-patterns.c (vect_recog_vector_vector_shift_pattern): If
+	oprnd1 def_stmt is in pattern, don't look through it.
+
+2016-03-03  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/70050
+	* match.pd (X % -Y): Add INTEGRAL_TYPE_P check.
+
+2016-03-03  Martin Liska  <mliska@suse.cz>
+
+	PR tree-optimization/70043
+	* tree-vect-loop.c (optimize_mask_stores): Move iterator to
+	previous statement if we see a debug statement.
+
+2016-03-03  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/55936
+	* tree-vrp.c (compare_name_with_value): Add use_equiv_p
+	parameter and guard unsafe equivalence use.
+	(vrp_evaluate_conditional_warnv_with_ops): Always use
+	safe equivalences but not via the quadratic compare_names
+	helper.
+
+2016-03-03  Michael Collison  <michael.collison@linaro.org>
+
+	PR target/70014
+	* config/arm/arm.md (*subsi3_carryin_const): Change predicate
+	for operand 1 to s_register_operand. Change predicate for operand
+	2 to arm_not_immediate_operand.
+
+2016-03-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* doc/tm.texi: Regenerated.
+
+2016-03-02  Richard Henderson  <rth@redhat.com>
+
+	PR rtl-opt/67145
+	* simplify-rtx.c (simplify_plus_minus): Allow reassoc without
+	simplification when all args are positive non-fixed registers.
+
+2016-03-02  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	* target.def (lra_p): Specify that new ports should use LRA.
+
+2016-03-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgomp/69555
+	* gimplify.c (gimplify_decl_expr): For decls with REFERENCE_TYPE, also
+	gimplify_type_sizes the type they refer to.
+	(omp_notice_variable): Handle reference vars to VLAs.
+	* omp-low.c (lower_omp_target): Emit setup of OMP_CLAUSE_PRIVATE reference
+	to VLA decls in the second pass instead of first pass.
+
+2016-03-02  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/68659
+	* graphite-isl-ast-to-gimple.c (collect_all_ssa_names): Handle
+	new_expr == NULL_TREE.
+	(get_new_name): Handle ADDR_EXPR.
+
+2016-03-02  Bin Cheng  <bin.cheng@arm.com>
+
+	PR rtl-optimization/69052
+	* loop-invariant.c (canonicalize_address): New function.
+	(inv_can_prop_to_addr_use): Check validity of address expression
+	which is canonicalized by above function.
+
+2016-03-02  Alan Modra  <amodra@gmail.com>
+
+	PR ipa/69990
+	* ipa-icf.c (sem_variable::merge): Do not merge an alias with
+	larger alignment.
+
+2016-03-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/70028
+	* config/i386/i386.md (kmovw): Move m constraint to 2nd alternative.
+	(*movhi_internal): Put mask moves from and to memory separately
+	from moves from/to GPRs.
+
+2016-03-02  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (dt_node::gen_kids): Fix match code-gen for embedded
+	GENERIC expressions in GIMPLE.
+
+2016-03-02  Richard Biener  <rguenther@suse.de>
+
+	* config/i386/i386.c (type_natural_mode): Fix typo.
+
+2016-03-02  Nick Clifton  <nickc@redhat.com>
+
+	* config.gcc (mep-*-elf): Add newlib-stdint.h to tm_file.
+
+2016-03-02  Richard Biener  <rguenther@suse.de>
+	Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/67278
+	* config/i386/i386.c (type_natural_mode): Handle XFmode vectors.
+
+2016-03-02  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/67278
+	* tree-cfg.c (verify_expr): Adjust BIT_FIELD_REF case.
+
+2016-03-02  Marek Polacek  <polacek@redhat.com>
+
+	PR c/67854
+	* gimplify.c (gimplify_va_arg_expr): Use expanded location for the
+	"is promoted to" warning.
+
 2016-03-01  DJ Delorie  <dj@redhat.com>
 
 	* config.gcc: Deprecate mep-*.
@@ -332,12 +520,12 @@
 	complain about -mallow-movmisalign without -mvsx if
 	TARGET_ALLOW_MOVMISALIGN was not set explicitly.
 
-2016-02-26  Joel Sherrill <joel@rtems.org>
+2016-02-26  Joel Sherrill  <joel@rtems.org>
 
 	* config.gcc: Add x86_64-*-rtems*.
 	* gcc/config/i386/rtems-64.h: New file.
 
-2016-02-26  Joel Sherrill <joel@rtems.org>
+2016-02-26  Joel Sherrill  <joel@rtems.org>
 
 	* config.gcc: Add aarch64-*-rtems*.
 	* gcc/config/aarch64/rtems.h: New file.
@@ -1673,7 +1861,7 @@
 	* lto-wrapper.c (append_diag_options): New function.
 	(compile_offload_image): Call append_diag_options.
 
-2016-02-08  Sandra Loosemore <sandra@codesourcery.com>
+2016-02-08  Sandra Loosemore  <sandra@codesourcery.com>
 
 	PR other/69722
 	* doc/extend.texi (Flag Output Operands): Correct sectioning.
@@ -3459,12 +3647,12 @@
 	(pdr_add_memory_accesses): Same.
 	(pdr_add_data_dimensions): Same.
 
-2016-01-20  Sandra Loosemore <sandra@codesourcery.com>
+2016-01-20  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* doc/invoke.texi (Instrumentation Options): Clarify -mmpx linking
 	requirements.
 
-2016-01-20  Sandra Loosemore <sandra@codesourcery.com>
+2016-01-20  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* common.opt (feliminate-dwarf2-dups): Replace references to
 	"DWARF 2" with just "DWARF".
@@ -3609,7 +3797,7 @@
 	(gen_typedef_die): Likewise.
 	(force_type_die): Adjust call to modified_type_die.
 
-2016-01-19  Sandra Loosemore <sandra@codesourcery.com>
+2016-01-19  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* doc/standards.texi: Copy-editing for grammar, markup, and sentence
 	flow throughout the file.  Fix broken link to Objective-C 2.0
@@ -3773,7 +3961,7 @@
 
 2016-01-19  Martin Jambor  <mjambor@suse.cz>
 	    Martin Liska  <mliska@suse.cz>
-	    Michael Matz <matz@suse.de>
+	    Michael Matz  <matz@suse.de>
 
 	* Makefile.in (OBJS): Add new source files.
 	(GTFILES): Add hsa.c.
@@ -3914,7 +4102,7 @@
 	* tree-ssanames.c (ssa_name_has_boolean_range): Remove unnecessary
 	test.
 
-2016-01-18  Sandra Loosemore <sandra@codesourcery.com>
+2016-01-18  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* doc/invoke.texi (Invoking GCC): Add new section to menu.
 	(Option Summary): Update to reflect new section and moved options.
@@ -4487,14 +4675,14 @@
 	use block_ultimate_origin
 	(noncall-stmt_may_be_vtbl_ptr_store): Likewise.
 
-2016-01-13  Sandra Loosemore <sandra@codesourcery.com>
+2016-01-13  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* doc/invoke.texi (Submodel Options): Rename section to
 	"Machine-Dependent Options" to better reflect its content.
 	Rewrite introductory text to remove archaic CPU names.
 	Update references.
 
-2016-01-13  Sandra Loosemore <sandra@codesourcery.com>
+2016-01-13  Sandra Loosemore  <sandra@codesourcery.com>
 
 	* doc/invoke.texi (Code Gen Options): Move section up in file,
 	before target-specific options.  Update menu and option summary
