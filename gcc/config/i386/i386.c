@@ -12872,8 +12872,15 @@ ix86_finalize_stack_realign_flags (void)
   /* If the only reason for frame_pointer_needed is that we conservatively
      assumed stack realignment might be needed, but in the end nothing that
      needed the stack alignment had been spilled, clear frame_pointer_needed
-     and say we don't need stack realignment.  */
-  if (stack_realign
+     and say we don't need stack realignment.
+
+     When vector register is used for piecewise move and store, we don't
+     increase stack_alignment_needed as there is no register spill for
+     piecewise move and store.  Since stack_realign_needed is set to true
+     by checking stack_alignment_estimated which is updated by pseudo
+     vector register usage, we also need to check stack_realign_needed to
+     eliminate frame pointer.  */
+  if ((stack_realign || crtl->stack_realign_needed)
       && frame_pointer_needed
       && crtl->is_leaf
       && flag_omit_frame_pointer
@@ -14780,7 +14787,13 @@ ix86_legitimate_constant_p (machine_mode mode, rtx x)
 	  /* FALLTHRU */
 	case OImode:
 	case XImode:
-	  if (!standard_sse_constant_p (x, mode))
+	  if (!standard_sse_constant_p (x, mode)
+	      && GET_MODE_SIZE (TARGET_AVX512F
+				? XImode
+				: (TARGET_AVX
+				   ? OImode
+				   : (TARGET_SSE2
+				      ? TImode : DImode))) < GET_MODE_SIZE (mode))
 	    return false;
 	default:
 	  break;
