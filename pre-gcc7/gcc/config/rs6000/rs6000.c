@@ -6245,6 +6245,10 @@ easy_p9_constant (rtx op, machine_mode mode, bool xxspltib_only)
   if (!IN_RANGE (value, -128, 127))
     return false;
 
+  /* If could generate vspltisw instead of xxspltib/vecsb2w, do so.  */
+  if (mode == V4SImode && EASY_VECTOR_15 (value))
+    return false;
+
   for (i = 1; i < nunits; i++)
     {
       element = CONST_VECTOR_ELT (op, i);
