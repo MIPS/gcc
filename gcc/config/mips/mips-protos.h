@@ -190,6 +190,7 @@ enum mips_split_type {
   SPLIT_FOR_SIZE
 };
 
+const char * mips_print_ldst (rtx, const char *);
 bool mips_call_may_need_jalx_p (tree);
 extern bool mips_symbolic_constant_p (rtx, enum mips_symbol_context,
 				      enum mips_symbol_type *);

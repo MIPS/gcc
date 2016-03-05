@@ -570,3 +570,6 @@ Target Undocumented Var(TARGET_MIPS16_FLEX_OP2) Init (0)
 
 mmips16-rotr
 Target Undocumented Var(TARGET_MIPS16_ROTR) Init (0)
+
+mmips16-scaled-indexed-ldst
+Target Undocumented Var(TARGET_MIPS16_SCALED_INDEXED_LDST) Init (0)

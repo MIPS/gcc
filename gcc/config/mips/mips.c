@@ -202,12 +202,16 @@ static int *consumer_luid = NULL;
        A signed 16-bit constant address.
 
    ADDRESS_SYMBOLIC:
-       A constant symbolic address.  */
+       A constant symbolic address.
+
+   ADDRESS_REG_PLUS_SHIFTED_REG
+       A register + register (optionally shifted) */
 enum mips_address_type {
   ADDRESS_REG,
   ADDRESS_LO_SUM,
   ADDRESS_CONST_INT,
-  ADDRESS_SYMBOLIC
+  ADDRESS_SYMBOLIC,
+  ADDRESS_REG_PLUS_SHIFTED_REG
 };
 
 /* Macros to create an enumeration identifier for a function prototype.  */
@@ -3317,9 +3321,33 @@ mips_classify_address (struct mips_address_info *info, rtx x,
       return mips_valid_base_register_p (info->reg, mode, strict_p);
 
     case PLUS:
-      info->type = ADDRESS_REG;
       info->reg = XEXP (x, 0);
       info->offset = XEXP (x, 1);
+      if (TARGET_MIPS16 && TARGET_MIPS16_SCALED_INDEXED_LDST
+	  && INTEGRAL_MODE_P (mode) && GET_MODE_SIZE (mode) < 8
+	  && GET_CODE (info->reg) == MULT && GET_CODE (info->offset) == REG)
+	{
+	  info->reg = XEXP (x, 1);
+	  info->offset = XEXP (x, 0);
+	  info->type = ADDRESS_REG_PLUS_SHIFTED_REG;
+	  rtx temp1 = XEXP (info->offset, 0);
+	  rtx temp2 = XEXP (info->offset, 1);
+	  if (GET_CODE (temp1) == REG && GET_CODE (temp2) == CONST_INT
+	      && IN_RANGE (exact_log2 (INTVAL (temp2)), 0, 3))
+	    return (mips_valid_base_register_p (temp1, mode, strict_p)
+		    && mips_valid_base_register_p (info->reg, mode, strict_p));
+	}
+      if (TARGET_MIPS16 && TARGET_MIPS16_SCALED_INDEXED_LDST
+	  && INTEGRAL_MODE_P (mode) && GET_MODE_SIZE (mode) < 8
+	  && GET_CODE (info->reg) == REG && GET_CODE (info->offset) == REG)
+	{
+	  info->reg = XEXP (x, 1);
+	  info->offset = XEXP (x, 0);
+	  info->type = ADDRESS_REG_PLUS_SHIFTED_REG;
+	  return (mips_valid_base_register_p (info->offset, mode, strict_p)
+		  && mips_valid_base_register_p (info->reg, mode, strict_p));
+	}
+      info->type = ADDRESS_REG;
       return (mips_valid_base_register_p (info->reg, mode, strict_p)
 	      && mips_valid_offset_p (info->offset, mode));
 
@@ -3506,6 +3534,9 @@ mips_address_insns (rtx x, machine_mode mode, bool might_split_p)
 
       case ADDRESS_SYMBOLIC:
 	return msa_p ? 0 : factor * mips_symbol_insns (addr.symbol_type, mode);
+
+      case ADDRESS_REG_PLUS_SHIFTED_REG:
+	return 1;
       }
   return 0;
 }
@@ -3553,9 +3584,20 @@ m16_based_address_p (rtx x, machine_mode mode,
   struct mips_address_info addr;
 
   return (mips_classify_address (&addr, x, mode, false)
-	  && addr.type == ADDRESS_REG
-	  && M16_REG_P (REGNO (addr.reg))
-	  && offset_predicate (addr.offset, mode));
+	  && ((addr.type == ADDRESS_REG
+	       && M16_REG_P (REGNO (addr.reg))
+	       && offset_predicate (addr.offset, mode))
+	       || (TARGET_MIPS16 && TARGET_MIPS16_SCALED_INDEXED_LDST
+		   && INTEGRAL_MODE_P (mode) && GET_MODE_SIZE (mode) < 8
+		   && addr.type == ADDRESS_REG_PLUS_SHIFTED_REG
+		   && M16_REG_P (REGNO (addr.reg))
+		   && ((GET_CODE (addr.offset) == MULT
+			&& GET_CODE (XEXP (addr.offset, 0)) == REG
+			&& M16_REG_P (REGNO (XEXP (addr.offset, 0)))
+			&& GET_CODE (XEXP (addr.offset, 1)) == CONST_INT
+			&& IN_RANGE (INTVAL (XEXP (addr.offset, 1)), 0, 3))
+		       || (GET_CODE (addr.offset) == REG
+			   && M16_REG_P (REGNO (addr.offset)))))));
 }
 
 /* Return true if X is a legitimate address that conforms to the requirements
@@ -5842,6 +5884,20 @@ mips_constant_pool_symbol_in_sdata (rtx x, enum mips_symbol_context context)
 }
 
 const char *
+mips_print_ldst (rtx op, const char *a)
+{
+  struct mips_address_info addr;
+  if (mips_classify_address (&addr, op, GET_MODE (op), true)
+      && addr.type == ADDRESS_REG_PLUS_SHIFTED_REG)
+    {
+      char *s = (char *) xmalloc (strlen (a) + 12);
+      sprintf (s, "nop; nop; # ");
+      return strcat (s, a);
+    }
+  return a;
+}
+
+const char *
 mips_output_move (rtx insn, rtx dest, rtx src)
 {
   enum rtx_code dest_code = GET_CODE (dest);
@@ -5917,14 +5973,16 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	    }
 	}
       if (dest_code == MEM)
-	switch (GET_MODE_SIZE (mode))
-	  {
-	  case 1: return "sb\t%z1,%0";
-	  case 2: return "sh\t%z1,%0";
-	  case 4: return "sw\t%z1,%0";
-	  case 8: return "sd\t%z1,%0";
-	  default: gcc_unreachable ();
-	  }
+	{
+	  switch (GET_MODE_SIZE (mode))
+	    {
+	    case 1: return mips_print_ldst (XEXP (dest, 0), "sb\t%z1,%0");
+	    case 2: return mips_print_ldst (XEXP (dest, 0), "sh\t%z1,%0");
+	    case 4: return mips_print_ldst (XEXP (dest, 0), "sw\t%z1,%0");
+	    case 8: return mips_print_ldst (XEXP (dest, 0), "sd\t%z1,%0");
+	    default: gcc_unreachable ();
+	    }
+	}
     }
   if (dest_code == REG && GP_REG_P (REGNO (dest)))
     {
@@ -5986,10 +6044,10 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	  else
 	    switch (GET_MODE_SIZE (mode))
 	      {
-	      case 1: return "lbu\t%0,%1";
-	      case 2: return "lhu\t%0,%1";
-	      case 4: return "lw\t%0,%1";
-	      case 8: return "ld\t%0,%1";
+	      case 1: return mips_print_ldst (XEXP (src, 0), "lbu\t%0,%1");
+	      case 2: return mips_print_ldst (XEXP (src, 0), "lhu\t%0,%1");
+	      case 4: return mips_print_ldst (XEXP (src, 0), "lw\t%0,%1");
+	      case 8: return mips_print_ldst (XEXP (src, 0), "ld\t%0,%1");
 	      default: gcc_unreachable ();
 	      }
 	}
@@ -10536,6 +10594,21 @@ mips_print_operand_address (FILE *file, rtx x)
 
       case ADDRESS_SYMBOLIC:
 	output_addr_const (file, mips_strip_unspec_address (x));
+	return;
+
+      case ADDRESS_REG_PLUS_SHIFTED_REG:
+	/* index reg */
+	if (GET_CODE (addr.offset) == REG)
+	  fprintf (file, "%s", reg_names[REGNO (addr.offset)]);
+	/* index + shift */
+	else
+	  {
+	    gcc_assert (GET_CODE (addr.offset) == MULT);
+	    fprintf (file, "%s<<", reg_names[REGNO (XEXP (addr.offset, 0))]);
+	    mips_print_operand (file, XEXP (addr.offset, 1), 'y');
+	  }
+	/* base */
+	fprintf (file, "(%s)", reg_names[REGNO (addr.reg)]);
 	return;
       }
   gcc_unreachable ();

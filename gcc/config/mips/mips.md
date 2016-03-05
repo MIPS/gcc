@@ -3246,13 +3246,13 @@
     {
     case 0:
       operands[1] = gen_lowpart (QImode, operands[1]);
-      return "lbu\t%0,%1";
+      return mips_print_ldst (XEXP (operands[1], 0), "lbu\t%0,%1");
     case 1:
       operands[1] = gen_lowpart (HImode, operands[1]);
-      return "lhu\t%0,%1";
+      return mips_print_ldst (XEXP (operands[1], 0), "lhu\t%0,%1");
     case 2:
       operands[1] = gen_lowpart (SImode, operands[1]);
-      return "lwu\t%0,%1";
+      return mips_print_ldst (XEXP (operands[1], 0), "lwu\t%0,%1");
     case 3:
       return "#";
     case 4:
@@ -3551,7 +3551,15 @@
   [(set (match_operand:GPR 0 "register_operand" "=d")
         (zero_extend:GPR (match_operand:SHORT 1 "memory_operand" "m")))]
   "TARGET_MIPS16"
-  "l<SHORT:size>u\t%0,%1"
+{
+  switch (which_alternative)
+    {
+    case 0:
+      return mips_print_ldst (XEXP (operands[1], 0), "l<SHORT:size>u\t%0,%1");
+    default:
+      gcc_unreachable ();
+    }
+}
   [(set_attr "move_type" "load")
    (set_attr "mode" "<GPR:MODE>")])
 
@@ -3582,7 +3590,15 @@
   [(set (match_operand:HI 0 "register_operand" "=d")
         (zero_extend:HI (match_operand:QI 1 "memory_operand" "m")))]
   "TARGET_MIPS16"
-  "lbu\t%0,%1"
+{
+  switch (which_alternative)
+    {
+    case 0:
+      return mips_print_ldst (XEXP (operands[1], 0), "lbu\t%0,%1");
+    default:
+      gcc_unreachable ();
+    }
+}
   [(set_attr "move_type" "load")
    (set_attr "mode" "HI")])
 
@@ -3658,9 +3674,17 @@
   [(set (match_operand:GPR 0 "register_operand" "=d,d")
         (sign_extend:GPR (match_operand:SHORT 1 "nonimmediate_operand" "0,m")))]
   "GENERATE_MIPS16E"
-  "@
-   se<SHORT:size>\t%0
-   l<SHORT:size>\t%0,%1"
+{
+  switch (which_alternative)
+    {
+    case 0:
+      return "se<SHORT:size>\t%0";
+    case 1:
+      return mips_print_ldst (XEXP (operands[1], 0), "l<SHORT:size>\t%0,%1");
+    default:
+      gcc_unreachable ();
+    }
+}
   [(set_attr "move_type" "signext,load")
    (set_attr "mode" "<GPR:MODE>")])
 
@@ -3703,9 +3727,17 @@
   [(set (match_operand:HI 0 "register_operand" "=d,d")
         (sign_extend:HI (match_operand:QI 1 "nonimmediate_operand" "0,m")))]
   "GENERATE_MIPS16E"
-  "@
-   seb\t%0
-   lb\t%0,%1"
+{
+  switch (which_alternative)
+    {
+    case 0:
+      return "seb\t%0";
+    case 1:
+      return mips_print_ldst (XEXP (operands[1], 0), "lb\t%0,%1");
+    default:
+      gcc_unreachable ();
+    }
+}
   [(set_attr "move_type" "signext,load")
    (set_attr "mode" "SI")])
 
