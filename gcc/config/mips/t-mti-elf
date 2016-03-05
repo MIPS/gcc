@@ -45,8 +45,8 @@ MULTILIB_EXCEPTIONS += *mmicromips/mabi=64*
 MULTILIB_EXCEPTIONS += *msoft-float*/*mnan=2008*
 
 # Cutbacks for released build
-MULTILIB_EXCEPTIONS += *mips64*/*mnan=2008*
-MULTILIB_EXCEPTIONS += *micromips/EL
-MULTILIB_EXCEPTIONS += *micromips/msoft-float
-MULTILIB_EXCEPTIONS += *micromips/mnan=2008*
-MULTILIB_EXCEPTIONS += *micromips
+MULTILIB_EXCEPTIONS += *mips64*
+MULTILIB_EXCEPTIONS += *micromips*/*EL*
+MULTILIB_EXCEPTIONS += *micromips*/*msoft-float*
+MULTILIB_EXCEPTIONS += *micromips*/*mnan=2008*
+MULTILIB_EXCEPTIONS += *micromips*
