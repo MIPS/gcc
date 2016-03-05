@@ -1124,7 +1124,9 @@ struct mips_cpu_info {
 				  || TARGET_MIPS5500			\
 				  || TARGET_SR71K			\
 				  || TARGET_SMARTMIPS)			\
-				 && !TARGET_MIPS16)
+				 && (!TARGET_MIPS16			\
+				     || (TARGET_MIPS16			\
+					 && TARGET_MIPS16_ROTR)))
 
 /* ISA has the WSBH (word swap bytes within halfwords) instruction.
    64-bit targets also provide DSBH and DSHD.  */

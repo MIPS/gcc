@@ -6027,7 +6027,7 @@
     gcc_assert (INTVAL (operands[2]) >= 0
 		&& INTVAL (operands[2]) < GET_MODE_BITSIZE (<MODE>mode));
 
-  return "<d>ror\t%0,%1,%2";
+  return "nop; nop; # <d>ror\t%0,%1,%2";
 }
   [(set_attr "type" "shift")
    (set_attr "mode" "<MODE>")])
