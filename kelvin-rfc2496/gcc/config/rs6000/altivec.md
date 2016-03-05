@@ -58,6 +58,7 @@
    UNSPEC_VSUM2SWS
    UNSPEC_VSUMSWS
    UNSPEC_VPERM
+   UNSPEC_VPERMR
    UNSPEC_VPERM_UNS
    UNSPEC_VRFIN
    UNSPEC_VCFUX
@@ -1962,6 +1963,20 @@
   [(set_attr "type" "vecperm")
    (set_attr "length" "4,4,8")])
 
+(define_insn "*altivec_vpermr_<mode>_internal"
+  [(set (match_operand:VM 0 "register_operand" "=v,?wo,?&wo")
+	(unspec:VM [(match_operand:VM 1 "register_operand" "v,0,wo")
+		    (match_operand:VM 2 "register_operand" "v,wo,wo")
+		    (match_operand:V16QI 3 "register_operand" "v,wo,wo")]
+		   UNSPEC_VPERMR))]
+  "TARGET_P9_VECTOR"
+  "@
+   vpermr %0,%1,%2,%3
+   xxpermr %x0,%x2,%x3
+   xxlor %x0,%x1,%x1\t\t# xxpermr fusion\;xxpermr %x0,%x2,%x3"
+  [(set_attr "type" "vecperm")
+   (set_attr "length" "4,4,8")])
+
 (define_insn "altivec_vperm_v8hiv16qi"
   [(set (match_operand:V16QI 0 "register_operand" "=v,?wo,?&wo")
 	(unspec:V16QI [(match_operand:V8HI 1 "register_operand" "v,0,wo")
@@ -2817,7 +2832,6 @@
    xxlor %x0,%x1,%x1\t\t# xxperm fusion\;xxperm %x0,%x2,%x3"
   [(set_attr "type" "vecperm")
    (set_attr "length" "4,4,8")])
-
 
 (define_expand "vec_unpacku_hi_v16qi"
   [(set (match_operand:V8HI 0 "register_operand" "=v")
