@@ -847,3 +847,21 @@
 (define_predicate "reg_or_vector_same_bituimm6_operand"
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "const_vector_same_uimm6_operand")))
+
+;; True for operators that can be combined with a shift in ARM state.
+(define_special_predicate "shiftable_operator"
+  (and (match_code "plus,minus,ior,xor,and")
+       (match_test "mode == GET_MODE (op)")))
+
+(define_special_predicate "shift_operator"
+  (and (ior (ior (and (match_code "mult")
+		      (match_test "REG_P (XEXP (op, 0))")
+		      (match_test "CONST_INT_P (XEXP (op, 1))")
+		      (match_test "0&&IN_RANGE (exact_log2 (INTVAL (XEXP (op, 1))), 0, 32)"))
+		 (and (match_code "rotate")
+		      (match_test "CONST_INT_P (XEXP (op, 1))
+				   && ((unsigned HOST_WIDE_INT) INTVAL (XEXP (op, 1))) < 32")))
+	    (and (match_code "ashift,ashiftrt,lshiftrt,rotatert")
+		 (match_test "!CONST_INT_P (XEXP (op, 1))
+			      || ((unsigned HOST_WIDE_INT) INTVAL (XEXP (op, 1))) < 32")))
+       (match_test "mode == GET_MODE (op)")))

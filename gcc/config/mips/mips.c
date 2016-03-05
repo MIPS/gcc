@@ -10058,6 +10058,153 @@ mips_print_operand_punct_valid_p (unsigned char code)
   return mips_print_operand_punct[code];
 }
 
+static const char *
+arm_shift_nmem(enum rtx_code code)
+{
+  switch (code)
+    {
+    case ASHIFT:
+      return "lsl";
+
+    case ASHIFTRT:
+      return "asr";
+
+    case LSHIFTRT:
+      return "lsr";
+
+    case ROTATERT:
+      return "ror";
+
+    default:
+      abort();
+    }
+}
+const char *
+arithmetic_instr (rtx op, int shift_first_arg)
+{
+  switch (GET_CODE (op))
+    {
+    case PLUS:
+      return "add";
+
+    case MINUS:
+      return "sub";
+
+    case IOR:
+      return "or";
+
+    case XOR:
+      return "xor";
+
+    case AND:
+      return "and";
+
+    case ASHIFT:
+    case ASHIFTRT:
+    case LSHIFTRT:
+    case ROTATERT:
+      return arm_shift_nmem(GET_CODE(op));
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
+/* Ensure valid constant shifts and return the appropriate shift mnemonic
+   for the operation code.  The returned result should not be overwritten.
+   OP is the rtx code of the shift.
+   On exit, *AMOUNTP will be -1 if the shift is by a register, or a constant
+   shift.  */
+static const char *
+shift_op (rtx op, HOST_WIDE_INT *amountp)
+{
+  const char * mnem;
+  enum rtx_code code = GET_CODE (op);
+
+  switch (code)
+    {
+    case ROTATE:
+      if (!CONST_INT_P (XEXP (op, 1)))
+	{
+	  output_operand_lossage ("invalid shift operand");
+	  return NULL;
+	}
+
+      code = ROTATERT;
+      *amountp = 32 - INTVAL (XEXP (op, 1));
+      mnem = "ror";
+      break;
+
+    case ASHIFT:
+    case ASHIFTRT:
+    case LSHIFTRT:
+    case ROTATERT:
+      mnem = arm_shift_nmem(code);
+      if (CONST_INT_P (XEXP (op, 1)))
+	{
+	  *amountp = INTVAL (XEXP (op, 1));
+	}
+      else if (REG_P (XEXP (op, 1)))
+	{
+	  *amountp = -1;
+	  return mnem;
+	}
+      else
+	{
+	  output_operand_lossage ("invalid shift operand");
+	  return NULL;
+	}
+      break;
+
+    case MULT:
+      /* We never have to worry about the amount being other than a
+	 power of 2, since this case can never be reloaded from a reg.  */
+      if (!CONST_INT_P (XEXP (op, 1)))
+	{
+	  output_operand_lossage ("invalid shift operand");
+	  return NULL;
+	}
+
+      *amountp = INTVAL (XEXP (op, 1)) & 0xFFFFFFFF;
+
+      /* Amount must be a power of two.  */
+      if (*amountp & (*amountp - 1))
+	{
+	  output_operand_lossage ("invalid shift operand");
+	  return NULL;
+	}
+
+      *amountp = exact_log2 (*amountp);
+      return "lsl";
+
+    default:
+      output_operand_lossage ("invalid shift operand");
+      return NULL;
+    }
+
+  /* This is not 100% correct, but follows from the desire to merge
+     multiplication by a power of 2 with the recognizer for a
+     shift.  >=32 is not a valid shift for "lsl", so we must try and
+     output a shift that produces the correct arithmetical result.
+     Using lsr #32 is identical except for the fact that the carry bit
+     is not set correctly if we set the flags; but we never use the
+     carry bit from such an operation, so we can ignore that.  */
+  if (code == ROTATERT)
+    /* Rotate is just modulo 32.  */
+    *amountp &= 31;
+  else if (*amountp != (*amountp & 31))
+    {
+      if (code == ASHIFT)
+	mnem = "lsr";
+      *amountp = 32;
+    }
+
+  /* Shifts of 0 are no-ops.  */
+  if (*amountp == 0)
+    return NULL;
+
+  return mnem;
+}
 /* Implement TARGET_PRINT_OPERAND.  The MIPS-specific operand codes are:
 
    'E'  Print CONST_INT_OP element 0 of a replicated CONST_VECTOR in decimal.
@@ -10290,6 +10437,28 @@ mips_print_operand (FILE *file, rtx op, int letter)
 	  output_operand_lossage ("invalid use of '%%%c'", letter);
 	}
       break;
+
+    case 'i':
+      fprintf (file, "%s", arithmetic_instr (op, 1));
+      return;
+
+    case 'S':
+      {
+	HOST_WIDE_INT val;
+	const char *shift;
+
+	shift = shift_op (op, &val);
+
+	if (shift)
+	  {
+	    fprintf (file, ", %s ", shift);
+	    if (val == -1)
+	      mips_print_operand (file, XEXP (op, 1), 0);
+	    else
+	      fprintf (file, "#" HOST_WIDE_INT_PRINT_DEC, val);
+	  }
+      }
+      return;
 
     default:
       switch (code)

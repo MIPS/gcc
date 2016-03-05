@@ -5826,6 +5826,17 @@
     DONE;
   FAIL;
 })
+
+(define_insn "*arith_shiftsi"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(match_operator:SI 1 "shiftable_operator"
+	  [(match_operator:SI 3 "shift_operator"
+	     [(match_operand:SI 4 "register_operand" "d")
+	      (match_operand:SI 5 "const_uns_arith_operand" "ZM")])
+	   (match_operand:SI 2 "register_operand" "d")]))]
+  "TARGET_MIPS16_FLEX_OP2"
+  "nop; nop; # %i1\\t%0, %2, %4%S3"
+  [(set_attr "extended_mips16" "yes")])
 
 ;;
 ;;  ....................

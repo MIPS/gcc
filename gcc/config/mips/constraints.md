@@ -443,3 +443,8 @@
    A MIPS16e2 memory operand for use with the ULW/USW insn."
   (and (match_code "mem")
        (match_operand 0 "ulw_usw_operand")))
+
+(define_constraint "ZM"
+ "Flexi op2. ASR 1<=n<=32, LSL 0<=n<=31, LSR 1<=n<=32 ROR 1<=n<=31"
+ (and (match_code "const_int")
+      (match_test "ival >= 0 && ival <= 32")))
