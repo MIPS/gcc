@@ -781,7 +781,7 @@
   return rs6000_output_move_128bit (operands);
 }
   [(set_attr "type"   "vecstore,vecstore,vecload,vecload,vecsimple,mftgpr,mffgpr,store,load,*,vecsimple,vecsimple,*,vecsimple,vecsimple,vecstore,vecload")
-   (set_attr "length" "4,        4,      4,      4,      4,        8,     4,     8,    8,   8,4,        4,        8,8,        16,       4,       4")])
+   (set_attr "length" "4,        4,      4,      4,      4,        8,     4,     8,    8,   8,4,        4,        8,4,        16,       4,       4")])
 
 (define_insn "*vsx_mov<mode>_32bit"
   [(set (match_operand:VSX_M 0 "nonimmediate_operand" "=wOZ, wOZ,   <VSr>,?<VSa>,<VSa>,*$Y,*$r,*r,<VSr>,?<VSa>,*r, wa,v,wZ,v")
@@ -793,7 +793,7 @@
   return rs6000_output_move_128bit (operands);
 }
   [(set_attr "type"   "vecstore,vecstore,vecload,vecload,vecsimple,store,load,*, vecsimple,vecsimple,*, vecsimple,vecsimple,vecstore,vecload")
-   (set_attr "length" "4,        4,      4,      4,      4,        16,   16,  16,4,        4,        16,8,        16,       4,       4")])
+   (set_attr "length" "4,        4,      4,      4,      4,        16,   16,  16,4,        4,        16,4,        16,       4,       4")])
 
 ;; Unlike other VSX moves, allow the GPRs even for reloading, since a normal
 ;; use of TImode is for unions.  However for plain data movement, slightly
@@ -808,7 +808,7 @@
   return rs6000_output_move_128bit (operands);
 }
   [(set_attr "type"   "vecstore,vecstore,vecload,vecload,vecsimple,vecsimple,mffgpr,mftgpr,vecsimple,vecsimple,vecstore,vecload,store,load,store,load,*,*")
-   (set_attr "length" "4,       4,       4,      4,      4,        4,        8,     4,     8,        16,       4,       4,      8,    8,   8,    8,   8,8")])
+   (set_attr "length" "4,       4,       4,      4,      4,        4,        8,     4,     4,        16,       4,       4,      8,    8,   8,    8,   8,8")])
 
 (define_insn "*vsx_movti_32bit"
   [(set (match_operand:TI 0 "nonimmediate_operand" "=Z,wO,wa,wa,wa,wa,wa,v,v, wZ,Q,Y,????r,????r,????r,r")
@@ -869,7 +869,7 @@
 }
   [(set_attr "type"   "vecstore,vecstore,vecload,vecload,vecsimple,vecsimple,vecsimple,vecsimple,vecstore,vecload,store,store,load,load,*, *")
    (set_attr "update" "*,       *,       *,      *,      *,        *,        *,        *,        *,       *,      yes,  yes,  yes, yes, *, *")
-   (set_attr "length" "4,       4,       4,      4,      4,        4,        16,       16,       4,       4,      16,   16,   16,  16,  16,16")
+   (set_attr "length" "4,       4,       4,      4,      4,        4,        4,        16,       4,       4,      16,   16,   16,  16,  16,16")
    (set (attr "cell_micro") (if_then_else (match_test "TARGET_STRING")
    			                  (const_string "always")
 					  (const_string "conditional")))])
