@@ -76,6 +76,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify.h"
 #include "predict.h"
 #include "params.h"
+#include "expmed.h"
+#include "builtins.h"
 
 
 bool
@@ -2006,6 +2008,23 @@ default_max_noce_ifcvt_seq_cost (edge e)
     return PARAM_VALUE (param);
   else
     return BRANCH_COST (true, predictable_p) * COSTS_N_INSNS (3);
+}
+
+/* Default implementation of TARGET_GEN_MEMSET_VALUE.  */
+
+rtx
+default_gen_memset_value (rtx data, machine_mode mode)
+{
+  rtx target, coeff;
+  char *p;
+  size_t size = GET_MODE_SIZE (mode);
+  p = XALLOCAVEC (char, size);
+  memset (p, 1, size);
+  coeff = c_readstr (p, mode);
+
+  target = convert_to_mode (mode, (rtx) data, 1);
+  target = expand_mult (mode, target, coeff, NULL_RTX, 1);
+  return force_reg (mode, target);
 }
 
 #include "gt-targhooks.h"
