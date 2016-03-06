@@ -55314,6 +55314,41 @@ ix86_optab_supported_p (int op, machine_mode mode1, machine_mode,
     }
 }
 
+/* Implement the TARGET_GEN_MEMSET_VALUE hook.  */
+
+static rtx
+ix86_gen_memset_value (rtx data, machine_mode mode)
+{
+  if (GET_MODE_SIZE (mode) <= 8)
+    return default_gen_memset_value (data, mode);
+
+  if (GET_MODE_SIZE (mode) != 16)
+    gcc_unreachable ();
+
+  rtx one, target;
+  machine_mode one_mode;
+
+  if (TARGET_AVX2)
+    {
+      one_mode = QImode;
+      one = data;
+    }
+  else
+    {
+      one_mode = SImode;
+      one = default_gen_memset_value (data, one_mode);
+    }
+
+  machine_mode vector_mode
+    = mode_for_vector (one_mode,
+		       GET_MODE_SIZE (mode) / GET_MODE_SIZE (one_mode));
+  target = gen_reg_rtx (vector_mode);
+  if (ix86_vector_duplicate_value (vector_mode, target, one))
+    return convert_to_mode (mode, target, 1);
+  else
+    gcc_unreachable ();
+}
+
 /* Address space support.
 
    This is not "far pointers" in the 16-bit sense, but an easy way
@@ -55813,6 +55848,9 @@ ix86_addr_space_zero_address_valid (addr_space_t as)
 
 #undef TARGET_HARD_REGNO_SCRATCH_OK
 #define TARGET_HARD_REGNO_SCRATCH_OK ix86_hard_regno_scratch_ok
+
+#undef TARGET_GEN_MEMSET_VALUE
+#define TARGET_GEN_MEMSET_VALUE ix86_gen_memset_value
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
