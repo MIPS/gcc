@@ -1,4 +1,4 @@
-/* { dg-do compile { target { powerpc64le-*-* } } } */
+/* { dg-do compile { target { powerpc64*-*-* } } } */
 /* { dg-skip-if "do not override -mcpu" { powerpc*-*-* } { "-mcpu=*" } { "-mcpu=power9" } } */
 /* { dg-options "-mcpu=power9 -O2" } */
 
@@ -16,5 +16,6 @@ permute (vector long long *p, vector long long *q, vector unsigned char mask)
   return vec_perm (a, b, mask);
 }
 
+/* expect xxpermr on little-endian, xxperm on big-endian */
 /* { dg-final { scan-assembler	   "xxperm" } } */
 /* { dg-final { scan-assembler-not "vperm"  } } */
