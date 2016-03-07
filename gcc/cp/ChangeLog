@@ -1,3 +1,97 @@
+2016-03-05  Jason Merrill  <jason@redhat.com>
+
+	PR c++/67364
+	* constexpr.c (cxx_eval_store_expression): Replace
+	CONSTRUCTOR_ELTS in nested CONSTRUCTORs, too.
+
+2016-03-05  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/66786
+	* pt.c (template_class_depth): Given a lambda type, iterate
+	into its LAMBDA_TYPE_EXTRA_SCOPE field instead of its
+	TYPE_CONTEXT.  Given a VAR_DECL, iterate into its
+	CP_DECL_CONTEXT.
+
+2016-03-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/69203
+	* cp-tree.h (COND_EXPR_IS_VEC_DELETE): New.
+	* init.c (build_vec_delete_1): Set it.
+	* constexpr.c (potential_constant_expression_1) [COND_EXPR]: Check it.
+
+2016-03-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* decl.c (start_preparsed_function): Don't emit start clobber at the
+	start of constructor clones.
+
+	PR c++/70035
+	* cp-tree.h (cp_ubsan_maybe_initialize_vtbl_ptrs): New prototype.
+	* decl.c (start_preparsed_function): Call
+	cp_ubsan_maybe_initialize_vtbl_ptrs if needed.
+	* cp-ubsan.c (cp_ubsan_dfs_initialize_vtbl_ptrs,
+	cp_ubsan_maybe_initialize_vtbl_ptrs): New functions.
+
+2016-03-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/67364
+	* constexpr.c (cxx_eval_component_reference): Further tweak.
+
+	* constexpr.c (struct constexpr_ctx): Add save_exprs field.
+	(cxx_eval_loop_expr): Discard SAVE_EXPR values before looping.
+	(cxx_eval_constant_expression) [SAVE_EXPR]: Add it to the set.
+	(cxx_eval_outermost_constant_expr, is_sub_constant_expr): Initialize.
+
+	PR c++/70067
+	* tree.c (strip_typedefs): Handle TYPENAME_TYPE lookup finding the
+	same type.
+
+2016-03-03  Jason Merrill  <jason@redhat.com>
+
+	* method.c (synthesized_method_walk): operator= can also be constexpr.
+
+	* pt.c (tsubst_copy_and_build) [LAMBDA_EXPR]: Get
+	LAMBDA_EXPR_RETURN_TYPE from the instantiated closure.
+
+	PR c++/67164
+	* pt.c (copy_template_args): New.
+	(tsubst_pack_expansion): Use it.
+
+	* call.c (build_aggr_conv): Use get_nsdmi.
+
+	PR c++/51406
+	* typeck.c (build_static_cast_1): Avoid folding back to lvalue.
+
+	PR c++/67364
+	* constexpr.c (cxx_eval_component_reference): Just return an empty
+	CONSTRUCTOR for an empty class.
+
+2016-03-01  Jason Merrill  <jason@redhat.com>
+
+	PR c++/70036
+	* parser.c (cp_parser_requires_clause): Call
+	check_for_bare_parameter_packs.
+
+	PR c++/51489
+	* constexpr.c (cxx_eval_binary_expression): Don't VERIFY_CONSTANT
+	the operands.
+
+	PR c++/69995
+	* constexpr.c (cxx_eval_call_expression): Unshare arg.
+	(cxx_eval_constant_expression) [DECL_EXPR]: Unshare init.
+	[TARGET_EXPR]: Unshare init.
+
+2016-03-01  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/68948
+	PR c++/69961
+	* pt.c (tsubst_baselink): Reinstate the check for an invalid
+	constructor call.
+
+2016-02-28  Jason Merrill  <jason@redhat.com>
+
+	PR c++/69995
+	* constexpr.c (cxx_eval_store_expression): Unshare init.
+
 2016-02-26  Jason Merrill  <jason@redhat.com>
 
 	PR c++/69958

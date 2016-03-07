@@ -1465,10 +1465,7 @@ c_parser_translation_unit (c_parser *parser)
   tree decl;
   FOR_EACH_VEC_ELT (incomplete_record_decls, i, decl)
     if (DECL_SIZE (decl) == NULL_TREE && TREE_TYPE (decl) != error_mark_node)
-      {
-	error ("storage size of %q+D isn%'t known", decl);
-	TREE_TYPE (decl) = error_mark_node;
-      }
+      error ("storage size of %q+D isn%'t known", decl);
 }
 
 /* Parse an external declaration (C90 6.7, C99 6.9).
@@ -8275,8 +8272,8 @@ c_parser_postfix_expression (c_parser *parser)
 	    {
 	      error_at (loc, "-fcilkplus must be enabled to use "
 			"%<_Cilk_spawn%>");
-	      expr = c_parser_postfix_expression (parser);
-	      expr.value = error_mark_node;	      
+	      expr = c_parser_cast_expression (parser, NULL);
+	      expr.value = error_mark_node;
 	    }
 	  else if (c_parser_peek_token (parser)->keyword == RID_CILK_SPAWN)
 	    {
@@ -8285,14 +8282,14 @@ c_parser_postfix_expression (c_parser *parser)
 	      /* Now flush out all the _Cilk_spawns.  */
 	      while (c_parser_peek_token (parser)->keyword == RID_CILK_SPAWN)
 		c_parser_consume_token (parser);
-	      expr = c_parser_postfix_expression (parser);
+	      expr = c_parser_cast_expression (parser, NULL);
 	    }
 	  else
 	    {
-	      expr = c_parser_postfix_expression (parser);
+	      expr = c_parser_cast_expression (parser, NULL);
 	      expr.value = build_cilk_spawn (loc, expr.value);
 	    }
-	  break; 
+	  break;
 	default:
 	  c_parser_error (parser, "expected expression");
 	  expr.value = error_mark_node;
