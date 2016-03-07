@@ -20,51 +20,112 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_TTYPE_H
 
 
-/* Change the default for the type field in the ttype_field union.  */
-#undef TTYPE_FIELD
-#define TTYPE_FIELD  _type
 
-/* Redfine TREE_TYPE as an inline function to return a ttype * for various
-   types of parameters. */
+/* REdefine the TYPE_ accessor macros to be inloine functions which only
+   accept ttype * fields.  THis means tree is no longer an acceped parameter
+   for any TYPE_ field accesor.  */
+
+#undef tree_type_node
+#undef func_or_method_type_node
+#undef ptr_or_ref_type_node
+#undef record_or_union_type_node
+#undef not_record_or_union_type_node
+#undef numerical_type_node
+#undef aggregate_type_node
+#undef not_aggregate_type_node
+#undef any_integral_type_node
+#undef enumeral_type_node
+#undef array_type_node
+#undef offset_type_node
+#undef pointer_type_node
+#undef reference_type_node
+#undef vector_type_node
+
+
+inline struct tree_type&
+tree_type_node (ttype *t)
+{
+  return t->u.type_common;
+}
+inline const struct tree_type&
+tree_type_node (const ttype *t)
+{
+  return t->u.type_common;
+}
+
+#define TYPE_BASE(NAME, CHECK)		\
+inline struct tree_type&		\
+NAME (ttype *t)				\
+{					\
+  return CHECK(t)->u.type_common;	\
+}					\
+inline const struct tree_type&		\
+NAME (const ttype *t)			\
+{					\
+  return CHECK(t)->u.type_common;	\
+}
+
+TYPE_BASE (func_or_method_type_node, FUNC_OR_METHOD_CHECK)
+TYPE_BASE (ptr_or_ref_type_node,  PTR_OR_REF_CHECK)
+TYPE_BASE (record_or_union_type_node, RECORD_OR_UNION_CHECK)
+TYPE_BASE (not_record_or_union_type_node, NOT_RECORD_OR_UNION_CHECK)
+TYPE_BASE (numerical_type_node, NUMERICAL_TYPE_CHECK)
+TYPE_BASE (aggregate_type_node, AGGREGATE_TYPE_CHECK)
+TYPE_BASE (not_aggregate_type_node, NOT_AGGREGATE_TYPE_CHECK)
+TYPE_BASE (any_integral_type_node, ANY_INTEGRAL_TYPE_CHECK)
+TYPE_BASE (enumeral_type_node, ENUMERAL_TYPE_CHECK)
+TYPE_BASE (array_type_node, ARRAY_TYPE_CHECK)
+TYPE_BASE (offset_type_node, OFFSET_TYPE_CHECK)
+TYPE_BASE (pointer_type_node, POINTER_TYPE_CHECK)
+TYPE_BASE (reference_type_node, REFERENCE_TYPE_CHECK)
+TYPE_BASE (vector_type_node, VECTOR_TYPE_CHECK)
+
+
+
+/* Redefine any of the accessors which are expected to return ttype * rather
+   than a tree to use the ttype_ref temporary class which can work as either
+   an lvalue or an rvalue.  */
+
 #undef TREE_TYPE
-static inline ttype *
-TREE_TYPE (const_tree node) 
-{
-  return CONTAINS_STRUCT_CHECK (node, TS_TYPED)->u.typed.type._type;
-}
+#define TREE_TYPE(NODE) \
+  (ttype_ref (&(CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->u.typed.type)))
 
-static inline ttype *&
-TREE_TYPE (tree node) 
-{
-  return CONTAINS_STRUCT_CHECK (node, TS_TYPED)->u.typed.type._type;
-}
-
-static inline ttype *
-TREE_TYPE (const ttype *node)
-{
-  return node->u.typed.type._type;
-}
-static inline ttype *&
-TREE_TYPE (ttype *node)
-{
-  return node->u.typed.type._type;
-}
+#undef TYPE_CANONICAL
+#define TYPE_CANONICAL(NODE) (ttype_ref (&(tree_type_node (NODE).canonical)))
+#undef TYPE_MAIN_VARIANT
+#define TYPE_MAIN_VARIANT(NODE) (ttype_ref (&(tree_type_node (NODE).main_variant)))
+#undef TYPE_NEXT_VARIANT
+#define TYPE_NEXT_VARIANT(NODE) (ttype_ref (&(tree_type_node (NODE).next_variant)))
+#undef TYPE_POINTER_TO
+#define TYPE_POINTER_TO(NODE) (ttype_ref (&(tree_type_node (NODE).pointer_to)))
+#undef TYPE_NEXT_PTR_TO
+#define TYPE_NEXT_PTR_TO(NODE) (ttype_ref (&(pointer_type_node (NODE).minval)))
+#undef TYPE_REFERENCE_TO
+#define TYPE_REFERENCE_TO(NODE) (ttype_ref (&(tree_type_node (NODE).reference_to)))
+#undef TYPE_NEXT_REF_TO
+#define TYPE_NEXT_REF_TO(NODE) (ttype_ref (&(reference_type_node (NODE).minval)))
+#undef TYPE_DOMAIN
+#define TYPE_DOMAIN(NODE) (ttype_ref (&(array_type_node (NODE).values)))
+#undef TYPE_METHOD_BASETYPE
+#define TYPE_METHOD_BASETYPE(NODE) (ttype_ref (&(func_or_method_type_node (NODE).maxval)))
+#undef TYPE_OFFSET_BASETYPE
+#define TYPE_OFFSET_BASETYPE(NODE) (ttype_ref (&(offset_type_node (NODE).maxval)))
 
 
 /* DECL_CONTEXT can be either a tree or a ttype*, so add a checking flag and
    accessor.  */
 #define DECL_CONTEXT_TYPE_P(NODE) (TYPE_P (DECL_CONTEXT (NODE)))
-#define DECL_CONTEXT_TYPE(NODE) (TTYPE (DECL_CONTEXT (NODE)))
+#define DECL_CONTEXT_TYPE(NODE) (ttype_ref (&(DECL_CONTEXT (NODE))))
+
+
 
 /* Redefine DECL_ORIGINAL_TYPE to return a ttype *.  */
 #undef DECL_ORIGINAL_TYPE
 #define DECL_ORIGINAL_TYPE(NODE) \
-  TTYPE ((TYPE_DECL_CHECK (NODE)->u.decl_non_common.result))
+  (ttype_ref (&(TYPE_DECL_CHECK (NODE)->u.decl_non_common.result)))
 /* And provide a SET routine.  */
-static inline void
-SET_DECL_ORIGINAL_TYPE(tree node, ttype *val)
-{
-  TYPE_DECL_CHECK (node)->u.decl_non_common.result = val;
-}
+
+
+
 
 #endif 

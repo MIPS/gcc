@@ -1288,7 +1288,7 @@ get_int_cst_ext_nunits (ttype *type, const wide_int &cst)
 /* Return a new INTEGER_CST with value CST and type TYPE.  */
 
 static tree
-build_new_int_cst (ttype_p type, const wide_int &cst)
+build_new_int_cst (ttype *type, const wide_int &cst)
 {
   unsigned int len = cst.get_len ();
   unsigned int ext_len = get_int_cst_ext_nunits (type, cst);
@@ -4890,7 +4890,7 @@ build_type_attribute_qual_variant (ttype_p type, tree attribute, int quals)
 	{
 	  warning (OPT_Wattributes,
 		   "ignoring attributes applied to %qT after definition",
-		   TYPE_MAIN_VARIANT (type));
+		   TTYPE_CAST(TYPE_MAIN_VARIANT (type)));
 	  return build_qualified_type (type, quals);
 	}
 
@@ -8349,7 +8349,7 @@ build_array_type_1 (ttype *elt_type, ttype *index_type, bool shared)
 			    build_array_type_1 (TYPE_CANONICAL (elt_type),
 						index_type
 						  ? TYPE_CANONICAL (index_type)
-						  : NULL,
+						  : NULL_TYPE,
 						shared);
     }
 

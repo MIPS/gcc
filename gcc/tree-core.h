@@ -824,8 +824,6 @@ typedef tree (*walk_tree_fn) (tree *, int *, void *);
 typedef tree (*walk_tree_lh) (tree *, int *, tree (*) (tree *, int *, void *),
 			      void *, hash_set<tree> *);
 
-class ttype;
-
 /*---------------------------------------------------------------------------
                               Main data structures
 ---------------------------------------------------------------------------*/
@@ -1218,19 +1216,10 @@ struct GTY(()) tree_base {
            BIT_FIELD_REF, MEM_REF
 */
 
-/* This marks fields that can be types.  They are still accessed via the tree
-   field normally, but via the ttype field during conversion work.  Eventually
-   this will be replcaed with just ttype *.  */
-union GTY(()) ttype_field {
-  tree GTY((tag("0"))) _tree;
-  ttype * GTY((tag("1"))) _type;
-} GTY ((desc ("(0)")));
-
-#define TTYPE_FIELD  _tree
 
 struct GTY(()) tree_typed {
   struct tree_base base;
-  union ttype_field GTY ((desc ("(0)"))) type;
+  tree type;
 };
 
 struct GTY(()) tree_common {
@@ -1367,7 +1356,7 @@ struct GTY(()) tree_ssa_name {
     struct GTY ((tag ("0"))) ptr_info_def *ptr_info;
     /* Value range attributes used for zero/sign extension elimination.  */
     struct GTY ((tag ("1"))) range_info_def *range_info;
-  } GTY ((desc ("%1.typed.type._tree ?" \
+  } GTY ((desc ("%1.typed.type ?" \
 		"!POINTER_TYPE_P (TREE_TYPE ((tree)&%1)) : 2"))) info;
 
   /* Immediate uses list for this SSA_NAME.  */
@@ -1435,7 +1424,7 @@ struct GTY(()) tree_block {
 
 struct GTY(()) tree_type {
   struct tree_base base;
-  union ttype_field GTY ((desc ("(0)"))) type;  /* From struct tree_typed.  */
+  tree type;  /* From struct tree_typed.  */
   tree chain; /* From struct tree_common.  */
 
   tree size;
@@ -1463,23 +1452,23 @@ struct GTY(()) tree_type {
 
   unsigned int align;
   alias_set_type alias_set;
-  union ttype_field GTY ((desc ("(0)"))) pointer_to;
-  union ttype_field GTY ((desc ("(0)"))) reference_to;
+  tree pointer_to;
+  tree reference_to;
   union tree_type_symtab {
     int GTY ((tag ("TYPE_SYMTAB_IS_ADDRESS"))) address;
     const char * GTY ((tag ("TYPE_SYMTAB_IS_POINTER"))) pointer;
     struct die_struct * GTY ((tag ("TYPE_SYMTAB_IS_DIE"))) die;
   } GTY ((desc ("debug_hooks->tree_type_symtab_field"))) symtab;
-  union ttype_field GTY ((desc ("(0)"))) canonical;
-  union ttype_field GTY ((desc ("(0)"))) next_variant;
-  union ttype_field GTY ((desc ("(0)"))) main_variant;
+  tree canonical;
+  tree next_variant;
+  tree main_variant;
   tree context;
   tree name;
   /* Points to a structure whose details depend on the language in use.  */
   struct lang_type *lang_specific;
-  union ttype_field GTY ((desc ("(0)"))) values;
-  union ttype_field GTY ((desc ("(0)"))) minval;
-  union ttype_field GTY ((desc ("(0)"))) maxval;
+  tree values;
+  tree minval;
+  tree maxval;
   tree binfo;
 };
 

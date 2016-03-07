@@ -248,29 +248,9 @@ as_internal_fn (combined_fn code)
    #define error_type_node		global_types[TPI_ERROR_TYPE]  */
 #define error_type_node		   (reinterpret_cast<ttype *>(error_mark_node))
 
-static inline struct tree_base &
-TREE_BASE (tree t)
-{
-  return t->u.base;
-}
 
-static inline const struct tree_base &
-TREE_BASE (const_tree t)
-{
-  return t->u.base;
-}
 
-static inline struct tree_base &
-TREE_BASE (ttype *t)
-{
-  return t->u.base;
-}
-
-static inline const struct tree_base &
-TREE_BASE (const ttype *t)
-{
-  return t->u.base;
-}
+#define TREE_BASE(NODE) ((NODE)->u.base)
 
 /* The tree-code says what kind of node it is.
    Codes are defined in tree.def.  */
@@ -501,6 +481,19 @@ TTYPE (const_tree t)
 
 #endif
 
+class ttype_ref {
+  tree *type;
+public:
+  inline ttype_ref (tree *t) { type = t; }
+  inline ttype_ref (tree_node *const *t) { type = const_cast<tree *>(t); }
+  inline ttype_ref &operator= (ttype *t) { *type = t; return *this; }
+  inline ttype_ref &operator= (const ttype_ref &t) { *type = *(t.type); return *this; }
+  inline operator ttype *() const { return TTYPE (*type); }
+  inline ttype * operator->() { return TTYPE (*type); }
+  inline ttype * operator->() const { return TTYPE (*type); }
+  ttype ** operator &() { return reinterpret_cast<ttype **>(type); }
+
+};
 
 /* This is the interface class for incoming parameters to functions/methods
    so that all callers do not need to be ttype-ified all at once. This will
@@ -512,10 +505,14 @@ TTYPE (const_tree t)
 class ttype_p {
   ttype *type;
 public:
+  inline ttype_p () { type = NULL; }
   inline ttype_p (tree t) { type = TTYPE (t); }
   inline ttype_p (const_tree t) { type = const_cast<ttype *>(TTYPE (t)); }
   inline ttype_p (ttype *t) { type = t; }
+  inline ttype_p (const ttype_ref &t) { type = t; }
   inline ttype_p& operator= (ttype *t) { type = t; return *this; }
+  inline ttype_p& operator= (const ttype_ref &t) { type = t; return *this; }
+  inline ttype_p& operator= (const ttype_p &t) { type = t.type; return *this; }
   inline operator ttype *() const { return type; }
   ttype_p * operator &() const __attribute__((error("Don't take address of ttype_p ")));
   inline ttype * operator->() { return type; }
@@ -545,7 +542,7 @@ const ttype *
 TTYPE (const ttype *t) 
     __attribute__((error(" Fix use of TTYPE(const ttype *)")));
 
-/* These exist because there are cases where ttype_p is used as a parameter, 
+/* This exist because there are cases where ttype_p is used as a parameter, 
    then used in a condition with types:   cond ? ttype * : ttype_p  .
    The cast cant be autromcatically done by the compiler, we
    allow TTYPE to work with ttype_p.  When they are changed to ttype *, they
@@ -558,19 +555,20 @@ TTYPE (const ttype_p t)
 }
 
 
-/* On rare occassions, situations arise which require a temporary situation to
-   exist when an explcicit cast needs to be made. These macros are provided
+/* On rare occassions, situations arise which require an explicit cast to be
+   made in a file which hasnt been ttype converted. These macros are provided
    to enable performing the cast, and provide a searchable name so they can be
    removed at the earliest convenience.  This will not remain in the compiler
-   long term.   Each use should be accompanied by a comment indicating WHY 
-   it is required so its obvious what work is required to remove them.  */
+   long term.  */
 #define TREE_CAST(NODE) ((tree)(NODE))
 #define TREE_PTR_CAST(NODE) ((tree *)(NODE))
 #define TTYPE_PTR(NODE)  ((ttype **)(NODE))
-
+/* most;ly TTYPE_CAST is for printing %t :-P  and will simply be dropped .*/
+#define TTYPE_CAST(NODE)  ((ttype *)(NODE))
 
 /* Define accessors for the fields that all tree nodes have
    (though some fields are not used for all kinds of nodes).  */
+
 /* Nodes are chained together for many purposes.
    Types are chained together to record them for being output to the debugger
    (see the function `chain_type').
@@ -595,21 +593,22 @@ TREE_CHAIN (const_tree t)
 static inline tree &
 TREE_CHAIN (ttype *t)
 {
-  return t->u.common.chain;
+  return t->u.type_common.chain;
 }
 
 static inline tree
 TREE_CHAIN (const ttype *t)
 {
-  return t->u.common.chain;
+  return t->u.type_common.chain;
 }
+
 /* In all nodes that are expressions, this is the data type of the expression.
    In POINTER_TYPE nodes, this is the type that the pointer points to.
    In ARRAY_TYPE nodes, this is the type of the elements.
    In VECTOR_TYPE nodes, this is the type of the elements.  */
 
 #define TREE_TYPE(NODE) \
-  (CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->u.typed.type.TTYPE_FIELD)
+  (CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->u.typed.type)
 
 #define TREE_BLOCK(NODE)		(tree_block (NODE))
 #define TREE_SET_BLOCK(T, B)		(tree_set_block ((T), (B)))
@@ -644,28 +643,26 @@ TREE_CHAIN (const ttype *t)
   (TREE_NOT_CHECK4 (T, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE, ARRAY_TYPE))
 
 
-/* Checking routines which return a struct tree_type reference.  */
-#define TYPE_NODE_PROTO(KIND)					\
-inline struct tree_type& KIND##_type_node (tree);		\
-inline const struct tree_type& KIND##_type_node (const_tree t);
-
-TYPE_NODE_PROTO (tree)
-TYPE_NODE_PROTO (func_or_method)
-TYPE_NODE_PROTO (ptr_or_ref)
-TYPE_NODE_PROTO (record_or_union)
-TYPE_NODE_PROTO (not_record_or_union)
-TYPE_NODE_PROTO (numerical)
-TYPE_NODE_PROTO (aggregate)
-TYPE_NODE_PROTO (non_aggregate)
-TYPE_NODE_PROTO (any_integral)
-TYPE_NODE_PROTO (enumeral)
-TYPE_NODE_PROTO (array)
-TYPE_NODE_PROTO (offset)
-TYPE_NODE_PROTO (pointer)
-TYPE_NODE_PROTO (reference)
-TYPE_NODE_PROTO (vector)
-
-#undef TYPE_NODE_PROTO
+#define tree_type_node(NODE) TYPE_CHECK (NODE)->u.type_common
+#define func_or_method_type_node(NODE) \
+  FUNC_OR_METHOD_CHECK (NODE)->u.type_common
+#define ptr_or_ref_type_node(NODE) PTR_OR_REF_CHECK (NODE)->u.type_common
+#define record_or_union_type_node(NODE) \
+  RECORD_OR_UNION_CHECK (NODE)->u.type_common
+#define not_record_or_union_type_node(NODE) \
+  NOT_RECORD_OR_UNION_CHECK (NODE)->u.type_common
+#define numerical_type_node(NODE) NUMERICAL_TYPE_CHECK (NODE)->u.type_common
+#define aggregate_type_node(NODE) AGGREGATE_TYPE_CHECK (NODE)->u.type_common
+#define not_aggregate_type_node(NODE) \
+  NOT_AGGREGATE_TYPE_CHECK (NODE)->u.type_common
+#define any_integral_type_node(NODE) \
+  ANY_INTEGRAL_TYPE_CHECK (NODE)->u.type_common
+#define enumeral_type_node(NODE) ENUMERAL_TYPE_CHECK (NODE)->u.type_common
+#define array_type_node(NODE) ARRAY_TYPE_CHECK (NODE)->u.type_common
+#define offset_type_node(NODE) OFFSET_TYPE_CHECK (NODE)->u.type_common
+#define pointer_type_node(NODE) POINTER_TYPE_CHECK (NODE)->u.type_common
+#define reference_type_node(NODE) REFERENCE_TYPE_CHECK (NODE)->u.type_common
+#define vector_type_node(NODE) VECTOR_TYPE_CHECK (NODE)->u.type_common
 
 
 /* Here is how primitive or already-canonicalized types' hash codes
@@ -2010,15 +2007,12 @@ extern void protected_set_expr_location (tree, location_t);
 #define TYPE_UID(NODE) (tree_type_node (NODE).uid)
 #define TYPE_SIZE(NODE) (tree_type_node (NODE).size)
 #define TYPE_SIZE_UNIT(NODE) (tree_type_node (NODE).size_unit)
-#define TYPE_POINTER_TO(NODE) (tree_type_node (NODE).pointer_to.TTYPE_FIELD)
-#define TYPE_REFERENCE_TO(NODE) \
-  (tree_type_node (NODE).reference_to.TTYPE_FIELD)
+#define TYPE_POINTER_TO(NODE) (tree_type_node (NODE).pointer_to)
+#define TYPE_REFERENCE_TO(NODE) (tree_type_node (NODE).reference_to)
 #define TYPE_PRECISION(NODE) (tree_type_node (NODE).precision)
 #define TYPE_NAME(NODE) (tree_type_node (NODE).name)
-#define TYPE_NEXT_VARIANT(NODE) \
-  (tree_type_node (NODE).next_variant.TTYPE_FIELD)
-#define TYPE_MAIN_VARIANT(NODE) \
-  (tree_type_node (NODE).main_variant.TTYPE_FIELD)
+#define TYPE_NEXT_VARIANT(NODE) (tree_type_node (NODE).next_variant)
+#define TYPE_MAIN_VARIANT(NODE) (tree_type_node (NODE).main_variant)
 #define TYPE_CONTEXT(NODE) (tree_type_node (NODE).context)
 
 #define TYPE_MODE_RAW(NODE) (tree_type_node (NODE).mode)
@@ -2044,7 +2038,7 @@ extern machine_mode element_mode (const_tree t);
    to each other without a conversion.  The middle-end also makes sure
    to assign the same alias-sets to the type partition with equal
    TYPE_CANONICAL of their unqualified variants.  */
-#define TYPE_CANONICAL(NODE) (tree_type_node (NODE).canonical.TTYPE_FIELD)
+#define TYPE_CANONICAL(NODE) (tree_type_node (NODE).canonical)
 /* Indicates that the type node requires structural equality
    checks.  The compiler will need to look at the composition of the
    type to determine whether it is equal to another type, rather than
@@ -2244,31 +2238,31 @@ extern machine_mode element_mode (const_tree t);
 
 #define TYPE_LANG_SPECIFIC(NODE) (tree_type_node (NODE).lang_specific)
 
-#define TYPE_VALUES(NODE) (enumeral_type_node (NODE).values._tree)
-#define TYPE_DOMAIN(NODE) (array_type_node (NODE).values.TTYPE_FIELD)
-#define TYPE_FIELDS(NODE) (record_or_union_type_node (NODE).values._tree)
-#define TYPE_CACHED_VALUES(NODE) (tree_type_node (NODE).values._tree)
-#define TYPE_ARG_TYPES(NODE) (func_or_method_type_node (NODE).values._tree)
-#define TYPE_VALUES_RAW(NODE) (tree_type_node (NODE).values._tree)
+#define TYPE_VALUES(NODE) (enumeral_type_node (NODE).values)
+#define TYPE_DOMAIN(NODE) (array_type_node (NODE).values)
+#define TYPE_FIELDS(NODE) (record_or_union_type_node (NODE).values)
+#define TYPE_CACHED_VALUES(NODE) (tree_type_node (NODE).values)
+#define TYPE_ARG_TYPES(NODE) (func_or_method_type_node (NODE).values)
+#define TYPE_VALUES_RAW(NODE) (tree_type_node (NODE).values)
 
-#define TYPE_METHODS(NODE) (record_or_union_type_node (NODE).maxval._tree)
-#define TYPE_VFIELD(NODE) (record_or_union_type_node (NODE).minval._tree)
+#define TYPE_METHODS(NODE) (record_or_union_type_node (NODE).maxval)
+#define TYPE_VFIELD(NODE) (record_or_union_type_node (NODE).minval)
 #define TYPE_METHOD_BASETYPE(NODE) \
-  (func_or_method_type_node (NODE).maxval.TTYPE_FIELD)
+  (func_or_method_type_node (NODE).maxval)
 #define TYPE_OFFSET_BASETYPE(NODE) \
-  (offset_type_node (NODE).maxval.TTYPE_FIELD)
-#define TYPE_MAXVAL(NODE) (tree_type_node (NODE).maxval._tree)
-#define TYPE_MINVAL(NODE) (tree_type_node (NODE).minval._tree)
-#define TYPE_NEXT_PTR_TO(NODE) (pointer_type_node (NODE).minval.TTYPE_FIELD)
-#define TYPE_NEXT_REF_TO(NODE) (reference_type_node (NODE).minval.TTYPE_FIELD)
-#define TYPE_MIN_VALUE(NODE) (numerical_type_node (NODE).minval._tree)
-#define TYPE_MAX_VALUE(NODE) (numerical_type_node (NODE).maxval._tree)
+  (offset_type_node (NODE).maxval)
+#define TYPE_MAXVAL(NODE) (tree_type_node (NODE).maxval)
+#define TYPE_MINVAL(NODE) (tree_type_node (NODE).minval)
+#define TYPE_NEXT_PTR_TO(NODE) (pointer_type_node (NODE).minval)
+#define TYPE_NEXT_REF_TO(NODE) (reference_type_node (NODE).minval)
+#define TYPE_MIN_VALUE(NODE) (numerical_type_node (NODE).minval)
+#define TYPE_MAX_VALUE(NODE) (numerical_type_node (NODE).maxval)
 
 /* If non-NULL, this is an upper bound of the size (in bytes) of an
    object of the given ARRAY_TYPE_NON_COMMON.  This allows temporaries to be
    allocated.  */
 #define TYPE_ARRAY_MAX_SIZE(ARRAY_TYPE) \
-  (array_type_node (ARRAY_TYPE).maxval._tree)
+  (array_type_node (ARRAY_TYPE).maxval)
 
 /* For record and union types, information about this type, as a base type
    for itself.  */
@@ -4050,7 +4044,7 @@ extern tree build5_stat (enum tree_code, ttype_p, tree, tree, tree, tree,
 /* _loc versions of build[1-5].  */
 
 static inline tree
-build1_stat_loc (location_t loc, enum tree_code code, tree type,
+build1_stat_loc (location_t loc, enum tree_code code, ttype_p type,
 		 tree arg1 MEM_STAT_DECL)
 {
   tree t = build1_stat (code, type, arg1 PASS_MEM_STAT);
@@ -4061,7 +4055,7 @@ build1_stat_loc (location_t loc, enum tree_code code, tree type,
 #define build1_loc(l,c,t1,t2) build1_stat_loc (l,c,t1,t2 MEM_STAT_INFO)
 
 static inline tree
-build2_stat_loc (location_t loc, enum tree_code code, tree type, tree arg0,
+build2_stat_loc (location_t loc, enum tree_code code, ttype_p type, tree arg0,
 		 tree arg1 MEM_STAT_DECL)
 {
   tree t = build2_stat (code, type, arg0, arg1 PASS_MEM_STAT);
@@ -4072,7 +4066,7 @@ build2_stat_loc (location_t loc, enum tree_code code, tree type, tree arg0,
 #define build2_loc(l,c,t1,t2,t3) build2_stat_loc (l,c,t1,t2,t3 MEM_STAT_INFO)
 
 static inline tree
-build3_stat_loc (location_t loc, enum tree_code code, tree type, tree arg0,
+build3_stat_loc (location_t loc, enum tree_code code, ttype_p type, tree arg0,
 		 tree arg1, tree arg2 MEM_STAT_DECL)
 {
   tree t = build3_stat (code, type, arg0, arg1, arg2 PASS_MEM_STAT);
@@ -4084,7 +4078,7 @@ build3_stat_loc (location_t loc, enum tree_code code, tree type, tree arg0,
   build3_stat_loc (l,c,t1,t2,t3,t4 MEM_STAT_INFO)
 
 static inline tree
-build4_stat_loc (location_t loc, enum tree_code code, tree type, tree arg0,
+build4_stat_loc (location_t loc, enum tree_code code, ttype_p type, tree arg0,
 		 tree arg1, tree arg2, tree arg3 MEM_STAT_DECL)
 {
   tree t = build4_stat (code, type, arg0, arg1, arg2, arg3 PASS_MEM_STAT);
@@ -4096,7 +4090,7 @@ build4_stat_loc (location_t loc, enum tree_code code, tree type, tree arg0,
   build4_stat_loc (l,c,t1,t2,t3,t4,t5 MEM_STAT_INFO)
 
 static inline tree
-build5_stat_loc (location_t loc, enum tree_code code, tree type, tree arg0,
+build5_stat_loc (location_t loc, enum tree_code code, ttype_p type, tree arg0,
 		 tree arg1, tree arg2, tree arg3, tree arg4 MEM_STAT_DECL)
 {
   tree t = build5_stat (code, type, arg0, arg1, arg2, arg3,
@@ -5673,37 +5667,5 @@ desired_pro_or_demotion_p (const_tree to_type, const_tree from_type)
   /* Otherwise, allow only if narrowing or same precision conversions. */
   return to_type_precision <= TYPE_PRECISION (from_type);
 }
-
-/* These are the functions which performa  type check and return a reference
-   to a tree_type structure.  */
-#define TYPE_NODE_ROUTINE(UPPERCODE, LOWERCODE)		\
-inline struct tree_type &					\
-LOWERCODE##_node (tree t)					\
-{								\
-  return UPPERCODE##_CHECK (t)->u.type_common;		\
-}								\
-inline const struct tree_type &					\
-LOWERCODE##_node (const_tree t)				\
-{								\
-  return UPPERCODE##_CHECK (t)->u.type_common;		\
-}
-
-TYPE_NODE_ROUTINE (TYPE, tree_type)
-TYPE_NODE_ROUTINE (FUNC_OR_METHOD, func_or_method_type)
-TYPE_NODE_ROUTINE (PTR_OR_REF, ptr_or_ref_type)
-TYPE_NODE_ROUTINE (RECORD_OR_UNION, record_or_union_type)
-TYPE_NODE_ROUTINE (NOT_RECORD_OR_UNION, not_record_or_union_type)
-TYPE_NODE_ROUTINE (NUMERICAL_TYPE, numerical_type)
-TYPE_NODE_ROUTINE (AGGREGATE_TYPE, aggregate_type)
-TYPE_NODE_ROUTINE (NOT_AGGREGATE_TYPE, not_aggregate_type)
-TYPE_NODE_ROUTINE (ANY_INTEGRAL_TYPE, any_integral_type)
-TYPE_NODE_ROUTINE (ENUMERAL_TYPE, enumeral_type)
-TYPE_NODE_ROUTINE (ARRAY_TYPE, array_type)
-TYPE_NODE_ROUTINE (OFFSET_TYPE, offset_type)
-TYPE_NODE_ROUTINE (POINTER_TYPE, pointer_type)
-TYPE_NODE_ROUTINE (REFERENCE_TYPE, reference_type)
-TYPE_NODE_ROUTINE (VECTOR_TYPE, vector_type)
-
-#undef TYPE_NODE_ROUTINE
 
 #endif  /* GCC_TREE_H  */
