@@ -37036,7 +37036,6 @@ rtx_is_swappable_p (rtx op, unsigned int *special)
 	  case UNSPEC_VPACK_UNS_UNS_MOD_DIRECT:
 	  case UNSPEC_VPACK_UNS_UNS_SAT:
 	  case UNSPEC_VPERM:
-	  case UNSPEC_VPERMR:
 	  case UNSPEC_VPERM_UNS:
 	  case UNSPEC_VPERMHI:
 	  case UNSPEC_VPERMSI:
@@ -37205,8 +37204,8 @@ insn_is_swappable_p (swap_web_entry *insn_entry, rtx insn,
 	return 1;
     }
 
-  /* An UNSPEC_VPERM or UNSPEC_VPERMR is ok if the mask operand is
-     loaded from the constant pool.  */
+  /* An UNSPEC_VPERM is ok if the mask operand is loaded from the
+     constant pool.  */
   if (GET_CODE (body) == SET
       && GET_CODE (SET_SRC (body)) == UNSPEC
       && XINT (SET_SRC (body), 1) == UNSPEC_VPERM

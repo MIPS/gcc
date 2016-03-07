@@ -2833,6 +2833,7 @@
   [(set_attr "type" "vecperm")
    (set_attr "length" "4,4,8")])
 
+
 (define_expand "vec_unpacku_hi_v16qi"
   [(set (match_operand:V8HI 0 "register_operand" "=v")
         (unspec:V8HI [(match_operand:V16QI 1 "register_operand" "v")]
