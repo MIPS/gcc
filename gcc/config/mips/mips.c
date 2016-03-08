@@ -18633,7 +18633,7 @@ mips16_add_constant (struct mips16_constant_pool *pool,
        value for LDPC has the lowest three bits clear.  Assume the worst
        case here; namely that the PC-relative instruction occupies the
        last 2 bytes in an aligned word.  */
-    pool->highest_address = pool->insn_address - (UNITS_PER_WORD - 2) + 0x8000;
+    pool->highest_address = pool->insn_address - (UNITS_PER_WORD - 2) + TARGET_MIPS16_POOL_LIMIT;
   pool->highest_address -= GET_MODE_SIZE (mode);
   if (first_of_size_p)
     /* Take into account the worst possible padding due to alignment.  */
