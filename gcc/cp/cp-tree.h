@@ -5612,7 +5612,7 @@ extern tree convert_default_arg			(tree, tree, tree, int,
 						 tsubst_flags_t);
 extern tree convert_arg_to_ellipsis		(tree, tsubst_flags_t);
 extern tree build_x_va_arg			(source_location, tree, tree);
-extern tree cxx_type_promotes_to		(tree);
+extern ttype *cxx_type_promotes_to		(ttype_p);
 extern tree type_passed_as			(tree);
 extern tree convert_for_arg_passing		(tree, tree, tsubst_flags_t);
 extern bool is_properly_derived_from		(tree, tree);
@@ -5907,7 +5907,7 @@ extern bool possibly_inlined_p			(tree);
 extern int parm_index                           (tree);
 extern tree vtv_start_verification_constructor_init_function (void);
 extern tree vtv_finish_verification_constructor_init_function (tree);
-extern bool cp_omp_mappable_type		(tree);
+extern bool cp_omp_mappable_type		(ttype_p);
 
 /* in error.c */
 extern const char *type_as_string		(tree, int);
@@ -6012,7 +6012,7 @@ extern tree build_lang_decl_loc			(location_t, enum tree_code, tree, tree);
 extern void retrofit_lang_decl			(tree);
 extern tree copy_decl				(tree);
 extern tree copy_type				(tree);
-extern tree cxx_make_type			(enum tree_code);
+extern ttype *cxx_make_type			(enum tree_code);
 extern tree make_class_type			(enum tree_code);
 extern bool cxx_init				(void);
 extern void cxx_finish				(void);
@@ -6512,7 +6512,7 @@ extern bool trivially_copyable_p		(const_tree);
 extern bool scalarish_type_p			(const_tree);
 extern bool type_has_nontrivial_default_init	(const_tree);
 extern bool type_has_nontrivial_copy_init	(const_tree);
-extern bool class_tmpl_impl_spec_p		(const_tree);
+extern bool class_tmpl_impl_spec_p		(const ttype_p);
 extern int zero_init_p				(const_tree);
 extern bool check_abi_tag_redeclaration		(const_tree, const_tree, const_tree);
 extern bool check_abi_tag_args			(tree, tree);
@@ -6602,7 +6602,7 @@ extern tree rvalue				(tree);
 extern tree convert_bitfield_to_declared_type   (tree);
 extern tree cp_save_expr			(tree);
 extern bool cast_valid_in_integral_constant_expression_p (tree);
-extern bool cxx_type_hash_eq			(const_tree, const_tree);
+extern bool cxx_type_hash_eq			(const ttype_p, const ttype_p);
 
 extern void cxx_print_statistics		(void);
 extern bool maybe_warn_zero_as_null_pointer_constant (tree, location_t);
@@ -6756,7 +6756,7 @@ extern tree finish_binary_fold_expr          (tree, tree, int);
 extern void require_complete_eh_spec_types	(tree, tree);
 extern void cxx_incomplete_type_diagnostic	(const_tree, const_tree, diagnostic_t);
 #undef cxx_incomplete_type_error
-extern void cxx_incomplete_type_error		(const_tree, const_tree);
+extern void cxx_incomplete_type_error		(const_tree, const ttype_p);
 #define cxx_incomplete_type_error(V,T) \
   (cxx_incomplete_type_diagnostic ((V), (T), DK_ERROR))
 extern void cxx_incomplete_type_inform 	        (const_tree);
@@ -6813,7 +6813,7 @@ extern bool cxx_warn_unused_global_decl		(const_tree);
 extern size_t cp_tree_size			(enum tree_code);
 extern bool cp_var_mod_type_p			(tree, tree);
 extern void cxx_initialize_diagnostics		(diagnostic_context *);
-extern int cxx_types_compatible_p		(tree, tree);
+extern int cxx_types_compatible_p		(ttype_p, ttype_p);
 extern void init_shadowed_var_for_decl		(void);
 extern bool cxx_block_may_fallthru		(const_tree);
 

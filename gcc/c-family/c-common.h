@@ -805,8 +805,8 @@ extern bool attribute_takes_identifier_p (const_tree);
 extern bool c_common_handle_option (size_t, const char *, int, int, location_t,
 				    const struct cl_option_handlers *);
 extern bool default_handle_c_option (size_t, const char *, int);
-extern tree c_common_type_for_mode (machine_mode, int);
-extern tree c_common_type_for_size (unsigned int, int);
+extern ttype *c_common_type_for_mode (machine_mode, int);
+extern ttype *c_common_type_for_size (unsigned int, int);
 extern tree c_common_fixed_point_type_for_size (unsigned int, unsigned int,
 						int, int);
 extern tree c_common_unsigned_type (tree);
@@ -898,7 +898,7 @@ extern void c_common_finish (void);
 extern void c_common_parse_file (void);
 extern FILE *get_dump_info (int, int *);
 extern alias_set_type c_common_get_alias_set (tree);
-extern void c_register_builtin_type (tree, const char*);
+extern void c_register_builtin_type (ttype_p, const char*);
 extern bool c_promoting_integer_type_p (const_tree);
 extern int self_promoting_args_p (const_tree);
 extern tree strip_pointer_operator (tree);

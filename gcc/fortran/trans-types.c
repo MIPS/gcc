@@ -78,13 +78,13 @@ static GTY(()) tree gfc_array_descriptor_base_caf[2 * (GFC_MAX_DIMENSIONS+1)];
 #define MAX_INT_KINDS 5
 gfc_integer_info gfc_integer_kinds[MAX_INT_KINDS + 1];
 gfc_logical_info gfc_logical_kinds[MAX_INT_KINDS + 1];
-static GTY(()) tree gfc_integer_types[MAX_INT_KINDS + 1];
-static GTY(()) tree gfc_logical_types[MAX_INT_KINDS + 1];
+static GTY(()) ttype *gfc_integer_types[MAX_INT_KINDS + 1];
+static GTY(()) ttype *gfc_logical_types[MAX_INT_KINDS + 1];
 
 #define MAX_REAL_KINDS 5
 gfc_real_info gfc_real_kinds[MAX_REAL_KINDS + 1];
-static GTY(()) tree gfc_real_types[MAX_REAL_KINDS + 1];
-static GTY(()) tree gfc_complex_types[MAX_REAL_KINDS + 1];
+static GTY(()) ttype *gfc_real_types[MAX_REAL_KINDS + 1];
+static GTY(()) ttype *gfc_complex_types[MAX_REAL_KINDS + 1];
 
 #define MAX_CHARACTER_KINDS 2
 gfc_character_info gfc_character_kinds[MAX_CHARACTER_KINDS + 1];
@@ -2947,7 +2947,7 @@ arg_type_list_done:
 /* Return an integer type with BITS bits of precision,
    that is unsigned if UNSIGNEDP is nonzero, otherwise signed.  */
 
-tree
+ttype *
 gfc_type_for_size (unsigned bits, int unsignedp)
 {
   if (!unsignedp)
@@ -2955,7 +2955,7 @@ gfc_type_for_size (unsigned bits, int unsignedp)
       int i;
       for (i = 0; i <= MAX_INT_KINDS; ++i)
 	{
-	  tree type = gfc_integer_types[i];
+	  ttype *type = gfc_integer_types[i];
 	  if (type && bits == TYPE_PRECISION (type))
 	    return type;
 	}
@@ -2992,17 +2992,17 @@ gfc_type_for_size (unsigned bits, int unsignedp)
 	return unsigned_intTI_type_node;
     }
 
-  return NULL_TREE;
+  return NULL;
 }
 
 /* Return a data type that has machine mode MODE.  If the mode is an
    integer, then UNSIGNEDP selects between signed and unsigned types.  */
 
-tree
+ttype *
 gfc_type_for_mode (machine_mode mode, int unsignedp)
 {
   int i;
-  tree *base;
+  ttype **base;
 
   if (GET_MODE_CLASS (mode) == MODE_FLOAT)
     base = gfc_real_types;
@@ -3010,28 +3010,28 @@ gfc_type_for_mode (machine_mode mode, int unsignedp)
     base = gfc_complex_types;
   else if (SCALAR_INT_MODE_P (mode))
     {
-      tree type = gfc_type_for_size (GET_MODE_PRECISION (mode), unsignedp);
-      return type != NULL_TREE && mode == TYPE_MODE (type) ? type : NULL_TREE;
+      ttype *type = gfc_type_for_size (GET_MODE_PRECISION (mode), unsignedp);
+      return type != NULL && mode == TYPE_MODE (type) ? type : NULL;
     }
   else if (VECTOR_MODE_P (mode))
     {
       machine_mode inner_mode = GET_MODE_INNER (mode);
-      tree inner_type = gfc_type_for_mode (inner_mode, unsignedp);
-      if (inner_type != NULL_TREE)
+      ttype *inner_type = gfc_type_for_mode (inner_mode, unsignedp);
+      if (inner_type != NULL)
         return build_vector_type_for_mode (inner_type, mode);
-      return NULL_TREE;
+      return NULL;
     }
   else
-    return NULL_TREE;
+    return NULL;
 
   for (i = 0; i <= MAX_REAL_KINDS; ++i)
     {
-      tree type = base[i];
+      ttype *type = base[i];
       if (type && mode == TYPE_MODE (type))
 	return type;
     }
 
-  return NULL_TREE;
+  return NULL;
 }
 
 /* Return TRUE if TYPE is a type with a hidden descriptor, fill in INFO

@@ -3266,7 +3266,7 @@ check_case_bounds (location_t loc, tree type, tree orig_type,
 /* Return an integer type with BITS bits of precision,
    that is unsigned if UNSIGNEDP is nonzero, otherwise signed.  */
 
-tree
+ttype *
 c_common_type_for_size (unsigned int bits, int unsignedp)
 {
   int i;
@@ -3351,7 +3351,7 @@ tree registered_builtin_types;
    If the mode is a fixed-point mode,
    then UNSIGNEDP selects between saturating and nonsaturating types.  */
 
-tree
+ttype *
 c_common_type_for_mode (machine_mode mode, int unsignedp)
 {
   tree t;
@@ -3548,7 +3548,7 @@ c_common_type_for_mode (machine_mode mode, int unsignedp)
   for (t = registered_builtin_types; t; t = TREE_CHAIN (t))
     if (TYPE_MODE (TREE_VALUE (t)) == mode
 	&& !!unsignedp == !!TYPE_UNSIGNED (TREE_VALUE (t)))
-      return TREE_VALUE (t);
+      return TREE_VALUE_TYPE (t);
 
   return 0;
 }
@@ -3779,7 +3779,7 @@ c_build_bitfield_integer_type (unsigned HOST_WIDE_INT width, int unsignedp)
 /* The C version of the register_builtin_type langhook.  */
 
 void
-c_register_builtin_type (tree type, const char* name)
+c_register_builtin_type (ttype_p type, const char* name)
 {
   tree decl;
 

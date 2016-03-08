@@ -26,6 +26,7 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "tree.h"
 #include "hooks.h"
 
 /* Generic hook that does absolutely zappo.  */
@@ -279,6 +280,12 @@ hook_bool_tree_false (tree a ATTRIBUTE_UNUSED)
 
 bool
 hook_bool_const_tree_false (const_tree a ATTRIBUTE_UNUSED)
+{
+  return false;
+}
+
+bool
+hook_bool_const_type_false (const ttype_p a ATTRIBUTE_UNUSED)
 {
   return false;
 }

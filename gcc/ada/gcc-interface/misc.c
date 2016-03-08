@@ -566,42 +566,42 @@ gnat_dwarf_name (tree decl, int verbosity ATTRIBUTE_UNUSED)
 
 /* Return the descriptive type associated with TYPE, if any.  */
 
-static tree
-gnat_descriptive_type (const_tree type)
+static ttype *
+gnat_descriptive_type (const ttype_p type)
 {
   if (TYPE_STUB_DECL (type))
-    return DECL_PARALLEL_TYPE (TYPE_STUB_DECL (type));
+    return TTYPE (DECL_PARALLEL_TYPE (TYPE_STUB_DECL (type)));
   else
-    return NULL_TREE;
+    return NULL;
 }
 
 /* Return the type to be used for debugging information instead of TYPE or
    NULL_TREE if TYPE is fine.  */
 
-static tree
-gnat_get_debug_type (const_tree type)
+static ttype *
+gnat_get_debug_type (const ttype_p type)
 {
   if (TYPE_CAN_HAVE_DEBUG_TYPE_P (type) && TYPE_DEBUG_TYPE (type))
     {
-      type = TYPE_DEBUG_TYPE (type);
+      ttype *t = TTYPE (TYPE_DEBUG_TYPE (type));
 
       /* ??? The get_debug_type language hook is processed after the array
 	 descriptor language hook, so if there is an array behind this type,
 	 the latter is supposed to handle it.  Still, we can get here with
 	 a type we are not supposed to handle (e.g. when the DWARF back-end
 	 processes the type of a variable), so keep this guard.  */
-      if (type && TYPE_CAN_HAVE_DEBUG_TYPE_P (type))
-	return const_cast<tree> (type);
+      if (t && TYPE_CAN_HAVE_DEBUG_TYPE_P (t))
+	return t;
     }
 
-  return NULL_TREE;
+  return NULL;
 }
 
 /* Provide information in INFO for debugging output about the TYPE fixed-point
    type.  Return whether TYPE is handled.  */
 
 static bool
-gnat_get_fixed_point_type_info (const_tree type,
+gnat_get_fixed_point_type_info (const ttype_p type,
 				struct fixed_point_type_info *info)
 {
   tree scale_factor;
@@ -679,7 +679,7 @@ gnat_get_fixed_point_type_info (const_tree type,
    this function is only called when both types are FUNCTION_TYPE.  */
 
 static bool
-gnat_type_hash_eq (const_tree t1, const_tree t2)
+gnat_type_hash_eq (const ttype_p t1, const ttype_p t2)
 {
   gcc_assert (TREE_CODE (t1) == FUNCTION_TYPE);
   return fntype_same_flags_p (t1, TYPE_CI_CO_LIST (t2),
@@ -722,7 +722,7 @@ gnat_get_alias_set (tree type)
    as a constant when possible.  */
 
 static tree
-gnat_type_max_size (const_tree gnu_type)
+gnat_type_max_size (const ttype_p gnu_type)
 {
   /* First see what we can get from TYPE_SIZE_UNIT, which might not
      be constant even for simple expressions if it has already been
@@ -1077,7 +1077,7 @@ gnat_get_subrange_bounds (const_tree gnu_type, tree *lowval, tree *highval)
 /* Return the bias of GNU_TYPE, if any.  */
 
 static tree
-gnat_get_type_bias (const_tree gnu_type)
+gnat_get_type_bias (const ttype_p gnu_type)
 {
   if (TREE_CODE (gnu_type) == INTEGER_TYPE
       && TYPE_BIASED_REPRESENTATION_P (gnu_type)

@@ -54,7 +54,7 @@ static bool java_dump_tree (void *, tree);
 static void dump_compound_expr (dump_info_p, tree);
 static bool java_decl_ok_for_sibcall (const_tree);
 
-static enum classify_record java_classify_record (tree type);
+static enum classify_record java_classify_record (ttype_p type);
 
 static tree java_eh_personality (void);
 
@@ -889,7 +889,7 @@ java_decl_ok_for_sibcall (const_tree decl)
 }
 
 static enum classify_record
-java_classify_record (tree type)
+java_classify_record (ttype_p type)
 {
   if (! CLASS_P (type))
     return RECORD_IS_STRUCT;

@@ -154,7 +154,7 @@ convert (tree type, tree expr)
    If the mode is an integer,
    then UNSIGNEDP selects between signed and unsigned types.  */
 
-tree
+ttype *
 java_type_for_mode (machine_mode mode, int unsignedp)
 {
   if (mode == TYPE_MODE (int_type_node))
@@ -176,7 +176,7 @@ java_type_for_mode (machine_mode mode, int unsignedp)
 /* Return an integer type with BITS bits of precision,
    that is unsigned if UNSIGNEDP is nonzero, otherwise signed.  */
 
-tree
+ttype *
 java_type_for_size (unsigned bits, int unsignedp)
 {
   if (bits <= TYPE_PRECISION (byte_type_node))

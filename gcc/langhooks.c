@@ -91,6 +91,12 @@ lhd_return_null_tree (tree ARG_UNUSED (t))
 }
 
 /* Do nothing (return NULL_TREE).  */
+tree
+lhd_return_null_const_type (const ttype_p ARG_UNUSED (t))
+{
+  return NULL_TREE;
+}
+
 
 tree
 lhd_return_null_const_tree (const_tree ARG_UNUSED (t))
@@ -184,22 +190,22 @@ lhd_set_decl_assembler_name (tree decl)
 }
 
 /* Type promotion for variable arguments.  */
-tree
-lhd_type_promotes_to (tree ARG_UNUSED (type))
+ttype *
+lhd_type_promotes_to (ttype_p ARG_UNUSED (type))
 {
   gcc_unreachable ();
 }
 
 /* Registration of machine- or os-specific builtin types.  */
 void
-lhd_register_builtin_type (tree ARG_UNUSED (type),
+lhd_register_builtin_type (ttype_p ARG_UNUSED (type),
 			   const char * ARG_UNUSED (name))
 {
 }
 
 /* Invalid use of an incomplete type.  */
 void
-lhd_incomplete_type_error (const_tree ARG_UNUSED (value), const_tree type)
+lhd_incomplete_type_error (const_tree ARG_UNUSED (value), ttype_p type)
 {
   gcc_assert (TREE_CODE (type) == ERROR_MARK);
   return;
@@ -238,7 +244,7 @@ lhd_dwarf_name (tree t, int verbosity)
    in contexts where erroneously returning 0 causes problems.  */
 
 int
-lhd_types_compatible_p (tree x, tree y)
+lhd_types_compatible_p (ttype_p x, ttype_p y)
 {
   return TYPE_MAIN_VARIANT (x) == TYPE_MAIN_VARIANT (y);
 }
@@ -470,10 +476,10 @@ lhd_print_error_function (diagnostic_context *context, const char *file,
     }
 }
 
-tree
+ttype *
 lhd_make_node (enum tree_code code)
 {
-  return make_node (code);
+  return make_type_node (code);
 }
 
 HOST_WIDE_INT
@@ -526,10 +532,10 @@ lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *c ATTRIBUTE_UNUSED,
 /* Return true if TYPE is an OpenMP mappable type.  */
 
 bool
-lhd_omp_mappable_type (tree type)
+lhd_omp_mappable_type (ttype_p type)
 {
   /* Mappable type has to be complete.  */
-  if (type == error_mark_node || !COMPLETE_TYPE_P (type))
+  if (type == error_type_node || !COMPLETE_TYPE_P (type))
     return false;
   return true;
 }
@@ -683,8 +689,8 @@ lhd_end_section (void)
 
 /* Default implementation of enum_underlying_base_type using type_for_size.  */
 
-tree
-lhd_enum_underlying_base_type (const_tree enum_type)
+ttype *
+lhd_enum_underlying_base_type (const ttype_p enum_type)
 {
   return lang_hooks.types.type_for_size (TYPE_PRECISION (enum_type),
 					 TYPE_UNSIGNED (enum_type));
