@@ -2544,7 +2544,7 @@
   "vextsh2<wd> %0,%1"
   [(set_attr "type" "vecsimple")])
 
-(define_insn "vsx_sign_extend_hi_di"
+(define_insn "vsx_sign_extend_si_v2di"
   [(set (match_operand:V2DI 0 "vsx_register_operand" "=v")
 	(unspec:V2DI [(match_operand:V4SI 1 "vsx_register_operand" "v")]
 		     UNSPEC_VSX_SIGN_EXTEND))]
