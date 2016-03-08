@@ -178,6 +178,7 @@ static int check_cv_quals_for_unify (int, tree, tree);
 static void template_parm_level_and_index (tree, int*, int*);
 static int unify_pack_expansion (tree, tree, tree,
 				 tree, unification_kind_t, bool, bool);
+static tree copy_template_args (tree);
 static tree tsubst_template_arg (tree, tree, tsubst_flags_t, tree);
 static tree tsubst_template_args (tree, tree, tsubst_flags_t, tree);
 static tree tsubst_template_parms (tree, tree, tsubst_flags_t);
@@ -329,7 +330,8 @@ get_template_info (const_tree t)
   if (!t || t == error_mark_node)
     return NULL;
 
-  if (TREE_CODE (t) == NAMESPACE_DECL)
+  if (TREE_CODE (t) == NAMESPACE_DECL
+      || TREE_CODE (t) == PARM_DECL)
     return NULL;
 
   if (DECL_P (t) && DECL_LANG_SPECIFIC (t))
@@ -369,16 +371,20 @@ template_class_depth (tree type)
 {
   int depth;
 
-  for (depth = 0;
-       type && TREE_CODE (type) != NAMESPACE_DECL;
-       type = (TREE_CODE (type) == FUNCTION_DECL)
-	 ? CP_DECL_CONTEXT (type) : CP_TYPE_CONTEXT (type))
+  for (depth = 0; type && TREE_CODE (type) != NAMESPACE_DECL; )
     {
       tree tinfo = get_template_info (type);
 
       if (tinfo && PRIMARY_TEMPLATE_P (TI_TEMPLATE (tinfo))
 	  && uses_template_parms (INNERMOST_TEMPLATE_ARGS (TI_ARGS (tinfo))))
 	++depth;
+
+      if (DECL_P (type))
+	type = CP_DECL_CONTEXT (type);
+      else if (LAMBDA_TYPE_P (type))
+	type = LAMBDA_TYPE_EXTRA_SCOPE (type);
+      else
+	type = CP_TYPE_CONTEXT (type);
     }
 
   return depth;
@@ -11037,11 +11043,12 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
   /* For each argument in each argument pack, substitute into the
      pattern.  */
   result = make_tree_vec (len);
+  tree elem_args = copy_template_args (args);
   for (i = 0; i < len; ++i)
     {
       t = gen_elem_of_pack_expansion_instantiation (pattern, packs,
 						    i,
-						    args, complain,
+						    elem_args, complain,
 						    in_decl);
       TREE_VEC_ELT (result, i) = t;
       if (t == error_mark_node)
@@ -11134,6 +11141,32 @@ make_argument_pack (tree vec)
     }
   SET_ARGUMENT_PACK_ARGS (pack, vec);
   return pack;
+}
+
+/* Return an exact copy of template args T that can be modified
+   independently.  */
+
+static tree
+copy_template_args (tree t)
+{
+  if (t == error_mark_node)
+    return t;
+
+  int len = TREE_VEC_LENGTH (t);
+  tree new_vec = make_tree_vec (len);
+
+  for (int i = 0; i < len; ++i)
+    {
+      tree elt = TREE_VEC_ELT (t, i);
+      if (elt && TREE_CODE (elt) == TREE_VEC)
+	elt = copy_template_args (elt);
+      TREE_VEC_ELT (new_vec, i) = elt;
+    }
+
+  NON_DEFAULT_TEMPLATE_ARGS_COUNT (new_vec)
+    = NON_DEFAULT_TEMPLATE_ARGS_COUNT (t);
+
+  return new_vec;
 }
 
 /* Substitute ARGS into the vector or list of template arguments T.  */
@@ -13622,7 +13655,15 @@ tsubst_baselink (tree baselink, tree object_type,
       name = mangle_conv_op_name_for_type (optype);
     baselink = lookup_fnfields (qualifying_scope, name, /*protect=*/1);
     if (!baselink)
-      return error_mark_node;
+      {
+	if (constructor_name_p (name, qualifying_scope))
+	  {
+	    if (complain & tf_error)
+	      error ("cannot call constructor %<%T::%D%> directly",
+		     qualifying_scope, name);
+	  }
+	return error_mark_node;
+      }
 
     /* If lookup found a single function, mark it as used at this
        point.  (If it lookup found multiple functions the one selected
@@ -17067,8 +17108,6 @@ tsubst_copy_and_build (tree t,
 	else
 	  gcc_unreachable ();
 	LAMBDA_EXPR_EXTRA_SCOPE (r) = scope;
-	LAMBDA_EXPR_RETURN_TYPE (r)
-	  = tsubst (LAMBDA_EXPR_RETURN_TYPE (t), args, complain, in_decl);
 
 	gcc_assert (LAMBDA_EXPR_THIS_CAPTURE (t) == NULL_TREE
 		    && LAMBDA_EXPR_PENDING_PROXIES (t) == NULL);
@@ -17078,6 +17117,9 @@ tsubst_copy_and_build (tree t,
 	/* Now that we know visibility, instantiate the type so we have a
 	   declaration of the op() for later calls to lambda_function.  */
 	complete_type (type);
+
+	if (tree fn = lambda_function (type))
+	  LAMBDA_EXPR_RETURN_TYPE (r) = TREE_TYPE (TREE_TYPE (fn));
 
 	LAMBDA_EXPR_THIS_CAPTURE (r) = NULL_TREE;
 

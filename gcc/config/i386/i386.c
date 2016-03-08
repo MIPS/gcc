@@ -1350,11 +1350,11 @@ struct processor_costs znver1_cost = {
   COSTS_N_INSNS (1),			/* cost of a lea instruction.  */
   COSTS_N_INSNS (1),			/* variable shift costs.  */
   COSTS_N_INSNS (1),			/* constant shift costs.  */
-  {COSTS_N_INSNS (4),			/* cost of starting multiply for QI.  */
-   COSTS_N_INSNS (4),			/*				 HI.  */
-   COSTS_N_INSNS (4),			/*				 SI.  */
-   COSTS_N_INSNS (6),			/*				 DI.  */
-   COSTS_N_INSNS (6)},			/*			      other.  */
+  {COSTS_N_INSNS (3),			/* cost of starting multiply for QI.  */
+   COSTS_N_INSNS (3),			/*				 HI.  */
+   COSTS_N_INSNS (3),			/*				 SI.  */
+   COSTS_N_INSNS (4),			/*				 DI.  */
+   COSTS_N_INSNS (4)},			/*			      other.  */
   0,					/* cost of multiply per each bit
 					    set.  */
   {COSTS_N_INSNS (19),			/* cost of a divide/mod for QI.  */
@@ -7793,6 +7793,10 @@ type_natural_mode (const_tree type, const CUMULATIVE_ARGS *cum,
 	  && TYPE_VECTOR_SUBPARTS (type) > 1)
 	{
 	  machine_mode innermode = TYPE_MODE (TREE_TYPE (type));
+
+	  /* There are no XFmode vector modes.  */
+	  if (innermode == XFmode)
+	    return mode;
 
 	  if (TREE_CODE (TREE_TYPE (type)) == REAL_TYPE)
 	    mode = MIN_MODE_VECTOR_FLOAT;
@@ -26028,14 +26032,13 @@ static enum stringop_alg
 decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
 	    unsigned HOST_WIDE_INT min_size, unsigned HOST_WIDE_INT max_size,
 	    bool memset, bool zero_memset, bool have_as,
-	    int *dynamic_check, bool *noalign)
+	    int *dynamic_check, bool *noalign, bool recur)
 {
   const struct stringop_algs *algs;
   bool optimize_for_speed;
   int max = 0;
   const struct processor_costs *cost;
   int i;
-  HOST_WIDE_INT orig_expected_size = expected_size;
   bool any_alg_usable_p = false;
 
   *noalign = false;
@@ -26153,19 +26156,18 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
       enum stringop_alg alg;
       HOST_WIDE_INT new_expected_size = (max > 0 ? max : 4096) / 2;
 
-      /* If there aren't any usable algorithms or if recursing with the
-	 same arguments as before, then recursing on smaller sizes or
-	 same size isn't going to find anything.  Just return the simple
-	 byte-at-a-time copy loop.  */
-      if (!any_alg_usable_p || orig_expected_size == new_expected_size)
-        {
-          /* Pick something reasonable.  */
-          if (TARGET_INLINE_STRINGOPS_DYNAMICALLY)
-            *dynamic_check = 128;
-          return loop_1_byte;
-        }
+      /* If there aren't any usable algorithms or if recursing already,
+	 then recursing on smaller sizes or same size isn't going to
+	 find anything.  Just return the simple byte-at-a-time copy loop.  */
+      if (!any_alg_usable_p || recur)
+	{
+	  /* Pick something reasonable.  */
+	  if (TARGET_INLINE_STRINGOPS_DYNAMICALLY && !recur)
+	    *dynamic_check = 128;
+	  return loop_1_byte;
+	}
       alg = decide_alg (count, new_expected_size, min_size, max_size, memset,
-			zero_memset, have_as, dynamic_check, noalign);
+			zero_memset, have_as, dynamic_check, noalign, true);
       gcc_assert (*dynamic_check == -1);
       if (TARGET_INLINE_STRINGOPS_DYNAMICALLY)
 	*dynamic_check = max;
@@ -26426,7 +26428,7 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
   alg = decide_alg (count, expected_size, min_size, probable_max_size,
 		    issetmem,
 		    issetmem && val_exp == const0_rtx, have_as,
-		    &dynamic_check, &noalign);
+		    &dynamic_check, &noalign, false);
   if (alg == libcall)
     return false;
   gcc_assert (alg != no_stringop);
@@ -27293,14 +27295,17 @@ ix86_output_call_insn (rtx_insn *insn, rtx call_op)
 
   if (SIBLING_CALL_P (insn))
     {
-      if (direct_p && ix86_nopic_noplt_attribute_p (call_op))
-	xasm = "%!jmp\t*%p0@GOTPCREL(%%rip)";
-      else if (direct_p)
-	xasm = "%!jmp\t%P0";
+      if (direct_p)
+	{
+	  if (ix86_nopic_noplt_attribute_p (call_op))
+	    xasm = "%!jmp\t{*%p0@GOTPCREL(%%rip)|[QWORD PTR %p0@GOTPCREL[rip]]}";
+	  else
+	    xasm = "%!jmp\t%P0";
+	}
       /* SEH epilogue detection requires the indirect branch case
 	 to include REX.W.  */
       else if (TARGET_SEH)
-	xasm = "%!rex.W jmp %A0";
+	xasm = "%!rex.W jmp\t%A0";
       else
 	xasm = "%!jmp\t%A0";
 
@@ -27338,10 +27343,13 @@ ix86_output_call_insn (rtx_insn *insn, rtx call_op)
 	seh_nop_p = true;
     }
 
-  if (direct_p && ix86_nopic_noplt_attribute_p (call_op))
-    xasm = "%!call\t*%p0@GOTPCREL(%%rip)";
-  else if (direct_p)
-    xasm = "%!call\t%P0";
+  if (direct_p)
+    {
+      if (ix86_nopic_noplt_attribute_p (call_op))
+	xasm = "%!call\t{*%p0@GOTPCREL(%%rip)|[QWORD PTR %p0@GOTPCREL[rip]]}";
+      else
+	xasm = "%!call\t%P0";
+    }
   else
     xasm = "%!call\t%A0";
 

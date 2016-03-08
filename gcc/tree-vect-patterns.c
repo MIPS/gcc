@@ -2090,7 +2090,8 @@ vect_recog_vector_vector_shift_pattern (vec<gimple *> *stmts,
     return NULL;
 
   tree def = NULL_TREE;
-  if (gimple_assign_cast_p (def_stmt))
+  stmt_vec_info def_vinfo = vinfo_for_stmt (def_stmt);
+  if (!STMT_VINFO_IN_PATTERN_P (def_vinfo) && gimple_assign_cast_p (def_stmt))
     {
       tree rhs1 = gimple_assign_rhs1 (def_stmt);
       if (TYPE_MODE (TREE_TYPE (rhs1)) == TYPE_MODE (TREE_TYPE (oprnd0))
@@ -3218,6 +3219,15 @@ search_type_for_mask (tree var, vec_info *vinfo)
       if (TREE_CODE_CLASS (rhs_code) == tcc_comparison)
 	{
 	  tree comp_vectype, mask_type;
+
+	  if (TREE_CODE (TREE_TYPE (rhs1)) == BOOLEAN_TYPE)
+	    {
+	      res = search_type_for_mask (rhs1, vinfo);
+	      res2 = search_type_for_mask (gimple_assign_rhs2 (def_stmt), vinfo);
+	      if (!res || (res2 && TYPE_PRECISION (res) > TYPE_PRECISION (res2)))
+		res = res2;
+	      break;
+	    }
 
 	  comp_vectype = get_vectype_for_scalar_type (TREE_TYPE (rhs1));
 	  if (comp_vectype == NULL_TREE)
