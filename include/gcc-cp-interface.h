@@ -79,20 +79,33 @@ struct gcc_vbase_array
   char /* bool */ *virtualp;
 };
 
+/* Opaque typedef for type declarations.  They are used for template
+   arguments, defaults for type template parameters, and types used to
+   build type-conversion expressions.  */
+
+typedef unsigned long long gcc_typedecl;
+
+/* Opaque typedef for unbound class templates.  They are used for
+   template arguments, and defaults for template template
+   parameters.  */
+
+typedef unsigned long long gcc_utempl;
+
 /* Opaque typedef for expressions.  They are used for template
-   arguments, default values for non-type template parameters, and
-   default arguments for functions.  */
+   arguments, defaults for non-type template parameters, and defaults
+   for function arguments.  */
 
 typedef unsigned long long gcc_expr;
 
 /* FIXME: do we need to support argument packs?  */
 
 typedef enum
-{ GCC_CP_TPARG_VALUE, GCC_CP_TPARG_CLASS, GCC_CP_TPARG_TEMPL }
+  { GCC_CP_TPARG_VALUE, GCC_CP_TPARG_CLASS,
+    GCC_CP_TPARG_TEMPL, GCC_CP_TPARG_PACK }
 gcc_cp_template_arg_kind;
 
 typedef union
-{ gcc_expr value; gcc_type type; gcc_decl templ; }
+{ gcc_expr value; gcc_typedecl type; gcc_utempl templ; gcc_typedecl pack; }
 gcc_cp_template_arg;
 
 /* An array of template arguments.  */

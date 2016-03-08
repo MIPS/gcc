@@ -1266,11 +1266,24 @@ plugin_start_new_template_decl (cc1_plugin::connection *self ATTRIBUTE_UNUSED)
   return 0;
 }
 
-gcc_type
+gcc_typedecl
+plugin_type_decl (cc1_plugin::connection *self,
+		  gcc_type type_in)
+{
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree type = convert_in (type_in);
+
+  tree name = TYPE_NAME (type);
+  gcc_assert (name);
+
+  return convert_out (name);
+}
+
+gcc_typedecl
 plugin_new_template_typename_parm (cc1_plugin::connection *self,
 				   const char *id,
 				   int /* bool */ pack_p,
-				   gcc_type default_type,
+				   gcc_typedecl default_type,
 				   const char *filename,
 				   unsigned int line_number)
 {
@@ -1291,11 +1304,11 @@ plugin_new_template_typename_parm (cc1_plugin::connection *self,
   return convert_out (ctx->preserve (TREE_TYPE (tree_last (TP_PARM_LIST))));
 }
 
-gcc_decl
+gcc_utempl
 plugin_new_template_template_parm (cc1_plugin::connection *self,
 				   const char *id,
 				   int /* bool */ pack_p,
-				   gcc_decl default_templ,
+				   gcc_utempl default_templ,
 				   const char *filename,
 				   unsigned int line_number)
 {
@@ -1358,41 +1371,89 @@ plugin_new_template_value_parm (cc1_plugin::connection *self,
   return convert_out (ctx->preserve (tree_last (TP_PARM_LIST)));
 }
 
-gcc_type
+static tree
+targlist (const gcc_cp_template_args *targs)
+{
+  int n = targs->n_elements;
+  tree vec = make_tree_vec (n);
+  while (n--)
+    {
+      switch (targs->kinds[n])
+	{
+	case GCC_CP_TPARG_VALUE:
+	  TREE_VEC_ELT (vec, n) = convert_in (targs->elements[n].value);
+	  break;
+	case GCC_CP_TPARG_CLASS:
+	  TREE_VEC_ELT (vec, n) = convert_in (targs->elements[n].type);
+	  break;
+	case GCC_CP_TPARG_TEMPL:
+	  TREE_VEC_ELT (vec, n) = convert_in (targs->elements[n].templ);
+	  break;
+	case GCC_CP_TPARG_PACK:
+	  TREE_VEC_ELT (vec, n) = convert_in (targs->elements[n].pack);
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+    }
+  return vec;
+}
+
+gcc_typedecl
 plugin_new_dependent_typename (cc1_plugin::connection *self,
-			       gcc_type enclosing_type,
+			       gcc_typedecl enclosing_type,
 			       const char *id,
 			       const gcc_cp_template_args *targs)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   tree type = convert_in (enclosing_type);
-  
-  /* FIXME: implement.  */
+  tree name = get_identifier (id);
+  if (targs)
+    name = build_min_nt_loc (/*loc=*/0, TEMPLATE_ID_EXPR,
+			     name, targlist (targs));
+  tree res = make_typename_type (type, name, typename_type,
+				 /*complain=*/tf_error);
+  return convert_out (ctx->preserve (res));
 }
 
-gcc_type
+gcc_utempl
 plugin_new_dependent_class_template (cc1_plugin::connection *self,
-				     gcc_type enclosing_type,
+				     gcc_typedecl enclosing_type,
 				     const char *id)
 {
-  /* FIXME: implement.  */
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree type = convert_in (enclosing_type);
+  tree name = get_identifier (id);
+  tree res = make_unbound_class_template (type, name, NULL_TREE,
+					  /*complain=*/tf_error);
+  return convert_out (ctx->preserve (res));
 }
 
-gcc_type
+gcc_typedecl
 plugin_new_dependent_typespec (cc1_plugin::connection *self,
-			       gcc_decl template_decl,
+			       gcc_utempl template_decl,
 			       const gcc_cp_template_args *targs)
 {
-  /* FIXME: implement.  */
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree type = convert_in (template_decl);
+  tree decl = finish_template_type (type, targlist (targs),
+				    /*entering_scope=*/false);
+  return convert_out (ctx->preserve (decl));
 }
 
-gcc_expr
+gcc_decl
 plugin_new_dependent_value_expr (cc1_plugin::connection *self,
-				 gcc_type enclosing_type,
+				 gcc_typedecl enclosing_type,
 				 const char *id,
 				 const gcc_cp_template_args *targs)
 {
-  /* FIXME: implement.  */
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree type = convert_in (enclosing_type);
+  tree name = get_identifier (id);
+  if (targs)
+    name = lookup_template_function (name, targlist (targs));
+  tree res = build_qualified_name (NULL_TREE, type, name, !!targs);
+  return convert_out (ctx->preserve (res));
 }
 
 gcc_expr
@@ -1452,7 +1513,7 @@ plugin_type_value_expr (cc1_plugin::connection *self,
   /* FIXME: implement.  */
 }
 
-gcc_type
+gcc_typedecl
 plugin_expr_type (cc1_plugin::connection *self,
 		  gcc_expr operand)
 {

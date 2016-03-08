@@ -214,6 +214,13 @@ GCC_METHOD2 (gcc_type, build_pointer_to_member_type,
 
 GCC_METHOD0 (int, start_new_template_decl)
 
+/* Return the declaration associated with the named type.  It is the
+   declaration, rather than the type proper, that has to be passed as
+   a template parameter.  */
+
+GCC_METHOD1 (gcc_typedecl, type_decl,
+	     gcc_type)            /* Argument TYPE.  */
+
 /* Build a typename template-parameter (e.g., the T in template
    <typename T = X>).  Either PACK_P should be nonzero, to indicate an
    argument pack (the last argument in a variadic template argument
@@ -222,10 +229,10 @@ GCC_METHOD0 (int, start_new_template_decl)
    parameter.  FILENAME and LINE_NUMBER may specify the source
    location in which the template parameter was declared.  */
 
-GCC_METHOD5 (gcc_type, new_template_typename_parm,
+GCC_METHOD5 (gcc_typedecl, new_template_typename_parm,
 	     const char *,			      /* Argument ID.  */
 	     int /* bool */,			  /* Argument PACK_P.  */
-	     gcc_type,			    /* Argument DEFAULT_TYPE.  */
+	     gcc_typedecl,		    /* Argument DEFAULT_TYPE.  */
 	     const char *,			/* Argument FILENAME.  */
 	     unsigned int)		     /* Argument LINE_NUMBER.  */
 
@@ -235,10 +242,10 @@ GCC_METHOD5 (gcc_type, new_template_typename_parm,
    template parameter.  FILENAME and LINE_NUMBER may specify the
    source location in which the template parameter was declared.  */
 
-GCC_METHOD5 (gcc_decl, new_template_template_parm,
+GCC_METHOD5 (gcc_utempl, new_template_template_parm,
 	     const char *,			      /* Argument ID.  */
 	     int /* bool */,			  /* Argument PACK_P.  */
-	     gcc_decl,			   /* Argument DEFAULT_TEMPL.  */
+	     gcc_utempl,		   /* Argument DEFAULT_TEMPL.  */
 	     const char *,			/* Argument FILENAME.  */
 	     unsigned int)		     /* Argument LINE_NUMBER.  */
 
@@ -249,32 +256,38 @@ GCC_METHOD5 (gcc_decl, new_template_template_parm,
    which the template parameter was declared.  */
 
 GCC_METHOD5 (gcc_decl, new_template_value_parm,
-	     gcc_type,			  	    /* Argument TYPE.  */
+	     gcc_typedecl,		  	    /* Argument TYPE.  */
 	     const char *,			      /* Argument ID.  */
 	     gcc_expr,			   /* Argument DEFAULT_VALUE.  */
 	     const char *,			/* Argument FILENAME.  */
 	     unsigned int)		     /* Argument LINE_NUMBER.  */
 
 /* Build a template-dependent typename (e.g., typename T::bar or
-   typename T::template bart<X> or T<X>).  ENCLOSING_TYPE should be
-   the nested name specifier (e.g., T), ID should be the name of the
-   member of the ENCLOSING_TYPE (e.g., bar or bart, or NULL), and
-   TARGS should be non-NULL and specify the template arguments
-   (e.g. <X>) iff ID is a template class or ID is NULL and
-   ENCLOSING_TYPE is a class template.  */
+   typename T::template bart<X>).  ENCLOSING_TYPE should be the
+   template-dependent nested name specifier (e.g., T), ID should be
+   the name of the member of the ENCLOSING_TYPE (e.g., bar or bart),
+   and TARGS should be non-NULL and specify the template arguments
+   (e.g. <X>) iff ID is to name a class template.
 
-GCC_METHOD3 (gcc_type, new_dependent_typename,
-	     gcc_type,			  /* Argument ENCLOSING_TYPE.  */
+   In this and other calls, a template-dependent nested name specifier
+   may be a template class parameter (new_template_typename_parm), a
+   specialization (returned by new_dependent_typespec) of a template
+   template parameter (returned by new_template_template_parm) or a
+   member type thereof (returned by new_dependent_typename
+   itself).  */
+
+GCC_METHOD3 (gcc_typedecl, new_dependent_typename,
+	     gcc_typedecl,		  /* Argument ENCLOSING_TYPE.  */
 	     const char *,			      /* Argument ID.  */
 	     const struct gcc_cp_template_args *)  /* Argument TARGS.  */
 
-/* Build a template-dependent class template (e.g., typename
-   T::template bar).  ENCLOSING_TYPE should be the nested name
+/* Build a template-dependent class template (e.g., T::template bart).
+   ENCLOSING_TYPE should be the template-dependent nested name
    specifier (e.g., T), ID should be the name of the class template
-   member of the ENCLOSING_TYPE (e.g., bar).  */
+   member of the ENCLOSING_TYPE (e.g., bart).  */
 
-GCC_METHOD2 (gcc_decl, new_dependent_class_template,
-	     gcc_type,			  /* Argument ENCLOSING_TYPE.  */
+GCC_METHOD2 (gcc_utempl, new_dependent_class_template,
+	     gcc_typedecl,		  /* Argument ENCLOSING_TYPE.  */
 	     const char *)			      /* Argument ID.  */
 
 /* Build a template-dependent template type specialization (e.g.,
@@ -282,19 +295,19 @@ GCC_METHOD2 (gcc_decl, new_dependent_class_template,
    (e.g., the T in template <template <[...]> class T = X>), and TARGS
    should specify the template arguments (e.g. <A>).  */
 
-GCC_METHOD2 (gcc_type, new_dependent_typespec,
-	     gcc_decl,			   /* Argument TEMPLATE_DECL.  */
+GCC_METHOD2 (gcc_typedecl, new_dependent_typespec,
+	     gcc_utempl,		   /* Argument TEMPLATE_DECL.  */
 	     const struct gcc_cp_template_args *)  /* Argument TARGS.  */
 
 /* Build a template-dependent value expression (e.g., T::val or
-   T::template f<X>).  ENCLOSING_TYPE should be the nested name
-   specifier (e.g., T), ID should be the name of the member of the
-   ENCLOSING_TYPE (e.g., val or f), and TARGS should list template
-   arguments (e.g. <X>) when f is explicitly qualified as a template,
-   or be NULL otherwise.  */
+   T::template f<X>).  ENCLOSING_TYPE should be the template-dependent
+   nested name specifier (e.g., T), ID should be the name of the
+   member of the ENCLOSING_TYPE (e.g., val or f), and TARGS should
+   list template arguments (e.g. <X>) when f is to name a template
+   function, or be NULL otherwise.  */
 
-GCC_METHOD3 (gcc_expr, new_dependent_value_expr,
-	     gcc_type,			  /* Argument ENCLOSING_TYPE.  */
+GCC_METHOD3 (gcc_decl, new_dependent_value_expr,
+	     gcc_typedecl,		  /* Argument ENCLOSING_TYPE.  */
 	     const char *,			      /* Argument ID.  */
 	     const struct gcc_cp_template_args *)  /* Argument TARGS.  */
 
@@ -353,10 +366,10 @@ GCC_METHOD3 (gcc_expr, type_value_expr,
 
 /* FIXME: function call operations?  ctor/dtor?  new/delete?  */
 
-/* Return the gcc_type of the gcc_expr OPERAND.
+/* Return the type of the gcc_expr OPERAND.
    Use this for decltype.  */
 
-GCC_METHOD1 (gcc_type, expr_type,
+GCC_METHOD1 (gcc_typedecl, expr_type,
 	     gcc_expr)		  /* Argument OPERAND.  */
 
 /* Introduce a specialization of a template function.
