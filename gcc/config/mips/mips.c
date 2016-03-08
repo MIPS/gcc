@@ -9042,7 +9042,7 @@ mips16_expand_copy (rtx dest, rtx src, rtx length, rtx alignment)
   word_count = byte_count / UNITS_PER_WORD;
   byte_count = byte_count % UNITS_PER_WORD;
 
-  if ((ISA_HAS_ULW_USW || TARGET_MIPS16_LWL_LWR)
+  if ((ISA_HAS_ULW_USW || (TARGET_MIPS16 && TARGET_MIPS16_LWL_LWR))
       && word_count == 1 && align < 4)
     return false;
 
