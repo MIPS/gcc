@@ -1634,7 +1634,7 @@ plugin_unary_type_expr (cc1_plugin::connection *self,
 			const char *unary_op,
 			gcc_type operand)
 {
-  /* FIXME: implement sizeof, alignof, .  */
+  /* FIXME: implement sizeof, alignof, ...  */
 }
 
 gcc_expr
@@ -1643,14 +1643,19 @@ plugin_type_value_expr (cc1_plugin::connection *self,
 			gcc_type operand1,
 			gcc_expr operand2)
 {
-  /* FIXME: implement.  */
+  /* FIXME: implement type casts, offsetof, ...  */
 }
 
 gcc_typedecl
 plugin_expr_type (cc1_plugin::connection *self,
 		  gcc_expr operand)
 {
-  /* FIXME: implement.  */
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree op0 = convert_in (operand1);
+  tree type = TREE_TYPE (op0);
+  if (type)
+    type = TYPE_NAME (type);
+  return convert_out (type);
 }
 
 gcc_decl
