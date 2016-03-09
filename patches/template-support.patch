@@ -1,5 +1,5 @@
 Bottom: 45dcd80e67e16ed9b39d407a037212a9c5829812
-Top:    5e077f665ca1a4c1ae8a0c52436f88b4bd220f59
+Top:    e6346db38e72a8985e58da88719748a8bf460575
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2015-11-26 18:57:41 -0200
 
@@ -349,7 +349,7 @@ index 8a4a849..b002b07 100644
    GCC_CP_FLAG_BASE,
  
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index abe42a0..7cfd075 100644
+index abe42a0..69c53f8 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -61,6 +61,7 @@
@@ -412,7 +412,7 @@ index abe42a0..7cfd075 100644
    return 1;
  }
  
-@@ -1246,6 +1252,432 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
+@@ -1246,6 +1252,459 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
    return convert_out (ctx->preserve (memptr_type));
  }
  
@@ -516,7 +516,7 @@ index abe42a0..7cfd075 100644
 +  declarator.u.id.sfk = sfk_none;
 +
 +  cp_decl_specifier_seq declspec;
-+  memset (&declspec, 0, sizeof (declspec));
++  clear_decl_specs (&declspec);
 +  // cp_parser_set_decl_spec_type (&declspec, convert_in (type), -token-, false):
 +  declspec.any_specifiers_p = declspec.any_type_specifiers_p = true;
 +  declspec.type = convert_in (type);
@@ -795,18 +795,45 @@ index abe42a0..7cfd075 100644
 +gcc_expr
 +plugin_unary_type_expr (cc1_plugin::connection *self,
 +			const char *unary_op,
-+			gcc_type operand)
++			gcc_typedecl operand)
 +{
-+  /* FIXME: implement sizeof, alignof, ...  */
++  plugin_context *ctx = static_cast<plugin_context *> (self);
++  tree type = convert_in (operand);
++  tree_code opcode = ERROR_MARK;
++  switch (CHARS2 (binary_op[0], binary_op[1]))
++    {
++      /* FIXME: implement sizeof, alignof, ...  */
++    default:
++      gcc_unreachable ();
++    }
++  int processing_template_decl_save = processing_template_decl;
++  processing_template_decl = 1;
++  tree val = cxx_sizeof_or_alignof_type (type, opcode, true);
++  processing_template_decl = processing_template_decl_save;
++  return convert_out (ctx->preserve (val));
 +}
 +
 +gcc_expr
 +plugin_type_value_expr (cc1_plugin::connection *self,
 +			const char *binary_op,
-+			gcc_type operand1,
++			gcc_typedecl operand1,
 +			gcc_expr operand2)
 +{
-+  /* FIXME: implement type casts, offsetof, ...  */
++  plugin_context *ctx = static_cast<plugin_context *> (self);
++  tree type = convert_in (operand1);
++  tree expr = convert_in (operand2);
++  tree_code opcode = ERROR_MARK;
++  switch (CHARS2 (binary_op[0], binary_op[1]))
++    {
++      /* FIXME: implement type casts, ...  */
++    default:
++      gcc_unreachable ();
++    }
++  int processing_template_decl_save = processing_template_decl;
++  processing_template_decl = 1;
++  tree val = NULL_TREE;
++  processing_template_decl = processing_template_decl_save;
++  return convert_out (ctx->preserve (val));
 +}
 +
 +gcc_typedecl
@@ -845,7 +872,7 @@ index abe42a0..7cfd075 100644
  gcc_type
  plugin_int_type (cc1_plugin::connection *self,
  		 int is_unsigned, unsigned long size_in_bytes)
-@@ -1310,6 +1742,14 @@ plugin_build_array_type (cc1_plugin::connection *self,
+@@ -1310,6 +1769,14 @@ plugin_build_array_type (cc1_plugin::connection *self,
  }
  
  gcc_type
