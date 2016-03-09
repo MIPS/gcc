@@ -1,6 +1,6 @@
 Version: 1
-Previous: d1bdda655a8fb3c69ec9dbd5a7b43d11668c268b
-Head: ff443514e0e4c8148bbcef67ec80e80836afaa85
+Previous: 29ba702f86df18662b6cddc4f6e54e1aa165d124
+Head: a21513edcd90d17c51f1115b977d117c44912162
 Applied:
   debug-aliases-and-trampolines.patch: a63d78e18413a855742c1d76467b90f455e3ed0e
   debug-aliases-and-trampolines-inc.patch: cd52961beeb022adabf58deabfda7aaa50d5dcd9
@@ -9,8 +9,7 @@ Applied:
   fix-operator-handling.patch: 8d2ccd6a9d6de41a5417b74d0b83798d5d73c76d
   fix-shift-operator-handling.patch: efe325eb7e819dde6e15f9a3d48c6fee527c1ba1
   char-type.patch: a79a3e6e7c20080ecfccc780e51cc601a2356349
-  template-support.patch: 45149beba362f9c3546b9407216df9a4de91764b
-  refresh-temp: ff443514e0e4c8148bbcef67ec80e80836afaa85
+  template-support.patch: a21513edcd90d17c51f1115b977d117c44912162
 Unapplied:
   special-memfuncs-testing.patch: 5dadb8e81f23ef0a3a559dc1776fa25b2cc8c5db
 Hidden:
