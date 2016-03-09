@@ -1,5 +1,5 @@
 Bottom: 45dcd80e67e16ed9b39d407a037212a9c5829812
-Top:    52a430ec9dfe8d7355cd6a48c90f29656cc5bdb8
+Top:    9039d4dedeef56f5584b9be4e0d6ac3d4aa5f659
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2015-11-26 18:57:41 -0200
 
@@ -349,7 +349,7 @@ index 8a4a849..b002b07 100644
    GCC_CP_FLAG_BASE,
  
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index abe42a0..a61ea33 100644
+index abe42a0..af0b59e 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -61,6 +61,7 @@
@@ -412,7 +412,7 @@ index abe42a0..a61ea33 100644
    return 1;
  }
  
-@@ -1246,6 +1252,296 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
+@@ -1246,6 +1252,429 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
    return convert_out (ctx->preserve (memptr_type));
  }
  
@@ -624,13 +624,18 @@ index abe42a0..a61ea33 100644
 +plugin_literal_expr (cc1_plugin::connection *self,
 +		     gcc_type type, unsigned long value)
 +{
-+  /* FIXME: implement.  */
++  plugin_context *ctx = static_cast<plugin_context *> (self);
++  tree t = convert_in (type);
++  tree val = build_int_cst_type (t, (unsigned HOST_WIDE_INT) value);
++  return convert_out (ctx->preserve (val));
 +}
 +
 +gcc_expr
-+plugin_decl_expr (cc1_plugin::connection *self, gcc_decl decl)
++plugin_decl_expr (cc1_plugin::connection *, gcc_decl decl_in)
 +{
-+  /* FIXME: implement.  */
++  tree decl = convert_in (decl_in);
++  gcc_assert (DECL_P (decl));
++  return convert_out (decl);
 +}
 +
 +gcc_expr
@@ -638,7 +643,45 @@ index abe42a0..a61ea33 100644
 +			 const char *unary_op,
 +			 gcc_expr operand)
 +{
-+  /* FIXME: implement.  */
++  plugin_context *ctx = static_cast<plugin_context *> (self);
++  tree op0 = convert_in (operand);
++  tree_code opcode = ERROR_MARK;
++  switch (CHARS2 (unary_op[0], unary_op[1]))
++    {
++    case CHARS2 ('p', 's'): // operator + (unary)
++      opcode = UNARY_PLUS_EXPR;
++      break;
++    case CHARS2 ('n', 'g'): // operator - (unary)
++      opcode = NEGATE_EXPR;
++      break;
++    case CHARS2 ('a', 'd'): // operator & (unary)
++      /* FIXME: how do we distinguish taking the address of a data
++	 member from creating a pointer-to-member value?  Both would
++	 take the same decl as the operand, unless we require
++	 different expr codes for e.g. this->member and
++	 class::member.  */
++      opcode = ADDR_EXPR;
++      break;
++    case CHARS2 ('d', 'e'): // operator * (unary)
++      opcode = INDIRECT_REF;
++      break;
++    case CHARS2 ('c', 'o'): // operator ~
++      opcode = BIT_NOT_EXPR;
++      break;
++    case CHARS2 ('n', 't'): // operator !
++      opcode = TRUTH_NOT_EXPR;
++      break;
++      /* FIXME: __real__, __imag__.  */
++    case CHARS2 ('p', 'p'): // operator ++
++    case CHARS2 ('m', 'm'): // operator --
++    default:
++      gcc_unreachable ();
++    }
++  int processing_template_decl_save = processing_template_decl;
++  processing_template_decl = 1;
++  tree val = build_x_unary_op (/*loc=*/0, opcode, op0, tf_error);
++  processing_template_decl = processing_template_decl_save;
++  return convert_out (ctx->preserve (val));
 +}
 +
 +gcc_expr
@@ -647,17 +690,107 @@ index abe42a0..a61ea33 100644
 +			  gcc_expr operand1,
 +			  gcc_expr operand2)
 +{
-+  /* FIXME: implement.  */
++  plugin_context *ctx = static_cast<plugin_context *> (self);
++  tree op0 = convert_in (operand1);
++  tree op1 = convert_in (operand2);
++  tree_code opcode = ERROR_MARK;
++  switch (CHARS2 (binary_op[0], binary_op[1]))
++    {
++    case CHARS2 ('p', 'l'): // operator +
++      opcode = PLUS_EXPR;
++      break;
++    case CHARS2 ('m', 'i'): // operator -
++      opcode = MINUS_EXPR;
++      break;
++    case CHARS2 ('m', 'l'): // operator *
++      opcode = MULT_EXPR;
++      break;
++    case CHARS2 ('d', 'v'): // operator /
++      opcode = TRUNC_DIV_EXPR;
++      break;
++    case CHARS2 ('r', 'm'): // operator %
++      opcode = TRUNC_MOD_EXPR;
++      break;
++    case CHARS2 ('a', 'n'): // operator &
++      opcode = BIT_AND_EXPR;
++      break;
++    case CHARS2 ('o', 'r'): // operator |
++      opcode = BIT_IOR_EXPR;
++      break;
++    case CHARS2 ('e', 'o'): // operator ^
++      opcode = BIT_XOR_EXPR;
++      break;
++    case CHARS2 ('l', 's'): // operator <<
++      opcode = LSHIFT_EXPR;
++      break;
++    case CHARS2 ('r', 's'): // operator >>
++      opcode = RSHIFT_EXPR;
++      break;
++    case CHARS2 ('e', 'q'): // operator ==
++      opcode = EQ_EXPR;
++      break;
++    case CHARS2 ('n', 'e'): // operator !=
++      opcode = NE_EXPR;
++      break;
++    case CHARS2 ('l', 't'): // operator <
++      opcode = LT_EXPR;
++      break;
++    case CHARS2 ('g', 't'): // operator >
++      opcode = GT_EXPR;
++      break;
++    case CHARS2 ('l', 'e'): // operator <=
++      opcode = LE_EXPR;
++      break;
++    case CHARS2 ('g', 'e'): // operator >=
++      opcode = GE_EXPR;
++      break;
++    case CHARS2 ('a', 'a'): // operator &&
++      opcode = TRUTH_ANDIF_EXPR;
++      break;
++    case CHARS2 ('o', 'o'): // operator ||
++      opcode = TRUTH_ORIF_EXPR;
++      break;
++    case CHARS2 ('c', 'm'): // operator ,
++      opcode = COMPOUND_EXPR;
++      break;
++    case CHARS2 ('p', 'm'): // operator ->*
++      opcode = MEMBER_REF;
++      break;
++    case CHARS2 ('p', 't'): // operator ->
++      opcode = COMPONENT_REF;
++      break;
++    case CHARS2 ('i', 'x'): // operator []
++      opcode = ARRAY_REF;
++      break;
++    default:
++      gcc_unreachable ();
++    }
++  int processing_template_decl_save = processing_template_decl;
++  processing_template_decl = 1;
++  tree val = build_x_binary_op (/*loc=*/0, opcode, op0, ERROR_MARK,
++				op1, ERROR_MARK, NULL, tf_error);
++  processing_template_decl = processing_template_decl_save;
++  return convert_out (ctx->preserve (val));
 +}
 +
 +gcc_expr
 +plugin_ternary_value_expr (cc1_plugin::connection *self,
-+			   const char *binary_op,
++			   const char *ternary_op,
 +			   gcc_expr operand1,
 +			   gcc_expr operand2,
 +			   gcc_expr operand3)
 +{
-+  /* FIXME: implement.  */
++  plugin_context *ctx = static_cast<plugin_context *> (self);
++  tree op0 = convert_in (operand1);
++  tree op1 = convert_in (operand2);
++  tree op2 = convert_in (operand3);
++  gcc_assert (CHARS2 (ternary_op[0], ternary_op[1])
++	      == CHARS2 ('q', 'u')); // ternary operator
++  int processing_template_decl_save = processing_template_decl;
++  processing_template_decl = 1;
++  tree val = build_x_conditional_expr (/*loc=*/0, op0, op1, op2, tf_error);
++  processing_template_decl = processing_template_decl_save;
++  return convert_out (ctx->preserve (val));
 +}
 +
 +gcc_expr
@@ -665,7 +798,7 @@ index abe42a0..a61ea33 100644
 +			const char *unary_op,
 +			gcc_type operand)
 +{
-+  /* FIXME: implement.  */
++  /* FIXME: implement sizeof, alignof, .  */
 +}
 +
 +gcc_expr
@@ -709,7 +842,7 @@ index abe42a0..a61ea33 100644
  gcc_type
  plugin_int_type (cc1_plugin::connection *self,
  		 int is_unsigned, unsigned long size_in_bytes)
-@@ -1310,6 +1606,14 @@ plugin_build_array_type (cc1_plugin::connection *self,
+@@ -1310,6 +1739,14 @@ plugin_build_array_type (cc1_plugin::connection *self,
  }
  
  gcc_type
