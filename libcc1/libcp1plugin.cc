@@ -1267,10 +1267,9 @@ plugin_start_new_template_decl (cc1_plugin::connection *self ATTRIBUTE_UNUSED)
 }
 
 gcc_typedecl
-plugin_type_decl (cc1_plugin::connection *self,
+plugin_type_decl (cc1_plugin::connection *,
 		  gcc_type type_in)
 {
-  plugin_context *ctx = static_cast<plugin_context *> (self);
   tree type = convert_in (type_in);
 
   tree name = TYPE_NAME (type);
@@ -1647,11 +1646,10 @@ plugin_type_value_expr (cc1_plugin::connection *self,
 }
 
 gcc_typedecl
-plugin_expr_type (cc1_plugin::connection *self,
+plugin_expr_type (cc1_plugin::connection *,
 		  gcc_expr operand)
 {
-  plugin_context *ctx = static_cast<plugin_context *> (self);
-  tree op0 = convert_in (operand1);
+  tree op0 = convert_in (operand);
   tree type = TREE_TYPE (op0);
   if (type)
     type = TYPE_NAME (type);
