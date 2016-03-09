@@ -1,5 +1,5 @@
 Bottom: 45dcd80e67e16ed9b39d407a037212a9c5829812
-Top:    e6346db38e72a8985e58da88719748a8bf460575
+Top:    40f5d398b06b210099a271fdbc139c05545bcee4
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2015-11-26 18:57:41 -0200
 
@@ -349,7 +349,7 @@ index 8a4a849..b002b07 100644
    GCC_CP_FLAG_BASE,
  
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index abe42a0..69c53f8 100644
+index abe42a0..8bb413d 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -61,6 +61,7 @@
@@ -516,7 +516,7 @@ index abe42a0..69c53f8 100644
 +  declarator.u.id.sfk = sfk_none;
 +
 +  cp_decl_specifier_seq declspec;
-+  clear_decl_specs (&declspec);
++  memset (&declspec, 0, sizeof (declspec));
 +  // cp_parser_set_decl_spec_type (&declspec, convert_in (type), -token-, false):
 +  declspec.any_specifiers_p = declspec.any_type_specifiers_p = true;
 +  declspec.type = convert_in (type);
