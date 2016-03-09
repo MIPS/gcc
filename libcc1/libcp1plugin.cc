@@ -1636,7 +1636,7 @@ plugin_unary_type_expr (cc1_plugin::connection *self,
   plugin_context *ctx = static_cast<plugin_context *> (self);
   tree type = convert_in (operand);
   tree_code opcode = ERROR_MARK;
-  switch (CHARS2 (binary_op[0], binary_op[1]))
+  switch (CHARS2 (unary_op[0], unary_op[1]))
     {
       /* FIXME: implement sizeof, alignof, ...  */
     default:
