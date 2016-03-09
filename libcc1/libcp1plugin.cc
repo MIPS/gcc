@@ -1352,7 +1352,7 @@ plugin_new_template_value_parm (cc1_plugin::connection *self,
   declarator.u.id.sfk = sfk_none;
 
   cp_decl_specifier_seq declspec;
-  clear_decl_specs (&declspec);
+  memset (&declspec, 0, sizeof (declspec));
   // cp_parser_set_decl_spec_type (&declspec, convert_in (type), -token-, false):
   declspec.any_specifiers_p = declspec.any_type_specifiers_p = true;
   declspec.type = convert_in (type);
