@@ -1,5 +1,5 @@
 Bottom: 45dcd80e67e16ed9b39d407a037212a9c5829812
-Top:    9039d4dedeef56f5584b9be4e0d6ac3d4aa5f659
+Top:    85bf2b382d52b3e5f085c8c5eef712ff5e814816
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2015-11-26 18:57:41 -0200
 
@@ -349,7 +349,7 @@ index 8a4a849..b002b07 100644
    GCC_CP_FLAG_BASE,
  
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index abe42a0..af0b59e 100644
+index abe42a0..dc3767e 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -61,6 +61,7 @@
@@ -412,7 +412,7 @@ index abe42a0..af0b59e 100644
    return 1;
  }
  
-@@ -1246,6 +1252,429 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
+@@ -1246,6 +1252,434 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
    return convert_out (ctx->preserve (memptr_type));
  }
  
@@ -798,7 +798,7 @@ index abe42a0..af0b59e 100644
 +			const char *unary_op,
 +			gcc_type operand)
 +{
-+  /* FIXME: implement sizeof, alignof, .  */
++  /* FIXME: implement sizeof, alignof, ...  */
 +}
 +
 +gcc_expr
@@ -807,14 +807,19 @@ index abe42a0..af0b59e 100644
 +			gcc_type operand1,
 +			gcc_expr operand2)
 +{
-+  /* FIXME: implement.  */
++  /* FIXME: implement type casts, offsetof, ...  */
 +}
 +
 +gcc_typedecl
 +plugin_expr_type (cc1_plugin::connection *self,
 +		  gcc_expr operand)
 +{
-+  /* FIXME: implement.  */
++  plugin_context *ctx = static_cast<plugin_context *> (self);
++  tree op0 = convert_in (operand1);
++  tree type = TREE_TYPE (op0);
++  if (type)
++    type = TYPE_NAME (type);
++  return convert_out (type);
 +}
 +
 +gcc_decl
@@ -842,7 +847,7 @@ index abe42a0..af0b59e 100644
  gcc_type
  plugin_int_type (cc1_plugin::connection *self,
  		 int is_unsigned, unsigned long size_in_bytes)
-@@ -1310,6 +1739,14 @@ plugin_build_array_type (cc1_plugin::connection *self,
+@@ -1310,6 +1744,14 @@ plugin_build_array_type (cc1_plugin::connection *self,
  }
  
  gcc_type
