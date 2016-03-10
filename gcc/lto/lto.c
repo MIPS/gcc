@@ -1395,10 +1395,7 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
       /* TYPE_CANONICAL is re-computed during type merging, so do not
 	 compare it here.  */
       compare_tree_edges (TYPE_STUB_DECL (t1), TYPE_STUB_DECL (t2));
-    }
 
-  if (CODE_CONTAINS_STRUCT (code, TS_TYPE_NON_COMMON))
-    {
       if (code == ENUMERAL_TYPE)
 	compare_tree_edges (TYPE_VALUES (t1), TYPE_VALUES (t2));
       else if (code == ARRAY_TYPE)

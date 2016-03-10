@@ -1416,7 +1416,7 @@ struct GTY(()) tree_block {
   struct die_struct *die;
 };
 
-struct GTY(()) tree_type_common {
+struct GTY(()) tree_type {
   struct tree_common common;
   tree size;
   tree size_unit;
@@ -1455,16 +1455,8 @@ struct GTY(()) tree_type_common {
   tree main_variant;
   tree context;
   tree name;
-};
-
-struct GTY(()) tree_type_with_lang_specific {
-  struct tree_type_common common;
   /* Points to a structure whose details depend on the language in use.  */
   struct lang_type *lang_specific;
-};
-
-struct GTY(()) tree_type_non_common {
-  struct tree_type_with_lang_specific with_lang_specific;
   tree values;
   tree minval;
   tree maxval;
@@ -1787,11 +1779,7 @@ union GTY ((ptr_alias (union lang_tree_node),
   struct tree_function_decl GTY ((tag ("TS_FUNCTION_DECL"))) function_decl;
   struct tree_translation_unit_decl GTY ((tag ("TS_TRANSLATION_UNIT_DECL")))
     translation_unit_decl;
-  struct tree_type_common GTY ((tag ("TS_TYPE_COMMON"))) type_common;
-  struct tree_type_with_lang_specific GTY ((tag ("TS_TYPE_WITH_LANG_SPECIFIC")))
-    type_with_lang_specific;
-  struct tree_type_non_common GTY ((tag ("TS_TYPE_NON_COMMON")))
-    type_non_common;
+  struct tree_type GTY ((tag ("TS_TYPE_COMMON"))) type_common;
   struct tree_list GTY ((tag ("TS_LIST"))) list;
   struct tree_vec GTY ((tag ("TS_VEC"))) vec;
   struct tree_exp GTY ((tag ("TS_EXP"))) exp;

@@ -831,10 +831,7 @@ DFS::DFS_write_tree_body (struct output_block *ob,
       /* TYPE_CANONICAL is re-computed during type merging, so no need
 	 to follow it here.  */
       DFS_follow_tree_edge (TYPE_STUB_DECL (expr));
-    }
 
-  if (CODE_CONTAINS_STRUCT (code, TS_TYPE_NON_COMMON))
-    {
       if (TREE_CODE (expr) == ENUMERAL_TYPE)
 	DFS_follow_tree_edge (TYPE_VALUES (expr));
       else if (TREE_CODE (expr) == ARRAY_TYPE)
@@ -1262,10 +1259,7 @@ hash_tree (struct streamer_tree_cache_d *cache, hash_map<tree, hashval_t> *map, 
       else
 	visit (TYPE_CONTEXT (t));
       visit (TYPE_STUB_DECL (t));
-    }
 
-  if (CODE_CONTAINS_STRUCT (code, TS_TYPE_NON_COMMON))
-    {
       if (code == ENUMERAL_TYPE)
 	visit (TYPE_VALUES (t));
       else if (code == ARRAY_TYPE)
