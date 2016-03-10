@@ -41,10 +41,8 @@ abort (void)
   exit (255);
 }
 
-asm ("// BEGIN GLOBAL VAR DECL: __nvptx_stacks");
-asm (".extern .shared .u64 __nvptx_stacks[32];");
-asm ("// BEGIN GLOBAL VAR DECL: __nvptx_uni");
-asm (".extern .shared .u32 __nvptx_uni[32];");
+extern char *__nvptx_stacks[32] __attribute__((shared));
+extern unsigned __nvptx_uni[32] __attribute__((shared));
 
 extern int main (int argc, char *argv[]);
 
@@ -54,8 +52,8 @@ __main (int *__retval, int __argc, char *__argv[])
   __exitval = __retval;
 
   static char gstack[131072] __attribute__((aligned(8)));
-  asm ("st.shared.u64 [__nvptx_stacks], %0;" : : "r" (gstack + sizeof gstack));
-  asm ("st.shared.u32 [__nvptx_uni], %0;" : : "r" (0));
+  __nvptx_stacks[0] = gstack + sizeof gstack;
+  __nvptx_uni[0] = 0;
 
   exit (main (__argc, __argv));
 }

@@ -21,10 +21,5 @@
    see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    <http://www.gnu.org/licenses/>.  */
 
-/* __shared__ char *__nvptx_stacks[32];  */
-asm ("// BEGIN GLOBAL VAR DEF: __nvptx_stacks");
-asm (".visible .shared .u64 __nvptx_stacks[32];");
-
-/* __shared__ unsigned __nvptx_uni[32];  */
-asm ("// BEGIN GLOBAL VAR DEF: __nvptx_uni");
-asm (".visible .shared .u32 __nvptx_uni[32];");
+char *__nvptx_stacks[32] __attribute__((shared)) = { 0 };
+unsigned __nvptx_uni[32] __attribute__((shared)) = { 0 };
