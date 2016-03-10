@@ -863,7 +863,7 @@ promote_ssa_mode (const_tree name, int *punsignedp)
   if (mode == BLKmode)
     {
       gcc_assert (VECTOR_TYPE_P (type));
-      mode = type->type_common.mode;
+      mode = TYPE_MODE_RAW (type);
     }
 
   machine_mode pmode = promote_mode (type, mode, &unsignedp);

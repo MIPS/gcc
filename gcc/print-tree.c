@@ -834,8 +834,8 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  break;
 
     	case STATEMENT_LIST:
-	  dump_addr (file, " head ", node->stmt_list.head);
-	  dump_addr (file, " tail ", node->stmt_list.tail);
+	  dump_addr (file, " head ", STATEMENT_LIST_HEAD (node));
+	  dump_addr (file, " tail ", STATEMENT_LIST_TAIL (node));
 	  fprintf (file, " stmts");
 	  {
 	    tree_stmt_iterator i;

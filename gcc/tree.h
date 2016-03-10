@@ -1120,6 +1120,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 /* The source location of this expression.  Non-tree_exp nodes such as
    decls and constants can be shared among multiple locations, so
    return nothing.  */
+#define EXPR_LOCATION_RAW(NODE)  (EXPR_CHECK (NODE)->exp.locus)
 #define EXPR_LOCATION(NODE) \
   (CAN_HAVE_LOCATION_P ((NODE)) ? (NODE)->exp.locus : UNKNOWN_LOCATION)
 #define SET_EXPR_LOCATION(NODE, LOCUS) EXPR_CHECK ((NODE))->exp.locus = (LOCUS)
@@ -2070,6 +2071,7 @@ extern machine_mode element_mode (const_tree t);
 /* For record and union types, information about this type, as a base type
    for itself.  */
 #define TYPE_BINFO(NODE) (RECORD_OR_UNION_CHECK (NODE)->type_non_common.binfo)
+#define TYPE_BINFO_RAW(NODE) (TYPE_CHECK (NODE)->type_non_common.binfo)
 
 /* For non record and union types, used in a language-dependent way.  */
 #define TYPE_LANG_SLOT_1(NODE) \
@@ -2431,6 +2433,7 @@ extern void decl_value_expr_insert (tree, tree);
 /* Holds the RTL expression for the value of a variable or function.
    This value can be evaluated lazily for functions, variables with
    static storage duration, and labels.  */
+#define DECL_RTL_RAW(NODE) (DECL_WRTL_CHECK (NODE)->decl_with_rtl.rtl)
 #define DECL_RTL(NODE)					\
   (DECL_WRTL_CHECK (NODE)->decl_with_rtl.rtl		\
    ? (NODE)->decl_with_rtl.rtl					\
@@ -2500,6 +2503,8 @@ extern void decl_value_expr_insert (tree, tree);
    DECL_FIELD_OFFSET which are known to be always zero.
    DECL_OFFSET_ALIGN thus returns the alignment that DECL_FIELD_OFFSET
    has.  */
+#define DECL_OFFSET_ALIGN_RAW(NODE) \
+  (FIELD_DECL_CHECK (NODE)->decl_common.off_align)
 #define DECL_OFFSET_ALIGN(NODE) \
   (((unsigned HOST_WIDE_INT)1) << FIELD_DECL_CHECK (NODE)->decl_common.off_align)
 
@@ -2610,6 +2615,9 @@ extern void decl_value_expr_insert (tree, tree);
 #define DECL_COMDAT_GROUP(NODE) \
   decl_comdat_group (NODE)
 
+#define DECL_SYMTAB_NODE(NODE) \
+  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.symtab_node)
+
 /* Used in TREE_PUBLIC decls to indicate that copies of this DECL in
    multiple translation units should be merged.  */
 #define DECL_ONE_ONLY(NODE) (DECL_COMDAT_GROUP (NODE) != NULL_TREE \
@@ -2623,6 +2631,8 @@ extern void decl_value_expr_insert (tree, tree);
    One Definition Rule based type merging at LTO.  It is computed only for
    LTO compilation and C++.  */
 #define DECL_ASSEMBLER_NAME(NODE) decl_assembler_name (NODE)
+#define DECL_ASSEMBLER_NAME_RAW(NODE) \
+  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.assembler_name)
 
 /* Return true if NODE is a NODE that can contain a DECL_ASSEMBLER_NAME.
    This is true of all DECL nodes except FIELD_DECL.  */
