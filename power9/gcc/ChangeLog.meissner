@@ -1,3 +1,16 @@
+2016-03-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.md (altivec_vupkhs<VU_char>): Make
+	generator function.
+
+	* config/rs6000/rs6000.md (round32<mode>2_fprs): Disable if
+	-mdirect-move.
+	(roundu32<mode>2_fprs): Likewise.
+	(round32<mode>2_p8): Fix endian issues.
+	(roundu32<mode>2_p8): Delete.
+	(round32_xscvdpuxws_<mode>): Likewise.
+	(round32_xscvuxd<Fvsx>): Likewise.
+
 2016-03-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vsx.md (vsx_sign_extend_si_v2di): Rename to make
