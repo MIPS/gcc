@@ -14690,8 +14690,12 @@ mips_move_to_gpr_cost (machine_mode mode, reg_class_t from)
 {
   switch (from)
     {
-    case M16_REGS:
     case GENERAL_REGS:
+      if (TARGET_MIPS16 && TARGET_MIPS16_COST_TWEAK && from == GENERAL_REGS)
+	return 3;
+      return 2;
+
+    case M16_REGS:
       /* A MIPS16 MOVE instruction, or a non-MIPS16 MOVE macro.  */
       return 2;
 
@@ -14723,8 +14727,12 @@ mips_move_from_gpr_cost (machine_mode mode, reg_class_t to)
 {
   switch (to)
     {
-    case M16_REGS:
     case GENERAL_REGS:
+      if (TARGET_MIPS16 && TARGET_MIPS16_COST_TWEAK && to == GENERAL_REGS)
+	return 3;
+      return 2;
+
+    case M16_REGS:
       /* A MIPS16 MOVE instruction, or a non-MIPS16 MOVE macro.  */
       return 2;
 
@@ -14805,7 +14813,8 @@ mips_register_priority (int hard_regno)
 static int
 mips_memory_move_cost (machine_mode mode, reg_class_t rclass, bool in)
 {
-  return (mips_cost->memory_latency
+  return ((TARGET_MIPS16
+	   && TARGET_MIPS16_COST_TWEAK ? 2 : mips_cost->memory_latency)
 	  + memory_move_secondary_cost (mode, rclass, in));
 }
 

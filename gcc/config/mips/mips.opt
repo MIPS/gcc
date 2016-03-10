@@ -576,3 +576,6 @@ Target Undocumented Var(TARGET_MIPS16_SCALED_INDEXED_LDST) Init (0)
 
 mmips16-pool-limit=
 Target Undocumented RejectNegative Joined UInteger Var(TARGET_MIPS16_POOL_LIMIT) Init(0x8000)
+
+mmips16-cost-tweak
+Target Undocumented Var(TARGET_MIPS16_COST_TWEAK) Init (0)
