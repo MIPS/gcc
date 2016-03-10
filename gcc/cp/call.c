@@ -1,4 +1,4 @@
-/* Functions related to invoking methods and overloaded functions.
+/* Functions related to invoking -*- C++ -*- methods and overloaded functions.
    Copyright (C) 1987-2016 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) and
    modified by Brendan Kehoe (brendan@cygnus.com).
@@ -897,6 +897,8 @@ build_aggr_conv (tree type, tree ctor, int flags, tsubst_flags_t complain)
 
       if (i < CONSTRUCTOR_NELTS (ctor))
 	val = CONSTRUCTOR_ELT (ctor, i)->value;
+      else if (DECL_INITIAL (field))
+	val = get_nsdmi (field, /*ctor*/false);
       else if (TREE_CODE (ftype) == REFERENCE_TYPE)
 	/* Value-initialization of reference is ill-formed.  */
 	return NULL;

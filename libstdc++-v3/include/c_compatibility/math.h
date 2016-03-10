@@ -111,7 +111,7 @@ using std::tgamma;
 using std::trunc;
 #endif // C++11 && _GLIBCXX_USE_C99_MATH_TR1
 
-#if __STDCPP_WANT_MATH_SPEC_FUNCS__ == 1
+#if __cplusplus > 201402L || __STDCPP_WANT_MATH_SPEC_FUNCS__ == 1
 using std::assoc_laguerref;
 using std::assoc_laguerrel;
 using std::assoc_laguerre;

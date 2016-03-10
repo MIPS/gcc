@@ -1,6 +1,6 @@
 // Mathematical Special Functions for -*- C++ -*-
 
-// Copyright (C) 2006-2015 Free Software Foundation, Inc.
+// Copyright (C) 2006-2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -34,15 +34,21 @@
 
 #include <bits/c++config.h>
 
-#if __STDCPP_WANT_MATH_SPEC_FUNCS__ == 0
+#define __STDCPP_MATH_SPEC_FUNCS__ 201003L
+
+#define __cpp_lib_math_special_functions 201603L
+
+#if __cplusplus <= 201402L && __STDCPP_WANT_MATH_SPEC_FUNCS__ == 0
 # error include <cmath> and define __STDCPP_WANT_MATH_SPEC_FUNCS__
 #endif
 
-#define __STDCPP_MATH_SPEC_FUNCS__ 201003L
-
-#include <bits/stl_algobase.h>
 #include <limits>
-#include <type_traits>
+#include <bits/stl_algobase.h>
+#if __cplusplus >= 201103L
+#  include <type_traits>
+#else
+#  include <tr1/type_traits>
+#endif
 
 #include <tr1/gamma.tcc>
 #include <tr1/bessel_function.tcc>
