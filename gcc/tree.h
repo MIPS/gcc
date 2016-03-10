@@ -237,16 +237,6 @@ as_internal_fn (combined_fn code)
 #define CASE_FLT_FN_REENT(FN) case FN##_R: case FN##F_R: case FN##L_R
 #define CASE_INT_FN(FN) case FN: case FN##L: case FN##LL: case FN##IMAX
 
-#define NULL_TREE (tree) NULL
-
-/* Define accessors for the fields that all tree nodes have
-   (though some fields are not used for all kinds of nodes).  */
-
-/* The tree-code says what kind of node it is.
-   Codes are defined in tree.def.  */
-#define TREE_CODE(NODE) ((enum tree_code) (NODE)->base.code)
-#define TREE_SET_CODE(NODE, VALUE) ((NODE)->base.code = (VALUE))
-
 /* When checking is enabled, errors will be generated if a tree node
    is accessed incorrectly. The macros die with a fatal error.  */
 #if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
@@ -333,25 +323,6 @@ as_internal_fn (combined_fn code)
 (*(tree_operand_check_code ((T), (CODE), (I), \
                                          __FILE__, __LINE__, __FUNCTION__)))
 
-/* Nodes are chained together for many purposes.
-   Types are chained together to record them for being output to the debugger
-   (see the function `chain_type').
-   Decls in the same scope are chained together to record the contents
-   of the scope.
-   Statement nodes for successive statements used to be chained together.
-   Often lists of things are represented by TREE_LIST nodes that
-   are chained together.  */
-
-#define TREE_CHAIN(NODE) \
-(CONTAINS_STRUCT_CHECK (NODE, TS_COMMON)->common.chain)
-
-/* In all nodes that are expressions, this is the data type of the expression.
-   In POINTER_TYPE nodes, this is the type that the pointer points to.
-   In ARRAY_TYPE nodes, this is the type of the elements.
-   In VECTOR_TYPE nodes, this is the type of the elements.  */
-#define TREE_TYPE(NODE) \
-(CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->typed.type)
-
 extern void tree_contains_struct_check_failed (const_tree,
 					       const enum tree_node_structure_enum,
 					       const char *, int, const char *)
@@ -421,10 +392,36 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define OMP_CLAUSE_SUBCODE_CHECK(T, CODE)	(T)
 #define ANY_INTEGRAL_TYPE_CHECK(T)		(T)
 
-#define TREE_CHAIN(NODE) ((NODE)->common.chain)
-#define TREE_TYPE(NODE) ((NODE)->typed.type)
-
 #endif
+
+#define NULL_TREE (tree) NULL
+
+/* Define accessors for the fields that all tree nodes have
+   (though some fields are not used for all kinds of nodes).  */
+
+/* The tree-code says what kind of node it is.
+   Codes are defined in tree.def.  */
+#define TREE_CODE(NODE) ((enum tree_code) (NODE)->base.code)
+#define TREE_SET_CODE(NODE, VALUE) ((NODE)->base.code = (VALUE))
+
+/* Nodes are chained together for many purposes.
+   Types are chained together to record them for being output to the debugger
+   (see the function `chain_type').
+   Decls in the same scope are chained together to record the contents
+   of the scope.
+   Statement nodes for successive statements used to be chained together.
+   Often lists of things are represented by TREE_LIST nodes that
+   are chained together.  */
+
+#define TREE_CHAIN(NODE) \
+(CONTAINS_STRUCT_CHECK (NODE, TS_COMMON)->common.chain)
+
+/* In all nodes that are expressions, this is the data type of the expression.
+   In POINTER_TYPE nodes, this is the type that the pointer points to.
+   In ARRAY_TYPE nodes, this is the type of the elements.
+   In VECTOR_TYPE nodes, this is the type of the elements.  */
+#define TREE_TYPE(NODE) \
+(CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->typed.type)
 
 #define TREE_BLOCK(NODE)		(tree_block (NODE))
 #define TREE_SET_BLOCK(T, B)		(tree_set_block ((T), (B)))
