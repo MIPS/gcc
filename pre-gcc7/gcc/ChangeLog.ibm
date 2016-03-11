@@ -1,5 +1,21 @@
 2016-03-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/vsx.md (vsx_sign_extend_hi_<mode>): Do not provide
+	a generator function until it is needed.
+	(vsx_sign_extend_si_v2di): Rename, and turn off making a generator
+	function.
+
+	* config/rs6000/rs6000.md (floatsi<mode>2_lfiwax): Use wi
+	constraint, instead of wj.  Combine alterantives for patterns that
+	ultimately spilt the insns.
+	(floatsi<mode>2_lfiwax_mem): Likewise.
+	(floatunssi<mode>2_lfiwzx_mem): Likewise.
+	(floatunssi<mode>2_lfiwzx): Likewise.
+	(fix_trunc<mode>si2): Fix comment.
+	(fix_trunc<mode>di2_fctidz): Use <Fv> instead of <Fa> to allow for
+	either the int or floating point to be in an Altivec register.
+	(fixuns_trunc<mode>di2_fctiduz): Likewise.
+
 	PR target/70131
 	* config/rs6000/rs6000.md (round32<mode>2_fprs): Do not do the
 	optimization if we have direct move.
