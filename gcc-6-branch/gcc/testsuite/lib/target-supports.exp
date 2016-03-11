@@ -4006,6 +4006,7 @@ proc check_effective_target_whole_vector_shift { } {
     if { [istarget i?86-*-*] || [istarget x86_64-*-*]
 	 || [istarget ia64-*-*]
 	 || [istarget aarch64*-*-*]
+	 || [istarget powerpc64*-*-*]
 	 || ([check_effective_target_arm32]
 	     && [check_effective_target_arm_little_endian])
 	 || ([istarget mips*-*-*]
@@ -6556,6 +6557,11 @@ proc check_effective_target_c++1z { } {
     return [check_effective_target_c++1z_only]
 }
 
+# Check for C++ Concepts TS support, i.e. -fconcepts flag.
+proc check_effective_target_concepts { } {
+    return [check-flags { "" { } { -fconcepts } }]
+}
+
 # Return 1 if expensive testcases should be run.
 
 proc check_effective_target_run_expensive_tests { } {
@@ -6935,4 +6941,12 @@ proc check_effective_target_offload_nvptx { } {
     return [check_no_compiler_messages offload_nvptx object {
 	int main () {return 0;}
     } "-foffload=nvptx-none" ]
+}
+
+# Return 1 if the compiler has been configured with hsa offloading.
+
+proc check_effective_target_offload_hsa { } {
+    return [check_no_compiler_messages offload_hsa assembly {
+	int main () {return 0;}
+    } "-foffload=hsa" ]
 }
