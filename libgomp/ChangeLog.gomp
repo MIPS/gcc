@@ -1,3 +1,7 @@
+2016-03-11  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/vprop.c: New test.
+
 2016-01-22  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/loop-auto-1.c: Adjust

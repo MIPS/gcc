@@ -1,3 +1,8 @@
+2016-03-11  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-parser.c (c_parser_oacc_loop): Update cclauses and clauses
+	when calling c_finish_omp_clauses.
+
 2016-02-03  James Norris  <jnorris@codesourcery.com>
 
 	* c-typeck.c (build_external_ref): Remove usage check.

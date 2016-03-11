@@ -13960,9 +13960,9 @@ c_parser_oacc_loop (location_t loc, c_parser *parser, char *p_name,
     {
       clauses = c_oacc_split_loop_clauses (clauses, cclauses);
       if (*cclauses)
-	c_finish_omp_clauses (*cclauses, true, false);
+	*cclauses = c_finish_omp_clauses (*cclauses, true, false);
       if (clauses)
-	c_finish_omp_clauses (clauses, true, false);
+	clauses = c_finish_omp_clauses (clauses, true, false);
     }
 
   tree block = c_begin_compound_stmt (true);

@@ -35482,9 +35482,9 @@ cp_parser_oacc_loop (cp_parser *parser, cp_token *pragma_tok, char *p_name,
     {
       clauses = c_oacc_split_loop_clauses (clauses, cclauses);
       if (*cclauses)
-	finish_omp_clauses (*cclauses, true, true);
+	*cclauses = finish_omp_clauses (*cclauses, true, true);
       if (clauses)
-	finish_omp_clauses (clauses, true, true);
+	clauses = finish_omp_clauses (clauses, true, true);
     }
 
   tree block = begin_omp_structured_block ();
