@@ -317,6 +317,11 @@ as_internal_fn (combined_fn code)
 (*(tree_operand_check_code ((T), (CODE), (I), \
                                          __FILE__, __LINE__, __FUNCTION__)))
 
+inline tree contains_struct_check (tree, const enum tree_node_structure_enum,
+				   const char *, int, const char *);
+inline const_tree contains_struct_check (const_tree,
+					 const enum tree_node_structure_enum,
+					 const char *, int, const char *);
 extern void tree_contains_struct_check_failed (const_tree,
 					       const enum tree_node_structure_enum,
 					       const char *, int, const char *)
@@ -390,13 +395,26 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 
 #define NULL_TREE (tree) NULL
 
+/* Accessor for base structure. */
+inline struct tree_base&
+TREE_BASE (tree t)
+{
+  return t->base;
+}
+
+inline const struct tree_base&
+TREE_BASE (const_tree t)
+{
+  return t->base;
+}
+
 /* Define accessors for the fields that all tree nodes have
    (though some fields are not used for all kinds of nodes).  */
 
 /* The tree-code says what kind of node it is.
    Codes are defined in tree.def.  */
-#define TREE_CODE(NODE) ((enum tree_code) (NODE)->base.code)
-#define TREE_SET_CODE(NODE, VALUE) ((NODE)->base.code = (VALUE))
+#define TREE_CODE(NODE) ((enum tree_code) (TREE_BASE (NODE).code))
+#define TREE_SET_CODE(NODE, VALUE) (TREE_BASE (NODE).code = (VALUE))
 
 /* Nodes are chained together for many purposes.
    Types are chained together to record them for being output to the debugger
@@ -406,16 +424,34 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    Statement nodes for successive statements used to be chained together.
    Often lists of things are represented by TREE_LIST nodes that
    are chained together.  */
+inline tree&
+TREE_CHAIN (tree t)
+{
+  return CONTAINS_STRUCT_CHECK (t, TS_COMMON)->common.chain;
+}
 
-#define TREE_CHAIN(NODE) \
-(CONTAINS_STRUCT_CHECK (NODE, TS_COMMON)->common.chain)
+inline tree
+TREE_CHAIN (const_tree t)
+{
+  return CONTAINS_STRUCT_CHECK (t, TS_COMMON)->common.chain;
+}
 
 /* In all nodes that are expressions, this is the data type of the expression.
    In POINTER_TYPE nodes, this is the type that the pointer points to.
    In ARRAY_TYPE nodes, this is the type of the elements.
    In VECTOR_TYPE nodes, this is the type of the elements.  */
-#define TREE_TYPE(NODE) \
-(CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->typed.type)
+inline tree&
+TREE_TYPE (tree t)
+{
+  return CONTAINS_STRUCT_CHECK (t, TS_TYPED)->typed.type;
+}
+
+inline tree
+TREE_TYPE (const_tree t)
+{
+  return CONTAINS_STRUCT_CHECK (t, TS_TYPED)->typed.type;
+}
+
 
 #define TREE_BLOCK(NODE)		(tree_block (NODE))
 #define TREE_SET_BLOCK(T, B)		(tree_set_block ((T), (B)))
@@ -644,7 +680,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    In IDENTIFIER_NODEs, this means that some extern decl for this name
    had its address taken.  That matters for inline functions.
    In a STMT_EXPR, it means we want the result of the enclosed expression.  */
-#define TREE_ADDRESSABLE(NODE) ((NODE)->base.addressable_flag)
+#define TREE_ADDRESSABLE(NODE) (TREE_BASE (NODE).addressable_flag)
 
 /* Set on a CALL_EXPR if the call is in a tail position, ie. just before the
    exit of a function.  Calls for which this is true are candidates for tail
@@ -667,7 +703,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 /* In a VAR_DECL, nonzero means allocate static storage.
    In a FUNCTION_DECL, nonzero if function has been defined.
    In a CONSTRUCTOR, nonzero means allocate static storage.  */
-#define TREE_STATIC(NODE) ((NODE)->base.static_flag)
+#define TREE_STATIC(NODE) (TREE_BASE (NODE).static_flag)
 
 /* In an ADDR_EXPR, nonzero means do not use a trampoline.  */
 #define TREE_NO_TRAMPOLINE(NODE) (ADDR_EXPR_CHECK (NODE)->base.static_flag)
@@ -675,7 +711,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 /* In a TARGET_EXPR or WITH_CLEANUP_EXPR, means that the pertinent cleanup
    should only be executed if an exception is thrown, not on normal exit
    of its scope.  */
-#define CLEANUP_EH_ONLY(NODE) ((NODE)->base.static_flag)
+#define CLEANUP_EH_ONLY(NODE) (TREE_BASE (NODE).static_flag)
 
 /* In a TRY_CATCH_EXPR, means that the handler should be considered a
    separate cleanup in honor_protect_cleanup_actions.  */
@@ -698,7 +734,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    warnings concerning the decl should be suppressed.  This is used at
    least for used-before-set warnings, and it set after one warning is
    emitted.  */
-#define TREE_NO_WARNING(NODE) ((NODE)->base.nowarning_flag)
+#define TREE_NO_WARNING(NODE) (TREE_BASE (NODE).nowarning_flag)
 
 /* Used to indicate that this TYPE represents a compiler-generated entity.  */
 #define TYPE_ARTIFICIAL(NODE) (TYPE_CHECK (NODE)->base.nowarning_flag)
@@ -728,7 +764,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    In an IDENTIFIER_NODE, nonzero means an external declaration
    accessible from outside this translation unit was previously seen
    for this name in an inner scope.  */
-#define TREE_PUBLIC(NODE) ((NODE)->base.public_flag)
+#define TREE_PUBLIC(NODE) (TREE_BASE (NODE).public_flag)
 
 /* In a _TYPE, indicates whether TYPE_CACHED_VALUES contains a vector
    of cached values, or is something else.  */
@@ -770,7 +806,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    because eventually we may make that a different bit.
 
    If this bit is set in an expression, so is TREE_SIDE_EFFECTS.  */
-#define TREE_THIS_VOLATILE(NODE) ((NODE)->base.volatile_flag)
+#define TREE_THIS_VOLATILE(NODE) (TREE_BASE (NODE).volatile_flag)
 
 /* Nonzero means this node will not trap.  In an INDIRECT_REF, means
    accessing the memory pointed to won't generate a trap.  However,
@@ -849,20 +885,20 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    In a BLOCK node, nonzero if reorder_blocks has already seen this block.
    In an SSA_NAME node, nonzero if the SSA_NAME occurs in an abnormal
    PHI node.  */
-#define TREE_ASM_WRITTEN(NODE) ((NODE)->base.asm_written_flag)
+#define TREE_ASM_WRITTEN(NODE) (TREE_BASE (NODE).asm_written_flag)
 
 /* Nonzero in a _DECL if the name is used in its scope.
    Nonzero in an expr node means inhibit warning if value is unused.
    In IDENTIFIER_NODEs, this means that some extern decl for this name
    was used.
    In a BLOCK, this means that the block contains variables that are used.  */
-#define TREE_USED(NODE) ((NODE)->base.used_flag)
+#define TREE_USED(NODE) (TREE_BASE (NODE).used_flag)
 
 /* In a FUNCTION_DECL, nonzero means a call to the function cannot
    throw an exception.  In a CALL_EXPR, nonzero means the call cannot
    throw.  We can't easily check the node type here as the C++
    frontend also uses this flag (for AGGR_INIT_EXPR).  */
-#define TREE_NOTHROW(NODE) ((NODE)->base.nothrow_flag)
+#define TREE_NOTHROW(NODE) (TREE_BASE (NODE).nothrow_flag)
 
 /* In a CALL_EXPR, means that it's safe to use the target of the call
    expansion as the return slot for a call that returns in memory.  */
@@ -914,9 +950,9 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define TYPE_ALIGN_OK(NODE) (TYPE_CHECK (NODE)->base.nothrow_flag)
 
 /* Used in classes in C++.  */
-#define TREE_PRIVATE(NODE) ((NODE)->base.private_flag)
+#define TREE_PRIVATE(NODE) (TREE_BASE (NODE).private_flag)
 /* Used in classes in C++. */
-#define TREE_PROTECTED(NODE) ((NODE)->base.protected_flag)
+#define TREE_PROTECTED(NODE) (TREE_BASE (NODE).protected_flag)
 
 /* True if reference type NODE is a C++ rvalue reference.  */
 #define TYPE_REF_IS_RVALUE(NODE) \
@@ -924,8 +960,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 
 /* Nonzero in a _DECL if the use of the name is defined as a
    deprecated feature by __attribute__((deprecated)).  */
-#define TREE_DEPRECATED(NODE) \
-  ((NODE)->base.deprecated_flag)
+#define TREE_DEPRECATED(NODE) (TREE_BASE (NODE).deprecated_flag)
 
 /* Nonzero in an IDENTIFIER_NODE if the name is a local alias, whose
    uses are to be substituted for uses of the TREE_CHAINed identifier.  */
@@ -1939,7 +1974,7 @@ extern machine_mode element_mode (const_tree t);
 
 /* Used to keep track of visited nodes in tree traversals.  This is set to
    0 by copy_node and make_node.  */
-#define TREE_VISITED(NODE) ((NODE)->base.visited)
+#define TREE_VISITED(NODE) (TREE_BASE (NODE).visited)
 
 /* If set in an ARRAY_TYPE, indicates a string type (for languages
    that distinguish string from array of char).
