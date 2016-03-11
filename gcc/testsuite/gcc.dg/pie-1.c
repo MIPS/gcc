@@ -1,4 +1,4 @@
-/* { dg-do compile } */
+/* { dg-do compile { target { ! *-*-darwin* } } } */
 /* { dg-options "-fpie" } */
 
 #if __PIC__ != 1

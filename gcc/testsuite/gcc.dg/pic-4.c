@@ -1,4 +1,4 @@
-/* { dg-do compile } */
+/* { dg-do compile { target { ! *-*-darwin* } } } */
 /* { dg-options "-fno-PIC" } */
 
 #ifdef __PIC__

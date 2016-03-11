@@ -1,4 +1,4 @@
-/* { dg-do compile { target { ! pie_enabled } } } */
+/* { dg-do compile { target { { ! *-*-darwin* } && { ! pie_enabled } } } } */
 /* { dg-options "" } */
 
 #ifdef __PIC__
