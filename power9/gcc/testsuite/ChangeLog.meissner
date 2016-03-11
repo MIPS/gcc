@@ -1,3 +1,7 @@
+2016-03-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/ppc-round2.c: Adjust test for code changes.
+
 2016-03-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	PR target/70131
