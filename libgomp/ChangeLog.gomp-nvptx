@@ -1,3 +1,7 @@
+2016-03-11  Alexander Monakov  <amonakov@ispras.ru>
+
+	* plugin/plugin-nvptx.c (map_fini): Make cuMemFreeHost error non-fatal.
+
 2016-03-04  Alexander Monakov  <amonakov@ispras.ru>
 
 	* config/nvptx/bar.c: Remove wrong invocation of
