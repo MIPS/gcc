@@ -1,5 +1,5 @@
 Bottom: 45dcd80e67e16ed9b39d407a037212a9c5829812
-Top:    d56156c5496c38be22ecad15e02ff364021fd7bb
+Top:    431a7ac7578cd4f9528de6e3900f1423a34e9cd7
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2015-11-26 18:57:41 -0200
 
@@ -349,7 +349,7 @@ index 8a4a849..b002b07 100644
    GCC_CP_FLAG_BASE,
  
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index abe42a0..490285e 100644
+index abe42a0..dd3bb0e 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -61,6 +61,7 @@
@@ -360,7 +360,63 @@ index abe42a0..490285e 100644
  
  #include "callbacks.hh"
  #include "connection.hh"
-@@ -477,10 +478,14 @@ plugin_new_decl (cc1_plugin::connection *self,
+@@ -271,6 +272,30 @@ plugin_init_extra_pragmas (void *, void *)
+ 
+ 
+ 
++static decl_addr_value
++build_decl_addr_value (tree decl, gcc_address address)
++{
++  decl_addr_value value = {
++    decl,
++    build_int_cst_type (ptr_type_node, address)
++  };
++  return value;
++}
++
++static decl_addr_value *
++record_decl_address (plugin_context *ctx, decl_addr_value value)
++{
++  decl_addr_value **slot = ctx->address_map.find_slot (&value, INSERT);
++  gcc_assert (*slot == NULL);
++  *slot
++    = static_cast<decl_addr_value *> (xmalloc (sizeof (decl_addr_value)));
++  **slot = value;
++  /* We don't want GCC to warn about e.g. static functions
++     without a code definition.  */
++  TREE_NO_WARNING (value.decl) = 1;
++  return *slot;
++}
++
+ // Maybe rewrite a decl to its address.
+ static tree
+ address_rewriter (tree *in, int *walk_subtrees, void *arg)
+@@ -298,14 +323,8 @@ address_rewriter (tree *in, int *walk_subtrees, void *arg)
+ 
+       // Insert the decl into the address map in case it is referenced
+       // again.
+-      value.address = build_int_cst_type (ptr_type_node, address);
+-      decl_addr_value **slot = ctx->address_map.find_slot (&value, INSERT);
+-      gcc_assert (*slot == NULL);
+-      *slot
+-	= static_cast<decl_addr_value *> (xmalloc (sizeof (decl_addr_value)));
+-      **slot = value;
+-      TREE_NO_WARNING (value.decl) = 1;
+-      found_value = *slot;
++      value = build_decl_addr_value (value.decl, address);
++      found_value = record_decl_address (ctx, value);
+     }
+   else
+     return NULL_TREE;
+@@ -422,6 +441,7 @@ plugin_get_current_binding_level (cc1_plugin::connection *self)
+   return convert_out (decl);
+ }
+ 
++
+ gcc_decl
+ plugin_new_decl (cc1_plugin::connection *self,
+ 		 const char *name,
+@@ -477,10 +497,14 @@ plugin_new_decl (cc1_plugin::connection *self,
        gcc_assert (!sym_flags);
        return convert_out (error_mark_node);
  
@@ -375,7 +431,72 @@ index abe42a0..490285e 100644
    source_location loc = ctx->get_source_location (filename, line_number);
    bool class_member_p = at_class_scope_p ();
    bool ctor = false, dtor = false, assop = false;
-@@ -1012,13 +1017,12 @@ plugin_start_new_union_type (cc1_plugin::connection *self,
+@@ -886,16 +910,7 @@ plugin_new_decl (cc1_plugin::connection *self,
+       else
+ 	value.address = NULL;
+       if (value.address)
+-	{
+-	  decl_addr_value **slot = ctx->address_map.find_slot (&value, INSERT);
+-	  gcc_assert (*slot == NULL);
+-	  *slot
+-	    = static_cast<decl_addr_value *> (xmalloc (sizeof (decl_addr_value)));
+-	  **slot = value;
+-	  /* We don't want GCC to warn about e.g. static functions
+-	     without a code definition.  */
+-	  TREE_NO_WARNING (decl) = 1;
+-	}
++	record_decl_address (ctx, value);
+     }
+ 
+   if (class_member_p)
+@@ -946,21 +961,10 @@ plugin_build_reference_type (cc1_plugin::connection *,
+   return convert_out (rtype);
+ }
+ 
+-// TYPE_NAME needs to be a valid pointer, even if there is no name available.
+-
+ static tree
+-build_named_class_type (enum tree_code code,
+-			const char *name,
+-			const gcc_vbase_array *base_classes,
+-			source_location loc)
++start_class_def (tree type,
++		 const gcc_vbase_array *base_classes)
+ {
+-  tree type = make_class_type (code);
+-  tree id = name ? get_identifier (name) : make_anon_name ();
+-  tree type_decl = build_decl (loc, TYPE_DECL, id, type);
+-  TYPE_NAME (type) = type_decl;
+-  TYPE_STUB_DECL (type) = type_decl;
+-  safe_pushtag (id, type, ts_current);
+-
+   tree bases = NULL;
+   if (base_classes)
+     {
+@@ -979,6 +983,22 @@ build_named_class_type (enum tree_code code,
+   return type;
+ }
+ 
++static tree
++build_named_class_type (enum tree_code code,
++			const char *name,
++			const gcc_vbase_array *base_classes,
++			source_location loc)
++{
++  tree type = make_class_type (code);
++  tree id = name ? get_identifier (name) : make_anon_name ();
++  tree type_decl = build_decl (loc, TYPE_DECL, id, type);
++  TYPE_NAME (type) = type_decl;
++  TYPE_STUB_DECL (type) = type_decl;
++  safe_pushtag (id, type, ts_current);
++
++  return start_class_def (type, base_classes);
++}
++
+ gcc_type
+ plugin_start_new_class_type (cc1_plugin::connection *self,
+ 			     const char *name,
+@@ -1012,13 +1032,12 @@ plugin_start_new_union_type (cc1_plugin::connection *self,
  
  int
  plugin_new_field (cc1_plugin::connection *,
@@ -390,7 +511,7 @@ index abe42a0..490285e 100644
    tree field_type = convert_in (field_type_in);
  
    gcc_assert (RECORD_OR_UNION_CODE_P (TREE_CODE (record_or_union_type)));
-@@ -1058,10 +1062,9 @@ plugin_new_field (cc1_plugin::connection *,
+@@ -1058,10 +1077,9 @@ plugin_new_field (cc1_plugin::connection *,
  
  int
  plugin_finish_record_or_union (cc1_plugin::connection *,
@@ -402,7 +523,7 @@ index abe42a0..490285e 100644
  
    gcc_assert (RECORD_OR_UNION_CODE_P (TREE_CODE (record_or_union_type)));
  
-@@ -1070,6 +1073,9 @@ plugin_finish_record_or_union (cc1_plugin::connection *,
+@@ -1070,6 +1088,9 @@ plugin_finish_record_or_union (cc1_plugin::connection *,
    gcc_assert (compare_tree_int (TYPE_SIZE_UNIT (record_or_union_type),
  				size_in_bytes) == 0);
  
@@ -412,7 +533,7 @@ index abe42a0..490285e 100644
    return 1;
  }
  
-@@ -1246,6 +1252,459 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
+@@ -1246,6 +1267,479 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
    return convert_out (ctx->preserve (memptr_type));
  }
  
@@ -676,10 +797,9 @@ index abe42a0..490285e 100644
 +    default:
 +      gcc_unreachable ();
 +    }
-+  int processing_template_decl_save = processing_template_decl;
-+  processing_template_decl = 1;
++  processing_template_decl++;
 +  tree val = build_x_unary_op (/*loc=*/0, opcode, op0, tf_error);
-+  processing_template_decl = processing_template_decl_save;
++  processing_template_decl--;
 +  return convert_out (ctx->preserve (val));
 +}
 +
@@ -764,11 +884,10 @@ index abe42a0..490285e 100644
 +    default:
 +      gcc_unreachable ();
 +    }
-+  int processing_template_decl_save = processing_template_decl;
-+  processing_template_decl = 1;
++  processing_template_decl++;
 +  tree val = build_x_binary_op (/*loc=*/0, opcode, op0, ERROR_MARK,
 +				op1, ERROR_MARK, NULL, tf_error);
-+  processing_template_decl = processing_template_decl_save;
++  processing_template_decl--;
 +  return convert_out (ctx->preserve (val));
 +}
 +
@@ -785,10 +904,9 @@ index abe42a0..490285e 100644
 +  tree op2 = convert_in (operand3);
 +  gcc_assert (CHARS2 (ternary_op[0], ternary_op[1])
 +	      == CHARS2 ('q', 'u')); // ternary operator
-+  int processing_template_decl_save = processing_template_decl;
-+  processing_template_decl = 1;
++  processing_template_decl++;
 +  tree val = build_x_conditional_expr (/*loc=*/0, op0, op1, op2, tf_error);
-+  processing_template_decl = processing_template_decl_save;
++  processing_template_decl--;
 +  return convert_out (ctx->preserve (val));
 +}
 +
@@ -806,10 +924,9 @@ index abe42a0..490285e 100644
 +    default:
 +      gcc_unreachable ();
 +    }
-+  int processing_template_decl_save = processing_template_decl;
-+  processing_template_decl = 1;
++  processing_template_decl++;
 +  tree val = cxx_sizeof_or_alignof_type (type, opcode, true);
-+  processing_template_decl = processing_template_decl_save;
++  processing_template_decl--;
 +  return convert_out (ctx->preserve (val));
 +}
 +
@@ -829,10 +946,9 @@ index abe42a0..490285e 100644
 +    default:
 +      gcc_unreachable ();
 +    }
-+  int processing_template_decl_save = processing_template_decl;
-+  processing_template_decl = 1;
++  processing_template_decl++;
 +  tree val = NULL_TREE;
-+  processing_template_decl = processing_template_decl_save;
++  processing_template_decl--;
 +  return convert_out (ctx->preserve (val));
 +}
 +
@@ -855,7 +971,21 @@ index abe42a0..490285e 100644
 +				     const char *filename,
 +				     unsigned int line_number)
 +{
-+  /* FIXME: implement.  See begin|end_specialization.  */
++  plugin_context *ctx = static_cast<plugin_context *> (self);
++  source_location loc = ctx->get_source_location (filename, line_number);
++  tree name = convert_in (template_decl);
++  tree targsl = targlist (targs);
++  
++  tree fnid = lookup_template_function (name, targsl);
++  if (TREE_CODE (fnid) == TEMPLATE_ID_EXPR)
++    SET_EXPR_LOCATION (fnid, loc);
++
++  tree decl = tsubst (name, targsl, tf_error, NULL_TREE);
++  DECL_SOURCE_LOCATION (decl) = loc;
++
++  record_decl_address (ctx, build_decl_addr_value (decl, address));
++
++  return convert_out (ctx->preserve (decl));
 +}
 +
 +gcc_type
@@ -866,13 +996,24 @@ index abe42a0..490285e 100644
 +					const char *filename,
 +					unsigned int line_number)
 +{
-+  /* FIXME: implement.  See begin|end_specialization.  */
++  plugin_context *ctx = static_cast<plugin_context *> (self);
++  source_location loc = ctx->get_source_location (filename, line_number);
++  tree name = convert_in (template_decl);
++
++  // begin_specialization (); // hopefully we don't really need this
++
++  tree tdecl = finish_template_type (name, targlist (args), false);;
++  DECL_SOURCE_LOCATION (tdecl) = loc;
++  
++  tree type = start_class_def (TREE_TYPE (tdecl), base_classes);
++
++  return convert_out (ctx->preserve (type));
 +}
 +
  gcc_type
  plugin_int_type (cc1_plugin::connection *self,
  		 int is_unsigned, unsigned long size_in_bytes)
-@@ -1310,6 +1769,14 @@ plugin_build_array_type (cc1_plugin::connection *self,
+@@ -1310,6 +1804,24 @@ plugin_build_array_type (cc1_plugin::connection *self,
  }
  
  gcc_type
@@ -880,7 +1021,17 @@ index abe42a0..490285e 100644
 +				   gcc_type element_type_in,
 +				   gcc_expr num_elements_in)
 +{
-+  /* FIXME: implement.  */
++  plugin_context *ctx = static_cast<plugin_context *> (self);
++  tree element_type = convert_in (element_type_in);
++  tree size = convert_in (num_elements_in);
++  tree name = get_identifier ("dependent array type");
++
++  processing_template_decl++;
++  tree itype = compute_array_index_type (name, size, tf_error);
++  tree type = build_cplus_array_type (element_type, itype);
++  processing_template_decl--;
++
++  return convert_out (ctx->preserve (type));
 +}
 +
 +gcc_type
