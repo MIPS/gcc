@@ -311,7 +311,11 @@ fsm_find_control_statement_thread_paths (tree name,
 			  gphi *phi = gsip.phi ();
 			  tree dst = gimple_phi_result (phi);
 
-			  if (SSA_NAME_VAR (dst) != SSA_NAME_VAR (name)
+			  /* Note that if both NAME and DST are anonymous
+			     SSA_NAMEs, then we do not have enough information
+			     to consider them associated.  */
+			  if ((SSA_NAME_VAR (dst) != SSA_NAME_VAR (name)
+			       || !SSA_NAME_VAR (dst))
 			      && !virtual_operand_p (dst))
 			    ++n_insns;
 			}
@@ -381,6 +385,16 @@ fsm_find_control_statement_thread_paths (tree name,
 
 	     We have to know the outgoing edge to figure this out.  */
 	  edge taken_edge = find_taken_edge ((*path)[0], arg);
+
+	  /* There are cases where we may not be able to extract the
+	     taken edge.  For example, a computed goto to an absolute
+	     address.  Handle those cases gracefully.  */
+	  if (taken_edge == NULL)
+	    {
+	      path->pop ();
+	      continue;
+	    }
+
 	  bool creates_irreducible_loop = false;
 	  if (threaded_through_latch
 	      && loop == taken_edge->dest->loop_father

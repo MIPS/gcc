@@ -1,5 +1,8 @@
 2016-03-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 234152.
+	* REVISION: Update subversion id.
+
 	* config/rs6000/vsx.md (vsx_sign_extend_hi_<mode>): Do not provide
 	a generator function until it is needed.
 	(vsx_sign_extend_si_v2di): Rename, and turn off making a generator
