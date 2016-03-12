@@ -272,6 +272,30 @@ plugin_init_extra_pragmas (void *, void *)
 
 
 
+static decl_addr_value
+build_decl_addr_value (tree decl, gcc_address address)
+{
+  decl_addr_value value = {
+    decl,
+    build_int_cst_type (ptr_type_node, address)
+  };
+  return value;
+}
+
+static decl_addr_value *
+record_decl_address (plugin_context *ctx, decl_addr_value value)
+{
+  decl_addr_value **slot = ctx->address_map.find_slot (&value, INSERT);
+  gcc_assert (*slot == NULL);
+  *slot
+    = static_cast<decl_addr_value *> (xmalloc (sizeof (decl_addr_value)));
+  **slot = value;
+  /* We don't want GCC to warn about e.g. static functions
+     without a code definition.  */
+  TREE_NO_WARNING (value.decl) = 1;
+  return *slot;
+}
+
 // Maybe rewrite a decl to its address.
 static tree
 address_rewriter (tree *in, int *walk_subtrees, void *arg)
@@ -299,14 +323,8 @@ address_rewriter (tree *in, int *walk_subtrees, void *arg)
 
       // Insert the decl into the address map in case it is referenced
       // again.
-      value.address = build_int_cst_type (ptr_type_node, address);
-      decl_addr_value **slot = ctx->address_map.find_slot (&value, INSERT);
-      gcc_assert (*slot == NULL);
-      *slot
-	= static_cast<decl_addr_value *> (xmalloc (sizeof (decl_addr_value)));
-      **slot = value;
-      TREE_NO_WARNING (value.decl) = 1;
-      found_value = *slot;
+      value = build_decl_addr_value (value.decl, address);
+      found_value = record_decl_address (ctx, value);
     }
   else
     return NULL_TREE;
@@ -422,6 +440,7 @@ plugin_get_current_binding_level (cc1_plugin::connection *self)
 
   return convert_out (decl);
 }
+
 
 gcc_decl
 plugin_new_decl (cc1_plugin::connection *self,
@@ -891,16 +910,7 @@ plugin_new_decl (cc1_plugin::connection *self,
       else
 	value.address = NULL;
       if (value.address)
-	{
-	  decl_addr_value **slot = ctx->address_map.find_slot (&value, INSERT);
-	  gcc_assert (*slot == NULL);
-	  *slot
-	    = static_cast<decl_addr_value *> (xmalloc (sizeof (decl_addr_value)));
-	  **slot = value;
-	  /* We don't want GCC to warn about e.g. static functions
-	     without a code definition.  */
-	  TREE_NO_WARNING (decl) = 1;
-	}
+	record_decl_address (ctx, value);
     }
 
   if (class_member_p)
@@ -951,21 +961,10 @@ plugin_build_reference_type (cc1_plugin::connection *,
   return convert_out (rtype);
 }
 
-// TYPE_NAME needs to be a valid pointer, even if there is no name available.
-
 static tree
-build_named_class_type (enum tree_code code,
-			const char *name,
-			const gcc_vbase_array *base_classes,
-			source_location loc)
+start_class_def (tree type,
+		 const gcc_vbase_array *base_classes)
 {
-  tree type = make_class_type (code);
-  tree id = name ? get_identifier (name) : make_anon_name ();
-  tree type_decl = build_decl (loc, TYPE_DECL, id, type);
-  TYPE_NAME (type) = type_decl;
-  TYPE_STUB_DECL (type) = type_decl;
-  safe_pushtag (id, type, ts_current);
-
   tree bases = NULL;
   if (base_classes)
     {
@@ -982,6 +981,22 @@ build_named_class_type (enum tree_code code,
   xref_basetypes (type, bases);
   begin_class_definition (type);
   return type;
+}
+
+static tree
+build_named_class_type (enum tree_code code,
+			const char *name,
+			const gcc_vbase_array *base_classes,
+			source_location loc)
+{
+  tree type = make_class_type (code);
+  tree id = name ? get_identifier (name) : make_anon_name ();
+  tree type_decl = build_decl (loc, TYPE_DECL, id, type);
+  TYPE_NAME (type) = type_decl;
+  TYPE_STUB_DECL (type) = type_decl;
+  safe_pushtag (id, type, ts_current);
+
+  return start_class_def (type, base_classes);
 }
 
 gcc_type
@@ -1512,10 +1527,9 @@ plugin_unary_value_expr (cc1_plugin::connection *self,
     default:
       gcc_unreachable ();
     }
-  int processing_template_decl_save = processing_template_decl;
-  processing_template_decl = 1;
+  processing_template_decl++;
   tree val = build_x_unary_op (/*loc=*/0, opcode, op0, tf_error);
-  processing_template_decl = processing_template_decl_save;
+  processing_template_decl--;
   return convert_out (ctx->preserve (val));
 }
 
@@ -1600,11 +1614,10 @@ plugin_binary_value_expr (cc1_plugin::connection *self,
     default:
       gcc_unreachable ();
     }
-  int processing_template_decl_save = processing_template_decl;
-  processing_template_decl = 1;
+  processing_template_decl++;
   tree val = build_x_binary_op (/*loc=*/0, opcode, op0, ERROR_MARK,
 				op1, ERROR_MARK, NULL, tf_error);
-  processing_template_decl = processing_template_decl_save;
+  processing_template_decl--;
   return convert_out (ctx->preserve (val));
 }
 
@@ -1621,10 +1634,9 @@ plugin_ternary_value_expr (cc1_plugin::connection *self,
   tree op2 = convert_in (operand3);
   gcc_assert (CHARS2 (ternary_op[0], ternary_op[1])
 	      == CHARS2 ('q', 'u')); // ternary operator
-  int processing_template_decl_save = processing_template_decl;
-  processing_template_decl = 1;
+  processing_template_decl++;
   tree val = build_x_conditional_expr (/*loc=*/0, op0, op1, op2, tf_error);
-  processing_template_decl = processing_template_decl_save;
+  processing_template_decl--;
   return convert_out (ctx->preserve (val));
 }
 
@@ -1642,10 +1654,9 @@ plugin_unary_type_expr (cc1_plugin::connection *self,
     default:
       gcc_unreachable ();
     }
-  int processing_template_decl_save = processing_template_decl;
-  processing_template_decl = 1;
+  processing_template_decl++;
   tree val = cxx_sizeof_or_alignof_type (type, opcode, true);
-  processing_template_decl = processing_template_decl_save;
+  processing_template_decl--;
   return convert_out (ctx->preserve (val));
 }
 
@@ -1665,10 +1676,9 @@ plugin_type_value_expr (cc1_plugin::connection *self,
     default:
       gcc_unreachable ();
     }
-  int processing_template_decl_save = processing_template_decl;
-  processing_template_decl = 1;
+  processing_template_decl++;
   tree val = NULL_TREE;
-  processing_template_decl = processing_template_decl_save;
+  processing_template_decl--;
   return convert_out (ctx->preserve (val));
 }
 
@@ -1691,7 +1701,21 @@ plugin_specialize_function_template (cc1_plugin::connection *self,
 				     const char *filename,
 				     unsigned int line_number)
 {
-  /* FIXME: implement.  See begin|end_specialization.  */
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  source_location loc = ctx->get_source_location (filename, line_number);
+  tree name = convert_in (template_decl);
+  tree targsl = targlist (targs);
+  
+  tree fnid = lookup_template_function (name, targsl);
+  if (TREE_CODE (fnid) == TEMPLATE_ID_EXPR)
+    SET_EXPR_LOCATION (fnid, loc);
+
+  tree decl = tsubst (name, targsl, tf_error, NULL_TREE);
+  DECL_SOURCE_LOCATION (decl) = loc;
+
+  record_decl_address (ctx, build_decl_addr_value (decl, address));
+
+  return convert_out (ctx->preserve (decl));
 }
 
 gcc_type
@@ -1702,7 +1726,18 @@ plugin_start_specialize_class_template (cc1_plugin::connection *self,
 					const char *filename,
 					unsigned int line_number)
 {
-  /* FIXME: implement.  See begin|end_specialization.  */
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  source_location loc = ctx->get_source_location (filename, line_number);
+  tree name = convert_in (template_decl);
+
+  // begin_specialization (); // hopefully we don't really need this
+
+  tree tdecl = finish_template_type (name, targlist (args), false);;
+  DECL_SOURCE_LOCATION (tdecl) = loc;
+  
+  tree type = start_class_def (TREE_TYPE (tdecl), base_classes);
+
+  return convert_out (ctx->preserve (type));
 }
 
 gcc_type
@@ -1773,7 +1808,17 @@ plugin_build_dependent_array_type (cc1_plugin::connection *self,
 				   gcc_type element_type_in,
 				   gcc_expr num_elements_in)
 {
-  /* FIXME: implement.  */
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree element_type = convert_in (element_type_in);
+  tree size = convert_in (num_elements_in);
+  tree name = get_identifier ("dependent array type");
+
+  processing_template_decl++;
+  tree itype = compute_array_index_type (name, size, tf_error);
+  tree type = build_cplus_array_type (element_type, itype);
+  processing_template_decl--;
+
+  return convert_out (ctx->preserve (type));
 }
 
 gcc_type
