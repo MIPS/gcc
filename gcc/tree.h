@@ -382,11 +382,11 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define TREE_RANGE_CHECK(T, CODE1, CODE2)	(T)
 #define EXPR_CHECK(T)				(T)
 #define NON_TYPE_CHECK(T)			(T)
-#define TREE_INT_CST_ELT_CHECK(T, I)		((T)->int_cst.val[I])
-#define TREE_VEC_ELT_CHECK(T, I)		((T)->vec.a[I])
-#define TREE_OPERAND_CHECK(T, I)		((T)->exp.operands[I])
-#define TREE_OPERAND_CHECK_CODE(T, CODE, I)	((T)->exp.operands[I])
-#define OMP_CLAUSE_ELT_CHECK(T, i)	        ((T)->omp_clause.ops[i])
+#define TREE_INT_CST_ELT_CHECK(T, I)		((T)->u.int_cst.val[I])
+#define TREE_VEC_ELT_CHECK(T, I)		((T)->u.vec.a[I])
+#define TREE_OPERAND_CHECK(T, I)		((T)->u.exp.operands[I])
+#define TREE_OPERAND_CHECK_CODE(T, CODE, I)	((T)->u.exp.operands[I])
+#define OMP_CLAUSE_ELT_CHECK(T, i)	        ((T)->u.omp_clause.ops[i])
 #define OMP_CLAUSE_RANGE_CHECK(T, CODE1, CODE2)	(T)
 #define OMP_CLAUSE_SUBCODE_CHECK(T, CODE)	(T)
 #define ANY_INTEGRAL_TYPE_CHECK(T)		(T)
@@ -399,13 +399,13 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 inline struct tree_base&
 TREE_BASE (tree t)
 {
-  return t->base;
+  return t->u.base;
 }
 
 inline const struct tree_base&
 TREE_BASE (const_tree t)
 {
-  return t->base;
+  return t->u.base;
 }
 
 /* Define accessors for the fields that all tree nodes have
@@ -427,20 +427,20 @@ TREE_BASE (const_tree t)
 inline tree&
 TREE_CHAIN (tree t)
 {
-  return CONTAINS_STRUCT_CHECK (t, TS_COMMON)->common.chain;
+  return CONTAINS_STRUCT_CHECK (t, TS_COMMON)->u.common.chain;
 }
 
 inline tree
 TREE_CHAIN (const_tree t)
 {
-  return CONTAINS_STRUCT_CHECK (t, TS_COMMON)->common.chain;
+  return CONTAINS_STRUCT_CHECK (t, TS_COMMON)->u.common.chain;
 }
 
 /* In all nodes that are expressions, this is the data type of the expression.
    In POINTER_TYPE nodes, this is the type that the pointer points to.
    In ARRAY_TYPE nodes, this is the type of the elements.
    In VECTOR_TYPE nodes, this is the type of the elements.  */
-#define TREE_TYPE(NODE) (CONTAINS_STRUCT_CHECK ((NODE), TS_TYPED)->typed.type)
+#define TREE_TYPE(NODE) (CONTAINS_STRUCT_CHECK ((NODE), TS_TYPED)->u.typed.type)
 
 #define TREE_BLOCK(NODE)		(tree_block (NODE))
 #define TREE_SET_BLOCK(T, B)		(tree_set_block ((T), (B)))
@@ -685,17 +685,17 @@ TREE_CHAIN (const_tree t)
    exit of a function.  Calls for which this is true are candidates for tail
    call optimizations.  */
 #define CALL_EXPR_TAILCALL(NODE) \
-  (CALL_EXPR_CHECK (NODE)->base.addressable_flag)
+  (CALL_EXPR_CHECK (NODE)->u.base.addressable_flag)
 
 /* Used as a temporary field on a CASE_LABEL_EXPR to indicate that the
    CASE_LOW operand has been processed.  */
 #define CASE_LOW_SEEN(NODE) \
-  (CASE_LABEL_EXPR_CHECK (NODE)->base.addressable_flag)
+  (CASE_LABEL_EXPR_CHECK (NODE)->u.base.addressable_flag)
 
 #define PREDICT_EXPR_OUTCOME(NODE) \
-  ((enum prediction) (PREDICT_EXPR_CHECK (NODE)->base.addressable_flag))
+  ((enum prediction) (PREDICT_EXPR_CHECK (NODE)->u.base.addressable_flag))
 #define SET_PREDICT_EXPR_OUTCOME(NODE, OUTCOME) \
-  (PREDICT_EXPR_CHECK (NODE)->base.addressable_flag = (int) OUTCOME)
+  (PREDICT_EXPR_CHECK (NODE)->u.base.addressable_flag = (int) OUTCOME)
 #define PREDICT_EXPR_PREDICTOR(NODE) \
   ((enum br_predictor)tree_to_shwi (TREE_OPERAND (PREDICT_EXPR_CHECK (NODE), 0)))
 
@@ -705,7 +705,7 @@ TREE_CHAIN (const_tree t)
 #define TREE_STATIC(NODE) (TREE_BASE (NODE).static_flag)
 
 /* In an ADDR_EXPR, nonzero means do not use a trampoline.  */
-#define TREE_NO_TRAMPOLINE(NODE) (ADDR_EXPR_CHECK (NODE)->base.static_flag)
+#define TREE_NO_TRAMPOLINE(NODE) (ADDR_EXPR_CHECK (NODE)->u.base.static_flag)
 
 /* In a TARGET_EXPR or WITH_CLEANUP_EXPR, means that the pertinent cleanup
    should only be executed if an exception is thrown, not on normal exit
@@ -715,20 +715,20 @@ TREE_CHAIN (const_tree t)
 /* In a TRY_CATCH_EXPR, means that the handler should be considered a
    separate cleanup in honor_protect_cleanup_actions.  */
 #define TRY_CATCH_IS_CLEANUP(NODE) \
-  (TRY_CATCH_EXPR_CHECK (NODE)->base.static_flag)
+  (TRY_CATCH_EXPR_CHECK (NODE)->u.base.static_flag)
 
 /* Used as a temporary field on a CASE_LABEL_EXPR to indicate that the
    CASE_HIGH operand has been processed.  */
 #define CASE_HIGH_SEEN(NODE) \
-  (CASE_LABEL_EXPR_CHECK (NODE)->base.static_flag)
+  (CASE_LABEL_EXPR_CHECK (NODE)->u.base.static_flag)
 
 /* Used to mark scoped enums.  */
 #define ENUM_IS_SCOPED(NODE) \
-  (ENUMERAL_TYPE_CHECK (NODE)->type_common.common.typed.base.static_flag)
+  (ENUMERAL_TYPE_CHECK (NODE)->u.type_common.common.typed.base.static_flag)
 
 /* Determines whether an ENUMERAL_TYPE has defined the list of constants. */
 #define ENUM_IS_OPAQUE(NODE) \
-  (ENUMERAL_TYPE_CHECK (NODE)->type_common.common.typed.base.private_flag)
+  (ENUMERAL_TYPE_CHECK (NODE)->u.type_common.common.typed.base.private_flag)
 
 /* In an expr node (usually a conversion) this means the node was made
    implicitly and should not lead to any sort of warning.  In a decl node,
@@ -739,22 +739,22 @@ TREE_CHAIN (const_tree t)
 
 /* Used to indicate that this TYPE represents a compiler-generated entity.  */
 #define TYPE_ARTIFICIAL(NODE) \
-  (TYPE_CHECK (NODE)->type_common.common.typed.base.nowarning_flag)
+  (TYPE_CHECK (NODE)->u.type_common.common.typed.base.nowarning_flag)
 
 /* In an IDENTIFIER_NODE, this means that assemble_name was called with
    this string as an argument.  */
 #define TREE_SYMBOL_REFERENCED(NODE) \
-  (IDENTIFIER_NODE_CHECK (NODE)->base.static_flag)
+  (IDENTIFIER_NODE_CHECK (NODE)->u.base.static_flag)
 
 /* Nonzero in a pointer or reference type means the data pointed to
    by this type can alias anything.  */
 #define TYPE_REF_CAN_ALIAS_ALL(NODE) \
-  (PTR_OR_REF_CHECK (NODE)->type_common.common.typed.base.static_flag)
+  (PTR_OR_REF_CHECK (NODE)->u.type_common.common.typed.base.static_flag)
 
 /* In an INTEGER_CST, REAL_CST, COMPLEX_CST, or VECTOR_CST, this means
    there was an overflow in folding.  */
 
-#define TREE_OVERFLOW(NODE) (CST_CHECK (NODE)->base.public_flag)
+#define TREE_OVERFLOW(NODE) (CST_CHECK (NODE)->u.base.public_flag)
 
 /* TREE_OVERFLOW can only be true for EXPR of CONSTANT_CLASS_P.  */
 
@@ -771,17 +771,17 @@ TREE_CHAIN (const_tree t)
 /* In a _TYPE, indicates whether TYPE_CACHED_VALUES contains a vector
    of cached values, or is something else.  */
 #define TYPE_CACHED_VALUES_P(NODE) \
-  (TYPE_CHECK (NODE)->type_common.common.typed.base.public_flag)
+  (TYPE_CHECK (NODE)->u.type_common.common.typed.base.public_flag)
 
 /* In a SAVE_EXPR, indicates that the original expression has already
    been substituted with a VAR_DECL that contains the value.  */
 #define SAVE_EXPR_RESOLVED_P(NODE) \
-  (SAVE_EXPR_CHECK (NODE)->base.public_flag)
+  (SAVE_EXPR_CHECK (NODE)->u.base.public_flag)
 
 /* Set on a CALL_EXPR if this stdarg call should be passed the argument
    pack.  */
 #define CALL_EXPR_VA_ARG_PACK(NODE) \
-  (CALL_EXPR_CHECK (NODE)->base.public_flag)
+  (CALL_EXPR_CHECK (NODE)->u.base.public_flag)
 
 /* In any expression, decl, or constant, nonzero means it has side effects or
    reevaluation of the whole expression could produce a different value.
@@ -789,12 +789,12 @@ TREE_CHAIN (const_tree t)
    reference to a volatile variable.  In a ..._DECL, this is set only if the
    declaration said `volatile'.  This will never be set for a constant.  */
 #define TREE_SIDE_EFFECTS(NODE) \
-  (NON_TYPE_CHECK (NODE)->base.side_effects_flag)
+  (NON_TYPE_CHECK (NODE)->u.base.side_effects_flag)
 
 /* In a LABEL_DECL, nonzero means this label had its address taken
    and therefore can never be deleted and is a jump target for
    computed gotos.  */
-#define FORCED_LABEL(NODE) (LABEL_DECL_CHECK (NODE)->base.side_effects_flag)
+#define FORCED_LABEL(NODE) (LABEL_DECL_CHECK (NODE)->u.base.side_effects_flag)
 
 /* Nonzero means this expression is volatile in the C sense:
    its address should be of type `volatile WHATEVER *'.
@@ -822,29 +822,29 @@ TREE_CHAIN (const_tree t)
    the base to the array will not trap.  */
 #define TREE_THIS_NOTRAP(NODE) \
   (TREE_CHECK5 (NODE, INDIRECT_REF, MEM_REF, TARGET_MEM_REF, ARRAY_REF,	\
-		ARRAY_RANGE_REF)->base.nothrow_flag)
+		ARRAY_RANGE_REF)->u.base.nothrow_flag)
 
 /* In a VAR_DECL, PARM_DECL or FIELD_DECL, or any kind of ..._REF node,
    nonzero means it may not be the lhs of an assignment.
    Nonzero in a FUNCTION_DECL means this function should be treated
    as "const" function (can only read its arguments).  */
-#define TREE_READONLY(NODE) (NON_TYPE_CHECK (NODE)->base.readonly_flag)
+#define TREE_READONLY(NODE) (NON_TYPE_CHECK (NODE)->u.base.readonly_flag)
 
 /* Value of expression is constant.  Always on in all ..._CST nodes.  May
    also appear in an expression or decl where the value is constant.  */
-#define TREE_CONSTANT(NODE) (NON_TYPE_CHECK (NODE)->base.constant_flag)
+#define TREE_CONSTANT(NODE) (NON_TYPE_CHECK (NODE)->u.base.constant_flag)
 
 /* Nonzero if NODE, a type, has had its sizes gimplified.  */
 #define TYPE_SIZES_GIMPLIFIED(NODE) \
-  (TYPE_CHECK (NODE)->type_common.common.typed.base.constant_flag)
+  (TYPE_CHECK (NODE)->u.type_common.common.typed.base.constant_flag)
 
 /* In a decl (most significantly a FIELD_DECL), means an unsigned field.  */
 #define DECL_UNSIGNED(NODE) \
-  (DECL_COMMON_CHECK (NODE)->base.u.bits.unsigned_flag)
+  (DECL_COMMON_CHECK (NODE)->u.base.u.bits.unsigned_flag)
 
 /* In integral and pointer types, means an unsigned type.  */
 #define TYPE_UNSIGNED(NODE) \
-  (TYPE_CHECK (NODE)->type_common.common.typed.base.u.bits.unsigned_flag)
+  (TYPE_CHECK (NODE)->u.type_common.common.typed.base.u.bits.unsigned_flag)
 
 /* Same as TYPE_UNSIGNED but converted to SIGNOP.  */
 #define TYPE_SIGN(NODE) ((signop) TYPE_UNSIGNED (NODE))
@@ -853,7 +853,7 @@ TREE_CHAIN (const_tree t)
    is, TYPE_MAX + 1 == TYPE_MIN.  */
 #define TYPE_OVERFLOW_WRAPS(TYPE) \
   (ANY_INTEGRAL_TYPE_CHECK(TYPE)  \
-    ->type_common.common.typed.base.u.bits.unsigned_flag || flag_wrapv)
+    ->u.type_common.common.typed.base.u.bits.unsigned_flag || flag_wrapv)
 
 /* True if overflow is undefined for the given integral type.  We may
    optimize on the assumption that values in the type never overflow.
@@ -865,14 +865,14 @@ TREE_CHAIN (const_tree t)
    caller decide whether a warning is appropriate or not.  */
 #define TYPE_OVERFLOW_UNDEFINED(TYPE)		 		\
   (!ANY_INTEGRAL_TYPE_CHECK(TYPE)				\
-     ->type_common.common.typed.base.u.bits.unsigned_flag	\
+     ->u.type_common.common.typed.base.u.bits.unsigned_flag	\
    && !flag_wrapv && !flag_trapv && flag_strict_overflow)
 
 /* True if overflow for the given integral type should issue a
    trap.  */
 #define TYPE_OVERFLOW_TRAPS(TYPE) \
   (!ANY_INTEGRAL_TYPE_CHECK(TYPE) \
-     ->type_common.common.typed.base.u.bits.unsigned_flag && flag_trapv)
+     ->u.type_common.common.typed.base.u.bits.unsigned_flag && flag_trapv)
 
 /* True if an overflow is to be preserved for sanitization.  */
 #define TYPE_OVERFLOW_SANITIZED(TYPE)			\
@@ -910,7 +910,7 @@ TREE_CHAIN (const_tree t)
 /* In a CALL_EXPR, means that it's safe to use the target of the call
    expansion as the return slot for a call that returns in memory.  */
 #define CALL_EXPR_RETURN_SLOT_OPT(NODE) \
-  (CALL_EXPR_CHECK (NODE)->base.private_flag)
+  (CALL_EXPR_CHECK (NODE)->u.base.private_flag)
 
 /* Cilk keywords accessors.  */
 #define CILK_SPAWN_FN(NODE) TREE_OPERAND (CILK_SPAWN_STMT_CHECK (NODE), 0)
@@ -920,30 +920,31 @@ TREE_CHAIN (const_tree t)
    type).  */
 #define DECL_BY_REFERENCE(NODE) \
   (TREE_CHECK3 (NODE, VAR_DECL, PARM_DECL, \
-		RESULT_DECL)->decl_common.decl_by_reference_flag)
+		RESULT_DECL)->u.decl_common.decl_by_reference_flag)
 
 /* In VAR_DECL and PARM_DECL, set when the decl has been used except for
    being set.  */
 #define DECL_READ_P(NODE) \
-  (TREE_CHECK2 (NODE, VAR_DECL, PARM_DECL)->decl_common.decl_read_flag)
+  (TREE_CHECK2 (NODE, VAR_DECL, PARM_DECL)->u.decl_common.decl_read_flag)
 
 /* In VAR_DECL or RESULT_DECL, set when significant code movement precludes
    attempting to share the stack slot with some other variable.  */
 #define DECL_NONSHAREABLE(NODE) \
   (TREE_CHECK2 (NODE, VAR_DECL, \
-		RESULT_DECL)->decl_common.decl_nonshareable_flag)
+		RESULT_DECL)->u.decl_common.decl_nonshareable_flag)
 
 /* In a CALL_EXPR, means that the call is the jump from a thunk to the
    thunked-to function.  */
-#define CALL_FROM_THUNK_P(NODE) (CALL_EXPR_CHECK (NODE)->base.protected_flag)
+#define CALL_FROM_THUNK_P(NODE) (CALL_EXPR_CHECK (NODE)->u.base.protected_flag)
 
 /* In a CALL_EXPR, if the function being called is BUILT_IN_ALLOCA, means that
    it has been built for the declaration of a variable-sized object.  */
 #define CALL_ALLOCA_FOR_VAR_P(NODE) \
-  (CALL_EXPR_CHECK (NODE)->base.protected_flag)
+  (CALL_EXPR_CHECK (NODE)->u.base.protected_flag)
 
 /* In a CALL_EXPR, means call was instrumented by Pointer Bounds Checker.  */
-#define CALL_WITH_BOUNDS_P(NODE) (CALL_EXPR_CHECK (NODE)->base.deprecated_flag)
+#define CALL_WITH_BOUNDS_P(NODE) \
+  (CALL_EXPR_CHECK (NODE)->u.base.deprecated_flag)
 
 /* In a type, nonzero means that all objects of the type are guaranteed by the
    language or front-end to be properly aligned, so we can indicate that a MEM
@@ -955,7 +956,7 @@ TREE_CHAIN (const_tree t)
    In an SSA_NAME node, nonzero if the SSA_NAME node is on the SSA_NAME
    freelist.  */
 #define TYPE_ALIGN_OK(NODE) \
-  (TYPE_CHECK (NODE)->type_common.common.typed.base.nothrow_flag)
+  (TYPE_CHECK (NODE)->u.type_common.common.typed.base.nothrow_flag)
 
 /* Used in classes in C++.  */
 #define TREE_PRIVATE(NODE) (TREE_BASE (NODE).private_flag)
@@ -964,7 +965,7 @@ TREE_CHAIN (const_tree t)
 
 /* True if reference type NODE is a C++ rvalue reference.  */
 #define TYPE_REF_IS_RVALUE(NODE) \
-  (REFERENCE_TYPE_CHECK (NODE)->type_common.common.typed.base.private_flag)
+  (REFERENCE_TYPE_CHECK (NODE)->u.type_common.common.typed.base.private_flag)
 
 /* Nonzero in a _DECL if the use of the name is defined as a
    deprecated feature by __attribute__((deprecated)).  */
@@ -973,19 +974,19 @@ TREE_CHAIN (const_tree t)
 /* Nonzero in an IDENTIFIER_NODE if the name is a local alias, whose
    uses are to be substituted for uses of the TREE_CHAINed identifier.  */
 #define IDENTIFIER_TRANSPARENT_ALIAS(NODE) \
-  (IDENTIFIER_NODE_CHECK (NODE)->base.deprecated_flag)
+  (IDENTIFIER_NODE_CHECK (NODE)->u.base.deprecated_flag)
 
 /* In an aggregate type, indicates that the scalar fields of the type are
    stored in reverse order from the target order.  This effectively
    toggles BYTES_BIG_ENDIAN and WORDS_BIG_ENDIAN within the type.  */
 #define TYPE_REVERSE_STORAGE_ORDER(NODE) \
   (REVERSE_STORAGE_TYPE_CHECK (NODE)	 \
-    ->type_common.common.typed.base.u.bits.saturating_flag)
+    ->u.type_common.common.typed.base.u.bits.saturating_flag)
 
 /* In a non-aggregate type, indicates a saturating type.  */
 #define TYPE_SATURATING(NODE) \
   (SATURATING_TYPE_CHECK (NODE) \
-    ->type_common.common.typed.base.u.bits.saturating_flag)
+    ->u.type_common.common.typed.base.u.bits.saturating_flag)
 
 /* In a BIT_FIELD_REF and MEM_REF, indicates that the reference is to a group
    of bits stored in reverse order from the target order.  This effectively
@@ -999,66 +1000,66 @@ TREE_CHAIN (const_tree t)
    But, of course, the storage order must be preserved when the accesses
    themselves are rewritten or transformed.  */
 #define REF_REVERSE_STORAGE_ORDER(NODE) \
-  (TREE_CHECK2 (NODE, BIT_FIELD_REF, MEM_REF)->base.default_def_flag)
+  (TREE_CHECK2 (NODE, BIT_FIELD_REF, MEM_REF)->u.base.default_def_flag)
 
 /* These flags are available for each language front end to use internally.  */
 #define TREE_LANG_FLAG_0(NODE) \
-  (TREE_NOT_CHECK2 (NODE, TREE_VEC, SSA_NAME)->base.u.bits.lang_flag_0)
+  (TREE_NOT_CHECK2 (NODE, TREE_VEC, SSA_NAME)->u.base.u.bits.lang_flag_0)
 #define TREE_LANG_FLAG_1(NODE) \
-  (TREE_NOT_CHECK2 (NODE, TREE_VEC, SSA_NAME)->base.u.bits.lang_flag_1)
+  (TREE_NOT_CHECK2 (NODE, TREE_VEC, SSA_NAME)->u.base.u.bits.lang_flag_1)
 #define TREE_LANG_FLAG_2(NODE) \
-  (TREE_NOT_CHECK2 (NODE, TREE_VEC, SSA_NAME)->base.u.bits.lang_flag_2)
+  (TREE_NOT_CHECK2 (NODE, TREE_VEC, SSA_NAME)->u.base.u.bits.lang_flag_2)
 #define TREE_LANG_FLAG_3(NODE) \
-  (TREE_NOT_CHECK2 (NODE, TREE_VEC, SSA_NAME)->base.u.bits.lang_flag_3)
+  (TREE_NOT_CHECK2 (NODE, TREE_VEC, SSA_NAME)->u.base.u.bits.lang_flag_3)
 #define TREE_LANG_FLAG_4(NODE) \
-  (TREE_NOT_CHECK2 (NODE, TREE_VEC, SSA_NAME)->base.u.bits.lang_flag_4)
+  (TREE_NOT_CHECK2 (NODE, TREE_VEC, SSA_NAME)->u.base.u.bits.lang_flag_4)
 #define TREE_LANG_FLAG_5(NODE) \
-  (TREE_NOT_CHECK2 (NODE, TREE_VEC, SSA_NAME)->base.u.bits.lang_flag_5)
+  (TREE_NOT_CHECK2 (NODE, TREE_VEC, SSA_NAME)->u.base.u.bits.lang_flag_5)
 #define TREE_LANG_FLAG_6(NODE) \
-  (TREE_NOT_CHECK2 (NODE, TREE_VEC, SSA_NAME)->base.u.bits.lang_flag_6)
+  (TREE_NOT_CHECK2 (NODE, TREE_VEC, SSA_NAME)->u.base.u.bits.lang_flag_6)
 
 /* Define additional fields and accessors for nodes representing constants.  */
 
 #define TREE_INT_CST_NUNITS(NODE) \
-  (INTEGER_CST_CHECK (NODE)->base.u.int_length.unextended)
+  (INTEGER_CST_CHECK (NODE)->u.base.u.int_length.unextended)
 #define TREE_INT_CST_EXT_NUNITS(NODE) \
-  (INTEGER_CST_CHECK (NODE)->base.u.int_length.extended)
+  (INTEGER_CST_CHECK (NODE)->u.base.u.int_length.extended)
 #define TREE_INT_CST_OFFSET_NUNITS(NODE) \
-  (INTEGER_CST_CHECK (NODE)->base.u.int_length.offset)
+  (INTEGER_CST_CHECK (NODE)->u.base.u.int_length.offset)
 #define TREE_INT_CST_ELT(NODE, I) TREE_INT_CST_ELT_CHECK (NODE, I)
 #define TREE_INT_CST_LOW(NODE) \
   ((unsigned HOST_WIDE_INT) TREE_INT_CST_ELT (NODE, 0))
 
-#define TREE_REAL_CST_PTR(NODE) (REAL_CST_CHECK (NODE)->real_cst.real_cst_ptr)
+#define TREE_REAL_CST_PTR(NODE) (REAL_CST_CHECK (NODE)->u.real_cst.real_cst_ptr)
 #define TREE_REAL_CST(NODE) (*TREE_REAL_CST_PTR (NODE))
 
 #define TREE_FIXED_CST_PTR(NODE) \
-  (FIXED_CST_CHECK (NODE)->fixed_cst.fixed_cst_ptr)
+  (FIXED_CST_CHECK (NODE)->u.fixed_cst.fixed_cst_ptr)
 #define TREE_FIXED_CST(NODE) (*TREE_FIXED_CST_PTR (NODE))
 
 /* In a STRING_CST */
 /* In C terms, this is sizeof, not strlen.  */
-#define TREE_STRING_LENGTH(NODE) (STRING_CST_CHECK (NODE)->string.length)
+#define TREE_STRING_LENGTH(NODE) (STRING_CST_CHECK (NODE)->u.string.length)
 #define TREE_STRING_POINTER(NODE) \
-  ((const char *)(STRING_CST_CHECK (NODE)->string.str))
+  ((const char *)(STRING_CST_CHECK (NODE)->u.string.str))
 
 /* In a COMPLEX_CST node.  */
-#define TREE_REALPART(NODE) (COMPLEX_CST_CHECK (NODE)->complex.real)
-#define TREE_IMAGPART(NODE) (COMPLEX_CST_CHECK (NODE)->complex.imag)
+#define TREE_REALPART(NODE) (COMPLEX_CST_CHECK (NODE)->u.complex.real)
+#define TREE_IMAGPART(NODE) (COMPLEX_CST_CHECK (NODE)->u.complex.imag)
 
 /* In a VECTOR_CST node.  */
 #define VECTOR_CST_NELTS(NODE) (TYPE_VECTOR_SUBPARTS (TREE_TYPE (NODE)))
-#define VECTOR_CST_ELTS(NODE) (VECTOR_CST_CHECK (NODE)->vector.elts)
-#define VECTOR_CST_ELT(NODE,IDX) (VECTOR_CST_CHECK (NODE)->vector.elts[IDX])
+#define VECTOR_CST_ELTS(NODE) (VECTOR_CST_CHECK (NODE)->u.vector.elts)
+#define VECTOR_CST_ELT(NODE,IDX) (VECTOR_CST_CHECK (NODE)->u.vector.elts[IDX])
 
 /* Define fields and accessors for some special-purpose tree nodes.  */
 
 #define IDENTIFIER_LENGTH(NODE) \
-  (IDENTIFIER_NODE_CHECK (NODE)->identifier.id.len)
+  (IDENTIFIER_NODE_CHECK (NODE)->u.identifier.id.len)
 #define IDENTIFIER_POINTER(NODE) \
-  ((const char *) IDENTIFIER_NODE_CHECK (NODE)->identifier.id.str)
+  ((const char *) IDENTIFIER_NODE_CHECK (NODE)->u.identifier.id.str)
 #define IDENTIFIER_HASH_VALUE(NODE) \
-  (IDENTIFIER_NODE_CHECK (NODE)->identifier.id.hash_value)
+  (IDENTIFIER_NODE_CHECK (NODE)->u.identifier.id.hash_value)
 
 /* Translate a hash table identifier pointer to a tree_identifier
    pointer, and vice versa.  */
@@ -1068,24 +1069,24 @@ TREE_CHAIN (const_tree t)
 #define GCC_IDENT_TO_HT_IDENT(NODE) (&((struct tree_identifier *) (NODE))->id)
 
 /* In a TREE_LIST node.  */
-#define TREE_PURPOSE(NODE) (TREE_LIST_CHECK (NODE)->list.purpose)
-#define TREE_VALUE(NODE) (TREE_LIST_CHECK (NODE)->list.value)
+#define TREE_PURPOSE(NODE) (TREE_LIST_CHECK (NODE)->u.list.purpose)
+#define TREE_VALUE(NODE) (TREE_LIST_CHECK (NODE)->u.list.value)
 
 /* In a TREE_VEC node.  */
-#define TREE_VEC_LENGTH(NODE) (TREE_VEC_CHECK (NODE)->base.u.length)
+#define TREE_VEC_LENGTH(NODE) (TREE_VEC_CHECK (NODE)->u.base.u.length)
 #define TREE_VEC_END(NODE) \
-  ((void) TREE_VEC_CHECK (NODE), &((NODE)->vec.a[(NODE)->vec.base.u.length]))
+ ((void) TREE_VEC_CHECK (NODE), &((NODE)->u.vec.a[(NODE)->u.vec.base.u.length]))
 
 #define TREE_VEC_ELT(NODE,I) TREE_VEC_ELT_CHECK (NODE, I)
 
 /* In a CONSTRUCTOR node.  */
-#define CONSTRUCTOR_ELTS(NODE) (CONSTRUCTOR_CHECK (NODE)->constructor.elts)
+#define CONSTRUCTOR_ELTS(NODE) (CONSTRUCTOR_CHECK (NODE)->u.constructor.elts)
 #define CONSTRUCTOR_ELT(NODE,IDX) \
   (&(*CONSTRUCTOR_ELTS (NODE))[IDX])
 #define CONSTRUCTOR_NELTS(NODE) \
   (vec_safe_length (CONSTRUCTOR_ELTS (NODE)))
 #define CONSTRUCTOR_NO_CLEARING(NODE) \
-  (CONSTRUCTOR_CHECK (NODE)->base.public_flag)
+  (CONSTRUCTOR_CHECK (NODE)->u.base.public_flag)
 
 /* Iterate through the vector V of CONSTRUCTOR_ELT elements, yielding the
    value of each element (stored within VAL). IX must be a scratch variable
@@ -1145,7 +1146,7 @@ TREE_CHAIN (const_tree t)
    Note that we have to bypass the use of TREE_OPERAND to access
    that field to avoid infinite recursion in expanding the macros.  */
 #define VL_EXP_OPERAND_LENGTH(NODE) \
-  ((int)TREE_INT_CST_LOW (VL_EXP_CHECK (NODE)->exp.operands[0]))
+  ((int)TREE_INT_CST_LOW (VL_EXP_CHECK (NODE)->u.exp.operands[0]))
 
 /* Nonzero if is_gimple_debug() may possibly hold.  */
 #define MAY_HAVE_DEBUG_STMTS    (flag_var_tracking_assignments)
@@ -1156,18 +1157,19 @@ TREE_CHAIN (const_tree t)
 /* The source location of this expression.  Non-tree_exp nodes such as
    decls and constants can be shared among multiple locations, so
    return nothing.  */
-#define EXPR_LOCATION_RAW(NODE)  (EXPR_CHECK (NODE)->exp.locus)
+#define EXPR_LOCATION_RAW(NODE)  (EXPR_CHECK (NODE)->u.exp.locus)
 #define EXPR_LOCATION(NODE) \
-  (CAN_HAVE_LOCATION_P ((NODE)) ? (NODE)->exp.locus : UNKNOWN_LOCATION)
-#define SET_EXPR_LOCATION(NODE, LOCUS) EXPR_CHECK ((NODE))->exp.locus = (LOCUS)
+  (CAN_HAVE_LOCATION_P ((NODE)) ? (NODE)->u.exp.locus : UNKNOWN_LOCATION)
+#define SET_EXPR_LOCATION(NODE, LOCUS) \
+  EXPR_CHECK ((NODE))->u.exp.locus = (LOCUS)
 #define EXPR_HAS_LOCATION(NODE) (LOCATION_LOCUS (EXPR_LOCATION (NODE))	\
   != UNKNOWN_LOCATION)
 /* The location to be used in a diagnostic about this expression.  Do not
    use this macro if the location will be assigned to other expressions.  */
 #define EXPR_LOC_OR_LOC(NODE, LOCUS) (EXPR_HAS_LOCATION (NODE) \
-				      ? (NODE)->exp.locus : (LOCUS))
-#define EXPR_FILENAME(NODE) LOCATION_FILE (EXPR_CHECK ((NODE))->exp.locus)
-#define EXPR_LINENO(NODE) LOCATION_LINE (EXPR_CHECK (NODE)->exp.locus)
+				      ? (NODE)->u.exp.locus : (LOCUS))
+#define EXPR_FILENAME(NODE) LOCATION_FILE (EXPR_CHECK ((NODE))->u.exp.locus)
+#define EXPR_LINENO(NODE) LOCATION_LINE (EXPR_CHECK (NODE)->u.exp.locus)
 
 #define CAN_HAVE_RANGE_P(NODE) (CAN_HAVE_LOCATION_P (NODE))
 #define EXPR_LOCATION_RANGE(NODE) (get_expr_source_range (EXPR_CHECK ((NODE))))
@@ -1230,9 +1232,9 @@ extern void protected_set_expr_location (tree, location_t);
 #define TMR_INDEX2(NODE) (TREE_OPERAND (TARGET_MEM_REF_CHECK (NODE), 4))
 
 #define MR_DEPENDENCE_CLIQUE(NODE) \
-  (TREE_CHECK2 (NODE, MEM_REF, TARGET_MEM_REF)->base.u.dependence_info.clique)
+  (TREE_CHECK2 (NODE, MEM_REF, TARGET_MEM_REF)->u.base.u.dependence_info.clique)
 #define MR_DEPENDENCE_BASE(NODE) \
-  (TREE_CHECK2 (NODE, MEM_REF, TARGET_MEM_REF)->base.u.dependence_info.base)
+  (TREE_CHECK2 (NODE, MEM_REF, TARGET_MEM_REF)->u.base.u.dependence_info.base)
 
 /* The operands of a BIND_EXPR.  */
 #define BIND_EXPR_VARS(NODE) (TREE_OPERAND (BIND_EXPR_CHECK (NODE), 0))
@@ -1254,8 +1256,8 @@ extern void protected_set_expr_location (tree, location_t);
 #define ASM_LABELS(NODE)	TREE_OPERAND (ASM_EXPR_CHECK (NODE), 4)
 /* Nonzero if we want to create an ASM_INPUT instead of an
    ASM_OPERAND with no operands.  */
-#define ASM_INPUT_P(NODE) (ASM_EXPR_CHECK (NODE)->base.static_flag)
-#define ASM_VOLATILE_P(NODE) (ASM_EXPR_CHECK (NODE)->base.public_flag)
+#define ASM_INPUT_P(NODE) (ASM_EXPR_CHECK (NODE)->u.base.static_flag)
+#define ASM_VOLATILE_P(NODE) (ASM_EXPR_CHECK (NODE)->u.base.public_flag)
 
 /* COND_EXPR accessors.  */
 #define COND_EXPR_COND(NODE)	(TREE_OPERAND (COND_EXPR_CHECK (NODE), 0))
@@ -1294,7 +1296,7 @@ extern void protected_set_expr_location (tree, location_t);
 #define CALL_EXPR_STATIC_CHAIN(NODE) TREE_OPERAND (CALL_EXPR_CHECK (NODE), 2)
 #define CALL_EXPR_ARG(NODE, I) TREE_OPERAND (CALL_EXPR_CHECK (NODE), (I) + 3)
 #define call_expr_nargs(NODE) (VL_EXP_OPERAND_LENGTH (NODE) - 3)
-#define CALL_EXPR_IFN(NODE) (CALL_EXPR_CHECK (NODE)->base.u.ifn)
+#define CALL_EXPR_IFN(NODE) (CALL_EXPR_CHECK (NODE)->u.base.u.ifn)
 
 /* CALL_EXPR_ARGP returns a pointer to the argument vector for NODE.
    We can't use &CALL_EXPR_ARG (NODE, 0) because that will complain if
@@ -1309,9 +1311,9 @@ extern void protected_set_expr_location (tree, location_t);
 #define TRANSACTION_EXPR_BODY(NODE) \
   TREE_OPERAND (TRANSACTION_EXPR_CHECK (NODE), 0)
 #define TRANSACTION_EXPR_OUTER(NODE) \
-  (TRANSACTION_EXPR_CHECK (NODE)->base.static_flag)
+  (TRANSACTION_EXPR_CHECK (NODE)->u.base.static_flag)
 #define TRANSACTION_EXPR_RELAXED(NODE) \
-  (TRANSACTION_EXPR_CHECK (NODE)->base.public_flag)
+  (TRANSACTION_EXPR_CHECK (NODE)->u.base.public_flag)
 
 /* OpenMP and OpenACC directive and clause accessors.  */
 
@@ -1420,41 +1422,42 @@ extern void protected_set_expr_location (tree, location_t);
 					      OMP_CLAUSE_PRIVATE,	\
 					      OMP_CLAUSE__LOOPTEMP_), 0)
 #define OMP_CLAUSE_HAS_LOCATION(NODE) \
-  (LOCATION_LOCUS ((OMP_CLAUSE_CHECK (NODE))->omp_clause.locus)		\
+  (LOCATION_LOCUS ((OMP_CLAUSE_CHECK (NODE))->u.omp_clause.locus)	\
   != UNKNOWN_LOCATION)
-#define OMP_CLAUSE_LOCATION(NODE)  (OMP_CLAUSE_CHECK (NODE))->omp_clause.locus
+#define OMP_CLAUSE_LOCATION(NODE) \
+  (OMP_CLAUSE_CHECK (NODE))->u.omp_clause.locus
 
 /* True on an OMP_SECTION statement that was the last lexical member.
    This status is meaningful in the implementation of lastprivate.  */
 #define OMP_SECTION_LAST(NODE) \
-  (OMP_SECTION_CHECK (NODE)->base.private_flag)
+  (OMP_SECTION_CHECK (NODE)->u.base.private_flag)
 
 /* True on an OMP_PARALLEL statement if it represents an explicit
    combined parallel work-sharing constructs.  */
 #define OMP_PARALLEL_COMBINED(NODE) \
-  (OMP_PARALLEL_CHECK (NODE)->base.private_flag)
+  (OMP_PARALLEL_CHECK (NODE)->u.base.private_flag)
 
 /* True on an OMP_TEAMS statement if it represents an explicit
    combined teams distribute constructs.  */
 #define OMP_TEAMS_COMBINED(NODE) \
-  (OMP_TEAMS_CHECK (NODE)->base.private_flag)
+  (OMP_TEAMS_CHECK (NODE)->u.base.private_flag)
 
 /* True on an OMP_TARGET statement if it represents explicit
    combined target teams, target parallel or target simd constructs.  */
 #define OMP_TARGET_COMBINED(NODE) \
-  (OMP_TARGET_CHECK (NODE)->base.private_flag)
+  (OMP_TARGET_CHECK (NODE)->u.base.private_flag)
 
 /* True if OMP_ATOMIC* is supposed to be sequentially consistent
    as opposed to relaxed.  */
 #define OMP_ATOMIC_SEQ_CST(NODE) \
   (TREE_RANGE_CHECK (NODE, OMP_ATOMIC, \
-		     OMP_ATOMIC_CAPTURE_NEW)->base.private_flag)
+		     OMP_ATOMIC_CAPTURE_NEW)->u.base.private_flag)
 
 /* True on a PRIVATE clause if its decl is kept around for debugging
    information only and its DECL_VALUE_EXPR is supposed to point
    to what it has been remapped to.  */
 #define OMP_CLAUSE_PRIVATE_DEBUG(NODE) \
-  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_PRIVATE)->base.public_flag)
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_PRIVATE)->u.base.public_flag)
 
 /* True on a PRIVATE clause if ctor needs access to outer region's
    variable.  */
@@ -1470,13 +1473,13 @@ extern void protected_set_expr_location (tree, location_t);
 /* True on a LASTPRIVATE clause if a FIRSTPRIVATE clause for the same
    decl is present in the chain.  */
 #define OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE(NODE) \
-  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LASTPRIVATE)->base.public_flag)
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LASTPRIVATE)->u.base.public_flag)
 #define OMP_CLAUSE_LASTPRIVATE_STMT(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE,			\
 						OMP_CLAUSE_LASTPRIVATE),\
 		      1)
 #define OMP_CLAUSE_LASTPRIVATE_GIMPLE_SEQ(NODE) \
-  (OMP_CLAUSE_CHECK (NODE))->omp_clause.gimple_reduction_init
+  (OMP_CLAUSE_CHECK (NODE))->u.omp_clause.gimple_reduction_init
 
 /* True if a LASTPRIVATE clause is for a C++ class IV on taskloop construct
    (thus should be lastprivate on the outer taskloop and firstprivate on
@@ -1488,15 +1491,16 @@ extern void protected_set_expr_location (tree, location_t);
    decl is present in the chain (this can happen only for taskloop
    with FIRSTPRIVATE/LASTPRIVATE on it originally.  */
 #define OMP_CLAUSE_SHARED_FIRSTPRIVATE(NODE) \
-  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_SHARED)->base.public_flag)
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_SHARED)->u.base.public_flag)
 
 /* True on a SHARED clause if a scalar is not modified in the body and
    thus could be optimized as firstprivate.  */
 #define OMP_CLAUSE_SHARED_READONLY(NODE) \
   TREE_PRIVATE (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_SHARED))
 
-#define OMP_CLAUSE_IF_MODIFIER(NODE)	\
-  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_IF)->omp_clause.subcode.if_modifier)
+#define OMP_CLAUSE_IF_MODIFIER(NODE)		  \
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_IF) \
+    ->u.omp_clause.subcode.if_modifier)
 
 #define OMP_CLAUSE_FINAL_EXPR(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_FINAL), 0)
@@ -1548,30 +1552,32 @@ extern void protected_set_expr_location (tree, location_t);
   OMP_CLAUSE_OPERAND ( \
     OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_VECTOR_LENGTH), 0)
 
-#define OMP_CLAUSE_DEPEND_KIND(NODE) \
-  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_DEPEND)->omp_clause.subcode.depend_kind)
+#define OMP_CLAUSE_DEPEND_KIND(NODE) 		      \
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_DEPEND) \
+    ->u.omp_clause.subcode.depend_kind)
 
 #define OMP_CLAUSE_DEPEND_SINK_NEGATIVE(NODE) \
   TREE_PUBLIC (TREE_LIST_CHECK (NODE))
 
 #define OMP_CLAUSE_MAP_KIND(NODE) \
-  ((enum gomp_map_kind) OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP)->omp_clause.subcode.map_kind)
-#define OMP_CLAUSE_SET_MAP_KIND(NODE, MAP_KIND) \
-  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP)->omp_clause.subcode.map_kind \
-   = (unsigned int) (MAP_KIND))
+  ((enum gomp_map_kind) OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP) \
+			 ->u.omp_clause.subcode.map_kind)
+#define OMP_CLAUSE_SET_MAP_KIND(NODE, MAP_KIND)    \
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP) \
+    ->u.omp_clause.subcode.map_kind = (unsigned int) (MAP_KIND))
 
 /* Nonzero if this map clause is for array (rather than pointer) based array
    section with zero bias.  Both the non-decl OMP_CLAUSE_MAP and corresponding
    OMP_CLAUSE_MAP with GOMP_MAP_POINTER are marked with this flag.  */
 #define OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION(NODE) \
-  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP)->base.public_flag)
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP)->u.base.public_flag)
 /* Nonzero if this is a mapped array section, that might need special
    treatment if OMP_CLAUSE_SIZE is zero.  */
 #define OMP_CLAUSE_MAP_MAYBE_ZERO_LENGTH_ARRAY_SECTION(NODE) \
   TREE_PROTECTED (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP))
 
 #define OMP_CLAUSE_PROC_BIND_KIND(NODE) \
-  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_PROC_BIND)->omp_clause.subcode.proc_bind_kind)
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_PROC_BIND)->u.omp_clause.subcode.proc_bind_kind)
 
 #define OMP_CLAUSE_COLLAPSE_EXPR(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_COLLAPSE), 0)
@@ -1584,15 +1590,15 @@ extern void protected_set_expr_location (tree, location_t);
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_ORDERED), 0)
 
 #define OMP_CLAUSE_REDUCTION_CODE(NODE)	\
-  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_REDUCTION)->omp_clause.subcode.reduction_code)
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_REDUCTION)->u.omp_clause.subcode.reduction_code)
 #define OMP_CLAUSE_REDUCTION_INIT(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_REDUCTION), 1)
 #define OMP_CLAUSE_REDUCTION_MERGE(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_REDUCTION), 2)
 #define OMP_CLAUSE_REDUCTION_GIMPLE_INIT(NODE) \
-  (OMP_CLAUSE_CHECK (NODE))->omp_clause.gimple_reduction_init
+  (OMP_CLAUSE_CHECK (NODE))->u.omp_clause.gimple_reduction_init
 #define OMP_CLAUSE_REDUCTION_GIMPLE_MERGE(NODE) \
-  (OMP_CLAUSE_CHECK (NODE))->omp_clause.gimple_reduction_merge
+  (OMP_CLAUSE_CHECK (NODE))->u.omp_clause.gimple_reduction_merge
 #define OMP_CLAUSE_REDUCTION_PLACEHOLDER(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_REDUCTION), 3)
 #define OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER(NODE) \
@@ -1601,12 +1607,12 @@ extern void protected_set_expr_location (tree, location_t);
 /* True if a REDUCTION clause may reference the original list item (omp_orig)
    in its OMP_CLAUSE_REDUCTION_{,GIMPLE_}INIT.  */
 #define OMP_CLAUSE_REDUCTION_OMP_ORIG_REF(NODE) \
-  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_REDUCTION)->base.public_flag)
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_REDUCTION)->u.base.public_flag)
 
 /* True if a LINEAR clause doesn't need copy in.  True for iterator vars which
    are always initialized inside of the loop construct, false otherwise.  */
 #define OMP_CLAUSE_LINEAR_NO_COPYIN(NODE) \
-  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LINEAR)->base.public_flag)
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LINEAR)->u.base.public_flag)
 
 /* True if a LINEAR clause doesn't need copy out.  True for iterator vars which
    are declared inside of the simd construct.  */
@@ -1620,7 +1626,7 @@ extern void protected_set_expr_location (tree, location_t);
 /* True if a LINEAR clause is for an array or allocatable variable that
    needs special handling by the frontend.  */
 #define OMP_CLAUSE_LINEAR_ARRAY(NODE) \
-  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LINEAR)->base.deprecated_flag)
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LINEAR)->u.base.deprecated_flag)
 
 #define OMP_CLAUSE_LINEAR_STEP(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LINEAR), 1)
@@ -1629,10 +1635,10 @@ extern void protected_set_expr_location (tree, location_t);
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LINEAR), 2)
 
 #define OMP_CLAUSE_LINEAR_GIMPLE_SEQ(NODE) \
-  (OMP_CLAUSE_CHECK (NODE))->omp_clause.gimple_reduction_init
+  (OMP_CLAUSE_CHECK (NODE))->u.omp_clause.gimple_reduction_init
 
 #define OMP_CLAUSE_LINEAR_KIND(NODE) \
-  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LINEAR)->omp_clause.subcode.linear_kind)
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LINEAR)->u.omp_clause.subcode.linear_kind)
 
 #define OMP_CLAUSE_ALIGNED_ALIGNMENT(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_ALIGNED), 1)
@@ -1661,21 +1667,21 @@ extern void protected_set_expr_location (tree, location_t);
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE__SIMDUID_), 0)
 
 #define OMP_CLAUSE_SCHEDULE_KIND(NODE) \
-  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_SCHEDULE)->omp_clause.subcode.schedule_kind)
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_SCHEDULE)->u.omp_clause.subcode.schedule_kind)
 
 /* True if a SCHEDULE clause has the simd modifier on it.  */
 #define OMP_CLAUSE_SCHEDULE_SIMD(NODE) \
-  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_SCHEDULE)->base.public_flag)
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_SCHEDULE)->u.base.public_flag)
 
 #define OMP_CLAUSE_DEFAULT_KIND(NODE) \
-  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_DEFAULT)->omp_clause.subcode.default_kind)
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_DEFAULT)->u.omp_clause.subcode.default_kind)
 
 #define OMP_CLAUSE_TILE_LIST(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_TILE), 0)
 
 #define OMP_CLAUSE__GRIDDIM__DIMENSION(NODE) \
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE__GRIDDIM_)\
-   ->omp_clause.subcode.dimension)
+   ->u.omp_clause.subcode.dimension)
 #define OMP_CLAUSE__GRIDDIM__SIZE(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE__GRIDDIM_), 0)
 #define OMP_CLAUSE__GRIDDIM__GROUP(NODE) \
@@ -1686,41 +1692,41 @@ extern void protected_set_expr_location (tree, location_t);
 /* Returns the IDENTIFIER_NODE giving the SSA name a name or NULL_TREE
    if there is no name associated with it.  */
 #define SSA_NAME_IDENTIFIER(NODE)				\
-  (SSA_NAME_CHECK (NODE)->ssa_name.var != NULL_TREE		\
-   ? (TREE_CODE ((NODE)->ssa_name.var) == IDENTIFIER_NODE	\
-      ? (NODE)->ssa_name.var					\
-      : DECL_NAME ((NODE)->ssa_name.var))			\
+  (SSA_NAME_CHECK (NODE)->u.ssa_name.var != NULL_TREE		\
+   ? (TREE_CODE ((NODE)->u.ssa_name.var) == IDENTIFIER_NODE	\
+      ? (NODE)->u.ssa_name.var					\
+      : DECL_NAME ((NODE)->u.ssa_name.var))			\
    : NULL_TREE)
 
 /* Returns the variable being referenced.  This can be NULL_TREE for
    temporaries not associated with any user variable.
    Once released, this is the only field that can be relied upon.  */
 #define SSA_NAME_VAR(NODE)					\
-  (SSA_NAME_CHECK (NODE)->ssa_name.var == NULL_TREE		\
-   || TREE_CODE ((NODE)->ssa_name.var) == IDENTIFIER_NODE	\
-   ? NULL_TREE : (NODE)->ssa_name.var)
+  (SSA_NAME_CHECK (NODE)->u.ssa_name.var == NULL_TREE		\
+   || TREE_CODE ((NODE)->u.ssa_name.var) == IDENTIFIER_NODE	\
+   ? NULL_TREE : (NODE)->u.ssa_name.var)
 
 #define SET_SSA_NAME_VAR_OR_IDENTIFIER(NODE,VAR) \
-  do { SSA_NAME_CHECK (NODE)->ssa_name.var = (VAR); } while (0)
+  do { SSA_NAME_CHECK (NODE)->u.ssa_name.var = (VAR); } while (0)
 
 /* Returns the statement which defines this SSA name.  */
-#define SSA_NAME_DEF_STMT(NODE)	SSA_NAME_CHECK (NODE)->ssa_name.def_stmt
+#define SSA_NAME_DEF_STMT(NODE)	SSA_NAME_CHECK (NODE)->u.ssa_name.def_stmt
 
 /* Returns the SSA version number of this SSA name.  Note that in
    tree SSA, version numbers are not per variable and may be recycled.  */
-#define SSA_NAME_VERSION(NODE)	SSA_NAME_CHECK (NODE)->base.u.version
+#define SSA_NAME_VERSION(NODE)	SSA_NAME_CHECK (NODE)->u.base.u.version
 
 /* Nonzero if this SSA name occurs in an abnormal PHI.  SSA_NAMES are
    never output, so we can safely use the ASM_WRITTEN_FLAG for this
    status bit.  */
 #define SSA_NAME_OCCURS_IN_ABNORMAL_PHI(NODE) \
-    SSA_NAME_CHECK (NODE)->base.asm_written_flag
+    SSA_NAME_CHECK (NODE)->u.base.asm_written_flag
 
 /* Nonzero if this SSA_NAME expression is currently on the free list of
    SSA_NAMES.  Using NOTHROW_FLAG seems reasonably safe since throwing
    has no meaning for an SSA_NAME.  */
 #define SSA_NAME_IN_FREE_LIST(NODE) \
-    SSA_NAME_CHECK (NODE)->base.nothrow_flag
+    SSA_NAME_CHECK (NODE)->u.base.nothrow_flag
 
 /* Nonzero if this SSA_NAME is the default definition for the
    underlying symbol.  A default SSA name is created for symbol S if
@@ -1728,15 +1734,15 @@ extern void protected_set_expr_location (tree, location_t);
    Default definitions are always created by an empty statement and
    belong to no basic block.  */
 #define SSA_NAME_IS_DEFAULT_DEF(NODE) \
-    SSA_NAME_CHECK (NODE)->base.default_def_flag
+    SSA_NAME_CHECK (NODE)->u.base.default_def_flag
 
 /* Attributes for SSA_NAMEs for pointer-type variables.  */
 #define SSA_NAME_PTR_INFO(N) \
-   SSA_NAME_CHECK (N)->ssa_name.info.ptr_info
+   SSA_NAME_CHECK (N)->u.ssa_name.info.ptr_info
 
 /* True if SSA_NAME_RANGE_INFO describes an anti-range.  */
 #define SSA_NAME_ANTI_RANGE_P(N) \
-    SSA_NAME_CHECK (N)->base.static_flag
+    SSA_NAME_CHECK (N)->u.base.static_flag
 
 /* The type of range described by SSA_NAME_RANGE_INFO.  */
 #define SSA_NAME_RANGE_TYPE(N) \
@@ -1744,41 +1750,42 @@ extern void protected_set_expr_location (tree, location_t);
 
 /* Value range info attributes for SSA_NAMEs of non pointer-type variables.  */
 #define SSA_NAME_RANGE_INFO(N) \
-    SSA_NAME_CHECK (N)->ssa_name.info.range_info
+    SSA_NAME_CHECK (N)->u.ssa_name.info.range_info
 
 /* Return the immediate_use information for an SSA_NAME. */
-#define SSA_NAME_IMM_USE_NODE(NODE) SSA_NAME_CHECK (NODE)->ssa_name.imm_uses
+#define SSA_NAME_IMM_USE_NODE(NODE) SSA_NAME_CHECK (NODE)->u.ssa_name.imm_uses
 
 #define OMP_CLAUSE_CODE(NODE)					\
-	(OMP_CLAUSE_CHECK (NODE))->omp_clause.code
+	(OMP_CLAUSE_CHECK (NODE))->u.omp_clause.code
 
 #define OMP_CLAUSE_SET_CODE(NODE, CODE)				\
-	((OMP_CLAUSE_CHECK (NODE))->omp_clause.code = (CODE))
+	((OMP_CLAUSE_CHECK (NODE))->u.omp_clause.code = (CODE))
 
 #define OMP_CLAUSE_OPERAND(NODE, I)				\
 	OMP_CLAUSE_ELT_CHECK (NODE, I)
 
 /* In a BLOCK node.  */
-#define BLOCK_VARS(NODE) (BLOCK_CHECK (NODE)->block.vars)
+#define BLOCK_VARS(NODE) (BLOCK_CHECK (NODE)->u.block.vars)
 #define BLOCK_NONLOCALIZED_VARS(NODE) \
-  (BLOCK_CHECK (NODE)->block.nonlocalized_vars)
+  (BLOCK_CHECK (NODE)->u.block.nonlocalized_vars)
 #define BLOCK_NUM_NONLOCALIZED_VARS(NODE) \
   vec_safe_length (BLOCK_NONLOCALIZED_VARS (NODE))
 #define BLOCK_NONLOCALIZED_VAR(NODE,N) (*BLOCK_NONLOCALIZED_VARS (NODE))[N]
-#define BLOCK_SUBBLOCKS(NODE) (BLOCK_CHECK (NODE)->block.subblocks)
-#define BLOCK_SUPERCONTEXT(NODE) (BLOCK_CHECK (NODE)->block.supercontext)
-#define BLOCK_CHAIN(NODE) (BLOCK_CHECK (NODE)->block.chain)
-#define BLOCK_ABSTRACT_ORIGIN(NODE) (BLOCK_CHECK (NODE)->block.abstract_origin)
-#define BLOCK_ABSTRACT(NODE) (BLOCK_CHECK (NODE)->block.abstract_flag)
-#define BLOCK_DIE(NODE) (BLOCK_CHECK (NODE)->block.die)
+#define BLOCK_SUBBLOCKS(NODE) (BLOCK_CHECK (NODE)->u.block.subblocks)
+#define BLOCK_SUPERCONTEXT(NODE) (BLOCK_CHECK (NODE)->u.block.supercontext)
+#define BLOCK_CHAIN(NODE) (BLOCK_CHECK (NODE)->u.block.chain)
+#define BLOCK_ABSTRACT_ORIGIN(NODE) \
+  (BLOCK_CHECK (NODE)->u.block.abstract_origin)
+#define BLOCK_ABSTRACT(NODE) (BLOCK_CHECK (NODE)->u.block.abstract_flag)
+#define BLOCK_DIE(NODE) (BLOCK_CHECK (NODE)->u.block.die)
 
 /* True if BLOCK has the same ranges as its BLOCK_SUPERCONTEXT.  */
-#define BLOCK_SAME_RANGE(NODE) (BLOCK_CHECK (NODE)->base.u.bits.nameless_flag)
+#define BLOCK_SAME_RANGE(NODE) (BLOCK_CHECK (NODE)->u.base.u.bits.nameless_flag)
 
 /* An index number for this block.  These values are not guaranteed to
    be unique across functions -- whether or not they are depends on
    the debugging output format in use.  */
-#define BLOCK_NUMBER(NODE) (BLOCK_CHECK (NODE)->block.block_num)
+#define BLOCK_NUMBER(NODE) (BLOCK_CHECK (NODE)->u.block.block_num)
 
 /* If block reordering splits a lexical block into discontiguous
    address ranges, we'll make a copy of the original block.
@@ -1802,19 +1809,20 @@ extern void protected_set_expr_location (tree, location_t);
    be null.  The list of fragments will be chained through
    BLOCK_FRAGMENT_CHAIN from the origin.  */
 
-#define BLOCK_FRAGMENT_ORIGIN(NODE) (BLOCK_CHECK (NODE)->block.fragment_origin)
-#define BLOCK_FRAGMENT_CHAIN(NODE) (BLOCK_CHECK (NODE)->block.fragment_chain)
+#define BLOCK_FRAGMENT_ORIGIN(NODE) \
+  (BLOCK_CHECK (NODE)->u.block.fragment_origin)
+#define BLOCK_FRAGMENT_CHAIN(NODE) (BLOCK_CHECK (NODE)->u.block.fragment_chain)
 
 /* For an inlined function, this gives the location where it was called
    from.  This is only set in the top level block, which corresponds to the
    inlined function scope.  This is used in the debug output routines.  */
 
-#define BLOCK_SOURCE_LOCATION(NODE) (BLOCK_CHECK (NODE)->block.locus)
+#define BLOCK_SOURCE_LOCATION(NODE) (BLOCK_CHECK (NODE)->u.block.locus)
 
 /* This gives the location of the end of the block, useful to attach
    code implicitly generated for outgoing paths.  */
 
-#define BLOCK_SOURCE_END_LOCATION(NODE) (BLOCK_CHECK (NODE)->block.end_locus)
+#define BLOCK_SOURCE_END_LOCATION(NODE) (BLOCK_CHECK (NODE)->u.block.end_locus)
 
 /* Define fields and accessors for nodes representing data types.  */
 
@@ -1827,22 +1835,22 @@ extern void protected_set_expr_location (tree, location_t);
    type.  Note also that some of the front-ends also overload these fields,
    so they must be checked as well.  */
 
-#define TYPE_UID(NODE) (TYPE_CHECK (NODE)->type_common.uid)
-#define TYPE_SIZE(NODE) (TYPE_CHECK (NODE)->type_common.size)
-#define TYPE_SIZE_UNIT(NODE) (TYPE_CHECK (NODE)->type_common.size_unit)
-#define TYPE_POINTER_TO(NODE) (TYPE_CHECK (NODE)->type_common.pointer_to)
-#define TYPE_REFERENCE_TO(NODE) (TYPE_CHECK (NODE)->type_common.reference_to)
-#define TYPE_PRECISION(NODE) (TYPE_CHECK (NODE)->type_common.precision)
-#define TYPE_NAME(NODE) (TYPE_CHECK (NODE)->type_common.name)
-#define TYPE_NEXT_VARIANT(NODE) (TYPE_CHECK (NODE)->type_common.next_variant)
-#define TYPE_MAIN_VARIANT(NODE) (TYPE_CHECK (NODE)->type_common.main_variant)
-#define TYPE_CONTEXT(NODE) (TYPE_CHECK (NODE)->type_common.context)
+#define TYPE_UID(NODE) (TYPE_CHECK (NODE)->u.type_common.uid)
+#define TYPE_SIZE(NODE) (TYPE_CHECK (NODE)->u.type_common.size)
+#define TYPE_SIZE_UNIT(NODE) (TYPE_CHECK (NODE)->u.type_common.size_unit)
+#define TYPE_POINTER_TO(NODE) (TYPE_CHECK (NODE)->u.type_common.pointer_to)
+#define TYPE_REFERENCE_TO(NODE) (TYPE_CHECK (NODE)->u.type_common.reference_to)
+#define TYPE_PRECISION(NODE) (TYPE_CHECK (NODE)->u.type_common.precision)
+#define TYPE_NAME(NODE) (TYPE_CHECK (NODE)->u.type_common.name)
+#define TYPE_NEXT_VARIANT(NODE) (TYPE_CHECK (NODE)->u.type_common.next_variant)
+#define TYPE_MAIN_VARIANT(NODE) (TYPE_CHECK (NODE)->u.type_common.main_variant)
+#define TYPE_CONTEXT(NODE) (TYPE_CHECK (NODE)->u.type_common.context)
 
-#define TYPE_MODE_RAW(NODE) (TYPE_CHECK (NODE)->type_common.mode)
+#define TYPE_MODE_RAW(NODE) (TYPE_CHECK (NODE)->u.type_common.mode)
 #define TYPE_MODE(NODE) (VECTOR_TYPE_P (NODE) ? vector_type_mode (NODE) \
 					      : TYPE_MODE_RAW (NODE))
 #define SET_TYPE_MODE(NODE, MODE) \
-  (TYPE_CHECK (NODE)->type_common.mode = (MODE))
+  (TYPE_CHECK (NODE)->u.type_common.mode = (MODE))
 
 extern machine_mode element_mode (const_tree t);
 
@@ -1862,7 +1870,7 @@ extern machine_mode element_mode (const_tree t);
    to each other without a conversion.  The middle-end also makes sure
    to assign the same alias-sets to the type partition with equal
    TYPE_CANONICAL of their unqualified variants.  */
-#define TYPE_CANONICAL(NODE) (TYPE_CHECK (NODE)->type_common.canonical)
+#define TYPE_CANONICAL(NODE) (TYPE_CHECK (NODE)->u.type_common.canonical)
 /* Indicates that the type node requires structural equality
    checks.  The compiler will need to look at the composition of the
    type to determine whether it is equal to another type, rather than
@@ -1882,25 +1890,25 @@ extern machine_mode element_mode (const_tree t);
    other.  If the TYPE_ALIAS_SET is -1, no alias set has yet been
    assigned to this type.  If the TYPE_ALIAS_SET is 0, objects of this
    type can alias objects of any type.  */
-#define TYPE_ALIAS_SET(NODE) (TYPE_CHECK (NODE)->type_common.alias_set)
+#define TYPE_ALIAS_SET(NODE) (TYPE_CHECK (NODE)->u.type_common.alias_set)
 
 /* Nonzero iff the typed-based alias set for this type has been
    calculated.  */
 #define TYPE_ALIAS_SET_KNOWN_P(NODE) \
-  (TYPE_CHECK (NODE)->type_common.alias_set != -1)
+  (TYPE_CHECK (NODE)->u.type_common.alias_set != -1)
 
 /* A TREE_LIST of IDENTIFIER nodes of the attributes that apply
    to this type.  */
-#define TYPE_ATTRIBUTES(NODE) (TYPE_CHECK (NODE)->type_common.attributes)
+#define TYPE_ATTRIBUTES(NODE) (TYPE_CHECK (NODE)->u.type_common.attributes)
 
 /* The alignment necessary for objects of this type.
    The value is an int, measured in bits.  */
-#define TYPE_ALIGN(NODE) (TYPE_CHECK (NODE)->type_common.align)
+#define TYPE_ALIGN(NODE) (TYPE_CHECK (NODE)->u.type_common.align)
 
 /* 1 if the alignment for this type was requested by "aligned" attribute,
    0 if it is the default for this type.  */
 #define TYPE_USER_ALIGN(NODE) \
-  (TYPE_CHECK (NODE)->type_common.common.typed.base.u.bits.user_align)
+  (TYPE_CHECK (NODE)->u.type_common.common.typed.base.u.bits.user_align)
 
 /* The alignment for NODE, in bytes.  */
 #define TYPE_ALIGN_UNIT(NODE) (TYPE_ALIGN (NODE) / BITS_PER_UNIT)
@@ -1912,37 +1920,37 @@ extern machine_mode element_mode (const_tree t);
    to point back at the TYPE_DECL node.  This allows the debug routines
    to know that the two nodes represent the same type, so that we only
    get one debug info record for them.  */
-#define TYPE_STUB_DECL(NODE) (TYPE_CHECK (NODE)->type_common.common.chain)
+#define TYPE_STUB_DECL(NODE) (TYPE_CHECK (NODE)->u.type_common.common.chain)
 
 /* In a RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE or ARRAY_TYPE, it means
    the type has BLKmode only because it lacks the alignment required for
    its size.  */
 #define TYPE_NO_FORCE_BLK(NODE) \
-  (TYPE_CHECK (NODE)->type_common.no_force_blk_flag)
+  (TYPE_CHECK (NODE)->u.type_common.no_force_blk_flag)
 
 /* Nonzero in a type considered volatile as a whole.  */
 #define TYPE_VOLATILE(NODE) \
-  (TYPE_CHECK (NODE)->type_common.common.typed.base.volatile_flag)
+  (TYPE_CHECK (NODE)->u.type_common.common.typed.base.volatile_flag)
 
 /* Nonzero in a type considered atomic as a whole.  */
 #define TYPE_ATOMIC(NODE) \
-  (TYPE_CHECK (NODE)->type_common.common.typed.base.u.bits.atomic_flag)
+  (TYPE_CHECK (NODE)->u.type_common.common.typed.base.u.bits.atomic_flag)
 
 /* Means this type is const-qualified.  */
 #define TYPE_READONLY(NODE) \
-  (TYPE_CHECK (NODE)->type_common.common.typed.base.readonly_flag)
+  (TYPE_CHECK (NODE)->u.type_common.common.typed.base.readonly_flag)
 
 /* If nonzero, this type is `restrict'-qualified, in the C sense of
    the term.  */
-#define TYPE_RESTRICT(NODE) (TYPE_CHECK (NODE)->type_common.restrict_flag)
+#define TYPE_RESTRICT(NODE) (TYPE_CHECK (NODE)->u.type_common.restrict_flag)
 
 /* If nonzero, type's name shouldn't be emitted into debug info.  */
 #define TYPE_NAMELESS(NODE) \
-  (TYPE_CHECK (NODE)->type_common.common.typed.base.u.bits.nameless_flag)
+  (TYPE_CHECK (NODE)->u.type_common.common.typed.base.u.bits.nameless_flag)
 
 /* The address space the type is in.  */
 #define TYPE_ADDR_SPACE(NODE) \
-  (TYPE_CHECK (NODE)->type_common.common.typed.base.u.bits.address_space)
+  (TYPE_CHECK (NODE)->u.type_common.common.typed.base.u.bits.address_space)
 
 /* Encode/decode the named memory support as part of the qualifier.  If more
    than 8 qualifiers are added, these macros need to be adjusted.  */
@@ -1979,13 +1987,13 @@ extern machine_mode element_mode (const_tree t);
 	  | (TYPE_RESTRICT (NODE) * TYPE_QUAL_RESTRICT)))
 
 /* These flags are available for each language front end to use internally.  */
-#define TYPE_LANG_FLAG_0(NODE) (TYPE_CHECK (NODE)->type_common.lang_flag_0)
-#define TYPE_LANG_FLAG_1(NODE) (TYPE_CHECK (NODE)->type_common.lang_flag_1)
-#define TYPE_LANG_FLAG_2(NODE) (TYPE_CHECK (NODE)->type_common.lang_flag_2)
-#define TYPE_LANG_FLAG_3(NODE) (TYPE_CHECK (NODE)->type_common.lang_flag_3)
-#define TYPE_LANG_FLAG_4(NODE) (TYPE_CHECK (NODE)->type_common.lang_flag_4)
-#define TYPE_LANG_FLAG_5(NODE) (TYPE_CHECK (NODE)->type_common.lang_flag_5)
-#define TYPE_LANG_FLAG_6(NODE) (TYPE_CHECK (NODE)->type_common.lang_flag_6)
+#define TYPE_LANG_FLAG_0(NODE) (TYPE_CHECK (NODE)->u.type_common.lang_flag_0)
+#define TYPE_LANG_FLAG_1(NODE) (TYPE_CHECK (NODE)->u.type_common.lang_flag_1)
+#define TYPE_LANG_FLAG_2(NODE) (TYPE_CHECK (NODE)->u.type_common.lang_flag_2)
+#define TYPE_LANG_FLAG_3(NODE) (TYPE_CHECK (NODE)->u.type_common.lang_flag_3)
+#define TYPE_LANG_FLAG_4(NODE) (TYPE_CHECK (NODE)->u.type_common.lang_flag_4)
+#define TYPE_LANG_FLAG_5(NODE) (TYPE_CHECK (NODE)->u.type_common.lang_flag_5)
+#define TYPE_LANG_FLAG_6(NODE) (TYPE_CHECK (NODE)->u.type_common.lang_flag_6)
 
 /* Used to keep track of visited nodes in tree traversals.  This is set to
    0 by copy_node and make_node.  */
@@ -1994,55 +2002,55 @@ extern machine_mode element_mode (const_tree t);
 /* If set in an ARRAY_TYPE, indicates a string type (for languages
    that distinguish string from array of char).
    If set in a INTEGER_TYPE, indicates a character type.  */
-#define TYPE_STRING_FLAG(NODE) (TYPE_CHECK (NODE)->type_common.string_flag)
+#define TYPE_STRING_FLAG(NODE) (TYPE_CHECK (NODE)->u.type_common.string_flag)
 
 /* For a VECTOR_TYPE, this is the number of sub-parts of the vector.  */
 #define TYPE_VECTOR_SUBPARTS(VECTOR_TYPE) \
   (((unsigned HOST_WIDE_INT) 1)		  \
-   << VECTOR_TYPE_CHECK (VECTOR_TYPE)->type_common.precision)
+   << VECTOR_TYPE_CHECK (VECTOR_TYPE)->u.type_common.precision)
 
 /* Set precision to n when we have 2^n sub-parts of the vector.  */
 #define SET_TYPE_VECTOR_SUBPARTS(VECTOR_TYPE, X) \
-  (VECTOR_TYPE_CHECK (VECTOR_TYPE)->type_common.precision = exact_log2 (X))
+  (VECTOR_TYPE_CHECK (VECTOR_TYPE)->u.type_common.precision = exact_log2 (X))
 
 /* Nonzero in a VECTOR_TYPE if the frontends should not emit warnings
    about missing conversions to other vector types of the same size.  */
 #define TYPE_VECTOR_OPAQUE(NODE) \
-  (VECTOR_TYPE_CHECK (NODE)->type_common.common.typed.base.default_def_flag)
+  (VECTOR_TYPE_CHECK (NODE)->u.type_common.common.typed.base.default_def_flag)
 
 /* Indicates that objects of this type must be initialized by calling a
    function when they are created.  */
 #define TYPE_NEEDS_CONSTRUCTING(NODE) \
-  (TYPE_CHECK (NODE)->type_common.needs_constructing_flag)
+  (TYPE_CHECK (NODE)->u.type_common.needs_constructing_flag)
 
 /* Indicates that a UNION_TYPE object should be passed the same way that
    the first union alternative would be passed, or that a RECORD_TYPE
    object should be passed the same way that the first (and only) member
    would be passed.  */
 #define TYPE_TRANSPARENT_AGGR(NODE) \
-  (RECORD_OR_UNION_CHECK (NODE)->type_common.transparent_aggr_flag)
+  (RECORD_OR_UNION_CHECK (NODE)->u.type_common.transparent_aggr_flag)
 
 /* For an ARRAY_TYPE, indicates that it is not permitted to take the
    address of a component of the type.  This is the counterpart of
    DECL_NONADDRESSABLE_P for arrays, see the definition of this flag.  */
 #define TYPE_NONALIASED_COMPONENT(NODE) \
-  (ARRAY_TYPE_CHECK (NODE)->type_common.transparent_aggr_flag)
+  (ARRAY_TYPE_CHECK (NODE)->u.type_common.transparent_aggr_flag)
 
 /* Indicated that objects of this type should be laid out in as
    compact a way as possible.  */
 #define TYPE_PACKED(NODE) \
-  (TYPE_CHECK (NODE)->type_common.common.typed.base.u.bits.packed_flag)
+  (TYPE_CHECK (NODE)->u.type_common.common.typed.base.u.bits.packed_flag)
 
 /* Used by type_contains_placeholder_p to avoid recomputation.
    Values are: 0 (unknown), 1 (false), 2 (true).  Never access
    this field directly.  */
 #define TYPE_CONTAINS_PLACEHOLDER_INTERNAL(NODE) \
-  (TYPE_CHECK (NODE)->type_common.contains_placeholder_bits)
+  (TYPE_CHECK (NODE)->u.type_common.contains_placeholder_bits)
 
 /* Nonzero if RECORD_TYPE represents a final derivation of class.  */
 #define TYPE_FINAL_P(NODE) 	\
   (RECORD_OR_UNION_CHECK (NODE) \
-    ->type_common.common.typed.base.default_def_flag)
+    ->u.type_common.common.typed.base.default_def_flag)
 
 /* The debug output functions use the symtab union field to store
    information specific to the debugging format.  The different debug
@@ -2054,16 +2062,16 @@ extern machine_mode element_mode (const_tree t);
 /* Symtab field as an integer.  Used by stabs generator in dbxout.c to
    hold the type's number in the generated stabs.  */
 #define TYPE_SYMTAB_ADDRESS(NODE) \
-  (TYPE_CHECK (NODE)->type_common.symtab.address)
+  (TYPE_CHECK (NODE)->u.type_common.symtab.address)
 
 /* Symtab field as a string.  Used by COFF generator in sdbout.c to
    hold struct/union type tag names.  */
 #define TYPE_SYMTAB_POINTER(NODE) \
-  (TYPE_CHECK (NODE)->type_common.symtab.pointer)
+  (TYPE_CHECK (NODE)->u.type_common.symtab.pointer)
 
 /* Symtab field as a pointer to a DWARF DIE.  Used by DWARF generator
    in dwarf2out.c to point to the DIE generated for the type.  */
-#define TYPE_SYMTAB_DIE(NODE) (TYPE_CHECK (NODE)->type_common.symtab.die)
+#define TYPE_SYMTAB_DIE(NODE) (TYPE_CHECK (NODE)->u.type_common.symtab.die)
 
 /* The garbage collector needs to know the interpretation of the
    symtab field.  These constants represent the different types in the
@@ -2074,44 +2082,44 @@ extern machine_mode element_mode (const_tree t);
 #define TYPE_SYMTAB_IS_DIE (2)
 
 #define TYPE_LANG_SPECIFIC(NODE) \
-  (TYPE_CHECK (NODE)->type_common.lang_specific)
+  (TYPE_CHECK (NODE)->u.type_common.lang_specific)
 
-#define TYPE_VALUES(NODE) (ENUMERAL_TYPE_CHECK (NODE)->type_common.values)
-#define TYPE_DOMAIN(NODE) (ARRAY_TYPE_CHECK (NODE)->type_common.values)
+#define TYPE_VALUES(NODE) (ENUMERAL_TYPE_CHECK (NODE)->u.type_common.values)
+#define TYPE_DOMAIN(NODE) (ARRAY_TYPE_CHECK (NODE)->u.type_common.values)
 #define TYPE_FIELDS(NODE) \
-  (RECORD_OR_UNION_CHECK (NODE)->type_common.values)
-#define TYPE_CACHED_VALUES(NODE) (TYPE_CHECK (NODE)->type_common.values)
-#define TYPE_ARG_TYPES(NODE) (FUNC_OR_METHOD_CHECK (NODE)->type_common.values)
-#define TYPE_VALUES_RAW(NODE) (TYPE_CHECK (NODE)->type_common.values)
+  (RECORD_OR_UNION_CHECK (NODE)->u.type_common.values)
+#define TYPE_CACHED_VALUES(NODE) (TYPE_CHECK (NODE)->u.type_common.values)
+#define TYPE_ARG_TYPES(NODE) (FUNC_OR_METHOD_CHECK (NODE)->u.type_common.values)
+#define TYPE_VALUES_RAW(NODE) (TYPE_CHECK (NODE)->u.type_common.values)
 
-#define TYPE_METHODS(NODE) (RECORD_OR_UNION_CHECK (NODE)->type_common.maxval)
-#define TYPE_VFIELD(NODE) (RECORD_OR_UNION_CHECK (NODE)->type_common.minval)
+#define TYPE_METHODS(NODE) (RECORD_OR_UNION_CHECK (NODE)->u.type_common.maxval)
+#define TYPE_VFIELD(NODE) (RECORD_OR_UNION_CHECK (NODE)->u.type_common.minval)
 #define TYPE_METHOD_BASETYPE(NODE) \
-  (FUNC_OR_METHOD_CHECK (NODE)->type_common.maxval)
+  (FUNC_OR_METHOD_CHECK (NODE)->u.type_common.maxval)
 #define TYPE_OFFSET_BASETYPE(NODE) \
-  (OFFSET_TYPE_CHECK (NODE)->type_common.maxval)
-#define TYPE_MAXVAL(NODE) (TYPE_CHECK (NODE)->type_common.maxval)
-#define TYPE_MINVAL(NODE) (TYPE_CHECK (NODE)->type_common.minval)
-#define TYPE_NEXT_PTR_TO(NODE) (POINTER_TYPE_CHECK (NODE)->type_common.minval)
+  (OFFSET_TYPE_CHECK (NODE)->u.type_common.maxval)
+#define TYPE_MAXVAL(NODE) (TYPE_CHECK (NODE)->u.type_common.maxval)
+#define TYPE_MINVAL(NODE) (TYPE_CHECK (NODE)->u.type_common.minval)
+#define TYPE_NEXT_PTR_TO(NODE) (POINTER_TYPE_CHECK (NODE)->u.type_common.minval)
 #define TYPE_NEXT_REF_TO(NODE) \
-  (REFERENCE_TYPE_CHECK (NODE)->type_common.minval)
-#define TYPE_MIN_VALUE(NODE) (NUMERICAL_TYPE_CHECK (NODE)->type_common.minval)
-#define TYPE_MAX_VALUE(NODE) (NUMERICAL_TYPE_CHECK (NODE)->type_common.maxval)
+  (REFERENCE_TYPE_CHECK (NODE)->u.type_common.minval)
+#define TYPE_MIN_VALUE(NODE) (NUMERICAL_TYPE_CHECK (NODE)->u.type_common.minval)
+#define TYPE_MAX_VALUE(NODE) (NUMERICAL_TYPE_CHECK (NODE)->u.type_common.maxval)
 
 /* If non-NULL, this is an upper bound of the size (in bytes) of an
    object of the given ARRAY_TYPE_NON_COMMON.  This allows temporaries to be
    allocated.  */
 #define TYPE_ARRAY_MAX_SIZE(ARRAY_TYPE) \
-  (ARRAY_TYPE_CHECK (ARRAY_TYPE)->type_common.maxval)
+  (ARRAY_TYPE_CHECK (ARRAY_TYPE)->u.type_common.maxval)
 
 /* For record and union types, information about this type, as a base type
    for itself.  */
-#define TYPE_BINFO(NODE) (RECORD_OR_UNION_CHECK (NODE)->type_common.binfo)
-#define TYPE_BINFO_RAW(NODE) (TYPE_CHECK (NODE)->type_common.binfo)
+#define TYPE_BINFO(NODE) (RECORD_OR_UNION_CHECK (NODE)->u.type_common.binfo)
+#define TYPE_BINFO_RAW(NODE) (TYPE_CHECK (NODE)->u.type_common.binfo)
 
 /* For non record and union types, used in a language-dependent way.  */
 #define TYPE_LANG_SLOT_1(NODE) \
-  (NOT_RECORD_OR_UNION_CHECK (NODE)->type_common.binfo)
+  (NOT_RECORD_OR_UNION_CHECK (NODE)->u.type_common.binfo)
 
 /* Define accessor macros for information about type inheritance
    and basetypes.
@@ -2131,7 +2139,7 @@ extern machine_mode element_mode (const_tree t);
 /* BINFO specific flags.  */
 
 /* Nonzero means that the derivation chain is via a `virtual' declaration.  */
-#define BINFO_VIRTUAL_P(NODE) (TREE_BINFO_CHECK (NODE)->base.static_flag)
+#define BINFO_VIRTUAL_P(NODE) (TREE_BINFO_CHECK (NODE)->u.base.static_flag)
 
 /* Flags for language dependent use.  */
 #define BINFO_FLAG_0(NODE) TREE_LANG_FLAG_0 (TREE_BINFO_CHECK (NODE))
@@ -2151,19 +2159,19 @@ extern machine_mode element_mode (const_tree t);
    object that is allocated on behalf of this `type'.
    This is always 0 except when there is multiple inheritance.  */
 
-#define BINFO_OFFSET(NODE) (TREE_BINFO_CHECK (NODE)->binfo.offset)
+#define BINFO_OFFSET(NODE) (TREE_BINFO_CHECK (NODE)->u.binfo.offset)
 #define BINFO_OFFSET_ZEROP(NODE) (integer_zerop (BINFO_OFFSET (NODE)))
 
 /* The virtual function table belonging to this basetype.  Virtual
    function tables provide a mechanism for run-time method dispatching.
    The entries of a virtual function table are language-dependent.  */
 
-#define BINFO_VTABLE(NODE) (TREE_BINFO_CHECK (NODE)->binfo.vtable)
+#define BINFO_VTABLE(NODE) (TREE_BINFO_CHECK (NODE)->u.binfo.vtable)
 
 /* The virtual functions in the virtual function table.  This is
    a TREE_LIST that is used as an initial approximation for building
    a virtual function table for this basetype.  */
-#define BINFO_VIRTUALS(NODE) (TREE_BINFO_CHECK (NODE)->binfo.virtuals)
+#define BINFO_VIRTUALS(NODE) (TREE_BINFO_CHECK (NODE)->u.binfo.virtuals)
 
 /* A vector of binfos for the direct basetypes inherited by this
    basetype.
@@ -2171,7 +2179,7 @@ extern machine_mode element_mode (const_tree t);
    If this basetype describes type D as inherited in C, and if the
    basetypes of D are E and F, then this vector contains binfos for
    inheritance of E and F by C.  */
-#define BINFO_BASE_BINFOS(NODE) (&TREE_BINFO_CHECK (NODE)->binfo.base_binfos)
+#define BINFO_BASE_BINFOS(NODE) (&TREE_BINFO_CHECK (NODE)->u.binfo.base_binfos)
 
 /* The number of basetypes for NODE.  */
 #define BINFO_N_BASE_BINFOS(NODE) (BINFO_BASE_BINFOS (NODE)->length ())
@@ -2189,13 +2197,13 @@ extern machine_mode element_mode (const_tree t);
    base.  The actual contents are language-dependent.  In the C++
    front-end this field is an INTEGER_CST giving an offset into the
    vtable where the offset to the virtual base can be found.  */
-#define BINFO_VPTR_FIELD(NODE) (TREE_BINFO_CHECK (NODE)->binfo.vptr_field)
+#define BINFO_VPTR_FIELD(NODE) (TREE_BINFO_CHECK (NODE)->u.binfo.vptr_field)
 
 /* Indicates the accesses this binfo has to its bases. The values are
    access_public_node, access_protected_node or access_private_node.
    If this array is not present, public access is implied.  */
 #define BINFO_BASE_ACCESSES(NODE) \
-  (TREE_BINFO_CHECK (NODE)->binfo.base_accesses)
+  (TREE_BINFO_CHECK (NODE)->u.binfo.base_accesses)
 
 #define BINFO_BASE_ACCESS(NODE,N) \
   (*BINFO_BASE_ACCESSES (NODE))[(N)]
@@ -2204,18 +2212,18 @@ extern machine_mode element_mode (const_tree t);
 
 /* The index in the VTT where this subobject's sub-VTT can be found.
    NULL_TREE if there is no sub-VTT.  */
-#define BINFO_SUBVTT_INDEX(NODE) (TREE_BINFO_CHECK (NODE)->binfo.vtt_subvtt)
+#define BINFO_SUBVTT_INDEX(NODE) (TREE_BINFO_CHECK (NODE)->u.binfo.vtt_subvtt)
 
 /* The index in the VTT where the vptr for this subobject can be
    found.  NULL_TREE if there is no secondary vptr in the VTT.  */
-#define BINFO_VPTR_INDEX(NODE) (TREE_BINFO_CHECK (NODE)->binfo.vtt_vptr)
+#define BINFO_VPTR_INDEX(NODE) (TREE_BINFO_CHECK (NODE)->u.binfo.vtt_vptr)
 
 /* The BINFO_INHERITANCE_CHAIN points at the binfo for the base
    inheriting this base for non-virtual bases. For virtual bases it
    points either to the binfo for which this is a primary binfo, or to
    the binfo of the most derived type.  */
 #define BINFO_INHERITANCE_CHAIN(NODE) \
-	(TREE_BINFO_CHECK (NODE)->binfo.inheritance)
+	(TREE_BINFO_CHECK (NODE)->u.binfo.inheritance)
 
 
 /* Define fields and accessors for nodes representing declared names.  */
@@ -2233,7 +2241,7 @@ extern machine_mode element_mode (const_tree t);
 
 /* This is the name of the object as written by the user.
    It is an IDENTIFIER_NODE.  */
-#define DECL_NAME(NODE) (DECL_MINIMAL_CHECK (NODE)->decl_minimal.name)
+#define DECL_NAME(NODE) (DECL_MINIMAL_CHECK (NODE)->u.decl_minimal.name)
 
 /* The IDENTIFIER_NODE associated with the TYPE_NAME field.  */
 #define TYPE_IDENTIFIER(NODE) \
@@ -2241,7 +2249,7 @@ extern machine_mode element_mode (const_tree t);
    ? DECL_NAME (TYPE_NAME (NODE)) : TYPE_NAME (NODE))
 
 /* Every ..._DECL node gets a unique number.  */
-#define DECL_UID(NODE) (DECL_MINIMAL_CHECK (NODE)->decl_minimal.uid)
+#define DECL_UID(NODE) (DECL_MINIMAL_CHECK (NODE)->u.decl_minimal.uid)
 
 /* DEBUG_EXPR_DECLs get negative UID numbers, to catch erroneous
    uses.  */
@@ -2250,22 +2258,22 @@ extern machine_mode element_mode (const_tree t);
 /* Every ..._DECL node gets a unique number that stays the same even
    when the decl is copied by the inliner once it is set.  */
 #define DECL_PT_UID(NODE) \
-  (DECL_COMMON_CHECK (NODE)->decl_common.pt_uid == -1u \
-   ? (NODE)->decl_minimal.uid : (NODE)->decl_common.pt_uid)
+  (DECL_COMMON_CHECK (NODE)->u.decl_common.pt_uid == -1u \
+   ? (NODE)->u.decl_minimal.uid : (NODE)->u.decl_common.pt_uid)
 /* Initialize the ..._DECL node pt-uid to the decls uid.  */
 #define SET_DECL_PT_UID(NODE, UID) \
-  (DECL_COMMON_CHECK (NODE)->decl_common.pt_uid = (UID))
+  (DECL_COMMON_CHECK (NODE)->u.decl_common.pt_uid = (UID))
 /* Whether the ..._DECL node pt-uid has been initialized and thus needs to
    be preserved when copyin the decl.  */
 #define DECL_PT_UID_SET_P(NODE) \
-  (DECL_COMMON_CHECK (NODE)->decl_common.pt_uid != -1u)
+  (DECL_COMMON_CHECK (NODE)->u.decl_common.pt_uid != -1u)
 
 /* These two fields describe where in the source code the declaration
    was.  If the declaration appears in several places (as for a C
    function that is declared first and then defined later), this
    information should refer to the definition.  */
 #define DECL_SOURCE_LOCATION(NODE) \
-  (DECL_MINIMAL_CHECK (NODE)->decl_minimal.locus)
+  (DECL_MINIMAL_CHECK (NODE)->u.decl_minimal.locus)
 #define DECL_SOURCE_FILE(NODE) LOCATION_FILE (DECL_SOURCE_LOCATION (NODE))
 #define DECL_SOURCE_LINE(NODE) LOCATION_LINE (DECL_SOURCE_LOCATION (NODE))
 #define DECL_SOURCE_COLUMN(NODE) LOCATION_COLUMN (DECL_SOURCE_LOCATION (NODE))
@@ -2287,12 +2295,13 @@ extern machine_mode element_mode (const_tree t);
     scope".  In particular, for VAR_DECLs which are virtual table pointers
     (they have DECL_VIRTUAL set), we use DECL_CONTEXT to determine the type
     they belong to.  */
-#define DECL_CONTEXT(NODE) (DECL_MINIMAL_CHECK (NODE)->decl_minimal.context)
+#define DECL_CONTEXT(NODE) (DECL_MINIMAL_CHECK (NODE)->u.decl_minimal.context)
 #define DECL_FIELD_CONTEXT(NODE) \
-  (FIELD_DECL_CHECK (NODE)->decl_minimal.context)
+  (FIELD_DECL_CHECK (NODE)->u.decl_minimal.context)
 
 /* If nonzero, decl's name shouldn't be emitted into debug info.  */
-#define DECL_NAMELESS(NODE) (DECL_MINIMAL_CHECK (NODE)->base.u.bits.nameless_flag)
+#define DECL_NAMELESS(NODE) \
+  (DECL_MINIMAL_CHECK (NODE)->u.base.u.bits.nameless_flag)
 
 /* For any sort of a ..._DECL node, this points to the original (abstract)
    decl node which this decl is an inlined/cloned instance of, or else it
@@ -2301,7 +2310,7 @@ extern machine_mode element_mode (const_tree t);
    The C front-end also uses this in a nested declaration of an inline
    function, to point back to the definition.  */
 #define DECL_ABSTRACT_ORIGIN(NODE) \
-  (DECL_COMMON_CHECK (NODE)->decl_common.abstract_origin)
+  (DECL_COMMON_CHECK (NODE)->u.decl_common.abstract_origin)
 
 /* Like DECL_ABSTRACT_ORIGIN, but returns NODE if there's no abstract
    origin.  This is useful when setting the DECL_ABSTRACT_ORIGIN.  */
@@ -2318,7 +2327,7 @@ extern machine_mode element_mode (const_tree t);
 
 /* In a DECL this is the field where attributes are stored.  */
 #define DECL_ATTRIBUTES(NODE) \
-  (DECL_COMMON_CHECK (NODE)->decl_common.attributes)
+  (DECL_COMMON_CHECK (NODE)->u.decl_common.attributes)
 
 /* For a FUNCTION_DECL, holds the tree of BINDINGs.
    For a TRANSLATION_UNIT_DECL, holds the namespace's BLOCK.
@@ -2330,42 +2339,42 @@ extern machine_mode element_mode (const_tree t);
    frontend uses it for temporarily storing bitwidth of bitfields.
 
    ??? Need to figure out some way to check this isn't a PARM_DECL.  */
-#define DECL_INITIAL(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.initial)
+#define DECL_INITIAL(NODE) (DECL_COMMON_CHECK (NODE)->u.decl_common.initial)
 
 /* Holds the size of the datum, in bits, as a tree expression.
    Need not be constant.  */
-#define DECL_SIZE(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.size)
+#define DECL_SIZE(NODE) (DECL_COMMON_CHECK (NODE)->u.decl_common.size)
 /* Likewise for the size in bytes.  */
-#define DECL_SIZE_UNIT(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.size_unit)
+#define DECL_SIZE_UNIT(NODE) (DECL_COMMON_CHECK (NODE)->u.decl_common.size_unit)
 /* Holds the alignment required for the datum, in bits.  */
-#define DECL_ALIGN(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.align)
+#define DECL_ALIGN(NODE) (DECL_COMMON_CHECK (NODE)->u.decl_common.align)
 /* The alignment of NODE, in bytes.  */
 #define DECL_ALIGN_UNIT(NODE) (DECL_ALIGN (NODE) / BITS_PER_UNIT)
 /* Set if the alignment of this DECL has been set by the user, for
    example with an 'aligned' attribute.  */
 #define DECL_USER_ALIGN(NODE) \
-  (DECL_COMMON_CHECK (NODE)->base.u.bits.user_align)
+  (DECL_COMMON_CHECK (NODE)->u.base.u.bits.user_align)
 /* Holds the machine mode corresponding to the declaration of a variable or
    field.  Always equal to TYPE_MODE (TREE_TYPE (decl)) except for a
    FIELD_DECL.  */
-#define DECL_MODE(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.mode)
+#define DECL_MODE(NODE) (DECL_COMMON_CHECK (NODE)->u.decl_common.mode)
 
 /* For FUNCTION_DECL, if it is built-in, this identifies which built-in
    operation it is.  Note, however, that this field is overloaded, with
    DECL_BUILT_IN_CLASS as the discriminant, so the latter must always be
    checked before any access to the former.  */
 #define DECL_FUNCTION_CODE(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->function_decl.function_code)
+  (FUNCTION_DECL_CHECK (NODE)->u.function_decl.function_code)
 
 #define DECL_FUNCTION_PERSONALITY(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->function_decl.personality)
+  (FUNCTION_DECL_CHECK (NODE)->u.function_decl.personality)
 
 /* Nonzero for a given ..._DECL node means that the name of this node should
    be ignored for symbolic debug purposes.  For a TYPE_DECL, this means that
    the associated type should be ignored.  For a FUNCTION_DECL, the body of
    the function should also be ignored.  */
 #define DECL_IGNORED_P(NODE) \
-  (DECL_COMMON_CHECK (NODE)->decl_common.ignored_flag)
+  (DECL_COMMON_CHECK (NODE)->u.decl_common.ignored_flag)
 
 /* Nonzero for a given ..._DECL node means that this node represents an
    "abstract instance" of the given declaration (e.g. in the original
@@ -2374,11 +2383,11 @@ extern machine_mode element_mode (const_tree t);
    marked as "abstract instances" because we don't actually generate
    any code or allocate any data space for such instances.  */
 #define DECL_ABSTRACT_P(NODE) \
-  (DECL_COMMON_CHECK (NODE)->decl_common.abstract_flag)
+  (DECL_COMMON_CHECK (NODE)->u.decl_common.abstract_flag)
 
 /* Language-specific decl information.  */
 #define DECL_LANG_SPECIFIC(NODE) \
-  (DECL_COMMON_CHECK (NODE)->decl_common.lang_specific)
+  (DECL_COMMON_CHECK (NODE)->u.decl_common.lang_specific)
 
 /* In a VAR_DECL or FUNCTION_DECL, nonzero means external reference:
    do not allocate storage, and refer to a definition elsewhere.  Note that
@@ -2387,7 +2396,8 @@ extern machine_mode element_mode (const_tree t);
    example, for a FUNCTION_DECL, DECL_SAVED_TREE may be non-NULL and
    DECL_EXTERNAL may be true simultaneously; that can be the case for
    a C99 "extern inline" function.  */
-#define DECL_EXTERNAL(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.decl_flag_1)
+#define DECL_EXTERNAL(NODE) \
+  (DECL_COMMON_CHECK (NODE)->u.decl_common.decl_flag_1)
 
 /* Nonzero in a ..._DECL means this variable is ref'd from a nested function.
    For VAR_DECL nodes, PARM_DECL nodes, and FUNCTION_DECL nodes.
@@ -2397,37 +2407,37 @@ extern machine_mode element_mode (const_tree t);
    Also set in some languages for variables, etc., outside the normal
    lexical scope, such as class instance variables.  */
 #define DECL_NONLOCAL(NODE) \
-  (DECL_COMMON_CHECK (NODE)->decl_common.nonlocal_flag)
+  (DECL_COMMON_CHECK (NODE)->u.decl_common.nonlocal_flag)
 
 /* Used in VAR_DECLs to indicate that the variable is a vtable.
    Used in FIELD_DECLs for vtable pointers.
    Used in FUNCTION_DECLs to indicate that the function is virtual.  */
 #define DECL_VIRTUAL_P(NODE) \
-  (DECL_COMMON_CHECK (NODE)->decl_common.virtual_flag)
+  (DECL_COMMON_CHECK (NODE)->u.decl_common.virtual_flag)
 
 /* Used to indicate that this DECL represents a compiler-generated entity.  */
 #define DECL_ARTIFICIAL(NODE) \
-  (DECL_COMMON_CHECK (NODE)->decl_common.artificial_flag)
+  (DECL_COMMON_CHECK (NODE)->u.decl_common.artificial_flag)
 
 /* Additional flags for language-specific uses.  */
 #define DECL_LANG_FLAG_0(NODE) \
-  (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_0)
+  (DECL_COMMON_CHECK (NODE)->u.decl_common.lang_flag_0)
 #define DECL_LANG_FLAG_1(NODE) \
-  (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_1)
+  (DECL_COMMON_CHECK (NODE)->u.decl_common.lang_flag_1)
 #define DECL_LANG_FLAG_2(NODE) \
-  (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_2)
+  (DECL_COMMON_CHECK (NODE)->u.decl_common.lang_flag_2)
 #define DECL_LANG_FLAG_3(NODE) \
-  (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_3)
+  (DECL_COMMON_CHECK (NODE)->u.decl_common.lang_flag_3)
 #define DECL_LANG_FLAG_4(NODE) \
-  (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_4)
+  (DECL_COMMON_CHECK (NODE)->u.decl_common.lang_flag_4)
 #define DECL_LANG_FLAG_5(NODE) \
-  (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_5)
+  (DECL_COMMON_CHECK (NODE)->u.decl_common.lang_flag_5)
 #define DECL_LANG_FLAG_6(NODE) \
-  (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_6)
+  (DECL_COMMON_CHECK (NODE)->u.decl_common.lang_flag_6)
 #define DECL_LANG_FLAG_7(NODE) \
-  (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_7)
+  (DECL_COMMON_CHECK (NODE)->u.decl_common.lang_flag_7)
 #define DECL_LANG_FLAG_8(NODE) \
-  (DECL_COMMON_CHECK (NODE)->decl_common.lang_flag_8)
+  (DECL_COMMON_CHECK (NODE)->u.decl_common.lang_flag_8)
 
 /* Nonzero for a scope which is equal to file scope.  */
 #define SCOPE_FILE_SCOPE_P(EXP)	\
@@ -2440,7 +2450,7 @@ extern machine_mode element_mode (const_tree t);
 /* Nonzero for a decl that is decorated using attribute used.
    This indicates to compiler tools that this decl needs to be preserved.  */
 #define DECL_PRESERVE_P(DECL) \
-  DECL_COMMON_CHECK (DECL)->decl_common.preserve_flag
+  DECL_COMMON_CHECK (DECL)->u.decl_common.preserve_flag
 
 /* For function local variables of COMPLEX and VECTOR types,
    indicates that the variable is not aliased, and that all
@@ -2449,7 +2459,7 @@ extern machine_mode element_mode (const_tree t);
    be treated as a GIMPLE register, and use real instead of
    virtual ops in SSA form.  */
 #define DECL_GIMPLE_REG_P(DECL) \
-  DECL_COMMON_CHECK (DECL)->decl_common.gimple_reg_flag
+  DECL_COMMON_CHECK (DECL)->u.decl_common.gimple_reg_flag
 
 extern tree decl_value_expr_lookup (tree);
 extern void decl_value_expr_insert (tree, tree);
@@ -2460,7 +2470,7 @@ extern void decl_value_expr_insert (tree, tree);
    been set, the decl itself may not legitimately appear in the function.  */
 #define DECL_HAS_VALUE_EXPR_P(NODE) \
   (TREE_CHECK3 (NODE, VAR_DECL, PARM_DECL, RESULT_DECL) \
-   ->decl_common.decl_flag_2)
+   ->u.decl_common.decl_flag_2)
 #define DECL_VALUE_EXPR(NODE) \
   (decl_value_expr_lookup (DECL_WRTL_CHECK (NODE)))
 #define SET_DECL_VALUE_EXPR(NODE, VAL) \
@@ -2469,11 +2479,11 @@ extern void decl_value_expr_insert (tree, tree);
 /* Holds the RTL expression for the value of a variable or function.
    This value can be evaluated lazily for functions, variables with
    static storage duration, and labels.  */
-#define DECL_RTL_RAW(NODE) (DECL_WRTL_CHECK (NODE)->decl_with_rtl.rtl)
+#define DECL_RTL_RAW(NODE) (DECL_WRTL_CHECK (NODE)->u.decl_with_rtl.rtl)
 #define DECL_RTL(NODE)					\
-  (DECL_WRTL_CHECK (NODE)->decl_with_rtl.rtl		\
-   ? (NODE)->decl_with_rtl.rtl					\
-   : (make_decl_rtl (NODE), (NODE)->decl_with_rtl.rtl))
+  (DECL_WRTL_CHECK (NODE)->u.decl_with_rtl.rtl		\
+   ? (NODE)->u.decl_with_rtl.rtl					\
+   : (make_decl_rtl (NODE), (NODE)->u.decl_with_rtl.rtl))
 
 /* Set the DECL_RTL for NODE to RTL.  */
 #define SET_DECL_RTL(NODE, RTL) set_decl_rtl (NODE, RTL)
@@ -2483,13 +2493,13 @@ extern void decl_value_expr_insert (tree, tree);
 
 /* Returns nonzero if the DECL_RTL for NODE has already been set.  */
 #define DECL_RTL_SET_P(NODE) \
-  (HAS_RTL_P (NODE) && DECL_WRTL_CHECK (NODE)->decl_with_rtl.rtl != NULL)
+  (HAS_RTL_P (NODE) && DECL_WRTL_CHECK (NODE)->u.decl_with_rtl.rtl != NULL)
 
 /* Copy the RTL from NODE1 to NODE2.  If the RTL was not set for
    NODE1, it will not be set for NODE2; this is a lazy copy.  */
 #define COPY_DECL_RTL(NODE1, NODE2) \
-  (DECL_WRTL_CHECK (NODE2)->decl_with_rtl.rtl \
-   = DECL_WRTL_CHECK (NODE1)->decl_with_rtl.rtl)
+  (DECL_WRTL_CHECK (NODE2)->u.decl_with_rtl.rtl \
+   = DECL_WRTL_CHECK (NODE1)->u.decl_with_rtl.rtl)
 
 /* The DECL_RTL for NODE, if it is set, or NULL, if it is not set.  */
 #define DECL_RTL_IF_SET(NODE) (DECL_RTL_SET_P (NODE) ? DECL_RTL (NODE) : NULL)
@@ -2506,59 +2516,61 @@ extern void decl_value_expr_insert (tree, tree);
 #endif
 
 /* In VAR_DECL and PARM_DECL nodes, nonzero means declared `register'.  */
-#define DECL_REGISTER(NODE) (DECL_WRTL_CHECK (NODE)->decl_common.decl_flag_0)
+#define DECL_REGISTER(NODE) (DECL_WRTL_CHECK (NODE)->u.decl_common.decl_flag_0)
 
 /* In a FIELD_DECL, this is the field position, counting in bytes, of the
    DECL_OFFSET_ALIGN-bit-sized word containing the bit closest to the beginning
    of the structure.  */
-#define DECL_FIELD_OFFSET(NODE) (FIELD_DECL_CHECK (NODE)->field_decl.offset)
+#define DECL_FIELD_OFFSET(NODE) (FIELD_DECL_CHECK (NODE)->u.field_decl.offset)
 
 /* In a FIELD_DECL, this is the offset, in bits, of the first bit of the
    field from DECL_FIELD_OFFSET.  This field may be nonzero even for fields
    that are not bit fields (since DECL_OFFSET_ALIGN may be larger than the
    natural alignment of the field's type).  */
 #define DECL_FIELD_BIT_OFFSET(NODE) \
-  (FIELD_DECL_CHECK (NODE)->field_decl.bit_offset)
+  (FIELD_DECL_CHECK (NODE)->u.field_decl.bit_offset)
 
 /* In a FIELD_DECL, this indicates whether the field was a bit-field and
    if so, the type that was originally specified for it.
    TREE_TYPE may have been modified (in finish_struct).  */
 #define DECL_BIT_FIELD_TYPE(NODE) \
-  (FIELD_DECL_CHECK (NODE)->field_decl.bit_field_type)
+  (FIELD_DECL_CHECK (NODE)->u.field_decl.bit_field_type)
 
 /* In a FIELD_DECL of a RECORD_TYPE, this is a pointer to the storage
    representative FIELD_DECL.  */
 #define DECL_BIT_FIELD_REPRESENTATIVE(NODE) \
-  (FIELD_DECL_CHECK (NODE)->field_decl.qualifier)
+  (FIELD_DECL_CHECK (NODE)->u.field_decl.qualifier)
 
 /* For a FIELD_DECL in a QUAL_UNION_TYPE, records the expression, which
    if nonzero, indicates that the field occupies the type.  */
-#define DECL_QUALIFIER(NODE) (FIELD_DECL_CHECK (NODE)->field_decl.qualifier)
+#define DECL_QUALIFIER(NODE) (FIELD_DECL_CHECK (NODE)->u.field_decl.qualifier)
 
 /* For FIELD_DECLs, off_align holds the number of low-order bits of
    DECL_FIELD_OFFSET which are known to be always zero.
    DECL_OFFSET_ALIGN thus returns the alignment that DECL_FIELD_OFFSET
    has.  */
 #define DECL_OFFSET_ALIGN_RAW(NODE) \
-  (FIELD_DECL_CHECK (NODE)->decl_common.off_align)
+  (FIELD_DECL_CHECK (NODE)->u.decl_common.off_align)
 #define DECL_OFFSET_ALIGN(NODE) \
-  (((unsigned HOST_WIDE_INT)1) << FIELD_DECL_CHECK (NODE)->decl_common.off_align)
+  (((unsigned HOST_WIDE_INT)1)  \
+    << FIELD_DECL_CHECK (NODE)->u.decl_common.off_align)
 
 /* Specify that DECL_ALIGN(NODE) is a multiple of X.  */
 #define SET_DECL_OFFSET_ALIGN(NODE, X) \
-  (FIELD_DECL_CHECK (NODE)->decl_common.off_align = ffs_hwi (X) - 1)
+  (FIELD_DECL_CHECK (NODE)->u.decl_common.off_align = ffs_hwi (X) - 1)
 
 /* For FIELD_DECLS, DECL_FCONTEXT is the *first* baseclass in
    which this FIELD_DECL is defined.  This information is needed when
    writing debugging information about vfield and vbase decls for C++.  */
-#define DECL_FCONTEXT(NODE) (FIELD_DECL_CHECK (NODE)->field_decl.fcontext)
+#define DECL_FCONTEXT(NODE) (FIELD_DECL_CHECK (NODE)->u.field_decl.fcontext)
 
 /* In a FIELD_DECL, indicates this field should be bit-packed.  */
-#define DECL_PACKED(NODE) (FIELD_DECL_CHECK (NODE)->base.u.bits.packed_flag)
+#define DECL_PACKED(NODE) (FIELD_DECL_CHECK (NODE)->u.base.u.bits.packed_flag)
 
 /* Nonzero in a FIELD_DECL means it is a bit field, and must be accessed
    specially.  */
-#define DECL_BIT_FIELD(NODE) (FIELD_DECL_CHECK (NODE)->decl_common.decl_flag_1)
+#define DECL_BIT_FIELD(NODE) \
+  (FIELD_DECL_CHECK (NODE)->u.decl_common.decl_flag_1)
 
 /* Used in a FIELD_DECL to indicate that we cannot form the address of
    this component.  This makes it possible for Type-Based Alias Analysis
@@ -2576,27 +2588,27 @@ extern void decl_value_expr_insert (tree, tree);
    accesses to s.i must not be given the alias set of the type of 'i'
    (int) but instead directly that of the type of 's' (struct S).  */
 #define DECL_NONADDRESSABLE_P(NODE) \
-  (FIELD_DECL_CHECK (NODE)->decl_common.decl_flag_2)
+  (FIELD_DECL_CHECK (NODE)->u.decl_common.decl_flag_2)
 
 /* A numeric unique identifier for a LABEL_DECL.  The UID allocation is
    dense, unique within any one function, and may be used to index arrays.
    If the value is -1, then no UID has been assigned.  */
 #define LABEL_DECL_UID(NODE) \
-  (LABEL_DECL_CHECK (NODE)->label_decl.label_decl_uid)
+  (LABEL_DECL_CHECK (NODE)->u.label_decl.label_decl_uid)
 
 /* In a LABEL_DECL, the EH region number for which the label is the
    post_landing_pad.  */
 #define EH_LANDING_PAD_NR(NODE) \
-  (LABEL_DECL_CHECK (NODE)->label_decl.eh_landing_pad_nr)
+  (LABEL_DECL_CHECK (NODE)->u.label_decl.eh_landing_pad_nr)
 
 /* For a PARM_DECL, records the data type used to pass the argument,
    which may be different from the type seen in the program.  */
-#define DECL_ARG_TYPE(NODE) (PARM_DECL_CHECK (NODE)->decl_common.initial)
+#define DECL_ARG_TYPE(NODE) (PARM_DECL_CHECK (NODE)->u.decl_common.initial)
 
 /* For PARM_DECL, holds an RTL for the stack slot or register
    where the data was actually passed.  */
 #define DECL_INCOMING_RTL(NODE) \
-  (PARM_DECL_CHECK (NODE)->parm_decl.incoming_rtl)
+  (PARM_DECL_CHECK (NODE)->u.parm_decl.incoming_rtl)
 
 /* Nonzero for a given ..._DECL node means that no warnings should be
    generated just because this node is unused.  */
@@ -2606,35 +2618,35 @@ extern void decl_value_expr_insert (tree, tree);
 /* Used to indicate that the linkage status of this DECL is not yet known,
    so it should not be output now.  */
 #define DECL_DEFER_OUTPUT(NODE) \
-  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.defer_output)
+  (DECL_WITH_VIS_CHECK (NODE)->u.decl_with_vis.defer_output)
 
 /* In a VAR_DECL that's static,
    nonzero if the space is in the text section.  */
 #define DECL_IN_TEXT_SECTION(NODE) \
-  (VAR_DECL_CHECK (NODE)->decl_with_vis.in_text_section)
+  (VAR_DECL_CHECK (NODE)->u.decl_with_vis.in_text_section)
 
 /* In a VAR_DECL that's static,
    nonzero if it belongs to the global constant pool.  */
 #define DECL_IN_CONSTANT_POOL(NODE) \
-  (VAR_DECL_CHECK (NODE)->decl_with_vis.in_constant_pool)
+  (VAR_DECL_CHECK (NODE)->u.decl_with_vis.in_constant_pool)
 
 /* Nonzero for a given ..._DECL node means that this node should be
    put in .common, if possible.  If a DECL_INITIAL is given, and it
    is not error_mark_node, then the decl cannot be put in .common.  */
 #define DECL_COMMON(NODE) \
-  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.common_flag)
+  (DECL_WITH_VIS_CHECK (NODE)->u.decl_with_vis.common_flag)
 
 /* In a VAR_DECL, nonzero if the decl is a register variable with
    an explicit asm specification.  */
 #define DECL_HARD_REGISTER(NODE)  \
-  (VAR_DECL_CHECK (NODE)->decl_with_vis.hard_register)
+  (VAR_DECL_CHECK (NODE)->u.decl_with_vis.hard_register)
 
   /* Used to indicate that this DECL has weak linkage.  */
-#define DECL_WEAK(NODE) (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.weak_flag)
+#define DECL_WEAK(NODE) (DECL_WITH_VIS_CHECK (NODE)->u.decl_with_vis.weak_flag)
 
 /* Used to indicate that the DECL is a dllimport.  */
 #define DECL_DLLIMPORT_P(NODE) \
-  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.dllimport_flag)
+  (DECL_WITH_VIS_CHECK (NODE)->u.decl_with_vis.dllimport_flag)
 
 /* Used in a DECL to indicate that, even if it TREE_PUBLIC, it need
    not be put out unless it is needed in this translation unit.
@@ -2646,13 +2658,13 @@ extern void decl_value_expr_insert (tree, tree);
    that there will never be any harm, other than bloat, in putting out
    something which is DECL_COMDAT.  */
 #define DECL_COMDAT(NODE) \
-  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.comdat_flag)
+  (DECL_WITH_VIS_CHECK (NODE)->u.decl_with_vis.comdat_flag)
 
 #define DECL_COMDAT_GROUP(NODE) \
   decl_comdat_group (NODE)
 
 #define DECL_SYMTAB_NODE(NODE) \
-  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.symtab_node)
+  (DECL_WITH_VIS_CHECK (NODE)->u.decl_with_vis.symtab_node)
 
 /* Used in TREE_PUBLIC decls to indicate that copies of this DECL in
    multiple translation units should be merged.  */
@@ -2668,7 +2680,7 @@ extern void decl_value_expr_insert (tree, tree);
    LTO compilation and C++.  */
 #define DECL_ASSEMBLER_NAME(NODE) decl_assembler_name (NODE)
 #define DECL_ASSEMBLER_NAME_RAW(NODE) \
-  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.assembler_name)
+  (DECL_WITH_VIS_CHECK (NODE)->u.decl_with_vis.assembler_name)
 
 /* Return true if NODE is a NODE that can contain a DECL_ASSEMBLER_NAME.
    This is true of all DECL nodes except FIELD_DECL.  */
@@ -2680,11 +2692,11 @@ extern void decl_value_expr_insert (tree, tree);
    yet.  */
 #define DECL_ASSEMBLER_NAME_SET_P(NODE) \
   (HAS_DECL_ASSEMBLER_NAME_P (NODE) \
-   && DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.assembler_name != NULL_TREE)
+   && DECL_WITH_VIS_CHECK (NODE)->u.decl_with_vis.assembler_name != NULL_TREE)
 
 /* Set the DECL_ASSEMBLER_NAME for NODE to NAME.  */
 #define SET_DECL_ASSEMBLER_NAME(NODE, NAME) \
-  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.assembler_name = (NAME))
+  (DECL_WITH_VIS_CHECK (NODE)->u.decl_with_vis.assembler_name = (NAME))
 
 /* Copy the DECL_ASSEMBLER_NAME from DECL1 to DECL2.  Note that if DECL1's
    DECL_ASSEMBLER_NAME has not yet been set, using this macro will not cause
@@ -2708,16 +2720,16 @@ extern void decl_value_expr_insert (tree, tree);
 /* Nonzero in a decl means that the gimplifier has seen (or placed)
    this variable in a BIND_EXPR.  */
 #define DECL_SEEN_IN_BIND_EXPR_P(NODE) \
-  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.seen_in_bind_expr)
+  (DECL_WITH_VIS_CHECK (NODE)->u.decl_with_vis.seen_in_bind_expr)
 
 /* Value of the decls's visibility attribute */
 #define DECL_VISIBILITY(NODE) \
-  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.visibility)
+  (DECL_WITH_VIS_CHECK (NODE)->u.decl_with_vis.visibility)
 
 /* Nonzero means that the decl had its visibility specified rather than
    being inferred.  */
 #define DECL_VISIBILITY_SPECIFIED(NODE) \
-  (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.visibility_specified)
+  (DECL_WITH_VIS_CHECK (NODE)->u.decl_with_vis.visibility_specified)
 
 /* In a VAR_DECL, the model to use if the data should be allocated from
    thread-local storage.  */
@@ -2732,14 +2744,14 @@ extern void decl_value_expr_insert (tree, tree);
    variable has an initialization priority.  If false, the variable
    will be initialized at the DEFAULT_INIT_PRIORITY.  */
 #define DECL_HAS_INIT_PRIORITY_P(NODE) \
-  (VAR_DECL_CHECK (NODE)->decl_with_vis.init_priority_p)
+  (VAR_DECL_CHECK (NODE)->u.decl_with_vis.init_priority_p)
 
 extern tree decl_debug_expr_lookup (tree);
 extern void decl_debug_expr_insert (tree, tree);
 
 /* For VAR_DECL, this is set to an expression that it was split from.  */
 #define DECL_HAS_DEBUG_EXPR_P(NODE) \
-  (VAR_DECL_CHECK (NODE)->decl_common.debug_expr_is_from)
+  (VAR_DECL_CHECK (NODE)->u.decl_common.debug_expr_is_from)
 #define DECL_DEBUG_EXPR(NODE) \
   (decl_debug_expr_lookup (VAR_DECL_CHECK (NODE)))
 
@@ -2779,20 +2791,20 @@ extern void decl_fini_priority_insert (tree, priority_type);
 
 /* In a VAR_DECL, nonzero if this is a global variable for VOPs.  */
 #define VAR_DECL_IS_VIRTUAL_OPERAND(NODE) \
-  (VAR_DECL_CHECK (NODE)->base.u.bits.saturating_flag)
+  (VAR_DECL_CHECK (NODE)->u.base.u.bits.saturating_flag)
 
 /* In a VAR_DECL, nonzero if this is a non-local frame structure.  */
 #define DECL_NONLOCAL_FRAME(NODE)  \
-  (VAR_DECL_CHECK (NODE)->base.default_def_flag)
+  (VAR_DECL_CHECK (NODE)->u.base.default_def_flag)
 
 /* In a VAR_DECL, nonzero if this variable is not aliased by any pointer.  */
 #define DECL_NONALIASED(NODE) \
-  (VAR_DECL_CHECK (NODE)->base.nothrow_flag)
+  (VAR_DECL_CHECK (NODE)->u.base.nothrow_flag)
 
 /* This field is used to reference anything in decl.result and is meant only
    for use by the garbage collector.  */
 #define DECL_RESULT_FLD(NODE) \
-  (DECL_NON_COMMON_CHECK (NODE)->decl_non_common.result)
+  (DECL_NON_COMMON_CHECK (NODE)->u.decl_non_common.result)
 
 /* The DECL_VINDEX is used for FUNCTION_DECLS in two different ways.
    Before the struct containing the FUNCTION_DECL is laid out,
@@ -2802,40 +2814,41 @@ extern void decl_fini_priority_insert (tree, priority_type);
    to an INTEGER_CST node which is suitable for use as an index
    into the virtual function table. */
 #define DECL_VINDEX(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->function_decl.vindex)
+  (FUNCTION_DECL_CHECK (NODE)->u.function_decl.vindex)
 
 /* In FUNCTION_DECL, holds the decl for the return value.  */
-#define DECL_RESULT(NODE) (FUNCTION_DECL_CHECK (NODE)->decl_non_common.result)
+#define DECL_RESULT(NODE) (FUNCTION_DECL_CHECK (NODE)->u.decl_non_common.result)
 
 /* In a FUNCTION_DECL, nonzero if the function cannot be inlined.  */
 #define DECL_UNINLINABLE(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->function_decl.uninlinable)
+  (FUNCTION_DECL_CHECK (NODE)->u.function_decl.uninlinable)
 
 /* In a FUNCTION_DECL, the saved representation of the body of the
    entire function.  */
 #define DECL_SAVED_TREE(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->function_decl.saved_tree)
+  (FUNCTION_DECL_CHECK (NODE)->u.function_decl.saved_tree)
 
 /* Nonzero in a FUNCTION_DECL means this function should be treated
    as if it were a malloc, meaning it returns a pointer that is
    not an alias.  */
 #define DECL_IS_MALLOC(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->function_decl.malloc_flag)
+  (FUNCTION_DECL_CHECK (NODE)->u.function_decl.malloc_flag)
 
 /* Nonzero in a FUNCTION_DECL means this function should be treated as
    C++ operator new, meaning that it returns a pointer for which we
    should not use type based aliasing.  */
 #define DECL_IS_OPERATOR_NEW(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->function_decl.operator_new_flag)
+  (FUNCTION_DECL_CHECK (NODE)->u.function_decl.operator_new_flag)
 
 /* Nonzero in a FUNCTION_DECL means this function may return more
    than once.  */
 #define DECL_IS_RETURNS_TWICE(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->function_decl.returns_twice_flag)
+  (FUNCTION_DECL_CHECK (NODE)->u.function_decl.returns_twice_flag)
 
 /* Nonzero in a FUNCTION_DECL means this function should be treated
    as "pure" function (like const function, but may read global memory).  */
-#define DECL_PURE_P(NODE) (FUNCTION_DECL_CHECK (NODE)->function_decl.pure_flag)
+#define DECL_PURE_P(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->u.function_decl.pure_flag)
 
 /* Nonzero only if one of TREE_READONLY or DECL_PURE_P is nonzero AND
    the const or pure function may not terminate.  When this is nonzero
@@ -2844,52 +2857,53 @@ extern void decl_fini_priority_insert (tree, priority_type);
    change an infinite looping program into one that terminates without
    error.  */
 #define DECL_LOOPING_CONST_OR_PURE_P(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->function_decl.looping_const_or_pure_flag)
+  (FUNCTION_DECL_CHECK (NODE)->u.function_decl.looping_const_or_pure_flag)
 
 /* Nonzero in a FUNCTION_DECL means this function should be treated
    as "novops" function (function that does not read global memory,
    but may have arbitrary side effects).  */
 #define DECL_IS_NOVOPS(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->function_decl.novops_flag)
+  (FUNCTION_DECL_CHECK (NODE)->u.function_decl.novops_flag)
 
 /* Used in FUNCTION_DECLs to indicate that they should be run automatically
    at the beginning or end of execution.  */
 #define DECL_STATIC_CONSTRUCTOR(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->function_decl.static_ctor_flag)
+  (FUNCTION_DECL_CHECK (NODE)->u.function_decl.static_ctor_flag)
 
 #define DECL_STATIC_DESTRUCTOR(NODE) \
-(FUNCTION_DECL_CHECK (NODE)->function_decl.static_dtor_flag)
+(FUNCTION_DECL_CHECK (NODE)->u.function_decl.static_dtor_flag)
 
 /* Used in FUNCTION_DECLs to indicate that function entry and exit should
    be instrumented with calls to support routines.  */
 #define DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->function_decl.no_instrument_function_entry_exit)
+  (FUNCTION_DECL_CHECK (NODE)			     \
+    ->u.function_decl.no_instrument_function_entry_exit)
 
 /* Used in FUNCTION_DECLs to indicate that limit-stack-* should be
    disabled in this function.  */
 #define DECL_NO_LIMIT_STACK(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->function_decl.no_limit_stack)
+  (FUNCTION_DECL_CHECK (NODE)->u.function_decl.no_limit_stack)
 
 /* In a FUNCTION_DECL indicates that a static chain is needed.  */
 #define DECL_STATIC_CHAIN(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->decl_with_vis.regdecl_flag)
+  (FUNCTION_DECL_CHECK (NODE)->u.decl_with_vis.regdecl_flag)
 
 /* Nonzero for a decl that cgraph has decided should be inlined into
    at least one call site.  It is not meaningful to look at this
    directly; always use cgraph_function_possibly_inlined_p.  */
 #define DECL_POSSIBLY_INLINED(DECL) \
-  FUNCTION_DECL_CHECK (DECL)->function_decl.possibly_inlined
+  FUNCTION_DECL_CHECK (DECL)->u.function_decl.possibly_inlined
 
 /* Nonzero in a FUNCTION_DECL means that this function was declared inline,
    such as via the `inline' keyword in C/C++.  This flag controls the linkage
    semantics of 'inline'  */
 #define DECL_DECLARED_INLINE_P(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->function_decl.declared_inline_flag)
+  (FUNCTION_DECL_CHECK (NODE)->u.function_decl.declared_inline_flag)
 
 /* Nonzero in a FUNCTION_DECL means this function should not get
    -Winline warnings.  */
 #define DECL_NO_INLINE_WARNING_P(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->function_decl.no_inline_warning_flag)
+  (FUNCTION_DECL_CHECK (NODE)->u.function_decl.no_inline_warning_flag)
 
 /* Nonzero if a FUNCTION_CODE is a TM load/store.  */
 #define BUILTIN_TM_LOAD_STORE_P(FN) \
@@ -2919,19 +2933,19 @@ extern void decl_fini_priority_insert (tree, priority_type);
    the always_inline attribute without the required diagnostics if the
    function cannot be inlined.  */
 #define DECL_DISREGARD_INLINE_LIMITS(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->function_decl.disregard_inline_limits)
+  (FUNCTION_DECL_CHECK (NODE)->u.function_decl.disregard_inline_limits)
 
 extern vec<tree, va_gc> **decl_debug_args_lookup (tree);
 extern vec<tree, va_gc> **decl_debug_args_insert (tree);
 
 /* Nonzero if a FUNCTION_DECL has DEBUG arguments attached to it.  */
 #define DECL_HAS_DEBUG_ARGS_P(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->function_decl.has_debug_args_flag)
+  (FUNCTION_DECL_CHECK (NODE)->u.function_decl.has_debug_args_flag)
 
 /* For FUNCTION_DECL, this holds a pointer to a structure ("struct function")
    that describes the status of this function.  */
 #define DECL_STRUCT_FUNCTION(NODE) \
-  (FUNCTION_DECL_CHECK (NODE)->function_decl.f)
+  (FUNCTION_DECL_CHECK (NODE)->u.function_decl.f)
 
 /* In a FUNCTION_DECL, nonzero means a built in function of a
    standard library or more generally a built in function that is
@@ -2944,60 +2958,60 @@ extern vec<tree, va_gc> **decl_debug_args_insert (tree);
 
 /* For a builtin function, identify which part of the compiler defined it.  */
 #define DECL_BUILT_IN_CLASS(NODE) \
-   (FUNCTION_DECL_CHECK (NODE)->function_decl.built_in_class)
+   (FUNCTION_DECL_CHECK (NODE)->u.function_decl.built_in_class)
 
 /* In FUNCTION_DECL, a chain of ..._DECL nodes.  */
 #define DECL_ARGUMENTS(NODE) \
-   (FUNCTION_DECL_CHECK (NODE)->function_decl.arguments)
+   (FUNCTION_DECL_CHECK (NODE)->u.function_decl.arguments)
 
 /* In FUNCTION_DECL, the function specific target options to use when compiling
    this function.  */
 #define DECL_FUNCTION_SPECIFIC_TARGET(NODE) \
-   (FUNCTION_DECL_CHECK (NODE)->function_decl.function_specific_target)
+   (FUNCTION_DECL_CHECK (NODE)->u.function_decl.function_specific_target)
 
 /* In FUNCTION_DECL, the function specific optimization options to use when
    compiling this function.  */
 #define DECL_FUNCTION_SPECIFIC_OPTIMIZATION(NODE) \
-   (FUNCTION_DECL_CHECK (NODE)->function_decl.function_specific_optimization)
+   (FUNCTION_DECL_CHECK (NODE)->u.function_decl.function_specific_optimization)
 
 /* In FUNCTION_DECL, this is set if this function has other versions generated
    using "target" attributes.  The default version is the one which does not
    have any "target" attribute set. */
 #define DECL_FUNCTION_VERSIONED(NODE)\
-   (FUNCTION_DECL_CHECK (NODE)->function_decl.versioned_function)
+   (FUNCTION_DECL_CHECK (NODE)->u.function_decl.versioned_function)
 
 /* In FUNCTION_DECL, this is set if this function is a C++ constructor.
    Devirtualization machinery uses this knowledge for determing type of the
    object constructed.  Also we assume that constructor address is not
    important.  */
 #define DECL_CXX_CONSTRUCTOR_P(NODE)\
-   (FUNCTION_DECL_CHECK (NODE)->decl_with_vis.cxx_constructor)
+   (FUNCTION_DECL_CHECK (NODE)->u.decl_with_vis.cxx_constructor)
 
 /* In FUNCTION_DECL, this is set if this function is a C++ destructor.
    Devirtualization machinery uses this to track types in destruction.  */
 #define DECL_CXX_DESTRUCTOR_P(NODE)\
-   (FUNCTION_DECL_CHECK (NODE)->decl_with_vis.cxx_destructor)
+   (FUNCTION_DECL_CHECK (NODE)->u.decl_with_vis.cxx_destructor)
 
 /* In FUNCTION_DECL that represent an virtual method this is set when
    the method is final.  */
 #define DECL_FINAL_P(NODE)\
-   (FUNCTION_DECL_CHECK (NODE)->decl_with_vis.final)
+   (FUNCTION_DECL_CHECK (NODE)->u.decl_with_vis.final)
 
 /* The source language of the translation-unit.  */
 #define TRANSLATION_UNIT_LANGUAGE(NODE) \
-  (TRANSLATION_UNIT_DECL_CHECK (NODE)->translation_unit_decl.language)
+  (TRANSLATION_UNIT_DECL_CHECK (NODE)->u.translation_unit_decl.language)
 
 /* TRANSLATION_UNIT_DECL inherits from DECL_MINIMAL.  */
 
 /* For a TYPE_DECL, holds the "original" type.  (TREE_TYPE has the copy.) */
 #define DECL_ORIGINAL_TYPE(NODE) \
-  (TYPE_DECL_CHECK (NODE)->decl_non_common.result)
+  (TYPE_DECL_CHECK (NODE)->u.decl_non_common.result)
 
 /* In a TYPE_DECL nonzero means the detail info about this type is not dumped
    into stabs.  Instead it will generate cross reference ('x') of names.
    This uses the same flag as DECL_EXTERNAL.  */
 #define TYPE_DECL_SUPPRESS_DEBUG(NODE) \
-  (TYPE_DECL_CHECK (NODE)->decl_common.decl_flag_1)
+  (TYPE_DECL_CHECK (NODE)->u.decl_common.decl_flag_1)
 
 /* Getter of the imported declaration associated to the
    IMPORTED_DECL node.  */
@@ -3016,27 +3030,27 @@ extern vec<tree, va_gc> **decl_debug_args_insert (tree);
    Use the interface in tree-iterator.h to access this node.  */
 
 #define STATEMENT_LIST_HEAD(NODE) \
-  (STATEMENT_LIST_CHECK (NODE)->stmt_list.head)
+  (STATEMENT_LIST_CHECK (NODE)->u.stmt_list.head)
 #define STATEMENT_LIST_TAIL(NODE) \
-  (STATEMENT_LIST_CHECK (NODE)->stmt_list.tail)
+  (STATEMENT_LIST_CHECK (NODE)->u.stmt_list.tail)
 
 #define TREE_OPTIMIZATION(NODE) \
-  (OPTIMIZATION_NODE_CHECK (NODE)->optimization.opts)
+  (OPTIMIZATION_NODE_CHECK (NODE)->u.optimization.opts)
 
 #define TREE_OPTIMIZATION_OPTABS(NODE) \
-  (OPTIMIZATION_NODE_CHECK (NODE)->optimization.optabs)
+  (OPTIMIZATION_NODE_CHECK (NODE)->u.optimization.optabs)
 
 #define TREE_OPTIMIZATION_BASE_OPTABS(NODE) \
-  (OPTIMIZATION_NODE_CHECK (NODE)->optimization.base_optabs)
+  (OPTIMIZATION_NODE_CHECK (NODE)->u.optimization.base_optabs)
 
 /* Return a tree node that encapsulates the optimization options in OPTS.  */
 extern tree build_optimization_node (struct gcc_options *opts);
 
 #define TREE_TARGET_OPTION(NODE) \
-  (TARGET_OPTION_NODE_CHECK (NODE)->target_option.opts)
+  (TARGET_OPTION_NODE_CHECK (NODE)->u.target_option.opts)
 
 #define TREE_TARGET_GLOBALS(NODE) \
-  (TARGET_OPTION_NODE_CHECK (NODE)->target_option.globals)
+  (TARGET_OPTION_NODE_CHECK (NODE)->u.target_option.globals)
 
 /* Return a tree node that encapsulates the target options in OPTS.  */
 extern tree build_target_option_node (struct gcc_options *opts);
@@ -3192,7 +3206,7 @@ omp_clause_subcode_check (tree __t, enum omp_clause_code __code,
 {
   if (TREE_CODE (__t) != OMP_CLAUSE)
     tree_check_failed (__t, __f, __l, __g, OMP_CLAUSE, 0);
-  if (__t->omp_clause.code != __code)
+  if (__t->u.omp_clause.code != __code)
     omp_clause_check_failed (__t, __f, __l, __g, __code);
   return __t;
 }
@@ -3205,8 +3219,8 @@ omp_clause_range_check (tree __t,
 {
   if (TREE_CODE (__t) != OMP_CLAUSE)
     tree_check_failed (__t, __f, __l, __g, OMP_CLAUSE, 0);
-  if ((int) __t->omp_clause.code < (int) __code1
-      || (int) __t->omp_clause.code > (int) __code2)
+  if ((int) __t->u.omp_clause.code < (int) __code1
+      || (int) __t->u.omp_clause.code > (int) __code2)
     omp_clause_range_check_failed (__t, __f, __l, __g, __code1, __code2);
   return __t;
 }
@@ -3238,10 +3252,10 @@ tree_int_cst_elt_check (const_tree __t, int __i,
 {
   if (TREE_CODE (__t) != INTEGER_CST)
     tree_check_failed (__t, __f, __l, __g, INTEGER_CST, 0);
-  if (__i < 0 || __i >= __t->base.u.int_length.extended)
-    tree_int_cst_elt_check_failed (__i, __t->base.u.int_length.extended,
+  if (__i < 0 || __i >= __t->u.base.u.int_length.extended)
+    tree_int_cst_elt_check_failed (__i, __t->u.base.u.int_length.extended,
 				   __f, __l, __g);
-  return &CONST_CAST_TREE (__t)->int_cst.val[__i];
+  return &CONST_CAST_TREE (__t)->u.int_cst.val[__i];
 }
 
 inline HOST_WIDE_INT *
@@ -3250,10 +3264,10 @@ tree_int_cst_elt_check (tree __t, int __i,
 {
   if (TREE_CODE (__t) != INTEGER_CST)
     tree_check_failed (__t, __f, __l, __g, INTEGER_CST, 0);
-  if (__i < 0 || __i >= __t->base.u.int_length.extended)
-    tree_int_cst_elt_check_failed (__i, __t->base.u.int_length.extended,
+  if (__i < 0 || __i >= __t->u.base.u.int_length.extended)
+    tree_int_cst_elt_check_failed (__i, __t->u.base.u.int_length.extended,
 				   __f, __l, __g);
-  return &CONST_CAST_TREE (__t)->int_cst.val[__i];
+  return &CONST_CAST_TREE (__t)->u.int_cst.val[__i];
 }
 
 /* Workaround -Wstrict-overflow false positive during profiledbootstrap.  */
@@ -3269,9 +3283,9 @@ tree_vec_elt_check (tree __t, int __i,
 {
   if (TREE_CODE (__t) != TREE_VEC)
     tree_check_failed (__t, __f, __l, __g, TREE_VEC, 0);
-  if (__i < 0 || __i >= __t->base.u.length)
-    tree_vec_elt_check_failed (__i, __t->base.u.length, __f, __l, __g);
-  return &CONST_CAST_TREE (__t)->vec.a[__i];
+  if (__i < 0 || __i >= __t->u.base.u.length)
+    tree_vec_elt_check_failed (__i, __t->u.base.u.length, __f, __l, __g);
+  return &CONST_CAST_TREE (__t)->u.vec.a[__i];
 }
 
 # if GCC_VERSION >= 4006
@@ -3284,9 +3298,9 @@ omp_clause_elt_check (tree __t, int __i,
 {
   if (TREE_CODE (__t) != OMP_CLAUSE)
     tree_check_failed (__t, __f, __l, __g, OMP_CLAUSE, 0);
-  if (__i < 0 || __i >= omp_clause_num_ops [__t->omp_clause.code])
+  if (__i < 0 || __i >= omp_clause_num_ops [__t->u.omp_clause.code])
     omp_clause_operand_check_failed (__i, __t, __f, __l, __g);
-  return &__t->omp_clause.ops[__i];
+  return &__t->u.omp_clause.ops[__i];
 }
 
 /* These checks have to be special cased.  */
@@ -3448,7 +3462,7 @@ omp_clause_subcode_check (const_tree __t, enum omp_clause_code __code,
 {
   if (TREE_CODE (__t) != OMP_CLAUSE)
     tree_check_failed (__t, __f, __l, __g, OMP_CLAUSE, 0);
-  if (__t->omp_clause.code != __code)
+  if (__t->u.omp_clause.code != __code)
     omp_clause_check_failed (__t, __f, __l, __g, __code);
   return __t;
 }
@@ -3461,8 +3475,8 @@ omp_clause_range_check (const_tree __t,
 {
   if (TREE_CODE (__t) != OMP_CLAUSE)
     tree_check_failed (__t, __f, __l, __g, OMP_CLAUSE, 0);
-  if ((int) __t->omp_clause.code < (int) __code1
-      || (int) __t->omp_clause.code > (int) __code2)
+  if ((int) __t->u.omp_clause.code < (int) __code1
+      || (int) __t->u.omp_clause.code > (int) __code2)
     omp_clause_range_check_failed (__t, __f, __l, __g, __code1, __code2);
   return __t;
 }
@@ -3495,10 +3509,10 @@ tree_vec_elt_check (const_tree __t, int __i,
 {
   if (TREE_CODE (__t) != TREE_VEC)
     tree_check_failed (__t, __f, __l, __g, TREE_VEC, 0);
-  if (__i < 0 || __i >= __t->base.u.length)
-    tree_vec_elt_check_failed (__i, __t->base.u.length, __f, __l, __g);
-  return CONST_CAST (const_tree *, &__t->vec.a[__i]);
-  //return &__t->vec.a[__i];
+  if (__i < 0 || __i >= __t->u.base.u.length)
+    tree_vec_elt_check_failed (__i, __t->u.base.u.length, __f, __l, __g);
+  return CONST_CAST (const_tree *, &__t->u.vec.a[__i]);
+  //return &__t->u.vec.a[__i];
 }
 
 # if GCC_VERSION >= 4006
@@ -3511,9 +3525,9 @@ omp_clause_elt_check (const_tree __t, int __i,
 {
   if (TREE_CODE (__t) != OMP_CLAUSE)
     tree_check_failed (__t, __f, __l, __g, OMP_CLAUSE, 0);
-  if (__i < 0 || __i >= omp_clause_num_ops [__t->omp_clause.code])
+  if (__i < 0 || __i >= omp_clause_num_ops [__t->u.omp_clause.code])
     omp_clause_operand_check_failed (__i, __t, __f, __l, __g);
-  return CONST_CAST (const_tree *, &__t->omp_clause.ops[__i]);
+  return CONST_CAST (const_tree *, &__t->u.omp_clause.ops[__i]);
 }
 
 inline const_tree
@@ -3550,7 +3564,7 @@ tree_operand_check (tree __t, int __i,
   const_tree __u = EXPR_CHECK (__t);
   if (__i < 0 || __i >= TREE_OPERAND_LENGTH (__u))
     tree_operand_check_failed (__i, __u, __f, __l, __g);
-  return &CONST_CAST_TREE (__u)->exp.operands[__i];
+  return &CONST_CAST_TREE (__u)->u.exp.operands[__i];
 }
 
 inline tree *
@@ -3561,7 +3575,7 @@ tree_operand_check_code (tree __t, enum tree_code __code, int __i,
     tree_check_failed (__t, __f, __l, __g, __code, 0);
   if (__i < 0 || __i >= TREE_OPERAND_LENGTH (__t))
     tree_operand_check_failed (__i, __t, __f, __l, __g);
-  return &__t->exp.operands[__i];
+  return &__t->u.exp.operands[__i];
 }
 
 inline const_tree *
@@ -3571,7 +3585,7 @@ tree_operand_check (const_tree __t, int __i,
   const_tree __u = EXPR_CHECK (__t);
   if (__i < 0 || __i >= TREE_OPERAND_LENGTH (__u))
     tree_operand_check_failed (__i, __u, __f, __l, __g);
-  return CONST_CAST (const_tree *, &__u->exp.operands[__i]);
+  return CONST_CAST (const_tree *, &__u->u.exp.operands[__i]);
 }
 
 inline const_tree *
@@ -3582,7 +3596,7 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
     tree_check_failed (__t, __f, __l, __g, __code, 0);
   if (__i < 0 || __i >= TREE_OPERAND_LENGTH (__t))
     tree_operand_check_failed (__i, __t, __f, __l, __g);
-  return CONST_CAST (const_tree *, &__t->exp.operands[__i]);
+  return CONST_CAST (const_tree *, &__t->u.exp.operands[__i]);
 }
 
 #endif
@@ -4393,7 +4407,7 @@ extern tree skip_simple_constant_arithmetic (tree);
 
 /* Return which tree structure is used by T.  */
 
-enum tree_node_structure_enum tree_node_structure (const_tree);
+enum tree_node_structure_enum tree_node_structure (const union tree_node_u *);
 
 /* Return true if EXP contains a PLACEHOLDER_EXPR, i.e. if it represents a
    size or offset that depends on a field within a record.  */

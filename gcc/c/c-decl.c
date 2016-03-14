@@ -309,9 +309,7 @@ i_label_binding (tree node)
 union GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE"),
        chain_next ("(union lang_tree_node *) c_tree_chain_next (&%h.generic)"))) lang_tree_node
  {
-  union tree_node GTY ((tag ("0"),
-			desc ("tree_node_structure (&%h)")))
-    generic;
+  struct tree_node GTY ((tag ("0"))) generic;
   struct lang_identifier GTY ((tag ("1"))) identifier;
 };
 

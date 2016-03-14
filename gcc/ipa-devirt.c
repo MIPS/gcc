@@ -272,7 +272,7 @@ type_possibly_instantiated_p (tree t)
 
 struct odr_name_hasher : pointer_hash <odr_type_d>
 {
-  typedef union tree_node *compare_type;
+  typedef struct tree_node *compare_type;
   static inline hashval_t hash (const odr_type_d *);
   static inline bool equal (const odr_type_d *, const tree_node *);
   static inline void remove (odr_type_d *);

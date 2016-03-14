@@ -12234,7 +12234,7 @@ fold_checksum_tree (const_tree expr, struct md5_ctx *ctx,
 {
   const tree_node **slot;
   enum tree_code code;
-  union tree_node buf;
+  struct tree_node buf;
   int i, len;
 
  recursive_label:

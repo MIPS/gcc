@@ -280,16 +280,16 @@ ggc_alloc_rtx_def_stat (size_t s CXX_MEM_STAT_INFO)
   return (struct rtx_def *) ggc_internal_alloc (s PASS_MEM_STAT);
 }
 
-static inline union tree_node *
+static inline struct tree_node *
 ggc_alloc_tree_node_stat (size_t s CXX_MEM_STAT_INFO)
 {
-  return (union tree_node *) ggc_internal_alloc (s PASS_MEM_STAT);
+  return (struct tree_node *) ggc_internal_alloc (s PASS_MEM_STAT);
 }
 
-static inline union tree_node *
+static inline struct tree_node *
 ggc_alloc_cleared_tree_node_stat (size_t s CXX_MEM_STAT_INFO)
 {
-  return (union tree_node *) ggc_internal_cleared_alloc (s PASS_MEM_STAT);
+  return (struct tree_node *) ggc_internal_cleared_alloc (s PASS_MEM_STAT);
 }
 
 static inline gimple *
