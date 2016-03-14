@@ -2340,6 +2340,7 @@ cxx_eval_vec_init_1 (const constexpr_ctx *ctx, tree atype, tree init,
   vec<constructor_elt, va_gc> **p = &CONSTRUCTOR_ELTS (ctx->ctor);
   vec_alloc (*p, max + 1);
   bool pre_init = false;
+  tree pre_init_elt = NULL_TREE;
   unsigned HOST_WIDE_INT i;
 
   /* For the default constructor, build up a call to the default
@@ -2389,9 +2390,18 @@ cxx_eval_vec_init_1 (const constexpr_ctx *ctx, tree atype, tree init,
 	{
 	  /* Initializing an element using value or default initialization
 	     we just pre-built above.  */
-	  eltinit = (cxx_eval_constant_expression
-		     (&new_ctx, init,
-		      lval, non_constant_p, overflow_p));
+	  if (pre_init_elt == NULL_TREE)
+	    pre_init_elt
+	      = cxx_eval_constant_expression (&new_ctx, init, lval,
+					      non_constant_p, overflow_p);
+	  eltinit = pre_init_elt;
+	  /* Don't reuse the result of cxx_eval_constant_expression
+	     call if it isn't a constant initializer or if it requires
+	     relocations.  */
+	  if (initializer_constant_valid_p (pre_init_elt,
+					    TREE_TYPE (pre_init_elt))
+	      != null_pointer_node)
+	    pre_init_elt = NULL_TREE;
 	}
       else
 	{
@@ -3165,21 +3175,21 @@ cxx_eval_loop_expr (const constexpr_ctx *ctx, tree t,
   constexpr_ctx new_ctx = *ctx;
 
   tree body = TREE_OPERAND (t, 0);
-  while (true)
+  do
     {
       hash_set<tree> save_exprs;
       new_ctx.save_exprs = &save_exprs;
 
       cxx_eval_statement_list (&new_ctx, body,
 			       non_constant_p, overflow_p, jump_target);
-      if (returns (jump_target) || breaks (jump_target) || *non_constant_p)
-	break;
 
       /* Forget saved values of SAVE_EXPRs.  */
       for (hash_set<tree>::iterator iter = save_exprs.begin();
 	   iter != save_exprs.end(); ++iter)
 	new_ctx.values->remove (*iter);
     }
+  while (!returns (jump_target) && !breaks (jump_target) && !*non_constant_p);
+
   if (breaks (jump_target))
     *jump_target = NULL_TREE;
 

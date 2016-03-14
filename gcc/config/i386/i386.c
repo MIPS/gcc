@@ -2662,9 +2662,9 @@ static const struct ptt processor_target_table[PROCESSOR_max] =
   {"bdver2", &bdver2_cost, 16, 10, 16, 7, 11},
   {"bdver3", &bdver3_cost, 16, 10, 16, 7, 11},
   {"bdver4", &bdver4_cost, 16, 10, 16, 7, 11},
-  {"znver1", &znver1_cost, 16, 10, 16, 7, 11},
   {"btver1", &btver1_cost, 16, 10, 16, 7, 11},
-  {"btver2", &btver2_cost, 16, 10, 16, 7, 11}
+  {"btver2", &btver2_cost, 16, 10, 16, 7, 11},
+  {"znver1", &znver1_cost, 16, 10, 16, 7, 11}
 };
 
 static unsigned int
@@ -3272,8 +3272,9 @@ scalar_chain::make_vector_copies (unsigned regno)
 			    gen_rtx_SUBREG (SImode, reg, 4));
 	    emit_move_insn (vreg, tmp);
 	  }
-	emit_conversion_insns (get_insns (), insn);
+	rtx_insn *seq = get_insns ();
 	end_sequence ();
+	emit_conversion_insns (seq, insn);
 
 	if (dump_file)
 	  fprintf (dump_file,
@@ -3348,8 +3349,9 @@ scalar_chain::convert_reg (unsigned regno)
 	      emit_move_insn (gen_rtx_SUBREG (SImode, scopy, 4),
 			      adjust_address (tmp, SImode, 4));
 	    }
-	  emit_conversion_insns (get_insns (), insn);
+	  rtx_insn *seq = get_insns ();
 	  end_sequence ();
+	  emit_conversion_insns (seq, insn);
 
 	  if (dump_file)
 	    fprintf (dump_file,
@@ -3370,8 +3372,11 @@ scalar_chain::convert_reg (unsigned regno)
 	    bitmap_clear_bit (conv, DF_REF_INSN_UID (ref));
 	  }
       }
-    else if (NONDEBUG_INSN_P (DF_REF_INSN (ref)))
+    /* Skip debug insns and uninitialized uses.  */
+    else if (DF_REF_CHAIN (ref)
+	     && NONDEBUG_INSN_P (DF_REF_INSN (ref)))
       {
+	gcc_assert (scopy);
 	replace_rtx (DF_REF_INSN (ref), reg, scopy);
 	df_insn_rescan (DF_REF_INSN (ref));
       }
@@ -11103,18 +11108,7 @@ output_set_got (rtx dest, rtx label)
 
   xops[1] = gen_rtx_SYMBOL_REF (Pmode, GOT_SYMBOL_NAME);
 
-  if (!flag_pic)
-    {
-      if (TARGET_MACHO)
-	/* We don't need a pic base, we're not producing pic.  */
-	gcc_unreachable ();
-
-      xops[2] = gen_rtx_LABEL_REF (Pmode, label ? label : gen_label_rtx ());
-      output_asm_insn ("mov%z0\t{%2, %0|%0, %2}", xops);
-      targetm.asm_out.internal_label (asm_out_file, "L",
-				      CODE_LABEL_NUMBER (XEXP (xops[2], 0)));
-    }
-  else
+  if (flag_pic)
     {
       char name[32];
       get_pc_thunk_name (name, REGNO (dest));
@@ -11138,6 +11132,17 @@ output_set_got (rtx dest, rtx label)
         targetm.asm_out.internal_label (asm_out_file, "L",
 					   CODE_LABEL_NUMBER (label));
 #endif
+    }
+  else
+    {
+      if (TARGET_MACHO)
+	/* We don't need a pic base, we're not producing pic.  */
+	gcc_unreachable ();
+
+      xops[2] = gen_rtx_LABEL_REF (Pmode, label ? label : gen_label_rtx ());
+      output_asm_insn ("mov%z0\t{%2, %0|%0, %2}", xops);
+      targetm.asm_out.internal_label (asm_out_file, "L",
+				      CODE_LABEL_NUMBER (XEXP (xops[2], 0)));
     }
 
   if (!TARGET_MACHO)
@@ -11524,6 +11529,7 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
   if (ix86_using_red_zone ()
       && crtl->sp_is_unchanging
       && crtl->is_leaf
+      && !ix86_pc_thunk_call_expanded
       && !ix86_current_function_calls_tls_descriptor)
     {
       frame->red_zone_size = to_allocate;
