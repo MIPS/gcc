@@ -1,0 +1,339 @@
+2016-03-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 234152.
+	* REVISION: Update subversion id.
+
+	* config/rs6000/vsx.md (vsx_sign_extend_hi_<mode>): Do not provide
+	a generator function until it is needed.
+	(vsx_sign_extend_si_v2di): Rename, and turn off making a generator
+	function.
+
+	* config/rs6000/rs6000.md (floatsi<mode>2_lfiwax): Use wi
+	constraint, instead of wj.  Combine alterantives for patterns that
+	ultimately spilt the insns.
+	(floatsi<mode>2_lfiwax_mem): Likewise.
+	(floatunssi<mode>2_lfiwzx_mem): Likewise.
+	(floatunssi<mode>2_lfiwzx): Likewise.
+	(fix_trunc<mode>si2): Fix comment.
+	(fix_trunc<mode>di2_fctidz): Use <Fv> instead of <Fa> to allow for
+	either the int or floating point to be in an Altivec register.
+	(fixuns_trunc<mode>di2_fctiduz): Likewise.
+
+	PR target/70131
+	* config/rs6000/rs6000.md (round32<mode>2_fprs): Do not do the
+	optimization if we have direct move.
+	(roundu32<mode>2_fprs): Likewise.
+
+2016-03-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (wE constraint): Vext* instructions
+	require Altivec registers.
+	* config/rs6000/predicates.md (easy_p9_constant_split): Likewise.
+	(easy_vector_constant): Likewise.
+	* config/rs6000/rs6000-protos.h (easy_p9_constant): Likewise.
+	* config/rs6000/rs6000.c (easy_p9_constant): Likewise.
+	(output_vec_const_move): Likewise.
+	(rs6000_output_move_128bit): Likewise.
+	* config/rs6000/vsx.md (vsx_mov<mode>_64bit): Likewise.
+	(vsx_mov<mode>_32bit): Likewise.
+	(vsx_movti_64bit): Likewise.
+	(vsx_movti_32bit): Likewise.
+	(vsx_sign_extend_qi_<mode>): Likewise.
+	(vsx_sign_extend_hi_<mode>): Likewise.
+	(vsx_sign_extend_si_<mode>): Likewise.
+	(xxsplitb): Likewise.
+	(ISA 3.0 easy constant splitter): Likewise.
+
+	* config/rs6000/constraints.md (wE constraint): New constraint for
+	ISA 3.0 easy constants.
+
+	* config/rs6000/predicates.md (easy_p9_constant_split): New
+	predicate for ISA 3.0 easy constants that need splitting.
+	(easy_vector_constant): Add support for vector constant of all 1's
+	and for ISA 3.0 easy constants.
+
+	* config/rs6000/rs6000-protos.h (easy_p9_constant): Add
+	declaration.
+
+	* config/rs6000/rs6000.c (easy_p9_constant): New function to
+	return if we can load up a vector constant with split immediate
+	byte and vector sign extend instructions.
+	(output_vec_const_move): Add support for easy ISA 3.0 vector
+	constants and ISA 2.07 loading a vector with all 1's.
+	(rs6000_output_move_128bit): Likewise.
+
+	* config/rs6000/vsx.md (vsx_mov<mode>_64bit): Add support for new
+	ISA 2.07 and 3.0 easy constants.
+	(vsx_mov<mode>_32bit): Likewise.
+	(vsx_movti_64bit): Likewise.
+	(vsx_movti_32bit): Likewise.
+	(vsx_sign_extend_qi_<mode>): ISA 3.0 vector sign extend support.
+	(vsx_sign_extend_hi_<mode>): Likewise.
+	(vsx_sign_extend_si_<mode>): Likewise.
+	(xxsplitb): Generator for XXSPLITB instruction.
+	(ISA 3.0 easy constant splitter): Split ISA 3.0 easy constants.
+
+2016-03-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Add support
+	for ISA 3.0 word splat instructions.
+	* config/rs6000/vsx.md (vsx_splat_v4si): Likewise.
+	(vsx_splat_v4sf): Likewise.
+
+2016-03-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 233919.
+	* REVISION: Update subversion id.
+
+2016-03-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (VEC_IP): Add support for vector
+	versions of count trailing zeros and parity.
+	(ctz<mode>2): Likewise.
+	(parity<mode>2): Likewise.
+
+	* config/rs6000/rs6000-cpus.def (ISA_3_0_MASKS_SERVER): Turn on
+	-mpower9-dform-vector by default for -mcpu=power9.
+
+	* config/rs6000/rs6000-builtin.def (BU_P9V_AV_1): Add power9
+	builtin support.
+	(BU_P9V_AV_2): Likewise.
+	(BU_P9V_AV_3): Likewise.
+	(BU_P9V_AV_P): Likewise.
+	(BU_P9V_VSX_1): Likewise.
+	(BU_P9V_OVERLOAD_1): Likewise.
+	(BU_P9V_OVERLOAD_2): Likewise.
+	(BU_P9V_OVERLOAD_3): Likewise.
+	(VCTZB): Add vector count trailing zero builtin functions.
+	(VCTZH): Likewise.
+	(VCTZW): Likewise.
+	(VCTZD): Likewise.
+
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Add ISA
+	3.0 vector count trailing zero built-in functions.
+
+	* config/rs6000/rs6000.opt (-mlra): Mark option as undocumented.
+
+	* config/rs6000/rs6000.c (rs6000_builtin_mask_calculate): Add
+	support for ISA 3.0 vector count trailing zero built-in
+	functions.
+	(rs6000_invalid_builtin): Likewise.
+	(rs6000_builtin_mask_names): Likewise.
+
+	* config/rs6000/vsx.md (vsx_movti_32bit): Fix 2/29/2016 change to
+	get the alternatives correct.
+
+	* config/rs6000/rs6000.h (RS6000_BTM_P9_VECTOR): New macro for
+	power9 built-in support.
+
+	* config/rs6000/altivec.md (VParity): Add support for vector
+	versions of count trailing zeros and parity.
+	(VNEG): Add support for vnegd and vnegw.
+	(p9_neg<mode>2): Likewise.
+	(neg<mode>2): Add support for vnegd and vnegw.  Add support for
+	negation of V2DImode.  Use xor to clear register instead of
+	vsplitis.
+	(p9v_ctz<mode>2): Add support for vector versions of count
+	trailing zeros and parity.
+	(p9v_parity<mode>2): Likewise.
+
+	* config/rs6000/rs6000.md (wd attribute): Add V1TImode, TImode for
+	vector parity.
+
+	* config/rs6000/altivec.h (vec_vctz): Add count trailing zero
+	vector defines.
+	(vec_cntlz): Likewise.
+	(vec_vctzb): Likewise.
+	(vec_vctzd): Likewise.
+	(vec_vctzh): Likewise.
+	(vec_vctzw): Likewise.
+
+	* doc/extend.texi (PowerPC AltiVec Built-in Functions): Document
+	ISA 3.0 vector count trailing zeros built-in functions.
+
+2016-02-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_debug_addr_mask): Add support for
+	-mpower9-dform-vector.  Print more debug information if
+	-mdebug=addr.
+	(rs6000_setup_reg_addr_masks): Likewise.
+	(offsettable_ok_by_alignment): Likewise.
+	(rs6000_legitimate_offset_address_p): Likewise.
+	(legitimate_lo_sum_address_p): Likewise.
+	(rs6000_legitimize_address): Likewise.
+	(rs6000_legitimize_reload_address): Likewise.
+	(rs6000_legitimate_address_p): Likewise.
+	(rs6000_secondary_reload_memory): Likewise.
+	(rs6000_secondary_reload_inner): Likewise.
+	(rs6000_preferred_reload_class): If a value can't go in vector
+	registers, return NO_REGS if that class is asked for.  Add support
+	for -mpower9-dform-vector.  If we haven't picked a register class
+	yet, prefer VSX/FPR registers for vector and floating point types.
+	(rs6000_emit_prologue): Add support for -mpower9-dform-vector.
+	(rs6000_emit_epilogue): Likewise.
+
+	* config/rs6000/vsx.md (p9_vecload_<mode>): Delete, fold into
+	vsx_mov<mode>.
+	(p9_vecstore_<mode>): Likewise.
+	(vsx_mov<mode>): Split 128-bit VSX moves into 32-bit and 64-bit
+	moves to get the length attributes correct.  Add support for
+	-mpower9-dform-vector.
+	(vsx_mov<mode>_64bit): Likewise.
+	(vsx_mov<mode>_32bit): Likewise.
+	(vsx_movti_64bit): Likewise.
+	(vsx_movti_32bit): Likewise.
+
+	* config/rs6000/constraints.md (wO constraint): New constraint for
+	vector d-form (register + offset) addresses.
+
+	* config/rs6000/predicates.md (vsx_quad_dform_memory_operand):
+	Rename vsx_quad_memory_operand to vsx_quad_dform_memory_operand.
+	(vsx_quad_memory_operand): Likewise.
+
+2016-02-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): If the
+	user did -mno-lra, turn off default invocations of -mvsx-timode
+	and -mpower9-dform-vector>.  If the user asked for the options
+	explicitly issue a warning that these two options might have
+	problems with reload.
+	(rs6000_print_options_internal): Print -mdebug=reg options with
+	wider columns.  Print all of the options, even those not
+	selected.  Fix thinko in printing out built-in mask names.
+
+2016-02-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 233819.
+	* REVISION: Update subversion id.
+
+2016-02-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Make -mlra
+	default for all cpus.
+	(POWERPC_MASKS): Likewise.
+	* config/rs6000/rs6000.opt (-mlra): Likewise.
+	* config/rs6000/rs6000.c (rs6000_opt_masks): Likewise.
+
+	* config/rs6000/rs6000.opt (-mlra): Convert -mlra into target bit
+	instead of using a separate variable.
+	* config/rs6000/rs6000.c (rs6000_lra_p): Likewise.
+	(rs6000_opt_masks): Add -mlra as an option that is printed, but
+	not available to be set.
+
+	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Turn on
+	the -mlra and -mvsx-timode options by default.
+	(POWERPC_MASKS): Add -mlra.
+
+2016-02-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 233725.
+	* REVISION: Update subversion id.
+
+2016-02-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (quad_memory_operand): Rewrite to
+	use quad_address_p.
+	(vsx_quad_memory_operand): New predicate for VSX register + offset
+	vector instructions added in ISA 3.0.
+
+	* config/rs6000/rs6000-cpus.def (ISA_3_0_MASKS_SERVER): Split
+	-mpower9-dform into -mpower9-dform-{scalar,vector}.
+	(POWERPC_MASKS): Likewise.
+	* config/rs6000/rs6000.opt (-mpower9-dform): Likewise.
+	(-mpower9-dform-scalar): Likewise.
+	(-mpower9-dform-vector): Likewise.
+
+	* config/rs6000/rs6000-protos.h (quad_address_p): Add
+	declaration.
+
+	* config/rs6000/rs6000.c (mode_supports_vsx_dform_quad): New
+	helper function for -mpower9-dform-vector support.
+	(rs6000_debug_addr_mask): Add initial support for
+	-mpower9-dform-vector.
+	(rs6000_setup_reg_addr_masks): Don't allow small ints into FPR
+	registers.  Add initial -mpower9-dform-vector support.
+	(rs6000_init_hard_regno_mode_ok): Split -mpower9-dform into
+	-mpower9-dform-{scalar,vector}.
+	(rs6000_option_override_internal): Likewise.
+	(quad_address_offset_p): Initial support for vector registers with
+	register + offset addressing mode.
+	(quad_address_p): Likewise.
+	(rs6000_output_move_128bit): Likewise.
+	(rs6000_emit_prologue): Widen offset field.
+	(rs6000_opt_masks): Split -mpower9-dform into
+	-mpower9-dform-{scalar,vector}.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options):  Split
+	-mpower9-dform into -mpower9-dform-{scalar,vector}.
+
+2016-02-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 233527.
+	* REVISION: Update subversion id.
+
+2016-02-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 233147.
+	* REVISION: Update subversion id.
+
+2016-02-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 233120.
+	* REVISION: Update subversion id.
+
+2016-01-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 232906.
+	* REVISION: Update subversion id.
+
+2016-01-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (all_ones_constant): New predicate
+	to recognize all 1's.
+	(min_max_operator): Delete UMIN, UMAX since the only caller is for
+	floating point comparison.
+	(fpmask_comparison_operator): New predicate for comparisons that
+	can generate a mask of all 0's or 1's.
+
+	* config/rs6000/rs6000.c (print_operand): Add support for the ISA
+	3.0 scalar min, max, and compare mask operations.
+	(rs6000_emit_power9_minmax): Likewise.
+	(rs6000_emit_power9_cmove): Likewise.
+	(rs6000_emit_cmove): Likewise.
+
+	* config/rs6000/rs6000.h (TARGET_MINMAX_SF): New macros to say
+	whether we can generate floating point min/max.
+	(TARGET_MINMAX_DF): Likewise.
+	(PRINT_OPERAND_PUNCT_VALID_P): Add support for %@.
+
+	* config/rs6000/rs6000.md (SF2): New iterator to simplify min/max
+	support.
+	(smax<mode>3): Rewrite generator to use SMAX or SMIN rtl.  Add
+	support for ISA 3.0 min/max instructions that don't need
+	-fno-trapping-math.
+	(smax<mode>3_vsx): Likewise.
+	(smax<mode>3_p9): Likewise.
+	(smin<mode>3): Likewise.
+	(smin<mode>3_vsx): Likewise.
+	(smin<mode>3_p9): Likewise.
+	(min/max splitters): Use new target tests.  Delete redundant
+	min/max splitter.  If VSX, don't split.
+	(movsfcc): Combine fp conditional move generators and fsel insns
+	using SFDF and SFDF2 iterators.
+	(movdfcc): Likewise.
+	(mov<mode>cc): Likewise.
+	(fselsfsf4): Likewise.
+	(fselsfdf4): Likewise.
+	(fseldfdf4): Likewise.
+	(fseldfsf4): Likewise.
+	(fsel<SFDF:mode><SFDF2:mode>4): Likewise.
+	(mov<SFDF:mode><SFDF2:mode>cc_p9): Add support for ISA 3.0
+	floating point conditional moves.
+	(fpmask<mode>): Likewise.
+	(xxsel<mode>): Likewise.
+
+2016-01-21   Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Clone branch subversion id 232705
+	* REVISION: New file, track merged subversion id.
+
