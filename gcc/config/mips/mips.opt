@@ -565,3 +565,6 @@ Target Undocumented Var(TARGET_MIPS16_LWL_LWR) Init (0)
 
 mmips16-andi-xori
 Target Undocumented Var(TARGET_MIPS16_ANDI_XORI) Init (0)
+
+mhi-lo-fix
+Target Undocumented Var(TARGET_HI_LO_FIX) Init (0)

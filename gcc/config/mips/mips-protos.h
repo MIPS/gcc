@@ -394,4 +394,7 @@ extern const char * mips_output_epi_jump (void);
 extern bool mips_bit_clear_p (enum machine_mode, unsigned HOST_WIDE_INT);
 extern void mips_bit_clear_info (enum machine_mode, unsigned HOST_WIDE_INT,
 				 int *, int *);
+
+extern bool mips_valid_hi_offset_p (rtx);
+extern bool mips_valid_lo_offset_p (rtx, rtx);
 #endif /* ! GCC_MIPS_PROTOS_H */

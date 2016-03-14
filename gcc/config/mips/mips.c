@@ -3578,7 +3578,8 @@ mips_classify_address (struct mips_address_info *info, rtx x,
 	 of _gp. */
       info->symbol_type
 	= mips_classify_symbolic_expression (info->offset, SYMBOL_CONTEXT_MEM);
-      return (mips_valid_base_register_p (info->reg, mode, strict_p)
+      return (mips_valid_lo_offset_p (info->offset, info->reg)
+	      && mips_valid_base_register_p (info->reg, mode, strict_p)
 	      && mips_valid_lo_sum_p (info->symbol_type, mode));
 
     case CONST_INT:
@@ -3840,6 +3841,91 @@ mips_9bit_offset_address_p (rtx x, machine_mode mode)
 	  && MIPS_9BIT_OFFSET_P (INTVAL (addr.offset)));
 }
 
+bool
+mips_valid_hi_offset_p (rtx x)
+{
+   rtx plus, symbol, offset;
+
+   if (mips_abi != ABI_32)
+     return true;
+
+   if (!TARGET_HI_LO_FIX)
+     return true;
+
+   if (GET_CODE (x) != CONST)
+     return true;
+
+   plus = XEXP (x, 0);
+
+   if (GET_CODE (plus) != PLUS)
+     return true;
+
+   symbol = XEXP (plus, 0);
+   offset = XEXP (plus, 1);
+
+   if (GET_CODE (symbol) != SYMBOL_REF)
+     return true;
+
+   if (GET_CODE (offset) != CONST_INT)
+     return true;
+
+   if (XSTR (symbol, 0) == '\0')
+     return true;
+
+   if (XINT (offset, 0) == 0)
+     return true;
+
+   return false;
+}
+
+bool
+mips_valid_lo_offset_p (rtx x, rtx reg)
+{
+   rtx plus, symbol, offset_rtx;
+   unsigned HOST_WIDE_INT symbol_align, offset;
+
+   if (mips_abi != ABI_32)
+     return true;
+
+   if (!TARGET_HI_LO_FIX)
+     return true;
+
+   if (REG_P (reg) && REGNO (reg) == GLOBAL_POINTER_REGNUM)
+     return true;
+
+   if (GET_CODE (x) != CONST)
+     return true;
+
+   plus = XEXP (x, 0);
+
+   if (GET_CODE (plus) != PLUS)
+     return true;
+
+   symbol = XEXP (plus, 0);
+   offset_rtx = XEXP (plus, 1);
+
+   if (GET_CODE (symbol) != SYMBOL_REF)
+     return true;
+
+   if (GET_CODE (offset_rtx) != CONST_INT)
+     return true;
+
+   if (!SYMBOL_REF_DECL (symbol))
+     return true;
+
+   symbol_align = DECL_ALIGN_UNIT (SYMBOL_REF_DECL (symbol));
+   offset = XINT (offset_rtx, 0);
+
+   if (offset < symbol_align)
+     {
+     /*  printf ("Symbol: %s Salign: %d, offset: %d\n", XSTR (symbol, 0),
+	       symbol_align, offset);*/
+       return true;
+     }
+
+   return false;
+}
+
 /* Return the number of instructions needed to load constant X,
    assuming that BASE_INSN_LENGTH is the length of one instruction.
    Return 0 if X isn't a valid constant.  */
@@ -3854,8 +3940,9 @@ mips_const_insns (rtx x)
   switch (GET_CODE (x))
     {
     case HIGH:
-      if (!mips_symbolic_constant_p (XEXP (x, 0), SYMBOL_CONTEXT_LEA,
-				     &symbol_type)
+      if (!mips_valid_hi_offset_p (XEXP (x, 0))
+	  || !mips_symbolic_constant_p (XEXP (x, 0), SYMBOL_CONTEXT_LEA,
+					&symbol_type)
 	  || !mips_split_p[symbol_type])
 	return 0;
 
@@ -4336,6 +4423,7 @@ mips_split_symbol (rtx temp, rtx addr, machine_mode mode, rtx *low_out)
   enum mips_symbol_context context;
   enum mips_symbol_type symbol_type;
   rtx high;
+  rtx plus, sym, sym_offset, int_val;
 
   context = (mode == MAX_MACHINE_MODE
 	     ? SYMBOL_CONTEXT_LEA
@@ -4381,9 +4469,35 @@ mips_split_symbol (rtx temp, rtx addr, machine_mode mode, rtx *low_out)
 		break;
 
 	      default:
-		high = gen_rtx_HIGH (Pmode, copy_rtx (addr));
-		high = mips_force_temporary (temp, high);
-		*low_out = gen_rtx_LO_SUM (Pmode, high, addr);
+		if (!mips_valid_hi_offset_p (addr))
+		  {
+		    high = gen_rtx_HIGH (Pmode, copy_rtx (XEXP (XEXP (addr, 0), 0)));
+		    high = mips_force_temporary (temp, high);
+		    if (!mips_valid_lo_offset_p (addr, high))
+		      {
+			plus = XEXP (addr, 0);
+			sym = XEXP (plus, 0);
+			sym_offset = XEXP (plus, 1);
+			addr = force_reg (Pmode, gen_rtx_LO_SUM (Pmode, high, sym));
+			//addr = gen_rtx_CONST (Pmode, gen_rtx_PLUS (Pmode, base, roffset));
+			if (!SMALL_INT (sym_offset))
+			  {
+			    /* Is the use of mode correct here?  */
+			    int_val = gen_reg_rtx (GET_MODE (plus));
+			    mips_move_integer (int_val, int_val, INTVAL (sym_offset));
+			    sym_offset = int_val;
+			  }
+			*low_out = gen_rtx_PLUS (Pmode, addr, sym_offset);
+		      }
+		    else
+		      *low_out = gen_rtx_LO_SUM (Pmode, high, addr);
+		  }
+		else
+		  {
+		    high = gen_rtx_HIGH (Pmode, copy_rtx (addr));
+		    high = mips_force_temporary (temp, high);
+		    *low_out = gen_rtx_LO_SUM (Pmode, high, addr);
+		  }
 		break;
 	      }
 	  return true;
@@ -4607,11 +4721,30 @@ static rtx
 mips_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 			 machine_mode mode)
 {
-  rtx base, addr;
+  rtx base, sym, addr, sym_offset;
+  rtx plus, int_val;
   HOST_WIDE_INT offset;
 
   if (mips_tls_symbol_p (x))
     return mips_legitimize_tls_address (x);
+
+  if (GET_CODE(x) == LO_SUM && !mips_valid_lo_offset_p (XEXP (x, 1), XEXP (x, 0)))
+    {
+      plus = XEXP (XEXP (x, 1), 0);
+      sym = XEXP (plus, 0);
+      sym_offset = XEXP (plus, 1);
+      addr = force_reg (Pmode, gen_rtx_LO_SUM (Pmode, XEXP (x, 0), sym));
+      //addr = gen_rtx_CONST (Pmode, gen_rtx_PLUS (Pmode, base, roffset));
+      if (!SMALL_INT (sym_offset))
+	{
+	  /* Is the use of mode correct here?  */
+	  int_val = gen_reg_rtx (GET_MODE (plus));
+	  mips_move_integer (int_val, int_val, INTVAL (sym_offset));
+	  sym_offset = int_val;
+	}
+      addr = gen_rtx_PLUS (Pmode, addr, sym_offset);
+      return mips_force_address (addr, mode);
+    }
 
   /* See if the address can split into a high part and a LO_SUM.  */
   if (mips_split_symbol (NULL, x, mode, &addr))
@@ -20307,6 +20440,9 @@ mips_lo_sum_offset_lookup (mips_offset_table htab, rtx x,
   slot = htab.find_slot_with_hash (base, mips_hash_base (base), option);
   if (slot == NULL)
     return false;
+
+  if (TARGET_HI_LO_FIX && option == NO_INSERT)
+    return true;
 
   entry = (struct mips_lo_sum_offset *) *slot;
   if (option == INSERT)
