@@ -8110,10 +8110,25 @@ aarch64_parse_override_string (const char* input_string,
 static void
 aarch64_override_options_after_change_1 (struct gcc_options *opts)
 {
+  /* The logic here is that if we are disabling all frame pointer generation
+     then we do not need to disable leaf frame pointer generation as a
+     separate operation.  But if we are *only* disabling leaf frame pointer
+     generation then we set flag_omit_frame_pointer to true, but in
+     aarch64_frame_pointer_required we return false only for leaf functions.
+
+     PR 70044: We have to be careful about being called multiple times for the
+     same function.  Once we have decided to set flag_omit_frame_pointer just
+     so that we can omit leaf frame pointers, we must then not interpret a
+     second call as meaning that all frame pointer generation should be
+     omitted.  We do this by setting flag_omit_frame_pointer to a special,
+     non-zero value.  */
+  if (opts->x_flag_omit_frame_pointer == 2)
+    opts->x_flag_omit_frame_pointer = 0;
+
   if (opts->x_flag_omit_frame_pointer)
     opts->x_flag_omit_leaf_frame_pointer = false;
   else if (opts->x_flag_omit_leaf_frame_pointer)
-    opts->x_flag_omit_frame_pointer = true;
+    opts->x_flag_omit_frame_pointer = 2;
 
   /* If not optimizing for size, set the default
      alignment to what the target wants.  */
@@ -8132,9 +8147,18 @@ aarch64_override_options_after_change_1 (struct gcc_options *opts)
   if (opts->x_nopcrelative_literal_loads == 1)
     aarch64_nopcrelative_literal_loads = false;
 
-  /* If it is not set on the command line, we default to no
-     pc relative literal loads.  */
-  if (opts->x_nopcrelative_literal_loads == 2)
+  /* If it is not set on the command line, we default to no pc
+     relative literal loads, unless the workaround for Cortex-A53
+     erratum 843419 is in effect.  */
+  /* This is PR70113. When building the Linux kernel with
+     CONFIG_ARM64_ERRATUM_843419, support for relocations
+     R_AARCH64_ADR_PREL_PG_HI21 and R_AARCH64_ADR_PREL_PG_HI21_NC is
+     removed from the kernel to avoid loading objects with possibly
+     offending sequences. With nopcrelative_literal_loads, we would
+     generate such relocations, preventing the kernel build from
+     succeeding.  */
+  if (opts->x_nopcrelative_literal_loads == 2
+      && !TARGET_FIX_ERR_A53_843419)
     aarch64_nopcrelative_literal_loads = true;
 
   /* In the tiny memory model it makes no sense
@@ -8553,6 +8577,21 @@ aarch64_reset_previous_fndecl (void)
   aarch64_previous_fndecl = NULL;
 }
 
+/* Restore or save the TREE_TARGET_GLOBALS from or to NEW_TREE.
+   Used by aarch64_set_current_function and aarch64_pragma_target_parse to
+   make sure optab availability predicates are recomputed when necessary.  */
+
+void
+aarch64_save_restore_target_globals (tree new_tree)
+{
+  if (TREE_TARGET_GLOBALS (new_tree))
+    restore_target_globals (TREE_TARGET_GLOBALS (new_tree));
+  else if (new_tree == target_option_default_node)
+    restore_target_globals (&default_target_globals);
+  else
+    TREE_TARGET_GLOBALS (new_tree) = save_target_globals_default_opts ();
+}
+
 /* Implement TARGET_SET_CURRENT_FUNCTION.  Unpack the codegen decisions
    like tuning and ISA features from the DECL_FUNCTION_SPECIFIC_TARGET
    of the function, if such exists.  This function may be called multiple
@@ -8562,63 +8601,32 @@ aarch64_reset_previous_fndecl (void)
 static void
 aarch64_set_current_function (tree fndecl)
 {
+  if (!fndecl || fndecl == aarch64_previous_fndecl)
+    return;
+
   tree old_tree = (aarch64_previous_fndecl
 		   ? DECL_FUNCTION_SPECIFIC_TARGET (aarch64_previous_fndecl)
 		   : NULL_TREE);
 
-  tree new_tree = (fndecl
-		   ? DECL_FUNCTION_SPECIFIC_TARGET (fndecl)
-		   : NULL_TREE);
+  tree new_tree = DECL_FUNCTION_SPECIFIC_TARGET (fndecl);
 
+  /* If current function has no attributes but the previous one did,
+     use the default node.  */
+  if (!new_tree && old_tree)
+    new_tree = target_option_default_node;
 
-  if (fndecl && fndecl != aarch64_previous_fndecl)
-    {
-      aarch64_previous_fndecl = fndecl;
-      if (old_tree == new_tree)
-	;
-
-      else if (new_tree)
-	{
-	  cl_target_option_restore (&global_options,
-				    TREE_TARGET_OPTION (new_tree));
-	  if (TREE_TARGET_GLOBALS (new_tree))
-	    restore_target_globals (TREE_TARGET_GLOBALS (new_tree));
-	  else
-	    TREE_TARGET_GLOBALS (new_tree)
-	      = save_target_globals_default_opts ();
-	}
-
-      else if (old_tree && old_tree != target_option_default_node)
-	{
-	  new_tree = target_option_current_node;
-	  cl_target_option_restore (&global_options,
-				    TREE_TARGET_OPTION (new_tree));
-	  if (TREE_TARGET_GLOBALS (new_tree))
-	    restore_target_globals (TREE_TARGET_GLOBALS (new_tree));
-	  else if (new_tree == target_option_default_node)
-	    restore_target_globals (&default_target_globals);
-	  else
-	    TREE_TARGET_GLOBALS (new_tree)
-	      = save_target_globals_default_opts ();
-	}
-    }
-
-  if (!fndecl)
+  /* If nothing to do, return.  #pragma GCC reset or #pragma GCC pop to
+     the default have been handled by aarch64_save_restore_target_globals from
+     aarch64_pragma_target_parse.  */
+  if (old_tree == new_tree)
     return;
 
-  /* If we turned on SIMD make sure that any vector parameters are re-laid out
-     so that they use proper vector modes.  */
-  if (TARGET_SIMD)
-    {
-      tree parms = DECL_ARGUMENTS (fndecl);
-      for (; parms && parms != void_list_node; parms = TREE_CHAIN (parms))
-	{
-	  if (TREE_CODE (parms) == PARM_DECL
-	      && VECTOR_TYPE_P (TREE_TYPE (parms))
-	      && DECL_MODE (parms) != TYPE_MODE (TREE_TYPE (parms)))
-	    relayout_decl (parms);
-	}
-    }
+  aarch64_previous_fndecl = fndecl;
+
+  /* First set the target options.  */
+  cl_target_option_restore (&global_options, TREE_TARGET_OPTION (new_tree));
+
+  aarch64_save_restore_target_globals (new_tree);
 }
 
 /* Enum describing the various ways we can handle attributes.
@@ -8818,6 +8826,8 @@ static const struct aarch64_attribute_info aarch64_attributes[] =
      OPT_mgeneral_regs_only },
   { "fix-cortex-a53-835769", aarch64_attr_bool, true, NULL,
      OPT_mfix_cortex_a53_835769 },
+  { "fix-cortex-a53-843419", aarch64_attr_bool, true, NULL,
+     OPT_mfix_cortex_a53_843419 },
   { "cmodel", aarch64_attr_enum, false, NULL, OPT_mcmodel_ },
   { "strict-align", aarch64_attr_mask, false, NULL, OPT_mstrict_align },
   { "omit-leaf-frame-pointer", aarch64_attr_bool, true, NULL,
@@ -9230,6 +9240,12 @@ aarch64_can_inline_p (tree caller, tree callee)
 	  caller_opts->x_aarch64_fix_a53_err835769,
 	  callee_opts->x_aarch64_fix_a53_err835769,
 	  2, TARGET_FIX_ERR_A53_835769_DEFAULT))
+    return false;
+
+  if (!aarch64_tribools_ok_for_inlining_p (
+	  caller_opts->x_aarch64_fix_a53_err843419,
+	  callee_opts->x_aarch64_fix_a53_err843419,
+	  2, TARGET_FIX_ERR_A53_843419))
     return false;
 
   /* If the user explicitly specified -momit-leaf-frame-pointer for the

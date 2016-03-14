@@ -1,3 +1,330 @@
+2016-03-13  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/69043
+	* gfortran.dg/include_9.f90: New test.
+
+2016-03-13  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR fortran/45076
+	gfortran.dg/prof/prof.exp: New script.
+	gfortran.dg/prof/dynamic_dispatch_6.f03: New test.
+
+2016-03-12  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/69307
+	* gcc.dg/pr69307.c: New test.
+
+2016-03-12  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/69614
+	* gcc.target/arm/pr69614.c: New.
+
+2016-03-12  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/70031
+	* gfortran.dg/submodule_14.f08: New test
+
+	PR fortran/69524
+	* gfortran.dg/submodule_15.f08: New test
+
+2016-03-12  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/70106
+	* g++.dg/cpp1y/paren3.C: New test.
+
+2016-03-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/70131
+	* gcc.target/powerpc/ppc-round2.c: New test.
+
+2016-03-11  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR target/70123
+	* gcc.dg/torture/pr70123.c: New test.
+
+2016-03-11  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/70190
+	* gcc.c-torture/compile/pr70190.c: New test.
+
+2016-03-11  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/68187
+	* c-c++-common/Wmisleading-indentation.c (test43_a): New test
+	case.
+	(test43_b): Likewise.
+	(test43_c): Likewise.
+	(test43_d): Likewise.
+	(test43_e): Likewise.
+	(test43_f): Likewise.
+	(test43_g): Likewise.
+	(test44_a): Likewise.
+	(test44_b): Likewise.
+	(test44_c): Likewise.
+	(test44_d): Likewise.
+	(test44_e): Likewise.
+
+2016-03-11  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/70085
+	* c-c++-common/Wmisleading-indentation.c (pr70085): New test case.
+
+2016-03-11  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/vect-reduc-or_1.c: Add -fno-vect-cost-model to
+	dg-options.
+
+2016-03-11  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/70002
+	PR target/69245
+	* gcc.target/aarch64/pr69245_2.c: New test.
+
+2016-03-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/70177
+	* gcc.dg/pr70177.c: New test.
+
+2016-03-11  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* gfortran.dg/unconstrained_commons.f: Widen regexp to match j_<N>.
+
+2016-03-11  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* gcc.dg/tree-ssa/sra-20.c: New.
+
+2016-03-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/70174
+	* gcc.dg/pr70174.c: New test.
+
+	PR tree-optimization/70169
+	* gcc.dg/pr70169.c: New test.
+
+2016-03-11  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR target/70160
+	* gcc.target/i386/pr70160.c: New test.
+
+2016-03-11  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/dfp-1.c: New test.
+
+2016-03-10  Nick Clifton  <nickc@redhat.com>
+
+	PR target/70044
+	* gcc.target/aarch64/pr70044.c: New test.
+
+2016-03-10  Patrick Palka  <ppalka@gcc.gnu.org>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/70001
+	* g++.dg/cpp0x/constexpr-70001-1.C: New test.
+	* g++.dg/cpp0x/constexpr-70001-2.C: New test.
+	* g++.dg/cpp0x/constexpr-70001-3.C: New test.
+
+2016-03-10  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR lto/69589
+	* g++.dg/lto/pr69589_0.C: New testcase
+	* g++.dg/lto/pr69589_1.C: New testcase
+
+2016-03-10  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/70153
+	* g++.dg/delayedfold/unary-plus1.C: New test.
+
+2016-03-10  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	* gcc.target/arm/pr45701-1.c: Escape brackets.
+	* gcc.target/arm/pr45701-2.c: Likewise.
+
+2016-03-10  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* gfortran.dg/unconstrained_commons.f: New.
+
+2016-03-10  Alan Modra  <amodra@gmail.com>
+
+	* gcc.dg/pr69195.c: New.
+	* gcc.dg/pr69238.c: New.
+
+2016-03-10  Tom de Vries  <tom@codesourcery.com>
+
+	PR testsuite/68915
+	* gcc.dg/vect/pr46032.c: Xfail scan if alignment requirements not met.
+
+2016-03-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70128
+	* gcc.dg/tree-ssa/alias-34.c: New testcase.
+	* gcc.dg/tree-ssa/alias-35.c: Likewise.
+
+2016-03-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/70152
+	* gcc.dg/pr70152.c: New test.
+
+	PR target/70086
+	* gcc.target/i386/pr70086-1.c: New test.
+	* gcc.target/i386/pr70086-2.c: New test.
+	* gcc.target/i386/pr70086-3.c: New test.
+
+	PR tree-optimization/70127
+	* gcc.c-torture/execute/pr70127.c: New test.
+
+2016-03-09  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-c++-common/goacc/combined-directives-2.c: New test.
+
+2016-03-09  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/68473
+	PR c++/70105
+	* g++.dg/diagnostic/pr70105.C: New test.
+	* gcc.dg/plugin/diagnostic-test-expressions-1.c (foo): New decl.
+	(test_multiple_ordinary_maps): New test function.
+
+2016-03-09  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/68473
+	PR c++/70105
+	* gcc.dg/plugin/diagnostic_plugin_show_trees.c (show_tree):
+	Drop range information from call to inform_at_rich_loc.
+	* gcc.dg/plugin/diagnostic_plugin_test_show_locus.c (add_range):
+	New.
+	(test_show_locus): Replace calls to rich_location::add_range with
+	calls to add_range.  Rewrite the tests that used the now-defunct
+	rich_location ctor taking a source_range.  Simplify other tests
+	by replacing calls to COMBINE_LOCATION_DATA with calls to
+	make_location.
+
+2016-03-09  Richard Biener  <rguenther@suse.de>
+	Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/70138
+	* gcc.dg/vect/pr70138-1.c: New testcase.
+	* gcc.dg/vect/pr70138-2.c: Likewise.
+
+2016-03-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/70049
+	* gcc.target/i386/pr70049.c: New test.
+
+2016-03-09  Richard Biener  <rguenther@suse.de>
+
+	PR c/70143
+	* gcc.dg/Wstrict-aliasing-bogus-upcast.c: New testcase.
+	* gcc.dg/Wstrict-aliasing-struct-with-char-member.c: Likewise.
+	* gcc.dg/Wstrict-aliasing-struct-member.c: Remove again.
+
+2016-03-09  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/vect/bb-slp-34.c: Really don't xfail on aarch64-*-*,
+	arm-*-*.
+
+2016-03-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/67278
+	* gcc.dg/simd-7.c: Add -w -Wno-psabi to dg-options.
+
+	PR target/67278
+	* gcc.dg/simd-8.c: Add -w -Wno-psabi to dg-options.
+
+	PR middle-end/70050
+	* gcc.dg/pr70050.c: Add -w to dg-options.  Fix up PR number
+	in testcase comment.
+
+2016-03-09  Tom de Vries  <tom@codesourcery.com>
+
+	* gfortran.dg/goacc/kernels-loop-2.f95: New test.
+	* gfortran.dg/goacc/kernels-loop-data-2.f95: New test.
+	* gfortran.dg/goacc/kernels-loop-data-enter-exit-2.f95: New test.
+	* gfortran.dg/goacc/kernels-loop-data-enter-exit.f95: New test.
+	* gfortran.dg/goacc/kernels-loop-data-update.f95: New test.
+	* gfortran.dg/goacc/kernels-loop-data.f95: New test.
+	* gfortran.dg/goacc/kernels-loop-n.f95: New test.
+	* gfortran.dg/goacc/kernels-loop.f95: New test.
+
+2016-03-08  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/62096
+	* g++.dg/warn/overflow-warn-7.C: New test.
+
+2016-03-08  Jason Merrill  <jason@redhat.com>
+
+	* lib/g++-dg.exp (g++-dg-runtest): Handle "concepts" in std list.
+	* lib/target-supports.exp (check_effective_target_concepts): New.
+
+2016-03-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/70135
+	* g++.dg/cpp1y/constexpr-loop4.C: New test.
+	* g++.dg/ubsan/pr70135.C: New test.
+
+	PR target/70110
+	* gcc.dg/pr70110.c: New test.
+
+2016-03-07  Martin Jambor  <mjambor@suse.cz>
+
+	* c-c++-common/gomp/clauses-1.c: Remove dg-options.
+	* c-c++-common/gomp/if-1.c: Likewise.
+	* c-c++-common/gomp/pr61486-2.c: Likewise.
+	* c-c++-common/gomp/target-teams-1.c: Moved dg-options except -fopenmp
+	to dg-additional-options.
+	* g++.dg/gomp/gomp.exp: Pass -Wno-hsa to all tests.
+	* g++/gomp/target-teams-1.c: Likewise.
+	* gcc.dg/gomp/gomp.exp: Likewise.
+	* gcc.dg/gomp/pr68128-2.c: Moved dg-options except -fopenmp to
+	dg-additional-options.
+	* gfortran.dg/gomp/gomp.exp: Likewise.
+	* gfortran.dg/gomp/target1.f90: Remove dg-options.
+	* gfortran.dg/gomp/target2.f90: Moved dg-options except -fopenmp to
+	dg-additional-options.
+	* gfortran.dg/gomp/target3.f90: Remove dg-options.
+
+2016-03-07  Martin Jambor  <mjambor@suse.cz>
+
+	* lib/target-supports.exp (check_effective_target_offload_hsa): New.
+	* c-c++-common/gomp/gridify-1.c: New test.
+	* gfortran.dg/gomp/gridify-1.f90: Likewise.
+
+2016-03-07  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	* gcc.target/arm/pr45701-1.c: Change assembler scan to not
+	trigger for cortex-r8, when scanning for register r8.
+	* gcc.target/arm/pr45701-2.c: Likewise.
+
+2016-02-26  Richard Biener  <rguenther@suse.de>
+            Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/69740
+	* gcc.c-torture/compile/pr69740-1.c: New test.
+	* gcc.c-torture/compile/pr69740-2.c: New test.
+
+2016-03-07  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* lib/target-supports.exp
+	(check_effective_target_whole_vector_shift): Enable for PPC64.
+
+2016-03-07  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70115
+	* gcc.dg/torture/pr70115.c: New testcase.
+
+2016-03-07  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR middle-end/69916
+	* c-c-++-common/goacc/pr69916.c: New.
+
+2016-03-07  Richard Henderson  <rth@redhat.com>
+
+	* gcc.c-torture/compile/pr70061.c: New test.
+
+2016-03-07  Richard Biener  <rguenther@suse.de>
+
+	PR testsuite/70109
+	* gcc.dg/vect/O3-pr36098.c: New testcase.
+
 2016-03-07  Christophe Lyon  <christophe.lyon@linaro.org>
 
 	* gcc.target/arm/pragma_cpp_fma.c: Reset default FPU.
@@ -702,7 +1029,6 @@
 	PR c/69900
 	* gcc.dg/pr69900.c: New test.
 
->>>>>>> .r233653
 2016-02-23  Martin Jambor  <mjambor@suse.cz>
 
 	PR tree-optimization/69666
