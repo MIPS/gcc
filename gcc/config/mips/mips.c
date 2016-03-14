@@ -5577,12 +5577,52 @@ mips_mult_move_p (rtx dest, rtx src, enum mips_split_type split_type)
 	      : MD_REG_P (REGNO (dest))));
 }
 
+static bool
+mips_inline_pool_constant_p (rtx x, rtx *hilo, bool high_p)
+{
+  if (!TARGET_INLINE_POOL_CONSTANTS)
+    return false;
+
+  switch (GET_CODE (x))
+    {
+    case MEM:
+      return mips_inline_pool_constant_p (XEXP (x, 0), hilo, high_p);
+    case SYMBOL_REF:
+      if (CONSTANT_POOL_ADDRESS_P (x))
+	return mips_inline_pool_constant_p (get_pool_constant (x), hilo,
+					    high_p);
+      else
+	return false;
+    case CONST_DOUBLE:
+      break;
+    default:
+      return false;
+    }
+
+  if (x == NULL_RTX || !CONST_DOUBLE_P (x) || TARGET_64BIT)
+    return false;
+
+  if (targetm.cannot_force_const_mem (GET_MODE (x), x)
+      || ! (GET_MODE (x) == DFmode || GET_MODE (x) == SFmode))
+    return false;
+
+  *hilo = mips_subword (x, high_p);
+  if (*hilo == NULL_RTX)
+    return false;
+
+  if (INTVAL (*hilo) == 0 || (ISA_HAS_LUI && LUI_INT (*hilo)))
+    return true;
+  return false;
+}
+
 /* Return true if a move from SRC to DEST should be split into two.
    SPLIT_TYPE describes the split condition.  */
 
 bool
 mips_split_move_p (rtx dest, rtx src, enum mips_split_type split_type)
 {
+  rtx hilo;
+
   /* Check whether the move can be done using some variant of MULT $0,$0.  */
   if (mips_mult_move_p (dest, src, split_type))
     return false;
@@ -5606,44 +5646,15 @@ mips_split_move_p (rtx dest, rtx src, enum mips_split_type split_type)
   if (MSA_SUPPORTED_MODE_P (GET_MODE (dest)))
     return mips_split_128bit_move_p (dest, src);
 
+  /* We fake splitting a float to expose it for inlinging i.e. avoid the use
+     of constant pools.  */
+  if (GET_MODE (src) == SFmode
+      && !TARGET_HARD_FLOAT
+      && mips_inline_pool_constant_p (src, &hilo, false))
+    return true;
+
   /* Otherwise split all multiword moves.  */
   return size > UNITS_PER_WORD;
-}
-
-static bool
-mips_bypass_pool_const_double (rtx x, rtx *hilo, bool high_p)
-{
-  if (!TARGET_CONSTANT_TWEAK)
-    return false;
-
-  switch (GET_CODE (x))
-    {
-    case MEM:
-      return mips_bypass_pool_const_double (XEXP (x, 0), hilo, high_p);
-    case SYMBOL_REF:
-      if (CONSTANT_POOL_ADDRESS_P (x))
-	return mips_bypass_pool_const_double (get_pool_constant (x), hilo,
-					      high_p);
-      else
-	return false;
-    case CONST_DOUBLE:
-      break;
-    default:
-      return false;
-    }
-
-  if (x == NULL_RTX || !CONST_DOUBLE_P (x) || TARGET_64BIT)
-    return false;
-
-  if (targetm.cannot_force_const_mem (GET_MODE (x), x)
-      || GET_MODE (x) != DFmode)
-    return false;
-
-  *hilo = mips_subword (x, high_p);
-
-  if (INTVAL (*hilo) == 0 || (ISA_HAS_LUI && LUI_INT (*hilo)))
-    return true;
-  return false;
 }
 
 /* Split a move from SRC to DEST, given that mips_split_move_p holds.
@@ -5708,16 +5719,19 @@ mips_split_move (rtx dest, rtx src, enum mips_split_type split_type)
 	{
 	  rtx hilo;
 
-	  if (mips_bypass_pool_const_double (src, &hilo, false))
+	  if (mips_inline_pool_constant_p (src, &hilo, false))
 	    mips_emit_move (low_dest, hilo);
 	  else
 	    mips_emit_move (low_dest, mips_subword (src, false));
 
-	  if (mips_bypass_pool_const_double (src, &hilo, true))
-	    mips_emit_move (mips_subword (dest, true), hilo);
-	  else
-	    mips_emit_move (mips_subword (dest, true),
-			    mips_subword (src, true));
+	  if (GET_MODE (src) != SFmode)
+	    {
+	      if (mips_inline_pool_constant_p (src, &hilo, true))
+		mips_emit_move (mips_subword (dest, true), hilo);
+	      else
+		mips_emit_move (mips_subword (dest, true),
+				mips_subword (src, true));
+	    }
 	}
     }
 }
@@ -18706,13 +18720,13 @@ mips16_add_constant (struct mips16_constant_pool *pool,
 	first_of_size_p = false;
     }
 
-  if (TARGET_CONSTANT_TWEAK)
+  if (TARGET_INLINE_POOL_CONSTANTS)
     {
       rtx lo = NULL_RTX, hi = NULL_RTX;
-      bool imm_lo_p = mips_bypass_pool_const_double (value, &lo, false);
-      bool imm_hi_p = mips_bypass_pool_const_double (value, &hi, true);
-      /* Only one of these will be assigned because if there are no
-	 references to the constant then it will be removed.  */
+      bool imm_lo_p = mips_inline_pool_constant_p (value, &lo, false);
+      bool imm_hi_p = mips_inline_pool_constant_p (value, &hi, true);
+      /* We don't need to consider if both are not inlined as constants not
+	 referenced will be removed.  */
       if (imm_lo_p ^ imm_hi_p && mode == DFmode)
 	{
 	  mode = SImode;
@@ -18837,8 +18851,8 @@ mips16_rewrite_pool_constant (struct mips16_constant_pool *pool, rtx *x)
   if (GET_CODE (base) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (base))
     {
       rtx hilo;
-      bool lo_p = mips_bypass_pool_const_double (base, &hilo, false);
-      bool hi_p = mips_bypass_pool_const_double (base, &hilo, true);
+      bool lo_p = mips_inline_pool_constant_p (base, &hilo, false);
+      bool hi_p = mips_inline_pool_constant_p (base, &hilo, true);
       label = mips16_add_constant (pool, copy_rtx (get_pool_constant (base)),
 				   get_pool_mode (base));
       /* Fix the offsets if we have split the double between constant pool

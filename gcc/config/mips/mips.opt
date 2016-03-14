@@ -584,5 +584,5 @@ Target Undocumented RejectNegative Joined UInteger Var(TARGET_MIPS16_POOL_LIMIT)
 mmips16-cost-tweak
 Target Undocumented Var(TARGET_MIPS16_COST_TWEAK) Init (0)
 
-msplit-constant-tweak
-Target Undocumented Var(TARGET_CONSTANT_TWEAK) Init (0)
+minline-pool-constants
+Target Undocumented Var(TARGET_INLINE_POOL_CONSTANTS) Init (0)

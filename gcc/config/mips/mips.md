@@ -5448,6 +5448,16 @@
 })
 
 (define_split
+  [(set (match_operand:SF 0 "nonimmediate_operand")
+	(match_operand:SF 1 "move_operand"))]
+  "reload_completed && mips_split_move_insn_p (operands[0], operands[1], insn)"
+  [(const_int 0)]
+{
+  mips_split_move_insn (operands[0], operands[1], curr_insn);
+  DONE;
+})
+
+(define_split
   [(set (match_operand:MOVE128 0 "nonimmediate_operand")
 	(match_operand:MOVE128 1 "move_operand"))]
   "reload_completed && mips_split_move_insn_p (operands[0], operands[1], insn)"
