@@ -394,16 +394,6 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #endif
 
 #define NULL_TREE (tree) NULL
-#define NULL_TYPE (ttype *)NULL
-
-/* Define  the error_* nodes early for the inlined ttype methods.  */
-#define error_mark_node			global_trees[TI_ERROR_MARK]
-
-/* error_type_node will eventually be distinct from error_mark_node, but 
-   for now it must be identical for comparisons to work .
-   #define error_type_node		global_types[TPI_ERROR_TYPE]  */
-#define error_type_node		   (reinterpret_cast<ttype *>(error_mark_node))
-
 
 /* Accessor for base structure. */
 inline struct tree_base&
@@ -3596,6 +3586,8 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
 }
 
 #endif
+
+#define error_mark_node			global_trees[TI_ERROR_MARK]
 
 #define intQI_type_node			global_trees[TI_INTQI_TYPE]
 #define intHI_type_node			global_trees[TI_INTHI_TYPE]
