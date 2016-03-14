@@ -25,12 +25,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 
-#define DEFTREECODE(SYM, NAME, TYPE, LEN) #SYM,
+#define DEFTREECODE(SYM, NAME, TYPE, LEN) { #SYM, #TYPE },
 #define END_OF_BASE_TREE_CODES
 
-static const char *const tree_codes[] = {
+struct check
+{
+  const char *str;
+  const char *kind;
+};
+
+static const struct check tree_codes[] = {
 #include "all-tree.def"
-(char*) 0
+{ (char*) 0, (char *) 0 }
 };
 
 #undef DEFTREECODE
@@ -66,17 +72,23 @@ main (int argc, char ** ARG_UNUSED (argv))
   /* Print macros for checks based on each of the tree code names.  However,
      since we include the tree nodes from all languages, we must check
      for duplicate names to avoid defining the same macro twice.  */
-  for (i = 0; tree_codes[i]; i++)
+  for (i = 0; tree_codes[i].str; i++)
     {
       for (j = 0; j < i; j++)
-	if (strcmp (tree_codes[i], tree_codes[j]) == 0)
+	if (strcmp (tree_codes[i].str, tree_codes[j].str) == 0)
 	  break;
 
       if (i == j)
-	printf ("#define %s_CHECK(t)\tTREE_CHECK (t, %s)\n",
-		tree_codes[i], tree_codes[i]);
-    }
+        {
+	  if (!strcmp (tree_codes[i].kind, "tcc_type"))
+	    printf ("#define %s_CHECK(t)\tTYPE_CODE_CHECK (t, %s)\n",
+		    tree_codes[i].str, tree_codes[i].str);
+	  else
+	    printf ("#define %s_CHECK(t)\tTREE_CHECK (t, %s)\n",
+		    tree_codes[i].str, tree_codes[i].str);
+	}
+      }
 
-  puts ("\n#endif /* GCC_TREE_CHECK_H */");
-  return 0;
-}
+    puts ("\n#endif /* GCC_TREE_CHECK_H */");
+    return 0;
+  }
