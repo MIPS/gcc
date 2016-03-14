@@ -1,3 +1,72 @@
+2016-03-14  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR target/70083
+	* lra-lives.c (process_bb_lives): Also update biggest mode for hard
+	regs.
+	(lra_create_live_ranges_1): initialize hard register biggest_mode to
+	VOIDmode.
+	* lra-constraints.c (split_reg): For hard regs, try to find the
+	biggest single-register mode used in the function.
+
+2016-03-14  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56365
+	* tree-ssa-phiopt.c (minmax_replacement): Handle alternate
+	constants to compare against.
+
+2016-03-14  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/70098
+	* config/rs6000/rs6000.md (*ctr<mode>_internal1, *ctr<mode>_internal2,
+	*ctr<mode>_internal5, *ctr<mode>_internal6): Also allow "d" as output.
+	(define_split for the GPR case): Use int_reg_operand instead of
+	gpc_reg_operand for the output.
+
+2016-03-14  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/70045
+	* graphite-isl-ast-to-gimple.c (graphite_create_new_loop_guard): Unshare
+	create_empty_if_region_on_edge argument.
+
+2016-03-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/arm/vxworks.h (STACK_CHECK_STATIC_BUILTIN): Define.
+	(STACK_CHECK_PROTECT): Likewise.
+	* config/i386/vxworks.h (STACK_CHECK_STATIC_BUILTIN): Likewise
+	(STACK_CHECK_PROTECT): Likewise.
+	* config/rs6000/vxworks.h (STACK_CHECK_STATIC_BUILTIN): Likewise
+	(STACK_CHECK_PROTECT): Likewise.
+	* config/rs6000/vxworksae.h (STACK_CHECK_PROTECT): Likewise.
+	* config/sparc/vxworks.h (STACK_CHECK_STATIC_BUILTIN): Likewise.
+	(STACK_CHECK_PROTECT): Likewise.
+
+2016-03-12  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/69307
+	* sel-sched.c (choose_best_pseudo_reg): Properly check for hard
+	registers in modes that span more than one register.
+
+2016-03-12  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/69614
+	* lra-constraints.c (delete_move_and_clobber): New.
+	(remove_inheritance_pseudos): Use it.
+
+2016-03-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/70017
+	* calls.c (emit_library_call_value_1): Clear the ECF_NOTHROW flag if
+	the libcall is LCT_THROW.
+	* explow.c (probe_stack_range): Pass LCT_THROW to emit_library_call
+	for the checking routine.
+
+2016-03-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/70131
+	* config/rs6000/rs6000.md (round32<mode>2_fprs): Do not do the
+	optimization if we have direct move.
+	(roundu32<mode>2_fprs): Likewise.
+
 2016-03-11  Bernd Schmidt  <bschmidt@redhat.com>
 
 	PR target/70123
