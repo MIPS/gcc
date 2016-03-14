@@ -392,6 +392,9 @@
 #define vec_vctzd __builtin_vec_vctzd
 #define vec_vctzh __builtin_vec_vctzh
 #define vec_vctzw __builtin_vec_vctzw
+
+/* Non-Vector additions added in ISA 3.0. */
+#define darn __builtin_darn
 #endif
 
 /* Predicates.

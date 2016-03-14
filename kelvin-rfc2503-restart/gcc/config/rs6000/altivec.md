@@ -73,6 +73,7 @@
    UNSPEC_VUNPACK_LO_SIGN_DIRECT
    UNSPEC_VUPKHPX
    UNSPEC_VUPKLPX
+   UNSPEC_DARN
    UNSPEC_DST
    UNSPEC_DSTT
    UNSPEC_DSTST
@@ -3577,6 +3578,34 @@
   "bcd<bcd_add_sub>. %0,%1,%2,%3"
   [(set_attr "length" "4")
    (set_attr "type" "vecsimple")])
+
+;; Bill says there should be only one pattern, declared to always
+;; return long long (64-bits), even though one of the format modes
+;; only returns 32 significant bits.
+(define_insn "darn"
+  [(set (match_operand:DI 0 "register_operand" "")
+        (unspec:DI [(match_operand:QI 1 "const_int_operand" "K")]
+        UNSPEC_DARN))]
+  "TARGET_MODULO && (INTVAL (operands[1]) >= 0) && (INTVAL (operands[1]) <= 2)"
+  {
+   switch (INTVAL (operands[1]))
+     {
+     case 0:
+       return "darn %0,0";
+     case 1:
+       return "darn %0,1";
+     case 2:
+       return "darn %0,2";
+     }
+  }
+  [(set_attr "type" "add")  
+   (set_attr "length" "4")])
+;; kelvin needs to find an attribute that behaves similarly to darn.  I'm just
+;; guessing for the moment that it behaves similar to add. 
+;; kelvin also needs to figure out how to enable a "darn" tree rtl
+;; node, and I need to enforce that the integer constant values are 1
+;; and 2 respectively, or this would not be a "match"
+
 
 (define_expand "bcd<bcd_add_sub>_<code>"
   [(parallel [(set (reg:CCFP 74)

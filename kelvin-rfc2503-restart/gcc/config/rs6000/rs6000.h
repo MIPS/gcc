@@ -664,6 +664,11 @@ extern int rs6000_vector_align[];
 #define MASK_PROTOTYPE			OPTION_MASK_PROTOTYPE
 #endif
 
+#ifdef TARGET_MODULO
+#define RS6000_BTM_MODULO		OPTION_MASK_MODULO
+#endif
+
+
 /* For power systems, we want to enable Altivec and VSX builtins even if the
    user did not use -maltivec or -mvsx to allow the builtins to be used inside
    of #pragma GCC target or the target attribute to change the code level for a
