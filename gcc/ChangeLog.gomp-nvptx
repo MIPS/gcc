@@ -1,5 +1,9 @@
 2016-03-15  Alexander Monakov  <amonakov@ispras.ru>
 
+	* config/nvptx/nvptx.h (STACK_SIZE_MODE): Define.
+
+2016-03-15  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/nvptx/nvptx.c (nvptx_init_unisimt_predicate): Emit
 	'mul.lo.u32' instead of 'mul.u32' for 32-bit ABI target.
 	(nvptx_declare_function_name): Ditto.
