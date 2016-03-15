@@ -664,6 +664,12 @@ extern int rs6000_vector_align[];
 #define MASK_PROTOTYPE			OPTION_MASK_PROTOTYPE
 #endif
 
+/* kelvin note: TARGET_MODUL0 is defined as
+ *  ((rs6000_isa_flags & OPTION_MASK_MODULO) != 0).  So the #ifdef
+ *  should succeed, but the value of TARGET_MODULO is not known. 
+ *  It could be defined to equal zero (depending on the value of
+ *  rs6000_isa_flags) at any particular execution point.
+ */
 #ifdef TARGET_MODULO
 #define RS6000_BTM_MODULO		OPTION_MASK_MODULO
 #endif
