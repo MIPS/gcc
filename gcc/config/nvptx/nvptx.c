@@ -946,7 +946,7 @@ nvptx_init_axis_predicate (FILE *file, int regno, const char *name)
 static void
 nvptx_init_unisimt_predicate (FILE *file)
 {
-  int bits = BITS_PER_WORD;
+  int bits = POINTER_SIZE;
   int master = REGNO (cfun->machine->unisimt_master);
   int pred = REGNO (cfun->machine->unisimt_predicate);
   fprintf (file, "\t{\n");
@@ -1108,7 +1108,7 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
       /* Maintain 64-bit stack alignment.  */
       int keep_align = BIGGEST_ALIGNMENT / BITS_PER_UNIT;
       sz = ROUND_UP (sz, keep_align);
-      int bits = BITS_PER_WORD;
+      int bits = POINTER_SIZE;
       fprintf (file, "\t.reg.u%d %%frame;\n", bits);
       fprintf (file, "\t.reg.u32 %%fstmp0;\n");
       fprintf (file, "\t.reg.u%d %%fstmp1;\n", bits);
@@ -1177,7 +1177,7 @@ nvptx_output_return (void)
 
   if (cfun->machine->using_softstack)
     fprintf (asm_out_file, "\tst.shared.u%d [%%fstmp2], %%fstmp1;\n",
-	     BITS_PER_WORD);
+	     POINTER_SIZE);
 
   if (mode != VOIDmode)
     fprintf (asm_out_file, "\tst.param%s\t[%s_out], %s;\n",
@@ -4191,7 +4191,7 @@ nvptx_file_end (void)
     {
       write_var_marker (asm_out_file, false, true, "__nvptx_stacks");
       fprintf (asm_out_file, ".extern .shared .u%d __nvptx_stacks[32];\n",
-	       BITS_PER_WORD);
+	       POINTER_SIZE);
     }
   if (need_unisimt_decl)
     {

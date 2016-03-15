@@ -1,5 +1,13 @@
 2016-03-15  Alexander Monakov  <amonakov@ispras.ru>
 
+	* config/nvptx/nvptx.c (nvptx_init_unisimt_predicate): Use
+	POINTER_SIZE instead of BITS_PER_WORD.
+	(nvptx_declare_function_name): Ditto.
+	(nvptx_output_return): Ditto.
+	(nvptx_file_end): Ditto.
+
+2016-03-15  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/nvptx/nvptx.c (nvptx_option_override): Remove custom handling
 	of debug info options.
 
