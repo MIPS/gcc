@@ -4699,6 +4699,258 @@
     DONE;
 })
 
+;; multiple ld/st
+(define_insn "*thumb2_ldrd"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(mem:SI (plus:SI (match_operand:SI 1 "register_operand" "dks")
+			 (match_operand:SI 2 "ldrd_strd_offset_operand" "Zo"))))
+   (set (match_operand:SI 3 "register_operand" "=r")
+	(mem:SI (plus:SI (match_dup 1)
+			 (match_operand:SI 4 "const_int_operand" ""))))]
+  "TARGET_MIPS16_LD && TARGET_MIPS16 && reload_completed
+     && ((INTVAL (operands[2]) + 4) == INTVAL (operands[4]))
+     && (operands_ok_ldrd_strd (operands[0], operands[3],
+				  operands[1], INTVAL (operands[2]),
+				  false, true))"
+  "nop; nop; # ldrd%?\t%0, %3, %2(%1)"
+  [(set_attr "move_type" "load")])
+
+(define_insn "*thumb2_ldrd_base"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(mem:SI (match_operand:SI 1 "register_operand" "dks")))
+   (set (match_operand:SI 2 "register_operand" "=d")
+	(mem:SI (plus:SI (match_dup 1)
+			 (const_int 4))))]
+  "TARGET_MIPS16_LD && TARGET_MIPS16 && reload_completed
+     && (operands_ok_ldrd_strd (operands[0], operands[2],
+				  operands[1], 0, false, true))"
+  "nop; nop; # ldrd%?\t%0, %2, %1"
+  [(set_attr "move_type" "load")])
+
+(define_insn "*thumb2_ldrd_base_neg"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(mem:SI (plus:SI (match_operand:SI 1 "register_operand" "dks")
+			 (const_int -4))))
+   (set (match_operand:SI 2 "register_operand" "=d")
+	(mem:SI (match_dup 1)))]
+  "TARGET_MIPS16_LD && TARGET_MIPS16 && reload_completed
+     && (operands_ok_ldrd_strd (operands[0], operands[2],
+				  operands[1], -4, false, true))"
+  "nop; nop; # ldrd%?\t%0, %2, [%1, #-4]"
+  [(set_attr "move_type" "load")])
+
+(define_insn "*thumb2_strd"
+  [(set (mem:SI (plus:SI (match_operand:SI 0 "register_operand" "dks")
+			 (match_operand:SI 1 "ldrd_strd_offset_operand" "Zo")))
+	(match_operand:SI 2 "register_operand" "d"))
+   (set (mem:SI (plus:SI (match_dup 0)
+			 (match_operand:SI 3 "const_int_operand" "")))
+	(match_operand:SI 4 "register_operand" "d"))]
+  "TARGET_MIPS16_LD && TARGET_MIPS16 && reload_completed
+     && ((INTVAL (operands[1]) + 4) == INTVAL (operands[3]))
+     && (operands_ok_ldrd_strd (operands[2], operands[4],
+				  operands[0], INTVAL (operands[1]),
+				  false, false))"
+  "nop; nop; # strd%?\t%2, %4, [%0, %1]"
+  [(set_attr "move_type" "store")])
+
+(define_insn "*thumb2_strd_base"
+  [(set (mem:SI (match_operand:SI 0 "register_operand" "dks"))
+	(match_operand:SI 1 "register_operand" "d"))
+   (set (mem:SI (plus:SI (match_dup 0)
+			 (const_int 4)))
+	(match_operand:SI 2 "register_operand" "d"))]
+  "TARGET_MIPS16_LD && TARGET_MIPS16 && reload_completed
+     && (operands_ok_ldrd_strd (operands[1], operands[2],
+				  operands[0], 0, false, false))"
+  "nop; nop; # strd%?\t%1, %2, [%0]"
+  [(set_attr "move_type" "store")])
+
+(define_insn "*thumb2_strd_base_neg"
+  [(set (mem:SI (plus:SI (match_operand:SI 0 "register_operand" "dks")
+			 (const_int -4)))
+	(match_operand:SI 1 "register_operand" "d"))
+   (set (mem:SI (match_dup 0))
+	(match_operand:SI 2 "register_operand" "d"))]
+  "TARGET_MIPS16_LD && TARGET_MIPS16 && reload_completed
+     && (operands_ok_ldrd_strd (operands[1], operands[2],
+				  operands[0], -4, false, false))"
+  "nop; nop; # strd%?\t%1, %2, [%0, #-4]"
+  [(set_attr "move_type" "store")])
+
+(define_peephole2 ; ldrd
+  [(set (match_operand:SI 0 "register_operand" "")
+	(match_operand:SI 2 "memory_operand" ""))
+   (set (match_operand:SI 1 "register_operand" "")
+	(match_operand:SI 3 "memory_operand" ""))]
+  "TARGET_MIPS16_LD"
+  [(const_int 0)]
+{
+  if (!gen_operands_ldrd_strd (operands, true, false, false))
+    FAIL;
+  else if (TARGET_MIPS16)
+  {
+    /* Emit the pattern:
+       [(parallel [(set (match_dup 0) (match_dup 2))
+		   (set (match_dup 1) (match_dup 3))])] */
+    rtx t1 = gen_rtx_SET (VOIDmode, operands[0], operands[2]);
+    rtx t2 = gen_rtx_SET (VOIDmode, operands[1], operands[3]);
+    emit_insn (gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, t1, t2)));
+    DONE;
+  }
+})
+
+;; The following two peephole optimizations are only relevant for ARM
+;; mode where LDRD/STRD require consecutive registers.
+
+(define_peephole2 ; swap the destination registers of two loads
+		  ; before a commutative operation.
+  [(set (match_operand:SI 0 "register_operand" "")
+	(match_operand:SI 2 "memory_operand" ""))
+   (set (match_operand:SI 1 "register_operand" "")
+	(match_operand:SI 3 "memory_operand" ""))
+   (set (match_operand:SI 4 "register_operand" "")
+	(match_operator:SI 5 "commutative_binary_operator"
+			   [(match_operand 6 "register_operand" "")
+			    (match_operand 7 "register_operand" "") ]))]
+  "TARGET_MIPS16_LD && TARGET_MIPS16
+   && (  ((rtx_equal_p(operands[0], operands[6])) && (rtx_equal_p(operands[1], operands[7])))
+	||((rtx_equal_p(operands[0], operands[7])) && (rtx_equal_p(operands[1], operands[6]))))
+   && (peep2_reg_dead_p (3, operands[0]) || rtx_equal_p (operands[0], operands[4]))
+   && (peep2_reg_dead_p (3, operands[1]) || rtx_equal_p (operands[1], operands[4]))"
+  [(set (match_dup 0) (match_dup 2))
+   (set (match_dup 4) (match_op_dup 5 [(match_dup 6) (match_dup 7)]))]
+  {
+    if (!gen_operands_ldrd_strd (operands, true, false, true))
+     {
+	FAIL;
+     }
+    else
+     {
+	operands[0] = gen_rtx_REG (DImode, REGNO (operands[0]));
+	operands[2] = adjust_address (operands[2], DImode, 0);
+     }
+   }
+)
+
+(define_peephole2 ; swap the destination registers of two loads
+		  ; before a commutative operation that sets the flags.
+  [(set (match_operand:SI 0 "register_operand" "")
+	(match_operand:SI 2 "memory_operand" ""))
+   (set (match_operand:SI 1 "register_operand" "")
+	(match_operand:SI 3 "memory_operand" ""))
+   (parallel
+      [(set (match_operand:SI 4 "register_operand" "")
+	    (match_operator:SI 5 "commutative_binary_operator"
+			       [(match_operand 6 "register_operand" "")
+				(match_operand 7 "register_operand" "") ]))
+       ])]
+  "TARGET_MIPS16_LD && TARGET_MIPS16
+   && (  ((rtx_equal_p(operands[0], operands[6])) && (rtx_equal_p(operands[1], operands[7])))
+       ||((rtx_equal_p(operands[0], operands[7])) && (rtx_equal_p(operands[1], operands[6]))))
+   && (peep2_reg_dead_p (3, operands[0]) || rtx_equal_p (operands[0], operands[4]))
+   && (peep2_reg_dead_p (3, operands[1]) || rtx_equal_p (operands[1], operands[4]))"
+  [(set (match_dup 0) (match_dup 2))
+   (parallel
+      [(set (match_dup 4)
+	    (match_op_dup 5 [(match_dup 6) (match_dup 7)]))
+       ])]
+  {
+    if (!gen_operands_ldrd_strd (operands, true, false, true))
+     {
+	FAIL;
+     }
+    else
+     {
+	operands[0] = gen_rtx_REG (DImode, REGNO (operands[0]));
+	operands[2] = adjust_address (operands[2], DImode, 0);
+     }
+   }
+)
+
+(define_peephole2 ; strd
+  [(set (match_operand:SI 2 "memory_operand" "")
+	(match_operand:SI 0 "register_operand" ""))
+   (set (match_operand:SI 3 "memory_operand" "")
+	(match_operand:SI 1 "register_operand" ""))]
+  "TARGET_MIPS16_LD"
+  [(const_int 0)]
+{
+  if (!gen_operands_ldrd_strd (operands, false, false, false))
+    FAIL;
+  else
+  {
+    /* Emit the pattern:
+       [(parallel [(set (match_dup 2) (match_dup 0))
+		   (set (match_dup 3) (match_dup 1))])]  */
+    rtx t1 = gen_rtx_SET (VOIDmode, operands[2], operands[0]);
+    rtx t2 = gen_rtx_SET (VOIDmode, operands[3], operands[1]);
+    emit_insn (gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, t1, t2)));
+    DONE;
+  }
+})
+
+;; The following peepholes reorder registers to enable LDRD/STRD.
+(define_peephole2 ; strd of constants
+  [(set (match_operand:SI 0 "register_operand" "")
+	(match_operand:SI 4 "const_int_operand" ""))
+   (set (match_operand:SI 2 "memory_operand" "")
+	(match_dup 0))
+   (set (match_operand:SI 1 "register_operand" "")
+	(match_operand:SI 5 "const_int_operand" ""))
+   (set (match_operand:SI 3 "memory_operand" "")
+	(match_dup 1))]
+ "TARGET_MIPS16_LD"
+  [(const_int 0)]
+{
+  if (!gen_operands_ldrd_strd (operands, false, true, false))
+    FAIL;
+  else
+  {
+    /* Emit the pattern:
+       [(set (match_dup 0) (match_dup 4))
+	(set (match_dup 1) (match_dup 5))
+	(parallel [(set (match_dup 2) (match_dup 0))
+		   (set (match_dup 3) (match_dup 1))])]  */
+    emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[4]));
+    emit_insn (gen_rtx_SET (VOIDmode, operands[1], operands[5]));
+    rtx t1 = gen_rtx_SET (VOIDmode, operands[2], operands[0]);
+    rtx t2 = gen_rtx_SET (VOIDmode, operands[3], operands[1]);
+    emit_insn (gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, t1, t2)));
+    DONE;
+  }
+})
+
+(define_peephole2 ; strd of constants
+  [(set (match_operand:SI 0 "register_operand" "")
+	(match_operand:SI 4 "const_int_operand" ""))
+   (set (match_operand:SI 1 "register_operand" "")
+	(match_operand:SI 5 "const_int_operand" ""))
+   (set (match_operand:SI 2 "memory_operand" "")
+	(match_dup 0))
+   (set (match_operand:SI 3 "memory_operand" "")
+	(match_dup 1))]
+ "TARGET_MIPS16_LD"
+   [(const_int 0)]
+{
+  if (!gen_operands_ldrd_strd (operands, false, true, false))
+     FAIL;
+  else
+  {
+    /*  Emit the pattern:
+	[(set (match_dup 0) (match_dup 4))
+	 (set (match_dup 1) (match_dup 5))
+	 (parallel [(set (match_dup 2) (match_dup 0))
+		    (set (match_dup 3) (match_dup 1))])]  */
+    emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[4]));
+    emit_insn (gen_rtx_SET (VOIDmode, operands[1], operands[5]));
+    rtx t1 = gen_rtx_SET (VOIDmode, operands[2], operands[0]);
+    rtx t2 = gen_rtx_SET (VOIDmode, operands[3], operands[1]);
+    emit_insn (gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, t1, t2)));
+    DONE;
+  }
+})
+
 ;; For mips16, we need a special case to handle storing $31 into
 ;; memory, since we don't have a constraint to match $31.  This
 ;; instruction can be generated by save_restore_insns.

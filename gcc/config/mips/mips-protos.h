@@ -190,6 +190,9 @@ enum mips_split_type {
   SPLIT_FOR_SIZE
 };
 
+bool offset_ok_for_ldrd_strd (HOST_WIDE_INT offset);
+bool operands_ok_ldrd_strd (rtx rt, rtx rt2, rtx rn, HOST_WIDE_INT offset, bool wback, bool load);
+bool gen_operands_ldrd_strd (rtx *operands, bool load, bool const_store, bool commute);
 const char * mips_print_ldst (rtx, const char *);
 bool mips_call_may_need_jalx_p (tree);
 extern bool mips_symbolic_constant_p (rtx, enum mips_symbol_context,

@@ -3805,6 +3805,8 @@ mips_load_store_insns (rtx mem, rtx insn)
   bool might_split_p;
   rtx set;
 
+  if (TARGET_MIPS16_LD && !MEM_P (mem))
+    return 1;
   gcc_assert (MEM_P (mem));
   mode = GET_MODE (mem);
 
@@ -6136,7 +6138,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	      case 1: return mips_print_ldst (XEXP (src, 0), "lbu\t%0,%1");
 	      case 2: return mips_print_ldst (XEXP (src, 0), "lhu\t%0,%1");
 	      case 4: return mips_print_ldst (XEXP (src, 0), "lw\t%0,%1");
-	      case 8: return mips_print_ldst (XEXP (src, 0), "ld\t%0,%1");
+	      case 8: return mips_print_ldst (XEXP (src, 0), "nop; nop; # ldrd\t%0,%1");
 	      default: gcc_unreachable ();
 	      }
 	}
@@ -23908,6 +23910,220 @@ mips_bit_clear_p (enum machine_mode mode, unsigned HOST_WIDE_INT m)
 
   return false;
 }
+
+/* Returns true iff OFFSET is valid for use in an LDRD/STRD instruction,
+   assuming that the address in the base register is word aligned.  */
+bool
+offset_ok_for_ldrd_strd (HOST_WIDE_INT offset)
+{
+  HOST_WIDE_INT max_offset;
+
+  if (TARGET_MIPS16_LD && ((offset & 3) != 0))
+    return false;
+
+  if (TARGET_MIPS16_LD)
+    max_offset = 1020;
+  else
+    return false;
+
+  return ((offset <= max_offset) && (offset >= -max_offset));
+}
+
+/* Checks whether the operands are valid for use in an LDRD/STRD instruction.
+   Assumes that RT, RT2, and RN are REG.  This is guaranteed by the patterns.
+   Assumes that the address in the base register RN is word aligned.  Pattern
+   guarantees that both memory accesses use the same base register,
+   the offsets are constants within the range, and the gap between the offsets is 4.
+   If preload complete then check that registers are legal.  WBACK indicates whether
+   address is updated.  LOAD indicates whether memory access is load or store.  */
+bool
+operands_ok_ldrd_strd (rtx rt, rtx rt2, rtx rn, HOST_WIDE_INT offset,
+		       bool wback, bool load)
+{
+  unsigned int t, t2, n;
+
+  if (!TARGET_MIPS16_LD)
+    return false;
+
+  if (!reload_completed)
+    return true;
+
+  if (!offset_ok_for_ldrd_strd (offset))
+    return false;
+
+  t = REGNO (rt);
+  t2 = REGNO (rt2);
+  n = REGNO (rn);
+
+  if ((TARGET_MIPS16_LD)
+      && ((wback && (n == t || n == t2))
+	  || (t == STACK_POINTER_REGNUM)
+	  || (t2 == STACK_POINTER_REGNUM)
+	  || (t2 - t != 1)
+	  || (load && (t == t2))))
+    return false;
+
+  return true;
+}
+
+/* Helper for gen_operands_ldrd_strd.  Returns true iff the memory
+   operand MEM's address contains an immediate offset from the base
+   register and has no side effects, in which case it sets BASE and
+   OFFSET accordingly.  */
+static bool
+mem_ok_for_ldrd_strd (rtx mem, rtx *base, rtx *offset)
+{
+  rtx addr;
+
+  gcc_assert (base != NULL && offset != NULL);
+
+  /* TODO: Handle more general memory operand patterns, such as
+     PRE_DEC and PRE_INC.  */
+
+  if (side_effects_p (mem))
+    return false;
+
+  /* Can't deal with subregs.  */
+  if (GET_CODE (mem) == SUBREG)
+    return false;
+
+  gcc_assert (MEM_P (mem));
+
+  *offset = const0_rtx;
+
+  addr = XEXP (mem, 0);
+
+  /* If addr isn't valid for DImode, then we can't handle it.  */
+  if (!mips_legitimate_address_p (DImode, addr,
+				 reload_in_progress || reload_completed))
+    return false;
+
+  if (REG_P (addr))
+    {
+      *base = addr;
+      return true;
+    }
+  else if (GET_CODE (addr) == PLUS || GET_CODE (addr) == MINUS)
+    {
+      *base = XEXP (addr, 0);
+      *offset = XEXP (addr, 1);
+      return (REG_P (*base) && CONST_INT_P (*offset));
+    }
+
+  return false;
+}
+
+#define SWAP_RTX(x,y) do { rtx tmp = x; x = y; y = tmp; } while (0)
+
+/* Called from a peephole2 to replace two word-size accesses with a
+   single LDRD/STRD instruction.  Returns true iff we can generate a
+   new instruction sequence.  That is, both accesses use the same base
+   register and the gap between constant offsets is 4.  This function
+   may reorder its operands to match ldrd/strd RTL templates.
+   OPERANDS are the operands found by the peephole matcher;
+   OPERANDS[0,1] are register operands, and OPERANDS[2,3] are the
+   corresponding memory operands.  LOAD indicaates whether the access
+   is load or store.  CONST_STORE indicates a store of constant
+   integer values held in OPERANDS[4,5] and assumes that the pattern
+   is of length 4 insn, for the purpose of checking dead registers.
+   COMMUTE indicates that register operands may be reordered.  */
+bool
+gen_operands_ldrd_strd (rtx *operands, bool load,
+			bool const_store, bool commute)
+{
+  int nops = 2;
+  HOST_WIDE_INT offsets[2], offset;
+  rtx base = NULL_RTX;
+  rtx cur_base, cur_offset, tmp;
+  int i, gap;
+  HARD_REG_SET regset;
+
+  gcc_assert (!const_store || !load);
+  /* Check that the memory references are immediate offsets from the
+     same base register.  Extract the base register, the destination
+     registers, and the corresponding memory offsets.  */
+  for (i = 0; i < nops; i++)
+    {
+      if (!mem_ok_for_ldrd_strd (operands[nops+i], &cur_base, &cur_offset))
+	return false;
+
+      if (i == 0)
+	base = cur_base;
+      else if (REGNO (base) != REGNO (cur_base))
+	return false;
+
+      offsets[i] = INTVAL (cur_offset);
+      if (GET_CODE (operands[i]) == SUBREG)
+	{
+	  tmp = SUBREG_REG (operands[i]);
+	  gcc_assert (GET_MODE (operands[i]) == GET_MODE (tmp));
+	  operands[i] = tmp;
+	}
+    }
+
+  /* Make sure there is no dependency between the individual loads.  */
+  if (load && REGNO (operands[0]) == REGNO (base))
+    return false; /* RAW */
+
+  if (load && REGNO (operands[0]) == REGNO (operands[1]))
+    return false; /* WAW */
+
+  /* If the same input register is used in both stores
+     when storing different constants, try to find a free register.
+     For example, the code
+	mov r0, 0
+	str r0, [r2]
+	mov r0, 1
+	str r0, [r2, #4]
+     can be transformed into
+	mov r1, 0
+	strd r1, r0, [r2]
+     in Thumb mode assuming that r1 is free.  */
+  if (const_store
+      && REGNO (operands[0]) == REGNO (operands[1])
+      && INTVAL (operands[4]) != INTVAL (operands[5]))
+    {
+      CLEAR_HARD_REG_SET (regset);
+      tmp = peep2_find_free_register (0, 4, "r", SImode, &regset);
+      if (tmp == NULL_RTX)
+	return false;
+
+      /* Use the new register in the first load to ensure that
+	 if the original input register is not dead after peephole,
+	 then it will have the correct constant value.  */
+      operands[0] = tmp;
+    }
+
+  /* Make sure the instructions are ordered with lower memory access first.  */
+  if (offsets[0] > offsets[1])
+    {
+      gap = offsets[0] - offsets[1];
+      offset = offsets[1];
+
+      /* Swap the instructions such that lower memory is accessed first.  */
+      SWAP_RTX (operands[0], operands[1]);
+      SWAP_RTX (operands[2], operands[3]);
+      if (const_store)
+	SWAP_RTX (operands[4], operands[5]);
+    }
+  else
+    {
+      gap = offsets[1] - offsets[0];
+      offset = offsets[0];
+    }
+
+  /* Make sure accesses are to consecutive memory locations.  */
+  if (gap != 4)
+    return false;
+
+  /* Make sure we generate legal instructions.  */
+  if (operands_ok_ldrd_strd (operands[0], operands[1], base, offset,
+			     false, load))
+    return true;
+
+  return false;
+}
+#undef SWAP_RTX
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP

@@ -448,3 +448,9 @@
  "Flexi op2. ASR 1<=n<=32, LSL 0<=n<=31, LSR 1<=n<=32 ROR 1<=n<=31"
  (and (match_code "const_int")
       (match_test "ival >= 0 && ival <= 32")))
+
+(define_constraint "Zo"
+ "@internal
+  In ARM/Thumb2 state valid offset for an ldrd/strd instruction."
+ (and (match_code "const_int")
+      (match_test "TARGET_MIPS16_LD && offset_ok_for_ldrd_strd (ival)")))

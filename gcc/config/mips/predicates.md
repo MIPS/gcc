@@ -865,3 +865,12 @@
 		 (match_test "!CONST_INT_P (XEXP (op, 1))
 			      || ((unsigned HOST_WIDE_INT) INTVAL (XEXP (op, 1))) < 32")))
        (match_test "mode == GET_MODE (op)")))
+
+(define_predicate "ldrd_strd_offset_operand"
+  (and (match_operand 0 "const_int_operand")
+       (match_test "TARGET_MIPS16_LD && offset_ok_for_ldrd_strd (INTVAL (op))")))
+
+;; True for commutative operators
+(define_special_predicate "commutative_binary_operator"
+  (and (match_code "ior,xor,and,plus")
+       (match_test "mode == GET_MODE (op)")))
