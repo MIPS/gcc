@@ -1,1 +1,1 @@
-staging branch for pre-GCC 7.0 support, based on subversion id 234194.
+staging branch for power9 support, based on pre-GCC 7.0 branch (subversion id 234198), which in turn is based on trunk (subversion id 234194).
