@@ -955,7 +955,7 @@ nvptx_init_unisimt_predicate (FILE *file)
   fprintf (file, "\t\t.reg.u%d %%ustmp2;\n", bits);
   fprintf (file, "\t\tmov.u32 %%ustmp0, %%tid.y;\n");
   fprintf (file, "\t\tmul%s.u32 %%ustmp1, %%ustmp0, 4;\n",
-	   bits == 64 ? ".wide" : "");
+	   bits == 64 ? ".wide" : ".lo");
   fprintf (file, "\t\tmov.u%d %%ustmp2, __nvptx_uni;\n", bits);
   fprintf (file, "\t\tadd.u%d %%ustmp2, %%ustmp2, %%ustmp1;\n", bits);
   fprintf (file, "\t\tld.shared.u32 %%r%d, [%%ustmp2];\n", master);
@@ -1115,7 +1115,7 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
       fprintf (file, "\t.reg.u%d %%fstmp2;\n", bits);
       fprintf (file, "\tmov.u32 %%fstmp0, %%tid.y;\n");
       fprintf (file, "\tmul%s.u32 %%fstmp1, %%fstmp0, %d;\n",
-	       bits == 64 ? ".wide" : "", bits / 8);
+	       bits == 64 ? ".wide" : ".lo", bits / 8);
       fprintf (file, "\tmov.u%d %%fstmp2, __nvptx_stacks;\n", bits);
       /* fstmp2 = &__nvptx_stacks[tid.y];  */
       fprintf (file, "\tadd.u%d %%fstmp2, %%fstmp2, %%fstmp1;\n", bits);
