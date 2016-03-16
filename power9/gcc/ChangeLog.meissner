@@ -1,3 +1,12 @@
+2016-03-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.md (D32*): Rework 3/15 submission.
+	(mov<mode>_hardfloat32, FMOVE64 iterator): Likewise.
+	(D64*): Likewise.
+	(mov<mode>_hardfloat64, FMOVE64 iterator): Likewise.
+	(movdi_internal64): Rework insn to make the constraint,
+	instruction, attribute mapping clearer.
+
 2016-03-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.md (D32*): Split long insn alternatives
