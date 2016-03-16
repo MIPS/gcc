@@ -214,6 +214,8 @@ static void add_candidates (tree, tree, const vec<tree, va_gc> *, tree, tree,
 			    tsubst_flags_t);
 static conversion *merge_conversion_sequences (conversion *, conversion *);
 static tree build_temp (tree, tree, int, diagnostic_t *, tsubst_flags_t);
+static bool pass_as_empty_struct (tree type);
+static tree empty_class_arg (tree);
 
 /* Returns nonzero iff the destructor name specified in NAME matches BASETYPE.
    NAME can take many forms...  */
@@ -341,7 +343,6 @@ build_call_a (tree function, int n, tree *argarray)
   tree decl;
   tree result_type;
   tree fntype;
-  int i;
 
   function = build_addr_func (function, tf_warning_or_error);
 
@@ -379,16 +380,24 @@ build_call_a (tree function, int n, tree *argarray)
   /* Don't pass empty class objects by value.  This is useful
      for tags in STL, which are used to control overload resolution.
      We don't need to handle other cases of copying empty classes.  */
+  bool warned = false;
+  if (decl && !TREE_PUBLIC (decl))
+    /* Don't warn about the ABI of a function local to this TU.  */
+    warned = true;
   if (! decl || ! DECL_BUILT_IN (decl))
-    for (i = 0; i < n; i++)
+    for (int i = 0; i < n; i++)
       {
 	tree arg = CALL_EXPR_ARG (function, i);
-	if (is_empty_class (TREE_TYPE (arg))
-	    && ! TREE_ADDRESSABLE (TREE_TYPE (arg)))
+	tree type = TREE_TYPE (arg);
+	if (is_really_empty_class (type)
+	    && ! TREE_ADDRESSABLE (type))
 	  {
-	    tree t = build0 (EMPTY_CLASS_EXPR, TREE_TYPE (arg));
-	    arg = build2 (COMPOUND_EXPR, TREE_TYPE (t), arg, t);
-	    CALL_EXPR_ARG (function, i) = arg;
+	    location_t loc = EXPR_LOC_OR_LOC (arg, input_location);
+	    CALL_EXPR_ARG (function, i) = empty_class_arg (arg);
+	    /* Warn about ABI changes for a non-final argument.  */
+	    if (!warned && i < n-1
+		&& warn_empty_class_abi (arg, loc))
+	      warned = true;
 	  }
       }
 
@@ -6871,6 +6880,14 @@ build_x_va_arg (source_location loc, tree expr, tree type)
       expr = build_va_arg (loc, expr, ref);
       return convert_from_reference (expr);
     }
+  else if (is_really_empty_class (type) && !TREE_ADDRESSABLE (type))
+    {
+      /* Do the reverse of empty_class_arg.  */
+      tree etype = pass_as_empty_struct (type) ? empty_struct_type : type;
+      expr = build_va_arg (loc, expr, etype);
+      tree ec = build0 (EMPTY_CLASS_EXPR, type);
+      return build2 (COMPOUND_EXPR, type, expr, ec);
+    }
 
   return build_va_arg (loc, expr, type);
 }
@@ -6967,6 +6984,65 @@ convert_default_arg (tree type, tree arg, tree fn, int parmnum,
   return arg;
 }
 
+/* Return true iff TYPE should be passed and returned as a size 0 type rather
+   than its normal size, for compatibility with C.  */
+
+static bool
+pass_as_empty_struct (tree type)
+{
+  return (abi_version_at_least (10)
+	  && type != error_mark_node
+	  && COMPLETE_TYPE_P (type)
+	  && !TREE_ADDRESSABLE (type)
+	  && is_really_empty_class (type));
+}
+
+/* Adjust the value VAL of empty class type TYPE for argument passing.
+   Keep this synced with build_x_va_arg.  */
+
+static tree
+empty_class_arg (tree val)
+{
+  /* Don't pass empty class objects by value.  This is useful
+     for tags in STL, which are used to control overload resolution.
+     We don't need to handle other cases of copying empty classes.  */
+  tree type = TREE_TYPE (val);
+  tree etype = pass_as_empty_struct (type) ? empty_struct_type : type;
+  tree empty = build0 (EMPTY_CLASS_EXPR, etype);
+  return build2 (COMPOUND_EXPR, etype, val, empty);
+}
+
+/* Warn about the change in empty class parameter passing ABI.  Returns true
+   if we warned.  */
+
+bool
+warn_empty_class_abi (tree arg, location_t loc)
+{
+  if (!warn_abi || !abi_version_crosses (10))
+    return false;
+
+  tree type;
+  if (TYPE_P (arg))
+    type = arg;
+  else
+    {
+      if (TREE_TYPE (arg) == empty_struct_type
+	  && TREE_CODE (arg) == COMPOUND_EXPR)
+	arg = TREE_OPERAND (arg, 0);
+      type = TREE_TYPE (arg);
+    }
+
+  if (!dependent_type_p (type)
+      && !TREE_ADDRESSABLE (type)
+      && is_really_empty_class (type))
+    {
+      warning_at (loc, OPT_Wabi, "empty class %qT parameter passing ABI "
+	       "changes in -fabi-version=10 (GCC 6)", type);
+      return true;
+    }
+  return false;
+}
+
 /* Returns the type which will really be used for passing an argument of
    type TYPE.  */
 
@@ -6985,6 +7061,8 @@ type_passed_as (tree type)
 	   && COMPLETE_TYPE_P (type)
 	   && tree_int_cst_lt (TYPE_SIZE (type), TYPE_SIZE (integer_type_node)))
     type = integer_type_node;
+  else if (pass_as_empty_struct (type))
+    type = empty_struct_type;
 
   return type;
 }
