@@ -176,51 +176,6 @@ dump_def_use_chain (int from)
     }
 }
 
-/* Return a preferred rename register for HEAD.  */
-
-static int
-find_preferred_rename_reg (du_head_p head)
-{
-  struct du_chain *this_du;
-  int preferred_reg = -1;
-
-  for (this_du = head->first; this_du; this_du = this_du->next_use)
-    {
-      rtx note;
-      insn_rr_info *p;
-
-      /* The preferred rename register is an output register iff an input
-	 register dies in an instruction but the candidate must be validated by
-	 check_new_reg_p.  */
-      for (note = REG_NOTES (this_du->insn); note; note = XEXP (note, 1))
-	if (insn_rr.exists()
-	    && REG_NOTE_KIND (note) == REG_DEAD
-	    && REGNO (XEXP (note, 0)) == head->regno
-	    && (p = &insn_rr[INSN_UID (this_du->insn)])
-	    && p->op_info)
-	  {
-	    int i;
-	    for (i = 0; i < p->op_info->n_chains; i++)
-	      {
-		struct du_head *next_head = p->op_info->heads[i];
-		if (head != next_head)
-		  {
-		    preferred_reg = next_head->regno;
-		    if (dump_file)
-		      fprintf (dump_file,
-			       "Chain %s (%d) has preferred rename register"
-			       " %s for insn %d [%s]\n",
-			       reg_names[head->regno], head->id,
-			       reg_names[preferred_reg],
-			       INSN_UID (this_du->insn),
-			       reg_class_names[this_du->cl]);
-		  }
-	      }
-	  }
-    }
-  return preferred_reg;
-}
-
 static void
 free_chain_data (void)
 {
@@ -253,7 +208,7 @@ record_operand_use (struct du_head *head, struct du_chain *this_du)
 {
   if (cur_operand == NULL)
     return;
-  gcc_assert (cur_operand->n_chains < MAX_REGS_PER_OPERAND);
+  gcc_assert (cur_operand->n_chains < MAX_REGS_PER_ADDRESS);
   cur_operand->heads[cur_operand->n_chains] = head;
   cur_operand->chains[cur_operand->n_chains++] = this_du;
 }
@@ -403,7 +358,6 @@ find_best_rename_reg (du_head_p this_head, enum reg_class super_class,
   enum reg_class preferred_class;
   int pass;
   int best_new_reg = old_reg;
-  int preferred_reg = -1;
 
   /* Further narrow the set of registers we can use for renaming.
      If the chain needs a call-saved register, mark the call-used
@@ -418,11 +372,6 @@ find_best_rename_reg (du_head_p this_head, enum reg_class super_class,
      in the chain.  */
   preferred_class
     = (enum reg_class) targetm.preferred_rename_class (super_class);
-
-  /* Try to find a preferred rename register for THIS_HEAD.  */
-  if ((preferred_reg = find_preferred_rename_reg (this_head)) != -1
-      && check_new_reg_p (old_reg, preferred_reg, this_head, *unavailable))
-    return preferred_reg;
 
   /* If PREFERRED_CLASS is not NO_REGS, we iterate in the first pass
      over registers that belong to PREFERRED_CLASS and try to find the
@@ -1876,7 +1825,7 @@ regrename_optimize (void)
   df_analyze ();
   df_set_flags (DF_DEFER_INSN_RESCAN);
 
-  regrename_init (true);
+  regrename_init (false);
 
   regrename_analyze (NULL);
 

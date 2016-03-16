@@ -71,8 +71,8 @@ struct operand_rr_info
   int n_chains;
   /* Holds either the chain for the operand itself, or for the registers in
      a memory operand.  */
-  struct du_chain *chains[MAX_REGS_PER_OPERAND];
-  struct du_head *heads[MAX_REGS_PER_OPERAND];
+  struct du_chain *chains[MAX_REGS_PER_ADDRESS];
+  struct du_head *heads[MAX_REGS_PER_ADDRESS];
 };
 
 /* A struct to hold a vector of operand_rr_info structures describing the
