@@ -286,10 +286,10 @@ ggc_alloc_tree_node_stat (size_t s CXX_MEM_STAT_INFO)
   return (struct tree_node *) ggc_internal_alloc (s PASS_MEM_STAT);
 }
 
-static inline struct tree_node *
+static inline struct ttype *
 ggc_alloc_ttype_stat (size_t s CXX_MEM_STAT_INFO)
 {
-  return (struct tree_node *) ggc_internal_alloc (s PASS_MEM_STAT);
+  return (struct ttype *) ggc_internal_alloc (s PASS_MEM_STAT);
 }
 
 static inline struct tree_node *
@@ -298,10 +298,10 @@ ggc_alloc_cleared_tree_node_stat (size_t s CXX_MEM_STAT_INFO)
   return (struct tree_node *) ggc_internal_cleared_alloc (s PASS_MEM_STAT);
 }
 
-static inline struct tree_node *
+static inline struct ttype *
 ggc_alloc_cleared_ttype_node_stat (size_t s CXX_MEM_STAT_INFO)
 {
-  return (struct tree_node *) ggc_internal_cleared_alloc (s PASS_MEM_STAT);
+  return (struct ttype *) ggc_internal_cleared_alloc (s PASS_MEM_STAT);
 }
 
 static inline gimple *

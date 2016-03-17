@@ -61,6 +61,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "print-tree.h"
 #include "ipa-utils.h"
+#include "ttype.h"
 
 /* Tree code classes.  */
 
@@ -6338,6 +6339,14 @@ merge_type_attributes (ttype *t1, ttype *t2)
   return merge_attributes (TYPE_ATTRIBUTES (t1), TYPE_ATTRIBUTES (t2));
 }
 
+tree
+merge_type_attributes (tree t1, tree t2)
+{
+  ttype *tt1 = as_a<ttype *> (t1);
+  ttype *tt2 = as_a<ttype *> (t2);
+  return merge_attributes (TYPE_ATTRIBUTES (tt1), TYPE_ATTRIBUTES (tt2));
+}
+
 /* Given decls OLDDECL and NEWDECL, merge their attributes and return
    the result.  */
 
@@ -11497,7 +11506,7 @@ num_ending_zeros (const_tree x)
    value are as for walk_tree.  */
 
 static tree
-walk_type_fields (tree type, walk_tree_fn func, void *data,
+walk_type_fields (ttype *type, walk_tree_fn func, void *data,
 		  hash_set<tree> *pset, walk_tree_lh lh)
 {
   tree result = NULL_TREE;
@@ -11577,6 +11586,12 @@ walk_type_fields (tree type, walk_tree_fn func, void *data,
    non-NULL value, the traversal is stopped, and the value returned by FUNC
    is returned.  If PSET is non-NULL it is used to record the nodes visited,
    and to avoid visiting a node more than once.  */
+tree
+walk_tree_1 (ttype **tp, walk_tree_fn func, void *data,
+             hash_set<tree> *pset, walk_tree_lh lh)
+{
+  return walk_tree_1 (TREE_PTR_CAST (tp), func, data, pset, lh);
+}
 
 tree
 walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
@@ -11851,14 +11866,14 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	 Note that DECLs get walked as part of processing the BIND_EXPR.  */
       if (TREE_CODE (DECL_EXPR_DECL (*tp)) == TYPE_DECL)
 	{
-	  tree *type_p = &TREE_TYPE (DECL_EXPR_DECL (*tp));
+	  ttype **type_p = &TREE_TYPE (DECL_EXPR_DECL (*tp));
 	  if (TREE_CODE (*type_p) == ERROR_MARK)
 	    return NULL_TREE;
 
 	  /* Call the function for the type.  See if it returns anything or
 	     doesn't want us to continue.  If we are to continue, walk both
 	     the normal fields and those for the declaration case.  */
-	  result = (*func) (type_p, &walk_subtrees, data);
+	  result = (*func) (TREE_PTR_CAST (type_p), &walk_subtrees, data);
 	  if (result || !walk_subtrees)
 	    return result;
 
@@ -11929,7 +11944,7 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	}
       /* If this is a type, walk the needed fields in the type.  */
       else if (TYPE_P (*tp))
-	return walk_type_fields (*tp, func, data, pset, lh);
+	return walk_type_fields (as_a<ttype *>(*tp), func, data, pset, lh);
       break;
     }
 
@@ -11953,6 +11968,14 @@ walk_tree_without_duplicates_1 (tree *tp, walk_tree_fn func, void *data,
   return result;
 }
 
+/* Like walk_tree, but does not walk duplicate types more than once.  */
+
+tree
+walk_tree_without_duplicates_1 (ttype **tp, walk_tree_fn func, void *data,
+				walk_tree_lh lh)
+{
+  return walk_tree_without_duplicates_1 (TREE_PTR_CAST (tp), func, data, lh);
+}
 
 tree
 tree_block (tree t)

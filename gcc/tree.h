@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_TREE_H
 
 #include "tree-core.h"
+#include "is-a.h"
 
 /* Convert a target-independent built-in function code to a combined_fn.  */
 
@@ -394,7 +395,16 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #endif
 
 #define NULL_TREE (tree) NULL
-#define NULL_TYPE (ttype *) NULL
+#define NULL_TYPE (ttype *)NULL
+
+/* Define  the error_* nodes early for the inlined ttype methods.  */
+#define error_mark_node			global_trees[TI_ERROR_MARK]
+
+/* error_type_node will eventually be distinct from error_mark_node, but 
+   for now it must be identical for comparisons to work .
+   #define error_type_node		global_types[TPI_ERROR_TYPE]  */
+#define error_type_node		   (reinterpret_cast<ttype *>(error_mark_node))
+
 
 /* Accessor for base structure. */
 inline struct tree_base&
@@ -436,6 +446,120 @@ TREE_CHAIN (const_tree t)
 {
   return CONTAINS_STRUCT_CHECK (t, TS_COMMON)->u.common.chain;
 }
+
+
+
+/* Helper routine to enable as_a<ttype *> */
+template <>
+template <>
+inline bool
+is_a_helper <ttype *>::test (tree t)
+{
+  return (TREE_CODE_CLASS (TREE_CODE (t)) == tcc_type);
+}
+
+/* Helper routine to enable as_a<const ttype *> */
+template <>
+template <>
+inline bool
+is_a_helper <const ttype *>::test (const_tree t)
+{
+  return (TREE_CODE_CLASS (TREE_CODE (t)) == tcc_type);
+}
+
+
+/* This routine is used to mark casts to ttype * which we eventually want to
+   disappear. When ttype has been propogated throughout the comnpiler, we ought
+   to be able to simply drop *all* of these.  Typically it is used to access a 
+   tree field in a struct that will eventually be a ttype * field.  */
+inline ttype *
+TTYPE (tree t)
+{
+  if (t == NULL_TREE)
+    return NULL;
+  if (t == error_mark_node)
+    return error_type_node;
+  return as_a <ttype *>(t);
+}
+
+inline const ttype *
+TTYPE (const_tree t)
+{
+  if (t == NULL_TREE)
+    return NULL;
+  if (t == error_mark_node)
+    return error_type_node;
+  return as_a <const ttype *>(t);
+}
+
+/* This is the interface class for incoming parameters to functions/methods
+   so that all callers do not need to be ttype-ified all at once. This will
+   allow the code withinn a function to treat the parameter exactly as if it
+   were a 'ttype *', yet allow callers to pass either a ttype * or a tree.
+   When ttype has been propogated enoguh, this can be changed from 'ttype_p'
+   to 'ttype *' by text replacement and will just work.  */
+
+class ttype_p {
+  ttype *type;
+public:
+  inline ttype_p () { type = NULL; }
+  inline ttype_p (tree t) { type = TTYPE (t); }
+  inline ttype_p (const_tree t) { type = const_cast<ttype *> (TTYPE (t)); }
+  inline ttype_p (ttype *t) { type = t; }
+  inline ttype_p& operator= (ttype *t) { type = t; return *this; }
+  inline ttype_p& operator= (const ttype_p &t) { type = t.type; return *this; }
+  inline operator ttype *() const { return type; }
+  ttype_p * operator &() const __attribute__((error("Don't take address of ttype_p ")));
+  inline ttype * operator->() { return type; }
+  inline ttype * operator->() const { return type; }
+};
+
+
+class ttype_pp {
+  ttype **type;
+public:
+  inline ttype_pp (tree *t) 
+      { if (t) TTYPE (*t);  type = reinterpret_cast<ttype **> (t); }
+  inline ttype_pp (ttype_p *t) { type = reinterpret_cast<ttype **> (t); }
+  inline ttype_pp (ttype **t) { type = t; }
+  inline ttype_pp& operator= (ttype **t) { type = t; return *this; }
+  inline operator ttype **() const { return type; }
+  inline ttype ** operator->() { return type; }
+  inline ttype ** operator->() const { return type; }
+};
+
+
+/* This will generate a compiler error when a tree is turned into a ttype *,
+   but a reference to a TTYPE() call was not removed.  */
+ttype *
+TTYPE (ttype *t) __attribute__((error(" Fix use of TTYPE(ttype *)")));
+const ttype *
+TTYPE (const ttype *t) 
+    __attribute__((error(" Fix use of TTYPE(const ttype *)")));
+
+/* This exist because there are cases where ttype_p is used as a parameter, 
+   then used in a condition with types:   cond ? ttype * : ttype_p  .
+   The cast cant be autromcatically done by the compiler, we
+   allow TTYPE to work with ttype_p.  When they are changed to ttype *, they
+   will automatically trigger the above errors and require fixing.  */
+
+static inline ttype *
+TTYPE (const ttype_p t)
+{
+  return t;
+}
+
+/* On rare occassions, situations arise which require an explicit cast to be
+   made in a file which hasnt been ttype converted. These macros are provided
+   to enable performing the cast, and provide a searchable name so they can be
+   removed at the earliest convenience.  This will not remain in the compiler
+   long term.  */
+#define TREE_CAST(NODE) ((tree)(NODE))
+#define TREE_PTR_CAST(NODE) ((tree *)(NODE))
+#define TTYPE_PTR(NODE)  ((ttype **)(NODE))
+
+/* Define accessors for the fields that all tree nodes have
+   (though some fields are not used for all kinds of nodes).  */
 
 /* In all nodes that are expressions, this is the data type of the expression.
    In POINTER_TYPE nodes, this is the type that the pointer points to.
@@ -3608,9 +3732,6 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
 
 #endif
 
-#define error_mark_node                 global_trees[TI_ERROR_MARK]
-#define error_type_node  error_mark_node
-
 #define intQI_type_node			global_types[TPI_INTQI_TYPE]
 #define intHI_type_node			global_types[TPI_INTHI_TYPE]
 #define intSI_type_node			global_types[TPI_INTSI_TYPE]
@@ -4160,6 +4281,7 @@ extern tree merge_decl_attributes (tree, tree);
 
 /* TTYPE. Remove tree version when target.def can be changed to ttype *. */
 extern tree merge_type_attributes (ttype *, ttype *);
+extern tree merge_type_attributes (tree, tree);
 
 /* This function is a private implementation detail of lookup_attribute()
    and you should never call it directly.  */
@@ -4879,6 +5001,10 @@ extern void set_call_expr_flags (tree, int);
 extern tree walk_tree_1 (tree*, walk_tree_fn, void*, hash_set<tree>*,
 			 walk_tree_lh);
 extern tree walk_tree_without_duplicates_1 (tree*, walk_tree_fn, void*,
+					    walk_tree_lh);
+extern tree walk_tree_1 (ttype **, walk_tree_fn, void*, hash_set<tree>*,
+			 walk_tree_lh);
+extern tree walk_tree_without_duplicates_1 (ttype **, walk_tree_fn, void*,
 					    walk_tree_lh);
 #define walk_tree(a,b,c,d) \
 	walk_tree_1 (a, b, c, d, NULL)

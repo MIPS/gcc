@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "langhooks.h"
 #include "c-format.h"
+#include "ttype.h"
 
 /* Handle attributes associated with format checking.  */
 
@@ -138,6 +139,13 @@ location_from_offset (location_t loc, int offset)
 
   return linemap_position_for_loc_and_offset (line_table, loc, column);
 }
+
+/* Mark the tree and ttype nodes so we can compare for equality when checking
+   for type compatibility.   the langhooks type_compatible_p() routine will
+   not consider a derived class to be the same.  */
+static ttype *tree_ptr_node = NULL;
+static ttype *ttype_node = NULL;
+static ttype *ttype_p_node = NULL;
 
 /* Check that we have a pointer to a string suitable for use as a format.
    The default is to check for a char type.
@@ -2546,7 +2554,11 @@ check_format_types (location_t loc, format_wanted_type *types)
 	    }
 	  else
 	    {
-              format_type_warning (loc, types, wanted_type, orig_cur_type);
+	      if (wanted_type == tree_ptr_node
+		  && ((cur_type == ttype_p_node && i == 0)
+		       || (cur_type == ttype_node && i == 1)))
+		continue;
+	      format_type_warning (loc, types, wanted_type, orig_cur_type);
 	      break;
 	    }
 	}
@@ -2566,6 +2578,13 @@ check_format_types (location_t loc, format_wanted_type *types)
       /* Check the type of the "real" argument, if there's a type we want.  */
       if (lang_hooks.types_compatible_p (wanted_type, cur_type))
 	continue;
+      /* ttype is derived from tree, but types_compatible_p wont match derived
+         types... so manually check for ttype passed to a tree.  */
+      if (tree_ptr_node && wanted_type == tree_ptr_node
+        && ((ttype_node && cur_type == ttype_node)
+            || (ttype_p_node && cur_type == ttype_p_node)))
+	continue;
+
       /* If we want 'void *', allow any pointer type.
 	 (Anything else would already have got a warning.)
 	 With -Wpedantic, only allow pointers to void and to character
@@ -2857,8 +2876,10 @@ init_dynamic_diag_info (void)
   static tree t, loc, hwi;
   static ttype *loc_node = NULL;
   static ttype *hwi_node = NULL;
-  static ttype *tree_ptr_node = NULL;
 
+  tree_ptr_node = NULL;
+  ttype_node = NULL;
+  ttype_p_node = NULL;
 
   if (!loc_node || !tree_ptr_node || !hwi_node)
     {
@@ -2906,6 +2927,32 @@ init_dynamic_diag_info (void)
 		}
 	      else
 		tree_ptr_node = TREE_TYPE (TREE_TYPE (t));
+	    }
+	}
+
+      /* Set the ttype pointer node.  */
+      if ((t = maybe_get_identifier ("ttype")))
+	{
+	  t = identifier_global_value (t);
+	  if (t)
+	    {
+	      if (TREE_CODE (t) != TYPE_DECL)
+		error ("%<ttype%> is not defined as a type");
+	      else
+		ttype_node = TREE_TYPE (t);
+	    }
+	}
+
+      /* Set the ttype_p pointer node.  */
+      if ((t = maybe_get_identifier ("ttype_p")))
+	{
+	  t = identifier_global_value (t);
+	  if (t)
+	    {
+	      if (TREE_CODE (t) != TYPE_DECL)
+		error ("%<ttype%> is not defined as a type");
+	      else
+		ttype_p_node = TREE_TYPE (t);
 	    }
 	}
 

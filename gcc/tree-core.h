@@ -1216,10 +1216,19 @@ struct GTY(()) tree_base {
            BIT_FIELD_REF, MEM_REF
 */
 
+
+class ttype;
+
 struct GTY(()) tree_typed {
   struct tree_base base;
   tree type;
 };
+
+struct GTY(()) ttype_typed {
+  struct tree_base base;
+  ttype *type;
+};
+
 
 struct GTY(()) tree_common {
   struct tree_typed typed;
@@ -1468,6 +1477,60 @@ struct GTY(()) tree_type {
   tree binfo;
 };
 
+struct GTY(()) ttype_type {
+  struct {
+    struct {
+      struct tree_base base;
+      ttype *type;
+    } ttyped;
+    tree chain;
+  } common;
+
+  tree size;
+  tree size_unit;
+  tree attributes;
+  unsigned int uid;
+
+  unsigned int precision : 10;
+  unsigned no_force_blk_flag : 1;
+  unsigned needs_constructing_flag : 1;
+  unsigned transparent_aggr_flag : 1;
+  unsigned restrict_flag : 1;
+  unsigned contains_placeholder_bits : 2;
+
+  ENUM_BITFIELD(machine_mode) mode : 8;
+
+  unsigned string_flag : 1;
+  unsigned lang_flag_0 : 1;
+  unsigned lang_flag_1 : 1;
+  unsigned lang_flag_2 : 1;
+  unsigned lang_flag_3 : 1;
+  unsigned lang_flag_4 : 1;
+  unsigned lang_flag_5 : 1;
+  unsigned lang_flag_6 : 1;
+
+  unsigned int align;
+  alias_set_type alias_set;
+  ttype *pointer_to;
+  ttype *reference_to;
+  union tree_type_symtab {
+    int GTY ((tag ("TYPE_SYMTAB_IS_ADDRESS"))) address;
+    const char * GTY ((tag ("TYPE_SYMTAB_IS_POINTER"))) pointer;
+    struct die_struct * GTY ((tag ("TYPE_SYMTAB_IS_DIE"))) die;
+  } GTY ((desc ("debug_hooks->tree_type_symtab_field"))) symtab;
+  ttype *canonical;
+  ttype *next_variant;
+  ttype *main_variant;
+  tree context;
+  tree name;
+  /* Points to a structure whose details depend on the language in use.  */
+  struct lang_type *lang_specific;
+  ttype *values;
+  ttype *minval;
+  ttype *maxval;
+  tree binfo;
+};
+
 struct GTY (()) tree_binfo {
   struct tree_common common;
 
@@ -1490,6 +1553,14 @@ struct GTY(()) tree_decl_minimal {
   unsigned int uid;
   tree name;
   tree context;
+};
+
+struct GTY(()) ttype_decl_minimal {
+  struct tree_common common;
+  location_t locus;
+  unsigned int uid;
+  tree name;
+  ttype *context;
 };
 
 struct GTY(()) tree_decl_common {
@@ -1638,6 +1709,12 @@ struct GTY(()) tree_decl_non_common {
   tree result;
 };
 
+struct GTY(()) ttype_decl_non_common {
+  struct tree_decl_with_vis common;
+  /* Almost all FE's use this.  */
+  ttype *result;
+};
+
 /* FUNCTION_DECL inherits from DECL_NON_COMMON because of the use of the
    arguments/result/saved_tree fields by front ends.   It was either inherit
    FUNCTION_DECL from non_common, or inherit non_common from FUNCTION_DECL,
@@ -1759,6 +1836,7 @@ struct GTY(()) tree_target_option {
 union GTY ((desc ("tree_node_structure (&%h)"), variable_size)) tree_node_u {
   struct tree_base GTY ((tag ("TS_BASE"))) base;
   struct tree_typed GTY ((tag ("TS_TYPED"))) typed;
+  struct ttype_typed GTY ((tag ("TS_TTYPED"))) ttyped;
   struct tree_common GTY ((tag ("TS_COMMON"))) common;
   struct tree_int_cst GTY ((tag ("TS_INT_CST"))) int_cst;
   struct tree_real_cst GTY ((tag ("TS_REAL_CST"))) real_cst;
@@ -1768,10 +1846,13 @@ union GTY ((desc ("tree_node_structure (&%h)"), variable_size)) tree_node_u {
   struct tree_complex GTY ((tag ("TS_COMPLEX"))) complex;
   struct tree_identifier GTY ((tag ("TS_IDENTIFIER"))) identifier;
   struct tree_decl_minimal GTY((tag ("TS_DECL_MINIMAL"))) decl_minimal;
+  struct ttype_decl_minimal GTY((tag ("TS_DECL_MINIMAL_TTYPE"))) decl_minimal_ttype;
   struct tree_decl_common GTY ((tag ("TS_DECL_COMMON"))) decl_common;
   struct tree_decl_with_rtl GTY ((tag ("TS_DECL_WRTL"))) decl_with_rtl;
   struct tree_decl_non_common  GTY ((tag ("TS_DECL_NON_COMMON")))
     decl_non_common;
+  struct ttype_decl_non_common  GTY ((tag ("TS_DECL_NON_COMMON_TTYPE")))
+    decl_non_common_ttype;
   struct tree_parm_decl  GTY  ((tag ("TS_PARM_DECL"))) parm_decl;
   struct tree_decl_with_vis GTY ((tag ("TS_DECL_WITH_VIS"))) decl_with_vis;
   struct tree_var_decl GTY ((tag ("TS_VAR_DECL"))) var_decl;
@@ -1784,6 +1865,7 @@ union GTY ((desc ("tree_node_structure (&%h)"), variable_size)) tree_node_u {
   struct tree_translation_unit_decl GTY ((tag ("TS_TRANSLATION_UNIT_DECL")))
     translation_unit_decl;
   struct tree_type GTY ((tag ("TS_TYPE_COMMON"))) type_common;
+  struct ttype_type GTY ((tag ("TS_TTYPE_COMMON"))) ttype_common;
   struct tree_list GTY ((tag ("TS_LIST"))) list;
   struct tree_vec GTY ((tag ("TS_VEC"))) vec;
   struct tree_exp GTY ((tag ("TS_EXP"))) exp;
@@ -1797,44 +1879,12 @@ union GTY ((desc ("tree_node_structure (&%h)"), variable_size)) tree_node_u {
   struct tree_target_option GTY ((tag ("TS_TARGET_OPTION"))) target_option;
 };
 
-struct GTY ((ptr_alias (union lang_tree_node))) tree_node {
+struct GTY ((ptr_alias (union lang_tree_node), desc("0"), tag("0"))) tree_node {
   union tree_node_u u;
 };
 
-/* These declarations are part of the effort to split types from trees.
-   On trunk, ttype, ttype_p and ttype_pp all map back to a tree_node.
-   A branch maintains a diff to trunk which changes these to a set of
-   classes which are used to find and change all the locations in which a
-   tree is used that should be a type.  The branch bootstraps with these
-   distrinct types.  Changes are developed on the branch and checked into trunk,
-   keeping the diff's on the branch limited to things which are limited by
-   ttype and tree_node being equivalent.  (ie there is no type overloading in
-   this case.)
-
-   When the entire compiler has been converted over to using these 3 types,
-   work will proceed with replacing these declarations with pointers to
-   an actual type node instead of a tree. 
-     typedef struct tree_type ttype;
-   and ttype_p will be textually replaced with ttype *, and
-   ttype_pp will be textually replaced with ttype **.
-   They are ciurrently implemented as #defines so that we get the const 
-   behaviour we want. ie
-   foo (const ttype_p t) will map to
-   foo (const ttype *t), which will eliminate the need for a second type
-   like we have with const_tree.
-
-   Do not worry about using them properly, the branch and trunk will be synced
-   frequently and improper uses will be fixed at mewrge time.  */
-
-typedef struct tree_node ttype;
-#define ttype_p struct tree_node *
-#define ttype_pp struct tree_node **
-
-/* These macros are no-ops on trunk.  They are used to mark locations which
-   have been identified that a conversion is necessary, but not processed yet.
-   They will eventually all dissappear.  */
-#define TTYPE(NODE)  (NODE)
-#define TREE_CAST(NODE) (NODE)
+class GTY(()) ttype : public tree_node {
+};
 
 
 /* Structure describing an attribute and a function to handle it.  */
