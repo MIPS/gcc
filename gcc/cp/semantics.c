@@ -1369,7 +1369,7 @@ begin_compound_stmt (unsigned int flags)
      processing templates.  */
   if (processing_template_decl)
     {
-      r = build3 (BIND_EXPR, NULL, NULL, r, NULL);
+      r = build3 (BIND_EXPR, NULL_TYPE, NULL, r, NULL);
       BIND_EXPR_TRY_BLOCK (r) = (flags & BCS_TRY_BLOCK) != 0;
       BIND_EXPR_BODY_BLOCK (r) = (flags & BCS_FN_BODY) != 0;
       TREE_SIDE_EFFECTS (r) = 1;
@@ -5144,7 +5144,7 @@ omp_reduction_lookup (location_t loc, tree id, tree type, tree *baselinkp,
 	  && identifier_p (id))
 	{
 	  vec<tree, va_gc> *args = NULL;
-	  vec_safe_push (args, build_reference_type (type));
+	  vec_safe_push (args, TREE_CAST (build_reference_type (type)));
 	  id = perform_koenig_lookup (id, args, tf_none);
 	}
     }

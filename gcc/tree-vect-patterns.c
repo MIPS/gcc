@@ -2550,7 +2550,7 @@ vect_recog_divmod_pattern (vec<gimple *> *stmts,
 	      t1 = vect_recog_temp_ssa_var (itype, NULL);
 	      def_stmt
 		= gimple_build_assign (t1, RSHIFT_EXPR, oprnd0,
-				       build_int_cst (NULL, pre_shift));
+				       build_int_cst (NULL_TYPE, pre_shift));
 	      append_pattern_def_seq (stmt_vinfo, def_stmt);
 	    }
 	  else

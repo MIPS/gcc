@@ -309,15 +309,21 @@ preload_common_nodes (struct streamer_tree_cache_d *cache)
   for (i = 0; i < stk_type_kind_last; i++)
     record_common_node (cache, sizetype_tab[i]);
 
+  for (i = 0; i < TPI_MAX; i++)
+    /* Skip boolean type, it is frontend dependent.  */
+    if (i != TPI_BOOLEAN_TYPE 
+	/* PID_TYPE is initialized only by C family front-ends.  */
+	&& i != TPI_PID_TYPE
+	/* Skip va_list* related nodes if offloading.  See note below.  */
+	&& (!lto_stream_offload_p || i != TPI_VA_LIST_TYPE))
+      record_common_node (cache, global_types[i]);
+
   for (i = 0; i < TI_MAX; i++)
-    /* Skip boolean type and constants, they are frontend dependent.  */
-    if (i != TI_BOOLEAN_TYPE
-	&& i != TI_BOOLEAN_FALSE
+    /* Skip boolean constants, they are frontend dependent.  */
+    if (i != TI_BOOLEAN_FALSE
 	&& i != TI_BOOLEAN_TRUE
 	/* MAIN_IDENTIFIER is not always initialized by Fortran FE.  */
 	&& i != TI_MAIN_IDENTIFIER
-	/* PID_TYPE is initialized only by C family front-ends.  */
-	&& i != TI_PID_TYPE
 	/* Skip optimization and target option nodes; they depend on flags.  */
 	&& i != TI_OPTIMIZATION_DEFAULT
 	&& i != TI_OPTIMIZATION_CURRENT
@@ -329,8 +335,7 @@ preload_common_nodes (struct streamer_tree_cache_d *cache)
 	   we want them to be merged for the stdarg pass, for offloading
 	   they might not be identical between host and offloading target.  */
 	&& (!lto_stream_offload_p
-	    || (i != TI_VA_LIST_TYPE
-		&& i != TI_VA_LIST_GPR_COUNTER_FIELD
+	    || (i != TI_VA_LIST_GPR_COUNTER_FIELD
 		&& i != TI_VA_LIST_FPR_COUNTER_FIELD)))
       record_common_node (cache, global_trees[i]);
 }

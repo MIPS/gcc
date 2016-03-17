@@ -51,19 +51,19 @@ along with GCC; see the file COPYING3.  If not see
 /* array of structs so we don't have to worry about xmalloc or free */
 CInteropKind_t c_interop_kinds_table[ISOCBINDING_NUMBER];
 
-tree gfc_array_index_type;
-tree gfc_array_range_type;
-tree gfc_character1_type_node;
-tree pvoid_type_node;
-tree prvoid_type_node;
-tree ppvoid_type_node;
-tree pchar_type_node;
-tree pfunc_type_node;
+ttype *gfc_array_index_type;
+ttype *gfc_array_range_type;
+ttype *gfc_character1_type_node;
+ttype *pvoid_type_node;
+ttype *prvoid_type_node;
+ttype *ppvoid_type_node;
+ttype *pchar_type_node;
+ttype *pfunc_type_node;
 
-tree gfc_charlen_type_node;
+ttype *gfc_charlen_type_node;
 
-tree float128_type_node = NULL_TREE;
-tree complex_float128_type_node = NULL_TREE;
+ttype *float128_type_node = NULL;
+ttype *complex_float128_type_node = NULL;
 
 bool gfc_real16_is_float128 = false;
 
@@ -88,8 +88,8 @@ static GTY(()) tree gfc_complex_types[MAX_REAL_KINDS + 1];
 
 #define MAX_CHARACTER_KINDS 2
 gfc_character_info gfc_character_kinds[MAX_CHARACTER_KINDS + 1];
-static GTY(()) tree gfc_character_types[MAX_CHARACTER_KINDS + 1];
-static GTY(()) tree gfc_pcharacter_types[MAX_CHARACTER_KINDS + 1];
+static GTY(()) ttype *gfc_character_types[MAX_CHARACTER_KINDS + 1];
+static GTY(()) ttype *gfc_pcharacter_types[MAX_CHARACTER_KINDS + 1];
 
 static tree gfc_add_field_to_struct_1 (tree, tree, tree, tree **);
 
@@ -733,7 +733,7 @@ gfc_validate_kind (bt type, int kind, bool may_fail)
    with a C type.  This will be used later in determining which routines may
    be scarfed from libm.  */
 
-static tree
+static ttype *
 gfc_build_int_type (gfc_integer_info *info)
 {
   int mode_precision = info->bit_size;
@@ -763,7 +763,7 @@ gfc_build_int_type (gfc_integer_info *info)
   return make_signed_type (mode_precision);
 }
 
-tree
+ttype *
 gfc_build_uint_type (int size)
 {
   if (size == CHAR_TYPE_SIZE)
@@ -781,11 +781,11 @@ gfc_build_uint_type (int size)
 }
 
 
-static tree
+static ttype *
 gfc_build_real_type (gfc_real_info *info)
 {
   int mode_precision = info->mode_precision;
-  tree new_type;
+  ttype *new_type;
 
   if (mode_precision == FLOAT_TYPE_SIZE)
     info->c_float = 1;
@@ -806,16 +806,16 @@ gfc_build_real_type (gfc_real_info *info)
   if (TYPE_PRECISION (long_double_type_node) == mode_precision)
     return long_double_type_node;
 
-  new_type = make_node (REAL_TYPE);
+  new_type = make_type_node (REAL_TYPE);
   TYPE_PRECISION (new_type) = mode_precision;
   layout_type (new_type);
   return new_type;
 }
 
-static tree
+static ttype *
 gfc_build_complex_type (tree scalar_type)
 {
-  tree new_type;
+  ttype *new_type;
 
   if (scalar_type == NULL)
     return NULL;
@@ -826,17 +826,17 @@ gfc_build_complex_type (tree scalar_type)
   if (scalar_type == long_double_type_node)
     return complex_long_double_type_node;
 
-  new_type = make_node (COMPLEX_TYPE);
+  new_type = make_type_node (COMPLEX_TYPE);
   TREE_TYPE (new_type) = scalar_type;
   layout_type (new_type);
   return new_type;
 }
 
-static tree
+static ttype *
 gfc_build_logical_type (gfc_logical_info *info)
 {
   int bit_size = info->bit_size;
-  tree new_type;
+  ttype *new_type;
 
   if (bit_size == BOOL_TYPE_SIZE)
     {
@@ -863,7 +863,7 @@ gfc_init_types (void)
 {
   char name_buf[18];
   int index;
-  tree type;
+  ttype *type;
   unsigned n;
 
   /* Create and name the types.  */
@@ -943,7 +943,7 @@ gfc_init_types (void)
   pfunc_type_node
     = build_pointer_type (build_function_type_list (void_type_node, NULL_TREE));
 
-  gfc_array_index_type = gfc_get_int_type (gfc_index_integer_kind);
+  gfc_array_index_type = TTYPE (gfc_get_int_type (gfc_index_integer_kind));
   /* We cannot use gfc_index_zero_node in definition of gfc_array_range_type,
      since this function is called before gfc_init_constants.  */
   gfc_array_range_type
@@ -961,13 +961,13 @@ gfc_init_types (void)
 			wi::mask (n, UNSIGNED,
 				  TYPE_PRECISION (size_type_node)));
 
-  boolean_type_node = gfc_get_logical_type (gfc_default_logical_kind);
+  boolean_type_node = TTYPE (gfc_get_logical_type (gfc_default_logical_kind));
   boolean_true_node = build_int_cst (boolean_type_node, 1);
   boolean_false_node = build_int_cst (boolean_type_node, 0);
 
   /* ??? Shouldn't this be based on gfc_index_integer_kind or so?  */
   gfc_charlen_int_kind = 4;
-  gfc_charlen_type_node = gfc_get_int_type (gfc_charlen_int_kind);
+  gfc_charlen_type_node = TTYPE (gfc_get_int_type (gfc_charlen_int_kind));
 }
 
 /* Get the type node for the given type and kind.  */
@@ -2793,7 +2793,7 @@ gfc_get_function_type (gfc_symbol * sym)
 
   if (sym->attr.entry_master)
     /* Additional parameter for selecting an entry point.  */
-    vec_safe_push (typelist, gfc_array_index_type);
+    vec_safe_push (typelist, TREE_CAST (gfc_array_index_type));
 
   if (sym->result)
     arg = sym->result;
@@ -2817,11 +2817,13 @@ gfc_get_function_type (gfc_symbol * sym)
 	{
 	  if (!arg->ts.deferred)
 	    /* Transfer by value.  */
-	    vec_safe_push (typelist, gfc_charlen_type_node);
+	    vec_safe_push (typelist, TREE_CAST (gfc_charlen_type_node));
 	  else
 	    /* Deferred character lengths are transferred by reference
 	       so that the value can be returned.  */
-	    vec_safe_push (typelist, build_pointer_type(gfc_charlen_type_node));
+	    vec_safe_push (typelist,
+			   TREE_CAST
+			     (build_pointer_type(gfc_charlen_type_node)));
 	}
     }
 

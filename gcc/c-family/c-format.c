@@ -424,7 +424,7 @@ static const char *kind_descriptions[] = {
 struct format_wanted_type
 {
   /* The type wanted.  */
-  tree wanted_type;
+  ttype *wanted_type;
   /* The name of this type to use in diagnostics.  */
   const char *wanted_type_name;
   /* Should be type checked just for scalar width identity.  */
@@ -1033,7 +1033,8 @@ static const format_flag_spec *get_flag_spec (const format_flag_spec *,
 					      int, const char *);
 
 static void check_format_types (location_t, format_wanted_type *);
-static void format_type_warning (location_t, format_wanted_type *, tree, tree);
+static void format_type_warning (location_t, format_wanted_type *, ttype *,
+				 ttype *);
 
 /* Decode a format type from a string, returning the type, or
    format_type_error if not valid, in which case the caller should print an
@@ -1726,7 +1727,7 @@ check_format_info_main (format_check_results *res,
       enum format_std_version length_chars_std = STD_C89;
       int format_char;
       tree cur_param;
-      tree wanted_type;
+      ttype *wanted_type;
       int main_arg_num = 0;
       tree main_arg_params = 0;
       enum format_std_version wanted_type_std;
@@ -2449,9 +2450,9 @@ check_format_types (location_t loc, format_wanted_type *types)
   for (; types != 0; types = types->next)
     {
       tree cur_param;
-      tree cur_type;
-      tree orig_cur_type;
-      tree wanted_type;
+      ttype *cur_type;
+      ttype *orig_cur_type;
+      ttype *wanted_type;
       int arg_num;
       int i;
       int char_type_flag;
@@ -2464,7 +2465,7 @@ check_format_types (location_t loc, format_wanted_type *types)
       gcc_assert (wanted_type != void_type_node || types->pointer_count);
 
       if (types->pointer_count == 0)
-	wanted_type = lang_hooks.types.type_promotes_to (wanted_type);
+	wanted_type = TTYPE (lang_hooks.types.type_promotes_to (wanted_type));
 
       wanted_type = TYPE_MAIN_VARIANT (wanted_type);
 
@@ -2595,7 +2596,7 @@ check_format_types (location_t loc, format_wanted_type *types)
 	  && cur_param != NULL_TREE
 	  && TREE_CODE (cur_param) == NOP_EXPR)
 	{
-	  tree t = TREE_TYPE (TREE_OPERAND (cur_param, 0));
+	  ttype *t = TREE_TYPE (TREE_OPERAND (cur_param, 0));
 	  if (TYPE_UNSIGNED (t)
 	      && cur_type == lang_hooks.types.type_promotes_to (t))
 	    continue;
@@ -2627,7 +2628,7 @@ check_format_types (location_t loc, format_wanted_type *types)
    or NULL if it is missing.  */
 static void
 format_type_warning (location_t loc, format_wanted_type *type,
-		     tree wanted_type, tree arg_type)
+		     ttype *wanted_type, ttype *arg_type)
 {
   int kind = type->kind;
   const char *wanted_type_name = type->wanted_type_name;
@@ -2805,7 +2806,8 @@ init_dynamic_asm_fprintf_info (void)
 static void
 init_dynamic_gfc_info (void)
 {
-  static tree locus;
+  static ttype *locus = NULL;
+  tree v;
 
   if (!locus)
     {
@@ -2815,19 +2817,16 @@ init_dynamic_gfc_info (void)
 	 must have declared 'locus' prior to using this attribute.  If
 	 we haven't seen this declarations then you shouldn't use the
 	 specifier requiring that type.  */
-      if ((locus = maybe_get_identifier ("locus")))
+      if ((v = maybe_get_identifier ("locus")))
 	{
-	  locus = identifier_global_value (locus);
-	  if (locus)
+	  v = identifier_global_value (v);
+	  if (v)
 	    {
-	      if (TREE_CODE (locus) != TYPE_DECL
-		  || TREE_TYPE (locus) == error_mark_node)
-		{
-		  error ("%<locus%> is not defined as a type");
-		  locus = 0;
-		}
+	      if (TREE_CODE (v) != TYPE_DECL
+		  || TREE_TYPE (v) == error_mark_node)
+		error ("%<locus%> is not defined as a type");
 	      else
-		locus = TREE_TYPE (locus);
+		locus = TREE_TYPE (v);
 	    }
 	}
 
@@ -2856,8 +2855,12 @@ static void
 init_dynamic_diag_info (void)
 {
   static tree t, loc, hwi;
+  static ttype *loc_node = NULL;
+  static ttype *hwi_node = NULL;
+  static ttype *tree_ptr_node = NULL;
 
-  if (!loc || !t || !hwi)
+
+  if (!loc_node || !tree_ptr_node || !hwi_node)
     {
       static format_char_info *diag_fci, *tdiag_fci, *cdiag_fci, *cxxdiag_fci;
       static format_length_info *diag_ls;
@@ -2877,14 +2880,14 @@ init_dynamic_diag_info (void)
 	      if (TREE_CODE (loc) != TYPE_DECL)
 		{
 		  error ("%<location_t%> is not defined as a type");
-		  loc = 0;
+		  loc_node = 0;
 		}
 	      else
-		loc = TREE_TYPE (loc);
+		loc_node = TREE_TYPE (loc);
 	    }
 	}
 
-      /* We need to grab the underlying 'struct tree_node' so peek into
+      /* We need to grab the underlying 'struct tree_ptr_node' so peek into
 	 an extra type level.  */
       if ((t = maybe_get_identifier ("tree")))
 	{
@@ -2894,15 +2897,15 @@ init_dynamic_diag_info (void)
 	      if (TREE_CODE (t) != TYPE_DECL)
 		{
 		  error ("%<tree%> is not defined as a type");
-		  t = 0;
+		  tree_ptr_node = 0;
 		}
 	      else if (TREE_CODE (TREE_TYPE (t)) != POINTER_TYPE)
 		{
 		  error ("%<tree%> is not defined as a pointer type");
-		  t = 0;
+		  tree_ptr_node = 0;
 		}
 	      else
-		t = TREE_TYPE (TREE_TYPE (t));
+		tree_ptr_node = TREE_TYPE (TREE_TYPE (t));
 	    }
 	}
 
@@ -2918,18 +2921,18 @@ init_dynamic_diag_info (void)
 	      if (TREE_CODE (hwi) != TYPE_DECL)
 		{
 		  error ("%<__gcc_host_wide_int__%> is not defined as a type");
-		  hwi = 0;
+		  hwi_node = 0;
 		}
 	      else
 		{
-		  hwi = DECL_ORIGINAL_TYPE (hwi);
+		  hwi_node = DECL_ORIGINAL_TYPE (hwi);
 		  gcc_assert (hwi);
-		  if (hwi != long_integer_type_node
-		      && hwi != long_long_integer_type_node)
+		  if (hwi_node != long_integer_type_node
+		      && hwi_node != long_long_integer_type_node)
 		    {
 		      error ("%<__gcc_host_wide_int__%> is not defined"
 			     " as %<long%> or %<long long%>");
-		      hwi = 0;
+		      hwi_node = 0;
 		    }
 		}
 	    }
@@ -2947,13 +2950,13 @@ init_dynamic_diag_info (void)
 		    xmemdup (gcc_diag_length_specs,
 			     sizeof (gcc_diag_length_specs),
 			     sizeof (gcc_diag_length_specs));
-      if (hwi)
+      if (hwi_node)
 	{
 	  /* HOST_WIDE_INT must be one of 'long' or 'long long'.  */
 	  i = find_length_info_modifier_index (diag_ls, 'w');
-	  if (hwi == long_integer_type_node)
+	  if (hwi_node == long_integer_type_node)
 	    diag_ls[i].index = FMT_LEN_l;
-	  else if (hwi == long_long_integer_type_node)
+	  else if (hwi_node == long_long_integer_type_node)
 	    diag_ls[i].index = FMT_LEN_ll;
 	  else
 	    gcc_unreachable ();
@@ -2966,10 +2969,10 @@ init_dynamic_diag_info (void)
 		     xmemdup (gcc_diag_char_table,
 			      sizeof (gcc_diag_char_table),
 			      sizeof (gcc_diag_char_table));
-      if (t)
+      if (tree_ptr_node)
 	{
 	  i = find_char_info_specifier_index (diag_fci, 'K');
-	  diag_fci[i].types[0].type = &t;
+	  diag_fci[i].types[0].type = &tree_ptr_node;
 	  diag_fci[i].pointer_count = 1;
 	}
 
@@ -2980,14 +2983,14 @@ init_dynamic_diag_info (void)
 		      xmemdup (gcc_tdiag_char_table,
 			       sizeof (gcc_tdiag_char_table),
 			       sizeof (gcc_tdiag_char_table));
-      if (t)
+      if (tree_ptr_node)
 	{
 	  /* All specifiers taking a tree share the same struct.  */
 	  i = find_char_info_specifier_index (tdiag_fci, 'D');
-	  tdiag_fci[i].types[0].type = &t;
+	  tdiag_fci[i].types[0].type = &tree_ptr_node;
 	  tdiag_fci[i].pointer_count = 1;
 	  i = find_char_info_specifier_index (tdiag_fci, 'K');
-	  tdiag_fci[i].types[0].type = &t;
+	  tdiag_fci[i].types[0].type = &tree_ptr_node;
 	  tdiag_fci[i].pointer_count = 1;
 	}
 
@@ -2998,14 +3001,14 @@ init_dynamic_diag_info (void)
 		      xmemdup (gcc_cdiag_char_table,
 			       sizeof (gcc_cdiag_char_table),
 			       sizeof (gcc_cdiag_char_table));
-      if (t)
+      if (tree_ptr_node)
 	{
 	  /* All specifiers taking a tree share the same struct.  */
 	  i = find_char_info_specifier_index (cdiag_fci, 'D');
-	  cdiag_fci[i].types[0].type = &t;
+	  cdiag_fci[i].types[0].type = &tree_ptr_node;
 	  cdiag_fci[i].pointer_count = 1;
 	  i = find_char_info_specifier_index (cdiag_fci, 'K');
-	  cdiag_fci[i].types[0].type = &t;
+	  cdiag_fci[i].types[0].type = &tree_ptr_node;
 	  cdiag_fci[i].pointer_count = 1;
 	}
 
@@ -3016,14 +3019,14 @@ init_dynamic_diag_info (void)
 			xmemdup (gcc_cxxdiag_char_table,
 				 sizeof (gcc_cxxdiag_char_table),
 				 sizeof (gcc_cxxdiag_char_table));
-      if (t)
+      if (tree_ptr_node)
 	{
 	  /* All specifiers taking a tree share the same struct.  */
 	  i = find_char_info_specifier_index (cxxdiag_fci, 'D');
-	  cxxdiag_fci[i].types[0].type = &t;
+	  cxxdiag_fci[i].types[0].type = &tree_ptr_node;
 	  cxxdiag_fci[i].pointer_count = 1;
 	  i = find_char_info_specifier_index (cxxdiag_fci, 'K');
-	  cxxdiag_fci[i].types[0].type = &t;
+	  cxxdiag_fci[i].types[0].type = &tree_ptr_node;
 	  cxxdiag_fci[i].pointer_count = 1;
 	}
     }

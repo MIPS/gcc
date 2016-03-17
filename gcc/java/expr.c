@@ -1612,7 +1612,7 @@ expand_java_binop (tree type, enum tree_code op)
    class containing the field. */
 
 tree
-lookup_field (tree *typep, tree name)
+lookup_field (ttype_pp typep, tree name)
 {
   if (CLASS_P (*typep) && !CLASS_LOADED_P (*typep))
     {
@@ -1659,7 +1659,7 @@ lookup_field (tree *typep, tree name)
       if (save_field != NULL_TREE)
 	return save_field;
 
-      *typep = CLASSTYPE_SUPER (*typep);
+      *typep = TTYPE (CLASSTYPE_SUPER (*typep));
     } while (*typep);
   return NULL_TREE;
 }
