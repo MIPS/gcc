@@ -2845,7 +2845,7 @@ enum rs6000_builtin_type_index
 #define ieee128_float_type_node		 (rs6000_builtin_types[RS6000_BTI_ieee128_float])
 #define ibm128_float_type_node		 (rs6000_builtin_types[RS6000_BTI_ibm128_float])
 
-extern GTY(()) tree rs6000_builtin_types[RS6000_BTI_MAX];
+extern GTY(()) ttype *rs6000_builtin_types[RS6000_BTI_MAX];
 extern GTY(()) tree rs6000_builtin_decls[RS6000_BUILTIN_COUNT];
 
 #define TARGET_SUPPORTS_WIDE_INT 1

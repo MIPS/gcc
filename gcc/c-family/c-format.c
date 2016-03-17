@@ -171,10 +171,10 @@ valid_stringptr_type_p (tree strref)
 /* Handle a "format_arg" attribute; arguments as in
    struct attribute_spec.handler.  */
 tree
-handle_format_arg_attribute (tree *node, tree ARG_UNUSED (name),
+handle_format_arg_attribute (ttype **node, tree ARG_UNUSED (name),
 			     tree args, int flags, bool *no_add_attrs)
 {
-  tree type = *node;
+  ttype *type = *node;
   tree format_num_expr = TREE_VALUE (args);
   unsigned HOST_WIDE_INT format_num = 0;
 
@@ -3170,10 +3170,10 @@ cmp_attribs (const char *tattr_name, const char *attr_name)
 /* Handle a "format" attribute; arguments as in
    struct attribute_spec.handler.  */
 tree
-handle_format_attribute (tree *node, tree ARG_UNUSED (name), tree args,
+handle_format_attribute (ttype **node, tree ARG_UNUSED (name), tree args,
 			 int flags, bool *no_add_attrs)
 {
-  tree type = *node;
+  ttype *type = *node;
   function_format_info info;
 
 #ifdef TARGET_FORMAT_TYPES

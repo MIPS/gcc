@@ -1927,7 +1927,9 @@ struct attribute_spec {
      otherwise the return value should be NULL_TREE.  This pointer may be
      NULL if no special handling is required beyond the checks implied
      by the rest of this structure.  */
-  tree (*handler) (tree *node, tree name, tree args,
+  tree (*decl_handler) (tree *node, tree name, tree args,
+		   int flags, bool *no_add_attrs);
+  tree (*type_handler) (ttype **node, tree name, tree args,
 		   int flags, bool *no_add_attrs);
   /* Specifies if attribute affects type's identity.  */
   bool affects_type_identity;

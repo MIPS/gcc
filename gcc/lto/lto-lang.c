@@ -44,17 +44,17 @@ static tree handle_const_attribute (tree *, tree, tree, int, bool *);
 static tree handle_malloc_attribute (tree *, tree, tree, int, bool *);
 static tree handle_pure_attribute (tree *, tree, tree, int, bool *);
 static tree handle_novops_attribute (tree *, tree, tree, int, bool *);
-static tree handle_nonnull_attribute (tree *, tree, tree, int, bool *);
+static tree handle_nonnull_attribute (ttype **, tree, tree, int, bool *);
 static tree handle_nothrow_attribute (tree *, tree, tree, int, bool *);
-static tree handle_sentinel_attribute (tree *, tree, tree, int, bool *);
-static tree handle_type_generic_attribute (tree *, tree, tree, int, bool *);
-static tree handle_transaction_pure_attribute (tree *, tree, tree, int, bool *);
+static tree handle_sentinel_attribute (ttype **, tree, tree, int, bool *);
+static tree handle_type_generic_attribute (ttype **, tree, tree, int, bool *);
+static tree handle_transaction_pure_attribute (ttype **, tree, tree, int, bool *);
 static tree handle_returns_twice_attribute (tree *, tree, tree, int, bool *);
-static tree ignore_attribute (tree *, tree, tree, int, bool *);
+static tree ignore_attribute (ttype **, tree, tree, int, bool *);
 
-static tree handle_format_attribute (tree *, tree, tree, int, bool *);
-static tree handle_fnspec_attribute (tree *, tree, tree, int, bool *);
-static tree handle_format_arg_attribute (tree *, tree, tree, int, bool *);
+static tree handle_format_attribute (ttype **, tree, tree, int, bool *);
+static tree handle_fnspec_attribute (ttype **, tree, tree, int, bool *);
+static tree handle_format_arg_attribute (ttype **, tree, tree, int, bool *);
 
 /* Table of machine-independent attributes supported in GIMPLE.  */
 const struct attribute_spec lto_attribute_table[] =
@@ -62,37 +62,38 @@ const struct attribute_spec lto_attribute_table[] =
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
        do_diagnostic } */
   { "noreturn",               0, 0, true,  false, false,
-			      handle_noreturn_attribute, false },
+			      handle_noreturn_attribute, NULL, false },
   { "leaf",		      0, 0, true,  false, false,
-			      handle_leaf_attribute, false },
+			      handle_leaf_attribute, NULL, false },
   /* The same comments as for noreturn attributes apply to const ones.  */
   { "const",                  0, 0, true,  false, false,
-			      handle_const_attribute, false },
+			      handle_const_attribute, NULL, false },
   { "malloc",                 0, 0, true,  false, false,
-			      handle_malloc_attribute, false },
+			      handle_malloc_attribute, NULL, false },
   { "pure",                   0, 0, true,  false, false,
-			      handle_pure_attribute, false },
+			      handle_pure_attribute, NULL, false },
   { "no vops",                0, 0, true,  false, false,
-			      handle_novops_attribute, false },
+			      handle_novops_attribute, NULL, false },
   { "nonnull",                0, -1, false, true, true,
-			      handle_nonnull_attribute, false },
+			      NULL, handle_nonnull_attribute, false },
   { "nothrow",                0, 0, true,  false, false,
-			      handle_nothrow_attribute, false },
+			      handle_nothrow_attribute, NULL, false },
   { "returns_twice",          0, 0, true,  false, false,
-			      handle_returns_twice_attribute, false },
+			      handle_returns_twice_attribute, NULL, false },
   { "sentinel",               0, 1, false, true, true,
-			      handle_sentinel_attribute, false },
+			      NULL, handle_sentinel_attribute, false },
   { "type generic",           0, 0, false, true, true,
-			      handle_type_generic_attribute, false },
+			      NULL, handle_type_generic_attribute, false },
   { "fn spec",	 	      1, 1, false, true, true,
-			      handle_fnspec_attribute, false },
+			      NULL, handle_fnspec_attribute, false },
   { "transaction_pure",	      0, 0, false, true, true,
-			      handle_transaction_pure_attribute, false },
+			      NULL, handle_transaction_pure_attribute, false },
   /* For internal use only.  The leading '*' both prevents its usage in
      source code and signals that it may be overridden by machine tables.  */
   { "*tm regparm",            0, 0, false, true, true,
-			      ignore_attribute, false },
-  { NULL,                     0, 0, false, false, false, NULL, false }
+			      NULL, ignore_attribute,
+			      false },
+  { NULL,                     0, 0, false, false, false, NULL, NULL, false }
 };
 
 /* Give the specifications for the format attributes, used by C and all
@@ -103,10 +104,12 @@ const struct attribute_spec lto_format_attribute_table[] =
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
        affects_type_identity } */
   { "format",                 3, 3, false, true,  true,
+			      NULL,
 			      handle_format_attribute, false },
   { "format_arg",             1, 1, false, true,  true,
+			      NULL,
 			      handle_format_arg_attribute, false },
-  { NULL,                     0, 0, false, false, false, NULL, false }
+  { NULL,                     0, 0, false, false, false, NULL, NULL, false }
 };
 
 enum built_in_attribute
@@ -344,11 +347,11 @@ get_nonnull_operand (tree arg_num_expr, unsigned HOST_WIDE_INT *valp)
 /* Handle the "nonnull" attribute.  */
 
 static tree
-handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
+handle_nonnull_attribute (ttype **node, tree ARG_UNUSED (name),
 			  tree args, int ARG_UNUSED (flags),
 			  bool * ARG_UNUSED (no_add_attrs))
 {
-  tree type = *node;
+  ttype *type = *node;
 
   /* If no arguments are specified, all pointer arguments should be
      non-null.  Verify a full prototype is given so that the arguments
@@ -408,7 +411,7 @@ handle_nothrow_attribute (tree *node, tree ARG_UNUSED (name),
 /* Handle a "sentinel" attribute.  */
 
 static tree
-handle_sentinel_attribute (tree *node, tree ARG_UNUSED (name), tree args,
+handle_sentinel_attribute (ttype **node, tree ARG_UNUSED (name), tree args,
 			   int ARG_UNUSED (flags),
 			   bool * ARG_UNUSED (no_add_attrs))
 {
@@ -428,7 +431,7 @@ handle_sentinel_attribute (tree *node, tree ARG_UNUSED (name), tree args,
 /* Handle a "type_generic" attribute.  */
 
 static tree
-handle_type_generic_attribute (tree *node, tree ARG_UNUSED (name),
+handle_type_generic_attribute (ttype **node, tree ARG_UNUSED (name),
 			       tree ARG_UNUSED (args), int ARG_UNUSED (flags),
 			       bool * ARG_UNUSED (no_add_attrs))
 {
@@ -444,7 +447,7 @@ handle_type_generic_attribute (tree *node, tree ARG_UNUSED (name),
 /* Handle a "transaction_pure" attribute.  */
 
 static tree
-handle_transaction_pure_attribute (tree *node, tree ARG_UNUSED (name),
+handle_transaction_pure_attribute (ttype **node, tree ARG_UNUSED (name),
 				   tree ARG_UNUSED (args),
 				   int ARG_UNUSED (flags),
 				   bool * ARG_UNUSED (no_add_attrs))
@@ -474,7 +477,7 @@ handle_returns_twice_attribute (tree *node, tree ARG_UNUSED (name),
    overridden by the target, but is not used generically.  */
 
 static tree
-ignore_attribute (tree * ARG_UNUSED (node), tree ARG_UNUSED (name),
+ignore_attribute (ttype ** ARG_UNUSED (node), tree ARG_UNUSED (name),
 		  tree ARG_UNUSED (args), int ARG_UNUSED (flags),
 		  bool *no_add_attrs)
 {
@@ -486,7 +489,7 @@ ignore_attribute (tree * ARG_UNUSED (node), tree ARG_UNUSED (name),
    struct attribute_spec.handler.  */
 
 static tree
-handle_format_attribute (tree * ARG_UNUSED (node), tree ARG_UNUSED (name),
+handle_format_attribute (ttype ** ARG_UNUSED (node), tree ARG_UNUSED (name),
 			 tree ARG_UNUSED (args), int ARG_UNUSED (flags),
 			 bool *no_add_attrs)
 {
@@ -499,7 +502,7 @@ handle_format_attribute (tree * ARG_UNUSED (node), tree ARG_UNUSED (name),
    struct attribute_spec.handler.  */
 
 tree
-handle_format_arg_attribute (tree * ARG_UNUSED (node), tree ARG_UNUSED (name),
+handle_format_arg_attribute (ttype ** ARG_UNUSED (node), tree ARG_UNUSED (name),
 			     tree ARG_UNUSED (args), int ARG_UNUSED (flags),
 			     bool *no_add_attrs)
 {
@@ -512,7 +515,7 @@ handle_format_arg_attribute (tree * ARG_UNUSED (node), tree ARG_UNUSED (name),
    struct attribute_spec.handler.  */
 
 static tree
-handle_fnspec_attribute (tree *node ATTRIBUTE_UNUSED, tree ARG_UNUSED (name),
+handle_fnspec_attribute (ttype **node ATTRIBUTE_UNUSED, tree ARG_UNUSED (name),
 			 tree args, int ARG_UNUSED (flags),
 			 bool *no_add_attrs ATTRIBUTE_UNUSED)
 {

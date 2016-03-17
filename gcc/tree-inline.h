@@ -213,7 +213,7 @@ int estimate_num_insns_fn (tree, eni_weights *);
 int estimate_num_insns_seq (gimple_seq, eni_weights *);
 bool tree_versionable_function_p (tree);
 extern tree remap_decl (tree decl, copy_body_data *id);
-extern tree remap_type (tree type, copy_body_data *id);
+extern ttype *remap_type (tree type, copy_body_data *id);
 extern gimple_seq copy_gimple_seq_and_replace_locals (gimple_seq seq);
 extern bool debug_find_tree (tree, tree);
 extern tree copy_fn (tree, tree&, tree&);
@@ -221,6 +221,6 @@ extern const char *copy_forbidden (struct function *fun, tree fndecl);
 
 /* This is in tree-inline.c since the routine uses
    data structures from the inliner.  */
-extern tree build_duplicate_type (tree);
+extern ttype *build_duplicate_type (tree);
 
 #endif /* GCC_TREE_INLINE_H */

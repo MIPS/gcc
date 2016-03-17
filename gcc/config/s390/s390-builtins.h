@@ -88,8 +88,8 @@ enum s390_builtin_ov_type_index
 
 #define MAX_OV_OPERANDS 6
 
-extern tree s390_builtin_types[BT_MAX];
-extern tree s390_builtin_fn_types[BT_FN_MAX];
+extern ttype *s390_builtin_types[BT_MAX];
+extern ttype *s390_builtin_fn_types[BT_FN_MAX];
 
   /* Builtins.  */
 

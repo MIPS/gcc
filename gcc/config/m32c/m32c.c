@@ -58,7 +58,8 @@ typedef enum
 } Push_Pop_Type;
 
 static bool m32c_function_needs_enter (void);
-static tree interrupt_handler (tree *, tree, tree, int, bool *);
+static tree interrupt_decl_handler (tree *, tree, tree, int, bool *);
+static tree interrupt_type_handler (ttype *, tree, tree, int, bool *);
 static tree function_vector_handler (tree *, tree, tree, int, bool *);
 static int interrupt_p (tree node);
 static int bank_switch_p (tree node);
@@ -2882,7 +2883,7 @@ fast_interrupt_p (tree node ATTRIBUTE_UNUSED)
 }
 
 static tree
-interrupt_handler (tree * node ATTRIBUTE_UNUSED,
+interrupt_decl_handler (tree * node ATTRIBUTE_UNUSED,
 		   tree name ATTRIBUTE_UNUSED,
 		   tree args ATTRIBUTE_UNUSED,
 		   int flags ATTRIBUTE_UNUSED,
@@ -2891,6 +2892,15 @@ interrupt_handler (tree * node ATTRIBUTE_UNUSED,
   return NULL_TREE;
 }
 
+static tree
+interrupt_type_handler (ttype ** node ATTRIBUTE_UNUSED,
+		   tree name ATTRIBUTE_UNUSED,
+		   tree args ATTRIBUTE_UNUSED,
+		   int flags ATTRIBUTE_UNUSED,
+		   bool * no_add_attrs ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
 /* Returns TRUE if given tree has the "function_vector" attribute. */
 int
 m32c_special_page_vector_p (tree func)
@@ -2990,12 +3000,15 @@ current_function_special_page_vector (rtx x)
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE m32c_attribute_table
 static const struct attribute_spec m32c_attribute_table[] = {
-  {"interrupt", 0, 0, false, false, false, interrupt_handler, false},
-  {"bank_switch", 0, 0, false, false, false, interrupt_handler, false},
-  {"fast_interrupt", 0, 0, false, false, false, interrupt_handler, false},
-  {"function_vector", 1, 1, true,  false, false, function_vector_handler,
+  {"interrupt", 0, 0, false, false, false, interrupt_decl_handler,
+    interrupt_type_handler, false},
+  {"bank_switch", 0, 0, false, false, false, interrupt_decl_handler,
+    interrupt_type_handler, false},
+  {"fast_interrupt", 0, 0, false, false, false, interrupt_decl_handler,
+    interrupt_type_handler, false},
+  {"function_vector", 1, 1, true,  false, false,function_vector_handler, NULL, 
    false},
-  {0, 0, 0, 0, 0, 0, 0, false}
+  {0, 0, 0, 0, 0, 0, 0, 0, false}
 };
 
 #undef TARGET_COMP_TYPE_ATTRIBUTES

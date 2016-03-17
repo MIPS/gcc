@@ -130,10 +130,11 @@ static unsigned long arm_compute_save_reg_mask (void);
 static unsigned long arm_isr_value (tree);
 static unsigned long arm_compute_func_type (void);
 static tree arm_handle_fndecl_attribute (tree *, tree, tree, int, bool *);
-static tree arm_handle_pcs_attribute (tree *, tree, tree, int, bool *);
-static tree arm_handle_isr_attribute (tree *, tree, tree, int, bool *);
+static tree arm_handle_pcs_attribute (ttype **, tree, tree, int, bool *);
+static tree arm_handle_isr_decl_attribute (tree *, tree, tree, int, bool *);
+static tree arm_handle_isr_type_attribute (ttype **, tree, tree, int, bool *);
 #if TARGET_DLLIMPORT_DECL_ATTRIBUTES
-static tree arm_handle_notshared_attribute (tree *, tree, tree, int, bool *);
+static tree arm_handle_notshared_attribute (ttype **, tree, tree, int, bool *);
 #endif
 static void arm_output_function_epilogue (FILE *, HOST_WIDE_INT);
 static void arm_output_function_prologue (FILE *, HOST_WIDE_INT);
@@ -304,25 +305,26 @@ static void arm_sched_fusion_priority (rtx_insn *, int, int *, int*);
 /* Table of machine attributes.  */
 static const struct attribute_spec arm_attribute_table[] =
 {
-  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
-       affects_type_identity } */
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, decl_handler,
+       type_handle, affects_type_identity } */
   /* Function calls made to this symbol must be done indirectly, because
      it may lie outside of the 26 bit addressing range of a normal function
      call.  */
-  { "long_call",    0, 0, false, true,  true,  NULL, false },
+  { "long_call",    0, 0, false, true,  true,  NULL, NULL, false },
   /* Whereas these functions are always known to reside within the 26 bit
      addressing range.  */
-  { "short_call",   0, 0, false, true,  true,  NULL, false },
+  { "short_call",   0, 0, false, true,  true,  NULL, NULL, false },
   /* Specify the procedure call conventions for a function.  */
-  { "pcs",          1, 1, false, true,  true,  arm_handle_pcs_attribute,
+  { "pcs",          1, 1, false, true,  true, NULL, arm_handle_pcs_attribute, 
     false },
   /* Interrupt Service Routines have special prologue and epilogue requirements.  */
-  { "isr",          0, 1, false, false, false, arm_handle_isr_attribute,
-    false },
-  { "interrupt",    0, 1, false, false, false, arm_handle_isr_attribute,
+  { "isr",          0, 1, false, false, false, arm_handle_isr_decl_attribute,
+    arm_handle_isr_type_attribute, false },
+  { "interrupt",    0, 1, false, false, false, arm_handle_isr_decl_attribute,
+    arm_handle_isr_type_attribute, 
     false },
   { "naked",        0, 0, true,  false, false, arm_handle_fndecl_attribute,
-    false },
+    NULL, false },
 #ifdef ARM_PE
   /* ARM/PE has three new attributes:
      interfacearm - ?
@@ -333,17 +335,19 @@ static const struct attribute_spec arm_attribute_table[] =
      them with spaces.  We do NOT support this.  Instead, use __declspec
      multiple times.
   */
-  { "dllimport",    0, 0, true,  false, false, NULL, false },
-  { "dllexport",    0, 0, true,  false, false, NULL, false },
+  { "dllimport",    0, 0, true,  false, false, NULL, NULL, false },
+  { "dllexport",    0, 0, true,  false, false, NULL, NULL, false },
   { "interfacearm", 0, 0, true,  false, false, arm_handle_fndecl_attribute,
-    false },
+    NULL, false },
 #elif TARGET_DLLIMPORT_DECL_ATTRIBUTES
-  { "dllimport",    0, 0, false, false, false, handle_dll_attribute, false },
-  { "dllexport",    0, 0, false, false, false, handle_dll_attribute, false },
-  { "notshared",    0, 0, false, true, false, arm_handle_notshared_attribute,
-    false },
+  { "dllimport",    0, 0, false, false, false, handle_dll_decl_attribute,
+    handle_dll_type_attribute, false },
+  { "dllexport",    0, 0, false, false, false, handle_dll_decl_attribute,
+    handle_dll_type_attribute, false },
+  { "notshared",    0, 0, false, true, false, NULL,
+    arm_handle_notshared_attribute, false },
 #endif
-  { NULL,           0, 0, false, false, false, NULL, false }
+  { NULL,           0, 0, false, false, false, NULL, NULL, false }
 };
 
 /* Initialize the GCC target structure.  */
@@ -6464,58 +6468,60 @@ arm_handle_fndecl_attribute (tree *node, tree name, tree args ATTRIBUTE_UNUSED,
 /* Handle an "interrupt" or "isr" attribute;
    arguments as in struct attribute_spec.handler.  */
 static tree
-arm_handle_isr_attribute (tree *node, tree name, tree args, int flags,
-			  bool *no_add_attrs)
+arm_handle_isr_decl_attribute (tree *node, tree name, tree args, int flags,
+			       bool *no_add_attrs)
 {
-  if (DECL_P (*node))
+  if (TREE_CODE (*node) != FUNCTION_DECL)
     {
-      if (TREE_CODE (*node) != FUNCTION_DECL)
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+	       name);
+      *no_add_attrs = true;
+    }
+  /* FIXME: the argument if any is checked for type attributes;
+     should it be checked for decl ones?  */
+
+  return NULL_TREE;
+}
+
+static tree
+arm_handle_isr_type_attribute (ttype **node, tree name, tree args, int flags,
+			       bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) == FUNCTION_TYPE
+      || TREE_CODE (*node) == METHOD_TYPE)
+    {
+      if (arm_isr_value (args) == ARM_FT_UNKNOWN)
 	{
-	  warning (OPT_Wattributes, "%qE attribute only applies to functions",
+	  warning (OPT_Wattributes, "%qE attribute ignored",
 		   name);
 	  *no_add_attrs = true;
 	}
-      /* FIXME: the argument if any is checked for type attributes;
-	 should it be checked for decl ones?  */
+    }
+  else if (TREE_CODE (*node) == POINTER_TYPE
+	   && (TREE_CODE (TREE_TYPE (*node)) == FUNCTION_TYPE
+	       || TREE_CODE (TREE_TYPE (*node)) == METHOD_TYPE)
+	   && arm_isr_value (args) != ARM_FT_UNKNOWN)
+    {
+      *node = build_variant_type_copy (*node);
+      TREE_TYPE (*node) = build_type_attribute_variant
+	(TREE_TYPE (*node),
+	 tree_cons (name, args, TYPE_ATTRIBUTES (TREE_TYPE (*node))));
+      *no_add_attrs = true;
     }
   else
     {
-      if (TREE_CODE (*node) == FUNCTION_TYPE
-	  || TREE_CODE (*node) == METHOD_TYPE)
+      /* Possibly pass this attribute on from the type to a decl.  */
+      if (flags & ((int) ATTR_FLAG_DECL_NEXT
+		   | (int) ATTR_FLAG_FUNCTION_NEXT
+		   | (int) ATTR_FLAG_ARRAY_NEXT))
 	{
-	  if (arm_isr_value (args) == ARM_FT_UNKNOWN)
-	    {
-	      warning (OPT_Wattributes, "%qE attribute ignored",
-		       name);
-	      *no_add_attrs = true;
-	    }
-	}
-      else if (TREE_CODE (*node) == POINTER_TYPE
-	       && (TREE_CODE (TREE_TYPE (*node)) == FUNCTION_TYPE
-		   || TREE_CODE (TREE_TYPE (*node)) == METHOD_TYPE)
-	       && arm_isr_value (args) != ARM_FT_UNKNOWN)
-	{
-	  *node = build_variant_type_copy (*node);
-	  TREE_TYPE (*node) = build_type_attribute_variant
-	    (TREE_TYPE (*node),
-	     tree_cons (name, args, TYPE_ATTRIBUTES (TREE_TYPE (*node))));
 	  *no_add_attrs = true;
+	  return tree_cons (name, args, NULL_TREE);
 	}
       else
 	{
-	  /* Possibly pass this attribute on from the type to a decl.  */
-	  if (flags & ((int) ATTR_FLAG_DECL_NEXT
-		       | (int) ATTR_FLAG_FUNCTION_NEXT
-		       | (int) ATTR_FLAG_ARRAY_NEXT))
-	    {
-	      *no_add_attrs = true;
-	      return tree_cons (name, args, NULL_TREE);
-	    }
-	  else
-	    {
-	      warning (OPT_Wattributes, "%qE attribute ignored",
-		       name);
-	    }
+	  warning (OPT_Wattributes, "%qE attribute ignored",
+		   name);
 	}
     }
 
@@ -6525,7 +6531,7 @@ arm_handle_isr_attribute (tree *node, tree name, tree args, int flags,
 /* Handle a "pcs" attribute; arguments as in struct
    attribute_spec.handler.  */
 static tree
-arm_handle_pcs_attribute (tree *node ATTRIBUTE_UNUSED, tree name, tree args,
+arm_handle_pcs_attribute (ttype **node ATTRIBUTE_UNUSED, tree name, tree args,
 			  int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
 {
   if (arm_pcs_from_attribute (args) == ARM_PCS_UNKNOWN)
@@ -6543,7 +6549,7 @@ arm_handle_pcs_attribute (tree *node ATTRIBUTE_UNUSED, tree name, tree args,
    attribute.  */
 
 static tree
-arm_handle_notshared_attribute (tree *node,
+arm_handle_notshared_attribute (ttype **node,
 				tree name ATTRIBUTE_UNUSED,
 				tree args ATTRIBUTE_UNUSED,
 				int flags ATTRIBUTE_UNUSED,

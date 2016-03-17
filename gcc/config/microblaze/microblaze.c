@@ -212,18 +212,18 @@ int fast_interrupt;
 int save_volatiles;
 
 const struct attribute_spec microblaze_attribute_table[] = {
-  /* name         min_len, max_len, decl_req, type_req, fn_type, req_handler,
-     affects_type_identity */
-  {"interrupt_handler", 0,       0,     true,    false,   false,        NULL,
-    false },
+  /* name         min_len, max_len, decl_req, type_req, fn_type, decl_handler,
+     type_handler, affects_type_identity */
+  {"interrupt_handler", 0,       0,     true,    false,   false,	NULL,
+    NULL,	false },
   {"break_handler",     0,       0,     true,    false,   false,        NULL,
-    false },
+    NULL,	false },
   {"fast_interrupt",    0,       0,     true,    false,   false,        NULL,
-    false },
+    NULL,	false },
   {"save_volatiles"   , 0,       0,     true,    false,   false,        NULL,
-    false },
+    NULL,	false },
   { NULL,        	0,       0,    false,    false,   false,        NULL,
-    false }
+    NULL,	false }
 };
 
 static int microblaze_interrupt_function_p (tree);
