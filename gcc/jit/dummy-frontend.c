@@ -127,7 +127,7 @@ jit_langhook_parse_file (void)
   gcc::jit::active_playback_ctxt->replay ();
 }
 
-static tree
+static ttype *
 jit_langhook_type_for_mode (enum machine_mode mode, int unsignedp)
 {
   if (mode == TYPE_MODE (float_type_node))
@@ -172,7 +172,7 @@ jit_langhook_type_for_mode (enum machine_mode mode, int unsignedp)
   return NULL;
 }
 
-static tree
+static ttype *
 jit_langhook_type_for_size (unsigned int bits ATTRIBUTE_UNUSED,
 			    int unsignedp ATTRIBUTE_UNUSED)
 {

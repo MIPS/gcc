@@ -43,24 +43,25 @@ extern alias_set_type lhd_get_alias_set (tree);
 extern tree lhd_return_null_tree_v (void);
 extern tree lhd_return_null_tree (tree);
 extern tree lhd_return_null_const_tree (const_tree);
+extern tree lhd_return_null_const_type (const ttype_p);
 extern tree lhd_do_nothing_iii_return_null_tree (int, int, int);
 extern void lhd_print_tree_nothing (FILE *, tree, int);
 extern const char *lhd_decl_printable_name (tree, int);
 extern const char *lhd_dwarf_name (tree, int);
-extern int lhd_types_compatible_p (tree, tree);
+extern int lhd_types_compatible_p (ttype_p, ttype_p);
 extern void lhd_print_error_function (diagnostic_context *,
 				      const char *, struct diagnostic_info *);
 extern void lhd_set_decl_assembler_name (tree);
 extern bool lhd_warn_unused_global_decl (const_tree);
-extern void lhd_incomplete_type_error (const_tree, const_tree);
-extern tree lhd_type_promotes_to (tree);
-extern void lhd_register_builtin_type (tree, const char *);
+extern void lhd_incomplete_type_error (const_tree, const ttype_p);
+extern ttype *lhd_type_promotes_to (ttype_p);
+extern void lhd_register_builtin_type (ttype_p, const char *);
 extern bool lhd_decl_ok_for_sibcall (const_tree);
 extern size_t lhd_tree_size (enum tree_code);
 extern HOST_WIDE_INT lhd_to_target_charset (HOST_WIDE_INT);
 extern tree lhd_expr_to_decl (tree, bool *, bool *);
 extern tree lhd_builtin_function (tree);
-extern tree lhd_enum_underlying_base_type (const_tree);
+extern ttype *lhd_enum_underlying_base_type (const ttype_p);
 
 /* Declarations of default tree inlining hooks.  */
 extern void lhd_initialize_diagnostics (diagnostic_context *);
@@ -79,7 +80,7 @@ extern void lhd_omp_finish_clause (tree, gimple_seq *);
 struct gimplify_omp_ctx;
 extern void lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *,
 					       tree);
-extern bool lhd_omp_mappable_type (tree);
+extern bool lhd_omp_mappable_type (ttype_p);
 
 #define LANG_HOOKS_NAME			"GNU unknown"
 #define LANG_HOOKS_IDENTIFIER_SIZE	sizeof (struct lang_identifier)
@@ -140,7 +141,7 @@ extern bool lhd_omp_mappable_type (tree);
 /* Tree dump hooks.  */
 extern bool lhd_tree_dump_dump_tree (void *, tree);
 extern int lhd_tree_dump_type_quals (const_tree);
-extern tree lhd_make_node (enum tree_code);
+extern ttype *lhd_make_node (enum tree_code);
 
 #define LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN lhd_tree_dump_dump_tree
 #define LANG_HOOKS_TREE_DUMP_TYPE_QUALS_FN lhd_tree_dump_type_quals
@@ -155,7 +156,7 @@ extern tree lhd_make_node (enum tree_code);
 #define LANG_HOOKS_MAKE_TYPE lhd_make_node
 #define LANG_HOOKS_CLASSIFY_RECORD	NULL
 #define LANG_HOOKS_INCOMPLETE_TYPE_ERROR lhd_incomplete_type_error
-#define LANG_HOOKS_GENERIC_TYPE_P	hook_bool_const_tree_false
+#define LANG_HOOKS_GENERIC_TYPE_P	hook_bool_const_type_false
 #define LANG_HOOKS_GET_INNERMOST_GENERIC_PARMS hook_tree_const_tree_null
 #define LANG_HOOKS_GET_INNERMOST_GENERIC_ARGS hook_tree_const_tree_null
 #define LANG_HOOKS_FUNCTION_PARAMETER_PACK_P hook_bool_const_tree_false
@@ -166,7 +167,7 @@ extern tree lhd_make_node (enum tree_code);
 #define LANG_HOOKS_GET_GENERIC_FUNCTION_DECL hook_tree_const_tree_null
 #define LANG_HOOKS_TYPE_PROMOTES_TO lhd_type_promotes_to
 #define LANG_HOOKS_REGISTER_BUILTIN_TYPE lhd_register_builtin_type
-#define LANG_HOOKS_TYPE_MAX_SIZE	lhd_return_null_const_tree
+#define LANG_HOOKS_TYPE_MAX_SIZE	lhd_return_null_const_type
 #define LANG_HOOKS_OMP_FIRSTPRIVATIZE_TYPE_SIZES \
   lhd_omp_firstprivatize_type_sizes
 #define LANG_HOOKS_OMP_MAPPABLE_TYPE	lhd_omp_mappable_type

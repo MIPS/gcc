@@ -125,7 +125,7 @@ cp_var_mod_type_p (tree type, tree fn)
    in contexts where erroneously returning 0 causes problems.  */
 
 int
-cxx_types_compatible_p (tree x, tree y)
+cxx_types_compatible_p (ttype_p x, ttype_p y)
 {
   return same_type_ignoring_top_level_qualifiers_p (x, y);
 }

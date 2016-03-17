@@ -605,7 +605,7 @@ java_init_decl_processing (void)
 			unsigned_long_type_node));
 
   /* Define these next since types below may used them.  */
-  integer_type_node = TTYPE (java_type_for_size (INT_TYPE_SIZE, 0));
+  integer_type_node = java_type_for_size (INT_TYPE_SIZE, 0);
   integer_zero_node = build_int_cst (NULL_TREE, 0);
   integer_one_node = build_int_cst (NULL_TREE, 1);
   integer_two_node = build_int_cst (NULL_TREE, 2);
