@@ -2712,7 +2712,7 @@ bswap_replace (gimple *cur_stmt, gimple *src_stmt, tree fndecl,
      gives 0x03040102 while a bswap for that value is 0x04030201.  */
   if (bswap && n->range == 16)
     {
-      tree count = build_int_cst (NULL, BITS_PER_UNIT);
+      tree count = build_int_cst (NULL_TYPE, BITS_PER_UNIT);
       src = fold_build2 (LROTATE_EXPR, bswap_type, tmp, count);
       bswap_stmt = gimple_build_assign (NULL, src);
     }

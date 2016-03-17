@@ -152,7 +152,7 @@ init_rtti_processing (void)
 			     /*tag_scope=*/ts_current, false);
   pop_namespace ();
   const_type_info_type_node
-    = cp_build_qualified_type (type_info_type, TYPE_QUAL_CONST);
+    = TTYPE (cp_build_qualified_type (type_info_type, TYPE_QUAL_CONST));
   type_info_ptr_type = build_pointer_type (const_type_info_type_node);
 
   vec_alloc (unemitted_tinfo_decls, 124);
@@ -1511,7 +1511,7 @@ emit_support_tinfos (void)
 {
   /* Dummy static variable so we can put nullptr in the array; it will be
      set before we actually start to walk the array.  */
-  static tree *const fundamentals[] =
+  static ttype **const fundamentals[] =
   {
     &void_type_node,
     &boolean_type_node,

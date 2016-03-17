@@ -453,9 +453,6 @@ extern const REAL_VALUE_TYPE *dconst_ninth_ptr (void);
 /* Returns the special REAL_VALUE_TYPE corresponding to sqrt(2).  */
 extern const REAL_VALUE_TYPE * dconst_sqrt2_ptr (void);
 
-/* Function to return a real value (not a tree node)
-   from a given integer constant.  */
-REAL_VALUE_TYPE real_value_from_int_cst (const_tree, const_tree);
 
 /* Return a CONST_DOUBLE with value R and mode M.  */
 extern rtx const_double_from_real_value (REAL_VALUE_TYPE, machine_mode);
@@ -467,12 +464,6 @@ extern bool exact_real_inverse (format_helper, REAL_VALUE_TYPE *);
    from values in TMODE is equivalent to direct arithmetic on values
    in TMODE.  */
 bool real_can_shorten_arithmetic (machine_mode, machine_mode);
-
-/* In tree.c: wrap up a REAL_VALUE_TYPE in a tree node.  */
-extern tree build_real (tree, REAL_VALUE_TYPE);
-
-/* Likewise, but first truncate the value to the type.  */
-extern tree build_real_truncate (tree, REAL_VALUE_TYPE);
 
 /* Calculate R as X raised to the integer exponent N in format FMT.  */
 extern bool real_powi (REAL_VALUE_TYPE *, format_helper,

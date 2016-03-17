@@ -927,7 +927,7 @@ check_narrowing (tree type, tree init, tsubst_flags_t complain)
       ok = false;
       if (TREE_CODE (init) == INTEGER_CST)
 	{
-	  d = real_value_from_int_cst (0, init);
+	  d = real_value_from_int_cst (NULL_TYPE, init);
 	  if (exact_real_truncate (TYPE_MODE (type), &d))
 	    ok = true;
 	}

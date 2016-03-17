@@ -5428,7 +5428,7 @@ builtin_decl_for (tree name)
 
 /* Standard data types to be used in builtin argument declarations.  */
 
-enum c_tree_index
+enum c_type_index
 {
     CTI_SIGNED_SIZE_TYPE, /* For format checking only.  */
     CTI_STRING_TYPE,
@@ -5437,11 +5437,11 @@ enum c_tree_index
     CTI_MAX
 };
 
-static tree c_global_trees[CTI_MAX];
+static ttype *c_global_types[CTI_MAX];
 
-#define signed_size_type_node	c_global_trees[CTI_SIGNED_SIZE_TYPE]
-#define string_type_node	c_global_trees[CTI_STRING_TYPE]
-#define const_string_type_node	c_global_trees[CTI_CONST_STRING_TYPE]
+#define signed_size_type_node	c_global_types[CTI_SIGNED_SIZE_TYPE]
+#define string_type_node	c_global_types[CTI_STRING_TYPE]
+#define const_string_type_node	c_global_types[CTI_CONST_STRING_TYPE]
 
 /* ??? In addition some attribute handlers, we currently don't support a
    (small) number of builtin-types, which in turns inhibits support for a
@@ -5477,7 +5477,7 @@ builtin_type_for_size (int size, bool unsignedp)
 static void
 install_builtin_elementary_types (void)
 {
-  signed_size_type_node = gnat_signed_type_for (size_type_node);
+  signed_size_type_node = TTYPE (gnat_signed_type_for (size_type_node));
   pid_type_node = integer_type_node;
   void_list_node = build_void_list_node ();
 

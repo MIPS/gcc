@@ -39,7 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-ref.h"
 #include "alias.h"
 #include "flags.h"
-#include "tree-core.h"
+#include "tree.h"
 #include "fold-const.h"
 #include "tree-check.h"
 #include "plugin.h"

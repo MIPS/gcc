@@ -141,7 +141,7 @@ struct lang_hooks_for_types
      we stripped off while looking for the inner type.  Similarly for
      return values from functions.  The argument TYPE is the top of the
      chain, and BOTTOM is the new type which we will point to.  */
-  tree (*reconstruct_complex_type) (tree, tree);
+  ttype *(*reconstruct_complex_type) (ttype_p , ttype_p);
 
   /* Returns the tree that represents the underlying data type used to
      implement the enumeration.  The default implementation will just use

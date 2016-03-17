@@ -1749,7 +1749,7 @@ output_eh_regions (struct output_block *ob, struct function *fn)
       unsigned i;
       eh_region eh;
       eh_landing_pad lp;
-      tree ttype;
+      tree type;
 
       streamer_write_record_start (ob, LTO_eh_table);
 
@@ -1768,8 +1768,8 @@ output_eh_regions (struct output_block *ob, struct function *fn)
 
       /* Emit all the runtime type data.  */
       streamer_write_hwi (ob, vec_safe_length (fn->eh->ttype_data));
-      FOR_EACH_VEC_SAFE_ELT (fn->eh->ttype_data, i, ttype)
-	stream_write_tree (ob, ttype, true);
+      FOR_EACH_VEC_SAFE_ELT (fn->eh->ttype_data, i, type)
+	stream_write_tree (ob, type, true);
 
       /* Emit the table of action chains.  */
       if (targetm.arm_eabi_unwinder)

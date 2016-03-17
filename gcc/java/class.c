@@ -454,7 +454,7 @@ gen_indirect_dispatch_tables (tree type)
     
     TYPE_CTABLE_DECL (type) 
       = build_decl (input_location, VAR_DECL, get_identifier (buf),
-		    build_array_type (catch_class_type, 0));
+		    build_array_type (catch_class_type, NULL_TYPE));
     DECL_EXTERNAL (TYPE_CTABLE_DECL (type)) = 1;
     TREE_STATIC (TYPE_CTABLE_DECL (type)) = 1;
     TREE_READONLY (TYPE_CTABLE_DECL (type)) = 1;
@@ -504,13 +504,13 @@ push_class (tree class_type, tree class_name)
    Does not check if the class actually exists, load the class,
    fill in field or methods, or do layout_type. */
 
-tree
+ttype *
 lookup_class (tree name)
 {
   tree decl = IDENTIFIER_CLASS_VALUE (name);
   if (decl == NULL_TREE)
     decl = push_class (make_class (), name);
-  return TREE_TYPE (decl);
+  return TTYPE (TREE_TYPE (decl));
 }
 
 void

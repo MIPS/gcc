@@ -178,46 +178,11 @@ extern GTY(()) tree constants_data_field_decl_node;
 
 enum java_tree_index
 {
-  JTI_PROMOTED_BYTE_TYPE_NODE,
-  JTI_PROMOTED_SHORT_TYPE_NODE,
-  JTI_PROMOTED_CHAR_TYPE_NODE,
-  JTI_PROMOTED_BOOLEAN_TYPE_NODE,
-
-  JTI_BYTE_TYPE_NODE,
-  JTI_SHORT_TYPE_NODE,
-  JTI_INT_TYPE_NODE,
-  JTI_LONG_TYPE_NODE,
-  
-  JTI_UNSIGNED_BYTE_TYPE_NODE,
-  JTI_UNSIGNED_SHORT_TYPE_NODE,
-  JTI_UNSIGNED_INT_TYPE_NODE,
-  JTI_UNSIGNED_LONG_TYPE_NODE,
-  
   JTI_DECIMAL_INT_MAX_NODE,
   JTI_DECIMAL_LONG_MAX_NODE,
 
-  JTI_OBJECT_TYPE_NODE,
   JTI_UNQUALIFIED_OBJECT_ID_NODE,
-  JTI_OBJECT_PTR_TYPE_NODE,
-  JTI_STRING_TYPE_NODE,
-  JTI_STRING_PTR_TYPE_NODE,
-  JTI_THROWABLE_TYPE_NODE,
-  JTI_EXCEPTION_TYPE_NODE,
-  JTI_RUNTIME_EXCEPTION_TYPE_NODE,
-  JTI_ERROR_EXCEPTION_TYPE_NODE,
-  JTI_RAWDATA_PTR_TYPE_NODE,
 
-  JTI_BYTE_ARRAY_TYPE_NODE,
-  JTI_SHORT_ARRAY_TYPE_NODE,
-  JTI_INT_ARRAY_TYPE_NODE,
-  JTI_LONG_ARRAY_TYPE_NODE,
-  JTI_BOOLEAN_ARRAY_TYPE_NODE,
-  JTI_CHAR_ARRAY_TYPE_NODE,
-  JTI_DOUBLE_ARRAY_TYPE_NODE,
-  JTI_FLOAT_ARRAY_TYPE_NODE,
-  JTI_ARRAY_ARRAY_TYPE_NODE,
-  JTI_OBJECT_ARRAY_TYPE_NODE,
-  JTI_STRING_ARRAY_TYPE_NODE,
   JTI_BOOLEAN_ARRAY_VTABLE,
   JTI_BYTE_ARRAY_VTABLE,
   JTI_CHAR_ARRAY_VTABLE,
@@ -232,47 +197,12 @@ enum java_tree_index
   JTI_VOID_SIGNATURE_NODE,       
   JTI_FINALIZE_IDENTIFIER_NODE,
   JTI_THIS_IDENTIFIER_NODE,  
-  JTI_ONE_ELT_ARRAY_DOMAIN_TYPE,
-
-  JTI_RETURN_ADDRESS_TYPE_NODE,
 
   JTI_LONG_ZERO_NODE,
   JTI_FLOAT_ZERO_NODE,
   JTI_DOUBLE_ZERO_NODE,
   JTI_INTEGER_TWO_NODE,
   JTI_INTEGER_FOUR_NODE,
-
-  JTI_METHODTABLE_TYPE,
-  JTI_METHODTABLE_PTR_TYPE,
-
-  JTI_UTF8CONST_TYPE,
-  JTI_UTF8CONST_PTR_TYPE,
-
-  JTI_CLASS_TYPE_NODE,
-  JTI_CLASS_PTR_TYPE,
-  JTI_FIELD_TYPE_NODE,
-  JTI_CONSTANTS_TYPE_NODE,
-  JTI_DTABLE_TYPE, 
-  JTI_DTABLE_PTR_TYPE,
-  JTI_FIELD_PTR_TYPE_NODE,
-  JTI_FIELD_INFO_UNION_NODE,
-  JTI_EXCEPTION_TYPE,
-  JTI_EXCEPTION_PTR_TYPE,
-  JTI_LINENUMBERENTRY_TYPE,
-  JTI_LINENUMBERS_TYPE,
-  JTI_METHOD_TYPE_NODE,
-  JTI_METHOD_PTR_TYPE_NODE,
-  JTI_OTABLE_TYPE,
-  JTI_OTABLE_PTR_TYPE,
-  JTI_ATABLE_TYPE,
-  JTI_ATABLE_PTR_TYPE,
-  JTI_ITABLE_TYPE,
-  JTI_ITABLE_PTR_TYPE,
-  JTI_SYMBOL_TYPE,
-  JTI_SYMBOLS_ARRAY_TYPE,
-  JTI_SYMBOLS_ARRAY_PTR_TYPE,
-  JTI_ASSERTION_ENTRY_TYPE,
-  JTI_ASSERTION_TABLE_TYPE,
 
   JTI_END_PARAMS_NODE,
 
@@ -304,10 +234,6 @@ enum java_tree_index
   JTI_SOFT_LDIV_NODE,
   JTI_SOFT_LREM_NODE,
 
-  JTI_ACCESS_FLAGS_TYPE_NODE,
-
-  JTI_NATIVECODE_PTR_ARRAY_TYPE_NODE,
-
   JTI_MAIN_CLASS,
   JTI_CURRENT_CLASS,
   JTI_OUTPUT_CLASS,
@@ -315,86 +241,249 @@ enum java_tree_index
   JTI_MAX
 };
 
+
+enum java_type_index
+{
+  JTPI_PROMOTED_BYTE_TYPE_NODE,
+  JTPI_PROMOTED_SHORT_TYPE_NODE,
+  JTPI_PROMOTED_CHAR_TYPE_NODE,
+  JTPI_PROMOTED_BOOLEAN_TYPE_NODE,
+
+  JTPI_BYTE_TYPE_NODE,
+  JTPI_SHORT_TYPE_NODE,
+  JTPI_INT_TYPE_NODE,
+  JTPI_LONG_TYPE_NODE,
+  
+  JTPI_UNSIGNED_BYTE_TYPE_NODE,
+  JTPI_UNSIGNED_SHORT_TYPE_NODE,
+  JTPI_UNSIGNED_INT_TYPE_NODE,
+  JTPI_UNSIGNED_LONG_TYPE_NODE,
+  
+  JTPI_OBJECT_TYPE_NODE,
+  JTPI_OBJECT_PTR_TYPE_NODE,
+  JTPI_STRING_TYPE_NODE,
+  JTPI_STRING_PTR_TYPE_NODE,
+  JTPI_THROWABLE_TYPE_NODE,
+  JTPI_EXCEPTION_TYPE_NODE,
+  JTPI_RUNTIME_EXCEPTION_TYPE_NODE,
+  JTPI_ERROR_EXCEPTION_TYPE_NODE,
+  JTPI_RAWDATA_PTR_TYPE_NODE,
+
+  JTPI_BYTE_ARRAY_TYPE_NODE,
+  JTPI_SHORT_ARRAY_TYPE_NODE,
+  JTPI_INT_ARRAY_TYPE_NODE,
+  JTPI_LONG_ARRAY_TYPE_NODE,
+  JTPI_BOOLEAN_ARRAY_TYPE_NODE,
+  JTPI_CHAR_ARRAY_TYPE_NODE,
+  JTPI_DOUBLE_ARRAY_TYPE_NODE,
+  JTPI_FLOAT_ARRAY_TYPE_NODE,
+  JTPI_ARRAY_ARRAY_TYPE_NODE,
+  JTPI_OBJECT_ARRAY_TYPE_NODE,
+  JTPI_STRING_ARRAY_TYPE_NODE,
+  JTPI_ONE_ELT_ARRAY_DOMAIN_TYPE,
+
+  JTPI_RETURN_ADDRESS_TYPE_NODE,
+
+  JTPI_METHODTABLE_TYPE,
+  JTPI_METHODTABLE_PTR_TYPE,
+
+  JTPI_UTF8CONST_TYPE,
+  JTPI_UTF8CONST_PTR_TYPE,
+
+  JTPI_CLASS_TYPE_NODE,
+  JTPI_CLASS_PTR_TYPE,
+  JTPI_FIELD_TYPE_NODE,
+  JTPI_CONSTANTS_TYPE_NODE,
+  JTPI_DTABLE_TYPE, 
+  JTPI_DTABLE_PTR_TYPE,
+  JTPI_FIELD_PTR_TYPE_NODE,
+  JTPI_FIELD_INFO_UNION_NODE,
+  JTPI_EXCEPTION_TYPE,
+  JTPI_EXCEPTION_PTR_TYPE,
+  JTPI_LINENUMBERENTRY_TYPE,
+  JTPI_LINENUMBERS_TYPE,
+  JTPI_METHOD_TYPE_NODE,
+  JTPI_METHOD_PTR_TYPE_NODE,
+  JTPI_OTABLE_TYPE,
+  JTPI_OTABLE_PTR_TYPE,
+  JTPI_ATABLE_TYPE,
+  JTPI_ATABLE_PTR_TYPE,
+  JTPI_ITABLE_TYPE,
+  JTPI_ITABLE_PTR_TYPE,
+  JTPI_SYMBOL_TYPE,
+  JTPI_SYMBOLS_ARRAY_TYPE,
+  JTPI_SYMBOLS_ARRAY_PTR_TYPE,
+  JTPI_ASSERTION_ENTRY_TYPE,
+  JTPI_ASSERTION_TABLE_TYPE,
+
+  JTPI_ACCESS_FLAGS_TYPE_NODE,
+
+  JTPI_NATIVECODE_PTR_ARRAY_TYPE_NODE,
+
+  JTPI_MAX
+};
+
 extern GTY(()) tree java_global_trees[JTI_MAX];
+extern GTY(()) ttype *java_global_types[JTPI_MAX];
 
 /* "Promoted types" that are used for primitive types smaller
    than int.  We could use int_type_node, but then we would lose
    type information (such as needed for debugging). */
 #define promoted_byte_type_node \
-  java_global_trees[JTI_PROMOTED_BYTE_TYPE_NODE]
+  java_global_types[JTPI_PROMOTED_BYTE_TYPE_NODE]
 #define promoted_short_type_node \
-  java_global_trees[JTI_PROMOTED_SHORT_TYPE_NODE]
+  java_global_types[JTPI_PROMOTED_SHORT_TYPE_NODE]
 #define promoted_char_type_node \
-  java_global_trees[JTI_PROMOTED_CHAR_TYPE_NODE]
+  java_global_types[JTPI_PROMOTED_CHAR_TYPE_NODE]
 #define promoted_boolean_type_node \
-  java_global_trees[JTI_PROMOTED_BOOLEAN_TYPE_NODE]
+  java_global_types[JTPI_PROMOTED_BOOLEAN_TYPE_NODE]
 
 #define byte_type_node \
-  java_global_trees[JTI_BYTE_TYPE_NODE]
+  java_global_types[JTPI_BYTE_TYPE_NODE]
 #define short_type_node \
-  java_global_trees[JTI_SHORT_TYPE_NODE]
+  java_global_types[JTPI_SHORT_TYPE_NODE]
 #define int_type_node \
-  java_global_trees[JTI_INT_TYPE_NODE]
+  java_global_types[JTPI_INT_TYPE_NODE]
 #define long_type_node \
-  java_global_trees[JTI_LONG_TYPE_NODE]
+  java_global_types[JTPI_LONG_TYPE_NODE]
 
 #define unsigned_byte_type_node \
-  java_global_trees[JTI_UNSIGNED_BYTE_TYPE_NODE]
+  java_global_types[JTPI_UNSIGNED_BYTE_TYPE_NODE]
 #define unsigned_short_type_node \
-  java_global_trees[JTI_UNSIGNED_SHORT_TYPE_NODE]
+  java_global_types[JTPI_UNSIGNED_SHORT_TYPE_NODE]
 #define unsigned_int_type_node \
-  java_global_trees[JTI_UNSIGNED_INT_TYPE_NODE]
+  java_global_types[JTPI_UNSIGNED_INT_TYPE_NODE]
 #define unsigned_long_type_node \
-  java_global_trees[JTI_UNSIGNED_LONG_TYPE_NODE]
+  java_global_types[JTPI_UNSIGNED_LONG_TYPE_NODE]
+
+#define object_type_node \
+  java_global_types[JTPI_OBJECT_TYPE_NODE]
+#define object_ptr_type_node \
+  java_global_types[JTPI_OBJECT_PTR_TYPE_NODE]
+#define string_type_node \
+  java_global_types[JTPI_STRING_TYPE_NODE]
+#define string_ptr_type_node \
+  java_global_types[JTPI_STRING_PTR_TYPE_NODE]
+#define throwable_type_node \
+  java_global_types[JTPI_THROWABLE_TYPE_NODE]
+#define exception_type_node \
+  java_global_types[JTPI_EXCEPTION_TYPE_NODE]
+#define runtime_exception_type_node \
+  java_global_types[JTPI_RUNTIME_EXCEPTION_TYPE_NODE]
+#define error_exception_type_node \
+  java_global_types[JTPI_ERROR_EXCEPTION_TYPE_NODE]
+#define rawdata_ptr_type_node \
+  java_global_types[JTPI_RAWDATA_PTR_TYPE_NODE]
+
+#define byte_array_type_node \
+  java_global_types[JTPI_BYTE_ARRAY_TYPE_NODE]
+#define short_array_type_node \
+  java_global_types[JTPI_SHORT_ARRAY_TYPE_NODE]
+#define int_array_type_node \
+  java_global_types[JTPI_INT_ARRAY_TYPE_NODE]
+#define long_array_type_node \
+  java_global_types[JTPI_LONG_ARRAY_TYPE_NODE]
+#define boolean_array_type_node \
+  java_global_types[JTPI_BOOLEAN_ARRAY_TYPE_NODE]
+#define char_array_type_node \
+  java_global_types[JTPI_CHAR_ARRAY_TYPE_NODE]
+#define double_array_type_node \
+  java_global_types[JTPI_DOUBLE_ARRAY_TYPE_NODE]
+#define float_array_type_node \
+  java_global_types[JTPI_FLOAT_ARRAY_TYPE_NODE]
+#define array_array_type_node \
+  java_global_types[JTPI_ARRAY_ARRAY_TYPE_NODE]
+#define object_array_type_node \
+  java_global_types[JTPI_OBJECT_ARRAY_TYPE_NODE]
+#define string_array_type_node \
+  java_global_types[JTPI_STRING_ARRAY_TYPE_NODE]
+
+#define one_elt_array_domain_type \
+  java_global_types[JTPI_ONE_ELT_ARRAY_DOMAIN_TYPE]
+/* The type of the return address of a subroutine. */
+#define return_address_type_node \
+  java_global_types[JTPI_RETURN_ADDRESS_TYPE_NODE]
+
+/* The type for struct methodtable. */
+#define methodtable_type \
+  java_global_types[JTPI_METHODTABLE_TYPE]
+#define methodtable_ptr_type \
+  java_global_types[JTPI_METHODTABLE_PTR_TYPE]
+
+#define utf8const_type \
+  java_global_types[JTPI_UTF8CONST_TYPE]
+#define utf8const_ptr_type \
+  java_global_types[JTPI_UTF8CONST_PTR_TYPE]
+
+#define class_type_node \
+  java_global_types[JTPI_CLASS_TYPE_NODE]
+#define class_ptr_type \
+  java_global_types[JTPI_CLASS_PTR_TYPE]
+#define field_type_node \
+  java_global_types[JTPI_FIELD_TYPE_NODE]
+#define constants_type_node \
+  java_global_types[JTPI_CONSTANTS_TYPE_NODE]
+#define dtable_type \
+  java_global_types[JTPI_DTABLE_TYPE]
+#define dtable_ptr_type \
+  java_global_types[JTPI_DTABLE_PTR_TYPE]
+#define field_ptr_type_node \
+  java_global_types[JTPI_FIELD_PTR_TYPE_NODE]
+#define field_info_union_node \
+  java_global_types[JTPI_FIELD_INFO_UNION_NODE]
+#define jexception_type \
+  java_global_types[JTPI_EXCEPTION_TYPE]
+#define jexception_ptr_type \
+  java_global_types[JTPI_EXCEPTION_PTR_TYPE]
+#define lineNumberEntry_type \
+  java_global_types[JTPI_LINENUMBERENTRY_TYPE]
+#define lineNumbers_type \
+  java_global_types[JTPI_LINENUMBERS_TYPE]
+#define method_type_node \
+  java_global_types[JTPI_METHOD_TYPE_NODE]
+#define method_ptr_type_node \
+  java_global_types[JTPI_METHOD_PTR_TYPE_NODE]
+#define otable_type \
+  java_global_types[JTPI_OTABLE_TYPE]
+#define atable_type \
+  java_global_types[JTPI_ATABLE_TYPE]
+#define itable_type \
+  java_global_types[JTPI_ITABLE_TYPE]
+#define otable_ptr_type \
+  java_global_types[JTPI_OTABLE_PTR_TYPE]
+#define atable_ptr_type \
+  java_global_types[JTPI_ATABLE_PTR_TYPE]
+#define itable_ptr_type \
+  java_global_types[JTPI_ITABLE_PTR_TYPE]
+#define symbol_type \
+  java_global_types[JTPI_SYMBOL_TYPE]
+#define symbols_array_type \
+  java_global_types[JTPI_SYMBOLS_ARRAY_TYPE]
+#define symbols_array_ptr_type \
+  java_global_types[JTPI_SYMBOLS_ARRAY_PTR_TYPE]  
+#define assertion_entry_type \
+  java_global_types[JTPI_ASSERTION_ENTRY_TYPE]
+#define assertion_table_type \
+  java_global_types[JTPI_ASSERTION_TABLE_TYPE]
+
+#define access_flags_type_node \
+  java_global_types[JTPI_ACCESS_FLAGS_TYPE_NODE]
+
+#define nativecode_ptr_array_type_node \
+  java_global_types[JTPI_NATIVECODE_PTR_ARRAY_TYPE_NODE]
+
+#define nativecode_ptr_type_node ptr_type_node
+
+
 
 #define decimal_int_max \
   java_global_trees[JTI_DECIMAL_INT_MAX_NODE]
 #define decimal_long_max \
   java_global_trees[JTI_DECIMAL_LONG_MAX_NODE]
 
-#define object_type_node \
-  java_global_trees[JTI_OBJECT_TYPE_NODE]
 #define unqualified_object_id_node \
   java_global_trees[JTI_UNQUALIFIED_OBJECT_ID_NODE]
-#define object_ptr_type_node \
-  java_global_trees[JTI_OBJECT_PTR_TYPE_NODE]
-#define string_type_node \
-  java_global_trees[JTI_STRING_TYPE_NODE]
-#define string_ptr_type_node \
-  java_global_trees[JTI_STRING_PTR_TYPE_NODE]
-#define throwable_type_node \
-  java_global_trees[JTI_THROWABLE_TYPE_NODE]
-#define exception_type_node \
-  java_global_trees[JTI_EXCEPTION_TYPE_NODE]
-#define runtime_exception_type_node \
-  java_global_trees[JTI_RUNTIME_EXCEPTION_TYPE_NODE]
-#define error_exception_type_node \
-  java_global_trees[JTI_ERROR_EXCEPTION_TYPE_NODE]
-#define rawdata_ptr_type_node \
-  java_global_trees[JTI_RAWDATA_PTR_TYPE_NODE]
 
-#define byte_array_type_node \
-  java_global_trees[JTI_BYTE_ARRAY_TYPE_NODE]
-#define short_array_type_node \
-  java_global_trees[JTI_SHORT_ARRAY_TYPE_NODE]
-#define int_array_type_node \
-  java_global_trees[JTI_INT_ARRAY_TYPE_NODE]
-#define long_array_type_node \
-  java_global_trees[JTI_LONG_ARRAY_TYPE_NODE]
-#define boolean_array_type_node \
-  java_global_trees[JTI_BOOLEAN_ARRAY_TYPE_NODE]
-#define char_array_type_node \
-  java_global_trees[JTI_CHAR_ARRAY_TYPE_NODE]
-#define double_array_type_node \
-  java_global_trees[JTI_DOUBLE_ARRAY_TYPE_NODE]
-#define float_array_type_node \
-  java_global_trees[JTI_FLOAT_ARRAY_TYPE_NODE]
-#define array_array_type_node \
-  java_global_trees[JTI_ARRAY_ARRAY_TYPE_NODE]
-#define object_array_type_node \
-  java_global_trees[JTI_OBJECT_ARRAY_TYPE_NODE]
-#define string_array_type_node \
-  java_global_trees[JTI_STRING_ARRAY_TYPE_NODE]
 #define boolean_array_vtable \
   java_global_trees[JTI_BOOLEAN_ARRAY_VTABLE]
 #define byte_array_vtable \
@@ -423,13 +512,8 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_FINALIZE_IDENTIFIER_NODE]  /* "finalize" */
 #define this_identifier_node \
   java_global_trees[JTI_THIS_IDENTIFIER_NODE]  /* "this" */
-#define one_elt_array_domain_type \
-  java_global_trees[JTI_ONE_ELT_ARRAY_DOMAIN_TYPE]
-/* The type of the return address of a subroutine. */
-#define return_address_type_node \
-  java_global_trees[JTI_RETURN_ADDRESS_TYPE_NODE]
-
 /* Integer constants not declared in tree.h. */
+
 #define long_zero_node \
   java_global_trees[JTI_LONG_ZERO_NODE]
 #define float_zero_node \
@@ -440,68 +524,6 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_INTEGER_TWO_NODE]
 #define integer_four_node \
   java_global_trees[JTI_INTEGER_FOUR_NODE]
-
-/* The type for struct methodtable. */
-#define methodtable_type \
-  java_global_trees[JTI_METHODTABLE_TYPE]
-#define methodtable_ptr_type \
-  java_global_trees[JTI_METHODTABLE_PTR_TYPE]
-
-#define utf8const_type \
-  java_global_trees[JTI_UTF8CONST_TYPE]
-#define utf8const_ptr_type \
-  java_global_trees[JTI_UTF8CONST_PTR_TYPE]
-
-#define class_type_node \
-  java_global_trees[JTI_CLASS_TYPE_NODE]
-#define class_ptr_type \
-  java_global_trees[JTI_CLASS_PTR_TYPE]
-#define field_type_node \
-  java_global_trees[JTI_FIELD_TYPE_NODE]
-#define constants_type_node \
-  java_global_trees[JTI_CONSTANTS_TYPE_NODE]
-#define dtable_type \
-  java_global_trees[JTI_DTABLE_TYPE]
-#define dtable_ptr_type \
-  java_global_trees[JTI_DTABLE_PTR_TYPE]
-#define field_ptr_type_node \
-  java_global_trees[JTI_FIELD_PTR_TYPE_NODE]
-#define field_info_union_node \
-  java_global_trees[JTI_FIELD_INFO_UNION_NODE]
-#define jexception_type \
-  java_global_trees[JTI_EXCEPTION_TYPE]
-#define jexception_ptr_type \
-  java_global_trees[JTI_EXCEPTION_PTR_TYPE]
-#define lineNumberEntry_type \
-  java_global_trees[JTI_LINENUMBERENTRY_TYPE]
-#define lineNumbers_type \
-  java_global_trees[JTI_LINENUMBERS_TYPE]
-#define method_type_node \
-  java_global_trees[JTI_METHOD_TYPE_NODE]
-#define method_ptr_type_node \
-  java_global_trees[JTI_METHOD_PTR_TYPE_NODE]
-#define otable_type \
-  java_global_trees[JTI_OTABLE_TYPE]
-#define atable_type \
-  java_global_trees[JTI_ATABLE_TYPE]
-#define itable_type \
-  java_global_trees[JTI_ITABLE_TYPE]
-#define otable_ptr_type \
-  java_global_trees[JTI_OTABLE_PTR_TYPE]
-#define atable_ptr_type \
-  java_global_trees[JTI_ATABLE_PTR_TYPE]
-#define itable_ptr_type \
-  java_global_trees[JTI_ITABLE_PTR_TYPE]
-#define symbol_type \
-  java_global_trees[JTI_SYMBOL_TYPE]
-#define symbols_array_type \
-  java_global_trees[JTI_SYMBOLS_ARRAY_TYPE]
-#define symbols_array_ptr_type \
-  java_global_trees[JTI_SYMBOLS_ARRAY_PTR_TYPE]  
-#define assertion_entry_type \
-  java_global_trees[JTI_ASSERTION_ENTRY_TYPE]
-#define assertion_table_type \
-  java_global_trees[JTI_ASSERTION_TABLE_TYPE]
 
 #define end_params_node \
   java_global_trees[JTI_END_PARAMS_NODE]
@@ -561,14 +583,6 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_SOFT_LDIV_NODE]
 #define soft_lrem_node \
   java_global_trees[JTI_SOFT_LREM_NODE]
-
-#define access_flags_type_node \
-  java_global_trees[JTI_ACCESS_FLAGS_TYPE_NODE]
-
-#define nativecode_ptr_array_type_node \
-  java_global_trees[JTI_NATIVECODE_PTR_ARRAY_TYPE_NODE]
-
-#define nativecode_ptr_type_node ptr_type_node
 
 /* The decl for "_Jv_ResolvePoolEntry".  */
 extern GTY(()) tree soft_resolvepoolentry_node;
@@ -955,13 +969,13 @@ extern tree java_truthvalue_conversion (tree);
 extern void add_assume_compiled (const char *, int);
 extern void add_enable_assert (const char *, int);
 extern bool enable_assertions (tree);
-extern tree lookup_class (tree);
+extern ttype *lookup_class (tree);
 extern tree lookup_java_constructor (tree, tree);
 extern tree lookup_java_method (tree, tree, tree);
 extern tree lookup_argument_method (tree, tree, tree);
 extern tree lookup_argument_method_generic (tree, tree, tree, int);
 extern int has_method (tree, tree);
-extern tree promote_type (tree);
+extern ttype *promote_type (ttype_p);
 extern tree get_constant (struct JCF*, int);
 extern tree get_name_constant (struct JCF*, int);
 extern tree get_class_constant (struct JCF*, int);
@@ -1014,7 +1028,7 @@ extern tree lookup_label (int);
 extern tree pop_type_0 (tree, char **);
 extern tree pop_type (tree);
 extern tree decode_newarray_type (int);
-extern tree lookup_field (tree *, tree);
+extern tree lookup_field (ttype_pp, tree);
 extern int is_array_type_p (tree);
 extern HOST_WIDE_INT java_array_type_length (tree);
 extern int read_class (tree);

@@ -43,7 +43,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Data type for the expressions representing sizes of data types.
    It is the first integer type laid out.  */
-tree sizetype_tab[(int) stk_type_kind_last];
+ttype *sizetype_tab[(int) stk_type_kind_last];
 
 /* If nonzero, this is an upper limit on alignment of structure fields.
    The value is measured in bits.  */
@@ -2478,10 +2478,10 @@ vector_type_mode (const_tree t)
 
 /* Create and return a type for signed integers of PRECISION bits.  */
 
-tree
+ttype *
 make_signed_type (int precision)
 {
-  tree type = make_node (INTEGER_TYPE);
+  ttype *type = make_type_node (INTEGER_TYPE);
 
   TYPE_PRECISION (type) = precision;
 
@@ -2491,10 +2491,10 @@ make_signed_type (int precision)
 
 /* Create and return a type for unsigned integers of PRECISION bits.  */
 
-tree
+ttype *
 make_unsigned_type (int precision)
 {
-  tree type = make_node (INTEGER_TYPE);
+  ttype *type = make_type_node (INTEGER_TYPE);
 
   TYPE_PRECISION (type) = precision;
 
@@ -2505,10 +2505,10 @@ make_unsigned_type (int precision)
 /* Create and return a type for fract of PRECISION bits, UNSIGNEDP,
    and SATP.  */
 
-tree
+ttype *
 make_fract_type (int precision, int unsignedp, int satp)
 {
-  tree type = make_node (FIXED_POINT_TYPE);
+  ttype *type = make_type_node (FIXED_POINT_TYPE);
 
   TYPE_PRECISION (type) = precision;
 
@@ -2531,10 +2531,10 @@ make_fract_type (int precision, int unsignedp, int satp)
 /* Create and return a type for accum of PRECISION bits, UNSIGNEDP,
    and SATP.  */
 
-tree
+ttype *
 make_accum_type (int precision, int unsignedp, int satp)
 {
-  tree type = make_node (FIXED_POINT_TYPE);
+  ttype *type = make_type_node (FIXED_POINT_TYPE);
 
   TYPE_PRECISION (type) = precision;
 
@@ -2598,11 +2598,11 @@ initialize_sizetypes (void)
     bprecision = HOST_BITS_PER_DOUBLE_INT;
 
   /* Create stubs for sizetype and bitsizetype so we can create constants.  */
-  sizetype = make_node (INTEGER_TYPE);
+  sizetype = make_type_node (INTEGER_TYPE);
   TYPE_NAME (sizetype) = get_identifier ("sizetype");
   TYPE_PRECISION (sizetype) = precision;
   TYPE_UNSIGNED (sizetype) = 1;
-  bitsizetype = make_node (INTEGER_TYPE);
+  bitsizetype = make_type_node (INTEGER_TYPE);
   TYPE_NAME (bitsizetype) = get_identifier ("bitsizetype");
   TYPE_PRECISION (bitsizetype) = bprecision;
   TYPE_UNSIGNED (bitsizetype) = 1;

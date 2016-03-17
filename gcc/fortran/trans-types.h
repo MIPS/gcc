@@ -23,21 +23,21 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GFC_BACKEND_H
 #define GFC_BACKEND_H
 
-extern GTY(()) tree gfc_array_index_type;
-extern GTY(()) tree gfc_array_range_type;
-extern GTY(()) tree gfc_character1_type_node;
-extern GTY(()) tree ppvoid_type_node;
-extern GTY(()) tree pvoid_type_node;
-extern GTY(()) tree prvoid_type_node;
-extern GTY(()) tree pchar_type_node;
-extern GTY(()) tree float128_type_node;
-extern GTY(()) tree complex_float128_type_node;
+extern GTY(()) ttype *gfc_array_index_type;
+extern GTY(()) ttype *gfc_array_range_type;
+extern GTY(()) ttype *gfc_character1_type_node;
+extern GTY(()) ttype *ppvoid_type_node;
+extern GTY(()) ttype *pvoid_type_node;
+extern GTY(()) ttype *prvoid_type_node;
+extern GTY(()) ttype *pchar_type_node;
+extern GTY(()) ttype *float128_type_node;
+extern GTY(()) ttype *complex_float128_type_node;
 
 /* This is the type used to hold the lengths of character variables.
    It must be the same as the corresponding definition in gfortran.h.  */
 /* TODO: This is still hardcoded as kind=4 in some bits of the compiler
    and runtime library.  */
-extern GTY(()) tree gfc_charlen_type_node;
+extern GTY(()) ttype *gfc_charlen_type_node;
 
 /* The following flags give us information on the correspondence of
    real (and complex) kinds with C floating-point types long double
@@ -77,7 +77,7 @@ tree gfc_get_function_type (gfc_symbol *);
 
 tree gfc_type_for_size (unsigned, int);
 tree gfc_type_for_mode (machine_mode, int);
-tree gfc_build_uint_type (int);
+ttype *gfc_build_uint_type (int);
 
 tree gfc_get_element_type (tree);
 tree gfc_get_array_type_bounds (tree, int, int, tree *, tree *, int,

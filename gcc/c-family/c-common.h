@@ -261,61 +261,9 @@ extern GTY ((length ("(int) RID_MAX"))) tree *ridpointers;
 
 enum c_tree_index
 {
-    CTI_CHAR16_TYPE,
-    CTI_CHAR32_TYPE,
-    CTI_WCHAR_TYPE,
-    CTI_UNDERLYING_WCHAR_TYPE,
-    CTI_WINT_TYPE,
-    CTI_SIGNED_SIZE_TYPE, /* For format checking only.  */
-    CTI_UNSIGNED_PTRDIFF_TYPE, /* For format checking only.  */
-    CTI_INTMAX_TYPE,
-    CTI_UINTMAX_TYPE,
-    CTI_WIDEST_INT_LIT_TYPE,
-    CTI_WIDEST_UINT_LIT_TYPE,
-
-    /* Types for <stdint.h>, that may not be defined on all
-       targets.  */
-    CTI_SIG_ATOMIC_TYPE,
-    CTI_INT8_TYPE,
-    CTI_INT16_TYPE,
-    CTI_INT32_TYPE,
-    CTI_INT64_TYPE,
-    CTI_UINT8_TYPE,
-    CTI_UINT16_TYPE,
-    CTI_UINT32_TYPE,
-    CTI_UINT64_TYPE,
-    CTI_INT_LEAST8_TYPE,
-    CTI_INT_LEAST16_TYPE,
-    CTI_INT_LEAST32_TYPE,
-    CTI_INT_LEAST64_TYPE,
-    CTI_UINT_LEAST8_TYPE,
-    CTI_UINT_LEAST16_TYPE,
-    CTI_UINT_LEAST32_TYPE,
-    CTI_UINT_LEAST64_TYPE,
-    CTI_INT_FAST8_TYPE,
-    CTI_INT_FAST16_TYPE,
-    CTI_INT_FAST32_TYPE,
-    CTI_INT_FAST64_TYPE,
-    CTI_UINT_FAST8_TYPE,
-    CTI_UINT_FAST16_TYPE,
-    CTI_UINT_FAST32_TYPE,
-    CTI_UINT_FAST64_TYPE,
-    CTI_INTPTR_TYPE,
-    CTI_UINTPTR_TYPE,
-
-    CTI_CHAR_ARRAY_TYPE,
-    CTI_CHAR16_ARRAY_TYPE,
-    CTI_CHAR32_ARRAY_TYPE,
-    CTI_WCHAR_ARRAY_TYPE,
-    CTI_STRING_TYPE,
-    CTI_CONST_STRING_TYPE,
-
-    /* Type for boolean expressions (bool in C++, int in C).  */
-    CTI_TRUTHVALUE_TYPE,
+    /* boolean expressions (bool in C++, int in C).  */
     CTI_TRUTHVALUE_TRUE,
     CTI_TRUTHVALUE_FALSE,
-
-    CTI_DEFAULT_FUNCTION_TYPE,
 
     /* These are not types, but we have to look them up all the time.  */
     CTI_FUNCTION_NAME_DECL,
@@ -326,6 +274,66 @@ enum c_tree_index
     CTI_NULL,
 
     CTI_MAX
+};
+
+enum c_type_index
+{
+    CTPI_CHAR16_TYPE,
+    CTPI_CHAR32_TYPE,
+    CTPI_WCHAR_TYPE,
+    CTPI_UNDERLYING_WCHAR_TYPE,
+    CTPI_WINT_TYPE,
+    CTPI_SIGNED_SIZE_TYPE, /* For format checking only.  */
+    CTPI_UNSIGNED_PTRDIFF_TYPE, /* For format checking only.  */
+    CTPI_INTMAX_TYPE,
+    CTPI_UINTMAX_TYPE,
+    CTPI_WIDEST_INT_LIT_TYPE,
+    CTPI_WIDEST_UINT_LIT_TYPE,
+
+    /* Types for <stdint.h>, that may not be defined on all
+       targets.  */
+    CTPI_SIG_ATOMIC_TYPE,
+    CTPI_INT8_TYPE,
+    CTPI_INT16_TYPE,
+    CTPI_INT32_TYPE,
+    CTPI_INT64_TYPE,
+    CTPI_UINT8_TYPE,
+    CTPI_UINT16_TYPE,
+    CTPI_UINT32_TYPE,
+    CTPI_UINT64_TYPE,
+    CTPI_INT_LEAST8_TYPE,
+    CTPI_INT_LEAST16_TYPE,
+    CTPI_INT_LEAST32_TYPE,
+    CTPI_INT_LEAST64_TYPE,
+    CTPI_UINT_LEAST8_TYPE,
+    CTPI_UINT_LEAST16_TYPE,
+    CTPI_UINT_LEAST32_TYPE,
+    CTPI_UINT_LEAST64_TYPE,
+    CTPI_INT_FAST8_TYPE,
+    CTPI_INT_FAST16_TYPE,
+    CTPI_INT_FAST32_TYPE,
+    CTPI_INT_FAST64_TYPE,
+    CTPI_UINT_FAST8_TYPE,
+    CTPI_UINT_FAST16_TYPE,
+    CTPI_UINT_FAST32_TYPE,
+    CTPI_UINT_FAST64_TYPE,
+    CTPI_INTPTR_TYPE,
+    CTPI_UINTPTR_TYPE,
+
+    CTPI_CHAR_ARRAY_TYPE,
+    CTPI_CHAR16_ARRAY_TYPE,
+    CTPI_CHAR32_ARRAY_TYPE,
+    CTPI_WCHAR_ARRAY_TYPE,
+    CTPI_STRING_TYPE,
+    CTPI_CONST_STRING_TYPE,
+
+    /* Type for boolean expressions (bool in C++, int in C).  */
+    CTPI_TRUTHVALUE_TYPE,
+
+    CTPI_DEFAULT_FUNCTION_TYPE,
+
+    /* These are not types, but we have to look them up all the time.  */
+    CTPI_MAX
 };
 
 #define C_CPP_HASHNODE(id) \
@@ -404,59 +412,59 @@ extern const struct c_common_resword c_common_reswords[];
 /* The number of items in the reserved keyword table.  */
 extern const unsigned int num_c_common_reswords;
 
-#define char16_type_node		c_global_trees[CTI_CHAR16_TYPE]
-#define char32_type_node		c_global_trees[CTI_CHAR32_TYPE]
-#define wchar_type_node			c_global_trees[CTI_WCHAR_TYPE]
-#define underlying_wchar_type_node	c_global_trees[CTI_UNDERLYING_WCHAR_TYPE]
-#define wint_type_node			c_global_trees[CTI_WINT_TYPE]
-#define signed_size_type_node		c_global_trees[CTI_SIGNED_SIZE_TYPE]
-#define unsigned_ptrdiff_type_node	c_global_trees[CTI_UNSIGNED_PTRDIFF_TYPE]
-#define intmax_type_node		c_global_trees[CTI_INTMAX_TYPE]
-#define uintmax_type_node		c_global_trees[CTI_UINTMAX_TYPE]
-#define widest_integer_literal_type_node c_global_trees[CTI_WIDEST_INT_LIT_TYPE]
-#define widest_unsigned_literal_type_node c_global_trees[CTI_WIDEST_UINT_LIT_TYPE]
+#define char16_type_node		c_global_types[CTPI_CHAR16_TYPE]
+#define char32_type_node		c_global_types[CTPI_CHAR32_TYPE]
+#define wchar_type_node			c_global_types[CTPI_WCHAR_TYPE]
+#define underlying_wchar_type_node	c_global_types[CTPI_UNDERLYING_WCHAR_TYPE]
+#define wint_type_node			c_global_types[CTPI_WINT_TYPE]
+#define signed_size_type_node		c_global_types[CTPI_SIGNED_SIZE_TYPE]
+#define unsigned_ptrdiff_type_node	c_global_types[CTPI_UNSIGNED_PTRDIFF_TYPE]
+#define intmax_type_node		c_global_types[CTPI_INTMAX_TYPE]
+#define uintmax_type_node		c_global_types[CTPI_UINTMAX_TYPE]
+#define widest_integer_literal_type_node c_global_types[CTPI_WIDEST_INT_LIT_TYPE]
+#define widest_unsigned_literal_type_node c_global_types[CTPI_WIDEST_UINT_LIT_TYPE]
 
-#define sig_atomic_type_node		c_global_trees[CTI_SIG_ATOMIC_TYPE]
-#define int8_type_node			c_global_trees[CTI_INT8_TYPE]
-#define int16_type_node			c_global_trees[CTI_INT16_TYPE]
-#define int32_type_node			c_global_trees[CTI_INT32_TYPE]
-#define int64_type_node			c_global_trees[CTI_INT64_TYPE]
-#define uint8_type_node			c_global_trees[CTI_UINT8_TYPE]
-#define c_uint16_type_node		c_global_trees[CTI_UINT16_TYPE]
-#define c_uint32_type_node		c_global_trees[CTI_UINT32_TYPE]
-#define c_uint64_type_node		c_global_trees[CTI_UINT64_TYPE]
-#define int_least8_type_node		c_global_trees[CTI_INT_LEAST8_TYPE]
-#define int_least16_type_node		c_global_trees[CTI_INT_LEAST16_TYPE]
-#define int_least32_type_node		c_global_trees[CTI_INT_LEAST32_TYPE]
-#define int_least64_type_node		c_global_trees[CTI_INT_LEAST64_TYPE]
-#define uint_least8_type_node		c_global_trees[CTI_UINT_LEAST8_TYPE]
-#define uint_least16_type_node		c_global_trees[CTI_UINT_LEAST16_TYPE]
-#define uint_least32_type_node		c_global_trees[CTI_UINT_LEAST32_TYPE]
-#define uint_least64_type_node		c_global_trees[CTI_UINT_LEAST64_TYPE]
-#define int_fast8_type_node		c_global_trees[CTI_INT_FAST8_TYPE]
-#define int_fast16_type_node		c_global_trees[CTI_INT_FAST16_TYPE]
-#define int_fast32_type_node		c_global_trees[CTI_INT_FAST32_TYPE]
-#define int_fast64_type_node		c_global_trees[CTI_INT_FAST64_TYPE]
-#define uint_fast8_type_node		c_global_trees[CTI_UINT_FAST8_TYPE]
-#define uint_fast16_type_node		c_global_trees[CTI_UINT_FAST16_TYPE]
-#define uint_fast32_type_node		c_global_trees[CTI_UINT_FAST32_TYPE]
-#define uint_fast64_type_node		c_global_trees[CTI_UINT_FAST64_TYPE]
-#define intptr_type_node		c_global_trees[CTI_INTPTR_TYPE]
-#define uintptr_type_node		c_global_trees[CTI_UINTPTR_TYPE]
+#define sig_atomic_type_node		c_global_types[CTPI_SIG_ATOMIC_TYPE]
+#define int8_type_node			c_global_types[CTPI_INT8_TYPE]
+#define int16_type_node			c_global_types[CTPI_INT16_TYPE]
+#define int32_type_node			c_global_types[CTPI_INT32_TYPE]
+#define int64_type_node			c_global_types[CTPI_INT64_TYPE]
+#define uint8_type_node			c_global_types[CTPI_UINT8_TYPE]
+#define c_uint16_type_node		c_global_types[CTPI_UINT16_TYPE]
+#define c_uint32_type_node		c_global_types[CTPI_UINT32_TYPE]
+#define c_uint64_type_node		c_global_types[CTPI_UINT64_TYPE]
+#define int_least8_type_node		c_global_types[CTPI_INT_LEAST8_TYPE]
+#define int_least16_type_node		c_global_types[CTPI_INT_LEAST16_TYPE]
+#define int_least32_type_node		c_global_types[CTPI_INT_LEAST32_TYPE]
+#define int_least64_type_node		c_global_types[CTPI_INT_LEAST64_TYPE]
+#define uint_least8_type_node		c_global_types[CTPI_UINT_LEAST8_TYPE]
+#define uint_least16_type_node		c_global_types[CTPI_UINT_LEAST16_TYPE]
+#define uint_least32_type_node		c_global_types[CTPI_UINT_LEAST32_TYPE]
+#define uint_least64_type_node		c_global_types[CTPI_UINT_LEAST64_TYPE]
+#define int_fast8_type_node		c_global_types[CTPI_INT_FAST8_TYPE]
+#define int_fast16_type_node		c_global_types[CTPI_INT_FAST16_TYPE]
+#define int_fast32_type_node		c_global_types[CTPI_INT_FAST32_TYPE]
+#define int_fast64_type_node		c_global_types[CTPI_INT_FAST64_TYPE]
+#define uint_fast8_type_node		c_global_types[CTPI_UINT_FAST8_TYPE]
+#define uint_fast16_type_node		c_global_types[CTPI_UINT_FAST16_TYPE]
+#define uint_fast32_type_node		c_global_types[CTPI_UINT_FAST32_TYPE]
+#define uint_fast64_type_node		c_global_types[CTPI_UINT_FAST64_TYPE]
+#define intptr_type_node		c_global_types[CTPI_INTPTR_TYPE]
+#define uintptr_type_node		c_global_types[CTPI_UINTPTR_TYPE]
 
-#define truthvalue_type_node		c_global_trees[CTI_TRUTHVALUE_TYPE]
+#define truthvalue_type_node		c_global_types[CTPI_TRUTHVALUE_TYPE]
+
+#define char_array_type_node		c_global_types[CTPI_CHAR_ARRAY_TYPE]
+#define char16_array_type_node		c_global_types[CTPI_CHAR16_ARRAY_TYPE]
+#define char32_array_type_node		c_global_types[CTPI_CHAR32_ARRAY_TYPE]
+#define wchar_array_type_node		c_global_types[CTPI_WCHAR_ARRAY_TYPE]
+#define string_type_node		c_global_types[CTPI_STRING_TYPE]
+#define const_string_type_node		c_global_types[CTPI_CONST_STRING_TYPE]
+
+#define default_function_type		c_global_types[CTPI_DEFAULT_FUNCTION_TYPE]
+
 #define truthvalue_true_node		c_global_trees[CTI_TRUTHVALUE_TRUE]
 #define truthvalue_false_node		c_global_trees[CTI_TRUTHVALUE_FALSE]
-
-#define char_array_type_node		c_global_trees[CTI_CHAR_ARRAY_TYPE]
-#define char16_array_type_node		c_global_trees[CTI_CHAR16_ARRAY_TYPE]
-#define char32_array_type_node		c_global_trees[CTI_CHAR32_ARRAY_TYPE]
-#define wchar_array_type_node		c_global_trees[CTI_WCHAR_ARRAY_TYPE]
-#define string_type_node		c_global_trees[CTI_STRING_TYPE]
-#define const_string_type_node		c_global_trees[CTI_CONST_STRING_TYPE]
-
-#define default_function_type		c_global_trees[CTI_DEFAULT_FUNCTION_TYPE]
-
 #define function_name_decl_node		c_global_trees[CTI_FUNCTION_NAME_DECL]
 #define pretty_function_name_decl_node	c_global_trees[CTI_PRETTY_FUNCTION_NAME_DECL]
 #define c99_function_name_decl_node		c_global_trees[CTI_C99_FUNCTION_NAME_DECL]
@@ -466,6 +474,7 @@ extern const unsigned int num_c_common_reswords;
 #define null_node                       c_global_trees[CTI_NULL]
 
 extern GTY(()) tree c_global_trees[CTI_MAX];
+extern GTY(()) ttype *c_global_types[CTPI_MAX];
 
 /* In a RECORD_TYPE, a sorted array of the fields of the type, not a
    tree for size reasons.  */
