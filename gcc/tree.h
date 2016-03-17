@@ -556,7 +556,11 @@ TTYPE (const ttype_p t)
    long term.  */
 #define TREE_CAST(NODE) ((tree)(NODE))
 #define TREE_PTR_CAST(NODE) ((tree *)(NODE))
-#define TTYPE_PTR(NODE)  ((ttype **)(NODE))
+inline ttype **
+TTYPE_PP (tree *t)
+{
+  return ttype_pp (t);
+}
 
 /* Define accessors for the fields that all tree nodes have
    (though some fields are not used for all kinds of nodes).  */
