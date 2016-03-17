@@ -24,4 +24,4 @@ int __attribute__((stack_protect)) c()
 }
 
 
-/* { dg-final { scan-assembler-times "stack_chk_fail" 2 } } */
+/* { dg-final { scan-assembler-times "stack_chk_fail" 2 { target { nonpic || { ! ia32 } } } } } */
