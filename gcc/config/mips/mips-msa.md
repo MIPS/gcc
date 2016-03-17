@@ -3087,3 +3087,78 @@
 }
   [(set_attr "type" "arith")
    (set_attr "mode" "TI")])
+
+(define_expand "vec_load_lanesciv16qi"
+  [(set (match_operand:CI 0 "register_operand")
+	(match_operand:CI 1 "memory_operand"))]
+  "ISA_HAS_MSA"
+{
+  int i,j;
+  int arr[6][16] = {{0, 3, 6, 9,12,15,18,21,24,27,30, 0, 0, 0, 0, 0},
+		    {0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,17,20,23,26,29},
+		    {1, 4, 7,10,13,16,19,22,25,28,31, 0, 0, 0, 0, 0},
+		    {0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,18,21,24,27,30},
+		    {2, 5, 8,11,14,17,20,23,26,29, 0, 0, 0, 0, 0, 0},
+		    {0, 1, 2, 3, 4, 5, 6, 7, 8, 9,16,19,22,25,28,31}};
+
+  rtx res0, res1, sreg0, sreg1, sreg2;
+  rtx perm[6];
+
+  sreg0 = gen_reg_rtx (V16QImode);
+  sreg1 = gen_reg_rtx (V16QImode);
+  sreg2 = gen_reg_rtx (V16QImode);
+
+  for (i = 0; i < 6; i++)
+  {
+    rtx rperm[16];
+
+    perm[i] = gen_reg_rtx (V16QImode);
+    for (j = 0; j < 16; j++)
+    {
+      rperm[i] = GEN_INT (arr[i][j]);
+    }
+    emit_move_insn (perm[i], gen_rtx_CONST_VECTOR(V16QImode, gen_rtvec_v (16, rperm)));
+  }
+
+  /* Load 3 vregs from memory.  */
+  emit_move_insn(sreg0, adjust_address (operands[1], V16QImode, 0));
+  emit_move_insn(sreg1, adjust_address (operands[1], V16QImode, GET_MODE_SIZE (V16QImode)));
+  emit_move_insn(sreg2, adjust_address (operands[1], V16QImode, 2 * GET_MODE_SIZE (V16QImode)));
+
+  res0 = gen_reg_rtx (V16QImode);
+  res1 = gen_reg_rtx (V16QImode);
+
+  emit_move_insn (res0, perm[0]);
+  emit_move_insn (res1, perm[1]);
+
+  /* Emit VSHF instruction corresponding to idx % 3 = 0 elements.  */
+  gen_vec_permv16qi (res0, sreg0, sreg1, res0);
+  gen_vec_permv16qi (res1, res0, sreg2, res1);
+
+  emit_move_insn(gen_rtx_SUBREG (V16QImode, operands[0], 0), res1);
+
+  res0 = gen_reg_rtx (V16QImode);
+  res1 = gen_reg_rtx (V16QImode);
+  emit_move_insn (res0, perm[2]);
+  emit_move_insn (res1, perm[3]);
+
+
+  /* Emit VSHF instruction corresponding to idx % 3 = 1 elements.  */
+  gen_vec_permv16qi (res0, sreg0, sreg1, res0);
+  gen_vec_permv16qi (res1, res0, sreg2, res1);
+
+  emit_move_insn(gen_rtx_SUBREG (V16QImode, operands[0], 1), res1);
+
+  res0 = gen_reg_rtx (V16QImode);
+  res1 = gen_reg_rtx (V16QImode);
+  emit_move_insn (res0, perm[4]);
+  emit_move_insn (res1, perm[5]);
+
+
+  /* Emit VSHF instruction corresponding to idx % 3 = 2 elements.  */
+  gen_vec_permv16qi (res0, sreg0, sreg1, res0);
+  gen_vec_permv16qi (res1, res0, sreg2, res1);
+
+  emit_move_insn(gen_rtx_SUBREG (V16QImode, operands[0], 2), res1);
+  DONE;
+})
