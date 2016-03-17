@@ -1,3 +1,56 @@
+2016-03-17  Martin Liska  <mliska@suse.cz>
+	    Martin Jambor <mjambor@suse.cz>
+
+	* hsa-gen.c (hsa_allocp_operand_address): Removed.
+	(hsa_allocp_operand_immed): Likewise.
+	(hsa_allocp_operand_reg): Likewise.
+	(hsa_allocp_operand_code_list): Likewise.
+	(hsa_allocp_operand_operand_list): Likewise.
+	(hsa_allocp_inst_basic): Likewise.
+	(hsa_allocp_inst_phi): Likewise.
+	(hsa_allocp_inst_mem): Likewise.
+	(hsa_allocp_inst_atomic): Likewise.
+	(hsa_allocp_inst_signal): Likewise.
+	(hsa_allocp_inst_seg): Likewise.
+	(hsa_allocp_inst_cmp): Likewise.
+	(hsa_allocp_inst_br): Likewise.
+	(hsa_allocp_inst_sbr): Likewise.
+	(hsa_allocp_inst_call): Likewise.
+	(hsa_allocp_inst_arg_block): Likewise.
+	(hsa_allocp_inst_comment): Likewise.
+	(hsa_allocp_inst_queue): Likewise.
+	(hsa_allocp_inst_srctype): Likewise.
+	(hsa_allocp_inst_packed): Likewise.
+	(hsa_allocp_inst_cvt): Likewise.
+	(hsa_allocp_inst_alloca): Likewise.
+	(hsa_allocp_bb): Likewise.
+	(hsa_obstack): New.
+	(hsa_init_data_for_cfun): Initialize obstack.
+	(hsa_deinit_data_for_cfun): Release memory of the obstack.
+	(hsa_op_immed::operator new): Use obstack instead of
+	object_allocator.
+	(hsa_op_reg::operator new): Likewise.
+	(hsa_op_address::operator new): Likewise.
+	(hsa_op_code_list::operator new): Likewise.
+	(hsa_op_operand_list::operator new): Likewise.
+	(hsa_insn_basic::operator new): Likewise.
+	(hsa_insn_phi::operator new): Likewise.
+	(hsa_insn_br::operator new): Likewise.
+	(hsa_insn_sbr::operator new): Likewise.
+	(hsa_insn_cmp::operator new): Likewise.
+	(hsa_insn_mem::operator new): Likewise.
+	(hsa_insn_atomic::operator new): Likewise.
+	(hsa_insn_signal::operator new): Likewise.
+	(hsa_insn_seg::operator new): Likewise.
+	(hsa_insn_call::operator new): Likewise.
+	(hsa_insn_arg_block::operator new): Likewise.
+	(hsa_insn_comment::operator new): Likewise.
+	(hsa_insn_srctype::operator new): Likewise.
+	(hsa_insn_packed::operator new): Likewise.
+	(hsa_insn_cvt::operator new): Likewise.
+	(hsa_insn_alloca::operator new): Likewise.
+	(hsa_init_new_bb): Likewise.
+
 2016-01-18  Martin Jambor  <mjambor@suse.cz>
 
 	* hsa-brig.c: Include target.h and tm_p.h.

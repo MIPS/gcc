@@ -38,7 +38,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "dumpfile.h"
 #include "gimple-pretty-print.h"
 #include "diagnostic-core.h"
-#include "alloc-pool.h"
 #include "gimple-ssa.h"
 #include "tree-phinodes.h"
 #include "stringpool.h"
@@ -125,31 +124,7 @@ struct hsa_queue
   uint64_t id;
 };
 
-/* Alloc pools for allocating basic hsa structures such as operands,
-   instructions and other basic entities.  */
-static object_allocator<hsa_op_address> *hsa_allocp_operand_address;
-static object_allocator<hsa_op_immed> *hsa_allocp_operand_immed;
-static object_allocator<hsa_op_reg> *hsa_allocp_operand_reg;
-static object_allocator<hsa_op_code_list> *hsa_allocp_operand_code_list;
-static object_allocator<hsa_op_operand_list> *hsa_allocp_operand_operand_list;
-static object_allocator<hsa_insn_basic> *hsa_allocp_inst_basic;
-static object_allocator<hsa_insn_phi> *hsa_allocp_inst_phi;
-static object_allocator<hsa_insn_mem> *hsa_allocp_inst_mem;
-static object_allocator<hsa_insn_atomic> *hsa_allocp_inst_atomic;
-static object_allocator<hsa_insn_signal> *hsa_allocp_inst_signal;
-static object_allocator<hsa_insn_seg> *hsa_allocp_inst_seg;
-static object_allocator<hsa_insn_cmp> *hsa_allocp_inst_cmp;
-static object_allocator<hsa_insn_br> *hsa_allocp_inst_br;
-static object_allocator<hsa_insn_sbr> *hsa_allocp_inst_sbr;
-static object_allocator<hsa_insn_call> *hsa_allocp_inst_call;
-static object_allocator<hsa_insn_arg_block> *hsa_allocp_inst_arg_block;
-static object_allocator<hsa_insn_comment> *hsa_allocp_inst_comment;
-static object_allocator<hsa_insn_queue> *hsa_allocp_inst_queue;
-static object_allocator<hsa_insn_srctype> *hsa_allocp_inst_srctype;
-static object_allocator<hsa_insn_packed> *hsa_allocp_inst_packed;
-static object_allocator<hsa_insn_cvt> *hsa_allocp_inst_cvt;
-static object_allocator<hsa_insn_alloca> *hsa_allocp_inst_alloca;
-static object_allocator<hsa_bb> *hsa_allocp_bb;
+static struct obstack hsa_obstack;
 
 /* List of pointers to all instructions that come from an object allocator.  */
 static vec <hsa_insn_basic *> hsa_instructions;
@@ -467,52 +442,7 @@ static void
 hsa_init_data_for_cfun ()
 {
   hsa_init_compilation_unit_data ();
-  hsa_allocp_operand_address
-    = new object_allocator<hsa_op_address> ("HSA address operands");
-  hsa_allocp_operand_immed
-    = new object_allocator<hsa_op_immed> ("HSA immediate operands");
-  hsa_allocp_operand_reg
-    = new object_allocator<hsa_op_reg> ("HSA register operands");
-  hsa_allocp_operand_code_list
-    = new object_allocator<hsa_op_code_list> ("HSA code list operands");
-  hsa_allocp_operand_operand_list
-    = new object_allocator<hsa_op_operand_list> ("HSA operand list operands");
-  hsa_allocp_inst_basic
-    = new object_allocator<hsa_insn_basic> ("HSA basic instructions");
-  hsa_allocp_inst_phi
-    = new object_allocator<hsa_insn_phi> ("HSA phi operands");
-  hsa_allocp_inst_mem
-    = new object_allocator<hsa_insn_mem> ("HSA memory instructions");
-  hsa_allocp_inst_atomic
-    = new object_allocator<hsa_insn_atomic> ("HSA atomic instructions");
-  hsa_allocp_inst_signal
-    = new object_allocator<hsa_insn_signal> ("HSA signal instructions");
-  hsa_allocp_inst_seg
-    = new object_allocator<hsa_insn_seg> ("HSA segment conversion "
-					  "instructions");
-  hsa_allocp_inst_cmp
-    = new object_allocator<hsa_insn_cmp> ("HSA comparison instructions");
-  hsa_allocp_inst_br
-    = new object_allocator<hsa_insn_br> ("HSA branching instructions");
-  hsa_allocp_inst_sbr
-    = new object_allocator<hsa_insn_sbr> ("HSA switch branching instructions");
-  hsa_allocp_inst_call
-    = new object_allocator<hsa_insn_call> ("HSA call instructions");
-  hsa_allocp_inst_arg_block
-    = new object_allocator<hsa_insn_arg_block> ("HSA arg block instructions");
-  hsa_allocp_inst_comment
-    = new object_allocator<hsa_insn_comment> ("HSA comment instructions");
-  hsa_allocp_inst_queue
-    = new object_allocator<hsa_insn_queue> ("HSA queue instructions");
-  hsa_allocp_inst_srctype
-    = new object_allocator<hsa_insn_srctype> ("HSA source type instructions");
-  hsa_allocp_inst_packed
-    = new object_allocator<hsa_insn_packed> ("HSA packed instructions");
-  hsa_allocp_inst_cvt
-    = new object_allocator<hsa_insn_cvt> ("HSA convert instructions");
-  hsa_allocp_inst_alloca
-    = new object_allocator<hsa_insn_alloca> ("HSA alloca instructions");
-  hsa_allocp_bb = new object_allocator<hsa_bb> ("HSA basic blocks");
+  gcc_obstack_init (&hsa_obstack);
 }
 
 /* Deinitialize HSA subsystem and free all allocated memory.  */
@@ -546,29 +476,7 @@ hsa_deinit_data_for_cfun (void)
       omp_simple_builtins = NULL;
     }
 
-  delete hsa_allocp_operand_address;
-  delete hsa_allocp_operand_immed;
-  delete hsa_allocp_operand_reg;
-  delete hsa_allocp_operand_code_list;
-  delete hsa_allocp_operand_operand_list;
-  delete hsa_allocp_inst_basic;
-  delete hsa_allocp_inst_phi;
-  delete hsa_allocp_inst_atomic;
-  delete hsa_allocp_inst_mem;
-  delete hsa_allocp_inst_signal;
-  delete hsa_allocp_inst_seg;
-  delete hsa_allocp_inst_cmp;
-  delete hsa_allocp_inst_br;
-  delete hsa_allocp_inst_sbr;
-  delete hsa_allocp_inst_call;
-  delete hsa_allocp_inst_arg_block;
-  delete hsa_allocp_inst_comment;
-  delete hsa_allocp_inst_queue;
-  delete hsa_allocp_inst_srctype;
-  delete hsa_allocp_inst_packed;
-  delete hsa_allocp_inst_cvt;
-  delete hsa_allocp_inst_alloca;
-  delete hsa_allocp_bb;
+  obstack_free (&hsa_obstack, NULL);
   delete hsa_cfun;
 }
 
@@ -1114,12 +1022,12 @@ hsa_op_immed::hsa_op_immed ()
 {
 }
 
-/* New operator to allocate immediate operands from pool alloc.  */
+/* New operator to allocate immediate operands from obstack.  */
 
 void *
-hsa_op_immed::operator new (size_t)
+hsa_op_immed::operator new (size_t size)
 {
-  return hsa_allocp_operand_immed->allocate_raw ();
+  return obstack_alloc (&hsa_obstack, size);
 }
 
 /* Destructor.  */
@@ -1147,12 +1055,12 @@ hsa_op_reg::hsa_op_reg (BrigType16_t t)
 {
 }
 
-/* New operator to allocate a register from pool alloc.  */
+/* New operator to allocate a register from obstack.  */
 
 void *
-hsa_op_reg::operator new (size_t)
+hsa_op_reg::operator new (size_t size)
 {
-  return hsa_allocp_operand_reg->allocate_raw ();
+  return obstack_alloc (&hsa_obstack, size);
 }
 
 /* Verify register operand.  */
@@ -1231,12 +1139,12 @@ hsa_op_address::hsa_op_address (hsa_op_reg *r, HOST_WIDE_INT offset)
 {
 }
 
-/* New operator to allocate address operands from pool alloc.  */
+/* New operator to allocate address operands from obstack.  */
 
 void *
-hsa_op_address::operator new (size_t)
+hsa_op_address::operator new (size_t size)
 {
-  return hsa_allocp_operand_address->allocate_raw ();
+  return obstack_alloc (&hsa_obstack, size);
 }
 
 /* Constructor of an operand referring to HSAIL code.  */
@@ -1256,12 +1164,12 @@ hsa_op_code_list::hsa_op_code_list (unsigned elements)
   m_offsets.safe_grow_cleared (elements);
 }
 
-/* New operator to allocate code list operands from pool alloc.  */
+/* New operator to allocate code list operands from obstack.  */
 
 void *
-hsa_op_code_list::operator new (size_t)
+hsa_op_code_list::operator new (size_t size)
 {
-  return hsa_allocp_operand_code_list->allocate_raw ();
+  return obstack_alloc (&hsa_obstack, size);
 }
 
 /* Constructor of an operand representing an operand list.
@@ -1274,12 +1182,12 @@ hsa_op_operand_list::hsa_op_operand_list (unsigned elements)
   m_offsets.safe_grow (elements);
 }
 
-/* New operator to allocate operand list operands from pool alloc.  */
+/* New operator to allocate operand list operands from obstack.  */
 
 void *
-hsa_op_operand_list::operator new (size_t)
+hsa_op_operand_list::operator new (size_t size)
 {
-  return hsa_allocp_operand_operand_list->allocate_raw ();
+  return obstack_alloc (&hsa_obstack, size);
 }
 
 hsa_op_operand_list::~hsa_op_operand_list ()
@@ -1424,12 +1332,12 @@ hsa_insn_basic::hsa_insn_basic (unsigned nops, int opc, BrigType16_t t,
   hsa_instructions.safe_push (this);
 }
 
-/* New operator to allocate basic instruction from pool alloc.  */
+/* New operator to allocate basic instruction from obstack.  */
 
 void *
-hsa_insn_basic::operator new (size_t)
+hsa_insn_basic::operator new (size_t size)
 {
-  return hsa_allocp_inst_basic->allocate_raw ();
+  return obstack_alloc (&hsa_obstack, size);
 }
 
 /* Verify the instruction.  */
@@ -1482,12 +1390,12 @@ hsa_insn_phi::hsa_insn_phi (unsigned nops, hsa_op_reg *dst)
   dst->set_definition (this);
 }
 
-/* New operator to allocate PHI instruction from pool alloc.  */
+/* New operator to allocate PHI instruction from obstack.  */
 
 void *
-hsa_insn_phi::operator new (size_t)
+hsa_insn_phi::operator new (size_t size)
 {
-  return hsa_allocp_inst_phi->allocate_raw ();
+  return obstack_alloc (&hsa_obstack, size);
 }
 
 /* Constructor of class representing instruction for conditional jump, CTRL is
@@ -1500,12 +1408,12 @@ hsa_insn_br::hsa_insn_br (hsa_op_reg *ctrl)
 {
 }
 
-/* New operator to allocate branch instruction from pool alloc.  */
+/* New operator to allocate branch instruction from obstack.  */
 
 void *
-hsa_insn_br::operator new (size_t)
+hsa_insn_br::operator new (size_t size)
 {
-  return hsa_allocp_inst_br->allocate_raw ();
+  return obstack_alloc (&hsa_obstack, size);
 }
 
 /* Constructor of class representing instruction for switch jump, CTRL is
@@ -1518,12 +1426,12 @@ hsa_insn_sbr::hsa_insn_sbr (hsa_op_reg *index, unsigned jump_count)
 {
 }
 
-/* New operator to allocate switch branch instruction from pool alloc.  */
+/* New operator to allocate switch branch instruction from obstack.  */
 
 void *
-hsa_insn_sbr::operator new (size_t)
+hsa_insn_sbr::operator new (size_t size)
 {
-  return hsa_allocp_inst_sbr->allocate_raw ();
+  return obstack_alloc (&hsa_obstack, size);
 }
 
 /* Replace all occurrences of OLD_BB with NEW_BB in the statements
@@ -1552,12 +1460,12 @@ hsa_insn_cmp::hsa_insn_cmp (BrigCompareOperation8_t cmp, BrigType16_t t,
 {
 }
 
-/* New operator to allocate compare instruction from pool alloc.  */
+/* New operator to allocate compare instruction from obstack.  */
 
 void *
-hsa_insn_cmp::operator new (size_t)
+hsa_insn_cmp::operator new (size_t size)
 {
-  return hsa_allocp_inst_cmp->allocate_raw ();
+  return obstack_alloc (&hsa_obstack, size);
 }
 
 /* Constructor of classes representing memory accesses.  OPC is the opcode (must
@@ -1585,12 +1493,12 @@ hsa_insn_mem::hsa_insn_mem (unsigned nops, int opc, BrigType16_t t,
 {
 }
 
-/* New operator to allocate memory instruction from pool alloc.  */
+/* New operator to allocate memory instruction from obstack.  */
 
 void *
-hsa_insn_mem::operator new (size_t)
+hsa_insn_mem::operator new (size_t size)
 {
-  return hsa_allocp_inst_mem->allocate_raw ();
+  return obstack_alloc (&hsa_obstack, size);
 }
 
 /* Constructor of class representing atomic instructions and signals.  OPC is
@@ -1614,12 +1522,12 @@ hsa_insn_atomic::hsa_insn_atomic (int nops, int opc,
 		       opc == BRIG_OPCODE_SIGNALNORET);
 }
 
-/* New operator to allocate signal instruction from pool alloc.  */
+/* New operator to allocate signal instruction from obstack.  */
 
 void *
-hsa_insn_atomic::operator new (size_t)
+hsa_insn_atomic::operator new (size_t size)
 {
-  return hsa_allocp_inst_atomic->allocate_raw ();
+  return obstack_alloc (&hsa_obstack, size);
 }
 
 /* Constructor of class representing signal instructions.  OPC is the prinicpal
@@ -1636,12 +1544,12 @@ hsa_insn_signal::hsa_insn_signal (int nops, int opc,
 {
 }
 
-/* New operator to allocate signal instruction from pool alloc.  */
+/* New operator to allocate signal instruction from obstack.  */
 
 void *
-hsa_insn_signal::operator new (size_t)
+hsa_insn_signal::operator new (size_t size)
 {
-  return hsa_allocp_inst_signal->allocate_raw ();
+  return obstack_alloc (&hsa_obstack, size);
 }
 
 /* Constructor of class representing segment conversion instructions.  OPC is
@@ -1659,12 +1567,12 @@ hsa_insn_seg::hsa_insn_seg (int opc, BrigType16_t dest, BrigType16_t srct,
   gcc_checking_assert (opc == BRIG_OPCODE_STOF || opc == BRIG_OPCODE_FTOS);
 }
 
-/* New operator to allocate address conversion instruction from pool alloc.  */
+/* New operator to allocate address conversion instruction from obstack.  */
 
 void *
-hsa_insn_seg::operator new (size_t)
+hsa_insn_seg::operator new (size_t size)
 {
-  return hsa_allocp_inst_seg->allocate_raw ();
+  return obstack_alloc (&hsa_obstack, size);
 }
 
 /* Constructor of class representing a call instruction.  CALLEE is the tree
@@ -1683,12 +1591,12 @@ hsa_insn_call::hsa_insn_call (hsa_internal_fn *fn)
 {
 }
 
-/* New operator to allocate call instruction from pool alloc.  */
+/* New operator to allocate call instruction from obstack.  */
 
 void *
-hsa_insn_call::operator new (size_t)
+hsa_insn_call::operator new (size_t size)
 {
-  return hsa_allocp_inst_call->allocate_raw ();
+  return obstack_alloc (&hsa_obstack, size);
 }
 
 hsa_insn_call::~hsa_insn_call ()
@@ -1711,12 +1619,12 @@ hsa_insn_arg_block::hsa_insn_arg_block (BrigKind brig_kind,
 {
 }
 
-/* New operator to allocate argument block instruction from pool alloc.  */
+/* New operator to allocate argument block instruction from obstack.  */
 
 void *
-hsa_insn_arg_block::operator new (size_t)
+hsa_insn_arg_block::operator new (size_t size)
 {
-  return hsa_allocp_inst_arg_block->allocate_raw ();
+  return obstack_alloc (&hsa_obstack, size);
 }
 
 hsa_insn_comment::hsa_insn_comment (const char *s)
@@ -1730,12 +1638,12 @@ hsa_insn_comment::hsa_insn_comment (const char *s)
   m_comment = buf;
 }
 
-/* New operator to allocate comment instruction from pool alloc.  */
+/* New operator to allocate comment instruction from obstack.  */
 
 void *
-hsa_insn_comment::operator new (size_t)
+hsa_insn_comment::operator new (size_t size)
 {
-  return hsa_allocp_inst_comment->allocate_raw ();
+  return obstack_alloc (&hsa_obstack, size);
 }
 
 hsa_insn_comment::~hsa_insn_comment ()
@@ -1751,12 +1659,12 @@ hsa_insn_queue::hsa_insn_queue (int nops, BrigOpcode opcode)
 {
 }
 
-/* New operator to allocate source type instruction from pool alloc.  */
+/* New operator to allocate source type instruction from obstack.  */
 
 void *
-hsa_insn_srctype::operator new (size_t)
+hsa_insn_srctype::operator new (size_t size)
 {
-  return hsa_allocp_inst_srctype->allocate_raw ();
+  return obstack_alloc (&hsa_obstack, size);
 }
 
 /* Constructor of class representing the source type instruction in HSAIL.  */
@@ -1769,12 +1677,12 @@ hsa_insn_srctype::hsa_insn_srctype (int nops, BrigOpcode opcode,
     m_source_type (srct)
 {}
 
-/* New operator to allocate packed instruction from pool alloc.  */
+/* New operator to allocate packed instruction from obstack.  */
 
 void *
-hsa_insn_packed::operator new (size_t)
+hsa_insn_packed::operator new (size_t size)
 {
-  return hsa_allocp_inst_packed->allocate_raw ();
+  return obstack_alloc (&hsa_obstack, size);
 }
 
 /* Constructor of class representing the packed instruction in HSAIL.  */
@@ -1788,12 +1696,12 @@ hsa_insn_packed::hsa_insn_packed (int nops, BrigOpcode opcode,
   m_operand_list = new hsa_op_operand_list (nops - 1);
 }
 
-/* New operator to allocate convert instruction from pool alloc.  */
+/* New operator to allocate convert instruction from obstack.  */
 
 void *
-hsa_insn_cvt::operator new (size_t)
+hsa_insn_cvt::operator new (size_t size)
 {
-  return hsa_allocp_inst_cvt->allocate_raw ();
+  return obstack_alloc (&hsa_obstack, size);
 }
 
 /* Constructor of class representing the convert instruction in HSAIL.  */
@@ -1803,12 +1711,12 @@ hsa_insn_cvt::hsa_insn_cvt (hsa_op_with_type *dest, hsa_op_with_type *src)
 {
 }
 
-/* New operator to allocate alloca from pool alloc.  */
+/* New operator to allocate alloca from obstack.  */
 
 void *
-hsa_insn_alloca::operator new (size_t)
+hsa_insn_alloca::operator new (size_t size)
 {
-  return hsa_allocp_inst_alloca->allocate_raw ();
+  return obstack_alloc (&hsa_obstack, size);
 }
 
 /* Constructor of class representing the alloca in HSAIL.  */
@@ -5885,7 +5793,8 @@ hsa_bb::~hsa_bb ()
 hsa_bb *
 hsa_init_new_bb (basic_block bb)
 {
-  return new (*hsa_allocp_bb) hsa_bb (bb);
+  void *m = obstack_alloc (&hsa_obstack, sizeof (hsa_bb));
+  return new (m) hsa_bb (bb);
 }
 
 /* Initialize OMP in an HSA basic block PROLOGUE.  */
