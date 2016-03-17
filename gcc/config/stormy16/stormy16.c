@@ -2180,28 +2180,28 @@ xstormy16_interrupt_function_p (void)
 #define TARGET_ATTRIBUTE_TABLE  xstormy16_attribute_table
 
 static tree xstormy16_handle_interrupt_attribute
-  (tree *, tree, tree, int, bool *);
+  (ttype **, tree, tree, int, bool *);
 static tree xstormy16_handle_below100_attribute
   (tree *, tree, tree, int, bool *);
 
 static const struct attribute_spec xstormy16_attribute_table[] =
 {
-  /* name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
-     affects_type_identity.  */
-  { "interrupt", 0, 0, false, true,  true,
-    xstormy16_handle_interrupt_attribute , false },
-  { "BELOW100",  0, 0, false, false, false,
-    xstormy16_handle_below100_attribute, false },
-  { "below100",  0, 0, false, false, false,
-    xstormy16_handle_below100_attribute, false },
-  { NULL,        0, 0, false, false, false, NULL, false }
+  /* name, min_len, max_len, decl_req, type_req, fn_type_req, decl_handler,
+     type_handler, affects_type_identity.  */
+  { "interrupt", 0, 0, false, true,  true, NULL,
+  xstormy16_handle_interrupt_attribute , false },
+  { "BELOW100",  0, 0, true, false, false,
+    xstormy16_handle_below100_attribute, NULL, false },
+  { "below100",  0, 0, true, false, false,
+    xstormy16_handle_below100_attribute, NULL, false },
+  { NULL,        0, 0, false, false, false, NULL, NULL, false }
 };
 
 /* Handle an "interrupt" attribute;
    arguments as in struct attribute_spec.handler.  */
 
 static tree
-xstormy16_handle_interrupt_attribute (tree *node, tree name,
+xstormy16_handle_interrupt_attribute (ttype **node, tree name,
 				      tree args ATTRIBUTE_UNUSED,
 				      int flags ATTRIBUTE_UNUSED,
 				      bool *no_add_attrs)
@@ -2226,15 +2226,13 @@ xstormy16_handle_below100_attribute (tree *node,
 				     int flags ATTRIBUTE_UNUSED,
 				     bool *no_add_attrs)
 {
-  if (TREE_CODE (*node) != VAR_DECL
-      && TREE_CODE (*node) != POINTER_TYPE
-      && TREE_CODE (*node) != TYPE_DECL)
+  if (TREE_CODE (*node) != VAR_DECL)
     {
       warning (OPT_Wattributes,
 	       "%<__BELOW100__%> attribute only applies to variables");
       *no_add_attrs = true;
     }
-  else if (args == NULL_TREE && TREE_CODE (*node) == VAR_DECL)
+  else if (args == NULL_TREE)
     {
       if (! (TREE_PUBLIC (*node) || TREE_STATIC (*node)))
 	{

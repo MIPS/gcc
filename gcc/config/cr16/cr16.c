@@ -197,10 +197,10 @@ static void cr16_print_operand_address (FILE *, machine_mode, rtx);
 /* Table of machine attributes.  */
 static const struct attribute_spec cr16_attribute_table[] = {
   /* ISRs have special prologue and epilogue requirements.  */
-  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
-       affects_type_identity }.  */
-  {"interrupt", 0, 0, false, true, true, NULL, false},
-  {NULL, 0, 0, false, false, false, NULL, false}
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, decl_handler,
+       type_handler, affects_type_identity }.  */
+  {"interrupt", 0, 0, false, true, true, NULL, NULL, false},
+  {NULL, 0, 0, false, false, false, NULL, NULL, false}
 };
 
 /* TARGET_ASM_UNALIGNED_xx_OP generates .?byte directive

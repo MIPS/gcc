@@ -3185,19 +3185,19 @@ v850_adjust_insn_length (rtx_insn *insn, int length)
 
 static const struct attribute_spec v850_attribute_table[] =
 {
-  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
-       affects_type_identity } */
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, decl_handler,
+       type_handler, affects_type_identity } */
   { "interrupt_handler", 0, 0, true,  false, false,
-    v850_handle_interrupt_attribute, false },
+    v850_handle_interrupt_attribute, NULL, false },
   { "interrupt",         0, 0, true,  false, false,
-    v850_handle_interrupt_attribute, false },
+    v850_handle_interrupt_attribute, NULL, false },
   { "sda",               0, 0, true,  false, false,
-    v850_handle_data_area_attribute, false },
+    v850_handle_data_area_attribute, NULL, false },
   { "tda",               0, 0, true,  false, false,
-    v850_handle_data_area_attribute, false },
+    v850_handle_data_area_attribute, NULL, false },
   { "zda",               0, 0, true,  false, false,
-    v850_handle_data_area_attribute, false },
-  { NULL,                0, 0, false, false, false, NULL, false }
+    v850_handle_data_area_attribute, NULL, false },
+  { NULL,                0, 0, false, false, false, NULL, NULL, false }
 };
 
 static void

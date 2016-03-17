@@ -205,7 +205,7 @@ enum reg_class rs6000_regno_regclass[FIRST_PSEUDO_REGISTER];
 static int dbg_cost_ctrl;
 
 /* Built in types.  */
-tree rs6000_builtin_types[RS6000_BTI_MAX];
+ttype *rs6000_builtin_types[RS6000_BTI_MAX];
 tree rs6000_builtin_decls[RS6000_BUILTIN_COUNT];
 
 /* Flag to say the TOC is initialized */
@@ -244,7 +244,7 @@ enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
 int rs6000_vector_align[NUM_MACHINE_MODES];
 
 /* Map selected modes to types for builtins.  */
-static GTY(()) tree builtin_mode_to_type[MAX_MACHINE_MODE][2];
+static GTY(()) ttype *builtin_mode_to_type[MAX_MACHINE_MODE][2];
 
 /* What modes to automatically generate reciprocal divide estimate (fre) and
    reciprocal sqrt (frsqrte) for.  */
@@ -1205,9 +1205,12 @@ static bool rs6000_debug_legitimate_address_p (machine_mode, rtx, bool);
 static bool spe_func_has_64bit_regs_p (void);
 static struct machine_function * rs6000_init_machine_status (void);
 static int rs6000_ra_ever_killed (void);
-static tree rs6000_handle_longcall_attribute (tree *, tree, tree, int, bool *);
-static tree rs6000_handle_altivec_attribute (tree *, tree, tree, int, bool *);
-static tree rs6000_handle_struct_attribute (tree *, tree, tree, int, bool *);
+static tree rs6000_handle_longcall_attribute (ttype **, tree, tree, int, bool *);
+static tree rs6000_handle_altivec_attribute (ttype **, tree, tree, int, bool *);
+static tree rs6000_handle_struct_decl_attribute (tree *, tree, tree, int,
+						 bool *);
+static tree rs6000_handle_struct_type_attribute (ttype **, tree, tree, int,
+						 bool *);
 static tree rs6000_builtin_vectorized_libmass (combined_fn, tree, tree);
 static void rs6000_emit_set_long_const (rtx, HOST_WIDE_INT);
 static int rs6000_memory_move_cost (machine_mode, reg_class_t, bool);
@@ -1421,22 +1424,23 @@ static const char alt_reg_names[][8] =
 
 static const struct attribute_spec rs6000_attribute_table[] =
 {
-  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
-       affects_type_identity } */
-  { "altivec",   1, 1, false, true,  false, rs6000_handle_altivec_attribute,
-    false },
-  { "longcall",  0, 0, false, true,  true,  rs6000_handle_longcall_attribute,
-    false },
-  { "shortcall", 0, 0, false, true,  true,  rs6000_handle_longcall_attribute,
-    false },
-  { "ms_struct", 0, 0, false, false, false, rs6000_handle_struct_attribute,
-    false },
-  { "gcc_struct", 0, 0, false, false, false, rs6000_handle_struct_attribute,
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, decl_handler,
+       type_handler, affects_type_identity } */
+  { "altivec",   1, 1, false, true,  false, NULL,
+    rs6000_handle_altivec_attribute, false },
+  { "longcall",  0, 0, false, true,  true,  NULL,
+    rs6000_handle_longcall_attribute, false },
+  { "shortcall", 0, 0, false, true,  true,  NULL,
+    rs6000_handle_longcall_attribute, false },
+  { "ms_struct", 0, 0, false, false, false, rs6000_handle_struct_decl_attribute,
+    rs6000_handle_struct_type_attribute, false },
+  { "gcc_struct", 0, 0, false, false, false,
+    rs6000_handle_struct_decl_attribute, rs6000_handle_struct_type_attribute,
     false },
 #ifdef SUBTARGET_ATTRIBUTE_TABLE
   SUBTARGET_ATTRIBUTE_TABLE,
 #endif
-  { NULL,        0, 0, false, false, false, NULL, false }
+  { NULL,        0, 0, false, false, false, NULL, NULL, false }
 };
 
 #ifndef TARGET_PROFILE_KERNEL
@@ -15075,12 +15079,12 @@ rs6000_init_builtins (void)
      defaults.  */
   if (TARGET_FLOAT128)
     {
-      ibm128_float_type_node = make_node (REAL_TYPE);
+      ibm128_float_type_node = make_type_node (REAL_TYPE);
       TYPE_PRECISION (ibm128_float_type_node) = 128;
       layout_type (ibm128_float_type_node);
       SET_TYPE_MODE (ibm128_float_type_node, IFmode);
 
-      ieee128_float_type_node = make_node (REAL_TYPE);
+      ieee128_float_type_node = make_type_node (REAL_TYPE);
       TYPE_PRECISION (ieee128_float_type_node) = 128;
       layout_type (ieee128_float_type_node);
       SET_TYPE_MODE (ieee128_float_type_node, KFmode);
@@ -30782,13 +30786,13 @@ rs6000_attribute_takes_identifier_p (const_tree attr_id)
   given declaration.  */
 
 static tree
-rs6000_handle_altivec_attribute (tree *node,
+rs6000_handle_altivec_attribute (ttype **node,
 				 tree name ATTRIBUTE_UNUSED,
 				 tree args,
 				 int flags ATTRIBUTE_UNUSED,
 				 bool *no_add_attrs)
 {
-  tree type = *node, result = NULL_TREE;
+  ttype *type = *node, *result = NULL;
   machine_mode mode;
   int unsigned_p;
   char altivec_type
@@ -30801,7 +30805,7 @@ rs6000_handle_altivec_attribute (tree *node,
 	 || TREE_CODE (type) == FUNCTION_TYPE
 	 || TREE_CODE (type) == METHOD_TYPE
 	 || TREE_CODE (type) == ARRAY_TYPE)
-    type = TREE_TYPE (type);
+    type = TREE_TTYPE (type);
 
   mode = TYPE_MODE (type);
 
@@ -30946,14 +30950,12 @@ rs6000_mangle_type (const_tree type)
    struct attribute_spec.handler.  */
 
 static tree
-rs6000_handle_longcall_attribute (tree *node, tree name,
+rs6000_handle_longcall_attribute (ttype **node, tree name,
 				  tree args ATTRIBUTE_UNUSED,
 				  int flags ATTRIBUTE_UNUSED,
 				  bool *no_add_attrs)
 {
-  if (TREE_CODE (*node) != FUNCTION_TYPE
-      && TREE_CODE (*node) != FIELD_DECL
-      && TREE_CODE (*node) != TYPE_DECL)
+  if (TREE_CODE (*node) != FUNCTION_TYPE)
     {
       warning (OPT_Wattributes, "%qE attribute only applies to functions",
 	       name);
@@ -31012,19 +31014,14 @@ rs6000_longcall_ref (rtx call_ref)
 
 /* Handle a "ms_struct" or "gcc_struct" attribute; arguments as in
    struct attribute_spec.handler.  */
+
 static tree
-rs6000_handle_struct_attribute (tree *node, tree name,
-				tree args ATTRIBUTE_UNUSED,
-				int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+rs6000_handle_struct_type_attribute (ttype **node, tree name,
+				     tree args ATTRIBUTE_UNUSED,
+				     int flags ATTRIBUTE_UNUSED,
+				     bool *no_add_attrs)
 {
-  tree *type = NULL;
-  if (DECL_P (*node))
-    {
-      if (TREE_CODE (*node) == TYPE_DECL)
-        type = &TREE_TYPE (*node);
-    }
-  else
-    type = node;
+  ttype **type = node;
 
   if (!(type && (TREE_CODE (*type) == RECORD_TYPE
                  || TREE_CODE (*type) == UNION_TYPE)))
@@ -31043,6 +31040,20 @@ rs6000_handle_struct_attribute (tree *node, tree name,
       *no_add_attrs = true;
     }
 
+  return NULL_TREE;
+}
+
+static tree
+rs6000_handle_struct_decl_attribute (tree *node, tree name, tree args,
+				     int flags, bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) == TYPE_DECL)
+    return rs6000_handle_struct_type_attribute (TTYPE_PP (&TREE_TYPE (*node)),
+						name, args, flags,
+						no_add_attrs);
+
+  warning (OPT_Wattributes, "%qE attribute ignored", name);
+  *no_add_attrs = true;
   return NULL_TREE;
 }
 

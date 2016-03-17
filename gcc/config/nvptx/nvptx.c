@@ -3809,10 +3809,11 @@ nvptx_handle_kernel_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 /* Table of valid machine attributes.  */
 static const struct attribute_spec nvptx_attribute_table[] =
 {
-  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
-       affects_type_identity } */
-  { "kernel", 0, 0, true, false,  false, nvptx_handle_kernel_attribute, false },
-  { NULL, 0, 0, false, false, false, NULL, false }
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, decl_handler,
+       type_handler, affects_type_identity } */
+  { "kernel", 0, 0, true, false,  false, nvptx_handle_kernel_attribute, NULL,
+    false },
+  { NULL, 0, 0, false, false, false, NULL, NULL, false }
 };
 
 /* Limit vector alignments to BIGGEST_ALIGNMENT.  */

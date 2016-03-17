@@ -542,7 +542,8 @@ extern void gnat_write_global_declarations (void);
 
 /* Return the signed or unsigned version of TYPE_NODE, a scalar type, the
    signedness being specified by UNSIGNEDP.  */
-extern tree gnat_signed_or_unsigned_type_for (int unsignedp, tree type_node);
+extern ttype *gnat_signed_or_unsigned_type_for (int unsignedp,
+						ttype_p type_node);
 
 /* Return 1 if the types T1 and T2 are compatible, i.e. if they can be
    transparently converted to each other.  */
@@ -1126,16 +1127,16 @@ return_type_with_variable_size_p (tree type)
 
 /* Return the unsigned version of TYPE_NODE, a scalar type.  */
 
-static inline tree
-gnat_unsigned_type_for (tree type_node)
+static inline ttype *
+gnat_unsigned_type_for (ttype_p type_node)
 {
   return gnat_signed_or_unsigned_type_for (1, type_node);
 }
 
 /* Return the signed version of TYPE_NODE, a scalar type.  */
 
-static inline tree
-gnat_signed_type_for (tree type_node)
+static inline ttype *
+gnat_signed_type_for (ttype_p type_node)
 {
   return gnat_signed_or_unsigned_type_for (0, type_node);
 }

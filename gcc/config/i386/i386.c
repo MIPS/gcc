@@ -6784,15 +6784,13 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
    arguments as in struct attribute_spec.handler.  */
 
 static tree
-ix86_handle_cconv_attribute (tree *node, tree name,
+ix86_handle_cconv_attribute (ttype **node, tree name,
 				   tree args,
 				   int,
 				   bool *no_add_attrs)
 {
   if (TREE_CODE (*node) != FUNCTION_TYPE
-      && TREE_CODE (*node) != METHOD_TYPE
-      && TREE_CODE (*node) != FIELD_DECL
-      && TREE_CODE (*node) != TYPE_DECL)
+      && TREE_CODE (*node) != METHOD_TYPE)
     {
       warning (OPT_Wattributes, "%qE attribute only applies to functions",
 	       name);
@@ -6924,6 +6922,22 @@ ix86_handle_cconv_attribute (tree *node, tree name,
   return NULL_TREE;
 }
 
+
+static tree
+ix86_handle_tm_regparm_get_attr ()
+{
+  tree alt;
+  /* ??? Is there a better way to validate 32-bit windows?  We have
+     cfun->machine->call_abi, but that seems to be set only for 64-bit.  */
+  if (CHECK_STACK_LIMIT > 0)
+    alt = tree_cons (get_identifier ("fastcall"), NULL, NULL);
+  else
+    {
+      alt = tree_cons (NULL, build_int_cst (NULL_TYPE, 2), NULL);
+      alt = tree_cons (get_identifier ("regparm"), alt, NULL);
+    }
+  return alt;
+}
 /* The transactional memory builtins are implicitly regparm or fastcall
    depending on the ABI.  Override the generic do-nothing attribute that
    these builtins were declared with, and replace it with one of the two
@@ -6942,16 +6956,27 @@ ix86_handle_tm_regparm_attribute (tree *node, tree, tree,
   if (TARGET_64BIT)
     return NULL_TREE;
 
-  /* ??? Is there a better way to validate 32-bit windows?  We have
-     cfun->machine->call_abi, but that seems to be set only for 64-bit.  */
-  if (CHECK_STACK_LIMIT > 0)
-    alt = tree_cons (get_identifier ("fastcall"), NULL, NULL);
-  else
-    {
-      alt = tree_cons (NULL, build_int_cst (NULL_TYPE, 2), NULL);
-      alt = tree_cons (get_identifier ("regparm"), alt, NULL);
-    }
+  alt = ix86_handle_tm_regparm_get_attr ();
   decl_attributes (node, alt, flags);
+
+  return NULL_TREE;
+}
+
+static tree
+ix86_handle_tm_regparm_type_attribute (ttype **node, tree, tree,
+				  int flags, bool *no_add_attrs)
+{
+  tree alt;
+
+  /* In no case do we want to add the placeholder attribute.  */
+  *no_add_attrs = true;
+
+  /* The 64-bit ABI is unchanged for transactional memory.  */
+  if (TARGET_64BIT)
+    return NULL_TREE;
+
+  alt = ix86_handle_tm_regparm_get_attr ();
+  type_attributes (node, alt, flags);
 
   return NULL_TREE;
 }
@@ -11971,7 +11996,7 @@ find_drap_reg (void)
 /* Handle a "force_align_arg_pointer" attribute.  */
 
 static tree
-ix86_handle_force_align_arg_pointer_attribute (tree *node, tree name,
+ix86_handle_force_align_arg_pointer_attribute (ttype **node, tree name,
 					       tree, int, bool *no_add_attrs)
 {
   if (TREE_CODE (*node) != FUNCTION_TYPE
@@ -35351,7 +35376,7 @@ ix86_init_tm_builtins (void)
 				       attrs);
 	  /* add_builtin_function() will set the DECL_ATTRIBUTES, now
 	     set the TYPE_ATTRIBUTES.  */
-	  decl_attributes (&TREE_TYPE (decl), attrs_type, ATTR_FLAG_BUILT_IN);
+	  type_attributes (&TREE_TYPE (decl), attrs_type, ATTR_FLAG_BUILT_IN);
 
 	  set_builtin_decl (code, decl, false);
 	}
@@ -44392,15 +44417,13 @@ x86_order_regs_for_local_alloc (void)
 /* Handle a "callee_pop_aggregate_return" attribute; arguments as
    in struct attribute_spec handler.  */
 static tree
-ix86_handle_callee_pop_aggregate_return (tree *node, tree name,
+ix86_handle_callee_pop_aggregate_return (ttype **node, tree name,
 					      tree args,
 					      int,
 					      bool *no_add_attrs)
 {
   if (TREE_CODE (*node) != FUNCTION_TYPE
-      && TREE_CODE (*node) != METHOD_TYPE
-      && TREE_CODE (*node) != FIELD_DECL
-      && TREE_CODE (*node) != TYPE_DECL)
+      && TREE_CODE (*node) != METHOD_TYPE)
     {
       warning (OPT_Wattributes, "%qE attribute only applies to functions",
 	       name);
@@ -44444,13 +44467,11 @@ ix86_handle_callee_pop_aggregate_return (tree *node, tree name,
 /* Handle a "ms_abi" or "sysv" attribute; arguments as in
    struct attribute_spec.handler.  */
 static tree
-ix86_handle_abi_attribute (tree *node, tree name, tree, int,
+ix86_handle_abi_attribute (ttype **node, tree name, tree, int,
 			   bool *no_add_attrs)
 {
   if (TREE_CODE (*node) != FUNCTION_TYPE
-      && TREE_CODE (*node) != METHOD_TYPE
-      && TREE_CODE (*node) != FIELD_DECL
-      && TREE_CODE (*node) != TYPE_DECL)
+      && TREE_CODE (*node) != METHOD_TYPE)
     {
       warning (OPT_Wattributes, "%qE attribute only applies to functions",
 	       name);
@@ -44484,22 +44505,12 @@ ix86_handle_abi_attribute (tree *node, tree name, tree, int,
 /* Handle a "ms_struct" or "gcc_struct" attribute; arguments as in
    struct attribute_spec.handler.  */
 static tree
-ix86_handle_struct_attribute (tree *node, tree name, tree, int,
-			      bool *no_add_attrs)
+ix86_handle_struct_type_attribute (ttype **type, tree name, tree, int,
+				   bool *no_add_attrs)
 {
-  tree *type = NULL;
-  if (DECL_P (*node))
+  if (!(RECORD_OR_UNION_TYPE_P (*type)))
     {
-      if (TREE_CODE (*node) == TYPE_DECL)
-	type = &TREE_TYPE (*node);
-    }
-  else
-    type = node;
-
-  if (!(type && RECORD_OR_UNION_TYPE_P (*type)))
-    {
-      warning (OPT_Wattributes, "%qE attribute ignored",
-	       name);
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
 
@@ -44512,6 +44523,20 @@ ix86_handle_struct_attribute (tree *node, tree name, tree, int,
                name);
       *no_add_attrs = true;
     }
+
+  return NULL_TREE;
+}
+
+static tree
+ix86_handle_struct_decl_attribute (tree *node, tree name, tree arg, int flags,
+				   bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) == TYPE_DECL)
+    return ix86_handle_struct_type_attribute (TTYPE_PP (&TREE_TYPE (*node)),
+					      name, arg, flags, no_add_attrs);
+
+  warning (OPT_Wattributes, "%qE attribute ignored", name);
+  *no_add_attrs = true;
 
   return NULL_TREE;
 }
@@ -48686,61 +48711,64 @@ ix86_expand_round_sse4 (rtx op0, rtx op1)
 /* Table of valid machine attributes.  */
 static const struct attribute_spec ix86_attribute_table[] =
 {
-  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
-       affects_type_identity } */
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, decl_handler,
+       type-Handler, affects_type_identity } */
   /* Stdcall attribute says callee is responsible for popping arguments
      if they are not variable.  */
-  { "stdcall",   0, 0, false, true,  true,  ix86_handle_cconv_attribute,
+  { "stdcall",   0, 0, false, true,  true,  NULL, ix86_handle_cconv_attribute,
     true },
   /* Fastcall attribute says callee is responsible for popping arguments
      if they are not variable.  */
-  { "fastcall",  0, 0, false, true,  true,  ix86_handle_cconv_attribute,
+  { "fastcall",  0, 0, false, true,  true,  NULL, ix86_handle_cconv_attribute,
     true },
   /* Thiscall attribute says callee is responsible for popping arguments
      if they are not variable.  */
-  { "thiscall",  0, 0, false, true,  true,  ix86_handle_cconv_attribute,
+  { "thiscall",  0, 0, false, true,  true,  NULL, ix86_handle_cconv_attribute,
     true },
   /* Cdecl attribute says the callee is a normal C declaration */
-  { "cdecl",     0, 0, false, true,  true,  ix86_handle_cconv_attribute,
+  { "cdecl",     0, 0, false, true,  true,  NULL, ix86_handle_cconv_attribute,
     true },
   /* Regparm attribute specifies how many integer arguments are to be
      passed in registers.  */
-  { "regparm",   1, 1, false, true,  true,  ix86_handle_cconv_attribute,
+  { "regparm",   1, 1, false, true,  true,  NULL, ix86_handle_cconv_attribute,
     true },
   /* Sseregparm attribute says we are using x86_64 calling conventions
      for FP arguments.  */
-  { "sseregparm", 0, 0, false, true, true, ix86_handle_cconv_attribute,
+  { "sseregparm", 0, 0, false, true, true,  NULL, ix86_handle_cconv_attribute,
     true },
   /* The transactional memory builtins are implicitly regparm or fastcall
      depending on the ABI.  Override the generic do-nothing attribute that
      these builtins were declared with.  */
   { "*tm regparm", 0, 0, false, true, true, ix86_handle_tm_regparm_attribute,
-    true },
+    ix86_handle_tm_regparm_type_attribute, true },
   /* force_align_arg_pointer says this function realigns the stack at entry.  */
-  { (const char *)&ix86_force_align_arg_pointer_string, 0, 0,
-    false, true,  true, ix86_handle_force_align_arg_pointer_attribute, false },
+  { (const char *)&ix86_force_align_arg_pointer_string, 0, 0, false, 
+    true,  true, NULL, ix86_handle_force_align_arg_pointer_attribute, false },
 #if TARGET_DLLIMPORT_DECL_ATTRIBUTES
-  { "dllimport", 0, 0, false, false, false, handle_dll_attribute, false },
-  { "dllexport", 0, 0, false, false, false, handle_dll_attribute, false },
-  { "shared",    0, 0, true,  false, false, ix86_handle_shared_attribute,
+  { "dllimport", 0, 0, false, false, false, handle_dll_decl_attribute,
+    handle_dll_type_attribute, false },
+  { "dllexport", 0, 0, false, false, false, handle_dll_decl_attribute,
+    handle_dll_type_attribute, false },
+  { "shared",    0, 0, true,  false, false, ix86_handle_shared_attribute, NULL,
     false },
 #endif
-  { "ms_struct", 0, 0, false, false,  false, ix86_handle_struct_attribute,
-    false },
-  { "gcc_struct", 0, 0, false, false,  false, ix86_handle_struct_attribute,
-    false },
+  { "ms_struct", 0, 0, false, false,  false, ix86_handle_struct_decl_attribute,
+    ix86_handle_struct_type_attribute, false },
+  { "gcc_struct", 0, 0, false, false,  false, ix86_handle_struct_decl_attribute,
+    ix86_handle_struct_type_attribute, false },
 #ifdef SUBTARGET_ATTRIBUTE_TABLE
   SUBTARGET_ATTRIBUTE_TABLE,
 #endif
   /* ms_abi and sysv_abi calling convention function attributes.  */
-  { "ms_abi", 0, 0, false, true, true, ix86_handle_abi_attribute, true },
-  { "sysv_abi", 0, 0, false, true, true, ix86_handle_abi_attribute, true },
+  { "ms_abi", 0, 0, false, true, true, NULL, ix86_handle_abi_attribute, true },
+  { "sysv_abi", 0, 0, false, true, true, NULL, ix86_handle_abi_attribute,
+     true },
   { "ms_hook_prologue", 0, 0, true, false, false, ix86_handle_fndecl_attribute,
-    false },
-  { "callee_pop_aggregate_return", 1, 1, false, true, true,
+    NULL, false },
+  { "callee_pop_aggregate_return", 1, 1, false, true, true, NULL,
     ix86_handle_callee_pop_aggregate_return, true },
   /* End element.  */
-  { NULL,        0, 0, false, false, false, NULL, false }
+  { NULL,        0, 0, false, false, false, NULL, NULL, false }
 };
 
 /* Implement targetm.vectorize.builtin_vectorization_cost.  */

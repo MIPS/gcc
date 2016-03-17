@@ -210,7 +210,7 @@ static tree sh2a_handle_function_vector_handler_attribute (tree *, tree,
 							   tree, int, bool *);
 static tree sh_handle_sp_switch_attribute (tree *, tree, tree, int, bool *);
 static tree sh_handle_trap_exit_attribute (tree *, tree, tree, int, bool *);
-static tree sh_handle_renesas_attribute (tree *, tree, tree, int, bool *);
+static tree sh_handle_renesas_attribute (ttype **, tree, tree, int, bool *);
 static void sh_print_operand (FILE *, rtx, int);
 static void sh_print_operand_address (FILE *, machine_mode, rtx);
 static bool sh_print_operand_punct_valid_p (unsigned char code);
@@ -338,25 +338,25 @@ static void sh_init_sync_libfuncs (void) ATTRIBUTE_UNUSED;
 
 static const struct attribute_spec sh_attribute_table[] =
 {
-  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
-       affects_type_identity } */
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, decl_handler,
+       type_handler, affects_type_identity } */
   { "interrupt_handler", 0, 0, true,  false, false,
-    sh_handle_interrupt_handler_attribute, false },
+    sh_handle_interrupt_handler_attribute, NULL, false },
   { "sp_switch",         1, 1, true,  false, false,
-     sh_handle_sp_switch_attribute, false },
+     sh_handle_sp_switch_attribute, NULL, false },
   { "trap_exit",         1, 1, true,  false, false,
-    sh_handle_trap_exit_attribute, false },
-  { "renesas",           0, 0, false, true, false,
+    sh_handle_trap_exit_attribute, NULL, false },
+  { "renesas",           0, 0, false, true, false, NULL,
     sh_handle_renesas_attribute, false },
   { "trapa_handler",     0, 0, true,  false, false,
-    sh_handle_interrupt_handler_attribute, false },
+    sh_handle_interrupt_handler_attribute, NULL, false },
   { "nosave_low_regs",   0, 0, true,  false, false,
-    sh_handle_interrupt_handler_attribute, false },
+    sh_handle_interrupt_handler_attribute, NULL, false },
   { "resbank",           0, 0, true,  false, false,
-    sh_handle_resbank_handler_attribute, false },
+    sh_handle_resbank_handler_attribute, NULL, false },
   { "function_vector",   1, 1, true,  false, false,
-    sh2a_handle_function_vector_handler_attribute, false },
-  { NULL,                0, 0, false, false, false, NULL, false }
+    sh2a_handle_function_vector_handler_attribute, NULL, false },
+  { NULL,                0, 0, false, false, false, NULL, NULL, false }
 };
 
 /* Initialize the GCC target structure.  */
@@ -9947,7 +9947,7 @@ sh_handle_trap_exit_attribute (tree *node, tree name, tree args,
 }
 
 static tree
-sh_handle_renesas_attribute (tree *node ATTRIBUTE_UNUSED,
+sh_handle_renesas_attribute (ttype **node ATTRIBUTE_UNUSED,
 			     tree name ATTRIBUTE_UNUSED,
 			     tree args ATTRIBUTE_UNUSED,
 			     int flags ATTRIBUTE_UNUSED,
