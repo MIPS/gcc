@@ -574,7 +574,7 @@ cxx_incomplete_type_diagnostic (const_tree value, const_tree type,
    required by ../tree.c.  */
 #undef cxx_incomplete_type_error
 void
-cxx_incomplete_type_error (const_tree value, const_tree type)
+cxx_incomplete_type_error (const_tree value, const ttype_p type)
 {
   cxx_incomplete_type_diagnostic (value, type, DK_ERROR);
 }
