@@ -13995,7 +13995,7 @@ const pass_data pass_data_expand_omp =
 {
   GIMPLE_PASS, /* type */
   "ompexp", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
+  OPTGROUP_OPENMP, /* optinfo_flags */
   TV_NONE, /* tv_id */
   PROP_gimple_any, /* properties_required */
   PROP_gimple_eomp, /* properties_provided */
@@ -14042,7 +14042,7 @@ const pass_data pass_data_expand_omp_ssa =
 {
   GIMPLE_PASS, /* type */
   "ompexpssa", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
+  OPTGROUP_OPENMP, /* optinfo_flags */
   TV_NONE, /* tv_id */
   PROP_cfg | PROP_ssa, /* properties_required */
   PROP_gimple_eomp, /* properties_provided */
@@ -17216,7 +17216,7 @@ grid_find_single_omp_among_assignments_1 (gimple_seq seq, location_t target_loc,
 	  if (*ret)
 	    {
 	      if (dump_enabled_p ())
-		dump_printf_loc (MSG_NOTE, target_loc,
+		dump_printf_loc (MSG_MISSED_OPTIMIZATION, target_loc,
 				 "Will not turn target construct into a simple "
 				 "GPGPU kernel because %s construct contains "
 				 "multiple OpenMP constructs\n", name);
@@ -17227,7 +17227,7 @@ grid_find_single_omp_among_assignments_1 (gimple_seq seq, location_t target_loc,
       else
 	{
 	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_NOTE, target_loc,
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, target_loc,
 			     "Will not turn target construct into a simple "
 			     "GPGPU kernel because %s construct contains "
 			     "a complex statement\n", name);
@@ -17250,7 +17250,7 @@ grid_find_single_omp_among_assignments (gimple_seq seq, location_t target_loc,
   if (!seq)
     {
       if (dump_enabled_p ())
-	dump_printf_loc (MSG_NOTE, target_loc,
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, target_loc,
 			 "Will not turn target construct into a simple "
 			 "GPGPU kernel because %s construct has empty "
 			 "body\n",
@@ -17262,7 +17262,7 @@ grid_find_single_omp_among_assignments (gimple_seq seq, location_t target_loc,
   if (grid_find_single_omp_among_assignments_1 (seq, target_loc, name, &ret))
     {
       if (!ret && dump_enabled_p ())
-	dump_printf_loc (MSG_NOTE, target_loc,
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, target_loc,
 			 "Will not turn target construct into a simple "
 			 "GPGPU kernel because %s construct does not contain"
 			 "any other OpenMP construct\n", name);
@@ -17346,7 +17346,7 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
   tree group_size = NULL;
   if (!teams)
     {
-      dump_printf_loc (MSG_NOTE, tloc,
+      dump_printf_loc (MSG_MISSED_OPTIMIZATION, tloc,
 		       "Will not turn target construct into a simple "
 		       "GPGPU kernel because it does not have a sole teams "
 		       "construct in it.\n");
@@ -17360,7 +17360,7 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
 	{
 	case OMP_CLAUSE_NUM_TEAMS:
 	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_NOTE, tloc,
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, tloc,
 			     "Will not turn target construct into a "
 			     "gridified GPGPU kernel because we cannot "
 			     "handle num_teams clause of teams "
@@ -17369,7 +17369,7 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
 
 	case OMP_CLAUSE_REDUCTION:
 	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_NOTE, tloc,
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, tloc,
 			     "Will not turn target construct into a "
 			     "gridified GPGPU kernel because a reduction "
 			     "clause is present\n ");
@@ -17377,7 +17377,7 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
 
 	case OMP_CLAUSE_LASTPRIVATE:
 	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_NOTE, tloc,
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, tloc,
 			     "Will not turn target construct into a "
 			     "gridified GPGPU kernel because a lastprivate "
 			     "clause is present\n ");
@@ -17400,7 +17400,7 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
   gomp_for *dist = dyn_cast <gomp_for *> (stmt);
   if (!dist)
     {
-      dump_printf_loc (MSG_NOTE, tloc,
+      dump_printf_loc (MSG_MISSED_OPTIMIZATION, tloc,
 		       "Will not turn target construct into a simple "
 		       "GPGPU kernel because the teams construct  does not have "
 		       "a sole distribute construct in it.\n");
@@ -17411,7 +17411,7 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
   if (!gimple_omp_for_combined_p (dist))
     {
       if (dump_enabled_p ())
-	dump_printf_loc (MSG_NOTE, tloc,
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, tloc,
 			 "Will not turn target construct into a gridified GPGPU "
 			 "kernel because we cannot handle a standalone "
 			 "distribute construct\n ");
@@ -17420,7 +17420,7 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
   if (dist->collapse > 3)
     {
       if (dump_enabled_p ())
-	dump_printf_loc (MSG_NOTE, tloc,
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, tloc,
 			 "Will not turn target construct into a gridified GPGPU "
 			 "kernel because the distribute construct contains "
 			 "collapse clause with parameter greater than 3\n");
@@ -17433,7 +17433,7 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
       if (group_size && !operand_equal_p (group_size, fd.chunk_size, 0))
 	{
 	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_NOTE, tloc,
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, tloc,
 			     "Will not turn target construct into a "
 			     "gridified GPGPU kernel because the teams "
 			     "thread limit is different from distribute "
@@ -17455,7 +17455,7 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
 	{
 	case OMP_CLAUSE_NUM_THREADS:
 	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_NOTE, tloc,
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, tloc,
 			     "Will not turn target construct into a gridified"
 			     "GPGPU kernel because there is a num_threads "
 			     "clause of the parallel construct\n");
@@ -17463,7 +17463,7 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
 
 	case OMP_CLAUSE_REDUCTION:
 	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_NOTE, tloc,
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, tloc,
 			     "Will not turn target construct into a "
 			     "gridified GPGPU kernel because a reduction "
 			     "clause is present\n ");
@@ -17471,7 +17471,7 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
 
 	case OMP_CLAUSE_LASTPRIVATE:
 	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_NOTE, tloc,
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, tloc,
 			     "Will not turn target construct into a "
 			     "gridified GPGPU kernel because a lastprivate "
 			     "clause is present\n ");
@@ -17492,7 +17492,7 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
   if (gimple_omp_for_kind (gfor) != GF_OMP_FOR_KIND_FOR)
     {
       if (dump_enabled_p ())
-	dump_printf_loc (MSG_NOTE, tloc,
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, tloc,
 			 "Will not turn target construct into a gridified GPGPU "
 			 "kernel because the inner loop is not a simple for "
 			 "loop\n");
@@ -17501,7 +17501,7 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
   if (gfor->collapse > 3)
     {
       if (dump_enabled_p ())
-	dump_printf_loc (MSG_NOTE, tloc,
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, tloc,
 			 "Will not turn target construct into a gridified GPGPU "
 			 "kernel because the inner loop contains collapse "
 			 "clause with parameter greater than 3\n");
@@ -17511,7 +17511,7 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
   if (!grid_seq_only_contains_local_assignments (gimple_omp_for_pre_body (gfor)))
     {
       if (dump_enabled_p ())
-	dump_printf_loc (MSG_NOTE, tloc,
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, tloc,
 			 "Will not turn target construct into a gridified GPGPU "
 			 "kernel because the inner loop pre_body contains"
 			 "a complex instruction\n");
@@ -17527,7 +17527,7 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
 	  if (OMP_CLAUSE_SCHEDULE_KIND (clauses) != OMP_CLAUSE_SCHEDULE_AUTO)
 	    {
 	      if (dump_enabled_p ())
-		dump_printf_loc (MSG_NOTE, tloc,
+		dump_printf_loc (MSG_MISSED_OPTIMIZATION, tloc,
 				 "Will not turn target construct into a "
 				 "gridified GPGPU kernel because the inner "
 				 "loop has a non-automatic scheduling clause\n");
@@ -17537,7 +17537,7 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
 
 	case OMP_CLAUSE_REDUCTION:
 	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_NOTE, tloc,
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, tloc,
 			     "Will not turn target construct into a "
 			     "gridified GPGPU kernel because a reduction "
 			     "clause is present\n ");
@@ -17545,7 +17545,7 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
 
 	case OMP_CLAUSE_LASTPRIVATE:
 	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_NOTE, tloc,
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, tloc,
 			     "Will not turn target construct into a "
 			     "gridified GPGPU kernel because a lastprivate "
 			     "clause is present\n ");
@@ -17567,17 +17567,17 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
       if (dump_enabled_p ())
 	{
 	  if (is_gimple_call (bad))
-	    dump_printf_loc (MSG_NOTE, tloc,
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, tloc,
 			     "Will not turn target construct into a gridified "
 			     " GPGPU kernel because the inner loop contains "
 			     "call to a noreturn function\n");
 	  if (gimple_code (bad) == GIMPLE_OMP_FOR)
-	    dump_printf_loc (MSG_NOTE, tloc,
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, tloc,
 			     "Will not turn target construct into a gridified "
 			     " GPGPU kernel because the inner loop contains "
 			     "a simd construct\n");
 	  else
-	    dump_printf_loc (MSG_NOTE, tloc,
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, tloc,
 			     "Will not turn target construct into a gridified "
 			     "GPGPU kernel because the inner loop contains "
 			     "statement %s which cannot be transformed\n",
@@ -17902,7 +17902,7 @@ const pass_data pass_data_lower_omp =
 {
   GIMPLE_PASS, /* type */
   "omplower", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
+  OPTGROUP_OPENMP, /* optinfo_flags */
   TV_NONE, /* tv_id */
   PROP_gimple_any, /* properties_required */
   PROP_gimple_lomp, /* properties_provided */
@@ -19902,7 +19902,7 @@ const pass_data pass_data_omp_simd_clone =
 {
   SIMPLE_IPA_PASS,		/* type */
   "simdclone",			/* name */
-  OPTGROUP_NONE,		/* optinfo_flags */
+  OPTGROUP_OPENMP,		/* optinfo_flags */
   TV_NONE,			/* tv_id */
   ( PROP_ssa | PROP_cfg ),	/* properties_required */
   0,				/* properties_provided */

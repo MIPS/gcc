@@ -1,3 +1,19 @@
+2016-03-17  Martin Jambor  <mjambor@suse.cz>
+
+	* doc/invoke.texi (-fopt-info): Document openmp optimization group.
+	* doc/optinfo.texi (Optimization groups): Document OPTGROUP_OPENMP.
+	* dumpfile.c (optgroup_options): Add entry for OpenMP optimizations.
+	* dumpfile.h (OPTGROUP_OPENMP): New define.
+	* omp-low.c (pass_data_expand_omp): Change optinfo_flags to
+	OPTGROUP_OPENMP.
+	(pass_data_expand_omp_ssa): Likewise.
+	(pass_data_lower_omp): Likewise.
+	(pass_data_omp_simd_clone): Likewise.
+	(grid_find_single_omp_among_assignments_1): Changed all occurrences of
+	MSG_NOTE to MSG_MISSED_OPTIMIZATION.
+	(grid_find_single_omp_among_assignments): Likewise.
+	(grid_target_follows_gridifiable_pattern): Likewise.
+
 2016-03-17  Martin Liska  <mliska@suse.cz>
 	    Martin Jambor <mjambor@suse.cz>
 
