@@ -1927,7 +1927,8 @@ rs6000_hard_regno_mode_ok (int regno, machine_mode mode)
 	  || FLOAT128_VECTOR_P (mode)
 	  || reg_addr[mode].scalar_in_vmx_p
 	  || (TARGET_VSX_TIMODE && mode == TImode)
-	  || (TARGET_VADDUQM && mode == V1TImode)))
+	  || (TARGET_VADDUQM && mode == V1TImode)
+	  || (TARGET_UPPER_REGS_DF && mode == DImode)))
     {
       if (FP_REGNO_P (regno))
 	return FP_REGNO_P (last_regno);
@@ -3063,18 +3064,21 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
       rs6000_constraints[RS6000_CONSTRAINT_wa] = VSX_REGS;
       rs6000_constraints[RS6000_CONSTRAINT_wd] = VSX_REGS;	/* V2DFmode  */
       rs6000_constraints[RS6000_CONSTRAINT_wf] = VSX_REGS;	/* V4SFmode  */
-      rs6000_constraints[RS6000_CONSTRAINT_wi] = FLOAT_REGS;	/* DImode  */
 
       if (TARGET_VSX_TIMODE)
 	rs6000_constraints[RS6000_CONSTRAINT_wt] = VSX_REGS;	/* TImode  */
 
-      if (TARGET_UPPER_REGS_DF)					/* DFmode  */
+      if (TARGET_UPPER_REGS_DF)					/* DF/DImode  */
 	{
+	  rs6000_constraints[RS6000_CONSTRAINT_wi] = VSX_REGS;
 	  rs6000_constraints[RS6000_CONSTRAINT_ws] = VSX_REGS;
 	  rs6000_constraints[RS6000_CONSTRAINT_wv] = ALTIVEC_REGS;
 	}
       else
-	rs6000_constraints[RS6000_CONSTRAINT_ws] = FLOAT_REGS;
+	{
+	  rs6000_constraints[RS6000_CONSTRAINT_wi] = FLOAT_REGS;
+	  rs6000_constraints[RS6000_CONSTRAINT_ws] = FLOAT_REGS;
+	}
     }
 
   /* Add conditional constraints based on various options, to allow us to
@@ -3265,7 +3269,10 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	}
 
       if (TARGET_UPPER_REGS_DF)
-	reg_addr[DFmode].scalar_in_vmx_p = true;
+	{
+	  reg_addr[DImode].scalar_in_vmx_p = true;
+	  reg_addr[DFmode].scalar_in_vmx_p = true;
+	}
 
       if (TARGET_UPPER_REGS_SF)
 	reg_addr[SFmode].scalar_in_vmx_p = true;

@@ -1,3 +1,19 @@
+2016-03-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Allow DImode
+	into Altivec registers if -mupper-regs-df.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+
+	* config/rs6000/rs6000.md (D32*): Delete 3/16 and 3/15
+	submissions, as it breaks pr60203.
+	(mov<mode>_hardfloat32, FMOVE64 iterator): Likewise.
+	(D64*): Likewise.
+	(mov<mode>_hardfloat64, FMOVE64 iterator): Likewise.
+	(movdi_internal32): Rework insns to make the mapping between
+	operand constants, instructions, and attributes clearer.  Add
+	support for allowing DImode in Altivec registers.
+	(movdi_internal64): Likewise.
+
 2016-03-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.md (D32*): Rework 3/15 submission.
