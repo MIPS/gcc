@@ -1,3 +1,9 @@
+2016-03-18  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (cpu_expand_builtin): Provide correct
+	number of arguments to gen_rtx_SET calls in code dependent on
+	glibc 2.23 or later.
+
 2016-03-10  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Merge up to 234111.

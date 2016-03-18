@@ -13581,10 +13581,12 @@ cpu_expand_builtin (enum rs6000_builtins fcode, tree exp ATTRIBUTE_UNUSED,
 						GEN_INT (hwcap_offset)));
       emit_move_insn (tcb_hwcap, tcbmem);
       rtx scratch1 = gen_reg_rtx (SImode);
-      emit_insn (gen_rtx_SET (scratch1, gen_rtx_AND (SImode, tcb_hwcap, mask)));
+      emit_insn (gen_rtx_SET (VOIDmode, scratch1,
+			      gen_rtx_AND (SImode, tcb_hwcap, mask)));
       rtx scratch2 = gen_reg_rtx (SImode);
       emit_insn (gen_eqsi3 (scratch2, scratch1, const0_rtx));
-      emit_insn (gen_rtx_SET (target, gen_rtx_XOR (SImode, scratch2, const1_rtx)));
+      emit_insn (gen_rtx_SET (VOIDmode, target,
+			      gen_rtx_XOR (SImode, scratch2, const1_rtx)));
     }
 
   /* Record that we have expanded a CPU builtin, so that we can later
