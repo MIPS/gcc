@@ -579,3 +579,6 @@ Target Undocumented Var(TARGET_ADD_CONDMOVE) Init(0)
 
 madd-new-condmoves
 Target Undocumented Var(TARGET_ADD_CONDMOVE2) Init(0)
+
+mret-in-args
+Target Undocumented Var(TARGET_RET_IN_ARGS) Init (0)
