@@ -492,6 +492,26 @@ TTYPE (const_tree t)
   return as_a <const ttype *>(t);
 }
 
+
+/* If TTYPE_COMPILE is defined, then try to compile with as close to a seperate
+   type as possible.. ie, we catch places that need converting which pass the
+   normal interface beause of the compatibility of tree and ttype *.  
+   for example, comparing a ttype * to error_mark_node is allowed normally but
+   we want to change those to error_type_node.
+   Procdedure is to get the file compiling normally, then try compiling just it
+   with TTYPE_COMPILE defined, ignore any header incompatibilities, and look
+   at any compilation errors in the source file to see if they ought to be
+   addressed.  */
+#ifdef TTYPE_COMPILE
+
+#define ttype_p  ttype *
+#define ttype_pp  ttype **
+#define TTYPE_PP(N)    (ttype **)(N)
+#undef error_mark_node
+#define error_mark_node ((nonttype *)(global_trees[TI_ERROR_MARK]))
+
+#else
+
 /* This is the interface class for incoming parameters to functions/methods
    so that all callers do not need to be ttype-ified all at once. This will
    allow the code withinn a function to treat the parameter exactly as if it
@@ -528,15 +548,6 @@ public:
   inline ttype ** operator->() const { return type; }
 };
 
-
-/* This will generate a compiler error when a tree is turned into a ttype *,
-   but a reference to a TTYPE() call was not removed.  */
-ttype *
-TTYPE (ttype *t) __attribute__((error(" Fix use of TTYPE(ttype *)")));
-const ttype *
-TTYPE (const ttype *t) 
-    __attribute__((error(" Fix use of TTYPE(const ttype *)")));
-
 /* This exist because there are cases where ttype_p is used as a parameter, 
    then used in a condition with types:   cond ? ttype * : ttype_p  .
    The cast cant be autromcatically done by the compiler, we
@@ -549,6 +560,21 @@ TTYPE (const ttype_p t)
   return t;
 }
 
+inline ttype **
+TTYPE_PP (tree *t)
+{
+  return ttype_pp (t);
+}
+#endif
+
+/* This will generate a compiler error when a tree is turned into a ttype *,
+   but a reference to a TTYPE() call was not removed.  */
+ttype *
+TTYPE (ttype *t) __attribute__((error(" Fix use of TTYPE(ttype *)")));
+const ttype *
+TTYPE (const ttype *t) 
+    __attribute__((error(" Fix use of TTYPE(const ttype *)")));
+
 /* On rare occassions, situations arise which require an explicit cast to be
    made in a file which hasnt been ttype converted. These macros are provided
    to enable performing the cast, and provide a searchable name so they can be
@@ -556,11 +582,6 @@ TTYPE (const ttype_p t)
    long term.  */
 #define TREE_CAST(NODE) ((tree)(NODE))
 #define TREE_PTR_CAST(NODE) ((tree *)(NODE))
-inline ttype **
-TTYPE_PP (tree *t)
-{
-  return ttype_pp (t);
-}
 
 /* Define accessors for the fields that all tree nodes have
    (though some fields are not used for all kinds of nodes).  */

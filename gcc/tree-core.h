@@ -1886,6 +1886,15 @@ struct GTY ((ptr_alias (union lang_tree_node), desc("0"), tag("0"))) tree_node {
 class GTY(()) ttype : public tree_node {
 };
 
+/* This is only used to look for specific kinds of errors in conjunction with
+   the defintion of TTYPE_COMPILE.  we always define it becaue it doesnt
+   matter the rest of the time either.  casting a tree to this will break the 
+   inheritance relationship between ttype and tree.
+   ie    tree == ttype * is valid and the compiler will allow it, but
+   (nonttype *)tree will still compare toa tree, but will not be allowed to
+   compare to a ttype *.  */
+class GTY(()) nonttype : public tree_node {
+};
 
 /* Structure describing an attribute and a function to handle it.  */
 struct attribute_spec {
