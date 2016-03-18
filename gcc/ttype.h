@@ -205,7 +205,7 @@ any_integral_ttype_check (const ttype *__t, const char *__f, int __l,
 #undef TYPE_METHOD_BASETYPE
 #define TYPE_METHOD_BASETYPE(NODE) (FUNC_OR_METHOD_CHECK (NODE)->u.ttype_common.maxval)
 #undef TYPE_OFFSET_BASETYPE
-#define TYPE_OFFSET_BASETYPE(NODE) (OFFSET_TYPE_CHECK (NODE)->u.type_common.maxval)
+#define TYPE_OFFSET_BASETYPE(NODE) (OFFSET_TYPE_CHECK (NODE)->u.ttype_common.maxval)
 
 
 /* DECL_CONTEXT can be either a tree or a ttype*, so add a checking flag and
