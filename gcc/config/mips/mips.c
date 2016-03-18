@@ -8910,7 +8910,10 @@ mips_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
   /* Direct Js are only possible to functions that use the same ISA encoding.
      There is no JX counterpoart of JALX.  */
   if (decl
-      && const_call_insn_operand (XEXP (DECL_RTL (decl), 0), VOIDmode)
+      && ((!TARGET_MIPS16_TAIL_BRANCH_FIX
+	   && const_call_insn_operand (XEXP (DECL_RTL (decl), 0), VOIDmode))
+	  || (TARGET_MIPS16_TAIL_BRANCH_FIX
+	      && const_sibcall_insn_operand (XEXP (DECL_RTL (decl), 0), VOIDmode)))
       && mips_call_may_need_jalx_p (decl))
     return false;
 

@@ -560,6 +560,10 @@ mmips16-tail-branch
 Target Var(TARGET_MIPS16_TAIL_BRANCH) Init(0)
 Enable tail optimization using a branch.
 
+mmips16-tail-branch-fix
+Target Var(TARGET_MIPS16_TAIL_BRANCH_FIX) Init(0)
+Enable tail optimization using a branch for functions in different TUs.
+
 mmips16-condmove
 Target Undocumented Var(TARGET_MIPS16_CONDMOVE) Init (0)
 
