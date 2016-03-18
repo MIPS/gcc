@@ -4013,6 +4013,7 @@ extern tree grow_tree_vec_stat (tree v, int MEM_STAT_DECL);
 
 /* Construct various types of nodes.  */
 
+extern tree build_invariant_address (ttype_p, tree, HOST_WIDE_INT);
 extern tree build_nt (enum tree_code, ...);
 extern tree build_nt_call_vec (tree, vec<tree, va_gc> *);
 
@@ -4134,7 +4135,7 @@ extern tree build_real_from_int_cst (ttype_p, const_tree);
 extern tree build_fixed (ttype_p, FIXED_VALUE_TYPE);
 extern tree build_complex (ttype_p, tree, tree);
 extern tree build_complex_inf (ttype_p, bool);
-extern tree build_each_one_cst (tree);
+extern tree build_each_one_cst (ttype_p);
 extern tree build_one_cst (ttype_p);
 extern tree build_minus_one_cst (ttype_p);
 extern tree build_all_ones_cst (ttype_p);
@@ -4168,10 +4169,8 @@ extern tree build_call_expr_loc_vec (location_t, tree, vec<tree, va_gc> *);
 extern tree build_call_expr_loc (location_t, tree, int, ...);
 extern tree build_call_expr (tree, int, ...);
 extern tree build_call_expr_internal_loc (location_t, enum internal_fn,
-					  tree, int, ...);
-extern tree build_call_expr_internal_loc (location_t, enum internal_fn,
-					  tree, int, tree *);
-extern tree maybe_build_call_expr_loc (location_t, combined_fn, tree,
+					  ttype_p, int, ...);
+extern tree maybe_build_call_expr_loc (location_t, combined_fn, ttype_p,
 				       int, ...);
 extern tree build_string_literal (int, const char *);
 

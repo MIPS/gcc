@@ -540,7 +540,7 @@ type_attributes (ttype_pp node, tree attributes, int flags)
   tree a;
   tree returned_attrs = NULL_TREE;
 
-  if (TREE_TYPE (*node) == error_mark_node || attributes == error_mark_node)
+  if (TREE_TYPE (*node) == error_type_node || attributes == error_mark_node)
     return NULL_TREE;
 
   gcc_checking_assert (TYPE_P (*node));
@@ -612,7 +612,7 @@ decl_attributes (tree *node, tree attributes, int flags)
   tree returned_attrs = NULL_TREE;
 
 
-  if (TREE_TYPE (*node) == error_mark_node || attributes == error_mark_node)
+  if (TREE_TYPE (*node) == error_type_node || attributes == error_mark_node)
     return NULL_TREE;
 
   gcc_checking_assert (DECL_P (*node));
