@@ -538,3 +538,6 @@ Target Undocumented Var(TARGET_USE_SAVE_RESTORE) Init(-1)
 
 msw4x4
 Target Undocumented Var(TARGET_SW4X4) Init(0)
+
+mret-in-args
+Target Undocumented Var(TARGET_RET_IN_ARGS) Init (0)
