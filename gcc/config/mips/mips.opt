@@ -591,5 +591,8 @@ Target Undocumented Var(TARGET_MIPS16_COST_TWEAK) Init (0)
 minline-pool-constants
 Target Undocumented Var(TARGET_INLINE_POOL_CONSTANTS) Init (0)
 
+mret-in-args
+Target Undocumented Var(TARGET_RET_IN_ARGS) Init (0)
+
 mmips16-ld
 Target Undocumented Var(TARGET_MIPS16_LD) Init (0)

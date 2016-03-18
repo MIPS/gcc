@@ -2410,7 +2410,7 @@ enum reg_class
 /* Symbolic macros for the registers used to return integer and floating
    point values.  */
 
-#define GP_RETURN (GP_REG_FIRST + 2)
+#define GP_RETURN (GP_REG_FIRST + TARGET_RET_IN_ARGS ? 4 : 2)
 #define FP_RETURN ((TARGET_SOFT_FLOAT) ? GP_RETURN : (FP_REG_FIRST + 0))
 
 #define MAX_ARGS_IN_REGISTERS (TARGET_OLDABI ? 4 : 8)
