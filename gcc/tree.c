@@ -2086,7 +2086,7 @@ build_complex_inf (ttype_p type, bool neg)
    element is set to 1.  In particular, this is 1 + i for complex types.  */
 
 tree
-build_each_one_cst (tree type)
+build_each_one_cst (ttype_p type)
 {
   if (TREE_CODE (type) == COMPLEX_TYPE)
     {
@@ -4674,7 +4674,7 @@ tree
 build_simple_mem_ref_loc (location_t loc, tree ptr)
 {
   HOST_WIDE_INT offset = 0;
-  tree ptype = TREE_TYPE (ptr);
+  ttype *ptype = TREE_TYPE (ptr);
   tree tem;
   /* For convenience allow addresses that collapse to a simple base
      and offset.  */
@@ -4705,7 +4705,7 @@ mem_ref_offset (const_tree t)
    offsetted by OFFSET units.  */
 
 tree
-build_invariant_address (tree type, tree base, HOST_WIDE_INT offset)
+build_invariant_address (ttype_p type, tree base, HOST_WIDE_INT offset)
 {
   tree ref = fold_build2 (MEM_REF, TREE_TYPE (type),
 			  build_fold_addr_expr (base),
@@ -4815,7 +4815,7 @@ tree
 build_translation_unit_decl (tree name)
 {
   tree tu = build_decl (UNKNOWN_LOCATION, TRANSLATION_UNIT_DECL,
-			name, NULL_TREE);
+			name, NULL_TYPE);
   TRANSLATION_UNIT_LANGUAGE (tu) = lang_hooks.name;
   vec_safe_push (all_translation_units, tu);
   return tu;
@@ -8041,7 +8041,7 @@ build_pointer_type_for_mode (ttype_p to_type, machine_mode mode,
 ttype *
 build_pointer_type (ttype_p to_type)
 {
-  addr_space_t as = to_type == error_mark_node? ADDR_SPACE_GENERIC
+  addr_space_t as = to_type == error_type_node? ADDR_SPACE_GENERIC
 					      : TYPE_ADDR_SPACE (to_type);
   machine_mode pointer_mode = targetm.addr_space.pointer_mode (as);
   return build_pointer_type_for_mode (to_type, pointer_mode, false);
@@ -8109,7 +8109,7 @@ build_reference_type_for_mode (ttype_p to_type, machine_mode mode,
 ttype *
 build_reference_type (ttype_p to_type)
 {
-  addr_space_t as = to_type == error_mark_node? ADDR_SPACE_GENERIC
+  addr_space_t as = to_type == error_type_node? ADDR_SPACE_GENERIC
 					      : TYPE_ADDR_SPACE (to_type);
   machine_mode pointer_mode = targetm.addr_space.pointer_mode (as);
   return build_reference_type_for_mode (to_type, pointer_mode, false);
@@ -9012,7 +9012,7 @@ get_narrower (tree op, int *unsignedp_ptr)
 	= tree_to_uhwi (DECL_SIZE (TREE_OPERAND (op, 1)));
       int unsignedp = (DECL_UNSIGNED (TREE_OPERAND (op, 1))
 		       || TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (op, 1))));
-      tree type = lang_hooks.types.type_for_size (innerprec, unsignedp);
+      ttype *type = lang_hooks.types.type_for_size (innerprec, unsignedp);
 
       /* We can get this structure field in a narrower type that fits it,
 	 but the resulting extension to its nominal type (a fullword type)
@@ -10457,7 +10457,8 @@ local_define_builtin (const char *name, tree type, enum built_in_function code,
 void
 build_common_builtin_nodes (void)
 {
-  tree tmp, ftype;
+  ttype *tmp;
+  tree ftype;
   int ecf_flags;
 
   if (!builtin_decl_explicit_p (BUILT_IN_UNREACHABLE))
@@ -10650,7 +10651,7 @@ build_common_builtin_nodes (void)
 	char mode_name_buf[4], *q;
 	const char *p;
 	enum built_in_function mcode, dcode;
-	tree type, inner_type;
+	ttype *type, *inner_type;
 	const char *prefix = "__";
 
 	if (targetm.libfunc_gnu_prefix)
@@ -11127,7 +11128,7 @@ build_call_vec (ttype_p return_type, tree fn, vec<tree, va_gc> *args)
 tree
 build_call_expr_loc_array (location_t loc, tree fndecl, int n, tree *argarray)
 {
-  tree fntype = TREE_TYPE (fndecl);
+  ttype *fntype = TREE_TYPE (fndecl);
   tree fn = build1 (ADDR_EXPR, build_pointer_type (fntype), fndecl);
  
   return fold_build_call_array_loc (loc, TREE_TYPE (fntype), fn, n, argarray);
@@ -11184,9 +11185,9 @@ build_call_expr (tree fndecl, int n, ...)
    type TYPE.  This is just like CALL_EXPR, except its CALL_EXPR_FN is NULL.
    It will get gimplified later into an ordinary internal function.  */
 
-tree
+static tree
 build_call_expr_internal_loc_array (location_t loc, internal_fn ifn,
-				    tree type, int n, const tree *args)
+				    ttype_p type, int n, const tree *args)
 {
   tree t = build_call_1 (type, NULL_TREE, n);
   for (int i = 0; i < n; ++i)
@@ -11202,7 +11203,7 @@ build_call_expr_internal_loc_array (location_t loc, internal_fn ifn,
 
 tree
 build_call_expr_internal_loc (location_t loc, enum internal_fn ifn,
-			      tree type, int n, ...)
+			      ttype_p type, int n, ...)
 {
   va_list ap;
   tree *argarray = XALLOCAVEC (tree, n);
@@ -11222,7 +11223,7 @@ build_call_expr_internal_loc (location_t loc, enum internal_fn ifn,
    type of the return value.  */
 
 tree
-maybe_build_call_expr_loc (location_t loc, combined_fn fn, tree type,
+maybe_build_call_expr_loc (location_t loc, combined_fn fn, ttype_p type,
 			   int n, ...)
 {
   va_list ap;
@@ -11328,8 +11329,8 @@ signed_or_unsigned_type_for (int unsignedp, ttype_p type)
 
   if (TREE_CODE (type) == VECTOR_TYPE)
     {
-      tree inner = TREE_TYPE (type);
-      tree inner2 = signed_or_unsigned_type_for (unsignedp, inner);
+      ttype *inner = TREE_TYPE (type);
+      ttype *inner2 = signed_or_unsigned_type_for (unsignedp, inner);
       if (!inner2)
 	return NULL;
       if (inner == inner2)
@@ -12344,7 +12345,7 @@ tree_nop_conversion_p (const ttype_p outer_type, const ttype_p inner_type)
 static inline bool
 tree_nop_conversion (const_tree exp)
 {
-  tree outer_type, inner_type;
+  ttype *outer_type, *inner_type;
 
   if (!CONVERT_EXPR_P (exp)
       && TREE_CODE (exp) != NON_LVALUE_EXPR)
@@ -12415,7 +12416,7 @@ strip_float_extensions (tree exp)
   if (TREE_CODE (exp) == REAL_CST && !DECIMAL_FLOAT_TYPE_P (TREE_TYPE (exp)))
     {
       REAL_VALUE_TYPE orig;
-      tree type = NULL;
+      ttype *type = NULL;
 
       orig = TREE_REAL_CST (exp);
       if (TYPE_PRECISION (TREE_TYPE (exp)) > TYPE_PRECISION (float_type_node)
@@ -13577,7 +13578,7 @@ gimple_canonical_types_compatible_p (const ttype_p tt1, const ttype_p tt2,
 	       parms1 = TREE_CHAIN (parms1), parms2 = TREE_CHAIN (parms2))
 	    {
 	      if (!gimple_canonical_types_compatible_p
-		     (TREE_VALUE (parms1), TREE_VALUE (parms2),
+		     (TREE_VALUE_TYPE (parms1), TREE_VALUE_TYPE (parms2),
 		      trust_type_canonical))
 		return false;
 	    }
