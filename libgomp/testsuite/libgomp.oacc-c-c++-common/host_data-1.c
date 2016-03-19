@@ -1,5 +1,4 @@
 /* { dg-do run { target openacc_nvidia_accel_selected } } */
-/* { dg-additional-options "-ftree-parallelize-loops=32" } */
 /* { dg-additional-options "-lcuda -lcublas -lcudart" } */
 
 #include <stdlib.h>

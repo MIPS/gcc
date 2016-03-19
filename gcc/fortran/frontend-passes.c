@@ -153,14 +153,13 @@ gfc_run_passes (gfc_namespace *ns)
  */
 
 static int
-realloc_string_callback (gfc_code **c, int *walk_subtrees,
+realloc_string_callback (gfc_code **c, int *walk_subtrees ATTRIBUTE_UNUSED,
 			 void *data ATTRIBUTE_UNUSED)
 {
   gfc_expr *expr1, *expr2;
   gfc_code *co = *c;
   gfc_expr *n;
 
-  *walk_subtrees = 0;
   if (co->op != EXEC_ASSIGN)
     return 0;
 
@@ -734,9 +733,9 @@ cfe_expr_0 (gfc_expr **e, int *walk_subtrees,
   gfc_expr *newvar;
   gfc_expr **ei, **ej;
 
-  /* Don't do this optimization within OMP workshare.  */
+  /* Don't do this optimization within OMP workshare or ASSOC lists.  */
 
-  if (in_omp_workshare)
+  if (in_omp_workshare || in_assoc_list)
     {
       *walk_subtrees = 0;
       return 0;

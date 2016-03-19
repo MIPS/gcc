@@ -2,7 +2,6 @@
 ! kernels regions. 
 
 ! { dg-do run }
-! { dg-additional-options "-ftree-parallelize-loops=32" }
 
 program loops
   integer, parameter     :: n = 20

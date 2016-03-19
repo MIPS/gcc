@@ -1,7 +1,6 @@
 /* { dg-do run { target openacc_nvidia_accel_selected } } */
 /* <http://news.gmane.org/find-root.php?message_id=%3C87pp0aaksc.fsf%40kepler.schwinge.homeip.net%3E>.
    { dg-xfail-run-if "TODO" { *-*-* } } */
-/* { dg-additional-options "-ftree-parallelize-loops=32" } */
 /* { dg-additional-options "-lcuda" } */
 
 #include <openacc.h>

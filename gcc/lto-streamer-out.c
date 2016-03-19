@@ -2014,6 +2014,7 @@ output_struct_function_base (struct output_block *ob, struct function *fn)
   bp_pack_value (&bp, fn->after_inlining, 1);
   bp_pack_value (&bp, fn->stdarg, 1);
   bp_pack_value (&bp, fn->has_nonlocal_label, 1);
+  bp_pack_value (&bp, fn->has_forced_label_in_static, 1);
   bp_pack_value (&bp, fn->calls_alloca, 1);
   bp_pack_value (&bp, fn->calls_setjmp, 1);
   bp_pack_value (&bp, fn->has_force_vectorize_loops, 1);
@@ -2321,7 +2322,7 @@ lto_output (void)
 	{
 	  if (lto_symtab_encoder_encode_body_p (encoder, node)
 	      && !node->alias
-	      && (!node->thunk.thunk_p || !node->instrumented_version))
+	      && (!node->thunk.thunk_p || !node->thunk.add_pointer_bounds_args))
 	    {
 	      if (flag_checking)
 		{

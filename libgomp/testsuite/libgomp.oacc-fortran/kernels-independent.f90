@@ -1,6 +1,5 @@
 ! { dg-do run }
 ! { dg-additional-options "-cpp" }
-! { dg-additional-options "-ftree-parallelize-loops=32" }
 
 #define N (1024 * 512)
 

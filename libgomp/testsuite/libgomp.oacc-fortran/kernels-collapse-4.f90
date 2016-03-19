@@ -1,7 +1,6 @@
 ! Test the collapse and reduction loop clauses inside a kernels region.
 
 ! { dg-do run }
-! { dg-additional-options "-ftree-parallelize-loops=32" }
 ! Override the compiler's "avoid offloading" decision.
 ! { dg-additional-options "-foffload-force" }
 

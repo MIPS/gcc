@@ -3292,19 +3292,26 @@ check_omp_nesting_restrictions (gimple *stmt, omp_context *ctx)
   /* No nesting of non-OpenACC STMT (that is, an OpenMP one, or a GOMP builtin)
      inside an OpenACC CTX.  */
   if (!(is_gimple_omp (stmt)
-	&& is_gimple_omp_oacc (stmt)))
+	&& is_gimple_omp_oacc (stmt))
+      /* Except for atomic codes that we share with OpenMP.  */
+      && !(gimple_code (stmt) == GIMPLE_OMP_ATOMIC_LOAD
+	   || gimple_code (stmt) == GIMPLE_OMP_ATOMIC_STORE))
     {
-      for (omp_context *octx = ctx; octx != NULL; octx = octx->outer)
-	if (is_gimple_omp (octx->stmt)
-	    && is_gimple_omp_oacc (octx->stmt)
-	    /* Except for atomic codes that we share with OpenMP.  */
-	    && ! (gimple_code (stmt) == GIMPLE_OMP_ATOMIC_LOAD
-		  || gimple_code (stmt) == GIMPLE_OMP_ATOMIC_STORE))
-	  {
-	    error_at (gimple_location (stmt),
-		      "non-OpenACC construct inside of OpenACC region");
-	    return false;
-	  }
+      if (get_oacc_fn_attrib (cfun->decl) != NULL)
+	{
+	  error_at (gimple_location (stmt),
+		    "non-OpenACC construct inside of OpenACC routine");
+	  return false;
+	}
+      else
+	for (omp_context *octx = ctx; octx != NULL; octx = octx->outer)
+	  if (is_gimple_omp (octx->stmt)
+	      && is_gimple_omp_oacc (octx->stmt))
+	    {
+	      error_at (gimple_location (stmt),
+			"non-OpenACC construct inside of OpenACC region");
+	      return false;
+	    }
     }
 
   if (ctx != NULL)
@@ -13364,6 +13371,7 @@ expand_omp_target (struct omp_region *region)
       start_ix = BUILT_IN_GOACC_PARALLEL;
       break;
     case GF_OMP_TARGET_KIND_OACC_DATA:
+    case GF_OMP_TARGET_KIND_OACC_HOST_DATA:
       start_ix = BUILT_IN_GOACC_DATA_START;
       break;
     case GF_OMP_TARGET_KIND_OACC_UPDATE:
@@ -13374,9 +13382,6 @@ expand_omp_target (struct omp_region *region)
       break;
     case GF_OMP_TARGET_KIND_OACC_DECLARE:
       start_ix = BUILT_IN_GOACC_DECLARE;
-      break;
-    case GF_OMP_TARGET_KIND_OACC_HOST_DATA:
-      start_ix = BUILT_IN_GOACC_HOST_DATA;
       break;
     default:
       gcc_unreachable ();
@@ -13502,7 +13507,6 @@ expand_omp_target (struct omp_region *region)
     case BUILT_IN_GOACC_DATA_START:
     case BUILT_IN_GOACC_DECLARE:
     case BUILT_IN_GOMP_TARGET_DATA:
-    case BUILT_IN_GOACC_HOST_DATA:
       break;
     case BUILT_IN_GOMP_TARGET:
     case BUILT_IN_GOMP_TARGET_UPDATE:
@@ -15984,7 +15988,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  case GOMP_MAP_TOFROM:
 	  case GOMP_MAP_POINTER:
 	  case GOMP_MAP_TO_PSET:
-	  case GOMP_MAP_FORCE_DEALLOC:
+	  case GOMP_MAP_DELETE:
 	  case GOMP_MAP_RELEASE:
 	  case GOMP_MAP_ALWAYS_TO:
 	  case GOMP_MAP_ALWAYS_FROM:
@@ -16727,13 +16731,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		    x = build_fold_addr_expr_loc (clause_loc, x);
 		  }
 		else
-		  {
-		    tree atmp
-		      = builtin_decl_explicit (BUILT_IN_ALLOCA_WITH_ALIGN);
-		    tree rtype = TREE_TYPE (TREE_TYPE (new_var));
-		    tree al = size_int (TYPE_ALIGN (rtype));
-		    x = build_call_expr_loc (clause_loc, atmp, 2, x, al);
-		  }
+		  break;
 
 		x = fold_convert_loc (clause_loc, TREE_TYPE (new_var), x);
 		gimplify_expr (&x, &new_body, NULL, is_gimple_val, fb_rvalue);
@@ -16800,7 +16798,8 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  }
       /* Handle GOMP_MAP_FIRSTPRIVATE_{POINTER,REFERENCE} in second pass,
 	 so that firstprivate vars holding OMP_CLAUSE_SIZE if needed
-	 are already handled.  */
+	 are already handled.  Similarly OMP_CLAUSE_PRIVATE for VLAs
+	 or references to VLAs.  */
       for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
 	switch (OMP_CLAUSE_CODE (c))
 	  {
@@ -16941,6 +16940,27 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		gimplify_expr (&x, &new_body, NULL, is_gimple_val, fb_rvalue);
 		gimple_seq_add_stmt (&new_body,
 				     gimple_build_assign (new_pvar, x));
+	      }
+	    else if (is_reference (var) && !is_gimple_omp_oacc (ctx->stmt))
+	      {
+		location_t clause_loc = OMP_CLAUSE_LOCATION (c);
+		tree new_var = lookup_decl (var, ctx);
+		tree x = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (new_var)));
+		if (TREE_CONSTANT (x))
+		  break;
+		else
+		  {
+		    tree atmp
+		      = builtin_decl_explicit (BUILT_IN_ALLOCA_WITH_ALIGN);
+		    tree rtype = TREE_TYPE (TREE_TYPE (new_var));
+		    tree al = size_int (TYPE_ALIGN (rtype));
+		    x = build_call_expr_loc (clause_loc, atmp, 2, x, al);
+		  }
+
+		x = fold_convert_loc (clause_loc, TREE_TYPE (new_var), x);
+		gimplify_expr (&x, &new_body, NULL, is_gimple_val, fb_rvalue);
+		gimple_seq_add_stmt (&new_body,
+				     gimple_build_assign (new_var, x));
 	      }
 	    break;
 	  }
@@ -17504,7 +17524,7 @@ grid_find_single_omp_among_assignments (gimple_seq seq, location_t target_loc,
 static tree
 grid_find_ungridifiable_statement (gimple_stmt_iterator *gsi,
 				   bool *handled_ops_p,
-				   struct walk_stmt_info *)
+				   struct walk_stmt_info *wi)
 {
   *handled_ops_p = false;
   gimple *stmt = gsi_stmt (*gsi);
@@ -17514,6 +17534,7 @@ grid_find_ungridifiable_statement (gimple_stmt_iterator *gsi,
       if (gimple_call_noreturn_p (as_a <gcall *> (stmt)))
 	{
 	  *handled_ops_p = true;
+	  wi->info = stmt;
 	  return error_mark_node;
 	}
       break;
@@ -17529,7 +17550,18 @@ grid_find_ungridifiable_statement (gimple_stmt_iterator *gsi,
     case GIMPLE_OMP_TARGET:
     case GIMPLE_OMP_ORDERED:
       *handled_ops_p = true;
+      wi->info = stmt;
       return error_mark_node;
+
+    case GIMPLE_OMP_FOR:
+      if ((gimple_omp_for_kind (stmt) & GF_OMP_FOR_SIMD)
+	  && gimple_omp_for_combined_into_p (stmt))
+	{
+	  *handled_ops_p = true;
+	  wi->info = stmt;
+	  return error_mark_node;
+	}
+      break;
 
     default:
       break;
@@ -17772,10 +17804,11 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
 
   struct walk_stmt_info wi;
   memset (&wi, 0, sizeof (wi));
-  if (gimple *bad = walk_gimple_seq (gimple_omp_body (gfor),
-				     grid_find_ungridifiable_statement,
-				     NULL, &wi))
+  if (walk_gimple_seq (gimple_omp_body (gfor),
+		       grid_find_ungridifiable_statement,
+		       NULL, &wi))
     {
+      gimple *bad = (gimple *) wi.info;
       if (dump_enabled_p ())
 	{
 	  if (is_gimple_call (bad))
@@ -17783,6 +17816,11 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
 			     "Will not turn target construct into a gridified "
 			     " GPGPU kernel because the inner loop contains "
 			     "call to a noreturn function\n");
+	  if (gimple_code (bad) == GIMPLE_OMP_FOR)
+	    dump_printf_loc (MSG_NOTE, tloc,
+			     "Will not turn target construct into a gridified "
+			     " GPGPU kernel because the inner loop contains "
+			     "a simd construct\n");
 	  else
 	    dump_printf_loc (MSG_NOTE, tloc,
 			     "Will not turn target construct into a gridified "
@@ -19010,7 +19048,6 @@ simd_clone_create (struct cgraph_node *old_node)
       new_node = old_node->create_version_clone (new_decl, vNULL, NULL);
       if (old_node->in_other_partition)
 	new_node->in_other_partition = 1;
-      symtab->call_cgraph_insertion_hooks (new_node);
     }
   if (new_node == NULL)
     return new_node;
@@ -20523,9 +20560,10 @@ static int oacc_min_dims[GOMP_DIM_MAX];
 /* Parse the default dimension parameter.  This is a set of
    :-separated optional compute dimensions.  Each dimension is either
    a positive integoer, or '-' for a dynamic value computed at
-   runrime.  When device type support is added, it is a comma
-   separated list of such compute dimensions, with all but the first
-   prefixed by the colon-terminated device type.  */
+   runrime.  When device type support is added, it is
+   planned to be a comma separated list of such compute dimensions,
+   with all but the first prefixed by the colon-terminated device
+   type.  */
 
 static void
 oacc_parse_default_dims (const char *dims)
@@ -20567,11 +20605,11 @@ oacc_parse_default_dims (const char *dims)
 
 		  errno = 0;
 		  val = strtol (pos, CONST_CAST (char **, &eptr), 10);
-		  if (errno || val <= 0 || (unsigned)val != val)
+		  if (errno || val <= 0 || (int) val != val)
 		    goto malformed;
 		  pos = eptr;
 		}
-	      oacc_default_dims[ix] = (int)val;
+	      oacc_default_dims[ix] = (int) val;
 	    }
 	}
       if (*pos)
@@ -21055,7 +21093,11 @@ oacc_loop_xform_head_tail (gcall *from, int level)
 }
 
 /* Transform the IFN_GOACC_LOOP internal functions by providing the
-   determined partitioning mask and chunking argument.  */
+   determined partitioning mask and chunking argument.  END_MARKER
+   points at the end IFN_HEAD_TAIL call intgroducing the loop.  IFNS
+   is the number of IFN_GOACC_LOOP calls for the loop.  MASK_ARG is
+   the replacement partitioning mask and CHUNK_ARG is the replacement
+   chunking arg.  */
 
 static void
 oacc_loop_xform_loop (gcall *end_marker, unsigned ifns,
@@ -21088,7 +21130,7 @@ oacc_loop_xform_loop (gcall *end_marker, unsigned ifns,
 	    return;
 	}
 
-      /* The LOOP_BOUND ifn, could be in the single successor
+      /* The LOOP_BOUND ifn could be in the single successor
 	 block.  */
       basic_block bb = single_succ (gsi_bb (gsi));
       gsi = gsi_start_bb (bb);
@@ -21301,6 +21343,11 @@ oacc_loop_auto_partitions (oacc_loop *loop, unsigned outer_mask)
 	warning_at (loop->loc, 0,
 		    "insufficient partitioning available to parallelize loop");
 
+      if (dump_file)
+	fprintf (dump_file, "Auto loop %s:%d assigned %d\n",
+		 LOCATION_FILE (loop->loc), LOCATION_LINE (loop->loc),
+		 this_mask);
+
       loop->mask = this_mask;
     }
 
@@ -21458,6 +21505,7 @@ execute_oacc_device_lower ()
   unsigned outer_mask = fn_level >= 0 ? GOMP_DIM_MASK (fn_level) - 1 : 0;
   unsigned used_mask = oacc_loop_partition (loops, outer_mask);
   int dims[GOMP_DIM_MAX];
+
   oacc_validate_dims (current_function_decl, attrs, dims, fn_level, used_mask);
 
   if (dump_file)

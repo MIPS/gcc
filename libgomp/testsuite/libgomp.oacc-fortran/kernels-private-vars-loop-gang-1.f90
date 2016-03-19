@@ -1,7 +1,6 @@
 ! Test of gang-private variables declared on loop directive.
 
 ! { dg-do run }
-! { dg-additional-options "-ftree-parallelize-loops=32" }
 
 program main
   integer :: x, i, arr(32)

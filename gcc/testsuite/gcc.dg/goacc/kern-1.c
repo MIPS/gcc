@@ -1,4 +1,4 @@
-/* { dg-additional-options "-fopenacc -O2 -ftree-parallelize-loops=32" } */
+/* { dg-additional-options "-O2" } */
 
 /* The reduction on sum could cause an ICE with a non-simple latch loop.   */
 

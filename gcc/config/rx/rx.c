@@ -467,7 +467,7 @@ rx_print_operand_address (FILE * file, machine_mode /*mode*/, rtx addr)
 static void
 rx_print_integer (FILE * file, HOST_WIDE_INT val)
 {
-  if (IN_RANGE (val, -64, 64))
+  if (val < 64)
     fprintf (file, HOST_WIDE_INT_PRINT_DEC, val);
   else
     fprintf (file,
@@ -2884,7 +2884,7 @@ rx_file_start (void)
 static bool
 rx_is_ms_bitfield_layout (const_tree record_type ATTRIBUTE_UNUSED)
 {
-  /* The packed attribute overrides the MS behaviour.  */
+  /* The packed attribute overrides the MS behavior.  */
   return ! TYPE_PACKED (record_type);
 }
 

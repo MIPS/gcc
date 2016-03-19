@@ -1,5 +1,3 @@
-/* { dg-additional-options "-ftree-parallelize-loops=32" } */
-
 #include <stdlib.h>
 
 int

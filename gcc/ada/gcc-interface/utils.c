@@ -1486,11 +1486,13 @@ set_reverse_storage_order_on_pad_type (tree type)
 {
   tree field, canonical_pad_type;
 
-#ifdef ENABLE_CHECKING
-  /* If the inner type is not scalar then the function does nothing.  */
-  tree inner_type = TREE_TYPE (TYPE_FIELDS (type));
-  gcc_assert (!AGGREGATE_TYPE_P (inner_type) && !VECTOR_TYPE_P (inner_type));
-#endif
+  if (flag_checking)
+    {
+      /* If the inner type is not scalar then the function does nothing.  */
+      tree inner_type = TREE_TYPE (TYPE_FIELDS (type));
+      gcc_assert (!AGGREGATE_TYPE_P (inner_type)
+		  && !VECTOR_TYPE_P (inner_type));
+    }
 
   /* This is required for the canonicalization.  */
   gcc_assert (TREE_CONSTANT (TYPE_SIZE (type)));
@@ -1625,8 +1627,11 @@ finish_character_type (tree char_type)
   if (TYPE_UNSIGNED (char_type))
     return;
 
-  /* Make a copy of the unsigned version since we'll modify it below.  */
-  tree unsigned_char_type = copy_type (gnat_unsigned_type_for (char_type));
+  /* Make a copy of a generic unsigned version since we'll modify it.  */
+  tree unsigned_char_type
+    = (char_type == char_type_node
+       ? unsigned_char_type_node
+       : copy_type (gnat_unsigned_type_for (char_type)));
 
   TYPE_NAME (unsigned_char_type) = TYPE_NAME (char_type);
   TYPE_STRING_FLAG (unsigned_char_type) = TYPE_STRING_FLAG (char_type);
@@ -2461,6 +2466,22 @@ create_var_decl (tree name, tree asm_name, tree type, tree init,
 		   && !AGGREGATE_TYPE_P (type)) ? CONST_DECL : VAR_DECL,
 		  name, type);
 
+  /* Detect constants created by the front-end to hold 'reference to function
+     calls for stabilization purposes.  This is needed for renaming.  */
+  if (const_flag && init && POINTER_TYPE_P (type))
+    {
+      tree inner = init;
+      if (TREE_CODE (inner) == COMPOUND_EXPR)
+	inner = TREE_OPERAND (inner, 1);
+      inner = remove_conversions (inner, true);
+      if (TREE_CODE (inner) == ADDR_EXPR
+	  && ((TREE_CODE (TREE_OPERAND (inner, 0)) == CALL_EXPR
+	       && !call_is_atomic_load (TREE_OPERAND (inner, 0)))
+	      || (TREE_CODE (TREE_OPERAND (inner, 0)) == VAR_DECL
+		  && DECL_RETURN_VALUE_P (TREE_OPERAND (inner, 0)))))
+	DECL_RETURN_VALUE_P (var_decl) = 1;
+    }
+
   /* If this is external, throw away any initializations (they will be done
      elsewhere) unless this is a constant for which we would like to remain
      able to get the initializer.  If we are defining a global here, leave a
@@ -2483,6 +2504,24 @@ create_var_decl (tree name, tree asm_name, tree type, tree init,
   /* Directly set some flags.  */
   DECL_ARTIFICIAL (var_decl) = artificial_p;
   DECL_EXTERNAL (var_decl) = extern_flag;
+
+  TREE_CONSTANT (var_decl) = constant_p;
+  TREE_READONLY (var_decl) = const_flag;
+
+  /* The object is public if it is external or if it is declared public
+     and has static storage duration.  */
+  TREE_PUBLIC (var_decl) = extern_flag || (public_flag && static_storage);
+
+  /* We need to allocate static storage for an object with static storage
+     duration if it isn't external.  */
+  TREE_STATIC (var_decl) = !extern_flag && static_storage;
+
+  TREE_SIDE_EFFECTS (var_decl)
+    = TREE_THIS_VOLATILE (var_decl)
+    = TYPE_VOLATILE (type) | volatile_flag;
+
+  if (TREE_SIDE_EFFECTS (var_decl))
+    TREE_ADDRESSABLE (var_decl) = 1;
 
   /* Ada doesn't feature Fortran-like COMMON variables so we shouldn't
      try to fiddle with DECL_COMMON.  However, on platforms that don't
@@ -2507,24 +2546,6 @@ create_var_decl (tree name, tree asm_name, tree type, tree init,
 	  && initializer_constant_valid_p (init, TREE_TYPE (init))
 	     != null_pointer_node))
     DECL_IGNORED_P (var_decl) = 1;
-
-  TREE_CONSTANT (var_decl) = constant_p;
-  TREE_READONLY (var_decl) = const_flag;
-
-  /* The object is public if it is external or if it is declared public
-     and has static storage duration.  */
-  TREE_PUBLIC (var_decl) = extern_flag || (public_flag && static_storage);
-
-  /* We need to allocate static storage for an object with static storage
-     duration if it isn't external.  */
-  TREE_STATIC (var_decl) = !extern_flag && static_storage;
-
-  TREE_SIDE_EFFECTS (var_decl)
-    = TREE_THIS_VOLATILE (var_decl)
-    = TYPE_VOLATILE (type) | volatile_flag;
-
-  if (TREE_SIDE_EFFECTS (var_decl))
-    TREE_ADDRESSABLE (var_decl) = 1;
 
   /* ??? Some attributes cannot be applied to CONST_DECLs.  */
   if (TREE_CODE (var_decl) == VAR_DECL)

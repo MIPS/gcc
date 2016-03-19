@@ -42,6 +42,7 @@ extern bool s390_handle_option (struct gcc_options *opts ATTRIBUTE_UNUSED,
 extern HOST_WIDE_INT s390_initial_elimination_offset (int, int);
 extern void s390_emit_prologue (void);
 extern void s390_emit_epilogue (bool);
+extern void s390_expand_split_stack_prologue (void);
 extern bool s390_can_use_simple_return_insn (void);
 extern bool s390_can_use_return_insn (void);
 extern void s390_function_profiler (FILE *, int);
@@ -108,6 +109,7 @@ extern bool s390_expand_movmem (rtx, rtx, rtx);
 extern void s390_expand_setmem (rtx, rtx, rtx);
 extern bool s390_expand_cmpmem (rtx, rtx, rtx, rtx);
 extern void s390_expand_vec_strlen (rtx, rtx, rtx);
+extern void s390_expand_vec_movstr (rtx, rtx, rtx);
 extern bool s390_expand_addcc (enum rtx_code, rtx, rtx, rtx, rtx, rtx);
 extern bool s390_expand_insv (rtx, rtx, rtx, rtx);
 extern void s390_expand_cs_hqi (machine_mode, rtx, rtx, rtx,
@@ -137,7 +139,8 @@ extern rtx_insn *s390_load_got (void);
 extern rtx s390_get_thread_pointer (void);
 extern void s390_emit_tpf_eh_return (rtx);
 extern bool s390_legitimate_address_without_index_p (rtx);
-extern bool s390_decompose_shift_count (rtx, rtx *, HOST_WIDE_INT *);
+extern bool s390_decompose_addrstyle_without_index (rtx, rtx *,
+						    HOST_WIDE_INT *);
 extern int s390_branch_condition_mask (rtx);
 extern int s390_compare_and_branch_condition_mask (rtx);
 extern bool s390_extzv_shift_ok (int, int, unsigned HOST_WIDE_INT);

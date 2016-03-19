@@ -2,7 +2,6 @@
 
 ! { dg-do run }
 ! { dg-additional-options "-cpp" }
-! { dg-additional-options "-ftree-parallelize-loops=32" }
 ! The warning is only triggered for -O2 and higher.
 ! { dg-xfail-if "n/a" { openacc_nvidia_accel_selected } { "-O0" "-O1" } { "" } }
 

@@ -879,6 +879,24 @@ wrapup_globals_for_namespace (tree name_space, void* data ATTRIBUTE_UNUSED)
   tree *vec = statics->address ();
   int len = statics->length ();
 
+  if (warn_unused_function)
+    {
+      tree decl;
+      unsigned int i;
+      FOR_EACH_VEC_SAFE_ELT (statics, i, decl)
+	if (TREE_CODE (decl) == FUNCTION_DECL
+	    && DECL_INITIAL (decl) == 0
+	    && DECL_EXTERNAL (decl)
+	    && !TREE_PUBLIC (decl)
+	    && !DECL_ARTIFICIAL (decl)
+	    && !TREE_NO_WARNING (decl))
+	  {
+	    warning (OPT_Wunused_function,
+		     "%q+F declared %<static%> but never defined", decl);
+	    TREE_NO_WARNING (decl) = 1;
+	  }
+    }
+
   /* Write out any globals that need to be output.  */
   return wrapup_global_declarations (vec, len);
 }
@@ -2760,7 +2778,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 
      Before releasing the node, be sore to remove function from symbol
      table that might have been inserted there to record comdat group.
-     Be sure to however do not free DECL_STRUCT_FUNCTION becuase this
+     Be sure to however do not free DECL_STRUCT_FUNCTION because this
      structure is shared in between newdecl and oldecl.  */
   if (TREE_CODE (newdecl) == FUNCTION_DECL)
     DECL_STRUCT_FUNCTION (newdecl) = NULL;
@@ -6689,7 +6707,7 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
       if (TREE_CODE (d_init) == TREE_LIST)
 	d_init = build_x_compound_expr_from_list (d_init, ELK_INIT,
 						  tf_warning_or_error);
-      d_init = resolve_nondeduced_context (d_init);
+      d_init = resolve_nondeduced_context (d_init, tf_warning_or_error);
       type = TREE_TYPE (decl) = do_auto_deduction (type, d_init,
 						   auto_node,
                                                    tf_warning_or_error,
@@ -8759,19 +8777,15 @@ fold_sizeof_expr (tree t)
   return r;
 }
 
-/* Given the SIZE (i.e., number of elements) in an array, compute an
-   appropriate index type for the array.  When SIZE is null, the array
-   is a flexible array member.  If non-NULL, NAME is the name of
-   the entity being declared.  */
+/* Given the SIZE (i.e., number of elements) in an array, compute
+   an appropriate index type for the array.  If non-NULL, NAME is
+   the name of the entity being declared.  */
 
 tree
 compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 {
   tree itype;
   tree osize = size;
-
-  if (size == NULL_TREE)
-    return build_index_type (NULL_TREE);
 
   if (error_operand_p (size))
     return error_mark_node;
@@ -11081,11 +11095,10 @@ grokdeclarator (const cp_declarator *declarator,
 		error ("flexible array member in union");
 		type = error_mark_node;
 	      }
-	    else
+	    else 
 	      {
-		tree itype = compute_array_index_type (dname, NULL_TREE,
-						       tf_warning_or_error);
-		type = build_cplus_array_type (TREE_TYPE (type), itype);
+		/* Flexible array member has a null domain.  */
+		type = build_cplus_array_type (TREE_TYPE (type), NULL_TREE);
 	      }
 	  }
 
@@ -12709,6 +12722,20 @@ lookup_and_check_tag (enum tag_types tag_code, tree name,
 					   decl,
 					   template_header_p
 					   | DECL_SELF_REFERENCE_P (decl));
+      if (template_header_p && t && CLASS_TYPE_P (t)
+	  && (!CLASSTYPE_TEMPLATE_INFO (t)
+	      || (!PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (t)))))
+	{
+	  error ("%qT is not a template", t);
+	  inform (location_of (t), "previous declaration here");
+	  if (TYPE_CLASS_SCOPE_P (t)
+	      && CLASSTYPE_TEMPLATE_INFO (TYPE_CONTEXT (t)))
+	    inform (input_location,
+		    "perhaps you want to explicitly add %<%T::%>",
+		    TYPE_CONTEXT (t));
+	  t = error_mark_node;
+	}
+
       return t;
     }
   else if (decl && TREE_CODE (decl) == TREE_LIST)
@@ -13533,8 +13560,7 @@ finish_enum_value_list (tree enumtype)
 
   /* Each enumerator now has the type of its enumeration.  Clear the cache
      so that this change in types doesn't confuse us later on.  */
-  clear_cv_cache ();
-  clear_fold_cache ();
+  clear_cv_and_fold_caches ();
 }
 
 /* Finishes the enum type. This is called only the first time an
@@ -14224,7 +14250,11 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
   store_parm_decls (current_function_parms);
 
   if (!processing_template_decl
-      && flag_lifetime_dse && DECL_CONSTRUCTOR_P (decl1)
+      && (flag_lifetime_dse > 1)
+      && DECL_CONSTRUCTOR_P (decl1)
+      && !DECL_CLONED_FUNCTION_P (decl1)
+      /* Clobbering an empty base is harmful if it overlays real data.  */
+      && !is_empty_class (current_class_type)
       /* We can't clobber safely for an implicitly-defined default constructor
 	 because part of the initialization might happen before we enter the
 	 constructor, via AGGR_INIT_ZERO_FIRST (c++/68006).  */
@@ -14240,6 +14270,13 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
       tree exprstmt = build2 (MODIFY_EXPR, btype, bref, clobber);
       finish_expr_stmt (exprstmt);
     }
+
+  if (!processing_template_decl
+      && DECL_CONSTRUCTOR_P (decl1)
+      && (flag_sanitize & SANITIZE_VPTR)
+      && !DECL_CLONED_FUNCTION_P (decl1)
+      && !implicit_default_ctor_p (decl1))
+    cp_ubsan_maybe_initialize_vtbl_ptrs (current_class_ptr);
 
   return true;
 }
@@ -14449,7 +14486,9 @@ begin_destructor_body (void)
       initialize_vtbl_ptrs (current_class_ptr);
       finish_compound_stmt (compound_stmt);
 
-      if (flag_lifetime_dse)
+      if (flag_lifetime_dse
+	  /* Clobbering an empty base is harmful if it overlays real data.  */
+	  && !is_empty_class (current_class_type))
 	{
 	  /* Insert a cleanup to let the back end know that the object is dead
 	     when we exit the destructor, either normally or via exception.  */
@@ -15156,7 +15195,7 @@ cxx_maybe_build_cleanup (tree decl, tsubst_flags_t complain)
   /* build_delete sets the location of the destructor call to the
      current location, even though the destructor is going to be
      called later, at the end of the current scope.  This can lead to
-     a "jumpy" behaviour for users of debuggers when they step around
+     a "jumpy" behavior for users of debuggers when they step around
      the end of the block.  So let's unset the location of the
      destructor call instead.  */
   protected_set_expr_location (cleanup, UNKNOWN_LOCATION);

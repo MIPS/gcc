@@ -1569,7 +1569,9 @@ trans_associate_var (gfc_symbol *sym, gfc_wrapped_block *block)
       if (sym->attr.subref_array_pointer)
 	{
 	  gcc_assert (e->expr_type == EXPR_VARIABLE);
-	  tmp = e->symtree->n.sym->backend_decl;
+	  tmp = e->symtree->n.sym->ts.type == BT_CLASS
+	      ? gfc_class_data_get (e->symtree->n.sym->backend_decl)
+	      : e->symtree->n.sym->backend_decl;
 	  tmp = gfc_get_element_type (TREE_TYPE (tmp));
 	  tmp = fold_convert (gfc_array_index_type, size_in_bytes (tmp));
 	  gfc_add_modify (&se.pre, GFC_DECL_SPAN(desc), tmp);
@@ -5358,7 +5360,8 @@ gfc_trans_allocate (gfc_code * code)
      expression.  */
   if (code->expr3)
     {
-      bool vtab_needed = false, temp_var_needed = false;
+      bool vtab_needed = false, temp_var_needed = false,
+	  is_coarray = gfc_is_coarray (code->expr3);
 
       /* Figure whether we need the vtab from expr3.  */
       for (al = code->ext.alloc.list; !vtab_needed && al != NULL;
@@ -5392,9 +5395,9 @@ gfc_trans_allocate (gfc_code * code)
 		     with the POINTER_PLUS_EXPR in this case.  */
 		  if (code->expr3->ts.type == BT_CLASS
 		      && TREE_CODE (se.expr) == NOP_EXPR
-		      && TREE_CODE (TREE_OPERAND (se.expr, 0))
-							   == POINTER_PLUS_EXPR)
-		      //&& ! GFC_CLASS_TYPE_P (TREE_TYPE (se.expr)))
+		      && (TREE_CODE (TREE_OPERAND (se.expr, 0))
+							    == POINTER_PLUS_EXPR
+			  || is_coarray))
 		    se.expr = TREE_OPERAND (se.expr, 0);
 		}
 	      /* Create a temp variable only for component refs to prevent
@@ -5435,7 +5438,7 @@ gfc_trans_allocate (gfc_code * code)
       if (se.expr != NULL_TREE && temp_var_needed)
 	{
 	  tree var, desc;
-	  tmp = GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (se.expr)) ?
+	  tmp = GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (se.expr)) || is_coarray ?
 		se.expr
 	      : build_fold_indirect_ref_loc (input_location, se.expr);
 
@@ -5448,7 +5451,7 @@ gfc_trans_allocate (gfc_code * code)
 	    {
 	      /* When an array_ref was in expr3, then the descriptor is the
 		 first operand.  */
-	      if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (tmp)))
+	      if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (tmp)) || is_coarray)
 		{
 		  desc = TREE_OPERAND (tmp, 0);
 		}
@@ -5460,11 +5463,12 @@ gfc_trans_allocate (gfc_code * code)
 	      e3_is = E3_DESC;
 	    }
 	  else
-	    desc = se.expr;
+	    desc = !is_coarray ? se.expr
+			       : TREE_OPERAND (TREE_OPERAND (se.expr, 0), 0);
 	  /* We need a regular (non-UID) symbol here, therefore give a
 	     prefix.  */
 	  var = gfc_create_var (TREE_TYPE (tmp), "source");
-	  if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (tmp)))
+	  if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (tmp)) || is_coarray)
 	    {
 	      gfc_allocate_lang_decl (var);
 	      GFC_DECL_SAVED_DESCRIPTOR (var) = desc;

@@ -4100,7 +4100,7 @@ Integer constant in the range 0 @dots{} 127, for 128-bit shifts.
 Standard 80387 floating point constant.
 
 @item C
-Standard SSE floating point constant.
+SSE constant zero operand.
 
 @item e
 32-bit signed integer constant, or a symbolic reference known
@@ -4419,6 +4419,20 @@ memory address of this type.  If @samp{Q} is defined with
 memory operand, because @code{reload} knows it can simply copy the
 memory address into a base register if required.  This is analogous to
 the way an @samp{o} constraint can handle any memory operand.
+
+The syntax and semantics are otherwise identical to
+@code{define_constraint}.
+@end deffn
+
+@deffn {MD Expression} define_special_memory_constraint name docstring exp
+Use this expression for constraints that match a subset of all memory
+operands: that is, @code{reload} can not make them match by reloading
+the address as it is described for @code{define_memory_constraint} or
+such address reload is undesirable with the performance point of view.
+
+For example, @code{define_special_memory_constraint} can be useful if
+specifically aligned memory is necessary or desirable for some insn
+operand.
 
 The syntax and semantics are otherwise identical to
 @code{define_constraint}.
@@ -5269,7 +5283,9 @@ Arithmetic-shift operand 1 left by a number of bits specified by operand
 2, and store the result in operand 0.  Here @var{m} is the mode of
 operand 0 and operand 1; operand 2's mode is specified by the
 instruction pattern, and the compiler will convert the operand to that
-mode before generating the instruction.  The meaning of out-of-range shift
+mode before generating the instruction.  The shift or rotate expander
+or instruction pattern should explicitly specify the mode of the operand 2,
+it should never be @code{VOIDmode}.  The meaning of out-of-range shift
 counts can optionally be specified by @code{TARGET_SHIFT_TRUNCATION_MASK}.
 @xref{TARGET_SHIFT_TRUNCATION_MASK}.  Operand 2 is always a scalar type.
 
@@ -9430,7 +9446,7 @@ nondeterministic treatment means trying all alternatives, some of them
 may be rejected by reservations in the subsequent insns.
 
 @item
-@dfn{collapse-ndfa} modifies the behaviour of the generator when
+@dfn{collapse-ndfa} modifies the behavior of the generator when
 producing an automaton.  An additional state transition to collapse a
 nondeterministic @acronym{NDFA} state to a deterministic @acronym{DFA}
 state is generated.  It can be triggered by passing @code{const0_rtx} to

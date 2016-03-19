@@ -396,7 +396,7 @@ typedef struct fur_static_params *fur_static_params_p;
 typedef struct cmpd_local_params *cmpd_local_params_p;
 typedef struct moveop_static_params *moveop_static_params_p;
 
-/* Set of hooks and parameters that determine behaviour specific to
+/* Set of hooks and parameters that determine behavior specific to
    move_op or find_used_regs functions.  */
 struct code_motion_path_driver_info_def
 {
@@ -1457,31 +1457,44 @@ choose_best_pseudo_reg (regset used_regs,
         gcc_assert (mode == GET_MODE (dest));
       orig_regno = REGNO (dest);
 
-      if (!REGNO_REG_SET_P (used_regs, orig_regno))
-        {
-          if (orig_regno < FIRST_PSEUDO_REGISTER)
-            {
-              gcc_assert (df_regs_ever_live_p (orig_regno));
+      /* Check that nothing in used_regs intersects with orig_regno.  When
+	 we have a hard reg here, still loop over hard_regno_nregs.  */
+      if (HARD_REGISTER_NUM_P (orig_regno))
+	{
+	  int j, n;
+	  for (j = 0, n = hard_regno_nregs[orig_regno][mode]; j < n; j++)
+	    if (REGNO_REG_SET_P (used_regs, orig_regno + j))
+	      break;
+	  if (j < n)
+	    continue;
+	}
+      else
+	{
+	  if (REGNO_REG_SET_P (used_regs, orig_regno))
+	    continue;
+	}
+      if (HARD_REGISTER_NUM_P (orig_regno))
+	{
+	  gcc_assert (df_regs_ever_live_p (orig_regno));
 
-              /* For hard registers, we have to check hardware imposed
-                 limitations (frame/stack registers, calls crossed).  */
-              if (!TEST_HARD_REG_BIT (reg_rename_p->unavailable_hard_regs,
-                                      orig_regno))
-		{
-		  /* Don't let register cross a call if it doesn't already
-		     cross one.  This condition is written in accordance with
-		     that in sched-deps.c sched_analyze_reg().  */
-		  if (!reg_rename_p->crosses_call
-		      || REG_N_CALLS_CROSSED (orig_regno) > 0)
-		    return gen_rtx_REG (mode, orig_regno);
-		}
+	  /* For hard registers, we have to check hardware imposed
+	     limitations (frame/stack registers, calls crossed).  */
+	  if (!TEST_HARD_REG_BIT (reg_rename_p->unavailable_hard_regs,
+				  orig_regno))
+	    {
+	      /* Don't let register cross a call if it doesn't already
+		 cross one.  This condition is written in accordance with
+		 that in sched-deps.c sched_analyze_reg().  */
+	      if (!reg_rename_p->crosses_call
+		  || REG_N_CALLS_CROSSED (orig_regno) > 0)
+		return gen_rtx_REG (mode, orig_regno);
+	    }
 
-              bad_hard_regs = true;
-            }
-          else
-            return dest;
-        }
-     }
+	  bad_hard_regs = true;
+	}
+      else
+	return dest;
+    }
 
   *is_orig_reg_p_ptr = false;
 
@@ -4249,8 +4262,9 @@ invoke_aftermath_hooks (fence_t fence, rtx_insn *best_insn, int issue_more)
                                       issue_more);
       memcpy (FENCE_STATE (fence), curr_state, dfa_state_size);
     }
-  else if (GET_CODE (PATTERN (best_insn)) != USE
-           && GET_CODE (PATTERN (best_insn)) != CLOBBER)
+  else if (!DEBUG_INSN_P (best_insn)
+	   && GET_CODE (PATTERN (best_insn)) != USE
+	   && GET_CODE (PATTERN (best_insn)) != CLOBBER)
     issue_more--;
 
   return issue_more;
@@ -6450,7 +6464,7 @@ code_motion_path_driver (insn_t insn, av_set_t orig_ops, ilist_t path,
         {
           /* We have already found an original operation on this branch, do not
              go any further and just return TRUE here.  If we don't stop here,
-             function can have exponential behaviour even on the small code
+             function can have exponential behavior even on the small code
              with many different paths (e.g. with data speculation and
              recovery blocks).  */
           if (sched_verbose >= 6)

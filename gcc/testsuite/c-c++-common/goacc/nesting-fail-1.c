@@ -38,14 +38,6 @@ f_acc_kernels (void)
   }
 }
 
-#pragma acc routine
-void
-f_acc_routine (void)
-{
-#pragma acc parallel /* { dg-error "OpenACC region inside of OpenACC routine, nested parallelism not supported yet" } */
-  ;
-}
-
 void
 f_acc_data (void)
 {
@@ -63,4 +55,12 @@ f_acc_data (void)
 	;
     }
   }
+}
+
+#pragma acc routine
+void
+f_acc_routine (void)
+{
+#pragma acc parallel /* { dg-error "OpenACC region inside of OpenACC routine, nested parallelism not supported yet" } */
+  ;
 }

@@ -1,5 +1,4 @@
 /* { dg-additional-options "-O2" } */
-/* { dg-additional-options "-ftree-parallelize-loops=32" } */
 /* { dg-additional-options "-fdump-tree-dom3" } */
 
 #include <stdlib.h>

@@ -1,7 +1,6 @@
 ! This test exercises combined directives.
 
 ! { dg-do run }
-! { dg-additional-options "-ftree-parallelize-loops=32" }
 
 program main
   integer, parameter :: n = 32

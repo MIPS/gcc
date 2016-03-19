@@ -1,3 +1,195 @@
+2016-03-17  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gfortran.h (enum gfc_omp_map_op): Rename OMP_MAP_FORCE_DEALLOC
+	to OMP_MAP_DELETE.  Adjust all users.
+
+2016-03-13  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+	    Jim MacArthur  <jim.macarthur@codethink.co.uk>
+
+	PR fortran/69043
+	* scanner.c (load_file): Check that included file is regular.
+
+2016-03-12  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+	    Harold Anlauf  <anlauf@gmx.de>
+
+	PR fortran/69520
+	* invoke.texi: Explain use of the 'no-' construct within the
+	-fcheck= option.
+	* options.c (gfc_handle_runtime_check_option): Enable use of
+	'no-' prefix for the various options with -fcheck= to allow
+	negating previously enabled check options.
+
+2016-03-12  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/70031
+	* decl.c (gfc_match_prefix): Treat the 'module' prefix in the
+	same way as the others, rather than fixing it to come last.
+	(gfc_match_function_decl, gfc_match_subroutine): After errors
+	in 'copy_prefix', emit them immediately in the case of module
+	procedures to prevent a later ICE.
+
+	PR fortran/69524
+	* decl.c (gfc_match_submod_proc): Permit 'module procedure'
+	declarations within the contains section of modules as well as
+	submodules.
+	* resolve.c (resolve_fl_procedure): Likewise.
+	*trans-decl.c (build_function_decl): Change the gcc_assert to
+	allow all forms of module procedure declarations within module
+	contains sections.
+
+2016-02-28  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/68147
+	PR fortran/47674
+	* frontend-passes.c (realloc_string_callback): Don't set
+	walk_subtrees.
+
+2016-02-28  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	* dump-parse-tree.c (show_code_node):  Print association
+	list of a block if present.  Handle EXEC_END_BLOCK.
+
+2016-02-28  Harald Anlauf <anlauf@gmx.de>
+	    Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/56007
+	* match.c (gfc_match_iterator): Add diagnostic for array variable
+	as do loop index.
+
+2016-02-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+	    Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/69910
+	* io.c (gfc_match_open): Check that open status is an expression
+	constant before comparing string to 'scratch' with NEWUNIT.
+
+2016-02-27  Alessandro Fanfarillo  <fanfarillo.gcc@gmail.com>
+
+	* trans.c (gfc_allocate_allocatable): size conversion
+	from byte to number of elements for event variables.
+	* trans-types.c (gfc_get_derived_type): event variables
+	represented as a pointer (like lock variable).
+
+2016-02-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/61156
+	* scanner.c (add_path_to_list): If include path is not a directory,
+	issue a fatal error.
+
+2016-02-23  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/67451
+	* trans-array.c (gfc_array_allocate): Take the attributes from the
+	expression to allocate and not from the source=-expression.
+
+2016-02-20  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/69423
+	* trans-decl.c (create_function_arglist): Deferred character
+	length functions, with and without declared results, address
+	the passed reference type as '.result' and the local string
+	length as '..result'.
+	(gfc_null_and_pass_deferred_len): Helper function to null and
+	return deferred string lengths, as needed.
+	(gfc_trans_deferred_vars): Call it, thereby reducing repeated
+	code, add call for deferred arrays and reroute pointer function
+	results. Avoid using 'tmp' for anything other that a temporary
+	tree by introducing 'type_of_array' for the arrayspec type.
+
+2015-02-16  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/69742
+	* frontend-passes.c (cfe-expr_0):  Don't register functions
+	from within an ASSOCIATE statement.
+
+2016-02-14  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/60526
+	* decl.c (build_sym):  If the name has already been defined as a
+	type, it has a symtree with an upper case letter at the beginning.
+	If such a symtree exists, issue an error and exit.  Don't do
+	this if there is no corresponding upper case letter.
+
+2016-02-14  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/60526
+	PR bootstrap/69816
+	* decl.c (build_sym):  Reverted previous patch.
+
+2016-02-14  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/60526
+	* decl.c (build_sym):  If the name has already been defined as a
+	type, issue error and return false.
+
+2016-02-12  David Malcolm  <dmalcolm@redhat.com>
+
+	PR other/69554
+	* error.c (gfc_diagnostic_start_span): New function.
+	(gfc_diagnostics_init): Initialize global_dc's start_span.
+
+2016-02-11  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/69296
+	* gfortran.h: Added flag to gfc_association_list indicating that
+	the rank of an associate variable has been guessed only.
+	* parse.c (parse_associate): Set the guess flag mentioned above
+	when guessing the rank of an expression.
+	* resolve.c (resolve_assoc_var): When the rank has been guessed,
+	make sure, that the guess was correct else overwrite with the actual
+	rank.
+	* trans-stmt.c (trans_associate_var): For subref_array_pointers in
+	class objects, take the span from the _data component.
+
+2016-02-07  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/50555
+	* primary.c (match_actual_arg): If symbol has attribute flavor of
+	namelist, generate an error. (gfc_match_rvalue): Likewise return
+	MATCH_ERROR.
+	* resolve.c (resolve_symbol): Scan arument list of procedures and
+	generate an error if a namelist is found.
+
+2016-02-05  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/66089
+	* trans-expr.c (expr_is_variable, gfc_expr_is_variable): Rename
+	the former to the latter and make it non-static.  Update callers.
+	* gfortran.h (gfc_expr_is_variable): New declaration.
+	(struct gfc_ss_info): Add field needs_temporary.
+	* trans-array.c (gfc_scalar_elemental_arg_saved_as_argument):
+	Tighten the condition on aggregate expressions with a check
+	that the expression is a variable and doesn't need a temporary.
+	(gfc_conv_resolve_dependency): Add intermediary reference variable.
+	Set the needs_temporary field.
+
+2016-02-03  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/67451
+	PR fortran/69418
+	* trans-expr.c (gfc_copy_class_to_class): For coarrays just the
+	pointer is passed.  Take it as is without trying to deref the
+	_data component.
+	* trans-stmt.c (gfc_trans_allocate): Take care of coarrays as
+	argument to source=-expression.
+
+2016-02-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* lang.opt (fopenacc-dim=): New option.
+
+2016-01-31  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/67564
+	* trans-expr.c (gfc_conv_procedure_call): For the vtable copy
+	subroutines, add a string length argument, when the actual
+	argument is an unlimited polymorphic class object.
+
+2016-01-30  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/69566
+	* trans-expr.c (gfc_conv_procedure_call): Correct expression
+	for 'ulim_copy', which was missing a test for 'comp'.
+
 2016-01-28  Andre Vehreschild  <vehre@gcc.gnu.org>
 
 	PR fortran/62536

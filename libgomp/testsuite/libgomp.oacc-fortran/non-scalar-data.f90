@@ -2,7 +2,6 @@
 ! offloaded regions are properly mapped using present_or_copy.
 
 ! { dg-do run }
-! { dg-additional-options "-ftree-parallelize-loops=32" }
 
 program main
   implicit none

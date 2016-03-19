@@ -1,3 +1,69 @@
+2016-03-16  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/38239
+	* config/sol2/gmon.c [__i386__] (_mcount): Save and restore
+	call-clobbered registers.
+	(internal_mcount): Remove __i386__ handling.
+
+2016-02-26  Joel Sherrill <joel@rtems.org>
+
+	* config.host: Add x86_64-*-rtems*.
+
+2016-02-26  Joel Sherrill <joel@rtems.org>
+
+	* libgcc/config.host: Add aarch64-*-rtems*.
+
+2016-02-26  Paul E. Murphy  <murphyp@linux.vnet.ibm.com>
+	    Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/sfp-machine.h (_FP_DECL_EX): Declare _fpsr as a
+	union of u64 and double.
+	(FP_TRAPPING_EXCEPTIONS): Return a bitmask of trapping exceptions.
+	(FP_INIT_ROUNDMODE): Read the fpscr instead of writing a mystery
+	value.
+	(FP_ROUNDMODE): Update the usage of _fpscr.
+
+2016-02-25  Ilya Verbin  <ilya.verbin@intel.com>
+
+	PR driver/68463
+	* Makefile.in (crtoffloadtable$(objext)): New rule.
+	* configure.ac (extra_parts): Add crtoffloadtable$(objext) if
+	enable_offload_targets is not empty.
+	* configure: Regenerate.
+	* offloadstuff.c: Move __OFFLOAD_TABLE__ from crtoffloadend to
+	crtoffloadtable.
+
+2016-02-17  Max Filippov  <jcmvbkbc@gmail.com>
+
+	* config/xtensa/ieee754-df.S (__muldf3_aux, __divdf3_aux): Add
+	.literal_position before the function.
+	* config/xtensa/ieee754-sf.S (__mulsf3_aux, __divsf3_aux):
+	Likewise.
+
+2016-02-15  Marcin Kościelnicki  <koriakin@0x04.net>
+
+	* config.host: Use t-stack and t-stack-s390 for s390*-*-linux.
+	* config/s390/morestack.S: New file.
+	* config/s390/t-stack-s390: New file.
+	* generic-morestack.c (__splitstack_find): Add s390-specific code.
+
+2016-02-12  Walter Lee  <walt@tilera.com>
+
+	* config.host (tilegx*-*-linux*): remove ti from
+	softfp_int_modes for 32-bit configs.
+
+2016-02-10  Ian Lance Taylor  <iant@google.com>
+
+	PR go/68562
+	* config/i386/morestack.S (__stack_split_initialize): Align
+	stack.
+
+2016-02-03  Andreas Tobler  <andreast@gcc.gnu.org>
+
+	PR bootstrap/69611
+	* config/rs6000/sfp-machine.h: Guard __sfp_exceptions with
+	__FLOAT128__ to compile only for __float128 capable targets.
+
 2016-01-25  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/69444

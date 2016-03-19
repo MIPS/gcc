@@ -2117,11 +2117,11 @@ gfc_trans_omp_clauses_1 (stmtblock_t *block, gfc_omp_clauses *clauses,
 		case OMP_MAP_TOFROM:
 		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_TOFROM);
 		  break;
+		case OMP_MAP_DELETE:
+		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_DELETE);
+		  break;
 		case OMP_MAP_FORCE_ALLOC:
 		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_FORCE_ALLOC);
-		  break;
-		case OMP_MAP_FORCE_DEALLOC:
-		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_FORCE_DEALLOC);
 		  break;
 		case OMP_MAP_FORCE_TO:
 		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_FORCE_TO);

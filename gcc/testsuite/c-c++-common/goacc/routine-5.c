@@ -60,6 +60,7 @@ void Foo ()
 
 #pragma acc routine (Baz) // { dg-error "not been declared" }
 
+
 int vb1;		/* { dg-error "directive for use" } */
 extern int vb2;		/* { dg-error "directive for use" } */
 static int vb3;		/* { dg-error "directive for use" } */

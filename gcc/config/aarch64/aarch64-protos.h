@@ -290,6 +290,7 @@ void aarch64_declare_function_name (FILE *, const char*, tree);
 bool aarch64_legitimate_pic_operand_p (rtx);
 bool aarch64_modes_tieable_p (machine_mode mode1,
 			      machine_mode mode2);
+bool aarch64_zero_extend_const_eq (machine_mode, rtx, machine_mode, rtx);
 bool aarch64_move_imm (HOST_WIDE_INT, machine_mode);
 bool aarch64_mov_operand_p (rtx, machine_mode);
 int aarch64_simd_attr_length_rglist (enum machine_mode);
@@ -359,8 +360,8 @@ void aarch64_emit_call_insn (rtx);
 void aarch64_register_pragmas (void);
 void aarch64_relayout_simd_types (void);
 void aarch64_reset_previous_fndecl (void);
-
-void aarch64_emit_swrsqrt (rtx, rtx);
+void aarch64_save_restore_target_globals (tree);
+void aarch64_emit_approx_rsqrt (rtx, rtx);
 
 /* Initialize builtins for SIMD intrinsics.  */
 void init_aarch64_simd_builtins (void);
@@ -412,9 +413,7 @@ rtx aarch64_expand_builtin (tree exp,
 			    machine_mode mode ATTRIBUTE_UNUSED,
 			    int ignore ATTRIBUTE_UNUSED);
 tree aarch64_builtin_decl (unsigned, bool ATTRIBUTE_UNUSED);
-
 tree aarch64_builtin_rsqrt (unsigned int);
-
 tree aarch64_builtin_vectorized_function (unsigned int, tree, tree);
 
 extern void aarch64_split_combinev16qi (rtx operands[3]);

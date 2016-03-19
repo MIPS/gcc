@@ -875,7 +875,7 @@ promote_ssa_mode (const_tree name, int *punsignedp)
 
 
 
-/* Controls the behaviour of {anti_,}adjust_stack.  */
+/* Controls the behavior of {anti_,}adjust_stack.  */
 static bool suppress_reg_args_size;
 
 /* A helper for adjust_stack and anti_adjust_stack.  */
@@ -1566,7 +1566,7 @@ probe_stack_range (HOST_WIDE_INT first, rtx size)
 					         stack_pointer_rtx,
 					         plus_constant (Pmode,
 								size, first)));
-      emit_library_call (stack_check_libfunc, LCT_NORMAL, VOIDmode, 1, addr,
+      emit_library_call (stack_check_libfunc, LCT_THROW, VOIDmode, 1, addr,
 			 Pmode);
     }
 

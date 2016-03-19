@@ -1120,7 +1120,7 @@ free_node (tree node)
     {
       tree_code_counts[(int) TREE_CODE (node)]--;
       tree_node_counts[(int) t_kind]--;
-      tree_node_sizes[(int) t_kind] -= tree_code_size (TREE_CODE (node));
+      tree_node_sizes[(int) t_kind] -= tree_size (node);
     }
   if (CODE_CONTAINS_STRUCT (code, TS_CONSTRUCTOR))
     vec_free (CONSTRUCTOR_ELTS (node));
@@ -1755,7 +1755,7 @@ build_vector_from_ctor (tree type, vec<constructor_elt, va_gc> *v)
       else
 	vec[pos++] = value;
     }
-  for (; idx < TYPE_VECTOR_SUBPARTS (type); ++idx)
+  while (pos < TYPE_VECTOR_SUBPARTS (type))
     vec[pos++] = build_zero_cst (TREE_TYPE (type));
 
   return build_vector (type, vec);
@@ -5335,6 +5335,7 @@ need_assembler_name_p (tree decl)
       && TREE_CODE (decl) == TYPE_DECL
       && DECL_NAME (decl)
       && decl == TYPE_NAME (TREE_TYPE (decl))
+      && TYPE_MAIN_VARIANT (TREE_TYPE (decl)) == TREE_TYPE (decl)
       && !TYPE_ARTIFICIAL (TREE_TYPE (decl))
       && (type_with_linkage_p (TREE_TYPE (decl))
 	  || TREE_CODE (TREE_TYPE (decl)) == INTEGER_TYPE)
@@ -5478,8 +5479,13 @@ free_lang_data_in_decl (tree decl)
 	  || (decl_function_context (decl) && !TREE_STATIC (decl)))
 	DECL_INITIAL (decl) = NULL_TREE;
     }
-  else if (TREE_CODE (decl) == TYPE_DECL
-	   || TREE_CODE (decl) == FIELD_DECL)
+  else if (TREE_CODE (decl) == TYPE_DECL)
+    {
+      DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
+      DECL_VISIBILITY_SPECIFIED (decl) = 0;
+      DECL_INITIAL (decl) = NULL_TREE;
+    }
+  else if (TREE_CODE (decl) == FIELD_DECL)
     DECL_INITIAL (decl) = NULL_TREE;
   else if (TREE_CODE (decl) == TRANSLATION_UNIT_DECL
            && DECL_INITIAL (decl)
@@ -10042,12 +10048,10 @@ build_atomic_base (tree type, unsigned int align)
 }
 
 /* Create nodes for all integer types (and error_mark_node) using the sizes
-   of C datatypes.  SIGNED_CHAR specifies whether char is signed,
-   SHORT_DOUBLE specifies whether double should be of the same precision
-   as float.  */
+   of C datatypes.  SIGNED_CHAR specifies whether char is signed.  */
 
 void
-build_common_tree_nodes (bool signed_char, bool short_double)
+build_common_tree_nodes (bool signed_char)
 {
   int i;
 
@@ -10208,10 +10212,7 @@ build_common_tree_nodes (bool signed_char, bool short_double)
   layout_type (float_type_node);
 
   double_type_node = make_node (REAL_TYPE);
-  if (short_double)
-    TYPE_PRECISION (double_type_node) = FLOAT_TYPE_SIZE;
-  else
-    TYPE_PRECISION (double_type_node) = DOUBLE_TYPE_SIZE;
+  TYPE_PRECISION (double_type_node) = DOUBLE_TYPE_SIZE;
   layout_type (double_type_node);
 
   long_double_type_node = make_node (REAL_TYPE);
@@ -12232,6 +12233,23 @@ block_ultimate_origin (const_tree block)
 bool
 tree_nop_conversion_p (const_tree outer_type, const_tree inner_type)
 {
+  /* Do not strip casts into or out of differing address spaces.  */
+  if (POINTER_TYPE_P (outer_type)
+      && TYPE_ADDR_SPACE (TREE_TYPE (outer_type)) != ADDR_SPACE_GENERIC)
+    {
+      if (!POINTER_TYPE_P (inner_type)
+	  || (TYPE_ADDR_SPACE (TREE_TYPE (outer_type))
+	      != TYPE_ADDR_SPACE (TREE_TYPE (inner_type))))
+	return false;
+    }
+  else if (POINTER_TYPE_P (inner_type)
+	   && TYPE_ADDR_SPACE (TREE_TYPE (inner_type)) != ADDR_SPACE_GENERIC)
+    {
+      /* We already know that outer_type is not a pointer with
+	 a non-generic address space.  */
+      return false;
+    }
+
   /* Use precision rather then machine mode when we can, which gives
      the correct answer even for submode (bit-field) types.  */
   if ((INTEGRAL_TYPE_P (outer_type)
@@ -12953,8 +12971,10 @@ array_at_struct_end_p (tree ref)
     }
 
   /* If the reference is based on a declared entity, the size of the array
-     is constrained by its given domain.  */
-  if (DECL_P (ref))
+     is constrained by its given domain.  (Do not trust commons PR/69368).  */
+  if (DECL_P (ref)
+      && !(flag_unconstrained_commons
+	   && TREE_CODE (ref) == VAR_DECL && DECL_COMMON (ref)))
     return false;
 
   return true;

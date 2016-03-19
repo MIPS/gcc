@@ -1629,6 +1629,19 @@ proc check_effective_target_avx_runtime { } {
     return 0
 }
 
+# Return 1 if we are compiling for 64-bit PowerPC but we do not use direct
+# move instructions for moves from GPR to FPR.
+
+proc check_effective_target_powerpc64_no_dm { } {
+    # The "mulld" checks if we are generating PowerPC64 code.  The "lfd"
+    # checks if we do not use direct moves, but use the old-fashioned
+    # slower move-via-the-stack.
+    return [check_no_messages_and_pattern powerpc64_no_dm \
+	{\mmulld\M.*\mlfd} assembly {
+	    double f(long long x) { return x*x; }
+	} {-O2}]
+}
+
 # Return 1 if the target supports executing power8 vector instructions, 0
 # otherwise.  Cache the result.
 
@@ -4006,6 +4019,7 @@ proc check_effective_target_whole_vector_shift { } {
     if { [istarget i?86-*-*] || [istarget x86_64-*-*]
 	 || [istarget ia64-*-*]
 	 || [istarget aarch64*-*-*]
+	 || [istarget powerpc64*-*-*]
 	 || ([check_effective_target_arm32]
 	     && [check_effective_target_arm_little_endian])
 	 || ([istarget mips*-*-*]
@@ -5467,7 +5481,8 @@ proc check_effective_target_section_anchors { } {
     } else {
         set et_section_anchors_saved 0
         if { [istarget powerpc*-*-*]
-	      || [istarget arm*-*-*] } {
+	      || [istarget arm*-*-*] 
+	      || [istarget aarch64*-*-*] } {
            set et_section_anchors_saved 1
         }
     }
@@ -6555,6 +6570,11 @@ proc check_effective_target_c++1z { } {
     return [check_effective_target_c++1z_only]
 }
 
+# Check for C++ Concepts TS support, i.e. -fconcepts flag.
+proc check_effective_target_concepts { } {
+    return [check-flags { "" { } { -fconcepts } }]
+}
+
 # Return 1 if expensive testcases should be run.
 
 proc check_effective_target_run_expensive_tests { } {
@@ -6716,6 +6736,23 @@ proc check_effective_target_aarch64_tiny { } {
     } else {
 	return 0
     }
+}
+
+# Create functions to check that the AArch64 assembler supports the
+# various architecture extensions via the .arch_extension pseudo-op.
+
+foreach { aarch64_ext } { "fp" "simd" "crypto" "crc" "lse"} {
+    eval [string map [list FUNC $aarch64_ext] {
+	proc check_effective_target_aarch64_asm_FUNC_ok { } {
+	  if { [istarget aarch64*-*-*] } {
+		return [check_no_compiler_messages aarch64_FUNC_assembler object {
+			__asm__ (".arch_extension FUNC");
+		} "-march=armv8-a+FUNC"]
+	  } else {
+		return 0
+	  }
+	}
+    }]
 }
 
 proc check_effective_target_aarch64_small { } {
@@ -6917,4 +6954,12 @@ proc check_effective_target_offload_nvptx { } {
     return [check_no_compiler_messages offload_nvptx object {
 	int main () {return 0;}
     } "-foffload=nvptx-none" ]
+}
+
+# Return 1 if the compiler has been configured with hsa offloading.
+
+proc check_effective_target_offload_hsa { } {
+    return [check_no_compiler_messages offload_hsa assembly {
+	int main () {return 0;}
+    } "-foffload=hsa" ]
 }

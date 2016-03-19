@@ -1,3 +1,95 @@
+2016-03-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/70280
+	* c-typeck.c (composite_type): Don't count void_list_node
+	into len, if the list is terminated by void_list_node, start
+	with void_list_node instead of NULL for newargs.  Stop
+	at void_list_node.
+
+2016-03-16  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70093
+	* c-typeck.c (build_function_call_vec): Create a TARGET_EXPR for
+	nested functions returning VM types.
+
+2016-03-09  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-parser.c (c_parser_oacc_loop): Update cclauses and clauses
+	when calling c_finish_omp_clauses.
+
+2016-03-04  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR c/69824
+	* c-decl.c (get_parm_info): Don't queue implicit function declarations
+	for later.
+
+2016-03-04  Marek Polacek  <polacek@redhat.com>
+
+	PR c/69798
+	* c-parser.c (c_parser_postfix_expression): Call
+	c_parser_cast_expression rather than c_parser_postfix_expression.
+
+2016-03-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/69796
+	PR c/69974
+	* c-parser.c (c_parser_translation_unit): Don't change TREE_TYPE
+	of incomplete decls to error_mark_node.
+
+2016-02-24  Marek Polacek  <polacek@redhat.com>
+
+	PR c/69819
+	* c-decl.c (finish_decl): Don't update the copy of the type of a
+	different decl type.
+
+2016-02-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR objc/69844
+	* c-parser.c (c_parser_for_statement): Properly handle ObjC classes
+	in id_kind reclassification.
+
+2016-02-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/69835
+	* c-typeck.c (build_binary_op): Revert 2015-09-09 change.
+
+2016-02-16  James Norris  <jnorris@codesourcery.com>
+
+	PR c/64748
+	* c-parser.c (c_parser_oacc_data_clause_deviceptr): Allow parms.
+
+2016-02-12  Bernd Schmidt  <bschmidt@redhat.com>
+
+	* c-decl.c (build_null_declspecs): Zero the entire struct.
+
+	PR c/69522
+	* c-parser.c (c_parser_braced_init): New arg outer_obstack.  All
+	callers changed.  If nested_p is true, use it to call
+	finish_implicit_inits.
+	* c-tree.h (finish_implicit_inits): Declare.
+	* c-typeck.c (finish_implicit_inits): New function.  Move code
+	from ...
+	(push_init_level): ... here.
+	(set_designator, process_init_element): Call finish_implicit_inits.
+
+2016-02-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/69768
+	* c-typeck.c (parser_build_binary_op): Strip nops from integer_zerop
+	arguments for -Waddress warning.
+
+2016-02-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/69669
+	* c-decl.c (finish_enum): When honoring mode attribute,
+	make sure to use proper TYPE_MIN_VALUE and TYPE_MAX_VALUE.
+
+2016-01-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/69518
+	* c-decl.c (finish_struct): Clear C_TYPE_INCOMPLETE_VARS in
+	all type variants, not just TYPE_MAIN_VARIANT.
+
 2016-01-27  Jakub Jelinek  <jakub@redhat.com>
 
 	PR debug/66869

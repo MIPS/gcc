@@ -754,11 +754,13 @@ mem_type_for_type (BrigType16_t type)
      unsigned type?).  */
   if ((type & BRIG_TYPE_PACK_MASK) == BRIG_TYPE_PACK_128)
     return BRIG_TYPE_B128;
-  else if (hsa_btype_p (type))
+  else if (hsa_btype_p (type) || hsa_type_packed_p (type))
     {
       unsigned bitsize = hsa_type_bit_size (type);
       if (bitsize < 128)
 	return hsa_uint_for_bitsize (bitsize);
+      else
+	return hsa_bittype_for_bitsize (bitsize);
     }
   return type;
 }
@@ -2105,9 +2107,17 @@ gen_hsa_addr (tree ref, hsa_bb *hbb, HOST_WIDE_INT *output_bitsize = NULL,
 	}
       if (TMR_INDEX2 (ref))
 	{
-	  hsa_op_base *disp2 = hsa_cfun->reg_for_gimple_ssa
-	    (TMR_INDEX2 (ref))->get_in_type (addrtype, hbb);
-	  reg = add_addr_regs_if_needed (reg, as_a <hsa_op_reg *> (disp2), hbb);
+	  if (TREE_CODE (TMR_INDEX2 (ref)) == SSA_NAME)
+	    {
+	      hsa_op_base *disp2 = hsa_cfun->reg_for_gimple_ssa
+		(TMR_INDEX2 (ref))->get_in_type (addrtype, hbb);
+	      reg = add_addr_regs_if_needed (reg, as_a <hsa_op_reg *> (disp2),
+					     hbb);
+	    }
+	  else if (TREE_CODE (TMR_INDEX2 (ref)) == INTEGER_CST)
+	    offset += wi::to_offset (TMR_INDEX2 (ref));
+	  else
+	    gcc_unreachable ();
 	}
       offset += wi::to_offset (TMR_OFFSET (ref));
       break;
@@ -2640,7 +2650,7 @@ gen_hsa_insns_for_store (tree lhs, hsa_op_base *src, hsa_bb *hbb)
      we can modify the above in place.  */
   if (hsa_op_immed *imm = dyn_cast <hsa_op_immed *> (src))
     {
-      if ((imm->m_type & BRIG_TYPE_PACK_MASK) == BRIG_TYPE_PACK_NONE)
+      if (!hsa_type_packed_p (imm->m_type))
 	imm->m_type = mem->m_type;
       else
 	{
@@ -3022,7 +3032,7 @@ gen_hsa_binary_operation (int opcode, hsa_op_reg *dest,
       && is_a <hsa_op_immed *> (op2))
     {
       hsa_op_immed *i = dyn_cast <hsa_op_immed *> (op2);
-      i->set_type (hsa_uint_for_bitsize (hsa_type_bit_size (i->m_type)));
+      i->set_type (hsa_unsigned_type_for_type (i->m_type));
     }
 
   hsa_insn_basic *insn = new hsa_insn_basic (3, opcode, dest->m_type, dest,
@@ -3233,27 +3243,21 @@ gen_hsa_insns_for_operation_assignment (gimple *assign, hsa_bb *hbb)
 	    ctrl = r;
 	  }
 
-	hsa_op_with_type *rhs2_reg = hsa_reg_or_immed_for_gimple_op (rhs2, hbb);
-	hsa_op_with_type *rhs3_reg = hsa_reg_or_immed_for_gimple_op (rhs3, hbb);
+	hsa_op_with_type *op2 = hsa_reg_or_immed_for_gimple_op (rhs2, hbb);
+	hsa_op_with_type *op3 = hsa_reg_or_immed_for_gimple_op (rhs3, hbb);
 
-	BrigType16_t btype = hsa_bittype_for_type (dest->m_type);
-	hsa_op_reg *tmp = new hsa_op_reg (btype);
-
-	rhs2_reg->m_type = btype;
-	rhs3_reg->m_type = btype;
+	BrigType16_t utype = hsa_unsigned_type_for_type (dest->m_type);
+	if (is_a <hsa_op_immed *> (op2))
+	  op2->m_type = utype;
+	if (is_a <hsa_op_immed *> (op3))
+	  op3->m_type = utype;
 
 	hsa_insn_basic *insn
-	  = new hsa_insn_basic (4, BRIG_OPCODE_CMOV, tmp->m_type, tmp, ctrl,
-				rhs2_reg, rhs3_reg);
+	  = new hsa_insn_basic (4, BRIG_OPCODE_CMOV,
+				hsa_bittype_for_type (dest->m_type),
+				dest, ctrl, op2, op3);
 
 	hbb->append_insn (insn);
-
-	/* As operands of a CMOV insn must be Bx types, we have to emit
-	   a conversion insn.  */
-	hsa_insn_basic *mov = new hsa_insn_basic (2, BRIG_OPCODE_MOV,
-						  dest->m_type, dest, tmp);
-	hbb->append_insn (mov);
-
 	return;
       }
     case COMPLEX_EXPR:
@@ -3768,20 +3772,19 @@ gen_set_num_threads (tree value, hsa_bb *hbb)
   hbb->append_insn (basic);
 }
 
-static GTY (()) tree hsa_kernel_dispatch_type = NULL;
-
 /* Return byte offset of a FIELD_NAME in GOMP_hsa_kernel_dispatch which
    is defined in plugin-hsa.c.  */
 
 static HOST_WIDE_INT
 get_hsa_kernel_dispatch_offset (const char *field_name)
 {
-  if (hsa_kernel_dispatch_type == NULL)
+  tree *hsa_kernel_dispatch_type = hsa_get_kernel_dispatch_type ();
+  if (*hsa_kernel_dispatch_type == NULL)
     {
       /* Collection of information needed for a dispatch of a kernel from a
 	 kernel.  Keep in sync with libgomp's plugin-hsa.c.  */
 
-      hsa_kernel_dispatch_type = make_node (RECORD_TYPE);
+      *hsa_kernel_dispatch_type = make_node (RECORD_TYPE);
       tree id_f1 = build_decl (BUILTINS_LOCATION, FIELD_DECL,
 			       get_identifier ("queue"), ptr_type_node);
       DECL_CHAIN (id_f1) = NULL_TREE;
@@ -3831,12 +3834,12 @@ get_hsa_kernel_dispatch_offset (const char *field_name)
       DECL_CHAIN (id_f12) = id_f11;
 
 
-      finish_builtin_struct (hsa_kernel_dispatch_type, "__hsa_kernel_dispatch",
+      finish_builtin_struct (*hsa_kernel_dispatch_type, "__hsa_kernel_dispatch",
 			     id_f12, NULL_TREE);
-      TYPE_ARTIFICIAL (hsa_kernel_dispatch_type) = 1;
+      TYPE_ARTIFICIAL (*hsa_kernel_dispatch_type) = 1;
     }
 
-  for (tree chain = TYPE_FIELDS (hsa_kernel_dispatch_type);
+  for (tree chain = TYPE_FIELDS (*hsa_kernel_dispatch_type);
        chain != NULL_TREE; chain = TREE_CHAIN (chain))
     if (strcmp (field_name, IDENTIFIER_POINTER (DECL_NAME (chain))) == 0)
       return int_byte_position (chain);
@@ -4055,7 +4058,9 @@ gen_hsa_clrsb (gcall *call, hsa_bb *hbb)
   hsa_op_with_type *arg = hsa_reg_or_immed_for_gimple_op (rhs1, hbb);
   BrigType16_t bittype = hsa_bittype_for_type (arg->m_type);
   unsigned bitsize = tree_to_uhwi (TYPE_SIZE (TREE_TYPE (rhs1)));
-  gcc_checking_assert (bitsize >= 32);
+
+  /* FIRSTBIT instruction is defined just for 32 and 64-bits wide integers.  */
+  gcc_checking_assert (bitsize == 32 || bitsize == 64);
 
   /* Set true to MOST_SIG if the most significant bit is set to one.  */
   hsa_op_immed *c = new hsa_op_immed (1ul << (bitsize - 1),
@@ -4098,9 +4103,10 @@ gen_hsa_clrsb (gcall *call, hsa_bb *hbb)
 			  new hsa_op_immed (0, arg->m_type));
   hbb->append_insn (cmp);
 
-  /* Return the number of leading bits, or 31 if the input value is zero.  */
+  /* Return the number of leading bits,
+     or (bitsize - 1) if the input value is zero.  */
   cmov = new hsa_insn_basic (4, BRIG_OPCODE_CMOV, BRIG_TYPE_B32, NULL, is_zero,
-			     new hsa_op_immed (31, BRIG_TYPE_U32),
+			     new hsa_op_immed (bitsize - 1, BRIG_TYPE_U32),
 			     leading_bits->get_in_type (BRIG_TYPE_B32, hbb));
   hbb->append_insn (cmov);
   cmov->set_output_in_type (dest, 0, hbb);
@@ -4415,20 +4421,20 @@ get_address_from_value (tree val, hsa_bb *hbb)
 static const char *
 get_memory_order_name (unsigned memmodel)
 {
-  switch (memmodel)
+  switch (memmodel & MEMMODEL_BASE_MASK)
     {
     case MEMMODEL_RELAXED:
-      return "__ATOMIC_RELAXED";
+      return "relaxed";
     case MEMMODEL_CONSUME:
-      return "__ATOMIC_CONSUME";
+      return "consume";
     case MEMMODEL_ACQUIRE:
-      return "__ATOMIC_ACQUIRE";
+      return "acquire";
     case MEMMODEL_RELEASE:
-      return "__ATOMIC_RELEASE";
+      return "release";
     case MEMMODEL_ACQ_REL:
-      return "__ATOMIC_ACQ_REL";
+      return "acq_rel";
     case MEMMODEL_SEQ_CST:
-      return "__ATOMIC_SEQ_CST";
+      return "seq_cst";
     default:
       return NULL;
     }
@@ -4440,21 +4446,31 @@ get_memory_order_name (unsigned memmodel)
 static BrigMemoryOrder
 get_memory_order (unsigned memmodel, location_t location)
 {
-  switch (memmodel)
+  switch (memmodel & MEMMODEL_BASE_MASK)
     {
     case MEMMODEL_RELAXED:
       return BRIG_MEMORY_ORDER_RELAXED;
+    case MEMMODEL_CONSUME:
+      /* HSA does not have an equivalent, but we can use the slightly stronger
+	 ACQUIRE.  */
     case MEMMODEL_ACQUIRE:
       return BRIG_MEMORY_ORDER_SC_ACQUIRE;
     case MEMMODEL_RELEASE:
       return BRIG_MEMORY_ORDER_SC_RELEASE;
     case MEMMODEL_ACQ_REL:
+    case MEMMODEL_SEQ_CST:
+      /* Callers implementing a simple load or store need to remove the release
+	 or acquire part respectively.  */
       return BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE;
     default:
-      HSA_SORRY_ATV (location,
-		     "support for HSA does not implement memory model: %s",
-		     get_memory_order_name (memmodel));
-      return BRIG_MEMORY_ORDER_NONE;
+      {
+	const char *mmname = get_memory_order_name (memmodel);
+	HSA_SORRY_ATV (location,
+		       "support for HSA does not implement the specified "
+		       " memory model%s %s",
+		       mmname ? ": " : "", mmname ? mmname : "");
+	return BRIG_MEMORY_ORDER_NONE;
+      }
     }
 }
 
@@ -4523,13 +4539,20 @@ gen_hsa_ternary_atomic_for_builtin (bool ret_orig,
       nops = 2;
     }
 
-  if (acode == BRIG_ATOMIC_ST && memorder != BRIG_MEMORY_ORDER_RELAXED
-      && memorder != BRIG_MEMORY_ORDER_SC_RELEASE)
+  if (acode == BRIG_ATOMIC_ST)
     {
-      HSA_SORRY_ATV (gimple_location (stmt),
-		     "support for HSA does not implement memory model for "
-		     "ATOMIC_ST: %s", get_memory_order_name (mmodel));
-      return;
+      if (memorder == BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE)
+	memorder = BRIG_MEMORY_ORDER_SC_RELEASE;
+
+      if (memorder != BRIG_MEMORY_ORDER_RELAXED
+	  && memorder != BRIG_MEMORY_ORDER_SC_RELEASE
+	  && memorder != BRIG_MEMORY_ORDER_NONE)
+	{
+	  HSA_SORRY_ATV (gimple_location (stmt),
+			 "support for HSA does not implement memory model for "
+			 "ATOMIC_ST: %s", get_memory_order_name (mmodel));
+	  return;
+	}
     }
 
   hsa_insn_atomic *atominsn = new hsa_insn_atomic (nops, opcode, acode, mtype,
@@ -4537,8 +4560,13 @@ gen_hsa_ternary_atomic_for_builtin (bool ret_orig,
 
   hsa_op_address *addr;
   addr = get_address_from_value (gimple_call_arg (stmt, 0), hbb);
-  /* TODO: Warn if addr has private segment, because the finalizer will not
-     accept that (and it does not make much sense).  */
+  if (addr->m_symbol && addr->m_symbol->m_segment == BRIG_SEGMENT_PRIVATE)
+    {
+      HSA_SORRY_AT (gimple_location (stmt),
+		    "HSA does not implement atomic operations in private "
+		    "segment");
+      return;
+    }
   hsa_op_base *op = hsa_reg_or_immed_for_gimple_op (gimple_call_arg (stmt, 1),
 						    hbb);
 
@@ -4872,8 +4900,12 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 	BrigMemoryOrder memorder = get_memory_order (mmodel,
 						     gimple_location (stmt));
 
+	if (memorder == BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE)
+	  memorder = BRIG_MEMORY_ORDER_SC_ACQUIRE;
+
 	if (memorder != BRIG_MEMORY_ORDER_RELAXED
-	    && memorder != BRIG_MEMORY_ORDER_SC_RELEASE)
+	    && memorder != BRIG_MEMORY_ORDER_SC_ACQUIRE
+	    && memorder != BRIG_MEMORY_ORDER_NONE)
 	  {
 	    HSA_SORRY_ATV (gimple_location (stmt),
 			   "support for HSA does not implement "
@@ -5306,7 +5338,8 @@ gen_hsa_phi_from_gimple_phi (gimple *phi_stmt, hsa_bb *hbb)
 	      hsa_op_address *addr = gen_hsa_addr (TREE_OPERAND (op, 0),
 						   hbb_src);
 
-	      hsa_op_reg *dest = new hsa_op_reg (BRIG_TYPE_U64);
+	      hsa_op_reg *dest
+		= new hsa_op_reg (hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT));
 	      hsa_insn_basic *insn
 		= new hsa_insn_basic (2, BRIG_OPCODE_LDA, BRIG_TYPE_U64,
 				      dest, addr);
@@ -5464,7 +5497,7 @@ gen_body_from_gimple ()
 	  gen_hsa_phi_from_gimple_phi (gsi_stmt (gsi), hbb);
     }
 
-  if (dump_file)
+  if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "------- Generated SSA form -------\n");
       dump_hsa_cfun (dump_file);
@@ -6067,21 +6100,22 @@ generate_hsa (bool kernel)
 				 s->m_gridified_kernel_p);
     }
 
-#ifdef ENABLE_CHECKING
-  for (unsigned i = 0; i < hsa_cfun->m_ssa_map.length (); i++)
-    if (hsa_cfun->m_ssa_map[i])
-      hsa_cfun->m_ssa_map[i]->verify_ssa ();
-
-  basic_block bb;
-  FOR_EACH_BB_FN (bb, cfun)
+  if (flag_checking)
     {
-      hsa_bb *hbb = hsa_bb_for_bb (bb);
+      for (unsigned i = 0; i < hsa_cfun->m_ssa_map.length (); i++)
+	if (hsa_cfun->m_ssa_map[i])
+	  hsa_cfun->m_ssa_map[i]->verify_ssa ();
 
-      for (hsa_insn_basic *insn = hbb->m_first_insn; insn; insn = insn->m_next)
-	insn->verify ();
+      basic_block bb;
+      FOR_EACH_BB_FN (bb, cfun)
+	{
+	  hsa_bb *hbb = hsa_bb_for_bb (bb);
+
+	  for (hsa_insn_basic *insn = hbb->m_first_insn; insn;
+	       insn = insn->m_next)
+	    insn->verify ();
+	}
     }
-
-#endif
 
   hsa_regalloc ();
   hsa_brig_emit_function ();

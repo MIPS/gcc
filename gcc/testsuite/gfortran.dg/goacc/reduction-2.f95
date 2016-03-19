@@ -1,5 +1,4 @@
-! { dg-do compile } 
-! { dg-additional-options "-fdump-tree-gimple  -ftree-parallelize-loops=1" }
+! { dg-additional-options "-fdump-tree-gimple" }
 
 subroutine foo ()
   implicit none
@@ -17,4 +16,3 @@ end subroutine
 
 ! { dg-final { scan-tree-dump-times "target oacc_parallel firstprivate.a." 1 "gimple" } }
 ! { dg-final { scan-tree-dump-times "acc loop reduction..:a. private.p." 1 "gimple" } }
-

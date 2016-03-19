@@ -595,7 +595,7 @@ write_arg_mode (std::stringstream &s, int for_reg, int argno,
    is true, if this is a prototyped function, rather than an old-style
    C declaration.  Returns the next argument number to use.
 
-   The promotion behaviour here must match the regular GCC function
+   The promotion behavior here must match the regular GCC function
    parameter marshalling machinery.  */
 
 static int
@@ -647,7 +647,7 @@ write_return_mode (std::stringstream &s, bool for_proto, machine_mode mode)
 
 /* Process a function return TYPE to emit a PTX return as a prototype
    or function prologue declaration.  Returns true if return is via an
-   additional pointer parameter.  The promotion behaviour here must
+   additional pointer parameter.  The promotion behavior here must
    match the regular GCC function return mashalling.  */
 
 static bool
@@ -1629,7 +1629,7 @@ nvptx_assemble_decl_begin (FILE *file, const char *name, const char *section,
   elt_size &= -elt_size; /* Extract LSB set.  */
 
   init_frag.size = elt_size;
-  /* Avoid undefined shift behaviour by using '2'.  */
+  /* Avoid undefined shift behavior by using '2'.  */
   init_frag.mask = ((unsigned HOST_WIDE_INT)2
 		    << (elt_size * BITS_PER_UNIT - 1)) - 1;
   init_frag.val = 0;
@@ -2040,28 +2040,20 @@ nvptx_print_operand (FILE *file, rtx x, int code)
 	    fputs (".ne", file);
 	  break;
 	case LE:
+	case LEU:
 	  fputs (".le", file);
 	  break;
 	case GE:
+	case GEU:
 	  fputs (".ge", file);
 	  break;
 	case LT:
+	case LTU:
 	  fputs (".lt", file);
 	  break;
 	case GT:
-	  fputs (".gt", file);
-	  break;
-	case LEU:
-	  fputs (".ls", file);
-	  break;
-	case GEU:
-	  fputs (".hs", file);
-	  break;
-	case LTU:
-	  fputs (".lo", file);
-	  break;
 	case GTU:
-	  fputs (".hi", file);
+	  fputs (".gt", file);
 	  break;
 	case LTGT:
 	  fputs (".ne", file);
@@ -4160,7 +4152,7 @@ nvptx_goacc_validate_dims (tree decl, int dims[], int fn_level)
 	  bool avoid_offloading_p = true;
 	  for (unsigned ix = 0; ix != GOMP_DIM_MAX; ix++)
 	    {
-	      if (dims[ix] > 1)
+	      if (dims[ix] == 0 || dims[ix] > 1)
 		{
 		  avoid_offloading_p = false;
 		  break;

@@ -1932,7 +1932,7 @@ decay_conversion (tree exp,
   if (type == error_mark_node)
     return error_mark_node;
 
-  exp = resolve_nondeduced_context (exp);
+  exp = resolve_nondeduced_context (exp, complain);
   if (type_unknown_p (exp))
     {
       if (complain & tf_error)
@@ -2601,7 +2601,15 @@ check_template_keyword (tree decl)
   if (TREE_CODE (decl) != TEMPLATE_DECL
       && TREE_CODE (decl) != TEMPLATE_ID_EXPR)
     {
-      if (!is_overloaded_fn (decl))
+      if (VAR_P (decl))
+	{
+	  if (DECL_USE_TEMPLATE (decl)
+	      && PRIMARY_TEMPLATE_P (DECL_TI_TEMPLATE (decl)))
+	    ;
+	  else
+	    permerror (input_location, "%qD is not a template", decl);
+	}
+      else if (!is_overloaded_fn (decl))
 	permerror (input_location, "%qD is not a template", decl);
       else
 	{
@@ -3966,6 +3974,38 @@ build_vec_cmp (tree_code code, tree type,
   return build3 (VEC_COND_EXPR, type, cmp, minus_one_vec, zero_vec);
 }
 
+/* Possibly warn about an address never being NULL.  */
+
+static void
+warn_for_null_address (location_t location, tree op, tsubst_flags_t complain)
+{
+  if (!warn_address
+      || (complain & tf_warning) == 0
+      || c_inhibit_evaluation_warnings != 0
+      || TREE_NO_WARNING (op))
+    return;
+
+  tree cop = fold_non_dependent_expr (op);
+
+  if (TREE_CODE (cop) == ADDR_EXPR
+      && decl_with_nonnull_addr_p (TREE_OPERAND (cop, 0))
+      && !TREE_NO_WARNING (cop))
+    warning_at (location, OPT_Waddress, "the address of %qD will never "
+		"be NULL", TREE_OPERAND (cop, 0));
+
+  if (CONVERT_EXPR_P (op)
+      && TREE_CODE (TREE_TYPE (TREE_OPERAND (op, 0))) == REFERENCE_TYPE)
+    {
+      tree inner_op = op;
+      STRIP_NOPS (inner_op);
+
+      if (DECL_P (inner_op))
+	warning_at (location, OPT_Waddress,
+		    "the compiler can assume that the address of "
+		    "%qD will never be NULL", inner_op);
+    }
+}
+
 /* Build a binary-operation expression without default conversions.
    CODE is the kind of expression to build.
    LOCATION is the location_t of the operator in the source code.
@@ -4487,9 +4527,12 @@ cp_build_binary_op (location_t location,
 	warning (OPT_Wfloat_equal,
 		 "comparing floating point with == or != is unsafe");
       if ((complain & tf_warning)
-	  && ((TREE_CODE (orig_op0) == STRING_CST && !integer_zerop (op1))
-	      || (TREE_CODE (orig_op1) == STRING_CST && !integer_zerop (op0))))
-	warning (OPT_Waddress, "comparison with string literal results in unspecified behaviour");
+	  && ((TREE_CODE (orig_op0) == STRING_CST
+	       && !integer_zerop (cp_fully_fold (op1)))
+	      || (TREE_CODE (orig_op1) == STRING_CST
+		  && !integer_zerop (cp_fully_fold (op0)))))
+	warning (OPT_Waddress, "comparison with string literal results "
+			       "in unspecified behavior");
 
       build_type = boolean_type_node;
       if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE
@@ -4503,43 +4546,13 @@ cp_build_binary_op (location_t location,
 	       || (code0 == POINTER_TYPE
 		   && TYPE_PTR_P (type1) && integer_zerop (op1)))
 	{
-	  if (warn_nonnull
-	      && TREE_CODE (op0) == PARM_DECL && nonnull_arg_p (op0))
-	    warning_at (location, OPT_Wnonnull,
-			"nonnull argument %qD compared to NULL", op0);
-
 	  if (TYPE_PTR_P (type1))
 	    result_type = composite_pointer_type (type0, type1, op0, op1,
 						  CPO_COMPARISON, complain);
 	  else
 	    result_type = type0;
 
-	  if (TREE_CODE (op0) == ADDR_EXPR
-	      && decl_with_nonnull_addr_p (TREE_OPERAND (op0, 0)))
-	    {
-	      if ((complain & tf_warning)
-		  && c_inhibit_evaluation_warnings == 0
-		  && !TREE_NO_WARNING (op0))
-		warning (OPT_Waddress, "the address of %qD will never be NULL",
-			 TREE_OPERAND (op0, 0));
-	    }
-
-	  if (CONVERT_EXPR_P (op0)
-	      && TREE_CODE (TREE_TYPE (TREE_OPERAND (op0, 0)))
-		 == REFERENCE_TYPE)
-	    {
-	      tree inner_op0 = op0;
-	      STRIP_NOPS (inner_op0);
-
-	      if ((complain & tf_warning)
-		  && c_inhibit_evaluation_warnings == 0
-		  && !TREE_NO_WARNING (op0)
-		  && DECL_P (inner_op0))
-		warning_at (location, OPT_Waddress,
-			    "the compiler can assume that the address of "
-			    "%qD will never be NULL",
-			    inner_op0);
-	    }
+	  warn_for_null_address (location, op0, complain);
 	}
       else if (((code1 == POINTER_TYPE || TYPE_PTRDATAMEM_P (type1))
 		&& null_ptr_cst_p (op0))
@@ -4547,43 +4560,13 @@ cp_build_binary_op (location_t location,
 	       || (code1 == POINTER_TYPE
 		   && TYPE_PTR_P (type0) && integer_zerop (op0)))
 	{
-	  if (warn_nonnull
-	      && TREE_CODE (op1) == PARM_DECL && nonnull_arg_p (op1))
-	    warning_at (location, OPT_Wnonnull,
-			"nonnull argument %qD compared to NULL", op1);
-
 	  if (TYPE_PTR_P (type0))
 	    result_type = composite_pointer_type (type0, type1, op0, op1,
 						  CPO_COMPARISON, complain);
 	  else
 	    result_type = type1;
 
-	  if (TREE_CODE (op1) == ADDR_EXPR 
-	      && decl_with_nonnull_addr_p (TREE_OPERAND (op1, 0)))
-	    {
-	      if ((complain & tf_warning)
-		  && c_inhibit_evaluation_warnings == 0
-		  && !TREE_NO_WARNING (op1))
-		warning (OPT_Waddress, "the address of %qD will never be NULL",
-			 TREE_OPERAND (op1, 0));
-	    }
-
-	  if (CONVERT_EXPR_P (op1)
-	      && TREE_CODE (TREE_TYPE (TREE_OPERAND (op1, 0)))
-		 == REFERENCE_TYPE)
-	    {
-	      tree inner_op1 = op1;
-	      STRIP_NOPS (inner_op1);
-
-	      if ((complain & tf_warning)
-		  && c_inhibit_evaluation_warnings == 0
-		  && !TREE_NO_WARNING (op1)
-		  && DECL_P (inner_op1))
-		warning_at (location, OPT_Waddress,
-			    "the compiler can assume that the address of "
-			    "%qD will never be NULL",
-			    inner_op1);
-	    }
+	  warn_for_null_address (location, op1, complain);
 	}
       else if ((code0 == POINTER_TYPE && code1 == POINTER_TYPE)
 	       || (TYPE_PTRDATAMEM_P (type0) && TYPE_PTRDATAMEM_P (type1)))
@@ -4790,7 +4773,8 @@ cp_build_binary_op (location_t location,
 	  || TREE_CODE (orig_op1) == STRING_CST)
 	{
 	  if (complain & tf_warning)
-	    warning (OPT_Waddress, "comparison with string literal results in unspecified behaviour");
+	    warning (OPT_Waddress, "comparison with string literal results "
+				   "in unspecified behavior");
 	}
 
       if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE)
@@ -6704,11 +6688,7 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
 	  tree lref = cp_build_reference_type (TREE_TYPE (type), false);
 	  result = (perform_direct_initialization_if_possible
 		    (lref, expr, c_cast_p, complain));
-	  result = cp_fold_convert (type, result);
-	  /* Make sure we don't fold back down to a named rvalue reference,
-	     because that would be an lvalue.  */
-	  if (DECL_P (result))
-	    result = build1 (NON_LVALUE_EXPR, type, result);
+	  result = build1 (NON_LVALUE_EXPR, type, result);
 	  return convert_from_reference (result);
 	}
       else
@@ -8917,17 +8897,7 @@ check_return_expr (tree retval, bool *no_warning)
 
       /* If we had an id-expression obfuscated by force_paren_expr, we need
 	 to undo it so we can try to treat it as an rvalue below.  */
-      if (cxx_dialect >= cxx14
-	  && INDIRECT_REF_P (retval)
-	  && REF_PARENTHESIZED_P (retval))
-	{
-	  retval = TREE_OPERAND (retval, 0);
-	  while (TREE_CODE (retval) == NON_LVALUE_EXPR
-		 || TREE_CODE (retval) == NOP_EXPR)
-	    retval = TREE_OPERAND (retval, 0);
-	  gcc_assert (TREE_CODE (retval) == ADDR_EXPR);
-	  retval = TREE_OPERAND (retval, 0);
-	}
+      retval = maybe_undo_parenthesized_ref (retval);
 
       /* Under C++11 [12.8/32 class.copy], a returned lvalue is sometimes
 	 treated as an rvalue for the purposes of overload resolution to

@@ -1,7 +1,5 @@
 /* Test that the compiler decides to "avoid offloading".  */
 
-/* { dg-additional-options "-ftree-parallelize-loops=32" } */
-
 #include <openacc.h>
 
 int main(void)

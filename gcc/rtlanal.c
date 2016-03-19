@@ -2946,10 +2946,13 @@ inequality_comparisons_p (const_rtx x)
    not enter into CONST_DOUBLE for the replace.
 
    Note that copying is not done so X must not be shared unless all copies
-   are to be modified.  */
+   are to be modified.
+
+   ALL_REGS is true if we want to replace all REGs equal to FROM, not just
+   those pointer-equal ones.  */
 
 rtx
-replace_rtx (rtx x, rtx from, rtx to)
+replace_rtx (rtx x, rtx from, rtx to, bool all_regs)
 {
   int i, j;
   const char *fmt;
@@ -2961,9 +2964,17 @@ replace_rtx (rtx x, rtx from, rtx to)
   if (x == 0)
     return 0;
 
-  if (GET_CODE (x) == SUBREG)
+  if (all_regs
+      && REG_P (x)
+      && REG_P (from)
+      && REGNO (x) == REGNO (from))
     {
-      rtx new_rtx = replace_rtx (SUBREG_REG (x), from, to);
+      gcc_assert (GET_MODE (x) == GET_MODE (from));
+      return to;
+    }
+  else if (GET_CODE (x) == SUBREG)
+    {
+      rtx new_rtx = replace_rtx (SUBREG_REG (x), from, to, all_regs);
 
       if (CONST_INT_P (new_rtx))
 	{
@@ -2979,7 +2990,7 @@ replace_rtx (rtx x, rtx from, rtx to)
     }
   else if (GET_CODE (x) == ZERO_EXTEND)
     {
-      rtx new_rtx = replace_rtx (XEXP (x, 0), from, to);
+      rtx new_rtx = replace_rtx (XEXP (x, 0), from, to, all_regs);
 
       if (CONST_INT_P (new_rtx))
 	{
@@ -2997,10 +3008,11 @@ replace_rtx (rtx x, rtx from, rtx to)
   for (i = GET_RTX_LENGTH (GET_CODE (x)) - 1; i >= 0; i--)
     {
       if (fmt[i] == 'e')
-	XEXP (x, i) = replace_rtx (XEXP (x, i), from, to);
+	XEXP (x, i) = replace_rtx (XEXP (x, i), from, to, all_regs);
       else if (fmt[i] == 'E')
 	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  XVECEXP (x, i, j) = replace_rtx (XVECEXP (x, i, j), from, to);
+	  XVECEXP (x, i, j) = replace_rtx (XVECEXP (x, i, j),
+					   from, to, all_regs);
     }
 
   return x;
@@ -3358,7 +3370,7 @@ commutative_operand_precedence (rtx op)
   if (code == CONST_INT)
     return -8;
   if (code == CONST_WIDE_INT)
-    return -8;
+    return -7;
   if (code == CONST_DOUBLE)
     return -7;
   if (code == CONST_FIXED)
@@ -4163,6 +4175,36 @@ num_sign_bit_copies (const_rtx x, machine_mode mode)
   return cached_num_sign_bit_copies (x, mode, NULL_RTX, VOIDmode, 0);
 }
 
+/* Return true if nonzero_bits1 might recurse into both operands
+   of X.  */
+
+static inline bool
+nonzero_bits_binary_arith_p (const_rtx x)
+{
+  if (!ARITHMETIC_P (x))
+    return false;
+  switch (GET_CODE (x))
+    {
+    case AND:
+    case XOR:
+    case IOR:
+    case UMIN:
+    case UMAX:
+    case SMIN:
+    case SMAX:
+    case PLUS:
+    case MINUS:
+    case MULT:
+    case DIV:
+    case UDIV:
+    case MOD:
+    case UMOD:
+      return true;
+    default:
+      return false;
+    }
+}
+
 /* The function cached_nonzero_bits is a wrapper around nonzero_bits1.
    It avoids exponential behavior in nonzero_bits1 when X has
    identical subexpressions on the first or the second level.  */
@@ -4179,7 +4221,7 @@ cached_nonzero_bits (const_rtx x, machine_mode mode, const_rtx known_x,
      nonzero_bits1 on X with the subexpressions as KNOWN_X and the
      precomputed value for the subexpression as KNOWN_RET.  */
 
-  if (ARITHMETIC_P (x))
+  if (nonzero_bits_binary_arith_p (x))
     {
       rtx x0 = XEXP (x, 0);
       rtx x1 = XEXP (x, 1);
@@ -4191,13 +4233,13 @@ cached_nonzero_bits (const_rtx x, machine_mode mode, const_rtx known_x,
 						   known_mode, known_ret));
 
       /* Check the second level.  */
-      if (ARITHMETIC_P (x0)
+      if (nonzero_bits_binary_arith_p (x0)
 	  && (x1 == XEXP (x0, 0) || x1 == XEXP (x0, 1)))
 	return nonzero_bits1 (x, mode, x1, mode,
 			      cached_nonzero_bits (x1, mode, known_x,
 						   known_mode, known_ret));
 
-      if (ARITHMETIC_P (x1)
+      if (nonzero_bits_binary_arith_p (x1)
 	  && (x0 == XEXP (x1, 0) || x0 == XEXP (x1, 1)))
 	return nonzero_bits1 (x, mode, x0, mode,
 			      cached_nonzero_bits (x0, mode, known_x,
@@ -4269,6 +4311,8 @@ nonzero_bits1 (const_rtx x, machine_mode mode, const_rtx known_x,
       return nonzero;
     }
 
+  /* Please keep nonzero_bits_binary_arith_p above in sync with
+     the code in the switch below.  */
   code = GET_CODE (x);
   switch (code)
     {
@@ -4672,6 +4716,32 @@ nonzero_bits1 (const_rtx x, machine_mode mode, const_rtx known_x,
 #undef cached_num_sign_bit_copies
 
 
+/* Return true if num_sign_bit_copies1 might recurse into both operands
+   of X.  */
+
+static inline bool
+num_sign_bit_copies_binary_arith_p (const_rtx x)
+{
+  if (!ARITHMETIC_P (x))
+    return false;
+  switch (GET_CODE (x))
+    {
+    case IOR:
+    case AND:
+    case XOR:
+    case SMIN:
+    case SMAX:
+    case UMIN:
+    case UMAX:
+    case PLUS:
+    case MINUS:
+    case MULT:
+      return true;
+    default:
+      return false;
+    }
+}
+
 /* The function cached_num_sign_bit_copies is a wrapper around
    num_sign_bit_copies1.  It avoids exponential behavior in
    num_sign_bit_copies1 when X has identical subexpressions on the
@@ -4689,7 +4759,7 @@ cached_num_sign_bit_copies (const_rtx x, machine_mode mode, const_rtx known_x,
      num_sign_bit_copies1 on X with the subexpressions as KNOWN_X and
      the precomputed value for the subexpression as KNOWN_RET.  */
 
-  if (ARITHMETIC_P (x))
+  if (num_sign_bit_copies_binary_arith_p (x))
     {
       rtx x0 = XEXP (x, 0);
       rtx x1 = XEXP (x, 1);
@@ -4703,7 +4773,7 @@ cached_num_sign_bit_copies (const_rtx x, machine_mode mode, const_rtx known_x,
 							    known_ret));
 
       /* Check the second level.  */
-      if (ARITHMETIC_P (x0)
+      if (num_sign_bit_copies_binary_arith_p (x0)
 	  && (x1 == XEXP (x0, 0) || x1 == XEXP (x0, 1)))
 	return
 	  num_sign_bit_copies1 (x, mode, x1, mode,
@@ -4711,7 +4781,7 @@ cached_num_sign_bit_copies (const_rtx x, machine_mode mode, const_rtx known_x,
 							    known_mode,
 							    known_ret));
 
-      if (ARITHMETIC_P (x1)
+      if (num_sign_bit_copies_binary_arith_p (x1)
 	  && (x0 == XEXP (x1, 0) || x0 == XEXP (x1, 1)))
 	return
 	  num_sign_bit_copies1 (x, mode, x0, mode,
@@ -4777,6 +4847,8 @@ num_sign_bit_copies1 (const_rtx x, machine_mode mode, const_rtx known_x,
 	return 1;
     }
 
+  /* Please keep num_sign_bit_copies_binary_arith_p above in sync with
+     the code in the switch below.  */
   switch (code)
     {
     case REG:

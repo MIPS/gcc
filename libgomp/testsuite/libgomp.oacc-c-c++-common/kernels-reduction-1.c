@@ -1,7 +1,6 @@
 /* Verify that a simple, explicit acc loop reduction works inside
  a kernels region.  */
 
-/* { dg-additional-options "-ftree-parallelize-loops=32" } */
 /* Override the compiler's "avoid offloading" decision.
    { dg-additional-options "-foffload-force" } */
 

@@ -1,4 +1,4 @@
-/* Functions related to invoking methods and overloaded functions.
+/* Functions related to invoking -*- C++ -*- methods and overloaded functions.
    Copyright (C) 1987-2016 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) and
    modified by Brendan Kehoe (brendan@cygnus.com).
@@ -190,7 +190,6 @@ static struct z_candidate *add_function_candidate
 	 tree, int, tsubst_flags_t);
 static conversion *implicit_conversion (tree, tree, tree, bool, int,
 					tsubst_flags_t);
-static conversion *standard_conversion (tree, tree, tree, bool, int);
 static conversion *reference_binding (tree, tree, tree, bool, int,
 				      tsubst_flags_t);
 static conversion *build_conv (conversion_kind, tree, conversion *);
@@ -898,6 +897,8 @@ build_aggr_conv (tree type, tree ctor, int flags, tsubst_flags_t complain)
 
       if (i < CONSTRUCTOR_NELTS (ctor))
 	val = CONSTRUCTOR_ELT (ctor, i)->value;
+      else if (DECL_INITIAL (field))
+	val = get_nsdmi (field, /*ctor*/false);
       else if (TREE_CODE (ftype) == REFERENCE_TYPE)
 	/* Value-initialization of reference is ill-formed.  */
 	return NULL;
@@ -1080,7 +1081,7 @@ strip_top_quals (tree t)
 
 static conversion *
 standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
-		     int flags)
+		     int flags, tsubst_flags_t complain)
 {
   enum tree_code fcode, tcode;
   conversion *conv;
@@ -1110,7 +1111,7 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
       else if (TREE_CODE (to) == BOOLEAN_TYPE)
 	{
 	  /* Necessary for eg, TEMPLATE_ID_EXPRs (c++/50961).  */
-	  expr = resolve_nondeduced_context (expr);
+	  expr = resolve_nondeduced_context (expr, complain);
 	  from = TREE_TYPE (expr);
 	}
     }
@@ -1149,7 +1150,8 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
 	 the standard conversion sequence to perform componentwise
 	 conversion.  */
       conversion *part_conv = standard_conversion
-	(TREE_TYPE (to), TREE_TYPE (from), NULL_TREE, c_cast_p, flags);
+	(TREE_TYPE (to), TREE_TYPE (from), NULL_TREE, c_cast_p, flags,
+	 complain);
 
       if (part_conv)
 	{
@@ -1799,7 +1801,7 @@ implicit_conversion (tree to, tree from, tree expr, bool c_cast_p,
   if (TREE_CODE (to) == REFERENCE_TYPE)
     conv = reference_binding (to, from, expr, c_cast_p, flags, complain);
   else
-    conv = standard_conversion (to, from, expr, c_cast_p, flags);
+    conv = standard_conversion (to, from, expr, c_cast_p, flags, complain);
 
   if (conv)
     return conv;
@@ -1905,7 +1907,7 @@ add_candidate (struct z_candidate **candidates,
 /* Return the number of remaining arguments in the parameter list
    beginning with ARG.  */
 
-static int
+int
 remaining_arguments (tree arg)
 {
   int n;
@@ -7038,15 +7040,17 @@ convert_for_arg_passing (tree type, tree val, tsubst_flags_t complain)
   return val;
 }
 
-/* Returns true iff FN is a function with magic varargs, i.e. ones for
-   which no conversions at all should be done.  This is true for some
-   builtins which don't act like normal functions.  */
+/* Returns non-zero iff FN is a function with magic varargs, i.e. ones for
+   which just decay_conversion or no conversions at all should be done.
+   This is true for some builtins which don't act like normal functions.
+   Return 2 if no conversions at all should be done, 1 if just
+   decay_conversion.  */
 
-bool
+int
 magic_varargs_p (tree fn)
 {
   if (flag_cilkplus && is_cilkplus_reduce_builtin (fn) != BUILT_IN_NONE)
-    return true;
+    return 2;
 
   if (DECL_BUILT_IN (fn))
     switch (DECL_FUNCTION_CODE (fn))
@@ -7055,14 +7059,14 @@ magic_varargs_p (tree fn)
       case BUILT_IN_CONSTANT_P:
       case BUILT_IN_NEXT_ARG:
       case BUILT_IN_VA_START:
-	return true;
+	return 1;
 
       default:;
 	return lookup_attribute ("type generic",
 				 TYPE_ATTRIBUTES (TREE_TYPE (fn))) != 0;
       }
 
-  return false;
+  return 0;
 }
 
 /* Returns the decl of the dispatcher function if FN is a function version.  */
@@ -7513,9 +7517,17 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
   for (; arg_index < vec_safe_length (args); ++arg_index)
     {
       tree a = (*args)[arg_index];
-      if (magic_varargs_p (fn))
-	/* Do no conversions for magic varargs.  */
-	a = mark_type_use (a);
+      int magic = magic_varargs_p (fn);
+      if (magic == 2)
+	{
+	  /* Do no conversions for certain magic varargs.  */
+	  a = mark_type_use (a);
+	  if (TREE_CODE (a) == FUNCTION_DECL && reject_gcc_builtin (a))
+	    return error_mark_node;
+	}
+      else if (magic == 1)
+	/* For other magic varargs only do decay_conversion.  */
+	a = decay_conversion (a, complain);
       else if (DECL_CONSTRUCTOR_P (fn)
 	       && same_type_ignoring_top_level_qualifiers_p (DECL_CONTEXT (fn),
 							     TREE_TYPE (a)))
@@ -7528,6 +7540,8 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 	}
       else
 	a = convert_arg_to_ellipsis (a, complain);
+      if (a == error_mark_node)
+	return error_mark_node;
       argarray[j++] = a;
     }
 

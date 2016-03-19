@@ -40,7 +40,7 @@
 ;; Direct instructions can be issued to any of the four decoders.
 (define_reservation "znver1-direct" "znver1-decode0|znver1-decode1|znver1-decode2|znver1-decode3")
 
-;; Fix me: Need to revisit this later to simulate fast path double behaviour.
+;; Fix me: Need to revisit this later to simulate fast path double behavior.
 (define_reservation "znver1-double" "znver1-direct")
 
 
@@ -99,6 +99,18 @@
 (define_insn_reservation "znver1_push_both" 5
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "type" "push")
+				   (eq_attr "memory" "both")))
+			 "znver1-direct,znver1-load,znver1-store")
+
+(define_insn_reservation "znver1_pop" 4
+			 (and (eq_attr "cpu" "znver1")
+			      (and (eq_attr "type" "pop")
+				   (eq_attr "memory" "load")))
+			 "znver1-direct,znver1-load")
+
+(define_insn_reservation "znver1_pop_mem" 4
+			 (and (eq_attr "cpu" "znver1")
+			      (and (eq_attr "type" "pop")
 				   (eq_attr "memory" "both")))
 			 "znver1-direct,znver1-load,znver1-store")
 
@@ -194,26 +206,52 @@
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "znver1_decode" "double")
 				   (and (eq_attr "type" "imovx")
-					(eq_attr "memory" "none,load"))))
+					(eq_attr "memory" "none"))))
 			 "znver1-double,znver1-ieu")
 
 (define_insn_reservation "znver1_load_imov_direct" 1
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "type" "imov,imovx")
-				   (eq_attr "memory" "none,load")))
+				   (eq_attr "memory" "none")))
 			 "znver1-direct,znver1-ieu")
+
+(define_insn_reservation "znver1_load_imov_double_store" 2
+			 (and (eq_attr "cpu" "znver1")
+			      (and (eq_attr "znver1_decode" "double")
+				   (and (eq_attr "type" "imovx")
+					(eq_attr "memory" "store"))))
+			 "znver1-double,znver1-ieu,znver1-store")
+
+(define_insn_reservation "znver1_load_imov_direct_store" 1
+			 (and (eq_attr "cpu" "znver1")
+			      (and (eq_attr "type" "imov,imovx")
+				   (eq_attr "memory" "store")))
+				   "znver1-direct,znver1-ieu,znver1-store")
+
+(define_insn_reservation "znver1_load_imov_double_load" 6
+			 (and (eq_attr "cpu" "znver1")
+			      (and (eq_attr "znver1_decode" "double")
+				   (and (eq_attr "type" "imovx")
+					(eq_attr "memory" "load"))))
+			 "znver1-double,znver1-load,znver1-ieu")
+
+(define_insn_reservation "znver1_load_imov_direct_load" 5
+			 (and (eq_attr "cpu" "znver1")
+			      (and (eq_attr "type" "imov,imovx")
+				   (eq_attr "memory" "load")))
+			 "znver1-direct,znver1-load,znver1-ieu")
 
 ;; INTEGER/GENERAL instructions
 ;; register/imm operands only: ALU, ICMP, NEG, NOT, ROTATE, ISHIFT, TEST
 (define_insn_reservation "znver1_insn" 1
 			 (and (eq_attr "cpu" "znver1")
-			      (and (eq_attr "type" "alu,icmp,negnot,rotate,rotate1,ishift,ishift1,test,setcc,incdec")
+			      (and (eq_attr "type" "alu,icmp,negnot,rotate,rotate1,ishift,ishift1,test,setcc,incdec,icmov")
 				   (eq_attr "memory" "none,unknown")))
 			 "znver1-direct,znver1-ieu")
 
 (define_insn_reservation "znver1_insn_load" 5
 			 (and (eq_attr "cpu" "znver1")
-			      (and (eq_attr "type" "alu,icmp,negnot,rotate,rotate1,ishift,ishift1,test,setcc,incdec")
+			      (and (eq_attr "type" "alu,icmp,negnot,rotate,rotate1,ishift,ishift1,test,setcc,incdec,icmov")
 				   (eq_attr "memory" "load")))
 			 "znver1-direct,znver1-load,znver1-ieu")
 
@@ -290,7 +328,7 @@
 			      (eq_attr "type" "fcmov"))
 			 "znver1-vector,znver1-fvector")
 
-(define_insn_reservation "znver1_fp_mov_direct_load" 5
+(define_insn_reservation "znver1_fp_mov_direct_load" 8 
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "znver1_decode" "direct")
 				   (and (eq_attr "type" "fmov")
@@ -311,7 +349,7 @@
 					(eq_attr "memory" "none"))))
 			 "znver1-double,znver1-fp3")
 
-(define_insn_reservation "znver1_fp_mov_double_load" 9
+(define_insn_reservation "znver1_fp_mov_double_load" 12
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "znver1_decode" "double")
 				   (and (eq_attr "type" "fmov")
@@ -348,7 +386,7 @@
 					(eq_attr "type" "fcmp"))))
 			 "znver1-double,znver1-fp0,znver1-fp2")
 
-(define_insn_reservation "znver1_fp_fcmp_load" 6
+(define_insn_reservation "znver1_fp_fcmp_load" 9
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "memory" "none")
 				   (and (eq_attr "znver1_decode" "double")
@@ -362,13 +400,13 @@
 				   (eq_attr "memory" "none")))
 			 "znver1-direct,znver1-fp0*5")
 
-(define_insn_reservation "znver1_fp_op_mul_load" 9
+(define_insn_reservation "znver1_fp_op_mul_load" 12 
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "type" "fop,fmul")
 				   (eq_attr "memory" "load")))
 			 "znver1-direct,znver1-load,znver1-fp0*5")
 
-(define_insn_reservation "znver1_fp_op_imul_load" 13
+(define_insn_reservation "znver1_fp_op_imul_load" 16
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "type" "fop,fmul")
 				   (and (eq_attr "fp_int_src" "true")
@@ -381,13 +419,13 @@
 				   (eq_attr "memory" "none")))
 			 "znver1-direct,znver1-fp3*15")
 
-(define_insn_reservation "znver1_fp_op_div_load" 19
+(define_insn_reservation "znver1_fp_op_div_load" 22
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "type" "fdiv")
 				   (eq_attr "memory" "load")))
 			 "znver1-direct,znver1-load,znver1-fp3*15")
 
-(define_insn_reservation "znver1_fp_op_idiv_load" 24
+(define_insn_reservation "znver1_fp_op_idiv_load" 27
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "type" "fdiv")
 				   (and (eq_attr "fp_int_src" "true")
@@ -406,7 +444,7 @@
 				   (eq_attr "memory" "none")))
 			 "znver1-direct,znver1-fp0|znver1-fp1|znver1-fp3")
 
-(define_insn_reservation "znver1_mmx_add_load" 5
+(define_insn_reservation "znver1_mmx_add_load" 8
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "type" "mmxadd")
 				   (eq_attr "memory" "load")))
@@ -418,7 +456,7 @@
 				   (eq_attr "memory" "none")))
 			 "znver1-direct,znver1-fp0|znver1-fp3")
 
-(define_insn_reservation "znver1_mmx_cmp_load" 5
+(define_insn_reservation "znver1_mmx_cmp_load" 8
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "type" "mmxcmp")
 				   (eq_attr "memory" "load")))
@@ -430,7 +468,7 @@
 				   (eq_attr "memory" "none")))
 			 "znver1-direct,znver1-fp1|znver1-fp2")
 
-(define_insn_reservation "znver1_mmx_cvt_pck_shuf_load" 5
+(define_insn_reservation "znver1_mmx_cvt_pck_shuf_load" 8
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "type" "mmxcvt,sseshuf,sseshuf1")
 				   (eq_attr "memory" "load")))
@@ -442,7 +480,7 @@
 				   (eq_attr "memory" "none")))
  			 "znver1-direct,znver1-fp2")
 
-(define_insn_reservation "znver1_mmx_shift_move_load" 5
+(define_insn_reservation "znver1_mmx_shift_move_load" 8
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "type" "mmxshft,mmxmov")
 				   (eq_attr "memory" "load")))
@@ -460,7 +498,7 @@
 				   (eq_attr "memory" "none")))
 			  "znver1-direct,znver1-fp0*3")
 
-(define_insn_reservation "znver1_mmx_load" 7
+(define_insn_reservation "znver1_mmx_load" 10
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "type" "mmxmul")
 				   (eq_attr "memory" "load")))
@@ -473,7 +511,7 @@
 					(eq_attr "memory" "none"))))
 			 "znver1-double,znver1-fpu")
 
-(define_insn_reservation "znver1_avx256_log_load" 5
+(define_insn_reservation "znver1_avx256_log_load" 8
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "V8SF,V4DF,OI")
 				   (and (eq_attr "type" "sselog")
@@ -486,7 +524,7 @@
 				   (eq_attr "memory" "none")))
 			 "znver1-direct,znver1-fpu")
 
-(define_insn_reservation "znver1_sse_log_load" 5
+(define_insn_reservation "znver1_sse_log_load" 8
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "type" "sselog")
 				   (eq_attr "memory" "load")))
@@ -499,7 +537,7 @@
 					(eq_attr "memory" "none"))))
 			 "znver1-double,znver1-fp1|znver1-fp2")
 
-(define_insn_reservation "znver1_avx256_log1_load" 5
+(define_insn_reservation "znver1_avx256_log1_load" 8
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "V8SF,V4DF,OI")
 				   (and (eq_attr "type" "sselog1")
@@ -512,7 +550,7 @@
 				   (eq_attr "memory" "none")))
 			 "znver1-direct,znver1-fp1|znver1-fp2")
 
-(define_insn_reservation "znver1_sse_log1_load" 5
+(define_insn_reservation "znver1_sse_log1_load" 8
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "type" "sselog1")
 				   (eq_attr "memory" "!none")))
@@ -527,7 +565,7 @@
 						  (eq_attr "memory" "none"))))))
 			 "znver1-direct,znver1-fp0|znver1-fp1")
 
-(define_insn_reservation "znver1_sse_comi_load" 5
+(define_insn_reservation "znver1_sse_comi_load" 8
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "SF,DF,V4SF,V2DF")
 				   (and (eq_attr "prefix" "!vex")
@@ -545,7 +583,7 @@
 						  (eq_attr "memory" "none"))))))
 			 "znver1-double,znver1-fp0|znver1-fp1")
 
-(define_insn_reservation "znver1_sse_comi_double_load" 7
+(define_insn_reservation "znver1_sse_comi_double_load" 10
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "V4SF,V2DF,TI")
 				   (and (eq_attr "prefix" "vex")
@@ -562,7 +600,7 @@
 					     (eq_attr "memory" "none")))))
 			 "znver1-direct,znver1-fp1|znver1-fp2")
 
-(define_insn_reservation "znver1_sse_test_load" 5
+(define_insn_reservation "znver1_sse_test_load" 8
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "SF,DF,V4SF,V2DF,TI")
 				   (and (eq_attr "prefix_extra" "1")
@@ -604,7 +642,7 @@
 					(eq_attr "memory" "store"))))
 			"znver1-direct,znver1-fpu,znver1-store")
 
-(define_insn_reservation "znver1_sseavx_mov_load" 5
+(define_insn_reservation "znver1_sseavx_mov_load" 8
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "SF,DF,V4SF,V2DF,TI")
 				   (and (eq_attr "type" "ssemov")
@@ -625,7 +663,7 @@
 					(eq_attr "memory" "store"))))
 			 "znver1-double,znver1-fpu,znver1-store")
 
-(define_insn_reservation "znver1_avx256_mov_load" 5
+(define_insn_reservation "znver1_avx256_mov_load" 8
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "V8SF,V4DF,OI")
 				   (and (eq_attr "type" "ssemov")
@@ -640,7 +678,7 @@
 					(eq_attr "memory" "none"))))
 			 "znver1-direct,znver1-fp2|znver1-fp3")
 
-(define_insn_reservation "znver1_sseavx_add_load" 7
+(define_insn_reservation "znver1_sseavx_add_load" 10
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "SF,DF,V4SF,V2DF,TI")
 				   (and (eq_attr "type" "sseadd")
@@ -654,7 +692,7 @@
 					(eq_attr "memory" "none"))))
 			 "znver1-double,znver1-fp2|znver1-fp3")
 
-(define_insn_reservation "znver1_avx256_add_load" 7
+(define_insn_reservation "znver1_avx256_add_load" 10
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "V8SF,V4DF,OI")
 				   (and (eq_attr "type" "sseadd")
@@ -666,28 +704,28 @@
 			      (and (eq_attr "mode" "SF,DF,V4SF,V2DF")
 				   (and (eq_attr "type" "ssemuladd")
 					(eq_attr "memory" "none"))))
-			 "znver1-direct,(znver1-fp0+znver1-fp3)|(znver1-fp1+znver1-fp3)")
+			 "znver1-direct,znver1-fp0|znver1-fp1")
 
-(define_insn_reservation "znver1_sseavx_fma_load" 9
+(define_insn_reservation "znver1_sseavx_fma_load" 12
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "SF,DF,V4SF,V2DF")
 				   (and (eq_attr "type" "ssemuladd")
 					(eq_attr "memory" "load"))))
-			"znver1-direct,znver1-load,(znver1-fp0+znver1-fp3)|(znver1-fp1+znver1-fp3)")
+			"znver1-direct,znver1-load,znver1-fp0|znver1-fp1")
 
 (define_insn_reservation "znver1_avx256_fma" 5
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "V8SF,V4DF")
 				   (and (eq_attr "type" "ssemuladd")
 					(eq_attr "memory" "none"))))
-			 "znver1-double,(znver1-fp0+znver1-fp3)|(znver1-fp1+znver1-fp3)")
+			 "znver1-double,znver1-fp0|znver1-fp1")
 
-(define_insn_reservation "znver1_avx256_fma_load" 9
+(define_insn_reservation "znver1_avx256_fma_load" 12
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "V8SF,V4DF")
 				   (and (eq_attr "type" "ssemuladd")
 					(eq_attr "memory" "load"))))
-			 "znver1-double,znver1-load,(znver1-fp0+znver1-fp3)|(znver1-fp1+znver1-fp3)")
+			 "znver1-double,znver1-load,znver1-fp0|znver1-fp1")
 
 (define_insn_reservation "znver1_sseavx_iadd" 1
 			 (and (eq_attr "cpu" "znver1")
@@ -696,7 +734,7 @@
 					(eq_attr "memory" "none"))))
 			 "znver1-direct,znver1-fp0|znver1-fp1|znver1-fp3")
 
-(define_insn_reservation "znver1_sseavx_iadd_load" 5
+(define_insn_reservation "znver1_sseavx_iadd_load" 8
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "DI,TI")
 				   (and (eq_attr "type" "sseiadd")
@@ -710,7 +748,7 @@
 					(eq_attr "memory" "none"))))
 			 "znver1-double,znver1-fp0|znver1-fp1|znver1-fp3")
 
-(define_insn_reservation "znver1_avx256_iadd_load" 5
+(define_insn_reservation "znver1_avx256_iadd_load" 8
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "OI")
 				   (and (eq_attr "type" "sseiadd")
@@ -718,7 +756,7 @@
 			 "znver1-double,znver1-load,znver1-fp0|znver1-fp1|znver1-fp3")
 
 ;; SSE conversions.
-(define_insn_reservation "znver1_ssecvtsf_si_load" 9
+(define_insn_reservation "znver1_ssecvtsf_si_load" 12
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "SI")
 				   (and (eq_attr "type" "sseicvt")
@@ -734,7 +772,7 @@
 					     (eq_attr "memory" "none")))))
 			 "znver1-double,znver1-fp3,znver1-ieu0")
 
-(define_insn_reservation "znver1_ssecvtdf_si_load" 9
+(define_insn_reservation "znver1_ssecvtdf_si_load" 12
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "SI")
 				   (and (eq_attr "type" "sseicvt")
@@ -751,7 +789,7 @@
 				   (eq_attr "memory" "none")))
 			 "znver1-direct,znver1-fp3")
 
-(define_insn_reservation "znver1_ssecvt_load" 8
+(define_insn_reservation "znver1_ssecvt_load" 11
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "type" "ssecvt")
 				   (eq_attr "memory" "load")))
@@ -765,7 +803,7 @@
 					(eq_attr "memory" "none"))))
 			 "znver1-direct,znver1-fp3*10")
 
-(define_insn_reservation "znver1_ssediv_ss_ps_load" 14
+(define_insn_reservation "znver1_ssediv_ss_ps_load" 17
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "V4SF,SF")
 				   (and (eq_attr "type" "ssediv")
@@ -779,7 +817,7 @@
 					(eq_attr "memory" "none"))))
 			 "znver1-direct,znver1-fp3*13")
 
-(define_insn_reservation "znver1_ssediv_sd_pd_load" 17
+(define_insn_reservation "znver1_ssediv_sd_pd_load" 20
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "V2DF,DF")
 				   (and (eq_attr "type" "ssediv")
@@ -793,7 +831,7 @@
 					(eq_attr "type" "ssediv"))))
 			 "znver1-double,znver1-fp3*12")
 
-(define_insn_reservation "znver1_ssediv_avx256_ps_load" 16
+(define_insn_reservation "znver1_ssediv_avx256_ps_load" 19
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "V8SF")
 				   (and (eq_attr "type" "ssediv")
@@ -807,7 +845,7 @@
 					(eq_attr "memory" "none"))))
 			 "znver1-double,znver1-fp3*15")
 
-(define_insn_reservation "znver1_ssediv_avx256_pd_load" 18
+(define_insn_reservation "znver1_ssediv_avx256_pd_load" 22 
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "V4DF")
 				   (and (eq_attr "type" "ssediv")
@@ -821,7 +859,7 @@
 					(eq_attr "memory" "none"))))
 			 "znver1-direct,(znver1-fp0|znver1-fp1)*3")
 
-(define_insn_reservation "znver1_ssemul_ss_ps_load" 7
+(define_insn_reservation "znver1_ssemul_ss_ps_load" 10 
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "V4SF,SF")
 				   (and (eq_attr "type" "ssemul")
@@ -835,7 +873,7 @@
 					(eq_attr "memory" "none"))))
 			 "znver1-double,(znver1-fp0|znver1-fp1)*3")
 
-(define_insn_reservation "znver1_ssemul_avx256_ps_load" 7
+(define_insn_reservation "znver1_ssemul_avx256_ps_load" 10
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "V8SF")
 				   (and (eq_attr "type" "ssemul")
@@ -849,7 +887,7 @@
 					(eq_attr "memory" "none"))))
 			 "znver1-direct,(znver1-fp0|znver1-fp1)*4")
 
-(define_insn_reservation "znver1_ssemul_sd_pd_load" 8
+(define_insn_reservation "znver1_ssemul_sd_pd_load" 11
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "V2DF,DF")
 				   (and (eq_attr "type" "ssemul")
@@ -864,7 +902,7 @@
 					     (eq_attr "memory" "none")))))
 			 "znver1-double,(znver1-fp0|znver1-fp1)*4")
 
-(define_insn_reservation "znver1_ssemul_avx256_pd_load" 8
+(define_insn_reservation "znver1_ssemul_avx256_pd_load" 12
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "V4DF")
 				   (and (eq_attr "type" "ssemul")
@@ -875,44 +913,44 @@
 (define_insn_reservation "znver1_sseimul" 3
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "TI")
-				   (and (eq_attr "type" "ssemul")
+				   (and (eq_attr "type" "sseimul")
 					(eq_attr "memory" "none"))))
 			 "znver1-direct,znver1-fp0*3")
 
 (define_insn_reservation "znver1_sseimul_avx256" 4
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "OI")
-				   (and (eq_attr "type" "ssemul")
+				   (and (eq_attr "type" "sseimul")
 					(eq_attr "memory" "none"))))
 			 "znver1-double,znver1-fp0*4")
 
-(define_insn_reservation "znver1_sseimul_load" 7
+(define_insn_reservation "znver1_sseimul_load" 10
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "TI")
-				   (and (eq_attr "type" "ssemul")
+				   (and (eq_attr "type" "sseimul")
 					(eq_attr "memory" "load"))))
 			 "znver1-direct,znver1-load,znver1-fp0*3")
 
-(define_insn_reservation "znver1_sseimul_avx256_load" 8
+(define_insn_reservation "znver1_sseimul_avx256_load" 11
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "OI")
-				   (and (eq_attr "type" "ssemul")
+				   (and (eq_attr "type" "sseimul")
 					(eq_attr "memory" "load"))))
 			 "znver1-double,znver1-load,znver1-fp0*4")
 
-(define_insn_reservation "znver1_sseimul_di" 4
+(define_insn_reservation "znver1_sseimul_di" 3 
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "DI")
 				   (and (eq_attr "memory" "none")
-					(eq_attr "type" "ssemul"))))
-			 "znver1-direct,znver1-fp0*4")
+					(eq_attr "type" "sseimul"))))
+			 "znver1-direct,znver1-fp0*3")
 
-(define_insn_reservation "znver1_sseimul_load_di" 8
+(define_insn_reservation "znver1_sseimul_load_di" 10 
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "DI")
-				   (and (eq_attr "type" "ssemul")
+				   (and (eq_attr "type" "sseimul")
 					(eq_attr "memory" "load"))))
-			 "znver1-direct,znver1-load,znver1-fp0*4")
+			 "znver1-direct,znver1-load,znver1-fp0*3")
 
 ;; SSE compares
 (define_insn_reservation "znver1_sse_cmp" 1
@@ -922,7 +960,7 @@
 					(eq_attr "memory" "none"))))
 			 "znver1-direct,znver1-fp0|znver1-fp1")
 
-(define_insn_reservation "znver1_sse_cmp_load" 5
+(define_insn_reservation "znver1_sse_cmp_load" 8
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "SF,DF,V4SF,V2DF")
 				   (and (eq_attr "type" "ssecmp")
@@ -936,7 +974,7 @@
 					(eq_attr "memory" "none"))))
 			"znver1-double,znver1-fp0|znver1-fp1")
 
-(define_insn_reservation "znver1_sse_cmp_avx256_load" 5
+(define_insn_reservation "znver1_sse_cmp_avx256_load" 8
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "V8SF,V4DF")
 				   (and (eq_attr "type" "ssecmp")
@@ -950,7 +988,7 @@
 					(eq_attr "memory" "none"))))
 			 "znver1-direct,znver1-fp0|znver1-fp3")
 
-(define_insn_reservation "znver1_sse_icmp_load" 5
+(define_insn_reservation "znver1_sse_icmp_load" 8
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "QI,HI,SI,DI,TI")
 				   (and (eq_attr "type" "ssecmp")
@@ -964,10 +1002,9 @@
 					(eq_attr "memory" "none"))))
 			 "znver1-double,znver1-fp0|znver1-fp3")
 
-(define_insn_reservation "znver1_sse_icmp_avx256_load" 5
+(define_insn_reservation "znver1_sse_icmp_avx256_load" 8
 			 (and (eq_attr "cpu" "znver1")
 			      (and (eq_attr "mode" "OI")
 				   (and (eq_attr "type" "ssecmp")
 					(eq_attr "memory" "load"))))
 			 "znver1-double,znver1-load,znver1-fp0|znver1-fp3")
-

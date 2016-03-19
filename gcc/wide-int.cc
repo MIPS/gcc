@@ -118,6 +118,20 @@ canonize (HOST_WIDE_INT *val, unsigned int len, unsigned int precision)
   return 1;
 }
 
+/* VAL[0] is the unsigned result of an operation.  Canonize it by adding
+   another 0 block if needed, and return number of blocks needed.  */
+
+static inline unsigned int
+canonize_uhwi (HOST_WIDE_INT *val, unsigned int precision)
+{
+  if (val[0] < 0 && precision > HOST_BITS_PER_WIDE_INT)
+    {
+      val[1] = 0;
+      return 2;
+    }
+  return 1;
+}
+
 /*
  * Conversion routines in and out of wide_int.
  */
@@ -1788,15 +1802,19 @@ wi::divmod_internal (HOST_WIDE_INT *quotient, unsigned int *remainder_len,
     {
       unsigned HOST_WIDE_INT o0 = dividend.to_uhwi ();
       unsigned HOST_WIDE_INT o1 = divisor.to_uhwi ();
+      unsigned int quotient_len = 1;
 
       if (quotient)
-	quotient[0] = o0 / o1;
+	{
+	  quotient[0] = o0 / o1;
+	  quotient_len = canonize_uhwi (quotient, dividend_prec);
+	}
       if (remainder)
 	{
 	  remainder[0] = o0 % o1;
-	  *remainder_len = 1;
+	  *remainder_len = canonize_uhwi (remainder, dividend_prec);
 	}
-      return 1;
+      return quotient_len;
     }
 
   /* Make the divisor and dividend positive and remember what we

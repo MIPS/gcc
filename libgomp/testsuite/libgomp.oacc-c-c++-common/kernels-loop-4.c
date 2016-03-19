@@ -1,8 +1,6 @@
 /* Exercise the auto, independent, seq and tile loop clauses inside
    kernels regions.  */
 
-/* { dg-do run } */
-/* { dg-additional-options "-ftree-parallelize-loops=32" } */
 /* { dg-prune-output "insufficient partitioning available to parallelize loop" } */
 
 #include <assert.h>

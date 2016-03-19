@@ -1,7 +1,6 @@
 ! Test of vector-private variables declared on loop directive.
 
 ! { dg-do run }
-! { dg-additional-options "-ftree-parallelize-loops=32" }
 ! Override the compiler's "avoid offloading" decision.
 ! { dg-additional-options "-foffload-force" }
 

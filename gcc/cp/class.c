@@ -392,8 +392,11 @@ build_base_path (enum tree_code code,
   if (null_test)
     {
       tree zero = cp_convert (TREE_TYPE (expr), nullptr_node, complain);
-      null_test = fold_build2_loc (input_location, NE_EXPR, boolean_type_node,
-			       expr, zero);
+      null_test = build2_loc (input_location, NE_EXPR, boolean_type_node,
+			      expr, zero);
+      /* This is a compiler generated comparison, don't emit
+	 e.g. -Wnonnull-compare warning for it.  */
+      TREE_NO_WARNING (null_test) = 1;
     }
 
   /* If this is a simple base reference, express it as a COMPONENT_REF.  */
@@ -4120,9 +4123,7 @@ walk_subobject_offsets (tree type,
       /* Avoid recursing into objects that are not interesting.  */
       if (!CLASS_TYPE_P (element_type)
 	  || !CLASSTYPE_CONTAINS_EMPTY_CLASS_P (element_type)
-	  || !domain
-	  /* Flexible array members have no upper bound.  */
-	  || !TYPE_MAX_VALUE (domain))
+	  || !domain)
 	return 0;
 
       /* Step through each of the elements in the array.  */
@@ -6645,7 +6646,7 @@ find_flexarrays (tree t, flexmems_t *fmem)
       for (next = fld;
 	   (next = DECL_CHAIN (next))
 	     && TREE_CODE (next) != FIELD_DECL; );
-      
+
       tree fldtype = TREE_TYPE (fld);
       if (TREE_CODE (fld) != TYPE_DECL
 	  && RECORD_OR_UNION_TYPE_P (fldtype)
@@ -6672,22 +6673,20 @@ find_flexarrays (tree t, flexmems_t *fmem)
 	  /* Remember the first non-static data member.  */
 	  if (!fmem->first)
 	    fmem->first = fld;
-	  
+
 	  /* Remember the first non-static data member after the flexible
 	     array member, if one has been found, or the zero-length array
 	     if it has been found.  */
 	  if (!fmem->after && fmem->array)
 	    fmem->after = fld;
 	}
-	    
+
       /* Skip non-arrays.  */
       if (TREE_CODE (fldtype) != ARRAY_TYPE)
 	continue;
 
       /* Determine the upper bound of the array if it has one.  */
-      tree dom = TYPE_DOMAIN (fldtype);
-
-      if (dom && TYPE_MAX_VALUE (dom))
+      if (TYPE_DOMAIN (fldtype))
 	{
 	  if (fmem->array)
 	    {
@@ -6698,7 +6697,7 @@ find_flexarrays (tree t, flexmems_t *fmem)
 	      if (!fmem->after)
 		fmem->after = fld;
 	    }
-	  else if (integer_all_onesp (TYPE_MAX_VALUE (dom)))
+	  else if (integer_all_onesp (TYPE_MAX_VALUE (TYPE_DOMAIN (fldtype))))
 	    /* Remember the first zero-length array unless a flexible array
 	       member has already been seen.  */
 	    fmem->array = fld;
@@ -6710,14 +6709,13 @@ find_flexarrays (tree t, flexmems_t *fmem)
 	    {
 	      /* Replace the zero-length array if it's been stored and
 		 reset the after pointer.  */
-	      dom = TYPE_DOMAIN (TREE_TYPE (fmem->array));
-	      if (dom && TYPE_MAX_VALUE (dom))
+	      if (TYPE_DOMAIN (TREE_TYPE (fmem->array)))
 		{
 		  fmem->array = fld;
 		  fmem->after = NULL_TREE;
 		}
 	    }
-	  else	
+	  else
 	    fmem->array = fld;
 	}
     }
@@ -6737,8 +6735,7 @@ diagnose_flexarrays (tree t, const flexmems_t *fmem)
 
   const char *msg = 0;
 
-  const_tree dom = TYPE_DOMAIN (TREE_TYPE (fmem->array));
-  if (dom && TYPE_MAX_VALUE (dom))
+  if (TYPE_DOMAIN (TREE_TYPE (fmem->array)))
     {
       if (fmem->after)
 	msg = G_("zero-size array member %qD not at end of %q#T");
@@ -6770,7 +6767,7 @@ diagnose_flexarrays (tree t, const flexmems_t *fmem)
 	      inform (DECL_SOURCE_LOCATION (fmem->after),
 		      "next member %q#D declared here",
 		      fmem->after);
-	  
+
 	  inform (location_of (t), "in the definition of %q#T", t);
 	}
     }
@@ -6844,7 +6841,7 @@ check_flexarrays (tree t, flexmems_t *fmem /* = NULL */)
   find_flexarrays (t, fmem);
 
   if (fmem == &flexmems)
-    { 
+    {
       /* Issue diagnostics for invalid flexible and zero-length array members
 	 found in base classes or among the members of the current class.  */
       diagnose_flexarrays (t, fmem);

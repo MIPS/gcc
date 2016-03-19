@@ -1,7 +1,6 @@
 ! Exercise combined OpenACC directives.
 
-! { dg-do compile }
-! { dg-options "-fopenacc -fdump-tree-gimple -ftree-parallelize-loops=1" }
+! { dg-additional-options "-fdump-tree-gimple" }
 
 ! TODO
 ! Fix OMP_LIST_PRIVATE and OMP_LIST_REDUCTION splitting in

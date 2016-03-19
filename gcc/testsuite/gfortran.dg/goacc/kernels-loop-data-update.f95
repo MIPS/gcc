@@ -1,5 +1,4 @@
 ! { dg-additional-options "-O2" }
-! { dg-additional-options "-ftree-parallelize-loops=32" }
 ! { dg-additional-options "-fdump-tree-parloops1-all" }
 ! { dg-additional-options "-fdump-tree-optimized" }
 
@@ -45,4 +44,4 @@ end program main
 ! { dg-final { scan-tree-dump-times "(?n);; Function MAIN__._omp_fn.0 " 1 "optimized" } }
 ! { dg-final { scan-tree-dump-times "(?n);; Function MAIN__._omp_fn.1 " 1 "optimized" } }
 
-! { dg-final { scan-tree-dump-times "(?n)oacc function \\(32," 2 "parloops1" } }
+! { dg-final { scan-tree-dump-times "(?n)oacc function \\(0," 2 "parloops1" } }

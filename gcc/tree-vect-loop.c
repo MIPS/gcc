@@ -1772,8 +1772,9 @@ vect_analyze_loop_2 (loop_vec_info loop_vinfo, bool &fatal)
     {
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			 "not vectorized: loop contains function calls"
-			 " or data references that cannot be analyzed\n");
+			 "not vectorized: loop nest containing two "
+			 "or more consecutive inner loops cannot be "
+			 "vectorized\n");
       return false;
     }
 
@@ -3430,8 +3431,8 @@ vect_estimate_min_profitable_iters (loop_vec_info loop_vinfo,
   min_profitable_estimate = MAX (min_profitable_estimate, min_profitable_iters);
   if (dump_enabled_p ())
     dump_printf_loc (MSG_NOTE, vect_location,
-                     "  Static estimate profitability threshold = %d\n",
-                      min_profitable_iters);
+		     "  Static estimate profitability threshold = %d\n",
+		     min_profitable_estimate);
 
   *ret_min_profitable_estimate = min_profitable_estimate;
 }
@@ -4110,6 +4111,15 @@ get_initial_def_for_reduction (gimple *stmt, tree init_val,
       return vect_create_destination_var (init_val, vectype);
     }
 
+  /* In case of a nested reduction do not use an adjustment def as
+     that case is not supported by the epilogue generation correctly
+     if ncopies is not one.  */
+  if (adjustment_def && nested_in_vect_loop)
+    {
+      *adjustment_def = NULL;
+      return vect_get_vec_def_for_operand (init_val, stmt);
+    }
+
   switch (code)
     {
       case WIDEN_SUM_EXPR:
@@ -4124,12 +4134,7 @@ get_initial_def_for_reduction (gimple *stmt, tree init_val,
         /* ADJUSMENT_DEF is NULL when called from
            vect_create_epilog_for_reduction to vectorize double reduction.  */
         if (adjustment_def)
-          {
-            if (nested_in_vect_loop)
-              *adjustment_def = vect_get_vec_def_for_operand (init_val, stmt);
-            else
-              *adjustment_def = init_val;
-          }
+	  *adjustment_def = init_val;
 
         if (code == MULT_EXPR)
           {
@@ -4341,6 +4346,7 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple *stmt,
      (in case of SLP, do it for all the phis). */
 
   /* Get the loop-entry arguments.  */
+  enum vect_def_type initial_def_dt = vect_unknown_def_type;
   if (slp_node)
     vect_get_vec_defs (reduction_op, NULL_TREE, stmt, &vec_initial_defs,
                        NULL, slp_node, reduc_index);
@@ -4351,9 +4357,10 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple *stmt,
       gimple *def_stmt = SSA_NAME_DEF_STMT (reduction_op);
       initial_def = PHI_ARG_DEF_FROM_EDGE (def_stmt,
 					   loop_preheader_edge (loop));
-      vec_initial_defs.create (1);
+      vect_is_simple_use (initial_def, loop_vinfo, &def_stmt, &initial_def_dt);
       vec_initial_def = get_initial_def_for_reduction (stmt, initial_def,
 						       &adjustment_def);
+      vec_initial_defs.create (1);
       vec_initial_defs.quick_push (vec_initial_def);
     }
 
@@ -4368,6 +4375,15 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple *stmt,
       def = vect_defs[i];
       for (j = 0; j < ncopies; j++)
         {
+	  if (j != 0)
+	    {
+	      phi = STMT_VINFO_RELATED_STMT (vinfo_for_stmt (phi));
+	      if (nested_in_vect_loop)
+		vec_init_def
+		  = vect_get_vec_def_for_stmt_copy (initial_def_dt,
+						    vec_init_def);
+	    }
+
 	  /* Set the loop-entry arg of the reduction-phi.  */
 
 	  if (STMT_VINFO_VEC_REDUCTION_TYPE (stmt_info)
@@ -4404,8 +4420,6 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple *stmt,
               dump_gimple_stmt (MSG_NOTE, TDF_SLIM, SSA_NAME_DEF_STMT (def), 0);
               dump_printf (MSG_NOTE, "\n");
             }
-
-          phi = STMT_VINFO_RELATED_STMT (vinfo_for_stmt (phi));
         }
     }
 
@@ -6937,4 +6951,215 @@ vect_transform_loop (loop_vec_info loop_vinfo)
   FOR_EACH_VEC_ELT (LOOP_VINFO_SLP_INSTANCES (loop_vinfo), i, instance)
     vect_free_slp_instance (instance);
   LOOP_VINFO_SLP_INSTANCES (loop_vinfo).release ();
+}
+
+/* The code below is trying to perform simple optimization - revert
+   if-conversion for masked stores, i.e. if the mask of a store is zero
+   do not perform it and all stored value producers also if possible.
+   For example,
+     for (i=0; i<n; i++)
+       if (c[i])
+	{
+	  p1[i] += 1;
+	  p2[i] = p3[i] +2;
+	}
+   this transformation will produce the following semi-hammock:
+
+   if (!mask__ifc__42.18_165 == { 0, 0, 0, 0, 0, 0, 0, 0 })
+     {
+       vect__11.19_170 = MASK_LOAD (vectp_p1.20_168, 0B, mask__ifc__42.18_165);
+       vect__12.22_172 = vect__11.19_170 + vect_cst__171;
+       MASK_STORE (vectp_p1.23_175, 0B, mask__ifc__42.18_165, vect__12.22_172);
+       vect__18.25_182 = MASK_LOAD (vectp_p3.26_180, 0B, mask__ifc__42.18_165);
+       vect__19.28_184 = vect__18.25_182 + vect_cst__183;
+       MASK_STORE (vectp_p2.29_187, 0B, mask__ifc__42.18_165, vect__19.28_184);
+     }
+*/
+
+void
+optimize_mask_stores (struct loop *loop)
+{
+  basic_block *bbs = get_loop_body (loop);
+  unsigned nbbs = loop->num_nodes;
+  unsigned i;
+  basic_block bb;
+  gimple_stmt_iterator gsi;
+  gimple *stmt;
+  auto_vec<gimple *> worklist;
+
+  vect_location = find_loop_location (loop);
+  /* Pick up all masked stores in loop if any.  */
+  for (i = 0; i < nbbs; i++)
+    {
+      bb = bbs[i];
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
+	   gsi_next (&gsi))
+	{
+	  stmt = gsi_stmt (gsi);
+	  if (is_gimple_call (stmt)
+	      && gimple_call_internal_p (stmt)
+	      && gimple_call_internal_fn (stmt) == IFN_MASK_STORE)
+	    worklist.safe_push (stmt);
+	}
+    }
+
+  free (bbs);
+  if (worklist.is_empty ())
+    return;
+
+  /* Loop has masked stores.  */
+  while (!worklist.is_empty ())
+    {
+      gimple *last, *last_store;
+      edge e, efalse;
+      tree mask;
+      basic_block store_bb, join_bb;
+      gimple_stmt_iterator gsi_to;
+      tree vdef, new_vdef;
+      gphi *phi;
+      tree vectype;
+      tree zero;
+
+      last = worklist.pop ();
+      mask = gimple_call_arg (last, 2);
+      bb = gimple_bb (last);
+      /* Create new bb.  */
+      e = split_block (bb, last);
+      join_bb = e->dest;
+      store_bb = create_empty_bb (bb);
+      add_bb_to_loop (store_bb, loop);
+      e->flags = EDGE_TRUE_VALUE;
+      efalse = make_edge (bb, store_bb, EDGE_FALSE_VALUE);
+      /* Put STORE_BB to likely part.  */
+      efalse->probability = PROB_UNLIKELY;
+      store_bb->frequency = PROB_ALWAYS - EDGE_FREQUENCY (efalse);
+      make_edge (store_bb, join_bb, EDGE_FALLTHRU);
+      if (dom_info_available_p (CDI_DOMINATORS))
+	set_immediate_dominator (CDI_DOMINATORS, store_bb, bb);
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_NOTE, vect_location,
+			 "Create new block %d to sink mask stores.",
+			 store_bb->index);
+      /* Create vector comparison with boolean result.  */
+      vectype = TREE_TYPE (mask);
+      zero = build_zero_cst (vectype);
+      stmt = gimple_build_cond (EQ_EXPR, mask, zero, NULL_TREE, NULL_TREE);
+      gsi = gsi_last_bb (bb);
+      gsi_insert_after (&gsi, stmt, GSI_SAME_STMT);
+      /* Create new PHI node for vdef of the last masked store:
+	 .MEM_2 = VDEF <.MEM_1>
+	 will be converted to
+	 .MEM.3 = VDEF <.MEM_1>
+	 and new PHI node will be created in join bb
+	 .MEM_2 = PHI <.MEM_1, .MEM_3>
+      */
+      vdef = gimple_vdef (last);
+      new_vdef = make_ssa_name (gimple_vop (cfun), last);
+      gimple_set_vdef (last, new_vdef);
+      phi = create_phi_node (vdef, join_bb);
+      add_phi_arg (phi, new_vdef, EDGE_SUCC (store_bb, 0), UNKNOWN_LOCATION);
+
+      /* Put all masked stores with the same mask to STORE_BB if possible.  */
+      while (true)
+	{
+	  gimple_stmt_iterator gsi_from;
+	  gimple *stmt1 = NULL;
+
+	  /* Move masked store to STORE_BB.  */
+	  last_store = last;
+	  gsi = gsi_for_stmt (last);
+	  gsi_from = gsi;
+	  /* Shift GSI to the previous stmt for further traversal.  */
+	  gsi_prev (&gsi);
+	  gsi_to = gsi_start_bb (store_bb);
+	  gsi_move_before (&gsi_from, &gsi_to);
+	  /* Setup GSI_TO to the non-empty block start.  */
+	  gsi_to = gsi_start_bb (store_bb);
+	  if (dump_enabled_p ())
+	    {
+	      dump_printf_loc (MSG_NOTE, vect_location,
+			       "Move stmt to created bb\n");
+	      dump_gimple_stmt (MSG_NOTE, TDF_SLIM, last, 0);
+	    }
+	  /* Move all stored value producers if possible.  */
+	  while (!gsi_end_p (gsi))
+	    {
+	      tree lhs;
+	      imm_use_iterator imm_iter;
+	      use_operand_p use_p;
+	      bool res;
+
+	      /* Skip debug statements.  */
+	      if (is_gimple_debug (gsi_stmt (gsi)))
+		{
+		  gsi_prev (&gsi);
+		  continue;
+		}
+	      stmt1 = gsi_stmt (gsi);
+	      /* Do not consider statements writing to memory or having
+		 volatile operand.  */
+	      if (gimple_vdef (stmt1)
+		  || gimple_has_volatile_ops (stmt1))
+		break;
+	      gsi_from = gsi;
+	      gsi_prev (&gsi);
+	      lhs = gimple_get_lhs (stmt1);
+	      if (!lhs)
+		break;
+
+	      /* LHS of vectorized stmt must be SSA_NAME.  */
+	      if (TREE_CODE (lhs) != SSA_NAME)
+		break;
+
+	      if (!VECTOR_TYPE_P (TREE_TYPE (lhs)))
+		{
+		  /* Remove dead scalar statement.  */
+		  if (has_zero_uses (lhs))
+		    {
+		      gsi_remove (&gsi_from, true);
+		      continue;
+		    }
+		}
+
+	      /* Check that LHS does not have uses outside of STORE_BB.  */
+	      res = true;
+	      FOR_EACH_IMM_USE_FAST (use_p, imm_iter, lhs)
+		{
+		  gimple *use_stmt;
+		  use_stmt = USE_STMT (use_p);
+		  if (is_gimple_debug (use_stmt))
+		    continue;
+		  if (gimple_bb (use_stmt) != store_bb)
+		    {
+		      res = false;
+		      break;
+		    }
+		}
+	      if (!res)
+		break;
+
+	      if (gimple_vuse (stmt1)
+		  && gimple_vuse (stmt1) != gimple_vuse (last_store))
+		break;
+
+	      /* Can move STMT1 to STORE_BB.  */
+	      if (dump_enabled_p ())
+		{
+		  dump_printf_loc (MSG_NOTE, vect_location,
+				   "Move stmt to created bb\n");
+		  dump_gimple_stmt (MSG_NOTE, TDF_SLIM, stmt1, 0);
+		}
+	      gsi_move_before (&gsi_from, &gsi_to);
+	      /* Shift GSI_TO for further insertion.  */
+	      gsi_prev (&gsi_to);
+	    }
+	  /* Put other masked stores with the same mask to STORE_BB.  */
+	  if (worklist.is_empty ()
+	      || gimple_call_arg (worklist.last (), 2) != mask
+	      || worklist.last () != stmt1)
+	    break;
+	  last = worklist.pop ();
+	}
+      add_phi_arg (phi, gimple_vuse (last_store), e, UNKNOWN_LOCATION);
+    }
 }

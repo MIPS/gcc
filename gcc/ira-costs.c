@@ -783,6 +783,12 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 			win = 1;
 		      break;
 
+		    case CT_SPECIAL_MEMORY:
+		      insn_allows_mem[i] = allows_mem[i] = 1;
+		      if (MEM_P (op) && constraint_satisfied_p (op, cn))
+			win = 1;
+		      break;
+
 		    case CT_ADDRESS:
 		      /* Every address can be reloaded to fit.  */
 		      allows_addr = 1;
@@ -1852,7 +1858,7 @@ find_costs_and_classes (FILE *dump_file)
 	    }
 	  if ((new_class
 	       = (reg_class) (targetm.ira_change_pseudo_allocno_class
-			      (i, regno_aclass[i]))) != regno_aclass[i])
+			      (i, regno_aclass[i], best))) != regno_aclass[i])
 	    {
 	      regno_aclass[i] = new_class;
 	      if (hard_reg_set_subset_p (reg_class_contents[new_class],

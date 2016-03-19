@@ -2,7 +2,6 @@
 ! clauses on kernels constructs.
 
 ! { dg-do run }
-! { dg-additional-options "-ftree-parallelize-loops=32" }
 
 program map
   integer, parameter     :: n = 20, c = 10
