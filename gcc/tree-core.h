@@ -1827,8 +1827,8 @@ struct GTY ((ptr_alias (union lang_tree_node))) tree_node {
    frequently and improper uses will be fixed at mewrge time.  */
 
 typedef struct tree_node ttype;
-#define ttype_p struct tree_node *
-#define ttype_pp struct tree_node **
+#define ttype_p ttype *
+#define ttype_pp ttype **
 
 /* These macros are no-ops on trunk.  They are used to mark locations which
    have been identified that a conversion is necessary, but not processed yet.
