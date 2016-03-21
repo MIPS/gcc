@@ -1,3 +1,101 @@
+2016-03-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/70139
+	* constexpr.c (cxx_eval_call_expression): Fix trivial copy.
+
+	PR c++/70147
+	* class.c (vptr_via_virtual_p): New.
+	(most_primary_binfo): Factor out of build_rtti_vtbl_entries.
+	* cp-ubsan.c (cp_ubsan_dfs_initialize_vtbl_ptrs): Don't clear
+	a vptr from any virtual base in a not-in-charge 'structor.
+
+	* decl.c (build_clobber_this): Factor out of
+	start_preparsed_function and begin_destructor_body.  Handle
+	virtual bases better.
+
+	* class.c (build_if_in_charge): Split out from build_base_path.
+	* init.c (expand_virtual_init, expand_default_init): Use it.
+	* call.c (build_special_member_call): Use it.
+
+2016-03-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/70267
+	* init.c (build_new_1): Complain and return error_mark_node
+	if alloc_fn is not _Jv_AllocObject function returning pointer.
+
+2016-03-18  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/70205
+	* search.c (adjust_result_of_qualified_name_lookup): Don't
+	update the BASELINK_BINFO of DECL if the second call
+	to lookup_base fails.
+
+2016-03-18  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/70218
+	* parser.c (cp_parser_lambda_expression): Move call to
+	pop_deferring_access_checks ahead of the call to
+	cp_parser_end_tentative_firewall.
+
+2016-03-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/70144
+	* cp-tree.h (magic_varargs_p): Return int instead of bool.
+	* call.c (magic_varargs_p): Return int instead of bool, return 2 for
+	Cilk+ reductions, otherwise 1 for magic varargs and 0 for normal
+	varargs.
+	(build_over_call): If magic_varargs_p == 2, call reject_gcc_builtin,
+	if magic_varargs_p == 1, call decay_conversion
+	instead of mark_type_use.  Don't store error_mark_node arguments to
+	argarray, instead return error_mark_node.
+
+	PR c++/70272
+	* decl.c (begin_destructor_body): Don't insert clobber if
+	is_empty_class (current_class_type).
+
+2016-03-17  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/70194
+	* typeck.c (warn_for_null_address): New function.
+	(cp_build_binary_op): Call it.
+
+2016-03-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/70259
+	* decl.c (start_preparsed_function): Don't clobber an empty base.
+
+2016-03-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/70147
+	* cp-ubsan.c (cp_ubsan_dfs_initialize_vtbl_ptrs): Conditionalize
+	BINFO_VIRTUAL_P vtable clearing on current_in_charge_parm.
+
+	PR c++/70147
+	* cp-ubsan.c (cp_ubsan_maybe_initialize_vtbl_ptrs): Temporarily
+	set in_base_initializer.
+
+2016-03-15  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/70209
+	* tree.c (strip_typedefs): Call strip_typedefs again on the
+	DECL_ORIGINAL_TYPE result.
+
+2016-03-15  Jason Merrill  <jason@redhat.com>
+
+	PR c++/70095
+	* pt.c (instantiate_decl): Fix call to variable_template_p.
+
+	PR c++/70141
+	* pt.c (for_each_template_parm_r): Always walk into TYPENAME_TYPE.
+
+2016-03-14  Casey Carter  <casey@carter.net>
+	    Jason Merrill  <jason@redhat.com>
+
+	P0184R0: Generalizing the Range-Based For Loop
+	* parser.c (cp_convert_range_for): Set the type of __end separately.
+	(cp_parser_perform_range_for_lookup): Allow different begin/end
+	types if they are comparable.
+
 2016-03-12  Patrick Palka  <ppalka@gcc.gnu.org>
 
 	PR c++/70106

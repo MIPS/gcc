@@ -1,3 +1,338 @@
+2016-03-21  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/69102
+	* sched-deps.c (sched_analyze_insn): Do not set last_args_size field
+	when we have a readonly dependency context. 
+
+2016-03-18  Jeff Law  <law@redhat.com>
+
+	PR rtl-optimization/70263
+	* ira.c (memref_used_between_p): Assert we found END in the insn chain.
+	(update_equiv_regs): When trying to move a store to after the insn
+	that sets the source of the store, make sure the store occurs after
+	the insn that sets the source of the store.  When successful note
+	the REG_EQUIV note created in the dump file.
+
+2016-03-16  David Wohlferd  <dw@LimeGreenSocks.com>
+            Bernd Schmidt  <bschmidt@redhat.com>
+
+	* doc/extend.texi: Document more potential problems with basic asms.
+
+2016-03-18  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR rtl-optimization/70278
+	* lra-constraints.c (split_reg): Handle the case where biggest_mode is
+	VOIDmode.
+
+2016-03-18  Jason Merrill  <jason@redhat.com>
+
+	* calls.c (load_register_parameters): Fix zero size sibcall logic.
+
+2016-03-18  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+        * config/i386/sse.md: Use vpbroadcastq for broadcasting DF
+        values to 128b regs.
+
+2016-03-18  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR tree-optimization/70252
+	* tree-vect-stmts.c (supportable_widening_operation): Check resulting
+	boolean vector has a proper number of elements.
+	(supportable_narrowing_operation): Likewise.
+
+2016-03-18  Tom de Vries  <tom@codesourcery.com>
+
+	PR ipa/70269
+	* cgraph.c (cgraph_node::get_body): Set dump_file to NULL after save.
+
+2016-03-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* reload1.c (emit_input_reload_insns): Use simplify_replace_rtx
+	instead of replace_rtx for DEBUG_INSNs.
+
+2016-03-18  Venkataramanan Kumar  <venkataramanan.kumar@amd.com>
+
+	* config/i386/znver1.md : Fix latencies of FP/SSE/AVX
+	load type reservations.
+
+2016-03-17  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR target/70188
+	* config/pa/constraints.md: Revert 2015-02-13 change.  Use
+	define_constraint for "Q" and "T" constraints.
+
+2016-03-17  Evandro Menezes  <e.menezes@samsung.com>
+
+	Tweak the pipeline model for Exynos M1
+
+	* config/aarch64/aarch64.c (exynosm1_tunings): 	Enable weak prefetching
+	model.
+
+2016-03-17  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/70264
+	* diagnostic-show-locus.c (compatible_locations_p): Handle the case
+	where one or both locations aren't within a line_map.
+
+2016-03-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR driver/70192
+	* opts.c (finish_options): Don't set flag_pie to the default if
+	-fpic, -fPIC, -fno-pic or -fno-PIC is used.  Set flag_pic to 0
+	if it is -1.
+
+2016-03-17  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* config/i386/i386.md (*movv4qicc_insn+1..36): Pass
+	true as ALL_REGS argument to replace_rtx.
+
+2016-03-17  Richard Biener  <rguenther@suse.de>
+
+	PR debug/70271
+	* dwarf2out.c (dwarf2out_early_finish): Process deferred_asm_name
+	last.
+
+2016-03-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/70245
+	* rtl.h (replace_rtx): Add ALL_REGS argument.
+	* rtlanal.c (replace_rtx): Likewise.  If true, use REGNO
+	equality and assert mode is the same, instead of just rtx pointer
+	equality.
+	* config/i386/i386.md (mov + arithmetics with load peephole): Pass
+	true as ALL_REGS argument to replace_rtx.
+
+2016-03-17  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	* match.pd (A + (B vcmp C ? 1 : 0) -> A - (B vcmp C)): Apply
+	for boolean vector with vector mode only.
+	(A - (B vcmp C ? 1 : 0) -> A + (B vcmp C)): Likewise.
+
+2016-03-17  Nick Clifton  <nickc@redhat.com>
+
+	PR target/70162
+	* config/rx/rx.c (rx_print_integer): Print negative constants in
+	decimal.
+
+2016-03-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/70261
+	* rtlanal.c (replace_rtx): Revert 2016-03-16 change.
+
+2016-03-16  Richard Henderson  <rth@redhat.com>
+	    Richard Biener  <rguenth@suse.de>
+
+	PR middle-end/70240
+	PR middle-end/68215
+	PR tree-opt/68714
+	* gimplify.c (gimplify_expr) [VEC_COND_EXPR]: Gimplify the
+	first operand as is_gimple_condexpr.
+
+	PR middle-end/70240
+	PR middle-end/68215
+	Revert r231575
+	2015-12-11  Eric Botcazou  <ebotcazou@adacore.com>
+	* tree-vect-generic.c (tree_vec_extract): Remove GSI parameter.
+	Do not gimplify the result.
+	(do_unop): Adjust call to tree_vec_extract.
+	(do_binop): Likewise.
+	(do_compare): Likewise.
+	(do_plus_minus): Likewise.
+	(do_negate): Likewise.
+	(expand_vector_condition): Likewise.
+	(do_cond): Likewise.
+
+2016-03-16  Richard Henderson  <rth@redhat.com>
+
+	PR target/70048
+	* config/aarch64/aarch64.c (virt_or_elim_regno_p): New.
+	(aarch64_classify_address): Use it.
+	(aarch64_legitimize_address): Force all subexpressions of PLUS
+	into registers.  Simplify as (sfp+const)+reg or (reg+reg)+const.
+
+2016-03-16  Jakub Jelinek  <jakub@redhat.com>
+	    Richard Biener  <rguenth@suse.de>
+
+	PR target/70245
+	* rtlanal.c (replace_rtx): For REG, if from is a REG,
+	return to even if only REGNO is equal, and assert
+	mode is the same.
+
+2016-03-11  Jeff Law  <law@redhat.com>
+
+	PR rtl-optimization/70224
+	* reorg.c (relax_delay_slots): Pass right argument to CROSSING_JUMP_P.
+
+2016-03-16  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/70199
+	* function.h (struct function): Add has_forced_label_in_static.
+	* gimplify.c (force_labels_r): Set it.
+	* lto-streamer-in.c (input_struct_function_base): Read it.
+	* lto-streamer-out.c (output_struct_function_base): Write it.
+	* tree-inline.c (has_label_address_in_static_1): Remove.
+	(copy_forbidden): Remove fndecl parameter; test
+	has_forced_label_in_static.
+	(inline_forbidden_p): Update call to copy_forbidden.
+	(tree_versionable_function_p): Likewise.
+	* ipa-chkp.c (chkp_instrumentable_p): Likewise.
+	(chkp_versioning): Likewise.
+	* tree-inline.h (copy_forbidden): Update decl.
+
+2016-03-16  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70093
+	* cgraphunit.c (cgraph_node::expand_thunk): Also build call to the
+	function being thunked if the result type doesn't have fixed size.
+	* gimplify.c (gimplify_modify_expr): Also set LHS if the result type
+	doesn't have fixed size.
+
+2016-03-16  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-vect-loop.c (vect_analyze_loop_2): Fix wrong dump info by
+	reporting malformed loop nest.
+
+2016-03-16  Tom de Vries  <tom@codesourcery.com>
+
+	PR lto/70187
+	* ipa-devirt.c (possible_polymorphic_call_targets): Move
+	nodes.length () == 1 test to before first nodes[0] access.
+
+2016-03-16  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/68715
+	* graphite-scop-detection.c (scop_detection::merge_sese): Add missing
+	single_pred_p test.
+
+2016-03-16  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/68809
+	* graphite-scop-detection.c (same_close_phi_node): Test if result types
+	are the same.
+
+2016-03-16  Carlos O'Donell  <carlos@redhat.com>
+	    Sandra Loosemore  <sandra@codesourcery.com>
+
+	* doc/extend.texi (Common Function Attributes): Describe ifunc impact
+	on leaf attribute. Mention ELF interposition problems.
+
+2016-03-16  Alan Modra  <amodra@gmail.com>
+
+	PR rtl-optimization/69195
+	PR rtl-optimization/47992
+	* ira.c (indirect_jump_optimize): Ignore artificial defs.
+	Add comments.
+
+2016-03-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR bootstrap/69513
+	* dwarf2out.c (flush_limbo_die_list): Really flush the limbo list.
+
+2016-03-15  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* config/avr/avr.md (rotl<mode>3): Set mode for operand 2.
+
+2016-03-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/70222
+	* combine.c (simplify_shift_const_1): For A >> B >> C LSHIFTRT
+	optimization if mode is different from result_mode, queue up masking
+	of the result in outer_op.  Formatting fix.
+
+	PR middle-end/70239
+	* tree-ssa-sccvn.c (VN_INFO_GET): Use safe_grow_cleared instead
+	of safe_grow.
+
+2016-03-15  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/69032
+	* sel-sched-ir.c (get_seqno_by_preds): Include both insn and head when
+	looping backwards over basic block insns.
+
+2016-03-15  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR target/66660
+	* sel-sched-ir.c (merge_expr): Avoid changing the speculative pattern
+	to non-speculative when propagating trap bits.
+
+2016-03-15  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/63384
+	* sel-sched.c (invoke_aftermath_hooks): Do not decrease issue_more on
+	DEBUG_INSN_P insns.
+
+2016-03-15  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR target/64411
+	* sched-deps.c (get_implicit_reg_pending_clobbers): New function,
+	factored out from ...
+	(sched_analyze_insn): ... here.
+	* sched-int.h (get_implicit_reg_pending_clobbers): Declare it.
+	* sel-sched-ir.c (setup_id_implicit_regs): New function, use
+	get_implicit_reg_pending_clobbers in it.
+	(setup_id_reg_sets): Use setup_id_implicit_regs.
+	(deps_init_id): Ditto.
+
+2016-03-15  Tom de Vries  <tom@codesourcery.com>
+
+	PR ipa/70161
+	* cgraph.c (cgraph_node::get_body): Save, reset and restore
+	dump_file_name.
+	* passes.c (execute_one_ipa_transform_pass): Add missing argument to
+	execute_function_dump.
+	(execute_one_pass): Don't dump function if it will be dumped after ipa
+	transform.
+
+2016-03-15  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* genrecog.c (match_pattern_2): If pred is NULL don't call
+	safe_predicate_mode on it.
+
+2016-03-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/70219
+	* lra-constraints.c (delete_move_and_clobber): Change assertion
+	to also allow dregno == 0.
+
+2016-03-14  Richard Henderson  <rth@redhat.com>
+
+	PR tree-opt/68714
+	* tree-ssa-reassoc.c (ovce_extract_ops, optimize_vec_cond_expr): New.
+	(can_reassociate_p): Allow ANY_INTEGRAL_TYPE_P.
+	(reassociate_bb): Use optimize_vec_cond_expr; avoid
+	optimize_range_tests, attempt_builtin_copysign and attempt_builtin_powi
+	on vectors.
+
+2016-03-14  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR target/70083
+	* lra-lives.c (process_bb_lives): Also update biggest mode for hard
+	regs.
+	(lra_create_live_ranges_1): initialize hard register biggest_mode to
+	VOIDmode.
+	* lra-constraints.c (split_reg): For hard regs, try to find the
+	biggest single-register mode used in the function.
+
+2016-03-14  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56365
+	* tree-ssa-phiopt.c (minmax_replacement): Handle alternate
+	constants to compare against.
+
+2016-03-14  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/70098
+	* config/rs6000/rs6000.md (*ctr<mode>_internal1, *ctr<mode>_internal2,
+	*ctr<mode>_internal5, *ctr<mode>_internal6): Also allow "d" as output.
+	(define_split for the GPR case): Use int_reg_operand instead of
+	gpc_reg_operand for the output.
+
+2016-03-14  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/70045
+	* graphite-isl-ast-to-gimple.c (graphite_create_new_loop_guard): Unshare
+	create_empty_if_region_on_edge argument.
+
 2016-03-13  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* config/arm/vxworks.h (STACK_CHECK_STATIC_BUILTIN): Define.

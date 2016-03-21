@@ -9781,8 +9781,6 @@ cp_parser_lambda_expression (cp_parser* parser)
 	= auto_is_implicit_function_template_parm_p;
   }
 
-  pop_deferring_access_checks ();
-
   /* This field is only used during parsing of the lambda.  */
   LAMBDA_EXPR_THIS_CAPTURE (lambda_expr) = NULL_TREE;
 
@@ -9797,6 +9795,8 @@ cp_parser_lambda_expression (cp_parser* parser)
     lambda_expr = error_mark_node;
 
   cp_parser_end_tentative_firewall (parser, start, lambda_expr);
+
+  pop_deferring_access_checks ();
 
   return lambda_expr;
 }
@@ -11353,6 +11353,8 @@ cp_convert_range_for (tree statement, tree range_decl, tree range_expr,
 		  /*is_constant_init*/false, NULL_TREE,
 		  LOOKUP_ONLYCONVERTING);
 
+  if (cxx_dialect >= cxx1z)
+    iter_type = cv_unqualified (TREE_TYPE (end_expr));
   end = build_decl (input_location, VAR_DECL,
 		    get_identifier ("__for_end"), iter_type);
   TREE_USED (end) = 1;
@@ -11488,9 +11490,21 @@ cp_parser_perform_range_for_lookup (tree range, tree *begin, tree *end)
 	  /* The unqualified type of the __begin and __end temporaries should
 	     be the same, as required by the multiple auto declaration.  */
 	  if (!same_type_p (iter_type, cv_unqualified (TREE_TYPE (*end))))
-	    error ("inconsistent begin/end types in range-based %<for%> "
-		   "statement: %qT and %qT",
-		   TREE_TYPE (*begin), TREE_TYPE (*end));
+	    {
+	      if (cxx_dialect >= cxx1z
+		  && (build_x_binary_op (input_location, NE_EXPR,
+					 *begin, ERROR_MARK,
+					 *end, ERROR_MARK,
+					 NULL, tf_none)
+		      != error_mark_node))
+		/* P0184R0 allows __begin and __end to have different types,
+		   but make sure they are comparable so we can give a better
+		   diagnostic.  */;
+	      else
+		error ("inconsistent begin/end types in range-based %<for%> "
+		       "statement: %qT and %qT",
+		       TREE_TYPE (*begin), TREE_TYPE (*end));
+	    }
 	  return iter_type;
 	}
     }
@@ -30072,7 +30086,7 @@ cp_parser_oacc_data_clause (cp_parser *parser, pragma_omp_clause c_kind,
       kind = GOMP_MAP_FORCE_ALLOC;
       break;
     case PRAGMA_OACC_CLAUSE_DELETE:
-      kind = GOMP_MAP_FORCE_DEALLOC;
+      kind = GOMP_MAP_DELETE;
       break;
     case PRAGMA_OACC_CLAUSE_DEVICE:
       kind = GOMP_MAP_FORCE_TO;
