@@ -3686,8 +3686,6 @@ mips16_unextended_reference_p (machine_mode mode, rtx base,
   if (mode != BLKmode && offset % GET_MODE_SIZE (mode) == 0
       && REGNO (base) != GLOBAL_POINTER_REGNUM)
     {
-      if (ISA_HAS_ULW_USW)
-	return offset < 256U;
       if (GET_MODE_SIZE (mode) == 4 && GET_CODE (base) == REG
           && REGNO (base) == STACK_POINTER_REGNUM)
 	return offset < 256U * GET_MODE_SIZE (mode);
@@ -9133,12 +9131,11 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
      picking the miniumum of alignment or BITS_PER_WORD gets us the
      desired size for bits.  */
 
-  if (!ISA_HAS_LWL_LWR && !ISA_HAS_ULW_USW)
+  if (!ISA_HAS_LWL_LWR)
     bits = MIN (BITS_PER_WORD, MIN (MEM_ALIGN (src), MEM_ALIGN (dest)));
   else
     {
-      if (!ISA_HAS_ULW_USW
-	  && MEM_ALIGN (src) == BITS_PER_WORD / 2
+      if (MEM_ALIGN (src) == BITS_PER_WORD / 2
 	  && MEM_ALIGN (dest) == BITS_PER_WORD / 2)
 	bits = BITS_PER_WORD / 2;
       else
@@ -9374,7 +9371,7 @@ mips16_expand_copy (rtx dest, rtx src, rtx length, rtx alignment)
   word_count = byte_count / UNITS_PER_WORD;
   byte_count = byte_count % UNITS_PER_WORD;
 
-  if ((ISA_HAS_ULW_USW || (TARGET_MIPS16 && TARGET_MIPS16_LWL_LWR))
+  if (TARGET_MIPS16 && TARGET_MIPS16_LWL_LWR
       && word_count == 1 && align < 4)
     return false;
 
@@ -9569,7 +9566,7 @@ gen_mips16_copy_peep (rtx *operands, int n)
 bool
 mips_expand_block_move (rtx dest, rtx src, rtx length)
 {
-  if (!(ISA_HAS_LWL_LWR || ISA_HAS_ULW_USW)
+  if (!ISA_HAS_LWL_LWR
       && (MEM_ALIGN (src) < MIPS_MIN_MOVE_MEM_ALIGN
 	  || MEM_ALIGN (dest) < MIPS_MIN_MOVE_MEM_ALIGN))
     return false;
@@ -9819,40 +9816,29 @@ mips_expand_ext_as_unaligned_load (rtx dest, rtx src, HOST_WIDE_INT width,
       dest = gen_reg_rtx (SImode);
     }
 
-  if (ISA_HAS_ULW_USW)
+  if (!mips_get_unaligned_mem (src, width, bitpos, &left, &right))
+    return false;
+
+  temp = gen_reg_rtx (GET_MODE (dest));
+  if (GET_MODE (dest) == DImode)
     {
-      if (width != 32
-	  || bitpos % BITS_PER_UNIT != 0
-	  || MEM_ALIGN (src) >= width)
-	return false;
-      emit_insn (gen_mov_ulw (dest, copy_rtx (src)));
+      emit_insn (gen_mov_ldl (temp, src, left));
+      emit_insn (gen_mov_ldr (dest, copy_rtx (src), right, temp));
     }
   else
     {
-      if (!mips_get_unaligned_mem (src, width, bitpos, &left, &right))
-	return false;
+      emit_insn (gen_mov_lwl (temp, src, left));
+      emit_insn (gen_mov_lwr (dest, copy_rtx (src), right, temp));
+    }
 
-      temp = gen_reg_rtx (GET_MODE (dest));
-      if (GET_MODE (dest) == DImode)
-	{
-	  emit_insn (gen_mov_ldl (temp, src, left));
-	  emit_insn (gen_mov_ldr (dest, copy_rtx (src), right, temp));
-	}
+  /* If we were loading 32bits and the original register was DI then
+     sign/zero extend into the orignal dest.  */
+  if (dest1)
+    {
+      if (unsigned_p)
+	emit_insn (gen_zero_extendsidi2 (dest1, dest));
       else
-	{
-	  emit_insn (gen_mov_lwl (temp, src, left));
-	  emit_insn (gen_mov_lwr (dest, copy_rtx (src), right, temp));
-	}
-
-      /* If we were loading 32bits and the original register was DI then
-	 sign/zero extend into the orignal dest.  */
-      if (dest1)
-	{
-	  if (unsigned_p)
-	    emit_insn (gen_zero_extendsidi2 (dest1, dest));
-	  else
-	    emit_insn (gen_extendsidi2 (dest1, dest));
-	}
+	emit_insn (gen_extendsidi2 (dest1, dest));
     }
 
   return true;
@@ -9873,31 +9859,20 @@ mips_expand_ins_as_unaligned_store (rtx dest, rtx src, HOST_WIDE_INT width,
   rtx left, right;
   machine_mode mode;
 
-  if (ISA_HAS_ULW_USW)
+  if (!mips_get_unaligned_mem (dest, width, bitpos, &left, &right))
+    return false;
+
+  mode = mode_for_size (width, MODE_INT, 0);
+  src = gen_lowpart (mode, src);
+  if (mode == DImode)
     {
-      if (width != 32
-	  || bitpos % BITS_PER_UNIT != 0
-	  || MEM_ALIGN (dest) >= width)
-	return false;
-      emit_insn (gen_mov_usw (copy_rtx (dest), copy_rtx (src)));
+      emit_insn (gen_mov_sdl (dest, src, left));
+      emit_insn (gen_mov_sdr (copy_rtx (dest), copy_rtx (src), right));
     }
   else
     {
-      if (!mips_get_unaligned_mem (dest, width, bitpos, &left, &right))
-	return false;
-
-      mode = mode_for_size (width, MODE_INT, 0);
-      src = gen_lowpart (mode, src);
-      if (mode == DImode)
-	{
-	  emit_insn (gen_mov_sdl (dest, src, left));
-	  emit_insn (gen_mov_sdr (copy_rtx (dest), copy_rtx (src), right));
-	}
-      else
-	{
-	  emit_insn (gen_mov_swl (dest, src, left));
-	  emit_insn (gen_mov_swr (copy_rtx (dest), copy_rtx (src), right));
-	}
+      emit_insn (gen_mov_swl (dest, src, left));
+      emit_insn (gen_mov_swr (copy_rtx (dest), copy_rtx (src), right));
     }
   return true;
 }
