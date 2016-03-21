@@ -1074,8 +1074,7 @@ struct mips_cpu_info {
 
 #define ISA_HAS_LWL_LWR		(mips_isa_rev <= 5			\
 				 && (!TARGET_MIPS16			\
-				     || (TARGET_MIPS16			\
-					 && TARGET_MIPS16_LWL_LWR))
+				     || TARGET_MIPS16_LWL_LWR))
 
 #define ISA_HAS_IEEE_754_LEGACY	(mips_isa_rev <= 5)
 
@@ -1140,7 +1139,7 @@ struct mips_cpu_info {
 
 /* ISA has data prefetch with limited 9-bit displacement.  */
 #define ISA_HAS_PREF_LL_9BIT	(mips_isa_rev >= 6 \
-				 || (TARGET_MIPS16 && TARGET_MIPS16_LWL_LWR))
+				 || TARGET_MIPS16E2)
 
 /* ISA has data indexed prefetch instructions.  This controls use of
    'prefx', along with TARGET_HARD_FLOAT and TARGET_DOUBLE_FLOAT.
@@ -1160,9 +1159,6 @@ struct mips_cpu_info {
 #define ISA_HAS_EXT_INS		((mips_isa_rev >= 2 && !TARGET_MIPS16) \
 				|| (TARGET_MIPS16 && TARGET_MIPS16_INS_EXT \
 				   && !TARGET_64BIT))
-
-#define ISA_HAS_ULW_USW		(TARGET_MIPS16E2 && TARGET_MIPS16_ULW_USW \
-				 && !TARGET_64BIT)
 
 /* ISA has instructions for accessing top part of 64-bit fp regs.  */
 #define ISA_HAS_MXHC1		(!TARGET_FLOAT32	\

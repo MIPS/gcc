@@ -235,10 +235,6 @@
   (and (match_code "mem")
        (match_test "m16_based_address_p (XEXP (op, 0), mode, ub4_operand)")))
 
-(define_predicate "ulw_usw_operand"
-  (and (match_code "mem")
-       (match_test "m16_based_address_p (XEXP (op, 0), mode, ub8_operand)")))
-
 (define_predicate "db4_operand"
   (and (match_code "const_int")
        (match_test "mips_unsigned_immediate_p (INTVAL (op) + 1, 4, 0)")))

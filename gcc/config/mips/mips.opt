@@ -544,10 +544,6 @@ mmips16-ins-ext
 Target Var(TARGET_MIPS16_INS_EXT) Init(0)
 Enable use of the MIPS16 INS, INS0 and EXT instructions
 
-mmips16-ulw-usw
-Target Var(TARGET_MIPS16_ULW_USW) Init(0)
-Enable use of the MIPS16 ULW and USW instructions.
-
 mmips16-tail-indirect
 Target Var(TARGET_MIPS16_TAIL_INDIRECT) Init(0)
 Enable tail optimization using a long style call.

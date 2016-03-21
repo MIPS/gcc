@@ -437,9 +437,3 @@
    A microMIPS memory operand for use with the LBU16 insn."
   (and (match_code "mem")
        (match_operand 0 "lbu16_operand")))
-
-(define_memory_constraint "ZY"
-  "@internal
-   A MIPS16e2 memory operand for use with the ULW/USW insn."
-  (and (match_code "mem")
-       (match_operand 0 "ulw_usw_operand")))

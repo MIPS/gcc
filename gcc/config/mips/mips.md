@@ -76,10 +76,8 @@
   ;; Unaligned accesses.
   UNSPEC_LOAD_LEFT
   UNSPEC_LOAD_RIGHT
-  UNSPEC_ULW
   UNSPEC_STORE_LEFT
   UNSPEC_STORE_RIGHT
-  UNSPEC_USW
 
   ;; Integer operations that are too cumbersome to describe directly.
   UNSPEC_WSBH
@@ -4162,7 +4160,7 @@
 	(sign_extract:GPR (match_operand:BLK 1 "memory_operand")
 			  (match_operand 2 "const_int_operand")
 			  (match_operand 3 "const_int_operand")))]
-  "ISA_HAS_LWL_LWR || ISA_HAS_ULW_USW"
+  "ISA_HAS_LWL_LWR"
 {
   if (mips_expand_ext_as_unaligned_load (operands[0], operands[1],
 					 INTVAL (operands[2]),
@@ -4199,7 +4197,7 @@
 	(zero_extract:GPR (match_operand:BLK 1 "memory_operand")
 			  (match_operand 2 "const_int_operand")
 			  (match_operand 3 "const_int_operand")))]
-  "ISA_HAS_LWL_LWR || ISA_HAS_ULW_USW"
+  "ISA_HAS_LWL_LWR"
 {
   if (mips_expand_ext_as_unaligned_load (operands[0], operands[1],
 					 INTVAL (operands[2]),
@@ -4251,7 +4249,7 @@
 			  (match_operand 1 "const_int_operand")
 			  (match_operand 2 "const_int_operand"))
 	(match_operand:GPR 3 "reg_or_0_operand"))]
-  "ISA_HAS_LWL_LWR || ISA_HAS_ULW_USW"
+  "ISA_HAS_LWL_LWR"
 {
   if (mips_expand_ins_as_unaligned_store (operands[0], operands[3],
 					  INTVAL (operands[1]),
@@ -4350,15 +4348,6 @@
 	       (const_string "yes")]
 	      (const_string "no")))])
 
-(define_insn "mov_ulw"
-  [(set (match_operand:SI 0 "register_operand" "=d")
-	(unspec:SI [(match_operand:BLK 1 "memory_operand" "ZY")]
-		    UNSPEC_ULW))]
-  "ISA_HAS_ULW_USW"
-  "ulw %0,%1"
-  [(set_attr "move_type" "load")
-   (set_attr "mode" "SI")])
-
 (define_insn "mov_<store>l"
   [(set (match_operand:BLK 0 "memory_operand" "=m")
 	(unspec:BLK [(match_operand:GPR 1 "reg_or_0_operand" "dJ")
@@ -4389,15 +4378,6 @@
 	(cond [(match_test "TARGET_MIPS16")
 	       (const_string "yes")]
 	      (const_string "no")))])
-
-(define_insn "mov_usw"
-  [(set (match_operand:BLK 0 "memory_operand" "=ZY")
-	(unspec:BLK [(match_operand:SI 1 "register_operand" "d")]
-		    UNSPEC_USW))]
-  "ISA_HAS_ULW_USW"
-  "usw %1,%0"
-  [(set_attr "move_type" "store")
-   (set_attr "mode" "SI")])
 
 ;; An instruction to calculate the high part of a 64-bit SYMBOL_ABSOLUTE.
 ;; The required value is:
@@ -5815,7 +5795,7 @@
 		   (match_operand:BLK 1 "general_operand"))
 	      (use (match_operand:SI 2 ""))
 	      (use (match_operand:SI 3 "const_int_operand"))])]
-  "(!TARGET_MIPS16 || TARGET_MIPS16_COPY || ISA_HAS_ULW_USW)
+  "(!TARGET_MIPS16 || TARGET_MIPS16_COPY)
    && !TARGET_MEMCPY"
 {
   if (TARGET_MIPS16 && TARGET_MIPS16_COPY
