@@ -1,3 +1,13 @@
+2016-03-22  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* config/rs6000/altivec.md: (UNSPEC_VPERMR): New unspec constant.
+        (*altivecvpermr_<mode>_internal): New insn.
+	* config/rs6000/rs6000.c (rs6000_expand_vector_set): If
+        !BYTES_BIG_ENDIAN and TARGET_P9_VECTOR, expand using template that
+        translates into new xxpermr or vpermr instructions.
+	(altivec_expand_vec_perm_le): if TARGET_P9_VECTOR, expand using
+        template that translates into new xxpermr or vpermr instructions.
+
 2016-03-14  Bernd Schmidt  <bschmidt@redhat.com>
 
 	PR target/70083
