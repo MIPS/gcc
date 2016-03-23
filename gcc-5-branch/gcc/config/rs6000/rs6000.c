@@ -3134,10 +3134,12 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
   if (TARGET_LFIWZX)
     rs6000_constraints[RS6000_CONSTRAINT_wz] = FLOAT_REGS;	/* DImode  */
 
-  /* Float128 support is not (yet) back ported to GCC 5.x, so the wp/wq
-     constraints are just ignored for now.  */
-  rs6000_constraints[RS6000_CONSTRAINT_wp] = NO_REGS;
-  rs6000_constraints[RS6000_CONSTRAINT_wq] = NO_REGS;
+  if (TARGET_FLOAT128)
+    {
+      rs6000_constraints[RS6000_CONSTRAINT_wq] = VSX_REGS;	/* KFmode  */
+      if (FLOAT128_IEEE_P (TFmode))
+	rs6000_constraints[RS6000_CONSTRAINT_wp] = VSX_REGS;	/* TFmode  */
+    }
 
   /* Support for new D-form instructions.  */
   if (TARGET_P9_DFORM)
@@ -3150,13 +3152,6 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
   /* Support for new direct moves (ISA 3.0 + 64bit).  */
   if (TARGET_DIRECT_MOVE_128)
     rs6000_constraints[RS6000_CONSTRAINT_we] = VSX_REGS;
-
-  if (TARGET_FLOAT128)
-    {
-      rs6000_constraints[RS6000_CONSTRAINT_wq] = VSX_REGS;	/* KFmode  */
-      if (FLOAT128_IEEE_P (TFmode))
-	rs6000_constraints[RS6000_CONSTRAINT_wp] = VSX_REGS;	/* TFmode  */
-    }
 
   /* Set up the reload helper and direct move functions.  */
   if (TARGET_VSX || TARGET_ALTIVEC)
@@ -3991,24 +3986,6 @@ rs6000_option_override_internal (bool global_init_p)
 			   | OPTION_MASK_DIRECT_MOVE)
 		         & ~rs6000_isa_flags_explicit);
 
-  /* At present, we only build the __float128 emulator on PowerPC Linux.
-     Enable default __float128 support for PowerPC Linux systems, but not for
-     others.  */
-#ifdef POWERPC_LINUX
-  if (TARGET_VSX && !TARGET_FLOAT128
-      && (rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128) == 0)
-    rs6000_isa_flags |= OPTION_MASK_FLOAT128;
-#endif
-
-  /* __float128 requires VSX support.  */
-  if (TARGET_FLOAT128 && !TARGET_VSX)
-    {
-      if ((rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128) != 0)
-	error ("-mfloat128 requires VSX support");
-
-      rs6000_isa_flags &= ~OPTION_MASK_FLOAT128;
-    }
-
   if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
     rs6000_print_isa_options (stderr, 0, "before defaults", rs6000_isa_flags);
 
@@ -4267,7 +4244,8 @@ rs6000_option_override_internal (bool global_init_p)
 
   else if (TARGET_ALLOW_MOVMISALIGN && !TARGET_VSX)
     {
-      if (TARGET_ALLOW_MOVMISALIGN > 0)
+      if (TARGET_ALLOW_MOVMISALIGN > 0
+	  && global_options_set.x_TARGET_ALLOW_MOVMISALIGN)
 	error ("-mallow-movmisalign requires -mvsx");
 
       TARGET_ALLOW_MOVMISALIGN = 0;
@@ -4296,6 +4274,37 @@ rs6000_option_override_internal (bool global_init_p)
 	  rs6000_isa_flags &= ~OPTION_MASK_EFFICIENT_UNALIGNED_VSX;
 	}
     }
+
+  /* __float128 requires VSX support.  */
+  if (TARGET_FLOAT128 && !TARGET_VSX)
+    {
+      if ((rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128) != 0)
+	error ("-mfloat128 requires VSX support");
+
+      rs6000_isa_flags &= ~(OPTION_MASK_FLOAT128 | OPTION_MASK_FLOAT128_HW);
+    }
+
+  /* IEEE 128-bit floating point hardware instructions imply enabling
+     __float128.  */
+  if (TARGET_FLOAT128_HW
+      && (rs6000_isa_flags & (OPTION_MASK_P9_VECTOR
+			      | OPTION_MASK_DIRECT_MOVE
+			      | OPTION_MASK_UPPER_REGS_DF
+			      | OPTION_MASK_UPPER_REGS_SF)) == 0)
+    {
+      if ((rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128_HW) != 0)
+	error ("-mfloat128-hardware requires full ISA 3.0 support");
+
+      rs6000_isa_flags &= ~OPTION_MASK_FLOAT128_HW;
+    }
+
+  else if (TARGET_P9_VECTOR && !TARGET_FLOAT128_HW
+	   && (rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128_HW) == 0)
+    rs6000_isa_flags |= OPTION_MASK_FLOAT128_HW;
+
+  if (TARGET_FLOAT128_HW
+      && (rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128) == 0)
+    rs6000_isa_flags |= OPTION_MASK_FLOAT128;
 
   /* Print the options after updating the defaults.  */
   if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
@@ -6026,6 +6035,96 @@ vspltis_constant (rtx op, unsigned step, unsigned copies)
   return true;
 }
 
+/* Like vsplitis_constant, but allow the value to be shifted left with a VSLDOI
+   instruction, filling in the bottom elements with 0 or -1.
+
+   Return 0 if the constant cannot be generated with VSLDOI.  Return positive
+   for the number of zeroes to shift in, or negative for the number of 0xff
+   bytes to shift in.
+
+   OP is a CONST_VECTOR.  */
+
+int
+vspltis_shifted (rtx op)
+{
+  machine_mode mode = GET_MODE (op);
+  machine_mode inner = GET_MODE_INNER (mode);
+
+  unsigned i, j;
+  unsigned nunits;
+  unsigned mask;
+
+  HOST_WIDE_INT val;
+
+  if (mode != V16QImode && mode != V8HImode && mode != V4SImode)
+    return false;
+
+  /* We need to create pseudo registers to do the shift, so don't recognize
+     shift vector constants after reload.  */
+  if (!can_create_pseudo_p ())
+    return false;
+
+  nunits = GET_MODE_NUNITS (mode);
+  mask = GET_MODE_MASK (inner);
+
+  val = const_vector_elt_as_int (op, BYTES_BIG_ENDIAN ? 0 : nunits - 1);
+
+  /* Check if the value can really be the operand of a vspltis[bhw].  */
+  if (EASY_VECTOR_15 (val))
+    ;
+
+  /* Also check if we are loading up the most significant bit which can be done
+     by loading up -1 and shifting the value left by -1.  */
+  else if (EASY_VECTOR_MSB (val, inner))
+    ;
+
+  else
+    return 0;
+
+  /* Check if VAL is present in every STEP-th element until we find elements
+     that are 0 or all 1 bits.  */
+  for (i = 1; i < nunits; ++i)
+    {
+      unsigned elt = BYTES_BIG_ENDIAN ? i : nunits - 1 - i;
+      HOST_WIDE_INT elt_val = const_vector_elt_as_int (op, elt);
+
+      /* If the value isn't the splat value, check for the remaining elements
+	 being 0/-1.  */
+      if (val != elt_val)
+	{
+	  if (elt_val == 0)
+	    {
+	      for (j = i+1; j < nunits; ++j)
+		{
+		  unsigned elt2 = BYTES_BIG_ENDIAN ? j : nunits - 1 - j;
+		  if (const_vector_elt_as_int (op, elt2) != 0)
+		    return 0;
+		}
+
+	      return (nunits - i) * GET_MODE_SIZE (inner);
+	    }
+
+	  else if ((elt_val & mask) == mask)
+	    {
+	      for (j = i+1; j < nunits; ++j)
+		{
+		  unsigned elt2 = BYTES_BIG_ENDIAN ? j : nunits - 1 - j;
+		  if ((const_vector_elt_as_int (op, elt2) & mask) != mask)
+		    return 0;
+		}
+
+	      return -((nunits - i) * GET_MODE_SIZE (inner));
+	    }
+
+	  else
+	    return 0;
+	}
+    }
+
+  /* If all elements are equal, we don't need to do VLSDOI.  */
+  return 0;
+}
+
 
 /* Return true if OP is of the given MODE and can be synthesized
    with a vspltisb, vspltish or vspltisw.  */
@@ -6090,6 +6189,9 @@ easy_altivec_constant (rtx op, machine_mode mode)
   if (vspltis_constant (op, step, copies))
     return true;
 
+  if (vspltis_shifted (op) != 0)
+    return true;
+
   return false;
 }
 
@@ -6133,7 +6235,7 @@ gen_easy_altivec_constant (rtx op)
 const char *
 output_vec_const_move (rtx *operands)
 {
-  int cst, cst2;
+  int cst, cst2, shift;
   machine_mode mode;
   rtx dest, vec;
 
@@ -6146,10 +6248,13 @@ output_vec_const_move (rtx *operands)
       if (zero_constant (vec, mode))
 	return "xxlxor %x0,%x0,%x0";
 
+      if (TARGET_P8_VECTOR && vec == CONSTM1_RTX (mode))
+	return "xxlorc %x0,%x0,%x0";
+
       if ((mode == V2DImode || mode == V1TImode)
 	  && INTVAL (CONST_VECTOR_ELT (vec, 0)) == -1
 	  && INTVAL (CONST_VECTOR_ELT (vec, 1)) == -1)
-	return "vspltisw %0,-1";
+	return (TARGET_P8_VECTOR) ? "xxlorc %x0,%x0,%x0" : "vspltisw %0,-1";
     }
 
   if (TARGET_ALTIVEC)
@@ -6157,6 +6262,11 @@ output_vec_const_move (rtx *operands)
       rtx splat_vec;
       if (zero_constant (vec, mode))
 	return "vxor %0,%0,%0";
+
+      /* Do we need to construct a value using VSLDOI?  */
+      shift = vspltis_shifted (vec);
+      if (shift != 0)
+	return "#";
 
       splat_vec = gen_easy_altivec_constant (vec);
       gcc_assert (GET_CODE (splat_vec) == VEC_DUPLICATE);
@@ -33984,6 +34094,7 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "efficient-unaligned-vsx",	OPTION_MASK_EFFICIENT_UNALIGNED_VSX,
 								false, true  },
   { "float128",			OPTION_MASK_FLOAT128,		false, true  },
+  { "float128-hardware",	OPTION_MASK_FLOAT128_HW,	false, true  },
   { "fprnd",			OPTION_MASK_FPRND,		false, true  },
   { "hard-dfp",			OPTION_MASK_DFP,		false, true  },
   { "htm",			OPTION_MASK_HTM,		false, true  },
