@@ -74,6 +74,9 @@
    UNSPEC_VUPKHPX
    UNSPEC_VUPKLPX
    UNSPEC_DARN
+   UNSPEC_DARN_32
+   UNSPEC_DARN_RAW
+   UNSPEC_DARN_CONDITIONED
    UNSPEC_DST
    UNSPEC_DSTT
    UNSPEC_DSTST
@@ -3605,6 +3608,37 @@
 ;; kelvin also needs to figure out how to enable a "darn" tree rtl
 ;; node, and I need to enforce that the integer constant values are 1
 ;; and 2 respectively, or this would not be a "match"
+
+
+(define_insn "darn_32"
+  [(set (match_operand:SI 0 "register_operand" "")
+        (unspec:SI [(const_int 0)] UNSPEC_DARN_32))]
+  "TARGET_MODULO"
+  {
+     return "darn %0,0";
+  }
+  [(set_attr "type" "add")  
+   (set_attr "length" "4")])
+
+(define_insn "darn_raw"
+  [(set (match_operand:DI 0 "register_operand" "")
+        (unspec:DI [(const_int 0)] UNSPEC_DARN_RAW))]
+  "TARGET_MODULO"
+  {
+     return "darn %0,2";
+  }
+  [(set_attr "type" "add")  
+   (set_attr "length" "4")])
+
+(define_insn "darn_conditioned"
+  [(set (match_operand:DI 0 "register_operand" "")
+        (unspec:DI [(const_int 0)] UNSPEC_DARN_CONDITIONED))]
+  "TARGET_MODULO"
+  {
+     return "darn %0,1";
+  }
+  [(set_attr "type" "add")  
+   (set_attr "length" "4")])
 
 
 (define_expand "bcd<bcd_add_sub>_<code>"

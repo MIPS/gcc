@@ -3502,6 +3502,11 @@ tree_operand_check (tree __t, int __i,
                     const char *__f, int __l, const char *__g)
 {
   const_tree __u = EXPR_CHECK (__t);
+  /*
+  fprintf (stderr, "tree_operand_check, tree not shown\n");
+  fprintf (stderr, "operand_length:  %d\n", TREE_OPERAND_LENGTH (__u));
+  fprintf (stderr, ", index is %d\n", __i);
+  */
   if (__i < 0 || __i >= TREE_OPERAND_LENGTH (__u))
     tree_operand_check_failed (__i, __u, __f, __l, __g);
   return &CONST_CAST_TREE (__u)->exp.operands[__i];

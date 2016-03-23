@@ -395,6 +395,9 @@
 
 /* Non-Vector additions added in ISA 3.0. */
 #define darn __builtin_darn
+#define darn_32 __builtin_darn_32
+#define darn_conditioned __builtin_darn_conditioned
+#define darn_raw __builtin_darn_raw
 #endif
 
 /* Predicates.
