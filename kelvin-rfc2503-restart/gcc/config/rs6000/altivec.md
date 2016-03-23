@@ -3623,7 +3623,7 @@
 (define_insn "darn_raw"
   [(set (match_operand:DI 0 "register_operand" "")
         (unspec:DI [(const_int 0)] UNSPEC_DARN_RAW))]
-  "TARGET_MODULO"
+  "TARGET_MODULO && TARGET_64BIT"
   {
      return "darn %0,2";
   }
@@ -3633,7 +3633,7 @@
 (define_insn "darn_conditioned"
   [(set (match_operand:DI 0 "register_operand" "")
         (unspec:DI [(const_int 0)] UNSPEC_DARN_CONDITIONED))]
-  "TARGET_MODULO"
+  "TARGET_MODULO && TARGET_64BIT"
   {
      return "darn %0,1";
   }

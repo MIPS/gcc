@@ -73,10 +73,6 @@
 #include "case-cfn-macros.h"
 #include "ppc-auxv.h"
 
-/* the following two help kelvin with debugging */
-#include "print-rtl.h"
-#include "print-tree.h"
-
 /* This file should be included last.  */
 #include "target-def.h"
 
@@ -3638,8 +3634,9 @@ rs6000_builtin_mask_calculate (void)
 	  | ((rs6000_cpu == PROCESSOR_CELL) ? RS6000_BTM_CELL      : 0)
 	  | ((TARGET_P8_VECTOR)		    ? RS6000_BTM_P8_VECTOR : 0)
 	  | ((TARGET_P9_VECTOR)		    ? RS6000_BTM_P9_VECTOR : 0)
-	  /* kelvin added the following, very reluctantly */
+	  /* kelvin added the following two lines */
 	  | ((TARGET_MODULO)		    ? RS6000_BTM_MODULO    : 0)
+	  | ((TARGET_64BIT)		    ? RS6000_BTM_64BIT    : 0)
 	  | ((TARGET_CRYPTO)		    ? RS6000_BTM_CRYPTO	   : 0)
 	  | ((TARGET_HTM)		    ? RS6000_BTM_HTM	   : 0)
 	  | ((TARGET_DFP)		    ? RS6000_BTM_DFP	   : 0)
@@ -3990,9 +3987,6 @@ rs6000_option_override_internal (bool global_init_p)
 
   if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
     rs6000_print_isa_options (stderr, 0, "before defaults", rs6000_isa_flags);
-
-  fprintf (stderr, "Kelvin wants to know value of TARGET_MODULO: %d\n",
-	   TARGET_MODULO);
 
   /* For the newer switches (vsx, dfp, etc.) set some of the older options,
      unless the user explicitly used the -mno-<option> to disable the code.  */
@@ -12535,10 +12529,6 @@ def_builtin (const char *name, tree type, enum rs6000_builtins code)
   unsigned classify = rs6000_builtin_info[(int)code].attr;
   const char *attr_string = "";
 
-  fprintf (stderr, 
-	   "kelvin debugs def_builtin, processing name %s with code %d\n",
-	   name, code);
-
   gcc_assert (name != NULL);
   gcc_assert (IN_RANGE ((int)code, 0, (int)RS6000_BUILTIN_COUNT));
 
@@ -13062,80 +13052,6 @@ rs6000_expand_mtfsf_builtin (enum insn_code icode, tree exp)
 
   return NULL_RTX;
 }
-
-#ifdef KELVIN_ABANDONED_ALL_HOPE
-/* let's use rs6000_expand_zeroop_builtin instead */
-static rtx
-rs6000_expand_no_op_builtin (enum insn_code icode, tree exp, rtx target)
-{
-  rtx pat;
-
-  fprintf (stderr, "in rs6000_expand_no_op_builtin (), icode: %d, target: ",
-	   (int) icode);
-  print_rtl (stderr, (const_rtx) target);
-  fprintf (stderr, "\nexp: ");
-  debug_tree (exp);
-
-  fprintf (stderr, "operands[0] is "); debug_tree (exp->exp.operands[0]);
-  fprintf (stderr, "operands[1] is "); debug_tree (exp->exp.operands[1]);
-  fprintf (stderr, "operands[2] is "); debug_tree (exp->exp.operands[2]);
-  fprintf (stderr, "operands[3] doesn't exist, as we'll soon find out\n");
-
-  /* kelvin comments out:
-  tree arg0 = CALL_EXPR_ARG (exp, 0);
-  rtx op0 = expand_normal (arg0);
-  */
-  machine_mode tmode = insn_data[icode].operand[0].mode;
-  /* kelvin comments out: there is no operand[1].
-  machine_mode mode0 = insn_data[icode].operand[1].mode;
-  */
-
-  if (icode == CODE_FOR_nothing)
-    /* Builtin not supported on this processor.  */
-    return 0;
-
-  /* If we got invalid arguments bail out before generating bad rtl.  */
-  /* kelvin comments out
-  if (arg0 == error_mark_node)
-    return const0_rtx;
-  */
-
-  /* Only allow 5-bit *signed* literals.  */
-  /* kelvin comments out
-  if (icode == CODE_FOR_altivec_vspltisb
-      || icode == CODE_FOR_altivec_vspltish
-      || icode == CODE_FOR_altivec_vspltisw
-      || icode == CODE_FOR_spe_evsplatfi
-      || icode == CODE_FOR_spe_evsplati)
-    {
-      if (GET_CODE (op0) != CONST_INT
-	  || INTVAL (op0) > 15
-	  || INTVAL (op0) < -16)
-	{
-	  error ("argument 1 must be a 5-bit signed literal");
-	  return const0_rtx;
-	}
-    }
-  */
-
-  if (target == 0
-      || GET_MODE (target) != tmode
-      || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
-    target = gen_reg_rtx (tmode);
-
-  /* kelvin comments out
-  if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
-    op0 = copy_to_mode_reg (mode0, op0);
-  */
-
-  pat = GEN_FCN (icode) (target, op0);
-  if (! pat)
-    return 0;
-  emit_insn (pat);
-
-  return target;
-}
-#endif KELVIN_ABANDONED_ALL_HOPE
 
 static rtx
 rs6000_expand_unop_builtin (enum insn_code icode, tree exp, rtx target)
@@ -15419,10 +15335,7 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     }  
 
   unsigned attr = rs6000_builtin_info[uns_fcode].attr & RS6000_BTC_TYPE_MASK;
-  /*
-   * kelvin finds modified this assertion to allow the attr to equal
-   * RS6000_BTC_SPECIAL (adding support for no-argument operators).
-   */
+  /* RS6000_BTC_SPECIAL represents no-operand operators.  */
   gcc_assert (attr == RS6000_BTC_UNARY
 	      || attr == RS6000_BTC_BINARY
 	      || attr == RS6000_BTC_TERNARY
@@ -15451,12 +15364,6 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   for (i = 0; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
     if (d->code == fcode)
       return rs6000_expand_zeroop_builtin (d->icode, target);
-
-  /* kelvin added this assertion because he changed the assertion
-     requiring all operators to be unary, binary, or ternary.
-     Presumably, some RS6000_BTC_SPECIAL operators may not be
-     no-argument operators.
-  */
 
   gcc_assert (false);
   gcc_unreachable ();
@@ -16815,14 +16722,6 @@ builtin_function_type (machine_mode mode_ret, machine_mode mode_arg0,
   /* Figure out how many args are present.  */
   while (num_args > 0 && h.mode[num_args] == VOIDmode)
     num_args--;
-
-  /*
-   * kelvin doesn't believe this test is necessary...
-   *  let's see what blows up if I remove the test.
-  if (num_args == 0)
-    fatal_error (input_location,
-		 "internal error: builtin function %s had no type", name);
-  */
 
   ret_type = builtin_mode_to_type[h.mode[0]][h.uns_p[0]];
   if (!ret_type && h.uns_p[0])
