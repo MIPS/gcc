@@ -6499,6 +6499,19 @@ is_concept_var (tree decl)
           && DECL_DECLARED_CONCEPT_P (decl));
 }
 
+/* A helper function to be called via walk_tree.  If any label exists
+   under *TP, it is (going to be) forced.  Set has_forced_label_in_static.  */
+
+static tree
+notice_forced_label_r (tree *tp, int *walk_subtrees, void *)
+{
+  if (TYPE_P (*tp))
+    *walk_subtrees = 0;
+  if (TREE_CODE (*tp) == LABEL_DECL)
+    cfun->has_forced_label_in_static = 1;
+  return NULL_TREE;
+}
+
 /* Finish processing of a declaration;
    install its line number and initial value.
    If the length of an array type is not known before,
@@ -6744,13 +6757,17 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	  && !DECL_ARTIFICIAL (decl))
 	{
 	  push_local_name (decl);
-	  if (DECL_CONSTRUCTOR_P (current_function_decl)
-	      || DECL_DESTRUCTOR_P (current_function_decl))
-	    /* Normally local_decls is populated during GIMPLE lowering,
-	       but [cd]tors are never actually compiled directly.  We need
-	       to put statics on the list so we can deal with the label
-	       address extension.  FIXME.  */
-	    add_local_decl (cfun, decl);
+	  /* Normally has_forced_label_in_static is set during GIMPLE
+	     lowering, but [cd]tors are never actually compiled directly.
+	     We need to set this early so we can deal with the label
+	     address extension.  */
+	  if ((DECL_CONSTRUCTOR_P (current_function_decl)
+	       || DECL_DESTRUCTOR_P (current_function_decl))
+	      && init)
+	    {
+	      walk_tree (&init, notice_forced_label_r, NULL, NULL);
+	      add_local_decl (cfun, decl);
+	    }
 	  /* And make sure it's in the symbol table for
 	     c_parse_final_cleanups to find.  */
 	  varpool_node::get_create (decl);
@@ -13712,6 +13729,43 @@ implicit_default_ctor_p (tree fn)
 	  && sufficient_parms_p (FUNCTION_FIRST_USER_PARMTYPE (fn)));
 }
 
+/* Clobber the contents of *this to let the back end know that the object
+   storage is dead when we enter the constructor or leave the destructor.  */
+
+static tree
+build_clobber_this ()
+{
+  /* Clobbering an empty base is pointless, and harmful if its one byte
+     TYPE_SIZE overlays real data.  */
+  if (is_empty_class (current_class_type))
+    return void_node;
+
+  /* If we have virtual bases, clobber the whole object, but only if we're in
+     charge.  If we don't have virtual bases, clobber the as-base type so we
+     don't mess with tail padding.  */
+  bool vbases = CLASSTYPE_VBASECLASSES (current_class_type);
+
+  tree ctype = current_class_type;
+  if (!vbases)
+    ctype = CLASSTYPE_AS_BASE (ctype);
+
+  tree clobber = build_constructor (ctype, NULL);
+  TREE_THIS_VOLATILE (clobber) = true;
+
+  tree thisref = current_class_ref;
+  if (ctype != current_class_type)
+    {
+      thisref = build_nop (build_reference_type (ctype), current_class_ptr);
+      thisref = convert_from_reference (thisref);
+    }
+
+  tree exprstmt = build2 (MODIFY_EXPR, void_type_node, thisref, clobber);
+  if (vbases)
+    exprstmt = build_if_in_charge (exprstmt);
+
+  return exprstmt;
+}
+
 /* Create the FUNCTION_DECL for a function definition.
    DECLSPECS and DECLARATOR are the parts of the declaration;
    they describe the function's name and the type it returns,
@@ -14121,21 +14175,13 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
       && (flag_lifetime_dse > 1)
       && DECL_CONSTRUCTOR_P (decl1)
       && !DECL_CLONED_FUNCTION_P (decl1)
+      /* Clobbering an empty base is harmful if it overlays real data.  */
+      && !is_empty_class (current_class_type)
       /* We can't clobber safely for an implicitly-defined default constructor
 	 because part of the initialization might happen before we enter the
 	 constructor, via AGGR_INIT_ZERO_FIRST (c++/68006).  */
       && !implicit_default_ctor_p (decl1))
-    {
-      /* Insert a clobber to let the back end know that the object storage
-	 is dead when we enter the constructor.  */
-      tree btype = CLASSTYPE_AS_BASE (current_class_type);
-      tree clobber = build_constructor (btype, NULL);
-      TREE_THIS_VOLATILE (clobber) = true;
-      tree bref = build_nop (build_reference_type (btype), current_class_ptr);
-      bref = convert_from_reference (bref);
-      tree exprstmt = build2 (MODIFY_EXPR, btype, bref, clobber);
-      finish_expr_stmt (exprstmt);
-    }
+    finish_expr_stmt (build_clobber_this ());
 
   if (!processing_template_decl
       && DECL_CONSTRUCTOR_P (decl1)
@@ -14352,19 +14398,10 @@ begin_destructor_body (void)
       initialize_vtbl_ptrs (current_class_ptr);
       finish_compound_stmt (compound_stmt);
 
-      if (flag_lifetime_dse)
-	{
-	  /* Insert a cleanup to let the back end know that the object is dead
-	     when we exit the destructor, either normally or via exception.  */
-	  tree btype = CLASSTYPE_AS_BASE (current_class_type);
-	  tree clobber = build_constructor (btype, NULL);
-	  TREE_THIS_VOLATILE (clobber) = true;
-	  tree bref = build_nop (build_reference_type (btype),
-				 current_class_ptr);
-	  bref = convert_from_reference (bref);
-	  tree exprstmt = build2 (MODIFY_EXPR, btype, bref, clobber);
-	  finish_decl_cleanup (NULL_TREE, exprstmt);
-	}
+      if (flag_lifetime_dse
+	  /* Clobbering an empty base is harmful if it overlays real data.  */
+	  && !is_empty_class (current_class_type))
+	finish_decl_cleanup (NULL_TREE, build_clobber_this ());
 
       /* And insert cleanups for our bases and members so that they
 	 will be properly destroyed if we throw.  */

@@ -1988,7 +1988,7 @@ struct GTY(()) lang_type {
 #define CLASSTYPE_VBASECLASSES(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->vbases)
 
 /* The type corresponding to NODE when NODE is used as a base class,
-   i.e., NODE without virtual base classes.  */
+   i.e., NODE without virtual base classes or tail padding.  */
 
 #define CLASSTYPE_AS_BASE(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->as_base)
 
@@ -5563,7 +5563,7 @@ public:
 
 /* in call.c */
 extern bool check_dtor_name			(tree, tree);
-bool magic_varargs_p                            (tree);
+int magic_varargs_p				(tree);
 
 extern tree build_conditional_expr		(location_t, tree, tree, tree, 
                                                  tsubst_flags_t);
@@ -5638,6 +5638,7 @@ extern tree get_function_version_dispatcher	(tree);
 
 /* in class.c */
 extern tree build_vfield_ref			(tree, tree);
+extern tree build_if_in_charge			(tree true_stmt, tree false_stmt = void_node);
 extern tree build_base_path			(enum tree_code, tree,
 						 tree, int, tsubst_flags_t);
 extern tree convert_to_base			(tree, tree, bool, bool,
@@ -5676,6 +5677,7 @@ extern void invalidate_class_lookup_cache	(void);
 extern void maybe_note_name_used_in_class	(tree, tree);
 extern void note_name_declared_in_class		(tree, tree);
 extern tree get_vtbl_decl_for_binfo		(tree);
+extern bool vptr_via_virtual_p			(tree);
 extern void debug_class				(tree);
 extern void debug_thunks			(tree);
 extern void set_linkage_according_to_type	(tree, tree);

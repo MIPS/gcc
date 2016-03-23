@@ -17269,7 +17269,14 @@
 	    (match_operand:<ssexmmmode> 1 "nonimmediate_operand" "vm")
 	    (parallel [(const_int 0)]))))]
   "TARGET_AVX512F"
-  "v<sseintprefix>broadcast<bcstscalarsuff>\t{%1, %0<mask_operand2>|%0<mask_operand2>, %1}"
+{
+  /*  There is no DF broadcast (in AVX-512*) to 128b register.
+      Mimic it with integer variant.  */
+  if (<MODE>mode == V2DFmode)
+    return "vpbroadcastq\t{%1, %0<mask_operand2>|%0<mask_operand2>, %1}";
+  else
+    return "v<sseintprefix>broadcast<bcstscalarsuff>\t{%1, %0<mask_operand2>|%0<mask_operand2>, %1}";
+}
   [(set_attr "type" "ssemov")
    (set_attr "prefix" "evex")
    (set_attr "mode" "<sseinsnmode>")])
@@ -17412,7 +17419,8 @@
    v<sseintprefix>broadcast<bcstscalarsuff>\t{%1, %0|%0, %1}
    v<sseintprefix>broadcast<bcstscalarsuff>\t{%x1, %0|%0, %x1}
    #"
-  [(set_attr "type" "ssemov")
+  [(set_attr "isa" "*,*,noavx512vl")
+   (set_attr "type" "ssemov")
    (set_attr "prefix_extra" "1")
    (set_attr "prefix" "maybe_evex")
    (set_attr "mode" "<sseinsnmode>")])

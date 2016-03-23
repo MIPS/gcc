@@ -1414,7 +1414,10 @@ force_labels_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
   if (TYPE_P (*tp))
     *walk_subtrees = 0;
   if (TREE_CODE (*tp) == LABEL_DECL)
-    FORCED_LABEL (*tp) = 1;
+    {
+      FORCED_LABEL (*tp) = 1;
+      cfun->has_forced_label_in_static = 1;
+    }
 
   return NULL_TREE;
 }
@@ -4838,7 +4841,8 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	}
       notice_special_calls (call_stmt);
       if (!gimple_call_noreturn_p (call_stmt)
-	  || TREE_ADDRESSABLE (TREE_TYPE (*to_p)))
+	  || TREE_ADDRESSABLE (TREE_TYPE (*to_p))
+	  || TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (*to_p))) != INTEGER_CST)
 	gimple_call_set_lhs (call_stmt, *to_p);
       assign = call_stmt;
     }
@@ -4846,6 +4850,8 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
     {
       assign = gimple_build_assign (*to_p, *from_p);
       gimple_set_location (assign, EXPR_LOCATION (*expr_p));
+      if (COMPARISON_CLASS_P (*from_p))
+	gimple_set_no_warning (assign, TREE_NO_WARNING (*from_p));
     }
 
   if (gimplify_ctxp->into_ssa && is_gimple_reg (*to_p))
@@ -8190,7 +8196,7 @@ gimplify_oacc_declare_1 (tree clause)
       case GOMP_MAP_ALLOC:
       case GOMP_MAP_FORCE_ALLOC:
       case GOMP_MAP_FORCE_TO:
-	new_op = GOMP_MAP_FORCE_DEALLOC;
+	new_op = GOMP_MAP_DELETE;
 	ret = true;
 	break;
 
@@ -10795,8 +10801,23 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	    goto expr_2;
 	  }
 
-	case FMA_EXPR:
 	case VEC_COND_EXPR:
+	  {
+	    enum gimplify_status r0, r1, r2;
+
+	    r0 = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p,
+				post_p, is_gimple_condexpr, fb_rvalue);
+	    r1 = gimplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p,
+				post_p, is_gimple_val, fb_rvalue);
+	    r2 = gimplify_expr (&TREE_OPERAND (*expr_p, 2), pre_p,
+				post_p, is_gimple_val, fb_rvalue);
+
+	    ret = MIN (MIN (r0, r1), r2);
+	    recalculate_side_effects (*expr_p);
+	  }
+	  break;
+
+	case FMA_EXPR:
 	case VEC_PERM_EXPR:
 	  /* Classified as tcc_expression.  */
 	  goto expr_3;

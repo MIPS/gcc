@@ -1,3 +1,29 @@
+2016-03-23  Martin Liska  <mliska@suse.cz>
+
+	PR hsa/70337
+	* plugin/plugin-hsa.c (GOMP_OFFLOAD_run): Copy shadow
+	argument just in case a dispatched kernel uses that argument.
+
+2016-03-16  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.oacc-fortran/kernels-loop-2.f95: Adjust to
+	-ftree-parallelize-loops/-fopenacc changes.
+	* testsuite/libgomp.oacc-fortran/kernels-loop-data-2.f95:
+	Likewise.
+	* testsuite/libgomp.oacc-fortran/kernels-loop-data-enter-exit-2.f95:
+	Likewise.
+	* testsuite/libgomp.oacc-fortran/kernels-loop-data-enter-exit.f95:
+	Likewise.
+	* testsuite/libgomp.oacc-fortran/kernels-loop-data-update.f95:
+	Likewise.
+	* testsuite/libgomp.oacc-fortran/kernels-loop-data.f95: Likewise.
+	* testsuite/libgomp.oacc-fortran/kernels-loop.f95: Likewise.
+
+2016-03-13  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/lib/libgomp.exp (libgomp_init): Potentially append to
+	always_ld_library_path the path to libgcc_s.
+
 2016-03-10  Cesar Philippidis  <cesar@codesourcery.com>
 
 	PR testsuite/70009
