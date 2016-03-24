@@ -76,7 +76,6 @@
    UNSPEC_DARN
    UNSPEC_DARN_32
    UNSPEC_DARN_RAW
-   UNSPEC_DARN_CONDITIONED
    UNSPEC_DST
    UNSPEC_DSTT
    UNSPEC_DSTST
@@ -3582,31 +3581,6 @@
   [(set_attr "length" "4")
    (set_attr "type" "vecsimple")])
 
-;; Bill says there should be only one pattern, declared to always
-;; return long long (64-bits), even though one of the format modes
-;; only returns 32 significant bits.
-(define_insn "darn"
-  [(set (match_operand:DI 0 "register_operand" "")
-        (unspec:DI [(match_operand:QI 1 "const_int_operand" "K")]
-        UNSPEC_DARN))]
-  "TARGET_MODULO && (INTVAL (operands[1]) >= 0) && (INTVAL (operands[1]) <= 2)"
-  {
-    if (INTVAL (operands[1]) == 0)
-      return "darn %0,0";   
-    else if (INTVAL (operands[1]) == 1)
-      return "darn %0,1";
-    else
-      return "darn %0,2";
-  }
-  [(set_attr "type" "add")  
-   (set_attr "length" "4")])
-;; kelvin needs to find an attribute that behaves similarly to darn.  I'm just
-;; guessing for the moment that it behaves similar to add. 
-;; kelvin also needs to figure out how to enable a "darn" tree rtl
-;; node, and I need to enforce that the integer constant values are 1
-;; and 2 respectively, or this would not be a "match"
-
-
 (define_insn "darn_32"
   [(set (match_operand:SI 0 "register_operand" "")
         (unspec:SI [(const_int 0)] UNSPEC_DARN_32))]
@@ -3627,9 +3601,9 @@
   [(set_attr "type" "add")  
    (set_attr "length" "4")])
 
-(define_insn "darn_conditioned"
+(define_insn "darn"
   [(set (match_operand:DI 0 "register_operand" "")
-        (unspec:DI [(const_int 0)] UNSPEC_DARN_CONDITIONED))]
+        (unspec:DI [(const_int 0)] UNSPEC_DARN))]
   "TARGET_MODULO && TARGET_64BIT"
   {
      return "darn %0,1";
