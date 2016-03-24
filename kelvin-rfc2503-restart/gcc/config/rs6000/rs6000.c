@@ -12581,9 +12581,6 @@ def_builtin (const char *name, tree type, enum rs6000_builtins code)
   if (TARGET_DEBUG_BUILTIN)
     fprintf (stderr, "rs6000_builtin, code = %4d, %s%s\n",
 	     (int)code, name, attr_string);
-
-  fprintf (stderr, "rs6000_builtin, code = %4d, %s%s\n",
-	   (int)code, name, attr_string);
 }
 
 /* Simple ternary operations: VECd = foo (VECa, VECb, VECc).  */
@@ -15376,8 +15373,6 @@ rs6000_init_builtins (void)
   tree ftype;
   machine_mode mode;
 
-  fprintf (stderr, "entering rs6000_init_builtins\n");
-
   if (TARGET_DEBUG_BUILTIN)
     fprintf (stderr, "rs6000_init_builtins%s%s%s%s\n",
 	     (TARGET_PAIRED_FLOAT) ? ", paired"	 : "",
@@ -15666,8 +15661,6 @@ rs6000_init_builtins (void)
 #ifdef SUBTARGET_INIT_BUILTINS
   SUBTARGET_INIT_BUILTINS;
 #endif
-
-  fprintf (stderr, "departing rs6000_init_builtins\n");
 }
 
 /* Returns the rs6000 builtin decl for CODE.  */
@@ -15697,8 +15690,6 @@ spe_init_builtins (void)
   tree pushort_type_node = build_pointer_type (short_unsigned_type_node);
   const struct builtin_description *d;
   size_t i;
-
-  fprintf (stderr, "entering spe_init_builtins\n");
 
   tree v2si_ftype_4_v2si
     = build_function_type_list (opaque_V2SI_type_node,
@@ -15875,7 +15866,6 @@ spe_init_builtins (void)
 
       def_builtin (d->name, type, d->code);
     }
-  fprintf (stderr, "departing spe_init_builtins\n");
 }
 
 static void
@@ -15883,8 +15873,6 @@ paired_init_builtins (void)
 {
   const struct builtin_description *d;
   size_t i;
-
-  fprintf (stderr, "entering paired_init_builtins\n");
 
    tree int_ftype_int_v2sf_v2sf
     = build_function_type_list (integer_type_node,
@@ -15937,7 +15925,6 @@ paired_init_builtins (void)
 
       def_builtin (d->name, type, d->code);
     }
-  fprintf (stderr, "departing paired_init_builtins\n");
 }
 
 static void
@@ -15947,8 +15934,6 @@ altivec_init_builtins (void)
   size_t i;
   tree ftype;
   tree decl;
-
-  fprintf (stderr, "entering altivec_init_builtins\n");
 
   tree pvoid_type_node = build_pointer_type (void_type_node);
 
@@ -16443,8 +16428,6 @@ altivec_init_builtins (void)
 					integer_type_node, NULL_TREE);
       def_builtin ("__builtin_vec_ext_v1ti", ftype, VSX_BUILTIN_VEC_EXT_V1TI);
     }
-
-  fprintf (stderr, "departing altivec_init_builtins\n");
 }
 
 static void
@@ -16453,8 +16436,6 @@ htm_init_builtins (void)
   HOST_WIDE_INT builtin_mask = rs6000_builtin_mask;
   const struct builtin_description *d;
   size_t i;
-
-  fprintf (stderr, "entering htm_init_builtins\n");
 
   d = bdesc_htm;
   for (i = 0; i < ARRAY_SIZE (bdesc_htm); i++, d++)
@@ -16543,9 +16524,6 @@ htm_init_builtins (void)
 
       def_builtin (d->name, type, d->code);
     }
-
-  fprintf (stderr, "departing htm_init_builtins\n");
-
 }
 
 /* Hash function for builtin functions with up to 3 arguments and a return
@@ -16779,8 +16757,6 @@ rs6000_common_init_builtins (void)
   tree v2si_ftype_v2si_qi = NULL_TREE;
   tree v2si_ftype_int_qi = NULL_TREE;
   HOST_WIDE_INT builtin_mask = rs6000_builtin_mask;
-
-  fprintf (stderr, "entering rs6000_common_init_builtins\n");
 
   if (!TARGET_PAIRED_FLOAT)
     {
@@ -17055,17 +17031,12 @@ rs6000_common_init_builtins (void)
 
       def_builtin (d->name, type, d->code);
     }
-
-  fprintf (stderr, "departing rs6000_common_init_builtins\n");
 }
 
 /* Set up AIX/Darwin/64-bit Linux quad floating point routines.  */
 static void
 init_float128_ibm (machine_mode mode)
 {
-
-  fprintf (stderr, "entering init_float128_ibm\n");
-
   if (!TARGET_XL_COMPAT)
     {
       set_optab_libfunc (add_optab, mode, "__gcc_qadd");
@@ -17123,7 +17094,6 @@ init_float128_ibm (machine_mode mode)
 	  set_conv_libfunc (ufloat_optab, mode, TImode, "__floatuntitf");
 	}
     }
-  fprintf (stderr, "departing init_float128_ibm\n");
 }
 
 /* Set up IEEE 128-bit floating point routines.  Use different names if the

@@ -3591,15 +3591,12 @@
         UNSPEC_DARN))]
   "TARGET_MODULO && (INTVAL (operands[1]) >= 0) && (INTVAL (operands[1]) <= 2)"
   {
-   switch (INTVAL (operands[1]))
-     {
-     case 0:
-       return "darn %0,0";
-     case 1:
-       return "darn %0,1";
-     case 2:
-       return "darn %0,2";
-     }
+    if (INTVAL (operands[1]) == 0)
+      return "darn %0,0";   
+    else if (INTVAL (operands[1]) == 1)
+      return "darn %0,1";
+    else
+      return "darn %0,2";
   }
   [(set_attr "type" "add")  
    (set_attr "length" "4")])
