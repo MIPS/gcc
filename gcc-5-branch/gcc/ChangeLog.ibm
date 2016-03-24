@@ -1,3 +1,8 @@
+2016-03-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 234461.
+	* REVISION: Update subversion id.
+
 2016-03-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Back port from mainline
@@ -50,6 +55,10 @@
 	* config/rs6000/rs6000.c (cpu_expand_builtin): Provide correct
 	number of arguments to gen_rtx_SET calls in code dependent on
 	glibc 2.23 or later.
+
+2016-03-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 234186.
 
 2016-03-10  Peter Bergner  <bergner@vnet.ibm.com>
 

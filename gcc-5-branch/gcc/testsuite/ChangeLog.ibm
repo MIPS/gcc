@@ -1,3 +1,7 @@
+2016-03-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 234461.
+
 2016-03-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Back port from mainline
@@ -8,6 +12,10 @@
 	vector constants.
 	* gcc.target/powerpc/pr67071-2.c: Likewise.
 	* gcc.target/powerpc/pr67071-3.c: Likewise.
+
+2016-03-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 234186.
 
 2016-02-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
