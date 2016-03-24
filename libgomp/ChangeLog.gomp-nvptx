@@ -1,3 +1,10 @@
+2016-03-24  Alexander Monakov  <amonakov@ispras.ru>
+
+	* config/nvptx/target.c (GOMP_teams): Do not call 'free'.
+	* config/nvptx/team.c (gomp_nvptx_main): Use 'alloca' instead of
+	'malloc' to obtain storage.  Do not call 'free'.
+	* team.c (gomp_free_thread) [__nvptx__]: Do not call 'free'.
+
 2016-03-11  Alexander Monakov  <amonakov@ispras.ru>
 
 	* plugin/plugin-nvptx.c (map_fini): Make cuMemFreeHost error non-fatal.

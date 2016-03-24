@@ -43,7 +43,6 @@ GOMP_teams (unsigned int num_teams, unsigned int thread_limit)
   else if (block_id >= num_teams)
     {
       gomp_free_thread (nvptx_thrs);
-      free (nvptx_thrs);
       asm ("exit;");
     }
   gomp_num_teams_var = num_teams - 1;

@@ -274,10 +274,12 @@ gomp_free_thread (void *arg __attribute__((unused)))
 	  gomp_mutex_unlock (&gomp_managed_threads_lock);
 #endif
 	}
-      free (pool->threads);
       if (pool->last_team)
 	free_team (pool->last_team);
+#ifndef __nvptx__
+      free (pool->threads);
       free (pool);
+#endif
       thr->thread_pool = NULL;
     }
   if (thr->ts.level == 0 && __builtin_expect (thr->ts.team != NULL, 0))

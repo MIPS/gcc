@@ -29,6 +29,7 @@
 
 #include "libgomp.h"
 #include <stdlib.h>
+#include <string.h>
 
 struct gomp_thread *nvptx_thrs __attribute__((shared));
 
@@ -46,10 +47,11 @@ gomp_nvptx_main (void (*fn) (void *), void *fn_data)
       /* Starting additional threads is not supported.  */
       gomp_global_icv.dyn_var = true;
 
-      nvptx_thrs = gomp_malloc_cleared (ntids * sizeof (*nvptx_thrs));
+      nvptx_thrs = alloca (ntids * sizeof (*nvptx_thrs));
+      memset (nvptx_thrs, 0, ntids * sizeof (*nvptx_thrs));
 
-      struct gomp_thread_pool *pool = gomp_malloc (sizeof (*pool));
-      pool->threads = gomp_malloc (ntids * sizeof (*pool->threads));
+      struct gomp_thread_pool *pool = alloca (sizeof (*pool));
+      pool->threads = alloca (ntids * sizeof (*pool->threads));
       for (tid = 0; tid < ntids; tid++)
 	pool->threads[tid] = nvptx_thrs + tid;
       pool->threads_size = ntids;
@@ -63,7 +65,6 @@ gomp_nvptx_main (void (*fn) (void *), void *fn_data)
       fn (fn_data);
 
       gomp_free_thread (nvptx_thrs);
-      free (nvptx_thrs);
     }
   else
     {
