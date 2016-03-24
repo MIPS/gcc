@@ -4518,13 +4518,66 @@ mips_split_move_p (rtx dest, rtx src, enum mips_split_type split_type)
   return size > UNITS_PER_WORD;
 }
 
+/*  If both of the following are true:
+
+1. X is of the form:
+
+(mem (lo_sum (reg)
+             (const (plus (symbol_ref <symbol>) (const_int <offset>))))
+
+2. The alignment of the symbol is less than the offset.
+
+Then:
+
+1. Generate a new high rtx:
+
+(set (reg <high_reg>)
+     (high (const (plus (symbol_ref <symbol>) (const_int <offset>)))))
+
+2. Modify X to be:
+
+(mem (lo_sum (reg <high_reg>)
+             (const (plus (symbol_ref <symbol>) (const_int <offset>))))  */
+
+static void
+mips_insert_high_for_unaligned_symbol (rtx x)
+{
+  rtx address, high, sym;
+  rtx *base_reg;
+  int offset;
+
+  if (MEM_P (x) && GET_CODE (XEXP (x, 0)) == LO_SUM)
+    {
+      address = XEXP (XEXP (x, 0), 1);
+
+      if (GET_CODE (address) == CONST
+	  && GET_CODE (XEXP (address, 0)) == PLUS
+	  && GET_CODE (XEXP (XEXP (address, 0), 0)) == SYMBOL_REF
+	  && GET_CODE (XEXP (XEXP (address, 0), 1)) == CONST_INT)
+	{
+	  sym = XEXP (XEXP (address, 0), 0);
+	  offset = XINT (XEXP (XEXP (address, 0), 1), 0);
+	  base_reg = &(XEXP (XEXP (x, 0), 0));
+
+	  if (SYMBOL_REF_DECL (sym)
+	      && DECL_ALIGN_UNIT (SYMBOL_REF_DECL (sym)) < offset)
+	    {
+	      high = gen_rtx_HIGH (Pmode, address);
+	      gcc_assert (!reload_completed);
+	      high = mips_force_temporary (NULL, high);
+	      *base_reg = high;
+	    }
+	}
+    }
+}
+
 /* Split a move from SRC to DEST, given that mips_split_move_p holds.
    SPLIT_TYPE describes the split condition.  */
 
 void
 mips_split_move (rtx dest, rtx src, enum mips_split_type split_type)
 {
-  rtx low_dest;
+  rtx low_dest, high_dest, low_src, high_src;
 
   gcc_checking_assert (mips_split_move_p (dest, src, split_type));
   if (FP_REG_RTX_P (dest) || FP_REG_RTX_P (src))
@@ -4565,19 +4618,34 @@ mips_split_move (rtx dest, rtx src, enum mips_split_type split_type)
     }
   else
     {
+      low_dest = mips_subword (dest, false);
+      high_dest = mips_subword (dest, true);
+      low_src = mips_subword (src, false);
+      high_src = mips_subword (src, true);
+
+      if (TARGET_LITTLE_ENDIAN)
+	{
+	  mips_insert_high_for_unaligned_symbol (high_dest);
+	  mips_insert_high_for_unaligned_symbol (high_src);
+        }
+      else
+	{
+	  mips_insert_high_for_unaligned_symbol (low_dest);
+	  mips_insert_high_for_unaligned_symbol (low_src);
+        }
+
       /* The operation can be split into two normal moves.  Decide in
 	 which order to do them.  */
-      low_dest = mips_subword (dest, false);
       if (REG_P (low_dest)
 	  && reg_overlap_mentioned_p (low_dest, src))
 	{
-	  mips_emit_move (mips_subword (dest, true), mips_subword (src, true));
-	  mips_emit_move (low_dest, mips_subword (src, false));
+	  mips_emit_move (high_dest, high_src);
+	  mips_emit_move (low_dest, low_src);
 	}
       else
 	{
-	  mips_emit_move (low_dest, mips_subword (src, false));
-	  mips_emit_move (mips_subword (dest, true), mips_subword (src, true));
+	  mips_emit_move (low_dest, low_src);
+	  mips_emit_move (high_dest, high_src);
 	}
     }
 }

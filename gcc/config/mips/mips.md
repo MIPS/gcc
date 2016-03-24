@@ -5139,7 +5139,7 @@
 (define_split
   [(set (match_operand:MOVE64 0 "nonimmediate_operand")
 	(match_operand:MOVE64 1 "move_operand"))]
-  "reload_completed && mips_split_move_insn_p (operands[0], operands[1], insn)"
+  "mips_split_move_insn_p (operands[0], operands[1], insn)"
   [(const_int 0)]
 {
   mips_split_move_insn (operands[0], operands[1], curr_insn);
