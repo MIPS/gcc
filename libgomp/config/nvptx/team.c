@@ -84,7 +84,7 @@ gomp_thread_start (struct gomp_thread_pool *pool)
   gomp_sem_init (&thr->release, 0);
   thr->thread_pool = pool;
 
-  for (;;)
+  do
     {
       gomp_simple_barrier_wait (&pool->threads_dock);
       if (!thr->fn)
@@ -96,6 +96,10 @@ gomp_thread_start (struct gomp_thread_pool *pool)
       gomp_team_barrier_wait_final (&thr->ts.team->barrier);
       gomp_finish_task (task);
     }
+  /* Work around an NVIDIA driver bug: when generating sm_50 machine code,
+     it can trash stack pointer R1 in loops lacking exit edges.  Add a cheap
+     artificial exit that the driver would not be able to optimize out.  */
+  while (nvptx_thrs);
 }
 
 /* Launch a team.  */

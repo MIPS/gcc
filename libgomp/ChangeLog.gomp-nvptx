@@ -1,5 +1,10 @@
 2016-03-24  Alexander Monakov  <amonakov@ispras.ru>
 
+	* config/nvptx/team.c (gomp_thread_start): Work around NVIDIA driver
+	bug by adding an exit edge to the loop,
+
+2016-03-24  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/nvptx/target.c (GOMP_teams): Do not call 'free'.
 	* config/nvptx/team.c (gomp_nvptx_main): Use 'alloca' instead of
 	'malloc' to obtain storage.  Do not call 'free'.
