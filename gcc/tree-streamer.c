@@ -92,7 +92,10 @@ streamer_check_handled_ts_structures (void)
      If this assertion triggers, it means that there is a new TS_*
      structure that should be handled by the streamer.  */
   for (i = 0; i < LAST_TS_ENUM; i++)
-    gcc_assert (handled_p[i]);
+    if (i == TS_TTYPED || i == TS_DECL_MINIMAL_TTYPE || i == TS_DECL_NON_COMMON_TTYPE || i == TS_TTYPE_COMMON)
+      continue;
+    else
+      gcc_assert (handled_p[i]);
 }
 
 
