@@ -147,11 +147,13 @@ case "$target" in
   *-*-linux*)
     # Some old Linux distributions miss required syscalls.
     sanitizer_supported=no
+    if [ "x${UNSUPPORTED}" != x ] ; then
     AC_TRY_COMPILE([#include <sys/syscall.h>],[
       syscall (__NR_gettid);
       syscall (__NR_futex);
       syscall (__NR_exit_group);
     ], [sanitizer_supported=yes])
+    fi
     ;;
   *)
     sanitizer_supported=yes
