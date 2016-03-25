@@ -1,8 +1,7 @@
-/* { dg-do compile { target { powerpc64*-*-* } } } */
+/* { dg-do compile { target { powerpc*-*-* } } } */
 /* { dg-options "-mcpu=power9" } */
-/* { dg-require-effective-target llp64 } */
 
-
+/* This test should succeed on both 32- and 64-bit configurations.  */
 #include <altivec.h>
 
 int get_random() 

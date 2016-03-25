@@ -1755,7 +1755,6 @@ BU_LDBL128_2 (UNPACK_TF,	"unpack_longdouble",	CONST,	unpacktf)
 BU_P7_MISC_2 (PACK_V1TI,	"pack_vector_int128",	CONST,	packv1ti)
 BU_P7_MISC_2 (UNPACK_V1TI,	"unpack_vector_int128",	CONST,	unpackv1ti)
 
-
 /* 0 argument general-purpose register functions added in ISA 3.0 (power9).  */
 BU_P9_MISC_0 (DARN_32,		"darn_32", 		MISC, darn_32)
 BU_P9_64BIT_MISC_0 (DARN_RAW,	"darn_raw", 		MISC, darn_raw)

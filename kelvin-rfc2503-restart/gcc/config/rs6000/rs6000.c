@@ -3634,7 +3634,6 @@ rs6000_builtin_mask_calculate (void)
 	  | ((rs6000_cpu == PROCESSOR_CELL) ? RS6000_BTM_CELL      : 0)
 	  | ((TARGET_P8_VECTOR)		    ? RS6000_BTM_P8_VECTOR : 0)
 	  | ((TARGET_P9_VECTOR)		    ? RS6000_BTM_P9_VECTOR : 0)
-	  /* kelvin added the following two lines */
 	  | ((TARGET_MODULO)		    ? RS6000_BTM_MODULO    : 0)
 	  | ((TARGET_64BIT)		    ? RS6000_BTM_64BIT    : 0)
 	  | ((TARGET_CRYPTO)		    ? RS6000_BTM_CRYPTO	   : 0)
