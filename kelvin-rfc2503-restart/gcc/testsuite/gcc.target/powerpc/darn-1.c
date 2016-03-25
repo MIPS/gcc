@@ -6,7 +6,7 @@
 
 long long get_conditioned_random() 
 {
-  return __builtin_darn_conditioned ();
+  return __builtin_darn ();
 }
 
 /* { dg-final { scan-assembler	   "darn" } } */
