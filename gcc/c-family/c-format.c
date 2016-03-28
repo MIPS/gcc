@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "langhooks.h"
 #include "c-format.h"
+#include "ttype.h"
 
 /* Handle attributes associated with format checking.  */
 

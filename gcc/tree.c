@@ -61,6 +61,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "print-tree.h"
 #include "ipa-utils.h"
+#include "ttype.h"
 
 /* Tree code classes.  */
 

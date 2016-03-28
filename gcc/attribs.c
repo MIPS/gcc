@@ -28,6 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "langhooks.h"
 #include "plugin.h"
+#include "ttype.h"
 
 /* Table of the tables of attributes (common, language, format, machine)
    searched.  */
