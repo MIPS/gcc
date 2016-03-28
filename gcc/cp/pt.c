@@ -6950,7 +6950,8 @@ canonicalize_type_argument (tree arg, tsubst_flags_t complain)
   tree canon = strip_typedefs (arg, &removed_attributes);
   if (removed_attributes
       && (complain & tf_warning))
-    warning (0, "ignoring attributes on template argument %qT", arg);
+    warning (OPT_Wignored_attributes,
+	     "ignoring attributes on template argument %qT", arg);
   return canon;
 }
 
@@ -12374,6 +12375,8 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	/* The initializer must not be expanded until it is required;
 	   see [temp.inst].  */
 	DECL_INITIAL (r) = NULL_TREE;
+	if (VAR_P (r))
+	  DECL_MODE (r) = VOIDmode;
 	if (CODE_CONTAINS_STRUCT (TREE_CODE (t), TS_DECL_WRTL))
 	  SET_DECL_RTL (r, NULL);
 	DECL_SIZE (r) = DECL_SIZE_UNIT (r) = 0;
@@ -13875,10 +13878,13 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
       if (r == NULL_TREE)
 	{
-	  /* We get here for a use of 'this' in an NSDMI.  */
+	  /* We get here for a use of 'this' in an NSDMI as part of a
+	     constructor call or as part of an aggregate initialization.  */
 	  if (DECL_NAME (t) == this_identifier
-	      && current_function_decl
-	      && DECL_CONSTRUCTOR_P (current_function_decl))
+	      && ((current_function_decl
+		   && DECL_CONSTRUCTOR_P (current_function_decl))
+		  || (current_class_ref
+		      && TREE_CODE (current_class_ref) == PLACEHOLDER_EXPR)))
 	    return current_class_ptr;
 
 	  /* This can happen for a parameter name used later in a function
@@ -15188,21 +15194,25 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 		    DECL_CONTEXT (decl) = current_function_decl;
 		    cp_check_omp_declare_reduction (decl);
 		  }
+		else if (VAR_P (decl)
+			 && DECL_PRETTY_FUNCTION_P (decl))
+		  {
+		    /* For __PRETTY_FUNCTION__ we have to adjust the
+		       initializer.  */
+		    const char *const name
+		      = cxx_printable_name (current_function_decl, 2);
+		    init = cp_fname_init (name, &TREE_TYPE (decl));
+		    SET_DECL_VALUE_EXPR (decl, init);
+		    DECL_HAS_VALUE_EXPR_P (decl) = 1;
+		    DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl) = 1;
+		    maybe_push_decl (decl);
+		  }
 		else
 		  {
 		    int const_init = false;
 		    maybe_push_decl (decl);
-		    if (VAR_P (decl)
-			&& DECL_PRETTY_FUNCTION_P (decl))
-		      {
-			/* For __PRETTY_FUNCTION__ we have to adjust the
-			   initializer.  */
-			const char *const name
-			  = cxx_printable_name (current_function_decl, 2);
-			init = cp_fname_init (name, &TREE_TYPE (decl));
-		      }
-		    else
-		      init = tsubst_init (init, decl, args, complain, in_decl);
+
+		    init = tsubst_init (init, decl, args, complain, in_decl);
 
 		    if (VAR_P (decl))
 		      const_init = (DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P

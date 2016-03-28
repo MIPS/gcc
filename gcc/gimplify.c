@@ -4850,6 +4850,8 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
     {
       assign = gimple_build_assign (*to_p, *from_p);
       gimple_set_location (assign, EXPR_LOCATION (*expr_p));
+      if (COMPARISON_CLASS_P (*from_p))
+	gimple_set_no_warning (assign, TREE_NO_WARNING (*from_p));
     }
 
   if (gimplify_ctxp->into_ssa && is_gimple_reg (*to_p))
@@ -5187,6 +5189,32 @@ gimplify_asm_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 	{
 	  error ("invalid lvalue in asm output %d", i);
 	  ret = tret;
+	}
+
+      /* If the constraint does not allow memory make sure we gimplify
+         it to a register if it is not already but its base is.  This
+	 happens for complex and vector components.  */
+      if (!allows_mem)
+	{
+	  tree op = TREE_VALUE (link);
+	  if (! is_gimple_val (op)
+	      && is_gimple_reg_type (TREE_TYPE (op))
+	      && is_gimple_reg (get_base_address (op)))
+	    {
+	      tree tem = create_tmp_reg (TREE_TYPE (op));
+	      tree ass;
+	      if (is_inout)
+		{
+		  ass = build2 (MODIFY_EXPR, TREE_TYPE (tem),
+				tem, unshare_expr (op));
+		  gimplify_and_add (ass, pre_p);
+		}
+	      ass = build2 (MODIFY_EXPR, TREE_TYPE (tem), op, tem);
+	      gimplify_and_add (ass, post_p);
+
+	      TREE_VALUE (link) = tem;
+	      tret = GS_OK;
+	    }
 	}
 
       vec_safe_push (outputs, link);

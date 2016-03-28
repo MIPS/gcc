@@ -227,11 +227,6 @@ struct GTY((for_user)) named_label_entry {
    function, two inside the body of a function in a local class, etc.)  */
 int function_depth;
 
-/* To avoid unwanted recursion, finish_function defers all mark_used calls
-   encountered during its execution until it finishes.  */
-bool defer_mark_used_calls;
-vec<tree, va_gc> *deferred_mark_used_calls;
-
 /* States indicating how grokdeclarator() should handle declspecs marked
    with __attribute__((deprecated)).  An object declared as
    __attribute__((deprecated)) suppresses warnings of uses of other
@@ -4190,12 +4185,14 @@ cp_fname_init (const char* name, tree *type_p)
   type = cp_build_qualified_type (char_type_node, TYPE_QUAL_CONST);
   type = build_cplus_array_type (type, domain);
 
-  *type_p = type;
+  *type_p = type_decays_to (type);
 
   if (init)
     TREE_TYPE (init) = type;
   else
     init = error_mark_node;
+
+  init = decay_conversion (init, tf_warning_or_error);
 
   return init;
 }
@@ -4222,11 +4219,19 @@ cp_make_fname_decl (location_t loc, tree id, int type_dep)
   /* As we're using pushdecl_with_scope, we must set the context.  */
   DECL_CONTEXT (decl) = current_function_decl;
 
-  TREE_STATIC (decl) = 1;
   TREE_READONLY (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
+  DECL_DECLARED_CONSTEXPR_P (decl) = 1;
 
   TREE_USED (decl) = 1;
+
+  if (init)
+    {
+      SET_DECL_VALUE_EXPR (decl, init);
+      DECL_HAS_VALUE_EXPR_P (decl) = 1;
+      /* For decl_constant_var_p.  */
+      DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl) = 1;
+    }
 
   if (current_function_decl)
     {
@@ -4236,13 +4241,12 @@ cp_make_fname_decl (location_t loc, tree id, int type_dep)
       while (b->level_chain->kind != sk_function_parms)
 	b = b->level_chain;
       pushdecl_with_scope (decl, b, /*is_friend=*/false);
-      cp_finish_decl (decl, init, /*init_const_expr_p=*/false, NULL_TREE,
-		      LOOKUP_ONLYCONVERTING);
+      add_decl_expr (decl);
     }
   else
     {
       DECL_THIS_STATIC (decl) = true;
-      pushdecl_top_level_and_finish (decl, init);
+      pushdecl_top_level_and_finish (decl, NULL_TREE);
     }
 
   return decl;
@@ -6499,6 +6503,19 @@ is_concept_var (tree decl)
           && DECL_DECLARED_CONCEPT_P (decl));
 }
 
+/* A helper function to be called via walk_tree.  If any label exists
+   under *TP, it is (going to be) forced.  Set has_forced_label_in_static.  */
+
+static tree
+notice_forced_label_r (tree *tp, int *walk_subtrees, void *)
+{
+  if (TYPE_P (*tp))
+    *walk_subtrees = 0;
+  if (TREE_CODE (*tp) == LABEL_DECL)
+    cfun->has_forced_label_in_static = 1;
+  return NULL_TREE;
+}
+
 /* Finish processing of a declaration;
    install its line number and initial value.
    If the length of an array type is not known before,
@@ -6744,13 +6761,17 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	  && !DECL_ARTIFICIAL (decl))
 	{
 	  push_local_name (decl);
-	  if (DECL_CONSTRUCTOR_P (current_function_decl)
-	      || DECL_DESTRUCTOR_P (current_function_decl))
-	    /* Normally local_decls is populated during GIMPLE lowering,
-	       but [cd]tors are never actually compiled directly.  We need
-	       to put statics on the list so we can deal with the label
-	       address extension.  FIXME.  */
-	    add_local_decl (cfun, decl);
+	  /* Normally has_forced_label_in_static is set during GIMPLE
+	     lowering, but [cd]tors are never actually compiled directly.
+	     We need to set this early so we can deal with the label
+	     address extension.  */
+	  if ((DECL_CONSTRUCTOR_P (current_function_decl)
+	       || DECL_DESTRUCTOR_P (current_function_decl))
+	      && init)
+	    {
+	      walk_tree (&init, notice_forced_label_r, NULL, NULL);
+	      add_local_decl (cfun, decl);
+	    }
 	  /* And make sure it's in the symbol table for
 	     c_parse_final_cleanups to find.  */
 	  varpool_node::get_create (decl);
@@ -14577,9 +14598,6 @@ finish_function (int flags)
   if (c_dialect_objc ())
     objc_finish_function ();
 
-  gcc_assert (!defer_mark_used_calls);
-  defer_mark_used_calls = true;
-
   record_key_method_defined (fndecl);
 
   fntype = TREE_TYPE (fndecl);
@@ -14828,17 +14846,6 @@ finish_function (int flags)
 
   /* Clean up.  */
   current_function_decl = NULL_TREE;
-
-  defer_mark_used_calls = false;
-  if (deferred_mark_used_calls)
-    {
-      unsigned int i;
-      tree decl;
-
-      FOR_EACH_VEC_SAFE_ELT (deferred_mark_used_calls, i, decl)
-	mark_used (decl);
-      vec_free (deferred_mark_used_calls);
-    }
 
   invoke_plugin_callbacks (PLUGIN_FINISH_PARSE_FUNCTION, fndecl);
   return fndecl;
