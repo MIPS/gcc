@@ -1,3 +1,22 @@
+2016-03-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* machmode.h (mode_complex): Add support to give the complex mode
+	for a given mode.
+	(GET_MODE_COMPLEX_MODE): Likewise.
+
+	* stor-layout.c (layout_type): For COMPLEX_TYPE, use the mode
+	stored by build_complex_type instead of trying to figure out the
+	appropriate mode based on the size.
+
+	* genmodes.c (struct mode_data): Add field for the complex type of
+	the given type.
+	(blank_mode): Likewise.
+	(make_complex_modes): Remember the complex mode created in the
+	base type.
+	(emit_mode_complex): Write out the mode_complex array to map a
+	type mode to the complex version.
+	(emit_insn_modes_c): Likewise.
+
 2016-03-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone pre-gcc7 branch, svn id 234468, (pre-gcc7 based on trunk 233409)
