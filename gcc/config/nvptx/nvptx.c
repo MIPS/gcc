@@ -979,19 +979,15 @@ nvptx_init_unisimt_predicate (FILE *file)
    ORIG itself should not be emitted as a PTX .entry function.  */
 
 static void
-write_omp_entry (std::stringstream &s, const char *name, const char *orig)
+write_omp_entry (FILE *file, const char *name, const char *orig)
 {
-  /* Pointer-sized PTX integer type, .u32 or .u64 depending on target ABI.  */
-  const char *sfx = nvptx_ptx_type_from_mode (Pmode, false);
-
-  /* OpenMP target regions are entered via gomp_nvptx_main.  */
   static bool gomp_nvptx_main_declared;
   if (!gomp_nvptx_main_declared)
     {
       gomp_nvptx_main_declared = true;
-      s << "// BEGIN GLOBAL FUNCTION DECL: gomp_nvptx_main\n";
-      s << ".extern .func gomp_nvptx_main";
-      s << "(.param" << sfx << " %in_ar1, .param" << sfx << " %in_ar2);\n";
+      write_fn_marker (func_decls, false, true, "gomp_nvptx_main");
+      func_decls << ".extern .func gomp_nvptx_main (.param.u" << POINTER_SIZE
+        << " %in_ar1, .param.u" << POINTER_SIZE << " %in_ar2);\n";
     }
 #define ENTRY_TEMPLATE(PS, PS_BYTES, MAD_PS_32) "\
  (.param.u" PS " %arg, .param.u" PS " %stack, .param.u" PS " %sz)\n\
@@ -1024,12 +1020,13 @@ write_omp_entry (std::stringstream &s, const char *name, const char *orig)
 	}\n\
 	ret.uni;\n\
 }\n"
-  static const char template64[] = ENTRY_TEMPLATE ("64", "8", "mad.wide.u32");
-  static const char template32[] = ENTRY_TEMPLATE ("32", "4", "mad.lo.u32  ");
+  static const char entry64[] = ENTRY_TEMPLATE ("64", "8", "mad.wide.u32");
+  static const char entry32[] = ENTRY_TEMPLATE ("32", "4", "mad.lo.u32  ");
 #undef ENTRY_TEMPLATE
-  const char *template_1 = TARGET_ABI64 ? template64 : template32;
-  const char *template_2 = template_1 + strlen (template64) + 1;
-  s << ".visible .entry " << name << template_1 << orig << template_2;
+  const char *entry_1 = TARGET_ABI64 ? entry64 : entry32;
+  /* Position ENTRY_2 after the embedded nul using strlen of the prefix.  */
+  const char *entry_2 = entry_1 + strlen (entry64) + 1;
+  fprintf (file, ".visible .entry %s%s%s%s", name, entry_1, orig, entry_2);
   need_softstack_decl = need_unisimt_decl = true;
 }
 
@@ -1044,17 +1041,17 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
   tree result_type = TREE_TYPE (fntype);
   int argno = 0;
 
-  /* We construct the initial part of the function into a string
-     stream, in order to share the prototype writing code.  */
-  std::stringstream s;
   if (flag_openmp
       && lookup_attribute ("omp target entrypoint", DECL_ATTRIBUTES (decl)))
     {
       char *buf = (char *) alloca (strlen (name) + sizeof ("$impl"));
       sprintf (buf, "%s$impl", name);
-      write_omp_entry (s, name, buf);
+      write_omp_entry (file, name, buf);
       name = buf;
     }
+  /* We construct the initial part of the function into a string
+     stream, in order to share the prototype writing code.  */
+  std::stringstream s;
   write_fn_proto (s, true, name, decl);
   s << "{\n";
 

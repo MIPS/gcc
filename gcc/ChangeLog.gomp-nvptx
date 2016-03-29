@@ -1,3 +1,8 @@
+2016-04-18  Alexander Monakov  <amonakov@ispras.ru>
+
+	* config/nvptx/nvptx.c (write_omp_entry): Adjust.
+	(nvptx_declare_function_name): Adjust.
+
 2016-03-15  Alexander Monakov  <amonakov@ispras.ru>
 
 	* config/nvptx/nvptx.h (STACK_SIZE_MODE): Define.
