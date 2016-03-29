@@ -15357,7 +15357,7 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
   /* Handle simple no-argument operations. */
   d = bdesc_0arg;
-  for (i = 0; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
+  for (i = 0; i < ARRAY_SIZE (bdesc_0arg); i++, d++)
     if (d->code == fcode)
       return rs6000_expand_zeroop_builtin (d->icode, target);
 
@@ -16427,6 +16427,7 @@ altivec_init_builtins (void)
 					integer_type_node, NULL_TREE);
       def_builtin ("__builtin_vec_ext_v1ti", ftype, VSX_BUILTIN_VEC_EXT_V1TI);
     }
+
 }
 
 static void
