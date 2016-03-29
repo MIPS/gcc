@@ -1,3 +1,107 @@
+2016-03-29  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/70355
+	* lower-subreg.c (simplify_subreg_concatn): Reject paradoxical
+	subregs.
+
+2016-03-29  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70424
+	* ipa-prop.c (ipa_compute_jump_functions_for_edge): Always
+	use alignment returned by get_pointer_alignment_1 if it is
+	bigger than BITS_PER_UNIT.
+	* builtins.c (get_pointer_alignment_1): Do not return true
+	for alignment extracted from SSA info.
+
+2016-03-28  James Bowman  <james.bowman@ftdichip.com>
+
+	* config/ft32/ft32.opt (mnodiv): New.
+	* config/ft32/ft32.md (*divsi3, *modsi3): Qualify with
+	TARGET_NODIV.
+	* doc/invoke.texi (FT32 Options -mnodiv): New.
+
+2016-03-28  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	 PR target/70406
+	 * config/i386/i386.md (define_split, andn): Fix modes.
+
+2016-03-26  Richard Biener  <rguenther@suse.de>
+            Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	PR ipa/70366
+	* ipa-inline-transform.c (inline_call): Pass opts_for_fn (to->decl)
+	instead of
+	TREE_OPTIMIZATION (DECL_FUNCTION_SPECIFIC_OPTIMIZATION (to->decl))
+	as 2nd argument to cl_optimization_restore().
+
+2016-03-25  Richard Henderson  <rth@redhat.com>
+
+	PR target/70120
+	* config/aarch64/aarch64.c (aarch64_asm_output_pool_epilogue): New.
+	* config/aarch64/aarch64-protos.h: Declare it.
+	* config/aarch64/aarch64.h (ASM_OUTPUT_POOL_EPILOGUE): New.
+
+2016-03-25  Alan Modra  <amodra@gmail.com>
+
+	PR target/70052
+	* config/rs6000/constraints.md (j): Simplify.
+	* config/rs6000/predicates.md (easy_fp_constant): Exclude
+	decimal float 0.D.
+	* config/rs6000/rs6000.md (zero_fp): New mode_attr.
+	(mov<mode>_hardfloat, mov<mode>_hardfloat32, mov<mode>_hardfloat64,
+	 mov<mode>_64bit_dm, mov<mode>_32bit): Use zero_fp in place of j
+	in all constraint alternatives.
+	(movtd_64bit_nodm): Delete "j" constraint alternative.
+
+2016-03-24  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-ssa-propagate.c: Enhance docs for
+	SSA_PROP_NOT_INTERESTING.
+
+2016-03-24  Aldy Hernandez  <aldyh@redhat.com>
+
+	* doc/extend.texi: Fix typo in documentation to pure attribute.
+
+2016-03-24  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR target/70319
+	* config/pa/pa.md (bswapdi2): Use a scratch register.
+
+2016-03-24  Richard Henderson  <rth@redhat.com>
+
+        PR middle-end/69845
+	* fold-const.c (extract_muldiv_1): Correct test for multiplication
+	overflow.
+
+2016-03-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*anddi3_doubleword): Generate AND insn
+	using ix86_expand_binary_operator instead of gen_andsi3.
+
+2016-03-24  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70396
+	* tree-vect-stmts.c (vectorizable_comparison): Use
+	get_vectype_for_scalar_type.
+
+2016-03-24  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70370
+	* gimplify.c (gimplify_asm_expr): Handle !allows_mem outputs
+	with register bases.
+
+2016-03-24  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70372
+	* tree-ssa-reassoc.c (eliminate_plus_minus_pair): Use
+	build_all_ones_cst to also handle vector types correctly.
+
+2016-03-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/70381
+	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Do not set
+	-mfloat128 here.
+
 2016-03-23  Marek Polacek  <polacek@redhat.com>
 
 	PR c++/69884
