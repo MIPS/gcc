@@ -1,5 +1,11 @@
 2016-03-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to pre-gcc7, subversion id 234601, which is based on trun
+	subversion id 234598.
+	* REVISION:
+
+2016-03-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* config/rs6000/rs6000.c (rs6000_hard_regno_nregs_internal): Add
 	support for complex __float128.
 	(rs6000_hard_regno_mode_ok): Likewise.

@@ -1,0 +1,5 @@
+2016-03-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to pre-gcc7, subversion id 234601, which is based on trun
+	subversion id 234598.
+
