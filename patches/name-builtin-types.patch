@@ -1,5 +1,5 @@
 Bottom: 431a7ac7578cd4f9528de6e3900f1423a34e9cd7
-Top:    431a7ac7578cd4f9528de6e3900f1423a34e9cd7
+Top:    f49bb64048af03cff04b336861bfc0c3e1c0ec53
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-03-30 02:30:53 -0300
 
@@ -7,4 +7,221 @@ bring in naming of built-in types
 
 ---
 
-
+diff --git a/include/gcc-c-fe.def b/include/gcc-c-fe.def
+index 3f3679b..3fbcea7 100644
+--- a/include/gcc-c-fe.def
++++ b/include/gcc-c-fe.def
+@@ -125,21 +125,27 @@ GCC_METHOD3 (gcc_type, build_function_type,
+ 	     const struct gcc_type_array *, /* Argument ARGUMENT_TYPES.  */
+ 	     int /* bool */)               /* Argument IS_VARARGS.  */
+ 
+-/* Return an integer type with the given properties.  */
++/* Return an integer type with the given properties.  If BUILTIN_NAME
++   is non-NULL, it must name a builtin integral type with the given
++   signedness and size, and that is the type that will be returned.  */
+ 
+-GCC_METHOD2 (gcc_type, int_type,
++GCC_METHOD3 (gcc_type, int_type,
+ 	     int /* bool */,               /* Argument IS_UNSIGNED.  */
+-	     unsigned long)                /* Argument SIZE_IN_BYTES.  */
++	     unsigned long,                /* Argument SIZE_IN_BYTES.  */
++	     const char *)		   /* Argument BUILTIN_NAME.  */
+ 
+ /* Return the 'char' type, a distinct type from both 'signed char' and
+    'unsigned char' returned by int_type.  */
+ 
+ GCC_METHOD0 (gcc_type, char_type)
+ 
+-/* Return a floating point type with the given properties.  */
++/* Return a floating point type with the given properties.  If BUILTIN_NAME
++   is non-NULL, it must name a builtin integral type with the given
++   signedness and size, and that is the type that will be returned.  */
+ 
+-GCC_METHOD1 (gcc_type, float_type,
+-	     unsigned long)			/* Argument SIZE_IN_BYTES.  */
++GCC_METHOD2 (gcc_type, float_type,
++	     unsigned long,                /* Argument SIZE_IN_BYTES.  */
++	     const char *)		   /* Argument BUILTIN_NAME.  */
+ 
+ /* Return the 'void' type.  */
+ 
+diff --git a/include/gcc-c-interface.h b/include/gcc-c-interface.h
+index bee7f4e..e0af944 100644
+--- a/include/gcc-c-interface.h
++++ b/include/gcc-c-interface.h
+@@ -41,7 +41,7 @@ struct gcc_c_context;
+ 
+ enum gcc_c_api_version
+ {
+-  GCC_C_FE_VERSION_0 = 1
++  GCC_C_FE_VERSION_0 = 2
+ };
+ 
+ /* Qualifiers.  */
+diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
+index dcbcd61..5137815 100644
+--- a/include/gcc-cp-fe.def
++++ b/include/gcc-cp-fe.def
+@@ -517,21 +517,27 @@ GCC_METHOD4 (gcc_type, build_method_type,
+ 
+ // FIXME: add default expressions for function arguments?
+ 
+-/* Return an integer type with the given properties.  */
++/* Return an integer type with the given properties.  If BUILTIN_NAME
++   is non-NULL, it must name a builtin integral type with the given
++   signedness and size, and that is the type that will be returned.  */
+ 
+-GCC_METHOD2 (gcc_type, int_type,
++GCC_METHOD3 (gcc_type, int_type,
+ 	     int /* bool */,		   /* Argument IS_UNSIGNED.  */
+-	     unsigned long)                /* Argument SIZE_IN_BYTES.  */
++	     unsigned long,                /* Argument SIZE_IN_BYTES.  */
++	     const char *)		   /* Argument BUILTIN_NAME.  */
+ 
+ /* Return the 'char' type, a distinct type from both 'signed char' and
+    'unsigned char' returned by int_type.  */
+ 
+ GCC_METHOD0 (gcc_type, char_type)
+ 
+-/* Return a floating point type with the given properties.  */
++/* Return a floating point type with the given properties.    If BUILTIN_NAME
++   is non-NULL, it must name a builtin integral type with the given
++   signedness and size, and that is the type that will be returned.  */
+ 
+-GCC_METHOD1 (gcc_type, float_type,
+-	     unsigned long)			/* Argument SIZE_IN_BYTES.  */
++GCC_METHOD2 (gcc_type, float_type,
++	     unsigned long,                /* Argument SIZE_IN_BYTES.  */
++	     const char *)		   /* Argument BUILTIN_NAME.  */
+ 
+ /* Return the 'void' type.  */
+ 
+diff --git a/include/gcc-cp-interface.h b/include/gcc-cp-interface.h
+index b002b07..13a7902 100644
+--- a/include/gcc-cp-interface.h
++++ b/include/gcc-cp-interface.h
+@@ -41,7 +41,7 @@ struct gcc_cp_context;
+ 
+ enum gcc_cp_api_version
+ {
+-  GCC_CP_FE_VERSION_0 = 0xffffffff-5
++  GCC_CP_FE_VERSION_0 = 0xffffffff-6
+ };
+ 
+ /* Qualifiers.  */
+diff --git a/libcc1/libcc1plugin.cc b/libcc1/libcc1plugin.cc
+index aa09ea7..7e1c508 100644
+--- a/libcc1/libcc1plugin.cc
++++ b/libcc1/libcc1plugin.cc
+@@ -696,14 +696,26 @@ plugin_build_function_type (cc1_plugin::connection *self,
+ 
+ gcc_type
+ plugin_int_type (cc1_plugin::connection *self,
+-		 int is_unsigned, unsigned long size_in_bytes)
++		 int is_unsigned, unsigned long size_in_bytes,
++		 const char *builtin_name)
+ {
+-  tree result = c_common_type_for_size (BITS_PER_UNIT * size_in_bytes,
+-					is_unsigned);
++  tree result;
++
++  if (builtin_name)
++    result = lookup_name (get_identifier (builtin_name));
++  else
++    result = c_common_type_for_size (BITS_PER_UNIT * size_in_bytes,
++				     is_unsigned);
++
+   if (result == NULL_TREE)
+     result = error_mark_node;
+   else
+     {
++      gcc_assert (TREE_CODE (result) == INTEGER_TYPE);
++      gcc_assert (!TYPE_UNSIGNED (result) == !is_unsigned);
++      gcc_assert (TREE_CODE (TYPE_SIZE (result)) == INTEGER_CST);
++      gcc_assert (TYPE_PRECISION (result) == BITS_PER_UNIT * size_in_bytes);
++
+       plugin_context *ctx = static_cast<plugin_context *> (self);
+       ctx->preserve (result);
+     }
+@@ -718,8 +730,22 @@ plugin_char_type (cc1_plugin::connection *self)
+ 
+ gcc_type
+ plugin_float_type (cc1_plugin::connection *,
+-		   unsigned long size_in_bytes)
++		   unsigned long size_in_bytes,
++		   const char *builtin_name)
+ {
++  if (builtin_name)
++    {
++      tree result = lookup_name (get_identifier (builtin_name));
++
++      if (!result)
++	return convert_out (error_mark_node);
++
++      gcc_assert (TREE_CODE (result) == REAL_TYPE);
++      gcc_assert (BITS_PER_UNIT * size_in_bytes == TYPE_PRECISION (result));
++
++      return convert_out (result);
++    }
++
+   if (BITS_PER_UNIT * size_in_bytes == TYPE_PRECISION (float_type_node))
+     return convert_out (float_type_node);
+   if (BITS_PER_UNIT * size_in_bytes == TYPE_PRECISION (double_type_node))
+diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
+index dd3bb0e..0c76aec 100644
+--- a/libcc1/libcp1plugin.cc
++++ b/libcc1/libcp1plugin.cc
+@@ -1742,14 +1742,26 @@ plugin_start_specialize_class_template (cc1_plugin::connection *self,
+ 
+ gcc_type
+ plugin_int_type (cc1_plugin::connection *self,
+-		 int is_unsigned, unsigned long size_in_bytes)
++		 int is_unsigned, unsigned long size_in_bytes,
++		 const char *builtin_name)
+ {
+-  tree result = c_common_type_for_size (BITS_PER_UNIT * size_in_bytes,
+-					is_unsigned);
++  tree result;
++
++  if (builtin_name)
++    result = lookup_name (get_identifier (builtin_name));
++  else
++    result = c_common_type_for_size (BITS_PER_UNIT * size_in_bytes,
++				     is_unsigned);
++
+   if (result == NULL_TREE)
+     result = error_mark_node;
+   else
+     {
++      gcc_assert (TREE_CODE (result) == INTEGER_TYPE);
++      gcc_assert (!TYPE_UNSIGNED (result) == !is_unsigned);
++      gcc_assert (TREE_CODE (TYPE_SIZE (result)) == INTEGER_CST);
++      gcc_assert (TYPE_PRECISION (result) == BITS_PER_UNIT * size_in_bytes);
++
+       plugin_context *ctx = static_cast<plugin_context *> (self);
+       ctx->preserve (result);
+     }
+@@ -1764,8 +1776,22 @@ plugin_char_type (cc1_plugin::connection *self)
+ 
+ gcc_type
+ plugin_float_type (cc1_plugin::connection *,
+-		   unsigned long size_in_bytes)
++		   unsigned long size_in_bytes,
++		   const char *builtin_name)
+ {
++  if (builtin_name)
++    {
++      tree result = lookup_name (get_identifier (builtin_name));
++
++      if (!result)
++	return convert_out (error_mark_node);
++
++      gcc_assert (TREE_CODE (result) == REAL_TYPE);
++      gcc_assert (BITS_PER_UNIT * size_in_bytes == TYPE_PRECISION (result));
++
++      return convert_out (result);
++    }
++
+   if (BITS_PER_UNIT * size_in_bytes == TYPE_PRECISION (float_type_node))
+     return convert_out (float_type_node);
+   if (BITS_PER_UNIT * size_in_bytes == TYPE_PRECISION (double_type_node))
