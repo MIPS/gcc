@@ -1,6 +1,12 @@
 2016-03-30  Andre Vieira        <andre.simoesdiasvieira@arm.com>
 	    Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
+	* gcc.target/arm/cmse/cmse-2.c: New.
+	* gcc.target/arm/cmse/cmse-4.c: New.
+
+2016-03-30  Andre Vieira        <andre.simoesdiasvieira@arm.com>
+	    Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
 	* gcc.target/arm/cmse/cmse-3.c: New.
 
 2016-03-30  Andre Vieira        <andre.simoesdiasvieira@arm.com>

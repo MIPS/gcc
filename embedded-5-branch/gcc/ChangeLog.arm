@@ -1,6 +1,22 @@
 2016-03-30  Andre Vieira        <andre.simoesdiasvieira@arm.com>
 	    Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
+	* config/arm/arm.c (use_return_insn): Change to return with bxns when
+	cmse_nonsecure_entry.
+	(output_return_instruction): Likewise.
+	(arm_output_function_prologue): Likewise.
+	(thumb_pop): Likewise.
+	(thumb_exit): Likewise.
+	(arm_function_ok_for_sibcall): Disable sibcall for entry functions.
+	(arm_asm_declare_function_name): New.
+	(thumb1_cmse_nonsecure_entry_return): New.
+	* config/arm/arm-protos.h (arm_asm_declare_function_name): New.
+	* config/arm/elf.h (ASM_DECLARE_FUNCTION_NAME): Redefine to use
+	arm_asm_declare_function_name.
+
+2016-03-30  Andre Vieira        <andre.simoesdiasvieira@arm.com>
+	    Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
 	* config/arm/arm.c (arm_handle_cmse_nonsecure_entry): New.
 	(arm_attribute_table): Added cmse_nonsecure_entry
 	(arm_compute_func_type): Handle cmse_nonsecure_entry.
