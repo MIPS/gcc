@@ -19805,6 +19805,23 @@ output_return_instruction (rtx operand, bool really_return, bool reverse,
 	default:
 	  if (IS_CMSE_ENTRY (func_type))
 	    {
+	      char flags[12] = "APSR_nzcvq";
+	      /* Check if we have to clear the 'GE bits' which is only used if
+		 parallel add and subtraction instructions are available.  */
+	      if (TARGET_INT_SIMD)
+		{
+		  flags[10] = 'g';
+		  flags[11] = '\0';
+		}
+	      snprintf (instr, sizeof (instr),  "msr%s\t%s, %%|lr", conditional,
+			flags);
+	      output_asm_insn (instr, & operand);
+	      if (TARGET_HARD_FLOAT && TARGET_VFP)
+		{
+		  snprintf (instr, sizeof (instr), "vmsr%s\tfpscr, %%|lr",
+			    conditional);
+		  output_asm_insn (instr, & operand);
+		}
 	      snprintf (instr, sizeof (instr), "bxns%s\t%%|lr", conditional);
 	    }
 	  /* Use bx if it's available.  */
@@ -23833,6 +23850,17 @@ thumb_pop (FILE *f, unsigned long mask)
 static void
 thumb1_cmse_nonsecure_entry_return (FILE *f, int reg_containing_return_addr)
 {
+  char flags[12] = "APSR_nzcvq";
+  /* Check if we have to clear the 'GE bits' which is only used if
+     parallel add and subtraction instructions are available.  */
+  if (TARGET_INT_SIMD)
+    {
+      flags[10] = 'g';
+      flags[11] = '\0';
+    }
+  asm_fprintf (f, "\tmsr\t%s, %r\n", flags, reg_containing_return_addr);
+  if (TARGET_HARD_FLOAT && TARGET_VFP)
+    asm_fprintf (f, "\tvmsr\tfpscr, %r\n", reg_containing_return_addr);
   asm_fprintf (f, "\tbxns\t%r\n", reg_containing_return_addr);
 }
 
@@ -24951,6 +24979,235 @@ thumb1_expand_prologue (void)
     cfun->machine->lr_save_eliminated = 0;
 }
 
+/* Clear caller saved registers not used to pass return values and leaked
+   condition flags before exiting a cmse_nonsecure_entry function.  */
+
+void
+cmse_nonsecure_entry_clear_before_return (void)
+{
+  uint64_t to_clear_mask;
+  uint32_t padding_bits_to_clear = 0;
+  int regno, maxregno = IP_REGNUM;
+  tree result_type;
+  rtx result_rtl;
+
+  to_clear_mask = (1LL << (NUM_ARG_REGS)) - 1;
+  to_clear_mask |= (1LL << IP_REGNUM);
+  /* If we are not dealing with -mfloat-abi=softfp we will need to clear VFP
+     registers.  We also check TARGET_VFP to make sure these are present.  */
+  if (TARGET_HARD_FLOAT && TARGET_VFP)
+    {
+      uint64_t float_mask = (1LL << (D7_VFP_REGNUM + 1)) - 1;
+      float_mask &= ~((1LL << FIRST_VFP_REGNUM) - 1);
+      to_clear_mask |= float_mask;
+      maxregno = LAST_VFP_REGNUM;
+    }
+
+  /* If the user has defined registers to be caller saved, these are no longer
+     restored by the function before returning and must thus be cleared for
+     security purposes.  */
+  for (regno = NUM_ARG_REGS; regno < LAST_VFP_REGNUM; regno++)
+    {
+      /* We leave registers traditionally used to pass arguments untouched,
+	 since if these should not be made callee-saved by the user.  */
+      if (regno >= FIRST_VFP_REGNUM && regno <= D7_VFP_REGNUM)
+	continue;
+      if (regno >= IP_REGNUM && regno <= PC_REGNUM)
+	continue;
+      if (call_used_regs[regno])
+	to_clear_mask |= (1LL << regno);
+    }
+
+  /* Make sure we do not clear the registers used to pass the result in.  */
+  result_type = TREE_TYPE (DECL_RESULT (current_function_decl));
+  if (!VOID_TYPE_P (result_type))
+    {
+      rtx reg;
+
+      result_rtl = arm_function_value (result_type, current_function_decl, 0);
+
+      /* No need to check that we return in registers, because we don't
+	 support returning on stack yet.  */
+      if (RECORD_OR_UNION_TYPE_P (result_type))
+	{
+	  unsigned current_addr, cont_width, alignment, bitfield_width,
+		   next_addr;
+	  tree field, field_t;
+
+	  /* May only contain one register as the AAPCS limits the
+	     returning of composite types to one register.  */
+	  gcc_assert (REG_P (result_rtl));
+	  reg = result_rtl;
+
+	  /* Which must thus be r0.  */
+	  gcc_assert (REG_P (reg) && REGNO (reg) == 0);
+	  to_clear_mask &= ~1LL;
+
+	  /* Clear unused bits as per the AAPCS these have unspecified
+	     values and may thus leak secret information.  We use the algorithm
+	     specified in Section 7.1.7.1 "Bit-fields no larger than their
+	     container" of the Procedure Call Standard for the ARM Architecture
+	     to determine which bits are unused.  */
+	  field = TYPE_FIELDS (result_type);
+	  /* 'current_addr' is the current bit address.  */
+	  current_addr = 0;
+	  while (field && TREE_CODE (field) == FIELD_DECL)
+	    {
+	      field_t = TREE_TYPE (field);
+	      if (DECL_BIT_FIELD (field))
+		{
+		  tree bitfield_t = DECL_BIT_FIELD_TYPE (field);
+		  /* 'cont_width' is the container's width.  */
+		  cont_width = TREE_INT_CST_ELT (TYPE_SIZE (bitfield_t), 0);
+		  /* 'bitfield_width' is the width of the bitfield.  */
+		  bitfield_width = TREE_INT_CST_ELT (DECL_SIZE (field), 0);
+		  /* 'alignment' is the alignment of the bitfield type.  */
+		  alignment = TYPE_ALIGN (bitfield_t);
+		}
+	      else
+		{
+		  /* For non-bitfields 'bitfield_width' and 'cont_width' are
+		     the same, the size of the field member type.  */
+		  cont_width = TREE_INT_CST_ELT (TYPE_SIZE (field_t), 0);
+		  bitfield_width = cont_width;
+		  alignment = TYPE_ALIGN (field_t);
+		}
+
+	      if ((bitfield_width == 0)
+		  || (bitfield_width >
+		      (cont_width - (current_addr % alignment))))
+		{
+		  /* 'next_addr' is the next container bit address.  */
+		  next_addr =
+		    alignment * ((current_addr + alignment - 1)/alignment);
+		  /* We make sure we clear all bits between the current and
+		     next address.  */
+		  padding_bits_to_clear |= (unsigned)
+		    (((uint64_t)UINT_MAX >> (32 - (next_addr))) + 1u)
+		    - (1u << current_addr);
+		  current_addr = next_addr;
+		}
+	      current_addr += bitfield_width;
+	      field = TREE_CHAIN (field);
+	    }
+
+	  /* Don't forget to clear all unused trailing bits in r0.  */
+	  if (current_addr < 32)
+	    padding_bits_to_clear |= UINT_MAX - (1u << current_addr) + 1u;
+	}
+      else
+	{
+	  switch (GET_MODE (result_rtl))
+	    {
+	    case BLKmode:
+	      {
+		  /* We are dealing with a return in multiple VFP registers.  */
+		  int i;
+		  /* This should really only occur when dealing with an hard
+		     float abi.  */
+		  gcc_assert (TARGET_HARD_FLOAT_ABI && TARGET_VFP);
+
+		  for (i = 0; i < XVECLEN (result_rtl, 0); i++)
+		    {
+		      reg = XEXP (XVECEXP (result_rtl, 0, i), 0);
+		      gcc_assert (REG_P (reg));
+		      /* If we are dealing with DF mode, make sure you don't
+			 clear either registers it addresses.  */
+		      if (GET_MODE (reg) == DFmode)
+			to_clear_mask &= ~(1LL << (REGNO (reg) + 1));
+		      to_clear_mask &= ~(1LL << REGNO (reg));
+		    }
+		}
+	      break;
+	    case DImode:
+	      to_clear_mask &= ~2; /* Don't clear r0 and r1.  */
+	    case SImode:
+	      to_clear_mask &= ~1; /* Don't clear r0.  */
+	      break;
+	    case DFmode:
+	      /* If we have -mfloat-abi=hard, do not clear registers used to
+		 pass return value.  */
+	      if (TARGET_HARD_FLOAT_ABI && TARGET_VFP)
+		/* Don't clear s0 and s1.  */
+		to_clear_mask &= ~(1LL << (FIRST_VFP_REGNUM + 1));
+	      else
+		to_clear_mask &= ~2; /* Don't clear r0, r1.  */
+	    case SFmode:
+	      /* If we have -mfloat-abi=hard, do not clear registers used to
+		 pass return value.  */
+	      if (TARGET_HARD_FLOAT_ABI && TARGET_VFP)
+		/* Don't clear s0.  */
+		to_clear_mask &= ~(1LL << FIRST_VFP_REGNUM);
+	      else
+		to_clear_mask &= ~1; /* Don't clear r0.  */
+	      break;
+	    default:
+	      /* We are missing a mode, though AAPCS says we may only return in
+		 r0 and r1, s0-d15/d0-d7 so something went wrong here.  */
+	      gcc_unreachable ();
+	      break;
+	    }
+	}
+    }
+
+  if (padding_bits_to_clear != 0)
+    {
+      rtx reg_rtx;
+      /* Padding bits to clear is not 0 so we know we are dealing with
+         returning a composite type, which only uses r0.  Let's make sure that
+	 r1-r3 is cleared too, we will use r1 as a scratch register.  */
+      gcc_assert ((to_clear_mask & 0xe) == 0xe);
+
+      reg_rtx = gen_rtx_REG (SImode, 1);
+
+      emit_move_insn (reg_rtx,
+		      GEN_INT ((((~padding_bits_to_clear) << 16u) >> 16u)));
+
+      /* Also fill the top half of the negated padding_bits_to_clear.  */
+      if (((~padding_bits_to_clear) >> 16) > 0)
+	emit_insn (gen_rtx_SET (gen_rtx_ZERO_EXTRACT (SImode, reg_rtx,
+						      GEN_INT (16),
+						      GEN_INT (16)),
+				GEN_INT ((~padding_bits_to_clear) >> 16)));
+
+      emit_insn (gen_andsi3 (gen_rtx_REG (SImode, 0),
+			   gen_rtx_REG (SImode, 0),
+			   reg_rtx));
+    }
+
+  for (regno = 0; regno <= maxregno; regno++)
+    {
+      if (!(to_clear_mask & (1LL << regno)))
+	continue;
+
+      /* If regno is a vfp register, even and its successor is also to
+	 be cleared, use vmov.  */
+      if (IS_VFP_REGNUM (regno))
+	{
+	  if (TARGET_VFP_DOUBLE
+	      && VFP_REGNO_OK_FOR_DOUBLE (regno)
+	      && to_clear_mask & (1LL << (regno + 1)))
+	    {
+	      emit_move_insn (gen_rtx_REG (DFmode, regno++),
+			      CONST1_RTX (DFmode));
+	      emit_use (gen_rtx_REG (DFmode, regno));
+	    }
+	  else
+	    {
+	      emit_move_insn (gen_rtx_REG (SFmode, regno),
+			      CONST1_RTX (SFmode));
+	      emit_use (gen_rtx_REG (SFmode, regno));
+	    }
+	}
+      else
+	{
+	  emit_move_insn (gen_rtx_REG (SImode, regno),
+			  gen_rtx_REG (SImode, LR_REGNUM));
+	  emit_use (gen_rtx_REG (SImode, regno));
+	}
+    }
+}
+
 /* Generate pattern *pop_multiple_with_stack_update_and_return if single
    POP instruction can be generated.  LR should be replaced by PC.  All
    the checks required are already done by  USE_RETURN_INSN ().  Hence,
@@ -25000,6 +25257,8 @@ thumb2_expand_return (bool simple_return)
     }
   else
     {
+      if (IS_CMSE_ENTRY (arm_current_func_type ()))
+	cmse_nonsecure_entry_clear_before_return ();
       emit_jump_insn (simple_return_rtx);
     }
 }
@@ -25058,6 +25317,10 @@ thumb1_expand_epilogue (void)
 
   if (! df_regs_ever_live_p (LR_REGNUM))
     emit_use (gen_rtx_REG (SImode, LR_REGNUM));
+
+  /* Clear all caller-saved regs that are not used to return.  */
+  if (IS_CMSE_ENTRY (arm_current_func_type ()))
+    cmse_nonsecure_entry_clear_before_return ();
 }
 
 /* Epilogue code for APCS frame.  */
@@ -25490,6 +25753,14 @@ arm_expand_epilogue (bool really_return)
       arm_add_cfa_adjust_cfa_note (tmp, crtl->args.pretend_args_size,
 				   stack_pointer_rtx, stack_pointer_rtx);
     }
+
+    /* Clear all caller-saved regs that are not used to return.  */
+    if (IS_CMSE_ENTRY (arm_current_func_type ()))
+      {
+	/* CMSE_ENTRY always returns!  */
+	gcc_assert (really_return);
+	cmse_nonsecure_entry_clear_before_return ();
+      }
 
   if (!really_return)
     return;

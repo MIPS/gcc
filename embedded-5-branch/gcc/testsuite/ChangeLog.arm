@@ -1,6 +1,21 @@
 2016-03-30  Andre Vieira        <andre.simoesdiasvieira@arm.com>
 	    Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
+	* gcc.target/arm/cmse/cmse.exp: Test different multilibs separate.
+	* gcc.target/arm/cmse/struct-1.c: New.
+	* gcc.target/arm/cmse/bitfield-1.c: New.
+	* gcc.target/arm/cmse/bitfield-2.c: New.
+	* gcc.target/arm/cmse/bitfield-3.c: New.
+	* gcc.target/arm/cmse/baseline/cmse-2.c: Test that registers are cleared.
+	* gcc.target/arm/cmse/mainline/soft/cmse-5.c: New.
+	* gcc.target/arm/cmse/mainline/hard/cmse-5.c: New.
+	* gcc.target/arm/cmse/mainline/hard-sp/cmse-5.c: New.
+	* gcc.target/arm/cmse/mainline/softfp/cmse-5.c: New.
+	* gcc.target/arm/cmse/mainline/softfp-sp/cmse-5.c: New.
+
+2016-03-30  Andre Vieira        <andre.simoesdiasvieira@arm.com>
+	    Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
 	* gcc.target/arm/cmse/cmse-2.c: New.
 	* gcc.target/arm/cmse/cmse-4.c: New.
 

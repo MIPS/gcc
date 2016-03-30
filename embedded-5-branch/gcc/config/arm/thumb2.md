@@ -1110,7 +1110,15 @@
   "TARGET_THUMB2"
   "* return output_return_instruction (const_true_rtx, true, false, true);"
   [(set_attr "type" "branch")
-   (set_attr "length" "4")]
+  ; If this is a return from a cmse_nonsecure_entry function then code will be
+  ; added to clear the APSR and potentially the FPSCR if VFP is available, so
+  ; we adapt the length accordingly.
+   (set (attr "length")
+    (if_then_else (match_test "IS_CMSE_ENTRY (arm_current_func_type ())")
+     (if_then_else (match_test "TARGET_HARD_FLOAT && TARGET_VFP")
+      (const_int 12)
+      (const_int 8))
+     (const_int 4)))]
 )
 
 (define_insn_and_split "thumb2_eh_return"
