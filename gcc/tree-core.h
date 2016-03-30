@@ -1835,6 +1835,7 @@ typedef struct tree_node ttype;
    They will eventually all dissappear.  */
 #define TTYPE(NODE)  (NODE)
 #define TREE_CAST(NODE) (NODE)
+#define TREE_PTR_CAST(NODE) (NODE)
 #define TTYPE_PP(NODE) (NODE)
 
 
