@@ -1740,16 +1740,50 @@ plugin_start_specialize_class_template (cc1_plugin::connection *self,
   return convert_out (ctx->preserve (type));
 }
 
+/* Return a builtin type associated with BUILTIN_NAME.  */
+
+static tree
+safe_lookup_builtin_type (const char *builtin_name)
+{
+  tree result = NULL_TREE;
+
+  if (!builtin_name)
+    return result;
+
+  result = identifier_global_value (get_identifier (builtin_name));
+
+  if (!result)
+    return result;
+
+  gcc_assert (TREE_CODE (result) == TYPE_DECL);
+  result = TREE_TYPE (result);
+  return result;
+}
+
 gcc_type
 plugin_int_type (cc1_plugin::connection *self,
-		 int is_unsigned, unsigned long size_in_bytes)
+		 int is_unsigned, unsigned long size_in_bytes,
+		 const char *builtin_name)
 {
-  tree result = c_common_type_for_size (BITS_PER_UNIT * size_in_bytes,
-					is_unsigned);
+  tree result;
+
+  if (builtin_name)
+    {
+      result = safe_lookup_builtin_type (builtin_name);
+      gcc_assert (!result || TREE_CODE (result) == INTEGER_TYPE);
+    }
+  else
+    result = c_common_type_for_size (BITS_PER_UNIT * size_in_bytes,
+				     is_unsigned);
+
   if (result == NULL_TREE)
     result = error_mark_node;
   else
     {
+      gcc_assert (!TYPE_UNSIGNED (result) == !is_unsigned);
+      gcc_assert (TREE_CODE (TYPE_SIZE (result)) == INTEGER_CST);
+      gcc_assert (TYPE_PRECISION (result) == BITS_PER_UNIT * size_in_bytes);
+
       plugin_context *ctx = static_cast<plugin_context *> (self);
       ctx->preserve (result);
     }
@@ -1764,8 +1798,22 @@ plugin_char_type (cc1_plugin::connection *self)
 
 gcc_type
 plugin_float_type (cc1_plugin::connection *,
-		   unsigned long size_in_bytes)
+		   unsigned long size_in_bytes,
+		   const char *builtin_name)
 {
+  if (builtin_name)
+    {
+      tree result = safe_lookup_builtin_type (builtin_name);
+
+      if (!result)
+	return convert_out (error_mark_node);
+
+      gcc_assert (TREE_CODE (result) == REAL_TYPE);
+      gcc_assert (BITS_PER_UNIT * size_in_bytes == TYPE_PRECISION (result));
+
+      return convert_out (result);
+    }
+
   if (BITS_PER_UNIT * size_in_bytes == TYPE_PRECISION (float_type_node))
     return convert_out (float_type_node);
   if (BITS_PER_UNIT * size_in_bytes == TYPE_PRECISION (double_type_node))
