@@ -4370,7 +4370,7 @@ add_flexible_array_elts_to_size (tree decl, tree init)
    EXPR_CONST_OPERANDS not NULL, to indicate whether the type name may
    appear in a constant expression.  */
 
-tree
+ttype *
 groktypename (struct c_type_name *type_name, tree *expr,
 	      bool *expr_const_operands)
 {
@@ -4386,7 +4386,7 @@ groktypename (struct c_type_name *type_name, tree *expr,
   /* Apply attributes.  */
   type_attributes (&type, attrs, 0);
 
-  return type;
+  return TTYPE (type);
 }
 
 /* Wrapper for decl_attributes that adds some implicit attributes
