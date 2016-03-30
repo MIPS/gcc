@@ -508,6 +508,8 @@ enum arm_builtins
   ARM_BUILTIN_GET_FPSCR,
   ARM_BUILTIN_SET_FPSCR,
 
+  ARM_BUILTIN_CMSE_NONSECURE_CALLER,
+
 #undef CRYPTO1
 #undef CRYPTO2
 #undef CRYPTO3
@@ -1224,6 +1226,10 @@ static const struct builtin_description bdesc_2arg[] =
   FP_BUILTIN (set_fpscr, SET_FPSCR)
 #undef FP_BUILTIN
 
+  {FL_CMSE, CODE_FOR_andsi3,
+   "__builtin_arm_cmse_nonsecure_caller", ARM_BUILTIN_CMSE_NONSECURE_CALLER,
+   UNKNOWN, 0},
+
 #define CRC32_BUILTIN(L, U) \
   {0, CODE_FOR_##L, "__builtin_arm_"#L, ARM_BUILTIN_##U, \
    UNKNOWN, 0},
@@ -1753,6 +1759,17 @@ arm_init_builtins (void)
 	= add_builtin_function ("__builtin_arm_stfscr", ftype_set_fpscr,
 				ARM_BUILTIN_SET_FPSCR, BUILT_IN_MD, NULL, NULL_TREE);
     }
+
+  if (arm_arch_cmse)
+    {
+      tree ftype_cmse_nonsecure_caller
+	= build_function_type_list (unsigned_type_node, NULL);
+      arm_builtin_decls[ARM_BUILTIN_CMSE_NONSECURE_CALLER]
+	= add_builtin_function ("__builtin_arm_cmse_nonsecure_caller",
+				ftype_cmse_nonsecure_caller,
+				ARM_BUILTIN_CMSE_NONSECURE_CALLER, BUILT_IN_MD,
+				NULL, NULL_TREE);
+    }
 }
 
 /* Return the ARM builtin for CODE.  */
@@ -2270,6 +2287,14 @@ arm_expand_builtin (tree exp,
 	  op0 = expand_normal (arg0);
 	  pat = GEN_FCN (icode) (op0);
 	}
+      emit_insn (pat);
+      return target;
+
+    case ARM_BUILTIN_CMSE_NONSECURE_CALLER:
+      icode = CODE_FOR_andsi3;
+      target = gen_reg_rtx (SImode);
+      op0 = arm_return_addr (0, NULL_RTX);
+      pat = GEN_FCN (icode) (target, op0, const1_rtx);
       emit_insn (pat);
       return target;
 

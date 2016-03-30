@@ -66,3 +66,32 @@ int foo (char * p)
 /* { dg-final { scan-assembler-times "ttat " 2 } } */
 /* { dg-final { scan-assembler-times "bl.cmse_check_address_range" 7 } } */
 /* { dg-final { scan-assembler-not "cmse_check_pointed_object" } } */
+
+typedef int (*int_ret_funcptr_t) (void);
+typedef int __attribute__ ((cmse_nonsecure_call)) (*int_ret_nsfuncptr_t) (void);
+
+int __attribute__ ((cmse_nonsecure_entry))
+baz (void)
+{
+  return cmse_nonsecure_caller ();
+}
+
+int __attribute__ ((cmse_nonsecure_entry))
+qux (int_ret_funcptr_t int_ret_funcptr)
+{
+  int_ret_nsfuncptr_t int_ret_nsfunc_ptr;
+
+  if (cmse_is_nsfptr (int_ret_funcptr))
+    {
+      int_ret_nsfunc_ptr = cmse_nsfptr_create (int_ret_funcptr);
+      return int_ret_nsfunc_ptr ();
+    }
+  return 0;
+}
+/* { dg-final { scan-assembler "baz:" } } */
+/* { dg-final { scan-assembler "__acle_se_baz:" } } */
+/* { dg-final { scan-assembler-not "\tcmse_nonsecure_caller" } } */
+/* { dg-final { scan-rtl-dump "and.*reg.*const_int 1" expand } } */
+/* { dg-final { scan-assembler "bic" } } */
+/* { dg-final { scan-assembler "push\t\{r4, r5, r6" } } */
+/* { dg-final { scan-assembler "msr\tAPSR_nzcvq" } } */
