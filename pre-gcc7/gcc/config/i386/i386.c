@@ -3409,6 +3409,20 @@ scalar_chain::convert_op (rtx *op, rtx_insn *insn)
 	fprintf (dump_file, "  Preloading operand for insn %d into r%d\n",
 		 INSN_UID (insn), REGNO (tmp));
     }
+  else if (REG_P (*op))
+    {
+      /* We may have not converted register usage in case
+	 this register has no definition.  Otherwise it
+	 should be converted in convert_reg.  */
+      df_ref ref;
+      FOR_EACH_INSN_USE (ref, insn)
+	if (DF_REF_REGNO (ref) == REGNO (*op))
+	  {
+	    gcc_assert (!DF_REF_CHAIN (ref));
+	    break;
+	  }
+      *op = gen_rtx_SUBREG (V2DImode, *op, 0);
+    }
   else
     {
       gcc_assert (SUBREG_P (*op));
@@ -13449,9 +13463,11 @@ ix86_expand_epilogue (int style)
 	  rtx sa = EH_RETURN_STACKADJ_RTX;
 	  rtx_insn *insn;
 
-	  /* Stack align doesn't work with eh_return.  */
-	  gcc_assert (!stack_realign_drap);
-	  /* Neither does regparm nested functions.  */
+	  /* %ecx can't be used for both DRAP register and eh_return.  */
+	  if (crtl->drap_reg)
+	    gcc_assert (REGNO (crtl->drap_reg) != CX_REG);
+
+	  /* regparm nested functions don't work with eh_return.  */
 	  gcc_assert (!ix86_static_chain_on_stack);
 
 	  if (frame_pointer_needed)
@@ -32429,6 +32445,14 @@ def_builtin (HOST_WIDE_INT mask, const char *name,
     {
       ix86_builtins_isa[(int) code].isa = mask;
 
+      /* OPTION_MASK_ISA_AVX512VL has special meaning. Despite of generic case,
+	 where any bit set means that built-in is enable, this bit must be *and-ed*
+	 with another one. E.g.: OPTION_MASK_ISA_AVX512DQ | OPTION_MASK_ISA_AVX512VL
+	 means that *both* cpuid bits must be set for the built-in to be available.
+	 Handle this here.  */
+      if (mask & ix86_isa_flags & OPTION_MASK_ISA_AVX512VL)
+	  mask &= ~OPTION_MASK_ISA_AVX512VL;
+
       mask &= ~OPTION_MASK_ISA_64BIT;
       if (mask == 0
 	  || (mask & ix86_isa_flags) != 0
@@ -34094,9 +34118,9 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_AVX512BW | OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_permvarv16hi_mask, "__builtin_ia32_permvarhi256_mask", IX86_BUILTIN_VPERMVARHI256_MASK, UNKNOWN, (int) V16HI_FTYPE_V16HI_V16HI_V16HI_UHI },
   { OPTION_MASK_ISA_AVX512BW | OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_permvarv8hi_mask, "__builtin_ia32_permvarhi128_mask", IX86_BUILTIN_VPERMVARHI128_MASK, UNKNOWN, (int) V8HI_FTYPE_V8HI_V8HI_V8HI_UQI },
   { OPTION_MASK_ISA_AVX512BW | OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_vpermt2varv16hi3_mask, "__builtin_ia32_vpermt2varhi256_mask", IX86_BUILTIN_VPERMT2VARHI256, UNKNOWN, (int) V16HI_FTYPE_V16HI_V16HI_V16HI_UHI },
-  { OPTION_MASK_ISA_AVX512BW | OPTION_MASK_ISA_AVX512BW | OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_vpermt2varv16hi3_maskz, "__builtin_ia32_vpermt2varhi256_maskz", IX86_BUILTIN_VPERMT2VARHI256_MASKZ, UNKNOWN, (int) V16HI_FTYPE_V16HI_V16HI_V16HI_UHI },
+  { OPTION_MASK_ISA_AVX512BW | OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_vpermt2varv16hi3_maskz, "__builtin_ia32_vpermt2varhi256_maskz", IX86_BUILTIN_VPERMT2VARHI256_MASKZ, UNKNOWN, (int) V16HI_FTYPE_V16HI_V16HI_V16HI_UHI },
   { OPTION_MASK_ISA_AVX512BW | OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_vpermt2varv8hi3_mask, "__builtin_ia32_vpermt2varhi128_mask", IX86_BUILTIN_VPERMT2VARHI128, UNKNOWN, (int) V8HI_FTYPE_V8HI_V8HI_V8HI_UQI },
-  { OPTION_MASK_ISA_AVX512BW | OPTION_MASK_ISA_AVX512BW | OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_vpermt2varv8hi3_maskz, "__builtin_ia32_vpermt2varhi128_maskz", IX86_BUILTIN_VPERMT2VARHI128_MASKZ, UNKNOWN, (int) V8HI_FTYPE_V8HI_V8HI_V8HI_UQI },
+  { OPTION_MASK_ISA_AVX512BW | OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_vpermt2varv8hi3_maskz, "__builtin_ia32_vpermt2varhi128_maskz", IX86_BUILTIN_VPERMT2VARHI128_MASKZ, UNKNOWN, (int) V8HI_FTYPE_V8HI_V8HI_V8HI_UQI },
   { OPTION_MASK_ISA_AVX512BW | OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_vpermi2varv16hi3_mask, "__builtin_ia32_vpermi2varhi256_mask", IX86_BUILTIN_VPERMI2VARHI256, UNKNOWN, (int) V16HI_FTYPE_V16HI_V16HI_V16HI_UHI },
   { OPTION_MASK_ISA_AVX512BW | OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_vpermi2varv8hi3_mask, "__builtin_ia32_vpermi2varhi128_mask", IX86_BUILTIN_VPERMI2VARHI128, UNKNOWN, (int) V8HI_FTYPE_V8HI_V8HI_V8HI_UQI },
   { OPTION_MASK_ISA_AVX512VL, CODE_FOR_rcp14v4df_mask, "__builtin_ia32_rcp14pd256_mask", IX86_BUILTIN_RCP14PD256, UNKNOWN, (int) V4DF_FTYPE_V4DF_V4DF_UQI },
@@ -34811,9 +34835,9 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_AVX512VBMI | OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_permvarv32qi_mask, "__builtin_ia32_permvarqi256_mask", IX86_BUILTIN_VPERMVARQI256_MASK, UNKNOWN, (int) V32QI_FTYPE_V32QI_V32QI_V32QI_USI },
   { OPTION_MASK_ISA_AVX512VBMI | OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_permvarv16qi_mask, "__builtin_ia32_permvarqi128_mask", IX86_BUILTIN_VPERMVARQI128_MASK, UNKNOWN, (int) V16QI_FTYPE_V16QI_V16QI_V16QI_UHI },
   { OPTION_MASK_ISA_AVX512VBMI | OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_vpermt2varv32qi3_mask, "__builtin_ia32_vpermt2varqi256_mask", IX86_BUILTIN_VPERMT2VARQI256, UNKNOWN, (int) V32QI_FTYPE_V32QI_V32QI_V32QI_USI },
-  { OPTION_MASK_ISA_AVX512VBMI | OPTION_MASK_ISA_AVX512VBMI | OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_vpermt2varv32qi3_maskz, "__builtin_ia32_vpermt2varqi256_maskz", IX86_BUILTIN_VPERMT2VARQI256_MASKZ, UNKNOWN, (int) V32QI_FTYPE_V32QI_V32QI_V32QI_USI },
+  { OPTION_MASK_ISA_AVX512VBMI | OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_vpermt2varv32qi3_maskz, "__builtin_ia32_vpermt2varqi256_maskz", IX86_BUILTIN_VPERMT2VARQI256_MASKZ, UNKNOWN, (int) V32QI_FTYPE_V32QI_V32QI_V32QI_USI },
   { OPTION_MASK_ISA_AVX512VBMI | OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_vpermt2varv16qi3_mask, "__builtin_ia32_vpermt2varqi128_mask", IX86_BUILTIN_VPERMT2VARQI128, UNKNOWN, (int) V16QI_FTYPE_V16QI_V16QI_V16QI_UHI },
-  { OPTION_MASK_ISA_AVX512VBMI | OPTION_MASK_ISA_AVX512VBMI | OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_vpermt2varv16qi3_maskz, "__builtin_ia32_vpermt2varqi128_maskz", IX86_BUILTIN_VPERMT2VARQI128_MASKZ, UNKNOWN, (int) V16QI_FTYPE_V16QI_V16QI_V16QI_UHI },
+  { OPTION_MASK_ISA_AVX512VBMI | OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_vpermt2varv16qi3_maskz, "__builtin_ia32_vpermt2varqi128_maskz", IX86_BUILTIN_VPERMT2VARQI128_MASKZ, UNKNOWN, (int) V16QI_FTYPE_V16QI_V16QI_V16QI_UHI },
   { OPTION_MASK_ISA_AVX512VBMI | OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_vpermi2varv32qi3_mask, "__builtin_ia32_vpermi2varqi256_mask", IX86_BUILTIN_VPERMI2VARQI256, UNKNOWN, (int) V32QI_FTYPE_V32QI_V32QI_V32QI_USI },
   { OPTION_MASK_ISA_AVX512VBMI | OPTION_MASK_ISA_AVX512VL, CODE_FOR_avx512vl_vpermi2varv16qi3_mask, "__builtin_ia32_vpermi2varqi128_mask", IX86_BUILTIN_VPERMI2VARQI128, UNKNOWN, (int) V16QI_FTYPE_V16QI_V16QI_V16QI_UHI },
 };
@@ -46908,7 +46932,12 @@ half:
     {
       tmp = gen_reg_rtx (mode);
       emit_insn (gen_rtx_SET (tmp, gen_rtx_VEC_DUPLICATE (mode, val)));
-      emit_insn (gen_blendm (target, tmp, target,
+      /* The avx512*_blendm<mode> expanders have different operand order
+	 from VEC_MERGE.  In VEC_MERGE, the first input operand is used for
+	 elements where the mask is set and second input operand otherwise,
+	 in {sse,avx}*_*blend* the first input operand is used for elements
+	 where the mask is clear and second input operand otherwise.  */
+      emit_insn (gen_blendm (target, target, tmp,
 			     force_reg (mmode,
 					gen_int_mode (1 << elt, mmode))));
     }
@@ -51910,16 +51939,24 @@ ix86_expand_vecop_qihi (enum rtx_code code, rtx dest, rtx op1, rtx op2)
     {
       /* For SSE2, we used an full interleave, so the desired
 	 results are in the even elements.  */
-      for (i = 0; i < 64; ++i)
+      for (i = 0; i < d.nelt; ++i)
 	d.perm[i] = i * 2;
     }
   else
     {
       /* For AVX, the interleave used above was not cross-lane.  So the
 	 extraction is evens but with the second and third quarter swapped.
-	 Happily, that is even one insn shorter than even extraction.  */
-      for (i = 0; i < 64; ++i)
-	d.perm[i] = i * 2 + ((i & 24) == 8 ? 16 : (i & 24) == 16 ? -16 : 0);
+	 Happily, that is even one insn shorter than even extraction.
+	 For AVX512BW we have 4 lanes.  We extract evens from within a lane,
+	 always first from the first and then from the second source operand,
+	 the index bits above the low 4 bits remains the same.
+	 Thus, for d.nelt == 32 we want permutation
+	 0,2,4,..14, 32,34,36,..46, 16,18,20,..30, 48,50,52,..62
+	 and for d.nelt == 64 we want permutation
+	 0,2,4,..14, 64,66,68,..78, 16,18,20,..30, 80,82,84,..94,
+	 32,34,36,..46, 96,98,100,..110, 48,50,52,..62, 112,114,116,..126.  */
+      for (i = 0; i < d.nelt; ++i)
+	d.perm[i] = ((i * 2) & 14) + ((i & 8) ? d.nelt : 0) + (i & ~15);
     }
 
   ok = ix86_expand_vec_perm_const_1 (&d);

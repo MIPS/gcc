@@ -1,3 +1,8 @@
+2016-03-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 234598.
+	* REVISION: Update subversion id.
+
 2016-03-30  Kelvin Nilsen  <kelvin@gcc.gnu.org>
 
 	* doc/extend.texi: Document __builtin_darn (void),
@@ -8,21 +13,21 @@
 	#include "rs6000-bultin.def".
 	(rs6000_builtin_mask_calculate): Add in the RS6000_BTM_MODULO and
 	RS6000_BTM_64BIT flags to the returned mask, depending on
-	configuration.  
+	configuration.
 	(def_builtin): Correct an error in the assignments made to the
-	debugging variable attr_string. 
+	debugging variable attr_string.
 	(rs6000_expand_builtin): Add support for no-operand built-in
-	functions. 
+	functions.
 	(builtin_function_type): Remove fatal_error assertion that is no
-	longer valid. 
+	longer valid.
 	(rs6000_common_init_builtins): Add support for no-operand built-in
-	functions. 
+	functions.
 	* config/rs6000/altivec.h: Add macro definitions for darn,
-	darn_32, and darn_raw. 
+	darn_32, and darn_raw.
 	* config/rs6000/rs6000.h (RS6000_BTM_MODULO): New macro
 	definition.
 	(RS6000_BTC_PURE): Enhance comment associated with this macro
-	definition.  
+	definition.
 	(RS6000_BTM_64BIT): New macro definition.
 	* config/rs6000/rs6000-builtin.def (RS6000_BUILTIN_0): Introduce
 	use and documentation of this new macro.
