@@ -1,5 +1,5 @@
 Bottom: 431a7ac7578cd4f9528de6e3900f1423a34e9cd7
-Top:    f49bb64048af03cff04b336861bfc0c3e1c0ec53
+Top:    edd1b783d859c86749c1de597e03df81b0919495
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-03-30 02:30:53 -0300
 
@@ -59,7 +59,7 @@ index bee7f4e..e0af944 100644
  
  /* Qualifiers.  */
 diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
-index dcbcd61..5137815 100644
+index dcbcd61..141ceef 100644
 --- a/include/gcc-cp-fe.def
 +++ b/include/gcc-cp-fe.def
 @@ -517,21 +517,27 @@ GCC_METHOD4 (gcc_type, build_method_type,
@@ -84,7 +84,7 @@ index dcbcd61..5137815 100644
  GCC_METHOD0 (gcc_type, char_type)
  
 -/* Return a floating point type with the given properties.  */
-+/* Return a floating point type with the given properties.    If BUILTIN_NAME
++/* Return a floating point type with the given properties.  If BUILTIN_NAME
 +   is non-NULL, it must name a builtin integral type with the given
 +   signedness and size, and that is the type that will be returned.  */
  
