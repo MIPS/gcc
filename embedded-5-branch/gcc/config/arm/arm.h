@@ -1504,6 +1504,7 @@ do {									      \
 #define ARM_FT_VOLATILE		(1 << 4) /* Does not return.  */
 #define ARM_FT_NESTED		(1 << 5) /* Embedded inside another func.  */
 #define ARM_FT_STACKALIGN	(1 << 6) /* Called with misaligned stack.  */
+#define ARM_FT_CMSE_ENTRY	(1 << 7) /* ARMv8-M non-secure entry function.  */
 
 /* Some macros to test these flags.  */
 #define ARM_FUNC_TYPE(t)	(t & ARM_FT_TYPE_MASK)
@@ -1512,6 +1513,7 @@ do {									      \
 #define IS_NAKED(t)        	(t & ARM_FT_NAKED)
 #define IS_NESTED(t)       	(t & ARM_FT_NESTED)
 #define IS_STACKALIGN(t)       	(t & ARM_FT_STACKALIGN)
+#define IS_CMSE_ENTRY(t)	(t & ARM_FT_CMSE_ENTRY)
 
 
 /* Structure used to hold the function stack frame layout.  Offsets are
