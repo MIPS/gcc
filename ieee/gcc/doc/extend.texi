@@ -954,12 +954,13 @@ typedef _Complex float __attribute__((mode(TC))) _Complex128;
 typedef _Complex float __attribute__((mode(XC))) _Complex80;
 @end smallexample
 
-On PowerPC 64-bit Linux systems there are currently problems in using
-the complex @code{__float128} type.  When these problems are fixed,
-you would use:
+On the PowerPC targets, you can declare complex types using the
+corresponding internal complex type, @code{ICmode} for
+@code{__ibm128} type and @code{KCmode} for @code{__float128} type:
 
 @smallexample
-typedef _Complex float __attribute__((mode(KC))) _Complex128;
+typedef _Complex float __attribute__((mode(KC))) _Complex_float128;
+typedef _Complex float __attribute__((mode(IC))) _Complex_ibm128;
 @end smallexample
 
 Not all targets support additional floating-point types.

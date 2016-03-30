@@ -418,12 +418,12 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
    Similarly IFmode is the IBM long double format even if the default is IEEE
    128-bit.  */
 #define FLOAT128_IEEE_P(MODE)						\
-  (((MODE) == TFmode && TARGET_IEEEQUAD)				\
-   || ((MODE) == KFmode))
+  ((TARGET_IEEEQUAD && ((MODE) == TFmode || (MODE) == TCmode))		\
+   || ((MODE) == KFmode) || ((MODE) == KCmode))
 
 #define FLOAT128_IBM_P(MODE)						\
-  (((MODE) == TFmode && !TARGET_IEEEQUAD)				\
-   || ((MODE) == IFmode))
+  ((!TARGET_IEEEQUAD && ((MODE) == TFmode || (MODE) == TCmode))		\
+   || ((MODE) == IFmode) || ((MODE) == ICmode))
 
 /* Helper macros to say whether a 128-bit floating point type can go in a
    single vector register, or whether it needs paired scalar values.  */
@@ -1777,13 +1777,17 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
 /* Maximum number of registers per ELFv2 homogeneous aggregate argument.  */
 #define AGGR_ARG_NUM_REG 8
 
+/* _Complex __float128 needs two registers.  */
+#define ALTIVEC_COMPLEX	((TARGET_FLOAT128) ? 1 : 0)
+
 /* Return registers */
 #define GP_ARG_RETURN GP_ARG_MIN_REG
 #define FP_ARG_RETURN FP_ARG_MIN_REG
 #define ALTIVEC_ARG_RETURN (FIRST_ALTIVEC_REGNO + 2)
 #define FP_ARG_MAX_RETURN (DEFAULT_ABI != ABI_ELFv2 ? FP_ARG_RETURN	\
 			   : (FP_ARG_RETURN + AGGR_ARG_NUM_REG - 1))
-#define ALTIVEC_ARG_MAX_RETURN (DEFAULT_ABI != ABI_ELFv2 ? ALTIVEC_ARG_RETURN \
+#define ALTIVEC_ARG_MAX_RETURN (DEFAULT_ABI != ABI_ELFv2		 \
+				? (ALTIVEC_ARG_RETURN + ALTIVEC_COMPLEX) \
 			        : (ALTIVEC_ARG_RETURN + AGGR_ARG_NUM_REG - 1))
 
 /* Flags for the call/call_value rtl operations set up by function_arg */
