@@ -1,3 +1,11 @@
+2016-03-30  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	Avoiding target_header_dir=yes for --with-headers=yes.
+
+	2015-10-12  Ulrich Weigand  <uweigand@de.ibm.com>
+	* configure.ac: Dont set target_header_dir to "yes" if with_headers is
+	passed the value "yes".
+
 2016-03-10  Andre Vieira  <andre.simoesdiasvieira@arm.com>
 
 	* gcc/config/arm/t-baremetal: Add cortex-r8.
