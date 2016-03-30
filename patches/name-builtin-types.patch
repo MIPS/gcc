@@ -1,5 +1,5 @@
 Bottom: 431a7ac7578cd4f9528de6e3900f1423a34e9cd7
-Top:    edd1b783d859c86749c1de597e03df81b0919495
+Top:    77ea2104bbb697f3e1dc935ca0a88c12693af702
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-03-30 02:30:53 -0300
 
@@ -110,11 +110,33 @@ index b002b07..13a7902 100644
  
  /* Qualifiers.  */
 diff --git a/libcc1/libcc1plugin.cc b/libcc1/libcc1plugin.cc
-index aa09ea7..7e1c508 100644
+index aa09ea7..beb2d202 100644
 --- a/libcc1/libcc1plugin.cc
 +++ b/libcc1/libcc1plugin.cc
-@@ -696,14 +696,26 @@ plugin_build_function_type (cc1_plugin::connection *self,
+@@ -694,16 +694,50 @@ plugin_build_function_type (cc1_plugin::connection *self,
+   return convert_out (ctx->preserve (result));
+ }
  
++/* Return a builtin type associated with BUILTIN_NAME.  */
++
++static tree
++safe_lookup_builtin_type (const char *builtin_name)
++{
++  tree result = NULL_TREE;
++
++  if (!builtin_name)
++    return result;
++
++  result = identifier_global_value (get_identifier (builtin_name));
++
++  if (!result)
++    return result;
++
++  gcc_assert (TREE_CODE (result) == TYPE_DECL);
++  result = TREE_TYPE (result);
++  return result;
++}
++
  gcc_type
  plugin_int_type (cc1_plugin::connection *self,
 -		 int is_unsigned, unsigned long size_in_bytes)
@@ -126,7 +148,10 @@ index aa09ea7..7e1c508 100644
 +  tree result;
 +
 +  if (builtin_name)
-+    result = lookup_name (get_identifier (builtin_name));
++    {
++      result = safe_lookup_builtin_type (builtin_name);
++      gcc_assert (!result || TREE_CODE (result) == INTEGER_TYPE);
++    }
 +  else
 +    result = c_common_type_for_size (BITS_PER_UNIT * size_in_bytes,
 +				     is_unsigned);
@@ -135,7 +160,6 @@ index aa09ea7..7e1c508 100644
      result = error_mark_node;
    else
      {
-+      gcc_assert (TREE_CODE (result) == INTEGER_TYPE);
 +      gcc_assert (!TYPE_UNSIGNED (result) == !is_unsigned);
 +      gcc_assert (TREE_CODE (TYPE_SIZE (result)) == INTEGER_CST);
 +      gcc_assert (TYPE_PRECISION (result) == BITS_PER_UNIT * size_in_bytes);
@@ -143,7 +167,7 @@ index aa09ea7..7e1c508 100644
        plugin_context *ctx = static_cast<plugin_context *> (self);
        ctx->preserve (result);
      }
-@@ -718,8 +730,22 @@ plugin_char_type (cc1_plugin::connection *self)
+@@ -718,8 +752,22 @@ plugin_char_type (cc1_plugin::connection *self)
  
  gcc_type
  plugin_float_type (cc1_plugin::connection *,
@@ -153,7 +177,7 @@ index aa09ea7..7e1c508 100644
  {
 +  if (builtin_name)
 +    {
-+      tree result = lookup_name (get_identifier (builtin_name));
++      tree result = safe_lookup_builtin_type (builtin_name);
 +
 +      if (!result)
 +	return convert_out (error_mark_node);
@@ -168,11 +192,33 @@ index aa09ea7..7e1c508 100644
      return convert_out (float_type_node);
    if (BITS_PER_UNIT * size_in_bytes == TYPE_PRECISION (double_type_node))
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index dd3bb0e..0c76aec 100644
+index dd3bb0e..159d466 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
-@@ -1742,14 +1742,26 @@ plugin_start_specialize_class_template (cc1_plugin::connection *self,
+@@ -1740,16 +1740,50 @@ plugin_start_specialize_class_template (cc1_plugin::connection *self,
+   return convert_out (ctx->preserve (type));
+ }
  
++/* Return a builtin type associated with BUILTIN_NAME.  */
++
++static tree
++safe_lookup_builtin_type (const char *builtin_name)
++{
++  tree result = NULL_TREE;
++
++  if (!builtin_name)
++    return result;
++
++  result = identifier_global_value (get_identifier (builtin_name));
++
++  if (!result)
++    return result;
++
++  gcc_assert (TREE_CODE (result) == TYPE_DECL);
++  result = TREE_TYPE (result);
++  return result;
++}
++
  gcc_type
  plugin_int_type (cc1_plugin::connection *self,
 -		 int is_unsigned, unsigned long size_in_bytes)
@@ -184,7 +230,10 @@ index dd3bb0e..0c76aec 100644
 +  tree result;
 +
 +  if (builtin_name)
-+    result = lookup_name (get_identifier (builtin_name));
++    {
++      result = safe_lookup_builtin_type (builtin_name);
++      gcc_assert (!result || TREE_CODE (result) == INTEGER_TYPE);
++    }
 +  else
 +    result = c_common_type_for_size (BITS_PER_UNIT * size_in_bytes,
 +				     is_unsigned);
@@ -193,7 +242,6 @@ index dd3bb0e..0c76aec 100644
      result = error_mark_node;
    else
      {
-+      gcc_assert (TREE_CODE (result) == INTEGER_TYPE);
 +      gcc_assert (!TYPE_UNSIGNED (result) == !is_unsigned);
 +      gcc_assert (TREE_CODE (TYPE_SIZE (result)) == INTEGER_CST);
 +      gcc_assert (TYPE_PRECISION (result) == BITS_PER_UNIT * size_in_bytes);
@@ -201,7 +249,7 @@ index dd3bb0e..0c76aec 100644
        plugin_context *ctx = static_cast<plugin_context *> (self);
        ctx->preserve (result);
      }
-@@ -1764,8 +1776,22 @@ plugin_char_type (cc1_plugin::connection *self)
+@@ -1764,8 +1798,22 @@ plugin_char_type (cc1_plugin::connection *self)
  
  gcc_type
  plugin_float_type (cc1_plugin::connection *,
@@ -211,7 +259,7 @@ index dd3bb0e..0c76aec 100644
  {
 +  if (builtin_name)
 +    {
-+      tree result = lookup_name (get_identifier (builtin_name));
++      tree result = safe_lookup_builtin_type (builtin_name);
 +
 +      if (!result)
 +	return convert_out (error_mark_node);
