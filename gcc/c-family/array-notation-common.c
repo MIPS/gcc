@@ -398,7 +398,7 @@ replace_array_notations (tree *orig, bool ignore_builtin_fn,
 			 vec<tree, va_gc> *array_operand)
 {
   size_t ii = 0;
-  extern tree build_c_cast (location_t, tree, tree);
+  extern tree build_c_cast (location_t, ttype_p, tree);
   tree node = NULL_TREE, node_replacement = NULL_TREE;
   
   if (vec_safe_length (list) == 0)
@@ -562,7 +562,7 @@ contains_array_notation_expr (tree expr)
    notation function.  If so, then we will return its type to be the type of
    the array notation inside.  */
 
-tree
+ttype *
 find_correct_array_notation_type (tree op)
 {
   tree fn_arg, return_type = NULL_TREE;
@@ -578,7 +578,7 @@ find_correct_array_notation_type (tree op)
 	      return_type = TREE_TYPE (fn_arg); 
 	  }
     } 
-  return return_type;
+  return TTYPE (return_type);
 }
 
 /* Extracts all the array notation triplet information from LIST and stores

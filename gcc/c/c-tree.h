@@ -131,7 +131,7 @@ struct c_expr
      differ from the type of the value field for an enum constant.
      The type of an enum constant is a plain integer type, but this
      field will be the enum type.  */
-  tree original_type;
+  ttype *original_type;
 
   /* The source range of this expression.  This is redundant
      for node values that have locations, but not all node kinds
@@ -519,7 +519,7 @@ extern struct c_arg_info *build_arg_info (void);
 extern struct c_arg_info *get_parm_info (bool, tree);
 extern tree grokfield (location_t, struct c_declarator *,
 		       struct c_declspecs *, tree, tree *);
-extern tree groktypename (struct c_type_name *, tree *, bool *);
+extern ttype *groktypename (struct c_type_name *, tree *, bool *);
 extern tree grokparm (const struct c_parm *, tree *);
 extern tree implicitly_declare (location_t, tree);
 extern void keep_next_level (void);
@@ -590,9 +590,9 @@ extern struct c_switch *c_switch_stack;
 extern tree c_objc_common_truthvalue_conversion (location_t, tree);
 extern tree require_complete_type (tree);
 extern int same_translation_unit_p (const_tree, const_tree);
-extern int comptypes (tree, tree);
-extern int comptypes_check_different_types (tree, tree, bool *);
-extern bool c_vla_type_p (const_tree);
+extern int comptypes (ttype_p, ttype_p);
+extern int comptypes_check_different_types (ttype_p, ttype_p, bool *);
+extern bool c_vla_type_p (const ttype_p);
 extern bool c_mark_addressable (tree);
 extern void c_incomplete_type_error (const_tree, const ttype_p);
 extern ttype *c_type_promotes_to (ttype_p);
@@ -603,10 +603,10 @@ extern struct c_expr default_function_array_read_conversion (location_t,
 extern struct c_expr convert_lvalue_to_rvalue (location_t, struct c_expr,
 					       bool, bool);
 extern void mark_exp_read (tree);
-extern tree composite_type (tree, tree);
+extern ttype *composite_type (ttype_p, ttype_p);
 extern tree build_component_ref (location_t, tree, tree);
 extern tree build_array_ref (location_t, tree, tree);
-extern tree build_external_ref (location_t, tree, int, tree *);
+extern tree build_external_ref (location_t, tree, int, ttype_pp);
 extern void pop_maybe_used (bool);
 extern struct c_expr c_expr_sizeof_expr (location_t, struct c_expr);
 extern struct c_expr c_expr_sizeof_type (location_t, struct c_type_name *);
@@ -615,16 +615,16 @@ extern struct c_expr parser_build_unary_op (location_t, enum tree_code,
 extern struct c_expr parser_build_binary_op (location_t,
     					     enum tree_code, struct c_expr,
 					     struct c_expr);
-extern tree build_conditional_expr (location_t, tree, bool, tree, tree,
-				    tree, tree);
+extern tree build_conditional_expr (location_t, tree, bool, tree, ttype_p,
+				    tree, ttype_p);
 extern tree build_compound_expr (location_t, tree, tree);
 extern tree c_cast_expr (location_t, struct c_type_name *, tree);
-extern tree build_c_cast (location_t, tree, tree);
-extern void store_init_value (location_t, tree, tree, tree);
+extern tree build_c_cast (location_t, ttype_p, tree);
+extern void store_init_value (location_t, tree, tree, ttype_p);
 extern void maybe_warn_string_init (location_t, tree, struct c_expr);
 extern void start_init (tree, tree, int);
 extern void finish_init (void);
-extern void really_start_incremental_init (tree);
+extern void really_start_incremental_init (ttype_p);
 extern void finish_implicit_inits (location_t, struct obstack *);
 extern void push_init_level (location_t, int, struct obstack *);
 extern struct c_expr pop_init_level (location_t, int, struct obstack *);
@@ -635,7 +635,7 @@ extern void process_init_element (location_t, struct c_expr, bool,
 extern tree build_compound_literal (location_t, tree, tree, bool);
 extern void check_compound_literal_type (location_t, struct c_type_name *);
 extern tree c_start_case (location_t, location_t, tree, bool);
-extern void c_finish_case (tree, tree);
+extern void c_finish_case (tree, ttype *);
 extern tree build_asm_expr (location_t, tree, tree, tree, tree, tree, bool);
 extern tree build_asm_stmt (tree, tree);
 extern int c_types_compatible_p (ttype_p, ttype_p);
@@ -647,7 +647,7 @@ extern tree c_begin_stmt_expr (void);
 extern tree c_finish_stmt_expr (location_t, tree);
 extern tree c_process_expr_stmt (location_t, tree);
 extern tree c_finish_expr_stmt (location_t, tree);
-extern tree c_finish_return (location_t, tree, tree);
+extern tree c_finish_return (location_t, tree, ttype_p);
 extern tree c_finish_bc_stmt (location_t, tree *, bool);
 extern tree c_finish_goto_label (location_t, tree);
 extern tree c_finish_goto_ptr (location_t, tree);
@@ -662,7 +662,7 @@ extern tree c_finish_omp_task (location_t, tree, tree);
 extern void c_finish_omp_cancel (location_t, tree);
 extern void c_finish_omp_cancellation_point (location_t, tree);
 extern tree c_finish_omp_clauses (tree, bool, bool = false);
-extern tree c_build_va_arg (location_t, tree, location_t, tree);
+extern tree c_build_va_arg (location_t, tree, location_t, ttype_p);
 extern tree c_finish_transaction (location_t, tree, int);
 extern bool c_tree_equal (tree, tree);
 extern tree c_build_function_call_vec (location_t, vec<location_t>, tree,
