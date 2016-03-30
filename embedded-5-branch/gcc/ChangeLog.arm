@@ -1,6 +1,13 @@
 2016-03-30  Andre Vieira        <andre.simoesdiasvieira@arm.com>
 	    Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
+	* config/arm/arm.c (gimplify.h): New include.
+	(arm_handle_cmse_nonsecure_call): New.
+	(arm_attribute_table): Added cmse_nonsecure_call.
+
+2016-03-30  Andre Vieira        <andre.simoesdiasvieira@arm.com>
+	    Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
 	* config/arm/arm.c (output_return_instruction): Clear registers.
 	(thumb2_expand_return): Likewise.
 	(thumb1_expand_epilogue): Likewise.

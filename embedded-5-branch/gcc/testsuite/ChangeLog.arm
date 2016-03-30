@@ -1,6 +1,12 @@
 2016-03-30  Andre Vieira        <andre.simoesdiasvieira@arm.com>
 	    Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
+	* gcc.target/arm/cmse/cmse-3.c: Add tests.
+	* gcc.target/arm/cmse/cmse-4.c: Add tests.
+
+2016-03-30  Andre Vieira        <andre.simoesdiasvieira@arm.com>
+	    Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
 	* gcc.target/arm/cmse/cmse.exp: Test different multilibs separate.
 	* gcc.target/arm/cmse/struct-1.c: New.
 	* gcc.target/arm/cmse/bitfield-1.c: New.
