@@ -6950,7 +6950,8 @@ canonicalize_type_argument (tree arg, tsubst_flags_t complain)
   tree canon = strip_typedefs (arg, &removed_attributes);
   if (removed_attributes
       && (complain & tf_warning))
-    warning (0, "ignoring attributes on template argument %qT", arg);
+    warning (OPT_Wignored_attributes,
+	     "ignoring attributes on template argument %qT", arg);
   return canon;
 }
 
@@ -8851,8 +8852,9 @@ for_each_template_parm_r (tree *tp, int *walk_subtrees, void *d)
       break;
 
     case TYPENAME_TYPE:
-      if (!fn)
-	WALK_SUBTREE (TYPENAME_TYPE_FULLNAME (t));
+      /* A template-id in a TYPENAME_TYPE might be a deduced context after
+	 partial instantiation.  */
+      WALK_SUBTREE (TYPENAME_TYPE_FULLNAME (t));
       break;
 
     case CONSTRUCTOR:
@@ -12373,6 +12375,8 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	/* The initializer must not be expanded until it is required;
 	   see [temp.inst].  */
 	DECL_INITIAL (r) = NULL_TREE;
+	if (VAR_P (r))
+	  DECL_MODE (r) = VOIDmode;
 	if (CODE_CONTAINS_STRUCT (TREE_CODE (t), TS_DECL_WRTL))
 	  SET_DECL_RTL (r, NULL);
 	DECL_SIZE (r) = DECL_SIZE_UNIT (r) = 0;
@@ -13874,10 +13878,13 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
       if (r == NULL_TREE)
 	{
-	  /* We get here for a use of 'this' in an NSDMI.  */
+	  /* We get here for a use of 'this' in an NSDMI as part of a
+	     constructor call or as part of an aggregate initialization.  */
 	  if (DECL_NAME (t) == this_identifier
-	      && current_function_decl
-	      && DECL_CONSTRUCTOR_P (current_function_decl))
+	      && ((current_function_decl
+		   && DECL_CONSTRUCTOR_P (current_function_decl))
+		  || (current_class_ref
+		      && TREE_CODE (current_class_ref) == PLACEHOLDER_EXPR)))
 	    return current_class_ptr;
 
 	  /* This can happen for a parameter name used later in a function
@@ -21934,7 +21941,7 @@ instantiate_decl (tree d, int defer_ok,
       if (enter_context)
         pop_nested_class ();
 
-      if (variable_template_p (td))
+      if (variable_template_p (gen_tmpl))
 	note_variable_template_instantiation (d);
     }
   else if (TREE_CODE (d) == FUNCTION_DECL && DECL_DEFAULTED_FN (code_pattern))

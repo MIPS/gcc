@@ -1210,6 +1210,14 @@ failure:
   return false;
 }
 
+/* Atomically store pair of uint16_t values (HEADER and REST) to a PACKET.  */
+
+void
+packet_store_release (uint32_t* packet, uint16_t header, uint16_t rest)
+{
+  __atomic_store_n (packet, header | (rest << 16), __ATOMIC_RELEASE);
+}
+
 /* Part of the libgomp plugin interface.  Run a kernel on device N and pass it
    an array of pointers in VARS as a parameter.  The kernel is identified by
    FN_PTR which must point to a kernel_info structure.  */
@@ -1257,8 +1265,6 @@ GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, void **args)
 	   + index % agent->command_q->size;
 
   memset (((uint8_t *) packet) + 4, 0, sizeof (*packet) - 4);
-  packet->setup
-    |= (uint16_t) kla->ndim << HSA_KERNEL_DISPATCH_PACKET_SETUP_DIMENSIONS;
   packet->grid_size_x = kla->gdims[0];
   packet->workgroup_size_x = get_group_size (kla->ndim, kla->gdims[0],
 					     kla->wdims[0]);
@@ -1297,8 +1303,16 @@ GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, void **args)
   hsa_signal_store_relaxed (s, 1);
   memcpy (shadow->kernarg_address, &vars, sizeof (vars));
 
-  memcpy (shadow->kernarg_address + sizeof (vars), &shadow,
-	  sizeof (struct hsa_kernel_runtime *));
+  /* PR hsa/70337.  */
+  size_t vars_size = sizeof (vars);
+  if (kernel->kernarg_segment_size > vars_size)
+    {
+      if (kernel->kernarg_segment_size != vars_size
+	  + sizeof (struct hsa_kernel_runtime *))
+	GOMP_PLUGIN_fatal ("Kernel segment size has an unexpected value");
+      memcpy (packet->kernarg_address + vars_size, &shadow,
+	      sizeof (struct hsa_kernel_runtime *));
+    }
 
   HSA_DEBUG ("Copying kernel runtime pointer to kernarg_address\n");
 
@@ -1309,7 +1323,9 @@ GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, void **args)
 
   HSA_DEBUG ("Going to dispatch kernel %s\n", kernel->name);
 
-  __atomic_store_n ((uint16_t *) (&packet->header), header, __ATOMIC_RELEASE);
+  packet_store_release ((uint32_t *) packet, header,
+			(uint16_t) kla->ndim << HSA_KERNEL_DISPATCH_PACKET_SETUP_DIMENSIONS);
+
   hsa_signal_store_release (agent->command_q->doorbell_signal, index);
 
   /* TODO: GPU agents in Carrizo APUs cannot properly update L2 cache for
