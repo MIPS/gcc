@@ -531,7 +531,7 @@ GCC_METHOD3 (gcc_type, int_type,
 
 GCC_METHOD0 (gcc_type, char_type)
 
-/* Return a floating point type with the given properties.    If BUILTIN_NAME
+/* Return a floating point type with the given properties.  If BUILTIN_NAME
    is non-NULL, it must name a builtin integral type with the given
    signedness and size, and that is the type that will be returned.  */
 
