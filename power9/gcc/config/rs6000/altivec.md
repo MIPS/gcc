@@ -58,6 +58,7 @@
    UNSPEC_VSUM2SWS
    UNSPEC_VSUMSWS
    UNSPEC_VPERM
+   UNSPEC_VPERMR
    UNSPEC_VPERM_UNS
    UNSPEC_VRFIN
    UNSPEC_VCFUX
@@ -73,6 +74,9 @@
    UNSPEC_VUNPACK_LO_SIGN_DIRECT
    UNSPEC_VUPKHPX
    UNSPEC_VUPKLPX
+   UNSPEC_DARN
+   UNSPEC_DARN_32
+   UNSPEC_DARN_RAW
    UNSPEC_DST
    UNSPEC_DSTT
    UNSPEC_DSTST
@@ -1972,6 +1976,19 @@
   [(set_attr "type" "vecperm")
    (set_attr "length" "4")])
 
+(define_insn "*altivec_vpermr_<mode>_internal"
+  [(set (match_operand:VM 0 "register_operand" "=v,?wo")
+	(unspec:VM [(match_operand:VM 1 "register_operand" "v,0")
+		    (match_operand:VM 2 "register_operand" "v,wo")
+		    (match_operand:V16QI 3 "register_operand" "v,wo")]
+		   UNSPEC_VPERMR))]
+  "TARGET_P9_VECTOR"
+  "@
+   vpermr %0,%1,%2,%3
+   xxpermr %x0,%x2,%x3"
+  [(set_attr "type" "vecperm")
+   (set_attr "length" "4,4")])
+
 (define_insn "altivec_vperm_v8hiv16qi"
   [(set (match_operand:V16QI 0 "register_operand" "=v,?wo")
 	(unspec:V16QI [(match_operand:V8HI 1 "register_operand" "v,0")
@@ -3572,6 +3589,37 @@
   "bcd<bcd_add_sub>. %0,%1,%2,%3"
   [(set_attr "length" "4")
    (set_attr "type" "vecsimple")])
+
+(define_insn "darn_32"
+  [(set (match_operand:SI 0 "register_operand" "")
+        (unspec:SI [(const_int 0)] UNSPEC_DARN_32))]
+  "TARGET_MODULO"
+  {
+     return "darn %0,0";
+  }
+  [(set_attr "type" "add")  
+   (set_attr "length" "4")])
+
+(define_insn "darn_raw"
+  [(set (match_operand:DI 0 "register_operand" "")
+        (unspec:DI [(const_int 0)] UNSPEC_DARN_RAW))]
+  "TARGET_MODULO && TARGET_64BIT"
+  {
+     return "darn %0,2";
+  }
+  [(set_attr "type" "add")  
+   (set_attr "length" "4")])
+
+(define_insn "darn"
+  [(set (match_operand:DI 0 "register_operand" "")
+        (unspec:DI [(const_int 0)] UNSPEC_DARN))]
+  "TARGET_MODULO && TARGET_64BIT"
+  {
+     return "darn %0,1";
+  }
+  [(set_attr "type" "add")  
+   (set_attr "length" "4")])
+
 
 (define_expand "bcd<bcd_add_sub>_<code>"
   [(parallel [(set (reg:CCFP 74)
