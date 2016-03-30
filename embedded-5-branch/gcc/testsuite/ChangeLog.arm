@@ -1,6 +1,27 @@
 2016-03-30  Andre Vieira        <andre.simoesdiasvieira@arm.com>
 	    Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
+	* gcc/testsuite/gcc.target/arm/cmse/baseline/cmse-11.c: New.
+	* gcc/testsuite/gcc.target/arm/cmse/baseline/cmse-13.c: New.
+	* gcc/testsuite/gcc.target/arm/cmse/baseline/cmse-6.c: New.
+	* gcc/testsuite/gcc.target/arm/cmse/mainline/hard-sp/cmse-13.c: New.
+	* gcc/testsuite/gcc.target/arm/cmse/mainline/hard-sp/cmse-7.c: New.
+	* gcc/testsuite/gcc.target/arm/cmse/mainline/hard-sp/cmse-8.c: New.
+	* gcc/testsuite/gcc.target/arm/cmse/mainline/hard/cmse-13.c: New.
+	* gcc/testsuite/gcc.target/arm/cmse/mainline/hard/cmse-7.c: New.
+	* gcc/testsuite/gcc.target/arm/cmse/mainline/hard/cmse-8.c: New.
+	* gcc/testsuite/gcc.target/arm/cmse/mainline/soft/cmse-13.c: New.
+	* gcc/testsuite/gcc.target/arm/cmse/mainline/soft/cmse-7.c: New.
+	* gcc/testsuite/gcc.target/arm/cmse/mainline/soft/cmse-8.c: New.
+	* gcc/testsuite/gcc.target/arm/cmse/mainline/softfp-sp/cmse-7.c: New.
+	* gcc/testsuite/gcc.target/arm/cmse/mainline/softfp-sp/cmse-8.c: New.
+	* gcc/testsuite/gcc.target/arm/cmse/mainline/softfp/cmse-13.c: New.
+	* gcc/testsuite/gcc.target/arm/cmse/mainline/softfp/cmse-7.c: New.
+	* gcc/testsuite/gcc.target/arm/cmse/mainline/softfp/cmse-8.c: New.
+
+2016-03-30  Andre Vieira        <andre.simoesdiasvieira@arm.com>
+	    Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
 	* gcc.target/arm/cmse/cmse-3.c: Add tests.
 	* gcc.target/arm/cmse/cmse-4.c: Add tests.
 

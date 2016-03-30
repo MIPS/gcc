@@ -7609,6 +7609,7 @@
   "
   {
     rtx callee, pat;
+    tree addr = MEM_EXPR (operands[0]);
     
     /* In an untyped call, we can get NULL for operand 2.  */
     if (operands[2] == NULL_RTX)
@@ -7623,8 +7624,17 @@
 	: !REG_P (callee))
       XEXP (operands[0], 0) = force_reg (Pmode, callee);
 
-    pat = gen_call_internal (operands[0], operands[1], operands[2]);
-    arm_emit_call_insn (pat, XEXP (operands[0], 0), false);
+    if (detect_cmse_nonsecure_call (addr))
+      {
+	pat = gen_nonsecure_call_internal (operands[0], operands[1],
+					   operands[2]);
+	emit_call_insn (pat);
+      }
+    else
+      {
+	pat = gen_call_internal (operands[0], operands[1], operands[2]);
+	arm_emit_call_insn (pat, XEXP (operands[0], 0), false);
+      }
     DONE;
   }"
 )
@@ -7634,6 +7644,24 @@
 	            (match_operand 1 "general_operand" ""))
 	      (use (match_operand 2 "" ""))
 	      (clobber (reg:SI LR_REGNUM))])])
+
+(define_expand "nonsecure_call_internal"
+  [(parallel [(call (unspec:SI [(match_operand 0 "memory_operand" "")]
+			       UNSPEC_NONSECURE_MEM)
+		    (match_operand 1 "general_operand" ""))
+	      (use (match_operand 2 "" ""))
+	      (clobber (reg:SI LR_REGNUM))
+	      (clobber (reg:SI 4))])]
+  ""
+  "
+  {
+    rtx tmp;
+    tmp = copy_to_suggested_reg (XEXP (operands[0], 0),
+				 gen_rtx_REG (SImode, 4),
+				 SImode);
+
+    operands[0] = replace_equiv_address (operands[0], tmp);
+  }")
 
 (define_insn "*call_reg_armv5"
   [(call (mem:SI (match_operand:SI 0 "s_register_operand" "r"))
@@ -7687,6 +7715,7 @@
   "
   {
     rtx pat, callee;
+    tree addr = MEM_EXPR (operands[1]);
     
     /* In an untyped call, we can get NULL for operand 2.  */
     if (operands[3] == 0)
@@ -7701,9 +7730,18 @@
 	: !REG_P (callee))
       XEXP (operands[1], 0) = force_reg (Pmode, callee);
 
-    pat = gen_call_value_internal (operands[0], operands[1],
-				   operands[2], operands[3]);
-    arm_emit_call_insn (pat, XEXP (operands[1], 0), false);
+    if (detect_cmse_nonsecure_call (addr))
+      {
+	pat = gen_nonsecure_call_value_internal (operands[0], operands[1],
+						 operands[2], operands[3]);
+	emit_call_insn (pat);
+      }
+    else
+      {
+	pat = gen_call_value_internal (operands[0], operands[1],
+				       operands[2], operands[3]);
+	arm_emit_call_insn (pat, XEXP (operands[1], 0), false);
+      }
     DONE;
   }"
 )
@@ -7714,6 +7752,25 @@
 		         (match_operand 2 "general_operand" "")))
 	      (use (match_operand 3 "" ""))
 	      (clobber (reg:SI LR_REGNUM))])])
+
+(define_expand "nonsecure_call_value_internal"
+  [(parallel [(set (match_operand       0 "" "")
+		   (call (unspec:SI [(match_operand 1 "memory_operand" "")]
+				    UNSPEC_NONSECURE_MEM)
+			 (match_operand 2 "general_operand" "")))
+	      (use (match_operand 3 "" ""))
+	      (clobber (reg:SI LR_REGNUM))
+	      (clobber (reg:SI 4))])]
+  ""
+  "
+  {
+    rtx tmp;
+    tmp = copy_to_suggested_reg (XEXP (operands[1], 0),
+				 gen_rtx_REG (SImode, 4),
+				 SImode);
+
+    operands[1] = replace_equiv_address (operands[1], tmp);
+  }")
 
 (define_insn "*call_value_reg_armv5"
   [(set (match_operand 0 "" "")

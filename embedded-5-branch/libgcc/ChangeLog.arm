@@ -1,6 +1,12 @@
 2016-03-30  Andre Vieira  <andre.simoesdiasvieira@arm.com>
 	    Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
+	* libgcc/config/arm/cmse_nonsecure_call.S: New.
+	* libgcc/config/arm/t-arm: Compile cmse_nonsecure_call.S
+
+2016-03-30  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+	    Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
 	* libgcc/config/arm/cmse.c: New file.
 	* libgcc/config/arm/t-arm (HAVE_CMSE): New.
 
