@@ -1,3 +1,9 @@
+2016-03-30  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+	    Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* libgcc/config/arm/cmse.c: New file.
+	* libgcc/config/arm/t-arm (HAVE_CMSE): New.
+
 2015-12-17  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	* config/arm/lib1funcs.S (__ARM_ARCH__): Define to 8 for ARMv8-M.

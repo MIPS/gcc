@@ -368,6 +368,7 @@ extern bool arm_is_constant_pool_ref (rtx);
 
 #define FL_IWMMXT     (1 << 29)	      /* XScale v2 or "Intel Wireless MMX technology".  */
 #define FL_IWMMXT2    (1 << 30)       /* "Intel Wireless MMX2 technology".  */
+#define FL_CMSE	      (1 << 31)	      /* ARMv8-M Security Extensions.  */
 
 /* Flags that only effect tuning, not available instructions.  */
 #define FL_TUNE		(FL_WBUF | FL_VFPV2 | FL_STRONG | FL_LDSCHED \

@@ -1,4 +1,22 @@
 2016-03-30  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+	    Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config.gcc (extra_headers): Added arm_cmse.h.
+	* config/arm/arm-arches.def (armv8-m.base): Add FL_CMSE.
+	(armv8-m.main): Likewise.
+	(armv8-m.main+dsp): Likewise.
+	* config/arm/arm-protos.h (arm_is_constant_pool_ref): Define
+	FL_CMSE.
+	* config/arm.c (arm_arch_cmse): New.
+	(arm_option_override): New error for unsupported cmse target.
+	* config/arm/arm.h (arm_arch_cmse): New.
+	(arm_cpu_builtins): Added __ARM_FEATURE_CMSE macro.
+	* config/arm/arm.opt (mcmse): New.
+	* doc/invoke.texi (ARM Options): Add -mcmse.
+	* doc/extend.texi (ACLE): Add CMSE.
+	* config/arm/arm_cmse.h: New file.
+
+2016-03-30  Andre Vieira  <andre.simoesdiasvieira@arm.com>
 
 	Avoiding target_header_dir=yes for --with-headers=yes.
 

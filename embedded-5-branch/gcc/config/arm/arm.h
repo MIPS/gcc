@@ -62,6 +62,13 @@ extern char arm_arch_name[];
 	  builtin_define ("__ARM_FEATURE_CRC32");	\
 	if (TARGET_32BIT)				\
 	  builtin_define ("__ARM_32BIT_STATE");		\
+	if (arm_arch8 && !arm_arch_notm)				\
+	  {								\
+	    if (arm_arch_cmse && use_cmse)				\
+	      builtin_define_with_int_value ("__ARM_FEATURE_CMSE", 3);	\
+	    else							\
+	      builtin_define ("__ARM_FEATURE_CMSE");			\
+	  }								\
 	if (TARGET_ARM_FEATURE_LDREX)				\
 	  builtin_define_with_int_value (			\
 	    "__ARM_FEATURE_LDREX", TARGET_ARM_FEATURE_LDREX);	\
@@ -593,6 +600,9 @@ extern bool arm_disable_literal_pool;
 
 /* Nonzero if chip supports the ARMv8 CRC instructions.  */
 extern int arm_arch_crc;
+
+/* Nonzero if chip support the ARMv8-M Security Extensions.  */
+extern int arm_arch_cmse;
 
 #ifndef TARGET_DEFAULT
 #define TARGET_DEFAULT  (MASK_APCS_FRAME)
