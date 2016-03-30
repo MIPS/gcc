@@ -1644,6 +1644,17 @@ struct GTY(()) tree_field_decl {
   tree fcontext;
 };
 
+struct GTY(()) ttype_field_decl {
+  struct tree_decl_common common;
+
+  tree offset;
+  ttype *bit_field_type;
+  tree qualifier;
+  tree bit_offset;
+  tree fcontext;
+};
+
+
 struct GTY(()) tree_label_decl {
   struct tree_decl_with_rtl common;
   int label_decl_uid;
@@ -1857,6 +1868,7 @@ union GTY ((desc ("tree_node_structure (&%h)"), variable_size)) tree_node_u {
   struct tree_decl_with_vis GTY ((tag ("TS_DECL_WITH_VIS"))) decl_with_vis;
   struct tree_var_decl GTY ((tag ("TS_VAR_DECL"))) var_decl;
   struct tree_field_decl GTY ((tag ("TS_FIELD_DECL"))) field_decl;
+  struct ttype_field_decl GTY ((tag ("TS_FIELD_DECL_TTYPE"))) field_decl_ttype;
   struct tree_label_decl GTY ((tag ("TS_LABEL_DECL"))) label_decl;
   struct tree_result_decl GTY ((tag ("TS_RESULT_DECL"))) result_decl;
   struct tree_const_decl GTY ((tag ("TS_CONST_DECL"))) const_decl;

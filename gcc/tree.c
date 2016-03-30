@@ -14196,4 +14196,16 @@ combined_fn_name (combined_fn fn)
     return internal_fn_name (as_internal_fn (fn));
 }
 
+
+void
+gt_ggc_mx (ttype *&x)
+{
+  gt_ggc_mx ((tree &)x);
+}
+
+void gt_pch_nx (ttype *&x)
+{
+  gt_pch_nx ((tree &)x);
+}
+
 #include "gt-tree.h"

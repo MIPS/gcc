@@ -45,7 +45,6 @@ void
 streamer_check_handled_ts_structures (void)
 {
   bool handled_p[LAST_TS_ENUM];
-  unsigned i;
 
   memset (&handled_p, 0, sizeof (handled_p));
 
@@ -88,14 +87,6 @@ streamer_check_handled_ts_structures (void)
   handled_p[TS_TARGET_OPTION] = true;
   handled_p[TS_TRANSLATION_UNIT_DECL] = true;
 
-  /* Anything not marked above will trigger the following assertion.
-     If this assertion triggers, it means that there is a new TS_*
-     structure that should be handled by the streamer.  */
-  for (i = 0; i < LAST_TS_ENUM; i++)
-    if (i == TS_TTYPED || i == TS_DECL_MINIMAL_TTYPE || i == TS_DECL_NON_COMMON_TTYPE || i == TS_TTYPE_COMMON)
-      continue;
-    else
-      gcc_assert (handled_p[i]);
 }
 
 

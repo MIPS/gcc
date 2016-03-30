@@ -3957,11 +3957,19 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
 #define long_long_integer_type_node	integer_types[itk_long_long]
 #define long_long_unsigned_type_node	integer_types[itk_unsigned_long_long]
 
-/* True if NODE is an erroneous expression.  */
+/* True if T is an erroneous expression.  */
+inline bool
+error_operand_p (tree t)
+{
+  return ((t == error_mark_node) || (t && (TREE_TYPE (t) == error_type_node)));
+}
 
-#define error_operand_p(NODE)					\
-  ((NODE) == error_mark_node					\
-   || ((NODE) && TREE_TYPE ((NODE)) == error_mark_node))
+inline bool
+error_operand_p (const_tree t)
+{
+  return ((t == error_mark_node) || (t && (TREE_TYPE (t) == error_type_node)));
+}
+
 
 extern tree decl_assembler_name (tree);
 extern tree decl_comdat_group (const_tree);
@@ -5635,6 +5643,9 @@ extern location_t set_block (location_t loc, tree block);
 extern void gt_ggc_mx (tree &);
 extern void gt_pch_nx (tree &);
 extern void gt_pch_nx (tree &, gt_pointer_operator, void *);
+
+extern void gt_ggc_mx (ttype *&);
+extern void gt_pch_nx (ttype *&);
 
 extern bool nonnull_arg_p (const_tree);
 extern bool is_redundant_typedef (const_tree);

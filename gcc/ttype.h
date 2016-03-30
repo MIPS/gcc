@@ -19,6 +19,14 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_TTYPE_H
 #define GCC_TTYPE_H
 
+
+inline bool
+error_operand_p (const ttype *t)
+{
+  return ((t == error_type_node) || (t && (TREE_TYPE (t) == error_type_node)));
+}
+
+
 inline struct tree_base&
 TREE_BASE (ttype *t)
 {
@@ -93,6 +101,17 @@ NOT_RECORD_OR_UNION_CHECK (const ttype *t)
   return TTYPE (TREE_NOT_CHECK3 (t, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE));
 }
 
+#undef FUNC_OR_METHOD_CHECK
+inline ttype *
+FUNC_OR_METHOD_CHECK (ttype *t)
+{
+  return TTYPE (TREE_CHECK2 (t, FUNCTION_TYPE, METHOD_TYPE));
+}
+inline const ttype *
+FUNC_OR_METHOD_CHECK (const ttype *t)
+{
+  return TTYPE (TREE_CHECK2 (t, FUNCTION_TYPE, METHOD_TYPE));
+}
 #undef NUMERICAL_TYPE_CHECK
 inline ttype *
 NUMERICAL_TYPE_CHECK (ttype *t)
@@ -221,7 +240,9 @@ any_integral_ttype_check (const ttype *__t, const char *__f, int __l,
   (TYPE_DECL_CHECK (NODE)->u.decl_non_common_ttype.result)
 /* And provide a SET routine.  */
 
-
+#undef DECL_BIT_FIELD_TYPE
+#define DECL_BIT_FIELD_TYPE(NODE) \
+  (FIELD_DECL_CHECK (NODE)->u.field_decl_ttype.bit_field_type)
 
 
 #endif 
