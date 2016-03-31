@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "c-common.h"
+#include "ttype.h"
 
 /* Validate the body of a _Cilk_for construct or a <#pragma simd> for
    loop.
@@ -96,7 +97,8 @@ c_finish_cilk_clauses (tree clauses)
 tree
 cilk_for_number_of_iterations (tree cilk_for)
 {
-  tree t, v, n1, n2, step, type, init, cond, incr, itype;
+  tree t, v, n1, n2, step, init, cond, incr;
+  ttype *type, *itype;
   enum tree_code cond_code;
   location_t loc = EXPR_LOCATION (cilk_for);
 
@@ -178,7 +180,7 @@ cilk_for_number_of_iterations (tree cilk_for)
     {
       /* For NE_EXPR, we need to find out if the iterator increases
 	 or decreases from whether step is positive or negative.  */
-      tree stype = itype;
+      ttype *stype = itype;
       if (TYPE_UNSIGNED (stype))
 	stype = signed_type_for (stype);
       cond = fold_build2_loc (loc, GE_EXPR, boolean_type_node,

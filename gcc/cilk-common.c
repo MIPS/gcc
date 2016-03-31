@@ -46,6 +46,7 @@ along with GCC; see the file COPYING3.  If not see
    internal built-in functions, and Cilk-specific data types.  Explanation of 
    all the these fielsd are given in cilk.h.  */
 tree cilk_trees[(int) CILK_TI_MAX];
+ttype *cilk_types[(int) CILK_TPI_MAX];
 
 /* Returns the value in structure FRAME pointed by the FIELD_NUMBER
    (e.g. X.y).  
@@ -149,7 +150,7 @@ cilk_init_builtins (void)
         struct __cilkrts_pedigree *parent;
       }  */
 
-  tree pedigree_type = lang_hooks.types.make_type (RECORD_TYPE);
+  ttype *pedigree_type = lang_hooks.types.make_type (RECORD_TYPE);
   tree pedigree_ptr  = build_pointer_type (pedigree_type);
   tree field = add_field ("rank", uint64_type_node, NULL_TREE);
   cilk_trees[CILK_TI_PEDIGREE_RANK] = field;
@@ -175,7 +176,7 @@ cilk_init_builtins (void)
        __cilkrts_pedigree pedigree;
      };  */
 
-  tree frame = lang_hooks.types.make_type (RECORD_TYPE);
+  ttype *frame = lang_hooks.types.make_type (RECORD_TYPE);
   tree frame_ptr = build_pointer_type (frame);
   tree worker_type = lang_hooks.types.make_type (RECORD_TYPE);
   tree worker_ptr = build_pointer_type (worker_type);

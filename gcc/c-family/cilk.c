@@ -36,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "calls.h"
 #include "cilk.h"
+#include "ttype.h"
 
 enum add_variable_type {
     /* Reference to previously-defined variable.  */
@@ -59,7 +60,7 @@ struct wrapper_data
   /* Kind of function to be created.  */
   enum cilk_block_type type;
   /* Signature of helper function.  */
-  tree fntype;
+  ttype *fntype;
   /* Containing function.  */
   tree context;
   /* Disposition of all variables in the inner statement.  */
@@ -614,7 +615,7 @@ static void
 init_wd (struct wrapper_data *wd, enum cilk_block_type type)
 {
   wd->type = type;
-  wd->fntype = NULL_TREE;
+  wd->fntype = NULL;
   wd->context = current_function_decl;
   wd->decl_map = new hash_map<tree, tree>;
   /* _Cilk_for bodies are always nested.  Others start off as 
@@ -663,7 +664,7 @@ declare_one_free_variable (tree var0, tree *map0)
 {
   const_tree var = var0;
   tree map = *map0;
-  tree var_type = TREE_TYPE (var), arg_type;
+  ttype *var_type = TREE_TYPE (var), *arg_type;
   bool by_reference;
   tree parm;
 
@@ -846,7 +847,7 @@ gimplify_cilk_spawn (tree *spawn_p)
     call2 = build_call_expr_loc_array (EXPR_LOCATION (*spawn_p), function, 
 					 total_args, arg_array);
   *spawn_p = alloc_stmt_list ();
-  tree f_ptr_type = build_pointer_type (TREE_TYPE (cfun->cilk_frame_decl));
+  ttype *f_ptr_type = build_pointer_type (TREE_TYPE (cfun->cilk_frame_decl));
   tree frame_ptr = build1 (ADDR_EXPR, f_ptr_type, cfun->cilk_frame_decl);
   tree save_fp = build_call_expr (cilk_save_fp_fndecl, 1, frame_ptr);
   append_to_statement_list (save_fp, spawn_p);		  
@@ -1048,11 +1049,59 @@ add_variable (struct wrapper_data *wd, tree var, enum add_variable_type how)
    original context should not be remapped.  */
 
 static void
+extract_free_variables (ttype *t, struct wrapper_data *wd)
+{  
+  if (t == NULL)
+    return;
+
+  enum tree_code code = TREE_CODE (t);
+
+  switch (code)
+    {
+    case VOID_TYPE:
+    case REAL_TYPE:
+      /* These do not contain variable references.  */
+      return;
+
+    case INTEGER_TYPE:
+    case ENUMERAL_TYPE:
+    case BOOLEAN_TYPE:
+      extract_free_variables (TYPE_MIN_VALUE (t), wd, ADD_READ);
+      extract_free_variables (TYPE_MAX_VALUE (t), wd, ADD_READ);
+      return;
+
+    case POINTER_TYPE:
+      extract_free_variables (TREE_TYPE (t), wd, ADD_READ);
+      break;
+
+    case ARRAY_TYPE:
+      extract_free_variables (TREE_TYPE (t), wd, ADD_READ);
+      extract_free_variables (TYPE_DOMAIN (t), wd, ADD_READ);
+      return;
+
+    case RECORD_TYPE:
+      extract_free_variables (TYPE_FIELDS (t), wd, ADD_READ);
+      return;
+    
+    case METHOD_TYPE:
+      extract_free_variables (TYPE_ARG_TYPES (t), wd, ADD_READ);
+      extract_free_variables (TYPE_METHOD_BASETYPE (t), wd, ADD_READ);
+      return;
+
+    default:
+      break;
+    }
+}
+
+static void
 extract_free_variables (tree t, struct wrapper_data *wd,
 			enum add_variable_type how)
 {  
   if (t == NULL_TREE)
     return;
+
+  if (TYPE_P (t))
+    extract_free_variables (TTYPE (t), wd);
 
   enum tree_code code = TREE_CODE (t);
   bool is_expr = IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code));
@@ -1072,8 +1121,6 @@ extract_free_variables (tree t, struct wrapper_data *wd,
     case BLOCK:
     case PLACEHOLDER_EXPR:
     case FIELD_DECL:
-    case VOID_TYPE:
-    case REAL_TYPE:
       /* These do not contain variable references.  */
       return;
 
@@ -1222,31 +1269,6 @@ extract_free_variables (tree t, struct wrapper_data *wd,
     case DECL_EXPR:
       if (TREE_CODE (DECL_EXPR_DECL (t)) != TYPE_DECL)
 	extract_free_variables (DECL_EXPR_DECL (t), wd, ADD_BIND);
-      return;
-
-    case INTEGER_TYPE:
-    case ENUMERAL_TYPE:
-    case BOOLEAN_TYPE:
-      extract_free_variables (TYPE_MIN_VALUE (t), wd, ADD_READ);
-      extract_free_variables (TYPE_MAX_VALUE (t), wd, ADD_READ);
-      return;
-
-    case POINTER_TYPE:
-      extract_free_variables (TREE_TYPE (t), wd, ADD_READ);
-      break;
-
-    case ARRAY_TYPE:
-      extract_free_variables (TREE_TYPE (t), wd, ADD_READ);
-      extract_free_variables (TYPE_DOMAIN (t), wd, ADD_READ);
-      return;
-
-    case RECORD_TYPE:
-      extract_free_variables (TYPE_FIELDS (t), wd, ADD_READ);
-      return;
-    
-    case METHOD_TYPE:
-      extract_free_variables (TYPE_ARG_TYPES (t), wd, ADD_READ);
-      extract_free_variables (TYPE_METHOD_BASETYPE (t), wd, ADD_READ);
       return;
 
     case AGGR_INIT_EXPR:
