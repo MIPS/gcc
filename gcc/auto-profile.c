@@ -1257,7 +1257,7 @@ afdo_propagate_circuit (const bb_set &annotated_bb, edge_set *annotated_edge)
     FOR_EACH_EDGE (e, ei, bb->succs)
     {
       unsigned i, total = 0;
-      edge only_one;
+      edge only_one = NULL;
       bool check_value_one = (((integer_onep (cmp_rhs))
                                ^ (gimple_cond_code (cmp_stmt) == EQ_EXPR))
                               ^ ((e->flags & EDGE_TRUE_VALUE) != 0));

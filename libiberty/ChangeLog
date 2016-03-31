@@ -1,3 +1,7 @@
+2016-03-31  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* cp-demangle.c (d_print_comp_inner): Initialize saved_templates.
+
 2016-01-27  Iain Buclaw  <ibuclaw@gdcproject.org>
 
 	* d-demangle.c (dlang_call_convention): Handle extern Objective-C

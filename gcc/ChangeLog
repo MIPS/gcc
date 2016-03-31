@@ -1,3 +1,8 @@
+2016-03-31  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* auto-profile.c (afdo_propagate_circuit): Initialize only_one.
+	* tree-ssa-uninit.c (normalize_one_pred): Handle SEXT_EXPR.
+
 
 2015-09-07  Kugan Vivekanandarajah  <kuganv@linaro.org>
 

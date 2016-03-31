@@ -2065,7 +2065,8 @@ normalize_one_pred (pred_chain_union *norm_preds,
   if (gimple_code (def_stmt) == GIMPLE_ASSIGN)
     and_or_code = gimple_assign_rhs_code (def_stmt);
   if (and_or_code != BIT_IOR_EXPR
-      && and_or_code != BIT_AND_EXPR)
+      && and_or_code != BIT_AND_EXPR
+      && and_or_code != SEXT_EXPR)
     {
       if (TREE_CODE_CLASS (and_or_code)
 	  == tcc_comparison)
@@ -2087,7 +2088,8 @@ normalize_one_pred (pred_chain_union *norm_preds,
       normalize_one_pred_1 (norm_preds, &norm_chain, a_pred,
 			    and_or_code, &work_list, &mark_set);
     }
-  if (and_or_code == BIT_AND_EXPR)
+  if (and_or_code == BIT_AND_EXPR
+      || and_or_code == SEXT_EXPR)
     norm_preds->safe_push (norm_chain);
 
   work_list.release ();
