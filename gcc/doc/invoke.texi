@@ -7592,6 +7592,16 @@ Split paths leading to loop backedges.  This can improve dead code
 elimination and common subexpression elimination.  This is enabled by
 default at @option{-O2} and above.
 
+@item -ftree-type-promote
+@opindex ftree-type-promote
+This pass applies type promotion to SSA names in the function and
+inserts appropriate truncations to preserve the semantics.  Idea of
+this pass is to promote operations such a way that we can minimise
+generation of subreg in RTL, that intern results in removal of
+redundant zero/sign extensions.
+
+This optimization is enabled by default.
+
 @item -fsplit-ivs-in-unroller
 @opindex fsplit-ivs-in-unroller
 Enables expression of values of induction variables in later iterations

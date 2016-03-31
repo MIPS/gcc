@@ -1521,6 +1521,7 @@ OBJS = \
 	tree-vect-slp.o \
 	tree-vectorizer.o \
 	tree-vrp.o \
+	gimple-ssa-type-promote.o \
 	tree.o \
 	valtrack.o \
 	value-prof.o \

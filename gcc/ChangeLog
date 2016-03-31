@@ -1,5 +1,15 @@
 2016-03-31  Kugan Vivekanandarajah  <kuganv@linaro.org>
 
+	* Makefile.in: Add gimple-ssa-type-promote.o.
+	* common.opt: New option -ftree-type-promote.
+	* doc/invoke.texi: Document -ftree-type-promote.
+	* gimple-ssa-type-promote.c: New file.
+	* passes.def: Define new pass_type_promote.
+	* timevar.def: Define new TV_TREE_TYPE_PROMOTE.
+	* tree-pass.h (make_pass_type_promote): New.
+
+2016-03-31  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
 	* auto-profile.c (afdo_propagate_circuit): Initialize only_one.
 	* tree-ssa-uninit.c (normalize_one_pred): Handle SEXT_EXPR.
 

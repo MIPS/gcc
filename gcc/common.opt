@@ -2463,6 +2463,10 @@ Common Var(flag_unconstrained_commons) Optimization
 Assume common declarations may be overridden with ones with a larger
 trailing array.
 
+ftree-type-promote
+Common Report Var(flag_tree_type_promote) Init(1) Optimization
+Perform Type Promotion on trees.
+
 funit-at-a-time
 Common Report Var(flag_unit_at_a_time) Init(1)
 Compile whole compilation unit at a time.
