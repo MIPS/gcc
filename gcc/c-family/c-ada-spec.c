@@ -2966,11 +2966,10 @@ print_ada_declaration (pretty_printer *buffer, tree t, tree type, int spc)
 	  dump_generic_ada_type_node (buffer, ret_type, type, spc, false, true);
 	}
 
-      if (TYPE_P (type))
+      if (is_constructor && TYPE_P (type))
         {
 	  ttype *tt = TTYPE (type);
-	  if (is_constructor
-	      && RECORD_OR_UNION_TYPE_P (tt)
+	  if (RECORD_OR_UNION_TYPE_P (tt)
 	      && TYPE_METHODS (tt))
 	    {
 	      tree tmp;
