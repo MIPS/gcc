@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "dumpfile.h"
 #include "cilk.h"
 #include "c-ubsan.h"
+#include "ttype.h"
 
 /*  The gimplification pass converts the language-dependent trees
     (ld-trees) emitted by the parser into language-independent trees
@@ -261,7 +262,7 @@ c_gimplify_expr (tree *expr_p, gimple_seq *pre_p ATTRIBUTE_UNUSED,
     case POSTINCREMENT_EXPR:
     case POSTDECREMENT_EXPR:
       {
-	tree type = TREE_TYPE (TREE_OPERAND (*expr_p, 0));
+	ttype *type = TREE_TYPE (TREE_OPERAND (*expr_p, 0));
 	if (INTEGRAL_TYPE_P (type) && c_promoting_integer_type_p (type))
 	  {
 	    if (!TYPE_OVERFLOW_WRAPS (type))

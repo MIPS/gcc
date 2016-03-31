@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-pragma.h"
 #include "opts.h"
 #include "plugin.h"
+#include "ttype.h"
 
 #define GCC_BAD(gmsgid) \
   do { warning (OPT_Wpragmas, gmsgid); return; } while (0)
@@ -387,7 +388,7 @@ handle_pragma_weak (cpp_reader * ARG_UNUSED (dummy))
 static enum scalar_storage_order_kind global_sso;
 
 void
-maybe_apply_pragma_scalar_storage_order (tree type)
+maybe_apply_pragma_scalar_storage_order (ttype_p type)
 {
   if (global_sso == SSO_NATIVE)
     return;

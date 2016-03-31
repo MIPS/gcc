@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "c-common.h"
 #include "tree-iterator.h"
+#include "ttype.h"
 
 /* Create an empty statement tree rooted at T.  */
 

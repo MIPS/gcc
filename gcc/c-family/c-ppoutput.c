@@ -22,6 +22,7 @@
 #include "c-common.h"		/* For flags.  */
 #include "../libcpp/internal.h"
 #include "c-pragma.h"		/* For parse_in.  */
+#include "ttype.h"
 
 /* Encapsulates state used to convert a stream of tokens into a text
    file.  */

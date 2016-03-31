@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-pragma.h"
 #include "omp-low.h"
 #include "gomp-constants.h"
+#include "ttype.h"
 
 
 /* Complete a #pragma oacc wait construct.  LOC is the location of
@@ -180,7 +181,8 @@ c_finish_omp_atomic (location_t loc, enum tree_code code,
 		     tree v, tree lhs1, tree rhs1, bool swapped, bool seq_cst,
 		     bool test)
 {
-  tree x, type, addr, pre = NULL_TREE;
+  tree x, addr, pre = NULL_TREE;
+  ttype *type;
 
   if (lhs == error_mark_node || rhs == error_mark_node
       || v == error_mark_node || lhs1 == error_mark_node
@@ -230,8 +232,8 @@ c_finish_omp_atomic (location_t loc, enum tree_code code,
       x = build1 (OMP_ATOMIC_READ, type, addr);
       SET_EXPR_LOCATION (x, loc);
       OMP_ATOMIC_SEQ_CST (x) = seq_cst;
-      return build_modify_expr (loc, v, NULL_TREE, NOP_EXPR,
-				loc, x, NULL_TREE);
+      return build_modify_expr (loc, v, NULL_TYPE, NOP_EXPR,
+				loc, x, NULL_TYPE);
     }
 
   /* There are lots of warnings, errors, and conversions that need to happen
@@ -244,7 +246,7 @@ c_finish_omp_atomic (location_t loc, enum tree_code code,
     }
   bool save = in_late_binary_op;
   in_late_binary_op = true;
-  x = build_modify_expr (loc, lhs, NULL_TREE, opcode, loc, rhs, NULL_TREE);
+  x = build_modify_expr (loc, lhs, NULL_TYPE, opcode, loc, rhs, NULL_TYPE);
   in_late_binary_op = save;
   if (x == error_mark_node)
     return error_mark_node;
@@ -294,8 +296,8 @@ c_finish_omp_atomic (location_t loc, enum tree_code code,
 	      return error_mark_node;
 	    }
 	}
-      x = build_modify_expr (loc, v, NULL_TREE, NOP_EXPR,
-			     loc, x, NULL_TREE);
+      x = build_modify_expr (loc, v, NULL_TYPE, NOP_EXPR,
+			     loc, x, NULL_TYPE);
       if (rhs1 && rhs1 != lhs)
 	{
 	  tree rhs1addr = build_unary_op (loc, ADDR_EXPR, rhs1, 0);
@@ -496,12 +498,12 @@ c_finish_omp_for (location_t locus, enum tree_code code, tree declv,
 	    }
 	  DECL_INITIAL (decl) = NULL_TREE;
 
-	  init = build_modify_expr (elocus, decl, NULL_TREE, NOP_EXPR,
+	  init = build_modify_expr (elocus, decl, NULL_TYPE, NOP_EXPR,
 	      			    /* FIXME diagnostics: This should
 				       be the location of the INIT.  */
 	      			    elocus,
 				    init,
-				    NULL_TREE);
+				    NULL_TYPE);
 	}
       if (init != error_mark_node)
 	{
