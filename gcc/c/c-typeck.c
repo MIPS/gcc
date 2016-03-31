@@ -125,7 +125,7 @@ null_pointer_constant_p (const_tree expr)
 {
   /* This should really operate on c_expr structures, but they aren't
      yet available everywhere required.  */
-  tree type = TREE_TYPE (expr);
+  ttype *type = TREE_TYPE (expr);
   return (TREE_CODE (expr) == INTEGER_CST
 	  && !TREE_OVERFLOW (expr)
 	  && integer_zerop (expr)
@@ -2091,7 +2091,7 @@ tree
 default_conversion (tree exp)
 {
   tree orig_exp;
-  tree type = TREE_TYPE (exp);
+  ttype *type = TREE_TYPE (exp);
   enum tree_code code = TREE_CODE (type);
   tree promoted_type;
 

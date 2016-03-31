@@ -904,8 +904,8 @@ extern alias_set_type c_common_get_alias_set (tree);
 extern void c_register_builtin_type (ttype_p, const char*);
 extern bool c_promoting_integer_type_p (const ttype_p);
 extern int self_promoting_args_p (const_tree);
-extern tree strip_pointer_operator (tree);
-extern tree strip_pointer_or_array_types (tree);
+extern ttype *strip_pointer_operator (ttype_p);
+extern ttype *strip_pointer_or_array_types (ttype_p);
 extern HOST_WIDE_INT c_common_to_target_charset (HOST_WIDE_INT);
 
 /* This is the basic parsing function.  */

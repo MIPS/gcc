@@ -1649,7 +1649,8 @@ sizeof_pointer_memaccess_warning (location_t *sizeof_arg_loc, tree callee,
 				  vec<tree, va_gc> *params, tree *sizeof_arg,
 				  bool (*comp_types) (tree, tree))
 {
-  tree type, dest = NULL_TREE, src = NULL_TREE, tem;
+  ttype *type;
+  tree dest = NULL_TREE, src = NULL_TREE, tem;
   bool strop = false, cmp = false;
   unsigned int idx = ~0;
   location_t loc;
@@ -1740,7 +1741,7 @@ sizeof_pointer_memaccess_warning (location_t *sizeof_arg_loc, tree callee,
     return;
 
   type = TYPE_P (sizeof_arg[idx])
-	 ? sizeof_arg[idx] : TREE_TYPE (sizeof_arg[idx]);
+	 ? TTYPE (sizeof_arg[idx]) : TREE_TYPE (sizeof_arg[idx]);
   if (!POINTER_TYPE_P (type))
     return;
 
@@ -4678,7 +4679,7 @@ static void def_builtin_1  (enum built_in_function fncode,
 void
 c_apply_type_quals_to_decl (int type_quals, tree decl)
 {
-  tree type = TREE_TYPE (decl);
+  ttype *type = TREE_TYPE (decl);
 
   if (type == error_mark_node)
     return;
@@ -5994,8 +5995,8 @@ self_promoting_args_p (const_tree parms)
 }
 
 /* Recursively remove any '*' or '&' operator from TYPE.  */
-tree
-strip_pointer_operator (tree t)
+ttype *
+strip_pointer_operator (ttype_p t)
 {
   while (POINTER_TYPE_P (t))
     t = TREE_TYPE (t);
@@ -6003,8 +6004,8 @@ strip_pointer_operator (tree t)
 }
 
 /* Recursively remove pointer or array type from TYPE. */
-tree
-strip_pointer_or_array_types (tree t)
+ttype *
+strip_pointer_or_array_types (ttype_p t)
 {
   while (TREE_CODE (t) == ARRAY_TYPE || POINTER_TYPE_P (t))
     t = TREE_TYPE (t);
@@ -11068,7 +11069,7 @@ get_atomic_generic_size (location_t loc, tree function,
   for (x = 0; x < n_param - n_model; x++)
     {
       int size;
-      tree type = TREE_TYPE ((*params)[x]);
+      ttype *type = TREE_TYPE ((*params)[x]);
       /* __atomic_compare_exchange has a bool in the 4th position, skip it.  */
       if (n_param == 6 && x == 3)
         continue;
@@ -12657,8 +12658,8 @@ enum stv_conv
 scalar_to_vector (location_t loc, enum tree_code code, tree op0, tree op1,
 		  bool complain)
 {
-  tree type0 = TREE_TYPE (op0);
-  tree type1 = TREE_TYPE (op1);
+  ttype *type0 = TREE_TYPE (op0);
+  ttype *type1 = TREE_TYPE (op1);
   bool integer_only_op = false;
   enum stv_conv ret = stv_firstarg;
 
