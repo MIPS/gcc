@@ -1,3 +1,11 @@
+
+2015-09-07  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* tree-vrp.c (extract_range_from_binary_expr_1): Handle SEXT_EXPR.
+	(simplify_bit_ops_using_ranges): Likewise.
+	(simplify_stmt_using_ranges): Likewise.
+	* match.pd (sext (sext@2 @0 @1) @3)): Simplify.
+
 2016-03-30  Kugan Vivekanandarajah  <kuganv@linaro.org>
 
 	* cfgexpand.c (expand_debug_expr): Handle SEXT_EXPR.

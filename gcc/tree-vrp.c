@@ -2237,6 +2237,7 @@ extract_range_from_binary_expr_1 (value_range *vr,
       && code != LSHIFT_EXPR
       && code != MIN_EXPR
       && code != MAX_EXPR
+      && code != SEXT_EXPR
       && code != BIT_AND_EXPR
       && code != BIT_IOR_EXPR
       && code != BIT_XOR_EXPR)
@@ -2796,6 +2797,54 @@ extract_range_from_binary_expr_1 (value_range *vr,
 
       extract_range_from_multiplicative_op_1 (vr, code, &vr0, &vr1);
       return;
+    }
+  else if (code == SEXT_EXPR)
+    {
+      gcc_assert (range_int_cst_p (&vr1));
+      HOST_WIDE_INT prec = tree_to_uhwi (vr1.min);
+      type = vr0.type;
+      wide_int tmin, tmax;
+      wide_int may_be_nonzero, must_be_nonzero;
+
+      wide_int type_min = wi::min_value (prec, SIGNED);
+      wide_int type_max = wi::max_value (prec, SIGNED);
+      type_min = wide_int_to_tree (expr_type, type_min);
+      type_max = wide_int_to_tree (expr_type, type_max);
+      type_min = wi::sext (type_min, prec);
+      type_max = wi::sext (type_max, prec);
+      wide_int sign_bit
+	= wi::set_bit_in_zero (prec - 1,
+			       TYPE_PRECISION (TREE_TYPE (vr0.min)));
+      if (zero_nonzero_bits_from_vr (expr_type, &vr0,
+				     &may_be_nonzero,
+				     &must_be_nonzero))
+	{
+	  if (wi::bit_and (must_be_nonzero, sign_bit) == sign_bit)
+	    {
+	      /* If to-be-extended sign bit is one.  */
+	      tmin = type_min;
+	      tmax = wi::zext (may_be_nonzero, prec);
+	    }
+	  else if (wi::bit_and (may_be_nonzero, sign_bit)
+		   != sign_bit)
+	    {
+	      /* If to-be-extended sign bit is zero.  */
+	      tmin = wi::zext (must_be_nonzero, prec);
+	      tmax = wi::zext (may_be_nonzero, prec);
+	    }
+	  else
+	    {
+	      tmin = type_min;
+	      tmax = type_max;
+	    }
+	}
+      else
+	{
+	  tmin = type_min;
+	  tmax = type_max;
+	}
+      min = wide_int_to_tree (expr_type, tmin);
+      max = wide_int_to_tree (expr_type, tmax);
     }
   else if (code == RSHIFT_EXPR
 	   || code == LSHIFT_EXPR)
@@ -9232,6 +9281,17 @@ simplify_bit_ops_using_ranges (gimple_stmt_iterator *gsi, gimple *stmt)
 	  break;
 	}
       break;
+    case SEXT_EXPR:
+	{
+	  unsigned int prec = tree_to_uhwi (op1);
+	  wide_int min = vr0.min;
+	  wide_int max = vr0.max;
+	  wide_int sext_min = wi::sext (min, prec);
+	  wide_int sext_max = wi::sext (max, prec);
+	  if (min == sext_min && max == sext_max)
+	    op = op0;
+	}
+      break;
     default:
       gcc_unreachable ();
     }
@@ -9936,6 +9996,7 @@ simplify_stmt_using_ranges (gimple_stmt_iterator *gsi)
 
 	case BIT_AND_EXPR:
 	case BIT_IOR_EXPR:
+	case SEXT_EXPR:
 	  /* Optimize away BIT_AND_EXPR and BIT_IOR_EXPR
 	     if all the bits being cleared are already cleared or
 	     all the bits being set are already set.  */
