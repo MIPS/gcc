@@ -1,3 +1,12 @@
+2016-03-28  Jason Merrill  <jason@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Update __cpp_range_based_for.
+
+2016-03-23  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/69884
+	* c.opt (Wignored-attributes): New option.
+
 2016-03-22  David Malcolm  <dmalcolm@redhat.com>
 
 	PR c/69993

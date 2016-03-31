@@ -13463,9 +13463,11 @@ ix86_expand_epilogue (int style)
 	  rtx sa = EH_RETURN_STACKADJ_RTX;
 	  rtx_insn *insn;
 
-	  /* Stack align doesn't work with eh_return.  */
-	  gcc_assert (!stack_realign_drap);
-	  /* Neither does regparm nested functions.  */
+	  /* %ecx can't be used for both DRAP register and eh_return.  */
+	  if (crtl->drap_reg)
+	    gcc_assert (REGNO (crtl->drap_reg) != CX_REG);
+
+	  /* regparm nested functions don't work with eh_return.  */
 	  gcc_assert (!ix86_static_chain_on_stack);
 
 	  if (frame_pointer_needed)
@@ -46930,7 +46932,12 @@ half:
     {
       tmp = gen_reg_rtx (mode);
       emit_insn (gen_rtx_SET (tmp, gen_rtx_VEC_DUPLICATE (mode, val)));
-      emit_insn (gen_blendm (target, tmp, target,
+      /* The avx512*_blendm<mode> expanders have different operand order
+	 from VEC_MERGE.  In VEC_MERGE, the first input operand is used for
+	 elements where the mask is set and second input operand otherwise,
+	 in {sse,avx}*_*blend* the first input operand is used for elements
+	 where the mask is clear and second input operand otherwise.  */
+      emit_insn (gen_blendm (target, target, tmp,
 			     force_reg (mmode,
 					gen_int_mode (1 << elt, mmode))));
     }

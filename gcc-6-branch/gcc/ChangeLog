@@ -1,3 +1,286 @@
+2016-03-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/70460
+	* ira.c (indirect_jump_optimize): Don't substitute LABEL_REF
+	with operand from REG_LABEL_OPERAND, instead substitute
+	SET_SRC or REG_EQUAL note content if it is a LABEL_REF.
+	Don't do anything for REG_NON_LOCAL_GOTO jumps.
+
+2016-03-31  Martin Liska  <mliska@suse.cz>
+
+	* passes.c (execute_one_pass): Do not call
+	todo_after for a discarded function.
+
+2016-03-31  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-ssa-loop-ivopts.c (struct comp_cost): New scrach field.
+	(no_cost, infinite_cost): Initialize the new field.
+	(get_computation_cost_at): Record setup cost.
+	(determine_use_iv_cost_address): Skip cost computation for sub
+	uses if we can estimate it without losing accuracy.
+
+2016-03-30  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-ssa-loop-niter.c (idx_infer_loop_bounds): We can't get realistic
+	estimates here.
+	* tree-ssa-loop-unswitch.c (tree_unswitch_single_loop): Use also
+	max_loop_iterations_int.
+	(tree_unswitch_outer_loop): Likewise.
+	* tree-ssa-loop-ivopts.c (avg_loop_niter): Likewise.
+	* tree-vect-loop.c (vect_analyze_loop_2): Likewise.
+
+2016-03-30  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70450
+	* fold-const.c (extract_muldiv_1): Fix thinko in wide_int::from
+	usage.
+
+2016-03-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/70421
+	* config/i386/i386.c (ix86_expand_vector_set): Fix up argument order
+	in gen_blendm expander.
+
+2016-03-30  Nick Clifton  <nickc@redhat.com>
+
+	PR target/62254
+	* config/arm/arm.c (arm_reload_out_hi): Add code to handle the
+	case where we are already provided with an SImode SUBREG.
+
+2016-03-30  Michael Matz  <matz@suse.de>
+	    Richard Biener  <rguenther@suse.de>
+
+	PR ipa/12392
+	* ipa-polymorphic-call.c (struct type_change_info): Change
+	speculative to an unsigned allowing to limit the work we do.
+	(csftc_abort_walking_p): New inline function..
+	(check_stmt_for_type_change): Limit the number of may-defs
+	skipped for speculative devirtualization to
+	max-speculative-devirt-maydefs.
+	* params.def (max-speculative-devirt-maydefs): New param.
+	* doc/invoke.texi (--param max-speculative-devirt-maydefs): Document.
+
+2016-03-30  Mike Stump  <mrs@gcc.gnu.org>
+
+	PR target/63890
+	* config/i386/i386.h (ACCUMULATE_OUTGOING_ARGS): Use when profiling
+	and TARGET_MACHO.
+
+2016-03-30  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR tree-optimization/59124
+	* tree-vrp.c (register_edge_assert_for_2): For NAME != CST1
+	where NAME = A +- CST2 add the assertion A != (CST1 -+ CST2).
+
+2016-03-29  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-coalesce.c (struct ssa_conflicts): Fix typo in
+	comment.
+
+2016-03-10  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-ssa-loop-ivcanon.c (try_peel_loop): Change type of peel
+	to HOST_WIDE_INT.
+
+2016-03-29  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* config/gnu.h (CPP_SPEC, LIB_SPEC): Don't override.
+	* config/i386/gnu.h (STARTFILE_SPEC): Use gcrt1.o instead of
+	gcrt0.o if linking dynamically.
+
+2016-03-10  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/70283
+	* ipa-devirt.c (methods_equal_p): New function.
+	(compare_virtual_tables): Use it.
+	* cgraph.h (symbol_table::symbol_suffix_separator): Declare.
+	* cgraphclones.c (clone_function_name_1): Use
+	symbol_table::symbol_suffix_separator.
+	* coverage.c (build_var): Likewise.
+	* symtab.c (symbol_table::symbol_suffix_separator): New.
+
+2016-03-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/70429
+	* combine.c (simplify_shift_const_1): For ASHIFTRT don't optimize
+	(cst1 >> count) >> cst2 into (cst1 >> cst2) >> count if
+	mode != result_mode.
+
+	PR c++/70353
+	* tree-inline.c (remap_decls): Don't add_local_decl if
+	cfun is null.
+
+	PR tree-optimization/70405
+	* ssa-iterators.h (num_imm_uses): Add missing braces.
+
+2016-03-29  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/68695
+	* ira-color.c (allocno_copy_cost_saving): New.
+	(improve_allocation): Use it.
+
+2016-03-29  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/70355
+	* lower-subreg.c (simplify_subreg_concatn): Reject paradoxical
+	subregs.
+
+2016-03-29  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70424
+	* ipa-prop.c (ipa_compute_jump_functions_for_edge): Always
+	use alignment returned by get_pointer_alignment_1 if it is
+	bigger than BITS_PER_UNIT.
+	* builtins.c (get_pointer_alignment_1): Do not return true
+	for alignment extracted from SSA info.
+
+2016-03-28  James Bowman  <james.bowman@ftdichip.com>
+
+	* config/ft32/ft32.opt (mnodiv): New.
+	* config/ft32/ft32.md (*divsi3, *modsi3): Qualify with
+	TARGET_NODIV.
+	* doc/invoke.texi (FT32 Options -mnodiv): New.
+
+2016-03-28  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	 PR target/70406
+	 * config/i386/i386.md (define_split, andn): Fix modes.
+
+2016-03-26  Richard Biener  <rguenther@suse.de>
+            Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	PR ipa/70366
+	* ipa-inline-transform.c (inline_call): Pass opts_for_fn (to->decl)
+	instead of
+	TREE_OPTIMIZATION (DECL_FUNCTION_SPECIFIC_OPTIMIZATION (to->decl))
+	as 2nd argument to cl_optimization_restore().
+
+2016-03-25  Richard Henderson  <rth@redhat.com>
+
+	PR target/70120
+	* config/aarch64/aarch64.c (aarch64_asm_output_pool_epilogue): New.
+	* config/aarch64/aarch64-protos.h: Declare it.
+	* config/aarch64/aarch64.h (ASM_OUTPUT_POOL_EPILOGUE): New.
+
+2016-03-25  Alan Modra  <amodra@gmail.com>
+
+	PR target/70052
+	* config/rs6000/constraints.md (j): Simplify.
+	* config/rs6000/predicates.md (easy_fp_constant): Exclude
+	decimal float 0.D.
+	* config/rs6000/rs6000.md (zero_fp): New mode_attr.
+	(mov<mode>_hardfloat, mov<mode>_hardfloat32, mov<mode>_hardfloat64,
+	 mov<mode>_64bit_dm, mov<mode>_32bit): Use zero_fp in place of j
+	in all constraint alternatives.
+	(movtd_64bit_nodm): Delete "j" constraint alternative.
+
+2016-03-24  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-ssa-propagate.c: Enhance docs for
+	SSA_PROP_NOT_INTERESTING.
+
+2016-03-24  Aldy Hernandez  <aldyh@redhat.com>
+
+	* doc/extend.texi: Fix typo in documentation to pure attribute.
+
+2016-03-24  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR target/70319
+	* config/pa/pa.md (bswapdi2): Use a scratch register.
+
+2016-03-24  Richard Henderson  <rth@redhat.com>
+
+        PR middle-end/69845
+	* fold-const.c (extract_muldiv_1): Correct test for multiplication
+	overflow.
+
+2016-03-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*anddi3_doubleword): Generate AND insn
+	using ix86_expand_binary_operator instead of gen_andsi3.
+
+2016-03-24  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70396
+	* tree-vect-stmts.c (vectorizable_comparison): Use
+	get_vectype_for_scalar_type.
+
+2016-03-24  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70370
+	* gimplify.c (gimplify_asm_expr): Handle !allows_mem outputs
+	with register bases.
+
+2016-03-24  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70372
+	* tree-ssa-reassoc.c (eliminate_plus_minus_pair): Use
+	build_all_ones_cst to also handle vector types correctly.
+
+2016-03-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/70381
+	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Do not set
+	-mfloat128 here.
+
+2016-03-23  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/69884
+	* doc/invoke.texi: Document -Wignored-attributes.
+
+2016-03-23  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/69042
+	* params.def (PARAM_IV_CONSIDER_ALL_CANDIDATES_BOUND): Increase the
+	parameter from 30 to 40.
+
+2016-03-23  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/69042
+	* tree-ssa-loop-ivopts.c (add_iv_candidate_for_use): Add IV cand
+	for use with constant offset stripped in base.
+
+2016-03-23  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70251
+	* match.pd (A + (B vcmp C ? 1 : 0) -> A - (B vcmp C)): Adjust
+	mode compatibility check.
+	(A - (B vcmp C ? 1 : 0) -> A + (B vcmp C)): Likewise.
+
+2016-03-23  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/64058
+	* tree-ssa-coalesce.c (struct coalesce_pair): Add new field
+	CONFLICT_COUNT.
+	(struct ssa_conflicts): Move up earlier in the file.
+	(conflicts_, var_map_): New static variables.
+	(initialize_conflict_count): New function to initialize the
+	CONFLICT_COUNT field for each conflict pair.
+	(compare_pairs): Lazily initialize the conflict count and use it
+	as the first tie-breaker.
+	(sort_coalesce_list): Add new arguments conflicts, map.  Initialize
+	and wipe conflicts_ and map_ around the call to qsort.  Remove
+	special case for 2 coalesce pairs.
+	* bitmap.c (bitmap_count_unique_bits): New function.
+	(bitmap_count_bits_in_word): New function, extracted from
+	bitmap_count_bits.
+	(bitmap_count_bits): Use bitmap_count_bits_in_word.
+	* bitmap.h (bitmap_count_unique_bits): Declare it.
+
+2016-03-23  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR target/69917
+	* config/i386/sol2.h (ASM_OUTPUT_DEF_FROM_DECLS): Follow
+	transparent alias chain for decl assembler name.
+	* config/sol2.c (solaris_assemble_visibility): Likewise.
+
+2016-03-23  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm1020e.md (1020call_op): Reduce reservation
+	duration.
+	(v10_fdivs): Likewise.
+	(v10_fdivd): Likewise.
+
 2016-03-23  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
 
 	PR driver/70132

@@ -1,3 +1,101 @@
+2016-03-31  Richard Biener  <rguenther@suse.de>
+
+	PR c++/70430
+	* typeck.c (cp_build_binary_op): Fix operand order of vector
+	conditional in truth op handling.
+
+2016-03-29  Jason Merrill  <jason@redhat.com>
+
+	PR c++/70353
+	* decl.c (make_rtl_for_nonlocal_decl): Don't defer local statics
+	in constexpr functions.
+
+2016-03-28  Jason Merrill  <jason@redhat.com>
+
+	PR c++/70422
+	PR c++/64266
+	PR c++/70353
+	* decl.c, pt.c, constexpr.c: Revert last patch.
+
+2016-03-25  Jason Merrill  <jason@redhat.com>
+	    Martin Liška  <mliska@suse.cz>
+
+	PR c++/64266
+	PR c++/70353
+	Core issue 1962
+	* decl.c (cp_fname_init): Decay the initializer to pointer.
+	(cp_make_fname_decl): Set DECL_DECLARED_CONSTEXPR_P,
+	DECL_VALUE_EXPR, DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P.
+	Don't call cp_finish_decl.
+	* pt.c (tsubst_expr) [DECL_EXPR]: Set DECL_VALUE_EXPR,
+	DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P.  Don't call cp_finish_decl.
+	* constexpr.c (cxx_eval_constant_expression) [VAR_DECL]:
+	Handle DECL_VALUE_EXPR.
+
+2016-03-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/70386
+	* constexpr.c (cxx_eval_bare_aggregate): Handle PMFs.
+
+	PR c++/70323
+	* constexpr.c (cxx_eval_call_expression): Don't cache result if
+	*overflow_p.
+
+2016-03-24  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/62212
+	* tree.c (build_cplus_array_type): Determine type-dependentess
+	with uses_template_parms instead of with dependent_type_p.
+
+2016-03-23  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/70347
+	* typeck.c (process_init_constructor_union): If the initializer
+	is empty, use the union's NSDMI if it has one.
+
+2016-03-23  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/70332
+	* pt.c (tsubst_copy) [PARM_DECL]: Handle the use of 'this' in an
+	NSDMI that's part of an aggregrate initialization.
+
+2016-03-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/70001
+	* constexpr.c (cxx_eval_vec_init_1): Reuse CONSTRUCTOR initializers
+	for 1..max even for multi-dimensional arrays.  Call unshare_expr
+	on it.
+
+	PR c++/70323
+	* constexpr.c (cxx_eval_constant_expression): Diagnose overflow
+	on TREE_OVERFLOW constants.
+
+	PR c++/70376
+	* cp-gimplify.c (genericize_omp_for_stmt): Don't walk OMP_FOR_CLAUSES
+	for OMP_TASKLOOP here.
+	(cp_genericize_r): Handle OMP_TASKLOOP like OMP_TASK, except do call
+	genericize_omp_for_stmt instead of cp_walk_tree on OMP_BODY.
+
+2016-03-23  Alexandre Oliva  <aoliva@redhat.com>
+	    Jason Merrill  <jason@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/69315
+	* cp-tree.h (defer_mark_used_calls, deferred_mark_used_calls): Remove.
+	* decl.c (defer_mark_used_calls, deferred_mark_used_calls): Remove.
+	(finish_function): Don't set or test them.
+	* decl2.c (mark_used): Don't handle defer_mark_used_calls.
+
+2016-03-23  Jason Merrill  <jason@redhat.com>
+
+	PR c++/70344
+	* constexpr.c (cxx_eval_call_expression): Catch invalid recursion.
+
+2016-03-23  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/69884
+	* pt.c (canonicalize_type_argument): Use OPT_Wignored_attributes.
+
 2016-03-22  Ilya Enkovich  <enkovich.gnu@gmail.com>
 
 	* call.c (build_conditional_expr_1): Always use original

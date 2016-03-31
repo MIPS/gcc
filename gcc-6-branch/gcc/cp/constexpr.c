@@ -1239,6 +1239,21 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
       return t;
     }
 
+  if (fun == current_function_decl)
+    {
+      /* A call to the current function, i.e.
+	 constexpr int f (int i) {
+	   constexpr int j = f(i-1);
+	   return j;
+	 }
+	 This would be OK without the constexpr on the declaration of j.  */
+      if (!ctx->quiet)
+	error_at (loc, "%qD called in a constant expression before its "
+		  "definition is complete", fun);
+      *non_constant_p = true;
+      return t;
+    }
+
   constexpr_ctx new_ctx = *ctx;
   if (DECL_CONSTRUCTOR_P (fun) && !ctx->object
       && TREE_CODE (t) == AGGR_INIT_EXPR)
@@ -1433,7 +1448,7 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
 
       if (result == error_mark_node)
 	*non_constant_p = true;
-      if (*non_constant_p)
+      if (*non_constant_p || *overflow_p)
 	result = error_mark_node;
       else if (!result)
 	result = void_node;
@@ -2253,8 +2268,19 @@ cxx_eval_bare_aggregate (const constexpr_ctx *ctx, tree t,
   vec<constructor_elt, va_gc> *v = CONSTRUCTOR_ELTS (t);
   bool changed = false;
   gcc_assert (!BRACE_ENCLOSED_INITIALIZER_P (t));
+  tree type = TREE_TYPE (t);
 
-  verify_ctor_sanity (ctx, TREE_TYPE (t));
+  constexpr_ctx new_ctx;
+  if (TYPE_PTRMEMFUNC_P (type))
+    {
+      /* We don't really need the ctx->ctor business for a PMF, but it's
+	 simpler to use the same code.  */
+      new_ctx = *ctx;
+      new_ctx.ctor = build_constructor (type, NULL);
+      new_ctx.object = NULL_TREE;
+      ctx = &new_ctx;
+    };
+  verify_ctor_sanity (ctx, type);
   vec<constructor_elt, va_gc> **p = &CONSTRUCTOR_ELTS (ctx->ctor);
   vec_alloc (*p, vec_safe_length (v));
 
@@ -2265,7 +2291,6 @@ cxx_eval_bare_aggregate (const constexpr_ctx *ctx, tree t,
   FOR_EACH_CONSTRUCTOR_ELT (v, i, index, value)
     {
       tree orig_value = value;
-      constexpr_ctx new_ctx;
       init_subob_ctx (ctx, new_ctx, index, value);
       if (new_ctx.ctor != ctx->ctor)
 	/* If we built a new CONSTRUCTOR, attach it now so that other
@@ -2319,7 +2344,7 @@ cxx_eval_bare_aggregate (const constexpr_ctx *ctx, tree t,
   CONSTRUCTOR_NO_IMPLICIT_ZERO (t) = false;
   TREE_CONSTANT (t) = constant_p;
   TREE_SIDE_EFFECTS (t) = side_effects_p;
-  if (VECTOR_TYPE_P (TREE_TYPE (t)))
+  if (VECTOR_TYPE_P (type))
     t = fold (t);
   return t;
 }
@@ -2347,7 +2372,6 @@ cxx_eval_vec_init_1 (const constexpr_ctx *ctx, tree atype, tree init,
   vec<constructor_elt, va_gc> **p = &CONSTRUCTOR_ELTS (ctx->ctor);
   vec_alloc (*p, max + 1);
   bool pre_init = false;
-  tree pre_init_elt = NULL_TREE;
   unsigned HOST_WIDE_INT i;
 
   /* For the default constructor, build up a call to the default
@@ -2377,6 +2401,7 @@ cxx_eval_vec_init_1 (const constexpr_ctx *ctx, tree atype, tree init,
     {
       tree idx = build_int_cst (size_type_node, i);
       tree eltinit;
+      bool reuse = false;
       constexpr_ctx new_ctx;
       init_subob_ctx (ctx, new_ctx, idx, pre_init ? init : elttype);
       if (new_ctx.ctor != ctx->ctor)
@@ -2385,7 +2410,10 @@ cxx_eval_vec_init_1 (const constexpr_ctx *ctx, tree atype, tree init,
 	{
 	  /* A multidimensional array; recurse.  */
 	  if (value_init || init == NULL_TREE)
-	    eltinit = NULL_TREE;
+	    {
+	      eltinit = NULL_TREE;
+	      reuse = i == 0;
+	    }
 	  else
 	    eltinit = cp_build_array_ref (input_location, init, idx,
 					  tf_warning_or_error);
@@ -2397,18 +2425,9 @@ cxx_eval_vec_init_1 (const constexpr_ctx *ctx, tree atype, tree init,
 	{
 	  /* Initializing an element using value or default initialization
 	     we just pre-built above.  */
-	  if (pre_init_elt == NULL_TREE)
-	    pre_init_elt
-	      = cxx_eval_constant_expression (&new_ctx, init, lval,
-					      non_constant_p, overflow_p);
-	  eltinit = pre_init_elt;
-	  /* Don't reuse the result of cxx_eval_constant_expression
-	     call if it isn't a constant initializer or if it requires
-	     relocations.  */
-	  if (initializer_constant_valid_p (pre_init_elt,
-					    TREE_TYPE (pre_init_elt))
-	      != null_pointer_node)
-	    pre_init_elt = NULL_TREE;
+	  eltinit = cxx_eval_constant_expression (&new_ctx, init, lval,
+						  non_constant_p, overflow_p);
+	  reuse = i == 0;
 	}
       else
 	{
@@ -2434,6 +2453,23 @@ cxx_eval_vec_init_1 (const constexpr_ctx *ctx, tree atype, tree init,
 	}
       else
 	CONSTRUCTOR_APPEND_ELT (*p, idx, eltinit);
+      /* Reuse the result of cxx_eval_constant_expression call
+	  from the first iteration to all others if it is a constant
+	  initializer that doesn't require relocations.  */
+      if (reuse
+	  && max > 1
+	  && (initializer_constant_valid_p (eltinit, TREE_TYPE (eltinit))
+	      == null_pointer_node))
+	{
+	  if (new_ctx.ctor != ctx->ctor)
+	    eltinit = new_ctx.ctor;
+	  for (i = 1; i < max; ++i)
+	    {
+	      idx = build_int_cst (size_type_node, i);
+	      CONSTRUCTOR_APPEND_ELT (*p, idx, unshare_expr (eltinit));
+	    }
+	  break;
+	}
     }
 
   if (!*non_constant_p)
@@ -3306,8 +3342,13 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
     }
   if (CONSTANT_CLASS_P (t))
     {
-      if (TREE_OVERFLOW (t) && (!flag_permissive || ctx->quiet))
-	*overflow_p = true;
+      if (TREE_OVERFLOW (t))
+	{
+	  if (!ctx->quiet)
+	    permerror (input_location, "overflow in constant expression");
+	  if (!flag_permissive || ctx->quiet)
+	    *overflow_p = true;
+	}
       return t;
     }
 
