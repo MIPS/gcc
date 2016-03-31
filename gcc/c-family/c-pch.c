@@ -28,6 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-pragma.h"
 #include "langhooks.h"
 #include "hosthooks.h"
+#include "ttype.h"
 
 /* This is a list of flag variables that must match exactly, and their
    names for the error message.  The possible values for *flag_var must

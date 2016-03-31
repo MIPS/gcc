@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "builtins.h"
 #include "gimplify.h"
+#include "ttype.h"
 
 /* Instrument division by zero and INT_MIN / -1.  If not instrumenting,
    return NULL_TREE.  */
@@ -37,7 +38,7 @@ tree
 ubsan_instrument_division (location_t loc, tree op0, tree op1)
 {
   tree t, tt;
-  tree type = TREE_TYPE (op0);
+  ttype *type = TREE_TYPE (op0);
 
   /* At this point both operands should have the same type,
      because they are already converted to RESULT_TYPE.
@@ -112,9 +113,9 @@ ubsan_instrument_shift (location_t loc, enum tree_code code,
 			tree op0, tree op1)
 {
   tree t, tt = NULL_TREE;
-  tree type0 = TREE_TYPE (op0);
-  tree type1 = TREE_TYPE (op1);
-  tree op1_utype = unsigned_type_for (type1);
+  ttype *type0 = TREE_TYPE (op0);
+  ttype *type1 = TREE_TYPE (op1);
+  ttype *op1_utype = unsigned_type_for (type1);
   HOST_WIDE_INT op0_prec = TYPE_PRECISION (type0);
   tree uprecm1 = build_int_cst (op1_utype, op0_prec - 1);
 
@@ -202,7 +203,7 @@ ubsan_instrument_shift (location_t loc, enum tree_code code,
 tree
 ubsan_instrument_vla (location_t loc, tree size)
 {
-  tree type = TREE_TYPE (size);
+  ttype *type = TREE_TYPE (size);
   tree t, tt;
 
   t = fold_build2 (LE_EXPR, boolean_type_node, size, build_int_cst (type, 0));
@@ -253,10 +254,10 @@ tree
 ubsan_instrument_bounds (location_t loc, tree array, tree *index,
 			 bool ignore_off_by_one)
 {
-  tree type = TREE_TYPE (array);
-  tree domain = TYPE_DOMAIN (type);
+  ttype *type = TREE_TYPE (array);
+  ttype *domain = TYPE_DOMAIN (type);
 
-  if (domain == NULL_TREE || TYPE_MAX_VALUE (domain) == NULL_TREE)
+  if (domain == NULL || TYPE_MAX_VALUE (domain) == NULL_TREE)
     return NULL_TREE;
 
   tree bound = TYPE_MAX_VALUE (domain);
@@ -356,13 +357,13 @@ ubsan_maybe_instrument_array_ref (tree *expr_p, bool ignore_off_by_one)
 }
 
 static tree
-ubsan_maybe_instrument_reference_or_call (location_t loc, tree op, tree ptype,
+ubsan_maybe_instrument_reference_or_call (location_t loc, tree op, ttype *ptype,
 					  enum ubsan_null_ckind ckind)
 {
   if (!do_ubsan_in_current_function ())
     return NULL_TREE;
 
-  tree type = TREE_TYPE (ptype);
+  ttype *type = TREE_TYPE (ptype);
   tree orig_op = op;
   bool instrument = false;
   unsigned int mina = 0;

@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "options.h"
 #include "c-family/c-common.h"
 #include "tree-iterator.h"
+#include "ttype.h"
 
 /* Returns true if the function call in FNDECL is  __sec_implicit_index.  */
 
