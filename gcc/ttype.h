@@ -244,5 +244,91 @@ any_integral_ttype_check (const ttype *__t, const char *__f, int __l,
 #define DECL_BIT_FIELD_TYPE(NODE) \
   (FIELD_DECL_CHECK (NODE)->u.field_decl_ttype.bit_field_type)
 
+/* ------------------------------------------------------------------------ */
+/* The remaining routines are simply macors that are redefined to be inline
+   functions which should only be called on types, so do the typechecking.  */
+/* ------------------------------------------------------------------------ */
 
+#undef POINTER_TYPE_P
+inline bool
+POINTER_TYPE_P (const ttype *t)
+{
+  enum tree_code code = TREE_CODE (t);
+  return (code == POINTER_TYPE || code == REFERENCE_TYPE);
+}
+
+#undef FUNC_OR_METHOD_TYPE_P
+inline bool
+FUNC_OR_METHOD_TYPE_P (const ttype *t)
+{
+  enum tree_code code = TREE_CODE (t);
+  return (code == FUNCTION_TYPE || code == METHOD_TYPE);
+}
+
+#undef RECORD_OR_UNION_TYPE_P
+inline bool
+RECORD_OR_UNION_TYPE_P (const ttype *t)
+{
+  enum tree_code code = TREE_CODE (t);
+  return (code == RECORD_TYPE || code == UNION_TYPE || code == QUAL_UNION_TYPE);
+}
+
+#undef SCALAR_FLOAT_TYPE_P
+inline bool
+SCALAR_FLOAT_TYPE_P (const ttype *t)
+{
+  return (TREE_CODE (t) == REAL_TYPE);
+}
+
+#undef FIXED_POINT_TYPE_P
+inline bool
+FIXED_POINT_TYPE_P (const ttype *t)
+{
+  return (TREE_CODE (t) == FIXED_POINT_TYPE);
+}
+
+#undef VECTOR_TYPE_P
+inline bool
+VECTOR_TYPE_P (const ttype *t)
+{
+  return (TREE_CODE (t) == VECTOR_TYPE);
+}
+
+#undef INTEGRAL_TYPE_P
+inline bool
+INTEGRAL_TYPE_P (const ttype *t)
+{
+  enum tree_code code = TREE_CODE (t);
+  return (code == ENUMERAL_TYPE || code == BOOLEAN_TYPE
+	  || code ==  INTEGER_TYPE);
+}
+
+#undef COMPLEX_FLOAT_TYPE_P
+inline bool
+COMPLEX_FLOAT_TYPE_P (const ttype *t)
+{
+  return (TREE_CODE (t) == COMPLEX_TYPE && SCALAR_FLOAT_TYPE_P (TREE_TYPE (t)));
+}
+
+#undef POINTER_BOUNDS_TYPE_P
+inline bool
+POINTER_BOUNDS_TYPE_P (const ttype *t)
+{
+  return (TREE_CODE (t) == POINTER_BOUNDS_TYPE);
+}
+
+#undef VOID_TYPE_P
+inline bool
+VOID_TYPE_P (const ttype *t)
+{
+  return (TREE_CODE (t) == VOID_TYPE);
+}
+
+#undef VECTOR_BOOLEAN_TYPE_P
+inline bool
+VECTOR_BOOLEAN_TYPE_P (const ttype *t)
+{
+  return (TREE_CODE (t) == VECTOR_TYPE
+	  && TREE_CODE (TREE_TYPE (t)) == BOOLEAN_TYPE);
+}
 #endif 
