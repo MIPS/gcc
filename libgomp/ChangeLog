@@ -1,3 +1,35 @@
+2016-03-24  Martin Liska  <mliska@suse.cz>
+
+	* plugin/plugin-hsa.c (packet_store_release): New function
+	that is taken from the HSA runtime manual.
+	(GOMP_OFFLOAD_run): Use the function.
+
+2016-03-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/70376
+	* testsuite/libgomp.c++/pr70376.C: New test.
+
+2016-03-23  Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libgomp.oacc-fortran/reduction-2.f90: Add missing
+	initialization of lresult and lvresult.
+	* testsuite/libgomp.oacc-fortran/reduction-3.f90: Same.
+
+2016-03-23  James Norris  <jnorris@codesourcery.com>
+	    Daichi Fukuoka <dc-fukuoka@sgi.com>
+
+	PR libgomp/69414
+	* oacc-mem.c (delete_copyout, update_dev_host): Fix device address.
+	* testsuite/libgomp.oacc-c-c++-common/update-1.c: Additional tests.
+	* testsuite/libgomp.oacc-c-c++-common/update-1-2.c: Likewise.
+	* testsuite/libgomp.oacc-fortran/update-1.f90: New file.
+
+2016-03-23  Martin Liska  <mliska@suse.cz>
+
+	PR hsa/70337
+	* plugin/plugin-hsa.c (GOMP_OFFLOAD_run): Copy shadow
+	argument just in case a dispatched kernel uses that argument.
+
 2016-03-16  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/libgomp.oacc-fortran/kernels-loop-2.f95: Adjust to

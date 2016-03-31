@@ -4634,6 +4634,8 @@ build_conditional_expr_1 (location_t loc, tree arg1, tree arg2, tree arg3,
 
   if (VECTOR_INTEGER_TYPE_P (TREE_TYPE (arg1)))
     {
+      tree arg1_type = TREE_TYPE (arg1);
+
       /* If arg1 is another cond_expr choosing between -1 and 0,
 	 then we can use its comparison.  It may help to avoid
 	 additional comparison, produce more accurate diagnostics
@@ -4653,7 +4655,6 @@ build_conditional_expr_1 (location_t loc, tree arg1, tree arg2, tree arg3,
 	  || error_operand_p (arg3))
 	return error_mark_node;
 
-      tree arg1_type = TREE_TYPE (arg1);
       arg2_type = TREE_TYPE (arg2);
       arg3_type = TREE_TYPE (arg3);
 
@@ -8004,11 +8005,7 @@ build_special_member_call (tree instance, tree name, vec<tree, va_gc> **args,
       vtt = decay_conversion (vtt, complain);
       if (vtt == error_mark_node)
 	return error_mark_node;
-      vtt = build3 (COND_EXPR, TREE_TYPE (vtt),
-		    build2 (EQ_EXPR, boolean_type_node,
-			    current_in_charge_parm, integer_zero_node),
-		    current_vtt_parm,
-		    vtt);
+      vtt = build_if_in_charge (vtt, current_vtt_parm);
       if (BINFO_SUBVTT_INDEX (binfo))
 	sub_vtt = fold_build_pointer_plus (vtt, BINFO_SUBVTT_INDEX (binfo));
       else
