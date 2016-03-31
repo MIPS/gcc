@@ -104,7 +104,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	return static_cast<_Tp*>(::operator new(__n * sizeof(_Tp)));
       }
 
-#ifdef __GXX_DELETE_WITH_SIZE__
+#if defined(__GXX_DELETE_WITH_SIZE__) || defined(__cpp_sized_deallocation)
       // __p is not permitted to be a null pointer.
       void
       deallocate(pointer __p, size_type __t)
