@@ -1877,21 +1877,12 @@ static int
 rs6000_hard_regno_nregs_internal (int regno, machine_mode mode)
 {
   unsigned HOST_WIDE_INT reg_size;
-  unsigned mult_regs = 1;
-
-  /* For complex, use the base type and always use two registers for the read
-     and imaginary parts.  */
-  if (COMPLEX_MODE_P (mode))
-    {
-      mult_regs = 2;
-      mode = GET_MODE_INNER (mode);
-    }
 
   /* 128-bit floating point usually takes 2 registers, unless it is IEEE
      128-bit floating point that can go in vector registers, which has VSX
      memory addressing.  */
   if (FP_REGNO_P (regno))
-    reg_size = (VECTOR_MEM_VSX_P (mode)
+    reg_size = (VECTOR_MEM_VSX_P (mode) || FLOAT128_VECTOR_P (mode)
 		? UNITS_PER_VSX_WORD
 		: UNITS_PER_FP_WORD);
 
@@ -1913,7 +1904,7 @@ rs6000_hard_regno_nregs_internal (int regno, machine_mode mode)
   else
     reg_size = UNITS_PER_WORD;
 
-  return mult_regs * ((GET_MODE_SIZE (mode) + reg_size - 1) / reg_size);
+  return (GET_MODE_SIZE (mode) + reg_size - 1) / reg_size;
 }
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode

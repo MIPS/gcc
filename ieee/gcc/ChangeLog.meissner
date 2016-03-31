@@ -1,3 +1,9 @@
+2016-03-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_nregs_internal):
+	Rework 3/30 change so we don't break passing/returning structs
+	containing _Complex char/short/int.
+
 2016-03-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to pre-gcc7, subversion id 234601, which is based on trun
