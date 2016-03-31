@@ -21,4 +21,4 @@ foo (struct c *p)
   return sum;
 }
 
-/* { dg-final { scan-tree-dump "i_.* > 0" "optimized" } } */
+/* { dg-final { scan-tree-dump "_.* > 0" "optimized" } } */

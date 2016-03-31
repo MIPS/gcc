@@ -17,4 +17,4 @@ foo ()
   return bits;
 }
 
-/* { dg-final { scan-tree-dump "return bits" "optimized" } } */
+/* { dg-final { scan-tree-dump "return \[bits\|_\*\]" "optimized" } } */
