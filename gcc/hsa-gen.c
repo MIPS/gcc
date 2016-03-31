@@ -1766,6 +1766,20 @@ hsa_bb::append_insn (hsa_insn_basic *insn)
     m_first_insn = insn;
 }
 
+void
+hsa_bb::append_phi (hsa_insn_phi *hphi)
+{
+  hphi->m_bb = m_bb;
+
+  hphi->m_prev = m_last_phi;
+  hphi->m_next = NULL;
+  if (m_last_phi)
+    m_last_phi->m_next = hphi;
+  m_last_phi = hphi;
+  if (!m_first_phi)
+    m_first_phi = hphi;
+}
+
 /* Insert HSA instruction NEW_INSN immediately before an existing instruction
    OLD_INSN.  */
 
@@ -5761,13 +5775,7 @@ gen_hsa_phi_from_gimple_phi (gimple *phi_stmt, hsa_bb *hbb)
 	}
     }
 
-  hphi->m_prev = hbb->m_last_phi;
-  hphi->m_next = NULL;
-  if (hbb->m_last_phi)
-    hbb->m_last_phi->m_next = hphi;
-  hbb->m_last_phi = hphi;
-  if (!hbb->m_first_phi)
-    hbb->m_first_phi = hphi;
+  hbb->append_phi (hphi);
 }
 
 /* Constructor of class containing HSA-specific information about a basic

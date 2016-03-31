@@ -1,3 +1,9 @@
+2016-03-31  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (hsa_bb::append_phi): New function.
+	(gen_hsa_phi_from_gimple_phi): Use it.
+	* hsa.h: Declare the method.
+
 2016-03-17  Martin Jambor  <mjambor@suse.cz>
 
 	* doc/invoke.texi (-fopt-info): Document openmp optimization group.

@@ -1056,6 +1056,9 @@ public:
   /* Append an instruction INSN into the basic block.  */
   void append_insn (hsa_insn_basic *insn);
 
+  /* Add a PHI instruction.  */
+  void append_phi (hsa_insn_phi *phi);
+
   /* The real CFG BB that this HBB belongs to.  */
   basic_block m_bb;
 
