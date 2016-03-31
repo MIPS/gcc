@@ -1956,6 +1956,14 @@ dump_generic_node (pretty_printer *pp, tree node, int spc, int flags,
       }
       break;
 
+    case SEXT_EXPR:
+      pp_string (pp, "SEXT_EXPR <");
+      dump_generic_node (pp, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_string (pp, ", ");
+      dump_generic_node (pp, TREE_OPERAND (node, 1), spc, flags, false);
+      pp_greater (pp);
+      break;
+
     case MODIFY_EXPR:
     case INIT_EXPR:
       dump_generic_node (pp, TREE_OPERAND (node, 0), spc, flags,
@@ -3596,6 +3604,9 @@ op_symbol_code (enum tree_code code)
 
     case MIN_EXPR:
       return "min";
+
+    case SEXT_EXPR:
+      return "sext";
 
     default:
       return "<<< ??? >>>";

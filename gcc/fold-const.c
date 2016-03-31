@@ -980,6 +980,10 @@ int_const_binop_1 (enum tree_code code, const_tree arg1, const_tree parg2,
       res = wi::bit_and (arg1, arg2);
       break;
 
+    case SEXT_EXPR:
+      res = wi::sext (arg1, arg2.to_uhwi ());
+      break;
+
     case RSHIFT_EXPR:
     case LSHIFT_EXPR:
       if (wi::neg_p (arg2))

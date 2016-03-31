@@ -760,6 +760,11 @@ DEFTREECODE (BIT_XOR_EXPR, "bit_xor_expr", tcc_binary, 2)
 DEFTREECODE (BIT_AND_EXPR, "bit_and_expr", tcc_binary, 2)
 DEFTREECODE (BIT_NOT_EXPR, "bit_not_expr", tcc_unary, 1)
 
+/*  Sign-extend operation.  It will sign extend first operand from
+ the sign bit specified by the second operand.  The type of the
+ result is that of the first operand.  */
+DEFTREECODE (SEXT_EXPR, "sext_expr", tcc_binary, 2)
+
 /* ANDIF and ORIF allow the second operand not to be computed if the
    value of the expression is determined from the first operand.  AND,
    OR, and XOR always compute the second operand whether its value is

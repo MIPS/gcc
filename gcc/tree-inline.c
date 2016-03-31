@@ -3868,6 +3868,7 @@ estimate_operator_cost (enum tree_code code, eni_weights *weights,
     case BIT_XOR_EXPR:
     case BIT_AND_EXPR:
     case BIT_NOT_EXPR:
+    case SEXT_EXPR:
 
     case TRUTH_ANDIF_EXPR:
     case TRUTH_ORIF_EXPR:

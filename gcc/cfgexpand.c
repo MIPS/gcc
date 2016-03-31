@@ -5093,6 +5093,18 @@ expand_debug_expr (tree exp)
     case FMA_EXPR:
       return simplify_gen_ternary (FMA, mode, inner_mode, op0, op1, op2);
 
+    case SEXT_EXPR:
+      gcc_assert (CONST_INT_P (op1));
+      inner_mode = mode_for_size (INTVAL (op1), MODE_INT, 0);
+      gcc_assert (GET_MODE_BITSIZE (inner_mode) == INTVAL (op1));
+
+      if (mode != inner_mode)
+	op0 = simplify_gen_unary (SIGN_EXTEND,
+				  mode,
+				  gen_lowpart_SUBREG (inner_mode, op0),
+				  inner_mode);
+      return op0;
+
     default:
     flag_unsupported:
       if (flag_checking)

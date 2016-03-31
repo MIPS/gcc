@@ -3774,6 +3774,18 @@ verify_gimple_assign_binary (gassign *stmt)
         return false;
       }
 
+    case SEXT_EXPR:
+      {
+	if (!INTEGRAL_TYPE_P (lhs_type)
+	    || !useless_type_conversion_p (lhs_type, rhs1_type)
+	    || !tree_fits_uhwi_p (rhs2))
+	  {
+	    error ("invalid operands in sext expr");
+	    return true;
+	  }
+	return false;
+      }
+
     case VEC_WIDEN_LSHIFT_HI_EXPR:
     case VEC_WIDEN_LSHIFT_LO_EXPR:
       {

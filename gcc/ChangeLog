@@ -1,3 +1,14 @@
+2016-03-30  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* cfgexpand.c (expand_debug_expr): Handle SEXT_EXPR.
+	* expr.c (expand_expr_real_2): Likewise.
+	* fold-const.c (int_const_binop_1): Likewise.
+	* tree-cfg.c (verify_gimple_assign_binary): Likewise.
+	* tree-inline.c (estimate_operator_cost): Likewise.
+	* tree-pretty-print.c (dump_generic_node): Likewise.
+	(op_symbol_code): Likewise.
+	* tree.def: Define new tree code SEXT_EXPR.
+
 2016-03-30  Jan Hubicka  <hubicka@ucw.cz>
 
 	* tree-ssa-loop-niter.c (idx_infer_loop_bounds): We can't get realistic
