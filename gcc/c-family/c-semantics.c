@@ -132,7 +132,7 @@ tree
 build_real_imag_expr (location_t location, enum tree_code code, tree arg)
 {
   tree ret;
-  tree arg_type = TREE_TYPE (arg);
+  ttype *arg_type = TREE_TYPE (arg);
 
   gcc_assert (code == REALPART_EXPR || code == IMAGPART_EXPR);
 
