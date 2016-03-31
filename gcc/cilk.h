@@ -60,15 +60,21 @@ enum cilk_tree_index  {
   CILK_TI_PEDIGREE_RANK,              /* pedigree->rank.  */
   CILK_TI_PEDIGREE_PARENT,            /* pedigree->parent.  */
   
-  /* Types.  */
-  CILK_TI_FRAME_TYPE,                 /* struct __cilkrts_stack_frame.  */
-  CILK_TI_FRAME_PTR,                  /* __cilkrts_stack_frame *.  */
-  CILK_TI_WORKER_TYPE,                /* struct __cilkrts_worker.  */
-  CILK_TI_PEDIGREE_TYPE,              /* struct __cilkrts_pedigree.  */
   CILK_TI_MAX
 };
 
+enum cilk_type_index  {
+  
+  /* Types.  */
+  CILK_TPI_FRAME_TYPE,                 /* struct __cilkrts_stack_frame.  */
+  CILK_TPI_FRAME_PTR,                  /* __cilkrts_stack_frame *.  */
+  CILK_TPI_WORKER_TYPE,                /* struct __cilkrts_worker.  */
+  CILK_TPI_PEDIGREE_TYPE,              /* struct __cilkrts_pedigree.  */
+  CILK_TPI_MAX
+};
+
 extern GTY (()) tree cilk_trees[CILK_TI_MAX];
+extern GTY (()) ttype *cilk_types[CILK_TPI_MAX];
 
 #define cilk_worker_fndecl            cilk_trees[CILK_TI_F_WORKER]
 #define cilk_sync_fndecl              cilk_trees[CILK_TI_F_SYNC]
@@ -83,10 +89,10 @@ extern GTY (()) tree cilk_trees[CILK_TI_MAX];
 #define cilk_for_32_fndecl            cilk_trees[CILK_TI_F_LOOP_32]
 #define cilk_for_64_fndecl            cilk_trees[CILK_TI_F_LOOP_64]
 
-#define cilk_worker_type_fndecl       cilk_trees[CILK_TI_WORKER_TYPE]
-#define cilk_frame_type_decl          cilk_trees[CILK_TI_FRAME_TYPE]
-#define cilk_frame_ptr_type_decl      cilk_trees[CILK_TI_FRAME_PTR]
-#define cilk_pedigree_type_decl       cilk_trees[CILK_TI_PEDIGREE_TYPE]
+#define cilk_worker_type_fndecl       cilk_types[CILK_TPI_WORKER_TYPE]
+#define cilk_frame_type_decl          cilk_types[CILK_TPI_FRAME_TYPE]
+#define cilk_frame_ptr_type_decl      cilk_types[CILK_TPI_FRAME_PTR]
+#define cilk_pedigree_type_decl       cilk_types[CILK_TPI_PEDIGREE_TYPE]
 
 extern void expand_builtin_cilk_detach (tree);
 extern void expand_builtin_cilk_pop_frame (tree);
