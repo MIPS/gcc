@@ -1,0 +1,24 @@
+Bottom: 7a93a8ca095a2eec221cbd2cf468b420e960eeff
+Top:    65d3408c6a4e402f067d010a5455223ab5ef250f
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-04-01 06:18:17 -0300
+
+Refresh of assorted-features.patch
+
+---
+
+diff --git a/include/gcc-cp-interface.h b/include/gcc-cp-interface.h
+index 9d84d12..f6b80d2 100644
+--- a/include/gcc-cp-interface.h
++++ b/include/gcc-cp-interface.h
+@@ -312,7 +312,9 @@ struct gcc_cp_fe_vtable
+      The binding oracle is called whenever the C++ parser needs to
+      look up a symbol.  This gives the caller a chance to lazily
+      instantiate symbols using other parts of the gcc_cp_fe_interface
+-     API.
++     API.  The symbol is looked up without a scope, and the oracle
++     must supply a definition for ALL namespace-scoped definitions
++     bound to the symbol.
+ 
+      The address oracle is called whenever the C++ parser needs to
+      look up a symbol.  This may be called for symbols not provided by
