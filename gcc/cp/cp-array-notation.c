@@ -55,6 +55,7 @@
 #include "coretypes.h"
 #include "cp-tree.h"
 #include "tree-iterator.h"
+#include "ttype.h"
 
 /* Creates a FOR_STMT with INIT, COND, INCR and BODY as the initializer,
    condition, increment expression and the loop-body, respectively.  */
@@ -198,7 +199,8 @@ replace_invariant_exprs (tree *node)
 static tree
 expand_sec_reduce_builtin (tree an_builtin_fn, tree *new_var)
 {
-  tree new_var_type = NULL_TREE, func_parm, new_yes_expr, new_no_expr;
+  ttype *new_var_type = NULL;
+  tree func_parm, new_yes_expr, new_no_expr;
   tree array_ind_value = NULL_TREE, new_no_ind, new_yes_ind, new_no_list;
   tree new_yes_list, new_cond_expr, new_expr = NULL_TREE; 
   vec<tree, va_gc> *array_list = NULL, *array_operand = NULL;
@@ -284,7 +286,7 @@ expand_sec_reduce_builtin (tree an_builtin_fn, tree *new_var)
 	new_var_type = TREE_TYPE ((*array_list)[0]);
       break;
     case BUILT_IN_CILKPLUS_SEC_REDUCE_MUTATING:
-      new_var_type = NULL_TREE;
+      new_var_type = NULL;
       break;
     default:
       gcc_unreachable ();
@@ -309,7 +311,7 @@ expand_sec_reduce_builtin (tree an_builtin_fn, tree *new_var)
   cilkplus_extract_an_triplets (array_list, list_size, rank, &an_info);
   for (ii = 0; ii < rank; ii++)
     {
-      tree typ = ptrdiff_type_node;
+      ttype *typ = ptrdiff_type_node;
 
       /* In this place, we are using get_temp_regvar instead of 
 	 create_temporary_var if an_type is SEC_REDUCE_MAX/MIN_IND because
@@ -662,7 +664,7 @@ expand_an_in_modify_expr (location_t location, tree lhs,
     }
    for (ii = 0; ii < lhs_rank; ii++) 
      {
-       tree typ = ptrdiff_type_node; 
+       ttype *typ = ptrdiff_type_node; 
        lhs_an_loop_info[ii].var = create_temporary_var (typ);
        add_decl_expr (lhs_an_loop_info[ii].var);
        lhs_an_loop_info[ii].ind_init = build_x_modify_expr 
@@ -686,7 +688,7 @@ expand_an_in_modify_expr (location_t location, tree lhs,
 
   for (ii = 0; ii < rhs_rank; ii++)
     {
-      tree typ = ptrdiff_type_node;
+      ttype *typ = ptrdiff_type_node;
       rhs_an_loop_info[ii].var = create_temporary_var (typ);
       add_decl_expr (rhs_an_loop_info[ii].var);
       rhs_an_loop_info[ii].ind_init = build_x_modify_expr
@@ -932,7 +934,7 @@ cp_expand_cond_array_notations (tree orig_stmt)
 
   for (ii = 0; ii < rank; ii++) 
     {
-      tree typ = ptrdiff_type_node;
+      ttype *typ = ptrdiff_type_node;
       an_loop_info[ii].var = create_temporary_var (typ);
       add_decl_expr (an_loop_info[ii].var);
       an_loop_info[ii].ind_init =
@@ -1034,7 +1036,7 @@ expand_unary_array_notation_exprs (tree orig_stmt)
   
   for (ii = 0; ii < rank; ii++)
     {
-      tree typ = ptrdiff_type_node;
+      ttype *typ = ptrdiff_type_node;
       an_loop_info[ii].var = create_temporary_var (typ);
       add_decl_expr (an_loop_info[ii].var);
       an_loop_info[ii].ind_init = build_x_modify_expr
@@ -1350,7 +1352,7 @@ expand_array_notation_exprs (tree t)
 
 tree
 build_array_notation_ref (location_t loc, tree array, tree start, tree length, 
-			  tree stride, tree type)
+			  tree stride, ttype_p type)
 {
   tree array_ntn_expr = NULL_TREE;
 
@@ -1364,7 +1366,7 @@ build_array_notation_ref (location_t loc, tree array, tree start, tree length,
 		    "using array notation in pointers or records");
 	  return error_mark_node;
 	}
-      tree domain = TYPE_DOMAIN (type);
+      ttype *domain = TYPE_DOMAIN (type);
       if (!domain)
 	{
 	  error_at (loc, "start-index and length fields necessary for "
@@ -1397,7 +1399,7 @@ build_array_notation_ref (location_t loc, tree array, tree start, tree length,
     { 
       if (!cilkplus_an_triplet_types_ok_p (loc, start, length, stride, type))
 	return error_mark_node;
-      array_ntn_expr = build4 (ARRAY_NOTATION_REF, NULL_TREE, array, start, 
+      array_ntn_expr = build4 (ARRAY_NOTATION_REF, NULL_TYPE, array, start, 
 			       length, stride);
     }
   if (TREE_CODE (type) == ARRAY_TYPE || TREE_CODE (type) == POINTER_TYPE)

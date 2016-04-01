@@ -71,6 +71,7 @@
 #include "c-tree.h"
 #include "gimple-expr.h"
 #include "tree-iterator.h"
+#include "ttype.h"
 
 /* If *VALUE is not of type INTEGER_CST, PARM_DECL or VAR_DECL, then map it
    to a variable and then set *VALUE to the new variable.  */
@@ -194,7 +195,8 @@ replace_invariant_exprs (tree *node)
 static tree
 fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
 {
-  tree new_var_type = NULL_TREE, func_parm, new_expr, new_yes_expr, new_no_expr;
+  ttype *new_var_type = NULL;
+  tree func_parm, new_expr, new_yes_expr, new_no_expr;
   tree array_ind_value = NULL_TREE, new_no_ind, new_yes_ind, new_no_list;
   tree new_yes_list, new_cond_expr, new_var_init = NULL_TREE;
   tree new_exp_init = NULL_TREE;
@@ -280,7 +282,7 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
 	new_var_type = TREE_TYPE ((*array_list)[0]);
       break;
     case BUILT_IN_CILKPLUS_SEC_REDUCE_MUTATING:
-      new_var_type = NULL_TREE;
+      new_var_type = NULL;
       break;
     default:
       gcc_unreachable (); 
@@ -605,9 +607,9 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
    in LHS_ORIGTYPE and RHS_ORIGTYPE.  */
 
 tree
-build_array_notation_expr (location_t location, tree lhs, tree lhs_origtype,
+build_array_notation_expr (location_t location, tree lhs, ttype_p lhs_origtype,
 			   enum tree_code modifycode, location_t rhs_loc,
-			   tree rhs, tree rhs_origtype)
+			   tree rhs, ttype_p rhs_origtype)
 {
   bool found_builtin_fn = false;
   tree array_expr_lhs = NULL_TREE, array_expr_rhs = NULL_TREE;
@@ -1201,7 +1203,8 @@ fix_array_notation_call_expr (tree arg)
 static tree
 fix_return_expr (tree expr)
 {
-  tree new_mod_list, new_var, new_mod, retval_expr, retval_type;
+  tree new_mod_list, new_var, new_mod, retval_expr;
+  ttype *retval_type;
   location_t loc = EXPR_LOCATION (expr);
 
   new_mod_list = alloc_stmt_list ();
@@ -1332,7 +1335,7 @@ expand_array_notation_exprs (tree t)
 
 tree
 build_array_notation_ref (location_t loc, tree array, tree start_index, 
-			  tree length, tree stride, tree type)
+			  tree length, tree stride, ttype_p type)
 {
   tree array_ntn_tree = NULL_TREE;
   size_t stride_rank = 0, length_rank = 0, start_rank = 0;
@@ -1387,7 +1390,7 @@ build_array_notation_ref (location_t loc, tree array, tree start_index,
       error_at (loc, "rank of array notation triplet's stride is not zero");
       return error_mark_node;
     }  
-  array_ntn_tree = build4 (ARRAY_NOTATION_REF, NULL_TREE, NULL_TREE, NULL_TREE,
+  array_ntn_tree = build4 (ARRAY_NOTATION_REF, NULL_TYPE, NULL_TREE, NULL_TREE,
 			   NULL_TREE, NULL_TREE);
   ARRAY_NOTATION_ARRAY (array_ntn_tree) = array;
   ARRAY_NOTATION_START (array_ntn_tree) = start_index;
