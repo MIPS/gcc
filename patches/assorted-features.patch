@@ -1,5 +1,5 @@
 Bottom: 77ea2104bbb697f3e1dc935ca0a88c12693af702
-Top:    65d3408c6a4e402f067d010a5455223ab5ef250f
+Top:    3440063a743f26e7d9b536eb809623198d132a30
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-04-01 06:12:53 -0300
 
@@ -8,6 +8,19 @@ mutable fields, nullptr, default fn args, mangled names in addr oracle
 
 ---
 
+diff --git a/include/gcc-c-interface.h b/include/gcc-c-interface.h
+index e0af944..bc64152 100644
+--- a/include/gcc-c-interface.h
++++ b/include/gcc-c-interface.h
+@@ -133,7 +133,7 @@ struct gcc_c_fe_vtable
+      provides the declaration.
+ 
+      DATUM is an arbitrary piece of data that is passed back verbatim
+-     to the callbakcs in requests.  */
++     to the callbacks in requests.  */
+ 
+   void (*set_callbacks) (struct gcc_c_context *self,
+ 			 gcc_c_oracle_function *binding_oracle,
 diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
 index 141ceef..d802cae 100644
 --- a/include/gcc-cp-fe.def
@@ -77,7 +90,7 @@ index 141ceef..d802cae 100644
     is assumed to have an unknown length.  */
  
 diff --git a/include/gcc-cp-interface.h b/include/gcc-cp-interface.h
-index 13a7902..f6b80d2 100644
+index 13a7902..72649a1 100644
 --- a/include/gcc-cp-interface.h
 +++ b/include/gcc-cp-interface.h
 @@ -41,7 +41,7 @@ struct gcc_cp_context;
@@ -128,7 +141,7 @@ index 13a7902..f6b80d2 100644
  /* This enumerates the types of symbols that GCC might request from
     GDB.  */
  
-@@ -287,12 +312,17 @@ struct gcc_cp_fe_vtable
+@@ -287,15 +312,20 @@ struct gcc_cp_fe_vtable
       The binding oracle is called whenever the C++ parser needs to
       look up a symbol.  This gives the caller a chance to lazily
       instantiate symbols using other parts of the gcc_cp_fe_interface
@@ -149,7 +162,11 @@ index 13a7902..f6b80d2 100644
 +     name.
  
       DATUM is an arbitrary piece of data that is passed back verbatim
-      to the callbakcs in requests.  */
+-     to the callbakcs in requests.  */
++     to the callbacks in requests.  */
+ 
+   void (*set_callbacks) (struct gcc_cp_context *self,
+ 			 gcc_cp_oracle_function *binding_oracle,
 diff --git a/libcc1/libcc1plugin.cc b/libcc1/libcc1plugin.cc
 index beb2d202..5c3ef3a 100644
 --- a/libcc1/libcc1plugin.cc
