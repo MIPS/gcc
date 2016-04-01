@@ -1071,6 +1071,7 @@ TREE_CHAIN (const_tree t)
 
 /* In a TREE_LIST node.  */
 #define TREE_PURPOSE(NODE) (TREE_LIST_CHECK (NODE)->u.list.purpose)
+#define TREE_PURPOSE_TYPE(NODE) (TTYPE (TREE_LIST_CHECK (NODE)->u.list.purpose))
 #define TREE_VALUE(NODE) (TREE_LIST_CHECK (NODE)->u.list.value)
 #define TREE_VALUE_TYPE(NODE) (TTYPE(TREE_LIST_CHECK (NODE)->u.list.value))
 
