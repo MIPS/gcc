@@ -1,5 +1,7 @@
 /* { dg-do run { target openacc_nvidia_accel_selected } } */
-/* { dg-additional-options "-O2" } */
+/* This code uses nvptx inline assembly guarded with acc_on_device, which is
+   not optimized away at -O0, and then confuses the target assembler.
+   { dg-skip-if "" { *-*-* } { "-O0" } { "" } } */
 
 #include <assert.h>
 #include <openacc.h>

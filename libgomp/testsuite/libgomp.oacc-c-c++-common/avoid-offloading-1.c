@@ -1,5 +1,8 @@
 /* Test that the compiler decides to "avoid offloading".  */
 
+/* The warning is only triggered for -O2 and higher.
+   { dg-xfail-if "n/a" { openacc_nvidia_accel_selected } { "-O0" "-O1" } { "" } } */
+
 #include <openacc.h>
 
 int main(void)

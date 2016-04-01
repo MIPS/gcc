@@ -1,3 +1,5 @@
+/* { dg-xfail-run-if "TODO" { *-*-* } { "-O0" } { "" } } */
+
 #include <openacc.h>
 #include <stdlib.h>
 #include <stdbool.h>

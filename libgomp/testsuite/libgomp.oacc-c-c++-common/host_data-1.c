@@ -1,5 +1,6 @@
 /* { dg-do run { target openacc_nvidia_accel_selected } } */
 /* { dg-additional-options "-lcuda -lcublas -lcudart" } */
+/* { dg-xfail-run-if "TODO" { *-*-* } { "-O0" } { "" } } */
 
 #include <stdlib.h>
 #include <openacc.h>

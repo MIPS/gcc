@@ -1,5 +1,3 @@
-/* { dg-additional-options "-O0" } */
-
 /* With -O0, variables are on the stack, not in registers.  Check that worker
    state propagation handles the stack frame.  */
 

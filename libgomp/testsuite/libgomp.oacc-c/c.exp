@@ -11,23 +11,13 @@ if [info exists lang_include_flags] then {
     unset lang_include_flags
 }
 
-# To avoid testing time exploding too much, limit any torture testing to -O0
-# and -O2 only, under the assumption that between -O0 and -O[something] there
-# is the biggest difference in the overall structure of the generated code.
-set TORTURE_OPTIONS [list \
-    { -O0 } \
-    { -O2 } ]
-
 load_lib libgomp-dg.exp
 load_gcc_lib gcc-dg.exp
-
-# If a testcase doesn't have special options, use these.
-if ![info exists DEFAULT_CFLAGS] then {
-    set DEFAULT_CFLAGS "-O2"
-}
+load_gcc_lib torture-options.exp
 
 # Initialize dg.
 dg-init
+torture-init
 
 # Turn on OpenACC.
 lappend ALWAYS_CFLAGS "additional_flags=-fopenacc"
@@ -36,21 +26,6 @@ lappend ALWAYS_CFLAGS "additional_flags=-fopenacc"
 set tests [lsort [concat \
 		      [find $srcdir/$subdir *.c] \
 		      [find $srcdir/$subdir/../libgomp.oacc-c-c++-common *.c]]]
-# To get better test coverage for device-specific code that is only ever
-# used in offloading configurations, we'd like more thorough (torture)
-# testing for test cases that are dealing with the specifics of
-# gang/worker/vector single/redundant/partitioned modes.  They're selected
-# based on their file names -- not a perfect property to detect such test
-# cases, but should be sufficient.
-set ttests [lsort -unique [concat \
-			       [find $srcdir/$subdir/../libgomp.oacc-c-c++-common *gang*.c] \
-			       [find $srcdir/$subdir/../libgomp.oacc-c-c++-common *worker*.c] \
-			       [find $srcdir/$subdir/../libgomp.oacc-c-c++-common *vec*.c]]]
-# tests := tests - ttests.
-foreach t $ttests {
-    set i [lsearch -exact $tests $t]
-    set tests [lreplace $tests $i $i]
-}
 
 set ld_library_path $always_ld_library_path
 append ld_library_path [gcc-set-multilib-library-path $GCC_UNDER_TEST]
@@ -90,11 +65,28 @@ foreach offload_target_openacc $offload_targets_s_openacc {
     }
     set tagopt "$tagopt -DACC_MEM_SHARED=$acc_mem_shared -foffload=$offload_target_openacc"
 
-    dg-runtest $tests "$tagopt" $DEFAULT_CFLAGS
-    gcc-dg-runtest $ttests "$tagopt" ""
+    # To get better test coverage for device-specific code that is only
+    # ever used in offloading configurations, we'd like more thorough
+    # testing for test cases that deal with offloading, which most of all
+    # OpenACC test cases are.  We enable torture testing, but limit it to
+    # -O0 and -O2 only, to avoid testing times exploding too much, under
+    # the assumption that between -O0 and -O[something] there is the
+    # biggest difference in the overall structure of the generated code.
+    switch -glob $offload_target_openacc {
+	disable {
+	    set-torture-options [list \
+				     { -O2 } ]
+	}
+	default {
+	    set-torture-options [list \
+				     { -O0 } \
+				     { -O2 } ]
+	}
+    }
+
+    gcc-dg-runtest $tests "$tagopt" ""
 }
 
-unset TORTURE_OPTIONS
-
 # All done.
+torture-finish
 dg-finish
