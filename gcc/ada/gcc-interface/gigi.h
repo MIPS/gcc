@@ -560,7 +560,7 @@ extern bool fntype_same_flags_p (const_tree, tree, bool, bool, bool);
    is always TYPE.  This function implements all reasonable
    conversions; callers should filter out those that are
    not permitted by the language being compiled.  */
-extern tree convert (tree type, tree expr);
+extern tree convert (ttype_p type, tree expr);
 
 /* Create an expression whose value is that of EXPR converted to the common
    index type, which is sizetype.  */

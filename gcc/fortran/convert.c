@@ -73,7 +73,7 @@ truthvalue_conversion (tree expr)
    not permitted by the language being compiled.  */
 
 tree
-convert (tree type, tree expr)
+convert (ttype_p type, tree expr)
 {
   tree e = expr;
   enum tree_code code;

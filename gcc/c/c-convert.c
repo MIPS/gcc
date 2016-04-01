@@ -31,6 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "convert.h"
 #include "langhooks.h"
 #include "ubsan.h"
+#include "ttype.h"
 
 /* Change of width--truncation and extension of integers or reals--
    is represented with NOP_EXPR.  Proper functioning of many things
@@ -60,7 +61,7 @@ along with GCC; see the file COPYING3.  If not see
    not permitted by the language being compiled.  */
 
 tree
-convert (tree type, tree expr)
+convert (ttype_p type, tree expr)
 {
   tree e = expr;
   enum tree_code code = TREE_CODE (type);
@@ -68,7 +69,7 @@ convert (tree type, tree expr)
   tree ret;
   location_t loc = EXPR_LOCATION (expr);
 
-  if (type == error_mark_node
+  if (type == error_type_node
       || error_operand_p (expr))
     return error_mark_node;
 
@@ -152,8 +153,8 @@ convert (tree type, tree expr)
 	{
 	  if (TREE_CODE (e) != COMPLEX_EXPR)
 	    {
-	      tree subtype = TREE_TYPE (type);
-	      tree elt_type = TREE_TYPE (TREE_TYPE (e));
+	      ttype *subtype = TREE_TYPE (type);
+	      ttype *elt_type = TREE_TYPE (TREE_TYPE (e));
 
 	      if (in_late_binary_op)
 		e = save_expr (e);
