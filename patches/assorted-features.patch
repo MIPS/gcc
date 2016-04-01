@@ -3,7 +3,8 @@ Top:    77ea2104bbb697f3e1dc935ca0a88c12693af702
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-04-01 06:12:53 -0300
 
-implement mutable fields, default fn args, enable addr oracle with mangled name
+mutable fields, nullptr, default fn args, mangled names in addr oracle
+
 
 ---
 
