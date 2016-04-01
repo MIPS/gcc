@@ -529,7 +529,7 @@ public:
   inline ttype_p& operator= (ttype *t) { type = t; return *this; }
   inline ttype_p& operator= (const ttype_p &t) { type = t.type; return *this; }
   inline operator ttype *() const { return type; }
-  ttype_p * operator &() const __attribute__((error("Don't take address of ttype_p ")));
+  ttype ** operator &() { return &type; }
   inline ttype * operator->() { return type; }
   inline ttype * operator->() const { return type; }
 };
@@ -1220,6 +1220,7 @@ TTYPE (const ttype *t)
 
 /* In a TREE_LIST node.  */
 #define TREE_PURPOSE(NODE) (TREE_LIST_CHECK (NODE)->u.list.purpose)
+#define TREE_PURPOSE_TYPE(NODE) (TTYPE (TREE_LIST_CHECK (NODE)->u.list.purpose))
 #define TREE_VALUE(NODE) (TREE_LIST_CHECK (NODE)->u.list.value)
 #define TREE_VALUE_TYPE(NODE) (TTYPE(TREE_LIST_CHECK (NODE)->u.list.value))
 

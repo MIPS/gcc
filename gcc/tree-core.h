@@ -1629,6 +1629,72 @@ struct GTY(()) tree_decl_common {
   struct lang_decl *lang_specific;
 };
 
+struct GTY(()) tree_decl_common_ttype {
+  struct tree_decl_minimal common;
+  tree size;
+
+  ENUM_BITFIELD(machine_mode) mode : 8;
+
+  unsigned nonlocal_flag : 1;
+  unsigned virtual_flag : 1;
+  unsigned ignored_flag : 1;
+  unsigned abstract_flag : 1;
+  unsigned artificial_flag : 1;
+  unsigned preserve_flag: 1;
+  unsigned debug_expr_is_from : 1;
+
+  unsigned lang_flag_0 : 1;
+  unsigned lang_flag_1 : 1;
+  unsigned lang_flag_2 : 1;
+  unsigned lang_flag_3 : 1;
+  unsigned lang_flag_4 : 1;
+  unsigned lang_flag_5 : 1;
+  unsigned lang_flag_6 : 1;
+  unsigned lang_flag_7 : 1;
+  unsigned lang_flag_8 : 1;
+
+  /* In VAR_DECL and PARM_DECL, this is DECL_REGISTER.  */
+  unsigned decl_flag_0 : 1;
+  /* In FIELD_DECL, this is DECL_BIT_FIELD
+     In VAR_DECL and FUNCTION_DECL, this is DECL_EXTERNAL.
+     In TYPE_DECL, this is TYPE_DECL_SUPPRESS_DEBUG.  */
+  unsigned decl_flag_1 : 1;
+  /* In FIELD_DECL, this is DECL_NONADDRESSABLE_P
+     In VAR_DECL, PARM_DECL and RESULT_DECL, this is
+     DECL_HAS_VALUE_EXPR_P.  */
+  unsigned decl_flag_2 : 1;
+  /* 1 bit unused.  */
+  unsigned decl_flag_3 : 1;
+  /* Logically, these two would go in a theoretical base shared by var and
+     parm decl. */
+  unsigned gimple_reg_flag : 1;
+  /* In VAR_DECL, PARM_DECL and RESULT_DECL, this is DECL_BY_REFERENCE.  */
+  unsigned decl_by_reference_flag : 1;
+  /* In a VAR_DECL and PARM_DECL, this is DECL_READ_P.  */
+  unsigned decl_read_flag : 1;
+  /* In a VAR_DECL or RESULT_DECL, this is DECL_NONSHAREABLE.  */
+  unsigned decl_nonshareable_flag : 1;
+
+  /* DECL_OFFSET_ALIGN, used only for FIELD_DECLs.  */
+  unsigned int off_align : 8;
+
+  /* 24 bits unused.  */
+
+  /* DECL_ALIGN.  It should have the same size as TYPE_ALIGN.  */
+  unsigned int align;
+
+  /* UID for points-to sets, stable over copying from inlining.  */
+  unsigned int pt_uid;
+
+  tree size_unit;
+  ttype *initial;
+  tree attributes;
+  tree abstract_origin;
+
+  /* Points to a structure whose details depend on the language in use.  */
+  struct lang_decl *lang_specific;
+};
+
 struct GTY(()) tree_decl_with_rtl {
   struct tree_decl_common common;
   rtx rtl;
@@ -1859,6 +1925,7 @@ union GTY ((desc ("tree_node_structure (&%h)"), variable_size)) tree_node_u {
   struct tree_decl_minimal GTY((tag ("TS_DECL_MINIMAL"))) decl_minimal;
   struct ttype_decl_minimal GTY((tag ("TS_DECL_MINIMAL_TTYPE"))) decl_minimal_ttype;
   struct tree_decl_common GTY ((tag ("TS_DECL_COMMON"))) decl_common;
+  struct tree_decl_common_ttype GTY ((tag ("TS_DECL_COMMON_TTYPE"))) decl_common_ttype;
   struct tree_decl_with_rtl GTY ((tag ("TS_DECL_WRTL"))) decl_with_rtl;
   struct tree_decl_non_common  GTY ((tag ("TS_DECL_NON_COMMON")))
     decl_non_common;
