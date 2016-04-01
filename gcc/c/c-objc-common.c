@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pretty-print.h"
 #include "langhooks.h"
 #include "c-objc-common.h"
+#include "ttype.h"
 
 #include <new>                          // For placement new.
 
@@ -125,27 +126,28 @@ c_tree_printer (pretty_printer *pp, text_info *text, const char *spec,
 
     case 'T':
       {
+        ttype *tt = TTYPE (t);
 	gcc_assert (TYPE_P (t));
 	struct obstack *ob = pp_buffer (cpp)->obstack;
 	char *p = (char *) obstack_base (ob);
 	/* Remember the end of the initial dump.  */
 	int len = obstack_object_size (ob);
 
-	name = TYPE_NAME (t);
+	name = TYPE_NAME (tt);
 	if (name && TREE_CODE (name) == TYPE_DECL && DECL_NAME (name))
 	  pp_identifier (cpp, lang_hooks.decl_printable_name (name, 2));
 	else
-	  cpp->type_id (t);
+	  cpp->type_id (tt);
 
 	/* If we're printing a type that involves typedefs, also print the
 	   stripped version.  But sometimes the stripped version looks
 	   exactly the same, so we don't want it after all.  To avoid
 	   printing it in that case, we play ugly obstack games.  */
-	if (TYPE_CANONICAL (t) && t != TYPE_CANONICAL (t))
+	if (TYPE_CANONICAL (tt) && tt != TYPE_CANONICAL (tt))
 	  {
 	    c_pretty_printer cpp2;
 	    /* Print the stripped version into a temporary printer.  */
-	    cpp2.type_id (TYPE_CANONICAL (t));
+	    cpp2.type_id (TYPE_CANONICAL (tt));
 	    struct obstack *ob2 = cpp2.buffer->obstack;
 	    /* Get the stripped version from the temporary printer.  */
 	    const char *aka = (char *) obstack_base (ob2);
@@ -161,7 +163,7 @@ c_tree_printer (pretty_printer *pp, text_info *text, const char *spec,
 	    pp_left_brace (cpp);
 	    pp_c_ws_string (cpp, _("aka"));
 	    pp_c_whitespace (cpp);
-	    cpp->type_id (TYPE_CANONICAL (t));
+	    cpp->type_id (TYPE_CANONICAL (tt));
 	    pp_right_brace (cpp);
 	  }
 	return true;

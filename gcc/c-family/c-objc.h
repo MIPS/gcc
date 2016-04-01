@@ -57,7 +57,7 @@ extern tree objc_build_selector_expr (location_t, tree);
 extern tree objc_build_protocol_expr (tree);
 extern tree objc_build_encode_expr (tree);
 extern tree objc_build_string_object (tree);
-extern tree objc_get_protocol_qualified_type (tree, tree);
+extern ttype *objc_get_protocol_qualified_type (tree, tree);
 extern tree objc_get_class_reference (tree);
 extern tree objc_get_class_ivars (tree);
 extern bool objc_detect_field_duplicates (bool);

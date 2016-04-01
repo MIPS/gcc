@@ -2742,11 +2742,11 @@ objc_check_global_decl (tree decl)
    PROTOCOLS is NULL_TREE, in which case we simply look up the
    appropriate INTERFACE.  */
 
-tree
+ttype *
 objc_get_protocol_qualified_type (tree interface, tree protocols)
 {
   /* If INTERFACE is not provided, default to 'id'.  */
-  tree type = (interface ? objc_is_id (interface) : objc_object_type);
+  ttype_p type = (interface ? objc_is_id (interface) : objc_object_type);
   bool is_ptr = (type != NULL_TREE);
 
   if (!is_ptr)

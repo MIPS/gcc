@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "c-tree.h"
+#include "ttype.h"
 
 enum formals_style {
   ansi,
@@ -36,9 +37,9 @@ enum formals_style {
 static const char *data_type;
 
 static char *affix_data_type (const char *) ATTRIBUTE_MALLOC;
-static const char *gen_formal_list_for_type (tree, formals_style);
+static const char *gen_formal_list_for_type (ttype *, formals_style);
 static const char *gen_formal_list_for_func_def (tree, formals_style);
-static const char *gen_type (const char *, tree, formals_style);
+static const char *gen_type (const char *, ttype *, formals_style);
 static const char *gen_decl (tree, int, formals_style);
 
 /* Given a string representing an entire type or an entire declaration
@@ -102,7 +103,7 @@ affix_data_type (const char *param)
    of empty parens here.  */
 
 static const char *
-gen_formal_list_for_type (tree fntype, formals_style style)
+gen_formal_list_for_type (ttype *fntype, formals_style style)
 {
   const char *formal_list = "";
   tree formal_type;
@@ -118,7 +119,7 @@ gen_formal_list_for_type (tree fntype, formals_style style)
       if (*formal_list)
 	formal_list = concat (formal_list, ", ", NULL);
 
-      this_type = gen_type ("", TREE_VALUE (formal_type), ansi);
+      this_type = gen_type ("", TREE_VALUE_TYPE (formal_type), ansi);
       formal_list
 	= ((strlen (this_type))
 	   ? concat (formal_list, affix_data_type (this_type), NULL)
@@ -270,7 +271,7 @@ gen_formal_list_for_func_def (tree fndecl, formals_style style)
    string onto the returned "seed".  */
 
 static const char *
-gen_type (const char *ret_val, tree t, formals_style style)
+gen_type (const char *ret_val, ttype *t, formals_style style)
 {
   tree chain_p;
 

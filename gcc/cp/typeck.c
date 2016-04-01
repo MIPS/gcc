@@ -1451,9 +1451,9 @@ comptypes (tree t1, tree t2, int strict)
    top-level qualifiers.  */
 
 bool
-same_type_ignoring_top_level_qualifiers_p (tree type1, tree type2)
+same_type_ignoring_top_level_qualifiers_p (ttype_p type1, ttype_p type2)
 {
-  if (type1 == error_mark_node || type2 == error_mark_node)
+  if (type1 == error_type_node || type2 == error_type_node)
     return false;
 
   return same_type_p (TYPE_MAIN_VARIANT (type1), TYPE_MAIN_VARIANT (type2));

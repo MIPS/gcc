@@ -785,7 +785,7 @@ extern bool in_late_binary_op;
 extern const char *c_addr_space_name (addr_space_t as);
 extern tree identifier_global_value (tree);
 extern tree c_linkage_bindings (tree);
-extern void record_builtin_type (enum rid, const char *, tree);
+extern void record_builtin_type (enum rid, const char *, ttype_p);
 extern tree build_void_list_node (void);
 extern void start_fname_decls (void);
 extern void finish_fname_decls (void);
@@ -816,7 +816,7 @@ extern ttype *c_common_unsigned_type (ttype_p);
 extern ttype *c_common_signed_type (ttype_p);
 extern ttype *c_common_signed_or_unsigned_type (int, ttype_p);
 extern void c_common_init_ts (void);
-extern tree c_build_bitfield_integer_type (unsigned HOST_WIDE_INT, int);
+extern ttype *c_build_bitfield_integer_type (unsigned HOST_WIDE_INT, int);
 extern enum conversion_safety unsafe_conversion_p (location_t, ttype_p, tree,
 						   bool);
 extern bool decl_with_nonnull_addr_p (const_tree);
@@ -836,7 +836,7 @@ extern void constant_expression_error (tree);
 extern bool strict_aliasing_warning (ttype_p, ttype_p, tree);
 extern void sizeof_pointer_memaccess_warning (location_t *, tree,
 					      vec<tree, va_gc> *, tree *,
-					      bool (*) (tree, tree));
+					      bool (*) (ttype_p, ttype_p));
 extern void warnings_for_convert_and_check (location_t, ttype_p, tree, tree);
 extern tree convert_and_check (location_t, ttype_p, tree);
 extern void overflow_warning (location_t, tree);

@@ -184,7 +184,7 @@ struct c_typespec {
      expressions.  */
   bool expr_const_operands;
   /* The specifier itself.  */
-  tree spec;
+  ttype *spec;
   /* An expression to be evaluated before the type specifier, in the
      case of typeof specifiers, or NULL otherwise or if no such
      expression is required for a particular typeof specifier.  In
@@ -269,7 +269,7 @@ struct c_declspecs {
      union or enum specifier, typedef name or typeof specifies the
      whole type, or NULL_TREE if none or a keyword such as "void" or
      "char" is used.  Does not include qualifiers.  */
-  tree type;
+  ttype *type;
   /* Any expression to be evaluated before the type, from a typeof
      specifier.  */
   tree expr;
@@ -370,7 +370,7 @@ struct c_arg_tag {
   /* The argument name.  */
   tree id;
   /* The type of the argument.  */
-  tree type;
+  ttype *type;
 };
 
 
@@ -510,10 +510,10 @@ extern struct c_spot_bindings *c_get_switch_bindings (void);
 extern void c_release_switch_bindings (struct c_spot_bindings *);
 extern bool c_check_switch_jump_warnings (struct c_spot_bindings *,
 					  location_t, location_t);
-extern void finish_decl (tree, location_t, tree, tree, tree);
-extern tree finish_enum (tree, tree, tree);
+extern void finish_decl (tree, location_t, tree, ttype_p, tree);
+extern ttype *finish_enum (ttype_p, tree, tree);
 extern void finish_function (void);
-extern tree finish_struct (location_t, tree, tree, tree,
+extern ttype *finish_struct (location_t, ttype_p, tree, tree,
 			   struct c_struct_parse_info *);
 extern struct c_arg_info *build_arg_info (void);
 extern struct c_arg_info *get_parm_info (bool, tree);
@@ -533,11 +533,11 @@ extern tree c_builtin_function (tree);
 extern tree c_builtin_function_ext_scope (tree);
 extern void shadow_tag (const struct c_declspecs *);
 extern void shadow_tag_warned (const struct c_declspecs *, int);
-extern tree start_enum (location_t, struct c_enum_contents *, tree);
+extern ttype *start_enum (location_t, struct c_enum_contents *, tree);
 extern int  start_function (struct c_declspecs *, struct c_declarator *, tree);
 extern tree start_decl (struct c_declarator *, struct c_declspecs *, bool,
 			tree);
-extern tree start_struct (location_t, enum tree_code, tree,
+extern ttype *start_struct (location_t, enum tree_code, tree,
 			  struct c_struct_parse_info **);
 extern void store_parm_decls (void);
 extern void store_parm_decls_from (struct c_arg_info *);
@@ -632,7 +632,7 @@ extern void set_init_index (location_t, tree, tree, struct obstack *);
 extern void set_init_label (location_t, tree, struct obstack *);
 extern void process_init_element (location_t, struct c_expr, bool,
 				  struct obstack *);
-extern tree build_compound_literal (location_t, tree, tree, bool);
+extern tree build_compound_literal (location_t, ttype_p, tree, bool);
 extern void check_compound_literal_type (location_t, struct c_type_name *);
 extern tree c_start_case (location_t, location_t, tree, bool);
 extern void c_finish_case (tree, ttype *);
@@ -709,7 +709,7 @@ extern c_binding_oracle_function *c_binding_oracle;
 extern void c_finish_incomplete_decl (tree);
 extern tree c_omp_reduction_id (enum tree_code, tree);
 extern tree c_omp_reduction_decl (tree);
-extern tree c_omp_reduction_lookup (tree, tree);
+extern tree c_omp_reduction_lookup (tree, ttype_p);
 extern tree c_check_omp_declare_reduction_r (tree *, int *, void *);
 extern void c_pushtag (location_t, tree, tree);
 extern void c_bind (location_t, tree, bool);

@@ -3789,7 +3789,7 @@ make_unbound_class_template (tree context, tree name, tree parm_list,
 void
 record_builtin_type (enum rid rid_index,
 		     const char* name,
-		     tree type)
+		     ttype_p type)
 {
   tree rname = NULL_TREE, tname = NULL_TREE;
   tree tdecl = NULL_TREE;

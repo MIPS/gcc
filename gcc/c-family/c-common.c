@@ -1647,7 +1647,7 @@ strict_aliasing_warning (ttype_p otype, ttype_p type, tree expr)
 void
 sizeof_pointer_memaccess_warning (location_t *sizeof_arg_loc, tree callee,
 				  vec<tree, va_gc> *params, tree *sizeof_arg,
-				  bool (*comp_types) (tree, tree))
+				  bool (*comp_types) (ttype_p, ttype_p))
 {
   ttype *type;
   tree dest = NULL_TREE, src = NULL_TREE, tem;
@@ -3786,7 +3786,7 @@ c_common_signed_or_unsigned_type (int unsignedp, ttype_p type)
 
 /* Build a bit-field integer type for the given WIDTH and UNSIGNEDP.  */
 
-tree
+ttype *
 c_build_bitfield_integer_type (unsigned HOST_WIDE_INT width, int unsignedp)
 {
   int i;

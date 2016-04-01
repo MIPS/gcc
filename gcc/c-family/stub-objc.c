@@ -281,7 +281,7 @@ objc_detect_field_duplicates (bool ARG_UNUSED (check_superclasses_only))
   return false;
 }
 
-tree
+ttype *
 objc_get_protocol_qualified_type (tree ARG_UNUSED (name),
 				  tree ARG_UNUSED (protos))
 {

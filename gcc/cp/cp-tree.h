@@ -6642,7 +6642,7 @@ extern int type_unknown_p			(const_tree);
 enum { ce_derived, ce_normal, ce_exact };
 extern bool comp_except_specs			(const_tree, const_tree, int);
 extern bool comptypes				(tree, tree, int);
-extern bool same_type_ignoring_top_level_qualifiers_p (tree, tree);
+extern bool same_type_ignoring_top_level_qualifiers_p (ttype_p, ttype_p);
 extern bool compparms				(const_tree, const_tree);
 extern int comp_cv_qualification		(const_tree, const_tree);
 extern int comp_cv_qualification		(int, int);
