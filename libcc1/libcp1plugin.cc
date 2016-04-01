@@ -310,13 +310,12 @@ address_rewriter (tree *in, int *walk_subtrees, void *arg)
   decl_addr_value *found_value = ctx->address_map.find (&value);
   if (found_value != NULL)
     ;
-  else if (DECL_IS_BUILTIN (*in) && DECL_NAMESPACE_SCOPE_P (*in)
-	   && CP_DECL_CONTEXT (*in) == global_namespace)
+  else if (HAS_DECL_ASSEMBLER_NAME_P (*in))
     {
       gcc_address address;
 
       if (!cc1_plugin::call (ctx, "address_oracle", &address,
-			     IDENTIFIER_POINTER (DECL_NAME (*in))))
+			     IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (*in))))
 	return NULL_TREE;
       if (address == 0)
 	return NULL_TREE;
@@ -1034,6 +1033,7 @@ int
 plugin_new_field (cc1_plugin::connection *,
 		  const char *field_name,
 		  gcc_type field_type_in,
+		  enum gcc_cp_field_flags field_flags,
 		  unsigned long bitsize,
 		  unsigned long bitpos)
 {
@@ -1047,6 +1047,9 @@ plugin_new_field (cc1_plugin::connection *,
   tree decl = build_decl (BUILTINS_LOCATION, FIELD_DECL,
 			  get_identifier (field_name), field_type);
   DECL_FIELD_CONTEXT (decl) = record_or_union_type;
+
+  if ((field_flags & GCC_CP_FIELD_MUTABLE) != 0)
+    DECL_MUTABLE_P (decl) = 1;
 
   if (TREE_CODE (field_type) == INTEGER_TYPE
       && TYPE_PRECISION (field_type) != bitsize)
@@ -1181,6 +1184,62 @@ plugin_build_function_type (cc1_plugin::connection *self,
 					argument_types);
 
   delete[] argument_types;
+
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  return convert_out (ctx->preserve (result));
+}
+
+gcc_type
+plugin_add_function_default_args (cc1_plugin::connection *self,
+				  gcc_type function_type_in,
+				  const struct gcc_cp_function_default_args *defaults)
+{
+  tree function_type = convert_in (function_type_in);
+
+  gcc_assert (TREE_CODE (function_type) == FUNCTION_TYPE);
+
+  if (!defaults || !defaults->n_elements)
+    return function_type_in;
+
+  tree pargs = TYPE_ARG_TYPES (function_type);
+  tree nargs = NULL_TREE;
+
+  /* Build a reversed copy of the list of default-less arguments in
+     NARGS.  At the end of the loop, PARGS will point to the end of
+     the argument list, or to the first argument that had a default
+     value.  */
+  while (pargs && TREE_VALUE (pargs) != void_list_node
+	 && !TREE_PURPOSE (pargs))
+    {
+      nargs = tree_cons (NULL_TREE, TREE_VALUE (pargs), nargs);
+      pargs = TREE_CHAIN (pargs);
+    }
+
+  /* Set the defaults in the now-leading NARGS, taking into account
+     that NARGS is reversed but DEFAULTS->elements isn't.  */
+  tree ndargs = nargs;
+  int i = defaults->n_elements;
+  while (i--)
+    {
+      gcc_assert (ndargs);
+      tree deflt = convert_in (defaults->elements[i]);
+      gcc_assert (deflt);
+      TREE_PURPOSE (ndargs) = deflt;
+      ndargs = TREE_CHAIN (ndargs);
+    }
+
+  /* Finally, reverse NARGS, and append the remaining PARGS that
+     already had defaults.  */
+  nargs = nreverse (nargs);
+  nargs = chainon (nargs, pargs);
+
+  tree result = build_function_type (TREE_TYPE (function_type), nargs);
+
+  /* Copy exceptions, attributes and whatnot.  */
+  result = build_exception_variant (result,
+				    TYPE_RAISES_EXCEPTIONS (function_type));
+  result = cp_build_type_attribute_variant (result,
+					    TYPE_ATTRIBUTES (function_type));
 
   plugin_context *ctx = static_cast<plugin_context *> (self);
   return convert_out (ctx->preserve (result));
@@ -1663,13 +1722,15 @@ plugin_unary_type_expr (cc1_plugin::connection *self,
 gcc_expr
 plugin_type_value_expr (cc1_plugin::connection *self,
 			const char *binary_op,
-			gcc_typedecl operand1,
-			gcc_expr operand2)
+			gcc_typedecl /* operand1 */,
+			gcc_expr /* operand2 */)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
+#if 0
   tree type = convert_in (operand1);
   tree expr = convert_in (operand2);
   tree_code opcode = ERROR_MARK;
+#endif
   switch (CHARS2 (binary_op[0], binary_op[1]))
     {
       /* FIXME: implement type casts, ...  */
@@ -1791,7 +1852,7 @@ plugin_int_type (cc1_plugin::connection *self,
 }
 
 gcc_type
-plugin_char_type (cc1_plugin::connection *self)
+plugin_char_type (cc1_plugin::connection *)
 {
   return convert_out (char_type_node);
 }
@@ -1833,6 +1894,18 @@ gcc_type
 plugin_bool_type (cc1_plugin::connection *)
 {
   return convert_out (boolean_type_node);
+}
+
+gcc_type
+plugin_get_nullptr_type (cc1_plugin::connection *)
+{
+  return convert_out (nullptr_type_node);
+}
+
+gcc_expr
+plugin_get_nullptr_constant (cc1_plugin::connection *)
+{
+  return convert_out (nullptr_node);
 }
 
 gcc_type
