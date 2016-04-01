@@ -22733,7 +22733,7 @@ rs6000_split_signbit (rtx dest, rtx src)
 
   else
     {
-      int r = REGNO (src);
+      unsigned int r = REGNO (src);
 
       if (VSX_REGNO_P (r))
 	emit_insn (gen_rtx_SET (dest_di,
