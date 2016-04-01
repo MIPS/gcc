@@ -36,6 +36,16 @@ namespace cc1_plugin
   }
 
   status
+  unmarshall (connection *conn, enum gcc_cp_field_flags *result)
+  {
+    protocol_int p;
+    if (!unmarshall_intlike (conn, &p))
+      return FAIL;
+    *result = (enum gcc_cp_field_flags) p;
+    return OK;
+  }
+
+  status
   unmarshall (connection *conn, enum gcc_cp_oracle_request *result)
   {
     protocol_int p;
@@ -206,6 +216,64 @@ namespace cc1_plugin
       }
 
     *result = gva;
+    return OK;
+  }
+
+  // Send a gcc_cp_function_default_args marker followed by the array.
+  status
+  marshall (connection *conn, const gcc_cp_function_default_args *a)
+  {
+    size_t len;
+
+    if (a)
+      len = a->n_elements;
+    else
+      len = (size_t)-1;
+
+    if (!marshall_array_start (conn, 'd', len))
+      return FAIL;
+
+    if (!a)
+      return OK;
+
+    return marshall_array_elmts (conn, len * sizeof (a->elements[0]),
+				 a->elements);
+  }
+
+  // Read a gcc_cp_function_default_args marker, followed by a
+  // gcc_cp_function_default_args.  The resulting array must be freed
+  // by the caller, using 'delete[]' on elements and virtualp, and
+  // 'delete' on the array object itself.
+  status
+  unmarshall (connection *conn, struct gcc_cp_function_default_args **result)
+  {
+    size_t len;
+
+    if (!unmarshall_array_start (conn, 'd', &len))
+      return FAIL;
+
+    if (len == (size_t)-1)
+      {
+	*result = NULL;
+	return OK;
+      }
+
+    struct gcc_cp_function_default_args *gva = new gcc_cp_function_default_args;
+
+    gva->n_elements = len;
+    gva->elements = new gcc_expr[len];
+
+    if (!unmarshall_array_elmts (conn,
+				 len * sizeof (gva->elements[0]),
+				 gva->elements))
+      {
+	delete[] gva->elements;
+	delete gva;
+	return FAIL;
+      }
+
+    *result = gva;
+
     return OK;
   }
 }
