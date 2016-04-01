@@ -4613,7 +4613,7 @@
 
 (define_insn "*movdi_32bit"
   [(set (match_operand:DI 0 "nonimmediate_operand" "=d,d,d,m,*a,*a,*d,*f,*f,*d,*m,*B*C*D,*B*C*D,*d,*m")
-	(match_operand:DI 1 "move_operand" "d,i,m,d,*J,*d,*a,*J*d,*m,*f,*f,*d,*m,*B*C*D,*B*C*D"))]
+	(match_operand:DI 1 "move_operand" "d,i,m,dJ,*J,*d,*a,*J*d,*m,*f,*f,*d,*m,*B*C*D,*B*C*D"))]
   "!TARGET_64BIT && !TARGET_MIPS16
    && (register_operand (operands[0], DImode)
        || reg_or_0_operand (operands[1], DImode))"
