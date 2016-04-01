@@ -1066,6 +1066,7 @@
   "")
 
 ;; Expanders for arithmetic shift left on each vector element
+;; kelvin says this is where the existing builtin comes, with <mode> = v16qi
 (define_expand "vashl<mode>3"
   [(set (match_operand:VEC_I 0 "vint_operand" "")
 	(ashift:VEC_I (match_operand:VEC_I 1 "vint_operand" "")

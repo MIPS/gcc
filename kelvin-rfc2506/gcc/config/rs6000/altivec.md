@@ -1,4 +1,4 @@
-;; AltiVec patterns.
+; AltiVec patterns.
 ;; Copyright (C) 2002-2016 Free Software Foundation, Inc.
 ;; Contributed by Aldy Hernandez (aldy@quesejoda.com)
 
@@ -114,6 +114,8 @@
    UNSPEC_STVLXL
    UNSPEC_STVRX
    UNSPEC_STVRXL
+   UNSPEC_VSLV
+   UNSPEC_VSRV
    UNSPEC_VMULWHUB
    UNSPEC_VMULWLUB
    UNSPEC_VMULWHSB
@@ -1631,6 +1633,30 @@
   "TARGET_ALTIVEC"
   "vslo %0,%1,%2"
   [(set_attr "type" "vecperm")])
+
+;;
+;; kelvin wants this pattern to look for unsigned operands
+;;
+(define_insn "vslv"
+  [(set (match_operand:V16QI 0 "register_operand" "=v")
+	(unspec:V16QI [(match_operand:V16QI 1 "register_operand" "v")
+		       (match_operand:V16QI 2 "register_operand" "v")]
+         UNSPEC_VSLV))]
+  "TARGET_P9_VECTOR"
+  "vslv %0,%1,%2"
+  [(set_attr "type" "vecsimple")])
+
+;;
+;; kelvin wants this pattern to look for unsigned operands
+;;
+(define_insn "vsrv"
+  [(set (match_operand:V16QI 0 "register_operand" "=v")
+	(unspec:V16QI [(match_operand:V16QI 1 "register_operand" "v")
+		       (match_operand:V16QI 2 "register_operand" "v")]
+         UNSPEC_VSRV))]
+  "TARGET_P9_VECTOR"
+  "vsrv %0,%1,%2"
+  [(set_attr "type" "vecsimple")])
 
 (define_insn "*altivec_vsl<VI_char>"
   [(set (match_operand:VI2 0 "register_operand" "=v")
