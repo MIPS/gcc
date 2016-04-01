@@ -745,7 +745,7 @@ plugin_int_type (cc1_plugin::connection *self,
 }
 
 gcc_type
-plugin_char_type (cc1_plugin::connection *self)
+plugin_char_type (cc1_plugin::connection *)
 {
   return convert_out (char_type_node);
 }
