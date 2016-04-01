@@ -1,3 +1,85 @@
+2016-03-30  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70450
+	* gcc.dg/torture/pr70450.c: New testcase.
+
+2016-03-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/70421
+	* gcc.dg/torture/pr70421.c: New test.
+	* gcc.target/i386/avx512f-pr70421.c: New test.
+
+2016-03-30  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR tree-optimization/59124
+	* gcc.dg/Warray-bounds-19.c: New test.
+
+2016-03-29  Zachary T Welch <zwelch@codesourcery.com>
+
+	* lib/prune.exp (escape_regex_chars): New.
+	(prune_file_path): Update to quote metcharacters for regexp.
+
+2016-03-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/70429
+	* gcc.c-torture/execute/pr70429.c: New test.
+
+	PR tree-optimization/70405
+	* gcc.dg/pr70405.c: New test.
+
+2016-03-29  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/70397
+	* gfortran.dg/unlimited_polymorphic_25.f90: New test.
+	* gfortran.dg/unlimited_polymorphic_26.f90: New test.
+
+2016-03-29  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR testsuite/64177
+	* c-c++-common/cilk-plus/CK/spawning_arg.c (main): Call
+	__cilkrts_set_param to set two workers.
+	* c-c++-common/cilk-plus/CK/steal_check.c (main): Likewise.
+	* g++.dg/cilk-plus/CK/catch_exc.cc (main): Likewise.
+
+2016-03-28  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	g++.dg/ext/fnname5.C: Update the test for Darwin.
+
+2016-03-28  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	PR target/70406
+	 * gcc.target/i386/pr70406.c: New test.
+
+2016-03-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/double_record_extension3.ads: New test.
+
+2016-03-25  Richard Henderson  <rth@redhat.com>
+
+	PR target/70120
+	* gcc.target/aarch64/pr70120-1.c: New.
+	* gcc.target/aarch64/pr70120-2.c: New.
+	* gcc.target/aarch64/pr70120-3.c: New.
+
+2016-03-25  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/62212
+	* g++.dg/template/mangle2.C: The dg-do directive should be
+	"compile" not "assemble".
+
+2016-03-25  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR lto/69650
+	* gcc.dg/pr69650.c: New test.
+
+2016-03-25  David Edelsohn  <dje.gcc@gmail.com>
+
+	* g++.dg/ext/pr70290.C: Prune non-standard ABI.
+
+2016-03-25  Alan Modra  <amodra@gmail.com>
+
+	* gcc.dg/dfp/pr70052.c: New test.
+
 2016-03-24  Richard Henderson  <rth@redhat.com>
 
 	PR middle-end/69845
