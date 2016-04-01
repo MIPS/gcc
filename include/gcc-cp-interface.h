@@ -312,7 +312,9 @@ struct gcc_cp_fe_vtable
      The binding oracle is called whenever the C++ parser needs to
      look up a symbol.  This gives the caller a chance to lazily
      instantiate symbols using other parts of the gcc_cp_fe_interface
-     API.
+     API.  The symbol is looked up without a scope, and the oracle
+     must supply a definition for ALL namespace-scoped definitions
+     bound to the symbol.
 
      The address oracle is called whenever the C++ parser needs to
      look up a symbol.  This may be called for symbols not provided by
