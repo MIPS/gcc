@@ -1081,9 +1081,7 @@ struct mips_cpu_info {
 				      && (MODE) == V2SFmode))		\
 				 && !TARGET_MIPS16)
 
-#define ISA_HAS_LWL_LWR		(mips_isa_rev <= 5			\
-				 && (!TARGET_MIPS16			\
-				     || TARGET_MIPS16_LWL_LWR))
+#define ISA_HAS_LWL_LWR		(mips_isa_rev <= 5 && !TARGET_MIPS16)
 
 #define ISA_HAS_IEEE_754_LEGACY	(mips_isa_rev <= 5)
 
@@ -3074,7 +3072,9 @@ while (0)
 /* The maximum number of bytes that can be copied by one iteration of
    a movmemsi loop; see mips_block_move_loop.  */
 #define MIPS_MAX_MOVE_BYTES_PER_LOOP_ITER \
-  (UNITS_PER_WORD * 4)
+  (TARGET_MIPS16 && TARGET_MIPS16_COPY	  \
+  ? UNITS_PER_WORD * 4 * 4		  \
+  : UNITS_PER_WORD * 4)
 
 /* The maximum number of bytes that can be copied by a straight-line
    implementation of movmemsi; see mips_block_move_straight.  We want
@@ -3110,7 +3110,9 @@ while (0)
 
 #define MOVE_RATIO(speed)				\
   (HAVE_movmemsi					\
-   ? MIPS_MAX_MOVE_BYTES_STRAIGHT / MOVE_MAX		\
+   ? (TARGET_MIPS16 && TARGET_MIPS16_COPY		\
+      ? MIPS_MAX_MOVE_BYTES_STRAIGHT / 4 / MOVE_MAX	\
+      : MIPS_MAX_MOVE_BYTES_STRAIGHT / MOVE_MAX)	\
    : MIPS_CALL_RATIO / 2)
 
 #define MOVE_BY_PIECES_P(SIZE, ALIGN) \

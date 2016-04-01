@@ -244,7 +244,7 @@ extern bool mips_get_pic_call_symbol (rtx *, int);
 extern void mips_set_return_address (rtx, rtx);
 extern bool mips_move_by_pieces_p (unsigned HOST_WIDE_INT, unsigned int);
 extern bool mips_store_by_pieces_p (unsigned HOST_WIDE_INT, unsigned int);
-extern bool mips_expand_block_move (rtx, rtx, rtx);
+extern bool mips_expand_block_move (rtx, rtx, rtx, rtx);
 extern bool mips16_expand_copy (rtx, rtx, rtx, rtx);
 extern bool gen_mips16_copy_peep (rtx *, int);
 extern void mips_expand_synci_loop (rtx, rtx);

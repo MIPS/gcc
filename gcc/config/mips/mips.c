@@ -9041,6 +9041,14 @@ mips_move_by_pieces_p (unsigned HOST_WIDE_INT size, unsigned int align)
 	return false;
       if (align < BITS_PER_WORD)
 	return size < UNITS_PER_WORD;
+      /* It is more profitable to use COPYW for at least 2 words.  */
+      if (TARGET_MIPS16 && TARGET_MIPS16_COPY
+	  && align >= BITS_PER_WORD && size >= 2 * UNITS_PER_WORD)
+	return false;
+      /* It is more profitable to use UCOPYW for at least 1 word.  */
+      if (TARGET_MIPS16 && TARGET_MIPS16_COPY
+	  && align < BITS_PER_WORD && size >= UNITS_PER_WORD)
+	return false;
       return size <= MIPS_MAX_MOVE_BYTES_STRAIGHT;
     }
   /* The default value.  If this becomes a target hook, we should
@@ -9113,7 +9121,8 @@ mips_store_by_pieces_p (unsigned HOST_WIDE_INT size, unsigned int align)
    Assume that the areas do not overlap.  */
 
 static void
-mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
+mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length,
+			  HOST_WIDE_INT alignment)
 {
   HOST_WIDE_INT offset, delta;
   unsigned HOST_WIDE_INT bits;
@@ -9289,11 +9298,11 @@ mips_adjust_block_mem (rtx mem, HOST_WIDE_INT length,
 
 static void
 mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
+		      HOST_WIDE_INT alignment,
 		      HOST_WIDE_INT bytes_per_iter)
 {
   rtx label, src_reg, dest_reg, final_src, test;
   HOST_WIDE_INT leftover;
-  HOST_WIDE_INT alignment;
 
   leftover = length % bytes_per_iter;
   length -= leftover;
@@ -9312,10 +9321,9 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
   emit_label (label);
 
   /* Emit the loop body.  */
-  alignment = MIN (MEM_ALIGN (dest), MEM_ALIGN (src)) / BITS_PER_UNIT;
   if (!mips16_expand_copy (dest, src, GEN_INT (bytes_per_iter),
 			   GEN_INT (alignment)))
-    mips_block_move_straight (dest, src, bytes_per_iter);
+    mips_block_move_straight (dest, src, alignment, bytes_per_iter);
 
   /* Move on to the next block.  */
   mips_emit_move (src_reg, plus_constant (Pmode, src_reg, bytes_per_iter));
@@ -9332,7 +9340,7 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
   if (leftover
       && !mips16_expand_copy (dest, src, GEN_INT (leftover),
 			      GEN_INT (alignment)))
-    mips_block_move_straight (dest, src, leftover);
+    mips_block_move_straight (dest, src, alignment, leftover);
 }
 
 /* Expand a movmemsi instruction using the mips16 copy instruction.  */
@@ -9361,19 +9369,11 @@ mips16_expand_copy (rtx dest, rtx src, rtx length, rtx alignment)
 
   byte_count = INTVAL (length);
 
-  if (mips_movmem_limit > 0 && byte_count > mips_movmem_limit)
-    return false;
-
-  if (mips_movmem_limit == -1
-      && byte_count > MIPS_MAX_MOVE_BYTES_STRAIGHT * UNITS_PER_WORD)
+  if (byte_count > MIPS_MAX_MOVE_BYTES_STRAIGHT)
     return false;
 
   word_count = byte_count / UNITS_PER_WORD;
   byte_count = byte_count % UNITS_PER_WORD;
-
-  if (TARGET_MIPS16 && TARGET_MIPS16_LWL_LWR
-      && word_count == 1 && align < 4)
-    return false;
 
   mips_split_plus (xdest, &base_dest, &offset_dest);
   mips_split_plus (xsrc, &base_src, &offset_src);
@@ -9561,35 +9561,40 @@ gen_mips16_copy_peep (rtx *operands, int n)
 }
 
 /* Expand a movmemsi instruction, which copies LENGTH bytes from
-   memory reference SRC to memory reference DEST.  */
+   memory reference SRC to memory reference DEST.  The lowest alignment
+   of SRC and DEST is specified by ALIGNMENT.  */
 
 bool
-mips_expand_block_move (rtx dest, rtx src, rtx length)
+mips_expand_block_move (rtx dest, rtx src, rtx length, rtx alignment)
 {
   if (!ISA_HAS_LWL_LWR
-      && (MEM_ALIGN (src) < MIPS_MIN_MOVE_MEM_ALIGN
-	  || MEM_ALIGN (dest) < MIPS_MIN_MOVE_MEM_ALIGN))
+      && !(TARGET_MIPS16 && TARGET_MIPS16_COPY
+	   && INTVAL (length) < MIPS_MAX_MOVE_BYTES_STRAIGHT)
+      && INTVAL (alignment) * UNITS_PER_WORD < MIPS_MIN_MOVE_MEM_ALIGN)
     return false;
 
   if (CONST_INT_P (length))
     {
       if (mips_movmem_limit == -1 || INTVAL (length) < mips_movmem_limit)
 	{
-	  if (INTVAL (length) <= MIPS_MAX_MOVE_BYTES_STRAIGHT
-	      /* We increase slightly the maximum number of bytes in
-		 a straight-line block if the source and destination
-		 are aligned to the register width.  */
-	      || (!optimize_size
-		  && MEM_ALIGN (src) == BITS_PER_WORD
-		  && MEM_ALIGN (dest) == BITS_PER_WORD
-		  && INTVAL (length) <= MIPS_MAX_MOVE_MEM_STRAIGHT))
+	  if (TARGET_MIPS16 && TARGET_MIPS16_COPY)
+	    return mips16_expand_copy (dest, src, length, alignment);
+	  else if (INTVAL (length) <= MIPS_MAX_MOVE_BYTES_STRAIGHT
+		   /* We increase slightly the maximum number of bytes in
+		      a straight-line block if the source and destination
+		      are aligned to the register width.  */
+		   || (!optimize_size
+		       && INTVAL (alignment) * UNITS_PER_WORD == BITS_PER_WORD
+		       && INTVAL (length) <= MIPS_MAX_MOVE_MEM_STRAIGHT))
 	    {
-	      mips_block_move_straight (dest, src, INTVAL (length));
+	      mips_block_move_straight (dest, src, INTVAL (length),
+					INTVAL (alignment));
 	      return true;
 	    }
 	  else if (optimize)
 	    {
 	      mips_block_move_loop (dest, src, INTVAL (length),
+				    INTVAL (alignment),
 				    MIPS_MAX_MOVE_BYTES_PER_LOOP_ITER);
 	      return true;
 	    }

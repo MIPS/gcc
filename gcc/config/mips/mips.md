@@ -4174,7 +4174,7 @@
 	(sign_extract:GPR (match_operand:BLK 1 "memory_operand")
 			  (match_operand 2 "const_int_operand")
 			  (match_operand 3 "const_int_operand")))]
-  "ISA_HAS_LWL_LWR"
+  "ISA_HAS_LWL_LWR || (TARGET_MIPS16 && TARGET_MIPS16_LWL_LWR)"
 {
   if (mips_expand_ext_as_unaligned_load (operands[0], operands[1],
 					 INTVAL (operands[2]),
@@ -4211,7 +4211,7 @@
 	(zero_extract:GPR (match_operand:BLK 1 "memory_operand")
 			  (match_operand 2 "const_int_operand")
 			  (match_operand 3 "const_int_operand")))]
-  "ISA_HAS_LWL_LWR"
+  "ISA_HAS_LWL_LWR || (TARGET_MIPS16 && TARGET_MIPS16_LWL_LWR)"
 {
   if (mips_expand_ext_as_unaligned_load (operands[0], operands[1],
 					 INTVAL (operands[2]),
@@ -4263,7 +4263,7 @@
 			  (match_operand 1 "const_int_operand")
 			  (match_operand 2 "const_int_operand"))
 	(match_operand:GPR 3 "reg_or_0_operand"))]
-  "ISA_HAS_LWL_LWR"
+  "ISA_HAS_LWL_LWR || (TARGET_MIPS16 && TARGET_MIPS16_LWL_LWR)"
 {
   if (mips_expand_ins_as_unaligned_store (operands[0], operands[3],
 					  INTVAL (operands[1]),
@@ -5842,11 +5842,8 @@
   "(!TARGET_MIPS16 || TARGET_MIPS16_COPY)
    && !TARGET_MEMCPY"
 {
-  if (TARGET_MIPS16 && TARGET_MIPS16_COPY
-      && mips16_expand_copy (operands[0], operands[1],
-			     operands[2], operands[3]))
-    DONE;
-  if (mips_expand_block_move (operands[0], operands[1], operands[2]))
+  if (mips_expand_block_move (operands[0], operands[1],
+			      operands[2], operands[3]))
     DONE;
   FAIL;
 })
