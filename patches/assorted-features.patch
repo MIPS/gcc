@@ -1,5 +1,5 @@
 Bottom: 77ea2104bbb697f3e1dc935ca0a88c12693af702
-Top:    77ea2104bbb697f3e1dc935ca0a88c12693af702
+Top:    7a93a8ca095a2eec221cbd2cf468b420e960eeff
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-04-01 06:12:53 -0300
 
@@ -8,4 +8,432 @@ mutable fields, nullptr, default fn args, mangled names in addr oracle
 
 ---
 
-
+diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
+index 141ceef..d802cae 100644
+--- a/include/gcc-cp-fe.def
++++ b/include/gcc-cp-fe.def
+@@ -432,13 +432,12 @@ GCC_METHOD3 (gcc_type, start_new_union_type,
+ /* Add a non-static data member to the most-recently-started
+    unfinished struct or union type.  FIELD_NAME is the field's name.
+    FIELD_TYPE is the type of the field.  BITSIZE and BITPOS indicate
+-   where in the struct the field occurs.
++   where in the struct the field occurs.  */
+ 
+-   FIXME: how about mutable data members?  */
+-
+-GCC_METHOD4 (int /* bool */, new_field,
++GCC_METHOD5 (int /* bool */, new_field,
+ 	     const char *,		   /* Argument FIELD_NAME.  */
+ 	     gcc_type,			   /* Argument FIELD_TYPE.  */
++	     enum gcc_cp_field_flags,	   /* Argument FIELD_FLAGS.  */
+ 	     unsigned long,		   /* Argument BITSIZE.  */
+ 	     unsigned long)		   /* Argument BITPOS.  */
+ 
+@@ -480,15 +479,28 @@ GCC_METHOD1 (int /* bool */, finish_enum_type,
+ /* Create a new function type.  RETURN_TYPE is the type returned by
+    the function, and ARGUMENT_TYPES is a vector, of length NARGS, of
+    the argument types.  IS_VARARGS is true if the function is
+-   varargs.
+-
+-   FIXME: default arguments?  */
++   varargs.  */
+ 
+ GCC_METHOD3 (gcc_type, build_function_type,
+ 	     gcc_type,			   /* Argument RETURN_TYPE.  */
+ 	     const struct gcc_type_array *,/* Argument ARGUMENT_TYPES.  */
+ 	     int /* bool */)		   /* Argument IS_VARARGS.  */
+ 
++/* Create a modified version of a function type that has default
++   values for some of its arguments.  The returned type should ONLY be
++   used to define functions or methods, never to declare parameters,
++   variables, types or the like.
++
++   DEFAULTS must have at most as many N_ELEMENTS as there are
++   arguments without default values in FUNCTION_TYPE.  Say, if
++   FUNCTION_TYPE has an argument list such as (T1, T2, T3, T4 = V0)
++   and DEFAULTS has 2 elements (V1, V2), the returned type will have
++   the following argument list: (T1, T2 = V1, T3 = V2, T4 = V0). */
++
++GCC_METHOD2 (gcc_type, add_function_default_args,
++	     gcc_type,			   /* Argument FUNCTION_TYPE.  */
++	     const struct gcc_cp_function_default_args *)/* DEFAULTS.  */
++
+ /* Create a variant of a function type with an exception
+    specification.  FUNCTION_TYPE is a function or method type.
+    EXCEPT_TYPES is an array with the list of exception types.  Zero as
+@@ -547,6 +559,14 @@ GCC_METHOD0 (gcc_type, void_type)
+ 
+ GCC_METHOD0 (gcc_type, bool_type)
+ 
++/* Return the std::nullptr_t type.  */
++
++GCC_METHOD0 (gcc_type, get_nullptr_type)
++
++/* Return the nullptr constant.  */
++
++GCC_METHOD0 (gcc_expr, get_nullptr_constant)
++
+ /* Create a new array type.  If NUM_ELEMENTS is -1, then the array
+    is assumed to have an unknown length.  */
+ 
+diff --git a/include/gcc-cp-interface.h b/include/gcc-cp-interface.h
+index 13a7902..9d84d12 100644
+--- a/include/gcc-cp-interface.h
++++ b/include/gcc-cp-interface.h
+@@ -41,7 +41,7 @@ struct gcc_cp_context;
+ 
+ enum gcc_cp_api_version
+ {
+-  GCC_CP_FE_VERSION_0 = 0xffffffff-6
++  GCC_CP_FE_VERSION_0 = 0xffffffff-7
+ };
+ 
+ /* Qualifiers.  */
+@@ -125,6 +125,19 @@ struct gcc_cp_template_args
+   gcc_cp_template_arg *elements;
+ };
+ 
++/* An array of default function arguments.  */
++
++struct gcc_cp_function_default_args
++{
++  /* Number of elements.  */
++
++  int n_elements;
++
++  /* The default values.  */
++
++  gcc_expr *elements;
++};
++
+ /* This enumerates the kinds of decls that GDB can create.  */
+ 
+ enum gcc_cp_symbol_kind
+@@ -234,6 +247,18 @@ enum gcc_cp_symbol_kind
+   GCC_CP_FLAG_MASK = (GCC_CP_FLAG_MASK_FUNCTION | GCC_CP_FLAG_MASK_VARIABLE)
+ };
+ 
++/* This bitfield names flags that can be associated with non-static
++   data members of structs and classes.  */
++
++enum gcc_cp_field_flags
++{
++  /* Use this when no flags are present.  */
++  GCC_CP_FIELD_NORMAL = 0,
++
++  /* This indicates the field is declared as mutable.  */
++  GCC_CP_FIELD_MUTABLE = 1
++};
++
+ /* This enumerates the types of symbols that GCC might request from
+    GDB.  */
+ 
+@@ -290,9 +315,12 @@ struct gcc_cp_fe_vtable
+      API.
+ 
+      The address oracle is called whenever the C++ parser needs to
+-     look up a symbol.  This is only called for symbols not provided
+-     by the symbol oracle -- that is, just built-in functions where
+-     GCC provides the declaration.
++     look up a symbol.  This may be called for symbols not provided by
++     the symbol oracle, such as built-in functions where GCC provides
++     the declaration; other internal symbols, such as those related
++     with thunks, rtti, and virtual tables are likely to be queried
++     through this interface too.  The identifier is a mangled symbol
++     name.
+ 
+      DATUM is an arbitrary piece of data that is passed back verbatim
+      to the callbakcs in requests.  */
+diff --git a/libcc1/libcc1plugin.cc b/libcc1/libcc1plugin.cc
+index beb2d202..5c3ef3a 100644
+--- a/libcc1/libcc1plugin.cc
++++ b/libcc1/libcc1plugin.cc
+@@ -745,7 +745,7 @@ plugin_int_type (cc1_plugin::connection *self,
+ }
+ 
+ gcc_type
+-plugin_char_type (cc1_plugin::connection *self)
++plugin_char_type (cc1_plugin::connection *)
+ {
+   return convert_out (char_type_node);
+ }
+diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
+index 159d466..3808017 100644
+--- a/libcc1/libcp1plugin.cc
++++ b/libcc1/libcp1plugin.cc
+@@ -310,13 +310,12 @@ address_rewriter (tree *in, int *walk_subtrees, void *arg)
+   decl_addr_value *found_value = ctx->address_map.find (&value);
+   if (found_value != NULL)
+     ;
+-  else if (DECL_IS_BUILTIN (*in) && DECL_NAMESPACE_SCOPE_P (*in)
+-	   && CP_DECL_CONTEXT (*in) == global_namespace)
++  else if (HAS_DECL_ASSEMBLER_NAME_P (*in))
+     {
+       gcc_address address;
+ 
+       if (!cc1_plugin::call (ctx, "address_oracle", &address,
+-			     IDENTIFIER_POINTER (DECL_NAME (*in))))
++			     IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (*in))))
+ 	return NULL_TREE;
+       if (address == 0)
+ 	return NULL_TREE;
+@@ -1034,6 +1033,7 @@ int
+ plugin_new_field (cc1_plugin::connection *,
+ 		  const char *field_name,
+ 		  gcc_type field_type_in,
++		  enum gcc_cp_field_flags field_flags,
+ 		  unsigned long bitsize,
+ 		  unsigned long bitpos)
+ {
+@@ -1048,6 +1048,9 @@ plugin_new_field (cc1_plugin::connection *,
+ 			  get_identifier (field_name), field_type);
+   DECL_FIELD_CONTEXT (decl) = record_or_union_type;
+ 
++  if ((field_flags & GCC_CP_FIELD_MUTABLE) != 0)
++    DECL_MUTABLE_P (decl) = 1;
++
+   if (TREE_CODE (field_type) == INTEGER_TYPE
+       && TYPE_PRECISION (field_type) != bitsize)
+     {
+@@ -1187,6 +1190,62 @@ plugin_build_function_type (cc1_plugin::connection *self,
+ }
+ 
+ gcc_type
++plugin_add_function_default_args (cc1_plugin::connection *self,
++				  gcc_type function_type_in,
++				  const struct gcc_cp_function_default_args *defaults)
++{
++  tree function_type = convert_in (function_type_in);
++
++  gcc_assert (TREE_CODE (function_type) == FUNCTION_TYPE);
++
++  if (!defaults || !defaults->n_elements)
++    return function_type_in;
++
++  tree pargs = TYPE_ARG_TYPES (function_type);
++  tree nargs = NULL_TREE;
++
++  /* Build a reversed copy of the list of default-less arguments in
++     NARGS.  At the end of the loop, PARGS will point to the end of
++     the argument list, or to the first argument that had a default
++     value.  */
++  while (pargs && TREE_VALUE (pargs) != void_list_node
++	 && !TREE_PURPOSE (pargs))
++    {
++      nargs = tree_cons (NULL_TREE, TREE_VALUE (pargs), nargs);
++      pargs = TREE_CHAIN (pargs);
++    }
++
++  /* Set the defaults in the now-leading NARGS, taking into account
++     that NARGS is reversed but DEFAULTS->elements isn't.  */
++  tree ndargs = nargs;
++  int i = defaults->n_elements;
++  while (i--)
++    {
++      gcc_assert (ndargs);
++      tree deflt = convert_in (defaults->elements[i]);
++      gcc_assert (deflt);
++      TREE_PURPOSE (ndargs) = deflt;
++      ndargs = TREE_CHAIN (ndargs);
++    }
++
++  /* Finally, reverse NARGS, and append the remaining PARGS that
++     already had defaults.  */
++  nargs = nreverse (nargs);
++  nargs = chainon (nargs, pargs);
++
++  tree result = build_function_type (TREE_TYPE (function_type), nargs);
++
++  /* Copy exceptions, attributes and whatnot.  */
++  result = build_exception_variant (result,
++				    TYPE_RAISES_EXCEPTIONS (function_type));
++  result = cp_build_type_attribute_variant (result,
++					    TYPE_ATTRIBUTES (function_type));
++
++  plugin_context *ctx = static_cast<plugin_context *> (self);
++  return convert_out (ctx->preserve (result));
++}
++
++gcc_type
+ plugin_build_exception_spec_variant (cc1_plugin::connection *self,
+ 				     gcc_type function_type_in,
+ 				     const struct gcc_type_array *except_types_in)
+@@ -1663,13 +1722,15 @@ plugin_unary_type_expr (cc1_plugin::connection *self,
+ gcc_expr
+ plugin_type_value_expr (cc1_plugin::connection *self,
+ 			const char *binary_op,
+-			gcc_typedecl operand1,
+-			gcc_expr operand2)
++			gcc_typedecl /* operand1 */,
++			gcc_expr /* operand2 */)
+ {
+   plugin_context *ctx = static_cast<plugin_context *> (self);
++#if 0
+   tree type = convert_in (operand1);
+   tree expr = convert_in (operand2);
+   tree_code opcode = ERROR_MARK;
++#endif
+   switch (CHARS2 (binary_op[0], binary_op[1]))
+     {
+       /* FIXME: implement type casts, ...  */
+@@ -1791,7 +1852,7 @@ plugin_int_type (cc1_plugin::connection *self,
+ }
+ 
+ gcc_type
+-plugin_char_type (cc1_plugin::connection *self)
++plugin_char_type (cc1_plugin::connection *)
+ {
+   return convert_out (char_type_node);
+ }
+@@ -1836,6 +1897,18 @@ plugin_bool_type (cc1_plugin::connection *)
+ }
+ 
+ gcc_type
++plugin_get_nullptr_type (cc1_plugin::connection *)
++{
++  return convert_out (nullptr_type_node);
++}
++
++gcc_expr
++plugin_get_nullptr_constant (cc1_plugin::connection *)
++{
++  return convert_out (nullptr_node);
++}
++
++gcc_type
+ plugin_build_array_type (cc1_plugin::connection *self,
+ 			 gcc_type element_type_in, int num_elements)
+ {
+diff --git a/libcc1/marshall-cp.hh b/libcc1/marshall-cp.hh
+index 8ce13ee..7ee2311 100644
+--- a/libcc1/marshall-cp.hh
++++ b/libcc1/marshall-cp.hh
+@@ -36,6 +36,16 @@ namespace cc1_plugin
+   }
+ 
+   status
++  unmarshall (connection *conn, enum gcc_cp_field_flags *result)
++  {
++    protocol_int p;
++    if (!unmarshall_intlike (conn, &p))
++      return FAIL;
++    *result = (enum gcc_cp_field_flags) p;
++    return OK;
++  }
++
++  status
+   unmarshall (connection *conn, enum gcc_cp_oracle_request *result)
+   {
+     protocol_int p;
+@@ -208,6 +218,64 @@ namespace cc1_plugin
+     *result = gva;
+     return OK;
+   }
++
++  // Send a gcc_cp_function_default_args marker followed by the array.
++  status
++  marshall (connection *conn, const gcc_cp_function_default_args *a)
++  {
++    size_t len;
++
++    if (a)
++      len = a->n_elements;
++    else
++      len = (size_t)-1;
++
++    if (!marshall_array_start (conn, 'd', len))
++      return FAIL;
++
++    if (!a)
++      return OK;
++
++    return marshall_array_elmts (conn, len * sizeof (a->elements[0]),
++				 a->elements);
++  }
++
++  // Read a gcc_cp_function_default_args marker, followed by a
++  // gcc_cp_function_default_args.  The resulting array must be freed
++  // by the caller, using 'delete[]' on elements and virtualp, and
++  // 'delete' on the array object itself.
++  status
++  unmarshall (connection *conn, struct gcc_cp_function_default_args **result)
++  {
++    size_t len;
++
++    if (!unmarshall_array_start (conn, 'd', &len))
++      return FAIL;
++
++    if (len == (size_t)-1)
++      {
++	*result = NULL;
++	return OK;
++      }
++
++    struct gcc_cp_function_default_args *gva = new gcc_cp_function_default_args;
++
++    gva->n_elements = len;
++    gva->elements = new gcc_expr[len];
++
++    if (!unmarshall_array_elmts (conn,
++				 len * sizeof (gva->elements[0]),
++				 gva->elements))
++      {
++	delete[] gva->elements;
++	delete gva;
++	return FAIL;
++      }
++
++    *result = gva;
++
++    return OK;
++  }
+ }
+ 
+ #endif // CC1_PLUGIN_MARSHALL_CP_HH
+diff --git a/libcc1/rpc.hh b/libcc1/rpc.hh
+index f9efe04..c8f1b4f 100644
+--- a/libcc1/rpc.hh
++++ b/libcc1/rpc.hh
+@@ -199,6 +199,42 @@ namespace cc1_plugin
+     argument_wrapper (const argument_wrapper &);
+     argument_wrapper &operator= (const argument_wrapper &);
+   };
++
++  // Specialization for gcc_cp_function_default_args.
++  template<>
++  class argument_wrapper<const gcc_cp_function_default_args *>
++  {
++  public:
++    argument_wrapper () : m_object (NULL) { }
++    ~argument_wrapper ()
++    {
++      // It would be nicer if gcc_type_array could have a destructor.
++      // But, it is in code shared with gdb and cannot.
++      if (m_object != NULL)
++	{
++	  delete[] m_object->elements;
++	}
++      delete m_object;
++    }
++
++    operator const gcc_cp_function_default_args * () const
++    {
++      return m_object;
++    }
++
++    status unmarshall (connection *conn)
++    {
++      return ::cc1_plugin::unmarshall (conn, &m_object);
++    }
++
++  private:
++
++    gcc_cp_function_default_args *m_object;
++
++    // No copying or assignment allowed.
++    argument_wrapper (const argument_wrapper &);
++    argument_wrapper &operator= (const argument_wrapper &);
++  };
+ #endif /* GCC_CP_INTERFACE_H */
+ 
+   // There are two kinds of template functions here: "call" and
