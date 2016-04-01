@@ -244,6 +244,9 @@ any_integral_ttype_check (const ttype *__t, const char *__f, int __l,
 #define DECL_BIT_FIELD_TYPE(NODE) \
   (FIELD_DECL_CHECK (NODE)->u.field_decl_ttype.bit_field_type)
 
+#undef DECL_ARG_TYPE
+#define DECL_ARG_TYPE(NODE) (PARM_DECL_CHECK (NODE)->u.decl_common_ttype.initial)
+
 /* ------------------------------------------------------------------------ */
 /* The remaining routines are simply macors that are redefined to be inline
    functions which should only be called on types, so do the typechecking.  */
