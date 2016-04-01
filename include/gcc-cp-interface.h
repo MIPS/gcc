@@ -325,7 +325,7 @@ struct gcc_cp_fe_vtable
      name.
 
      DATUM is an arbitrary piece of data that is passed back verbatim
-     to the callbakcs in requests.  */
+     to the callbacks in requests.  */
 
   void (*set_callbacks) (struct gcc_cp_context *self,
 			 gcc_cp_oracle_function *binding_oracle,
