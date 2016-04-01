@@ -55,7 +55,7 @@ along with GCC; see the file COPYING3.  If not see
 extern tree convert (tree type, tree expr);
 
 tree
-convert (tree dst_type, tree expr)
+convert (ttype_p dst_type, tree expr)
 {
   gcc_assert (gcc::jit::active_playback_ctxt);
   gcc::jit::active_playback_ctxt->add_error (NULL, "unhandled conversion");

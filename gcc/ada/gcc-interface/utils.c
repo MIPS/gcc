@@ -4105,7 +4105,7 @@ convert_to_fat_pointer (tree type, tree expr)
    not permitted by the language being compiled.  */
 
 tree
-convert (tree type, tree expr)
+convert (ttype_p type, tree expr)
 {
   tree etype = TREE_TYPE (expr);
   enum tree_code ecode = TREE_CODE (etype);

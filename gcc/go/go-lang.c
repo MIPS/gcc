@@ -475,7 +475,7 @@ go_langhook_eh_personality (void)
 /* Functions called directly by the generic backend.  */
 
 tree
-convert (tree type, tree expr)
+convert (ttype_p type, tree expr)
 {
   if (type == error_mark_node
       || expr == error_mark_node

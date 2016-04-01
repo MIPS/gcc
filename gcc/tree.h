@@ -4446,7 +4446,7 @@ extern ttype *build_variant_type_copy (ttype_p);
 
 extern ttype *type_hash_canon (unsigned int, ttype_p);
 
-extern tree convert (tree, tree);
+extern tree convert (ttype_p , tree);
 extern unsigned int expr_align (const_tree);
 extern tree size_in_bytes (const ttype_p);
 extern HOST_WIDE_INT int_size_in_bytes (const ttype_p);
