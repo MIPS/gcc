@@ -1,3 +1,307 @@
+2016-04-04  Martin Liska  <mliska@suse.cz>
+
+	PR hsa/70402
+	* hsa-gen.c (gen_hsa_insns_for_switch_stmt): Guard index
+	value that is really in range handled by SBR instruction.
+	* hsa-brig.c (emit_switch_insn): Do not emit unconditional
+	jump.
+	* hsa-dump.c (dump_hsa_insn_1): Do not dump default BB.
+	* hsa.h (hsa_insn_sbr::m_default_bb): Remove field.
+
+2016-04-03  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/70416
+	PR target/67391
+	* config/sh/sh.md (*addsi3): Allow pattern when reload_in_progress is
+	set, but not for SP_REG operands.
+
+2016-04-02  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/67376
+	* fold-const.c (maybe_nonzero_address): New function.
+	(fold_comparison): Call it.  Fold equality and relational
+	expressions involving null pointers.
+	(tree_single_nonzero_warnv_p): Call maybe_nonzero_address.
+
+2016-03-31  Evandro Menezes  <e.menezes@samsung.com>
+
+	Fix the predicate "aarch64_simd_reg_or_zero" to correctly validate
+	the "Y" constraint (scalar FP 0.0 immediate).
+
+	* gcc/config/aarch64/predicates.md (aarch64_simd_reg_or_zero):
+	Add the "const_double" to the list of operand constraints.
+
+2016-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/70467
+	* config/i386/i386.md (*add<dwi>3_doubleword, *sub<dwi>3_doubleword):
+	If low word of the last operand is 0, just emit addition/subtraction
+	for the high word.
+
+2016-04-01  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	PR target/70404
+	* config/s390/s390.c (s390_expand_insv): Check for everything
+	constant instead of just VOIDmode stuff.
+
+2016-04-01  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/70496
+	* config/arm/arm.h (ASM_APP_OFF): Handle TARGET_ARM
+	and TARGET_THUMB.
+
+2016-04-01  Nathan Sidwell  <nathan@acm.org>
+
+	* tree.def (TRY_CATCH_EXPR): Correct documentation.
+
+2016-03-31  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/70461
+	* ira-color.c (allocno_copy_cost_saving): Use allocno class if it
+	is necessary.
+
+2016-03-31  Martin Liska  <mliska@suse.cz>
+
+	PR hsa/70399
+	* hsa-brig.c (hsa_op_immed::emit_to_buffer): Emit either
+	a tree value or an immediate integer value to a buffer
+	that is eventually copied to a BRIG section.
+	(emit_immediate_operand): Call the function here.
+	* hsa-dump.c (dump_hsa_immed): Remove checking assert.
+	* hsa-gen.c (hsa_op_immed::hsa_op_immed): Remove initialization
+	of class' fields that are removed.
+	(hsa_op_immed::~hsa_op_immed): Remove deinitialization.
+	* hsa.h (class hsa_op_immed): Remove m_brig_repr and
+	m_brig_repr_size fields.
+
+2016-03-31  Martin Liska  <mliska@suse.cz>
+
+	PR hsa/70391
+	* hsa-gen.c (hsa_function_representation::update_dominance): New
+	function.
+	(convert_addr_to_flat_segment): Likewise.
+	(gen_hsa_memory_set): New alignment argument.
+	(gen_hsa_ctor_assignment): Likewise.
+	(gen_hsa_insns_for_single_assignment): Provide alignment
+	to gen_hsa_ctor_assignment.
+	(gen_hsa_insns_for_direct_call): Add new argument.
+	(expand_lhs_of_string_op): New function.
+	(expand_string_operation_builtin): Likewise.
+	(expand_memory_copy): New function.
+	(expand_memory_set): New function.
+	(gen_hsa_insns_for_call): Use HOST_WIDE_INT.
+	(convert_switch_statements): Change signature.
+	(generate_hsa): Use a return value of the function.
+	(pass_gen_hsail::execute): Do not call
+	convert_switch_statements here.
+	* hsa-regalloc.c (hsa_regalloc): Call update_dominance.
+	* hsa.h (hsa_function_representation::m_modified_cfg):
+	New flag.
+	(hsa_function_representation::update_dominance): New function.
+
+2016-03-31  Martin Liska  <mliska@suse.cz>
+
+	PR hsa/70391
+	* hsa-brig.c (emit_directive_variable): Emit alignment
+	according to hsa_symbol::m_align.
+	* hsa-dump.c (hsa_byte_alignment): Move the function to
+	another file.
+	(dump_hsa_symbol): Dump alignment of HSA symbols.
+	* hsa-gen.c (get_symbol_for_decl): Set-up alignment
+	of a symbol.
+	(gen_hsa_addr_with_align): New function.
+	(hsa_bitmemref_alignment): Use newly added function.
+	(gen_hsa_insns_for_load): Likewise.
+	(gen_hsa_insns_for_store): Likewise.
+	(gen_hsa_memory_copy): New argument added.
+	(gen_hsa_insns_for_single_assignment): Respect
+	alignment for assignments processed via
+	gen_hsa_memory_copy.
+	(gen_hsa_insns_for_direct_call): Likewise.
+	(gen_hsa_insns_for_return): Likewise.
+	(gen_function_def_parameters): Set default
+	alignment.
+	* hsa.c (hsa_object_alignment): New function.
+	(hsa_byte_alignment): Pasted function.
+	* hsa.h (hsa_symbol::m_align): New field.
+
+2016-03-31  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-ssa-loop-ivopts.c (get_computation_cost_at): Initialize
+	scratch field for goto case.
+
+2016-03-31  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/arm/linux-elf.h (ASM_OUTPUT_DEF): Delete.
+
+2016-03-31  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR target/70442
+	* config/i386/i386.c (scalar_chain::convert_op): Fix
+	description.
+	(scalar_chain::convert_insn): Call convert_op for reg
+	moves to handle undefined registers.
+
+2016-03-31  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/70393
+	* varasm.c (output_constructor_regular_field): Flush bitfield
+	earlier.  Assert we don't want to move backwards.
+
+2016-03-31  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	PR target/70453
+	* config/i386/sse.md (define_mode_attr shuffletype): Fix typo.
+
+2016-03-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/70460
+	* ira.c (indirect_jump_optimize): Don't substitute LABEL_REF
+	with operand from REG_LABEL_OPERAND, instead substitute
+	SET_SRC or REG_EQUAL note content if it is a LABEL_REF.
+	Don't do anything for REG_NON_LOCAL_GOTO jumps.
+
+2016-03-31  Martin Liska  <mliska@suse.cz>
+
+	* passes.c (execute_one_pass): Do not call
+	todo_after for a discarded function.
+
+2016-03-31  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-ssa-loop-ivopts.c (struct comp_cost): New scrach field.
+	(no_cost, infinite_cost): Initialize the new field.
+	(get_computation_cost_at): Record setup cost.
+	(determine_use_iv_cost_address): Skip cost computation for sub
+	uses if we can estimate it without losing accuracy.
+
+2016-03-30  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-ssa-loop-niter.c (idx_infer_loop_bounds): We can't get realistic
+	estimates here.
+	* tree-ssa-loop-unswitch.c (tree_unswitch_single_loop): Use also
+	max_loop_iterations_int.
+	(tree_unswitch_outer_loop): Likewise.
+	* tree-ssa-loop-ivopts.c (avg_loop_niter): Likewise.
+	* tree-vect-loop.c (vect_analyze_loop_2): Likewise.
+
+2016-03-30  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70450
+	* fold-const.c (extract_muldiv_1): Fix thinko in wide_int::from
+	usage.
+
+2016-03-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/70421
+	* config/i386/i386.c (ix86_expand_vector_set): Fix up argument order
+	in gen_blendm expander.
+
+2016-03-30  Nick Clifton  <nickc@redhat.com>
+
+	PR target/62254
+	* config/arm/arm.c (arm_reload_out_hi): Add code to handle the
+	case where we are already provided with an SImode SUBREG.
+
+2016-03-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/70439
+	* config/i386/i386.c (ix86_expand_epilogue): Properly check
+	conflict between DRAP register and __builtin_eh_return.
+
+2016-03-30  Michael Matz  <matz@suse.de>
+	    Richard Biener  <rguenther@suse.de>
+
+	PR ipa/12392
+	* ipa-polymorphic-call.c (struct type_change_info): Change
+	speculative to an unsigned allowing to limit the work we do.
+	(csftc_abort_walking_p): New inline function..
+	(check_stmt_for_type_change): Limit the number of may-defs
+	skipped for speculative devirtualization to
+	max-speculative-devirt-maydefs.
+	* params.def (max-speculative-devirt-maydefs): New param.
+	* doc/invoke.texi (--param max-speculative-devirt-maydefs): Document.
+
+2016-03-30  Mike Stump  <mrs@gcc.gnu.org>
+
+	PR target/63890
+	* config/i386/i386.h (ACCUMULATE_OUTGOING_ARGS): Use when profiling
+	and TARGET_MACHO.
+
+2016-03-30  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR tree-optimization/59124
+	* tree-vrp.c (register_edge_assert_for_2): For NAME != CST1
+	where NAME = A +- CST2 add the assertion A != (CST1 -+ CST2).
+
+2016-03-29  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-coalesce.c (struct ssa_conflicts): Fix typo in
+	comment.
+
+2016-03-10  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-ssa-loop-ivcanon.c (try_peel_loop): Change type of peel
+	to HOST_WIDE_INT.
+
+2016-03-29  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* config/gnu.h (CPP_SPEC, LIB_SPEC): Don't override.
+	* config/i386/gnu.h (STARTFILE_SPEC): Use gcrt1.o instead of
+	gcrt0.o if linking dynamically.
+
+2016-03-10  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/70283
+	* ipa-devirt.c (methods_equal_p): New function.
+	(compare_virtual_tables): Use it.
+	* cgraph.h (symbol_table::symbol_suffix_separator): Declare.
+	* cgraphclones.c (clone_function_name_1): Use
+	symbol_table::symbol_suffix_separator.
+	* coverage.c (build_var): Likewise.
+	* symtab.c (symbol_table::symbol_suffix_separator): New.
+
+2016-03-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/70429
+	* combine.c (simplify_shift_const_1): For ASHIFTRT don't optimize
+	(cst1 >> count) >> cst2 into (cst1 >> cst2) >> count if
+	mode != result_mode.
+
+	PR c++/70353
+	* tree-inline.c (remap_decls): Don't add_local_decl if
+	cfun is null.
+
+	PR tree-optimization/70405
+	* ssa-iterators.h (num_imm_uses): Add missing braces.
+
+2016-03-29  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/68695
+	* ira-color.c (allocno_copy_cost_saving): New.
+	(improve_allocation): Use it.
+
+2016-03-29  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/70355
+	* lower-subreg.c (simplify_subreg_concatn): Reject paradoxical
+	subregs.
+
+2016-03-29  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70424
+	* ipa-prop.c (ipa_compute_jump_functions_for_edge): Always
+	use alignment returned by get_pointer_alignment_1 if it is
+	bigger than BITS_PER_UNIT.
+	* builtins.c (get_pointer_alignment_1): Do not return true
+	for alignment extracted from SSA info.
+
+2016-03-28  James Bowman  <james.bowman@ftdichip.com>
+
+	* config/ft32/ft32.opt (mnodiv): New.
+	* config/ft32/ft32.md (*divsi3, *modsi3): Qualify with
+	TARGET_NODIV.
+	* doc/invoke.texi (FT32 Options -mnodiv): New.
+
 2016-03-28  Kirill Yukhin  <kirill.yukhin@intel.com>
 
 	 PR target/70406

@@ -15194,25 +15194,21 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 		    DECL_CONTEXT (decl) = current_function_decl;
 		    cp_check_omp_declare_reduction (decl);
 		  }
-		else if (VAR_P (decl)
-			 && DECL_PRETTY_FUNCTION_P (decl))
-		  {
-		    /* For __PRETTY_FUNCTION__ we have to adjust the
-		       initializer.  */
-		    const char *const name
-		      = cxx_printable_name (current_function_decl, 2);
-		    init = cp_fname_init (name, &TREE_TYPE (decl));
-		    SET_DECL_VALUE_EXPR (decl, init);
-		    DECL_HAS_VALUE_EXPR_P (decl) = 1;
-		    DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl) = 1;
-		    maybe_push_decl (decl);
-		  }
 		else
 		  {
 		    int const_init = false;
 		    maybe_push_decl (decl);
-
-		    init = tsubst_init (init, decl, args, complain, in_decl);
+		    if (VAR_P (decl)
+			&& DECL_PRETTY_FUNCTION_P (decl))
+		      {
+			/* For __PRETTY_FUNCTION__ we have to adjust the
+			   initializer.  */
+			const char *const name
+			  = cxx_printable_name (current_function_decl, 2);
+			init = cp_fname_init (name, &TREE_TYPE (decl));
+		      }
+		    else
+		      init = tsubst_init (init, decl, args, complain, in_decl);
 
 		    if (VAR_P (decl))
 		      const_init = (DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P
@@ -21745,7 +21741,8 @@ instantiate_decl (tree d, int defer_ok,
   if (TREE_CODE (d) == FUNCTION_DECL)
     {
       deleted_p = DECL_DELETED_FN (code_pattern);
-      pattern_defined = (DECL_SAVED_TREE (code_pattern) != NULL_TREE
+      pattern_defined = ((DECL_SAVED_TREE (code_pattern) != NULL_TREE
+			  && DECL_INITIAL (code_pattern) != error_mark_node)
 			 || DECL_DEFAULTED_OUTSIDE_CLASS_P (code_pattern)
 			 || deleted_p);
     }

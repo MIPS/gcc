@@ -715,7 +715,7 @@ Objective-C and Objective-C++ Dialects}.
 @gccoptlist{-msmall-model -mno-lsim}
 
 @emph{FT32 Options}
-@gccoptlist{-msim -mlra}
+@gccoptlist{-msim -mlra -mnodiv}
 
 @emph{FRV Options}
 @gccoptlist{-mgpr-32  -mgpr-64  -mfpr-32  -mfpr-64 @gol
@@ -9669,6 +9669,11 @@ Enable emission of special debug stores within HSA kernels which are
 then read and reported by libgomp plugin.  Generation of these stores
 is disabled by default, use @option{--param hsa-gen-debug-stores=1} to
 enable it.
+
+@item max-speculative-devirt-maydefs
+The maximum number of may-defs we analyze when looking for a must-def
+specifying the dynamic type of an object that invokes a virtual call
+we may be able to devirtualize speculatively.
 @end table
 @end table
 
@@ -15894,6 +15899,10 @@ I/O functions are needed.
 @opindex mlra
 Enable Local Register Allocation.  This is still experimental for FT32,
 so by default the compiler uses standard reload.
+
+@item -mnodiv
+@opindex mnodiv
+Do not use div and mod instructions.
 
 @end table
 
