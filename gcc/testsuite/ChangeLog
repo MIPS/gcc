@@ -1,3 +1,259 @@
+2016-04-04  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/66223
+	* g++.dg/ipa/devirt-51.C: New testcase.
+
+2016-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+	    Jakub Jelinek <jakub@redhat.com>
+
+	PR middle-end/70457
+	* gcc.dg/torture/pr70457.c: New.
+
+2016-04-04  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/67538
+	* gfortran.dg/allocate_with_source_19.f08: New test.
+
+2016-04-04  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/65795
+	* gfortran.dg/coarray_allocate_6.f08: New test.
+
+2016-04-04  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/70484
+	* gcc.dg/torture/pr70484.c: New testcase.
+
+2016-04-04  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70307
+	* gcc.dg/torture/pr70307.c: New test.
+
+2016-04-03  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/70416
+	PR target/67391
+	* gcc.target/sh/torture/pr70416.c: New.
+
+2016-04-02  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/67376
+	PR c++/70170
+	PR c++/70172
+	PR c++/70228
+	* g++.dg/cpp0x/constexpr-array-ptr10.C: New test.
+	* g++.dg/cpp0x/constexpr-array-ptr9.C: New test.
+	* g++.dg/cpp0x/constexpr-nullptr-1.C: New test.
+	* g++.dg/cpp0x/constexpr-array5.C: Adjust text of expected diagnostic.
+	* g++.dg/cpp0x/constexpr-string.C: Same.
+	* g++.dg/cpp0x/constexpr-wstring2.C: Same.
+	* g++.dg/cpp0x/pr65398.C: Same.
+	* g++.dg/ext/constexpr-vla1.C: Same.
+	* g++.dg/ext/constexpr-vla2.C: Same.
+	* g++.dg/ext/constexpr-vla3.C: Same.
+	* g++.dg/ubsan/pr63956.C: Same.
+
+2016-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/70467
+	* gcc.target/i386/pr70467-2.c: New test.
+
+2016-04-01  Jakub Jelinek  <jakub@redhat.com>
+	    Marek Polacek  <polacek@redhat.com>
+
+	PR c++/70488
+	* g++.dg/init/new47.C: New test.
+
+2016-04-01  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/70496
+	* gcc.target/arm/pr70496.c: New test.
+
+2016-04-01  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/68475
+	* g++.dg/g++.dg/cpp0x/noexcept29.C: New.
+
+2016-04-01  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR target/69890
+	* gcc.dg/strlenopt.h (memmove): New.
+	* gcc.target/i386/chkp-strlen-1.c: Include "../../gcc.dg/strlenopt.h"
+	instead of "string.h".
+	* gcc.target/i386/chkp-strlen-2.c: Likewise.
+	* gcc.target/i386/chkp-strlen-3.c: Likewise.
+	* gcc.target/i386/chkp-strlen-4.c: Likewise.
+	* gcc.target/i386/chkp-strlen-5.c: Likewise.
+	* gcc.target/i386/chkp-stropt-1.c: Likewise.
+	* gcc.target/i386/chkp-stropt-10.c: Likewise.
+	* gcc.target/i386/chkp-stropt-11.c: Likewise.
+	* gcc.target/i386/chkp-stropt-12.c: Likewise.
+	* gcc.target/i386/chkp-stropt-13.c: Likewise.
+	* gcc.target/i386/chkp-stropt-14.c: Likewise.
+	* gcc.target/i386/chkp-stropt-15.c: Likewise.
+	* gcc.target/i386/chkp-stropt-16.c: Likewise.
+	* gcc.target/i386/chkp-stropt-2.c: Likewise.
+	* gcc.target/i386/chkp-stropt-3.c: Likewise.
+	* gcc.target/i386/chkp-stropt-4.c: Likewise.
+	* gcc.target/i386/chkp-stropt-5.c: Likewise.
+	* gcc.target/i386/chkp-stropt-6.c: Likewise.
+	* gcc.target/i386/chkp-stropt-7.c: Likewise.
+	* gcc.target/i386/chkp-stropt-8.c: Likewise.
+	* gcc.target/i386/chkp-stropt-9.c: Likewise.
+
+2016-03-31  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* g++.dg/template/ptrmem30.C (read): Rename to data_read.
+	(Holder::foo): Reflect this.
+
+2016-03-31  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR target/70442
+	* gcc.dg/pr70442.c: New test.
+
+2016-03-31  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/70393
+	* g++.dg/cpp0x/constexpr-virtual6.C: New.
+
+2016-03-31  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	PR target/70453
+	* gcc.target/i386/pr70453.c: New test.
+
+2016-03-31  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR target/70292
+	* gcc.c-torture/pr70292.c: New test.
+
+2016-03-31  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70297
+	* c-c++-common/pr70297.c: New test.
+	* g++.dg/cpp0x/typedef-redecl.C: New test.
+	* gcc.dg/typedef-redecl2.c: New test.
+
+2016-03-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/70460
+	* gcc.c-torture/execute/pr70460.c: New test.
+
+2016-03-31  Richard Biener  <rguenther@suse.de>
+
+	PR c++/70430
+	* g++.dg/ext/vector30.C: New testcase.
+
+2016-03-30  Dominique d'Humieres  <dominiq@lps.ens.fr>
+	    Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* gfortran.dg/fmt_pf.f90: New test.
+
+2016-03-30  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Forward-port from 5 branch
+	2016-03-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR testsuite/70356
+	* gcc.target/i386/avx-vextractf128-256-5.c: Move
+	dg-require-effective-target after dg-do.
+
+	2015-12-30  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* gcc.target/i386/avx-vextractf128-256-5.c: New test.
+
+2016-03-30  Thomas Schwinge  <thomas@codesourcery.com>
+	    Julian Brown  <julian@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+	    Tom de Vries  <tom@codesourcery.com>
+	    Nathan Sidwell  <nathan@codesourcery.com>
+
+	* c-c++-common/goacc/combined-directives.c: Clean up dg-*
+	directives.
+	* c-c++-common/goacc/loop-clauses.c: Likewise.
+	* g++.dg/goacc/template.C: Likewise.
+	* gfortran.dg/goacc/combined-directives.f90: Likewise.
+	* gfortran.dg/goacc/loop-1.f95: Likewise.
+	* gfortran.dg/goacc/loop-5.f95: Likewise.
+	* gfortran.dg/goacc/loop-6.f95: Likewise.
+	* gfortran.dg/goacc/loop-tree-1.f90: Likewise.
+	* c-c++-common/goacc-gomp/nesting-1.c: Update.
+	* c-c++-common/goacc-gomp/nesting-fail-1.c: Likewise.
+	* c-c++-common/goacc/clauses-fail.c: Likewise.
+	* c-c++-common/goacc/parallel-1.c: Likewise.
+	* c-c++-common/goacc/reduction-1.c: Likewise.
+	* c-c++-common/goacc/reduction-2.c: Likewise.
+	* c-c++-common/goacc/reduction-3.c: Likewise.
+	* c-c++-common/goacc/reduction-4.c: Likewise.
+	* c-c++-common/goacc/routine-3.c: Likewise.
+	* c-c++-common/goacc/routine-4.c: Likewise.
+	* c-c++-common/goacc/routine-5.c: Likewise.
+	* c-c++-common/goacc/tile.c: Likewise.
+	* g++.dg/goacc/template.C: Likewise.
+	* gfortran.dg/goacc/combined-directives.f90: Likewise.
+	* c-c++-common/goacc/nesting-1.c: Move dg-error test cases into...
+	* c-c++-common/goacc/nesting-fail-1.c: ... this file.  Update.
+	* c-c++-common/goacc/kernels-1.c: Update.  Incorporate...
+	* c-c++-common/goacc/kernels-empty.c: ... this file, and...
+	* c-c++-common/goacc/kernels-eternal.c: ... this file, and...
+	* c-c++-common/goacc/kernels-noreturn.c: ... this file.
+	* c-c++-common/goacc/host_data-1.c: New file.  Incorporate...
+	* c-c++-common/goacc/use_device-1.c: ... this file.
+	* c-c++-common/goacc/host_data-2.c: New file.  Incorporate...
+	* c-c++-common/goacc/host_data-5.c: ... this file, and...
+	* c-c++-common/goacc/host_data-6.c: ... this file.
+	* c-c++-common/goacc/loop-2-kernels.c: New file.
+	* c-c++-common/goacc/loop-2-parallel.c: Likewise.
+	* c-c++-common/goacc/loop-3.c: Likewise.
+	* g++.dg/goacc/reference.C: Likewise.
+	* g++.dg/goacc/routine-1.C: Likewise.
+	* g++.dg/goacc/routine-2.C: Likewise.
+
+2016-03-30  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70450
+	* gcc.dg/torture/pr70450.c: New testcase.
+
+2016-03-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/70421
+	* gcc.dg/torture/pr70421.c: New test.
+	* gcc.target/i386/avx512f-pr70421.c: New test.
+
+2016-03-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/70364
+	* gcc.target/i386/cleanup-1.c: Include <stddef.h>.
+	(check): New function.
+	(bar): Call check.
+	(foo): Align stack to 16 bytes when calling bar.
+	* gcc.target/i386/cleanup-2.c: Likewise.
+
+2016-03-30  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR tree-optimization/59124
+	* gcc.dg/Warray-bounds-19.c: New test.
+
+2016-03-29  Zachary T Welch <zwelch@codesourcery.com>
+
+	* lib/prune.exp (escape_regex_chars): New.
+	(prune_file_path): Update to quote metcharacters for regexp.
+
+2016-03-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/70429
+	* gcc.c-torture/execute/pr70429.c: New test.
+
+	PR tree-optimization/70405
+	* gcc.dg/pr70405.c: New test.
+
+2016-03-29  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/70397
+	* gfortran.dg/unlimited_polymorphic_25.f90: New test.
+	* gfortran.dg/unlimited_polymorphic_26.f90: New test.
+
 2016-03-29  Thomas Schwinge  <thomas@codesourcery.com>
 
 	PR testsuite/64177

@@ -1239,21 +1239,6 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
       return t;
     }
 
-  if (fun == current_function_decl)
-    {
-      /* A call to the current function, i.e.
-	 constexpr int f (int i) {
-	   constexpr int j = f(i-1);
-	   return j;
-	 }
-	 This would be OK without the constexpr on the declaration of j.  */
-      if (!ctx->quiet)
-	error_at (loc, "%qD called in a constant expression before its "
-		  "definition is complete", fun);
-      *non_constant_p = true;
-      return t;
-    }
-
   constexpr_ctx new_ctx = *ctx;
   if (DECL_CONSTRUCTOR_P (fun) && !ctx->object
       && TREE_CODE (t) == AGGR_INIT_EXPR)
@@ -1308,7 +1293,10 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
         {
 	  if (!ctx->quiet)
 	    {
-	      if (DECL_INITIAL (fun))
+	      if (DECL_INITIAL (fun) == error_mark_node)
+		error_at (loc, "%qD called in a constant expression before its "
+			  "definition is complete", fun);
+	      else if (DECL_INITIAL (fun))
 		{
 		  /* The definition of fun was somehow unsuitable.  */
 		  error_at (loc, "%qD called in a constant expression", fun);
@@ -1837,6 +1825,30 @@ find_array_ctor_elt (tree ary, tree dindex, bool insert = false)
   return -1;
 }
 
+/* Under the control of CTX, issue a detailed diagnostic for
+   an out-of-bounds subscript INDEX into the expression ARRAY.  */
+
+static void
+diag_array_subscript (const constexpr_ctx *ctx, tree array, tree index)
+{
+  if (!ctx->quiet)
+    {
+      tree arraytype = TREE_TYPE (array);
+
+      /* Convert the unsigned array subscript to a signed integer to avoid
+	 printing huge numbers for small negative values.  */
+      tree sidx = fold_convert (ssizetype, index);
+      if (DECL_P (array))
+	{
+	  error ("array subscript value %qE is outside the bounds "
+		 "of array %qD of type %qT", sidx, array, arraytype);
+	  inform (DECL_SOURCE_LOCATION (array), "declared here");
+	}
+      else
+	error ("array subscript value %qE is outside the bounds "
+	       "of array type %qT", sidx, arraytype);
+    }
+}
 
 /* Subroutine of cxx_eval_constant_expression.
    Attempt to reduce a reference to an array slot.  */
@@ -1885,8 +1897,7 @@ cxx_eval_array_reference (const constexpr_ctx *ctx, tree t,
   if (!tree_fits_shwi_p (index)
       || (i = tree_to_shwi (index)) < 0)
     {
-      if (!ctx->quiet)
-	error ("negative array subscript");
+      diag_array_subscript (ctx, ary, index);
       *non_constant_p = true;
       return t;
     }
@@ -1898,8 +1909,7 @@ cxx_eval_array_reference (const constexpr_ctx *ctx, tree t,
   VERIFY_CONSTANT (nelts);
   if (!tree_int_cst_lt (index, nelts))
     {
-      if (!ctx->quiet)
-	error ("array subscript out of bound");
+      diag_array_subscript (ctx, ary, index);
       *non_constant_p = true;
       return t;
     }
@@ -2959,16 +2969,39 @@ cxx_eval_store_expression (const constexpr_ctx *ctx, tree t,
       else
 	{
 	  gcc_assert (TREE_CODE (index) == FIELD_DECL);
-	  for (unsigned HOST_WIDE_INT idx = 0;
+
+	  /* We must keep the CONSTRUCTOR's ELTS in FIELD order.
+	     Usually we meet initializers in that order, but it is
+	     possible for base types to be placed not in program
+	     order.  */
+	  tree fields = TYPE_FIELDS (DECL_CONTEXT (index));
+	  unsigned HOST_WIDE_INT idx;
+
+	  for (idx = 0;
 	       vec_safe_iterate (CONSTRUCTOR_ELTS (*valp), idx, &cep);
-	       idx++)
-	    if (index == cep->index)
-	      break;
-	  if (!cep)
+	       idx++, fields = DECL_CHAIN (fields))
 	    {
-	      constructor_elt ce = { index, NULL_TREE };
-	      cep = vec_safe_push (CONSTRUCTOR_ELTS (*valp), ce);
+	      if (index == cep->index)
+		goto found;
+
+	      /* The field we're initializing must be on the field
+		 list.  Look to see if it is present before the
+		 field the current ELT initializes.  */
+	      for (; fields != cep->index; fields = DECL_CHAIN (fields))
+		if (index == fields)
+		  goto insert;
 	    }
+
+	  /* We fell off the end of the CONSTRUCTOR, so insert a new
+	     entry at the end.  */
+	insert:
+	  {
+	    constructor_elt ce = { index, NULL_TREE };
+
+	    vec_safe_insert (CONSTRUCTOR_ELTS (*valp), idx, ce);
+	    cep = CONSTRUCTOR_ELT (*valp, idx);
+	  }
+	found:;
 	}
       valp = &cep->value;
     }
