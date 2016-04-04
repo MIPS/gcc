@@ -1,5 +1,5 @@
 ! { dg-do run }
-! { dg-additional-options "-cpp -w" }
+! { dg-additional-options "-cpp" }
 
 #define M 8
 #define N 32
@@ -99,7 +99,7 @@ subroutine gang (a)
   integer, intent (inout) :: a(N)
   integer :: i
 
-  !$acc loop gang
+  !$acc loop gang worker vector
   do i = 1, N
     a(i) = a(i) - i 
   end do

@@ -1,7 +1,5 @@
-/* { dg-do run } */
-/* { dg-additional-options "-w" } */
-
 #include <stdlib.h>
+#include <stdio.h>
 
 #define M 8
 #define N 32
@@ -38,7 +36,7 @@ gang (int *a)
 {
   int i;
 
-#pragma acc loop gang
+#pragma acc loop gang worker vector
   for (i = 0; i < N; i++)
     a[i] -= i; 
 }
@@ -52,8 +50,6 @@ seq (int *a)
   for (i = 0; i < N; i++)
     a[i] += 1;
 }
-
-#include <stdio.h>
 
 int
 main(int argc, char **argv)

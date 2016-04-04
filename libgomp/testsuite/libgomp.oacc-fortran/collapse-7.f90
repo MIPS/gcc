@@ -8,7 +8,7 @@ program collapse7
   r = .false.
   a(:, :, :) = 0
   b(:, :, :) = 0
-  !$acc parallel copy (l)
+  !$acc parallel
   !$acc loop collapse (3) reduction (.or.:l)
     do i = 2, 6
       do j = -2, 4

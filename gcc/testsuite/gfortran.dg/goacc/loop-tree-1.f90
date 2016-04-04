@@ -1,4 +1,3 @@
-! { dg-do compile } 
 ! { dg-additional-options "-fdump-tree-original -std=f2008" } 
 
 ! test for tree-dump-original and spaces-commas

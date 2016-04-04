@@ -15,7 +15,7 @@ program collapse8
   v4 = 4
   v5 = 13
   v6 = 18
-  !$acc parallel copy (l)
+  !$acc parallel
   !$acc loop collapse (3) reduction (.or.:l)
     do i = v1, v2
       do j = v3, v4

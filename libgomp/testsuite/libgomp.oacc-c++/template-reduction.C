@@ -1,7 +1,3 @@
-/* { dg-do run } */
-
-#include <cstdlib>
-
 const int n = 100;
 
 // Check explicit template copy map
@@ -85,17 +81,17 @@ main()
     }
 
   if (sum (a) != result)
-    abort ();
+    __builtin_abort ();
 
   if (sum<int> () != result)
-    abort ();
+    __builtin_abort ();
 
 #pragma acc enter data copyin (a)
   if (async_sum (a) != result)
-    abort ();
+    __builtin_abort ();
 
   if (async_sum<int> (1) != result)
-    abort ();
+    __builtin_abort ();
 #pragma acc exit data delete (a)
 
   return 0;

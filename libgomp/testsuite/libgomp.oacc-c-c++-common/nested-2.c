@@ -1,3 +1,5 @@
+/* { dg-do run } */
+
 #include <stdlib.h>
 
 int

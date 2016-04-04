@@ -1,5 +1,4 @@
-! { dg-do compile } 
-! { dg-additional-options "-fdump-tree-original -w" } 
+! { dg-additional-options "-fdump-tree-original" }
 
 ! test for tree-dump-original and spaces-commas
 
@@ -12,9 +11,13 @@ program test
   !$acc reduction(max:q), copy(i), copyin(j), copyout(k), create(m) &
   !$acc present(o), pcopy(p), pcopyin(r), pcopyout(s), pcreate(t) &
   !$acc deviceptr(u), private(v), firstprivate(w)
+  ! { dg-warning "region is gang partitioned but does not contain gang partitioned code" "" { target *-*-* } 13 }
+  ! { dg-warning "region is worker partitioned but does not contain worker partitioned code" "" { target *-*-* } 13 }
+  ! { dg-warning "region is vector partitioned but does not contain vector partitioned code" "" { target *-*-* } 13 }
   !$acc end parallel
 
 end program test
+
 ! { dg-final { scan-tree-dump-times "pragma acc parallel" 1 "original" } } 
 
 ! { dg-final { scan-tree-dump-times "if" 1 "original" } }

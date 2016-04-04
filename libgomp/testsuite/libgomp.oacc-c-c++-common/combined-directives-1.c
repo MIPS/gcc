@@ -1,5 +1,7 @@
 /* This test exercises combined directives.  */
 
+/* { dg-do run } */
+
 #include <stdlib.h>
 
 int

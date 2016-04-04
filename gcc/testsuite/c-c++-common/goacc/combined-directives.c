@@ -1,7 +1,8 @@
-// { dg-do compile }
-// { dg-options "-fopenacc -fdump-tree-gimple" }
+// { dg-additional-options "-fdump-tree-gimple" }
 
 // TODO
+// Remove the comments from the reduction test
+// after the FE learns that reduction variables may appear in data clauses too.
 // Enable and update tree scanning for reduction clauses.
 // Add device_type clauses and tree scanning.
 

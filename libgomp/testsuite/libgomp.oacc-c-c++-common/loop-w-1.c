@@ -1,4 +1,3 @@
-/* { dg-additional-options "-w" } */
 /* This code uses nvptx inline assembly guarded with acc_on_device, which is
    not optimized away at -O0, and then confuses the target assembler.
    { dg-skip-if "" { *-*-* } { "-O0" } { "" } } */
@@ -17,6 +16,7 @@ int main ()
     ary[ix] = -1;
   
 #pragma acc parallel num_workers(32) vector_length(32) copy(ary) copy(ondev)
+  /* { dg-warning "region is vector partitioned but does not contain vector partitioned code" "vector" { target *-*-* } 18 } */
   {
 #pragma acc loop worker
     for (unsigned ix = 0; ix < N; ix++)

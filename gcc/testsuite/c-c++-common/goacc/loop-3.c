@@ -1,7 +1,3 @@
-/* { dg-do compile } */
-/* { dg-additional-options "-fmax-errors=200" } */
-
-
 void par1 (void)
 {
   int i, j;
@@ -35,44 +31,6 @@ void par1 (void)
    }
 }
 
-void k2 (void)
-{
-  int i, j;
-
-#pragma acc kernels loop gang
-  for (i = 0; i < 10; i++)
-    {
-#pragma acc kernels loop gang // { dg-error "OpenACC construct inside of non-OpenACC region" }
-      for (j = 1; j < 10; j++)
-	{ }
-    }
-
-#pragma acc kernels loop worker
-  for (i = 0; i < 10; i++)
-    {
-#pragma acc kernels loop worker // { dg-error "OpenACC construct inside of non-OpenACC region" }
-      for (j = 1; j < 10; j++)
-	{ }
-#pragma acc kernels loop gang // { dg-error "OpenACC construct inside of non-OpenACC region" }
-      for (j = 1; j < 10; j++)
-	{ }
-    }
-  
-#pragma acc kernels loop vector
-  for (i = 0; i < 10; i++)
-    {
-#pragma acc kernels loop vector // { dg-error "OpenACC construct inside of non-OpenACC region" }
-      for (j = 1; j < 10; j++)
-	{ }
-#pragma acc kernels loop worker // { dg-error "OpenACC construct inside of non-OpenACC region" }
-      for (j = 1; j < 10; j++)
-	{ }
-#pragma acc kernels loop gang // { dg-error "OpenACC construct inside of non-OpenACC region" }
-      for (j = 1; j < 10; j++)
-	{ }
-    }
-}
-
 void p2 (void)
 {
   int i, j;
@@ -84,30 +42,12 @@ void p2 (void)
   for (i = 0; i < 10; i++) // { dg-error "argument not permitted" "" { target c++ } }
     { }
 
-#pragma acc parallel loop gang
-  for (i = 0; i < 10; i++)
-    {
-#pragma acc parallel loop gang // { dg-error "OpenACC construct inside of non-OpenACC region" }
-    for (j = 1; j < 10; j++)
-      { }
-    }
-
 #pragma acc parallel loop worker(5) // { dg-error "argument not permitted" "" { target c } }
   for (i = 0; i < 10; i++) // { dg-error "argument not permitted" "" { target c++ } }
     { }
 #pragma acc parallel loop worker(num:5) // { dg-error "argument not permitted" "" { target c } }
   for (i = 0; i < 10; i++) // { dg-error "argument not permitted" "" { target c++ } }
     { }
-#pragma acc parallel loop worker
-  for (i = 0; i < 10; i++)
-    {
-#pragma acc parallel loop worker // { dg-error "OpenACC construct inside of non-OpenACC region" }
-      for (j = 1; j < 10; j++)
-	{ }
-#pragma acc parallel loop gang // { dg-error "OpenACC construct inside of non-OpenACC region" }
-      for (j = 1; j < 10; j++)
-	{ }
-    }
 
 #pragma acc parallel loop vector(5) // { dg-error "argument not permitted" "" { target c } }
   for (i = 0; i < 10; i++) // { dg-error "argument not permitted" "" { target c++ } }
@@ -115,18 +55,4 @@ void p2 (void)
 #pragma acc parallel loop vector(length:5) // { dg-error "argument not permitted" "" { target c } }
   for (i = 0; i < 10; i++) // { dg-error "argument not permitted" "" { target c++ } }
     { }
-#pragma acc parallel loop vector
-  for (i = 0; i < 10; i++)
-    {
-#pragma acc parallel loop vector // { dg-error "OpenACC construct inside of non-OpenACC region" }
-      for (j = 1; j < 10; j++)
-	{ }
-#pragma acc parallel loop worker // { dg-error "OpenACC construct inside of non-OpenACC region" }
-      for (j = 1; j < 10; j++)
-	{ }
-#pragma acc parallel loop gang // { dg-error "OpenACC construct inside of non-OpenACC region" }
-      for (j = 1; j < 10; j++)
-	{ }
-    }
 }
-

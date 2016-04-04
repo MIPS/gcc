@@ -1,3 +1,51 @@
+2016-04-04  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc/firstprivate.c: Remove file, moving its
+	content into...
+	* c-c++-common/goacc/clauses-fail.c: ... this file, and...
+	* c-c++-common/goacc/parallel-1.c: ... this file.
+	* c-c++-common/goacc/host_data-3.c: Remove file.
+	* c-c++-common/goacc/host_data-4.c: Remove file, moving its
+	content into...
+	* c-c++-common/goacc/host_data-2.c: ... this file.
+	* c-c++-common/goacc/kernels-loop-acc-loop-ptr-it.c: Remove file,
+	moving its content into...
+	* c-c++-common/goacc/kernels-1.c: ... this file.
+	* c-c++-common/goacc/loop-2.c: Rename to...
+	* c-c++-common/goacc/loop-2-parallel.c: ... this file.
+	* c-c++-common/goacc/loop-3.c: Remove (invalid) nesting tests
+	covered elsewhere.
+	* c-c++-common/goacc/loop-4.c: Rename to...
+	* c-c++-common/goacc/loop-2-kernels.c: ... this file.
+	* c-c++-common/goacc/loop-nest-1.c: Remove file.
+	* c-c++-common/goacc/loop-tile-k1.c: Remove file, moving its
+	content into...
+	* c-c++-common/goacc/tile.c: ... this file.
+	* c-c++-common/goacc/loop-tile-p1.c: Remove file, moving its
+	content into...
+	* c-c++-common/goacc/tile.c: ... this file.
+	* c-c++-common/goacc/non-routine.c: Remove file, moving its
+	content into...
+	* c-c++-common/goacc/nesting-fail-1.c: ... this file.
+	* c-c++-common/goacc/parallel-empty.c: Remove file, moving its
+	content into...
+	* c-c++-common/goacc/parallel-1.c: ... this file.
+	* c-c++-common/goacc/parallel-eternal.c: Remove file, moving its
+	content into...
+	* c-c++-common/goacc/parallel-1.c: ... this file.
+	* c-c++-common/goacc/parallel-noreturn.c: Remove file, moving its
+	content into...
+	* c-c++-common/goacc/parallel-1.c: ... this file.
+	* c-c++-common/goacc/routine-6.c: Remove file, moving its
+	content into...
+	* c-c++-common/goacc/routine-3.c: ... this file.
+	* c-c++-common/goacc/routine-7.c: Remove file, moving its
+	content into...
+	* c-c++-common/goacc/routine-4.c: ... this file.
+	* g++.dg/goacc/template-reduction.C: Remove file.
+	* gfortran.dg/goacc/parallel-tree.f95: Use dg-warning directives
+	instead of specifying the -w compiler option.
+
 2016-03-11  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-c++-common/goacc/combined-directives-2.c: New test.

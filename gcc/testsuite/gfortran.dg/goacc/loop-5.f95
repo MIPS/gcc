@@ -1,6 +1,3 @@
-! { dg-do compile }
-! { dg-additional-options "-fmax-errors=100" }
-
 program test
   implicit none
   integer :: i, j

@@ -7,9 +7,9 @@ f_acc_parallel (void)
 {
 #pragma acc parallel
   {
-#pragma acc parallel /* { dg-error ".parallel. construct inside of .parallel. region" } */
+#pragma acc parallel /* { dg-bogus ".parallel. construct inside of .parallel. region" "not implemented" { xfail *-*-* } } */
     ;
-#pragma acc kernels /* { dg-error ".kernels. construct inside of .parallel. region" } */
+#pragma acc kernels /* { dg-bogus ".kernels. construct inside of .parallel. region" "not implemented" { xfail *-*-* } } */
     ;
 #pragma acc data /* { dg-error ".data. construct inside of .parallel. region" } */
     ;
@@ -26,9 +26,9 @@ f_acc_kernels (void)
 {
 #pragma acc kernels
   {
-#pragma acc parallel /* { dg-error ".parallel. construct inside of .kernels. region" } */
+#pragma acc parallel /* { dg-bogus ".parallel. construct inside of .kernels. region" "not implemented" { xfail *-*-* } } */
     ;
-#pragma acc kernels /* { dg-error ".kernels. construct inside of .kernels. region" } */
+#pragma acc kernels /* { dg-bogus ".kernels. construct inside of .kernels. region" "not implemented" { xfail *-*-* } } */
     ;
 #pragma acc data /* { dg-error ".data. construct inside of .kernels. region" } */
     ;
@@ -63,4 +63,14 @@ f_acc_routine (void)
 {
 #pragma acc parallel /* { dg-error "OpenACC region inside of OpenACC routine, nested parallelism not supported yet" } */
   ;
+}
+
+void
+f (void)
+{
+  int i, v = 0;
+
+#pragma acc loop gang reduction (+:v) /* { dg-error "loop directive must be associated with an OpenACC compute region" } */
+  for (i = 0; i < 10; i++)
+    v++;
 }

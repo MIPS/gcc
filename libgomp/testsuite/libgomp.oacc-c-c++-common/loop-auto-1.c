@@ -1,4 +1,3 @@
-/* { dg-additional-options "-w" } */
 /* This code uses nvptx inline assembly guarded with acc_on_device, which is
    not optimized away at -O0, and then confuses the target assembler.
    { dg-skip-if "" { *-*-* } { "-O0" } { "" } } */
@@ -103,6 +102,7 @@ int vector_1 (int *ary, int size)
   clear (ary, size);
   
 #pragma acc parallel num_workers (32) vector_length(32) copy(ary[0:size]) firstprivate (size)
+  /* { dg-warning "region is worker partitioned but does not contain worker partitioned code" "worker" { target *-*-* } 104 } */
   {
 #pragma acc loop gang
     for (int jx = 0; jx < 1; jx++)
@@ -153,6 +153,7 @@ int gang_1 (int *ary, int size)
   clear (ary, size);
   
 #pragma acc parallel num_gangs (32) num_workers (32) vector_length(32) copy(ary[0:size]) firstprivate (size)
+  /* { dg-warning "region is vector partitioned but does not contain vector partitioned code" "vector" { target *-*-* } 155 } */
   {
 #pragma acc loop auto
     for (int jx = 0; jx <  size  / 64; jx++)
@@ -187,6 +188,7 @@ int gang_3 (int *ary, int size)
   clear (ary, size);
   
 #pragma acc parallel num_workers (32) vector_length(32) copy(ary[0:size]) firstprivate (size)
+  /* { dg-warning "region is worker partitioned but does not contain worker partitioned code" "worker" { target *-*-* } 190 } */
   {
 #pragma acc loop auto
     for (int jx = 0; jx <  size  / 64; jx++)

@@ -1,5 +1,3 @@
-/* { dg-do compile } */
-
 int
 main ()
 {
