@@ -393,9 +393,6 @@
 #define vec_vctzh __builtin_vec_vctzh
 #define vec_vctzw __builtin_vec_vctzw
 
-/* kelvin not sure how to name these.  I've launched an inquiry to 
- * Michael Meissner.
- */
 #define vec_slv __builtin_vec_vslv
 #define vec_srv __builtin_vec_vsrv
 

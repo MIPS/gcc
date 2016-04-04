@@ -1,4 +1,4 @@
-; AltiVec patterns.
+;; AltiVec patterns.
 ;; Copyright (C) 2002-2016 Free Software Foundation, Inc.
 ;; Contributed by Aldy Hernandez (aldy@quesejoda.com)
 
@@ -1634,9 +1634,6 @@
   "vslo %0,%1,%2"
   [(set_attr "type" "vecperm")])
 
-;;
-;; kelvin wants this pattern to look for unsigned operands
-;;
 (define_insn "vslv"
   [(set (match_operand:V16QI 0 "register_operand" "=v")
 	(unspec:V16QI [(match_operand:V16QI 1 "register_operand" "v")
@@ -1646,9 +1643,6 @@
   "vslv %0,%1,%2"
   [(set_attr "type" "vecsimple")])
 
-;;
-;; kelvin wants this pattern to look for unsigned operands
-;;
 (define_insn "vsrv"
   [(set (match_operand:V16QI 0 "register_operand" "=v")
 	(unspec:V16QI [(match_operand:V16QI 1 "register_operand" "v")
