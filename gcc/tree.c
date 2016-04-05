@@ -440,7 +440,7 @@ tree_node_structure_for_code (enum tree_code code)
 	  }
       }
     case tcc_type:
-      return TS_TYPE_NON_COMMON;
+      return TS_TYPE_COMMON;
     case tcc_reference:
     case tcc_comparison:
     case tcc_unary:
@@ -534,14 +534,6 @@ initialize_tree_contains_struct (void)
 	case TS_OPTIMIZATION:
 	case TS_TARGET_OPTION:
 	  MARK_TS_COMMON (code);
-	  break;
-
-	case TS_TYPE_WITH_LANG_SPECIFIC:
-	  MARK_TS_TYPE_COMMON (code);
-	  break;
-
-	case TS_TYPE_NON_COMMON:
-	  MARK_TS_TYPE_WITH_LANG_SPECIFIC (code);
 	  break;
 
 	case TS_DECL_COMMON:
@@ -793,7 +785,7 @@ tree_code_size (enum tree_code code)
       }
 
     case tcc_type:  /* a type node */
-      return sizeof (struct tree_type_non_common);
+      return sizeof (struct tree_type);
 
     case tcc_reference:   /* a reference */
     case tcc_expression:  /* an expression */
@@ -13073,7 +13065,7 @@ verify_type_variant (const_tree t, tree tv)
   if (RECORD_OR_UNION_TYPE_P (t) && COMPLETE_TYPE_P (t) && 0)
     verify_variant_match (TYPE_FINAL_P);
 
-  /* tree_type_common checks.  */
+  /* tree_type checks.  */
 
   if (COMPLETE_TYPE_P (t))
     {
@@ -13113,8 +13105,6 @@ verify_type_variant (const_tree t, tree tv)
       debug_tree (tv);
       return false;
     }
-
-  /* tree_type_non_common checks.  */
 
   /* FIXME: C FE uses TYPE_VFIELD to record C_TYPE_INCOMPLETE_VARS
      and dangle the pointer from time to time.  */

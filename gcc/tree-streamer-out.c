@@ -722,16 +722,7 @@ write_ts_type_common_tree_pointers (struct output_block *ob, tree expr,
   /* TYPE_CANONICAL is re-computed during type merging, so no need
      to stream it here.  */
   stream_write_tree (ob, TYPE_STUB_DECL (expr), ref_p);
-}
 
-/* Write all pointer fields in the TS_TYPE_NON_COMMON structure of EXPR
-   to output block OB.  If REF_P is true, write a reference to EXPR's
-   pointer fields.  */
-
-static void
-write_ts_type_non_common_tree_pointers (struct output_block *ob, tree expr,
-					bool ref_p)
-{
   if (TREE_CODE (expr) == ENUMERAL_TYPE)
     stream_write_tree (ob, TYPE_VALUES (expr), ref_p);
   else if (TREE_CODE (expr) == ARRAY_TYPE)
@@ -940,9 +931,6 @@ streamer_write_tree_body (struct output_block *ob, tree expr, bool ref_p)
 
   if (CODE_CONTAINS_STRUCT (code, TS_TYPE_COMMON))
     write_ts_type_common_tree_pointers (ob, expr, ref_p);
-
-  if (CODE_CONTAINS_STRUCT (code, TS_TYPE_NON_COMMON))
-    write_ts_type_non_common_tree_pointers (ob, expr, ref_p);
 
   if (CODE_CONTAINS_STRUCT (code, TS_LIST))
     write_ts_list_tree_pointers (ob, expr, ref_p);

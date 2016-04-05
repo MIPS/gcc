@@ -98,12 +98,6 @@ as_internal_fn (combined_fn code)
     tree_contains_struct[C][TS_TYPE_COMMON] = 1;	\
   } while (0)
 
-#define MARK_TS_TYPE_WITH_LANG_SPECIFIC(C)		\
-  do {							\
-    MARK_TS_TYPE_COMMON (C);				\
-    tree_contains_struct[C][TS_TYPE_WITH_LANG_SPECIFIC] = 1;	\
-  } while (0)
-
 #define MARK_TS_DECL_MINIMAL(C)				\
   do {							\
     MARK_TS_COMMON (C);					\
@@ -2029,50 +2023,50 @@ extern machine_mode element_mode (const_tree t);
 #define TYPE_SYMTAB_IS_DIE (2)
 
 #define TYPE_LANG_SPECIFIC(NODE) \
-  (TYPE_CHECK (NODE)->type_with_lang_specific.lang_specific)
+  (TYPE_CHECK (NODE)->type_common.lang_specific)
 
-#define TYPE_VALUES(NODE) (ENUMERAL_TYPE_CHECK (NODE)->type_non_common.values)
-#define TYPE_DOMAIN(NODE) (ARRAY_TYPE_CHECK (NODE)->type_non_common.values)
+#define TYPE_VALUES(NODE) (ENUMERAL_TYPE_CHECK (NODE)->type_common.values)
+#define TYPE_DOMAIN(NODE) (ARRAY_TYPE_CHECK (NODE)->type_common.values)
 #define TYPE_FIELDS(NODE) \
-  (RECORD_OR_UNION_CHECK (NODE)->type_non_common.values)
-#define TYPE_CACHED_VALUES(NODE) (TYPE_CHECK (NODE)->type_non_common.values)
+  (RECORD_OR_UNION_CHECK (NODE)->type_common.values)
+#define TYPE_CACHED_VALUES(NODE) (TYPE_CHECK (NODE)->type_common.values)
 #define TYPE_ARG_TYPES(NODE) \
-  (FUNC_OR_METHOD_CHECK (NODE)->type_non_common.values)
-#define TYPE_VALUES_RAW(NODE) (TYPE_CHECK (NODE)->type_non_common.values)
+  (FUNC_OR_METHOD_CHECK (NODE)->type_common.values)
+#define TYPE_VALUES_RAW(NODE) (TYPE_CHECK (NODE)->type_common.values)
 
 #define TYPE_METHODS(NODE) \
-  (RECORD_OR_UNION_CHECK (NODE)->type_non_common.maxval)
+  (RECORD_OR_UNION_CHECK (NODE)->type_common.maxval)
 #define TYPE_VFIELD(NODE) \
-  (RECORD_OR_UNION_CHECK (NODE)->type_non_common.minval)
+  (RECORD_OR_UNION_CHECK (NODE)->type_common.minval)
 #define TYPE_METHOD_BASETYPE(NODE) \
-  (FUNC_OR_METHOD_CHECK (NODE)->type_non_common.maxval)
+  (FUNC_OR_METHOD_CHECK (NODE)->type_common.maxval)
 #define TYPE_OFFSET_BASETYPE(NODE) \
-  (OFFSET_TYPE_CHECK (NODE)->type_non_common.maxval)
-#define TYPE_MAXVAL(NODE) (TYPE_CHECK (NODE)->type_non_common.maxval)
-#define TYPE_MINVAL(NODE) (TYPE_CHECK (NODE)->type_non_common.minval)
+  (OFFSET_TYPE_CHECK (NODE)->type_common.maxval)
+#define TYPE_MAXVAL(NODE) (TYPE_CHECK (NODE)->type_common.maxval)
+#define TYPE_MINVAL(NODE) (TYPE_CHECK (NODE)->type_common.minval)
 #define TYPE_NEXT_PTR_TO(NODE) \
-  (POINTER_TYPE_CHECK (NODE)->type_non_common.minval)
+  (POINTER_TYPE_CHECK (NODE)->type_common.minval)
 #define TYPE_NEXT_REF_TO(NODE) \
-  (REFERENCE_TYPE_CHECK (NODE)->type_non_common.minval)
+  (REFERENCE_TYPE_CHECK (NODE)->type_common.minval)
 #define TYPE_MIN_VALUE(NODE) \
-  (NUMERICAL_TYPE_CHECK (NODE)->type_non_common.minval)
+  (NUMERICAL_TYPE_CHECK (NODE)->type_common.minval)
 #define TYPE_MAX_VALUE(NODE) \
-  (NUMERICAL_TYPE_CHECK (NODE)->type_non_common.maxval)
+  (NUMERICAL_TYPE_CHECK (NODE)->type_common.maxval)
 
 /* If non-NULL, this is an upper bound of the size (in bytes) of an
    object of the given ARRAY_TYPE_NON_COMMON.  This allows temporaries to be
    allocated.  */
 #define TYPE_ARRAY_MAX_SIZE(ARRAY_TYPE) \
-  (ARRAY_TYPE_CHECK (ARRAY_TYPE)->type_non_common.maxval)
+  (ARRAY_TYPE_CHECK (ARRAY_TYPE)->type_common.maxval)
 
 /* For record and union types, information about this type, as a base type
    for itself.  */
-#define TYPE_BINFO(NODE) (RECORD_OR_UNION_CHECK (NODE)->type_non_common.binfo)
-#define TYPE_BINFO_RAW(NODE) (TYPE_CHECK (NODE)->type_non_common.binfo)
+#define TYPE_BINFO(NODE) (RECORD_OR_UNION_CHECK (NODE)->type_common.binfo)
+#define TYPE_BINFO_RAW(NODE) (TYPE_CHECK (NODE)->type_common.binfo)
 
 /* For non record and union types, used in a language-dependent way.  */
 #define TYPE_LANG_SLOT_1(NODE) \
-  (NOT_RECORD_OR_UNION_CHECK (NODE)->type_non_common.binfo)
+  (NOT_RECORD_OR_UNION_CHECK (NODE)->type_common.binfo)
 
 /* Define accessor macros for information about type inheritance
    and basetypes.
