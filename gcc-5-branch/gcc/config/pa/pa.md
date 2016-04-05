@@ -1179,6 +1179,22 @@
 [(set_attr "type" "multi,multi")
  (set_attr "length" "8,8")])
 
+(define_insn "absqi2"
+  [(set (match_operand:QI 0 "register_operand" "=r")
+	(abs:QI (match_operand:QI 1 "register_operand" "r")))]
+  ""
+  "{extrs|extrw,s},>= %1,31,8,%0\;subi 0,%0,%0"
+  [(set_attr "type" "multi")
+   (set_attr "length" "8")])
+
+(define_insn "abshi2"
+  [(set (match_operand:HI 0 "register_operand" "=r")
+	(abs:HI (match_operand:HI 1 "register_operand" "r")))]
+  ""
+  "{extrs|extrw,s},>= %1,31,16,%0\;subi 0,%0,%0"
+  [(set_attr "type" "multi")
+   (set_attr "length" "8")])
+
 (define_insn "abssi2"
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(abs:SI (match_operand:SI 1 "register_operand" "r")))]
@@ -1194,6 +1210,31 @@
   "or,*>= %%r0,%1,%0\;subi 0,%0,%0"
   [(set_attr "type" "multi")
    (set_attr "length" "8")])
+
+(define_insn "bswaphi2"
+  [(set (match_operand:HI 0 "register_operand" "=&r")
+	(bswap:HI (match_operand:HI 1 "register_operand" "r")))]
+  ""
+  "{extru|extrw,u} %1,23,8,%0\;{dep|depw} %1,23,8,%0"
+  [(set_attr "type" "multi")
+   (set_attr "length" "8")])
+
+(define_insn "bswapsi2"
+  [(set (match_operand:SI 0 "register_operand" "=&r")
+	(bswap:SI (match_operand:SI 1 "register_operand" "r")))]
+  ""
+  "{shd|shrpw} %1,%1,16,%0\;{dep|depw} %0,15,8,%0\;{shd|shrpw} %1,%0,8,%0"
+  [(set_attr "type" "multi")
+   (set_attr "length" "12")])
+
+(define_insn "bswapdi2"
+  [(set (match_operand:DI 0 "register_operand" "=&r")
+	(bswap:DI (match_operand:DI 1 "register_operand" "r")))
+   (clobber (match_scratch:DI 2 "=r"))]
+  "TARGET_64BIT"
+  "permh,3210 %1,%2\;hshl %2,8,%0\;hshr,u %2,8,%2\;or %0,%2,%0"
+  [(set_attr "type" "multi")
+   (set_attr "length" "16")])
 
 ;;; Experimental conditional move patterns
 

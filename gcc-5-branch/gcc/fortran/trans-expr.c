@@ -173,6 +173,24 @@ gfc_class_len_get (tree decl)
 }
 
 
+/* Try to get the _len component of a class.  When the class is not unlimited
+   poly, i.e. no _len field exists, then return a zero node.  */
+
+tree
+gfc_class_len_or_zero_get (tree decl)
+{
+  tree len;
+  if (POINTER_TYPE_P (TREE_TYPE (decl)))
+    decl = build_fold_indirect_ref_loc (input_location, decl);
+  len = gfc_advance_chain (TYPE_FIELDS (TREE_TYPE (decl)),
+			   CLASS_LEN_FIELD);
+  return len != NULL_TREE ? fold_build3_loc (input_location, COMPONENT_REF,
+					     TREE_TYPE (len), decl, len,
+					     NULL_TREE)
+			  : integer_zero_node;
+}
+
+
 /* Get the specified FIELD from the VPTR.  */
 
 static tree
@@ -250,6 +268,7 @@ gfc_vptr_size_get (tree vptr)
 
 #undef CLASS_DATA_FIELD
 #undef CLASS_VPTR_FIELD
+#undef CLASS_LEN_FIELD
 #undef VTABLE_HASH_FIELD
 #undef VTABLE_SIZE_FIELD
 #undef VTABLE_EXTENDS_FIELD
@@ -1070,7 +1089,7 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems, bool unlimited)
   if (unlimited)
     {
       if (from_class_base != NULL_TREE)
-	from_len = gfc_class_len_get (from_class_base);
+	from_len = gfc_class_len_or_zero_get (from_class_base);
       else
 	from_len = integer_zero_node;
     }
@@ -5616,8 +5635,9 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
       len = cl.backend_decl;
     }
 
-  byref = (comp && (comp->attr.dimension || comp->ts.type == BT_CHARACTER))
-	  || (!comp && gfc_return_by_reference (sym));
+  byref = (comp && (comp->attr.dimension
+	   || (comp->ts.type == BT_CHARACTER && !sym->attr.is_bind_c)))
+	   || (!comp && gfc_return_by_reference (sym));
   if (byref)
     {
       if (se->direct_byref)
@@ -5773,6 +5793,9 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	  tmp = len;
 	  if (TREE_CODE (tmp) != VAR_DECL)
 	    tmp = gfc_evaluate_now (len, &se->pre);
+	  TREE_STATIC (tmp) = 1;
+	  gfc_add_modify (&se->pre, tmp,
+			  build_int_cst (TREE_TYPE (tmp), 0));
 	  tmp = gfc_build_addr_expr (NULL_TREE, tmp);
 	  vec_safe_push (retargs, tmp);
 	}
@@ -6442,6 +6465,11 @@ gfc_conv_initializer (gfc_expr * expr, gfc_typespec * ts, tree type,
 		      bool array, bool pointer, bool procptr)
 {
   gfc_se se;
+
+  if (flag_coarray != GFC_FCOARRAY_LIB && ts->type == BT_DERIVED
+      && ts->u.derived->from_intmod == INTMOD_ISO_FORTRAN_ENV
+      && ts->u.derived->intmod_sym_id == ISOFORTRAN_EVENT_TYPE)
+    return build_constructor (type, NULL);
 
   if (!(expr || pointer || procptr))
     return NULL_TREE;
@@ -9079,7 +9107,10 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
     }
 
   /* Stabilize a string length for temporaries.  */
-  if (expr2->ts.type == BT_CHARACTER && !expr2->ts.deferred)
+  if (expr2->ts.type == BT_CHARACTER && !expr1->ts.deferred
+      && !(TREE_CODE (rse.string_length) == VAR_DECL
+	   || TREE_CODE (rse.string_length) == PARM_DECL
+	   || TREE_CODE (rse.string_length) == INDIRECT_REF))
     string_length = gfc_evaluate_now (rse.string_length, &rse.pre);
   else if (expr2->ts.type == BT_CHARACTER)
     string_length = rse.string_length;
@@ -9093,7 +9124,32 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
 	lse.string_length = string_length;
     }
   else
+    {
     gfc_conv_expr (&lse, expr1);
+      if (gfc_option.rtcheck & GFC_RTCHECK_MEM
+	  && gfc_expr_attr (expr1).allocatable
+	  && expr1->rank
+	  && !expr2->rank)
+	{
+	  tree cond;
+	  const char* msg;
+
+	  tmp = expr1->symtree->n.sym->backend_decl;
+	  if (POINTER_TYPE_P (TREE_TYPE (tmp)))
+	    tmp = build_fold_indirect_ref_loc (input_location, tmp);
+
+	  if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (tmp)))
+	    tmp = gfc_conv_descriptor_data_get (tmp);
+	  else
+	    tmp = TREE_OPERAND (lse.expr, 0);
+
+	  cond = fold_build2_loc (input_location, EQ_EXPR, boolean_type_node,
+				  tmp, build_int_cst (TREE_TYPE (tmp), 0));
+	  msg = _("Assignment of scalar to unallocated array");
+	  gfc_trans_runtime_check (true, false, cond, &loop.pre,
+				   &expr1->where, msg);
+	}
+    }
 
   /* Assignments of scalar derived types with allocatable components
      to arrays must be done with a deep copy and the rhs temporary

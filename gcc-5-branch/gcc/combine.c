@@ -10476,9 +10476,24 @@ simplify_shift_const_1 (enum rtx_code code, machine_mode result_mode,
 		   && CONST_INT_P (XEXP (varop, 0))
 		   && !CONST_INT_P (XEXP (varop, 1)))
 	    {
+	      /* For ((unsigned) (cstULL >> count)) >> cst2 we have to make
+		 sure the result will be masked.  See PR70222.  */
+	      if (code == LSHIFTRT
+		  && mode != result_mode
+		  && !merge_outer_ops (&outer_op, &outer_const, AND,
+				       GET_MODE_MASK (result_mode)
+				       >> orig_count, result_mode,
+				       &complement_p))
+		break;
+	      /* For ((int) (cstLL >> count)) >> cst2 just give up.  Queuing
+		 up outer sign extension (often left and right shift) is
+		 hardly more efficient than the original.  See PR70429.  */
+	      if (code == ASHIFTRT && mode != result_mode)
+		break;
+
 	      rtx new_rtx = simplify_const_binary_operation (code, mode,
-							 XEXP (varop, 0),
-							 GEN_INT (count));
+							     XEXP (varop, 0),
+							     GEN_INT (count));
 	      varop = gen_rtx_fmt_ee (code, mode, new_rtx, XEXP (varop, 1));
 	      count = 0;
 	      continue;
@@ -13767,7 +13782,6 @@ distribute_notes (rtx notes, rtx_insn *from_insn, rtx_insn *i3, rtx_insn *i2,
 	    tem_insn = from_insn;
 	  else
 	    {
-	      tem_insn = i3;
 	      if (from_insn
 		  && CALL_P (from_insn)
 		  && find_reg_fusage (from_insn, USE, XEXP (note, 0)))
@@ -13776,20 +13790,19 @@ distribute_notes (rtx notes, rtx_insn *from_insn, rtx_insn *i3, rtx_insn *i2,
 		place = i3;
 	      else if (i2 != 0 && next_nonnote_nondebug_insn (i2) == i3
 		       && reg_referenced_p (XEXP (note, 0), PATTERN (i2)))
-		{
-		  place = i2;
-		  /* If the new I2 sets the same register that is marked dead
-		     in the note, the note now should not be put on I2, as the
-		     note refers to a previous incarnation of the reg.  */
-		  if (reg_set_p (XEXP (note, 0), PATTERN (i2)))
-		    tem_insn = i2;
-		}
+		place = i2;
 	      else if ((rtx_equal_p (XEXP (note, 0), elim_i2)
 			&& !(i2mod
 			     && reg_overlap_mentioned_p (XEXP (note, 0),
 							 i2mod_old_rhs)))
 		       || rtx_equal_p (XEXP (note, 0), elim_i1)
 		       || rtx_equal_p (XEXP (note, 0), elim_i0))
+		break;
+	      tem_insn = i3;
+	      /* If the new I2 sets the same register that is marked dead
+		 in the note, we do not know where to put the note.
+		 Give up.  */
+	      if (i2 != 0 && reg_set_p (XEXP (note, 0), PATTERN (i2)))
 		break;
 	    }
 

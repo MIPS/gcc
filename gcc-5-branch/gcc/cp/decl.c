@@ -13938,7 +13938,9 @@ begin_destructor_body (void)
       initialize_vtbl_ptrs (current_class_ptr);
       finish_compound_stmt (compound_stmt);
 
-      if (flag_lifetime_dse)
+      if (flag_lifetime_dse
+	  /* Clobbering an empty base is harmful if it overlays real data.  */
+	  && !is_empty_class (current_class_type))
 	{
 	  /* Insert a cleanup to let the back end know that the object is dead
 	     when we exit the destructor, either normally or via exception.  */
@@ -14595,7 +14597,8 @@ cxx_maybe_build_cleanup (tree decl, tsubst_flags_t complain)
 	 ordinary FUNCTION_DECL.  */
       fn = lookup_name (id);
       arg = build_address (decl);
-      mark_used (decl);
+      if (!mark_used (decl, complain) && !(complain & tf_error))
+	return error_mark_node;
       cleanup = cp_build_function_call_nary (fn, complain, arg, NULL_TREE);
       if (cleanup == error_mark_node)
 	return error_mark_node;
@@ -14635,10 +14638,11 @@ cxx_maybe_build_cleanup (tree decl, tsubst_flags_t complain)
     SET_EXPR_LOCATION (cleanup, UNKNOWN_LOCATION);
 
   if (cleanup
-      && !lookup_attribute ("warn_unused", TYPE_ATTRIBUTES (TREE_TYPE (decl))))
-    /* Treat objects with destructors as used; the destructor may do
-       something substantive.  */
-    mark_used (decl);
+      && !lookup_attribute ("warn_unused", TYPE_ATTRIBUTES (TREE_TYPE (decl)))
+      /* Treat objects with destructors as used; the destructor may do
+	 something substantive.  */
+      && !mark_used (decl, complain) && !(complain & tf_error))
+    return error_mark_node;
 
   return cleanup;
 }
