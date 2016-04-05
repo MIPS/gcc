@@ -2668,12 +2668,12 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
       case FUNCTION_DECL:
       case VAR_DECL:
 	{
-	  struct symtab_node *snode = olddecl->decl_with_vis.symtab_node;
+	  struct symtab_node *snode = DECL_SYMTAB_NODE (olddecl);
 
 	  memcpy ((char *) olddecl + sizeof (struct tree_decl_common),
 		  (char *) newdecl + sizeof (struct tree_decl_common),
 		  tree_code_size (TREE_CODE (olddecl)) - sizeof (struct tree_decl_common));
-	  olddecl->decl_with_vis.symtab_node = snode;
+	  DECL_SYMTAB_NODE (olddecl) = snode;
 
 	  if ((DECL_EXTERNAL (olddecl)
 	       || TREE_PUBLIC (olddecl)

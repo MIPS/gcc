@@ -5233,7 +5233,7 @@ make_tree (tree type, rtx x)
 
       /* Note that we do *not* use SET_DECL_RTL here, because we do not
 	 want set_decl_rtl to go adjusting REG_ATTRS for this temporary.  */
-      t->decl_with_rtl.rtl = x;
+      DECL_RTL_RAW (t) = x;
 
       return t;
     }

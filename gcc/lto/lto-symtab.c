@@ -843,7 +843,7 @@ lto_symtab_merge_symbols_1 (symtab_node *prevailing)
   symtab_node *e;
   symtab_node *next;
 
-  prevailing->decl->decl_with_vis.symtab_node = prevailing;
+  DECL_SYMTAB_NODE (prevailing->decl) = prevailing;
 
   /* Replace the cgraph node of each entry with the prevailing one.  */
   for (e = prevailing->next_sharing_asm_name; e;
@@ -973,7 +973,7 @@ lto_symtab_merge_symbols (void)
 		       && cnode2 != cnode)
 		cnode2->remove ();
 
-	      node->decl->decl_with_vis.symtab_node = node;
+	      DECL_SYMTAB_NODE (node->decl) = node;
 	    }
 	}
     }

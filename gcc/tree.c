@@ -1167,7 +1167,7 @@ copy_node_stat (tree node MEM_STAT_DECL)
       if (TREE_CODE (node) == VAR_DECL)
 	{
 	  DECL_HAS_DEBUG_EXPR_P (t) = 0;
-	  t->decl_with_vis.symtab_node = NULL;
+	  DECL_SYMTAB_NODE (t) = NULL;
 	}
       if (TREE_CODE (node) == VAR_DECL && DECL_HAS_INIT_PRIORITY_P (node))
 	{
@@ -1177,7 +1177,7 @@ copy_node_stat (tree node MEM_STAT_DECL)
       if (TREE_CODE (node) == FUNCTION_DECL)
 	{
 	  DECL_STRUCT_FUNCTION (t) = NULL;
-	  t->decl_with_vis.symtab_node = NULL;
+	  DECL_SYMTAB_NODE (t) = NULL;
 	}
     }
   else if (TREE_CODE_CLASS (code) == tcc_type)

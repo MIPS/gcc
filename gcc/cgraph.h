@@ -388,9 +388,10 @@ public:
     /* Check that the mapping is sane - perhaps this check can go away,
        but at the moment frontends tends to corrupt the mapping by calling
        memcpy/memset on the tree nodes.  */
-    gcc_checking_assert (!decl->decl_with_vis.symtab_node
-			 || decl->decl_with_vis.symtab_node->decl == decl);
-    return decl->decl_with_vis.symtab_node;
+    gcc_checking_assert (!DECL_SYMTAB_NODE (decl)
+                         || DECL_SYMTAB_NODE (decl)->decl == decl);
+    return DECL_SYMTAB_NODE (decl);
+
   }
 
   /* Try to find a symtab node for declaration DECL and if it does not

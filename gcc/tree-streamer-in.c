@@ -248,7 +248,7 @@ unpack_ts_decl_common_value_fields (struct bitpack_d *bp, tree expr)
     {
       DECL_PACKED (expr) = (unsigned) bp_unpack_value (bp, 1);
       DECL_NONADDRESSABLE_P (expr) = (unsigned) bp_unpack_value (bp, 1);
-      expr->decl_common.off_align = bp_unpack_value (bp, 8);
+      DECL_OFFSET_ALIGN_RAW (expr) = bp_unpack_value (bp, 8);
     }
 
   if (TREE_CODE (expr) == VAR_DECL)
@@ -506,7 +506,7 @@ streamer_read_tree_bitfields (struct lto_input_block *ib,
 
   if (CODE_CONTAINS_STRUCT (code, TS_EXP))
     {
-      stream_input_location (&EXPR_CHECK (expr)->exp.locus, &bp, data_in);
+      stream_input_location (&EXPR_LOCATION_RAW (expr), &bp, data_in);
       if (code == MEM_REF
 	  || code == TARGET_MEM_REF)
 	{
