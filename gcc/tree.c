@@ -660,7 +660,7 @@ decl_assembler_name (tree decl)
 {
   if (!DECL_ASSEMBLER_NAME_SET_P (decl))
     lang_hooks.set_decl_assembler_name (decl);
-  return DECL_WITH_VIS_CHECK (decl)->decl_with_vis.assembler_name;
+  return DECL_WITH_VIS_CHECK (decl)->u.decl_with_vis.assembler_name;
 }
 
 /* When the target supports COMDAT groups, this indicates which group the
@@ -2001,8 +2001,8 @@ build_string (int len, const char *str)
   TREE_SET_CODE (s, STRING_CST);
   TREE_CONSTANT (s) = 1;
   TREE_STRING_LENGTH (s) = len;
-  memcpy (s->string.str, str, len);
-  s->string.str[len] = '\0';
+  memcpy (s->u.string.str, str, len);
+  s->u.string.str[len] = '\0';
 
   return s;
 }
@@ -3439,9 +3439,9 @@ skip_simple_constant_arithmetic (tree expr)
 /* Return which tree structure is used by T.  */
 
 enum tree_node_structure_enum
-tree_node_structure (const_tree t)
+tree_node_structure (const union tree_node_u *t)
 {
-  const enum tree_code code = TREE_CODE (t);
+  const enum tree_code code = t->base.code;
   return tree_node_structure_for_code (code);
 }
 
@@ -10940,7 +10940,7 @@ build_vl_exp_stat (enum tree_code code, int len MEM_STAT_DECL)
 
   /* Can't use TREE_OPERAND to store the length because if checking is
      enabled, it will try to check the length before we store it.  :-P  */
-  t->exp.operands[0] = build_int_cst (sizetype, len);
+  t->u.exp.operands[0] = build_int_cst (sizetype, len);
 
   return t;
 }
@@ -11874,7 +11874,7 @@ tree_block (tree t)
   const enum tree_code_class c = TREE_CODE_CLASS (TREE_CODE (t));
 
   if (IS_EXPR_CODE_CLASS (c))
-    return LOCATION_BLOCK (t->exp.locus);
+    return LOCATION_BLOCK (t->u.exp.locus);
   gcc_unreachable ();
   return NULL;
 }
@@ -11886,7 +11886,7 @@ tree_set_block (tree t, tree b)
 
   if (IS_EXPR_CODE_CLASS (c))
     {
-      t->exp.locus = set_block (t->exp.locus, b);
+      t->u.exp.locus = set_block (t->u.exp.locus, b);
     }
   else
     gcc_unreachable ();

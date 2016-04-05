@@ -212,7 +212,7 @@ struct GTY(()) cpp_macro_arg {
   unsigned int arg_no;
   /* The original spelling of the macro argument token.  */
   cpp_hashnode *
-    GTY ((nested_ptr (union tree_node,
+    GTY ((nested_ptr (struct tree_node,
 		"%h ? CPP_HASHNODE (GCC_IDENT_TO_HT_IDENT (%h)) : NULL",
 			"%h ? HT_IDENT_TO_GCC_IDENT (HT_NODE (%h)) : NULL")))
        spelling;
@@ -222,13 +222,13 @@ struct GTY(()) cpp_macro_arg {
 struct GTY(()) cpp_identifier {
   /* The canonical (UTF-8) spelling of the identifier.  */
   cpp_hashnode *
-    GTY ((nested_ptr (union tree_node,
+    GTY ((nested_ptr (struct tree_node,
 		"%h ? CPP_HASHNODE (GCC_IDENT_TO_HT_IDENT (%h)) : NULL",
 			"%h ? HT_IDENT_TO_GCC_IDENT (HT_NODE (%h)) : NULL")))
        node;
   /* The original spelling of the identifier.  */
   cpp_hashnode *
-    GTY ((nested_ptr (union tree_node,
+    GTY ((nested_ptr (struct tree_node,
 		"%h ? CPP_HASHNODE (GCC_IDENT_TO_HT_IDENT (%h)) : NULL",
 			"%h ? HT_IDENT_TO_GCC_IDENT (HT_NODE (%h)) : NULL")))
        spelling;

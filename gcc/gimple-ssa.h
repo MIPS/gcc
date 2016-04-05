@@ -54,7 +54,7 @@ struct ssa_name_hasher : ggc_ptr_hash<tree_node>
   static hashval_t
   hash (tree item)
   {
-    return item->ssa_name.var->decl_minimal.uid;
+    return item->u.ssa_name.var->u.decl_minimal.uid;
   }
 
   /* Return true if the DECL_UID in both trees are equal.  */
@@ -62,7 +62,8 @@ struct ssa_name_hasher : ggc_ptr_hash<tree_node>
   static bool
   equal (tree a, tree b)
 {
-  return (a->ssa_name.var->decl_minimal.uid == b->ssa_name.var->decl_minimal.uid);
+  return (a->u.ssa_name.var->u.decl_minimal.uid
+	  == b->u.ssa_name.var->u.decl_minimal.uid);
 }
 };
 

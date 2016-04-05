@@ -28,8 +28,7 @@ union GTY((desc ("0"),
 	   chain_next ("CODE_CONTAINS_STRUCT (TREE_CODE (&%h.generic), TS_COMMON) ? ((union lang_tree_node *) TREE_CHAIN (&%h.generic)) : NULL")))
   lang_tree_node
 {
-  union tree_node GTY((tag ("0"),
-		       desc ("tree_node_structure (&%h)"))) generic;
+  struct tree_node GTY((tag ("0"))) generic;
 };
 
 /* Ada uses the lang_decl and lang_type fields to hold a tree.  */
@@ -521,7 +520,7 @@ do {						   \
 #undef TREE_THIS_NOTRAP
 #define TREE_THIS_NOTRAP(NODE) \
   (TREE_CHECK4 (NODE, INDIRECT_REF, ARRAY_REF, UNCONSTRAINED_ARRAY_REF, \
-		ARRAY_RANGE_REF)->base.nothrow_flag)
+		ARRAY_RANGE_REF)->u.base.nothrow_flag)
 
 
 /* Fields and macros for statements.  */

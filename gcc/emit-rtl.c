@@ -1275,7 +1275,7 @@ set_reg_attrs_for_decl_rtl (tree t, rtx x)
 void
 set_decl_rtl (tree t, rtx x)
 {
-  DECL_WRTL_CHECK (t)->decl_with_rtl.rtl = x;
+  DECL_WRTL_CHECK (t)->u.decl_with_rtl.rtl = x;
   if (x)
     set_reg_attrs_for_decl_rtl (t, x);
 }

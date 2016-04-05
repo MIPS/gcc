@@ -245,7 +245,7 @@ gt_pch_nx (unsigned char *x, gt_pointer_operator op, void *cookie)
 struct GTY(()) string_pool_data {
   ht_identifier_ptr *
     GTY((length ("%h.nslots"),
-	 nested_ptr (union tree_node, "%h ? GCC_IDENT_TO_HT_IDENT (%h) : NULL",
+	 nested_ptr (struct tree_node, "%h ? GCC_IDENT_TO_HT_IDENT (%h) : NULL",
 		     "%h ? HT_IDENT_TO_GCC_IDENT (%h) : NULL")))
     entries;
   unsigned int nslots;

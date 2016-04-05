@@ -1750,9 +1750,8 @@ struct GTY(()) tree_target_option {
 
 /* Define the overall contents of a tree node.
    It may be any of the structures declared above
-   for various types of node.  */
-union GTY ((ptr_alias (union lang_tree_node),
-	    desc ("tree_node_structure (&%h)"), variable_size)) tree_node {
+ for various types of node.  */
+union GTY ((desc ("tree_node_structure (&%h)"), variable_size)) tree_node_u {
   struct tree_base GTY ((tag ("TS_BASE"))) base;
   struct tree_typed GTY ((tag ("TS_TYPED"))) typed;
   struct tree_common GTY ((tag ("TS_COMMON"))) common;
@@ -1792,6 +1791,11 @@ union GTY ((ptr_alias (union lang_tree_node),
   struct tree_optimization_option GTY ((tag ("TS_OPTIMIZATION"))) optimization;
   struct tree_target_option GTY ((tag ("TS_TARGET_OPTION"))) target_option;
 };
+
+struct GTY ((ptr_alias (union lang_tree_node))) tree_node {
+  union tree_node_u u;
+};
+
 
 /* Structure describing an attribute and a function to handle it.  */
 struct attribute_spec {
@@ -1909,7 +1913,7 @@ struct GTY((for_user)) tree_vec_map {
 };
 
 /* Abstract iterators for CALL_EXPRs.  These static inline definitions
-   have to go towards the end of tree.h so that union tree_node is fully
+   have to go towards the end of tree.h so that union tree_node_u is fully
    defined by this point.  */
 
 /* Structure containing iterator state.  */

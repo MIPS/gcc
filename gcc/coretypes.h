@@ -79,9 +79,9 @@ typedef const struct rtvec_def *const_rtvec;
 struct hwivec_def;
 typedef struct hwivec_def *hwivec;
 typedef const struct hwivec_def *const_hwivec;
-union tree_node;
-typedef union tree_node *tree;
-typedef const union tree_node *const_tree;
+struct tree_node;
+typedef struct tree_node *tree;
+typedef const struct tree_node *const_tree;
 struct gimple;
 typedef gimple *gimple_seq;
 struct gimple_stmt_iterator;
@@ -270,14 +270,14 @@ typedef std::pair <tree, tree> tree_pair;
 struct _dont_use_rtx_here_;
 struct _dont_use_rtvec_here_;
 struct _dont_use_rtx_insn_here_;
-union _dont_use_tree_here_;
+struct _dont_use_tree_here_;
 #define rtx struct _dont_use_rtx_here_ *
 #define const_rtx struct _dont_use_rtx_here_ *
 #define rtvec struct _dont_use_rtvec_here *
 #define const_rtvec struct _dont_use_rtvec_here *
 #define rtx_insn struct _dont_use_rtx_insn_here_
-#define tree union _dont_use_tree_here_ *
-#define const_tree union _dont_use_tree_here_ *
+#define tree struct _dont_use_tree_here_ *
+#define const_tree struct _dont_use_tree_here_ *
 
 #endif
 

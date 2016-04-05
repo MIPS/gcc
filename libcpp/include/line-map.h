@@ -390,7 +390,7 @@ struct cpp_hashnode;
    MACRO_LOCATIONS; this holds the original location of the token.  */
 struct GTY((tag ("2"))) line_map_macro : public line_map {
   /* The cpp macro which expansion gave birth to this macro map.  */
-  struct cpp_hashnode * GTY ((nested_ptr (union tree_node,
+  struct cpp_hashnode * GTY ((nested_ptr (struct tree_node,
 				   "%h ? CPP_HASHNODE (GCC_IDENT_TO_HT_IDENT (%h)) : NULL",
 				   "%h ? HT_IDENT_TO_GCC_IDENT (HT_NODE (%h)) : NULL")))
     macro;
