@@ -82,6 +82,12 @@ typedef const struct hwivec_def *const_hwivec;
 struct tree_node;
 typedef struct tree_node *tree;
 typedef const struct tree_node *const_tree;
+
+/* These declarations are part of the effort to split types from trees.  */
+typedef struct tree_node ttype;
+#define ttype_p ttype *
+#define ttype_pp ttype **
+
 struct gimple;
 typedef gimple *gimple_seq;
 struct gimple_stmt_iterator;

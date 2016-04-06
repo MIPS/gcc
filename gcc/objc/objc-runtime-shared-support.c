@@ -364,7 +364,7 @@ build_descriptor_table_initializer (tree type, tree entries)
     }
   while (entries);
 
-  return objc_build_constructor (build_array_type (type, 0), inits);
+  return objc_build_constructor (build_array_type (type, NULL_TYPE), inits);
 }
 
 tree
@@ -401,7 +401,7 @@ build_dispatch_table_initializer (tree type, tree entries)
     }
   while (entries);
 
-  return objc_build_constructor (build_array_type (type, 0), inits);
+  return objc_build_constructor (build_array_type (type, NULL_TYPE), inits);
 }
 
 /* Used only by build_*_selector_translation_table (). */
@@ -561,7 +561,7 @@ build_ivar_list_initializer (tree type, tree field_decl)
     }
   while (field_decl);
 
-  return objc_build_constructor (build_array_type (type, 0), inits);
+  return objc_build_constructor (build_array_type (type, NULL_TYPE), inits);
 }
 
 /* struct {

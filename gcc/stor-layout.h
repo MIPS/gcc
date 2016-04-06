@@ -37,7 +37,6 @@ extern void place_field (record_layout_info, tree);
 extern void compute_record_mode (tree);
 extern void finish_bitfield_layout (tree);
 extern void finish_record_layout (record_layout_info, int);
-extern unsigned int element_precision (const_tree);
 extern void finalize_size_functions (void);
 extern void fixup_unsigned_type (tree);
 extern void initialize_sizetypes (void);
@@ -64,8 +63,8 @@ extern void layout_type (tree);
 extern unsigned int min_align_of_type (tree);
 
 /* Construct various nodes representing fract or accum data types.  */
-extern tree make_fract_type (int, int, int);
-extern tree make_accum_type (int, int, int);
+extern ttype *make_fract_type (int, int, int);
+extern ttype *make_accum_type (int, int, int);
 
 #define make_signed_fract_type(P) make_fract_type (P, 0, 0)
 #define make_unsigned_fract_type(P) make_fract_type (P, 1, 0)
@@ -93,8 +92,8 @@ extern tree make_accum_type (int, int, int);
 #define make_or_reuse_sat_unsigned_accum_type(P) \
 		make_or_reuse_accum_type (P, 1, 1)
 
-extern tree make_signed_type (int);
-extern tree make_unsigned_type (int);
+extern ttype *make_signed_type (int);
+extern ttype *make_unsigned_type (int);
 
 /* Return the mode for data of a given size SIZE and mode class CLASS.
    If LIMIT is nonzero, then don't use modes bigger than MAX_FIXED_MODE_SIZE.

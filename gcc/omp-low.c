@@ -11893,7 +11893,7 @@ expand_omp_atomic_load (basic_block load_bb, tree addr,
   itype = TREE_TYPE (TREE_TYPE (decl));
 
   call = build_call_expr_loc (loc, decl, 2, addr,
-			      build_int_cst (NULL,
+			      build_int_cst (NULL_TYPE,
 					     gimple_omp_atomic_seq_cst_p (stmt)
 					     ? MEMMODEL_SEQ_CST
 					     : MEMMODEL_RELAXED));
@@ -11968,7 +11968,7 @@ expand_omp_atomic_store (basic_block load_bb, tree addr,
   if (!useless_type_conversion_p (itype, type))
     stored_val = fold_build1_loc (loc, VIEW_CONVERT_EXPR, itype, stored_val);
   call = build_call_expr_loc (loc, decl, 3, addr, stored_val,
-			      build_int_cst (NULL,
+			      build_int_cst (NULL_TYPE,
 					     gimple_omp_atomic_seq_cst_p (stmt)
 					     ? MEMMODEL_SEQ_CST
 					     : MEMMODEL_RELAXED));
@@ -12105,7 +12105,7 @@ expand_omp_atomic_fetch_op (basic_block load_bb,
      use the RELAXED memory model.  */
   call = build_call_expr_loc (loc, decl, 3, addr,
 			      fold_convert_loc (loc, itype, rhs),
-			      build_int_cst (NULL,
+			      build_int_cst (NULL_TYPE,
 					     seq_cst ? MEMMODEL_SEQ_CST
 						     : MEMMODEL_RELAXED));
 

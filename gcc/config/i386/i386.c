@@ -6968,7 +6968,7 @@ ix86_handle_tm_regparm_attribute (tree *node, tree, tree,
     alt = tree_cons (get_identifier ("fastcall"), NULL, NULL);
   else
     {
-      alt = tree_cons (NULL, build_int_cst (NULL, 2), NULL);
+      alt = tree_cons (NULL, build_int_cst (NULL_TYPE, 2), NULL);
       alt = tree_cons (get_identifier ("regparm"), alt, NULL);
     }
   decl_attributes (node, alt, flags);
@@ -54119,7 +54119,7 @@ ix86_make_bounds_constant (HOST_WIDE_INT lb, HOST_WIDE_INT ub)
   gcc_assert ((lb == 0 && ub == -1)
 	      || (lb == -1 && ub == 0));
 
-  return build_complex (NULL, low, high);
+  return build_complex (NULL_TYPE, low, high);
 }
 
 /* Generate a list of statements STMTS to initialize pointer bounds

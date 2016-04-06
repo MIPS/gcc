@@ -5643,7 +5643,7 @@ build_modify_expr (location_t location, tree lhs, tree lhs_origtype,
 	  || TREE_CODE (lhstype) == BOOLEAN_TYPE
 	  || TREE_CODE (lhstype) == REAL_TYPE
 	  || TREE_CODE (lhstype) == ENUMERAL_TYPE))
-    lhstype = TREE_TYPE (get_unwidened (lhs, 0));
+    lhstype = TREE_TYPE (get_unwidened (lhs, NULL_TYPE));
 
   /* If storing in a field that is in actuality a short or narrower than one,
      we must store in the field in its actual type.  */

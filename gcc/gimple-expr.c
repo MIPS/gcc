@@ -61,7 +61,7 @@ along with GCC; see the file COPYING3.  If not see
 	to T* are not.  */
 
 bool
-useless_type_conversion_p (tree outer_type, tree inner_type)
+useless_type_conversion_p (const_tree outer_type, const_tree inner_type)
 {
   /* Do the following before stripping toplevel qualifiers.  */
   if (POINTER_TYPE_P (inner_type)

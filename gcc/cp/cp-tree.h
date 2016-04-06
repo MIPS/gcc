@@ -1085,31 +1085,9 @@ union GTY((desc ("cp_tree_node_structure (&%h)"),
 
 enum cp_tree_index
 {
-    CPTI_JAVA_BYTE_TYPE,
-    CPTI_JAVA_SHORT_TYPE,
-    CPTI_JAVA_INT_TYPE,
-    CPTI_JAVA_LONG_TYPE,
-    CPTI_JAVA_FLOAT_TYPE,
-    CPTI_JAVA_DOUBLE_TYPE,
-    CPTI_JAVA_CHAR_TYPE,
-    CPTI_JAVA_BOOLEAN_TYPE,
-
     CPTI_WCHAR_DECL,
-    CPTI_VTABLE_ENTRY_TYPE,
-    CPTI_DELTA_TYPE,
-    CPTI_VTABLE_INDEX_TYPE,
-    CPTI_CLEANUP_TYPE,
-    CPTI_VTT_PARM_TYPE,
-
-    CPTI_CLASS_TYPE,
-    CPTI_UNKNOWN_TYPE,
-    CPTI_INIT_LIST_TYPE,
-    CPTI_VTBL_TYPE,
-    CPTI_VTBL_PTR_TYPE,
     CPTI_STD,
     CPTI_ABI,
-    CPTI_CONST_TYPE_INFO_TYPE,
-    CPTI_TYPE_INFO_PTR_TYPE,
     CPTI_ABORT_FNDECL,
     CPTI_AGGR_TAG,
 
@@ -1139,7 +1117,6 @@ enum cp_tree_index
     CPTI_JCLASS,
     CPTI_TERMINATE,
     CPTI_CALL_UNEXPECTED,
-    CPTI_ATEXIT_FN_PTR_TYPE,
     CPTI_ATEXIT,
     CPTI_DSO_HANDLE,
     CPTI_DCAST,
@@ -1147,43 +1124,89 @@ enum cp_tree_index
     CPTI_KEYED_CLASSES,
 
     CPTI_NULLPTR,
-    CPTI_NULLPTR_TYPE,
 
     CPTI_MAX
 };
 
+enum cp_type_index
+{
+    CPTPI_JAVA_BYTE_TYPE,
+    CPTPI_JAVA_SHORT_TYPE,
+    CPTPI_JAVA_INT_TYPE,
+    CPTPI_JAVA_LONG_TYPE,
+    CPTPI_JAVA_FLOAT_TYPE,
+    CPTPI_JAVA_DOUBLE_TYPE,
+    CPTPI_JAVA_CHAR_TYPE,
+    CPTPI_JAVA_BOOLEAN_TYPE,
+
+    CPTPI_VTABLE_ENTRY_TYPE,
+    CPTPI_DELTA_TYPE,
+    CPTPI_VTABLE_INDEX_TYPE,
+    CPTPI_CLEANUP_TYPE,
+    CPTPI_VTT_PARM_TYPE,
+
+    CPTPI_CLASS_TYPE,
+    CPTPI_UNKNOWN_TYPE,
+    CPTPI_INIT_LIST_TYPE,
+    CPTPI_VTBL_TYPE,
+    CPTPI_VTBL_PTR_TYPE,
+    CPTPI_CONST_TYPE_INFO_TYPE,
+    CPTPI_TYPE_INFO_PTR_TYPE,
+
+    CPTPI_ATEXIT_FN_PTR_TYPE,
+    CPTPI_NULLPTR_TYPE,
+
+    CPTPI_MAX
+};
+
 extern GTY(()) tree cp_global_trees[CPTI_MAX];
+extern GTY(()) ttype *cp_global_types[CPTPI_MAX];
 
-#define java_byte_type_node		cp_global_trees[CPTI_JAVA_BYTE_TYPE]
-#define java_short_type_node		cp_global_trees[CPTI_JAVA_SHORT_TYPE]
-#define java_int_type_node		cp_global_trees[CPTI_JAVA_INT_TYPE]
-#define java_long_type_node		cp_global_trees[CPTI_JAVA_LONG_TYPE]
-#define java_float_type_node		cp_global_trees[CPTI_JAVA_FLOAT_TYPE]
-#define java_double_type_node		cp_global_trees[CPTI_JAVA_DOUBLE_TYPE]
-#define java_char_type_node		cp_global_trees[CPTI_JAVA_CHAR_TYPE]
-#define java_boolean_type_node		cp_global_trees[CPTI_JAVA_BOOLEAN_TYPE]
 
-#define wchar_decl_node			cp_global_trees[CPTI_WCHAR_DECL]
-#define vtable_entry_type		cp_global_trees[CPTI_VTABLE_ENTRY_TYPE]
+#define java_byte_type_node		cp_global_types[CPTPI_JAVA_BYTE_TYPE]
+#define java_short_type_node		cp_global_types[CPTPI_JAVA_SHORT_TYPE]
+#define java_int_type_node		cp_global_types[CPTPI_JAVA_INT_TYPE]
+#define java_long_type_node		cp_global_types[CPTPI_JAVA_LONG_TYPE]
+#define java_float_type_node		cp_global_types[CPTPI_JAVA_FLOAT_TYPE]
+#define java_double_type_node		cp_global_types[CPTPI_JAVA_DOUBLE_TYPE]
+#define java_char_type_node		cp_global_types[CPTPI_JAVA_CHAR_TYPE]
+#define java_boolean_type_node		cp_global_types[CPTPI_JAVA_BOOLEAN_TYPE]
+
+#define vtable_entry_type		cp_global_types[CPTPI_VTABLE_ENTRY_TYPE]
 /* The type used to represent an offset by which to adjust the `this'
    pointer in pointer-to-member types.  */
-#define delta_type_node			cp_global_trees[CPTI_DELTA_TYPE]
+#define delta_type_node			cp_global_types[CPTPI_DELTA_TYPE]
 /* The type used to represent an index into the vtable.  */
-#define vtable_index_type		cp_global_trees[CPTI_VTABLE_INDEX_TYPE]
+#define vtable_index_type		cp_global_types[CPTPI_VTABLE_INDEX_TYPE]
 
-#define class_type_node			cp_global_trees[CPTI_CLASS_TYPE]
-#define unknown_type_node		cp_global_trees[CPTI_UNKNOWN_TYPE]
-#define init_list_type_node		cp_global_trees[CPTI_INIT_LIST_TYPE]
-#define vtbl_type_node			cp_global_trees[CPTI_VTBL_TYPE]
-#define vtbl_ptr_type_node		cp_global_trees[CPTI_VTBL_PTR_TYPE]
+#define class_type_node			cp_global_types[CPTPI_CLASS_TYPE]
+#define unknown_type_node		cp_global_types[CPTPI_UNKNOWN_TYPE]
+#define init_list_type_node		cp_global_types[CPTPI_INIT_LIST_TYPE]
+#define vtbl_type_node			cp_global_types[CPTPI_VTBL_TYPE]
+#define vtbl_ptr_type_node		cp_global_types[CPTPI_VTBL_PTR_TYPE]
+#define const_type_info_type_node	cp_global_types[CPTPI_CONST_TYPE_INFO_TYPE]
+#define type_info_ptr_type		cp_global_types[CPTPI_TYPE_INFO_PTR_TYPE]
+#define nullptr_type_node		cp_global_types[CPTPI_NULLPTR_TYPE]
+
+/* The type of the function-pointer argument to "__cxa_atexit" (or
+   "std::atexit", if "__cxa_atexit" is not being used).  */
+#define atexit_fn_ptr_type_node         cp_global_types[CPTPI_ATEXIT_FN_PTR_TYPE]
+
+/* The type of a destructor.  */
+#define cleanup_type			cp_global_types[CPTPI_CLEANUP_TYPE]
+
+/* The type of the vtt parameter passed to subobject constructors and
+   destructors.  */
+#define vtt_parm_type			cp_global_types[CPTPI_VTT_PARM_TYPE]
+
+
+
+#define wchar_decl_node			cp_global_trees[CPTI_WCHAR_DECL]
 #define std_node			cp_global_trees[CPTI_STD]
 #define abi_node			cp_global_trees[CPTI_ABI]
-#define const_type_info_type_node	cp_global_trees[CPTI_CONST_TYPE_INFO_TYPE]
-#define type_info_ptr_type		cp_global_trees[CPTI_TYPE_INFO_PTR_TYPE]
 #define abort_fndecl			cp_global_trees[CPTI_ABORT_FNDECL]
 #define current_aggr			cp_global_trees[CPTI_AGGR_TAG]
 #define nullptr_node			cp_global_trees[CPTI_NULLPTR]
-#define nullptr_type_node		cp_global_trees[CPTI_NULLPTR_TYPE]
 
 /* We cache these tree nodes so as to call get_identifier less
    frequently.  */
@@ -1236,10 +1259,6 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 /* The declaration for "__cxa_call_unexpected".  */
 #define call_unexpected_node		cp_global_trees[CPTI_CALL_UNEXPECTED]
 
-/* The type of the function-pointer argument to "__cxa_atexit" (or
-   "std::atexit", if "__cxa_atexit" is not being used).  */
-#define atexit_fn_ptr_type_node         cp_global_trees[CPTI_ATEXIT_FN_PTR_TYPE]
-
 /* A pointer to `std::atexit'.  */
 #define atexit_node			cp_global_trees[CPTI_ATEXIT]
 
@@ -1248,13 +1267,6 @@ extern GTY(()) tree cp_global_trees[CPTI_MAX];
 
 /* The declaration of the dynamic_cast runtime.  */
 #define dynamic_cast_node		cp_global_trees[CPTI_DCAST]
-
-/* The type of a destructor.  */
-#define cleanup_type			cp_global_trees[CPTI_CLEANUP_TYPE]
-
-/* The type of the vtt parameter passed to subobject constructors and
-   destructors.  */
-#define vtt_parm_type			cp_global_trees[CPTI_VTT_PARM_TYPE]
 
 /* A TREE_LIST of the dynamic classes whose vtables may have to be
    emitted in this translation unit.  */
@@ -5868,7 +5880,7 @@ extern tree grokfield (const cp_declarator *, cp_decl_specifier_seq *,
 		       tree, bool, tree, tree);
 extern tree grokbitfield (const cp_declarator *, cp_decl_specifier_seq *,
 			  tree, tree);
-extern tree cp_reconstruct_complex_type		(tree, tree);
+extern ttype *cp_reconstruct_complex_type	(ttype_p, ttype_p);
 extern bool attributes_naming_typedef_ok	(tree);
 extern void cplus_decl_attributes		(tree *, tree, int);
 extern void finish_anon_union			(tree);

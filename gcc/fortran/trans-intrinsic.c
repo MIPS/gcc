@@ -9069,13 +9069,13 @@ conv_intrinsic_atomic_op (gfc_code *code)
     case GFC_ISYM_ATOMIC_XOR:
       tmp = build_call_expr_loc (input_location, tmp, 3, atom,
 				 fold_convert (itype, value),
-				 build_int_cst (NULL, MEMMODEL_RELAXED));
+				 build_int_cst (NULL_TYPE, MEMMODEL_RELAXED));
       gfc_add_expr_to_block (&block, tmp);
       break;
     default:
       tmp = build_call_expr_loc (input_location, tmp, 3, atom,
 				 fold_convert (itype, value),
-				 build_int_cst (NULL, MEMMODEL_RELAXED));
+				 build_int_cst (NULL_TYPE, MEMMODEL_RELAXED));
       gfc_add_modify (&block, old, fold_convert (TREE_TYPE (old), tmp));
       break;
     }
@@ -9306,8 +9306,8 @@ conv_intrinsic_atomic_cas (gfc_code *code)
 			     gfc_build_addr_expr (NULL, old),
 			     fold_convert (TREE_TYPE (old), new_val),
 			     boolean_false_node,
-			     build_int_cst (NULL, MEMMODEL_RELAXED),
-			     build_int_cst (NULL, MEMMODEL_RELAXED));
+			     build_int_cst (NULL_TYPE, MEMMODEL_RELAXED),
+			     build_int_cst (NULL_TYPE, MEMMODEL_RELAXED));
   gfc_add_expr_to_block (&block, tmp);
 
   if (stat != NULL_TREE)
