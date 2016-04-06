@@ -112,7 +112,7 @@ void pp_c_arrow (c_pretty_printer *);
 void pp_c_semicolon (c_pretty_printer *);
 void pp_c_complement (c_pretty_printer *);
 void pp_c_exclamation (c_pretty_printer *);
-void pp_c_space_for_pointer_operator (c_pretty_printer *, tree);
+void pp_c_space_for_pointer_operator (c_pretty_printer *, ttype_p);
 
 /* Declarations.  */
 void pp_c_tree_decl_identifier (c_pretty_printer *, tree);
