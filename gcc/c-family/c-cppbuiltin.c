@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "common/common-target.h"
 #include "cpp-id-data.h"
 #include "cppbuiltin.h"
+#include "ttype.h"
 
 #ifndef TARGET_OS_CPP_BUILTINS
 # define TARGET_OS_CPP_BUILTINS()
@@ -46,19 +47,19 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 
 /* Non-static as some targets don't use it.  */
-static void builtin_define_with_hex_fp_value (const char *, tree,
+static void builtin_define_with_hex_fp_value (const char *, ttype *,
 					      int, const char *,
 					      const char *,
 					      const char *);
 static void builtin_define_stdint_macros (void);
-static void builtin_define_constants (const char *, tree);
-static void builtin_define_type_max (const char *, tree);
-static void builtin_define_type_minmax (const char *, const char *, tree);
+static void builtin_define_constants (const char *, ttype *);
+static void builtin_define_type_max (const char *, ttype *);
+static void builtin_define_type_minmax (const char *, const char *, ttype *);
 static void builtin_define_float_constants (const char *,
 					    const char *,
 					    const char *,
 					    const char *,
-					    tree);
+					    ttype *);
 
 /* Return true if MODE provides a fast multiply/add (FMA) builtin function.
    Originally this function used the fma optab, but that doesn't work with
@@ -99,7 +100,7 @@ mode_has_fma (machine_mode mode)
 
 /* Define NAME with value TYPE size_unit.  */
 void
-builtin_define_type_sizeof (const char *name, tree type)
+builtin_define_type_sizeof (const char *name, ttype_p type)
 {
   builtin_define_with_int_value (name,
 				 tree_to_uhwi (TYPE_SIZE_UNIT (type)));
@@ -112,7 +113,7 @@ builtin_define_float_constants (const char *name_prefix,
 		                const char *fp_suffix,
 				const char *fp_cast,
 				const char *fma_suffix,
-				tree type)
+				ttype *type)
 {
   /* Used to convert radix-based values to base 10 values in several cases.
 
@@ -300,7 +301,7 @@ builtin_define_float_constants (const char *name_prefix,
 static void
 builtin_define_decimal_float_constants (const char *name_prefix,
 					const char *suffix,
-					tree type)
+					ttype *type)
 {
   const struct real_format *fmt;
   char name[64], buf[128], *p;
@@ -366,7 +367,7 @@ builtin_define_decimal_float_constants (const char *name_prefix,
 static void
 builtin_define_fixed_point_constants (const char *name_prefix,
 				      const char *suffix,
-				      tree type)
+				      ttype *type)
 {
   char name[64], buf[256], *new_buf;
   int i, mod;
@@ -1445,7 +1446,7 @@ lazy_hex_fp_value (cpp_reader *pfile ATTRIBUTE_UNUSED,
 /* Pass an object-like macro a hexadecimal floating-point value.  */
 static void
 builtin_define_with_hex_fp_value (const char *macro,
-				  tree type, int digits,
+				  ttype *type, int digits,
 				  const char *hex_str,
 				  const char *fp_suffix,
 				  const char *fp_cast)
@@ -1506,7 +1507,7 @@ builtin_define_with_hex_fp_value (const char *macro,
    of the standard integer type nodes.  */
 
 static const char *
-type_suffix (tree type)
+type_suffix (ttype *type)
 {
   static const char *const suffixes[] = { "", "U", "L", "UL", "LL", "ULL" };
   int unsigned_suffix;
@@ -1543,7 +1544,7 @@ type_suffix (tree type)
 
 /* Define MACRO as a <stdint.h> constant-suffix macro for TYPE.  */
 static void
-builtin_define_constants (const char *macro, tree type)
+builtin_define_constants (const char *macro, ttype *type)
 {
   const char *suffix;
   char *buf;
@@ -1567,7 +1568,7 @@ builtin_define_constants (const char *macro, tree type)
 /* Define MAX for TYPE based on the precision of the type.  */
 
 static void
-builtin_define_type_max (const char *macro, tree type)
+builtin_define_type_max (const char *macro, ttype *type)
 {
   builtin_define_type_minmax (NULL, macro, type);
 }
@@ -1621,7 +1622,7 @@ print_bits_of_hex (char *buf, int bufsz, int count)
 
 static void
 builtin_define_type_minmax (const char *min_macro, const char *max_macro,
-			    tree type)
+			    ttype *type)
 {
 #define PBOH_SZ (MAX_BITSIZE_MODE_ANY_INT/4+4)
   char value[PBOH_SZ];

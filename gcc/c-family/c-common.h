@@ -1123,7 +1123,7 @@ extern const unsigned char executable_checksum[16];
 extern void builtin_define_std (const char *macro);
 extern void builtin_define_with_value (const char *, const char *, int);
 extern void builtin_define_with_int_value (const char *, HOST_WIDE_INT);
-extern void builtin_define_type_sizeof (const char *, tree);
+extern void builtin_define_type_sizeof (const char *, ttype_p);
 extern void c_stddef_cpp_builtins (void);
 extern void fe_file_change (const line_map_ordinary *);
 extern void c_parse_error (const char *, enum cpp_ttype, tree, unsigned char);

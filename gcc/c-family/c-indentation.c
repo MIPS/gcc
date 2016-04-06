@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "c-common.h"
 #include "c-indentation.h"
+#include "ttype.h"
 
 extern cpp_options *cpp_opts;
 

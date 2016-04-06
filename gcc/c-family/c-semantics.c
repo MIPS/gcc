@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "c-common.h"
 #include "tree-iterator.h"
+#include "ttype.h"
 
 /* Create an empty statement tree rooted at T.  */
 
@@ -131,7 +132,7 @@ tree
 build_real_imag_expr (location_t location, enum tree_code code, tree arg)
 {
   tree ret;
-  tree arg_type = TREE_TYPE (arg);
+  ttype *arg_type = TREE_TYPE (arg);
 
   gcc_assert (code == REALPART_EXPR || code == IMAGPART_EXPR);
 

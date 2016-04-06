@@ -39,6 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "plugin.h"		/* For PLUGIN_INCLUDE_FILE event.  */
 #include "mkdeps.h"
 #include "dumpfile.h"
+#include "ttype.h"
 
 #ifndef DOLLARS_IN_IDENTIFIERS
 # define DOLLARS_IN_IDENTIFIERS true

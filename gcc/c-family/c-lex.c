@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "debug.h"
 
 #include "attribs.h"
+#include "ttype.h"
 
 /* We may keep statistics about how long which files took to compile.  */
 static int header_time, body_time;
@@ -677,7 +678,8 @@ static tree
 interpret_integer (const cpp_token *token, unsigned int flags,
 		   enum overflow_type *overflow)
 {
-  tree value, type;
+  tree value;
+  ttype *type;
   enum integer_type_kind itk;
   cpp_num integer;
   HOST_WIDE_INT ival[3];
@@ -760,7 +762,7 @@ interpret_integer (const cpp_token *token, unsigned int flags,
 
   /* Convert imaginary to a complex type.  */
   if (flags & CPP_N_IMAGINARY)
-    value = build_complex (NULL_TREE, build_int_cst (type, 0), value);
+    value = build_complex (NULL_TYPE, build_int_cst (type, 0), value);
 
   return value;
 }
@@ -771,8 +773,8 @@ static tree
 interpret_float (const cpp_token *token, unsigned int flags,
 		 const char *suffix, enum overflow_type *overflow)
 {
-  tree type;
-  tree const_type;
+  ttype *type;
+  ttype *const_type;
   tree value;
   REAL_VALUE_TYPE real;
   REAL_VALUE_TYPE real_trunc;
@@ -926,7 +928,7 @@ interpret_float (const cpp_token *token, unsigned int flags,
   value = build_real (const_type, real);
   if (flags & CPP_N_IMAGINARY)
     {
-      value = build_complex (NULL_TREE,
+      value = build_complex (NULL_TYPE,
 			     fold_convert (const_type,
 					   integer_zero_node), value);
       if (type != const_type)
@@ -948,7 +950,7 @@ interpret_float (const cpp_token *token, unsigned int flags,
 static tree
 interpret_fixed (const cpp_token *token, unsigned int flags)
 {
-  tree type;
+  ttype *type;
   tree value;
   FIXED_VALUE_TYPE fixed;
   char *copy;
@@ -1232,7 +1234,8 @@ static tree
 lex_charconst (const cpp_token *token)
 {
   cppchar_t result;
-  tree type, value;
+  ttype *type;
+  tree value;
   unsigned int chars_seen;
   int unsignedp = 0;
 

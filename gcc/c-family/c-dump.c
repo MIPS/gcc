@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "c-common.h"
 #include "tree-dump.h"
+#include "ttype.h"
 
 /* Dump any C-specific tree codes and attributes of common codes.  */
 

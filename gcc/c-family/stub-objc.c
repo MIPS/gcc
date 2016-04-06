@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tree.h"
 #include "c-objc.h"
+#include "ttype.h"
 
 tree
 objc_is_class_name (tree ARG_UNUSED (arg))
