@@ -6590,7 +6590,7 @@ extern tree maybe_dummy_object			(tree, tree *);
 extern int is_dummy_object			(const_tree);
 extern const struct attribute_spec cxx_attribute_table[];
 extern tree make_ptrmem_cst			(tree, tree);
-extern tree cp_build_type_attribute_variant     (tree, tree);
+extern ttype *cp_build_type_attribute_variant     (tree, tree);
 extern tree cp_build_reference_type		(tree, bool);
 extern tree move				(tree);
 extern tree cp_build_qualified_type_real	(tree, int, tsubst_flags_t);
@@ -6720,7 +6720,7 @@ extern tree build_ptrmemfunc			(tree, tree, int, bool,
 extern int cp_type_quals			(const_tree);
 extern int type_memfn_quals			(const_tree);
 extern cp_ref_qualifier type_memfn_rqual	(const_tree);
-extern tree apply_memfn_quals			(tree, cp_cv_quals, cp_ref_qualifier);
+extern ttype *apply_memfn_quals			(tree, cp_cv_quals, cp_ref_qualifier);
 extern bool cp_has_mutable_p			(const_tree);
 extern bool at_least_as_qualified_p		(const_tree, const_tree);
 extern void cp_apply_type_quals_to_decl		(int, tree);

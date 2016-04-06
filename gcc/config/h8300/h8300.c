@@ -5423,20 +5423,20 @@ static const struct attribute_spec h8300_attribute_table[] =
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
        affects_type_identity } */
   { "interrupt_handler", 0, 0, true,  false, false,
-    h8300_handle_fndecl_attribute, false },
+    h8300_handle_fndecl_attribute, NULL, false },
   { "saveall",           0, 0, true,  false, false,
-    h8300_handle_fndecl_attribute, false },
+    h8300_handle_fndecl_attribute, NULL, false },
   { "OS_Task",           0, 0, true,  false, false,
-    h8300_handle_fndecl_attribute, false },
+    h8300_handle_fndecl_attribute, NULL, false },
   { "monitor",           0, 0, true,  false, false,
-    h8300_handle_fndecl_attribute, false },
+    h8300_handle_fndecl_attribute, NULL, false },
   { "function_vector",   0, 0, true,  false, false,
-    h8300_handle_fndecl_attribute, false },
+    h8300_handle_fndecl_attribute, NULL, false },
   { "eightbit_data",     0, 0, true,  false, false,
-    h8300_handle_eightbit_data_attribute, false },
+    h8300_handle_eightbit_data_attribute, NULL, false },
   { "tiny_data",         0, 0, true,  false, false,
-    h8300_handle_tiny_data_attribute, false },
-  { NULL,                0, 0, false, false, false, NULL, false }
+    h8300_handle_tiny_data_attribute, NULL, false },
+  { NULL,                0, 0, false, false, false, NULL, NULL, false }
 };
 
 

@@ -167,12 +167,16 @@ static bool mep_function_ok_for_sibcall (tree, tree);
 static int unique_bit_in (HOST_WIDE_INT);
 static int bit_size_for_clip (HOST_WIDE_INT);
 static int bytesize (const_tree, machine_mode);
-static tree mep_validate_based_tiny (tree *, tree, tree, int, bool *);
-static tree mep_validate_near_far (tree *, tree, tree, int, bool *);
-static tree mep_validate_disinterrupt (tree *, tree, tree, int, bool *);
+static tree mep_validate_type_based_tiny (ttype **, tree, tree, int, bool *);
+static tree mep_validate_decl_based_tiny (tree *, tree, tree, int, bool *);
+static tree mep_validate_type_near_far (ttype **, tree, tree, int, bool *);
+static tree mep_validate_decl_near_far (tree *, tree, tree, int, bool *);
+static tree mep_validate_type_disinterrupt (ttype **, tree, tree, int, bool *);
+static tree mep_validate_decl_disinterrupt (tree *, tree, tree, int, bool *);
+static tree mep_validate_type_warning(ttype **, tree, tree, int, bool *);
 static tree mep_validate_interrupt (tree *, tree, tree, int, bool *);
 static tree mep_validate_io_cb (tree *, tree, tree, int, bool *);
-static tree mep_validate_vliw (tree *, tree, tree, int, bool *);
+static tree mep_validate_vliw (ttype **, tree, tree, int, bool *);
 static bool mep_function_attribute_inlinable_p (const_tree);
 static bool mep_can_inline_p (tree, tree);
 static bool mep_lookup_pragma_disinterrupt (const char *);
@@ -3778,11 +3782,23 @@ mep_asm_output_opcode (FILE *file, const char *ptr)
 /* Handle attributes.  */
 
 static tree
-mep_validate_based_tiny (tree *node, tree name, tree args,
+mep_validate_type_based_tiny (ttype **node, tree name, tree args,
+			      int flags ATTRIBUTE_UNUSED, bool *no_add)
+{
+  if (TREE_CODE (*node) != POINTER_TYPE)
+    {
+      warning (0, "%qE attribute only applies to variables", name);
+      *no_add = true;
+    }
+  
+  return NULL_TREE;
+}
+
+static tree
+mep_validate_decl_based_tiny (tree *node, tree name, tree args,
 			 int flags ATTRIBUTE_UNUSED, bool *no_add)
 {
   if (TREE_CODE (*node) != VAR_DECL
-      && TREE_CODE (*node) != POINTER_TYPE
       && TREE_CODE (*node) != TYPE_DECL)
     {
       warning (0, "%qE attribute only applies to variables", name);
@@ -3838,13 +3854,29 @@ mep_multiple_address_regions (tree list, bool check_section_attr)
 		  : TYPE_ATTRIBUTES (TREE_TYPE (decl))
 
 static tree
-mep_validate_near_far (tree *node, tree name, tree args,
+mep_validate_type_near_far (ttype **node, tree name, tree args,
+		       int flags ATTRIBUTE_UNUSED, bool *no_add)
+{
+  if (TREE_CODE (*node) != METHOD_TYPE && TREE_CODE (*node) != POINTER_TYPE)
+    {
+      warning (0, "%qE attribute only applies to variables and functions",
+	       name);
+      *no_add = true;
+    }
+  else if (mep_multiple_address_regions (MEP_ATTRIBUTES (*node), false) > 0)
+    {
+      warning (0, "duplicate address region attribute %qE", name);
+      TYPE_ATTRIBUTES (*node) = NULL_TREE;
+    }
+  return NULL_TREE;
+}
+
+static tree
+mep_validate_decl_near_far (tree *node, tree name, tree args,
 		       int flags ATTRIBUTE_UNUSED, bool *no_add)
 {
   if (TREE_CODE (*node) != VAR_DECL
       && TREE_CODE (*node) != FUNCTION_DECL
-      && TREE_CODE (*node) != METHOD_TYPE
-      && TREE_CODE (*node) != POINTER_TYPE
       && TREE_CODE (*node) != TYPE_DECL)
     {
       warning (0, "%qE attribute only applies to variables and functions",
@@ -3875,17 +3907,41 @@ mep_validate_near_far (tree *node, tree name, tree args,
 }
 
 static tree
-mep_validate_disinterrupt (tree *node, tree name, tree args ATTRIBUTE_UNUSED,
-			   int flags ATTRIBUTE_UNUSED, bool *no_add)
+mep_validate_type_disinterrupt (ttype **node, tree name,
+				tree args ATTRIBUTE_UNUSED,
+			        int flags ATTRIBUTE_UNUSED, bool *no_add)
 {
-  if (TREE_CODE (*node) != FUNCTION_DECL
-      && TREE_CODE (*node) != METHOD_TYPE)
+  if (TREE_CODE (*node) != METHOD_TYPE)
     {
       warning (0, "%qE attribute only applies to functions", name);
       *no_add = true;
     }
   return NULL_TREE;
 }
+
+static tree
+mep_validate_decl_disinterrupt (tree *node, tree name,
+				tree args ATTRIBUTE_UNUSED,
+			        int flags ATTRIBUTE_UNUSED, bool *no_add)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (0, "%qE attribute only applies to functions", name);
+      *no_add = true;
+    }
+  return NULL_TREE;
+}
+
+static tree
+mep_validate_type_warning (ttype **node ATTRIBUTE_UNUSED, tree name,
+			     tree args ATTRIBUTE_UNUSED,
+			     int flags ATTRIBUTE_UNUSED, bool *no_add)
+{
+  warning (0, "%qE attribute only applies to functions", name);
+  *no_add = true;
+  return NULL_TREE;
+}
+
 
 static tree
 mep_validate_interrupt (tree *node, tree name, tree args ATTRIBUTE_UNUSED,
@@ -3946,7 +4002,7 @@ mep_validate_io_cb (tree *node, tree name, tree args,
 }
 
 static tree
-mep_validate_vliw (tree *node, tree name, tree args ATTRIBUTE_UNUSED, 
+mep_validate_vliw (ttype **node, tree name, tree args ATTRIBUTE_UNUSED, 
 		   int flags ATTRIBUTE_UNUSED, bool *no_add)
 {
   if (TREE_CODE (*node) != FUNCTION_TYPE
@@ -4000,17 +4056,24 @@ static const struct attribute_spec mep_attribute_table[11] =
 {
   /* name         min max decl   type   func   handler
      affects_type_identity */
-  { "based",        0, 0, false, false, false, mep_validate_based_tiny, false },
-  { "tiny",         0, 0, false, false, false, mep_validate_based_tiny, false },
-  { "near",         0, 0, false, false, false, mep_validate_near_far, false },
-  { "far",          0, 0, false, false, false, mep_validate_near_far, false },
-  { "disinterrupt", 0, 0, false, false, false, mep_validate_disinterrupt,
-    false },
-  { "interrupt",    0, 0, false, false, false, mep_validate_interrupt, false },
-  { "io",           0, 1, false, false, false, mep_validate_io_cb, false },
-  { "cb",           0, 1, false, false, false, mep_validate_io_cb, false },
-  { "vliw",         0, 0, false, true,  false, mep_validate_vliw, false },
-  { NULL,           0, 0, false, false, false, NULL, false }
+  { "based",        0, 0, false, false, false, mep_validate_decl_based_tiny,
+    mep_validate_type_based_tiny, false },
+  { "tiny",         0, 0, false, false, false, mep_validate_decl_based_tiny,
+    mep_validate_type_based_tiny, false },
+  { "near",         0, 0, false, false, false, mep_validate_decl_near_far,
+    mep_validate_type_near_far, false },
+  { "far",          0, 0, false, false, false, mep_validate_decl_near_far,
+    mep_validate_type_near_far, false },
+  { "disinterrupt", 0, 0, false, false, false, mep_validate_decl_disinterrupt,
+    mep_validate_type_disinterrupt, false },
+  { "interrupt",    0, 0, false, false, false, mep_validate_interrupt,
+    mep_validate_type_warning, false },
+  { "io",           0, 1, false, false, false, mep_validate_io_cb,
+    mep_validate_type_warning, false },
+  { "cb",           0, 1, false, false, false, mep_validate_io_cb,
+    mep_validate_type_warning, false },
+  { "vliw",         0, 0, false, true,  false, NULL, mep_validate_vliw, false },
+  { NULL,           0, 0, false, false, false, NULL, NULL, false }
 };
 
 static bool

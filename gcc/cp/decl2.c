@@ -1376,7 +1376,7 @@ cp_reconstruct_complex_type (ttype_p type, ttype_p bottom)
       outer = build_offset_type (TYPE_OFFSET_BASETYPE (type), inner);
     }
   else
-    return bottom;
+    return TTYPE (bottom);
 
   if (TYPE_ATTRIBUTES (type))
     outer = cp_build_type_attribute_variant (outer, TYPE_ATTRIBUTES (type));
@@ -1482,13 +1482,20 @@ cplus_decl_attributes (tree *decl, tree attributes, int flags)
 
   if (TREE_TYPE (*decl) && TYPE_PTRMEMFUNC_P (TREE_TYPE (*decl)))
     {
-      attributes
-	= decl_attributes (decl, attributes, flags | ATTR_FLAG_FUNCTION_NEXT);
-      decl_attributes (&TYPE_PTRMEMFUNC_FN_TYPE_RAW (TREE_TYPE (*decl)),
+      if (TYPE_P (*decl))
+	attributes
+	  = type_attributes (decl, attributes, flags | ATTR_FLAG_FUNCTION_NEXT);
+      else
+	attributes
+	  = decl_attributes (decl, attributes, flags | ATTR_FLAG_FUNCTION_NEXT);
+      type_attributes (&TYPE_PTRMEMFUNC_FN_TYPE_RAW (TREE_TYPE (*decl)),
 		       attributes, flags);
     }
   else
-    decl_attributes (decl, attributes, flags);
+    if (TYPE_P (*decl))
+      type_attributes (decl, attributes, flags);
+    else
+      decl_attributes (decl, attributes, flags);
 
   if (TREE_CODE (*decl) == TYPE_DECL)
     SET_IDENTIFIER_TYPE_VALUE (DECL_NAME (*decl), TREE_TYPE (*decl));

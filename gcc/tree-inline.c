@@ -390,10 +390,11 @@ remap_decl (tree decl, copy_body_data *id)
     return unshare_expr (*n);
 }
 
-static tree
+static ttype *
 remap_type_1 (tree type, copy_body_data *id)
 {
-  tree new_tree, t;
+  ttype *new_tree;
+  tree t;
 
   /* We do need a copy.  build and register it now.  If this is a pointer or
      reference type, remap the designated type and make a new pointer or
@@ -423,7 +424,7 @@ remap_type_1 (tree type, copy_body_data *id)
       return new_tree;
     }
   else
-    new_tree = copy_node (type);
+    new_tree = copy_type_node (TTYPE (type));
 
   insert_decl_map (id, type, new_tree);
 
@@ -469,12 +470,12 @@ remap_type_1 (tree type, copy_body_data *id)
 	}
       else
 	{
-	  t = TYPE_MIN_VALUE (new_tree);
-	  if (t && TREE_CODE (t) != INTEGER_CST)
+	  tree tmp = TYPE_MIN_VALUE (new_tree);
+	  if (tmp && TREE_CODE (tmp) != INTEGER_CST)
 	    walk_tree (&TYPE_MIN_VALUE (new_tree), copy_tree_body_r, id, NULL);
 
-	  t = TYPE_MAX_VALUE (new_tree);
-	  if (t && TREE_CODE (t) != INTEGER_CST)
+	  tmp = TYPE_MAX_VALUE (new_tree);
+	  if (tmp && TREE_CODE (tmp) != INTEGER_CST)
 	    walk_tree (&TYPE_MAX_VALUE (new_tree), copy_tree_body_r, id, NULL);
 	}
       return new_tree;
@@ -520,10 +521,10 @@ remap_type_1 (tree type, copy_body_data *id)
 
 	  for (f = TYPE_FIELDS (new_tree); f ; f = DECL_CHAIN (f))
 	    {
-	      t = remap_decl (f, id);
-	      DECL_CONTEXT (t) = new_tree;
-	      DECL_CHAIN (t) = nf;
-	      nf = t;
+	      tree tmp = remap_decl (f, id);
+	      DECL_CONTEXT (tmp) = new_tree;
+	      DECL_CHAIN (tmp) = nf;
+	      nf = tmp;
 	    }
 	  TYPE_FIELDS (new_tree) = nreverse (nf);
 	}
@@ -553,25 +554,25 @@ remap_type_1 (tree type, copy_body_data *id)
   return new_tree;
 }
 
-tree
+ttype *
 remap_type (tree type, copy_body_data *id)
 {
   tree *node;
-  tree tmp;
+  ttype *tmp;
 
   if (type == NULL)
-    return type;
+    return NULL;
 
   /* See if we have remapped this type.  */
   node = id->decl_map->get (type);
   if (node)
-    return *node;
+    return TTYPE (*node);
 
   /* The type only needs remapping if it's variably modified.  */
   if (! variably_modified_type_p (type, id->src_fn))
     {
       insert_decl_map (id, type, type);
-      return type;
+      return TTYPE (type);
     }
 
   id->remapping_type_depth++;
@@ -6076,10 +6077,11 @@ maybe_inline_call_in_expr (tree exp)
 
 /* Duplicate a type, fields and all.  */
 
-tree
+ttype *
 build_duplicate_type (tree type)
 {
   struct copy_body_data id;
+  ttype *dup;
 
   memset (&id, 0, sizeof (id));
   id.src_fn = current_function_decl;
@@ -6089,15 +6091,15 @@ build_duplicate_type (tree type)
   id.debug_map = NULL;
   id.copy_decl = copy_decl_no_change;
 
-  type = remap_type_1 (type, &id);
+  dup = remap_type_1 (type, &id);
 
   delete id.decl_map;
   if (id.debug_map)
     delete id.debug_map;
 
-  TYPE_CANONICAL (type) = type;
+  TYPE_CANONICAL (dup) = dup;
 
-  return type;
+  return dup;
 }
 
 /* Unshare the entire DECL_SAVED_TREE of FN and return the remapped

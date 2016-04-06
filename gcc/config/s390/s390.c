@@ -635,8 +635,8 @@ opflags_overloaded_builtin_var[S390_OVERLOADED_BUILTIN_VAR_MAX + 1] =
     0
   };
 
-tree s390_builtin_types[BT_MAX];
-tree s390_builtin_fn_types[BT_FN_MAX];
+ttype *s390_builtin_types[BT_MAX];
+ttype *s390_builtin_fn_types[BT_FN_MAX];
 tree s390_builtin_decls[S390_BUILTIN_MAX +
 			S390_OVERLOADED_BUILTIN_MAX +
 			S390_OVERLOADED_BUILTIN_VAR_MAX];
@@ -660,7 +660,7 @@ s390_init_builtins (void)
   tree returns_twice_attr = tree_cons (get_identifier ("returns_twice"),
 				       NULL, NULL);
   tree noreturn_attr = tree_cons (get_identifier ("noreturn"), NULL, NULL);
-  tree c_uint64_type_node;
+  ttype *c_uint64_type_node;
 
   /* The uint64_type_node from tree.c is not compatible to the C99
      uint64_t data type.  What we want is c_uint64_type_node from
@@ -1078,18 +1078,18 @@ s390_handle_hotpatch_attribute (tree *node, tree name, tree args,
 /* Expand the s390_vector_bool type attribute.  */
 
 static tree
-s390_handle_vectorbool_attribute (tree *node, tree name ATTRIBUTE_UNUSED,
+s390_handle_vectorbool_attribute (ttype **node, tree name ATTRIBUTE_UNUSED,
 				  tree args ATTRIBUTE_UNUSED,
 				  int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
 {
-  tree type = *node, result = NULL_TREE;
+  ttype *type = *node, *result = NULL;
   machine_mode mode;
 
   while (POINTER_TYPE_P (type)
 	 || TREE_CODE (type) == FUNCTION_TYPE
 	 || TREE_CODE (type) == METHOD_TYPE
 	 || TREE_CODE (type) == ARRAY_TYPE)
-    type = TREE_TYPE (type);
+    type = TREE_TTYPE (type);
 
   mode = TYPE_MODE (type);
   switch (mode)
@@ -1110,10 +1110,12 @@ s390_handle_vectorbool_attribute (tree *node, tree name ATTRIBUTE_UNUSED,
 }
 
 static const struct attribute_spec s390_attribute_table[] = {
-  { "hotpatch", 2, 2, true, false, false, s390_handle_hotpatch_attribute, false },
-  { "s390_vector_bool", 0, 0, false, true, false, s390_handle_vectorbool_attribute, true },
+  { "hotpatch", 2, 2, true, false, false, s390_handle_hotpatch_attribute, NULL,
+    false },
+  { "s390_vector_bool", 0, 0, false, true, false, NULL,
+    s390_handle_vectorbool_attribute, true },
   /* End element.  */
-  { NULL,        0, 0, false, false, false, NULL, false }
+  { NULL,        0, 0, false, false, false, NULL, NULL, false }
 };
 
 /* Return the alignment for LABEL.  We default to the -falign-labels

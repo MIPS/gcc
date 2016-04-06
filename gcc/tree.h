@@ -4258,7 +4258,8 @@ extern tree merge_attributes (tree, tree);
 extern tree merge_dllimport_decl_attributes (tree, tree);
 
 /* Handle a "dllimport" or "dllexport" attribute.  */
-extern tree handle_dll_attribute (tree *, tree, tree, int, bool *);
+extern tree handle_dll_decl_attribute (tree *, tree, tree, int, bool *);
+extern tree handle_dll_type_attribute (ttype **, tree, tree, int, bool *);
 
 /* Returns true iff unqualified CAND and BASE are equivalent.  */
 

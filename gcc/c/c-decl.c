@@ -4413,7 +4413,7 @@ groktypename (struct c_type_name *type_name, tree *expr,
 			 DEPRECATED_NORMAL);
 
   /* Apply attributes.  */
-  decl_attributes (&type, attrs, 0);
+  type_attributes (&type, attrs, 0);
 
   return type;
 }
@@ -5725,7 +5725,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	      attr_flags |= (int) ATTR_FLAG_FUNCTION_NEXT;
 	    else if (inner_decl->kind == cdk_array)
 	      attr_flags |= (int) ATTR_FLAG_ARRAY_NEXT;
-	    returned_attrs = decl_attributes (&type,
+	    returned_attrs = type_attributes (&type,
 					      chainon (returned_attrs, attrs),
 					      attr_flags);
 	    break;
@@ -7644,7 +7644,7 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
 
   TYPE_SIZE (t) = 0;
 
-  decl_attributes (&t, attributes, (int) ATTR_FLAG_TYPE_IN_PLACE);
+  type_attributes (&t, attributes, (int) ATTR_FLAG_TYPE_IN_PLACE);
 
   if (pedantic)
     {
@@ -8040,7 +8040,7 @@ finish_enum (tree enumtype, tree values, tree attributes)
   bool toplevel = (file_scope == current_scope);
   struct lang_type *lt;
 
-  decl_attributes (&enumtype, attributes, (int) ATTR_FLAG_TYPE_IN_PLACE);
+  type_attributes (&enumtype, attributes, (int) ATTR_FLAG_TYPE_IN_PLACE);
 
   /* Calculate the maximum value of any enumerator in this type.  */
 

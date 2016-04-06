@@ -4658,15 +4658,12 @@ bfin_reorg (void)
    attributes; arguments as in struct attribute_spec.handler.  */
 
 static tree
-handle_int_attribute (tree *node, tree name,
-		      tree args ATTRIBUTE_UNUSED,
-		      int flags ATTRIBUTE_UNUSED,
-		      bool *no_add_attrs)
+handle_int_type_attribute (ttype **node, tree name,
+			   tree args ATTRIBUTE_UNUSED,
+			   int flags ATTRIBUTE_UNUSED,
+			   bool *no_add_attrs)
 {
-  tree x = *node;
-  if (TREE_CODE (x) == FUNCTION_DECL)
-    x = TREE_TYPE (x);
-
+  ttype *x = *node;
   if (TREE_CODE (x) != FUNCTION_TYPE)
     {
       warning (OPT_Wattributes, "%qE attribute only applies to functions",
@@ -4675,6 +4672,21 @@ handle_int_attribute (tree *node, tree name,
     }
   else if (funkind (x) != SUBROUTINE)
     error ("multiple function type attributes specified");
+
+  return NULL_TREE;
+}
+
+static tree
+handle_int_decl_attribute (tree *node, tree name, tree args, int flags,
+			   bool *no_add_attrs)
+{
+  tree x = *node;
+  if (TREE_CODE (x) == FUNCTION_DECL)
+    return handle_int_type_attribute (TTYPE_PP (&TREE_TYPE (x)), name, args,
+				      flags, no_add_attrs);
+
+  warning (OPT_Wattributes, "%qE attribute only applies to functions", name);
+  *no_add_attrs = true;
 
   return NULL_TREE;
 }
@@ -4721,14 +4733,12 @@ bfin_comp_type_attributes (const_tree type1, const_tree type2)
    struct attribute_spec.handler.  */
 
 static tree
-bfin_handle_longcall_attribute (tree *node, tree name, 
+bfin_handle_longcall_attribute (ttype **node, tree name, 
 				tree args ATTRIBUTE_UNUSED, 
 				int flags ATTRIBUTE_UNUSED, 
 				bool *no_add_attrs)
 {
-  if (TREE_CODE (*node) != FUNCTION_TYPE
-      && TREE_CODE (*node) != FIELD_DECL
-      && TREE_CODE (*node) != TYPE_DECL)
+  if (TREE_CODE (*node) != FUNCTION_TYPE)
     {
       warning (OPT_Wattributes, "%qE attribute only applies to functions",
 	       name);
@@ -4876,28 +4886,29 @@ static const struct attribute_spec bfin_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
        affects_type_identity } */
-  { "interrupt_handler", 0, 0, false, true,  true, handle_int_attribute,
+  { "interrupt_handler", 0, 0, false, true,  true, handle_int_decl_attribute,
+    handle_int_type_attribute, false },
+  { "exception_handler", 0, 0, false, true,  true, handle_int_decl_attribute,
+    handle_int_type_attribute, false },
+  { "nmi_handler", 0, 0, false, true,  true, handle_int_decl_attribute,
+    handle_int_type_attribute, false },
+  { "nesting", 0, 0, false, true,  true, NULL, NULL, false },
+  { "kspisusp", 0, 0, false, true,  true, NULL, NULL, false },
+  { "saveall", 0, 0, false, true,  true, NULL, NULL, false },
+  { "longcall",  0, 0, false, true,  true,  NULL,
+    bfin_handle_longcall_attribute, false },
+  { "shortcall", 0, 0, false, true,  true,  NULL,
+    bfin_handle_longcall_attribute, false },
+  { "l1_text", 0, 0, true, false, false, bfin_handle_l1_text_attribute, NULL,
     false },
-  { "exception_handler", 0, 0, false, true,  true, handle_int_attribute,
+  { "l1_data", 0, 0, true, false, false, bfin_handle_l1_data_attribute, NULL,
     false },
-  { "nmi_handler", 0, 0, false, true,  true, handle_int_attribute, false },
-  { "nesting", 0, 0, false, true,  true, NULL, false },
-  { "kspisusp", 0, 0, false, true,  true, NULL, false },
-  { "saveall", 0, 0, false, true,  true, NULL, false },
-  { "longcall",  0, 0, false, true,  true,  bfin_handle_longcall_attribute,
+  { "l1_data_A", 0, 0, true, false, false, bfin_handle_l1_data_attribute, NULL,
     false },
-  { "shortcall", 0, 0, false, true,  true,  bfin_handle_longcall_attribute,
+  { "l1_data_B", 0, 0, true, false, false, bfin_handle_l1_data_attribute, NULL,
     false },
-  { "l1_text", 0, 0, true, false, false,  bfin_handle_l1_text_attribute,
-    false },
-  { "l1_data", 0, 0, true, false, false,  bfin_handle_l1_data_attribute,
-    false },
-  { "l1_data_A", 0, 0, true, false, false, bfin_handle_l1_data_attribute,
-    false },
-  { "l1_data_B", 0, 0, true, false, false,  bfin_handle_l1_data_attribute,
-    false },
-  { "l2", 0, 0, true, false, false,  bfin_handle_l2_attribute, false },
-  { NULL, 0, 0, false, false, false, NULL, false }
+  { "l2", 0, 0, true, false, false,  bfin_handle_l2_attribute, NULL, false },
+  { NULL, 0, 0, false, false, false, NULL, NULL, false }
 };
 
 /* Implementation of TARGET_ASM_INTEGER.  When using FD-PIC, we need to

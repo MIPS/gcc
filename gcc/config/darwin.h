@@ -710,12 +710,12 @@ extern GTY(()) section * darwin_sections[NUM_DARWIN_SECTIONS];
 
 /* Extra attributes for Darwin.  */
 #define SUBTARGET_ATTRIBUTE_TABLE					     \
-  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,     \
-       affects_type_identity } */						     \
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, decl_handler,\
+       type_handler, affects_type_identity } */						     \
   { "apple_kext_compatibility", 0, 0, false, true, false,		     \
-    darwin_handle_kext_attribute, false },				     \
+    NULL, darwin_handle_kext_attribute, false },     \
   { "weak_import", 0, 0, true, false, false,				     \
-    darwin_handle_weak_import_attribute, false }
+    darwin_handle_weak_import_attribute, NULL, false }
 
 #undef ASM_GENERATE_INTERNAL_LABEL
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
