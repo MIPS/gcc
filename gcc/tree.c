@@ -9012,8 +9012,7 @@ get_narrower (tree op, int *unsignedp_ptr)
 	= tree_to_uhwi (DECL_SIZE (TREE_OPERAND (op, 1)));
       int unsignedp = (DECL_UNSIGNED (TREE_OPERAND (op, 1))
 		       || TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (op, 1))));
-      ttype *type
-	= TTYPE (lang_hooks.types.type_for_size (innerprec, unsignedp));
+      ttype *type = lang_hooks.types.type_for_size (innerprec, unsignedp);
 
       /* We can get this structure field in a narrower type that fits it,
 	 but the resulting extension to its nominal type (a fullword type)
@@ -10628,8 +10627,7 @@ build_common_builtin_nodes (void)
   local_define_builtin ("__builtin_eh_pointer", ftype, BUILT_IN_EH_POINTER,
 			"__builtin_eh_pointer", ecf_flags);
 
-  tmp = TTYPE (lang_hooks.types.type_for_mode (targetm.eh_return_filter_mode (),
-					       0));
+  tmp = lang_hooks.types.type_for_mode (targetm.eh_return_filter_mode (), 0);
   ftype = build_function_type_list (tmp, integer_type_node, NULL_TREE);
   local_define_builtin ("__builtin_eh_filter", ftype, BUILT_IN_EH_FILTER,
 			"__builtin_eh_filter", ECF_PURE | ECF_NOTHROW | ECF_LEAF);
@@ -10659,7 +10657,7 @@ build_common_builtin_nodes (void)
 	if (targetm.libfunc_gnu_prefix)
 	  prefix = "__gnu_";
 
-	type = TTYPE (lang_hooks.types.type_for_mode ((machine_mode) mode, 0));
+	type = lang_hooks.types.type_for_mode ((machine_mode) mode, 0);
 	if (type == NULL)
 	  continue;
 	inner_type = TREE_TYPE (type);

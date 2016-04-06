@@ -2465,7 +2465,7 @@ check_format_types (location_t loc, format_wanted_type *types)
       gcc_assert (wanted_type != void_type_node || types->pointer_count);
 
       if (types->pointer_count == 0)
-	wanted_type = TTYPE (lang_hooks.types.type_promotes_to (wanted_type));
+	wanted_type = lang_hooks.types.type_promotes_to (wanted_type);
 
       wanted_type = TYPE_MAIN_VARIANT (wanted_type);
 

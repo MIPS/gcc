@@ -6882,16 +6882,16 @@ build_x_va_arg (source_location loc, tree expr, tree type)
    would have happened when passed via ellipsis.  Return the promoted
    type, or the passed type if there is no change.  */
 
-tree
-cxx_type_promotes_to (tree type)
+ttype *
+cxx_type_promotes_to (ttype_p type)
 {
-  tree promote;
+  ttype *promote;
 
   /* Perform the array-to-pointer and function-to-pointer
      conversions.  */
   type = type_decays_to (type);
 
-  promote = type_promotes_to (type);
+  promote = TTYPE (type_promotes_to (type));
   if (same_type_p (type, promote))
     promote = type;
 

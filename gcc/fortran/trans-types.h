@@ -75,8 +75,8 @@ int gfc_copy_dt_decls_ifequal (gfc_symbol *, gfc_symbol *, bool);
 
 tree gfc_get_function_type (gfc_symbol *);
 
-tree gfc_type_for_size (unsigned, int);
-tree gfc_type_for_mode (machine_mode, int);
+ttype *gfc_type_for_size (unsigned, int);
+ttype *gfc_type_for_mode (machine_mode, int);
 ttype *gfc_build_uint_type (int);
 
 tree gfc_get_element_type (tree);

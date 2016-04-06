@@ -300,10 +300,10 @@ go_langhook_parse_file (void)
   go_write_globals ();
 }
 
-static tree
+static ttype *
 go_langhook_type_for_size (unsigned int bits, int unsignedp)
 {
-  tree type;
+  ttype *type;
   if (unsignedp)
     {
       if (bits == INT_TYPE_SIZE)
@@ -337,22 +337,22 @@ go_langhook_type_for_size (unsigned int bits, int unsignedp)
   return type;
 }
 
-static tree
+static ttype *
 go_langhook_type_for_mode (machine_mode mode, int unsignedp)
 {
-  tree type;
+  ttype *type;
   /* Go has no vector types.  Build them here.  FIXME: It does not
      make sense for the middle-end to ask the frontend for a type
      which the frontend does not support.  However, at least for now
      it is required.  See PR 46805.  */
   if (VECTOR_MODE_P (mode))
     {
-      tree inner;
+      ttype *inner;
 
       inner = go_langhook_type_for_mode (GET_MODE_INNER (mode), unsignedp);
-      if (inner != NULL_TREE)
+      if (inner != NULL)
 	return build_vector_type_for_mode (inner, mode);
-      return NULL_TREE;
+      return NULL;
     }
 
   // FIXME: This static_cast should be in machmode.h.
@@ -401,7 +401,7 @@ go_langhook_type_for_mode (machine_mode mode, int unsignedp)
 	return type;
     }
 #endif
-  return NULL_TREE;
+  return NULL;
 }
 
 /* Record a builtin function.  We just ignore builtin functions.  */

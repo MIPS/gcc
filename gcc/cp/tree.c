@@ -3511,7 +3511,7 @@ std_layout_type_p (const_tree t)
 /* Nonzero iff type T is a class template implicit specialization.  */
 
 bool
-class_tmpl_impl_spec_p (const_tree t)
+class_tmpl_impl_spec_p (const ttype_p t)
 {
   return CLASS_TYPE_P (t) && CLASSTYPE_TEMPLATE_INSTANTIATION (t);
 }
@@ -3896,7 +3896,7 @@ cp_build_type_attribute_variant (tree type, tree attributes)
    compared in type_hash_eq.  */
 
 bool
-cxx_type_hash_eq (const_tree typea, const_tree typeb)
+cxx_type_hash_eq (const ttype_p typea, const ttype_p typeb)
 {
   gcc_assert (TREE_CODE (typea) == FUNCTION_TYPE
 	      || TREE_CODE (typea) == METHOD_TYPE);

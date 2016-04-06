@@ -60,24 +60,24 @@ struct lang_hooks_for_types
 {
   /* Return a new type (with the indicated CODE), doing whatever
      language-specific processing is required.  */
-  tree (*make_type) (enum tree_code);
+  ttype *(*make_type) (enum tree_code);
 
   /* Return what kind of RECORD_TYPE this is, mainly for purposes of
      debug information.  If not defined, record types are assumed to
      be structures.  */
-  enum classify_record (*classify_record) (tree);
+  enum classify_record (*classify_record) (ttype_p);
 
   /* Given MODE and UNSIGNEDP, return a suitable type-tree with that
      mode.  */
-  tree (*type_for_mode) (machine_mode, int);
+  ttype *(*type_for_mode) (machine_mode, int);
 
   /* Given PRECISION and UNSIGNEDP, return a suitable type-tree for an
      integer type with at least that precision.  */
-  tree (*type_for_size) (unsigned, int);
+  ttype *(*type_for_size) (unsigned, int);
 
   /* True if the type is an instantiation of a generic type,
      e.g. C++ template implicit specializations.  */
-  bool (*generic_p) (const_tree);
+  bool (*generic_p) (const ttype_p);
 
   /* Returns the TREE_VEC of elements of a given generic argument pack.  */
   tree (*get_argument_pack_elems) (const_tree);
@@ -86,7 +86,7 @@ struct lang_hooks_for_types
      arguments and return the new type.  Return the same type if no
      change.  Required by any language that supports variadic
      arguments.  The default hook dies.  */
-  tree (*type_promotes_to) (tree);
+  ttype *(*type_promotes_to) (ttype_p);
 
   /* Register TYPE as a builtin type with the indicated NAME.  The
      TYPE is placed in the outermost lexical scope.  The semantics
@@ -95,30 +95,30 @@ struct lang_hooks_for_types
        typedef TYPE NAME;
 
      in C.  The default hook ignores the declaration.  */
-  void (*register_builtin_type) (tree, const char *);
+  void (*register_builtin_type) (ttype_p, const char *);
 
   /* This routine is called in tree.c to print an error message for
      invalid use of an incomplete type.  VALUE is the expression that
      was used (or 0 if that isn't known) and TYPE is the type that was
      invalid.  */
-  void (*incomplete_type_error) (const_tree value, const_tree type);
+  void (*incomplete_type_error) (const_tree value, const ttype_p type);
 
   /* Called from assign_temp to return the maximum size, if there is one,
      for a type.  */
-  tree (*max_size) (const_tree);
+  tree (*max_size) (const ttype_p);
 
   /* Register language specific type size variables as potentially OpenMP
      firstprivate variables.  */
   void (*omp_firstprivatize_type_sizes) (struct gimplify_omp_ctx *, tree);
 
   /* Return true if TYPE is a mappable type.  */
-  bool (*omp_mappable_type) (tree type);
+  bool (*omp_mappable_type) (ttype_p type);
 
   /* Return TRUE if TYPE1 and TYPE2 are identical for type hashing purposes.
      Called only after doing all language independent checks.
      At present, this function is only called when both TYPE1 and TYPE2 are
      FUNCTION_TYPEs.  */
-  bool (*type_hash_eq) (const_tree, const_tree);
+  bool (*type_hash_eq) (const ttype_p , const ttype_p);
 
   /* Return TRUE if TYPE uses a hidden descriptor and fills in information
      for the debugger about the array bounds, strides, etc.  */
@@ -130,12 +130,12 @@ struct lang_hooks_for_types
   /* Called on INTEGER_TYPEs.  Return NULL_TREE for non-biased types.  For
      biased types, return as an INTEGER_CST node the value that is represented
      by a physical zero.  */
-  tree (*get_type_bias) (const_tree);
+  tree (*get_type_bias) (const ttype_p);
 
   /* A type descriptive of TYPE's complex layout generated to help the
      debugger to decode variable-length or self-referential constructs.
      This is only used for the AT_GNAT_descriptive_type DWARF attribute.  */
-  tree (*descriptive_type) (const_tree);
+  ttype *(*descriptive_type) (const ttype_p);
 
   /* If we requested a pointer to a vector, build up the pointers that
      we stripped off while looking for the inner type.  Similarly for
@@ -147,17 +147,17 @@ struct lang_hooks_for_types
      implement the enumeration.  The default implementation will just use
      type_for_size.  Used in dwarf2out.c to add a DW_AT_type base type
      reference to a DW_TAG_enumeration.  */
-  tree (*enum_underlying_base_type) (const_tree);
+  ttype *(*enum_underlying_base_type) (const ttype_p);
 
   /* Return a type to use in the debug info instead of TYPE, or NULL_TREE to
      keep TYPE.  This is useful to keep a single "source type" when the
      middle-end uses specialized types, for instance constrained discriminated
      types in Ada.  */
-  tree (*get_debug_type) (const_tree);
+  ttype *(*get_debug_type) (const ttype_p);
 
   /* Return TRUE if TYPE implements a fixed point type and fills in information
      for the debugger about scale factor, etc.  */
-  bool (*get_fixed_point_type_info) (const_tree,
+  bool (*get_fixed_point_type_info) (const ttype_p,
 				     struct fixed_point_type_info *);
 };
 
@@ -408,7 +408,7 @@ struct lang_hooks
   /* This compares two types for equivalence ("compatible" in C-based languages).
      This routine should only return 1 if it is sure.  It should not be used
      in contexts where erroneously returning 0 causes problems.  */
-  int (*types_compatible_p) (tree x, tree y);
+  int (*types_compatible_p) (ttype_p x, ttype_p y);
 
   /* Called by report_error_function to print out function name.  */
   void (*print_error_function) (diagnostic_context *, const char *,

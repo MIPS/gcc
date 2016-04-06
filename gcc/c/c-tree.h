@@ -594,8 +594,8 @@ extern int comptypes (tree, tree);
 extern int comptypes_check_different_types (tree, tree, bool *);
 extern bool c_vla_type_p (const_tree);
 extern bool c_mark_addressable (tree);
-extern void c_incomplete_type_error (const_tree, const_tree);
-extern tree c_type_promotes_to (tree);
+extern void c_incomplete_type_error (const_tree, const ttype_p);
+extern ttype *c_type_promotes_to (ttype_p);
 extern struct c_expr default_function_array_conversion (location_t,
 							struct c_expr);
 extern struct c_expr default_function_array_read_conversion (location_t,
@@ -638,7 +638,7 @@ extern tree c_start_case (location_t, location_t, tree, bool);
 extern void c_finish_case (tree, tree);
 extern tree build_asm_expr (location_t, tree, tree, tree, tree, tree, bool);
 extern tree build_asm_stmt (tree, tree);
-extern int c_types_compatible_p (tree, tree);
+extern int c_types_compatible_p (ttype_p, ttype_p);
 extern tree c_begin_compound_stmt (bool);
 extern tree c_end_compound_stmt (location_t, tree, bool);
 extern void c_finish_if_stmt (location_t, tree, tree, tree, bool);
