@@ -65,8 +65,8 @@ objc_check_global_decl (tree ARG_UNUSED (decl))
 {
 }
 
-tree
-objc_common_type (tree ARG_UNUSED (type1), tree ARG_UNUSED (type2))
+ttype *
+objc_common_type (ttype_p ARG_UNUSED (type1), ttype_p ARG_UNUSED (type2))
 {
   return 0;
 }

@@ -4768,7 +4768,7 @@ groktypename (cp_decl_specifier_seq *type_specifiers,
       else
 	cplus_decl_attributes (&type, attrs, 0);
     }
-  return type;
+  return TTYPE (type);
 }
 
 /* Process a DECLARATOR for a function-scope variable declaration,

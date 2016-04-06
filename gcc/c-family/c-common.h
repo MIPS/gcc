@@ -574,8 +574,8 @@ extern tree add_stmt (tree);
 extern void push_cleanup (tree, tree, bool);
 extern tree pushdecl_top_level (tree);
 extern tree pushdecl (tree);
-extern tree build_modify_expr (location_t, tree, tree, enum tree_code,
-			       location_t, tree, tree);
+extern tree build_modify_expr (location_t, tree, ttype_p, enum tree_code,
+			       location_t, tree, ttype_p);
 extern tree build_array_notation_expr (location_t, tree, tree, enum tree_code,
 				       location_t, tree, tree);
 extern tree build_array_notation_ref (location_t, tree, tree, tree, tree, tree);
@@ -791,7 +791,8 @@ extern const char *fname_as_string (int);
 extern tree fname_decl (location_t, unsigned, tree);
 
 extern int check_user_alignment (const_tree, bool);
-extern void check_function_arguments (location_t loc, const_tree, int, tree *);
+extern void check_function_arguments (location_t loc, const ttype_p, int,
+				      tree *);
 extern void check_function_arguments_recurse (void (*)
 					      (void *, tree,
 					       unsigned HOST_WIDE_INT),
@@ -807,14 +808,14 @@ extern bool c_common_handle_option (size_t, const char *, int, int, location_t,
 extern bool default_handle_c_option (size_t, const char *, int);
 extern ttype *c_common_type_for_mode (machine_mode, int);
 extern ttype *c_common_type_for_size (unsigned int, int);
-extern tree c_common_fixed_point_type_for_size (unsigned int, unsigned int,
+extern ttype *c_common_fixed_point_type_for_size (unsigned int, unsigned int,
 						int, int);
-extern tree c_common_unsigned_type (tree);
-extern tree c_common_signed_type (tree);
-extern tree c_common_signed_or_unsigned_type (int, tree);
+extern ttype *c_common_unsigned_type (ttype_p);
+extern ttype *c_common_signed_type (ttype_p);
+extern ttype *c_common_signed_or_unsigned_type (int, ttype_p);
 extern void c_common_init_ts (void);
 extern tree c_build_bitfield_integer_type (unsigned HOST_WIDE_INT, int);
-extern enum conversion_safety unsafe_conversion_p (location_t, tree, tree,
+extern enum conversion_safety unsafe_conversion_p (location_t, ttype_p, tree,
 						   bool);
 extern bool decl_with_nonnull_addr_p (const_tree);
 extern tree c_fully_fold (tree, bool, bool *);
@@ -822,7 +823,7 @@ extern tree c_wrap_maybe_const (tree, bool);
 extern tree c_save_expr (tree);
 extern tree c_common_truthvalue_conversion (location_t, tree);
 extern void c_apply_type_quals_to_decl (int, tree);
-extern tree c_sizeof_or_alignof_type (location_t, tree, bool, bool, int);
+extern tree c_sizeof_or_alignof_type (location_t, ttype_p, bool, bool, int);
 extern tree c_alignof_expr (location_t, tree);
 /* Print an error message for invalid operands to arith operation CODE.
    NOP_EXPR is used as a special case (see truthvalue_conversion).  */
@@ -830,12 +831,12 @@ extern void binary_op_error (rich_location *, enum tree_code, tree, tree);
 extern tree fix_string_type (tree);
 extern void constant_expression_warning (tree);
 extern void constant_expression_error (tree);
-extern bool strict_aliasing_warning (tree, tree, tree);
+extern bool strict_aliasing_warning (ttype_p, ttype_p, tree);
 extern void sizeof_pointer_memaccess_warning (location_t *, tree,
 					      vec<tree, va_gc> *, tree *,
 					      bool (*) (tree, tree));
-extern void warnings_for_convert_and_check (location_t, tree, tree, tree);
-extern tree convert_and_check (location_t, tree, tree);
+extern void warnings_for_convert_and_check (location_t, ttype_p, tree, tree);
+extern tree convert_and_check (location_t, ttype_p, tree);
 extern void overflow_warning (location_t, tree);
 extern bool warn_if_unused_value (const_tree, location_t);
 extern void warn_logical_operator (location_t, enum tree_code, tree,
@@ -844,7 +845,7 @@ extern void warn_logical_not_parentheses (location_t, enum tree_code, tree);
 extern void warn_tautological_cmp (location_t, enum tree_code, tree, tree);
 extern void check_main_parameter_types (tree decl);
 extern bool c_determine_visibility (tree);
-extern bool vector_types_compatible_elements_p (tree, tree);
+extern bool vector_types_compatible_elements_p (ttype_p, ttype_p);
 extern void mark_valid_location_for_stdc_pragma (bool);
 extern bool valid_location_for_stdc_pragma_p (void);
 extern void set_float_const_decimal64 (void);
@@ -856,25 +857,26 @@ extern bool keyword_is_storage_class_specifier (enum rid);
 extern bool keyword_is_type_qualifier (enum rid);
 extern bool keyword_is_decl_specifier (enum rid);
 extern bool cxx_fundamental_alignment_p (unsigned);
-extern bool pointer_to_zero_sized_aggr_p (tree);
+extern bool pointer_to_zero_sized_aggr_p (ttype_p);
 
 #define c_sizeof(LOC, T)  c_sizeof_or_alignof_type (LOC, T, true, false, 1)
 #define c_alignof(LOC, T) c_sizeof_or_alignof_type (LOC, T, false, false, 1)
 
 /* Subroutine of build_binary_op, used for certain operations.  */
-extern tree shorten_binary_op (tree result_type, tree op0, tree op1, bool bitwise);
+extern ttype *shorten_binary_op (ttype_p result_type, tree op0, tree op1,
+				 bool bitwise);
 
 /* Subroutine of build_binary_op, used for comparison operations.
    See if the operands have both been converted from subword integer types
    and, if so, perhaps change them both back to their original type.  */
-extern tree shorten_compare (location_t, tree *, tree *, tree *,
+extern tree shorten_compare (location_t, tree *, tree *, ttype_pp,
 			     enum tree_code *);
 
 extern tree pointer_int_sum (location_t, enum tree_code, tree, tree,
 			     bool = true);
 
 /* Add qualifiers to a type, in the fashion for C.  */
-extern tree c_build_qualified_type (tree, int, tree = NULL_TREE, size_t = 0);
+extern ttype *c_build_qualified_type (ttype_p , int, ttype_p = NULL_TYPE, size_t = 0);
 
 /* Build tree nodes and builtin functions common to both C and C++ language
    frontends.  */
@@ -884,7 +886,7 @@ extern void disable_builtin_function (const char *);
 
 extern void set_compound_literal_name (tree decl);
 
-extern tree build_va_arg (location_t, tree, tree);
+extern tree build_va_arg (location_t, tree, ttype_p);
 
 extern const unsigned int c_family_lang_mask;
 extern unsigned int c_common_option_lang_mask (void);
@@ -897,12 +899,13 @@ extern bool c_common_init (void);
 extern void c_common_finish (void);
 extern void c_common_parse_file (void);
 extern FILE *get_dump_info (int, int *);
+extern alias_set_type c_common_get_type_alias_set (ttype *);
 extern alias_set_type c_common_get_alias_set (tree);
 extern void c_register_builtin_type (ttype_p, const char*);
-extern bool c_promoting_integer_type_p (const_tree);
+extern bool c_promoting_integer_type_p (const ttype_p);
 extern int self_promoting_args_p (const_tree);
-extern tree strip_pointer_operator (tree);
-extern tree strip_pointer_or_array_types (tree);
+extern ttype *strip_pointer_operator (ttype_p);
+extern ttype *strip_pointer_or_array_types (ttype_p);
 extern HOST_WIDE_INT c_common_to_target_charset (HOST_WIDE_INT);
 
 /* This is the basic parsing function.  */
@@ -965,7 +968,7 @@ extern tree default_conversion (tree);
 /* Given two integer or real types, return the type for their sum.
    Given two compatible ANSI C types, returns the merged type.  */
 
-extern tree common_type (tree, tree);
+extern ttype *common_type (ttype_p, ttype_p);
 
 extern tree decl_constant_value (tree);
 
@@ -974,10 +977,10 @@ extern tree boolean_increment (enum tree_code, tree);
 
 extern int case_compare (splay_tree_key, splay_tree_key);
 
-extern tree c_add_case_label (location_t, splay_tree, tree, tree, tree, tree,
+extern tree c_add_case_label (location_t, splay_tree, tree, ttype_p, tree, tree,
 			      bool *);
 
-extern void c_do_switch_warnings (splay_tree, location_t, tree, tree, bool,
+extern void c_do_switch_warnings (splay_tree, location_t, ttype_p, tree, bool,
 				  bool);
 
 extern tree build_function_call (location_t, tree, tree);
@@ -995,8 +998,9 @@ extern tree lookup_label (tree);
 extern tree lookup_name (tree);
 extern bool lvalue_p (const_tree);
 
-extern bool vector_targets_convertible_p (const_tree t1, const_tree t2);
-extern bool vector_types_convertible_p (const_tree t1, const_tree t2, bool emit_lax_note);
+extern bool vector_targets_convertible_p (const ttype_p t1, const ttype_p t2);
+extern bool vector_types_convertible_p (const ttype_p t1, const ttype_p t2,
+					bool emit_lax_note);
 extern tree c_build_vec_perm_expr (location_t, tree, tree, tree, bool = true);
 
 extern void init_c_lex (void);
@@ -1055,9 +1059,9 @@ extern void readonly_error (location_t, tree, enum lvalue_use);
 extern void lvalue_error (location_t, enum lvalue_use);
 extern void invalid_indirection_error (location_t, tree, ref_operator);
 
-extern int complete_array_type (tree *, tree, bool);
+extern int complete_array_type (ttype_pp, tree, bool);
 
-extern tree builtin_type_for_size (int, bool);
+extern ttype *builtin_type_for_size (int, bool);
 
 extern void c_common_mark_addressable_vec (tree);
 
@@ -1071,10 +1075,10 @@ extern void warn_for_div_by_zero (location_t, tree divisor);
 extern void warn_for_sign_compare (location_t,
 				   tree orig_op0, tree orig_op1,
 				   tree op0, tree op1,
-				   tree result_type,
+				   ttype *result_type,
 				   enum tree_code resultcode);
 extern void do_warn_unused_parameter (tree);
-extern void do_warn_double_promotion (tree, tree, tree, const char *, 
+extern void do_warn_double_promotion (ttype_p, ttype_p, ttype_p, const char *, 
 				      location_t);
 extern void set_underlying_type (tree);
 extern void record_types_used_by_current_var_decl (tree);
@@ -1129,7 +1133,7 @@ extern void init_pp_output (FILE *);
 extern void preprocess_file (cpp_reader *);
 extern void pp_file_change (const line_map_ordinary *);
 extern void pp_dir_change (cpp_reader *, const char *);
-extern bool check_missing_format_attribute (tree, tree);
+extern bool check_missing_format_attribute (ttype_p, ttype_p);
 
 /* In c-omp.c  */
 struct omp_clause_mask
@@ -1438,7 +1442,7 @@ extern struct c_expr fix_array_notation_expr (location_t, enum tree_code,
 extern bool contains_array_notation_expr (tree);
 extern tree expand_array_notation_exprs (tree);
 extern tree fix_conditional_array_notations (tree);
-extern tree find_correct_array_notation_type (tree);
+extern ttype *find_correct_array_notation_type (tree);
 extern bool length_mismatch_in_expr_p (location_t, vec<vec<an_parts> >);
 extern enum built_in_function is_cilkplus_reduce_builtin (tree);
 extern bool find_rank (location_t, tree, tree, bool, size_t *);
@@ -1447,7 +1451,6 @@ extern void replace_array_notations (tree *, bool, vec<tree, va_gc> *,
 				     vec<tree, va_gc> *);
 extern tree find_inv_trees (tree *, int *, void *);
 extern tree replace_inv_trees (tree *, int *, void *);
-extern tree find_correct_array_notation_type (tree op);
 extern void cilkplus_extract_an_triplets (vec<tree, va_gc> *, size_t, size_t,
 					  vec<vec<an_parts> > *);
 extern vec <tree, va_gc> *fix_sec_implicit_args
@@ -1474,6 +1477,6 @@ extern bool check_no_cilk (tree, const char *, const char *,
 		           location_t loc = UNKNOWN_LOCATION);
 extern bool reject_gcc_builtin (const_tree, location_t = UNKNOWN_LOCATION);
 extern void warn_duplicated_cond_add_or_warn (location_t, tree, vec<tree> **);
-extern bool valid_array_size_p (location_t, tree, tree);
+extern bool valid_array_size_p (location_t, ttype_p, tree);
 
 #endif /* ! GCC_C_COMMON_H */

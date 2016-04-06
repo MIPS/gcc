@@ -942,16 +942,16 @@ strip_array_domain (tree type)
    been applied, and enumerated types converted to their compatible
    integer types.  */
 
-tree
-common_type (tree t1, tree t2)
+ttype *
+common_type (ttype_p t1, ttype_p t2)
 {
   /* If one type is nonsense, use the other  */
-  if (t1 == error_mark_node)
+  if (t1 == error_type_node)
     return t2;
-  if (t2 == error_mark_node)
+  if (t2 == error_type_node)
     return t1;
 
-  return cp_common_type (t1, t2);
+  return TTYPE (cp_common_type (t1, t2));
 }
 
 /* Return the common type of two pointer types T1 and T2.  This is the
@@ -4042,7 +4042,7 @@ cp_build_binary_op (location_t location,
 
   /* Data type in which the computation is to be performed.
      In the simplest cases this is the common type of the arguments.  */
-  tree result_type = NULL;
+  ttype_p result_type = NULL_TYPE;
 
   /* Nonzero means operands have already been type-converted
      in whatever way is necessary.
@@ -4051,7 +4051,7 @@ cp_build_binary_op (location_t location,
 
   /* Nonzero means create the expression with this type, rather than
      RESULT_TYPE.  */
-  tree build_type = 0;
+  ttype_p build_type = NULL_TYPE;
 
   /* Nonzero means after finally constructing the expression
      convert it to this type.  */
@@ -7318,7 +7318,7 @@ build_const_cast (tree type, tree expr, tsubst_flags_t complain)
 /* Like cp_build_c_cast, but for the c-common bits.  */
 
 tree
-build_c_cast (location_t /*loc*/, tree type, tree expr)
+build_c_cast (location_t /*loc*/, ttype_p type, tree expr)
 {
   return cp_build_c_cast (type, expr, tf_warning_or_error);
 }
@@ -7328,7 +7328,7 @@ build_c_cast (location_t /*loc*/, tree type, tree expr)
    support it.  */
 
 cp_expr
-build_c_cast (location_t loc, tree type, cp_expr expr)
+build_c_cast (location_t loc, ttype_p type, cp_expr expr)
 {
   cp_expr result = cp_build_c_cast (type, expr, tf_warning_or_error);
   result.set_location (loc);
@@ -7461,10 +7461,10 @@ cp_build_c_cast (tree type, tree expr, tsubst_flags_t complain)
 /* For use from the C common bits.  */
 tree
 build_modify_expr (location_t /*location*/,
-		   tree lhs, tree /*lhs_origtype*/,
+		   tree lhs, ttype_p /*lhs_origtype*/,
 		   enum tree_code modifycode, 
 		   location_t /*rhs_location*/, tree rhs,
-		   tree /*rhs_origtype*/)
+		   ttype_p /*rhs_origtype*/)
 {
   return cp_build_modify_expr (lhs, modifycode, rhs, tf_warning_or_error);
 }

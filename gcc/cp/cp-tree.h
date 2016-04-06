@@ -6699,8 +6699,8 @@ extern tree cp_build_compound_expr		(tree, tree, tsubst_flags_t);
 extern tree build_static_cast			(tree, tree, tsubst_flags_t);
 extern tree build_reinterpret_cast		(tree, tree, tsubst_flags_t);
 extern tree build_const_cast			(tree, tree, tsubst_flags_t);
-extern tree build_c_cast			(location_t, tree, tree);
-extern cp_expr build_c_cast			(location_t loc, tree type,
+extern tree build_c_cast			(location_t, ttype_p, tree);
+extern cp_expr build_c_cast			(location_t loc, ttype_p type,
 						 cp_expr expr);
 extern tree cp_build_c_cast			(tree, tree, tsubst_flags_t);
 extern cp_expr build_x_modify_expr		(location_t, tree,
