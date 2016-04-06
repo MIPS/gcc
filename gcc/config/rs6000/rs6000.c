@@ -30808,7 +30808,7 @@ rs6000_handle_altivec_attribute (ttype **node,
 	 || TREE_CODE (type) == FUNCTION_TYPE
 	 || TREE_CODE (type) == METHOD_TYPE
 	 || TREE_CODE (type) == ARRAY_TYPE)
-    type = TREE_TTYPE (type);
+    type = TTYPE (TREE_TYPE (type));
 
   mode = TYPE_MODE (type);
 

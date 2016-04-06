@@ -1089,7 +1089,7 @@ s390_handle_vectorbool_attribute (ttype **node, tree name ATTRIBUTE_UNUSED,
 	 || TREE_CODE (type) == FUNCTION_TYPE
 	 || TREE_CODE (type) == METHOD_TYPE
 	 || TREE_CODE (type) == ARRAY_TYPE)
-    type = TREE_TTYPE (type);
+    type = TTYPE (TREE_TYPE (type));
 
   mode = TYPE_MODE (type);
   switch (mode)
