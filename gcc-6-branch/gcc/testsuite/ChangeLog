@@ -1,3 +1,226 @@
+2016-04-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/execute/20101011-1.c (__VISIUM__): Set DO_TEST to 0.
+
+2016-04-06  Yvan Roux  <yvan.roux@linaro.org>
+	    Pedro Alves  <palves@redhat.com>
+
+	* gcc.dg/guality/guality.h (main): Avoid GDB being blocked on signals.
+
+2016-04-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* lib/target-supports.exp (check_effective_target_vect_simd_clones):
+	Check for avx512f effective targets instead of avx2.
+	* gcc.dg/gomp/declare-simd-1.c: Add scan-assembler-times directives
+	for AVX512F clones.
+	* gcc.dg/gomp/declare-simd-3.c: Likewise.
+	* g++.dg/gomp/declare-simd-1.C: Likewise.
+	* g++.dg/gomp/declare-simd-3.C: Likewise.
+	* g++.dg/gomp/declare-simd-4.C: Likewise.
+
+	PR middle-end/70550
+	* c-c++-common/gomp/pr70550-1.c: New test.
+	* c-c++-common/gomp/pr70550-2.c: New test.
+
+2016-04-05  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/70512
+	* g++.dg/ext/attribute-may-alias-5.C: New.
+
+2016-04-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/70336
+	* c-c++-common/pr70336.c: New test.
+	* gcc.dg/torture/builtin-isinf_sign-1.c (foo): Guard tests
+	no longer optimized away at -O0 with #ifndef __OPTIMIZE__.
+
+2016-04-05  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/66223
+	* g++.dg/ipa/devirt-51.C: Use -fsanitize=unreachable.
+
+2016-04-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/70542
+	* gcc.dg/torture/pr70542.c: New test.
+	* gcc.target/i386/avx2-pr70542.c: New test.
+
+2016-04-05  Zdenek Sojka  <zsojka@seznam.cz>
+
+	PR tree-optimization/70509
+	* gcc.target/i386/avx512bw-pr70509.c: New test.
+
+2016-04-05  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/70452
+	* g++.dg/ext/constexpr-vla4.C: New test.
+
+2016-04-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/70510
+	* gcc.target/i386/pr70510.c: New test.
+
+2016-04-05  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70526
+	* g++.dg/torture/pr70526.C: New testcase.
+
+2016-04-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/70525
+	* gcc.target/i386/pr70525.c: New test.
+
+2016-04-05  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70499
+	* g++.dg/torture/pr70499.C: New testcase.
+
+2016-04-05  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/20030814-6.c: Fix testcase, disable FRE,
+	remove XFAIL.
+
+2016-04-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/70307
+	* gcc.dg/torture/pr70307.c: Add -Wno-psabi to dg-options.  Prune
+	rs6000 ABI warnings.
+
+2016-04-04  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/66223
+	* g++.dg/ipa/devirt-51.C: New testcase.
+
+2016-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+	    Jakub Jelinek <jakub@redhat.com>
+
+	PR middle-end/70457
+	* gcc.dg/torture/pr70457.c: New.
+
+2016-04-04  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/67538
+	* gfortran.dg/allocate_with_source_19.f08: New test.
+
+2016-04-04  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/65795
+	* gfortran.dg/coarray_allocate_6.f08: New test.
+
+2016-04-04  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/70484
+	* gcc.dg/torture/pr70484.c: New testcase.
+
+2016-04-04  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70307
+	* gcc.dg/torture/pr70307.c: New test.
+
+2016-04-03  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/70416
+	PR target/67391
+	* gcc.target/sh/torture/pr70416.c: New.
+
+2016-04-02  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/67376
+	PR c++/70170
+	PR c++/70172
+	PR c++/70228
+	* g++.dg/cpp0x/constexpr-array-ptr10.C: New test.
+	* g++.dg/cpp0x/constexpr-array-ptr9.C: New test.
+	* g++.dg/cpp0x/constexpr-nullptr-1.C: New test.
+	* g++.dg/cpp0x/constexpr-array5.C: Adjust text of expected diagnostic.
+	* g++.dg/cpp0x/constexpr-string.C: Same.
+	* g++.dg/cpp0x/constexpr-wstring2.C: Same.
+	* g++.dg/cpp0x/pr65398.C: Same.
+	* g++.dg/ext/constexpr-vla1.C: Same.
+	* g++.dg/ext/constexpr-vla2.C: Same.
+	* g++.dg/ext/constexpr-vla3.C: Same.
+	* g++.dg/ubsan/pr63956.C: Same.
+
+2016-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/70467
+	* gcc.target/i386/pr70467-2.c: New test.
+
+2016-04-01  Jakub Jelinek  <jakub@redhat.com>
+	    Marek Polacek  <polacek@redhat.com>
+
+	PR c++/70488
+	* g++.dg/init/new47.C: New test.
+
+2016-04-01  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/70496
+	* gcc.target/arm/pr70496.c: New test.
+
+2016-04-01  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/68475
+	* g++.dg/g++.dg/cpp0x/noexcept29.C: New.
+
+2016-04-01  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR target/69890
+	* gcc.dg/strlenopt.h (memmove): New.
+	* gcc.target/i386/chkp-strlen-1.c: Include "../../gcc.dg/strlenopt.h"
+	instead of "string.h".
+	* gcc.target/i386/chkp-strlen-2.c: Likewise.
+	* gcc.target/i386/chkp-strlen-3.c: Likewise.
+	* gcc.target/i386/chkp-strlen-4.c: Likewise.
+	* gcc.target/i386/chkp-strlen-5.c: Likewise.
+	* gcc.target/i386/chkp-stropt-1.c: Likewise.
+	* gcc.target/i386/chkp-stropt-10.c: Likewise.
+	* gcc.target/i386/chkp-stropt-11.c: Likewise.
+	* gcc.target/i386/chkp-stropt-12.c: Likewise.
+	* gcc.target/i386/chkp-stropt-13.c: Likewise.
+	* gcc.target/i386/chkp-stropt-14.c: Likewise.
+	* gcc.target/i386/chkp-stropt-15.c: Likewise.
+	* gcc.target/i386/chkp-stropt-16.c: Likewise.
+	* gcc.target/i386/chkp-stropt-2.c: Likewise.
+	* gcc.target/i386/chkp-stropt-3.c: Likewise.
+	* gcc.target/i386/chkp-stropt-4.c: Likewise.
+	* gcc.target/i386/chkp-stropt-5.c: Likewise.
+	* gcc.target/i386/chkp-stropt-6.c: Likewise.
+	* gcc.target/i386/chkp-stropt-7.c: Likewise.
+	* gcc.target/i386/chkp-stropt-8.c: Likewise.
+	* gcc.target/i386/chkp-stropt-9.c: Likewise.
+
+2016-03-31  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* g++.dg/template/ptrmem30.C (read): Rename to data_read.
+	(Holder::foo): Reflect this.
+
+2016-03-31  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR target/70442
+	* gcc.dg/pr70442.c: New test.
+
+2016-03-31  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/70393
+	* g++.dg/cpp0x/constexpr-virtual6.C: New.
+
+2016-03-31  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	PR target/70453
+	* gcc.target/i386/pr70453.c: New test.
+
+2016-03-31  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR target/70292
+	* gcc.c-torture/pr70292.c: New test.
+
+2016-03-31  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70297
+	* c-c++-common/pr70297.c: New test.
+	* g++.dg/cpp0x/typedef-redecl.C: New test.
+	* gcc.dg/typedef-redecl2.c: New test.
+
 2016-03-31  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/70460
@@ -34,8 +257,7 @@
 	    Tom de Vries  <tom@codesourcery.com>
 	    Nathan Sidwell  <nathan@codesourcery.com>
 
-	* c-c++-common/goacc/combined-directives.c: Clean up dg-*
-	directives.
+	* c-c++-common/goacc/combined-directives.c: Clean up dg-* directives.
 	* c-c++-common/goacc/loop-clauses.c: Likewise.
 	* g++.dg/goacc/template.C: Likewise.
 	* gfortran.dg/goacc/combined-directives.f90: Likewise.
@@ -86,6 +308,15 @@
 	* gcc.dg/torture/pr70421.c: New test.
 	* gcc.target/i386/avx512f-pr70421.c: New test.
 
+2016-03-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/70364
+	* gcc.target/i386/cleanup-1.c: Include <stddef.h>.
+	(check): New function.
+	(bar): Call check.
+	(foo): Align stack to 16 bytes when calling bar.
+	* gcc.target/i386/cleanup-2.c: Likewise.
+
 2016-03-30  Patrick Palka  <ppalka@gcc.gnu.org>
 
 	PR tree-optimization/59124
@@ -120,12 +351,12 @@
 
 2016-03-28  Dominique d'Humieres  <dominiq@lps.ens.fr>
 
-	g++.dg/ext/fnname5.C: Update the test for Darwin.
+	* g++.dg/ext/fnname5.C: Update the test for Darwin.
 
 2016-03-28  Kirill Yukhin  <kirill.yukhin@intel.com>
 
 	PR target/70406
-	 * gcc.target/i386/pr70406.c: New test.
+	* gcc.target/i386/pr70406.c: New test.
 
 2016-03-27  Eric Botcazou  <ebotcazou@adacore.com>
 
@@ -206,7 +437,8 @@
 2016-03-24  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/70290
-	* g++.dg/ext/pr70290.C: Add -Wno-psabi -w to dg-options.  Formatting.
+	* g++.dg/ext/pr70290.C: Add -Wno-psabi -w to dg-options.
+	Fix formatting.
 
 2016-03-24  Richard Biener  <rguenther@suse.de>
 
