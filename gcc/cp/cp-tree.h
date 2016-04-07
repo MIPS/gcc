@@ -5935,6 +5935,9 @@ extern int is_friend				(tree, tree);
 extern void make_friend_class			(tree, tree, bool);
 extern void add_friend				(tree, tree, bool);
 extern tree do_friend				(tree, tree, tree, tree, enum overload_flags, bool);
+extern void add_to_global_friend_list		(tree);
+extern void remove_from_global_friend_list	(tree);
+extern bool is_global_friend			(tree);
 
 /* in init.c */
 extern tree expand_member_init			(tree);
