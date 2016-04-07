@@ -80,6 +80,11 @@
 #define TARGET_NO_PROTOTYPE 0
 #endif
 
+#define KELVIN_DEBUG
+#ifdef KELVIN_DEBUG
+#define TARGET_DEBUG_BUILTIN 1
+#endif
+
 #define min(A,B)	((A) < (B) ? (A) : (B))
 #define max(A,B)	((A) > (B) ? (A) : (B))
 
@@ -3622,6 +3627,61 @@ darwin_rs6000_override_options (void)
 HOST_WIDE_INT
 rs6000_builtin_mask_calculate (void)
 {
+  HOST_WIDE_INT result = 
+    (((TARGET_ALTIVEC)		    ? RS6000_BTM_ALTIVEC   : 0)
+     | ((TARGET_VSX)		    ? RS6000_BTM_VSX	   : 0)
+     | ((TARGET_SPE)		    ? RS6000_BTM_SPE	   : 0)
+     | ((TARGET_PAIRED_FLOAT)	    ? RS6000_BTM_PAIRED	   : 0)
+     | ((TARGET_FRE)		    ? RS6000_BTM_FRE	   : 0)
+     | ((TARGET_FRES)		    ? RS6000_BTM_FRES	   : 0)
+     | ((TARGET_FRSQRTE)		    ? RS6000_BTM_FRSQRTE   : 0)
+     | ((TARGET_FRSQRTES)		    ? RS6000_BTM_FRSQRTES  : 0)
+     | ((TARGET_POPCNTD)		    ? RS6000_BTM_POPCNTD   : 0)
+     | ((rs6000_cpu == PROCESSOR_CELL) ? RS6000_BTM_CELL      : 0)
+     | ((TARGET_P8_VECTOR)		    ? RS6000_BTM_P8_VECTOR : 0)
+     | ((TARGET_P9_VECTOR)		    ? RS6000_BTM_P9_VECTOR : 0)
+     | ((TARGET_MODULO)		    ? RS6000_BTM_MODULO    : 0)
+     | ((TARGET_64BIT)		    ? RS6000_BTM_64BIT    : 0)
+     | ((TARGET_CRYPTO)		    ? RS6000_BTM_CRYPTO	   : 0)
+     | ((TARGET_HTM)		    ? RS6000_BTM_HTM	   : 0)
+     | ((TARGET_DFP)		    ? RS6000_BTM_DFP	   : 0)
+     | ((TARGET_HARD_FLOAT)	    ? RS6000_BTM_HARD_FLOAT : 0)
+     | ((TARGET_LONG_DOUBLE_128)	    ? RS6000_BTM_LDBL128 : 0));
+
+  fprintf (stderr, "builtin_mask calculated as 0x%16lx\n", result);
+  fprintf (stderr, "    flag RS6000_BTM_ALTIVEC: 0x%16lx\n",
+	   RS6000_BTM_ALTIVEC);
+  fprintf (stderr, "        flag RS6000_BTM_VSX: 0x%16lx\n", RS6000_BTM_VSX);
+  fprintf (stderr, "        flag RS6000_BTM_SPE: 0x%16lx\n", RS6000_BTM_SPE);
+  fprintf (stderr, "     flag RS6000_BTM_PAIRED: 0x%16lx\n", 
+	   RS6000_BTM_PAIRED);
+  fprintf (stderr, "        flag RS6000_BTM_FRE: 0x%16lx\n", RS6000_BTM_FRE);
+  fprintf (stderr, "       flag RS6000_BTM_FRES: 0x%16lx\n", RS6000_BTM_FRES);
+  fprintf (stderr, "    flag RS6000_BTM_FRSQRTE: 0x%16lx\n",
+	   RS6000_BTM_FRSQRTE);
+  fprintf (stderr, "     flag RS6000_BTM_POPCNTD: 0x%16lx\n", 
+	   RS6000_BTM_POPCNTD);
+  fprintf (stderr, "        flag RS6000_BTM_CELL: 0x%16lx\n", RS6000_BTM_CELL);
+  fprintf (stderr, "   flag RS6000_BTM_P8_VECTOR: 0x%16lx\n", 
+	   RS6000_BTM_P8_VECTOR);
+  fprintf (stderr, "   flag RS6000_BTM_P9_VECTOR: 0x%16lx\n", 
+	   RS6000_BTM_P9_VECTOR);
+  fprintf (stderr, "      flag RS6000_BTM_MODULO: 0x%16lx\n", 
+	   RS6000_BTM_MODULO);
+  fprintf (stderr, "       flag RS6000_BTM_64BIT: 0x%16lx\n",
+	   RS6000_BTM_64BIT);
+  fprintf (stderr, "      flag RS6000_BTM_CRYPTO: 0x%16lx\n",
+	   RS6000_BTM_CRYPTO);
+  fprintf (stderr, "         flag RS6000_BTM_HTM: 0x%16lx\n", RS6000_BTM_HTM);
+  fprintf (stderr, "         flag RS6000_BTM_DFP: 0x%16lx\n", RS6000_BTM_DFP);
+  fprintf (stderr, "  flag RS6000_BTM_HARD_FLOAT: 0x%16lx\n", 
+	   RS6000_BTM_HARD_FLOAT);
+  fprintf (stderr, "     flag RS6000_BTM_LDBL128: 0x%16lx\n", 
+	   RS6000_BTM_LDBL128);
+
+  return result;
+  
+    /*
   return (((TARGET_ALTIVEC)		    ? RS6000_BTM_ALTIVEC   : 0)
 	  | ((TARGET_VSX)		    ? RS6000_BTM_VSX	   : 0)
 	  | ((TARGET_SPE)		    ? RS6000_BTM_SPE	   : 0)
@@ -3641,6 +3701,7 @@ rs6000_builtin_mask_calculate (void)
 	  | ((TARGET_DFP)		    ? RS6000_BTM_DFP	   : 0)
 	  | ((TARGET_HARD_FLOAT)	    ? RS6000_BTM_HARD_FLOAT : 0)
 	  | ((TARGET_LONG_DOUBLE_128)	    ? RS6000_BTM_LDBL128 : 0));
+    */
 }
 
 /* Implement TARGET_MD_ASM_ADJUST.  All asm statements are considered
@@ -12527,6 +12588,13 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   return build_va_arg_indirect_ref (addr);
 }
 
+void kelvin_third_breakpoint ()
+{
+  static int count = 0;
+
+  fprintf (stderr, "third breakpoint is a charmer %d\n", count++);
+}
+
 /* Builtins.  */
 
 static void
@@ -12542,6 +12610,21 @@ def_builtin (const char *name, tree type, enum rs6000_builtins code)
   if (rs6000_builtin_decls[(int)code])
     fatal_error (input_location,
 		 "internal error: builtin function %s already processed", name);
+
+  fprintf (stderr, 
+	   "kelvin is concerned here about adding builtin function %s\n",
+	   name);
+  if (!strcmp (name, "__builtin_darn"))
+    kelvin_third_breakpoint();
+  if (!strcmp (name, "__builtin_altivec_vctzb"))
+    kelvin_third_breakpoint();
+  if (!strcmp (name, "__builtin_vec_vctz"))
+    kelvin_third_breakpoint();
+  if (!strcmp (name, "__builtin_altivec_vslv"))
+    kelvin_third_breakpoint();
+  if (!strcmp (name, "__builtin_vec_vslv"))
+    kelvin_third_breakpoint();
+
 
   rs6000_builtin_decls[(int)code] = t =
     add_builtin_function (name, type, (int)code, BUILT_IN_MD, NULL, NULL_TREE);
@@ -16303,6 +16386,10 @@ altivec_init_builtins (void)
   /* Initialize target builtin that implements
      targetm.vectorize.builtin_mask_for_load.  */
 
+  fprintf (stderr, 
+	   " kelvin is concerned about adding a builtin_md function %s\n",
+	   "__builtin_altivec_mask_for_load");
+
   decl = add_builtin_function ("__builtin_altivec_mask_for_load",
 			       v16qi_ftype_long_pcvoid,
 			       ALTIVEC_BUILTIN_MASK_FOR_LOAD,
@@ -16844,6 +16931,11 @@ rs6000_common_init_builtins (void)
       tree type;
       HOST_WIDE_INT mask = d->mask;
 
+      fprintf (stderr, 
+	       "Test to not def_builtin vslv for function"
+	       " %s, mask: 0x%x, builtin_mask: 0x%x\n",
+	       d->name, mask, builtin_mask);
+
       if ((mask & builtin_mask) != mask)
 	{
 	  if (TARGET_DEBUG_BUILTIN)
@@ -16921,6 +17013,11 @@ rs6000_common_init_builtins (void)
       tree type;
       HOST_WIDE_INT mask = d->mask;
 
+      fprintf (stderr, 
+	       "Test to not def_builtin vctz for function"
+	       " %s, mask: 0x%x, builtin_mask: 0x%x\n",
+	       d->name, mask, builtin_mask);
+
       if ((mask & builtin_mask) != mask)
 	{
 	  if (TARGET_DEBUG_BUILTIN)
@@ -16984,6 +17081,11 @@ rs6000_common_init_builtins (void)
       machine_mode mode0;
       tree type;
       HOST_WIDE_INT mask = d->mask;
+
+      fprintf (stderr, 
+	       "Test to not def_builtin darn for function"
+	       " %s, mask: 0x%x, builtin_mask: 0x%x\n",
+	       d->name, mask, builtin_mask);
 
       if ((mask & builtin_mask) != mask)
 	{

@@ -32,6 +32,11 @@
 #include "langhooks.h"
 
 
+#define KELVIN_DEBUG
+#ifdef KELVIN_DEBUG
+#undef TARGET_DEBUG_BUILTIN
+#define TARGET_DEBUG_BUILTIN 1
+#endif
 
 /* Handle the machine specific pragma longcall.  Its syntax is
 
@@ -412,6 +417,8 @@ rs6000_target_modify_macros (bool define_p, HOST_WIDE_INT flags,
 void
 rs6000_cpu_cpp_builtins (cpp_reader *pfile)
 {
+  /* kelvin is debugging right here. */
+
   /* Define all of the common macros.  */
   rs6000_target_modify_macros (true, rs6000_isa_flags,
 			       rs6000_builtin_mask_calculate ());
@@ -4528,6 +4535,16 @@ altivec_build_resolved_builtin (tree *args, int n,
   return fold_convert (ret_type, call);
 }
 
+#ifdef KELVIN_DEBUG
+int make_me_work;
+
+int kelvin_breakpoint ()
+{
+  fprintf (stderr, "made it to kelvin_breakpoint, code is %d\n", make_me_work++);
+  return make_me_work;
+}
+#endif
+
 /* Implementation of the resolve_overloaded_builtin target hook, to
    support Altivec's overloaded builtins.  */
 
@@ -4544,9 +4561,17 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
   const struct altivec_builtin_types *desc;
   unsigned int n;
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "altivec_resolve_overloaded_builtin, about to check %d\n",
+	   kelvin_breakpoint ());
+#endif
+
+
+
   if (!rs6000_overloaded_builtin_p (fcode))
     return NULL_TREE;
 
+  /* kelvin debugging here: why is vlsv different than vctc? */
   if (TARGET_DEBUG_BUILTIN)
     fprintf (stderr, "altivec_resolve_overloaded_builtin, code = %4d, %s\n",
 	     (int)fcode, IDENTIFIER_POINTER (DECL_NAME (fndecl)));
