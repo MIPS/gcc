@@ -33,14 +33,6 @@ int main (int argc, char **argv);
 int
 main (int argc, char **argv)
 {
-
-  fprintf (stderr, "main (%d, [", argc);
-  for (int i = 0; i < argc; i++)
-    {
-      fprintf (stderr, "%s%c ", argv[i], ((i + 1) < argc)? ',': ']');
-    }
-  fprintf (stderr, ")\n");
-
   toplev toplev (NULL, /* external_timer */
 		 true /* init_signals */);
 
