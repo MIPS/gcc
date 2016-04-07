@@ -107,7 +107,7 @@ convert_ieee_real_to_integer (tree type, tree expr)
    not permitted by the language being compiled.  */
 
 tree
-convert (tree type, tree expr)
+convert (ttype_p type, tree expr)
 {
   enum tree_code code = TREE_CODE (type);
 

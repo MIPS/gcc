@@ -1449,7 +1449,7 @@ convert_to_void (tree expr, impl_conv_void implicit, tsubst_flags_t complain)
    do a little bit more work.  */
 
 tree
-convert (tree type, tree expr)
+convert (ttype_p type, tree expr)
 {
   tree intype;
 

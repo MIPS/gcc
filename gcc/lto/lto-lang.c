@@ -1400,7 +1400,7 @@ struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 /* Language hooks that are not part of lang_hooks.  */
 
 tree
-convert (tree type ATTRIBUTE_UNUSED, tree expr ATTRIBUTE_UNUSED)
+convert (ttype_p type ATTRIBUTE_UNUSED, tree expr ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
 }
