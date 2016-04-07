@@ -1,0 +1,10 @@
+Bottom: 3440063a743f26e7d9b536eb809623198d132a30
+Top:    3440063a743f26e7d9b536eb809623198d132a30
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-04-07 03:02:21 -0300
+
+introduce global friend support in C++
+
+---
+
+
