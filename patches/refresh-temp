@@ -1,0 +1,22 @@
+Bottom: 8da1ee3208c85966521e6df3ebcf748e4bbc2352
+Top:    226367b25962d14cfe63759fa3dd4f69ff59ba7c
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-04-07 03:05:51 -0300
+
+Refresh of global-friend.patch
+
+---
+
+diff --git a/gcc/cp/friend.c b/gcc/cp/friend.c
+index 5dc6529..6c32791 100644
+--- a/gcc/cp/friend.c
++++ b/gcc/cp/friend.c
+@@ -60,7 +60,7 @@ find_in_global_friend_list (tree scope, bool exact)
+ 	    && is_specialization_of_friend (TREE_VALUE (*p), scope)))
+       return p;
+ 
+-  return NULL_TREE;
++  return NULL;
+ }
+ 
+ /* Remove one occurrence of SCOPE from the global friend list.
