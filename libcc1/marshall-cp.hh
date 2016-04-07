@@ -36,16 +36,6 @@ namespace cc1_plugin
   }
 
   status
-  unmarshall (connection *conn, enum gcc_cp_field_flags *result)
-  {
-    protocol_int p;
-    if (!unmarshall_intlike (conn, &p))
-      return FAIL;
-    *result = (enum gcc_cp_field_flags) p;
-    return OK;
-  }
-
-  status
   unmarshall (connection *conn, enum gcc_cp_oracle_request *result)
   {
     protocol_int p;
@@ -96,8 +86,8 @@ namespace cc1_plugin
 			       a->elements))
       return FAIL;
 
-    return marshall_array_elmts (conn, len * sizeof (a->virtualp[0]),
-				 a->virtualp);
+    return marshall_array_elmts (conn, len * sizeof (a->flags[0]),
+				 a->flags);
   }
 
   // Read a gcc_vbase_array marker, followed by a gcc_vbase_array.  The
@@ -131,13 +121,13 @@ namespace cc1_plugin
 	return FAIL;
       }
 
-    gva->virtualp = new char[len];
+    gva->flags = new enum gcc_cp_symbol_kind[len];
 
     if (!unmarshall_array_elmts (conn,
-				 len * sizeof (gva->virtualp[0]),
-				 gva->virtualp))
+				 len * sizeof (gva->flags[0]),
+				 gva->flags))
       {
-	delete[] gva->virtualp;
+	delete[] gva->flags;
 	delete[] gva->elements;
 	delete gva;
 	return FAIL;

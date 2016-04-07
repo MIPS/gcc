@@ -138,7 +138,7 @@ namespace cc1_plugin
       // But, it is in code shared with gdb and cannot.
       if (m_object != NULL)
 	{
-	  delete[] m_object->virtualp;
+	  delete[] m_object->flags;
 	  delete[] m_object->elements;
 	}
       delete m_object;
