@@ -262,6 +262,11 @@ static void
 plugin_pragma_user_expression (cpp_reader *)
 {
   cp_binding_oracle = plugin_binding_oracle;
+
+  /* Make the function containing the user expression a global
+     friend, so as to bypass access controls in it.  */
+  if (at_function_scope_p ())
+    add_to_global_friend_list (current_function_decl);
 }
 
 static void
@@ -395,37 +400,31 @@ safe_pushdecl_maybe_friend (tree decl, bool is_friend)
 
 
 int
-plugin_push_namespace (cc1_plugin::connection *self,
+plugin_push_namespace (cc1_plugin::connection *,
 		       const char *name)
 {
-  (void)self;
-
   if (name && !*name)
     push_to_top_level ();
   else
     push_namespace (name ? get_identifier (name) : NULL);
 
-  return 0;
+  return 1;
 }
 
 int
-plugin_pop_namespace (cc1_plugin::connection *self)
+plugin_pop_namespace (cc1_plugin::connection *)
 {
-  (void)self;
-
   if (toplevel_bindings_p () && current_namespace == global_namespace)
     pop_from_top_level ();
   else
     pop_namespace ();
 
-  return 0;
+  return 1;
 }
 
 gcc_decl
-plugin_get_current_binding_level (cc1_plugin::connection *self)
+plugin_get_current_binding_level (cc1_plugin::connection *)
 {
-  (void)self;
-
   tree decl;
 
   if (at_namespace_scope_p ())
@@ -441,6 +440,29 @@ plugin_get_current_binding_level (cc1_plugin::connection *self)
 }
 
 
+static inline void
+set_access_flags (tree decl, enum gcc_cp_symbol_kind flags)
+{
+  gcc_assert (!(flags & GCC_CP_ACCESS_MASK) == !DECL_CLASS_SCOPE_P (decl));
+
+  switch (flags & GCC_CP_ACCESS_MASK)
+    {
+    case GCC_CP_ACCESS_PRIVATE:
+      TREE_PRIVATE (decl) = true;
+      break;
+
+    case GCC_CP_ACCESS_PROTECTED:
+      TREE_PROTECTED (decl) = true;
+      break;
+
+    case GCC_CP_ACCESS_PUBLIC:
+      break;
+
+    default:
+      break;
+    }
+}
+
 gcc_decl
 plugin_new_decl (cc1_plugin::connection *self,
 		 const char *name,
@@ -452,18 +474,7 @@ plugin_new_decl (cc1_plugin::connection *self,
 		 unsigned int line_number)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
-  { // FIXME in gdb:
-    char *nname = (char*)strrchr (name, ':');
-    if (nname)
-      name = nname + 1;
-    char *nameend = (char*)strchr (name, '(');
-    if (nameend)
-      {
-	*nameend = 0;
-	name = strdupa (name);
-	*nameend = '(';
-      }
-  }
+  gcc_assert (!strchr (name, ':')); // FIXME: this can go eventually.
   tree identifier = get_identifier (name);
   enum tree_code code;
   tree decl;
@@ -508,6 +519,8 @@ plugin_new_decl (cc1_plugin::connection *self,
   bool class_member_p = at_class_scope_p ();
   bool ctor = false, dtor = false, assop = false;
   tree_code opcode = ERROR_MARK;
+
+  gcc_assert (!(sym_kind & GCC_CP_ACCESS_MASK) == !class_member_p);
 
   if (code == FUNCTION_DECL)
     {
@@ -794,6 +807,7 @@ plugin_new_decl (cc1_plugin::connection *self,
 	      fns = CLASSTYPE_DESTRUCTORS (current_class_type);
 	    }
 	  DECL_CONTEXT (decl) = FROB_CONTEXT (current_class_type);
+	  set_access_flags (decl, sym_kind);
 	  maybe_retrofit_in_chrg (decl);
 	  for (; fns; fns = OVL_NEXT (fns))
 	    {
@@ -888,6 +902,8 @@ plugin_new_decl (cc1_plugin::connection *self,
   else if (at_namespace_scope_p ())
     DECL_CONTEXT (decl) = FROB_CONTEXT (current_decl_namespace ());
 
+  set_access_flags (decl, sym_kind);
+
   if (sym_kind != GCC_CP_SYMBOL_TYPEDEF)
     {
       decl_addr_value value;
@@ -925,6 +941,27 @@ plugin_new_decl (cc1_plugin::connection *self,
   rest_of_decl_compilation (decl, toplevel_bindings_p (), 0);
 
   return convert_out (ctx->preserve (decl));
+}
+
+int
+plugin_new_friend (cc1_plugin::connection * /* self */,
+		   gcc_decl decl_in)
+{
+  tree decl = convert_in (decl_in);
+
+  gcc_assert (at_class_scope_p ());
+
+  /* FIXME: is this enough to support template friend declarations?  */
+
+  if (TYPE_P (decl))
+    make_friend_class (current_class_type, decl, true);
+  else
+    {
+      DECL_FRIEND_P (decl) = true;
+      add_friend (current_class_type, decl, true);
+    }
+
+  return 1;
 }
 
 gcc_type
@@ -969,9 +1006,32 @@ start_class_def (tree type,
     {
       for (int i = 0; i < base_classes->n_elements; i++)
 	{
+	  tree access;
+
+	  gcc_assert ((base_classes->flags[i] & GCC_CP_SYMBOL_MASK)
+		      == GCC_CP_SYMBOL_BASECLASS);
+
+	  switch (base_classes->flags[i] & GCC_CP_ACCESS_MASK)
+	    {
+	    case GCC_CP_ACCESS_PRIVATE:
+	      access = ridpointers[(int)RID_PRIVATE];
+	      break;
+
+	    case GCC_CP_ACCESS_PROTECTED:
+	      access = ridpointers[(int)RID_PROTECTED];
+	      break;
+
+	    case GCC_CP_ACCESS_PUBLIC:
+	      access = ridpointers[(int)RID_PUBLIC];
+	      break;
+
+	    default:
+	      gcc_unreachable ();
+	    }
+
 	  tree base = finish_base_specifier
-	    (convert_in (base_classes->elements[i]),
-	     access_default_node, base_classes->virtualp[i]);
+	    (convert_in (base_classes->elements[i]), access,
+	     (base_classes->flags[i] & GCC_CP_FLAG_BASECLASS_VIRTUAL) != 0);
 	  TREE_CHAIN (base) = bases;
 	  bases = base;
 	}
@@ -1001,15 +1061,27 @@ build_named_class_type (enum tree_code code,
 gcc_type
 plugin_start_new_class_type (cc1_plugin::connection *self,
 			     const char *name,
+			     enum gcc_cp_symbol_kind flags,
 			     const gcc_vbase_array *base_classes,
 			     const char *filename,
 			     unsigned int line_number)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
 
+  gcc_assert ((flags & GCC_CP_SYMBOL_MASK) == GCC_CP_SYMBOL_CLASS);
+  gcc_assert ((flags & (~(GCC_CP_SYMBOL_MASK | GCC_CP_ACCESS_MASK
+			  | GCC_CP_FLAG_MASK_CLASS))) == 0);
+  gcc_assert (!(flags & GCC_CP_ACCESS_MASK) == !at_class_scope_p ());
+
   tree type = build_named_class_type (RECORD_TYPE, name, base_classes,
 				      ctx->get_source_location (filename,
 								line_number));
+  tree decl = TYPE_NAME (type);
+
+  set_access_flags (decl, flags);
+
+  if (!(flags & GCC_CP_FLAG_CLASS_IS_STRUCT))
+    CLASSTYPE_DECLARED_CLASS (type) = true;
 
   return convert_out (ctx->preserve (type));
 }
@@ -1017,14 +1089,22 @@ plugin_start_new_class_type (cc1_plugin::connection *self,
 gcc_type
 plugin_start_new_union_type (cc1_plugin::connection *self,
 			     const char *name,
+			     enum gcc_cp_symbol_kind flags,
 			     const char *filename,
 			     unsigned int line_number)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
 
+  gcc_assert ((flags & GCC_CP_SYMBOL_MASK) == GCC_CP_SYMBOL_UNION);
+  gcc_assert ((flags & (~(GCC_CP_SYMBOL_MASK | GCC_CP_ACCESS_MASK))) == 0);
+  gcc_assert (!(flags & GCC_CP_ACCESS_MASK) == !at_class_scope_p ());
+
   tree type = build_named_class_type (UNION_TYPE, name, NULL,
 				      ctx->get_source_location (filename,
 								line_number));
+  tree decl = TYPE_NAME (type);
+
+  set_access_flags (decl, flags);
 
   return convert_out (ctx->preserve (type));
 }
@@ -1033,14 +1113,19 @@ int
 plugin_new_field (cc1_plugin::connection *,
 		  const char *field_name,
 		  gcc_type field_type_in,
-		  enum gcc_cp_field_flags field_flags,
+		  enum gcc_cp_symbol_kind flags,
 		  unsigned long bitsize,
 		  unsigned long bitpos)
 {
   tree record_or_union_type = current_class_type;
   tree field_type = convert_in (field_type_in);
 
+  gcc_assert (at_class_scope_p ());
   gcc_assert (RECORD_OR_UNION_CODE_P (TREE_CODE (record_or_union_type)));
+  gcc_assert ((flags & GCC_CP_SYMBOL_MASK) == GCC_CP_SYMBOL_FIELD);
+  gcc_assert ((flags & (~(GCC_CP_SYMBOL_MASK | GCC_CP_ACCESS_MASK
+			  | GCC_CP_FLAG_MASK_FIELD))) == 0);
+  gcc_assert ((flags & GCC_CP_ACCESS_MASK));
 
   /* Note that gdb does not preserve the location of field decls, so
      we can't provide a decent location here.  */
@@ -1048,7 +1133,9 @@ plugin_new_field (cc1_plugin::connection *,
 			  get_identifier (field_name), field_type);
   DECL_FIELD_CONTEXT (decl) = record_or_union_type;
 
-  if ((field_flags & GCC_CP_FIELD_MUTABLE) != 0)
+  set_access_flags (decl, flags);
+
+  if ((flags & GCC_CP_FLAG_FIELD_MUTABLE) != 0)
     DECL_MUTABLE_P (decl) = 1;
 
   if (TREE_CODE (field_type) == INTEGER_TYPE
@@ -1101,12 +1188,17 @@ gcc_type
 plugin_start_new_enum_type (cc1_plugin::connection *self,
 			    const char *name,
 			    gcc_type underlying_int_type_in,
-			    int scoped_enum_p,
+			    enum gcc_cp_symbol_kind flags,
 			    const char *filename,
 			    unsigned int line_number)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   tree underlying_int_type = convert_in (underlying_int_type_in);
+
+  gcc_assert ((flags & GCC_CP_SYMBOL_MASK) == GCC_CP_SYMBOL_ENUM);
+  gcc_assert ((flags & (~(GCC_CP_SYMBOL_MASK | GCC_CP_ACCESS_MASK
+			  | GCC_CP_FLAG_MASK_ENUM))) == 0);
+  gcc_assert (!(flags & GCC_CP_ACCESS_MASK) == !at_class_scope_p ());
 
   if (underlying_int_type == error_mark_node)
     return convert_out (error_mark_node);
@@ -1118,7 +1210,7 @@ plugin_start_new_enum_type (cc1_plugin::connection *self,
   tree type = start_enum (id, NULL_TREE,
 			  underlying_int_type,
 			  /* attributes = */ NULL_TREE,
-			  !!scoped_enum_p, &is_new_type);
+			  !!(flags & GCC_CP_FLAG_ENUM_SCOPED), &is_new_type);
 
   gcc_assert (is_new_type);
 
@@ -1128,6 +1220,8 @@ plugin_start_new_enum_type (cc1_plugin::connection *self,
   TYPE_STUB_DECL (type) = type_decl;
 
   safe_pushtag (DECL_NAME (type_decl), type, ts_current);
+
+  set_access_flags (type_decl, flags);
 
   return convert_out (ctx->preserve (type));
 }
@@ -1337,7 +1431,7 @@ plugin_start_new_template_decl (cc1_plugin::connection *self ATTRIBUTE_UNUSED)
 
   TP_PARM_LIST = NULL_TREE;
 
-  return 0;
+  return 1;
 }
 
 gcc_typedecl
