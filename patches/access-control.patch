@@ -3,7 +3,8 @@ Top:    af689840b739ccdcc57bdb5fdef8b8ab2a3ce278
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-04-07 03:05:05 -0300
 
-make the user expression function a global friend
+introduce access control flags and friend declarations
+
 
 ---
 
