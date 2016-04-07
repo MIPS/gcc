@@ -262,6 +262,11 @@ static void
 plugin_pragma_user_expression (cpp_reader *)
 {
   cp_binding_oracle = plugin_binding_oracle;
+
+  /* Make the function containing the user expression a global
+     friend, so as to bypass access controls in it.  */
+  if (at_function_scope_p ())
+    add_to_global_friend_list (current_function_decl);
 }
 
 static void
