@@ -60,7 +60,7 @@ find_in_global_friend_list (tree scope, bool exact)
 	    && is_specialization_of_friend (TREE_VALUE (*p), scope)))
       return p;
 
-  return NULL_TREE;
+  return NULL;
 }
 
 /* Remove one occurrence of SCOPE from the global friend list.
