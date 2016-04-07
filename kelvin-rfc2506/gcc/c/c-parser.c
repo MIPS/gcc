@@ -8152,12 +8152,6 @@ sizeof_ptr_memacc_comptypes (tree type1, tree type2)
   return comptypes (type1, type2) == 1;
 }
 
-void kelvin_other_breakpoint ()
-{
-  static int break_count = 0;
-  fprintf (stderr, "breaks %d\n", break_count++);
-}
-
 /* Parse a postfix expression after the initial primary or compound
    literal; that is, parse a series of postfix operators.
 
@@ -8227,7 +8221,6 @@ c_parser_postfix_expression_after_primary (c_parser *parser,
 	case CPP_OPEN_PAREN:
 	  /* Function call.  */
 	  c_parser_consume_token (parser);
-	  kelvin_other_breakpoint();
 	  for (i = 0; i < 3; i++)
 	    {
 	      sizeof_arg[i] = NULL_TREE;
