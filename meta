@@ -1,6 +1,6 @@
 Version: 1
-Previous: bffaceb2e106c85ed5da2ec5b9a6a670663e362f
-Head: b8d62936fc65969697fe2690f6d32861dd9ddd47
+Previous: 9371dd859e2d6396055335b581a6793d6e0d1b9e
+Head: e6047e8f7fe51e59157164ee67659c7ecc9ca2a0
 Applied:
   debug-aliases-and-trampolines.patch: a63d78e18413a855742c1d76467b90f455e3ed0e
   debug-aliases-and-trampolines-inc.patch: cd52961beeb022adabf58deabfda7aaa50d5dcd9
@@ -12,8 +12,7 @@ Applied:
   template-support.patch: e6893e22ba6d33f170483979f13f606b7441ca81
   name-builtin-types.patch: 86b18d14872eb964e1023d15d15638ccdcd1e2dc
   assorted-features.patch: 048df77b54621482dd897757014c3318da0370db
-  global-friend.patch: 3aebad5a3ea9990da14851efd3de1320660223e4
-  refresh-temp: b8d62936fc65969697fe2690f6d32861dd9ddd47
+  global-friend.patch: e6047e8f7fe51e59157164ee67659c7ecc9ca2a0
 Unapplied:
   special-memfuncs-testing.patch: 5dadb8e81f23ef0a3a559dc1776fa25b2cc8c5db
 Hidden:
