@@ -1,0 +1,10 @@
+Bottom: 8da1ee3208c85966521e6df3ebcf748e4bbc2352
+Top:    8da1ee3208c85966521e6df3ebcf748e4bbc2352
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-04-07 03:05:05 -0300
+
+make the user expression function a global friend
+
+---
+
+
