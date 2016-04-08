@@ -1,5 +1,5 @@
 Bottom: 226367b25962d14cfe63759fa3dd4f69ff59ba7c
-Top:    949f63d5e29602dfe75426d6142a2297a8ace450
+Top:    60b57a41b751bbb977da56b8bcb6bb26275902b5
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-04-07 03:05:05 -0300
 
@@ -280,7 +280,7 @@ index 72649a1..e932a18 100644
     GDB.  */
  
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index 3808017..2574b46 100644
+index 3808017..7452ba7 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -262,6 +262,11 @@ static void
@@ -409,7 +409,7 @@ index 3808017..2574b46 100644
  	      fns = CLASSTYPE_DESTRUCTORS (current_class_type);
  	    }
  	  DECL_CONTEXT (decl) = FROB_CONTEXT (current_class_type);
-+	  set_access_flags (decl, flags);
++	  set_access_flags (decl, sym_kind);
  	  maybe_retrofit_in_chrg (decl);
  	  for (; fns; fns = OVL_NEXT (fns))
  	    {
@@ -417,22 +417,32 @@ index 3808017..2574b46 100644
    else if (at_namespace_scope_p ())
      DECL_CONTEXT (decl) = FROB_CONTEXT (current_decl_namespace ());
  
-+  set_access_flags (decl, flags);
++  set_access_flags (decl, sym_kind);
 +
    if (sym_kind != GCC_CP_SYMBOL_TYPEDEF)
      {
        decl_addr_value value;
-@@ -927,6 +944,17 @@ plugin_new_decl (cc1_plugin::connection *self,
+@@ -927,6 +944,27 @@ plugin_new_decl (cc1_plugin::connection *self,
    return convert_out (ctx->preserve (decl));
  }
  
 +int
 +plugin_new_friend (cc1_plugin::connection * /* self */,
-+		   gcc_decl /* decl */)
++		   gcc_decl decl_in)
 +{
++  tree decl = convert_in (decl_in);
++
 +  gcc_assert (at_class_scope_p ());
 +
-+  /* FIXME: implement.  */
++  /* FIXME: is this enough to support template friend declarations?  */
++
++  if (TYPE_P (decl))
++    make_friend_type (current_class_type, decl, true);
++  else
++    {
++      DECL_FRIEND_P (decl) = true;
++      add_friend (current_class_type, decl, true);
++    }
 +
 +  return 1;
 +}
@@ -440,7 +450,7 @@ index 3808017..2574b46 100644
  gcc_type
  plugin_build_pointer_type (cc1_plugin::connection *,
  			   gcc_type base_type)
-@@ -969,9 +997,32 @@ start_class_def (tree type,
+@@ -969,9 +1007,32 @@ start_class_def (tree type,
      {
        for (int i = 0; i < base_classes->n_elements; i++)
  	{
@@ -475,7 +485,7 @@ index 3808017..2574b46 100644
  	  TREE_CHAIN (base) = bases;
  	  bases = base;
  	}
-@@ -1001,15 +1052,27 @@ build_named_class_type (enum tree_code code,
+@@ -1001,15 +1062,27 @@ build_named_class_type (enum tree_code code,
  gcc_type
  plugin_start_new_class_type (cc1_plugin::connection *self,
  			     const char *name,
@@ -503,7 +513,7 @@ index 3808017..2574b46 100644
  
    return convert_out (ctx->preserve (type));
  }
-@@ -1017,14 +1080,22 @@ plugin_start_new_class_type (cc1_plugin::connection *self,
+@@ -1017,14 +1090,22 @@ plugin_start_new_class_type (cc1_plugin::connection *self,
  gcc_type
  plugin_start_new_union_type (cc1_plugin::connection *self,
  			     const char *name,
@@ -526,7 +536,7 @@ index 3808017..2574b46 100644
  
    return convert_out (ctx->preserve (type));
  }
-@@ -1032,15 +1103,20 @@ plugin_start_new_union_type (cc1_plugin::connection *self,
+@@ -1032,15 +1113,20 @@ plugin_start_new_union_type (cc1_plugin::connection *self,
  int
  plugin_new_field (cc1_plugin::connection *,
  		  const char *field_name,
@@ -548,7 +558,7 @@ index 3808017..2574b46 100644
  
    /* Note that gdb does not preserve the location of field decls, so
       we can't provide a decent location here.  */
-@@ -1048,7 +1124,9 @@ plugin_new_field (cc1_plugin::connection *,
+@@ -1048,7 +1134,9 @@ plugin_new_field (cc1_plugin::connection *,
  			  get_identifier (field_name), field_type);
    DECL_FIELD_CONTEXT (decl) = record_or_union_type;
  
@@ -559,7 +569,7 @@ index 3808017..2574b46 100644
      DECL_MUTABLE_P (decl) = 1;
  
    if (TREE_CODE (field_type) == INTEGER_TYPE
-@@ -1101,13 +1179,18 @@ gcc_type
+@@ -1101,13 +1189,18 @@ gcc_type
  plugin_start_new_enum_type (cc1_plugin::connection *self,
  			    const char *name,
  			    gcc_type underlying_int_type_in,
@@ -579,7 +589,7 @@ index 3808017..2574b46 100644
    if (underlying_int_type == error_mark_node)
      return convert_out (error_mark_node);
  
-@@ -1118,7 +1201,7 @@ plugin_start_new_enum_type (cc1_plugin::connection *self,
+@@ -1118,7 +1211,7 @@ plugin_start_new_enum_type (cc1_plugin::connection *self,
    tree type = start_enum (id, NULL_TREE,
  			  underlying_int_type,
  			  /* attributes = */ NULL_TREE,
@@ -588,7 +598,7 @@ index 3808017..2574b46 100644
  
    gcc_assert (is_new_type);
  
-@@ -1129,6 +1212,8 @@ plugin_start_new_enum_type (cc1_plugin::connection *self,
+@@ -1129,6 +1222,8 @@ plugin_start_new_enum_type (cc1_plugin::connection *self,
  
    safe_pushtag (DECL_NAME (type_decl), type, ts_current);
  
@@ -597,7 +607,7 @@ index 3808017..2574b46 100644
    return convert_out (ctx->preserve (type));
  }
  
-@@ -1337,7 +1422,7 @@ plugin_start_new_template_decl (cc1_plugin::connection *self ATTRIBUTE_UNUSED)
+@@ -1337,7 +1432,7 @@ plugin_start_new_template_decl (cc1_plugin::connection *self ATTRIBUTE_UNUSED)
  
    TP_PARM_LIST = NULL_TREE;
  
