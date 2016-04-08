@@ -808,7 +808,7 @@ plugin_new_decl (cc1_plugin::connection *self,
 	      fns = CLASSTYPE_DESTRUCTORS (current_class_type);
 	    }
 	  DECL_CONTEXT (decl) = FROB_CONTEXT (current_class_type);
-	  set_access_flags (decl, flags);
+	  set_access_flags (decl, sym_kind);
 	  maybe_retrofit_in_chrg (decl);
 	  for (; fns; fns = OVL_NEXT (fns))
 	    {
@@ -903,7 +903,7 @@ plugin_new_decl (cc1_plugin::connection *self,
   else if (at_namespace_scope_p ())
     DECL_CONTEXT (decl) = FROB_CONTEXT (current_decl_namespace ());
 
-  set_access_flags (decl, flags);
+  set_access_flags (decl, sym_kind);
 
   if (sym_kind != GCC_CP_SYMBOL_TYPEDEF)
     {
@@ -946,11 +946,21 @@ plugin_new_decl (cc1_plugin::connection *self,
 
 int
 plugin_new_friend (cc1_plugin::connection * /* self */,
-		   gcc_decl /* decl */)
+		   gcc_decl decl_in)
 {
+  tree decl = convert_in (decl_in);
+
   gcc_assert (at_class_scope_p ());
 
-  /* FIXME: implement.  */
+  /* FIXME: is this enough to support template friend declarations?  */
+
+  if (TYPE_P (decl))
+    make_friend_type (current_class_type, decl, true);
+  else
+    {
+      DECL_FRIEND_P (decl) = true;
+      add_friend (current_class_type, decl, true);
+    }
 
   return 1;
 }
