@@ -474,7 +474,7 @@ plugin_new_decl (cc1_plugin::connection *self,
 		 unsigned int line_number)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
-  gcc_assert (!strchr (name, ':'));
+  gcc_assert (!strchr (name, ':')); // FIXME: this can go eventually.
   tree identifier = get_identifier (name);
   enum tree_code code;
   tree decl;
@@ -486,7 +486,6 @@ plugin_new_decl (cc1_plugin::connection *self,
   switch (sym_kind)
     {
     case GCC_CP_SYMBOL_FUNCTION:
-      /* FIXME: handle template function declarations.  */
       code = FUNCTION_DECL;
       gcc_assert (!(sym_flags & ~GCC_CP_FLAG_MASK_FUNCTION));
       break;
