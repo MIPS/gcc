@@ -1,6 +1,5 @@
 /* { dg-do run { target openacc_nvidia_accel_selected } } */
 /* { dg-additional-options "-lcuda -lcublas -lcudart" } */
-/* { dg-xfail-run-if "TODO" { *-*-* } { "-O0" } { "" } } */
 
 #include <stdlib.h>
 #include <openacc.h>
@@ -30,6 +29,9 @@ saxpy_target (int n, float a, float *x, float *y)
 int
 main(int argc, char **argv)
 {
+  /* We're using cuBLAS, so excpect to be using a Nvidia GPU.  */
+  acc_init (acc_device_nvidia);
+
 #define N 8
   int i;
   float x_ref[N], y_ref[N];

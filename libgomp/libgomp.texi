@@ -1824,6 +1824,15 @@ the option @option{-foffload-force} to force offloading in such cases.
 Alternatively, offloading is also enabled if a specific device type is
 requested, in a call to @code{acc_init} or by setting the
 @env{ACC_DEVICE_TYPE} environment variable, for example.
+If you expect code to be offloaded no matter the overhead, for
+example, when preparing data on a non-shared memory offloading device
+for later use in an OpenACC @code{host_data} construct, be sure to
+force offloading, to get the device memory initialized.
+For example, if calling into the cuBLAS library (@ref{OpenACC Library
+Interoperability}) from an OpenACC @code{host_data} construct, this
+program is portable only to @code{acc_device_nvidia} devices, so it's
+good practice then to initialize the runtime with an explicit
+@code{acc_init (acc_device_nvidia)} call.
 
 A complete description of all OpenACC directives accepted may be found in 
 the @uref{http://www.openacc.org/, OpenACC} Application Programming
