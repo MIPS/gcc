@@ -1,5 +1,5 @@
 Bottom: 226367b25962d14cfe63759fa3dd4f69ff59ba7c
-Top:    023cfb0b233cc6fc70f8d251d2b6c163e7b36627
+Top:    cc52d6287b1e2efe66e277cce3c230d62cd87bae
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-04-07 03:05:05 -0300
 
@@ -9,7 +9,7 @@ introduce access control flags and friend declarations
 ---
 
 diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
-index d802cae..978c441 100644
+index d802cae..61ae8a6 100644
 --- a/include/gcc-cp-fe.def
 +++ b/include/gcc-cp-fe.def
 @@ -25,7 +25,7 @@
@@ -75,13 +75,12 @@ index d802cae..978c441 100644
  	     const char *,	      /* Argument FILENAME.  */
  	     unsigned int)	      /* Argument LINE_NUMBER.  */
  
-@@ -436,8 +445,8 @@ GCC_METHOD3 (gcc_type, start_new_union_type,
- 
+@@ -437,7 +446,7 @@ GCC_METHOD3 (gcc_type, start_new_union_type,
  GCC_METHOD5 (int /* bool */, new_field,
  	     const char *,		   /* Argument FIELD_NAME.  */
-+	     enum gcc_cp_symbol_kind,	   /* Argument FIELD_FLAGS.  */
  	     gcc_type,			   /* Argument FIELD_TYPE.  */
 -	     enum gcc_cp_field_flags,	   /* Argument FIELD_FLAGS.  */
++	     enum gcc_cp_symbol_kind,	   /* Argument FIELD_FLAGS.  */
  	     unsigned long,		   /* Argument BITSIZE.  */
  	     unsigned long)		   /* Argument BITPOS.  */
  
@@ -280,7 +279,7 @@ index 72649a1..e932a18 100644
     GDB.  */
  
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index 3808017..f896afc 100644
+index 3808017..72f1461 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -262,6 +262,11 @@ static void
@@ -528,13 +527,12 @@ index 3808017..f896afc 100644
  
    return convert_out (ctx->preserve (type));
  }
-@@ -1032,15 +1112,20 @@ plugin_start_new_union_type (cc1_plugin::connection *self,
- int
+@@ -1033,14 +1113,19 @@ int
  plugin_new_field (cc1_plugin::connection *,
  		  const char *field_name,
-+		  enum gcc_cp_symbol_kind flags,
  		  gcc_type field_type_in,
 -		  enum gcc_cp_field_flags field_flags,
++		  enum gcc_cp_symbol_kind flags,
  		  unsigned long bitsize,
  		  unsigned long bitpos)
  {
