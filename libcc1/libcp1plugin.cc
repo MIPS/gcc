@@ -954,7 +954,7 @@ plugin_new_friend (cc1_plugin::connection * /* self */,
   /* FIXME: is this enough to support template friend declarations?  */
 
   if (TYPE_P (decl))
-    make_friend_type (current_class_type, decl, true);
+    make_friend_class (current_class_type, decl, true);
   else
     {
       DECL_FRIEND_P (decl) = true;
