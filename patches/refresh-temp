@@ -1,0 +1,30 @@
+Bottom: 60b57a41b751bbb977da56b8bcb6bb26275902b5
+Top:    3b981f460974a986e47808ca71f3d39fe078b5cc
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-04-08 04:15:35 -0300
+
+Refresh of access-control.patch
+
+---
+
+diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
+index 7452ba7..d91f393 100644
+--- a/libcc1/libcp1plugin.cc
++++ b/libcc1/libcp1plugin.cc
+@@ -474,7 +474,7 @@ plugin_new_decl (cc1_plugin::connection *self,
+ 		 unsigned int line_number)
+ {
+   plugin_context *ctx = static_cast<plugin_context *> (self);
+-  gcc_assert (!strchr (name, ':'));
++  gcc_assert (!strchr (name, ':')); // FIXME: this can go eventually.
+   tree identifier = get_identifier (name);
+   enum tree_code code;
+   tree decl;
+@@ -486,7 +486,6 @@ plugin_new_decl (cc1_plugin::connection *self,
+   switch (sym_kind)
+     {
+     case GCC_CP_SYMBOL_FUNCTION:
+-      /* FIXME: handle template function declarations.  */
+       code = FUNCTION_DECL;
+       gcc_assert (!(sym_flags & ~GCC_CP_FLAG_MASK_FUNCTION));
+       break;
