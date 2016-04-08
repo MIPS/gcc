@@ -227,10 +227,6 @@ DEFGSCODE(GIMPLE_OMP_ATOMIC_STORE, "gimple_omp_atomic_store",
    iteration in partially lowered OpenMP code.  */
 DEFGSCODE(GIMPLE_OMP_CONTINUE, "gimple_omp_continue", GSS_OMP_CONTINUE)
 
-/* GIMPLE_OMP_ENTRY_END marks the end of the unpredicated entry block
-   into an offloaded region.  */
-DEFGSCODE(GIMPLE_OMP_ENTRY_END, "gimple_omp_entry_end", GSS_BASE)
-
 /* GIMPLE_OMP_CRITICAL <NAME, BODY> represents
 
    #pragma omp critical [name]

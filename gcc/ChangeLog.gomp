@@ -1,3 +1,7 @@
+2016-04-08  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gimple.def: Remove GIMPLE_OMP_ENTRY_END.  Remove all uses.
+
 2016-03-11  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* config/nvptx/nvptx.c (nvptx_gen_shuffle): Add support for QImode

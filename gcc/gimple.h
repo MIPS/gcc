@@ -1451,7 +1451,6 @@ gdebug *gimple_build_debug_bind_stat (tree, tree, gimple * MEM_STAT_DECL);
 gdebug *gimple_build_debug_source_bind_stat (tree, tree, gimple * MEM_STAT_DECL);
 #define gimple_build_debug_source_bind(var,val,stmt)			\
   gimple_build_debug_source_bind_stat ((var), (val), (stmt) MEM_STAT_INFO)
-gimple *gimple_build_omp_entry_end (void);
 gomp_critical *gimple_build_omp_critical (gimple_seq, tree, tree);
 gomp_for *gimple_build_omp_for (gimple_seq, int, tree, size_t, gimple_seq);
 gomp_parallel *gimple_build_omp_parallel (gimple_seq, tree, tree, tree);
@@ -6061,7 +6060,6 @@ gimple_return_set_retbnd (gimple *gs, tree retval)
     case GIMPLE_OMP_ORDERED:			\
     case GIMPLE_OMP_CRITICAL:			\
     case GIMPLE_OMP_RETURN:			\
-    case GIMPLE_OMP_ENTRY_END:			\
     case GIMPLE_OMP_ATOMIC_LOAD:		\
     case GIMPLE_OMP_ATOMIC_STORE:		\
     case GIMPLE_OMP_CONTINUE:			\

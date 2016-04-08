@@ -313,7 +313,6 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
     case GIMPLE_OMP_ATOMIC_LOAD:
     case GIMPLE_OMP_ATOMIC_STORE:
     case GIMPLE_OMP_CONTINUE:
-    case GIMPLE_OMP_ENTRY_END:
       break;
 
     case GIMPLE_CALL:

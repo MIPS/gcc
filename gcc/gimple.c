@@ -828,15 +828,6 @@ gimple_build_debug_source_bind_stat (tree var, tree value,
 }
 
 
-/* Build a GIMPLE_OMP_ENTRY_END statement.  */
-
-gimple *
-gimple_build_omp_entry_end (void)
-{
-  return gimple_alloc (GIMPLE_OMP_ENTRY_END, 0);
-}
-
-
 /* Build a GIMPLE_OMP_CRITICAL statement.
 
    BODY is the sequence of statements for which only one thread can execute.

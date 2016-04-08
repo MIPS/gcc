@@ -13159,14 +13159,6 @@ expand_omp_target (struct omp_region *region)
   if (gimple_omp_target_kind (entry_stmt) == GF_OMP_TARGET_KIND_OACC_KERNELS)
     mark_loops_in_oacc_kernels_region (region->entry, region->exit);
 
-  basic_block entry_succ_bb = single_succ (entry_bb);
-  if (offloaded)
-    {
-      gsi = gsi_last_bb (entry_succ_bb);
-      if (gimple_code (gsi_stmt (gsi)) == GIMPLE_OMP_ENTRY_END)
-	gsi_remove (&gsi, true);
-    }
-
   if (offloaded)
     {
       unsigned srcidx, dstidx, num;
@@ -13187,6 +13179,7 @@ expand_omp_target (struct omp_region *region)
       tree data_arg = gimple_omp_target_data_arg (entry_stmt);
       if (data_arg)
 	{
+	  basic_block entry_succ_bb = single_succ (entry_bb);
 	  gimple_stmt_iterator gsi;
 	  tree arg;
 	  gimple *tgtcopy_stmt = NULL;
@@ -14063,8 +14056,6 @@ build_omp_regions_1 (basic_block bb, struct omp_region *parent,
 	  gcc_assert (parent);
 	  parent->cont = bb;
 	}
-      else if (code == GIMPLE_OMP_ENTRY_END)
-	gcc_assert (parent);
       else if (code == GIMPLE_OMP_SECTIONS_SWITCH)
 	{
 	  /* GIMPLE_OMP_SECTIONS_SWITCH is part of
@@ -16978,9 +16969,6 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 				 false, NULL, NULL, &fork_seq, &join_seq, ctx);
 	}
 
-      if (offloaded)
-	gimple_seq_add_stmt (&new_body, gimple_build_omp_entry_end ());
-
       gimple_seq_add_seq (&new_body, fork_seq);
       gimple_seq_add_seq (&new_body, tgt_body);
       gimple_seq_add_seq (&new_body, join_seq);
@@ -18501,7 +18489,6 @@ make_gimple_omp_edges (basic_block bb, struct omp_region **region,
       fallthru = false;
       break;
 
-    case GIMPLE_OMP_ENTRY_END:
     case GIMPLE_OMP_ATOMIC_LOAD:
     case GIMPLE_OMP_ATOMIC_STORE:
        fallthru = true;

@@ -2304,10 +2304,6 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple *gs, int spc, int flags)
       pp_string (buffer, "GIMPLE_SECTIONS_SWITCH");
       break;
 
-    case GIMPLE_OMP_ENTRY_END:
-      pp_string (buffer, "GIMPLE_OMP_ENTRY_END");
-      break;
-
     case GIMPLE_OMP_MASTER:
     case GIMPLE_OMP_TASKGROUP:
     case GIMPLE_OMP_SECTION:
