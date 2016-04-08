@@ -954,9 +954,14 @@ typedef _Complex float __attribute__((mode(TC))) _Complex128;
 typedef _Complex float __attribute__((mode(XC))) _Complex80;
 @end smallexample
 
-On the PowerPC targets, you can declare complex types using the
-corresponding internal complex type, @code{ICmode} for
-@code{__ibm128} type and @code{KCmode} for @code{__float128} type:
+In order to use @code{__float128} and @code{__ibm128} on PowerPC Linux
+systems, you must use the @option{-mfloat128}. It is expected in
+future versions of GCC that @code{__float128} will be enabled
+automatically.
+
+On the PowerPC Linux VSX targets, you can declare complex types using
+the corresponding internal complex type, @code{KCmode} for
+@code{__float128} type and @code{ICmode} for @code{__ibm128} type:
 
 @smallexample
 typedef _Complex float __attribute__((mode(KC))) _Complex_float128;
