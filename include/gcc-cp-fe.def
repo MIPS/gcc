@@ -445,8 +445,8 @@ GCC_METHOD4 (gcc_type, start_new_union_type,
 
 GCC_METHOD5 (int /* bool */, new_field,
 	     const char *,		   /* Argument FIELD_NAME.  */
-	     enum gcc_cp_symbol_kind,	   /* Argument FIELD_FLAGS.  */
 	     gcc_type,			   /* Argument FIELD_TYPE.  */
+	     enum gcc_cp_symbol_kind,	   /* Argument FIELD_FLAGS.  */
 	     unsigned long,		   /* Argument BITSIZE.  */
 	     unsigned long)		   /* Argument BITPOS.  */
 

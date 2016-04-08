@@ -1112,8 +1112,8 @@ plugin_start_new_union_type (cc1_plugin::connection *self,
 int
 plugin_new_field (cc1_plugin::connection *,
 		  const char *field_name,
-		  enum gcc_cp_symbol_kind flags,
 		  gcc_type field_type_in,
+		  enum gcc_cp_symbol_kind flags,
 		  unsigned long bitsize,
 		  unsigned long bitpos)
 {
