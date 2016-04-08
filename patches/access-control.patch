@@ -1,5 +1,5 @@
 Bottom: 226367b25962d14cfe63759fa3dd4f69ff59ba7c
-Top:    3b981f460974a986e47808ca71f3d39fe078b5cc
+Top:    023cfb0b233cc6fc70f8d251d2b6c163e7b36627
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-04-07 03:05:05 -0300
 
@@ -280,7 +280,7 @@ index 72649a1..e932a18 100644
     GDB.  */
  
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index 3808017..d91f393 100644
+index 3808017..f896afc 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -262,6 +262,11 @@ static void
@@ -429,7 +429,7 @@ index 3808017..d91f393 100644
 +  /* FIXME: is this enough to support template friend declarations?  */
 +
 +  if (TYPE_P (decl))
-+    make_friend_type (current_class_type, decl, true);
++    make_friend_class (current_class_type, decl, true);
 +  else
 +    {
 +      DECL_FRIEND_P (decl) = true;
