@@ -1,0 +1,37 @@
+Bottom: 023cfb0b233cc6fc70f8d251d2b6c163e7b36627
+Top:    cc52d6287b1e2efe66e277cce3c230d62cd87bae
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-04-08 04:50:21 -0300
+
+Refresh of access-control.patch
+
+---
+
+diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
+index 978c441..61ae8a6 100644
+--- a/include/gcc-cp-fe.def
++++ b/include/gcc-cp-fe.def
+@@ -445,8 +445,8 @@ GCC_METHOD4 (gcc_type, start_new_union_type,
+ 
+ GCC_METHOD5 (int /* bool */, new_field,
+ 	     const char *,		   /* Argument FIELD_NAME.  */
+-	     enum gcc_cp_symbol_kind,	   /* Argument FIELD_FLAGS.  */
+ 	     gcc_type,			   /* Argument FIELD_TYPE.  */
++	     enum gcc_cp_symbol_kind,	   /* Argument FIELD_FLAGS.  */
+ 	     unsigned long,		   /* Argument BITSIZE.  */
+ 	     unsigned long)		   /* Argument BITPOS.  */
+ 
+diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
+index f896afc..72f1461 100644
+--- a/libcc1/libcp1plugin.cc
++++ b/libcc1/libcp1plugin.cc
+@@ -1112,8 +1112,8 @@ plugin_start_new_union_type (cc1_plugin::connection *self,
+ int
+ plugin_new_field (cc1_plugin::connection *,
+ 		  const char *field_name,
+-		  enum gcc_cp_symbol_kind flags,
+ 		  gcc_type field_type_in,
++		  enum gcc_cp_symbol_kind flags,
+ 		  unsigned long bitsize,
+ 		  unsigned long bitpos)
+ {
