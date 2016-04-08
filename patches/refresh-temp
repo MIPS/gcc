@@ -1,0 +1,55 @@
+Bottom: 949f63d5e29602dfe75426d6142a2297a8ace450
+Top:    60b57a41b751bbb977da56b8bcb6bb26275902b5
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-04-08 04:13:20 -0300
+
+Refresh of access-control.patch
+
+---
+
+diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
+index 2574b46..7452ba7 100644
+--- a/libcc1/libcp1plugin.cc
++++ b/libcc1/libcp1plugin.cc
+@@ -808,7 +808,7 @@ plugin_new_decl (cc1_plugin::connection *self,
+ 	      fns = CLASSTYPE_DESTRUCTORS (current_class_type);
+ 	    }
+ 	  DECL_CONTEXT (decl) = FROB_CONTEXT (current_class_type);
+-	  set_access_flags (decl, flags);
++	  set_access_flags (decl, sym_kind);
+ 	  maybe_retrofit_in_chrg (decl);
+ 	  for (; fns; fns = OVL_NEXT (fns))
+ 	    {
+@@ -903,7 +903,7 @@ plugin_new_decl (cc1_plugin::connection *self,
+   else if (at_namespace_scope_p ())
+     DECL_CONTEXT (decl) = FROB_CONTEXT (current_decl_namespace ());
+ 
+-  set_access_flags (decl, flags);
++  set_access_flags (decl, sym_kind);
+ 
+   if (sym_kind != GCC_CP_SYMBOL_TYPEDEF)
+     {
+@@ -946,11 +946,21 @@ plugin_new_decl (cc1_plugin::connection *self,
+ 
+ int
+ plugin_new_friend (cc1_plugin::connection * /* self */,
+-		   gcc_decl /* decl */)
++		   gcc_decl decl_in)
+ {
++  tree decl = convert_in (decl_in);
++
+   gcc_assert (at_class_scope_p ());
+ 
+-  /* FIXME: implement.  */
++  /* FIXME: is this enough to support template friend declarations?  */
++
++  if (TYPE_P (decl))
++    make_friend_type (current_class_type, decl, true);
++  else
++    {
++      DECL_FRIEND_P (decl) = true;
++      add_friend (current_class_type, decl, true);
++    }
+ 
+   return 1;
+ }
