@@ -25,7 +25,11 @@ include $(top_srcdir)/fragment.am
 SUBDIRS = c++98 c++11
 
 # Cross compiler support.
-toolexeclib_LTLIBRARIES = libstdc++.la
+if ENABLE_BIONIC_LIBS
+  toolexeclib_LTLIBRARIES = libgnustl_shared.la
+else
+  toolexeclib_LTLIBRARIES = libstdc++.la
+endif
 
 vpath % $(top_srcdir)/src/c++98
 vpath % $(top_srcdir)/src/c++11
@@ -54,24 +58,45 @@ cxx11_sources = \
 	compatibility-chrono.cc \
 	compatibility-condvar.cc
 
-libstdc___la_SOURCES = $(cxx98_sources) $(cxx11_sources)
+if ENABLE_BIONIC_LIBS
+  libgnustl_shared_la_SOURCES = $(cxx98_sources) $(cxx11_sources)
 
-libstdc___la_LIBADD = \
+  libgnustl_shared_la_LIBADD = \
 	$(GLIBCXX_LIBS) \
 	$(top_builddir)/libsupc++/libsupc++convenience.la \
 	$(top_builddir)/src/c++98/libc++98convenience.la \
 	$(top_builddir)/src/c++11/libc++11convenience.la
 
-libstdc___la_DEPENDENCIES = \
+  libgnustl_shared_la_DEPENDENCIES = \
 	${version_dep} \
 	$(top_builddir)/libsupc++/libsupc++convenience.la \
 	$(top_builddir)/src/c++98/libc++98convenience.la \
 	$(top_builddir)/src/c++11/libc++11convenience.la
 
-libstdc___la_LDFLAGS = \
+  libgnustl_shared_la_LDFLAGS = \
 	${libtool_version_info_string} ${version_arg} -lm
 
-libstdc___la_LINK = $(CXXLINK) $(libstdc___la_LDFLAGS)
+  libgnustl_shared_la_LINK = $(CXXLINK) $(libstdc___la_LDFLAGS)
+else
+  libstdc___la_SOURCES = $(cxx98_sources) $(cxx11_sources)
+
+  libstdc___la_LIBADD = \
+	$(GLIBCXX_LIBS) \
+	$(top_builddir)/libsupc++/libsupc++convenience.la \
+	$(top_builddir)/src/c++98/libc++98convenience.la \
+	$(top_builddir)/src/c++11/libc++11convenience.la
+
+  libstdc___la_DEPENDENCIES = \
+	${version_dep} \
+	$(top_builddir)/libsupc++/libsupc++convenience.la \
+	$(top_builddir)/src/c++98/libc++98convenience.la \
+	$(top_builddir)/src/c++11/libc++11convenience.la
+
+  libstdc___la_LDFLAGS = \
+	${libtool_version_info_string} ${version_arg} -lm
+
+  libstdc___la_LINK = $(CXXLINK) $(libstdc___la_LDFLAGS)
+endif
 
 # Use special rules for compatibility-ldbl.cc compilation, as we need to
 # pass -mlong-double-64.
@@ -222,7 +247,19 @@ endif
 if ENABLE_SYMVERS_SUN
 version_arg = -Wl,-M,libstdc++-symbols.ver-sun
 version_dep = libstdc++-symbols.ver-sun
-libstdc++-symbols.ver-sun : libstdc++-symbols.ver \
+  if ENABLE_BIONIC_LIBS
+    libstdc++-symbols.ver-sun : libstdc++-symbols.ver \
+		$(toplevel_srcdir)/contrib/make_sunver.pl \
+		$(libgnustl_shared_la_OBJECTS) $(libgnustl_shared_la_LIBADD)
+	CXXFILT="$(CXXFILT)"; export CXXFILT; \
+	perl $(toplevel_srcdir)/contrib/make_sunver.pl \
+	  libstdc++-symbols.ver \
+	  $(libgnustl_shared_la_OBJECTS:%.lo=.libs/%.o) \
+	 `echo $(libgnustl_shared_la_LIBADD) | \
+	    sed 's,/\([^/.]*\)\.la,/.libs/\1.a,g'` \
+	 > $@ || (rm -f $@ ; exit 1)
+  else
+    libstdc++-symbols.ver-sun : libstdc++-symbols.ver \
 		$(toplevel_srcdir)/contrib/make_sunver.pl \
 		$(libstdc___la_OBJECTS) $(libstdc___la_LIBADD)
 	CXXFILT="$(CXXFILT)"; export CXXFILT; \
@@ -232,11 +269,23 @@ libstdc++-symbols.ver-sun : libstdc++-symbols.ver \
 	 `echo $(libstdc___la_LIBADD) | \
 	    sed 's,/\([^/.]*\)\.la,/.libs/\1.a,g'` \
 	 > $@ || (rm -f $@ ; exit 1)
+  endif
 endif
 if ENABLE_SYMVERS_DARWIN
 version_arg = -Wl,-exported_symbols_list,libstdc++-symbols.explist
 version_dep = libstdc++-symbols.explist
-libstdc++-symbols.explist : libstdc++-symbols.ver \
+  if ENABLE_BIONIC_LIBS
+    libstdc++-symbols.explist : libstdc++-symbols.ver \
+		${glibcxx_srcdir}/scripts/make_exports.pl \
+		$(libgnustl_shared_la_OBJECTS) $(libgnustl_shared_la_LIBADD)
+	perl ${glibcxx_srcdir}/scripts/make_exports.pl \
+	  libstdc++-symbols.ver \
+	  $(libgnustl_shared_la_OBJECTS:%.lo=.libs/%.o) \
+	 `echo $(libgnustl_shared_la_LIBADD) | \
+	    sed 's,/\([^/.]*\)\.la,/.libs/\1.a,g'` \
+	 > $@ || (rm -f $@ ; exit 1)
+  else
+    libstdc++-symbols.explist : libstdc++-symbols.ver \
 		${glibcxx_srcdir}/scripts/make_exports.pl \
 		$(libstdc___la_OBJECTS) $(libstdc___la_LIBADD)
 	perl ${glibcxx_srcdir}/scripts/make_exports.pl \
@@ -245,6 +294,7 @@ libstdc++-symbols.explist : libstdc++-symbols.ver \
 	 `echo $(libstdc___la_LIBADD) | \
 	    sed 's,/\([^/.]*\)\.la,/.libs/\1.a,g'` \
 	 > $@ || (rm -f $@ ; exit 1)
+  endif
 endif
 
 CLEANFILES += $(version_dep)

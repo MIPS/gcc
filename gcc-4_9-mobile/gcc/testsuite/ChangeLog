@@ -3,6 +3,25 @@
 	PR target/69403
 	* gcc.c-torture/execute/pr69403.c: New test.
 
+2015-10-28 Yvan Roux  <yvan.roux@linaro.org>
+           Sebastian Pop  <s.pop@samsung.com>
+
+	Backport from trunk r221007, r221675, r222011.
+	2015-04-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/65735
+	* gcc.c-torture/compile/pr65735.c: New test.
+
+	2015-03-25  Sebastian Pop  <s.pop@samsung.com>
+
+	PR tree-optimization/65177
+	* gcc.dg/tree-ssa/ssa-dom-thread-10.c: New.
+
+	2015-02-26  Sebastian Pop  <s.pop@samsung.com>
+
+	PR tree-optimization/65048
+	* gcc.dg/tree-ssa/ssa-dom-thread-9.c: New.
+
 2015-03-26  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	Backport r214254 and related tests from mainline
@@ -55,6 +74,17 @@
 2015-01-15  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gnat.dg/opt47.adb: New test.
+
+2015-01-14  Yvan Roux  <yvan.roux@linaro.org>
+
+	Backport from trunk r218451.
+	2014-12-06  James Greenhalgh  <james.greenhalgh@arm.com>
+	            Sebastian Pop  <s.pop@samsung.com>
+	            Brian Rzycki  <b.rzycki@samsung.com>
+
+	PR tree-optimization/54742
+	* gcc.dg/tree-ssa/ssa-dom-thread-6.c: New test.
+	* gcc.dg/tree-ssa/ssa-dom-thread-7.c: New test.
 
 2015-01-14  Jakub Jelinek  <jakub@redhat.com>
 

@@ -1673,7 +1673,7 @@ struct processor_costs atom_cost = {
 };
 
 static stringop_algs slm_memcpy[2] = {
-  {libcall, {{11, loop, false}, {-1, rep_prefix_4_byte, false}}},
+  {libcall, {{11, loop, false}, {-1, libcall, false}}},
   {libcall, {{32, loop, false}, {64, rep_prefix_4_byte, false},
              {8192, rep_prefix_8_byte, false}, {-1, libcall, false}}}};
 static stringop_algs slm_memset[2] = {
@@ -4246,8 +4246,7 @@ ix86_option_override_internal (bool main_args_p,
 
   /* Handle stack protector */
   if (!opts_set->x_ix86_stack_protector_guard)
-    opts->x_ix86_stack_protector_guard
-      = TARGET_HAS_BIONIC ? SSP_GLOBAL : SSP_TLS;
+    opts->x_ix86_stack_protector_guard = SSP_TLS;
 
   /* Handle -mmemcpy-strategy= and -mmemset-strategy=  */
   if (opts->x_ix86_tune_memcpy_strategy)
@@ -11304,7 +11303,7 @@ ix86_set_fp_insn ()
 
   ix86_compute_frame_layout (&frame);
   gcc_assert (frame_pointer_partially_needed);
-  offset = frame.stack_pointer_offset - frame.hard_frame_pointer_offset; 
+  offset = frame.stack_pointer_offset - frame.hard_frame_pointer_offset;
 
   if (TARGET_64BIT && (offset > 0x7fffffff))
     {

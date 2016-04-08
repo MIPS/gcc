@@ -100,6 +100,14 @@ enum loop_estimation
   EST_LAST
 };
 
+/* The structure describing non-overflow control induction variable for
+   loop's exit edge.  */
+struct GTY ((chain_next ("%h.next"))) control_iv {
+  tree base;
+  tree step;
+  struct control_iv *next;
+};
+
 /* Structure to hold information for each natural loop.  */
 struct GTY ((chain_next ("%h.next"))) loop {
   /* Index into loops array.  */
@@ -187,11 +195,20 @@ struct GTY ((chain_next ("%h.next"))) loop {
   /* Upper bound on number of iterations of a loop.  */
   struct nb_iter_bound *bounds;
 
+  /* Non-overflow control ivs of a loop.  */
+  struct control_iv *control_ivs;
+
   /* Head of the cyclic list of the exits of the loop.  */
   struct loop_exit *exits;
 
   /* Number of iteration analysis data for RTL.  */
   struct niter_desc *simple_loop_desc;
+
+  /* For sanity checking during loop fixup we record here the former
+     loop header for loops marked for removal.  Note that this prevents
+     the basic-block from being collected but its index can still be
+     reused.  */
+  basic_block former_header;
 };
 
 /* Flags for state of loop structure.  */
@@ -334,6 +351,8 @@ struct loop * loop_version (struct loop *, void *,
 extern bool remove_path (edge);
 extern void unloop (struct loop *, bool *, bitmap);
 extern void scale_loop_frequencies (struct loop *, int, int);
+void mark_loop_for_removal (loop_p);
+
 
 /* Induction variable analysis.  */
 
