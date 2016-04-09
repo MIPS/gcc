@@ -1,5 +1,5 @@
 Bottom: cc52d6287b1e2efe66e277cce3c230d62cd87bae
-Top:    970be8a2e7e89a6b72f4f62dfafadee914026bfa
+Top:    2c79b93f0d34235a258c62bb42ee9a34006ddbd0
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-04-09 02:25:47 -0300
 
@@ -8,7 +8,7 @@ implement forward declaration of classes, template classes, template functions
 ---
 
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index 72f1461..c17745a 100644
+index 72f1461..796e34a 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -368,6 +368,21 @@ rewrite_decls_to_addresses (void *function_in, void *)
@@ -94,29 +94,114 @@ index 72f1461..c17745a 100644
  
    if (code == FUNCTION_DECL)
      {
-@@ -807,11 +844,12 @@ plugin_new_decl (cc1_plugin::connection *self,
- 	      fns = CLASSTYPE_DESTRUCTORS (current_class_type);
- 	    }
- 	  DECL_CONTEXT (decl) = FROB_CONTEXT (current_class_type);
+@@ -532,22 +569,41 @@ plugin_new_decl (cc1_plugin::connection *self,
+ 	    case CHARS2 ('C', '1'): // in-charge constructor
+ 	      identifier = complete_ctor_identifier;
+ 	      ctor = true;
++	      gcc_assert (!template_decl_p);
+ 	      break;
+ 	    case CHARS2 ('C', '2'): // not-in-charge constructor
+ 	      identifier = base_ctor_identifier;
+ 	      ctor = true;
++	      gcc_assert (!template_decl_p);
++	      break;
++	    case CHARS2 ('C', '4'):
++	      identifier = ctor_identifier; // unified constructor
++	      ctor = true;
++	      /* This one can be a template, but we have no means for
++		 GDB to actively inform us the addresses of clones of
++		 a specialization.  That's kind of all right: we can
++		 get the addresses through the address oracle should
++		 we need them.  */
+ 	      break;
+ 	    case CHARS2 ('D', '0'): // deleting destructor
+ 	      identifier = deleting_dtor_identifier;
+ 	      dtor = true;
++	      gcc_assert (!template_decl_p);
+ 	      break;
+ 	    case CHARS2 ('D', '1'): // in-charge destructor
+ 	      identifier = complete_dtor_identifier;
+ 	      dtor = true;
++	      gcc_assert (!template_decl_p);
+ 	      break;
+ 	    case CHARS2 ('D', '2'): // not-in-charge destructor
+ 	      identifier = base_dtor_identifier;
+ 	      dtor = true;
++	      gcc_assert (!template_decl_p);
++	      break;
++	    case CHARS2 ('D', '4'):
++	      identifier = dtor_identifier; // unified destructor
++	      dtor = true;
++	      gcc_assert (!template_decl_p);
+ 	      break;
+ 	    case CHARS2 ('n', 'w'): // operator new
+ 	      opcode = NEW_EXPR;
+@@ -795,62 +851,10 @@ plugin_new_decl (cc1_plugin::connection *self,
+ 	}
+       if (ctor || dtor)
+ 	{
+-	  tree fns = NULL_TREE;
+ 	  if (ctor)
+-	    {
+-	      DECL_CONSTRUCTOR_P (decl) = 1;
+-	      fns = CLASSTYPE_CONSTRUCTORS (current_class_type);
+-	    }
++	    DECL_CONSTRUCTOR_P (decl) = 1;
+ 	  if (dtor)
+-	    {
+-	      DECL_DESTRUCTOR_P (decl) = 1;
+-	      fns = CLASSTYPE_DESTRUCTORS (current_class_type);
+-	    }
+-	  DECL_CONTEXT (decl) = FROB_CONTEXT (current_class_type);
 -	  set_access_flags (decl, sym_kind);
-+	  set_access_flags (decl, acc_flags);
- 	  maybe_retrofit_in_chrg (decl);
- 	  for (; fns; fns = OVL_NEXT (fns))
- 	    {
- 	      tree fn = OVL_CURRENT (fns);
-+	      /* FIXME: handle template ctors.  */
- 	      if (TREE_TYPE (decl) == TREE_TYPE (fn))
- 		{
- 		  decl = fn;
-@@ -820,6 +858,7 @@ plugin_new_decl (cc1_plugin::connection *self,
- 	    }
- 	  if (!fns)
- 	    {
-+	      /* FIXME: handle template ctors.  */
- 	      finish_member_declaration (decl);
- 	      /* ctors and dtors clones are chained after DECL.
- 		 However, we create the clones before TYPE_METHODS is
-@@ -861,6 +900,17 @@ plugin_new_decl (cc1_plugin::connection *self,
+-	  maybe_retrofit_in_chrg (decl);
+-	  for (; fns; fns = OVL_NEXT (fns))
+-	    {
+-	      tree fn = OVL_CURRENT (fns);
+-	      if (TREE_TYPE (decl) == TREE_TYPE (fn))
+-		{
+-		  decl = fn;
+-		  break;
+-		}
+-	    }
+-	  if (!fns)
+-	    {
+-	      finish_member_declaration (decl);
+-	      /* ctors and dtors clones are chained after DECL.
+-		 However, we create the clones before TYPE_METHODS is
+-		 reversed.  We test for cloned methods after reversal,
+-		 however, and the test requires the clones to follow
+-		 DECL.  So, we reverse the chain of clones now, so
+-		 that it will come out in the right order after
+-		 reversal.  */
+-	      tree save = DECL_CHAIN (decl);
+-	      DECL_CHAIN (decl) = NULL_TREE;
+-	      clone_function_decl (decl, /*update_method_vec_p=*/1);
+-	      gcc_assert (TYPE_METHODS (current_class_type) == decl);
+-	      TYPE_METHODS (current_class_type)
+-		= nreverse (TYPE_METHODS (current_class_type));
+-	      DECL_CHAIN (decl) = save;
+-	    }
+-	  /* Reverse the method chain temporarily, so that we can find
+-	     the clones after DECL.  The clones are supposed to be
+-	     introduced one right after the other, so truncating the
+-	     list at DECL for the temporary reversal will yield a very
+-	     short list.  */
+-	  tree save = DECL_CHAIN (decl), abstract_decl = decl;
+-	  DECL_CHAIN (decl) = NULL_TREE;
+-	  TYPE_METHODS (current_class_type)
+-	    = nreverse (TYPE_METHODS (current_class_type));
+-	  for (decl = DECL_CHAIN (decl); decl; decl = DECL_CHAIN (decl))
+-	    if (DECL_NAME (decl) == identifier)
+-	      break;
+-	  TYPE_METHODS (current_class_type)
+-	    = nreverse (TYPE_METHODS (current_class_type));
+-	  DECL_CHAIN (abstract_decl) = save;
++	    DECL_DESTRUCTOR_P (decl) = 1;
+ 	}
+       else
+ 	{
+@@ -861,6 +865,17 @@ plugin_new_decl (cc1_plugin::connection *self,
  	    DECL_ASSIGNMENT_OPERATOR_P (decl) = true;
  	}
      }
@@ -134,25 +219,59 @@ index 72f1461..c17745a 100644
    else if (class_member_p)
      {
        decl = build_lang_decl_loc (loc, code, identifier, sym_type);
-@@ -902,7 +952,7 @@ plugin_new_decl (cc1_plugin::connection *self,
+@@ -902,9 +917,11 @@ plugin_new_decl (cc1_plugin::connection *self,
    else if (at_namespace_scope_p ())
      DECL_CONTEXT (decl) = FROB_CONTEXT (current_decl_namespace ());
  
 -  set_access_flags (decl, sym_kind);
 +  set_access_flags (decl, acc_flags);
  
-   if (sym_kind != GCC_CP_SYMBOL_TYPEDEF)
+-  if (sym_kind != GCC_CP_SYMBOL_TYPEDEF)
++  if (sym_kind != GCC_CP_SYMBOL_TYPEDEF
++      && sym_kind != GCC_CP_SYMBOL_CLASS
++      && !template_decl_p)
      {
-@@ -928,10 +978,26 @@ plugin_new_decl (cc1_plugin::connection *self,
+       decl_addr_value value;
+ 
+@@ -928,16 +945,95 @@ plugin_new_decl (cc1_plugin::connection *self,
  	record_decl_address (ctx, value);
      }
  
 -  if (class_member_p)
++  tree fns = NULL_TREE;
++
 +  if (class_member_p && code == FUNCTION_DECL)
-+    grok_special_member_properties (decl);
+     {
+-      if (code == FUNCTION_DECL)
+-	grok_special_member_properties (decl);
+-      if (!(ctor || dtor))
++      if (ctor || dtor)
++	{
++	  maybe_retrofit_in_chrg (decl);
++	  if (ctor)
++	    fns = CLASSTYPE_CONSTRUCTORS (current_class_type);
++	  if (dtor)
++	    fns = CLASSTYPE_DESTRUCTORS (current_class_type);
++	  for (; fns; fns = OVL_NEXT (fns))
++	    {
++	      tree fn = OVL_CURRENT (fns);
++	      if (TREE_TYPE (decl) == TREE_TYPE (fn))
++		{
++		  decl = fn;
++		  break;
++		}
++	    }
++	}
++
++      grok_special_member_properties (decl);
++    }
 +
 +  if (template_decl_p)
 +    {
++      /* Since we only accept template declarations of the unified
++	 ctor, we don't have to special-case ctors here.  */
++      gcc_assert (!ctor || !fns);
++
 +      decl = safe_push_template_decl (decl);
 +      
 +      end_template_decl ();
@@ -167,13 +286,54 @@ index 72f1461..c17745a 100644
 +      safe_pushtag (identifier, TREE_TYPE (decl), ts_current);
 +    }
 +  else if (class_member_p)
-     {
--      if (code == FUNCTION_DECL)
--	grok_special_member_properties (decl);
-       if (!(ctor || dtor))
++    {
++      if (!(ctor || dtor) || !fns)
  	finish_member_declaration (decl);
      }
-@@ -1053,6 +1119,7 @@ build_named_class_type (enum tree_code code,
+   else
+     decl = safe_pushdecl_maybe_friend (decl, false);
+ 
++  if (ctor || dtor)
++    {
++      if (!fns)
++	{
++	  /* ctors and dtors clones are chained after DECL.
++	     However, we create the clones before TYPE_METHODS is
++	     reversed.  We test for cloned methods after reversal,
++	     however, and the test requires the clones to follow
++	     DECL.  So, we reverse the chain of clones now, so
++	     that it will come out in the right order after
++	     reversal.  */
++	  tree save = DECL_CHAIN (decl);
++	  DECL_CHAIN (decl) = NULL_TREE;
++	  clone_function_decl (decl, /*update_method_vec_p=*/1);
++	  gcc_assert (TYPE_METHODS (current_class_type) == decl);
++	  TYPE_METHODS (current_class_type)
++	    = nreverse (TYPE_METHODS (current_class_type));
++	  DECL_CHAIN (decl) = save;
++	}
++
++      /* Reverse the method chain temporarily, so that we can find
++	 the clones after DECL.  The clones are supposed to be
++	 introduced one right after the other, so truncating the
++	 list at DECL for the temporary reversal will yield a very
++	 short list.  */
++      tree save = DECL_CHAIN (decl), abstract_decl = decl;
++      DECL_CHAIN (decl) = NULL_TREE;
++      TYPE_METHODS (current_class_type)
++	= nreverse (TYPE_METHODS (current_class_type));
++      for (decl = DECL_CHAIN (decl); decl; decl = DECL_CHAIN (decl))
++	if (DECL_NAME (decl) == identifier)
++	  break;
++      TYPE_METHODS (current_class_type)
++	= nreverse (TYPE_METHODS (current_class_type));
++      DECL_CHAIN (abstract_decl) = save;
++    }
++
+   rest_of_decl_compilation (decl, toplevel_bindings_p (), 0);
+ 
+   return convert_out (ctx->preserve (decl));
+@@ -1053,6 +1149,7 @@ build_named_class_type (enum tree_code code,
    tree type_decl = build_decl (loc, TYPE_DECL, id, type);
    TYPE_NAME (type) = type_decl;
    TYPE_STUB_DECL (type) = type_decl;
@@ -181,7 +341,17 @@ index 72f1461..c17745a 100644
    safe_pushtag (id, type, ts_current);
  
    return start_class_def (type, base_classes);
-@@ -1218,6 +1285,7 @@ plugin_start_new_enum_type (cc1_plugin::connection *self,
+@@ -1178,9 +1275,6 @@ plugin_finish_record_or_union (cc1_plugin::connection *,
+   gcc_assert (compare_tree_int (TYPE_SIZE_UNIT (record_or_union_type),
+ 				size_in_bytes) == 0);
+ 
+-  // FIXME: end_template_decl if it's a template?  I don't think so,
+-  // we're only defining specializations.  -lxo
+-
+   return 1;
+ }
+ 
+@@ -1218,6 +1312,7 @@ plugin_start_new_enum_type (cc1_plugin::connection *self,
    tree type_decl = build_decl (loc, TYPE_DECL, id, type);
    TYPE_NAME (type) = type_decl;
    TYPE_STUB_DECL (type) = type_decl;
@@ -189,7 +359,7 @@ index 72f1461..c17745a 100644
  
    safe_pushtag (DECL_NAME (type_decl), type, ts_current);
  
-@@ -1420,10 +1488,6 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
+@@ -1420,10 +1515,6 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
    return convert_out (ctx->preserve (memptr_type));
  }
  
@@ -200,7 +370,7 @@ index 72f1461..c17745a 100644
  int
  plugin_start_new_template_decl (cc1_plugin::connection *self ATTRIBUTE_UNUSED)
  {
-@@ -1457,6 +1521,8 @@ plugin_new_template_typename_parm (cc1_plugin::connection *self,
+@@ -1457,6 +1548,8 @@ plugin_new_template_typename_parm (cc1_plugin::connection *self,
    plugin_context *ctx = static_cast<plugin_context *> (self);
    source_location loc = ctx->get_source_location (filename, line_number);
  
@@ -209,7 +379,7 @@ index 72f1461..c17745a 100644
    tree parm = finish_template_type_parm (class_type_node, get_identifier (id));
    parm = build_tree_list (convert_in (default_type), parm);
  
-@@ -1482,9 +1548,13 @@ plugin_new_template_template_parm (cc1_plugin::connection *self,
+@@ -1482,9 +1575,13 @@ plugin_new_template_template_parm (cc1_plugin::connection *self,
    plugin_context *ctx = static_cast<plugin_context *> (self);
    source_location loc = ctx->get_source_location (filename, line_number);
  
@@ -223,7 +393,7 @@ index 72f1461..c17745a 100644
    tree parm = finish_template_template_parm (class_type_node,
  					     get_identifier (id));
    parm = build_tree_list (convert_in (default_templ), parm);
-@@ -1511,6 +1581,8 @@ plugin_new_template_value_parm (cc1_plugin::connection *self,
+@@ -1511,6 +1608,8 @@ plugin_new_template_value_parm (cc1_plugin::connection *self,
    plugin_context *ctx = static_cast<plugin_context *> (self);
    source_location loc = ctx->get_source_location (filename, line_number);
  
@@ -232,3 +402,11 @@ index 72f1461..c17745a 100644
    cp_declarator declarator;
    memset (&declarator, 0, sizeof (declarator));
    // &declarator = make_id_declarator (NULL, get_identifier (id), sfk_none):
+@@ -1885,8 +1984,6 @@ plugin_start_specialize_class_template (cc1_plugin::connection *self,
+   source_location loc = ctx->get_source_location (filename, line_number);
+   tree name = convert_in (template_decl);
+ 
+-  // begin_specialization (); // hopefully we don't really need this
+-
+   tree tdecl = finish_template_type (name, targlist (args), false);;
+   DECL_SOURCE_LOCATION (tdecl) = loc;
