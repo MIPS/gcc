@@ -1,5 +1,5 @@
 Bottom: 2c79b93f0d34235a258c62bb42ee9a34006ddbd0
-Top:    ee1de1c781287d8120f10c1374fabab5ebc32a63
+Top:    4d04f6d05a3492b996abd2f4910e0efbe324f5f6
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-04-09 06:58:06 -0300
 
@@ -129,6 +129,19 @@ index 61ae8a6..0b41788 100644
  /* Declare DECL as a friend of the current class scope.  DECL may be a
     function or a class, be they template generics, template
     specializations or not templates.  */
+diff --git a/include/gcc-cp-interface.h b/include/gcc-cp-interface.h
+index e932a18..3ae4def 100644
+--- a/include/gcc-cp-interface.h
++++ b/include/gcc-cp-interface.h
+@@ -41,7 +41,7 @@ struct gcc_cp_context;
+ 
+ enum gcc_cp_api_version
+ {
+-  GCC_CP_FE_VERSION_0 = 0xffffffff-8
++  GCC_CP_FE_VERSION_0 = 0xffffffff-9
+ };
+ 
+ /* Qualifiers.  */
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
 index 796e34a..beceeb5 100644
 --- a/libcc1/libcp1plugin.cc
