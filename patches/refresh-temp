@@ -1,0 +1,24 @@
+Bottom: 4d04f6d05a3492b996abd2f4910e0efbe324f5f6
+Top:    fa5c3ddb06aead0902a05b27e894b414ef9baa82
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-04-09 09:03:16 -0300
+
+Refresh of revamp-cdtor-api.patch
+
+---
+
+diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
+index beceeb5..de70473c 100644
+--- a/libcc1/libcp1plugin.cc
++++ b/libcc1/libcp1plugin.cc
+@@ -958,7 +958,9 @@ plugin_new_decl (cc1_plugin::connection *self,
+   else
+     decl = safe_pushdecl_maybe_friend (decl, false);
+ 
+-  if (ctor || dtor)
++  if ((ctor || dtor)
++      /* Don't crash after a duplicate declaration of a cdtor.  */
++      && TYPE_METHODS (current_class_type) == decl)
+     {
+       /* ctors and dtors clones are chained after DECL.
+ 	 However, we create the clones before TYPE_METHODS is
