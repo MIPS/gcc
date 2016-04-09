@@ -1,5 +1,5 @@
 Bottom: 2c79b93f0d34235a258c62bb42ee9a34006ddbd0
-Top:    4d04f6d05a3492b996abd2f4910e0efbe324f5f6
+Top:    fa5c3ddb06aead0902a05b27e894b414ef9baa82
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-04-09 06:58:06 -0300
 
@@ -143,7 +143,7 @@ index e932a18..3ae4def 100644
  
  /* Qualifiers.  */
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index 796e34a..beceeb5 100644
+index 796e34a..de70473c 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -494,7 +494,7 @@ plugin_new_decl (cc1_plugin::connection *self,
@@ -294,7 +294,7 @@ index 796e34a..beceeb5 100644
        decl = safe_push_template_decl (decl);
        
        end_template_decl ();
-@@ -986,52 +952,28 @@ plugin_new_decl (cc1_plugin::connection *self,
+@@ -986,52 +952,30 @@ plugin_new_decl (cc1_plugin::connection *self,
        gcc_assert (!template_parm_scope_p ());
      }
    else if (code == RECORD_TYPE)
@@ -311,7 +311,10 @@ index 796e34a..beceeb5 100644
    else
      decl = safe_pushdecl_maybe_friend (decl, false);
  
-   if (ctor || dtor)
+-  if (ctor || dtor)
++  if ((ctor || dtor)
++      /* Don't crash after a duplicate declaration of a cdtor.  */
++      && TYPE_METHODS (current_class_type) == decl)
      {
 -      if (!fns)
 -	{
@@ -360,7 +363,7 @@ index 796e34a..beceeb5 100644
      }
  
    rest_of_decl_compilation (decl, toplevel_bindings_p (), 0);
-@@ -1039,6 +981,73 @@ plugin_new_decl (cc1_plugin::connection *self,
+@@ -1039,6 +983,73 @@ plugin_new_decl (cc1_plugin::connection *self,
    return convert_out (ctx->preserve (decl));
  }
  
