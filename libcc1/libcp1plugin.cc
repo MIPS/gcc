@@ -494,7 +494,7 @@ plugin_new_decl (cc1_plugin::connection *self,
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   gcc_assert (!strchr (name, ':')); // FIXME: this can go eventually.
-  tree identifier = get_identifier (name);
+
   enum tree_code code;
   tree decl;
   tree sym_type = convert_in (sym_type_in);
@@ -559,6 +559,11 @@ plugin_new_decl (cc1_plugin::connection *self,
 
   gcc_assert (!(acc_flags & GCC_CP_ACCESS_MASK) == !class_member_p);
 
+  tree identifier;
+  if (code != FUNCTION_DECL
+      || !(sym_flags & GCC_CP_FLAG_SPECIAL_FUNCTION))
+    identifier = get_identifier (name);
+
   if (code == FUNCTION_DECL)
     {
       if (sym_flags & GCC_CP_FLAG_SPECIAL_FUNCTION)
@@ -566,45 +571,26 @@ plugin_new_decl (cc1_plugin::connection *self,
 #define CHARS2(f,s) (((unsigned char)f << CHAR_BIT) | (unsigned char)s)
 	  switch (CHARS2 (name[0], name[1]))
 	    {
-	    case CHARS2 ('C', '1'): // in-charge constructor
-	      identifier = complete_ctor_identifier;
-	      ctor = true;
-	      gcc_assert (!template_decl_p);
-	      break;
-	    case CHARS2 ('C', '2'): // not-in-charge constructor
-	      identifier = base_ctor_identifier;
-	      ctor = true;
-	      gcc_assert (!template_decl_p);
-	      break;
+	    case CHARS2 ('C', 0x0): // ctor base declaration
+	    case CHARS2 ('C', ' '):
+	    case CHARS2 ('C', '1'):
+	    case CHARS2 ('C', '2'):
 	    case CHARS2 ('C', '4'):
-	      identifier = ctor_identifier; // unified constructor
 	      ctor = true;
-	      /* This one can be a template, but we have no means for
-		 GDB to actively inform us the addresses of clones of
-		 a specialization.  That's kind of all right: we can
-		 get the addresses through the address oracle should
-		 we need them.  */
+	    cdtor:
+	      gcc_assert (!address);
+	      gcc_assert (!substitution_name);
+	      identifier = DECL_NAME (TYPE_NAME (current_class_type));
 	      break;
-	    case CHARS2 ('D', '0'): // deleting destructor
-	      identifier = deleting_dtor_identifier;
-	      dtor = true;
-	      gcc_assert (!template_decl_p);
-	      break;
-	    case CHARS2 ('D', '1'): // in-charge destructor
-	      identifier = complete_dtor_identifier;
-	      dtor = true;
-	      gcc_assert (!template_decl_p);
-	      break;
-	    case CHARS2 ('D', '2'): // not-in-charge destructor
-	      identifier = base_dtor_identifier;
-	      dtor = true;
-	      gcc_assert (!template_decl_p);
-	      break;
+	    case CHARS2 ('D', 0x0): // dtor base declaration
+	    case CHARS2 ('D', ' '):
+	    case CHARS2 ('D', '0'):
+	    case CHARS2 ('D', '1'):
+	    case CHARS2 ('D', '2'):
 	    case CHARS2 ('D', '4'):
-	      identifier = dtor_identifier; // unified destructor
-	      dtor = true;
 	      gcc_assert (!template_decl_p);
-	      break;
+	      dtor = true;
+	      goto cdtor;
 	    case CHARS2 ('n', 'w'): // operator new
 	      opcode = NEW_EXPR;
 	      break;
@@ -793,11 +779,12 @@ plugin_new_decl (cc1_plugin::connection *self,
 		identifier = ansi_opname (opcode);
 	    }
 	}
-      decl = build_lang_decl_loc (loc, code,
-				  (ctor || dtor)
-				  ? DECL_NAME (TYPE_NAME (current_class_type))
-				  : identifier, sym_type);
-      SET_DECL_LANGUAGE (decl, lang_cplusplus); // FIXME: current_lang_name is lang_name_c while compiling an extern "C" function, and we haven't switched to a global context at this point, and this breaks function overloading.
+      decl = build_lang_decl_loc (loc, code, identifier, sym_type);
+      /* FIXME: current_lang_name is lang_name_c while compiling an
+	 extern "C" function, and we haven't switched to a global
+	 context at this point, and this breaks function
+	 overloading.  */
+      SET_DECL_LANGUAGE (decl, lang_cplusplus);
       if (TREE_CODE (sym_type) == METHOD_TYPE)
 	DECL_ARGUMENTS (decl) = build_this_parm (current_class_type,
 						 cp_type_quals (sym_type));
@@ -921,7 +908,7 @@ plugin_new_decl (cc1_plugin::connection *self,
 
   if (sym_kind != GCC_CP_SYMBOL_TYPEDEF
       && sym_kind != GCC_CP_SYMBOL_CLASS
-      && !template_decl_p)
+      && !template_decl_p && !ctor && !dtor)
     {
       decl_addr_value value;
 
@@ -945,37 +932,16 @@ plugin_new_decl (cc1_plugin::connection *self,
 	record_decl_address (ctx, value);
     }
 
-  tree fns = NULL_TREE;
-
   if (class_member_p && code == FUNCTION_DECL)
     {
       if (ctor || dtor)
-	{
-	  maybe_retrofit_in_chrg (decl);
-	  if (ctor)
-	    fns = CLASSTYPE_CONSTRUCTORS (current_class_type);
-	  if (dtor)
-	    fns = CLASSTYPE_DESTRUCTORS (current_class_type);
-	  for (; fns; fns = OVL_NEXT (fns))
-	    {
-	      tree fn = OVL_CURRENT (fns);
-	      if (TREE_TYPE (decl) == TREE_TYPE (fn))
-		{
-		  decl = fn;
-		  break;
-		}
-	    }
-	}
+	maybe_retrofit_in_chrg (decl);
 
       grok_special_member_properties (decl);
     }
 
   if (template_decl_p)
     {
-      /* Since we only accept template declarations of the unified
-	 ctor, we don't have to special-case ctors here.  */
-      gcc_assert (!ctor || !fns);
-
       decl = safe_push_template_decl (decl);
       
       end_template_decl ();
@@ -986,57 +952,102 @@ plugin_new_decl (cc1_plugin::connection *self,
       gcc_assert (!template_parm_scope_p ());
     }
   else if (code == RECORD_TYPE)
-    {
-      safe_pushtag (identifier, TREE_TYPE (decl), ts_current);
-    }
+    safe_pushtag (identifier, TREE_TYPE (decl), ts_current);
   else if (class_member_p)
-    {
-      if (!(ctor || dtor) || !fns)
-	finish_member_declaration (decl);
-    }
+    finish_member_declaration (decl);
   else
     decl = safe_pushdecl_maybe_friend (decl, false);
 
-  if (ctor || dtor)
+  if ((ctor || dtor)
+      /* Don't crash after a duplicate declaration of a cdtor.  */
+      && TYPE_METHODS (current_class_type) == decl)
     {
-      if (!fns)
-	{
-	  /* ctors and dtors clones are chained after DECL.
-	     However, we create the clones before TYPE_METHODS is
-	     reversed.  We test for cloned methods after reversal,
-	     however, and the test requires the clones to follow
-	     DECL.  So, we reverse the chain of clones now, so
-	     that it will come out in the right order after
-	     reversal.  */
-	  tree save = DECL_CHAIN (decl);
-	  DECL_CHAIN (decl) = NULL_TREE;
-	  clone_function_decl (decl, /*update_method_vec_p=*/1);
-	  gcc_assert (TYPE_METHODS (current_class_type) == decl);
-	  TYPE_METHODS (current_class_type)
-	    = nreverse (TYPE_METHODS (current_class_type));
-	  DECL_CHAIN (decl) = save;
-	}
-
-      /* Reverse the method chain temporarily, so that we can find
-	 the clones after DECL.  The clones are supposed to be
-	 introduced one right after the other, so truncating the
-	 list at DECL for the temporary reversal will yield a very
-	 short list.  */
-      tree save = DECL_CHAIN (decl), abstract_decl = decl;
+      /* ctors and dtors clones are chained after DECL.
+	 However, we create the clones before TYPE_METHODS is
+	 reversed.  We test for cloned methods after reversal,
+	 however, and the test requires the clones to follow
+	 DECL.  So, we reverse the chain of clones now, so
+	 that it will come out in the right order after
+	 reversal.  */
+      tree save = DECL_CHAIN (decl);
       DECL_CHAIN (decl) = NULL_TREE;
+      clone_function_decl (decl, /*update_method_vec_p=*/1);
+      gcc_assert (TYPE_METHODS (current_class_type) == decl);
       TYPE_METHODS (current_class_type)
 	= nreverse (TYPE_METHODS (current_class_type));
-      for (decl = DECL_CHAIN (decl); decl; decl = DECL_CHAIN (decl))
-	if (DECL_NAME (decl) == identifier)
-	  break;
-      TYPE_METHODS (current_class_type)
-	= nreverse (TYPE_METHODS (current_class_type));
-      DECL_CHAIN (abstract_decl) = save;
+      DECL_CHAIN (decl) = save;
     }
 
   rest_of_decl_compilation (decl, toplevel_bindings_p (), 0);
 
   return convert_out (ctx->preserve (decl));
+}
+
+gcc_decl
+plugin_define_cdtor_clone (cc1_plugin::connection *self,
+			   const char *name,
+			   gcc_decl cdtor_in,
+			   gcc_address address)
+{
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree decl = convert_in (cdtor_in);
+  bool ctor = false;
+  bool dtor = false;
+  tree identifier;
+
+  switch (CHARS2 (name[0], name[1]))
+    {
+    case CHARS2 ('C', '1'): // in-charge constructor
+      identifier = complete_ctor_identifier;
+      ctor = true;
+      break;
+    case CHARS2 ('C', '2'): // not-in-charge constructor
+      identifier = base_ctor_identifier;
+      ctor = true;
+      break;
+    case CHARS2 ('C', '4'):
+      identifier = ctor_identifier; // unified constructor
+      ctor = true;
+      break;
+    case CHARS2 ('D', '0'): // deleting destructor
+      identifier = deleting_dtor_identifier;
+      dtor = true;
+      break;
+    case CHARS2 ('D', '1'): // in-charge destructor
+      identifier = complete_dtor_identifier;
+      dtor = true;
+      break;
+    case CHARS2 ('D', '2'): // not-in-charge destructor
+      identifier = base_dtor_identifier;
+      dtor = true;
+      break;
+    case CHARS2 ('D', '4'):
+      identifier = dtor_identifier; // unified destructor
+      dtor = true;
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  gcc_assert (!ctor != !dtor);
+  gcc_assert (ctor
+	      ? (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (decl)
+		 && DECL_NAME (decl) == ctor_identifier)
+	      : (DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (decl)
+		 && DECL_NAME (decl) == dtor_identifier));
+
+  while (decl && DECL_NAME (decl) != identifier)
+    {
+      decl = DECL_CHAIN (decl);
+      if (decl && !DECL_CLONED_FUNCTION_P (decl))
+	decl = NULL_TREE;
+    }
+  gcc_assert (decl);
+
+  record_decl_address (ctx, build_decl_addr_value (decl, address));
+
+  return convert_out (decl);
 }
 
 int
