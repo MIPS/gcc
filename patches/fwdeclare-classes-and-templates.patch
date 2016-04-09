@@ -1,0 +1,10 @@
+Bottom: cc52d6287b1e2efe66e277cce3c230d62cd87bae
+Top:    cc52d6287b1e2efe66e277cce3c230d62cd87bae
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-04-09 02:25:47 -0300
+
+implement forward declaration of classes, template classes, template functions
+
+---
+
+

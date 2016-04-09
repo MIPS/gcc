@@ -1,6 +1,6 @@
 Version: 1
-Previous: 5eb666fec1e5a58df40e48cef9f2d2a7541b75f7
-Head: c404aec4daa64f4ca344c84e900188cb1893a50d
+Previous: 1a61a10d22e0f041d6ed6bc53bc8c20eee0444b0
+Head: 1b5d6a0a6b295786b81a1946d798a215a37cb3a6
 Applied:
   debug-aliases-and-trampolines.patch: a63d78e18413a855742c1d76467b90f455e3ed0e
   debug-aliases-and-trampolines-inc.patch: cd52961beeb022adabf58deabfda7aaa50d5dcd9
@@ -14,6 +14,7 @@ Applied:
   assorted-features.patch: 048df77b54621482dd897757014c3318da0370db
   global-friend.patch: 16235e67403220144758a2fa7a05fd39e5232c1a
   access-control.patch: c404aec4daa64f4ca344c84e900188cb1893a50d
+  fwdeclare-classes-and-templates.patch: 1b5d6a0a6b295786b81a1946d798a215a37cb3a6
 Unapplied:
   special-memfuncs-testing.patch: 5dadb8e81f23ef0a3a559dc1776fa25b2cc8c5db
 Hidden:
