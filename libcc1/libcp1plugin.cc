@@ -958,7 +958,9 @@ plugin_new_decl (cc1_plugin::connection *self,
   else
     decl = safe_pushdecl_maybe_friend (decl, false);
 
-  if (ctor || dtor)
+  if ((ctor || dtor)
+      /* Don't crash after a duplicate declaration of a cdtor.  */
+      && TYPE_METHODS (current_class_type) == decl)
     {
       /* ctors and dtors clones are chained after DECL.
 	 However, we create the clones before TYPE_METHODS is
