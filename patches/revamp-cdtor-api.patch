@@ -1,0 +1,10 @@
+Bottom: 2c79b93f0d34235a258c62bb42ee9a34006ddbd0
+Top:    2c79b93f0d34235a258c62bb42ee9a34006ddbd0
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-04-09 06:58:06 -0300
+
+revamp cdtor api
+
+---
+
+
