@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-dom5" } */
+/* { dg-options "-O1 -fdump-tree-dom2" } */
  
 extern void abort (void);
 extern void blah (void);
@@ -42,14 +42,14 @@ record_component_aliases (type)
 }
 
 /* The call to blah can not be eliminated.  */
-/* { dg-final { scan-tree-dump-times "blah \\(\\)" 1 "dom5" } } */
+/* { dg-final { scan-tree-dump-times "blah \\(\\)" 1 "dom2" } } */
    
 /* There should be four IF conditionals.  */
-/* { dg-final { scan-tree-dump-times "if " 4 "dom5"} } */
+/* { dg-final { scan-tree-dump-times "if " 4 "dom2"} } */
                                                                                 
 /* There should be two loads of type.binfo.  */
-/* { dg-final { scan-tree-dump-times "type\\.binfo" 2 "dom5"} } */
+/* { dg-final { scan-tree-dump-times "type\\.binfo" 2 "dom2"} } */
  
 /* There should be four loads of vec.length.  */
-/* { dg-final { scan-tree-dump-times "vec.length" 4 "dom5"} } */
+/* { dg-final { scan-tree-dump-times "vec.length" 4 "dom2"} } */
 

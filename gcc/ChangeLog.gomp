@@ -1,3 +1,9 @@
+2016-04-11  Tom de Vries  <tom@codesourcery.com>
+
+	* passes.def: Remove superfluous passes from kernels pass list.
+	* tree-ssa-loop.c (pass_scev_cprop::clone, pass_tree_loop_init::clone)
+	(pass_tree_loop_done::clone): Remove function.
+
 2016-04-08  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* gimple.def: Remove GIMPLE_OMP_ENTRY_END.  Remove all uses.

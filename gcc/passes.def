@@ -118,19 +118,11 @@ along with GCC; see the file COPYING3.  If not see
       PUSH_INSERT_PASSES_WITHIN (pass_ipa_oacc_kernels)
 	  NEXT_PASS (pass_oacc_kernels);
 	  PUSH_INSERT_PASSES_WITHIN (pass_oacc_kernels)
-	      NEXT_PASS (pass_dominator, false /* may_peel_loop_headers_p */);
 	      NEXT_PASS (pass_ch);
-	      NEXT_PASS (pass_dominator, false /* may_peel_loop_headers_p */);
 	      NEXT_PASS (pass_fre);
 	      /* We use pass_lim to rewrite in-memory iteration and reduction
 		 variable accesses in loops into local variables accesses.  */
-	      NEXT_PASS (pass_tree_loop_init);
 	      NEXT_PASS (pass_lim);
-	      NEXT_PASS (pass_copy_prop);
-	      NEXT_PASS (pass_lim);
-	      NEXT_PASS (pass_copy_prop);
-	      NEXT_PASS (pass_scev_cprop);
-	      NEXT_PASS (pass_tree_loop_done);
 	      NEXT_PASS (pass_dominator, false /* may_peel_loop_headers_p */);
 	      NEXT_PASS (pass_dce);
 	      NEXT_PASS (pass_parallelize_loops, true /* oacc_kernels_p */);

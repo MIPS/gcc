@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-dom5" } */
+/* { dg-options "-O1 -fdump-tree-dom2" } */
   
 extern void abort (void);
 extern int blah[];
@@ -15,8 +15,8 @@ foo(int index)
 
 /* There should be precisely one load of blah.  If there is
    more than one, then the dominator optimizations failed.  */
-/* { dg-final { scan-tree-dump-times "blah" 1 "dom5"} } */
+/* { dg-final { scan-tree-dump-times "blah" 1 "dom2"} } */
  
 /* There should be exactly one IF conditional.  */
-/* { dg-final { scan-tree-dump-times "if " 1 "dom5"} } */
+/* { dg-final { scan-tree-dump-times "if " 1 "dom2"} } */
 

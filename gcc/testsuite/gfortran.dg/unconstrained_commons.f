@@ -1,5 +1,5 @@
 ! { dg-do compile }
-! { dg-options "-O3 -funconstrained-commons -fdump-tree-dom4-details" }
+! { dg-options "-O3 -funconstrained-commons -fdump-tree-dom2-details" }
 
 ! Test for PR69368: a single-element array in a common block, which will be
 ! overridden with a larger size at link time (contrary to language spec).
@@ -14,7 +14,7 @@
   10  CONTINUE
       RETURN
       END
-! { dg-final { scan-tree-dump-not "FIND" "dom4" } }
+! { dg-final { scan-tree-dump-not "FIND" "dom2" } }
 ! We should retain both a read and write of mycommon.x.
-! { dg-final { scan-tree-dump-times "  _\[0-9\]+ = mycommon\\.x\\\[_\[0-9\]+\\\];" 1 "dom4" } }
-! { dg-final { scan-tree-dump-times "  mycommon\\.x\\\[j?_\[0-9\]+\\\] = _\[0-9\]+;" 1 "dom4" } }
+! { dg-final { scan-tree-dump-times "  _\[0-9\]+ = mycommon\\.x\\\[_\[0-9\]+\\\];" 1 "dom2" } }
+! { dg-final { scan-tree-dump-times "  mycommon\\.x\\\[j?_\[0-9\]+\\\] = _\[0-9\]+;" 1 "dom2" } }

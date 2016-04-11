@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-dom5 -std=gnu89" } */
+/* { dg-options "-O1 -fdump-tree-dom2 -std=gnu89" } */
   
 extern void abort (void);
 
@@ -63,4 +63,4 @@ store_expr (exp, target, want_value)
    (B) only looks at immediate dominators, and only queued_subexp_p
    immediately dominates the comparison in question.  We need something
    stronger.  */
-/* { dg-final { scan-tree-dump-times "target.*!= 0" 0 "dom5" { xfail *-*-* } } } */
+/* { dg-final { scan-tree-dump-times "target.*!= 0" 0 "dom2" { xfail *-*-* } } } */

@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-dom5" } */
+/* { dg-options "-O1 -fdump-tree-dom2" } */
    
 
 union tree_node;
@@ -34,5 +34,5 @@ get_alias_set (t)
 
 /* There should be exactly three IF conditionals if we thread jumps
    properly.  */
-/* { dg-final { scan-tree-dump-times "if " 3 "dom5"} } */
+/* { dg-final { scan-tree-dump-times "if " 3 "dom2"} } */
  

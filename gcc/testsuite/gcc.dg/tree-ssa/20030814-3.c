@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-dom5" } */
+/* { dg-options "-O1 -fdump-tree-dom2" } */
     
 extern void abort (void);
 extern void blah (void);
@@ -19,5 +19,5 @@ foo (int value)
 }
 
 /* There should be one IF conditional.  */
-/* { dg-final { scan-tree-dump-times "if " 1 "dom5"} } */
+/* { dg-final { scan-tree-dump-times "if " 1 "dom2"} } */
  

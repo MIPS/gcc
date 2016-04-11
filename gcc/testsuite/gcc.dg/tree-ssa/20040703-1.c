@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fdump-tree-dom5" } */
+/* { dg-options "-O2 -fdump-tree-dom2" } */
 
 float foo(float x)
 {
@@ -9,4 +9,4 @@ float foo(float x)
 }
 
 /* We should *not* fold the arithmetic.  */
-/* { dg-final { scan-tree-dump-times "0\\.0" 0 "dom5"} } */
+/* { dg-final { scan-tree-dump-times "0\\.0" 0 "dom2"} } */

@@ -343,7 +343,6 @@ public:
 
   /* opt_pass methods: */
   virtual unsigned int execute (function *);
-  opt_pass * clone () { return new pass_tree_loop_init (m_ctxt); }
 
 }; // class pass_tree_loop_init
 
@@ -451,7 +450,6 @@ public:
   /* opt_pass methods: */
   virtual bool gate (function *) { return flag_tree_scev_cprop; }
   virtual unsigned int execute (function *) { return scev_const_prop (); }
-  opt_pass * clone () { return new pass_scev_cprop (m_ctxt); }
 
 }; // class pass_scev_cprop
 
@@ -594,7 +592,6 @@ public:
 
   /* opt_pass methods: */
   virtual unsigned int execute (function *) { return tree_ssa_loop_done (); }
-  opt_pass * clone () { return new pass_tree_loop_done (m_ctxt); }
 
 }; // class pass_tree_loop_done
 

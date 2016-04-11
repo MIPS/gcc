@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fdump-tree-dom5" } */
+/* { dg-options "-O2 -fdump-tree-dom2" } */
   
 
 struct rtx_def;
@@ -50,20 +50,20 @@ get_alias_set (t,z)
 }
 
 /* The calls to make_decl_rtl should be eliminated
-/* { dg-final { scan-tree-dump-not "make_decl_rtl \\(\\)" "dom5" } } */
+/* { dg-final { scan-tree-dump-not "make_decl_rtl \\(\\)" "dom2" } } */
     
 /* There should be three IF conditionals.  */
-/* { dg-final { scan-tree-dump-times "if " 3 "dom5"} } */
+/* { dg-final { scan-tree-dump-times "if " 3 "dom2"} } */
                                                                                 
 /* There should be one loads of decl.rtl.  */
-/* { dg-final { scan-tree-dump-times "decl\\.rtl" 1 "dom5"} } */
+/* { dg-final { scan-tree-dump-times "decl\\.rtl" 1 "dom2"} } */
   
 /* There should be one load of code.  */
-/* { dg-final { scan-tree-dump-times "code" 1 "dom5"} } */
+/* { dg-final { scan-tree-dump-times "code" 1 "dom2"} } */
 
 /* There should be one load of rtmem.  */
-/* { dg-final { scan-tree-dump-times "rtmem" 1 "dom5"} } */
+/* { dg-final { scan-tree-dump-times "rtmem" 1 "dom2"} } */
 
 /* There should be one load of alias.  */
-/* { dg-final { scan-tree-dump-times "->alias" 1 "dom5"} } */
+/* { dg-final { scan-tree-dump-times "->alias" 1 "dom2"} } */
 

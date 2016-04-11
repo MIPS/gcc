@@ -1,8 +1,8 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-dom4-details-blocks" } */
+/* { dg-options "-O1 -fdump-tree-dom2-details-blocks" } */
 /* We want to verify no outgoing edge from a conditional
    has a probability of 100%.  */
-/* { dg-final { scan-tree-dump-not "succ:\[ \]+. .100.0%.  .\(TRUE|FALSE\)_VALUE" "dom4"} } */
+/* { dg-final { scan-tree-dump-not "succ:\[ \]+. .100.0%.  .\(TRUE|FALSE\)_VALUE" "dom2"} } */
 
 
 void (*zend_block_interruptions) (void);

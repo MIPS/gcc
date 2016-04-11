@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-dom5" } */
+/* { dg-options "-O1 -fdump-tree-dom2" } */
 
 void oof (const char *);
 void foo (void);
@@ -19,4 +19,4 @@ ooof ()
 }
 
 /* There should be no IF conditionals.  */
-/* { dg-final { scan-tree-dump-times "if " 0 "dom5"} } */
+/* { dg-final { scan-tree-dump-times "if " 0 "dom2"} } */

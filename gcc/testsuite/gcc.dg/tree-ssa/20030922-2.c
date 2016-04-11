@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-dom4 -fdisable-tree-ifcombine" } */
+/* { dg-options "-O1 -fdump-tree-dom2 -fdisable-tree-ifcombine" } */
 
 struct rtx_def;
 typedef struct rtx_def *rtx;
@@ -20,4 +20,4 @@ rgn_rank (rtx insn1, rtx insn2)
 }
 
 /* There should be two IF conditionals.  */
-/* { dg-final { scan-tree-dump-times "if " 2 "dom4" } } */
+/* { dg-final { scan-tree-dump-times "if " 2 "dom2" } } */

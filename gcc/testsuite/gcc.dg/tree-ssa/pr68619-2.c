@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fdump-tree-dom4-details -w" } */
+/* { dg-options "-O2 -fdump-tree-dom2-details -w" } */
 
 typedef union tree_node *tree;
 struct gcc_options
@@ -88,5 +88,5 @@ omp_reduction_init (tree clause, tree type)
     }
 }
 
-/* { dg-final { scan-tree-dump "Marking all outgoing edges of unreachable" "dom4"} } */
+/* { dg-final { scan-tree-dump "Marking all outgoing edges of unreachable" "dom2"} } */
 

@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-dom5" } */
+/* { dg-options "-O1 -fdump-tree-dom2" } */
 
 extern void abort (void);
 union tree_node;
@@ -41,4 +41,4 @@ foo (t, set)
    more than one, then the dominator optimizations failed.  */
 /* ??? Will fail until we properly distinguish member stores.  At
    present the write to type.alias_set kills the previous load.  */
-/* { dg-final { scan-tree-dump-times "common.code" 1 "dom5" { xfail *-*-* } } } */
+/* { dg-final { scan-tree-dump-times "common.code" 1 "dom2" { xfail *-*-* } } } */

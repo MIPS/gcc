@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -ftree-vrp -fdump-tree-dom5" } */
+/* { dg-options "-O1 -ftree-vrp -fdump-tree-dom2" } */
 /* { dg-require-effective-target alloca } */
      
 extern void abort (void);
@@ -29,4 +29,4 @@ foo(int n)
 
                                                                                
 /* There should be no IF conditionals.  */
-/* { dg-final { scan-tree-dump-times "if " 0 "dom5" } } */
+/* { dg-final { scan-tree-dump-times "if " 0 "dom2" } } */

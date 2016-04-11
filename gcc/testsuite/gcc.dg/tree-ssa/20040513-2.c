@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-dom5" } */
+/* { dg-options "-O1 -fdump-tree-dom2" } */
 int link_error(void);
 int s(void);
 
@@ -21,4 +21,4 @@ int t(int i)
 
 /* There should be no link_error calls, if there is any, the
    optimization has failed */
-/* { dg-final { scan-tree-dump-times "link_error" 0 "dom5"} } */
+/* { dg-final { scan-tree-dump-times "link_error" 0 "dom2"} } */

@@ -1,16 +1,16 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fdump-tree-dom5-details -w" } */
+/* { dg-options "-O2 -fdump-tree-dom3-details -w" } */
 
 /* There should be a reference to usecount that turn into
    constants.  */
-/* { dg-final { scan-tree-dump-times "Replaced .usecount_\[0-9\]+. with constant .1." 1 "dom5"} } */
+/* { dg-final { scan-tree-dump-times "Replaced .usecount_\[0-9\]+. with constant .1." 1 "dom3"} } */
 
 /* And an assignment using usecount ought to fold down to constants.  */
-/* { dg-final { scan-tree-dump-times "Folded to: usecount_\[0-9\]+ = 2;" 1 "dom5"} } */
+/* { dg-final { scan-tree-dump-times "Folded to: usecount_\[0-9\]+ = 2;" 1 "dom3"} } */
 
 /* The arithmetic using usecount should be gone, except for the one in the
    details debugging.  */
-/* { dg-final { scan-tree-dump-times "usecount_\[0-9\]+ = usecount_\[0-9\]+ . 1;" 1 "dom5"} } */
+/* { dg-final { scan-tree-dump-times "usecount_\[0-9\]+ = usecount_\[0-9\]+ . 1;" 1 "dom3"} } */
 
 typedef union tree_node *tree;
 typedef union gimple_statement_d *gimple;

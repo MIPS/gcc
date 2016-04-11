@@ -2,7 +2,7 @@
    with casts thrown in when -fwrapv is used.  */
 
 /* { dg-do compile { target { long_neq_int } } } */
-/* { dg-options "-O3 -fdump-tree-dom5 -fwrapv" } */
+/* { dg-options "-O3 -fdump-tree-dom2 -fwrapv" } */
 
 long
 f (int s, long c)
@@ -20,4 +20,4 @@ f (int s, long c)
   return x;
 }
 
-/* { dg-final { scan-tree-dump-times " \\* " 3 "dom5" } } */
+/* { dg-final { scan-tree-dump-times " \\* " 3 "dom2" } } */

@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-dom5" } */
+/* { dg-options "-O1 -fdump-tree-dom2" } */
                                                                                 
 typedef unsigned int cppchar_t;
 void foo (void);
@@ -25,4 +25,4 @@ cpp_parse_escape (pstr, limit, wide)
 
 /* There should be precisely three IF statements.  If there is
    more than two, then the dominator optimizations failed.  */
-/* { dg-final { scan-tree-dump-times "if " 3 "dom5"} } */
+/* { dg-final { scan-tree-dump-times "if " 3 "dom2"} } */

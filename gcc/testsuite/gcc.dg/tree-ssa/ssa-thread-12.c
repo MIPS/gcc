@@ -1,6 +1,6 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fdump-tree-dom4-details" } */
-/* { dg-final { scan-tree-dump "FSM" "dom4" } } */
+/* { dg-options "-O2 -fdump-tree-dom2-details" } */
+/* { dg-final { scan-tree-dump "FSM" "dom2" } } */
 
 typedef struct bitmap_head_def *bitmap;
 typedef const struct bitmap_head_def *const_bitmap;

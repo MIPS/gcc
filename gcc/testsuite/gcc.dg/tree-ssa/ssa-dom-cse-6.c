@@ -1,6 +1,6 @@
 /* Test normalization of ARRAY_REF expressions to MEM_REFs in dom.  */
 /* { dg-do compile } */
-/* { dg-options "-O1 -fno-tree-fre -fdump-tree-dom4" } */
+/* { dg-options "-O1 -fno-tree-fre -fdump-tree-dom2" } */
 
 int
 main (int argc, char **argv)
@@ -17,4 +17,4 @@ main (int argc, char **argv)
   return u.b[1];
 }
 
-/* { dg-final { scan-tree-dump-times "return 42;" 1 "dom4" } } */
+/* { dg-final { scan-tree-dump-times "return 42;" 1 "dom2" } } */

@@ -1,8 +1,8 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fdump-tree-vrp1-stats -fdump-tree-dom4-stats -fdump-tree-dom5-stats -fdump-tree-vrp2-stats" } */
+/* { dg-options "-O2 -fdump-tree-vrp1-stats -fdump-tree-dom2-stats -fdump-tree-dom3-stats -fdump-tree-vrp2-stats" } */
 /* { dg-final { scan-tree-dump "Jumps threaded: 19"  "vrp1" } } */
-/* { dg-final { scan-tree-dump "Jumps threaded: 12" "dom4" } } */
-/* { dg-final { scan-tree-dump-not "Jumps threaded"  "dom5" } } */
+/* { dg-final { scan-tree-dump "Jumps threaded: 12" "dom2" } } */
+/* { dg-final { scan-tree-dump-not "Jumps threaded"  "dom3" } } */
 /* { dg-final { scan-tree-dump-not "Jumps threaded"  "vrp2" } } */
 
 enum STATE {
