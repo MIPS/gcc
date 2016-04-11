@@ -1882,7 +1882,7 @@ rs6000_hard_regno_nregs_internal (int regno, machine_mode mode)
      128-bit floating point that can go in vector registers, which has VSX
      memory addressing.  */
   if (FP_REGNO_P (regno))
-    reg_size = (VECTOR_MEM_VSX_P (mode)
+    reg_size = (VECTOR_MEM_VSX_P (mode) || FLOAT128_VECTOR_P (mode)
 		? UNITS_PER_VSX_WORD
 		: UNITS_PER_FP_WORD);
 
@@ -1913,6 +1913,9 @@ static int
 rs6000_hard_regno_mode_ok (int regno, machine_mode mode)
 {
   int last_regno = regno + rs6000_hard_regno_nregs[mode][regno] - 1;
+
+  if (COMPLEX_MODE_P (mode))
+    mode = GET_MODE_INNER (mode);
 
   /* PTImode can only go in GPRs.  Quad word memory operations require even/odd
      register combinations, and use PTImode where we need to deal with quad
@@ -2719,7 +2722,16 @@ rs6000_setup_reg_addr_masks (void)
   for (m = 0; m < NUM_MACHINE_MODES; ++m)
     {
       machine_mode m2 = (machine_mode)m;
-      unsigned short msize = GET_MODE_SIZE (m2);
+      bool complex_p = false;
+      size_t msize;
+
+      if (COMPLEX_MODE_P (m2))
+	{
+	  complex_p = true;
+	  m2 = GET_MODE_INNER (m2);
+	}
+
+      msize = GET_MODE_SIZE (m2);
 
       /* SDmode is special in that we want to access it only via REG+REG
 	 addressing on power7 and above, since we want to use the LFIWZX and
@@ -2741,7 +2753,7 @@ rs6000_setup_reg_addr_masks (void)
 	      /* Indicate if the mode takes more than 1 physical register.  If
 		 it takes a single register, indicate it can do REG+REG
 		 addressing.  */
-	      if (nregs > 1 || m == BLKmode)
+	      if (nregs > 1 || m == BLKmode || complex_p)
 		addr_mask |= RELOAD_REG_MULTIPLE;
 	      else
 		addr_mask |= RELOAD_REG_INDEXED;
@@ -2757,7 +2769,7 @@ rs6000_setup_reg_addr_masks (void)
 		  && msize <= 8
 		  && !VECTOR_MODE_P (m2)
 		  && !FLOAT128_VECTOR_P (m2)
-		  && !COMPLEX_MODE_P (m2)
+		  && !complex_p
 		  && (m2 != DFmode || !TARGET_UPPER_REGS_DF)
 		  && (m2 != SFmode || !TARGET_UPPER_REGS_SF)
 		  && !(TARGET_E500_DOUBLE && msize == 8))
@@ -34576,8 +34588,14 @@ rs6000_complex_function_value (machine_mode mode)
   machine_mode inner = GET_MODE_INNER (mode);
   unsigned int inner_bytes = GET_MODE_UNIT_SIZE (mode);
 
-  if (FLOAT_MODE_P (mode) && TARGET_HARD_FLOAT && TARGET_FPRS)
+  if (TARGET_FLOAT128
+      && ((mode == KCmode)
+	  || (mode == TCmode && TARGET_IEEEQUAD)))
+    regno = ALTIVEC_ARG_RETURN;
+
+  else if (FLOAT_MODE_P (mode) && TARGET_HARD_FLOAT && TARGET_FPRS)
     regno = FP_ARG_RETURN;
+
   else
     {
       regno = GP_ARG_RETURN;
@@ -35108,8 +35126,8 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "dlmzb",			OPTION_MASK_DLMZB,		false, true  },
   { "efficient-unaligned-vsx",	OPTION_MASK_EFFICIENT_UNALIGNED_VSX,
 								false, true  },
-  { "float128",			OPTION_MASK_FLOAT128,		false, true  },
-  { "float128-hardware",	OPTION_MASK_FLOAT128_HW,	false, true  },
+  { "float128",			OPTION_MASK_FLOAT128,		false, false },
+  { "float128-hardware",	OPTION_MASK_FLOAT128_HW,	false, false },
   { "fprnd",			OPTION_MASK_FPRND,		false, true  },
   { "hard-dfp",			OPTION_MASK_DFP,		false, true  },
   { "htm",			OPTION_MASK_HTM,		false, true  },

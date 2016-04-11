@@ -1604,6 +1604,15 @@ check_abi_tags (tree t, tree subob)
 void
 check_abi_tags (tree decl)
 {
+  tree t;
+  if (abi_version_at_least (10)
+      && DECL_LANG_SPECIFIC (decl)
+      && DECL_USE_TEMPLATE (decl)
+      && (t = DECL_TEMPLATE_RESULT (DECL_TI_TEMPLATE (decl)),
+	  t != decl))
+    /* Make sure that our template has the appropriate tags, since
+       write_unqualified_name looks for them there.  */
+    check_abi_tags (t);
   if (VAR_P (decl))
     check_abi_tags (decl, TREE_TYPE (decl));
   else if (TREE_CODE (decl) == FUNCTION_DECL
@@ -1978,6 +1987,21 @@ fixup_type_variants (tree t)
     }
 }
 
+/* KLASS is a class that we're applying may_alias to after the body is
+   parsed.  Fixup any POINTER_TO and REFERENCE_TO types.  The
+   canonical type(s) will be implicitly updated.  */
+
+static void
+fixup_may_alias (tree klass)
+{
+  tree t;
+
+  for (t = TYPE_POINTER_TO (klass); t; t = TYPE_NEXT_PTR_TO (t))
+    TYPE_REF_CAN_ALIAS_ALL (t) = true;
+  for (t = TYPE_REFERENCE_TO (klass); t; t = TYPE_NEXT_REF_TO (t))
+    TYPE_REF_CAN_ALIAS_ALL (t) = true;
+}
+
 /* Early variant fixups: we apply attributes at the beginning of the class
    definition, and we need to fix up any variants that have already been
    made via elaborated-type-specifier so that check_qualified_type works.  */
@@ -1993,6 +2017,10 @@ fixup_attribute_variants (tree t)
   tree attrs = TYPE_ATTRIBUTES (t);
   unsigned align = TYPE_ALIGN (t);
   bool user_align = TYPE_USER_ALIGN (t);
+  bool may_alias = lookup_attribute ("may_alias", attrs);
+
+  if (may_alias)
+    fixup_may_alias (t);
 
   for (variants = TYPE_NEXT_VARIANT (t);
        variants;
@@ -2007,6 +2035,8 @@ fixup_attribute_variants (tree t)
       else
 	TYPE_USER_ALIGN (variants) = user_align;
       TYPE_ALIGN (variants) = valign;
+      if (may_alias)
+	fixup_may_alias (variants);
     }
 }
 

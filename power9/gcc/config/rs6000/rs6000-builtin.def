@@ -1773,6 +1773,14 @@ BU_P9V_OVERLOAD_1 (VCTZH,	"vctzh")
 BU_P9V_OVERLOAD_1 (VCTZW,	"vctzw")
 BU_P9V_OVERLOAD_1 (VCTZD,	"vctzd")
 
+/* ISA 3.0 vector overloaded 2-argument functions. */
+BU_P9V_AV_2 (VSLV,		"vslv",			CONST, vslv)
+BU_P9V_AV_2 (VSRV,		"vsrv",			CONST, vsrv)
+
+/* ISA 3.0 vector overloaded 2-argument functions. */
+BU_P9V_OVERLOAD_2 (VSLV,	"vslv")
+BU_P9V_OVERLOAD_2 (VSRV,	"vsrv")
+
 
 /* 1 argument crypto functions.  */
 BU_CRYPTO_1 (VSBOX,		"vsbox",	  CONST, crypto_vsbox)
