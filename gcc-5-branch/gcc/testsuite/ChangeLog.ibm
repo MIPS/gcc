@@ -1,3 +1,17 @@
+2016-04-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2016-04-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/70381
+	* gcc.target/powerpc/float128-1.c: New tests to make sure the
+	__float128 emulator is built and runs.
+	* gcc.target/powerpc/float128-1.c: Likewise.
+
+	* lib/target-supports.exp (check_ppc_float128_sw_available):
+	Rework tests for __float128 software and hardware
+	availability. Fix exit condition to return 0 on success.
+
 2016-03-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 234461.
@@ -24,12 +38,6 @@
 
 	PR target/69667
 	* g++.dg/pr69667.C: New file.
-
-2016-01-22   Michael Meissner  <meissner@linux.vnet.ibm.com>
-
-	* gcc.target/powerpc/float128-1.c: New test for IEEE 128-bit
-	floating point support.
-	* gcc.target/powerpc/float128-2.c: Likewise.
 
 2016-01-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
