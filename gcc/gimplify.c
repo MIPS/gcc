@@ -6539,15 +6539,12 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 			   enum tree_code code)
 {
   struct gimplify_omp_ctx *ctx, *outer_ctx;
-  tree c, clauses = *list_p;
+  tree c;
   hash_map<tree, tree> *struct_map_to_clause = NULL;
   tree *prev_list_p = NULL;
-  vec<tree> redvec;
-  bool processed_reductions = false;
 
   ctx = new_omp_context (region_type);
   outer_ctx = ctx->outer_context;
-  redvec.create (8);
   if (code == OMP_TARGET && !lang_GNU_Fortran ())
     {
       ctx->target_map_pointers_as_0len_arrays = true;
@@ -6696,10 +6693,6 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		  || TREE_CODE (decl) == INDIRECT_REF)
 		decl = TREE_OPERAND (decl, 0);
 	    }
-	  if ((region_type & ORT_ACC) && ((region_type & ORT_TARGET) != 0)
-	      && (outer_ctx == NULL 
-		  || outer_ctx->region_type == ORT_ACC_DATA))
-	    redvec.safe_push (OMP_CLAUSE_DECL (c));
 	  goto do_add_decl;
 	case OMP_CLAUSE_LINEAR:
 	  if (gimplify_expr (&OMP_CLAUSE_LINEAR_STEP (c), pre_p, NULL,
@@ -7553,46 +7546,6 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	  gcc_unreachable ();
 	}
 
-      /* Add an implicit data-movement clause for an OpenACC parallel
-	 reduction, if necessary.  */
-      if (OMP_CLAUSE_CHAIN (c) == NULL && !processed_reductions
-	  && ((region_type & ORT_TARGET) != 0)
-	  && (region_type & ORT_ACC))
-	{
-	  tree t;
-
-	  while (!redvec.is_empty ())
-	    {
-	      tree decl = redvec.pop ();
-	      bool mapped = false;
-
-	      for (t = clauses; t; t = OMP_CLAUSE_CHAIN (t))
-		if (OMP_CLAUSE_CODE (t) == OMP_CLAUSE_MAP
-		    && OMP_CLAUSE_DECL (t) == decl)
-		  {
-		    mapped = true;
-		    if (OMP_CLAUSE_MAP_KIND (t) == GOMP_MAP_TOFROM
-			&& OMP_CLAUSE_MAP_KIND (t) != GOMP_MAP_FORCE_TOFROM)
-		      error_at (OMP_CLAUSE_LOCATION (t),
-				"incompatible data clause");
-		    break;
-		  }
-
-	      if (!mapped)
-		{
-		  /* Let gimplify_adjust_omp_clauses_1 create a new data
-		     clause for the reduction.  */
-
-		  splay_tree_node n;
-
-		  n = splay_tree_lookup (ctx->variables, (splay_tree_key)decl);
-		  n->value |= GOVD_MAP;
-		}
-	    }
-
-	  processed_reductions = true;
-	}
-
       if (remove)
 	*list_p = OMP_CLAUSE_CHAIN (c);
       else
@@ -8061,6 +8014,34 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, gimple_seq body, tree *list_p,
 	      break;
 	    }
 	  decl = OMP_CLAUSE_DECL (c);
+	  /* Data clasues associated with acc parallel reductions must be
+	     compatible with present_or_copy.  Warn and adjust the clause
+	     if that is not the case.  */
+	  if (ctx->region_type == ORT_ACC_PARALLEL)
+	    {
+	      tree t = DECL_P (decl) ? decl : TREE_OPERAND (decl, 0);
+	      n = NULL;
+
+	      if (DECL_P (t))
+		n = splay_tree_lookup (ctx->variables, (splay_tree_key) t);
+
+	      if (n && (n->value & GOVD_REDUCTION))
+		{
+		  enum gomp_map_kind kind = OMP_CLAUSE_MAP_KIND (c);
+
+		  OMP_CLAUSE_MAP_IN_REDUCTION (c) = 1;
+		  if ((kind & GOMP_MAP_TOFROM) != GOMP_MAP_TOFROM
+		      && kind != GOMP_MAP_FORCE_PRESENT
+		      && kind != GOMP_MAP_POINTER)
+		    {
+		      warning_at (OMP_CLAUSE_LOCATION (c), 0,
+				  "incompatible data clause with reduction "
+				  "on %qE; promoting to present_or_copy",
+				  DECL_NAME (t));
+		      OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_TOFROM);
+		    }
+		}
+	    }
 	  if (!DECL_P (decl))
 	    {
 	      if ((ctx->region_type & ORT_TARGET) != 0
@@ -8192,6 +8173,33 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, gimple_seq body, tree *list_p,
 
 	case OMP_CLAUSE_REDUCTION:
 	  decl = OMP_CLAUSE_DECL (c);
+	  /* OpenACC reductions need a present_or_copy data clause.
+	     Add one if necessary.  Error is the reduction is private.  */
+	  if (ctx->region_type == ORT_ACC_PARALLEL)
+	    {
+	      n = splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
+	      if (n->value & (GOVD_PRIVATE | GOVD_FIRSTPRIVATE))
+		error_at (OMP_CLAUSE_LOCATION (c), "invalid private "
+			  "reduction on %qE", DECL_NAME (decl));
+	      else if ((n->value & GOVD_MAP) == 0)
+		{
+		  tree next = OMP_CLAUSE_CHAIN (c);
+		  tree nc = build_omp_clause (UNKNOWN_LOCATION, OMP_CLAUSE_MAP);
+		  OMP_CLAUSE_SET_MAP_KIND (nc, GOMP_MAP_TOFROM);
+		  OMP_CLAUSE_DECL (nc) = decl;
+		  OMP_CLAUSE_CHAIN (c) = nc;
+		  lang_hooks.decls.omp_finish_clause (nc, pre_p);
+		  while (1)
+		    {
+		      OMP_CLAUSE_MAP_IN_REDUCTION (nc) = 1;
+		      if (OMP_CLAUSE_CHAIN (nc) == NULL)
+			break;
+		      nc = OMP_CLAUSE_CHAIN (nc);
+		    }
+		  OMP_CLAUSE_CHAIN (nc) = next;
+		  n->value |= GOVD_MAP;
+		}
+	    }
 	  if (DECL_P (decl)
 	      && omp_shared_to_firstprivate_optimizable_decl_p (decl))
 	    omp_mark_stores (gimplify_omp_ctxp->outer_context, decl);
@@ -8497,87 +8505,6 @@ find_combined_omp_for (tree *tp, int *walk_subtrees, void *)
   return NULL_TREE;
 }
 
-/* Helper function for localize_reductions.  Replace all uses of REF_VAR with
-   LOCAL_VAR.  */
-
-static tree
-localize_reductions_r (tree *tp, int *walk_subtrees, void *data)
-{
-  enum tree_code tc = TREE_CODE (*tp);
-  struct privatize_reduction *pr = (struct privatize_reduction *) data;
-
-  if (TYPE_P (*tp))
-    *walk_subtrees = 0;
-
-  switch (tc)
-    {
-    case INDIRECT_REF:
-    case MEM_REF:
-      if (TREE_OPERAND (*tp, 0) == pr->ref_var)
-	*tp = pr->local_var;
-
-      *walk_subtrees = 0;
-      break;
-
-    case VAR_DECL:
-    case PARM_DECL:
-    case RESULT_DECL:
-      if (*tp == pr->ref_var)
-	*tp = pr->local_var;
-
-      *walk_subtrees = 0;
-      break;
-
-    default:
-      break;
-    }
-
-  return NULL_TREE;
-}
-
-/* OpenACC worker and vector loop state propagation requires reductions
-   to be inside local variables.  This function replaces all reference-type
-   reductions variables associated with the loop with a local copy.  It is
-   also used to create private copies of reduction variables for those
-   which are not associated with acc loops.  */
-
-static void
-localize_reductions (tree *expr_p, bool target)
-{
-  tree clauses = target ? OMP_CLAUSES (*expr_p) : OMP_FOR_CLAUSES (*expr_p);
-  tree c, var, type, new_var;
-  struct privatize_reduction pr;
-  
-  for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
-    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION)
-      {
-	var = OMP_CLAUSE_DECL (c);
-
-	if (!target && !lang_hooks.decls.omp_privatize_by_reference (var))
-	  {
-	    OMP_CLAUSE_REDUCTION_PRIVATE_DECL (c) = NULL;
-	    continue;
-	  }
-
-	if (lang_hooks.decls.omp_privatize_by_reference (var))
-	  type = TREE_TYPE (TREE_TYPE (var));
-	else
-	  type = TREE_TYPE (var);
-	new_var = create_tmp_var (type);
-
-	pr.ref_var = var;
-	pr.local_var = new_var;
-
-	/* Only replace var with new_var within the region associated the
-	   current ACC construct, not in the clauses of this construct.  */
-	tree region = TREE_OPERAND (*expr_p, 0);
-
-	walk_tree (&region, localize_reductions_r, &pr, NULL);
-
-	OMP_CLAUSE_REDUCTION_PRIVATE_DECL (c) = new_var;
-      }
-}
-
 /* Gimplify the gross structure of an OMP_FOR statement.  */
 
 static enum gimplify_status
@@ -8616,29 +8543,6 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
     default:
       gcc_unreachable ();
     }
-
-  /* Strip out reductions, as they are not handled yet.  */
-  if (gimplify_omp_ctxp != NULL
-      && (gimplify_omp_ctxp->region_type == ORT_ACC_KERNELS
-	  || (gimplify_omp_ctxp->outer_context != NULL
-	      && (gimplify_omp_ctxp->outer_context->region_type
-		  == ORT_ACC_KERNELS))))
-    {
-      tree *prev_ptr = &OMP_FOR_CLAUSES (for_stmt);
-
-      while (tree probe = *prev_ptr)
-	{
-	  tree *next_ptr = &OMP_CLAUSE_CHAIN (probe);
-
-	  if (OMP_CLAUSE_CODE (probe) == OMP_CLAUSE_REDUCTION)
-	    *prev_ptr = *next_ptr;
-	  else
-	    prev_ptr = next_ptr;
-	}
-    }
-
-  if (ort == ORT_ACC)
-    localize_reductions (expr_p, false);
 
   /* Set OMP_CLAUSE_LINEAR_NO_COPYIN flag on explicit linear
      clause for the IV.  */
@@ -9714,10 +9618,6 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
   if ((ort & (ORT_TARGET | ORT_TARGET_DATA)) != 0)
     {
       push_gimplify_context ();
-
-      if (ort & ORT_ACC)
-	localize_reductions (expr_p, true);
-
       gimple *g = gimplify_and_return_first (OMP_BODY (expr), &body);
       if (gimple_code (g) == GIMPLE_BIND)
 	pop_gimplify_context (g);

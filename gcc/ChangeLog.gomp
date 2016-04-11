@@ -1,3 +1,35 @@
+2016-04-11  Cesar Philippidis  <cesar@codesourcery.com>
+
+	PR tree-optimization/70357
+	* gimplify.c (gimplify_scan_omp_clauses): Remove stale acc reduction
+	code.
+	(gimplify_adjust_omp_clauses): Add or adjust data clauses for acc
+	parallel reductions as necessary.  Error on those that are private.
+	(localize_reductions_r): Delete.
+	(localize_reductions): Delete.
+	(gimplify_omp_for): Don't call localize_reductions.
+	(gimplify_omp_workshare): Likewise.
+	* omp-low.c (build_outer_var_ref): Remove stale reduction-specific
+	corner cases.
+	(fixup_remapped_decl): Likewise.
+	(scan_sharing_clauses):  Don't install variables which are used in
+	acc parallel reductions.
+	(check_omp_nesting_restrictions): Remove stale reduction-specific
+	corner cases.
+	(scan_omp_1_stmt): Clean up whitespace.
+	(lower_rec_input_clauses): Remove stale reduction-specific corner
+	cases.
+	(lower_oacc_reductions): Update it to handle parallel, reference and
+	nested reductions.
+	(lower_omp_target): Don't remap variables appearing in acc parallel
+	reductions.
+	* tree-core.h (enum omp_clause_code): Remove stale comments about
+	the fifth reduction clause operand.
+	* tree.c (omp_clause_num_ops): Set the number of reduction clause
+	operands to 5.
+	(walk_tree_1): Update error checking for the reduction clause.
+	* tree.h (OMP_CLAUSE_MAP_IN_REDUCTION): New macro.
+
 2016-04-11  Tom de Vries  <tom@codesourcery.com>
 
 	* passes.def: Remove superfluous passes from kernels pass list.

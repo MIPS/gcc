@@ -260,9 +260,7 @@ enum omp_clause_code {
                 placeholder used in OMP_CLAUSE_REDUCTION_{INIT,MERGE}.
      Operand 4: OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER: Another dummy
 		VAR_DECL placeholder, used like the above for C/C++ array
-		reductions.
-     Operand 5: OMP_CLAUSE_REDUCTION_PRIVATE_DECL: A private VAR_DECL of
-                the original DECL associated with the reduction clause.  */
+		reductions.  */
   OMP_CLAUSE_REDUCTION,
 
   /* OpenMP clause: copyin (variable_list).  */
