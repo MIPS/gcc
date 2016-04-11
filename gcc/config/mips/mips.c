@@ -9479,7 +9479,7 @@ gen_mips16_copy_peep (rtx *operands, int n)
 {
   rtx first_base_dest, first_base_src;
   int alignment = 0;
-  HOST_WIDE_INT offsets_dest[4], offsets_src[4];
+  HOST_WIDE_INT offset;
   int nmove = 0;
   rtx mov_dest[4], mov_src[4];
 
@@ -9497,10 +9497,9 @@ gen_mips16_copy_peep (rtx *operands, int n)
 	{
 	  first_base_dest = base_dest;
 	  first_base_src = base_src;
+	  /* Just use either SRC or DEST offset as both must match.  */
+	  offset = ofs_src;
 	}
-
-      offsets_dest[i] = ofs_dest;
-      offsets_src[i] = ofs_src;
 
       if (ofs_dest != ofs_src)
 	return false;
@@ -9523,40 +9522,19 @@ gen_mips16_copy_peep (rtx *operands, int n)
 	 This is disabled by default and only enabled for more aggressive
 	 optimization.  It will not be a win if all intermediates
 	 are needed.  */
-      if (!peep2_reg_dead_p (2 * i + 2, operands[i * 3]))
-	{
-	  if (TARGET_MIPS16_COPY_PEEP_AGGRESSIVE)
-	    {
-	      mov_dest[nmove] = operands[i * 3];
-	      mov_src[nmove++] = src;
-	    }
-	  else
-	    return false;
-	}
+      if (!peep2_reg_dead_p (i, operands[i * 3]))
+	return false;
+
+      /* We can only convert multiple loads/stores into COPYW if the offsets
+	 are increasing consecutively by 4.  */
+      if (i * 4 != ofs_dest % 16 || i * 4 != ofs_src % 16
+	  || ofs_dest != ofs_src || ofs_dest > 496)
+	return false;
     }
 
-  /* If we have loads and stores not in consecutive order but still part of
-     a block being copied up to 16 bytes, it should be generally safe to
-     reorder these and use COPYW instead.  */
-  qsort (offsets_dest, n, sizeof (HOST_WIDE_INT), mips16_copy_peep_cmp);
-  qsort (offsets_src, n, sizeof (HOST_WIDE_INT), mips16_copy_peep_cmp);
-
-  for (int i = 0; i < n; i++)
-    /* We can only convert multiple loads/stores into COPYW if the offsets
-       are increasing consecutively by 4.  */
-    if (i * 4 != offsets_dest[i] % 16 || i * 4 != offsets_src[i] % 16
-	|| offsets_dest[i] != offsets_src[i] || offsets_dest[i] > 496)
-      return false;
-
   emit_insn (gen_mips16_copy_ofs (first_base_dest, first_base_src,
-				  GEN_INT (offsets_dest[0]), GEN_INT (n),
+				  GEN_INT (offset), GEN_INT (n),
 				  GEN_INT (alignment)));
-
-  /* The loads must be inserted after COPYW as base/src might be clobbered.  */
-  if (TARGET_MIPS16_COPY_PEEP_AGGRESSIVE)
-    for (int i = 0; i < nmove; i++)
-      mips_emit_move (mov_dest[i], mov_src[i]);
-
   return true;
 }
 
@@ -21968,9 +21946,6 @@ mips_option_override (void)
 
   if ((TARGET_EPI || mips_epi) && TARGET_USE_SAVE_RESTORE)
     error ("unsupported combination: %s", "-mepi -muse-save-restore");
-
-  if (TARGET_MIPS16_COPY_PEEP_AGGRESSIVE)
-    TARGET_MIPS16_COPY_PEEP = 1;
 }
 
 /* Swap the register information for registers I and I + 1, which
