@@ -1,3 +1,125 @@
+2016-04-11  Jason Merrill  <jason@redhat.com>
+
+	* mangle.c (decl_is_template_id): The template itself counts as a
+	template-id.
+
+2016-04-08  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/70590
+	PR c++/70452
+	* constexpr.c (cxx_eval_outermost_expression): Call unshare_expr
+	on the result if it's not a CONSTRUCTOR.
+
+2016-04-07  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/70452
+	* constexpr.c (find_constructor): New function.
+	(unshare_constructor): New function.
+	(cxx_eval_call_expression): Use unshare_constructor instead of
+	unshare_expr.
+	(find_array_ctor_elt): Likewise.
+	(cxx_eval_vec_init_1): Likewise.
+	(cxx_eval_store_expression): Likewise.
+	(cxx_eval_constant_expression): Likewise.
+
+2016-04-06  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c/70436
+	* cp-tree.h (FOR_EACH_CLONE): Restructure macro to avoid
+	potentially generating a future -Wparentheses warning in its
+	callers.
+
+2016-04-06  Jason Merrill  <jason@redhat.com>
+
+	* class.c (check_abi_tags): Fix function template handling.
+
+2016-04-05  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/70512
+	* class.c (fixup_may_alias): New.
+	(fixup_attribute_variants): Call it.
+
+2016-04-05  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/70452
+	* constexpr.c (struct fundef_copy): New struct.
+	(struct fundef_copies_table_t): New struct.
+	(fundef_copies_table): New static variable.
+	(maybe_initialize_fundef_copies_table): New static function.
+	(get_fundef_copy): New static function.
+	(save_fundef_copy): New static function.
+	(cxx_eval_call_expression): Use get_fundef_copy, and
+	save_fundef_copy.
+	(constexpr_call_table): Add "deletable" GTY marker.
+
+2016-04-05  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/70452
+	* cp-tree.h (class cache_map): Remove.
+	* constexpr.c (cv_cache): Change type to
+	GTY((deletable)) hash_map<tree, tree> *.
+	(maybe_constant_value): Adjust following the change to cv_cache.
+	(clear_cv_cache): New static function.
+	(clear_cv_and_fold_caches): Use it.
+	* cp-gimplify.c (fold_cache): Change type to
+	GTY((deletable)) hash_map<tree, tree> *.
+	(clear_fold_cache): Adjust following the change to fold_cache.
+	(cp_fold): Likewise.
+
+2016-04-02  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/67376
+	PR c++/70170
+	PR c++/70172
+	PR c++/70228
+	* constexpr.c (diag_array_subscript): New function.
+	(cxx_eval_array_reference): Detect out of bounds array indices.
+
+2016-04-01  Jason Merrill  <jason@redhat.com>
+
+	PR c++/70449
+	PR c++/70344
+	* pt.c (instantiate_decl): A function isn't fully defined if
+	DECL_INITIAL is error_mark_node.
+	* constexpr.c (cxx_eval_call_expression): Likewise.
+
+2016-04-01  Jakub Jelinek  <jakub@redhat.com>
+	    Marek Polacek  <polacek@redhat.com>
+
+	PR c++/70488
+	* init.c (warn_placement_new_too_small): Test whether
+	DECL_SIZE_UNIT or TYPE_SIZE_UNIT are integers that fit into uhwi.
+
+2016-04-01  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/68475
+	* decl.c (check_redeclaration_exception_specification): Check
+	regardless of -fno-exceptions.
+	* typeck2.c (merge_exception_specifiers): Relax assert by checking
+	flag_exceptions too.
+
+2016-03-31  Nathan Sidwell  <nathan@acm.org>
+
+	* decl.c (start_preparsed_function): Remove unnecessary bracing.
+	(finish_destructor_body): Don't emit operator delete here.
+
+2016-03-31  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/70393
+	* constexpr.c (cxx_eval_store_expression): Keep CONSTRUCTOR
+	elements in field order.
+
+2016-03-31  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70297
+	* decl.c (duplicate_decls): Also set TYPE_ALIGN and TYPE_USER_ALIGN.
+
+2016-03-31  Richard Biener  <rguenther@suse.de>
+
+	PR c++/70430
+	* typeck.c (cp_build_binary_op): Fix operand order of vector
+	conditional in truth op handling.
+
 2016-03-29  Jason Merrill  <jason@redhat.com>
 
 	PR c++/70353

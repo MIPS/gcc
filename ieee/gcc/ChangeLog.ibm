@@ -1,3 +1,72 @@
+2016-04-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 234884.
+	* REVISION: Update subversion id.
+
+2016-04-11  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* doc/extend.texi: Add documentation of the vec_slv and vec_srv
+	builtin functions.
+	* config/rs6000/altivec.h (vec_slv): New macro definition.
+	(vec_srv): New macro definition.
+	* config/rs6000/rs6000.h (MASK_P9_VECTOR): New macro definition.
+	(RS6000_BTM_P9_VECTOR): Correct error in previous definition of
+	this macro.
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Add
+	table entries for P9V_BUILTIN_VEC_VSLV and P9V_BUILTIN_VEC_VSRV.
+	* config/rs6000/rs6000-builtin.def: Add macro expansions for
+	"__builtin_altivec_vslv" and "__builtin_altivec_vslr" and overload
+	entries for "__builtin_vec_vslv" and "__builtin_vec_vsrv"
+	* config/rs6000/altivec.md (UNSPEC_VSLV): New unspec constant.
+	(UNSPEC_VSRV): New unspec constant.
+	("vslv") New insn pattern.
+	("vsrv") New insn pattern.
+
+2016-04-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* machmode.h (mode_complex): Add support to give the complex mode
+	for a given mode.
+	(GET_MODE_COMPLEX_MODE): Likewise.
+
+	* stor-layout.c (layout_type): For COMPLEX_TYPE, use the mode
+	stored by build_complex_type instead of trying to figure out the
+	appropriate mode based on the size.
+
+	* genmodes.c (struct mode_data): Add field for the complex type of
+	the given type.
+	(blank_mode): Likewise.
+	(make_complex_modes): Remember the complex mode created in the
+	base type.
+	(emit_mode_complex): Write out the mode_complex array to map a
+	type mode to the complex version.
+	(emit_insn_modes_c): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_nregs_internal): Add
+	support for __float128 complex datatypes.
+	(rs6000_hard_regno_mode_ok): Likewise.
+	(rs6000_setup_reg_addr_masks): Likewise.
+	(rs6000_complex_function_value): Likewise.
+
+	* config/rs6000/rs6000.h (FLOAT128_IEEE_P): Add support for
+	__float128 and __ibm128 complex.
+	(FLOAT128_IBM_P): Likewise.
+	(ALTIVEC_COMPLEX): Likewise.
+	(ALTIVEC_ARG_MAX_RETURN): Likewise.
+
+	* doc/extend.texi (Additional Floating Types): Document that
+	-mfloat128 must be used to enable __float128.  Document complex
+	__float128 and __ibm128 support.
+
+2016-04-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/70589
+	* config/rs6000/rs6000.c (rs6000_opt_masks): Disable using the
+	target attribute and pragma from changing the -mfloat128
+	and -mfloat128-hardware options.
+
+	* doc/extend.texi (Additional Floating Types): Document PowerPC
+	__float128 restrictions.
+
 2016-03-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 234598.
