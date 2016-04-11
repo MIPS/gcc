@@ -957,7 +957,10 @@ typedef _Complex float __attribute__((mode(XC))) _Complex80;
 In order to use @code{__float128} and @code{__ibm128} on PowerPC Linux
 systems, you must use the @option{-mfloat128}. It is expected in
 future versions of GCC that @code{__float128} will be enabled
-automatically.
+automatically.  In addition, there are currently problems in using the
+complex @code{__float128} type.  When these problems are fixed, you
+would use the following syntax to declare @code{_Complex128} to be a
+complex @code{__float128} type:
 
 On the PowerPC Linux VSX targets, you can declare complex types using
 the corresponding internal complex type, @code{KCmode} for

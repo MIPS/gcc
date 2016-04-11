@@ -915,7 +915,7 @@ struct constexpr_ctx {
 /* A table of all constexpr calls that have been evaluated by the
    compiler in this translation unit.  */
 
-static GTY (()) hash_table<constexpr_call_hasher> *constexpr_call_table;
+static GTY ((deletable)) hash_table<constexpr_call_hasher> *constexpr_call_table;
 
 static tree cxx_eval_constant_expression (const constexpr_ctx *, tree,
 					  bool, bool *, bool *, tree * = NULL);
@@ -963,6 +963,78 @@ maybe_initialize_constexpr_call_table (void)
 {
   if (constexpr_call_table == NULL)
     constexpr_call_table = hash_table<constexpr_call_hasher>::create_ggc (101);
+}
+
+/* The representation of a single node in the per-function freelist maintained
+   by FUNDEF_COPIES_TABLE.  */
+
+struct fundef_copy
+{
+  tree body;
+  tree parms;
+  tree res;
+  fundef_copy *prev;
+};
+
+/* During constexpr CALL_EXPR evaluation, to avoid issues with sharing when
+   a function happens to get called recursively, we unshare the callee
+   function's body and evaluate this unshared copy instead of evaluating the
+   original body.
+
+   FUNDEF_COPIES_TABLE is a per-function freelist of these unshared function
+   copies.  The underlying data structure of FUNDEF_COPIES_TABLE is a hash_map
+   that's keyed off of the original FUNCTION_DECL and whose value is the chain
+   of this function's unused copies awaiting reuse.  */
+
+struct fundef_copies_table_t
+{
+  hash_map<tree, fundef_copy *> *map;
+};
+
+static GTY((deletable)) fundef_copies_table_t fundef_copies_table;
+
+/* Initialize FUNDEF_COPIES_TABLE if it's not initialized.  */
+
+static void
+maybe_initialize_fundef_copies_table ()
+{
+  if (fundef_copies_table.map == NULL)
+    fundef_copies_table.map = hash_map<tree, fundef_copy *>::create_ggc (101);
+}
+
+/* Reuse a copy or create a new unshared copy of the function FUN.
+   Return this copy.  */
+
+static fundef_copy *
+get_fundef_copy (tree fun)
+{
+  maybe_initialize_fundef_copies_table ();
+
+  fundef_copy *copy;
+  fundef_copy **slot = &fundef_copies_table.map->get_or_insert (fun, NULL);
+  if (*slot == NULL)
+    {
+      copy = ggc_alloc<fundef_copy> ();
+      copy->body = copy_fn (fun, copy->parms, copy->res);
+      copy->prev = NULL;
+    }
+  else
+    {
+      copy = *slot;
+      *slot = (*slot)->prev;
+    }
+
+  return copy;
+}
+
+/* Save the copy COPY of function FUN for later reuse by get_fundef_copy().  */
+
+static void
+save_fundef_copy (tree fun, fundef_copy *copy)
+{
+  fundef_copy **slot = &fundef_copies_table.map->get_or_insert (fun, NULL);
+  copy->prev = *slot;
+  *slot = copy;
 }
 
 /* We have an expression tree T that represents a call, either CALL_EXPR
@@ -1077,6 +1149,30 @@ adjust_temp_type (tree type, tree temp)
     return build_constructor (type, CONSTRUCTOR_ELTS (temp));
   gcc_assert (scalarish_type_p (type));
   return cp_fold_convert (type, temp);
+}
+
+/* Callback for walk_tree used by unshare_constructor.  */
+
+static tree
+find_constructor (tree *tp, int *walk_subtrees, void *)
+{
+  if (TYPE_P (*tp))
+    *walk_subtrees = 0;
+  if (TREE_CODE (*tp) == CONSTRUCTOR)
+    return *tp;
+  return NULL_TREE;
+}
+
+/* If T is a CONSTRUCTOR or an expression that has a CONSTRUCTOR node as a
+   subexpression, return an unshared copy of T.  Otherwise return T.  */
+
+static tree
+unshare_constructor (tree t)
+{
+  tree ctor = walk_tree (&t, find_constructor, NULL, NULL);
+  if (ctor != NULL_TREE)
+    return unshare_expr (t);
+  return t;
 }
 
 /* Subroutine of cxx_eval_call_expression.
@@ -1239,21 +1335,6 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
       return t;
     }
 
-  if (fun == current_function_decl)
-    {
-      /* A call to the current function, i.e.
-	 constexpr int f (int i) {
-	   constexpr int j = f(i-1);
-	   return j;
-	 }
-	 This would be OK without the constexpr on the declaration of j.  */
-      if (!ctx->quiet)
-	error_at (loc, "%qD called in a constant expression before its "
-		  "definition is complete", fun);
-      *non_constant_p = true;
-      return t;
-    }
-
   constexpr_ctx new_ctx = *ctx;
   if (DECL_CONSTRUCTOR_P (fun) && !ctx->object
       && TREE_CODE (t) == AGGR_INIT_EXPR)
@@ -1308,7 +1389,10 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
         {
 	  if (!ctx->quiet)
 	    {
-	      if (DECL_INITIAL (fun))
+	      if (DECL_INITIAL (fun) == error_mark_node)
+		error_at (loc, "%qD called in a constant expression before its "
+			  "definition is complete", fun);
+	      else if (DECL_INITIAL (fun))
 		{
 		  /* The definition of fun was somehow unsuitable.  */
 		  error_at (loc, "%qD called in a constant expression", fun);
@@ -1377,10 +1461,13 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
       if (!result || result == error_mark_node)
 	{
 	  gcc_assert (DECL_SAVED_TREE (fun));
-	  tree parms, res;
+	  tree body, parms, res;
 
-	  /* Unshare the whole function body.  */
-	  tree body = copy_fn (fun, parms, res);
+	  /* Reuse or create a new unshared copy of this function's body.  */
+	  fundef_copy *copy = get_fundef_copy (fun);
+	  body = copy->body;
+	  parms = copy->parms;
+	  res = copy->res;
 
 	  /* Associate the bindings with the remapped parms.  */
 	  tree bound = new_call.bindings;
@@ -1391,7 +1478,7 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
 	      tree arg = TREE_VALUE (bound);
 	      gcc_assert (DECL_NAME (remapped) == DECL_NAME (oparm));
 	      /* Don't share a CONSTRUCTOR that might be changed.  */
-	      arg = unshare_expr (arg);
+	      arg = unshare_constructor (arg);
 	      ctx->values->put (remapped, arg);
 	      bound = TREE_CHAIN (bound);
 	      remapped = DECL_CHAIN (remapped);
@@ -1409,8 +1496,14 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
 	  else
 	    ctx->values->put (res, NULL_TREE);
 
+	  /* Track the callee's evaluated SAVE_EXPRs so that we can forget
+	     their values after the call.  */
+	  constexpr_ctx ctx_with_save_exprs = *ctx;
+	  hash_set<tree> save_exprs;
+	  ctx_with_save_exprs.save_exprs = &save_exprs;
+
 	  tree jump_target = NULL_TREE;
-	  cxx_eval_constant_expression (ctx, body,
+	  cxx_eval_constant_expression (&ctx_with_save_exprs, body,
 					lval, non_constant_p, overflow_p,
 					&jump_target);
 
@@ -1435,6 +1528,11 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
 		}
 	    }
 
+	  /* Forget the saved values of the callee's SAVE_EXPRs.  */
+	  for (hash_set<tree>::iterator iter = save_exprs.begin();
+	       iter != save_exprs.end(); ++iter)
+	    ctx_with_save_exprs.values->remove (*iter);
+
 	  /* Remove the parms/result from the values map.  Is it worth
 	     bothering to do this when the map itself is only live for
 	     one constexpr evaluation?  If so, maybe also clear out
@@ -1444,6 +1542,9 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
 	    ctx->values->remove (slot);
 	  for (tree parm = parms; parm; parm = TREE_CHAIN (parm))
 	    ctx->values->remove (parm);
+
+	  /* Make the unshared function copy we used available for re-use.  */
+	  save_fundef_copy (fun, copy);
 	}
 
       if (result == error_mark_node)
@@ -1457,7 +1558,7 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
     }
 
   pop_cx_call_context ();
-  return unshare_expr (result);
+  return unshare_constructor (result);
 }
 
 /* FIXME speed this up, it's taking 16% of compile time on sieve testcase.  */
@@ -1803,7 +1904,7 @@ find_array_ctor_elt (tree ary, tree dindex, bool insert = false)
 		  /* Append the element we want to insert.  */
 		  ++middle;
 		  e.index = dindex;
-		  e.value = unshare_expr (elt.value);
+		  e.value = unshare_constructor (elt.value);
 		  vec_safe_insert (CONSTRUCTOR_ELTS (ary), middle, e);
 		}
 	      else
@@ -1819,7 +1920,7 @@ find_array_ctor_elt (tree ary, tree dindex, bool insert = false)
 		    e.index = hi;
 		  else
 		    e.index = build2 (RANGE_EXPR, sizetype, new_lo, hi);
-		  e.value = unshare_expr (elt.value);
+		  e.value = unshare_constructor (elt.value);
 		  vec_safe_insert (CONSTRUCTOR_ELTS (ary), middle+1, e);
 		}
 	    }
@@ -1837,6 +1938,30 @@ find_array_ctor_elt (tree ary, tree dindex, bool insert = false)
   return -1;
 }
 
+/* Under the control of CTX, issue a detailed diagnostic for
+   an out-of-bounds subscript INDEX into the expression ARRAY.  */
+
+static void
+diag_array_subscript (const constexpr_ctx *ctx, tree array, tree index)
+{
+  if (!ctx->quiet)
+    {
+      tree arraytype = TREE_TYPE (array);
+
+      /* Convert the unsigned array subscript to a signed integer to avoid
+	 printing huge numbers for small negative values.  */
+      tree sidx = fold_convert (ssizetype, index);
+      if (DECL_P (array))
+	{
+	  error ("array subscript value %qE is outside the bounds "
+		 "of array %qD of type %qT", sidx, array, arraytype);
+	  inform (DECL_SOURCE_LOCATION (array), "declared here");
+	}
+      else
+	error ("array subscript value %qE is outside the bounds "
+	       "of array type %qT", sidx, arraytype);
+    }
+}
 
 /* Subroutine of cxx_eval_constant_expression.
    Attempt to reduce a reference to an array slot.  */
@@ -1885,8 +2010,7 @@ cxx_eval_array_reference (const constexpr_ctx *ctx, tree t,
   if (!tree_fits_shwi_p (index)
       || (i = tree_to_shwi (index)) < 0)
     {
-      if (!ctx->quiet)
-	error ("negative array subscript");
+      diag_array_subscript (ctx, ary, index);
       *non_constant_p = true;
       return t;
     }
@@ -1898,8 +2022,7 @@ cxx_eval_array_reference (const constexpr_ctx *ctx, tree t,
   VERIFY_CONSTANT (nelts);
   if (!tree_int_cst_lt (index, nelts))
     {
-      if (!ctx->quiet)
-	error ("array subscript out of bound");
+      diag_array_subscript (ctx, ary, index);
       *non_constant_p = true;
       return t;
     }
@@ -2466,7 +2589,7 @@ cxx_eval_vec_init_1 (const constexpr_ctx *ctx, tree atype, tree init,
 	  for (i = 1; i < max; ++i)
 	    {
 	      idx = build_int_cst (size_type_node, i);
-	      CONSTRUCTOR_APPEND_ELT (*p, idx, unshare_expr (eltinit));
+	      CONSTRUCTOR_APPEND_ELT (*p, idx, unshare_constructor (eltinit));
 	    }
 	  break;
 	}
@@ -2959,16 +3082,39 @@ cxx_eval_store_expression (const constexpr_ctx *ctx, tree t,
       else
 	{
 	  gcc_assert (TREE_CODE (index) == FIELD_DECL);
-	  for (unsigned HOST_WIDE_INT idx = 0;
+
+	  /* We must keep the CONSTRUCTOR's ELTS in FIELD order.
+	     Usually we meet initializers in that order, but it is
+	     possible for base types to be placed not in program
+	     order.  */
+	  tree fields = TYPE_FIELDS (DECL_CONTEXT (index));
+	  unsigned HOST_WIDE_INT idx;
+
+	  for (idx = 0;
 	       vec_safe_iterate (CONSTRUCTOR_ELTS (*valp), idx, &cep);
-	       idx++)
-	    if (index == cep->index)
-	      break;
-	  if (!cep)
+	       idx++, fields = DECL_CHAIN (fields))
 	    {
-	      constructor_elt ce = { index, NULL_TREE };
-	      cep = vec_safe_push (CONSTRUCTOR_ELTS (*valp), ce);
+	      if (index == cep->index)
+		goto found;
+
+	      /* The field we're initializing must be on the field
+		 list.  Look to see if it is present before the
+		 field the current ELT initializes.  */
+	      for (; fields != cep->index; fields = DECL_CHAIN (fields))
+		if (index == fields)
+		  goto insert;
 	    }
+
+	  /* We fell off the end of the CONSTRUCTOR, so insert a new
+	     entry at the end.  */
+	insert:
+	  {
+	    constructor_elt ce = { index, NULL_TREE };
+
+	    vec_safe_insert (CONSTRUCTOR_ELTS (*valp), idx, ce);
+	    cep = CONSTRUCTOR_ELT (*valp, idx);
+	  }
+	found:;
 	}
       valp = &cep->value;
     }
@@ -2991,7 +3137,7 @@ cxx_eval_store_expression (const constexpr_ctx *ctx, tree t,
   init = cxx_eval_constant_expression (&new_ctx, init, false,
 				       non_constant_p, overflow_p);
   /* Don't share a CONSTRUCTOR that might be changed later.  */
-  init = unshare_expr (init);
+  init = unshare_constructor (init);
   if (target == object)
     /* The hash table might have moved since the get earlier.  */
     valp = ctx->values->get (object);
@@ -3443,7 +3589,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 						 false,
 						 non_constant_p, overflow_p);
 	    /* Don't share a CONSTRUCTOR that might be changed.  */
-	    init = unshare_expr (init);
+	    init = unshare_constructor (init);
 	    ctx->values->put (r, init);
 	  }
 	else if (ctx == &new_ctx)
@@ -3488,7 +3634,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
       if (lval)
 	{
 	  tree slot = TARGET_EXPR_SLOT (t);
-	  r = unshare_expr (r);
+	  r = unshare_constructor (r);
 	  ctx->values->put (slot, r);
 	  return slot;
 	}
@@ -4018,6 +4164,12 @@ cxx_eval_outermost_constant_expr (tree t, bool allow_non_constant,
   if (!non_constant_p && overflow_p)
     non_constant_p = true;
 
+  /* Unshare the result unless it's a CONSTRUCTOR in which case it's already
+     unshared.  */
+  bool should_unshare = true;
+  if (r == t || TREE_CODE (r) == CONSTRUCTOR)
+    should_unshare = false;
+
   if (non_constant_p && !allow_non_constant)
     return error_mark_node;
   else if (non_constant_p && TREE_CONSTANT (r))
@@ -4033,6 +4185,9 @@ cxx_eval_outermost_constant_expr (tree t, bool allow_non_constant,
     }
   else if (non_constant_p || r == t)
     return t;
+
+  if (should_unshare)
+    r = unshare_expr (r);
 
   if (TREE_CODE (r) == CONSTRUCTOR && CLASS_TYPE_P (TREE_TYPE (r)))
     {
@@ -4182,7 +4337,7 @@ maybe_constant_value_1 (tree t, tree decl)
   return r;
 }
 
-static GTY((cache, deletable)) cache_map cv_cache;
+static GTY((deletable)) hash_map<tree, tree> *cv_cache;
 
 /* If T is a constant expression, returns its reduced value.
    Otherwise, if T does not have TREE_CONSTANT set, returns T.
@@ -4191,13 +4346,24 @@ static GTY((cache, deletable)) cache_map cv_cache;
 tree
 maybe_constant_value (tree t, tree decl)
 {
-  tree ret = cv_cache.get (t);
-  if (!ret)
-    {
-      ret = maybe_constant_value_1 (t, decl);
-      cv_cache.put (t, ret);
-    }
+  if (cv_cache == NULL)
+    cv_cache = hash_map<tree, tree>::create_ggc (101);
+
+  if (tree *cached = cv_cache->get (t))
+    return *cached;
+
+  tree ret = maybe_constant_value_1 (t, decl);
+  cv_cache->put (t, ret);
   return ret;
+}
+
+/* Dispose of the whole CV_CACHE.  */
+
+static void
+clear_cv_cache (void)
+{
+  if (cv_cache != NULL)
+    cv_cache->empty ();
 }
 
 /* Dispose of the whole CV_CACHE and FOLD_CACHE.  */
@@ -4205,7 +4371,7 @@ maybe_constant_value (tree t, tree decl)
 void
 clear_cv_and_fold_caches (void)
 {
-  gt_cleare_cache (cv_cache);
+  clear_cv_cache ();
   clear_fold_cache ();
 }
 
