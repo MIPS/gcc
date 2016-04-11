@@ -1,3 +1,35 @@
+2016-04-07  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/30_threads/thread/70503.cc: Adjust from xfail to pass.
+
+2016-04-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* src/Makefile.am (libstdc++-symbols.ver): Remove useless /dev/null.
+	* src/Makefile.in: Regenerate.
+
+2016-04-05  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/70554
+	* acinclude.m4 (GLIBCXX_ENABLE_ATOMIC_BUILTINS): Don't test
+	__atomic_fetch_add for bool.
+	* configure: Regenerate.
+
+	* testsuite/30_threads/thread/70503.cc: Require -static to work.
+
+	PR libstdc++/70503
+	* src/c++11/thread.cc (execute_native_thread_routine,
+	execute_native_thread_routine_compat): Give internal linkage.
+	* testsuite/30_threads/thread/70503.cc: New test.
+
+2016-04-05  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	PR libstdc++/70437
+	* include/bits/stl_pair.h (_ConstructiblePair,
+	_ImplicitlyConvertiblePair, _MoveConstructiblePair,
+	_ImplicitlyMoveConvertiblePair): Add shortcut conditions
+	for same-type cases.
+	* testsuite/20_util/pair/70437.cc: New.
+
 2016-03-24  Jonathan Wakely  <jwakely@redhat.com>
 
 	PR libstdc++/69945
