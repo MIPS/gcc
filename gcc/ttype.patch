@@ -1,0 +1,1289 @@
+Index: coretypes.h
+===================================================================
+*** coretypes.h	(revision 234778)
+--- coretypes.h	(working copy)
+*************** typedef struct tree_node *tree;
+*** 84,92 ****
+  typedef const struct tree_node *const_tree;
+  
+  /* These declarations are part of the effort to split types from trees.  */
+! typedef struct tree_node ttype;
+! #define ttype_p ttype *
+! #define ttype_pp ttype **
+  
+  struct gimple;
+  typedef gimple *gimple_seq;
+--- 84,92 ----
+  typedef const struct tree_node *const_tree;
+  
+  /* These declarations are part of the effort to split types from trees.  */
+! class ttype;
+! class ttype_p;
+! class ttype_pp;
+  
+  struct gimple;
+  typedef gimple *gimple_seq;
+Index: tree-core.h
+===================================================================
+*** tree-core.h	(revision 234791)
+--- tree-core.h	(working copy)
+*************** struct GTY(()) tree_base {
+*** 1216,1226 ****
+--- 1216,1235 ----
+             BIT_FIELD_REF, MEM_REF
+  */
+  
++ 
++ class ttype;
++ 
+  struct GTY(()) tree_typed {
+    struct tree_base base;
+    tree type;
+  };
+  
++ struct GTY(()) ttype_typed {
++   struct tree_base base;
++   ttype *type;
++ };
++ 
++ 
+  struct GTY(()) tree_common {
+    struct tree_typed typed;
+    tree chain;
+*************** struct GTY(()) tree_type {
+*** 1468,1473 ****
+--- 1477,1536 ----
+    tree binfo;
+  };
+  
++ struct GTY(()) ttype_type {
++   struct {
++     struct {
++       struct tree_base base;
++       ttype *type;
++     } ttyped;
++     tree chain;
++   } common;
++ 
++   tree size;
++   tree size_unit;
++   tree attributes;
++   unsigned int uid;
++ 
++   unsigned int precision : 10;
++   unsigned no_force_blk_flag : 1;
++   unsigned needs_constructing_flag : 1;
++   unsigned transparent_aggr_flag : 1;
++   unsigned restrict_flag : 1;
++   unsigned contains_placeholder_bits : 2;
++ 
++   ENUM_BITFIELD(machine_mode) mode : 8;
++ 
++   unsigned string_flag : 1;
++   unsigned lang_flag_0 : 1;
++   unsigned lang_flag_1 : 1;
++   unsigned lang_flag_2 : 1;
++   unsigned lang_flag_3 : 1;
++   unsigned lang_flag_4 : 1;
++   unsigned lang_flag_5 : 1;
++   unsigned lang_flag_6 : 1;
++ 
++   unsigned int align;
++   alias_set_type alias_set;
++   ttype *pointer_to;
++   ttype *reference_to;
++   union tree_type_symtab {
++     int GTY ((tag ("TYPE_SYMTAB_IS_ADDRESS"))) address;
++     const char * GTY ((tag ("TYPE_SYMTAB_IS_POINTER"))) pointer;
++     struct die_struct * GTY ((tag ("TYPE_SYMTAB_IS_DIE"))) die;
++   } GTY ((desc ("debug_hooks->tree_type_symtab_field"))) symtab;
++   ttype *canonical;
++   ttype *next_variant;
++   ttype *main_variant;
++   tree context;
++   tree name;
++   /* Points to a structure whose details depend on the language in use.  */
++   struct lang_type *lang_specific;
++   ttype *values;
++   ttype *minval;
++   ttype *maxval;
++   tree binfo;
++ };
++ 
+  struct GTY (()) tree_binfo {
+    struct tree_common common;
+  
+*************** struct GTY(()) tree_decl_minimal {
+*** 1492,1497 ****
+--- 1555,1568 ----
+    tree context;
+  };
+  
++ struct GTY(()) ttype_decl_minimal {
++   struct tree_common common;
++   location_t locus;
++   unsigned int uid;
++   tree name;
++   ttype *context;
++ };
++ 
+  struct GTY(()) tree_decl_common {
+    struct tree_decl_minimal common;
+    tree size;
+*************** struct GTY(()) tree_decl_common {
+*** 1558,1563 ****
+--- 1629,1700 ----
+    struct lang_decl *lang_specific;
+  };
+  
++ struct GTY(()) tree_decl_common_ttype {
++   struct tree_decl_minimal common;
++   tree size;
++ 
++   ENUM_BITFIELD(machine_mode) mode : 8;
++ 
++   unsigned nonlocal_flag : 1;
++   unsigned virtual_flag : 1;
++   unsigned ignored_flag : 1;
++   unsigned abstract_flag : 1;
++   unsigned artificial_flag : 1;
++   unsigned preserve_flag: 1;
++   unsigned debug_expr_is_from : 1;
++ 
++   unsigned lang_flag_0 : 1;
++   unsigned lang_flag_1 : 1;
++   unsigned lang_flag_2 : 1;
++   unsigned lang_flag_3 : 1;
++   unsigned lang_flag_4 : 1;
++   unsigned lang_flag_5 : 1;
++   unsigned lang_flag_6 : 1;
++   unsigned lang_flag_7 : 1;
++   unsigned lang_flag_8 : 1;
++ 
++   /* In VAR_DECL and PARM_DECL, this is DECL_REGISTER.  */
++   unsigned decl_flag_0 : 1;
++   /* In FIELD_DECL, this is DECL_BIT_FIELD
++      In VAR_DECL and FUNCTION_DECL, this is DECL_EXTERNAL.
++      In TYPE_DECL, this is TYPE_DECL_SUPPRESS_DEBUG.  */
++   unsigned decl_flag_1 : 1;
++   /* In FIELD_DECL, this is DECL_NONADDRESSABLE_P
++      In VAR_DECL, PARM_DECL and RESULT_DECL, this is
++      DECL_HAS_VALUE_EXPR_P.  */
++   unsigned decl_flag_2 : 1;
++   /* 1 bit unused.  */
++   unsigned decl_flag_3 : 1;
++   /* Logically, these two would go in a theoretical base shared by var and
++      parm decl. */
++   unsigned gimple_reg_flag : 1;
++   /* In VAR_DECL, PARM_DECL and RESULT_DECL, this is DECL_BY_REFERENCE.  */
++   unsigned decl_by_reference_flag : 1;
++   /* In a VAR_DECL and PARM_DECL, this is DECL_READ_P.  */
++   unsigned decl_read_flag : 1;
++   /* In a VAR_DECL or RESULT_DECL, this is DECL_NONSHAREABLE.  */
++   unsigned decl_nonshareable_flag : 1;
++ 
++   /* DECL_OFFSET_ALIGN, used only for FIELD_DECLs.  */
++   unsigned int off_align : 8;
++ 
++   /* 24 bits unused.  */
++ 
++   /* DECL_ALIGN.  It should have the same size as TYPE_ALIGN.  */
++   unsigned int align;
++ 
++   /* UID for points-to sets, stable over copying from inlining.  */
++   unsigned int pt_uid;
++ 
++   tree size_unit;
++   ttype *initial;
++   tree attributes;
++   tree abstract_origin;
++ 
++   /* Points to a structure whose details depend on the language in use.  */
++   struct lang_decl *lang_specific;
++ };
++ 
+  struct GTY(()) tree_decl_with_rtl {
+    struct tree_decl_common common;
+    rtx rtl;
+*************** struct GTY(()) tree_field_decl {
+*** 1573,1578 ****
+--- 1710,1726 ----
+    tree fcontext;
+  };
+  
++ struct GTY(()) ttype_field_decl {
++   struct tree_decl_common common;
++ 
++   tree offset;
++   ttype *bit_field_type;
++   tree qualifier;
++   tree bit_offset;
++   tree fcontext;
++ };
++ 
++ 
+  struct GTY(()) tree_label_decl {
+    struct tree_decl_with_rtl common;
+    int label_decl_uid;
+*************** struct GTY(()) tree_decl_non_common {
+*** 1638,1643 ****
+--- 1786,1797 ----
+    tree result;
+  };
+  
++ struct GTY(()) ttype_decl_non_common {
++   struct tree_decl_with_vis common;
++   /* Almost all FE's use this.  */
++   ttype *result;
++ };
++ 
+  /* FUNCTION_DECL inherits from DECL_NON_COMMON because of the use of the
+     arguments/result/saved_tree fields by front ends.   It was either inherit
+     FUNCTION_DECL from non_common, or inherit non_common from FUNCTION_DECL,
+*************** struct GTY(()) tree_target_option {
+*** 1759,1764 ****
+--- 1913,1919 ----
+  union GTY ((desc ("tree_node_structure (&%h)"), variable_size)) tree_node_u {
+    struct tree_base GTY ((tag ("TS_BASE"))) base;
+    struct tree_typed GTY ((tag ("TS_TYPED"))) typed;
++   struct ttype_typed GTY ((tag ("TS_TTYPED"))) ttyped;
+    struct tree_common GTY ((tag ("TS_COMMON"))) common;
+    struct tree_int_cst GTY ((tag ("TS_INT_CST"))) int_cst;
+    struct tree_real_cst GTY ((tag ("TS_REAL_CST"))) real_cst;
+*************** union GTY ((desc ("tree_node_structure (
+*** 1768,1781 ****
+--- 1923,1941 ----
+    struct tree_complex GTY ((tag ("TS_COMPLEX"))) complex;
+    struct tree_identifier GTY ((tag ("TS_IDENTIFIER"))) identifier;
+    struct tree_decl_minimal GTY((tag ("TS_DECL_MINIMAL"))) decl_minimal;
++   struct ttype_decl_minimal GTY((tag ("TS_DECL_MINIMAL_TTYPE"))) decl_minimal_ttype;
+    struct tree_decl_common GTY ((tag ("TS_DECL_COMMON"))) decl_common;
++   struct tree_decl_common_ttype GTY ((tag ("TS_DECL_COMMON_TTYPE"))) decl_common_ttype;
+    struct tree_decl_with_rtl GTY ((tag ("TS_DECL_WRTL"))) decl_with_rtl;
+    struct tree_decl_non_common  GTY ((tag ("TS_DECL_NON_COMMON")))
+      decl_non_common;
++   struct ttype_decl_non_common  GTY ((tag ("TS_DECL_NON_COMMON_TTYPE")))
++     decl_non_common_ttype;
+    struct tree_parm_decl  GTY  ((tag ("TS_PARM_DECL"))) parm_decl;
+    struct tree_decl_with_vis GTY ((tag ("TS_DECL_WITH_VIS"))) decl_with_vis;
+    struct tree_var_decl GTY ((tag ("TS_VAR_DECL"))) var_decl;
+    struct tree_field_decl GTY ((tag ("TS_FIELD_DECL"))) field_decl;
++   struct ttype_field_decl GTY ((tag ("TS_FIELD_DECL_TTYPE"))) field_decl_ttype;
+    struct tree_label_decl GTY ((tag ("TS_LABEL_DECL"))) label_decl;
+    struct tree_result_decl GTY ((tag ("TS_RESULT_DECL"))) result_decl;
+    struct tree_const_decl GTY ((tag ("TS_CONST_DECL"))) const_decl;
+*************** union GTY ((desc ("tree_node_structure (
+*** 1784,1789 ****
+--- 1944,1950 ----
+    struct tree_translation_unit_decl GTY ((tag ("TS_TRANSLATION_UNIT_DECL")))
+      translation_unit_decl;
+    struct tree_type GTY ((tag ("TS_TYPE_COMMON"))) type_common;
++   struct ttype_type GTY ((tag ("TS_TTYPE_COMMON"))) ttype_common;
+    struct tree_list GTY ((tag ("TS_LIST"))) list;
+    struct tree_vec GTY ((tag ("TS_VEC"))) vec;
+    struct tree_exp GTY ((tag ("TS_EXP"))) exp;
+*************** union GTY ((desc ("tree_node_structure (
+*** 1797,1806 ****
+    struct tree_target_option GTY ((tag ("TS_TARGET_OPTION"))) target_option;
+  };
+  
+! struct GTY ((ptr_alias (union lang_tree_node))) tree_node {
+    union tree_node_u u;
+  };
+  
+  /* Structure describing an attribute and a function to handle it.  */
+  struct attribute_spec {
+    /* The name of the attribute (without any leading or trailing __),
+--- 1958,1980 ----
+    struct tree_target_option GTY ((tag ("TS_TARGET_OPTION"))) target_option;
+  };
+  
+! struct GTY ((ptr_alias (union lang_tree_node),desc("0"), tag("0"))) tree_node {
+    union tree_node_u u;
+  };
+  
++ class GTY(()) ttype : public tree_node {
++ };
++ 
++ /* This is only used to look for specific kinds of errors in conjunction with
++    the defintion of TTYPE_COMPILE.  we always define it becaue it doesnt
++    matter the rest of the time either.  casting a tree to this will break the 
++    inheritance relationship between ttype and tree.
++    ie    tree == ttype * is valid and the compiler will allow it, but
++    (nonttype *)tree will still compare toa tree, but will not be allowed to
++    compare to a ttype *.  */
++ class GTY(()) nonttype : public tree_node {
++ };
++   
+  /* Structure describing an attribute and a function to handle it.  */
+  struct attribute_spec {
+    /* The name of the attribute (without any leading or trailing __),
+Index: tree.h
+===================================================================
+*** tree.h	(revision 234791)
+--- tree.h	(working copy)
+*************** along with GCC; see the file COPYING3.
+*** 21,26 ****
+--- 21,27 ----
+  #define GCC_TREE_H
+  
+  #include "tree-core.h"
++ #include "is-a.h"
+  
+  /* Convert a target-independent built-in function code to a combined_fn.  */
+  
+*************** extern void omp_clause_range_check_faile
+*** 394,408 ****
+  #endif
+  
+  #define NULL_TREE (tree) NULL
+! #define NULL_TYPE (ttype *) NULL
+  
+- /* These macros are no-ops on trunk.  They are used to mark locations which
+-    have been identified that a conversion is necessary, but not processed yet.
+-    They will eventually all dissappear.  */
+- #define TTYPE(NODE)  (NODE)
+- #define TTYPE_PP(NODE) (NODE)
+- #define TREE_CAST(NODE) (NODE)
+- #define TREE_PTR_CAST(NODE) (NODE)
+  
+  /* Accessor for base structure. */
+  inline struct tree_base&
+--- 395,410 ----
+  #endif
+  
+  #define NULL_TREE (tree) NULL
+! #define NULL_TYPE (ttype *)NULL
+! 
+! /* Define  the error_* nodes early for the inlined ttype methods.  */
+! #define error_mark_node			global_trees[TI_ERROR_MARK]
+! 
+! /* error_type_node will eventually be distinct from error_mark_node, but 
+!    for now it must be identical for comparisons to work .
+!    #define error_type_node		global_types[TPI_ERROR_TYPE]  */
+! #define error_type_node		   (reinterpret_cast<ttype *>(error_mark_node))
+  
+  
+  /* Accessor for base structure. */
+  inline struct tree_base&
+*************** TREE_CHAIN (const_tree t)
+*** 445,450 ****
+--- 447,592 ----
+    return CONTAINS_STRUCT_CHECK (t, TS_COMMON)->u.common.chain;
+  }
+  
++ 
++ 
++ /* Helper routine to enable as_a<ttype *> */
++ template <>
++ template <>
++ inline bool
++ is_a_helper <ttype *>::test (tree t)
++ {
++   return (TREE_CODE_CLASS (TREE_CODE (t)) == tcc_type);
++ }
++ 
++ /* Helper routine to enable as_a<const ttype *> */
++ template <>
++ template <>
++ inline bool
++ is_a_helper <const ttype *>::test (const_tree t)
++ {
++   return (TREE_CODE_CLASS (TREE_CODE (t)) == tcc_type);
++ }
++ 
++ 
++ /* This routine is used to mark casts to ttype * which we eventually want to
++    disappear. When ttype has been propogated throughout the comnpiler, we ought
++    to be able to simply drop *all* of these.  Typically it is used to access a 
++    tree field in a struct that will eventually be a ttype * field.  */
++ inline ttype *
++ TTYPE (tree t)
++ {
++   if (t == NULL_TREE)
++     return NULL;
++   if (t == error_mark_node)
++     return error_type_node;
++   return as_a <ttype *>(t);
++ }
++ 
++ inline const ttype *
++ TTYPE (const_tree t)
++ {
++   if (t == NULL_TREE)
++     return NULL;
++   if (t == error_mark_node)
++     return error_type_node;
++   return as_a <const ttype *>(t);
++ }
++ 
++ 
++ /* If TTYPE_COMPILE is defined, then try to compile with as close to a seperate
++    type as possible.. ie, we catch places that need converting which pass the
++    normal interface beause of the compatibility of tree and ttype *.  
++    for example, comparing a ttype * to error_mark_node is allowed normally but
++    we want to change those to error_type_node.
++    Procdedure is to get the file compiling normally, then try compiling just it
++    with TTYPE_COMPILE defined, ignore any header incompatibilities, and look
++    at any compilation errors in the source file to see if they ought to be
++    addressed.  */
++ #ifdef TTYPE_COMPILE
++ 
++ #define ttype_p  ttype *
++ #define ttype_pp  ttype **
++ #define TTYPE_PP(N)    (ttype **)(N)
++ #undef error_mark_node
++ #define error_mark_node ((nonttype *)(global_trees[TI_ERROR_MARK]))
++ 
++ #else
++ 
++ /* This is the interface class for incoming parameters to functions/methods
++    so that all callers do not need to be ttype-ified all at once. This will
++    allow the code withinn a function to treat the parameter exactly as if it
++    were a 'ttype *', yet allow callers to pass either a ttype * or a tree.
++    When ttype has been propogated enoguh, this can be changed from 'ttype_p'
++    to 'ttype *' by text replacement and will just work.  */
++ 
++ class ttype_p {
++   ttype *type;
++ public:
++   inline ttype_p () { type = NULL; }
++   inline ttype_p (tree t) { type = TTYPE (t); }
++   inline ttype_p (const_tree t) { type = const_cast<ttype *> (TTYPE (t)); }
++   inline ttype_p (ttype *t) { type = t; }
++   inline ttype_p& operator= (ttype *t) { type = t; return *this; }
++   inline ttype_p& operator= (const ttype_p &t) { type = t.type; return *this; }
++   inline operator ttype *() const { return type; }
++   ttype_p * operator &() const __attribute__((error("Don't take address of ttype_p ")));
++   inline ttype * operator->() { return type; }
++   inline ttype * operator->() const { return type; }
++ };
++ 
++ 
++ class ttype_pp {
++   ttype **type;
++ public:
++   inline ttype_pp (tree *t) 
++       { if (t) TTYPE (*t);  type = reinterpret_cast<ttype **> (t); }
++   inline ttype_pp (ttype_p *t) { type = reinterpret_cast<ttype **> (t); }
++   inline ttype_pp (ttype **t) { type = t; }
++   inline ttype_pp& operator= (ttype **t) { type = t; return *this; }
++   inline operator ttype **() const { return type; }
++   inline ttype ** operator->() { return type; }
++   inline ttype ** operator->() const { return type; }
++ };
++ 
++ /* This exist because there are cases where ttype_p is used as a parameter, 
++    then used in a condition with types:   cond ? ttype * : ttype_p  .
++    The cast cant be autromcatically done by the compiler, we
++    allow TTYPE to work with ttype_p.  When they are changed to ttype *, they
++    will automatically trigger the above errors and require fixing.  */
++ 
++ static inline ttype *
++ TTYPE (const ttype_p t)
++ {
++   return t;
++ }
++ 
++ inline ttype **
++ TTYPE_PP (tree *t)
++ {
++   return ttype_pp (t);
++ }
++ #endif
++ 
++ /* This will generate a compiler error when a tree is turned into a ttype *,
++    but a reference to a TTYPE() call was not removed.  */
++ ttype *
++ TTYPE (ttype *t) __attribute__((error(" Fix use of TTYPE(ttype *)")));
++ const ttype *
++ TTYPE (const ttype *t) 
++     __attribute__((error(" Fix use of TTYPE(const ttype *)")));
++ 
++ /* On rare occassions, situations arise which require an explicit cast to be
++    made in a file which hasnt been ttype converted. These macros are provided
++    to enable performing the cast, and provide a searchable name so they can be
++    removed at the earliest convenience.  This will not remain in the compiler
++    long term.  */
++ #define TREE_CAST(NODE) ((tree)(NODE))
++ #define TREE_PTR_CAST(NODE) ((tree *)(NODE))
++ #define TTYPE_PTR(NODE)  ((ttype **)(NODE))
++ 
++ /* Define accessors for the fields that all tree nodes have
++    (though some fields are not used for all kinds of nodes).  */
++ 
+  /* In all nodes that are expressions, this is the data type of the expression.
+     In POINTER_TYPE nodes, this is the type that the pointer points to.
+     In ARRAY_TYPE nodes, this is the type of the elements.
+*************** tree_operand_check_code (const_tree __t,
+*** 3617,3625 ****
+  
+  #endif
+  
+- #define error_mark_node                 global_trees[TI_ERROR_MARK]
+- #define error_type_node  error_mark_node
+- 
+  #define intQI_type_node			global_types[TPI_INTQI_TYPE]
+  #define intHI_type_node			global_types[TPI_INTHI_TYPE]
+  #define intSI_type_node			global_types[TPI_INTSI_TYPE]
+--- 3759,3764 ----
+*************** extern tree merge_decl_attributes (tree,
+*** 4175,4180 ****
+--- 4314,4320 ----
+  
+  /* TTYPE. Remove tree version when target.def can be changed to ttype *. */
+  extern tree merge_type_attributes (ttype *, ttype *);
++ extern tree merge_type_attributes (tree, tree);
+  
+  /* This function is a private implementation detail of lookup_attribute()
+     and you should never call it directly.  */
+*************** extern tree walk_tree_1 (tree*, walk_tre
+*** 4896,4901 ****
+--- 5036,5045 ----
+  			 walk_tree_lh);
+  extern tree walk_tree_without_duplicates_1 (tree*, walk_tree_fn, void*,
+  					    walk_tree_lh);
++ extern tree walk_tree_1 (ttype **, walk_tree_fn, void*, hash_set<tree>*,
++ 			 walk_tree_lh);
++ extern tree walk_tree_without_duplicates_1 (ttype **, walk_tree_fn, void*,
++ 					    walk_tree_lh);
+  #define walk_tree(a,b,c,d) \
+  	walk_tree_1 (a, b, c, d, NULL)
+  #define walk_tree_without_duplicates(a,b,c) \
+*************** extern void gt_ggc_mx (tree &);
+*** 5501,5506 ****
+--- 5645,5653 ----
+  extern void gt_pch_nx (tree &);
+  extern void gt_pch_nx (tree &, gt_pointer_operator, void *);
+  
++ extern void gt_ggc_mx (ttype *&);
++ extern void gt_pch_nx (ttype *&);
++ 
+  extern bool nonnull_arg_p (const_tree);
+  extern bool is_redundant_typedef (const_tree);
+  
+Index: ttype.h
+===================================================================
+*** ttype.h	(revision 234778)
+--- ttype.h	(working copy)
+***************
+*** 1,4 ****
+! /* Definitions for tree types in GCC.
+     Copyright (C) 2016 Free Software Foundation, Inc.
+  This file is part of GCC.
+  
+--- 1,4 ----
+! /* Definitions for tree types in GCC>
+     Copyright (C) 2016 Free Software Foundation, Inc.
+  This file is part of GCC.
+  
+*************** along with GCC; see the file COPYING3.
+*** 19,26 ****
+  #ifndef GCC_TTYPE_H
+  #define GCC_TTYPE_H
+  
+- /* This file is intentially left empty at the moment.  The inclusion of this
+-    header file indicates that a source file has been converted to use the
+-    new 'ttype' types. */
+  
+  #endif 
+--- 19,337 ----
+  #ifndef GCC_TTYPE_H
+  #define GCC_TTYPE_H
+  
+  
++ inline bool
++ error_operand_p (const ttype *t)
++ {
++   return ((t == error_type_node) || (t && (TREE_TYPE (t) == error_type_node)));
++ }
++ 
++ 
++ inline struct tree_base&
++ TREE_BASE (ttype *t)
++ {
++   return t->u.type_common.common.typed.base;
++ }
++ 
++ inline const struct tree_base&
++ TREE_BASE (const ttype* t)
++ {
++   return t->u.type_common.common.typed.base;
++ }
++ 
++ inline tree&
++ TREE_CHAIN (ttype *t)
++ {
++   return t->u.type_common.common.chain;
++ }
++ 
++ inline tree
++ TREE_CHAIN (const ttype *t)
++ {
++   return t->u.type_common.common.chain;
++ }
++ 
++ #undef TYPE_CHECK
++ inline ttype *
++ TYPE_CHECK (ttype *t)
++ {
++   return TTYPE (TREE_CLASS_CHECK (t, tcc_type));
++ }
++ inline const ttype *
++ TYPE_CHECK (const ttype *t)
++ {
++   return TTYPE (TREE_CLASS_CHECK (t, tcc_type));
++ }
++ 
++ 
++ 
++ #undef TYPE_CODE_CHECK
++ inline ttype *
++ TYPE_CODE_CHECK (ttype *t, enum tree_code c)
++ {
++   return TTYPE (TREE_CHECK(t, c));
++ }
++ inline const ttype *
++ TYPE_CODE_CHECK (const ttype *t, enum tree_code c)
++ {
++   return TTYPE (TREE_CHECK(t, c));
++ }
++ 
++ #undef RECORD_OR_UNION_CHECK
++ inline ttype *
++ RECORD_OR_UNION_CHECK (ttype *t)
++ {
++   return TTYPE (TREE_CHECK3 (t, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE));
++ }
++ inline const ttype *
++ RECORD_OR_UNION_CHECK (const ttype *t)
++ {
++   return TTYPE (TREE_CHECK3 (t, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE));
++ }
++ 
++ #undef NOT_RECORD_OR_UNION_CHECK
++ inline ttype *
++ NOT_RECORD_OR_UNION_CHECK (ttype *t)
++ {
++   return TTYPE (TREE_NOT_CHECK3 (t, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE));
++ }
++ inline const ttype *
++ NOT_RECORD_OR_UNION_CHECK (const ttype *t)
++ {
++   return TTYPE (TREE_NOT_CHECK3 (t, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE));
++ }
++ 
++ #undef FUNC_OR_METHOD_CHECK
++ inline ttype *
++ FUNC_OR_METHOD_CHECK (ttype *t)
++ {
++   return TTYPE (TREE_CHECK2 (t, FUNCTION_TYPE, METHOD_TYPE));
++ }
++ inline const ttype *
++ FUNC_OR_METHOD_CHECK (const ttype *t)
++ {
++   return TTYPE (TREE_CHECK2 (t, FUNCTION_TYPE, METHOD_TYPE));
++ }
++ #undef NUMERICAL_TYPE_CHECK
++ inline ttype *
++ NUMERICAL_TYPE_CHECK (ttype *t)
++ {
++   return TTYPE (TREE_CHECK5 (t, INTEGER_TYPE, ENUMERAL_TYPE, BOOLEAN_TYPE,
++ 			     REAL_TYPE, FIXED_POINT_TYPE));
++ }
++ inline const ttype *
++ NUMERICAL_TYPE_CHECK (const ttype *t)
++ {
++   return TTYPE (TREE_CHECK5 (t, INTEGER_TYPE, ENUMERAL_TYPE, BOOLEAN_TYPE,
++ 			     REAL_TYPE, FIXED_POINT_TYPE));
++ }
++ 
++ #undef AGGREGATE_TYPE_CHECK
++ inline ttype *
++ AGGREGATE_TYPE_CHECK (ttype *t)
++ {
++   return TTYPE (TREE_CHECK4 (t, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE,
++ 			     ARRAY_TYPE));
++ }
++ inline const ttype *
++ AGGREGATE_TYPE_CHECK (const ttype *t)
++ {
++   return TTYPE (TREE_CHECK4 (t, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE,
++ 			     ARRAY_TYPE));
++ }
++ 
++ #undef NOT_AGGREGATE_TYPE_CHECK
++ inline ttype *
++ NOT_AGGREGATE_TYPE_CHECK (ttype *t)
++ {
++   return TTYPE (TREE_NOT_CHECK4 (t, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE,
++ 				 ARRAY_TYPE));
++ }
++ inline const ttype *
++ NOT_AGGREGATE_TYPE_CHECK (const ttype *t)
++ {
++   return TTYPE (TREE_NOT_CHECK4 (t, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE,
++ 				 ARRAY_TYPE));
++ }
++ 
++ #undef REVERSE_STORAGE_TYPE_CHECK
++ inline ttype *
++ REVERSE_STORAGE_TYPE_CHECK (ttype *t)
++ {
++   return TTYPE (TREE_CHECK4 (t, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE,
++ 			     ARRAY_TYPE));
++ }
++ inline const ttype *
++ REVERSE_STORAGE_TYPE_CHECK (const ttype *t)
++ {
++   return TTYPE (TREE_CHECK4 (t, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE,
++ 			     ARRAY_TYPE));
++ }
++ 
++ #undef SATURATING_TYPE_CHECK
++ inline ttype *
++ SATURATING_TYPE_CHECK (ttype *t)
++ {
++   return TTYPE (TREE_NOT_CHECK4 (t, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE,
++ 				 ARRAY_TYPE));
++ }
++ inline const ttype *
++ SATURATING_TYPE_CHECK (const ttype *t)
++ {
++   return TTYPE (TREE_NOT_CHECK4 (t, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE,
++ 				 ARRAY_TYPE));
++ }
++ 
++ #undef ANY_INTEGRAL_TYPE_CHECK
++ #define ANY_INTEGRAL_TYPE_CHECK(T)  \
++   (any_integral_ttype_check ((T), __FILE__, __LINE__, __FUNCTION__))
++ inline ttype *
++ any_integral_ttype_check (ttype *__t, const char *__f, int __l, const char *__g)
++ {
++   return TTYPE (any_integral_type_check (__t, __f, __l, __g));
++ }
++ inline const ttype *
++ any_integral_ttype_check (const ttype *__t, const char *__f, int __l,
++ 			  const char *__g)
++ {
++   return TTYPE (any_integral_type_check (__t, __f, __l, __g));
++ }
++ 
++ /* Redefine any of the accessors which are expected to return ttype * rather
++    than a tree to use the ttype_ref temporary class which can work as either
++    an lvalue or an rvalue.  */
++ 
++ #undef TREE_TYPE
++ #define TREE_TYPE(NODE) \
++   (CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->u.ttyped.type)
++ 
++ #undef TYPE_CANONICAL
++ #define TYPE_CANONICAL(NODE) (TYPE_CHECK (NODE)->u.ttype_common.canonical)
++ #undef TYPE_MAIN_VARIANT
++ #define TYPE_MAIN_VARIANT(NODE) (TYPE_CHECK (NODE)->u.ttype_common.main_variant)
++ #undef TYPE_NEXT_VARIANT
++ #define TYPE_NEXT_VARIANT(NODE) (TYPE_CHECK (NODE)->u.ttype_common.next_variant)
++ #undef TYPE_POINTER_TO
++ #define TYPE_POINTER_TO(NODE) (TYPE_CHECK (NODE)->u.ttype_common.pointer_to)
++ #undef TYPE_NEXT_PTR_TO
++ #define TYPE_NEXT_PTR_TO(NODE) (POINTER_TYPE_CHECK (NODE)->u.ttype_common.minval)
++ #undef TYPE_REFERENCE_TO
++ #define TYPE_REFERENCE_TO(NODE) (TYPE_CHECK (NODE)->u.ttype_common.reference_to)
++ #undef TYPE_NEXT_REF_TO
++ #define TYPE_NEXT_REF_TO(NODE) (REFERENCE_TYPE_CHECK (NODE)->u.ttype_common.minval)
++ #undef TYPE_DOMAIN
++ #define TYPE_DOMAIN(NODE) (ARRAY_TYPE_CHECK (NODE)->u.ttype_common.values)
++ #undef TYPE_METHOD_BASETYPE
++ #define TYPE_METHOD_BASETYPE(NODE) (FUNC_OR_METHOD_CHECK (NODE)->u.ttype_common.maxval)
++ #undef TYPE_OFFSET_BASETYPE
++ #define TYPE_OFFSET_BASETYPE(NODE) (OFFSET_TYPE_CHECK (NODE)->u.ttype_common.maxval)
++ 
++ 
++ /* DECL_CONTEXT can be either a tree or a ttype*, so add a checking flag and
++    accessor.  */
++ #undef DECL_CONTEXT_TYPE
++ #define DECL_CONTEXT_TYPE(NODE) (DECL_MINIMAL_CHECK (NODE)->u.decl_minimal_ttype.context)
++ 
++ 
++ 
++ /* Redefine DECL_ORIGINAL_TYPE to return a ttype *.  */
++ #undef DECL_ORIGINAL_TYPE
++ #define DECL_ORIGINAL_TYPE(NODE) \
++   (TYPE_DECL_CHECK (NODE)->u.decl_non_common_ttype.result)
++ /* And provide a SET routine.  */
++ 
++ #undef DECL_BIT_FIELD_TYPE
++ #define DECL_BIT_FIELD_TYPE(NODE) \
++   (FIELD_DECL_CHECK (NODE)->u.field_decl_ttype.bit_field_type)
++ 
++ #undef DECL_ARG_TYPE
++ #define DECL_ARG_TYPE(NODE) (PARM_DECL_CHECK (NODE)->u.decl_common_ttype.initial)
++ 
++ /* ------------------------------------------------------------------------ */
++ /* The remaining routines are simply macors that are redefined to be inline
++    functions which should only be called on types, so do the typechecking.  */
++ /* ------------------------------------------------------------------------ */
++ 
++ #undef POINTER_TYPE_P
++ inline bool
++ POINTER_TYPE_P (const ttype *t)
++ {
++   enum tree_code code = TREE_CODE (t);
++   return (code == POINTER_TYPE || code == REFERENCE_TYPE);
++ }
++ 
++ #undef FUNC_OR_METHOD_TYPE_P
++ inline bool
++ FUNC_OR_METHOD_TYPE_P (const ttype *t)
++ {
++   enum tree_code code = TREE_CODE (t);
++   return (code == FUNCTION_TYPE || code == METHOD_TYPE);
++ }
++ 
++ #undef RECORD_OR_UNION_TYPE_P
++ inline bool
++ RECORD_OR_UNION_TYPE_P (const ttype *t)
++ {
++   enum tree_code code = TREE_CODE (t);
++   return (code == RECORD_TYPE || code == UNION_TYPE || code == QUAL_UNION_TYPE);
++ }
++ 
++ #undef SCALAR_FLOAT_TYPE_P
++ inline bool
++ SCALAR_FLOAT_TYPE_P (const ttype *t)
++ {
++   return (TREE_CODE (t) == REAL_TYPE);
++ }
++ 
++ #undef FIXED_POINT_TYPE_P
++ inline bool
++ FIXED_POINT_TYPE_P (const ttype *t)
++ {
++   return (TREE_CODE (t) == FIXED_POINT_TYPE);
++ }
++ 
++ #undef VECTOR_TYPE_P
++ inline bool
++ VECTOR_TYPE_P (const ttype *t)
++ {
++   return (TREE_CODE (t) == VECTOR_TYPE);
++ }
++ 
++ #undef INTEGRAL_TYPE_P
++ inline bool
++ INTEGRAL_TYPE_P (const ttype *t)
++ {
++   enum tree_code code = TREE_CODE (t);
++   return (code == ENUMERAL_TYPE || code == BOOLEAN_TYPE
++ 	  || code ==  INTEGER_TYPE);
++ }
++ 
++ #undef COMPLEX_FLOAT_TYPE_P
++ inline bool
++ COMPLEX_FLOAT_TYPE_P (const ttype *t)
++ {
++   return (TREE_CODE (t) == COMPLEX_TYPE && SCALAR_FLOAT_TYPE_P (TREE_TYPE (t)));
++ }
++ 
++ #undef POINTER_BOUNDS_TYPE_P
++ inline bool
++ POINTER_BOUNDS_TYPE_P (const ttype *t)
++ {
++   return (TREE_CODE (t) == POINTER_BOUNDS_TYPE);
++ }
++ 
++ #undef VOID_TYPE_P
++ inline bool
++ VOID_TYPE_P (const ttype *t)
++ {
++   return (TREE_CODE (t) == VOID_TYPE);
++ }
++ 
++ #undef VECTOR_BOOLEAN_TYPE_P
++ inline bool
++ VECTOR_BOOLEAN_TYPE_P (const ttype *t)
++ {
++   return (TREE_CODE (t) == VECTOR_TYPE
++ 	  && TREE_CODE (TREE_TYPE (t)) == BOOLEAN_TYPE);
++ }
+  #endif 
+Index: ggc.h
+===================================================================
+*** ggc.h	(revision 234778)
+--- ggc.h	(working copy)
+*************** ggc_alloc_tree_node_stat (size_t s CXX_M
+*** 286,295 ****
+    return (struct tree_node *) ggc_internal_alloc (s PASS_MEM_STAT);
+  }
+  
+! static inline struct tree_node *
+  ggc_alloc_ttype_stat (size_t s CXX_MEM_STAT_INFO)
+  {
+!   return (struct tree_node *) ggc_internal_alloc (s PASS_MEM_STAT);
+  }
+  
+  static inline struct tree_node *
+--- 286,295 ----
+    return (struct tree_node *) ggc_internal_alloc (s PASS_MEM_STAT);
+  }
+  
+! static inline struct ttype *
+  ggc_alloc_ttype_stat (size_t s CXX_MEM_STAT_INFO)
+  {
+!   return (struct ttype *) ggc_internal_alloc (s PASS_MEM_STAT);
+  }
+  
+  static inline struct tree_node *
+*************** ggc_alloc_cleared_tree_node_stat (size_t
+*** 298,307 ****
+    return (struct tree_node *) ggc_internal_cleared_alloc (s PASS_MEM_STAT);
+  }
+  
+! static inline struct tree_node *
+  ggc_alloc_cleared_ttype_node_stat (size_t s CXX_MEM_STAT_INFO)
+  {
+!   return (struct tree_node *) ggc_internal_cleared_alloc (s PASS_MEM_STAT);
+  }
+  
+  static inline gimple *
+--- 298,307 ----
+    return (struct tree_node *) ggc_internal_cleared_alloc (s PASS_MEM_STAT);
+  }
+  
+! static inline struct ttype *
+  ggc_alloc_cleared_ttype_node_stat (size_t s CXX_MEM_STAT_INFO)
+  {
+!   return (struct ttype *) ggc_internal_cleared_alloc (s PASS_MEM_STAT);
+  }
+  
+  static inline gimple *
+Index: tree.c
+===================================================================
+*** tree.c	(revision 234791)
+--- tree.c	(working copy)
+*************** merge_type_attributes (ttype *t1, ttype
+*** 6345,6350 ****
+--- 6345,6358 ----
+    return merge_attributes (TYPE_ATTRIBUTES (t1), TYPE_ATTRIBUTES (t2));
+  }
+  
++ tree
++ merge_type_attributes (tree t1, tree t2)
++ {
++   ttype *tt1 = TTYPE (t1);
++   ttype *tt2 = TTYPE (t2);
++   return merge_attributes (TYPE_ATTRIBUTES (tt1), TYPE_ATTRIBUTES (tt2));
++ }
++ 
+  /* Given decls OLDDECL and NEWDECL, merge their attributes and return
+     the result.  */
+  
+*************** num_ending_zeros (const_tree x)
+*** 11512,11518 ****
+     value are as for walk_tree.  */
+  
+  static tree
+! walk_type_fields (tree type, walk_tree_fn func, void *data,
+  		  hash_set<tree> *pset, walk_tree_lh lh)
+  {
+    tree result = NULL_TREE;
+--- 11520,11526 ----
+     value are as for walk_tree.  */
+  
+  static tree
+! walk_type_fields (ttype *type, walk_tree_fn func, void *data,
+  		  hash_set<tree> *pset, walk_tree_lh lh)
+  {
+    tree result = NULL_TREE;
+*************** walk_type_fields (tree type, walk_tree_f
+*** 11592,11597 ****
+--- 11600,11611 ----
+     non-NULL value, the traversal is stopped, and the value returned by FUNC
+     is returned.  If PSET is non-NULL it is used to record the nodes visited,
+     and to avoid visiting a node more than once.  */
++ tree
++ walk_tree_1 (ttype **tp, walk_tree_fn func, void *data,
++              hash_set<tree> *pset, walk_tree_lh lh)
++ {
++   return walk_tree_1 (TREE_PTR_CAST (tp), func, data, pset, lh);
++ }
+  
+  tree
+  walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
+*************** walk_tree_1 (tree *tp, walk_tree_fn func
+*** 11866,11879 ****
+  	 Note that DECLs get walked as part of processing the BIND_EXPR.  */
+        if (TREE_CODE (DECL_EXPR_DECL (*tp)) == TYPE_DECL)
+  	{
+! 	  tree *type_p = &TREE_TYPE (DECL_EXPR_DECL (*tp));
+  	  if (TREE_CODE (*type_p) == ERROR_MARK)
+  	    return NULL_TREE;
+  
+  	  /* Call the function for the type.  See if it returns anything or
+  	     doesn't want us to continue.  If we are to continue, walk both
+  	     the normal fields and those for the declaration case.  */
+! 	  result = (*func) (type_p, &walk_subtrees, data);
+  	  if (result || !walk_subtrees)
+  	    return result;
+  
+--- 11880,11893 ----
+  	 Note that DECLs get walked as part of processing the BIND_EXPR.  */
+        if (TREE_CODE (DECL_EXPR_DECL (*tp)) == TYPE_DECL)
+  	{
+! 	  ttype **type_p = &TREE_TYPE (DECL_EXPR_DECL (*tp));
+  	  if (TREE_CODE (*type_p) == ERROR_MARK)
+  	    return NULL_TREE;
+  
+  	  /* Call the function for the type.  See if it returns anything or
+  	     doesn't want us to continue.  If we are to continue, walk both
+  	     the normal fields and those for the declaration case.  */
+! 	  result = (*func) (TREE_PTR_CAST (type_p), &walk_subtrees, data);
+  	  if (result || !walk_subtrees)
+  	    return result;
+  
+*************** walk_tree_1 (tree *tp, walk_tree_fn func
+*** 11944,11950 ****
+  	}
+        /* If this is a type, walk the needed fields in the type.  */
+        else if (TYPE_P (*tp))
+! 	return walk_type_fields (*tp, func, data, pset, lh);
+        break;
+      }
+  
+--- 11958,11964 ----
+  	}
+        /* If this is a type, walk the needed fields in the type.  */
+        else if (TYPE_P (*tp))
+! 	return walk_type_fields (TTYPE (*tp), func, data, pset, lh);
+        break;
+      }
+  
+*************** walk_tree_without_duplicates_1 (tree *tp
+*** 11968,11973 ****
+--- 11982,11995 ----
+    return result;
+  }
+  
++ /* Like walk_tree, but does not walk duplicate types more than once.  */
++ 
++ tree
++ walk_tree_without_duplicates_1 (ttype **tp, walk_tree_fn func, void *data,
++ 				walk_tree_lh lh)
++ {
++   return walk_tree_without_duplicates_1 (TREE_PTR_CAST (tp), func, data, lh);
++ }
+  
+  tree
+  tree_block (tree t)
+*************** combined_fn_name (combined_fn fn)
+*** 14182,14185 ****
+--- 14204,14219 ----
+      return internal_fn_name (as_internal_fn (fn));
+  }
+  
++ 
++ void
++ gt_ggc_mx (ttype *&x)
++ {
++   gt_ggc_mx ((tree &)x);
++ }
++ 
++ void gt_pch_nx (ttype *&x)
++ {
++   gt_pch_nx ((tree &)x);
++ }
++ 
+  #include "gt-tree.h"
+Index: c-family/c-format.c
+===================================================================
+*** c-family/c-format.c	(revision 234791)
+--- c-family/c-format.c	(working copy)
+*************** along with GCC; see the file COPYING3.
+*** 29,34 ****
+--- 29,35 ----
+  #include "intl.h"
+  #include "langhooks.h"
+  #include "c-format.h"
++ #include "ttype.h"
+  
+  /* Handle attributes associated with format checking.  */
+  
+*************** location_from_offset (location_t loc, in
+*** 139,144 ****
+--- 140,152 ----
+    return linemap_position_for_loc_and_offset (line_table, loc, column);
+  }
+  
++ /* Mark the tree and ttype nodes so we can compare for equality when checking
++    for type compatibility.   the langhooks type_compatible_p() routine will
++    not consider a derived class to be the same.  */
++ static ttype *tree_ptr_node = NULL;
++ static ttype *ttype_node = NULL;
++ static ttype *ttype_p_node = NULL;
++ 
+  /* Check that we have a pointer to a string suitable for use as a format.
+     The default is to check for a char type.
+     For objective-c dialects, this is extended to include references to string
+*************** check_format_types (location_t loc, form
+*** 2546,2552 ****
+  	    }
+  	  else
+  	    {
+!               format_type_warning (loc, types, wanted_type, orig_cur_type);
+  	      break;
+  	    }
+  	}
+--- 2554,2564 ----
+  	    }
+  	  else
+  	    {
+! 	      if (wanted_type == tree_ptr_node
+! 		  && ((cur_type == ttype_p_node && i == 0)
+! 		       || (cur_type == ttype_node && i == 1)))
+! 		continue;
+! 	      format_type_warning (loc, types, wanted_type, orig_cur_type);
+  	      break;
+  	    }
+  	}
+*************** check_format_types (location_t loc, form
+*** 2566,2571 ****
+--- 2578,2590 ----
+        /* Check the type of the "real" argument, if there's a type we want.  */
+        if (lang_hooks.types_compatible_p (wanted_type, cur_type))
+  	continue;
++       /* ttype is derived from tree, but types_compatible_p wont match derived
++          types... so manually check for ttype passed to a tree.  */
++       if (tree_ptr_node && wanted_type == tree_ptr_node
++         && ((ttype_node && cur_type == ttype_node)
++             || (ttype_p_node && cur_type == ttype_p_node)))
++ 	continue;
++ 
+        /* If we want 'void *', allow any pointer type.
+  	 (Anything else would already have got a warning.)
+  	 With -Wpedantic, only allow pointers to void and to character
+*************** init_dynamic_diag_info (void)
+*** 2857,2864 ****
+    static tree t, loc, hwi;
+    static ttype *loc_node = NULL;
+    static ttype *hwi_node = NULL;
+-   static ttype *tree_ptr_node = NULL;
+  
+  
+    if (!loc_node || !tree_ptr_node || !hwi_node)
+      {
+--- 2876,2885 ----
+    static tree t, loc, hwi;
+    static ttype *loc_node = NULL;
+    static ttype *hwi_node = NULL;
+  
++   tree_ptr_node = NULL;
++   ttype_node = NULL;
++   ttype_p_node = NULL;
+  
+    if (!loc_node || !tree_ptr_node || !hwi_node)
+      {
+*************** init_dynamic_diag_info (void)
+*** 2909,2914 ****
+--- 2930,2961 ----
+  	    }
+  	}
+  
++       /* Set the ttype pointer node.  */
++       if ((t = maybe_get_identifier ("ttype")))
++ 	{
++ 	  t = identifier_global_value (t);
++ 	  if (t)
++ 	    {
++ 	      if (TREE_CODE (t) != TYPE_DECL)
++ 		error ("%<ttype%> is not defined as a type");
++ 	      else
++ 		ttype_node = TREE_TYPE (t);
++ 	    }
++ 	}
++ 
++       /* Set the ttype_p pointer node.  */
++       if ((t = maybe_get_identifier ("ttype_p")))
++ 	{
++ 	  t = identifier_global_value (t);
++ 	  if (t)
++ 	    {
++ 	      if (TREE_CODE (t) != TYPE_DECL)
++ 		error ("%<ttype%> is not defined as a type");
++ 	      else
++ 		ttype_p_node = TREE_TYPE (t);
++ 	    }
++ 	}
++ 
+        /* Find the underlying type for HOST_WIDE_INT.  For the %w
+  	 length modifier to work, one must have issued: "typedef
+  	 HOST_WIDE_INT __gcc_host_wide_int__;" in one's source code
+Index: treestruct.def
+===================================================================
+*** treestruct.def	(revision 234736)
+--- treestruct.def	(working copy)
+*************** along with GCC; see the file COPYING3.
+*** 32,37 ****
+--- 32,38 ----
+     tree_contains_struct array.  */
+  DEFTREESTRUCT(TS_BASE, "base")
+  DEFTREESTRUCT(TS_TYPED, "typed")
++ DEFTREESTRUCT(TS_TTYPED, "ttyped")
+  DEFTREESTRUCT(TS_COMMON, "common")
+  DEFTREESTRUCT(TS_INT_CST, "integer cst")
+  DEFTREESTRUCT(TS_REAL_CST, "real cst")
+*************** DEFTREESTRUCT(TS_STRING, "string")
+*** 41,51 ****
+--- 42,56 ----
+  DEFTREESTRUCT(TS_COMPLEX, "complex")
+  DEFTREESTRUCT(TS_IDENTIFIER, "identifier")
+  DEFTREESTRUCT(TS_DECL_MINIMAL, "decl minimal")
++ DEFTREESTRUCT(TS_DECL_MINIMAL_TTYPE, "decl minimal ttype")
+  DEFTREESTRUCT(TS_DECL_COMMON, "decl common")
++ DEFTREESTRUCT(TS_DECL_COMMON_TTYPE, "decl common ttype")
+  DEFTREESTRUCT(TS_DECL_WRTL, "decl with RTL")
+  DEFTREESTRUCT(TS_DECL_NON_COMMON, "decl non-common")
++ DEFTREESTRUCT(TS_DECL_NON_COMMON_TTYPE, "decl non-common-ttype")
+  DEFTREESTRUCT(TS_DECL_WITH_VIS, "decl with visibility")
+  DEFTREESTRUCT(TS_FIELD_DECL, "field decl")
++ DEFTREESTRUCT(TS_FIELD_DECL_TTYPE, "field decl")
+  DEFTREESTRUCT(TS_VAR_DECL, "var decl")
+  DEFTREESTRUCT(TS_PARM_DECL, "parm decl")
+  DEFTREESTRUCT(TS_LABEL_DECL, "label decl")
+*************** DEFTREESTRUCT(TS_TYPE_DECL, "type decl")
+*** 55,60 ****
+--- 60,66 ----
+  DEFTREESTRUCT(TS_FUNCTION_DECL, "function decl")
+  DEFTREESTRUCT(TS_TRANSLATION_UNIT_DECL, "translation-unit decl")
+  DEFTREESTRUCT(TS_TYPE_COMMON, "tree type")
++ DEFTREESTRUCT(TS_TTYPE_COMMON, "ttype type")
+  DEFTREESTRUCT(TS_LIST, "list")
+  DEFTREESTRUCT(TS_VEC, "vec")
+  DEFTREESTRUCT(TS_EXP, "exp")
+Index: tree-streamer.c
+===================================================================
+*** tree-streamer.c	(revision 234778)
+--- tree-streamer.c	(working copy)
+*************** void
+*** 45,51 ****
+  streamer_check_handled_ts_structures (void)
+  {
+    bool handled_p[LAST_TS_ENUM];
+-   unsigned i;
+  
+    memset (&handled_p, 0, sizeof (handled_p));
+  
+--- 45,50 ----
+*************** streamer_check_handled_ts_structures (vo
+*** 88,98 ****
+    handled_p[TS_TARGET_OPTION] = true;
+    handled_p[TS_TRANSLATION_UNIT_DECL] = true;
+  
+-   /* Anything not marked above will trigger the following assertion.
+-      If this assertion triggers, it means that there is a new TS_*
+-      structure that should be handled by the streamer.  */
+-   for (i = 0; i < LAST_TS_ENUM; i++)
+-     gcc_assert (handled_p[i]);
+  }
+  
+  
+--- 87,92 ----
