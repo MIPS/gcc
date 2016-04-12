@@ -522,3 +522,6 @@ Enable tail optimization using a long style call.
 mmips16-tail-branch
 Target Var(TARGET_MIPS16_TAIL_BRANCH) Init(0)
 Enable tail optimization using a branch.
+
+muse-save-restore
+Target Undocumented Var(TARGET_USE_SAVE_RESTORE) Init(-1)
