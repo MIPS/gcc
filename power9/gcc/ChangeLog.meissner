@@ -1,3 +1,9 @@
+2016-04-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to pre-gcc7 branch, subversion id 234912, which is based
+	on trunk subversion id 234910.
+	* REVISION: Update subversion ids.
+
 2016-03-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to pre-gcc7 branch, subversion id 234601, which is based

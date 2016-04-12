@@ -1,3 +1,37 @@
+2016-04-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/70680
+	* gcc.target/powerpc/pr70640.c: New test.
+
+2016-04-12  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/68722
+	* g++.dg/parse/pr68722.C: New.
+
+2016-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/70596
+	* gcc.target/i386/pr70596.c: New test.
+
+2016-04-12  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/70501
+	* g++.dg/init/pr70501.C: New.
+
+2016-04-12  David Wohlferd  <dw@LimeGreenSocks.com>
+
+	* gcc.target/i386/asm-flag-6.c: New test.
+
+2016-04-12  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/68756
+	* gcc.dg/graphite/pr68756.c: New test.
+
+2016-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/70602
+	* gcc.c-torture/execute/pr70602.c: New test.
+
 2016-04-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	PR target/70381
