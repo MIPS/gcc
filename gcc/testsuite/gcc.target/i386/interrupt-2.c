@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -mno-cld -Wall -g" } */
+/* { dg-options "-O2 -mno-mpx -mno-sse -mno-mmx -mno-80387 -mno-cld -Wall -g" } */
 
 void
 __attribute__((interrupt))
@@ -7,7 +7,9 @@ fn (void *frame)
 {
 }
 
-void (*fns[]) (void *) __attribute__((interrupt)) =
+typedef void (*fn_t) (void *) __attribute__((interrupt));
+
+fn_t fns[] =
 {
   fn,
 };

@@ -1,26 +1,19 @@
-/* { dg-do compile { target *-*-linux* } } */
-/* { dg-options "-O2 -mno-cld -mavx512bw -mno-iamcu -maccumulate-outgoing-args" } */
+/* { dg-do compile } */
+/* { dg-options "-O2 -mno-mpx -mno-sse -mno-mmx -mno-80387 -mno-cld" } */
 
-extern void bar (void);
+extern int check_int (int *i, void *, int align);
+typedef int aligned __attribute__((aligned(64)));
 
-struct interrupt_frame;
-
+__attribute__((interrupt))
 void
- __attribute__ ((interrupt))
-foo (struct interrupt_frame *frame)
+foo (void *frame)
 {
-  bar ();
+  aligned j;
+  if (check_int (frame, &j, __alignof__(j)))
+    __builtin_abort ();
 }
 
-/* { dg-final { scan-assembler-times "movups\[\\t \]*%zmm\[0-9\]+,\[\\t \]*-\[0-9\]*\\(%\[re\]?bp\\)" 32 { target { ! ia32 } } } } */
-/* { dg-final { scan-assembler-times "movups\[\\t \]*-\[0-9\]*\\(%\[re\]?bp\\),\[\\t \]*%zmm\[0-9\]+" 32 { target { ! ia32 } } } } */
-/* { dg-final { scan-assembler-times "movups\[\\t \]*%zmm\[0-9\]+,\[\\t \]*-\[0-9\]*\\(%\[re\]?bp\\)" 8 { target ia32 } } } */
-/* { dg-final { scan-assembler-times "movups\[\\t \]*-\[0-9\]*\\(%\[re\]?bp\\),\[\\t \]*%zmm\[0-9\]+" 8 { target ia32 } } } */
-/* { dg-final { scan-assembler-times "kmovq\[\\t \]*%k\[0-7\]+,\[\\t \]*-\[0-9\]*\\(%\[re\]?bp\\)" 8 } } */
-/* { dg-final { scan-assembler-times "kmovq\[\\t \]*-\[0-9\]*\\(%\[re\]?bp\\),\[\\t \]*%k\[0-7\]+" 8 } } */
-/* { dg-final { scan-assembler-not "pushq\[\\t \]*%rbx" { target { ! ia32 } } } } */
-/* { dg-final { scan-assembler-not "pushq\[\\t \]*%r1\[2-5\]+" { target { ! ia32 } } } } */
-/* { dg-final { scan-assembler-not "pushl\[\\t \]*%ebx" { target ia32 } } } */
-/* { dg-final { scan-assembler-not "pushl\[\\t \]*%e(s|d)i" { target ia32 } } } */
+/* { dg-final { scan-assembler-times "and\[lq\]?\[^\\n\]*-64,\[^\\n\]*sp" 1 } } */
+/* { dg-final { scan-assembler-times "iret" 1 { target ia32 } } } */
+/* { dg-final { scan-assembler-times "iretq" 1 { target { ! ia32 } } } } */
 /* { dg-final { scan-assembler-times "\tcld" 1 } } */
-/* { dg-final { scan-assembler-not "vzeroupper" } } */

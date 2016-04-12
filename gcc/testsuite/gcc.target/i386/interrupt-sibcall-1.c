@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O3 -mno-cld" } */
+/* { dg-options "-O3 -mno-mpx -mno-sse -mno-mmx -mno-80387 -mno-cld" } */
 
 extern void foo (void *) __attribute__ ((interrupt));
 extern void bar (void);

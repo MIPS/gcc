@@ -1,26 +1,29 @@
-/* { dg-do compile } */
-/* { dg-options "-O2 -mno-cld -mno-avx512f -mno-iamcu -mavx" } */
+/* { dg-do compile { target ia32 } } */
+/* { dg-options "-O2 -mno-mpx -mno-sse -mno-mmx -mno-80387 -mno-cld -miamcu -maccumulate-outgoing-args" } */
+
+struct interrupt_frame;
+
+void (*callback) (unsigned int id, unsigned int len)
+  __attribute__((no_caller_saved_registers));
+unsigned int remaining;
 
 void
 __attribute__((no_caller_saved_registers))
-fn (void)
+handler(void)
 {
-  asm ("#"
-       :
-       :
-       : "xmm3");
+  while (1) {
+    if (remaining) {
+      callback(0, 0);
+      break;
+    }
+  }
 }
 
-/* { dg-final { scan-assembler-times "movups\[\\t \]*%ymm3,\[\\t \]*-?\[0-9\]*\\(%\[re\]?sp\\)" 1 } } */
-/* { dg-final { scan-assembler-times "movups\[\\t \]*-?\[0-9\]*\\(%\[re\]?sp\\),\[\\t \]*%ymm3" 1 } } */
-/* { dg-final { scan-assembler-not "mov(a|u)ps\[\\t \]*%(x|y|z)mm\[0-2\]+,\[\\t \]*\[0-9\]*\\(%\[re\]?sp\\)" } } */
-/* { dg-final { scan-assembler-not "mov(a|u)ps\[\\t \]*\[0-9\]*\\(%\[re\]?sp\\),\[\\t \]*%(x|y|z)mm\[0-2\]+" } } */
-/* { dg-final { scan-assembler-not "mov(a|u)ps\[\\t \]*%(x|y|z)mm\[4-9\]+,\[\\t \]*\[0-9\]*\\(%\[re\]?sp\\)" } } */
-/* { dg-final { scan-assembler-not "mov(a|u)ps\[\\t \]*\[0-9\]*\\(%\[re\]?sp\\),\[\\t \]*%(x|y|z)mm\[4-9\]+" } } */
-/* { dg-final { scan-assembler-not "mov(a|u)ps\[\\t \]*%(x|y|z)mm1\[0-9\]+,\[\\t \]*\[0-9\]*\\(%\[re\]?sp\\)" } } */
-/* { dg-final { scan-assembler-not "mov(a|u)ps\[\\t \]*\[0-9\]*\\(%\[re\]?sp\\),\[\\t \]*%(x|y|z)mm1\[0-9\]+" } } */
-/* { dg-final { scan-assembler-not "(push|pop)(l|q)\[\\t \]*%(r|e)(a|b|c|d)x" } } */
-/* { dg-final { scan-assembler-not "(push|pop)(l|q)\[\\t \]*%(r|e)(s|d)i" } } */
-/* { dg-final { scan-assembler-not "(push|pop)(l|q)\[\\t \]*%(r|e)bp" } } */
-/* { dg-final { scan-assembler-not "(push|pop)q\[\\t \]*%r\[0-9\]+" { target { ! ia32 } } } } */
-/* { dg-final { scan-assembler-not "\tcld" } } */
+void
+__attribute__((interrupt))
+my_isr(struct interrupt_frame *frame)
+{
+  handler();
+}
+
+/* { dg-final { scan-assembler-times "\tcld" 1 } } */

@@ -1,16 +1,12 @@
-/* { dg-do compile { target ia32 } } */
-/* { dg-options "-O2 -mno-cld -mno-iamcu" } */
+/* { dg-do compile } */
+/* { dg-options "-O2 -mno-mpx -mno-sse -mno-mmx -mno-80387 -mcld" } */
 
-struct ret
-{
-  int i[8];
-};
-
-extern struct ret bar (void);
-
+__attribute__ ((interrupt))
 void
- __attribute__ ((interrupt))
-fn (void *frame)
+foo (void *frame)
 {
-  bar ();
-} /* { dg-message "sorry, unimplemented: Dynamic Realign Argument Pointer" } */
+}
+
+/* { dg-final { scan-assembler-times "iret" 1 { target ia32 } } } */
+/* { dg-final { scan-assembler-times "iretq" 1 { target { ! ia32 } } } } */
+/* { dg-final { scan-assembler-not "\tcld" } } */

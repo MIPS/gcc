@@ -2480,7 +2480,8 @@ struct seh_frame_state;
 
 enum function_type
 {
-  TYPE_NORMAL = 0,
+  TYPE_UNKNOWN = 0,
+  TYPE_NORMAL,
   /* The current function is an interrupt service routine with a
      pointer argument as specified by the "interrupt" attribute.  */
   TYPE_INTERRUPT,

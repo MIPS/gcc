@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -mno-cld -mno-push-args -maccumulate-outgoing-args" } */
+/* { dg-options "-O2 -mno-mpx -mno-sse -mno-mmx -mno-80387 -mno-cld -mno-push-args -maccumulate-outgoing-args" } */
 
 extern void foo (void *) __attribute__ ((interrupt));
 extern int bar (int);

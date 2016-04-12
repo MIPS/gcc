@@ -1,6 +1,6 @@
 /* { dg-do compile } */
-/* { dg-options "-O3 -mno-cld -mno-sse -mpreferred-stack-boundary=3" { target { ! { ia32 } } } } */
-/* { dg-options "-O3 -mno-cld -mpreferred-stack-boundary=2" { target { ia32 } } } */
+/* { dg-options "-O3 -mno-mpx -mno-sse -mno-mmx -mno-80387 -mno-cld -mpreferred-stack-boundary=3" { target { ! { ia32 } } } } */
+/* { dg-options "-O3 -mno-mpx -mno-sse -mno-mmx -mno-80387 -mno-cld -mpreferred-stack-boundary=2" { target { ia32 } } } */
 
 extern void foo (void *) __attribute__ ((interrupt));
 extern void bar (void) __attribute__ ((no_caller_saved_registers));

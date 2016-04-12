@@ -1,26 +1,46 @@
-/* { dg-do compile } */
-/* { dg-options "-O2 -mno-cld -mavx512f -mno-iamcu" } */
+/* { dg-do compile { target ia32 } } */
+/* { dg-options "-O2 -mno-mpx -mno-sse -mno-mmx -mno-80387 -mno-cld -miamcu -maccumulate-outgoing-args" } */
+
+struct interrupt_frame;
+
+extern void callback0 (unsigned int id, unsigned int len)
+  __attribute__((no_caller_saved_registers));
+extern void callback1 (unsigned int id, unsigned int len)
+  __attribute__((no_caller_saved_registers));
+extern void callback2 (unsigned int id, unsigned int len)
+  __attribute__((no_caller_saved_registers));
+
+typedef void (*callback_t) (unsigned int id, unsigned int len)
+  __attribute__((no_caller_saved_registers));
+
+callback_t callback[] =
+{
+  callback0,
+  callback1,
+  callback2,
+};
+
+unsigned int remaining;
 
 void
 __attribute__((no_caller_saved_registers))
-fn (void)
+handler(int uart)
 {
-  asm ("#"
-       :
-       :
-       : "xmm3");
+  while (1) {
+    if (remaining) {
+      callback[uart](0, 0);
+      break;
+    }
+  }
 }
 
-/* { dg-final { scan-assembler-times "movups\[\\t \]*%zmm3,\[\\t \]*-?\[0-9\]*\\(%\[re\]?sp\\)" 1 } } */
-/* { dg-final { scan-assembler-times "movups\[\\t \]*-?\[0-9\]*\\(%\[re\]?sp\\),\[\\t \]*%zmm3" 1 } } */
-/* { dg-final { scan-assembler-not "mov(a|u)ps\[\\t \]*%(x|y|z)mm\[0-2\]+,\[\\t \]*\[0-9\]*\\(%\[re\]?sp\\)" } } */
-/* { dg-final { scan-assembler-not "mov(a|u)ps\[\\t \]*\[0-9\]*\\(%\[re\]?sp\\),\[\\t \]*%(x|y|z)mm\[0-2\]+" } } */
-/* { dg-final { scan-assembler-not "mov(a|u)ps\[\\t \]*%(x|y|z)mm\[4-9\]+,\[\\t \]*\[0-9\]*\\(%\[re\]?sp\\)" } } */
-/* { dg-final { scan-assembler-not "mov(a|u)ps\[\\t \]*\[0-9\]*\\(%\[re\]?sp\\),\[\\t \]*%(x|y|z)mm\[4-9\]+" } } */
-/* { dg-final { scan-assembler-not "mov(a|u)ps\[\\t \]*%(x|y|z)mm1\[0-9\]+,\[\\t \]*\[0-9\]*\\(%\[re\]?sp\\)" } } */
-/* { dg-final { scan-assembler-not "mov(a|u)ps\[\\t \]*\[0-9\]*\\(%\[re\]?sp\\),\[\\t \]*%(x|y|z)mm1\[0-9\]+" } } */
-/* { dg-final { scan-assembler-not "(push|pop)(l|q)\[\\t \]*%(r|e)(a|b|c|d)x" } } */
-/* { dg-final { scan-assembler-not "(push|pop)(l|q)\[\\t \]*%(r|e)(s|d)i" } } */
-/* { dg-final { scan-assembler-not "(push|pop)(l|q)\[\\t \]*%(r|e)bp" } } */
-/* { dg-final { scan-assembler-not "(push|pop)q\[\\t \]*%r\[0-9\]+" { target { ! ia32 } } } } */
-/* { dg-final { scan-assembler-not "\tcld" } } */
+int uart;
+
+void
+__attribute__((interrupt))
+my_isr(struct interrupt_frame *frame)
+{
+  handler(uart);
+}
+
+/* { dg-final { scan-assembler-times "\tcld" 1 } } */

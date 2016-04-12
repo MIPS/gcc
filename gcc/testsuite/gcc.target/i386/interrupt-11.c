@@ -1,13 +1,13 @@
 /* { dg-do compile { target *-*-linux* } } */
-/* { dg-options "-O2 -mno-cld -mno-sse -mno-iamcu -maccumulate-outgoing-args" } */
+/* { dg-options "-O2 -mno-mpx -mno-sse -mno-mmx -mno-80387 -mno-cld -mno-iamcu -mno-sse4 -mno-popcnt -maccumulate-outgoing-args" } */
 
-extern void bar (void);
+extern int i, cnt;
 
 void
  __attribute__ ((interrupt))
 foo (void *frame)
 {
-  bar ();
+  cnt = __builtin_popcount (i);
 }
 
 /* { dg-final { scan-assembler-not "movups\[\\t .\]*%(x|y|z)mm\[0-9\]+" } } */
@@ -16,7 +16,8 @@ foo (void *frame)
 /* { dg-final { scan-assembler-not "pushq\[\\t \]*%rbx" { target { ! ia32 } } } } */
 /* { dg-final { scan-assembler-not "pushq\[\\t \]*%r1\[2-5\]+" { target { ! ia32 } } } } */
 /* { dg-final { scan-assembler-not "pushl\[\\t \]*%ebx" { target ia32 } } } */
-/* { dg-final { scan-assembler-not "pushl\[\\t \]*%e(s|d)i" { target ia32 } } } */
+/* { dg-final { scan-assembler-not "pushl\[\\t \]*%edi" { target ia32 } } } */
+/* { dg-final { scan-assembler-not "pushl\[\\t \]*%esi" { target ia32 } } } */
 /* { dg-final { scan-assembler-times "push(?:l|q)\[\\t \]*%(?:e|r)ax" 1 } } */
 /* { dg-final { scan-assembler-times "push(?:l|q)\[\\t \]*%(?:e|r)cx" 1 } } */
 /* { dg-final { scan-assembler-times "push(?:l|q)\[\\t \]*%(?:e|r)dx" 1 } } */
@@ -35,4 +36,6 @@ foo (void *frame)
 /* { dg-final { scan-assembler-times "popq\[\\t \]*%r9" 1 { target { ! ia32 } } } } */
 /* { dg-final { scan-assembler-times "popq\[\\t \]*%r10" 1 { target { ! ia32 } } } } */
 /* { dg-final { scan-assembler-times "popq\[\\t \]*%r11" 1 { target { ! ia32 } } } } */
+/* { dg-final { scan-assembler-times "iret" 1 { target ia32 } } } */
+/* { dg-final { scan-assembler-times "iretq" 1 { target { ! ia32 } } } } */
 /* { dg-final { scan-assembler-times "\tcld" 1 } } */

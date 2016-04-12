@@ -1,13 +1,16 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -mno-cld -Wall -g" } */
+/* { dg-options "-Os -mno-mpx -mno-sse -mno-mmx -mno-80387 -mno-cld" } */
 
+
+extern void *a;
+extern int b;
+
+__attribute__ ((interrupt))
 void
-__attribute__((interrupt))
-fn (void *frame)
+foo (void *frame)
 {
+  __builtin_memset (a, b, 40);
 }
 
-/* { dg-final { scan-assembler-not "add(l|q)\[\\t \]*\\$\[0-9\]*,\[\\t \]*%\[re\]?sp" } } */
-/* { dg-final { scan-assembler-times "iret" 1 { target ia32 } } } */
-/* { dg-final { scan-assembler-times "iretq" 1 { target { ! ia32 } } } } */
-/* { dg-final { scan-assembler-not "\tcld" } } */
+/* { dg-final { scan-assembler "stosb" } } */
+/* { dg-final { scan-assembler-times "\tcld" 1 } } */

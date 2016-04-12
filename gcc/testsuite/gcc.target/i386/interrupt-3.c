@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -mno-cld -g" } */
+/* { dg-options "-O2 -mno-mpx -mno-sse -mno-mmx -mno-80387 -mno-cld -g" } */
 
 typedef unsigned int uword_t __attribute__ ((mode (__word__)));
 
