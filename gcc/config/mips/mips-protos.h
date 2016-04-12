@@ -242,7 +242,8 @@ extern bool mips_get_pic_call_symbol (rtx *, int);
 extern void mips_set_return_address (rtx, rtx);
 extern bool mips_move_by_pieces_p (unsigned HOST_WIDE_INT, unsigned int);
 extern bool mips_store_by_pieces_p (unsigned HOST_WIDE_INT, unsigned int);
-extern bool mips_expand_block_move (rtx, rtx, rtx);
+extern bool mips_expand_block_move (rtx, rtx, rtx, rtx);
+extern bool mips16_expand_copy (rtx, rtx, rtx, rtx);
 extern void mips_expand_synci_loop (rtx, rtx);
 
 extern void mips_init_cumulative_args (CUMULATIVE_ARGS *, tree);
@@ -393,4 +394,6 @@ extern mulsidi3_gen_fn mips_mulsidi3_gen_fn (enum rtx_code);
 extern void mips_register_frame_header_opt (void);
 extern void mips_expand_vec_cond_expr (machine_mode, machine_mode, rtx *);
 
+extern bool mips_bit_clear_p (enum machine_mode, unsigned HOST_WIDE_INT);
+extern void mips_bit_clear_info (unsigned HOST_WIDE_INT, int *, int *);
 #endif /* ! GCC_MIPS_PROTOS_H */

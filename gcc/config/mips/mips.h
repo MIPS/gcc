@@ -237,7 +237,11 @@ struct mips_cpu_info {
 /* Generate mips16e code. Default 16bit ASE for mips32* and mips64* */
 #define GENERATE_MIPS16E	(TARGET_MIPS16 && mips_isa >= 32)
 /* Generate mips16e register save/restore sequences.  */
-#define GENERATE_MIPS16E_SAVE_RESTORE (GENERATE_MIPS16E && mips_abi == ABI_32)
+#define GENERATE_MIPS16E_SAVE_RESTORE ((GENERATE_MIPS16E \
+					|| (TARGET_USE_SAVE_RESTORE \
+					    && !TARGET_MICROMIPS \
+					    && TARGET_SOFT_FLOAT)) \
+				       && mips_abi == ABI_32)
 
 /* True if we're generating a form of MIPS16 code in which general
    text loads are allowed.  */
@@ -289,6 +293,7 @@ struct mips_cpu_info {
 				     || mips_arch == PROCESSOR_SB1A)
 #define TARGET_SR71K                (mips_arch == PROCESSOR_SR71000)
 #define TARGET_XLP                  (mips_arch == PROCESSOR_XLP)
+#define TARGET_INTERAPTIV_MR2	    (mips_arch == PROCESSOR_INTERAPTIV_MR2)
 
 /* Scheduling target defines.  */
 #define TUNE_20KC		    (mips_tune == PROCESSOR_20KC)
@@ -406,6 +411,8 @@ struct mips_cpu_info {
       for (p = macro; *p != 0; p++)				\
         if (*p == '+')                                          \
           *p = 'P';                                             \
+        else if (*p == '-')                                     \
+          *p = '_';                                             \
         else                                                    \
           *p = TOUPPER (*p);                                    \
 								\
@@ -460,6 +467,9 @@ struct mips_cpu_info {
 									\
       if (mips_base_compression_flags & MASK_MIPS16)			\
 	builtin_define ("__mips16");					\
+									\
+      if (TARGET_MIPS16E2)						\
+	builtin_define ("__mips_mips16e2");				\
 									\
       if (TARGET_MIPS3D)						\
 	builtin_define ("__mips3d");					\
@@ -789,7 +799,7 @@ struct mips_cpu_info {
      %{march=mips32r2|march=m4k|march=4ke*|march=4ksd|march=24k* \
        |march=34k*|march=74k*|march=m14k*|march=1004k* \
        |march=interaptiv: -mips32r2} \
-     %{march=mips32r3: -mips32r3} \
+     %{march=mips32r3|march=interaptiv-mr2: -mips32r3} \
      %{march=mips32r5|march=p5600|march=m5100|march=m5101: -mips32r5} \
      %{march=mips32r6|march=m6201: -mips32r6} \
      %{march=mips64|march=5k*|march=20k*|march=sb1*|march=sr71000 \
@@ -897,10 +907,12 @@ struct mips_cpu_info {
   MIPS_ISA_NAN2008_SPEC,       \
   "%{!mno-dsp: \
      %{march=24ke*|march=34kc*|march=34kf*|march=34kx*|march=1004k* \
-       |march=interaptiv: -mdsp} \
+       |march=interaptiv*: -mdsp} \
      %{march=74k*|march=m14ke*: %{!mno-dspr2: -mdspr2 -mdsp}}}" \
   "%{!mforbidden-slots: \
-     %{mips32r6|mips64r6:%{mmicromips:-mno-forbidden-slots}}}"
+     %{mips32r6|mips64r6:%{mmicromips:-mno-forbidden-slots}}}" \
+  "%{!mno-mips16e2: \
+     %{march=interaptiv-mr2: -mmips16e2}}"
 
 #define DRIVER_SELF_SPECS \
   MIPS_ISA_LEVEL_SPEC,	  \
@@ -1030,6 +1042,7 @@ struct mips_cpu_info {
    ST Loongson 2E/2F.  */
 #define ISA_HAS_CONDMOVE        (ISA_HAS_FP_CONDMOVE			\
 				 || TARGET_MIPS5900			\
+				 || ISA_HAS_MIPS16E2			\
 				 || TARGET_LOONGSON_2EF)
 
 /* ISA has LDC1 and SDC1.  */
@@ -1188,7 +1201,8 @@ struct mips_cpu_info {
 				 && !TARGET_MIPS16)
 
 /* ISA has data prefetch, LL and SC with limited 9-bit displacement.  */
-#define ISA_HAS_9BIT_DISPLACEMENT	(mips_isa_rev >= 6)
+#define ISA_HAS_9BIT_DISPLACEMENT	(mips_isa_rev >= 6 \
+					 || ISA_HAS_MIPS16E2)
 
 /* ISA has data indexed prefetch instructions.  This controls use of
    'prefx', along with TARGET_HARD_FLOAT and TARGET_DOUBLE_FLOAT.
@@ -1205,7 +1219,8 @@ struct mips_cpu_info {
 #define ISA_HAS_SEB_SEH		(mips_isa_rev >= 2 && !TARGET_MIPS16)
 
 /* ISA includes the MIPS32/64 rev 2 ext and ins instructions.  */
-#define ISA_HAS_EXT_INS		(mips_isa_rev >= 2 && !TARGET_MIPS16)
+#define ISA_HAS_EXT_INS		((mips_isa_rev >= 2 && !TARGET_MIPS16) \
+				|| ISA_HAS_MIPS16E2)
 
 /* ISA has instructions for accessing top part of 64-bit fp regs.  */
 #define ISA_HAS_MXHC1		(!TARGET_FLOAT32	\
@@ -1234,6 +1249,13 @@ struct mips_cpu_info {
 
 /* The MSA ASE is available.  */
 #define ISA_HAS_MSA		(TARGET_MSA && !TARGET_MIPS16)
+
+/* The MIPS16e V2 instructions are available.  */
+#define ISA_HAS_MIPS16E2	(TARGET_MIPS16 && TARGET_MIPS16E2	\
+				 && !TARGET_64BIT)
+
+/* The interAptiv MR2 COPYW/UCOPYW instructions are available.  */
+#define ISA_HAS_COPY		(TARGET_MIPS16 && TARGET_INTERAPTIV_MR2)
 
 /* True if the result of a load is not available to the next instruction.
    A nop will then be needed between instructions like "lw $4,..."
@@ -1310,6 +1332,8 @@ struct mips_cpu_info {
 
 /* ISA includes the pop instruction.  */
 #define ISA_HAS_POP		(TARGET_OCTEON && !TARGET_MIPS16)
+
+#define MIPS16_GP_LOADS		(ISA_HAS_MIPS16E2 && !TARGET_64BIT)
 
 /* The CACHE instruction is available in non-MIPS16 code.  */
 #define TARGET_CACHE_BUILTIN (mips_isa >= 3)
@@ -1396,6 +1420,8 @@ struct mips_cpu_info {
 %{mforbidden-slots} \
 %{mtune=*}" \
 FP_ASM_SPEC "\
+%{mmips16e2} \
+%{mmips16-copy:-mmips16cp} \
 %(subtarget_asm_spec)"
 
 /* Extra switches sometimes passed to the linker.  */
@@ -2070,10 +2096,6 @@ FP_ASM_SPEC "\
    function address than to call an address kept in a register.  */
 #define NO_FUNCTION_CSE 1
 
-/* The ABI-defined global pointer.  Sometimes we use a different
-   register in leaf functions: see PIC_OFFSET_TABLE_REGNUM.  */
-#define GLOBAL_POINTER_REGNUM (GP_REG_FIRST + 28)
-
 /* We normally use $28 as the global pointer.  However, when generating
    n32/64 PIC, it is better for leaf functions to use a call-clobbered
    register instead.  They can then avoid saving and restoring $28
@@ -2727,7 +2749,6 @@ typedef struct mips_args {
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) \
   (TARGET_64BIT ? ((INPREC) <= 32 || (OUTPREC) > 32) : 1)
 
-
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction
    between pointers and any other objects of this machine mode.  */
@@ -3137,7 +3158,9 @@ while (0)
 /* The maximum number of bytes that can be copied by one iteration of
    a movmemsi loop; see mips_block_move_loop.  */
 #define MIPS_MAX_MOVE_BYTES_PER_LOOP_ITER \
-  (UNITS_PER_WORD * 4)
+  (ISA_HAS_COPY	  			  \
+  ? UNITS_PER_WORD * 4 * 4		  \
+  : UNITS_PER_WORD * 4)
 
 /* The maximum number of bytes that can be copied by a straight-line
    implementation of movmemsi; see mips_block_move_straight.  We want
@@ -3168,7 +3191,9 @@ while (0)
 
 #define MOVE_RATIO(speed)				\
   (HAVE_movmemsi					\
-   ? MIPS_MAX_MOVE_BYTES_STRAIGHT / MOVE_MAX		\
+   ? (ISA_HAS_COPY					\
+      ? MIPS_MAX_MOVE_BYTES_STRAIGHT / 4 / MOVE_MAX	\
+      : MIPS_MAX_MOVE_BYTES_STRAIGHT / MOVE_MAX)	\
    : MIPS_CALL_RATIO / 2)
 
 /* For CLEAR_RATIO, when optimizing for size, give a better estimate
@@ -3428,6 +3453,10 @@ struct GTY(())  machine_function {
 
   /* True if GCC stored callee saved registers in the frame header.  */
   bool use_frame_header_for_callee_saved_regs;
+
+  /* True if we are safe to use SAVE/RESTORE instruction in the
+     prologue/epilogue.  */
+  bool safe_to_use_save_restore;
 };
 #endif
 
