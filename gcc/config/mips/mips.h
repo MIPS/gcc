@@ -1189,6 +1189,10 @@ struct mips_cpu_info {
 /* The MSA ASE is available.  */
 #define ISA_HAS_MSA		(TARGET_MSA && !TARGET_MIPS16)
 
+/* The MIPS16e V2 instructions are available.  */
+#define ISA_HAS_MIPS16E2	(TARGET_MIPS16 && TARGET_MIPS16E2	\
+				 && !TARGET_64BIT)
+
 /* True if the result of a load is not available to the next instruction.
    A nop will then be needed between instructions like "lw $4,..."
    and "addiu $4,$4,1".  */
@@ -1334,6 +1338,7 @@ struct mips_cpu_info {
 %{mhard-float} %{msoft-float} \
 %{msingle-float} %{mdouble-float} \
 %{mforbidden-slots} \
+%{mmips16e2} \
 %(subtarget_asm_spec)"
 
 /* Extra switches sometimes passed to the linker.  */
