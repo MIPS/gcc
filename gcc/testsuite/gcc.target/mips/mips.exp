@@ -779,6 +779,12 @@ proc mips-dg-init {} {
 	    "-mno-mips16",
 	    #endif
 
+	    #ifdef __mips_mips16e2
+	    "-mmips16e2",
+	    #else
+	    "-mno-mips16e2",
+	    #endif
+
 	    #ifdef __mips3d
 	    "-mips3d",
 	    #else
