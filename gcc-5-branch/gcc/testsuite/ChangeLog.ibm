@@ -1,5 +1,7 @@
 2016-04-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to branches/gcc-5-branch, subversion id 234888.
+
 	Backport from mainline
 	2016-04-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 

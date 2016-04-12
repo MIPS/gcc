@@ -1,3 +1,111 @@
+2016-04-11  Alan Modra  <amodra@gmail.com>
+
+	* gcc.target/powerpc/pr70117.c: New.
+
+2016-04-09  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR fortran/70592
+	* gfortran.dg/deferred_character_17.f90: New test.
+
+2016-04-09  John David Anglin  <danglin@gcc.gnu.org>
+
+	* gcc.dg/uninit-19.c: Fix warning line for hppa*64*-*-*.
+
+	PR tree-optimization/68644
+	* gcc.dg/tree-ssa/ivopts-lt-2.c: Skip on hppa*-*-*.
+
+	PR rtl-optimization/64886
+	* gcc.dg/pr64434.c: Skip on hppa*-*-hpux*.
+
+2016-04-09  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2016-04-03  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/70416
+	PR target/67391
+	* gcc.target/sh/torture/pr70416.c: New.
+
+2016-04-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/execute/20101011-1.c (__VISIUM__): Set DO_TEST to 0.
+
+2016-04-06  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2016-03-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/70177
+	* gcc.dg/pr70177.c: New test.
+
+2016-04-06  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2016-02-24  Richard Biener  <rguenther@suse.de>
+		Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/69760
+	* gcc.dg/torture/pr69760.c: New testcase.
+
+	2016-03-01  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/69983
+	* gcc.dg/graphite/isl-codegen-loop-dumping.c: Adjust.
+
+2016-04-06  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2016-02-24  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/68963
+	* gcc.dg/torture/pr68963.c: New testcase.
+
+2016-04-06  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2016-03-01  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70022
+	* gcc.dg/pr70022.c: New testcase.
+
+	2016-03-07  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70115
+	* gcc.dg/torture/pr70115.c: New testcase.
+
+2016-04-06  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2016-03-30  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70450
+	* gcc.dg/torture/pr70450.c: New testcase.
+
+	2016-03-22  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70333
+	* gcc.dg/torture/pr70333.c: New testcase.
+
+	2016-04-04  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/70484
+	* gcc.dg/torture/pr70484.c: New testcase.
+
+	2016-03-31  Richard Biener  <rguenther@suse.de>
+
+	PR c++/70430
+	* g++.dg/ext/vector30.C: New testcase.
+
+2016-04-05  Dominique d'Humieres  <dominiq@lps.ens.fr>
+	    Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	* gfortran.dg/fmt_pf.f90: New test.
+
+2016-04-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/70525
+	* gcc.target/i386/pr70525.c: New test.
+
 2016-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 	    Jakub Jelinek <jakub@redhat.com>
 
@@ -264,7 +372,7 @@
 2016-03-28  Kirill Yukhin  <kirill.yukhin@intel.com>
 
 	PR target/70406
-	 * gcc.target/i386/pr70406.c: New test.
+	* gcc.target/i386/pr70406.c: New test.
 
 2016-03-27  Eric Botcazou  <ebotcazou@adacore.com>
 
