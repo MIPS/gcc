@@ -363,6 +363,10 @@
   (and (match_code "const_vector")
        (match_test "mips_const_vector_same_bytes_p (op, mode)")))
 
+(define_constraint "Yz"
+   "@internal"
+   (match_operand 0 "bit_clear_operand"))
+
 (define_memory_constraint "ZC"
   "When compiling R6 code, this constraint matches a memory operand whose
    address is formed from a base register and a 9-bit offset.

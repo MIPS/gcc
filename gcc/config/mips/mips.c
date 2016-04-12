@@ -1708,7 +1708,10 @@ mips_build_lower (struct mips_integer_op *codes, unsigned HOST_WIDE_INT value)
       /* Either this is a simple LUI/ORI pair, or clearing the lowest 16
 	 bits gives a value with at least 17 trailing zeros.  */
       i = mips_build_integer (codes, high);
-      codes[i].code = IOR;
+      if (ISA_HAS_MIPS16E2 && (value & 0x8000) == 0)
+	codes[i].code = PLUS;
+      else
+	codes[i].code = IOR;
       codes[i].value = value & 0xffff;
     }
   return i + 1;
@@ -2355,7 +2358,9 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
 	 The final address is then $at + %lo(symbol).  With 32-bit
 	 symbols we just need a preparatory LUI for normal mode and
 	 a preparatory LI and SLL for MIPS16.  */
-      return ABI_HAS_64BIT_SYMBOLS ? 6 : TARGET_MIPS16 ? 3 : 2;
+      return ABI_HAS_64BIT_SYMBOLS
+	     ? 6
+	     : (TARGET_MIPS16 && !ISA_HAS_MIPS16E2) ? 3 : 2;
 
     case SYMBOL_GP_RELATIVE:
       /* Treat GP-relative accesses as taking a single instruction on
@@ -2532,6 +2537,9 @@ mips_regno_mode_ok_for_base_p (int regno, machine_mode mode,
      values, nothing smaller.  */
   if (TARGET_MIPS16 && regno == STACK_POINTER_REGNUM)
     return GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8;
+
+  if (MIPS16_GP_LOADS && regno == GLOBAL_POINTER_REGNUM)
+    return (UNITS_PER_WORD > 4 ? GET_MODE_SIZE (mode) <= 4 : true);
 
   return TARGET_MIPS16 ? M16_REG_P (regno) : GP_REG_P (regno);
 }
@@ -2748,7 +2756,8 @@ static bool
 mips16_unextended_reference_p (machine_mode mode, rtx base,
 			       unsigned HOST_WIDE_INT offset)
 {
-  if (mode != BLKmode && offset % GET_MODE_SIZE (mode) == 0)
+  if (mode != BLKmode && offset % GET_MODE_SIZE (mode) == 0
+      && REGNO (base) != GLOBAL_POINTER_REGNUM)
     {
       if (GET_MODE_SIZE (mode) == 4 && GET_CODE (base) == REG
           && REGNO (base) == STACK_POINTER_REGNUM)
@@ -2923,7 +2932,7 @@ mips_const_insns (rtx x)
 
       /* This is simply an LUI for normal mode.  It is an extended
 	 LI followed by an extended SLL for MIPS16.  */
-      return TARGET_MIPS16 ? 4 : 1;
+      return TARGET_MIPS16 ? (ISA_HAS_MIPS16E2 ? 2 : 4) : 1;
 
     case CONST_INT:
       if (TARGET_MIPS16)
@@ -2935,7 +2944,10 @@ mips_const_insns (rtx x)
 		: SMALL_OPERAND_UNSIGNED (INTVAL (x)) ? 2
 		: IN_RANGE (-INTVAL (x), 0, 255) ? 2
 		: SMALL_OPERAND_UNSIGNED (-INTVAL (x)) ? 3
-		: 0);
+		: ISA_HAS_MIPS16E2
+		  ? (trunc_int_for_mode (INTVAL (x), SImode) == INTVAL (x)
+		     ? 4 : 8)
+		  : 0);
 
       return mips_build_integer (codes, INTVAL (x));
 
@@ -3309,7 +3321,7 @@ mips16_gp_pseudo_reg (void)
 rtx
 mips_pic_base_register (rtx temp)
 {
-  if (!TARGET_MIPS16)
+  if (MIPS16_GP_LOADS || !TARGET_MIPS16)
     return pic_offset_table_rtx;
 
   if (currently_expanding_to_rtl)
@@ -3825,7 +3837,7 @@ mips_rewrite_small_data_p (rtx x, enum mips_symbol_context context)
 /* Return true if OP refers to small data symbols directly, not through
    a LO_SUM.  CONTEXT is the context in which X appears.  */
 
-static int
+static bool
 mips_small_data_pattern_1 (rtx x, enum mips_symbol_context context)
 {
   subrtx_var_iterator::array_type array;
@@ -3925,6 +3937,11 @@ mips16_constant_cost (int code, HOST_WIDE_INT x)
 	return COSTS_N_INSNS (1);
       return -1;
 
+    case IOR:
+      if (ISA_HAS_MIPS16E2 && SMALL_OPERAND_UNSIGNED (x))
+	return COSTS_N_INSNS (1);
+      return -1;
+
     case LEU:
       /* Like LE, but reject the always-true case.  */
       if (x == -1)
@@ -3950,6 +3967,10 @@ mips16_constant_cost (int code, HOST_WIDE_INT x)
       if (x == 0)
 	return 0;
       return -1;
+
+    case ZERO_EXTRACT:
+      /* The bit position and size are immediate operands.  */
+      return ISA_HAS_EXT_INS ? COSTS_N_INSNS (1) : -1;
 
     default:
       return -1;
@@ -5300,6 +5321,11 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	  if (!TARGET_MIPS16)
 	    return "li\t%0,%1\t\t\t# %X1";
 
+	  if (ISA_HAS_MIPS16E2
+	      && LUI_INT (src)
+	      && !SMALL_OPERAND_UNSIGNED (INTVAL (src)))
+	    return "lui\t%0,%%hi(%1)\t\t\t# %X1";
+
 	  if (SMALL_OPERAND_UNSIGNED (INTVAL (src)))
 	    return "li\t%0,%1";
 
@@ -5308,7 +5334,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	}
 
       if (src_code == HIGH)
-	return TARGET_MIPS16 ? "#" : "lui\t%0,%h1";
+	return (TARGET_MIPS16 && !ISA_HAS_MIPS16E2) ? "#" : "lui\t%0,%h1";
 
       if (CONST_GP_P (src))
 	return "move\t%0,%1";
@@ -8519,11 +8545,24 @@ mips_expand_ins_as_unaligned_store (rtx dest, rtx src, HOST_WIDE_INT width,
     return false;
 
   mode = int_mode_for_size (width, 0).require ();
-  src = gen_lowpart (mode, src);
+  if (TARGET_MIPS16
+      && src == const0_rtx)
+    src = force_reg (mode, src);
+  else
+    src = gen_lowpart (mode, src);
+
   if (mode == DImode)
     {
+      if (TARGET_MIPS16)
+	gcc_unreachable ();
       emit_insn (gen_mov_sdl (dest, src, left));
       emit_insn (gen_mov_sdr (copy_rtx (dest), copy_rtx (src), right));
+    }
+  else if (TARGET_MIPS16)
+    {
+      emit_insn (gen_mov_swl_mips16e2 (dest, src, left));
+      emit_insn (gen_mov_swr_mips16e2 (copy_rtx (dest), copy_rtx (src),
+				       right));
     }
   else
     {
@@ -8690,7 +8729,7 @@ mips_init_relocs (void)
 	}
     }
 
-  if (TARGET_MIPS16)
+  if (!MIPS16_GP_LOADS && TARGET_MIPS16)
     {
       /* The high part is provided by a pseudo copy of $gp.  */
       mips_split_p[SYMBOL_GP_RELATIVE] = true;
@@ -11968,13 +12007,25 @@ mips_output_function_prologue (FILE *file)
     {
       if (TARGET_MIPS16)
 	{
-	  /* This is a fixed-form sequence.  The position of the
-	     first two instructions is important because of the
-	     way _gp_disp is defined.  */
-	  output_asm_insn ("li\t$2,%%hi(_gp_disp)", 0);
-	  output_asm_insn ("addiu\t$3,$pc,%%lo(_gp_disp)", 0);
-	  output_asm_insn ("sll\t$2,16", 0);
-	  output_asm_insn ("addu\t$2,$3", 0);
+	  if (ISA_HAS_MIPS16E2)
+	    {
+	      /* This is a fixed-form sequence.  The position of the
+		 first two instructions is important because of the
+		 way _gp_disp is defined.  */
+	      output_asm_insn ("lui\t$2,%%hi(_gp_disp)", 0);
+	      output_asm_insn ("addiu\t$3,$pc,%%lo(_gp_disp)", 0);
+	      output_asm_insn ("addu\t$2,$3", 0);
+	    }
+	  else
+	    {
+	      /* This is a fixed-form sequence.  The position of the
+		 first two instructions is important because of the
+		 way _gp_disp is defined.  */
+	      output_asm_insn ("li\t$2,%%hi(_gp_disp)", 0);
+	      output_asm_insn ("addiu\t$3,$pc,%%lo(_gp_disp)", 0);
+	      output_asm_insn ("sll\t$2,16", 0);
+	      output_asm_insn ("addu\t$2,$3", 0);
+	    }
 	}
       else
 	{
@@ -22517,6 +22568,67 @@ mips_starting_frame_offset (void)
   if (FRAME_GROWS_DOWNWARD)
     return 0;
   return crtl->outgoing_args_size + MIPS_GP_SAVE_AREA_SIZE;
+}
+
+void
+mips_bit_clear_info (enum machine_mode mode, unsigned HOST_WIDE_INT m,
+		     int *start_pos, int *size)
+{
+  unsigned int shift = 0;
+  unsigned int change_count = 0;
+  unsigned int prev_val = 1;
+  unsigned int curr_val = 0;
+  unsigned int end_pos = 32;
+
+  for (shift = 0 ; shift < 32 ; shift++)
+     {
+       curr_val = (unsigned int)((m & (unsigned int)(1 << shift)) >> shift);
+       if (curr_val != prev_val)
+	 {
+	   change_count++;
+	   switch (change_count)
+	     {
+	     case 1:
+		*start_pos = shift;
+		break;
+	     case 2:
+		end_pos = shift;
+		break;
+	     default:
+		gcc_unreachable ();
+	     }
+	 }
+       prev_val = curr_val;
+     }
+  *size = (end_pos - *start_pos);
+}
+
+bool
+mips_bit_clear_p (enum machine_mode mode, unsigned HOST_WIDE_INT m)
+{
+  unsigned int shift = 0;
+  unsigned int change_count = 0;
+  unsigned int prev_val = 1;
+  unsigned int curr_val = 0;
+
+  if (mode != SImode && mode != VOIDmode)
+    return false;
+
+  if (!ISA_HAS_EXT_INS)
+    return false;
+
+  for (shift = 0 ; shift < 32 ; shift++)
+     {
+       curr_val = (unsigned int)((m & (unsigned int)(1 << shift)) >> shift);
+       if (curr_val != prev_val)
+	 change_count++;
+       prev_val = curr_val;
+     }
+
+  if (change_count == 2)
+    return true;
+
+  return false;
 }
 
 /* Initialize the GCC target structure.  */
