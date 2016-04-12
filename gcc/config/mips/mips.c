@@ -120,7 +120,7 @@ static int *consumer_luid = NULL;
    to save and restore registers, and to allocate and deallocate the top
    part of the frame.  */
 #define MIPS_MAX_FIRST_STACK_STEP					\
-  (!TARGET_COMPRESSION ? 0x7ff0						\
+  (!TARGET_COMPRESSION && !TARGET_USE_SAVE_RESTORE ? 0x7ff0	\
    : TARGET_MICROMIPS || GENERATE_MIPS16E_SAVE_RESTORE ? 0x7f8		\
    : TARGET_64BIT ? 0x100 : 0x400)
 
@@ -500,6 +500,10 @@ struct GTY(())  machine_function {
   const char *epi_suffix;
   /* If use_common_epilogue_p, determines if $ra should also be restored.  */
   bool epi_with_ra;
+
+  /* True if we are safe to use SAVE/RESTORE instruction in the
+     prologue/epilogue.  */
+  bool safe_to_use_save_restore;
 };
 
 /* Information about a single argument.  */
@@ -12500,6 +12504,8 @@ mips_compute_frame_info (bool recalculate, struct mips_frame_info *frame)
 {
   HOST_WIDE_INT offset, size;
   unsigned int regno, i;
+  int global_reg_used;
+  int local_reg_used;
 
   /* Set this function's interrupt properties.  */
   if (mips_interrupt_type_p (TREE_TYPE (current_function_decl)))
@@ -12579,10 +12585,61 @@ mips_compute_frame_info (bool recalculate, struct mips_frame_info *frame)
 	frame->mask |= 1 << (EH_RETURN_DATA_REGNO (i) - GP_REG_FIRST);
       }
 
+  /* The SAVE and RESTORE instructions have two ranges of registers:
+     $a3-$a0 and $s2-$s8.  If we save one register in the range, we must
+     save all later registers too.  This can cause problems if the user has
+     placed a global value into a register that falls into one of these
+     ranges and the function uses a callee saved register that also in the
+     same range.  In this case the global value could be accidently saved
+     and restored on function entry and exit which means any changes made to
+     its value in the function will be lost.
+
+     The code below checks for this case, and if it is found it turns off
+     the use of the SAVE/RESTORE instruction in this function.
+
+     This approach is not optimal because it should really just check that
+     the number of the register used for the global value occurs before
+     one of the callee saved registers.  However as the use of forcing global
+     values into a register is small it is fine to use the unoptimal version
+     of the code for the moment.  */
+  cfun->machine->safe_to_use_save_restore = true;
+
+  global_reg_used = 0;
+  local_reg_used = 0;
+
+  for (i = 0 ; i < ARRAY_SIZE (mips16e_s2_s8_regs) ; i++)
+     {
+       regno = mips16e_s2_s8_regs[i];
+       if (global_regs [regno])
+	 global_reg_used = 1;
+
+       if (BITSET_P (frame->mask, regno))
+	 local_reg_used = 1;
+     }
+
+  if (global_reg_used && local_reg_used)
+    cfun->machine->safe_to_use_save_restore = false;
+
+  global_reg_used = 0;
+  local_reg_used = 0;
+
+  for (i = 0 ; i < ARRAY_SIZE (mips16e_a0_a3_regs) ; i++)
+     {
+       regno = mips16e_a0_a3_regs[i];
+       if (global_regs [regno])
+	 global_reg_used = 1;
+
+       if (BITSET_P (frame->mask, regno))
+	 local_reg_used = 1;
+     }
+
+  if (global_reg_used && local_reg_used)
+    cfun->machine->safe_to_use_save_restore = false;
+
   /* The MIPS16e SAVE and RESTORE instructions have two ranges of registers:
      $a3-$a0 and $s2-$s8.  If we save one register in the range, we must
      save all later registers too.  */
-  if (GENERATE_MIPS16E_SAVE_RESTORE)
+  if (GENERATE_MIPS16E_SAVE_RESTORE && cfun->machine->safe_to_use_save_restore)
     {
       mips16e_mask_registers (&frame->mask, mips16e_s2_s8_regs,
  			      ARRAY_SIZE (mips16e_s2_s8_regs), &frame->num_gp);
@@ -13710,7 +13767,9 @@ mips_expand_prologue (void)
       HOST_WIDE_INT step1;
 
       step1 = MIN (size, MIPS_MAX_FIRST_STACK_STEP);
-      if (GENERATE_MIPS16E_SAVE_RESTORE)
+      if (GENERATE_MIPS16E_SAVE_RESTORE
+	  && !cfun->machine->interrupt_handler_p
+	  && cfun->machine->safe_to_use_save_restore)
  	{
  	  HOST_WIDE_INT offset;
  	  unsigned int mask, regno;
@@ -14212,7 +14271,9 @@ mips_expand_epilogue (bool sibcall_p)
     emit_insn (gen_blockage ());
 
   mips_epilogue.cfa_restore_sp_offset = step2;
-  if (GENERATE_MIPS16E_SAVE_RESTORE && frame->mask != 0)
+  if (GENERATE_MIPS16E_SAVE_RESTORE && frame->mask != 0
+      && !cfun->machine->interrupt_handler_p
+      && cfun->machine->safe_to_use_save_restore)
     {
       unsigned int regno, mask;
       HOST_WIDE_INT offset;
@@ -21848,6 +21909,9 @@ mips_option_override (void)
 
   if (mips_sdata_section_num >= 1000)
     error ("Number for -msdata-num must be between 0 and 999");
+
+  if ((TARGET_EPI || mips_epi) && TARGET_USE_SAVE_RESTORE)
+    error ("unsupported combination: %s", "-mepi -muse-save-restore");
 }
 
 /* Swap the register information for registers I and I + 1, which

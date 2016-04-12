@@ -7555,7 +7555,8 @@
    && mips16e_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL)"
   { return mips16e_output_save_restore (operands[0], INTVAL (operands[2])); }
   [(set_attr "type" "arith")
-   (set_attr "extended_mips16" "yes")])
+   (set_attr "extended_mips16" "yes")
+   (set_attr "can_delay" "no")])
 
 ;; Thread-Local Storage
 
