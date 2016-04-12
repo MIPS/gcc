@@ -380,6 +380,10 @@ msplit-addresses
 Target Report Mask(SPLIT_ADDRESSES)
 Optimize lui/addiu address loads.
 
+mmips16e2
+Target Report Var(TARGET_MIPS16E2) Init(0)
+Enable the MIPS16e V2 instructions.
+
 msym32
 Target Report Var(TARGET_SYM32)
 Assume all symbols have 32-bit values.
@@ -494,3 +498,6 @@ Redirect dead loads to $0 to avoid spurious output dependencies.
 
 mblockmov-limit=
 Target RejectNegative Undocumented Joined UInteger Var(mips_movmem_limit) Init(-1)
+
+muse-save-restore
+Target Undocumented Var(TARGET_USE_SAVE_RESTORE) Init(-1)
