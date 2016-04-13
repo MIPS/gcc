@@ -1985,7 +1985,7 @@ melt_scanning (melt_ptr_t p)
                 } /*end if young entab */
             for (ix = 0; ix < siz; ix++)
                 {
-                    bitmap at = src->entab[ix].e_at;
+                    melt_bitmapptr_t at = src->entab[ix].e_at;
                     if (!at || (void*) at == (void*) HTAB_DELETED_ENTRY)
                         {
                             src->entab[ix].e_va = NULL;
@@ -2101,7 +2101,7 @@ melt_scanning (melt_ptr_t p)
                 } /*end if young entab */
             for (ix = 0; ix < siz; ix++)
                 {
-                    loop_p at = src->entab[ix].e_at;
+                    melt_loopptr_t at = src->entab[ix].e_at;
                     if (!at || (void*) at == (void*) HTAB_DELETED_ENTRY)
                         {
                             src->entab[ix].e_va = NULL;
@@ -2130,7 +2130,7 @@ melt_scanning (melt_ptr_t p)
                 } /*end if young entab */
             for (ix = 0; ix < siz; ix++)
                 {
-                    rtvec at = src->entab[ix].e_at;
+                    melt_rtvecptr_t at = src->entab[ix].e_at;
                     if (!at || (void*) at == (void*) HTAB_DELETED_ENTRY)
                         {
                             src->entab[ix].e_va = NULL;
@@ -2159,7 +2159,7 @@ melt_scanning (melt_ptr_t p)
                 } /*end if young entab */
             for (ix = 0; ix < siz; ix++)
                 {
-                    rtx at = src->entab[ix].e_at;
+                    melt_rtxptr_t at = src->entab[ix].e_at;
                     if (!at || (void*) at == (void*) HTAB_DELETED_ENTRY)
                         {
                             src->entab[ix].e_va = NULL;
@@ -2253,7 +2253,7 @@ end:
 /*gtyctype #2 CTYPE_BITMAP*/
 
 melt_ptr_t
-meltgc_new_bitmap(meltobject_ptr_t discr_p, bitmap val)   /*runtypesupport generated boxingfun*/
+meltgc_new_bitmap(meltobject_ptr_t discr_p, melt_bitmapptr_t val)   /*runtypesupport generated boxingfun*/
 {
     MELT_ENTERFRAME (2, NULL);
 #define resv meltfram__.mcfr_varptr[0]
@@ -2273,7 +2273,7 @@ end:
 } /* end generated boxingfun meltgc_new_bitmap */
 
 void
-meltgc_bitmap_updatebox(melt_ptr_t box_p, bitmap val)   /*generated updateboxfun */
+meltgc_bitmap_updatebox(melt_ptr_t box_p, melt_bitmapptr_t val)   /*generated updateboxfun */
 {
     MELT_ENTERFRAME (1, NULL);
 #define boxv meltfram__.mcfr_varptr[0]
@@ -2409,7 +2409,7 @@ end:
 /*gtyctype #6 CTYPE_LOOP*/
 
 melt_ptr_t
-meltgc_new_loop(meltobject_ptr_t discr_p, loop_p val)   /*runtypesupport generated boxingfun*/
+meltgc_new_loop(meltobject_ptr_t discr_p, melt_loopptr_t val)   /*runtypesupport generated boxingfun*/
 {
     MELT_ENTERFRAME (2, NULL);
 #define resv meltfram__.mcfr_varptr[0]
@@ -2429,7 +2429,7 @@ end:
 } /* end generated boxingfun meltgc_new_loop */
 
 void
-melt_loop_updatebox(melt_ptr_t box_p, loop_p val)   /*generated updateboxfun */
+melt_loop_updatebox(melt_ptr_t box_p, melt_loopptr_t val)   /*generated updateboxfun */
 {
     MELT_ENTERFRAME (1, NULL);
 #define boxv meltfram__.mcfr_varptr[0]
@@ -2449,7 +2449,7 @@ end:
 /*gtyctype #7 CTYPE_RTVEC*/
 
 melt_ptr_t
-meltgc_new_rtvec(meltobject_ptr_t discr_p, rtvec val)   /*runtypesupport generated boxingfun*/
+meltgc_new_rtvec(meltobject_ptr_t discr_p, melt_rtvecptr_t val)   /*runtypesupport generated boxingfun*/
 {
     MELT_ENTERFRAME (2, NULL);
 #define resv meltfram__.mcfr_varptr[0]
@@ -2469,7 +2469,7 @@ end:
 } /* end generated boxingfun meltgc_new_rtvec */
 
 void
-meltgc_rtvec_updatebox(melt_ptr_t box_p, rtvec val)   /*generated updateboxfun */
+meltgc_rtvec_updatebox(melt_ptr_t box_p, melt_rtvecptr_t val)   /*generated updateboxfun */
 {
     MELT_ENTERFRAME (1, NULL);
 #define boxv meltfram__.mcfr_varptr[0]
@@ -2485,7 +2485,7 @@ end:
 /*gtyctype #8 CTYPE_RTX*/
 
 melt_ptr_t
-meltgc_new_rtx(meltobject_ptr_t discr_p, rtx val)   /*runtypesupport generated boxingfun*/
+meltgc_new_rtx(meltobject_ptr_t discr_p, melt_rtxptr_t val)   /*runtypesupport generated boxingfun*/
 {
     MELT_ENTERFRAME (2, NULL);
 #define resv meltfram__.mcfr_varptr[0]
@@ -2505,7 +2505,7 @@ end:
 } /* end generated boxingfun meltgc_new_rtx */
 
 void
-meltgc_rtx_updatebox(melt_ptr_t box_p, rtx val)   /*generated updateboxfun */
+meltgc_rtx_updatebox(melt_ptr_t box_p, melt_rtxptr_t val)   /*generated updateboxfun */
 {
     MELT_ENTERFRAME (1, NULL);
 #define boxv meltfram__.mcfr_varptr[0]
@@ -2657,8 +2657,8 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
                         ix++)
                     {
                         melt_ptr_t curva = src->entab[ix].e_va;
-                        bitmap curat = src->entab[ix].e_at;
-                        if (curva != NULL && curat != (bitmap) HTAB_DELETED_ENTRY)
+                        melt_bitmapptr_t curat = src->entab[ix].e_at;
+                        if (curva != NULL && curat != (melt_bitmapptr_t) HTAB_DELETED_ENTRY)
                             meltgc_raw_put_mappointers((void*)dst, (const void*)curat, curva);
                     }
             resv = (melt_ptr_t) dst;
@@ -2785,8 +2785,8 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
                         ix++)
                     {
                         melt_ptr_t curva = src->entab[ix].e_va;
-                        loop_p curat = src->entab[ix].e_at;
-                        if (curva != NULL && curat != (loop_p) HTAB_DELETED_ENTRY)
+                        melt_loopptr_t curat = src->entab[ix].e_at;
+                        if (curva != NULL && curat != (melt_loopptr_t) HTAB_DELETED_ENTRY)
                             meltgc_raw_put_mappointers((void*)dst, (const void*)curat, curva);
                     }
             resv = (melt_ptr_t) dst;
@@ -2817,8 +2817,8 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
                         ix++)
                     {
                         melt_ptr_t curva = src->entab[ix].e_va;
-                        rtvec curat = src->entab[ix].e_at;
-                        if (curva != NULL && curat != (rtvec) HTAB_DELETED_ENTRY)
+                        melt_rtvecptr_t curat = src->entab[ix].e_at;
+                        if (curva != NULL && curat != (melt_rtvecptr_t) HTAB_DELETED_ENTRY)
                             meltgc_raw_put_mappointers((void*)dst, (const void*)curat, curva);
                     }
             resv = (melt_ptr_t) dst;
@@ -2849,8 +2849,8 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
                         ix++)
                     {
                         melt_ptr_t curva = src->entab[ix].e_va;
-                        rtx curat = src->entab[ix].e_at;
-                        if (curva != NULL && curat != (rtx) HTAB_DELETED_ENTRY)
+                        melt_rtxptr_t curat = src->entab[ix].e_at;
+                        if (curva != NULL && curat != (melt_rtxptr_t) HTAB_DELETED_ENTRY)
                             meltgc_raw_put_mappointers((void*)dst, (const void*)curat, curva);
                     }
             resv = (melt_ptr_t) dst;
@@ -4679,4 +4679,4 @@ void melthookproc_HOOK_VALUE_EXPORTER(melt_ptr_t meltin_SYM_p0, melt_ptr_t melti
 /* end of code generated by generate_runtypesupport_predefined_hooks for 161 predefined */
 
 /*** End of code file meltbuild-sources/generated/meltrunsup-inc.cc generated on 2016 Apr 13
- * by GCC MELT 6.0.0 20150919 (experimental) [melt-branch revision 234941] MELT_1.3.pre . ***/
+ * by GCC MELT 6.0.0 20150919 (experimental) [melt-branch revision 234947] MELT_1.3.pre . ***/

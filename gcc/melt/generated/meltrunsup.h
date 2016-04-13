@@ -197,7 +197,7 @@ struct GTY (()) meltmapbasicblocks_st   /* when MELTOBMAG_MAPBASICBLOCKS*/
 struct GTY (()) meltbitmap_st   /* when MELTOBMAG_BITMAP*/
 {
     meltobject_ptr_t discr;
-    bitmap val;
+    melt_bitmapptr_t val;
     operator melt_ptr_t ()
     {
         return reinterpret_cast<melt_ptr_t>(this);
@@ -206,7 +206,7 @@ struct GTY (()) meltbitmap_st   /* when MELTOBMAG_BITMAP*/
 
 struct GTY (()) entrybitmapmelt_st   /* for MELTOBMAG_MAPBITMAPS*/
 {
-    bitmap e_at;
+    melt_bitmapptr_t e_at;
     melt_ptr_t e_va;
 };
 struct GTY (()) meltmapbitmaps_st   /* when MELTOBMAG_MAPBITMAPS*/
@@ -309,7 +309,7 @@ struct GTY (()) meltmapgimpleseqs_st   /* when MELTOBMAG_MAPGIMPLESEQS*/
 struct GTY (()) meltloop_st   /* when MELTOBMAG_LOOP*/
 {
     meltobject_ptr_t discr;
-    loop_p val;
+    melt_loopptr_t val;
     operator melt_ptr_t ()
     {
         return reinterpret_cast<melt_ptr_t>(this);
@@ -318,7 +318,7 @@ struct GTY (()) meltloop_st   /* when MELTOBMAG_LOOP*/
 
 struct GTY (()) entryloopmelt_st   /* for MELTOBMAG_MAPLOOPS*/
 {
-    loop_p e_at;
+    melt_loopptr_t e_at;
     melt_ptr_t e_va;
 };
 struct GTY (()) meltmaploops_st   /* when MELTOBMAG_MAPLOOPS*/
@@ -337,7 +337,7 @@ struct GTY (()) meltmaploops_st   /* when MELTOBMAG_MAPLOOPS*/
 struct GTY (()) meltrtvec_st   /* when MELTOBMAG_RTVEC*/
 {
     meltobject_ptr_t discr;
-    rtvec val;
+    melt_rtvecptr_t val;
     operator melt_ptr_t ()
     {
         return reinterpret_cast<melt_ptr_t>(this);
@@ -346,7 +346,7 @@ struct GTY (()) meltrtvec_st   /* when MELTOBMAG_RTVEC*/
 
 struct GTY (()) entryrtvecmelt_st   /* for MELTOBMAG_MAPRTVECS*/
 {
-    rtvec e_at;
+    melt_rtvecptr_t e_at;
     melt_ptr_t e_va;
 };
 struct GTY (()) meltmaprtvecs_st   /* when MELTOBMAG_MAPRTVECS*/
@@ -365,7 +365,7 @@ struct GTY (()) meltmaprtvecs_st   /* when MELTOBMAG_MAPRTVECS*/
 struct GTY (()) meltrtx_st   /* when MELTOBMAG_RTX*/
 {
     meltobject_ptr_t discr;
-    rtx val;
+    melt_rtxptr_t val;
     operator melt_ptr_t ()
     {
         return reinterpret_cast<melt_ptr_t>(this);
@@ -374,7 +374,7 @@ struct GTY (()) meltrtx_st   /* when MELTOBMAG_RTX*/
 
 struct GTY (()) entryrtxmelt_st   /* for MELTOBMAG_MAPRTXS*/
 {
-    rtx e_at;
+    melt_rtxptr_t e_at;
     melt_ptr_t e_va;
 };
 struct GTY (()) meltmaprtxs_st   /* when MELTOBMAG_MAPRTXS*/
@@ -1357,9 +1357,9 @@ union meltparam_un /* generated union for MELT parameters */
 
     melt_basicblockptr_t *meltbp_bbptr; /*result param.*/
     /*ctype #2 CTYPE_BITMAP*/
-    bitmap meltbp_bitmap; /*argument param.*/
+    melt_bitmapptr_t meltbp_bitmap; /*argument param.*/
 
-    bitmap *meltbp_bitmapptr; /*result param.*/
+    melt_bitmapptr_t *meltbp_bitmapptr; /*result param.*/
     /*ctype #3 CTYPE_CSTRING*/
     const char* meltbp_cstring; /*argument param.*/
 
@@ -1385,17 +1385,17 @@ union meltparam_un /* generated union for MELT parameters */
 
     long *meltbp_longptr; /*result param.*/
     /*ctype #9 CTYPE_LOOP*/
-    loop_p meltbp_loop; /*argument param.*/
+    melt_loopptr_t meltbp_loop; /*argument param.*/
 
-    loop_p *meltbp_loopptr; /*result param.*/
+    melt_loopptr_t *meltbp_loopptr; /*result param.*/
     /*ctype #10 CTYPE_RTVEC*/
-    rtvec meltbp_rtvec; /*argument param.*/
+    melt_rtvecptr_t meltbp_rtvec; /*argument param.*/
 
-    rtvec *meltbp_rtvecptr; /*result param.*/
+    melt_rtvecptr_t *meltbp_rtvecptr; /*result param.*/
     /*ctype #11 CTYPE_RTX*/
-    rtx meltbp_rtx; /*argument param.*/
+    melt_rtxptr_t meltbp_rtx; /*argument param.*/
 
-    rtx *meltbp_rtxptr; /*result param.*/
+    melt_rtxptr_t *meltbp_rtxptr; /*result param.*/
     /*ctype #12 CTYPE_TREE*/
     melt_treeptr_t meltbp_tree; /*argument param.*/
 
@@ -1433,14 +1433,14 @@ static inline melt_basicblockptr_t melt_basicblock_content(melt_ptr_t box_p)
 } /* end generated melt_basicblock_content */
 
 /*runtypesupport gtyctype #2 CTYPE_BITMAP*/
-melt_ptr_t meltgc_new_bitmap(meltobject_ptr_t discr, bitmap val);
-void meltgc_bitmap_updatebox(melt_ptr_t boxp, bitmap val);
+melt_ptr_t meltgc_new_bitmap(meltobject_ptr_t discr, melt_bitmapptr_t val);
+void meltgc_bitmap_updatebox(melt_ptr_t boxp, melt_bitmapptr_t val);
 
-static inline bitmap melt_bitmap_content(melt_ptr_t box_p)
+static inline melt_bitmapptr_t melt_bitmap_content(melt_ptr_t box_p)
 {
     if (melt_magic_discr(box_p) == MELTOBMAG_BITMAP)
         return ((struct meltbitmap_st*)box_p)->val;
-    return (bitmap)0;
+    return (melt_bitmapptr_t)0;
 } /* end generated melt_bitmap_content */
 
 /*runtypesupport gtyctype #3 CTYPE_EDGE*/
@@ -1477,36 +1477,36 @@ static inline melt_gimpleseqptr_t melt_gimpleseq_content(melt_ptr_t box_p)
 } /* end generated melt_gimpleseq_content */
 
 /*runtypesupport gtyctype #6 CTYPE_LOOP*/
-melt_ptr_t meltgc_new_loop(meltobject_ptr_t discr, loop_p val);
-void melt_loop_updatebox(melt_ptr_t boxp, loop_p val);
+melt_ptr_t meltgc_new_loop(meltobject_ptr_t discr, melt_loopptr_t val);
+void melt_loop_updatebox(melt_ptr_t boxp, melt_loopptr_t val);
 
-static inline loop_p melt_loop_content(melt_ptr_t box_p)
+static inline melt_loopptr_t melt_loop_content(melt_ptr_t box_p)
 {
     if (melt_magic_discr(box_p) == MELTOBMAG_LOOP)
         return ((struct meltloop_st*)box_p)->val;
-    return (loop_p)0;
+    return (melt_loopptr_t)0;
 } /* end generated melt_loop_content */
 
 /*runtypesupport gtyctype #7 CTYPE_RTVEC*/
-melt_ptr_t meltgc_new_rtvec(meltobject_ptr_t discr, rtvec val);
-void meltgc_rtvec_updatebox(melt_ptr_t boxp, rtvec val);
+melt_ptr_t meltgc_new_rtvec(meltobject_ptr_t discr, melt_rtvecptr_t val);
+void meltgc_rtvec_updatebox(melt_ptr_t boxp, melt_rtvecptr_t val);
 
-static inline rtvec melt_rtvec_content(melt_ptr_t box_p)
+static inline melt_rtvecptr_t melt_rtvec_content(melt_ptr_t box_p)
 {
     if (melt_magic_discr(box_p) == MELTOBMAG_RTVEC)
         return ((struct meltrtvec_st*)box_p)->val;
-    return (rtvec)0;
+    return (melt_rtvecptr_t)0;
 } /* end generated melt_rtvec_content */
 
 /*runtypesupport gtyctype #8 CTYPE_RTX*/
-melt_ptr_t meltgc_new_rtx(meltobject_ptr_t discr, rtx val);
-void meltgc_rtx_updatebox(melt_ptr_t boxp, rtx val);
+melt_ptr_t meltgc_new_rtx(meltobject_ptr_t discr, melt_rtxptr_t val);
+void meltgc_rtx_updatebox(melt_ptr_t boxp, melt_rtxptr_t val);
 
-static inline rtx melt_rtx_content(melt_ptr_t box_p)
+static inline melt_rtxptr_t melt_rtx_content(melt_ptr_t box_p)
 {
     if (melt_magic_discr(box_p) == MELTOBMAG_RTX)
         return ((struct meltrtx_st*)box_p)->val;
-    return (rtx)0;
+    return (melt_rtxptr_t)0;
 } /* end generated melt_rtx_content */
 
 /*runtypesupport gtyctype #9 CTYPE_TREE*/
@@ -1638,7 +1638,7 @@ static inline melt_ptr_t /*New map for CTYPE_BITMAP*/ meltgc_new_mapbitmaps (mel
     return (melt_ptr_t) meltgc_raw_new_mappointers (discr, len) ;
 } /*end generated new map for CTYPE_BITMAP */
 
-static inline melt_ptr_t /* Map getter for CTYPE_BITMAP*/ melt_get_mapbitmaps (melt_ptr_t map_p, bitmap attr)
+static inline melt_ptr_t /* Map getter for CTYPE_BITMAP*/ melt_get_mapbitmaps (melt_ptr_t map_p, melt_bitmapptr_t attr)
 {
     if (!map_p || !attr
             || melt_magic_discr ((melt_ptr_t) map_p) != MELTOBMAG_MAPBITMAPS)
@@ -1646,14 +1646,14 @@ static inline melt_ptr_t /* Map getter for CTYPE_BITMAP*/ melt_get_mapbitmaps (m
     return melt_raw_get_mappointers ((void*)map_p, (void*)attr);
 } /*end generated map getter for CTYPE_BITMAP*/
 
-static inline void /* Map putter for CTYPE_BITMAP*/ melt_put_mapbitmaps (melt_ptr_t map_p, bitmap attr, melt_ptr_t valu_p)
+static inline void /* Map putter for CTYPE_BITMAP*/ melt_put_mapbitmaps (melt_ptr_t map_p, melt_bitmapptr_t attr, melt_ptr_t valu_p)
 {
     if (!map_p || !attr || !valu_p
             || melt_magic_discr ((melt_ptr_t) map_p) != MELTOBMAG_MAPBITMAPS)
         return;
     meltgc_raw_put_mappointers ((void*)map_p, (void*)attr, valu_p);
 } /*end generated map putter for CTYPE_BITMAP*/
-static inline void /* Map remover for CTYPE_BITMAP*/ melt_remove_mapbitmaps (melt_ptr_t map_p, bitmap attr)
+static inline void /* Map remover for CTYPE_BITMAP*/ melt_remove_mapbitmaps (melt_ptr_t map_p, melt_bitmapptr_t attr)
 {
     if (!map_p || !attr
             || melt_magic_discr ((melt_ptr_t) map_p) != MELTOBMAG_MAPBITMAPS)
@@ -1674,9 +1674,9 @@ static inline unsigned /* Map size for CTYPE_BITMAP*/ melt_size_mapbitmaps (stru
         return 0;
     return melt_primtab[map_s->lenix];
 } /*end generated map size for CTYPE_BITMAP*/
-static inline bitmap/* Map nth attr for CTYPE_BITMAP*/ melt_nthattr_mapbitmaps (struct meltmapbitmaps_st* map_s, int ix)
+static inline melt_bitmapptr_t/* Map nth attr for CTYPE_BITMAP*/ melt_nthattr_mapbitmaps (struct meltmapbitmaps_st* map_s, int ix)
 {
-    bitmap at = 0;
+    melt_bitmapptr_t at = 0;
     if (!map_s
             || melt_magic_discr ((melt_ptr_t) map_s) != MELTOBMAG_MAPBITMAPS)
         return 0;
@@ -1686,7 +1686,7 @@ static inline bitmap/* Map nth attr for CTYPE_BITMAP*/ melt_nthattr_mapbitmaps (
 } /*end generated map nth attr for CTYPE_BITMAP*/
 static inline melt_ptr_t /* Map nth value for CTYPE_BITMAP*/ melt_nthval_mapbitmaps (struct meltmapbitmaps_st* map_s, int ix)
 {
-    bitmap at = 0;
+    melt_bitmapptr_t at = 0;
     if (!map_s
             || melt_magic_discr ((melt_ptr_t) map_s) != MELTOBMAG_MAPBITMAPS)
         return 0;
@@ -2030,7 +2030,7 @@ static inline melt_ptr_t /*New map for CTYPE_LOOP*/ meltgc_new_maploops (meltobj
     return (melt_ptr_t) meltgc_raw_new_mappointers (discr, len) ;
 } /*end generated new map for CTYPE_LOOP */
 
-static inline melt_ptr_t /* Map getter for CTYPE_LOOP*/ melt_get_maploops (melt_ptr_t map_p, loop_p attr)
+static inline melt_ptr_t /* Map getter for CTYPE_LOOP*/ melt_get_maploops (melt_ptr_t map_p, melt_loopptr_t attr)
 {
     if (!map_p || !attr
             || melt_magic_discr ((melt_ptr_t) map_p) != MELTOBMAG_MAPLOOPS)
@@ -2038,14 +2038,14 @@ static inline melt_ptr_t /* Map getter for CTYPE_LOOP*/ melt_get_maploops (melt_
     return melt_raw_get_mappointers ((void*)map_p, (void*)attr);
 } /*end generated map getter for CTYPE_LOOP*/
 
-static inline void /* Map putter for CTYPE_LOOP*/ melt_put_maploops (melt_ptr_t map_p, loop_p attr, melt_ptr_t valu_p)
+static inline void /* Map putter for CTYPE_LOOP*/ melt_put_maploops (melt_ptr_t map_p, melt_loopptr_t attr, melt_ptr_t valu_p)
 {
     if (!map_p || !attr || !valu_p
             || melt_magic_discr ((melt_ptr_t) map_p) != MELTOBMAG_MAPLOOPS)
         return;
     meltgc_raw_put_mappointers ((void*)map_p, (void*)attr, valu_p);
 } /*end generated map putter for CTYPE_LOOP*/
-static inline void /* Map remover for CTYPE_LOOP*/ melt_remove_maploops (melt_ptr_t map_p, loop_p attr)
+static inline void /* Map remover for CTYPE_LOOP*/ melt_remove_maploops (melt_ptr_t map_p, melt_loopptr_t attr)
 {
     if (!map_p || !attr
             || melt_magic_discr ((melt_ptr_t) map_p) != MELTOBMAG_MAPLOOPS)
@@ -2066,9 +2066,9 @@ static inline unsigned /* Map size for CTYPE_LOOP*/ melt_size_maploops (struct m
         return 0;
     return melt_primtab[map_s->lenix];
 } /*end generated map size for CTYPE_LOOP*/
-static inline loop_p/* Map nth attr for CTYPE_LOOP*/ melt_nthattr_maploops (struct meltmaploops_st* map_s, int ix)
+static inline melt_loopptr_t/* Map nth attr for CTYPE_LOOP*/ melt_nthattr_maploops (struct meltmaploops_st* map_s, int ix)
 {
-    loop_p at = 0;
+    melt_loopptr_t at = 0;
     if (!map_s
             || melt_magic_discr ((melt_ptr_t) map_s) != MELTOBMAG_MAPLOOPS)
         return 0;
@@ -2078,7 +2078,7 @@ static inline loop_p/* Map nth attr for CTYPE_LOOP*/ melt_nthattr_maploops (stru
 } /*end generated map nth attr for CTYPE_LOOP*/
 static inline melt_ptr_t /* Map nth value for CTYPE_LOOP*/ melt_nthval_maploops (struct meltmaploops_st* map_s, int ix)
 {
-    loop_p at = 0;
+    melt_loopptr_t at = 0;
     if (!map_s
             || melt_magic_discr ((melt_ptr_t) map_s) != MELTOBMAG_MAPLOOPS)
         return 0;
@@ -2128,7 +2128,7 @@ static inline melt_ptr_t /*New map for CTYPE_RTVEC*/ meltgc_new_maprtvecs (melto
     return (melt_ptr_t) meltgc_raw_new_mappointers (discr, len) ;
 } /*end generated new map for CTYPE_RTVEC */
 
-static inline melt_ptr_t /* Map getter for CTYPE_RTVEC*/ melt_get_maprtvecs (melt_ptr_t map_p, rtvec attr)
+static inline melt_ptr_t /* Map getter for CTYPE_RTVEC*/ melt_get_maprtvecs (melt_ptr_t map_p, melt_rtvecptr_t attr)
 {
     if (!map_p || !attr
             || melt_magic_discr ((melt_ptr_t) map_p) != MELTOBMAG_MAPRTVECS)
@@ -2136,14 +2136,14 @@ static inline melt_ptr_t /* Map getter for CTYPE_RTVEC*/ melt_get_maprtvecs (mel
     return melt_raw_get_mappointers ((void*)map_p, (void*)attr);
 } /*end generated map getter for CTYPE_RTVEC*/
 
-static inline void /* Map putter for CTYPE_RTVEC*/ melt_put_maprtvecs (melt_ptr_t map_p, rtvec attr, melt_ptr_t valu_p)
+static inline void /* Map putter for CTYPE_RTVEC*/ melt_put_maprtvecs (melt_ptr_t map_p, melt_rtvecptr_t attr, melt_ptr_t valu_p)
 {
     if (!map_p || !attr || !valu_p
             || melt_magic_discr ((melt_ptr_t) map_p) != MELTOBMAG_MAPRTVECS)
         return;
     meltgc_raw_put_mappointers ((void*)map_p, (void*)attr, valu_p);
 } /*end generated map putter for CTYPE_RTVEC*/
-static inline void /* Map remover for CTYPE_RTVEC*/ melt_remove_maprtvecs (melt_ptr_t map_p, rtvec attr)
+static inline void /* Map remover for CTYPE_RTVEC*/ melt_remove_maprtvecs (melt_ptr_t map_p, melt_rtvecptr_t attr)
 {
     if (!map_p || !attr
             || melt_magic_discr ((melt_ptr_t) map_p) != MELTOBMAG_MAPRTVECS)
@@ -2164,9 +2164,9 @@ static inline unsigned /* Map size for CTYPE_RTVEC*/ melt_size_maprtvecs (struct
         return 0;
     return melt_primtab[map_s->lenix];
 } /*end generated map size for CTYPE_RTVEC*/
-static inline rtvec/* Map nth attr for CTYPE_RTVEC*/ melt_nthattr_maprtvecs (struct meltmaprtvecs_st* map_s, int ix)
+static inline melt_rtvecptr_t/* Map nth attr for CTYPE_RTVEC*/ melt_nthattr_maprtvecs (struct meltmaprtvecs_st* map_s, int ix)
 {
-    rtvec at = 0;
+    melt_rtvecptr_t at = 0;
     if (!map_s
             || melt_magic_discr ((melt_ptr_t) map_s) != MELTOBMAG_MAPRTVECS)
         return 0;
@@ -2176,7 +2176,7 @@ static inline rtvec/* Map nth attr for CTYPE_RTVEC*/ melt_nthattr_maprtvecs (str
 } /*end generated map nth attr for CTYPE_RTVEC*/
 static inline melt_ptr_t /* Map nth value for CTYPE_RTVEC*/ melt_nthval_maprtvecs (struct meltmaprtvecs_st* map_s, int ix)
 {
-    rtvec at = 0;
+    melt_rtvecptr_t at = 0;
     if (!map_s
             || melt_magic_discr ((melt_ptr_t) map_s) != MELTOBMAG_MAPRTVECS)
         return 0;
@@ -2226,7 +2226,7 @@ static inline melt_ptr_t /*New map for CTYPE_RTX*/ meltgc_new_maprtxs (meltobjec
     return (melt_ptr_t) meltgc_raw_new_mappointers (discr, len) ;
 } /*end generated new map for CTYPE_RTX */
 
-static inline melt_ptr_t /* Map getter for CTYPE_RTX*/ melt_get_maprtxs (melt_ptr_t map_p, rtx attr)
+static inline melt_ptr_t /* Map getter for CTYPE_RTX*/ melt_get_maprtxs (melt_ptr_t map_p, melt_rtxptr_t attr)
 {
     if (!map_p || !attr
             || melt_magic_discr ((melt_ptr_t) map_p) != MELTOBMAG_MAPRTXS)
@@ -2234,14 +2234,14 @@ static inline melt_ptr_t /* Map getter for CTYPE_RTX*/ melt_get_maprtxs (melt_pt
     return melt_raw_get_mappointers ((void*)map_p, (void*)attr);
 } /*end generated map getter for CTYPE_RTX*/
 
-static inline void /* Map putter for CTYPE_RTX*/ melt_put_maprtxs (melt_ptr_t map_p, rtx attr, melt_ptr_t valu_p)
+static inline void /* Map putter for CTYPE_RTX*/ melt_put_maprtxs (melt_ptr_t map_p, melt_rtxptr_t attr, melt_ptr_t valu_p)
 {
     if (!map_p || !attr || !valu_p
             || melt_magic_discr ((melt_ptr_t) map_p) != MELTOBMAG_MAPRTXS)
         return;
     meltgc_raw_put_mappointers ((void*)map_p, (void*)attr, valu_p);
 } /*end generated map putter for CTYPE_RTX*/
-static inline void /* Map remover for CTYPE_RTX*/ melt_remove_maprtxs (melt_ptr_t map_p, rtx attr)
+static inline void /* Map remover for CTYPE_RTX*/ melt_remove_maprtxs (melt_ptr_t map_p, melt_rtxptr_t attr)
 {
     if (!map_p || !attr
             || melt_magic_discr ((melt_ptr_t) map_p) != MELTOBMAG_MAPRTXS)
@@ -2262,9 +2262,9 @@ static inline unsigned /* Map size for CTYPE_RTX*/ melt_size_maprtxs (struct mel
         return 0;
     return melt_primtab[map_s->lenix];
 } /*end generated map size for CTYPE_RTX*/
-static inline rtx/* Map nth attr for CTYPE_RTX*/ melt_nthattr_maprtxs (struct meltmaprtxs_st* map_s, int ix)
+static inline melt_rtxptr_t/* Map nth attr for CTYPE_RTX*/ melt_nthattr_maprtxs (struct meltmaprtxs_st* map_s, int ix)
 {
-    rtx at = 0;
+    melt_rtxptr_t at = 0;
     if (!map_s
             || melt_magic_discr ((melt_ptr_t) map_s) != MELTOBMAG_MAPRTXS)
         return 0;
@@ -2274,7 +2274,7 @@ static inline rtx/* Map nth attr for CTYPE_RTX*/ melt_nthattr_maprtxs (struct me
 } /*end generated map nth attr for CTYPE_RTX*/
 static inline melt_ptr_t /* Map nth value for CTYPE_RTX*/ melt_nthval_maprtxs (struct meltmaprtxs_st* map_s, int ix)
 {
-    rtx at = 0;
+    melt_rtxptr_t at = 0;
     if (!map_s
             || melt_magic_discr ((melt_ptr_t) map_s) != MELTOBMAG_MAPRTXS)
         return 0;
@@ -2828,4 +2828,4 @@ MELT_EXTERN void melthookproc_HOOK_VALUE_EXPORTER(melt_ptr_t meltin_SYM_p0, melt
 /* end of declarations generated by generate_runtypesupport_predefined_hooks for 161 predefined */
 
 /*** End of declaration file meltbuild-sources/generated/meltrunsup.h generated on 2016 Apr 13
- * by GCC MELT 6.0.0 20150919 (experimental) [melt-branch revision 234941] MELT_1.3.pre . ***/
+ * by GCC MELT 6.0.0 20150919 (experimental) [melt-branch revision 234947] MELT_1.3.pre . ***/
