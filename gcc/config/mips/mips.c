@@ -20139,13 +20139,31 @@ mips_option_override (void)
     warning (0, "the %qs architecture does not support branch-likely"
 	     " instructions", mips_arch_info->name);
 
+  /* If TARGET_DSPR2, enable TARGET_DSP.  */
+  if (TARGET_DSPR2)
+    TARGET_DSP = true;
+
+  if (is_micromips && mips_isa_rev >= 6
+      && (TARGET_DSP || TARGET_DSPR2)
+      && !TARGET_DSPR3)
+    error ("unsupported combination: -mmicromips -mips32r6 %s, use "
+	   "-mdspr3 instead", TARGET_DSPR2 ? "-mdspr2" : "-mdsp");
+
+  if (TARGET_DSPR3)
+    {
+      TARGET_DSP = true;
+      TARGET_DSPR2 = true;
+    }
+
   /* If the user hasn't specified -mimadd or -mno-imadd set
      MASK_IMADD based on the target architecture and tuning
      flags.  */
   if ((target_flags_explicit & MASK_IMADD) == 0)
     {
-      if (ISA_HAS_MADD_MSUB &&
-          (mips_tune_info->tune_flags & PTF_AVOID_IMADD) == 0)
+      if ((ISA_HAS_MADD_MSUB &&
+	   (mips_tune_info->tune_flags & PTF_AVOID_IMADD) == 0)
+	  /* Enable for DSP by default */
+	  || TARGET_DSP)
 	target_flags |= MASK_IMADD;
       else
 	target_flags &= ~MASK_IMADD;
@@ -20338,24 +20356,6 @@ mips_option_override (void)
 	     "-mr10k-cache-barrier", "cache");
       mips_r10k_cache_barrier = R10K_CACHE_BARRIER_NONE;
     }
-
-  /* If TARGET_DSPR2, enable TARGET_DSP.  */
-  if (TARGET_DSPR2)
-    TARGET_DSP = true;
-
-  if (is_micromips && mips_isa_rev >= 6
-      && (TARGET_DSP || TARGET_DSPR2)
-      && !TARGET_DSPR3)
-    error ("unsupported combination: -mmicromips -mips32r6 %s, use "
-	   "-mdspr3 instead", TARGET_DSPR2 ? "-mdspr2" : "-mdsp");
-
-  if (TARGET_DSPR3)
-    {
-      TARGET_DSP = true;
-      TARGET_DSPR2 = true;
-    }
-
-
 
   /* .eh_frame addresses should be the same width as a C pointer.
      Most MIPS ABIs support only one pointer size, so the assembler
