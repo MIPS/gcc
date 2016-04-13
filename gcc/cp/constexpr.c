@@ -915,7 +915,7 @@ struct constexpr_ctx {
 /* A table of all constexpr calls that have been evaluated by the
    compiler in this translation unit.  */
 
-static GTY (()) hash_table<constexpr_call_hasher> *constexpr_call_table;
+static GTY ((deletable)) hash_table<constexpr_call_hasher> *constexpr_call_table;
 
 static tree cxx_eval_constant_expression (const constexpr_ctx *, tree,
 					  bool, bool *, bool *, tree * = NULL);
@@ -963,6 +963,78 @@ maybe_initialize_constexpr_call_table (void)
 {
   if (constexpr_call_table == NULL)
     constexpr_call_table = hash_table<constexpr_call_hasher>::create_ggc (101);
+}
+
+/* The representation of a single node in the per-function freelist maintained
+   by FUNDEF_COPIES_TABLE.  */
+
+struct fundef_copy
+{
+  tree body;
+  tree parms;
+  tree res;
+  fundef_copy *prev;
+};
+
+/* During constexpr CALL_EXPR evaluation, to avoid issues with sharing when
+   a function happens to get called recursively, we unshare the callee
+   function's body and evaluate this unshared copy instead of evaluating the
+   original body.
+
+   FUNDEF_COPIES_TABLE is a per-function freelist of these unshared function
+   copies.  The underlying data structure of FUNDEF_COPIES_TABLE is a hash_map
+   that's keyed off of the original FUNCTION_DECL and whose value is the chain
+   of this function's unused copies awaiting reuse.  */
+
+struct fundef_copies_table_t
+{
+  hash_map<tree, fundef_copy *> *map;
+};
+
+static GTY((deletable)) fundef_copies_table_t fundef_copies_table;
+
+/* Initialize FUNDEF_COPIES_TABLE if it's not initialized.  */
+
+static void
+maybe_initialize_fundef_copies_table ()
+{
+  if (fundef_copies_table.map == NULL)
+    fundef_copies_table.map = hash_map<tree, fundef_copy *>::create_ggc (101);
+}
+
+/* Reuse a copy or create a new unshared copy of the function FUN.
+   Return this copy.  */
+
+static fundef_copy *
+get_fundef_copy (tree fun)
+{
+  maybe_initialize_fundef_copies_table ();
+
+  fundef_copy *copy;
+  fundef_copy **slot = &fundef_copies_table.map->get_or_insert (fun, NULL);
+  if (*slot == NULL)
+    {
+      copy = ggc_alloc<fundef_copy> ();
+      copy->body = copy_fn (fun, copy->parms, copy->res);
+      copy->prev = NULL;
+    }
+  else
+    {
+      copy = *slot;
+      *slot = (*slot)->prev;
+    }
+
+  return copy;
+}
+
+/* Save the copy COPY of function FUN for later reuse by get_fundef_copy().  */
+
+static void
+save_fundef_copy (tree fun, fundef_copy *copy)
+{
+  fundef_copy **slot = &fundef_copies_table.map->get_or_insert (fun, NULL);
+  copy->prev = *slot;
+  *slot = copy;
 }
 
 /* We have an expression tree T that represents a call, either CALL_EXPR
@@ -1077,6 +1149,30 @@ adjust_temp_type (tree type, tree temp)
     return build_constructor (type, CONSTRUCTOR_ELTS (temp));
   gcc_assert (scalarish_type_p (type));
   return cp_fold_convert (type, temp);
+}
+
+/* Callback for walk_tree used by unshare_constructor.  */
+
+static tree
+find_constructor (tree *tp, int *walk_subtrees, void *)
+{
+  if (TYPE_P (*tp))
+    *walk_subtrees = 0;
+  if (TREE_CODE (*tp) == CONSTRUCTOR)
+    return *tp;
+  return NULL_TREE;
+}
+
+/* If T is a CONSTRUCTOR or an expression that has a CONSTRUCTOR node as a
+   subexpression, return an unshared copy of T.  Otherwise return T.  */
+
+static tree
+unshare_constructor (tree t)
+{
+  tree ctor = walk_tree (&t, find_constructor, NULL, NULL);
+  if (ctor != NULL_TREE)
+    return unshare_expr (t);
+  return t;
 }
 
 /* Subroutine of cxx_eval_call_expression.
@@ -1365,10 +1461,13 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
       if (!result || result == error_mark_node)
 	{
 	  gcc_assert (DECL_SAVED_TREE (fun));
-	  tree parms, res;
+	  tree body, parms, res;
 
-	  /* Unshare the whole function body.  */
-	  tree body = copy_fn (fun, parms, res);
+	  /* Reuse or create a new unshared copy of this function's body.  */
+	  fundef_copy *copy = get_fundef_copy (fun);
+	  body = copy->body;
+	  parms = copy->parms;
+	  res = copy->res;
 
 	  /* Associate the bindings with the remapped parms.  */
 	  tree bound = new_call.bindings;
@@ -1379,7 +1478,7 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
 	      tree arg = TREE_VALUE (bound);
 	      gcc_assert (DECL_NAME (remapped) == DECL_NAME (oparm));
 	      /* Don't share a CONSTRUCTOR that might be changed.  */
-	      arg = unshare_expr (arg);
+	      arg = unshare_constructor (arg);
 	      ctx->values->put (remapped, arg);
 	      bound = TREE_CHAIN (bound);
 	      remapped = DECL_CHAIN (remapped);
@@ -1397,8 +1496,14 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
 	  else
 	    ctx->values->put (res, NULL_TREE);
 
+	  /* Track the callee's evaluated SAVE_EXPRs so that we can forget
+	     their values after the call.  */
+	  constexpr_ctx ctx_with_save_exprs = *ctx;
+	  hash_set<tree> save_exprs;
+	  ctx_with_save_exprs.save_exprs = &save_exprs;
+
 	  tree jump_target = NULL_TREE;
-	  cxx_eval_constant_expression (ctx, body,
+	  cxx_eval_constant_expression (&ctx_with_save_exprs, body,
 					lval, non_constant_p, overflow_p,
 					&jump_target);
 
@@ -1423,6 +1528,11 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
 		}
 	    }
 
+	  /* Forget the saved values of the callee's SAVE_EXPRs.  */
+	  for (hash_set<tree>::iterator iter = save_exprs.begin();
+	       iter != save_exprs.end(); ++iter)
+	    ctx_with_save_exprs.values->remove (*iter);
+
 	  /* Remove the parms/result from the values map.  Is it worth
 	     bothering to do this when the map itself is only live for
 	     one constexpr evaluation?  If so, maybe also clear out
@@ -1432,6 +1542,9 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
 	    ctx->values->remove (slot);
 	  for (tree parm = parms; parm; parm = TREE_CHAIN (parm))
 	    ctx->values->remove (parm);
+
+	  /* Make the unshared function copy we used available for re-use.  */
+	  save_fundef_copy (fun, copy);
 	}
 
       if (result == error_mark_node)
@@ -1445,7 +1558,7 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
     }
 
   pop_cx_call_context ();
-  return unshare_expr (result);
+  return unshare_constructor (result);
 }
 
 /* FIXME speed this up, it's taking 16% of compile time on sieve testcase.  */
@@ -1791,7 +1904,7 @@ find_array_ctor_elt (tree ary, tree dindex, bool insert = false)
 		  /* Append the element we want to insert.  */
 		  ++middle;
 		  e.index = dindex;
-		  e.value = unshare_expr (elt.value);
+		  e.value = unshare_constructor (elt.value);
 		  vec_safe_insert (CONSTRUCTOR_ELTS (ary), middle, e);
 		}
 	      else
@@ -1807,7 +1920,7 @@ find_array_ctor_elt (tree ary, tree dindex, bool insert = false)
 		    e.index = hi;
 		  else
 		    e.index = build2 (RANGE_EXPR, sizetype, new_lo, hi);
-		  e.value = unshare_expr (elt.value);
+		  e.value = unshare_constructor (elt.value);
 		  vec_safe_insert (CONSTRUCTOR_ELTS (ary), middle+1, e);
 		}
 	    }
@@ -2281,10 +2394,10 @@ cxx_eval_bare_aggregate (const constexpr_ctx *ctx, tree t,
   tree type = TREE_TYPE (t);
 
   constexpr_ctx new_ctx;
-  if (TYPE_PTRMEMFUNC_P (type))
+  if (TYPE_PTRMEMFUNC_P (type) || VECTOR_TYPE_P (type))
     {
-      /* We don't really need the ctx->ctor business for a PMF, but it's
-	 simpler to use the same code.  */
+      /* We don't really need the ctx->ctor business for a PMF or
+	 vector, but it's simpler to use the same code.  */
       new_ctx = *ctx;
       new_ctx.ctor = build_constructor (type, NULL);
       new_ctx.object = NULL_TREE;
@@ -2476,7 +2589,7 @@ cxx_eval_vec_init_1 (const constexpr_ctx *ctx, tree atype, tree init,
 	  for (i = 1; i < max; ++i)
 	    {
 	      idx = build_int_cst (size_type_node, i);
-	      CONSTRUCTOR_APPEND_ELT (*p, idx, unshare_expr (eltinit));
+	      CONSTRUCTOR_APPEND_ELT (*p, idx, unshare_constructor (eltinit));
 	    }
 	  break;
 	}
@@ -3024,7 +3137,7 @@ cxx_eval_store_expression (const constexpr_ctx *ctx, tree t,
   init = cxx_eval_constant_expression (&new_ctx, init, false,
 				       non_constant_p, overflow_p);
   /* Don't share a CONSTRUCTOR that might be changed later.  */
-  init = unshare_expr (init);
+  init = unshare_constructor (init);
   if (target == object)
     /* The hash table might have moved since the get earlier.  */
     valp = ctx->values->get (object);
@@ -3476,7 +3589,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 						 false,
 						 non_constant_p, overflow_p);
 	    /* Don't share a CONSTRUCTOR that might be changed.  */
-	    init = unshare_expr (init);
+	    init = unshare_constructor (init);
 	    ctx->values->put (r, init);
 	  }
 	else if (ctx == &new_ctx)
@@ -3521,7 +3634,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
       if (lval)
 	{
 	  tree slot = TARGET_EXPR_SLOT (t);
-	  r = unshare_expr (r);
+	  r = unshare_constructor (r);
 	  ctx->values->put (slot, r);
 	  return slot;
 	}
@@ -4051,6 +4164,12 @@ cxx_eval_outermost_constant_expr (tree t, bool allow_non_constant,
   if (!non_constant_p && overflow_p)
     non_constant_p = true;
 
+  /* Unshare the result unless it's a CONSTRUCTOR in which case it's already
+     unshared.  */
+  bool should_unshare = true;
+  if (r == t || TREE_CODE (r) == CONSTRUCTOR)
+    should_unshare = false;
+
   if (non_constant_p && !allow_non_constant)
     return error_mark_node;
   else if (non_constant_p && TREE_CONSTANT (r))
@@ -4066,6 +4185,9 @@ cxx_eval_outermost_constant_expr (tree t, bool allow_non_constant,
     }
   else if (non_constant_p || r == t)
     return t;
+
+  if (should_unshare)
+    r = unshare_expr (r);
 
   if (TREE_CODE (r) == CONSTRUCTOR && CLASS_TYPE_P (TREE_TYPE (r)))
     {
@@ -4193,10 +4315,7 @@ maybe_constant_value_1 (tree t, tree decl)
 {
   tree r;
 
-  if (instantiation_dependent_expression_p (t)
-      || type_unknown_p (t)
-      || BRACE_ENCLOSED_INITIALIZER_P (t)
-      || !potential_constant_expression (t))
+  if (!potential_nondependent_constant_expression (t))
     {
       if (TREE_OVERFLOW_P (t))
 	{
@@ -4215,7 +4334,7 @@ maybe_constant_value_1 (tree t, tree decl)
   return r;
 }
 
-static GTY((cache, deletable)) cache_map cv_cache;
+static GTY((deletable)) hash_map<tree, tree> *cv_cache;
 
 /* If T is a constant expression, returns its reduced value.
    Otherwise, if T does not have TREE_CONSTANT set, returns T.
@@ -4224,13 +4343,24 @@ static GTY((cache, deletable)) cache_map cv_cache;
 tree
 maybe_constant_value (tree t, tree decl)
 {
-  tree ret = cv_cache.get (t);
-  if (!ret)
-    {
-      ret = maybe_constant_value_1 (t, decl);
-      cv_cache.put (t, ret);
-    }
+  if (cv_cache == NULL)
+    cv_cache = hash_map<tree, tree>::create_ggc (101);
+
+  if (tree *cached = cv_cache->get (t))
+    return *cached;
+
+  tree ret = maybe_constant_value_1 (t, decl);
+  cv_cache->put (t, ret);
   return ret;
+}
+
+/* Dispose of the whole CV_CACHE.  */
+
+static void
+clear_cv_cache (void)
+{
+  if (cv_cache != NULL)
+    cv_cache->empty ();
 }
 
 /* Dispose of the whole CV_CACHE and FOLD_CACHE.  */
@@ -4238,7 +4368,7 @@ maybe_constant_value (tree t, tree decl)
 void
 clear_cv_and_fold_caches (void)
 {
-  gt_cleare_cache (cv_cache);
+  clear_cv_cache ();
   clear_fold_cache ();
 }
 
@@ -4264,8 +4394,7 @@ fold_non_dependent_expr (tree t)
      as two declarations of the same function, for example.  */
   if (processing_template_decl)
     {
-      if (!instantiation_dependent_expression_p (t)
-	  && potential_constant_expression (t))
+      if (potential_nondependent_constant_expression (t))
 	{
 	  processing_template_decl_sentinel s;
 	  t = instantiate_non_dependent_expr_internal (t, tf_none);
@@ -4316,10 +4445,7 @@ maybe_constant_init (tree t, tree decl)
     t = TREE_OPERAND (t, 0);
   if (TREE_CODE (t) == INIT_EXPR)
     t = TREE_OPERAND (t, 1);
-  if (instantiation_dependent_expression_p (t)
-      || type_unknown_p (t)
-      || BRACE_ENCLOSED_INITIALIZER_P (t)
-      || !potential_static_init_expression (t))
+  if (!potential_nondependent_static_init_expression (t))
     /* Don't try to evaluate it.  */;
   else
     t = cxx_eval_outermost_constant_expr (t, true, false, decl);
@@ -5068,6 +5194,31 @@ bool
 require_potential_rvalue_constant_expression (tree t)
 {
   return potential_constant_expression_1 (t, true, true, tf_warning_or_error);
+}
+
+/* Returns true if T is a potential constant expression that is not
+   instantiation-dependent, and therefore a candidate for constant folding even
+   in a template.  */
+
+bool
+potential_nondependent_constant_expression (tree t)
+{
+  return (!type_unknown_p (t)
+	  && !BRACE_ENCLOSED_INITIALIZER_P (t)
+	  && potential_constant_expression (t)
+	  && !instantiation_dependent_expression_p (t));
+}
+
+/* Returns true if T is a potential static initializer expression that is not
+   instantiation-dependent.  */
+
+bool
+potential_nondependent_static_init_expression (tree t)
+{
+  return (!type_unknown_p (t)
+	  && !BRACE_ENCLOSED_INITIALIZER_P (t)
+	  && potential_static_init_expression (t)
+	  && !instantiation_dependent_expression_p (t));
 }
 
 #include "gt-cp-constexpr.h"

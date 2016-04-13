@@ -576,11 +576,6 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 
   switch (code)
     {
-    case PTRMEM_CST:
-      *expr_p = cplus_expand_constant (*expr_p);
-      ret = GS_OK;
-      break;
-
     case AGGR_INIT_EXPR:
       simplify_aggr_init_expr (expr_p);
       ret = GS_OK;
@@ -1388,6 +1383,13 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 	   || TREE_CODE (stmt) == OMP_SIMD
 	   || TREE_CODE (stmt) == OMP_DISTRIBUTE)
     genericize_omp_for_stmt (stmt_p, walk_subtrees, data);
+  else if (TREE_CODE (stmt) == PTRMEM_CST)
+    {
+      /* By the time we get here we're handing off to the back end, so we don't
+	 need or want to preserve PTRMEM_CST anymore.  */
+      *stmt_p = cplus_expand_constant (stmt);
+      *walk_subtrees = 0;
+    }
   else if ((flag_sanitize
 	    & (SANITIZE_NULL | SANITIZE_ALIGNMENT | SANITIZE_VPTR))
 	   && !wtd->no_sanitize_p)
@@ -1905,14 +1907,15 @@ c_fully_fold (tree x, bool /*in_init*/, bool */*maybe_const*/)
   return cp_fold_rvalue (x);
 }
 
-static GTY((cache, deletable)) cache_map fold_cache;
+static GTY((deletable)) hash_map<tree, tree> *fold_cache;
 
 /* Dispose of the whole FOLD_CACHE.  */
 
 void
 clear_fold_cache (void)
 {
-  gt_cleare_cache (fold_cache);
+  if (fold_cache != NULL)
+    fold_cache->empty ();
 }
 
 /*  This function tries to fold an expression X.
@@ -1942,8 +1945,11 @@ cp_fold (tree x)
   if (DECL_P (x) || CONSTANT_CLASS_P (x))
     return x;
 
-  if (tree cached = fold_cache.get (x))
-    return cached;
+  if (fold_cache == NULL)
+    fold_cache = hash_map<tree, tree>::create_ggc (101);
+
+  if (tree *cached = fold_cache->get (x))
+    return *cached;
 
   code = TREE_CODE (x);
   switch (code)
@@ -2298,10 +2304,10 @@ cp_fold (tree x)
       return org_x;
     }
 
-  fold_cache.put (org_x, x);
+  fold_cache->put (org_x, x);
   /* Prevent that we try to fold an already folded result again.  */
   if (x != org_x)
-    fold_cache.put (x, x);
+    fold_cache->put (x, x);
 
   return x;
 }

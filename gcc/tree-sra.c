@@ -1673,7 +1673,7 @@ build_ref_for_offset (location_t loc, tree base, HOST_WIDE_INT offset,
     }
   else
     {
-      off = build_int_cst (reference_alias_ptr_type (base),
+      off = build_int_cst (reference_alias_ptr_type (prev_base),
 			   base_offset + offset / BITS_PER_UNIT);
       base = build_fold_addr_expr (unshare_expr (base));
     }
@@ -2743,6 +2743,9 @@ generate_subtree_copies (struct access *access, tree agg,
 			 gimple_stmt_iterator *gsi, bool write,
 			 bool insert_after, location_t loc)
 {
+  /* Never write anything into constant pool decls.  See PR70602.  */
+  if (!write && constant_decl_p (agg))
+    return;
   do
     {
       if (chunk_size && access->offset >= start_offset + chunk_size)
