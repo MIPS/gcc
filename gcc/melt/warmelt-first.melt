@@ -2983,7 +2983,7 @@ Keyword is :loop.}#
   :predef CTYPE_LOOP
   :named_name  '"CTYPE_LOOP"
   :ctype_keyword ':loop
-  :ctype_cname '"loop_p"
+  :ctype_cname '"melt_loopptr_t"
   :ctype_parchar '"MELTBPAR_LOOP"
   :ctype_parstring '"MELTBPARSTR_LOOP"
   :ctype_argfield '"meltbp_loop"
@@ -3025,7 +3025,7 @@ Keyword is :rtx.}#
   :predef CTYPE_RTX
   :named_name  '"CTYPE_RTX"
   :ctype_keyword ':rtx
-  :ctype_cname '"rtx"
+  :ctype_cname '"melt_rtxptr_t"
   :ctype_parchar '"MELTBPAR_RTX"
   :ctype_parstring '"MELTBPARSTR_RTX"
   :ctype_argfield '"meltbp_rtx"
@@ -3066,7 +3066,7 @@ Keyword is :bitmap.}#
   :predef CTYPE_BITMAP
   :named_name  '"CTYPE_BITMAP"
   :ctype_keyword ':bitmap
-  :ctype_cname '"bitmap"
+  :ctype_cname '"melt_bitmapptr_t"
   :ctype_parchar '"MELTBPAR_BITMAP"
   :ctype_parstring '"MELTBPARSTR_BITMAP"
   :ctype_argfield '"meltbp_bitmap"
@@ -3107,7 +3107,7 @@ Keyword is :rtvec.}#
   :predef CTYPE_RTVEC
   :named_name  '"CTYPE_RTVEC"
   :ctype_keyword ':rtvec
-  :ctype_cname '"rtvec"
+  :ctype_cname '"melt_rtvecptr_t"
   :ctype_parchar '"MELTBPAR_RTVEC"
   :ctype_parstring '"MELTBPARSTR_RTVEC"
   :ctype_argfield '"meltbp_rtvec"

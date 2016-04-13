@@ -30,5 +30,8 @@ typedef tree melt_treeptr_t;
 typedef gimple_seq melt_gimpleseqptr_t;
 typedef basic_block melt_basicblockptr_t;
 typedef edge melt_edgeptr_t;
-
+typedef loop_p melt_loopptr_t;
+typedef rtx melt_rtxptr_t;
+typedef bitmap melt_bitmapptr_t;
+typedef rtvec melt_rtvecptr_t;
 #endif /*MELTRUNTYPES_INCLUDED_*/

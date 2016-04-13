@@ -1,5 +1,12 @@
 
 2016-04-13   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtypes-6.h (melt_loopptr_t, melt_rtxptr_t)
+	(melt_bitmapptr_t, melt_rtvecptr_t): New types.
+
+	* melt/warmelt-first.melt (ctype_loop, ctype_rtx, ctype_bitmap)
+	(ctype_rtvec): Use them.
+
+2016-04-13   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerated all.
 
 2016-04-13   Basile Starynkevitch  <basile@starynkevitch.net>
