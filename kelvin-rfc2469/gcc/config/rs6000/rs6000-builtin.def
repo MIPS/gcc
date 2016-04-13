@@ -1773,16 +1773,11 @@ BU_P9V_OVERLOAD_1 (VCTZH,	"vctzh")
 BU_P9V_OVERLOAD_1 (VCTZW,	"vctzw")
 BU_P9V_OVERLOAD_1 (VCTZD,	"vctzd")
 
-/* kelvin enhancements */
 /* 2 argument vector functions added in ISA 3.0 (power9). */
 BU_P9V_AV_2 (VADUB,		"vadub",		CONST,  vaduv16qi3)
 BU_P9V_AV_2 (VADUH,		"vaduh",		CONST,  vaduv8hi3)
 BU_P9V_AV_2 (VADUW,		"vaduw",		CONST,  vaduv4si3)
 
-/* kelvin enhancements: copying pattern of vctz.  do these need to "expand"? */
-/*  kelvin not sure what happens to the "vadu" pattern - it doesn't really
- *  have an expansion.
- */
 /* ISA 3.0 vector overloaded 2 argument functions. */
 BU_P9V_OVERLOAD_2 (VADU,	"vadu")
 BU_P9V_OVERLOAD_2 (VADUB,	"vadub")

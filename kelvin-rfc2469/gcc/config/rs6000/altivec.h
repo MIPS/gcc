@@ -396,7 +396,7 @@
 #define vec_adu __builtin_vec_vadu
 #define vec_adub __builtin_vec_vadub
 #define vec_aduh __builtin_vec_vaduh
-#define fec_aduw __builtin_vec_vaduw
+#define vec_aduw __builtin_vec_vaduw
 
 /* Non-Vector additions added in ISA 3.0. */
 #define darn __builtin_darn
