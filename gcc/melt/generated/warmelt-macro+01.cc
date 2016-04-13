@@ -1103,9 +1103,9 @@ meltrout_8_WARMELTmiMACRO_ERROR_AT(meltclosure_ptr_t meltclosp_, melt_ptr_t melt
         const char* loc_CSTRING__o1;
         melt_treeptr_t loc_TREE__o2;
         melt_gimpleptr_t loc_GIMPLE__o3;
-        gimple_seq loc_GIMPLE_SEQ__o4;
-        basic_block loc_BASIC_BLOCK__o5;
-        edge loc_EDGE__o6;
+        melt_gimpleseqptr_t loc_GIMPLE_SEQ__o4;
+        melt_basicblockptr_t loc_BASIC_BLOCK__o5;
+        melt_edgeptr_t loc_EDGE__o6;
         long _meltsparel;
         void melt_mark_stuff (void)
         {
@@ -1113,11 +1113,11 @@ meltrout_8_WARMELTmiMACRO_ERROR_AT(meltclosure_ptr_t meltclosp_, melt_ptr_t melt
             /*:tree marker*/ gt_ggc_mx_tree_node (loc_TREE__o2);
             /*marking melt_gimpleptr_t*/
             /*:gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE__o3);
-            /*marking gimple_seq*/
+            /*marking melt_gimpleseqptr_t*/
             /*:gimple_seq marker, really gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE_SEQ__o4);
-            /*marking basic_block*/
+            /*marking melt_basicblockptr_t*/
             /*:basic_block marker*/ gt_ggc_mx_basic_block_def (loc_BASIC_BLOCK__o5);
-            /*marking edge*/
+            /*marking melt_edgeptr_t*/
             /*:edge marker*/ gt_ggc_mx_edge_def (loc_EDGE__o6);
         } /*end melt_mark_stuff*/
         virtual void melt_mark_ggc_data (void)
@@ -1211,7 +1211,7 @@ meltlab_endgetargs:
         ;
         /*^compute*/
         /*_.HOOK_MELT_MAKE_LOCATION__V7*/ meltfptr[6] =
-            /*hookcall*/ melthook_HOOK_MELT_MAKE_LOCATION ((melt_ptr_t) (/*!HOOK_MELT_MAKE_LOCATION*/ meltfrout->tabval[2]),  "/home/basile/ssd/gcc-melt-basile/gcc/melt/warmelt-macro.melt", 361) ;;
+            /*hookcall*/ melthook_HOOK_MELT_MAKE_LOCATION ((melt_ptr_t) (/*!HOOK_MELT_MAKE_LOCATION*/ meltfrout->tabval[2]),  "/home/basile/ssd/gcc-melt-branch/gcc/melt/warmelt-macro.melt", 361) ;;
         /*^compute*/
         /*_.MAKE_MAPOBJECT__V8*/ meltfptr[7] =
             (meltgc_new_mapobjects( (meltobject_ptr_t) ((/*!DISCR_MAP_OBJECTS*/ meltfrout->tabval[3])), (19)));;
@@ -3136,9 +3136,9 @@ meltrout_9_WARMELTmiMACRO_FATAL_ERROR_AT(meltclosure_ptr_t meltclosp_, melt_ptr_
         const char* loc_CSTRING__o1;
         melt_treeptr_t loc_TREE__o2;
         melt_gimpleptr_t loc_GIMPLE__o3;
-        gimple_seq loc_GIMPLE_SEQ__o4;
-        basic_block loc_BASIC_BLOCK__o5;
-        edge loc_EDGE__o6;
+        melt_gimpleseqptr_t loc_GIMPLE_SEQ__o4;
+        melt_basicblockptr_t loc_BASIC_BLOCK__o5;
+        melt_edgeptr_t loc_EDGE__o6;
         long _meltsparel;
         void melt_mark_stuff (void)
         {
@@ -3146,11 +3146,11 @@ meltrout_9_WARMELTmiMACRO_FATAL_ERROR_AT(meltclosure_ptr_t meltclosp_, melt_ptr_
             /*:tree marker*/ gt_ggc_mx_tree_node (loc_TREE__o2);
             /*marking melt_gimpleptr_t*/
             /*:gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE__o3);
-            /*marking gimple_seq*/
+            /*marking melt_gimpleseqptr_t*/
             /*:gimple_seq marker, really gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE_SEQ__o4);
-            /*marking basic_block*/
+            /*marking melt_basicblockptr_t*/
             /*:basic_block marker*/ gt_ggc_mx_basic_block_def (loc_BASIC_BLOCK__o5);
-            /*marking edge*/
+            /*marking melt_edgeptr_t*/
             /*:edge marker*/ gt_ggc_mx_edge_def (loc_EDGE__o6);
         } /*end melt_mark_stuff*/
         virtual void melt_mark_ggc_data (void)
@@ -3244,7 +3244,7 @@ meltlab_endgetargs:
         ;
         /*^compute*/
         /*_.HOOK_MELT_MAKE_LOCATION__V7*/ meltfptr[6] =
-            /*hookcall*/ melthook_HOOK_MELT_MAKE_LOCATION ((melt_ptr_t) (/*!HOOK_MELT_MAKE_LOCATION*/ meltfrout->tabval[2]),  "/home/basile/ssd/gcc-melt-basile/gcc/melt/warmelt-macro.melt", 383) ;;
+            /*hookcall*/ melthook_HOOK_MELT_MAKE_LOCATION ((melt_ptr_t) (/*!HOOK_MELT_MAKE_LOCATION*/ meltfrout->tabval[2]),  "/home/basile/ssd/gcc-melt-branch/gcc/melt/warmelt-macro.melt", 383) ;;
         /*^compute*/
         /*_.MAKE_MAPOBJECT__V8*/ meltfptr[7] =
             (meltgc_new_mapobjects( (meltobject_ptr_t) ((/*!DISCR_MAP_OBJECTS*/ meltfrout->tabval[3])), (19)));;
@@ -5172,9 +5172,9 @@ meltrout_10_WARMELTmiMACRO_WARNING_AT(meltclosure_ptr_t meltclosp_, melt_ptr_t m
         const char* loc_CSTRING__o1;
         melt_treeptr_t loc_TREE__o2;
         melt_gimpleptr_t loc_GIMPLE__o3;
-        gimple_seq loc_GIMPLE_SEQ__o4;
-        basic_block loc_BASIC_BLOCK__o5;
-        edge loc_EDGE__o6;
+        melt_gimpleseqptr_t loc_GIMPLE_SEQ__o4;
+        melt_basicblockptr_t loc_BASIC_BLOCK__o5;
+        melt_edgeptr_t loc_EDGE__o6;
         long _meltsparel;
         void melt_mark_stuff (void)
         {
@@ -5182,11 +5182,11 @@ meltrout_10_WARMELTmiMACRO_WARNING_AT(meltclosure_ptr_t meltclosp_, melt_ptr_t m
             /*:tree marker*/ gt_ggc_mx_tree_node (loc_TREE__o2);
             /*marking melt_gimpleptr_t*/
             /*:gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE__o3);
-            /*marking gimple_seq*/
+            /*marking melt_gimpleseqptr_t*/
             /*:gimple_seq marker, really gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE_SEQ__o4);
-            /*marking basic_block*/
+            /*marking melt_basicblockptr_t*/
             /*:basic_block marker*/ gt_ggc_mx_basic_block_def (loc_BASIC_BLOCK__o5);
-            /*marking edge*/
+            /*marking melt_edgeptr_t*/
             /*:edge marker*/ gt_ggc_mx_edge_def (loc_EDGE__o6);
         } /*end melt_mark_stuff*/
         virtual void melt_mark_ggc_data (void)
@@ -5280,7 +5280,7 @@ meltlab_endgetargs:
         ;
         /*^compute*/
         /*_.HOOK_MELT_MAKE_LOCATION__V6*/ meltfptr[5] =
-            /*hookcall*/ melthook_HOOK_MELT_MAKE_LOCATION ((melt_ptr_t) (/*!HOOK_MELT_MAKE_LOCATION*/ meltfrout->tabval[2]),  "/home/basile/ssd/gcc-melt-basile/gcc/melt/warmelt-macro.melt", 408) ;;
+            /*hookcall*/ melthook_HOOK_MELT_MAKE_LOCATION ((melt_ptr_t) (/*!HOOK_MELT_MAKE_LOCATION*/ meltfrout->tabval[2]),  "/home/basile/ssd/gcc-melt-branch/gcc/melt/warmelt-macro.melt", 408) ;;
         /*^compute*/
         /*_.MAKE_MAPOBJECT__V7*/ meltfptr[6] =
             (meltgc_new_mapobjects( (meltobject_ptr_t) ((/*!DISCR_MAP_OBJECTS*/ meltfrout->tabval[3])), (19)));;
@@ -7105,9 +7105,9 @@ meltrout_11_WARMELTmiMACRO_INFORM_AT(meltclosure_ptr_t meltclosp_, melt_ptr_t me
         const char* loc_CSTRING__o1;
         melt_treeptr_t loc_TREE__o2;
         melt_gimpleptr_t loc_GIMPLE__o3;
-        gimple_seq loc_GIMPLE_SEQ__o4;
-        basic_block loc_BASIC_BLOCK__o5;
-        edge loc_EDGE__o6;
+        melt_gimpleseqptr_t loc_GIMPLE_SEQ__o4;
+        melt_basicblockptr_t loc_BASIC_BLOCK__o5;
+        melt_edgeptr_t loc_EDGE__o6;
         long _meltsparel;
         void melt_mark_stuff (void)
         {
@@ -7115,11 +7115,11 @@ meltrout_11_WARMELTmiMACRO_INFORM_AT(meltclosure_ptr_t meltclosp_, melt_ptr_t me
             /*:tree marker*/ gt_ggc_mx_tree_node (loc_TREE__o2);
             /*marking melt_gimpleptr_t*/
             /*:gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE__o3);
-            /*marking gimple_seq*/
+            /*marking melt_gimpleseqptr_t*/
             /*:gimple_seq marker, really gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE_SEQ__o4);
-            /*marking basic_block*/
+            /*marking melt_basicblockptr_t*/
             /*:basic_block marker*/ gt_ggc_mx_basic_block_def (loc_BASIC_BLOCK__o5);
-            /*marking edge*/
+            /*marking melt_edgeptr_t*/
             /*:edge marker*/ gt_ggc_mx_edge_def (loc_EDGE__o6);
         } /*end melt_mark_stuff*/
         virtual void melt_mark_ggc_data (void)
@@ -7213,7 +7213,7 @@ meltlab_endgetargs:
         ;
         /*^compute*/
         /*_.HOOK_MELT_MAKE_LOCATION__V6*/ meltfptr[5] =
-            /*hookcall*/ melthook_HOOK_MELT_MAKE_LOCATION ((melt_ptr_t) (/*!HOOK_MELT_MAKE_LOCATION*/ meltfrout->tabval[2]),  "/home/basile/ssd/gcc-melt-basile/gcc/melt/warmelt-macro.melt", 430) ;;
+            /*hookcall*/ melthook_HOOK_MELT_MAKE_LOCATION ((melt_ptr_t) (/*!HOOK_MELT_MAKE_LOCATION*/ meltfrout->tabval[2]),  "/home/basile/ssd/gcc-melt-branch/gcc/melt/warmelt-macro.melt", 430) ;;
         /*^compute*/
         /*_.MAKE_MAPOBJECT__V7*/ meltfptr[6] =
             (meltgc_new_mapobjects( (meltobject_ptr_t) ((/*!DISCR_MAP_OBJECTS*/ meltfrout->tabval[3])), (19)));;

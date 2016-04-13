@@ -1895,14 +1895,14 @@ meltrout_7_WARMELTmiDEBUG_MELT_DEBUG_FUN(meltclosure_ptr_t meltclosp_, melt_ptr_
         const char* loc_CSTRING__o2;
         melt_treeptr_t loc_TREE__o3;
         melt_gimpleptr_t loc_GIMPLE__o4;
-        gimple_seq loc_GIMPLE_SEQ__o5;
-        edge loc_EDGE__o6;
+        melt_gimpleseqptr_t loc_GIMPLE_SEQ__o5;
+        melt_edgeptr_t loc_EDGE__o6;
         loop_p loc_LOOP__o7;
         melt_treeptr_t loc_TREE__o8;
         melt_gimpleptr_t loc_GIMPLE__o9;
-        gimple_seq loc_GIMPLE_SEQ__o10;
-        edge loc_EDGE__o11;
-        basic_block loc_BASIC_BLOCK__o12;
+        melt_gimpleseqptr_t loc_GIMPLE_SEQ__o10;
+        melt_edgeptr_t loc_EDGE__o11;
+        melt_basicblockptr_t loc_BASIC_BLOCK__o12;
         loop_p loc_LOOP__o13;
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -1911,9 +1911,9 @@ meltrout_7_WARMELTmiDEBUG_MELT_DEBUG_FUN(meltclosure_ptr_t meltclosp_, melt_ptr_
             /*:tree marker*/ gt_ggc_mx_tree_node (loc_TREE__o3);
             /*marking melt_gimpleptr_t*/
             /*:gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE__o4);
-            /*marking gimple_seq*/
+            /*marking melt_gimpleseqptr_t*/
             /*:gimple_seq marker, really gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE_SEQ__o5);
-            /*marking edge*/
+            /*marking melt_edgeptr_t*/
             /*:edge marker*/ gt_ggc_mx_edge_def (loc_EDGE__o6);
             /*marking loop_p*/
             /*:loop marker*/ gt_ggc_mx_loop (loc_LOOP__o7);
@@ -1921,11 +1921,11 @@ meltrout_7_WARMELTmiDEBUG_MELT_DEBUG_FUN(meltclosure_ptr_t meltclosp_, melt_ptr_
             /*:tree marker*/ gt_ggc_mx_tree_node (loc_TREE__o8);
             /*marking melt_gimpleptr_t*/
             /*:gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE__o9);
-            /*marking gimple_seq*/
+            /*marking melt_gimpleseqptr_t*/
             /*:gimple_seq marker, really gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE_SEQ__o10);
-            /*marking edge*/
+            /*marking melt_edgeptr_t*/
             /*:edge marker*/ gt_ggc_mx_edge_def (loc_EDGE__o11);
-            /*marking basic_block*/
+            /*marking melt_basicblockptr_t*/
             /*:basic_block marker*/ gt_ggc_mx_basic_block_def (loc_BASIC_BLOCK__o12);
             /*marking loop_p*/
             /*:loop marker*/ gt_ggc_mx_loop (loc_LOOP__o13);

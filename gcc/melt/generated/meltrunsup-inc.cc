@@ -1956,7 +1956,7 @@ melt_scanning (melt_ptr_t p)
                 } /*end if young entab */
             for (ix = 0; ix < siz; ix++)
                 {
-                    basic_block at = src->entab[ix].e_at;
+                    melt_basicblockptr_t at = src->entab[ix].e_at;
                     if (!at || (void*) at == (void*) HTAB_DELETED_ENTRY)
                         {
                             src->entab[ix].e_va = NULL;
@@ -2014,7 +2014,7 @@ melt_scanning (melt_ptr_t p)
                 } /*end if young entab */
             for (ix = 0; ix < siz; ix++)
                 {
-                    edge at = src->entab[ix].e_at;
+                    melt_edgeptr_t at = src->entab[ix].e_at;
                     if (!at || (void*) at == (void*) HTAB_DELETED_ENTRY)
                         {
                             src->entab[ix].e_va = NULL;
@@ -2072,7 +2072,7 @@ melt_scanning (melt_ptr_t p)
                 } /*end if young entab */
             for (ix = 0; ix < siz; ix++)
                 {
-                    gimple_seq at = src->entab[ix].e_at;
+                    melt_gimpleseqptr_t at = src->entab[ix].e_at;
                     if (!at || (void*) at == (void*) HTAB_DELETED_ENTRY)
                         {
                             src->entab[ix].e_va = NULL;
@@ -2213,7 +2213,7 @@ melt_scanning (melt_ptr_t p)
 /*gtyctype #1 CTYPE_BASIC_BLOCK*/
 
 melt_ptr_t
-meltgc_new_basicblock(meltobject_ptr_t discr_p, basic_block val)   /*runtypesupport generated boxingfun*/
+meltgc_new_basicblock(meltobject_ptr_t discr_p, melt_basicblockptr_t val)   /*runtypesupport generated boxingfun*/
 {
     MELT_ENTERFRAME (2, NULL);
 #define resv meltfram__.mcfr_varptr[0]
@@ -2233,7 +2233,7 @@ end:
 } /* end generated boxingfun meltgc_new_basicblock */
 
 void
-meltgc_basicblock_updatebox(melt_ptr_t box_p, basic_block val)   /*generated updateboxfun */
+meltgc_basicblock_updatebox(melt_ptr_t box_p, melt_basicblockptr_t val)   /*generated updateboxfun */
 {
     MELT_ENTERFRAME (1, NULL);
 #define boxv meltfram__.mcfr_varptr[0]
@@ -2289,7 +2289,7 @@ end:
 /*gtyctype #3 CTYPE_EDGE*/
 
 melt_ptr_t
-meltgc_new_edge(meltobject_ptr_t discr_p, edge val)   /*runtypesupport generated boxingfun*/
+meltgc_new_edge(meltobject_ptr_t discr_p, melt_edgeptr_t val)   /*runtypesupport generated boxingfun*/
 {
     MELT_ENTERFRAME (2, NULL);
 #define resv meltfram__.mcfr_varptr[0]
@@ -2309,7 +2309,7 @@ end:
 } /* end generated boxingfun meltgc_new_edge */
 
 void
-meltgc_edge_updatebox(melt_ptr_t box_p, edge val)   /*generated updateboxfun */
+meltgc_edge_updatebox(melt_ptr_t box_p, melt_edgeptr_t val)   /*generated updateboxfun */
 {
     MELT_ENTERFRAME (1, NULL);
 #define boxv meltfram__.mcfr_varptr[0]
@@ -2369,7 +2369,7 @@ end:
 /*gtyctype #5 CTYPE_GIMPLE_SEQ*/
 
 melt_ptr_t
-meltgc_new_gimpleseq(meltobject_ptr_t discr_p, gimple_seq val)   /*runtypesupport generated boxingfun*/
+meltgc_new_gimpleseq(meltobject_ptr_t discr_p, melt_gimpleseqptr_t val)   /*runtypesupport generated boxingfun*/
 {
     MELT_ENTERFRAME (2, NULL);
 #define resv meltfram__.mcfr_varptr[0]
@@ -2389,7 +2389,7 @@ end:
 } /* end generated boxingfun meltgc_new_gimpleseq */
 
 void
-meltgc_gimpleseq_updatebox(melt_ptr_t box_p, gimple_seq val)   /*generated updateboxfun */
+meltgc_gimpleseq_updatebox(melt_ptr_t box_p, melt_gimpleseqptr_t val)   /*generated updateboxfun */
 {
     MELT_ENTERFRAME (1, NULL);
 #define boxv meltfram__.mcfr_varptr[0]
@@ -2625,8 +2625,8 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
                         ix++)
                     {
                         melt_ptr_t curva = src->entab[ix].e_va;
-                        basic_block curat = src->entab[ix].e_at;
-                        if (curva != NULL && curat != (basic_block) HTAB_DELETED_ENTRY)
+                        melt_basicblockptr_t curat = src->entab[ix].e_at;
+                        if (curva != NULL && curat != (melt_basicblockptr_t) HTAB_DELETED_ENTRY)
                             meltgc_raw_put_mappointers((void*)dst, (const void*)curat, curva);
                     }
             resv = (melt_ptr_t) dst;
@@ -2689,8 +2689,8 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
                         ix++)
                     {
                         melt_ptr_t curva = src->entab[ix].e_va;
-                        edge curat = src->entab[ix].e_at;
-                        if (curva != NULL && curat != (edge) HTAB_DELETED_ENTRY)
+                        melt_edgeptr_t curat = src->entab[ix].e_at;
+                        if (curva != NULL && curat != (melt_edgeptr_t) HTAB_DELETED_ENTRY)
                             meltgc_raw_put_mappointers((void*)dst, (const void*)curat, curva);
                     }
             resv = (melt_ptr_t) dst;
@@ -2753,8 +2753,8 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
                         ix++)
                     {
                         melt_ptr_t curva = src->entab[ix].e_va;
-                        gimple_seq curat = src->entab[ix].e_at;
-                        if (curva != NULL && curat != (gimple_seq) HTAB_DELETED_ENTRY)
+                        melt_gimpleseqptr_t curat = src->entab[ix].e_at;
+                        if (curva != NULL && curat != (melt_gimpleseqptr_t) HTAB_DELETED_ENTRY)
                             meltgc_raw_put_mappointers((void*)dst, (const void*)curat, curva);
                     }
             resv = (melt_ptr_t) dst;
@@ -4678,5 +4678,5 @@ void melthookproc_HOOK_VALUE_EXPORTER(melt_ptr_t meltin_SYM_p0, melt_ptr_t melti
 
 /* end of code generated by generate_runtypesupport_predefined_hooks for 161 predefined */
 
-/*** End of code file meltbuild-sources/generated/meltrunsup-inc.cc generated on 2016 Feb 12
- * by GCC MELT 6.0.0 20150919 (experimental) [melt-branch revision 233370] MELT_1.3.pre . ***/
+/*** End of code file meltbuild-sources/generated/meltrunsup-inc.cc generated on 2016 Apr 13
+ * by GCC MELT 6.0.0 20150919 (experimental) [melt-branch revision 234941] MELT_1.3.pre . ***/

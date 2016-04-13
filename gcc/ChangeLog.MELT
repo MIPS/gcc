@@ -1,5 +1,8 @@
 
 2016-04-13   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerated all.
+
+2016-04-13   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtypes-6.h (melt_gimpleseqptr_t, melt_basicblockptr_t)
 	(melt_edgeptr_t): New types.
 	* melt/warmelt-first.melt (ctype_gimple_seq, ctype_basic_block)

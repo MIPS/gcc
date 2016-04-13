@@ -1383,8 +1383,8 @@ meltrout_11_WARMELTmiBASE_ADD2OUT(meltclosure_ptr_t meltclosp_, melt_ptr_t meltf
         const char* loc_CSTRING__o1;
         melt_treeptr_t loc_TREE__o2;
         melt_gimpleptr_t loc_GIMPLE__o3;
-        gimple_seq loc_GIMPLE_SEQ__o4;
-        edge loc_EDGE__o5;
+        melt_gimpleseqptr_t loc_GIMPLE_SEQ__o4;
+        melt_edgeptr_t loc_EDGE__o5;
         loop_p loc_LOOP__o6;
         double loc_DOUBLE__o7;
         const char* loc_CSTRING__o8;
@@ -1395,9 +1395,9 @@ meltrout_11_WARMELTmiBASE_ADD2OUT(meltclosure_ptr_t meltclosp_, melt_ptr_t meltf
             /*:tree marker*/ gt_ggc_mx_tree_node (loc_TREE__o2);
             /*marking melt_gimpleptr_t*/
             /*:gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE__o3);
-            /*marking gimple_seq*/
+            /*marking melt_gimpleseqptr_t*/
             /*:gimple_seq marker, really gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE_SEQ__o4);
-            /*marking edge*/
+            /*marking melt_edgeptr_t*/
             /*:edge marker*/ gt_ggc_mx_edge_def (loc_EDGE__o5);
             /*marking loop_p*/
             /*:loop marker*/ gt_ggc_mx_loop (loc_LOOP__o6);
@@ -2603,7 +2603,7 @@ meltrout_12_WARMELTmiBASE_ADD2LIST(meltclosure_ptr_t meltclosp_, melt_ptr_t melt
         const char* loc_CSTRING__o0;
         melt_treeptr_t loc_TREE__o1;
         melt_gimpleptr_t loc_GIMPLE__o2;
-        edge loc_EDGE__o3;
+        melt_edgeptr_t loc_EDGE__o3;
         long _meltsparel;
         void melt_mark_stuff (void)
         {
@@ -2611,7 +2611,7 @@ meltrout_12_WARMELTmiBASE_ADD2LIST(meltclosure_ptr_t meltclosp_, melt_ptr_t melt
             /*:tree marker*/ gt_ggc_mx_tree_node (loc_TREE__o1);
             /*marking melt_gimpleptr_t*/
             /*:gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE__o2);
-            /*marking edge*/
+            /*marking melt_edgeptr_t*/
             /*:edge marker*/ gt_ggc_mx_edge_def (loc_EDGE__o3);
         } /*end melt_mark_stuff*/
         virtual void melt_mark_ggc_data (void)
@@ -3280,8 +3280,8 @@ meltrout_13_WARMELTmiBASE_STRING4OUT(meltclosure_ptr_t meltclosp_, melt_ptr_t me
         const char* loc_CSTRING__o0;
         melt_treeptr_t loc_TREE__o1;
         melt_gimpleptr_t loc_GIMPLE__o2;
-        gimple_seq loc_GIMPLE_SEQ__o3;
-        edge loc_EDGE__o4;
+        melt_gimpleseqptr_t loc_GIMPLE_SEQ__o3;
+        melt_edgeptr_t loc_EDGE__o4;
         loop_p loc_LOOP__o5;
         const char* loc_CSTRING__o6;
         long _meltsparel;
@@ -3291,9 +3291,9 @@ meltrout_13_WARMELTmiBASE_STRING4OUT(meltclosure_ptr_t meltclosp_, melt_ptr_t me
             /*:tree marker*/ gt_ggc_mx_tree_node (loc_TREE__o1);
             /*marking melt_gimpleptr_t*/
             /*:gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE__o2);
-            /*marking gimple_seq*/
+            /*marking melt_gimpleseqptr_t*/
             /*:gimple_seq marker, really gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE_SEQ__o3);
-            /*marking edge*/
+            /*marking melt_edgeptr_t*/
             /*:edge marker*/ gt_ggc_mx_edge_def (loc_EDGE__o4);
             /*marking loop_p*/
             /*:loop marker*/ gt_ggc_mx_loop (loc_LOOP__o5);
