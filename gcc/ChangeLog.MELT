@@ -1,4 +1,9 @@
 
+2016-04-13   Basile Starynkevitch  <basile@starynkevitch.net>
+	* Makefile.in (melt-runtypes.h): New file and rule to generate it.
+	* melt-runtime.h: Now includes "melt-runtypes.h"
+	* melt-runtypes-6.h: New variant, for GCC 6, of melt-runtypes.h
+
 2016-02-12   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerated all.
 

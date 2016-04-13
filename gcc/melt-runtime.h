@@ -727,6 +727,7 @@ static inline void melt_store_predefined(int, melt_ptr_t);
 static inline void meltgc_touch_dest (void *touchedptr, void *destptr);
 static inline void meltgc_touch (void* touchedptr);
 
+#include "melt-runtypes.h"
 
 /* File meltrunsup.h is inside melt/generated/ */
 #include "meltrunsup.h"

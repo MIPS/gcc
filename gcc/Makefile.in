@@ -1545,10 +1545,11 @@ BACKEND = libbackend.a main.o libcommon-target.a libcommon.a \
 	$(CPPLIB) $(LIBDECNUMBER)
 
 
-## now we always have MELT enabled; the order of header files below matters
-MELT_H=  $(srcdir)/melt-runtime.h \
-	 $(srcdir)/melt/generated/meltrunsup.h \
-         melt-predef.h 
+## now we always have MELT enabled
+MELT_H= $(srcdir)/melt/generated/meltrunsup.h \
+    $(srcdir)/melt-runtime.h \
+    melt-runtypes.h \
+    melt-predef.h 
 
 MELT_RUNTIME_CC= $(srcdir)/melt-runtime.cc
 #### end of MELT things
@@ -2157,6 +2158,12 @@ melt-run-md5.h melt-run.h:  $(srcdir)/melt-run.proto.h \
 melt-predef.h: $(srcdir)/make-melt-predefh.awk $(srcdir)/melt-predef.list
 	$(AWK) -f $(srcdir)/make-melt-predefh.awk $(srcdir)/melt-predef.list > $@-tmp
 	$(SHELL) $(srcdir)/../move-if-change  $@-tmp $@
+
+melt-runtypes.h: $(srcdir)/BASE-VER $(srcdir)/Makefile.in $(BASEVER)
+	$(RM) $@
+	$(LN_S) $(srcdir)/melt-runtypes-$(shell echo $(BASEVER_c) | sed -e 's/^\([0-9]*\).*$$/\1/').h $@
+
+
 _warmelt-predef.melt: $(srcdir)/melt-predef.list  $(srcdir)/make-warmelt-predef.awk
 	$(AWK) -f $(srcdir)/make-warmelt-predef.awk $< > $@-tmp
 	$(SHELL) $(srcdir)/../move-if-change  $@-tmp $@
