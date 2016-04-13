@@ -24,7 +24,11 @@ along with GCC; see the file COPYING3.   If not see
 #ifndef MELTRUNTYPES_INCLUDED_
 #define MELTRUNTYPES_INCLUDED_
 
+// all these are GTY-ed pointers
 typedef gimple melt_gimpleptr_t;
 typedef tree melt_treeptr_t;
+typedef gimple_seq melt_gimpleseqptr_t;
+typedef basic_block melt_basicblockptr_t;
+typedef edge melt_edgeptr_t;
 
 #endif /*MELTRUNTYPES_INCLUDED_*/

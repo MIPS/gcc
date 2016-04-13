@@ -2856,7 +2856,7 @@ Keyword is :gimple_seq. Notice that @code{gimple_seq} is a typedef for @code{gim
   :named_name  '"CTYPE_GIMPLE_SEQ"
   :ctype_keyword ':gimple_seq
   ; :ctype_altkeyword ':gimpleseq
-  :ctype_cname  '"gimple_seq"
+  :ctype_cname  '"melt_gimpleseqptr_t"
   :ctype_parchar '"MELTBPAR_GIMPLESEQ"
   :ctype_parstring '"MELTBPARSTR_GIMPLESEQ"
   :ctype_argfield '"meltbp_gimpleseq"
@@ -2899,7 +2899,7 @@ Keyword is :basic_block.}#
   :named_name  '"CTYPE_BASIC_BLOCK"
   :ctype_keyword ':basic_block
   ; :ctype_altkeyword ':basicblock
-  :ctype_cname  '"basic_block"
+  :ctype_cname  '"melt_basicblockptr_t"
   :ctype_parchar '"MELTBPAR_BB"
   :ctype_parstring '"MELTBPARSTR_BB"
   :ctype_argfield '"meltbp_bb"
@@ -2941,7 +2941,7 @@ Keyword is :edge.}#
   :predef CTYPE_EDGE
   :named_name  '"CTYPE_EDGE"
   :ctype_keyword ':edge
-  :ctype_cname '"edge"
+  :ctype_cname '"melt_edgeptr_t"
   :ctype_parchar '"MELTBPAR_EDGE"
   :ctype_parstring '"MELTBPARSTR_EDGE"
   :ctype_argfield '"meltbp_edge"
