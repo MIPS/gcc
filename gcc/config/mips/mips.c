@@ -9326,7 +9326,7 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
   /* Emit the loop body.  */
   if (!mips16_expand_copy (dest, src, GEN_INT (bytes_per_iter),
 			   GEN_INT (alignment)))
-    mips_block_move_straight (dest, src, alignment, bytes_per_iter);
+    mips_block_move_straight (dest, src, bytes_per_iter, alignment);
 
   /* Move on to the next block.  */
   mips_emit_move (src_reg, plus_constant (Pmode, src_reg, bytes_per_iter));
@@ -9343,7 +9343,7 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
   if (leftover
       && !mips16_expand_copy (dest, src, GEN_INT (leftover),
 			      GEN_INT (alignment)))
-    mips_block_move_straight (dest, src, alignment, leftover);
+    mips_block_move_straight (dest, src, leftover, alignment);
 }
 
 /* Expand a movmemsi instruction using the mips16 copy instruction.  */
