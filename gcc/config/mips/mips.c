@@ -25997,6 +25997,22 @@ mips_option_override (void)
     warning (0, "the %qs architecture does not support branch-likely"
 	     " instructions", mips_arch_info->name);
 
+  /* If TARGET_DSPR2, enable TARGET_DSP.  */
+  if (TARGET_DSPR2)
+    TARGET_DSP = true;
+
+  if (is_micromips && mips_isa_rev >= 6
+      && (TARGET_DSP || TARGET_DSPR2)
+      && !TARGET_DSPR3)
+    error ("unsupported combination: -mmicromips -mips32r6 %s, use "
+	   "-mdspr3 instead", TARGET_DSPR2 ? "-mdspr2" : "-mdsp");
+
+  if (TARGET_DSPR3)
+    {
+      TARGET_DSP = true;
+      TARGET_DSPR2 = true;
+    }
+
   /* If the user hasn't specified -mimadd or -mno-imadd set
      MASK_IMADD based on the target architecture and tuning
      flags.  */
@@ -26238,20 +26254,6 @@ mips_option_override (void)
       error ("%qs requires a target that provides the %qs instruction",
 	     "-mr10k-cache-barrier", "cache");
       mips_r10k_cache_barrier = R10K_CACHE_BARRIER_NONE;
-    }
-
-  /* If TARGET_DSPR2, enable TARGET_DSP.  */
-  if (TARGET_DSPR2)
-    TARGET_DSP = true;
-
-  if (is_micromips && mips_isa_rev >= 6 && (TARGET_DSP || TARGET_DSPR2))
-    error ("unsupported combination: -mmicromips -mips32r6 %s, use "
-	   "-mdspr3 instead", TARGET_DSPR2 ? "-mdspr2" : "-mdsp");
-
-  if (TARGET_DSPR3)
-    {
-      TARGET_DSP = true;
-      TARGET_DSPR2 = true;
     }
 
   /* .eh_frame addresses should be the same width as a C pointer.
