@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.   If not see
 #ifndef MELTRUNTYPES_INCLUDED_
 #define MELTRUNTYPES_INCLUDED_
 
-typedef gimple* melt_gimpleptr_t;
+typedef gimple melt_gimpleptr_t;
+typedef tree melt_treeptr_t;
 
 #endif /*MELTRUNTYPES_INCLUDED_*/

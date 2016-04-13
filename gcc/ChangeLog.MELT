@@ -1,5 +1,13 @@
 
 2016-04-13   Basile Starynkevitch  <basile@starynkevitch.net>
+	* Makefile.in (MELT_H): order matters.
+	* melt-runtime.h: Include "melt-runtypes.h" earlier.
+	(melt_treeptr_t, melt_gimpleptr_t): Move the typedefs to
+	melt-runtypes.h.
+	* melt-runtypes-6.h (melt_gimpleptr_t, melt_treeptr_t): Define
+	here.
+
+2016-04-13   Basile Starynkevitch  <basile@starynkevitch.net>
 	* Makefile.in (melt-runtypes.h): New file and rule to generate it.
 	* melt-runtime.h: Now includes "melt-runtypes.h"
 	* melt-runtypes-6.h: New variant, for GCC 6, of melt-runtypes.h

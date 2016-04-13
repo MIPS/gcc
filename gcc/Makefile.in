@@ -1546,10 +1546,10 @@ BACKEND = libbackend.a main.o libcommon-target.a libcommon.a \
 
 
 ## now we always have MELT enabled
-MELT_H= $(srcdir)/melt/generated/meltrunsup.h \
-    $(srcdir)/melt-runtime.h \
-    melt-runtypes.h \
-    melt-predef.h 
+MELT_H=     melt-runtypes.h \
+	$(srcdir)/melt/generated/meltrunsup.h \
+        $(srcdir)/melt-runtime.h \
+        melt-predef.h 
 
 MELT_RUNTIME_CC= $(srcdir)/melt-runtime.cc
 #### end of MELT things

@@ -428,9 +428,6 @@ const char* melt_argument(const char* argname);
 
 union meltparam_un; /* declared in file meltrunsup.h */
 
-/* used in file meltrunsup.h */
-typedef tree melt_treeptr_t;
-typedef gimple melt_gimpleptr_t;
 
 #ifndef melt_ptr_t_TYPEDEFINED
 typedef union melt_un* melt_ptr_t ;
@@ -453,6 +450,7 @@ typedef struct meltobject_st* meltobject_ptr_t ;
 #endif /*meltobject_ptr_t_TYPEDEFINED*/
 
 
+#include "melt-runtypes.h"
 
 struct				/* entry of string maps */
 GTY (())
@@ -727,7 +725,6 @@ static inline void melt_store_predefined(int, melt_ptr_t);
 static inline void meltgc_touch_dest (void *touchedptr, void *destptr);
 static inline void meltgc_touch (void* touchedptr);
 
-#include "melt-runtypes.h"
 
 /* File meltrunsup.h is inside melt/generated/ */
 #include "meltrunsup.h"
