@@ -38,7 +38,7 @@
 
 #define __cpp_lib_math_special_functions 201603L
 
-#if __cplusplus <= 201402L && __STDCPP_WANT_MATH_SPEC_FUNCS__ == 0
+#if __STDCPP_WANT_MATH_SPEC_FUNCS__ == 0
 # error include <cmath> and define __STDCPP_WANT_MATH_SPEC_FUNCS__
 #endif
 
@@ -81,12 +81,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * @section intro Introduction and History
    * The first significant library upgrade on the road to C++2011,
    * <a href="http://www.open-std.org/JTC1/SC22/WG21/docs/papers/2005/n1836.pdf">
-   * TR1</a>, included a set of 23 mathematical functions that significntly
-   * extended the standard trancendental functions inherited from C and declared
-   * in <cmath>.
+   * TR1</a>, included a set of 23 mathematical functions that significantly
+   * extended the standard transcendental functions inherited from C and declared
+   * in @<cmath@>.
    *
    * Although most components from TR1 were eventually adopted for C++11 these
-   * math function were left behind out of concern for implementability.
+   * math functions were left behind out of concern for implementability.
    * The math functions were published as a separate international standard
    * <a href="http://www.open-std.org/JTC1/SC22/WG21/docs/papers/2010/n3060.pdf">
    * IS 29124 - Extensions to the C++ Library to Support Mathematical Special
@@ -95,7 +95,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * For C++17 these functions were incorporated into the main standard.
    *
    * @section contents Contents
-   * The folowing functions are implemented in namespace @c std:
+   * The following functions are implemented in namespace @c std:
    * - @ref assoc_laguerre "assoc_laguerre - Associated Laguerre functions"
    * - @ref assoc_legendre "assoc_legendre - Associated Legendre functions"
    * - @ref beta "beta - Beta functions"
@@ -127,10 +127,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *
    * @section general General Features
    *
-   * @subsection "Argument Promotion"
+   * @subsection promotion Argument Promotion
    * The arguments suppled to the non-suffixed functions will be promoted
    * according to the following rules:
-   * 1. If any argument intended to be floating opint is given an integral value
+   * 1. If any argument intended to be floating point is given an integral value
    * That integral value is promoted to double.
    * 2. All floating point arguments are promoted up to the largest floating
    *    point precision among them.
@@ -143,13 +143,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * @section impl Implementation
    *
    * We strive to implement the underlying math with type generic algorithms
-   * to the greatest extent possible.  In practice, the function are thin
+   * to the greatest extent possible.  In practice, the functions are thin
    * wrappers that dispatch to function templates. Type dependence is
    * controlled with std::numeric_limits and functions thereof.
    *
-   * We don't promote *c float to *c double or *c double to <tt>long double</tt>
-   * reflexively.  The goal is for float functions to operate more quickly,
-   * at the cost of float accuracy and possibly a smaller domain of validity.
+   * We don't promote @c float to @c double or @c double to <tt>long double</tt>
+   * reflexively.  The goal is for @c float functions to operate more quickly,
+   * at the cost of @c float accuracy and possibly a smaller domain of validity.
    * Similaryly, <tt>long double</tt> should give you more dynamic range
    * and slightly more pecision than @c double on many systems.
    *
@@ -334,7 +334,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *   B(a,b) = \int_0^1 t^{a - 1} (1 - t)^{b - 1} dt
    *          = \frac{\Gamma(a)\Gamma(b)}{\Gamma(a+b)}
    * @f]
-   * where @f$ x > 0 @f$ and @f$ y > 0 @f$
+   * where @f$ a > 0 @f$ and @f$ b > 0 @f$
    *
    * @tparam _Tpa The floating-point type of the parameter @c __a.
    * @tparam _Tpb The floating-point type of the parameter @c __b.
@@ -1188,7 +1188,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * @f]
    *
    * @tparam _Tp The floating-point type of the argument @c __x.
-   * @param  __n  The integral order <tt> n >= 0 @f$ </tt>
+   * @param  __n  The integral order <tt> n >= 0 </tt>
    * @param  __x  The real argument <tt> __x >= 0 </tt>
    * @throw std::domain_error if <tt> __x < 0 </tt>.
    */
@@ -1211,8 +1211,8 @@ namespace __gnu_cxx _GLIBCXX_VISIBILITY(default)
   // Confluent hypergeometric functions
 
   /**
-   * Return the confluent hypergeometric function of @c float
-   * numeratorial parameter @c a, denominatorial parameter @c c,
+   * Return the confluent hypergeometric function @f$ {}_1F_1(a;c;x) @f$
+   * of @c float numeratorial parameter @c a, denominatorial parameter @c c,
    * and argument @c x.
    *
    * @see conf_hyperg for details.
@@ -1222,9 +1222,9 @@ namespace __gnu_cxx _GLIBCXX_VISIBILITY(default)
   { return std::__detail::__conf_hyperg<float>(__a, __c, __x); }
 
   /**
-   * Return the confluent hypergeometric function of @c long double
-   * numeratorial parameter @c a, denominatorial parameter @c c,
-   * and argument @c x.
+   * Return the confluent hypergeometric function @f$ {}_1F_1(a;c;x) @f$
+   * of <tt>long double</tt> numeratorial parameter @c a,
+   * denominatorial parameter @c c, and argument @c x.
    *
    * @see conf_hyperg for details.
    */
@@ -1271,7 +1271,7 @@ namespace __gnu_cxx _GLIBCXX_VISIBILITY(default)
 
   /**
    * Return the hypergeometric function @f$ {}_2F_1(a,b;c;x) @f$
-   * of @ long double numeratorial parameters @c a and @c b,
+   * of <tt>long double</tt> numeratorial parameters @c a and @c b,
    * denominatorial parameter @c c, and argument @c x.
    *
    * @see hyperg for details.
