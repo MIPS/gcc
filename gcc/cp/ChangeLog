@@ -1,3 +1,48 @@
+2015-10-02  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64249
+	* parser.c (cp_parser_statement): Add CHAIN parameter and pass it
+	down to cp_parser_selection_statement.
+	(cp_parser_selection_statement): Add CHAIN parameter.  Add code to
+	warn about duplicated if-else-if conditions.
+	(cp_parser_implicitly_scoped_statement): Add CHAIN parameter and pass
+	it down to cp_parser_statement.
+
+2015-10-01  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	PR c++/54430
+	* name-lookup.c (push_binding): Make non-static.
+	* name-lookup.h (push_binding): Declare it.
+	* parser.c (cp_parser_range_for): Use it, get the range
+	declaration away from the scope until the range expression
+	has been parsed, then restore the declaration.
+
+2015-09-23  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Fix small typos in the coding rule enforcement warnings.
+	* parser.c (cp_parser_namespace_definition): Replace 'namepace'
+	with 'namespace'.
+
+2015-09-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* decl.c (xref_basetypes): Check virtual and/or multiple
+	inheritance warning.
+	* parser.c (cp_parser_namespace_definition): Check namespaces
+	warning.
+	* pt.c (push_template_decl_real): Check templates warning.
+
+2015-09-22  Jason Merrill  <jason@redhat.com>
+
+	* mangle.c (abi_warn_or_compat_version_crosses): New.
+	Use it instead of abi_version_crosses.
+	(mangle_decl): Deal with -fabi-compat-version and -Wabi separately.
+
+2015-09-21  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Complete the implementation of N4230, Nested namespace definition.
+	* parser.c (cp_parser_namespace_definition): Support namespace
+	attributes both before and after the namespace identifier.
+
 2015-09-19  Trevor Saunders  <tbsaunde@tbsaunde.org>
 
 	* cp-gimplify.c (gimplify_must_not_throw_expr): Adjust.

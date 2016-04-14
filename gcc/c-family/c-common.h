@@ -649,13 +649,23 @@ extern const char *constant_string_class_name;
 
 /* C++ language option variables.  */
 
+/* The reference version of the ABI for -Wabi.  */
+
+extern int warn_abi_version;
 
 /* Return TRUE if one of {flag_abi_version,flag_abi_compat_version} is
-   less than N and the other is at least N, for use by -Wabi.  */
-#define abi_version_crosses(N)			\
+   less than N and the other is at least N.  */
+#define abi_compat_version_crosses(N)		\
   (abi_version_at_least(N)			\
    != (flag_abi_compat_version == 0		\
        || flag_abi_compat_version >= (N)))
+
+/* Return TRUE if one of {flag_abi_version,warn_abi_version} is
+   less than N and the other is at least N, for use by -Wabi.  */
+#define abi_version_crosses(N)			\
+  (abi_version_at_least(N)			\
+   != (warn_abi_version == 0			\
+       || warn_abi_version >= (N)))
 
 /* Nonzero means generate separate instantiation control files and
    juggle them at link time.  */
@@ -1442,5 +1452,6 @@ extern tree cilk_for_number_of_iterations (tree);
 extern bool check_no_cilk (tree, const char *, const char *,
 		           location_t loc = UNKNOWN_LOCATION);
 extern bool reject_gcc_builtin (const_tree, location_t = UNKNOWN_LOCATION);
+extern void warn_duplicated_cond_add_or_warn (location_t, tree, vec<tree> **);
 
 #endif /* ! GCC_C_COMMON_H */

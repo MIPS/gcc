@@ -2122,17 +2122,18 @@
 })
 
 (define_expand "addsi3"
-  [(set (match_operand:SI 0 "arith_reg_operand" "")
-	(plus:SI (match_operand:SI 1 "arith_operand" "")
-		 (match_operand:SI 2 "arith_or_int_operand" "")))]
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(plus:SI (match_operand:SI 1 "arith_reg_operand")
+		 (match_operand:SI 2 "arith_or_int_operand")))]
   ""
 {
-  if (TARGET_SHMEDIA)
-    operands[1] = force_reg (SImode, operands[1]);
-  else if (! arith_operand (operands[2], SImode))
+  if (TARGET_SH1 && !arith_operand (operands[2], SImode))
     {
-      if (reg_overlap_mentioned_p (operands[0], operands[1]))
-	FAIL;
+      if (!sh_lra_p () || reg_overlap_mentioned_p (operands[0], operands[1]))
+	{
+	  emit_insn (gen_addsi3_scr (operands[0], operands[1], operands[2]));
+	  DONE;
+	}
     }
 })
 
@@ -2168,18 +2169,22 @@
 ;; copy or constant load before the actual add insn.
 ;; Use u constraint for that case to avoid the invalid value in the stack
 ;; pointer.
-(define_insn_and_split "*addsi3_compact"
+;; This also results in better code when LRA is not used.  However, we have
+;; to use different sets of patterns and the order of these patterns is
+;; important.
+;; In some cases the constant zero might end up in operands[2] of the
+;; patterns.  We have to accept that and convert it into a reg-reg move.
+(define_insn_and_split "*addsi3_compact_lra"
   [(set (match_operand:SI 0 "arith_reg_dest" "=r,&u")
-	(plus:SI (match_operand:SI 1 "arith_operand" "%0,r")
+	(plus:SI (match_operand:SI 1 "arith_reg_operand" "%0,r")
 		 (match_operand:SI 2 "arith_or_int_operand" "rI08,rn")))]
-  "TARGET_SH1
-   && ((rtx_equal_p (operands[0], operands[1])
-        && arith_operand (operands[2], SImode))
-       || ! reg_overlap_mentioned_p (operands[0], operands[1]))"
+  "TARGET_SH1 && sh_lra_p ()
+   && (! reg_overlap_mentioned_p (operands[0], operands[1])
+       || arith_operand (operands[2], SImode))"
   "@
 	add	%2,%0
 	#"
-  "reload_completed
+  "&& reload_completed
    && ! reg_overlap_mentioned_p (operands[0], operands[1])"
   [(set (match_dup 0) (match_dup 2))
    (set (match_dup 0) (plus:SI (match_dup 0) (match_dup 1)))]
@@ -2187,6 +2192,58 @@
   /* Prefer 'mov r0,r1; add #imm8,r1' over 'mov #imm8,r1; add r0,r1'  */
   if (satisfies_constraint_I08 (operands[2]))
     std::swap (operands[1], operands[2]);
+}
+  [(set_attr "type" "arith")])
+
+(define_insn_and_split "addsi3_scr"
+  [(set (match_operand:SI 0 "arith_reg_dest" "=r,&u,&u")
+	(plus:SI (match_operand:SI 1 "arith_reg_operand" "%0,r,r")
+		 (match_operand:SI 2 "arith_or_int_operand" "rI08,r,n")))
+   (clobber (match_scratch:SI 3 "=X,X,&u"))]
+  "TARGET_SH1"
+  "@
+	add	%2,%0
+	#
+	#"
+  "&& reload_completed"
+  [(set (match_dup 0) (plus:SI (match_dup 0) (match_dup 2)))]
+{
+  if (operands[2] == const0_rtx)
+    {
+      emit_move_insn (operands[0], operands[1]);
+      DONE;
+    }
+
+  if (CONST_INT_P (operands[2]) && !satisfies_constraint_I08 (operands[2]))
+    {
+      if (reg_overlap_mentioned_p (operands[0], operands[1]))
+	{
+	  emit_move_insn (operands[3], operands[2]);
+	  emit_move_insn (operands[0], operands[1]);
+	  operands[2] = operands[3];
+	}
+      else
+	{
+	  emit_move_insn (operands[0], operands[2]);
+	  operands[2] = operands[1];
+	}
+    }
+  else if (!reg_overlap_mentioned_p (operands[0], operands[1]))
+    emit_move_insn (operands[0], operands[1]);
+}
+  [(set_attr "type" "arith")])
+
+(define_insn_and_split "*addsi3"
+  [(set (match_operand:SI 0 "arith_reg_dest" "=r,r")
+	(plus:SI (match_operand:SI 1 "arith_reg_operand" "%0,r")
+		 (match_operand:SI 2 "arith_operand" "rI08,Z")))]
+  "TARGET_SH1 && !sh_lra_p ()"
+  "@
+	add	%2,%0
+	#"
+  "&& operands[2] == const0_rtx"
+  [(set (match_dup 0) (match_dup 1))]
+{
 }
   [(set_attr "type" "arith")])
 
@@ -2995,7 +3052,7 @@
 	  tab_base = force_reg (DImode, tab_base);
 	}
       if (TARGET_DIVIDE_INV20U)
-	i2p27 = force_reg (DImode, GEN_INT (-2 << 27));
+	i2p27 = force_reg (DImode, GEN_INT ((unsigned HOST_WIDE_INT)-2 << 27));
       else
 	i2p27 = GEN_INT (0);
       if (TARGET_DIVIDE_INV20U || TARGET_DIVIDE_INV20L)
@@ -4204,7 +4261,7 @@ label:
 ;; Let combine see that we can get the MSB and LSB into the T bit
 ;; via shll and shlr.  This allows it to plug it into insns that can have
 ;; the T bit as an input (e.g. addc).
-;; FIXME: On SH2A use bld #0,Rn instead of shlr to avoid mutating the input.
+;; On SH2A use bld #0,Rn instead of shlr to avoid mutating the input.
 (define_insn_and_split "*reg_lsb_t"
   [(set (reg:SI T_REG)
 	(and:SI (match_operand:SI 0 "arith_reg_operand")
@@ -4214,7 +4271,8 @@ label:
   "&& 1"
   [(const_int 0)]
 {
-  emit_insn (gen_shlr (gen_reg_rtx (SImode), operands[0]));
+  emit_insn (TARGET_SH2A ? gen_bldsi_reg (operands[0], const0_rtx)
+			 : gen_shlr (gen_reg_rtx (SImode), operands[0]));
 })
 
 (define_insn_and_split "*reg_msb_t"
@@ -7817,7 +7875,7 @@ label:
 	      break;
 	    }
 	  /* Try movi / mshflo.l w/ r63.  */
-	  val2 = val + ((HOST_WIDE_INT) -1 << 32);
+	  val2 = val + ((HOST_WIDE_INT) (HOST_WIDE_INT_M1U << 32));
 	  if ((HOST_WIDE_INT) val2 < 0 && CONST_OK_FOR_I16 (val2))
 	    {
 	      operands[1] = gen_mshflo_l_di (operands[0], operands[0],
@@ -11979,41 +12037,31 @@ label:
   [(set (match_dup 0) (reg:SI T_REG))
    (set (match_dup 0) (xor:SI (match_dup 0) (const_int 1)))])
 
-;; Use negc to store the T bit in a MSB of a reg in the following way:
-;;	T = 0: 0x80000000 -> reg
-;;	T = 1: 0x7FFFFFFF -> reg
-;; This works because 0 - 0x80000000 = 0x80000000.
-(define_insn_and_split "*mov_t_msb_neg"
-  [(set (match_operand:SI 0 "arith_reg_dest")
-	(minus:SI (const_int -2147483648)  ;; 0x80000000
-		  (match_operand 1 "treg_set_expr")))
-   (clobber (reg:SI T_REG))]
-  "TARGET_SH1 && can_create_pseudo_p ()"
-  "#"
-  "&& 1"
-  [(const_int 0)]
-{
-  if (negt_reg_operand (operands[1], VOIDmode))
-    {
-      emit_insn (gen_addc (operands[0],
-			   force_reg (SImode, const0_rtx),
-			   force_reg (SImode, GEN_INT (2147483647))));
-      DONE;
-    }
-
-  sh_treg_insns ti = sh_split_treg_set_expr (operands[1], curr_insn);
-  if (ti.remove_trailing_nott ())
-    emit_insn (gen_addc (operands[0],
-			 force_reg (SImode, const0_rtx),
-			 force_reg (SImode, GEN_INT (2147483647))));
-  else
-    emit_insn (gen_negc (operands[0],
-			 force_reg (SImode, GEN_INT (-2147483648LL))));
-  DONE;
-})
-
 ;; 0x7fffffff + T
 ;; 0x7fffffff + (1-T) = 0 - 0x80000000 - T
+;;
+;; Notice that 0 - 0x80000000 = 0x80000000.
+
+;; Single bit tests are usually done with zero_extract.  On non-SH2A this
+;; will use a tst-negc sequence.  On SH2A it will use a bld-addc sequence.
+;; The zeroth bit requires a special pattern, otherwise we get a shlr-addc.
+;; This is a special case of the generic treg_set_expr pattern and thus has
+;; to come first or it will never match.
+(define_insn_and_split "*mov_t_msb_neg"
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(plus:SI (and:SI (match_operand:SI 1 "arith_reg_operand")
+			 (const_int 1))
+		 (const_int 2147483647)))
+   (clobber (reg:SI T_REG))]
+  "TARGET_SH1"
+  "#"
+  "&& can_create_pseudo_p ()"
+  [(parallel [(set (match_dup 0)
+		   (plus:SI (zero_extract:SI (match_dup 1)
+					     (const_int 1) (const_int 0))
+			    (const_int 2147483647)))
+	      (clobber (reg:SI T_REG))])])
+
 (define_insn_and_split "*mov_t_msb_neg"
   [(set (match_operand:SI 0 "arith_reg_dest")
 	(plus:SI (match_operand 1 "treg_set_expr")
@@ -14690,7 +14738,7 @@ label:
   [(const_int 0)]
 {
   emit_insn (gen_addsi3 (operands[1], operands[1], operands[2]));
-  sh_check_add_incdec_notes (emit_move_insn (operands[3], operands[1]));
+  sh_peephole_emit_move_insn (operands[3], operands[1]);
 })
 
 ;;	mov.l	@(r0,r9),r1
@@ -14703,7 +14751,7 @@ label:
   "TARGET_SH1 && peep2_reg_dead_p (2, operands[0])"
   [(const_int 0)]
 {
-  sh_check_add_incdec_notes (emit_move_insn (operands[2], operands[1]));
+  sh_peephole_emit_move_insn (operands[2], operands[1]);
 })
 
 (define_peephole2
@@ -14714,7 +14762,7 @@ label:
   "TARGET_SH1 && peep2_reg_dead_p (2, operands[0])"
   [(const_int 0)]
 {
-  sh_check_add_incdec_notes (emit_move_insn (operands[2], operands[1]));
+  sh_peephole_emit_move_insn (operands[2], operands[1]);
 })
 
 (define_peephole2
@@ -14726,7 +14774,7 @@ label:
   [(const_int 0)]
 {
   sh_check_add_incdec_notes (emit_insn (gen_extend<mode>si2 (operands[2],
-							     operands[1])));
+		   sh_remove_overlapping_post_inc (operands[2], operands[1]))));
 })
 
 ;;	mov.w	@(18,r1),r0 (r0 = HImode)
@@ -14756,8 +14804,9 @@ label:
 
   // We don't know what the new set insn will be in detail.  Just make sure
   // that it still can be recognized and the constraints are satisfied.
-  rtx_insn* i = emit_insn (gen_rtx_SET (operands[2], operands[3]));
-						     
+  rtx_insn* i = emit_insn (gen_rtx_SET (operands[2],
+		    sh_remove_overlapping_post_inc (operands[2], operands[3])));
+
   recog_data_d prev_recog_data = recog_data;
   bool i_invalid = insn_invalid_p (i, false); 
   recog_data = prev_recog_data;
@@ -14795,7 +14844,8 @@ label:
 {
   // We don't know what the new set insn will be in detail.  Just make sure
   // that it still can be recognized and the constraints are satisfied.
-  rtx_insn* i = emit_insn (gen_rtx_SET (operands[2], operands[3]));
+  rtx_insn* i = emit_insn (gen_rtx_SET (operands[2],
+		    sh_remove_overlapping_post_inc (operands[2], operands[3])));
 
   recog_data_d prev_recog_data = recog_data;
   bool i_invalid = insn_invalid_p (i, false); 
@@ -14808,6 +14858,46 @@ label:
   
   emit_insn (gen_tstsi_t (operands[2],
 			  gen_rtx_REG (SImode, (REGNO (operands[1])))));
+})
+
+;; This is not a peephole, but it's here because it's actually supposed
+;; to be one.  It tries to convert a sequence such as
+;;	movt	r2	->	movt	r2
+;;	movt	r13		mov	r2,r13
+;; This gives the schduler a bit more freedom to hoist a following
+;; comparison insn.  Moreover, it the reg-reg mov insn is MT group which has
+;; better chances for parallel execution.
+;; We can do this with a peephole2 pattern, but then the cprop_hardreg
+;; pass will revert the change.  See also PR 64331.
+;; Thus do it manually in one of the split passes after register allocation.
+;; Sometimes the cprop_hardreg pass might also eliminate the reg-reg copy.
+(define_split
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(match_operand:SI 1 "t_reg_operand"))]
+  "TARGET_SH1 && reload_completed"
+  [(set (match_dup 0) (match_dup 1))]
+{
+  rtx t_reg = get_t_reg_rtx ();
+
+  for (rtx_insn* i = prev_nonnote_insn_bb (curr_insn); i != NULL;
+       i = prev_nonnote_insn_bb (i))
+    {
+      if (!INSN_P (i) || DEBUG_INSN_P (i))
+	continue;
+
+      if (modified_in_p (t_reg, i) || BARRIER_P (i))
+	FAIL;
+
+      if (sh_is_movt_insn (i))
+	{
+	  rtx r = sh_movt_set_dest (i);
+	  if (!modified_between_p (r, i, curr_insn))
+	    {
+	      operands[1] = r;
+	      break;
+	   }
+	}
+    }
 })
 
 (define_peephole

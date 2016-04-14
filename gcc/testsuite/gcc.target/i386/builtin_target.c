@@ -188,6 +188,22 @@ check_features (unsigned int ecx, unsigned int edx,
 	assert (__builtin_cpu_supports ("avx2"));
       if (ebx & bit_AVX512F)
 	assert (__builtin_cpu_supports ("avx512f"));
+      if (ebx & bit_AVX512VL)
+	assert (__builtin_cpu_supports ("avx512vl"));
+      if (ebx & bit_AVX512CD)
+	assert (__builtin_cpu_supports ("avx512cd"));
+      if (ebx & bit_AVX512PF)
+	assert (__builtin_cpu_supports ("avx512pf"));
+      if (ebx & bit_AVX512ER)
+	assert (__builtin_cpu_supports ("avx512er"));
+      if (ebx & bit_AVX512BW)
+	assert (__builtin_cpu_supports ("avx512bw"));
+      if (ebx & bit_AVX512DQ)
+	assert (__builtin_cpu_supports ("avx512dq"));
+      if (ebx & bit_AVX512IFMA)
+	assert (__builtin_cpu_supports ("avx512ifma"));
+      if (ebx & bit_AVX512VBMI)
+	assert (__builtin_cpu_supports ("avx512vbmi"));
     }
 }
 

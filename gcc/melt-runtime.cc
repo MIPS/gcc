@@ -11842,7 +11842,7 @@ end:
 /* pretty print into an outbuf a gimple seq */
 void
 meltgc_ppout_gimple_seq (melt_ptr_t out_p, int indentsp,
-                         gimple_seq gseq)
+                         melt_gimpleseqptr_t gseq)
 {
   int outmagic = 0;
 #define outv meltfram__.mcfr_varptr[0]
@@ -11892,7 +11892,7 @@ end:
 
 /* pretty print a tree */
 void
-meltgc_ppout_tree_perhaps_briefly (melt_ptr_t out_p, int indentsp, tree tr, bool briefly)
+meltgc_ppout_tree_perhaps_briefly (melt_ptr_t out_p, int indentsp, melt_treeptr_t tr, bool briefly)
 {
   int outmagic = 0;
 #define outv meltfram__.mcfr_varptr[0]
@@ -11946,7 +11946,7 @@ end:
 /* pretty print into an outbuf a basicblock */
 void
 meltgc_ppout_basicblock (melt_ptr_t out_p, int indentsp,
-                         basic_block bb)
+                         melt_basicblockptr_t bb)
 {
   gimple_seq gsq = 0;
 #define outv meltfram__.mcfr_varptr[0]

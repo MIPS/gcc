@@ -75,7 +75,7 @@
 (defprimitive null_gimple () 
   :gimple 
   :doc #{The null gimple.}#
-   #{((gimple)NULL)}#)
+   #{((melt_gimpleptr_t)NULL)}#)
 
 (defprimitive gimple_seq_of_basic_block (:basic_block bb) :gimple_seq
   :doc #{Retrieve the gimple seq inside basic block $BB or null.}#
@@ -153,9 +153,9 @@
    for ($EACHGIMAP#_rk=0;
         $EACHGIMAP#_rk < (int)melt_size_mapgimples((struct meltmapgimples_st*)($GIMAP));
 	$EACHGIMAP#_rk++) {
-   $ATT = (gimple) NULL;
+   $ATT = (melt_gimpleptr_t) NULL;
    $VAL = NULL;
-   gimple $EACHGIMAP#_gi = ((struct meltmapgimples_st*)($GIMAP))->entab[$EACHGIMAP#_rk].e_at;
+   melt_gimpleptr_t $EACHGIMAP#_gi = ((struct meltmapgimples_st*)($GIMAP))->entab[$EACHGIMAP#_rk].e_at;
    if (!$EACHGIMAP#_gi 
        || (void*) $EACHGIMAP#_gi ==  (void*) HTAB_DELETED_ENTRY) continue;
    $ATT = $EACHGIMAP#_gi;
@@ -164,7 +164,7 @@
   ;;after expansion
    #{
    } /*end  foreach_mapgimple $EACHGIMAP*/
-   $ATT = (gimple) NULL;
+   $ATT = (melt_gimpleptr_t) NULL;
    $VAL = NULL;
    }#
   )
@@ -246,7 +246,7 @@
    $rhs = gimple_assign_rhs1($ga);
    }#
   ;; operator expansion
-  #{/* gimple_assign_single:*/ ($LHS != NULL_TREE && $RHS != NULL_TREE)?gimple_build_assign(($LHS),($RHS)):((gimple)0)}#
+  #{/* gimple_assign_single:*/ ($LHS != NULL_TREE && $RHS != NULL_TREE)?gimple_build_assign(($LHS),($RHS)):((melt_gimpleptr_t)0)}#
 )
 
 
@@ -278,7 +278,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
 #else /* GCC 4.9 */  
    gimple_build_assign_with_ops (CONVERT_EXPR,($TLHS),($TRHS), NULL)
 #endif /* GCC 5.0 or GCC 4.9 */
-  :((gimple)0)
+  :((melt_gimpleptr_t)0)
   }#
 )
 
@@ -293,7 +293,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   gimple_build_assign_with_ops(VIEW_CONVERT_EXPR,
 			       ($TLHS),($TRHS), NULL)
 #endif /* GCC 5.0 or GCC 4.9 */
-  :((gimple)0)}#
+  :((melt_gimpleptr_t)0)}#
 )
 
 (defprimitive gimple_build_assign_fix_trunc (:tree tlhs trhs) :gimple
@@ -307,7 +307,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   gimple_build_assign_with_ops(FIX_TRUNC_EXPR,
 			       ($TLHS),($TRHS), NULL)
 #endif /* GCC 5.0 or GCC 4.9 */
-  :((gimple)0)}#
+  :((melt_gimpleptr_t)0)}#
 )
 
 
@@ -322,7 +322,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   gimple_build_assign_with_ops(FLOAT_EXPR,
 			       ($TLHS),($TRHS), NULL)
 #endif /* GCC 5.0 or GCC 4.9 */
-  :((gimple)0)}#
+  :((melt_gimpleptr_t)0)}#
 )
 
 ;; match a gimple copy assign
@@ -1415,7 +1415,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   #{/*gimple_cond:*/ ($CONDCODE>0 && $CONDCODE<(long)MAX_TREE_CODES
 				  && TREE_CODE_CLASS($CONDCODE)== tcc_comparison)
   ? gimple_build_cond((enum tree_code)$CONDCODE, $LHS, $RHS, 
-				       /*nolabels*/ NULL_TREE, NULL_TREE): (gimple) NULL}#)
+				       /*nolabels*/ NULL_TREE, NULL_TREE): (melt_gimpleptr_t) NULL}#)
   
 	 
 ;;;;;;;;;;;;;;;;
@@ -3647,14 +3647,14 @@ and discriminant $DIS, usually $DISCR_MIXED_LOCATION.}#
 (defprimitive gimple_seq_alloc_with_stmt (:gimple g) :gimple_seq
   :doc #{Allocate a new raw gimple sequence containing the gimple statement $G.
   GCC may use cached free gimple sequences.}#
- #{/*gimple_seq_alloc_with_stmt:*/ (($G)?gimple_seq_alloc_with_stmt(($G)):((gimple)NULL))}#)
+ #{/*gimple_seq_alloc_with_stmt:*/ (($G)?gimple_seq_alloc_with_stmt(($G)):((melt_gimpleptr_t)NULL))}#)
 
 
 (defprimitive gimple_seq_boxed_add_stmt (bgs :gimple g) :void
   :doc #{Add to end of boxed gimple_seq $BGS the gimple $G. May fill $BGS if it contained a null gimple_seq.}#
   #{/*gimple_seq_boxed_add_stmt:*/ if (melt_magic_discr ((melt_ptr_t)($BGS))
 					   == MELTOBMAG_GIMPLESEQ 
-				      && $G != (gimple)NULL) 
+				      && $G != (melt_gimpleptr_t)NULL) 
      gimple_seq_add_stmt (&(((struct meltgimpleseq_st*)($BGS))->val), ($G));}#
 )
 
@@ -3713,7 +3713,7 @@ and discriminant $DIS, usually $DISCR_MIXED_LOCATION.}#
 ;;;;;;;;;;;;;;;;
 (defprimitive gimple_build_return (:tree tr) :gimple
   :doc #{Build a gimple to return $TR, if non-null.}#
-  #{($TR)?gimple_build_return(($TR)):((gimple)0)}#
+  #{($TR)?gimple_build_return(($TR)):((melt_gimpleptr_t)0)}#
 )
 
 
@@ -4038,7 +4038,7 @@ MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
 				      (debug "melt_walk_use_def_chains/internalwalker recurred val=" val
 					     "\n.. trwalked=" trwalked "\n.. giwalked=" giwalked)
 				      (void))
-				   $GIWALKED = (gimple) NULL;
+				   $GIWALKED = (melt_gimpleptr_t) NULL;
 				   if (!$RES)
 				     clear_and_done_ssa_iter(& sit_$WALKERUSE_CHK);
 				 }

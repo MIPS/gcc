@@ -466,7 +466,7 @@
 )
 
 (define_insn "prefetch"
-  [(prefetch (match_operand:DI 0 "address_operand" "r")
+  [(prefetch (match_operand:DI 0 "register_operand" "r")
             (match_operand:QI 1 "const_int_operand" "")
             (match_operand:QI 2 "const_int_operand" ""))]
   ""
@@ -3010,6 +3010,18 @@
   [(set_attr "type" "csel")]
 )
 
+(define_insn "*cmovdi_insn_uxtw"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(if_then_else:DI
+	 (match_operator 1 "aarch64_comparison_operator"
+	  [(match_operand 2 "cc_register" "") (const_int 0)])
+	 (zero_extend:DI (match_operand:SI 3 "register_operand" "r"))
+	 (zero_extend:DI (match_operand:SI 4 "register_operand" "r"))))]
+  ""
+  "csel\\t%w0, %w3, %w4, %m1"
+  [(set_attr "type" "csel")]
+)
+
 (define_insn "*cmov<mode>_insn"
   [(set (match_operand:GPF 0 "register_operand" "=w")
 	(if_then_else:GPF
@@ -3129,6 +3141,18 @@
 	  (match_operand:GPI 3 "aarch64_reg_or_zero" "rZ")))]
   ""
   "csinv\\t%<w>0, %<w>3, %<w>2, %M1"
+  [(set_attr "type" "csel")]
+)
+
+(define_insn "csneg3_uxtw_insn"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(zero_extend:DI
+	  (if_then_else:SI
+	    (match_operand 1 "aarch64_comparison_operation" "")
+	    (neg:SI (match_operand:SI 2 "register_operand" "r"))
+	    (match_operand:SI 3 "aarch64_reg_or_zero" "rZ"))))]
+  ""
+  "csneg\\t%w0, %w3, %w2, %M1"
   [(set_attr "type" "csel")]
 )
 
@@ -3392,7 +3416,7 @@
   [(set_attr "type" "logics_reg")]
 )
 
-(define_insn "*<LOGICAL:optab>_one_cmpl_<SHIFT:optab><mode>3"
+(define_insn "<LOGICAL:optab>_one_cmpl_<SHIFT:optab><mode>3"
   [(set (match_operand:GPI 0 "register_operand" "=r")
 	(LOGICAL:GPI (not:GPI
 		      (SHIFT:GPI
@@ -3807,13 +3831,13 @@
 
 ;; Rotate right
 (define_insn "*ror<mode>3_insn"
-  [(set (match_operand:GPI 0 "register_operand" "=r")
-        (rotatert:GPI
-          (match_operand:GPI 1 "register_operand" "r")
-          (match_operand:QI 2 "aarch64_reg_or_shift_imm_<mode>" "rUs<cmode>")))]
+  [(set (match_operand:GPI 0 "register_operand" "=r,r")
+     (rotatert:GPI
+       (match_operand:GPI 1 "register_operand" "r,r")
+       (match_operand:QI 2 "aarch64_reg_or_shift_imm_<mode>" "r,Us<cmode>")))]
   ""
   "ror\\t%<w>0, %<w>1, %<w>2"
-  [(set_attr "type" "shift_reg")]
+  [(set_attr "type" "shift_reg, rotate_imm")]
 )
 
 ;; zero_extend version of above
@@ -3902,7 +3926,7 @@
   operands[3] = GEN_INT (<sizen> - UINTVAL (operands[2]));
   return "ror\\t%<w>0, %<w>1, %3";
 }
-  [(set_attr "type" "shift_imm")]
+  [(set_attr "type" "rotate_imm")]
 )
 
 ;; zero_extend version of the above
@@ -3916,7 +3940,7 @@
   operands[3] = GEN_INT (32 - UINTVAL (operands[2]));
   return "ror\\t%w0, %w1, %3";
 }
-  [(set_attr "type" "shift_imm")]
+  [(set_attr "type" "rotate_imm")]
 )
 
 (define_insn "*<ANY_EXTEND:optab><GPI:mode>_ashl<SHORT:mode>"
@@ -4770,25 +4794,6 @@
    (clobber (match_scratch:DI 1 "=r"))]
   "TARGET_TLS_DESC"
   "adrp\\tx0, %A0\;ldr\\t%<w>1, [x0, #%L0]\;add\\t<w>0, <w>0, %L0\;.tlsdesccall\\t%0\;blr\\t%1"
-  [(set_attr "type" "call")
-   (set_attr "length" "16")])
-
-;; The same as tlsdesc_small_<mode> with hard register hiding.
-;; The first operand is actually x0, while we wrap it under a delicated
-;; register class so that before register allocation, it's seen as pseudo
-;; register.  The reason for doing this is we don't expose hard register X0
-;; as the destination of set as it will cause trouble for RTL loop iv.
-;; RTL loop iv will abort ongoing optimization once it finds there is hard reg
-;; as destination of set.
-(define_insn "tlsdesc_small_pseudo_<mode>"
-  [(set (match_operand:PTR 0 "register_operand" "=Uc0")
-	(unspec:PTR [(match_operand 1 "aarch64_valid_symref" "S")]
-		    UNSPEC_TLSDESC))
-   (clobber (reg:DI LR_REGNUM))
-   (clobber (reg:CC CC_REGNUM))
-   (clobber (match_scratch:DI 2 "=r"))]
-  "TARGET_TLS_DESC"
-  "adrp\\t<w>0, %A1\;ldr\\t%<w>2, [%<w>0, #%L1]\;add\\t%<w>0, %<w>0, %L1\;.tlsdesccall\\t%1\;blr\\t%2"
   [(set_attr "type" "call")
    (set_attr "length" "16")])
 

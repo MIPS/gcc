@@ -1310,6 +1310,13 @@
 #endif
 
 
+/* Define if the gold linker supports split stack and is available as a
+   non-default */
+#ifndef USED_FOR_TARGET
+#undef HAVE_GOLD_NON_DEFAULT_SPLIT_STACK
+#endif
+
+
 /* Define if you have the iconv() function. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_ICONV
@@ -1474,7 +1481,7 @@
 #endif
 
 
-/* Define if your linker supports -pie option. */
+/* Define if your linker supports PIE option. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_LD_PIE
 #endif
@@ -1628,6 +1635,12 @@
 /* Define to 1 if you have the `setrlimit' function. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_SETRLIMIT
+#endif
+
+
+/* Define if the system-provided CRTs are present on Solaris. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_SOLARIS_CRTS
 #endif
 
 
@@ -1833,6 +1846,12 @@
 #endif
 
 
+/* Define if your assembler supports .dwsect 0xB0000 */
+#ifndef USED_FOR_TARGET
+#undef HAVE_XCOFF_DWARF_EXTRAS
+#endif
+
+
 /* Define if isl is in use. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_isl
@@ -1913,7 +1932,7 @@
 #endif
 
 
-/* Define to hold the list of target names suitable for offloading. */
+/* Define to offload targets, separated by commas. */
 #ifndef USED_FOR_TARGET
 #undef OFFLOAD_TARGETS
 #endif

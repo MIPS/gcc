@@ -2023,7 +2023,7 @@ static void cp_parser_lambda_body
 /* Statements [gram.stmt.stmt]  */
 
 static void cp_parser_statement
-  (cp_parser *, tree, bool, bool *);
+  (cp_parser *, tree, bool, bool *, vec<tree> * = NULL);
 static void cp_parser_label_for_labeled_statement
 (cp_parser *, tree);
 static tree cp_parser_expression_statement
@@ -2033,7 +2033,7 @@ static tree cp_parser_compound_statement
 static void cp_parser_statement_seq_opt
   (cp_parser *, tree);
 static tree cp_parser_selection_statement
-  (cp_parser *, bool *);
+  (cp_parser *, bool *, vec<tree> *);
 static tree cp_parser_condition
   (cp_parser *);
 static tree cp_parser_iteration_statement
@@ -2058,7 +2058,7 @@ static void cp_parser_declaration_statement
   (cp_parser *);
 
 static tree cp_parser_implicitly_scoped_statement
-  (cp_parser *, bool *, const token_indent_info &);
+  (cp_parser *, bool *, const token_indent_info &, vec<tree> * = NULL);
 static void cp_parser_already_scoped_statement
   (cp_parser *, const token_indent_info &);
 
@@ -9923,11 +9923,13 @@ cp_parser_lambda_body (cp_parser* parser, tree lambda_expr)
 
   If IF_P is not NULL, *IF_P is set to indicate whether the statement
   is a (possibly labeled) if statement which is not enclosed in braces
-  and has an else clause.  This is used to implement -Wparentheses.  */
+  and has an else clause.  This is used to implement -Wparentheses.
+
+  CHAIN is a vector of if-else-if conditions.  */
 
 static void
 cp_parser_statement (cp_parser* parser, tree in_statement_expr,
-		     bool in_compound, bool *if_p)
+		     bool in_compound, bool *if_p, vec<tree> *chain)
 {
   tree statement, std_attrs = NULL_TREE;
   cp_token *token;
@@ -9975,7 +9977,7 @@ cp_parser_statement (cp_parser* parser, tree in_statement_expr,
 
 	case RID_IF:
 	case RID_SWITCH:
-	  statement = cp_parser_selection_statement (parser, if_p);
+	  statement = cp_parser_selection_statement (parser, if_p, chain);
 	  break;
 
 	case RID_WHILE:
@@ -10404,10 +10406,14 @@ cp_parser_statement_seq_opt (cp_parser* parser, tree in_statement_expr)
    If IF_P is not NULL, *IF_P is set to indicate whether the statement
    is a (possibly labeled) if statement which is not enclosed in
    braces and has an else clause.  This is used to implement
-   -Wparentheses.  */
+   -Wparentheses.
+
+   CHAIN is a vector of if-else-if conditions.  This is used to implement
+   -Wduplicated-cond.  */
 
 static tree
-cp_parser_selection_statement (cp_parser* parser, bool *if_p)
+cp_parser_selection_statement (cp_parser* parser, bool *if_p,
+			       vec<tree> *chain)
 {
   cp_token *token;
   enum rid keyword;
@@ -10458,6 +10464,10 @@ cp_parser_selection_statement (cp_parser* parser, bool *if_p)
 	    /* Add the condition.  */
 	    finish_if_stmt_cond (condition, statement);
 
+	    if (warn_duplicated_cond)
+	      warn_duplicated_cond_add_or_warn (token->location, condition,
+						&chain);
+
 	    /* Parse the then-clause.  */
 	    in_statement = parser->in_statement;
 	    parser->in_statement |= IN_IF_STMT;
@@ -10475,10 +10485,41 @@ cp_parser_selection_statement (cp_parser* parser, bool *if_p)
 		  = get_token_indent_info (cp_lexer_peek_token (parser->lexer));
 		/* Consume the `else' keyword.  */
 		cp_lexer_consume_token (parser->lexer);
+		if (warn_duplicated_cond)
+		  {
+		    if (cp_lexer_next_token_is_keyword (parser->lexer,
+							RID_IF)
+			&& chain == NULL)
+		      {
+			/* We've got "if (COND) else if (COND2)".  Start
+			   the condition chain and add COND as the first
+			   element.  */
+			chain = new vec<tree> ();
+			if (!CONSTANT_CLASS_P (condition)
+			    && !TREE_SIDE_EFFECTS (condition))
+			{
+			  /* Wrap it in a NOP_EXPR so that we can set the
+			     location of the condition.  */
+			  tree e = build1 (NOP_EXPR, TREE_TYPE (condition),
+					   condition);
+			  SET_EXPR_LOCATION (e, token->location);
+			  chain->safe_push (e);
+			}
+		      }
+		    else if (!cp_lexer_next_token_is_keyword (parser->lexer,
+							      RID_IF))
+		      {
+			/* This is if-else without subsequent if.  Zap the
+			   condition chain; we would have already warned at
+			   this point.  */
+			delete chain;
+			chain = NULL;
+		      }
+		  }
 		begin_else_clause (statement);
 		/* Parse the else-clause.  */
 		cp_parser_implicitly_scoped_statement (parser, NULL,
-						       guard_tinfo);
+						       guard_tinfo, chain);
 
 		finish_else_clause (statement);
 
@@ -10500,6 +10541,12 @@ cp_parser_selection_statement (cp_parser* parser, bool *if_p)
 		  warning_at (EXPR_LOCATION (statement), OPT_Wparentheses,
 			      "suggest explicit braces to avoid ambiguous"
 			      " %<else%>");
+		if (warn_duplicated_cond)
+		  {
+		    /* We don't need the condition chain anymore.  */
+		    delete chain;
+		    chain = NULL;
+		  }
 	      }
 
 	    /* Now we're all done with the if-statement.  */
@@ -10725,6 +10772,11 @@ cp_parser_range_for (cp_parser *parser, tree scope, tree init, tree range_decl,
 {
   tree stmt, range_expr;
 
+  /* Get the range declaration momentarily out of the way so that
+     the range expression doesn't clash with it. */
+  if (range_decl != error_mark_node)
+    pop_binding (DECL_NAME (range_decl), range_decl);
+
   if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
     {
       bool expr_non_constant_p;
@@ -10732,6 +10784,10 @@ cp_parser_range_for (cp_parser *parser, tree scope, tree init, tree range_decl,
     }
   else
     range_expr = cp_parser_expression (parser);
+
+  /* Put the range declaration back into scope. */
+  if (range_decl != error_mark_node)
+    push_binding (DECL_NAME (range_decl), range_decl, current_binding_level);
 
   /* If in template, STMT is converted to a normal for-statement
      at instantiation. If not, it is done just ahead. */
@@ -11410,11 +11466,15 @@ cp_parser_declaration_statement (cp_parser* parser)
    braces and has an else clause.  This is used to implement
    -Wparentheses.
 
+   CHAIN is a vector of if-else-if conditions.  This is used to implement
+   -Wduplicated-cond.
+
    Returns the new statement.  */
 
 static tree
 cp_parser_implicitly_scoped_statement (cp_parser* parser, bool *if_p,
-				       const token_indent_info &guard_tinfo)
+				       const token_indent_info &guard_tinfo,
+				       vec<tree> *chain)
 {
   tree statement;
   location_t body_loc = cp_lexer_peek_token (parser->lexer)->location;
@@ -11447,7 +11507,7 @@ cp_parser_implicitly_scoped_statement (cp_parser* parser, bool *if_p,
       /* Create a compound-statement.  */
       statement = begin_compound_stmt (0);
       /* Parse the dependent-statement.  */
-      cp_parser_statement (parser, NULL_TREE, false, if_p);
+      cp_parser_statement (parser, NULL_TREE, false, if_p, chain);
       /* Finish the dummy compound-statement.  */
       finish_compound_stmt (statement);
     }
@@ -11645,6 +11705,9 @@ cp_parser_declaration (cp_parser* parser)
 	       (token2.type == CPP_NAME
 		&& (cp_lexer_peek_nth_token (parser->lexer, 3)->type
 		    != CPP_EQ))
+               || (token2.type == CPP_OPEN_SQUARE
+                   && cp_lexer_peek_nth_token (parser->lexer, 3)->type
+                   == CPP_OPEN_SQUARE)
 	       /* An unnamed namespace definition.  */
 	       || token2.type == CPP_OPEN_BRACE
 	       || token2.keyword == RID_ATTRIBUTE))
@@ -16969,6 +17032,9 @@ cp_parser_namespace_definition (cp_parser* parser)
   /* Look for the `namespace' keyword.  */
   token = cp_parser_require_keyword (parser, RID_NAMESPACE, RT_NAMESPACE);
 
+  /* Parse any specified attributes before the identifier.  */
+  attribs = cp_parser_attributes_opt (parser);
+
   /* Get the name of the namespace.  We do not attempt to distinguish
      between an original-namespace-definition and an
      extension-namespace-definition at this point.  The semantic
@@ -16978,8 +17044,15 @@ cp_parser_namespace_definition (cp_parser* parser)
   else
     identifier = NULL_TREE;
 
-  /* Parse any specified attributes.  */
-  attribs = cp_parser_attributes_opt (parser);
+  /* Parse any specified attributes after the identifier.  */
+  tree post_ident_attribs = cp_parser_attributes_opt (parser);
+  if (post_ident_attribs)
+    {
+      if (attribs)
+        attribs = chainon (attribs, post_ident_attribs);
+      else
+        attribs = post_ident_attribs;
+    }
 
   /* Start the namespace.  */
   push_namespace (identifier);
@@ -17029,6 +17102,8 @@ cp_parser_namespace_definition (cp_parser* parser)
     }
 
   has_visibility = handle_namespace_attrs (current_namespace, attribs);
+
+  warning  (OPT_Wnamespaces, "namespace %qD entered", current_namespace);
 
   /* Parse the body of the namespace.  */
   cp_parser_namespace_body (parser);

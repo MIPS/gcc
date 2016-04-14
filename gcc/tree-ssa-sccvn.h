@@ -83,6 +83,9 @@ typedef struct vn_reference_op_struct
   ENUM_BITFIELD(tree_code) opcode : 16;
   /* 1 for instrumented calls.  */
   unsigned with_bounds : 1;
+  /* Dependence info, used for [TARGET_]MEM_REF only.  */
+  unsigned short clique;
+  unsigned short base;
   /* Constant offset this op adds or -1 if it is variable.  */
   HOST_WIDE_INT off;
   tree type;
@@ -162,8 +165,8 @@ typedef struct vn_ssa_aux
 {
   /* Value number. This may be an SSA name or a constant.  */
   tree valnum;
-  /* Representative expression, if not a direct constant. */
-  tree expr;
+  /* Statements to insert if needs_insertion is true.  */
+  gimple_seq expr;
 
   /* Unique identifier that all expressions with the same value have. */
   unsigned int value_id;
@@ -174,8 +177,6 @@ typedef struct vn_ssa_aux
   unsigned visited : 1;
   unsigned on_sccstack : 1;
 
-  /* Whether the representative expression contains constants.  */
-  unsigned has_constants : 1;
   /* Whether the SSA_NAME has been value numbered already.  This is
      only saying whether visit_use has been called on it at least
      once.  It cannot be used to avoid visitation for SSA_NAME's
@@ -201,7 +202,6 @@ tree vn_nary_op_lookup_stmt (gimple *, vn_nary_op_t *);
 tree vn_nary_op_lookup_pieces (unsigned int, enum tree_code,
 			       tree, tree *, vn_nary_op_t *);
 vn_nary_op_t vn_nary_op_insert (tree, tree);
-vn_nary_op_t vn_nary_op_insert_stmt (gimple, tree);
 vn_nary_op_t vn_nary_op_insert_pieces (unsigned int, enum tree_code,
 				       tree, tree *, tree, unsigned int);
 bool ao_ref_init_from_vn_reference (ao_ref *, alias_set_type, tree,

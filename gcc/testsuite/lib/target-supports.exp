@@ -1022,6 +1022,13 @@ proc check_effective_target_pie { } {
 	 || [istarget *-*-gnu*] } {
 	return 1;
     }
+    if { [istarget *-*-solaris2.1\[1-9\]*] } {
+	# Full PIE support was added in Solaris 11.x and Solaris 12, but gcc
+	# errors out if missing, so check for that.
+	return [check_no_compiler_messages pie executable {
+	    int main (void) { return 0; }
+	} "-pie -fpie"]
+    }
     return 0
 }
 
@@ -5061,6 +5068,8 @@ proc check_effective_target_sync_int_128 { } {
     if { ([istarget x86_64-*-*] || [istarget i?86-*-*])
 	 && ![is-effective-target ia32] } {
 	return 1
+    } elseif { [istarget spu-*-*] } {
+	return 1
     } else {
 	return 0
     }
@@ -5084,6 +5093,8 @@ proc check_effective_target_sync_int_128_runtime { } {
 		}
 	    } ""
 	}]
+    } elseif { [istarget spu-*-*] } {
+	return 1
     } else {
 	return 0
     }
@@ -5098,7 +5109,8 @@ proc check_effective_target_sync_long_long { } {
 	 || [istarget aarch64*-*-*]
 	 || [istarget arm*-*-*]
 	 || [istarget alpha*-*-*]
-	 || ([istarget sparc*-*-*] && [check_effective_target_lp64]) } {
+	 || ([istarget sparc*-*-*] && [check_effective_target_lp64])
+	 || [istarget spu-*-*] } {
 	return 1
     } else {
 	return 0
@@ -5147,6 +5159,8 @@ proc check_effective_target_sync_long_long_runtime { } {
     } elseif { ([istarget sparc*-*-*]
 		 && [check_effective_target_lp64]
 		 && [check_effective_target_ultrasparc_hw]) } {
+	return 1
+    } elseif { [istarget spu-*-*] } {
 	return 1
     } elseif { [istarget powerpc*-*-*] && [check_effective_target_lp64] } {
 	return 1
@@ -5261,6 +5275,7 @@ proc check_effective_target_sync_int_long { } {
 	     || [istarget powerpc*-*-*]
 	     || [istarget crisv32-*-*] || [istarget cris-*-*]
 	     || ([istarget sparc*-*-*] && [check_effective_target_sparc_v9])
+	     || [istarget spu-*-*]
 	     || [check_effective_target_mips_llsc] } {
            set et_sync_int_long_saved 1
         }
@@ -5291,6 +5306,7 @@ proc check_effective_target_sync_char_short { } {
 	     || [istarget powerpc*-*-*]
 	     || [istarget crisv32-*-*] || [istarget cris-*-*]
 	     || ([istarget sparc*-*-*] && [check_effective_target_sparc_v9])
+	     || [istarget spu-*-*]
 	     || [check_effective_target_mips_llsc] } {
            set et_sync_char_short_saved 1
         }
@@ -6424,4 +6440,14 @@ proc check_effective_target_comdat_group {} {
 	inline int foo () { return 1; }
 	int (*fn) () = foo;
     }]
+}
+
+# Return 1 if target supports __builtin_eh_return
+proc check_effective_target_builtin_eh_return { } {
+    return [check_no_compiler_messages builtin_eh_return object {
+	void test (long l, void *p)
+	{
+	    __builtin_eh_return (l, p);
+	}
+    } "" ]
 }

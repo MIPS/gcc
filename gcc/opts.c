@@ -441,6 +441,7 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_1_PLUS, OPT_fipa_reference, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_fipa_profile, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_fmerge_constants, NULL, 1 },
+    { OPT_LEVELS_1_PLUS, OPT_freorder_blocks, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_fshrink_wrap, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_fsplit_wide_types, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_ftree_ccp, NULL, 1 },
@@ -483,7 +484,8 @@ static const struct default_options default_options_table[] =
 #endif
     { OPT_LEVELS_2_PLUS, OPT_fstrict_aliasing, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fstrict_overflow, NULL, 1 },
-    { OPT_LEVELS_2_PLUS, OPT_freorder_blocks, NULL, 1 },
+    { OPT_LEVELS_2_PLUS_SPEED_ONLY, OPT_freorder_blocks_algorithm_, NULL,
+      REORDER_BLOCKS_ALGORITHM_STC },
     { OPT_LEVELS_2_PLUS, OPT_freorder_functions, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_ftree_vrp, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_ftree_builtin_call_dce, NULL, 1 },
@@ -820,6 +822,16 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
       opts->x_flag_reorder_blocks_and_partition = 0;
       opts->x_flag_reorder_blocks = 1;
     }
+
+  /* Disable -freorder-blocks-and-partition when -fprofile-use is not in
+     effect. Function splitting was not actually being performed in that case,
+     as probably_never_executed_bb_p does not distinguish any basic blocks as
+     being cold vs hot when there is no profile data. Leaving it enabled,
+     however, causes the assembly code generator to create (empty) cold
+     sections and labels, leading to unnecessary size overhead.  */
+  if (opts->x_flag_reorder_blocks_and_partition
+      && !opts_set->x_flag_profile_use)
+    opts->x_flag_reorder_blocks_and_partition = 0;
 
   if (opts->x_flag_reorder_blocks_and_partition
       && !opts_set->x_flag_reorder_functions)
@@ -2359,9 +2371,10 @@ enable_warning_as_error (const char *arg, int value, unsigned int lang_mask,
   strcpy (new_option + 1, arg);
   option_index = find_opt (new_option, lang_mask);
   if (option_index == OPT_SPECIAL_unknown)
-    {
-      error_at (loc, "-Werror=%s: no option -%s", arg, new_option);
-    }
+    error_at (loc, "-Werror=%s: no option -%s", arg, new_option);
+  else if (!(cl_options[option_index].flags & CL_WARNING))
+    error_at (loc, "-Werror=%s: -%s is not an option that controls warnings",
+	      arg, new_option);
   else
     {
       const diagnostic_t kind = value ? DK_ERROR : DK_WARNING;

@@ -239,6 +239,9 @@ const char *constant_string_class_name;
 
 /* C++ language option variables.  */
 
+/* The reference version of the ABI for -Wabi.  */
+
+int warn_abi_version = -1;
 
 /* Nonzero means generate separate instantiation control files and
    juggle them at link time.  */
@@ -5545,10 +5548,10 @@ enum c_builtin_type
 #define DEF_FUNCTION_TYPE_VAR_4(NAME, RETURN, ARG1, ARG2, ARG3, ARG4) NAME,
 #define DEF_FUNCTION_TYPE_VAR_5(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5) \
 				NAME,
+#define DEF_FUNCTION_TYPE_VAR_6(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+				ARG6) NAME,
 #define DEF_FUNCTION_TYPE_VAR_7(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
 				ARG6, ARG7) NAME,
-#define DEF_FUNCTION_TYPE_VAR_11(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
-				 ARG6, ARG7, ARG8, ARG9, ARG10, ARG11) NAME,
 #define DEF_POINTER_TYPE(NAME, TYPE) NAME,
 #include "builtin-types.def"
 #undef DEF_PRIMITIVE_TYPE
@@ -5567,8 +5570,8 @@ enum c_builtin_type
 #undef DEF_FUNCTION_TYPE_VAR_3
 #undef DEF_FUNCTION_TYPE_VAR_4
 #undef DEF_FUNCTION_TYPE_VAR_5
+#undef DEF_FUNCTION_TYPE_VAR_6
 #undef DEF_FUNCTION_TYPE_VAR_7
-#undef DEF_FUNCTION_TYPE_VAR_11
 #undef DEF_POINTER_TYPE
   BT_LAST
 };
@@ -5661,13 +5664,12 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
   def_fn_type (ENUM, RETURN, 1, 4, ARG1, ARG2, ARG3, ARG4);
 #define DEF_FUNCTION_TYPE_VAR_5(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5) \
   def_fn_type (ENUM, RETURN, 1, 5, ARG1, ARG2, ARG3, ARG4, ARG5);
+#define DEF_FUNCTION_TYPE_VAR_6(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+				ARG6) \
+  def_fn_type (ENUM, RETURN, 1, 6, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6);
 #define DEF_FUNCTION_TYPE_VAR_7(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
 				ARG6, ARG7)				\
   def_fn_type (ENUM, RETURN, 1, 7, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7);
-#define DEF_FUNCTION_TYPE_VAR_11(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
-				 ARG6, ARG7, ARG8, ARG9, ARG10, ARG11) \
-  def_fn_type (ENUM, RETURN, 1, 11, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6,      \
-	       ARG7, ARG8, ARG9, ARG10, ARG11);
 #define DEF_POINTER_TYPE(ENUM, TYPE) \
   builtin_types[(int) ENUM] = build_pointer_type (builtin_types[(int) TYPE]);
 
@@ -5689,8 +5691,8 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
 #undef DEF_FUNCTION_TYPE_VAR_3
 #undef DEF_FUNCTION_TYPE_VAR_4
 #undef DEF_FUNCTION_TYPE_VAR_5
+#undef DEF_FUNCTION_TYPE_VAR_6
 #undef DEF_FUNCTION_TYPE_VAR_7
-#undef DEF_FUNCTION_TYPE_VAR_11
 #undef DEF_POINTER_TYPE
   builtin_types[(int) BT_LAST] = NULL_TREE;
 
@@ -12917,6 +12919,47 @@ reject_gcc_builtin (const_tree expr, location_t loc /* = UNKNOWN_LOCATION */)
     }
 
   return false;
+}
+
+/* If we're creating an if-else-if condition chain, first see if we
+   already have this COND in the CHAIN.  If so, warn and don't add COND
+   into the vector, otherwise add the COND there.  LOC is the location
+   of COND.  */
+
+void
+warn_duplicated_cond_add_or_warn (location_t loc, tree cond, vec<tree> **chain)
+{
+  /* No chain has been created yet.  Do nothing.  */
+  if (*chain == NULL)
+    return;
+
+  if (TREE_SIDE_EFFECTS (cond))
+    {
+      /* Uh-oh!  This condition has a side-effect, thus invalidates
+	 the whole chain.  */
+      delete *chain;
+      *chain = NULL;
+      return;
+    }
+
+  unsigned int ix;
+  tree t;
+  bool found = false;
+  FOR_EACH_VEC_ELT (**chain, ix, t)
+    if (operand_equal_p (cond, t, 0))
+      {
+	if (warning_at (loc, OPT_Wduplicated_cond,
+			"duplicated %<if%> condition"))
+	  inform (EXPR_LOCATION (t), "previously used here");
+	found = true;
+	break;
+      }
+
+  if (!found
+      && !CONSTANT_CLASS_P (cond)
+      /* Don't infinitely grow the chain.  */
+      && (*chain)->length () < 512)
+    (*chain)->safe_push (cond);
 }
 
 #include "gt-c-family-c-common.h"

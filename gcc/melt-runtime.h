@@ -2722,21 +2722,21 @@ void meltgc_out_add_indent (melt_ptr_t strbuf_p,
 #define meltgc_strbuf_add_indent(Out,I,L) meltgc_out_add_indent ((Out),(I),(L))
 
 /* pretty print into OUTBUF a gimple */
-void meltgc_ppout_gimple(melt_ptr_t outbuf_p, int indentsp, gimple gstmt);
+void meltgc_ppout_gimple(melt_ptr_t outbuf_p, int indentsp, melt_gimpleptr_t gstmt);
 #define meltgc_ppstrbuf_gimple(Out,I,G) meltgc_ppout_gimple ((Out), (I), (G))
 
 /* pretty print into an OUTBUF a gimple seq */
-void meltgc_ppout_gimple_seq(melt_ptr_t outbuf_p, int indentsp, gimple_seq gseq);
+void meltgc_ppout_gimple_seq(melt_ptr_t outbuf_p, int indentsp, melt_gimpleseqptr_t gseq);
 #define meltgc_ppstrbuf_gimple_seq(Out,I,G) meltgc_ppout_gimple_seq ((Out), (I), (G))
 
 /* pretty print into an OUTBUF a tree */
-void meltgc_ppout_tree_perhaps_briefly(melt_ptr_t outbuf_p, int indentsp, tree tr, bool briefly);
+void meltgc_ppout_tree_perhaps_briefly(melt_ptr_t outbuf_p, int indentsp, melt_treeptr_t tr, bool briefly);
 #define meltgc_ppout_tree(Out,I,T) meltgc_ppout_tree_perhaps_briefly((Out),(I),(T),FALSE)
 #define meltgc_ppout_tree_briefly(Out,I,T) meltgc_ppout_tree_perhaps_briefly((Out),(I),(T),TRUE)
 #define meltgc_ppstrbuf_tree(Out,I,T) meltgc_ppout_tree  ((Out), (I), (T))
 
 /* pretty print into an outbuf a basic_block */
-void meltgc_ppout_basicblock(melt_ptr_t out_p, int indentsp, basic_block bb);
+void meltgc_ppout_basicblock(melt_ptr_t out_p, int indentsp, melt_basicblockptr_t bb);
 #define meltgc_ppstrbuf_basicblock(Out,I,BB) meltgc_ppout_basicblock ((Out),(I),(BB))
 
 /* pretty print into an outbuf a multiprecision integer */

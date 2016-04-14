@@ -7395,7 +7395,7 @@ sparc_libcall_value (machine_mode mode,
 static bool
 sparc_function_value_regno_p (const unsigned int regno)
 {
-  return (regno == 8 || regno == 32);
+  return (regno == 8 || (TARGET_FPU && regno == 32));
 }
 
 /* Do what is necessary for `va_start'.  We look at the current function
@@ -12276,26 +12276,6 @@ sparc_expand_vector_init (rtx target, rtx vals)
 				       i * GET_MODE_SIZE (inner_mode)),
 		    XVECEXP (vals, 0, i));
   emit_move_insn (target, mem);
-}
-
-bool sparc_secondary_memory_needed (enum reg_class class1, enum reg_class class2,
-				    machine_mode mode)
-{
-  if (FP_REG_CLASS_P (class1) != FP_REG_CLASS_P (class2))
-    {
-      if (! TARGET_VIS3
-	  || GET_MODE_SIZE (mode) > 8
-	  || GET_MODE_SIZE (mode) < 4)
-	return true;
-      return false;
-    }
-
-  if (GET_MODE_SIZE (mode) == 4
-      && ((class1 == FP_REGS && class2 == EXTRA_FP_REGS)
-	  || (class1 == EXTRA_FP_REGS && class2 == FP_REGS)))
-    return true;
-
-  return false;
 }
 
 /* Implement TARGET_SECONDARY_RELOAD.  */

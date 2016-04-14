@@ -1,3 +1,139 @@
+2015-10-01  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/html/manual/errno.html: Add new file.
+
+	* doc/xml/manual/diagnostics.xml: Document use of errno.
+	* doc/html/*: Regenerate.
+	* config/locale/generic/c_locale.cc (_Save_errno): New helper.
+	(__convert_to_v): Use _Save_errno.
+	* include/ext/string_conversions.h (__stoa): Only restore errno when
+	it isn't set to non-zero.
+
+2015-09-30  François Dumont  <fdumont@gcc.gnu.org>
+	    Jonathan Wakely  <jwakely@redhat.com>
+
+	* config/locale/gnu/messages_members.cc (Catalog_info, Catalogs):
+	Move...
+	* config/locale/gnu/c++locale_internal.h: ...here in std namespace.
+	* config/locale/gnu/c_locale.cc: Move implementation of latter here.
+	* src/c++98/Makefile.am: Compile c++locale.cc with -fimplicit-templates.
+	* src/c++98/Makefile.in: Regenerate.
+	* config/abi/pre/gnu.ver: Adjust.
+
+2015-09-30  Matthias Klose  <doko@ubuntu.com>
+
+	* config/cpu/alpha, config/cpu/ia64: Remove empty directories.
+
+2015-09-29  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/ext/string_conversions.h (__stoa): Save and restore errno.
+	* testsuite/21_strings/basic_string/numeric_conversions/char/errno.cc:
+	New.
+
+	PR libstdc++/67583
+	* testsuite/27_io/basic_stringbuf/seekoff/char/1.cc: Fix sputn call
+	with mismatched arguments.
+	* testsuite/27_io/basic_stringbuf/seekoff/wchar_t/1.cc: Likewise.
+
+	PR libstdc++/65393
+	* config/abi/pre/gnu.ver: Export new symbols.
+	* include/std/thread (thread::_State, thread::_State_impl): New types.
+	(thread::_M_start_thread): Add overload taking unique_ptr<_State>.
+	(thread::_M_make_routine): Remove.
+	(thread::_S_make_state): Add.
+	(thread::_Impl_base, thread::_Impl, thread::_M_start_thread)
+	[_GLIBCXX_THREAD_ABI_COMPAT] Only declare conditionally.
+	* src/c++11/thread.cc (execute_native_thread_routine): Rename to
+	execute_native_thread_routine_compat and re-define to use _State.
+	(thread::_State::~_State()): Define.
+	(thread::_M_make_thread): Define new overload.
+	(thread::_M_make_thread) [_GLIBCXX_THREAD_ABI_COMPAT]: Only define old
+	overloads conditionally.
+
+2015-09-28  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/std/condition_variable (condition_variable::wait): Add
+	noexcept.
+	* src/c++11/condition_variable.cc (condition_variable::wait): Call
+	std::terminate on error (DR 2135).
+
+2015-09-25  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Avoid creating dangling references in case of nested tuples
+	for tuple constructors that construct from other tuples.
+	* include/std/tuple (_TC::_NonNestedTuple): New.
+	* include/std/tuple (tuple::_TNTC): New.
+	* include/std/tuple (tuple(const tuple<_UElements...>&),
+	tuple(tuple<_UElements...>&&): Use _TNTC.
+	* testsuite/20_util/tuple/cons/nested_tuple_construct.cc: New.
+
+2015-09-24  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/67707
+	* include/bits/stl_deque.h (_Deque_base::_M_move_impl): Initialize
+	empty object.
+	* testsuite/23_containers/deque/allocator/move.cc: Check moved-from
+	deque.
+
+2015-09-23  Jonathan Wakely  <jwakely@redhat.com>
+
+	* src/filesystem/ops.cc (canonical): Simplify error handling and
+	limit number of symlinks that can be resolved.
+
+2015-09-23  Jonathan Wakely  <jwakely@redhat.com>
+
+	* acinclude.m4 (GLIBCXX_CHECK_FILESYSTEM_DEPS): Remove _GLIBCXX_
+	prefix from HAVE_STRUCT_DIRENT_D_TYPE.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* include/experimental/fs_dir.h (operator==, operator==):
+	Use owner_before instead of pointer equality.
+	(directory_iterator(std::shared_ptr<_Dir>, error_code*)): Remove.
+	* src/filesystem/dir.cc (ErrorCode): Remove.
+	(_Dir::advance): Change ErrorCode parameter to error_code*, add
+	directory_options parameter and check it on error.
+	(opendir): Rename to open_dir to avoid clashing with macro. Change
+	ErrorCode parameter to error_code*.
+	(make_shared_dir): Remove.
+	(native_readdir) [_GLIBCXX_FILESYSTEM_IS_WINDOWS]: Don't set errno.
+	(directory_iterator(std::shared_ptr<_Dir>, error_code*)): Remove.
+	(directory_iterator(const path&, directory_options, error_code*)):
+	Pass options to _Dir::advance and create non-end iterator on error.
+	(recursive_directory_iterator(const path&, directory_options,
+	error_code*)): Clear error_code on ignored error, create non-end
+	iterator otherwise.
+	(recursive_directory_iterator::increment): Pass _M_options to
+	_Dir::advance.
+	(recursive_directory_iterator::pop): Likewise.
+	* testsuite/experimental/filesystem/iterators/directory_iterator.cc:
+	New.
+	* testsuite/experimental/filesystem/iterators/
+	recursive_directory_iterator.cc: New.
+
+	* src/filesystem/ops.cc (is_dot, is_dotdot): Define new helpers.
+	(create_directories): Fix error handling.
+	* testsuite/experimental/filesystem/operations/create_directories.cc:
+	New.
+
+2015-09-21  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/67647
+	* include/bits/basic_string.h [!_GLIBCXX_USE_CXX11_ABI]
+	(basic_string::shrink_to_fit): Fix #endif placement.
+
+2015-09-19  Tim Shen  <timshen@google.com>
+
+	PR libstdc++/67361
+	* include/bits/regex_error.h: Add __throw_regex_error that
+	supports string.
+	* include/bits/regex_automaton.h: Add more specific exception
+	messages.
+	* include/bits/regex_automaton.tcc: Likewise.
+	* include/bits/regex_compiler.h: Likewise.
+	* include/bits/regex_compiler.tcc: Likewise.
+	* include/bits/regex_scanner.h: Likewise.
+	* include/bits/regex_scanner.tcc: Likewise.
+
 2015-09-18  Jonathan Wakely  <jwakely@redhat.com>
 
 	* include/precompiled/extc++.h: Fix bootstrap error due to

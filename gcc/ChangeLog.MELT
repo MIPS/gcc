@@ -1,5 +1,11 @@
 
 2016-04-14   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h: Use more systematically the melt*ptr_t types.
+	* melt-runtime.cc (meltgc_ppout_gimple_seq)
+	(meltgc_ppout_basicblock): Ditto.
+	* melt/libmelt-ana-gimple.melt: Ditto.
+
+2016-04-14   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerated all.
 
 2016-04-14   Basile Starynkevitch  <basile@starynkevitch.net>
