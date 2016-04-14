@@ -16,7 +16,7 @@ void foo (TYPE *p, TYPE *q)
   *p = r;
 }
 
-/* { dg-final { scan-assembler       "mfvsrd"  } } */
-/* { dg-final { scan-assembler       "mtvsrd"  } } */
+/* { dg-final { scan-assembler       "mfvsrd"    } } */
+/* { dg-final { scan-assembler       "mtvsrd"    } } */
 /* { dg-final { scan-assembler-times "stxvd2x" 1 } } */
 /* { dg-final { scan-assembler-times "lxvd2x"  1 } } */
