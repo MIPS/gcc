@@ -1052,20 +1052,25 @@ plugin_define_cdtor_clone (cc1_plugin::connection *self,
 
 int
 plugin_new_friend (cc1_plugin::connection * /* self */,
-		   gcc_decl decl_in)
+		   gcc_decl decl_in,
+		   gcc_type type_in)
 {
   tree decl = convert_in (decl_in);
+  tree type = convert_in (type_in);
 
-  gcc_assert (at_class_scope_p ());
+  gcc_assert (type || at_class_scope_p ());
 
-  /* FIXME: is this enough to support template friend declarations?  */
+  if (!type)
+    type = current_class_type;
+  else
+    gcc_assert (TREE_CODE (type) == RECORD_TYPE);
 
   if (TYPE_P (decl))
-    make_friend_class (current_class_type, decl, true);
+    make_friend_class (type, TREE_TYPE (decl), true);
   else
     {
       DECL_FRIEND_P (decl) = true;
-      add_friend (current_class_type, decl, true);
+      add_friend (type, decl, true);
     }
 
   return 1;
