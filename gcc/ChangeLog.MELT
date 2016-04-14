@@ -1,5 +1,8 @@
 
 2016-04-14   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerated all.
+
+2016-04-14   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{merging with even more of GCC 6, i.e. svn rev 227942; very
 	unstable...}}
 	* melt/generated/warmelt-base+01.cc: Manually edited.
