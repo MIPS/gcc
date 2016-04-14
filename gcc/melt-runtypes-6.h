@@ -25,7 +25,7 @@ along with GCC; see the file COPYING3.   If not see
 #define MELTRUNTYPES_INCLUDED_
 
 // all these are GTY-ed pointers
-typedef gimple melt_gimpleptr_t;
+typedef gimple* melt_gimpleptr_t; // gimple is now a struct
 typedef tree melt_treeptr_t;
 typedef gimple_seq melt_gimpleseqptr_t;
 typedef basic_block melt_basicblockptr_t;

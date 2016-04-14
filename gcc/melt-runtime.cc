@@ -8048,14 +8048,14 @@ meltgc_retrieve_location_from_value (melt_ptr_t loc_p,
       break;
     case MELTOBMAG_GIMPLE:
     {
-      gimple g = melt_gimple_content ((melt_ptr_t) locv);
+      melt_gimpleptr_t g = melt_gimple_content ((melt_ptr_t) locv);
       resloc = g?gimple_location(g):UNKNOWN_LOCATION;
       break;
     }
     case MELTOBMAG_GIMPLESEQ:
     {
-      gimple_seq gs = melt_gimpleseq_content ((melt_ptr_t) locv);
-      gimple g = gs?gimple_seq_first_stmt(gs):NULL;
+      melt_gimpleseqptr_t gs = melt_gimpleseq_content ((melt_ptr_t) locv);
+      melt_gimpleptr_t g = gs?gimple_seq_first_stmt(gs):NULL;
       resloc = g?gimple_location(g):UNKNOWN_LOCATION;
       break;
     }
@@ -11791,7 +11791,7 @@ melt_close_ppfile (FILE *oldfile)
 
 /* pretty print into an outbuf a gimple */
 void
-meltgc_ppout_gimple (melt_ptr_t out_p, int indentsp, gimple gstmt)
+meltgc_ppout_gimple (melt_ptr_t out_p, int indentsp, melt_gimpleptr_t gstmt)
 {
   int outmagic = 0;
 #define outv meltfram__.mcfr_varptr[0]
@@ -13402,7 +13402,18 @@ same as gimple (with file "coretypes.h" having the definition `typedef
 gimple gimple_seq;`), but our generated runtime support might still
 want their old marking routine.  */
 
-#if GCCPLUGIN_VERSION >= 5000
+#if GCCPLUGIN_VERSION >= 6000
+void melt_gt_ggc_mx_gimple_seq_d(void*p)
+{
+  if (p)
+    {
+      melt_gimpleseqptr_t gs = reinterpret_cast<melt_gimpleseqptr_t>(p);
+      /// gt_ggc_mx_gimple is in generated gtype-desc.c
+      gt_ggc_mx_gimple (gs);
+    }
+}
+
+#elif GCCPLUGIN_VERSION >= 5000
 void melt_gt_ggc_mx_gimple_seq_d(void*p)
 {
   if (p)

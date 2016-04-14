@@ -1394,9 +1394,9 @@ meltrout_11_WARMELTmiBASE_ADD2OUT(meltclosure_ptr_t meltclosp_, melt_ptr_t meltf
             /*marking melt_treeptr_t*/
             /*:tree marker*/ gt_ggc_mx_tree_node (loc_TREE__o2);
             /*marking melt_gimpleptr_t*/
-            /*:gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE__o3);
+            /*:gimple marker*/ gt_ggc_mx_gimple (loc_GIMPLE__o3);
             /*marking melt_gimpleseqptr_t*/
-            /*:gimple_seq marker, really gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE_SEQ__o4);
+            /*:gimple_seq marker, really gimple marker*/ gt_ggc_mx_gimple (loc_GIMPLE_SEQ__o4);
             /*marking melt_edgeptr_t*/
             /*:edge marker*/ gt_ggc_mx_edge_def (loc_EDGE__o5);
             /*marking melt_loopptr_t*/
@@ -2610,7 +2610,7 @@ meltrout_12_WARMELTmiBASE_ADD2LIST(meltclosure_ptr_t meltclosp_, melt_ptr_t melt
             /*marking melt_treeptr_t*/
             /*:tree marker*/ gt_ggc_mx_tree_node (loc_TREE__o1);
             /*marking melt_gimpleptr_t*/
-            /*:gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE__o2);
+            /*:gimple marker*/ gt_ggc_mx_gimple (loc_GIMPLE__o2);
             /*marking melt_edgeptr_t*/
             /*:edge marker*/ gt_ggc_mx_edge_def (loc_EDGE__o3);
         } /*end melt_mark_stuff*/
@@ -3290,9 +3290,9 @@ meltrout_13_WARMELTmiBASE_STRING4OUT(meltclosure_ptr_t meltclosp_, melt_ptr_t me
             /*marking melt_treeptr_t*/
             /*:tree marker*/ gt_ggc_mx_tree_node (loc_TREE__o1);
             /*marking melt_gimpleptr_t*/
-            /*:gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE__o2);
+            /*:gimple marker*/ gt_ggc_mx_gimple (loc_GIMPLE__o2);
             /*marking melt_gimpleseqptr_t*/
-            /*:gimple_seq marker, really gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE_SEQ__o3);
+            /*:gimple_seq marker, really gimple marker*/ gt_ggc_mx_gimple (loc_GIMPLE_SEQ__o3);
             /*marking melt_edgeptr_t*/
             /*:edge marker*/ gt_ggc_mx_edge_def (loc_EDGE__o4);
             /*marking melt_loopptr_t*/

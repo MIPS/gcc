@@ -1112,9 +1112,9 @@ meltrout_8_WARMELTmiMACRO_ERROR_AT(meltclosure_ptr_t meltclosp_, melt_ptr_t melt
             /*marking melt_treeptr_t*/
             /*:tree marker*/ gt_ggc_mx_tree_node (loc_TREE__o2);
             /*marking melt_gimpleptr_t*/
-            /*:gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE__o3);
+            /*:gimple marker*/ gt_ggc_mx_gimple (loc_GIMPLE__o3);
             /*marking melt_gimpleseqptr_t*/
-            /*:gimple_seq marker, really gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE_SEQ__o4);
+            /*:gimple_seq marker, really gimple marker*/ gt_ggc_mx_gimple (loc_GIMPLE_SEQ__o4);
             /*marking melt_basicblockptr_t*/
             /*:basic_block marker*/ gt_ggc_mx_basic_block_def (loc_BASIC_BLOCK__o5);
             /*marking melt_edgeptr_t*/
@@ -3145,9 +3145,9 @@ meltrout_9_WARMELTmiMACRO_FATAL_ERROR_AT(meltclosure_ptr_t meltclosp_, melt_ptr_
             /*marking melt_treeptr_t*/
             /*:tree marker*/ gt_ggc_mx_tree_node (loc_TREE__o2);
             /*marking melt_gimpleptr_t*/
-            /*:gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE__o3);
+            /*:gimple marker*/ gt_ggc_mx_gimple (loc_GIMPLE__o3);
             /*marking melt_gimpleseqptr_t*/
-            /*:gimple_seq marker, really gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE_SEQ__o4);
+            /*:gimple_seq marker, really gimple marker*/ gt_ggc_mx_gimple (loc_GIMPLE_SEQ__o4);
             /*marking melt_basicblockptr_t*/
             /*:basic_block marker*/ gt_ggc_mx_basic_block_def (loc_BASIC_BLOCK__o5);
             /*marking melt_edgeptr_t*/
@@ -5181,9 +5181,9 @@ meltrout_10_WARMELTmiMACRO_WARNING_AT(meltclosure_ptr_t meltclosp_, melt_ptr_t m
             /*marking melt_treeptr_t*/
             /*:tree marker*/ gt_ggc_mx_tree_node (loc_TREE__o2);
             /*marking melt_gimpleptr_t*/
-            /*:gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE__o3);
+            /*:gimple marker*/ gt_ggc_mx_gimple (loc_GIMPLE__o3);
             /*marking melt_gimpleseqptr_t*/
-            /*:gimple_seq marker, really gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE_SEQ__o4);
+            /*:gimple_seq marker, really gimple marker*/ gt_ggc_mx_gimple (loc_GIMPLE_SEQ__o4);
             /*marking melt_basicblockptr_t*/
             /*:basic_block marker*/ gt_ggc_mx_basic_block_def (loc_BASIC_BLOCK__o5);
             /*marking melt_edgeptr_t*/
@@ -7114,9 +7114,9 @@ meltrout_11_WARMELTmiMACRO_INFORM_AT(meltclosure_ptr_t meltclosp_, melt_ptr_t me
             /*marking melt_treeptr_t*/
             /*:tree marker*/ gt_ggc_mx_tree_node (loc_TREE__o2);
             /*marking melt_gimpleptr_t*/
-            /*:gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE__o3);
+            /*:gimple marker*/ gt_ggc_mx_gimple (loc_GIMPLE__o3);
             /*marking melt_gimpleseqptr_t*/
-            /*:gimple_seq marker, really gimple marker*/ gt_ggc_mx_gimple_statement_d (loc_GIMPLE_SEQ__o4);
+            /*:gimple_seq marker, really gimple marker*/ gt_ggc_mx_gimple (loc_GIMPLE_SEQ__o4);
             /*marking melt_basicblockptr_t*/
             /*:basic_block marker*/ gt_ggc_mx_basic_block_def (loc_BASIC_BLOCK__o5);
             /*marking melt_edgeptr_t*/

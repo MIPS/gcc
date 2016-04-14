@@ -1,5 +1,23 @@
 
 2016-04-14   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merging with even more of GCC 6, i.e. svn rev 227942; very
+	unstable...}}
+	* melt/generated/warmelt-base+01.cc: Manually edited.
+	* melt/generated/warmelt-debug.cc: Ditto.
+	* melt/generated/warmelt-macro+01.cc: Ditto.
+
+	* melt/warmelt-first.melt (ctype_gimple, ctype_gimpleseq): Change
+	the :ctype_marker field to gt_ggc_mx_gimple. Should consider using
+	overloaded gt_ggc_mx.
+
+	* melt-runtime.h (melt_gimple_call_set_lhs): Use melt_gimpleptr_t
+	in arg & result.
+
+	* melt-runtime.cc (meltgc_retrieve_location_from_value)
+	(meltgc_ppout_gimple): Likewise.
+	(melt_gt_ggc_mx_gimple_seq_d): Specialized for GCC 6.
+
+2016-04-14   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtypes-5.h: Copied from melt-runtypes-6.h bur untested
 	with GCC 5 as plugin.
 

@@ -3814,8 +3814,8 @@ extern const char melt_run_preprocessed_md5[]; /* defined in generated file melt
 /* This function sets the LHS of a gimple and return that gimple.
    Useful for gimple_call_args pseudo-primitive in
    libmelt-ana-gimple.melt file. */
-static inline gimple
-melt_gimple_call_set_lhs (gimple gs, tree lhs)
+static inline melt_gimpleptr_t
+melt_gimple_call_set_lhs (melt_gimpleptr_t gs, tree lhs)
 {
   if (gs && is_gimple_call (gs))
     gimple_call_set_lhs (gs, lhs);
