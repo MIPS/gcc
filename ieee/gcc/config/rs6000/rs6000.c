@@ -22702,7 +22702,8 @@ rs6000_emit_minmax (rtx dest, enum rtx_code code, rtx op0, rtx op1)
     emit_move_insn (dest, target);
 }
 
-/* Split a signbit operation on 64-bit machines with direct move.  */
+/* Split a signbit operation on 64-bit machines with direct move.  Allow for
+   SFmode/DFmode to also come from memory or from a GPR.  */
 
 void
 rs6000_split_signbit (rtx dest, rtx src)
@@ -22722,8 +22723,8 @@ rs6000_split_signbit (rtx dest, rtx src)
       if (s_mode == SFmode)
 	mem = gen_rtx_SIGN_EXTEND (DImode, adjust_address (src, SImode, 0));
 
-      else if (WORDS_BIG_ENDIAN || GET_MODE_SIZE (s_mode) < 16)
-	mem = adjust_address (src, DImode, 0);
+      else if (GET_MODE_SIZE (s_mode) == 16 && !WORDS_BIG_ENDIAN)
+	mem = adjust_address (src, DImode, 8);
 
       else
 	mem = adjust_address (src, DImode, 8);
@@ -22744,8 +22745,6 @@ rs6000_split_signbit (rtx dest, rtx src)
       else
 	{
 	  gcc_assert (INT_REGNO_P (r));
-	  if (REGNO (src) != r)
-	    shift_reg = src;
 
 	  /* We need to sign extend SFmode if it lives in a GPR.  */
 	  if (s_mode == SFmode)
@@ -22753,6 +22752,9 @@ rs6000_split_signbit (rtx dest, rtx src)
 	      emit_insn (gen_extendsidi2 (dest_di, gen_lowpart (SImode, src)));
 	      shift_reg = dest_di;
 	    }
+
+	  else
+	    shift_reg = gen_highpart (DImode, src);
 	}
     }
 
