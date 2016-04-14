@@ -17,4 +17,4 @@ doAbsoluteDifferenceUnsignedIntMacro (__vector unsigned int *p,
   return result;
 }
 
-/* { dg-final { scan-assembler	   "vadsduw" } } */
+/* { dg-final { scan-assembler	   "vabsduw" } } */

@@ -19,4 +19,4 @@ doAbsoluteDifferenceUnsigned (__vector unsigned char *p,
 }
 
 
-/* { dg-final { scan-assembler	   "vadsdub" } } */
+/* { dg-final { scan-assembler	   "vabsdub" } } */

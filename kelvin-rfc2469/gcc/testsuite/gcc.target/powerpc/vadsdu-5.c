@@ -17,4 +17,4 @@ doAbsoluteDifferenceUnsignedCharMacro (__vector unsigned char *p,
   return result;
 }
 
-/* { dg-final { scan-assembler	   "vadsdub" } } */
+/* { dg-final { scan-assembler	   "vabsdub" } } */

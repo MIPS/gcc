@@ -18,4 +18,4 @@ doAbsoluteDifferenceUnsignedShort (__vector unsigned short *p,
   return result;
 }
 
-/* { dg-final { scan-assembler	   "vadsduh" } } */
+/* { dg-final { scan-assembler	   "vabsduh" } } */
