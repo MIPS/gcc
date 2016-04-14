@@ -1939,6 +1939,11 @@ kind_selector:
   if (m == MATCH_NO)
     m = MATCH_YES;		/* No kind specifier found.  */
 
+  /* gfortran may have matched REAL(a=1), which is the keyword form of the
+     intrinsic procedure.  */
+  if (ts->type == BT_REAL && m == MATCH_ERROR)
+    m = MATCH_NO;
+
   return m;
 }
 
@@ -4278,19 +4283,12 @@ match match_common_name (char *name)
 match
 gfc_match_common (void)
 {
-  gfc_symbol *sym, **head, *tail, *other, *old_blank_common;
+  gfc_symbol *sym, **head, *tail, *other;
   char name[GFC_MAX_SYMBOL_LEN + 1];
   gfc_common_head *t;
   gfc_array_spec *as;
   gfc_equiv *e1, *e2;
   match m;
-
-  old_blank_common = gfc_current_ns->blank_common.head;
-  if (old_blank_common)
-    {
-      while (old_blank_common->common_next)
-	old_blank_common = old_blank_common->common_next;
-    }
 
   as = NULL;
 
@@ -4329,10 +4327,6 @@ gfc_match_common (void)
 	    goto cleanup;
 	  if (m == MATCH_NO)
 	    goto syntax;
-
-          /* Store a ref to the common block for error checking.  */
-          sym->common_block = t;
-          sym->common_block->refs++;
 
           /* See if we know the current common block is bind(c), and if
              so, then see if we can check if the symbol is (which it'll
@@ -4376,16 +4370,6 @@ gfc_match_common (void)
 		goto cleanup;
 	    }
 
-	  if (!gfc_add_in_common (&sym->attr, sym->name, NULL))
-	    goto cleanup;
-
-	  if (tail != NULL)
-	    tail->common_next = sym;
-	  else
-	    *head = sym;
-
-	  tail = sym;
-
 	  /* Deal with an optional array specification after the
 	     symbol name.  */
 	  m = gfc_match_array_spec (&as, true, true);
@@ -4415,6 +4399,20 @@ gfc_match_common (void)
 	      as = NULL;
 
 	    }
+
+	  /* Add the in_common attribute, but ignore the reported errors
+	     if any, and continue matching.  */
+	  gfc_add_in_common (&sym->attr, sym->name, NULL);
+
+	  sym->common_block = t;
+	  sym->common_block->refs++;
+
+	  if (tail != NULL)
+	    tail->common_next = sym;
+	  else
+	    *head = sym;
+
+	  tail = sym;
 
 	  sym->common_head = t;
 

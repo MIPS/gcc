@@ -1243,9 +1243,6 @@ set_parm_rtl (tree parm, rtx x)
       record_alignment_for_reg_var (align);
     }
 
-  if (!is_gimple_reg (parm))
-    return set_rtl (parm, x);
-
   tree ssa = ssa_default_def (cfun, parm);
   if (!ssa)
     return set_rtl (parm, x);
@@ -3272,12 +3269,13 @@ expand_computed_goto (tree exp)
 static void
 expand_goto (tree label)
 {
-#ifdef ENABLE_CHECKING
-  /* Check for a nonlocal goto to a containing function.  Should have
-     gotten translated to __builtin_nonlocal_goto.  */
-  tree context = decl_function_context (label);
-  gcc_assert (!context || context == current_function_decl);
-#endif
+  if (flag_checking)
+    {
+      /* Check for a nonlocal goto to a containing function.  Should have
+	 gotten translated to __builtin_nonlocal_goto.  */
+      tree context = decl_function_context (label);
+      gcc_assert (!context || context == current_function_decl);
+    }
 
   emit_jump (jump_target_rtx (label));
 }
@@ -5059,12 +5057,12 @@ expand_debug_expr (tree exp)
 
     default:
     flag_unsupported:
-#ifdef ENABLE_CHECKING
-      debug_tree (exp);
-      gcc_unreachable ();
-#else
+      if (flag_checking)
+	{
+	  debug_tree (exp);
+	  gcc_unreachable ();
+	}
       return NULL;
-#endif
     }
 }
 
@@ -6307,7 +6305,7 @@ pass_expand::execute (function *fun)
   /* Free stuff we no longer need after GIMPLE optimizations.  */
   free_dominance_info (CDI_DOMINATORS);
   free_dominance_info (CDI_POST_DOMINATORS);
-  delete_tree_cfg_annotations ();
+  delete_tree_cfg_annotations (fun);
 
   timevar_push (TV_OUT_OF_SSA);
   finish_out_of_ssa (&SA);
@@ -6321,7 +6319,7 @@ pass_expand::execute (function *fun)
   /* Expansion is used by optimization passes too, set maybe_hot_insn_p
      conservatively to true until they are all profile aware.  */
   delete lab_rtx_for_bb;
-  free_histograms ();
+  free_histograms (fun);
 
   construct_exit_block ();
   insn_locations_finalize ();
@@ -6425,9 +6423,7 @@ pass_expand::execute (function *fun)
      gcc.c-torture/execute/ipa-sra-2.c execution, -Os -m32 fails otherwise.  */
   cleanup_cfg (CLEANUP_NO_INSN_DEL);
 
-#ifdef ENABLE_CHECKING
-  verify_flow_info ();
-#endif
+  checking_verify_flow_info ();
 
   /* Initialize pseudos allocated for hard registers.  */
   emit_initial_value_sets ();

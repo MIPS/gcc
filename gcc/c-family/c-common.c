@@ -594,6 +594,12 @@ const struct c_common_resword c_common_reswords[] =
   { "wchar_t",		RID_WCHAR,	D_CXXONLY },
   { "while",		RID_WHILE,	0 },
 
+  /* C++ transactional memory.  */
+  { "synchronized",	RID_SYNCHRONIZED, D_CXX_OBJC | D_TRANSMEM },
+  { "atomic_noexcept",	RID_ATOMIC_NOEXCEPT, D_CXXONLY | D_TRANSMEM },
+  { "atomic_cancel",	RID_ATOMIC_CANCEL, D_CXXONLY | D_TRANSMEM },
+  { "atomic_commit",	RID_TRANSACTION_ATOMIC, D_CXXONLY | D_TRANSMEM },
+
   /* Concepts-related keywords */
   { "concept",		RID_CONCEPT,	D_CXX_CONCEPTS_FLAGS | D_CXXWARN },
   { "requires", 	RID_REQUIRES,	D_CXX_CONCEPTS_FLAGS | D_CXXWARN },
@@ -609,7 +615,6 @@ const struct c_common_resword c_common_reswords[] =
   { "protocol",		RID_AT_PROTOCOL,	D_OBJC },
   { "selector",		RID_AT_SELECTOR,	D_OBJC },
   { "finally",		RID_AT_FINALLY,		D_OBJC },
-  { "synchronized",	RID_AT_SYNCHRONIZED,	D_OBJC },
   { "optional",		RID_AT_OPTIONAL,	D_OBJC },
   { "required",		RID_AT_REQUIRED,	D_OBJC },
   { "property",		RID_AT_PROPERTY,	D_OBJC },
@@ -728,8 +733,10 @@ const struct attribute_spec c_common_attribute_table[] =
   { "transaction_callable",   0, 0, false, true,  false,
 			      handle_tm_attribute, false },
   { "transaction_unsafe",     0, 0, false, true,  false,
-			      handle_tm_attribute, false },
+			      handle_tm_attribute, true },
   { "transaction_safe",       0, 0, false, true,  false,
+			      handle_tm_attribute, true },
+  { "transaction_safe_dynamic", 0, 0, true, false,  false,
 			      handle_tm_attribute, false },
   { "transaction_may_cancel_outer", 0, 0, false, true, false,
 			      handle_tm_attribute, false },
@@ -4842,9 +4849,8 @@ pointer_int_sum (location_t loc, enum tree_code resultcode,
      for the pointer operation and disregard an overflow that occurred only
      because of the sign-extension change in the latter conversion.  */
   {
-    tree t = build_binary_op (loc,
-			      MULT_EXPR, intop,
-			      convert (TREE_TYPE (intop), size_exp), 1);
+    tree t = fold_build2_loc (loc, MULT_EXPR, TREE_TYPE (intop), intop,
+			      convert (TREE_TYPE (intop), size_exp));
     intop = convert (sizetype, t);
     if (TREE_OVERFLOW_P (intop) && !TREE_OVERFLOW (t))
       intop = wide_int_to_tree (TREE_TYPE (intop), intop);
@@ -5541,6 +5547,12 @@ enum c_builtin_type
 			    ARG6, ARG7) NAME,
 #define DEF_FUNCTION_TYPE_8(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
 			    ARG6, ARG7, ARG8) NAME,
+#define DEF_FUNCTION_TYPE_9(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+			    ARG6, ARG7, ARG8, ARG9) NAME,
+#define DEF_FUNCTION_TYPE_10(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+			     ARG6, ARG7, ARG8, ARG9, ARG10) NAME,
+#define DEF_FUNCTION_TYPE_11(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+			     ARG6, ARG7, ARG8, ARG9, ARG10, ARG11) NAME,
 #define DEF_FUNCTION_TYPE_VAR_0(NAME, RETURN) NAME,
 #define DEF_FUNCTION_TYPE_VAR_1(NAME, RETURN, ARG1) NAME,
 #define DEF_FUNCTION_TYPE_VAR_2(NAME, RETURN, ARG1, ARG2) NAME,
@@ -5564,6 +5576,9 @@ enum c_builtin_type
 #undef DEF_FUNCTION_TYPE_6
 #undef DEF_FUNCTION_TYPE_7
 #undef DEF_FUNCTION_TYPE_8
+#undef DEF_FUNCTION_TYPE_9
+#undef DEF_FUNCTION_TYPE_10
+#undef DEF_FUNCTION_TYPE_11
 #undef DEF_FUNCTION_TYPE_VAR_0
 #undef DEF_FUNCTION_TYPE_VAR_1
 #undef DEF_FUNCTION_TYPE_VAR_2
@@ -5652,6 +5667,18 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
 			    ARG6, ARG7, ARG8)				\
   def_fn_type (ENUM, RETURN, 0, 8, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6,	\
 	       ARG7, ARG8);
+#define DEF_FUNCTION_TYPE_9(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+			    ARG6, ARG7, ARG8, ARG9)			\
+  def_fn_type (ENUM, RETURN, 0, 9, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6,	\
+	       ARG7, ARG8, ARG9);
+#define DEF_FUNCTION_TYPE_10(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+			     ARG6, ARG7, ARG8, ARG9, ARG10)		 \
+  def_fn_type (ENUM, RETURN, 0, 10, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6,	 \
+	       ARG7, ARG8, ARG9, ARG10);
+#define DEF_FUNCTION_TYPE_11(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+			     ARG6, ARG7, ARG8, ARG9, ARG10, ARG11)	 \
+  def_fn_type (ENUM, RETURN, 0, 11, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6,	 \
+	       ARG7, ARG8, ARG9, ARG10, ARG11);
 #define DEF_FUNCTION_TYPE_VAR_0(ENUM, RETURN) \
   def_fn_type (ENUM, RETURN, 1, 0);
 #define DEF_FUNCTION_TYPE_VAR_1(ENUM, RETURN, ARG1) \
@@ -5685,6 +5712,9 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
 #undef DEF_FUNCTION_TYPE_6
 #undef DEF_FUNCTION_TYPE_7
 #undef DEF_FUNCTION_TYPE_8
+#undef DEF_FUNCTION_TYPE_9
+#undef DEF_FUNCTION_TYPE_10
+#undef DEF_FUNCTION_TYPE_11
 #undef DEF_FUNCTION_TYPE_VAR_0
 #undef DEF_FUNCTION_TYPE_VAR_1
 #undef DEF_FUNCTION_TYPE_VAR_2
@@ -9135,6 +9165,23 @@ handle_tm_attribute (tree *node, tree name, tree args,
 	  *no_add_attrs = false;
       }
       break;
+
+    case FUNCTION_DECL:
+      {
+	/* transaction_safe_dynamic goes on the FUNCTION_DECL, but we also
+	   want to set transaction_safe on the type.  */
+	gcc_assert (is_attribute_p ("transaction_safe_dynamic", name));
+	if (!TYPE_P (DECL_CONTEXT (*node)))
+	  error_at (DECL_SOURCE_LOCATION (*node),
+		    "%<transaction_safe_dynamic%> may only be specified for "
+		    "a virtual function");
+	*no_add_attrs = false;
+	decl_attributes (&TREE_TYPE (*node),
+			 build_tree_list (get_identifier ("transaction_safe"),
+					  NULL_TREE),
+			 0);
+	break;
+      }
 
     case POINTER_TYPE:
       {

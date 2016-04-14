@@ -511,10 +511,13 @@ factor_out_conditional_conversion (edge e0, edge e1, gphi *phi,
   /* Remove the old cast(s) that has single use.  */
   gsi_for_def = gsi_for_stmt (arg0_def_stmt);
   gsi_remove (&gsi_for_def, true);
+  release_defs (arg0_def_stmt);
+
   if (arg1_def_stmt)
     {
       gsi_for_def = gsi_for_stmt (arg1_def_stmt);
       gsi_remove (&gsi_for_def, true);
+      release_defs (arg1_def_stmt);
     }
 
   add_phi_arg (newphi, new_arg0, e0, locus);
@@ -527,7 +530,7 @@ factor_out_conditional_conversion (edge e0, edge e1, gphi *phi,
   gsi = gsi_after_labels (gimple_bb (phi));
   gsi_insert_before (&gsi, new_stmt, GSI_SAME_STMT);
 
-  /* Remove he original PHI stmt.  */
+  /* Remove the original PHI stmt.  */
   gsi = gsi_for_stmt (phi);
   gsi_remove (&gsi, true);
   return true;
@@ -1014,7 +1017,6 @@ value_replacement (basic_block cond_bb, basic_block middle_bb,
 	     <bb 4>:
 	     # u_3 = PHI <u_6(3), 4294967295(2)>  */
 	  SSA_NAME_RANGE_INFO (lhs) = NULL;
-	  SSA_NAME_ANTI_RANGE_P (lhs) = 0;
 	  /* If available, we can use VR of phi result at least.  */
 	  tree phires = gimple_phi_result (phi);
 	  struct range_info_def *phires_range_info

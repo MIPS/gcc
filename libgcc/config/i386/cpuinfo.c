@@ -78,6 +78,7 @@ enum processor_subtypes
   INTEL_COREI7_HASWELL,
   INTEL_COREI7_BROADWELL,
   INTEL_COREI7_SKYLAKE,
+  INTEL_COREI7_SKYLAKE_AVX512,
   CPU_SUBTYPE_MAX
 };
 
@@ -168,6 +169,9 @@ get_amd_cpu (unsigned int family, unsigned int model)
       /* Bulldozer version 3 "Steamroller"  */
       if (model >= 0x30 && model <= 0x4f)
 	__cpu_model.__cpu_subtype = AMDFAM15H_BDVER3;
+      /* Bulldozer version 4 "Excavator"   */
+      if (model >= 0x60 && model <= 0x7f)
+	__cpu_model.__cpu_subtype = AMDFAM15H_BDVER4;
       break;
     /* AMD Family 16h "btver2" */
     case 0x16:
@@ -259,6 +263,11 @@ get_intel_cpu (unsigned int family, unsigned int model, unsigned int brand_id)
 	      /* Skylake.  */
 	      __cpu_model.__cpu_type = INTEL_COREI7;
 	      __cpu_model.__cpu_subtype = INTEL_COREI7_SKYLAKE;
+	      break;
+	    case 0x55:
+	      /* Skylake with AVX-512 support.  */
+	      __cpu_model.__cpu_type = INTEL_COREI7;
+	      __cpu_model.__cpu_subtype = INTEL_COREI7_SKYLAKE_AVX512;
 	      break;
 	    case 0x17:
 	    case 0x1d:
@@ -449,7 +458,7 @@ __cpu_indicator_init (void)
       if (family == 0x0f)
 	{
 	  family += extended_family;
-	  model += (extended_model << 4);
+	  model += extended_model;
 	}
 
       /* Get CPU type.  */

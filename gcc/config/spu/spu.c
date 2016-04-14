@@ -18,54 +18,40 @@
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "cfghooks.h"
+#include "target.h"
+#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
-#include "rtl.h"
+#include "cfghooks.h"
+#include "cfgloop.h"
 #include "df.h"
+#include "tm_p.h"
+#include "stringpool.h"
+#include "expmed.h"
+#include "optabs.h"
 #include "regs.h"
-#include "insn-config.h"
-#include "conditions.h"
-#include "insn-attr.h"
-#include "flags.h"
+#include "emit-rtl.h"
 #include "recog.h"
+#include "diagnostic-core.h"
+#include "insn-attr.h"
 #include "alias.h"
 #include "fold-const.h"
-#include "stringpool.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "varasm.h"
-#include "expmed.h"
-#include "dojump.h"
 #include "explow.h"
-#include "emit-rtl.h"
-#include "stmt.h"
 #include "expr.h"
-#include "insn-codes.h"
-#include "optabs.h"
-#include "except.h"
 #include "output.h"
 #include "cfgrtl.h"
-#include "cfganal.h"
-#include "lcm.h"
 #include "cfgbuild.h"
-#include "cfgcleanup.h"
-#include "diagnostic-core.h"
-#include "tm_p.h"
-#include "target.h"
 #include "langhooks.h"
 #include "reload.h"
 #include "sched-int.h"
 #include "params.h"
-#include "internal-fn.h"
-#include "gimple-fold.h"
-#include "tree-eh.h"
 #include "gimplify.h"
 #include "tm-constrs.h"
 #include "ddg.h"
-#include "timevar.h"
 #include "dumpfile.h"
-#include "cfgloop.h"
 #include "builtins.h"
 #include "rtl-iter.h"
 
@@ -997,17 +983,12 @@ HOST_WIDE_INT
 const_double_to_hwint (rtx x)
 {
   HOST_WIDE_INT val;
-  REAL_VALUE_TYPE rv;
   if (GET_MODE (x) == SFmode)
-    {
-      REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
-      REAL_VALUE_TO_TARGET_SINGLE (rv, val);
-    }
+    REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (x), val);
   else if (GET_MODE (x) == DFmode)
     {
       long l[2];
-      REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
-      REAL_VALUE_TO_TARGET_DOUBLE (rv, l);
+      REAL_VALUE_TO_TARGET_DOUBLE (*CONST_DOUBLE_REAL_VALUE (x), l);
       val = l[0];
       val = (val << 32) | (l[1] & 0xffffffff);
     }
@@ -1031,7 +1012,7 @@ hwint_to_const_double (machine_mode mode, HOST_WIDE_INT v)
       tv[0] = v >> 32;
     }
   real_from_target (&rv, tv, mode);
-  return CONST_DOUBLE_FROM_REAL_VALUE (rv, mode);
+  return const_double_from_real_value (rv, mode);
 }
 
 void
@@ -3075,7 +3056,7 @@ spu_float_const (const char *string, machine_mode mode)
 {
   REAL_VALUE_TYPE value;
   value = REAL_VALUE_ATOF (string, mode);
-  return CONST_DOUBLE_FROM_REAL_VALUE (value, mode);
+  return const_double_from_real_value (value, mode);
 }
 
 int

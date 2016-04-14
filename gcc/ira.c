@@ -402,6 +402,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "dbgcnt.h"
 #include "rtl-iter.h"
 #include "shrink-wrap.h"
+#include "print-rtl.h"
 
 struct target_ira default_target_ira;
 struct target_ira_int default_target_ira_int;
@@ -5152,9 +5153,9 @@ ira (FILE *f)
     df_remove_problem (df_live);
   gcc_checking_assert (df_live == NULL);
 
-#ifdef ENABLE_CHECKING
-  df->changeable_flags |= DF_VERIFY_SCHEDULED;
-#endif
+  if (flag_checking)
+    df->changeable_flags |= DF_VERIFY_SCHEDULED;
+
   df_analyze ();
 
   init_reg_equiv ();

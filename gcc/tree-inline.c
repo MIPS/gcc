@@ -1481,7 +1481,9 @@ remap_gimple_stmt (gimple *stmt, copy_body_data *id)
 
 	case GIMPLE_OMP_ORDERED:
 	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
-	  copy = gimple_build_omp_ordered (s1);
+	  copy = gimple_build_omp_ordered
+		   (s1,
+		    gimple_omp_ordered_clauses (as_a <gomp_ordered *> (stmt)));
 	  break;
 
 	case GIMPLE_OMP_SECTION:
@@ -1517,8 +1519,10 @@ remap_gimple_stmt (gimple *stmt, copy_body_data *id)
 	case GIMPLE_OMP_CRITICAL:
 	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
 	  copy = gimple_build_omp_critical (s1,
-					    gimple_omp_critical_name (
-					      as_a <gomp_critical *> (stmt)));
+					    gimple_omp_critical_name
+					      (as_a <gomp_critical *> (stmt)),
+					    gimple_omp_critical_clauses
+					      (as_a <gomp_critical *> (stmt)));
 	  break;
 
 	case GIMPLE_TRANSACTION:
@@ -1615,6 +1619,11 @@ remap_gimple_stmt (gimple *stmt, copy_body_data *id)
 	    gimple_call_set_tail (call_stmt, false);
 	  if (gimple_call_from_thunk_p (call_stmt))
 	    gimple_call_set_from_thunk (call_stmt, false);
+	  if (gimple_call_internal_p (call_stmt)
+	      && IN_RANGE (gimple_call_internal_fn (call_stmt),
+			   IFN_GOMP_SIMD_ORDERED_START,
+			   IFN_GOMP_SIMD_ORDERED_END))
+	    DECL_STRUCT_FUNCTION (id->dst_fn)->has_simduid_loops = true;
 	}
 
       /* Remap the region numbers for __builtin_eh_{pointer,filter},
@@ -4092,8 +4101,9 @@ estimate_num_insns (gimple *stmt, eni_weights *weights)
 		    case BUILT_IN_POWF:
 		    case BUILT_IN_POWL:
 		      if (TREE_CODE (gimple_call_arg (stmt, 1)) == REAL_CST
-			  && REAL_VALUES_EQUAL
-			  (TREE_REAL_CST (gimple_call_arg (stmt, 1)), dconst2))
+			  && (real_equal
+			      (&TREE_REAL_CST (gimple_call_arg (stmt, 1)),
+			       &dconst2)))
 			return estimate_operator_cost
 			    (MULT_EXPR, weights, gimple_call_arg (stmt, 0),
 			     gimple_call_arg (stmt, 0));
@@ -4471,10 +4481,8 @@ expand_call_inline (basic_block bb, gimple *stmt, copy_body_data *id)
   fn = cg_edge->callee->decl;
   cg_edge->callee->get_untransformed_body ();
 
-#ifdef ENABLE_CHECKING
-  if (cg_edge->callee->decl != id->dst_node->decl)
+  if (flag_checking && cg_edge->callee->decl != id->dst_node->decl)
     cg_edge->callee->verify ();
-#endif
 
   /* We will be inlining this callee.  */
   id->eh_lp_nr = lookup_stmt_eh_lp (stmt);
@@ -4963,7 +4971,7 @@ optimize_inline_calls (tree fn)
 
   pop_gimplify_context (NULL);
 
-#ifdef ENABLE_CHECKING
+  if (flag_checking)
     {
       struct cgraph_edge *e;
 
@@ -4973,7 +4981,6 @@ optimize_inline_calls (tree fn)
       for (e = id.dst_node->callees; e; e = e->next_callee)
 	gcc_assert (e->inline_failed);
     }
-#endif
 
   /* Fold queued statements.  */
   fold_marked_statements (last, id.statements_to_fold);
@@ -4989,9 +4996,8 @@ optimize_inline_calls (tree fn)
   number_blocks (fn);
 
   delete_unreachable_blocks_update_callgraph (&id);
-#ifdef ENABLE_CHECKING
-  id.dst_node->verify ();
-#endif
+  if (flag_checking)
+    id.dst_node->verify ();
 
   /* It would be nice to check SSA/CFG/statement consistency here, but it is
      not possible yet - the IPA passes might make various functions to not

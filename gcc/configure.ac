@@ -569,7 +569,12 @@ if test x$ac_checking != x ; then
   AC_DEFINE(ENABLE_CHECKING, 1,
 [Define if you want more run-time sanity checks.  This one gets a grab
    bag of miscellaneous but relatively cheap checks.])
+  AC_DEFINE(CHECKING_P, 1,
+[Define to 1 if you want more run-time sanity checks.  This one gets a grab
+   bag of miscellaneous but relatively cheap checks.])
   nocommon_flag=-fno-common
+else
+  AC_DEFINE(CHECKING_P, 0)
 fi
 AC_SUBST(nocommon_flag)
 if test x$ac_df_checking != x ; then
@@ -2403,8 +2408,10 @@ if test -f $gcc_cv_binutils_srcdir/configure.ac \
 	gcc_cv_readelf=../binutils/readelf$build_exeext
 elif test -x readelf$build_exeext; then
 	gcc_cv_readelf=./readelf$build_exeext
+elif ( set dummy $READELF_FOR_TARGET; test -x $[2] ); then
+        gcc_cv_readelf="$READELF_FOR_TARGET"
 else
-        AC_PATH_PROG(gcc_cv_readelf, readelf)
+        AC_PATH_PROG(gcc_cv_readelf, $READELF_FOR_TARGET)
 fi])
 
 AC_MSG_CHECKING(what readelf to use)

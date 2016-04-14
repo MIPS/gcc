@@ -913,12 +913,18 @@ resolve_entries (gfc_namespace *ns)
 
 /* Resolve common variables.  */
 static void
-resolve_common_vars (gfc_symbol *sym, bool named_common)
+resolve_common_vars (gfc_common_head *common_block, bool named_common)
 {
-  gfc_symbol *csym = sym;
+  gfc_symbol *csym = common_block->head;
 
   for (; csym; csym = csym->common_next)
     {
+      /* gfc_add_in_common may have been called before, but the reported errors
+	 have been ignored to continue parsing.
+	 We do the checks again here.  */
+      if (!csym->attr.use_assoc)
+	gfc_add_in_common (&csym->attr, csym->name, &common_block->where);
+
       if (csym->value || csym->attr.data)
 	{
 	  if (!csym->ns->is_block_data)
@@ -973,7 +979,7 @@ resolve_common_blocks (gfc_symtree *common_root)
   if (common_root->right)
     resolve_common_blocks (common_root->right);
 
-  resolve_common_vars (common_root->n.common->head, true);
+  resolve_common_vars (common_root->n.common, true);
 
   /* The common name is a global name - in Fortran 2003 also if it has a
      C binding name, since Fortran 2008 only the C binding name is a global
@@ -4540,10 +4546,15 @@ gfc_resolve_substring_charlen (gfc_expr *e)
 {
   gfc_ref *char_ref;
   gfc_expr *start, *end;
+  gfc_typespec *ts = NULL;
 
   for (char_ref = e->ref; char_ref; char_ref = char_ref->next)
-    if (char_ref->type == REF_SUBSTRING)
-      break;
+    {
+      if (char_ref->type == REF_SUBSTRING)
+      	break;
+      if (char_ref->type == REF_COMPONENT)
+	ts = &char_ref->u.c.component->ts;
+    }
 
   if (!char_ref)
     return;
@@ -4554,8 +4565,7 @@ gfc_resolve_substring_charlen (gfc_expr *e)
     {
       if (e->ts.u.cl->length)
 	gfc_free_expr (e->ts.u.cl->length);
-      else if (e->expr_type == EXPR_VARIABLE
-		 && e->symtree->n.sym->attr.dummy)
+      else if (e->expr_type == EXPR_VARIABLE && e->symtree->n.sym->attr.dummy)
 	return;
     }
 
@@ -4573,7 +4583,11 @@ gfc_resolve_substring_charlen (gfc_expr *e)
   if (char_ref->u.ss.end)
     end = gfc_copy_expr (char_ref->u.ss.end);
   else if (e->expr_type == EXPR_VARIABLE)
-    end = gfc_copy_expr (e->symtree->n.sym->ts.u.cl->length);
+    {
+      if (!ts)
+	ts = &e->symtree->n.sym->ts;
+      end = gfc_copy_expr (ts->u.cl->length);
+    }
   else
     end = NULL;
 
@@ -4584,11 +4598,18 @@ gfc_resolve_substring_charlen (gfc_expr *e)
       return;
     }
 
-  /* Length = (end - start +1).  */
+  /* Length = (end - start + 1).  */
   e->ts.u.cl->length = gfc_subtract (end, start);
   e->ts.u.cl->length = gfc_add (e->ts.u.cl->length,
 				gfc_get_int_expr (gfc_default_integer_kind,
 						  NULL, 1));
+
+  /* F2008, 6.4.1:  Both the starting point and the ending point shall
+     be within the range 1, 2, ..., n unless the starting point exceeds
+     the ending point, in which case the substring has length zero.  */
+
+  if (mpz_cmp_si (e->ts.u.cl->length->value.integer, 0) < 0)
+    mpz_set_si (e->ts.u.cl->length->value.integer, 0);
 
   e->ts.u.cl->length->ts.type = BT_INTEGER;
   e->ts.u.cl->length->ts.kind = gfc_charlen_int_kind;
@@ -10782,7 +10803,7 @@ gfc_verify_binding_labels (gfc_symbol *sym)
       sym->binding_label = NULL;
 
     }
-  else if (sym->attr.flavor == FL_VARIABLE
+  else if (sym->attr.flavor == FL_VARIABLE && module 
 	   && (strcmp (module, gsym->mod_name) != 0
 	       || strcmp (sym->name, gsym->sym_name) != 0))
     {
@@ -10870,18 +10891,11 @@ resolve_charlen (gfc_charlen *cl)
 	}
     }
 
-  /* "If the character length parameter value evaluates to a negative
-     value, the length of character entities declared is zero."  */
+  /* F2008, 4.4.3.2:  If the character length parameter value evaluates to
+     a negative value, the length of character entities declared is zero.  */
   if (cl->length && !gfc_extract_int (cl->length, &i) && i < 0)
-    {
-      if (warn_surprising)
-	gfc_warning_now (OPT_Wsurprising,
-			 "CHARACTER variable at %L has negative length %d,"
-			 " the length has been set to zero",
-			 &cl->length->where, i);
-      gfc_replace_expr (cl->length,
-			gfc_get_int_expr (gfc_default_integer_kind, NULL, 0));
-    }
+    gfc_replace_expr (cl->length,
+		      gfc_get_int_expr (gfc_default_integer_kind, NULL, 0));
 
   /* Check that the character length is not too large.  */
   k = gfc_validate_kind (BT_INTEGER, gfc_charlen_int_kind, false);
@@ -15292,7 +15306,7 @@ resolve_types (gfc_namespace *ns)
 
   resolve_entries (ns);
 
-  resolve_common_vars (ns->blank_common.head, false);
+  resolve_common_vars (&ns->blank_common, false);
   resolve_common_blocks (ns->common_root);
 
   resolve_contained_functions (ns);

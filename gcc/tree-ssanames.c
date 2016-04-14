@@ -102,11 +102,11 @@ init_ssanames (struct function *fn, int size)
 /* Finalize management of SSA_NAMEs.  */
 
 void
-fini_ssanames (void)
+fini_ssanames (struct function *fn)
 {
-  vec_free (SSANAMES (cfun));
-  vec_free (FREE_SSANAMES (cfun));
-  vec_free (FREE_SSANAMES_QUEUE (cfun));
+  vec_free (SSANAMES (fn));
+  vec_free (FREE_SSANAMES (fn));
+  vec_free (FREE_SSANAMES_QUEUE (fn));
 }
 
 /* Dump some simple statistics regarding the re-use of SSA_NAME nodes.  */
@@ -127,11 +127,8 @@ ssanames_print_statistics (void)
 void
 flush_ssaname_freelist (void)
 {
-  while (!vec_safe_is_empty (FREE_SSANAMES_QUEUE (cfun)))
-    {
-      tree t = FREE_SSANAMES_QUEUE (cfun)->pop ();
-      vec_safe_push (FREE_SSANAMES (cfun), t);
-    }
+  vec_safe_splice (FREE_SSANAMES (cfun), FREE_SSANAMES_QUEUE (cfun));
+  vec_safe_truncate (FREE_SSANAMES_QUEUE (cfun), 0);
 }
 
 /* Return an SSA_NAME node for variable VAR defined in statement STMT
@@ -154,8 +151,7 @@ make_ssa_name_fn (struct function *fn, tree var, gimple *stmt)
   if (!vec_safe_is_empty (FREE_SSANAMES (fn)))
     {
       t = FREE_SSANAMES (fn)->pop ();
-      if (GATHER_STATISTICS)
-	ssa_name_nodes_reused++;
+      ssa_name_nodes_reused++;
 
       /* The node was cleared out when we put it on the free list, so
 	 there is no need to do so again here.  */
@@ -167,8 +163,7 @@ make_ssa_name_fn (struct function *fn, tree var, gimple *stmt)
       t = make_node (SSA_NAME);
       SSA_NAME_VERSION (t) = SSANAMES (fn)->length ();
       vec_safe_push (SSANAMES (fn), t);
-      if (GATHER_STATISTICS)
-	ssa_name_nodes_created++;
+      ssa_name_nodes_created++;
     }
 
   if (TYPE_P (var))
@@ -341,9 +336,8 @@ release_ssa_name_fn (struct function *fn, tree var)
       if (MAY_HAVE_DEBUG_STMTS)
 	insert_debug_temp_for_var_def (NULL, var);
 
-#ifdef ENABLE_CHECKING
-      verify_imm_links (stderr, var);
-#endif
+      if (flag_checking)
+	verify_imm_links (stderr, var);
       while (imm->next != imm)
 	delink_imm_use (imm->next);
 
@@ -503,7 +497,6 @@ duplicate_ssa_name_range_info (tree name, enum value_range_type range_type,
 
   gcc_assert (!POINTER_TYPE_P (TREE_TYPE (name)));
   gcc_assert (!SSA_NAME_RANGE_INFO (name));
-  gcc_assert (!SSA_NAME_ANTI_RANGE_P (name));
 
   if (!range_info)
     return;
@@ -650,7 +643,6 @@ unsigned int
 pass_release_ssa_names::execute (function *fun)
 {
   unsigned i, j;
-  flush_ssaname_freelist ();
   int n = vec_safe_length (FREE_SSANAMES (fun));
 
   /* Now release the freelist.  */

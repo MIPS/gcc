@@ -310,7 +310,7 @@ Objective-C and Objective-C++ Dialects}.
 -fsanitize=@var{style} -fsanitize-recover -fsanitize-recover=@var{style} @gol
 -fasan-shadow-offset=@var{number} -fsanitize-sections=@var{s1},@var{s2},... @gol
 -fsanitize-undefined-trap-on-error @gol
--fcheck-pointer-bounds -fchkp-check-incomplete-type @gol
+-fcheck-pointer-bounds -fchecking -fchkp-check-incomplete-type @gol
 -fchkp-first-field-has-own-bounds -fchkp-narrow-bounds @gol
 -fchkp-narrow-to-innermost-array -fchkp-optimize @gol
 -fchkp-use-fast-string-functions -fchkp-use-nochk-string-functions @gol
@@ -343,6 +343,7 @@ Objective-C and Objective-C++ Dialects}.
 -fdump-tree-dse@r{[}-@var{n}@r{]} @gol
 -fdump-tree-phiprop@r{[}-@var{n}@r{]} @gol
 -fdump-tree-phiopt@r{[}-@var{n}@r{]} @gol
+-fdump-tree-backprop@r{[}-@var{n}@r{]} @gol
 -fdump-tree-forwprop@r{[}-@var{n}@r{]} @gol
 -fdump-tree-nrv -fdump-tree-vect @gol
 -fdump-tree-sink @gol
@@ -410,8 +411,8 @@ Objective-C and Objective-C++ Dialects}.
 -fira-loop-pressure -fno-ira-share-save-slots @gol
 -fno-ira-share-spill-slots -fira-verbose=@var{n} @gol
 -fisolate-erroneous-paths-dereference -fisolate-erroneous-paths-attribute @gol
--fivopts -fkeep-inline-functions -fkeep-static-consts @gol
--flive-range-shrinkage @gol
+-fivopts -fkeep-inline-functions -fkeep-static-functions @gol
+-fkeep-static-consts -flive-range-shrinkage @gol
 -floop-block -floop-interchange -floop-strip-mine @gol
 -floop-unroll-and-jam -floop-nest-optimize @gol
 -floop-parallelize-all -flra-remat -flto -flto-compression-level @gol
@@ -443,9 +444,9 @@ Objective-C and Objective-C++ Dialects}.
 -fschedule-insns -fschedule-insns2 -fsection-anchors @gol
 -fselective-scheduling -fselective-scheduling2 @gol
 -fsel-sched-pipelining -fsel-sched-pipelining-outer-loops @gol
--fsemantic-interposition @gol
--fshrink-wrap -fsignaling-nans -fsingle-precision-constant @gol
--fsplit-ivs-in-unroller -fsplit-wide-types -fssa-phiopt @gol
+-fsemantic-interposition -fshrink-wrap -fsignaling-nans @gol
+-fsingle-precision-constant -fsplit-ivs-in-unroller @gol
+-fsplit-wide-types -fssa-backprop -fssa-phiopt @gol
 -fstack-protector -fstack-protector-all -fstack-protector-strong @gol
 -fstack-protector-explicit -fstdarg-opt -fstrict-aliasing @gol
 -fstrict-overflow -fthread-jumps -ftracer -ftree-bit-ccp @gol
@@ -818,7 +819,8 @@ Objective-C and Objective-C++ Dialects}.
 -mbranch-cost=@var{num}  -mbranch-likely  -mno-branch-likely @gol
 -mfp-exceptions -mno-fp-exceptions @gol
 -mvr4130-align -mno-vr4130-align -msynci -mno-synci @gol
--mrelax-pic-calls -mno-relax-pic-calls -mmcount-ra-address}
+-mrelax-pic-calls -mno-relax-pic-calls -mmcount-ra-address @gol
+-mframe-header-opt -mno-frame-header-opt}
 
 @emph{MMIX Options}
 @gccoptlist{-mlibfuncs  -mno-libfuncs  -mepsilon  -mno-epsilon  -mabi=gnu @gol
@@ -839,6 +841,7 @@ Objective-C and Objective-C++ Dialects}.
 @emph{MSP430 Options}
 @gccoptlist{-msim -masm-hex -mmcu= -mcpu= -mlarge -msmall -mrelax @gol
 -mcode-region= -mdata-region= @gol
+-msilicon-errata= -msilicon-errata-warn= @gol
 -mhwmult= -minrt}
 
 @emph{NDS32 Options}
@@ -2085,11 +2088,11 @@ regardless of what language your program is in.  For example, you
 might compile a file @file{firstClass.C} like this:
 
 @smallexample
-g++ -g -frepo -O -c firstClass.C
+g++ -g -fstrict-enums -O -c firstClass.C
 @end smallexample
 
 @noindent
-In this example, only @option{-frepo} is an option meant
+In this example, only @option{-fstrict-enums} is an option meant
 only for C++ programs; you can use the other options with any
 language supported by GCC@.
 
@@ -6146,6 +6149,12 @@ structure field attribute (@pxref{Type Attributes}) and
 functions for controlling the Pointer Bounds Checker.  @xref{Pointer
 Bounds Checker builtins}, for more information.
 
+@item -fchecking
+@opindex fchecking
+@opindex fno-checking
+Enable internal consistency checking.  The default depends on
+the compiler configuration.
+
 @item -fchkp-check-incomplete-type
 @opindex fchkp-check-incomplete-type
 @opindex fno-chkp-check-incomplete-type
@@ -7240,6 +7249,12 @@ name is made by appending @file{.dse} to the source file name.
 Dump each function after optimizing PHI nodes into straightline code.  The file
 name is made by appending @file{.phiopt} to the source file name.
 
+@item backprop
+@opindex fdump-tree-backprop
+Dump each function after back-propagating use information up the definition
+chain.  The file name is made by appending @file{.backprop} to the
+source file name.
+
 @item forwprop
 @opindex fdump-tree-forwprop
 Dump each function after forward propagating single use variables.  The file
@@ -7711,9 +7726,10 @@ compilation time.
 -freorder-blocks @gol
 -fshrink-wrap @gol
 -fsplit-wide-types @gol
+-fssa-backprop @gol
+-fssa-phiopt @gol
 -ftree-bit-ccp @gol
 -ftree-ccp @gol
--fssa-phiopt @gol
 -ftree-ch @gol
 -ftree-coalesce-vars @gol
 -ftree-copy-prop @gol
@@ -8016,6 +8032,11 @@ into the object file, even if the function has been inlined into all
 of its callers.  This switch does not affect functions using the
 @code{extern inline} extension in GNU C90@.  In C++, emit any and all
 inline functions into the object file.
+
+@item -fkeep-static-functions
+@opindex fkeep-static-functions
+Emit @code{static} functions into the object file, even if the function
+is never used.
 
 @item -fkeep-static-consts
 @opindex fkeep-static-consts
@@ -8793,6 +8814,13 @@ at @option{-O} and higher.  It requires that @option{-ftree-ccp} is enabled.
 Perform sparse conditional constant propagation (CCP) on trees.  This
 pass only operates on local scalar variables and is enabled by default
 at @option{-O} and higher.
+
+@item -fssa-backprop
+@opindex fssa-backprop
+Propagate information about uses of a value up the definition chain
+in order to simplify the definitions.  For example, this pass strips
+sign operations if the sign of a value never matters.  The flag is
+enabled by default at @option{-O} and higher.
 
 @item -fssa-phiopt
 @opindex fssa-phiopt
@@ -11137,6 +11165,14 @@ automaton.  The default is 50.
 Chunk size of omp schedule for loops parallelized by parloops.  The default
 is 0.
 
+@item parloops-schedule
+Schedule type of omp schedule for loops parallelized by parloops (static,
+dynamic, guided, auto, runtime).  The default is static.
+
+@item max-ssa-name-query-depth
+Maximum depth of recursion when querying properties of SSA names in things
+like fold routines.  One level of recursion corresponds to following a
+use-def chain.
 @end table
 @end table
 
@@ -18109,6 +18145,17 @@ if @var{ra-address} is nonnull.
 
 The default is @option{-mno-mcount-ra-address}.
 
+@item -mframe-header-opt
+@itemx -mno-frame-header-opt
+@opindex mframe-header-opt
+Enable (disable) frame header optimization in the o32 ABI.  When using the
+o32 ABI, calling functions will allocate 16 bytes on the stack for the called
+function to write out register arguments.  When enabled, this optimization
+will suppress the allocation of the frame header if it can be determined that
+it is unused.
+
+This optimization is off by default at all optimization levels.
+
 @end table
 
 @node MMIX Options
@@ -18381,8 +18428,9 @@ for the original 16-bit-only multiply supported by early MCUs.
 A value of @samp{auto} can also be given.  This tells GCC to deduce
 the hardware multiply support based upon the MCU name provided by the
 @option{-mmcu} option.  If no @option{-mmcu} option is specified then
-@samp{32bit} hardware multiply support is assumed.  @samp{auto} is the
-default setting.
+@samp{32bit} hardware multiply support is assumed.  If the MCU name is
+not recognised then no hardware multiply support is assumed.
+@code{auto} is the default setting.
 
 Hardware multiplies are normally performed by calling a library
 routine.  This saves space in the generated code.  When compiling at
@@ -18412,6 +18460,16 @@ like the corresponding attribute.  The fourth possible value -
 @code{any} - is the default.  It leaves placement entirely up to the
 linker script and how it assigns the standard sections (.text, .data
 etc) to the memory regions.
+
+@item -msilicon-errata=
+@opindex msilicon-errata
+This option passes on a request to assembler to enable the fixes for
+the named silicon errata.
+
+@item -msilicon-errata-warn=
+@opindex msilicon-errata-warn
+This option passes on a request to the assembler to enable warning
+messages when a silicon errata might need to be applied.
 
 @end table
 
@@ -18540,13 +18598,14 @@ Do not generate GP-relative accesses.
 
 @item local
 Generate GP-relative accesses for small data objects that are not 
-external or weak.  Also use GP-relative addressing for objects that
+external, weak, or uninitialized common symbols.  
+Also use GP-relative addressing for objects that
 have been explicitly placed in a small data section via a @code{section}
 attribute.
 
 @item global
 As for @samp{local}, but also generate GP-relative accesses for
-small data objects that are external or weak.  If you use this option,
+small data objects that are external, weak, or common.  If you use this option,
 you must ensure that all parts of your program (including libraries) are
 compiled with the same @option{-G} setting.
 
@@ -21196,6 +21255,10 @@ in effect.
 Prefer zero-displacement conditional branches for conditional move instruction
 patterns.  This can result in faster code on the SH4 processor.
 
+@item -mfdpic
+@opindex fdpic
+Generate code using the FDPIC ABI.
+
 @end table
 
 @node Solaris 2 Options
@@ -22412,6 +22475,13 @@ AMD Family 15h core based CPUs with x86-64 instruction set support.  (This
 supersets BMI, BMI2, TBM, F16C, FMA, FMA4, FSGSBASE, AVX, AVX2, XOP, LWP, 
 AES, PCL_MUL, CX16, MOVBE, MMX, SSE, SSE2, SSE3, SSE4A, SSSE3, SSE4.1, 
 SSE4.2, ABM and 64-bit instruction set extensions.
+
+@item znver1
+AMD Family 17h core based CPUs with x86-64 instruction set support.  (This
+supersets BMI, BMI2, F16C, FMA, FSGSBASE, AVX, AVX2, ADCX, RDSEED, MWAITX,
+SHA, CLZERO, AES, PCL_MUL, CX16, MOVBE, MMX, SSE, SSE2, SSE3, SSE4A, SSSE3,
+SSE4.1, SSE4.2, ABM, XSAVEC, XSAVES, CLFLUSHOPT, POPCNT, and 64-bit
+instruction set extensions.
 
 @item btver1
 CPUs based on AMD Family 14h cores with x86-64 instruction set support.  (This

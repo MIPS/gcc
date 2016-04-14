@@ -4151,15 +4151,12 @@ static inline void
 add_AT_die_ref (dw_die_ref die, enum dwarf_attribute attr_kind, dw_die_ref targ_die)
 {
   dw_attr_node attr;
+  gcc_checking_assert (targ_die != NULL);
 
-#ifdef ENABLE_CHECKING
-  gcc_assert (targ_die != NULL);
-#else
   /* With LTO we can end up trying to reference something we didn't create
      a DIE for.  Avoid crashing later on a NULL referenced DIE.  */
   if (targ_die == NULL)
     return;
-#endif
 
   attr.dw_attr = attr_kind;
   attr.dw_attr_val.val_class = dw_val_class_die_ref;
@@ -5725,7 +5722,6 @@ debug_dwarf (void)
   print_die (comp_unit_die (), stderr);
 }
 
-#ifdef ENABLE_CHECKING
 /* Sanity checks on DIEs.  */
 
 static void
@@ -5788,7 +5784,6 @@ check_die (dw_die_ref die)
 		    && a->dw_attr != DW_AT_GNU_all_call_sites);
     }
 }
-#endif
 
 /* Start a new compilation unit DIE for an include file.  OLD_UNIT is the CU
    for the enclosing include file, if any.  BINCL_DIE is the DW_TAG_GNU_BINCL
@@ -11765,14 +11760,14 @@ const_ok_for_output_1 (rtx rtl)
     {
       /* If delegitimize_address couldn't do anything with the UNSPEC, assume
 	 we can't express it in the debug info.  */
-#ifdef ENABLE_CHECKING
       /* Don't complain about TLS UNSPECs, those are just too hard to
 	 delegitimize.  Note this could be a non-decl SYMBOL_REF such as
 	 one in a constant pool entry, so testing SYMBOL_REF_TLS_MODEL
 	 rather than DECL_THREAD_LOCAL_P is not just an optimization.  */
-      if (XVECLEN (rtl, 0) == 0
-	  || GET_CODE (XVECEXP (rtl, 0, 0)) != SYMBOL_REF
-	  || SYMBOL_REF_TLS_MODEL (XVECEXP (rtl, 0, 0)) == TLS_MODEL_NONE)
+      if (flag_checking
+	  && (XVECLEN (rtl, 0) == 0
+	      || GET_CODE (XVECEXP (rtl, 0, 0)) != SYMBOL_REF
+	      || SYMBOL_REF_TLS_MODEL (XVECEXP (rtl, 0, 0)) == TLS_MODEL_NONE))
 	inform (current_function_decl
 		? DECL_SOURCE_LOCATION (current_function_decl)
 		: UNKNOWN_LOCATION,
@@ -11784,7 +11779,6 @@ const_ok_for_output_1 (rtx rtl)
 #else
 		"non-delegitimized UNSPEC %d found in variable location",
 		XINT (rtl, 1));
-#endif
 #endif
       expansion_failed (NULL_TREE, rtl,
 			"UNSPEC hasn't been delegitimized.\n");
@@ -13572,12 +13566,12 @@ mem_loc_descriptor (rtx rtl, machine_mode mode,
       goto symref;
 
     default:
-#ifdef ENABLE_CHECKING
-      print_rtl (stderr, rtl);
-      gcc_unreachable ();
-#else
+      if (flag_checking)
+	{
+	  print_rtl (stderr, rtl);
+	  gcc_unreachable ();
+	}
       break;
-#endif
     }
 
   if (mem_loc_result && initialized == VAR_INIT_STATUS_UNINITIALIZED)
@@ -15100,15 +15094,14 @@ loc_list_from_tree (tree loc, int want_address,
 	  return 0;
 	}
 
-#ifdef ENABLE_CHECKING
       /* Otherwise this is a generic code; we should just lists all of
 	 these explicitly.  We forgot one.  */
-      gcc_unreachable ();
-#else
+      if (flag_checking)
+	gcc_unreachable ();
+
       /* In a release build, we want to degrade gracefully: better to
 	 generate incomplete debugging information than to crash.  */
       return NULL;
-#endif
     }
 
   if (!ret && !list_ret)
@@ -15577,12 +15570,10 @@ insert_wide_int (const wide_int &val, unsigned char *dest, int elt_size)
 static void
 insert_float (const_rtx rtl, unsigned char *array)
 {
-  REAL_VALUE_TYPE rv;
   long val[4];
   int i;
 
-  REAL_VALUE_FROM_CONST_DOUBLE (rv, rtl);
-  real_to_target (val, &rv, GET_MODE (rtl));
+  real_to_target (val, CONST_DOUBLE_REAL_VALUE (rtl), GET_MODE (rtl));
 
   /* real_to_target puts 32-bit pieces in each long.  Pack them.  */
   for (i = 0; i < GET_MODE_SIZE (GET_MODE (rtl)) / 4; i++)
@@ -19912,18 +19903,17 @@ gen_lexical_block_die (tree stmt, dw_die_ref context_die)
     {
       if (old_die)
 	{
-#ifdef ENABLE_CHECKING
 	  /* This must have been generated early and it won't even
 	     need location information since it's a DW_AT_inline
 	     function.  */
-	  for (dw_die_ref c = context_die; c; c = c->die_parent)
-	    if (c->die_tag == DW_TAG_inlined_subroutine
-		|| c->die_tag == DW_TAG_subprogram)
-	      {
-		gcc_assert (get_AT (c, DW_AT_inline));
-		break;
-	      }
-#endif
+	  if (flag_checking)
+	    for (dw_die_ref c = context_die; c; c = c->die_parent)
+	      if (c->die_tag == DW_TAG_inlined_subroutine
+		  || c->die_tag == DW_TAG_subprogram)
+		{
+		  gcc_assert (get_AT (c, DW_AT_inline));
+		  break;
+		}
 	  return;
 	}
     }
@@ -20740,10 +20730,8 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
   if (type == NULL_TREE || type == error_mark_node)
     return;
 
-#ifdef ENABLE_CHECKING
-  if (type)
+  if (flag_checking && type)
      verify_type (type);
-#endif
 
   if (TYPE_NAME (type) != NULL_TREE
       && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
@@ -20937,11 +20925,12 @@ gen_type_die (tree type, dw_die_ref context_die)
   if (type != error_mark_node)
     {
       gen_type_die_with_usage (type, context_die, DINFO_USAGE_DIR_USE);
-#ifdef ENABLE_CHECKING
-      dw_die_ref die = lookup_type_die (type);
-      if (die)
-	check_die (die);
-#endif
+      if (flag_checking)
+	{
+	  dw_die_ref die = lookup_type_die (type);
+	  if (die)
+	    check_die (die);
+	}
     }
 }
 
@@ -21979,11 +21968,12 @@ dwarf2out_decl (tree decl)
 
   gen_decl_die (decl, NULL, context_die);
 
-#ifdef ENABLE_CHECKING
-  dw_die_ref die = lookup_decl_die (decl);
-  if (die)
-    check_die (die);
-#endif
+  if (flag_checking)
+    {
+      dw_die_ref die = lookup_decl_die (decl);
+      if (die)
+	check_die (die);
+    }
 }
 
 /* Write the debugging output for DECL.  */

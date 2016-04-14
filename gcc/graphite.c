@@ -144,7 +144,7 @@ print_graphite_scop_statistics (FILE* file, scop_p scop)
       gimple_stmt_iterator psi;
       loop_p loop = bb->loop_father;
 
-      if (!bb_in_sese_p (bb, SCOP_REGION (scop)))
+      if (!bb_in_sese_p (bb, scop->scop_info->region))
 	continue;
 
       n_bbs++;
@@ -162,7 +162,7 @@ print_graphite_scop_statistics (FILE* file, scop_p scop)
 	  n_p_stmts += bb->count;
 	}
 
-      if (loop->header == bb && loop_in_sese_p (loop, SCOP_REGION (scop)))
+      if (loop->header == bb && loop_in_sese_p (loop, scop->scop_info->region))
 	{
 	  n_loops++;
 	  n_p_loops += bb->count;
@@ -171,8 +171,8 @@ print_graphite_scop_statistics (FILE* file, scop_p scop)
 
   fprintf (file, "\nFunction Name: %s\n", current_function_name ());
 
-  edge scop_begin = scop->region->entry;
-  edge scop_end = scop->region->exit;
+  edge scop_begin = scop->scop_info->region.entry;
+  edge scop_end = scop->scop_info->region.exit;
 
   fprintf (file, "\nSCoP (entry_edge (bb_%d, bb_%d), ",
 	   scop_begin->src->index, scop_begin->dest->index);
@@ -268,7 +268,7 @@ graphite_finalize (bool need_cfg_cleanup_p)
       scev_reset ();
       cleanup_tree_cfg ();
       profile_status_for_fn (cfun) = PROFILE_ABSENT;
-      release_recorded_exits ();
+      release_recorded_exits (cfun);
       tree_estimate_probability ();
     }
 
@@ -276,6 +276,20 @@ graphite_finalize (bool need_cfg_cleanup_p)
 
   if (dump_file && dump_flags)
     print_loops (dump_file, 3);
+}
+
+/* Deletes all scops in SCOPS.  */
+
+static void
+free_scops (vec<scop_p> scops)
+{
+  int i;
+  scop_p scop;
+
+  FOR_EACH_VEC_ELT (scops, i, scop)
+    free_scop (scop);
+
+  scops.release ();
 }
 
 isl_ctx *the_isl_ctx;
@@ -314,13 +328,13 @@ graphite_transform_loops (void)
   FOR_EACH_VEC_ELT (scops, i, scop)
     if (dbg_cnt (graphite_scop))
       {
-	scop->ctx = ctx;
+	scop->isl_context = ctx;
 	build_poly_scop (scop);
 
 	if (dump_file && dump_flags)
-	  print_scop (dump_file, scop, 3);
+	  print_scop (dump_file, scop);
 
-	if (POLY_SCOP_P (scop)
+	if (scop->poly_scop_p
 	    && apply_poly_transforms (scop)
 	    && graphite_regenerate_ast_isl (scop))
 	  need_cfg_cleanup_p = true;

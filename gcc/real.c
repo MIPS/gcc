@@ -1078,6 +1078,22 @@ real_value_abs (const REAL_VALUE_TYPE *op0)
   return r;
 }
 
+/* Return whether OP0 == OP1.  */
+
+bool
+real_equal (const REAL_VALUE_TYPE *op0, const REAL_VALUE_TYPE *op1)
+{
+  return do_compare (op0, op1, -1) == 0;
+}
+
+/* Return whether OP0 < OP1.  */
+
+bool
+real_less (const REAL_VALUE_TYPE *op0, const REAL_VALUE_TYPE *op1)
+{
+  return do_compare (op0, op1, 1) < 0;
+}
+
 bool
 real_compare (int icode, const REAL_VALUE_TYPE *op0,
 	      const REAL_VALUE_TYPE *op1)
@@ -1087,7 +1103,7 @@ real_compare (int icode, const REAL_VALUE_TYPE *op0,
   switch (code)
     {
     case LT_EXPR:
-      return do_compare (op0, op1, 1) < 0;
+      return real_less (op0, op1);
     case LE_EXPR:
       return do_compare (op0, op1, 1) <= 0;
     case GT_EXPR:
@@ -1095,7 +1111,7 @@ real_compare (int icode, const REAL_VALUE_TYPE *op0,
     case GE_EXPR:
       return do_compare (op0, op1, -1) >= 0;
     case EQ_EXPR:
-      return do_compare (op0, op1, -1) == 0;
+      return real_equal (op0, op1);
     case NE_EXPR:
       return do_compare (op0, op1, -1) != 0;
     case UNORDERED_EXPR:
@@ -1792,15 +1808,13 @@ real_to_decimal_for_mode (char *str, const REAL_VALUE_TYPE *r_orig,
   /* Append the exponent.  */
   sprintf (last, "e%+d", dec_exp);
 
-#ifdef ENABLE_CHECKING
   /* Verify that we can read the original value back in.  */
-  if (mode != VOIDmode)
+  if (flag_checking && mode != VOIDmode)
     {
       real_from_string (&r, str);
       real_convert (&r, mode, &r);
       gcc_assert (real_identical (&r, r_orig));
     }
-#endif
 }
 
 /* Likewise, except always uses round-to-nearest.  */
@@ -2379,21 +2393,26 @@ dconst_e_ptr (void)
   return &value;
 }
 
-/* Returns the special REAL_VALUE_TYPE corresponding to 1/3.  */
+/* Returns a cached REAL_VALUE_TYPE corresponding to 1/n, for various n.  */
 
-const REAL_VALUE_TYPE *
-dconst_third_ptr (void)
-{
-  static REAL_VALUE_TYPE value;
+#define CACHED_FRACTION(NAME, N)					\
+  const REAL_VALUE_TYPE *						\
+  NAME (void)								\
+  {									\
+    static REAL_VALUE_TYPE value;					\
+									\
+    /* Initialize mathematical constants for constant folding builtins.	\
+       These constants need to be given to at least 160 bits		\
+       precision.  */							\
+    if (value.cl == rvc_zero)						\
+      real_arithmetic (&value, RDIV_EXPR, &dconst1, real_digit (N));	\
+    return &value;							\
+  }
 
-  /* Initialize mathematical constants for constant folding builtins.
-     These constants need to be given to at least 160 bits precision.  */
-  if (value.cl == rvc_zero)
-    {
-      real_arithmetic (&value, RDIV_EXPR, &dconst1, real_digit (3));
-    }
-  return &value;
-}
+CACHED_FRACTION (dconst_third_ptr, 3)
+CACHED_FRACTION (dconst_quarter_ptr, 4)
+CACHED_FRACTION (dconst_sixth_ptr, 6)
+CACHED_FRACTION (dconst_ninth_ptr, 9)
 
 /* Returns the special REAL_VALUE_TYPE corresponding to sqrt(2).  */
 
@@ -4974,6 +4993,24 @@ real_isinteger (const REAL_VALUE_TYPE *c, machine_mode mode)
 
   real_trunc (&cint, mode, c);
   return real_identical (c, &cint);
+}
+
+/* Check whether C is an integer that fits in a HOST_WIDE_INT,
+   storing it in *INT_OUT if so.  */
+
+bool
+real_isinteger (const REAL_VALUE_TYPE *c, HOST_WIDE_INT *int_out)
+{
+  REAL_VALUE_TYPE cint;
+
+  HOST_WIDE_INT n = real_to_integer (c);
+  real_from_integer (&cint, VOIDmode, n, SIGNED);
+  if (real_identical (c, &cint))
+    {
+      *int_out = n;
+      return true;
+    }
+  return false;
 }
 
 /* Write into BUF the maximum representable finite floating-point

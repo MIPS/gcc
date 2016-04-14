@@ -22,51 +22,36 @@
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "cfghooks.h"
+#include "target.h"
+#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
-#include "rtl.h"
+#include "cfghooks.h"
+#include "cfgloop.h"
 #include "df.h"
-#include "insn-codes.h"
+#include "tm_p.h"
+#include "stringpool.h"
+#include "optabs.h"
+#include "regs.h"
+#include "emit-rtl.h"
+#include "recog.h"
+#include "diagnostic.h"
 #include "insn-attr.h"
 #include "alias.h"
 #include "fold-const.h"
-#include "stringpool.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "varasm.h"
-#include "regs.h"
-#include "cfgrtl.h"
-#include "cfganal.h"
-#include "lcm.h"
-#include "cfgbuild.h"
-#include "cfgcleanup.h"
 #include "output.h"
 #include "flags.h"
-#include "insn-config.h"
-#include "expmed.h"
-#include "dojump.h"
 #include "explow.h"
-#include "emit-rtl.h"
-#include "stmt.h"
 #include "expr.h"
 #include "reload.h"
-#include "toplev.h"
-#include "target.h"
-#include "targhooks.h"
-#include "tm_p.h"
-#include "recog.h"
 #include "langhooks.h"
 #include "opts.h"
-#include "diagnostic.h"
-#include "diagnostic-core.h"
-#include "internal-fn.h"
-#include "gimple-fold.h"
-#include "tree-eh.h"
+#include "params.h"
 #include "gimplify.h"
-#include "optabs.h"
 #include "dwarf2.h"
-#include "cfgloop.h"
 #include "tree-vectorizer.h"
 #include "aarch64-cost-tables.h"
 #include "dumpfile.h"
@@ -163,6 +148,9 @@ enum aarch64_processor aarch64_tune = cortexa53;
 /* Mask to specify which instruction scheduling options should be used.  */
 unsigned long aarch64_tune_flags = 0;
 
+/* Global flag for PC relative loads.  */
+bool aarch64_nopcrelative_literal_loads;
+
 /* Support for command line parsing of boolean flags in the tuning
    structures.  */
 struct aarch64_flag_desc
@@ -206,7 +194,8 @@ static const struct cpu_addrcost_table generic_addrcost_table =
   0, /* pre_modify  */
   0, /* post_modify  */
   0, /* register_offset  */
-  0, /* register_extend  */
+  0, /* register_sextend  */
+  0, /* register_zextend  */
   0 /* imm_offset  */
 };
 
@@ -221,7 +210,8 @@ static const struct cpu_addrcost_table cortexa57_addrcost_table =
   0, /* pre_modify  */
   0, /* post_modify  */
   0, /* register_offset  */
-  0, /* register_extend  */
+  0, /* register_sextend  */
+  0, /* register_zextend  */
   0, /* imm_offset  */
 };
 
@@ -236,7 +226,8 @@ static const struct cpu_addrcost_table xgene1_addrcost_table =
   1, /* pre_modify  */
   0, /* post_modify  */
   0, /* register_offset  */
-  1, /* register_extend  */
+  1, /* register_sextend  */
+  1, /* register_zextend  */
   0, /* imm_offset  */
 };
 
@@ -364,6 +355,7 @@ static const struct tune_params generic_tunings =
   1,	/* vec_reassoc_width.  */
   2,	/* min_div_recip_mul_sf.  */
   2,	/* min_div_recip_mul_df.  */
+  tune_params::AUTOPREFETCHER_OFF,	/* autoprefetcher_model.  */
   (AARCH64_EXTRA_TUNE_NONE)	/* tune_flags.  */
 };
 
@@ -386,6 +378,7 @@ static const struct tune_params cortexa53_tunings =
   1,	/* vec_reassoc_width.  */
   2,	/* min_div_recip_mul_sf.  */
   2,	/* min_div_recip_mul_df.  */
+  tune_params::AUTOPREFETCHER_WEAK,	/* autoprefetcher_model.  */
   (AARCH64_EXTRA_TUNE_NONE)	/* tune_flags.  */
 };
 
@@ -408,6 +401,7 @@ static const struct tune_params cortexa57_tunings =
   1,	/* vec_reassoc_width.  */
   2,	/* min_div_recip_mul_sf.  */
   2,	/* min_div_recip_mul_df.  */
+  tune_params::AUTOPREFETCHER_WEAK,	/* autoprefetcher_model.  */
   (AARCH64_EXTRA_TUNE_RENAME_FMA_REGS)	/* tune_flags.  */
 };
 
@@ -430,6 +424,7 @@ static const struct tune_params cortexa72_tunings =
   1,	/* vec_reassoc_width.  */
   2,	/* min_div_recip_mul_sf.  */
   2,	/* min_div_recip_mul_df.  */
+  tune_params::AUTOPREFETCHER_OFF,	/* autoprefetcher_model.  */
   (AARCH64_EXTRA_TUNE_NONE)	/* tune_flags.  */
 };
 
@@ -451,6 +446,7 @@ static const struct tune_params thunderx_tunings =
   1,	/* vec_reassoc_width.  */
   2,	/* min_div_recip_mul_sf.  */
   2,	/* min_div_recip_mul_df.  */
+  tune_params::AUTOPREFETCHER_OFF,	/* autoprefetcher_model.  */
   (AARCH64_EXTRA_TUNE_NONE)	/* tune_flags.  */
 };
 
@@ -472,6 +468,7 @@ static const struct tune_params xgene1_tunings =
   1,	/* vec_reassoc_width.  */
   2,	/* min_div_recip_mul_sf.  */
   2,	/* min_div_recip_mul_df.  */
+  tune_params::AUTOPREFETCHER_OFF,	/* autoprefetcher_model.  */
   (AARCH64_EXTRA_TUNE_NONE)	/* tune_flags.  */
 };
 
@@ -1551,7 +1548,7 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm)
 	     we need to expand the literal pool access carefully.
 	     This is something that needs to be done in a number
 	     of places, so could well live as a separate function.  */
-	  if (nopcrelative_literal_loads)
+	  if (aarch64_nopcrelative_literal_loads)
 	    {
 	      gcc_assert (can_create_pseudo_p ());
 	      base = gen_reg_rtx (ptr_mode);
@@ -1860,8 +1857,8 @@ aarch64_layout_arg (cumulative_args_t pcum_v, machine_mode mode,
 
   /* Size in bytes, rounded to the nearest multiple of 8 bytes.  */
   size
-    = AARCH64_ROUND_UP (type ? int_size_in_bytes (type) : GET_MODE_SIZE (mode),
-			UNITS_PER_WORD);
+    = ROUND_UP (type ? int_size_in_bytes (type) : GET_MODE_SIZE (mode),
+		UNITS_PER_WORD);
 
   allocate_ncrn = (type) ? !(FLOAT_TYPE_P (type)) : !FLOAT_MODE_P (mode);
   allocate_nvrn = aarch64_vfp_is_call_candidate (pcum_v,
@@ -1969,8 +1966,8 @@ aarch64_layout_arg (cumulative_args_t pcum_v, machine_mode mode,
 on_stack:
   pcum->aapcs_stack_words = size / UNITS_PER_WORD;
   if (aarch64_function_arg_alignment (mode, type) == 16 * BITS_PER_UNIT)
-    pcum->aapcs_stack_size = AARCH64_ROUND_UP (pcum->aapcs_stack_size,
-					       16 / UNITS_PER_WORD);
+    pcum->aapcs_stack_size = ROUND_UP (pcum->aapcs_stack_size,
+				       16 / UNITS_PER_WORD);
   return;
 }
 
@@ -2237,21 +2234,21 @@ aarch64_layout_frame (void)
       }
 
   cfun->machine->frame.padding0 =
-    (AARCH64_ROUND_UP (offset, STACK_BOUNDARY / BITS_PER_UNIT) - offset);
-  offset = AARCH64_ROUND_UP (offset, STACK_BOUNDARY / BITS_PER_UNIT);
+    (ROUND_UP (offset, STACK_BOUNDARY / BITS_PER_UNIT) - offset);
+  offset = ROUND_UP (offset, STACK_BOUNDARY / BITS_PER_UNIT);
 
   cfun->machine->frame.saved_regs_size = offset;
 
   cfun->machine->frame.hard_fp_offset
-    = AARCH64_ROUND_UP (cfun->machine->frame.saved_varargs_size
-			+ get_frame_size ()
-			+ cfun->machine->frame.saved_regs_size,
-			STACK_BOUNDARY / BITS_PER_UNIT);
+    = ROUND_UP (cfun->machine->frame.saved_varargs_size
+		+ get_frame_size ()
+		+ cfun->machine->frame.saved_regs_size,
+		STACK_BOUNDARY / BITS_PER_UNIT);
 
   cfun->machine->frame.frame_size
-    = AARCH64_ROUND_UP (cfun->machine->frame.hard_fp_offset
-			+ crtl->outgoing_args_size,
-			STACK_BOUNDARY / BITS_PER_UNIT);
+    = ROUND_UP (cfun->machine->frame.hard_fp_offset
+		+ crtl->outgoing_args_size,
+		STACK_BOUNDARY / BITS_PER_UNIT);
 
   cfun->machine->frame.laid_out = true;
 }
@@ -3484,6 +3481,18 @@ offset_12bit_unsigned_scaled_p (machine_mode mode, HOST_WIDE_INT offset)
 	  && offset % GET_MODE_SIZE (mode) == 0);
 }
 
+/* Return true if MODE is one of the modes for which we
+   support LDP/STP operations.  */
+
+static bool
+aarch64_mode_valid_for_sched_fusion_p (machine_mode mode)
+{
+  return mode == SImode || mode == DImode
+	 || mode == SFmode || mode == DFmode
+	 || (aarch64_vector_mode_supported_p (mode)
+	     && GET_MODE_SIZE (mode) == 8);
+}
+
 /* Return true if X is a valid address for machine mode MODE.  If it is,
    fill in INFO appropriately.  STRICT_P is true if REG_OK_STRICT is in
    effect.  OUTER_CODE is PARALLEL for a load/store pair.  */
@@ -3665,7 +3674,7 @@ aarch64_classify_address (struct aarch64_address_info *info,
 	  return ((GET_CODE (sym) == LABEL_REF
 		   || (GET_CODE (sym) == SYMBOL_REF
 		       && CONSTANT_POOL_ADDRESS_P (sym)
-		       && !nopcrelative_literal_loads)));
+		       && !aarch64_nopcrelative_literal_loads)));
 	}
       return false;
 
@@ -3763,15 +3772,12 @@ aarch64_legitimate_address_p (machine_mode mode, rtx x,
 bool
 aarch64_float_const_zero_rtx_p (rtx x)
 {
-  REAL_VALUE_TYPE r;
-
   if (GET_MODE (x) == VOIDmode)
     return false;
 
-  REAL_VALUE_FROM_CONST_DOUBLE (r, x);
-  if (REAL_VALUE_MINUS_ZERO (r))
+  if (REAL_VALUE_MINUS_ZERO (*CONST_DOUBLE_REAL_VALUE (x)))
     return !HONOR_SIGNED_ZEROS (GET_MODE (x));
-  return REAL_VALUES_EQUAL (r, dconst0);
+  return real_equal (CONST_DOUBLE_REAL_VALUE (x), &dconst0);
 }
 
 /* Return the fixed registers used for condition codes.  */
@@ -4401,9 +4407,8 @@ aarch64_print_operand (FILE *f, rtx x, char code)
 	    {
 #define buf_size 20
 	      char float_buf[buf_size] = {'\0'};
-	      REAL_VALUE_TYPE r;
-	      REAL_VALUE_FROM_CONST_DOUBLE (r, x);
-	      real_to_decimal_for_mode (float_buf, &r,
+	      real_to_decimal_for_mode (float_buf,
+					CONST_DOUBLE_REAL_VALUE (x),
 					buf_size, buf_size,
 					1, GET_MODE (x));
 	      asm_fprintf (asm_out_file, "%s", float_buf);
@@ -4903,7 +4908,7 @@ aarch64_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x,
   if (MEM_P (x) && GET_CODE (x) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (x)
       && (SCALAR_FLOAT_MODE_P (GET_MODE (x))
 	  || targetm.vector_mode_supported_p (GET_MODE (x)))
-      && nopcrelative_literal_loads)
+      && aarch64_nopcrelative_literal_loads)
     {
       sri->icode = aarch64_constant_pool_reload_icode (mode);
       return NO_REGS;
@@ -5528,9 +5533,12 @@ aarch64_address_cost (rtx x,
 	cost += addr_cost->register_offset;
 	break;
 
-      case ADDRESS_REG_UXTW:
       case ADDRESS_REG_SXTW:
-	cost += addr_cost->register_extend;
+	cost += addr_cost->register_sextend;
+	break;
+
+      case ADDRESS_REG_UXTW:
+	cost += addr_cost->register_zextend;
 	break;
 
       default:
@@ -6806,6 +6814,19 @@ cost_plus:
 	  else
 	    *cost += extra_cost->fp[GET_MODE (x) == DFmode].toint;
 	}
+
+      /* We can combine fmul by a power of 2 followed by a fcvt into a single
+	 fixed-point fcvt.  */
+      if (GET_CODE (x) == MULT
+	  && ((VECTOR_MODE_P (mode)
+	       && aarch64_vec_fpconst_pow_of_2 (XEXP (x, 1)) > 0)
+	      || aarch64_fpconst_pow_of_2 (XEXP (x, 1)) > 0))
+	{
+	  *cost += rtx_cost (XEXP (x, 0), VOIDmode, (rtx_code) code,
+			     0, speed);
+	  return true;
+	}
+
       *cost += rtx_cost (x, VOIDmode, (enum rtx_code) code, 0, speed);
       return true;
 
@@ -7023,6 +7044,19 @@ aarch64_sched_first_cycle_multipass_dfa_lookahead (void)
 
   return issue_rate > 1 && !sched_fusion ? issue_rate : 0;
 }
+
+
+/* Implement TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD as
+   autopref_multipass_dfa_lookahead_guard from haifa-sched.c.  It only
+   has an effect if PARAM_SCHED_AUTOPREF_QUEUE_DEPTH > 0.  */
+
+static int
+aarch64_first_cycle_multipass_dfa_lookahead_guard (rtx_insn *insn,
+						    int ready_index)
+{
+  return autopref_multipass_dfa_lookahead_guard (insn, ready_index);
+}
+
 
 /* Vectorizer cost model target hooks.  */
 
@@ -7545,7 +7579,7 @@ aarch64_override_options_after_change_1 (struct gcc_options *opts)
   else if (opts->x_flag_omit_leaf_frame_pointer)
     opts->x_flag_omit_frame_pointer = true;
 
-  /* If not opzimizing for size, set the default
+  /* If not optimizing for size, set the default
      alignment to what the target wants.  */
   if (!opts->x_optimize_size)
     {
@@ -7559,21 +7593,21 @@ aarch64_override_options_after_change_1 (struct gcc_options *opts)
 
   /* If nopcrelative_literal_loads is set on the command line, this
      implies that the user asked for PC relative literal loads.  */
-  if (nopcrelative_literal_loads == 1)
-    nopcrelative_literal_loads = 0;
+  if (opts->x_nopcrelative_literal_loads == 1)
+    aarch64_nopcrelative_literal_loads = false;
 
   /* If it is not set on the command line, we default to no
      pc relative literal loads.  */
-  if (nopcrelative_literal_loads == 2)
-    nopcrelative_literal_loads = 1;
+  if (opts->x_nopcrelative_literal_loads == 2)
+    aarch64_nopcrelative_literal_loads = true;
 
   /* In the tiny memory model it makes no sense
      to disallow non PC relative literal pool loads
      as many other things will break anyway.  */
-  if (nopcrelative_literal_loads
+  if (opts->x_nopcrelative_literal_loads
       && (aarch64_cmodel == AARCH64_CMODEL_TINY
 	  || aarch64_cmodel == AARCH64_CMODEL_TINY_PIC))
-    nopcrelative_literal_loads = 0;
+    aarch64_nopcrelative_literal_loads = false;
 }
 
 /* 'Unpack' up the internal tuning structs and update the options
@@ -7614,6 +7648,29 @@ aarch64_override_options_internal (struct gcc_options *opts)
 
   initialize_aarch64_code_model (opts);
   initialize_aarch64_tls_size (opts);
+
+  int queue_depth = 0;
+  switch (aarch64_tune_params.autoprefetcher_model)
+    {
+      case tune_params::AUTOPREFETCHER_OFF:
+	queue_depth = -1;
+	break;
+      case tune_params::AUTOPREFETCHER_WEAK:
+	queue_depth = 0;
+	break;
+      case tune_params::AUTOPREFETCHER_STRONG:
+	queue_depth = max_insn_queue_index + 1;
+	break;
+      default:
+	gcc_unreachable ();
+    }
+
+  /* We don't mind passing in global_options_set here as we don't use
+     the *options_set structs anyway.  */
+  maybe_set_param_value (PARAM_SCHED_AUTOPREF_QUEUE_DEPTH,
+			 queue_depth,
+			 opts->x_param_values,
+			 global_options_set.x_param_values);
 
   aarch64_override_options_after_change_1 (opts);
 }
@@ -9028,8 +9085,8 @@ aarch64_expand_builtin_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
      This address is gr_save_area_bytes below GRTOP, rounded
      down to the next 16-byte boundary.  */
   t = make_tree (TREE_TYPE (vrtop), virtual_incoming_args_rtx);
-  vr_offset = AARCH64_ROUND_UP (gr_save_area_size,
-			     STACK_BOUNDARY / BITS_PER_UNIT);
+  vr_offset = ROUND_UP (gr_save_area_size,
+			STACK_BOUNDARY / BITS_PER_UNIT);
 
   if (vr_offset)
     t = fold_build_pointer_plus_hwi (t, -vr_offset);
@@ -9122,7 +9179,7 @@ aarch64_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 		      unshare_expr (valist), f_grtop, NULL_TREE);
       f_off = build3 (COMPONENT_REF, TREE_TYPE (f_groff),
 		      unshare_expr (valist), f_groff, NULL_TREE);
-      rsize = (size + UNITS_PER_WORD - 1) & -UNITS_PER_WORD;
+      rsize = ROUND_UP (size, UNITS_PER_WORD);
       nregs = rsize / UNITS_PER_WORD;
 
       if (align > 8)
@@ -9361,8 +9418,8 @@ aarch64_setup_incoming_varargs (cumulative_args_t cum_v, machine_mode mode,
 	  /* Set OFF to the offset from virtual_incoming_args_rtx of
 	     the first vector register.  The VR save area lies below
 	     the GR one, and is aligned to 16 bytes.  */
-	  off = -AARCH64_ROUND_UP (gr_saved * UNITS_PER_WORD,
-				   STACK_BOUNDARY / BITS_PER_UNIT);
+	  off = -ROUND_UP (gr_saved * UNITS_PER_WORD,
+			   STACK_BOUNDARY / BITS_PER_UNIT);
 	  off -= vr_saved * UNITS_PER_VREG;
 
 	  for (i = local_cum.aapcs_nvrn; i < NUM_FP_ARG_REGS; ++i)
@@ -9381,8 +9438,8 @@ aarch64_setup_incoming_varargs (cumulative_args_t cum_v, machine_mode mode,
   /* We don't save the size into *PRETEND_SIZE because we want to avoid
      any complication of having crtl->args.pretend_args_size changed.  */
   cfun->machine->frame.saved_varargs_size
-    = (AARCH64_ROUND_UP (gr_saved * UNITS_PER_WORD,
-		      STACK_BOUNDARY / BITS_PER_UNIT)
+    = (ROUND_UP (gr_saved * UNITS_PER_WORD,
+		 STACK_BOUNDARY / BITS_PER_UNIT)
        + vr_saved * UNITS_PER_VREG);
 }
 
@@ -11309,7 +11366,7 @@ aarch64_float_const_representable_p (rtx x)
   if (GET_MODE (x) == VOIDmode || GET_MODE (x) == HFmode)
     return false;
 
-  REAL_VALUE_FROM_CONST_DOUBLE (r, x);
+  r = *CONST_DOUBLE_REAL_VALUE (x);
 
   /* We cannot represent infinities, NaNs or +/-zero.  We won't
      know if we have +zero until we analyse the mantissa, but we
@@ -11393,18 +11450,20 @@ aarch64_output_simd_mov_immediate (rtx const_vector,
   lane_count = width / info.element_width;
 
   mode = GET_MODE_INNER (mode);
-  if (mode == SFmode || mode == DFmode)
+  if (GET_MODE_CLASS (mode) == MODE_FLOAT)
     {
       gcc_assert (info.shift == 0 && ! info.mvn);
+      /* For FP zero change it to a CONST_INT 0 and use the integer SIMD
+	 move immediate path.  */
       if (aarch64_float_const_zero_rtx_p (info.value))
         info.value = GEN_INT (0);
       else
 	{
 #define buf_size 20
-	  REAL_VALUE_TYPE r;
-	  REAL_VALUE_FROM_CONST_DOUBLE (r, info.value);
 	  char float_buf[buf_size] = {'\0'};
-	  real_to_decimal_for_mode (float_buf, &r, buf_size, buf_size, 1, mode);
+	  real_to_decimal_for_mode (float_buf,
+				    CONST_DOUBLE_REAL_VALUE (info.value),
+				    buf_size, buf_size, 1, mode);
 #undef buf_size
 
 	  if (lane_count == 1)
@@ -11419,6 +11478,7 @@ aarch64_output_simd_mov_immediate (rtx const_vector,
   mnemonic = info.mvn ? "mvni" : "movi";
   shift_op = info.msl ? "msl" : "lsl";
 
+  gcc_assert (CONST_INT_P (info.value));
   if (lane_count == 1)
     snprintf (templ, sizeof (templ), "%s\t%%d0, " HOST_WIDE_INT_PRINT_HEX,
 	      mnemonic, UINTVAL (info.value));
@@ -12820,8 +12880,9 @@ fusion_load_store (rtx_insn *insn, rtx *base, rtx *offset)
   src = SET_SRC (x);
   dest = SET_DEST (x);
 
-  if (GET_MODE (dest) != SImode && GET_MODE (dest) != DImode
-      && GET_MODE (dest) != SFmode && GET_MODE (dest) != DFmode)
+  machine_mode dest_mode = GET_MODE (dest);
+
+  if (!aarch64_mode_valid_for_sched_fusion_p (dest_mode))
     return SCHED_FUSION_NONE;
 
   if (GET_CODE (src) == SIGN_EXTEND)
@@ -13270,6 +13331,52 @@ aarch64_unspec_may_trap_p (const_rtx x, unsigned flags)
   return default_unspec_may_trap_p (x, flags);
 }
 
+
+/* If X is a positive CONST_DOUBLE with a value that is a power of 2
+   return the log2 of that value.  Otherwise return -1.  */
+
+int
+aarch64_fpconst_pow_of_2 (rtx x)
+{
+  const REAL_VALUE_TYPE *r;
+
+  if (!CONST_DOUBLE_P (x))
+    return -1;
+
+  r = CONST_DOUBLE_REAL_VALUE (x);
+
+  if (REAL_VALUE_NEGATIVE (*r)
+      || REAL_VALUE_ISNAN (*r)
+      || REAL_VALUE_ISINF (*r)
+      || !real_isinteger (r, DFmode))
+    return -1;
+
+  return exact_log2 (real_to_integer (r));
+}
+
+/* If X is a vector of equal CONST_DOUBLE values and that value is
+   Y, return the aarch64_fpconst_pow_of_2 of Y.  Otherwise return -1.  */
+
+int
+aarch64_vec_fpconst_pow_of_2 (rtx x)
+{
+  if (GET_CODE (x) != CONST_VECTOR)
+    return -1;
+
+  if (GET_MODE_CLASS (GET_MODE (x)) != MODE_VECTOR_FLOAT)
+    return -1;
+
+  int firstval = aarch64_fpconst_pow_of_2 (CONST_VECTOR_ELT (x, 0));
+  if (firstval <= 0)
+    return -1;
+
+  for (int i = 1; i < CONST_VECTOR_NUNITS (x); i++)
+    if (aarch64_fpconst_pow_of_2 (CONST_VECTOR_ELT (x, i)) != firstval)
+      return -1;
+
+  return firstval;
+}
+
 /* Implement TARGET_PROMOTED_TYPE to promote __fp16 to float.  */
 static tree
 aarch64_promoted_type (const_tree t)
@@ -13480,6 +13587,10 @@ aarch64_promoted_type (const_tree t)
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD \
   aarch64_sched_first_cycle_multipass_dfa_lookahead
+
+#undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD
+#define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD_GUARD \
+  aarch64_first_cycle_multipass_dfa_lookahead_guard
 
 #undef TARGET_TRAMPOLINE_INIT
 #define TARGET_TRAMPOLINE_INIT aarch64_trampoline_init

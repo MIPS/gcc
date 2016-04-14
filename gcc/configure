@@ -7096,7 +7096,12 @@ if test x$ac_checking != x ; then
 
 $as_echo "#define ENABLE_CHECKING 1" >>confdefs.h
 
+  $as_echo "#define CHECKING_P 1" >>confdefs.h
+
   nocommon_flag=-fno-common
+else
+  $as_echo "#define CHECKING_P 0" >>confdefs.h
+
 fi
 
 if test x$ac_df_checking != x ; then
@@ -18385,7 +18390,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18388 "configure"
+#line 18393 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -18491,7 +18496,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18494 "configure"
+#line 18499 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -22271,9 +22276,11 @@ if test -f $gcc_cv_binutils_srcdir/configure.ac \
 	gcc_cv_readelf=../binutils/readelf$build_exeext
 elif test -x readelf$build_exeext; then
 	gcc_cv_readelf=./readelf$build_exeext
+elif ( set dummy $READELF_FOR_TARGET; test -x $2 ); then
+        gcc_cv_readelf="$READELF_FOR_TARGET"
 else
-        # Extract the first word of "readelf", so it can be a program name with args.
-set dummy readelf; ac_word=$2
+        # Extract the first word of "$READELF_FOR_TARGET", so it can be a program name with args.
+set dummy $READELF_FOR_TARGET; ac_word=$2
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 $as_echo_n "checking for $ac_word... " >&6; }
 if test "${ac_cv_path_gcc_cv_readelf+set}" = set; then :

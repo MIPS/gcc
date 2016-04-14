@@ -26,44 +26,25 @@
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "cfghooks.h"
-#include "tree.h"
+#include "target.h"
 #include "rtl.h"
+#include "tree.h"
+#include "cfghooks.h"
 #include "df.h"
-#include "alias.h"
+#include "tm_p.h"
+#include "regs.h"
+#include "emit-rtl.h"
+#include "diagnostic-core.h"
 #include "varasm.h"
 #include "stor-layout.h"
 #include "calls.h"
-#include "regs.h"
-#include "insn-config.h"
-#include "conditions.h"
 #include "output.h"
-#include "insn-attr.h"
 #include "flags.h"
-#include "expmed.h"
-#include "dojump.h"
 #include "explow.h"
-#include "emit-rtl.h"
-#include "stmt.h"
 #include "expr.h"
-#include "insn-codes.h"
-#include "optabs.h"
-#include "libfuncs.h"
-#include "recog.h"
-#include "diagnostic-core.h"
 #include "toplev.h"
-#include "reload.h"
-#include "cfgrtl.h"
-#include "cfganal.h"
-#include "lcm.h"
-#include "cfgbuild.h"
-#include "cfgcleanup.h"
-#include "tm_p.h"
-#include "debug.h"
-#include "target.h"
 #include "langhooks.h"
 #include "opts.h"
-#include "cgraph.h"
 #include "builtins.h"
 
 /* This file should be included last.  */
@@ -886,10 +867,8 @@ rx_print_operand (FILE * file, rtx op, int letter)
 	case CONST_DOUBLE:
 	  {
 	    unsigned long val;
-	    REAL_VALUE_TYPE rv;
 
-	    REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
-	    REAL_VALUE_TO_TARGET_SINGLE (rv, val);
+	    REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (op), val);
 	    if (print_hash)
 	      fprintf (file, "#");
 	    fprintf (file, TARGET_AS100_SYNTAX ? "0%lxH" : "0x%lx", val);

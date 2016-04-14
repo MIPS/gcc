@@ -242,9 +242,7 @@ static inline bool
 supports_overflow_infinity (const_tree type)
 {
   tree min = vrp_val_min (type), max = vrp_val_max (type);
-#ifdef ENABLE_CHECKING
-  gcc_assert (needs_overflow_infinity (type));
-#endif
+  gcc_checking_assert (needs_overflow_infinity (type));
   return (min != NULL_TREE
 	  && CONSTANT_CLASS_P (min)
 	  && max != NULL_TREE
@@ -373,9 +371,9 @@ static void
 set_value_range (value_range *vr, enum value_range_type t, tree min,
 		 tree max, bitmap equiv)
 {
-#if defined ENABLE_CHECKING
   /* Check the validity of the range.  */
-  if (t == VR_RANGE || t == VR_ANTI_RANGE)
+  if (flag_checking
+      && (t == VR_RANGE || t == VR_ANTI_RANGE))
     {
       int cmp;
 
@@ -395,12 +393,12 @@ set_value_range (value_range *vr, enum value_range_type t, tree min,
 		    || !is_overflow_infinity (max));
     }
 
-  if (t == VR_UNDEFINED || t == VR_VARYING)
-    gcc_assert (min == NULL_TREE && max == NULL_TREE);
-
-  if (t == VR_UNDEFINED || t == VR_VARYING)
-    gcc_assert (equiv == NULL || bitmap_empty_p (equiv));
-#endif
+  if (flag_checking
+      && (t == VR_UNDEFINED || t == VR_VARYING))
+    {
+      gcc_assert (min == NULL_TREE && max == NULL_TREE);
+      gcc_assert (equiv == NULL || bitmap_empty_p (equiv));
+    }
 
   vr->type = t;
   vr->min = min;
@@ -1005,80 +1003,6 @@ usable_range_p (value_range *vr, bool *strict_overflow_p)
 	return false;
     }
   return true;
-}
-
-
-/* Return true if the result of assignment STMT is know to be non-negative.
-   If the return value is based on the assumption that signed overflow is
-   undefined, set *STRICT_OVERFLOW_P to true; otherwise, don't change
-   *STRICT_OVERFLOW_P.*/
-
-static bool
-gimple_assign_nonnegative_warnv_p (gimple *stmt, bool *strict_overflow_p)
-{
-  enum tree_code code = gimple_assign_rhs_code (stmt);
-  switch (get_gimple_rhs_class (code))
-    {
-    case GIMPLE_UNARY_RHS:
-      return tree_unary_nonnegative_warnv_p (gimple_assign_rhs_code (stmt),
-					     gimple_expr_type (stmt),
-					     gimple_assign_rhs1 (stmt),
-					     strict_overflow_p);
-    case GIMPLE_BINARY_RHS:
-      return tree_binary_nonnegative_warnv_p (gimple_assign_rhs_code (stmt),
-					      gimple_expr_type (stmt),
-					      gimple_assign_rhs1 (stmt),
-					      gimple_assign_rhs2 (stmt),
-					      strict_overflow_p);
-    case GIMPLE_TERNARY_RHS:
-      return false;
-    case GIMPLE_SINGLE_RHS:
-      return tree_single_nonnegative_warnv_p (gimple_assign_rhs1 (stmt),
-					      strict_overflow_p);
-    case GIMPLE_INVALID_RHS:
-      gcc_unreachable ();
-    default:
-      gcc_unreachable ();
-    }
-}
-
-/* Return true if return value of call STMT is know to be non-negative.
-   If the return value is based on the assumption that signed overflow is
-   undefined, set *STRICT_OVERFLOW_P to true; otherwise, don't change
-   *STRICT_OVERFLOW_P.*/
-
-static bool
-gimple_call_nonnegative_warnv_p (gimple *stmt, bool *strict_overflow_p)
-{
-  tree arg0 = gimple_call_num_args (stmt) > 0 ?
-    gimple_call_arg (stmt, 0) : NULL_TREE;
-  tree arg1 = gimple_call_num_args (stmt) > 1 ?
-    gimple_call_arg (stmt, 1) : NULL_TREE;
-
-  return tree_call_nonnegative_warnv_p (gimple_expr_type (stmt),
-					gimple_call_fndecl (stmt),
-					arg0,
-					arg1,
-					strict_overflow_p);
-}
-
-/* Return true if STMT is know to compute a non-negative value.
-   If the return value is based on the assumption that signed overflow is
-   undefined, set *STRICT_OVERFLOW_P to true; otherwise, don't change
-   *STRICT_OVERFLOW_P.*/
-
-static bool
-gimple_stmt_nonnegative_warnv_p (gimple *stmt, bool *strict_overflow_p)
-{
-  switch (gimple_code (stmt))
-    {
-    case GIMPLE_ASSIGN:
-      return gimple_assign_nonnegative_warnv_p (stmt, strict_overflow_p);
-    case GIMPLE_CALL:
-      return gimple_call_nonnegative_warnv_p (stmt, strict_overflow_p);
-    default:
-      gcc_unreachable ();
-    }
 }
 
 /* Return true if the result of assignment STMT is know to be non-zero.
@@ -6717,8 +6641,9 @@ check_all_array_refs (void)
 	    continue;
 
 	  memset (&wi, 0, sizeof (wi));
-	  wi.info = CONST_CAST (void *, (const void *)
-				gimple_location_ptr (stmt));
+
+	  location_t loc = gimple_location (stmt);
+	  wi.info = &loc;
 
 	  walk_gimple_op (gsi_stmt (si),
 			  check_array_bounds,
@@ -6857,11 +6782,8 @@ remove_range_assertions (void)
 	    tree lhs = gimple_assign_lhs (stmt);
 	    tree rhs = gimple_assign_rhs1 (stmt);
 	    tree var;
-	    tree cond = fold (ASSERT_EXPR_COND (rhs));
 	    use_operand_p use_p;
 	    imm_use_iterator iter;
-
-	    gcc_assert (cond != boolean_false_node);
 
 	    var = ASSERT_EXPR_VAR (rhs);
 	    gcc_assert (TREE_CODE (var) == SSA_NAME);
@@ -10357,7 +10279,7 @@ execute_vrp (void)
   ssa_propagate (vrp_visit_stmt, vrp_visit_phi_node);
   vrp_finalize ();
 
-  free_numbers_of_iterations_estimates ();
+  free_numbers_of_iterations_estimates (cfun);
 
   /* ASSERT_EXPRs must be removed before finalizing jump threads
      as finalizing jump threads calls the CFG cleanup code which

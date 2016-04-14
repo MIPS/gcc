@@ -8999,8 +8999,8 @@ convert_with_check (Entity_Id gnat_type, tree gnu_expr, bool overflowp,
       if (INTEGRAL_TYPE_P (gnu_in_basetype)
 	  ? tree_int_cst_lt (gnu_in_lb, gnu_out_lb)
 	  : (FLOAT_TYPE_P (gnu_base_type)
-	     ? REAL_VALUES_LESS (TREE_REAL_CST (gnu_in_lb),
-				 TREE_REAL_CST (gnu_out_lb))
+	     ? real_less (&TREE_REAL_CST (gnu_in_lb),
+			  &TREE_REAL_CST (gnu_out_lb))
 	     : 1))
 	gnu_cond
 	  = invert_truthvalue
@@ -9011,8 +9011,8 @@ convert_with_check (Entity_Id gnat_type, tree gnu_expr, bool overflowp,
       if (INTEGRAL_TYPE_P (gnu_in_basetype)
 	  ? tree_int_cst_lt (gnu_out_ub, gnu_in_ub)
 	  : (FLOAT_TYPE_P (gnu_base_type)
-	     ? REAL_VALUES_LESS (TREE_REAL_CST (gnu_out_ub),
-				 TREE_REAL_CST (gnu_in_lb))
+	     ? real_less (&TREE_REAL_CST (gnu_out_ub),
+			  &TREE_REAL_CST (gnu_in_lb))
 	     : 1))
 	gnu_cond
 	  = build_binary_op (TRUTH_ORIF_EXPR, boolean_type_node, gnu_cond,
@@ -9048,8 +9048,8 @@ convert_with_check (Entity_Id gnat_type, tree gnu_expr, bool overflowp,
       /* Compute the exact value calc_type'Pred (0.5) at compile time.  */
       fmt = REAL_MODE_FORMAT (TYPE_MODE (calc_type));
       real_2expN (&half_minus_pred_half, -(fmt->p) - 1, TYPE_MODE (calc_type));
-      REAL_ARITHMETIC (pred_half, MINUS_EXPR, dconsthalf,
-		       half_minus_pred_half);
+      real_arithmetic (&pred_half, MINUS_EXPR, &dconsthalf,
+		       &half_minus_pred_half);
       gnu_pred_half = build_real (calc_type, pred_half);
 
       /* If the input is strictly negative, subtract this value
@@ -9411,11 +9411,12 @@ assoc_to_constructor (Entity_Id gnat_entity, Node_Id gnat_assoc, tree gnu_type)
 
   gnu_result = extract_values (gnu_list, gnu_type);
 
-#ifdef ENABLE_CHECKING
-  /* Verify that every entry in GNU_LIST was used.  */
-  for (; gnu_list; gnu_list = TREE_CHAIN (gnu_list))
-    gcc_assert (TREE_ADDRESSABLE (gnu_list));
-#endif
+  if (flag_checking)
+    {
+      /* Verify that every entry in GNU_LIST was used.  */
+      for (; gnu_list; gnu_list = TREE_CHAIN (gnu_list))
+	gcc_assert (TREE_ADDRESSABLE (gnu_list));
+    }
 
   return gnu_result;
 }

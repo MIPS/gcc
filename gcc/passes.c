@@ -253,6 +253,11 @@ rest_of_decl_compilation (tree decl,
 	}
 #endif
 
+      /* Now that we have activated any function-specific attributes
+	 that might affect function decl, particularly align, relayout it.  */
+      if (TREE_CODE (decl) == FUNCTION_DECL)
+	targetm.target_option.relayout_function (decl);
+
       timevar_pop (TV_VARCONST);
     }
   else if (TREE_CODE (decl) == TYPE_DECL
@@ -1914,14 +1919,6 @@ execute_function_todo (function *fn, void *data)
     {
       cleanup_tree_cfg ();
 
-      /* Once unreachable nodes have been removed from the CFG,
-	 there can't be any lingering references to released
-	 SSA_NAMES (because there is no more unreachable code).
-
-	 Thus, now is the time to flush the SSA_NAMEs freelist.  */
-      if (fn->gimple_df)
-	flush_ssaname_freelist ();
-
       /* When cleanup_tree_cfg merges consecutive blocks, it may
 	 perform some simplistic propagation when removing single
 	 valued PHI nodes.  This propagation may, in turn, cause the
@@ -1955,9 +1952,8 @@ execute_function_todo (function *fn, void *data)
 
   gcc_assert (dom_info_state (fn, CDI_POST_DOMINATORS) == DOM_NONE);
   /* If we've seen errors do not bother running any verifiers.  */
-  if (!seen_error ())
+  if (flag_checking && !seen_error ())
     {
-#if defined ENABLE_CHECKING
       dom_state pre_verify_state = dom_info_state (fn, CDI_DOMINATORS);
       dom_state pre_verify_pstate = dom_info_state (fn, CDI_POST_DOMINATORS);
 
@@ -1991,7 +1987,6 @@ execute_function_todo (function *fn, void *data)
       /* Make sure verifiers don't change dominator state.  */
       gcc_assert (dom_info_state (fn, CDI_DOMINATORS) == pre_verify_state);
       gcc_assert (dom_info_state (fn, CDI_POST_DOMINATORS) == pre_verify_pstate);
-#endif
     }
 
   fn->last_verified = flags & TODO_verify_all;
@@ -2011,11 +2006,10 @@ execute_function_todo (function *fn, void *data)
 static void
 execute_todo (unsigned int flags)
 {
-#if defined ENABLE_CHECKING
-  if (cfun
+  if (flag_checking
+      && cfun
       && need_ssa_update_p (cfun))
     gcc_assert (flags & TODO_update_ssa_any);
-#endif
 
   timevar_push (TV_TODO);
 
@@ -2026,6 +2020,11 @@ execute_todo (unsigned int flags)
 
   if (flags)
     do_per_function (execute_function_todo, (void *)(size_t) flags);
+
+  /* At this point we should not have any unreachable code in the
+     CFG, so it is safe to flush the pending freelist for SSA_NAMES.  */
+  if (cfun && cfun->gimple_df)
+    flush_ssaname_freelist ();
 
   /* Always remove functions just as before inlining: IPA passes might be
      interested to see bodies of extern inline functions that are not inlined
@@ -2074,14 +2073,12 @@ clear_last_verified (function *fn, void *data ATTRIBUTE_UNUSED)
 /* Helper function. Verify that the properties has been turn into the
    properties expected by the pass.  */
 
-#ifdef ENABLE_CHECKING
 static void
 verify_curr_properties (function *fn, void *data)
 {
   unsigned int props = (size_t)data;
   gcc_assert ((fn->curr_properties & props) == props);
 }
-#endif
 
 /* Initialize pass dump file.  */
 /* This is non-static so that the plugins can use it.  */
@@ -2333,10 +2330,9 @@ execute_one_pass (opt_pass *pass)
   /* Run pre-pass verification.  */
   execute_todo (pass->todo_flags_start);
 
-#ifdef ENABLE_CHECKING
-  do_per_function (verify_curr_properties,
-		   (void *)(size_t)pass->properties_required);
-#endif
+  if (flag_checking)
+    do_per_function (verify_curr_properties,
+		     (void *)(size_t)pass->properties_required);
 
   /* If a timevar is present, start it.  */
   if (pass->tv_id != TV_NONE)

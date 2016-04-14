@@ -1080,6 +1080,8 @@ expand_ifn_va_arg_1 (function *fun)
 
 	/* Remove the IFN_VA_ARG gimple_call.  It's the last stmt in the
 	   bb.  */
+	unlink_stmt_vdef (stmt);
+	release_ssa_name_fn (fun, gimple_vdef (stmt));
 	gsi_remove (&i, true);
 	gcc_assert (gsi_end_p (i));
 
@@ -1105,13 +1107,14 @@ expand_ifn_va_arg (function *fun)
   if ((fun->curr_properties & PROP_gimple_lva) == 0)
     expand_ifn_va_arg_1 (fun);
 
-#if ENABLE_CHECKING
-  basic_block bb;
-  gimple_stmt_iterator i;
-  FOR_EACH_BB_FN (bb, fun)
-    for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
-      gcc_assert (!gimple_call_ifn_va_arg_p (gsi_stmt (i)));
-#endif
+  if (flag_checking)
+    {
+      basic_block bb;
+      gimple_stmt_iterator i;
+      FOR_EACH_BB_FN (bb, fun)
+	for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
+	  gcc_assert (!gimple_call_ifn_va_arg_p (gsi_stmt (i)));
+    }
 }
 
 namespace {

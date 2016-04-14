@@ -4909,14 +4909,7 @@ Binary_expression::do_lower(Gogo* gogo, Named_object*,
 	    Numeric_constant nc;
 	    if (!Binary_expression::eval_constant(op, &left_nc, &right_nc,
 						  location, &nc))
-              {
-                if (nc.is_invalid())
-                  {
-                    go_assert(saw_errors());
-                    return Expression::make_error(location);
-                  }
                 return this;
-              }
 	    return nc.expression(location);
 	  }
       }
@@ -5200,13 +5193,13 @@ Binary_expression::do_flatten(Gogo* gogo, Named_object*,
       || (is_idiv_op
 	  && (gogo->check_divide_by_zero() || gogo->check_divide_overflow())))
     {
-      if (!this->left_->is_variable())
+      if (!this->left_->is_variable() && !this->left_->is_constant())
         {
           temp = Statement::make_temporary(NULL, this->left_, loc);
           inserter->insert(temp);
           this->left_ = Expression::make_temporary_reference(temp, loc);
         }
-      if (!this->right_->is_variable())
+      if (!this->right_->is_variable() && !this->right_->is_constant())
         {
           temp =
               Statement::make_temporary(NULL, this->right_, loc);
@@ -5601,7 +5594,9 @@ Binary_expression::do_check_types(Gogo*)
       if (left_type->integer_type() == NULL)
 	this->report_error(_("shift of non-integer operand"));
 
-      if (!right_type->is_abstract()
+      if (right_type->is_string_type())
+        this->report_error(_("shift count not unsigned integer"));
+      else if (!right_type->is_abstract()
 	  && (right_type->integer_type() == NULL
 	      || !right_type->integer_type()->is_unsigned()))
 	this->report_error(_("shift count not unsigned integer"));

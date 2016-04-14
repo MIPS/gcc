@@ -362,7 +362,6 @@ public:
      and NULL otherwise.  */
   static inline symtab_node *get (const_tree decl)
   {
-#ifdef ENABLE_CHECKING
     /* Check that we are called for sane type of object - functions
        and static or external variables.  */
     gcc_checking_assert (TREE_CODE (decl) == FUNCTION_DECL
@@ -374,7 +373,6 @@ public:
        memcpy/memset on the tree nodes.  */
     gcc_checking_assert (!decl->decl_with_vis.symtab_node
 			 || decl->decl_with_vis.symtab_node->decl == decl);
-#endif
     return decl->decl_with_vis.symtab_node;
   }
 
@@ -397,6 +395,9 @@ public:
 
   /* Verify symbol table for internal consistency.  */
   static DEBUG_FUNCTION void verify_symtab_nodes (void);
+
+  /* Perform internal consistency checks, if they are enabled.  */
+  static inline void checking_verify_symtab_nodes (void);
 
   /* Type of the symbol.  */
   ENUM_BITFIELD (symtab_type) type : 8;
@@ -558,6 +559,13 @@ private:
   symtab_node *ultimate_alias_target_1 (enum availability *avail = NULL);
 };
 
+inline void
+symtab_node::checking_verify_symtab_nodes (void)
+{
+  if (flag_checking)
+    symtab_node::verify_symtab_nodes ();
+}
+
 /* Walk all aliases for NODE.  */
 #define FOR_EACH_ALIAS(node, alias) \
   for (unsigned x_i = 0; node->iterate_direct_aliases (x_i, alias); x_i++)
@@ -643,8 +651,14 @@ enum cgraph_simd_clone_arg_type
 {
   SIMD_CLONE_ARG_TYPE_VECTOR,
   SIMD_CLONE_ARG_TYPE_UNIFORM,
+  /* These are only for integer/pointer arguments passed by value.  */
   SIMD_CLONE_ARG_TYPE_LINEAR_CONSTANT_STEP,
   SIMD_CLONE_ARG_TYPE_LINEAR_VARIABLE_STEP,
+  /* These 3 are only for reference type arguments or arguments passed
+     by reference.  */
+  SIMD_CLONE_ARG_TYPE_LINEAR_REF_CONSTANT_STEP,
+  SIMD_CLONE_ARG_TYPE_LINEAR_UVAL_CONSTANT_STEP,
+  SIMD_CLONE_ARG_TYPE_LINEAR_VAL_CONSTANT_STEP,
   SIMD_CLONE_ARG_TYPE_MASK
 };
 
@@ -684,7 +698,7 @@ struct GTY(()) cgraph_simd_clone_arg {
      variable), uniform, or vector.  */
   enum cgraph_simd_clone_arg_type arg_type;
 
-  /* For arg_type SIMD_CLONE_ARG_TYPE_LINEAR_CONSTANT_STEP this is
+  /* For arg_type SIMD_CLONE_ARG_TYPE_LINEAR_*CONSTANT_STEP this is
      the constant linear step, if arg_type is
      SIMD_CLONE_ARG_TYPE_LINEAR_VARIABLE_STEP, this is index of
      the uniform argument holding the step, otherwise 0.  */
@@ -1198,6 +1212,9 @@ public:
 
   /* Verify whole cgraph structure.  */
   static void DEBUG_FUNCTION verify_cgraph_nodes (void);
+
+  /* Verify cgraph, if consistency checking is enabled.  */
+  static inline void checking_verify_cgraph_nodes (void);
 
   /* Worker to bring NODE local.  */
   static bool make_local (cgraph_node *node, void *);
@@ -2745,6 +2762,15 @@ cgraph_node::can_remove_if_no_direct_calls_and_refs_p (void)
 	  || used_from_object_file_p ()))
     return false;
   return true;
+}
+
+/* Verify cgraph, if consistency checking is enabled.  */
+
+inline void
+cgraph_node::checking_verify_cgraph_nodes (void)
+{
+  if (flag_checking)
+    cgraph_node::verify_cgraph_nodes ();
 }
 
 /* Return true when variable can be removed from variable pool
