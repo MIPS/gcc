@@ -1,4 +1,8 @@
 
+2016-04-14   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtypes-5.h: Copied from melt-runtypes-6.h bur untested
+	with GCC 5 as plugin.
+
 2016-04-13   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerated all.
 
