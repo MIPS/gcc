@@ -534,5 +534,9 @@ mmips16-copy
 Target Var(TARGET_MIPS16_COPY) Init(0)
 Enable use of the MIPS16 COPY and UCOPY instructions
 
+mmips16-copy-peep
+Target Var(TARGET_MIPS16_COPY_PEEP) Init(0)
+Enable use of the MIPS16 COPY instruction in the peephole optimization
+
 muse-save-restore
 Target Undocumented Var(TARGET_USE_SAVE_RESTORE) Init(0)

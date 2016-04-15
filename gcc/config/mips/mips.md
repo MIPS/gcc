@@ -4802,7 +4802,7 @@
 	(match_dup 6))
    (set (match_operand:SI 11 "memory_operand" "")
 	(match_dup 9))]
-  "ISA_HAS_COPY"
+  "ISA_HAS_COPY && TARGET_MIPS16_COPY_PEEP"
   [(const_int 0)]
 {
   if (gen_mips16_copy_peep (operands, 4))
@@ -4824,7 +4824,7 @@
 	(match_dup 3))
    (set (match_operand:SI 8 "memory_operand" "")
 	(match_dup 6))]
-  "ISA_HAS_COPY"
+  "ISA_HAS_COPY && TARGET_MIPS16_COPY_PEEP"
   [(const_int 0)]
 {
   if (gen_mips16_copy_peep (operands, 3))
@@ -4842,7 +4842,7 @@
 	(match_dup 0))
    (set (match_operand:SI 5 "memory_operand" "")
 	(match_dup 3))]
-  "ISA_HAS_COPY"
+  "ISA_HAS_COPY && TARGET_MIPS16_COPY_PEEP"
   [(const_int 0)]
 {
   if (gen_mips16_copy_peep (operands, 2))
