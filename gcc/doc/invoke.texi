@@ -9606,6 +9606,11 @@ Enable emission of special debug stores within HSA kernels which are
 then read and reported by libgomp plugin.  Generation of these stores
 is disabled by default, use @option{--param hsa-gen-debug-stores=1} to
 enable it.
+
+@item max-speculative-devirt-maydefs
+The maximum number of may-defs we analyze when looking for a must-def
+specifying the dynamic type of an object that invokes a virtual call
+we may be able to devirtualize speculatively.
 @end table
 @end table
 
@@ -13975,6 +13980,8 @@ of the @option{-mcpu=} option.  Permissible names are: @samp{armv2},
 @samp{armv7}, @samp{armv7-a}, @samp{armv7-r}, @samp{armv7-m}, @samp{armv7e-m},
 @samp{armv7ve}, @samp{armv8-a}, @samp{armv8-a+crc}, @samp{armv8.1-a},
 @samp{armv8.1-a+crc}, @samp{iwmmxt}, @samp{iwmmxt2}, @samp{ep9312}.
+
+Architecture revisions older than @option{armv4t} are deprecated.
 
 @option{-march=armv7ve} is the armv7-a architecture with virtualization
 extensions.
