@@ -1,5 +1,8 @@
 
 2016-04-15   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerated all.
+
+2016-04-15   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{trouble merging with GCC 6 svn rev 229800.
 	possible issues with Melt_CallProtoFrame::_dbgcall_file_ ...
 	}}
