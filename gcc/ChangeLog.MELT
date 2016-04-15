@@ -1,5 +1,11 @@
 
 2016-04-15   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h (Melt_CallProtoFrame): always have some
+	dbg_serial() even without debugging.
+
+	* melt-runtime.cc (meltgc_new_list_from_pair): Forgot #undef pairv.
+
+2016-04-15   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerated all.
 
 2016-04-15   Basile Starynkevitch  <basile@starynkevitch.net>

@@ -3532,6 +3532,7 @@ end:
 #undef discrv
 #undef firstpair
 #undef lastpair
+#undef pairv
 #undef list_newlist
 #undef object_discrv
 }

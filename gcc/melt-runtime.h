@@ -3129,7 +3129,7 @@ public:
   {
     mcfr_flocs = s;
   };
-#if ENABLE_CHECKING
+#if ENABLE_CHECKING 
   const char* dbg_file() const
   {
     return _meltcf_dbgfile;
@@ -3211,6 +3211,10 @@ public:
   long dbg_line() const
   {
     return  0;
+  };
+  long dbg_serial() const
+  {
+    return 0;
   };
 #endif  /*ENABLE_CHECKING*/
   ~Melt_CallProtoFrame()
