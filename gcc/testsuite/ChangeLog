@@ -1,3 +1,143 @@
+2015-11-10  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	* gcc.target/i386/avx2-vec-mask-bit-not.c: New test.
+
+2015-11-10  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	* gcc.dg/vect/slp-cond-5.c: New test.
+
+2015-11-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/68240
+	* gcc.dg/torture/pr68240.c: New testcase.
+
+2015-11-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56118
+	* gcc.target/i386/pr56118.c: New testcase.
+
+2015-11-10  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/cond_op_imm_1.c: New test.
+
+2015-11-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gfortran.dg/pr68251.f90: New test.
+
+2015-11-09  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-c++-common/goacc/routine-5.c: Enable c++ tests.
+
+2015-11-09  Martin Sebor  <msebor@redhat.com>
+
+	* init/new45.C: New test to verify that operator new is invoked
+	with or without overhead for a cookie.
+
+	PR c++/67927
+	* init/new44.C: New test for placement new expressions for arrays
+	with excessive number of elements.
+
+	PR c++/67913
+	* init/new43.C: New test for placement new expressions for arrays
+	with negative number of elements.
+
+	* other/new-size-type.C: Expect array new expression with
+	an excessive number of elements to be rejected.
+
+2015-11-09  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* c-c++-common/goacc/routine-1.c: New.
+	* c-c++-common/goacc/routine-2.c: New.
+	* c-c++-common/goacc/routine-3.c: New.
+	* c-c++-common/goacc/routine-4.c: New.
+	* c-c++-common/goacc/routine-5.c: New.
+
+2015-11-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/sparc/sparc-ret.c: Rename to...
+	* gcc.target/sparc/sparc-ret-1.c: ...this.
+	* gcc.target/sparc/sparc-ret-2.c: New test.
+
+2015-11-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* lib/target-supports.exp (check_p8vector_hw_available): Split
+	long line.
+	(check_vsx_hw_available): Likewise.
+	(check_p9vector_hw_available): Add new checks for ISA 3.0 hardware
+	support and for PowerPC float128 support.
+	(check_p9modulo_hw_available): Likewise.
+	(check_ppc_float128_sw_available): Likewise.
+	(check_ppc_float128_hw_available): Likewise.
+	(check_effective_target_powerpc_p9vector_ok): Likewise.
+	(check_effective_target_powerpc_p9modulo_ok): Likewise.
+	(check_effective_target_powerpc_float128_sw_ok): Likewise.
+	(check_effective_target_powerpc_float128_hw_ok): Likewise.
+	(is-effective-target): Add new PowerPc targets.
+	(is-effective-target-keyword): Likewise.
+	(check_vect_support_and_set_flags): If we have ISA 3.0 vector
+	instructions, use it.
+
+	* gcc.target/powerpc/mod-1.c: New test for ISA 3.0 instructions.
+	* gcc.target/powerpc/mod-2.c: Likewise.
+	* gcc.target/powerpc/ctz-1.c: Likewise.
+	* gcc.target/powerpc/ctz-2.c: Likewise.
+	* gcc.target/powerpc/extswsli-1.c: Likewise.
+	* gcc.target/powerpc/extswsli-2.c: Likewise.
+	* gcc.target/powerpc/extswsli-3.c: Likewise.
+
+	* gcc.target/powerpc/fusion.c (fusion_vector): Move to fusion2.c
+	and allow the test on PowerPC LE.
+	* gcc.target/powerpc/fusion2.c (fusion_vector): Likewise.
+	* gcc.target/powerpc/fusion3.c: New file, test power9 fusion.
+
+	* gcc.target/powerpc/float128-call.c: Use powerpc_float128_sw_ok
+	check instead of powerpc_vsx_ok.
+	* gcc.target/powerpc/float128-mix.c: Likewise.
+
+2015-11-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/sso/*.c: Robustify dg-output directives.
+
+2015-11-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* g++.dg/ubsan/pr68259.C: New test.
+
+2015-11-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	* g++.dg/cilk-plus/CK/pr66326.cc: Do not include cilk.h.
+	(main): Use _Cilk_spawn instead of cilk_spawn.
+
+2015-11-09  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gcc.target/i386/addr-space-3.c: Fix quoting in dg-final
+	scan-assembler directive.
+
+2015-11-09  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/68129
+	* gcc.dg/pr68129_1.c: New test.
+
+2015-11-09  Andreas Arnez  <arnez@linux.vnet.ibm.com>
+
+	PR debug/67192
+	* gcc.dg/guality/pr67192.c (f3, f4): New functions.
+	(main): Invoke them.
+
+2015-11-09  Andreas Arnez  <arnez@linux.vnet.ibm.com>
+
+	PR debug/67192
+	* gcc.dg/guality/pr67192.c: New test.
+
+2015-11-09  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/68248
+	* gcc.dg/torture/pr68248.c: New testcase.
+
+2015-11-09  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56118
+	* gcc.dg/vect/no-tree-sra-bb-slp-pr50730.c: Adjust.
+
 2015-11-09  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	* gcc.target/arm/thumb2-slow-flash-data.c: Add missing typespec for

@@ -927,7 +927,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    But, of course, the storage order must be preserved when the accesses
    themselves are rewritten or transformed.  */
 #define REF_REVERSE_STORAGE_ORDER(NODE) \
-  (TREE_CHECK2 (NODE, BIT_FIELD_REF, MEM_REF)->base.u.bits.saturating_flag)
+  (TREE_CHECK2 (NODE, BIT_FIELD_REF, MEM_REF)->base.default_def_flag)
 
 /* These flags are available for each language front end to use internally.  */
 #define TREE_LANG_FLAG_0(NODE) \
@@ -4387,8 +4387,9 @@ reverse_storage_order_for_component_p (tree t)
     {
     case ARRAY_REF:
     case COMPONENT_REF:
-      /* ??? Fortran can take COMPONENT_REF of a void type.  */
-      return !VOID_TYPE_P (TREE_TYPE (TREE_OPERAND (t, 0)))
+      /* ??? Fortran can take COMPONENT_REF of a VOID_TYPE.  */
+      /* ??? UBSan can take COMPONENT_REF of a REFERENCE_TYPE.  */
+      return AGGREGATE_TYPE_P (TREE_TYPE (TREE_OPERAND (t, 0)))
 	     && TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (TREE_OPERAND (t, 0)));
 
     case BIT_FIELD_REF:

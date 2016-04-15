@@ -1,3 +1,622 @@
+2015-11-10  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	* config/i386/sse.md (maskload<mode>): Rename to ...
+	(maskload<mode><sseintvecmodelower>): ... this.
+	(maskstore<mode>): Rename to ...
+	(maskstore<mode><sseintvecmodelower>): ... this.
+	(maskload<mode><avx512fmaskmodelower>): New.
+	(maskstore<mode><avx512fmaskmodelower>): New.
+
+2015-11-10  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	* internal-fn.c (expand_MASK_LOAD): Adjust to maskload optab changes.
+	(expand_MASK_STORE): Adjust to maskstore optab changes.
+	* optabs-query.c (can_vec_mask_load_store_p): Add MASK_MODE arg.
+	 Adjust to maskload, maskstore optab changes.
+	* optabs-query.h (can_vec_mask_load_store_p): Add MASK_MODE arg.
+	* optabs.def (maskload_optab): Transform into convert optab.
+	(maskstore_optab): Likewise.
+	* tree-if-conv.c (ifcvt_can_use_mask_load_store): Adjust to
+	can_vec_mask_load_store_p signature change.
+	(predicate_mem_writes): Use boolean mask.
+	* tree-vect-stmts.c (vectorizable_mask_load_store): Adjust to
+	can_vec_mask_load_store_p signature change.  Allow invariant masks.
+	(vectorizable_operation): Ignore type precision for boolean vectors.
+
+2015-11-10  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	* expr.c (do_store_flag): Use expand_vec_cmp_expr for mask results.
+	(const_vector_mask_from_tree): New.
+	(const_vector_from_tree): Use const_vector_mask_from_tree
+	for boolean vectors.
+	* optabs-query.h (get_vec_cmp_icode): New.
+	* optabs-tree.c (expand_vec_cmp_expr_p): New.
+	* optabs-tree.h (expand_vec_cmp_expr_p): New.
+	* optabs.c (vector_compare_rtx): Add OPNO arg.
+	(expand_vec_cond_expr): Adjust to vector_compare_rtx change.
+	(expand_vec_cmp_expr): New.
+	* optabs.def (vec_cmp_optab): New.
+	(vec_cmpu_optab): New.
+	* optabs.h (expand_vec_cmp_expr): New.
+	* tree-vect-generic.c (expand_vector_comparison): Add vector
+	comparison optabs check.
+	* tree-vect-loop.c (vect_determine_vectorization_factor):  Ignore mask
+	operations for VF.  Add mask type computation.
+	* tree-vect-stmts.c (get_mask_type_for_scalar_type): New.
+	(vectorizable_comparison): New.
+	(vect_analyze_stmt): Add vectorizable_comparison.
+	(vect_transform_stmt): Likewise.
+	(vect_init_vector): Support boolean vector invariants.
+	(vect_get_vec_def_for_operand): Add VECTYPE arg.
+	(vectorizable_condition): Directly provide vectype for invariants
+	used in comparison.
+	* tree-vectorizer.h (get_mask_type_for_scalar_type): New.
+	(enum vect_var_kind): Add vect_mask_var.
+	(enum stmt_vec_info_type): Add comparison_vec_info_type.
+	(vectorizable_comparison): New.
+	(vect_get_vec_def_for_operand): Add VECTYPE arg.
+	* tree-vect-data-refs.c (vect_get_new_vect_var): Support vect_mask_var.
+	(vect_create_destination_var): Likewise.
+	* tree-vect-patterns.c (check_bool_pattern): Check fails
+	if we can vectorize comparison directly.
+	(search_type_for_mask): New.
+	(vect_recog_bool_pattern): Support cases when bool pattern
+	check fails.
+	* tree-vect-slp.c (vect_build_slp_tree_1): Allow
+	comparison statements.
+	(vect_get_constant_vectors): Support boolean vector
+	constants.
+	* config/i386/i386-protos.h (ix86_expand_mask_vec_cmp): New.
+	(ix86_expand_int_vec_cmp): New.
+	(ix86_expand_fp_vec_cmp): New.
+	* config/i386/i386.c (ix86_expand_sse_cmp): Allow NULL for
+	op_true and op_false.
+	(ix86_int_cmp_code_to_pcmp_immediate): New.
+	(ix86_fp_cmp_code_to_pcmp_immediate): New.
+	(ix86_cmp_code_to_pcmp_immediate): New.
+	(ix86_expand_mask_vec_cmp): New.
+	(ix86_expand_fp_vec_cmp): New.
+	(ix86_expand_int_sse_cmp): New.
+	(ix86_expand_int_vcond): Use ix86_expand_int_sse_cmp.
+	(ix86_expand_int_vec_cmp): New.
+	(ix86_get_mask_mode): New.
+	(TARGET_VECTORIZE_GET_MASK_MODE): New.
+	* config/i386/sse.md (avx512fmaskmodelower): New.
+	(vec_cmp<mode><avx512fmaskmodelower>): New.
+	(vec_cmp<mode><sseintvecmodelower>): New.
+	(vec_cmpv2div2di): New.
+	(vec_cmpu<mode><avx512fmaskmodelower>): New.
+	(vec_cmpu<mode><sseintvecmodelower>): New.
+	(vec_cmpuv2div2di): New.
+
+2015-11-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/68240
+	* tree-ssa-sccvn.c (cond_stmts_equal_p): Handle commutative compares
+	properly.
+	(visit_phi): For PHIs with just a single executable edge
+	take its value directly.
+	(expressions_equal_p): Handle VN_TOP properly.
+
+2015-11-10  Richard Biener  <rguenther@suse.de>
+
+	* tree-vect-data-refs.c (vect_slp_analyze_node_dependences):
+	Handle memory using/clobbering stmts without a STMT_VINFO_DATA_REF
+	conservatively.
+
+2015-11-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56118
+	* tree-vect-slp.c (vect_bb_vectorization_profitable_p): Make equal
+	cost favor vectorized version.
+
+2015-11-10  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.md (<neg_not_op><mode>cc): New define_expand.
+	* config/aarch64/iterators.md (NEG_NOT): New code iterator.
+	(neg_not_op): New code attribute.
+
+2015-11-10  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* ifcvt.c (noce_try_inverse_constants): New function.
+	(noce_process_if_block): Call it.
+	* optabs.h (emit_conditional_neg_or_complement): Declare prototype.
+	* optabs.def (negcc_optab, notcc_optab): Declare.
+	* optabs.c (emit_conditional_neg_or_complement): New function.
+	* doc/tm.texi (Standard Names): Document negcc, notcc names.
+
+2015-11-10  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/68236
+	* haifa-sched.c (autopref_multipass_dfa_lookahead_guard): Return 0
+	if insn_queue doesn't exist.
+	(haifa_sched_finish): Reset insn_queue to NULL.
+
+2015-11-10  Robert Suchanek  <robert.suchanek@imgtec.com>
+
+	* regrename.c (create_new_chain): Initialize renamed and tied_chain.
+	(build_def_use): Initialize terminated_this_insn.
+	(find_best_rename_reg): Pick and check register from the tied chain.
+	(regrename_do_replace): Mark head as renamed.
+	(struct du_head *terminated_this_insn). New static variable.
+	(scan_rtx_reg): Tie chains in move insns.  Set terminated_this_insn.
+	* regrename.h (struct du_head): Add tied_chain, renamed members.
+
+2015-11-10  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR bootstrap/68256
+	* config/aarch64/aarch64.c (aarch64_use_constant_blocks_p):
+	Return false.
+
+2015-11-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/57845
+	* config/sparc/sparc.c (sparc_function_value_1): In 32-bit mode, do
+	not promote the mode for aggregate types.
+
+2015-11-09  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* omp-low.h (replace_oacc_fn_attrib, build_oacc_routine_dims): Declare.
+	* omp-low.c (build_oacc_routine_dims): New.
+
+2015-11-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (wF constraint): New constraints
+	for power9/toc fusion.
+	(wG constraint): Likewise.
+
+	* config/rs6000/predicates.md (u6bit_cint_operand): New
+	predicate, recognize 0..63.
+	(upper16_cint_operand): New predicate for power9 and toc fusion.
+	(fpr_reg_operand): Likewise.
+	(toc_fusion_or_p9_reg_operand): Likewise.
+	(toc_fusion_mem_raw): Likewise.
+	(toc_fusion_mem_wrapped): Likewise.
+	(fusion_gpr_addis): If power9 fusion, allow fusion for a larger
+	address range.
+	(fusion_gpr_mem_combo): Delete, use fusion_addis_mem_combo_load
+	instead.
+	(fusion_addis_mem_combo_load): Add support for power9 fusion of
+	floating point loads, floating point stores, and gpr stores.
+	(fusion_addis_mem_combo_store): Likewise.
+	(fusion_offsettable_mem_operand): Likewise.
+
+	* config/rs6000/rs6000-protos.h (emit_fusion_addis): Add
+	declarations.
+	(emit_fusion_load_store): Likewise.
+	(fusion_p9_p): Likewise.
+	(expand_fusion_p9_load): Likewise.
+	(expand_fusion_p9_store): Likewise.
+	(emit_fusion_p9_load): Likewise.
+	(emit_fusion_p9_store): Likewise.
+	(fusion_wrap_memory_address): Likewise.
+
+	* config/rs6000/rs6000.c (struct rs6000_reg_addr): Add new
+	elements for power9 fusion.
+	(rs6000_debug_print_mode): Rework debug information to print more
+	information about fusion.
+	(rs6000_init_hard_regno_mode_ok): Setup for power9 fusion
+	support.
+	(rs6000_legitimate_address_p): Recognize toc fusion as a valid
+	offsettable memory address.
+	(rs6000_rtx_costs): Update costs for new ISA 3.0 instructions.
+	(emit_fusion_gpr_load): Move most of the code from
+	emit_fusion_gpr_load into emit_fusion-addis that handles both
+	power8 and power9 fusion.
+	(emit_fusion_addis): Likewise.
+	(emit_fusion_load_store): Likewise.
+	(fusion_wrap_memory_address): Add support for TOC fusion.
+	(fusion_split_address): Likewise.
+	(fusion_p9_p): Add support for power9 fusion.
+	(expand_fusion_p9_load): Likewise.
+	(expand_fusion_p9_store): Likewise.
+	(emit_fusion_p9_load): Likewise.
+	(emit_fusion_p9_store): Likewise.
+
+	* config/rs6000/rs6000.h (TARGET_EXTSWSLI): Macros for support for
+	new instructions in ISA 3.0.
+	(TARGET_CTZ): Likewise.
+	(TARGET_TOC_FUSION_INT): Macros for power9 fusion support.
+	(TARGET_TOC_FUSION_FP): Likewise.
+
+	* config/rs6000/rs6000.md (UNSPEC_FUSION_P9): New power9/toc
+	fusion unspecs.
+	(UNSPEC_FUSION_ADDIS): Likewise.
+	(QHSI mode iterator): New iterator for power9 fusion.
+	(GPR_FUSION): Likewise.
+	(FPR_FUSION): Likewise.
+	(mod<mode>3): Add support for ISA 3.0
+	modulus instructions.
+	(umod<mode>3): Likewise.
+	(divmod peephole): Likewise.
+	(udivmod peephole): Likewise.
+	(ctz<mode>2): Add support for ISA 3.0 count trailing zeros scalar
+	instructions.
+	(ctz<mode>2_h): Likewise.
+	(ashdi3_extswsli): Add support for ISA 3.0 EXTSWSLI instruction.
+	(ashdi3_extswsli_dot): Likewise.
+	(ashdi3_extswsli_dot2): Likewise.
+	(power9 fusion splitter): New power9/toc fusion support.
+	(toc_fusionload_<mode>): Likewise.
+	(toc_fusionload_di): Likewise.
+	(fusion_gpr_load_<mode>): Update predicate function.
+	(power9 fusion peephole2s): New power9/toc fusion support.
+	(fusion_gpr_<P:mode>_<GPR_FUSION:mode>_load): Likewise.
+	(fusion_gpr_<P:mode>_<GPR_FUSION:mode>_store): Likewise.
+	(fusion_fpr_<P:mode>_<FPR_FUSION:mode>_load): Likewise.
+	(fusion_fpr_<P:mode>_<FPR_FUSION:mode>_store): Likewise.
+	(fusion_p9_<mode>_constant): Likewise.
+
+2015-11-09  Steve Ellcey  <sellcey@imgtec.com>
+
+	* optabs.c (prepare_libcall_arg): New function.
+	(expand_fixed_convert): Add call to prepare_libcall_arg.
+
+2015-11-09  Nikolai Bozhenov  <n.bozhenov@samsung.com>
+
+	* sched-int.h (dump_rgn_dependencies_dot): Declare
+	* sched-rgn.c (dump_rgn_dependencies_dot): New function
+	* print-rtl.h (print_insn): Add prototype
+
+	* haifa-sched.c (setup_sched_dump): Don't redirect output to stderr.
+	* common.opt (-fsched-verbose): Set default value to 1.
+	* invoke.texi (-fsched-verbose): Update the option's description.
+
+2015-11-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/visium/visium.h (PRINT_OPERAND): Delete.
+	(PRINT_OPERAND_PUNCT_VALID_P): Likewise.
+	(PRINT_OPERAND_ADDRESS): Likewise.
+	* config/visium/visium.c (TARGET_PRINT_OPERAND_PUNCT_VALID_P): Define
+	to...
+	(visium_print_operand_punct_valid_p): ...this.  New function.
+	(TARGET_PRINT_OPERAND): Define to...
+	(print_operand): Rename to...
+	(visium_print_operand): ...this.
+	(TARGET_PRINT_OPERAND_ADDRESS): Define to...
+	(visium_output_address): Rename to...
+	(visium_print_operand_address): ...this.
+	(print_operand_address): Delete.
+
+2015-11-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/68259
+	* tree.h (reverse_storage_order_for_component_p) <COMPONENT_REF>:
+	Check that the type of the first operand is an aggregate type.
+
+2015-11-09  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* omp-low.c: Fix some OpenACC comment typos.
+	(lower_reduction_clauses): Remove BUILT_IN_GOACC_GET_THREAD_NUM call.
+	* omp-builtins.def (BUILT_IN_GOACC_GET_THREAD_NUM,
+	BUILT_IN_GOACC_GET_NUM_THREADS): Delete.
+
+2015-11-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*strmovqi_1): Fix insn enable condition.
+
+2015-11-09  Jeff Law  <law@redhat.com>
+
+	* tree-ssanames.c (verify_ssaname_freelists): Simplify check for
+	being in gimple/ssa form.  Remove redundant check for SSA_NAME.
+	Fix comment typo.
+
+2015-11-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (-mpower9-fusion): Add new switches for
+	ISA 3.0 (power9).
+	(-mpower9-vector): Likewise.
+	(-mpower9-dform): Likewise.
+	(-mpower9-minmax): Likewise.
+	(-mtoc-fusion): Likewise.
+	(-mmodulo): Likewise.
+	(-mfloat128-hardware): Likewise.
+
+	* config/rs6000/rs6000-cpus.def (ISA_3_0_MASKS_SERVER): Add option
+	mask for ISA 3.0 (power9).
+	(POWERPC_MASKS): Add new ISA 3.0 switches.
+	(power9 cpu): Add power9 cpu.
+
+	* config/rs6000/rs6000.h (ASM_CPU_POWER9_SPEC): Add support for
+	power9.
+	(ASM_CPU_SPEC): Likewise.
+	(EXTRA_SPECS): Likewise.
+
+	* config/rs6000/rs6000-opts.h (enum processor_type): Add
+	PROCESSOR_POWER9.
+
+	* config/rs6000/rs6000.c (power9_cost): Initial cost setup for
+	power9.
+	(rs6000_debug_reg_global): Add support for power9 fusion.
+	(rs6000_setup_reg_addr_masks): Cache mode size.
+	(rs6000_option_override_internal): Until real power9 tuning is
+	added, use -mtune=power8 for -mcpu=power9.
+	(rs6000_setup_reg_addr_masks): Do not allow pre-increment,
+	pre-decrement, or pre-modify on SFmode/DFmode if we allow the use
+	of Altivec registers.
+	(rs6000_option_override_internal): Add support for ISA 3.0
+	switches.
+	(rs6000_loop_align): Add support for power9 cpu.
+	(rs6000_file_start): Likewise.
+	(rs6000_adjust_cost): Likewise.
+	(rs6000_issue_rate): Likewise.
+	(insn_must_be_first_in_group): Likewise.
+	(insn_must_be_last_in_group): Likewise.
+	(force_new_group): Likewise.
+	(rs6000_register_move_cost): Likewise.
+	(rs6000_opt_masks): Likewise.
+
+	* config/rs6000/rs6000.md (cpu attribute): Add power9.
+	* config/rs6000/rs6000-tables.opt: Regenerate.
+
+	* config/rs6000/rs6000-c.c (rs6000_target_modify_macros): Define
+	_ARCH_PWR9 if power9 support is available.
+
+	* config/rs6000/aix61.h (ASM_CPU_SPEC): Add power9.
+	* config/rs6000/aix53.h (ASM_CPU_SPEC): Likewise.
+
+	* configure.ac: Determine if the assembler supports the ISA 3.0
+	instructions.
+	* config.in (HAVE_AS_POWER9): Likewise.
+	* configure: Regenerate.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document ISA 3.0
+	switches.
+
+2015-11-09  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_simd_valid_immediate):
+	Remove integer CONST_DOUBLE handling.  It should never occur.
+
+2015-11-09  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/68129
+	* config/aarch64/aarch64.h (TARGET_SUPPORTS_WIDE_INT): Define to 1.
+	* config/aarch64/aarch64.c (aarch64_print_operand, CONST_DOUBLE):
+	Delete VOIDmode case.  Assert that mode is not VOIDmode.
+	* config/aarch64/predicates.md (const0_operand): Remove const_double
+	match.
+
+2015-11-09  Martin Liska  <mliska@suse.cz>
+
+	* ipa-inline-analysis.c (estimate_function_body_sizes): Call
+	body_info release function.
+	* ipa-prop.c (ipa_release_body_info): New function.
+	(ipa_analyze_node): Call the function.
+	(ipa_node_params::~ipa_node_params): Release known_csts.
+	* ipa-prop.h (ipa_release_body_info): Declare.
+
+2015-11-09  Martin Liska  <mliska@suse.cz>
+
+	* gcc.c (record_temp_file): Release name string.
+	* ifcvt.c (noce_convert_multiple_sets): Use auto_vec instead
+	of vec.
+	* lra-lives.c (free_live_range_list): Utilize
+	lra_live_range_pool for allocation and deallocation.
+	(create_live_range): Likewise.
+	(copy_live_range): Likewise.
+	(lra_merge_live_ranges): Likewise.
+	(remove_some_program_points_and_update_live_ranges): Likewise.
+	(lra_create_live_ranges_1): Release point_freq_vec that can
+	be not freed from previous iteration of the function.
+	* tree-eh.c (lower_try_finally_switch): Use auto_vec instead of
+	vec.
+	* tree-sra.c (sra_deinitialize): Release all vectors in
+	base_access_vec.
+	* tree-ssa-dom.c (free_dom_edge_info): Make the function extern.
+	* tree-ssa-threadupdate.c (remove_ctrl_stmt_and_useless_edges):
+	Release edge_info for a removed edge.
+	(thread_through_all_blocks): Free region vector.
+	* tree-ssa.h (free_dom_edge_info): Declare function extern.
+
+2015-11-09  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	* optabs.c (expand_vec_cond_expr): Always get sign from type.
+	* tree.c (wide_int_to_tree): Support negative values for boolean.
+	(build_nonstandard_boolean_type): Use signed type for booleans.
+
+2015-11-09  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/68248
+	* tree-vect-generic.c (expand_vector_operations_1): Handle
+	scalar rhs2.
+
+2015-11-09  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56118
+	* tree-vectorizer.h (vect_find_last_scalar_stmt_in_slp): Declare.
+	* tree-vect-slp.c (vect_find_last_scalar_stmt_in_slp): Export.
+	* tree-vect-data-refs.c (vect_slp_analyze_node_dependences): New
+	function.
+	(vect_slp_analyze_data_ref_dependences): Instead of computing
+	all dependences of the region DRs just analyze the code motions
+	SLP vectorization will perform.  Remove SLP instances that
+	cannot have their store/load motions applied.
+	(vect_analyze_data_refs): Allow DRs without a vectype
+	in BB vectorization.
+
+2015-11-09  Julian Brown  <julian@codesourcery.com>
+
+	* final.c (output_asm_insn): Pass VOIDmode to output_address.
+	(output_address): Add MODE argument. Pass to print_operand_address
+	hook.
+	* targhooks.c (default_print_operand_address): Add MODE argument.
+	* targhooks.h (default_print_operand_address): Update prototype.
+	* output.h (output_address): Update prototype.
+	* target.def (print_operand_address): Add MODE argument.
+	* config/vax/vax.c (print_operand_address): Pass VOIDmode to
+	output_address.
+	(print_operand): Pass access mode to output_address.
+	* config/mcore/mcore.c (mcore_print_operand_address): Add MODE
+	argument.
+	(mcore_print_operand): Update calls to mcore_print_operand_address.
+	* config/fr30/fr30.c (fr30_print_operand): Pass VOIDmode to
+	output_address.
+	* config/lm32/lm32.c (lm32_print_operand): Pass mode in calls to
+	output_address.
+	* config/tilegx/tilegx.c (output_memory_reference_mode): Remove
+	global.
+	(tilegx_print_operand): Don't set above global. Update calls to
+	output_address.
+	(tilegx_print_operand_address): Add MODE argument. Use instead of
+	output_memory_reference_mode global.
+	* config/frv/frv.c (frv_print_operand_address): Add MODE argument.
+	(frv_print_operand): Pass mode to frv_print_operand_address calls.
+	* config/mn10300/mn10300.c (mn10300_print_operand): Pass mode to
+	output_address.
+	* config/cris/cris.c (cris_print_operand_address): Add MODE
+	argument.
+	(cris_print_operand): Pass mode to output_address calls.
+	* config/spu/spu.c (print_operand): Pass mode to output_address
+	calls.
+	* config/aarch64/aarch64.h (aarch64_print_operand)
+	(aarch64_print_operand_address): Remove prototypes.
+	* config/aarch64/aarch64.c (aarch64_memory_reference_mode): Delete
+	global.
+	(aarch64_print_operand): Make static. Update calls to
+	output_address.
+	(aarch64_print_operand_address): Add MODE argument. Use instead of
+	aarch64_memory_reference_mode global.
+	(TARGET_PRINT_OPERAND, TARGET_PRINT_OPERAND_ADDRESS): Define target
+	hooks.
+	* config/aarch64/aarch64.h (PRINT_OPERAND, PRINT_OPERAND_ADDRESS):
+	Delete macro definitions.
+	* config/pa/pa.c (pa_print_operand): Pass mode in output_address
+	calls.
+	* config/xtensa/xtensa.c (print_operand): Pass mode in
+	output_address calls.
+	* config/h8300/h8300.c (h8300_print_operand_address): Add MODE
+	argument.
+	(h83000_print_operand): Update calls to h8300_print_operand_address
+	and output_address.
+	* config/ia64/ia64.c (ia64_print_operand_address): Add MODE
+	argument.
+	* config/tilepro/tilepro.c (output_memory_reference_mode): Delete
+	global.
+	(tilepro_print_operand): Pass mode to output_address.
+	(tilepro_print_operand_address): Add MODE argument. Use instead of
+	output_memory_reference_mode.
+	* config/nvptx/nvptx.c (output_decl_chunk, nvptx_assemble_integer)
+	(nvptx_output_call_insn, nvptx_print_address_operand): Pass VOIDmode
+	to output_address calls.
+	(nvptx_print_operand_address): Add MODE argument.
+	* config/alpha/alpha.c (print_operand): Pass mode argument in
+	output_address calls.
+	* config/m68k/m68k.c (print_operand): Pass mode argument in
+	output_address call.
+	* config/avr/avr.c (avr_print_operand_address): Add MODE argument.
+	(avr_print_operand): Update calls to avr_print_operand_address.
+	* config/sparc/sparc.c (sparc_print_operand_address): Add MODE
+	argument. Update calls to output_address.
+	(sparc_print_operand): Pass mode to output_address.
+	* config/iq2000/iq2000.c (iq2000_print_operand_address): Add MODE
+	argument.
+	(iq2000_print_operand): Pass mode in output_address calls.
+	* config/stormy16/stormy16.c (xstormy16_print_operand_address): Add
+	MODE argument.
+	(xstormy16_print_operand): Pass mode to
+	xstormy16_print_operand_address calls.
+	* config/mips/mips.c (mips_print_operand): Update calls to
+	output_address.
+	(mips_print_operand_address): Add MODE argument.
+	* config/epiphany/epiphany.c (epiphany_print_operand): Update calls
+	to output_address.
+	(epiphany_print_operand_address): Add MODE argument. Add FIXME note.
+	* config/pdp11/pdp11.c (pdp11_asm_print_operand): Update call to
+	output_address.
+	* config/rx/rx.c (rx_print_operand_address): Add MODE argument.
+	(rx_print_operand): Update calls to output_address,
+	rx_print_operand_address.
+	* config/nds32/nds32.c (nds32_print_operand): Update calls to
+	output_address.
+	(nds32_print_operand_address): Add MODE argument.
+	* config/rs6000/rs6000.c (print_operand): Pass mem mode to
+	output_address calls.
+	* config/c6x/c6x.c (print_address_offset): Pass mem mode to
+	output_address call.
+	(c6x_print_address_operand): Update calls to output_address.
+	(c6x_print_operand_address): Pass mode to above.
+	* config/v850/v850.c (v850_print_operand_address): Add MODE
+	argument.
+	(v850_print_operand): Pass mode to v850_print_operand_address,
+	output_address.
+	* config/mmix/mmix.c (mmix_print_operand_address): Add MODE
+	argument.
+	(mmix_print_operand): Pass mode in output_address calls.
+	* config/sh/sh.c (sh_print_operand_address): Add MODE argument.
+	(sh_print_operand): Pass mem mode to output_address,
+	sh_print_operand_address.
+	* config/cr16/cr16.c (cr16_print_operand_address): Add MODE
+	argument.
+	(cr16_print_operand): Pass mode to output_address,
+	cr16_print_operand_address.
+	* config/bfin/bfin.c (print_address_operand): Pass VOIDmode to
+	output_address.
+	* config/microblaze/microblaze.c (print_operand): Pass mode to
+	output_address.
+	* config/nios2/nios2.c (nios2_print_operand): Pass VOIDmode to
+	output_address.
+	(nios2_print_operand_address): Add MODE argument. Update call to
+	nios2_print_operand_address.
+	* config/s390/s390.c (print_operand): Pass mode to output_address.
+	* config/m32c/m32c.c (m32c_print_operand_address): Add MODE
+	argument.
+	* config/arc/arc.c (arc_print_operand): Pass VOIDmode to
+	output_address.
+	* config/arm/arm.c (arm_print_operand_address): Add MODE argument.
+	Use instead of output_memory_reference_mode.
+	(output_memory_reference_mode): Delete global.
+	(arm_print_operand): Pass mem mode to output_address.
+	* config/m32r/m32r.c (m32r_print_operand_address): Add MODE
+	argument.
+	(m32r_print_operand): Pass mode to output_address.
+	* config/msp430/msp430.c (msp430_print_operand_addr): Add MODE
+	argument.
+	(msp430_print_operand): Pass mode to msp430_print_operand_addr.
+	* config/i386/i386.c (ix86_print_operand): Pass mode to
+	output_address calls.
+	(ix86_print_operand_address): Add MODE argument.
+
+2015-11-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/68251
+	* tree-core.h (REF_REVERSE_STORAGE_ORDER): Move around.
+	* tree.h (REF_REVERSE_STORAGE_ORDER): Change to default_def_flag.
+	* tree-streamer-in.c (unpack_ts_base_value_fields): Adjust.
+	* tree-streamer-out.c (pack_ts_base_value_fields): Likewise.
+
+2015-11-09  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/67749
+	* ifcvt.c (noce_try_cmove_arith): Do not emit move in IF-ELSE
+	case before emitting the two blocks.  Instead modify the register
+	in the corresponding final insn of the basic block.
+
+2015-11-09  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* acinclude.m4 (gcc_AC_INITFINI_ARRAY): Allow for differences in
+	assembler syntax.
+	Support Solaris ld.
+	Define HAVE_INITFINI_ARRAY_SUPPORT as 0/1.
+
+	* config/sol2.h (SUPPORTS_INIT_PRIORITY): Define to
+	HAVE_INITFINI_ARRAY_SUPPORT.
+	* config/initfini-array.h: Check HAVE_INITFINI_ARRAY_SUPPORT
+	value.
+
+	* configure.ac (gcc_cv_as_sparc_nobits): Remove.
+	* config/sparc/sparc.c (sparc_solaris_elf_asm_named_section):
+	Don't check HAVE_AS_SPARC_NOBITS.
+	Heed SECTION_NOTYPE.
+
+	* configure: Regenerate.
+	* config.in: Regenerate.
+
+2015-11-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/68253
+	* fold-const.c (fold_truth_andor_1): Initialize new variables to 0.
+
 2015-11-09  Richard Henderson  <rth@redhat.com>
 
 	* config/i386/i386-c.c (ix86_target_macros): Define __SEG_FS,
@@ -242,7 +861,7 @@
 	(TYPE_SATURATING): Adjust.
 	(REF_REVERSE_STORAGE_ORDER): New flag.
 	(reverse_storage_order_for_component_p): New inline predicate.
- 	(storage_order_barrier_p): Likewise.
+	(storage_order_barrier_p): Likewise.
 	(get_inner_reference): Adjust prototype.
 	* varasm.c: Include expmed.h.
 	(assemble_variable_contents): Adjust call to output_constant.
@@ -353,7 +972,7 @@
 	* tree-ssa-sccvn.c (vn_reference_eq): Return false on storage order
 	barriers.
 	(copy_reference_ops_from_ref) <MEM_REF>: Set REVERSE field according
- 	to the REF_REVERSE_STORAGE_ORDER flag.
+	to the REF_REVERSE_STORAGE_ORDER flag.
 	<BIT_FIELD_REF>: Likewise.
 	<VIEW_CONVERT_EXPR>: Set it for storage order barriers.
 	(contains_storage_order_barrier_p): New predicate.
@@ -673,11 +1292,11 @@
 
 	Properly apply.
 	2015-11-05  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
-        * config/aarch64/aarch64.c
-        (aarch64_can_use_per_function_literal_pools_p): New.
-        (aarch64_use_blocks_for_constant_p): Adjust declaration
-        and use aarch64_can_use_function_literal_pools_p.
-        (aarch64_select_rtx_section): Update.
+	* config/aarch64/aarch64.c
+	(aarch64_can_use_per_function_literal_pools_p): New.
+	(aarch64_use_blocks_for_constant_p): Adjust declaration
+	and use aarch64_can_use_function_literal_pools_p.
+	(aarch64_select_rtx_section): Update.
 
 2015-11-06  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 
@@ -722,16 +1341,16 @@
 	* config/aarch64/aarch64-simd.md: Matching expressions for frsqrte and
 	frsqrts.
 	* config/aarch64/aarch64-tuning-flags.def: Added recip_sqrt.
-	* config/aarch64/aarch64.c: New functions. Emit rsqrt estimation code when
-	applicable.
+	* config/aarch64/aarch64.c: New functions. Emit rsqrt estimation
+	code when applicable.
 	* config/aarch64/aarch64.md: Added enum entries.
 	* config/aarch64/aarch64.opt: Added option -mlow-precision-recip-sqrt.
-	* testsuite/gcc.target/aarch64/rsqrt_asm_check_common.h: Common macros for
-	assembly checks.
+	* testsuite/gcc.target/aarch64/rsqrt_asm_check_common.h: Common
+	macros for assembly checks.
 	* testsuite/gcc.target/aarch64/rsqrt_asm_check_negative_1.c: Make sure
 	frsqrts and frsqrte are not emitted.
-	* testsuite/gcc.target/aarch64/rsqrt_asm_check_1.c: Make sure frsqrts and
-	frsqrte are emitted.
+	* testsuite/gcc.target/aarch64/rsqrt_asm_check_1.c: Make sure
+	frsqrts and frsqrte are emitted.
 	* testsuite/gcc.target/aarch64/rsqrt_1.c: Functional tests for rsqrt.
 
 2015-11-07  Jan Hubicka  <hubicka@ucw.cz>
@@ -1021,11 +1640,11 @@
 
 2015-11-05  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 
-        * config/aarch64/aarch64.c
-        (aarch64_can_use_per_function_literal_pools_p): New.
-        (aarch64_use_blocks_for_constant_p): Adjust declaration
-        and use aarch64_can_use_function_literal_pools_p.
-        (aarch64_select_rtx_section): Update.
+	* config/aarch64/aarch64.c
+	(aarch64_can_use_per_function_literal_pools_p): New.
+	(aarch64_use_blocks_for_constant_p): Adjust declaration
+	and use aarch64_can_use_function_literal_pools_p.
+	(aarch64_select_rtx_section): Update.
 
 2015-11-05  Ilya Enkovich  <enkovich.gnu@gmail.com>
 

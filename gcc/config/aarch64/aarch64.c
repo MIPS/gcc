@@ -558,10 +558,6 @@ static const struct aarch64_option_extension all_extensions[] =
   {NULL, 0, 0}
 };
 
-/* Used to track the size of an address when generating a pre/post
-   increment address.  */
-static machine_mode aarch64_memory_reference_mode;
-
 typedef enum aarch64_cond_code
 {
   AARCH64_EQ = 0, AARCH64_NE, AARCH64_CS, AARCH64_CC, AARCH64_MI, AARCH64_PL,
@@ -4133,8 +4129,8 @@ aarch64_ccmp_mode_to_code (enum machine_mode mode)
 }
 
 
-void
-aarch64_print_operand (FILE *f, rtx x, char code)
+static void
+aarch64_print_operand (FILE *f, rtx x, int code)
 {
   switch (code)
     {
@@ -4364,8 +4360,7 @@ aarch64_print_operand (FILE *f, rtx x, char code)
 	  break;
 
 	case MEM:
-	  aarch64_memory_reference_mode = GET_MODE (x);
-	  output_address (XEXP (x, 0));
+	  output_address (GET_MODE (x), XEXP (x, 0));
 	  break;
 
 	case CONST:
@@ -4396,11 +4391,10 @@ aarch64_print_operand (FILE *f, rtx x, char code)
 	  break;
 
 	case CONST_DOUBLE:
-	  /* CONST_DOUBLE can represent a double-width integer.
-	     In this case, the mode of x is VOIDmode.  */
-	  if (GET_MODE (x) == VOIDmode)
-	    ; /* Do Nothing.  */
-	  else if (aarch64_float_const_zero_rtx_p (x))
+	  /* Since we define TARGET_SUPPORTS_WIDE_INT we shouldn't ever
+	     be getting CONST_DOUBLEs holding integers.  */
+	  gcc_assert (GET_MODE (x) != VOIDmode);
+	  if (aarch64_float_const_zero_rtx_p (x))
 	    {
 	      fputc ('0', f);
 	      break;
@@ -4555,13 +4549,12 @@ aarch64_print_operand (FILE *f, rtx x, char code)
     }
 }
 
-void
-aarch64_print_operand_address (FILE *f, rtx x)
+static void
+aarch64_print_operand_address (FILE *f, machine_mode mode, rtx x)
 {
   struct aarch64_address_info addr;
 
-  if (aarch64_classify_address (&addr, x, aarch64_memory_reference_mode,
-			     MEM, true))
+  if (aarch64_classify_address (&addr, x, mode, MEM, true))
     switch (addr.type)
       {
       case ADDRESS_REG_IMM:
@@ -4604,19 +4597,19 @@ aarch64_print_operand_address (FILE *f, rtx x)
 	  {
 	  case PRE_INC:
 	    asm_fprintf (f, "[%s, %d]!", reg_names [REGNO (addr.base)],
-			 GET_MODE_SIZE (aarch64_memory_reference_mode));
+			 GET_MODE_SIZE (mode));
 	    return;
 	  case POST_INC:
 	    asm_fprintf (f, "[%s], %d", reg_names [REGNO (addr.base)],
-			 GET_MODE_SIZE (aarch64_memory_reference_mode));
+			 GET_MODE_SIZE (mode));
 	    return;
 	  case PRE_DEC:
 	    asm_fprintf (f, "[%s, -%d]!", reg_names [REGNO (addr.base)],
-			 GET_MODE_SIZE (aarch64_memory_reference_mode));
+			 GET_MODE_SIZE (mode));
 	    return;
 	  case POST_DEC:
 	    asm_fprintf (f, "[%s], -%d", reg_names [REGNO (addr.base)],
-			 GET_MODE_SIZE (aarch64_memory_reference_mode));
+			 GET_MODE_SIZE (mode));
 	    return;
 	  case PRE_MODIFY:
 	    asm_fprintf (f, "[%s, %wd]!", reg_names [REGNO (addr.base)],
@@ -5251,9 +5244,11 @@ aarch64_can_use_per_function_literal_pools_p (void)
 static bool
 aarch64_use_blocks_for_constant_p (machine_mode, const_rtx)
 {
-  /* We can't use blocks for constants when we're using a per-function
-     constant pool.  */
-  return !aarch64_can_use_per_function_literal_pools_p ();
+  /* Fixme:: In an ideal world this would work similar
+     to the logic in aarch64_select_rtx_section but this
+     breaks bootstrap in gcc go.  For now we workaround
+     this by returning false here.  */
+  return false;
 }
 
 /* Select appropriate section for constants depending
@@ -10165,32 +10160,16 @@ aarch64_simd_valid_immediate (rtx op, machine_mode mode, bool inverse,
          it must be laid out in the vector register in reverse order.  */
       rtx el = CONST_VECTOR_ELT (op, BYTES_BIG_ENDIAN ? (n_elts - 1 - i) : i);
       unsigned HOST_WIDE_INT elpart;
-      unsigned int part, parts;
 
-      if (CONST_INT_P (el))
-        {
-          elpart = INTVAL (el);
-          parts = 1;
-        }
-      else if (GET_CODE (el) == CONST_DOUBLE)
-        {
-          elpart = CONST_DOUBLE_LOW (el);
-          parts = 2;
-        }
-      else
-        gcc_unreachable ();
+      gcc_assert (CONST_INT_P (el));
+      elpart = INTVAL (el);
 
-      for (part = 0; part < parts; part++)
-        {
-          unsigned int byte;
-          for (byte = 0; byte < innersize; byte++)
-            {
-              bytes[idx++] = (elpart & 0xff) ^ invmask;
-              elpart >>= BITS_PER_UNIT;
-            }
-          if (GET_CODE (el) == CONST_DOUBLE)
-            elpart = CONST_DOUBLE_HIGH (el);
-        }
+      for (unsigned int byte = 0; byte < innersize; byte++)
+	{
+	  bytes[idx++] = (elpart & 0xff) ^ invmask;
+	  elpart >>= BITS_PER_UNIT;
+	}
+
     }
 
   /* Sanity check.  */
@@ -13810,6 +13789,12 @@ aarch64_promoted_type (const_tree t)
 
 #undef TARGET_USE_PSEUDO_PIC_REG
 #define TARGET_USE_PSEUDO_PIC_REG aarch64_use_pseudo_pic_reg
+
+#undef TARGET_PRINT_OPERAND
+#define TARGET_PRINT_OPERAND aarch64_print_operand
+
+#undef TARGET_PRINT_OPERAND_ADDRESS
+#define TARGET_PRINT_OPERAND_ADDRESS aarch64_print_operand_address
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
