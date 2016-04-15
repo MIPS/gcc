@@ -1,8 +1,8 @@
 /* { dg-do compile { target { powerpc*-*-* && lp64 } } } */
 /* { dg-skip-if "" { powerpc*-*-darwin* } { "*" } { "" } } */
-/* { dg-require-effective-target powerpc_p8vector_ok } */
-/* { dg-skip-if "do not override -mcpu" { powerpc*-*-* } { "-mcpu=*" } { "-mcpu=power8" } } */
-/* { dg-options "-mcpu=power8 -O2 -mfloat128" } */
+/* { dg-require-effective-target powerpc_p9vector_ok } */
+/* { dg-skip-if "do not override -mcpu" { powerpc*-*-* } { "-mcpu=*" } { "-mcpu=power9" } } */
+/* { dg-options "-mcpu=power9 -O2 -mfloat128" } */
 
 int do_signbit_sf (float *a) { return __builtin_signbit (*a); }
 int do_signbit_df (double *a) { return __builtin_signbit (*a); }
