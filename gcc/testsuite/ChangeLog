@@ -1,3 +1,17 @@
+2015-11-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gfortran.dg/goacc/private-3.f95: Remove xfail.
+	* gfortran.dg/goacc/combined_loop.f90: Remove xfail.
+
+2015-11-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/i386/pr67265.c: New test.
+
+2015-11-11  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* gcc.target/powerpc/20050603-3.c: Don't restrict to ilp32.  Do more
+	tests for the expected generated code.
+
 2015-11-11  Simon Dardis  <simon.dardis@imgtec.com>
 
 	* gcc.target/mips/split-ds-sequence.c: New test.
