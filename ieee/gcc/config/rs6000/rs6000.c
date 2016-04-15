@@ -22722,8 +22722,8 @@ rs6000_emit_minmax (rtx dest, enum rtx_code code, rtx op0, rtx op1)
     emit_move_insn (dest, target);
 }
 
-/* Split a signbit operation on 64-bit machines with direct move.  Allow for
-   SFmode/DFmode to also come from memory or from a GPR.  */
+/* Split a signbit operation on 64-bit machines with direct move.  Also allow
+   for the value to come from memory or if it is already loaded into a GPR.  */
 
 void
 rs6000_split_signbit (rtx dest, rtx src)
@@ -22747,7 +22747,7 @@ rs6000_split_signbit (rtx dest, rtx src)
 	mem = adjust_address (src, DImode, 8);
 
       else
-	mem = adjust_address (src, DImode, 8);
+	mem = adjust_address (src, DImode, 0);
 
       emit_insn (gen_rtx_SET (dest_di, mem));
     }
@@ -22756,6 +22756,8 @@ rs6000_split_signbit (rtx dest, rtx src)
     {
       unsigned int r = REGNO (src);
 
+      /* If this is a VSX register, generate the special mfvsrd instruction
+	 to get it in a GPR.  */
       if (VSX_REGNO_P (r))
 	emit_insn (gen_rtx_SET (dest_di,
 				gen_rtx_UNSPEC (DImode,
