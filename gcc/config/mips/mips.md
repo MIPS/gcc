@@ -7454,7 +7454,7 @@
 		 (const_int 0)])
 	 (match_operand:GPR 2 "reg_or_0_operand_mips16e2" "dJ,0,dJ,0")
 	 (match_operand:GPR 3 "reg_or_0_operand_mips16e2" "0,dJ,0,dJ")))]
-  "ISA_HAS_CONDMOVE"
+  "ISA_HAS_CONDMOVE && ISA_HAS_MIPS16E2"
   "@
     mov%T4\t%0,%z2,%1
     mov%t4\t%0,%z3,%1
@@ -7483,7 +7483,7 @@
 	(match_operand:GPR2 1 "register_operand" "<GPR2:reg>,<GPR2:reg>,t,t")
 	(match_operand:GPR 2 "reg_or_0_operand_mips16e2" "dJ,0,dJ,0")
 	(match_operand:GPR 3 "reg_or_0_operand_mips16e2" "0,dJ,0,dJ")))]
-  "ISA_HAS_CONDMOVE"
+  "ISA_HAS_CONDMOVE && ISA_HAS_MIPS16E2"
   "@
     movn\t%0,%z2,%1
     movz\t%0,%z3,%1
