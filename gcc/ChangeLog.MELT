@@ -1,4 +1,13 @@
 
+2016-04-15   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{trouble merging with GCC 6 svn rev 229800.
+	possible issues with Melt_CallProtoFrame::_dbgcall_file_ ...
+	}}
+	* melt-build-script.tpl: Replace _NOMDFIVESUM_ with
+	_MELTNOMDFIVESUM_.
+	* melt-build-script.sh: Regenerate.
+	* melt-runtime.cc: Update copyright years.
+
 2016-04-14   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h: Use more systematically the melt*ptr_t types.
 	* melt-runtime.cc (meltgc_ppout_gimple_seq)

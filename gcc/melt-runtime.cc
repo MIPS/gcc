@@ -1,7 +1,7 @@
 /*** file melt-runtime.cc - see http://gcc-melt.org/ for more.
      Middle End Lisp Translator [MELT] runtime support.
 
-     Copyright (C) 2008 - 2015  Free Software Foundation, Inc.
+     Copyright (C) 2008 - 2016  Free Software Foundation, Inc.
      Contributed by Basile Starynkevitch <basile@starynkevitch.net>
        and Pierre Vittet  <piervit@pvittet.com>
        and Romain Geissler  <romain.geissler@gmail.com>

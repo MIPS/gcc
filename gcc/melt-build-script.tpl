@@ -5,7 +5,7 @@ sh
 +]#!/bin/bash
 [+ (. (dne "#@#@# " "#@! ")) +]
 # Generated shell script for MELT modules and MELT translator bootstrap
-#   Copyright (C) 2012-2015  Free Software Foundation
+#   Copyright (C) 2012-2016  Free Software Foundation
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -197,7 +197,7 @@ meltbuild_notice STAGE0+  [+(.(fromline))+] starting stage zero
   echo $GCCMELT_STAGE_ZERO/[+base+].$MELT_ZERO_GENERATED_[+varsuf+]_CUMULMD5.descriptor.meltpic.o: $GCCMELT_STAGE_ZERO/[+base+]+meltdesc.c  >> $MELT_ZERO_GENERATED_[+varsuf+]_BUILDMK-tmp$$
   for f in $GCCMELT_STAGE_ZERO/[+base+].cc $GCCMELT_STAGE_ZERO/[+base+]+[0-9][0-9].cc; do
       echo >> $MELT_ZERO_GENERATED_[+varsuf+]_BUILDMK-tmp$$
-      echo $GCCMELT_STAGE_ZERO/`basename $f .cc`._NOMDFIVESUM_.$GCCMELT_ZERO_FLAVOR.meltpic.o: $f >> $MELT_ZERO_GENERATED_[+varsuf+]_BUILDMK-tmp$$
+      echo $GCCMELT_STAGE_ZERO/`basename $f .cc`._MELTNOMDFIVESUM_.$GCCMELT_ZERO_FLAVOR.meltpic.o: $f >> $MELT_ZERO_GENERATED_[+varsuf+]_BUILDMK-tmp$$
   done
 
   echo >> $MELT_ZERO_GENERATED_[+varsuf+]_BUILDMK-tmp$$
@@ -205,9 +205,9 @@ meltbuild_notice STAGE0+  [+(.(fromline))+] starting stage zero
   echo $GCCMELT_STAGE_ZERO/[+base+].meltmod-$MELT_ZERO_GENERATED_[+varsuf+]_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so: \\  >> $MELT_ZERO_GENERATED_[+varsuf+]_BUILDMK-tmp$$
   echo " " $GCCMELT_STAGE_ZERO/[+base+].$MELT_ZERO_GENERATED_[+varsuf+]_CUMULMD5.descriptor.meltpic.o \\  >> $MELT_ZERO_GENERATED_[+varsuf+]_BUILDMK-tmp$$
   for f in $GCCMELT_STAGE_ZERO/[+base+]+[0-9][0-9].cc; do
-      echo " " $GCCMELT_STAGE_ZERO/`basename $f .cc`._NOMDFIVESUM_.$GCCMELT_ZERO_FLAVOR.meltpic.o \\ >> $MELT_ZERO_GENERATED_[+varsuf+]_BUILDMK-tmp$$
+      echo " " $GCCMELT_STAGE_ZERO/`basename $f .cc`._MELTNOMDFIVESUM_.$GCCMELT_ZERO_FLAVOR.meltpic.o \\ >> $MELT_ZERO_GENERATED_[+varsuf+]_BUILDMK-tmp$$
   done
-  echo " " $GCCMELT_STAGE_ZERO/[+base+]._NOMDFIVESUM_.$GCCMELT_ZERO_FLAVOR.meltpic.o >> $MELT_ZERO_GENERATED_[+varsuf+]_BUILDMK-tmp$$
+  echo " " $GCCMELT_STAGE_ZERO/[+base+]._MELTNOMDFIVESUM_.$GCCMELT_ZERO_FLAVOR.meltpic.o >> $MELT_ZERO_GENERATED_[+varsuf+]_BUILDMK-tmp$$
   echo >> $MELT_ZERO_GENERATED_[+varsuf+]_BUILDMK-tmp$$
   echo MELTGENMOD_CUMULATED_MD5SUM_melt_stage_zero_[+varsuf+]=$MELT_ZERO_GENERATED_[+varsuf+]_CUMULMD5 >> $MELT_ZERO_GENERATED_[+varsuf+]_BUILDMK-tmp$$
   echo MELTGENMOD_NAKED_NAME_melt_stage_zero_[+varsuf+]=[+base+]  >> $MELT_ZERO_GENERATED_[+varsuf+]_BUILDMK-tmp$$
