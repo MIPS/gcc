@@ -5357,7 +5357,10 @@
 (define_split
   [(set (match_operand 0 "d_operand")
 	(match_operand 1 "const_int_operand"))]
-  "TARGET_MIPS16 && reload_completed && SMALL_OPERAND_UNSIGNED (-INTVAL (operands[1]))"
+  "TARGET_MIPS16 && reload_completed
+   && (ISA_HAS_MIPS16E2
+       ? SMALL_OPERAND_UNSIGNED (-INTVAL (operands[1]))
+       : INTVAL (operands[1]) < 0)"
   [(set (match_dup 2)
 	(match_dup 3))
    (set (match_dup 2)
