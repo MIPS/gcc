@@ -1,3 +1,25 @@
+2015-11-11  Simon Dardis  <simon.dardis@imgtec.com>
+
+	* gcc.target/mips/split-ds-sequence.c: New test.
+
+2015-11-11  Julia Koval  <julia.koval@intel.com>
+
+	* g++.dg/ext/mv16.C: New functions.
+
+2015-11-11  Richard Biener  <rguenth@gcc.gnu.org>
+	    Jiong Wang	    <jiong.wang@arm.com>
+
+	* gcc.dg/tree-ssa/pr68234.c: New testcase. 
+
+2015-11-10  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc.dg/goacc/nvptx-opt-1.c: New test.
+
+2015-11-10  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	* gcc.target/i386/mask-pack.c: New test.
+	* gcc.target/i386/mask-unpack.c: New test.
+
 2015-11-10  Ilya Enkovich  <enkovich.gnu@gmail.com>
 
 	* gcc.target/i386/avx2-vec-mask-bit-not.c: New test.
