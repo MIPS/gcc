@@ -21,5 +21,5 @@ int do_signbit_kf (__float128 *a) { return __builtin_signbit (*a); }
 /* { dg-final { scan-assembler-not   "lxsd"     } } */
 /* { dg-final { scan-assembler-not   "lxsdx"    } } */
 /* { dg-final { scan-assembler-times "lwa"    1 } } */
-/* { dg-final { scan-assembler-times "lwd"    2 } } */
+/* { dg-final { scan-assembler-times "ld"     2 } } */
 /* { dg-final { scan-assembler-times "srdi"   3 } } */
