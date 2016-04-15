@@ -1,5 +1,8 @@
 
 2016-04-15   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{trouble merging with  GCC 6 svn rev 230333, should investigate}}
+
+2016-04-15   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{merging with even more of GCC 6, using subversion 1.9
 	svn merge -r229821:230010 ^/trunk
 	}}
