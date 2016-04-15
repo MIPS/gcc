@@ -26,16 +26,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "backend.h"
 #include "tree.h"
 #include "gimple.h"
-#include "hard-reg-set.h"
-#include "toplev.h"
-#include "flags.h"
-#include "alias.h"
-#include "fold-const.h"
-#include "internal-fn.h"
-#include "diagnostic-core.h"
-#include "cgraph.h"
 #include "tree-streamer.h"
+#include "cgraph.h"
 #include "lto-streamer.h"
+#include "toplev.h"
 #include "lto-section-names.h"
 
 /* Statistics gathered during LTO, WPA and LTRANS.  */

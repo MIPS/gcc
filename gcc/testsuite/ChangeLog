@@ -1,3 +1,180 @@
+2015-11-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/mvc1.c: Move to ...
+	* gcc.target/i386/mvc1.c: ... here.  Require ifunc.
+	* gcc.dg/mvc2.c: Move to ...
+	* gcc.target/i386/mvc2.c: ... here.
+	* gcc.dg/mvc3.c: Move to ...
+	* gcc.target/i386/mvc3.c: ... here.
+	* gcc.dg/mvc4.c: Move to ...
+	* gcc.target/i386/mvc4.c: ... here.  Require ifunc.
+	* gcc.dg/mvc5.c: Move to ...
+	* gcc.target/i386/mvc5.c: ... here.
+	* gcc.dg/mvc6.c: Move to ...
+	* gcc.target/i386/mvc6.c: ... here.
+	* gcc.dg/mvc7.c: Move to ...
+	* gcc.target/i386/mvc7.c: ... here.
+
+	* g++.dg/ext/mvc1.C: Require ifunc.
+
+2015-11-02  Alexandre Oliva <aoliva@redhat.com>
+
+	PR tree-optimization/68083
+	* gcc.dg/torture/pr68083.c: New.  From Zhendong Su.
+
+2015-11-02  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/ssa-thread-11.c: Verify that we do not have
+	irreducible loops in the CFG.
+
+2015-11-02  Alan Lawrence  <alan.lawrence@arm.com>
+
+	Revert:
+	2015-10-27  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* gcc.dg/vect/vect-strided-shift-1.c: New.
+
+2015-11-01  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/67929
+	* gcc.target/arm/pr67929_1.c: Move to...
+	* gcc.c-torture/execute/pr67929_1.c: ... Here.
+	Remove arm-specific directives.  Add noclone, noinline
+	attributes.
+
+2015-11-01  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/ssa-thread-11.c: Update target selector.
+
+2015-11-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/pr67609-2.c: Include sse2-check.h.
+	(sse2_test): Rename from main.  Do not return 0.
+
+2015-11-01  David Edelsohn  <dje.gcc@gmail.com>
+
+	* gfortran.dg/debug/pr46756.f: Remove XFAIL for AIX.
+	* gfortran.dg/proc_ptr_39.f90: Require visibility.
+	* gfortran.dg/read_dir.f90: XFAIL AIX.
+
+2015-10-31  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Remove the implementation of N3994, terse range-for loops.
+	* g++.dg/cpp1z/range-for1.C: Remove.
+
+2015-10-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/discr45.adb: New test.
+
+2015-10-31  Tom de Vries  <tom@codesourcery.com>
+
+	* gfortran.dg/assumed_type_2.f90: Update test.
+	* gfortran.dg/no_arg_check_2.f90: Same.
+
+2015-10-30  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.dg/gomp/intentin1.f90: Adjust copyprivate warning.
+
+2015-10-30  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/46588
+	* gfortran.dg/pr46588.f90: New test.
+
+2015-10-30  Evgeny Stupachenko  <evstupac@gmail.com>
+
+	* gcc.dg/mvc1.c: New test for multiple targets cloning.
+	* gcc.dg/mvc2.c: Ditto.
+	* gcc.dg/mvc3.c: Ditto.
+	* gcc.dg/mvc4.c: Ditto.
+	* gcc.dg/mvc5.c: Ditto.
+	* gcc.dg/mvc6.c: Ditto.
+	* gcc.dg/mvc7.c: Ditto.
+	* g++.dg/ext/mvc1.C: Ditto.
+	* g++.dg/ext/mvc2.C: Ditto.
+	* g++.dg/ext/mvc3.C: Ditto.
+	* g++.dg/ext/mvc4.C: Ditto.
+
+2015-10-30  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/51993
+	* gfortran.dg/pr51993.f90: New test.
+
+2015-10-30  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/68106
+	* gcc.target/aarch64/pr68106.c: New.
+
+2015-10-30  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/36192
+	* gfortran.dg/pr36192_1.f90: New test.
+
+2015-10-30  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/68154
+	*gfortran.dg/pr68154.f90
+
+2015-10-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* c-c++-common/goacc/acc_on_device-2-off.c: Delete.
+	* c-c++-common/goacc/acc_on_device-2.c: Delete.
+
+2015-10-29  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* gcc.dg/torture/builtin-convert-1.c: Require c99_runtime.
+
+2015-10-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/float128-call.c: New test for -mfloat128 on
+	PowerPC.
+	* gcc.target/powerpc/float128-mix.c: Likewise.
+
+2015-10-29  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/68054
+	* gfortran.dg/pr68054.f90: New test.
+
+2015-10-29  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/67885
+	* gfortran.dg/pr67885.f90: New test.
+
+2015-10-29  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/67892
+	* gcc.dg/tree-ssa/pr21417: Update expected output.
+	* gcc.dg/tree-ssa/ssa-dom-thread-2b.c: Likewise.
+
+2015-10-29  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/68142
+	* c-c++-common/ubsan/pr68142.c: New testcase.
+
+2015-10-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/67845
+	* g++.dg/other/cv_func4.C: New.
+
+2015-10-29  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/56956
+	* c-c++-common/ubsan/pr56956.c: New testcase.
+
+2015-10-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/discr44.adb: New test.
+
+2015-10-28  Jim Wilson  <jim.wilson@linaro.org>
+
+	PR debug/66068
+	* gcc.dg/debug/pr66068.c: New test.
+
+2015-01-28  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/67933
+	* gfortran.dg/allocate_with_source_15.f03: Correct trivial
+	array bounds error at line 25.
+
 2015-10-28  Catherine Moore  <clm@codesourcery.com>
 
 	* gcc.target/mips/oddspreg-3.c: Disable for MIPS16.
@@ -5,7 +182,7 @@
 	* gcc.target/mips/oddspreg-1.c: Likewise.
 	* gcc.target/mips/oddspreg-2.c: Likewise.
 
-2015-10-05  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+2015-10-28  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
 
 	PR target/67839
 	* gcc.target/avr/pr67839.c: New test.
@@ -52,8 +229,8 @@
 2015-10-27  Nathan Sidwell <nathan@codesourcery.com>
 	    Cesar Philippidis  <cesar@codesourcery.com>
 
-	* g++.dg/g++.dg/gomp/pr33372-1.C: Adjust diagnostic.
-	* gcc/testsuite/g++.dg/gomp/pr33372-3.C: Likewise.
+	* g++.dg/gomp/pr33372-1.C: Adjust diagnostic.
+	* g++.dg/gomp/pr33372-3.C: Likewise.
 
 2015-10-27  Richard Henderson  <rth@redhat.com>
 
@@ -250,8 +427,8 @@
 
 2015-10-25  Andre Vehreschild  <vehre@gmx.de>
 
-        PR fortran/66927
-        PR fortran/67044
+	PR fortran/66927
+	PR fortran/67044
 	* gfortran.dg/allocate_with_source_10.f08: New test.
 	* gfortran.dg/allocate_with_source_11.f08: New test.
 	* gfortran.dg/class_array_15.f03: Changed count of expected
@@ -787,7 +964,7 @@
 
 2015-10-13  Christophe Lyon  <christophe.lyon@linaro.org>
 
-	* gcc/testsuite/gcc.target/aarch64/table-intrinsics.c: Fix regexp
+	* gcc.target/aarch64/table-intrinsics.c: Fix regexp
 	after r228716 (Fix vtbl[34] and vtbx4).
 
 2015-10-13  Yuri Rumyantsev  <ysrumyan@gmail.com>
@@ -9617,7 +9794,7 @@
 
 2015-03-05  Martin Sebor  <msebor@redhat.com>
 
-	* PR testsuite/63175
+	PR testsuite/63175
 	* gcc.dg/vect/costmodel/ppc/costmodel-bb-slp-9a.c (main1): Move
 	checking of results into main to prevent it from getting optimized
 	away.
