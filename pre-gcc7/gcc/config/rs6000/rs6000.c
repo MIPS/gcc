@@ -22722,6 +22722,68 @@ rs6000_emit_minmax (rtx dest, enum rtx_code code, rtx op0, rtx op1)
     emit_move_insn (dest, target);
 }
 
+/* Split a signbit operation on 64-bit machines with direct move.  Also allow
+   for the value to come from memory or if it is already loaded into a GPR.  */
+
+void
+rs6000_split_signbit (rtx dest, rtx src)
+{
+  machine_mode d_mode = GET_MODE (dest);
+  machine_mode s_mode = GET_MODE (src);
+  rtx dest_di = (d_mode == DImode) ? dest : gen_lowpart (DImode, dest);
+  rtx shift_reg = dest_di;
+
+  gcc_assert (REG_P (dest));
+  gcc_assert (REG_P (src) || MEM_P (src));
+
+  if (MEM_P (src))
+    {
+      rtx mem;
+
+      if (s_mode == SFmode)
+	mem = gen_rtx_SIGN_EXTEND (DImode, adjust_address (src, SImode, 0));
+
+      else if (GET_MODE_SIZE (s_mode) == 16 && !WORDS_BIG_ENDIAN)
+	mem = adjust_address (src, DImode, 8);
+
+      else
+	mem = adjust_address (src, DImode, 0);
+
+      emit_insn (gen_rtx_SET (dest_di, mem));
+    }
+
+  else
+    {
+      unsigned int r = REGNO (src);
+
+      /* If this is a VSX register, generate the special mfvsrd instruction
+	 to get it in a GPR.  */
+      if (VSX_REGNO_P (r))
+	emit_insn (gen_rtx_SET (dest_di,
+				gen_rtx_UNSPEC (DImode,
+						gen_rtvec (2, src, const0_rtx),
+						UNSPEC_SIGNBIT)));
+
+      else
+	{
+	  gcc_assert (INT_REGNO_P (r));
+
+	  /* We need to sign extend SFmode if it lives in a GPR.  */
+	  if (s_mode == SFmode)
+	    {
+	      emit_insn (gen_extendsidi2 (dest_di, gen_lowpart (SImode, src)));
+	      shift_reg = dest_di;
+	    }
+
+	  else
+	    shift_reg = gen_highpart (DImode, src);
+	}
+    }
+
+  emit_insn (gen_lshrdi3 (dest_di, shift_reg, GEN_INT (63)));
+  return;
+}
+
 /* A subroutine of the atomic operation splitters.  Jump to LABEL if
    COND is true.  Mark the jump as unlikely to be taken.  */
 

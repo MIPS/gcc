@@ -1,3 +1,24 @@
+2016-04-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_split_signbit): New function to
+	split the signbit insns.
+
+	* config/rs6000/rs6000.md (UNSPEC_SIGNBIT): Improve signbit
+	built-in function support on 64-bit systems with direct move.  Add
+	support for __float128 signbit.
+	(SIGNBIT mode iterator): Likewise.
+	(Fsignbit mode attribute): Likewise.
+	(signbit<mode>2, iterator FLOAT128): Likewise.
+	(signbit<mode>2, iterator SFDF): Likewise.
+	(signbit<mode>2_dm): Likewise.
+	(signbit_<u>di_<mode>2_dm): Likewise.
+	(signbit<mode>2_dm2): Likewise.
+	(inf<mode>2, iterator SFDF): Add support for isinf built-in
+	function on 64-bit machines with direct move.
+	(inf<mode>2, iterator FLOAT128): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_split_signbit): Add declaration.
+
 2016-04-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 234995.

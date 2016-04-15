@@ -1,3 +1,16 @@
+2016-04-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/signbit-1.c: New tests for signbit built-in
+	functions.
+	* gcc.target/powerpc/signbit-2.c: Likewise.
+	* gcc.target/powerpc/signbit-3.c: Likewise.
+
+	* gcc.target/powerpc/inf-1.c: New test for inf built-in
+	functions.
+
+	* gcc.target/powerpc/float128-hw.c: Add explicit -mfloat128 and
+	-mfloat128-hardware switches.
+
 2016-04-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 234995.
