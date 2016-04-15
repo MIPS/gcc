@@ -1,3 +1,48 @@
+2015-11-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/slice9.adb: New test.
+
+2015-11-03  Martin Sebor  <msebor@redhat.com>
+
+	PR c++-common/67882
+	* c-c++-common/builtin-offsetof-2.c: New test.
+
+2015-11-03  Dominique d'Humieres <dominiq@lps.ens.fr>
+
+	PR fortran/67982
+	* gfortran.dg/warn_unused_function_3.f90: New test.
+
+2015-11-03  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/discr45.adb: Only compile the test.
+
+2015-11-03  Evgeny Stupachenko  <evstupac@gmail.com>
+
+	* g++.dg/ext/mvc4.C: Add dg-require-ifunc condition.
+	* gcc.target/i386/mvc5.c: Ditto.
+	* gcc.target/i386/mvc7.c: Add dg-require-ifunc condition and checks on
+	resolver.
+
+2015-11-03  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc-gomp/nesting-fail-1.c: Move "atomic" tests
+	from here to...
+	* c-c++-common/goacc-gomp/nesting-1.c: ... here, and expect them
+	to succeed.
+
+2015-11-03  Bilyan Borisov  <bilyan.borisov@arm.com>
+
+	* gcc/testsuite/gcc.target/aarch64/simd/vmulx_f32_1.c: New.
+	* gcc/testsuite/gcc.target/aarch64/simd/vmulx_f64_1.c: New.
+	* gcc/testsuite/gcc.target/aarch64/simd/vmulxq_f32_1.c: New.
+	* gcc/testsuite/gcc.target/aarch64/simd/vmulxq_f64_1.c: New.
+	* gcc/testsuite/gcc.target/aarch64/simd/vmulxs_f32_1.c: New.
+	* gcc/testsuite/gcc.target/aarch64/simd/vmulxd_f64_1.c: New.
+
+2015-11-03  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* gcc.target/aarch64/fp16/set_zero_1.c: New.
+
 2015-11-03  Uros Bizjak  <ubizjak@gmail.com>
 
 	* gcc.dg/mvc1.c: Move to ...
