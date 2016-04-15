@@ -1,5 +1,10 @@
 2016-04-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* gcc.target/powerpc/signbit-1.c: Fix spacing.
+
+	* gcc.target/powerpc/signbit-2.c: Fix spacing. Run with a power9
+	target instead of power8.
+
 	* gcc.target/powerpc/signbit-3.c: New test for __float128
 	signbit.
 
