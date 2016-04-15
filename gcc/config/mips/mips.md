@@ -4341,10 +4341,7 @@
   "<load>l\t%0,%2"
   [(set_attr "move_type" "load")
    (set_attr "mode" "<MODE>")
-   (set (attr "extended_mips16")
-	(cond [(match_test "TARGET_MIPS16")
-	       (const_string "yes")]
-	      (const_string "no")))])
+   (set_attr "extended_mips16" "yes")])
 
 (define_insn "mov_<load>r"
   [(set (match_operand:GPR 0 "register_operand" "=d")
@@ -4357,10 +4354,7 @@
   "<load>r\t%0,%2"
   [(set_attr "move_type" "load")
    (set_attr "mode" "<MODE>")
-   (set (attr "extended_mips16")
-	(cond [(match_test "TARGET_MIPS16")
-	       (const_string "yes")]
-	      (const_string "no")))])
+   (set_attr "extended_mips16" "yes")])
 
 (define_insn "mov_<store>l"
   [(set (match_operand:BLK 0 "memory_operand" "=m")
@@ -4372,10 +4366,7 @@
   "<store>l\t%z1,%2"
   [(set_attr "move_type" "store")
    (set_attr "mode" "<MODE>")
-   (set (attr "extended_mips16")
-	(cond [(match_test "TARGET_MIPS16")
-	       (const_string "yes")]
-	      (const_string "no")))])
+   (set_attr "extended_mips16" "yes")])
 
 (define_insn "mov_<store>r"
   [(set (match_operand:BLK 0 "memory_operand" "+m")
@@ -4388,10 +4379,7 @@
   "<store>r\t%z1,%2"
   [(set_attr "move_type" "store")
    (set_attr "mode" "<MODE>")
-   (set (attr "extended_mips16")
-	(cond [(match_test "TARGET_MIPS16")
-	       (const_string "yes")]
-	      (const_string "no")))])
+   (set_attr "extended_mips16" "yes")])
 
 ;; An instruction to calculate the high part of a 64-bit SYMBOL_ABSOLUTE.
 ;; The required value is:
