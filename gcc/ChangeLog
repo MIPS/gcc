@@ -1,3 +1,93 @@
+2015-11-04  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	* graphite-isl-ast-to-gimple.c: Include tree-cfg.h.
+	(translate_isl_ast_node_user): Add more dumps: call print_loops_bb.
+	* graphite-scop-detection.c (dot_all_scops_1): Moved out of
+	anonymous namespace.
+	* graphite-sese-to-poly.c (ssa_name_version_typesize): Remove.
+	(isl_id_for_pbb): Use a buffer of size 10.
+	(isl_id_for_ssa_name): Same.
+	* sese.c (set_rename): Add more dumps.
+
+2015-11-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* omp-low.c (struct omp_context): Remove reduction_map field.
+	(lookup_oacc_reduction, maybe_lookup_oacc_reduction): Delete.
+	(new_omp_context, delete_omp_context, scan_omp_target): Remove
+	reduction_map handling.
+	(lower_omp_target): Remove obsolete openacc reduction handling.
+
+2015-11-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_goacc_validate_dims): Add checking.
+
+2015-11-04  Nathan Sidwell  <nathan@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+
+	* config/nvptx/nvptx.c: Include gimple headers.
+	(worker_red_size, worker_red_align, worker_red_name,
+	worker_red_sym): New.
+	(nvptx_option_override): Initialize worker reduction buffer.
+	(nvptx_file_end): Write out worker reduction buffer var.
+	(nvptx_expand_shuffle, nvptx_expand_worker_addr,
+	nvptx_expand_cmp_swap): New builtin expanders.
+	(enum nvptx_builtins): New.
+	(nvptx_builtin_decls): New.
+	(nvptx_builtin_decl, nvptx_init_builtins, nvptx_expand_builtin): New
+	(PTX_VECTOR_LENGTH, PTX_WORKER_LENGTH): New.
+	(nvptx_get_worker_red_addr, nvptx_generate_vector_shuffle,
+	nvptx_lockless_update): New helpers.
+	(nvptx_goacc_reduction_setup, nvptx_goacc_reduction_init,
+	nvptx_goacc_reduction_fini, nvptx_goacc_reduction_teaddown): New.
+	(nvptx_goacc_reduction): New.
+	(TARGET_INIT_BUILTINS, TARGET_EXPAND_BUILTIN,
+	TARGET_BUILTIN_DECL): Override.
+	(TARGET_GOACC_REDUCTION): Override.
+
+2015-11-04  Nathan Sidwell  <nathan@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+
+	* internal-fn.def (GOACC_REDUCTION): New.
+	* internal-fn.h (enum ifn_goacc_reduction_kind): New.
+	* internal-fn.c (expand_GOACC_REDUCTION): New.
+	* target.def (goacc.reduction): New OpenACC hook.
+	* targhooks.h (default_goacc_reduction): Declare.
+	* doc/tm.texi.in: Add TARGET_GOACC_REDUCTION.
+	* doc/tm.texi: Rebuilt.
+	* omp-low.c (oacc_get_reduction_array_id, oacc_max_threads,
+	scan_sharing_clauses): Remove oacc reduction handling here.
+	(lower_rec_input_clauses): Don't handle OpenACC reductions here.
+	(oacc_lower_reduction_var_helper): Delete.
+	(lower_oacc_reductions): New.
+	(lower_reduction_clauses): Don't handle OpenACC reductions here.
+	(lower_oacc_head_tail): Call lower_oacc_reductions.
+	(oacc_gimple_assign, oacc_init_reduction_array,
+	oacc_initialize_reduction_data, oacc_finalize_reduction_data,
+	oacc_process_reduction_data): Delete.
+	(lower_omp_target): Remove old OpenACC reduction handling.  Insert
+	dummy OpenACC gang reduction for reductions at outer level.
+	(oacc_loop_xform_head_tail): Transform IFN_GOACC_REDUCTION.
+	(default_goacc_reduction): New.
+	(execute_oacc_device_lower): Handle IFN_GOACC_REDUCTION.
+
+2015-11-04  Martin Liska  <mliska@suse.cz>
+
+	* cgraphunit.c (cgraph_node::expand_thunk): Call
+	allocate_struct_function before init_function_start.
+	(cgraph_node::expand): Use push_cfun and pop_cfun.
+	* config/i386/i386.c (ix86_code_end): Call
+	allocate_struct_function before init_function_start.
+	* config/rs6000/rs6000.c (rs6000_code_end): Likewise.
+	* function.c (init_function_start): Move preamble to all
+	callers.
+	* passes.c (do_per_function_toporder): Use push_cfun and pop_cfun.
+	(execute_one_pass): Handle newly added TODO_discard_function.
+	(execute_pass_list_1): Terminate if cfun equals to NULL.
+	(execute_pass_list): Do not push and pop cfun, expect that
+	cfun is set.
+	* tree-pass.h (TODO_discard_function): Define.
+
 2015-11-04  Mikhail Maltsev  <maltsevm@gmail.com>
 
 	* cfganal.c (inverted_post_order_compute): Remove conditional
@@ -24,7 +114,7 @@
 	vi->only_restrict_pointers.
 	(intra_create_variable_infos): Call create_variable_info_for_1 with
 	extra arg.  Remove restrict handling.  Call make_param_constraints with
-	one less arg.
+	one fewer arg.
 
 2015-11-04  Tom de Vries  <tom@codesourcery.com>
 
