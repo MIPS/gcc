@@ -1,3 +1,15 @@
+2015-11-06  Kai Tietz  <ktietz70@googlemail.com>
+
+	* testsuite/26_numerics/complex/requirements/constexpr.cc
+	* testsuite/26_numerics/complex/requirements/constexpr_functions.cc:
+	Use constexpr where needed.
+
+2015-11-06  David Malcolm  <dmalcolm@redhat.com>
+
+	* testsuite/lib/libstdc++.exp (v3_target_compile): Add
+	-fno-diagnostics-show-caret -fdiagnostics-color=never to
+	option's additional_flags.
+
 2015-11-03  Jason Merrill  <jason@redhat.com>
 
 	* libsupc++/new: Declare sized deletes.

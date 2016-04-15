@@ -1,3 +1,52 @@
+2015-11-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* c-decl.c (finish_struct): If the structure has reverse storage
+	order, rewrite the type of array fields with scalar component.  Call
+	maybe_apply_pragma_scalar_storage_order on entry.
+	* c-typeck.c (build_unary_op) <ADDR_EXPR>: Remove left-overs.  Issue
+	errors on bit-fields and reverse SSO here and not...
+	(c_mark_addressable): ...here.
+	(output_init_element): Adjust call to initializer_constant_valid_p.
+	(c_build_qualified_type): Propagate TYPE_REVERSE_STORAGE_ORDER.
+
+2015-11-06  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-decl.c (warn_defaults_to): Update for change in signature
+	of diagnostic_set_info.
+	* c-errors.c (pedwarn_c99): Likewise.
+	(pedwarn_c90): Likewise.
+	* c-objc-common.c (c_tree_printer): Update for new "caret_p" param
+	for textinfo::set_location.
+
+2015-11-05  Cesar Philippidis  <cesar@codesourcery.com>
+	    Thomas Schwinge  <thomas@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+
+	* c-parser.c (c_parser_omp_clause_name): Add support for
+	PRAGMA_OACC_CLAUSE_INDEPENDENT and PRAGMA_OACC_CLAUSE_TILE.
+	(c_parser_omp_clause_default): Add is_oacc argument. Handle
+	default(none) in OpenACC.
+	(c_parser_oacc_shape_clause): Allow pointer variables as gang static
+	arguments.
+	(c_parser_oacc_clause_tile): New function.
+	(c_parser_oacc_all_clauses): Add support for OMP_CLAUSE_DEFAULT,
+	OMP_CLAUSE_INDEPENDENT and OMP_CLAUSE_TILE.
+	(OACC_LOOP_CLAUSE_MASK): Add PRAGMA_OACC_CLAUSE_{PRIVATE,INDEPENDENT,
+	TILE}.
+	(OACC_KERNELS_MASK): Add PRAGMA_OACC_CLAUSE_DEFAULT.
+	(OACC_PARALLEL_MASK): Add PRAGMA_OACC_CLAUSE_{DEFAULT,PRIVATE,
+	FIRSTPRIVATE}.
+	(c_parser_omp_all_clauses): Update call to c_parser_omp_clause_default.
+	(c_parser_oacc_update): Update the error message for missing clauses.
+	* c-typeck.c (c_finish_omp_clauses): Add support for OMP_CLAUSE_TILE
+	and OMP_CLAUSE_INDEPENDENT.
+
+2015-11-05  Marek Polacek  <polacek@redhat.com>
+
+	PR c/68090
+	* c-parser.c (c_parser_postfix_expression_after_paren_type): Don't
+	deal with pre-evaluation on invalid types.
+
 2015-11-05  Jakub Jelinek  <jakub@redhat.com>
 	    Ilya Verbin  <ilya.verbin@intel.com>
 

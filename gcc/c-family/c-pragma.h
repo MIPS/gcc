@@ -153,6 +153,7 @@ typedef enum pragma_omp_clause {
   PRAGMA_OACC_CLAUSE_DEVICEPTR,
   PRAGMA_OACC_CLAUSE_GANG,
   PRAGMA_OACC_CLAUSE_HOST,
+  PRAGMA_OACC_CLAUSE_INDEPENDENT,
   PRAGMA_OACC_CLAUSE_NUM_GANGS,
   PRAGMA_OACC_CLAUSE_NUM_WORKERS,
   PRAGMA_OACC_CLAUSE_PRESENT,
@@ -162,6 +163,7 @@ typedef enum pragma_omp_clause {
   PRAGMA_OACC_CLAUSE_PRESENT_OR_CREATE,
   PRAGMA_OACC_CLAUSE_SELF,
   PRAGMA_OACC_CLAUSE_SEQ,
+  PRAGMA_OACC_CLAUSE_TILE,
   PRAGMA_OACC_CLAUSE_VECTOR,
   PRAGMA_OACC_CLAUSE_VECTOR_LENGTH,
   PRAGMA_OACC_CLAUSE_WAIT,
@@ -169,6 +171,7 @@ typedef enum pragma_omp_clause {
   PRAGMA_OACC_CLAUSE_COLLAPSE = PRAGMA_OMP_CLAUSE_COLLAPSE,
   PRAGMA_OACC_CLAUSE_COPYIN = PRAGMA_OMP_CLAUSE_COPYIN,
   PRAGMA_OACC_CLAUSE_DEVICE = PRAGMA_OMP_CLAUSE_DEVICE,
+  PRAGMA_OACC_CLAUSE_DEFAULT = PRAGMA_OMP_CLAUSE_DEFAULT,
   PRAGMA_OACC_CLAUSE_FIRSTPRIVATE = PRAGMA_OMP_CLAUSE_FIRSTPRIVATE,
   PRAGMA_OACC_CLAUSE_IF = PRAGMA_OMP_CLAUSE_IF,
   PRAGMA_OACC_CLAUSE_PRIVATE = PRAGMA_OMP_CLAUSE_PRIVATE,
@@ -225,6 +228,7 @@ extern void c_invoke_pragma_handler (unsigned int);
 extern void maybe_apply_pragma_weak (tree);
 extern void maybe_apply_pending_pragma_weaks (void);
 extern tree maybe_apply_renaming_pragma (tree, tree);
+extern void maybe_apply_pragma_scalar_storage_order (tree);
 extern void add_to_renaming_pragma_list (tree, tree);
 
 extern enum cpp_ttype pragma_lex (tree *, location_t *loc = NULL);

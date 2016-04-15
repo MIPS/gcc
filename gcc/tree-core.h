@@ -159,13 +159,10 @@ enum built_in_function {
 
   BEGIN_CHKP_BUILTINS,
 
-#undef DEF_BUILTIN
 #define DEF_BUILTIN(ENUM, N, C, T, LT, B, F, NA, AT, IM, COND)
-#undef DEF_BUILTIN_CHKP
 #define DEF_BUILTIN_CHKP(ENUM, N, C, T, LT, B, F, NA, AT, IM, COND) \
   ENUM##_CHKP = ENUM + BEGIN_CHKP_BUILTINS + 1,
 #include "builtins.def"
-#undef DEF_BUILTIN_CHKP
 
   END_CHKP_BUILTINS = BEGIN_CHKP_BUILTINS * 2 + 1,
 
@@ -186,7 +183,6 @@ enum built_in_function {
   /* Upper bound on non-language-specific builtins.  */
   END_BUILTINS
 };
-#undef DEF_BUILTIN
 
 /* Tree code classes.  Each tree_code has an associated code class
    represented by a TREE_CODE_CLASS.  */
@@ -432,7 +428,10 @@ enum omp_clause_code {
   OMP_CLAUSE_NUM_WORKERS,
 
   /* OpenACC clause: vector_length (integer-expression).  */
-  OMP_CLAUSE_VECTOR_LENGTH
+  OMP_CLAUSE_VECTOR_LENGTH,
+
+  /* OpenACC clause: tile ( size-expr-list ).  */
+  OMP_CLAUSE_TILE
 };
 
 #undef DEFTREESTRUCT
@@ -734,7 +733,7 @@ enum size_type_kind {
 enum operand_equal_flag {
   OEP_ONLY_CONST = 1,
   OEP_PURE_SAME = 2,
-  OEP_CONSTANT_ADDRESS_OF = 4,
+  OEP_MATCH_SIDE_EFFECTS = 4,
   OEP_ADDRESS_OF = 8
 };
 
@@ -771,7 +770,6 @@ enum annot_expr_kind {
 enum internal_fn {
 #define DEF_INTERNAL_FN(CODE, FLAGS, FNSPEC) IFN_##CODE,
 #include "internal-fn.def"
-#undef DEF_INTERNAL_FN
   IFN_LAST
 };
 
@@ -1153,8 +1151,14 @@ struct GTY(()) tree_base {
 
    saturating_flag:
 
+       TYPE_REVERSE_STORAGE_ORDER in
+           RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE, ARRAY_TYPE
+
        TYPE_SATURATING in
-           all types
+           other types
+
+       REF_REVERSE_STORAGE_ORDER in
+           BIT_FIELD_REF, MEM_REF
 
        VAR_DECL_IS_VIRTUAL_OPERAND in
 	   VAR_DECL

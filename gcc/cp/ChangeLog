@@ -1,3 +1,83 @@
+2015-11-08  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/67942 
+	* cp/init.c (warn_placement_new_too_small): Convert integer
+	operand of POINTER_PLUS_EXPR to ssize_t to determine its signed
+	value.
+
+2015-11-06  David Malcolm  <dmalcolm@redhat.com>
+
+	* error.c (cp_printer): Update for new "caret_p" param for
+	textinfo::set_location.
+	(pedwarn_cxx98): Update for change in signature of
+	diagnostic_set_info.
+
+2015-11-06  Jason Merrill  <jason@redhat.com>
+
+	Support non-type constrained-type-specifiers.
+	* parser.c (check_type_concept): Remove.
+	(cp_parser_maybe_constrained_type_specifier): Don't call it.
+	(synthesize_implicit_template_parm): Handle non-type and template
+	template parameters.  Also compare extra args.  Return the decl.
+	(cp_parser_template_argument): Handle constrained-type-specifiers for
+	non-type template parameters.
+	(finish_constrained_template_template_parm): Split out from
+	cp_parser_constrained_template_template_parm.
+	(cp_parser_nonclass_name): Move some logic into
+	cp_parser_maybe_concept_name.
+	(cp_parser_init_declarator): Fix error recovery.
+	(get_concept_from_constraint): Remove.
+	(cp_parser_simple_type_specifier): Adjust for
+	synthesize_implicit_template_parm returning the decl.
+	* constraint.cc (placeholder_extract_concept_and_args)
+	(equivalent_placeholder_constraints): Also handle TYPE_DECL
+	constrained parms.
+
+	* pt.c (push_inline_template_parms_recursive): Don't recreate the
+	CONST_DECL.
+
+2015-11-06  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* init.c (warn_placement_new_too_small): Use %wu format
+	rather than %lu when printing bytes_avail.
+
+2015-11-05  Cesar Philippidis  <cesar@codesourcery.com>
+	    Thomas Schwinge  <thomas@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+
+	* parser.c (cp_parser_omp_clause_name): Add support for
+	PRAGMA_OACC_CLAUSE_INDEPENDENT and PRAGMA_OACC_CLAUSE_TILE.
+	(cp_parser_oacc_shape_clause): Allow pointer variables as gang static
+	arguments.
+	(cp_parser_oacc_clause_tile): New function.
+	(cp_parser_omp_clause_default): Add is_oacc argument. Handle
+	default(none) in OpenACC.
+	(cp_parser_oacc_all_clauses): Add support for
+	(cp_parser_omp_all_clauses): Update call to
+	cp_parser_omp_clause_default.
+	PRAGMA_OACC_CLAUSE_{DEFAULT,INDEPENDENT,TILE,PRIVATE,FIRSTPRIVATE}.
+	(OACC_LOOP_CLAUSE_MASK): Add PRAGMA_OACC_CLAUSE_{PRIVATE,INDEPENDENT,
+	TILE}.
+	(OACC_KERNELS_MASK): Add PRAGMA_OACC_CLAUSE_DEFAULT.
+	(OACC_PARALLEL_MASK): Add PRAGMA_OACC_CLAUSE_{DEFAULT,PRIVATE,
+	FIRSTPRIVATE}.
+	(cp_parser_oacc_update): Update the error message for missing clauses.
+	* semantics.c (finish_omp_clauses): Add support for
+	OMP_CLAUSE_INDEPENDENT and OMP_CLAUSE_TILE.
+
+2015-11-05  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/67942
+	* cp/init.c (warn_placement_new_too_small): Avoid assuming
+	the size of the first operand of placement new or its type
+	is known.
+
+2015-11-05  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/67942
+	* cp/init.c (warn_placement_new_too_small): New function.
+	(build_new_1): Call it.
+
 2015-11-05  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/67846
