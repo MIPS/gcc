@@ -2648,7 +2648,7 @@ mips_build_lower (struct mips_integer_op *codes, unsigned HOST_WIDE_INT value)
       /* Either this is a simple LUI/ORI pair, or clearing the lowest 16
 	 bits gives a value with at least 17 trailing zeros.  */
       i = mips_build_integer (codes, high);
-      if (TARGET_MIPS16 && (value & 0x8000) == 0)
+      if (ISA_HAS_MIPS16E2 && (value & 0x8000) == 0)
 	codes[i].code = PLUS;
       else
 	codes[i].code = IOR;
