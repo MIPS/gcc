@@ -10,12 +10,12 @@ int do_signbit_kf (__float128 a) { return __builtin_signbit (a); }
 int do_signbit_if (__ibm128 a) { return __builtin_signbit (a); }
 int do_signbit_tf (long double a) { return __builtin_signbit (a); }
 
-/* { dg-final { scan-assembler-not   "extsw"    }} */
-/* { dg-final { scan-assembler-not   "stfs"     }} */
-/* { dg-final { scan-assembler-not   "stfd"     }} */
-/* { dg-final { scan-assembler-not   "stxvd2x"  }} */
-/* { dg-final { scan-assembler-not   "stxvw4x"  }} */
-/* { dg-final { scan-assembler-not   "stxsd"    }} */
-/* { dg-final { scan-assembler-not   "stxsdx"   }} */
-/* { dg-final { scan-assembler-times "mfvsrd" 5 }} */
-/* { dg-final { scan-assembler-times "srdi"   5 }} */
+/* { dg-final { scan-assembler-not   "extsw"    } } */
+/* { dg-final { scan-assembler-not   "stfs"     } } */
+/* { dg-final { scan-assembler-not   "stfd"     } } */
+/* { dg-final { scan-assembler-not   "stxvd2x"  } } */
+/* { dg-final { scan-assembler-not   "stxvw4x"  } } */
+/* { dg-final { scan-assembler-not   "stxsd"    } } */
+/* { dg-final { scan-assembler-not   "stxsdx"   } } */
+/* { dg-final { scan-assembler-times "mfvsrd" 5 } } */
+/* { dg-final { scan-assembler-times "srdi"   5 } } */
