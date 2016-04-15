@@ -1,5 +1,11 @@
 2016-04-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to pre-gcc7 branch, 234996 (based on trunk svn id
+	234995).
+	* REVISION: Update subversion id.
+
+2016-04-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* config/rs6000/rs6000.c (rs6000_split_signbit): Make sure shift
 	gets the DImode value, and not original floating point type.
 
