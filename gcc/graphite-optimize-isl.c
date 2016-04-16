@@ -18,11 +18,25 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#define USES_ISL
+
 #include "config.h"
 
 #ifdef HAVE_isl
-/* Workaround for GMP 5.1.3 bug, see PR56019.  */
-#include <stddef.h>
+
+#include "system.h"
+#include "coretypes.h"
+#include "backend.h"
+#include "cfghooks.h"
+#include "tree.h"
+#include "gimple.h"
+#include "fold-const.h"
+#include "gimple-iterator.h"
+#include "tree-ssa-loop.h"
+#include "cfgloop.h"
+#include "tree-data-ref.h"
+#include "params.h"
+#include "dumpfile.h"
 
 #include <isl/constraint.h>
 #include <isl/set.h>
@@ -36,22 +50,10 @@ along with GCC; see the file COPYING3.  If not see
 #include <isl/ctx.h>
 #ifdef HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS
 #include <isl/schedule_node.h>
+#include <isl/ast_build.h>
 #endif
 
-#include "system.h"
-#include "coretypes.h"
-#include "backend.h"
-#include "cfghooks.h"
-#include "tree.h"
-#include "gimple.h"
-#include "fold-const.h"
-#include "gimple-iterator.h"
-#include "tree-ssa-loop.h"
-#include "cfgloop.h"
-#include "tree-data-ref.h"
-#include "graphite-poly.h"
-#include "params.h"
-#include "dumpfile.h"
+#include "graphite.h"
 
 #ifdef HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS
 
@@ -358,7 +360,7 @@ scop_get_domains (scop_p scop ATTRIBUTE_UNUSED)
   FOR_EACH_VEC_ELT (scop->pbbs, i, pbb)
     res = isl_union_set_add_set (res, isl_set_copy (pbb->domain));
 
-    return res;
+  return res;
 }
 
 static const int CONSTANT_BOUND = 20;
@@ -404,7 +406,14 @@ optimize_isl (scop_p scop)
   isl_options_set_schedule_maximize_band_depth (scop->isl_context, 1);
 #ifdef HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS
   /* ISL-0.15 or later.  */
+  isl_options_set_schedule_serialize_sccs (scop->isl_context, 0);
   isl_options_set_schedule_maximize_band_depth (scop->isl_context, 1);
+  isl_options_set_schedule_max_constant_term (scop->isl_context, 20);
+  isl_options_set_schedule_max_coefficient (scop->isl_context, 20);
+  isl_options_set_tile_scale_tile_loops (scop->isl_context, 0);
+  isl_options_set_coalesce_bounded_wrapping (scop->isl_context, 1);
+  isl_options_set_ast_build_exploit_nested_bounds (scop->isl_context, 1);
+  isl_options_set_ast_build_atomic_upper_bound (scop->isl_context, 1);
 #else
   isl_options_set_schedule_fuse (scop->isl_context, ISL_SCHEDULE_FUSE_MIN);
 #endif
@@ -425,7 +434,7 @@ optimize_isl (scop_p scop)
   if (!schedule || isl_ctx_last_error (scop->isl_context) == isl_error_quota)
     {
       if (dump_file && dump_flags)
-	fprintf (dump_file, "ISL timed out at %d operations\n",
+	fprintf (dump_file, "ISL timed out --param max-isl-operations=%d\n",
 		 max_operations);
       if (schedule)
 	isl_schedule_free (schedule);
@@ -441,23 +450,11 @@ optimize_isl (scop_p scop)
 #else
   isl_union_map *schedule_map = get_schedule_map (schedule);
 #endif
+  apply_schedule_map_to_scop (scop, schedule_map);
 
-  if (isl_union_map_is_equal (scop->original_schedule, schedule_map))
-    {
-      if (dump_file && dump_flags)
-	fprintf (dump_file, "\nISL schedule same as original schedule\n");
-
-      isl_schedule_free (schedule);
-      isl_union_map_free (schedule_map);
-      return false;
-    }
-  else
-    {
-      apply_schedule_map_to_scop (scop, schedule_map);
-      isl_schedule_free (schedule);
-      isl_union_map_free (schedule_map);
-      return true;
-    }
+  isl_schedule_free (schedule);
+  isl_union_map_free (schedule_map);
+  return true;
 }
 
 #endif /* HAVE_isl */

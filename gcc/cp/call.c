@@ -5630,6 +5630,19 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
 	    result = error_mark_node;
 	  else
 	    result = build_over_call (cand, LOOKUP_NORMAL, complain);
+
+	  if (processing_template_decl
+	      && result != NULL_TREE
+	      && result != error_mark_node
+	      && DECL_HIDDEN_FRIEND_P (cand->fn))
+	    {
+	      tree call = result;
+	      if (REFERENCE_REF_P (call))
+		call = TREE_OPERAND (call, 0);
+	      /* This prevents build_new_function_call from discarding this
+		 function during instantiation of the enclosing template.  */
+	      KOENIG_LOOKUP_P (call) = 1;
+	    }
 	}
       else
 	{
@@ -5687,8 +5700,8 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
 		 decaying an enumerator to its value.  */
 	      if (complain & tf_warning)
 		warn_logical_operator (loc, code, boolean_type_node,
-				       code_orig_arg1, fold (arg1),
-				       code_orig_arg2, fold (arg2));
+				       code_orig_arg1, arg1,
+				       code_orig_arg2, arg2);
 
 	      arg2 = convert_like (conv, arg2, complain);
 	    }
@@ -5726,8 +5739,8 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
     case TRUTH_OR_EXPR:
       if (complain & tf_warning)
 	warn_logical_operator (loc, code, boolean_type_node,
-			       code_orig_arg1, fold (arg1),
-			       code_orig_arg2, fold (arg2));
+			       code_orig_arg1, arg1,
+			       code_orig_arg2, arg2);
       /* Fall through.  */
     case GT_EXPR:
     case LT_EXPR:
@@ -5738,8 +5751,7 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
       if ((complain & tf_warning)
 	  && ((code_orig_arg1 == BOOLEAN_TYPE)
 	      ^ (code_orig_arg2 == BOOLEAN_TYPE)))
-	maybe_warn_bool_compare (loc, code, fold (arg1),
-				 fold (arg2));
+	maybe_warn_bool_compare (loc, code, arg1, arg2);
       if (complain & tf_warning && warn_tautological_compare)
 	warn_tautological_cmp (loc, code, arg1, arg2);
       /* Fall through.  */

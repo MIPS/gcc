@@ -1,3 +1,282 @@
+2015-12-15  Alessandro Fanfarillo  <fanfarillo.gcc@gmail.com>
+
+	* resolve.c (resolve_critical): Committing symbols of
+	lock variables.
+
+2014-12-14  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/68850
+	* gfortran.texi (Standards): Mention TS 18508.
+	(Fortran 2003 and 2008 Status): Add section on TS 18508 status.
+	* intrinsic.texi (EVENT_QUERY): Add.
+
+2014-12-12  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/45859
+	* expr.c (gfc_is_simply_contiguous): Optionally permit array elements.
+	(gfc_check_pointer_assign): Update call.
+	* interface.c (compare_parameter): Ditto.
+	* trans-array.c (gfc_conv_array_parameter): Ditto.
+	* trans-intrinsic.c (gfc_conv_intrinsic_transfer,
+	conv_isocbinding_function): Ditto.
+	* gfortran.h (gfc_is_simply_contiguous): Update prototype.
+
+2014-12-12  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/68815
+	* check.c (gfc_check_reshape): Replace %<%d%> by %qd.
+	* matchexp.c (gfc_match_defined_op_name): Use %qc.
+	* symbol.c (gfc_add_new_implicit_range,
+	gfc_merge_new_implicit): Ditto.
+
+2015-12-10  David Malcolm  <dmalcolm@redhat.com>
+
+	* io.c (gfc_match_open): Fix indentation.
+
+2015-12-09  Tobias Burnus  <burnus@net-b.de>
+	    Alessandro Fanfarillo <fanfarillo.gcc@gmail.com>
+
+	* trans.c (gfc_allocate_using_lib,gfc_deallocate_with_status):
+	Introducing __asm__ __volatile__ ("":::"memory")
+	after image control statements.
+	* trans-stmt.c 	(gfc_trans_sync, gfc_trans_event_post_wait,
+	gfc_trans_lock_unlock, gfc_trans_critical): Ditto.
+	* trans-intrinsic.c (gfc_conv_intrinsic_caf_get,
+	conv_caf_send): Introducing __asm__ __volatile__ ("":::"memory")
+	after send, before get and around sendget.
+
+2015-12-09  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/68815
+	* decl.c (gfc_verify_c_interop_param, variable_decl): Use
+	%< ... %> for quoting in diagnostics.
+	* io.c (check_format): Ditto.
+	* resolve.c (resolve_operator): Ditto.
+	* symbol.c (check_conflict): Ditto.
+	* trans-common.c (translate_common): Ditto.
+
+2015-12-07  David Malcolm  <dmalcolm@redhat.com>
+
+	* error.c (gfc_format_decoder): Update for change of
+	text_info::set_range to text_info::set_location.
+
+2015-12-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/68676
+	* decl.c (gfc_match_formal_arglist): Correct error, where 'sym'
+	was used instead of 'progname'.
+
+2015-12-02  Tobias Burnus  <burnus@net-b.de>
+	    Alessandro Fanfarillo <fanfarillo.gcc@gmail.com>
+
+	* check.c (gfc_check_event_query): New function.
+	* dump-parse-tree.c (show_code_node): Handle EXEC_EVENT_POST,
+	EXEC_EVENT_WAIT.
+	* expr.c (gfc_check_vardef_context): New check for event variables
+	definition.
+	* gfortran.h (gfc_statement): Add ST_EVENT_POST, ST_EVENT_WAIT.
+	(gfc_isym_id): GFC_ISYM_EVENT_QUERY.
+	(struct symbol_attribute): New field.
+	(gfc_exec_op): Add EXEC_EVENT_POST and EXEC_EVENT_WAIT.
+	* gfortran.texi: Document about new events functions and minor
+	changes.
+	* interface.c (compare_parameter): New check.
+	(gfc_procedure_use): New check for explicit procedure interface.
+	(add_subroutines): Add event_query.
+	* intrinsic.h (gfc_check_event_query,gfc_resolve_event_query):
+	New prototypes.
+	* iresolve.c (gfc_resolve_event_query): New function.
+	* iso-fortran-env.def (event_type): New type.
+	* match.c (event_statement,gfc_match_event_post,gfc_match_event_wait):
+	New functions.
+	(gfc_match_name): New event post and event wait.
+	* match.h (gfc_match_event_post,gfc_match_event_wait):
+	New prototypes.
+	* module.c (ab_attribute): Add AB_EVENT_COMP.
+	(attr_bits): Likewise.
+	(mio_symbol_attribute): Handle event_comp attribute.
+	* parse.c (decode_statement): Add ST_EVENT_POST, ST_EVENT_WAIT.
+	(next_statement): Add ST_EVENT_POST, ST_EVENT_WAIT.
+	(gfc_ascii_statement): Add ST_EVENT_POST, ST_EVENT_WAIT.
+	(parse_derived): Check for event_type components.
+	* resolve.c (resolve_allocate_expr): Check for event variable def.
+	(resolve_lock_unlock): Renamed to resolve_lock_unlock_event. It
+	includes logic for locks and events.
+	(gfc_resolve_code): Call it.
+	(gfc_resolve_symbol): New check for event variable to be a corray.
+	* st.c (gfc_free_statement): Handle new EXEC_EVENT_POST and
+	EXEC_EVENT_WAIT.
+	* trans-decl.c (gfor_fndecl_caf_event_post,gfor_fndecl_caf_event_wait,
+	gfor_fndecl_caf_event_query): New global variables.
+	(generate_coarray_sym_init): Checking for event_type.
+	(gfc_conv_procedure_call): Check for C bind attribute.
+	* trans-intrinsic.c (conv_intrinsic_event_query): New function.
+	(conv_intrinsic_move_alloc): Call it.
+	* trans-stmt.c (gfc_trans_lock_unlock): Passing address
+	of actual argument.
+	(gfc_trans_sync): Likewise.
+	(gfc_trans_event_post_wait): New function.
+	* trans-stmt.h (gfc_trans_event_post_wait): New prototype.
+	* trans-types.c (gfc_get_derived_type): Integer_kind as event_type.
+	* trans.c (gfc_allocate_using_lib): New argument and logic for events.
+	(gfc_allocate_allocatable): Passing new argument.
+	(trans_code): Handle EXEC_EVENT_POST, EXEC_EVENT_WAIT.
+	* trans.h (gfc_coarray_type): New elements.
+	(gfor_fndecl_caf_event_post,gfor_fndecl_caf_event_wait,
+	gfor_fndecl_caf_event_query): Declare them.
+
+2015-12-02  Cesar Philippidis  <cesar@codesourcery.com>
+
+	PR fortran/63861
+	* openmp.c (gfc_match_omp_clauses): Allow subarrays for acc reductions.
+	(resolve_omp_clauses): Error on any acc reductions on arrays.
+
+2015-12-01  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* dump-parse-tree.c (show_omp_clauses): Handle optional num and static
+	arguments for the gang clause.
+	* gfortran.h (gfc_omp_clauses): Rename gang_expr as gang_num_expr.
+	Add gang_static_expr.
+	* openmp.c (gfc_free_omp_clauses): Update to free gang_num_expr and
+	gang_static_expr.
+	(match_oacc_clause_gang): Update to support both num and static in
+	the same clause.
+	(resolve_omp_clauses): Formatting.  Also handle gang_num_expr and
+	gang_static_expr.
+	(resolve_oacc_params_in_parallel): New const char arg argument.
+	Use it to report more accurate gang, worker and vector clause errors.
+	(resolve_oacc_loop_blocks): Update calls to
+	resolve_oacc_params_in_parallel.
+	* trans-openmp.c (gfc_trans_omp_clauses): Update the gimplification of
+	the gang clause.
+	(gfc_trans_oacc_combined_directive): Make use of gang_num_expr and
+	gang_static_expr.  Remove OMP_LIST_REDUCTION from construct_clauses.
+
+2015-11-30  Cesar Philippidis  <cesar@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+	    Nathan Sidwell  <nathan@codesourcery.com>
+
+	* f95-lang.c (gfc_attribute_table): Add an "oacc function"
+	attribute.
+	* gfortran.h (symbol_attribute): Add an oacc_function bit-field.
+	(gfc_oacc_routine_name): New struct;
+	(gfc_get_oacc_routine_name): New macro.
+	(gfc_namespace): Add oacc_routine_clauses, oacc_routine_names and
+	oacc_routine fields.
+	(gfc_exec_op): Add EXEC_OACC_ROUTINE.
+	* openmp.c (OACC_ROUTINE_CLAUSES): New mask.
+	(gfc_oacc_routine_dims): New function.
+	(gfc_match_oacc_routine): Add support for named routines and the
+	gang, worker vector and seq clauses.
+	* parse.c (is_oacc): Add EXEC_OACC_ROUTINE.
+	* resolve.c (gfc_resolve_blocks): Likewise.
+	* st.c (gfc_free_statement): Likewise.
+	* trans-decl.c (add_attributes_to_decl): Attach an 'oacc function'
+	attribute and shape geometry for acc routine.
+
+2015-11-30  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/68534
+	* decl.c (gfc_match_formal_arglist): Cope with zero formal args
+	either in interface declaration or in procedure declaration in
+	submodule.
+
+2015-11-25  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/68227
+	* trans-stmt.c (gfc_do_allocate): Convert gcc_assert argument into
+	into part of conditional statement.
+
+2015-11-25  Ilmir Usmanov <me@ilmir.us>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+
+	PR fortran/63858
+	* scanner.c (skip_oacc_attribute): Remove continue_flag parameter.
+	Rename as ...
+	(skip_free_oacc_sentinel): ... this.
+	(skip_omp_attribute): Remove continue_flag parameter. Rename as ...
+	(skip_free_omp_sentinel): ... this.
+	(skip_free_comments): Update to call skip_free_oacc_sentinel and
+	skip_free_omp_sentinel.
+	(skip_fixed_omp_sentinel): New function.
+	(skip_fixed_oacc_sentinel): New function.
+	(skip_fixed_comments): Fix mix of OpenACC and OpenMP sentinels in
+	continuation.
+
+2015-11-24  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/68486
+	* simplify.c (gfc_simplify_cshift): Allow all EXPR_*.
+
+2015-11-22  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/68486
+	* simplify.c (gfc_simplify_cshift):  Add EXPR_OP to mix.
+
+2015-11-22  James Norris  <jnorris@codesourcery.com>
+	    Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* openmp.c (match_oacc_clause_gang): Fix uninitialized variable.
+	(gfc_resolve_oacc_declare): Fix comparision.
+
+2015-11-22  James Norris  <jnorris@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+
+	* dump-parse-tree.c (show_namespace): Handle declares.
+	* gfortran.h (struct symbol_attribute): New fields.
+	(enum gfc_omp_map_map): Add OMP_MAP_DEVICE_RESIDENT and OMP_MAP_LINK.
+	(OMP_LIST_LINK): New enum.
+	(struct gfc_oacc_declare): New structure.
+	(gfc_get_oacc_declare): New definition.
+	(struct gfc_namespace): Change type.
+	(enum gfc_exec_op): Add EXEC_OACC_DECLARE.
+	(struct gfc_code): New field.
+	* module.c (enum ab_attribute): Add AB_OACC_DECLARE_CREATE,
+	AB_OACC_DECLARE_COPYIN, AB_OACC_DECLARE_DEVICEPTR,
+	AB_OACC_DECLARE_DEVICE_RESIDENT, AB_OACC_DECLARE_LINK
+	(attr_bits): Add new initializers.
+	(mio_symbol_attribute): Handle new atributes.
+	* openmp.c (gfc_free_oacc_declare_clauses): New function.
+	(gfc_match_oacc_clause_link: Likewise.
+	(OMP_CLAUSE_LINK): New definition.
+	(gfc_match_omp_clauses): Handle OMP_CLAUSE_LINK.
+	(OACC_DECLARE_CLAUSES): Add OMP_CLAUSE_LINK
+	(gfc_match_oacc_declare): Add checking and module handling.
+	(resolve_omp_clauses): Add array initializer.
+	(gfc_resolve_oacc_declare): Reimplement.
+	* parse.c (case_decl): Add ST_OACC_DECLARE.
+	(parse_spec): Remove handling.
+	(parse_progunit): Remove handling.
+	* parse.h (struct gfc_state_data): Change type.
+	* resolve.c (gfc_resolve_blocks): Handle EXEC_OACC_DECLARE.
+	* st.c (gfc_free_statement): Handle EXEC_OACC_DECLARE.
+	* symbol.c (check_conflict): Add conflict checks.
+	(gfc_add_oacc_declare_create, gfc_add_oacc_declare_copyin,
+	gfc_add_oacc_declare_deviceptr, gfc_add_oacc_declare_device_resident):
+	New functions.
+	(gfc_copy_attr): Handle new symbols.
+	* trans-decl.c (add_clause, find_module_oacc_declare_clauses,
+	finish_oacc_declare): New functions.
+	(gfc_generate_function_code): Replace with call.
+	* trans-openmp.c (gfc_trans_oacc_declare): Reimplement.
+	(gfc_trans_oacc_directive): Handle EXEC_OACC_DECLARE.
+	* trans-stmt.c (gfc_trans_block_construct): Replace with call.
+	* trans-stmt.h (gfc_trans_oacc_declare): Remove argument.
+	* trans.c (trans_code): Handle EXEC_OACC_DECLARE.
+
+2015-11-21  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* simplify.c (gfc_simplify_cshift): Work around bootstrap issues
+	due to inappropriate warning options.
+
+2015-11-21  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* simplify.c (gfc_simplify_cshift): Implement simplification of
+	CSHIFT for rank=1 arrays.
+	(gfc_simplify_spread): Remove a FIXME and add error condition.
+	* intrinsic.h: Prototype for gfc_simplify_cshift
+	* intrinsic.c (add_functions): Use gfc_simplify_cshift.
+
 2015-11-20  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/68237

@@ -409,6 +409,13 @@ mode_supports_pre_modify_p (machine_mode mode)
 	  != 0);
 }
 
+/* Return true if we have D-form addressing in altivec registers.  */
+static inline bool
+mode_supports_vmx_dform (machine_mode mode)
+{
+  return ((reg_addr[mode].addr_mask[RELOAD_REG_VMX] & RELOAD_REG_OFFSET) != 0);
+}
+
 
 /* Target cpu costs.  */
 
@@ -1715,6 +1722,9 @@ static const struct attribute_spec rs6000_attribute_table[] =
 
 #undef TARGET_INVALID_BINARY_OP
 #define TARGET_INVALID_BINARY_OP rs6000_invalid_binary_op
+
+#undef TARGET_OPTAB_SUPPORTED_P
+#define TARGET_OPTAB_SUPPORTED_P rs6000_optab_supported_p
 
 
 /* Processor table.  */
@@ -2263,7 +2273,9 @@ rs6000_debug_reg_global (void)
 	   "f  reg_class = %s\n"
 	   "v  reg_class = %s\n"
 	   "wa reg_class = %s\n"
+	   "wb reg_class = %s\n"
 	   "wd reg_class = %s\n"
+	   "we reg_class = %s\n"
 	   "wf reg_class = %s\n"
 	   "wg reg_class = %s\n"
 	   "wh reg_class = %s\n"
@@ -2288,7 +2300,9 @@ rs6000_debug_reg_global (void)
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_f]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_v]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wa]],
+	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wb]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wd]],
+	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_we]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wf]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wg]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wh]],
@@ -2669,9 +2683,15 @@ rs6000_setup_reg_addr_masks (void)
 	    }
 
 	  /* GPR and FPR registers can do REG+OFFSET addressing, except
-	     possibly for SDmode.  */
+	     possibly for SDmode.  ISA 3.0 (i.e. power9) adds D-form
+	     addressing for scalars to altivec registers.  */
 	  if ((addr_mask != 0) && !indexed_only_p
-	      && (rc == RELOAD_REG_GPR || rc == RELOAD_REG_FPR))
+	      && msize <= 8
+	      && (rc == RELOAD_REG_GPR
+		  || rc == RELOAD_REG_FPR
+		  || (rc == RELOAD_REG_VMX
+		      && TARGET_P9_DFORM
+		      && (m2 == DFmode || m2 == SFmode))))
 	    addr_mask |= RELOAD_REG_OFFSET;
 
 	  /* VMX registers can do (REG & -16) and ((REG+REG) & -16)
@@ -2994,6 +3014,10 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
       if (FLOAT128_IEEE_P (TFmode))
 	rs6000_constraints[RS6000_CONSTRAINT_wp] = VSX_REGS;	/* TFmode  */
     }
+
+  /* Support for new D-form instructions.  */
+  if (TARGET_P9_DFORM)
+    rs6000_constraints[RS6000_CONSTRAINT_wb] = ALTIVEC_REGS;
 
   /* Support for new direct moves.  */
   if (TARGET_DIRECT_MOVE_128)
@@ -18260,8 +18284,10 @@ rs6000_secondary_reload (bool in_p,
 
   /* If this is a scalar floating point value and we want to load it into the
      traditional Altivec registers, do it via a move via a traditional floating
-     point register.  Also make sure that non-zero constants use a FPR.  */
+     point register, unless we have D-form addressing.  Also make sure that
+     non-zero constants use a FPR.  */
   if (!done_p && reg_addr[mode].scalar_in_vmx_p
+      && !mode_supports_vmx_dform (mode)
       && (rclass == VSX_REGS || rclass == ALTIVEC_REGS)
       && (memory_p || (GET_CODE (x) == CONST_DOUBLE)))
     {
@@ -18825,10 +18851,14 @@ rs6000_preferred_reload_class (rtx x, enum reg_class rclass)
 	  return NO_REGS;
 	}
 
-      /* If this is a scalar floating point value, prefer the traditional
-	 floating point registers so that we can use D-form (register+offset)
-	 addressing.  */
-      if (GET_MODE_SIZE (mode) < 16)
+      /* D-form addressing can easily reload the value.  */
+      if (mode_supports_vmx_dform (mode))
+	return rclass;
+
+      /* If this is a scalar floating point value and we don't have D-form
+	 addressing, prefer the traditional floating point registers so that we
+	 can use D-form (register+offset) addressing.  */
+      if (GET_MODE_SIZE (mode) < 16 && rclass == VSX_REGS)
 	return FLOAT_REGS;
 
       /* Prefer the Altivec registers if Altivec is handling the vector
@@ -18977,6 +19007,7 @@ rs6000_secondary_reload_class (enum reg_class rclass, machine_mode mode,
      instead of reloading the secondary memory address for Altivec moves.  */
   if (TARGET_VSX
       && GET_MODE_SIZE (mode) < 16
+      && !mode_supports_vmx_dform (mode)
       && (((rclass == GENERAL_REGS || rclass == BASE_REGS)
            && (regno >= 0 && ALTIVEC_REGNO_P (regno)))
           || ((rclass == VSX_REGS || rclass == ALTIVEC_REGS)
@@ -24860,6 +24891,31 @@ split_stack_arg_pointer_used_p (void)
   return bitmap_bit_p (DF_LR_OUT (bb), 12);
 }
 
+/* Return whether we need to emit an ELFv2 global entry point prologue.  */
+
+static bool
+rs6000_global_entry_point_needed_p (void)
+{
+  /* Only needed for the ELFv2 ABI.  */
+  if (DEFAULT_ABI != ABI_ELFv2)
+    return false;
+
+  /* With -msingle-pic-base, we assume the whole program shares the same
+     TOC, so no global entry point prologues are needed anywhere.  */
+  if (TARGET_SINGLE_PIC_BASE)
+    return false;
+
+  /* Ensure we have a global entry point for thunks.   ??? We could
+     avoid that if the target routine doesn't need a global entry point,
+     but we do not know whether this is the case at this point.  */
+  if (cfun->is_thunk)
+    return true;
+
+  /* For regular functions, rs6000_emit_prologue sets this flag if the
+     routine ever uses the TOC pointer.  */
+  return cfun->machine->r2_setup_needed;
+}
+
 /* Emit function prologue as insns.  */
 
 void
@@ -25923,12 +25979,52 @@ rs6000_output_function_prologue (FILE *file,
 
   /* ELFv2 ABI r2 setup code and local entry point.  This must follow
      immediately after the global entry point label.  */
-  if (DEFAULT_ABI == ABI_ELFv2 && cfun->machine->r2_setup_needed)
+  if (rs6000_global_entry_point_needed_p ())
     {
       const char *name = XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);
 
-      fprintf (file, "0:\taddis 2,12,.TOC.-0b@ha\n");
-      fprintf (file, "\taddi 2,2,.TOC.-0b@l\n");
+      (*targetm.asm_out.internal_label) (file, "LCF", rs6000_pic_labelno);
+
+      if (TARGET_CMODEL != CMODEL_LARGE)
+	{
+	  /* In the small and medium code models, we assume the TOC is less
+	     2 GB away from the text section, so it can be computed via the
+	     following two-instruction sequence.  */
+	  char buf[256];
+
+	  ASM_GENERATE_INTERNAL_LABEL (buf, "LCF", rs6000_pic_labelno);
+	  fprintf (file, "0:\taddis 2,12,.TOC.-");
+	  assemble_name (file, buf);
+	  fprintf (file, "@ha\n");
+	  fprintf (file, "\taddi 2,2,.TOC.-");
+	  assemble_name (file, buf);
+	  fprintf (file, "@l\n");
+	}
+      else
+	{
+	  /* In the large code model, we allow arbitrary offsets between the
+	     TOC and the text section, so we have to load the offset from
+	     memory.  The data field is emitted directly before the global
+	     entry point in rs6000_elf_declare_function_name.  */
+	  char buf[256];
+
+#ifdef HAVE_AS_ENTRY_MARKERS
+	  /* If supported by the linker, emit a marker relocation.  If the
+	     total code size of the final executable or shared library
+	     happens to fit into 2 GB after all, the linker will replace
+	     this code sequence with the sequence for the small or medium
+	     code model.  */
+	  fprintf (file, "\t.reloc .,R_PPC64_ENTRY\n");
+#endif
+	  fprintf (file, "\tld 2,");
+	  ASM_GENERATE_INTERNAL_LABEL (buf, "LCL", rs6000_pic_labelno);
+	  assemble_name (file, buf);
+	  fprintf (file, "-");
+	  ASM_GENERATE_INTERNAL_LABEL (buf, "LCF", rs6000_pic_labelno);
+	  assemble_name (file, buf);
+	  fprintf (file, "(12)\n");
+	  fprintf (file, "\tadd 2,2,12\n");
+	}
 
       fputs ("\t.localentry\t", file);
       assemble_name (file, name);
@@ -27592,13 +27688,6 @@ rs6000_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   SIBLING_CALL_P (insn) = 1;
   emit_barrier ();
 
-  /* Ensure we have a global entry point for the thunk.   ??? We could
-     avoid that if the target routine doesn't need a global entry point,
-     but we do not know whether this is the case at this point.  */
-  if (DEFAULT_ABI == ABI_ELFv2
-      && !TARGET_SINGLE_PIC_BASE)
-    cfun->machine->r2_setup_needed = true;
-
   /* Run just enough of rest_of_compilation to get the insns emitted.
      There's not really enough bulk here to make other passes such as
      instruction scheduling worth while.  Note that use_thunk calls
@@ -28516,8 +28605,8 @@ rs6000_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
 {
   enum attr_type attr_type;
 
-  if (! recog_memoized (insn))
-    return 0;
+  if (recog_memoized (insn) < 0 || recog_memoized (dep_insn) < 0)
+    return cost;
 
   switch (REG_NOTE_KIND (link))
     {
@@ -31465,6 +31554,18 @@ rs6000_elf_declare_function_name (FILE *file, const char *name, tree decl)
   ASM_OUTPUT_TYPE_DIRECTIVE (file, name, "function");
   ASM_DECLARE_RESULT (file, DECL_RESULT (decl));
 
+  if (TARGET_CMODEL == CMODEL_LARGE && rs6000_global_entry_point_needed_p ())
+    {
+      char buf[256];
+
+      (*targetm.asm_out.internal_label) (file, "LCL", rs6000_pic_labelno);
+
+      fprintf (file, "\t.quad .TOC.-");
+      ASM_GENERATE_INTERNAL_LABEL (buf, "LCF", rs6000_pic_labelno);
+      assemble_name (file, buf);
+      putc ('\n', file);
+    }
+
   if (DEFAULT_ABI == ABI_AIX)
     {
       const char *desc_name, *orig_name;
@@ -31888,13 +31989,15 @@ rs6000_declare_alias (struct symtab_node *n, void *d)
           if (dollar_inside) {
 	      if (data->function_descriptor)
                 fprintf(data->file, "\t.rename .%s,\".%s\"\n", buffer, name);
-	      else
-                fprintf(data->file, "\t.rename %s,\"%s\"\n", buffer, name);
+	      fprintf(data->file, "\t.rename %s,\"%s\"\n", buffer, name);
 	    }
 	  if (data->function_descriptor)
-	    fputs ("\t.globl .", data->file);
-	  else
-	    fputs ("\t.globl ", data->file);
+	    {
+	      fputs ("\t.globl .", data->file);
+	      RS6000_OUTPUT_BASENAME (data->file, buffer);
+	      putc ('\n', data->file);
+	    }
+	  fputs ("\t.globl ", data->file);
 	  RS6000_OUTPUT_BASENAME (data->file, buffer);
 	  putc ('\n', data->file);
 	}
@@ -31908,14 +32011,16 @@ rs6000_declare_alias (struct symtab_node *n, void *d)
       if (dollar_inside)
 	{
 	  if (data->function_descriptor)
-            fprintf(data->file, "\t.rename %s,\"%s\"\n", buffer, name);
-	  else
             fprintf(data->file, "\t.rename .%s,\".%s\"\n", buffer, name);
+	  fprintf(data->file, "\t.rename %s,\"%s\"\n", buffer, name);
 	}
       if (data->function_descriptor)
-	fputs ("\t.lglobl .", data->file);
-      else
-	fputs ("\t.lglobl ", data->file);
+	{
+	  fputs ("\t.lglobl .", data->file);
+	  RS6000_OUTPUT_BASENAME (data->file, buffer);
+	  putc ('\n', data->file);
+	}
+      fputs ("\t.lglobl ", data->file);
       RS6000_OUTPUT_BASENAME (data->file, buffer);
       putc ('\n', data->file);
     }
@@ -32611,49 +32716,25 @@ rs6000_memory_move_cost (machine_mode mode, reg_class_t rclass,
    reciprocal of the function, or NULL_TREE if not available.  */
 
 static tree
-rs6000_builtin_reciprocal (unsigned int fn, bool md_fn,
-			   bool sqrt ATTRIBUTE_UNUSED)
+rs6000_builtin_reciprocal (tree fndecl)
 {
-  if (optimize_insn_for_size_p ())
-    return NULL_TREE;
-
-  if (md_fn)
-    switch (fn)
-      {
-      case VSX_BUILTIN_XVSQRTDP:
-	if (!RS6000_RECIP_AUTO_RSQRTE_P (V2DFmode))
-	  return NULL_TREE;
-
-	return rs6000_builtin_decls[VSX_BUILTIN_RSQRT_2DF];
-
-      case VSX_BUILTIN_XVSQRTSP:
-	if (!RS6000_RECIP_AUTO_RSQRTE_P (V4SFmode))
-	  return NULL_TREE;
-
-	return rs6000_builtin_decls[VSX_BUILTIN_RSQRT_4SF];
-
-      default:
+  switch (DECL_FUNCTION_CODE (fndecl))
+    {
+    case VSX_BUILTIN_XVSQRTDP:
+      if (!RS6000_RECIP_AUTO_RSQRTE_P (V2DFmode))
 	return NULL_TREE;
-      }
 
-  else
-    switch (fn)
-      {
-      case BUILT_IN_SQRT:
-	if (!RS6000_RECIP_AUTO_RSQRTE_P (DFmode))
-	  return NULL_TREE;
+      return rs6000_builtin_decls[VSX_BUILTIN_RSQRT_2DF];
 
-	return rs6000_builtin_decls[RS6000_BUILTIN_RSQRT];
-
-      case BUILT_IN_SQRTF:
-	if (!RS6000_RECIP_AUTO_RSQRTE_P (SFmode))
-	  return NULL_TREE;
-
-	return rs6000_builtin_decls[RS6000_BUILTIN_RSQRTF];
-
-      default:
+    case VSX_BUILTIN_XVSQRTSP:
+      if (!RS6000_RECIP_AUTO_RSQRTE_P (V4SFmode))
 	return NULL_TREE;
-      }
+
+      return rs6000_builtin_decls[VSX_BUILTIN_RSQRT_4SF];
+
+    default:
+      return NULL_TREE;
+    }
 }
 
 /* Load up a constant.  If the mode is a vector mode, splat the value across
@@ -32829,7 +32910,7 @@ rs6000_emit_swdiv (rtx dst, rtx n, rtx d, bool note_p)
    rsqrt.  Assumes no trapping math and finite arguments.  */
 
 void
-rs6000_emit_swrsqrt (rtx dst, rtx src)
+rs6000_emit_swsqrt (rtx dst, rtx src, bool recip)
 {
   machine_mode mode = GET_MODE (src);
   rtx x0 = gen_reg_rtx (mode);
@@ -32862,6 +32943,16 @@ rs6000_emit_swrsqrt (rtx dst, rtx src)
   emit_insn (gen_rtx_SET (x0, gen_rtx_UNSPEC (mode, gen_rtvec (1, src),
 					      UNSPEC_RSQRT)));
 
+  /* If (src == 0.0) filter infinity to prevent NaN for sqrt(0.0).  */
+  if (!recip)
+    {
+      rtx zero = force_reg (mode, CONST0_RTX (mode));
+      rtx target = emit_conditional_move (x0, GT, src, zero, mode,
+					  x0, zero, mode, 0);
+      if (target != x0)
+	emit_move_insn (x0, target);
+    }
+
   /* y = 0.5 * src = 1.5 * src - src -> fewer constants */
   rs6000_emit_msub (y, src, halfthree, src);
 
@@ -32878,7 +32969,12 @@ rs6000_emit_swrsqrt (rtx dst, rtx src)
       x0 = x1;
     }
 
-  emit_move_insn (dst, x0);
+  /* If not reciprocal, multiply by src to produce sqrt.  */
+  if (!recip)
+    emit_insn (gen_mul (dst, src, x0));
+  else
+    emit_move_insn (dst, x0);
+
   return;
 }
 
@@ -36553,7 +36649,12 @@ const_load_sequence_p (swap_web_entry *insn_entry, rtx insn)
 	  rtx base, offset;
 	  if (GET_CODE (tocrel_body) != SET)
 	    return false;
-	  if (!toc_relative_expr_p (SET_SRC (tocrel_body), false))
+	  /* There is an extra level of indirection for small/large
+	     code models.  */
+	  rtx tocrel_expr = SET_SRC (tocrel_body);
+	  if (GET_CODE (tocrel_expr) == MEM)
+	    tocrel_expr = XEXP (tocrel_expr, 0);
+	  if (!toc_relative_expr_p (tocrel_expr, false))
 	    return false;
 	  split_const (XVECEXP (tocrel_base, 0, 0), &base, &offset);
 	  if (GET_CODE (base) != SYMBOL_REF || !CONSTANT_POOL_ADDRESS_P (base))
@@ -37234,10 +37335,19 @@ adjust_vperm (rtx_insn *insn)
      to set tocrel_base; otherwise it would be unnecessary as we've
      already established it will return true.  */
   rtx base, offset;
-  if (!toc_relative_expr_p (SET_SRC (PATTERN (tocrel_insn)), false))
+  rtx tocrel_expr = SET_SRC (PATTERN (tocrel_insn));
+  /* There is an extra level of indirection for small/large code models.  */
+  if (GET_CODE (tocrel_expr) == MEM)
+    tocrel_expr = XEXP (tocrel_expr, 0);
+  if (!toc_relative_expr_p (tocrel_expr, false))
     gcc_unreachable ();
   split_const (XVECEXP (tocrel_base, 0, 0), &base, &offset);
   rtx const_vector = get_pool_constant (base);
+  /* With the extra indirection, get_pool_constant will produce the
+     real constant from the reg_equal expression, so get the real
+     constant.  */
+  if (GET_CODE (const_vector) == SYMBOL_REF)
+    const_vector = get_pool_constant (const_vector);
   gcc_assert (GET_CODE (const_vector) == CONST_VECTOR);
 
   /* Create an adjusted mask from the initial mask.  */
@@ -37863,6 +37973,22 @@ rs6000_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
   *update = build2 (COMPOUND_EXPR, void_type_node, update_mffs, update_mtfsf);
 }
 
+/* Implement the TARGET_OPTAB_SUPPORTED_P hook.  */
+
+static bool
+rs6000_optab_supported_p (int op, machine_mode mode1, machine_mode,
+			  optimization_type opt_type)
+{
+  switch (op)
+    {
+    case rsqrt_optab:
+      return (opt_type == OPTIMIZE_FOR_SPEED
+	      && RS6000_RECIP_AUTO_RSQRTE_P (mode1));
+
+    default:
+      return true;
+    }
+}
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

@@ -46,7 +46,8 @@
 /* Chosen such that we won't have to deal with multi-word subregs.  */
 #define UNITS_PER_WORD 8
 
-#define PARM_BOUNDARY 8
+/* Alignments in bits.  */
+#define PARM_BOUNDARY 32
 #define STACK_BOUNDARY 64
 #define FUNCTION_BOUNDARY 32
 #define BIGGEST_ALIGNMENT 64
@@ -69,6 +70,7 @@
 #define FLOAT_TYPE_SIZE 32
 #define DOUBLE_TYPE_SIZE 64
 #define LONG_DOUBLE_TYPE_SIZE 64
+#define TARGET_SUPPORTS_WIDE_INT 1
 
 #undef SIZE_TYPE
 #define SIZE_TYPE (TARGET_ABI64 ? "long unsigned int" : "unsigned int")
@@ -141,13 +143,6 @@ enum reg_class
       (MODE) = SImode;					\
     }
 
-/* Address spaces.  */
-#define ADDR_SPACE_GLOBAL 1
-#define ADDR_SPACE_SHARED 3
-#define ADDR_SPACE_CONST 4
-#define ADDR_SPACE_LOCAL 5
-#define ADDR_SPACE_PARAM 101
-
 /* Stack and Calling.  */
 
 #define STARTING_FRAME_OFFSET 0
@@ -156,24 +151,23 @@ enum reg_class
 
 #define STACK_POINTER_REGNUM 1
 #define HARD_FRAME_POINTER_REGNUM 2
-#define NVPTX_PUNNING_BUFFER_REGNUM 3
 #define NVPTX_RETURN_REGNUM 4
 #define FRAME_POINTER_REGNUM 15
 #define ARG_POINTER_REGNUM 14
-#define RETURN_ADDR_REGNO 13
 
 #define STATIC_CHAIN_REGNUM 12
-#define OUTGOING_ARG_POINTER_REGNUM 11
 #define OUTGOING_STATIC_CHAIN_REGNUM 10
 
-#define FIRST_PARM_OFFSET(FNDECL) 0
+#define FIRST_PARM_OFFSET(FNDECL) ((void)(FNDECL), 0)
 #define PUSH_ARGS_REVERSED 1
-
 #define ACCUMULATE_OUTGOING_ARGS 1
+
+/* Avoid using the argument pointer for frame-related things.  */
+#define FRAME_POINTER_CFA_OFFSET(FNDECL) ((void)(FNDECL), 0)
 
 #ifdef HOST_WIDE_INT
 struct nvptx_args {
-  union tree_node *fntype;
+  tree fntype;
   /* Number of arguments passed in registers so far.  */
   int count;
   /* Offset into the stdarg area so far.  */
@@ -184,7 +178,7 @@ struct nvptx_args {
 #define CUMULATIVE_ARGS struct nvptx_args
 
 #define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
-  do { (CUM).fntype = (FNTYPE); (CUM).count = 0; (CUM).off = 0; } while (0)
+  ((CUM).fntype = (FNTYPE), (CUM).count = 0, (CUM).off = 0, (void)0)
 
 #define FUNCTION_ARG_REGNO_P(r) 0
 
@@ -229,7 +223,6 @@ struct GTY(()) machine_function
   bool has_call_with_sc;
   HOST_WIDE_INT outgoing_stdarg_size;
   int ret_reg_mode; /* machine_mode not defined yet. */
-  int punning_buffer_size;
   rtx axis_predicate[2];
 };
 #endif
@@ -257,13 +250,10 @@ struct GTY(()) machine_function
 #undef ASM_APP_OFF
 #define ASM_APP_OFF "\t// #NO_APP \n"
 
-#define ASM_OUTPUT_COMMON(stream, name, size, rounded)
-#define ASM_OUTPUT_LOCAL(stream, name, size, rounded)
-
 #define REGISTER_NAMES							\
   {									\
-    "%hr0", "%outargs", "%hfp", "%punbuffer", "%retval", "%retval_in", "%hr6", "%hr7",	\
-    "%hr8", "%hr9", "%hr10", "%hr11", "%hr12", "%hr13", "%argp", "%frame" \
+    "%hr0", "%outargs", "%hfp", "%hr3", "%retval", "%hr5", "%hr6", "%hr7",	\
+    "%hr8", "%hr9", "%chain_out", "%hr11", "%chain_in", "%hr13", "%argp", "%frame" \
   }
 
 #define DBX_REGISTER_NUMBER(N) N
@@ -302,38 +292,11 @@ struct GTY(()) machine_function
 
 #undef  ASM_OUTPUT_ALIGNED_DECL_COMMON
 #define ASM_OUTPUT_ALIGNED_DECL_COMMON(FILE, DECL, NAME, SIZE, ALIGN)	\
-  do									\
-    {									\
-      fprintf (FILE, "// BEGIN%s VAR DEF: ",				\
-	       TREE_PUBLIC (DECL) ? " GLOBAL" : "");			\
-      assemble_name_raw (FILE, NAME);					\
-      fputc ('\n', FILE);						\
-      const char *sec = nvptx_section_for_decl (DECL);			\
-      fprintf (FILE, ".visible%s.align %d .b8 ", sec,			\
-	       (ALIGN) / BITS_PER_UNIT);				\
-      assemble_name ((FILE), (NAME));					\
-      if ((SIZE) > 0)							\
-	fprintf (FILE, "[" HOST_WIDE_INT_PRINT_DEC"]", (SIZE));		\
-      fprintf (FILE, ";\n");						\
-    }									\
-  while (0)
+  nvptx_output_aligned_decl (FILE, NAME, DECL, SIZE, ALIGN)
 
 #undef  ASM_OUTPUT_ALIGNED_DECL_LOCAL
 #define ASM_OUTPUT_ALIGNED_DECL_LOCAL(FILE, DECL, NAME, SIZE, ALIGN)	\
-  do									\
-    {									\
-      fprintf (FILE, "// BEGIN VAR DEF: ");				\
-      assemble_name_raw (FILE, NAME);					\
-      fputc ('\n', FILE);						\
-      const char *sec = nvptx_section_for_decl (DECL);			\
-      fprintf (FILE, ".visible%s.align %d .b8 ", sec,			\
-	       (ALIGN) / BITS_PER_UNIT);				\
-      assemble_name ((FILE), (NAME));					\
-      if ((SIZE) > 0)							\
-	fprintf (FILE, "[" HOST_WIDE_INT_PRINT_DEC"]", (SIZE));		\
-      fprintf (FILE, ";\n");						\
-    }									\
-  while (0)
+  nvptx_output_aligned_decl (FILE, NAME, DECL, SIZE, ALIGN)
 
 #define CASE_VECTOR_PC_RELATIVE flag_pic
 #define JUMP_TABLES_IN_TEXT_SECTION flag_pic

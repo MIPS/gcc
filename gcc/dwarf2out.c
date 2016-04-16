@@ -3319,7 +3319,6 @@ static void gen_typedef_die (tree, dw_die_ref);
 static void gen_type_die (tree, dw_die_ref);
 static void gen_block_die (tree, dw_die_ref);
 static void decls_for_scope (tree, dw_die_ref);
-static inline int is_redundant_typedef (const_tree);
 static bool is_naming_typedef_decl (const_tree);
 static inline dw_die_ref get_context_die (tree);
 static void gen_namespace_die (tree, dw_die_ref);
@@ -19113,9 +19112,23 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       compute_frame_pointer_to_fb_displacement (cfa_fb_offset);
 
       if (fun->static_chain_decl)
-	add_AT_location_description
-	  (subr_die, DW_AT_static_link,
-	   loc_list_from_tree (fun->static_chain_decl, 2, NULL));
+	{
+	  /* DWARF requires here a location expression that computes the
+	     address of the enclosing subprogram's frame base.  The machinery
+	     in tree-nested.c is supposed to store this specific address in the
+	     last field of the FRAME record.  */
+	  const tree frame_type
+	    = TREE_TYPE (TREE_TYPE (fun->static_chain_decl));
+	  const tree fb_decl = tree_last (TYPE_FIELDS (frame_type));
+
+	  tree fb_expr
+	    = build1 (INDIRECT_REF, frame_type, fun->static_chain_decl);
+	  fb_expr = build3 (COMPONENT_REF, TREE_TYPE (fb_decl),
+			    fb_expr, fb_decl, NULL_TREE);
+
+	  add_AT_location_description (subr_die, DW_AT_static_link,
+				       loc_list_from_tree (fb_expr, 0, NULL));
+	}
     }
 
   /* Generate child dies for template paramaters.  */
@@ -19254,7 +19267,9 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	      rtx tloc = NULL_RTX, tlocc = NULL_RTX;
 	      rtx arg, next_arg;
 
-	      for (arg = NOTE_VAR_LOCATION (ca_loc->call_arg_loc_note);
+	      for (arg = (ca_loc->call_arg_loc_note != NULL_RTX
+			  ? NOTE_VAR_LOCATION (ca_loc->call_arg_loc_note)
+			  : NULL_RTX);
 		   arg; arg = next_arg)
 		{
 		  dw_loc_descr_ref reg, val;
@@ -19277,18 +19292,23 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 		    }
 		  if (mode == VOIDmode || mode == BLKmode)
 		    continue;
-		  if (XEXP (XEXP (arg, 0), 0) == pc_rtx)
+		  /* Get dynamic information about call target only if we
+		     have no static information: we cannot generate both
+		     DW_AT_abstract_origin and DW_AT_GNU_call_site_target
+		     attributes.  */
+		  if (ca_loc->symbol_ref == NULL_RTX)
 		    {
-		      gcc_assert (ca_loc->symbol_ref == NULL_RTX);
-		      tloc = XEXP (XEXP (arg, 0), 1);
-		      continue;
-		    }
-		  else if (GET_CODE (XEXP (XEXP (arg, 0), 0)) == CLOBBER
-			   && XEXP (XEXP (XEXP (arg, 0), 0), 0) == pc_rtx)
-		    {
-		      gcc_assert (ca_loc->symbol_ref == NULL_RTX);
-		      tlocc = XEXP (XEXP (arg, 0), 1);
-		      continue;
+		      if (XEXP (XEXP (arg, 0), 0) == pc_rtx)
+			{
+			  tloc = XEXP (XEXP (arg, 0), 1);
+			  continue;
+			}
+		      else if (GET_CODE (XEXP (XEXP (arg, 0), 0)) == CLOBBER
+			       && XEXP (XEXP (XEXP (arg, 0), 0), 0) == pc_rtx)
+			{
+			  tlocc = XEXP (XEXP (arg, 0), 1);
+			  continue;
+			}
 		    }
 		  reg = NULL;
 		  if (REG_P (XEXP (XEXP (arg, 0), 0)))
@@ -20784,9 +20804,10 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
   /* We are going to output a DIE to represent the unqualified version
      of this type (i.e. without any const or volatile qualifiers) so
      get the main variant (i.e. the unqualified version) of this type
-     now.  (Vectors are special because the debugging info is in the
+     now.  (Vectors and arrays are special because the debugging info is in the
      cloned type itself).  */
-  if (TREE_CODE (type) != VECTOR_TYPE)
+  if (TREE_CODE (type) != VECTOR_TYPE
+      && TREE_CODE (type) != ARRAY_TYPE)
     type = type_main_variant (type);
 
   /* If this is an array type with hidden descriptor, handle it first.  */
@@ -21095,11 +21116,11 @@ decls_for_scope (tree stmt, dw_die_ref context_die)
 
 /* Is this a typedef we can avoid emitting?  */
 
-static inline int
+bool
 is_redundant_typedef (const_tree decl)
 {
   if (TYPE_DECL_IS_STUB (decl))
-    return 1;
+    return true;
 
   if (DECL_ARTIFICIAL (decl)
       && DECL_CONTEXT (decl)
@@ -21107,9 +21128,9 @@ is_redundant_typedef (const_tree decl)
       && TREE_CODE (TYPE_NAME (DECL_CONTEXT (decl))) == TYPE_DECL
       && DECL_NAME (decl) == DECL_NAME (TYPE_NAME (DECL_CONTEXT (decl))))
     /* Also ignore the artificial member typedef for the class name.  */
-    return 1;
+    return true;
 
-  return 0;
+  return false;
 }
 
 /* Return TRUE if TYPE is a typedef that names a type for linkage
@@ -21585,9 +21606,13 @@ gen_decl_die (tree decl, tree origin, dw_die_ref context_die)
 				       context_die);
 
     case NAMESPACE_DECL:
-    case IMPORTED_DECL:
       if (dwarf_version >= 3 || !dwarf_strict)
 	gen_namespace_die (decl, context_die);
+      break;
+
+    case IMPORTED_DECL:
+      dwarf2out_imported_module_or_decl_1 (decl, DECL_NAME (decl),
+					   DECL_CONTEXT (decl), context_die);
       break;
 
     case NAMELIST_DECL:
@@ -22270,6 +22295,7 @@ dwarf2out_var_location (rtx_insn *loc_note)
   char loclabel[MAX_ARTIFICIAL_LABEL_BYTES + 2];
   struct var_loc_node *newloc;
   rtx_insn *next_real, *next_note;
+  rtx_insn *call_insn = NULL;
   static const char *last_label;
   static const char *last_postcall_label;
   static bool last_in_cold_section_p;
@@ -22284,6 +22310,35 @@ dwarf2out_var_location (rtx_insn *loc_note)
 	  call_site_count++;
 	  if (SIBLING_CALL_P (loc_note))
 	    tail_call_site_count++;
+	  if (optimize == 0 && !flag_var_tracking)
+	    {
+	      /* When the var-tracking pass is not running, there is no note
+		 for indirect calls whose target is compile-time known. In this
+		 case, process such calls specifically so that we generate call
+		 sites for them anyway.  */
+	      rtx x = PATTERN (loc_note);
+	      if (GET_CODE (x) == PARALLEL)
+		x = XVECEXP (x, 0, 0);
+	      if (GET_CODE (x) == SET)
+		x = SET_SRC (x);
+	      if (GET_CODE (x) == CALL)
+		x = XEXP (x, 0);
+	      if (!MEM_P (x)
+		  || GET_CODE (XEXP (x, 0)) != SYMBOL_REF
+		  || !SYMBOL_REF_DECL (XEXP (x, 0))
+		  || (TREE_CODE (SYMBOL_REF_DECL (XEXP (x, 0)))
+		      != FUNCTION_DECL))
+		{
+		  call_insn = loc_note;
+		  loc_note = NULL;
+		  var_loc_p = false;
+
+		  next_real = next_real_insn (call_insn);
+		  next_note = NULL;
+		  cached_next_real_insn = NULL;
+		  goto create_label;
+		}
+	    }
 	}
       return;
     }
@@ -22328,6 +22383,8 @@ dwarf2out_var_location (rtx_insn *loc_note)
       && next_real == NULL_RTX
       && !NOTE_DURING_CALL_P (loc_note))
     return;
+
+create_label:
 
   if (next_real == NULL_RTX)
     next_real = get_last_insn ();
@@ -22408,12 +22465,16 @@ dwarf2out_var_location (rtx_insn *loc_note)
 	}
     }
 
+  gcc_assert ((loc_note == NULL_RTX && call_insn != NULL_RTX)
+	      || (loc_note != NULL_RTX && call_insn == NULL_RTX));
+
   if (!var_loc_p)
     {
       struct call_arg_loc_node *ca_loc
 	= ggc_cleared_alloc<call_arg_loc_node> ();
-      rtx_insn *prev = prev_real_insn (loc_note);
-      rtx x;
+      rtx_insn *prev
+        = loc_note != NULL_RTX ? prev_real_insn (loc_note) : call_insn;
+
       ca_loc->call_arg_loc_note = loc_note;
       ca_loc->next = NULL;
       ca_loc->label = last_label;
@@ -22425,15 +22486,27 @@ dwarf2out_var_location (rtx_insn *loc_note)
       if (!CALL_P (prev))
 	prev = as_a <rtx_sequence *> (PATTERN (prev))->insn (0);
       ca_loc->tail_call_p = SIBLING_CALL_P (prev);
-      x = get_call_rtx_from (PATTERN (prev));
+
+      /* Look for a SYMBOL_REF in the "prev" instruction.  */
+      rtx x = get_call_rtx_from (PATTERN (prev));
       if (x)
 	{
-	  x = XEXP (XEXP (x, 0), 0);
-	  if (GET_CODE (x) == SYMBOL_REF
-	      && SYMBOL_REF_DECL (x)
-	      && TREE_CODE (SYMBOL_REF_DECL (x)) == FUNCTION_DECL)
-	    ca_loc->symbol_ref = x;
+	  /* Try to get the call symbol, if any.  */
+	  if (MEM_P (XEXP (x, 0)))
+	    x = XEXP (x, 0);
+	  /* First, look for a memory access to a symbol_ref.  */
+	  if (GET_CODE (XEXP (x, 0)) == SYMBOL_REF
+	      && SYMBOL_REF_DECL (XEXP (x, 0))
+	      && TREE_CODE (SYMBOL_REF_DECL (XEXP (x, 0))) == FUNCTION_DECL)
+	    ca_loc->symbol_ref = XEXP (x, 0);
+	  /* Otherwise, look at a compile-time known user-level function
+	     declaration.  */
+	  else if (MEM_P (x)
+		   && MEM_EXPR (x)
+		   && TREE_CODE (MEM_EXPR (x)) == FUNCTION_DECL)
+	    ca_loc->symbol_ref = XEXP (DECL_RTL (MEM_EXPR (x)), 0);
 	}
+
       ca_loc->block = insn_scope (prev);
       if (call_arg_locations)
 	call_arg_loc_last->next = ca_loc;
@@ -22441,7 +22514,7 @@ dwarf2out_var_location (rtx_insn *loc_note)
 	call_arg_locations = ca_loc;
       call_arg_loc_last = ca_loc;
     }
-  else if (!NOTE_DURING_CALL_P (loc_note))
+  else if (loc_note != NULL_RTX && !NOTE_DURING_CALL_P (loc_note))
     newloc->label = last_label;
   else
     {

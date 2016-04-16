@@ -313,6 +313,13 @@ pack_ts_type_common_value_fields (struct bitpack_d *bp, tree expr)
   /* TYPE_NO_FORCE_BLK is private to stor-layout and need
      no streaming.  */
   bp_pack_value (bp, TYPE_NEEDS_CONSTRUCTING (expr), 1);
+  bp_pack_value (bp, TYPE_PACKED (expr), 1);
+  bp_pack_value (bp, TYPE_RESTRICT (expr), 1);
+  bp_pack_value (bp, TYPE_USER_ALIGN (expr), 1);
+  bp_pack_value (bp, TYPE_READONLY (expr), 1);
+  /* We used to stream TYPE_ALIAS_SET == 0 information to let frontends mark
+     types that are opaque for TBAA.  This however did not work as intended,
+     becuase TYPE_ALIAS_SET == 0 was regularly lost in type merging.  */
   if (RECORD_OR_UNION_TYPE_P (expr))
     {
       bp_pack_value (bp, TYPE_TRANSPARENT_AGGR (expr), 1);
@@ -320,17 +327,8 @@ pack_ts_type_common_value_fields (struct bitpack_d *bp, tree expr)
     }
   else if (TREE_CODE (expr) == ARRAY_TYPE)
     bp_pack_value (bp, TYPE_NONALIASED_COMPONENT (expr), 1);
-  bp_pack_value (bp, TYPE_PACKED (expr), 1);
-  bp_pack_value (bp, TYPE_RESTRICT (expr), 1);
-  bp_pack_value (bp, TYPE_USER_ALIGN (expr), 1);
-  bp_pack_value (bp, TYPE_READONLY (expr), 1);
   bp_pack_var_len_unsigned (bp, TYPE_PRECISION (expr));
   bp_pack_var_len_unsigned (bp, TYPE_ALIGN (expr));
-  /* Make sure to preserve the fact whether the frontend would assign
-     alias-set zero to this type.  */
-  bp_pack_var_len_int (bp, (TYPE_ALIAS_SET (expr) == 0
-			    || (!in_lto_p
-				&& get_alias_set (expr) == 0)) ? 0 : -1);
 }
 
 

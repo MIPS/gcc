@@ -2864,8 +2864,6 @@ copy_debug_stmt (gdebug *stmt, copy_body_data *id)
   else if (gimple_debug_source_bind_p (stmt))
     {
       gimple_debug_source_bind_set_var (stmt, t);
-      walk_tree (gimple_debug_source_bind_get_value_ptr (stmt),
-		 remap_gimple_op_r, &wi, NULL);
       /* When inlining and source bind refers to one of the optimized
 	 away parameters, change the source bind into normal debug bind
 	 referring to the corresponding DEBUG_EXPR_DECL that should have
@@ -2889,7 +2887,10 @@ copy_debug_stmt (gdebug *stmt, copy_body_data *id)
 		    break;
 		  }
 	    }
-	}      
+	}
+      if (gimple_debug_source_bind_p (stmt))
+	walk_tree (gimple_debug_source_bind_get_value_ptr (stmt),
+		   remap_gimple_op_r, &wi, NULL);
     }
 
   processing_debug_stmt = 0;
@@ -5115,6 +5116,8 @@ mark_local_labels_stmt (gimple_stmt_iterator *gsip,
   return NULL_TREE;
 }
 
+static gimple_seq duplicate_remap_omp_clause_seq (gimple_seq seq,
+						  struct walk_stmt_info *wi);
 
 /* Called via walk_gimple_seq by copy_gimple_seq_and_replace_local.
    Using the splay_tree pointed to by ST (which is really a `splay_tree'),
@@ -5159,6 +5162,35 @@ replace_locals_op (tree *tp, int *walk_subtrees, void *data)
 	  TREE_OPERAND (expr, 3) = NULL_TREE;
 	}
     }
+  else if (TREE_CODE (expr) == OMP_CLAUSE)
+    {
+      /* Before the omplower pass completes, some OMP clauses can contain
+	 sequences that are neither copied by gimple_seq_copy nor walked by
+	 walk_gimple_seq.  To make copy_gimple_seq_and_replace_locals work even
+	 in those situations, we have to copy and process them explicitely.  */
+
+      if (OMP_CLAUSE_CODE (expr) == OMP_CLAUSE_LASTPRIVATE)
+	{
+	  gimple_seq seq = OMP_CLAUSE_LASTPRIVATE_GIMPLE_SEQ (expr);
+	  seq = duplicate_remap_omp_clause_seq (seq, wi);
+	  OMP_CLAUSE_LASTPRIVATE_GIMPLE_SEQ (expr) = seq;
+	}
+      else if (OMP_CLAUSE_CODE (expr) == OMP_CLAUSE_LINEAR)
+	{
+	  gimple_seq seq = OMP_CLAUSE_LINEAR_GIMPLE_SEQ (expr);
+	  seq = duplicate_remap_omp_clause_seq (seq, wi);
+	  OMP_CLAUSE_LINEAR_GIMPLE_SEQ (expr) = seq;
+	}
+      else if (OMP_CLAUSE_CODE (expr) == OMP_CLAUSE_REDUCTION)
+	{
+	  gimple_seq seq = OMP_CLAUSE_REDUCTION_GIMPLE_INIT (expr);
+	  seq = duplicate_remap_omp_clause_seq (seq, wi);
+	  OMP_CLAUSE_REDUCTION_GIMPLE_INIT (expr) = seq;
+	  seq = OMP_CLAUSE_REDUCTION_GIMPLE_MERGE (expr);
+	  seq = duplicate_remap_omp_clause_seq (seq, wi);
+	  OMP_CLAUSE_REDUCTION_GIMPLE_MERGE (expr) = seq;
+	}
+    }
 
   /* Keep iterating.  */
   return NULL_TREE;
@@ -5199,6 +5231,21 @@ replace_locals_stmt (gimple_stmt_iterator *gsip,
   return NULL_TREE;
 }
 
+/* Create a copy of SEQ and remap all decls in it.  */
+
+static gimple_seq
+duplicate_remap_omp_clause_seq (gimple_seq seq, struct walk_stmt_info *wi)
+{
+  if (!seq)
+    return NULL;
+
+  /* If there are any labels in OMP sequences, they can be only referred to in
+     the sequence itself and therefore we can do both here.  */
+  walk_gimple_seq (seq, mark_local_labels_stmt, NULL, wi);
+  gimple_seq copy = gimple_seq_copy (seq);
+  walk_gimple_seq (copy, replace_locals_stmt, replace_locals_op, wi);
+  return copy;
+}
 
 /* Copies everything in SEQ and replaces variables and labels local to
    current_function_decl.  */

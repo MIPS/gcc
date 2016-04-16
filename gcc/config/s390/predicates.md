@@ -26,18 +26,23 @@
 
 ;; Return true if OP a const 0 operand (int/float/vector).
 (define_predicate "const0_operand"
-  (and (match_code "const_int,const_double,const_vector")
+  (and (match_code "const_int,const_wide_int,const_double,const_vector")
        (match_test "op == CONST0_RTX (mode)")))
 
 ;; Return true if OP an all ones operand (int/float/vector).
 (define_predicate "constm1_operand"
-  (and (match_code "const_int, const_double,const_vector")
+  (and (match_code "const_int,const_wide_int,const_double,const_vector")
        (match_test "op == CONSTM1_RTX (mode)")))
+
+;; Return true if OP is a 4 bit mask operand
+(define_predicate "const_mask_operand"
+  (and (match_code "const_int")
+       (match_test "UINTVAL (op) < 16")))
 
 ;; Return true if OP is constant.
 
 (define_special_predicate "consttable_operand"
-  (and (match_code "symbol_ref, label_ref, const, const_int, const_double, const_vector")
+  (and (match_code "symbol_ref, label_ref, const, const_int, const_wide_int, const_double, const_vector")
        (match_test "CONSTANT_P (op)")))
 
 ;; Return true if OP is a valid S-type operand.
@@ -116,13 +121,16 @@
 ;;  Return true if OP a valid operand for the LARL instruction.
 
 (define_predicate "larl_operand"
+; Note: Although CONST_INT and CONST_DOUBLE are not handled in this predicate,
+; at least one of them needs to appear or otherwise safe_predicate_mode will
+; assume that a VOIDmode LABEL_REF is not accepted either (see genrecog.c).
   (match_code "label_ref, symbol_ref, const, const_int, const_double")
 {
   /* Allow labels and local symbols.  */
   if (GET_CODE (op) == LABEL_REF)
     return true;
   if (GET_CODE (op) == SYMBOL_REF)
-    return (!SYMBOL_REF_ALIGN1_P (op)
+    return (!SYMBOL_FLAG_NOTALIGN2_P (op)
 	    && SYMBOL_REF_TLS_MODEL (op) == 0
 	    && (!flag_pic || SYMBOL_REF_LOCAL_P (op)));
 
@@ -147,7 +155,7 @@
   if (GET_CODE (op) == LABEL_REF)
     return true;
   if (GET_CODE (op) == SYMBOL_REF)
-    return ((SYMBOL_REF_FLAGS (op) & SYMBOL_FLAG_ALIGN1) == 0
+    return (!SYMBOL_FLAG_NOTALIGN2_P (op)
 	    && SYMBOL_REF_TLS_MODEL (op) == 0
 	    && (!flag_pic || SYMBOL_REF_LOCAL_P (op)));
 
