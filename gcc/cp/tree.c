@@ -1,5 +1,5 @@
 /* Language-dependent node constructors for parse phase of GNU compiler.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -184,6 +184,12 @@ lvalue_kind (const_tree ref)
 				    : TREE_OPERAND (ref, 0));
       op2_lvalue_kind = lvalue_kind (TREE_OPERAND (ref, 2));
       break;
+
+    case MODOP_EXPR:
+      /* We expect to see unlowered MODOP_EXPRs only during
+	 template processing.  */
+      gcc_assert (processing_template_decl);
+      return clk_ordinary;
 
     case MODIFY_EXPR:
     case TYPEID_EXPR:
@@ -1006,7 +1012,7 @@ c_build_qualified_type (tree type, int type_quals, tree /* orig_qual_type */,
    arrays correctly.  In particular, if TYPE is an array of T's, and
    TYPE_QUALS is non-empty, returns an array of qualified T's.
 
-   FLAGS determines how to deal with ill-formed qualifications. If
+   COMPLAIN determines how to deal with ill-formed qualifications. If
    tf_ignore_bad_quals is set, then bad qualifications are dropped
    (this is permitted if TYPE was introduced via a typedef or template
    type parameter). If bad qualifications are dropped and tf_warning
@@ -2741,7 +2747,6 @@ build_min_non_dep_call_vec (tree non_dep, tree fn, vec<tree, va_gc> *argvec)
     non_dep = TREE_OPERAND (non_dep, 0);
   TREE_TYPE (t) = TREE_TYPE (non_dep);
   TREE_SIDE_EFFECTS (t) = TREE_SIDE_EFFECTS (non_dep);
-  KOENIG_LOOKUP_P (t) = KOENIG_LOOKUP_P (non_dep);
   return convert_from_reference (t);
 }
 
@@ -2803,6 +2808,11 @@ build_min_non_dep_op_overload (enum tree_code op,
   va_end (p);
   call = build_min_non_dep_call_vec (non_dep, fn, args);
   release_tree_vector (args);
+
+  tree call_expr = call;
+  if (REFERENCE_REF_P (call_expr))
+    call_expr = TREE_OPERAND (call_expr, 0);
+  KOENIG_LOOKUP_P (call_expr) = KOENIG_LOOKUP_P (non_dep);
 
   return call;
 }
@@ -4427,23 +4437,10 @@ cp_tree_operand_length (const_tree t)
 {
   enum tree_code code = TREE_CODE (t);
 
-  switch (code)
-    {
-    case PREINCREMENT_EXPR:
-    case PREDECREMENT_EXPR:
-    case POSTINCREMENT_EXPR:
-    case POSTDECREMENT_EXPR:
-      return 1;
+  if (TREE_CODE_CLASS (code) == tcc_vl_exp)
+    return VL_EXP_OPERAND_LENGTH (t);
 
-    case ARRAY_REF:
-      return 2;
-
-    case EXPR_PACK_EXPANSION:
-      return 1;
-
-    default:
-      return TREE_OPERAND_LENGTH (t);
-    }
+  return cp_tree_code_length (code);
 }
 
 /* Like cp_tree_operand_length, but takes a tree_code CODE.  */

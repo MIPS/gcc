@@ -2,7 +2,7 @@
    constexpr functions.  These routines are used both during actual parsing
    and during the instantiation of template functions.
 
-   Copyright (C) 1998-2015 Free Software Foundation, Inc.
+   Copyright (C) 1998-2016 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -1285,16 +1285,6 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
       ctx->values->put (new_ctx.object, ctor);
       ctx = &new_ctx;
     }
-  else if (DECL_BY_REFERENCE (DECL_RESULT (fun))
-	   && TREE_CODE (t) != AGGR_INIT_EXPR)
-    {
-      /* convert_to_void stripped our AGGR_INIT_EXPR, in which case we don't
-	 care about a constant value.  ??? we could still optimize away the
-	 call.  */
-      gcc_assert (ctx->quiet && !ctx->object);
-      *non_constant_p = true;
-      return t;
-    }
 
   bool non_constant_args = false;
   cxx_bind_parameters_in_call (ctx, t, &new_call,
@@ -1522,17 +1512,17 @@ cxx_eval_check_shift_p (location_t loc, const constexpr_ctx *ctx,
   if (tree_int_cst_sgn (rhs) == -1)
     {
       if (!ctx->quiet)
-	error_at (loc, "right operand of shift expression %q+E is negative",
-		  build2_loc (loc, code, type, lhs, rhs));
-      return true;
+	permerror (loc, "right operand of shift expression %q+E is negative",
+		   build2_loc (loc, code, type, lhs, rhs));
+      return (!flag_permissive || ctx->quiet);
     }
   if (compare_tree_int (rhs, uprec) >= 0)
     {
       if (!ctx->quiet)
-	error_at (loc, "right operand of shift expression %q+E is >= than "
-		  "the precision of the left operand",
-		  build2_loc (loc, code, type, lhs, rhs));
-      return true;
+	permerror (loc, "right operand of shift expression %q+E is >= than "
+		   "the precision of the left operand",
+		   build2_loc (loc, code, type, lhs, rhs));
+      return (!flag_permissive || ctx->quiet);
     }
 
   /* The value of E1 << E2 is E1 left-shifted E2 bit positions; [...]
@@ -1546,9 +1536,10 @@ cxx_eval_check_shift_p (location_t loc, const constexpr_ctx *ctx,
       if (tree_int_cst_sgn (lhs) == -1)
 	{
 	  if (!ctx->quiet)
-	    error_at (loc, "left operand of shift expression %q+E is negative",
-		      build2_loc (loc, code, type, lhs, rhs));
-	  return true;
+	    permerror (loc,
+		       "left operand of shift expression %q+E is negative",
+		       build2_loc (loc, code, type, lhs, rhs));
+	  return (!flag_permissive || ctx->quiet);
 	}
       /* For signed x << y the following:
 	 (unsigned) x >> ((prec (lhs) - 1) - y)
@@ -1565,9 +1556,9 @@ cxx_eval_check_shift_p (location_t loc, const constexpr_ctx *ctx,
       if (tree_int_cst_lt (integer_one_node, t))
 	{
 	  if (!ctx->quiet)
-	    error_at (loc, "shift expression %q+E overflows",
-		      build2_loc (loc, code, type, lhs, rhs));
-	  return true;
+	    permerror (loc, "shift expression %q+E overflows",
+		       build2_loc (loc, code, type, lhs, rhs));
+	  return (!flag_permissive || ctx->quiet);
 	}
     }
   return false;
@@ -1734,14 +1725,57 @@ find_array_ctor_elt (tree ary, tree dindex, bool insert = false)
   while (begin != end)
     {
       unsigned HOST_WIDE_INT middle = (begin + end) / 2;
+      constructor_elt &elt = (*elts)[middle];
+      tree idx = elt.index;
 
-      int cmp = array_index_cmp (dindex, (*elts)[middle].index);
+      int cmp = array_index_cmp (dindex, idx);
       if (cmp < 0)
 	end = middle;
       else if (cmp > 0)
 	begin = middle + 1;
       else
-	return middle;
+	{
+	  if (insert && TREE_CODE (idx) == RANGE_EXPR)
+	    {
+	      /* We need to split the range.  */
+	      constructor_elt e;
+	      tree lo = TREE_OPERAND (idx, 0);
+	      tree hi = TREE_OPERAND (idx, 1);
+	      if (tree_int_cst_lt (lo, dindex))
+		{
+		  /* There are still some lower elts; shorten the range.  */
+		  tree new_hi = int_const_binop (MINUS_EXPR, dindex,
+						 size_one_node);
+		  if (tree_int_cst_equal (lo, new_hi))
+		    /* Only one element left, no longer a range.  */
+		    elt.index = lo;
+		  else
+		    TREE_OPERAND (idx, 1) = new_hi;
+		  /* Append the element we want to insert.  */
+		  ++middle;
+		  e.index = dindex;
+		  e.value = unshare_expr (elt.value);
+		  vec_safe_insert (CONSTRUCTOR_ELTS (ary), middle, e);
+		}
+	      else
+		/* No lower elts, the range elt is now ours.  */
+		elt.index = dindex;
+
+	      if (tree_int_cst_lt (dindex, hi))
+		{
+		  /* There are still some higher elts; append a range.  */
+		  tree new_lo = int_const_binop (PLUS_EXPR, dindex,
+						 size_one_node);
+		  if (tree_int_cst_equal (new_lo, hi))
+		    e.index = hi;
+		  else
+		    e.index = build2 (RANGE_EXPR, sizetype, new_lo, hi);
+		  e.value = unshare_expr (elt.value);
+		  vec_safe_insert (CONSTRUCTOR_ELTS (ary), middle+1, e);
+		}
+	    }
+	  return middle;
+	}
     }
 
   if (insert)
@@ -2392,7 +2426,15 @@ cxx_fold_indirect_ref (location_t loc, tree type, tree op0, bool *empty_base)
       if (TREE_CODE (op) == CONST_DECL)
 	return DECL_INITIAL (op);
       /* *&p => p;  make sure to handle *&"str"[cst] here.  */
-      if (same_type_ignoring_top_level_qualifiers_p (optype, type))
+      if (same_type_ignoring_top_level_qualifiers_p (optype, type)
+	  /* Also handle the case where the desired type is an array of unknown
+	     bounds because the variable has had its bounds deduced since the
+	     ADDR_EXPR was created.  */
+	  || (TREE_CODE (type) == ARRAY_TYPE
+	      && TREE_CODE (optype) == ARRAY_TYPE
+	      && TYPE_DOMAIN (type) == NULL_TREE
+	      && same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (optype),
+							    TREE_TYPE (type))))
 	{
 	  tree fop = fold_read_from_constant_string (op);
 	  if (fop)
@@ -3194,7 +3236,8 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 	r = TARGET_EXPR_INITIAL (r);
       if (VAR_P (r))
 	if (tree *p = ctx->values->get (r))
-	  r = *p;
+	  if (*p != NULL_TREE)
+	    r = *p;
       if (DECL_P (r))
 	{
 	  if (!ctx->quiet)
@@ -3982,6 +4025,14 @@ maybe_constant_value (tree t, tree decl)
       cv_cache.put (t, ret);
     }
   return ret;
+}
+
+/* Dispose of the whole CV_CACHE.  */
+
+void
+clear_cv_cache (void)
+{
+  gt_cleare_cache (cv_cache);
 }
 
 /* Like maybe_constant_value but first fully instantiate the argument.

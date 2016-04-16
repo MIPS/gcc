@@ -1,5 +1,5 @@
 /* Expand the basic unary and binary arithmetic operations, for GNU compiler.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -5547,7 +5547,7 @@ expand_vec_cond_mask_expr (tree vec_cond_type, tree op0, tree op1, tree op2,
   rtx_op1 = expand_normal (op1);
   rtx_op2 = expand_normal (op2);
 
-  mask = force_reg (GET_MODE (mask), mask);
+  mask = force_reg (mask_mode, mask);
   rtx_op1 = force_reg (GET_MODE (rtx_op1), rtx_op1);
 
   create_output_operand (&ops[0], target, mode);

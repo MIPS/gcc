@@ -1,5 +1,5 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -75,6 +75,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gcse.h"
 #include "tree-chkp.h"
 #include "omp-low.h"
+#include "hsa.h"
 
 #if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
 #include "dbxout.h"
@@ -542,6 +543,8 @@ compile_file (void)
 
       omp_finish_file ();
 
+      hsa_output_brig ();
+
       output_shared_constant_pool ();
       output_object_blocks ();
       finish_tm_clone_pairs ();
@@ -664,7 +667,7 @@ print_version (FILE *file, const char *indent, bool show_global_state)
 #endif
     ;
   static const char fmt2[] =
-    N_("GMP version %s, MPFR version %s, MPC version %s\n");
+    N_("GMP version %s, MPFR version %s, MPC version %s, isl version %s\n");
   static const char fmt3[] =
     N_("%s%swarning: %s header version %s differs from library version %s.\n");
   static const char fmt4[] =
@@ -698,7 +701,15 @@ print_version (FILE *file, const char *indent, bool show_global_state)
 #endif
   fprintf (file,
 	   file == stderr ? _(fmt2) : fmt2,
-	   GCC_GMP_STRINGIFY_VERSION, MPFR_VERSION_STRING, MPC_VERSION_STRING);
+	   GCC_GMP_STRINGIFY_VERSION, MPFR_VERSION_STRING, MPC_VERSION_STRING,
+#ifndef HAVE_isl
+	   "none"
+#elif HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS
+	   "0.15"
+#else
+	   "0.14 or 0.13"
+#endif
+	   );
   if (strcmp (GCC_GMP_STRINGIFY_VERSION, gmp_version))
     fprintf (file,
 	     file == stderr ? _(fmt3) : fmt3,
@@ -1274,7 +1285,7 @@ process_options (void)
       || flag_loop_nest_optimize
       || flag_graphite_identity
       || flag_loop_parallelize_all)
-    sorry ("Graphite loop optimizations cannot be used (ISL is not available)" 
+    sorry ("Graphite loop optimizations cannot be used (isl is not available)"
 	   "(-fgraphite, -fgraphite-identity, -floop-block, "
 	   "-floop-interchange, -floop-strip-mine, -floop-parallelize-all, "
 	   "-floop-unroll-and-jam, and -ftree-loop-linear)");
@@ -2082,6 +2093,7 @@ toplev::main (int argc, char **argv)
   /* One-off initialization of options that does not need to be
      repeated when options are added for particular functions.  */
   init_options_once ();
+  init_opts_obstack ();
 
   /* Initialize global options structures; this must be repeated for
      each structure used for parsing options.  */
@@ -2171,11 +2183,15 @@ toplev::finalize (void)
   finalize_options_struct (&global_options);
   finalize_options_struct (&global_options_set);
 
+  /* save_decoded_options uses opts_obstack, so these must
+     be cleaned up together.  */
+  obstack_free (&opts_obstack, NULL);
   XDELETEVEC (save_decoded_options);
+  save_decoded_options = NULL;
+  save_decoded_options_count = 0;
 
   /* Clean up the context (and pass_manager etc). */
   delete g;
   g = NULL;
 
-  obstack_free (&opts_obstack, NULL);
 }

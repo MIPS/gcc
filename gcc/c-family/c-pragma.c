@@ -1,5 +1,5 @@
 /* Handle #pragma, system V.4 style.  Supports #pragma weak and #pragma pack.
-   Copyright (C) 1992-2015 Free Software Foundation, Inc.
+   Copyright (C) 1992-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1372,8 +1372,9 @@ c_register_pragma_1 (const char *space, const char *name,
       id = registered_pragmas.length ();
       id += PRAGMA_FIRST_EXTERNAL - 1;
 
-      /* The C++ front end allocates 8 bits in cp_token; the C front end
-	 allocates 8 bits in c_token.  At present this is sufficient.  */
+      /* The C front end allocates 8 bits in c_token.  The C++ front end
+	 keeps the pragma kind in the form of INTEGER_CST, so no small
+	 limit applies.  At present this is sufficient.  */
       gcc_assert (id < 256);
     }
 

@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on IA-32.
-   Copyright (C) 1988-2015 Free Software Foundation, Inc.
+   Copyright (C) 1988-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2815,7 +2815,11 @@ scalar_to_vector_candidate_p (rtx_insn *insn)
       return false;
     }
 
-  if (!REG_P (XEXP (src, 0)) && !MEM_P (XEXP (src, 0)))
+  if (!REG_P (XEXP (src, 0)) && !MEM_P (XEXP (src, 0))
+      /* Check for andnot case.  */
+      && (GET_CODE (src) != AND
+	  || GET_CODE (XEXP (src, 0)) != NOT
+	  || !REG_P (XEXP (XEXP (src, 0), 0))))
       return false;
 
   if (!REG_P (XEXP (src, 1)) && !MEM_P (XEXP (src, 1)))
@@ -3150,13 +3154,13 @@ scalar_chain::compute_convert_gain ()
     }
 
   if (dump_file)
-    fprintf (dump_file, "  Instruction convertion gain: %d\n", gain);
+    fprintf (dump_file, "  Instruction conversion gain: %d\n", gain);
 
   EXECUTE_IF_SET_IN_BITMAP (defs_conv, 0, insn_uid, bi)
     cost += DF_REG_DEF_COUNT (insn_uid) * ix86_cost->mmxsse_to_integer;
 
   if (dump_file)
-    fprintf (dump_file, "  Registers convertion cost: %d\n", cost);
+    fprintf (dump_file, "  Registers conversion cost: %d\n", cost);
 
   gain -= cost;
 
@@ -3383,7 +3387,12 @@ scalar_chain::convert_op (rtx *op, rtx_insn *insn)
 {
   *op = copy_rtx_if_shared (*op);
 
-  if (MEM_P (*op))
+  if (GET_CODE (*op) == NOT)
+    {
+      convert_op (&XEXP (*op, 0), insn);
+      PUT_MODE (*op, V2DImode);
+    }
+  else if (MEM_P (*op))
     {
       rtx tmp = gen_reg_rtx (DImode);
 
@@ -3531,7 +3540,7 @@ convert_scalars_to_vector ()
 
   /* Find all instructions we want to convert into vector mode.  */
   if (dump_file)
-    fprintf (dump_file, "Searching for mode convertion candidates...\n");
+    fprintf (dump_file, "Searching for mode conversion candidates...\n");
 
   FOR_EACH_BB_FN (bb, cfun)
     {
@@ -3755,6 +3764,7 @@ ix86_target_string (HOST_WIDE_INT isa, int flags, const char *arch,
     { "-mpcommit",	OPTION_MASK_ISA_PCOMMIT },
     { "-mmwaitx",	OPTION_MASK_ISA_MWAITX  },
     { "-mclzero",	OPTION_MASK_ISA_CLZERO  },
+    { "-mpku",		OPTION_MASK_ISA_PKU  },
   };
 
   /* Flag options.  */
@@ -4310,6 +4320,7 @@ ix86_option_override_internal (bool main_args_p,
 #define PTA_MWAITX		(HOST_WIDE_INT_1 << 57)
 #define PTA_CLZERO		(HOST_WIDE_INT_1 << 58)
 #define PTA_NO_80387		(HOST_WIDE_INT_1 << 59)
+#define PTA_PKU		(HOST_WIDE_INT_1 << 60)
 
 #define PTA_CORE2 \
   (PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3 | PTA_SSSE3 \
@@ -4331,7 +4342,7 @@ ix86_option_override_internal (bool main_args_p,
   (PTA_BROADWELL | PTA_CLFLUSHOPT | PTA_XSAVEC | PTA_XSAVES)
 #define PTA_SKYLAKE_AVX512 \
   (PTA_SKYLAKE | PTA_AVX512F | PTA_AVX512CD | PTA_AVX512VL \
-   | PTA_AVX512BW | PTA_AVX512DQ)
+   | PTA_AVX512BW | PTA_AVX512DQ | PTA_PKU)
 #define PTA_KNL \
   (PTA_BROADWELL | PTA_AVX512PF | PTA_AVX512ER | PTA_AVX512F | PTA_AVX512CD)
 #define PTA_BONNELL \
@@ -4934,6 +4945,9 @@ ix86_option_override_internal (bool main_args_p,
 	if (processor_alias_table[i].flags & PTA_MWAITX
 	    && !(opts->x_ix86_isa_flags_explicit & OPTION_MASK_ISA_MWAITX))
 	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_MWAITX;
+	if (processor_alias_table[i].flags & PTA_PKU
+	    && !(opts->x_ix86_isa_flags_explicit & OPTION_MASK_ISA_PKU))
+	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_PKU;
 
 	if (!(opts_set->x_target_flags & MASK_80387))
 	  {
@@ -5337,6 +5351,13 @@ ix86_option_override_internal (bool main_args_p,
 			 ix86_tune_cost->l2_cache_size,
 			 opts->x_param_values,
 			 opts_set->x_param_values);
+
+  /* Restrict number of if-converted SET insns to 1.  */
+  if (TARGET_ONE_IF_CONV_INSN)
+    maybe_set_param_value (PARAM_MAX_RTL_IF_CONVERSION_INSNS,
+			   1,
+			   opts->x_param_values,
+			   opts_set->x_param_values);
 
   /* Enable sw prefetching at -O3 for CPUS that prefetching is helpful.  */
   if (opts->x_flag_prefetch_loop_arrays < 0
@@ -5930,6 +5951,7 @@ ix86_valid_target_attribute_inner_p (tree args, char *p_strings[],
     IX86_ATTR_ISA ("pcommit",	OPT_mpcommit),
     IX86_ATTR_ISA ("mwaitx",	OPT_mmwaitx),
     IX86_ATTR_ISA ("clzero",    OPT_mclzero),
+    IX86_ATTR_ISA ("pku",	OPT_mpku),
 
     /* enum options */
     IX86_ATTR_ENUM ("fpmath=",	OPT_mfpmath_),
@@ -6657,6 +6679,7 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
 {
   tree type, decl_or_type;
   rtx a, b;
+  bool bind_global = decl && !targetm.binds_local_p (decl);
 
   /* If we are generating position-independent code, we cannot sibcall
      optimize direct calls to global functions, as the PLT requires
@@ -6665,7 +6688,7 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
       && !TARGET_64BIT
       && flag_pic
       && flag_plt
-      && decl && !targetm.binds_local_p (decl))
+      && bind_global)
     return false;
 
   /* If we need to align the outgoing stack, then sibcalling would
@@ -6723,8 +6746,10 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
       /* If this call is indirect, we'll need to be able to use a
 	 call-clobbered register for the address of the target function.
 	 Make sure that all such registers are not used for passing
-	 parameters.  Note that DLLIMPORT functions are indirect.  */
+	 parameters.  Note that DLLIMPORT functions and call to global
+	 function via GOT slot are indirect.  */
       if (!decl
+	  || (bind_global && flag_pic && !flag_plt)
 	  || (TARGET_DLLIMPORT_DECL_ATTRIBUTES && DECL_DLLIMPORT_P (decl)))
 	{
 	  /* Check if regparm >= 3 since arg_reg_available is set to
@@ -10894,6 +10919,10 @@ ix86_frame_pointer_required (void)
   if (TARGET_64BIT_MS_ABI && get_frame_size () > SEH_MAX_FRAME_SIZE)
     return true;
 
+  /* SSE saves require frame-pointer when stack is misaligned.  */
+  if (TARGET_64BIT_MS_ABI && ix86_incoming_stack_boundary < 128)
+    return true;
+  
   /* In ix86_option_override_internal, TARGET_OMIT_LEAF_FRAME_POINTER
      turns off the frame pointer by default.  Turn it back on now if
      we've not got a leaf function.  */
@@ -19350,11 +19379,11 @@ ix86_expand_vector_logical_operator (enum rtx_code code, machine_mode mode,
 	    {
 	      op1 = operands[1];
 	      op2 = SUBREG_REG (operands[2]);
-	      if (!nonimmediate_operand (op2, GET_MODE (dst)))
+	      if (!vector_operand (op2, GET_MODE (dst)))
 		op2 = force_reg (GET_MODE (dst), op2);
 	    }
 	  op1 = SUBREG_REG (op1);
-	  if (!nonimmediate_operand (op1, GET_MODE (dst)))
+	  if (!vector_operand (op1, GET_MODE (dst)))
 	    op1 = force_reg (GET_MODE (dst), op1);
 	  emit_insn (gen_rtx_SET (dst,
 				  gen_rtx_fmt_ee (code, GET_MODE (dst),
@@ -19365,9 +19394,9 @@ ix86_expand_vector_logical_operator (enum rtx_code code, machine_mode mode,
 	  break;
 	}
     }
-  if (!nonimmediate_operand (operands[1], mode))
+  if (!vector_operand (operands[1], mode))
     operands[1] = force_reg (mode, operands[1]);
-  if (!nonimmediate_operand (operands[2], mode))
+  if (!vector_operand (operands[2], mode))
     operands[2] = force_reg (mode, operands[2]);
   ix86_fixup_binary_operands_no_copy (code, mode, operands);
   emit_insn (gen_rtx_SET (operands[0],
@@ -21679,6 +21708,19 @@ ix86_expand_branch (enum rtx_code code, rtx op0, rtx op1, rtx label)
     case DImode:
       if (TARGET_64BIT)
 	goto simple;
+      /* For 32-bit target DI comparison may be performed on
+	 SSE registers.  To allow this we should avoid split
+	 to SI mode which is achieved by doing xor in DI mode
+	 and then comparing with zero (which is recognized by
+	 STV pass).  We don't compare using xor when optimizing
+	 for size.  */
+      if (!optimize_insn_for_size_p ()
+	  && TARGET_STV
+	  && (code == EQ || code == NE))
+	{
+	  op0 = force_reg (mode, gen_rtx_XOR (mode, op0, op1));
+	  op1 = const0_rtx;
+	}
     case TImode:
       /* Expand DImode branch into multiple compare+branch.  */
       {
@@ -32283,6 +32325,10 @@ enum ix86_builtins
   IX86_BUILTIN_READ_FLAGS,
   IX86_BUILTIN_WRITE_FLAGS,
 
+  /* PKU instructions.  */
+  IX86_BUILTIN_RDPKRU,
+  IX86_BUILTIN_WRPKRU,
+
   IX86_BUILTIN_MAX
 };
 
@@ -32788,6 +32834,10 @@ static const struct builtin_description bdesc_special_args[] =
 
   /* PCOMMIT.  */
   { OPTION_MASK_ISA_PCOMMIT, CODE_FOR_pcommit, "__builtin_ia32_pcommit", IX86_BUILTIN_PCOMMIT, UNKNOWN, (int) VOID_FTYPE_VOID },
+
+  /* RDPKRU and WRPKRU.  */
+  { OPTION_MASK_ISA_PKU, CODE_FOR_rdpkru,  "__builtin_ia32_rdpkru", IX86_BUILTIN_RDPKRU, UNKNOWN, (int) UNSIGNED_FTYPE_VOID },
+  { OPTION_MASK_ISA_PKU, CODE_FOR_wrpkru,  "__builtin_ia32_wrpkru", IX86_BUILTIN_WRPKRU, UNKNOWN, (int) VOID_FTYPE_UNSIGNED }
 };
 
 /* Builtins with variable number of arguments.  */
@@ -35186,48 +35236,6 @@ static const struct builtin_description bdesc_tm[] =
   { OPTION_MASK_ISA_AVX, CODE_FOR_nothing, "__builtin__ITM_LM256", (enum ix86_builtins) BUILT_IN_TM_LOG_M256, UNKNOWN, VOID_FTYPE_PCVOID },
 };
 
-/* TM callbacks.  */
-
-/* Return the builtin decl needed to load a vector of TYPE.  */
-
-static tree
-ix86_builtin_tm_load (tree type)
-{
-  if (TREE_CODE (type) == VECTOR_TYPE)
-    {
-      switch (tree_to_uhwi (TYPE_SIZE (type)))
-	{
-	case 64:
-	  return builtin_decl_explicit (BUILT_IN_TM_LOAD_M64);
-	case 128:
-	  return builtin_decl_explicit (BUILT_IN_TM_LOAD_M128);
-	case 256:
-	  return builtin_decl_explicit (BUILT_IN_TM_LOAD_M256);
-	}
-    }
-  return NULL_TREE;
-}
-
-/* Return the builtin decl needed to store a vector of TYPE.  */
-
-static tree
-ix86_builtin_tm_store (tree type)
-{
-  if (TREE_CODE (type) == VECTOR_TYPE)
-    {
-      switch (tree_to_uhwi (TYPE_SIZE (type)))
-	{
-	case 64:
-	  return builtin_decl_explicit (BUILT_IN_TM_STORE_M64);
-	case 128:
-	  return builtin_decl_explicit (BUILT_IN_TM_STORE_M128);
-	case 256:
-	  return builtin_decl_explicit (BUILT_IN_TM_STORE_M256);
-	}
-    }
-  return NULL_TREE;
-}
-
 /* Initialize the transactional memory vector load/store builtins.  */
 
 static void
@@ -39755,7 +39763,11 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
       memory = 0;
       break;
     case VOID_FTYPE_PV8DF_V8DF_UQI:
+    case VOID_FTYPE_PV4DF_V4DF_UQI:
+    case VOID_FTYPE_PV2DF_V2DF_UQI:
     case VOID_FTYPE_PV16SF_V16SF_UHI:
+    case VOID_FTYPE_PV8SF_V8SF_UQI:
+    case VOID_FTYPE_PV4SF_V4SF_UQI:
     case VOID_FTYPE_PV8DI_V8DI_UQI:
     case VOID_FTYPE_PV4DI_V4DI_UQI:
     case VOID_FTYPE_PV2DI_V2DI_UQI:
@@ -39813,10 +39825,6 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
     case VOID_FTYPE_PV16QI_V16QI_UHI:
     case VOID_FTYPE_PV32QI_V32QI_USI:
     case VOID_FTYPE_PV64QI_V64QI_UDI:
-    case VOID_FTYPE_PV4DF_V4DF_UQI:
-    case VOID_FTYPE_PV2DF_V2DF_UQI:
-    case VOID_FTYPE_PV8SF_V8SF_UQI:
-    case VOID_FTYPE_PV4SF_V4SF_UQI:
       nargs = 2;
       klass = store;
       /* Reserve memory operand for target.  */
@@ -41800,13 +41808,12 @@ rdseed_step:
 
       op0 = fixup_modeless_constant (op0, mode0);
 
-      if (GET_MODE (op0) == mode0
-	  || (GET_MODE (op0) == VOIDmode && op0 != constm1_rtx))
+      if (GET_MODE (op0) == mode0 || GET_MODE (op0) == VOIDmode)
 	{
 	  if (!insn_data[icode].operand[0].predicate (op0, mode0))
 	    op0 = copy_to_mode_reg (mode0, op0);
 	}
-      else if (op0 != constm1_rtx)
+      else
 	{
 	  op0 = copy_to_reg (op0);
 	  op0 = simplify_gen_subreg (mode0, op0, GET_MODE (op0), 0);
@@ -54312,12 +54319,6 @@ ix86_addr_space_zero_address_valid (addr_space_t as)
 #undef TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION
 #define TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION \
   ix86_builtin_vectorized_function
-
-#undef TARGET_VECTORIZE_BUILTIN_TM_LOAD
-#define TARGET_VECTORIZE_BUILTIN_TM_LOAD ix86_builtin_tm_load
-
-#undef TARGET_VECTORIZE_BUILTIN_TM_STORE
-#define TARGET_VECTORIZE_BUILTIN_TM_STORE ix86_builtin_tm_store
 
 #undef TARGET_VECTORIZE_BUILTIN_GATHER
 #define TARGET_VECTORIZE_BUILTIN_GATHER ix86_vectorize_builtin_gather

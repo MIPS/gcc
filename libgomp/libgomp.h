@@ -1,4 +1,4 @@
-/* Copyright (C) 2005-2015 Free Software Foundation, Inc.
+/* Copyright (C) 2005-2016 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU Offloading and Multi Processing Library
@@ -496,6 +496,10 @@ struct gomp_target_task
   struct target_mem_desc *tgt;
   struct gomp_task *task;
   struct gomp_team *team;
+  /* Copies of firstprivate mapped data for shared memory accelerators.  */
+  void *firstprivate_copies;
+  /* Device-specific target arguments.  */
+  void **args;
   void *hostaddrs[];
 };
 
@@ -750,7 +754,8 @@ extern void gomp_task_maybe_wait_for_dependencies (void **);
 extern bool gomp_create_target_task (struct gomp_device_descr *,
 				     void (*) (void *), size_t, void **,
 				     size_t *, unsigned short *, unsigned int,
-				     void **, enum gomp_target_task_state);
+				     void **, void **,
+				     enum gomp_target_task_state);
 
 static void inline
 gomp_finish_task (struct gomp_task *task)
@@ -817,6 +822,9 @@ struct target_mem_desc {
 
 /* Special value for refcount - infinity.  */
 #define REFCOUNT_INFINITY (~(uintptr_t) 0)
+/* Special value for refcount - tgt_offset contains target address of the
+   artificial pointer to "omp declare target link" object.  */
+#define REFCOUNT_LINK (~(uintptr_t) 1)
 
 struct splay_tree_key_s {
   /* Address of the host object.  */
@@ -831,6 +839,8 @@ struct splay_tree_key_s {
   uintptr_t refcount;
   /* Asynchronous reference count.  */
   uintptr_t async_refcount;
+  /* Pointer to the original mapping of "omp declare target link" object.  */
+  splay_tree_key link_key;
 };
 
 /* The comparison function.  */
@@ -932,8 +942,9 @@ struct gomp_device_descr
   void *(*dev2host_func) (int, void *, const void *, size_t);
   void *(*host2dev_func) (int, void *, const void *, size_t);
   void *(*dev2dev_func) (int, void *, const void *, size_t);
-  void (*run_func) (int, void *, void *);
-  void (*async_run_func) (int, void *, void *, void *);
+  bool (*can_run_func) (void *);
+  void (*run_func) (int, void *, void *, void **);
+  void (*async_run_func) (int, void *, void *, void **, void *);
 
   /* Splay tree containing information about mapped memory regions.  */
   struct splay_tree_s mem_map;

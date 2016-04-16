@@ -1,7 +1,7 @@
 # configure.ac for GCC
 # Process this file with autoconf to generate a configuration script.
 
-# Copyright (C) 1997-2015 Free Software Foundation, Inc.
+# Copyright (C) 1997-2016 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -940,6 +940,13 @@ AC_SUBST(accel_dir_suffix)
 
 for tgt in `echo $enable_offload_targets | sed 's/,/ /g'`; do
   tgt=`echo $tgt | sed 's/=.*//'`
+
+  if echo "$tgt" | grep "^hsa" > /dev/null ; then
+    enable_hsa=1
+  else
+    enable_offloading=1
+  fi
+
   if test x"$offload_targets" = x; then
     offload_targets=$tgt
   else
@@ -948,12 +955,17 @@ for tgt in `echo $enable_offload_targets | sed 's/,/ /g'`; do
 done
 AC_DEFINE_UNQUOTED(OFFLOAD_TARGETS, "$offload_targets",
   [Define to offload targets, separated by commas.])
-if test x"$offload_targets" != x; then
+if test x"$enable_offloading" != x; then
   AC_DEFINE(ENABLE_OFFLOADING, 1,
     [Define this to enable support for offloading.])
 else
   AC_DEFINE(ENABLE_OFFLOADING, 0,
     [Define this to enable support for offloading.])
+fi
+
+if test x"$enable_hsa" = x1 ; then
+  AC_DEFINE(ENABLE_HSA, 1,
+    [Define this to enable support for generating HSAIL.])
 fi
 
 AC_ARG_WITH(multilib-list,
@@ -2908,6 +2920,11 @@ fi
 AC_DEFINE_UNQUOTED(HAVE_GAS_SHF_MERGE,
   [`if test $gcc_cv_as_shf_merge = yes; then echo 1; else echo 0; fi`],
 [Define 0/1 if your assembler supports marking sections with SHF_MERGE flag.])
+
+gcc_GAS_CHECK_FEATURE([stabs directive], gcc_cv_as_stabs_directive, ,,
+[.stabs "gcc2_compiled.",60,0,0,0],,
+[AC_DEFINE(HAVE_AS_STABS_DIRECTIVE, 1,
+  [Define if your assembler supports .stabs.])])
 
 gcc_GAS_CHECK_FEATURE([COMDAT group support (GNU as)],
  gcc_cv_as_comdat_group,
@@ -5903,28 +5920,19 @@ fi
 AC_ARG_VAR(GMPLIBS,[How to link GMP])
 AC_ARG_VAR(GMPINC,[How to find GMP include files])
 
-AC_ARG_VAR(ISLLIBS,[How to link ISL])
-AC_ARG_VAR(ISLINC,[How to find ISL include files])
+AC_ARG_VAR(ISLLIBS,[How to link isl])
+AC_ARG_VAR(ISLINC,[How to find isl include files])
 if test "x${ISLLIBS}" != "x" ; then 
    AC_DEFINE(HAVE_isl, 1, [Define if isl is in use.])
 fi
 
-# Check whether isl_schedule_constraints_compute_schedule is available;
-# it's new in ISL-0.13.
 # Check whether isl_options_set_schedule_serialize_sccs is available;
-# it's new in ISL-0.15.
+# it's new in isl 0.15.
 if test "x${ISLLIBS}" != "x" ; then
   saved_CXXFLAGS="$CXXFLAGS"
-  CXXFLAGS="$CXXFLAGS $ISLINC"
+  CXXFLAGS="$CXXFLAGS $ISLINC $GMPINC"
   saved_LIBS="$LIBS"
   LIBS="$LIBS $ISLLIBS $GMPLIBS"
-
-  AC_MSG_CHECKING([Checking for isl_schedule_constraints_compute_schedule])
-  AC_TRY_LINK([#include <isl/schedule.h>],
-              [isl_schedule_constraints_compute_schedule (NULL);],
-              [ac_has_isl_schedule_constraints_compute_schedule=yes],
-              [ac_has_isl_schedule_constraints_compute_schedule=no])
-  AC_MSG_RESULT($ac_has_isl_schedule_constraints_compute_schedule)
 
   AC_MSG_CHECKING([Checking for isl_options_set_schedule_serialize_sccs])
   AC_TRY_LINK([#include <isl/schedule.h>],
@@ -5933,28 +5941,12 @@ if test "x${ISLLIBS}" != "x" ; then
               [ac_has_isl_options_set_schedule_serialize_sccs=no])
   AC_MSG_RESULT($ac_has_isl_options_set_schedule_serialize_sccs)
 
-  AC_MSG_CHECKING([Checking for isl_ctx_get_max_operations])
-  AC_TRY_LINK([#include <isl/ctx.h>],
-              [isl_ctx_get_max_operations (isl_ctx_alloc ());],
-              [ac_has_isl_ctx_get_max_operations=yes],
-              [ac_has_isl_ctx_get_max_operations=no])
-  AC_MSG_RESULT($ac_has_isl_ctx_get_max_operations)
-
   LIBS="$saved_LIBS"
   CXXFLAGS="$saved_CXXFLAGS"
-
-  if test x"$ac_has_isl_schedule_constraints_compute_schedule" = x"yes"; then
-     AC_DEFINE(HAVE_ISL_SCHED_CONSTRAINTS_COMPUTE_SCHEDULE, 1,
-               [Define if isl_schedule_constraints_compute_schedule exists.])
-  fi
 
   if test x"$ac_has_isl_options_set_schedule_serialize_sccs" = x"yes"; then
      AC_DEFINE(HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS, 1,
                [Define if isl_options_set_schedule_serialize_sccs exists.])
-  fi
-  if test x"$ac_has_isl_ctx_get_max_operations" = x"yes"; then
-     AC_DEFINE(HAVE_ISL_CTX_MAX_OPERATIONS, 1,
-               [Define if isl_ctx_get_max_operations exists.])
   fi
 fi
 

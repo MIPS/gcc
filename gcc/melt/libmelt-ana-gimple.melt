@@ -2922,7 +2922,21 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
 )
 
 
-;;; match a transaction - only in GCC 4.8 or GCC 4.9
+(gccif "6."
+       (cbody
+	#{ /* GCC 6.0 has a simpler transaction builder, so */
+	static inline gtransaction*
+	melt_build_transaction_with_label_norm(melt_gimpleseqptr_t gs, melt_treeptr_t tr)
+	{
+	  if (!gs) return NULL;
+	  gtransaction* gt = gimple_build_transaction(gs);
+	  if (gt && tr)
+	  gimple_transaction_set_label_norm (gt, tr);
+	  return gt;
+	} /* end of melt_build_transaction_with_label_norm */
+	}#))
+		
+;;; match a transaction - only in GCC 4.8 or GCC 4.9 or later
 (defcmatcher gimple_transaction
   (:gimple gr)
   (:gimple_seq gsbody
@@ -2946,7 +2960,14 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
 				    ($GR))  ;
   }#
   ;; operator expansion
-  #{/*gimple_transaction:*/ gimple_build_transaction($GSBODY,$TLAB)}#
+  #{
+  #if GCCPLUGIN_VERSION >= 6000 /* GCC 6.0 */
+  /*gimple_transaction:*/
+  melt_build_transaction_with_label_norm($GSBODY, $TLAB)
+  #else /* GCC 5.0 */
+  /*gimple_transaction:*/ gimple_build_transaction($GSBODY,$TLAB)
+  #endif /* GCC 5 or 6 */
+  }#
   )
 
  ;; match a gimple exception else

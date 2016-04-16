@@ -1,5 +1,5 @@
 /* Handle parameterized types (templates) for GNU -*- C++ -*-.
-   Copyright (C) 1992-2015 Free Software Foundation, Inc.
+   Copyright (C) 1992-2016 Free Software Foundation, Inc.
    Written by Ken Raeburn (raeburn@cygnus.com) while at Watchmaker Computing.
    Rewritten by Jason Merrill (jason@cygnus.com).
 
@@ -3637,6 +3637,8 @@ make_pack_expansion (tree arg)
          class expansion.  */
       ppd.visited = new hash_set<tree>;
       ppd.parameter_packs = &parameter_packs;
+      ppd.type_pack_expansion_p = true;
+      gcc_assert (TYPE_P (TREE_PURPOSE (arg)));
       cp_walk_tree (&TREE_PURPOSE (arg), &find_parameter_packs_r, 
                     &ppd, ppd.visited);
 
@@ -5659,6 +5661,28 @@ tree
 instantiate_non_dependent_expr (tree expr)
 {
   return instantiate_non_dependent_expr_sfinae (expr, tf_error);
+}
+
+/* Like instantiate_non_dependent_expr, but return NULL_TREE rather than
+   an uninstantiated expression.  */
+
+tree
+instantiate_non_dependent_or_null (tree expr)
+{
+  if (expr == NULL_TREE)
+    return NULL_TREE;
+  if (processing_template_decl)
+    {
+      if (instantiation_dependent_expression_p (expr)
+	  || !potential_constant_expression (expr))
+	expr = NULL_TREE;
+      else
+	{
+	  processing_template_decl_sentinel s;
+	  expr = instantiate_non_dependent_expr_internal (expr, tf_error);
+	}
+    }
+  return expr;
 }
 
 /* True iff T is a specialization of a variable template.  */
@@ -7881,9 +7905,9 @@ template_args_equal (tree ot, tree nt)
    template arguments.  Returns 0 otherwise, and updates OLDARG_PTR and
    NEWARG_PTR with the offending arguments if they are non-NULL.  */
 
-static int
-comp_template_args_with_info (tree oldargs, tree newargs,
-			      tree *oldarg_ptr, tree *newarg_ptr)
+int
+comp_template_args (tree oldargs, tree newargs,
+		    tree *oldarg_ptr, tree *newarg_ptr)
 {
   int i;
 
@@ -7911,15 +7935,6 @@ comp_template_args_with_info (tree oldargs, tree newargs,
 	}
     }
   return 1;
-}
-
-/* Returns 1 iff the OLDARGS and NEWARGS are in fact identical sets
-   of template arguments.  Returns 0 otherwise.  */
-
-int
-comp_template_args (tree oldargs, tree newargs)
-{
-  return comp_template_args_with_info (oldargs, newargs, NULL, NULL);
 }
 
 static void
@@ -10026,7 +10041,16 @@ instantiate_class_template_1 (tree type)
 			  if (can_complete_type_without_circularity (rtype))
 			    complete_type (rtype);
 
-			  if (!COMPLETE_TYPE_P (rtype))
+                          if (TREE_CODE (r) == FIELD_DECL
+                              && TREE_CODE (rtype) == ARRAY_TYPE
+                              && COMPLETE_TYPE_P (TREE_TYPE (rtype))
+                              && !COMPLETE_TYPE_P (rtype))
+                            {
+                              /* Flexible array mmembers of elements
+                                 of complete type have an incomplete type
+                                 and that's okay.  */
+                            }
+                          else if (!COMPLETE_TYPE_P (rtype))
 			    {
 			      cxx_incomplete_type_error (r, rtype);
 			      TREE_TYPE (r) = error_mark_node;
@@ -10794,12 +10818,16 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
 	  if (PACK_EXPANSION_LOCAL_P (t) || CONSTRAINT_VAR_P (parm_pack))
 	    arg_pack = retrieve_local_specialization (parm_pack);
 	  else
+	    /* We can't rely on local_specializations for a parameter
+	       name used later in a function declaration (such as in a
+	       late-specified return type).  Even if it exists, it might
+	       have the wrong value for a recursive call.  */
+	    need_local_specializations = true;
+
+	  if (!arg_pack)
 	    {
-	      /* We can't rely on local_specializations for a parameter
-		 name used later in a function declaration (such as in a
-		 late-specified return type).  Even if it exists, it might
-		 have the wrong value for a recursive call.  Just make a
-		 dummy decl, since it's only used for its type.  */
+	      /* This parameter pack was used in an unevaluated context.  Just
+		 make a dummy decl, since it's only used for its type.  */
 	      arg_pack = tsubst_decl (parm_pack, args, complain);
 	      if (arg_pack && DECL_PACK_P (arg_pack))
 		/* Partial instantiation of the parm_pack, we can't build
@@ -10807,7 +10835,6 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
 		arg_pack = NULL_TREE;
 	      else
 		arg_pack = make_fnparm_pack (arg_pack);
-	      need_local_specializations = true;
 	    }
 	}
       else if (TREE_CODE (parm_pack) == FIELD_DECL)
@@ -12265,8 +12292,13 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    SET_DECL_IMPLICIT_INSTANTIATION (r);
 	    register_specialization (r, gen_tmpl, argvec, false, hash);
 	  }
-	else if (!cp_unevaluated_operand)
-	  register_local_specialization (r, t);
+	else
+	  {
+	    if (DECL_LANG_SPECIFIC (r))
+	      DECL_TEMPLATE_INFO (r) = NULL_TREE;
+	    if (!cp_unevaluated_operand)
+	      register_local_specialization (r, t);
+	  }
 
 	DECL_CHAIN (r) = NULL_TREE;
 
@@ -12763,9 +12795,14 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       if (t == integer_type_node)
 	return t;
 
-      if (TREE_CODE (TYPE_MIN_VALUE (t)) == INTEGER_CST
-	  && TREE_CODE (TYPE_MAX_VALUE (t)) == INTEGER_CST)
-	return t;
+      if (TREE_CODE (TYPE_MIN_VALUE (t)) == INTEGER_CST)
+        {
+          if (!TYPE_MAX_VALUE (t))
+            return compute_array_index_type (NULL_TREE, NULL_TREE, complain);
+          
+          if (TREE_CODE (TYPE_MAX_VALUE (t)) == INTEGER_CST)
+            return t;
+        }
 
       {
 	tree max, omax = TREE_OPERAND (TYPE_MAX_VALUE (t), 0);
@@ -13973,7 +14010,12 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	  --c_inhibit_evaluation_warnings;
 
 	  if (TREE_CODE (expanded) == TREE_VEC)
-	    len = TREE_VEC_LENGTH (expanded);
+	    {
+	      len = TREE_VEC_LENGTH (expanded);
+	      /* Set TREE_USED for the benefit of -Wunused.  */
+	      for (int i = 0; i < len; i++)
+		TREE_USED (TREE_VEC_ELT (expanded, i)) = true;
+	    }
 
 	  if (expanded == error_mark_node)
 	    return error_mark_node;
@@ -14393,7 +14435,6 @@ tsubst_omp_clauses (tree clauses, bool declare_simd, bool allow_fields,
 	case OMP_CLAUSE_FROM:
 	case OMP_CLAUSE_TO:
 	case OMP_CLAUSE_MAP:
-	case OMP_CLAUSE_USE_DEVICE:
 	case OMP_CLAUSE_USE_DEVICE_PTR:
 	case OMP_CLAUSE_IS_DEVICE_PTR:
 	  OMP_CLAUSE_DECL (nc)
@@ -14520,7 +14561,6 @@ tsubst_omp_clauses (tree clauses, bool declare_simd, bool allow_fields,
 	  case OMP_CLAUSE_COPYPRIVATE:
 	  case OMP_CLAUSE_LINEAR:
 	  case OMP_CLAUSE_REDUCTION:
-	  case OMP_CLAUSE_USE_DEVICE:
 	  case OMP_CLAUSE_USE_DEVICE_PTR:
 	  case OMP_CLAUSE_IS_DEVICE_PTR:
 	    /* tsubst_expr on SCOPE_REF results in returning
@@ -17694,6 +17734,23 @@ fn_type_unification (tree fn,
   return r;
 }
 
+/* TYPE is the type of a function parameter.  If TYPE is a (dependent)
+   ARRAY_TYPE, return the corresponding POINTER_TYPE to which it decays.
+   Otherwise return TYPE.  (We shouldn't see non-dependent ARRAY_TYPE
+   parameters because they get decayed as soon as they are declared.)  */
+
+static tree
+decay_dependent_array_parm_type (tree type)
+{
+  if (TREE_CODE (type) == ARRAY_TYPE)
+    {
+      gcc_assert (uses_template_parms (type));
+      return type_decays_to (type);
+    }
+
+  return type;
+}
+
 /* Adjust types before performing type deduction, as described in
    [temp.deduct.call] and [temp.deduct.conv].  The rules in these two
    sections are symmetric.  PARM is the type of a function parameter
@@ -18131,6 +18188,8 @@ type_unification_real (tree tparms,
 
       arg = args[ia];
       ++ia;
+
+      parm = decay_dependent_array_parm_type (parm);
 
       if (unify_one_argument (tparms, targs, parm, arg, subr, strict,
 			      explain_p))
@@ -19034,8 +19093,8 @@ unify_pack_expansion (tree tparms, tree targs, tree packed_parms,
 	  tree bad_old_arg = NULL_TREE, bad_new_arg = NULL_TREE;
 	  tree old_args = ARGUMENT_PACK_ARGS (old_pack);
 
-	  if (!comp_template_args_with_info (old_args, new_args,
-					     &bad_old_arg, &bad_new_arg))
+	  if (!comp_template_args (old_args, new_args,
+				   &bad_old_arg, &bad_new_arg))
 	    /* Inconsistent unification of this parameter pack.  */
 	    return unify_parameter_pack_inconsistent (explain_p,
 						      bad_old_arg,
@@ -19869,11 +19928,20 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
       return unify_template_argument_mismatch (explain_p, parm, arg);
 
     case VAR_DECL:
-      /* A non-type template parameter that is a variable should be a
-	 an integral constant, in which case, it whould have been
-	 folded into its (constant) value. So we should not be getting
-	 a variable here.  */
-      gcc_unreachable ();
+      /* We might get a variable as a non-type template argument in parm if the
+	 corresponding parameter is type-dependent.  Make any necessary
+	 adjustments based on whether arg is a reference.  */
+      if (CONSTANT_CLASS_P (arg))
+	parm = fold_non_dependent_expr (parm);
+      else if (REFERENCE_REF_P (arg))
+	{
+	  tree sub = TREE_OPERAND (arg, 0);
+	  STRIP_NOPS (sub);
+	  if (TREE_CODE (sub) == ADDR_EXPR)
+	    arg = TREE_OPERAND (sub, 0);
+	}
+      /* Now use the normal expression code to check whether they match.  */
+      goto expr;
 
     case TYPE_ARGUMENT_PACK:
     case NONTYPE_ARGUMENT_PACK:
@@ -19906,7 +19974,7 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
       if (is_overloaded_fn (parm) || type_unknown_p (parm))
 	return unify_success (explain_p);
       gcc_assert (EXPR_P (parm));
-
+    expr:
       /* We must be looking at an expression.  This can happen with
 	 something like:
 
@@ -20133,6 +20201,9 @@ more_specialized_fn (tree pat1, tree pat2, int len)
           /* This is the last comparison we need to do.  */
           len = 0;
         }
+
+      arg1 = decay_dependent_array_parm_type (arg1);
+      arg2 = decay_dependent_array_parm_type (arg2);
 
       if (TREE_CODE (arg1) == REFERENCE_TYPE)
 	{
@@ -20419,7 +20490,10 @@ get_bindings (tree fn, tree decl, tree explicit_args, bool check_rettype)
   for (arg = decl_arg_types, ix = 0;
        arg != NULL_TREE && arg != void_list_node;
        arg = TREE_CHAIN (arg), ++ix)
-    args[ix] = TREE_VALUE (arg);
+    {
+      args[ix] = TREE_VALUE (arg);
+      args[ix] = decay_dependent_array_parm_type (args[ix]);
+    }
 
   if (fn_type_unification (fn, explicit_args, targs,
 			   args, ix,
@@ -21725,13 +21799,8 @@ instantiate_decl (tree d, int defer_ok,
 	 template from within the body of another.  */
       saved_local_specializations = local_specializations;
 
-      /* Set up the list of local specializations, copying the current
-	 list if there is one.  */
-      if (local_specializations)
-	local_specializations
-	  = new hash_map<tree, tree> (*local_specializations);
-      else
-	local_specializations = new hash_map<tree, tree>;
+      /* Set up the list of local specializations.  */
+      local_specializations = new hash_map<tree, tree>;
 
       /* Set up context.  */
       if (DECL_OMP_DECLARE_REDUCTION_P (code_pattern)
@@ -22729,12 +22798,12 @@ type_dependent_expression_p (tree expression)
 	      || dependent_scope_p (scope));
     }
 
+  /* A function template specialization is type-dependent if it has any
+     dependent template arguments.  */
   if (TREE_CODE (expression) == FUNCTION_DECL
       && DECL_LANG_SPECIFIC (expression)
-      && DECL_TEMPLATE_INFO (expression)
-      && (any_dependent_template_arguments_p
-	  (INNERMOST_TEMPLATE_ARGS (DECL_TI_ARGS (expression)))))
-    return true;
+      && DECL_TEMPLATE_INFO (expression))
+    return any_dependent_template_arguments_p (DECL_TI_ARGS (expression));
 
   if (TREE_CODE (expression) == TEMPLATE_DECL
       && !DECL_TEMPLATE_TEMPLATE_PARM_P (expression))
@@ -23391,9 +23460,13 @@ build_non_dependent_expr (tree expr)
 {
   tree inner_expr;
 
-  /* Try to get a constant value for all non-dependent expressions in
-      order to expose bugs in *_dependent_expression_p and constexpr.  */
-  if (flag_checking && cxx_dialect >= cxx11)
+  /* When checking, try to get a constant value for all non-dependent
+     expressions in order to expose bugs in *_dependent_expression_p
+     and constexpr.  */
+  if (flag_checking && cxx_dialect >= cxx11
+      /* Don't do this during nsdmi parsing as it can lead to
+	 unexpected recursive instantiations.  */
+      && !parsing_nsdmi ())
     fold_non_dependent_expr (expr);
 
   /* Preserve OVERLOADs; the functions must be available to resolve

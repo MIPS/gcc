@@ -1,5 +1,5 @@
 /* Prototypes for exported functions defined in arm.c and pe.c
-   Copyright (C) 1999-2015 Free Software Foundation, Inc.
+   Copyright (C) 1999-2016 Free Software Foundation, Inc.
    Contributed by Richard Earnshaw (rearnsha@arm.com)
    Minor hacks by Nick Clifton (nickc@cygnus.com)
 
@@ -213,7 +213,6 @@ extern void arm_mark_dllimport (tree);
 extern bool arm_change_mode_p (tree);
 #endif
 
-extern void arm_init_neon_builtins (void);
 extern tree arm_valid_target_attribute_tree (tree, struct gcc_options *,
 					     struct gcc_options *);
 extern void arm_pr_long_calls (struct cpp_reader *);
@@ -387,6 +386,8 @@ extern bool arm_is_constant_pool_ref (rtx);
 #define FL_IWMMXT2    (1 << 30)       /* "Intel Wireless MMX2 technology".  */
 #define FL_ARCH6KZ    (1 << 31)       /* ARMv6KZ architecture.  */
 
+#define FL2_ARCH8_1   (1 << 0)	      /* Architecture 8.1.  */
+
 /* Flags that only effect tuning, not available instructions.  */
 #define FL_TUNE		(FL_WBUF | FL_VFPV2 | FL_STRONG | FL_LDSCHED \
 			 | FL_CO_PROC)
@@ -415,6 +416,7 @@ extern bool arm_is_constant_pool_ref (rtx);
 #define FL_FOR_ARCH7M	(FL_FOR_ARCH7 | FL_THUMB_DIV)
 #define FL_FOR_ARCH7EM  (FL_FOR_ARCH7M | FL_ARCH7EM)
 #define FL_FOR_ARCH8A	(FL_FOR_ARCH7VE | FL_ARCH8)
+#define FL2_FOR_ARCH8_1A	FL2_ARCH8_1
 
 /* There are too many feature bits to fit in a single word so the set of cpu and
    fpu capabilities is a structure.  A feature set is created and manipulated

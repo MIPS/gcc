@@ -300,6 +300,9 @@
 /* Define to 1 if you have the <nan.h> header file. */
 #undef HAVE_NAN_H
 
+/* Define if <math.h> defines obsolete isinf and isnan functions. */
+#undef HAVE_OBSOLETE_ISINF_ISNAN
+
 /* Define if poll is available in <poll.h>. */
 #undef HAVE_POLL
 
@@ -787,6 +790,9 @@
 
 /* Define if compatibility should be provided for -mlong-double-64. */
 #undef _GLIBCXX_LONG_DOUBLE_COMPAT
+
+/* Define to the letter to which size_t is mangled. */
+#undef _GLIBCXX_MANGLE_SIZE_T
 
 /* Define if ptrdiff_t is int. */
 #undef _GLIBCXX_PTRDIFF_T_IS_INT

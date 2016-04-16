@@ -1,5 +1,5 @@
 /* Definitions for c-common.c.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -782,7 +782,7 @@ extern const char *fname_as_string (int);
 extern tree fname_decl (location_t, unsigned, tree);
 
 extern int check_user_alignment (const_tree, bool);
-extern void check_function_arguments (const_tree, int, tree *);
+extern void check_function_arguments (location_t loc, const_tree, int, tree *);
 extern void check_function_arguments_recurse (void (*)
 					      (void *, tree,
 					       unsigned HOST_WIDE_INT),
@@ -817,7 +817,7 @@ extern tree c_sizeof_or_alignof_type (location_t, tree, bool, bool, int);
 extern tree c_alignof_expr (location_t, tree);
 /* Print an error message for invalid operands to arith operation CODE.
    NOP_EXPR is used as a special case (see truthvalue_conversion).  */
-extern void binary_op_error (location_t, enum tree_code, tree, tree);
+extern void binary_op_error (rich_location *, enum tree_code, tree, tree);
 extern tree fix_string_type (tree);
 extern void constant_expression_warning (tree);
 extern void constant_expression_error (tree);
@@ -1088,6 +1088,10 @@ extern GTY(()) tree registered_builtin_types;
 extern void c_genericize (tree);
 extern int c_gimplify_expr (tree *, gimple_seq *, gimple_seq *);
 extern tree c_build_bind_expr (location_t, tree, tree);
+
+/* In c-lex.c.  */
+extern enum cpp_ttype
+conflict_marker_get_final_tok_kind (enum cpp_ttype tok1_kind);
 
 /* In c-pch.c  */
 extern void pch_init (void);

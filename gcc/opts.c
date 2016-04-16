@@ -1,5 +1,5 @@
 /* Command line option handling.
-   Copyright (C) 2002-2015 Free Software Foundation, Inc.
+   Copyright (C) 2002-2016 Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -266,18 +266,12 @@ add_comma_separated_to_vector (void **pvec, const char *arg)
   *pvec = v;
 }
 
-/* Initialize opts_obstack if not initialized.  */
+/* Initialize opts_obstack.  */
 
 void
 init_opts_obstack (void)
 {
-  static bool opts_obstack_initialized = false;
-
-  if (!opts_obstack_initialized)
-    {
-      opts_obstack_initialized = true;
-      gcc_obstack_init (&opts_obstack);
-    }
+  gcc_obstack_init (&opts_obstack);
 }
 
 /* Initialize OPTS and OPTS_SET before using them in parsing options.  */
@@ -287,7 +281,9 @@ init_options_struct (struct gcc_options *opts, struct gcc_options *opts_set)
 {
   size_t num_params = get_num_compiler_params ();
 
-  init_opts_obstack ();
+  /* Ensure that opts_obstack has already been initialized by the time
+     that we initialize any gcc_options instances (PR jit/68446).  */
+  gcc_assert (opts_obstack.chunk_size > 0);
 
   *opts = global_options_init;
 
@@ -523,11 +519,11 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_2_PLUS, OPT_fisolate_erroneous_paths_dereference, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fipa_ra, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_flra_remat, NULL, 1 },
-    { OPT_LEVELS_2_PLUS, OPT_fsplit_paths, NULL, 1 },
 
     /* -O3 optimizations.  */
     { OPT_LEVELS_3_PLUS, OPT_ftree_loop_distribute_patterns, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_fpredictive_commoning, NULL, 1 },
+    { OPT_LEVELS_3_PLUS, OPT_fsplit_paths, NULL, 1 },
     /* Inlining of functions reducing size is a good idea with -Os
        regardless of them being declared inline.  */
     { OPT_LEVELS_3_PLUS_AND_SIZE, OPT_finline_functions, NULL, 1 },
@@ -560,6 +556,7 @@ default_options_optimization (struct gcc_options *opts,
 {
   unsigned int i;
   int opt2;
+  bool openacc_mode = false;
 
   /* Scan to see what optimization level has been specified.  That will
      determine the default value of many flags.  */
@@ -619,6 +616,11 @@ default_options_optimization (struct gcc_options *opts,
 	  opts->x_optimize_debug = 1;
 	  break;
 
+	case OPT_fopenacc:
+	  if (opt->value)
+	    openacc_mode = true;
+	  break;
+
 	default:
 	  /* Ignore other options in this prescan.  */
 	  break;
@@ -632,6 +634,10 @@ default_options_optimization (struct gcc_options *opts,
 
   /* -O2 param settings.  */
   opt2 = (opts->x_optimize >= 2);
+
+  if (openacc_mode
+      && !opts_set->x_flag_ipa_pta)
+    opts->x_flag_ipa_pta = true;
 
   /* Track fields in field-sensitive alias analysis.  */
   maybe_set_param_value
@@ -1906,8 +1912,35 @@ common_handle_option (struct gcc_options *opts,
       break;
 
     case OPT_foffload_:
-      /* Deferred.  */
-      break;
+      {
+	const char *p = arg;
+	opts->x_flag_disable_hsa = true;
+	while (*p != 0)
+	  {
+	    const char *comma = strchr (p, ',');
+
+	    if ((strncmp (p, "disable", 7) == 0)
+		&& (p[7] == ',' || p[7] == '\0'))
+	      {
+		opts->x_flag_disable_hsa = true;
+		break;
+	      }
+
+	    if ((strncmp (p, "hsa", 3) == 0)
+		&& (p[3] == ',' || p[3] == '\0'))
+	      {
+#ifdef ENABLE_HSA
+		opts->x_flag_disable_hsa = false;
+#else
+		sorry ("HSA has not been enabled during configuration");
+#endif
+	      }
+	    if (!comma)
+	      break;
+	    p = comma + 1;
+	  }
+	break;
+      }
 
 #ifndef ACCEL_COMPILER
     case OPT_foffload_abi_:

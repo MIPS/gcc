@@ -1,5 +1,5 @@
 /* Parser for C and Objective-C.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
    Parser actions based on the old Bison parser; structure somewhat
    influenced by and fragments based on the C++ parser.
@@ -202,8 +202,8 @@ struct GTY(()) c_parser {
   /* The look-ahead tokens.  */
   c_token * GTY((skip)) tokens;
   /* Buffer for look-ahead tokens.  */
-  c_token tokens_buf[2];
-  /* How many look-ahead tokens are available (0, 1 or 2, or
+  c_token tokens_buf[4];
+  /* How many look-ahead tokens are available (0 - 4, or
      more if parsing from pre-lexed tokens).  */
   unsigned int tokens_avail;
   /* True if a syntax error is being recovered from; false otherwise.
@@ -490,6 +490,23 @@ c_parser_peek_2nd_token (c_parser *parser)
   c_lex_one_token (parser, &parser->tokens[1]);
   parser->tokens_avail = 2;
   return &parser->tokens[1];
+}
+
+/* Return a pointer to the Nth token from PARSER, reading it
+   in if necessary.  The N-1th token is already read in.  */
+
+static c_token *
+c_parser_peek_nth_token (c_parser *parser, unsigned int n)
+{
+  /* N is 1-based, not zero-based.  */
+  gcc_assert (n > 0);
+
+  if (parser->tokens_avail >= n)
+    return &parser->tokens[n - 1];
+  gcc_assert (parser->tokens_avail == n - 1);
+  c_lex_one_token (parser, &parser->tokens[n - 1]);
+  parser->tokens_avail = n;
+  return &parser->tokens[n - 1];
 }
 
 /* Return true if TOKEN can start a type name,
@@ -829,6 +846,46 @@ c_parser_set_source_position_from_token (c_token *token)
     }
 }
 
+/* Helper function for c_parser_error.
+   Having peeked a token of kind TOK1_KIND that might signify
+   a conflict marker, peek successor tokens to determine
+   if we actually do have a conflict marker.
+   Specifically, we consider a run of 7 '<', '=' or '>' characters
+   at the start of a line as a conflict marker.
+   These come through the lexer as three pairs and a single,
+   e.g. three CPP_LSHIFT ("<<") and a CPP_LESS ('<').
+   If it returns true, *OUT_LOC is written to with the location/range
+   of the marker.  */
+
+static bool
+c_parser_peek_conflict_marker (c_parser *parser, enum cpp_ttype tok1_kind,
+			       location_t *out_loc)
+{
+  c_token *token2 = c_parser_peek_2nd_token (parser);
+  if (token2->type != tok1_kind)
+    return false;
+  c_token *token3 = c_parser_peek_nth_token (parser, 3);
+  if (token3->type != tok1_kind)
+    return false;
+  c_token *token4 = c_parser_peek_nth_token (parser, 4);
+  if (token4->type != conflict_marker_get_final_tok_kind (tok1_kind))
+    return false;
+
+  /* It must be at the start of the line.  */
+  location_t start_loc = c_parser_peek_token (parser)->location;
+  if (LOCATION_COLUMN (start_loc) != 1)
+    return false;
+
+  /* We have a conflict marker.  Construct a location of the form:
+       <<<<<<<
+       ^~~~~~~
+     with start == caret, finishing at the end of the marker.  */
+  location_t finish_loc = get_finish (token4->location);
+  *out_loc = make_location (start_loc, start_loc, finish_loc);
+
+  return true;
+}
+
 /* Issue a diagnostic of the form
       FILE:LINE: MESSAGE before TOKEN
    where TOKEN is the next token in the input stream of PARSER.
@@ -850,6 +907,20 @@ c_parser_error (c_parser *parser, const char *gmsgid)
   parser->error = true;
   if (!gmsgid)
     return;
+
+  /* If this is actually a conflict marker, report it as such.  */
+  if (token->type == CPP_LSHIFT
+      || token->type == CPP_RSHIFT
+      || token->type == CPP_EQ_EQ)
+    {
+      location_t loc;
+      if (c_parser_peek_conflict_marker (parser, token->type, &loc))
+	{
+	  error_at (loc, "version control conflict marker in file");
+	  return;
+	}
+    }
+
   /* This diagnostic makes more sense if it is tagged to the line of
      the token we just peeked at.  */
   c_parser_set_source_position_from_token (token);
@@ -2097,8 +2168,9 @@ c_parser_static_assert_declaration_no_semi (c_parser *parser)
   c_parser_consume_token (parser);
   if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     return;
-  value_loc = c_parser_peek_token (parser)->location;
+  location_t value_tok_loc = c_parser_peek_token (parser)->location;
   value = c_parser_expr_no_commas (parser, NULL).value;
+  value_loc = EXPR_LOC_OR_LOC (value, value_tok_loc);
   parser->lex_untranslated_string = true;
   if (!c_parser_require (parser, CPP_COMMA, "expected %<,%>"))
     {
@@ -5107,7 +5179,8 @@ c_parser_statement_after_labels (c_parser *parser, vec<tree> *chain)
 	      location_t xloc = c_parser_peek_token (parser)->location;
 	      struct c_expr expr = c_parser_expression_conv (parser);
 	      mark_exp_read (expr.value);
-	      stmt = c_finish_return (xloc, expr.value, expr.original_type);
+	      stmt = c_finish_return (EXPR_LOC_OR_LOC (expr.value, xloc),
+				      expr.value, expr.original_type);
 	      goto expect_semicolon;
 	    }
 	  break;
@@ -6686,14 +6759,18 @@ c_parser_unary_expression (c_parser *parser)
       mark_exp_read (op.value);
       return parser_build_unary_op (op_loc, ADDR_EXPR, op);
     case CPP_MULT:
-      c_parser_consume_token (parser);
-      exp_loc = c_parser_peek_token (parser)->location;
-      op = c_parser_cast_expression (parser, NULL);
-      finish = op.get_finish ();
-      op = convert_lvalue_to_rvalue (exp_loc, op, true, true);
-      ret.value = build_indirect_ref (op_loc, op.value, RO_UNARY_STAR);
-      set_c_expr_source_range (&ret, op_loc, finish);
-      return ret;
+      {
+	c_parser_consume_token (parser);
+	exp_loc = c_parser_peek_token (parser)->location;
+	op = c_parser_cast_expression (parser, NULL);
+	finish = op.get_finish ();
+	op = convert_lvalue_to_rvalue (exp_loc, op, true, true);
+	location_t combined_loc = make_location (op_loc, op_loc, finish);
+	ret.value = build_indirect_ref (combined_loc, op.value, RO_UNARY_STAR);
+	ret.src_range.m_start = op_loc;
+	ret.src_range.m_finish = finish;
+	return ret;
+      }
     case CPP_PLUS:
       if (!c_dialect_objc () && !in_system_header_at (input_location))
 	warning_at (op_loc,
@@ -7953,7 +8030,8 @@ c_parser_postfix_expression (c_parser *parser)
       expr.value = error_mark_node;
       break;
     }
-  return c_parser_postfix_expression_after_primary (parser, loc, expr);
+  return c_parser_postfix_expression_after_primary
+    (parser, EXPR_LOC_OR_LOC (expr.value, loc), expr);
 }
 
 /* Parse a postfix expression after a parenthesized type name: the
@@ -11321,7 +11399,10 @@ c_parser_omp_clause_defaultmap (c_parser *parser, tree list)
   return list;
 }
 
-/* OpenMP 4.5:
+/* OpenACC 2.0:
+   use_device ( variable-list )
+
+   OpenMP 4.5:
    use_device_ptr ( variable-list ) */
 
 static tree
@@ -11654,15 +11735,6 @@ c_parser_oacc_clause_tile (c_parser *parser, tree list)
   OMP_CLAUSE_TILE_LIST (c) = tile;
   OMP_CLAUSE_CHAIN (c) = list;
   return c;
-}
-
-/* OpenACC 2.0:
-   use_device ( variable-list ) */
-
-static tree
-c_parser_oacc_clause_use_device (c_parser *parser, tree list)
-{
-  return c_parser_omp_var_list_parens (parser, OMP_CLAUSE_USE_DEVICE, list);
 }
 
 /* OpenACC:
@@ -12984,7 +13056,7 @@ c_parser_oacc_all_clauses (c_parser *parser, omp_clause_mask mask,
 	  c_name = "tile";
 	  break;
 	case PRAGMA_OACC_CLAUSE_USE_DEVICE:
-	  clauses = c_parser_oacc_clause_use_device (parser, clauses);
+	  clauses = c_parser_omp_clause_use_device_ptr (parser, clauses);
 	  c_name = "use_device";
 	  break;
 	case PRAGMA_OACC_CLAUSE_VECTOR:
@@ -13527,10 +13599,7 @@ c_parser_oacc_declare (c_parser *parser)
 		    {
 		      g->have_offload = true;
 		      if (is_a <varpool_node *> (node))
-			{
-			  vec_safe_push (offload_vars, decl);
-			  node->force_output = 1;
-			}
+			vec_safe_push (offload_vars, decl);
 		    }
 		}
 	    }
@@ -16412,10 +16481,7 @@ c_parser_omp_declare_target (c_parser *parser)
 		{
 		  g->have_offload = true;
 		  if (is_a <varpool_node *> (node))
-		    {
-		      vec_safe_push (offload_vars, t);
-		      node->force_output = 1;
-		    }
+		    vec_safe_push (offload_vars, t);
 		}
 	    }
 	}

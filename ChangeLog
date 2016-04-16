@@ -1,4 +1,59 @@
-2015-12-15  Alessandro Fanfarillo <fanfarillo.gcc@gmail.com>
+2016-01-12  Andris Pavenis  <andris.pavenis@iki.fi>
+
+	* configure.ac: Enable LTO for DJGPP
+	* configure: Regenerate
+
+2016-01-12  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Sync with binutils-gdb:
+	2015-10-21  Nick Clifton  <nickc@redhat.com>
+
+	PR gas/19109
+	* configure.ac: Note the 'none' is an acceptable argument to
+	--enable-compressed-debug-sections.
+	* configure: Regenerate.
+
+2016-01-12  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR bootstrap/69134
+	* Makefile.def (mpfr): Disable assembler.
+	* Makefile.in: Regenerate.
+
+2016-01-01  Ben Elliston  <bje@gnu.org>
+
+	* config.guess: Import version 2016-01-01.
+	* config.sub: Likewise.
+
+2015-12-18  Sujoy Saraswati  <sujoy.saraswati@hpe.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2015-12-17  Sebastian Pop  <s.pop@samsung.com>
+
+	* Makefile.in: Replace ISL with isl.
+	* Makefile.tpl: Same.
+	* config/isl.m4: Same.
+	* configure.ac: Same.
+	* contrib/download_prerequisites: Same.
+	* configure: Regenerate.
+
+2015-12-17  Andris Pavenis  <andris.pavenis@iki.fi>
+
+	* MAINTAINERS (Write After Approval): Add Myself.
+
+2015-12-17  Nathan Sidwell  <nathan@acm.org>
+
+	* config/isl.m4 (ISL_CHECK_VERSION): Add gmp libs.
+	* configure: Regenerate.
+
+2015-12-16  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	* config/isl.m4 (ISL_CHECK_VERSION): Check for
+	isl_ctx_get_max_operations.
+	* configure: Regenerate.
+
+2015-12-15  Alessandro Fanfarillo  <fanfarillo.gcc@gmail.com>
 
 	* MAINTAINERS (Write After Approval): Add myself.
 

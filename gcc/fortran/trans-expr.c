@@ -1,5 +1,5 @@
 /* Expression translation
-   Copyright (C) 2002-2015 Free Software Foundation, Inc.
+   Copyright (C) 2002-2016 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -5942,6 +5942,9 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	  tmp = len;
 	  if (TREE_CODE (tmp) != VAR_DECL)
 	    tmp = gfc_evaluate_now (len, &se->pre);
+	  TREE_STATIC (tmp) = 1;
+	  gfc_add_modify (&se->pre, tmp,
+			  build_int_cst (TREE_TYPE (tmp), 0));
 	  tmp = gfc_build_addr_expr (NULL_TREE, tmp);
 	  vec_safe_push (retargs, tmp);
 	}
@@ -9160,6 +9163,7 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
   bool scalar_to_array;
   tree string_length;
   int n;
+  bool maybe_workshare = false;
 
   /* Assignment of the form lhs = rhs.  */
   gfc_start_block (&block);
@@ -9234,8 +9238,13 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
 	}
 
       /* Allow the scalarizer to workshare array assignments.  */
-      if ((ompws_flags & OMPWS_WORKSHARE_FLAG) && loop.temp_ss == NULL)
-	ompws_flags |= OMPWS_SCALARIZER_WS;
+      if ((ompws_flags & (OMPWS_WORKSHARE_FLAG | OMPWS_SCALARIZER_BODY))
+	  == OMPWS_WORKSHARE_FLAG
+	  && loop.temp_ss == NULL)
+	{
+	  maybe_workshare = true;
+	  ompws_flags |= OMPWS_SCALARIZER_WS | OMPWS_SCALARIZER_BODY;
+	}
 
       /* Start the scalarized loop body.  */
       gfc_start_scalarized_body (&loop, &body);
@@ -9257,7 +9266,10 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
     }
 
   /* Stabilize a string length for temporaries.  */
-  if (expr2->ts.type == BT_CHARACTER && !expr2->ts.deferred)
+  if (expr2->ts.type == BT_CHARACTER && !expr1->ts.deferred
+      && !(TREE_CODE (rse.string_length) == VAR_DECL
+	   || TREE_CODE (rse.string_length) == PARM_DECL
+	   || TREE_CODE (rse.string_length) == INDIRECT_REF))
     string_length = gfc_evaluate_now (rse.string_length, &rse.pre);
   else if (expr2->ts.type == BT_CHARACTER)
     string_length = rse.string_length;
@@ -9271,7 +9283,32 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
 	lse.string_length = string_length;
     }
   else
-    gfc_conv_expr (&lse, expr1);
+    {
+      gfc_conv_expr (&lse, expr1);
+      if (gfc_option.rtcheck & GFC_RTCHECK_MEM
+	  && gfc_expr_attr (expr1).allocatable
+	  && expr1->rank
+	  && !expr2->rank)
+	{
+	  tree cond;
+	  const char* msg;
+
+	  tmp = expr1->symtree->n.sym->backend_decl;
+	  if (POINTER_TYPE_P (TREE_TYPE (tmp)))
+	    tmp = build_fold_indirect_ref_loc (input_location, tmp);
+
+	  if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (tmp)))
+	    tmp = gfc_conv_descriptor_data_get (tmp);
+	  else
+	    tmp = TREE_OPERAND (lse.expr, 0);
+
+	  cond = fold_build2_loc (input_location, EQ_EXPR, boolean_type_node,
+				  tmp, build_int_cst (TREE_TYPE (tmp), 0));
+	  msg = _("Assignment of scalar to unallocated array");
+	  gfc_trans_runtime_check (true, false, cond, &loop.pre,
+				   &expr1->where, msg);
+	}
+    }
 
   /* Assignments of scalar derived types with allocatable components
      to arrays must be done with a deep copy and the rhs temporary
@@ -9383,6 +9420,9 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
 	  if (tmp != NULL_TREE)
 	    gfc_add_expr_to_block (&loop.code[expr1->rank - 1], tmp);
 	}
+
+      if (maybe_workshare)
+	ompws_flags &= ~OMPWS_SCALARIZER_BODY;
 
       /* Generate the copying loops.  */
       gfc_trans_scalarizing_loops (&loop, &body);

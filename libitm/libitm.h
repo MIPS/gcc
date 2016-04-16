@@ -1,4 +1,4 @@
-/* Copyright (C) 2008-2015 Free Software Foundation, Inc.
+/* Copyright (C) 2008-2016 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU Transactional Memory Library (libitm).
@@ -232,7 +232,11 @@ ITM_LOG(CE)
   ITM_BARRIERS(M256)
   ITM_LOG(M256)
 # endif
-#endif /* i386 */
+#else
+  typedef int _ITM_TYPE_M128 __attribute__((vector_size(16), may_alias));
+  ITM_BARRIERS(M128)
+  ITM_LOG(M128)
+#endif
 
 #undef ITM_BARRIERS
 #undef ITM_LOG

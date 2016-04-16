@@ -1,4 +1,4 @@
-/* Copyright (C) 2007-2015 Free Software Foundation, Inc.
+/* Copyright (C) 2007-2016 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -23,6 +23,7 @@
 #include "c-family/c-common.h"
 #include "tm_p.h"
 #include "c-family/c-pragma.h"
+#include "stringpool.h"
 
 /* Output C specific EABI object attributes.  These can not be done in
    arm.c because they require information from the C frontend.  */
@@ -62,19 +63,21 @@ static void
 arm_cpu_builtins (struct cpp_reader* pfile)
 {
   def_or_undef_macro (pfile, "__ARM_FEATURE_DSP", TARGET_DSP_MULTIPLY);
-  def_or_undef_macro (pfile, "__ARM_FEATURE_QBIT", TARGET_ARM_QBIT); 
+  def_or_undef_macro (pfile, "__ARM_FEATURE_QBIT", TARGET_ARM_QBIT);
   def_or_undef_macro (pfile, "__ARM_FEATURE_SAT", TARGET_ARM_SAT);
   def_or_undef_macro (pfile, "__ARM_FEATURE_CRYPTO", TARGET_CRYPTO);
 
   def_or_undef_macro (pfile, "__ARM_FEATURE_UNALIGNED", unaligned_access);
 
+  def_or_undef_macro (pfile, "__ARM_FEATURE_QRDMX", TARGET_NEON_RDMA);
+
   if (TARGET_CRC32)
     builtin_define ("__ARM_FEATURE_CRC32");
 
-  def_or_undef_macro (pfile, "__ARM_32BIT_STATE", TARGET_32BIT); 
+  def_or_undef_macro (pfile, "__ARM_32BIT_STATE", TARGET_32BIT);
 
   if (TARGET_ARM_FEATURE_LDREX)
-    builtin_define_with_int_value ("__ARM_FEATURE_LDREX", 
+    builtin_define_with_int_value ("__ARM_FEATURE_LDREX",
 				   TARGET_ARM_FEATURE_LDREX);
   else
     cpp_undef (pfile, "__ARM_FEATURE_LDREX");
@@ -243,8 +246,18 @@ arm_pragma_target_parse (tree args, tree pop_target)
 
       /* Update macros.  */
       gcc_assert (cur_opt->x_target_flags == target_flags);
-      /* This one can be redefined by the pragma without warning.  */
-      cpp_undef (parse_in, "__ARM_FP");
+
+      /* Don't warn for macros that have context sensitive values depending on
+	 other attributes.
+	 See warn_of_redefinition, Reset after cpp_create_definition.  */
+      tree acond_macro = get_identifier ("__ARM_NEON_FP");
+      C_CPP_HASHNODE (acond_macro)->flags |= NODE_CONDITIONAL ;
+
+      acond_macro = get_identifier ("__ARM_FP");
+      C_CPP_HASHNODE (acond_macro)->flags |= NODE_CONDITIONAL;
+
+      acond_macro = get_identifier ("__ARM_FEATURE_LDREX");
+      C_CPP_HASHNODE (acond_macro)->flags |= NODE_CONDITIONAL;
 
       arm_cpu_builtins (parse_in);
 

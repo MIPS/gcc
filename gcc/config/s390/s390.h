@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for IBM S/390
-   Copyright (C) 1999-2015 Free Software Foundation, Inc.
+   Copyright (C) 1999-2016 Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com) and
                   Ulrich Weigand (uweigand@de.ibm.com).
                   Andreas Krebbel (Andreas.Krebbel@de.ibm.com)
@@ -214,7 +214,7 @@ extern const char *s390_host_detect_local_cpu (int argc, const char **argv);
   MARCH_MTUNE_NATIVE_SPECS,					\
   "%{!m31:%{!m64:-m" S390_TARGET_BITS_STRING "}}",		\
   "%{!mesa:%{!mzarch:%{m31:-mesa}%{m64:-mzarch}}}",		\
-  "%{!march=*:%{mesa:-march=g5}%{mzarch:-march=z900}}"
+  "%{!march=*:-march=z900}"
 
 /* Constants needed to control the TEST DATA CLASS (TDC) instruction.  */
 #define S390_TDC_POSITIVE_ZERO                     (1 << 11)

@@ -1,4 +1,4 @@
-@c Copyright (C) 1988-2015 Free Software Foundation, Inc.
+@c Copyright (C) 1988-2016 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -3102,8 +3102,8 @@ Any VSX register if the -mvsx option was used or NO_REGS.
 
 When using any of the register constraints (@code{wa}, @code{wd},
 @code{wf}, @code{wg}, @code{wh}, @code{wi}, @code{wj}, @code{wk},
-@code{wl}, @code{wm}, @code{wp}, @code{wq}, @code{ws}, @code{wt},
-@code{wu}, @code{wv}, @code{ww}, or @code{wy})
+@code{wl}, @code{wm}, @code{wo}, @code{wp}, @code{wq}, @code{ws},
+@code{wt}, @code{wu}, @code{wv}, @code{ww}, or @code{wy})
 that take VSX registers, you must use @code{%x<n>} in the template so
 that the correct register is used.  Otherwise the register number
 output in the assembly file will be incorrect if an Altivec register
@@ -3174,6 +3174,9 @@ VSX register if direct move instructions are enabled, or NO_REGS.
 
 @item wn
 No register (NO_REGS).
+
+@item wo
+VSX register to use for ISA 3.0 vector instructions, or NO_REGS.
 
 @item wp
 VSX register to use for IEEE 128-bit floating point TFmode, or NO_REGS.
@@ -5003,33 +5006,6 @@ raised and a quiet @code{NaN} is returned.
 
 All operands have mode @var{m}, which is a scalar or vector
 floating-point mode.  These patterns are not allowed to @code{FAIL}.
-
-@cindex @code{reduc_smin_@var{m}} instruction pattern
-@cindex @code{reduc_smax_@var{m}} instruction pattern
-@item @samp{reduc_smin_@var{m}}, @samp{reduc_smax_@var{m}}
-Find the signed minimum/maximum of the elements of a vector. The vector is
-operand 1, and the result is stored in the least significant bits of
-operand 0 (also a vector). The output and input vector should have the same
-modes. These are legacy optabs, and platforms should prefer to implement
-@samp{reduc_smin_scal_@var{m}} and @samp{reduc_smax_scal_@var{m}}.
-
-@cindex @code{reduc_umin_@var{m}} instruction pattern
-@cindex @code{reduc_umax_@var{m}} instruction pattern
-@item @samp{reduc_umin_@var{m}}, @samp{reduc_umax_@var{m}}
-Find the unsigned minimum/maximum of the elements of a vector. The vector is
-operand 1, and the result is stored in the least significant bits of
-operand 0 (also a vector). The output and input vector should have the same
-modes. These are legacy optabs, and platforms should prefer to implement
-@samp{reduc_umin_scal_@var{m}} and @samp{reduc_umax_scal_@var{m}}.
-
-@cindex @code{reduc_splus_@var{m}} instruction pattern
-@cindex @code{reduc_uplus_@var{m}} instruction pattern
-@item @samp{reduc_splus_@var{m}}, @samp{reduc_uplus_@var{m}}
-Compute the sum of the signed/unsigned elements of a vector. The vector is
-operand 1, and the result is stored in the least significant bits of operand 0
-(also a vector). The output and input vector should have the same modes.
-These are legacy optabs, and platforms should prefer to implement
-@samp{reduc_plus_scal_@var{m}}.
 
 @cindex @code{reduc_smin_scal_@var{m}} instruction pattern
 @cindex @code{reduc_smax_scal_@var{m}} instruction pattern

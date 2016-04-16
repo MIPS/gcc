@@ -1,5 +1,5 @@
 /* SSA Dominator optimizations for trees
-   Copyright (C) 2001-2015 Free Software Foundation, Inc.
+   Copyright (C) 2001-2016 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -44,6 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-dom.h"
 #include "gimplify.h"
 #include "tree-cfgcleanup.h"
+#include "dbgcnt.h"
 
 /* This file implements optimizations on the dominator tree.  */
 
@@ -386,39 +387,39 @@ record_edge_info (basic_block bb)
 
           /* Special case comparing booleans against a constant as we
              know the value of OP0 on both arms of the branch.  i.e., we
-             can record an equivalence for OP0 rather than COND.  */
-          if ((code == EQ_EXPR || code == NE_EXPR)
-              && TREE_CODE (op0) == SSA_NAME
-              && TREE_CODE (TREE_TYPE (op0)) == BOOLEAN_TYPE
-              && is_gimple_min_invariant (op1))
+             can record an equivalence for OP0 rather than COND. 
+
+	     However, don't do this if the constant isn't zero or one.
+	     Such conditionals will get optimized more thoroughly during
+	     the domwalk.  */
+	  if ((code == EQ_EXPR || code == NE_EXPR)
+	      && TREE_CODE (op0) == SSA_NAME
+	      && ssa_name_has_boolean_range (op0)
+	      && is_gimple_min_invariant (op1)
+	      && (integer_zerop (op1) || integer_onep (op1)))
             {
+	      tree true_val = constant_boolean_node (true, TREE_TYPE (op0));
+	      tree false_val = constant_boolean_node (false, TREE_TYPE (op0));
+
               if (code == EQ_EXPR)
                 {
                   edge_info = allocate_edge_info (true_edge);
                   edge_info->lhs = op0;
-                  edge_info->rhs = (integer_zerop (op1)
-                                    ? boolean_false_node
-                                    : boolean_true_node);
+                  edge_info->rhs = (integer_zerop (op1) ? false_val : true_val);
 
                   edge_info = allocate_edge_info (false_edge);
                   edge_info->lhs = op0;
-                  edge_info->rhs = (integer_zerop (op1)
-                                    ? boolean_true_node
-                                    : boolean_false_node);
+                  edge_info->rhs = (integer_zerop (op1) ? true_val : false_val);
                 }
               else
                 {
                   edge_info = allocate_edge_info (true_edge);
                   edge_info->lhs = op0;
-                  edge_info->rhs = (integer_zerop (op1)
-                                    ? boolean_true_node
-                                    : boolean_false_node);
+                  edge_info->rhs = (integer_zerop (op1) ? true_val : false_val);
 
                   edge_info = allocate_edge_info (false_edge);
                   edge_info->lhs = op0;
-                  edge_info->rhs = (integer_zerop (op1)
-                                    ? boolean_false_node
-                                    : boolean_true_node);
+                  edge_info->rhs = (integer_zerop (op1) ? false_val : true_val);
                 }
             }
           else if (is_gimple_min_invariant (op0)
@@ -1369,6 +1370,9 @@ dom_opt_dom_walker::before_dom_children (basic_block bb)
   /* Now prepare to process dominated blocks.  */
   record_edge_info (bb);
   cprop_into_successor_phis (bb, m_const_and_copies);
+  if (taken_edge && !dbg_cnt (dom_unreachable_edges))
+    return NULL;
+
   return taken_edge;
 }
 
@@ -1826,6 +1830,31 @@ optimize_stmt (basic_block bb, gimple_stmt_iterator si,
 	    {
 	      propagate_tree_value_into_stmt (&si, integer_zero_node);
 	      stmt = gsi_stmt (si);
+	    }
+	}
+
+      if (gimple_code (stmt) == GIMPLE_COND)
+	{
+	  tree lhs = gimple_cond_lhs (stmt);
+	  tree rhs = gimple_cond_rhs (stmt);
+
+	  /* If the LHS has a range [0..1] and the RHS has a range ~[0..1],
+	     then this conditional is computable at compile time.  We can just
+	     shove either 0 or 1 into the LHS, mark the statement as modified
+	     and all the right things will just happen below.
+
+	     Note this would apply to any case where LHS has a range
+	     narrower than its type implies and RHS is outside that
+	     narrower range.  Future work.  */
+	  if (TREE_CODE (lhs) == SSA_NAME
+	      && ssa_name_has_boolean_range (lhs)
+	      && TREE_CODE (rhs) == INTEGER_CST
+	      && ! (integer_zerop (rhs) || integer_onep (rhs)))
+	    {
+	      gimple_cond_set_lhs (as_a <gcond *> (stmt),
+				   fold_convert (TREE_TYPE (lhs),
+						 integer_zero_node));
+	      gimple_set_modified (stmt, true);
 	    }
 	}
 

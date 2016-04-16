@@ -1,5 +1,5 @@
 /* Build expressions with type checking for C++ compiler.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -1909,11 +1909,10 @@ unlowered_expr_type (const_tree exp)
 
 /* Perform the conversions in [expr] that apply when an lvalue appears
    in an rvalue context: the lvalue-to-rvalue, array-to-pointer, and
-   function-to-pointer conversions.  In addition, manifest constants
-   are replaced by their values, and bitfield references are converted
-   to their declared types. Note that this function does not perform the
-   lvalue-to-rvalue conversion for class types. If you need that conversion
-   to for class types, then you probably need to use force_rvalue.
+   function-to-pointer conversions.  In addition, bitfield references are
+   converted to their declared types. Note that this function does not perform
+   the lvalue-to-rvalue conversion for class types. If you need that conversion
+   for class types, then you probably need to use force_rvalue.
 
    Although the returned value is being used as an rvalue, this
    function does not wrap the returned expression in a
@@ -1932,8 +1931,6 @@ decay_conversion (tree exp,
   type = TREE_TYPE (exp);
   if (type == error_mark_node)
     return error_mark_node;
-
-  exp = mark_rvalue_use (exp, loc, reject_builtin);
 
   exp = resolve_nondeduced_context (exp);
   if (type_unknown_p (exp))
@@ -1962,11 +1959,18 @@ decay_conversion (tree exp,
   if (invalid_nonstatic_memfn_p (loc, exp, complain))
     return error_mark_node;
   if (code == FUNCTION_TYPE || is_overloaded_fn (exp))
-    return cp_build_addr_expr (exp, complain);
+    {
+      exp = mark_lvalue_use (exp);
+      if (reject_builtin && reject_gcc_builtin (exp, loc))
+	return error_mark_node;
+      return cp_build_addr_expr (exp, complain);
+    }
   if (code == ARRAY_TYPE)
     {
       tree adr;
       tree ptrtype;
+
+      exp = mark_lvalue_use (exp);
 
       if (INDIRECT_REF_P (exp))
 	return build_nop (build_pointer_type (TREE_TYPE (type)),
@@ -2013,6 +2017,9 @@ decay_conversion (tree exp,
       return cp_convert (ptrtype, adr, complain);
     }
 
+  /* Otherwise, it's the lvalue-to-rvalue conversion.  */
+  exp = mark_rvalue_use (exp, loc, reject_builtin);
+
   /* If a bitfield is used in a context where integral promotion
      applies, then the caller is expected to have used
      default_conversion.  That function promotes bitfields correctly
@@ -2031,6 +2038,9 @@ decay_conversion (tree exp,
   type = TREE_TYPE (exp);
   if (!CLASS_TYPE_P (type) && cv_qualified_p (type))
     exp = build_nop (cv_unqualified (type), exp);
+
+  if (!complete_type_or_maybe_complain (type, exp, complain))
+    return error_mark_node;
 
   return exp;
 }
@@ -3598,7 +3608,7 @@ cp_build_function_call_vec (tree function, vec<tree, va_gc> **params,
 
   /* Check for errors in format strings and inappropriately
      null parameters.  */
-  check_function_arguments (fntype, nargs, argarray);
+  check_function_arguments (input_location, fntype, nargs, argarray);
 
   ret = build_cxx_call (function, nargs, argarray, complain);
 
@@ -4908,7 +4918,13 @@ cp_build_binary_op (location_t location,
 	      || !vector_types_compatible_elements_p (type0, type1))
 	    {
 	      if (complain & tf_error)
-		binary_op_error (location, code, type0, type1);
+		{
+		  /* "location" already embeds the locations of the
+		     operands, so we don't need to add them separately
+		     to richloc.  */
+		  rich_location richloc (line_table, location);
+		  binary_op_error (&richloc, code, type0, type1);
+		}
 	      return error_mark_node;
 	    }
 	  arithmetic_types_p = 1;
@@ -4931,8 +4947,9 @@ cp_build_binary_op (location_t location,
   if (!result_type)
     {
       if (complain & tf_error)
-	error ("invalid operands of types %qT and %qT to binary %qO",
-	       TREE_TYPE (orig_op0), TREE_TYPE (orig_op1), code);
+	error_at (location,
+		  "invalid operands of types %qT and %qT to binary %qO",
+		  TREE_TYPE (orig_op0), TREE_TYPE (orig_op1), code);
       return error_mark_node;
     }
 
@@ -8479,13 +8496,15 @@ convert_for_initialization (tree exp, tree type, tree rhs, int flags,
       || (TREE_CODE (rhs) == TREE_LIST && TREE_VALUE (rhs) == error_mark_node))
     return error_mark_node;
 
-  if ((TREE_CODE (TREE_TYPE (rhs)) == ARRAY_TYPE
-       && TREE_CODE (type) != ARRAY_TYPE
-       && (TREE_CODE (type) != REFERENCE_TYPE
-	   || TREE_CODE (TREE_TYPE (type)) != ARRAY_TYPE))
-      || (TREE_CODE (TREE_TYPE (rhs)) == FUNCTION_TYPE
-	  && !TYPE_REFFN_P (type))
-      || TREE_CODE (TREE_TYPE (rhs)) == METHOD_TYPE)
+  if (MAYBE_CLASS_TYPE_P (non_reference (type)))
+    ;
+  else if ((TREE_CODE (TREE_TYPE (rhs)) == ARRAY_TYPE
+	    && TREE_CODE (type) != ARRAY_TYPE
+	    && (TREE_CODE (type) != REFERENCE_TYPE
+		|| TREE_CODE (TREE_TYPE (type)) != ARRAY_TYPE))
+	   || (TREE_CODE (TREE_TYPE (rhs)) == FUNCTION_TYPE
+	       && !TYPE_REFFN_P (type))
+	   || TREE_CODE (TREE_TYPE (rhs)) == METHOD_TYPE)
     rhs = decay_conversion (rhs, complain);
 
   rhstype = TREE_TYPE (rhs);

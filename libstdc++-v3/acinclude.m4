@@ -2186,6 +2186,40 @@ AC_DEFUN([GLIBCXX_CHECK_MATH11_PROTO], [
       fi
       AC_MSG_RESULT([$glibcxx_cv_math11_overload])
       ;;
+    *-*-*gnu* | *-*-aix*)
+      # If <math.h> defines the obsolete isinf(double) and isnan(double)
+      # functions (instead of or as well as the C99 generic macros) then we
+      # can't define std::isinf(double) and std::isnan(double) in <cmath>
+      # and must use the ones from <math.h> instead.
+      AC_MSG_CHECKING([for obsolete isinf and isnan functions in <math.h>])
+        AC_CACHE_VAL(glibcxx_cv_obsolete_isinf_isnan, [
+          AC_COMPILE_IFELSE([AC_LANG_SOURCE(
+            [#include <math.h>
+             #undef isinf
+             #undef isnan
+             namespace std {
+               using ::isinf;
+               bool isinf(float);
+               bool isinf(long double);
+               using ::isnan;
+               bool isnan(float);
+               bool isnan(long double);
+             }
+             using std::isinf;
+             using std::isnan;
+             bool b = isinf(0.0) || isnan(0.0);
+          ])],
+          [glibcxx_cv_obsolete_isinf_isnan=yes],
+          [glibcxx_cv_obsolete_isinf_isnan=no]
+        )])
+
+
+      if test $glibcxx_cv_obsolete_isinf_isnan = yes; then
+        AC_DEFINE(HAVE_OBSOLETE_ISINF_ISNAN, 1,
+                  [Define if <math.h> defines obsolete isinf and isnan functions.])
+      fi
+      AC_MSG_RESULT([$glibcxx_cv_obsolete_isinf_isnan])
+      ;;
   esac
 
   CXXFLAGS="$ac_save_CXXFLAGS"
@@ -2560,6 +2594,8 @@ AC_DEFUN([GLIBCXX_ENABLE_ALLOCATOR], [
       ;;
   esac
 
+  GLIBCXX_CONDITIONAL(ENABLE_ALLOCATOR_NEW,
+		      test $enable_libstdcxx_allocator_flag = new)
   AC_SUBST(ALLOCATOR_H)
   AC_SUBST(ALLOCATOR_NAME)
 ])
@@ -3409,9 +3445,9 @@ EOF
   AC_LANG_RESTORE
 
   # Set atomicity_dir to builtins if all but the long long test above passes.
-  if test $glibcxx_cv_atomic_bool = yes \
-     && test $glibcxx_cv_atomic_short = yes \
-     && test $glibcxx_cv_atomic_int = yes; then
+  if test "$glibcxx_cv_atomic_bool" = yes \
+     && test "$glibcxx_cv_atomic_short" = yes \
+     && test "$glibcxx_cv_atomic_int" = yes; then
     AC_DEFINE(_GLIBCXX_ATOMIC_BUILTINS, 1,
     [Define if the compiler supports C++11 atomics.])
     atomicity_dir=cpu/generic/atomicity_builtins
@@ -4308,6 +4344,34 @@ dnl
 dnl
   CXXFLAGS="$ac_save_CXXFLAGS"
   AC_LANG_RESTORE
+])
+
+dnl
+dnl Check how size_t is mangled.  Copied from libitm.
+dnl
+AC_DEFUN([GLIBCXX_CHECK_SIZE_T_MANGLING], [
+  AC_CACHE_CHECK([how size_t is mangled],
+                 glibcxx_cv_size_t_mangling, [
+    AC_TRY_COMPILE([], [extern __SIZE_TYPE__ x; extern unsigned long x;],
+                   [glibcxx_cv_size_t_mangling=m], [
+      AC_TRY_COMPILE([], [extern __SIZE_TYPE__ x; extern unsigned int x;],
+                     [glibcxx_cv_size_t_mangling=j], [
+        AC_TRY_COMPILE([],
+                       [extern __SIZE_TYPE__ x; extern unsigned long long x;],
+                       [glibcxx_cv_size_t_mangling=y], [
+          AC_TRY_COMPILE([],
+                         [extern __SIZE_TYPE__ x; extern unsigned short x;],
+                         [glibcxx_cv_size_t_mangling=t],
+                         [glibcxx_cv_size_t_mangling=x])
+        ])
+      ])
+    ])
+  ])
+  if test $glibcxx_cv_size_t_mangling = x; then
+    AC_MSG_ERROR([Unknown underlying type for size_t])
+  fi
+  AC_DEFINE_UNQUOTED(_GLIBCXX_MANGLE_SIZE_T, [$glibcxx_cv_size_t_mangling],
+    [Define to the letter to which size_t is mangled.])
 ])
 
 # Macros from the top-level gcc directory.

@@ -1,7 +1,7 @@
 # Makefile for GNU Compiler Collection
 # Run 'configure' to generate Makefile from Makefile.in
 
-# Copyright (C) 1987-2015 Free Software Foundation, Inc.
+# Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -365,7 +365,7 @@ ZLIBINC = @zlibinc@
 GMPLIBS = @GMPLIBS@
 GMPINC = @GMPINC@
 
-# How to find ISL
+# How to find isl.
 ISLLIBS = @ISLLIBS@
 ISLINC = @ISLINC@
 
@@ -1299,6 +1299,11 @@ OBJS = \
 	graphite-sese-to-poly.o \
 	gtype-desc.o \
 	haifa-sched.o \
+	hsa.o \
+	hsa-gen.o \
+	hsa-regalloc.o \
+	hsa-brig.o \
+	hsa-dump.o \
 	hw-doloop.o \
 	hwint.o \
 	ifcvt.o \
@@ -1323,6 +1328,7 @@ OBJS = \
 	ipa-icf.o \
 	ipa-icf-gimple.o \
 	ipa-reference.o \
+	ipa-hsa.o \
 	ipa-ref.o \
 	ipa-utils.o \
 	ipa.o \
@@ -2528,6 +2534,7 @@ GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/sancov.c \
   $(srcdir)/ipa-devirt.c \
   $(srcdir)/internal-fn.h \
+  $(srcdir)/hsa.c \
   @all_gtfiles@
 
 # Compute the list of GT header files from the corresponding C sources,

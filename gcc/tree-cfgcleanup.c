@@ -1,5 +1,5 @@
 /* CFG cleanup for trees.
-   Copyright (C) 2001-2015 Free Software Foundation, Inc.
+   Copyright (C) 2001-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -78,7 +78,8 @@ remove_fallthru_edge (vec<edge, va_gc> *ev)
    at block BB.  */
 
 static bool
-cleanup_control_expr_graph (basic_block bb, gimple_stmt_iterator gsi)
+cleanup_control_expr_graph (basic_block bb, gimple_stmt_iterator gsi,
+			    bool first_p)
 {
   edge taken_edge;
   bool retval = false;
@@ -95,15 +96,26 @@ cleanup_control_expr_graph (basic_block bb, gimple_stmt_iterator gsi)
       switch (gimple_code (stmt))
 	{
 	case GIMPLE_COND:
-	  {
-	    code_helper rcode;
-	    tree ops[3] = {};
-	    if (gimple_simplify (stmt, &rcode, ops, NULL, no_follow_ssa_edges,
-				 no_follow_ssa_edges)
-		&& rcode == INTEGER_CST)
-	      val = ops[0];
-	    break;
-	  }
+	  /* During a first iteration on the CFG only remove trivially
+	     dead edges but mark other conditions for re-evaluation.  */
+	  if (first_p)
+	    {
+	      val = const_binop (gimple_cond_code (stmt), boolean_type_node,
+				 gimple_cond_lhs (stmt),
+				 gimple_cond_rhs (stmt));
+	      if (! val)
+		bitmap_set_bit (cfgcleanup_altered_bbs, bb->index);
+	    }
+	  else
+	    {
+	      code_helper rcode;
+	      tree ops[3] = {};
+	      if (gimple_simplify (stmt, &rcode, ops, NULL, no_follow_ssa_edges,
+				   no_follow_ssa_edges)
+		  && rcode == INTEGER_CST)
+		val = ops[0];
+	    }
+	  break;
 
 	case GIMPLE_SWITCH:
 	  val = gimple_switch_index (as_a <gswitch *> (stmt));
@@ -176,7 +188,7 @@ cleanup_call_ctrl_altering_flag (gimple *bb_end)
    true if anything changes.  */
 
 static bool
-cleanup_control_flow_bb (basic_block bb)
+cleanup_control_flow_bb (basic_block bb, bool first_p)
 {
   gimple_stmt_iterator gsi;
   bool retval = false;
@@ -199,7 +211,7 @@ cleanup_control_flow_bb (basic_block bb)
       || gimple_code (stmt) == GIMPLE_SWITCH)
     {
       gcc_checking_assert (gsi_stmt (gsi_last_bb (bb)) == stmt);
-      retval |= cleanup_control_expr_graph (bb, gsi);
+      retval |= cleanup_control_expr_graph (bb, gsi, first_p);
     }
   else if (gimple_code (stmt) == GIMPLE_GOTO
 	   && TREE_CODE (gimple_goto_dest (stmt)) == ADDR_EXPR
@@ -589,9 +601,11 @@ fixup_noreturn_call (gimple *stmt)
 
   /* If there is an LHS, remove it, but only if its type has fixed size.
      The LHS will need to be recreated during RTL expansion and creating
-     temporaries of variable-sized types is not supported.  */
+     temporaries of variable-sized types is not supported.  Also don't
+     do this with TREE_ADDRESSABLE types, as assign_temp will abort.  */
   tree lhs = gimple_call_lhs (stmt);
-  if (lhs && TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (lhs))) == INTEGER_CST)
+  if (lhs && TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (lhs))) == INTEGER_CST
+      && !TREE_ADDRESSABLE (TREE_TYPE (lhs)))
     {
       gimple_call_set_lhs (stmt, NULL_TREE);
 
@@ -680,7 +694,7 @@ cleanup_tree_cfg_1 (void)
     {
       bb = BASIC_BLOCK_FOR_FN (cfun, i);
       if (bb)
-	retval |= cleanup_control_flow_bb (bb);
+	retval |= cleanup_control_flow_bb (bb, true);
     }
 
   /* After doing the above SSA form should be valid (or an update SSA
@@ -708,7 +722,7 @@ cleanup_tree_cfg_1 (void)
       if (!bb)
 	continue;
 
-      retval |= cleanup_control_flow_bb (bb);
+      retval |= cleanup_control_flow_bb (bb, false);
       retval |= cleanup_tree_cfg_bb (bb);
     }
 

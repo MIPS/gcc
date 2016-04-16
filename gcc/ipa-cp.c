@@ -1,5 +1,5 @@
 /* Interprocedural constant propagation
-   Copyright (C) 2005-2015 Free Software Foundation, Inc.
+   Copyright (C) 2005-2016 Free Software Foundation, Inc.
 
    Contributed by Razya Ladelsky <RAZYA@il.ibm.com> and Martin Jambor
    <mjambor@suse.cz>
@@ -2077,15 +2077,22 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
       unsigned HOST_WIDE_INT offset;
       if (vtable_pointer_value_to_vtable (t, &vtable, &offset))
 	{
+	  bool can_refer;
 	  target = gimple_get_virt_method_for_vtable (ie->indirect_info->otr_token,
-						      vtable, offset);
-	  if (target)
+						      vtable, offset, &can_refer);
+	  if (can_refer)
 	    {
-	      if ((TREE_CODE (TREE_TYPE (target)) == FUNCTION_TYPE
-		   && DECL_FUNCTION_CODE (target) == BUILT_IN_UNREACHABLE)
+	      if (!target
+		  || (TREE_CODE (TREE_TYPE (target)) == FUNCTION_TYPE
+		      && DECL_FUNCTION_CODE (target) == BUILT_IN_UNREACHABLE)
 		  || !possible_polymorphic_call_target_p
 		       (ie, cgraph_node::get (target)))
-		target = ipa_impossible_devirt_target (ie, target);
+		{
+		  /* Do not speculate builtin_unreachable, it is stupid!  */
+		  if (ie->indirect_info->vptr_changed)
+		    return NULL;
+		  target = ipa_impossible_devirt_target (ie, target);
+		}
               *speculative = ie->indirect_info->vptr_changed;
 	      if (!*speculative)
 	        return target;
@@ -2163,7 +2170,11 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
 
   if (target && !possible_polymorphic_call_target_p (ie,
 						     cgraph_node::get (target)))
-    target = ipa_impossible_devirt_target (ie, target);
+    {
+      if (*speculative)
+	return NULL;
+      target = ipa_impossible_devirt_target (ie, target);
+    }
 
   return target;
 }
@@ -2507,7 +2518,8 @@ estimate_local_effects (struct cgraph_node *node)
   known_aggs_ptrs = agg_jmp_p_vec_for_t_vec (known_aggs);
   int devirt_bonus = devirtualization_time_bonus (node, known_csts,
 					   known_contexts, known_aggs_ptrs);
-  if (always_const || devirt_bonus || removable_params_cost)
+  if (always_const || devirt_bonus
+      || (removable_params_cost && node->local.can_change_signature))
     {
       struct caller_statistics stats;
       inline_hints hints;

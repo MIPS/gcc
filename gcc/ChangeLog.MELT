@@ -1,4 +1,9 @@
 
+2016-04-16   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/libmelt-ana-gimple.melt:
+	(melt_build_transaction_with_label_norm): New inlined function,
+	for gimple_transaction operator implementation...
+
 2016-04-15   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h (Melt_CallProtoFrame): always have some
 	dbg_serial() even without debugging.
