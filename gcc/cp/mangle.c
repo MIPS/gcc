@@ -92,7 +92,7 @@ along with GCC; see the file COPYING3.  If not see
   (abi_version_crosses (N) || abi_compat_version_crosses (N))
 
 /* Things we only need one of.  This module is not reentrant.  */
-typedef struct GTY(()) globals {
+struct GTY(()) globals {
   /* An array of the current substitution candidates, in the order
      we've seen them.  */
   vec<tree, va_gc> *substitutions;
@@ -106,7 +106,7 @@ typedef struct GTY(()) globals {
   /* True if the mangling will be different in a future version of the
      ABI.  */
   bool need_abi_warning;
-} globals;
+};
 
 static GTY (()) globals G;
 
@@ -392,20 +392,19 @@ add_substitution (tree node)
 	     get_tree_code_name (TREE_CODE (node)), (void *) node);
   node = c;
 
-#if ENABLE_CHECKING
   /* Make sure NODE isn't already a candidate.  */
-  {
-    int i;
-    tree candidate;
+  if (flag_checking)
+    {
+      int i;
+      tree candidate;
 
-    FOR_EACH_VEC_SAFE_ELT (G.substitutions, i, candidate)
-      {
-	gcc_assert (!(DECL_P (node) && node == candidate));
-	gcc_assert (!(TYPE_P (node) && TYPE_P (candidate)
+      FOR_EACH_VEC_SAFE_ELT (G.substitutions, i, candidate)
+	{
+	  gcc_assert (!(DECL_P (node) && node == candidate));
+	  gcc_assert (!(TYPE_P (node) && TYPE_P (candidate)
 		      && same_type_p (node, candidate)));
-      }
-  }
-#endif /* ENABLE_CHECKING */
+	}
+    }
 
   /* Put the decl onto the varray of substitution candidates.  */
   vec_safe_push (G.substitutions, node);

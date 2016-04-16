@@ -168,7 +168,7 @@ enum emit_note_where
 };
 
 /* Structure holding information about micro operation.  */
-typedef struct micro_operation_def
+struct micro_operation
 {
   /* Type of micro operation.  */
   enum micro_operation_type type;
@@ -192,7 +192,7 @@ typedef struct micro_operation_def
     /* Stack adjustment.  */
     HOST_WIDE_INT adjust;
   } u;
-} micro_operation;
+};
 
 
 /* A declaration of a variable, or an RTL value being handled like a
@@ -276,23 +276,23 @@ struct location_chain
    DV on VALUEs, i.e., the VALUEs expanded so as to form the current
    location of DV.  Each entry is also part of VALUE' s linked-list of
    backlinks back to DV.  */
-typedef struct loc_exp_dep_s
+struct loc_exp_dep
 {
   /* The dependent DV.  */
   decl_or_value dv;
   /* The dependency VALUE or DECL_DEBUG.  */
   rtx value;
   /* The next entry in VALUE's backlinks list.  */
-  struct loc_exp_dep_s *next;
+  struct loc_exp_dep *next;
   /* A pointer to the pointer to this entry (head or prev's next) in
      the doubly-linked list.  */
-  struct loc_exp_dep_s **pprev;
-} loc_exp_dep;
+  struct loc_exp_dep **pprev;
+};
 
 
 /* This data structure holds information about the depth of a variable
    expansion.  */
-typedef struct expand_depth_struct
+struct expand_depth
 {
   /* This measures the complexity of the expanded expression.  It
      grows by one for each level of expansion that adds more than one
@@ -301,7 +301,7 @@ typedef struct expand_depth_struct
   /* This counts the number of ENTRY_VALUE expressions in an
      expansion.  We want to minimize their use.  */
   int entryvals;
-} expand_depth;
+};
 
 /* This data structure is allocated for one-part variables at the time
    of emitting notes.  */
@@ -327,7 +327,7 @@ struct onepart_aux
 };
 
 /* Structure describing one part of variable.  */
-typedef struct variable_part_def
+struct variable_part
 {
   /* Chain of locations of the part.  */
   location_chain *loc_chain;
@@ -343,7 +343,7 @@ typedef struct variable_part_def
     /* Pointer to auxiliary data, if var->onepart and emit_notes.  */
     struct onepart_aux *onepaux;
   } aux;
-} variable_part;
+};
 
 /* Maximum number of location parts.  */
 #define MAX_VAR_PARTS 16
@@ -503,7 +503,7 @@ typedef variable_table_type::iterator variable_iterator_type;
 
 /* Structure for passing some other parameters to function
    emit_note_insn_var_location.  */
-typedef struct emit_note_data_def
+struct emit_note_data
 {
   /* The instruction which the note will be emitted before/after.  */
   rtx_insn *insn;
@@ -513,7 +513,7 @@ typedef struct emit_note_data_def
 
   /* The variables and values active at this point.  */
   variable_table_type *vars;
-} emit_note_data;
+};
 
 /* Structure holding a refcounted hash table.  If refcount > 1,
    it must be first unshared before modified.  */
@@ -527,7 +527,7 @@ struct shared_hash
 };
 
 /* Structure holding the IN or OUT set for a basic block.  */
-typedef struct dataflow_set_def
+struct dataflow_set
 {
   /* Adjustment of stack offset.  */
   HOST_WIDE_INT stack_adjust;
@@ -540,7 +540,7 @@ typedef struct dataflow_set_def
 
   /* Vars that is being traversed.  */
   shared_hash *traversed_vars;
-} dataflow_set;
+};
 
 /* The structure (one for each basic block) containing the information
    needed for variable tracking.  */

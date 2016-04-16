@@ -32,11 +32,10 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Types used in equivalence statements.  */
 
-typedef enum seq_type
+enum seq_type
 {
   SEQ_NONDEFAULT, SEQ_NUMERIC, SEQ_CHARACTER, SEQ_MIXED
-}
-seq_type;
+};
 
 /* Stack to keep track of the nesting of blocks as we move through the
    code.  See resolve_branch() and gfc_resolve_code().  */
@@ -1443,9 +1442,8 @@ specific_sym (gfc_symbol *sym)
 
 /* Figure out if the procedure is specific, generic or unknown.  */
 
-typedef enum
-{ PTYPE_GENERIC = 1, PTYPE_SPECIFIC, PTYPE_UNKNOWN }
-proc_type;
+enum proc_type
+{ PTYPE_GENERIC = 1, PTYPE_SPECIFIC, PTYPE_UNKNOWN };
 
 static proc_type
 procedure_kind (gfc_symbol *sym)
@@ -3855,9 +3853,8 @@ bad_op:
 
 /************** Array resolution subroutines **************/
 
-typedef enum
-{ CMP_LT, CMP_EQ, CMP_GT, CMP_UNKNOWN }
-compare_result;
+enum compare_result
+{ CMP_LT, CMP_EQ, CMP_GT, CMP_UNKNOWN };
 
 /* Compare two integer expressions.  */
 

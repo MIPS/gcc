@@ -52,7 +52,7 @@ static cp_token eof_token =
 };
 
 /* The various kinds of non integral constant we encounter. */
-typedef enum non_integral_constant {
+enum non_integral_constant {
   NIC_NONE,
   /* floating-point literal */
   NIC_FLOAT,
@@ -108,10 +108,10 @@ typedef enum non_integral_constant {
   NIC_CONSTRUCTOR,
   /* a transaction expression */
   NIC_TRANSACTION
-} non_integral_constant;
+};
 
 /* The various kinds of errors about name-lookup failing. */
-typedef enum name_lookup_error {
+enum name_lookup_error {
   /* NULL */
   NLE_NULL,
   /* is not a type */
@@ -120,10 +120,10 @@ typedef enum name_lookup_error {
   NLE_CXX98,
   /* is not a class, namespace, or enumeration */
   NLE_NOT_CXX98
-} name_lookup_error;
+};
 
 /* The various kinds of required token */
-typedef enum required_token {
+enum required_token {
   RT_NONE,
   RT_SEMICOLON,  /* ';' */
   RT_OPEN_PAREN, /* '(' */
@@ -176,7 +176,7 @@ typedef enum required_token {
   RT_TRANSACTION_ATOMIC, /* __transaction_atomic */
   RT_TRANSACTION_RELAXED, /* __transaction_relaxed */
   RT_TRANSACTION_CANCEL /* __transaction_cancel */
-} required_token;
+};
 
 /* Prototypes.  */
 
@@ -1737,7 +1737,7 @@ typedef int cp_parser_flags;
 
 /* The different kinds of declarators we want to parse.  */
 
-typedef enum cp_parser_declarator_kind
+enum cp_parser_declarator_kind
 {
   /* We want an abstract declarator.  */
   CP_PARSER_DECLARATOR_ABSTRACT,
@@ -1745,7 +1745,7 @@ typedef enum cp_parser_declarator_kind
   CP_PARSER_DECLARATOR_NAMED,
   /* We don't mind, but the name must be an unqualified-id.  */
   CP_PARSER_DECLARATOR_EITHER
-} cp_parser_declarator_kind;
+};
 
 /* The precedence values used to parse binary expressions.  The minimum value
    of PREC must be 1, because zero is reserved to quickly discriminate
@@ -1771,7 +1771,7 @@ enum cp_parser_prec
 /* A mapping from a token type to a corresponding tree node type, with a
    precedence value.  */
 
-typedef struct cp_parser_binary_operations_map_node
+struct cp_parser_binary_operations_map_node
 {
   /* The token type.  */
   enum cpp_ttype token_type;
@@ -1779,9 +1779,9 @@ typedef struct cp_parser_binary_operations_map_node
   enum tree_code tree_type;
   /* The precedence of this operator.  */
   enum cp_parser_prec prec;
-} cp_parser_binary_operations_map_node;
+};
 
-typedef struct cp_parser_expression_stack_entry
+struct cp_parser_expression_stack_entry
 {
   /* Left hand side of the binary operation we are currently
      parsing.  */
@@ -1795,7 +1795,7 @@ typedef struct cp_parser_expression_stack_entry
   enum cp_parser_prec prec;
   /* Location of the binary operation we are parsing.  */
   location_t loc;
-} cp_parser_expression_stack_entry;
+};
 
 /* The stack for storing partial expressions.  We only need NUM_PREC_VALUES
    entries because precedence levels on the stack are monotonically
@@ -9263,11 +9263,11 @@ cp_parser_trait_expr (cp_parser* parser, enum rid keyword)
    use the count for function and namespace scopes as well.  */
 static GTY(()) tree lambda_scope;
 static GTY(()) int lambda_count;
-typedef struct GTY(()) tree_int
+struct GTY(()) tree_int
 {
   tree t;
   int i;
-} tree_int;
+};
 static GTY(()) vec<tree_int, va_gc> *lambda_scope_stack;
 
 static void
@@ -14866,9 +14866,8 @@ cp_parser_template_argument_list (cp_parser* parser)
   parser->non_integral_constant_expression_p = saved_non_ice_p;
   parser->integral_constant_expression_p = saved_ice_p;
   parser->in_template_argument_list_p = saved_in_template_argument_list_p;
-#ifdef ENABLE_CHECKING
-  SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (vec, TREE_VEC_LENGTH (vec));
-#endif
+  if (CHECKING_P)
+    SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (vec, TREE_VEC_LENGTH (vec));
   return vec;
 }
 

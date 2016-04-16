@@ -4212,7 +4212,6 @@ else
 fi
 
    fi
-  am__nodep='_no'
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_path_EGREP" >&5
 $as_echo "$ac_cv_path_EGREP" >&6; }

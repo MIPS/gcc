@@ -1,5 +1,14 @@
 
 2016-04-16   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{manually merging with even more of GCC 6, using its trunk svn rev 230195;
+	apparently, some changes have been lost in some previous svn merges...}}
+
+2016-04-16   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merging with even more of GCC 6, using subversion 1.9
+	svn merge -r230196:230201 ^/trunk
+	}}
+
+2016-04-16   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{merging with even more of GCC 6, using subversion 1.9
 	svn merge -r230181:230195 ^/trunk
 	}}

@@ -1163,13 +1163,6 @@ general_init (const char *argv0, bool init_signals)
   line_table->round_alloc_size = ggc_round_alloc_size;
   init_ttree ();
 
-  /* Melt needs PARMAPOLY & LIBTOOLDYNL */
-#if HAVE_PARMAPOLY
-  /* Initialize the Parma Polyhedra Library. */
-  if (ppl_initialize () <0) 
-    fatal_error ("failed to initialize Parma Polyedra Library");
-#endif
-
   /* Initialize register usage now so switches may override.  */
   init_reg_sets ();
 

@@ -42,7 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* The various kinds of conversion.  */
 
-typedef enum conversion_kind {
+enum conversion_kind {
   ck_identity,
   ck_lvalue,
   ck_tsafe,
@@ -57,12 +57,12 @@ typedef enum conversion_kind {
   ck_list,
   ck_aggr,
   ck_rvalue
-} conversion_kind;
+};
 
 /* The rank of the conversion.  Order of the enumerals matters; better
    conversions should come earlier in the list.  */
 
-typedef enum conversion_rank {
+enum conversion_rank {
   cr_identity,
   cr_exact,
   cr_promotion,
@@ -71,13 +71,12 @@ typedef enum conversion_rank {
   cr_user,
   cr_ellipsis,
   cr_bad
-} conversion_rank;
+};
 
 /* An implicit conversion sequence, in the sense of [over.best.ics].
    The first conversion to be performed is at the end of the chain.
    That conversion is always a cr_identity conversion.  */
 
-typedef struct conversion conversion;
 struct conversion {
   /* The kind of conversion represented by this step.  */
   conversion_kind kind;
@@ -399,9 +398,8 @@ build_call_a (tree function, int n, tree *argarray)
 
 /* New overloading code.  */
 
-typedef struct z_candidate z_candidate;
+struct z_candidate;
 
-typedef struct candidate_warning candidate_warning;
 struct candidate_warning {
   z_candidate *loser;
   candidate_warning *next;
@@ -724,8 +722,6 @@ alloc_conversion (conversion_kind kind)
   return c;
 }
 
-#ifdef ENABLE_CHECKING
-
 /* Make sure that all memory on the conversion obstack has been
    freed.  */
 
@@ -736,8 +732,6 @@ validate_conversion_obstack (void)
     gcc_assert ((obstack_next_free (&conversion_obstack)
 		 == obstack_base (&conversion_obstack)));
 }
-
-#endif /* ENABLE_CHECKING */
 
 /* Dynamically allocate an array of N conversions.  */
 

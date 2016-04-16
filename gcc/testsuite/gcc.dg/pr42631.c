@@ -14,7 +14,7 @@
    combine uninitialized uses into a single web.  */
 
 /* { dg-do compile } */
-/* { dg-options "-g -O1 -funroll-loops -fcompare-debug -fdump-rtl-web" } */
+/* { dg-options "-g -O1 -funroll-loops -fcompare-debug" } */
 /* { dg-xfail-if "" { powerpc-ibm-aix* } { "*" } { "" } } */
 
 void foo()
@@ -22,6 +22,3 @@ void foo()
   unsigned k;
   while (--k > 0);
 }
-
-/* { dg-final { scan-rtl-dump-not "Web oldreg" "web" } } */
-/* { dg-final { cleanup-rtl-dump "web" } } */

@@ -1,6 +1,7 @@
 // { dg-do compile }
 // { dg-options "-std=gnu++11" }
 // { dg-require-cstdint "" }
+
 // Copyright (C) 2008-2015 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free

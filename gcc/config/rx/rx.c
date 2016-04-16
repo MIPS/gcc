@@ -3119,7 +3119,7 @@ flags_from_code (enum rtx_code code)
     {
     case LT:
     case GE:
-      return CC_FLAG_S | CC_FLAG_O;
+      return CC_FLAG_S;
     case GT:
     case LE:
       return CC_FLAG_S | CC_FLAG_O | CC_FLAG_Z;
