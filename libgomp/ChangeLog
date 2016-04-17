@@ -1,3 +1,27 @@
+2016-02-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/loop-dim-default.c: New.
+	* testsuite/libgomp.oacc-fortran/routine-7.f90: Serialize loop.
+
+2016-01-26  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/69110
+	* testsuite/libgomp.c/pr69110.c: New test.
+
+2016-01-25  Richard Biener  <rguenther@suse.de>
+
+	PR lto/69393
+	* testsuite/libgomp.c++/pr69393.C: New testcase.
+
+2016-01-22  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* target.c (gomp_get_target_fn_addr): Allow host fallback if target
+	function wasn't mapped to the device with non-shared memory.
+
+2016-01-20  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* task.c (gomp_create_target_task): Set firstprivate_copies to NULL.
+
 2016-01-19  Martin Jambor  <mjambor@suse.cz>
 	    Martin Liska  <mliska@suse.cz>
 

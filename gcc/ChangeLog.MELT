@@ -1,4 +1,9 @@
 
+2016-04-17   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/libmelt-ana-gimple.melt:
+	(gimple_transaction): Use gimple_transaction_label_norm.
+	Not sure that (gccif "6." ...) does what it should...
+
 2016-04-16   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/libmelt-ana-gimple.melt:
 	(melt_build_transaction_with_label_norm): New inlined function,

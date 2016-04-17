@@ -485,7 +485,7 @@ convert_move (rtx to, rtx from, int unsignedp)
       /* No special multiword conversion insn; do it by hand.  */
       start_sequence ();
 
-      /* Since we will turn this into a no conflict block, we must ensure the
+      /* Since we will turn this into a no conflict block, we must ensure
          the source does not overlap the target so force it into an isolated
          register when maybe so.  Likewise for any MEM input, since the
          conversion sequence might require several references to it and we
@@ -8381,11 +8381,11 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 	 if it's all in the wrong mode to form part of an address.
 	 And force_operand won't know whether to sign-extend or
 	 zero-extend.  */
-      if ((modifier != EXPAND_SUM && modifier != EXPAND_INITIALIZER)
-	  || mode != ptr_mode)
+      if (modifier != EXPAND_INITIALIZER
+	  && (modifier != EXPAND_SUM || mode != ptr_mode))
 	{
 	  expand_operands (treeop0, treeop1,
-			   subtarget, &op0, &op1, EXPAND_NORMAL);
+			   subtarget, &op0, &op1, modifier);
 	  if (op0 == const0_rtx)
 	    return op1;
 	  if (op1 == const0_rtx)
@@ -8424,8 +8424,8 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 	 if it's all in the wrong mode to form part of an address.
 	 And force_operand won't know whether to sign-extend or
 	 zero-extend.  */
-      if ((modifier != EXPAND_SUM && modifier != EXPAND_INITIALIZER)
-	  || mode != ptr_mode)
+      if (modifier != EXPAND_INITIALIZER
+	  && (modifier != EXPAND_SUM || mode != ptr_mode))
 	goto binop;
 
       expand_operands (treeop0, treeop1,
@@ -9597,7 +9597,16 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
       decl_rtl = DECL_RTL (exp);
     expand_decl_rtl:
       gcc_assert (decl_rtl);
-      decl_rtl = copy_rtx (decl_rtl);
+
+      /* DECL_MODE might change when TYPE_MODE depends on attribute target
+	 settings for VECTOR_TYPE_P that might switch for the function.  */
+      if (currently_expanding_to_rtl
+	  && code == VAR_DECL && MEM_P (decl_rtl)
+	  && VECTOR_TYPE_P (type) && exp && DECL_MODE (exp) != mode)
+	decl_rtl = change_address (decl_rtl, TYPE_MODE (type), 0);
+      else
+	decl_rtl = copy_rtx (decl_rtl);
+
       /* Record writes to register variables.  */
       if (modifier == EXPAND_WRITE
 	  && REG_P (decl_rtl)

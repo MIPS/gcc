@@ -725,6 +725,7 @@ eliminate_local_variables_stmt (edge entry, gimple_stmt_iterator *gsi,
     }
   else if (gimple_clobber_p (stmt))
     {
+      unlink_stmt_vdef (stmt);
       stmt = gimple_build_nop ();
       gsi_replace (gsi, stmt, false);
       dta.changed = true;
@@ -2040,7 +2041,7 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
       tree clause = build_omp_clause (loc, OMP_CLAUSE_NUM_GANGS);
       OMP_CLAUSE_NUM_GANGS_EXPR (clause)
 	= build_int_cst (integer_type_node, n_threads);
-      set_oacc_fn_attrib (cfun->decl, clause, NULL);
+      set_oacc_fn_attrib (cfun->decl, clause, true, NULL);
     }
   else
     {

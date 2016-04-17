@@ -2922,19 +2922,20 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
 )
 
 
-(gccif "6."
-       (cbody
-	#{ /* GCC 6.0 has a simpler transaction builder, so */
-	static inline gtransaction*
-	melt_build_transaction_with_label_norm(melt_gimpleseqptr_t gs, melt_treeptr_t tr)
-	{
-	  if (!gs) return NULL;
-	  gtransaction* gt = gimple_build_transaction(gs);
-	  if (gt && tr)
-	  gimple_transaction_set_label_norm (gt, tr);
-	  return gt;
-	} /* end of melt_build_transaction_with_label_norm */
-	}#))
+(cheader
+ #{ /* GCC 6.0 has a simpler transaction builder, so */
+#if GCCPLUGIN_VERSION >= 6000 /* GCC 6 */
+ static inline gtransaction*
+ melt_build_transaction_with_label_norm(melt_gimpleseqptr_t gs, melt_treeptr_t tr)
+ {
+   if (!gs) return NULL;
+   gtransaction* gt = gimple_build_transaction(gs);
+   if (gt && tr)
+     gimple_transaction_set_label_norm (gt, tr);
+   return gt;
+   } /* end of melt_build_transaction_with_label_norm */
+#endif /* GCC 6 */
+ }#)
 		
 ;;; match a transaction - only in GCC 4.8 or GCC 4.9 or later
 (defcmatcher gimple_transaction
@@ -2953,11 +2954,15 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
 	    static_cast <gtransaction*>
 #endif /* GCC 5.0 */
 				     ($GR)) ;
-  $TLAB = gimple_transaction_label (
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+#if GCCPLUGIN_VERSION >= 6000 /* GCC 6.0 */
+  $TLAB = gimple_transaction_label_norm (
 	    static_cast <gtransaction*>
-#endif /* GCC 5.0 */
 				    ($GR))  ;
+#elif   GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
+  $TLAB = gimple_transaction_label (
+	    static_cast <gtransaction*>
+				    ($GR))  ;
+#endif /* GCC 5 or 6 */
   }#
   ;; operator expansion
   #{

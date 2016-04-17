@@ -1,3 +1,89 @@
+2016-02-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* lang.opt (fopenacc-dim=): New option.
+
+2016-01-31  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/67564
+	* trans-expr.c (gfc_conv_procedure_call): For the vtable copy
+	subroutines, add a string length argument, when the actual
+	argument is an unlimited polymorphic class object.
+
+2016-01-30  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/69566
+	* trans-expr.c (gfc_conv_procedure_call): Correct expression
+	for 'ulim_copy', which was missing a test for 'comp'.
+
+2016-01-28  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/62536
+	* decl.c (gfc_match_end): Only unnest and remove BLOCK namespaces
+	when the END encountered does not match a BLOCK's end.
+
+2016-01-27  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/69484
+	* invoke.texi: Fix documentation of -Wall with respect to -Wtabs.
+
+2016-01-27  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/69422
+	* trans-expr.c (is_scalar_reallocatable_lhs): Remove the check
+	for allocatable components, whilst checking if the symbol is a
+	derived or class entity..
+
+2016-01-26  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/69385
+	* trans-expr.c (gfc_trans_assignment_1): Exclude initialization
+	assignments from check on assignment of scalars to unassigned
+	arrays and correct wrong code within the corresponding block.
+
+2016-01-26  David Malcolm  <dmalcolm@redhat.com>
+
+	PR other/69006
+	* error.c (gfc_diagnostic_starter): Delete use of pp_newline.
+
+2016-01-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/69397
+	PR fortran/68442
+	* interface.c (gfc_arglist_matches_symbol): Replace assert with
+	a return false if not a procedure.
+	* resolve.c (resolve_generic_f): Test if we are resolving an
+	initialization expression and adjust error message accordingly.
+
+2016-01-24  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/66094
+	* frontend-passes.c (matmul_lhs_realloc):  Add
+	forgotten break statement.
+
+2016-01-24  Dominique d'Humieres <dominiq@lps.ens.fr>
+
+	PR fortran/68283
+	* primary.c (gfc_variable_attr): revert revision r221955,
+	call gfc_internal_error only if there is no error.
+
+2016-01-24  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/66094
+	* frontend-passes.c (enum matrix_case):  Add case A2B2T for
+	MATMUL(A,TRANSPoSE(B)) where A and B are rank 2.
+	(inline_limit_check):  Also add A2B2T.
+	(matmul_lhs_realloc):  Handle A2B2T.
+	(check_conjg_variable):  Rename to
+	(check_conjg_transpose_variable):  and also count TRANSPOSE.
+	(inline_matmul_assign):  Handle A2B2T.
+
+2016-01-21  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/65996
+	* error.c (gfc_error): Save the state of abort_on_error and set
+	it to false for buffered errors to allow normal processing.
+	Restore the state before leaving.
+
 2016-01-19  Martin Jambor  <mjambor@suse.cz>
 
 	* types.def (BT_FN_VOID_UINT_PTR_INT_PTR): New.

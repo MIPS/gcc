@@ -59,6 +59,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-expr.h"
 #include "context.h"
 
+/* We need to walk over decls with incomplete struct/union/enum types
+   after parsing the whole translation unit.
+   In finish_decl(), if the decl is static, has incomplete
+   struct/union/enum type, it is appeneded to incomplete_record_decls.
+   In c_parser_translation_unit(), we iterate over incomplete_record_decls
+   and report error if any of the decls are still incomplete.  */ 
+
+vec<tree> incomplete_record_decls = vNULL;
+
 void
 set_c_expr_source_range (c_expr *expr,
 			 location_t start, location_t finish)
@@ -1421,6 +1430,15 @@ c_parser_translation_unit (c_parser *parser)
 	}
       while (c_parser_next_token_is_not (parser, CPP_EOF));
     }
+
+  unsigned int i;
+  tree decl;
+  FOR_EACH_VEC_ELT (incomplete_record_decls, i, decl)
+    if (DECL_SIZE (decl) == NULL_TREE && TREE_TYPE (decl) != error_mark_node)
+      {
+	error ("storage size of %q+D isn%'t known", decl);
+	TREE_TYPE (decl) = error_mark_node;
+      }
 }
 
 /* Parse an external declaration (C90 6.7, C99 6.9).

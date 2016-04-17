@@ -1,3 +1,47 @@
+2016-01-22  Torvald Riegel  <triegel@redhat.com>
+
+	* beginend.cc (GTM::gtm_thread::serial_lock): Put on cacheline
+	boundary.
+	(htm_fastpath): Remove.
+	(gtm_thread::begin_transaction): Fix HTM fastpath.
+	(_ITM_commitTransaction): Adapt.
+	(_ITM_commitTransactionEH): Adapt.
+	* libitm/config/linux/rwlock.h (gtm_rwlock): Add htm_fastpath member
+	and accessors.
+	* libitm/config/posix/rwlock.h (gtm_rwlock): Likewise.
+	* libitm/config/posix/rwlock.cc (gtm_rwlock::gtm_rwlock): Adapt.
+	* libitm/config/x86/sjlj.S (_ITM_beginTransaction): Fix HTM fastpath.
+	* libitm/libitm_i.h (htm_fastpath): Remove declaration.
+	* libitm/method-serial.cc (htm_mg): Adapt.
+	(gtm_thread::serialirr_mode): Adapt.
+	* libitm/query.cc (_ITM_inTransaction, _ITM_getTransactionId): Adapt.
+
+2016-01-21  Torvald Riegel  <triegel@redhat.com>
+
+	* testsuite/libitm.c++/libstdc++-safeexc.C: Not supported on darwin
+	or AIX.
+
+2016-01-19  Richard Henderson  <rth@redhat.com>
+
+	PR bootstrap/69343
+	PR bootstrap/69339
+	Revert:
+	2016-01-13  Richard Henderson  <rth@redhat.com>
+
+	* Makefile.am (libitm_la_SOURCES) [ARCH_AARCH64]: Add vect128.cc
+	(libitm_la_SOURCES) [ARCH_ARM]: Add neon.cc
+	(libitm_la_SOURCES) [ARCH_PPC]: Add vect128.cc
+	(libitm_la_SOURCES) [ARCH_S390]: Add vect128.cc
+	* configure.ac (ARCH_AARCH64): New conditional.
+	(ARCH_PPC, ARCH_S390): Likewise.
+	* Makefile.in, configure: Rebuild.
+
+	* libitm.h (_ITM_TYPE_M128): Always define.
+	* vect64.cc: Split ...
+	* vect128.cc: ... out of...
+	* config/x86/x86_sse.cc: ... here.
+	* config/arm/neon.cc: New file.
+
 2016-01-19  Torvald Riegel  <triegel@redhat.com>
 
 	* local_type_traits: Remove file.

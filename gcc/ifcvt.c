@@ -3286,16 +3286,14 @@ bb_ok_for_noce_convert_multiple_sets (basic_block test_bb,
       if (!can_conditionally_move_p (GET_MODE (dest)))
 	return false;
 
-      ++count;
+      /* FORNOW: Our cost model is a count of the number of instructions we
+	 would if-convert.  This is suboptimal, and should be improved as part
+	 of a wider rework of branch_cost.  */
+      if (++count > limit)
+	return false;
     }
 
-  /* FORNOW: Our cost model is a count of the number of instructions we
-     would if-convert.  This is suboptimal, and should be improved as part
-     of a wider rework of branch_cost.  */
-  if (count > limit)
-    return false;
-
-  return count > 0;
+  return count > 1;
 }
 
 /* Given a simple IF-THEN-JOIN or IF-THEN-ELSE-JOIN block, attempt to convert
@@ -3743,6 +3741,7 @@ cond_move_process_if_block (struct noce_if_info *if_info)
   vec<rtx> else_regs = vNULL;
   unsigned int i;
   int success_p = FALSE;
+  int limit = PARAM_VALUE (PARAM_MAX_RTL_IF_CONVERSION_INSNS);
 
   /* Build a mapping for each block to the value used for each
      register.  */
@@ -3792,7 +3791,8 @@ cond_move_process_if_block (struct noce_if_info *if_info)
      is the number of assignments currently made in only one of the
      branches, since if we convert we are going to always execute
      them.  */
-  if (c > MAX_CONDITIONAL_EXECUTE)
+  if (c > MAX_CONDITIONAL_EXECUTE
+      || c > limit)
     goto done;
 
   /* Try to emit the conditional moves.  First do the then block,

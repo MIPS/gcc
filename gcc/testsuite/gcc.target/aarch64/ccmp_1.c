@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2" } */
+/* { dg-options "-O2 -ffinite-math-only" } */
 
 int
 f1 (int a)
@@ -85,7 +85,7 @@ f13 (int a, int b)
 /* { dg-final { scan-assembler "cmp\t(.)+34" } } */
 /* { dg-final { scan-assembler "cmp\t(.)+35" } } */
 
-/* { dg-final { scan-assembler-times "\tcmp\tw\[0-9\]+, 0" 4 } } */
+/* { dg-final { scan-assembler-times "\tcmp\tw\[0-9\]+, (0|wzr)" 4 } } */
 /* { dg-final { scan-assembler-times "fcmpe\t(.)+0\\.0" 2 } } */
 /* { dg-final { scan-assembler-times "fcmp\t(.)+0\\.0" 2 } } */
 

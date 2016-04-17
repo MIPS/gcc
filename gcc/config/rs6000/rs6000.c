@@ -71,6 +71,7 @@
 #include "gstab.h"  /* for N_SLINE */
 #endif
 #include "case-cfn-macros.h"
+#include "ppc-auxv.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -292,6 +293,88 @@ static struct
   { "rsqrtf",	 (RECIP_SF_RSQRT | RECIP_V4SF_RSQRT) },
   { "rsqrtd",	 (RECIP_DF_RSQRT | RECIP_V2DF_RSQRT) },
 };
+
+/* Used by __builtin_cpu_is(), mapping from PLATFORM names to values.  */
+static const struct
+{
+  const char *cpu;
+  unsigned int cpuid;
+} cpu_is_info[] = {
+  { "power9",	   PPC_PLATFORM_POWER9 },
+  { "power8",	   PPC_PLATFORM_POWER8 },
+  { "power7",	   PPC_PLATFORM_POWER7 },
+  { "power6x",	   PPC_PLATFORM_POWER6X },
+  { "power6",	   PPC_PLATFORM_POWER6 },
+  { "power5+",	   PPC_PLATFORM_POWER5_PLUS },
+  { "power5",	   PPC_PLATFORM_POWER5 },
+  { "ppc970",	   PPC_PLATFORM_PPC970 },
+  { "power4",	   PPC_PLATFORM_POWER4 },
+  { "ppca2",	   PPC_PLATFORM_PPCA2 },
+  { "ppc476",	   PPC_PLATFORM_PPC476 },
+  { "ppc464",	   PPC_PLATFORM_PPC464 },
+  { "ppc440",	   PPC_PLATFORM_PPC440 },
+  { "ppc405",	   PPC_PLATFORM_PPC405 },
+  { "ppc-cell-be", PPC_PLATFORM_CELL_BE }
+};
+
+/* Used by __builtin_cpu_supports(), mapping from HWCAP names to masks.  */
+static const struct
+{
+  const char *hwcap;
+  int mask;
+  unsigned int id;
+} cpu_supports_info[] = {
+  /* AT_HWCAP masks.  */
+  { "4xxmac",		PPC_FEATURE_HAS_4xxMAC,		0 },
+  { "altivec",		PPC_FEATURE_HAS_ALTIVEC,	0 },
+  { "arch_2_05",	PPC_FEATURE_ARCH_2_05,		0 },
+  { "arch_2_06",	PPC_FEATURE_ARCH_2_06,		0 },
+  { "archpmu",		PPC_FEATURE_PERFMON_COMPAT,	0 },
+  { "booke",		PPC_FEATURE_BOOKE,		0 },
+  { "cellbe",		PPC_FEATURE_CELL_BE,		0 },
+  { "dfp",		PPC_FEATURE_HAS_DFP,		0 },
+  { "efpdouble",	PPC_FEATURE_HAS_EFP_DOUBLE,	0 },
+  { "efpsingle",	PPC_FEATURE_HAS_EFP_SINGLE,	0 },
+  { "fpu",		PPC_FEATURE_HAS_FPU,		0 },
+  { "ic_snoop",		PPC_FEATURE_ICACHE_SNOOP,	0 },
+  { "mmu",		PPC_FEATURE_HAS_MMU,		0 },
+  { "notb",		PPC_FEATURE_NO_TB,		0 },
+  { "pa6t",		PPC_FEATURE_PA6T,		0 },
+  { "power4",		PPC_FEATURE_POWER4,		0 },
+  { "power5",		PPC_FEATURE_POWER5,		0 },
+  { "power5+",		PPC_FEATURE_POWER5_PLUS,	0 },
+  { "power6x",		PPC_FEATURE_POWER6_EXT,		0 },
+  { "ppc32",		PPC_FEATURE_32,			0 },
+  { "ppc601",		PPC_FEATURE_601_INSTR,		0 },
+  { "ppc64",		PPC_FEATURE_64,			0 },
+  { "ppcle",		PPC_FEATURE_PPC_LE,		0 },
+  { "smt",		PPC_FEATURE_SMT,		0 },
+  { "spe",		PPC_FEATURE_HAS_SPE,		0 },
+  { "true_le",		PPC_FEATURE_TRUE_LE,		0 },
+  { "ucache",		PPC_FEATURE_UNIFIED_CACHE,	0 },
+  { "vsx",		PPC_FEATURE_HAS_VSX,		0 },
+
+  /* AT_HWCAP2 masks.  */
+  { "arch_2_07",	PPC_FEATURE2_ARCH_2_07,		1 },
+  { "dscr",		PPC_FEATURE2_HAS_DSCR,		1 },
+  { "ebb",		PPC_FEATURE2_HAS_EBB,		1 },
+  { "htm",		PPC_FEATURE2_HAS_HTM,		1 },
+  { "htm-nosc",		PPC_FEATURE2_HTM_NOSC,		1 },
+  { "isel",		PPC_FEATURE2_HAS_ISEL,		1 },
+  { "tar",		PPC_FEATURE2_HAS_TAR,		1 },
+  { "vcrypto",		PPC_FEATURE2_HAS_VEC_CRYPTO,	1 },
+  { "arch_3_00",	PPC_FEATURE2_ARCH_3_00,		1 },
+  { "ieee128",		PPC_FEATURE2_HAS_IEEE128,	1 }
+};
+
+/* Newer LIBCs explicitly export this symbol to declare that they provide
+   the AT_PLATFORM and AT_HWCAP/AT_HWCAP2 values in the TCB.  We emit a
+   reference to this symbol whenever we expand a CPU builtin, so that
+   we never link against an old LIBC.  */
+const char *tcb_verification_symbol = "__parse_hwcap_and_convert_at_platform";
+
+/* True if we have expanded a CPU builtin.  */
+bool cpu_builtin_p;
 
 /* Pointer to function (in rs6000-c.c) that can define or undefine target
    macros that have changed.  Languages that don't support the preprocessor
@@ -1228,6 +1311,7 @@ static bool rs6000_secondary_reload_move (enum rs6000_reg_type,
 					  secondary_reload_info *,
 					  bool);
 rtl_opt_pass *make_pass_analyze_swaps (gcc::context*);
+static bool rs6000_keep_leaf_when_profiled () __attribute__ ((unused));
 
 /* Hash table stuff for keeping track of TOC entries.  */
 
@@ -4476,8 +4560,7 @@ rs6000_option_override_internal (bool global_init_p)
       if (TARGET_LONG_DOUBLE_128 && !TARGET_IEEEQUAD)
 	REAL_MODE_FORMAT (TFmode) = &ibm_extended_format;
 
-      if (TARGET_TOC)
-	ASM_GENERATE_INTERNAL_LABEL (toc_label_name, "LCTOC", 1);
+      ASM_GENERATE_INTERNAL_LABEL (toc_label_name, "LCTOC", 1);
 
       /* We can only guarantee the availability of DI pseudo-ops when
 	 assembling for 64-bit targets.  */
@@ -13380,6 +13463,101 @@ htm_expand_builtin (tree exp, rtx target, bool * expandedp)
   return NULL_RTX;
 }
 
+/* Expand the CPU builtin in FCODE and store the result in TARGET.  */
+
+static rtx
+cpu_expand_builtin (enum rs6000_builtins fcode, tree exp ATTRIBUTE_UNUSED,
+		    rtx target)
+{
+  /* __builtin_cpu_init () is a nop, so expand to nothing.  */
+  if (fcode == RS6000_BUILTIN_CPU_INIT)
+    return const0_rtx;
+
+  if (target == 0 || GET_MODE (target) != SImode)
+    target = gen_reg_rtx (SImode);
+
+#ifdef TARGET_LIBC_PROVIDES_HWCAP_IN_TCB
+  tree arg = TREE_OPERAND (CALL_EXPR_ARG (exp, 0), 0);
+  if (TREE_CODE (arg) != STRING_CST)
+    {
+      error ("builtin %s only accepts a string argument",
+	     rs6000_builtin_info[(size_t) fcode].name);
+      return const0_rtx;
+    }
+
+  if (fcode == RS6000_BUILTIN_CPU_IS)
+    {
+      const char *cpu = TREE_STRING_POINTER (arg);
+      rtx cpuid = NULL_RTX;
+      for (size_t i = 0; i < ARRAY_SIZE (cpu_is_info); i++)
+	if (strcmp (cpu, cpu_is_info[i].cpu) == 0)
+	  {
+	    /* The CPUID value in the TCB is offset by _DL_FIRST_PLATFORM.  */
+	    cpuid = GEN_INT (cpu_is_info[i].cpuid + _DL_FIRST_PLATFORM);
+	    break;
+	  }
+      if (cpuid == NULL_RTX)
+	{
+	  /* Invalid CPU argument.  */
+	  error ("cpu %s is an invalid argument to builtin %s",
+		 cpu, rs6000_builtin_info[(size_t) fcode].name);
+	  return const0_rtx;
+	}
+
+      rtx platform = gen_reg_rtx (SImode);
+      rtx tcbmem = gen_const_mem (SImode,
+				  gen_rtx_PLUS (Pmode,
+						gen_rtx_REG (Pmode, TLS_REGNUM),
+						GEN_INT (TCB_PLATFORM_OFFSET)));
+      emit_move_insn (platform, tcbmem);
+      emit_insn (gen_eqsi3 (target, platform, cpuid));
+    }
+  else if (fcode == RS6000_BUILTIN_CPU_SUPPORTS)
+    {
+      const char *hwcap = TREE_STRING_POINTER (arg);
+      rtx mask = NULL_RTX;
+      int hwcap_offset;
+      for (size_t i = 0; i < ARRAY_SIZE (cpu_supports_info); i++)
+	if (strcmp (hwcap, cpu_supports_info[i].hwcap) == 0)
+	  {
+	    mask = GEN_INT (cpu_supports_info[i].mask);
+	    hwcap_offset = TCB_HWCAP_OFFSET (cpu_supports_info[i].id);
+	    break;
+	  }
+      if (mask == NULL_RTX)
+	{
+	  /* Invalid HWCAP argument.  */
+	  error ("hwcap %s is an invalid argument to builtin %s",
+		 hwcap, rs6000_builtin_info[(size_t) fcode].name);
+	  return const0_rtx;
+	}
+
+      rtx tcb_hwcap = gen_reg_rtx (SImode);
+      rtx tcbmem = gen_const_mem (SImode,
+				  gen_rtx_PLUS (Pmode,
+						gen_rtx_REG (Pmode, TLS_REGNUM),
+						GEN_INT (hwcap_offset)));
+      emit_move_insn (tcb_hwcap, tcbmem);
+      rtx scratch1 = gen_reg_rtx (SImode);
+      emit_insn (gen_rtx_SET (scratch1, gen_rtx_AND (SImode, tcb_hwcap, mask)));
+      rtx scratch2 = gen_reg_rtx (SImode);
+      emit_insn (gen_eqsi3 (scratch2, scratch1, const0_rtx));
+      emit_insn (gen_rtx_SET (target, gen_rtx_XOR (SImode, scratch2, const1_rtx)));
+    }
+
+  /* Record that we have expanded a CPU builtin, so that we can later
+     emit a reference to the special symbol exported by LIBC to ensure we
+     do not link against an old LIBC that doesn't support this feature.  */
+  cpu_builtin_p = true;
+
+#else
+  /* For old LIBCs, always return FALSE.  */
+  emit_move_insn (target, GEN_INT (0));
+#endif /* TARGET_LIBC_PROVIDES_HWCAP_IN_TCB */
+
+  return target;
+}
+
 static rtx
 rs6000_expand_ternop_builtin (enum insn_code icode, tree exp, rtx target)
 {
@@ -14706,6 +14884,11 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     case RS6000_BUILTIN_MTFSF:
       return rs6000_expand_mtfsf_builtin (CODE_FOR_rs6000_mtfsf, exp);
 
+    case RS6000_BUILTIN_CPU_INIT:
+    case RS6000_BUILTIN_CPU_IS:
+    case RS6000_BUILTIN_CPU_SUPPORTS:
+      return cpu_expand_builtin (fcode, exp, target);
+
     case ALTIVEC_BUILTIN_MASK_FOR_LOAD:
     case ALTIVEC_BUILTIN_MASK_FOR_STORE:
       {
@@ -15094,6 +15277,14 @@ rs6000_init_builtins (void)
 				    intSI_type_node, double_type_node,
 				    NULL_TREE);
   def_builtin ("__builtin_mtfsf", ftype, RS6000_BUILTIN_MTFSF);
+
+  ftype = build_function_type_list (void_type_node, NULL_TREE);
+  def_builtin ("__builtin_cpu_init", ftype, RS6000_BUILTIN_CPU_INIT);
+
+  ftype = build_function_type_list (bool_int_type_node, const_ptr_type_node,
+				    NULL_TREE);
+  def_builtin ("__builtin_cpu_is", ftype, RS6000_BUILTIN_CPU_IS);
+  def_builtin ("__builtin_cpu_supports", ftype, RS6000_BUILTIN_CPU_SUPPORTS);
 
 #if TARGET_XCOFF
   /* AIX libm provides clog as __clog.  */
@@ -19758,6 +19949,14 @@ print_operand (FILE *file, rtx x, int code)
 	fprintf (file, "%d", 128 >> (REGNO (x) - CR0_REGNO));
       return;
 
+    case 's':
+      /* Low 5 bits of 32 - value */
+      if (! INT_P (x))
+	output_operand_lossage ("invalid %%s value");
+      else
+	fprintf (file, HOST_WIDE_INT_PRINT_DEC, (32 - INTVAL (x)) & 31);
+      return;
+
     case 't':
       /* Like 'J' but get to the OVERFLOW/UNORDERED bit.  */
       gcc_assert (REG_P (x) && GET_MODE (x) == CCmode);
@@ -21233,14 +21432,15 @@ output_cbranch (rtx op, const char *label, int reversed, rtx_insn *insn)
       /* PROB is the difference from 50%.  */
       int prob = XINT (note, 0) - REG_BR_PROB_BASE / 2;
 
-      /* Only hint for highly probable/improbable branches on newer
-	 cpus as static prediction overrides processor dynamic
-	 prediction.  For older cpus we may as well always hint, but
+      /* Only hint for highly probable/improbable branches on newer cpus when
+	 we have real profile data, as static prediction overrides processor
+	 dynamic prediction.  For older cpus we may as well always hint, but
 	 assume not taken for branches that are very close to 50% as a
 	 mispredicted taken branch is more expensive than a
 	 mispredicted not-taken branch.  */
       if (rs6000_always_hint
 	  || (abs (prob) > REG_BR_PROB_BASE / 100 * 48
+	      && (profile_status_for_fn (cfun) != PROFILE_GUESSED)
 	      && br_prob_note_reliable_p (note)))
 	{
 	  if (abs (prob) > REG_BR_PROB_BASE / 20
@@ -23791,7 +23991,7 @@ rs6000_emit_load_toc_table (int fromprolog)
       ASM_GENERATE_INTERNAL_LABEL (buf, "L", CODE_LABEL_NUMBER (lab));
       lab = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
       if (flag_pic == 2)
-	got = gen_rtx_SYMBOL_REF (Pmode, toc_label_name);
+	got = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (toc_label_name));
       else
 	got = rs6000_got_sym ();
       tmp1 = tmp2 = dest;
@@ -23835,7 +24035,7 @@ rs6000_emit_load_toc_table (int fromprolog)
 	{
 	  rtx tocsym, lab;
 
-	  tocsym = gen_rtx_SYMBOL_REF (Pmode, toc_label_name);
+	  tocsym = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (toc_label_name));
 	  lab = gen_label_rtx ();
 	  emit_insn (gen_load_toc_v4_PIC_1b (tocsym, lab));
 	  emit_move_insn (dest, gen_rtx_REG (Pmode, LR_REGNO));
@@ -23848,10 +24048,7 @@ rs6000_emit_load_toc_table (int fromprolog)
   else if (TARGET_ELF && !TARGET_AIX && flag_pic == 0 && TARGET_MINIMAL_TOC)
     {
       /* This is for AIX code running in non-PIC ELF32.  */
-      char buf[30];
-      rtx realsym;
-      ASM_GENERATE_INTERNAL_LABEL (buf, "LCTOC", 1);
-      realsym = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
+      rtx realsym = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (toc_label_name));
 
       emit_insn (gen_elf_high (dest, realsym));
       emit_insn (gen_elf_low (dest, dest, realsym));
@@ -26044,6 +26241,14 @@ rs6000_output_function_prologue (FILE *file,
     }
 
   rs6000_pic_labelno++;
+}
+
+/* -mprofile-kernel code calls mcount before the function prolog,
+   so a profiled leaf function should stay a leaf function.  */
+static bool
+rs6000_keep_leaf_when_profiled ()
+{
+  return TARGET_PROFILE_KERNEL;
 }
 
 /* Non-zero if vmx regs are restored before the frame pop, zero if
@@ -31526,9 +31731,8 @@ rs6000_elf_declare_function_name (FILE *file, const char *name, tree decl)
 
       (*targetm.asm_out.internal_label) (file, "LCL", rs6000_pic_labelno);
 
-      ASM_GENERATE_INTERNAL_LABEL (buf, "LCTOC", 1);
       fprintf (file, "\t.long ");
-      assemble_name (file, buf);
+      assemble_name (file, toc_label_name);
       putc ('-', file);
       ASM_GENERATE_INTERNAL_LABEL (buf, "LCF", rs6000_pic_labelno);
       assemble_name (file, buf);
@@ -31601,6 +31805,17 @@ rs6000_elf_file_end (void)
 
   if (flag_split_stack)
     file_end_indicate_split_stack ();
+
+  if (cpu_builtin_p)
+    {
+      /* We have expanded a CPU builtin, so we need to emit a reference to
+	 the special symbol that LIBC uses to declare it supports the
+	 AT_PLATFORM and AT_HWCAP/AT_HWCAP2 in the TCB feature.  */
+      switch_to_section (data_section);
+      fprintf (asm_out_file, "\t.align %u\n", TARGET_32BIT ? 2 : 3);
+      fprintf (asm_out_file, "\t%s %s\n",
+	       TARGET_32BIT ? ".long" : ".quad", tcb_verification_symbol);
+    }
 }
 #endif
 
@@ -32904,10 +33119,19 @@ rs6000_emit_swsqrt (rtx dst, rtx src, bool recip)
   if (!recip)
     {
       rtx zero = force_reg (mode, CONST0_RTX (mode));
-      rtx target = emit_conditional_move (e, GT, src, zero, mode,
-					  e, zero, mode, 0);
-      if (target != e)
-	emit_move_insn (e, target);
+
+      if (mode == SFmode)
+	{
+	  rtx target = emit_conditional_move (e, GT, src, zero, mode,
+					      e, zero, mode, 0);
+	  if (target != e)
+	    emit_move_insn (e, target);
+	}
+      else
+	{
+	  rtx cond = gen_rtx_GT (VOIDmode, e, zero);
+	  rs6000_emit_vector_cond_expr (e, e, zero, cond, src, zero);
+	}
     }
 
   /* g = sqrt estimate.  */

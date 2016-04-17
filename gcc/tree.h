@@ -2096,7 +2096,7 @@ extern machine_mode element_mode (const_tree t);
 #define BINFO_VIRTUAL_P(NODE) (TREE_BINFO_CHECK (NODE)->base.static_flag)
 
 /* Flags for language dependent use.  */
-#define BINFO_MARKED(NODE) TREE_LANG_FLAG_0 (TREE_BINFO_CHECK (NODE))
+#define BINFO_FLAG_0(NODE) TREE_LANG_FLAG_0 (TREE_BINFO_CHECK (NODE))
 #define BINFO_FLAG_1(NODE) TREE_LANG_FLAG_1 (TREE_BINFO_CHECK (NODE))
 #define BINFO_FLAG_2(NODE) TREE_LANG_FLAG_2 (TREE_BINFO_CHECK (NODE))
 #define BINFO_FLAG_3(NODE) TREE_LANG_FLAG_3 (TREE_BINFO_CHECK (NODE))
@@ -3918,6 +3918,8 @@ extern tree build_vector_stat (tree, tree * MEM_STAT_DECL);
 #define build_vector(t,v) build_vector_stat (t, v MEM_STAT_INFO)
 extern tree build_vector_from_ctor (tree, vec<constructor_elt, va_gc> *);
 extern tree build_vector_from_val (tree, tree);
+extern void recompute_constructor_flags (tree);
+extern void verify_constructor_flags (tree);
 extern tree build_constructor (tree, vec<constructor_elt, va_gc> *);
 extern tree build_constructor_single (tree, tree, tree);
 extern tree build_constructor_from_list (tree, tree);
