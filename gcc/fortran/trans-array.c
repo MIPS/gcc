@@ -2464,10 +2464,12 @@ gfc_scalar_elemental_arg_saved_as_reference (gfc_ss_info * ss_info)
     return true;
 
   /* If the expression is a data reference of aggregate type,
+     and the data reference is not used on the left hand side,
      avoid a copy by saving a reference to the content.  */
-  if (ss_info->expr->expr_type == EXPR_VARIABLE
+  if (!ss_info->data.scalar.needs_temporary
       && (ss_info->expr->ts.type == BT_DERIVED
-	  || ss_info->expr->ts.type == BT_CLASS))
+	  || ss_info->expr->ts.type == BT_CLASS)
+      && gfc_expr_is_variable (ss_info->expr))
     return true;
 
   /* Otherwise the expression is evaluated to a temporary variable before the
@@ -4461,6 +4463,7 @@ gfc_conv_resolve_dependencies (gfc_loopinfo * loop, gfc_ss * dest,
   gfc_ss *ss;
   gfc_ref *lref;
   gfc_ref *rref;
+  gfc_ss_info *ss_info;
   gfc_expr *dest_expr;
   gfc_expr *ss_expr;
   int nDepend = 0;
@@ -4471,15 +4474,16 @@ gfc_conv_resolve_dependencies (gfc_loopinfo * loop, gfc_ss * dest,
 
   for (ss = rss; ss != gfc_ss_terminator; ss = ss->next)
     {
-      ss_expr = ss->info->expr;
+      ss_info = ss->info;
+      ss_expr = ss_info->expr;
 
-      if (ss->info->array_outer_dependency)
+      if (ss_info->array_outer_dependency)
 	{
 	  nDepend = 1;
 	  break;
 	}
 
-      if (ss->info->type != GFC_SS_SECTION)
+      if (ss_info->type != GFC_SS_SECTION)
 	{
 	  if (flag_realloc_lhs
 	      && dest_expr != ss_expr
@@ -4493,6 +4497,10 @@ gfc_conv_resolve_dependencies (gfc_loopinfo * loop, gfc_ss * dest,
 	      && ss_expr->expr_type == EXPR_VARIABLE)
 
 	    nDepend = gfc_check_dependency (dest_expr, ss_expr, false);
+
+	  if (ss_info->type == GFC_SS_REFERENCE
+	      && gfc_check_dependency (dest_expr, ss_expr, false))
+	    ss_info->data.scalar.needs_temporary = 1;
 
 	  continue;
 	}
@@ -5393,17 +5401,8 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
   if (!retrieve_last_ref (&ref, &prev_ref))
     return false;
 
-  if (ref->u.ar.type == AR_FULL && expr3 != NULL)
-    {
-      /* F08:C633: Array shape from expr3.  */
-      ref = expr3->ref;
-
-      /* Find the last reference in the chain.  */
-      if (!retrieve_last_ref (&ref, &prev_ref))
-	return false;
-      alloc_w_e3_arr_spec = true;
-    }
-
+  /* Take the allocatable and coarray properties solely from the expr-ref's
+     attributes and not from source=-expression.  */
   if (!prev_ref)
     {
       allocatable = expr->symtree->n.sym->attr.allocatable;
@@ -5419,6 +5418,17 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
 
   if (!dimension)
     gcc_assert (coarray);
+
+  if (ref->u.ar.type == AR_FULL && expr3 != NULL)
+    {
+      /* F08:C633: Array shape from expr3.  */
+      ref = expr3->ref;
+
+      /* Find the last reference in the chain.  */
+      if (!retrieve_last_ref (&ref, &prev_ref))
+	return false;
+      alloc_w_e3_arr_spec = true;
+    }
 
   /* Figure out the size of the array.  */
   switch (ref->u.ar.type)
@@ -5455,7 +5465,8 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
   gfc_init_block (&set_descriptor_block);
   size = gfc_array_init_size (se->expr, alloc_w_e3_arr_spec ? expr->rank
 							   : ref->u.ar.as->rank,
-			      ref->u.ar.as->corank, &offset, lower, upper,
+			      coarray ? ref->u.ar.as->corank : 0,
+			      &offset, lower, upper,
 			      &se->pre, &set_descriptor_block, &overflow,
 			      expr3_elem_size, nelems, expr3, e3_arr_desc,
 			      e3_is_array_constr, expr);

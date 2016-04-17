@@ -13519,7 +13519,7 @@ mips_process_sync_loop (rtx_insn *insn, rtx *operands)
   /* When using branch likely (-mfix-r10000), the delay slot instruction
      will be annulled on false.  The normal delay slot instructions
      calculate the overall result of the atomic operation and must not
-     be annulled.  To ensure this behaviour unconditionally use a NOP
+     be annulled.  To ensure this behavior unconditionally use a NOP
      in the delay slot for the branch likely case.  */
 
   if (TARGET_CB_MAYBE)
@@ -19121,7 +19121,7 @@ void mips_function_profiler (FILE *file)
 }
 
 /* Implement TARGET_SHIFT_TRUNCATION_MASK.  We want to keep the default
-   behaviour of TARGET_SHIFT_TRUNCATION_MASK for non-vector modes even
+   behavior of TARGET_SHIFT_TRUNCATION_MASK for non-vector modes even
    when TARGET_LOONGSON_VECTORS is true.  */
 
 static unsigned HOST_WIDE_INT
@@ -19916,7 +19916,8 @@ mips_lra_p (void)
 /* Implement TARGET_IRA_CHANGE_PSEUDO_ALLOCNO_CLASS.  */
 
 static reg_class_t
-mips_ira_change_pseudo_allocno_class (int regno, reg_class_t allocno_class)
+mips_ira_change_pseudo_allocno_class (int regno, reg_class_t allocno_class,
+				      reg_class_t best_class ATTRIBUTE_UNUSED)
 {
   /* LRA will allocate an FPR for an integer mode pseudo instead of spilling
      to memory if an FPR is present in the allocno class.  It is rare that

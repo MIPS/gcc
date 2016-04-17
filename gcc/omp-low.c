@@ -13186,6 +13186,7 @@ expand_omp_target (struct omp_region *region)
       start_ix = BUILT_IN_GOACC_PARALLEL;
       break;
     case GF_OMP_TARGET_KIND_OACC_DATA:
+    case GF_OMP_TARGET_KIND_OACC_HOST_DATA:
       start_ix = BUILT_IN_GOACC_DATA_START;
       break;
     case GF_OMP_TARGET_KIND_OACC_UPDATE:
@@ -13196,9 +13197,6 @@ expand_omp_target (struct omp_region *region)
       break;
     case GF_OMP_TARGET_KIND_OACC_DECLARE:
       start_ix = BUILT_IN_GOACC_DECLARE;
-      break;
-    case GF_OMP_TARGET_KIND_OACC_HOST_DATA:
-      start_ix = BUILT_IN_GOACC_HOST_DATA;
       break;
     default:
       gcc_unreachable ();
@@ -13324,7 +13322,6 @@ expand_omp_target (struct omp_region *region)
     case BUILT_IN_GOACC_DATA_START:
     case BUILT_IN_GOACC_DECLARE:
     case BUILT_IN_GOMP_TARGET_DATA:
-    case BUILT_IN_GOACC_HOST_DATA:
       break;
     case BUILT_IN_GOMP_TARGET:
     case BUILT_IN_GOMP_TARGET_UPDATE:
@@ -18738,7 +18735,6 @@ simd_clone_create (struct cgraph_node *old_node)
       new_node = old_node->create_version_clone (new_decl, vNULL, NULL);
       if (old_node->in_other_partition)
 	new_node->in_other_partition = 1;
-      symtab->call_cgraph_insertion_hooks (new_node);
     }
   if (new_node == NULL)
     return new_node;

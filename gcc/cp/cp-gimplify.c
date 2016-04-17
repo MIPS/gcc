@@ -1953,7 +1953,13 @@ cp_fold (tree x)
       loc = EXPR_LOCATION (x);
       op0 = cp_fold_maybe_rvalue (TREE_OPERAND (x, 0), rval_ops);
 
-      if (op0 != TREE_OPERAND (x, 0))
+      if (code == CONVERT_EXPR
+	  && SCALAR_TYPE_P (TREE_TYPE (x))
+	  && op0 != void_node)
+	/* During parsing we used convert_to_*_nofold; re-convert now using the
+	   folding variants, since fold() doesn't do those transformations.  */
+	x = fold (convert (TREE_TYPE (x), op0));
+      else if (op0 != TREE_OPERAND (x, 0))
 	{
 	  if (op0 == error_mark_node)
 	    x = error_mark_node;
@@ -2062,6 +2068,25 @@ cp_fold (tree x)
       else
 	x = fold (x);
 
+      if (TREE_NO_WARNING (org_x)
+	  && warn_nonnull_compare
+	  && COMPARISON_CLASS_P (org_x))
+	{
+	  if (x == error_mark_node || TREE_CODE (x) == INTEGER_CST)
+	    ;
+	  else if (COMPARISON_CLASS_P (x))
+	    TREE_NO_WARNING (x) = 1;
+	  /* Otherwise give up on optimizing these, let GIMPLE folders
+	     optimize those later on.  */
+	  else if (op0 != TREE_OPERAND (org_x, 0)
+		   || op1 != TREE_OPERAND (org_x, 1))
+	    {
+	      x = build2_loc (loc, code, TREE_TYPE (org_x), op0, op1);
+	      TREE_NO_WARNING (x) = 1;
+	    }
+	  else
+	    x = org_x;
+	}
       break;
 
     case VEC_COND_EXPR:
@@ -2145,7 +2170,8 @@ cp_fold (tree x)
 	   TODO:
 	   Do constexpr expansion of expressions where the call itself is not
 	   constant, but the call followed by an INDIRECT_REF is.  */
-	if (callee && DECL_DECLARED_CONSTEXPR_P (callee))
+	if (callee && DECL_DECLARED_CONSTEXPR_P (callee)
+	    && !flag_no_inline)
           r = maybe_constant_value (x);
 	optimize = sv;
 

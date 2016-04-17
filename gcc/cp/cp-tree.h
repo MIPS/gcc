@@ -3393,7 +3393,7 @@ extern void decl_shadowed_for_var_insert (tree, tree);
   TREE_LANG_FLAG_0 (STRING_CST_CHECK (NODE))
 
 /* Indicates whether a COMPONENT_REF has been parenthesized, or an
-   INDIRECT_REF comes from parenthesizing a VAR_DECL.  Currently only set
+   INDIRECT_REF comes from parenthesizing a _DECL.  Currently only set
    some of the time in C++14 mode.  */
 
 #define REF_PARENTHESIZED_P(NODE) \
@@ -5019,10 +5019,12 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, TYPENAME_FLAG };
 #define CONV_PRIVATE	 16
 /* #define CONV_NONCONVERTING 32 */
 #define CONV_FORCE_TEMP  64
+#define CONV_FOLD	 128
 #define CONV_OLD_CONVERT (CONV_IMPLICIT | CONV_STATIC | CONV_CONST \
 			  | CONV_REINTERPRET)
 #define CONV_C_CAST      (CONV_IMPLICIT | CONV_STATIC | CONV_CONST \
 			  | CONV_REINTERPRET | CONV_PRIVATE | CONV_FORCE_TEMP)
+#define CONV_BACKEND_CONVERT (CONV_OLD_CONVERT | CONV_FOLD)
 
 /* Used by build_expr_type_conversion to indicate which types are
    acceptable as arguments to the expression under consideration.  */
@@ -5610,6 +5612,7 @@ extern tree make_temporary_var_for_ref_to_temp	(tree, tree);
 extern bool type_has_extended_temps		(tree);
 extern tree strip_top_quals			(tree);
 extern bool reference_related_p			(tree, tree);
+extern int remaining_arguments			(tree);
 extern tree perform_implicit_conversion		(tree, tree, tsubst_flags_t);
 extern tree perform_implicit_conversion_flags	(tree, tree, tsubst_flags_t, int);
 extern tree build_integral_nontype_arg_conv	(tree, tree, tsubst_flags_t);
@@ -6011,6 +6014,7 @@ extern tree make_thunk				(tree, bool, tree, tree);
 extern void finish_thunk			(tree);
 extern void use_thunk				(tree, bool);
 extern bool trivial_fn_p			(tree);
+extern tree forward_parm			(tree);
 extern bool is_trivially_xible			(enum tree_code, tree, tree);
 extern tree get_defaulted_eh_spec		(tree);
 extern tree unevaluated_noexcept_spec		(void);
@@ -6178,7 +6182,7 @@ extern tree get_template_parms_at_level (tree, int);
 extern tree get_template_innermost_arguments	(const_tree);
 extern tree get_template_argument_pack_elems	(const_tree);
 extern tree get_function_template_decl		(const_tree);
-extern tree resolve_nondeduced_context		(tree);
+extern tree resolve_nondeduced_context		(tree, tsubst_flags_t);
 extern hashval_t iterative_hash_template_arg (tree arg, hashval_t val);
 extern tree coerce_template_parms               (tree, tree, tree);
 extern tree coerce_template_parms               (tree, tree, tree, tsubst_flags_t);
@@ -6357,6 +6361,7 @@ extern tree finish_label_stmt			(tree);
 extern void finish_label_decl			(tree);
 extern cp_expr finish_parenthesized_expr	(cp_expr);
 extern tree force_paren_expr			(tree);
+extern tree maybe_undo_parenthesized_ref	(tree);
 extern tree finish_non_static_data_member       (tree, tree, tree);
 extern tree begin_stmt_expr			(void);
 extern tree finish_stmt_expr_expr		(tree, tree);
@@ -6920,7 +6925,7 @@ extern bool var_in_constexpr_fn                 (tree);
 extern void explain_invalid_constexpr_fn        (tree);
 extern vec<tree> cx_error_context               (void);
 extern tree fold_sizeof_expr			(tree);
-extern void clear_cv_cache			(void);
+extern void clear_cv_and_fold_caches		(void);
 
 /* In c-family/cilk.c */
 extern bool cilk_valid_spawn                    (tree);

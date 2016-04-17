@@ -1063,7 +1063,7 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
      /* If the constant operation overflows we cannot do the transform
 	as we would introduce undefined overflow, for example
 	with (a - 1) + INT_MIN.  */
-     (with { tree cst = fold_binary (outer_op == inner_op
+     (with { tree cst = const_binop (outer_op == inner_op
 				     ? PLUS_EXPR : MINUS_EXPR, type, @1, @2); }
       (if (cst && !TREE_OVERFLOW (cst))
        (inner_op @0 { cst; } ))))))
@@ -1072,7 +1072,7 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
   (for outer_op (plus minus)
    (simplify
     (outer_op (minus CONSTANT_CLASS_P@1 @0) CONSTANT_CLASS_P@2)
-    (with { tree cst = fold_binary (outer_op, type, @1, @2); }
+    (with { tree cst = const_binop (outer_op, type, @1, @2); }
      (if (cst && !TREE_OVERFLOW (cst))
       (minus { cst; } @0)))))
 
@@ -1270,7 +1270,7 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
    RROTATE_EXPR by a new constant.  */
 (simplify
  (lrotate @0 INTEGER_CST@1)
- (rrotate @0 { fold_binary (MINUS_EXPR, TREE_TYPE (@1),
+ (rrotate @0 { const_binop (MINUS_EXPR, TREE_TYPE (@1),
 			    build_int_cst (TREE_TYPE (@1),
 					   element_precision (type)), @1); }))
 
@@ -1596,7 +1596,7 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
 (simplify
  (plus @0 REAL_CST@1)
  (if (REAL_VALUE_NEGATIVE (TREE_REAL_CST (@1)))
-  (with { tree tem = fold_unary (NEGATE_EXPR, type, @1); }
+  (with { tree tem = const_unop (NEGATE_EXPR, type, @1); }
    (if (!TREE_OVERFLOW (tem) || !flag_trapping_math)
     (minus @0 { tem; })))))
 
@@ -1717,6 +1717,29 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
  (simplify
   (cnd @0 @1 (cnd @0 @2 @3))
   (cnd @0 @1 @3))
+ /* A ? B : (!A ? C : X) -> A ? B : C.  */
+ /* ???  This matches embedded conditions open-coded because genmatch
+    would generate matching code for conditions in separate stmts only.
+    The following is still important to merge then and else arm cases
+    from if-conversion.  */
+ (simplify
+  (cnd @0 @1 (cnd @2 @3 @4))
+  (if (COMPARISON_CLASS_P (@0)
+       && COMPARISON_CLASS_P (@2)
+       && invert_tree_comparison
+           (TREE_CODE (@0), HONOR_NANS (TREE_OPERAND (@0, 0))) == TREE_CODE (@2)
+       && operand_equal_p (TREE_OPERAND (@0, 0), TREE_OPERAND (@2, 0), 0)
+       && operand_equal_p (TREE_OPERAND (@0, 1), TREE_OPERAND (@2, 1), 0))
+   (cnd @0 @1 @3)))
+ (simplify
+  (cnd @0 (cnd @1 @2 @3) @4)
+  (if (COMPARISON_CLASS_P (@0)
+       && COMPARISON_CLASS_P (@1)
+       && invert_tree_comparison
+           (TREE_CODE (@0), HONOR_NANS (TREE_OPERAND (@0, 0))) == TREE_CODE (@1)
+       && operand_equal_p (TREE_OPERAND (@0, 0), TREE_OPERAND (@1, 0), 0)
+       && operand_equal_p (TREE_OPERAND (@0, 1), TREE_OPERAND (@1, 1), 0))
+   (cnd @0 @3 @4)))
 
  /* A ? B : B -> B.  */
  (simplify
@@ -2094,6 +2117,24 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
  (bit_and:c (ordered @0 @0) (ordered:c@2 @0 @1))
  @2)
 
+/* Simple range test simplifications.  */
+/* A < B || A >= B -> true.  */
+(for test1 (lt le le le ne ge)
+     test2 (ge gt ge ne eq ne)
+ (simplify
+  (bit_ior:c (test1 @0 @1) (test2 @0 @1))
+  (if (INTEGRAL_TYPE_P (TREE_TYPE (@0))
+       || VECTOR_INTEGER_TYPE_P (TREE_TYPE (@0)))
+   { constant_boolean_node (true, type); })))
+/* A < B && A >= B -> false.  */
+(for test1 (lt lt lt le ne eq)
+     test2 (ge gt eq gt eq gt)
+ (simplify
+  (bit_and:c (test1 @0 @1) (test2 @0 @1))
+  (if (INTEGRAL_TYPE_P (TREE_TYPE (@0))
+       || VECTOR_INTEGER_TYPE_P (TREE_TYPE (@0)))
+   { constant_boolean_node (false, type); })))
+
 /* -A CMP -B -> B CMP A.  */
 (for cmp (tcc_comparison)
      scmp (swapped_tcc_comparison)
@@ -2108,7 +2149,7 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
   (if (FLOAT_TYPE_P (TREE_TYPE (@0))
        || (ANY_INTEGRAL_TYPE_P (TREE_TYPE (@0))
 	   && TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (@0))))
-   (with { tree tem = fold_unary (NEGATE_EXPR, TREE_TYPE (@0), @1); }
+   (with { tree tem = const_unop (NEGATE_EXPR, TREE_TYPE (@0), @1); }
     (if (tem && !TREE_OVERFLOW (tem))
      (scmp @0 { tem; }))))))
 
@@ -2928,7 +2969,7 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
 /* If we have a narrowing conversion of an arithmetic operation where
    both operands are widening conversions from the same type as the outer
    narrowing conversion.  Then convert the innermost operands to a suitable
-   unsigned type (to avoid introducing undefined behaviour), perform the
+   unsigned type (to avoid introducing undefined behavior), perform the
    operation and convert the result to the desired type.  */
 (for op (plus minus)
   (simplify
@@ -2958,7 +2999,7 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
 /* This is another case of narrowing, specifically when there's an outer
    BIT_AND_EXPR which masks off bits outside the type of the innermost
    operands.   Like the previous case we have to convert the operands
-   to unsigned types to avoid introducing undefined behaviour for the
+   to unsigned types to avoid introducing undefined behavior for the
    arithmetic operation.  */
 (for op (minus plus)
  (simplify

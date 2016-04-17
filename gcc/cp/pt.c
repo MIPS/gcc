@@ -8547,6 +8547,8 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
 		    arglist, complain, NULL_TREE);
 	  --processing_template_decl;
 	  TREE_VEC_LENGTH (arglist)++;
+	  if (partial_inst_args == error_mark_node)
+	    return error_mark_node;
 	  use_partial_inst_tmpl =
 	    /*...and we must not be looking at the partial instantiation
 	     itself. */
@@ -8694,6 +8696,24 @@ finish_template_variable (tree var, tsubst_flags_t complain)
 
   return instantiate_template (templ, arglist, complain);
 }
+
+/* Construct a TEMPLATE_ID_EXPR for the given variable template TEMPL having
+   TARGS template args, and instantiate it if it's not dependent.  */
+
+static tree
+lookup_and_finish_template_variable (tree templ, tree targs,
+				     tsubst_flags_t complain)
+{
+  templ = lookup_template_variable (templ, targs);
+  if (!any_dependent_template_arguments_p (targs))
+    {
+      templ = finish_template_variable (templ, complain);
+      mark_used (templ);
+    }
+
+  return convert_from_reference (templ);
+}
+
 
 struct pair_fn_data
 {
@@ -10160,11 +10180,11 @@ instantiate_class_template_1 (tree type)
 		       template <class U> friend class T::C;
 
 		     otherwise.  */
+		  /* Bump processing_template_decl in case this is something like
+		     template <class T> friend struct A<T>::B.  */
+		  ++processing_template_decl;
 		  friend_type = tsubst (friend_type, args,
 					tf_warning_or_error, NULL_TREE);
-		  /* Bump processing_template_decl for correct
-		     dependent_type_p calculation.  */
-		  ++processing_template_decl;
 		  if (dependent_type_p (friend_type))
 		    adjust_processing_template_decl = true;
 		  --processing_template_decl;
@@ -12846,14 +12866,9 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       if (t == integer_type_node)
 	return t;
 
-      if (TREE_CODE (TYPE_MIN_VALUE (t)) == INTEGER_CST)
-        {
-          if (!TYPE_MAX_VALUE (t))
-            return compute_array_index_type (NULL_TREE, NULL_TREE, complain);
-          
-          if (TREE_CODE (TYPE_MAX_VALUE (t)) == INTEGER_CST)
-            return t;
-        }
+      if (TREE_CODE (TYPE_MIN_VALUE (t)) == INTEGER_CST
+          && TREE_CODE (TYPE_MAX_VALUE (t)) == INTEGER_CST)
+        return t;
 
       {
 	tree max, omax = TREE_OPERAND (TYPE_MAX_VALUE (t), 0);
@@ -13727,7 +13742,13 @@ tsubst_qualified_id (tree qualified_id, tree args,
     }
 
   if (is_template)
-    expr = lookup_template_function (expr, template_args);
+    {
+      if (variable_template_p (expr))
+	expr = lookup_and_finish_template_variable (expr, template_args,
+						    complain);
+      else
+	expr = lookup_template_function (expr, template_args);
+    }
 
   if (expr == error_mark_node && complain & tf_error)
     qualified_name_lookup_error (scope, TREE_OPERAND (qualified_id, 1),
@@ -15907,15 +15928,7 @@ tsubst_copy_and_build (tree t,
 	  return error_mark_node;
 
 	if (variable_template_p (templ))
-	  {
-	    templ = lookup_template_variable (templ, targs);
-	    if (!any_dependent_template_arguments_p (targs))
-	      {
-		templ = finish_template_variable (templ, complain);
-		mark_used (templ);
-	      }
-	    RETURN (convert_from_reference (templ));
-	  }
+	  RETURN (lookup_and_finish_template_variable (templ, targs, complain));
 
 	if (TREE_CODE (templ) == COMPONENT_REF)
 	  {
@@ -15948,6 +15961,10 @@ tsubst_copy_and_build (tree t,
 	else
 	  r = build_x_indirect_ref (input_location, r, RO_UNARY_STAR,
 				    complain|decltype_flag);
+
+	if (TREE_CODE (r) == INDIRECT_REF)
+	  REF_PARENTHESIZED_P (r) = REF_PARENTHESIZED_P (t);
+
 	RETURN (r);
       }
 
@@ -18572,7 +18589,7 @@ resolve_overloaded_unification (tree tparms,
    lvalue for the function template specialization.  */
 
 tree
-resolve_nondeduced_context (tree orig_expr)
+resolve_nondeduced_context (tree orig_expr, tsubst_flags_t complain)
 {
   tree expr, offset, baselink;
   bool addr;
@@ -18655,16 +18672,16 @@ resolve_nondeduced_context (tree orig_expr)
 	    {
 	      tree base
 		= TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (offset, 0)));
-	      expr = build_offset_ref (base, expr, addr, tf_warning_or_error);
+	      expr = build_offset_ref (base, expr, addr, complain);
 	    }
 	  if (addr)
-	    expr = cp_build_addr_expr (expr, tf_warning_or_error);
+	    expr = cp_build_addr_expr (expr, complain);
 	  return expr;
 	}
-      else if (good == 0 && badargs)
+      else if (good == 0 && badargs && (complain & tf_error))
 	/* There were no good options and at least one bad one, so let the
 	   user know what the problem is.  */
-	instantiate_template (badfn, badargs, tf_warning_or_error);
+	instantiate_template (badfn, badargs, complain);
     }
   return orig_expr;
 }
@@ -18736,6 +18753,28 @@ try_one_overload (tree tparms,
 	   template args used in the function parm list with our own
 	   template parms.  Discard them.  */
 	TREE_VEC_ELT (tempargs, i) = NULL_TREE;
+      else if (oldelt && ARGUMENT_PACK_P (oldelt))
+	{
+	  /* Check that the argument at each index of the deduced argument pack
+	     is equivalent to the corresponding explicitly specified argument.
+	     We may have deduced more arguments than were explicitly specified,
+	     and that's OK.  */
+	  gcc_assert (ARGUMENT_PACK_INCOMPLETE_P (oldelt));
+	  gcc_assert (ARGUMENT_PACK_ARGS (oldelt)
+		      == ARGUMENT_PACK_EXPLICIT_ARGS (oldelt));
+
+	  tree explicit_pack = ARGUMENT_PACK_ARGS (oldelt);
+	  tree deduced_pack = ARGUMENT_PACK_ARGS (elt);
+
+	  if (TREE_VEC_LENGTH (deduced_pack)
+	      < TREE_VEC_LENGTH (explicit_pack))
+	    return 0;
+
+	  for (int j = 0; j < TREE_VEC_LENGTH (explicit_pack); j++)
+	    if (!template_args_equal (TREE_VEC_ELT (explicit_pack, j),
+				      TREE_VEC_ELT (deduced_pack, j)))
+	      return 0;
+	}
       else if (oldelt && !template_args_equal (oldelt, elt))
 	return 0;
     }
@@ -20253,7 +20292,7 @@ more_specialized_fn (tree pat1, tree pat2, int len)
 
       if (TREE_CODE (arg1) == TYPE_PACK_EXPANSION)
         {
-          int i, len2 = list_length (args2);
+          int i, len2 = remaining_arguments (args2);
           tree parmvec = make_tree_vec (1);
           tree argvec = make_tree_vec (len2);
           tree ta = args2;
@@ -20277,7 +20316,7 @@ more_specialized_fn (tree pat1, tree pat2, int len)
         }
       else if (TREE_CODE (arg2) == TYPE_PACK_EXPANSION)
         {
-          int i, len1 = list_length (args1);
+          int i, len1 = remaining_arguments (args1);
           tree parmvec = make_tree_vec (1);
           tree argvec = make_tree_vec (len1);
           tree ta = args1;
@@ -23855,7 +23894,7 @@ do_auto_deduction (tree type, tree init, tree auto_node,
   if (type == error_mark_node)
     return error_mark_node;
 
-  init = resolve_nondeduced_context (init);
+  init = resolve_nondeduced_context (init, complain);
 
   if (AUTO_IS_DECLTYPE (auto_node))
     {

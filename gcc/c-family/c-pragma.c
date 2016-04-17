@@ -817,9 +817,12 @@ handle_pragma_diagnostic(cpp_reader *ARG_UNUSED(dummy))
   const char *arg = NULL;
   if (cl_options[option_index].flags & CL_JOINED)
     arg = option_string + 1 + cl_options[option_index].opt_len;
+  /* FIXME: input_location isn't the best location here, but it is
+     what we used to do here before and changing it breaks e.g.
+     PR69543 and PR69558.  */
   control_warning_option (option_index, (int) kind,
 			  arg, kind != DK_IGNORED,
-			  loc, lang_mask, &handlers,
+			  input_location, lang_mask, &handlers,
 			  &global_options, &global_options_set,
 			  global_dc);
 }
@@ -1333,6 +1336,13 @@ c_pp_lookup_pragma (unsigned int id, const char **space, const char **name)
       return;
     }
 
+  if (id == PRAGMA_CILK_GRAINSIZE)
+    {
+      *space = "cilk";
+      *name = "grainsize";
+      return;
+    }
+
   if (id >= PRAGMA_FIRST_EXTERNAL
       && (id < PRAGMA_FIRST_EXTERNAL + registered_pp_pragmas.length ()))
     {
@@ -1520,7 +1530,7 @@ init_pragma (void)
     cpp_register_deferred_pragma (parse_in, "GCC", "ivdep", PRAGMA_IVDEP, false,
 				  false);
 
-  if (flag_cilkplus && !flag_preprocess_only)
+  if (flag_cilkplus)
     cpp_register_deferred_pragma (parse_in, "cilk", "grainsize",
 				  PRAGMA_CILK_GRAINSIZE, true, false);
 

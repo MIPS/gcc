@@ -1332,8 +1332,19 @@ vect_attempt_slp_rearrange_stmts (slp_instance slp_instn)
 			    node->load_permutation);
 
   /* We are done, no actual permutations need to be generated.  */
+  unsigned int unrolling_factor = SLP_INSTANCE_UNROLLING_FACTOR (slp_instn);
   FOR_EACH_VEC_ELT (SLP_INSTANCE_LOADS (slp_instn), i, node)
-    SLP_TREE_LOAD_PERMUTATION (node).release ();
+    {
+      gimple *first_stmt = SLP_TREE_SCALAR_STMTS (node)[0];
+      first_stmt = GROUP_FIRST_ELEMENT (vinfo_for_stmt (first_stmt));
+      /* But we have to keep those permutations that are required because
+         of handling of gaps.  */
+      if (unrolling_factor == 1
+	  || (group_size == GROUP_SIZE (vinfo_for_stmt (first_stmt))
+	      && GROUP_GAP (vinfo_for_stmt (first_stmt)) == 0))
+	SLP_TREE_LOAD_PERMUTATION (node).release ();
+    }
+
   return true;
 }
 
@@ -1381,12 +1392,7 @@ vect_supported_load_permutation_p (slp_instance slp_instn)
      In reduction chain the order of the loads is not important.  */
   if (!STMT_VINFO_DATA_REF (vinfo_for_stmt (stmt))
       && !GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)))
-    {
-      if (vect_attempt_slp_rearrange_stmts (slp_instn))
-	return true;
-
-      /* Fallthru to general load permutation handling.  */
-    }
+    vect_attempt_slp_rearrange_stmts (slp_instn);
 
   /* In basic block vectorization we allow any subchain of an interleaving
      chain.
@@ -3568,20 +3574,18 @@ vect_schedule_slp_instance (slp_tree node, slp_instance instance,
   if (SLP_TREE_TWO_OPERATORS (node))
     {
       enum tree_code code0 = gimple_assign_rhs_code (stmt);
-      enum tree_code ocode;
+      enum tree_code ocode = ERROR_MARK;
       gimple *ostmt;
       unsigned char *mask = XALLOCAVEC (unsigned char, group_size);
-      bool allsame = true;
       FOR_EACH_VEC_ELT (SLP_TREE_SCALAR_STMTS (node), i, ostmt)
 	if (gimple_assign_rhs_code (ostmt) != code0)
 	  {
 	    mask[i] = 1;
-	    allsame = false;
 	    ocode = gimple_assign_rhs_code (ostmt);
 	  }
 	else
 	  mask[i] = 0;
-      if (!allsame)
+      if (ocode != ERROR_MARK)
 	{
 	  vec<gimple *> v0;
 	  vec<gimple *> v1;

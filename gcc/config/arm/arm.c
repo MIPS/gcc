@@ -1982,7 +1982,7 @@ const struct tune_params arm_cortex_a53_tune =
   tune_params::DISPARAGE_FLAGS_NEITHER,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_TRUE,
-  FUSE_OPS (tune_params::FUSE_MOVW_MOVT),
+  FUSE_OPS (tune_params::FUSE_MOVW_MOVT | tune_params::FUSE_AES_AESMC),
   tune_params::SCHED_AUTOPREF_OFF
 };
 
@@ -2005,7 +2005,7 @@ const struct tune_params arm_cortex_a57_tune =
   tune_params::DISPARAGE_FLAGS_ALL,
   tune_params::PREF_NEON_64_FALSE,
   tune_params::PREF_NEON_STRINGOPS_TRUE,
-  FUSE_OPS (tune_params::FUSE_MOVW_MOVT),
+  FUSE_OPS (tune_params::FUSE_MOVW_MOVT | tune_params::FUSE_AES_AESMC),
   tune_params::SCHED_AUTOPREF_FULL
 };
 
@@ -2874,6 +2874,14 @@ arm_option_override_internal (struct gcc_options *opts,
 {
   arm_override_options_after_change_1 (opts);
 
+  if (TARGET_INTERWORK && !ARM_FSET_HAS_CPU1 (insn_flags, FL_THUMB))
+    {
+      /* The default is to enable interworking, so this warning message would
+	 be confusing to users who have just compiled with, eg, -march=armv3.  */
+      /* warning (0, "ignoring -minterwork because target CPU does not support THUMB"); */
+      opts->x_target_flags &= ~MASK_INTERWORK;
+    }
+
   if (TARGET_THUMB_P (opts->x_target_flags)
       && !(ARM_FSET_HAS_CPU1 (insn_flags, FL_THUMB)))
     {
@@ -3445,8 +3453,9 @@ arm_option_override (void)
   arm_add_gc_roots ();
 
   /* Save the initial options in case the user does function specific
-     options.  */
-  target_option_default_node = build_target_option_node (&global_options);
+     options or #pragma target.  */
+  target_option_default_node = target_option_current_node
+    = build_target_option_node (&global_options);
 
   /* Init initial mode for testing.  */
   thumb_flipper = TARGET_THUMB;
@@ -10318,8 +10327,10 @@ arm_new_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code,
 	      /* SMUL[TB][TB].  */
 	      if (speed_p)
 		*cost += extra_cost->mult[0].extend;
-	      *cost += rtx_cost (XEXP (x, 0), mode, SIGN_EXTEND, 0, speed_p);
-	      *cost += rtx_cost (XEXP (x, 1), mode, SIGN_EXTEND, 1, speed_p);
+	      *cost += rtx_cost (XEXP (XEXP (x, 0), 0), mode,
+				 SIGN_EXTEND, 0, speed_p);
+	      *cost += rtx_cost (XEXP (XEXP (x, 1), 0), mode,
+				 SIGN_EXTEND, 1, speed_p);
 	      return true;
 	    }
 	  if (speed_p)
@@ -15438,6 +15449,17 @@ arm_reload_in_hi (rtx *operands)
       else
 	/* The slot is out of range, or was dressed up in a SUBREG.  */
 	base = reg_equiv_address (REGNO (ref));
+
+      /* PR 62554: If there is no equivalent memory location then just move
+	 the value as an SImode register move.  This happens when the target
+	 architecture variant does not have an HImode register move.  */
+      if (base == NULL)
+	{
+	  gcc_assert (REG_P (operands[0]));
+	  emit_insn (gen_movsi (gen_rtx_SUBREG (SImode, operands[0], 0),
+				gen_rtx_SUBREG (SImode, ref, 0)));
+	  return;
+	}
     }
   else
     base = find_replacement (&XEXP (ref, 0));
@@ -15555,6 +15577,17 @@ arm_reload_out_hi (rtx *operands)
       else
 	/* The slot is out of range, or was dressed up in a SUBREG.  */
 	base = reg_equiv_address (REGNO (ref));
+
+      /* PR 62554: If there is no equivalent memory location then just move
+	 the value as an SImode register move.  This happens when the target
+	 architecture variant does not have an HImode register move.  */
+      if (base == NULL)
+	{
+	  gcc_assert (REG_P (outval));
+	  emit_insn (gen_movsi (gen_rtx_SUBREG (SImode, ref, 0),
+				gen_rtx_SUBREG (SImode, outval, 0)));
+	  return;
+	}
     }
   else
     base = find_replacement (&XEXP (ref, 0));
@@ -19617,6 +19650,7 @@ output_return_instruction (rtx operand, bool really_return, bool reverse,
 	  break;
 
 	case ARM_FT_INTERWORKED:
+	  gcc_assert (arm_arch5 || arm_arch4t);
 	  sprintf (instr, "bx%s\t%%|lr", conditional);
 	  break;
 
@@ -23601,13 +23635,6 @@ arm_scalar_mode_supported_p (machine_mode mode)
     return true;
   else
     return default_scalar_mode_supported_p (mode);
-}
-
-/* Emit code to reinterpret one Neon type as another, without altering bits.  */
-void
-neon_reinterpret (rtx dest, rtx src)
-{
-  emit_move_insn (dest, gen_lowpart (GET_MODE (dest), src));
 }
 
 /* Set up OPERANDS for a register copy from SRC to DEST, taking care
@@ -28208,6 +28235,37 @@ arm_expand_vec_perm (rtx target, rtx op0, rtx op1, rtx sel)
   arm_expand_vec_perm_1 (target, op0, op1, sel);
 }
 
+/* Map lane ordering between architectural lane order, and GCC lane order,
+   taking into account ABI.  See comment above output_move_neon for details.  */
+
+static int
+neon_endian_lane_map (machine_mode mode, int lane)
+{
+  if (BYTES_BIG_ENDIAN)
+  {
+    int nelems = GET_MODE_NUNITS (mode);
+    /* Reverse lane order.  */
+    lane = (nelems - 1 - lane);
+    /* Reverse D register order, to match ABI.  */
+    if (GET_MODE_SIZE (mode) == 16)
+      lane = lane ^ (nelems / 2);
+  }
+  return lane;
+}
+
+/* Some permutations index into pairs of vectors, this is a helper function
+   to map indexes into those pairs of vectors.  */
+
+static int
+neon_pair_endian_lane_map (machine_mode mode, int lane)
+{
+  int nelem = GET_MODE_NUNITS (mode);
+  if (BYTES_BIG_ENDIAN)
+    lane =
+      neon_endian_lane_map (mode, lane & (nelem - 1)) + (lane & nelem);
+  return lane;
+}
+
 /* Generate or test for an insn that supports a constant permutation.  */
 
 /* Recognize patterns for the VUZP insns.  */
@@ -28218,14 +28276,22 @@ arm_evpc_neon_vuzp (struct expand_vec_perm_d *d)
   unsigned int i, odd, mask, nelt = d->nelt;
   rtx out0, out1, in0, in1;
   rtx (*gen)(rtx, rtx, rtx, rtx);
+  int first_elem;
+  int swap_nelt;
 
   if (GET_MODE_UNIT_SIZE (d->vmode) >= 8)
     return false;
 
-  /* Note that these are little-endian tests.  Adjust for big-endian later.  */
-  if (d->perm[0] == 0)
+  /* arm_expand_vec_perm_const_1 () helpfully swaps the operands for the
+     big endian pattern on 64 bit vectors, so we correct for that.  */
+  swap_nelt = BYTES_BIG_ENDIAN && !d->one_vector_p
+    && GET_MODE_SIZE (d->vmode) == 8 ? d->nelt : 0;
+
+  first_elem = d->perm[neon_endian_lane_map (d->vmode, 0)] ^ swap_nelt;
+
+  if (first_elem == neon_endian_lane_map (d->vmode, 0))
     odd = 0;
-  else if (d->perm[0] == 1)
+  else if (first_elem == neon_endian_lane_map (d->vmode, 1))
     odd = 1;
   else
     return false;
@@ -28233,8 +28299,9 @@ arm_evpc_neon_vuzp (struct expand_vec_perm_d *d)
 
   for (i = 0; i < nelt; i++)
     {
-      unsigned elt = (i * 2 + odd) & mask;
-      if (d->perm[i] != elt)
+      unsigned elt =
+	(neon_pair_endian_lane_map (d->vmode, i) * 2 + odd) & mask;
+      if ((d->perm[i] ^ swap_nelt) != neon_pair_endian_lane_map (d->vmode, elt))
 	return false;
     }
 
@@ -28258,11 +28325,8 @@ arm_evpc_neon_vuzp (struct expand_vec_perm_d *d)
 
   in0 = d->op0;
   in1 = d->op1;
-  if (BYTES_BIG_ENDIAN)
-    {
-      std::swap (in0, in1);
-      odd = !odd;
-    }
+  if (swap_nelt != 0)
+    std::swap (in0, in1);
 
   out0 = d->target;
   out1 = gen_reg_rtx (d->vmode);
@@ -28281,15 +28345,20 @@ arm_evpc_neon_vzip (struct expand_vec_perm_d *d)
   unsigned int i, high, mask, nelt = d->nelt;
   rtx out0, out1, in0, in1;
   rtx (*gen)(rtx, rtx, rtx, rtx);
+  int first_elem;
+  bool is_swapped;
 
   if (GET_MODE_UNIT_SIZE (d->vmode) >= 8)
     return false;
 
-  /* Note that these are little-endian tests.  Adjust for big-endian later.  */
+  is_swapped = BYTES_BIG_ENDIAN;
+
+  first_elem = d->perm[neon_endian_lane_map (d->vmode, 0) ^ is_swapped];
+
   high = nelt / 2;
-  if (d->perm[0] == high)
+  if (first_elem == neon_endian_lane_map (d->vmode, high))
     ;
-  else if (d->perm[0] == 0)
+  else if (first_elem == neon_endian_lane_map (d->vmode, 0))
     high = 0;
   else
     return false;
@@ -28297,11 +28366,15 @@ arm_evpc_neon_vzip (struct expand_vec_perm_d *d)
 
   for (i = 0; i < nelt / 2; i++)
     {
-      unsigned elt = (i + high) & mask;
-      if (d->perm[i * 2] != elt)
+      unsigned elt =
+	neon_pair_endian_lane_map (d->vmode, i + high) & mask;
+      if (d->perm[neon_pair_endian_lane_map (d->vmode, 2 * i + is_swapped)]
+	  != elt)
 	return false;
-      elt = (elt + nelt) & mask;
-      if (d->perm[i * 2 + 1] != elt)
+      elt =
+	neon_pair_endian_lane_map (d->vmode, i + nelt + high) & mask;
+      if (d->perm[neon_pair_endian_lane_map (d->vmode, 2 * i + !is_swapped)]
+	  != elt)
 	return false;
     }
 
@@ -28325,11 +28398,8 @@ arm_evpc_neon_vzip (struct expand_vec_perm_d *d)
 
   in0 = d->op0;
   in1 = d->op1;
-  if (BYTES_BIG_ENDIAN)
-    {
-      std::swap (in0, in1);
-      high = !high;
-    }
+  if (is_swapped)
+    std::swap (in0, in1);
 
   out0 = d->target;
   out1 = gen_reg_rtx (d->vmode);
@@ -28861,7 +28931,7 @@ arm_emit_coreregs_64bit_shift (enum rtx_code code, rtx out, rtx in,
 	 shift-by-register would give.  This helps reduce execution
 	 differences between optimization levels, but it won't stop other
          parts of the compiler doing different things.  This is "undefined
-         behaviour, in any case.  */
+         behavior, in any case.  */
       if (INTVAL (amount) <= 0)
 	emit_insn (gen_movdi (out, in));
       else if (INTVAL (amount) >= 64)
@@ -29645,6 +29715,10 @@ aarch_macro_fusion_pair_p (rtx_insn* prev, rtx_insn* curr)
   if (!arm_macro_fusion_p ())
     return false;
 
+  if (current_tune->fusible_ops & tune_params::FUSE_AES_AESMC
+      && aarch_crypto_can_dual_issue (prev, curr))
+    return true;
+
   if (current_tune->fusible_ops & tune_params::FUSE_MOVW_MOVT)
     {
       /* We are trying to fuse
@@ -29769,6 +29843,7 @@ save_restore_target_globals (tree new_tree)
 }
 
 /* Invalidate arm_previous_fndecl.  */
+
 void
 arm_reset_previous_fndecl (void)
 {
@@ -29778,6 +29853,7 @@ arm_reset_previous_fndecl (void)
 /* Establish appropriate back-end context for processing the function
    FNDECL.  The argument might be NULL to indicate processing at top
    level, outside of any function scope.  */
+
 static void
 arm_set_current_function (tree fndecl)
 {
@@ -29791,7 +29867,7 @@ arm_set_current_function (tree fndecl)
   tree new_tree = DECL_FUNCTION_SPECIFIC_TARGET (fndecl);
 
   /* If current function has no attributes but previous one did,
-     use the default node."  */
+     use the default node.  */
   if (! new_tree && old_tree)
     new_tree = target_option_default_node;
 

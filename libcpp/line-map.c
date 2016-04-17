@@ -1328,9 +1328,9 @@ linemap_compare_locations (struct line_maps *set,
   source_location l0 = pre, l1 = post;
 
   if (IS_ADHOC_LOC (l0))
-    l0 = set->location_adhoc_data_map.data[l0 & MAX_SOURCE_LOCATION].locus;
+    l0 = get_location_from_adhoc_loc (set, l0);
   if (IS_ADHOC_LOC (l1))
-    l1 = set->location_adhoc_data_map.data[l1 & MAX_SOURCE_LOCATION].locus;
+    l1 = get_location_from_adhoc_loc (set, l1);
 
   if (l0 == l1)
     return 0;
@@ -1364,6 +1364,11 @@ linemap_compare_locations (struct line_maps *set,
       i1 = l1 - MAP_START_LOCATION (map);
       return i1 - i0;
     }
+
+  if (IS_ADHOC_LOC (l0))
+    l0 = get_location_from_adhoc_loc (set, l0);
+  if (IS_ADHOC_LOC (l1))
+    l1 = get_location_from_adhoc_loc (set, l1);
 
   return l1 - l0;
 }
@@ -2036,13 +2041,22 @@ rich_location::lazily_expand_location ()
   return m_expanded_location;
 }
 
-/* Set the column of the primary location.  */
+/* Set the column of the primary location.  This can only be called for
+   rich_location instances for which the primary location has
+   caret==start==finish.  */
 
 void
 rich_location::override_column (int column)
 {
   lazily_expand_location ();
+  gcc_assert (m_ranges[0].m_show_caret_p);
+  gcc_assert (m_ranges[0].m_caret.column == m_expanded_location.column);
+  gcc_assert (m_ranges[0].m_start.column == m_expanded_location.column);
+  gcc_assert (m_ranges[0].m_finish.column == m_expanded_location.column);
   m_expanded_location.column = column;
+  m_ranges[0].m_caret.column = column;
+  m_ranges[0].m_start.column = column;
+  m_ranges[0].m_finish.column = column;
 }
 
 /* Add the given range.  */

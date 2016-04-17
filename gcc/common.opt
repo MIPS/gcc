@@ -616,6 +616,10 @@ Wlarger-than=
 Common RejectNegative Joined UInteger Warning
 -Wlarger-than=<number>	Warn if an object is larger than <number> bytes.
 
+Wnonnull-compare
+Var(warn_nonnull_compare) Warning
+Warn if comparing pointer parameter with nonnull attribute with NULL.
+
 Wnull-dereference
 Common Var(warn_null_dereference) Warning
 Warn if dereferencing a NULL pointer may lead to erroneous or undefined behavior.
@@ -724,7 +728,7 @@ Common Var(warn_maybe_uninitialized) Warning EnabledBy(Wuninitialized)
 Warn about maybe uninitialized automatic variables.
 
 Wunreachable-code
-Common Ignore
+Common Ignore Warning
 Does nothing. Preserved for backward compatibility.
 
 Wunused
@@ -1942,9 +1946,12 @@ Common Ignore
 Does nothing. Preserved for backward compatibility.
 
 flifetime-dse
-Common Report Var(flag_lifetime_dse) Init(1) Optimization
+Common Report Var(flag_lifetime_dse,2) Init(2) Optimization
 Tell DSE that the storage for a C++ object is dead when the constructor
 starts and when the destructor finishes.
+
+flifetime-dse=
+Common Joined RejectNegative UInteger Var(flag_lifetime_dse) Optimization
 
 flive-range-shrinkage
 Common Report Var(flag_live_range_shrinkage) Init(0) Optimization

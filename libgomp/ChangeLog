@@ -1,3 +1,110 @@
+2016-02-25  Ilya Verbin  <ilya.verbin@intel.com>
+
+	PR driver/68463
+	* testsuite/libgomp.oacc-c-c++-common/parallel-dims-2.c: Remove.
+
+2016-02-23  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* oacc-parallel.c (GOACC_parallel_keyed): Initialize dims.
+	* plugin/plugin-nvptx.c (nvptx_exec): Provide default values for
+	dims.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-2.c: Adjust to
+	-ftree-parallelize-loops/-fopenacc changes.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-3.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-and-seq-2.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-and-seq-3.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-and-seq-4.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-and-seq-5.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-and-seq-6.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-and-seq.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-collapse.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-g.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-mod-not-zero.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-n.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-nest.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-reduction.c:
+	Likewise.
+
+2016-02-22  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/vprop.c: New test.
+
+2016-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR driver/69805
+	* testsuite/libgomp.c/pr69805.c: New test.
+
+2016-02-16  Tom de Vries  <tom@codesourcery.com>
+
+	PR lto/67709
+	* testsuite/libgomp.fortran/declare-simd-4.f90: New test.
+
+2016-02-09  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/69599
+	* testsuite/libgomp.c/omp-nested-3.c: New test.
+	* testsuite/libgomp.c/pr46032-2.c: New test.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-2.c: New test.
+	* testsuite/libgomp.oacc-c-c++-common/parallel-2.c: New test.
+
+2016-02-09  Tom de Vries  <tom@codesourcery.com>
+
+	PR lto/69707
+	* testsuite/libgomp.oacc-c-c++-common/parallel-dims-2.c: New test.
+
+2016-02-02  Alexander Monakov  <amonakov@ispras.ru>
+
+	* testsuite/libgomp.c/target-31.c: Fix testcase.
+
+2016-02-02  Alexander Monakov  <amonakov@ispras.ru>
+
+	* testsuite/libgomp.c/examples-4/teams-3.c: Add missing reduction
+	clause.
+	* testsuite/libgomp.c/examples-4/teams-4.c: Likewise.
+	* testsuite/libgomp.fortran/examples-4/teams-3.f90: Add missing
+	reduction and map clauses.
+	* testsuite/libgomp.fortran/examples-4/teams-4.f90: Likewise.
+
+2016-02-02  James Norris  <jnorris@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/declare-4.c: Fix clause.
+
+2016-02-02  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* libgomp.map (GOACC_2.0): Remove GOACC_host_data.
+	* oacc-parallel.c (GOACC_host_data): Remove function definition.
+
+	* testsuite/lib/libgomp.exp: Skip hsa offloading for OpenACC test
+	cases.
+
+	* plugin/configfrag.ac (HSA_KMT_LIB, HSA_KMT_LDFLAGS): New
+	variables.
+	* testsuite/libgomp-test-support.exp.in (hsa_runtime_lib)
+	(hsa_kmt_lib): Set variables.
+	* testsuite/lib/libgomp.exp (libgomp_init): Use them to amend
+	always_ld_library_path.
+	* Makefile.in: Regenerate.
+	* configure: Likewise.
+	* testsuite/Makefile.in: Likewise.
+
+	* plugin/configfrag.ac (offload_additional_options)
+	(offload_additional_lib_paths): Don't amend for hsa offloading.
+	* configure: Regenerate.
+
+	* plugin/configfrag.ac: Don't configure for offloading target if
+	we don't build the corresponding plugin.
+	* configure: Regenerate.
+
 2016-02-01  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/loop-dim-default.c: New.
@@ -1188,7 +1295,7 @@
 	* oacc-init.c (goacc_runtime_initialize): Call goacc_host_init() at end.
 
 2015-09-08  Aditya Kumar  <hiraditya@msn.com>
-            Sebastian Pop  <s.pop@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
 
 	* testsuite/libgomp.graphite/bounds.c (int foo): Modifed test case to
 	match o/p.
@@ -4693,7 +4800,6 @@
 
 	PR fortran/41102
 	omp_lib.h.in: Fix -std=f95 errors.
-
 
 2009-08-14  David Edelsohn  <edelsohn@gnu.org>
 

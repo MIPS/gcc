@@ -595,17 +595,17 @@ struct processor_costs geode_cost = {
   {4, 6, 6},				/* cost of storing fp registers
 					   in SFmode, DFmode and XFmode */
 
-  1,					/* cost of moving MMX register */
-  {1, 1},				/* cost of loading MMX registers
+  2,					/* cost of moving MMX register */
+  {2, 2},				/* cost of loading MMX registers
 					   in SImode and DImode */
-  {1, 1},				/* cost of storing MMX registers
+  {2, 2},				/* cost of storing MMX registers
 					   in SImode and DImode */
-  1,					/* cost of moving SSE register */
-  {1, 1, 1},				/* cost of loading SSE registers
+  2,					/* cost of moving SSE register */
+  {2, 2, 8},				/* cost of loading SSE registers
 					   in SImode, DImode and TImode */
-  {1, 1, 1},				/* cost of storing SSE registers
+  {2, 2, 8},				/* cost of storing SSE registers
 					   in SImode, DImode and TImode */
-  1,					/* MMX or SSE register to integer */
+  3,					/* MMX or SSE register to integer */
   64,					/* size of l1 cache.  */
   128,					/* size of l2 cache.  */
   32,					/* size of prefetch block */
@@ -5453,6 +5453,13 @@ ix86_option_override_internal (bool main_args_p,
     opts->x_target_flags |= MASK_VZEROUPPER;
   if (!(opts_set->x_target_flags & MASK_STV))
     opts->x_target_flags |= MASK_STV;
+  /* Disable STV if -mpreferred-stack-boundary={2,3} or
+     -mincoming-stack-boundary={2,3} - the needed
+     stack realignment will be extra cost the pass doesn't take into
+     account and the pass can't realign the stack.  */
+  if (ix86_preferred_stack_boundary < 128
+      || ix86_incoming_stack_boundary < 128)
+    opts->x_target_flags &= ~MASK_STV;
   if (!ix86_tune_features[X86_TUNE_AVX256_UNALIGNED_LOAD_OPTIMAL]
       && !(opts_set->x_target_flags & MASK_AVX256_SPLIT_UNALIGNED_LOAD))
     opts->x_target_flags |= MASK_AVX256_SPLIT_UNALIGNED_LOAD;
@@ -17388,8 +17395,6 @@ ix86_print_operand_address_as (FILE *file, rtx addr,
     {
       const char *string;
 
-      if (as == ADDR_SPACE_SEG_TLS)
-	as = DEFAULT_TLS_SEG_REG;
       if (as == ADDR_SPACE_SEG_FS)
 	string = (ASSEMBLER_DIALECT == ASM_ATT ? "%fs:" : "fs:");
       else if (as == ADDR_SPACE_SEG_GS)
@@ -19698,7 +19703,7 @@ distance_non_agu_define_in_bb (unsigned int regno1, unsigned int regno2,
 /* Search backward for non-agu definition of register number REGNO1
    or register number REGNO2 in INSN's basic block until
    1. Pass LEA_SEARCH_THRESHOLD instructions, or
-   2. Reach neighbour BBs boundary, or
+   2. Reach neighbor BBs boundary, or
    3. Reach agu definition.
    Returns the distance between the non-agu definition point and INSN.
    If no definition point, returns -1.  */
@@ -21683,6 +21688,30 @@ ix86_expand_branch (enum rtx_code code, rtx op0, rtx op1, rtx label)
 {
   machine_mode mode = GET_MODE (op0);
   rtx tmp;
+
+  /* Handle special case - vector comparsion with boolean result, transform
+     it using ptest instruction.  */
+  if (GET_MODE_CLASS (mode) == MODE_VECTOR_INT)
+    {
+      rtx flag = gen_rtx_REG (CCZmode, FLAGS_REG);
+      machine_mode p_mode = GET_MODE_SIZE (mode) == 32 ? V4DImode : V2DImode;
+
+      gcc_assert (code == EQ || code == NE);
+      /* Generate XOR since we can't check that one operand is zero vector.  */
+      tmp = gen_reg_rtx (mode);
+      emit_insn (gen_rtx_SET (tmp, gen_rtx_XOR (mode, op0, op1)));
+      tmp = gen_lowpart (p_mode, tmp);
+      emit_insn (gen_rtx_SET (gen_rtx_REG (CCmode, FLAGS_REG),
+			      gen_rtx_UNSPEC (CCmode,
+					      gen_rtvec (2, tmp, tmp),
+					      UNSPEC_PTEST)));
+      tmp = gen_rtx_fmt_ee (code, VOIDmode, flag, const0_rtx);
+      tmp = gen_rtx_IF_THEN_ELSE (VOIDmode, tmp,
+				  gen_rtx_LABEL_REF (VOIDmode, label),
+				  pc_rtx);
+      emit_jump_insn (gen_rtx_SET (pc_rtx, tmp));
+      return;
+    }
 
   switch (mode)
     {
@@ -26001,11 +26030,12 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
 	    bool memset, bool zero_memset, bool have_as,
 	    int *dynamic_check, bool *noalign)
 {
-  const struct stringop_algs * algs;
+  const struct stringop_algs *algs;
   bool optimize_for_speed;
   int max = 0;
   const struct processor_costs *cost;
   int i;
+  HOST_WIDE_INT orig_expected_size = expected_size;
   bool any_alg_usable_p = false;
 
   *noalign = false;
@@ -26035,7 +26065,7 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
       any_alg_usable_p |= usable;
 
       if (candidate != libcall && candidate && usable)
-	  max = algs->size[i].max;
+	max = algs->size[i].max;
     }
 
   /* If expected size is not known but max size is small enough
@@ -26045,7 +26075,7 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
       && expected_size == -1)
     expected_size = min_size / 2 + max_size / 2;
 
-  /* If user specified the algorithm, honnor it if possible.  */
+  /* If user specified the algorithm, honor it if possible.  */
   if (ix86_stringop_alg != no_stringop
       && alg_usable_p (ix86_stringop_alg, memset, have_as))
     return ix86_stringop_alg;
@@ -26121,20 +26151,20 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
 	  || !alg_usable_p (algs->unknown_size, memset, have_as)))
     {
       enum stringop_alg alg;
+      HOST_WIDE_INT new_expected_size = (max > 0 ? max : 4096) / 2;
 
-      /* If there aren't any usable algorithms, then recursing on
-         smaller sizes isn't going to find anything.  Just return the
-         simple byte-at-a-time copy loop.  */
-      if (!any_alg_usable_p)
+      /* If there aren't any usable algorithms or if recursing with the
+	 same arguments as before, then recursing on smaller sizes or
+	 same size isn't going to find anything.  Just return the simple
+	 byte-at-a-time copy loop.  */
+      if (!any_alg_usable_p || orig_expected_size == new_expected_size)
         {
           /* Pick something reasonable.  */
           if (TARGET_INLINE_STRINGOPS_DYNAMICALLY)
             *dynamic_check = 128;
           return loop_1_byte;
         }
-      if (max <= 0)
-	max = 4096;
-      alg = decide_alg (count, max / 2, min_size, max_size, memset,
+      alg = decide_alg (count, new_expected_size, min_size, max_size, memset,
 			zero_memset, have_as, dynamic_check, noalign);
       gcc_assert (*dynamic_check == -1);
       if (TARGET_INLINE_STRINGOPS_DYNAMICALLY)
@@ -29299,7 +29329,10 @@ ix86_minimum_alignment (tree exp, machine_mode mode,
   if ((mode == DImode || (type && TYPE_MODE (type) == DImode))
       && (!type || !TYPE_USER_ALIGN (type))
       && (!decl || !DECL_USER_ALIGN (decl)))
-    return 32;
+    {
+      gcc_checking_assert (!TARGET_STV);
+      return 32;
+    }
 
   return align;
 }
@@ -43259,24 +43292,11 @@ ix86_cannot_change_mode_class (machine_mode from, machine_mode to,
 
   if (MAYBE_SSE_CLASS_P (regclass) || MAYBE_MMX_CLASS_P (regclass))
     {
-      int from_size = GET_MODE_SIZE (from);
-      int to_size = GET_MODE_SIZE (to);
-
       /* Vector registers do not support QI or HImode loads.  If we don't
 	 disallow a change to these modes, reload will assume it's ok to
 	 drop the subreg from (subreg:SI (reg:HI 100) 0).  This affects
 	 the vec_dupv4hi pattern.  */
-      if (from_size < 4)
-	return true;
-
-      /* Further, we cannot allow word_mode subregs of full vector modes.
-         Otherwise the middle-end will assume it's ok to store to
-         (subreg:DI (reg:TI 100) 0) in order to modify only the low 64 bits
-         of the 128-bit register.  However, after reload the subreg will
-         be dropped leaving a plain DImode store.  This is indistinguishable
-         from a "normal" DImode move, and so we're justified to use movsd,
-         which modifies the entire 128-bit register.  */
-      if (to_size == UNITS_PER_WORD && from_size > UNITS_PER_WORD)
+      if (GET_MODE_SIZE (from) < 4)
 	return true;
     }
 
@@ -54234,54 +54254,8 @@ ix86_optab_supported_p (int op, machine_mode mode1, machine_mode,
         without resorting to a system call, we cannot convert a
         non-default address space to a default address space.
         Therefore we do not claim %fs or %gs are subsets of generic.
-    (e) However, __seg_tls uses UNSPEC_TP as the base (which itself is
-	stored at __seg_tls:0) so we can map between tls and generic.  */
 
-static bool
-ix86_addr_space_subset_p (addr_space_t subset, addr_space_t superset)
-{
-    return (subset == superset
-	    || (superset == ADDR_SPACE_GENERIC
-		&& subset == ADDR_SPACE_SEG_TLS));
-}
-#undef TARGET_ADDR_SPACE_SUBSET_P
-#define TARGET_ADDR_SPACE_SUBSET_P ix86_addr_space_subset_p
-
-static rtx
-ix86_addr_space_convert (rtx op, tree from_type, tree to_type)
-{
-  addr_space_t from_as = TYPE_ADDR_SPACE (TREE_TYPE (from_type));
-  addr_space_t to_as = TYPE_ADDR_SPACE (TREE_TYPE (to_type));
-
-  /* Conversion between SEG_TLS and GENERIC is handled by adding or
-     subtracting the thread pointer.  */
-  if ((from_as == ADDR_SPACE_GENERIC && to_as == ADDR_SPACE_SEG_TLS)
-      || (from_as == ADDR_SPACE_SEG_TLS && to_as == ADDR_SPACE_GENERIC))
-    {
-      machine_mode mode = GET_MODE (op);
-      if (mode == VOIDmode)
-	mode = ptr_mode;
-      rtx tp = get_thread_pointer (mode, optimize || mode != ptr_mode);
-      return expand_binop (mode, (to_as == ADDR_SPACE_GENERIC
-				  ? add_optab : sub_optab),
-			   op, tp, NULL, 1, OPTAB_WIDEN);
-    }
-
-  return op;
-}
-#undef TARGET_ADDR_SPACE_CONVERT
-#define TARGET_ADDR_SPACE_CONVERT ix86_addr_space_convert
-
-static int
-ix86_addr_space_debug (addr_space_t as)
-{
-  /* Fold __seg_tls to __seg_fs or __seg_gs for debugging.  */
-  if (as == ADDR_SPACE_SEG_TLS)
-    as = DEFAULT_TLS_SEG_REG;
-  return as;
-}
-#undef TARGET_ADDR_SPACE_DEBUG
-#define TARGET_ADDR_SPACE_DEBUG ix86_addr_space_debug
+   Therefore we can (mostly) use the default hooks.  */
 
 /* All use of segmentation is assumed to make address 0 valid.  */
 

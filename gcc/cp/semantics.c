@@ -673,6 +673,9 @@ finish_expr_stmt (tree expr)
 
   if (expr != NULL_TREE)
     {
+      /* If we ran into a problem, make sure we complained.  */
+      gcc_assert (expr != error_mark_node || seen_error ());
+
       if (!processing_template_decl)
 	{
 	  if (warn_sequence_point)
@@ -1670,6 +1673,30 @@ force_paren_expr (tree expr)
   return expr;
 }
 
+/* If T is an id-expression obfuscated by force_paren_expr, undo the
+   obfuscation and return the underlying id-expression.  Otherwise
+   return T.  */
+
+tree
+maybe_undo_parenthesized_ref (tree t)
+{
+  if (cxx_dialect >= cxx14
+      && INDIRECT_REF_P (t)
+      && REF_PARENTHESIZED_P (t))
+    {
+      t = TREE_OPERAND (t, 0);
+      while (TREE_CODE (t) == NON_LVALUE_EXPR
+	     || TREE_CODE (t) == NOP_EXPR)
+	t = TREE_OPERAND (t, 0);
+
+      gcc_assert (TREE_CODE (t) == ADDR_EXPR
+		  || TREE_CODE (t) == STATIC_CAST_EXPR);
+      t = TREE_OPERAND (t, 0);
+    }
+
+  return t;
+}
+
 /* Finish a parenthesized expression EXPR.  */
 
 cp_expr
@@ -2253,6 +2280,10 @@ finish_call_expr (tree fn, vec<tree, va_gc> **args, bool disallow_virtual,
 
   gcc_assert (!TYPE_P (fn));
 
+  /* If FN may be a FUNCTION_DECL obfuscated by force_paren_expr, undo
+     it so that we can tell this is a call to a known function.  */
+  fn = maybe_undo_parenthesized_ref (fn);
+
   orig_fn = fn;
 
   if (processing_template_decl)
@@ -2270,6 +2301,7 @@ finish_call_expr (tree fn, vec<tree, va_gc> **args, bool disallow_virtual,
 	     related to CWG issues 515 and 1005.  */
 	  || (TREE_CODE (fn) != COMPONENT_REF
 	      && non_static_member_function_p (fn)
+	      && !DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (get_first_fn (fn))
 	      && current_class_ref
 	      && type_dependent_expression_p (current_class_ref)))
 	{
@@ -2348,8 +2380,16 @@ finish_call_expr (tree fn, vec<tree, va_gc> **args, bool disallow_virtual,
 	[class.access.base] says that we need to convert 'this' to B* as
 	part of the access, so we pass 'B' to maybe_dummy_object.  */
 
-      object = maybe_dummy_object (BINFO_TYPE (BASELINK_ACCESS_BINFO (fn)),
-				   NULL);
+      if (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (get_first_fn (fn)))
+	{
+	  /* A constructor call always uses a dummy object.  (This constructor
+	     call which has the form A::A () is actually invalid and we are
+	     going to reject it later in build_new_method_call.)  */
+	  object = build_dummy_object (BINFO_TYPE (BASELINK_ACCESS_BINFO (fn)));
+	}
+      else
+	object = maybe_dummy_object (BINFO_TYPE (BASELINK_ACCESS_BINFO (fn)),
+				     NULL);
 
       if (processing_template_decl)
 	{
@@ -6653,6 +6693,14 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	      remove = true;
 	    }
 	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
+		   && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FORCE_DEVICEPTR
+		   && !type_dependent_expression_p (t)
+		   && !POINTER_TYPE_P (TREE_TYPE (t)))
+	    {
+	      error ("%qD is not a pointer variable", t);
+	      remove = true;
+	    }
+	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 		   && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FIRSTPRIVATE_POINTER)
 	    {
 	      if (bitmap_bit_p (&generic_head, DECL_UID (t))
@@ -8696,7 +8744,7 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
 
   /* The type denoted by decltype(e) is defined as follows:  */
 
-  expr = resolve_nondeduced_context (expr);
+  expr = resolve_nondeduced_context (expr, complain);
 
   if (invalid_nonstatic_memfn_p (input_location, expr, complain))
     return error_mark_node;

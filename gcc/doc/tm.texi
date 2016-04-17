@@ -2853,9 +2853,9 @@ value that the middle-end intended.
 
 @end defmac
 
-@deftypefn {Target Hook} reg_class_t TARGET_IRA_CHANGE_PSEUDO_ALLOCNO_CLASS (int, @var{reg_class_t})
+@deftypefn {Target Hook} reg_class_t TARGET_IRA_CHANGE_PSEUDO_ALLOCNO_CLASS (int, @var{reg_class_t}, @var{reg_class_t})
 A target hook which can change allocno class for given pseudo from
-  allocno class calculated by IRA.
+  allocno and best class calculated by IRA.
   
   The default version of this target hook always returns given class.
 @end deftypefn
@@ -4422,7 +4422,7 @@ saving and restoring an arbitrary return value.
 Normally, when a function returns a structure by memory, the address
 is passed as an invisible pointer argument, but the compiler also
 arranges to return the address from the function like it would a normal
-pointer return value.  Define this to true if that behaviour is
+pointer return value.  Define this to true if that behavior is
 undesirable on your target.
 @end deftypevr
 
