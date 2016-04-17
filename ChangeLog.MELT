@@ -1,6 +1,12 @@
 
 2016-04-17   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{merging with even more of GCC 6, using subversion 1.9
+	svn merge -r233720:233731 ^/trunk
+	around rev 233732, trunk is deprecating ENABLE_CHECK
+	}}
+
+2016-04-17   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merging with even more of GCC 6, using subversion 1.9
 	svn merge -r233051:233720  ^/trunk
 	}}
 
