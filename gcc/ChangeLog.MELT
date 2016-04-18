@@ -1,5 +1,8 @@
 
 2016-04-18   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerated all.
+
+2016-04-18   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-base.melt: Replace ENABLE_CHECKING with
 	MELT_HAVE_DEBUG.
 	* melt/warmelt-modes.melt: Ditto.

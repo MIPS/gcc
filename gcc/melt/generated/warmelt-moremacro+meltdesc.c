@@ -20,8 +20,7 @@
 	     #endif /*__cplusplus */
 	     
 /* version of the GCC compiler & MELT runtime generating this */
-const char melt_genversionstr[]="6.0.0 20151104 (experimental) [melt-branch revision 235007] MELT_1\
-.3.pre"
+const char melt_genversionstr[]="6.0.0 20160225 (experimental) MELT_1.3.pre"
 
 	     #ifdef __cplusplus
 	     " (in C++)"
@@ -30,7 +29,7 @@ const char melt_genversionstr[]="6.0.0 20151104 (experimental) [melt-branch revi
 	     #endif
 					;
 	     
-const char melt_versionmeltstr[]="1.3.pre [melt-branch_revision_235007]";
+const char melt_versionmeltstr[]="1.3.pre ";
 
 /* source name & real path of the module */
 /*MELTMODULENAME meltbuild-sources/warmelt-moremacro */
@@ -38,27 +37,27 @@ const char melt_modulename[]="warmelt-moremacro";
 const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-pc-linux-gnu/6.0.0/melt-modules/1.3.pre/warmelt-moremacro";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="9dd2aff63da19eaad43aa17e3d2ceb8a";
+const char melt_prepromd5meltrun[]="8f8d26efdd9babcf9ddf43848155af07";
 /* hexmd5checksum of primary C++ file */
-const char melt_primaryhexmd5[]="4926abacecf014da504315cafb0b042e";
+const char melt_primaryhexmd5[]="3b18a7f154016794d3d065b809f0b9d3";
 
 /* hexmd5checksum of secondary C++ files */
 const char* const melt_secondaryhexmd5tab[]={
  /*nosecfile*/ (const char*)0,
- /*sechexmd5checksum meltbuild-sources/warmelt-moremacro+01.cc #1 */ "c1db5109d2e4fc256aa48c0075c756a7",
+ /*sechexmd5checksum meltbuild-sources/warmelt-moremacro+01.cc #1 */ "ce9da842155c1a548f1930962897c0b1",
  (const char*)0 };
 
 /* last index of secondary files */
 const int melt_lastsecfileindex=1;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="016c7e6738cb15c656d67e7d7026c154" ;
+const char melt_cumulated_hexmd5[]="4b24e4036778da7016d98072d0d2d634" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiMOREMACRO_mds__016C7E6738CB15C656D67E7D7026C154 1
+#define meltmod_WARMELTmiMOREMACRO_mds__4B24E4036778DA7016D98072D0D2D634 1
 #include "warmelt-moremacro+melttime.h"
 	 
 
