@@ -1,3 +1,26 @@
+2016-03-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (components_to_record): Add special case for     
+	single field with representation clause at offset 0.
+
+2016-03-16  Svante Signell  <svante.signell@gmail.com>
+
+	* gcc-interface/Makefile.in: Add support for x86 GNU/Hurd.
+	* s-osinte-gnu.ads: New file.
+
+2016-03-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* system-vxworks-m68k.ads (Stack_Check_Probes): Set to True.
+	(Stack_Check_Limits): Set to False.
+	* system-vxworks-mips.ads (Stack_Check_Probes): Set to True.
+	(Stack_Check_Limits): Set to False.
+	* system-vxworks-ppc.ads (Stack_Check_Probes): Set to True.
+	(Stack_Check_Limits): Set to False.
+	* system-vxworks-sparcv9.ads (Stack_Check_Probes): Set to True.
+	(Stack_Check_Limits): Set to False.
+	* system-vxworks-x86.ads (Stack_Check_Probes): Set to True.
+	(Stack_Check_Limits): Set to False.
+
 2016-03-07  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gcc-interface/trans.c (statement_node_p): New predicate.
@@ -12,7 +35,7 @@
 
 2016-03-02  Dominik Vogt  <vogt@linux.vnet.ibm.com>
 
-	* system-linux-s390.adsx: Enable Stack_Check_Probes.
+	* system-linux-s390.ads: Enable Stack_Check_Probes.
 	* system-linux-s390.ads: Likewise.
 
 2016-02-29  Martin Liska  <mliska@suse.cz>
@@ -64,7 +87,7 @@
 
 2016-02-17  Eric Botcazou  <ebotcazou@adacore.com>
 
-	* exp_ch4.adb (Expand_N_Indexed_Component): Active synchronization if
+	* exp_ch4.adb (Expand_N_Indexed_Component): Activate synchronization if
 	the prefix denotes an entity which Has_Atomic_Components.
 	* gcc-interface/trans.c (node_is_atomic): Return true if the prefix
 	denotes an entity which Has_Atomic_Components.

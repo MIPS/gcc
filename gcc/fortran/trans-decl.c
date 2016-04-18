@@ -137,6 +137,8 @@ tree gfor_fndecl_caf_sendget;
 tree gfor_fndecl_caf_sync_all;
 tree gfor_fndecl_caf_sync_memory;
 tree gfor_fndecl_caf_sync_images;
+tree gfor_fndecl_caf_stop_str;
+tree gfor_fndecl_caf_stop_numeric;
 tree gfor_fndecl_caf_error_stop;
 tree gfor_fndecl_caf_error_stop_str;
 tree gfor_fndecl_caf_atomic_def;
@@ -2062,7 +2064,12 @@ build_function_decl (gfc_symbol * sym, bool global)
   tree result_decl;
   gfc_formal_arglist *f;
 
-  gcc_assert (!sym->attr.external);
+  bool module_procedure = sym->attr.module_procedure
+			  && sym->ns
+			  && sym->ns->proc_name
+			  && sym->ns->proc_name->attr.flavor == FL_MODULE;
+
+  gcc_assert (!sym->attr.external || module_procedure);
 
   if (sym->backend_decl)
     return;
@@ -3544,6 +3551,18 @@ gfc_build_builtin_function_decls (void)
 	void_type_node, 2, pchar_type_node, gfc_int4_type_node);
       /* CAF's ERROR STOP doesn't return.  */
       TREE_THIS_VOLATILE (gfor_fndecl_caf_error_stop_str) = 1;
+
+      gfor_fndecl_caf_stop_numeric = gfc_build_library_function_decl_with_spec (
+        get_identifier (PREFIX("caf_stop_numeric")), ".R.",
+        void_type_node, 1, gfc_int4_type_node);
+      /* CAF's STOP doesn't return.  */
+      TREE_THIS_VOLATILE (gfor_fndecl_caf_stop_numeric) = 1;
+
+      gfor_fndecl_caf_stop_str = gfc_build_library_function_decl_with_spec (
+        get_identifier (PREFIX("caf_stop_str")), ".R.",
+        void_type_node, 2, pchar_type_node, gfc_int4_type_node);
+      /* CAF's STOP doesn't return.  */
+      TREE_THIS_VOLATILE (gfor_fndecl_caf_stop_str) = 1;
 
       gfor_fndecl_caf_atomic_def = gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("caf_atomic_define")), "R..RW",

@@ -493,7 +493,7 @@
   [(V16SF "f") (V16SI "i") (V8DF "f") (V8DI "i")
   (V8SF "f") (V8SI "i") (V4DF "f") (V4DI "i")
   (V4SF "f") (V4SI "i") (V2DF "f") (V2DI "i")
-  (V32QI "i") (V16HI "u") (V16QI "i") (V8HI "i")
+  (V32QI "i") (V16HI "i") (V16QI "i") (V8HI "i")
   (V64QI "i") (V1TI "i") (V2TI "i")])
 
 (define_mode_attr ssequartermode
@@ -8951,7 +8951,7 @@
    (set_attr "prefix" "orig,maybe_vex,evex")
    (set_attr "mode" "V2DF,DF,DF")])
 
-(define_insn "*vec_concatv2df"
+(define_insn "vec_concatv2df"
   [(set (match_operand:V2DF 0 "register_operand"     "=x,x,v,x,v,x,x,v,x,x")
 	(vec_concat:V2DF
 	  (match_operand:DF 1 "nonimmediate_operand" " 0,x,v,m,m,0,x,m,0,0")
@@ -13307,7 +13307,9 @@
 	  (parallel
 	    [(match_operand:SI 2 "const_0_to_<ssescalarnummask>_operand")])))]
   "TARGET_SSE2"
-  "%vpextr<ssemodesuffix>\t{%2, %1, %k0|%k0, %1, %2}"
+  "@
+   %vpextr<ssemodesuffix>\t{%2, %1, %k0|%k0, %1, %2}
+   %vpextr<ssemodesuffix>\t{%2, %1, %0|%0, %1, %2}"
   [(set_attr "isa" "*,sse4")
    (set_attr "type" "sselog1")
    (set_attr "prefix_data16" "1")
@@ -17267,7 +17269,14 @@
 	    (match_operand:<ssexmmmode> 1 "nonimmediate_operand" "vm")
 	    (parallel [(const_int 0)]))))]
   "TARGET_AVX512F"
-  "v<sseintprefix>broadcast<bcstscalarsuff>\t{%1, %0<mask_operand2>|%0<mask_operand2>, %1}"
+{
+  /*  There is no DF broadcast (in AVX-512*) to 128b register.
+      Mimic it with integer variant.  */
+  if (<MODE>mode == V2DFmode)
+    return "vpbroadcastq\t{%1, %0<mask_operand2>|%0<mask_operand2>, %1}";
+  else
+    return "v<sseintprefix>broadcast<bcstscalarsuff>\t{%1, %0<mask_operand2>|%0<mask_operand2>, %1}";
+}
   [(set_attr "type" "ssemov")
    (set_attr "prefix" "evex")
    (set_attr "mode" "<sseinsnmode>")])
@@ -17410,7 +17419,8 @@
    v<sseintprefix>broadcast<bcstscalarsuff>\t{%1, %0|%0, %1}
    v<sseintprefix>broadcast<bcstscalarsuff>\t{%x1, %0|%0, %x1}
    #"
-  [(set_attr "type" "ssemov")
+  [(set_attr "isa" "*,*,noavx512vl")
+   (set_attr "type" "ssemov")
    (set_attr "prefix_extra" "1")
    (set_attr "prefix" "maybe_evex")
    (set_attr "mode" "<sseinsnmode>")])
