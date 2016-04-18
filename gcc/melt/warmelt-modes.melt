@@ -1,7 +1,7 @@
 ;; file warmelt-modes.melt -*- Lisp -*-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright (C) 2011 - 2015  Free Software Foundation, Inc.
+    Copyright (C) 2011 - 2016  Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
 
     This file is part of GCC.
@@ -2709,7 +2709,7 @@ melt_forwarded_copy (melt_ptr_t p)
                           (void*)n, melt_obmag_string (mag));
   if (n)
     {
-#if ENABLE_CHECKING
+#if MELT_HAVE_DEBUG
       if (melt_alptr_1 && (void*)melt_alptr_1 == (void*)n) 
 	{
 	  fprintf (stderr, "melt_forwarded_copy to alptr_1 %p mag %d\n",  melt_alptr_1, mag);
@@ -2726,7 +2726,7 @@ melt_forwarded_copy (melt_ptr_t p)
 			       melt_nb_garbcoll, melt_alptr_2);
 	  melt_break_alptr_2 ("forwarded copy to alptr_2");
 	};
-#endif /*ENABLE_CHECKING*/
+#endif /*MELT_HAVE_DEBUG*/
 
       p->u_forward.discr = MELT_FORWARDED_DISCR;
       p->u_forward.forward = n;

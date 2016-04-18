@@ -1,5 +1,11 @@
 
 2016-04-18   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-base.melt: Replace ENABLE_CHECKING with
+	MELT_HAVE_DEBUG.
+	* melt/warmelt-modes.melt: Ditto.
+	* melt/warmelt-outobj.melt: Ditto.
+
+2016-04-18   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{preparing for deprecation of ENABLE_CHECKING}}
 	* melt-runtime.h: Replace most occurrences of ENABLE_CHECKING with
 	MELT_HAVE_DEBUG. Temporarily forcing MELT_HAVE_DEBUG to be 1.
