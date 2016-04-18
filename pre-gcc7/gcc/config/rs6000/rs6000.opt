@@ -469,9 +469,13 @@ mlong-double-
 Target RejectNegative Joined UInteger Var(rs6000_long_double_type_size) Save
 -mlong-double-<n>	Specify size of long double (64 or 128 bits).
 
+mno-lra
+Target Undocumented RejectNegative Mask(NO_LRA) Var(rs6000_isa_flags)
+Use the old reload register allocator instead of the LRA register allocator.
+
 mlra
-Target Report Var(rs6000_lra_flag) Init(0) Save
-Use LRA instead of reload.
+Target Undocumented RejectNegative InverseMask(NO_LRA, LRA) Var(rs6000_isa_flags)
+Use the LRA register allocator instead of the reload register allocator.
 
 msched-costly-dep=
 Target RejectNegative Joined Var(rs6000_sched_costly_dep_str)
@@ -609,9 +613,17 @@ mpower9-vector
 Target Report Mask(P9_VECTOR) Var(rs6000_isa_flags)
 Use/do not use vector and scalar instructions added in ISA 3.0.
 
+mpower9-dform-scalar
+Target Report Mask(P9_DFORM_SCALAR) Var(rs6000_isa_flags)
+Use/do not use scalar register+offset memory instructions added in ISA 3.0.
+
+mpower9-dform-vector
+Target Report Mask(P9_DFORM_VECTOR) Var(rs6000_isa_flags)
+Use/do not use vector register+offset memory instructions added in ISA 3.0.
+
 mpower9-dform
-Target Undocumented Mask(P9_DFORM) Var(rs6000_isa_flags)
-Use/do not use vector and scalar instructions added in ISA 3.0.
+Target Report Var(TARGET_P9_DFORM_BOTH) Init(-1) Save
+Use/do not use register+offset memory instructions added in ISA 3.0.
 
 mpower9-minmax
 Target Undocumented Mask(P9_MINMAX) Var(rs6000_isa_flags)

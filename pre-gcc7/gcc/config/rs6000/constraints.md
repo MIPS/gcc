@@ -140,6 +140,10 @@
   (and (match_code "const_int")
        (match_test "TARGET_VSX && (ival == VECTOR_ELEMENT_SCALAR_64BIT)")))
 
+(define_constraint "wE"
+  "vector constant that can be loaded with the XXSPLTIB instruction"
+  (match_test "easy_p9_constant (op, mode, true)"))
+
 ;; Extended fusion store
 (define_memory_constraint "wF"
   "Memory operand suitable for power9 fusion load/stores"
@@ -155,6 +159,17 @@
   (and (match_code "const_int")
        (and (match_test "TARGET_DIRECT_MOVE_128")
 	    (match_test "(ival == VECTOR_ELEMENT_MFVSRLD_64BIT)"))))
+
+;; wM wants to use the XXORC instruction which was added in ISA 2.07
+(define_constraint "wM"
+  "vector constant with all 1's, ISA 2.07 and above"
+  (and (match_test "TARGET_P8_VECTOR")
+       (match_operand 0 "all_ones_constant")))
+
+;; ISA 3.0 vector d-form addresses
+(define_memory_constraint "wO"
+  "Memory operand suitable for the ISA 3.0 vector d-form instructions."
+  (match_operand 0 "vsx_quad_dform_memory_operand"))
 
 ;; Lq/stq validates the address for load/store quad
 (define_memory_constraint "wQ"

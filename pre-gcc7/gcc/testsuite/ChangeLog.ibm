@@ -1,3 +1,145 @@
+2016-04-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Rebase branch to subversion id 235167 after gcc-6-branch
+	was split off.
+
+2016-04-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 235033 (last subversion id before gcc-6-branch
+	created).
+
+2016-04-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/signbit-1.c: New tests for signbit built-in
+	functions.
+	* gcc.target/powerpc/signbit-2.c: Likewise.
+	* gcc.target/powerpc/signbit-3.c: Likewise.
+
+	* gcc.target/powerpc/inf-1.c: New test for inf built-in
+	functions.
+
+	* gcc.target/powerpc/float128-hw.c: Add explicit -mfloat128 and
+	-mfloat128-hardware switches.
+
+2016-04-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 234995.
+
+2016-04-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 234910.
+
+2016-04-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 234884.
+
+2016-04-11  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* gcc.target/powerpc/vslv-0.c: New test.
+	* gcc.target/powerpc/vslv-1.c: New test.
+	* gcc.target/powerpc/vsrv-0.c: New test.
+	* gcc.target/powerpc/vsrv-1.c: New test.
+
+2016-04-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/70381
+	* gcc.target/powerpc/float128-1.c: New tests to make sure the
+	__float128 emulator is built and runs.
+	* gcc.target/powerpc/float128-1.c: Likewise.
+
+	* lib/target-supports.exp (check_ppc_float128_sw_available):
+	Rework tests for __float128 software and hardware
+	availability. Fix exit condition to return 0 on success.
+
+2016-03-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 234598.
+
+2016-03-30  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* gcc.target/powerpc/darn-0.c: New test.
+	* gcc.target/powerpc/darn-1.c: New test.
+	* gcc.target/powerpc/darn-2.c: New test.
+
+2016-03-22  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* gcc.target/powerpc/p9-permute.c: Generalize test to run on
+        big-endian Power9 in addition to little-endian Power9.
+	* gcc.target/powerpc/p9-vpermr.c: New test.
+
+2016-03-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 234194.
+
+2016-03-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 234152.
+
+2016-03-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/70131
+	* gcc.target/powerpc/ppc-round2.c: New test.
+
+2016-03-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/p9-vec-const.c: New test for ISA 3.0 easy
+	constants.
+
+2016-03-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/p9-splat-1.c: New test for ISA 3.0 word splat
+	operations.
+	* gcc.target/powerpc/p9-splat-2.c: Likewise.
+
+2016-03-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 233919.
+
+2016-03-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/p9-minmax.c: Make sure compiler
+	supports power9 before doing tests.
+
+	* gcc.target/powerpc/p9-vneg.c: New test.
+	* gcc.target/powerpc/ctz-3.c: Likewise.
+
+2016-02-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/dform-3.c: New file to test
+	-mpower9-dform-vector.
+
+2016-02-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 233819.
+
+2016-02-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 233725.
+
+2016-02-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 233527.
+
+2016-02-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 233147.
+
+2016-02-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 233120.
+
+2016-01-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 232906.
+
+2016-01-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/p9-minmax.c: New test.
+
+2016-01-21   Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Clone branch subversion id 232705
+
 2016-04-18   Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch subversion id 235167
