@@ -1,3 +1,8 @@
+2016-04-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 235033 (last subversion id before gcc-6-branch
+	created).
+
 2016-04-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 234995.
