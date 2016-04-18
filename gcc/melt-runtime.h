@@ -195,13 +195,17 @@ extern const int melt_is_plugin;
 
 #endif /*MELT_IS_PLUGIN*/
 
-#if defined(ENABLE_CHECKING) && !defined(MELT_HAVE_DEBUG)
+#if  GCCPLUGIN_VERSION < 6000
+#if defined(ENABLE_CHECKING)
 #define MELT_HAVE_DEBUG 1
 #else
 #ifndef MELT_HAVE_DEBUG
 #define MELT_HAVE_DEBUG 0
 #endif /* undef MELT_HAVE_DEBUG */
 #endif /*ENABLE_CHECKING */
+#else /* GCC 6 */
+#define MELT_HAVE_DEBUG 1 /* temporary hack */
+#endif /* GCC 6.0 */
 
 #ifndef MELT_HAVE_DEBUG
 #define MELT_HAVE_DEBUG 0
@@ -247,7 +251,7 @@ long melt_cpu_time_millisec (void);
 void melt_set_real_timer_millisec (long millisec);
 
 
-#if ENABLE_GC_CHECKING
+#if MELT_HAVE_DEBUG && ENABLE_GC_CHECKING
 /* memory is poisoned by an 0xa5a5a5a5a5a5a5a5... pointer in ggc-zone.c or ggc-page.c */
 #if SIZEOF_VOID_P == 8
 #define MELT_POISON_POINTER (void*)0xa5a5a5a5a5a5a5a5
@@ -256,7 +260,7 @@ void melt_set_real_timer_millisec (long millisec);
 #else
 #error cannot set MELT_POISON_POINTER
 #endif
-#endif /*ENABLE_GC_CHECKING*/
+#endif /*MELT_HAVE_DEBUG && ENABLE_GC_CHECKING*/
 
 /* the MELT debug depth for debug_msg ... can be set with -fmelt-debug-depth= */
 MELT_EXTERN int melt_debug_depth(void);
@@ -815,7 +819,7 @@ melt_magic_discr (melt_ptr_t p)
 {
   if (!p)
     return 0;
-#if ENABLE_GC_CHECKING
+#if MELT_HAVE_DEBUG && ENABLE_GC_CHECKING
   if ((void*) p == MELT_POISON_POINTER)
     {
       /* This should never happen, and if it happens it means that p
@@ -826,7 +830,7 @@ melt_magic_discr (melt_ptr_t p)
        " (= the poison pointer)",
        (void*) p);
     }
-#endif /*ENABLE_GC_CHECKING */
+#endif /*MELT_HAVE_DEBUG && ENABLE_GC_CHECKING */
 #if MELT_HAVE_DEBUG
   if (!p->u_discr)
     {
@@ -838,7 +842,7 @@ melt_magic_discr (melt_ptr_t p)
        (void*) p);
     }
 #endif /*MELT_HAVE_DEBUG*/
-#if ENABLE_GC_CHECKING
+#if MELT_HAVE_DEBUG && ENABLE_GC_CHECKING
   if ((void*) (p->u_discr) == MELT_POISON_POINTER)
     {
       /* This should never happen, we are asking the discriminant of a
@@ -848,7 +852,7 @@ melt_magic_discr (melt_ptr_t p)
        "(= a freed and poisoned memory zone)",
        (void*) p);
     }
-#endif /*ENABLE_GC_CHECKING*/
+#endif /*MELT_HAVE_DEBUG && ENABLE_GC_CHECKING*/
   return p->u_discr->meltobj_magic;
 }
 
@@ -1089,7 +1093,7 @@ void melt_garbcoll (size_t wanted, enum melt_gckind_en gckd);
 
 
 
-#if ENABLE_CHECKING
+#if MELT_HAVE_DEBUG
 /* to ease debugging we sometimes want to know when some pointer is
    allocated: set these variables in the debugger */
 MELT_EXTERN void *melt_alptr_1;
@@ -1126,9 +1130,9 @@ melt_dbgtrace_written_object_at(meltobject_ptr_t ob, const char*msg, const char*
 #define melt_dbgtrace_written_object(Obj,Msg) do { \
   melt_dbgtrace_written_object_at ((meltobject_ptr_t)(Obj),(Msg),\
 				  __FILE__,__LINE__); }while(0)
-#else  /*!ENABLE_CHECKING*/
+#else  /*!MELT_HAVE_DEBUG*/
 #define melt_dbgtrace_written_object(Obj,Msg) do{}while(0)
-#endif /*ENABLE_CHECKING*/
+#endif /*MELT_HAVE_DEBUG*/
 
 /* the allocator routine allocates a zone of BASESZ with extra GAP */
 static inline void *
@@ -1148,12 +1152,12 @@ meltgc_allocate (size_t basesz, size_t gap)
                      >= (char *) melt_storalz))
     melt_garbcoll (wanted, MELT_MINOR_OR_FULL);
   ptr = melt_curalz;
-#if ENABLE_CHECKING
+#if MELT_HAVE_DEBUG
   if (ptr == melt_alptr_1)
     melt_break_alptr_1("allocated alptr1");
   else if (ptr == melt_alptr_2)
     melt_break_alptr_2("allocated alptr2");
-#endif /*ENABLE_CHECKING*/
+#endif /*MELT_HAVE_DEBUG*/
   melt_curalz += wanted;
   return ptr;
 }
@@ -1204,12 +1208,12 @@ melt_allocatereserved (size_t basesz, size_t gap)
     /* this should never happen */
     melt_reserved_allocation_failure((long) wanted);
   ptr = melt_curalz;
-#if ENABLE_CHECKING
+#if MELT_HAVE_DEBUG
   if (ptr == melt_alptr_1)
     melt_break_alptr_1("allocatedreserved alptr1");
   else if (ptr == melt_alptr_2)
     melt_break_alptr_1("allocatedreserved alptr2");
-#endif /*ENABLE_CHECKING*/
+#endif /*MELT_HAVE_DEBUG*/
   melt_curalz += wanted;
   return ptr;
 }
@@ -1637,7 +1641,7 @@ melt_dynobjstruct_make_raw_object (melt_ptr_t klas, int len,
 					 Clanam, __FILE__, __LINE__,	\
 				      (int**)0, (int*)0)
 
-#elif ENABLE_CHECKING
+#elif MELT_HAVE_DEBUG
 static inline melt_ptr_t
 melt_getfield_object_at (melt_ptr_t ob, unsigned off, const char*msg, const char*fil, int lin)
 {
@@ -3085,13 +3089,13 @@ protected:
 public:
   const char* mcfr_flocs;
 protected:
-#if ENABLE_CHECKING
+#if MELT_HAVE_DEBUG
   const char* _meltcf_dbgfile;
   const long _meltcf_dbgline;
   const long _meltcf_dbgserial;
   static FILE* _dbgcall_file_;
   static long _dbgcall_count_;
-#endif /*ENABLE_CHECKING*/
+#endif /*MELT_HAVE_DEBUG*/
 public:
   static Melt_CallProtoFrame* top_call_frame()
   {
@@ -3129,7 +3133,7 @@ public:
   {
     mcfr_flocs = s;
   };
-#if ENABLE_CHECKING 
+#if MELT_HAVE_DEBUG 
   const char* dbg_file() const
   {
     return _meltcf_dbgfile;
@@ -3189,7 +3193,7 @@ public:
           }
       }
   }
-#else /*!ENABLE_CHECKING*/
+#else /*!MELT_HAVE_DEBUG*/
   Melt_CallProtoFrame(const char*, int, size_t sz)
     : _meltcf_prev(melt_top_call_frame), mcfr_flocs(NULL)
   {
@@ -3216,20 +3220,21 @@ public:
   {
     return 0;
   };
-#endif  /*ENABLE_CHECKING*/
+#endif  /*MELT_HAVE_DEBUG*/
+  ////
   ~Melt_CallProtoFrame()
   {
-#if ENABLE_CHECKING
+#if MELT_HAVE_DEBUG
     if (MELT_UNLIKELY( _dbgcall_file_ != NULL))
       {
         fprintf (_dbgcall_file_, "- %s:%d\n",  _meltcf_dbgfile, (int)_meltcf_dbgline);
         fflush (_dbgcall_file_);
       }
-#endif /*ENABLE_CHECKING*/
+#endif /*MELT_HAVE_DEBUG*/
     mcfr_flocs = NULL;
     melt_top_call_frame = _meltcf_prev;
   }
-#if ENABLE_CHECKING
+#if MELT_HAVE_DEBUG
 public:
   static void set_debug_file(FILE*f)
   {
@@ -3244,7 +3249,7 @@ public:
       }
     _dbgcall_file_ = f;
   };
-#endif /*ENABLE_CHECKING*/
+#endif /*MELT_HAVE_DEBUG*/
 };				// end class Melt_CallProtoFrame
 
 int Melt_CallProtoFrame::top_call_depth()
@@ -3281,7 +3286,7 @@ public:
     return meltcast_melthook_st (mcfr_current);
   };
 protected:
-#if ENABLE_CHECKING
+#if MELT_HAVE_DEBUG
   Melt_CallFrame(const char*file, int lin, size_t sz, meltclosure_ptr_t clos=NULL)
     : Melt_CallProtoFrame(file,lin,sz), mcfr_clos(clos)
   {
@@ -3296,7 +3301,7 @@ protected:
     : Melt_CallProtoFrame(file,lin,sz), mcfr_current(NULL)
   {
   };
-#else /*!ENABLE_CHECKING*/
+#else /*!MELT_HAVE_DEBUG*/
   Melt_CallFrame(const char*, int, size_t sz, meltclosure_ptr_t clos=NULL)
     : Melt_CallProtoFrame(sz), mcfr_clos(clos)
   {
@@ -3311,7 +3316,7 @@ protected:
     : Melt_CallProtoFrame(sz), mcfr_current(NULL)
   {
   };
-#endif /*ENABLE_CHECKING*/
+#endif /*MELT_HAVE_DEBUG*/
   Melt_CallFrame(size_t sz, meltclosure_ptr_t clos)
     : Melt_CallProtoFrame(sz), mcfr_clos(clos)
   {
@@ -3360,13 +3365,13 @@ public:
   {
     melt_mark_values ();
   };
-#if ENABLE_CHECKING
+#if MELT_HAVE_DEBUG
   Melt_CallFrameWithValues(const char*fil, int lin,
                            size_t sz, meltclosure_ptr_t clos=NULL)
     : Melt_CallFrame(fil, lin, sz, clos) {};
   Melt_CallFrameWithValues(const char*fil, int lin, size_t sz, melthook_ptr_t hook)
     : Melt_CallFrame(fil, lin, sz, hook) {};
-#endif /*ENABLE_CHECKING*/
+#endif /*MELT_HAVE_DEBUG*/
   Melt_CallFrameWithValues(size_t sz, meltclosure_ptr_t clos=NULL)
     : Melt_CallFrame(sz,clos) {};
   Melt_CallFrameWithValues(size_t sz, melthook_ptr_t hook)
@@ -3375,10 +3380,10 @@ public:
 };				// end template class Melt_CallFrameWithValues
 
 
-#if ENABLE_CHECKING
+#if MELT_HAVE_DEBUG
 
 #define MELT_ENTERFRAME_AT(NbVar,Clos,Lin)			\
-  /* classy enter frame */					\
+  /* classy enter frame, debugged */   				\
   Melt_CallFrameWithValues<NbVar> meltfram__			\
      (__FILE__, Lin, sizeof(Melt_CallFrameWithValues<NbVar>),	\
      meltcast_meltclosure_st((melt_ptr_t)(Clos)));		\
@@ -3390,10 +3395,10 @@ public:
 		Lin, __func__);					\
     meltfram__.mcfr_flocs = meltlocbuf_##Lin; }
 
-#else /*!ENABLE_CHECKING*/
+#else /*!MELT_HAVE_DEBUG*/
 
 #define MELT_ENTERFRAME_AT(NbVar,Clos,Lin)			\
-  /* classy enter frame */					\
+  /* classy enter frame, nodebug */	       			\
   Melt_CallFrameWithValues<NbVar> meltfram__			\
     (sizeof(Melt_CallFrameWithValues<NbVar>),			\
      meltcast_meltclosure_st((melt_ptr_t)(Clos)));		\
@@ -3405,7 +3410,7 @@ public:
 		Lin, __func__);					\
     meltfram__.mcfr_flocs = meltlocbuf_##Lin; }
 
-#endif /*ENABLE_CHECKING*/
+#endif /*MELT_HAVE_DEBUG*/
 
 #define MELT_ENTERFRAME(NBVAR,CLOS) MELT_ENTERFRAME_AT(NBVAR,CLOS,__LINE__)
 #define MELT_ENTEREMPTYFRAME(CLOS) MELT_ENTERFRAME_AT(0,CLOS,__LINE__)
@@ -3663,7 +3668,7 @@ void melt_dbgshortbacktrace(const char* msg, int maxdepth);
 void melt_warn_for_no_expected_secondary_results_at (const char*fil, int lin);
 
 
-#if ENABLE_CHECKING
+#if MELT_HAVE_DEBUG
 extern void* melt_checkedp_ptr1;
 extern void* melt_checkedp_ptr2;
 
@@ -3688,7 +3693,7 @@ void melt_cbreak_at(const char*msg, const char*fil, int lin);
 #define melt_cbreak(Msg) melt_cbreak_at((Msg),__FILE__,__LINE__)
 #define melt_trace_start(Msg,Cnt) do {} while(0)
 #define melt_trace_end(Msg,Cnt) do {} while(0)
-#else /*!ENABLE_CHECKING*/
+#else /*!MELT_HAVE_DEBUG*/
 #define melt_checked_assign(Assign) Assign
 #define melt_checked_assignmsg(Assign,Msg) Assign
 #define melt_cbreak(Msg) ((void)(Msg))
@@ -3696,7 +3701,7 @@ void melt_cbreak_at(const char*msg, const char*fil, int lin);
 #define melt_trace_end(Msg,Cnt) do{}while(0)
 #undef debugmsgval
 #define debugmsgval(Msg,Val,Count) do {}while(0)
-#endif /*ENABLE_CHECKING*/
+#endif /*MELT_HAVE_DEBUG*/
 
 
 
@@ -3791,7 +3796,7 @@ FILE* meltgc_set_dump_file (FILE* dumpf);
 void meltgc_restore_dump_file (FILE* oldf);
 
 
-#if ENABLE_CHECKING
+#if MELT_HAVE_DEBUG
 /* some useless routines in wich we can add a breakpoint from gdb. */
 MELT_EXTERN void melt_sparebreakpoint_0_at (const char*fil, int lin, void*ptr, const char*msg);
 MELT_EXTERN void melt_sparebreakpoint_1_at (const char*fil, int lin, void*ptr, const char*msg);
@@ -3799,11 +3804,11 @@ MELT_EXTERN void melt_sparebreakpoint_2_at (const char*fil, int lin, void*ptr, c
 #define melt_sparebreakpoint_0(P,Msg) melt_sparebreakpoint_0_at(__FILE__,__LINE__,(void*)(P),(Msg))
 #define melt_sparebreakpoint_1(P,Msg) melt_sparebreakpoint_1_at(__FILE__,__LINE__,(void*)(P),(Msg))
 #define melt_sparebreakpoint_2(P,Msg) melt_sparebreakpoint_2_at(__FILE__,__LINE__,(void*)(P),(Msg))
-#else /*no ENABLE_CHECKING*/
+#else /*no MELT_HAVE_DEBUG*/
 #define melt_sparebreakpoint_0(P,Msg) do{(void)(0 && (P));}while(0)
 #define melt_sparebreakpoint_1(P,Msg) do{(void)(0 && (P));}while(0)
 #define melt_sparebreakpoint_2(P,Msg) do{(void)(0 && (P));}while(0)
-#endif /*ENABLE_CHECKING*/
+#endif /*MELT_HAVE_DEBUG*/
 
 /* strangely, gcc/input.h don't define yet that macro. */
 #define LOCATION_COLUMN(LOC) ((expand_location (LOC)).column)

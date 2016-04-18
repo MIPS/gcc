@@ -1,4 +1,11 @@
 
+2016-04-18   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{preparing for deprecation of ENABLE_CHECKING}}
+	* melt-runtime.h: Replace most occurrences of ENABLE_CHECKING with
+	MELT_HAVE_DEBUG. Temporarily forcing MELT_HAVE_DEBUG to be 1.
+	* melt-runtime.cc: Replace occurrences of ENABLE_CHECKING with
+	MELT_HAVE_DEBUG.
+
 2016-04-17   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/libmelt-ana-gimple.melt:
 	(gimple_transaction): Use gimple_transaction_label_norm.

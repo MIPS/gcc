@@ -167,13 +167,13 @@ const int melt_gccplugin_version = GCCPLUGIN_VERSION;
 const int melt_gccplugin_version = 0;
 #endif
 
-#if ENABLE_CHECKING
+#if MELT_HAVE_DEBUG
 /* For debugging purposes, used thru gdb.  */
 void *melt_alptr_1=NULL;
 void *melt_alptr_2=NULL;
 unsigned melt_objhash_1=0;
 unsigned melt_objhash_2=0;
-#endif /* ENABLE_CHECKING */
+#endif /* MELT_HAVE_DEBUG */
 
 int melt_count_runtime_extensions;
 
@@ -559,10 +559,10 @@ Melt_Module::~Melt_Module()
 
 
 Melt_CallProtoFrame* melt_top_call_frame =NULL;
-#if ENABLE_CHECKING
+#if MELT_HAVE_DEBUG
 FILE* Melt_CallProtoFrame::_dbgcall_file_ = NULL;
 long Melt_CallProtoFrame::_dbgcall_count_ = 0L;
-#endif /*ENABLE_CHECKING*/
+#endif /*MELT_HAVE_DEBUG*/
 
 /* The start routine of every MELT extension (dynamically loaded
    shared object to evaluate at runtime some expressions in a given
@@ -766,7 +766,7 @@ melt_intern_cstring (const char* s)
 }
 
 /*****************************************************************/
-#if ENABLE_CHECKING
+#if MELT_HAVE_DEBUG
 
 void melt_break_alptr_1_at (const char*msg, const char* fil, int line);
 void melt_break_alptr_2_at (const char*msg, const char* fil, int line);
@@ -810,7 +810,7 @@ melt_break_objhash_2_at (const char*msg, const char* fil, int line)
   fflush (stderr);
 }
 
-#endif /*ENABLE_CHECKING*/
+#endif /*MELT_HAVE_DEBUG*/
 
 /* The allocation & freeing of the young zone is a routine, for ease
    of debugging. */
@@ -829,7 +829,7 @@ melt_allocate_young_gc_zone (long wantedbytes)
                        (void*)melt_startalz, (void*)melt_endalz);
   /* You could put a breakpoint here under gdb! */
   gcc_assert (melt_startalz != NULL);
-#if ENABLE_CHECKING
+#if MELT_HAVE_DEBUG
   if (melt_alptr_1 && (char*)melt_alptr_1 >= (char*)melt_startalz
       && (char*)melt_alptr_1 < (char*)melt_endalz)
     {
@@ -850,7 +850,7 @@ melt_allocate_young_gc_zone (long wantedbytes)
                            melt_nb_garbcoll, melt_alptr_2);
       melt_break_alptr_2 ("allocate with alptr_2");
     };
-#endif /*ENABLE_CHECKING*/
+#endif /*MELT_HAVE_DEBUG*/
   return;
 }
 
@@ -861,7 +861,7 @@ melt_free_young_gc_zone (void)
   melt_debuggc_eprintf("freeing #%ld young zone %p-%p",
                        melt_nb_garbcoll,
                        (void*)melt_startalz, (void*)melt_endalz);
-#if ENABLE_CHECKING
+#if MELT_HAVE_DEBUG
   if (melt_alptr_1 && (char*)melt_alptr_1 >= (char*)melt_startalz
       && (char*)melt_alptr_1 < (char*)melt_endalz)
     {
@@ -882,7 +882,7 @@ melt_free_young_gc_zone (void)
                            melt_nb_garbcoll, melt_alptr_2);
       melt_break_alptr_2("free with alptr_2");
     };
-#endif /*ENABLE_CHECKING*/
+#endif /*MELT_HAVE_DEBUG*/
   free (melt_startalz);
   melt_startalz = melt_endalz = melt_curalz = NULL;
   melt_storalz = melt_initialstoralz = NULL;
@@ -1210,12 +1210,12 @@ melt_delete_specialdata (struct meltspecialdata_st *msd)
 }
 
 
-#ifdef ENABLE_CHECKING
+#ifdef MELT_HAVE_DEBUG
 /* only for debugging, to be set from the debugger */
 
 void *melt_checkedp_ptr1;
 void *melt_checkedp_ptr2;
-#endif /*ENABLE_CHECKING */
+#endif /*MELT_HAVE_DEBUG */
 
 
 
@@ -1223,7 +1223,7 @@ static void melt_scanning (melt_ptr_t);
 
 
 
-#if ENABLE_CHECKING
+#if MELT_HAVE_DEBUG
 /***
  * check our call frames
  ***/
@@ -1268,7 +1268,7 @@ melt_cbreak_at (const char *msg, const char *fil, int lin)
   gcc_assert (nbcbreak>0);  // useless, but you can put a GDB breakpoint here
 }
 
-#endif /*ENABLE_CHECKING*/
+#endif /*MELT_HAVE_DEBUG*/
 
 
 /* make a special value; return NULL if the discriminant is not special */
@@ -1298,7 +1298,7 @@ meltgc_make_special (melt_ptr_t discr_p)
       melt_newspecdatalist = (struct meltspecialdata_st*)specv;
       melt_debuggc_eprintf ("make_special data %p discr %p magic %d %s",
                             (void*)specv, (void*)discrv, magic, melt_obmag_string(magic));
-#if ENABLE_CHECKING
+#if MELT_HAVE_DEBUG
       if (melt_alptr_1 && (void*)melt_alptr_1 == specv)
         {
           fprintf (stderr, "meltgc_make_special data alptr_1 %p mag %d %s\n",
@@ -1313,7 +1313,7 @@ meltgc_make_special (melt_ptr_t discr_p)
           fflush (stderr);
           melt_break_alptr_2 ("meltgc_make_special data alptr_2");
         };
-#endif /*ENABLE_CHECKING*/
+#endif /*MELT_HAVE_DEBUG*/
     }
     break;
     default:
@@ -1352,7 +1352,7 @@ meltgc_make_specialdata (melt_ptr_t discr_p)
   melt_newspecdatalist = (struct meltspecialdata_st*)specv;
   melt_debuggc_eprintf ("make_specialdata %p discr %p magic %d %s",
                         (void*)specv, (void*)discrv, magic, melt_obmag_string(magic));
-#if ENABLE_CHECKING
+#if MELT_HAVE_DEBUG
   if (melt_alptr_1 && (void*)melt_alptr_1 == specv)
     {
       fprintf (stderr, "meltgc_make_specialdata alptr_1 %p mag %d %s\n",
@@ -1367,7 +1367,7 @@ meltgc_make_specialdata (melt_ptr_t discr_p)
       fflush (stderr);
       melt_break_alptr_2 ("meltgc_make_specialdata alptr_2");
     };
-#endif /*ENABLE_CHECKING*/
+#endif /*MELT_HAVE_DEBUG*/
 end:
   MELT_EXITFRAME();
   return spda_specv;
@@ -1471,7 +1471,7 @@ melt_delete_unmarked_new_specialdata (void)
       melt_debuggc_eprintf ("melt_delete_unmarked_new_specialdata specda %p has mark %d",
                             (void*) specda, specda->meltspec_mark);
 
-#if ENABLE_CHECKING
+#if MELT_HAVE_DEBUG
       if (melt_alptr_1 && (void*)melt_alptr_1 == (void*)specda)
         {
           unsigned mag = specda->discr->meltobj_magic;
@@ -1490,7 +1490,7 @@ melt_delete_unmarked_new_specialdata (void)
                                melt_nb_garbcoll, melt_alptr_2, mag);
           melt_break_alptr_2 ("garbcoll new specialdata alptr_2");
         }
-#endif /*ENABLE_CHECKING*/
+#endif /*MELT_HAVE_DEBUG*/
 
       if (!specda->meltspec_mark)
         {
@@ -1652,7 +1652,7 @@ melt_clear_old_specialdata (void)
       nextspecda = specda->meltspec_next;
       nboldspecdata++;
 
-#if ENABLE_CHECKING
+#if MELT_HAVE_DEBUG
       if (melt_alptr_1 && (void*)melt_alptr_1 == (void*)specda)
         {
           unsigned mag = specda->discr->meltobj_magic;
@@ -1671,7 +1671,7 @@ melt_clear_old_specialdata (void)
                                melt_nb_garbcoll, melt_alptr_2, mag);
           melt_break_alptr_2 ("melt_clear_old_specialdata oldmark special alptr_2");
         }
-#endif /* ENABLE_CHECKING */
+#endif /* MELT_HAVE_DEBUG */
     };
   return nboldspecdata;
 }
@@ -1689,7 +1689,7 @@ melt_delete_unmarked_old_specialdata (void)
     {
       nextspecda = specda->meltspec_next;
 
-#if ENABLE_CHECKING
+#if MELT_HAVE_DEBUG
       if (melt_alptr_1 && (void*)melt_alptr_1 == (void*)specda)
         {
           int mag = specda->discr->meltobj_magic;
@@ -1708,7 +1708,7 @@ melt_delete_unmarked_old_specialdata (void)
                                melt_nb_garbcoll, melt_alptr_2, mag);
           melt_break_alptr_2 ("melt_delete_unmarked_old_specialdata alptr_2");
         }
-#endif /*ENABLE_CHECKING*/
+#endif /*MELT_HAVE_DEBUG*/
 
       melt_debuggc_eprintf ("melt_delete_unmarked_old_specialdata deletespecloop old specp %p mark %d",
                             (void*)specda, specda->meltspec_mark);
@@ -3268,7 +3268,7 @@ meltgc_new_raw_object (meltobject_ptr_t klass_p, unsigned len)
   while (h == 0);
   obj_newobjv->obj_hash = h;
   obj_newobjv->obj_len = len;
-#if ENABLE_CHECKING
+#if MELT_HAVE_DEBUG
   if (melt_alptr_1 && (void*)melt_alptr_1 == (void*)newobjv)
     melt_break_alptr_1("newrawobj alptr_1");
   if (melt_alptr_2 && (void*)melt_alptr_2 == (void*)newobjv)
@@ -11606,10 +11606,10 @@ melt_dbgbacktrace (int depth)
         fprintf (stderr, " {%s} ", sloc);
       // for some reason, the checkruntime compilation don't like
       // that.  The bug is elsewehere, but we just avoid the code...
-#if ENABLE_CHECKING && !defined(GCCMELT_CHECKMELTRUNTIME)
+#if MELT_HAVE_DEBUG && !defined(GCCMELT_CHECKMELTRUNTIME)
       else if (cfr->dbg_file())
         fprintf (stderr, " [%s:%d]", cfr->dbg_file(), (int) cfr->dbg_line());
-#endif /*ENABLE_CHECKING*/
+#endif /*MELT_HAVE_DEBUG*/
       else
         fputs (" ", stderr);
       melt_ptr_t current = cfr->current();
@@ -11656,10 +11656,10 @@ melt_dbgshortbacktrace (const char *msg, int maxdepth)
         fprintf (stderr, "@%s ", sloc);
       // for some reason, the checkruntime fails here. The bug is
       // elsewhere, but we circumvent it...
-#if ENABLE_CHECKING  && !defined(GCCMELT_CHECKMELTRUNTIME)
+#if MELT_HAVE_DEBUG  && !defined(GCCMELT_CHECKMELTRUNTIME)
       else if (cfr->dbg_file())
         fprintf (stderr, " [%s:%d]", cfr->dbg_file(), (int) cfr->dbg_line());
-#endif /*ENABLE_CHECKING*/
+#endif /*MELT_HAVE_DEBUG*/
       if ((curclos= cfr->current_closure()) != NULL)
         {
           meltroutine_ptr_t curout = curclos->rout;
@@ -12942,7 +12942,7 @@ end:
 
 
 
-#if ENABLE_CHECKING
+#if MELT_HAVE_DEBUG
 /* some useless routines in wich we can add a breakpoint from gdb. */
 void
 melt_sparebreakpoint_0_at (const char*fil, int lin, void*ptr, const char*msg)
@@ -12992,7 +12992,7 @@ void melt_low_debug_for_gdb(const char*msg, melt_ptr_t val)
 }
 
 
-#endif /*ENABLE_CHECKING*/
+#endif /*MELT_HAVE_DEBUG*/
 
 
 
