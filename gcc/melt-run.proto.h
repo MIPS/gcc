@@ -49,10 +49,6 @@ along with GCC; see the file COPYING3.   If not see
 
 /* usual GCC middle-end includes, copied from melt-runtime.c */
 
-/* this is intended to pass -DDISABLE_CHECKING explicitly */
-#ifdef DISABLE_CHECKING
-#undef ENABLE_CHECKING
-#endif
 
 #include "system.h"
 #include "coretypes.h"

@@ -1,5 +1,8 @@
 
 2016-04-18   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-run.proto.h (DISABLE_CHECKING, ENABLE_CHECKING): Remove.
+
+2016-04-18   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerated all.
 
 2016-04-18   Basile Starynkevitch  <basile@starynkevitch.net>
