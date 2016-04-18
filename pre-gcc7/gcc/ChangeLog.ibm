@@ -1,5 +1,3 @@
-gcc/ChangeLog:
-
 2016-04-15  Kelvin Nilsen  <kelvin@gcc.gnu.org>
 
 	* config/rs6000/rs6000.h (RS6000_BTM_COMMON): Add the
