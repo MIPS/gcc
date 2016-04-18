@@ -199,6 +199,17 @@ is_a_helper <hsa_op_immed *>::test (hsa_op_base *p)
   return p->m_kind == BRIG_KIND_OPERAND_CONSTANT_BYTES;
 }
 
+/* Likewise, but for a more specified base. */
+
+template <>
+template <>
+inline bool
+is_a_helper <hsa_op_immed *>::test (hsa_op_with_type *p)
+{
+  return p->m_kind == BRIG_KIND_OPERAND_CONSTANT_BYTES;
+}
+
+
 /* HSA register operand.  */
 
 class hsa_op_reg : public hsa_op_with_type
@@ -1326,6 +1337,8 @@ BrigType16_t hsa_bittype_for_bitsize (unsigned bitsize);
 BrigType16_t hsa_uint_for_bitsize (unsigned bitsize);
 BrigType16_t hsa_float_for_bitsize (unsigned bitsize);
 BrigType16_t hsa_bittype_for_type (BrigType16_t t);
+BrigType16_t hsa_unsigned_type_for_type (BrigType16_t t);
+bool hsa_type_packed_p (BrigType16_t type);
 bool hsa_type_float_p (BrigType16_t type);
 bool hsa_type_integer_p (BrigType16_t type);
 bool hsa_btype_p (BrigType16_t type);
@@ -1340,6 +1353,9 @@ char *hsa_get_decl_kernel_mapping_name (unsigned i);
 unsigned hsa_get_decl_kernel_mapping_omp_size (unsigned i);
 bool hsa_get_decl_kernel_mapping_gridified (unsigned i);
 void hsa_free_decl_kernel_mapping (void);
+tree *hsa_get_ctor_statements (void);
+tree *hsa_get_dtor_statements (void);
+tree *hsa_get_kernel_dispatch_type (void);
 void hsa_add_kernel_dependency (tree caller, const char *called_function);
 void hsa_sanitize_name (char *p);
 char *hsa_brig_function_name (const char *p);

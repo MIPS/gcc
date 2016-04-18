@@ -1803,7 +1803,7 @@ emit_basic_insn (hsa_insn_basic *insn)
   repr.base.type = lendian16 (type);
   repr.base.operands = lendian32 (emit_insn_operands (insn));
 
-  if ((type & BRIG_TYPE_PACK_MASK) != BRIG_TYPE_PACK_NONE)
+  if (hsa_type_packed_p (type))
     {
       if (hsa_type_float_p (type)
 	  && !hsa_opcode_floating_bit_insn_p (insn->m_opcode))
@@ -2005,8 +2005,6 @@ hsa_brig_emit_omp_symbols (void)
   brig_init ();
   emit_directive_variable (hsa_num_threads);
 }
-
-static GTY(()) tree hsa_cdtor_statements[2];
 
 /* Create and return __hsa_global_variables symbol that contains
    all informations consumed by libgomp to link global variables
@@ -2408,6 +2406,7 @@ hsa_output_libgomp_mapping (tree brig_decl)
     = builtin_decl_explicit (BUILT_IN_GOMP_OFFLOAD_REGISTER);
   gcc_checking_assert (offload_register);
 
+  tree *hsa_ctor_stmts = hsa_get_ctor_statements ();
   append_to_statement_list
     (build_call_expr (offload_register, 4,
 		      build_int_cstu (unsigned_type_node,
@@ -2416,15 +2415,15 @@ hsa_output_libgomp_mapping (tree brig_decl)
 		      build_fold_addr_expr (hsa_libgomp_host_table),
 		      build_int_cst (integer_type_node, GOMP_DEVICE_HSA),
 		      build_fold_addr_expr (hsa_img_descriptor)),
-     &hsa_cdtor_statements[0]);
+     hsa_ctor_stmts);
 
-  cgraph_build_static_cdtor ('I', hsa_cdtor_statements[0],
-			     DEFAULT_INIT_PRIORITY);
+  cgraph_build_static_cdtor ('I', *hsa_ctor_stmts, DEFAULT_INIT_PRIORITY);
 
   tree offload_unregister
     = builtin_decl_explicit (BUILT_IN_GOMP_OFFLOAD_UNREGISTER);
   gcc_checking_assert (offload_unregister);
 
+  tree *hsa_dtor_stmts = hsa_get_dtor_statements ();
   append_to_statement_list
     (build_call_expr (offload_unregister, 4,
 		      build_int_cstu (unsigned_type_node,
@@ -2433,9 +2432,8 @@ hsa_output_libgomp_mapping (tree brig_decl)
 		      build_fold_addr_expr (hsa_libgomp_host_table),
 		      build_int_cst (integer_type_node, GOMP_DEVICE_HSA),
 		      build_fold_addr_expr (hsa_img_descriptor)),
-     &hsa_cdtor_statements[1]);
-  cgraph_build_static_cdtor ('D', hsa_cdtor_statements[1],
-			     DEFAULT_INIT_PRIORITY);
+     hsa_dtor_stmts);
+  cgraph_build_static_cdtor ('D', *hsa_dtor_stmts, DEFAULT_INIT_PRIORITY);
 }
 
 /* Emit the brig module we have compiled to a section in the final assembly and

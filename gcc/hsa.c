@@ -472,6 +472,22 @@ hsa_bittype_for_type (BrigType16_t t)
   return hsa_bittype_for_bitsize (hsa_type_bit_size (t));
 }
 
+/* Return HSA unsigned integer type with the same size as the type T.  */
+
+BrigType16_t
+hsa_unsigned_type_for_type (BrigType16_t t)
+{
+  return hsa_uint_for_bitsize (hsa_type_bit_size (t));
+}
+
+/* Return true if TYPE is a packed HSA type.  */
+
+bool
+hsa_type_packed_p (BrigType16_t type)
+{
+  return (type & BRIG_TYPE_PACK_MASK) != BRIG_TYPE_PACK_NONE;
+}
+
 /* Return true if and only if TYPE is a floating point number type.  */
 
 bool
@@ -694,6 +710,31 @@ hsa_add_kernel_dependency (tree caller, const char *called_function)
     s = *slot;
 
   s->safe_push (called_function);
+}
+
+/* Expansion to HSA needs a few gc roots to hold types, constructors etc.  In
+   order to minimize the number of GTY roots, we'll root them all in the
+   following array.  The individual elements should only be accessed by the
+   very simple getters (of a pointer-to-tree) below.  */
+
+static GTY(()) tree hsa_tree_gt_roots[3];
+
+tree *
+hsa_get_ctor_statements (void)
+{
+  return &hsa_tree_gt_roots[0];
+}
+
+tree *
+hsa_get_dtor_statements (void)
+{
+  return &hsa_tree_gt_roots[1];
+}
+
+tree *
+hsa_get_kernel_dispatch_type (void)
+{
+  return &hsa_tree_gt_roots[2];
 }
 
 /* Modify the name P in-place so that it is a valid HSA identifier.  */

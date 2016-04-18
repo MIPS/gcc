@@ -6541,11 +6541,14 @@ life-range analysis.  This option is effective only with
 
 @item -fno-branch-count-reg
 @opindex fno-branch-count-reg
-Do not use ``decrement and branch'' instructions on a count register,
-but instead generate a sequence of instructions that decrement a
-register, compare it against zero, then branch based upon the result.
-This option is only meaningful on architectures that support such
-instructions, which include x86, PowerPC, IA-64 and S/390.
+Avoid running a pass scanning for opportunities to use ``decrement and
+branch'' instructions on a count register instead of generating sequences
+of instructions that decrement a register, compare it against zero, and
+then branch based upon the result.  This option is only meaningful on
+architectures that support such instructions, which include x86, PowerPC,
+IA-64 and S/390.  Note that the @option{-fno-branch-count-reg} option
+doesn't remove the decrement and branch instructions from the generated
+instruction stream introduced by other optimization passes.
 
 Enabled by default at @option{-O1} and higher.
 
@@ -12884,12 +12887,10 @@ corresponding flag to the linker.
 @item -mno-low-precision-recip-sqrt
 @opindex -mlow-precision-recip-sqrt
 @opindex -mno-low-precision-recip-sqrt
-The square root estimate uses two steps instead of three for double-precision,
-and one step instead of two for single-precision.
-Thus reducing latency and precision.
-This is only relevant if @option{-ffast-math} activates
-reciprocal square root estimate instructions.
-Which in turn depends on the target processor.
+When calculating the reciprocal square root approximation,
+uses one less step than otherwise, thus reducing latency and precision.
+This is only relevant if @option{-ffast-math} enables the reciprocal square root
+approximation, which in turn depends on the target processor.
 
 @item -march=@var{name}
 @opindex march
@@ -13982,7 +13983,8 @@ Permissible names are: @samp{arm2}, @samp{arm250},
 @samp{cortex-a9}, @samp{cortex-a12}, @samp{cortex-a15}, @samp{cortex-a17},
 @samp{cortex-a32}, @samp{cortex-a35}, @samp{cortex-a53}, @samp{cortex-a57},
 @samp{cortex-a72}, @samp{cortex-r4},
-@samp{cortex-r4f}, @samp{cortex-r5}, @samp{cortex-r7}, @samp{cortex-m7},
+@samp{cortex-r4f}, @samp{cortex-r5}, @samp{cortex-r7}, @samp{cortex-r8},
+@samp{cortex-m7},
 @samp{cortex-m4},
 @samp{cortex-m3},
 @samp{cortex-m1},
