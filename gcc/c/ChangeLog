@@ -1,3 +1,51 @@
+2016-04-15  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70671
+	* c-typeck.c (build_unary_op): Pass location down to error and
+	warning call.
+
+2016-04-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/70436
+	* c-parser.c (c_parser_pragma): Add IF_P argument, pass it down
+	where needed.
+	(c_parser_external_declaration, c_parser_struct_or_union_specifier,
+	c_parser_parameter_declaration, c_parser_compound_statement_nostart,
+	c_parser_objc_class_instance_variables, c_parser_objc_methodprotolist):
+	Adjust c_parser_pragma callers.
+	(c_parser_statement_after_labels): Likewise.  Adjust c_parser_cilk_for
+	caller.
+	(c_parser_omp_structured_block): Add IF_P argument, pass it down to
+	c_parser_statement.
+	(c_parser_oacc_data, c_parser_oacc_host_data, c_parser_oacc_loop,
+	c_parser_oacc_kernels_parallel, c_parser_omp_critical,
+	c_parser_omp_simd, c_parser_omp_for, c_parser_omp_master,
+	c_parser_omp_ordered, c_parser_omp_parallel, c_parser_omp_single,
+	c_parser_omp_task, c_parser_omp_taskgroup, c_parser_omp_distribute,
+	c_parser_omp_teams, c_parser_omp_target_data, c_parser_omp_target,
+	c_parser_omp_taskloop, c_parser_omp_construct, c_parser_cilk_grainsize,
+	c_parser_cilk_simd, c_parser_cilk_for): Add IF_P argument, pass it
+	down where needed.
+	(c_parser_omp_for_loop): Likewise.  Clear IF_P if nbraces.
+	(c_parser_omp_sections_scope): Adjust c_parser_omp_structured_block
+	calls.
+
+2016-04-13  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70436
+	* c-parser.c (c_parser_statement_after_labels): Add IF_P argument and
+	adjust callers.
+	(c_parser_statement): Likewise.
+	(c_parser_c99_block_statement): Likewise.
+	(c_parser_while_statement): Likewise.
+	(c_parser_for_statement): Likewise.
+	(c_parser_if_body): Don't set IF_P here.
+	(c_parser_if_statement): Add IF_P argument.  Set IF_P here.  Warn
+	about dangling else here.
+	* c-tree.h (c_finish_if_stmt): Adjust declaration.
+	* c-typeck.c (c_finish_if_stmt): Remove NESTED_IF parameter.  Don't
+	warn about dangling else here.
+
 2016-04-04  Marek Polacek  <polacek@redhat.com>
 
 	PR c/70307

@@ -3346,7 +3346,6 @@ add_implicitly_declared_members (tree t, tree* access_decls,
       CLASSTYPE_LAZY_DEFAULT_CTOR (t) = 1;
       if (cxx_dialect >= cxx11)
 	TYPE_HAS_CONSTEXPR_CTOR (t)
-	  /* This might force the declaration.  */
 	  = type_has_constexpr_default_constructor (t);
     }
 
@@ -5349,8 +5348,11 @@ type_has_constexpr_default_constructor (tree t)
     {
       if (!TYPE_HAS_COMPLEX_DFLT (t))
 	return trivial_default_constructor_is_constexpr (t);
-      /* Non-trivial, we need to check subobject constructors.  */
-      lazily_declare_fn (sfk_constructor, t);
+      /* Assume it's constexpr to avoid unnecessary instantiation; if the
+	 definition would have made the class non-literal, it will still be
+	 non-literal because of the base or member in question, and that
+	 gives a better diagnostic.  */
+      return true;
     }
   fns = locate_ctor (t);
   return (fns && DECL_DECLARED_CONSTEXPR_P (fns));
@@ -8406,12 +8408,15 @@ is_really_empty_class (tree type)
       for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
 	if (TREE_CODE (field) == FIELD_DECL
 	    && !DECL_ARTIFICIAL (field)
+	    /* An unnamed bit-field is not a data member.  */
+	    && (DECL_NAME (field) || !DECL_C_BIT_FIELD (field))
 	    && !is_really_empty_class (TREE_TYPE (field)))
 	  return false;
       return true;
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
-    return is_really_empty_class (TREE_TYPE (type));
+    return (integer_zerop (array_type_nelts_top (type))
+	    || is_really_empty_class (TREE_TYPE (type)));
   return false;
 }
 

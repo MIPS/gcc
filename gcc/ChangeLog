@@ -1,3 +1,314 @@
+2016-04-15  Jason Merrill  <jason@redhat.com>
+	    Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/70594
+	* constexpr.c (constexpr_call_table): Preserve in GC.
+	(struct fundef_copy, struct fundef_copies_table_t):	Delete.
+	(fundef_copies_table): Preserve in GC. Change to pointer to
+	tree->tree hash.
+	(maybe_initialize_fundef_copies_table): Adjust.
+	(get_fundef_copy): Return a TREE_LIST.  Use non-inserting search.
+	(save_fundef_copy): Adjust for a TREE_LIST.
+	(cxx_eval_call_expression): Adjust for a fundef_copy TREE_LIST.
+	(fini_constexpr): New.
+	* cp-tree.h (fini_constexpr): Declare.
+	* decl2.c (c_parse_final_cleanups): Call fini_constexpr.
+
+2016-04-15  Alexander Monakov  <amonakov@ispras.ru>
+
+	* config/nvptx/nvptx.opt (moptimize): Add a period at end of help text.
+
+2016-04-15  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* doc/invoke.texi (ARM Options): Add note on deprecation of pre-ARMv4T
+	architecture revisions.
+
+2016-04-15  Bernd Schmidt  <bschmidt@redhat.com>
+
+	* config/i386/i386-protos.h (ix86_using_red_zone): Declare.
+	* config/i386/i386.c (ix86_using_red_zone): No longer static.
+	* config/i386/i386.md (stack decrement to push peepholes): Guard
+	with !x86_using_red_zone ().
+
+2016-04-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/70675
+	* tree-pretty-print.c (do_niy): Add FLAGS argument, pass it down
+	to dump_generic_node.
+	(NIY): Pass also flags to do_niy.
+
+2016-04-15  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* omp-low.c (simd_clone_struct_alloc, simd_clone_struct_copy)
+	(simd_clone_vector_of_formal_parm_types)
+	(simd_clone_clauses_extract, simd_clone_compute_base_data_type)
+	(simd_clone_mangle, simd_clone_create)
+	(simd_clone_adjust_return_type, create_tmp_simd_array)
+	(simd_clone_adjust_argument_types, simd_clone_init_simd_arrays)
+	(struct modify_stmt_info, ipa_simd_modify_stmt_ops)
+	(ipa_simd_modify_function_body, simd_clone_linear_addend)
+	(simd_clone_adjust, expand_simd_clones, ipa_omp_simd_clone)
+	(pass_data_omp_simd_clone, class pass_omp_simd_clone)
+	(pass_omp_simd_clone::gate, make_pass_omp_simd_clone): Move
+	into...
+	* omp-simd-clone.c: ... this new file.
+	(simd_clone_vector_of_formal_parm_types): Make it static.
+	* Makefile.in (OBJS): Add omp-simd-clone.o.
+
+2016-04-15  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	PR target/70662
+	* config/i386/sse.md: Use proper memory operand
+	modifiers.
+
+
+2016-04-15  Richard Biener  <rguenther@suse.de>
+	Alan Modra  <amodra@gmail.com>
+
+	PR tree-optimization/70130
+	* tree-vect-data-refs.c (vect_supportable_dr_alignment): Detect
+	when alignment stays not the same and no not use the realign
+	scheme then.
+
+2016-04-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/70669
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Add
+	direct move handlers for KFmode. Change TFmode handlers test from
+	FLOAT128_IEEE_P to FLOAT128_VECTOR_P.
+
+2016-04-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/70594
+	* ipa-utils.h (polymorphic_ctor_dtor_p): New prototype.
+	* ipa-polymorphic-call.c (polymorphic_ctor_dtor_p): New function.
+	(inlined_polymorphic_ctor_dtor_block_p): Use it.
+	* tree-ssa-live.c (remove_unused_scope_block_p): When
+	in_ctor_dtor_block, avoid discarding not just BLOCKs with
+	BLOCK_ABSTRACT_ORIGIN being FUNCTION_DECL, but even when
+	block_ultimate_origin is FUNCTION_DECL.
+	(remove_unused_locals): If current_function_decl is
+	polymorphic_ctor_dtor_p, pass initial true to
+	remove_unused_scope_block_p' is_ctor_dtor_block.
+
+2016-04-14  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/69517
+	PR c++/70019
+	PR c++/70588
+	* doc/extend.texi (Variable Length): Revert.
+
+2016-04-14  Marek Polacek  <polacek@redhat.com>
+	    Jan Hubicka  <hubicka@ucw.cz>
+
+	PR c++/70029
+	* tree.c (verify_type): Disable the canonical type of main variant
+	check.
+
+2016-04-14  Jason Merrill  <jason@redhat.com>
+
+	* cfgexpand.c, expr.c: Revert previous change.
+
+2016-04-14  Cesar Philippidis  <cesar@codesourcery.com>
+
+	PR middle-end/70643
+	* omp-low.c (lower_oacc_reductions): Check for TREE_CONSTANT
+	when building a mem ref for the incoming reduction variable.
+
+2016-04-14  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70614
+	* tree-scalar-evolution.c (analyze_evolution_in_loop): Terminate
+	loop if the evolution dropped to chrec_dont_know.
+	(interpret_condition_phi): Likewise.
+
+2016-04-14  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70623
+	* tree-ssa-pre.c (changed_blocks): Make global ...
+	(compute_antic): ... local here.  Move and fix worklist
+	handling here.  Do not clear EDGE_DFS_BACK or call mark_dfs_back_edges.
+	(compute_antic_aux): Add dumping for MAX assumed succs.  Remove
+	worklist handling, dump when ANTIC_IN changed.
+	(compute_partial_antic_aux): Remove worklist handling.
+	(init_pre): Do not compute post dominators.  Add a comment about
+	the CFG order chosen.
+	(fini_pre): Do not free post dominators.
+
+2016-04-13  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/69517
+	PR c++/70019
+	PR c++/70588
+	* doc/extend.texi (Variable Length): Document C++ specifics.
+
+2016-04-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/70641
+	* ipa-pure-const.c (pass_nothrow::execute): Call maybe_clean_eh_stmt
+	on all recursive call stmts.  Return TODO_cleanup_cfg if any dead
+	eh edges have been purged.
+
+	PR c++/70594
+	* tree-sra.c (create_access_replacement,
+	get_replaced_param_substitute): Set DECL_NAMELESS on repl if it
+	gets fancy name.
+	* tree-pretty-print.c (dump_fancy_name): New function.
+	(dump_decl_name, dump_generic_node): Use it.
+
+2016-04-13  Jason Merrill  <jason@redhat.com>
+
+	* cfgexpand.c (pass_expand::execute): Handle attribute "abi warning".
+	* expr.c (expand_expr_real_1): Likewise.
+
+2016-04-13  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* config/i386/i386.md (kunpckhi): Swap operands.
+	(kunpcksi): Likewise.
+	(kunpckdi): Likewise.
+	* config/i386/sse.md (vec_pack_trunc_qi): Likewise.
+	(vec_pack_trunc_<mode>): Likewise.
+
+2016-04-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/70628
+	* explow.c (convert_memory_address_addr_space_1): Formatting fix.
+
+	PR middle-end/70633
+	* gimplify.c (gimplify_init_constructor): Clear TREE_STATIC if
+	gimplification turns some element into non-constant.
+
+	PR debug/70628
+	* rtl.h (convert_memory_address_addr_space_1): New prototype.
+	* explow.c (convert_memory_address_addr_space_1): No longer static,
+	add NO_EMIT argument and don't call convert_modes if true, pass
+	it down recursively, remove break after return.
+	(convert_memory_address_addr_space): Adjust caller.
+	* simplify-rtx.c (simplify_unary_operation_1): Call
+	convert_memory_address_addr_space_1 instead of convert_memory_address,
+	if it returns NULL, don't simplify.
+
+2016-04-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/70630
+	* config/sparc/sparc.c (sparc_compute_frame_size): Add parentheses.
+
+2016-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (ix86_simd_clone_compute_vecsize_and_simdlen):
+	Bump the upper SIMDLEN limits, so that if the return type or
+	characteristic type if the return type is void can be passed in
+	all available SSE2/AVX/AVX2/AVX512-F registers, the SIMDLEN is
+	allowed.
+
+2016-04-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/70640
+	* config/rs6000/rs6000.md (ieee_128bit_vsx_neg<mode>2_internal):
+	Do not use "=" constraint on an input constraint.
+	(ieee_128bit_vsx_abs<mode>2_internal): Likewise.
+	(ieee_128bit_vsx_nabs<mode>2_internal): Likewise.
+	(ieee_128bit_vsx_nabs<mode>2): Correct splitter so that it
+	generates (neg (abs ...)) instead of (abs ...).
+
+2016-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/70596
+	* lra-spills.c (spill_pseudos): Don't delete debug insns, instead
+	just invalidate LRA data and reset them.  Adjust dump wording.
+
+2016-04-12  Martin Liska  <mliska@suse.cz>
+
+	Revert
+	2016-03-30  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-ssa-loop-niter.c (idx_infer_loop_bounds): We can't get realistic
+	estimates here.
+	* tree-ssa-loop-unswitch.c (tree_unswitch_single_loop): Use also
+	max_loop_iterations_int.
+	(tree_unswitch_outer_loop): Likewise.
+	* tree-ssa-loop-ivopts.c (avg_loop_niter): Likewise.
+	* tree-vect-loop.c (vect_analyze_loop_2): Likewise.
+
+2016-04-12  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/68756
+	* graphite-isl-ast-to-gimple.c (copy_cond_phi_args): Use new_expr
+	instead of new_name.
+
+2016-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/70602
+	* tree-sra.c (generate_subtree_copies): Don't write anything into
+	constant pool decls.
+
+	* omp-low.c (lower_omp_target): Use GOMP_MAP_FIRSTPRIVATE_INT
+	regardless whether there are depend clauses or not.
+
+2016-04-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/70381
+	* config/rs6000/rs6000.c (rs6000_opt_masks): Disable using the
+	target attribute and pragma from changing the -mfloat128
+	and -mfloat128-hardware options.
+
+	* doc/extend.texi (Additional Floating Types): Document PowerPC
+	__float128 restrictions.
+
+2016-04-11  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	PR target/70133
+	* config/aarch64/driver-aarch64.c
+	(aarch64_get_extension_string_for_isa_flags): New.
+	(arch_extension): Rename to...
+	(aarch64_arch_extension): ...This.
+	(ext_to_feat_string): Rename to...
+	(aarch64_extensions): ...This.
+	(aarch64_core_data): Keep track of architecture extension flags.
+	(cpu_data): Rename to...
+	(aarch64_cpu_data): ...This.
+	(aarch64_arch_driver_info): Keep track of architecture extension
+	flags.
+	(get_arch_name_from_id): Rename to...
+	(get_arch_from_id): ...This, change return type.
+	(host_detect_local_cpu): Update and reformat for renames, handle
+	extensions through common infrastructure.
+
+2016-04-11  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	PR target/70133
+	* config/aarch64/aarch64-common.c (aarch64_option_extension): Keep
+	track of a canonical flag name.
+	(all_extensions): Likewise.
+	(arch_to_arch_name): Also track extension flags enabled by the arch.
+	(all_architectures): Likewise.
+	(aarch64_parse_extension): Move to here.
+	(aarch64_get_extension_string_for_isa_flags): Take a new argument,
+	rework.
+	(aarch64_rewrite_selected_cpu): Update for above change.
+	* config/aarch64/aarch64-option-extensions.def: Rework the way flags
+	are handled, such that the single explicit value enabled by an
+	extension is kept seperate from the implicit values it also enables.
+	* config/aarch64/aarch64-protos.h (aarch64_parse_opt_result): Move
+	to here.
+	(aarch64_parse_extension): New.
+	* config/aarch64/aarch64.c (aarch64_parse_opt_result): Move from
+	here to config/aarch64/aarch64-protos.h.
+	(aarch64_parse_extension): Move from here to
+	common/config/aarch64/aarch64-common.c.
+	(aarch64_option_print): Update.
+	(aarch64_declare_function_name): Likewise.
+	(aarch64_start_file): Likewise.
+	* config/aarch64/driver-aarch64.c (arch_extension): Keep track of
+	the canonical flag for extensions.
+	* config.gcc (aarch64*-*-*): Extend regex for capturing extension
+	flags.
+
+2016-04-11  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64.h (AARCH64_FL_FOR_ARCH8_1): Also add
+	AARCH64_FL_CRC.
+
 2016-04-09  Tom de Vries  <tom@codesourcery.com>
 
 	PR tree-optimization/68953
