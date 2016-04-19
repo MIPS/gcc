@@ -373,4 +373,6 @@ extern mulsidi3_gen_fn mips_mulsidi3_gen_fn (enum rtx_code);
 
 extern void mips_register_frame_header_opt (void);
 
+extern bool mips_valid_hi_offset_p (rtx);
+extern bool mips_valid_lo_offset_p (rtx, rtx);
 #endif /* ! GCC_MIPS_PROTOS_H */

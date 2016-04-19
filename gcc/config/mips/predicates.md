@@ -371,8 +371,13 @@
 
     case HIGH:
       op = XEXP (op, 0);
-      return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &symbol_type)
+
+      return (mips_valid_hi_offset_p (op)
+	      && mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &symbol_type)
 	      && !mips_split_hi_p[symbol_type]);
+
+    case LO_SUM:
+      return mips_valid_lo_offset_p (XEXP (op, 1), XEXP (op, 0));
 
     default:
       return true;
