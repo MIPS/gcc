@@ -1,3 +1,7 @@
+2016-04-19  Martin Liska  <mliska@suse.cz>
+
+	* doc/install.texi: Remove entry about --with-hsa-kmt-lib.
+
 2016-03-31  Martin Liska  <mliska@suse.cz>
 
 	* hsa-gen.c (hsa_bb::append_phi): New function.

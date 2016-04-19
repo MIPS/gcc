@@ -1,3 +1,31 @@
+2016-04-19  Martin Liska  <mliska@suse.cz>
+
+	* config.h.in: Introduce HSA_RUNTIME_LIB.
+	* configure: Regerenated.
+	* hsa.h: New file.
+	* hsa_ext_finalize.h: New file.
+	* plugin/configfrag.ac: Remove hsa-kmt-lib test.
+	* plugin/plugin-hsa.c (struct hsa_runtime_fn_info): New
+	structure.
+	(init_enviroment_variables): Load newly introduced ENV
+	variables.
+	(hsa_warn): Call a function via hsa_fns data structure.
+	(hsa_fatal): Likewise.
+	(init_hsa_runtime_functions): Likewise.
+	(suitable_hsa_agent_p): Likewise.
+	(init_hsa_context): Likewise.
+	(get_kernarg_memory_region): Likewise.
+	(GOMP_OFFLOAD_init_device): Likewise.
+	(destroy_hsa_program): Likewise.
+	(create_and_finalize_hsa_program): Likewise.
+	(create_single_kernel_dispatch): Likewise.
+	(release_kernel_dispatch): Likewise.
+	(init_single_kernel): Likewise.
+	(GOMP_OFFLOAD_run): Likewise.
+	(GOMP_OFFLOAD_fini_device): Likewise.
+	* testsuite/lib/libgomp.exp: Remove hsa_kmt_lib support.
+	* testsuite/libgomp-test-support.exp.in: Likewise.
+
 2016-01-13  Martin Liska  <mliska@suse.cz>
             Martin Jambor  <mjambor@suse.cz>
 
