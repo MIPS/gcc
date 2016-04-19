@@ -203,10 +203,10 @@ program reduction_2
      vresult = min (vresult, array(i))
   end do
 
-  if (abs (rg - vresult) .ge. e) call abort
-  if (abs (rw - vresult) .ge. e) call abort
-  if (abs (rv - vresult) .ge. e) call abort
-  if (abs (rc - vresult) .ge. e) call abort
+  if (rg .ne. vresult) call abort
+  if (rv .ne. vresult) call abort
+  if (rw .ne. vresult) call abort
+  if (rc .ne. vresult) call abort
 
   !
   ! '.and.' reductions

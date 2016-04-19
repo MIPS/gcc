@@ -6,7 +6,7 @@
 int main ()
 {
   int dummy[10];
-  
+
 #pragma acc parallel num_workers (2<<20) /* { dg-error "using num_workers" } */
   {
 #pragma acc loop worker

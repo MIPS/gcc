@@ -5655,8 +5655,7 @@ instantiate_non_dependent_expr_sfinae (tree expr, tsubst_flags_t complain)
 
      as two declarations of the same function, for example.  */
   if (processing_template_decl
-      && !instantiation_dependent_expression_p (expr)
-      && potential_constant_expression (expr))
+      && potential_nondependent_constant_expression (expr))
     {
       processing_template_decl_sentinel s;
       expr = instantiate_non_dependent_expr_internal (expr, complain);
@@ -5680,8 +5679,7 @@ instantiate_non_dependent_or_null (tree expr)
     return NULL_TREE;
   if (processing_template_decl)
     {
-      if (instantiation_dependent_expression_p (expr)
-	  || !potential_constant_expression (expr))
+      if (!potential_nondependent_constant_expression (expr))
 	expr = NULL_TREE;
       else
 	{
@@ -6240,10 +6238,8 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
   if (TYPE_REF_OBJ_P (type)
       && has_value_dependent_address (expr))
     /* If we want the address and it's value-dependent, don't fold.  */;
-  else if (!type_unknown_p (expr)
-	   && processing_template_decl
-	   && !instantiation_dependent_expression_p (expr)
-	   && potential_constant_expression (expr))
+  else if (processing_template_decl
+	   && potential_nondependent_constant_expression (expr))
     non_dep = true;
   if (error_operand_p (expr))
     return error_mark_node;
@@ -21746,7 +21742,8 @@ instantiate_decl (tree d, int defer_ok,
   if (TREE_CODE (d) == FUNCTION_DECL)
     {
       deleted_p = DECL_DELETED_FN (code_pattern);
-      pattern_defined = (DECL_SAVED_TREE (code_pattern) != NULL_TREE
+      pattern_defined = ((DECL_SAVED_TREE (code_pattern) != NULL_TREE
+			  && DECL_INITIAL (code_pattern) != error_mark_node)
 			 || DECL_DEFAULTED_OUTSIDE_CLASS_P (code_pattern)
 			 || deleted_p);
     }
@@ -22678,6 +22675,7 @@ value_dependent_expression_p (tree expression)
 	  && (TREE_CODE (DECL_INITIAL (expression)) == TREE_LIST
 	      /* cp_finish_decl doesn't fold reference initializers.  */
 	      || TREE_CODE (TREE_TYPE (expression)) == REFERENCE_TYPE
+	      || type_dependent_expression_p (DECL_INITIAL (expression))
 	      || value_dependent_expression_p (DECL_INITIAL (expression))))
 	return true;
       return false;
@@ -22728,7 +22726,7 @@ value_dependent_expression_p (tree expression)
         return true;
       else if (TYPE_P (expression))
 	return dependent_type_p (expression);
-      return instantiation_dependent_expression_p (expression);
+      return instantiation_dependent_uneval_expression_p (expression);
 
     case AT_ENCODE_EXPR:
       /* An 'encode' expression is value-dependent if the operand is
@@ -22738,7 +22736,7 @@ value_dependent_expression_p (tree expression)
 
     case NOEXCEPT_EXPR:
       expression = TREE_OPERAND (expression, 0);
-      return instantiation_dependent_expression_p (expression);
+      return instantiation_dependent_uneval_expression_p (expression);
 
     case SCOPE_REF:
       /* All instantiation-dependent expressions should also be considered
@@ -23109,13 +23107,6 @@ instantiation_dependent_r (tree *tp, int *walk_subtrees,
     case TREE_VEC:
       return NULL_TREE;
 
-    case VAR_DECL:
-    case CONST_DECL:
-      /* A constant with a dependent initializer is dependent.  */
-      if (value_dependent_expression_p (*tp))
-	return *tp;
-      break;
-
     case TEMPLATE_PARM_INDEX:
       return *tp;
 
@@ -23140,12 +23131,6 @@ instantiation_dependent_r (tree *tp, int *walk_subtrees,
 	  }
 	break;
       }
-
-    case TRAIT_EXPR:
-      if (value_dependent_expression_p (*tp))
-	return *tp;
-      *walk_subtrees = false;
-      return NULL_TREE;
 
     case COMPONENT_REF:
       if (identifier_p (TREE_OPERAND (*tp, 1)))
@@ -23197,10 +23182,15 @@ instantiation_dependent_r (tree *tp, int *walk_subtrees,
 
    "An expression is instantiation-dependent if it is type-dependent
    or value-dependent, or it has a subexpression that is type-dependent
-   or value-dependent."  */
+   or value-dependent."
+
+   Except don't actually check value-dependence for unevaluated expressions,
+   because in sizeof(i) we don't care about the value of i.  Checking
+   type-dependence will in turn check value-dependence of array bounds/template
+   arguments as needed.  */
 
 bool
-instantiation_dependent_expression_p (tree expression)
+instantiation_dependent_uneval_expression_p (tree expression)
 {
   tree result;
 
@@ -23213,6 +23203,15 @@ instantiation_dependent_expression_p (tree expression)
   result = cp_walk_tree_without_duplicates (&expression,
 					    instantiation_dependent_r, NULL);
   return result != NULL_TREE;
+}
+
+/* As above, but also check value-dependence of the expression as a whole.  */
+
+bool
+instantiation_dependent_expression_p (tree expression)
+{
+  return (instantiation_dependent_uneval_expression_p (expression)
+	  || value_dependent_expression_p (expression));
 }
 
 /* Like type_dependent_expression_p, but it also works while not processing
@@ -23602,9 +23601,9 @@ resolve_typename_type (tree type, bool only_current_p)
     {
       /* Ill-formed programs can cause infinite recursion here, so we
 	 must catch that.  */
-      TYPENAME_IS_RESOLVING_P (type) = 1;
+      TYPENAME_IS_RESOLVING_P (result) = 1;
       result = resolve_typename_type (result, only_current_p);
-      TYPENAME_IS_RESOLVING_P (type) = 0;
+      TYPENAME_IS_RESOLVING_P (result) = 0;
     }
   
   /* Qualify the resulting type.  */

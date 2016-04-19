@@ -3384,9 +3384,10 @@ scalar_chain::convert_reg (unsigned regno)
   BITMAP_FREE (conv);
 }
 
-/* Convert operand OP in INSN.  All register uses
-   are converted during registers conversion.
-   Therefore we should just handle memory operands.  */
+/* Convert operand OP in INSN.  We should handle
+   memory operands and uninitialized registers.
+   All other register uses are converted during
+   registers conversion.  */
 
 void
 scalar_chain::convert_op (rtx *op, rtx_insn *insn)
@@ -3467,6 +3468,8 @@ scalar_chain::convert_insn (rtx_insn *insn)
       break;
 
     case REG:
+      if (!MEM_P (dst))
+	convert_op (&src, insn);
       break;
 
     case SUBREG:
@@ -3706,7 +3709,7 @@ make_pass_stv (gcc::context *ctxt)
 
 /* Return true if a red-zone is in use.  */
 
-static inline bool
+bool
 ix86_using_red_zone (void)
 {
   return TARGET_RED_ZONE && !TARGET_64BIT_MS_ABI;
@@ -53744,7 +53747,7 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
   return val;
 }
 
-/* Set CLONEI->vecsize_mangle, CLONEI->vecsize_int,
+/* Set CLONEI->vecsize_mangle, CLONEI->mask_mode, CLONEI->vecsize_int,
    CLONEI->vecsize_float and if CLONEI->simdlen is 0, also
    CLONEI->simdlen.  Return 0 if SIMD clones shouldn't be emitted,
    or number of vecsize_mangle variants that should be emitted.  */
@@ -53758,7 +53761,7 @@ ix86_simd_clone_compute_vecsize_and_simdlen (struct cgraph_node *node,
 
   if (clonei->simdlen
       && (clonei->simdlen < 2
-	  || clonei->simdlen > 16
+	  || clonei->simdlen > 1024
 	  || (clonei->simdlen & (clonei->simdlen - 1)) != 0))
     {
       warning_at (DECL_SOURCE_LOCATION (node->decl), 0,
@@ -53816,7 +53819,9 @@ ix86_simd_clone_compute_vecsize_and_simdlen (struct cgraph_node *node,
     {
       /* If the function isn't exported, we can pick up just one ISA
 	 for the clones.  */
-      if (TARGET_AVX2)
+      if (TARGET_AVX512F)
+	clonei->vecsize_mangle = 'e';
+      else if (TARGET_AVX2)
 	clonei->vecsize_mangle = 'd';
       else if (TARGET_AVX)
 	clonei->vecsize_mangle = 'c';
@@ -53826,9 +53831,10 @@ ix86_simd_clone_compute_vecsize_and_simdlen (struct cgraph_node *node,
     }
   else
     {
-      clonei->vecsize_mangle = "bcd"[num];
-      ret = 3;
+      clonei->vecsize_mangle = "bcde"[num];
+      ret = 4;
     }
+  clonei->mask_mode = VOIDmode;
   switch (clonei->vecsize_mangle)
     {
     case 'b':
@@ -53843,6 +53849,14 @@ ix86_simd_clone_compute_vecsize_and_simdlen (struct cgraph_node *node,
       clonei->vecsize_int = 256;
       clonei->vecsize_float = 256;
       break;
+    case 'e':
+      clonei->vecsize_int = 512;
+      clonei->vecsize_float = 512;
+      if (TYPE_MODE (base_type) == QImode)
+	clonei->mask_mode = DImode;
+      else
+	clonei->mask_mode = SImode;
+      break;
     }
   if (clonei->simdlen == 0)
     {
@@ -53851,9 +53865,31 @@ ix86_simd_clone_compute_vecsize_and_simdlen (struct cgraph_node *node,
       else
 	clonei->simdlen = clonei->vecsize_float;
       clonei->simdlen /= GET_MODE_BITSIZE (TYPE_MODE (base_type));
-      if (clonei->simdlen > 16)
-	clonei->simdlen = 16;
     }
+  else if (clonei->simdlen > 16)
+    {
+      /* For compatibility with ICC, use the same upper bounds
+	 for simdlen.  In particular, for CTYPE below, use the return type,
+	 unless the function returns void, in that case use the characteristic
+	 type.  If it is possible for given SIMDLEN to pass CTYPE value
+	 in registers (8 [XYZ]MM* regs for 32-bit code, 16 [XYZ]MM* regs
+	 for 64-bit code), accept that SIMDLEN, otherwise warn and don't
+	 emit corresponding clone.  */
+      tree ctype = ret_type;
+      if (TREE_CODE (ret_type) == VOID_TYPE)
+	ctype = base_type;
+      int cnt = GET_MODE_BITSIZE (TYPE_MODE (ctype)) * clonei->simdlen;
+      if (SCALAR_INT_MODE_P (TYPE_MODE (ctype)))
+	cnt /= clonei->vecsize_int;
+      else
+	cnt /= clonei->vecsize_float;
+      if (cnt > (TARGET_64BIT ? 16 : 8))
+	{
+	  warning_at (DECL_SOURCE_LOCATION (node->decl), 0,
+		      "unsupported simdlen %d", clonei->simdlen);
+	  return 0;
+	}
+      }
   return ret;
 }
 
@@ -53877,6 +53913,10 @@ ix86_simd_clone_adjust (struct cgraph_node *node)
     case 'd':
       if (!TARGET_AVX2)
 	str = "avx2";
+      break;
+    case 'e':
+      if (!TARGET_AVX512F)
+	str = "avx512f";
       break;
     default:
       gcc_unreachable ();
@@ -53915,6 +53955,10 @@ ix86_simd_clone_usable (struct cgraph_node *node)
       break;
     case 'd':
       if (!TARGET_AVX2)
+	return -1;
+      return 0;
+    case 'e':
+      if (!TARGET_AVX512F)
 	return -1;
       return 0;
     default:

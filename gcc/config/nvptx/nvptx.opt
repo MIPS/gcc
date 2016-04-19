@@ -31,7 +31,7 @@ Link in code for a __main kernel.
 
 moptimize
 Target Report Var(nvptx_optimize) Init(-1)
-Optimize partition neutering
+Optimize partition neutering.
 
 Enum
 Name(ptx_isa) Type(int)
@@ -45,4 +45,4 @@ Enum(ptx_isa) String(sm_35) Value(PTX_ISA_SM35)
 
 misa=
 Target RejectNegative ToLower Joined Enum(ptx_isa) Var(ptx_isa_option) Init(PTX_ISA_SM30)
-Specify the version of the ptx ISA to use
+Specify the version of the ptx ISA to use.

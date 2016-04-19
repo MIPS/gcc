@@ -259,7 +259,7 @@ void v_p_1()
 	#pragma acc loop vector reduction(+:res)
 	for (i = 0; i < 32; i++)
 	  res += arr[j * 32 + i];
-	
+
 	out[j] = res;
       }
   }
@@ -267,7 +267,7 @@ void v_p_1()
   for (j = 0; j < 32; j++)
     {
       hres = 0;
-      
+
       for (i = 0; i < 32; i++)
 	hres += arr[j * 32 + i];
 
@@ -336,7 +336,7 @@ void w_p_1()
 	#pragma acc loop worker reduction(+:res)
 	for (i = 0; i < 32; i++)
 	  res += arr[j * 32 + i];
-	
+
 	out[j] = res;
       }
   }
@@ -344,7 +344,7 @@ void w_p_1()
   for (j = 0; j < 32; j++)
     {
       hres = 0;
-      
+
       for (i = 0; i < 32; i++)
 	hres += arr[j * 32 + i];
 
@@ -374,7 +374,7 @@ void wv_p_1()
 	#pragma acc loop worker vector reduction(+:res)
 	for (i = 0; i < 32; i++)
 	  res += arr[j * 32 + i];
-	
+
 	out[j] = res;
       }
   }
@@ -382,7 +382,7 @@ void wv_p_1()
   for (j = 0; j < 32; j++)
     {
       hres = 0;
-      
+
       for (i = 0; i < 32; i++)
 	hres += arr[j * 32 + i];
 
@@ -424,7 +424,7 @@ void wv_p_2()
   for (j = 0; j < 32; j++)
     {
       hres = j;
-      
+
       for (i = 0; i < 1024; i++)
 	hres += arr[j * 1024 + i] * 2;
 
@@ -454,7 +454,7 @@ void wv_p_3()
     #pragma acc loop worker vector reduction(+:res)
     for (i = 0; i < 1024; i++)
       res += arr[i];
-    
+
     #pragma acc loop gang (static: 1)
     for (i = 0; i < 32; i++)
       out[i] = res;

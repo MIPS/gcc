@@ -1,19 +1,10 @@
-program reduction
-  integer, parameter    :: n = 40, c = 10
-  integer               :: i, sum
+! { dg-do compile }
 
-  call redsub (sum, n, c)
-end program reduction
+subroutine foo (ia1)
+integer :: i1, i2
 
-subroutine redsub(sum, n, c)
-  integer :: sum, n, c
-
-  sum = 0
-
-  !$acc parallel vector_length(n) copyin (n, c)
-  !$acc loop vector reduction(+:sum)
-  do i = 1, n
-     sum = sum + c
-  end do
-  !$acc end parallel
-end subroutine redsub
+!$acc parallel reduction (+:i1) private(i1) ! { dg-error "invalid private reduction on .i1." }
+!$acc end parallel
+!$acc parallel reduction (+:i2) firstprivate(i2) ! { dg-error "invalid private reduction on .i2." }
+!$acc end parallel
+end subroutine foo

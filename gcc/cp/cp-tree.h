@@ -2526,12 +2526,14 @@ struct GTY(()) lang_decl {
 
   */
 #define FOR_EACH_CLONE(CLONE, FN)			\
-  if (TREE_CODE (FN) == FUNCTION_DECL			\
-      && (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (FN)	\
-	  || DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (FN)))	\
-     for (CLONE = DECL_CHAIN (FN);			\
-	  CLONE && DECL_CLONED_FUNCTION_P (CLONE);	\
-	  CLONE = DECL_CHAIN (CLONE))
+  if (!(TREE_CODE (FN) == FUNCTION_DECL			\
+	&& (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (FN)	\
+	    || DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (FN))))\
+    ;							\
+  else							\
+    for (CLONE = DECL_CHAIN (FN);			\
+	 CLONE && DECL_CLONED_FUNCTION_P (CLONE);	\
+	 CLONE = DECL_CHAIN (CLONE))
 
 /* Nonzero if NODE has DECL_DISCRIMINATOR and not DECL_ACCESS.  */
 #define DECL_DISCRIMINATOR_P(NODE)	\
@@ -5525,42 +5527,6 @@ extern cp_parameter_declarator *no_parameters;
 /* True if we saw "#pragma GCC java_exceptions".  */
 extern bool pragma_java_exceptions;
 
-/* Data structure for a mapping from tree to tree that's only used as a cache;
-   we don't GC-mark trees in the map, and we clear the map when collecting
-   garbage.  Global variables of this type must be marked
-   GTY((cache,deletable)) so that the gt_cleare_cache function is called by
-   ggc_collect but we don't try to load the map pointer from a PCH.
-
-   FIXME improve to use keep_cache_entry.  */
-class cache_map
-{
-  /* Use a lazily initialized pointer rather than a map member since a
-     hash_map can't be constructed in a static initializer.  */
-  hash_map<tree, tree> *map;
-
-public:
-  tree get (tree key)
-  {
-    if (map)
-      if (tree *slot = map->get (key))
-	return *slot;
-    return NULL_TREE;
-  }
-
-  bool put (tree key, tree val)
-  {
-    if (!map)
-      map = new hash_map<tree, tree>;
-    return map->put (key, val);
-  }
-
-  friend inline void gt_cleare_cache (cache_map &cm)
-  {
-    if (cm.map)
-      cm.map->empty();
-  }
-};
-
 /* in call.c */
 extern bool check_dtor_name			(tree, tree);
 int magic_varargs_p				(tree);
@@ -6162,6 +6128,7 @@ extern bool any_type_dependent_elements_p       (const_tree);
 extern bool type_dependent_expression_p_push	(tree);
 extern bool value_dependent_expression_p	(tree);
 extern bool instantiation_dependent_expression_p (tree);
+extern bool instantiation_dependent_uneval_expression_p (tree);
 extern bool any_value_dependent_elements_p      (const_tree);
 extern bool dependent_omp_for_p			(tree, tree, tree, tree);
 extern tree resolve_typename_type		(tree, bool);
@@ -6914,11 +6881,14 @@ bool cilkplus_an_triplet_types_ok_p             (location_t, tree, tree, tree,
 						 tree);
 
 /* In constexpr.c */
+extern void fini_constexpr			(void);
 extern bool literal_type_p                      (tree);
 extern tree register_constexpr_fundef           (tree, tree);
 extern bool check_constexpr_ctor_body           (tree, tree, bool);
 extern tree ensure_literal_type_for_constexpr_object (tree);
 extern bool potential_constant_expression       (tree);
+extern bool potential_nondependent_constant_expression (tree);
+extern bool potential_nondependent_static_init_expression (tree);
 extern bool potential_static_init_expression    (tree);
 extern bool potential_rvalue_constant_expression (tree);
 extern bool require_potential_constant_expression (tree);

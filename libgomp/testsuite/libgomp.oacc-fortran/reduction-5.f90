@@ -5,12 +5,13 @@
 
 program reduction
   integer, parameter    :: n = 40, c = 10
-  integer               :: i, vsum, gs, ws, vs, cs
+  integer               :: i, vsum, gs, ws, vs, cs, ns
 
   call redsub_gang (gs, n, c)
   call redsub_worker (ws, n, c)
   call redsub_vector (vs, n, c)
   call redsub_combined (cs, n, c)
+  call redsub_nested (ns, n, c)
 
   vsum = 0
 
@@ -23,6 +24,7 @@ program reduction
   if (ws .ne. vsum) call abort ()
   if (vs .ne. vsum) call abort ()
   if (cs .ne. vsum) call abort ()
+  if (ns .ne. vsum) call abort ()
 end program reduction
 
 subroutine redsub_gang(sum, n, c)
@@ -76,3 +78,22 @@ subroutine redsub_combined(sum, n, c)
   end do
   !$acc end parallel
 end subroutine redsub_combined
+
+subroutine redsub_nested(sum, n, c)
+  integer :: sum, n, c
+  integer :: ii, jj
+
+  ii = n / 10;
+  jj = 10;
+  sum = 0
+
+  !$acc parallel num_gangs (8) copy(sum)
+  !$acc loop reduction(+:sum) gang
+  do i = 1, ii
+     !$acc loop reduction(+:sum) vector
+     do j = 1, jj
+        sum = sum + c
+     end do
+  end do
+  !$acc end parallel
+end subroutine redsub_nested

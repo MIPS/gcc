@@ -368,33 +368,61 @@ pop_label (tree label, tree old_value)
   SET_IDENTIFIER_LABEL_VALUE (DECL_NAME (label), old_value);
 }
 
+/* Push all named labels into a vector, so that we can sort it on DECL_UID
+   to avoid code generation differences.  */
+
+int
+note_label (named_label_entry **slot, vec<named_label_entry **> &labels)
+{
+  labels.quick_push (slot);
+  return 1;
+}
+
+/* Helper function to sort named label entries in a vector by DECL_UID.  */
+
+static int
+sort_labels (const void *a, const void *b)
+{
+  named_label_entry **slot1 = *(named_label_entry **const *) a;
+  named_label_entry **slot2 = *(named_label_entry **const *) b;
+  if (DECL_UID ((*slot1)->label_decl) < DECL_UID ((*slot2)->label_decl))
+    return -1;
+  if (DECL_UID ((*slot1)->label_decl) > DECL_UID ((*slot2)->label_decl))
+    return 1;
+  return 0;
+}
+
 /* At the end of a function, all labels declared within the function
    go out of scope.  BLOCK is the top-level block for the
    function.  */
-
-int
-pop_labels_1 (named_label_entry **slot, tree block)
-{
-  struct named_label_entry *ent = *slot;
-
-  pop_label (ent->label_decl, NULL_TREE);
-
-  /* Put the labels into the "variables" of the top-level block,
-     so debugger can see them.  */
-  DECL_CHAIN (ent->label_decl) = BLOCK_VARS (block);
-  BLOCK_VARS (block) = ent->label_decl;
-
-  named_labels->clear_slot (slot);
-
-  return 1;
-}
 
 static void
 pop_labels (tree block)
 {
   if (named_labels)
     {
-      named_labels->traverse<tree, pop_labels_1> (block);
+      auto_vec<named_label_entry **, 32> labels;
+      named_label_entry **slot;
+      unsigned int i;
+
+      /* Push all the labels into a vector and sort them by DECL_UID,
+	 so that gaps between DECL_UIDs don't affect code generation.  */
+      labels.reserve_exact (named_labels->elements ());
+      named_labels->traverse<vec<named_label_entry **> &, note_label> (labels);
+      labels.qsort (sort_labels);
+      FOR_EACH_VEC_ELT (labels, i, slot)
+	{
+	  struct named_label_entry *ent = *slot;
+
+	  pop_label (ent->label_decl, NULL_TREE);
+
+	  /* Put the labels into the "variables" of the top-level block,
+	     so debugger can see them.  */
+	  DECL_CHAIN (ent->label_decl) = BLOCK_VARS (block);
+	  BLOCK_VARS (block) = ent->label_decl;
+
+	  named_labels->clear_slot (slot);
+	}
       named_labels = NULL;
     }
 }
@@ -1334,16 +1362,19 @@ check_redeclaration_exception_specification (tree new_decl,
      specialization, of that function shall have an
      exception-specification with the same set of type-ids.  */
   if (! DECL_IS_BUILTIN (old_decl)
-      && flag_exceptions
       && !comp_except_specs (new_exceptions, old_exceptions, ce_normal))
     {
       const char *msg
 	= "declaration of %q+F has a different exception specifier";
       bool complained = true;
-      if (! DECL_IN_SYSTEM_HEADER (old_decl))
-	error (msg, new_decl);
-      else
+      if (DECL_IN_SYSTEM_HEADER (old_decl))
 	complained = pedwarn (0, OPT_Wsystem_headers, msg, new_decl);
+      else if (!flag_exceptions)
+	/* We used to silently permit mismatched eh specs with
+	   -fno-exceptions, so make them a pedwarn now.  */
+	complained = pedwarn (0, OPT_Wpedantic, msg, new_decl);
+      else
+	error (msg, new_decl);
       if (complained)
 	inform (0, "from previous declaration %q+F", old_decl);
     }
@@ -2160,7 +2191,16 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	 at newdecl, which will be ggc_freed.  */
       if (TREE_CODE (newdecl) == TYPE_DECL)
 	{
+	  /* But NEWTYPE might have an attribute, honor that.  */
+	  tree tem = TREE_TYPE (newdecl);
 	  newtype = oldtype;
+
+	  if (TYPE_USER_ALIGN (tem))
+	    {
+	      if (TYPE_ALIGN (tem) > TYPE_ALIGN (newtype))
+		TYPE_ALIGN (newtype) = TYPE_ALIGN (tem);
+	      TYPE_USER_ALIGN (newtype) = true;
+	    }
 
 	  /* And remove the new type from the variants list.  */
 	  if (TYPE_NAME (TREE_TYPE (newdecl)) == newdecl)
@@ -13345,7 +13385,10 @@ start_enum (tree name, tree enumtype, tree underlying_type,
 
   if (underlying_type)
     {
-      if (CP_INTEGRAL_TYPE_P (underlying_type))
+      if (ENUM_UNDERLYING_TYPE (enumtype))
+	/* We already checked that it matches, don't change it to a different
+	   typedef variant.  */;
+      else if (CP_INTEGRAL_TYPE_P (underlying_type))
         {
 	  copy_type_enum (enumtype, underlying_type);
           ENUM_UNDERLYING_TYPE (enumtype) = underlying_type;
@@ -14293,9 +14336,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
   if (DECL_DESTRUCTOR_P (decl1)
       || (DECL_CONSTRUCTOR_P (decl1)
 	  && targetm.cxx.cdtor_returns_this ()))
-    {
-      cdtor_label = create_artificial_label (input_location);
-    }
+    cdtor_label = create_artificial_label (input_location);
 
   start_fname_decls ();
 
@@ -14550,35 +14591,6 @@ finish_destructor_body (void)
   /* Any return from a destructor will end up here; that way all base
      and member cleanups will be run when the function returns.  */
   add_stmt (build_stmt (input_location, LABEL_EXPR, cdtor_label));
-
-  /* In a virtual destructor, we must call delete.  */
-  if (DECL_VIRTUAL_P (current_function_decl))
-    {
-      tree if_stmt;
-      tree virtual_size = cxx_sizeof (current_class_type);
-
-      /* [class.dtor]
-
-      At the point of definition of a virtual destructor (including
-      an implicit definition), non-placement operator delete shall
-      be looked up in the scope of the destructor's class and if
-      found shall be accessible and unambiguous.  */
-      exprstmt = build_op_delete_call (DELETE_EXPR, current_class_ptr,
-				       virtual_size,
-				       /*global_p=*/false,
-				       /*placement=*/NULL_TREE,
-				       /*alloc_fn=*/NULL_TREE,
-				       tf_warning_or_error);
-
-      if_stmt = begin_if_stmt ();
-      finish_if_stmt_cond (build2 (BIT_AND_EXPR, integer_type_node,
-				   current_in_charge_parm,
-				   integer_one_node),
-			   if_stmt);
-      finish_expr_stmt (exprstmt);
-      finish_then_clause (if_stmt);
-      finish_if_stmt (if_stmt);
-    }
 
   if (targetm.cxx.cdtor_returns_this ())
     {
@@ -15141,7 +15153,8 @@ complete_vars (tree type)
 
 /* If DECL is of a type which needs a cleanup, build and return an
    expression to perform that cleanup here.  Return NULL_TREE if no
-   cleanup need be done.  */
+   cleanup need be done.  DECL can also be a _REF when called from
+   split_nonconstant_init_1.  */
 
 tree
 cxx_maybe_build_cleanup (tree decl, tsubst_flags_t complain)
@@ -15159,7 +15172,10 @@ cxx_maybe_build_cleanup (tree decl, tsubst_flags_t complain)
   /* Handle "__attribute__((cleanup))".  We run the cleanup function
      before the destructor since the destructor is what actually
      terminates the lifetime of the object.  */
-  attr = lookup_attribute ("cleanup", DECL_ATTRIBUTES (decl));
+  if (DECL_P (decl))
+    attr = lookup_attribute ("cleanup", DECL_ATTRIBUTES (decl));
+  else
+    attr = NULL_TREE;
   if (attr)
     {
       tree id;
@@ -15218,6 +15234,7 @@ cxx_maybe_build_cleanup (tree decl, tsubst_flags_t complain)
   protected_set_expr_location (cleanup, UNKNOWN_LOCATION);
 
   if (cleanup
+      && DECL_P (decl)
       && !lookup_attribute ("warn_unused", TYPE_ATTRIBUTES (TREE_TYPE (decl)))
       /* Treat objects with destructors as used; the destructor may do
 	 something substantive.  */
