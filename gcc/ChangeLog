@@ -1,18 +1,38 @@
-2016-04-15  Jason Merrill  <jason@redhat.com>
-	    Nathan Sidwell  <nathan@acm.org>
+2016-04-18  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
-	PR c++/70594
-	* constexpr.c (constexpr_call_table): Preserve in GC.
-	(struct fundef_copy, struct fundef_copies_table_t):	Delete.
-	(fundef_copies_table): Preserve in GC. Change to pointer to
-	tree->tree hash.
-	(maybe_initialize_fundef_copies_table): Adjust.
-	(get_fundef_copy): Return a TREE_LIST.  Use non-inserting search.
-	(save_fundef_copy): Adjust for a TREE_LIST.
-	(cxx_eval_call_expression): Adjust for a fundef_copy TREE_LIST.
-	(fini_constexpr): New.
-	* cp-tree.h (fini_constexpr): Declare.
-	* decl2.c (c_parse_final_cleanups): Call fini_constexpr.
+	* doc/install.texi (Specific, i?86-*-solaris2.10): Update gas and
+	gld requirements.
+	(Specific, *-*-solaris2*): Update Solaris 11 bundled gcc
+	versions.
+	Mention Solaris 11 packaging changes.
+	Update gas and gld requirements.
+	Remove reference to pre-Solaris 10 bug.
+	(Specific, sparc-sun-solaris2*): Remove reference to pre-Solaris 10
+	systems and bugs.
+	(Specific, sparc64-*-solaris2*): Remove reference to bootstrap
+	with cc.
+
+2016-04-18  Matthew Wahab  <matthew.wahab@arm.com>
+
+	PR target/70711
+	* config/arm/bpabi.h (BE8_LINK_SPEC): Add entries for armv8+crc,
+	armv8.1-a and armv8.1-a+crc.
+
+2016-04-18  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* has-brig.c (lendian16): Don't try to use __builtin_bswap16
+	unless compiling with at least GCC-4.8.
+
+2016-04-15  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	PR target/70662
+	* config/i386/sse.md (define_insn "<avx512>_vec_dup<mode><mask_name>"):
+	Fix mode size check.
+
+2016-04-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* BASE-VER: Set to 6.0.1.
+	* DEV-PHASE: Set to prerelease.
 
 2016-04-15  Alexander Monakov  <amonakov@ispras.ru>
 

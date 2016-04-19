@@ -1,9 +1,14 @@
 2016-04-18  Gary Funck  <gary@intrepid.com>
 
+	Merge GCC 6.0 version 235186 into gupc-6-branch.
+	* DEV-PHASE: Change to GNU UPC 6.0.1-1.
+
+2016-04-18  Gary Funck  <gary@intrepid.com>
+
 	Merge trunk version 235033 into gupc branch.
 	This trunk version is the origin of the GCC 6 branch.
 
-	c/c-parser.c: Adjust calls to c_parser_pragm() and
+	* c/c-parser.c: Adjust calls to c_parser_pragm() and
 	c_parser_c99_block_statement(), passing null 'if_p' pointer.
 
 2016-04-11  Gary Funck  <gary@intrepid.com>
