@@ -2635,9 +2635,6 @@ mips_valid_hi_offset_p (rtx x)
    if (mips_abi != ABI_32)
      return true;
 
-   if (!TARGET_HI_LO_FIX)
-     return true;
-
    if (GET_CODE (x) != CONST)
      return true;
 
@@ -2671,9 +2668,6 @@ mips_valid_lo_offset_p (rtx x, rtx reg)
    unsigned HOST_WIDE_INT symbol_align, offset;
 
    if (mips_abi != ABI_32)
-     return true;
-
-   if (!TARGET_HI_LO_FIX)
      return true;
 
    if (REG_P (reg) && REGNO (reg) == GLOBAL_POINTER_REGNUM)
@@ -16871,7 +16865,7 @@ mips_lo_sum_offset_lookup (mips_offset_table *htab, rtx x,
   if (slot == NULL)
     return false;
 
-  if (TARGET_HI_LO_FIX && option == NO_INSERT)
+  if (option == NO_INSERT)
     return true;
 
   entry = (struct mips_lo_sum_offset *) *slot;

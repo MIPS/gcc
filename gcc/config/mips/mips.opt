@@ -439,6 +439,3 @@ Enum(mips_cb_setting) String(optimal) Value(MIPS_CB_OPTIMAL)
 
 EnumValue
 Enum(mips_cb_setting) String(always) Value(MIPS_CB_ALWAYS)
-
-mhi-lo-fix
-Target Undocumented Var(TARGET_HI_LO_FIX) Init (1)
