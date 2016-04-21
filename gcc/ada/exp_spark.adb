@@ -31,6 +31,7 @@ with Exp_Util; use Exp_Util;
 with Sem_Res;  use Sem_Res;
 with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
+with Tbuild;   use Tbuild;
 
 package body Exp_SPARK is
 
@@ -61,10 +62,13 @@ package body Exp_SPARK is
          --  user interaction. The verification back-end already takes care
          --  of qualifying names when needed.
 
-         when N_Block_Statement     |
-              N_Package_Body        |
-              N_Package_Declaration |
-              N_Subprogram_Body     =>
+         when N_Block_Statement            |
+              N_Entry_Declaration          |
+              N_Package_Body               |
+              N_Package_Declaration        |
+              N_Protected_Type_Declaration |
+              N_Subprogram_Body            |
+              N_Task_Type_Declaration      =>
             Qualify_Entity_Names (N);
 
          when N_Expanded_Name |
@@ -117,16 +121,35 @@ package body Exp_SPARK is
    -------------------------------
 
    procedure Expand_Potential_Renaming (N : Node_Id) is
-      E : constant Entity_Id := Entity (N);
-      T : constant Entity_Id := Etype (N);
+      Id     : constant Entity_Id  := Entity (N);
+      Loc    : constant Source_Ptr := Sloc (N);
+      Typ    : constant Entity_Id  := Etype (N);
+      Ren_Id : Node_Id;
 
    begin
       --  Replace a reference to a renaming with the actual renamed object
 
-      if Ekind (E) in Object_Kind and then Present (Renamed_Object (E)) then
-         Rewrite (N, New_Copy_Tree (Renamed_Object (E)));
-         Reset_Analyzed_Flags (N);
-         Analyze_And_Resolve (N, T);
+      if Ekind (Id) in Object_Kind then
+         Ren_Id := Renamed_Object (Id);
+
+         if Present (Ren_Id) then
+
+            --  The renamed object is an entity when instantiating generics
+            --  or inlining bodies. In this case the renaming is part of the
+            --  mapping "prologue" which links actuals to formals.
+
+            if Nkind (Ren_Id) in N_Entity then
+               Rewrite (N, New_Occurrence_Of (Ren_Id, Loc));
+
+            --  Otherwise the renamed object denotes a name
+
+            else
+               Rewrite (N, New_Copy_Tree (Ren_Id));
+               Reset_Analyzed_Flags (N);
+            end if;
+
+            Analyze_And_Resolve (N, Typ);
+         end if;
       end if;
    end Expand_Potential_Renaming;
 

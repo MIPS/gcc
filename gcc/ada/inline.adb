@@ -1553,7 +1553,8 @@ package body Inline is
       elsif Present (Spec_Id)
         and then
           (No (SPARK_Pragma (Spec_Id))
-            or else Get_SPARK_Mode_From_Pragma (SPARK_Pragma (Spec_Id)) /= On)
+            or else
+           Get_SPARK_Mode_From_Annotation (SPARK_Pragma (Spec_Id)) /= On)
       then
          return False;
 
@@ -2241,7 +2242,7 @@ package body Inline is
       Lab_Decl : Node_Id;
       Lab_Id   : Node_Id;
       New_A    : Node_Id;
-      Num_Ret  : Int := 0;
+      Num_Ret  : Nat := 0;
       Ret_Type : Entity_Id;
 
       Targ : Node_Id;
@@ -3866,7 +3867,6 @@ package body Inline is
          --  We can now complete the cleanup actions of scopes that contain
          --  pending instantiations (skipped for generic units, since we
          --  never need any cleanups in generic units).
-         --  pending instantiations.
 
          if Expander_Active
            and then not Is_Generic_Unit (Main_Unit_Entity)

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -2175,12 +2175,12 @@ package body Sem_Ch4 is
          begin
             Set_Etype (N, Any_Type);
 
-            --  Loop through intepretations of Then_Expr
+            --  Loop through interpretations of Then_Expr
 
             Get_First_Interp (Then_Expr, I, It);
             while Present (It.Nam) loop
 
-               --  Add possible intepretation of Then_Expr if no Else_Expr, or
+               --  Add possible interpretation of Then_Expr if no Else_Expr, or
                --  Else_Expr is present and has a compatible type.
 
                if No (Else_Expr)
@@ -3124,10 +3124,10 @@ package body Sem_Ch4 is
          --  a visible integer type.
 
          return Hides_Op (Fun, Nam)
-           or else Is_Descendent_Of_Address (Etype (Form1))
+           or else Is_Descendant_Of_Address (Etype (Form1))
            or else
              (Present (Form2)
-               and then Is_Descendent_Of_Address (Etype (Form2)));
+               and then Is_Descendant_Of_Address (Etype (Form2)));
       end Operator_Hidden_By;
 
    --  Start of processing for Analyze_One_Call
@@ -3316,13 +3316,13 @@ package body Sem_Ch4 is
                --  The actual can be compatible with the formal, but we must
                --  also check that the context is not an address type that is
                --  visibly an integer type. In this case the use of literals is
-               --  illegal, except in the body of descendents of system, where
+               --  illegal, except in the body of descendants of system, where
                --  arithmetic operations on address are of course used.
 
                if Has_Compatible_Type (Actual, Etype (Formal))
                  and then
                   (Etype (Actual) /= Universal_Integer
-                    or else not Is_Descendent_Of_Address (Etype (Formal))
+                    or else not Is_Descendant_Of_Address (Etype (Formal))
                     or else
                       Is_Predefined_File_Name
                         (Unit_File_Name (Get_Source_Unit (N))))
@@ -4108,6 +4108,9 @@ package body Sem_Ch4 is
       --  conformant. If the parent node is not analyzed yet it may be an
       --  indexed component rather than a function call.
 
+      function Has_Dereference (Nod : Node_Id) return Boolean;
+      --  Check whether prefix includes a dereference at any level.
+
       --------------------------------
       -- Find_Component_In_Instance --
       --------------------------------
@@ -4208,6 +4211,30 @@ package body Sem_Ch4 is
 
          return True;
       end Has_Mode_Conformant_Spec;
+
+      ---------------------
+      -- Has_Dereference --
+      ---------------------
+
+      function Has_Dereference (Nod : Node_Id) return Boolean is
+      begin
+         if Nkind (Nod) = N_Explicit_Dereference then
+            return True;
+
+         --  When expansion is disabled an explicit dereference may not have
+         --  been inserted, but if this is an access type the indirection makes
+         --  the call safe.
+
+         elsif Is_Access_Type (Etype (Nod)) then
+            return True;
+
+         elsif Nkind_In (Nod, N_Indexed_Component, N_Selected_Component) then
+            return Has_Dereference (Prefix (Nod));
+
+         else
+            return False;
+         end if;
+      end Has_Dereference;
 
    --  Start of processing for Analyze_Selected_Component
 
@@ -4657,21 +4684,32 @@ package body Sem_Ch4 is
          end loop;
 
          --  If the scope is a current instance, the prefix cannot be an
-         --  expression of the same type (that would represent an attempt
-         --  to reach an internal operation of another synchronized object).
+         --  expression of the same type, unless the selector designates a
+         --  public operation (otherwise that would represent an attempt to
+         --  reach an internal entity of another synchronized object).
          --  This is legal if prefix is an access to such type and there is
-         --  a dereference.
+         --  a dereference, or is a component with a dereferenced prefix.
+         --  It is also legal if the prefix is a component of a task type,
+         --  and the selector is one of the task operations.
 
          if In_Scope
            and then not Is_Entity_Name (Name)
-           and then Nkind (Name) /= N_Explicit_Dereference
+           and then not Has_Dereference (Name)
          then
-            Error_Msg_NE
-              ("invalid reference to internal operation of some object of "
-               & "type &", N, Type_To_Use);
-            Set_Entity (Sel, Any_Id);
-            Set_Etype  (Sel, Any_Type);
-            return;
+            if Is_Task_Type (Prefix_Type)
+              and then Present (Entity (Sel))
+              and then Ekind_In (Entity (Sel), E_Entry, E_Entry_Family)
+            then
+               null;
+
+            else
+               Error_Msg_NE
+                 ("invalid reference to internal operation of some object of "
+                  & "type &", N, Type_To_Use);
+               Set_Entity (Sel, Any_Id);
+               Set_Etype  (Sel, Any_Type);
+               return;
+            end if;
          end if;
 
          --  If there is no visible entity with the given name or none of the
@@ -5158,9 +5196,13 @@ package body Sem_Ch4 is
 
       --  A formal parameter of a specific tagged type whose related subprogram
       --  is subject to pragma Extensions_Visible with value "False" cannot
-      --  appear in a class-wide conversion (SPARK RM 6.1.7(3)).
+      --  appear in a class-wide conversion (SPARK RM 6.1.7(3)). Do not check
+      --  internally generated expressions.
 
-      if Is_Class_Wide_Type (Typ) and then Is_EVF_Expression (Expr) then
+      if Is_Class_Wide_Type (Typ)
+        and then Comes_From_Source (Expr)
+        and then Is_EVF_Expression (Expr)
+      then
          Error_Msg_N
            ("formal parameter with Extensions_Visible False cannot be "
             & "converted to class-wide type", Expr);
@@ -6602,7 +6644,7 @@ package body Sem_Ch4 is
             --  Boolean, then we know that the other operand cannot resolve to
             --  Boolean (since we got no interpretations), but in that case we
             --  pretty much know that the other operand should be Boolean, so
-            --  resolve it that way (generating an error)
+            --  resolve it that way (generating an error).
 
             elsif Nkind_In (N, N_Op_And, N_Op_Or, N_Op_Xor) then
                if Etype (L) = Standard_Boolean then
@@ -6673,8 +6715,8 @@ package body Sem_Ch4 is
                   return;
 
                elsif Allow_Integer_Address
-                 and then Is_Descendent_Of_Address (Etype (L))
-                 and then Is_Descendent_Of_Address (Etype (R))
+                 and then Is_Descendant_Of_Address (Etype (L))
+                 and then Is_Descendant_Of_Address (Etype (R))
                  and then not Error_Posted (N)
                then
                   declare
@@ -6909,7 +6951,7 @@ package body Sem_Ch4 is
 
    procedure Remove_Abstract_Operations (N : Node_Id) is
       Abstract_Op        : Entity_Id := Empty;
-      Address_Descendent : Boolean := False;
+      Address_Descendant : Boolean := False;
       I                  : Interp_Index;
       It                 : Interp;
 
@@ -6946,8 +6988,8 @@ package body Sem_Ch4 is
                   Formal := Next_Entity (Formal);
                end if;
 
-               if Is_Descendent_Of_Address (Etype (Formal)) then
-                  Address_Descendent := True;
+               if Is_Descendant_Of_Address (Etype (Formal)) then
+                  Address_Descendant := True;
                   Remove_Interp (I);
                end if;
 
@@ -6974,8 +7016,8 @@ package body Sem_Ch4 is
             then
                Abstract_Op := It.Nam;
 
-               if Is_Descendent_Of_Address (It.Typ) then
-                  Address_Descendent := True;
+               if Is_Descendant_Of_Address (It.Typ) then
+                  Address_Descendant := True;
                   Remove_Interp (I);
                   exit;
 
@@ -7068,7 +7110,7 @@ package body Sem_Ch4 is
 
                      Get_First_Interp (N, I, It);
                      while Present (It.Nam) loop
-                        if Is_Descendent_Of_Address (It.Typ) then
+                        if Is_Descendant_Of_Address (It.Typ) then
                            Remove_Interp (I);
 
                         elsif not Is_Type (It.Nam) then
@@ -7143,7 +7185,7 @@ package body Sem_Ch4 is
             --  predefined operators when addresses are involved since this
             --  case is handled separately.
 
-            elsif Ada_Version >= Ada_2005 and then not Address_Descendent then
+            elsif Ada_Version >= Ada_2005 and then not Address_Descendant then
                while Present (It.Nam) loop
                   if Is_Numeric_Type (It.Typ)
                     and then Scope (It.Typ) = Standard_Standard
@@ -7495,27 +7537,54 @@ package body Sem_Ch4 is
             Get_First_Interp (Func_Name, I, It);
             Set_Etype (Indexing, Any_Type);
 
+            --  Analyze eacn candidae function with the given actuals
+
             while Present (It.Nam) loop
                Analyze_One_Call (Indexing, It.Nam, False, Success);
+               Get_Next_Interp (I, It);
+            end loop;
 
-               if Success then
+            --  If there are several successful candidates, resolution will
+            --  be by result. Mark the interpretations of the function name
+            --  itself.
 
-                  --  Function in current interpretation is a valid candidate.
-                  --  Its result type is also a potential type for the
-                  --  original Indexed_Component node.
+            if Is_Overloaded (Indexing) then
+               Get_First_Interp (Indexing, I, It);
 
+               while Present (It.Nam) loop
                   Add_One_Interp (Name (Indexing), It.Nam, It.Typ);
+                  Get_Next_Interp (I, It);
+               end loop;
+
+            else
+               Set_Etype (Name (Indexing), Etype (Indexing));
+            end if;
+
+            --  Now add the candidate interpretations to the indexing node
+            --  itself, to be replaced later by the function call.
+
+            if Is_Overloaded (Name (Indexing)) then
+               Get_First_Interp (Name (Indexing), I, It);
+
+               while Present (It.Nam) loop
                   Add_One_Interp (N, It.Nam, It.Typ);
 
-                  --  Add implicit dereference interpretation to original node
+                  --  Add dereference interpretation if the result type has
+                  --  implicit reference discriminants.
 
                   if Has_Discriminants (Etype (It.Nam)) then
                      Check_Implicit_Dereference (N, Etype (It.Nam));
                   end if;
-               end if;
 
-               Get_Next_Interp (I, It);
-            end loop;
+                  Get_Next_Interp (I, It);
+               end loop;
+
+            else
+               Set_Etype (N, Etype (Name (Indexing)));
+               if Has_Discriminants (Etype (N)) then
+                  Check_Implicit_Dereference (N, Etype (N));
+               end if;
+            end if;
          end;
       end if;
 

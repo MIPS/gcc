@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -362,7 +362,7 @@ package body Sem_Ch6 is
          Set_Is_Inlined (Prev);
 
       --  If the expression function is a completion, the previous declaration
-      --  must come from source. We know already that appears in the current
+      --  must come from source. We know already that it appears in the current
       --  scope. The entity itself may be internally created if within a body
       --  to be inlined.
 
@@ -371,6 +371,7 @@ package body Sem_Ch6 is
         and then not Is_Formal_Subprogram (Prev)
       then
          Set_Has_Completion (Prev, False);
+         Set_Is_Inlined (Prev);
 
          --  An expression function that is a completion freezes the
          --  expression. This means freezing the return type, and if it is
@@ -411,7 +412,6 @@ package body Sem_Ch6 is
          --  Not clear that the backend can inline it in this case ???
 
          if Has_Completion (Prev) then
-            Set_Is_Inlined (Prev);
 
             --  The formals of the expression function are body formals,
             --  and do not appear in the ali file, which will only contain
@@ -2178,6 +2178,11 @@ package body Sem_Ch6 is
       --  Check whether unanalyzed body has an aspect or pragma that may
       --  generate a SPARK contract.
 
+      function Body_Has_SPARK_Mode_On return Boolean;
+      --  Check whether SPARK_Mode On applies to the subprogram body, either
+      --  because it is specified directly on the body, or because it is
+      --  inherited from the enclosing subprogram or package.
+
       procedure Build_Subprogram_Declaration;
       --  Create a matching subprogram declaration for subprogram body N
 
@@ -2272,6 +2277,59 @@ package body Sem_Ch6 is
          return False;
       end Body_Has_Contract;
 
+      ----------------------------
+      -- Body_Has_SPARK_Mode_On --
+      ----------------------------
+
+      function Body_Has_SPARK_Mode_On return Boolean is
+         Decls : constant List_Id := Declarations (N);
+         Item  : Node_Id;
+
+      begin
+         --  Check for SPARK_Mode aspect
+
+         if Present (Aspect_Specifications (N)) then
+            Item := First (Aspect_Specifications (N));
+            while Present (Item) loop
+               if Get_Aspect_Id (Item) = Aspect_SPARK_Mode then
+                  return Get_SPARK_Mode_From_Annotation (Item) = On;
+               end if;
+
+               Next (Item);
+            end loop;
+         end if;
+
+         --  Check for SPARK_Mode pragma
+
+         if Present (Decls) then
+            Item := First (Decls);
+            while Present (Item) loop
+
+               --  Pragmas that apply to a subprogram body are usually grouped
+               --  together. Look for a potential pragma SPARK_Mode among them.
+
+               if Nkind (Item) = N_Pragma then
+                  if Get_Pragma_Id (Item) = Pragma_SPARK_Mode then
+                     return Get_SPARK_Mode_From_Annotation (Item) = On;
+                  end if;
+
+               --  Otherwise the first non-pragma declarative item terminates
+               --  the region where pragma SPARK_Mode may appear.
+
+               else
+                  exit;
+               end if;
+
+               Next (Item);
+            end loop;
+         end if;
+
+         --  Otherwise, the applicable SPARK_Mode is inherited from the
+         --  enclosing subprogram or package.
+
+         return SPARK_Mode = On;
+      end Body_Has_SPARK_Mode_On;
+
       ----------------------------------
       -- Build_Subprogram_Declaration --
       ----------------------------------
@@ -2346,6 +2404,16 @@ package body Sem_Ch6 is
          Move_Pragmas (N, To => Subp_Decl);
 
          Analyze (Subp_Decl);
+
+         --  Propagate the attribute Rewritten_For_C to the body since the
+         --  expander may generate calls using that entity. Required to ensure
+         --  that Expand_Call rewrites calls to this function by calls to the
+         --  built procedure.
+
+         if Nkind (Body_Spec) = N_Function_Specification then
+            Set_Rewritten_For_C (Defining_Entity (Body_Spec),
+              Rewritten_For_C (Defining_Entity (Specification (Subp_Decl))));
+         end if;
 
          --  Analyze any relocated source pragmas or pragmas created for aspect
          --  specifications.
@@ -2492,16 +2560,28 @@ package body Sem_Ch6 is
 
          function Is_Inline_Pragma (N : Node_Id) return Boolean is
          begin
-            return
-              Nkind (N) = N_Pragma
+            if Nkind (N) = N_Pragma
                 and then
                   (Pragma_Name (N) = Name_Inline_Always
-                    or else (Front_End_Inlining
-                              and then Pragma_Name (N) = Name_Inline))
-                and then
-                  Chars
-                    (Expression (First (Pragma_Argument_Associations (N)))) =
-                                                              Chars (Body_Id);
+                    or else (Pragma_Name (N) = Name_Inline
+                      and then
+                        (Front_End_Inlining or else Optimization_Level > 0)))
+               and then Present (Pragma_Argument_Associations (N))
+            then
+               declare
+                  Pragma_Arg : Node_Id :=
+                    Expression (First (Pragma_Argument_Associations (N)));
+               begin
+                  if Nkind (Pragma_Arg) = N_Selected_Component then
+                     Pragma_Arg := Selector_Name (Pragma_Arg);
+                  end if;
+
+                  return Chars (Pragma_Arg) = Chars (Body_Id);
+               end;
+
+            else
+               return False;
+            end if;
          end Is_Inline_Pragma;
 
       --  Start of processing for Check_Inline_Pragma
@@ -2529,16 +2609,22 @@ package body Sem_Ch6 is
 
          if Present (Prag) then
             if Present (Spec_Id) then
-               if In_Same_List (N, Unit_Declaration_Node (Spec_Id)) then
+               if Is_List_Member (N)
+                 and then Is_List_Member (Unit_Declaration_Node (Spec_Id))
+                 and then In_Same_List (N, Unit_Declaration_Node (Spec_Id))
+               then
                   Analyze (Prag);
                end if;
 
             else
-               --  Create a subprogram declaration, to make treatment uniform
+               --  Create a subprogram declaration, to make treatment uniform.
+               --  Make the sloc of the subprogram name that of the entity in
+               --  the body, so that style checks find identical strings.
 
                declare
                   Subp : constant Entity_Id :=
-                           Make_Defining_Identifier (Loc, Chars (Body_Id));
+                           Make_Defining_Identifier
+                             (Sloc (Body_Id), Chars (Body_Id));
                   Decl : constant Node_Id :=
                            Make_Subprogram_Declaration (Loc,
                              Specification =>
@@ -2546,6 +2632,11 @@ package body Sem_Ch6 is
 
                begin
                   Set_Defining_Unit_Name (Specification (Decl), Subp);
+
+                  --  To ensure proper coverage when body is inlined, indicate
+                  --  whether the subprogram comes from source.
+
+                  Set_Comes_From_Source (Subp, Comes_From_Source (N));
 
                   if Present (First_Formal (Body_Id)) then
                      Plist := Copy_Parameter_List (Body_Id);
@@ -2973,7 +3064,6 @@ package body Sem_Ch6 is
       --  Local variables
 
       Save_Ghost_Mode   : constant Ghost_Mode_Type := Ghost_Mode;
-      Cloned_Body_For_C : Node_Id := Empty;
 
    --  Start of processing for Analyze_Subprogram_Body_Helper
 
@@ -3210,6 +3300,33 @@ package body Sem_Ch6 is
          Spec_Id := Build_Private_Protected_Declaration (N);
       end if;
 
+      --  If we are generating C and this is a function returning a constrained
+      --  array type for which we must create a procedure with an extra out
+      --  parameter, build and analyze the body now. The procedure declaration
+      --  has already been created. We reuse the source body of the function,
+      --  because in an instance it may contain global references that cannot
+      --  be reanalyzed. The source function itself is not used any further,
+      --  so we mark it as having a completion.
+
+      if Expander_Active
+        and then Modify_Tree_For_C
+        and then Present (Spec_Id)
+        and then Ekind (Spec_Id) = E_Function
+        and then Rewritten_For_C (Spec_Id)
+      then
+         Set_Has_Completion (Spec_Id);
+
+         Rewrite (N, Build_Procedure_Body_Form (Spec_Id, N));
+         Analyze (N);
+
+         --  The entity for the created procedure must remain invisible, so it
+         --  does not participate in resolution of subsequent references to the
+         --  function.
+
+         Set_Is_Immediately_Visible (Corresponding_Spec (N), False);
+         return;
+      end if;
+
       --  If a separate spec is present, then deal with freezing issues
 
       if Present (Spec_Id) then
@@ -3301,10 +3418,13 @@ package body Sem_Ch6 is
                Conformant := True;
 
             --  Conversely, the spec may have been generated for specless body
-            --  with an inline pragma.
+            --  with an inline pragma. The entity comes from source, which is
+            --  both semantically correct and necessary for proper inlining.
+            --  The subprogram declaration itself is not in the source.
 
             elsif Comes_From_Source (N)
-              and then not Comes_From_Source (Spec_Id)
+              and then Present (Spec_Decl)
+              and then not Comes_From_Source (Spec_Decl)
               and then Has_Pragma_Inline (Spec_Id)
             then
                Conformant := True;
@@ -3583,21 +3703,6 @@ package body Sem_Ch6 is
          return;
       end if;
 
-      --  If we are generating C and this is a function returning a constrained
-      --  array type for which we must create a procedure with an extra out
-      --  parameter then clone the body before it is analyzed. Needed to ensure
-      --  that the body of the built procedure does not have any reference to
-      --  the body of the function.
-
-      if Expander_Active
-        and then Modify_Tree_For_C
-        and then Present (Spec_Id)
-        and then Ekind (Spec_Id) = E_Function
-        and then Rewritten_For_C (Spec_Id)
-      then
-         Cloned_Body_For_C := Copy_Separate_Tree (N);
-      end if;
-
       --  Handle frontend inlining
 
       --  Note: Normally we don't do any inlining if expansion is off, since
@@ -3695,11 +3800,15 @@ package body Sem_Ch6 is
         and then Present (Spec_Id)
         and then
           Nkind (Unit_Declaration_Node (Spec_Id)) = N_Subprogram_Declaration
+        and then Body_Has_SPARK_Mode_On
         and then Can_Be_Inlined_In_GNATprove_Mode (Spec_Id, Body_Id)
         and then not Body_Has_Contract
       then
          Build_Body_To_Inline (N, Spec_Id);
       end if;
+
+      --  When generating code, inherited pre/postconditions are handled when
+      --  expanding the corresponding contract.
 
       --  Ada 2005 (AI-262): In library subprogram bodies, after the analysis
       --  of the specification we have to install the private withed units.
@@ -3785,9 +3894,9 @@ package body Sem_Ch6 is
 
       if Present (Spec_Id) and then Present (SPARK_Pragma (Body_Id)) then
          if Present (SPARK_Pragma (Spec_Id)) then
-            if Get_SPARK_Mode_From_Pragma (SPARK_Pragma (Spec_Id)) = Off
+            if Get_SPARK_Mode_From_Annotation (SPARK_Pragma (Spec_Id)) = Off
                  and then
-               Get_SPARK_Mode_From_Pragma (SPARK_Pragma (Body_Id)) = On
+               Get_SPARK_Mode_From_Annotation (SPARK_Pragma (Body_Id)) = On
             then
                Error_Msg_Sloc := Sloc (SPARK_Pragma (Body_Id));
                Error_Msg_N ("incorrect application of SPARK_Mode#", N);
@@ -3813,18 +3922,6 @@ package body Sem_Ch6 is
       --  are now chained on the contract of the subprogram body.
 
       Analyze_Entry_Or_Subprogram_Body_Contract (Body_Id);
-
-      --  If SPARK_Mode for body is not On, disable frontend inlining for this
-      --  subprogram in GNATprove mode, as its body should not be analyzed.
-
-      if SPARK_Mode /= On
-        and then GNATprove_Mode
-        and then Present (Spec_Id)
-        and then Nkind (Parent (Parent (Spec_Id))) = N_Subprogram_Declaration
-      then
-         Set_Body_To_Inline (Parent (Parent (Spec_Id)), Empty);
-         Set_Is_Inlined_Always (Spec_Id, False);
-      end if;
 
       --  Check completion, and analyze the statements
 
@@ -4046,16 +4143,6 @@ package body Sem_Ch6 is
             Set_Has_Nested_Subprogram (Ent);
          end if;
       end;
-
-      --  When generating C code, transform a function that returns a
-      --  constrained array type into a procedure with an out parameter
-      --  that carries the return value.
-
-      if Present (Cloned_Body_For_C) then
-         Rewrite (N,
-           Build_Procedure_Body_Form (Spec_Id, Cloned_Body_For_C));
-         Analyze (N);
-      end if;
 
       Ghost_Mode := Save_Ghost_Mode;
    end Analyze_Subprogram_Body_Helper;
@@ -4649,18 +4736,6 @@ package body Sem_Ch6 is
          then
             Conformance_Error ("\formal subprograms not allowed!");
             return;
-
-         --  Pragma Ghost behaves as a convention in the context of subtype
-         --  conformance (SPARK RM 6.9(5)). Do not check internally generated
-         --  subprograms as their spec may reside in a Ghost region and their
-         --  body not, or vice versa.
-
-         elsif Comes_From_Source (Old_Id)
-           and then Comes_From_Source (New_Id)
-           and then Is_Ghost_Entity (Old_Id) /= Is_Ghost_Entity (New_Id)
-         then
-            Conformance_Error ("\ghost modes do not match!");
-            return;
          end if;
       end if;
 
@@ -5187,8 +5262,9 @@ package body Sem_Ch6 is
       --  T is the type of either a formal parameter or of the return type.
       --  If T is not yet frozen and needs a delayed freeze, then the
       --  subprogram itself must be delayed. If T is the limited view of an
-      --  incomplete type the subprogram must be frozen as well, because
-      --  T may depend on local types that have not been frozen yet.
+      --  incomplete type (or of a CW type thereof) the subprogram must be
+      --  frozen as well, because T may depend on local types that have not
+      --  been frozen yet.
 
       ---------------------
       -- Possible_Freeze --
@@ -5205,7 +5281,8 @@ package body Sem_Ch6 is
          then
             Set_Has_Delayed_Freeze (Designator);
 
-         elsif Ekind (T) = E_Incomplete_Type
+         elsif (Ekind (T) = E_Incomplete_Type
+                 or else Ekind (T) = E_Class_Wide_Type)
            and then From_Limited_With (T)
          then
             Set_Has_Delayed_Freeze (Designator);
@@ -6405,45 +6482,48 @@ package body Sem_Ch6 is
       Ctype    : Conformance_Type;
       Get_Inst : Boolean := False) return Boolean
    is
-      Type_1 : Entity_Id := T1;
-      Type_2 : Entity_Id := T2;
-      Are_Anonymous_Access_To_Subprogram_Types : Boolean := False;
+      function Base_Types_Match
+        (Typ_1 : Entity_Id;
+         Typ_2 : Entity_Id) return Boolean;
+      --  If neither Typ_1 nor Typ_2 are generic actual types, or if they are
+      --  in different scopes (e.g. parent and child instances), then verify
+      --  that the base types are equal. Otherwise Typ_1 and Typ_2 must be on
+      --  the same subtype chain. The whole purpose of this procedure is to
+      --  prevent spurious ambiguities in an instantiation that may arise if
+      --  two distinct generic types are instantiated with the same actual.
 
-      function Base_Types_Match (T1, T2 : Entity_Id) return Boolean;
-      --  If neither T1 nor T2 are generic actual types, or if they are in
-      --  different scopes (e.g. parent and child instances), then verify that
-      --  the base types are equal. Otherwise T1 and T2 must be on the same
-      --  subtype chain. The whole purpose of this procedure is to prevent
-      --  spurious ambiguities in an instantiation that may arise if two
-      --  distinct generic types are instantiated with the same actual.
-
-      function Find_Designated_Type (T : Entity_Id) return Entity_Id;
+      function Find_Designated_Type (Typ : Entity_Id) return Entity_Id;
       --  An access parameter can designate an incomplete type. If the
       --  incomplete type is the limited view of a type from a limited_
-      --  with_clause, check whether the non-limited view is available. If
-      --  it is a (non-limited) incomplete type, get the full view.
+      --  with_clause, check whether the non-limited view is available.
+      --  If it is a (non-limited) incomplete type, get the full view.
 
-      function Matches_Limited_With_View (T1, T2 : Entity_Id) return Boolean;
-      --  Returns True if and only if either T1 denotes a limited view of T2
-      --  or T2 denotes a limited view of T1. This can arise when the limited
-      --  with view of a type is used in a subprogram declaration and the
-      --  subprogram body is in the scope of a regular with clause for the
-      --  same unit. In such a case, the two type entities can be considered
+      function Matches_Limited_With_View
+        (Typ_1 : Entity_Id;
+         Typ_2 : Entity_Id) return Boolean;
+      --  Returns True if and only if either Typ_1 denotes a limited view of
+      --  Typ_2 or Typ_2 denotes a limited view of Typ_1. This can arise when
+      --  the limited with view of a type is used in a subprogram declaration
+      --  and the subprogram body is in the scope of a regular with clause for
+      --  the same unit. In such a case, the two type entities are considered
       --  identical for purposes of conformance checking.
 
       ----------------------
       -- Base_Types_Match --
       ----------------------
 
-      function Base_Types_Match (T1, T2 : Entity_Id) return Boolean is
-         BT1 : constant Entity_Id := Base_Type (T1);
-         BT2 : constant Entity_Id := Base_Type (T2);
+      function Base_Types_Match
+        (Typ_1 : Entity_Id;
+         Typ_2 : Entity_Id) return Boolean
+      is
+         Base_1 : constant Entity_Id := Base_Type (Typ_1);
+         Base_2 : constant Entity_Id := Base_Type (Typ_2);
 
       begin
-         if T1 = T2 then
+         if Typ_1 = Typ_2 then
             return True;
 
-         elsif BT1 = BT2 then
+         elsif Base_1 = Base_2 then
 
             --  The following is too permissive. A more precise test should
             --  check that the generic actual is an ancestor subtype of the
@@ -6452,18 +6532,23 @@ package body Sem_Ch6 is
             --  See code in Find_Corresponding_Spec that applies an additional
             --  filter to handle accidental amiguities in instances.
 
-            return not Is_Generic_Actual_Type (T1)
-              or else not Is_Generic_Actual_Type (T2)
-              or else Scope (T1) /= Scope (T2);
+            return
+              not Is_Generic_Actual_Type (Typ_1)
+                or else not Is_Generic_Actual_Type (Typ_2)
+                or else Scope (Typ_1) /= Scope (Typ_2);
 
-         --  If T2 is a generic actual type it is declared as the subtype of
+         --  If Typ_2 is a generic actual type it is declared as the subtype of
          --  the actual. If that actual is itself a subtype we need to use its
          --  own base type to check for compatibility.
 
-         elsif Ekind (BT2) = Ekind (T2) and then BT1 = Base_Type (BT2) then
+         elsif Ekind (Base_2) = Ekind (Typ_2)
+           and then Base_1 = Base_Type (Base_2)
+         then
             return True;
 
-         elsif Ekind (BT1) = Ekind (T1) and then BT2 = Base_Type (BT1) then
+         elsif Ekind (Base_1) = Ekind (Typ_1)
+           and then Base_2 = Base_Type (Base_1)
+         then
             return True;
 
          else
@@ -6475,11 +6560,11 @@ package body Sem_Ch6 is
       -- Find_Designated_Type --
       --------------------------
 
-      function Find_Designated_Type (T : Entity_Id) return Entity_Id is
+      function Find_Designated_Type (Typ : Entity_Id) return Entity_Id is
          Desig : Entity_Id;
 
       begin
-         Desig := Directly_Designated_Type (T);
+         Desig := Directly_Designated_Type (Typ);
 
          if Ekind (Desig) = E_Incomplete_Type then
 
@@ -6503,38 +6588,114 @@ package body Sem_Ch6 is
       -- Matches_Limited_With_View --
       -------------------------------
 
-      function Matches_Limited_With_View (T1, T2 : Entity_Id) return Boolean is
+      function Matches_Limited_With_View
+        (Typ_1 : Entity_Id;
+         Typ_2 : Entity_Id) return Boolean
+      is
+         function Is_Matching_Limited_View
+           (Typ  : Entity_Id;
+            View : Entity_Id) return Boolean;
+         --  Determine whether non-limited view View denotes type Typ in some
+         --  conformant fashion.
+
+         ------------------------------
+         -- Is_Matching_Limited_View --
+         ------------------------------
+
+         function Is_Matching_Limited_View
+           (Typ  : Entity_Id;
+            View : Entity_Id) return Boolean
+         is
+            Root_Typ  : Entity_Id;
+            Root_View : Entity_Id;
+
+         begin
+            --  The non-limited view directly denotes the type
+
+            if Typ = View then
+               return True;
+
+            --  The type is a subtype of the non-limited view
+
+            elsif Is_Subtype_Of (Typ, View) then
+               return True;
+
+            --  Both the non-limited view and the type denote class-wide types
+
+            elsif Is_Class_Wide_Type (Typ)
+              and then Is_Class_Wide_Type (View)
+            then
+               Root_Typ  := Root_Type (Typ);
+               Root_View := Root_Type (View);
+
+               if Root_Typ = Root_View then
+                  return True;
+
+               --  An incomplete tagged type and its full view may receive two
+               --  distinct class-wide types when the related package has not
+               --  been analyzed yet.
+
+               --    package Pack is
+               --       type T is tagged;              --  CW_1
+               --       type T is tagged null record;  --  CW_2
+               --    end Pack;
+
+               --  This is because the package lacks any semantic information
+               --  that may eventually link both views of T. As a consequence,
+               --  a client of the limited view of Pack will see CW_2 while a
+               --  client of the non-limited view of Pack will see CW_1.
+
+               elsif Is_Incomplete_Type (Root_Typ)
+                 and then Present (Full_View (Root_Typ))
+                 and then Full_View (Root_Typ) = Root_View
+               then
+                  return True;
+
+               elsif Is_Incomplete_Type (Root_View)
+                 and then Present (Full_View (Root_View))
+                 and then Full_View (Root_View) = Root_Typ
+               then
+                  return True;
+               end if;
+            end if;
+
+            return False;
+         end Is_Matching_Limited_View;
+
+      --  Start of processing for Matches_Limited_With_View
+
       begin
          --  In some cases a type imported through a limited_with clause, and
-         --  its nonlimited view are both visible, for example in an anonymous
+         --  its non-limited view are both visible, for example in an anonymous
          --  access-to-class-wide type in a formal, or when building the body
          --  for a subprogram renaming after the subprogram has been frozen.
-         --  In these cases Both entities designate the same type. In addition,
+         --  In these cases both entities designate the same type. In addition,
          --  if one of them is an actual in an instance, it may be a subtype of
          --  the non-limited view of the other.
 
-         if From_Limited_With (T1)
-           and then (T2 = Available_View (T1)
-                      or else Is_Subtype_Of (T2, Available_View (T1)))
+         if From_Limited_With (Typ_1)
+           and then From_Limited_With (Typ_2)
+           and then Available_View (Typ_1) = Available_View (Typ_2)
          then
             return True;
 
-         elsif From_Limited_With (T2)
-           and then (T1 = Available_View (T2)
-                      or else Is_Subtype_Of (T1, Available_View (T2)))
-         then
-            return True;
+         elsif From_Limited_With (Typ_1) then
+            return Is_Matching_Limited_View (Typ_2, Available_View (Typ_1));
 
-         elsif From_Limited_With (T1)
-           and then From_Limited_With (T2)
-           and then Available_View (T1) = Available_View (T2)
-         then
-            return True;
+         elsif From_Limited_With (Typ_2) then
+            return Is_Matching_Limited_View (Typ_1, Available_View (Typ_2));
 
          else
             return False;
          end if;
       end Matches_Limited_With_View;
+
+      --  Local variables
+
+      Are_Anonymous_Access_To_Subprogram_Types : Boolean := False;
+
+      Type_1 : Entity_Id := T1;
+      Type_2 : Entity_Id := T2;
 
    --  Start of processing for Conforming_Types
 
@@ -7054,8 +7215,125 @@ package body Sem_Ch6 is
    -----------------------------
 
    procedure Enter_Overloaded_Entity (S : Entity_Id) is
+      function Matches_Predefined_Op return Boolean;
+      --  This returns an approximation of whether S matches a predefined
+      --  operator, based on the operator symbol, and the parameter and result
+      --  types. The rules are scattered throughout chapter 4 of the Ada RM.
+
+      ---------------------------
+      -- Matches_Predefined_Op --
+      ---------------------------
+
+      function Matches_Predefined_Op return Boolean is
+         Formal_1    : constant Entity_Id := First_Formal (S);
+         Formal_2    : constant Entity_Id := Next_Formal (Formal_1);
+         Op          : constant Name_Id   := Chars (S);
+         Result_Type : constant Entity_Id := Base_Type (Etype (S));
+         Type_1      : constant Entity_Id := Base_Type (Etype (Formal_1));
+
+      begin
+         --  Binary operator
+
+         if Present (Formal_2) then
+            declare
+               Type_2 : constant Entity_Id := Base_Type (Etype (Formal_2));
+
+            begin
+               --  All but "&" and "**" have same-types parameters
+
+               case Op is
+                  when Name_Op_Concat |
+                       Name_Op_Expon  =>
+                     null;
+
+                  when others =>
+                     if Type_1 /= Type_2 then
+                        return False;
+                     end if;
+               end case;
+
+               --  Check parameter and result types
+
+               case Op is
+                  when Name_Op_And |
+                       Name_Op_Or  |
+                       Name_Op_Xor =>
+                     return
+                       Is_Boolean_Type (Result_Type)
+                         and then Result_Type = Type_1;
+
+                  when Name_Op_Mod |
+                       Name_Op_Rem =>
+                     return
+                       Is_Integer_Type (Result_Type)
+                         and then Result_Type = Type_1;
+
+                  when Name_Op_Add      |
+                       Name_Op_Divide   |
+                       Name_Op_Multiply |
+                       Name_Op_Subtract =>
+                     return
+                       Is_Numeric_Type (Result_Type)
+                         and then Result_Type = Type_1;
+
+                  when Name_Op_Eq |
+                       Name_Op_Ne =>
+                     return
+                       Is_Boolean_Type (Result_Type)
+                         and then not Is_Limited_Type (Type_1);
+
+                  when Name_Op_Ge |
+                       Name_Op_Gt |
+                       Name_Op_Le |
+                       Name_Op_Lt =>
+                     return
+                       Is_Boolean_Type (Result_Type)
+                         and then (Is_Array_Type (Type_1)
+                                    or else Is_Scalar_Type (Type_1));
+
+                  when Name_Op_Concat =>
+                     return Is_Array_Type (Result_Type);
+
+                  when Name_Op_Expon =>
+                     return
+                       (Is_Integer_Type (Result_Type)
+                           or else Is_Floating_Point_Type (Result_Type))
+                         and then Result_Type = Type_1
+                         and then Type_2 = Standard_Integer;
+
+                  when others =>
+                     raise Program_Error;
+               end case;
+            end;
+
+         --  Unary operator
+
+         else
+            case Op is
+               when Name_Op_Abs      |
+                    Name_Op_Add      |
+                    Name_Op_Subtract =>
+                  return
+                    Is_Numeric_Type (Result_Type)
+                      and then Result_Type = Type_1;
+
+               when Name_Op_Not =>
+                  return
+                    Is_Boolean_Type (Result_Type)
+                      and then Result_Type = Type_1;
+
+               when others =>
+                  raise Program_Error;
+            end case;
+         end if;
+      end Matches_Predefined_Op;
+
+      --  Local variables
+
       E   : Entity_Id := Current_Entity_In_Scope (S);
       C_E : Entity_Id := Current_Entity (S);
+
+   --  Start of processing for Enter_Overloaded_Entity
 
    begin
       if Present (E) then
@@ -7127,22 +7405,26 @@ package body Sem_Ch6 is
             --  or S is overriding an implicit inherited subprogram.
 
             if Scope (E) /= Scope (S)
-                  and then (not Is_Overloadable (E)
-                             or else Subtype_Conformant (E, S))
-                  and then (Is_Immediately_Visible (E)
-                              or else
-                            Is_Potentially_Use_Visible (S))
+              and then (not Is_Overloadable (E)
+                         or else Subtype_Conformant (E, S))
+              and then (Is_Immediately_Visible (E)
+                         or else Is_Potentially_Use_Visible (S))
             then
-               if Scope (E) /= Standard_Standard then
+               if Scope (E) = Standard_Standard then
+                  if Nkind (S) = N_Defining_Operator_Symbol
+                    and then Scope (Base_Type (Etype (First_Formal (S)))) /=
+                               Scope (S)
+                    and then Matches_Predefined_Op
+                  then
+                     Error_Msg_N
+                       ("declaration of & hides predefined operator?h?", S);
+                  end if;
+
+               --  E not immediately within Standard
+
+               else
                   Error_Msg_Sloc := Sloc (E);
                   Error_Msg_N ("declaration of & hides one #?h?", S);
-
-               elsif Nkind (S) = N_Defining_Operator_Symbol
-                 and then
-                   Scope (Base_Type (Etype (First_Formal (S)))) /= Scope (S)
-               then
-                  Error_Msg_N
-                    ("declaration of & hides predefined operator?h?", S);
                end if;
             end if;
          end loop;
@@ -8962,6 +9244,12 @@ package body Sem_Ch6 is
                   Set_Has_Primitive_Operations (B_Typ);
                   Set_Is_Primitive (S);
                   Check_Private_Overriding (B_Typ);
+
+                  --  The Ghost policy in effect at the point of declaration of
+                  --  a tagged type and a primitive operation must match
+                  --  (SPARK RM 6.9(16)).
+
+                  Check_Ghost_Primitive (S, B_Typ);
                end if;
             end if;
 
@@ -8989,6 +9277,12 @@ package body Sem_Ch6 is
                   Set_Is_Primitive (S);
                   Set_Has_Primitive_Operations (B_Typ);
                   Check_Private_Overriding (B_Typ);
+
+                  --  The Ghost policy in effect at the point of declaration of
+                  --  a tagged type and a primitive operation must match
+                  --  (SPARK RM 6.9(16)).
+
+                  Check_Ghost_Primitive (S, B_Typ);
                end if;
 
                Next_Formal (Formal);
@@ -9016,6 +9310,12 @@ package body Sem_Ch6 is
                Set_Is_Primitive (S);
                Set_Has_Primitive_Operations (B_Typ);
                Check_Private_Overriding (B_Typ);
+
+               --  The Ghost policy in effect at the point of declaration of a
+               --  tagged type and a primitive operation must match
+               --  (SPARK RM 6.9(16)).
+
+               Check_Ghost_Primitive (S, B_Typ);
             end if;
          end if;
       end Check_For_Primitive_Subprogram;
@@ -9882,6 +10182,13 @@ package body Sem_Ch6 is
                         Set_Convention (S, Convention (E));
                         Check_Dispatching_Operation (S, E);
 
+                        --  In GNATprove_Mode, create the pragmas corresponding
+                        --  to inherited class-wide conditions.
+
+                        if GNATprove_Mode then
+                           Collect_Inherited_Class_Wide_Conditions (S);
+                        end if;
+
                      else
                         Check_Dispatching_Operation (S, Empty);
                      end if;
@@ -10392,7 +10699,7 @@ package body Sem_Ch6 is
 
             --  A procedure cannot have an effectively volatile formal
             --  parameter of mode IN because it behaves as a constant
-            --  (SPARK RM 7.1.3(6)).
+            --  (SPARK RM 7.1.3(6)). -- ??? maybe 7.1.3(4)
 
             elsif Ekind (Scope (Formal)) = E_Procedure
               and then Ekind (Formal) = E_In_Parameter
@@ -10415,10 +10722,12 @@ package body Sem_Ch6 is
          Analyze_Return_Type (Related_Nod);
 
          --  If return type is class-wide, subprogram freezing may be
-         --  delayed as well.
+         --  delayed as well, unless the declaration is a compilation unit
+         --  in which case the freeze node would appear too late.
 
          if Is_Class_Wide_Type (Etype (Current_Scope))
            and then not Is_Thunk (Current_Scope)
+           and then not Is_Compilation_Unit (Current_Scope)
            and then Nkind (Unit_Declaration_Node (Current_Scope)) =
              N_Subprogram_Declaration
          then

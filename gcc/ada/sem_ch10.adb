@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -612,7 +612,7 @@ package body Sem_Ch10 is
 
       --  If the unit is a subunit whose parent has not been analyzed (which
       --  indicates that the main unit is a subunit, either the current one or
-      --  one of its descendents) then the subunit is compiled as part of the
+      --  one of its descendants) then the subunit is compiled as part of the
       --  analysis of the parent, which we proceed to do. Basically this gets
       --  handled from the top down and we don't want to do anything at this
       --  level (i.e. this subunit will be handled on the way down from the
@@ -879,7 +879,7 @@ package body Sem_Ch10 is
       end if;
 
       --  All components of the context: with-clauses, library unit, ancestors
-      --  if any, (and their context)  are analyzed and installed.
+      --  if any, (and their context) are analyzed and installed.
 
       --  Call special debug routine sm if this is the main unit
 
@@ -2008,7 +2008,7 @@ package body Sem_Ch10 is
       Par_Unit : constant Entity_Id := Current_Scope;
 
       Lib_Spec        : Node_Id := Library_Unit (Lib_Unit);
-      Num_Scopes      : Int := 0;
+      Num_Scopes      : Nat := 0;
       Use_Clauses     : array (1 .. Scope_Stack.Last) of Node_Id;
       Enclosing_Child : Entity_Id := Empty;
       Svg             : constant Suppress_Record := Scope_Suppress;
@@ -5613,12 +5613,10 @@ package body Sem_Ch10 is
 
       procedure Decorate_State (Ent : Entity_Id; Scop : Entity_Id) is
       begin
-         Set_Ekind                   (Ent, E_Abstract_State);
-         Set_Etype                   (Ent, Standard_Void_Type);
-         Set_Scope                   (Ent, Scop);
-         Set_Encapsulating_State     (Ent, Empty);
-         Set_Refinement_Constituents (Ent, New_Elmt_List);
-         Set_Part_Of_Constituents    (Ent, New_Elmt_List);
+         Set_Ekind               (Ent, E_Abstract_State);
+         Set_Etype               (Ent, Standard_Void_Type);
+         Set_Scope               (Ent, Scop);
+         Set_Encapsulating_State (Ent, Empty);
       end Decorate_State;
 
       -------------------
@@ -5639,10 +5637,10 @@ package body Sem_Ch10 is
 
          Set_Ekind             (Ent, E_Incomplete_Type);
          Set_Etype             (Ent, Ent);
-         Set_Scope             (Ent, Scop);
-         Set_Is_First_Subtype  (Ent);
-         Set_Stored_Constraint (Ent, No_Elist);
          Set_Full_View         (Ent, Empty);
+         Set_Is_First_Subtype  (Ent);
+         Set_Scope             (Ent, Scop);
+         Set_Stored_Constraint (Ent, No_Elist);
          Init_Size_Align       (Ent);
 
          --  A tagged type and its corresponding shadow entity share one common
@@ -5670,16 +5668,16 @@ package body Sem_Ch10 is
             Set_Parent (CW_Typ, Parent (Ent));
 
             Set_Ekind                     (CW_Typ, E_Class_Wide_Type);
-            Set_Etype                     (CW_Typ, Ent);
-            Set_Scope                     (CW_Typ, Scop);
-            Set_Is_Tagged_Type            (CW_Typ);
-            Set_Is_First_Subtype          (CW_Typ);
-            Init_Size_Align               (CW_Typ);
-            Set_Has_Unknown_Discriminants (CW_Typ);
             Set_Class_Wide_Type           (CW_Typ, CW_Typ);
+            Set_Etype                     (CW_Typ, Ent);
             Set_Equivalent_Type           (CW_Typ, Empty);
             Set_From_Limited_With         (CW_Typ, From_Limited_With (Ent));
+            Set_Has_Unknown_Discriminants (CW_Typ);
+            Set_Is_First_Subtype          (CW_Typ);
+            Set_Is_Tagged_Type            (CW_Typ);
             Set_Materialize_Entity        (CW_Typ, Materialize);
+            Set_Scope                     (CW_Typ, Scop);
+            Init_Size_Align               (CW_Typ);
          end if;
       end Decorate_Type;
 

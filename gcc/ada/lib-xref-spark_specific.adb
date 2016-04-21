@@ -261,14 +261,27 @@ package body SPARK_Specific is
       case Ekind (E) is
          when E_Entry
             | E_Entry_Family
-            | E_Function
             | E_Generic_Function
             | E_Generic_Package
             | E_Generic_Procedure
             | E_Package
-            | E_Procedure
          =>
             Typ := Xref_Entity_Letters (Ekind (E));
+
+         when E_Function
+            | E_Procedure
+         =>
+            --  In SPARK we need to distinguish protected functions and
+            --  procedures from ordinary subprograms, but there are no special
+            --  Xref letters for them. Since this distiction is only needed
+            --  to detect protected calls, we pretend that such calls are entry
+            --  calls.
+
+            if Ekind (Scope (E)) = E_Protected_Type then
+               Typ := Xref_Entity_Letters (E_Entry);
+            else
+               Typ := Xref_Entity_Letters (Ekind (E));
+            end if;
 
          when E_Package_Body | E_Subprogram_Body | E_Task_Body =>
             Typ := Xref_Entity_Letters (Ekind (Unique_Entity (E)));
@@ -857,8 +870,8 @@ package body SPARK_Specific is
                Line := 0;
                Col  := 0;
             else
-               Line := Int (Get_Logical_Line_Number (Ref_Entry.Def));
-               Col  := Int (Get_Column_Number (Ref_Entry.Def));
+               Line := Nat (Get_Logical_Line_Number (Ref_Entry.Def));
+               Col  := Nat (Get_Column_Number (Ref_Entry.Def));
             end if;
 
             --  References to constant objects without variable inputs (see
@@ -882,9 +895,9 @@ package body SPARK_Specific is
                Entity_Col  => Col,
                File_Num    => Dependency_Num (Ref.Lun),
                Scope_Num   => Get_Scope_Num (Ref.Ref_Scope),
-               Line        => Int (Get_Logical_Line_Number (Ref.Loc)),
+               Line        => Nat (Get_Logical_Line_Number (Ref.Loc)),
                Rtype       => Typ,
-               Col         => Int (Get_Column_Number (Ref.Loc))));
+               Col         => Nat (Get_Column_Number (Ref.Loc))));
          end;
       end loop;
 

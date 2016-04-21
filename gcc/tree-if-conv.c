@@ -114,16 +114,68 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "params.h"
 
+/* Hash for struct innermost_loop_behavior.  It depends on the user to
+   free the memory.  */
+
+struct innermost_loop_behavior_hash : nofree_ptr_hash <innermost_loop_behavior>
+{
+  static inline hashval_t hash (const value_type &);
+  static inline bool equal (const value_type &,
+			    const compare_type &);
+};
+
+inline hashval_t
+innermost_loop_behavior_hash::hash (const value_type &e)
+{
+  hashval_t hash;
+
+  hash = iterative_hash_expr (e->base_address, 0);
+  hash = iterative_hash_expr (e->offset, hash);
+  hash = iterative_hash_expr (e->init, hash);
+  return iterative_hash_expr (e->step, hash);
+}
+
+inline bool
+innermost_loop_behavior_hash::equal (const value_type &e1,
+				     const compare_type &e2)
+{
+  if ((e1->base_address && !e2->base_address)
+      || (!e1->base_address && e2->base_address)
+      || (!e1->offset && e2->offset)
+      || (e1->offset && !e2->offset)
+      || (!e1->init && e2->init)
+      || (e1->init && !e2->init)
+      || (!e1->step && e2->step)
+      || (e1->step && !e2->step))
+    return false;
+
+  if (e1->base_address && e2->base_address
+      && !operand_equal_p (e1->base_address, e2->base_address, 0))
+    return false;
+  if (e1->offset && e2->offset
+      && !operand_equal_p (e1->offset, e2->offset, 0))
+    return false;
+  if (e1->init && e2->init
+      && !operand_equal_p (e1->init, e2->init, 0))
+    return false;
+  if (e1->step && e2->step
+      && !operand_equal_p (e1->step, e2->step, 0))
+    return false;
+
+  return true;
+}
+
 /* List of basic blocks in if-conversion-suitable order.  */
 static basic_block *ifc_bbs;
 
 /* Apply more aggressive (extended) if-conversion if true.  */
 static bool aggressive_if_conv;
 
-/* Hash table to store references, DR pairs.  */
-static hash_map<tree_operand_hash, data_reference_p> *ref_DR_map;
+/* Hash table to store <DR's innermost loop behavior, DR> pairs.  */
+static hash_map<innermost_loop_behavior_hash,
+		data_reference_p> *innermost_DR_map;
 
-/* Hash table to store base reference, DR pairs.  */
+/* Hash table to store <base reference, DR> pairs.  */
 static hash_map<tree_operand_hash, data_reference_p> *baseref_DR_map;
 
 /* Structure used to predicate basic blocks.  This is attached to the
@@ -260,6 +312,16 @@ ifc_temp_var (tree type, tree expr, gimple_stmt_iterator *gsi)
   gimple *stmt = gimple_build_assign (new_name, expr);
   gsi_insert_before (gsi, stmt, GSI_SAME_STMT);
   return new_name;
+}
+
+/* Return true when COND is a false predicate.  */
+
+static inline bool
+is_false_predicate (tree cond)
+{
+  return (cond != NULL_TREE
+	  && (cond == boolean_false_node
+	      || integer_zerop (cond)));
 }
 
 /* Return true when COND is a true predicate.  */
@@ -513,6 +575,65 @@ bb_with_exit_edge_p (struct loop *loop, basic_block bb)
   return false;
 }
 
+/* Given PHI which has more than two arguments, this function checks if
+   it's if-convertible by degenerating its arguments.  Specifically, if
+   below two conditions are satisfied:
+
+     1) Number of PHI arguments with different values equals to 2 and one
+	argument has the only occurrence.
+     2) The edge corresponding to the unique argument isn't critical edge.
+
+   Such PHI can be handled as PHIs have only two arguments.  For example,
+   below PHI:
+
+     res = PHI <A_1(e1), A_1(e2), A_2(e3)>;
+
+   can be transformed into:
+
+     res = (predicate of e3) ? A_2 : A_1;
+
+   Return TRUE if it is the case, FALSE otherwise.  */
+
+static bool
+phi_convertible_by_degenerating_args (gphi *phi)
+{
+  edge e;
+  tree arg, t1 = NULL, t2 = NULL;
+  unsigned int i, i1 = 0, i2 = 0, n1 = 0, n2 = 0;
+  unsigned int num_args = gimple_phi_num_args (phi);
+
+  gcc_assert (num_args > 2);
+
+  for (i = 0; i < num_args; i++)
+    {
+      arg = gimple_phi_arg_def (phi, i);
+      if (t1 == NULL || operand_equal_p (t1, arg, 0))
+	{
+	  n1++;
+	  i1 = i;
+	  t1 = arg;
+	}
+      else if (t2 == NULL || operand_equal_p (t2, arg, 0))
+	{
+	  n2++;
+	  i2 = i;
+	  t2 = arg;
+	}
+      else
+	return false;
+    }
+
+  if (n1 != 1 && n2 != 1)
+    return false;
+
+  /* Check if the edge corresponding to the unique arg is critical.  */
+  e = gimple_phi_arg_edge (phi, (n1 == 1) ? i1 : i2);
+  if (EDGE_COUNT (e->src->succs) > 1)
+    return false;
+
+  return true;
+}
+
 /* Return true when PHI is if-convertible.  PHI is part of loop LOOP
    and it belongs to basic block BB.
 
@@ -538,11 +659,12 @@ if_convertible_phi_p (struct loop *loop, basic_block bb, gphi *phi,
 
   if (bb != loop->header)
     {
-      if (gimple_phi_num_args (phi) != 2
-	  && !aggressive_if_conv)
+      if (gimple_phi_num_args (phi) > 2
+	  && !aggressive_if_conv
+	  && !phi_convertible_by_degenerating_args (phi))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file, "More than two phi node args.\n");
+	    fprintf (dump_file, "Phi can't be predicated by single cond.\n");
 	  return false;
         }
     }
@@ -613,17 +735,12 @@ hash_memrefs_baserefs_and_store_DRs_read_written_info (data_reference_p a)
 {
 
   data_reference_p *master_dr, *base_master_dr;
-  tree ref = DR_REF (a);
   tree base_ref = DR_BASE_OBJECT (a);
+  innermost_loop_behavior *innermost = &DR_INNERMOST (a);
   tree ca = bb_predicate (gimple_bb (DR_STMT (a)));
   bool exist1, exist2;
 
-  while (TREE_CODE (ref) == COMPONENT_REF
-	 || TREE_CODE (ref) == IMAGPART_EXPR
-	 || TREE_CODE (ref) == REALPART_EXPR)
-    ref = TREE_OPERAND (ref, 0);
-
-  master_dr = &ref_DR_map->get_or_insert (ref, &exist1);
+  master_dr = &innermost_DR_map->get_or_insert (innermost, &exist1);
   if (!exist1)
     *master_dr = a;
 
@@ -685,20 +802,17 @@ ifcvt_memrefs_wont_trap (gimple *stmt, vec<data_reference_p> drs)
   data_reference_p *master_dr, *base_master_dr;
   data_reference_p a = drs[gimple_uid (stmt) - 1];
 
-  tree ref_base_a = DR_REF (a);
   tree base = DR_BASE_OBJECT (a);
+  innermost_loop_behavior *innermost = &DR_INNERMOST (a);
 
   gcc_assert (DR_STMT (a) == stmt);
+  gcc_assert (DR_BASE_ADDRESS (a) || DR_OFFSET (a)
+              || DR_INIT (a) || DR_STEP (a));
 
-  while (TREE_CODE (ref_base_a) == COMPONENT_REF
-	 || TREE_CODE (ref_base_a) == IMAGPART_EXPR
-	 || TREE_CODE (ref_base_a) == REALPART_EXPR)
-    ref_base_a = TREE_OPERAND (ref_base_a, 0);
-
-  master_dr = ref_DR_map->get (ref_base_a);
-  base_master_dr = baseref_DR_map->get (base);
-
+  master_dr = innermost_DR_map->get (innermost);
   gcc_assert (master_dr != NULL);
+
+  base_master_dr = baseref_DR_map->get (base);
 
   /* If a is unconditionally written to it doesn't trap.  */
   if (DR_W_UNCONDITIONALLY (*master_dr))
@@ -947,10 +1061,6 @@ if_convertible_bb_p (struct loop *loop, basic_block bb, basic_block exit_bb)
     fprintf (dump_file, "----------[%d]-------------\n", bb->index);
 
   if (EDGE_COUNT (bb->succs) > 2)
-    return false;
-
-  if (EDGE_COUNT (bb->preds) > 2
-      && !aggressive_if_conv)
     return false;
 
   if (exit_bb)
@@ -1228,13 +1338,16 @@ if_convertible_loop_p_1 (struct loop *loop,
 
   data_reference_p dr;
 
-  ref_DR_map = new hash_map<tree_operand_hash, data_reference_p>;
+  innermost_DR_map
+	  = new hash_map<innermost_loop_behavior_hash, data_reference_p>;
   baseref_DR_map = new hash_map<tree_operand_hash, data_reference_p>;
 
   predicate_bbs (loop);
 
   for (i = 0; refs->iterate (i, &dr); i++)
     {
+      tree ref = DR_REF (dr);
+
       dr->aux = XNEW (struct ifc_dr);
       DR_BASE_W_UNCONDITIONALLY (dr) = false;
       DR_RW_UNCONDITIONALLY (dr) = false;
@@ -1244,6 +1357,27 @@ if_convertible_loop_p_1 (struct loop *loop,
       IFC_DR (dr)->base_w_predicate = boolean_false_node;
       if (gimple_uid (DR_STMT (dr)) == 0)
 	gimple_set_uid (DR_STMT (dr), i + 1);
+
+      /* If DR doesn't have innermost loop behavior or it's a compound
+         memory reference, we synthesize its innermost loop behavior
+         for hashing.  */
+      if (TREE_CODE (ref) == COMPONENT_REF
+          || TREE_CODE (ref) == IMAGPART_EXPR
+          || TREE_CODE (ref) == REALPART_EXPR
+          || !(DR_BASE_ADDRESS (dr) || DR_OFFSET (dr)
+	       || DR_INIT (dr) || DR_STEP (dr)))
+        {
+          while (TREE_CODE (ref) == COMPONENT_REF
+	         || TREE_CODE (ref) == IMAGPART_EXPR
+	         || TREE_CODE (ref) == REALPART_EXPR)
+	    ref = TREE_OPERAND (ref, 0);
+
+          DR_BASE_ADDRESS (dr) = ref;
+          DR_OFFSET (dr) = NULL;
+          DR_INIT (dr) = NULL;
+          DR_STEP (dr) = NULL;
+          DR_ALIGNED_TO (dr) = NULL;
+        }
       hash_memrefs_baserefs_and_store_DRs_read_written_info (dr);
     }
 
@@ -1338,8 +1472,8 @@ if_convertible_loop_p (struct loop *loop, bool *any_mask_load_store)
 
   free_data_refs (refs);
 
-  delete ref_DR_map;
-  ref_DR_map = NULL;
+  delete innermost_DR_map;
+  innermost_DR_map = NULL;
 
   delete baseref_DR_map;
   baseref_DR_map = NULL;
@@ -1777,20 +1911,31 @@ predicate_all_scalar_phis (struct loop *loop)
       if (bb == loop->header)
 	continue;
 
-      if (EDGE_COUNT (bb->preds) == 1)
-	continue;
-
       phi_gsi = gsi_start_phis (bb);
       if (gsi_end_p (phi_gsi))
 	continue;
 
-      gsi = gsi_after_labels (bb);
-      while (!gsi_end_p (phi_gsi))
+      if (EDGE_COUNT (bb->preds) == 1)
 	{
-	  phi = phi_gsi.phi ();
-	  predicate_scalar_phi (phi, &gsi);
-	  release_phi_node (phi);
-	  gsi_next (&phi_gsi);
+	  /* Propagate degenerate PHIs.  */
+	  for (phi_gsi = gsi_start_phis (bb); !gsi_end_p (phi_gsi);
+	       gsi_next (&phi_gsi))
+	    {
+	      gphi *phi = phi_gsi.phi ();
+	      replace_uses_by (gimple_phi_result (phi),
+			       gimple_phi_arg_def (phi, 0));
+	    }
+	}
+      else
+	{
+	  gsi = gsi_after_labels (bb);
+	  while (!gsi_end_p (phi_gsi))
+	    {
+	      phi = phi_gsi.phi ();
+	      predicate_scalar_phi (phi, &gsi);
+	      release_phi_node (phi);
+	      gsi_next (&phi_gsi);
+	    }
 	}
 
       set_phi_nodes (bb, NULL);
@@ -1988,7 +2133,7 @@ predicate_mem_writes (loop_p loop)
       gimple *stmt;
       int index;
 
-      if (is_true_predicate (cond))
+      if (is_true_predicate (cond) || is_false_predicate (cond))
 	continue;
 
       swap = false;

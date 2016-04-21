@@ -2066,7 +2066,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  if (TYPE_USER_ALIGN (tem))
 	    {
 	      if (TYPE_ALIGN (tem) > TYPE_ALIGN (newtype))
-		TYPE_ALIGN (newtype) = TYPE_ALIGN (tem);
+		SET_TYPE_ALIGN (newtype, TYPE_ALIGN (tem));
 	      TYPE_USER_ALIGN (newtype) = true;
 	    }
 
@@ -2490,7 +2490,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
   /* Likewise for DECL_ALIGN, DECL_USER_ALIGN and DECL_PACKED.  */
   if (DECL_ALIGN (olddecl) > DECL_ALIGN (newdecl))
     {
-      DECL_ALIGN (newdecl) = DECL_ALIGN (olddecl);
+      SET_DECL_ALIGN (newdecl, DECL_ALIGN (olddecl));
       DECL_USER_ALIGN (newdecl) |= DECL_USER_ALIGN (olddecl);
     }
   DECL_USER_ALIGN (olddecl) = DECL_USER_ALIGN (newdecl);
@@ -3919,7 +3919,7 @@ record_unknown_type (tree type, const char* name)
   DECL_IGNORED_P (decl) = 1;
   TYPE_DECL_SUPPRESS_DEBUG (decl) = 1;
   TYPE_SIZE (type) = TYPE_SIZE (void_type_node);
-  TYPE_ALIGN (type) = 1;
+  SET_TYPE_ALIGN (type, 1);
   TYPE_USER_ALIGN (type) = 0;
   SET_TYPE_MODE (type, TYPE_MODE (void_type_node));
 }
@@ -4174,7 +4174,7 @@ cxx_init_decl_processing (void)
     TYPE_UNSIGNED (nullptr_type_node) = 1;
     TYPE_PRECISION (nullptr_type_node) = GET_MODE_BITSIZE (ptr_mode);
     if (abi_version_at_least (9))
-      TYPE_ALIGN (nullptr_type_node) = GET_MODE_ALIGNMENT (ptr_mode);
+      SET_TYPE_ALIGN (nullptr_type_node, GET_MODE_ALIGNMENT (ptr_mode));
     SET_TYPE_MODE (nullptr_type_node, ptr_mode);
     record_builtin_type (RID_MAX, "decltype(nullptr)", nullptr_type_node);
     nullptr_node = build_int_cst (nullptr_type_node, 0);
@@ -7924,7 +7924,7 @@ grokfndecl (tree ctype,
       parms = parm;
 
       /* Allocate space to hold the vptr bit if needed.  */
-      DECL_ALIGN (decl) = MINIMUM_METHOD_BOUNDARY;
+      SET_DECL_ALIGN (decl, MINIMUM_METHOD_BOUNDARY);
     }
   DECL_ARGUMENTS (decl) = parms;
   for (t = parms; t; t = DECL_CHAIN (t))
@@ -13115,7 +13115,7 @@ copy_type_enum (tree dst, tree src)
 	valign = MAX (valign, TYPE_ALIGN (t));
       else
 	TYPE_USER_ALIGN (t) = TYPE_USER_ALIGN (src);
-      TYPE_ALIGN (t) = valign;
+      SET_TYPE_ALIGN (t, valign);
       TYPE_UNSIGNED (t) = TYPE_UNSIGNED (src);
     }
 }
@@ -13253,7 +13253,10 @@ start_enum (tree name, tree enumtype, tree underlying_type,
 
   if (underlying_type)
     {
-      if (CP_INTEGRAL_TYPE_P (underlying_type))
+      if (ENUM_UNDERLYING_TYPE (enumtype))
+	/* We already checked that it matches, don't change it to a different
+	   typedef variant.  */;
+      else if (CP_INTEGRAL_TYPE_P (underlying_type))
         {
 	  copy_type_enum (enumtype, underlying_type);
           ENUM_UNDERLYING_TYPE (enumtype) = underlying_type;
@@ -15018,7 +15021,8 @@ complete_vars (tree type)
 
 /* If DECL is of a type which needs a cleanup, build and return an
    expression to perform that cleanup here.  Return NULL_TREE if no
-   cleanup need be done.  */
+   cleanup need be done.  DECL can also be a _REF when called from
+   split_nonconstant_init_1.  */
 
 tree
 cxx_maybe_build_cleanup (tree decl, tsubst_flags_t complain)
@@ -15036,7 +15040,10 @@ cxx_maybe_build_cleanup (tree decl, tsubst_flags_t complain)
   /* Handle "__attribute__((cleanup))".  We run the cleanup function
      before the destructor since the destructor is what actually
      terminates the lifetime of the object.  */
-  attr = lookup_attribute ("cleanup", DECL_ATTRIBUTES (decl));
+  if (DECL_P (decl))
+    attr = lookup_attribute ("cleanup", DECL_ATTRIBUTES (decl));
+  else
+    attr = NULL_TREE;
   if (attr)
     {
       tree id;
@@ -15095,6 +15102,7 @@ cxx_maybe_build_cleanup (tree decl, tsubst_flags_t complain)
   protected_set_expr_location (cleanup, UNKNOWN_LOCATION);
 
   if (cleanup
+      && DECL_P (decl)
       && !lookup_attribute ("warn_unused", TYPE_ATTRIBUTES (TREE_TYPE (decl)))
       /* Treat objects with destructors as used; the destructor may do
 	 something substantive.  */

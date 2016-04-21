@@ -46,6 +46,7 @@ with Namet;    use Namet;
 with Nlists;
 with Opt;      use Opt;
 with Osint;    use Osint;
+with Osint.C;  use Osint.C;
 with Output;   use Output;
 with Par_SCO;
 with Prepcomp;
@@ -147,6 +148,7 @@ procedure Gnat1drv is
       if Generate_C_Code then
          Modify_Tree_For_C := True;
          Unnest_Subprogram_Mode := True;
+         Minimize_Expression_With_Actions := True;
 
          --  Set operating mode to Generate_Code to benefit from full front-end
          --  expansion (e.g. generics).
@@ -1045,6 +1047,19 @@ begin
       Original_Operating_Mode := Operating_Mode;
       Frontend;
 
+      --  In GNATprove mode, force loading of System unit to ensure that
+      --  System.Interrupt_Priority is available to GNATprove for the
+      --  generation of VCs related to ceiling priority.
+
+      if GNATprove_Mode then
+         declare
+            Unused_E : constant Entity_Id :=
+              Rtsfind.RTE (Rtsfind.RE_Interrupt_Priority);
+         begin
+            null;
+         end;
+      end if;
+
       --  Exit with errors if the main source could not be parsed
 
       if Sinput.Main_Source_File = No_Source_File then
@@ -1063,6 +1078,13 @@ begin
 
       if CodePeer_Mode then
          Comperr.Delete_SCIL_Files;
+      end if;
+
+      --  Ditto for old C files before regenerating new ones
+
+      if Generate_C_Code then
+         Delete_C_File;
+         Delete_H_File;
       end if;
 
       --  Exit if compilation errors detected

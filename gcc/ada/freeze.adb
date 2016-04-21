@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1908,8 +1908,17 @@ package body Freeze is
    -- Freeze_Before --
    -------------------
 
-   procedure Freeze_Before (N : Node_Id; T : Entity_Id) is
-      Freeze_Nodes : constant List_Id := Freeze_Entity (T, N);
+   procedure Freeze_Before
+     (N                 : Node_Id;
+      T                 : Entity_Id;
+      Do_Freeze_Profile : Boolean := True)
+   is
+      --  Freeze T, then insert the generated Freeze nodes before the node N.
+      --  Flag Freeze_Profile is used when T is an overloadable entity, and
+      --  indicates whether its profile should be frozen at the same time.
+
+      Freeze_Nodes : constant List_Id :=
+                       Freeze_Entity (T, N, Do_Freeze_Profile);
 
    begin
       if Ekind (T) = E_Function then
@@ -1925,7 +1934,11 @@ package body Freeze is
    -- Freeze_Entity --
    -------------------
 
-   function Freeze_Entity (E : Entity_Id; N : Node_Id) return List_Id is
+   function Freeze_Entity
+     (E                 : Entity_Id;
+      N                 : Node_Id;
+      Do_Freeze_Profile : Boolean := True) return List_Id
+   is
       Loc    : constant Source_Ptr := Sloc (N);
       Atype  : Entity_Id;
       Comp   : Entity_Id;
@@ -1996,6 +2009,9 @@ package body Freeze is
       --  frozen. However the freeze node cannot be inserted at the point of
       --  call, but rather must go in the package holding the function, so that
       --  the backend can process it in the proper context.
+
+      function New_Freeze_Node return Node_Id;
+      --  Create a new freeze node for entity E
 
       procedure Wrap_Imported_Subprogram (E : Entity_Id);
       --  If E is an entity for an imported subprogram with pre/post-conditions
@@ -3285,12 +3301,14 @@ package body Freeze is
 
          if Ekind (E) = E_Function then
 
-            --  Check whether function is declared elsewhere.
+            --  Check whether function is declared elsewhere. Previous code
+            --  used Get_Source_Unit on both arguments, but the values are
+            --  equal in the case of a parent and a child unit.
+            --  Confusion with subunits in code  ????
 
             Late_Freezing :=
-              Get_Source_Unit (E) /= Get_Source_Unit (N)
-                and then Returns_Limited_View (E)
-                and then not In_Open_Scopes (Scope (E));
+              not In_Same_Extended_Unit (E, N)
+                and then Returns_Limited_View (E);
 
             --  Freeze return type
 
@@ -3463,8 +3481,8 @@ package body Freeze is
 
            and then Convention (E) /= Convention_Intrinsic
 
-            --  Assume that ASM interface knows what it is doing. This deals
-            --  with unsigned.ads in the AAMP back end.
+           --  Assume that ASM interface knows what it is doing. This deals
+           --  with unsigned.ads in the AAMP back end.
 
            and then Convention (E) /= Convention_Assembler
          then
@@ -4589,6 +4607,39 @@ package body Freeze is
          Append_List (Result, Decls);
       end Late_Freeze_Subprogram;
 
+      ---------------------
+      -- New_Freeze_Node --
+      ---------------------
+
+      function New_Freeze_Node return Node_Id is
+         Save_Ghost_Mode : constant Ghost_Mode_Type := Ghost_Mode;
+         Result          : Node_Id;
+
+      begin
+         --  Handle the case where an ignored Ghost subprogram freezes the type
+         --  of one of its formals. The type can either be non-Ghost or checked
+         --  Ghost. Since the freeze node for the type is generated in the
+         --  context of the subprogram, the node will be incorrectly flagged as
+         --  ignored Ghost and erroneously removed from the tree.
+
+         --    type Typ is ...;
+         --    procedure Ignored_Ghost_Proc (Formal : Typ) with Ghost;
+
+         --  Reset the Ghost mode to "none". This preserves the freeze node.
+
+         if Ghost_Mode = Ignore
+           and then not Is_Ignored_Ghost_Entity (E)
+           and then not Is_Ignored_Ghost_Node (E)
+         then
+            Ghost_Mode := None;
+         end if;
+
+         Result := New_Node (N_Freeze_Entity, Loc);
+
+         Ghost_Mode := Save_Ghost_Mode;
+         return Result;
+      end New_Freeze_Node;
+
       ------------------------------
       -- Wrap_Imported_Subprogram --
       ------------------------------
@@ -4950,14 +5001,21 @@ package body Freeze is
             --  any extra formal parameters are created since we now know
             --  whether the subprogram will use a foreign convention.
 
-            --  In Ada 2012, freezing a subprogram does not always freeze
-            --  the corresponding profile (see AI05-019). An attribute
-            --  reference is not a freezing point of the profile.
+            --  In Ada 2012, freezing a subprogram does not always freeze the
+            --  corresponding profile (see AI05-019). An attribute reference
+            --  is not a freezing point of the profile. Flag Do_Freeze_Profile
+            --  indicates whether the profile should be frozen now.
             --  Other constructs that should not freeze ???
 
             --  This processing doesn't apply to internal entities (see below)
 
-            if not Is_Internal (E) then
+            --  Disable this mechanism for now, to fix regressions in ASIS and
+            --  various ACATS tests. Implementation of AI05-019 remains
+            --  unsolved ???
+
+            if not Is_Internal (E)
+              and then (Do_Freeze_Profile or else True)
+            then
                if not Freeze_Profile (E) then
                   Ghost_Mode := Save_Ghost_Mode;
                   return Result;
@@ -5177,7 +5235,7 @@ package body Freeze is
             if Is_Concurrent_Type (E) then
                Error_Msg_N ("ghost type & cannot be concurrent", E);
 
-            --  A Ghost type cannot be effectively volatile (SPARK RM 6.9(8))
+            --  A Ghost type cannot be effectively volatile (SPARK RM 6.9(7))
 
             elsif Is_Effectively_Volatile (E) then
                Error_Msg_N ("ghost type & cannot be volatile", E);
@@ -6281,7 +6339,7 @@ package body Freeze is
             Set_Sloc (F_Node, Loc);
 
          else
-            F_Node := New_Node (N_Freeze_Entity, Loc);
+            F_Node := New_Freeze_Node;
             Set_Freeze_Node (E, F_Node);
             Set_Access_Types_To_Process (F_Node, No_Elist);
             Set_TSS_Elist (F_Node, No_Elist);
@@ -6299,9 +6357,7 @@ package body Freeze is
          --  subtypes can only be elaborated after the type itself, and they
          --  need an itype reference.
 
-         if Ekind (E) = E_Record_Type
-           and then Has_Discriminants (E)
-         then
+         if Ekind (E) = E_Record_Type and then Has_Discriminants (E) then
             declare
                Comp : Entity_Id;
                IR   : Node_Id;
@@ -7856,6 +7912,16 @@ package body Freeze is
       then
          Check_Overriding_Indicator (E, Empty, Is_Primitive (E));
       end if;
+
+      if Modify_Tree_For_C
+        and then Nkind (Parent (E)) = N_Function_Specification
+        and then Is_Array_Type (Etype (E))
+        and then Is_Constrained (Etype (E))
+        and then not Is_Unchecked_Conversion_Instance (E)
+        and then not Rewritten_For_C (E)
+      then
+         Build_Procedure_Form (Unit_Declaration_Node (E));
+      end if;
    end Freeze_Subprogram;
 
    ----------------------
@@ -8284,7 +8350,7 @@ package body Freeze is
          --  Add friendly warning if initialization comes from a packed array
          --  component.
 
-         if Is_Record_Type (Typ)  then
+         if Is_Record_Type (Typ) then
             declare
                Comp : Entity_Id;
 

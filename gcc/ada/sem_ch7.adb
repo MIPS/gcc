@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -140,11 +140,13 @@ package body Sem_Ch7 is
    --  tightened further???
 
    function Requires_Completion_In_Body
-     (Id      : Entity_Id;
-      Pack_Id : Entity_Id) return Boolean;
+     (Id                 : Entity_Id;
+      Pack_Id            : Entity_Id;
+      Do_Abstract_States : Boolean := False) return Boolean;
    --  Subsidiary to routines Unit_Requires_Body and Unit_Requires_Body_Info.
    --  Determine whether entity Id declared in package spec Pack_Id requires
-   --  completion in a package body.
+   --  completion in a package body. Flag Do_Abstract_Stats should be set when
+   --  abstract states are to be considered in the completion test.
 
    procedure Unit_Requires_Body_Info (Pack_Id : Entity_Id);
    --  Outputs info messages showing why package Pack_Id requires a body. The
@@ -777,9 +779,10 @@ package body Sem_Ch7 is
 
       if Present (SPARK_Pragma (Body_Id)) then
          if Present (SPARK_Aux_Pragma (Spec_Id)) then
-            if Get_SPARK_Mode_From_Pragma (SPARK_Aux_Pragma (Spec_Id)) = Off
-                 and then
-               Get_SPARK_Mode_From_Pragma (SPARK_Pragma (Body_Id)) = On
+            if Get_SPARK_Mode_From_Annotation (SPARK_Aux_Pragma (Spec_Id)) =
+                 Off
+              and then
+                Get_SPARK_Mode_From_Annotation (SPARK_Pragma (Body_Id)) = On
             then
                Error_Msg_Sloc := Sloc (SPARK_Pragma (Body_Id));
                Error_Msg_N ("incorrect application of SPARK_Mode#", N);
@@ -936,16 +939,14 @@ package body Sem_Ch7 is
    ---------------------------------
 
    procedure Analyze_Package_Declaration (N : Node_Id) is
-      Id : constant Node_Id := Defining_Entity (N);
+      Id  : constant Node_Id := Defining_Entity (N);
+      Par : constant Node_Id := Parent_Spec (N);
+
+      Is_Comp_Unit : constant Boolean :=
+                       Nkind (Parent (N)) = N_Compilation_Unit;
 
       Body_Required : Boolean;
       --  True when this package declaration requires a corresponding body
-
-      Comp_Unit : Boolean;
-      --  True when this package declaration is not a nested declaration
-
-      PF : Boolean;
-      --  True when in the context of a declared pure library unit
 
    begin
       if Debug_Flag_C then
@@ -971,10 +972,13 @@ package body Sem_Ch7 is
          Set_SPARK_Aux_Pragma_Inherited (Id);
       end if;
 
-      --  A package declared within a Ghost refion is automatically Ghost
-      --  (SPARK RM 6.9(2)).
+      --  A package declared within a Ghost refion is automatically Ghost. A
+      --  child package is Ghost when its parent is Ghost (SPARK RM 6.9(2)).
 
-      if Ghost_Mode > None then
+      if Ghost_Mode > None
+        or else (Present (Par)
+                  and then Is_Ghost_Entity (Defining_Entity (Unit (Par))))
+      then
          Set_Is_Ghost_Entity (Id);
       end if;
 
@@ -985,9 +989,9 @@ package body Sem_Ch7 is
          Analyze_Aspect_Specifications (N, Id);
       end if;
 
-      --  Ada 2005 (AI-217): Check if the package has been illegally named
-      --  in a limited-with clause of its own context. In this case the error
-      --  has been previously notified by Analyze_Context.
+      --  Ada 2005 (AI-217): Check if the package has been illegally named in
+      --  a limited-with clause of its own context. In this case the error has
+      --  been previously notified by Analyze_Context.
 
       --     limited with Pkg; -- ERROR
       --     package Pkg is ...
@@ -998,30 +1002,45 @@ package body Sem_Ch7 is
 
       Push_Scope (Id);
 
-      PF := Is_Pure (Enclosing_Lib_Unit_Entity);
-      Set_Is_Pure (Id, PF);
-
+      Set_Is_Pure (Id, Is_Pure (Enclosing_Lib_Unit_Entity));
       Set_Categorization_From_Pragmas (N);
 
       Analyze (Specification (N));
       Validate_Categorization_Dependency (N, Id);
 
+      --  Determine whether the package requires a body. Abstract states are
+      --  intentionally ignored because they do require refinement which can
+      --  only come in a body, but at the same time they do not force the need
+      --  for a body on their own (SPARK RM 7.1.4(4) and 7.2.2(3)).
+
       Body_Required := Unit_Requires_Body (Id);
 
-      --  When this spec does not require an explicit body, we know that there
-      --  are no entities requiring completion in the language sense; we call
-      --  Check_Completion here only to ensure that any nested package
-      --  declaration that requires an implicit body gets one. (In the case
-      --  where a body is required, Check_Completion is called at the end of
-      --  the body's declarative part.)
-
       if not Body_Required then
+
+         --  If the package spec does not require an explicit body, then there
+         --  are not entities requiring completion in the language sense. Call
+         --  Check_Completion now to ensure that nested package declarations
+         --  that require an implicit body get one. (In the case where a body
+         --  is required, Check_Completion is called at the end of the body's
+         --  declarative part.)
+
          Check_Completion;
+
+         --  If the package spec does not require an explicit body, then all
+         --  abstract states declared in nested packages cannot possibly get
+         --  a proper refinement (SPARK RM 7.2.2(3)). This check is performed
+         --  only when the compilation unit is the main unit to allow for
+         --  modular SPARK analysis where packages do not necessarily have
+         --  bodies.
+
+         if Is_Comp_Unit then
+            Check_State_Refinements
+              (Context      => N,
+               Is_Main_Unit => Parent (N) = Cunit (Main_Unit));
+         end if;
       end if;
 
-      Comp_Unit := Nkind (Parent (N)) = N_Compilation_Unit;
-
-      if Comp_Unit then
+      if Is_Comp_Unit then
 
          --  Set Body_Required indication on the compilation unit node, and
          --  determine whether elaboration warnings may be meaningful on it.
@@ -1041,7 +1060,7 @@ package body Sem_Ch7 is
       --  visibility tests that rely on the fact that we have exited the scope
       --  of Id.
 
-      if Comp_Unit then
+      if Is_Comp_Unit then
          Validate_RT_RAT_Component (N);
       end if;
 
@@ -2434,8 +2453,9 @@ package body Sem_Ch7 is
    ---------------------------------
 
    function Requires_Completion_In_Body
-     (Id      : Entity_Id;
-      Pack_Id : Entity_Id) return Boolean
+     (Id                 : Entity_Id;
+      Pack_Id            : Entity_Id;
+      Do_Abstract_States : Boolean := False) return Boolean
    is
    begin
       --  Always ignore child units. Child units get added to the entity list
@@ -2449,7 +2469,7 @@ package body Sem_Ch7 is
 
       elsif Ekind (Id) = E_Package
         and then Nkind (Original_Node (Unit_Declaration_Node (Id))) =
-                                                   N_Formal_Package_Declaration
+                   N_Formal_Package_Declaration
       then
          return False;
 
@@ -2459,8 +2479,7 @@ package body Sem_Ch7 is
       --  implicit completion at some point.
 
       elsif (Is_Overloadable (Id)
-              and then Ekind (Id) /= E_Enumeration_Literal
-              and then Ekind (Id) /= E_Operator
+              and then not Ekind_In (Id, E_Enumeration_Literal, E_Operator)
               and then not Is_Abstract_Subprogram (Id)
               and then not Has_Completion (Id)
               and then Comes_From_Source (Parent (Id)))
@@ -2469,7 +2488,7 @@ package body Sem_Ch7 is
           (Ekind (Id) = E_Package
             and then Id /= Pack_Id
             and then not Has_Completion (Id)
-            and then Unit_Requires_Body (Id))
+            and then Unit_Requires_Body (Id, Do_Abstract_States))
 
         or else
           (Ekind (Id) = E_Incomplete_Type
@@ -2484,12 +2503,11 @@ package body Sem_Ch7 is
           (Ekind (Id) = E_Generic_Package
             and then Id /= Pack_Id
             and then not Has_Completion (Id)
-            and then Unit_Requires_Body (Id))
+            and then Unit_Requires_Body (Id, Do_Abstract_States))
 
         or else
           (Is_Generic_Subprogram (Id)
             and then not Has_Completion (Id))
-
       then
          return True;
 
@@ -2952,10 +2970,14 @@ package body Sem_Ch7 is
    ------------------------
 
    function Unit_Requires_Body
-     (Pack_Id               : Entity_Id;
-      Ignore_Abstract_State : Boolean := False) return Boolean
+     (Pack_Id            : Entity_Id;
+      Do_Abstract_States : Boolean := False) return Boolean
    is
       E : Entity_Id;
+
+      Requires_Body : Boolean := False;
+      --  Flag set when the unit has at least one construct that requries
+      --  completion in a body.
 
    begin
       --  Imported entity never requires body. Right now, only subprograms can
@@ -2991,35 +3013,44 @@ package body Sem_Ch7 is
                return True;
             end if;
          end;
-
-      --  A [generic] package that introduces at least one non-null abstract
-      --  state requires completion. However, there is a separate rule that
-      --  requires that such a package have a reason other than this for a
-      --  body being required (if necessary a pragma Elaborate_Body must be
-      --  provided). If Ignore_Abstract_State is True, we don't do this check
-      --  (so we can use Unit_Requires_Body to check for some other reason).
-
-      elsif Ekind_In (Pack_Id, E_Generic_Package, E_Package)
-        and then not Ignore_Abstract_State
-        and then Present (Abstract_States (Pack_Id))
-        and then not Is_Null_State
-                       (Node (First_Elmt (Abstract_States (Pack_Id))))
-      then
-         return True;
       end if;
 
-      --  Otherwise search entity chain for entity requiring completion
+      --  Traverse the entity chain of the package and look for constructs that
+      --  require a completion in a body.
 
       E := First_Entity (Pack_Id);
       while Present (E) loop
-         if Requires_Completion_In_Body (E, Pack_Id) then
-            return True;
+
+         --  Skip abstract states because their completion depends on several
+         --  criteria (see below).
+
+         if Ekind (E) = E_Abstract_State then
+            null;
+
+         elsif Requires_Completion_In_Body
+                 (E, Pack_Id, Do_Abstract_States)
+         then
+            Requires_Body := True;
+            exit;
          end if;
 
          Next_Entity (E);
       end loop;
 
-      return False;
+      --  A [generic] package that defines at least one non-null abstract state
+      --  requires a completion only when at least one other construct requires
+      --  a completion in a body (SPARK RM 7.1.4(4) and (6)). This check is not
+      --  performed if the caller requests this behavior.
+
+      if Do_Abstract_States
+        and then Ekind_In (Pack_Id, E_Generic_Package, E_Package)
+        and then Has_Non_Null_Abstract_State (Pack_Id)
+        and then Requires_Body
+      then
+         return True;
+      end if;
+
+      return Requires_Body;
    end Unit_Requires_Body;
 
    -----------------------------

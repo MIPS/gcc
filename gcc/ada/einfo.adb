@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -528,7 +528,7 @@ package body Einfo is
 
    --    Has_Pragma_Preelab_Init         Flag221
    --    Used_As_Generic_Actual          Flag222
-   --    Is_Descendent_Of_Address        Flag223
+   --    Is_Descendant_Of_Address        Flag223
    --    Is_Raised                       Flag224
    --    Is_Thunk                        Flag225
    --    Is_Only_Out_Parameter           Flag226
@@ -597,7 +597,7 @@ package body Einfo is
    --    Is_Uplevel_Referenced_Entity    Flag283
    --    Is_Unimplemented                Flag284
    --    Is_Volatile_Full_Access         Flag285
-   --    (unused)                        Flag286
+   --    Is_Exception_Handler            Flag286
    --    Rewritten_For_C                 Flag287
 
    --    (unused)                        Flag288
@@ -1976,12 +1976,6 @@ package body Einfo is
       return Flag146 (Id);
    end Is_Abstract_Type;
 
-   function Is_Local_Anonymous_Access (Id : E) return B is
-   begin
-      pragma Assert (Is_Access_Type (Id));
-      return Flag194 (Id);
-   end Is_Local_Anonymous_Access;
-
    function Is_Access_Constant (Id : E) return B is
    begin
       pragma Assert (Is_Access_Type (Id));
@@ -2101,10 +2095,10 @@ package body Einfo is
       return Flag132 (Id);
    end Is_Default_Init_Cond_Procedure;
 
-   function Is_Descendent_Of_Address (Id : E) return B is
+   function Is_Descendant_Of_Address (Id : E) return B is
    begin
       return Flag223 (Id);
-   end Is_Descendent_Of_Address;
+   end Is_Descendant_Of_Address;
 
    function Is_Discrim_SO_Function (Id : E) return B is
    begin
@@ -2136,6 +2130,12 @@ package body Einfo is
    begin
       return Flag52 (Id);
    end Is_Entry_Formal;
+
+   function Is_Exception_Handler (Id : E) return B is
+   begin
+      pragma Assert (Ekind (Id) = E_Block);
+      return Flag286 (Id);
+   end Is_Exception_Handler;
 
    function Is_Exported (Id : E) return B is
    begin
@@ -2307,6 +2307,12 @@ package body Einfo is
       return Flag25 (Id);
    end Is_Limited_Record;
 
+   function Is_Local_Anonymous_Access (Id : E) return B is
+   begin
+      pragma Assert (Is_Access_Type (Id));
+      return Flag194 (Id);
+   end Is_Local_Anonymous_Access;
+
    function Is_Machine_Code_Subprogram (Id : E) return B is
    begin
       pragma Assert (Is_Subprogram (Id));
@@ -2365,13 +2371,13 @@ package body Einfo is
 
    function Is_Predicate_Function (Id : E) return B is
    begin
-      pragma Assert (Ekind (Id) = E_Function or else Ekind (Id) = E_Procedure);
+      pragma Assert (Ekind_In (Id, E_Function, E_Procedure));
       return Flag255 (Id);
    end Is_Predicate_Function;
 
    function Is_Predicate_Function_M (Id : E) return B is
    begin
-      pragma Assert (Ekind (Id) = E_Function or else Ekind (Id) = E_Procedure);
+      pragma Assert (Ekind_In (Id, E_Function, E_Procedure));
       return Flag256 (Id);
    end Is_Predicate_Function_M;
 
@@ -2835,6 +2841,7 @@ package body Einfo is
 
    function Overridden_Operation (Id : E) return E is
    begin
+      pragma Assert (Is_Subprogram (Id) or else Is_Generic_Subprogram (Id));
       return Node26 (Id);
    end Overridden_Operation;
 
@@ -5102,11 +5109,11 @@ package body Einfo is
       Set_Flag132 (Id, V);
    end Set_Is_Default_Init_Cond_Procedure;
 
-   procedure Set_Is_Descendent_Of_Address (Id : E; V : B := True) is
+   procedure Set_Is_Descendant_Of_Address (Id : E; V : B := True) is
    begin
       pragma Assert (Is_Type (Id));
       Set_Flag223 (Id, V);
-   end Set_Is_Descendent_Of_Address;
+   end Set_Is_Descendant_Of_Address;
 
    procedure Set_Is_Discrim_SO_Function (Id : E; V : B := True) is
    begin
@@ -5144,6 +5151,12 @@ package body Einfo is
    begin
       Set_Flag52 (Id, V);
    end Set_Is_Entry_Formal;
+
+   procedure Set_Is_Exception_Handler (Id : E; V : B := True) is
+   begin
+      pragma Assert (Ekind (Id) = E_Block);
+      Set_Flag286 (Id, V);
+   end Set_Is_Exception_Handler;
 
    procedure Set_Is_Exported (Id : E; V : B := True) is
    begin
@@ -5393,13 +5406,13 @@ package body Einfo is
 
    procedure Set_Is_Predicate_Function (Id : E; V : B := True) is
    begin
-      pragma Assert (Ekind (Id) = E_Function or else Ekind (Id) = E_Procedure);
+      pragma Assert (Ekind_In (Id, E_Function, E_Procedure));
       Set_Flag255 (Id, V);
    end Set_Is_Predicate_Function;
 
    procedure Set_Is_Predicate_Function_M (Id : E; V : B := True) is
    begin
-      pragma Assert (Ekind (Id) = E_Function or else Ekind (Id) = E_Procedure);
+      pragma Assert (Ekind_In (Id, E_Function, E_Procedure));
       Set_Flag256 (Id, V);
    end Set_Is_Predicate_Function_M;
 
@@ -5877,6 +5890,7 @@ package body Einfo is
 
    procedure Set_Overridden_Operation (Id : E; V : E) is
    begin
+      pragma Assert (Is_Subprogram (Id) or else Is_Generic_Subprogram (Id));
       Set_Node26 (Id, V);
    end Set_Overridden_Operation;
 
@@ -7004,17 +7018,19 @@ package body Einfo is
       else
          Formal := First_Entity (Id);
 
+         --  Deal with the common, non-generic case first
+
+         if No (Formal) or else Is_Formal (Formal) then
+            return Formal;
+         end if;
+
          --  The first/next entity chain of a generic subprogram contains all
-         --  generic formal parameters, followed by the formal parameters. Go
-         --  directly to the parameters by skipping the formal part.
+         --  generic formal parameters, followed by the formal parameters.
 
          if Is_Generic_Subprogram (Id) then
             while Present (Formal) and then not Is_Formal (Formal) loop
                Next_Entity (Formal);
             end loop;
-         end if;
-
-         if Present (Formal) and then Is_Formal (Formal) then
             return Formal;
          else
             return Empty;
@@ -7316,27 +7332,40 @@ package body Einfo is
         and then Present (Non_Limited_View (Id));
    end Has_Non_Limited_View;
 
+   ---------------------------------
+   -- Has_Non_Null_Abstract_State --
+   ---------------------------------
+
+   function Has_Non_Null_Abstract_State (Id : E) return B is
+   begin
+      pragma Assert (Ekind_In (Id, E_Generic_Package, E_Package));
+
+      return
+        Present (Abstract_States (Id))
+          and then
+            not Is_Null_State (Node (First_Elmt (Abstract_States (Id))));
+   end Has_Non_Null_Abstract_State;
+
    -------------------------------------
    -- Has_Non_Null_Visible_Refinement --
    -------------------------------------
 
    function Has_Non_Null_Visible_Refinement (Id : E) return B is
+      Constits : Elist_Id;
+
    begin
       --  "Refinement" is a concept applicable only to abstract states
 
       pragma Assert (Ekind (Id) = E_Abstract_State);
+      Constits := Refinement_Constituents (Id);
 
-      if Has_Visible_Refinement (Id) then
-         pragma Assert (Present (Refinement_Constituents (Id)));
+      --  For a refinement to be non-null, the first constituent must be
+      --  anything other than null.
 
-         --  For a refinement to be non-null, the first constituent must be
-         --  anything other than null.
-
-         return
-           Nkind (Node (First_Elmt (Refinement_Constituents (Id)))) /= N_Null;
-      end if;
-
-      return False;
+      return
+        Has_Visible_Refinement (Id)
+          and then Present (Constits)
+          and then Nkind (Node (First_Elmt (Constits))) /= N_Null;
    end Has_Non_Null_Visible_Refinement;
 
    -----------------------------
@@ -7357,22 +7386,21 @@ package body Einfo is
    ---------------------------------
 
    function Has_Null_Visible_Refinement (Id : E) return B is
+      Constits : Elist_Id;
+
    begin
       --  "Refinement" is a concept applicable only to abstract states
 
       pragma Assert (Ekind (Id) = E_Abstract_State);
+      Constits := Refinement_Constituents (Id);
 
-      if Has_Visible_Refinement (Id) then
-         pragma Assert (Present (Refinement_Constituents (Id)));
+      --  For a refinement to be null, the state's sole constituent must be a
+      --  null.
 
-         --  For a refinement to be null, the state's sole constituent must be
-         --  a null.
-
-         return
-           Nkind (Node (First_Elmt (Refinement_Constituents (Id)))) = N_Null;
-      end if;
-
-      return False;
+      return
+        Has_Visible_Refinement (Id)
+          and then Present (Constits)
+          and then Nkind (Node (First_Elmt (Constits))) = N_Null;
    end Has_Null_Visible_Refinement;
 
    --------------------
@@ -8197,8 +8225,13 @@ package body Einfo is
       --  If type is private and has a completion, predicate may be defined
       --  on the full view.
 
-      if Is_Private_Type (Id) and then Present (Full_View (Id)) then
+      if Is_Private_Type (Id)
+         and then
+           (not Has_Predicates (Id) or else No (Subprograms_For_Type (Id)))
+         and then Present (Full_View (Id))
+      then
          T := Full_View (Id);
+
       else
          T := Id;
       end if;
@@ -8945,13 +8978,14 @@ package body Einfo is
       W ("Is_Controlled",                   Flag42  (Id));
       W ("Is_Controlling_Formal",           Flag97  (Id));
       W ("Is_Default_Init_Cond_Procedure",  Flag132 (Id));
-      W ("Is_Descendent_Of_Address",        Flag223 (Id));
+      W ("Is_Descendant_Of_Address",        Flag223 (Id));
       W ("Is_Discrim_SO_Function",          Flag176 (Id));
       W ("Is_Discriminant_Check_Function",  Flag264 (Id));
       W ("Is_Dispatch_Table_Entity",        Flag234 (Id));
       W ("Is_Dispatching_Operation",        Flag6   (Id));
       W ("Is_Eliminated",                   Flag124 (Id));
       W ("Is_Entry_Formal",                 Flag52  (Id));
+      W ("Is_Exception_Handler",            Flag286 (Id));
       W ("Is_Exported",                     Flag99  (Id));
       W ("Is_First_Subtype",                Flag70  (Id));
       W ("Is_For_Access_Subtype",           Flag118 (Id));

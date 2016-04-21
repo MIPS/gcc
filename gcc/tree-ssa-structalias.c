@@ -682,6 +682,8 @@ void debug_constraints (void);
 void debug_constraint_graph (void);
 void debug_solution_for_var (unsigned int);
 void debug_sa_points_to_info (void);
+void debug_varinfo (varinfo_t);
+void debug_varmap (void);
 
 /* Print out constraint C to stderr.  */
 
@@ -7180,13 +7182,20 @@ delete_points_to_sets (void)
   obstack_free (&final_solutions_obstack, NULL);
 }
 
+struct vls_data
+{
+  unsigned short clique;
+  bitmap rvars;
+};
+
 /* Mark "other" loads and stores as belonging to CLIQUE and with
    base zero.  */
 
 static bool
-visit_loadstore (gimple *, tree base, tree ref, void *clique_)
+visit_loadstore (gimple *, tree base, tree ref, void *data)
 {
-  unsigned short clique = (uintptr_t)clique_;
+  unsigned short clique = ((vls_data *) data)->clique;
+  bitmap rvars = ((vls_data *) data)->rvars;
   if (TREE_CODE (base) == MEM_REF
       || TREE_CODE (base) == TARGET_MEM_REF)
     {
@@ -7194,12 +7203,16 @@ visit_loadstore (gimple *, tree base, tree ref, void *clique_)
       if (TREE_CODE (ptr) == SSA_NAME
 	  && ! SSA_NAME_IS_DEFAULT_DEF (ptr))
 	{
-	  /* ???  We need to make sure 'ptr' doesn't include any of
+	  /* We need to make sure 'ptr' doesn't include any of
 	     the restrict tags we added bases for in its points-to set.  */
-	  return false;
-	}
+	  varinfo_t vi = lookup_vi_for_tree (ptr);
+	  if (! vi)
+	    return false;
 
-      /* For now let decls through.  */
+	  vi = get_varinfo (find (vi->id));
+	  if (bitmap_intersect_p (rvars, vi->solution))
+	    return false;
+	}
 
       /* Do not overwrite existing cliques (that includes clique, base
          pairs we just set).  */
@@ -7273,6 +7286,7 @@ compute_dependence_clique (void)
 {
   unsigned short clique = 0;
   unsigned short last_ruid = 0;
+  bitmap rvars = BITMAP_ALLOC (NULL);
   for (unsigned i = 0; i < num_ssa_names; ++i)
     {
       tree ptr = ssa_name (i);
@@ -7328,38 +7342,46 @@ compute_dependence_clique (void)
 	  /* Now look at possible dereferences of ptr.  */
 	  imm_use_iterator ui;
 	  gimple *use_stmt;
+	  bool used = false;
 	  FOR_EACH_IMM_USE_STMT (use_stmt, ui, ptr)
 	    {
 	      /* ???  Calls and asms.  */
 	      if (!gimple_assign_single_p (use_stmt))
 		continue;
-	      maybe_set_dependence_info (gimple_assign_lhs (use_stmt), ptr,
-					 clique, restrict_var, last_ruid);
-	      maybe_set_dependence_info (gimple_assign_rhs1 (use_stmt), ptr,
-					 clique, restrict_var, last_ruid);
+	      used |= maybe_set_dependence_info (gimple_assign_lhs (use_stmt),
+						 ptr, clique, restrict_var,
+						 last_ruid);
+	      used |= maybe_set_dependence_info (gimple_assign_rhs1 (use_stmt),
+						 ptr, clique, restrict_var,
+						 last_ruid);
 	    }
+	  if (used)
+	    bitmap_set_bit (rvars, restrict_var->id);
 	}
     }
 
-  if (clique == 0)
-    return;
+  if (clique != 0)
+    {
+      /* Assign the BASE id zero to all accesses not based on a restrict
+	 pointer.  That way they get disambiguated against restrict
+	 accesses but not against each other.  */
+      /* ???  For restricts derived from globals (thus not incoming
+	 parameters) we can't restrict scoping properly thus the following
+	 is too aggressive there.  For now we have excluded those globals from
+	 getting into the MR_DEPENDENCE machinery.  */
+      vls_data data = { clique, rvars };
+      basic_block bb;
+      FOR_EACH_BB_FN (bb, cfun)
+	for (gimple_stmt_iterator gsi = gsi_start_bb (bb);
+	     !gsi_end_p (gsi); gsi_next (&gsi))
+	  {
+	    gimple *stmt = gsi_stmt (gsi);
+	    walk_stmt_load_store_ops (stmt, &data,
+				      visit_loadstore, visit_loadstore);
+	  }
+    }
 
-  /* Assign the BASE id zero to all accesses not based on a restrict
-     pointer.  That way they get disabiguated against restrict
-     accesses but not against each other.  */
-  /* ???  For restricts derived from globals (thus not incoming
-     parameters) we can't restrict scoping properly thus the following
-     is too aggressive there.  For now we have excluded those globals from
-     getting into the MR_DEPENDENCE machinery.  */
-  basic_block bb;
-  FOR_EACH_BB_FN (bb, cfun)
-    for (gimple_stmt_iterator gsi = gsi_start_bb (bb);
-	 !gsi_end_p (gsi); gsi_next (&gsi))
-      {
-	gimple *stmt = gsi_stmt (gsi);
-	walk_stmt_load_store_ops (stmt, (void *)(uintptr_t)clique,
-				  visit_loadstore, visit_loadstore);
-      }
+  BITMAP_FREE (rvars);
 }
 
 /* Compute points-to information for every SSA_NAME pointer in the
@@ -7494,6 +7516,112 @@ associate_varinfo_to_alias (struct cgraph_node *node, void *data)
       && node->analyzed)
     insert_vi_for_tree (node->decl, (varinfo_t)data);
   return false;
+}
+
+/* Dump varinfo VI to FILE.  */
+
+static void
+dump_varinfo (FILE *file, varinfo_t vi)
+{
+  if (vi == NULL)
+    return;
+
+  fprintf (file, "%u: %s\n", vi->id, vi->name);
+
+  const char *sep = " ";
+  if (vi->is_artificial_var)
+    fprintf (file, "%sartificial", sep);
+  if (vi->is_special_var)
+    fprintf (file, "%sspecial", sep);
+  if (vi->is_unknown_size_var)
+    fprintf (file, "%sunknown-size", sep);
+  if (vi->is_full_var)
+    fprintf (file, "%sfull", sep);
+  if (vi->is_heap_var)
+    fprintf (file, "%sheap", sep);
+  if (vi->may_have_pointers)
+    fprintf (file, "%smay-have-pointers", sep);
+  if (vi->only_restrict_pointers)
+    fprintf (file, "%sonly-restrict-pointers", sep);
+  if (vi->is_restrict_var)
+    fprintf (file, "%sis-restrict-var", sep);
+  if (vi->is_global_var)
+    fprintf (file, "%sglobal", sep);
+  if (vi->is_ipa_escape_point)
+    fprintf (file, "%sipa-escape-point", sep);
+  if (vi->is_fn_info)
+    fprintf (file, "%sfn-info", sep);
+  if (vi->ruid)
+    fprintf (file, "%srestrict-uid:%u", sep, vi->ruid);
+  if (vi->next)
+    fprintf (file, "%snext:%u", sep, vi->next);
+  if (vi->head != vi->id)
+    fprintf (file, "%shead:%u", sep, vi->head);
+  if (vi->offset)
+    fprintf (file, "%soffset:" HOST_WIDE_INT_PRINT_DEC, sep, vi->offset);
+  if (vi->size != ~(unsigned HOST_WIDE_INT)0)
+    fprintf (file, "%ssize:" HOST_WIDE_INT_PRINT_DEC, sep, vi->size);
+  if (vi->fullsize != ~(unsigned HOST_WIDE_INT)0
+      && vi->fullsize != vi->size)
+    fprintf (file, "%sfullsize:" HOST_WIDE_INT_PRINT_DEC, sep,
+	     vi->fullsize);
+  fprintf (file, "\n");
+
+  if (vi->solution && !bitmap_empty_p (vi->solution))
+    {
+      bitmap_iterator bi;
+      unsigned i;
+      fprintf (file, " solution: {");
+      EXECUTE_IF_SET_IN_BITMAP (vi->solution, 0, i, bi)
+	fprintf (file, " %u", i);
+      fprintf (file, " }\n");
+    }
+
+  if (vi->oldsolution && !bitmap_empty_p (vi->oldsolution)
+      && !bitmap_equal_p (vi->solution, vi->oldsolution))
+    {
+      bitmap_iterator bi;
+      unsigned i;
+      fprintf (file, " oldsolution: {");
+      EXECUTE_IF_SET_IN_BITMAP (vi->oldsolution, 0, i, bi)
+	fprintf (file, " %u", i);
+      fprintf (file, " }\n");
+    }
+}
+
+/* Dump varinfo VI to stderr.  */
+
+DEBUG_FUNCTION void
+debug_varinfo (varinfo_t vi)
+{
+  dump_varinfo (stderr, vi);
+}
+
+/* Dump varmap to FILE.  */
+
+static void
+dump_varmap (FILE *file)
+{
+  if (varmap.length () == 0)
+    return;
+
+  fprintf (file, "variables:\n");
+
+  for (unsigned int i = 0; i < varmap.length (); ++i)
+    {
+      varinfo_t vi = get_varinfo (i);
+      dump_varinfo (file, vi);
+    }
+
+  fprintf (file, "\n");
+}
+
+/* Dump varmap to stderr.  */
+
+DEBUG_FUNCTION void
+debug_varmap (void)
+{
+  dump_varmap (stderr);
 }
 
 /* Execute the driver for IPA PTA.  */

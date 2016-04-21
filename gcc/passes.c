@@ -364,10 +364,9 @@ finish_optimization_passes (void)
 
   /* Do whatever is necessary to finish printing the graphs.  */
   for (i = TDI_end; (dfi = dumps->get_dump_file_info (i)) != NULL; ++i)
-    if (dumps->dump_initialized_p (i)
-	&& (dfi->pflags & TDF_GRAPH) != 0
-	&& (name = dumps->get_dump_file_name (i)) != NULL)
+    if (dfi->graph_dump_initialized)
       {
+	name = dumps->get_dump_file_name (dfi);
 	finish_graph_dump_file (name);
 	free (name);
       }
@@ -1497,8 +1496,12 @@ pass_manager::register_pass (struct register_pass_info *pass_info)
         tdi = TDI_rtl_all;
       /* Check if dump-all flag is specified.  */
       if (dumps->get_dump_file_info (tdi)->pstate)
-        dumps->get_dump_file_info (added_pass_nodes->pass->static_pass_number)
+	{
+	  dumps->get_dump_file_info (added_pass_nodes->pass->static_pass_number)
             ->pstate = dumps->get_dump_file_info (tdi)->pstate;
+	  dumps->get_dump_file_info (added_pass_nodes->pass->static_pass_number)
+	    ->pflags = dumps->get_dump_file_info (tdi)->pflags;
+	}
       XDELETE (added_pass_nodes);
       added_pass_nodes = next_node;
     }
@@ -1555,8 +1558,15 @@ pass_manager::pass_manager (context *ctxt)
 
   /* Build the tree of passes.  */
 
-#define INSERT_PASSES_AFTER(PASS) \
-  p = &(PASS);
+#define INSERT_PASSES_AFTER(PASS)		\
+  {						\
+    opt_pass **p_start;				\
+    p_start = p = &(PASS);
+
+#define TERMINATE_PASS_LIST(PASS)		\
+    gcc_assert (p_start == &PASS);		\
+    *p = NULL;					\
+  }
 
 #define PUSH_INSERT_PASSES_WITHIN(PASS) \
   { \
@@ -1583,9 +1593,6 @@ pass_manager::pass_manager (context *ctxt)
       NEXT_PASS (PASS, NUM);				\
       PASS ## _ ## NUM->set_pass_param (0, ARG);	\
     } while (0)
-
-#define TERMINATE_PASS_LIST() \
-  *p = NULL;
 
 #include "pass-instances.def"
 
@@ -1756,10 +1763,13 @@ execute_function_dump (function *fn, void *data)
       if ((fn->curr_properties & PROP_cfg)
 	  && (dump_flags & TDF_GRAPH))
 	{
-	  if (!pass->graph_dump_initialized)
+	  gcc::dump_manager *dumps = g->get_dumps ();
+	  struct dump_file_info *dfi
+	    = dumps->get_dump_file_info (pass->static_pass_number);
+	  if (!dfi->graph_dump_initialized)
 	    {
 	      clean_graph_dump_file (dump_file_name);
-	      pass->graph_dump_initialized = true;
+	      dfi->graph_dump_initialized = true;
 	    }
 	  print_graph_cfg (dump_file_name, fn);
 	}
@@ -2103,7 +2113,9 @@ pass_init_dump_file (opt_pass *pass)
 	  && cfun && (cfun->curr_properties & PROP_cfg))
 	{
 	  clean_graph_dump_file (dump_file_name);
-	  pass->graph_dump_initialized = true;
+	  struct dump_file_info *dfi
+	    = dumps->get_dump_file_info (pass->static_pass_number);
+	  dfi->graph_dump_initialized = true;
 	}
       timevar_pop (TV_DUMP);
       return initializing_dump;

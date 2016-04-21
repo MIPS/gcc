@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -53,6 +53,7 @@ with Sem_Prag; use Sem_Prag;
 with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
 with Stand;    use Stand;
+with Stylesw;  use Stylesw;
 with Uintp;    use Uintp;
 with Uname;    use Uname;
 
@@ -998,7 +999,7 @@ package body Sem is
       if Present (M) then
 
          --  If we are not at the end of the list, then the easiest
-         --  coding is simply to insert before our successor
+         --  coding is simply to insert before our successor.
 
          if Present (Next (N)) then
             Insert_Before_And_Analyze (Next (N), M);
@@ -1316,6 +1317,13 @@ package body Sem is
       procedure Do_Analyze is
          Save_Ghost_Mode : constant Ghost_Mode_Type := Ghost_Mode;
 
+         --  Generally style checks are preserved across compilations, with
+         --  one exception: s-oscons.ads, which allows arbitrary long lines
+         --  unconditionally, and has no restore mechanism, because it is
+         --  intended as a lowest-level Pure package.
+
+         Save_Max_Line   : constant Int := Style_Max_Line_Length;
+
          List : Elist_Id;
 
       begin
@@ -1346,6 +1354,7 @@ package body Sem is
          Pop_Scope;
          Restore_Scope_Stack (List);
          Ghost_Mode := Save_Ghost_Mode;
+         Style_Max_Line_Length := Save_Max_Line;
       end Do_Analyze;
 
       --  Local variables
@@ -2039,7 +2048,7 @@ package body Sem is
                --  The flag Withed_Body on a context clause indicates that a
                --  unit contains an instantiation that may be needed later,
                --  and therefore the body that contains the generic body (and
-               --  its context)  must be traversed immediately after the
+               --  its context) must be traversed immediately after the
                --  corresponding spec (see Do_Unit_And_Dependents).
 
                --  The main unit itself is processed separately after all other
@@ -2062,9 +2071,9 @@ package body Sem is
                   end if;
 
                   --  It's a spec, process it, and the units it depends on,
-                  --  unless it is a descendent of the main unit.  This can
+                  --  unless it is a descendant of the main unit.  This can
                   --  happen when the body of a parent depends on some other
-                  --  descendent.
+                  --  descendant.
 
                when others =>
                   Par := Scope (Defining_Entity (Unit (CU)));
