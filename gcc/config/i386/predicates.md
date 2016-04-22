@@ -661,29 +661,37 @@
 (define_predicate "const0_operand"
   (match_code "const_int,const_wide_int,const_double,const_vector")
 {
+  if (op == const0_rtx)
+    return true;
+
   if (mode == VOIDmode)
     mode = GET_MODE (op);
   return op == CONST0_RTX (mode);
 })
 
-;; Match -1.
-(define_predicate "constm1_operand"
-  (match_code "const_int,const_wide_int,const_double,const_vector")
-{
-  if (mode == VOIDmode)
-    mode = GET_MODE (op);
-  return op == CONSTM1_RTX (mode);
-})
-
-;; Match one or vector filled with ones.
+;; Match one or vector with all elements equal to one.
 (define_predicate "const1_operand"
-  (match_code "const_int,const_wide_int,const_double,const_vector")
+  (match_code "const_int,const_wide_int,const_vector")
 {
+  if (op == const1_rtx)
+    return true;
+
   if (mode == VOIDmode)
     mode = GET_MODE (op);
   return op == CONST1_RTX (mode);
 })
 
+;; Return true if operand is a (vector) constant with all bits set.
+(define_predicate "all_ones_operand"
+  (match_code "const_int,const_wide_int,const_vector")
+{
+  if (op == constm1_rtx)
+    return true;
+
+  if (mode == VOIDmode)
+    mode = GET_MODE (op);
+  return op == CONSTM1_RTX (mode);
+})
 ;; Match exactly eight.
 (define_predicate "const8_operand"
   (and (match_code "const_int")
@@ -945,12 +953,6 @@
   return true;
 })
 
-/* Return true if operand is a vector constant that is all ones. */
-(define_predicate "vector_all_ones_operand"
-  (and (match_code "const_vector")
-       (match_test "INTEGRAL_MODE_P (GET_MODE (op))")
-       (match_test "op == CONSTM1_RTX (GET_MODE (op))")))
-
 ; Return true when OP is operand acceptable for vector memory operand.
 ; Only AVX can have misaligned memory operand.
 (define_predicate "vector_memory_operand"
@@ -976,14 +978,8 @@
 
 ;; Return true when OP is nonimmediate or standard SSE constant.
 (define_predicate "nonimmediate_or_sse_const_operand"
-  (match_operand 0 "general_operand")
-{
-  if (nonimmediate_operand (op, mode))
-    return true;
-  if (standard_sse_constant_p (op) > 0)
-    return true;
-  return false;
-})
+  (ior (match_operand 0 "nonimmediate_operand")
+       (match_test "standard_sse_constant_p (op, mode)")))
 
 ;; Return true if OP is a register or a zero.
 (define_predicate "reg_or_0_operand"

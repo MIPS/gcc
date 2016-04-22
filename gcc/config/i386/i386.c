@@ -10762,42 +10762,44 @@ standard_80387_constant_rtx (int idx)
 				       XFmode);
 }
 
-/* Return 1 if X is all 0s and 2 if x is all 1s
+/* Return 1 if X is all bits 0 and 2 if X is all bits 1
    in supported SSE/AVX vector mode.  */
 
 int
-standard_sse_constant_p (rtx x)
+standard_sse_constant_p (rtx x, machine_mode pred_mode)
 {
   machine_mode mode;
 
   if (!TARGET_SSE)
     return 0;
 
-  mode = GET_MODE (x);
-  
-  if (x == const0_rtx || x == CONST0_RTX (mode))
+  if (const0_operand (x, VOIDmode))
     return 1;
-  if (vector_all_ones_operand (x, mode))
-    switch (mode)
+
+  mode = GET_MODE (x);
+
+  /* VOIDmode integer constant, infer mode from the predicate.  */
+  if (mode == VOIDmode)
+    mode = pred_mode;
+
+  if (all_ones_operand (x, mode))
+    switch (GET_MODE_SIZE (mode))
       {
-      case V16QImode:
-      case V8HImode:
-      case V4SImode:
-      case V2DImode:
-	if (TARGET_SSE2)
-	  return 2;
-      case V32QImode:
-      case V16HImode:
-      case V8SImode:
-      case V4DImode:
-	if (TARGET_AVX2)
-	  return 2;
-      case V64QImode:
-      case V32HImode:
-      case V16SImode:
-      case V8DImode:
+      case 64:
 	if (TARGET_AVX512F)
 	  return 2;
+	break;
+      case 32:
+	if (TARGET_AVX2)
+	  return 2;
+	break;
+      case 16:
+	if (TARGET_SSE2)
+	  return 2;
+	break;
+      case 0:
+	/* VOIDmode */
+	gcc_unreachable ();
       default:
 	break;
       }
@@ -10811,53 +10813,81 @@ standard_sse_constant_p (rtx x)
 const char *
 standard_sse_constant_opcode (rtx_insn *insn, rtx x)
 {
-  switch (standard_sse_constant_p (x))
+  gcc_assert (TARGET_SSE);
+
+  if (const0_operand (x, VOIDmode))
     {
-    case 1:
       switch (get_attr_mode (insn))
 	{
 	case MODE_XI:
 	  return "vpxord\t%g0, %g0, %g0";
-	case MODE_V16SF:
-	  return TARGET_AVX512DQ ? "vxorps\t%g0, %g0, %g0"
-				 : "vpxord\t%g0, %g0, %g0";
-	case MODE_V8DF:
-	  return TARGET_AVX512DQ ? "vxorpd\t%g0, %g0, %g0"
-				 : "vpxorq\t%g0, %g0, %g0";
+	case MODE_OI:
+	  return (TARGET_AVX512VL
+		  ? "vpxord\t%x0, %x0, %x0"
+		  : "vpxor\t%x0, %x0, %x0");
 	case MODE_TI:
-	  return TARGET_AVX512VL ? "vpxord\t%t0, %t0, %t0"
-				 : "%vpxor\t%0, %d0";
+	  return (TARGET_AVX512VL
+		  ? "vpxord\t%t0, %t0, %t0"
+		  : "%vpxor\t%0, %d0");
+
+	case MODE_V8DF:
+	  return (TARGET_AVX512DQ
+		  ? "vxorpd\t%g0, %g0, %g0"
+		  : "vpxorq\t%g0, %g0, %g0");
+	case MODE_V4DF:
+	  return "vxorpd\t%x0, %x0, %x0";
 	case MODE_V2DF:
 	  return "%vxorpd\t%0, %d0";
+
+	case MODE_V16SF:
+	  return (TARGET_AVX512DQ
+		  ? "vxorps\t%g0, %g0, %g0"
+		  : "vpxord\t%g0, %g0, %g0");
+	case MODE_V8SF:
+	  return "vxorps\t%x0, %x0, %x0";
 	case MODE_V4SF:
 	  return "%vxorps\t%0, %d0";
 
-	case MODE_OI:
-	  return TARGET_AVX512VL ? "vpxord\t%x0, %x0, %x0"
-				 : "vpxor\t%x0, %x0, %x0";
-	case MODE_V4DF:
-	  return "vxorpd\t%x0, %x0, %x0";
-	case MODE_V8SF:
-	  return "vxorps\t%x0, %x0, %x0";
-
 	default:
+	  gcc_unreachable ();
+	}
+    }
+  else if (all_ones_operand (x, VOIDmode))
+    {
+      enum attr_mode insn_mode = get_attr_mode (insn);
+      
+      switch (insn_mode)
+	{
+	case MODE_XI:
+	case MODE_V8DF:
+	case MODE_V16SF:
+	  gcc_assert (TARGET_AVX512F);
 	  break;
+	case MODE_OI:
+	case MODE_V4DF:
+	case MODE_V8SF:
+	  gcc_assert (TARGET_AVX2);
+	  break;
+	case MODE_TI:
+	case MODE_V2DF:
+	case MODE_V4SF:
+	  gcc_assert (TARGET_SSE2);
+	  break;
+	default:
+	  gcc_unreachable ();
 	}
 
-    case 2:
       if (TARGET_AVX512VL
-	  || get_attr_mode (insn) == MODE_XI
-	  || get_attr_mode (insn) == MODE_V8DF
-	  || get_attr_mode (insn) == MODE_V16SF)
+	  || insn_mode == MODE_XI
+	  || insn_mode == MODE_V8DF
+	  || insn_mode == MODE_V16SF)
 	return "vpternlogd\t{$0xFF, %g0, %g0, %g0|%g0, %g0, %g0, 0xFF}";
-      if (TARGET_AVX)
+      else if (TARGET_AVX)
 	return "vpcmpeqd\t%0, %0, %0";
       else
 	return "pcmpeqd\t%0, %0";
+   }
 
-    default:
-      break;
-    }
   gcc_unreachable ();
 }
 
@@ -14360,7 +14390,7 @@ darwin_local_data_pic (rtx disp)
    satisfies CONSTANT_P.  */
 
 static bool
-ix86_legitimate_constant_p (machine_mode, rtx x)
+ix86_legitimate_constant_p (machine_mode mode, rtx x)
 {
   /* Pointer bounds constants are not valid.  */
   if (POINTER_BOUNDS_MODE_P (GET_MODE (x)))
@@ -14427,12 +14457,12 @@ ix86_legitimate_constant_p (machine_mode, rtx x)
       break;
 
     case CONST_WIDE_INT:
-      if (!TARGET_64BIT && !standard_sse_constant_p (x))
+      if (!TARGET_64BIT && !standard_sse_constant_p (x, mode))
 	return false;
       break;
 
     case CONST_VECTOR:
-      if (!standard_sse_constant_p (x))
+      if (!standard_sse_constant_p (x, mode))
 	return false;
 
     default:
@@ -18758,7 +18788,7 @@ ix86_expand_vector_move (machine_mode mode, rtx operands[])
       && (CONSTANT_P (op1)
 	  || (SUBREG_P (op1)
 	      && CONSTANT_P (SUBREG_REG (op1))))
-      && !standard_sse_constant_p (op1))
+      && !standard_sse_constant_p (op1, mode))
     op1 = validize_mem (force_const_mem (mode, op1));
 
   /* We need to check memory alignment for SSE mode since attribute
@@ -22619,7 +22649,7 @@ ix86_expand_sse_movcc (rtx dest, rtx cmp, rtx op_true, rtx op_false)
       cmp = gen_rtx_SUBREG (mode, cmp, 0);
     }
 
-  if (vector_all_ones_operand (op_true, mode)
+  if (all_ones_operand (op_true, mode)
       && rtx_equal_p (op_false, CONST0_RTX (mode))
       && !maskcmp)
     {
@@ -23243,7 +23273,7 @@ ix86_expand_int_vcond (rtx operands[])
 	  return true;
 	}
       else if (GET_MODE_INNER (data_mode) != DImode
-	       && vector_all_ones_operand (negop, data_mode))
+	       && all_ones_operand (negop, data_mode))
 	{
 	  rtx res = expand_simple_binop (mode, ASHIFTRT, cop0, GEN_INT (shift),
 					 operands[0], 0, OPTAB_DIRECT);
@@ -43679,8 +43709,8 @@ ix86_rtx_costs (rtx x, machine_mode mode, int outer_code_i, int opno,
 	}
       if (SSE_FLOAT_MODE_P (mode))
 	{
-    case CONST_VECTOR:
-	  switch (standard_sse_constant_p (x))
+	case CONST_VECTOR:
+	  switch (standard_sse_constant_p (x, mode))
 	    {
 	    case 0:
 	      break;
