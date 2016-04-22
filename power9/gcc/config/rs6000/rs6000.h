@@ -1306,28 +1306,22 @@ enum data_align { align_abi, align_opt, align_both };
 
    Altivec/VSX vector tests were moved ahead of scalar float mode, so that IEEE
    128-bit floating point on VSX systems ties with other vectors.  */
-#define MODES_TIEABLE_P(MODE1, MODE2)		\
-  ((MODE1) == PTImode				\
-   ? (MODE2) == PTImode				\
-   : (MODE2) == PTImode				\
-   ? 0						\
-   : ALTIVEC_OR_VSX_VECTOR_MODE (MODE1)		\
-   ? ALTIVEC_OR_VSX_VECTOR_MODE (MODE2)		\
-   : ALTIVEC_OR_VSX_VECTOR_MODE (MODE2)		\
-   ? 0						\
-   : SCALAR_FLOAT_MODE_P (MODE1)		\
-   ? SCALAR_FLOAT_MODE_P (MODE2)		\
-   : SCALAR_FLOAT_MODE_P (MODE2)		\
-   ? 0						\
-   : GET_MODE_CLASS (MODE1) == MODE_CC		\
-   ? GET_MODE_CLASS (MODE2) == MODE_CC		\
-   : GET_MODE_CLASS (MODE2) == MODE_CC		\
-   ? 0						\
-   : SPE_VECTOR_MODE (MODE1)			\
-   ? SPE_VECTOR_MODE (MODE2)			\
-   : SPE_VECTOR_MODE (MODE2)			\
-   ? 0						\
-   : 1)
+
+/* Simplify MODES_TIEABLE_P classification.  */
+
+typedef enum {
+  TIEABLE_NORMAL,		/* mode ties normally.  */
+  TIEABLE_PTI,			/* PTImode requires even regs & can't tie.  */
+  TIEABLE_VECTOR,		/* Altivec/VSX vectors.  */
+  TIEABLE_FP,			/* Scalar floating point.  */
+  TIEABLE_SPE,			/* SPE vector mode.  */
+  TIEABLE_CC			/* Condition codes.  */
+} rs6000_tieable_type;
+
+extern rs6000_tieable_type rs6000_tieable[];
+
+#define MODES_TIEABLE_P(MODE1, MODE2)					\
+(rs6000_tieable[(int)(MODE1)] == rs6000_tieable[(int)(MODE2)])
 
 /* Post-reload, we can't use any new AltiVec registers, as we already
    emitted the vrsave mask.  */

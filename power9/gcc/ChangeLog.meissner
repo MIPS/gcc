@@ -1,3 +1,12 @@
+2016-04-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_tieable): Move MODES_TIEABLE_P
+	implementation into a static array that is calculated once.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	* config/rs6000/rs6000.h (MODES_TIEABLE_P): Likewise.
+	(rs6000_tieable_type): Likewise.
+	(rs6000_tieable): Likewise.
+
 2016-04-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Add support

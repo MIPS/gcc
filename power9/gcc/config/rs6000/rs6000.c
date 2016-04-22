@@ -381,6 +381,9 @@ bool cpu_builtin_p;
    don't link in rs6000-c.c, so we can't call it directly.  */
 void (*rs6000_target_modify_macros_ptr) (bool, HOST_WIDE_INT, HOST_WIDE_INT);
 
+/* Simplify MODES_TIEABLE_P classification.  */
+rs6000_tieable_type rs6000_tieable[NUM_MACHINE_MODES];
+
 /* Simplfy register classes into simpler classifications.  We assume
    GPR_REG_TYPE - FPR_REG_TYPE are ordered so that we can use a simple range
    check for standard register classes (gpr/floating/altivec/vsx) and
@@ -3558,6 +3561,50 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
      legitimate address support to figure out the appropriate addressing to
      use.  */
   rs6000_setup_reg_addr_masks ();
+
+  /* Precalculate the classifications for MODES_TIEABLE_P.
+
+     Value is 1 if it is a good idea to tie two pseudo registers when one has
+     mode MODE1 and one has mode MODE2.  If HARD_REGNO_MODE_OK could produce
+     different values for MODE1 and MODE2, for any hard reg, then this must be
+     0 for correct output.
+
+     PTImode cannot tie with other modes because PTImode is restricted to even
+     GPR registers, and TImode can go in any GPR as well as VSX registers (PR
+     57744).
+
+     Altivec/VSX vector tests were moved ahead of scalar float mode, so that
+     IEEE 128-bit floating point on VSX systems ties with other vectors.
+
+     SPE vectors don't tie with anything else, due to the GPR size being
+     different.  */
+
+  for (m = 0; m < NUM_MACHINE_MODES; ++m)
+    {
+      machine_mode m2 = (machine_mode)m;
+      rs6000_tieable_type tieable;
+
+      if (m2 == PTImode)
+	tieable = TIEABLE_PTI;
+
+      else if (ALTIVEC_OR_VSX_VECTOR_MODE (m2))
+	tieable = TIEABLE_VECTOR;
+
+      else if (SCALAR_FLOAT_MODE_P (m2) && TARGET_HARD_FLOAT
+	       && TARGET_FPRS)
+	tieable = TIEABLE_FP;
+
+      else if (SPE_VECTOR_MODE (m2))
+	tieable = TIEABLE_SPE;
+
+      else if (GET_MODE_CLASS (m2) == MODE_CC)
+	tieable = TIEABLE_CC;
+
+      else
+	tieable = TIEABLE_NORMAL;
+
+      rs6000_tieable[m] = tieable;
+    }
 
   if (global_init_p || TARGET_DEBUG_TARGET)
     {
