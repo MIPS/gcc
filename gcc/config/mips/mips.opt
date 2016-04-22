@@ -530,13 +530,8 @@ mmips16-tail-branch
 Target Var(TARGET_MIPS16_TAIL_BRANCH) Init(0)
 Enable tail optimization using a branch.
 
-mmips16-copy
-Target Var(TARGET_MIPS16_COPY) Init(0)
-Enable use of the MIPS16 COPY and UCOPY instructions
-
 mmips16-copy-peep
-Target Var(TARGET_MIPS16_COPY_PEEP) Init(0)
-Enable use of the MIPS16 COPY instruction in the peephole optimization
+Target Undocumented Var(TARGET_MIPS16_COPY_PEEP) Init(1)
 
 muse-save-restore
-Target Undocumented Var(TARGET_USE_SAVE_RESTORE) Init(0)
+Target Undocumented Var(TARGET_USE_SAVE_RESTORE) Init(-1)

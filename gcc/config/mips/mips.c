@@ -1593,6 +1593,19 @@ static const struct mips_rtx_cost_data
 		     1,           /* branch_cost */
 		     4            /* memory_latency */
   },
+  { /* INTERAPTIV_MR2 (identical to 24KF1_1) */
+    COSTS_N_INSNS (4),            /* fp_add */
+    COSTS_N_INSNS (4),            /* fp_mult_sf */
+    COSTS_N_INSNS (5),            /* fp_mult_df */
+    COSTS_N_INSNS (17),           /* fp_div_sf */
+    COSTS_N_INSNS (32),           /* fp_div_df */
+    COSTS_N_INSNS (5),            /* int_mult_si */
+    COSTS_N_INSNS (5),            /* int_mult_di */
+    COSTS_N_INSNS (41),           /* int_div_si */
+    COSTS_N_INSNS (41),           /* int_div_di */
+		     1,           /* branch_cost */
+		     4            /* memory_latency */
+  },
   { /* Loongson-2E */
     DEFAULT_COSTS
   },
@@ -21653,6 +21666,19 @@ mips_option_override (void)
 
   if (is_micromips && TARGET_MSA)
     error ("unsupported combination: %s", "-mmicromips -mmsa");
+
+  /* Enable the use of interAptiv MIPS32 SAVE/RESTORE instructions.  */
+  if (TARGET_USE_SAVE_RESTORE == -1)
+    {
+      if (TARGET_INTERAPTIV_MR2)
+	TARGET_USE_SAVE_RESTORE = 1;
+      else
+	TARGET_USE_SAVE_RESTORE = 0;
+    }
+  else if (TARGET_USE_SAVE_RESTORE
+	   && !TARGET_INTERAPTIV_MR2)
+    error ("unsupported combination: %qs %s",
+	   mips_arch_info->name, "-muse-save-restore");
 
   /* Require explicit relocs for MIPS R6 onwards.  This enables simplification
      of the compact branch and jump support through the backend.  */

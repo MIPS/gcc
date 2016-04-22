@@ -17110,7 +17110,7 @@ The processor names are:
 @samp{34kc}, @samp{34kf2_1}, @samp{34kf1_1}, @samp{34kn},
 @samp{74kc}, @samp{74kf2_1}, @samp{74kf1_1}, @samp{74kf3_2},
 @samp{1004kc}, @samp{1004kf2_1}, @samp{1004kf1_1},
-@samp{interaptiv},
+@samp{interaptiv}, @samp{interaptiv-mr2},
 @samp{loongson2e}, @samp{loongson2f}, @samp{loongson3a},
 @samp{m4k},
 @samp{m14k}, @samp{m14kc}, @samp{m14ke}, @samp{m14kec},
@@ -17242,6 +17242,13 @@ MIPS32 or MIPS64 architecture, it makes use of the MIPS16e ASE@.
 MIPS16 code generation can also be controlled on a per-function basis
 by means of @code{mips16} and @code{nomips16} attributes.
 @xref{Function Attributes}, for more information.
+
+@item -mmips16e2
+@itemx -mno-mips16e2
+@opindex mmips16e2
+@opindex mno-mips16e2
+Use (do not use) the MIPS16e2 ASE.  This option modifies the behavior
+of the @option{-mips16} option such that it targets the MIPS16e2 ASE@.
 
 @item -mflip-mips16
 @opindex mflip-mips16

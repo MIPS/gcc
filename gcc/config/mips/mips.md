@@ -35,6 +35,7 @@
   74kf2_1
   74kf1_1
   74kf3_2
+  interaptiv_mr2
   loongson_2e
   loongson_2f
   loongson_3a

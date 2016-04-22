@@ -271,6 +271,7 @@ struct mips_cpu_info {
 				     || mips_arch == PROCESSOR_SB1A)
 #define TARGET_SR71K                (mips_arch == PROCESSOR_SR71000)
 #define TARGET_XLP                  (mips_arch == PROCESSOR_XLP)
+#define TARGET_INTERAPTIV_MR2	    (mips_arch == PROCESSOR_INTERAPTIV_MR2)
 
 /* Scheduling target defines.  */
 #define TUNE_20KC		    (mips_tune == PROCESSOR_20KC)
@@ -388,6 +389,8 @@ struct mips_cpu_info {
       for (p = macro; *p != 0; p++)				\
         if (*p == '+')                                          \
           *p = 'P';                                             \
+        else if (*p == '-')                                     \
+          *p = '_';                                             \
         else                                                    \
           *p = TOUPPER (*p);                                    \
 								\
@@ -767,7 +770,7 @@ struct mips_cpu_info {
      %{march=mips32|march=4kc|march=4km|march=4kp|march=4ksc:-mips32} \
      %{march=mips32r2|march=m4k|march=4ke*|march=4ksd|march=24k* \
        |march=34k*|march=74k*|march=m14k*|march=1004k* \
-       |march=interaptiv: -mips32r2} \
+       |march=interaptiv*: -mips32r2} \
      %{march=mips32r3: -mips32r3} \
      %{march=mips32r5|march=p5600|march=m5100|march=m5101: -mips32r5} \
      %{march=mips32r6|march=m6201: -mips32r6} \
@@ -865,8 +868,10 @@ struct mips_cpu_info {
   MIPS_ISA_NAN2008_SPEC,       \
   "%{!mno-dsp: \
      %{march=24ke*|march=34kc*|march=34kf*|march=34kx*|march=1004k* \
-       |march=interaptiv: -mdsp} \
+       |march=interaptiv*: -mdsp} \
      %{march=74k*|march=m14ke*: %{!mno-dspr2: -mdspr2 -mdsp}}}"		    \
+  "%{!mno-mips16e2: \
+     %{march=interaptiv-mr2: -mmips16e2}}" \
   "%{!mforbidden-slots:							    \
      %{mips32r6|mips64r6:%{mmicromips:-mno-forbidden-slots}}}"
 
@@ -1197,8 +1202,8 @@ struct mips_cpu_info {
 #define ISA_HAS_MIPS16E2	(TARGET_MIPS16 && TARGET_MIPS16E2	\
 				 && !TARGET_64BIT)
 
-/* The MIPS16 COPYW/UCOPYW instructions are available.  */
-#define ISA_HAS_COPY		(TARGET_MIPS16 && TARGET_MIPS16_COPY)
+/* The interAptiv MR2 COPYW/UCOPYW instructions are available.  */
+#define ISA_HAS_COPY		(TARGET_MIPS16 && TARGET_INTERAPTIV_MR2)
 
 /* True if the result of a load is not available to the next instruction.
    A nop will then be needed between instructions like "lw $4,..."
