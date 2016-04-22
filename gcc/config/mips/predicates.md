@@ -114,6 +114,12 @@
 	    (not (match_test "TARGET_MIPS16")))
        (match_operand 0 "register_operand")))
 
+(define_predicate "reg_or_0_operand_mips16e2"
+  (ior (and (match_operand 0 "const_0_operand")
+	    (ior (not (match_test "TARGET_MIPS16"))
+		 (match_test "ISA_HAS_MIPS16E2")))
+       (match_operand 0 "register_operand")))
+
 (define_predicate "const_1_operand"
   (and (match_code "const_int,const_double,const_vector")
        (match_test "op == CONST1_RTX (GET_MODE (op))")))
@@ -164,6 +170,10 @@
   (and (match_code "const_int")
        (match_test "UINTVAL (op) == 0xffffffff")))
 
+(define_predicate "bit_clear_operand"
+  (and (match_code "const_int")
+       (match_test "mips_bit_clear_p (mode, INTVAL (op))")))
+
 (define_predicate "and_load_operand"
   (ior (match_operand 0 "qi_mask_operand")
        (match_operand 0 "hi_mask_operand")
@@ -176,10 +186,12 @@
 
 (define_predicate "and_reg_operand"
   (ior (match_operand 0 "register_operand")
-       (and (not (match_test "TARGET_MIPS16"))
+       (and (ior (not (match_test "TARGET_MIPS16"))
+		 (match_test "ISA_HAS_MIPS16E2"))
 	    (match_operand 0 "const_uns_arith_operand"))
        (match_operand 0 "low_bitmask_operand")
-       (match_operand 0 "si_mask_operand")))
+       (match_operand 0 "si_mask_operand")
+       (match_operand 0 "bit_clear_operand")))
 
 (define_predicate "and_operand"
   (ior (match_operand 0 "and_load_operand")
@@ -358,8 +370,61 @@
     }
 })
 
+(define_predicate "const_sibcall_insn_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  enum mips_symbol_type symbol_type;
+
+  if (!mips_symbolic_constant_p (op, SYMBOL_CONTEXT_CALL, &symbol_type))
+    return false;
+
+  if (TARGET_MIPS16 && symbol_type == SYMBOL_ABSOLUTE)
+    {
+      if (TARGET_MIPS16_TAIL_BRANCH)
+	{
+	  tree callee_sec;
+	  tree callee_decl = SYMBOL_REF_DECL (op);
+	  tree caller_sec = DECL_SECTION_NAME (current_function_decl);
+	  bool same_sec_p = true;
+
+	  /* Do not attempt to use a branch if the callee is known to be
+	     external, require ISA switching or in a different section.  */
+
+	  if (callee_decl)
+	    {
+	      callee_sec = DECL_SECTION_NAME (callee_decl);
+
+	      if (((callee_sec == NULL_TREE) ^ (caller_sec == NULL_TREE))
+		  || (caller_sec != NULL_TREE
+		      && strcmp (TREE_STRING_POINTER (caller_sec),
+				 TREE_STRING_POINTER (callee_sec)) != 0))
+		same_sec_p = false;
+	    }
+
+	  if (callee_decl
+	      && GET_CODE (op) == SYMBOL_REF
+	      && SYMBOL_REF_LOCAL_P (op)
+	      && !SYMBOL_REF_EXTERNAL_P (op)
+	      && !mips_call_may_need_jalx_p (callee_decl)
+	      && same_sec_p)
+	    return true;
+	}
+
+      if (TARGET_MIPS16_TAIL_INDIRECT)
+	return false;
+
+      return false;
+    }
+
+  return call_insn_operand (op, mode);
+})
+
 (define_predicate "call_insn_operand"
   (ior (match_operand 0 "const_call_insn_operand")
+       (match_operand 0 "register_operand")))
+
+(define_predicate "sibcall_insn_operand"
+  (ior (match_operand 0 "const_sibcall_insn_operand")
        (match_operand 0 "register_operand")))
 
 ;; A legitimate CONST_INT operand that takes more than one instruction
@@ -369,7 +434,7 @@
 {
   /* When generating mips16 code, TARGET_LEGITIMATE_CONSTANT_P rejects
      CONST_INTs that can't be loaded using simple insns.  */
-  if (TARGET_MIPS16)
+  if (TARGET_MIPS16 && !TARGET_MIPS16E2)
     return false;
 
   /* Don't handle multi-word moves this way; we don't want to introduce
@@ -561,7 +626,7 @@
        (and (match_code "ne") (not (match_test "TARGET_MIPS16")))))
 
 (define_predicate "small_data_pattern"
-  (and (match_code "set,parallel,unspec,unspec_volatile,prefetch")
+  (and (match_code "set,parallel,prefetch")
        (match_test "mips_small_data_pattern_p (op)")))
 
 (define_predicate "mem_noofs_operand"

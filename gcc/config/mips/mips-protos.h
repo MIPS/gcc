@@ -190,6 +190,7 @@ enum mips_split_type {
   SPLIT_FOR_SIZE
 };
 
+bool mips_call_may_need_jalx_p (tree);
 extern bool mips_symbolic_constant_p (rtx, enum mips_symbol_context,
 				      enum mips_symbol_type *);
 extern int mips_regno_mode_ok_for_base_p (int, machine_mode, bool);
@@ -223,7 +224,7 @@ extern bool mips_split_128bit_move_p (rtx, rtx);
 extern void mips_split_msa_copy_d (rtx, rtx, rtx, rtx (*)(rtx, rtx, rtx));
 extern void mips_split_msa_insert_d (rtx, rtx, rtx, rtx);
 extern void mips_split_msa_fill_d (rtx, rtx);
-extern const char *mips_output_move (rtx, rtx);
+extern const char *mips_output_move (rtx, rtx, rtx);
 extern bool mips_cfun_has_cprestore_slot_p (void);
 extern bool mips_cprestore_address_p (rtx, bool);
 extern void mips_save_gp_to_cprestore_slot (rtx, rtx, rtx, rtx);
@@ -243,7 +244,9 @@ extern bool mips_get_pic_call_symbol (rtx *, int);
 extern void mips_set_return_address (rtx, rtx);
 extern bool mips_move_by_pieces_p (unsigned HOST_WIDE_INT, unsigned int);
 extern bool mips_store_by_pieces_p (unsigned HOST_WIDE_INT, unsigned int);
-extern bool mips_expand_block_move (rtx, rtx, rtx);
+extern bool mips_expand_block_move (rtx, rtx, rtx, rtx);
+extern bool mips16_expand_copy (rtx, rtx, rtx, rtx);
+extern bool gen_mips16_copy_peep (rtx *, int);
 extern void mips_expand_synci_loop (rtx, rtx);
 
 extern void mips_init_cumulative_args (CUMULATIVE_ARGS *, tree);
@@ -386,4 +389,9 @@ extern mulsidi3_gen_fn mips_mulsidi3_gen_fn (enum rtx_code);
 
 extern void mips_expand_vec_cond_expr (machine_mode, machine_mode, rtx *);
 
+extern const char * mips_output_epi_jump (void);
+
+extern bool mips_bit_clear_p (enum machine_mode, unsigned HOST_WIDE_INT);
+extern void mips_bit_clear_info (enum machine_mode, unsigned HOST_WIDE_INT,
+				 int *, int *);
 #endif /* ! GCC_MIPS_PROTOS_H */

@@ -120,7 +120,7 @@ static int *consumer_luid = NULL;
    to save and restore registers, and to allocate and deallocate the top
    part of the frame.  */
 #define MIPS_MAX_FIRST_STACK_STEP					\
-  (!TARGET_COMPRESSION ? 0x7ff0						\
+  (!TARGET_COMPRESSION && !TARGET_USE_SAVE_RESTORE ? 0x7ff0	\
    : TARGET_MICROMIPS || GENERATE_MIPS16E_SAVE_RESTORE ? 0x7f8		\
    : TARGET_64BIT ? 0x100 : 0x400)
 
@@ -493,6 +493,17 @@ struct GTY(())  machine_function {
 
   /* Frame size before updated by optimizations.  */
   HOST_WIDE_INT initial_total_size;
+
+  /* True if attribute common_epilogue is defined for this function.  */
+  bool use_common_epilogue_p;
+  /* If use_common_epilogue_p, holds suffix string.  */
+  const char *epi_suffix;
+  /* If use_common_epilogue_p, determines if $ra should also be restored.  */
+  bool epi_with_ra;
+
+  /* True if we are safe to use SAVE/RESTORE instruction in the
+     prologue/epilogue.  */
+  bool safe_to_use_save_restore;
 };
 
 /* Information about a single argument.  */
@@ -672,6 +683,9 @@ static int mips_base_target_flags;
 /* The default compression mode.  */
 unsigned int mips_base_compression_flags;
 
+/* The default code readable setting.  */
+enum mips_code_readable_setting mips_base_code_readable;
+
 /* The ambient values of other global variables.  */
 static int mips_base_schedule_insns; /* flag_schedule_insns */
 static int mips_base_reorder_blocks_and_partition; /* flag_reorder... */
@@ -777,6 +791,9 @@ static tree mips_handle_interrupt_attr (tree *, tree, tree, int, bool *);
 static tree mips_handle_use_shadow_register_set_attr (tree *, tree, tree, int,
 						      bool *);
 
+/* Attribute handler.  */
+static tree mips_handle_common_epi_attr (tree *, tree, tree, int, bool *);
+
 /* The value of TARGET_ATTRIBUTE_TABLE.  */
 static const struct attribute_spec mips_attribute_table[] = {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
@@ -793,6 +810,7 @@ static const struct attribute_spec mips_attribute_table[] = {
   { "micromips",   0, 0, true,  false, false, NULL, false },
   { "nomicromips", 0, 0, true,  false, false, NULL, false },
   { "nocompression", 0, 0, true,  false, false, NULL, false },
+  { "code_readable", 0, 1, true,  false, false, NULL, false },
   /* Allow functions to be specified as interrupt handlers */
   { "interrupt",   0, 1, false, true,  true, mips_handle_interrupt_attr,
     false },
@@ -800,8 +818,582 @@ static const struct attribute_spec mips_attribute_table[] = {
     mips_handle_use_shadow_register_set_attr, false },
   { "keep_interrupts_masked",	0, 0, false, true,  true, NULL, false },
   { "use_debug_exception_return", 0, 0, false, true,  true, NULL, false },
+  { "epi", 0, 1, false, false, false, mips_handle_common_epi_attr,
+     false },
+  { "noepi",	   0, 0, false, false, false, NULL, false },
   { NULL,	   0, 0, false, false, false, NULL, false }
 };
+
+struct mips_sdata_entry
+{
+  char *var;
+  struct mips_sdata_entry *next;
+};
+
+static struct mips_sdata_entry *mips_sdata_opt_list;
+
+static struct mips_sdata_entry *
+mips_read_list (const char * filename)
+{
+  FILE *fd;
+  char line[256];
+  struct mips_sdata_entry *current = NULL;
+  struct mips_sdata_entry *head = NULL;
+
+  if (filename == NULL)
+    return NULL;
+  fd = fopen (filename, "r");
+  if (fd == NULL)
+    {
+      error ("Bad filename for -msdata-opt-list: %s\n", filename);
+      return NULL;
+    }
+
+  while (fgets (line, sizeof (line), fd))
+    {
+      struct mips_sdata_entry *entry =
+	(struct mips_sdata_entry *)xmalloc (sizeof (struct mips_sdata_entry));
+      entry->var = xstrdup (line);
+      if (entry->var[strlen(entry->var)-1] == '\n')
+	entry->var[strlen(entry->var)-1] = '\0';
+      entry->next = NULL;
+      if (head == NULL)
+	current = head = entry;
+      else
+	current = current->next = entry;
+    }
+  fclose (fd);
+  return head;
+}
+
+static bool
+mips_find_list (const char *var, struct mips_sdata_entry *list)
+{
+  while (list != NULL)
+    {
+      if (strcmp (list->var, var) == 0)
+	return true;
+      list = list->next;
+    }
+
+  return false;
+}
+
+/* Argument type descriptor.  */
+
+enum mips_func_opt_list_arg_t
+{
+  FOL_ARG_NONE,
+  FOL_ARG_STRING,
+  FOL_ARG_SINGLE_NUM,
+  FOL_ARG_OPTIONAL_NUM_LIST,
+  FOL_ARG_NUM_ONE_OR_TWO,
+  FOL_ARG_OPTIONAL_STRING,
+  FOL_ARG_OPTIONAL_NUM,
+  FOL_ARG_UNKNOWN
+};
+
+/* Collisons for FUNC_OPT_LIST.  Rather that just relying on the middle to
+   complain, check at parse time so we can produce accurate diagnositics.  */
+
+enum mips_fol_collides
+{
+  FOLC_O1,
+  FOLC_O2,
+  FOLC_O3,
+  FOLC_OS,
+  FOLC_MIPS16,
+  FOLC_NOMIPS16,
+  FOLC_ALWAYS_INLINE,
+  FOLC_NOINLINE,
+  FOLC_UNUSED,
+  FOLC_USED,
+  FOLC_FAR,
+  FOLC_NEAR,
+  FOLC_HOT,
+  FOLC_COLD,
+  FOLC_EPI,
+  FOLC_NOEPI,
+  FOLC_END
+};
+
+/* Part of FUNC_OPT_LIST.  Use a tuple to record the name to be matched against
+   which GCC uses internally, an optional second string if the name is required
+   to be an argument of a different attribute and a bitmask describing which
+   other entries collide with this entry.  */
+
+struct attr_desc
+{
+  const char * optstring;
+  const char * maintype;
+  enum mips_func_opt_list_arg_t arg_type;
+  int collisions;
+};
+
+/* This table encodes the strings to match against for parsing func-opt-list,
+   an optional string which the first is argument of, e.g. optimize("O2")
+   and the colliding attributes.  */
+
+static const struct attr_desc mips_func_opt_list_strings[] = {
+  {"O1",	"optimize", FOL_ARG_NONE, 1 << FOLC_O2 | 1 << FOLC_O3 | 1 << FOLC_OS },
+  {"O2",	"optimize", FOL_ARG_NONE, 1 << FOLC_O1 | 1 << FOLC_O3 | 1 << FOLC_OS },
+  {"O3",	"optimize", FOL_ARG_NONE, 1 << FOLC_O1 | 1 << FOLC_O2 | 1 << FOLC_OS },
+  {"Os",	"optimize", FOL_ARG_NONE, 1 << FOLC_O1 | 1 << FOLC_O2 | 1 << FOLC_O3 },
+  {"mips16",		 0, 	     FOL_ARG_NONE, 1 << FOLC_NOMIPS16 },
+  {"nomips16",		 0,	     FOL_ARG_NONE, 1 << FOLC_MIPS16 },
+  {"always_inline",	 0,	     FOL_ARG_NONE, 1 << FOLC_NOINLINE },
+  {"noinline",		 0,	     FOL_ARG_NONE, 1 << FOLC_ALWAYS_INLINE },
+  {"unused",		 0,	     FOL_ARG_NONE, 1 << FOLC_USED },
+  {"used",		 0,	     FOL_ARG_NONE, 1 << FOLC_UNUSED },
+  {"far",		 0,	     FOL_ARG_NONE, 1 << FOLC_NEAR },
+  {"near",		 0,	     FOL_ARG_NONE, 1 << FOLC_FAR },
+  {"hot",		 0,	     FOL_ARG_NONE, 1 << FOLC_COLD },
+  {"cold",		 0,	     FOL_ARG_NONE, 1 << FOLC_HOT },
+  {"epi",		 0,	     FOL_ARG_OPTIONAL_STRING, 1 << FOLC_NOEPI },
+  {"noepi",		 0,	     FOL_ARG_NONE, 1 << FOLC_EPI },
+  {"code_readable",	 0,	     FOL_ARG_STRING, 0 },
+  {"alias",		 0,	     FOL_ARG_STRING, 0 },
+  {"aligned",		 0,	     FOL_ARG_SINGLE_NUM, 0},
+  {"alloc_size",	 0,	     FOL_ARG_NUM_ONE_OR_TWO, 0},
+  {"alloc_align",	 0,	     FOL_ARG_SINGLE_NUM, 0},
+  {"assume_aligned",	 0,	     FOL_ARG_NUM_ONE_OR_TWO, 0},
+  {"artifical",		 0,	     FOL_ARG_NONE, 0 },
+  {"constructor",	 0,	     FOL_ARG_OPTIONAL_NUM, 0},
+  {"const",		 0,	     FOL_ARG_NONE, 0 },
+  {"deprecated",	 0,	     FOL_ARG_OPTIONAL_STRING, 0},
+  {"destructor",	 0,	     FOL_ARG_OPTIONAL_NUM, 0},
+  {"error",		 0,	     FOL_ARG_OPTIONAL_STRING, 0},
+  {"flatten",		 0,	     FOL_ARG_NONE, 0 },
+  {"gnu_inline",	 0,	     FOL_ARG_NONE, 0 },
+  {"interrupt",		 0,	     FOL_ARG_NONE, 0 },
+  {"keep_interrupts_masked", 0,	     FOL_ARG_NONE, 0 },
+  {"long_call",		 0,	     FOL_ARG_NONE, 0 },
+  {"leaf",		 0,	     FOL_ARG_NONE, 0 },
+  {"noclone",		 0,	     FOL_ARG_NONE, 0 },
+  {"noreturn",		 0,	     FOL_ARG_NONE, 0 },
+  {"malloc",		 0,	     FOL_ARG_NONE, 0 },
+  {"nonnull",		 0,	     FOL_ARG_OPTIONAL_NUM_LIST, 0 },
+  {"nothrow",		 0,	     FOL_ARG_NONE, 0 },
+  {"optimize",		 0,	     FOL_ARG_STRING, 0 },
+  {"returns_nonnull",	 0,	     FOL_ARG_NONE, 0 },
+  {"returns_twice",	 0,	     FOL_ARG_NONE, 0 },
+  {"section",		 0,	     FOL_ARG_STRING, 0 },
+  {"pure",		 0,	     FOL_ARG_NONE, 0 },
+  {"use_debug_exception_return", 0,  FOL_ARG_NONE, 0 },
+  {"use_shadow_register_set", 0,     FOL_ARG_NONE, 0 },
+  {"visibility",	 0,	     FOL_ARG_STRING, 0 },
+  {"warning",		 0,	     FOL_ARG_OPTIONAL_STRING, 0 },
+  {"warn_unused_result", 0,	     FOL_ARG_NONE, 0 },
+  {"weak",		 0,	     FOL_ARG_NONE, 0 },
+  {"weakref",		 0,	     FOL_ARG_NONE, 0 },
+  /* End of table marker, FOL_ARG_NONE is required to stop the attribute
+     argument parsing.  */
+  {"\0",		 0,	     FOL_ARG_UNKNOWN, 0 },
+};
+
+/* Argument list...  */
+
+struct GTY((chain_next("%h.next"))) mips_func_opt_list_arg
+{
+  char * GTY((skip(""))) arg;
+  unsigned int optimization;
+  mips_func_opt_list_arg_t arg_type;
+  struct mips_func_opt_list_arg * next;
+};
+
+/* Unknown attribute list.  */
+
+struct GTY ((chain_next ("%h.next"))) mips_func_opt_unknown_list
+{
+  char * GTY((skip(""))) attribute;
+  struct mips_func_opt_list_arg * args;
+  struct mips_func_opt_unknown_list * next;
+};
+
+/* ... For this.  */
+
+struct GTY ((chain_next ("%h.next"))) mips_func_opt_list
+{
+  char * GTY((skip(""))) func_name;
+  sbitmap attributes;
+  struct mips_func_opt_unknown_list * unknowns;
+  struct mips_func_opt_list_arg * args;
+  struct mips_func_opt_list * next;
+};
+
+/* Head of the function optimization list.  */
+
+static struct GTY ((chain_next ("%h.next"))) mips_func_opt_list * mips_fn_opt_list;
+
+/* Search the func-opt-list for func's entry and return it.  */
+
+static struct mips_func_opt_list *
+mips_func_opt_list_find (const char * func)
+{
+  struct mips_func_opt_list * i;
+  for (i = mips_fn_opt_list; i != NULL; i = i->next)
+    if (strcmp (i->func_name, func) == 0)
+      return i;
+
+  return NULL;
+}
+
+/* Check if OPT conflicts with the current attributes of f.  Return
+   the entry corresponding the existing attribute that conflicts.  */
+
+static int
+mips_fol_attr_conflicts (struct mips_func_opt_list * f,
+			unsigned int opt)
+{
+  /* Trival case: opt has no conflicting attrs / leave for the middle end to
+     diagnose.  */
+  if (opt > FOLC_END)
+    return 0;
+
+  for (int i = 0; i < FOLC_END; i++)
+    if (bitmap_bit_p (f->attributes, i)
+	&& ((1 << i) & mips_func_opt_list_strings[opt].collisions))
+      return i;
+
+  return 0;
+}
+
+#define MATCH_WHITESPACE(A) ISSPACE (A)
+#define MATCH_EMPTYSTRING(A) (A == '\n' || A == 0 || A == EOF)
+
+/* Subroutinue for below.  */
+
+static void
+mips_func_opt_list_parse_arg_1 (const char * line,
+				struct mips_func_opt_list * f,
+				unsigned int pos,
+				unsigned int length,
+				unsigned int opt)
+{
+  struct mips_func_opt_list_arg * arg
+    = (struct mips_func_opt_list_arg *)xcalloc (1,
+				       sizeof (struct mips_func_opt_list_arg));
+
+  arg->arg = xstrndup (&(line[pos]), length);
+  arg->optimization = opt;
+  arg->next = f->args;
+
+  if (mips_func_opt_list_strings[opt].optstring == 0)
+    f->unknowns->args = arg;
+  else
+    f->args = arg;
+}
+
+/* Parse an argument of an attribute of the form:
+   ("string") or (N<,N,N,...>)
+   and attach it to the passed struct mips_func_opt_list.
+   Return the position: either just after ')' or the start of next
+   word.  */
+
+static unsigned int
+mips_func_opt_list_parse_arg (const char * line, struct mips_func_opt_list * f,
+			      unsigned int opt, unsigned int pos,
+			      const char * file, int lineno)
+{
+  enum mips_func_opt_list_arg_t arg_type = mips_func_opt_list_strings[opt].arg_type;
+  unsigned int length = 0;
+  unsigned int arg_count = 0;
+
+  if (arg_type == FOL_ARG_NONE)
+    return pos;
+
+  /* Match "<whitespace>+("  */
+  while (MATCH_WHITESPACE (line[pos]))
+    pos++;
+
+  if (MATCH_EMPTYSTRING (line[pos])
+      || line[pos] != '(')
+    {
+      if (line[pos] != '('
+	  && (arg_type == FOL_ARG_OPTIONAL_NUM_LIST
+	      || arg_type == FOL_ARG_OPTIONAL_STRING
+	      || arg_type == FOL_ARG_OPTIONAL_NUM
+	      || arg_type == FOL_ARG_UNKNOWN))
+	return pos;
+      else
+	error ("%s:%d:%d: Expected '('", file, lineno, pos);
+    }
+
+  pos += 1;
+  while (MATCH_WHITESPACE (line[pos])
+	 && !MATCH_EMPTYSTRING (line[pos]))
+    pos++;
+
+  /* Handle the case of an unknown optimization.  Despite not knowing the
+     format of the arguments, we assume its either a string or an list of
+     numbers.  Peek at the input to correct arg_type.  */
+
+  if (arg_type == FOL_ARG_UNKNOWN)
+    {
+      if (line[pos] == '\"')
+	arg_type = FOL_ARG_STRING;
+      else
+	arg_type = FOL_ARG_OPTIONAL_NUM_LIST;
+    }
+
+  switch (arg_type)
+  {
+    /* Parse something of the form ("<string>") and add <string> to e->args.  */
+    case FOL_ARG_OPTIONAL_STRING:
+    case FOL_ARG_STRING:
+      if (MATCH_EMPTYSTRING (line[pos])
+	  || line[pos] != '\"')
+	/* Unexpected line end.  */
+	error ("%s:%d:%d: Expected '\"'", file, lineno, pos);
+
+      pos += 1;
+
+      while (!MATCH_EMPTYSTRING (line[pos+length])
+	     && line[pos+length] != '\"')
+	length += 1;
+
+      mips_func_opt_list_parse_arg_1 (line, f, pos, length, opt);
+
+      pos += length + 1;
+      break;
+
+    /* Parse something of the form (N<,N,N,N,..>) and add them individually
+       to e->args.  */
+    case FOL_ARG_SINGLE_NUM:
+    case FOL_ARG_OPTIONAL_NUM:
+    case FOL_ARG_OPTIONAL_NUM_LIST:
+    case FOL_ARG_NUM_ONE_OR_TWO:
+      while (1)
+	{
+	  while (ISDIGIT (line[pos+length]))
+	    length++;
+
+	  mips_func_opt_list_parse_arg_1 (line, f, pos, length, opt);
+	  pos += length;
+	  length = 0;
+	  arg_count++;
+
+	  while (MATCH_WHITESPACE (line[pos]))
+	    pos++;
+
+	  if (MATCH_EMPTYSTRING (line[pos])
+	      && (line[pos] != ','
+		  || line[pos] != ')'))
+	    error ("%s:%d:%d: Expected ',' or ')'", file, lineno, pos);
+
+	  if (line[pos] == ','
+	      && (arg_type == FOL_ARG_SINGLE_NUM
+		  || (arg_type == FOL_ARG_NUM_ONE_OR_TWO
+		      && arg_count > 2)))
+	    error ("%s:%d:%d: Unexpected ','", file, lineno, pos);
+
+	  if (line[pos] == ')')
+	    break;
+
+	  pos += 1;
+	  while (MATCH_WHITESPACE (line[pos]))
+	    pos++;
+	}
+      break;
+    default:
+      gcc_unreachable ();
+  }
+
+  while (MATCH_WHITESPACE (line[pos])
+	 && !MATCH_EMPTYSTRING (line[pos]))
+   pos++;
+
+  /* Unmatched ')'.  */
+  if (MATCH_EMPTYSTRING (line[pos])
+     || line[pos] != ')')
+  error ("%s:%d:%d: Expected ')'", file, lineno, pos);
+
+  pos += 1;
+
+  return pos;
+}
+
+/* Read a line and return a struct describing attributes for the function.
+   Odd case: If the function has already appeared in mips_fn_opt_list update
+   the entry in place but return NULL, otherwise we may end up building a
+   circular list.  Error out nicely when: misspelled optimization, conflicting
+   attributes.  */
+
+static struct mips_func_opt_list *
+mips_func_opt_list_read_line (const char * line, const char * file, int lineno)
+{
+  size_t identifier_length = 0;
+  unsigned int opt = 0;
+  struct mips_func_opt_list * fl = NULL;
+  unsigned int pos = 0;
+  bool matched = false;
+  bool update = false;
+
+  /* Take all leading whitespace.  */
+  while (MATCH_WHITESPACE (line[pos]))
+    pos++;
+
+  if (MATCH_EMPTYSTRING (line[pos]))
+      return NULL;
+
+  /* Take all non-whitespace for the function name.  */
+  while (!MATCH_WHITESPACE (line[pos + identifier_length])
+	 && !MATCH_EMPTYSTRING (line[pos + identifier_length]))
+    identifier_length++;
+
+  /* Construct a new struct mips_func_opt_list temporarily and search for an
+     existing entry.  Use existing entry over a new one.  */
+  fl = (struct mips_func_opt_list *)
+	xcalloc (1, sizeof (struct mips_func_opt_list));
+  fl->func_name = xstrndup (&line[pos], identifier_length);
+  if (mips_func_opt_list_find (fl->func_name) == NULL)
+    {
+      fl->args = NULL;
+      fl->unknowns = NULL;
+      fl->next = NULL;
+      fl->attributes = sbitmap_alloc (sizeof (mips_func_opt_list_strings)
+				      / sizeof (struct attr_desc));
+      bitmap_clear (fl->attributes);
+    }
+  else
+    {
+      char * n = fl->func_name;
+      free (fl);
+      fl = mips_func_opt_list_find (n);
+      free (n);
+      update = true;
+    }
+
+  pos += identifier_length;
+  identifier_length = 0;
+
+  /* Warn for <func name> <empty string>  */
+  if (MATCH_EMPTYSTRING (line[pos]))
+    {
+      warning (OPT_Wattributes, "%s:%d: No optimizations specified for %qs",
+	       file, lineno, fl->func_name);
+      return NULL;
+    }
+
+  /* Parse a (possibly empty) list of attributes.  */
+  while (1)
+  {
+    while (MATCH_WHITESPACE (line[pos]))
+      pos++;
+
+    if (MATCH_EMPTYSTRING (line[pos]))
+      {
+	if (update)
+	  return NULL;
+	else
+	  return fl;
+      }
+
+    /* Parse and match an attribute.  Warn and blame -mfunc-opt-list= if
+       the attributes are known to conflict.  The middle-end will complain as
+       well, but won't be able to blame the source properly.  */
+    while (!MATCH_WHITESPACE (line[pos + identifier_length])
+	   && !MATCH_EMPTYSTRING (line[pos + identifier_length])
+	   && line[pos + identifier_length] != '(')
+      identifier_length++;
+
+    for (opt = 0; *mips_func_opt_list_strings[opt].optstring != 0; opt++)
+      {
+	if (mips_func_opt_list_strings[opt].optstring != 0
+	    && strncmp (mips_func_opt_list_strings[opt].optstring, &(line[pos]),
+			identifier_length) == 0)
+	  {
+	    int conflict_attr = mips_fol_attr_conflicts (fl, opt);
+	    if (conflict_attr)
+	      warning (OPT_Wattributes, "%s:%d:%d: Attribute %qs cannot be"
+		       " applied to function %qs as it has the conflicting "
+		       "attribute %qs", file, lineno, pos,
+		       mips_func_opt_list_strings[opt].optstring,
+		       fl->func_name,
+		       mips_func_opt_list_strings[conflict_attr].optstring);
+
+	    bitmap_set_bit (fl->attributes, opt);
+	    matched = true;
+	    break;
+	  }
+      }
+
+    /* Correctly blame the unknown attribute.  */
+    if (!matched)
+      {
+	struct mips_func_opt_unknown_list * e
+	 = (struct mips_func_opt_unknown_list*)
+	     xcalloc (1, sizeof (struct mips_func_opt_unknown_list));
+	e->next = fl->unknowns;
+	e->attribute = xstrndup (&(line[pos]), identifier_length);
+	warning (OPT_Wattributes, "%s:%d:%d: Unknown attribute %qs for %qs",
+		 file, lineno, pos, e->attribute, fl->func_name);
+	fl->unknowns = e;
+      }
+
+    matched = false;
+    pos += identifier_length;
+    identifier_length = 0;
+
+    /* Parse any arguments if required, get new position.  */
+    pos = mips_func_opt_list_parse_arg (line, fl, opt, pos, file, lineno);
+  }
+}
+
+#undef MATCH_WHITESPACE
+#undef MATCH_EMPTYSTRING
+
+/* Entry point for FUNC_OPT_LIST.  Grab the conents of a file and build
+   a list of functions with a bitmap describing attributes desired.  */
+
+static void
+mips_func_opt_list_read ()
+{
+  FILE * fd;
+  int lineno = 0;
+  char line[512];
+  struct mips_func_opt_list *trial = NULL;
+
+  unsigned int i;
+  cl_deferred_option *opt;
+  vec<cl_deferred_option> *v =
+    (vec<cl_deferred_option> *) mips_func_opt_list_file;
+
+  FOR_EACH_VEC_ELT (*v, i, opt)
+    {
+      if (opt->opt_index != OPT_mfunc_opt_list_)
+	continue;
+
+      const char * filename = opt->arg;
+      if (filename == NULL)
+	continue;
+
+      fd = fopen (filename, "r");
+      if (fd == NULL)
+	{
+	  error ("Cannot read %qs for -mfunc-opt-list=\n", filename);
+	  return;
+	}
+
+      while (fgets (line, sizeof(line), fd))
+	{
+	  trial = mips_func_opt_list_read_line ((const char *)&line,
+						filename, lineno);
+	  lineno++;
+
+	  /* trial can be null if we didn't read a well formed line or if an
+	     update in place occurred. Otherwise insert new entry at the head
+	     of the list.  */
+	  if (trial)
+	    {
+	      trial->next = mips_fn_opt_list;
+	      mips_fn_opt_list = trial;
+	    }
+	}
+
+      fclose (fd);
+    }
+}
 
 /* A table describing all the processors GCC knows about; see
    mips-cpus.def for details.  */
@@ -994,6 +1586,19 @@ static const struct mips_rtx_cost_data
     COSTS_N_INSNS (7),            /* fp_mult_df */
     COSTS_N_INSNS (25),           /* fp_div_sf */
     COSTS_N_INSNS (48),           /* fp_div_df */
+    COSTS_N_INSNS (5),            /* int_mult_si */
+    COSTS_N_INSNS (5),            /* int_mult_di */
+    COSTS_N_INSNS (41),           /* int_div_si */
+    COSTS_N_INSNS (41),           /* int_div_di */
+		     1,           /* branch_cost */
+		     4            /* memory_latency */
+  },
+  { /* INTERAPTIV_MR2 (identical to 24KF1_1) */
+    COSTS_N_INSNS (4),            /* fp_add */
+    COSTS_N_INSNS (4),            /* fp_mult_sf */
+    COSTS_N_INSNS (5),            /* fp_mult_df */
+    COSTS_N_INSNS (17),           /* fp_div_sf */
+    COSTS_N_INSNS (32),           /* fp_div_df */
     COSTS_N_INSNS (5),            /* int_mult_si */
     COSTS_N_INSNS (5),            /* int_mult_di */
     COSTS_N_INSNS (41),           /* int_div_si */
@@ -1535,6 +2140,82 @@ mips_use_debug_exception_return_p (tree type)
 			   TYPE_ATTRIBUTES (type)) != NULL;
 }
 
+/* Check if the attribute to use common epilogue is set for a function.
+   Record (if passed) the suffix string.  */
+
+static bool
+mips_common_epilogue_p (tree decl)
+{
+  tree attr, args, cst;
+
+  attr = lookup_attribute ("epi", DECL_ATTRIBUTES (decl));
+
+  if (attr == NULL)
+    return false;
+
+  args = TREE_VALUE (attr);
+
+  if (args != NULL)
+    {
+      cst = TREE_VALUE (args);
+      cfun->machine->epi_suffix = TREE_STRING_POINTER (cst);
+    }
+  return true;
+}
+
+/* Check if the attribute not to use common epilogue is set for a function.  */
+
+static bool
+mips_no_common_epilogue_p (tree decl)
+{
+  return lookup_attribute ("noepi", DECL_ATTRIBUTES (decl)) != NULL;
+}
+
+/* Determine the code_readable setting for a function if it has one.  Set
+   *valid to true if we have a properly formed argument and
+   return the result. If there's no argument, return GCC's default.
+   Otherwise, leave valid false and return mips_base_code_readable.  In
+   that case the result should be unused anyway.  */
+
+static enum mips_code_readable_setting
+mips_get_code_readable_attr (tree decl)
+{
+  tree attr;
+
+  if (decl == NULL)
+    return mips_base_code_readable;
+
+  attr = lookup_attribute ("code_readable", DECL_ATTRIBUTES (decl));
+
+  if (attr != NULL)
+    {
+      if (TREE_VALUE (attr) != NULL_TREE)
+	{
+	  const char * str;
+	  if (TREE_CODE (TREE_VALUE (TREE_VALUE (attr))) != STRING_CST)
+	    error ("code_readable attribute supports 'yes', 'no' or 'pcrel'");
+
+	  str = TREE_STRING_POINTER (TREE_VALUE (TREE_VALUE (attr)));
+	  if (strcmp (str, "no") == 0)
+	    return CODE_READABLE_NO;
+	  else if (strcmp (str, "pcrel") == 0)
+	    return CODE_READABLE_PCREL;
+	  else if (strcmp (str, "yes") == 0)
+	    return CODE_READABLE_YES;
+
+	  error ("code_readable attribute does not support argument %qs", str);
+	}
+
+      /* Just like GCC's default -mcode-readable= setting, the
+	 presence of the code_readable attribute implies that a
+	 function can read data from the instruction stream by
+	 default.  */
+      return CODE_READABLE_YES;
+    }
+
+  return mips_base_code_readable;
+}
+
 /* Return the set of compression modes that are explicitly required
    by the attributes in ATTRIBUTES.  */
 
@@ -1633,6 +2314,86 @@ mips_comp_type_attributes (const_tree type1, const_tree type2)
   return 1;
 }
 
+/* Return a tree of the arguments of an attribute list.  */
+
+static tree
+mips_insert_fol_args (struct mips_func_opt_list_arg * args,
+		      unsigned int optimization,
+		      mips_func_opt_list_arg_t arg_type)
+{
+  tree ret = NULL;
+  for (; args; args = args->next)
+      if (args->optimization == optimization)
+	{
+	  tree arg;
+	  if (arg_type == FOL_ARG_OPTIONAL_STRING
+	      || arg_type == FOL_ARG_STRING)
+	    arg = build_string (strlen (args->arg), args->arg);
+	  else
+	    arg = build_int_cst (NULL, atoi (args->arg));
+
+	  if (ret == NULL)
+	    ret = build_tree_list (NULL_TREE, arg);
+	  else
+	    ret = chainon (ret, build_tree_list (NULL_TREE, arg));
+	}
+  return ret;
+}
+
+/* Implement -mfunc-opt-list.  With the struct of optmizations and attributes,
+   insert the attributes.  */
+
+static void
+mips_insert_fol_attributes (struct mips_func_opt_list * func_opt_list,
+			   tree *attributes)
+{
+  for (int i = 0; *mips_func_opt_list_strings[i].optstring != 0; i++)
+    if (bitmap_bit_p (func_opt_list->attributes, i))
+      {
+	const char * opstr = mips_func_opt_list_strings[i].optstring;
+	const char * maintype = mips_func_opt_list_strings[i].maintype;
+	int l = strlen (opstr);
+
+	tree attr_args = NULL;
+	if (mips_func_opt_list_strings[i].arg_type != FOL_ARG_NONE)
+	    attr_args = mips_insert_fol_args (func_opt_list->args, i,
+					mips_func_opt_list_strings[i].arg_type);
+
+	/* Some strange logic:  If .maintype == 0, .optstring is the
+	   attribute.  Otherwise the actual attribute is
+	   .maintype(".optstring").  */
+	if (mips_func_opt_list_strings[i].maintype == 0)
+	  {
+	      *attributes = tree_cons (get_identifier (opstr), attr_args,
+				       *attributes);
+	  }
+	else
+	  {  attr_args = build_tree_list (NULL_TREE,
+					  build_string (l, opstr));
+
+	    *attributes = tree_cons (get_identifier (maintype), attr_args,
+				     *attributes);
+	  }
+      }
+
+  if (func_opt_list->unknowns)
+    {
+      struct mips_func_opt_unknown_list	* l = func_opt_list->unknowns;
+      while (l)
+	{
+	  tree attr_args = NULL;
+	  if (l->args)
+	    attr_args = mips_insert_fol_args (l->args, l->args->optimization,
+						 l->args->arg_type);
+
+	  *attributes = tree_cons (get_identifier (l->attribute), attr_args,
+				   *attributes);
+	  l = l->next;
+	}
+
+    }
+}
+
 /* Implement TARGET_INSERT_ATTRIBUTES.  */
 
 static void
@@ -1654,6 +2415,29 @@ mips_insert_attributes (tree decl, tree *attributes)
       if (compression_flags)
 	error ("%qs attribute only applies to functions",
 	       mips_get_compress_on_name (nocompression_flags));
+
+      if (TREE_CODE (decl) == VAR_DECL
+	  && is_global_var (decl)
+	  && mips_find_list (IDENTIFIER_POINTER (DECL_NAME (decl)),
+			     mips_sdata_opt_list))
+	{
+	  tree attr_args;
+	  if (mips_sdata_section_num > -1)
+	    {
+	      char sec_name [13];
+	      sprintf (sec_name, ".sdata_%d", mips_sdata_section_num);
+	      attr_args = build_tree_list (NULL_TREE,
+					   build_string (strlen (sec_name),
+							 sec_name));
+	    }
+	  else
+	    attr_args = build_tree_list (NULL_TREE,
+					 build_string (6, ".sdata"));
+
+	  *attributes = tree_cons (get_identifier ("section"),
+				   attr_args,
+				   *attributes);
+	}
     }
   else
     {
@@ -1670,6 +2454,14 @@ mips_insert_attributes (tree decl, tree *attributes)
           && compression_flags & MASK_MICROMIPS)
 	error ("%qE cannot have both %qs and %qs attributes",
 	       DECL_NAME (decl), "mips16", "micromips");
+
+      if (mips_fn_opt_list)
+	{
+	  struct mips_func_opt_list * func_opt_list
+	    = mips_func_opt_list_find (IDENTIFIER_POINTER (DECL_NAME (decl)));
+	  if (func_opt_list)
+	    mips_insert_fol_attributes (func_opt_list, attributes);
+	}
 
       if (TARGET_FLIP_MIPS16
 	  && !DECL_ARTIFICIAL (decl)
@@ -1715,7 +2507,8 @@ mips_merge_decl_attributes (tree olddecl, tree newdecl)
 static bool
 mips_can_inline_p (tree caller, tree callee)
 {
-  if (mips_get_compress_mode (callee) != mips_get_compress_mode (caller))
+  if (mips_get_compress_mode (callee) != mips_get_compress_mode (caller)
+      && !TARGET_INLINE_INTERMIX)
     return false;
   return default_target_can_inline_p (caller, callee);
 }
@@ -1868,7 +2661,10 @@ mips_build_lower (struct mips_integer_op *codes, unsigned HOST_WIDE_INT value)
       /* Either this is a simple LUI/ORI pair, or clearing the lowest 16
 	 bits gives a value with at least 17 trailing zeros.  */
       i = mips_build_integer (codes, high);
-      codes[i].code = IOR;
+      if (ISA_HAS_MIPS16E2 && (value & 0x8000) == 0)
+	codes[i].code = PLUS;
+      else
+	codes[i].code = IOR;
       codes[i].value = value & 0xffff;
     }
   return i + 1;
@@ -2495,7 +3291,9 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
 	 The final address is then $at + %lo(symbol).  With 32-bit
 	 symbols we just need a preparatory LUI for normal mode and
 	 a preparatory LI and SLL for MIPS16.  */
-      return ABI_HAS_64BIT_SYMBOLS ? 6 : TARGET_MIPS16 ? 3 : 2;
+      return ABI_HAS_64BIT_SYMBOLS
+	     ? 6
+	     : (TARGET_MIPS16 && !ISA_HAS_MIPS16E2) ? 3 : 2;
 
     case SYMBOL_GP_RELATIVE:
       /* Treat GP-relative accesses as taking a single instruction on
@@ -2682,6 +3480,9 @@ mips_regno_mode_ok_for_base_p (int regno, machine_mode mode,
   if (TARGET_MIPS16 && regno == STACK_POINTER_REGNUM)
     return GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8;
 
+  if (MIPS16_GP_LOADS && regno == GLOBAL_POINTER_REGNUM)
+    return (UNITS_PER_WORD > 4 ? GET_MODE_SIZE (mode) <= 4 : true);
+
   return TARGET_MIPS16 ? M16_REG_P (regno) : GP_REG_P (regno);
 }
 
@@ -2834,7 +3635,7 @@ mips_stack_address_p (rtx x, machine_mode mode)
 
   return (mips_classify_address (&addr, x, mode, false)
 	  && addr.type == ADDRESS_REG
-	  && addr.reg == stack_pointer_rtx);
+	  && REGNO (addr.reg) == STACK_POINTER_REGNUM);
 }
 
 /* Return true if ADDR matches the pattern for the LWXS load scaled indexed
@@ -2897,9 +3698,11 @@ static bool
 mips16_unextended_reference_p (machine_mode mode, rtx base,
 			       unsigned HOST_WIDE_INT offset)
 {
-  if (mode != BLKmode && offset % GET_MODE_SIZE (mode) == 0)
+  if (mode != BLKmode && offset % GET_MODE_SIZE (mode) == 0
+      && REGNO (base) != GLOBAL_POINTER_REGNUM)
     {
-      if (GET_MODE_SIZE (mode) == 4 && base == stack_pointer_rtx)
+      if (GET_MODE_SIZE (mode) == 4 && GET_CODE (base) == REG
+          && REGNO (base) == STACK_POINTER_REGNUM)
 	return offset < 256U * GET_MODE_SIZE (mode);
       return offset < 32U * GET_MODE_SIZE (mode);
     }
@@ -3071,7 +3874,7 @@ mips_const_insns (rtx x)
 
       /* This is simply an LUI for normal mode.  It is an extended
 	 LI followed by an extended SLL for MIPS16.  */
-      return TARGET_MIPS16 ? 4 : 1;
+      return TARGET_MIPS16 ? (ISA_HAS_MIPS16E2 ? 2 : 4) : 1;
 
     case CONST_INT:
       if (TARGET_MIPS16)
@@ -3083,7 +3886,10 @@ mips_const_insns (rtx x)
 		: SMALL_OPERAND_UNSIGNED (INTVAL (x)) ? 2
 		: IN_RANGE (-INTVAL (x), 0, 255) ? 2
 		: SMALL_OPERAND_UNSIGNED (-INTVAL (x)) ? 3
-		: 0);
+		: ISA_HAS_MIPS16E2
+		  ? (trunc_int_for_mode (INTVAL (x), SImode) == INTVAL (x)
+		     ? 4 : 8)
+		  : 0);
 
       return mips_build_integer (codes, INTVAL (x));
 
@@ -3458,7 +4264,7 @@ mips16_gp_pseudo_reg (void)
 rtx
 mips_pic_base_register (rtx temp)
 {
-  if (!TARGET_MIPS16)
+  if (MIPS16_GP_LOADS || !TARGET_MIPS16)
     return pic_offset_table_rtx;
 
   if (currently_expanding_to_rtl)
@@ -4065,6 +4871,11 @@ mips16_constant_cost (int code, HOST_WIDE_INT x)
 	return COSTS_N_INSNS (1);
       return -1;
 
+    case IOR:
+      if (ISA_HAS_MIPS16E2 && SMALL_OPERAND_UNSIGNED (x))
+	return COSTS_N_INSNS (1);
+      return -1;
+
     case LEU:
       /* Like LE, but reject the always-true case.  */
       if (x == -1)
@@ -4088,6 +4899,10 @@ mips16_constant_cost (int code, HOST_WIDE_INT x)
       if (x == 0)
 	return 0;
       return -1;
+
+    case ZERO_EXTRACT:
+      /* The bit position and size are immediate operands.  */
+      return ISA_HAS_EXT_INS ? COSTS_N_INSNS (1) : -1;
 
     default:
       return -1;
@@ -5274,8 +6089,17 @@ mips_split_move_insn (rtx dest, rtx src, rtx insn)
 /* Return the appropriate instructions to move SRC into DEST.  Assume
    that SRC is operand 1 and DEST is operand 0.  */
 
+bool
+mips_constant_pool_symbol_in_sdata (rtx x, enum mips_symbol_context context)
+{
+  enum mips_symbol_type symbol_type;
+  return (mips_symbolic_constant_p (x, context, &symbol_type)
+	  && symbol_type == SYMBOL_GP_RELATIVE
+	  && CONSTANT_POOL_ADDRESS_P (x));
+}
+
 const char *
-mips_output_move (rtx dest, rtx src)
+mips_output_move (rtx insn, rtx dest, rtx src)
 {
   enum rtx_code dest_code = GET_CODE (dest);
   enum rtx_code src_code = GET_CODE (src);
@@ -5403,14 +6227,29 @@ mips_output_move (rtx dest, rtx src)
 	}
 
       if (src_code == MEM)
-	switch (GET_MODE_SIZE (mode))
-	  {
-	  case 1: return "lbu\t%0,%1";
-	  case 2: return "lhu\t%0,%1";
-	  case 4: return "lw\t%0,%1";
-	  case 8: return "ld\t%0,%1";
-	  default: gcc_unreachable ();
-	  }
+	{
+	  if (TARGET_DEAD_LOADS
+	      && MEM_VOLATILE_P (src)
+	      && find_regno_note (insn, REG_UNUSED, REGNO (dest))
+	      && !TARGET_MIPS16)
+	    switch (GET_MODE_SIZE (mode))
+	      {
+	      case 1: return "lbu\t$0,%1";
+	      case 2: return "lhu\t$0,%1";
+	      case 4: return "lw\t$0,%1";
+	      case 8: return "ld\t$0,%1";
+	      default: gcc_unreachable ();
+	      }
+	  else
+	    switch (GET_MODE_SIZE (mode))
+	      {
+	      case 1: return "lbu\t%0,%1";
+	      case 2: return "lhu\t%0,%1";
+	      case 4: return "lw\t%0,%1";
+	      case 8: return "ld\t%0,%1";
+	      default: gcc_unreachable ();
+	      }
+	}
 
       if (src_code == CONST_INT)
 	{
@@ -5420,6 +6259,11 @@ mips_output_move (rtx dest, rtx src)
 	  if (!TARGET_MIPS16)
 	    return "li\t%0,%1\t\t\t# %X1";
 
+	  if (ISA_HAS_MIPS16E2
+	      && LUI_INT (src)
+	      && !SMALL_OPERAND_UNSIGNED (INTVAL (src)))
+	    return "lui\t%0,%%hi(%1)\t\t\t# %X1";
+
 	  if (SMALL_OPERAND_UNSIGNED (INTVAL (src)))
 	    return "li\t%0,%1";
 
@@ -5428,7 +6272,12 @@ mips_output_move (rtx dest, rtx src)
 	}
 
       if (src_code == HIGH)
-	return TARGET_MIPS16 ? "#" : "lui\t%0,%h1";
+	{
+	  if (mips_constant_pool_symbol_in_sdata (XEXP (src, 0), SYMBOL_CONTEXT_MEM))
+	    return "move\t%0,$28";
+
+	  return (TARGET_MIPS16 && !ISA_HAS_MIPS16E2) ? "#" : "lui\t%0,%h1";
+	}
 
       if (CONST_GP_P (src))
 	return "move\t%0,%1";
@@ -8018,11 +8867,45 @@ mips_expand_call (enum mips_call_type type, rtx result, rtx addr,
   insn = mips16_build_call_stub (result, &addr, args_size, fp_code);
   if (insn)
     {
-      gcc_assert (!lazy_p && type == MIPS_CALL_NORMAL);
+      gcc_assert (!lazy_p && (type == MIPS_CALL_NORMAL
+			      || (type == MIPS_CALL_SIBCALL
+				  && TARGET_MIPS16
+				  && (TARGET_MIPS16_TAIL_INDIRECT
+				      || TARGET_MIPS16_TAIL_BRANCH))));
       return insn;
     }
 
   orig_addr = addr;
+
+  if (TARGET_MIPS16
+      && (TARGET_MIPS16_TAIL_INDIRECT
+	  || TARGET_MIPS16_TAIL_BRANCH)
+      && type == MIPS_CALL_SIBCALL
+      && GET_CODE (addr) == SYMBOL_REF
+      && !const_sibcall_insn_operand (addr, VOIDmode)
+      && (!TARGET_ABICALLS || (TARGET_ABICALLS && TARGET_ABSOLUTE_ABICALLS
+			       && mips_symbol_binds_local_p (addr))))
+    {
+      rtx high, low_out, local_addr;
+      rtx new_addr = gen_reg_rtx (Pmode);
+
+      /* We want to do a shallow copy to change flags only for this symbol.  */
+      local_addr = shallow_copy_rtx (addr);
+      SYMBOL_REF_FLAGS (local_addr) |= SYMBOL_FLAG_LONG_CALL;
+
+      if (mips_code_readable == CODE_READABLE_NO)
+	{
+	  high = gen_rtx_HIGH (Pmode, local_addr);
+	  mips_emit_move (new_addr, high);
+	  low_out = gen_rtx_LO_SUM (Pmode, new_addr, local_addr);
+	  mips_emit_move (new_addr, low_out);
+	}
+      else
+	mips_emit_move (new_addr, local_addr);
+
+      addr = new_addr;
+    }
+
   if (!call_insn_operand (addr, VOIDmode))
     {
       if (type == MIPS_CALL_EPILOGUE)
@@ -8093,7 +8976,7 @@ mips_split_call (rtx insn, rtx call_pattern)
 
 /* Return true if a call to DECL may need to use JALX.  */
 
-static bool
+bool
 mips_call_may_need_jalx_p (tree decl)
 {
   /* If the current translation unit would use a different mode for DECL,
@@ -8138,7 +9021,7 @@ mips_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
   /* Direct Js are only possible to functions that use the same ISA encoding.
      There is no JX counterpoart of JALX.  */
   if (decl
-      && const_call_insn_operand (XEXP (DECL_RTL (decl), 0), VOIDmode)
+      && const_sibcall_insn_operand (XEXP (DECL_RTL (decl), 0), VOIDmode)
       && mips_call_may_need_jalx_p (decl))
     return false;
 
@@ -8175,6 +9058,13 @@ mips_move_by_pieces_p (unsigned HOST_WIDE_INT size, unsigned int align)
 	return false;
       if (align < BITS_PER_WORD)
 	return size < UNITS_PER_WORD;
+      /* It is more profitable to use COPYW for at least 2 words.  */
+      if (ISA_HAS_COPY
+	  && align >= BITS_PER_WORD && size >= 2 * UNITS_PER_WORD)
+	return false;
+      /* It is more profitable to use UCOPYW for at least 1 word.  */
+      if (ISA_HAS_COPY && align < BITS_PER_WORD && size >= UNITS_PER_WORD)
+	return false;
       return size <= MIPS_MAX_MOVE_BYTES_STRAIGHT;
     }
   /* The default value.  If this becomes a target hook, we should
@@ -8247,7 +9137,8 @@ mips_store_by_pieces_p (unsigned HOST_WIDE_INT size, unsigned int align)
    Assume that the areas do not overlap.  */
 
 static void
-mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
+mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length,
+			  HOST_WIDE_INT alignment)
 {
   HOST_WIDE_INT offset, delta;
   unsigned HOST_WIDE_INT bits;
@@ -8433,6 +9324,7 @@ mips_adjust_block_mem (rtx mem, HOST_WIDE_INT length,
 
 static void
 mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
+		      HOST_WIDE_INT alignment,
 		      HOST_WIDE_INT bytes_per_iter)
 {
   rtx label, src_reg, dest_reg, final_src, test;
@@ -8455,7 +9347,9 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
   emit_label (label);
 
   /* Emit the loop body.  */
-  mips_block_move_straight (dest, src, bytes_per_iter);
+  if (!mips16_expand_copy (dest, src, GEN_INT (bytes_per_iter),
+			   GEN_INT (alignment)))
+    mips_block_move_straight (dest, src, bytes_per_iter, alignment);
 
   /* Move on to the next block.  */
   mips_emit_move (src_reg, plus_constant (Pmode, src_reg, bytes_per_iter));
@@ -8469,40 +9363,239 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
     emit_jump_insn (gen_cbranchsi4 (test, src_reg, final_src, label));
 
   /* Mop up any left-over bytes.  */
-  if (leftover)
-    mips_block_move_straight (dest, src, leftover);
+  if (leftover
+      && !mips16_expand_copy (dest, src, GEN_INT (leftover),
+			      GEN_INT (alignment)))
+    mips_block_move_straight (dest, src, leftover, alignment);
+}
+
+/* Expand a movmemsi instruction using the mips16 copy instruction.  */
+
+bool
+mips16_expand_copy (rtx dest, rtx src, rtx length, rtx alignment)
+{
+  rtx base_dest, base_src;
+  rtx temp;
+  HOST_WIDE_INT offset_dest, offset_src;
+  int word_count, byte_count, offset = 0;
+  rtx first_dest = dest, first_src = src;
+  rtx xdest = XEXP (dest, 0);
+  rtx xsrc = XEXP (src, 0);
+  int align = INTVAL (alignment);
+  bool word_by_pieces_p = false;
+
+  if (!ISA_HAS_COPY)
+    return false;
+
+  gcc_assert (!TARGET_64BIT);
+  gcc_assert (MEM_P (src) && MEM_P (dest));
+
+  if (!CONST_INT_P (length))
+    return false;
+
+  byte_count = INTVAL (length);
+
+  if (byte_count > MIPS_MAX_MOVE_BYTES_STRAIGHT)
+    return false;
+
+  word_count = byte_count / UNITS_PER_WORD;
+  byte_count = byte_count % UNITS_PER_WORD;
+
+  mips_split_plus (xdest, &base_dest, &offset_dest);
+  mips_split_plus (xsrc, &base_src, &offset_src);
+
+  /* In some cases, it's better to move by pieces rather than generating
+     COPYW/UCOPYW:
+     1. Copying 4 bytes when both dest and src are aligned but base+offset is
+	likely to be squashed.
+     2. Copying 4 bytes when the lowest alignment is 2-bytes iff the offsets
+	are not the same or multiples of 16 bytes.  */
+
+  /* Case (1).  */
+  if (word_count == 1
+      && MEM_ALIGN (dest) >= 4 * BITS_PER_UNIT
+      && MEM_ALIGN (src) >= 4 * BITS_PER_UNIT
+      && (offset_dest >= 0 || offset_src >= 0))
+    word_by_pieces_p = true;
+
+  /* Case (2).  */
+  if (word_count == 1 && align >= 2
+      && !(offset_src == offset_dest && offset_src % 16 != 0))
+    word_by_pieces_p = true;
+
+  if (word_by_pieces_p)
+    {
+      rtx src2 = adjust_address (src, BLKmode, offset);
+      rtx dest2 = adjust_address (dest, BLKmode, offset);
+      move_by_pieces (dest2, src2, 4, INTVAL (alignment), 0);
+      offset += 4;
+      word_count = 0;
+    }
+
+  if (word_count > 0 && !REG_P (XEXP (dest, 0)))
+    {
+      rtx dest_reg = copy_addr_to_reg (XEXP (dest, 0));
+      first_dest = replace_equiv_address (first_dest, dest_reg);
+    }
+
+  if (word_count > 0 && !REG_P (XEXP (src, 0)))
+    {
+      rtx src_reg = copy_addr_to_reg (XEXP (src, 0));
+      first_src = replace_equiv_address (first_src, src_reg);
+    }
+
+  while (word_count > 0)
+    {
+      int new_word_count, new_offset;
+      rtx adj_src, adj_dest;
+
+      new_offset = offset;
+      new_word_count = word_count >= 4 ? 4 : word_count;
+
+      /* Using a COPYW dst,src,*,1 instruction causes the core to stall
+	 so we generate a lw/sw sequence to get around this core bug.  */
+      if (new_word_count == 1 && align >= 4)
+	{
+	  temp = gen_reg_rtx (SImode);
+	  adj_src = adjust_address (first_src, Pmode, new_offset);
+	  adj_dest = adjust_address (first_dest, Pmode, new_offset);
+	  mips_emit_move (temp, adj_src);
+	  mips_emit_move (adj_dest, temp);
+	}
+      else
+	{
+	  adj_src = adjust_address (first_src, BLKmode, new_offset);
+	  adj_dest = adjust_address (first_dest, BLKmode, new_offset);
+	  set_mem_size (adj_src, new_word_count * 4);
+	  set_mem_size (adj_dest, new_word_count * 4);
+	  emit_insn (gen_mips16_copy (adj_dest, adj_src, GEN_INT (new_offset),
+				      GEN_INT (new_word_count), alignment));
+	}
+
+      offset += new_word_count * 4;
+      word_count = word_count >= 4 ? word_count - 4 : 0;
+
+      if (offset > 496)
+	{
+	  rtx dest_reg = copy_addr_to_reg (XEXP (adj_dest, 0));
+	  rtx src_reg = copy_addr_to_reg (XEXP (adj_src, 0));
+	  first_dest = replace_equiv_address (first_dest, dest_reg);
+	  first_src = replace_equiv_address (first_src, src_reg);
+	  offset = 0;
+	}
+    }
+
+  if (byte_count > 0)
+    {
+      rtx src2 = adjust_address (src, BLKmode, offset);
+      rtx dest2 = adjust_address (dest, BLKmode, offset);
+      move_by_pieces (dest2, src2, byte_count, align, 0);
+    }
+
+  return true;
+}
+
+bool
+gen_mips16_copy_peep (rtx *operands, int n)
+{
+  rtx first_base_dest, first_base_src;
+  int alignment = 0;
+  HOST_WIDE_INT offset;
+  int nmove = 0;
+  rtx mov_dest[4], mov_src[4];
+
+  for (int i = 0; i < n; i++)
+    {
+      rtx base_dest, base_src;
+      rtx src = operands[i * 3 + 1];
+      rtx dest = operands[i * 3 + 2];
+      HOST_WIDE_INT ofs_dest, ofs_src;
+
+      mips_split_plus (XEXP (dest, 0), &base_dest, &ofs_dest);
+      mips_split_plus (XEXP (src, 0), &base_src, &ofs_src);
+
+      if (i == 0)
+	{
+	  first_base_dest = base_dest;
+	  first_base_src = base_src;
+	  /* Just use either SRC or DEST offset as both must match.  */
+	  offset = ofs_src;
+	}
+
+      if (ofs_dest != ofs_src)
+	return false;
+
+      if (alignment == 0
+	  || alignment > MIN (MEM_ALIGN (dest),
+			      MEM_ALIGN (src)) / BITS_PER_UNIT)
+	alignment = MIN (MEM_ALIGN (dest), MEM_ALIGN (src)) / BITS_PER_UNIT;
+
+      if (!REG_P (base_dest) || !REG_P (base_src)
+	  || !M16_REG_P (REGNO (base_dest)) || !M16_REG_P (REGNO (base_src))
+	  || REGNO (base_dest) != REGNO (first_base_dest)
+	  || REGNO (base_src) != REGNO (first_base_src))
+	return false;
+
+      if (MEM_VOLATILE_P (dest) || MEM_VOLATILE_P (src))
+	return false;
+
+      /* We need to emit moves if an intermediate register is used later.
+	 This is disabled by default and only enabled for more aggressive
+	 optimization.  It will not be a win if all intermediates
+	 are needed.  */
+      if (!peep2_reg_dead_p (i, operands[i * 3]))
+	return false;
+
+      /* We can only convert multiple loads/stores into COPYW if the offsets
+	 are increasing consecutively by 4.  */
+      if (i * 4 != ofs_dest % 16 || i * 4 != ofs_src % 16
+	  || ofs_dest != ofs_src || ofs_dest > 496)
+	return false;
+    }
+
+  emit_insn (gen_mips16_copy_ofs (first_base_dest, first_base_src,
+				  GEN_INT (offset), GEN_INT (n),
+				  GEN_INT (alignment)));
+  return true;
 }
 
 /* Expand a movmemsi instruction, which copies LENGTH bytes from
-   memory reference SRC to memory reference DEST.  */
+   memory reference SRC to memory reference DEST.  The lowest alignment
+   of SRC and DEST is specified by ALIGNMENT.  */
 
 bool
-mips_expand_block_move (rtx dest, rtx src, rtx length)
+mips_expand_block_move (rtx dest, rtx src, rtx length, rtx alignment)
 {
   if (!ISA_HAS_LWL_LWR
-      && (MEM_ALIGN (src) < MIPS_MIN_MOVE_MEM_ALIGN
-	  || MEM_ALIGN (dest) < MIPS_MIN_MOVE_MEM_ALIGN))
+      && !(ISA_HAS_COPY && INTVAL (length) < MIPS_MAX_MOVE_BYTES_STRAIGHT)
+      && INTVAL (alignment) * UNITS_PER_WORD < MIPS_MIN_MOVE_MEM_ALIGN)
     return false;
 
   if (CONST_INT_P (length))
     {
-      if (INTVAL (length) <= MIPS_MAX_MOVE_BYTES_STRAIGHT
-	  /* We increase slightly the maximum number of bytes in
-	     a straight-line block if the source and destination are aligned
-	     to the register width.  */
-	  || (!optimize_size
-	      && MEM_ALIGN (src) == BITS_PER_WORD
-	      && MEM_ALIGN (dest) == BITS_PER_WORD
-	      && INTVAL (length) <= MIPS_MAX_MOVE_MEM_STRAIGHT))
+      if (mips_movmem_limit == -1 || INTVAL (length) < mips_movmem_limit)
 	{
-	  mips_block_move_straight (dest, src, INTVAL (length));
-	  return true;
-	}
-      else if (optimize)
-	{
-	  mips_block_move_loop (dest, src, INTVAL (length),
-				MIPS_MAX_MOVE_BYTES_PER_LOOP_ITER);
-	  return true;
+	  if (ISA_HAS_COPY)
+	    return mips16_expand_copy (dest, src, length, alignment);
+	  else if (INTVAL (length) <= MIPS_MAX_MOVE_BYTES_STRAIGHT
+		   /* We increase slightly the maximum number of bytes in
+		      a straight-line block if the source and destination
+		      are aligned to the register width.  */
+		   || (!optimize_size
+		       && INTVAL (alignment) * UNITS_PER_WORD == BITS_PER_WORD
+		       && INTVAL (length) <= MIPS_MAX_MOVE_MEM_STRAIGHT))
+	    {
+	      mips_block_move_straight (dest, src, INTVAL (length),
+					INTVAL (alignment));
+	      return true;
+	    }
+	  else if (optimize)
+	    {
+	      mips_block_move_loop (dest, src, INTVAL (length),
+				    INTVAL (alignment),
+				    MIPS_MAX_MOVE_BYTES_PER_LOOP_ITER);
+	      return true;
+	    }
 	}
     }
   return false;
@@ -8934,7 +10027,7 @@ mips_init_relocs (void)
 	}
     }
 
-  if (TARGET_MIPS16)
+  if (!MIPS16_GP_LOADS && TARGET_MIPS16)
     {
       /* The high part is provided by a pseudo copy of $gp.  */
       mips_split_p[SYMBOL_GP_RELATIVE] = true;
@@ -9584,6 +10677,68 @@ mips_encode_section_info (tree decl, rtx rtl, int first)
     }
 }
 
+/* Implement TARGET_ASM_UNIQUE_SECTION.  */
+
+void
+mips_asm_unique_section (tree decl, int reloc)
+{
+  default_unique_section (decl, reloc);
+
+  const char *name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
+
+  if (mips_sdata_section_num > -1
+      && (strncmp (".sdata", name, 6) == 0
+	  || strncmp (".sbss", name, 5) == 0))
+    {
+      char *sec_name = (char*) alloca (strlen (name) + 5);
+      if (strncmp (".sdata", name, 6) == 0)
+	sprintf (sec_name, ".sdata_%d%s", mips_sdata_section_num, name + 6);
+      else
+	sprintf (sec_name, ".sbss_%d%s", mips_sdata_section_num, name + 5);
+
+      DECL_SECTION_NAME (decl) = build_string (strlen (sec_name), sec_name);
+    }
+}
+
+/* Implement TARGET_ASM_SELECT_SECTION.  */
+
+static section *
+mips_asm_select_section (tree exp, int reloc, unsigned HOST_WIDE_INT align)
+{
+  char * sec_name;
+  section *s;
+
+  s = default_elf_select_section (exp, reloc, align);
+
+  if (mips_sdata_section_num > -1
+      && (s->named.common.flags & SECTION_NAMED)
+      && (strncmp (".sdata", s->named.name, 6) == 0
+	  || strncmp (".sbss", s->named.name, 5) == 0))
+    {
+      sec_name = (char*) alloca (strlen (s->named.name) + 5);
+      if (strncmp (".sdata", s->named.name, 6) == 0)
+	sprintf (sec_name, ".sdata_%d%s", mips_sdata_section_num, s->named.name + 6);
+      else
+	sprintf (sec_name, ".sbss_%d%s", mips_sdata_section_num, s->named.name + 5);
+      s = get_section (sec_name, s->named.common.flags, exp);
+    }
+  return s;
+}
+
+/* Implement TARGET_SECTION_TYPE_FLAGS.  */
+
+unsigned int
+mips_section_type_flags (tree decl, const char *name, int reloc)
+{
+  unsigned int flags = default_section_type_flags (decl, name, reloc);
+
+  if (mips_sdata_section_num > -1
+      && strncmp (name, ".sbss_", 6) == 0)
+    flags |= SECTION_BSS;
+
+  return flags;
+}
+
 /* Implement TARGET_SELECT_RTX_SECTION.  */
 
 static section *
@@ -9655,7 +10810,9 @@ mips_in_small_data_p (const_tree decl)
 
       /* Reject anything that isn't in a known small-data section.  */
       name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
-      if (strcmp (name, ".sdata") != 0 && strcmp (name, ".sbss") != 0)
+      if (strcmp (name, ".sdata") != 0 && strcmp (name, ".sbss") != 0
+	  && strncmp (name, ".sdata_", 7) != 0
+	  && strncmp (name, ".sbss_", 6) != 0)
 	return false;
 
       /* If a symbol is defined externally, the assembler will use the
@@ -9732,7 +10889,7 @@ mips_debugger_offset (rtx addr, HOST_WIDE_INT offset)
   if (offset == 0)
     offset = INTVAL (offset2);
 
-  if (reg == stack_pointer_rtx
+  if ((GET_CODE (reg) == REG && REGNO (reg) == STACK_POINTER_REGNUM)
       || reg == frame_pointer_rtx
       || reg == hard_frame_pointer_rtx)
     {
@@ -10403,7 +11560,7 @@ mips16e_collect_argument_save_p (rtx dest, rtx src, rtx *reg_values,
   required_offset = cfun->machine->frame.total_size + argno * UNITS_PER_WORD;
   if (base == hard_frame_pointer_rtx)
     required_offset -= cfun->machine->frame.hard_frame_pointer_offset;
-  else if (base != stack_pointer_rtx)
+  else if (!(GET_CODE (base) == REG && REGNO (base) == STACK_POINTER_REGNUM))
     return false;
   if (offset != required_offset)
     return false;
@@ -10613,7 +11770,7 @@ mips16e_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
       /* Check that the address is the sum of the stack pointer and a
 	 possibly-zero constant offset.  */
       mips_split_plus (XEXP (mem, 0), &base, &offset);
-      if (base != stack_pointer_rtx)
+      if (!(GET_CODE (base) == REG && REGNO (base) == STACK_POINTER_REGNUM))
 	return false;
 
       /* Check that SET's other operand is a register.  */
@@ -11291,6 +12448,28 @@ mips_cfun_use_frame_header_p (void)
   return false;
 }
 
+/* Returns false if a register $sx in the range $s0-$s7 (callee-saved)
+   is not saved in the prologue (not used in current function) but register
+   $s(x+1) is saved.  Common epilogue cannot be emitted in such case.
+   Returns true otherwise.  */
+
+static bool
+consecutive_saved_gpr_p ()
+{
+  const struct mips_frame_info *frame;
+  frame = &cfun->machine->frame;
+  int regno, last = RETURN_ADDR_REGNUM;
+  for (regno = GP_REG_LAST; regno >= GP_REG_FIRST; regno--)
+    if (BITSET_P (frame->mask, regno - GP_REG_FIRST))
+      {
+	if (last != RETURN_ADDR_REGNUM && last != HARD_FRAME_POINTER_REGNUM)
+	  if (last != regno + 1)
+	    return false;
+	last = regno;
+      }
+  return true;
+}
+
 /* Populate the current function's mips_frame_info structure.
 
    MIPS stack frames look like:
@@ -11366,6 +12545,8 @@ mips_compute_frame_info (bool recalculate, struct mips_frame_info *frame)
 {
   HOST_WIDE_INT offset, size;
   unsigned int regno, i;
+  int global_reg_used;
+  int local_reg_used;
 
   /* Set this function's interrupt properties.  */
   if (mips_interrupt_type_p (TREE_TYPE (current_function_decl)))
@@ -11445,10 +12626,61 @@ mips_compute_frame_info (bool recalculate, struct mips_frame_info *frame)
 	frame->mask |= 1 << (EH_RETURN_DATA_REGNO (i) - GP_REG_FIRST);
       }
 
+  /* The SAVE and RESTORE instructions have two ranges of registers:
+     $a3-$a0 and $s2-$s8.  If we save one register in the range, we must
+     save all later registers too.  This can cause problems if the user has
+     placed a global value into a register that falls into one of these
+     ranges and the function uses a callee saved register that also in the
+     same range.  In this case the global value could be accidently saved
+     and restored on function entry and exit which means any changes made to
+     its value in the function will be lost.
+
+     The code below checks for this case, and if it is found it turns off
+     the use of the SAVE/RESTORE instruction in this function.
+
+     This approach is not optimal because it should really just check that
+     the number of the register used for the global value occurs before
+     one of the callee saved registers.  However as the use of forcing global
+     values into a register is small it is fine to use the unoptimal version
+     of the code for the moment.  */
+  cfun->machine->safe_to_use_save_restore = true;
+
+  global_reg_used = 0;
+  local_reg_used = 0;
+
+  for (i = 0 ; i < ARRAY_SIZE (mips16e_s2_s8_regs) ; i++)
+     {
+       regno = mips16e_s2_s8_regs[i];
+       if (global_regs [regno])
+	 global_reg_used = 1;
+
+       if (BITSET_P (frame->mask, regno))
+	 local_reg_used = 1;
+     }
+
+  if (global_reg_used && local_reg_used)
+    cfun->machine->safe_to_use_save_restore = false;
+
+  global_reg_used = 0;
+  local_reg_used = 0;
+
+  for (i = 0 ; i < ARRAY_SIZE (mips16e_a0_a3_regs) ; i++)
+     {
+       regno = mips16e_a0_a3_regs[i];
+       if (global_regs [regno])
+	 global_reg_used = 1;
+
+       if (BITSET_P (frame->mask, regno))
+	 local_reg_used = 1;
+     }
+
+  if (global_reg_used && local_reg_used)
+    cfun->machine->safe_to_use_save_restore = false;
+
   /* The MIPS16e SAVE and RESTORE instructions have two ranges of registers:
      $a3-$a0 and $s2-$s8.  If we save one register in the range, we must
      save all later registers too.  */
-  if (GENERATE_MIPS16E_SAVE_RESTORE)
+  if (GENERATE_MIPS16E_SAVE_RESTORE && cfun->machine->safe_to_use_save_restore)
     {
       mips16e_mask_registers (&frame->mask, mips16e_s2_s8_regs,
  			      ARRAY_SIZE (mips16e_s2_s8_regs), &frame->num_gp);
@@ -11547,6 +12779,34 @@ mips_compute_frame_info (bool recalculate, struct mips_frame_info *frame)
 
   if (!recalculate)
     cfun->machine->initial_total_size = frame->total_size;
+
+  /* Set whether this function uses common epilogue.  */
+  if ((mips_common_epilogue_p (current_function_decl)
+       || TARGET_EPI
+       || mips_epi != NULL)
+      && !mips_no_common_epilogue_p (current_function_decl)
+      && ISA_SUPPORTS_COMMON_EPILOGUE
+      && !cfun->machine->interrupt_handler_p
+      && !crtl->calls_eh_return)
+    {
+      cfun->machine->use_common_epilogue_p = false;
+
+      /* Determine number of saved gpr without counting $ra and $fp
+	 (when used as frame pointer).  */
+      int num_gp = frame->num_gp;
+      if (BITSET_P (frame->mask, RETURN_ADDR_REGNUM - GP_REG_FIRST))
+	num_gp--;
+      if (frame_pointer_needed
+	  && BITSET_P (frame->mask, HARD_FRAME_POINTER_REGNUM - GP_REG_FIRST))
+	num_gp--;
+
+      if (num_gp >= MIPS_EPI_MIN_GP_RESTORE && consecutive_saved_gpr_p ())
+	{
+	  cfun->machine->use_common_epilogue_p = true;
+	  if (cfun->machine->epi_suffix == NULL)
+	    cfun->machine->epi_suffix = mips_epi;
+	}
+    }
 }
 
 /* Return the style of GP load sequence that is being used for the
@@ -11974,6 +13234,42 @@ umips_build_save_restore (mips_save_restore_fn fn,
   return true;
 }
 
+/* Called while generating common epilogue.
+   Call FN for each fp register that is saved by the current function.
+   SP_OFFSET is the offset of the current stack pointer from the start
+   of the frame.  */
+
+static void
+mips_for_each_saved_fpr (HOST_WIDE_INT sp_offset,
+			 mips_save_restore_fn fn)
+{
+  machine_mode fpr_mode;
+  int regno;
+  HOST_WIDE_INT offset;
+
+  /* This loop must iterate over the same space as its companion in
+     mips_compute_frame_info.  */
+  offset = cfun->machine->frame.fp_sp_offset - sp_offset;
+  fpr_mode = (TARGET_SINGLE_FLOAT ? SFmode : DFmode);
+  for (regno = FP_REG_LAST - MAX_FPRS_PER_FMT + 1;
+       regno >= FP_REG_FIRST;
+       regno -= MAX_FPRS_PER_FMT)
+    if (BITSET_P (cfun->machine->frame.fmask, regno - FP_REG_FIRST))
+      {
+	if (!TARGET_FLOAT64 && TARGET_DOUBLE_FLOAT
+	    && (fixed_regs[regno] || fixed_regs[regno + 1]))
+	  {
+	    if (fixed_regs[regno])
+	      mips_save_restore_reg (SFmode, regno + 1, offset, fn);
+	    else
+	      mips_save_restore_reg (SFmode, regno, offset, fn);
+	  }
+	else
+	  mips_save_restore_reg (fpr_mode, regno, offset, fn);
+	offset -= GET_MODE_SIZE (fpr_mode);
+      }
+}
+
 /* Call FN for each register that is saved by the current function.
    SP_OFFSET is the offset of the current stack pointer from the start
    of the frame.  */
@@ -12190,13 +13486,25 @@ mips_output_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
     {
       if (TARGET_MIPS16)
 	{
-	  /* This is a fixed-form sequence.  The position of the
-	     first two instructions is important because of the
-	     way _gp_disp is defined.  */
-	  output_asm_insn ("li\t$2,%%hi(_gp_disp)", 0);
-	  output_asm_insn ("addiu\t$3,$pc,%%lo(_gp_disp)", 0);
-	  output_asm_insn ("sll\t$2,16", 0);
-	  output_asm_insn ("addu\t$2,$3", 0);
+	  if (ISA_HAS_MIPS16E2)
+	    {
+	      /* This is a fixed-form sequence.  The position of the
+		 first two instructions is important because of the
+		 way _gp_disp is defined.  */
+	      output_asm_insn ("lui\t$2,%%hi(_gp_disp)", 0);
+	      output_asm_insn ("addiu\t$3,$pc,%%lo(_gp_disp)", 0);
+	      output_asm_insn ("addu\t$2,$3", 0);
+	    }
+	  else
+	    {
+	      /* This is a fixed-form sequence.  The position of the
+		 first two instructions is important because of the
+		 way _gp_disp is defined.  */
+	      output_asm_insn ("li\t$2,%%hi(_gp_disp)", 0);
+	      output_asm_insn ("addiu\t$3,$pc,%%lo(_gp_disp)", 0);
+	      output_asm_insn ("sll\t$2,16", 0);
+	      output_asm_insn ("addu\t$2,$3", 0);
+	    }
 	}
       else
 	{
@@ -12512,7 +13820,9 @@ mips_expand_prologue (void)
       HOST_WIDE_INT step1;
 
       step1 = MIN (size, MIPS_MAX_FIRST_STACK_STEP);
-      if (GENERATE_MIPS16E_SAVE_RESTORE)
+      if (GENERATE_MIPS16E_SAVE_RESTORE
+	  && !cfun->machine->interrupt_handler_p
+	  && cfun->machine->safe_to_use_save_restore)
  	{
  	  HOST_WIDE_INT offset;
  	  unsigned int mask, regno;
@@ -12836,7 +14146,8 @@ mips_restore_reg (rtx reg, rtx mem)
 static void
 mips_deallocate_stack (rtx base, rtx offset, HOST_WIDE_INT new_frame_size)
 {
-  if (base == stack_pointer_rtx && offset == const0_rtx)
+  if (GET_CODE (base) == REG && REGNO (base) == STACK_POINTER_REGNUM
+      && offset == const0_rtx)
     return;
 
   mips_frame_barrier ();
@@ -12874,6 +14185,75 @@ mips_expand_before_return (void)
      the register is not live on exit.  */
   if (TARGET_CALL_CLOBBERED_GP)
     emit_clobber (pic_offset_table_rtx);
+}
+
+/* Attribute handler for function attribute common_epilogue.  */
+
+static tree
+mips_handle_common_epi_attr (tree *node ATTRIBUTE_UNUSED, tree name, tree args,
+			     int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+{
+  if (is_attribute_p ("epi", name) && args != NULL)
+    {
+      tree cst;
+      cst = TREE_VALUE (args);
+      if (TREE_CODE (cst) != STRING_CST)
+	{
+	  warning (OPT_Wattributes,
+		   "%qE attribute requires a string argument",
+		   name);
+	  *no_add_attrs = true;
+	}
+    }
+  return NULL_TREE;
+}
+
+/* Emit a jump to appropriate common epilogue label.  */
+
+const char *
+mips_output_epi_jump ()
+{
+  static char buffer[300];
+  char *s = buffer;
+  const char *str = "%*j\t__mips_epi_";
+  /* If there is nothing beyond GPR_SAVE_AREA,
+     jump to corresponding sequence and restore $ra as well.
+     Otherwise, $ra (if required) is already been restored,
+     fall through starting from the appropriate label.  */
+  const char *ra = cfun->machine->epi_with_ra ? "_ra" : "";
+  const char *nop = "%/";
+  const char *uscore = "";
+  const char *suffix = "";
+  const char *num_saved = "";
+  const struct mips_frame_info *frame = &cfun->machine->frame;
+  /* Determine number of saved gpr without counting $ra and $fp
+     (when used as frame pointer).  */
+  int num_gp = frame->num_gp;
+  if (BITSET_P (frame->mask, RETURN_ADDR_REGNUM - GP_REG_FIRST))
+    num_gp--;
+  if (frame_pointer_needed
+      && BITSET_P (frame->mask, HARD_FRAME_POINTER_REGNUM - GP_REG_FIRST))
+    num_gp--;
+
+  if (cfun->machine->epi_suffix != NULL)
+    {
+      suffix = cfun->machine->epi_suffix;
+      uscore = "_";
+    }
+
+  switch (num_gp)
+    {
+      case 9: num_saved = "9"; break;
+      case 8: num_saved = "8"; break;
+      case 7: num_saved = "7"; break;
+      case 6: num_saved = "6"; break;
+      case 5: num_saved = "5"; break;
+      case 4: num_saved = "4"; break;
+      case 3: num_saved = "3"; break;
+      default: gcc_unreachable ();
+    }
+  sprintf (s, "%s%s%s%s%s%s", str, num_saved, ra, uscore, suffix, nop);
+  return s;
 }
 
 /* Expand an "epilogue" or "sibcall_epilogue" pattern; SIBCALL_P
@@ -12944,7 +14324,9 @@ mips_expand_epilogue (bool sibcall_p)
     emit_insn (gen_blockage ());
 
   mips_epilogue.cfa_restore_sp_offset = step2;
-  if (GENERATE_MIPS16E_SAVE_RESTORE && frame->mask != 0)
+  if (GENERATE_MIPS16E_SAVE_RESTORE && frame->mask != 0
+      && !cfun->machine->interrupt_handler_p
+      && cfun->machine->safe_to_use_save_restore)
     {
       unsigned int regno, mask;
       HOST_WIDE_INT offset;
@@ -12967,6 +14349,67 @@ mips_expand_epilogue (bool sibcall_p)
       mips_frame_barrier ();
       emit_insn (restore);
       mips_epilogue_set_cfa (stack_pointer_rtx, 0);
+    }
+  else if (cfun->machine->use_common_epilogue_p && !sibcall_p)
+    {
+      /* Handle common epilogue.  Restore all registers BUT GPRs, record the
+	 starting offset of REG_SAVE area of stack and deallocate all stack
+	 before the GPR_SAVE_START.  Initialize register $t1 ($9) with
+	 rest_of_stack size to be deallocated in common epilogue.  */
+
+      int last_offset = frame->gp_sp_offset - (frame->total_size - step2);
+      int limit_of_gpr_save = last_offset + UNITS_PER_WORD;
+
+      /* Calculate start of GPR save area.  */
+      int gpr_save_start = last_offset - ((frame->num_gp - 1) * UNITS_PER_WORD);
+
+      /* Restore all other registers.  */
+      mips_for_each_saved_acc (frame->total_size - step2, mips_restore_reg);
+      mips_for_each_saved_fpr (frame->total_size - step2, mips_restore_reg);
+
+      /* Calculate rest_of_stack size.  */
+      step2 -= gpr_save_start;
+
+      /* If there's nothing beyond GPR_SAVE_AREA and $ra has been saved,
+	 record thus in EPI_WITH_RA flag (used while expanding the return stmt).
+	 It lets us restore $ra in common epilogue and there's no need to pass
+	 rest_of_stack size to the epilogue sequence.  */
+
+      if (!frame_pointer_needed
+	  && (BITSET_P (frame->mask, RETURN_ADDR_REGNUM - GP_REG_FIRST))
+	  && (limit_of_gpr_save == frame->total_size))
+	cfun->machine->epi_with_ra = true;
+      else
+	{
+	  HOST_WIDE_INT frame_ptr_offset = last_offset;
+
+	  /* Restore $ra.  */
+	  if (BITSET_P (frame->mask, RETURN_ADDR_REGNUM - GP_REG_FIRST))
+	    {
+	      mips_save_restore_reg (word_mode, RETURN_ADDR_REGNUM, last_offset,
+				     mips_restore_reg);
+	      /* $fp is saved immediately below $ra.  */
+	      frame_ptr_offset = last_offset - UNITS_PER_WORD;
+	    }
+	  /* Restore $fp if it is being used as a frame pointer.  */
+	  if (frame_pointer_needed
+	      && BITSET_P (frame->mask,
+			   HARD_FRAME_POINTER_REGNUM - GP_REG_FIRST))
+	    mips_save_restore_reg (word_mode, HARD_FRAME_POINTER_REGNUM,
+				   frame_ptr_offset, mips_restore_reg);
+
+	  /* Emit move insn to put rest_of_stack size in $t1 ($9).  */
+	  rtx rest = GEN_INT (step2);
+	  rtx reg = gen_rtx_REG (Pmode, GP_REG_FIRST + 9);
+	  mips_emit_move (reg, rest);
+	}
+
+      /* If nothing has been restored here, make sure we seem to restore
+	 all registers so as to avoid asserts.  */
+      mips_epilogue.cfa_restores = NULL_RTX;
+      /* Deallocate stack upto the SAVE area.  */
+      mips_deallocate_stack (stack_pointer_rtx, GEN_INT (gpr_save_start),
+			     step2);
     }
   else
     {
@@ -13075,6 +14518,13 @@ mips_expand_epilogue (bool sibcall_p)
 	    }
 	  else if (use_jraddiusp_p)
 	    pat = gen_jraddiusp (GEN_INT (step2));
+	  else if (cfun->machine->use_common_epilogue_p)
+	    {
+	      /* Emit jump to common epilogue.  */
+	      rtx reg1 = gen_rtx_REG (Pmode, GP_REG_FIRST + 9);
+	      rtx reg2 = gen_rtx_REG (Pmode, GP_REG_FIRST + 31);
+	      pat = gen_return_epi_internal (reg1, reg2);
+	    }
 	  else
 	    {
 	      rtx reg = gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM);
@@ -14014,7 +15464,10 @@ mips_output_jump (rtx *operands, int target_opno, int size_opno, bool link_p)
   const char *compact = "";
   const char *nop = "%/";
   const char *short_delay = link_p ? "%!" : "";
-  const char *insn_name = TARGET_CB_NEVER || reg_p ? "j" : "b";
+  const char *insn_name = (TARGET_CB_NEVER
+			   && (!(TARGET_MIPS16 && TARGET_MIPS16_TAIL_BRANCH)
+			       || link_p)
+			   || reg_p ? "j" : "b");
 
   /* Compact branches can only be described when the ISA has support for them
      as both the compact formatter '%:' and the delay slot NOP formatter '%/'
@@ -17764,7 +19217,7 @@ r10k_simplify_address (rtx x, rtx insn)
 	    {
 	      /* Replace the incoming value of $sp with
 		 virtual_incoming_args_rtx.  */
-	      if (x == stack_pointer_rtx
+	      if (GET_CODE (x) == REG && REGNO (x) == STACK_POINTER_REGNUM
 		  && DF_REF_BB (def) == ENTRY_BLOCK_PTR_FOR_FN (cfun))
 		newx = virtual_incoming_args_rtx;
 	    }
@@ -19574,7 +21027,7 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   /* Determine if we can use a sibcall to call FUNCTION directly.  */
   fnaddr = XEXP (DECL_RTL (function), 0);
   use_sibcall_p = (mips_function_ok_for_sibcall (function, NULL)
-		   && const_call_insn_operand (fnaddr, Pmode));
+		   && const_sibcall_insn_operand (fnaddr, Pmode));
 
   /* Determine if we need to load FNADDR from the GOT.  */
   if (!use_sibcall_p
@@ -19806,12 +21259,25 @@ mips_set_compression_mode (unsigned int compression_mode)
 
 /* Implement TARGET_SET_CURRENT_FUNCTION.  Decide whether the current
    function should use the MIPS16 or microMIPS ISA and switch modes
-   accordingly.  */
+   accordingly.  Also set(up) the current code_readable mode.*/
 
 static void
 mips_set_current_function (tree fndecl)
 {
+  enum mips_code_readable_setting old_code_readable = mips_code_readable;
+
   mips_set_compression_mode (mips_get_compress_mode (fndecl));
+
+  mips_code_readable = mips_get_code_readable_attr (fndecl);
+
+  /* Since the mips_code_readable setting has potientially changed, the
+     relocation tables must be reinitialized.  Otherwise GCC will not
+     split symbols for functions that are code_readable ("no") when others
+     are code_readable ("yes") and ICE later on in places such as
+     mips_emit_move.  Ditto for similar paired cases.  It must be restored
+     to its previous state as well.  */
+  if (old_code_readable != mips_code_readable)
+    mips_init_relocs ();
 }
 
 /* Allocate a chunk of memory for per-function machine-dependent data.  */
@@ -19940,8 +21406,10 @@ mips_option_override (void)
   /* Save the base compression state and process flags as though we
      were generating uncompressed code.  */
   mips_base_compression_flags = TARGET_COMPRESSION;
+
   is_micromips = TARGET_MICROMIPS;
   target_flags &= ~TARGET_COMPRESSION;
+  mips_base_code_readable = mips_code_readable;
 
   /* -mno-float overrides -mhard-float and -msoft-float.  */
   if (TARGET_NO_FLOAT)
@@ -19952,6 +21420,11 @@ mips_option_override (void)
 
   if (TARGET_FLIP_MIPS16)
     TARGET_INTERLINK_COMPRESSED = 1;
+
+  mips_sdata_opt_list = mips_read_list (mips_sdata_opt_list_file);
+
+  if (mips_func_opt_list_file)
+    mips_func_opt_list_read ();
 
   /* Set the small data limit.  */
   mips_small_data_threshold = (global_options_set.x_g_switch_value
@@ -20129,13 +21602,31 @@ mips_option_override (void)
     warning (0, "the %qs architecture does not support branch-likely"
 	     " instructions", mips_arch_info->name);
 
+  /* If TARGET_DSPR2, enable TARGET_DSP.  */
+  if (TARGET_DSPR2)
+    TARGET_DSP = true;
+
+  if (is_micromips && mips_isa_rev >= 6
+      && (TARGET_DSP || TARGET_DSPR2)
+      && !TARGET_DSPR3)
+    error ("unsupported combination: -mmicromips -mips32r6 %s, use "
+	   "-mdspr3 instead", TARGET_DSPR2 ? "-mdspr2" : "-mdsp");
+
+  if (TARGET_DSPR3)
+    {
+      TARGET_DSP = true;
+      TARGET_DSPR2 = true;
+    }
+
   /* If the user hasn't specified -mimadd or -mno-imadd set
      MASK_IMADD based on the target architecture and tuning
      flags.  */
   if ((target_flags_explicit & MASK_IMADD) == 0)
     {
-      if (ISA_HAS_MADD_MSUB &&
-          (mips_tune_info->tune_flags & PTF_AVOID_IMADD) == 0)
+      if ((ISA_HAS_MADD_MSUB &&
+	   (mips_tune_info->tune_flags & PTF_AVOID_IMADD) == 0)
+	  /* Enable for DSP by default */
+	  || TARGET_DSP)
 	target_flags |= MASK_IMADD;
       else
 	target_flags &= ~MASK_IMADD;
@@ -20181,6 +21672,19 @@ mips_option_override (void)
 
   if (is_micromips && TARGET_MSA)
     error ("unsupported combination: %s", "-mmicromips -mmsa");
+
+  /* Enable the use of interAptiv MIPS32 SAVE/RESTORE instructions.  */
+  if (TARGET_USE_SAVE_RESTORE == -1)
+    {
+      if (TARGET_INTERAPTIV_MR2)
+	TARGET_USE_SAVE_RESTORE = 1;
+      else
+	TARGET_USE_SAVE_RESTORE = 0;
+    }
+  else if (TARGET_USE_SAVE_RESTORE
+	   && !TARGET_INTERAPTIV_MR2)
+    error ("unsupported combination: %qs %s",
+	   mips_arch_info->name, "-muse-save-restore");
 
   /* Require explicit relocs for MIPS R6 onwards.  This enables simplification
      of the compact branch and jump support through the backend.  */
@@ -20329,24 +21833,6 @@ mips_option_override (void)
       mips_r10k_cache_barrier = R10K_CACHE_BARRIER_NONE;
     }
 
-  /* If TARGET_DSPR2, enable TARGET_DSP.  */
-  if (TARGET_DSPR2)
-    TARGET_DSP = true;
-
-  if (is_micromips && mips_isa_rev >= 6
-      && (TARGET_DSP || TARGET_DSPR2)
-      && !TARGET_DSPR3)
-    error ("unsupported combination: -mmicromips -mips32r6 %s, use "
-	   "-mdspr3 instead", TARGET_DSPR2 ? "-mdspr2" : "-mdsp");
-
-  if (TARGET_DSPR3)
-    {
-      TARGET_DSP = true;
-      TARGET_DSPR2 = true;
-    }
-
-
-
   /* .eh_frame addresses should be the same width as a C pointer.
      Most MIPS ABIs support only one pointer size, so the assembler
      will usually know exactly how big an .eh_frame address is.
@@ -20486,6 +21972,12 @@ mips_option_override (void)
 
   if (TARGET_HARD_FLOAT_ABI && TARGET_MIPS5900)
     REAL_MODE_FORMAT (SFmode) = &spu_single_format;
+
+  if (mips_sdata_section_num >= 1000)
+    error ("Number for -msdata-num must be between 0 and 999");
+
+  if ((TARGET_EPI || mips_epi) && TARGET_USE_SAVE_RESTORE)
+    error ("unsupported combination: %s", "-mepi -muse-save-restore");
 }
 
 /* Swap the register information for registers I and I + 1, which
@@ -20562,12 +22054,16 @@ mips_conditional_register_usage (void)
 	 and $25 (t9) because it is used as the function call address in
 	 SVR4 PIC code.  */
 
-      fixed_regs[18] = call_used_regs[18] = 1;
-      fixed_regs[19] = call_used_regs[19] = 1;
-      fixed_regs[20] = call_used_regs[20] = 1;
-      fixed_regs[21] = call_used_regs[21] = 1;
-      fixed_regs[22] = call_used_regs[22] = 1;
-      fixed_regs[23] = call_used_regs[23] = 1;
+      if (!mips16_xsregs)
+	{
+	  fixed_regs[18] = call_used_regs[18] = 1;
+	  fixed_regs[19] = call_used_regs[19] = 1;
+	  fixed_regs[20] = call_used_regs[20] = 1;
+	  fixed_regs[21] = call_used_regs[21] = 1;
+	  fixed_regs[22] = call_used_regs[22] = 1;
+	  fixed_regs[23] = call_used_regs[23] = 1;
+	}
+
       fixed_regs[26] = call_used_regs[26] = 1;
       fixed_regs[27] = call_used_regs[27] = 1;
       fixed_regs[30] = call_used_regs[30] = 1;
@@ -22680,6 +24176,67 @@ mips_ira_change_pseudo_allocno_class (int regno, reg_class_t allocno_class)
 
   return allocno_class;
 }
+
+void
+mips_bit_clear_info (enum machine_mode mode, unsigned HOST_WIDE_INT m,
+		     int *start_pos, int *size)
+{
+  unsigned int shift = 0;
+  unsigned int change_count = 0;
+  unsigned int prev_val = 1;
+  unsigned int curr_val = 0;
+  unsigned int end_pos = 32;
+
+  for (shift = 0 ; shift < 32 ; shift++)
+     {
+       curr_val = (unsigned int)((m & (unsigned int)(1 << shift)) >> shift);
+       if (curr_val != prev_val)
+	 {
+	   change_count++;
+	   switch (change_count)
+	     {
+	     case 1:
+		*start_pos = shift;
+		break;
+	     case 2:
+		end_pos = shift;
+		break;
+	     default:
+		gcc_unreachable ();
+	     }
+	 }
+       prev_val = curr_val;
+     }
+  *size = (end_pos - *start_pos);
+}
+
+bool
+mips_bit_clear_p (enum machine_mode mode, unsigned HOST_WIDE_INT m)
+{
+  unsigned int shift = 0;
+  unsigned int change_count = 0;
+  unsigned int prev_val = 1;
+  unsigned int curr_val = 0;
+
+  if (mode != SImode && mode != VOIDmode)
+    return false;
+
+  if (!ISA_HAS_EXT_INS)
+    return false;
+
+  for (shift = 0 ; shift < 32 ; shift++)
+     {
+       curr_val = (unsigned int)((m & (unsigned int)(1 << shift)) >> shift);
+       if (curr_val != prev_val)
+	 change_count++;
+       prev_val = curr_val;
+     }
+
+  if (change_count == 2)
+    return true;
+
+  return false;
+}
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -22958,6 +24515,15 @@ mips_ira_change_pseudo_allocno_class (int regno, reg_class_t allocno_class)
 
 #undef TARGET_HARD_REGNO_SCRATCH_OK
 #define TARGET_HARD_REGNO_SCRATCH_OK mips_hard_regno_scratch_ok
+
+#undef TARGET_ASM_SELECT_SECTION
+#define TARGET_ASM_SELECT_SECTION mips_asm_select_section
+
+#undef TARGET_ASM_UNIQUE_SECTION
+#define TARGET_ASM_UNIQUE_SECTION mips_asm_unique_section
+
+#undef TARGET_SECTION_TYPE_FLAGS
+#define TARGET_SECTION_TYPE_FLAGS mips_section_type_flags
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

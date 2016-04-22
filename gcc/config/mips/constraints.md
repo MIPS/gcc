@@ -95,6 +95,13 @@
 (define_register_constraint "kb" "M16_STORE_REGS"
   "@internal")
 
+;; MIPS16 code always calls through a MIPS16 register; see mips_emit_call_insn
+;; for details.
+(define_register_constraint "kc" "TARGET_MIPS16 ? M16_TAIL_REGS
+				  : PIC_FN_ADDR_REG"
+  "A register suitable for use in a sibling call.  This will always be
+   @code{$25} for @option{-mabicalls}.")
+
 (define_constraint "kf"
   "@internal"
   (match_operand 0 "force_to_mem_operand"))
@@ -296,6 +303,12 @@
        (match_test "CONSTANT_P (op)")
        (match_test "mips_dangerous_for_la25_p (op)")))
 
+(define_constraint "YS"
+  "@internal
+   A constant call address for use in a sibling call."
+  (and (match_operand 0 "sibcall_insn_operand")
+       (match_test "CONSTANT_P (op)")))
+
 (define_constraint "Yh"
    "@internal"
     (match_operand 0 "hi_mask_operand"))
@@ -307,6 +320,10 @@
 (define_constraint "Yx"
    "@internal"
    (match_operand 0 "low_bitmask_operand"))
+
+(define_constraint "Yz"
+   "@internal"
+   (match_operand 0 "bit_clear_operand"))
 
 (define_constraint "YI"
   "@internal
