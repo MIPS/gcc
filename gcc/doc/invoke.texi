@@ -772,6 +772,8 @@ Objective-C and Objective-C++ Dialects}.
 -mips16  -mno-mips16  -mflip-mips16 @gol
 -minterlink-compressed -mno-interlink-compressed @gol
 -minterlink-mips16  -mno-interlink-mips16 @gol
+-minline-intermix -mno-inline-intermix @gol
+-mmips16-use-xsregs -mno-mips16-use-xsregs @gol
 -mabi=@var{abi}  -mabicalls  -mno-abicalls @gol
 -mshared  -mno-shared  -mplt  -mno-plt  -mxgot  -mno-xgot @gol
 -mgp32  -mgp64  -mfp32  -mfpxx  -mfp64  -mhard-float  -msoft-float @gol
@@ -789,17 +791,22 @@ Objective-C and Objective-C++ Dialects}.
 -msmartmips  -mno-smartmips @gol
 -mpaired-single  -mno-paired-single  -mdmx  -mno-mdmx @gol
 -mips3d  -mno-mips3d  -mmt  -mno-mt  -mllsc  -mno-llsc @gol
+-mfunc-opt-list=@var{file} @gol
 -mlong64  -mlong32  -msym32  -mno-sym32 @gol
 -G@var{num}  -mlocal-sdata  -mno-local-sdata @gol
 -mextern-sdata  -mno-extern-sdata  -mgpopt  -mno-gopt @gol
 -membedded-data  -mno-embedded-data @gol
+-msdata-num=@var{num} @gol
+-msdata-opt-list=@var{file} @gol
 -muninit-const-in-rodata  -mno-uninit-const-in-rodata @gol
 -mcode-readable=@var{setting} @gol
+-mdead-loads -mno-dead-loads @gol
 -msplit-addresses  -mno-split-addresses @gol
 -mexplicit-relocs  -mno-explicit-relocs @gol
 -mcheck-zero-division  -mno-check-zero-division @gol
 -mdivide-traps  -mdivide-breaks @gol
 -mmemcpy  -mno-memcpy  -mlong-calls  -mno-long-calls @gol
+-mepi -mno-epi -mepi=@var{suffix} @gol
 -mmad -mno-mad -mimadd -mno-imadd -mfused-madd  -mno-fused-madd  -nocpp @gol
 -mfix-24k -mno-fix-24k @gol
 -mfix-r4000  -mno-fix-r4000  -mfix-r4400  -mno-fix-r4400 @gol
@@ -17103,7 +17110,7 @@ The processor names are:
 @samp{34kc}, @samp{34kf2_1}, @samp{34kf1_1}, @samp{34kn},
 @samp{74kc}, @samp{74kf2_1}, @samp{74kf1_1}, @samp{74kf3_2},
 @samp{1004kc}, @samp{1004kf2_1}, @samp{1004kf1_1},
-@samp{interaptiv},
+@samp{interaptiv}, @samp{interaptiv-mr2},
 @samp{loongson2e}, @samp{loongson2f}, @samp{loongson3a},
 @samp{m4k},
 @samp{m14k}, @samp{m14kc}, @samp{m14ke}, @samp{m14kec},
@@ -17236,6 +17243,13 @@ MIPS16 code generation can also be controlled on a per-function basis
 by means of @code{mips16} and @code{nomips16} attributes.
 @xref{Function Attributes}, for more information.
 
+@item -mmips16e2
+@itemx -mno-mips16e2
+@opindex mmips16e2
+@opindex mno-mips16e2
+Use (do not use) the MIPS16e2 ASE.  This option modifies the behavior
+of the @option{-mips16} option such that it targets the MIPS16e2 ASE@.
+
 @item -mflip-mips16
 @opindex mflip-mips16
 Generate MIPS16 code on alternating functions.  This option is provided
@@ -17261,6 +17275,25 @@ knows that the target of the jump is not compressed.
 Aliases of @option{-minterlink-compressed} and
 @option{-mno-interlink-compressed}.  These options predate the microMIPS ASE
 and are retained for backwards compatibility.
+
+@item -minline-intermix
+@itemx -mno-inline-intermix
+@opindex minline-intermix
+@opindex mno-inline-intermix
+Enable inlining of functions which have opposing mips16/nomips16 attributes.
+This is useful when using the mips16 attribute to balance code size and
+performance so that a function will be compressed when not inlined or
+vice-versa.  When using this option it is necessary to protect functions
+that cannot be compiled as MIPS16 with a noinline attribute to ensure
+they are not inlined into a MIPS16 function.
+
+@item -mmips16-use-xsregs
+@itemx -mno-mips16-use-xsregs
+@opindex mmips16-use-xsregs
+@opindex mno-mips16-use-xsregs
+Enable the use of additional callee-saved registers for MIPS16 which would
+not normally be available.  This will often reduce code size and improve
+performance as these registers will be used instead of spilling to memory.
 
 @item -mabi=32
 @itemx -mabi=o64
@@ -17583,6 +17616,38 @@ Use (do not use) the MIPS Virtualization Application Specific instructions.
 @opindex mno-xpa
 Use (do not use) the MIPS eXtended Physical Address (XPA) instructions.
 
+@item -mfunc-opt-list=
+@opindex mfunc-opt-list
+Read a list of functions from a file and apply a series of attributes to
+them as if they had been specified in the source file.  The format of the
+file is plain text with one function per line.  The first non-whitespace
+word of each line is the function name, followed by whitespace, then a
+whitespace separated list of function attributes.  Attributes are written
+in the same format as they appear in the parentheses of the __attribute__
+directive.
+
+For example:
+@smallexample
+foo   mips16 optimize ("Os")
+bar   always_inline
+@end smallexample
+
+The following attributes are recognised:
+@smallexample
+alias, aligned, alloc_size, alloc_align, always_inline, artifical,
+assume_aligned, code_readable, cold, const, constructor, deprecated,
+destructor, epi, error, far, flatten, gnu_inline, hot, interrupt,
+keep_interrupts_masked, leaf, long_call, malloc, mips16, near, noclone,
+noepi, noinline, nomips16, nonnull, noreturn, nothrow, optimize, pure,
+returns_nonnull, returns_twice, section, unused, used,
+use_debug_exception_return, use_shadow_register_set, visibility, warning,
+warn_unused_result, weak, weakref.
+@end smallexample
+
+Unrecognised attributes will produce a warning diagnostic giving the location
+where it was found in the list.  A second diagnostic will be produced citing
+the name of the function and unknown attribute.
+
 @item -mlong64
 @opindex mlong64
 Force @code{long} types to be 64 bits wide.  See @option{-mlong32} for
@@ -17683,6 +17748,40 @@ next in the small data section if possible, otherwise in data.  This gives
 slightly slower code than the default, but reduces the amount of RAM required
 when executing, and thus may be preferred for some embedded systems.
 
+@item -msdata-num=@var{num}
+@opindex msdata-num
+Use a numbered small data section instead of the default to enable multiple
+small data areas within one executable.  This feature is for advanced users
+only and requires very careful management of where data is accessed.  The
+aim is to allow code which executes solely within one software context to
+use a unique small data area.
+
+Compilation units should be grouped such that all units within a group can
+share a small data section.  The @code{num} value should be set to the same
+number for all related modules.  Any data that is shared between contexts
+will need to be explicitly placed in a named section using
+@code{__attribute__((section(".my_shared_data")))}.  Alternatively use the
+@option{-mno-extern-sdata} option to ensure that the compiler does not
+automatically place global data in the small data section and instead
+use the @option{-msdata-opt-list} option to explicitly place some global
+data in the small data section where it is only used by one context.
+
+It is the user's responsibility to ensure that the global pointer for any
+given software context is set to point at the appropriate small data area.
+It is also the user's responsibility to ensure that data placed in one
+software context's small data area is not accessed using the small data
+model from a different software context as the application may not link.
+Linker support for this feature is also required and should be enabled
+using @option{-Wl,--user-defined-sdata-sections}.
+
+@item -msdata-opt-list
+@opindex msdata-opt-list
+Read a list of data variables from a file that must be accessed using the
+small data model.  This is equivalent to adding
+@code{__attribute__((section(".sdata"))} to the declaration in the source.
+For this option to take effect on uninitialised globals then
+@option{-fno-common} must also be used.
+
 @item -muninit-const-in-rodata
 @itemx -mno-uninit-const-in-rodata
 @opindex muninit-const-in-rodata
@@ -17714,6 +17813,18 @@ useful on targets that are configured to have a dual instruction/data
 SRAM interface but that (unlike the M4K) do not automatically redirect
 PC-relative loads to the instruction RAM.
 @end table
+
+@item -mdead-loads
+@itemx -mno-dead-loads
+@opindex mdead-loads
+@opindex mno-dead-loads
+Apply (do not apply) special handling to avoid output dependency stalls
+for volatile loads where the result is unused.  Volatile loads tend
+to be high latency as they represent access to special data or hardware.
+When the result of such a load is unused then there may be an output
+dependency stall if the result register is reused soon after the load.
+For MIPS32 a dead load will be redirected to @code{$0} to avoid the output
+dependency.
 
 @item -msplit-addresses
 @itemx -mno-split-addresses
@@ -17777,6 +17888,30 @@ and callee to be in the same 256 megabyte segment.
 
 This option has no effect on abicalls code.  The default is
 @option{-mno-long-calls}.
+
+@item -mepi
+@itemx -mno-epi
+@opindex mepi
+@opindex mno-epi
+Use (do not use) a common stub to implement a function epilogue
+sequence to reduce code size.  When enabled, functions compiled as
+MIPS32 which have at least 3 saved registers will jump to a common
+piece of code to perform the epilogue restore sequence.
+
+There is an optional argument to specify a suffix to apply to the
+common epilogue stub name allowing a program to have multiple
+copies of the stubs if code exists in multiple independent memory
+regions.  The default epilogue stub code is included in libgcc.a
+within the epi.o object.  Use @code{objcopy --redefine-syms} to
+duplicate this object to create an alternative set of common
+entry points by renaming symbols: @code{__mips_epi_3} and
+@code{__mips_epi_3_ra} through to @code{__mips_epi_9} and
+@code{__mips_epi_9_ra}.  The suffixed version of these symbols
+should add @code{_<suffix>} to the names.
+
+Use of a common epilogue can also be controlled on a per-function basis
+by means of @code{epi} and @code{noepi} attributes.
+@xref{Function Attributes}, for more information.
 
 @item -mmad
 @itemx -mno-mad

@@ -154,7 +154,10 @@ struct mips_cpu_info {
       - TARGET_USE_GOT && !TARGET_EXPLICIT_RELOCS.  call_insn_operand
 	accepts global constants, but all sibcalls must be indirect.  */
 #define TARGET_SIBCALLS \
-  (!TARGET_MIPS16 && (!TARGET_USE_GOT || TARGET_EXPLICIT_RELOCS))
+  ((!TARGET_MIPS16							\
+    || (TARGET_MIPS16 && (TARGET_MIPS16_TAIL_INDIRECT			\
+			  || TARGET_MIPS16_TAIL_BRANCH)))		\
+   && (!TARGET_USE_GOT || TARGET_EXPLICIT_RELOCS))
 
 /* True if we need to use a global offset table to access some symbols.  */
 #define TARGET_USE_GOT (TARGET_ABICALLS || TARGET_RTP_PIC)
@@ -215,7 +218,9 @@ struct mips_cpu_info {
 /* Generate mips16e code. Default 16bit ASE for mips32* and mips64* */
 #define GENERATE_MIPS16E	(TARGET_MIPS16 && mips_isa >= 32)
 /* Generate mips16e register save/restore sequences.  */
-#define GENERATE_MIPS16E_SAVE_RESTORE (GENERATE_MIPS16E && mips_abi == ABI_32)
+#define GENERATE_MIPS16E_SAVE_RESTORE ((GENERATE_MIPS16E \
+					|| (TARGET_USE_SAVE_RESTORE && TARGET_SOFT_FLOAT)) \
+				       && mips_abi == ABI_32)
 
 /* True if we're generating a form of MIPS16 code in which general
    text loads are allowed.  */
@@ -266,6 +271,7 @@ struct mips_cpu_info {
 				     || mips_arch == PROCESSOR_SB1A)
 #define TARGET_SR71K                (mips_arch == PROCESSOR_SR71000)
 #define TARGET_XLP                  (mips_arch == PROCESSOR_XLP)
+#define TARGET_INTERAPTIV_MR2	    (mips_arch == PROCESSOR_INTERAPTIV_MR2)
 
 /* Scheduling target defines.  */
 #define TUNE_20KC		    (mips_tune == PROCESSOR_20KC)
@@ -383,6 +389,8 @@ struct mips_cpu_info {
       for (p = macro; *p != 0; p++)				\
         if (*p == '+')                                          \
           *p = 'P';                                             \
+        else if (*p == '-')                                     \
+          *p = '_';                                             \
         else                                                    \
           *p = TOUPPER (*p);                                    \
 								\
@@ -762,7 +770,7 @@ struct mips_cpu_info {
      %{march=mips32|march=4kc|march=4km|march=4kp|march=4ksc:-mips32} \
      %{march=mips32r2|march=m4k|march=4ke*|march=4ksd|march=24k* \
        |march=34k*|march=74k*|march=m14k*|march=1004k* \
-       |march=interaptiv: -mips32r2} \
+       |march=interaptiv*: -mips32r2} \
      %{march=mips32r3: -mips32r3} \
      %{march=mips32r5|march=p5600|march=m5100|march=m5101: -mips32r5} \
      %{march=mips32r6|march=m6201: -mips32r6} \
@@ -860,8 +868,10 @@ struct mips_cpu_info {
   MIPS_ISA_NAN2008_SPEC,       \
   "%{!mno-dsp: \
      %{march=24ke*|march=34kc*|march=34kf*|march=34kx*|march=1004k* \
-       |march=interaptiv: -mdsp} \
+       |march=interaptiv*: -mdsp} \
      %{march=74k*|march=m14ke*: %{!mno-dspr2: -mdspr2 -mdsp}}}"		    \
+  "%{!mno-mips16e2: \
+     %{march=interaptiv-mr2: -mmips16e2}}" \
   "%{!mforbidden-slots:							    \
      %{mips32r6|mips64r6:%{mmicromips:-mno-forbidden-slots}}}"
 
@@ -987,6 +997,7 @@ struct mips_cpu_info {
    ST Loongson 2E/2F.  */
 #define ISA_HAS_CONDMOVE        (ISA_HAS_FP_CONDMOVE			\
 				 || TARGET_MIPS5900			\
+				 || ISA_HAS_MIPS16E2			\
 				 || TARGET_LOONGSON_2EF)
 
 /* ISA has LDC1 and SDC1.  */
@@ -1139,7 +1150,7 @@ struct mips_cpu_info {
 				 && !TARGET_MIPS16)
 
 /* ISA has data prefetch with limited 9-bit displacement.  */
-#define ISA_HAS_PREF_LL_9BIT	(mips_isa_rev >= 6)
+#define ISA_HAS_PREF_LL_9BIT	(mips_isa_rev >= 6 || ISA_HAS_MIPS16E2)
 
 /* ISA has data indexed prefetch instructions.  This controls use of
    'prefx', along with TARGET_HARD_FLOAT and TARGET_DOUBLE_FLOAT.
@@ -1156,7 +1167,8 @@ struct mips_cpu_info {
 #define ISA_HAS_SEB_SEH		(mips_isa_rev >= 2 && !TARGET_MIPS16)
 
 /* ISA includes the MIPS32/64 rev 2 ext and ins instructions.  */
-#define ISA_HAS_EXT_INS		(mips_isa_rev >= 2 && !TARGET_MIPS16)
+#define ISA_HAS_EXT_INS		((mips_isa_rev >= 2 && !TARGET_MIPS16) \
+				|| ISA_HAS_MIPS16E2)
 
 /* ISA has instructions for accessing top part of 64-bit fp regs.  */
 #define ISA_HAS_MXHC1		(!TARGET_FLOAT32	\
@@ -1185,6 +1197,13 @@ struct mips_cpu_info {
 
 /* The MSA ASE is available.  */
 #define ISA_HAS_MSA		(TARGET_MSA && !TARGET_MIPS16)
+
+/* The MIPS16e V2 instructions are available.  */
+#define ISA_HAS_MIPS16E2	(TARGET_MIPS16 && TARGET_MIPS16E2	\
+				 && !TARGET_64BIT)
+
+/* The interAptiv MR2 COPYW/UCOPYW instructions are available.  */
+#define ISA_HAS_COPY		(TARGET_MIPS16 && TARGET_INTERAPTIV_MR2)
 
 /* True if the result of a load is not available to the next instruction.
    A nop will then be needed between instructions like "lw $4,..."
@@ -1262,6 +1281,8 @@ struct mips_cpu_info {
 /* ISA includes the pop instruction.  */
 #define ISA_HAS_POP		(TARGET_OCTEON && !TARGET_MIPS16)
 
+#define MIPS16_GP_LOADS		(ISA_HAS_MIPS16E2 && !TARGET_64BIT)
+
 /* The CACHE instruction is available in non-MIPS16 code.  */
 #define TARGET_CACHE_BUILTIN (mips_isa >= 3)
 
@@ -1331,6 +1352,8 @@ struct mips_cpu_info {
 %{mhard-float} %{msoft-float} \
 %{msingle-float} %{mdouble-float} \
 %{mforbidden-slots} \
+%{mmips16e2} \
+%{mmips16-copy:-mmips16cp} \
 %(subtarget_asm_spec)"
 
 /* Extra switches sometimes passed to the linker.  */
@@ -2016,10 +2039,6 @@ struct mips_cpu_info {
    function address than to call an address kept in a register.  */
 #define NO_FUNCTION_CSE 1
 
-/* The ABI-defined global pointer.  Sometimes we use a different
-   register in leaf functions: see PIC_OFFSET_TABLE_REGNUM.  */
-#define GLOBAL_POINTER_REGNUM (GP_REG_FIRST + 28)
-
 /* We normally use $28 as the global pointer.  However, when generating
    n32/64 PIC, it is better for leaf functions to use a call-clobbered
    register instead.  They can then avoid saving and restoring $28
@@ -2054,6 +2073,7 @@ struct mips_cpu_info {
 enum reg_class
 {
   NO_REGS,			/* no registers in set */
+  M16_TAIL_REGS,		/* mips sibling call registers  */
   M16_STORE_REGS,		/* microMIPS store registers  */
   M16_REGS,			/* mips16 directly accessible registers */
   M16_SP_REGS,			/* mips16 + $sp */
@@ -2094,9 +2114,10 @@ enum reg_class
 #define REG_CLASS_NAMES							\
 {									\
   "NO_REGS",								\
+  "M16_TAIL_REGS",							\
   "M16_STORE_REGS",							\
   "M16_REGS",								\
-  "M16_SP_REGS",								\
+  "M16_SP_REGS",							\
   "T_REG",								\
   "M16_T_REGS",								\
   "PIC_FN_ADDR_REG",							\
@@ -2137,14 +2158,15 @@ enum reg_class
 #define REG_CLASS_CONTENTS						                                \
 {									                                \
   { 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* NO_REGS */		\
+  { 0x000000fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_TAIL_REGS */	\
   { 0x000200fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_STORE_REGS */	\
   { 0x000300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_REGS */		\
-  { 0x200300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_SP_REGS */		\
+  { 0x200300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_SP_REGS */	\
   { 0x01000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* T_REG */		\
   { 0x010300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_T_REGS */	\
   { 0x02000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* PIC_FN_ADDR_REG */	\
   { 0x00000008, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* V1_REG */		\
-  { 0x0303fffc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* SPILL_REGS */      	\
+  { 0x03fffffc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* SPILL_REGS */      	\
   { 0xfdffffff, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* LEA_REGS */		\
   { 0xffffffff, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* GR_REGS */		\
   { 0x00000000, 0xffffffff, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* FP_REGS */		\
@@ -2308,7 +2330,13 @@ enum reg_class
 
 #define STACK_GROWS_DOWNWARD
 
-#define FRAME_GROWS_DOWNWARD flag_stack_protect
+/* Growing the frame downwards allows us to put spills closest to
+   the stack pointer which is good as they are likely to be accessed
+   frequently. We can also arrange for normal stack usage to place
+   scalars last so that they too are close to the stack pointer */
+#define FRAME_GROWS_DOWNWARD ((TARGET_MIPS16			    \
+			       && TARGET_FRAME_GROWS_DOWNWARDS)     \
+			      || flag_stack_protect)
 
 /* Size of the area allocated in the frame to save the GP.  */
 
@@ -2669,7 +2697,6 @@ typedef struct mips_args {
    is done just by pretending it is already truncated.  */
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) \
   (TARGET_64BIT ? ((INPREC) <= 32 || (OUTPREC) > 32) : 1)
-
 
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction
@@ -3054,7 +3081,9 @@ while (0)
 /* The maximum number of bytes that can be copied by one iteration of
    a movmemsi loop; see mips_block_move_loop.  */
 #define MIPS_MAX_MOVE_BYTES_PER_LOOP_ITER \
-  (UNITS_PER_WORD * 4)
+  (ISA_HAS_COPY	  			  \
+  ? UNITS_PER_WORD * 4 * 4		  \
+  : UNITS_PER_WORD * 4)
 
 /* The maximum number of bytes that can be copied by a straight-line
    implementation of movmemsi; see mips_block_move_straight.  We want
@@ -3090,7 +3119,9 @@ while (0)
 
 #define MOVE_RATIO(speed)				\
   (HAVE_movmemsi					\
-   ? MIPS_MAX_MOVE_BYTES_STRAIGHT / MOVE_MAX		\
+   ? (ISA_HAS_COPY					\
+      ? MIPS_MAX_MOVE_BYTES_STRAIGHT / 4 / MOVE_MAX	\
+      : MIPS_MAX_MOVE_BYTES_STRAIGHT / MOVE_MAX)	\
    : MIPS_CALL_RATIO / 2)
 
 #define MOVE_BY_PIECES_P(SIZE, ALIGN) \
@@ -3241,3 +3272,8 @@ extern GTY(()) struct target_globals *mips16_globals;
   (TARGET_LOAD_STORE_PAIRS \
    && (TUNE_P5600 || TUNE_I6400 || TUNE_P6600) \
    && !TARGET_MICROMIPS && !TARGET_FIX_24K)
+
+#define ISA_SUPPORTS_COMMON_EPILOGUE \
+  (mips_isa_rev >= 2 && mips_abi == ABI_32 && !TARGET_MIPS16 && !TARGET_MICROMIPS)
+
+#define MIPS_EPI_MIN_GP_RESTORE 3

@@ -153,6 +153,8 @@ mips*-*-*)
 	fi
 	if test "${host_address}" = 64; then
 		tmake_file="${tmake_file} mips/t-mips64"
+	else
+		tmake_file="${tmake_file} mips/t-epi"
 	fi
 	tmake_file="${tmake_file} t-softfp"
 	;;
