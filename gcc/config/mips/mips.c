@@ -4514,6 +4514,15 @@ mips_split_move_p (rtx dest, rtx src, enum mips_split_type split_type)
 	return false;
     }
 
+   if (size == 8
+       && ISA_HAS_LDC1_SDC1
+       && !ISA_HAS_MXHC1
+       && ((FP_REG_RTX_P (dest)
+            && ((REG_P (src) && GP_REG_P (REGNO (src)))
+	        || src == CONST0_RTX (GET_MODE (src))))
+           || (FP_REG_RTX_P (src) && REG_P (dest) && GP_REG_P (REGNO (dest)))))
+     return false;
+
   /* Otherwise split all multiword moves.  */
   return size > UNITS_PER_WORD;
 }
