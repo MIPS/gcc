@@ -1856,7 +1856,7 @@ Common Report Var(flag_pie,1) Negative(fPIC) Init(-1)
 Generate position-independent code for executables if possible (small mode).
 
 fplt
-Common Report Var(flag_plt) Init(1) Optimization
+Common Report Var(flag_plt) Init(0) Optimization
 Use PLT for PIC calls (-fno-plt: load the address from GOT at call site).
 
 fplugin=
