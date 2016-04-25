@@ -1,3 +1,20 @@
+2016-04-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
+	-mupper-regs-di.
+
+	* config/rs6000/rs6000.opt (-mupper-regs-di): Add switch to
+	control whether DImode is allowed in traditional Altivec
+	registers.
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Set wi, wj
+	constraints appropriately based on -mupper-regs-di.
+	(rs6000_option_override_internal): Likewise.
+	(rs6000_opt_masks): Ad -mupper-regs-di.
+
+	* config/rs6000/rs6000.md (movdi_internal32): Use wv constraint
+	instead of wi for lxsdx/stxsdx loading/storing DImode.
+
 2016-04-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_tieable): Move MODES_TIEABLE_P

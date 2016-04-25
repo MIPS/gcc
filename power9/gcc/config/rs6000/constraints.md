@@ -77,8 +77,6 @@
 (define_register_constraint "wh" "rs6000_constraints[RS6000_CONSTRAINT_wh]"
   "Floating point register if direct moves are available, or NO_REGS.")
 
-;; At present, DImode is not allowed in the Altivec registers.  If in the
-;; future it is allowed, wi/wj can be set to VSX_REGS instead of FLOAT_REGS.
 (define_register_constraint "wi" "rs6000_constraints[RS6000_CONSTRAINT_wi]"
   "FP or VSX register to hold 64-bit integers for VSX insns or NO_REGS.")
 
