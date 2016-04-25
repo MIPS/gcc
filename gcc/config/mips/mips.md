@@ -5136,6 +5136,42 @@
   [(set_attr "move_type" "move,move,move,load,store")
    (set_attr "mode" "TF")])
 
+;; Split a DImode/DFmode memory load/store involving a lo_sum of an
+;; unaligned symbol before reload so that we have still have pseudo
+;; registers avaliable to store the offset for the second SImode load/store.
+
+(define_split
+  [(set (match_operand:MOVE64 0 "lo_sum_of_unaligned_symbolic_operand")
+	(match_operand:MOVE64 1 "nonmemory_operand"))]
+  "(<MODE>mode == DImode || (<MODE>mode == DFmode && !ISA_HAS_LDC1_SDC1))
+   && mips_split_move_insn_p (operands[0], operands[1], insn)"
+  [(const_int 0)]
+{
+  mips_split_move_insn (operands[0], operands[1], curr_insn);
+  DONE;
+})
+
+(define_split
+  [(set (match_operand:MOVE64 0 "register_operand")
+	(match_operand:MOVE64 1 "lo_sum_of_unaligned_symbolic_operand"))]
+  "(<MODE>mode == DImode || (<MODE>mode == DFmode && !ISA_HAS_LDC1_SDC1))
+   && mips_split_move_insn_p (operands[0], operands[1], insn)"
+  [(const_int 0)]
+{
+  mips_split_move_insn (operands[0], operands[1], curr_insn);
+  DONE;
+})
+
+(define_split
+  [(set (match_operand:DF 0 "lo_sum_of_unaligned_symbolic_operand")
+	(match_operand:DF 1 "const_0_operand"))]
+  "mips_split_move_insn_p (operands[0], operands[1], insn)"
+  [(const_int 0)]
+{
+  mips_split_move_insn (operands[0], operands[1], curr_insn);
+  DONE;
+})
+
 (define_split
   [(set (match_operand:MOVE64 0 "nonimmediate_operand")
 	(match_operand:MOVE64 1 "move_operand"))]

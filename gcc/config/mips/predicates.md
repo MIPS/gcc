@@ -317,6 +317,19 @@
   return !LUI_INT (op) && !SMALL_INT (op) && !SMALL_INT_UNSIGNED (op);
 })
 
+(define_predicate "lo_sum_of_unaligned_symbolic_operand"
+  (and (match_code "mem")
+       (match_code "lo_sum" "0"))
+{
+   rtx reg = XEXP (XEXP (op, 0), 0);
+   rtx sym = XEXP (XEXP (op, 0), 1);
+
+   return (mips_abi == ABI_32
+	   && REG_P (reg) && REGNO (reg) != GLOBAL_POINTER_REGNUM
+	   && GET_CODE (sym) == SYMBOL_REF && SYMBOL_REF_DECL (sym)
+	   && GET_MODE_SIZE (mode) > DECL_ALIGN_UNIT (SYMBOL_REF_DECL (sym)));
+})
+
 (define_predicate "move_operand"
   ;; Allow HI and LO to be used as the source of a MIPS16 move.
   (ior (match_operand 0 "general_operand")
