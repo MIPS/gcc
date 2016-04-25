@@ -368,33 +368,61 @@ pop_label (tree label, tree old_value)
   SET_IDENTIFIER_LABEL_VALUE (DECL_NAME (label), old_value);
 }
 
+/* Push all named labels into a vector, so that we can sort it on DECL_UID
+   to avoid code generation differences.  */
+
+int
+note_label (named_label_entry **slot, vec<named_label_entry **> &labels)
+{
+  labels.quick_push (slot);
+  return 1;
+}
+
+/* Helper function to sort named label entries in a vector by DECL_UID.  */
+
+static int
+sort_labels (const void *a, const void *b)
+{
+  named_label_entry **slot1 = *(named_label_entry **const *) a;
+  named_label_entry **slot2 = *(named_label_entry **const *) b;
+  if (DECL_UID ((*slot1)->label_decl) < DECL_UID ((*slot2)->label_decl))
+    return -1;
+  if (DECL_UID ((*slot1)->label_decl) > DECL_UID ((*slot2)->label_decl))
+    return 1;
+  return 0;
+}
+
 /* At the end of a function, all labels declared within the function
    go out of scope.  BLOCK is the top-level block for the
    function.  */
-
-int
-pop_labels_1 (named_label_entry **slot, tree block)
-{
-  struct named_label_entry *ent = *slot;
-
-  pop_label (ent->label_decl, NULL_TREE);
-
-  /* Put the labels into the "variables" of the top-level block,
-     so debugger can see them.  */
-  DECL_CHAIN (ent->label_decl) = BLOCK_VARS (block);
-  BLOCK_VARS (block) = ent->label_decl;
-
-  named_labels->clear_slot (slot);
-
-  return 1;
-}
 
 static void
 pop_labels (tree block)
 {
   if (named_labels)
     {
-      named_labels->traverse<tree, pop_labels_1> (block);
+      auto_vec<named_label_entry **, 32> labels;
+      named_label_entry **slot;
+      unsigned int i;
+
+      /* Push all the labels into a vector and sort them by DECL_UID,
+	 so that gaps between DECL_UIDs don't affect code generation.  */
+      labels.reserve_exact (named_labels->elements ());
+      named_labels->traverse<vec<named_label_entry **> &, note_label> (labels);
+      labels.qsort (sort_labels);
+      FOR_EACH_VEC_ELT (labels, i, slot)
+	{
+	  struct named_label_entry *ent = *slot;
+
+	  pop_label (ent->label_decl, NULL_TREE);
+
+	  /* Put the labels into the "variables" of the top-level block,
+	     so debugger can see them.  */
+	  DECL_CHAIN (ent->label_decl) = BLOCK_VARS (block);
+	  BLOCK_VARS (block) = ent->label_decl;
+
+	  named_labels->clear_slot (slot);
+	}
       named_labels = NULL;
     }
 }
@@ -1202,16 +1230,19 @@ check_redeclaration_exception_specification (tree new_decl,
      specialization, of that function shall have an
      exception-specification with the same set of type-ids.  */
   if (! DECL_IS_BUILTIN (old_decl)
-      && flag_exceptions
       && !comp_except_specs (new_exceptions, old_exceptions, ce_normal))
     {
       const char *msg
 	= "declaration of %q+F has a different exception specifier";
       bool complained = true;
-      if (! DECL_IN_SYSTEM_HEADER (old_decl))
-	error (msg, new_decl);
-      else
+      if (DECL_IN_SYSTEM_HEADER (old_decl))
 	complained = pedwarn (0, OPT_Wsystem_headers, msg, new_decl);
+      else if (!flag_exceptions)
+	/* We used to silently permit mismatched eh specs with
+	   -fno-exceptions, so make them a pedwarn now.  */
+	complained = pedwarn (0, OPT_Wpedantic, msg, new_decl);
+      else
+	error (msg, new_decl);
       if (complained)
 	inform (0, "from previous declaration %q+F", old_decl);
     }
@@ -13222,7 +13253,10 @@ start_enum (tree name, tree enumtype, tree underlying_type,
 
   if (underlying_type)
     {
-      if (CP_INTEGRAL_TYPE_P (underlying_type))
+      if (ENUM_UNDERLYING_TYPE (enumtype))
+	/* We already checked that it matches, don't change it to a different
+	   typedef variant.  */;
+      else if (CP_INTEGRAL_TYPE_P (underlying_type))
         {
 	  copy_type_enum (enumtype, underlying_type);
           ENUM_UNDERLYING_TYPE (enumtype) = underlying_type;

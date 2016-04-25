@@ -4164,7 +4164,7 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  }
 
 	/* Vector types use CONSTRUCTOR all the way through gimple
-	  compilation as a general initializer.  */
+	   compilation as a general initializer.  */
 	FOR_EACH_VEC_SAFE_ELT (elts, ix, ce)
 	  {
 	    enum gimplify_status tret;
@@ -4172,6 +4172,10 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 				  fb_rvalue);
 	    if (tret == GS_ERROR)
 	      ret = GS_ERROR;
+	    else if (TREE_STATIC (ctor)
+		     && !initializer_constant_valid_p (ce->value,
+						       TREE_TYPE (ce->value)))
+	      TREE_STATIC (ctor) = 0;
 	  }
 	if (!is_gimple_reg (TREE_OPERAND (*expr_p, 0)))
 	  TREE_OPERAND (*expr_p, 1) = get_formal_tmp_var (ctor, pre_p);
@@ -7742,6 +7746,8 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
 	   && (flags & GOVD_WRITTEN) == 0
 	   && omp_shared_to_firstprivate_optimizable_decl_p (decl))
     OMP_CLAUSE_SHARED_READONLY (clause) = 1;
+  else if (code == OMP_CLAUSE_FIRSTPRIVATE && (flags & GOVD_EXPLICIT) == 0)
+    OMP_CLAUSE_FIRSTPRIVATE_IMPLICIT (clause) = 1;
   else if (code == OMP_CLAUSE_MAP && (flags & GOVD_MAP_0LEN_ARRAY) != 0)
     {
       tree nc = build_omp_clause (input_location, OMP_CLAUSE_MAP);
@@ -7985,6 +7991,34 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, gimple_seq body, tree *list_p,
 	      break;
 	    }
 	  decl = OMP_CLAUSE_DECL (c);
+	  /* Data clasues associated with acc parallel reductions must be
+	     compatible with present_or_copy.  Warn and adjust the clause
+	     if that is not the case.  */
+	  if (ctx->region_type == ORT_ACC_PARALLEL)
+	    {
+	      tree t = DECL_P (decl) ? decl : TREE_OPERAND (decl, 0);
+	      n = NULL;
+
+	      if (DECL_P (t))
+		n = splay_tree_lookup (ctx->variables, (splay_tree_key) t);
+
+	      if (n && (n->value & GOVD_REDUCTION))
+		{
+		  enum gomp_map_kind kind = OMP_CLAUSE_MAP_KIND (c);
+
+		  OMP_CLAUSE_MAP_IN_REDUCTION (c) = 1;
+		  if ((kind & GOMP_MAP_TOFROM) != GOMP_MAP_TOFROM
+		      && kind != GOMP_MAP_FORCE_PRESENT
+		      && kind != GOMP_MAP_POINTER)
+		    {
+		      warning_at (OMP_CLAUSE_LOCATION (c), 0,
+				  "incompatible data clause with reduction "
+				  "on %qE; promoting to present_or_copy",
+				  DECL_NAME (t));
+		      OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_TOFROM);
+		    }
+		}
+	    }
 	  if (!DECL_P (decl))
 	    {
 	      if ((ctx->region_type & ORT_TARGET) != 0
@@ -8116,6 +8150,33 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, gimple_seq body, tree *list_p,
 
 	case OMP_CLAUSE_REDUCTION:
 	  decl = OMP_CLAUSE_DECL (c);
+	  /* OpenACC reductions need a present_or_copy data clause.
+	     Add one if necessary.  Error is the reduction is private.  */
+	  if (ctx->region_type == ORT_ACC_PARALLEL)
+	    {
+	      n = splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
+	      if (n->value & (GOVD_PRIVATE | GOVD_FIRSTPRIVATE))
+		error_at (OMP_CLAUSE_LOCATION (c), "invalid private "
+			  "reduction on %qE", DECL_NAME (decl));
+	      else if ((n->value & GOVD_MAP) == 0)
+		{
+		  tree next = OMP_CLAUSE_CHAIN (c);
+		  tree nc = build_omp_clause (UNKNOWN_LOCATION, OMP_CLAUSE_MAP);
+		  OMP_CLAUSE_SET_MAP_KIND (nc, GOMP_MAP_TOFROM);
+		  OMP_CLAUSE_DECL (nc) = decl;
+		  OMP_CLAUSE_CHAIN (c) = nc;
+		  lang_hooks.decls.omp_finish_clause (nc, pre_p);
+		  while (1)
+		    {
+		      OMP_CLAUSE_MAP_IN_REDUCTION (nc) = 1;
+		      if (OMP_CLAUSE_CHAIN (nc) == NULL)
+			break;
+		      nc = OMP_CLAUSE_CHAIN (nc);
+		    }
+		  OMP_CLAUSE_CHAIN (nc) = next;
+		  n->value |= GOVD_MAP;
+		}
+	    }
 	  if (DECL_P (decl)
 	      && omp_shared_to_firstprivate_optimizable_decl_p (decl))
 	    omp_mark_stores (gimplify_omp_ctxp->outer_context, decl);
@@ -9876,64 +9937,66 @@ gimplify_omp_ordered (tree expr, gimple_seq body)
   tree sink_c = NULL_TREE;
 
   if (gimplify_omp_ctxp)
-    for (c = OMP_ORDERED_CLAUSES (expr); c; c = OMP_CLAUSE_CHAIN (c))
-      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_DEPEND
-	  && gimplify_omp_ctxp->loop_iter_var.is_empty ()
-	  && (OMP_CLAUSE_DEPEND_KIND (c) == OMP_CLAUSE_DEPEND_SINK
-	      || OMP_CLAUSE_DEPEND_KIND (c) == OMP_CLAUSE_DEPEND_SOURCE))
-	{
-	  error_at (OMP_CLAUSE_LOCATION (c),
-		    "%<ordered%> construct with %<depend%> clause must be "
-		    "closely nested inside a loop with %<ordered%> clause "
-		    "with a parameter");
-	  failures++;
-	}
-      else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_DEPEND
-	       && OMP_CLAUSE_DEPEND_KIND (c) == OMP_CLAUSE_DEPEND_SINK)
-	{
-	  bool fail = false;
-	  for (decls = OMP_CLAUSE_DECL (c), i = 0;
-	       decls && TREE_CODE (decls) == TREE_LIST;
-	       decls = TREE_CHAIN (decls), ++i)
-	    if (i >= gimplify_omp_ctxp->loop_iter_var.length () / 2)
-	      continue;
-	    else if (TREE_VALUE (decls)
-		     != gimplify_omp_ctxp->loop_iter_var[2 * i])
+    {
+      for (c = OMP_ORDERED_CLAUSES (expr); c; c = OMP_CLAUSE_CHAIN (c))
+	if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_DEPEND
+	    && gimplify_omp_ctxp->loop_iter_var.is_empty ()
+	    && (OMP_CLAUSE_DEPEND_KIND (c) == OMP_CLAUSE_DEPEND_SINK
+		|| OMP_CLAUSE_DEPEND_KIND (c) == OMP_CLAUSE_DEPEND_SOURCE))
+	  {
+	    error_at (OMP_CLAUSE_LOCATION (c),
+		      "%<ordered%> construct with %<depend%> clause must be "
+		      "closely nested inside a loop with %<ordered%> clause "
+		      "with a parameter");
+	    failures++;
+	  }
+	else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_DEPEND
+		 && OMP_CLAUSE_DEPEND_KIND (c) == OMP_CLAUSE_DEPEND_SINK)
+	  {
+	    bool fail = false;
+	    for (decls = OMP_CLAUSE_DECL (c), i = 0;
+		 decls && TREE_CODE (decls) == TREE_LIST;
+		 decls = TREE_CHAIN (decls), ++i)
+	      if (i >= gimplify_omp_ctxp->loop_iter_var.length () / 2)
+		continue;
+	      else if (TREE_VALUE (decls)
+		       != gimplify_omp_ctxp->loop_iter_var[2 * i])
+		{
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "variable %qE is not an iteration "
+			    "of outermost loop %d, expected %qE",
+			    TREE_VALUE (decls), i + 1,
+			    gimplify_omp_ctxp->loop_iter_var[2 * i]);
+		  fail = true;
+		  failures++;
+		}
+	      else
+		TREE_VALUE (decls)
+		  = gimplify_omp_ctxp->loop_iter_var[2 * i + 1];
+	    if (!fail && i != gimplify_omp_ctxp->loop_iter_var.length () / 2)
 	      {
 		error_at (OMP_CLAUSE_LOCATION (c),
-			  "variable %qE is not an iteration "
-			  "of outermost loop %d, expected %qE",
-			  TREE_VALUE (decls), i + 1,
-			  gimplify_omp_ctxp->loop_iter_var[2 * i]);
-		fail = true;
+			  "number of variables in %<depend(sink)%> "
+			  "clause does not match number of "
+			  "iteration variables");
+		failures++;
+	      }
+	    sink_c = c;
+	  }
+	else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_DEPEND
+		 && OMP_CLAUSE_DEPEND_KIND (c) == OMP_CLAUSE_DEPEND_SOURCE)
+	  {
+	    if (source_c)
+	      {
+		error_at (OMP_CLAUSE_LOCATION (c),
+			  "more than one %<depend(source)%> clause on an "
+			  "%<ordered%> construct");
 		failures++;
 	      }
 	    else
-	      TREE_VALUE (decls)
-		= gimplify_omp_ctxp->loop_iter_var[2 * i + 1];
-	  if (!fail && i != gimplify_omp_ctxp->loop_iter_var.length () / 2)
-	    {
-	      error_at (OMP_CLAUSE_LOCATION (c),
-			"number of variables in %<depend(sink)%> "
-			"clause does not match number of "
-			"iteration variables");
-	      failures++;
-	    }
-	  sink_c = c;
-	}
-      else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_DEPEND
-	       && OMP_CLAUSE_DEPEND_KIND (c) == OMP_CLAUSE_DEPEND_SOURCE)
-	{
-	  if (source_c)
-	    {
-	      error_at (OMP_CLAUSE_LOCATION (c),
-			"more than one %<depend(source)%> clause on an "
-			"%<ordered%> construct");
-	      failures++;
-	    }
-	  else
-	    source_c = c;
-	}
+	      source_c = c;
+	  }
+    }
   if (source_c && sink_c)
     {
       error_at (OMP_CLAUSE_LOCATION (source_c),

@@ -2104,7 +2104,7 @@ static tree cp_parser_selection_statement
 static tree cp_parser_condition
   (cp_parser *);
 static tree cp_parser_iteration_statement
-  (cp_parser *, bool);
+  (cp_parser *, bool *, bool);
 static bool cp_parser_for_init_statement
   (cp_parser *, tree *decl);
 static tree cp_parser_for
@@ -2127,7 +2127,7 @@ static void cp_parser_declaration_statement
 static tree cp_parser_implicitly_scoped_statement
   (cp_parser *, bool *, const token_indent_info &, vec<tree> * = NULL);
 static void cp_parser_already_scoped_statement
-  (cp_parser *, const token_indent_info &);
+  (cp_parser *, bool *, const token_indent_info &);
 
 /* Declarations [gram.dcl.dcl] */
 
@@ -2193,7 +2193,7 @@ static tree cp_parser_decltype
 
 static tree cp_parser_init_declarator
   (cp_parser *, cp_decl_specifier_seq *, vec<deferred_access_check, va_gc> *,
-   bool, bool, int, bool *, tree *, location_t *);
+   bool, bool, int, bool *, tree *, location_t *, tree *);
 static cp_declarator *cp_parser_declarator
   (cp_parser *, cp_parser_declarator_kind, int *, bool *, bool, bool);
 static cp_declarator *cp_parser_direct_declarator
@@ -10392,7 +10392,7 @@ cp_parser_statement (cp_parser* parser, tree in_statement_expr,
 	case RID_WHILE:
 	case RID_DO:
 	case RID_FOR:
-	  statement = cp_parser_iteration_statement (parser, false);
+	  statement = cp_parser_iteration_statement (parser, if_p, false);
 	  break;
 
 	case RID_CILK_FOR:
@@ -10947,7 +10947,7 @@ cp_parser_selection_statement (cp_parser* parser, bool *if_p,
 	    else
 	      {
 		/* This if statement does not have an else clause.  If
-		   NESTED_IF is true, then the then-clause is an if
+		   NESTED_IF is true, then the then-clause has an if
 		   statement which does have an else clause.  We warn
 		   about the potential ambiguity.  */
 		if (nested_if)
@@ -11544,7 +11544,7 @@ cp_parser_range_for_member_function (tree range, tree identifier)
    Returns the new WHILE_STMT, DO_STMT, FOR_STMT or RANGE_FOR_STMT.  */
 
 static tree
-cp_parser_iteration_statement (cp_parser* parser, bool ivdep)
+cp_parser_iteration_statement (cp_parser* parser, bool *if_p, bool ivdep)
 {
   cp_token *token;
   enum rid keyword;
@@ -11582,7 +11582,7 @@ cp_parser_iteration_statement (cp_parser* parser, bool ivdep)
 	cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN);
 	/* Parse the dependent statement.  */
 	parser->in_statement = IN_ITERATION_STMT;
-	cp_parser_already_scoped_statement (parser, guard_tinfo);
+	cp_parser_already_scoped_statement (parser, if_p, guard_tinfo);
 	parser->in_statement = in_statement;
 	/* We're done with the while-statement.  */
 	finish_while_stmt (statement);
@@ -11627,7 +11627,7 @@ cp_parser_iteration_statement (cp_parser* parser, bool ivdep)
 
 	/* Parse the body of the for-statement.  */
 	parser->in_statement = IN_ITERATION_STMT;
-	cp_parser_already_scoped_statement (parser, guard_tinfo);
+	cp_parser_already_scoped_statement (parser, if_p, guard_tinfo);
 	parser->in_statement = in_statement;
 
 	/* We're done with the for-statement.  */
@@ -11937,7 +11937,7 @@ cp_parser_implicitly_scoped_statement (cp_parser* parser, bool *if_p,
    scope.  */
 
 static void
-cp_parser_already_scoped_statement (cp_parser* parser,
+cp_parser_already_scoped_statement (cp_parser* parser, bool *if_p,
 				    const token_indent_info &guard_tinfo)
 {
   /* If the token is a `{', then we must take special action.  */
@@ -11946,7 +11946,7 @@ cp_parser_already_scoped_statement (cp_parser* parser,
       token_indent_info body_tinfo
 	= get_token_indent_info (cp_lexer_peek_token (parser->lexer));
 
-      cp_parser_statement (parser, NULL_TREE, false, NULL);
+      cp_parser_statement (parser, NULL_TREE, false, if_p);
       token_indent_info next_tinfo
 	= get_token_indent_info (cp_lexer_peek_token (parser->lexer));
       warn_for_misleading_indentation (guard_tinfo, body_tinfo, next_tinfo);
@@ -12337,10 +12337,9 @@ cp_parser_simple_declaration (cp_parser* parser,
       && !cp_parser_error_occurred (parser))
     cp_parser_commit_to_tentative_parse (parser);
 
-  tree last_type, auto_node;
+  tree last_type;
 
   last_type = NULL_TREE;
-  auto_node = type_uses_auto (decl_specifiers.type);
 
   /* Keep going until we hit the `;' at the end of the simple
      declaration.  */
@@ -12351,6 +12350,7 @@ cp_parser_simple_declaration (cp_parser* parser,
       cp_token *token;
       bool function_definition_p;
       tree decl;
+      tree auto_result = NULL_TREE;
 
       if (saw_declarator)
 	{
@@ -12376,7 +12376,8 @@ cp_parser_simple_declaration (cp_parser* parser,
 					declares_class_or_enum,
 					&function_definition_p,
 					maybe_range_for_decl,
-					&init_loc);
+					&init_loc,
+					&auto_result);
       /* If an error occurred while parsing tentatively, exit quickly.
 	 (That usually happens when in the body of a function; each
 	 statement is treated as a declaration-statement until proven
@@ -12384,10 +12385,10 @@ cp_parser_simple_declaration (cp_parser* parser,
       if (cp_parser_error_occurred (parser))
 	goto done;
 
-      if (auto_node)
+      if (auto_result)
 	{
-	  tree type = TREE_TYPE (decl);
-	  if (last_type && !same_type_p (type, last_type))
+	  if (last_type && last_type != error_mark_node
+	      && !same_type_p (auto_result, last_type))
 	    {
 	      /* If the list of declarators contains more than one declarator,
 		 the type of each declared variable is determined as described
@@ -12395,10 +12396,11 @@ cp_parser_simple_declaration (cp_parser* parser,
 		 the same in each deduction, the program is ill-formed.  */
 	      error_at (decl_specifiers.locations[ds_type_spec],
 			"inconsistent deduction for %qT: %qT and then %qT",
-			decl_specifiers.type, last_type, type);
-	      auto_node = NULL_TREE;
+			decl_specifiers.type, last_type, auto_result);
+	      last_type = error_mark_node;
 	    }
-	  last_type = type;
+	  else
+	    last_type = auto_result;
 	}
 
       /* Handle function definitions specially.  */
@@ -18221,6 +18223,31 @@ cp_parser_asm_definition (cp_parser* parser)
     }
 }
 
+/* Given the type TYPE of a declaration with declarator DECLARATOR, return the
+   type that comes from the decl-specifier-seq.  */
+
+static tree
+strip_declarator_types (tree type, cp_declarator *declarator)
+{
+  for (cp_declarator *d = declarator; d;)
+    switch (d->kind)
+      {
+      case cdk_id:
+      case cdk_error:
+	d = NULL;
+	break;
+
+      default:
+	if (TYPE_PTRMEMFUNC_P (type))
+	  type = TYPE_PTRMEMFUNC_FN_TYPE (type);
+	type = TREE_TYPE (type);
+	d = d->declarator;
+	break;
+      }
+
+  return type;
+}
+
 /* Declarators [gram.dcl.decl] */
 
 /* Parse an init-declarator.
@@ -18286,7 +18313,8 @@ cp_parser_init_declarator (cp_parser* parser,
 			   int declares_class_or_enum,
 			   bool* function_definition_p,
 			   tree* maybe_range_for_decl,
-			   location_t* init_loc)
+			   location_t* init_loc,
+			   tree* auto_result)
 {
   cp_token *token = NULL, *asm_spec_start_token = NULL,
            *attributes_start_token = NULL;
@@ -18676,6 +18704,10 @@ cp_parser_init_declarator (cp_parser* parser,
       else
 	finish_fully_implicit_template (parser, /*member_decl_opt=*/0);
     }
+
+  if (auto_result && is_initialized && decl_specifiers->type
+      && type_uses_auto (decl_specifiers->type))
+    *auto_result = strip_declarator_types (TREE_TYPE (decl), declarator);
 
   return decl;
 }
@@ -25808,7 +25840,7 @@ cp_parser_single_declaration (cp_parser* parser,
 				        member_p,
 				        declares_class_or_enum,
 				        &function_definition_p,
-					NULL, NULL);
+					NULL, NULL, NULL);
 
     /* 7.1.1-1 [dcl.stc]
 
@@ -27472,8 +27504,7 @@ cp_parser_cache_defarg (cp_parser *parser, bool nsdmi)
 	case CPP_EOF:
 	case CPP_PRAGMA_EOL:
 	  error_at (token->location, "file ends in default argument");
-	  done = true;
-	  break;
+	  return error_mark_node;
 
 	case CPP_NAME:
 	case CPP_SCOPE:
@@ -37310,7 +37341,7 @@ cp_parser_pragma (cp_parser *parser, enum pragma_context context)
 	    cp_parser_error (parser, "for, while or do statement expected");
 	    return false;
 	  }
-	cp_parser_iteration_statement (parser, true);
+	cp_parser_iteration_statement (parser, NULL, true);
 	return true;
       }
 
