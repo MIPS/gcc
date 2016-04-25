@@ -133,6 +133,13 @@
 (define_register_constraint "wz" "rs6000_constraints[RS6000_CONSTRAINT_wz]"
   "Floating point register if the LFIWZX instruction is enabled or NO_REGS.")
 
+(define_constraint "wB"
+  "Signed 5-bit constant integer that can be loaded into an altivec register."
+  (and (match_code "const_int")
+       (and (match_test ("TARGET_UPPER_REGS_DI"))
+	    (and (match_test ("IN_RANGE (INTVAL (op), -16, 15)"))
+		 (match_test ("!IN_RANGE (INTVAL (op), -1, 0)"))))))
+
 (define_constraint "wD"
   "Int constant that is the element number of the 64-bit scalar in a vector."
   (and (match_code "const_int")

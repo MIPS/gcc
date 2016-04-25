@@ -1,5 +1,15 @@
 2016-04-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/constraints.md (wB): New constraints for constants
+	we can form with vspltisw/vupkhsw.
+
+	* config/rs6000/predicates.md (s5bit_cint_operand_not_0_or_m1):
+	New predicate to allow constants to be created in VSX registers.
+
+	* config/rs6000/rs6000.md (movdi_internal32): Add simple constants
+	that can be created (-16..15).
+	(movdi_internal64): Likewise.
+
 	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
 	-mupper-regs-di.
 
