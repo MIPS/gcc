@@ -1,6 +1,12 @@
 
 2016-04-25   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{merging with even more of GCC 6, using subversion 1.9
+	svn merge -r235003:235034  ^/trunk
+	NB: GCC 7 starts at svn rev 235035
+	}}
+
+2016-04-25   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merging with even more of GCC 6, using subversion 1.9
 	svn merge -r234651:235002  ^/trunk
 	}}
 
