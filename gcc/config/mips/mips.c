@@ -787,6 +787,7 @@ const enum reg_class mips_regno_to_class[FIRST_PSEUDO_REGISTER] = {
   ALL_REGS,	ALL_REGS,	ALL_REGS,	ALL_REGS
 };
 
+static tree mips_handle_code_readable_attr (tree *, tree, tree, int, bool *);
 static tree mips_handle_interrupt_attr (tree *, tree, tree, int, bool *);
 static tree mips_handle_use_shadow_register_set_attr (tree *, tree, tree, int,
 						      bool *);
@@ -810,7 +811,8 @@ static const struct attribute_spec mips_attribute_table[] = {
   { "micromips",   0, 0, true,  false, false, NULL, false },
   { "nomicromips", 0, 0, true,  false, false, NULL, false },
   { "nocompression", 0, 0, true,  false, false, NULL, false },
-  { "code_readable", 0, 1, true,  false, false, NULL, false },
+  { "code_readable", 0, 1, true,  false, false, mips_handle_code_readable_attr,
+    false },
   /* Allow functions to be specified as interrupt handlers */
   { "interrupt",   0, 1, false, true,  true, mips_handle_interrupt_attr,
     false },
@@ -2171,6 +2173,35 @@ mips_no_common_epilogue_p (tree decl)
   return lookup_attribute ("noepi", DECL_ATTRIBUTES (decl)) != NULL;
 }
 
+/* Verify the arguments to a code_readable attribute.  */
+
+static tree
+mips_handle_code_readable_attr (tree *node, tree name, tree args,
+				int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+{
+  const char * str;
+
+  if (!is_attribute_p ("code_readable", name) || args == NULL)
+    return NULL_TREE;
+
+  if (TREE_CODE (TREE_VALUE (args)) != STRING_CST)
+    {
+      warning (OPT_Wattributes,
+	       "%qE attribute requires a string argument", name);
+      *no_add_attrs = true;
+    }
+  else if (strcmp (TREE_STRING_POINTER (TREE_VALUE (args)), "no") != 0
+	   && strcmp (TREE_STRING_POINTER (TREE_VALUE (args)), "pcrel") != 0
+	   && strcmp (TREE_STRING_POINTER (TREE_VALUE (args)), "yes") != 0)
+    {
+      warning (OPT_Wattributes,
+	       "argument to %qE attribute is neither no, pcrel nor yes", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
 /* Determine the code_readable setting for a function if it has one.  Set
    *valid to true if we have a properly formed argument and
    return the result. If there's no argument, return GCC's default.
@@ -2192,8 +2223,6 @@ mips_get_code_readable_attr (tree decl)
       if (TREE_VALUE (attr) != NULL_TREE)
 	{
 	  const char * str;
-	  if (TREE_CODE (TREE_VALUE (TREE_VALUE (attr))) != STRING_CST)
-	    error ("code_readable attribute supports 'yes', 'no' or 'pcrel'");
 
 	  str = TREE_STRING_POINTER (TREE_VALUE (TREE_VALUE (attr)));
 	  if (strcmp (str, "no") == 0)
@@ -2203,7 +2232,9 @@ mips_get_code_readable_attr (tree decl)
 	  else if (strcmp (str, "yes") == 0)
 	    return CODE_READABLE_YES;
 
-	  error ("code_readable attribute does not support argument %qs", str);
+	  /* mips_handle_code_readable_attr will have verified the
+	     arguments are correct before adding the attribute.  */
+	  gcc_unreachable ();
 	}
 
       /* Just like GCC's default -mcode-readable= setting, the
