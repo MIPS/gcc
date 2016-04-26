@@ -1,5 +1,15 @@
 2016-04-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/predicates.md (dform_reg_operand_no_pseudo): New
+	predicates for using a peephole2 to merge the LO_SUM the register
+	allocator sometimes correct into a valid memory address.
+	(lo_sum_operand): Likewise.
+
+	* config/rs6000/rs6000.md (DFORM mode iterator): Add support for
+	using a peephole2 to merge the (LO_SUM ...) sometimes created by
+	the register allocator with the load or store.
+	(load/store peephole2 with LO_SUM): Likewise.
+
 	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Make
 	-mupper-regs-di default for power7 and above.
 	(POWERPC_MASKS): Likewise.

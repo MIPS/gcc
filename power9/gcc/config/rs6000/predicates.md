@@ -1956,3 +1956,52 @@
 
   return offsettable_nonstrict_memref_p (op);
 })
+
+
+;; Return true if the operand is a register that can hold normal offsettable
+;; addressing (d-form). This is used for peephole2 processing, so don't
+;; allow pseudo registers.
+(define_predicate "dform_reg_operand_no_pseudo"
+  (match_code "reg,subreg")
+{
+  HOST_WIDE_INT r;
+  bool gpr_p = (mode == QImode || mode == HImode || mode == SImode
+		|| mode == SFmode
+		|| (TARGET_POWERPC64 && (mode == DImode || mode == DFmode)));
+  bool fpr_p = (mode == DFmode || mode == SFmode || mode == DImode);
+  bool vmx_p = (TARGET_P9_VECTOR && fpr_p);
+
+  if (GET_CODE (op) == SUBREG)
+    op = SUBREG_REG (op);
+
+  if (!REG_P (op))
+    return 0;
+
+  r = REGNO (op);
+  if (r >= FIRST_PSEUDO_REGISTER)
+    return 0;
+
+  if (INT_REGNO_P (r))
+    return gpr_p;
+
+  if (FP_REGNO_P (r))
+    return fpr_p;
+
+  if (ALTIVEC_REGNO_P (r))
+    return vmx_p;
+
+  return 0;
+})
+
+;; Return true if the operand is LO_SUM
+(define_predicate "lo_sum_operand"
+  (match_code "lo_sum")
+{
+  if (mode != Pmode)
+    return 0;
+
+  if (!base_reg_operand (XEXP (op, 0), mode))
+    return 0;
+
+  return 1;
+})
