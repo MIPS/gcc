@@ -656,6 +656,14 @@
 /* Miscellaneous builtins for instructions added in ISA 3.0.  These
    instructions don't require either the DFP or VSX options, just the basic 
    ISA 3.0 enablement since they operate on general purpose registers.  */
+#define BU_P9_MISC_0(ENUM, NAME, ATTR, ICODE)                      \
+  RS6000_BUILTIN_0 (MISC_BUILTIN_ ## ENUM,		/* ENUM */	\
+		    "__builtin_" NAME,			/* NAME */	\
+		    RS6000_BTM_MODULO,			/* MASK */	\
+		    (RS6000_BTC_ ## ATTR		/* ATTR */	\
+		     | RS6000_BTC_SPECIAL),				\
+		    CODE_FOR_ ## ICODE)			/* ICODE */
+
 #define BU_P9_MISC_1(ENUM, NAME, ATTR, ICODE)				\
   RS6000_BUILTIN_1 (MISC_BUILTIN_ ## ENUM,		/* ENUM */	\
 		    "__builtin_" NAME,			/* NAME */	\
@@ -677,16 +685,61 @@
 		     | RS6000_BTC_SPECIAL),				\
 		    CODE_FOR_ ## ICODE)			/* ICODE */
 
-/* Miscellaneous builtins for instructions added in ISA 3.0.  These
-   instructions don't require either the DFP or VSX options, just the basic 
-   ISA 3.0 enablement since they operate on general purpose registers.  */
-#define BU_P9_MISC_0(ENUM, NAME, ATTR, ICODE)                      \
+/* Miscellaneous builtins for decimal floating point instructions
+   added in ISA 3.0.  These instructions don't require either the VSX
+   options, just the basic ISA 3.0 enablement since they operate on
+   general purpose registers.  */ 
+#define BU_P9_DFP_MISC_0(ENUM, NAME, ATTR, ICODE)			\
   RS6000_BUILTIN_0 (MISC_BUILTIN_ ## ENUM,		/* ENUM */	\
 		    "__builtin_" NAME,			/* NAME */	\
-		    RS6000_BTM_MODULO,			/* MASK */	\
+		    (RS6000_BTM_MODULO 					\
+		     | RS6000_BTM_DFP),			/* MASK */	\
 		    (RS6000_BTC_ ## ATTR		/* ATTR */	\
 		     | RS6000_BTC_SPECIAL),				\
 		    CODE_FOR_ ## ICODE)			/* ICODE */
+
+#define BU_P9_DFP_MISC_1(ENUM, NAME, ATTR, ICODE)			\
+  RS6000_BUILTIN_1 (MISC_BUILTIN_ ## ENUM,		/* ENUM */	\
+		    "__builtin_" NAME,			/* NAME */	\
+		    (RS6000_BTM_MODULO 					\
+		     | RS6000_BTM_DFP),			/* MASK */	\
+		    (RS6000_BTC_ ## ATTR		/* ATTR */	\
+		     | RS6000_BTC_SPECIAL),				\
+		    CODE_FOR_ ## ICODE)			/* ICODE */
+
+#define BU_P9_DFP_MISC_2(ENUM, NAME, ATTR, ICODE)			\
+  RS6000_BUILTIN_2 (MISC_BUILTIN_ ## ENUM,		/* ENUM */	\
+		    "__builtin_" NAME,			/* NAME */	\
+		    (RS6000_BTM_MODULO 					\
+		     | RS6000_BTM_DFP),			/* MASK */	\
+		    (RS6000_BTC_ ## ATTR		/* ATTR */	\
+		     | RS6000_BTC_SPECIAL),				\
+		    CODE_FOR_ ## ICODE)			/* ICODE */
+
+/* Decimal floating point overloaded functions added in ISA 3.0 */
+#define BU_P9_DFP_OVERLOAD_1(ENUM, NAME)				\
+  RS6000_BUILTIN_1 (P9_BUILTIN_DFP_ ## ENUM,		/* ENUM */	\
+		    "__builtin_dfp_" NAME,		/* NAME */	\
+		    RS6000_BTM_MODULO,			/* MASK */	\
+		    (RS6000_BTC_OVERLOADED		/* ATTR */	\
+		     | RS6000_BTC_UNARY),				\
+		    CODE_FOR_nothing)			/* ICODE */
+
+#define BU_P9_DFP_OVERLOAD_2(ENUM, NAME)				\
+  RS6000_BUILTIN_2 (P9_BUILTIN_DFP_ ## ENUM,		/* ENUM */	\
+		    "__builtin_dfp_" NAME,		/* NAME */	\
+		    RS6000_BTM_MODULO,			/* MASK */	\
+		    (RS6000_BTC_OVERLOADED		/* ATTR */	\
+		     | RS6000_BTC_BINARY),				\
+		    CODE_FOR_nothing)			/* ICODE */
+
+#define BU_P9_DFP_OVERLOAD_3(ENUM, NAME)				\
+  RS6000_BUILTIN_3 (P9_BUILTIN_DFP_ ## ENUM,		/* ENUM */	\
+		    "__builtin_dfp_" NAME,		/* NAME */	\
+		    RS6000_BTM_MODULO,			/* MASK */	\
+		    (RS6000_BTC_OVERLOADED		/* ATTR */	\
+		     | RS6000_BTC_TERNARY),				\
+		    CODE_FOR_nothing)			/* ICODE */
 
 /* ISA 3.0 (power9) vector convenience macros.  */
 /* For the instructions that are encoded as altivec instructions use
@@ -1759,6 +1812,36 @@ BU_P7_MISC_2 (UNPACK_V1TI,	"unpack_vector_int128",	CONST,	unpackv1ti)
 BU_P9_MISC_0 (DARN_32,		"darn_32", 		MISC, darn_32)
 BU_P9_64BIT_MISC_0 (DARN_RAW,	"darn_raw", 		MISC, darn_raw)
 BU_P9_64BIT_MISC_0 (DARN,	"darn",			MISC, darn)
+
+/* 2 argument BCD functions added in ISA 3.0.  */
+BU_P9_DFP_MISC_2 (BCD_TSTSFI_LT_DD, "dtstsfi_lt_dd", CONST, bcdtstsfi_lt_dd)
+BU_P9_DFP_MISC_2 (BCD_TSTSFI_LT_TD, "dtstsfi_lt_td", CONST, bcdtstsfi_lt_td)
+
+BU_P9_DFP_MISC_2 (BCD_TSTSFI_EQ_DD, "dtstsfi_eq_dd", CONST, bcdtstsfi_eq_dd)
+BU_P9_DFP_MISC_2 (BCD_TSTSFI_EQ_TD, "dtstsfi_eq_td", CONST, bcdtstsfi_eq_td)
+
+BU_P9_DFP_MISC_2 (BCD_TSTSFI_GT_DD, "dtstsfi_gt_dd", CONST, bcdtstsfi_gt_dd)
+BU_P9_DFP_MISC_2 (BCD_TSTSFI_GT_TD, "dtstsfi_gt_td", CONST, bcdtstsfi_gt_td)
+
+BU_P9_DFP_MISC_2 (BCD_TSTSFI_OV_DD, "dtstsfi_ov_dd", CONST, bcdtstsfi_unordered_dd)
+BU_P9_DFP_MISC_2 (BCD_TSTSFI_OV_TD, "dtstsfi_ov_td", CONST, bcdtstsfi_unordered_td)
+
+/* 2 argument overloaded BCD functions added in ISA 3.0.  */
+BU_P9_DFP_OVERLOAD_2 (BCD_TSTSFI_LT,	"dtstsfi_lt")
+BU_P9_DFP_OVERLOAD_2 (BCD_TSTSFI_LT_DD,	"dtstsfi_lt_dd")
+BU_P9_DFP_OVERLOAD_2 (BCD_TSTSFI_LT_TD,	"dtstsfi_lt_td")
+
+BU_P9_DFP_OVERLOAD_2 (BCD_TSTSFI_EQ,	"dtstsfi_eq")
+BU_P9_DFP_OVERLOAD_2 (BCD_TSTSFI_EQ_DD,	"dtstsfi_eq_dd")
+BU_P9_DFP_OVERLOAD_2 (BCD_TSTSFI_EQ_TD,	"dtstsfi_eq_td")
+
+BU_P9_DFP_OVERLOAD_2 (BCD_TSTSFI_GT,	"dtstsfi_gt")
+BU_P9_DFP_OVERLOAD_2 (BCD_TSTSFI_GT_DD,	"dtstsfi_gt_dd")
+BU_P9_DFP_OVERLOAD_2 (BCD_TSTSFI_GT_TD,	"dtstsfi_gt_td")
+
+BU_P9_DFP_OVERLOAD_2 (BCD_TSTSFI_OV,	"dtstsfi_ov")
+BU_P9_DFP_OVERLOAD_2 (BCD_TSTSFI_OV_DD,	"dtstsfi_ov_dd")
+BU_P9_DFP_OVERLOAD_2 (BCD_TSTSFI_OV_TD,	"dtstsfi_ov_td")
 
 /* 1 argument vector functions added in ISA 3.0 (power9).  */
 BU_P9V_AV_1 (VCTZB,		"vctzb",		CONST,  ctzv16qi2)
