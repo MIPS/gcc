@@ -135,10 +135,7 @@
 
 (define_constraint "wB"
   "Signed 5-bit constant integer that can be loaded into an altivec register."
-  (and (match_code "const_int")
-       (and (match_test ("TARGET_UPPER_REGS_DI"))
-	    (and (match_test ("IN_RANGE (INTVAL (op), -16, 15)"))
-		 (match_test ("!IN_RANGE (INTVAL (op), -1, 0)"))))))
+  (match_operand 0 "s5bit_cint_operand_not_0_or_m1"))
 
 (define_constraint "wD"
   "Int constant that is the element number of the 64-bit scalar in a vector."

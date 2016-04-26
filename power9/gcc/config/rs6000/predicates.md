@@ -132,11 +132,13 @@
   (and (match_code "const_int")
        (match_test "INTVAL (op) >= -16 && INTVAL (op) <= 15")))
 
-;; Like s5bit_cint_operand, but don't allow 0/-1
+;; Like s5bit_cint_operand, but don't allow 0/-1 used for creating small
+;; constants on ISA 2.07 (power8) systems and above in vector registers.
 (define_predicate "s5bit_cint_operand_not_0_or_m1"
   (and (match_code "const_int")
-       (and (match_test "IN_RANGE (INTVAL (op), -16, 15)")
-	    (not (match_test "IN_RANGE (INTVAL (op), -1, 0)")))))
+       (and (match_test ("TARGET_UPPER_REGS_DI && TARGET_P8_VECTOR"))
+	    (and (match_test ("IN_RANGE (INTVAL (op), -16, 15)"))
+		 (match_test ("!IN_RANGE (INTVAL (op), -1, 0)"))))))
 
 ;; Return 1 if op is a unsigned 3-bit constant integer.
 (define_predicate "u3bit_cint_operand"

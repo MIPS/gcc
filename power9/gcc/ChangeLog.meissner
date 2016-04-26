@@ -1,9 +1,21 @@
 2016-04-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/constraints.md (wB constraint): Rework to use
+	s5bit_cint_operand_not_0_or_m1.
+
+	* config/rs6000/predicates.md (s5bit_cint_operand_not_0_or_m1):
+	Add tests for -mupper-regs-di and -mpower8-vector.
+
+	* config/rs6000/rs6000.c (rs6000_secondary_reload): Support
+	loading -1 on power7, and -16..15 on power8.
+
 	* config/rs6000/predicates.md (dform_reg_operand_no_pseudo): New
 	predicates for using a peephole2 to merge the LO_SUM the register
 	allocator sometimes correct into a valid memory address.
 	(lo_sum_operand): Likewise.
+
+	* config/rs6000/rs6000.md (movdi_internal64): Correctly spell
+	vspltisw.
 
 	* config/rs6000/rs6000.md (DFORM mode iterator): Add support for
 	using a peephole2 to merge the (LO_SUM ...) sometimes created by
