@@ -1,5 +1,5 @@
-/* { dg-options "isa_rev<=5" } */
+/* { dg-options "(-mips16) isa_rev<=5" } */
 
-NOMIPS16 __attribute__((code_readable ("pcrel"))) int foo () {} /* { dg-error "cannot use 'pcrel' on non-compressed instruction sets" } */
+ __attribute__((code_readable ("magic"))) int foo () {} /* { dg-warning "argument to 'code_readable' attribute is neither no, pcrel nor yes" } */
 
-NOMIPS16 __attribute__((code_readable ("pcrel"))) int * bar () {} /* { dg-error "cannot use 'pcrel' on non-compressed instruction sets" } */
+ __attribute__((code_readable (1))) int * bar () {} /* { dg-warning "'code_readable' attribute requires a string argument" } */
