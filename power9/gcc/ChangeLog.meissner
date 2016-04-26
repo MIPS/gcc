@@ -1,3 +1,25 @@
+2016-04-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Make
+	-mupper-regs-di default for power7 and above.
+	(POWERPC_MASKS): Likewise.
+	(power7 cpu): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_legitimize_reload_address): Don't
+	optimize SYMBOL_REF address if the type can go in an Altivec
+	register, and we don't have d-form addressing for the Altivec
+	registers.
+	(rs6000_secondary_reload): Add !done_p for loading up 0. Use
+	Altivec registers if we want to load small constants. Try to use
+	GPRs to load larger integer constants into vector registers.
+	(rs6000_preferred_reload_class): Prefer Altivec registers for
+	loading small constants into vector registers.
+
+	* config/rs6000/rs6000.md (movdi define_splits): Use the predicate
+	int_reg_operand instead of gpc_reg_operand to make sure spilt only
+	happens for GPR registers. Simplify some tests.
+	(movdi_internal64): Use vspltisw instead of vspltisb to load -1.
+
 2016-04-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/constraints.md (wB): New constraints for constants

@@ -8716,10 +8716,13 @@ rs6000_legitimize_reload_address (rtx x, machine_mode mode,
       return x;
     }
 
+  /* If the type is allowed in Altivec registers, but we don't have d-form
+     instructions for Altivec registers, don't allow this optimization.  */
   if (TARGET_TOC
       && reg_offset_p
       && GET_CODE (x) == SYMBOL_REF
-      && use_toc_relative_ref (x, mode))
+      && use_toc_relative_ref (x, mode)
+      && (!reg_addr[mode].scalar_in_vmx_p || mode_supports_vmx_dform (mode)))
     {
       x = create_TOC_reference (x, NULL_RTX);
       if (TARGET_CMODEL != CMODEL_SMALL)
@@ -19061,11 +19064,34 @@ rs6000_secondary_reload (bool in_p,
     }
 
   /* Make sure 0.0 is not reloaded or forced into memory.  */
-  if (x == CONST0_RTX (mode) && VSX_REG_CLASS_P (rclass))
+  if (!done_p && x == CONST0_RTX (mode) && VSX_REG_CLASS_P (rclass))
     {
       ret = NO_REGS;
       default_p = false;
       done_p = true;
+    }
+
+  /* If this is an integer constant that is being tried to be loaded into a
+     vector register, and we can do a direct move, load the constant in a GPR
+     register first. Also recognize the constants that can be directly loaded
+     into the Altivec registers.  */
+  if (!done_p && CONST_INT_P (x) && VSX_REG_CLASS_P (rclass))
+    {
+      HOST_WIDE_INT value = INTVAL (x);
+
+      if (IN_RANGE (value, -16, 15) && TARGET_UPPER_REGS_DI)
+	{
+	  ret = (rclass == ALTIVEC_REGS) ? NO_REGS : ALTIVEC_REGS;
+	  default_p = false;
+	  done_p = true;
+	}
+
+      else if (TARGET_POWERPC64 && TARGET_DIRECT_MOVE)
+	{
+	  ret = GENERAL_REGS;
+	  default_p = false;
+	  done_p = true;
+	}
     }
 
   /* If this is a scalar floating point value and we want to load it into the
@@ -19661,6 +19687,12 @@ rs6000_preferred_reload_class (rtx x, enum reg_class rclass)
 	  /* If this is a vector constant that can be formed with a few Altivec
 	     instructions, we want altivec registers.  */
 	  if (GET_CODE (x) == CONST_VECTOR && easy_vector_constant (x, mode))
+	    return ALTIVEC_REGS;
+
+	  /* Allow constants that can be created with vspltisw/vupkhsw to get
+	     the Altivec registers if this is a scalar integer.  */
+	  if (TARGET_UPPER_REGS_DI && CONST_INT_P (x)
+	      && IN_RANGE (INTVAL (x), -16, 15))
 	    return ALTIVEC_REGS;
 
 	  /* Force constant to memory.  */
