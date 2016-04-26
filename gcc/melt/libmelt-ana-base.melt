@@ -56,8 +56,6 @@ MELT_EXTERN unsigned int melthk_simple_ipa_execute(void) MELT_MODULE_VISIBILITY;
 MELT_EXTERN bool melthk_rtl_gate(void) MELT_MODULE_VISIBILITY;
 MELT_EXTERN unsigned int melthk_rtl_execute(void) MELT_MODULE_VISIBILITY;
 
-#if GCCPLUGIN_VERSION >= 4009 || MELT_GCC_VERSION >= 4009 /* GCC 4.9 and later have classes for passes */
-
 class melt_gimple_pass : public gimple_opt_pass {
   long _instance_index;
 public:
@@ -124,7 +122,6 @@ static inline long melt_get_current_pass_index (void) {
    return current_pass?melt_current_pass_index_var:0L;
 }
 
-#endif /* GCC 4.9 or newer */
 
 }#)
 
@@ -229,33 +226,6 @@ unsigned int melthk_rtl_execute(void)
 	(code_chunk 
 	 gimplepass_chk
 	 #{ /* start install_melt_gcc_pass $GIMPLEPASS_CHK */
-#if GCCPLUGIN_VERSION <= 4008 &&  MELT_GCC_VERSION <= 4008 /* GCC  4.8 */
-	 struct gimple_opt_pass* gimpass = NULL;
-	 struct register_pass_info rpassinfo;
-	 memset (&rpassinfo, 0, sizeof(rpassinfo));
-	 gimpass = XNEW(struct gimple_opt_pass);
-	 memset(gimpass, 0, sizeof(struct gimple_opt_pass));
-	 gimpass->pass.type = GIMPLE_PASS;
-	 gimpass->pass.name = 
-	   melt_intern_cstring (melt_string_str((melt_ptr_t) $PASSNAME));
-	 gimpass->pass.gate = ($GATEFUN != NULL)?melthk_gimple_gate:NULL;
-	 gimpass->pass.execute = melthk_gimple_execute;
-	 gimpass->pass.tv_id = TV_PLUGIN_RUN;
-	 gimpass->pass.properties_required = melt_val2passflag ((melt_ptr_t) $PROPREQV);
-	 gimpass->pass.properties_provided = melt_val2passflag ((melt_ptr_t) $PROPPROV);
-	 gimpass->pass.properties_destroyed = melt_val2passflag ((melt_ptr_t) $PROPDESTRV);
-	 gimpass->pass.todo_flags_start = melt_val2passflag ((melt_ptr_t) $TODOSTARTV);
-	 gimpass->pass.todo_flags_finish = melt_val2passflag ((melt_ptr_t) $TODOFINISHV);
-	 rpassinfo.pass = (struct opt_pass*) gimpass;
-	 rpassinfo.reference_pass_name = 
-	   melt_intern_cstring (melt_string_str((melt_ptr_t) $REFPASSNAME));
-	 rpassinfo.ref_pass_instance_number = $REFPASSNUM;
-	 rpassinfo.pos_op = (enum pass_positioning_ops)$POSOPL;
-	 debugeprintf("installing MELT gimple new pass named %s w.r.t %s", 
-		      gimpass->pass.name, rpassinfo.reference_pass_name);
-	 register_callback (melt_plugin_name, PLUGIN_PASS_MANAGER_SETUP,
-			    NULL, &rpassinfo);
-#else /* GCC 4.9 or newer has C++ passes */
 	 struct register_pass_info rpassinfo;
 	 memset (&rpassinfo, 0, sizeof(rpassinfo));
 	 struct pass_data rpassdata;
@@ -263,10 +233,6 @@ unsigned int melthk_rtl_execute(void)
 	 rpassdata.type = GIMPLE_PASS;
 	 rpassdata.name = melt_intern_cstring (melt_string_str((melt_ptr_t) $PASSNAME));
 	 rpassdata.optinfo_flags = OPTGROUP_NONE;
-#if GCCPLUGIN_VERSION < 5000 /* not GCC 5.0 */
-         rpassdata.has_gate = ($GATEFUN != NULL);
-	 rpassdata.has_execute = true;
-#endif
 	 rpassdata.tv_id = TV_PLUGIN_RUN;
 	 rpassdata.properties_required = melt_val2passflag ((melt_ptr_t) $PROPREQV);
 	 rpassdata.properties_provided = melt_val2passflag ((melt_ptr_t) $PROPPROV);
@@ -285,7 +251,6 @@ unsigned int melthk_rtl_execute(void)
 			    NULL, &rpassinfo);
 	 debugeprintf("installed MELT gimple classy pass named %s", 
 		      rpassdata.name);
-#endif /* GCC 4.9 */
 	 /* end install_melt_gcc_pass $GIMPLEPASS_CHK */
 	 }#)
 	(mapstring_putstr passdict passname pass)
@@ -299,35 +264,6 @@ unsigned int melthk_rtl_execute(void)
 	(code_chunk 
 	 simipapass_chk
 	 #{ /* start install_melt_gcc_pass $SIMIPAPASS_CHK */
-#if GCCPLUGIN_VERSION <= 4008  &&  MELT_GCC_VERSION <= 4008 /* GCC  4.8 */
-	 struct simple_ipa_opt_pass* simipass = NULL;
-	 struct register_pass_info rpassinfo;
-	 memset (&rpassinfo, 0, sizeof(rpassinfo));
-	 simipass = XNEW(struct simple_ipa_opt_pass);
-	 memset(simipass, 0, sizeof(struct simple_ipa_opt_pass));
-	 simipass->pass.type = SIMPLE_IPA_PASS;
-	 simipass->pass.name = 
-	   melt_intern_cstring (melt_string_str((melt_ptr_t) $PASSNAME));
-	 simipass->pass.gate = NULL;
-	 simipass->pass.execute = melthk_simple_ipa_execute;
-	 simipass->pass.tv_id = TV_PLUGIN_RUN;
-	 simipass->pass.properties_required = melt_val2passflag ((melt_ptr_t) $PROPREQV);
-	 simipass->pass.properties_provided = melt_val2passflag ((melt_ptr_t) $PROPPROV);
-	 simipass->pass.properties_destroyed = melt_val2passflag ((melt_ptr_t) $PROPDESTRV);
-	 simipass->pass.todo_flags_start = melt_val2passflag ((melt_ptr_t) $TODOSTARTV);
-	 simipass->pass.todo_flags_finish = melt_val2passflag ((melt_ptr_t) $TODOFINISHV);
-	 rpassinfo.pass = (struct opt_pass*) simipass;
-	 rpassinfo.reference_pass_name = 
-	    melt_intern_cstring (melt_string_str((melt_ptr_t) $REFPASSNAME));
-	 rpassinfo.ref_pass_instance_number = $REFPASSNUM;
-	 rpassinfo.pos_op = (enum pass_positioning_ops)$POSOPL;
-	 debugeprintf("installing MELT simple_ipa pass named %s w.r.t %s", 
-		      simipass->pass.name, rpassinfo.reference_pass_name);
-	 register_callback (melt_plugin_name, PLUGIN_PASS_MANAGER_SETUP,
-			    NULL, &rpassinfo);
-	 debugeprintf("installed MELT simple_ipa pass named %s",
-		      simipass->pass.name);
-#else /* GCC >= 4.9 */
 	 struct register_pass_info rpassinfo;
 	 memset (&rpassinfo, 0, sizeof(rpassinfo));
 	 struct pass_data rpassdata;
@@ -335,10 +271,6 @@ unsigned int melthk_rtl_execute(void)
 	 rpassdata.type = SIMPLE_IPA_PASS;
 	 rpassdata.name = melt_intern_cstring (melt_string_str((melt_ptr_t) $PASSNAME));
 	 rpassdata.optinfo_flags = OPTGROUP_NONE;
-#if GCCPLUGIN_VERSION < 5000 /* before GCC 5.0 */
-	 rpassdata.has_gate = false;
-	 rpassdata.has_execute = true;
-#endif
 	 rpassdata.tv_id = TV_PLUGIN_RUN;
 	 rpassdata.properties_required = melt_val2passflag ((melt_ptr_t) $PROPREQV);
 	 rpassdata.properties_provided = melt_val2passflag ((melt_ptr_t) $PROPPROV);
@@ -357,7 +289,6 @@ unsigned int melthk_rtl_execute(void)
 			    NULL, &rpassinfo);
 	 debugeprintf("installed MELT simple_ipa classy pass named %s", 
 		      rpassdata.name);
-#endif /* GCC 4.9 or better */
 	 /* end install_melt_gcc_pass $SIMIPAPASS_CHK */
 	 }#)
 	(debug "install_melt_pass_in_gcc installed simple ipa pass=" pass)
@@ -369,36 +300,9 @@ unsigned int melthk_rtl_execute(void)
 	(code_chunk 
 	 rtlpass_chk
 	 #{ /* start install_melt_gcc_pass $RTLPASS_CHK */
-#if GCCPLUGIN_VERSION <= 4008 &&  MELT_GCC_VERSION <= 4008 /* GCC  4.8 */
-	 struct rtl_opt_pass* rtlpass = NULL;
-	 struct register_pass_info rpassinfo;
-	 memset (&rpassinfo, 0, sizeof(rpassinfo));
-	 rtlpass = XNEW(struct rtl_opt_pass);
-	 memset(rtlpass, 0, sizeof(struct simple_ipa_opt_pass));
-	 rtlpass->pass.type = RTL_PASS;
-	 rtlpass->pass.name = 
-	   melt_intern_cstring (melt_string_str((melt_ptr_t) $PASSNAME));
-	 rtlpass->pass.gate = ($GATEFUN != NULL)?melthk_rtl_gate:NULL;
-	 rtlpass->pass.execute = melthk_rtl_execute;
-	 rtlpass->pass.tv_id = TV_PLUGIN_RUN;
-	 rtlpass->pass.properties_required = melt_val2passflag ((melt_ptr_t) $PROPREQV);
-	 rtlpass->pass.properties_provided = melt_val2passflag ((melt_ptr_t) $PROPPROV);
-	 rtlpass->pass.properties_destroyed = melt_val2passflag ((melt_ptr_t) $PROPDESTRV);
-	 rtlpass->pass.todo_flags_start = melt_val2passflag ((melt_ptr_t) $TODOSTARTV);
-	 rtlpass->pass.todo_flags_finish = melt_val2passflag ((melt_ptr_t) $TODOFINISHV);
-	 rpassinfo.pass = (struct opt_pass*) rtlpass;
-	 rpassinfo.reference_pass_name = 
-	 melt_intern_cstring (melt_string_str((melt_ptr_t) $REFPASSNAME));
-	 rpassinfo.ref_pass_instance_number = $REFPASSNUM;
-	 rpassinfo.pos_op = (enum pass_positioning_ops)$POSOPL;
-	 debugeprintf("installing MELT rtl pass named %s", rtlpass->pass.name);
-	 register_callback (melt_plugin_name, PLUGIN_PASS_MANAGER_SETUP,
-			    NULL, &rpassinfo);
-#else /* GCC >= 4.9 */
 #warning install_melt_gcc_pass $RTLPASS_CHK not implemented for class_gcc_rtl_pass
          melt_fatal_error ("install_melt_gcc_pass unimplemented for MELT pass %s (RTL)",
 			   melt_string_str((melt_ptr_t) $PASSNAME));
-#endif /* GCC 4.9 or better */
 	 /* end install_melt_gcc_pass $RTLPASS_CHK */
 	 }#)
 	(debug "install_melt_pass_in_gcc installed simple ipa pass=" pass)
@@ -429,7 +333,7 @@ unsigned int melthk_rtl_execute(void)
   initializer.}# 
   (debug "install_melt_gcc_pass pass=" pass " positioning=" positioning 
 	 "refpassname=" refpassname " refpassnum=" refpassnum)
-  (shortbacktrace_dbg "install_melt_gcc_pass" 15)
+  (shortbacktrace_dbg "install_melt_gcc_pass" 19)
   (let ( (positv ())
 	 (refpanamv ())
 	 (passname (get_field :named_name pass))
@@ -622,45 +526,21 @@ unsigned int melthk_rtl_execute(void)
 
 ;; iterator on all the loops
 
-;; the FOR_EACH_LOOP has changed in GCC 4.9
-(gccif "4.8"
- (compile_warning "each_loop for 4.8")
  (defciterator each_loop
    ()
    eachloop
    (:loop curloop :long loopix)
    :doc #{Iterate on all loops $CURLOOP of index $LOOPIX.}#
    ;; before expansion
-   #{ /* each_loop GCC 4.8 $EACHLOOP +*/ {
-   loop_iterator $EACHLOOP#_li		;
-
-   FOR_EACH_LOOP($EACHLOOP#_li, $CURLOOP, 0) {
-   $LOOPIX = $CURLOOP->num		;
-   }#
-   ;;after expansion
-   #{ } /*each_loop GCC 4.8 $EACHLOOP -*/ }
-   }#
-   )
- (export_values each_loop)
- )
-
-(gccif "4.9"
- (defciterator each_loop
-   ()
-   eachloop
-   (:loop curloop :long loopix)
-   :doc #{Iterate on all loops $CURLOOP of index $LOOPIX.}#
-   ;; before expansion
-   #{ /* each_loop GCC 4.9 $EACHLOOP +*/ {
+   #{ /* each_loop $EACHLOOP +*/ {
    FOR_EACH_LOOP($CURLOOP, 0) {
    $LOOPIX = $CURLOOP->num		;
    }#
    ;;after expansion
-   #{ } /*each_loop GCC 4.9 $EACHLOOP -*/ }
+   #{ } /*each_loop $EACHLOOP -*/ }
    }#
    )
  (export_values each_loop)
-)
  
 
 
@@ -692,11 +572,7 @@ unsigned int melthk_rtl_execute(void)
 (defprimitive number_of_loops () :long 
   :doc #{Return the number of loops in current_loops.}#
   #{ /* number_of_loops primitive */
-#if MELT_GCC_VERSION >= 4009 /* GCC 4.9 */
   number_of_loops (cfun)
-#else /* GCC 4.8 */
-  number_of_loops ()
-#endif /*GCC 4.9*/
   }#)
 
 (defprimitive superloop_at_depth (:loop lo :long depth) :loop
@@ -1208,17 +1084,13 @@ unsigned int melthk_rtl_execute(void)
   ;; before expansion
   #{ /*  each_cgraph_fun_body $EACHCGRFUN + */
    struct cgraph_node *$EACHCGRFUN#_nd = NULL; 
-   /* each_cgraph_fun_body $EACHCGRFUN; GCC 4.8 has FOR_EACH_DEFINED_FUNCTION */
+   /* each_cgraph_fun_body $EACHCGRFUN */
    FOR_EACH_DEFINED_FUNCTION($EACHCGRFUN#_nd)
      {  /* each_cgraph_fun_body $EACHCGRFUN inside for */
        tree $EACHCGRFUN#_dcl = NULL;
        gimple_seq  $EACHCGRFUN#_bdy = NULL;
    /* in each_cgraph_fun_body $EACHCGRFUN */
-#if MELT_GCC_VERSION == 4008
-       $EACHCGRFUN#_dcl =  $EACHCGRFUN#_nd->symbol.decl;
-#else /*  GCC 4.9 but not 4.8! */
        $EACHCGRFUN#_dcl =  $EACHCGRFUN#_nd->decl;
-#endif /* variant GCC 4.8 */
        if (!$EACHCGRFUN#_dcl) continue;
        if (TREE_CODE($EACHCGRFUN#_dcl) != FUNCTION_DECL) continue;
        $EACHCGRFUN#_bdy = gimple_body($EACHCGRFUN#_dcl);
@@ -1239,7 +1111,7 @@ unsigned int melthk_rtl_execute(void)
   ;;before expansion
   #{ /* each_cgraph_fun_entryblock $EACHCGRAFUNENTRBLO + */
    struct cgraph_node *$EACHCGRAFUNENTRBLO#_nd = NULL; 
-   /* each_cgraph_fun_entryblock $EACHCGRAFUNENTRBLO; GCC 4.8 has FOR_EACH_DEFINED_FUNCTION */
+   /* each_cgraph_fun_entryblock $EACHCGRAFUNENTRBLO */
    FOR_EACH_DEFINED_FUNCTION($EACHCGRAFUNENTRBLO#_nd)
    {
    tree  $EACHCGRAFUNENTRBLO#_dcl = NULL;
@@ -1247,11 +1119,7 @@ unsigned int melthk_rtl_execute(void)
    basic_block  $EACHCGRAFUNENTRBLO#_exitbb = NULL;
    struct function *$EACHCGRAFUNENTRBLO#_fun = NULL;
    /* in each_cgraph_fun_entryblock $EACHCGRAFUNENTRBLO */
-#if MELT_GCC_VERSION == 4008
-   $EACHCGRAFUNENTRBLO#_dcl = $EACHCGRAFUNENTRBLO#_nd->symbol.decl;
-#else /* GCC 4.9 but not 4.8 */
    $EACHCGRAFUNENTRBLO#_dcl = $EACHCGRAFUNENTRBLO#_nd->decl;
-#endif /* GCC 4.8 or not */
    if (! $EACHCGRAFUNENTRBLO#_dcl) continue;
    if (TREE_CODE($EACHCGRAFUNENTRBLO#_dcl) != FUNCTION_DECL) continue;
    $EACHCGRAFUNENTRBLO#_fun = DECL_STRUCT_FUNCTION($EACHCGRAFUNENTRBLO#_dcl);
@@ -1259,22 +1127,13 @@ unsigned int melthk_rtl_execute(void)
    /* this assert fails when in a pass without control flow graph */
    melt_assertmsg ("no cfg in each_cgraph_fun_entryblock $EACHCGRAFUNENTRBLO",
 		   $EACHCGRAFUNENTRBLO#_fun->cfg != NULL);
-#if MELT_GCC_VERSION >= 4009
-   /* GCC 4.9 in each_cgraph_fun_entryblock $EACHCGRAFUNENTRBLO : */
+   /* each_cgraph_fun_entryblock $EACHCGRAFUNENTRBLO : */
    $EACHCGRAFUNENTRBLO#_entrybb =
      ENTRY_BLOCK_PTR_FOR_FN ($EACHCGRAFUNENTRBLO#_fun);
    if (!$EACHCGRAFUNENTRBLO#_entrybb) continue;
    $EACHCGRAFUNENTRBLO#_exitbb =
      EXIT_BLOCK_PTR_FOR_FN ($EACHCGRAFUNENTRBLO#_fun);
    if (! $EACHCGRAFUNENTRBLO#_exitbb) continue;
-#else /*GCC 4.8 or earlier*/
-   $EACHCGRAFUNENTRBLO#_entrybb = 
-     ENTRY_BLOCK_PTR_FOR_FUNCTION ($EACHCGRAFUNENTRBLO#_fun);
-   if (!$EACHCGRAFUNENTRBLO#_entrybb) continue;
-   $EACHCGRAFUNENTRBLO#_exitbb = 
-     EXIT_BLOCK_PTR_FOR_FUNCTION ($EACHCGRAFUNENTRBLO#_fun);
-   if (!$EACHCGRAFUNENTRBLO#_exitbb) continue;
-#endif /* GCC 4.8 or earlier */
    $funtree = $EACHCGRAFUNENTRBLO#_dcl;
    $funentrybb = $EACHCGRAFUNENTRBLO#_entrybb;
    $funexitbb = $EACHCGRAFUNENTRBLO#_exitbb;
@@ -1298,8 +1157,7 @@ unsigned int melthk_rtl_execute(void)
   ;; before expansion
   #{ /* each_cgraph_fun_call_flow_graph $EACHCGRAFUNCFG + */
    struct cgraph_node *$EACHCGRAFUNCFG#_nd = NULL; 
-   /* each_cgraph_fun_call_flow_graph loop  $EACHCGRAFUNCFG;
-    * GCC 4.8 has  FOR_EACH_DEFINED_FUNCTION...  */
+   /* each_cgraph_fun_call_flow_graph loop  $EACHCGRAFUNCFG */
    FOR_EACH_DEFINED_FUNCTION($EACHCGRAFUNCFG#_nd)
     {
       tree  $EACHCGRAFUNCFG#_dcl = NULL;
@@ -1308,11 +1166,7 @@ unsigned int melthk_rtl_execute(void)
       int $EACHCGRAFUNCFG#_n_bb = 0;
       int $EACHCGRAFUNCFG#_ix = 0;
       /* inside  each_cgraph_fun_call_flow_graph loop  $EACHCGRAFUNCFG */
-#if MELT_GCC_VERSION == 4008
-      $EACHCGRAFUNCFG#_dcl = $EACHCGRAFUNCFG#_nd->symbol.decl;
-#else /* GCC  4.9 but not 4.8 */
       $EACHCGRAFUNCFG#_dcl = $EACHCGRAFUNCFG#_nd->decl;
-#endif /* older than GCC 4.8 */
       if (! $EACHCGRAFUNCFG#_dcl) 
         continue;
       if (TREE_CODE($EACHCGRAFUNCFG#_dcl) != FUNCTION_DECL) 
@@ -1323,17 +1177,10 @@ unsigned int melthk_rtl_execute(void)
       debugeprintf("$EACHCGRAFUNCFG#_fun %p", (void*) $EACHCGRAFUNCFG#_fun);
       $FUNTREE = $EACHCGRAFUNCFG#_dcl;
       $TMPV = NULL;
-#if MELT_GCC_VERSION >= 4009
       $EACHCGRAFUNCFG#_n_bb = ($EACHCGRAFUNCFG#_fun->cfg)
                               ? n_basic_blocks_for_fn
                                    ($EACHCGRAFUNCFG#_fun)
 	         	      : 0;
-#else
-      $EACHCGRAFUNCFG#_n_bb = ($EACHCGRAFUNCFG#_fun->cfg)
-                              ? n_basic_blocks_for_function
-			           ($EACHCGRAFUNCFG#_fun)
-			      : 0;
-#endif /* GCC 4.9 */
       /*  each_cgraph_fun_call_flow_graph $EACHCGRAFUNCFG create the tuple of basic blocks */
       $BBTUP = meltgc_new_multiple
         ((meltobject_ptr_t) MELT_PREDEF (DISCR_MULTIPLE),
@@ -1341,15 +1188,9 @@ unsigned int melthk_rtl_execute(void)
       for ($EACHCGRAFUNCFG#_ix = 0;
 	   $EACHCGRAFUNCFG#_ix < $EACHCGRAFUNCFG#_n_bb;
 	   $EACHCGRAFUNCFG#_ix ++) {
-#if  MELT_GCC_VERSION >= 4009
            $EACHCGRAFUNCFG#_curbb =
               BASIC_BLOCK_FOR_FN ($EACHCGRAFUNCFG#_fun,
 				  $EACHCGRAFUNCFG#_ix);
-#else /* GCC 4.8 or earlier */
-	   $EACHCGRAFUNCFG#_curbb =
-  	     BASIC_BLOCK_FOR_FUNCTION ($EACHCGRAFUNCFG#_fun,
-				       $EACHCGRAFUNCFG#_ix);
-#endif /* GCC 4.9 */
 	   if (!$EACHCGRAFUNCFG#_curbb) 
 	     continue;
 	   $TMPV = 
@@ -1398,8 +1239,7 @@ unsigned int melthk_rtl_execute(void)
   ;; before expansion
   #{ /* each_cgraph_pushed_cfun start $EACHCGRAPUSHCFUN */
    struct cgraph_node *$EACHCGRAPUSHCFUN#_nd = NULL; 
-   /* each_cgraph_fun_call_flow_graph loop  $EACHCGRAPUSHCFUN;
-    * GCC 4.8 has  FOR_EACH_DEFINED_FUNCTION...  */
+   /* each_cgraph_fun_call_flow_graph loop  $EACHCGRAPUSHCFUN  */
    FOR_EACH_DEFINED_FUNCTION($EACHCGRAPUSHCFUN#_nd)
     {
       tree  $EACHCGRAPUSHCFUN#_dcl = NULL;
@@ -1407,11 +1247,7 @@ unsigned int melthk_rtl_execute(void)
       basic_block $EACHCGRAPUSHCFUN#_exitbb = NULL;
       struct function *$EACHCGRAPUSHCFUN#_fun = NULL;
       /* inside  each_cgraph_fun_call_flow_graph loop  $EACHCGRAPUSHCFUN */
-#if MELT_GCC_VERSION == 4008
-      $EACHCGRAPUSHCFUN#_dcl = $EACHCGRAPUSHCFUN#_nd->symbol.decl;
-#else /* GCC  4.9 but not 4.8 */
       $EACHCGRAPUSHCFUN#_dcl = $EACHCGRAPUSHCFUN#_nd->decl;
-#endif /* older than GCC 4.8 */
       if (! $EACHCGRAPUSHCFUN#_dcl) 
         continue;
       if (TREE_CODE($EACHCGRAPUSHCFUN#_dcl) != FUNCTION_DECL) 
@@ -1421,22 +1257,13 @@ unsigned int melthk_rtl_execute(void)
         continue;
       debugeprintf("$EACHCGRAPUSHCFUN#_fun %p", (void*) $EACHCGRAPUSHCFUN#_fun);
       $FUNTREE = $EACHCGRAPUSHCFUN#_dcl;
-#if MELT_GCC_VERSION >= 4009
-   /* GCC 4.9 in each_cgraph_fun_push_cfun $EACHCGRAPUSHCFUN : */
+   /* each_cgraph_fun_push_cfun $EACHCGRAPUSHCFUN : */
    $EACHCGRAPUSHCFUN#_entrybb =
      ENTRY_BLOCK_PTR_FOR_FN ($EACHCGRAPUSHCFUN#_fun);
    if (!$EACHCGRAPUSHCFUN#_entrybb) continue;
    $EACHCGRAPUSHCFUN#_exitbb =
      EXIT_BLOCK_PTR_FOR_FN ($EACHCGRAPUSHCFUN#_fun);
    if (! $EACHCGRAPUSHCFUN#_exitbb) continue;
-#else /*GCC 4.8 or earlier*/
-   $EACHCGRAPUSHCFUN#_entrybb = 
-     ENTRY_BLOCK_PTR_FOR_FUNCTION ($EACHCGRAPUSHCFUN#_fun);
-   if (!$EACHCGRAPUSHCFUN#_entrybb) continue;
-   $EACHCGRAPUSHCFUN#_exitbb = 
-     EXIT_BLOCK_PTR_FOR_FUNCTION ($EACHCGRAPUSHCFUN#_fun);
-   if (!$EACHCGRAPUSHCFUN#_exitbb) continue;
-   #endif /* GCC 4.8 or earlier */
    $FUNENTRYBB = $EACHCGRAPUSHCFUN#_entrybb;
    $FUNEXITBB = $EACHCGRAPUSHCFUN#_exitbb;
    push_cfun ($EACHCGRAPUSHCFUN#_fun);
@@ -1815,25 +1642,16 @@ current function and gives its declaration in $CFUNDECL}#
   #{ (cfun?(cfun->cfg != NULL):0) }#)
 
 
-;; with GCC 4.9 or GCC 5.0 should use ENTRY_BLOCK_PTR_FOR_FN &
 ;; EXIT_BLOCK_PTR_FOR_FN
 (defprimitive cfun_cfg_entry_block () :basic_block
   #{ /* cfun_cfg_entry_block */
-#if MELT_GCC_VERSION >= 4009 /* GCC 4.9 or GCC 5.0 */
 ((cfun && cfun->cfg)? ENTRY_BLOCK_PTR_FOR_FN(cfun):NULL)
-#else
-((cfun && cfun->cfg)? ENTRY_BLOCK_PTR_FOR_FUNCTION(cfun):NULL)
-#endif
   }#)
 
 (defprimitive cfun_cfg_exit_block () :basic_block
   #{
   /* cfun_cfg_exit_block */
-#if MELT_GCC_VERSION >= 4009 /* GCC 4.9 or GCC 5.0 */
 ((cfun && cfun->cfg)? EXIT_BLOCK_PTR_FOR_FN(cfun):NULL)
-#else
-((cfun && cfun->cfg)? EXIT_BLOCK_PTR_FOR_FUNCTION(cfun):NULL)
-#endif
   }#)
 
 

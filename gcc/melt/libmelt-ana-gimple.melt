@@ -273,11 +273,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   #{ /*gimple_build_assign_convert*/ ($TLHS != (tree)0 
 					    && $TRHS != (tree)0)
   ?
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
    gimple_build_assign (($TLHS), CONVERT_EXPR, $(TRHS))
-#else /* GCC 4.9 */  
-   gimple_build_assign_with_ops (CONVERT_EXPR,($TLHS),($TRHS), NULL)
-#endif /* GCC 5.0 or GCC 4.9 */
   :((melt_gimpleptr_t)0)
   }#
 )
@@ -287,12 +283,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   #{/*gimple_build_assign_view_convert*/ ($TLHS != (tree)0 
 						&& $TRHS != (tree)0)
   ?
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-  gimple_build_assign (($TLHS), VIEW_CONVERT_EXPR, ($TRHS))  
-#else /* GCC 4.9 */  
-  gimple_build_assign_with_ops(VIEW_CONVERT_EXPR,
-			       ($TLHS),($TRHS), NULL)
-#endif /* GCC 5.0 or GCC 4.9 */
+  gimple_build_assign (($TLHS), VIEW_CONVERT_EXPR, ($TRHS))
   :((melt_gimpleptr_t)0)}#
 )
 
@@ -301,12 +292,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   #{/*gimple_build_assign_fix_trunc*/ ($TLHS != (tree)0
 					     && $TRHS != (tree)0)
   ?
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($TLHS), FIX_TRUNC_EXPR, ($TRHS))
-#else /* GCC 4.9 */  
-  gimple_build_assign_with_ops(FIX_TRUNC_EXPR,
-			       ($TLHS),($TRHS), NULL)
-#endif /* GCC 5.0 or GCC 4.9 */
   :((melt_gimpleptr_t)0)}#
 )
 
@@ -316,12 +302,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   #{/*gimple_build_assign_float:*/ ($TLHS != (tree)0 
 					  && $TRHS != (tree)0)
   ?
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($TLHS), FLOAT_EXPR, ($TRHS))
-#else /* GCC 4.9 */  
-  gimple_build_assign_with_ops(FLOAT_EXPR,
-			       ($TLHS),($TRHS), NULL)
-#endif /* GCC 5.0 or GCC 4.9 */
   :((melt_gimpleptr_t)0)}#
 )
 
@@ -378,11 +359,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   }#
   ;; operator expansion
   #{ /* gimple_assign_unary_nop: */
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), NOP_EXPR, ($RHS))
-#else /* GCC 4.9 */  
-  gimple_build_assign_with_ops(NOP_EXPR, $LHS, $RHS, NULL_TREE)
-#endif /* GCC 5.0 or GCC 4.9 */
   }#
 )
 
@@ -404,12 +381,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   }#
   ;; operator expansion
   #{/*gimple_assign_negate:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), NEGATE_EXPR, ($RHS))
-#else /* GCC 4.9 */  
-  gimple_build_assign_with_ops (NEGATE_EXPR,
-				$LHS, $RHS, NULL_TREE)
-#endif /* GCC 5.0 or GCC 4.9 */
   }#
   )
 
@@ -431,12 +403,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   }#
   ;; operator expansion
   #{/*gimple_assign_float:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), FLOAT_EXPR, ($RHS))
-#else /* GCC 4.9 */  
-  gimple_build_assign_with_ops(FLOAT_EXPR,
-			       $LHS, $RHS, NULL_TREE)
-#endif /* GCC 5.0 or GCC 4.9 */
   }#
   )
 
@@ -458,12 +425,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   }#
   ;; operator expansion
   #{/*gimple_assign_abs:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), ABS_EXPR, ($RHS))
-#else /* GCC 4.9 */  
-  gimple_build_assign_with_ops(ABS_EXPR,
-			       $LHS, $RHS, NULL_TREE)
-#endif /* GCC 5.0 or GCC 4.9 */
   }#
   )
 
@@ -485,12 +447,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   }#
   ;; operator expansion
   #{/*gimple_assign_paren:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), PAREN_EXPR, ($RHS))
-#else /* GCC 4.9 */  
-  gimple_build_assign_with_ops(PAREN_EXPR,
-			       $LHS, $RHS, NULL_TREE)
-#endif /* GCC 5.0 or GCC 4.9 */
   }#
   )
 
@@ -512,12 +469,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   }#
   ;; operator expansion
   #{/*gimple_assign_convert:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), CONVERT_EXPR, ($RHS))
-#else /* GCC 4.9 */  
-  gimple_build_assign_with_ops(CONVERT_EXPR,
-			       $LHS, $RHS, NULL_TREE)
-#endif /* GCC 5.0 or GCC 4.9 */
   }#
   )
 
@@ -539,12 +491,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   }#
   ;; operator expansion
   #{/*gimple_assign_addr_space_convert:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), ADDR_SPACE_CONVERT_EXPR, ($RHS))
-#else /* GCC 4.9 */  
-  gimple_build_assign_with_ops(ADDR_SPACE_CONVERT_EXPR,
-			       $LHS, $RHS, NULL_TREE)
-#endif /* GCC 5.0 or GCC 4.9 */
   }#
   )
 
@@ -566,12 +513,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   }#
   ;; operator expansion
   #{/*gimple_assign_fixed_convert:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), FIXED_CONVERT_EXPR, ($RHS))
-#else /* GCC 4.9 */  
-  gimple_build_assign_with_ops(FIXED_CONVERT_EXPR,
-			       $LHS, $RHS, NULL_TREE)
-#endif /* GCC 5.0 or GCC 4.9 */
   }#
   )
 
@@ -594,12 +536,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   }#
   ;; operator expansion
   #{/*gimple_assign_nop:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), NOP_EXPR, ($RHS))
-#else /* GCC 4.9 */  
-  gimple_build_assign_with_ops(NOP_EXPR,
-			       $LHS, $RHS, NULL_TREE)
-#endif /* GCC 5.0 or GCC 4.9 */
   }#
   )
 
@@ -621,12 +558,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   }#
   ;; operator expansion
   #{/*gimple_assign_bit_not:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), BIT_NOT_EXPR, ($RHS))
-#else /* GCC 4.9 */  
-  gimple_build_assign_with_ops(BIT_NOT_EXPR,
-			       $LHS, $RHS, NULL_TREE)
-#endif /* GCC 5.0 or GCC 4.9 */
   }#
   )
 
@@ -650,12 +582,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    }# 
   ;; operator expansion
    #{/*gimple_assign_plus:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), PLUS_EXPR, ($RHS1), ($RHS2))
-#else /* GCC 4.9 */  
-   gimple_build_assign_with_ops(PLUS_EXPR, 
-				$LHS, $RHS1, $RHS2)
-#endif /* GCC 5.0 or GCC 4.9 */
    }#
 )
 
@@ -680,12 +607,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    }# 
   ;; operator expansion
    #{/*gimple_assign_minus:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), MINUS_EXPR, ($RHS1), ($RHS2))
-#else /* GCC 4.9 */  
-   gimple_build_assign_with_ops(MINUS_EXPR, 
-				$LHS, $RHS1, $RHS2)
-#endif /* GCC 5.0 or GCC 4.9 */
 }#
 )
 
@@ -710,12 +632,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    }# 
   ;; operator expansion
    #{/*gimple_assign_min:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), MIN_EXPR, ($RHS1), ($RHS2))
-#else /* GCC 4.9 */  
-   gimple_build_assign_with_ops(MIN_EXPR, 
-				$LHS, $RHS1, $RHS2)
-#endif /* GCC 5.0 or GCC 4.9 */
    }#
 )
 
@@ -739,12 +656,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    }# 
   ;; operator expansion
    #{/*gimple_assign_max:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), MAX_EXPR, ($RHS1), ($RHS2))
-#else /* GCC 4.9 */  
-   gimple_build_assign_with_ops(MAX_EXPR, 
-				$LHS, $RHS1, $RHS2)
-#endif /* GCC 5.0 or GCC 4.9 */
    }#
 )
 
@@ -770,12 +682,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    }# 
   ;; operator expansion
    #{/*gimple_assign_lshift:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), LSHIFT_EXPR, ($RHS1), ($RHS2))
-#else /* GCC 4.9 */  
-   gimple_build_assign_with_ops(LSHIFT_EXPR, 
-				$LHS, $RHS1, $RHS2)
-#endif /* GCC 5.0 or GCC 4.9 */
    }#
 )
 
@@ -800,12 +707,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    }# 
   ;; operator expansion
    #{/*gimple_assign_rshift:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), RSHIFT_EXPR, ($RHS1), ($RHS2))
-#else /* GCC 4.9 */  
-   gimple_build_assign_with_ops(RSHIFT_EXPR, 
-				$LHS, $RHS1, $RHS2)
-#endif /* GCC 5.0 or GCC 4.9 */
    }#
 )
 
@@ -831,12 +733,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    }# 
   ;; operator expansion
    #{/*gimple_assign_lrotate:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), LROTATE_EXPR, ($RHS1), ($RHS2))
-#else /* GCC 4.9 */  
-   gimple_build_assign_with_ops(LROTATE_EXPR, 
-				$LHS, $RHS1, $RHS2)
-#endif /* GCC 5.0 or GCC 4.9 */
    }#
 )
 
@@ -861,12 +758,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    }# 
   ;; operator expansion
    #{/*gimple_assign_rrotate:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), RROTATE_EXPR, ($RHS1), ($RHS2))
-#else /* GCC 4.9 */  
-   gimple_build_assign_with_ops(RROTATE_EXPR, 
-    $LHS, $RHS1, $RHS2)
-   #endif /* GCC 5.0 or GCC 4.9 */
  }#
 )
 
@@ -891,12 +783,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    }# 
   ;; operator expansion
    #{/*gimple_assign_bit_ior:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), BIT_IOR_EXPR, ($RHS1), ($RHS2))
-#else /* GCC 4.9 */  
-   gimple_build_assign_with_ops(BIT_IOR_EXPR, 
-				($LHS), ($RHS1), ($RHS2))
-#endif /* GCC 5.0 or GCC 4.9 */
    }#
 )
 
@@ -919,12 +806,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    }# 
   ;; operator expansion
    #{/*gimple_assign_bit_xor:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), BIT_XOR_EXPR, ($RHS1), ($RHS2))
-#else /* GCC 4.9 */  
-   gimple_build_assign_with_ops(BIT_XOR_EXPR, 
-				($LHS), ($RHS1), ($RHS2))
-#endif /* GCC 5.0 or GCC 4.9 */
    }#
 )
 
@@ -947,12 +829,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    }# 
   ;; operator expansion
    #{/*gimple_assign_bit_and:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), BIT_AND_EXPR, ($RHS1), ($RHS2))
-#else /* GCC 4.9 */  
-   gimple_build_assign_with_ops(BIT_AND_EXPR, 
-				$LHS, $RHS1, $RHS2)
-#endif /* GCC 5.0 or GCC 4.9 */
   }#
 )
 
@@ -976,12 +853,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   }# 
   ;; operator expansion
   #{/*gimple_assign_pointer_plus:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), POINTER_PLUS_EXPR, ($RHS1), ($RHS2))
-#else /* GCC 4.9 */  
-  gimple_build_assign_with_ops(POINTER_PLUS_EXPR, 
-			       $LHS, $RHS1, $RHS2)
-#endif /* GCC 5.0 or GCC 4.9 */
   }#
 )
 
@@ -1007,12 +879,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    }# 
   ;; operator expansion
    #{/*gimple_assign_mult:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), MULT_EXPR, ($RHS1), ($RHS2))
-#else /* GCC 4.9 */  
-   gimple_build_assign_with_ops(MULT_EXPR, 
-				$LHS, $RHS1, $RHS2)
-#endif /* GCC 5.0 or GCC 4.9 */
    }#
 )
 
@@ -1036,12 +903,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    }# 
   ;; operator expansion
    #{/*gimple_assign_mult_highpart:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), MULT_HIGHPART_EXPR, ($RHS1), ($RHS2))
-#else /* GCC 4.9 */  
-   gimple_build_assign_with_ops(MULT_HIGHPART_EXPR, 
-				$LHS, $RHS1, $RHS2)
-#endif /* GCC 5.0 or GCC 4.9 */
    }#
 )
 
@@ -1064,12 +926,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    }# 
   ;; operator expansion
    #{/*gimple_assign_widen_mult:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), WIDEN_MULT_EXPR, ($RHS1), ($RHS2))
-#else /* GCC 4.9 */  
-   gimple_build_assign_with_ops(WIDEN_MULT_EXPR, 
-				$LHS, $RHS1, $RHS2)
-#endif /* GCC 5.0 or GCC 4.9 */
    }#
 )
 
@@ -1094,12 +951,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    }# 
   ;; operator expansion
    #{/*gimple_assign_trunc_div:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), TRUNC_DIV_EXPR, ($RHS1), ($RHS2))
-#else /* GCC 4.9 */  
-   gimple_build_assign_with_ops(TRUNC_DIV_EXPR, 
-				$LHS, $RHS1, $RHS2)
-#endif /* GCC 5.0 or GCC 4.9 */
    }#
 )
 
@@ -1123,12 +975,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    }# 
   ;; operator expansion
    #{/*gimple_assign_ceil_div:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), CEIL_DIV_EXPR, ($RHS1), ($RHS2))
-#else /* GCC 4.9 */  
-   gimple_build_assign_with_ops(CEIL_DIV_EXPR, 
-				$LHS, $RHS1, $RHS2)
-#endif /* GCC 5.0 or GCC 4.9 */
    }#
 )
 
@@ -1152,12 +999,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    }# 
   ;; operator expansion
    #{/*gimple_assign_floor_div: */
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), FLOOR_DIV_EXPR, ($RHS1), ($RHS2))
-#else /* GCC 4.9 */  
-   gimple_build_assign_with_ops(FLOOR_DIV_EXPR,
-				$LHS, $RHS1, $RHS2)
-#endif /* GCC 5.0 or GCC 4.9 */
    }#
 )
 
@@ -1181,12 +1023,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    }# 
   ;; operator expansion
    #{/*gimple_assign_round_div:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), ROUND_DIV_EXPR, ($RHS1), ($RHS2))
-#else /* GCC 4.9 */  
-   gimple_build_assign_with_ops(ROUND_DIV_EXPR,
-				$LHS, $RHS1, $RHS2)
-#endif /* GCC 5.0 or GCC 4.9 */
    }#
 )
 
@@ -1210,11 +1047,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    }# 
   ;; operator expansion
    #{/*gimple_assign_rdiv:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), RDIV_EXPR, ($RHS1), ($RHS2))
-#else /* GCC 4.9 */  
-   gimple_build_assign_with_ops(RDIV_EXPR, $LHS, $RHS1, $RHS2)
-#endif /* GCC 5.0 or GCC 4.9 */
    }#
 )
 
@@ -1238,11 +1071,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    }# 
   ;; operator expansion
    #{/*gimple_assign_exact_div:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), EXACT_DIV_EXPR, ($RHS1), ($RHS2))
-#else /* GCC 4.9 */  
-   gimple_build_assign_with_ops(EXACT_DIV_EXPR, $LHS, $RHS1, $RHS2)
-#endif /* GCC 5.0 or GCC 4.9 */
    }#
 )
 
@@ -1268,12 +1097,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    }# 
   ;; operator expansion
    #{/*gimple_assign_trunc_mod:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), TRUNC_MOD_EXPR, ($RHS1), ($RHS2))
-#else /* GCC 4.9 */  
-   gimple_build_assign_with_ops(TRUNC_MOD_EXPR,
-				$LHS, $RHS1, $RHS2)
-#endif /* GCC 5.0 or GCC 4.9 */
    }#
 )
 
@@ -1297,11 +1121,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    }# 
   ;; operator expansion
    #{/*gimple_assign_ceil_mod:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), CEIL_MOD_EXPR, ($RHS1), ($RHS2))
-#else /* GCC 4.9 */  
-  gimple_build_assign_with_ops(CEIL_MOD_EXPR, $LHS, $RHS1, $RHS2)
-#endif /* GCC 5.0 or GCC 4.9 */
 }#
 )
 
@@ -1325,12 +1145,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    }# 
   ;; operator expansion
    #{/*gimple_assign_floor_mod:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), FLOOR_MOD_EXPR, ($RHS1), ($RHS2))
-#else /* GCC 4.9 */  
-   gimple_build_assign_with_ops(FLOOR_MOD_EXPR, 
-				$LHS, $RHS1, $RHS2)
-#endif /* GCC 5.0 or GCC 4.9 */
    }#
 )
 
@@ -1355,12 +1170,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    }# 
   ;; operator expansion
    #{/*gimple_assign_round_mod:*/
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), ROUND_MOD_EXPR, ($RHS1), ($RHS2))
-#else /* GCC 4.9 */  
-   gimple_build_assign_with_ops(ROUND_MOD_EXPR, 
-				$LHS, $RHS1, $RHS2)
-#endif /* GCC 5.0 or GCC 4.9 */
    }#
 )
 
@@ -1388,11 +1198,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
    }# 
   ;; operator expansion
    #{/* gimple_assign_binaryop: */ 
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
   gimple_build_assign (($LHS), (enum tree_code) $OPCODE, ($RHS1), ($RHS2))
-#else /* GCC 4.9 */  
-   gimple_build_assign_with_ops((enum tree_code) $OPCODE, $LHS, $RHS1, $RHS2)
-#endif /* GCC 5.0 or GCC 4.9 */
    }#
 )
 
@@ -1733,9 +1539,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   #{/* gimple_cond_true $GIMPCONDTR ? */ ($GC && gimple_code($GC) == GIMPLE_COND 
     && gimple_cond_true_p
        (
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 	    static_cast <const gcond*>
-#endif /* GCC 5.0 */
 	    ($GC)
        ))
   }#
@@ -1755,10 +1559,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   ($GC && gimple_code($GC)==GIMPLE_COND
        && gimple_cond_false_p
        (
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <const gcond*>
-#endif /* GCC 5.0 */
-	    ($GC)
+	    static_cast <const gcond*> ($GC)
        ))
   }# )
 
@@ -1776,16 +1577,10 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
   ;;fill
   #{/* gimple_cond_with_true_false_labels $gimpcondtrlab !*/
   $truelab = gimple_cond_true_label(
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <const gcond*>
-#endif /* GCC 5.0 */
-				    ($GC)
+	    static_cast <const gcond*> ($GC)
 				    );
   $falselab = gimple_cond_false_label(
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <const gcond*>
-#endif /* GCC 5.0 */
-				      ($GC)
+	    static_cast <const gcond*> ($GC)
 				      );
    }#
 )
@@ -2205,11 +2000,7 @@ See also $GIMPLE_BUILD_ASSIGN_CONVERT, $GIMPLE_BUILD_ASSIGN_VIEW_CONVERT, $GIMPL
 	       break;
 	     default:
 	     {
-     #if GCCPLUGIN_VERSION == 4008 /* GCC 4.8 */
-               vec<tree> $MAKECALL_CHK#_vargs;
-     #else /* GCC 4.9 */
                auto_vec<tree> $MAKECALL_CHK#_vargs;
-     #endif /* GCC 4.9 */
 	       $MAKECALL_CHK#_vargs.reserve($NBARGS);
 	       for (int ix_$MAKECALL_CHK=0;
 			ix_$MAKECALL_CHK < (int) $NBARGS;
@@ -2815,10 +2606,7 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
   ;; fill
   #{/* gimple_return $GIMPRET ! */ 
   $retval = gimple_return_retval(
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <const greturn*>
-#endif /* GCC 5.0 */
-				 ($GR)
+	    static_cast <const greturn*> ($GR)
 				 );
   }# 
   ;; operate
@@ -2910,10 +2698,7 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
   ;; fill
   #{ /* gimple_label $gimplab ! */ 
   $tlabel = gimple_label_label(
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <const glabel*>
-#endif /* GCC 5.0 */
-			       ($GR));
+	    static_cast <const glabel*>  ($GR));
   }# 
   ;; operate
   #{ /* gimple_label: */
@@ -2937,7 +2722,7 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
 #endif /* GCC 6 */
  }#)
 		
-;;; match a transaction - only in GCC 4.8 or GCC 4.9 or later
+;;; match a transaction 
 (defcmatcher gimple_transaction
   (:gimple gr)
   (:gimple_seq gsbody
@@ -2950,9 +2735,7 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
   ;; fill
   #{/*gimple_transaction $GIMPTRANS !*/
   $GSBODY = gimple_transaction_body (
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 	    static_cast <gtransaction*>
-#endif /* GCC 5.0 */
 				     ($GR)) ;
 #if GCCPLUGIN_VERSION >= 6000 /* GCC 6.0 */
   $TLAB = gimple_transaction_label_norm (
@@ -2988,15 +2771,9 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
    ;; fill
    #{ /* gimple_eh_else $GIMPEHELS ! */
    $GSNORMBODY = gimple_eh_else_n_body(
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <geh_else*>
-#endif /* GCC 5.0 */
-				       ($GI)) ;
+	    static_cast <geh_else*> ($GI)) ;
    $GSEXCBODY = gimple_eh_else_e_body(
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <geh_else*>
-#endif /* GCC 5.0 */
-				      ($GI))  ;
+	    static_cast <geh_else*> ($GI))  ;
    }#
    ;; operate
    #{ /*gimple_eh_else: */ gimple_build_eh_else ($GSNORMBODY, $GSEXCBODY) }#
@@ -3014,10 +2791,7 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
  ;; fill
  #{ /* gimple_eh_dispatch  $GIMPEHDIS ! */
  $REGNUM = gimple_eh_dispatch_region (
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <const geh_dispatch*>
-#endif /* GCC 5.0 */
-				      ($GI));
+	    static_cast <const geh_dispatch*>  ($GI));
  }#
  ;; operate
  #{ /* gimple_eh_dispatch: */ gimple_build_eh_dispatch($REGNUM) }#
@@ -3050,16 +2824,9 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
   #{ /*gimple_catch $GIMPCATCH ? */ ($GI && gimple_code($GI) == GIMPLE_CATCH) }#
   ;; fill
   #{ /*gimple_catch $GIMPCATCH ! */
-  $TEXTYPE = gimple_catch_types (
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <const gcatch*>
-#endif /* GCC 5.0 */
-				 ($GI));
-  $GSHANDLER = gimple_catch_handler (
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <gcatch*>
-#endif /* GCC 5.0 */
-				     ($GI));
+  $TEXTYPE = gimple_catch_types (  static_cast <const gcatch*>	 ($GI));
+  // for some reason, in GCC 6, gimple_catch_handler wants a non-const
+  $GSHANDLER = gimple_catch_handler (  static_cast <gcatch*> ($GI));
   }#
   ;; operator
   #{ /*gimple_catch:*/ gimple_build_catch($TEXTYPE,$GSHANDLER) }#
@@ -3099,10 +2866,7 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
   ;; fill
   #{ /* gimple_eh_must_not_throw $GIMPNTHR ! */
   $TFNDECL = gimple_eh_must_not_throw_fndecl(
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <geh_mnt*>
-#endif /* GCC 5.0 */
-					     ($GI));
+	    static_cast <geh_mnt*>     ($GI));
   }#
   ;; operate
   #{ /* gimple_eh_must_not_throw: */ gimple_build_eh_must_not_throw ($TFNDECL) }#
@@ -3120,10 +2884,7 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
   ;; fill
   #{ /* gimple_resx $GIMPRESX ! */
   $REGNUM = gimple_resx_region(
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <const gresx*>
-#endif /* GCC 5.0 */
-			       ($GI));
+	    static_cast <const gresx*>  ($GI));
   }#
   ;; operate
   #{ /* gimple_resx: */ gimple_build_resx((int) $REGNUM) }#
@@ -3194,20 +2955,11 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
   ;; fill
   #{ /* gimple_bind $GIMPBIND ! */
   $TVARS = gimple_bind_vars(
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <const gbind*>
-#endif /* GCC 5.0 */
-			    ($GR));
+	    static_cast <const gbind*>  ($GR));
   $TBLOCK = gimple_bind_block(
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <const gbind*>
-#endif /* GCC 5.0 */
-			      ($GR));
+	    static_cast <const gbind*>  ($GR));
   $GBODY = gimple_bind_body(
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <gbind*>
-#endif /* GCC 5.0 */
-			    ($GR));
+	    static_cast <gbind*> ($GR));
   }# 
   ;; operator
   #{ /*gimple_bind:*/ gimple_build_bind($TVARS,$GBODY,$TBLOCK)}#
@@ -3238,25 +2990,12 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
   ;; fill
   #{ /*  gimple_asm $gimpasm ! */
   $asmstr = gimple_asm_string (
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <const gasm*>
-#endif /* GCC 5.0 */
-			       ($GR));
-  $ninputs = gimple_asm_ninputs (
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <const gasm*>
-#endif /* GCC 5.0 */
-				 ($GR));
+	    static_cast <const gasm*>  ($GR));
+  $ninputs = gimple_asm_ninputs ( static_cast <const gasm*> ($GR));
   $noutputs = gimple_asm_noutputs (
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <const gasm*>
-#endif /* GCC 5.0 */
-				   ($GR));
+	    static_cast <const gasm*> ($GR));
   $nclobbers = gimple_asm_nclobbers (
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <const gasm*>
-#endif /* GCC 5.0 */
-				     ($GR));
+	    static_cast <const gasm*>  ($GR));
   }# )
 
 ;;;;;;;;;;;;;;;;
@@ -3273,20 +3012,11 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
   ;; fill
   #{ /* gimple_switch $gimpswitch ! */
   $tindex = gimple_switch_index (
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <const gswitch*>
-#endif /* GCC 5.0 */
-				 ($GR));
+	    static_cast <const gswitch*>	 ($GR));
   $numlabels = gimple_switch_num_labels (
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <const gswitch*>
-#endif /* GCC 5.0 */
-					 ($GR));
+	    static_cast <const gswitch*> ($GR));
   $tdeflab = gimple_switch_default_label (
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <const gswitch*>
-#endif /* GCC 5.0 */
-					  ($GR));
+	    static_cast <const gswitch*> ($GR));
   }#
   ;; operate
   #{ /* gimple_switch: */
@@ -3297,21 +3027,15 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
 (defprimitive gimple_switch_index (:gimple gs) :tree
   :doc #{Retrieve the index of gimple switch $GS.}#
   #{ (($GS) && gimple_code($GS) == GIMPLE_SWITCH) ? 
-  gimple_switch_index(
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <const gswitch*>
-#endif /* GCC 5.0 */
-	    ($GS)) : (tree) NULL }#)
+  gimple_switch_index( static_cast <const gswitch*>  ($GS)) : (tree) NULL
+  }#)
 
 ;;; set the index of a switch
 (defprimitive gimple_switch_set_index (:gimple gs :tree trix) :void
   :doc #{In gimple switch $GS set the index to $TRIX.}#
   #{ if (($GS) && gimple_code($GS) == GIMPLE_SWITCH && ($TRIX) && (SSA_VAR_P ($TRIX) || CONSTANT_CLASS_P ($TRIX)))
   { gimple_switch_set_index (
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <gswitch*>
-#endif /* GCC 5.0 */
-			     ($GS), $TRIX);
+	    static_cast <gswitch*>  ($GS), $TRIX);
   }
   }#)
 
@@ -3320,15 +3044,8 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
   :doc #{Safely retrieve in gimple switch $GS the $N-th label -with $N positive or zero-.}#
   #{ (($GS) && gimple_code($GS) == GIMPLE_SWITCH
       &&  $N >= 0 &&  $N < gimple_switch_num_labels(
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <const gswitch*>
-#endif /* GCC 5.0 */
-						    ($GS))) ?
-  gimple_switch_label(
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <const gswitch*>
-#endif /* GCC 5.0 */
-                       ($GS), $N)
+	    static_cast <const gswitch*>    ($GS))) ?
+  gimple_switch_label(  static_cast <const gswitch*>    ($GS), $N)
               : NULL_TREE
 }#)
 
@@ -3338,16 +3055,10 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
   #{ /* gimple_switch_set_label */
   if (($GS) && gimple_code($GS) == GIMPLE_SWITCH
       &&  $N >= 0 &&  $N < gimple_switch_num_labels(
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <const gswitch*>
-#endif /* GCC 5.0 */
-						    ($GS))
+	    static_cast <const gswitch*>  ($GS))
       && ($TLAB == NULL_TREE || TREE_CODE($TLAB) == CASE_LABEL_EXPR))
      gimple_switch_set_label (
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <gswitch*>
-#endif /* GCC 5.0 */
-                     ($GS), (unsigned)$N, $TLAB);
+	    static_cast <gswitch*> ($GS), (unsigned)$N, $TLAB);
   }#)
 
 (defun make_gimple_switch (indexv defcasev cases)
@@ -3406,10 +3117,7 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
 			    $T_CURCASE = melt_tree_content(melt_multiple_nth($CASETUP, ix_$MAKEGR_CHK));
 			    gimple_switch_set_label
 			    (
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 has a class hierarchy */
-    static_cast<gswitch*>
-#endif /* GCC 5.0 */
-			     ($GR),
+			     static_cast<gswitch*> ($GR),
 				   (unsigned)ix_$MAKEGR_CHK, $T_CURCASE);
 			    $T_CURCASE = NULL_TREE;
 			} /* end for ix_$MAKEGR_CHK */
@@ -3442,20 +3150,14 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
       {
       int $ECOS#_n = gimple_switch_num_labels
       (
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <const gswitch*>
-#endif /* GCC 5.0 */
-       ($GS));
+	    static_cast <const gswitch*>   ($GS));
 
           for ($ECOS#_i = 0; 
 	       $ECOS#_i < $ECOS#_n; 
                $ECOS#_i++)
           {
-	  $TCASE = gimple_switch_label (
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <const gswitch*>
-#endif /* GCC 5.0 */
-					($GS), $ECOS#_i);
+              $TCASE = gimple_switch_label ( static_cast<const gswitch*>($GS),
+					     $ECOS#_i);
               $CASEIX = $ECOS#_i;
   }#
 
@@ -3499,16 +3201,9 @@ the $N-th argdef of a gimple phinode.}#
 the $N-th edge of a gimple phinode.}#
   #{ ( ($G && gimple_code($G) == GIMPLE_PHI 
 	   && $N >= 0 && $N < gimple_phi_num_args
-	   (
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <const gphi*>
-#endif /* GCC 5.0 */
-	    ($G))) 
-       ? gimple_phi_arg_edge(
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
-	    static_cast <gphi*>
-#endif /* GCC 5.0 */
-			     ($G), $N) : (edge) NULL) }#)
+	                         ( static_cast <const gphi*> ($G))) 
+       ? gimple_phi_arg_edge( static_cast <gphi*>  ($G), $N) : (edge) NULL)
+  }#)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -3881,117 +3576,20 @@ and discriminant $DIS, usually $DISCR_MIXED_LOCATION.}#
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; USE-DEF tree walking; handled differently in 4.8 & 4.9
+;;; USE-DEF tree walking
 ;;;
 
 
 
-(gccif "4.8"
-;;; GCC 4.8 has the walk_use_def_chains function
-       ;;
-       (cheader
-	#{ /* GCC 4.8 walk_use_def_hook utilities declaration */
-#define MELTWALKHOOKDATA_MAGIC 0x5833fae1 /*1479801569*/
-struct meltwalkhookdata_st {
-  unsigned mwh_magic; // always MELTWALKHOOKDATA_MAGIC
-  melt_ptr_t *mwh_hook_ad;
-  melt_ptr_t *mwh_wclos_ad;
-  melt_ptr_t *mwh_val_ad;
-  melt_ptr_t *mwh_visitedtree_ad;
-}; // end struct meltwalkhookdata_st
-MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
-        /* end GCC 4.8 walk_use_def_hook utilities */
-	}#)
-       ;;
-       (defhook melt_4dot8_walk_use_def_hook (:tree tr :gimple g :value wclos val trhash)
-	 ()
-	 :long
-	 (debug "melt_4dot8_walk_use_def_hook tr=" tr "\n* gimple=" g "\n* wclos=" debug_less wclos
-		"\n* val=" val "\n* trhash=" debug_less trhash)
-	 (assert_msg "melt_4dot8_walk_use_def_hook check wclos" (is_closure wclos) wclos)
-	 (assert_msg "melt_4dot8_walk_use_def_hook check trhash" (is_maptree trhash) trhash)
-	 (let ( (visited (maptree_get trhash tr))
-		)
-	   (if visited (return 0)))
-	 (maptree_put trhash tr :true)
-	 (let ( (res (wclos val tr g))
-		)
-	   (debug "melt_4dot8_walk_use_def_hook res=" res)
-	   (return (if res 1 0))
-	   )
-	 )				;end melt_4dot8_walk_use_def_hook 
-       ;;
-       (cimplement
-	#{
-	/* GCC 4.8 walk_use_def_hook utilities implementation */
-	bool melt_4dot8_walk_hook_use_def_wrapper(tree tr, gimple g, void *ad) {
-  	  struct meltwalkhookdata_st* mwad = (struct meltwalkhookdata_st*)ad;
-	  if (!mwad || mwad->mwh_magic != MELTWALKHOOKDATA_MAGIC)
-	    melt_fatal_error("corrupted meltwalkhookdata_st @%p", ad);
-	  return melthook_MELT_4DOT8_WALK_USE_DEF_HOOK (*(mwad->mwh_hook_ad),
-							tr, g,
-							*(mwad->mwh_wclos_ad),
-							*(mwad->mwh_val_ad),
-							*(mwad->mwh_visitedtree_ad)
-							);
-	}
-        /* end GCC 4.8 walk_use_def_hook utilities implementation */
-	}#)
-       ;;
-       
-       (defun melt_walk_use_def_chains (:value clos val :tree trvar)
-	 :doc #{Walk in an unspecified order the use-def chain of SSA
-	 variable $TRVAR; apply the $CLOS closure to the $VAL value and to the
-	 current :tree and :gimple. Stop walking if the closure gives null.}#
-	 (debug "melt_walk_use_def_chains clos=" clos "\n..val=" val "\n..trvar=" trvar)
-	 (match
-	  trvar
-	  (?(tree_simple_ssa_name ?_ ?_)
-	    (void))
-	  (?_
-	    (debug "melt_walk_use_def_chains not-ssa trvar=" trvar)
-	    (return))
-	  )
-	 (if (is_closure clos)
-	     (let ( (trmap (make_maptree discr_map_trees 43))
-		    (whook melt_4dot8_walk_use_def_hook)
-		    )
-	       (debug "melt_walk_use_def_chains trmap=" trmap "\n.. whook=" whook "\n.. clos=" clos)
-	       (code_chunk
-		walkusedef_chk
-		#{ /* melt_walk_use_def_chains $WALKUSEDEF_CHK start */
-		struct meltwalkhookdata_st mwhdata_$WALKUSEDEF_CHK;
-		memset (&mwhdata_$WALKUSEDEF_CHK, 0, sizeof(struct meltwalkhookdata_st ));
-		mwhdata_$WALKUSEDEF_CHK.mwh_hook_ad = (& $WHOOK);
-		mwhdata_$WALKUSEDEF_CHK.mwh_wclos_ad = (& $CLOS);
-		mwhdata_$WALKUSEDEF_CHK.mwh_val_ad = (& $VAL);
-		mwhdata_$WALKUSEDEF_CHK.mwh_visitedtree_ad = (& $TRMAP);
-		mwhdata_$WALKUSEDEF_CHK.mwh_magic = MELTWALKHOOKDATA_MAGIC;
-		walk_use_def_chains ($TRVAR, melt_4dot8_walk_hook_use_def_wrapper,
-				     (void*)&mwhdata_$WALKUSEDEF_CHK,
-				     true);
-		memset (&mwhdata_$WALKUSEDEF_CHK, 0, sizeof(struct meltwalkhookdata_st ));	     
-		/* melt_walk_use_def_chains $WALKUSEDEF_CHK end */
-		}#
-		)
-	       )
-	   )
-	 )
-       (export_values melt_walk_use_def_chains)
-       ) ;; end defun melt_walk_use_def_chains 
-					;end GCC 4.8 walk use def
-
-(gccif "4.9"
-       ;;; GCC 4.9 don't the walk_use_def_chains function but has the
-       ;;; FOR_EACH_SSA_TREE* macros from ssa-iterators.h
-       ;;
-       ;; the cheader below should be emitted once. If emitted twice,
-       ;; trigger an error...
-       (cheader
-	#{ /* GCC 4.9 walk_use_def utilities declaration */
+ ;;; FOR_EACH_SSA_TREE* macros from ssa-iterators.h
+ ;;
+ ;; the cheader below should be emitted once. If emitted twice,
+ ;; trigger an error...
+ (cheader
+	#{ /* GCC 5 or 6 walk_use_def utilities declaration */
 	#ifdef MELT_WITHOUT_WALK_USE_DEF_CHAINS
 	#error got  MELT_WITHOUT_WALK_USE_DEF_CHAINS
-	#endif
+	#endif /* MELT_WITHOUT_WALK_USE_DEF_CHAINS */
 	#define MELT_WITHOUT_WALK_USE_DEF_CHAINS
 
 	// header tree-ssa-operands.h defines USE_STMT
@@ -4003,8 +3601,8 @@ MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
 	// header ssa-iterators.h defines FOR_EACH_SSA_TREE_OPERAND
 	#include "ssa-iterators.h"
 	}#)
-       ;;
-       (defun melt_walk_use_def_chains (:value clos val :tree trvar)
+ ;;
+ (defun melt_walk_use_def_chains (:value clos val :tree trvar)
 	 :doc #{Walk in an unspecified order the use-def chain of SSA
 	 variable $TRVAR; apply the $CLOS closure to the $VAL value and to the
 	 current :tree and :gimple. Stop walking if the closure gives null.}#
@@ -4069,7 +3667,7 @@ MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
 				     clear_and_done_ssa_iter(& sit_$WALKERUSE_CHK);
 				 }
 				 $TRWALKED = NULL_TREE;
-                               }
+                         }
 			     /* melt_walk_use_def_chains $WALKERUSE_CHK end */
 			     }#)
 			    (return res)
@@ -4086,8 +3684,8 @@ MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
 		 )))
 	   )
 	 )				;end melt_walk_use_def_chains
-       (export_values melt_walk_use_def_chains)
-       )				;end GCC 4.9 walk use def
+ (export_values melt_walk_use_def_chains)
+
 
   
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

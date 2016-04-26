@@ -760,20 +760,17 @@ treerr
   }#)
   
 ;;;;
-;;; NAMELIST_DECL exists only in GCC 4.9, not GCC 4.8
-(gccif "4.9"
-       (defcmatcher tree_namelist_decl
-	 (:tree tr)
-	 (:tree trdecl)
-	 trnamlisdcl
-	 :doc #{$TREE_NAMELIST_DECL match a namelist declaration, extracting the list into $TRDECL.}#
-	 ;; test
-	 #{ /* tree_namelist_decl $TRNAMLISDCL ? */ (($TR) && TREE_CODE($TR) == NAMELIST_DECL) }#
-	 ;; fill
-	 #{ /* tree_namelist_decl $TRNAMLISDCL ! */
-	 $TRDECL = NAMELIST_DECL_ASSOCIATED_DECL ($TR) ;
-	 }#)
-       )
+(defcmatcher tree_namelist_decl
+   (:tree tr)
+   (:tree trdecl)
+   trnamlisdcl
+   :doc #{$TREE_NAMELIST_DECL match a namelist declaration, extracting the list into $TRDECL.}#
+   ;; test
+   #{ /* tree_namelist_decl $TRNAMLISDCL ? */ (($TR) && TREE_CODE($TR) == NAMELIST_DECL) }#
+   ;; fill
+   #{ /* tree_namelist_decl $TRNAMLISDCL ! */
+   $TRDECL = NAMELIST_DECL_ASSOCIATED_DECL ($TR) ;
+   }#)
 
 ;;;;;;;;;;;;;;;;
 (defcmatcher tree_translation_unit_decl
@@ -1256,11 +1253,7 @@ treerr
   :doc #{$TREE_ANY_ABSTRACT_DECL match any abstract declaration $TR}#
   ;; test
   #{ /* tree_any_abstract_decl $TRABSTDCL ? */ (($TR) && DECL_P($TR)
-#if GCCPLUGIN_VERSION <= 4009 /* GCC 4.9 */
-                        && DECL_ABSTRACT($TR)
-#else /* GCC 5.0 */
                         && DECL_ABSTRACT_P($TR)
-#endif /* GCC 4.9 or GCC 5.0 */
 						)
   }#
   )
@@ -1318,12 +1311,8 @@ treerr
   :doc #{$TREE_ANY_NONABSTRACT_DECL match any nonabstract declaration $TR}#
   ;; test
   #{ /* tree_any_nonabstract_decl $TRABSTDCL ? */ (($TR) && DECL_P($TR)
-#if GCCPLUGIN_VERSION <= 4009  /* GCC 4.9 */
-                     && !DECL_ABSTRACT($TR)
-#else /* GCC 5.0 */
-                     && !DECL_ABSTRACT_P($TR)
-#endif /* GCC 4.9 or 5.0 */
-						   )}#
+						   && !DECL_ABSTRACT_P($TR)   )
+  }#
   )
   
   
@@ -1762,21 +1751,12 @@ treerr
   :doc #{ $TREE_INTEGER_CST match a constant integer tree $TR extracting the constant $N. Might behave strangely if the constant don't fit in a long.}#
   ;; test expander
   #{ /*tree_integer_cst $TREEINTK ?*/
-#if  MELT_GCC_VERSION >= 4009 /* GCC 4.9 or later */
   (($TR) && TREE_CODE($TR) == INTEGER_CST 
          && tree_fits_shwi_p ($TR))
-#else /* GCC 4.8*/
-  (($TR) && TREE_CODE($TR) == INTEGER_CST 
-         && host_integerp($TR, 0))
-#endif /* GCC 4.8 */
   }#
   ;; fill expander
   #{ /*tree_integer_cst $TREEINTK !*/
-#if  MELT_GCC_VERSION >= 4009 /* GCC 4.9 or later */
-    $N = tree_to_shwi(($TR));    
-#else  /* GCC 4.8 */
-    $N  = tree_low_cst(($TR), 0);
-#endif /* GCC 4.9 */
+    $N = tree_to_shwi(($TR)); 
   }#  )
 
 
@@ -2495,11 +2475,7 @@ treerr
 		 (:tree t_res (null_tree))
 		 )
 	    (code_chunk maketreecall_chk #{ /* make_tree_call_expr $MAKETREECALL_CHK */
-     #if GCCPLUGIN_VERSION == 4008 /* GCC 4.8 */
-			vec<tree> targsvec_$MAKETREECALL_CHK;
-     #else /* GCC 4.9 */
 			auto_vec<tree> targsvec_$MAKETREECALL_CHK;
-     #endif /* GCC 4.9 */
 			targsvec_$MAKETREECALL_CHK.reserve($NBARGS);
 			for (int ix_$MAKETREECALL_CHK=0;
 				 ix_$MAKETREECALL_CHK<$NBARGS;
@@ -3191,30 +3167,7 @@ type node.}#
  #{ /* tree_long_long_unsigned_type_node : */ long_long_unsigned_type_node }#)
 
 
-;;;;;;;;;; int128 is only in GCC 4.9
-(gccif "4.9"
-       
-;;; "int128"
-(defcmatcher tree_int128_integer_type_node (:tree tr) ()
- nodetr
- :doc #{$TREE_INT128_INTEGER_TYPE_NODE matches or gives the constant 128 bits integer 
-type node.}#
- #{ /* tree_int128_integer_type_node $NODETR ? */ $TR == int128_integer_type_node }#
- ()
- #{ /* tree_int128_integer_type_node : */ int128_integer_type_node }#)
-
-;;; "unsigned int128"
-(defcmatcher tree_int128_unsigned_type_node (:tree tr) ()
- nodetr
- :doc #{$TREE_INT128_UNSIGNED_TYPE_NODE matches or gives the constant 128 bits unsigned integer 
-type node.}#
- #{ /* tree_int128_unsigned_type_node $NODETR ? */ $TR == int128_unsigned_type_node }#
- ()
- #{ /* tree_int128_unsigned_type_node : */ int128_unsigned_type_node }#)
-
-)					;only in GCC 4.9
-
-
+   
 
 ;;; "float"
 (defcmatcher tree_float_type_node (:tree tr) ()
@@ -3988,6 +3941,7 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_long_unsigned_type_node 
  tree_mem_ref
  tree_modify_expr
+ tree_namelist_decl
  tree_namespace_decl
  tree_null_pointer_node 
  tree_nullptr_type
@@ -4058,11 +4012,6 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  warning_at_tree_decl_with_number
 )
 
-(gccif "4.9"
-       (export_values	
-	tree_int128_integer_type_node 
-	tree_int128_unsigned_type_node 
-	tree_namelist_decl))
 
 ;;; second and last load of _libmelt-treecode.melt should go here
 (let (      

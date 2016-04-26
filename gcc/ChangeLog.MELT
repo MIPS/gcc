@@ -1,4 +1,9 @@
 
+2016-04-26   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/libmelt-ana-base.melt: Remove GCC 4.x specific code
+	* melt/libmelt-ana-tree.melt: Ditto.
+	* melt/libmelt-ana-gimple.melt: Ditto.
+
 2016-04-25   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerated all.
 
