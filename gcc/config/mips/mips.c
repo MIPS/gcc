@@ -2354,6 +2354,38 @@ mips_valid_lo_sum_p (enum mips_symbol_type symbol_type, machine_mode mode)
   return true;
 }
 
+/* Return true if X in LO_SUM (REG, X) is a valid.  */
+
+bool
+mips_valid_lo_sum_lo_part_p (machine_mode mode, rtx reg, rtx x)
+{
+   rtx symbol = NULL;
+
+   if (mips_abi != ABI_32)
+     return true;
+
+   if (mode == BLKmode)
+     return true;
+
+   if (reg && REG_P (reg) && REGNO (reg) == GLOBAL_POINTER_REGNUM)
+     return true;
+
+   if (GET_CODE (x) == CONST
+       && GET_CODE (XEXP (x, 0)) == PLUS
+       && GET_CODE (XEXP (XEXP (x, 0), 0)) == SYMBOL_REF)
+     symbol = XEXP (XEXP (x, 0), 0);
+   else if (GET_CODE (x) == SYMBOL_REF)
+     symbol = x;
+
+   if (symbol
+       && SYMBOL_REF_DECL (symbol)
+       && (GET_MODE_ALIGNMENT (mode) / BITS_PER_UNIT) >
+	   (DECL_ALIGN_UNIT (SYMBOL_REF_DECL (symbol))))
+     return false;
+
+   return true;
+}
+
 /* Return true if X is a valid address for machine mode MODE.  If it is,
    fill in INFO appropriately.  STRICT_P is true if REG_OK_STRICT is in
    effect.  */
@@ -2394,7 +2426,8 @@ mips_classify_address (struct mips_address_info *info, rtx x,
       info->symbol_type
 	= mips_classify_symbolic_expression (info->offset, SYMBOL_CONTEXT_MEM);
       return (mips_valid_base_register_p (info->reg, mode, strict_p)
-	      && mips_valid_lo_sum_p (info->symbol_type, mode));
+	      && mips_valid_lo_sum_p (info->symbol_type, mode)
+	      && mips_valid_lo_sum_lo_part_p (mode, info->reg, info->offset));
 
     case CONST_INT:
       /* Small-integer addresses don't occur very often, but they
@@ -3143,6 +3176,8 @@ mips_split_symbol (rtx temp, rtx addr, machine_mode mode, rtx *low_out)
 		high = gen_rtx_HIGH (Pmode, copy_rtx (addr));
 		high = mips_force_temporary (temp, high);
 		*low_out = gen_rtx_LO_SUM (Pmode, high, addr);
+                if (!mips_valid_lo_sum_lo_part_p (mode, NULL, addr))
+		  *low_out = mips_force_temporary (temp, *low_out);
 		break;
 	      }
 	  return true;
