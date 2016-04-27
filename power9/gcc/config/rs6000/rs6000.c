@@ -19081,7 +19081,7 @@ rs6000_secondary_reload (bool in_p,
 
       if (TARGET_UPPER_REGS_DI
 	  && ((value == -1)
-	      || TARGET_P8_VECTOR && IN_RANGE (value, -16, 15)))
+	      || (TARGET_P8_VECTOR && IN_RANGE (value, -16, 15))))
 	{
 	  ret = (rclass == ALTIVEC_REGS) ? NO_REGS : ALTIVEC_REGS;
 	  default_p = false;
