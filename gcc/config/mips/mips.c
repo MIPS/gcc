@@ -9589,7 +9589,7 @@ mips_expand_block_move (rtx dest, rtx src, rtx length, rtx alignment)
 {
   if (!ISA_HAS_LWL_LWR
       && !(ISA_HAS_COPY && INTVAL (length) < MIPS_MAX_MOVE_BYTES_STRAIGHT)
-      && INTVAL (alignment) * UNITS_PER_WORD < MIPS_MIN_MOVE_MEM_ALIGN)
+      && INTVAL (alignment) * BITS_PER_UNIT < MIPS_MIN_MOVE_MEM_ALIGN)
     return false;
 
   if (CONST_INT_P (length))
@@ -9603,7 +9603,7 @@ mips_expand_block_move (rtx dest, rtx src, rtx length, rtx alignment)
 		      a straight-line block if the source and destination
 		      are aligned to the register width.  */
 		   || (!optimize_size
-		       && INTVAL (alignment) * UNITS_PER_WORD == BITS_PER_WORD
+		       && INTVAL (alignment) == UNITS_PER_WORD
 		       && INTVAL (length) <= MIPS_MAX_MOVE_MEM_STRAIGHT))
 	    {
 	      mips_block_move_straight (dest, src, INTVAL (length),
