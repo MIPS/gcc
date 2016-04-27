@@ -1,0 +1,10 @@
+Bottom: 19f7e5dd8b5faf4e5b13cb0acf98b6ea7a1e0a23
+Top:    19f7e5dd8b5faf4e5b13cb0acf98b6ea7a1e0a23
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-04-27 00:47:38 -0300
+
+enable conversion of gcc_typedecl to gcc_type
+
+---
+
+
