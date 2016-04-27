@@ -24,7 +24,7 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.   If not see
 <http://www.gnu.org/licenses/>.    */
 
-/* We need <cstdlib> very early for GCC 4.8 & 4.9; see http://gcc.gnu.org/ml/gcc/2012-08/msg00277.html */
+/* We need <cstdlib> very early; see http://gcc.gnu.org/ml/gcc/2012-08/msg00277.html */
 #include <cstdlib>
 
 #include "config.h"
@@ -38,8 +38,6 @@ along with GCC; see the file COPYING3.   If not see
 #ifndef GCCPLUGIN_VERSION
 #include "plugin-version.h"
 #endif /*GCCPLUGIN_VERSION*/
-
-/// Since at least GCC 4.8, plugin-version.h defines GCCPLUGIN_VERSION
 
 #ifndef MELT_GCC_VERSION
 /* Actually, the generated melt-run.h contains a number like 4007 for
@@ -56,13 +54,11 @@ along with GCC; see the file COPYING3.   If not see
 #include "tm.h"
 #include "tree.h"
 
-#if GCCPLUGIN_VERSION >= 4009
 #include "basic-block.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-expr.h"
 #include "is-a.h"
-#endif /*GCC 4.9 */
 
 
 #include "gimple.h"
@@ -90,16 +86,12 @@ along with GCC; see the file COPYING3.   If not see
 
 #include "diagnostic.h"
 
-#if GCCPLUGIN_VERSION >= 4009
 #include "context.h"
 #include "tree-cfg.h"
 #include "gimple-iterator.h"
 #include "stringpool.h"
 #include "tree-ssa-scopedtables.h"
 #include "tree-ssa-threadedge.h"
-#else
-#include "tree-flow.h"
-#endif /* GCC 4.9 */
 
 #include "flags.h"
 #include "toplev.h"

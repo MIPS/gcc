@@ -62,8 +62,8 @@ const int melt_is_plugin = 0;
 #MELT Gcc version and Building Gcc version does not match
 #endif /*BUILDING_GCC_VERSION != MELT_GCC_VERSION */
 
-#if MELT_GCC_VERSION < 4008
-#error MELT is for GCC 4.8 or newer
+#if MELT_GCC_VERSION < 5000
+#error this MELT is for GCC 5 or newer
 #endif
 
 
@@ -94,19 +94,13 @@ const int melt_gcc_version = MELT_GCC_VERSION;
 #include <sys/types.h>
 #include <dirent.h>
 
-#if GCCPLUGIN_VERSION >= 4009
 // for struct walk_stmt_info
 #include "gimple-walk.h"
 // for print_node_brief
 #include "print-tree.h"
-#endif /* GCC >= 4.9 */
 
 // for print_gimple_stmt
 #include "gimple-pretty-print.h"
-#if GCCPLUGIN_VERSION <= 4009 /* GCC 4.9 */
-// for struct pointer_set_t & pointer_set_create
-#include "pointer-set.h"
-#endif /* GCC 4.9 */
 
 ////// the actually done modes
 std::vector<std::string> melt_done_modes_vector;
@@ -218,17 +212,10 @@ static long melt_forwarded_copy_byte_count;
 /* the generating GGC marking routine */
 extern void gt_ggc_mx_melt_un (void *);
 
-#if GCCPLUGIN_VERSION >= 5000 /*GCC 5.0*/
 #ifndef ggc_alloc_cleared_melt_valuevector_st
 #define ggc_alloc_cleared_melt_valuevector_st(S) \
   ((struct melt_valuevector_st*) (ggc_internal_cleared_alloc ((S) MEM_STAT_INFO)))
 #endif
-#else /* GCC 4.9*/
-#ifndef ggc_alloc_cleared_melt_valuevector_st
-#define ggc_alloc_cleared_melt_valuevector_st(S) \
-  ((struct melt_valuevector_st*) (ggc_internal_cleared_alloc_stat ((S) MEM_STAT_INFO)))
-#endif
-#endif /*GCC 4.9 or 5.0 */
 
 static void
 melt_resize_scangcvect (unsigned long size)
@@ -240,7 +227,6 @@ melt_resize_scangcvect (unsigned long size)
     {
       struct melt_valuevector_st* oldgcvec = melt_scangcvect;
       unsigned long ulen = oldgcvec->vv_ulen;
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
       struct melt_valuevector_st* newgcvec
       = (struct melt_valuevector_st*)
           ggc_internal_cleared_alloc
@@ -248,13 +234,6 @@ melt_resize_scangcvect (unsigned long size)
             (sizeof(struct melt_valuevector_st)
              +size*sizeof(melt_ptr_t))
             PASS_MEM_STAT);
-#else /* GCC 4.9 */
-      struct melt_valuevector_st* newgcvec
-      = (struct melt_valuevector_st*)
-          ggc_alloc_cleared_melt_valuevector_st
-          (sizeof(struct melt_valuevector_st)
-           +size*sizeof(melt_ptr_t));
-#endif /* GCC 4.9 or 5.0 */
       newgcvec->vv_size = size;
       newgcvec->vv_ulen = ulen;
       memcpy (newgcvec->vv_tab, oldgcvec->vv_tab,
@@ -1015,16 +994,10 @@ melt_branch_process_arguments (int *argcp, char***argvp)
             meltargname.assign(meltargstart);
           if (melt_branch_argument_map.find (meltargname)
               != melt_branch_argument_map.end ())
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
             fatal_error (UNKNOWN_LOCATION,
                          "MELT branch argument -f[plugin-arg-]melt-%s given twice '%s' and '%s'",
                          meltargname.c_str(), meltargval.c_str(),
                          melt_branch_argument_map[meltargname].c_str());
-#else /* GCC 4.9 */
-            fatal_error ("MELT branch argument -f[plugin-arg-]melt-%s given twice '%s' and '%s'",
-                         meltargname.c_str(), meltargval.c_str(),
-                         melt_branch_argument_map[meltargname].c_str());
-#endif /* GCC 5 or less */
           melt_branch_argument_map [meltargname] = meltargval;
         }
       else
@@ -1067,75 +1040,30 @@ melt_argument (const char* argname)
 
 #if defined(__GNUC__) && __GNUC__>3 /* condition to have pragma GCC poison */
 
-/* in GCC 4.6, options are #define-ed macros!  */
-#ifdef melt_mode_string
-#undef melt_mode_string
-#else
 #pragma GCC poison melt_mode_string
-#endif /* melt_mode_string */
 
 
-#ifdef melt_argument_string
-#undef melt_argument_string
-#else
 #pragma GCC poison melt_argument_string
-#endif
 
-#ifdef melt_arglist_string
-#undef melt_arglist_string
-#else
 #pragma GCC poison melt_arglist_string
-#endif
 
 /* don't poison melt_flag_debug or melt_flag_bootstrapping */
-#ifdef melt_compile_script_string
-#undef melt_compile_script_string
-#else
 #pragma GCC poison melt_compile_script_string
-#endif
 
-#ifdef melt_count_debugskip_string
-#undef melt_count_debugskip_string
-#else
 #pragma GCC poison melt_count_debugskip_string
-#endif
 
-#ifdef melt_dynmodpath_string
-#undef melt_dynmodpath_string
-#else
 #pragma GCC poison melt_dynmodpath_string
-#endif
 
-#ifdef melt_srcpath_string
-#undef melt_srcpath_string
-#else
+
 #pragma GCC poison melt_srcpath_string
-#endif
 
-
-#ifdef melt_init_string
-#undef melt_init_string
-#else
 #pragma GCC poison melt_init_string
-#endif
 
-#ifdef melt_extra_string
-#undef melt_extra_string
-#else
 #pragma GCC poison melt_extra_string
-#endif
 
-#ifdef melt_secondargument_string
-#undef melt_secondargument_string
-#else
 #pragma GCC poison melt_secondargument_string
-#endif
 
-#ifdef melt_tempdir_string
-#undef melt_tempdir_string
-#else
 #pragma GCC poison melt_tempdir_string
-#endif
 
 #endif /* GCC >= 3 */
 
@@ -2620,11 +2548,7 @@ meltgc_strbuf_reserve (melt_ptr_t outbuf_p, unsigned reslen)
           char* oldzn = buf_outbufv->bufzn;
           gcc_assert (!melt_is_young (oldzn));
 
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
           newzn = (char*) ggc_alloc_atomic (newblen+1);
-#else /* GCC 4.9 */
-          newzn = (char*) ggc_alloc_cleared_atomic (newblen+1);
-#endif /* GCC 4.9 or 5.0 */
           memcpy (newzn, oldzn + buf_outbufv->bufstart, slen);
           newzn[slen] = 0;
           memset (oldzn, 0, slen<100?slen/2:50);
@@ -12018,9 +11942,7 @@ meltgc_out_edge (melt_ptr_t out_p, edge edg)
       if (!f)
         goto end;
       dump_edge_info (f, edg,
-#if GCCPLUGIN_VERSION >= 4008
-                      TDF_DETAILS, // argument appearing in GCC 4.8 august 2012 trunk
-#endif
+                      TDF_DETAILS, 
                       /*do_succ=*/ 1);
       fflush (f);
     }
@@ -12639,19 +12561,11 @@ melt_assert_failed (const char *msg, const char *filnam,
   melt_fatal_info (filnam, lineno);
   /* don't call melt_fatal_error here! */
   if (melt_dbgcounter > 0)
-#if GCCPLUGIN_VERSION >= 5000
     fatal_error (UNKNOWN_LOCATION, "%s:%d: MELT ASSERT FAILED <%s> : %s\n  [dbg#%ld] @ %s\n",
                  melt_basename (filnam), lineno, fun, msg, melt_dbgcounter, ctime (&nowt));
   else
     fatal_error (UNKNOWN_LOCATION, "%s:%d: MELT ASSERT FAILED <%s> : %s\n @ %s\n",
                  melt_basename (filnam), lineno, fun, msg, ctime (&nowt));
-#else /* GCC 4.9 */
-    fatal_error ("%s:%d: MELT ASSERT FAILED <%s> : %s\n  [dbg#%ld] @ %s\n",
-                 melt_basename (filnam), lineno, fun, msg, melt_dbgcounter, ctime (&nowt));
-  else
-    fatal_error ("%s:%d: MELT ASSERT FAILED <%s> : %s\n @ %s\n",
-                 melt_basename (filnam), lineno, fun, msg, ctime (&nowt));
-#endif	// GCC 5.0
 }
 
 
@@ -12805,9 +12719,6 @@ melt_val2passflag(melt_ptr_t val_p)
       WHENFLAG(PROP_gimple_lcf);
       WHENFLAG(PROP_gimple_leh);
       WHENFLAG(PROP_cfg);
-#ifdef PROP_referenced_vars
-      WHENFLAG(PROP_referenced_vars); /* not defined in GCC 4.8 */
-#endif
       WHENFLAG(PROP_ssa);
       WHENFLAG(PROP_no_crit_edges);
       WHENFLAG(PROP_rtl);
@@ -12815,33 +12726,11 @@ melt_val2passflag(melt_ptr_t val_p)
       WHENFLAG(PROP_cfglayout);
       WHENFLAG(PROP_trees);
       /* likewise for TODO flags */
-#ifdef TODO_dump_func
-      WHENFLAG(TODO_dump_func); /* not defined in GCC 4.8 */
-#endif /*TODO_dump_func*/
-#ifdef TODO_ggc_collect
-      WHENFLAG(TODO_ggc_collect); /* not defined in GCC 4.9 */
-#endif /* TODO_ggc_collect */
-#ifdef TODO_do_not_ggc_collect /* defined in GCC 4.9 */
       WHENFLAG(TODO_do_not_ggc_collect);
-#endif /* TODO_do_not_ggc_collect */
-#ifdef TODO_verify_ssa /* not in GCC 5.0 but in GCC 4.9 */
-      WHENFLAG(TODO_verify_ssa);
-#endif
-#ifdef TODO_verify_flow
-      WHENFLAG(TODO_verify_flow);
-#endif
-#ifdef TODO_verify_stmts
-      WHENFLAG(TODO_verify_stmts);
-#endif
       WHENFLAG(TODO_cleanup_cfg);
-#ifdef TODO_dump_cgraph
-      WHENFLAG(TODO_dump_cgraph); /* not defined in GCC 4.8 */
-#endif /*TODO_dump_cgraph*/
+      WHENFLAG(TODO_dump_symtab);
       WHENFLAG(TODO_remove_functions);
       WHENFLAG(TODO_rebuild_frequencies);
-#ifdef TODO_verify_rtl_sharing /* not in GCC 5.0 but in GCC 4.9 */
-      WHENFLAG(TODO_verify_rtl_sharing);
-#endif
       WHENFLAG(TODO_update_ssa);
       WHENFLAG(TODO_update_ssa_no_phi);
       WHENFLAG(TODO_update_ssa_full_phi);
@@ -12854,6 +12743,7 @@ melt_val2passflag(melt_ptr_t val_p)
       WHENFLAG(TODO_update_address_taken);
       WHENFLAG(TODO_update_ssa_any);
       WHENFLAG(TODO_verify_all);
+      WHENFLAG(TODO_verify_il);
 #undef WHENFLAG
       goto end;
     }
@@ -13424,21 +13314,9 @@ void melt_gt_ggc_mx_gimple_seq_d(void*p)
       gt_ggc_mx_gimple_statement_base (gs);
     }
 }
-#elif GCCPLUGIN_VERSION == 4009
-void melt_gt_ggc_mx_gimple_seq_d(void*p)
-{
-  if (p)
-    gt_ggc_mx_gimple_statement_base(p);
-}
-#elif GCCPLUGIN_VERSION == 4008
-void melt_gt_ggc_mx_gimple_seq_d(void*p)
-{
-  if (p)
-    gt_ggc_mx_gimple_statement_d (p);
-}
 #else
 #error melt_gt_ggc_mx_gimple_seq_d unimplemented for this version of GCC
-#endif /* GCC 4.8 */
+#endif /* GCC 6, 5 or less */
 
 
 

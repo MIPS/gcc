@@ -1,4 +1,13 @@
 
+2016-04-27   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{remove GCC 4.x specific code}}
+	* melt-run.proto.h: Remove GCC 4.x code & includes.
+	* melt-runtime.h: Likewise, notably for melt_fatal_error...
+	* melt-runtime.cc: Likewise.
+	(melt_resize_scangcvect, melt_branch_process_arguments)
+	(melt_argument, meltgc_strbuf_reserve, melt_assert_failed)
+	(melt_val2passflag): Ditto.
+
 2016-04-26   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/libmelt-ana-base.melt: Remove GCC 4.x specific code
 	* melt/libmelt-ana-tree.melt: Ditto.

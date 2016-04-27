@@ -124,17 +124,10 @@ MELT_EXTERN std::vector<std::string> melt_done_modes_vector;
 MELT_EXTERN void melt_fatal_info (const char*filename, int lineno);
 
 
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #define melt_fatal_error(Fmt,...) do{ melt_fatal_info (__FILE__,__LINE__); \
     fatal_error (UNKNOWN_LOCATION, (Fmt),##__VA_ARGS__); }while(0)
 #define melt_fatal_error_at_line(Lin,Fmt,...) do{ melt_fatal_info (__FILE__,(Lin)); \
     fatal_error (UNKNOWN_LOCATION, (Fmt),##__VA_ARGS__); }while(0)
-#else /* GCC 4.9 */
-#define melt_fatal_error(Fmt,...) do{ melt_fatal_info (__FILE__,__LINE__); \
-    fatal_error ((Fmt),##__VA_ARGS__); }while(0)
-#define melt_fatal_error_at_line(Lin,Fmt,...) do{ melt_fatal_info (__FILE__,(Lin)); \
-    fatal_error ((Fmt),##__VA_ARGS__); }while(0)
-#endif /* GCC 5 or 4.9 */
 
 #define dbgprintf_raw(Fmt,...) do{if (dump_file) \
       {fprintf(dump_file, Fmt, ##__VA_ARGS__); fflush(dump_file);}}while(0)
@@ -147,12 +140,12 @@ MELT_EXTERN char* melt_gccversionstr;
 
 
 /* The version number of GCC, at MELT build time. So 4008 is for 4.8,
-   4009 is for 4.9.  Same as MELT_GCC_VERSION constant macro.  */
+   5000 is for 5. .  Same as MELT_GCC_VERSION constant macro.  */
 MELT_EXTERN const int melt_gcc_version;
 /* Points to the gcc_version from plugin-version.h */
 MELT_EXTERN struct plugin_gcc_version* melt_plugin_gcc_version;
 
-/* The GCCPLUGIN_VERSION at MELT build time, e.g. 4008 for GCC 4.8  */
+/* The GCCPLUGIN_VERSION at MELT build time, e.g. 6000 for GCC 6  */
 MELT_EXTERN const int melt_gccplugin_version;
 
 MELT_EXTERN int melt_count_runtime_extensions;
@@ -769,10 +762,6 @@ melt_argdescr_length (const melt_argdescr_cell_t* argdesc)
 
 /* gnu indent has some trouble with GTY hence */
 /* *INDENT-OFF* */
-
-/* Since november 2012, MELT svn rev 193746, we don't use any more the
-   vec.h GCC vectors, because they have changed significantly between
-   GCC 4.7 and GCC 4.8 to use C++ templates. */
 
 
 
@@ -3832,20 +3821,16 @@ melt_gimple_call_set_lhs (melt_gimpleptr_t gs, tree lhs)
 }
 
 
-/* With GCC 4.8, the gimple_seq are disappearing because they are the
+/* With GCC 4.8, the gimple_seq have disappeared because they are the
 same as gimple (with file "coretypes.h" having the definition `typedef
 gimple gimple_seq;`), but our generated runtime support might still
 want their old marking routine.  */
 
-#if GCCPLUGIN_VERSION >= 4008
 extern void melt_gt_ggc_mx_gimple_seq_d(void*);
 #define gt_ggc_mx_gimple_seq_d melt_gt_ggc_mx_gimple_seq_d
-#endif /* GCC 4.8 */
 
-#if GCCPLUGIN_VERSION == 4009 || GCCPLUGIN_VERSION >= 5000 /* GCC 4.9 or GCC 5.0 or above */
 /* Probably temporary */
 #define gt_ggc_mx_gimple_statement_d gt_ggc_m_21gimple_statement_base
-#endif /* GCC 4.9 or GCC 5.0 */
 
 #endif /*MELT_INCLUDED_ */
 /* eof $Id$ */
