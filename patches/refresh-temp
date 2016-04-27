@@ -1,0 +1,51 @@
+Bottom: 19f7e5dd8b5faf4e5b13cb0acf98b6ea7a1e0a23
+Top:    a5df2ae3003b1c5ae593baef6599dfc828906f31
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-04-27 00:47:49 -0300
+
+Refresh of typedecl-type.patch
+
+---
+
+diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
+index 437baa6..4b2aa88 100644
+--- a/include/gcc-cp-fe.def
++++ b/include/gcc-cp-fe.def
+@@ -295,6 +295,14 @@ GCC_METHOD0 (int /* bool */, start_new_template_decl)
+ GCC_METHOD1 (gcc_typedecl, type_decl,
+ 	     gcc_type)            /* Argument TYPE.  */
+ 
++/* Return the type associated with the named type declaration.  It is
++   the type, rather than the declaration, that has to be passed to
++   such calls as build_function_type, build_array_type,
++   build_qualified_type.  */
++
++GCC_METHOD1 (gcc_type, typedecl_type,
++	     gcc_typedecl)            /* Argument TYPEDECL.  */
++
+ /* Build a typename template-parameter (e.g., the T in template
+    <typename T = X>).  Either PACK_P should be nonzero, to indicate an
+    argument pack (the last argument in a variadic template argument
+diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
+index e21dfd5..6071f7c 100644
+--- a/libcc1/libcp1plugin.cc
++++ b/libcc1/libcp1plugin.cc
+@@ -1553,6 +1553,18 @@ plugin_type_decl (cc1_plugin::connection *,
+   return convert_out (name);
+ }
+ 
++gcc_type
++plugin_typedecl_type (cc1_plugin::connection *,
++		      gcc_typedecl typedecl_in)
++{
++  tree typedecl = convert_in (typedecl_in);
++
++  tree type = TREE_TYPE (typedecl);
++  gcc_assert (type);
++
++  return convert_out (type);
++}
++
+ gcc_typedecl
+ plugin_new_template_typename_parm (cc1_plugin::connection *self,
+ 				   const char *id,
