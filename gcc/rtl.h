@@ -437,6 +437,19 @@ public:
   rtx element () const;
 };
 
+struct GTY((chain_next ("%h.next"), for_user)) constant_descriptor_rtx {
+  struct constant_descriptor_rtx *next;
+  rtx mem;
+  rtx sym;
+  rtx constant;
+  HOST_WIDE_INT offset;
+  hashval_t hash;
+  machine_mode mode;
+  unsigned int align;
+  int labelno;
+  int mark;
+};
+
 template <>
 template <>
 inline bool

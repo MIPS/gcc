@@ -2236,12 +2236,37 @@ adjust_address_1 (rtx memref, machine_mode mode, HOST_WIDE_INT offset,
 
   if (adjust_address)
     {
+      unsigned HOST_WIDE_INT symbol_alignment, symbol_offset;
+
+      symbol_alignment = GET_MODE_ALIGNMENT (GET_MODE (memref)) / BITS_PER_UNIT;
+      symbol_offset = 0;
+
+      if (GET_CODE (addr) == LO_SUM)
+	{
+	  rtx sym = XEXP (addr, 1);
+	  if (GET_CODE (sym) == CONST
+	      && GET_CODE (XEXP (sym, 0)) == PLUS)
+	    {
+	      if (GET_CODE (XEXP (XEXP (sym, 0), 1)) == CONST_INT)
+		symbol_offset = XINT (XEXP (XEXP (sym, 0), 1), 0);
+	      sym = XEXP (XEXP (sym, 0), 0);
+	   }
+	  if (GET_CODE (sym) == SYMBOL_REF)
+	    {
+	      if (SYMBOL_REF_DECL (sym))
+		symbol_alignment = DECL_ALIGN_UNIT (SYMBOL_REF_DECL (sym));
+	      else if (SYMBOL_REF_CONSTANT (sym))
+		symbol_alignment = SYMBOL_REF_CONSTANT (sym)->align;
+	      else
+		symbol_alignment = 1;
+	    }
+	}
+
       /* If MEMREF is a LO_SUM and the offset is within the alignment of the
 	 object, we can merge it into the LO_SUM.  */
       if (GET_MODE (memref) != BLKmode && GET_CODE (addr) == LO_SUM
 	  && offset >= 0
-	  && (unsigned HOST_WIDE_INT) offset
-	      < GET_MODE_ALIGNMENT (GET_MODE (memref)) / BITS_PER_UNIT)
+	  && (offset + symbol_offset) < symbol_alignment)
 	addr = gen_rtx_LO_SUM (address_mode, XEXP (addr, 0),
 			       plus_constant (address_mode,
 					      XEXP (addr, 1), offset));
