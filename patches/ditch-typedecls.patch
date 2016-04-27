@@ -3,7 +3,8 @@ Top:    a5df2ae3003b1c5ae593baef6599dfc828906f31
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-04-27 00:47:38 -0300
 
-enable conversion of gcc_typedecl to gcc_type
+drop gcc_typedecl in favor of gcc_type all over
+
 
 ---
 
