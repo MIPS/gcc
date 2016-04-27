@@ -295,6 +295,14 @@ GCC_METHOD0 (int /* bool */, start_new_template_decl)
 GCC_METHOD1 (gcc_typedecl, type_decl,
 	     gcc_type)            /* Argument TYPE.  */
 
+/* Return the type associated with the named type declaration.  It is
+   the type, rather than the declaration, that has to be passed to
+   such calls as build_function_type, build_array_type,
+   build_qualified_type.  */
+
+GCC_METHOD1 (gcc_type, typedecl_type,
+	     gcc_typedecl)            /* Argument TYPEDECL.  */
+
 /* Build a typename template-parameter (e.g., the T in template
    <typename T = X>).  Either PACK_P should be nonzero, to indicate an
    argument pack (the last argument in a variadic template argument

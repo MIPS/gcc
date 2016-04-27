@@ -1553,6 +1553,18 @@ plugin_type_decl (cc1_plugin::connection *,
   return convert_out (name);
 }
 
+gcc_type
+plugin_typedecl_type (cc1_plugin::connection *,
+		      gcc_typedecl typedecl_in)
+{
+  tree typedecl = convert_in (typedecl_in);
+
+  tree type = TREE_TYPE (typedecl);
+  gcc_assert (type);
+
+  return convert_out (type);
+}
+
 gcc_typedecl
 plugin_new_template_typename_parm (cc1_plugin::connection *self,
 				   const char *id,
