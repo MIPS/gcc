@@ -3487,6 +3487,12 @@ finish_id_expression (tree id_expression,
       if (!scope && decl != error_mark_node && identifier_p (id_expression))
 	maybe_note_name_used_in_class (id_expression, decl);
 
+      /* A use in unevaluated operand might not be instantiated appropriately
+	 if tsubst_copy builds a dummy parm, or if we never instantiate a
+	 generic lambda, so mark it now.  */
+      if (processing_template_decl && cp_unevaluated_operand)
+	mark_type_use (decl);
+
       /* Disallow uses of local variables from containing functions, except
 	 within lambda-expressions.  */
       if (outer_automatic_var_p (decl))
@@ -8740,7 +8746,7 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
   /* Depending on the resolution of DR 1172, we may later need to distinguish
      instantiation-dependent but not type-dependent expressions so that, say,
      A<decltype(sizeof(T))>::U doesn't require 'typename'.  */
-  if (instantiation_dependent_expression_p (expr))
+  if (instantiation_dependent_uneval_expression_p (expr))
     {
       type = cxx_make_type (DECLTYPE_TYPE);
       DECLTYPE_TYPE_EXPR (type) = expr;

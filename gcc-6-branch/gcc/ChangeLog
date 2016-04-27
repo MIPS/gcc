@@ -1,3 +1,594 @@
+2016-04-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backported from mainline
+	2016-04-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/70750
+	* config/i386/predicates.md (call_insn_operand): Replace
+	sibcall_memory_operand with memory_operand.
+
+2016-04-27  Richard Biener  <rguenther@suse.de>
+
+	PR ipa/70785
+	* tree-ssa-structalias.c (refered_from_nonlocal_fn): New
+	function cummulating used_from_other_partition, externally_visible
+	and force_output from aliases.
+	(refered_from_nonlocal_var): Likewise.
+	(ipa_pta_execute): Use call_for_symbol_and_aliases to cummulate
+	node flags properly.
+
+2016-04-27  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2016-04-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/70712
+	* cfgexpand.c (expand_stack_vars): Fix typo.
+
+	2016-04-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/70680
+	* gimplify.c (gimplify_omp_for): Call omp_notice_variable for
+	implicitly linear or lastprivate iterator on the outer context.
+
+2016-04-27  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	PR target/70728
+	* gcc/config/i386/sse.md (define_insn "<shift_insn><mode>3<mask_name>"):
+	Extract AVX-512BW constraint from AVX.
+
+2016-04-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* BASE-VER: Set to 6.1.1.
+
+2016-04-27  Release Manager
+
+	* GCC 6.1.0 released.
+
+2016-04-25  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70780
+	* tree-ssa-pre.c (compute_antic_aux): Also return true if the block
+	wasn't visited yet.
+	(compute_antic): Mark blocks with abnormal preds as visited as
+	they have a final empty antic-in solution already.
+
+2016-04-22  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2016-04-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* doc/invoke.texi: Replace -skip-rax-setup with -mskip-rax-setup.
+
+2016-04-22  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	* system.h (list, map, set, vector): Include conditionally.
+	* auto-profile.c (INCLUDE_MAP, INCLUDE_SET): Define.
+	* graphite-isl-ast-to-gimple.c (INCLUDE_MAP): Define.
+	* ipa-icf.c (INCLUDE_LIST): Define.
+	* config/aarch64/cortex-a57-fma-steering.c (INCLUDE_LIST): Define.
+	* config/sh/sh.c (INCLUDE_VECTOR): Define.
+	* config/sh/sh_treg_combine.cc (INCLUDE_ALGORITHM): Define.
+	(INCLUDE_LIST, INCLUDE_VECTOR): Define.
+	* cp/logic.cc (INCLUDE_LIST): Define.
+	* fortran/trans-common.c (INCLUDE_MAP): Define.
+
+2016-04-22  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	* auto-profile.c: Remove <string.h> include.
+	* ipa-icf-gimple.c: Remove <list> include.
+	* diagnostic.c: Remove <new> include.
+	* genmatch.c: Likewise.
+	* pretty-print.c: Likewise.
+	* toplev.c: Likewise
+	* c/c-objc-common.c: Likewise.
+	* cp/error.c: Likewise.
+	* fortran/error.c: Likewise.
+
+2016-04-21  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70747
+	* fold-const.c (fold_comparison): Return properly typed
+	constant boolean.
+
+2016-04-20  Andrew Pinski  <apinski@cavium.com>
+            Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/64971
+	* config/aarch64/aarch64.md (sibcall): Force call
+	address to be DImode for ILP32.
+	(sibcall_value): Likewise.
+
+2016-04-20  Marek Polacek  <polacek@redhat.com>
+
+	* tree-if-conv.c (is_false_predicate): For NULL_TREE return false
+	rather than true.
+
+2016-04-20  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/70725
+	* tree-if-conv.c (is_false_predicate): New function.
+	(predicate_mem_writes): Use it.
+
+2016-04-20  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70726
+	* tree-vect-stmts.c (vectorizable_shift): Do not use scalar
+	shift amounts from a pattern stmt operand.
+
+2016-04-20  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	PR target/70674
+	* config/s390/s390.c (s390_restore_gprs_from_fprs): Pick the new
+	stack_restore_from_fpr pattern when restoring r15.
+	(s390_optimize_prologue): Strip away the memory barrier in the
+	parallel when trying to get rid of restore insns.
+	* config/s390/s390.md ("stack_restore_from_fpr"): New insn
+	definition for loading the stack pointer from an FPR.  Compared to
+	the normal move insn this pattern includes a full memory barrier.
+
+2016-04-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70724
+	* tree-ssa-sccvn.c (scc_vn_restore_ssa_info): Split SSA info
+	restoring out from ...
+	(free_scc_vn): ... here.
+	* tree-ssa-sccvn.h (scc_vn_restore_ssa_info): Declare.
+	* tres-ssa-pre.c (pass_pre::execute): Restore SSA info before
+	tail merging.
+	(pass_fre::execute): Restore SSA info.
+
+2016-04-18  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* doc/install.texi (Specific, i?86-*-solaris2.10): Update gas and
+	gld requirements.
+	(Specific, *-*-solaris2*): Update Solaris 11 bundled gcc
+	versions.
+	Mention Solaris 11 packaging changes.
+	Update gas and gld requirements.
+	Remove reference to pre-Solaris 10 bug.
+	(Specific, sparc-sun-solaris2*): Remove reference to pre-Solaris 10
+	systems and bugs.
+	(Specific, sparc64-*-solaris2*): Remove reference to bootstrap
+	with cc.
+
+2016-04-18  Matthew Wahab  <matthew.wahab@arm.com>
+
+	PR target/70711
+	* config/arm/bpabi.h (BE8_LINK_SPEC): Add entries for armv8+crc,
+	armv8.1-a and armv8.1-a+crc.
+
+2016-04-18  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* has-brig.c (lendian16): Don't try to use __builtin_bswap16
+	unless compiling with at least GCC-4.8.
+
+2016-04-15  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	PR target/70662
+	* config/i386/sse.md (define_insn "<avx512>_vec_dup<mode><mask_name>"):
+	Fix mode size check.
+
+2016-04-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* BASE-VER: Set to 6.0.1.
+	* DEV-PHASE: Set to prerelease.
+
+2016-04-15  Alexander Monakov  <amonakov@ispras.ru>
+
+	* config/nvptx/nvptx.opt (moptimize): Add a period at end of help text.
+
+2016-04-15  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* doc/invoke.texi (ARM Options): Add note on deprecation of pre-ARMv4T
+	architecture revisions.
+
+2016-04-15  Bernd Schmidt  <bschmidt@redhat.com>
+
+	* config/i386/i386-protos.h (ix86_using_red_zone): Declare.
+	* config/i386/i386.c (ix86_using_red_zone): No longer static.
+	* config/i386/i386.md (stack decrement to push peepholes): Guard
+	with !x86_using_red_zone ().
+
+2016-04-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/70675
+	* tree-pretty-print.c (do_niy): Add FLAGS argument, pass it down
+	to dump_generic_node.
+	(NIY): Pass also flags to do_niy.
+
+2016-04-15  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* omp-low.c (simd_clone_struct_alloc, simd_clone_struct_copy)
+	(simd_clone_vector_of_formal_parm_types)
+	(simd_clone_clauses_extract, simd_clone_compute_base_data_type)
+	(simd_clone_mangle, simd_clone_create)
+	(simd_clone_adjust_return_type, create_tmp_simd_array)
+	(simd_clone_adjust_argument_types, simd_clone_init_simd_arrays)
+	(struct modify_stmt_info, ipa_simd_modify_stmt_ops)
+	(ipa_simd_modify_function_body, simd_clone_linear_addend)
+	(simd_clone_adjust, expand_simd_clones, ipa_omp_simd_clone)
+	(pass_data_omp_simd_clone, class pass_omp_simd_clone)
+	(pass_omp_simd_clone::gate, make_pass_omp_simd_clone): Move
+	into...
+	* omp-simd-clone.c: ... this new file.
+	(simd_clone_vector_of_formal_parm_types): Make it static.
+	* Makefile.in (OBJS): Add omp-simd-clone.o.
+
+2016-04-15  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	PR target/70662
+	* config/i386/sse.md: Use proper memory operand
+	modifiers.
+
+
+2016-04-15  Richard Biener  <rguenther@suse.de>
+	Alan Modra  <amodra@gmail.com>
+
+	PR tree-optimization/70130
+	* tree-vect-data-refs.c (vect_supportable_dr_alignment): Detect
+	when alignment stays not the same and no not use the realign
+	scheme then.
+
+2016-04-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/70669
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Add
+	direct move handlers for KFmode. Change TFmode handlers test from
+	FLOAT128_IEEE_P to FLOAT128_VECTOR_P.
+
+2016-04-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/70594
+	* ipa-utils.h (polymorphic_ctor_dtor_p): New prototype.
+	* ipa-polymorphic-call.c (polymorphic_ctor_dtor_p): New function.
+	(inlined_polymorphic_ctor_dtor_block_p): Use it.
+	* tree-ssa-live.c (remove_unused_scope_block_p): When
+	in_ctor_dtor_block, avoid discarding not just BLOCKs with
+	BLOCK_ABSTRACT_ORIGIN being FUNCTION_DECL, but even when
+	block_ultimate_origin is FUNCTION_DECL.
+	(remove_unused_locals): If current_function_decl is
+	polymorphic_ctor_dtor_p, pass initial true to
+	remove_unused_scope_block_p' is_ctor_dtor_block.
+
+2016-04-14  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/69517
+	PR c++/70019
+	PR c++/70588
+	* doc/extend.texi (Variable Length): Revert.
+
+2016-04-14  Marek Polacek  <polacek@redhat.com>
+	    Jan Hubicka  <hubicka@ucw.cz>
+
+	PR c++/70029
+	* tree.c (verify_type): Disable the canonical type of main variant
+	check.
+
+2016-04-14  Jason Merrill  <jason@redhat.com>
+
+	* cfgexpand.c, expr.c: Revert previous change.
+
+2016-04-14  Cesar Philippidis  <cesar@codesourcery.com>
+
+	PR middle-end/70643
+	* omp-low.c (lower_oacc_reductions): Check for TREE_CONSTANT
+	when building a mem ref for the incoming reduction variable.
+
+2016-04-14  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70614
+	* tree-scalar-evolution.c (analyze_evolution_in_loop): Terminate
+	loop if the evolution dropped to chrec_dont_know.
+	(interpret_condition_phi): Likewise.
+
+2016-04-14  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70623
+	* tree-ssa-pre.c (changed_blocks): Make global ...
+	(compute_antic): ... local here.  Move and fix worklist
+	handling here.  Do not clear EDGE_DFS_BACK or call mark_dfs_back_edges.
+	(compute_antic_aux): Add dumping for MAX assumed succs.  Remove
+	worklist handling, dump when ANTIC_IN changed.
+	(compute_partial_antic_aux): Remove worklist handling.
+	(init_pre): Do not compute post dominators.  Add a comment about
+	the CFG order chosen.
+	(fini_pre): Do not free post dominators.
+
+2016-04-13  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/69517
+	PR c++/70019
+	PR c++/70588
+	* doc/extend.texi (Variable Length): Document C++ specifics.
+
+2016-04-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/70641
+	* ipa-pure-const.c (pass_nothrow::execute): Call maybe_clean_eh_stmt
+	on all recursive call stmts.  Return TODO_cleanup_cfg if any dead
+	eh edges have been purged.
+
+	PR c++/70594
+	* tree-sra.c (create_access_replacement,
+	get_replaced_param_substitute): Set DECL_NAMELESS on repl if it
+	gets fancy name.
+	* tree-pretty-print.c (dump_fancy_name): New function.
+	(dump_decl_name, dump_generic_node): Use it.
+
+2016-04-13  Jason Merrill  <jason@redhat.com>
+
+	* cfgexpand.c (pass_expand::execute): Handle attribute "abi warning".
+	* expr.c (expand_expr_real_1): Likewise.
+
+2016-04-13  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* config/i386/i386.md (kunpckhi): Swap operands.
+	(kunpcksi): Likewise.
+	(kunpckdi): Likewise.
+	* config/i386/sse.md (vec_pack_trunc_qi): Likewise.
+	(vec_pack_trunc_<mode>): Likewise.
+
+2016-04-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/70628
+	* explow.c (convert_memory_address_addr_space_1): Formatting fix.
+
+	PR middle-end/70633
+	* gimplify.c (gimplify_init_constructor): Clear TREE_STATIC if
+	gimplification turns some element into non-constant.
+
+	PR debug/70628
+	* rtl.h (convert_memory_address_addr_space_1): New prototype.
+	* explow.c (convert_memory_address_addr_space_1): No longer static,
+	add NO_EMIT argument and don't call convert_modes if true, pass
+	it down recursively, remove break after return.
+	(convert_memory_address_addr_space): Adjust caller.
+	* simplify-rtx.c (simplify_unary_operation_1): Call
+	convert_memory_address_addr_space_1 instead of convert_memory_address,
+	if it returns NULL, don't simplify.
+
+2016-04-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/70630
+	* config/sparc/sparc.c (sparc_compute_frame_size): Add parentheses.
+
+2016-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (ix86_simd_clone_compute_vecsize_and_simdlen):
+	Bump the upper SIMDLEN limits, so that if the return type or
+	characteristic type if the return type is void can be passed in
+	all available SSE2/AVX/AVX2/AVX512-F registers, the SIMDLEN is
+	allowed.
+
+2016-04-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/70640
+	* config/rs6000/rs6000.md (ieee_128bit_vsx_neg<mode>2_internal):
+	Do not use "=" constraint on an input constraint.
+	(ieee_128bit_vsx_abs<mode>2_internal): Likewise.
+	(ieee_128bit_vsx_nabs<mode>2_internal): Likewise.
+	(ieee_128bit_vsx_nabs<mode>2): Correct splitter so that it
+	generates (neg (abs ...)) instead of (abs ...).
+
+2016-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/70596
+	* lra-spills.c (spill_pseudos): Don't delete debug insns, instead
+	just invalidate LRA data and reset them.  Adjust dump wording.
+
+2016-04-12  Martin Liska  <mliska@suse.cz>
+
+	Revert
+	2016-03-30  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-ssa-loop-niter.c (idx_infer_loop_bounds): We can't get realistic
+	estimates here.
+	* tree-ssa-loop-unswitch.c (tree_unswitch_single_loop): Use also
+	max_loop_iterations_int.
+	(tree_unswitch_outer_loop): Likewise.
+	* tree-ssa-loop-ivopts.c (avg_loop_niter): Likewise.
+	* tree-vect-loop.c (vect_analyze_loop_2): Likewise.
+
+2016-04-12  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/68756
+	* graphite-isl-ast-to-gimple.c (copy_cond_phi_args): Use new_expr
+	instead of new_name.
+
+2016-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/70602
+	* tree-sra.c (generate_subtree_copies): Don't write anything into
+	constant pool decls.
+
+	* omp-low.c (lower_omp_target): Use GOMP_MAP_FIRSTPRIVATE_INT
+	regardless whether there are depend clauses or not.
+
+2016-04-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/70381
+	* config/rs6000/rs6000.c (rs6000_opt_masks): Disable using the
+	target attribute and pragma from changing the -mfloat128
+	and -mfloat128-hardware options.
+
+	* doc/extend.texi (Additional Floating Types): Document PowerPC
+	__float128 restrictions.
+
+2016-04-11  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	PR target/70133
+	* config/aarch64/driver-aarch64.c
+	(aarch64_get_extension_string_for_isa_flags): New.
+	(arch_extension): Rename to...
+	(aarch64_arch_extension): ...This.
+	(ext_to_feat_string): Rename to...
+	(aarch64_extensions): ...This.
+	(aarch64_core_data): Keep track of architecture extension flags.
+	(cpu_data): Rename to...
+	(aarch64_cpu_data): ...This.
+	(aarch64_arch_driver_info): Keep track of architecture extension
+	flags.
+	(get_arch_name_from_id): Rename to...
+	(get_arch_from_id): ...This, change return type.
+	(host_detect_local_cpu): Update and reformat for renames, handle
+	extensions through common infrastructure.
+
+2016-04-11  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	PR target/70133
+	* config/aarch64/aarch64-common.c (aarch64_option_extension): Keep
+	track of a canonical flag name.
+	(all_extensions): Likewise.
+	(arch_to_arch_name): Also track extension flags enabled by the arch.
+	(all_architectures): Likewise.
+	(aarch64_parse_extension): Move to here.
+	(aarch64_get_extension_string_for_isa_flags): Take a new argument,
+	rework.
+	(aarch64_rewrite_selected_cpu): Update for above change.
+	* config/aarch64/aarch64-option-extensions.def: Rework the way flags
+	are handled, such that the single explicit value enabled by an
+	extension is kept seperate from the implicit values it also enables.
+	* config/aarch64/aarch64-protos.h (aarch64_parse_opt_result): Move
+	to here.
+	(aarch64_parse_extension): New.
+	* config/aarch64/aarch64.c (aarch64_parse_opt_result): Move from
+	here to config/aarch64/aarch64-protos.h.
+	(aarch64_parse_extension): Move from here to
+	common/config/aarch64/aarch64-common.c.
+	(aarch64_option_print): Update.
+	(aarch64_declare_function_name): Likewise.
+	(aarch64_start_file): Likewise.
+	* config/aarch64/driver-aarch64.c (arch_extension): Keep track of
+	the canonical flag for extensions.
+	* config.gcc (aarch64*-*-*): Extend regex for capturing extension
+	flags.
+
+2016-04-11  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64.h (AARCH64_FL_FOR_ARCH8_1): Also add
+	AARCH64_FL_CRC.
+
+2016-04-09  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/68953
+	* graphite-sese-to-poly.c (pdr_add_memory_accesses): Order accesses from
+	first to last subscript.
+
+2016-04-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/70586
+	* tree-ssa-ifcombine.c (bb_no_side_effects_p): Return false
+	for any calls.
+
+2016-04-08  Cesar Philippidis  <cesar@codesourcery.com>
+
+	PR lto/70289
+	PR ipa/70348
+	PR tree-optimization/70373
+	PR middle-end/70533
+	PR middle-end/70534
+	PR middle-end/70535
+	* gimplify.c (gimplify_adjust_omp_clauses): Add or adjust data
+	clauses for acc parallel reductions as necessary.  Error on those
+	that are private.
+	* omp-low.c (scan_sharing_clauses): Don't install variables which
+	are used in acc parallel reductions.
+	(lower_rec_input_clauses): Remove dead code.
+	(lower_oacc_reductions): Add support for reference reductions.
+	(lower_reduction_clauses): Remove dead code.
+	(lower_omp_target): Don't remap variables appearing in acc parallel
+	reductions.
+	* tree.h (OMP_CLAUSE_MAP_IN_REDUCTION): New macro.
+
+2016-04-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/70593
+	* tree-ssa-coalesce.c (build_ssa_conflict_graph): For stmt
+	with multiple SSA_NAME defs, force the outputs other than first
+	to be live before calling live_track_process_def on each output.
+
+	PR rtl-optimization/70574
+	* fwprop.c (forward_propagate_and_simplify): Don't add
+	REG_EQUAL note if DF_REF_REG (use) is a paradoxical subreg.
+	(try_fwprop_subst): Don't add REG_EQUAL note if there are any
+	paradoxical subregs within *loc.
+
+2016-04-08  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* config/arc/arc.h (LINK_COMMAND_SPEC): Use gt to ignore
+	-ftree-parallelize-loops={0,1}.
+	* config/darwin.h (LINK_COMMAND_SPEC_A): Likewise.
+	* config/i386/mingw32.h (GOMP_SELF_SPECS): Likewise.
+	* config/ia64/hpux.h (LIB_SPEC): Likewise.
+	* config/pa/pa-hpux11.h (LIB_SPEC): Likewise.
+	* config/pa/pa64-hpux.h (LIB_SPEC): Likewise.
+
+2016-04-08  Maxim Ostapenko  <m.ostapenko@samsung.com>
+
+	PR sanitizer/70541
+	* asan.c (instrument_derefs): If we get unknown location, extract it
+	with EXPR_LOCATION.
+	(maybe_instrument_call): Instrument gimple_call's arguments if needed.
+
+2016-04-08  Tom de Vries  <tom@codesourcery.com>
+
+	* omp-low.c (lower_omp_target): Set TREE_NO_WARNING for oacc
+	implicit firstprivate clause.
+
+2016-04-08  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/70566
+	* config/arm/thumb2.md (tst + branch-> lsls + branch
+	peephole below *orsi_not_shiftsi_si): Require that condition
+	register is dead after the peephole.
+	(second peephole after the above): Likewise.
+
+2016-04-08  Alan Modra  <amodra@gmail.com>
+
+	PR target/70117
+	* builtins.c (fold_builtin_classify): For IBM extended precision,
+	look at just the high-order double to test for NaN.
+	(fold_builtin_interclass_mathfn): Similarly for Inf.  For isnormal
+	test just the high double for Inf but both doubles for subnormal
+	limit.
+
+2016-04-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* cgraph.h (struct cgraph_simd_clone): Add mask_mode field.
+	* omp-low.c (simd_clone_init_simd_arrays, simd_clone_adjust): Handle
+	node->simdclone->mask_mode != VOIDmode masks.
+	(simd_clone_adjust_argument_types): Likewise.  Move sc var definition
+	earlier, use it instead of node->simdclone.
+	* config/i386/i386.c (ix86_simd_clone_compute_vecsize_and_simdlen):
+	Set clonei->mask_mode.
+
+2016-04-06  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c/70436
+	* parser.c (cp_parser_iteration_statement): New parameter IF_P.
+	Pass it through to cp_parser_already_scoped_statement.
+	(cp_parser_already_scoped_statement): New parameter IF_P.  Pass
+	it through to cp_parser_statement.
+	(cp_parser_statement): Pass IF_P through to
+	cp_parser_iteration_statement.
+	(cp_parser_pragma): Adjust call to
+	cp_parser_iteration_statement.
+
+2016-04-06  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c/70436
+	* gimplify.c (gimplify_omp_ordered): Add explicit braces to
+	resolve a future -Wparentheses warning.
+	* omp-low.c (scan_sharing_clauses): Likewise.
+	* tree-parloops.c (eliminate_local_variables): Likewise.
+
+2016-04-06  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/70398
+	* lra-constraints.c (process_address_1): Check zero scale and code
+	for reloading with zero scale.
+
 2016-04-06  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/i386/sse.md (shuffletype): Add V32HI and V4TI modes.

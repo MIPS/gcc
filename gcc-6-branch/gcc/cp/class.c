@@ -214,6 +214,7 @@ static bool base_derived_from (tree, tree);
 static int empty_base_at_nonzero_offset_p (tree, tree, splay_tree);
 static tree end_of_base (tree);
 static tree get_vcall_index (tree, tree);
+static bool type_maybe_constexpr_default_constructor (tree);
 
 /* Variables shared between class.c and call.c.  */
 
@@ -1604,6 +1605,15 @@ check_abi_tags (tree t, tree subob)
 void
 check_abi_tags (tree decl)
 {
+  tree t;
+  if (abi_version_at_least (10)
+      && DECL_LANG_SPECIFIC (decl)
+      && DECL_USE_TEMPLATE (decl)
+      && (t = DECL_TEMPLATE_RESULT (DECL_TI_TEMPLATE (decl)),
+	  t != decl))
+    /* Make sure that our template has the appropriate tags, since
+       write_unqualified_name looks for them there.  */
+    check_abi_tags (t);
   if (VAR_P (decl))
     check_abi_tags (decl, TREE_TYPE (decl));
   else if (TREE_CODE (decl) == FUNCTION_DECL
@@ -3337,8 +3347,11 @@ add_implicitly_declared_members (tree t, tree* access_decls,
       CLASSTYPE_LAZY_DEFAULT_CTOR (t) = 1;
       if (cxx_dialect >= cxx11)
 	TYPE_HAS_CONSTEXPR_CTOR (t)
-	  /* This might force the declaration.  */
-	  = type_has_constexpr_default_constructor (t);
+	  /* Don't force the declaration to get a hard answer; if the
+	     definition would have made the class non-literal, it will still be
+	     non-literal because of the base or member in question, and that
+	     gives a better diagnostic.  */
+	  = type_maybe_constexpr_default_constructor (t);
     }
 
   /* [class.ctor]
@@ -5345,6 +5358,21 @@ type_has_constexpr_default_constructor (tree t)
     }
   fns = locate_ctor (t);
   return (fns && DECL_DECLARED_CONSTEXPR_P (fns));
+}
+
+/* Returns true iff class T has a constexpr default constructor or has an
+   implicitly declared default constructor that we can't tell if it's constexpr
+   without forcing a lazy declaration (which might cause undesired
+   instantiations).  */
+
+bool
+type_maybe_constexpr_default_constructor (tree t)
+{
+  if (CLASS_TYPE_P (t) && CLASSTYPE_LAZY_DEFAULT_CTOR (t)
+      && TYPE_HAS_COMPLEX_DFLT (t))
+    /* Assume it's constexpr.  */
+    return true;
+  return type_has_constexpr_default_constructor (t);
 }
 
 /* Returns true iff class TYPE has a virtual destructor.  */
@@ -8397,12 +8425,15 @@ is_really_empty_class (tree type)
       for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
 	if (TREE_CODE (field) == FIELD_DECL
 	    && !DECL_ARTIFICIAL (field)
+	    /* An unnamed bit-field is not a data member.  */
+	    && (DECL_NAME (field) || !DECL_C_BIT_FIELD (field))
 	    && !is_really_empty_class (TREE_TYPE (field)))
 	  return false;
       return true;
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
-    return is_really_empty_class (TREE_TYPE (type));
+    return (integer_zerop (array_type_nelts_top (type))
+	    || is_really_empty_class (TREE_TYPE (type)));
   return false;
 }
 

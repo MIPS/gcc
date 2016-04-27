@@ -3709,7 +3709,7 @@ make_pass_stv (gcc::context *ctxt)
 
 /* Return true if a red-zone is in use.  */
 
-static inline bool
+bool
 ix86_using_red_zone (void)
 {
   return TARGET_RED_ZONE && !TARGET_64BIT_MS_ABI;
@@ -53747,7 +53747,7 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
   return val;
 }
 
-/* Set CLONEI->vecsize_mangle, CLONEI->vecsize_int,
+/* Set CLONEI->vecsize_mangle, CLONEI->mask_mode, CLONEI->vecsize_int,
    CLONEI->vecsize_float and if CLONEI->simdlen is 0, also
    CLONEI->simdlen.  Return 0 if SIMD clones shouldn't be emitted,
    or number of vecsize_mangle variants that should be emitted.  */
@@ -53761,7 +53761,7 @@ ix86_simd_clone_compute_vecsize_and_simdlen (struct cgraph_node *node,
 
   if (clonei->simdlen
       && (clonei->simdlen < 2
-	  || clonei->simdlen > 128
+	  || clonei->simdlen > 1024
 	  || (clonei->simdlen & (clonei->simdlen - 1)) != 0))
     {
       warning_at (DECL_SOURCE_LOCATION (node->decl), 0,
@@ -53834,6 +53834,7 @@ ix86_simd_clone_compute_vecsize_and_simdlen (struct cgraph_node *node,
       clonei->vecsize_mangle = "bcde"[num];
       ret = 4;
     }
+  clonei->mask_mode = VOIDmode;
   switch (clonei->vecsize_mangle)
     {
     case 'b':
@@ -53851,6 +53852,10 @@ ix86_simd_clone_compute_vecsize_and_simdlen (struct cgraph_node *node,
     case 'e':
       clonei->vecsize_int = 512;
       clonei->vecsize_float = 512;
+      if (TYPE_MODE (base_type) == QImode)
+	clonei->mask_mode = DImode;
+      else
+	clonei->mask_mode = SImode;
       break;
     }
   if (clonei->simdlen == 0)
@@ -53862,21 +53867,28 @@ ix86_simd_clone_compute_vecsize_and_simdlen (struct cgraph_node *node,
       clonei->simdlen /= GET_MODE_BITSIZE (TYPE_MODE (base_type));
     }
   else if (clonei->simdlen > 16)
-    switch (clonei->vecsize_int)
-      {
-      case 512:
-	/* For AVX512-F, support VLEN up to 128.  */
-	break;
-      case 256:
-	/* For AVX2, support VLEN up to 32.  */
-	if (clonei->simdlen <= 32)
-	  break;
-	/* FALLTHRU */
-      default:
-	/* Otherwise, support VLEN up to 16.  */
-	warning_at (DECL_SOURCE_LOCATION (node->decl), 0,
-		    "unsupported simdlen %d", clonei->simdlen);
-	return 0;
+    {
+      /* For compatibility with ICC, use the same upper bounds
+	 for simdlen.  In particular, for CTYPE below, use the return type,
+	 unless the function returns void, in that case use the characteristic
+	 type.  If it is possible for given SIMDLEN to pass CTYPE value
+	 in registers (8 [XYZ]MM* regs for 32-bit code, 16 [XYZ]MM* regs
+	 for 64-bit code), accept that SIMDLEN, otherwise warn and don't
+	 emit corresponding clone.  */
+      tree ctype = ret_type;
+      if (TREE_CODE (ret_type) == VOID_TYPE)
+	ctype = base_type;
+      int cnt = GET_MODE_BITSIZE (TYPE_MODE (ctype)) * clonei->simdlen;
+      if (SCALAR_INT_MODE_P (TYPE_MODE (ctype)))
+	cnt /= clonei->vecsize_int;
+      else
+	cnt /= clonei->vecsize_float;
+      if (cnt > (TARGET_64BIT ? 16 : 8))
+	{
+	  warning_at (DECL_SOURCE_LOCATION (node->decl), 0,
+		      "unsupported simdlen %d", clonei->simdlen);
+	  return 0;
+	}
       }
   return ret;
 }

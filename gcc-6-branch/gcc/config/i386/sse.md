@@ -10566,22 +10566,23 @@
    (set_attr "mode" "<sseinsnmode>")])
 
 (define_insn "<shift_insn><mode>3<mask_name>"
-  [(set (match_operand:VI48_AVX2 0 "register_operand" "=x,v")
+  [(set (match_operand:VI48_AVX2 0 "register_operand" "=x,x,v")
 	(any_lshift:VI48_AVX2
-	  (match_operand:VI48_AVX2 1 "register_operand" "0,v")
-	  (match_operand:SI 2 "nonmemory_operand" "xN,vN")))]
+	  (match_operand:VI48_AVX2 1 "register_operand" "0,x,v")
+	  (match_operand:SI 2 "nonmemory_operand" "xN,xN,vN")))]
   "TARGET_SSE2 && <mask_mode512bit_condition>"
   "@
    p<vshift><ssemodesuffix>\t{%2, %0|%0, %2}
-   vp<vshift><ssemodesuffix>\t{%2, %1, %0<mask_operand3>|%0<mask_operand3>, %1, %2}"
-  [(set_attr "isa" "noavx,avx")
+   vp<vshift><ssemodesuffix>\t{%2, %1, %0<mask_operand3>|%0<mask_operand3>, %1, %2}
+   vp<vshift><ssemodesuffix>\t{%2, %1, %0<mask_operand3>|%0<mask_operand3>, %1, %2}"  
+  [(set_attr "isa" "noavx,avx,avx512bw")
    (set_attr "type" "sseishft")
    (set (attr "length_immediate")
      (if_then_else (match_operand 2 "const_int_operand")
        (const_string "1")
        (const_string "0")))
-   (set_attr "prefix_data16" "1,*")
-   (set_attr "prefix" "orig,vex")
+   (set_attr "prefix_data16" "1,*,*")
+   (set_attr "prefix" "orig,vex,evex")
    (set_attr "mode" "<sseinsnmode>")])
 
 (define_insn "<shift_insn><mode>3<mask_name>"
@@ -11747,16 +11748,16 @@
 
 (define_expand "vec_pack_trunc_qi"
   [(set (match_operand:HI 0 ("register_operand"))
-        (ior:HI (ashift:HI (zero_extend:HI (match_operand:QI 1 ("register_operand")))
+        (ior:HI (ashift:HI (zero_extend:HI (match_operand:QI 2 ("register_operand")))
                            (const_int 8))
-                (zero_extend:HI (match_operand:QI 2 ("register_operand")))))]
+                (zero_extend:HI (match_operand:QI 1 ("register_operand")))))]
   "TARGET_AVX512F")
 
 (define_expand "vec_pack_trunc_<mode>"
   [(set (match_operand:<DOUBLEMASKMODE> 0 ("register_operand"))
-        (ior:<DOUBLEMASKMODE> (ashift:<DOUBLEMASKMODE> (zero_extend:<DOUBLEMASKMODE> (match_operand:SWI24 1 ("register_operand")))
+        (ior:<DOUBLEMASKMODE> (ashift:<DOUBLEMASKMODE> (zero_extend:<DOUBLEMASKMODE> (match_operand:SWI24 2 ("register_operand")))
                            (match_dup 3))
-                (zero_extend:<DOUBLEMASKMODE> (match_operand:SWI24 2 ("register_operand")))))]
+                (zero_extend:<DOUBLEMASKMODE> (match_operand:SWI24 1 ("register_operand")))))]
   "TARGET_AVX512BW"
 {
   operands[3] = GEN_INT (GET_MODE_BITSIZE (<MODE>mode));
@@ -17262,9 +17263,12 @@
   /*  There is no DF broadcast (in AVX-512*) to 128b register.
       Mimic it with integer variant.  */
   if (<MODE>mode == V2DFmode)
-    return "vpbroadcastq\t{%1, %0<mask_operand2>|%0<mask_operand2>, %1}";
+    return "vpbroadcastq\t{%1, %0<mask_operand2>|%0<mask_operand2>, %q1}";
+
+  if (GET_MODE_SIZE (GET_MODE_INNER (<MODE>mode)) == 4)
+    return "v<sseintprefix>broadcast<bcstscalarsuff>\t{%1, %0<mask_operand2>|%0<mask_operand2>, %k1}";
   else
-    return "v<sseintprefix>broadcast<bcstscalarsuff>\t{%1, %0<mask_operand2>|%0<mask_operand2>, %1}";
+    return "v<sseintprefix>broadcast<bcstscalarsuff>\t{%1, %0<mask_operand2>|%0<mask_operand2>, %q1}";
 }
   [(set_attr "type" "ssemov")
    (set_attr "prefix" "evex")
