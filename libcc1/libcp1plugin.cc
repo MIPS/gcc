@@ -1541,7 +1541,7 @@ plugin_start_new_template_decl (cc1_plugin::connection *self ATTRIBUTE_UNUSED)
   return 1;
 }
 
-gcc_typedecl
+gcc_decl
 plugin_type_decl (cc1_plugin::connection *,
 		  gcc_type type_in)
 {
@@ -1553,11 +1553,23 @@ plugin_type_decl (cc1_plugin::connection *,
   return convert_out (name);
 }
 
-gcc_typedecl
+gcc_type
+plugin_decl_type (cc1_plugin::connection *,
+		  gcc_decl decl_in)
+{
+  tree decl = convert_in (decl_in);
+
+  tree type = TREE_TYPE (decl);
+  gcc_assert (type);
+
+  return convert_out (type);
+}
+
+gcc_type
 plugin_new_template_typename_parm (cc1_plugin::connection *self,
 				   const char *id,
 				   int /* bool */ pack_p,
-				   gcc_typedecl default_type,
+				   gcc_type default_type,
 				   const char *filename,
 				   unsigned int line_number)
 {
@@ -1681,9 +1693,9 @@ targlist (const gcc_cp_template_args *targs)
   return vec;
 }
 
-gcc_typedecl
+gcc_type
 plugin_new_dependent_typename (cc1_plugin::connection *self,
-			       gcc_typedecl enclosing_type,
+			       gcc_type enclosing_type,
 			       const char *id,
 			       const gcc_cp_template_args *targs)
 {
@@ -1700,7 +1712,7 @@ plugin_new_dependent_typename (cc1_plugin::connection *self,
 
 gcc_utempl
 plugin_new_dependent_class_template (cc1_plugin::connection *self,
-				     gcc_typedecl enclosing_type,
+				     gcc_type enclosing_type,
 				     const char *id)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
@@ -1711,7 +1723,7 @@ plugin_new_dependent_class_template (cc1_plugin::connection *self,
   return convert_out (ctx->preserve (res));
 }
 
-gcc_typedecl
+gcc_type
 plugin_new_dependent_typespec (cc1_plugin::connection *self,
 			       gcc_utempl template_decl,
 			       const gcc_cp_template_args *targs)
@@ -1720,12 +1732,12 @@ plugin_new_dependent_typespec (cc1_plugin::connection *self,
   tree type = convert_in (template_decl);
   tree decl = finish_template_type (type, targlist (targs),
 				    /*entering_scope=*/false);
-  return convert_out (ctx->preserve (decl));
+  return convert_out (ctx->preserve (TREE_TYPE (decl)));
 }
 
 gcc_decl
 plugin_new_dependent_value_expr (cc1_plugin::connection *self,
-				 gcc_typedecl enclosing_type,
+				 gcc_type enclosing_type,
 				 const char *id,
 				 const gcc_cp_template_args *targs)
 {
@@ -1911,7 +1923,7 @@ plugin_ternary_value_expr (cc1_plugin::connection *self,
 gcc_expr
 plugin_unary_type_expr (cc1_plugin::connection *self,
 			const char *unary_op,
-			gcc_typedecl operand)
+			gcc_type operand)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   tree type = convert_in (operand);
@@ -1931,7 +1943,7 @@ plugin_unary_type_expr (cc1_plugin::connection *self,
 gcc_expr
 plugin_type_value_expr (cc1_plugin::connection *self,
 			const char *binary_op,
-			gcc_typedecl /* operand1 */,
+			gcc_type /* operand1 */,
 			gcc_expr /* operand2 */)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
@@ -1952,14 +1964,12 @@ plugin_type_value_expr (cc1_plugin::connection *self,
   return convert_out (ctx->preserve (val));
 }
 
-gcc_typedecl
+gcc_type
 plugin_expr_type (cc1_plugin::connection *,
 		  gcc_expr operand)
 {
   tree op0 = convert_in (operand);
   tree type = TREE_TYPE (op0);
-  if (type)
-    type = TYPE_NAME (type);
   return convert_out (type);
 }
 
