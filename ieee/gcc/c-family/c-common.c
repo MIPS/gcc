@@ -327,7 +327,6 @@ static tree handle_artificial_attribute (tree *, tree, tree, int, bool *);
 static tree handle_flatten_attribute (tree *, tree, tree, int, bool *);
 static tree handle_error_attribute (tree *, tree, tree, int, bool *);
 static tree handle_used_attribute (tree *, tree, tree, int, bool *);
-static tree handle_unused_attribute (tree *, tree, tree, int, bool *);
 static tree handle_externally_visible_attribute (tree *, tree, tree, int,
 						 bool *);
 static tree handle_no_reorder_attribute (tree *, tree, tree, int,
@@ -7033,7 +7032,7 @@ handle_used_attribute (tree *pnode, tree name, tree ARG_UNUSED (args),
 /* Handle a "unused" attribute; arguments as in
    struct attribute_spec.handler.  */
 
-static tree
+tree
 handle_unused_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 			 int flags, bool *no_add_attrs)
 {
@@ -7044,6 +7043,7 @@ handle_unused_attribute (tree *node, tree name, tree ARG_UNUSED (args),
       if (TREE_CODE (decl) == PARM_DECL
 	  || VAR_OR_FUNCTION_DECL_P (decl)
 	  || TREE_CODE (decl) == LABEL_DECL
+	  || TREE_CODE (decl) == CONST_DECL
 	  || TREE_CODE (decl) == TYPE_DECL)
 	{
 	  TREE_USED (decl) = 1;
@@ -7837,7 +7837,7 @@ handle_aligned_attribute (tree *node, tree ARG_UNUSED (name), tree args,
       else
 	*type = build_variant_type_copy (*type);
 
-      TYPE_ALIGN (*type) = (1U << i) * BITS_PER_UNIT;
+      SET_TYPE_ALIGN (*type, (1U << i) * BITS_PER_UNIT);
       TYPE_USER_ALIGN (*type) = 1;
     }
   else if (! VAR_OR_FUNCTION_DECL_P (decl)
@@ -7871,7 +7871,7 @@ handle_aligned_attribute (tree *node, tree ARG_UNUSED (name), tree args,
     }
   else
     {
-      DECL_ALIGN (decl) = (1U << i) * BITS_PER_UNIT;
+      SET_DECL_ALIGN (decl, (1U << i) * BITS_PER_UNIT);
       DECL_USER_ALIGN (decl) = 1;
     }
 
@@ -11767,6 +11767,49 @@ warn_for_div_by_zero (location_t loc, tree divisor)
     warning_at (loc, OPT_Wdiv_by_zero, "division by zero");
 }
 
+/* Warn for patterns where memset appears to be used incorrectly.  The
+   warning location should be LOC.  ARG0, and ARG2 are the first and
+   last arguments to the call, while LITERAL_ZERO_MASK has a 1 bit for
+   each argument that was a literal zero.  */
+
+void
+warn_for_memset (location_t loc, tree arg0, tree arg2,
+		 int literal_zero_mask)
+{
+  if (warn_memset_transposed_args
+      && integer_zerop (arg2)
+      && (literal_zero_mask & (1 << 2)) != 0
+      && (literal_zero_mask & (1 << 1)) == 0)
+    warning_at (loc, OPT_Wmemset_transposed_args,
+		"%<memset%> used with constant zero length "
+		"parameter; this could be due to transposed "
+		"parameters");
+
+  if (warn_memset_elt_size && TREE_CODE (arg2) == INTEGER_CST)
+    {
+      STRIP_NOPS (arg0);
+      if (TREE_CODE (arg0) == ADDR_EXPR)
+	arg0 = TREE_OPERAND (arg0, 0);
+      tree type = TREE_TYPE (arg0);
+      if (TREE_CODE (type) == ARRAY_TYPE)
+	{
+	  tree elt_type = TREE_TYPE (type);
+	  tree domain = TYPE_DOMAIN (type);
+	  if (!integer_onep (TYPE_SIZE_UNIT (elt_type))
+	      && TYPE_MAXVAL (domain)
+	      && TYPE_MINVAL (domain)
+	      && integer_zerop (TYPE_MINVAL (domain))
+	      && integer_onep (fold_build2 (MINUS_EXPR, domain,
+					    arg2,
+					    TYPE_MAXVAL (domain))))
+	    warning_at (loc, OPT_Wmemset_elt_size,
+			"%<memset%> used with length equal to "
+			"number of elements without multiplication "
+			"by element size");
+	}
+    }
+}
+
 /* Subroutine of build_binary_op. Give warnings for comparisons
    between signed and unsigned quantities that may fail. Do the
    checking based on the original operand trees ORIG_OP0 and ORIG_OP1,
@@ -12739,6 +12782,39 @@ valid_array_size_p (location_t loc, tree type, tree name)
       return false;
     }
   return true;
+}
+
+/* Read SOURCE_DATE_EPOCH from environment to have a deterministic
+   timestamp to replace embedded current dates to get reproducible
+   results.  Returns -1 if SOURCE_DATE_EPOCH is not defined.  */
+time_t
+get_source_date_epoch ()
+{
+  char *source_date_epoch;
+  long long epoch;
+  char *endptr;
+
+  source_date_epoch = getenv ("SOURCE_DATE_EPOCH");
+  if (!source_date_epoch)
+    return (time_t) -1;
+
+  errno = 0;
+  epoch = strtoll (source_date_epoch, &endptr, 10);
+  if ((errno == ERANGE && (epoch == LLONG_MAX || epoch == LLONG_MIN))
+      || (errno != 0 && epoch == 0))
+    fatal_error (UNKNOWN_LOCATION, "environment variable $SOURCE_DATE_EPOCH: "
+		 "strtoll: %s\n", xstrerror(errno));
+  if (endptr == source_date_epoch)
+    fatal_error (UNKNOWN_LOCATION, "environment variable $SOURCE_DATE_EPOCH: "
+		 "no digits were found: %s\n", endptr);
+  if (*endptr != '\0')
+    fatal_error (UNKNOWN_LOCATION, "environment variable $SOURCE_DATE_EPOCH: "
+		 "trailing garbage: %s\n", endptr);
+  if (epoch < 0)
+    fatal_error (UNKNOWN_LOCATION, "environment variable $SOURCE_DATE_EPOCH: "
+		 "value must be nonnegative: %lld \n", epoch);
+
+  return (time_t) epoch;
 }
 
 #include "gt-c-family-c-common.h"

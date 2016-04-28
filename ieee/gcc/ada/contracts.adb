@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---            Copyright (C) 2015, Free Software Foundation, Inc.            --
+--          Copyright (C) 2015-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -949,15 +949,6 @@ package body Contracts is
 
       if Present (Ref_State) then
          Analyze_Refined_State_In_Decl_Part (Ref_State, Freeze_Id);
-
-      --  State refinement is required when the package declaration defines at
-      --  least one abstract state. Null states are not considered. Refinement
-      --  is not enforced when SPARK checks are turned off.
-
-      elsif SPARK_Mode /= Off
-        and then Requires_State_Refinement (Spec_Id, Body_Id)
-      then
-         Error_Msg_N ("package & requires state refinement", Spec_Id);
       end if;
 
       --  Restore the SPARK_Mode of the enclosing context after all delayed
@@ -1734,10 +1725,12 @@ package body Contracts is
 
          --  Local variables
 
-         Loc      : constant Source_Ptr := Sloc (Body_Decl);
-         Params   : List_Id := No_List;
-         Proc_Bod : Node_Id;
-         Proc_Id  : Entity_Id;
+         Loc       : constant Source_Ptr := Sloc (Body_Decl);
+         Params    : List_Id := No_List;
+         Proc_Bod  : Node_Id;
+         Proc_Decl : Node_Id;
+         Proc_Id   : Entity_Id;
+         Proc_Spec : Node_Id;
 
       --  Start of processing for Build_Postconditions_Procedure
 
@@ -1752,6 +1745,17 @@ package body Contracts is
          Set_Debug_Info_Needed   (Proc_Id);
          Set_Postconditions_Proc (Subp_Id, Proc_Id);
 
+         --  Force the front-end inlining of _Postconditions when generating C
+         --  code, since its body may have references to itypes defined in the
+         --  enclosing subprogram, which would cause problems for unnesting
+         --  routines in the absence of inlining.
+
+         if Generate_C_Code then
+            Set_Has_Pragma_Inline        (Proc_Id);
+            Set_Has_Pragma_Inline_Always (Proc_Id);
+            Set_Is_Inlined               (Proc_Id);
+         end if;
+
          --  The related subprogram is a function: create the specification of
          --  parameter _Result.
 
@@ -1762,6 +1766,13 @@ package body Contracts is
                 Parameter_Type      =>
                   New_Occurrence_Of (Etype (Result), Loc)));
          end if;
+
+         Proc_Spec :=
+           Make_Procedure_Specification (Loc,
+             Defining_Unit_Name       => Proc_Id,
+             Parameter_Specifications => Params);
+
+         Proc_Decl := Make_Subprogram_Declaration (Loc, Proc_Spec);
 
          --  Insert _Postconditions before the first source declaration of the
          --  body. This ensures that the body will not cause any premature
@@ -1781,6 +1792,9 @@ package body Contracts is
          --  order reference. The body of _Postconditions must be placed after
          --  the declaration of Temp to preserve correct visibility.
 
+         Insert_Before_First_Source_Declaration (Proc_Decl);
+         Analyze (Proc_Decl);
+
          --  Set an explicit End_Label to override the sloc of the implicit
          --  RETURN statement, and prevent it from inheriting the sloc of one
          --  the postconditions: this would cause confusing debug info to be
@@ -1789,18 +1803,14 @@ package body Contracts is
          Proc_Bod :=
            Make_Subprogram_Body (Loc,
              Specification              =>
-               Make_Procedure_Specification (Loc,
-                 Defining_Unit_Name       => Proc_Id,
-                 Parameter_Specifications => Params),
-
+               Copy_Subprogram_Spec (Proc_Spec),
              Declarations               => Empty_List,
              Handled_Statement_Sequence =>
                Make_Handled_Sequence_Of_Statements (Loc,
                  Statements => Stmts,
                  End_Label  => Make_Identifier (Loc, Chars (Proc_Id))));
 
-         Insert_Before_First_Source_Declaration (Proc_Bod);
-         Analyze (Proc_Bod);
+         Insert_After_And_Analyze (Proc_Decl, Proc_Bod);
       end Build_Postconditions_Procedure;
 
       ----------------------------

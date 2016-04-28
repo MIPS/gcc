@@ -296,6 +296,45 @@ xvalue_p (const_tree ref)
   return (lvalue_kind (ref) == clk_rvalueref);
 }
 
+/* C++-specific version of stabilize_reference.  */
+
+tree
+cp_stabilize_reference (tree ref)
+{
+  switch (TREE_CODE (ref))
+    {
+    /* We need to treat specially anything stabilize_reference doesn't
+       handle specifically.  */
+    case VAR_DECL:
+    case PARM_DECL:
+    case RESULT_DECL:
+    CASE_CONVERT:
+    case FLOAT_EXPR:
+    case FIX_TRUNC_EXPR:
+    case INDIRECT_REF:
+    case COMPONENT_REF:
+    case BIT_FIELD_REF:
+    case ARRAY_REF:
+    case ARRAY_RANGE_REF:
+    case ERROR_MARK:
+      break;
+    default:
+      cp_lvalue_kind kind = lvalue_kind (ref);
+      if ((kind & ~clk_class) != clk_none)
+	{
+	  tree type = unlowered_expr_type (ref);
+	  bool rval = !!(kind & clk_rvalueref);
+	  type = cp_build_reference_type (type, rval);
+	  /* This inhibits warnings in, eg, cxx_mark_addressable
+	     (c++/60955).  */
+	  warning_sentinel s (extra_warnings);
+	  ref = build_static_cast (type, ref, tf_error);
+	}
+    }
+
+  return stabilize_reference (ref);
+}
+
 /* Test whether DECL is a builtin that may appear in a
    constant-expression. */
 
@@ -1074,7 +1113,7 @@ cp_build_qualified_type_real (tree type,
 	    {
 	      t = build_variant_type_copy (t);
 	      TYPE_NAME (t) = TYPE_NAME (type);
-	      TYPE_ALIGN (t) = TYPE_ALIGN (type);
+	      SET_TYPE_ALIGN (t, TYPE_ALIGN (type));
 	      TYPE_USER_ALIGN (t) = TYPE_USER_ALIGN (type);
 	    }
 	}
@@ -3548,6 +3587,16 @@ const struct attribute_spec cxx_attribute_table[] =
   { NULL,	      0, 0, false, false, false, NULL, false }
 };
 
+/* Table of C++ standard attributes.  */
+const struct attribute_spec std_attribute_table[] =
+{
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
+       affects_type_identity } */
+  { "maybe_unused", 0, 0, false, false, false,
+    handle_unused_attribute, false },
+  { NULL,	      0, 0, false, false, false, NULL, false }
+};
+
 /* Handle a "java_interface" attribute; arguments as in
    struct attribute_spec.handler.  */
 static tree
@@ -4026,6 +4075,7 @@ void
 init_tree (void)
 {
   list_hash_table = hash_table<list_hasher>::create_ggc (61);
+  register_scoped_attributes (std_attribute_table, NULL);
 }
 
 /* Returns the kind of special function that DECL (a FUNCTION_DECL)

@@ -113,6 +113,61 @@ along with GCC; see the file COPYING3.  If not see
 #include "varasm.h"
 #include "builtins.h"
 #include "params.h"
+ 
+/* Indicate if new load/store that needs to be predicated is introduced
+   during if conversion.  */
+static bool any_pred_load_store;
+
+/* Hash for struct innermost_loop_behavior.  It depends on the user to
+   free the memory.  */
+
+struct innermost_loop_behavior_hash : nofree_ptr_hash <innermost_loop_behavior>
+{
+  static inline hashval_t hash (const value_type &);
+  static inline bool equal (const value_type &,
+			    const compare_type &);
+};
+
+inline hashval_t
+innermost_loop_behavior_hash::hash (const value_type &e)
+{
+  hashval_t hash;
+
+  hash = iterative_hash_expr (e->base_address, 0);
+  hash = iterative_hash_expr (e->offset, hash);
+  hash = iterative_hash_expr (e->init, hash);
+  return iterative_hash_expr (e->step, hash);
+}
+
+inline bool
+innermost_loop_behavior_hash::equal (const value_type &e1,
+				     const compare_type &e2)
+{
+  if ((e1->base_address && !e2->base_address)
+      || (!e1->base_address && e2->base_address)
+      || (!e1->offset && e2->offset)
+      || (e1->offset && !e2->offset)
+      || (!e1->init && e2->init)
+      || (e1->init && !e2->init)
+      || (!e1->step && e2->step)
+      || (e1->step && !e2->step))
+    return false;
+
+  if (e1->base_address && e2->base_address
+      && !operand_equal_p (e1->base_address, e2->base_address, 0))
+    return false;
+  if (e1->offset && e2->offset
+      && !operand_equal_p (e1->offset, e2->offset, 0))
+    return false;
+  if (e1->init && e2->init
+      && !operand_equal_p (e1->init, e2->init, 0))
+    return false;
+  if (e1->step && e2->step
+      && !operand_equal_p (e1->step, e2->step, 0))
+    return false;
+
+  return true;
+}
 
 /* List of basic blocks in if-conversion-suitable order.  */
 static basic_block *ifc_bbs;
@@ -120,10 +175,11 @@ static basic_block *ifc_bbs;
 /* Apply more aggressive (extended) if-conversion if true.  */
 static bool aggressive_if_conv;
 
-/* Hash table to store references, DR pairs.  */
-static hash_map<tree_operand_hash, data_reference_p> *ref_DR_map;
+/* Hash table to store <DR's innermost loop behavior, DR> pairs.  */
+static hash_map<innermost_loop_behavior_hash,
+		data_reference_p> *innermost_DR_map;
 
-/* Hash table to store base reference, DR pairs.  */
+/* Hash table to store <base reference, DR> pairs.  */
 static hash_map<tree_operand_hash, data_reference_p> *baseref_DR_map;
 
 /* Structure used to predicate basic blocks.  This is attached to the
@@ -260,6 +316,16 @@ ifc_temp_var (tree type, tree expr, gimple_stmt_iterator *gsi)
   gimple *stmt = gimple_build_assign (new_name, expr);
   gsi_insert_before (gsi, stmt, GSI_SAME_STMT);
   return new_name;
+}
+
+/* Return true when COND is a false predicate.  */
+
+static inline bool
+is_false_predicate (tree cond)
+{
+  return (cond != NULL_TREE
+	  && (cond == boolean_false_node
+	      || integer_zerop (cond)));
 }
 
 /* Return true when COND is a true predicate.  */
@@ -513,22 +579,76 @@ bb_with_exit_edge_p (struct loop *loop, basic_block bb)
   return false;
 }
 
+/* Given PHI which has more than two arguments, this function checks if
+   it's if-convertible by degenerating its arguments.  Specifically, if
+   below two conditions are satisfied:
+
+     1) Number of PHI arguments with different values equals to 2 and one
+	argument has the only occurrence.
+     2) The edge corresponding to the unique argument isn't critical edge.
+
+   Such PHI can be handled as PHIs have only two arguments.  For example,
+   below PHI:
+
+     res = PHI <A_1(e1), A_1(e2), A_2(e3)>;
+
+   can be transformed into:
+
+     res = (predicate of e3) ? A_2 : A_1;
+
+   Return TRUE if it is the case, FALSE otherwise.  */
+
+static bool
+phi_convertible_by_degenerating_args (gphi *phi)
+{
+  edge e;
+  tree arg, t1 = NULL, t2 = NULL;
+  unsigned int i, i1 = 0, i2 = 0, n1 = 0, n2 = 0;
+  unsigned int num_args = gimple_phi_num_args (phi);
+
+  gcc_assert (num_args > 2);
+
+  for (i = 0; i < num_args; i++)
+    {
+      arg = gimple_phi_arg_def (phi, i);
+      if (t1 == NULL || operand_equal_p (t1, arg, 0))
+	{
+	  n1++;
+	  i1 = i;
+	  t1 = arg;
+	}
+      else if (t2 == NULL || operand_equal_p (t2, arg, 0))
+	{
+	  n2++;
+	  i2 = i;
+	  t2 = arg;
+	}
+      else
+	return false;
+    }
+
+  if (n1 != 1 && n2 != 1)
+    return false;
+
+  /* Check if the edge corresponding to the unique arg is critical.  */
+  e = gimple_phi_arg_edge (phi, (n1 == 1) ? i1 : i2);
+  if (EDGE_COUNT (e->src->succs) > 1)
+    return false;
+
+  return true;
+}
+
 /* Return true when PHI is if-convertible.  PHI is part of loop LOOP
    and it belongs to basic block BB.
 
    PHI is not if-convertible if:
    - it has more than 2 arguments.
 
-   When we didn't see if-convertible stores, PHI is not
-   if-convertible if:
-   - a virtual PHI is immediately used in another PHI node,
-   - there is a virtual PHI in a BB other than the loop->header.
    When the aggressive_if_conv is set, PHI can have more than
    two arguments.  */
 
 static bool
-if_convertible_phi_p (struct loop *loop, basic_block bb, gphi *phi,
-		      bool any_mask_load_store)
+if_convertible_phi_p (struct loop *loop, basic_block bb, gphi *phi)
 {
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -538,43 +658,14 @@ if_convertible_phi_p (struct loop *loop, basic_block bb, gphi *phi,
 
   if (bb != loop->header)
     {
-      if (gimple_phi_num_args (phi) != 2
-	  && !aggressive_if_conv)
+      if (gimple_phi_num_args (phi) > 2
+	  && !aggressive_if_conv
+	  && !phi_convertible_by_degenerating_args (phi))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file, "More than two phi node args.\n");
+	    fprintf (dump_file, "Phi can't be predicated by single cond.\n");
 	  return false;
         }
-    }
-
-  if (any_mask_load_store)
-    return true;
-
-  /* When there were no if-convertible stores, check
-     that there are no memory writes in the branches of the loop to be
-     if-converted.  */
-  if (virtual_operand_p (gimple_phi_result (phi)))
-    {
-      imm_use_iterator imm_iter;
-      use_operand_p use_p;
-
-      if (bb != loop->header)
-	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file, "Virtual phi not on loop->header.\n");
-	  return false;
-	}
-
-      FOR_EACH_IMM_USE_FAST (use_p, imm_iter, gimple_phi_result (phi))
-	{
-	  if (gimple_code (USE_STMT (use_p)) == GIMPLE_PHI
-	      && USE_STMT (use_p) != phi)
-	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-		fprintf (dump_file, "Difficult to handle this virtual phi.\n");
-	      return false;
-	    }
-	}
     }
 
   return true;
@@ -613,17 +704,12 @@ hash_memrefs_baserefs_and_store_DRs_read_written_info (data_reference_p a)
 {
 
   data_reference_p *master_dr, *base_master_dr;
-  tree ref = DR_REF (a);
   tree base_ref = DR_BASE_OBJECT (a);
+  innermost_loop_behavior *innermost = &DR_INNERMOST (a);
   tree ca = bb_predicate (gimple_bb (DR_STMT (a)));
   bool exist1, exist2;
 
-  while (TREE_CODE (ref) == COMPONENT_REF
-	 || TREE_CODE (ref) == IMAGPART_EXPR
-	 || TREE_CODE (ref) == REALPART_EXPR)
-    ref = TREE_OPERAND (ref, 0);
-
-  master_dr = &ref_DR_map->get_or_insert (ref, &exist1);
+  master_dr = &innermost_DR_map->get_or_insert (innermost, &exist1);
   if (!exist1)
     *master_dr = a;
 
@@ -685,20 +771,17 @@ ifcvt_memrefs_wont_trap (gimple *stmt, vec<data_reference_p> drs)
   data_reference_p *master_dr, *base_master_dr;
   data_reference_p a = drs[gimple_uid (stmt) - 1];
 
-  tree ref_base_a = DR_REF (a);
   tree base = DR_BASE_OBJECT (a);
+  innermost_loop_behavior *innermost = &DR_INNERMOST (a);
 
   gcc_assert (DR_STMT (a) == stmt);
+  gcc_assert (DR_BASE_ADDRESS (a) || DR_OFFSET (a)
+              || DR_INIT (a) || DR_STEP (a));
 
-  while (TREE_CODE (ref_base_a) == COMPONENT_REF
-	 || TREE_CODE (ref_base_a) == IMAGPART_EXPR
-	 || TREE_CODE (ref_base_a) == REALPART_EXPR)
-    ref_base_a = TREE_OPERAND (ref_base_a, 0);
-
-  master_dr = ref_DR_map->get (ref_base_a);
-  base_master_dr = baseref_DR_map->get (base);
-
+  master_dr = innermost_DR_map->get (innermost);
   gcc_assert (master_dr != NULL);
+
+  base_master_dr = baseref_DR_map->get (base);
 
   /* If a is unconditionally written to it doesn't trap.  */
   if (DR_W_UNCONDITIONALLY (*master_dr))
@@ -788,8 +871,7 @@ ifcvt_can_use_mask_load_store (gimple *stmt)
 
 static bool
 if_convertible_gimple_assign_stmt_p (gimple *stmt,
-				     vec<data_reference_p> refs,
-				     bool *any_mask_load_store)
+				     vec<data_reference_p> refs)
 {
   tree lhs = gimple_assign_lhs (stmt);
 
@@ -827,7 +909,7 @@ if_convertible_gimple_assign_stmt_p (gimple *stmt,
       if (ifcvt_can_use_mask_load_store (stmt))
 	{
 	  gimple_set_plf (stmt, GF_PLF_2, true);
-	  *any_mask_load_store = true;
+	  any_pred_load_store = true;
 	  return true;
 	}
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -838,7 +920,7 @@ if_convertible_gimple_assign_stmt_p (gimple *stmt,
   /* When if-converting stores force versioning, likewise if we
      ended up generating store data races.  */
   if (gimple_vdef (stmt))
-    *any_mask_load_store = true;
+    any_pred_load_store = true;
 
   return true;
 }
@@ -851,8 +933,7 @@ if_convertible_gimple_assign_stmt_p (gimple *stmt,
    - it is builtins call.  */
 
 static bool
-if_convertible_stmt_p (gimple *stmt, vec<data_reference_p> refs,
-		       bool *any_mask_load_store)
+if_convertible_stmt_p (gimple *stmt, vec<data_reference_p> refs)
 {
   switch (gimple_code (stmt))
     {
@@ -862,8 +943,7 @@ if_convertible_stmt_p (gimple *stmt, vec<data_reference_p> refs,
       return true;
 
     case GIMPLE_ASSIGN:
-      return if_convertible_gimple_assign_stmt_p (stmt, refs,
-						  any_mask_load_store);
+      return if_convertible_gimple_assign_stmt_p (stmt, refs);
 
     case GIMPLE_CALL:
       {
@@ -947,10 +1027,6 @@ if_convertible_bb_p (struct loop *loop, basic_block bb, basic_block exit_bb)
     fprintf (dump_file, "----------[%d]-------------\n", bb->index);
 
   if (EDGE_COUNT (bb->succs) > 2)
-    return false;
-
-  if (EDGE_COUNT (bb->preds) > 2
-      && !aggressive_if_conv)
     return false;
 
   if (exit_bb)
@@ -1173,9 +1249,7 @@ predicate_bbs (loop_p loop)
    in if_convertible_loop_p.  */
 
 static bool
-if_convertible_loop_p_1 (struct loop *loop,
-			 vec<data_reference_p> *refs,
-			 bool *any_mask_load_store)
+if_convertible_loop_p_1 (struct loop *loop, vec<data_reference_p> *refs)
 {
   unsigned int i;
   basic_block exit_bb = NULL;
@@ -1228,13 +1302,16 @@ if_convertible_loop_p_1 (struct loop *loop,
 
   data_reference_p dr;
 
-  ref_DR_map = new hash_map<tree_operand_hash, data_reference_p>;
+  innermost_DR_map
+	  = new hash_map<innermost_loop_behavior_hash, data_reference_p>;
   baseref_DR_map = new hash_map<tree_operand_hash, data_reference_p>;
 
   predicate_bbs (loop);
 
   for (i = 0; refs->iterate (i, &dr); i++)
     {
+      tree ref = DR_REF (dr);
+
       dr->aux = XNEW (struct ifc_dr);
       DR_BASE_W_UNCONDITIONALLY (dr) = false;
       DR_RW_UNCONDITIONALLY (dr) = false;
@@ -1244,6 +1321,27 @@ if_convertible_loop_p_1 (struct loop *loop,
       IFC_DR (dr)->base_w_predicate = boolean_false_node;
       if (gimple_uid (DR_STMT (dr)) == 0)
 	gimple_set_uid (DR_STMT (dr), i + 1);
+
+      /* If DR doesn't have innermost loop behavior or it's a compound
+         memory reference, we synthesize its innermost loop behavior
+         for hashing.  */
+      if (TREE_CODE (ref) == COMPONENT_REF
+          || TREE_CODE (ref) == IMAGPART_EXPR
+          || TREE_CODE (ref) == REALPART_EXPR
+          || !(DR_BASE_ADDRESS (dr) || DR_OFFSET (dr)
+	       || DR_INIT (dr) || DR_STEP (dr)))
+        {
+          while (TREE_CODE (ref) == COMPONENT_REF
+	         || TREE_CODE (ref) == IMAGPART_EXPR
+	         || TREE_CODE (ref) == REALPART_EXPR)
+	    ref = TREE_OPERAND (ref, 0);
+
+          DR_BASE_ADDRESS (dr) = ref;
+          DR_OFFSET (dr) = NULL;
+          DR_INIT (dr) = NULL;
+          DR_STEP (dr) = NULL;
+          DR_ALIGNED_TO (dr) = NULL;
+        }
       hash_memrefs_baserefs_and_store_DRs_read_written_info (dr);
     }
 
@@ -1255,8 +1353,7 @@ if_convertible_loop_p_1 (struct loop *loop,
       /* Check the if-convertibility of statements in predicated BBs.  */
       if (!dominated_by_p (CDI_DOMINATORS, loop->latch, bb))
 	for (itr = gsi_start_bb (bb); !gsi_end_p (itr); gsi_next (&itr))
-	  if (!if_convertible_stmt_p (gsi_stmt (itr), *refs,
-				      any_mask_load_store))
+	  if (!if_convertible_stmt_p (gsi_stmt (itr), *refs))
 	    return false;
     }
 
@@ -1271,8 +1368,7 @@ if_convertible_loop_p_1 (struct loop *loop,
       gphi_iterator itr;
 
       for (itr = gsi_start_phis (bb); !gsi_end_p (itr); gsi_next (&itr))
-	if (!if_convertible_phi_p (loop, bb, itr.phi (),
-				   *any_mask_load_store))
+	if (!if_convertible_phi_p (loop, bb, itr.phi ()))
 	  return false;
     }
 
@@ -1291,7 +1387,7 @@ if_convertible_loop_p_1 (struct loop *loop,
    - if its basic blocks and phi nodes are if convertible.  */
 
 static bool
-if_convertible_loop_p (struct loop *loop, bool *any_mask_load_store)
+if_convertible_loop_p (struct loop *loop)
 {
   edge e;
   edge_iterator ei;
@@ -1329,7 +1425,7 @@ if_convertible_loop_p (struct loop *loop, bool *any_mask_load_store)
       return false;
 
   refs.create (5);
-  res = if_convertible_loop_p_1 (loop, &refs, any_mask_load_store);
+  res = if_convertible_loop_p_1 (loop, &refs);
 
   data_reference_p dr;
   unsigned int i;
@@ -1338,8 +1434,8 @@ if_convertible_loop_p (struct loop *loop, bool *any_mask_load_store)
 
   free_data_refs (refs);
 
-  delete ref_DR_map;
-  ref_DR_map = NULL;
+  delete innermost_DR_map;
+  innermost_DR_map = NULL;
 
   delete baseref_DR_map;
   baseref_DR_map = NULL;
@@ -1777,9 +1873,6 @@ predicate_all_scalar_phis (struct loop *loop)
       if (bb == loop->header)
 	continue;
 
-      if (EDGE_COUNT (bb->preds) == 1)
-	continue;
-
       phi_gsi = gsi_start_phis (bb);
       if (gsi_end_p (phi_gsi))
 	continue;
@@ -1801,7 +1894,7 @@ predicate_all_scalar_phis (struct loop *loop)
    gimplification of the predicates.  */
 
 static void
-insert_gimplified_predicates (loop_p loop, bool any_mask_load_store)
+insert_gimplified_predicates (loop_p loop)
 {
   unsigned int i;
 
@@ -1823,7 +1916,7 @@ insert_gimplified_predicates (loop_p loop, bool any_mask_load_store)
       stmts = bb_predicate_gimplified_stmts (bb);
       if (stmts)
 	{
-	  if (any_mask_load_store)
+	  if (any_pred_load_store)
 	    {
 	      /* Insert the predicate of the BB just after the label,
 		 as the if-conversion of memory writes will use this
@@ -1988,7 +2081,7 @@ predicate_mem_writes (loop_p loop)
       gimple *stmt;
       int index;
 
-      if (is_true_predicate (cond))
+      if (is_true_predicate (cond) || is_false_predicate (cond))
 	continue;
 
       swap = false;
@@ -2133,7 +2226,7 @@ remove_conditions_and_labels (loop_p loop)
    blocks.  Replace PHI nodes with conditional modify expressions.  */
 
 static void
-combine_blocks (struct loop *loop, bool any_mask_load_store)
+combine_blocks (struct loop *loop)
 {
   basic_block bb, exit_bb, merge_target_bb;
   unsigned int orig_loop_num_nodes = loop->num_nodes;
@@ -2143,10 +2236,10 @@ combine_blocks (struct loop *loop, bool any_mask_load_store)
 
   predicate_bbs (loop);
   remove_conditions_and_labels (loop);
-  insert_gimplified_predicates (loop, any_mask_load_store);
+  insert_gimplified_predicates (loop);
   predicate_all_scalar_phis (loop);
 
-  if (any_mask_load_store)
+  if (any_pred_load_store)
     predicate_mem_writes (loop);
 
   /* Merge basic blocks: first remove all the edges in the loop,
@@ -2621,7 +2714,7 @@ tree_if_conversion (struct loop *loop)
 {
   unsigned int todo = 0;
   ifc_bbs = NULL;
-  bool any_mask_load_store = false;
+  any_pred_load_store = false;
 
   /* Set up aggressive if-conversion for loops marked with simd pragma.  */
   aggressive_if_conv = loop->force_vectorize;
@@ -2637,22 +2730,22 @@ tree_if_conversion (struct loop *loop)
     if (!ifcvt_split_critical_edges (loop))
       goto cleanup;
 
-  if (!if_convertible_loop_p (loop, &any_mask_load_store)
+  if (!if_convertible_loop_p (loop)
       || !dbg_cnt (if_conversion_tree))
     goto cleanup;
 
-  if (any_mask_load_store
+  if (any_pred_load_store
       && ((!flag_tree_loop_vectorize && !loop->force_vectorize)
 	  || loop->dont_vectorize))
     goto cleanup;
 
-  if (any_mask_load_store && !version_loop_for_if_conversion (loop))
+  if (any_pred_load_store && !version_loop_for_if_conversion (loop))
     goto cleanup;
 
   /* Now all statements are if-convertible.  Combine all the basic
      blocks into one huge basic block doing the if-conversion
      on-the-fly.  */
-  combine_blocks (loop, any_mask_load_store);
+  combine_blocks (loop);
 
   /* Delete dead predicate computations and repair tree correspondent
      to bool pattern to delete multiple uses of predicates.  */
@@ -2663,11 +2756,8 @@ tree_if_conversion (struct loop *loop)
     }
 
   todo |= TODO_cleanup_cfg;
-  if (any_mask_load_store)
-    {
-      mark_virtual_operands_for_renaming (cfun);
-      todo |= TODO_update_ssa_only_virtuals;
-    }
+  mark_virtual_operands_for_renaming (cfun);
+  todo |= TODO_update_ssa_only_virtuals;
 
  cleanup:
   if (ifc_bbs)

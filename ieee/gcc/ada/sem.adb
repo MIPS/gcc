@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -23,38 +23,40 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Atree;    use Atree;
-with Debug;    use Debug;
-with Debug_A;  use Debug_A;
-with Elists;   use Elists;
-with Expander; use Expander;
-with Fname;    use Fname;
-with Ghost;    use Ghost;
-with Lib;      use Lib;
-with Lib.Load; use Lib.Load;
-with Nlists;   use Nlists;
-with Output;   use Output;
-with Restrict; use Restrict;
-with Sem_Attr; use Sem_Attr;
-with Sem_Aux;  use Sem_Aux;
-with Sem_Ch2;  use Sem_Ch2;
-with Sem_Ch3;  use Sem_Ch3;
-with Sem_Ch4;  use Sem_Ch4;
-with Sem_Ch5;  use Sem_Ch5;
-with Sem_Ch6;  use Sem_Ch6;
-with Sem_Ch7;  use Sem_Ch7;
-with Sem_Ch8;  use Sem_Ch8;
-with Sem_Ch9;  use Sem_Ch9;
-with Sem_Ch10; use Sem_Ch10;
-with Sem_Ch11; use Sem_Ch11;
-with Sem_Ch12; use Sem_Ch12;
-with Sem_Ch13; use Sem_Ch13;
-with Sem_Prag; use Sem_Prag;
-with Sem_Util; use Sem_Util;
-with Sinfo;    use Sinfo;
-with Stand;    use Stand;
-with Uintp;    use Uintp;
-with Uname;    use Uname;
+with Atree;     use Atree;
+with Debug;     use Debug;
+with Debug_A;   use Debug_A;
+with Elists;    use Elists;
+with Exp_SPARK; use Exp_SPARK;
+with Expander;  use Expander;
+with Fname;     use Fname;
+with Ghost;     use Ghost;
+with Lib;       use Lib;
+with Lib.Load;  use Lib.Load;
+with Nlists;    use Nlists;
+with Output;    use Output;
+with Restrict;  use Restrict;
+with Sem_Attr;  use Sem_Attr;
+with Sem_Aux;   use Sem_Aux;
+with Sem_Ch2;   use Sem_Ch2;
+with Sem_Ch3;   use Sem_Ch3;
+with Sem_Ch4;   use Sem_Ch4;
+with Sem_Ch5;   use Sem_Ch5;
+with Sem_Ch6;   use Sem_Ch6;
+with Sem_Ch7;   use Sem_Ch7;
+with Sem_Ch8;   use Sem_Ch8;
+with Sem_Ch9;   use Sem_Ch9;
+with Sem_Ch10;  use Sem_Ch10;
+with Sem_Ch11;  use Sem_Ch11;
+with Sem_Ch12;  use Sem_Ch12;
+with Sem_Ch13;  use Sem_Ch13;
+with Sem_Prag;  use Sem_Prag;
+with Sem_Util;  use Sem_Util;
+with Sinfo;     use Sinfo;
+with Stand;     use Stand;
+with Stylesw;   use Stylesw;
+with Uintp;     use Uintp;
+with Uname;     use Uname;
 
 with Unchecked_Deallocation;
 
@@ -725,6 +727,21 @@ package body Sem is
                   and then Etype (N) = Standard_Void_Type)
       then
          Expand (N);
+
+      --  Replace a reference to a renaming with the renamed object for SPARK.
+      --  In general this modification is performed by Expand_SPARK, however
+      --  certain constructs may not reach the resolution or expansion phase
+      --  and thus remain unchanged. The replacement is not performed when the
+      --  construct is overloaded as resolution must first take place. This is
+      --  also not done when analyzing a generic to preserve the original tree
+      --  and because the reference may become overloaded in the instance.
+
+      elsif GNATprove_Mode
+        and then Nkind_In (N, N_Expanded_Name, N_Identifier)
+        and then not Is_Overloaded (N)
+        and then not Inside_A_Generic
+      then
+         Expand_SPARK_Potential_Renaming (N);
       end if;
 
       Ghost_Mode := Save_Ghost_Mode;
@@ -998,7 +1015,7 @@ package body Sem is
       if Present (M) then
 
          --  If we are not at the end of the list, then the easiest
-         --  coding is simply to insert before our successor
+         --  coding is simply to insert before our successor.
 
          if Present (Next (N)) then
             Insert_Before_And_Analyze (Next (N), M);
@@ -1316,6 +1333,13 @@ package body Sem is
       procedure Do_Analyze is
          Save_Ghost_Mode : constant Ghost_Mode_Type := Ghost_Mode;
 
+         --  Generally style checks are preserved across compilations, with
+         --  one exception: s-oscons.ads, which allows arbitrary long lines
+         --  unconditionally, and has no restore mechanism, because it is
+         --  intended as a lowest-level Pure package.
+
+         Save_Max_Line   : constant Int := Style_Max_Line_Length;
+
          List : Elist_Id;
 
       begin
@@ -1346,6 +1370,7 @@ package body Sem is
          Pop_Scope;
          Restore_Scope_Stack (List);
          Ghost_Mode := Save_Ghost_Mode;
+         Style_Max_Line_Length := Save_Max_Line;
       end Do_Analyze;
 
       --  Local variables

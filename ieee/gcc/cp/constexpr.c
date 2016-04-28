@@ -989,7 +989,8 @@ maybe_initialize_fundef_copies_table ()
 }
 
 /* Reuse a copy or create a new unshared copy of the function FUN.
-   Return this copy.  */
+   Return this copy.  We use a TREE_LIST whose PURPOSE is body, VALUE
+   is parms, TYPE is result.  */
 
 static tree
 get_fundef_copy (tree fun)
@@ -997,15 +998,26 @@ get_fundef_copy (tree fun)
   maybe_initialize_fundef_copies_table ();
 
   tree copy;
-  tree *slot = fundef_copies_table->get (fun);
-  if (slot == NULL || *slot == NULL_TREE)
+  bool existed;
+  tree *slot = &fundef_copies_table->get_or_insert (fun, &existed);
+
+  if (!existed)
     {
+      /* There is no cached function available, or in use.  We can use
+	 the function directly.  That the slot is now created records
+	 that this function is now in use.  */
+      copy = build_tree_list (DECL_SAVED_TREE (fun), DECL_ARGUMENTS (fun));
+      TREE_TYPE (copy) = DECL_RESULT (fun);
+    }
+  else if (*slot == NULL_TREE)
+    {
+      /* We've already used the function itself, so make a copy.  */
       copy = build_tree_list (NULL, NULL);
-      /* PURPOSE is body, VALUE is parms, TYPE is result.  */
       TREE_PURPOSE (copy) = copy_fn (fun, TREE_VALUE (copy), TREE_TYPE (copy));
     }
   else
     {
+      /* We have a cached function available.  */
       copy = *slot;
       *slot = TREE_CHAIN (copy);
     }
@@ -1013,12 +1025,14 @@ get_fundef_copy (tree fun)
   return copy;
 }
 
-/* Save the copy COPY of function FUN for later reuse by get_fundef_copy().  */
+/* Save the copy COPY of function FUN for later reuse by
+   get_fundef_copy().  By construction, there will always be an entry
+   to find.  */
 
 static void
 save_fundef_copy (tree fun, tree copy)
 {
-  tree *slot = &fundef_copies_table->get_or_insert (fun, NULL);
+  tree *slot = fundef_copies_table->get (fun);
   TREE_CHAIN (copy) = *slot;
   *slot = copy;
 }
@@ -3241,8 +3255,9 @@ static bool
 breaks (tree *jump_target)
 {
   return *jump_target
-    && TREE_CODE (*jump_target) == LABEL_DECL
-    && LABEL_DECL_BREAK (*jump_target);
+    && ((TREE_CODE (*jump_target) == LABEL_DECL
+	 && LABEL_DECL_BREAK (*jump_target))
+	|| TREE_CODE (*jump_target) == EXIT_EXPR);
 }
 
 static bool
@@ -3358,8 +3373,8 @@ cxx_eval_loop_expr (const constexpr_ctx *ctx, tree t,
       hash_set<tree> save_exprs;
       new_ctx.save_exprs = &save_exprs;
 
-      cxx_eval_statement_list (&new_ctx, body,
-			       non_constant_p, overflow_p, jump_target);
+      cxx_eval_constant_expression (&new_ctx, body, /*lval*/false,
+				    non_constant_p, overflow_p, jump_target);
 
       /* Forget saved values of SAVE_EXPRs.  */
       for (hash_set<tree>::iterator iter = save_exprs.begin();
@@ -3750,6 +3765,8 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 	    cxx_eval_constant_expression (ctx, op0,
 					  true, non_constant_p, overflow_p,
 					  jump_target);
+	    if (*non_constant_p)
+	      return t;
 	    op1 = TREE_OPERAND (t, 1);
 	    r = cxx_eval_constant_expression (ctx, op1,
 					      lval, non_constant_p, overflow_p,
@@ -4013,6 +4030,17 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 	    (ctx, ctor, lval,
 	     non_constant_p, overflow_p);
 	}
+      break;
+
+    case EXIT_EXPR:
+      {
+	tree cond = TREE_OPERAND (t, 0);
+	cond = cxx_eval_constant_expression (ctx, cond, /*lval*/false,
+					     non_constant_p, overflow_p);
+	VERIFY_CONSTANT (cond);
+	if (integer_nonzerop (cond))
+	  *jump_target = t;
+      }
       break;
 
     case GOTO_EXPR:
@@ -4924,6 +4952,8 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
     case NON_DEPENDENT_EXPR:
       /* For convenience.  */
     case RETURN_EXPR:
+    case LOOP_EXPR:
+    case EXIT_EXPR:
       return RECUR (TREE_OPERAND (t, 0), want_rval);
 
     case TRY_FINALLY_EXPR:
@@ -5134,6 +5164,15 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
 
     case EMPTY_CLASS_EXPR:
       return false;
+
+    case GOTO_EXPR:
+      {
+	tree *target = &TREE_OPERAND (t, 0);
+	/* Gotos representing break and continue are OK; we should have
+	   rejected other gotos in parsing.  */
+	gcc_assert (breaks (target) || continues (target));
+	return true;
+      }
 
     default:
       if (objc_is_property_ref (t))

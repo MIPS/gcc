@@ -637,7 +637,7 @@
 		     (op, mode == VOIDmode ? mode : Pmode)")
        (match_operand 0 "call_register_no_elim_operand")
        (ior (and (not (match_test "TARGET_X32"))
-		 (match_operand 0 "sibcall_memory_operand"))
+		 (match_operand 0 "memory_operand"))
 	    (and (match_test "TARGET_X32 && Pmode == DImode")
 		 (match_operand 0 "GOT_memory_operand")))))
 
@@ -659,30 +659,26 @@
 
 ;; Match exactly zero.
 (define_predicate "const0_operand"
-  (match_code "const_int,const_wide_int,const_double,const_vector")
+  (match_code "const_int,const_double,const_vector")
 {
   if (mode == VOIDmode)
     mode = GET_MODE (op);
   return op == CONST0_RTX (mode);
 })
 
-;; Match -1.
-(define_predicate "constm1_operand"
-  (match_code "const_int,const_wide_int,const_double,const_vector")
-{
-  if (mode == VOIDmode)
-    mode = GET_MODE (op);
-  return op == CONSTM1_RTX (mode);
-})
-
-;; Match one or vector filled with ones.
+;; Match one or a vector with all elements equal to one.
 (define_predicate "const1_operand"
-  (match_code "const_int,const_wide_int,const_double,const_vector")
+  (match_code "const_int,const_double,const_vector")
 {
   if (mode == VOIDmode)
     mode = GET_MODE (op);
   return op == CONST1_RTX (mode);
 })
+
+;; Match exactly -1.
+(define_predicate "constm1_operand"
+  (and (match_code "const_int")
+       (match_test "op = constm1_rtx")))
 
 ;; Match exactly eight.
 (define_predicate "const8_operand"
@@ -976,14 +972,8 @@
 
 ;; Return true when OP is nonimmediate or standard SSE constant.
 (define_predicate "nonimmediate_or_sse_const_operand"
-  (match_operand 0 "general_operand")
-{
-  if (nonimmediate_operand (op, mode))
-    return true;
-  if (standard_sse_constant_p (op) > 0)
-    return true;
-  return false;
-})
+  (ior (match_operand 0 "nonimmediate_operand")
+       (match_test "standard_sse_constant_p (op, mode)")))
 
 ;; Return true if OP is a register or a zero.
 (define_predicate "reg_or_0_operand"
