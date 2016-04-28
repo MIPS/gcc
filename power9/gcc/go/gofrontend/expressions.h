@@ -11,6 +11,7 @@
 #include <mpc.h>
 
 #include "operator.h"
+#include "runtime.h"
 
 class Gogo;
 class Translate_context;
@@ -28,6 +29,7 @@ class Struct_type;
 class Struct_field;
 class Expression_list;
 class Var_expression;
+class Enclosed_var_expression;
 class Temporary_reference_expression;
 class Set_and_use_temporary_expression;
 class String_expression;
@@ -84,6 +86,7 @@ class Expression
     EXPRESSION_BINARY,
     EXPRESSION_CONST_REFERENCE,
     EXPRESSION_VAR_REFERENCE,
+    EXPRESSION_ENCLOSED_VAR_REFERENCE,
     EXPRESSION_TEMPORARY_REFERENCE,
     EXPRESSION_SET_AND_USE_TEMPORARY,
     EXPRESSION_SINK,
@@ -164,6 +167,10 @@ class Expression
   // Make a reference to a variable in an expression.
   static Expression*
   make_var_reference(Named_object*, Location);
+
+  // Make a reference to a variable within an enclosing function.
+  static Expression*
+  make_enclosing_var_reference(Expression*, Named_object*, Location);
 
   // Make a reference to a temporary variable.  Temporary variables
   // are always created by a single statement, which is what we use to
@@ -537,6 +544,20 @@ class Expression
   const Var_expression*
   var_expression() const
   { return this->convert<const Var_expression, EXPRESSION_VAR_REFERENCE>(); }
+
+  // If this is a enclosed_variable reference, return the
+  // Enclosed_var_expression structure.  Otherwise, return NULL.
+  // This is a controlled dynamic cast.
+  Enclosed_var_expression*
+  enclosed_var_expression()
+  { return this->convert<Enclosed_var_expression,
+			 EXPRESSION_ENCLOSED_VAR_REFERENCE>(); }
+
+  const Enclosed_var_expression*
+  enclosed_var_expression() const
+  { return this->convert<const Enclosed_var_expression,
+			 EXPRESSION_ENCLOSED_VAR_REFERENCE>(); }
+
 
   // If this is a reference to a temporary variable, return the
   // Temporary_reference_expression.  Otherwise, return NULL.
@@ -1254,6 +1275,71 @@ class Var_expression : public Expression
 
  private:
   // The variable we are referencing.
+  Named_object* variable_;
+};
+
+// A reference to a variable within an enclosing function.
+
+class Enclosed_var_expression : public Expression
+{
+ public:
+  Enclosed_var_expression(Expression* reference, Named_object* variable,
+			  Location location)
+    : Expression(EXPRESSION_ENCLOSED_VAR_REFERENCE, location),
+      reference_(reference), variable_(variable)
+  { }
+
+  // The reference to the enclosed variable.  This will be an indirection of the
+  // the field stored within closure variable.
+  Expression*
+  reference() const
+  { return this->reference_; }
+
+  // The variable being enclosed and referenced.
+  Named_object*
+  variable() const
+  { return this->variable_; }
+
+ protected:
+  int
+  do_traverse(Traverse*);
+
+  Expression*
+  do_lower(Gogo*, Named_object*, Statement_inserter*, int);
+
+  Expression*
+  do_flatten(Gogo*, Named_object*, Statement_inserter*);
+
+  Type*
+  do_type()
+  { return this->reference_->type(); }
+
+  void
+  do_determine_type(const Type_context* context)
+  { return this->reference_->determine_type(context); }
+
+  Expression*
+  do_copy()
+  { return this; }
+
+  bool
+  do_is_addressable() const
+  { return this->reference_->is_addressable(); }
+
+  void
+  do_address_taken(bool escapes);
+
+  Bexpression*
+  do_get_backend(Translate_context* context)
+  { return this->reference_->get_backend(context); }
+
+  void
+  do_dump_expression(Ast_dump_context*) const;
+
+ private:
+  // The reference to the enclosed variable.
+  Expression* reference_;
+  // The variable being enclosed.
   Named_object* variable_;
 };
 
@@ -2149,7 +2235,8 @@ class Func_expression : public Expression
   Func_expression(Named_object* function, Expression* closure,
 		  Location location)
     : Expression(EXPRESSION_FUNC_REFERENCE, location),
-      function_(function), closure_(closure)
+      function_(function), closure_(closure),
+      runtime_code_(Runtime::NUMBER_OF_FUNCTIONS)
   { }
 
   // Return the object associated with the function.
@@ -2162,6 +2249,23 @@ class Func_expression : public Expression
   Expression*
   closure()
   { return this->closure_; }
+
+  // Return whether this is a reference to a runtime function.
+  bool
+  is_runtime_function() const
+  { return this->runtime_code_ != Runtime::NUMBER_OF_FUNCTIONS; }
+
+  // Return the runtime code for this function expression.
+  // Returns Runtime::NUMBER_OF_FUNCTIONS if this is not a reference to a
+  // runtime function.
+  Runtime::Function
+  runtime_code() const
+  { return this->runtime_code_; }
+
+  // Set the runtime code for this function expression.
+  void
+  set_runtime_code(Runtime::Function code)
+  { this->runtime_code_ = code; }
 
   // Return a backend expression for the code of a function.
   static Bexpression*
@@ -2204,6 +2308,8 @@ class Func_expression : public Expression
   // be a struct holding pointers to all the variables referenced by
   // this function and defined in enclosing functions.
   Expression* closure_;
+  // The runtime code for the referenced function.
+  Runtime::Function runtime_code_;
 };
 
 // A function descriptor.  A function descriptor is a struct with a

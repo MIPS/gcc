@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -256,6 +256,8 @@ package body Einfo is
    --    Thunk_Entity                    Node31
    --    Activation_Record_Component     Node31
 
+   --    Corresponding_Function          Node32
+   --    Corresponding_Procedure         Node32
    --    Encapsulating_State             Node32
    --    No_Tagged_Streams_Pragma        Node32
 
@@ -597,7 +599,7 @@ package body Einfo is
    --    Is_Uplevel_Referenced_Entity    Flag283
    --    Is_Unimplemented                Flag284
    --    Is_Volatile_Full_Access         Flag285
-   --    (unused)                        Flag286
+   --    Is_Exception_Handler            Flag286
    --    Rewritten_For_C                 Flag287
 
    --    (unused)                        Flag288
@@ -914,6 +916,18 @@ package body Einfo is
           and then Chars (Id) = Name_Op_Ne);
       return Node30 (Id);
    end Corresponding_Equality;
+
+   function Corresponding_Function (Id : E) return E is
+   begin
+      pragma Assert (Ekind (Id) = E_Procedure);
+      return Node32 (Id);
+   end Corresponding_Function;
+
+   function Corresponding_Procedure (Id : E) return E is
+   begin
+      pragma Assert (Ekind (Id) = E_Function);
+      return Node32 (Id);
+   end Corresponding_Procedure;
 
    function Corresponding_Protected_Entry (Id : E) return E is
    begin
@@ -1976,12 +1990,6 @@ package body Einfo is
       return Flag146 (Id);
    end Is_Abstract_Type;
 
-   function Is_Local_Anonymous_Access (Id : E) return B is
-   begin
-      pragma Assert (Is_Access_Type (Id));
-      return Flag194 (Id);
-   end Is_Local_Anonymous_Access;
-
    function Is_Access_Constant (Id : E) return B is
    begin
       pragma Assert (Is_Access_Type (Id));
@@ -2136,6 +2144,12 @@ package body Einfo is
    begin
       return Flag52 (Id);
    end Is_Entry_Formal;
+
+   function Is_Exception_Handler (Id : E) return B is
+   begin
+      pragma Assert (Ekind (Id) = E_Block);
+      return Flag286 (Id);
+   end Is_Exception_Handler;
 
    function Is_Exported (Id : E) return B is
    begin
@@ -2306,6 +2320,12 @@ package body Einfo is
    begin
       return Flag25 (Id);
    end Is_Limited_Record;
+
+   function Is_Local_Anonymous_Access (Id : E) return B is
+   begin
+      pragma Assert (Is_Access_Type (Id));
+      return Flag194 (Id);
+   end Is_Local_Anonymous_Access;
 
    function Is_Machine_Code_Subprogram (Id : E) return B is
    begin
@@ -3913,6 +3933,18 @@ package body Einfo is
       Set_Node30 (Id, V);
    end Set_Corresponding_Equality;
 
+   procedure Set_Corresponding_Function (Id : E; V : E) is
+   begin
+      pragma Assert (Ekind (Id) = E_Procedure and then Rewritten_For_C (V));
+      Set_Node32 (Id, V);
+   end Set_Corresponding_Function;
+
+   procedure Set_Corresponding_Procedure (Id : E; V : E) is
+   begin
+      pragma Assert (Ekind (Id) = E_Function and then Rewritten_For_C (Id));
+      Set_Node32 (Id, V);
+   end Set_Corresponding_Procedure;
+
    procedure Set_Corresponding_Protected_Entry (Id : E; V : E) is
    begin
       pragma Assert (Ekind_In (Id, E_Void, E_Subprogram_Body));
@@ -5146,6 +5178,12 @@ package body Einfo is
       Set_Flag52 (Id, V);
    end Set_Is_Entry_Formal;
 
+   procedure Set_Is_Exception_Handler (Id : E; V : B := True) is
+   begin
+      pragma Assert (Ekind (Id) = E_Block);
+      Set_Flag286 (Id, V);
+   end Set_Is_Exception_Handler;
+
    procedure Set_Is_Exported (Id : E; V : B := True) is
    begin
       Set_Flag99 (Id, V);
@@ -5878,6 +5916,7 @@ package body Einfo is
 
    procedure Set_Overridden_Operation (Id : E; V : E) is
    begin
+      pragma Assert (Is_Subprogram (Id) or else Is_Generic_Subprogram (Id));
       Set_Node26 (Id, V);
    end Set_Overridden_Operation;
 
@@ -7319,27 +7358,40 @@ package body Einfo is
         and then Present (Non_Limited_View (Id));
    end Has_Non_Limited_View;
 
+   ---------------------------------
+   -- Has_Non_Null_Abstract_State --
+   ---------------------------------
+
+   function Has_Non_Null_Abstract_State (Id : E) return B is
+   begin
+      pragma Assert (Ekind_In (Id, E_Generic_Package, E_Package));
+
+      return
+        Present (Abstract_States (Id))
+          and then
+            not Is_Null_State (Node (First_Elmt (Abstract_States (Id))));
+   end Has_Non_Null_Abstract_State;
+
    -------------------------------------
    -- Has_Non_Null_Visible_Refinement --
    -------------------------------------
 
    function Has_Non_Null_Visible_Refinement (Id : E) return B is
+      Constits : Elist_Id;
+
    begin
       --  "Refinement" is a concept applicable only to abstract states
 
       pragma Assert (Ekind (Id) = E_Abstract_State);
+      Constits := Refinement_Constituents (Id);
 
-      if Has_Visible_Refinement (Id) then
-         pragma Assert (Present (Refinement_Constituents (Id)));
+      --  For a refinement to be non-null, the first constituent must be
+      --  anything other than null.
 
-         --  For a refinement to be non-null, the first constituent must be
-         --  anything other than null.
-
-         return
-           Nkind (Node (First_Elmt (Refinement_Constituents (Id)))) /= N_Null;
-      end if;
-
-      return False;
+      return
+        Has_Visible_Refinement (Id)
+          and then Present (Constits)
+          and then Nkind (Node (First_Elmt (Constits))) /= N_Null;
    end Has_Non_Null_Visible_Refinement;
 
    -----------------------------
@@ -7360,22 +7412,21 @@ package body Einfo is
    ---------------------------------
 
    function Has_Null_Visible_Refinement (Id : E) return B is
+      Constits : Elist_Id;
+
    begin
       --  "Refinement" is a concept applicable only to abstract states
 
       pragma Assert (Ekind (Id) = E_Abstract_State);
+      Constits := Refinement_Constituents (Id);
 
-      if Has_Visible_Refinement (Id) then
-         pragma Assert (Present (Refinement_Constituents (Id)));
+      --  For a refinement to be null, the state's sole constituent must be a
+      --  null.
 
-         --  For a refinement to be null, the state's sole constituent must be
-         --  a null.
-
-         return
-           Nkind (Node (First_Elmt (Refinement_Constituents (Id)))) = N_Null;
-      end if;
-
-      return False;
+      return
+        Has_Visible_Refinement (Id)
+          and then Present (Constits)
+          and then Nkind (Node (First_Elmt (Constits))) = N_Null;
    end Has_Null_Visible_Refinement;
 
    --------------------
@@ -8200,8 +8251,13 @@ package body Einfo is
       --  If type is private and has a completion, predicate may be defined
       --  on the full view.
 
-      if Is_Private_Type (Id) and then Present (Full_View (Id)) then
+      if Is_Private_Type (Id)
+         and then
+           (not Has_Predicates (Id) or else No (Subprograms_For_Type (Id)))
+         and then Present (Full_View (Id))
+      then
          T := Full_View (Id);
+
       else
          T := Id;
       end if;
@@ -8955,6 +9011,7 @@ package body Einfo is
       W ("Is_Dispatching_Operation",        Flag6   (Id));
       W ("Is_Eliminated",                   Flag124 (Id));
       W ("Is_Entry_Formal",                 Flag52  (Id));
+      W ("Is_Exception_Handler",            Flag286 (Id));
       W ("Is_Exported",                     Flag99  (Id));
       W ("Is_First_Subtype",                Flag70  (Id));
       W ("Is_For_Access_Subtype",           Flag118 (Id));
@@ -10244,6 +10301,12 @@ package body Einfo is
               E_Constant                                   |
               E_Variable                                   =>
             Write_Str ("Encapsulating_State");
+
+         when E_Function                                   =>
+            Write_Str ("Corresponding_Procedure");
+
+         when E_Procedure                                  =>
+            Write_Str ("Corresponding_Function");
 
          when Type_Kind                                    =>
             Write_Str ("No_Tagged_Streams_Pragma");

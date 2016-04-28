@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -257,10 +257,6 @@ package Sem_Util is
    --  not necessarily mean that CE could be raised, but a response of True
    --  means that for sure CE cannot be raised.
 
-   procedure Check_Part_Of_Reference (Var_Id : Entity_Id; Ref : Node_Id);
-   --  Verify the legality of reference Ref to variable Var_Id when the
-   --  variable is a constituent of a single protected/task type.
-
    procedure Check_Dynamically_Tagged_Expression
      (Expr        : Node_Id;
       Typ         : Entity_Id;
@@ -322,6 +318,10 @@ package Sem_Util is
    --  Verify that the profile of nonvolatile function Func_Id does not contain
    --  effectively volatile parameters or return type.
 
+   procedure Check_Part_Of_Reference (Var_Id : Entity_Id; Ref : Node_Id);
+   --  Verify the legality of reference Ref to variable Var_Id when the
+   --  variable is a constituent of a single protected/task type.
+
    procedure Check_Potentially_Blocking_Operation (N : Node_Id);
    --  N is one of the statement forms that is a potentially blocking
    --  operation. If it appears within a protected action, emit warning.
@@ -330,6 +330,15 @@ package Sem_Util is
    --  Determine whether the contract of subprogram Subp_Id mentions attribute
    --  'Result and it contains an expression that evaluates differently in pre-
    --  and post-state.
+
+   procedure Check_State_Refinements
+     (Context      : Node_Id;
+      Is_Main_Unit : Boolean := False);
+   --  Verify that all abstract states declared in a block statement, entry
+   --  body, package body, protected body, subprogram body, task body, or a
+   --  package declaration denoted by Context have proper refinement. Emit an
+   --  error if this is not the case. Flag Is_Main_Unit should be set when
+   --  Context denotes the main compilation unit.
 
    procedure Check_Unused_Body_States (Body_Id : Entity_Id);
    --  Verify that all abstract states and objects declared in the state space
@@ -448,6 +457,9 @@ package Sem_Util is
 
    function Current_Scope return Entity_Id;
    --  Get entity representing current scope
+
+   function Current_Scope_No_Loops return Entity_Id;
+   --  Return the current scope ignoring internally generated loops
 
    function Current_Subprogram return Entity_Id;
    --  Returns current enclosing subprogram. If Current_Scope is a subprogram,
@@ -1149,8 +1161,8 @@ package Sem_Util is
    --  Returns true if the Typ_Ent implements interface Iface_Ent
 
    function In_Assertion_Expression_Pragma (N : Node_Id) return Boolean;
-   --  Determine whether an arbitrary node appears in a pragma that acts as an
-   --  assertion expression. See Sem_Prag for the list of qualifying pragmas.
+   --  Returns True if node N appears within a pragma that acts as an assertion
+   --  expression. See Sem_Prag for the list of qualifying pragmas.
 
    function In_Instance return Boolean;
    --  Returns True if the current scope is within a generic instance
@@ -1175,6 +1187,10 @@ package Sem_Util is
 
    function In_Pragma_Expression (N : Node_Id; Nam : Name_Id) return Boolean;
    --  Returns true if the expression N occurs within a pragma with name Nam
+
+   function In_Pre_Post_Condition (N : Node_Id) return Boolean;
+   --  Returns True if node N appears within a pre/postcondition pragma. Note
+   --  the pragma Check equivalents are NOT considered.
 
    function In_Reverse_Storage_Order_Object (N : Node_Id) return Boolean;
    --  Returns True if N denotes a component or subcomponent in a record or
@@ -1369,6 +1385,11 @@ package Sem_Util is
    function Is_Entry_Declaration (Id : Entity_Id) return Boolean;
    --  Determine whether entity Id is the spec entity of an entry [family]
 
+   function Is_Expanded_Priority_Attribute (E : Entity_Id) return Boolean;
+   --  Check whether a function in a call is an expanded priority attribute,
+   --  which is transformed into an Rtsfind call to Get_Ceiling. This expansion
+   --  does not take place in a configurable runtime.
+
    function Is_Expression_Function (Subp : Entity_Id) return Boolean;
    --  Determine whether subprogram [body] Subp denotes an expression function
 
@@ -1460,6 +1481,10 @@ package Sem_Util is
    --  assertion expression of pragma Default_Initial_Condition and if it does,
    --  the encapsulated expression is nontrivial.
 
+   function Is_Null_Record_Type (T : Entity_Id) return Boolean;
+   --  Determine whether T is declared with a null record definition or a
+   --  null component list.
+
    function Is_Object_Reference (N : Node_Id) return Boolean;
    --  Determines if the tree referenced by N represents an object. Both
    --  variable and constant objects return True (compare Is_Variable).
@@ -1470,6 +1495,13 @@ package Sem_Util is
    --  this is a case in which conversions whose expression is a variable (in
    --  the Is_Variable sense) with an untagged type target are considered view
    --  conversions and hence variables.
+
+   function Is_OK_Volatile_Context
+     (Context : Node_Id;
+      Obj_Ref : Node_Id) return Boolean;
+   --  Determine whether node Context denotes a "non-interfering context" (as
+   --  defined in SPARK RM 7.1.3(12)) where volatile reference Obj_Ref can
+   --  safely reside.
 
    function Is_Package_Contract_Annotation (Item : Node_Id) return Boolean;
    --  Determine whether aspect specification or pragma Item is one of the
@@ -1905,6 +1937,22 @@ package Sem_Util is
    --  corresponding operation of S is the original corresponding operation of
    --  S2. Otherwise, it is S itself.
 
+   procedure Output_Entity (Id : Entity_Id);
+   --  Print entity Id to standard output. The name of the entity appears in
+   --  fully qualified form.
+   --
+   --  WARNING: this routine should be used in debugging scenarios such as
+   --  tracking down undefined symbols as it is fairly low level.
+
+   procedure Output_Name (Nam : Name_Id; Scop : Entity_Id := Current_Scope);
+   --  Print name Nam to standard output. The name appears in fully qualified
+   --  form assuming it appears in scope Scop. Note that this may not reflect
+   --  the final qualification as the entity which carries the name may be
+   --  relocated to a different scope.
+   --
+   --  WARNING: this routine should be used in debugging scenarios such as
+   --  tracking down undefined symbols as it is fairly low level.
+
    function Policy_In_Effect (Policy : Name_Id) return Name_Id;
    --  Given a policy, return the policy identifier associated with it. If no
    --  such policy is in effect, the value returned is No_Name.
@@ -1987,12 +2035,6 @@ package Sem_Util is
    --  in with Any_Id and ignore. Otherwise signal a program error exception.
    --  This is used as a defense mechanism against ill-formed trees caused by
    --  previous errors (particularly in -gnatq mode).
-
-   function Requires_State_Refinement
-     (Spec_Id : Entity_Id;
-      Body_Id : Entity_Id) return Boolean;
-   --  Determine whether a package denoted by its spec and body entities
-   --  requires refinement of abstract states.
 
    function Requires_Transient_Scope (Id : Entity_Id) return Boolean;
    --  Id is a type entity. The result is True when temporaries of this type
@@ -2280,5 +2322,8 @@ package Sem_Util is
    --      whose components are of a type that yields a synchronized object.
    --    * A synchronized interface type
    --    * A task type
+
+   function Yields_Universal_Type (N : Node_Id) return Boolean;
+   --  Determine whether unanalyzed node N yields a universal type
 
 end Sem_Util;

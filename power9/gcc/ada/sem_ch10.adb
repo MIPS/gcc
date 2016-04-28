@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -83,6 +83,13 @@ package body Sem_Ch10 is
    --  then it also performs a basic decoration of the real entities. This is
    --  required in order to avoid passing non-decorated entities to the
    --  back-end. Implements Ada 2005 (AI-50217).
+
+   procedure Analyze_Proper_Body (N : Node_Id; Nam : Entity_Id);
+   --  Common processing for all stubs (subprograms, tasks, packages, and
+   --  protected cases). N is the stub to be analyzed. Once the subunit name
+   --  is established, load and analyze. Nam is the non-overloadable entity
+   --  for which the proper body provides a completion. Subprogram stubs are
+   --  handled differently because they can be declarations.
 
    procedure Check_Body_Needed_For_SAL (Unit_Name : Entity_Id);
    --  Check whether the source for the body of a compilation unit must be
@@ -202,13 +209,6 @@ package body Sem_Ch10 is
 
    procedure Unchain (E : Entity_Id);
    --  Remove single entity from visibility list
-
-   procedure Analyze_Proper_Body (N : Node_Id; Nam : Entity_Id);
-   --  Common processing for all stubs (subprograms, tasks, packages, and
-   --  protected cases). N is the stub to be analyzed. Once the subunit name
-   --  is established, load and analyze. Nam is the non-overloadable entity
-   --  for which the proper body provides a completion. Subprogram stubs are
-   --  handled differently because they can be declarations.
 
    procedure sm;
    --  A dummy procedure, for debugging use, called just before analyzing the
@@ -557,7 +557,7 @@ package body Sem_Ch10 is
                                   or else Used_In_Spec)
                      then
                         Error_Msg_N -- CODEFIX
-                          ("redundant with clause in body??", Clause);
+                          ("redundant with clause in body?r?", Clause);
                      end if;
 
                      Used_In_Body := False;
@@ -586,7 +586,7 @@ package body Sem_Ch10 is
 
                      if Withed then
                         Error_Msg_N -- CODEFIX
-                          ("redundant with clause??", Clause);
+                          ("redundant with clause?r?", Clause);
                      end if;
                   end;
                end if;
@@ -693,7 +693,7 @@ package body Sem_Ch10 is
       if Nkind (Unit_Node) = N_Package_Body then
 
          --  If no Lib_Unit, then there was a serious previous error, so just
-         --  ignore the entire analysis effort
+         --  ignore the entire analysis effort.
 
          if No (Lib_Unit) then
             Check_Error_Detected;
@@ -1489,7 +1489,7 @@ package body Sem_Ch10 is
 
                            --  Check if the named package (or some ancestor)
                            --  leaves visible the full-view of the unit given
-                           --  in the limited-with clause
+                           --  in the limited-with clause.
 
                            loop
                               if Designate_Same_Unit (Lim_Unit_Name,
@@ -2008,7 +2008,7 @@ package body Sem_Ch10 is
       Par_Unit : constant Entity_Id := Current_Scope;
 
       Lib_Spec        : Node_Id := Library_Unit (Lib_Unit);
-      Num_Scopes      : Int := 0;
+      Num_Scopes      : Nat := 0;
       Use_Clauses     : array (1 .. Scope_Stack.Last) of Node_Id;
       Enclosing_Child : Entity_Id := Empty;
       Svg             : constant Suppress_Record := Scope_Suppress;
@@ -5613,12 +5613,10 @@ package body Sem_Ch10 is
 
       procedure Decorate_State (Ent : Entity_Id; Scop : Entity_Id) is
       begin
-         Set_Ekind                   (Ent, E_Abstract_State);
-         Set_Etype                   (Ent, Standard_Void_Type);
-         Set_Scope                   (Ent, Scop);
-         Set_Encapsulating_State     (Ent, Empty);
-         Set_Refinement_Constituents (Ent, New_Elmt_List);
-         Set_Part_Of_Constituents    (Ent, New_Elmt_List);
+         Set_Ekind               (Ent, E_Abstract_State);
+         Set_Etype               (Ent, Standard_Void_Type);
+         Set_Scope               (Ent, Scop);
+         Set_Encapsulating_State (Ent, Empty);
       end Decorate_State;
 
       -------------------
@@ -5635,15 +5633,19 @@ package body Sem_Ch10 is
 
       begin
          --  An unanalyzed type or a shadow entity of a type is treated as an
-         --  incomplete type.
+         --  incomplete type, and carries the corresponding attributes.
 
-         Set_Ekind             (Ent, E_Incomplete_Type);
-         Set_Etype             (Ent, Ent);
-         Set_Scope             (Ent, Scop);
-         Set_Is_First_Subtype  (Ent);
-         Set_Stored_Constraint (Ent, No_Elist);
-         Set_Full_View         (Ent, Empty);
-         Init_Size_Align       (Ent);
+         Set_Ekind              (Ent, E_Incomplete_Type);
+         Set_Etype              (Ent, Ent);
+         Set_Full_View          (Ent, Empty);
+         Set_Is_First_Subtype   (Ent);
+         Set_Scope              (Ent, Scop);
+         Set_Stored_Constraint  (Ent, No_Elist);
+         Init_Size_Align        (Ent);
+
+         if From_Limited_With (Ent) then
+            Set_Private_Dependents (Ent, New_Elmt_List);
+         end if;
 
          --  A tagged type and its corresponding shadow entity share one common
          --  class-wide type. The list of primitive operations for the shadow
@@ -5670,16 +5672,16 @@ package body Sem_Ch10 is
             Set_Parent (CW_Typ, Parent (Ent));
 
             Set_Ekind                     (CW_Typ, E_Class_Wide_Type);
-            Set_Etype                     (CW_Typ, Ent);
-            Set_Scope                     (CW_Typ, Scop);
-            Set_Is_Tagged_Type            (CW_Typ);
-            Set_Is_First_Subtype          (CW_Typ);
-            Init_Size_Align               (CW_Typ);
-            Set_Has_Unknown_Discriminants (CW_Typ);
             Set_Class_Wide_Type           (CW_Typ, CW_Typ);
+            Set_Etype                     (CW_Typ, Ent);
             Set_Equivalent_Type           (CW_Typ, Empty);
             Set_From_Limited_With         (CW_Typ, From_Limited_With (Ent));
+            Set_Has_Unknown_Discriminants (CW_Typ);
+            Set_Is_First_Subtype          (CW_Typ);
+            Set_Is_Tagged_Type            (CW_Typ);
             Set_Materialize_Entity        (CW_Typ, Materialize);
+            Set_Scope                     (CW_Typ, Scop);
+            Init_Size_Align               (CW_Typ);
          end if;
       end Decorate_Type;
 

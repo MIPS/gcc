@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2014-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 2014-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -188,9 +188,33 @@ package body Ghost is
          -----------------------
 
          function Is_OK_Declaration (Decl : Node_Id) return Boolean is
+            function In_Subprogram_Body_Profile (N : Node_Id) return Boolean;
+            --  Determine whether node N appears in the profile of a subprogram
+            --  body.
+
             function Is_Ghost_Renaming (Ren_Decl : Node_Id) return Boolean;
             --  Determine whether node Ren_Decl denotes a renaming declaration
             --  with a Ghost name.
+
+            --------------------------------
+            -- In_Subprogram_Body_Profile --
+            --------------------------------
+
+            function In_Subprogram_Body_Profile (N : Node_Id) return Boolean is
+               Spec : constant Node_Id := Parent (N);
+
+            begin
+               --  The node appears in a parameter specification in which case
+               --  it is either the parameter type or the default expression or
+               --  the node appears as the result definition of a function.
+
+               return
+                 (Nkind (N) = N_Parameter_Specification
+                   or else
+                     (Nkind (Spec) = N_Function_Specification
+                       and then N = Result_Definition (Spec)))
+                   and then Nkind (Parent (Spec)) = N_Subprogram_Body;
+            end In_Subprogram_Body_Profile;
 
             -----------------------
             -- Is_Ghost_Renaming --
@@ -234,15 +258,22 @@ package body Ghost is
 
             --  Special cases
 
-            --  A reference to a Ghost entity may appear as the default
-            --  expression of a formal parameter of a subprogram body. This
-            --  context must be treated as suitable because the relation
-            --  between the spec and the body has not been established and
-            --  the body is not marked as Ghost yet. The real check was
-            --  performed on the spec.
+            --  A reference to a Ghost entity may appear within the profile of
+            --  a subprogram body. This context is treated as suitable because
+            --  it duplicates the context of the corresponding spec. The real
+            --  check was already performed during the analysis of the spec.
 
-            elsif Nkind (Decl) = N_Parameter_Specification
-              and then Nkind (Parent (Parent (Decl))) = N_Subprogram_Body
+            elsif In_Subprogram_Body_Profile (Decl) then
+               return True;
+
+            --  A reference to a Ghost entity may appear within an expression
+            --  function which is still being analyzed. This context is treated
+            --  as suitable because it is not yet known whether the expression
+            --  function is an initial declaration or a completion. The real
+            --  check is performed when the expression function is expanded.
+
+            elsif Nkind (Decl) = N_Expression_Function
+              and then not Analyzed (Decl)
             then
                return True;
 
@@ -254,15 +285,26 @@ package body Ghost is
             then
                Subp_Id := Corresponding_Spec (Decl);
 
-               --  The original context is an expression function that has
-               --  been split into a spec and a body. The context is OK as
-               --  long as the initial declaration is Ghost.
-
                if Present (Subp_Id) then
-                  Subp_Decl := Original_Node (Unit_Declaration_Node (Subp_Id));
 
-                  if Nkind (Subp_Decl) = N_Expression_Function then
-                     return Is_Subject_To_Ghost (Subp_Decl);
+                  --  The context is the internally built _Postconditions
+                  --  procedure, which is OK because the real check was done
+                  --  before expansion activities.
+
+                  if Chars (Subp_Id) = Name_uPostconditions then
+                     return True;
+
+                  else
+                     Subp_Decl :=
+                       Original_Node (Unit_Declaration_Node (Subp_Id));
+
+                     --  The original context is an expression function that
+                     --  has been split into a spec and a body. The context is
+                     --  OK as long as the initial declaration is Ghost.
+
+                     if Nkind (Subp_Decl) = N_Expression_Function then
+                        return Is_Subject_To_Ghost (Subp_Decl);
+                     end if;
                   end if;
 
                --  Otherwise this is either an internal body or an internal

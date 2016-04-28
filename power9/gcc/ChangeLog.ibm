@@ -1,3 +1,35 @@
+2016-04-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 235590.
+	* REVISION: Update subversion id.
+
+2016-04-18  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* doc/extend.texi: Add documentation for the vec_adu(),
+	vec_adub(), vec_aduh(), and vec_aduw() built-ins.
+	* config/rs6000/rs6000.h (MASK_P9_VECTOR): New macro definition.
+	This change is redundant with a previously merged patch.
+	(RS6000_BTM_P9_VECTOR): Correct error in previous definition of
+	this macro.  This change is redundant with a previously merged patch.
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Added
+	three P9V_BUILTIN_VEC_VADU entries for three overloaded variants
+	of the builtin_vec_vadu() function and P9V_BUILTIN_VEC_VADUB,
+	P9V_BUILTIN_VEC_VADUH, and P9V_BUILTIN_VEC_VADUW entries for the
+	builtin_vec_vadub(), builtin_vec_vaduh(), and builtin_vec_vaduw()
+	functions.
+	* config/rs6000/rs6000-builtin.def: Add macro expansions for
+	__builtin_altivec_vadub, __builtin_altivec_vaduh, and
+	__builtin_altivec_vaduw, and for overloaded functions
+	__builtin_vec_vadu, __builtin_vec_vadub, __builtin_vec_vaduh, and
+	__builtin_vec_vaduw.
+	* config/rs6000/altivec.md (UNSPEC_VADU): New unspec constant.
+	("vadu<mode>3"): New expand pattern.
+	("*p9_vadu<mode>3"): New insn pattern.
+	* config/rs6000/altivec.h (vec_adu): New macro definition.
+	(vec_adub): New macro definition.
+	(vec_aduh): New macro definition.
+	(vec_aduw): new macro definition.
+
 2016-04-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Rebase branch to subversion id 235167 after gcc-6-branch

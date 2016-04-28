@@ -6396,7 +6396,8 @@ extern tree omp_reduction_id			(enum tree_code, tree, tree);
 extern tree cp_remove_omp_priv_cleanup_stmt	(tree *, int *, void *);
 extern void cp_check_omp_declare_reduction	(tree);
 extern void finish_omp_declare_simd_methods	(tree);
-extern tree finish_omp_clauses			(tree, bool, bool = false);
+extern tree finish_omp_clauses			(tree, bool, bool = false,
+						 bool = false);
 extern tree push_omp_privatization_clauses	(bool);
 extern void pop_omp_privatization_clauses	(tree);
 extern void save_omp_privatization_clauses	(vec<tree> &);
@@ -6493,6 +6494,7 @@ extern cp_lvalue_kind real_lvalue_p		(const_tree);
 extern cp_lvalue_kind lvalue_kind		(const_tree);
 extern bool lvalue_or_rvalue_with_address_p	(const_tree);
 extern bool xvalue_p	                        (const_tree);
+extern tree cp_stabilize_reference		(tree);
 extern bool builtin_valid_in_constant_expr_p    (const_tree);
 extern tree build_min				(enum tree_code, tree, ...);
 extern tree build_min_nt_loc			(location_t, enum tree_code,
@@ -6870,9 +6872,6 @@ extern void vtv_generate_init_routine           (void);
 extern void vtv_save_class_info                 (tree);
 extern void vtv_recover_class_info              (void);
 extern void vtv_build_vtable_verify_fndecl      (void);
-
-/* In cp-cilkplus.c.  */
-extern bool cpp_validate_cilk_plus_loop		(tree);
 
 /* In cp/cp-array-notations.c */
 extern tree expand_array_notation_exprs         (tree);
