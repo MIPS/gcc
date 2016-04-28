@@ -9170,11 +9170,14 @@ mips_print_operand (FILE *file, rtx op, int letter)
 /* Implement TARGET_PRINT_OPERAND_ADDRESS.  */
 
 static void
-mips_print_operand_address (FILE *file, machine_mode /*mode*/, rtx x)
+mips_print_operand_address (FILE *file, machine_mode mode, rtx x)
 {
   struct mips_address_info addr;
 
-  if (mips_classify_address (&addr, x, word_mode, true))
+  if (mode == VOIDmode)
+    mode = word_mode;
+
+  if (mips_classify_address (&addr, x, mode, true))
     switch (addr.type)
       {
       case ADDRESS_REG:
