@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -737,6 +737,17 @@ package Einfo is
 --       the implicit inequality. Note that this field is not present in
 --       other function entities, only in implicit inequality routines,
 --       where Comes_From_Source is always False.
+
+--    Corresponding_Function (Node32)
+--       Defined on procedures internally built with an extra out parameter
+--       to return a constrained array type, when Modify_Tree_For_C is set.
+--       Denotes the function that returns the constrained array type for
+--       which this procedure was built.
+
+--    Corresponding_Procedure (Node32)
+--       Defined on functions that return a constrained array type, when
+--       Modify_Tree_For_C is set. Denotes the internally built procedure
+--       with an extra out parameter created for it.
 
 --    Corresponding_Protected_Entry (Node18)
 --       Defined in subprogram bodies. Set for subprogram bodies that implement
@@ -1761,6 +1772,10 @@ package Einfo is
 --       E_Abstract_State entities. True if their Non_Limited_View attribute
 --       is present.
 
+--    Has_Non_Null_Abstract_State (synth)
+--       Defined in package entities. True if the package is subject to a non-
+--       null Abstract_State aspect/pragma.
+
 --    Has_Non_Null_Visible_Refinement (synth)
 --       Defined in E_Abstract_State entities. True if the state has a visible
 --       refinement of at least one variable or state constituent as expressed
@@ -2427,6 +2442,11 @@ package Einfo is
 
 --    Is_Enumeration_Type (synthesized)
 --       Defined in all entities, true for enumeration types and subtypes
+
+--    Is_Exception_Handler (Flag286)
+--       Defined in blocks. Set if the block serves only as a scope of an
+--       exception handler with a choice parameter. Such a block does not
+--       physically appear in the tree.
 
 --    Is_Exported (Flag99)
 --       Defined in all entities. Set if the entity is exported. For now we
@@ -4161,9 +4181,9 @@ package Einfo is
 --       of the predicate function. This is the original expression given as
 --       the predicate except that occurrences of the type are replaced by
 --       occurrences of the formal parameter of the predicate function (note
---       that the spec of this function including this formal parameter name)
---       is available from the Subprograms_For_Type field (it can be accessed
---       as Predicate_Function (typ). Also, in the case where a predicate is
+--       that the spec of this function including this formal parameter name
+--       is available from the Subprograms_For_Type field; it can be accessed
+--       as Predicate_Function (typ)). Also, in the case where a predicate is
 --       inherited, the expression is of the form:
 --
 --         xxxPredicate (typ2 (ent)) AND THEN expression
@@ -4441,9 +4461,9 @@ package Einfo is
 --  protected operation, etc).
 
 --  b) Alias applies to overloadable entities, and the value is an overloadable
---  entity. so this is a subset of the previous one. We use the term Alias to
+--  entity. So this is a subset of the previous one. We use the term Alias to
 --  cover both renamings and inherited operations, because both cases are
---  handled in the same way when expanding a call. namely the Alias of a given
+--  handled in the same way when expanding a call. Namely the Alias of a given
 --  subprogram is the subprogram that will actually be called.
 
 --  Both a) and b) are set transitively, so that in fact it is not necessary to
@@ -5621,6 +5641,7 @@ package Einfo is
    --    Discard_Names                       (Flag88)
    --    Has_Master_Entity                   (Flag21)
    --    Has_Nested_Block_With_Handler       (Flag101)
+   --    Is_Exception_Handler                (Flag286)
    --    Sec_Stack_Needed_For_Return         (Flag167)
    --    Uses_Sec_Stack                      (Flag95)
    --    Scope_Depth                         (synth)
@@ -5878,6 +5899,7 @@ package Einfo is
    --    Subprograms_For_Type                (Node29)
    --    Corresponding_Equality              (Node30)   (implicit /= only)
    --    Thunk_Entity                        (Node31)   (thunk case only)
+   --    Corresponding_Procedure             (Node32)   (generate C code only)
    --    Linker_Section_Pragma               (Node33)
    --    Contract                            (Node34)
    --    Import_Pragma                       (Node35)   (non-generic case only)
@@ -5928,7 +5950,7 @@ package Einfo is
    --    Return_Present                      (Flag54)
    --    Returns_By_Ref                      (Flag90)
    --    Returns_Limited_View                (Flag134)  (non-generic case only)
-   --    Rewritten_For_C                     (Flag287)
+   --    Rewritten_For_C                     (Flag287)  (generate C code only)
    --    Sec_Stack_Needed_For_Return         (Flag167)
    --    SPARK_Pragma_Inherited              (Flag265)
    --    Uses_Sec_Stack                      (Flag95)
@@ -6127,6 +6149,7 @@ package Einfo is
    --    SPARK_Aux_Pragma_Inherited          (Flag266)
    --    SPARK_Pragma_Inherited              (Flag265)
    --    Static_Elaboration_Desired          (Flag77)   (non-generic case only)
+   --    Has_Non_Null_Abstract_State         (synth)
    --    Has_Null_Abstract_State             (synth)
    --    Is_Wrapper_Package                  (synth)    (non-generic case only)
    --    Scope_Depth                         (synth)
@@ -6190,6 +6213,7 @@ package Einfo is
    --    Extra_Formals                       (Node28)
    --    Static_Initialization               (Node30)   (init_proc only)
    --    Thunk_Entity                        (Node31)   (thunk case only)
+   --    Corresponding_Function              (Node32)   (generate C code only)
    --    Linker_Section_Pragma               (Node33)
    --    Contract                            (Node34)
    --    Import_Pragma                       (Node35)   (non-generic case only)
@@ -6763,6 +6787,8 @@ package Einfo is
    function Corresponding_Concurrent_Type       (Id : E) return E;
    function Corresponding_Discriminant          (Id : E) return E;
    function Corresponding_Equality              (Id : E) return E;
+   function Corresponding_Function              (Id : E) return E;
+   function Corresponding_Procedure             (Id : E) return E;
    function Corresponding_Protected_Entry       (Id : E) return E;
    function Corresponding_Record_Type           (Id : E) return E;
    function Corresponding_Remote_Type           (Id : E) return E;
@@ -6971,6 +6997,7 @@ package Einfo is
    function Is_Dispatching_Operation            (Id : E) return B;
    function Is_Eliminated                       (Id : E) return B;
    function Is_Entry_Formal                     (Id : E) return B;
+   function Is_Exception_Handler                (Id : E) return B;
    function Is_Exported                         (Id : E) return B;
    function Is_First_Subtype                    (Id : E) return B;
    function Is_For_Access_Subtype               (Id : E) return B;
@@ -7263,6 +7290,7 @@ package Einfo is
    function Has_Entries                         (Id : E) return B;
    function Has_Foreign_Convention              (Id : E) return B;
    function Has_Non_Limited_View                (Id : E) return B;
+   function Has_Non_Null_Abstract_State         (Id : E) return B;
    function Has_Non_Null_Visible_Refinement     (Id : E) return B;
    function Has_Null_Abstract_State             (Id : E) return B;
    function Has_Null_Visible_Refinement         (Id : E) return B;
@@ -7428,6 +7456,8 @@ package Einfo is
    procedure Set_Corresponding_Concurrent_Type   (Id : E; V : E);
    procedure Set_Corresponding_Discriminant      (Id : E; V : E);
    procedure Set_Corresponding_Equality          (Id : E; V : E);
+   procedure Set_Corresponding_Function          (Id : E; V : E);
+   procedure Set_Corresponding_Procedure         (Id : E; V : E);
    procedure Set_Corresponding_Protected_Entry   (Id : E; V : E);
    procedure Set_Corresponding_Record_Type       (Id : E; V : E);
    procedure Set_Corresponding_Remote_Type       (Id : E; V : E);
@@ -7634,6 +7664,7 @@ package Einfo is
    procedure Set_Is_Dispatching_Operation        (Id : E; V : B := True);
    procedure Set_Is_Eliminated                   (Id : E; V : B := True);
    procedure Set_Is_Entry_Formal                 (Id : E; V : B := True);
+   procedure Set_Is_Exception_Handler            (Id : E; V : B := True);
    procedure Set_Is_Exported                     (Id : E; V : B := True);
    procedure Set_Is_First_Subtype                (Id : E; V : B := True);
    procedure Set_Is_For_Access_Subtype           (Id : E; V : B := True);
@@ -8434,6 +8465,7 @@ package Einfo is
    pragma Inline (Is_Entry);
    pragma Inline (Is_Entry_Formal);
    pragma Inline (Is_Enumeration_Type);
+   pragma Inline (Is_Exception_Handler);
    pragma Inline (Is_Exported);
    pragma Inline (Is_First_Subtype);
    pragma Inline (Is_Fixed_Point_Type);
@@ -8923,6 +8955,7 @@ package Einfo is
    pragma Inline (Set_Is_Dispatching_Operation);
    pragma Inline (Set_Is_Eliminated);
    pragma Inline (Set_Is_Entry_Formal);
+   pragma Inline (Set_Is_Exception_Handler);
    pragma Inline (Set_Is_Exported);
    pragma Inline (Set_Is_First_Subtype);
    pragma Inline (Set_Is_For_Access_Subtype);

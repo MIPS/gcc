@@ -39,6 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gomp-constants.h"
 #include "c-family/c-indentation.h"
 #include "context.h"
+#include "cp-cilkplus.h"
 
 
 /* The lexer.  */
@@ -6829,20 +6830,19 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 		  }
 	      }
 
-	    if (warn_memset_transposed_args)
+	    if (TREE_CODE (postfix_expression) == FUNCTION_DECL
+		&& DECL_BUILT_IN_CLASS (postfix_expression) == BUILT_IN_NORMAL
+		&& DECL_FUNCTION_CODE (postfix_expression) == BUILT_IN_MEMSET
+		&& vec_safe_length (args) == 3)
 	      {
-		if (TREE_CODE (postfix_expression) == FUNCTION_DECL
-		    && DECL_BUILT_IN_CLASS (postfix_expression) == BUILT_IN_NORMAL
-		    && DECL_FUNCTION_CODE (postfix_expression) == BUILT_IN_MEMSET
-		    && vec_safe_length (args) == 3
-		    && TREE_CODE ((*args)[2]) == INTEGER_CST
-		    && integer_zerop ((*args)[2])
-		    && !(TREE_CODE ((*args)[1]) == INTEGER_CST
-			 && integer_zerop ((*args)[1])))
-		  warning (OPT_Wmemset_transposed_args,
-			   "%<memset%> used with constant zero length "
-			   "parameter; this could be due to transposed "
-			   "parameters");
+		tree arg0 = (*args)[0];
+		tree arg1 = (*args)[1];
+		tree arg2 = (*args)[2];
+		int literal_mask = ((!!integer_zerop (arg1) << 1)
+				    | (!!integer_zerop (arg2) << 2));
+		if (TREE_CODE (arg2) == CONST_DECL)
+		  arg2 = DECL_INITIAL (arg2);
+		warn_for_memset (input_location, arg0, arg2, literal_mask);
 	      }
 
 	    if (TREE_CODE (postfix_expression) == COMPONENT_REF)
@@ -11413,12 +11413,12 @@ cp_parser_perform_range_for_lookup (tree range, tree *begin, tree *end)
   if (TREE_CODE (TREE_TYPE (range)) == ARRAY_TYPE)
     {
       /* If RANGE is an array, we will use pointer arithmetic.  */
-      *begin = range;
+      *begin = decay_conversion (range, tf_warning_or_error);
       *end = build_binary_op (input_location, PLUS_EXPR,
 			      range,
 			      array_type_nelts_top (TREE_TYPE (range)),
 			      0);
-      return build_pointer_type (TREE_TYPE (TREE_TYPE (range)));
+      return TREE_TYPE (*begin);
     }
   else
     {
@@ -17232,6 +17232,16 @@ cp_parser_enum_specifier (cp_parser* parser)
 			  "enclose %qD",
 			  type, prev_scope, nested_name_specifier);
 	      type = error_mark_node;
+	    }
+	  /* If that scope is the scope where the declaration is being placed
+	     the program is invalid.  */
+	  else if (CLASS_TYPE_P (nested_name_specifier)
+		   && CLASS_TYPE_P (prev_scope)
+		   && same_type_p (nested_name_specifier, prev_scope))
+	    {
+	      permerror (type_start_token->location,
+			 "extra qualification not allowed");
+	      nested_name_specifier = NULL_TREE;
 	    }
 	}
 
@@ -27228,13 +27238,15 @@ cp_parser_check_class_key (enum tag_types class_key, tree type)
 
 /* Issue an error message if DECL is redeclared with different
    access than its original declaration [class.access.spec/3].
-   This applies to nested classes and nested class templates.
-   [class.mem/1].  */
+   This applies to nested classes, nested class templates and
+   enumerations [class.mem/1].  */
 
 static void
 cp_parser_check_access_in_redeclaration (tree decl, location_t location)
 {
-  if (!decl || !CLASS_TYPE_P (TREE_TYPE (decl)))
+  if (!decl
+      || (!CLASS_TYPE_P (TREE_TYPE (decl))
+	  && TREE_CODE (TREE_TYPE (decl)) != ENUMERAL_TYPE))
     return;
 
   if ((TREE_PRIVATE (decl)
@@ -37714,7 +37726,7 @@ cp_parser_cilk_simd_all_clauses (cp_parser *parser, cp_token *pragma_token)
   if (clauses == error_mark_node)
     return error_mark_node;
   else
-    return c_finish_cilk_clauses (clauses);
+    return finish_omp_clauses (clauses, false, false, true);
 }
 
 /* Main entry-point for parsing Cilk Plus <#pragma simd> for loops.  */

@@ -1,3 +1,35 @@
+2016-04-27  Bernd Schmidt  <bschmidt@redhat.com>
+
+	* c-parser.c (c_parser_postfix_expression_after_primary): Call
+	warn_for_memset instead of warning directly here.
+
+2016-04-26  Marek Polacek  <polacek@redhat.com>
+
+	PR c/67784
+	* c-parser.c (c_parser_maybe_reclassify_token): New function factored
+	out of ...
+	(c_parser_for_statement): ... here.
+	(c_parser_if_statement): Use it.
+	(c_parser_switch_statement): Use it.
+	(c_parser_while_statement): Use it.
+
+	PR c/70791
+	* c-decl.c (pushdecl): Pass LOCUS down to warning.
+
+2016-04-20  Ilya Verbin  <ilya.verbin@intel.com>
+
+	PR c++/69363
+	* c-parser.c (c_parser_cilk_all_clauses): Use c_finish_omp_clauses
+	instead of c_finish_cilk_clauses.
+	* c-tree.h (c_finish_omp_clauses): Add new default argument.
+	* c-typeck.c (c_finish_omp_clauses): Add new argument.  Allow
+	floating-point variables in the linear clause for Cilk Plus.
+
+2016-04-18  Michael Matz  <matz@suse.de>
+
+	* c-decl.c (merge_decls): Use SET_DECL_ALIGN and SET_TYPE_ALIGN.
+	(grokdeclarator, parser_xref_tag, finish_enum): Use SET_TYPE_ALIGN.
+
 2016-04-15  Marek Polacek  <polacek@redhat.com>
 
 	PR c/70671

@@ -790,6 +790,7 @@ extern void check_function_arguments_recurse (void (*)
 					      unsigned HOST_WIDE_INT);
 extern bool check_builtin_function_arguments (tree, int, tree *);
 extern void check_function_format (tree, int, tree *);
+extern tree handle_unused_attribute (tree *, tree, tree, int, bool *);
 extern tree handle_format_attribute (tree *, tree, tree, int, bool *);
 extern tree handle_format_arg_attribute (tree *, tree, tree, int, bool *);
 extern bool attribute_takes_identifier_p (const_tree);
@@ -902,6 +903,7 @@ extern void c_parse_file (void);
 extern void c_parse_final_cleanups (void);
 
 extern void warn_for_omitted_condop (location_t, tree);
+extern void warn_for_memset (location_t, tree, tree, int);
 
 /* These macros provide convenient access to the various _STMT nodes.  */
 
@@ -1369,7 +1371,6 @@ extern enum stv_conv scalar_to_vector (location_t loc, enum tree_code code,
 				       tree op0, tree op1, bool);
 
 /* In c-cilkplus.c  */
-extern tree c_finish_cilk_clauses (tree);
 extern tree c_validate_cilk_plus_loop (tree *, int *, void *);
 extern bool c_check_cilk_loop (location_t, tree);
 
@@ -1466,5 +1467,13 @@ extern bool check_no_cilk (tree, const char *, const char *,
 extern bool reject_gcc_builtin (const_tree, location_t = UNKNOWN_LOCATION);
 extern void warn_duplicated_cond_add_or_warn (location_t, tree, vec<tree> **);
 extern bool valid_array_size_p (location_t, tree, tree);
+
+extern bool cilk_ignorable_spawn_rhs_op (tree);
+extern bool cilk_recognize_spawn (tree, tree *);
+
+/* Read SOURCE_DATE_EPOCH from environment to have a deterministic
+   timestamp to replace embedded current dates to get reproducible
+   results.  Returns -1 if SOURCE_DATE_EPOCH is not defined.  */
+extern time_t get_source_date_epoch (void);
 
 #endif /* ! GCC_C_COMMON_H */

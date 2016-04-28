@@ -2749,6 +2749,25 @@ combine_comparisons (location_t loc,
 int
 operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
 {
+  /* When checking, verify at the outermost operand_equal_p call that
+     if operand_equal_p returns non-zero then ARG0 and ARG1 has the same
+     hash value.  */
+  if (flag_checking && !(flags & OEP_NO_HASH_CHECK))
+    {
+      if (operand_equal_p (arg0, arg1, flags | OEP_NO_HASH_CHECK))
+	{
+	  inchash::hash hstate0 (0), hstate1 (0);
+	  inchash::add_expr (arg0, hstate0, flags);
+	  inchash::add_expr (arg1, hstate1, flags);
+	  hashval_t h0 = hstate0.end ();
+	  hashval_t h1 = hstate1.end ();
+	  gcc_assert (h0 == h1);
+	  return 1;
+	}
+      else
+	return 0;
+    }
+
   /* If either is ERROR_MARK, they aren't equal.  */
   if (TREE_CODE (arg0) == ERROR_MARK || TREE_CODE (arg1) == ERROR_MARK
       || TREE_TYPE (arg0) == error_mark_node
@@ -8676,11 +8695,11 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 	    case EQ_EXPR:
 	    case LE_EXPR:
 	    case LT_EXPR:
-	      return boolean_false_node;
+	      return constant_boolean_node (false, type);
 	    case GE_EXPR:
 	    case GT_EXPR:
 	    case NE_EXPR:
-	      return boolean_true_node;
+	      return constant_boolean_node (true, type);
 	    default:
 	      gcc_unreachable ();
 	    }
@@ -9956,25 +9975,6 @@ fold_binary_loc (location_t loc,
 				    fold_convert_loc (loc, type,
 						      negate_expr (op0)), tem);
 
-	  /* (A + A) * C -> A * 2 * C  */
-	  if (TREE_CODE (arg0) == PLUS_EXPR
-	      && TREE_CODE (arg1) == INTEGER_CST
-	      && operand_equal_p (TREE_OPERAND (arg0, 0),
-			          TREE_OPERAND (arg0, 1), 0))
-	    return fold_build2_loc (loc, MULT_EXPR, type,
-				omit_one_operand_loc (loc, type,
-						  TREE_OPERAND (arg0, 0),
-						  TREE_OPERAND (arg0, 1)),
-				fold_build2_loc (loc, MULT_EXPR, type,
-					     build_int_cst (type, 2) , arg1));
-
-	  /* ((T) (X /[ex] C)) * C cancels out if the conversion is
-	     sign-changing only.  */
-	  if (TREE_CODE (arg1) == INTEGER_CST
-	      && TREE_CODE (arg0) == EXACT_DIV_EXPR
-	      && operand_equal_p (arg1, TREE_OPERAND (arg0, 1), 0))
-	    return fold_convert_loc (loc, type, TREE_OPERAND (arg0, 0));
-
 	  strict_overflow_p = false;
 	  if (TREE_CODE (arg1) == INTEGER_CST
 	      && 0 != (tem = extract_muldiv (op0, arg1, code, NULL_TREE,
@@ -10033,24 +10033,6 @@ fold_binary_loc (location_t loc,
 	      && TREE_CODE (arg1) == CONJ_EXPR
 	      && operand_equal_p (arg0, TREE_OPERAND (arg1, 0), 0))
 	    return fold_mult_zconjz (loc, type, arg0);
-
-	  if (flag_unsafe_math_optimizations)
-	    {
-
-	      /* Canonicalize x*x as pow(x,2.0), which is expanded as x*x.  */
-	      if (!in_gimple_form
-		  && optimize
-		  && operand_equal_p (arg0, arg1, 0))
-		{
-		  tree powfn = mathfn_built_in (type, BUILT_IN_POW);
-
-		  if (powfn)
-		    {
-		      tree arg = build_real (type, dconst2);
-		      return build_call_expr_loc (loc, powfn, 2, arg0, arg);
-		    }
-		}
-	    }
 	}
       goto associate;
 

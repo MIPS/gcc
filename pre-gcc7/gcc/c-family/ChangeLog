@@ -1,3 +1,53 @@
+2016-04-28  Eduard Sanou  <dhole@openmailbox.org>
+	    Matthias Klose  <doko@debian.org>
+
+	* c-common.c (get_source_date_epoch): New function, gets the environment
+	variable SOURCE_DATE_EPOCH and parses it as long long with error 
+	handling.
+	* c-common.h (get_source_date_epoch): Prototype.
+	* c-lex.c (c_lex_with_flags): set parse_in->source_date_epoch.
+
+2015-04-27  Ryan Burn  <contact@rnburn.com>
+
+	PR c++/69024
+	PR c++/68997
+	* cilk.c (cilk_ignorable_spawn_rhs_op): Change to external linkage.
+	(cilk_recognize_spawn): Renamed from recognize_spawn and change to
+	external linkage.
+	(cilk_detect_and_unwrap): Corresponding changes.
+	(extract_free_variables): Don't extract free variables from
+	AGGR_INIT_EXPR slot.
+	* c-common.h (cilk_ignorable_spawn_rhs_op): Prototype.
+	(cilk_recognize_spawn): Likewise.
+
+2016-04-27  Bernd Schmidt  <bschmidt@redhat.com>
+
+	* c.opt (Wmemset-elt-size): New option.
+	* c-common.c (warn_for_memset): New function.
+	* c-common.h (warn_for_memset): Declare.
+
+2016-04-25  Jason Merrill  <jason@redhat.com>
+
+	* c-common.c (handle_unused_attribute): Accept CONST_DECL.
+	No longer static.
+	* c-common.h: Declare it.
+	* c-lex.c (c_common_has_attribute): Add maybe_unused.
+
+2016-04-22  Jason Merrill  <jason@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Fix __cpp_range_based_for.
+
+2016-04-20  Ilya Verbin  <ilya.verbin@intel.com>
+
+	PR c++/69363
+	* c-cilkplus.c (c_finish_cilk_clauses): Remove function.
+	* c-common.h (c_finish_cilk_clauses): Remove declaration.
+
+2016-04-18  Michael Matz  <matz@suse.de>
+
+	* c-common.c (handle_aligned_attribute): Use SET_TYPE_ALIGN
+	and SET_DECL_ALIGN.
+
 2016-04-17  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* c-ada-spec.c (get_underlying_decl): Return the typedef, if any.
