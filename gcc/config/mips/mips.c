@@ -9423,6 +9423,10 @@ mips16_expand_copy (rtx dest, rtx src, rtx length, rtx alignment)
   if (byte_count > MIPS_MAX_MOVE_BYTES_STRAIGHT)
     return false;
 
+  if (byte_count == MIPS_MAX_MOVE_BYTES_STRAIGHT
+      && align < 4)
+    return false;
+
   word_count = byte_count / UNITS_PER_WORD;
   byte_count = byte_count % UNITS_PER_WORD;
 
@@ -9589,12 +9593,13 @@ gen_mips16_copy_peep (rtx *operands, int n)
 bool
 mips_expand_block_move (rtx dest, rtx src, rtx length, rtx alignment)
 {
-  if (!ISA_HAS_LWL_LWR
-      && !(ISA_HAS_COPY && INTVAL (length) < MIPS_MAX_MOVE_BYTES_STRAIGHT)
-      && INTVAL (alignment) * BITS_PER_UNIT < MIPS_MIN_MOVE_MEM_ALIGN)
+  if (TARGET_MIPS16 && !ISA_HAS_COPY)
     return false;
 
-  if (CONST_INT_P (length))
+  if (CONST_INT_P (length)
+      && (ISA_HAS_LWL_LWR
+	  || INTVAL (alignment) * BITS_PER_UNIT >= MIPS_MIN_MOVE_MEM_ALIGN
+	  || ISA_HAS_COPY))
     {
       if (mips_movmem_limit == -1 || INTVAL (length) < mips_movmem_limit)
 	{
