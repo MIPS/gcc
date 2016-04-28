@@ -123,6 +123,8 @@
   int size = GET_MODE_SIZE (GET_MODE (op));
 
   op = XEXP (op, 0);
+  if (TARGET_NPS_CMEM && cmem_address (op, SImode))
+    return 0;
   switch (GET_CODE (op))
     {
     case SYMBOL_REF :
@@ -351,9 +353,12 @@
   switch (GET_CODE (op))
     {
     case SYMBOL_REF :
+      if (SYMBOL_REF_TLS_MODEL (op))
+	return 0;
     case LABEL_REF :
+      return 1;
     case CONST :
-      return (!flag_pic || arc_legitimate_pic_operand_p(op));
+      return arc_legitimate_constant_p (mode, op);
     case CONST_INT :
       return (LARGE_INT (INTVAL (op)));
     case CONST_DOUBLE :
@@ -451,6 +456,16 @@
 	    && (GET_CODE (XEXP (addr, 1)) != PLUS
 		|| !CONST_INT_P (XEXP (XEXP (addr, 1), 1))))
 	  return 0;
+	/* CONST_INT / CONST_DOUBLE is fine, but the PIC CONST ([..] UNSPEC))
+	   constructs are effectively indexed.  */
+	if (flag_pic)
+	  {
+	    rtx ad0 = addr;
+	    while (GET_CODE (ad0) == PLUS)
+	      ad0 = XEXP (ad0, 0);
+	    if (GET_CODE (ad0) == CONST || GET_CODE (ad0) == UNSPEC)
+	      return 0;
+	  }
 	return address_operand (addr, mode);
       }
     default :
@@ -806,3 +821,20 @@
 (define_predicate "double_register_operand"
   (ior (match_test "even_register_operand (op, mode)")
        (match_test "arc_double_register_operand (op, mode)")))
+
+(define_predicate "cmem_address_0"
+  (and (match_code "symbol_ref")
+       (match_test "SYMBOL_REF_FLAGS (op) & SYMBOL_FLAG_CMEM")))
+
+(define_predicate "cmem_address_1"
+  (and (match_code "plus")
+       (match_test "cmem_address_0 (XEXP (op, 0), SImode)")))
+
+(define_predicate "cmem_address_2"
+  (and (match_code "const")
+       (match_test "cmem_address_1 (XEXP (op, 0), SImode)")))
+
+(define_predicate "cmem_address"
+  (ior (match_operand:SI 0 "cmem_address_0")
+       (match_operand:SI 0 "cmem_address_1")
+       (match_operand:SI 0 "cmem_address_2")))

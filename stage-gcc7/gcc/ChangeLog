@@ -1,3 +1,339 @@
+2016-04-28  Joern Rennecke  <joern.rennecke@embecosm.com>
+	    Andrew Burgess  <andrew.burgess@embecosm.com>
+
+	* config/arc/arc.h (SYMBOL_FLAG_CMEM): Define.
+	(TARGET_NPS_CMEM_DEFAULT): Provide default definition.
+	* config/arc/arc.c (arc_address_cost): Return 0 for cmem_address.
+	(arc_encode_section_info): Set SYMBOL_FLAG_CMEM where indicated.
+	* config/arc/arc.opt (mcmem): New option.
+	* config/arc/arc.md (*extendqihi2_i): Add r/Uex alternative,
+	supply length for r/m alternative.
+	(*extendqisi2_ac): Likewise.
+	(*extendhisi2_i): Add r/Uex alternative, supply length for r/m and
+	r/Uex alternative.
+	(movqi_insn): Add r/Ucm and Ucm/?Rac alternatives.
+	(movhi_insn): Likewise.
+	(movsi_insn): Add r/Ucm,Ucm/w alternatives.
+	(*zero_extendqihi2_i): Add r/Ucm alternative.
+	(*zero_extendqisi2_ac): Likewise.
+	(*zero_extendhisi2_i): Likewise.
+	* config/arc/constraints.md (Uex): New memory constraint.
+	(Ucm): New define_constraint.
+	* config/arc/predicates.md (long_immediate_loadstore_operand):
+	Return 0 for MEM with cmem_address address.
+	(cmem_address_0): New predicates.
+	(cmem_address_1): Likewise.
+	(cmem_address_2): Likewise.
+	(cmem_address): Likewise.
+
+2016-04-28  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.c (machine_function): Rename
+	insn_chain_scanned_p to spe_insn_chain_scanned_p.
+	(rs6000_stack_info): Adjust.
+
+2016-04-28  Joern Rennecke  <joern.rennecke@embecosm.com>
+	    Andrew Burgess  <andrew.burgess@embecosm.com>
+
+	* config/arc/constraints.md (Usd): Convert to define_constraint.
+	(Us<): Likewise.
+	(Us>): Likewise.
+
+2016-04-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/70821
+	* config/i386/sync.md (define_peephole2 *atomic_fetch_add_cmp<mode>):
+	Add new peephole2 where the first insn is *mov<mode>_or instead of
+	*mov<mode>_internal.
+
+2016-04-28  Segher Boesssenkool  <segher@kernel.crashing.org>
+
+	* tracer.c (bb_seen): Make static.
+
+2016-04-28  Andrew Burgess  <andrew.burgess@embecosm.com>
+
+	* common/config/arc/arc-common.c (arc_handle_option): Add NPS400
+	support, setup defaults.
+	* config/arc/arc-opts.h (enum processor_type): Add NPS400.
+	* config/arc/arc.c (arc_init): Add NPS400 support.
+	* config/arc/arc.h (CPP_SPEC): Add NPS400 defines.
+	(TARGET_ARC700): NPS400 is also an ARC700.
+	* config/arc/arc.opt: Add NPS400 options to -mcpu=.
+
+2016-04-28  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/70668
+	* config/nds32/nds32.md (casesi): Don't access the operands array
+	out of bounds.
+
+2016-04-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (zeroing peephole2): Use general_reg_operand.
+	(or $-1,reg peephole2): Ditto.
+	(strict_low_part zeroing peephole2): Use SWI12 mode iterator.
+
+2016-04-28  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	* doc/extend.texi (Common Function Attributes) [optimize]:
+	Discourage use of the optimize attribute.
+
+2016-04-28  Bill Seurer  <seurer@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-builtin.def (vec_adde): Change vec_adde to a
+	special case builtin.
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Remove
+	ALTIVEC_BUILTIN_VEC_ADDE.
+	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin): Add
+	support for ALTIVEC_BUILTIN_VEC_ADDE.
+	* config/rs6000/rs6000.c (altivec_init_builtins): Add definition
+	for __builtin_vec_adde.
+
+2016-04-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.md (sse4_1_round<mode>2): Add avx512f alternative.
+	* config/i386/sse.md (sse4_1_round<ssescalarmodesuffix>): Likewise.
+
+2016-04-28  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR testsuite/70595
+	* doc/sourcebuild.texi (Effective-Target Keywords, Other
+	attributes): Document cilkplus_runtime.
+
+2016-04-28  Martin Jambor  <mjambor@suse.cz>
+
+	* tree-cfg.c (verify_expr): Verify that local declarations belong to
+	this function.  Call verify_expr on MEM_REFs and bases of other
+	handled_components.
+
+2016-04-28  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* internal-fn.c (expand_arith_overflow): Convert preprocessor check
+	for WORD_REGISTER_OPERATIONS to runtime check.
+
+2016-04-28  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/arc.h (ASM_SPEC): Pass mfpuda to assembler.
+
+2016-04-28  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/arc.c (arc_process_double_reg_moves): Fix for
+	big-endian compilation.
+	* config/arc/arc.md (addf3): Likewise.
+	(subdf3): Likewise.
+	(muldf3): Likewise.
+
+2016-04-28  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70840
+	* match.pd: powi(-x, y) and powi(|x|,y) -> powi(x,y) if y is even;
+	Fix pow(copysign(x, y), z) -> pow(x, z) and add powi variant;
+	Mark x * pow(x,c) -> pow(x,c+1) commutative.
+	Add powi(x,y) * powi(z,y) -> powi(x*z,y).
+
+2015-04-28  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.h (WORD_REGISTER_OPERATIONS): Define to 0
+	and explain why in a comment.
+
+2016-04-28  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/arc.md (cpu_facility): Add fpx variant.
+	(subdf3): Prohibit use reverse sub when assist operations option
+	is enabled.
+	* config/arc/fpx.md (subdf3_insn, *dsubh_peep2_insn): Allow drsub
+	instructions only when FPX is enabled.
+	* testsuite/gcc.target/arc/trsub.c: New test.
+
+2016-04-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*fop_<mode>_1_mixed): Do not check for
+	mult_operator when calculating "type" attribute.
+	(*fop_<mode>_1_i387): Ditto.
+	(*fop_xf_1_i387): Ditto.
+	(x87 stack loads peephole2): Add "reg = op (mem, reg)" peephole2.
+	Use std::swap to swap operands.  Use RTL expressions to generate
+	converted pattern.
+
+2016-04-28  Claudiu Zissulescu  <claziss@synopsys.com>
+	    Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* config/arc/arc-protos.h (arc_legitimize_pic_address): Remove
+	declaration.
+	(emit_pic_move): Remove.
+	(arc_eh_uses, insn_is_tls_gd_dispatch): Declare.
+	* config/arc/arc.c (emit_pic_move): Removed.
+	(TARGET_HAVE_TLS): Define.
+	(arc_conditional_register_usage): Test for arc_tp_regno.
+	(arc_print_operand, arc_print_operand_address): Handle TLS
+	unspecs.
+	(arc_needs_pcl_p): New function.
+	(arc_legitimate_pc_offset_p): Use arc_needs_pcl_p.
+	(arc_legitimate_pic_addr_p): Handle TLS unspecs.
+	(arc_raw_symbolic_reference_mentioned_p): Likewise.
+	(arc_get_tp, arc_emit_call_tls_get_addr): New function.
+	(arc_legitimize_tls_address): Likewise.
+	(DTPOFF_ZERO_SYM): Define.
+	(arc_legitimize_pic_address): Make it static, handle TLS cases.
+	(arc_output_pic_addr_const): Print TLS unspecs.
+	(prepare_pic_move): New function, replaces emit_pic_move.
+	(arc_legitimate_constant_p): Handle TLS unspecs.
+	(arc_legitimate_address_p): Likewise.
+	(arc_rewrite_small_data_p): Use assert for TLS constants.
+	(prepare_move_operands): Use prepare_pic_move.
+	(arc_legitimize_address): Legitimize tls addresses.
+	(arc_epilogue_uses): Check for arc_tp_regno.
+	(arc_eh_uses, insn_is_tls_gd_dispatch): New function.
+	* config/arc/arc.h [DEFAULT_LIBC != LIBC_UCLIBC] (EXTRA_SPECS):
+	Define.
+	[DEFAULT_LIBC != LIBC_UCLIBC] (ARC_TLS_EXTRA_START_SPEC):
+	Likewise.
+	[DEFAULT_LIBC != LIBC_UCLIBC] (STARTFILE_SPEC): Add
+	%(arc_tls_extra_start_spec).
+	(TARGET_CPU_CPP_BUILTINS): Define __ARC_TLS_REGNO__.
+	(REGNO_OK_FOR_BASE_P): Check for arc_tp_regno.
+	(EH_USES): Define.
+	(INSN_REFERENCES_ARE_DELAYED): Use insn_is_tls_gd_dispatch.
+	* config/arc/arc.md (UNSPEC_TLS_GD, UNSPEC_TLS_LD, UNSPEC_TLS_IE)
+	(UNSPEC_TLS_OFF): Add.
+	(R10_REG): Define.
+	(tls_load_tp_soft, tls_gd_load, tls_gd_get_addr, tls_gd_dispatch)
+	(get_thread_pointersi): New patterns.
+	* config/arc/arc.opt (mtp-regno): New option.
+	* config/arc/predicates.md (move_src_operand): Handle TLS symbols.
+	(move_dest_operand): Likewise.
+	* configure: Regenerate.
+	* configure.ac: Add arc*-*-* case to test for tls.
+	* doc/invoke.texi (ARC options): Document mtp-regno.
+
+2016-04-28  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/arc.c (arc_vector_mode_supported_p): Add support for
+	the new ARC HS SIMD instructions.
+	(arc_preferred_simd_mode): New function.
+	(arc_autovectorize_vector_sizes): Likewise.
+	(TARGET_VECTORIZE_PREFERRED_SIMD_MODE)
+	(TARGET_VECTORIZE_AUTOVECTORIZE_VECTOR_SIZES): Define.
+	(arc_init_reg_tables): Accept new ARC HS SIMD modes.
+	(arc_init_builtins): Add new SIMD builtin types.
+	(arc_split_move): Handle 64 bit vector moves.
+	* config/arc/arc.h (TARGET_PLUS_DMPY, TARGET_PLUS_MACD)
+	(TARGET_PLUS_QMACW): Define.
+	* config/arc/builtins.def (QMACH, QMACHU, QMPYH, QMPYHU, DMACH)
+	(DMACHU, DMPYH, DMPYHU, DMACWH, DMACWHU, VMAC2H, VMAC2HU, VMPY2H)
+	(VMPY2HU, VADDSUB2H, VSUBADD2H, VADDSUB, VSUBADD, VADDSUB4H)
+	(VSUBADD4H): New builtins.
+	* config/arc/simdext.md: Add new ARC HS SIMD instructions.
+	* testsuite/gcc.target/arc/builtin_simdarc.c: New file.
+
+2016-04-28  Eduard Sanou  <dhole@openmailbox.org>
+	    Matthias Klose  <doko@debian.org>
+
+	* doc/cppenv.texi: Document SOURCE_DATE_EPOCH environment variable.
+
+2016-04-28  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70777
+	* fold-const.c (fold_binary_loc): Remove x*x to pow(x,2.0)
+	canonicalization.
+
+2016-04-28  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* common/config/sh/sh-common.c: Remove SH5 support.
+	* config/sh/constraints.md: Likewise.
+	* config/sh/config/sh/elf.h: Likewise.
+	* config/sh/linux.h: Likewise.
+	* config/sh/netbsd-elf.h: Likewise.
+	* config/sh/predicates.md: Likewise.
+	* config/sh/sh-c.c: Likewise.
+	* config/sh/sh-protos.h: Likewise.
+	* config/sh/sh.c: Likewise.
+	* config/sh/sh.h: Likewise.
+	* config/sh/sh.md: Likewise.
+	* config/sh/sh.opt: Likewise.
+	* config/sh/sync.md: Likewise.
+	* config/sh/sh64.h: Delete.
+	* config/sh/shmedia.h: Likewise.
+	* config/sh/shmedia.md: Likewise.
+	* config/sh/sshmedia.h: Likewise.
+	* config/sh/t-netbsd-sh5-64: Likewise.
+	* config/sh/t-sh64: Likewise.
+	* config/sh/ushmedia.h: Likewise.
+
+2016-04-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (sign_extend to memory peephole2s): Use
+	general_reg_operand instead of register_operand predicate.
+
+2016-04-27  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* params.def (MIN_PARTITION_SIZE): Set default value to 10000.
+
+2016-04-27  Marc Glisse  <marc.glisse@inria.fr>
+
+	* match.pd (A - B > A, A + B < A): New transformations.
+
+2016-04-27  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	* genattrtab.c (write_test_expr): New parameter EMIT_PARENS
+	which defaults to true.  Emit an outer pair of parentheses only if
+	EMIT_PARENS.  When continuing a chain of && or || (or & or |),
+	don't emit parentheses for the right-hand operand.
+
+2016-04-27  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (record_temporary_equivalences): Fix typo in comment.
+
+2016-04-27  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.md (altivec_lvx_<mode>): Remove.
+	(altivec_lvx_<mode>_internal): Document.
+	(altivec_lvx_<mode>_2op): New define_insn.
+	(altivec_lvx_<mode>_1op): Likewise.
+	(altivec_lvx_<mode>_2op_si): Likewise.
+	(altivec_lvx_<mode>_1op_si): Likewise.
+	(altivec_stvx_<mode>): Remove.
+	(altivec_stvx_<mode>_internal): Document.
+	(altivec_stvx_<mode>_2op): New define_insn.
+	(altivec_stvx_<mode>_1op): Likewise.
+	(altivec_stvx_<mode>_2op_si): Likewise.
+	(altivec_stvx_<mode>_1op_si): Likewise.
+	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin):
+	Expand vec_ld and vec_st during parsing.
+	* config/rs6000/rs6000.c (altivec_expand_lvx_be): Commentary
+	changes.
+	(altivec_expand_stvx_be): Likewise.
+	(altivec_expand_lv_builtin): Expand lvx built-ins to expose the
+	address-masking behavior in RTL.
+	(altivec_expand_stv_builtin): Expand stvx built-ins to expose the
+	address-masking behavior in RTL.
+	(altivec_expand_builtin): Change builtin code arguments for calls
+	to altivec_expand_stv_builtin and altivec_expand_lv_builtin.
+	(insn_is_swappable_p): Avoid incorrect swap optimization in the
+	presence of lvx/stvx patterns.
+	(alignment_with_canonical_addr): New function.
+	(alignment_mask): Likewise.
+	(find_alignment_op): Likewise.
+	(recombine_lvx_pattern): Likewise.
+	(recombine_stvx_pattern): Likewise.
+	(recombine_lvx_stvx_patterns): Likewise.
+	(rs6000_analyze_swaps): Perform a pre-pass to recognize lvx and
+	stvx patterns from expand.
+	* config/rs6000/vector.md (vector_altivec_load_<mode>): Use new
+	expansions.
+	(vector_altivec_store_<mode>): Likewise.
+
+2016-04-26  Evandro Menezes  <e.menezes@samsung.com>
+
+	* config/aarch64/aarch64.md
+	(*movhf_aarch64): Add "movi %0, #0" to zero up register and
+	remove the "fp" attributes.
+	(*movsf_aarch64): Add "movi %0, #0" to zero up register and
+	add the "simd" attributes.
+	(*movdf_aarch64): Likewise.
+	(*movtf_aarch64): Remove the "fp" attributes.
+	* testsuite/gcc.target/aarch64/fmovf-zero-reg.c: Update accordingly.
+	* testsuite/gcc.target/aarch64/fmovd-zero-reg.c: Likewise.
+
 2016-04-27  David Malcolm  <dmalcolm@redhat.com>
 
 	* emit-rtl.c (maybe_set_first_label_num): Strengthen param from

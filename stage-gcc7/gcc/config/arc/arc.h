@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #define SYMBOL_FLAG_SHORT_CALL	(SYMBOL_FLAG_MACH_DEP << 0)
 #define SYMBOL_FLAG_MEDIUM_CALL	(SYMBOL_FLAG_MACH_DEP << 1)
 #define SYMBOL_FLAG_LONG_CALL	(SYMBOL_FLAG_MACH_DEP << 2)
+#define SYMBOL_FLAG_CMEM	(SYMBOL_FLAG_MACH_DEP << 3)
 
 /* Check if this symbol has a long_call attribute in its declaration */
 #define SYMBOL_REF_LONG_CALL_P(X)	\
@@ -109,6 +110,8 @@ along with GCC; see the file COPYING3.  If not see
       builtin_define ("__ARC_SIMD__");	\
     if (TARGET_BARREL_SHIFTER)		\
       builtin_define ("__Xbarrel_shifter");\
+    builtin_define_with_int_value ("__ARC_TLS_REGNO__", \
+				   arc_tp_regno);	\
     builtin_assert ("cpu=arc");		\
     builtin_assert ("machine=arc");	\
     builtin_define (TARGET_BIG_ENDIAN	\
@@ -136,6 +139,8 @@ along with GCC; see the file COPYING3.  If not see
 %{mdsp-packa:-D__Xdsp_packa} %{mcrc:-D__Xcrc} %{mdvbf:-D__Xdvbf} \
 %{mtelephony:-D__Xtelephony} %{mxy:-D__Xxy} %{mmul64: -D__Xmult32} \
 %{mlock:-D__Xlock} %{mswape:-D__Xswape} %{mrtsc:-D__Xrtsc} \
+%{mcpu=NPS400:-D__NPS400__} \
+%{mcpu=nps400:-D__NPS400__} \
 "
 
 #define CC1_SPEC "\
@@ -153,7 +158,7 @@ along with GCC; see the file COPYING3.  If not see
 %{mcpu=ARC700:-mEA} \
 %{!mcpu=*:" ASM_DEFAULT "} \
 %{mbarrel-shifter} %{mno-mpy} %{mmul64} %{mmul32x16:-mdsp-packa} %{mnorm} \
-%{mswap} %{mEA} %{mmin-max} %{mspfp*} %{mdpfp*} \
+%{mswap} %{mEA} %{mmin-max} %{mspfp*} %{mdpfp*} %{mfpu=fpuda*:-mfpuda} \
 %{msimd} \
 %{mmac-d16} %{mmac-24} %{mdsp-packa} %{mcrc} %{mdvbf} %{mtelephony} %{mxy} \
 %{mcpu=ARC700|!mcpu=*:%{mlock}} \
@@ -201,7 +206,13 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 
 #if DEFAULT_LIBC != LIBC_UCLIBC
-#define STARTFILE_SPEC "%{!shared:crt0.o%s} crti%O%s %{pg|p:crtg.o%s} crtbegin.o%s"
+#define ARC_TLS_EXTRA_START_SPEC "crttls.o%s"
+
+#define EXTRA_SPECS \
+  { "arc_tls_extra_start_spec", ARC_TLS_EXTRA_START_SPEC }, \
+
+#define STARTFILE_SPEC "%{!shared:crt0.o%s} crti%O%s %{pg|p:crtg.o%s} " \
+  "%(arc_tls_extra_start_spec) crtbegin.o%s"
 #else
 #define STARTFILE_SPEC   "%{!shared:%{!mkernel:crt1.o%s}} crti.o%s \
   %{!shared:%{pg|p|profile:crtg.o%s} crtbegin.o%s} %{shared:crtbeginS.o%s}"
@@ -297,7 +308,8 @@ along with GCC; see the file COPYING3.  If not see
 
 #define TARGET_ARC600 (arc_cpu == PROCESSOR_ARC600)
 #define TARGET_ARC601 (arc_cpu == PROCESSOR_ARC601)
-#define TARGET_ARC700 (arc_cpu == PROCESSOR_ARC700)
+#define TARGET_ARC700 (arc_cpu == PROCESSOR_ARC700	\
+		       || arc_cpu == PROCESSOR_NPS400)
 #define TARGET_EM     (arc_cpu == PROCESSOR_ARCEM)
 #define TARGET_HS     (arc_cpu == PROCESSOR_ARCHS)
 #define TARGET_V2							\
@@ -308,6 +320,14 @@ along with GCC; see the file COPYING3.  If not see
 
 #ifndef MULTILIB_DEFAULTS
 #define MULTILIB_DEFAULTS { "mARC700" }
+#endif
+
+#ifndef UNALIGNED_ACCESS_DEFAULT
+#define UNALIGNED_ACCESS_DEFAULT 0
+#endif
+
+#ifndef TARGET_NPS_CMEM_DEFAULT
+#define TARGET_NPS_CMEM_DEFAULT 0
 #endif
 
 /* Target machine storage layout.  */
@@ -748,9 +768,10 @@ extern enum reg_class arc_regno_reg_class[];
    or a pseudo reg currently allocated to a suitable hard reg.
    Since they use reg_renumber, they are safe only once reg_renumber
    has been allocated, which happens in local-alloc.c.  */
-#define REGNO_OK_FOR_BASE_P(REGNO) \
-((REGNO) < 29 || ((REGNO) == ARG_POINTER_REGNUM) || ((REGNO) == 63) ||\
- (unsigned) reg_renumber[REGNO] < 29)
+#define REGNO_OK_FOR_BASE_P(REGNO)					\
+  ((REGNO) < 29 || ((REGNO) == ARG_POINTER_REGNUM) || ((REGNO) == 63)	\
+   || ((unsigned) reg_renumber[REGNO] < 29)				\
+   || ((unsigned) (REGNO) == (unsigned) arc_tp_regno))
 
 #define REGNO_OK_FOR_INDEX_P(REGNO) REGNO_OK_FOR_BASE_P(REGNO)
 
@@ -936,6 +957,8 @@ arc_return_addr_rtx(COUNT,FRAME)
 #define EXIT_IGNORE_STACK 0
 
 #define EPILOGUE_USES(REGNO) arc_epilogue_uses ((REGNO))
+
+#define EH_USES(REGNO) arc_eh_uses((REGNO))
 
 /* Definitions for register eliminations.
 
@@ -1657,7 +1680,8 @@ extern enum arc_function_type arc_compute_function_type (struct function *);
    && GET_CODE (PATTERN (X)) != CLOBBER		\
    && (get_attr_type (X) == TYPE_CALL || get_attr_type (X) == TYPE_SFUNC))
 
-#define INSN_REFERENCES_ARE_DELAYED(insn) INSN_SETS_ARE_DELAYED (insn)
+#define INSN_REFERENCES_ARE_DELAYED(insn)				\
+  (INSN_SETS_ARE_DELAYED (insn) && !insn_is_tls_gd_dispatch (insn))
 
 #define CALL_ATTR(X, NAME) \
   ((CALL_P (X) || NONJUMP_INSN_P (X)) \
@@ -1724,6 +1748,12 @@ enum
 /* Any multiplication feature macro.  */
 #define TARGET_ANY_MPY						\
   (TARGET_MPY || TARGET_MUL64_SET || TARGET_MULMAC_32BY16_SET)
+/* PLUS_DMPY feature macro.  */
+#define TARGET_PLUS_DMPY  ((arc_mpy_option > 6) && TARGET_HS)
+/* PLUS_MACD feature macro.  */
+#define TARGET_PLUS_MACD  ((arc_mpy_option > 7) && TARGET_HS)
+/* PLUS_QMACW feature macro.  */
+#define TARGET_PLUS_QMACW ((arc_mpy_option > 8) && TARGET_HS)
 
 /* ARC600 and ARC601 feature macro.  */
 #define TARGET_ARC600_FAMILY (TARGET_ARC600 || TARGET_ARC601)
