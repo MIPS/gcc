@@ -2107,7 +2107,7 @@ mips_use_shadow_register_set (tree type)
 {
   tree attr = lookup_attribute ("use_shadow_register_set",
 				TYPE_ATTRIBUTES (type));
-  tree args, cst;
+  tree args;
 
   /* The validation code in mips_handle_use_shadow_register_set_attr guarantees
      that if an argument is present then it means: Assume the shadow register
@@ -2176,11 +2176,10 @@ mips_no_common_epilogue_p (tree decl)
 /* Verify the arguments to a code_readable attribute.  */
 
 static tree
-mips_handle_code_readable_attr (tree *node, tree name, tree args,
-				int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+mips_handle_code_readable_attr (tree *node ATTRIBUTE_UNUSED, tree name,
+				tree args, int flags ATTRIBUTE_UNUSED,
+				bool *no_add_attrs)
 {
-  const char * str;
-
   if (!is_attribute_p ("code_readable", name) || args == NULL)
     return NULL_TREE;
 
@@ -2545,7 +2544,7 @@ mips_can_inline_p (tree caller, tree callee)
 }
 
 static tree
-mips_handle_interrupt_attr (tree *node, tree name, tree args,
+mips_handle_interrupt_attr (tree *node ATTRIBUTE_UNUSED, tree name, tree args,
 			    int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
 {
   /* Check for an argument.  */
@@ -2595,7 +2594,8 @@ mips_handle_interrupt_attr (tree *node, tree name, tree args,
 }
 
 static tree
-mips_handle_use_shadow_register_set_attr (tree *node, tree name, tree args,
+mips_handle_use_shadow_register_set_attr (tree *node ATTRIBUTE_UNUSED,
+					  tree name, tree args,
 					  int flags ATTRIBUTE_UNUSED,
 					  bool *no_add_attrs)
 {
@@ -9169,7 +9169,7 @@ mips_store_by_pieces_p (unsigned HOST_WIDE_INT size, unsigned int align)
 
 static void
 mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length,
-			  HOST_WIDE_INT alignment)
+			  HOST_WIDE_INT alignment ATTRIBUTE_UNUSED)
 {
   HOST_WIDE_INT offset, delta;
   unsigned HOST_WIDE_INT bits;
@@ -9523,11 +9523,9 @@ mips16_expand_copy (rtx dest, rtx src, rtx length, rtx alignment)
 bool
 gen_mips16_copy_peep (rtx *operands, int n)
 {
-  rtx first_base_dest, first_base_src;
-  int alignment = 0;
-  HOST_WIDE_INT offset;
-  int nmove = 0;
-  rtx mov_dest[4], mov_src[4];
+  rtx first_base_dest = NULL_RTX, first_base_src = NULL_RTX;
+  HOST_WIDE_INT alignment = 0;
+  HOST_WIDE_INT offset = 0;
 
   for (int i = 0; i < n; i++)
     {
@@ -14935,7 +14933,7 @@ mips_canonicalize_move_class (reg_class_t rclass)
    function.  */
 
 static int
-mips_move_to_gpr_cost (machine_mode mode, reg_class_t from)
+mips_move_to_gpr_cost (machine_mode mode ATTRIBUTE_UNUSED, reg_class_t from)
 {
   switch (from)
     {
@@ -14968,7 +14966,7 @@ mips_move_to_gpr_cost (machine_mode mode, reg_class_t from)
    function.  */
 
 static int
-mips_move_from_gpr_cost (machine_mode mode, reg_class_t to)
+mips_move_from_gpr_cost (machine_mode mode ATTRIBUTE_UNUSED, reg_class_t to)
 {
   switch (to)
     {
@@ -15489,9 +15487,9 @@ mips_output_jump (rtx *operands, int target_opno, int size_opno, bool link_p)
   const char *compact = "";
   const char *nop = "%/";
   const char *short_delay = link_p ? "%!" : "";
-  const char *insn_name = (TARGET_CB_NEVER
-			   && (!(TARGET_MIPS16 && TARGET_MIPS16_TAIL_BRANCH)
-			       || link_p)
+  const char *insn_name = ((TARGET_CB_NEVER
+			    && (!(TARGET_MIPS16 && TARGET_MIPS16_TAIL_BRANCH)
+				|| link_p))
 			   || reg_p ? "j" : "b");
 
   /* Compact branches can only be described when the ISA has support for them
@@ -24203,8 +24201,8 @@ mips_ira_change_pseudo_allocno_class (int regno, reg_class_t allocno_class)
 }
 
 void
-mips_bit_clear_info (enum machine_mode mode, unsigned HOST_WIDE_INT m,
-		     int *start_pos, int *size)
+mips_bit_clear_info (enum machine_mode mode ATTRIBUTE_UNUSED,
+		     unsigned HOST_WIDE_INT m, int *start_pos, int *size)
 {
   unsigned int shift = 0;
   unsigned int change_count = 0;
