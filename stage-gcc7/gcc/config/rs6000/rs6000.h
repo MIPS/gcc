@@ -1776,7 +1776,7 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
 			   : (FP_ARG_RETURN + AGGR_ARG_NUM_REG - 1))
 #define ALTIVEC_ARG_MAX_RETURN (DEFAULT_ABI != ABI_ELFv2		\
 				? (ALTIVEC_ARG_RETURN			\
-				   + (TARGET_FLOAT128 ? 1 : 0)		\
+				   + (TARGET_FLOAT128 ? 1 : 0))		\
 			        : (ALTIVEC_ARG_RETURN + AGGR_ARG_NUM_REG - 1))
 
 /* Flags for the call/call_value rtl operations set up by function_arg */

@@ -24,7 +24,6 @@
 	* config/rs6000/rs6000.h (FLOAT128_IEEE_P): Likewise.
 	__float128 and __ibm128 complex.
 	(FLOAT128_IBM_P): Likewise.
-	(ALTIVEC_COMPLEX): Likewise.
 	(ALTIVEC_ARG_MAX_RETURN): Likewise.
 	* doc/extend.texi (Additional Floating Types): Document that
 	-mfloat128 must be used to enable __float128.  Document complex
