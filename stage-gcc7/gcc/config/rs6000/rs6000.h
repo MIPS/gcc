@@ -1768,17 +1768,15 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
 /* Maximum number of registers per ELFv2 homogeneous aggregate argument.  */
 #define AGGR_ARG_NUM_REG 8
 
-/* _Complex __float128 needs two registers.  */
-#define ALTIVEC_COMPLEX	((TARGET_FLOAT128) ? 1 : 0)
-
 /* Return registers */
 #define GP_ARG_RETURN GP_ARG_MIN_REG
 #define FP_ARG_RETURN FP_ARG_MIN_REG
 #define ALTIVEC_ARG_RETURN (FIRST_ALTIVEC_REGNO + 2)
 #define FP_ARG_MAX_RETURN (DEFAULT_ABI != ABI_ELFv2 ? FP_ARG_RETURN	\
 			   : (FP_ARG_RETURN + AGGR_ARG_NUM_REG - 1))
-#define ALTIVEC_ARG_MAX_RETURN (DEFAULT_ABI != ABI_ELFv2		 \
-				? (ALTIVEC_ARG_RETURN + ALTIVEC_COMPLEX) \
+#define ALTIVEC_ARG_MAX_RETURN (DEFAULT_ABI != ABI_ELFv2		\
+				? (ALTIVEC_ARG_RETURN			\
+				   + (TARGET_FLOAT128 ? 1 : 0)		\
 			        : (ALTIVEC_ARG_RETURN + AGGR_ARG_NUM_REG - 1))
 
 /* Flags for the call/call_value rtl operations set up by function_arg */
@@ -2607,7 +2605,7 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
 
 /* Define which CODE values are valid.  */
 
-#define PRINT_OPERAND_PUNCT_VALID_P(CODE)  ((CODE) == '&' || (CODE) == '@')
+#define PRINT_OPERAND_PUNCT_VALID_P(CODE)  ((CODE) == '&')
 
 /* Print a memory address as an operand to reference that memory location.  */
 
