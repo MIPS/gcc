@@ -1,3 +1,10 @@
+2016-05-02  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* tree.h (wi::to_wide): New function.
+	* expr.c (expand_expr_real_1): Use wi::to_wide.
+	* fold-const.c (int_const_binop_1): Likewise.
+	(extract_muldiv_1): Likewise.
+
 2016-05-20  Richard Guenther  <rguenther@suse.de>
 
 	PR tree-optimization/29756
