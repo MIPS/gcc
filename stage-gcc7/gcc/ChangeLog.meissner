@@ -1,3 +1,11 @@
+2016-05-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* stor-layout.c (layout_type): Abort if the type mode for complex
+	was not set.
+
+	* fortran/trans-types.c (gfc_build_complex_type): Set the complex
+	mode for layout_type to use.
+
 2016-04-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* machmode.h (mode_complex): Add support to give the complex mode
