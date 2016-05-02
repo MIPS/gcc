@@ -1,6 +1,11 @@
 
 2016-05-02  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* make-melt-plugin-source-tar.sh: the -s option for snapshot is
+	working again.
+
+2016-05-02  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* MELT-Plugin-Makefile: Check against GCC 5.x or 6.x for MELT
 	1.3
 

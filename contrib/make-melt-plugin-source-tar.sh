@@ -181,22 +181,26 @@ for cf in  $gccmelt_source_tree/contrib/*melt*.sh $gccmelt_source_tree/contrib/p
     chmod a+x $gccmelt_tarbase/$(basename $cf)
 done
 
-for cf in   $gccmelt_source_tree/contrib/simplemelt-gtkmm-probe.cc $gccmelt_source_tree/contrib/simplemelt-pyqt4-probe.py ; do
-    copymelt contrib/$(basename $cf) 
-done
 
 copymelt INSTALL/README-MELT-PLUGIN
 
 if [ -n "$gccmelt_snapshot" ]; then
+    gccmelt_revision=$(tr -c -d '0-9'< $gccmelt_tarbase/GCCMELT-REVISION)
     gccmelt_origpat='#define *MELT_VERSION_STRING *"\([a-zA-Z0-9.-]*\)" *'
-    gccmelt_replac="#define MELT_VERSION_STRING \"\\1-$gccmelt_snapshot\""
+    gccmelt_replac="#define MELT_VERSION_STRING \"\\1-snap-r$gccmelt_revision\""
     echo gccmelt_origpat= $gccmelt_origpat
     echo gccmelt_replac= $gccmelt_replac
-    sed -i "s/$gccmelt_origpat/$gccmelt_replac/" $gccmelt_tarbase/melt-runtime.h
+    echo gccmelt_revision= $gccmelt_revision
+    sed  "s/$gccmelt_origpat/$gccmelt_replac/" < $gccmelt_tarbase/melt-runtime.h > $gccmelt_tarbase/melt-runtime.h-tmp
+    mv  $gccmelt_tarbase/melt-runtime.h-tmp  $gccmelt_tarbase/melt-runtime.h
     grep "define *MELT_VERSION_STRING"  $gccmelt_tarbase/melt-runtime.h
 fi
 
-eval $(sed -i 's/#define *MELT_VERSION_STRING *"\([a-zA-Z0-9.-]*\)"/melt_version_string="\\1"/'  $gccmelt_tarbase/melt-runtime.h)
+grep 'MELT_VERSION_STRING'  $gccmelt_tarbase/melt-runtime.h
+
+eval $(awk '/MELT_VERSION_STRING/{printf "gccmelt_version_string=%s\n", $3;}'  $gccmelt_tarbase/melt-runtime.h)
+
+echo gccmelt_version_string= $gccmelt_version_string
 
 if [ -n "$gengtype_prog" ]; then
     gengtype_version=$($gengtype_prog -V | head -1 | awk '{print $NF}' 2>/dev/null)
@@ -205,7 +209,7 @@ fi
 
 tar -cjf $gccmelt_tarbase.tar.bz2 \
     --format=pax --owner=melt --group=gcc \
-    --label="GCC-MELT-$melt_version_string" \
+    --label="GCC-MELT-$gccmelt_version_string" \
    --exclude-backups --exclude='*~' --exclude='*%'  --exclude-vcs  \
    -C $(dirname $gccmelt_tarbase) $(basename $gccmelt_tarbase)
 
