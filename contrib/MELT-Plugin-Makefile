@@ -51,11 +51,11 @@ endif
 ### Our awk (GNU awk is prefered)
 AWK?= gawk
 
-## the version of our GCC getting melt.so, e.g. 4.7.0
+## the version of our GCC getting melt.so, e.g. 5.3.1
 MELTGCC_VERSION := $(shell env LANG=C LC_ALL=C $(MELTGCC) -v < /dev/null 2>&1 | $(AWK) '/^gcc version/{print $$3}')
 $(info building MELT: GCC version $(MELTGCC_VERSION))
 
-## check that we have a 4.9 or 5.
+## check that we have a 5 or a 6
 ifeq ($(filter 4.9.% 5.%, $(MELTGCC_VERSION)),)
 $(error building MELT: bad version of MELT GCC $(MELTGCC_VERSION). Needs GCC 4.9 or 5.*)
 endif
@@ -66,9 +66,9 @@ endif
 
 ## The compiler and flags used to build the melt.so plugin and to
 ## compile MELT generated code.  Notice that melt-module.mk use the
-## same Make variables.  For a melt plugin to GCC 4.9 or later, that
+## same Make variables.  For a melt plugin to some GCC 5, that
 ## should be a C++ compiler! eg
-##   make MELTGCC=gcc-4.9 GCCMELT_CXX=g++-4.9
+##   make MELTGCC=gcc-5 GCCMELT_CXX=g++-5
 ifndef GCCMELT_CXX
 GCCMELT_CXX = $(or $(CXX),g++)
 $(info building MELT: GCCMELT_CXX= $(GCCMELT_CXX) is a C++ compiler)
