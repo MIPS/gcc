@@ -1,3 +1,52 @@
+2016-05-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (wO constraint): Add support for
+	ISA 3.0 vector d-form (register + offset) instructions. Split the
+	existing switch -mpower9-dform into -mpower9-dform-scalar and
+	-mpower9-dform-vector. Disable vector d-form support if reload is
+	used, due to some error cases. Add more debug statements.
+	* config/rs6000/predicates.md (quad_memory_operand): Likewise.
+	(vsx_quad_dform_memory_operand): Likewise.
+	* config/rs6000/rs6000-cpus.def (POWERPC_MASKS): Likewise.
+	(ISA_3_0_MASKS_SERVER): Likewise.
+	* config/rs6000/rs6000-protos.h (quad_address_p): Likewise.
+	* config/rs6000/rs6000.opt (-mpower9-dform): Likewise.
+	(-mpower9-dform-scalar): Likewise.
+	(-mpower9-dform-vector): Likewise.
+	* config/rs6000/rs6000.c (RELOAD_REG_QUAD_OFFSET): Likewise.
+	(mode_supports_vsx_dform_quad): Likewise.
+	(rs6000_debug_addr_mask): Likewise.
+	(rs6000_setup_reg_addr_masks): Likewise.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(rs6000_option_override_internal): Likewise.
+	(quad_address_offset_p): Likewise.
+	(mem_operand_gpr): Likewise.
+	(reg_offset_addressing_ok_p): Likewise.
+	(offsettable_ok_by_alignment): Likewise.
+	(rs6000_legitimate_offset_address_p): Likewise.
+	(legitimate_lo_sum_address_p): Likewise.
+	(rs6000_legitimize_address): Likewise.
+	(rs6000_legitimize_reload_address): Likewise.
+	(rs6000_legitimate_address_p): Likewise.
+	(rs6000_secondary_reload_memory): Likewise.
+	(rs6000_secondary_reload_inner): Likewise.
+	(rs6000_preferred_reload_class): Likewise.
+	(rs6000_output_move_128bit): Likewise.
+	(rs6000_emit_prologue): Likewise.g
+	(rs6000_emit_epilogue): Likewise.
+	(rs6000_opt_masks): Likewise.
+	(rs6000_print_options_internal): Likewise.
+	* config/rs6000/vsx.md (p9_vecload_<mode>): Delete special ISA 3.0
+	move instructions, fold support back into the standard mov insns.
+	(p9_vecstore_<mode>): Likewise.
+	(vsx_mov<mode>, 64-bit): Add ISA 3.0 vector d-form support.
+	(vsx_mov<mode>, 32-bit): Likewise.
+	(vsx_movti_64bit): Likewise.
+	(vsx_movti_32bit): Likewise.
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Fix
+	typo. Document ISA 3.0 vector d-form instructions.
+	* doc/md.texi (wO constraint): Document new constraint.
+
 2016-05-02   Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch subversion id 235776
