@@ -2,7 +2,7 @@
 ##
 ##    Middle End Lisp Translator = MELT ; see http://gcc-melt.org/
 ##
-##    Copyright (C) 2011 - 2015 Free Software Foundation, Inc.
+##    Copyright (C) 2011 - 2016 Free Software Foundation, Inc.
 ##    Contributed by Basile Starynkevitch <basile@starynkevitch.net> and others
 ## 
 ## This file contrib/MELT-Plugin-Makefile is part of GCC.
@@ -25,7 +25,7 @@
 ### GCC changes, like a patchlevel upgrade, e.g. from GCC 4.7.2 to
 ### 4.7.3
 
-$(info building MELT: see http://gcc-melt.org/ for more)
+$(info building MELT plugin: see http://gcc-melt.org/ for more)
 
 ## the command to remove files
 RM ?= rm -vf
@@ -53,11 +53,12 @@ AWK?= gawk
 
 ## the version of our GCC getting melt.so, e.g. 5.3.1
 MELTGCC_VERSION := $(shell env LANG=C LC_ALL=C $(MELTGCC) -v < /dev/null 2>&1 | $(AWK) '/^gcc version/{print $$3}')
+MELTGCC_MAJOR_VERSION := $(shell echo $(MELTGCC_VERSION) | cut -d. -f1)
 $(info building MELT: GCC version $(MELTGCC_VERSION))
 
 ## check that we have a 5 or a 6
-ifeq ($(filter 4.9.% 5.%, $(MELTGCC_VERSION)),)
-$(error building MELT: bad version of MELT GCC $(MELTGCC_VERSION). Needs GCC 4.9 or 5.*)
+ifeq ($(filter 5.% 6.%, $(MELTGCC_VERSION)),)
+$(error building MELT: bad version of MELT GCC $(MELTGCC_VERSION). Needs GCC 5. or 6.*)
 endif
 ## You may want to set MELTGCC_NO_CHECK_RUNTIME environment variable
 ## when cross-compiling (since you cannot compile melt-runtime.cc with
@@ -123,15 +124,6 @@ TEXI2PDF?= texi2pdf
 TEXI2HTML?= texi2html
 
 
-## the unifdef utility is need to circumvent a GCC 4.7 gengtype bug;
-## download it from http://freecode.com/projects/unifdef or
-## http://dotat.at/prog/unifdef/ etc...  See
-## https://sourceforge.net/p/gcc-melt/tickets/6/ for details. We need
-## to pre-process with unifdef -DMELT_BOGUS_GENGTYPE_4dot7 the
-## melt/generated/meltrunsup.h melt/generated/meltrunsup-inc.c and
-## melt-runtime.cc files before giving then to gengtype for GCC 4.7
-UNIFDEF?= unifdef
-
 ## an install driver, which could be sudo or echo, or stay empty
 INSTALL_DRIVER?=
 
@@ -174,7 +166,7 @@ $(error building MELT: missing MELT GCC gengtype state file)
 endif
 
 ## our included files from melt-runtime.cc
-MELTGCC_RUNTIME_INCLUDES= melt-runtime.h melt/generated/meltrunsup.h
+MELTGCC_RUNTIME_INCLUDES= melt-runtypes.h melt/generated/meltrunsup.h melt-runtime.h
 
 ## the optimization flags for melt.so
 MELTGCC_OPTIMFLAGS= -O2
@@ -268,6 +260,8 @@ melt-predef.h:  make-melt-predefh.awk melt-predef.list
 _melt-runtime.c: $(MELT_RUNTIME_CC)
 	$(LN_S) $^ $@
 
+melt-runtypes.h: melt-runtypes-$(MELTGCC_MAJOR_VERSION).h
+	$(LN_S) $^ $@
 
 _meltrunsup-inc.c: melt/generated/meltrunsup-inc.cc
 	$(LN_S) $^ $@
@@ -304,8 +298,7 @@ melt-run-md5.h:  gfmeltgcc_run_md5
          '=' \"$(shell cat gfmeltgcc_run_md5)\" ';') > $@-tmp
 	mv $@-tmp $@
 
-## the version number of our GCC getting melt.so, ie 4006 for 4.6 &
-## 4007 for 4.7
+## the version number of our GCC getting melt.so, ie 5003 for 5.3 &
 MELTGCC_VERSION_NUMBER = $(shell cat gfmeltgcc_version_number)
 
 
@@ -410,7 +403,7 @@ GCCMELTGEN_BUILD=melt-workdir/
 meltgendoc.texi:  melt-build-settings.sh  melt-build-param.sh melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) _warmelt-predef.melt  _libmelt-treecode.melt melt-predef.h $(wildcard melt/*.melt melt/generated/*.[ch]) melt-gendoc
 
 melt-clean:
-	$(RM) -rf meltbuild* melt-build-param.sh melt-build-settings.sh _warmelt-predef.melt _libmelt-treecode.melt
+	$(RM) -rf meltbuild* melt-build-param.sh melt-build-settings.sh _warmelt-predef.melt _libmelt-treecode.melt melt-runtypes.h
 
 melt-translator: melt-build-settings.sh  melt-build-param.sh melt-build-script.sh $(melt_make_cc1_dependency) _warmelt-predef.melt melt-predef.h $(wildcard melt/*.melt melt/generated/*.[ch]) melt.so melt-runtime.ii
 	@echo melt-translator script $(realpath melt-build-script.sh) MAKE= $(MAKE) MAKEFLAGS= $(MAKEFLAGS)
@@ -446,9 +439,6 @@ distclean: clean
 ## melt-clean comes from melt-build.mk
 clean: melt-clean
 	$(RM) *.o melt.so *~ melt-predef.h gt-melt-runtime.h gfmelt* *tmp stamp-* *.args
-ifneq ($(filter 4.7.%, $(MELTGCC_VERSION)),)
-	$(RM) *4d7*
-endif
 
 bootstrap-melt: melt.so _warmelt-predef.melt warmelt0 warmelt1 warmelt2 warmelt all-melt  melt-runtime.ii
 
@@ -575,7 +565,6 @@ upgrade-melt: all
 	   echo make upgrade-melt requires a valid MELT_SOURCE_TREE make variable >&2 ; \
 	   exit 1 ; fi
 	@which astyle > /dev/zero || (echo astyle not found but needed to upgrade-melt ; exit 1)
-	@which unifdef > /dev/zero || (echo unifdef not found but needed to upgrade-melt ; exit 1)
 	@echo upgrade-melt script $(realpath ./melt-build-script.sh) MAKE= $(MAKE) MAKEFLAGS= $(MAKEFLAGS)
 	+env GCCMELT_MAKE="$(MAKE)" GCCMELT_MAKEFLAGS="$(MAKEFLAGS)" $(SHELL) ./melt-build-script.sh regenerate
 	@echo; echo upgrade-melt rebuild runtime with the newly generated meltrunsup files using '$(GCCMELT_CXX) $(GCCMELT_CXXFLAGS)'

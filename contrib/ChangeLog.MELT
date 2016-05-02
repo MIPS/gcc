@@ -1,6 +1,11 @@
 
 2016-05-02  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* MELT-Plugin-Makefile (melt-runtypes.h): New.
+	Remove unifdef need and comment about GCC 4.7 gengtype bug.
+
+2016-05-02  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* make-melt-plugin-source-tar.sh: the -s option for snapshot is
 	working again.
 
