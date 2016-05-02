@@ -19336,7 +19336,7 @@ rs6000_preferred_reload_class (rtx x, enum reg_class rclass)
 	return ALTIVEC_REGS;
 
       if (DECIMAL_FLOAT_MODE_P (mode))
-	return (TARGET_DFP) ? FLOAT_REGS : NO_REGS;
+	return TARGET_DFP ? FLOAT_REGS : NO_REGS;
 
       if (TARGET_FPRS && TARGET_HARD_FLOAT && FLOAT_MODE_P (mode)
 	  && (reg_addr[mode].addr_mask[RELOAD_REG_FPR] & RELOAD_REG_VALID) == 0)

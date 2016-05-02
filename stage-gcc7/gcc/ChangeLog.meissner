@@ -3,6 +3,7 @@
 	* config/rs6000/rs6000.c (rs6000_setup_reg_addr_masks): Fix
 	spacing.
 	(rs6000_complex_function_value): Eliminate extra parenthese.
+	(rs6000_preferred_reload_class): Likewise.
 
 	Merge up to 235776.
 	* REVISION: Update subversion id.
