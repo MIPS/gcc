@@ -422,11 +422,7 @@ package body Exp_Ch6 is
                if Ekind (Ptr_Typ) = E_Anonymous_Access_Type
                  and then No (Finalization_Master (Ptr_Typ))
                then
-                  Build_Finalization_Master
-                    (Typ            => Ptr_Typ,
-                     For_Anonymous  => True,
-                     Context_Scope  => Scope (Ptr_Typ),
-                     Insertion_Node => Associated_Node_For_Itype (Ptr_Typ));
+                  Build_Anonymous_Master (Ptr_Typ);
                end if;
 
                --  Access-to-controlled types should always have a master
@@ -3974,13 +3970,14 @@ package body Exp_Ch6 is
               and then Optimization_Level > 0
             then
                declare
-                  Inst : Entity_Id;
-                  Decl : Node_Id;
+                  Decl      : Node_Id;
+                  Inst      : Entity_Id;
+                  Inst_Node : Node_Id;
 
                begin
                   Inst := Scope (Subp);
 
-                  --  Find enclosing instance.
+                  --  Find enclosing instance
 
                   while Present (Inst) and then Inst /= Standard_Standard loop
                      exit when Is_Generic_Instance (Inst);
@@ -4005,7 +4002,19 @@ package body Exp_Ch6 is
                         null;
 
                      else
-                        Add_Pending_Instantiation (Next (Decl), Decl);
+                        --  The instantiation node usually follows the package
+                        --  declaration for the instance. If the generic unit
+                        --  has aspect specifications, they are transformed
+                        --  into pragmas in the instance, and the instance node
+                        --  appears after them.
+
+                        Inst_Node := Next (Decl);
+
+                        while Nkind (Inst_Node) /= N_Package_Instantiation loop
+                           Inst_Node := Next (Inst_Node);
+                        end loop;
+
+                        Add_Pending_Instantiation (Inst_Node, Decl);
                      end if;
                   end if;
                end;
@@ -6804,7 +6813,7 @@ package body Exp_Ch6 is
          --  once in the call to _Postconditions, and once in the actual return
          --  statement, but we can't have side effects happening twice.
 
-         Remove_Side_Effects (Exp);
+         Force_Evaluation (Exp, Mode => Strict);
 
          --  Generate call to _Postconditions
 
@@ -7245,6 +7254,7 @@ package body Exp_Ch6 is
 
       if Nkind_In (Func_Call,
                    N_Qualified_Expression,
+                   N_Type_Conversion,
                    N_Unchecked_Type_Conversion)
       then
          Func_Call := Expression (Func_Call);

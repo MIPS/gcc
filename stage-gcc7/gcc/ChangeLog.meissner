@@ -1,5 +1,8 @@
 2016-05-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 235776.
+	* REVISION: Update subversion id.
+
 	* stor-layout.c (layout_type): Abort if the type mode for complex
 	was not set.
 

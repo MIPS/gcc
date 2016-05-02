@@ -241,6 +241,7 @@ struct oacc_loop
   tree routine;  /* Pseudo-loop enclosing a routine.  */
 
   unsigned mask;   /* Partitioning mask.  */
+  unsigned inner;  /* Partitioning of inner loops.  */
   unsigned flags;  /* Partitioning flags.  */
   unsigned ifns;   /* Contained loop abstraction functions.  */
   tree chunk_size; /* Chunk size.  */
@@ -6401,12 +6402,10 @@ lower_oacc_head_tail (location_t loc, tree clauses,
   gimple_seq_add_stmt (head, gimple_build_assign (ddvar, integer_zero_node));
 
   unsigned count = lower_oacc_head_mark (loc, ddvar, clauses, head, ctx);
-  if (!count)
-    lower_oacc_loop_marker (loc, ddvar, false, integer_zero_node, tail);
-  
   tree fork_kind = build_int_cst (unsigned_type_node, IFN_UNIQUE_OACC_FORK);
   tree join_kind = build_int_cst (unsigned_type_node, IFN_UNIQUE_OACC_JOIN);
 
+  gcc_assert (count);
   for (unsigned done = 1; count; count--, done++)
     {
       gimple_seq fork_seq = NULL;
@@ -18921,7 +18920,7 @@ new_oacc_loop_raw (oacc_loop *parent, location_t loc)
   memset (loop->tails, 0, sizeof (loop->tails));
   loop->routine = NULL_TREE;
 
-  loop->mask = loop->flags = 0;
+  loop->mask = loop->flags = loop->inner = 0;
   loop->ifns = 0;
   loop->chunk_size = 0;
   loop->head_end = NULL;
@@ -19330,10 +19329,8 @@ oacc_loop_process (oacc_loop *loop)
 
       oacc_loop_xform_loop (loop->head_end, loop->ifns, mask_arg, chunk_arg);
 
-      for (ix = 0; ix != GOMP_DIM_MAX && loop->heads[ix]; ix++)
+      for (ix = 0; ix != GOMP_DIM_MAX && mask; ix++)
 	{
-	  gcc_assert (mask);
-
 	  while (!(GOMP_DIM_MASK (dim) & mask))
 	    dim++;
 
@@ -19449,8 +19446,11 @@ oacc_loop_fixed_partitions (oacc_loop *loop, unsigned outer_mask)
   mask_all |= this_mask;
   
   if (loop->child)
-    mask_all |= oacc_loop_fixed_partitions (loop->child,
-					    outer_mask | this_mask);
+    {
+      loop->inner = oacc_loop_fixed_partitions (loop->child,
+						outer_mask | this_mask); 
+      mask_all |= loop->inner;
+    }
 
   if (loop->sibling)
     mask_all |= oacc_loop_fixed_partitions (loop->sibling, outer_mask);
@@ -19466,7 +19466,7 @@ oacc_loop_fixed_partitions (oacc_loop *loop, unsigned outer_mask)
 static unsigned
 oacc_loop_auto_partitions (oacc_loop *loop, unsigned outer_mask)
 {
-  unsigned inner_mask = 0;
+  bool assign = (loop->flags & OLF_AUTO) && (loop->flags & OLF_INDEPENDENT);
   bool noisy = true;
 
 #ifdef ACCEL_COMPILER
@@ -19475,16 +19475,33 @@ oacc_loop_auto_partitions (oacc_loop *loop, unsigned outer_mask)
   noisy = false;
 #endif
 
-  if (loop->child)
-    inner_mask |= oacc_loop_auto_partitions (loop->child,
-					     outer_mask | loop->mask);
-
-  if ((loop->flags & OLF_AUTO) && (loop->flags & OLF_INDEPENDENT))
+  if (assign && outer_mask < GOMP_DIM_MASK (GOMP_DIM_MAX - 1))
     {
+      /* Allocate the outermost loop at the outermost available
+	 level.  */
+      unsigned this_mask = outer_mask + 1;
+
+      if (!(this_mask & loop->inner))
+	loop->mask = this_mask;
+    }
+
+  if (loop->child)
+    {
+      unsigned child_mask = outer_mask | loop->mask;
+
+      if (loop->mask || assign)
+	child_mask |= GOMP_DIM_MASK (GOMP_DIM_MAX);
+
+      loop->inner = oacc_loop_auto_partitions (loop->child, child_mask);
+    }
+
+  if (assign && !loop->mask)
+    {
+      /* Allocate the loop at the innermost available level.  */
       unsigned this_mask = 0;
       
       /* Determine the outermost partitioning used within this loop. */
-      this_mask = inner_mask | GOMP_DIM_MASK (GOMP_DIM_MAX);
+      this_mask = loop->inner | GOMP_DIM_MASK (GOMP_DIM_MAX);
       this_mask = (this_mask & -this_mask);
 
       /* Pick the partitioning just inside that one.  */
@@ -19497,17 +19514,20 @@ oacc_loop_auto_partitions (oacc_loop *loop, unsigned outer_mask)
 	warning_at (loop->loc, 0,
 		    "insufficient partitioning available to parallelize loop");
 
-      if (dump_file)
-	fprintf (dump_file, "Auto loop %s:%d assigned %d\n",
-		 LOCATION_FILE (loop->loc), LOCATION_LINE (loop->loc),
-		 this_mask);
-
       loop->mask = this_mask;
     }
-  inner_mask |= loop->mask;
+
+  if (assign && dump_file)
+    fprintf (dump_file, "Auto loop %s:%d assigned %d\n",
+	     LOCATION_FILE (loop->loc), LOCATION_LINE (loop->loc),
+	     loop->mask);
+
+  unsigned inner_mask = 0;
   
   if (loop->sibling)
     inner_mask |= oacc_loop_auto_partitions (loop->sibling, outer_mask);
+  
+  inner_mask |= loop->inner | loop->mask;
 
   return inner_mask;
 }

@@ -264,8 +264,8 @@ arc_vector_mode_supported_p (machine_mode mode)
 
 /* Implements target hook TARGET_VECTORIZE_PREFERRED_SIMD_MODE.  */
 
-static enum machine_mode
-arc_preferred_simd_mode (enum machine_mode mode)
+static machine_mode
+arc_preferred_simd_mode (machine_mode mode)
 {
   switch (mode)
     {
@@ -1430,7 +1430,8 @@ arc_conditional_register_usage (void)
     {
       if (i < 29)
 	{
-	  if (TARGET_Q_CLASS && ((i <= 3) || ((i >= 12) && (i <= 15))))
+	  if ((TARGET_Q_CLASS || TARGET_RRQ_CLASS)
+	      && ((i <= 3) || ((i >= 12) && (i <= 15))))
 	    arc_regno_reg_class[i] = ARCOMPACT16_REGS;
 	  else
 	    arc_regno_reg_class[i] = GENERAL_REGS;
@@ -1447,12 +1448,12 @@ arc_conditional_register_usage (void)
 	arc_regno_reg_class[i] = NO_REGS;
     }
 
-  /* ARCOMPACT16_REGS is empty, if TARGET_Q_CLASS has not been activated.  */
+  /* ARCOMPACT16_REGS is empty, if TARGET_Q_CLASS / TARGET_RRQ_CLASS
+     has not been activated.  */
+  if (!TARGET_Q_CLASS && !TARGET_RRQ_CLASS)
+    CLEAR_HARD_REG_SET(reg_class_contents [ARCOMPACT16_REGS]);
   if (!TARGET_Q_CLASS)
-    {
-      CLEAR_HARD_REG_SET(reg_class_contents [ARCOMPACT16_REGS]);
-      CLEAR_HARD_REG_SET(reg_class_contents [AC16_BASE_REGS]);
-    }
+    CLEAR_HARD_REG_SET(reg_class_contents [AC16_BASE_REGS]);
 
   gcc_assert (FIRST_PSEUDO_REGISTER >= 144);
 
@@ -2346,7 +2347,7 @@ arc_save_restore (rtx base_reg,
 
       for (regno = 0; regno <= 31; regno++)
 	{
-	  enum machine_mode mode = SImode;
+	  machine_mode mode = SImode;
 	  bool found = false;
 
 	  if (TARGET_LL64
@@ -2994,6 +2995,8 @@ static int output_scaled = 0;
     'Z': log2(x+1)-1
     'z': log2
     'M': log2(~x)
+    'p': bit Position of lsb
+    's': size of bit field
     '#': condbranch delay slot suffix
     '*': jump delay slot suffix
     '?' : nonjump-insn suffix for conditional execution or short instruction
@@ -3042,6 +3045,24 @@ arc_print_operand (FILE *file, rtx x, int code)
       else
 	output_operand_lossage ("invalid operand to %%M code");
 
+      return;
+
+    case 'p':
+      if (GET_CODE (x) == CONST_INT)
+	fprintf (file, "%d", exact_log2 (INTVAL (x) & -INTVAL (x)));
+      else
+	output_operand_lossage ("invalid operand to %%p code");
+      return;
+
+    case 's':
+      if (GET_CODE (x) == CONST_INT)
+	{
+	  HOST_WIDE_INT i = INTVAL (x);
+	  HOST_WIDE_INT s = exact_log2 (i & -i);
+	  fprintf (file, "%d", exact_log2 (((0xffffffffUL & i) >> s) + 1));
+	}
+      else
+	output_operand_lossage ("invalid operand to %%s code");
       return;
 
     case '#' :
@@ -3214,19 +3235,17 @@ arc_print_operand (FILE *file, rtx x, int code)
       else if (GET_CODE (x) == CONST_INT
 	       || GET_CODE (x) == CONST_DOUBLE)
 	{
-	  rtx first, second;
+	  rtx first, second, word;
 
 	  split_double (x, &first, &second);
 
 	  if((WORDS_BIG_ENDIAN) == 0)
-	      fprintf (file, "0x%08" PRIx64,
-		       code == 'L' ? INTVAL (first) : INTVAL (second));
+	    word = (code == 'L' ? first : second);
 	  else
-	      fprintf (file, "0x%08" PRIx64,
-		       code == 'L' ? INTVAL (second) : INTVAL (first));
+	    word = (code == 'L' ? second : first);
 
-
-	  }
+	  fprintf (file, "0x%08" PRIx32, ((uint32_t) INTVAL (word)));
+	}
       else
 	output_operand_lossage ("invalid operand to %%H/%%L code");
       return;
@@ -5105,6 +5124,7 @@ arc_output_pic_addr_const (FILE * file, rtx x, int code)
 	    suffix = "@dtpoff";
 	  break;
 	default:
+	  suffix = "@invalid";
 	  output_operand_lossage ("invalid UNSPEC as operand: %d", XINT (x,1));
 	  break;
 	}
@@ -7370,6 +7390,11 @@ arc_output_commutative_cond_exec (rtx *operands, bool output_p)
       case AND:
 	if (satisfies_constraint_C1p (operands[2]))
 	  pat = "bmsk%? %0,%1,%Z2";
+	else if (satisfies_constraint_C2p (operands[2]))
+	  {
+	    operands[2] = GEN_INT ((~INTVAL (operands[2])));
+	    pat = "bmskn%? %0,%1,%Z2";
+	  }
 	else if (satisfies_constraint_Ccp (operands[2]))
 	  pat = "bclr%? %0,%1,%M2";
 	else if (satisfies_constraint_CnL (operands[2]))
@@ -9823,7 +9848,7 @@ arc_no_speculation_in_delay_slots_p ()
 static rtx
 arc_dwarf_register_span (rtx rtl)
 {
-   enum machine_mode mode = GET_MODE (rtl);
+   machine_mode mode = GET_MODE (rtl);
    unsigned regno;
    rtx p;
 
@@ -9840,10 +9865,151 @@ arc_dwarf_register_span (rtx rtl)
 
 /* We can't inline this in INSN_REFERENCES_ARE_DELAYED because
    resource.h doesn't include the required header files.  */
+
 bool
 insn_is_tls_gd_dispatch (rtx_insn *insn)
 {
   return recog_memoized (insn) == CODE_FOR_tls_gd_dispatch;
+}
+
+/* Return true if OP is an acceptable memory operand for ARCompact
+   16-bit load instructions of MODE.
+
+   AV2SHORT: TRUE if address needs to fit into the new ARCv2 short
+   non scaled instructions.
+
+   SCALED: TRUE if address can be scaled.  */
+
+bool
+compact_memory_operand_p (rtx op, machine_mode mode,
+			  bool av2short, bool scaled)
+{
+  rtx addr, plus0, plus1;
+  int size, off;
+
+  /* Eliminate non-memory operations.  */
+  if (GET_CODE (op) != MEM)
+    return 0;
+
+  /* .di instructions have no 16-bit form.  */
+  if (MEM_VOLATILE_P (op) && !TARGET_VOLATILE_CACHE_SET)
+    return false;
+
+  if (mode == VOIDmode)
+    mode = GET_MODE (op);
+
+  size = GET_MODE_SIZE (mode);
+
+  /* dword operations really put out 2 instructions, so eliminate
+     them.  */
+  if (size > UNITS_PER_WORD)
+    return false;
+
+  /* Decode the address now.  */
+  addr = XEXP (op, 0);
+  switch (GET_CODE (addr))
+    {
+    case REG:
+      return (REGNO (addr) >= FIRST_PSEUDO_REGISTER
+	      || COMPACT_GP_REG_P (REGNO (addr))
+	      || (SP_REG_P (REGNO (addr)) && (size != 2)));
+    case PLUS:
+      plus0 = XEXP (addr, 0);
+      plus1 = XEXP (addr, 1);
+
+      if ((GET_CODE (plus0) == REG)
+	  && ((REGNO (plus0) >= FIRST_PSEUDO_REGISTER)
+	      || COMPACT_GP_REG_P (REGNO (plus0)))
+	  && ((GET_CODE (plus1) == REG)
+	      && ((REGNO (plus1) >= FIRST_PSEUDO_REGISTER)
+		  || COMPACT_GP_REG_P (REGNO (plus1)))))
+	{
+	  return !av2short;
+	}
+
+      if ((GET_CODE (plus0) == REG)
+	  && ((REGNO (plus0) >= FIRST_PSEUDO_REGISTER)
+	      || (COMPACT_GP_REG_P (REGNO (plus0)) && !av2short)
+	      || (IN_RANGE (REGNO (plus0), 0, 31) && av2short))
+	  && (GET_CODE (plus1) == CONST_INT))
+	{
+	  bool valid = false;
+
+	  off = INTVAL (plus1);
+
+	  /* Negative offset is not supported in 16-bit load/store insns.  */
+	  if (off < 0)
+	    return 0;
+
+	  /* Only u5 immediates allowed in code density instructions.  */
+	  if (av2short)
+	    {
+	      switch (size)
+		{
+		case 1:
+		  return false;
+		case 2:
+		  /* This is an ldh_s.x instruction, check the u6
+		     immediate.  */
+		  if (COMPACT_GP_REG_P (REGNO (plus0)))
+		    valid = true;
+		  break;
+		case 4:
+		  /* Only u5 immediates allowed in 32bit access code
+		     density instructions.  */
+		  if (REGNO (plus0) <= 31)
+		    return ((off < 32) && (off % 4 == 0));
+		  break;
+		default:
+		  return false;
+		}
+	    }
+	  else
+	    if (COMPACT_GP_REG_P (REGNO (plus0)))
+	      valid = true;
+
+	  if (valid)
+	    {
+
+	      switch (size)
+		{
+		case 1:
+		  return (off < 32);
+		case 2:
+		  /* The 6-bit constant get shifted to fit the real
+		     5-bits field.  Check also for the alignment.  */
+		  return ((off < 64) && (off % 2 == 0));
+		case 4:
+		  return ((off < 128) && (off % 4 == 0));
+		default:
+		  return false;
+		}
+	    }
+	}
+
+      if (REG_P (plus0) && CONST_INT_P (plus1)
+	  && ((REGNO (plus0) >= FIRST_PSEUDO_REGISTER)
+	      || SP_REG_P (REGNO (plus0)))
+	  && !av2short)
+	{
+	  off = INTVAL (plus1);
+	  return ((size != 2) && (off >= 0 && off < 128) && (off % 4 == 0));
+	}
+
+      if ((GET_CODE (plus0) == MULT)
+	  && (GET_CODE (XEXP (plus0, 0)) == REG)
+	  && ((REGNO (XEXP (plus0, 0)) >= FIRST_PSEUDO_REGISTER)
+	      || COMPACT_GP_REG_P (REGNO (XEXP (plus0, 0))))
+	  && (GET_CODE (plus1) == REG)
+	  && ((REGNO (plus1) >= FIRST_PSEUDO_REGISTER)
+	      || COMPACT_GP_REG_P (REGNO (plus1))))
+	return scaled;
+    default:
+      break ;
+      /* TODO: 'gp' and 'pcl' are to supported as base address operand
+	 for 16-bit load instructions.  */
+    }
+  return false;
 }
 
 struct gcc_target targetm = TARGET_INITIALIZER;
