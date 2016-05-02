@@ -782,8 +782,6 @@ case "${target}" in
     ;;
   sh-*-* | sh[[34]]*-*-*)
     ;;
-  sh64-*-* | sh5*-*-*)
-    ;;
   sparc*-*-*)
     ;;
   x86_64-*-*)
@@ -1282,7 +1280,7 @@ case "${target}" in
   or1k*-*-*)
     noconfigdirs="$noconfigdirs gdb"
     ;;
-  sh-*-* | sh64-*-*)
+  sh-*-*)
     case "${target}" in
       sh*-*-elf)
          ;;
@@ -3530,16 +3528,17 @@ AC_ARG_ENABLE(stage1-checking,
   # For --disable-checking or implicit --enable-checking=release, avoid
   # setting --enable-checking=gc in the default stage1 checking for LTO
   # bootstraps.  See PR62077.
-  stage1_checking=--enable-checking=release,misc,gimple,rtlflag,tree,types
   case $BUILD_CONFIG in
     *lto*)
-      if test "x$enable_checking" = x && \
-	 test -d ${srcdir}/gcc && \
-	 test x"`cat ${srcdir}/gcc/DEV-PHASE`" = xexperimental; then
-	stage1_checking=--enable-checking=yes,types
-      fi;;
-    *) stage1_checking=--enable-checking=yes,types;;
+      stage1_checking=--enable-checking=release,misc,gimple,rtlflag,tree,types;;
+    *)
+      stage1_checking=--enable-checking=yes,types;;
   esac
+  if test "x$enable_checking" = x && \
+     test -d ${srcdir}/gcc && \
+     test x"`cat ${srcdir}/gcc/DEV-PHASE`" = xexperimental; then
+    stage1_checking=--enable-checking=yes,types,extra
+  fi
 else
   stage1_checking=--enable-checking=$enable_checking,types
 fi])

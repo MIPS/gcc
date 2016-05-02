@@ -584,6 +584,14 @@ package body Exp_Util is
       elsif Is_RTE (Pool_Id, RE_SS_Pool) then
          return;
 
+      --  Optimize the case where we are using the default Global_Pool_Object,
+      --  and we don't need the heavy finalization machinery.
+
+      elsif Pool_Id = RTE (RE_Global_Pool_Object)
+        and then not Needs_Finalization (Desig_Typ)
+      then
+         return;
+
       --  Do not replicate the machinery if the allocator / free has already
       --  been expanded and has a custom Allocate / Deallocate.
 
@@ -932,12 +940,20 @@ package body Exp_Util is
       Proc_Decl    : Node_Id;
 
    begin
-      --  No action needed if this transformation was already done or in case
-      --  of subprogram renaming declarations
+      --  No action needed if this transformation was already done, or in case
+      --  of subprogram renaming declarations.
 
       if Nkind (Specification (N)) = N_Procedure_Specification
         or else Nkind (N) = N_Subprogram_Renaming_Declaration
       then
+         return;
+      end if;
+
+      --  Ditto when dealing with an expression function, where both the
+      --  original expression and the generated declaration end up being
+      --  expanded here.
+
+      if Rewritten_For_C (Subp) then
          return;
       end if;
 
@@ -988,9 +1004,12 @@ package body Exp_Util is
 
       Set_Is_Immediately_Visible (Defining_Entity (Proc_Decl), False);
 
-      --  Mark the function as having a procedure form
+      --  Mark the function as having a procedure form and link the function
+      --  and its internally built procedure.
 
       Set_Rewritten_For_C (Subp);
+      Set_Corresponding_Procedure (Subp, Defining_Entity (Proc_Decl));
+      Set_Corresponding_Function (Defining_Entity (Proc_Decl), Subp);
    end Build_Procedure_Form;
 
    ------------------------
@@ -2782,50 +2801,6 @@ package body Exp_Util is
       end if;
    end Find_Optional_Prim_Op;
 
-   -------------------------------
-   -- Find_Primitive_Operations --
-   -------------------------------
-
-   function Find_Primitive_Operations
-     (T    : Entity_Id;
-      Name : Name_Id) return Node_Id
-   is
-      Prim_Elmt : Elmt_Id;
-      Prim_Id   : Entity_Id;
-      Ref       : Node_Id;
-      Typ       : Entity_Id := T;
-
-   begin
-      if Is_Class_Wide_Type (Typ) then
-         Typ := Root_Type (Typ);
-      end if;
-
-      Typ := Underlying_Type (Typ);
-
-      Ref := Empty;
-      Prim_Elmt := First_Elmt (Primitive_Operations (Typ));
-      while Present (Prim_Elmt) loop
-         Prim_Id := Node (Prim_Elmt);
-            if Chars (Prim_Id) = Name then
-
-               --  If this is the first primitive operation found,
-               --  create a reference to it.
-
-               if No (Ref) then
-                  Ref := New_Occurrence_Of (Prim_Id, Sloc (T));
-
-               --  Otherwise, add interpretation to existing reference
-
-               else
-                  Add_One_Interp (Ref, Prim_Id, Etype (Prim_Id));
-               end if;
-            end if;
-         Next_Elmt (Prim_Elmt);
-      end loop;
-
-      return Ref;
-   end Find_Primitive_Operations;
-
    ------------------
    -- Find_Prim_Op --
    ------------------
@@ -3151,17 +3126,21 @@ package body Exp_Util is
       Name_Req      : Boolean   := False;
       Related_Id    : Entity_Id := Empty;
       Is_Low_Bound  : Boolean   := False;
-      Is_High_Bound : Boolean   := False)
+      Is_High_Bound : Boolean   := False;
+      Mode          : Force_Evaluation_Mode := Relaxed)
    is
    begin
       Remove_Side_Effects
-        (Exp           => Exp,
-         Name_Req      => Name_Req,
-         Variable_Ref  => True,
-         Renaming_Req  => False,
-         Related_Id    => Related_Id,
-         Is_Low_Bound  => Is_Low_Bound,
-         Is_High_Bound => Is_High_Bound);
+        (Exp                => Exp,
+         Name_Req           => Name_Req,
+         Variable_Ref       => True,
+         Renaming_Req       => False,
+         Related_Id         => Related_Id,
+         Is_Low_Bound       => Is_Low_Bound,
+         Is_High_Bound      => Is_High_Bound,
+         Check_Side_Effects =>
+           Is_Static_Expression (Exp)
+             or else Mode = Relaxed);
    end Force_Evaluation;
 
    ---------------------------------
@@ -6987,11 +6966,10 @@ package body Exp_Util is
 
                return False;
 
-            elsif Is_Array_Type (Rec) then
-               return Needs_Finalization (Component_Type (Rec));
-
             else
-               return Has_Controlled_Component (Rec);
+               return
+                 Is_Array_Type (Rec)
+                   and then Needs_Finalization (Component_Type (Rec));
             end if;
          else
             return False;
@@ -7018,13 +6996,15 @@ package body Exp_Util is
       elsif Disable_Controlled (T) then
          return False;
 
+      elsif Is_Class_Wide_Type (T) and then Disable_Controlled (Etype (T)) then
+         return False;
+
       else
          --  Class-wide types are treated as controlled because derivations
          --  from the root type can introduce controlled components.
 
          return Is_Class_Wide_Type (T)
              or else Is_Controlled (T)
-             or else Has_Controlled_Component (T)
              or else Has_Some_Controlled_Component (T)
              or else
                (Is_Concurrent_Type (T)
@@ -7577,13 +7557,14 @@ package body Exp_Util is
    -------------------------
 
    procedure Remove_Side_Effects
-     (Exp           : Node_Id;
-      Name_Req      : Boolean   := False;
-      Renaming_Req  : Boolean   := False;
-      Variable_Ref  : Boolean   := False;
-      Related_Id    : Entity_Id := Empty;
-      Is_Low_Bound  : Boolean   := False;
-      Is_High_Bound : Boolean   := False)
+     (Exp                : Node_Id;
+      Name_Req           : Boolean   := False;
+      Renaming_Req       : Boolean   := False;
+      Variable_Ref       : Boolean   := False;
+      Related_Id         : Entity_Id := Empty;
+      Is_Low_Bound       : Boolean   := False;
+      Is_High_Bound      : Boolean   := False;
+      Check_Side_Effects : Boolean   := True)
    is
       function Build_Temporary
         (Loc         : Source_Ptr;
@@ -7717,7 +7698,9 @@ package body Exp_Util is
 
       --  No action needed for side-effect free expressions
 
-      elsif Side_Effect_Free (Exp, Name_Req, Variable_Ref) then
+      elsif Check_Side_Effects
+        and then Side_Effect_Free (Exp, Name_Req, Variable_Ref)
+      then
          return;
       end if;
 
@@ -7938,11 +7921,33 @@ package body Exp_Util is
       else
          --  An expression which is in SPARK mode is considered side effect
          --  free if the resulting value is captured by a variable or a
-         --  constant. Same reasoning when generating C code.
-         --  Why can't we apply this test in general???
+         --  constant.
 
-         if (GNATprove_Mode or Generate_C_Code)
+         if GNATprove_Mode
            and then Nkind (Parent (Exp)) = N_Object_Declaration
+         then
+            goto Leave;
+
+         --  When generating C code we cannot consider side effect free object
+         --  declarations that have discriminants and are initialized by means
+         --  of a function call since on this target there is no secondary
+         --  stack to store the return value and the expander may generate an
+         --  extra call to the function to compute the discriminant value. In
+         --  addition, for targets that have secondary stack, the expansion of
+         --  functions with side effects involves the generation of an access
+         --  type to capture the return value stored in the secondary stack;
+         --  by contrast when generating C code such expansion generates an
+         --  internal object declaration (no access type involved) which must
+         --  be identified here to avoid entering into a never-ending loop
+         --  generating internal object declarations.
+
+         elsif Generate_C_Code
+           and then Nkind (Parent (Exp)) = N_Object_Declaration
+           and then
+             (Nkind (Exp) /= N_Function_Call
+                or else not Has_Discriminants (Exp_Type)
+                or else Is_Internal_Name
+                          (Chars (Defining_Identifier (Parent (Exp)))))
          then
             goto Leave;
          end if;
@@ -8057,12 +8062,39 @@ package body Exp_Util is
             Set_Analyzed (E, False);
          end if;
 
-         Insert_Action (Exp,
-           Make_Object_Declaration (Loc,
-             Defining_Identifier => Def_Id,
-             Object_Definition   => New_Occurrence_Of (Ref_Type, Loc),
-             Constant_Present    => True,
-             Expression          => New_Exp));
+         --  Generating C code of object declarations that have discriminants
+         --  and are initialized by means of a function call we propagate the
+         --  discriminants of the parent type to the internally built object.
+         --  This is needed to avoid generating an extra call to the called
+         --  function.
+
+         --  For example, if we generate here the following declaration, it
+         --  will be expanded later adding an extra call to evaluate the value
+         --  of the discriminant (needed to compute the size of the object).
+         --
+         --     type Rec (D : Integer) is ...
+         --     Obj : constant Rec := SomeFunc;
+
+         if Generate_C_Code
+           and then Nkind (Parent (Exp)) = N_Object_Declaration
+           and then Has_Discriminants (Exp_Type)
+           and then Nkind (Exp) = N_Function_Call
+         then
+            Insert_Action (Exp,
+              Make_Object_Declaration (Loc,
+                Defining_Identifier => Def_Id,
+                Object_Definition   => New_Copy_Tree
+                                         (Object_Definition (Parent (Exp))),
+                Constant_Present    => True,
+                Expression          => New_Exp));
+         else
+            Insert_Action (Exp,
+              Make_Object_Declaration (Loc,
+                Defining_Identifier => Def_Id,
+                Object_Definition   => New_Occurrence_Of (Ref_Type, Loc),
+                Constant_Present    => True,
+                Expression          => New_Exp));
+         end if;
       end if;
 
       --  Preserve the Assignment_OK flag in all copies, since at least one

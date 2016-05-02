@@ -273,7 +273,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wno-int-to-pointer-cast -Winvalid-memory-model -Wno-invalid-offsetof @gol
 -Winvalid-pch -Wlarger-than=@var{len} @gol
 -Wlogical-op -Wlogical-not-parentheses -Wlong-long @gol
--Wmain -Wmaybe-uninitialized -Wmemset-transposed-args @gol
+-Wmain -Wmaybe-uninitialized -Wmemset-elt-size -Wmemset-transposed-args @gol
 -Wmisleading-indentation -Wmissing-braces @gol
 -Wmissing-field-initializers -Wmissing-include-dirs @gol
 -Wno-multichar -Wnonnull -Wnonnull-compare @gol
@@ -501,7 +501,8 @@ Objective-C and Objective-C++ Dialects}.
 @item Developer Options
 @xref{Developer Options,,GCC Developer Options}.
 @gccoptlist{-d@var{letters}  -dumpspecs  -dumpmachine  -dumpversion @gol
--fchecking -fdbg-cnt-list -fdbg-cnt=@var{counter-value-list} @gol
+-fchecking -fchecking=@var{n} -fdbg-cnt-list @gol
+-fdbg-cnt=@var{counter-value-list} @gol
 -fdisable-ipa-@var{pass_name} @gol
 -fdisable-rtl-@var{pass_name} @gol
 -fdisable-rtl-@var{pass-name}=@var{range-list} @gol
@@ -592,7 +593,7 @@ Objective-C and Objective-C++ Dialects}.
 -mcrc -mdsp-packa -mdvbf -mlock -mmac-d16 -mmac-24 -mrtsc -mswape @gol
 -mtelephony -mxy -misize -mannotate-align -marclinux -marclinux_prof @gol
 -mlong-calls -mmedium-calls -msdata @gol
--mucb-mcount -mvolatile-cache @gol
+-mucb-mcount -mvolatile-cache -mtp-regno=@var{regno} @gol
 -malign-call -mauto-modify-reg -mbbit-peephole -mno-brcc @gol
 -mcase-vector-pcrel -mcompact-casesi -mno-cond-exec -mearly-cbranchsi @gol
 -mexpand-adddi -mindexed-loads -mlra -mlra-priority-none @gol
@@ -3547,6 +3548,7 @@ Options} and @ref{Objective-C and Objective-C++ Dialect Options}.
 -Wlogical-not-parentheses
 -Wmain @r{(only for C/ObjC and unless} @option{-ffreestanding}@r{)}  @gol
 -Wmaybe-uninitialized @gol
+-Wmemset-elt-size @gol
 -Wmemset-transposed-args @gol
 -Wmisleading-indentation @r{(only for C/C++)} @gol
 -Wmissing-braces @r{(only for C/ObjC)} @gol
@@ -5256,6 +5258,15 @@ Warn when the @code{sizeof} operator is applied to a parameter that is
 declared as an array in a function definition.  This warning is enabled by
 default for C and C++ programs.
 
+@item -Wmemset-elt-size
+@opindex Wmemset-elt-size
+@opindex Wno-memset-elt-size
+Warn for suspicious calls to the @code{memset} built-in function, if the
+first argument references an array, and the third argument is a number
+equal to the number of elements, but not equal to the size of the array
+in memory.  This indicates that the user has omitted a multiplication by
+the element size.  This warning is enabled by @option{-Wall}.
+
 @item -Wmemset-transposed-args
 @opindex Wmemset-transposed-args
 @opindex Wno-memset-transposed-args
@@ -6254,6 +6265,7 @@ also turns on the following optimization flags:
 -foptimize-strlen @gol
 -fpartial-inlining @gol
 -fpeephole2 @gol
+-frename-registers @gol
 -freorder-blocks-algorithm=stc @gol
 -freorder-blocks-and-partition -freorder-functions @gol
 -frerun-cse-after-loop  @gol
@@ -8561,7 +8573,8 @@ debug information format adopted by the target, however, it can
 make debugging impossible, since variables no longer stay in
 a ``home register''.
 
-Enabled by default with @option{-funroll-loops} and @option{-fpeel-loops}.
+Enabled by default with @option{-funroll-loops} and @option{-fpeel-loops},
+and also enabled at levels @option{-O2}, @option{-O3} and @option{-Os}.
 
 @item -fschedule-fusion
 @opindex fschedule-fusion
@@ -9476,6 +9489,11 @@ The default value is 32.
 Size of minimal partition for WHOPR (in estimated instructions).
 This prevents expenses of splitting very small programs into too many
 partitions.
+
+@item lto-max-partition
+Size of max partition for WHOPR (in estimated instructions).
+to provide an upper bound for individual size of partition.
+Meant to be used only with balanced partitioning.
 
 @item cxx-max-namespaces-for-diagnostic-help
 The maximum number of namespaces to consult for suggestions when C++
@@ -12368,10 +12386,12 @@ Here are some examples showing uses of these options.
 @end smallexample
 
 @item -fchecking
+@itemx -fchecking=@var{n}
 @opindex fchecking
 @opindex fno-checking
 Enable internal consistency checking.  The default depends on
-the compiler configuration.
+the compiler configuration.  @option{-fchecking=2} enables further
+internal consistency checking that might affect code generation.
 
 @item -frandom-seed=@var{string}
 @opindex frandom-seed
@@ -13339,6 +13359,10 @@ Enable code density instructions for ARC EM, default on for ARC HS.
 @item -mll64
 @opindex mll64
 Enable double load/store operations for ARC HS cores.
+
+@item -mtp-regno=@var{regno}
+@opindex mtp-regno
+Specify thread pointer register number.
 
 @item -mmpy-option=@var{multo}
 @opindex mmpy-option

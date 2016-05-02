@@ -1062,7 +1062,6 @@ package body Sem_Ch5 is
          end if;
 
          Check_References (Ent);
-         Warn_On_Useless_Assignments (Ent);
          End_Scope;
 
          if Unblocked_Exit_Count = 0 then
@@ -1818,7 +1817,7 @@ package body Sem_Ch5 is
       Bas : Entity_Id;
       Typ : Entity_Id;
 
-   --   Start of processing for Analyze_iterator_Specification
+   --   Start of processing for Analyze_Iterator_Specification
 
    begin
       Enter_Name (Def_Id);
@@ -2208,6 +2207,8 @@ package body Sem_Ch5 is
                      --  be performed.
 
                      if Nkind (Orig_Iter_Name) = N_Selected_Component
+                       and then
+                         Present (Entity (Selector_Name (Orig_Iter_Name)))
                        and then Ekind_In
                                   (Entity (Selector_Name (Orig_Iter_Name)),
                                    E_Component,
@@ -3216,7 +3217,7 @@ package body Sem_Ch5 is
          --  Verify that the loop name is hot hidden by an unrelated
          --  declaration in an inner scope.
 
-         elsif Ekind (Ent) /= E_Label and then Ekind (Ent) /= E_Loop  then
+         elsif Ekind (Ent) /= E_Label and then Ekind (Ent) /= E_Loop then
             Error_Msg_Sloc := Sloc (Ent);
             Error_Msg_N ("implicit label declaration for & is hidden#", Id);
 

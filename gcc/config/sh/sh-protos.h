@@ -124,7 +124,6 @@ extern enum rtx_code prepare_cbranch_operands (rtx *, machine_mode mode,
 extern void expand_cbranchsi4 (rtx *operands, enum rtx_code comparison, int);
 extern bool expand_cbranchdi4 (rtx *operands, enum rtx_code comparison);
 extern void sh_emit_scc_to_t (enum rtx_code, rtx, rtx);
-extern rtx sh_emit_cheap_store_flag (machine_mode, enum rtx_code, rtx, rtx);
 extern void sh_emit_compare_and_branch (rtx *, machine_mode);
 extern void sh_emit_compare_and_set (rtx *, machine_mode);
 extern bool sh_ashlsi_clobbers_t_reg_p (rtx);
@@ -140,7 +139,6 @@ extern bool gen_shl_and (rtx, rtx, rtx, rtx);
 extern int shl_sext_kind (rtx, rtx, int *);
 extern int shl_sext_length (rtx);
 extern bool gen_shl_sext (rtx, rtx, rtx, rtx);
-extern rtx gen_datalabel_ref (rtx);
 extern int regs_used (rtx, int);
 extern void fixup_addr_diff_vecs (rtx_insn *);
 extern int get_dest_uid (rtx, int);
@@ -149,8 +147,6 @@ extern enum tls_model tls_symbolic_operand (rtx, machine_mode);
 extern bool system_reg_operand (rtx, machine_mode);
 extern bool reg_unused_after (rtx, rtx_insn *);
 extern int sh_insn_length_adjustment (rtx_insn *);
-extern void sh_expand_unop_v2sf (enum rtx_code, rtx, rtx);
-extern void sh_expand_binop_v2sf (enum rtx_code, rtx, rtx, rtx);
 extern bool sh_expand_t_scc (rtx *);
 extern rtx sh_gen_truncate (machine_mode, rtx, int);
 extern bool sh_vector_mode_supported_p (machine_mode);
@@ -396,11 +392,8 @@ extern void sh_init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, tree,
 				     signed int, machine_mode);
 extern rtx sh_dwarf_register_span (rtx);
 
-extern int shmedia_cleanup_truncate (rtx);
-
 extern bool sh_contains_memref_p (rtx);
 extern bool sh_loads_bankedreg_p (rtx);
-extern rtx shmedia_prepare_call_address (rtx fnaddr, int is_sibcall);
 extern int sh2a_get_function_vector_number (rtx);
 extern bool sh2a_is_function_vector_call (rtx);
 extern void sh_fix_range (const char *);

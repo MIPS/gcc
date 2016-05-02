@@ -833,25 +833,26 @@
 })
 
 (define_insn "mov<mode>_internal"
-  [(set (match_operand:VMOVE 0 "nonimmediate_operand"               "=v,v ,m")
-	(match_operand:VMOVE 1 "nonimmediate_or_sse_const_operand"  "BC,vm,v"))]
+  [(set (match_operand:VMOVE 0 "nonimmediate_operand"
+	 "=v,v ,v ,m")
+	(match_operand:VMOVE 1 "nonimmediate_or_sse_const_operand"
+	 " C,BC,vm,v"))]
   "TARGET_SSE
    && (register_operand (operands[0], <MODE>mode)
        || register_operand (operands[1], <MODE>mode))"
 {
-  int mode = get_attr_mode (insn);
-  switch (which_alternative)
+  switch (get_attr_type (insn))
     {
-    case 0:
+    case TYPE_SSELOG1:
       return standard_sse_constant_opcode (insn, operands[1]);
-    case 1:
-    case 2:
+
+    case TYPE_SSEMOV:
       /* There is no evex-encoded vmov* for sizes smaller than 64-bytes
 	 in avx512f, so we need to use workarounds, to access sse registers
 	 16-31, which are evex-only. In avx512vl we don't need workarounds.  */
       if (TARGET_AVX512F && <MODE_SIZE> < 64 && !TARGET_AVX512VL
-	  && ((REG_P (operands[0]) && EXT_REX_SSE_REGNO_P (REGNO (operands[0])))
-	      || (REG_P (operands[1]) && EXT_REX_SSE_REGNO_P (REGNO (operands[1])))))
+	  && (EXT_REX_SSE_REG_P (operands[0])
+	      || EXT_REX_SSE_REG_P (operands[1])))
 	{
 	  if (memory_operand (operands[0], <MODE>mode))
 	    {
@@ -873,7 +874,7 @@
 	    }
 	  else
 	    /* Reg -> reg move is always aligned.  Just use wider move.  */
-	    switch (mode)
+	    switch (get_attr_mode (insn))
 	      {
 	      case MODE_V8SF:
 	      case MODE_V4SF:
@@ -888,7 +889,8 @@
 		gcc_unreachable ();
 	      }
 	}
-      switch (mode)
+
+      switch (get_attr_mode (insn))
 	{
 	case MODE_V16SF:
 	case MODE_V8SF:
@@ -931,16 +933,20 @@
 	default:
 	  gcc_unreachable ();
 	}
+
     default:
       gcc_unreachable ();
     }
 }
-  [(set_attr "type" "sselog1,ssemov,ssemov")
+  [(set_attr "type" "sselog1,sselog1,ssemov,ssemov")
    (set_attr "prefix" "maybe_vex")
    (set (attr "mode")
-	(cond [(and (match_test "<MODE_SIZE> == 16")
+	(cond [(and (eq_attr "alternative" "1")
+		    (match_test "TARGET_AVX512VL"))
+		 (const_string "XI")
+	       (and (match_test "<MODE_SIZE> == 16")
 		    (ior (match_test "TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL")
-			 (and (eq_attr "alternative" "2")
+			 (and (eq_attr "alternative" "3")
 			      (match_test "TARGET_SSE_TYPELESS_STORES"))))
 		 (const_string "<ssePSmode>")
 	       (match_test "TARGET_AVX")
@@ -952,7 +958,16 @@
 		    (match_test "TARGET_SSE_LOAD0_BY_PXOR"))
 		 (const_string "TI")
 	      ]
-	      (const_string "<sseinsnmode>")))])
+	      (const_string "<sseinsnmode>")))
+   (set (attr "enabled")
+        (cond [(and (match_test "<MODE_SIZE> == 16")
+		    (eq_attr "alternative" "1"))
+		 (symbol_ref "TARGET_SSE2")
+	       (and (match_test "<MODE_SIZE> == 32")
+		    (eq_attr "alternative" "1"))
+		 (symbol_ref "TARGET_AVX2")
+	      ]
+	      (symbol_ref "true")))])
 
 (define_insn "<avx512>_load<mode>_mask"
   [(set (match_operand:V48_AVX512VL 0 "register_operand" "=v,v")
@@ -5097,7 +5112,7 @@
 (define_insn "*<avx512>_cvtmask2<ssemodesuffix><mode>"
   [(set (match_operand:VI12_AVX512VL 0 "register_operand" "=v")
 	(vec_merge:VI12_AVX512VL
-	  (match_operand:VI12_AVX512VL 2 "constm1_operand")
+	  (match_operand:VI12_AVX512VL 2 "vector_all_ones_operand")
 	  (match_operand:VI12_AVX512VL 3 "const0_operand")
 	  (match_operand:<avx512fmaskmode> 1 "register_operand" "Yk")))]
   "TARGET_AVX512BW"
@@ -5120,7 +5135,7 @@
 (define_insn "*<avx512>_cvtmask2<ssemodesuffix><mode>"
   [(set (match_operand:VI48_AVX512VL 0 "register_operand" "=v")
 	(vec_merge:VI48_AVX512VL
-	  (match_operand:VI48_AVX512VL 2 "constm1_operand")
+	  (match_operand:VI48_AVX512VL 2 "vector_all_ones_operand")
 	  (match_operand:VI48_AVX512VL 3 "const0_operand")
 	  (match_operand:<avx512fmaskmode> 1 "register_operand" "Yk")))]
   "TARGET_AVX512DQ"
@@ -14862,25 +14877,26 @@
 })
 
 (define_insn "sse4_1_round<ssescalarmodesuffix>"
-  [(set (match_operand:VF_128 0 "register_operand" "=Yr,*x,x")
+  [(set (match_operand:VF_128 0 "register_operand" "=Yr,*x,x,v")
 	(vec_merge:VF_128
 	  (unspec:VF_128
-	    [(match_operand:VF_128 2 "register_operand" "Yr,*x,x")
-	     (match_operand:SI 3 "const_0_to_15_operand" "n,n,n")]
+	    [(match_operand:VF_128 2 "register_operand" "Yr,*x,x,v")
+	     (match_operand:SI 3 "const_0_to_15_operand" "n,n,n,n")]
 	    UNSPEC_ROUND)
-	  (match_operand:VF_128 1 "register_operand" "0,0,x")
+	  (match_operand:VF_128 1 "register_operand" "0,0,x,v")
 	  (const_int 1)))]
   "TARGET_ROUND"
   "@
    round<ssescalarmodesuffix>\t{%3, %2, %0|%0, %2, %3}
    round<ssescalarmodesuffix>\t{%3, %2, %0|%0, %2, %3}
-   vround<ssescalarmodesuffix>\t{%3, %2, %1, %0|%0, %1, %2, %3}"
-  [(set_attr "isa" "noavx,noavx,avx")
+   vround<ssescalarmodesuffix>\t{%3, %2, %1, %0|%0, %1, %2, %3}
+   vrndscale<ssescalarmodesuffix>\t{%3, %2, %1, %0|%0, %1, %2, %3}"
+  [(set_attr "isa" "noavx,noavx,avx,avx512f")
    (set_attr "type" "ssecvt")
    (set_attr "length_immediate" "1")
-   (set_attr "prefix_data16" "1,1,*")
+   (set_attr "prefix_data16" "1,1,*,*")
    (set_attr "prefix_extra" "1")
-   (set_attr "prefix" "orig,orig,vex")
+   (set_attr "prefix" "orig,orig,vex,evex")
    (set_attr "mode" "<MODE>")])
 
 (define_expand "round<mode>2"

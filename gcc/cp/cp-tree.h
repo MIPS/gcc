@@ -5694,6 +5694,9 @@ extern tree ocp_convert				(tree, tree, int, int,
 extern tree cp_convert				(tree, tree, tsubst_flags_t);
 extern tree cp_convert_and_check                (tree, tree, tsubst_flags_t);
 extern tree cp_fold_convert			(tree, tree);
+extern tree cp_get_callee			(tree);
+extern tree cp_get_callee_fndecl		(tree);
+extern tree cp_get_fndecl_from_callee		(tree);
 extern tree convert_to_void			(tree, impl_conv_void,
                                  		 tsubst_flags_t);
 extern tree convert_force			(tree, tree, int,
@@ -6494,6 +6497,7 @@ extern cp_lvalue_kind real_lvalue_p		(const_tree);
 extern cp_lvalue_kind lvalue_kind		(const_tree);
 extern bool lvalue_or_rvalue_with_address_p	(const_tree);
 extern bool xvalue_p	                        (const_tree);
+extern tree cp_stabilize_reference		(tree);
 extern bool builtin_valid_in_constant_expr_p    (const_tree);
 extern tree build_min				(enum tree_code, tree, ...);
 extern tree build_min_nt_loc			(location_t, enum tree_code,
@@ -6871,9 +6875,6 @@ extern void vtv_generate_init_routine           (void);
 extern void vtv_save_class_info                 (tree);
 extern void vtv_recover_class_info              (void);
 extern void vtv_build_vtable_verify_fndecl      (void);
-
-/* In cp-cilkplus.c.  */
-extern bool cpp_validate_cilk_plus_loop		(tree);
 
 /* In cp/cp-array-notations.c */
 extern tree expand_array_notation_exprs         (tree);

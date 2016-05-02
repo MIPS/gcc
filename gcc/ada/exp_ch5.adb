@@ -59,7 +59,6 @@ with Sem_Util; use Sem_Util;
 with Snames;   use Snames;
 with Stand;    use Stand;
 with Stringt;  use Stringt;
-with Targparm; use Targparm;
 with Tbuild;   use Tbuild;
 with Uintp;    use Uintp;
 with Validsw;  use Validsw;
@@ -749,25 +748,11 @@ package body Exp_Ch5 is
          --  then the outcome depends on the capabilities of the back end.
 
          if not Loop_Required then
+            --  Assume the back end can deal with all cases of overlap by
+            --  falling back to memmove if it cannot use a more efficient
+            --  approach.
 
-            --  The GCC back end can deal with all cases of overlap by falling
-            --  back to memmove if it cannot use a more efficient approach.
-
-            if not AAMP_On_Target then
-               return;
-
-            --  Assume other back ends can handle it if Forwards_OK is set
-
-            elsif Forwards_OK (N) then
-               return;
-
-            --  If Forwards_OK is not set, the back end will need something
-            --  like memmove to handle the move. For now, this processing is
-            --  activated using the .s debug flag (-gnatd.s).
-
-            elsif Debug_Flag_Dot_S then
-               return;
-            end if;
+            return;
          end if;
 
          --  At this stage we have to generate an explicit loop, and we have
@@ -2030,10 +2015,13 @@ package body Exp_Ch5 is
       end if;
 
       --  Ada 2012 (AI05-148): Update current accessibility level if Rhs is a
-      --  stand-alone obj of an anonymous access type.
+      --  stand-alone obj of an anonymous access type. Do not install the check
+      --  when the Lhs denotes a container cursor and the Next function employs
+      --  an access type, because this can never result in a dangling pointer.
 
       if Is_Access_Type (Typ)
         and then Is_Entity_Name (Lhs)
+        and then Ekind (Entity (Lhs)) /= E_Loop_Parameter
         and then Present (Effective_Extra_Accessibility (Entity (Lhs)))
       then
          declare
@@ -2237,21 +2225,51 @@ package body Exp_Ch5 is
                     and then Is_Tagged_Type (Typ)
                     and then Is_Tagged_Type (Underlying_Type (Etype (Rhs)))
                   then
-                     Append_To (L,
-                       Make_Raise_Constraint_Error (Loc,
-                         Condition =>
-                           Make_Op_Ne (Loc,
-                             Left_Opnd =>
-                               Make_Selected_Component (Loc,
-                                 Prefix        => Duplicate_Subexpr (Lhs),
-                                 Selector_Name =>
-                                   Make_Identifier (Loc, Name_uTag)),
-                             Right_Opnd =>
-                               Make_Selected_Component (Loc,
-                                 Prefix        => Duplicate_Subexpr (Rhs),
-                                 Selector_Name =>
-                                   Make_Identifier (Loc, Name_uTag))),
-                         Reason => CE_Tag_Check_Failed));
+                     declare
+                        Lhs_Tag : Node_Id;
+                        Rhs_Tag : Node_Id;
+
+                     begin
+                        if not Is_Interface (Typ) then
+                           Lhs_Tag :=
+                             Make_Selected_Component (Loc,
+                               Prefix        => Duplicate_Subexpr (Lhs),
+                               Selector_Name =>
+                                 Make_Identifier (Loc, Name_uTag));
+                           Rhs_Tag :=
+                             Make_Selected_Component (Loc,
+                               Prefix        => Duplicate_Subexpr (Rhs),
+                               Selector_Name =>
+                                 Make_Identifier (Loc, Name_uTag));
+                        else
+                           --  Displace the pointer to the base of the objects
+                           --  applying 'Address, which is later expanded into
+                           --  a call to RE_Base_Address.
+
+                           Lhs_Tag :=
+                             Make_Explicit_Dereference (Loc,
+                               Prefix =>
+                                 Unchecked_Convert_To (RTE (RE_Tag_Ptr),
+                                   Make_Attribute_Reference (Loc,
+                                     Prefix         => Duplicate_Subexpr (Lhs),
+                                     Attribute_Name => Name_Address)));
+                           Rhs_Tag :=
+                             Make_Explicit_Dereference (Loc,
+                               Prefix =>
+                                 Unchecked_Convert_To (RTE (RE_Tag_Ptr),
+                                   Make_Attribute_Reference (Loc,
+                                     Prefix         => Duplicate_Subexpr (Rhs),
+                                     Attribute_Name => Name_Address)));
+                        end if;
+
+                        Append_To (L,
+                          Make_Raise_Constraint_Error (Loc,
+                            Condition =>
+                              Make_Op_Ne (Loc,
+                                Left_Opnd  => Lhs_Tag,
+                                Right_Opnd => Rhs_Tag),
+                            Reason    => CE_Tag_Check_Failed));
+                     end;
                   end if;
 
                   declare
@@ -2555,10 +2573,11 @@ package body Exp_Ch5 is
       --  does not obey the predicate, the value is marked non-static, and
       --  there can be no corresponding static alternative. In that case we
       --  replace the case statement with an exception, regardless of whether
-      --  assertions are enabled or not.
+      --  assertions are enabled or not, unless predicates are ignored.
 
       if Compile_Time_Known_Value (Expr)
         and then Has_Predicates (Etype (Expr))
+        and then not Predicates_Ignored (Etype (Expr))
         and then not Is_OK_Static_Expression (Expr)
       then
          Rewrite (N,
@@ -2641,7 +2660,9 @@ package body Exp_Ch5 is
          --  comes from source -- no need to validity check internally
          --  generated case statements).
 
-         if Validity_Check_Default then
+         if Validity_Check_Default
+           and then not Predicates_Ignored (Etype (Expr))
+         then
             Ensure_Valid (Expr);
          end if;
 
@@ -2770,9 +2791,33 @@ package body Exp_Ch5 is
 
          if not Others_Present then
             Others_Node := Make_Others_Choice (Sloc (Last_Alt));
-            Set_Others_Discrete_Choices
-              (Others_Node, Discrete_Choices (Last_Alt));
-            Set_Discrete_Choices (Last_Alt, New_List (Others_Node));
+
+            --  If Predicates_Ignored is true the value does not satisfy the
+            --  predicate, and there is no Others choice, Constraint_Error
+            --  must be raised (4.5.7 (21/3)).
+
+            if Predicates_Ignored (Etype (Expr)) then
+               declare
+                  Except  : constant Node_Id :=
+                              Make_Raise_Constraint_Error (Loc,
+                                Reason => CE_Invalid_Data);
+                  New_Alt : constant Node_Id :=
+                              Make_Case_Statement_Alternative (Loc,
+                                Discrete_Choices => New_List (
+                                  Make_Others_Choice (Loc)),
+                                Statements       => New_List (Except));
+
+               begin
+                  Append (New_Alt, Alternatives (N));
+                  Analyze_And_Resolve (Except);
+               end;
+
+            else
+               Set_Others_Discrete_Choices
+                 (Others_Node, Discrete_Choices (Last_Alt));
+               Set_Discrete_Choices (Last_Alt, New_List (Others_Node));
+            end if;
+
          end if;
 
          --  Deal with possible declarations of controlled objects, and also

@@ -466,7 +466,7 @@ package body Sem_Prag is
 
       --  Set the Ghost mode in effect from the pragma. Due to the delayed
       --  analysis of the pragma, the Ghost mode at point of declaration and
-      --  point of analysis may not necessarely be the same. Use the mode in
+      --  point of analysis may not necessarily be the same. Use the mode in
       --  effect at the point of declaration.
 
       Set_Ghost_Mode (N);
@@ -2658,7 +2658,7 @@ package body Sem_Prag is
 
       --  Set the Ghost mode in effect from the pragma. Due to the delayed
       --  analysis of the pragma, the Ghost mode at point of declaration and
-      --  point of analysis may not necessarely be the same. Use the mode in
+      --  point of analysis may not necessarily be the same. Use the mode in
       --  effect at the point of declaration.
 
       Set_Ghost_Mode (N);
@@ -5203,32 +5203,22 @@ package body Sem_Prag is
          Handler_Proc := Find_Unique_Parameterless_Procedure (Arg1_X, Arg1);
          Proc_Scope := Scope (Handler_Proc);
 
-         --  On AAMP only, a pragma Interrupt_Handler is supported for
-         --  nonprotected parameterless procedures.
-
-         if not AAMP_On_Target
-           or else Prag_Id = Pragma_Attach_Handler
-         then
-            if Ekind (Proc_Scope) /= E_Protected_Type then
-               Error_Pragma_Arg
-                 ("argument of pragma% must be protected procedure", Arg1);
-            end if;
-
-            --  For pragma case (as opposed to access case), check placement.
-            --  We don't need to do that for aspects, because we have the
-            --  check that they aspect applies an appropriate procedure.
-
-            if not From_Aspect_Specification (N)
-              and then Parent (N) /= Protected_Definition (Parent (Proc_Scope))
-            then
-               Error_Pragma ("pragma% must be in protected definition");
-            end if;
+         if Ekind (Proc_Scope) /= E_Protected_Type then
+            Error_Pragma_Arg
+              ("argument of pragma% must be protected procedure", Arg1);
          end if;
 
-         if not Is_Library_Level_Entity (Proc_Scope)
-           or else (AAMP_On_Target
-                     and then not Is_Library_Level_Entity (Handler_Proc))
+         --  For pragma case (as opposed to access case), check placement.
+         --  We don't need to do that for aspects, because we have the
+         --  check that they aspect applies an appropriate procedure.
+
+         if not From_Aspect_Specification (N)
+           and then Parent (N) /= Protected_Definition (Parent (Proc_Scope))
          then
+            Error_Pragma ("pragma% must be in protected definition");
+         end if;
+
+         if not Is_Library_Level_Entity (Proc_Scope) then
             Error_Pragma_Arg
               ("argument for pragma% must be library level entity", Arg1);
          end if;
@@ -6467,11 +6457,6 @@ package body Sem_Prag is
       ------------------------------------------------
 
       procedure Process_Atomic_Independent_Shared_Volatile is
-         D    : Node_Id;
-         E    : Entity_Id;
-         E_Id : Node_Id;
-         K    : Node_Kind;
-
          procedure Set_Atomic_VFA (E : Entity_Id);
          --  Set given type as Is_Atomic or Is_Volatile_Full_Access. Also, if
          --  no explicit alignment was given, set alignment to unknown, since
@@ -6495,6 +6480,12 @@ package body Sem_Prag is
             end if;
          end Set_Atomic_VFA;
 
+         --  Local variables
+
+         Decl  : Node_Id;
+         E     : Entity_Id;
+         E_Arg : Node_Id;
+
       --  Start of processing for Process_Atomic_Independent_Shared_Volatile
 
       begin
@@ -6502,15 +6493,14 @@ package body Sem_Prag is
          Check_No_Identifiers;
          Check_Arg_Count (1);
          Check_Arg_Is_Local_Name (Arg1);
-         E_Id := Get_Pragma_Arg (Arg1);
+         E_Arg := Get_Pragma_Arg (Arg1);
 
-         if Etype (E_Id) = Any_Type then
+         if Etype (E_Arg) = Any_Type then
             return;
          end if;
 
-         E := Entity (E_Id);
-         D := Declaration_Node (E);
-         K := Nkind (D);
+         E    := Entity (E_Arg);
+         Decl := Declaration_Node (E);
 
          --  A pragma that applies to a Ghost entity becomes Ghost for the
          --  purposes of legality checks and removal of ignored Ghost code.
@@ -6619,8 +6609,8 @@ package body Sem_Prag is
                Set_Treat_As_Volatile (Underlying_Type (E));
             end if;
 
-         elsif K = N_Object_Declaration
-           or else (K = N_Component_Declaration
+         elsif Nkind (Decl) = N_Object_Declaration
+           or else (Nkind (Decl) = N_Component_Declaration
                      and then Original_Record_Component (E) = E)
          then
             if Rep_Item_Too_Late (E, N) then
@@ -6674,12 +6664,15 @@ package body Sem_Prag is
          --  The following check is only relevant when SPARK_Mode is on as
          --  this is not a standard Ada legality rule. Pragma Volatile can
          --  only apply to a full type declaration or an object declaration
-         --  (SPARK RM C.6(1)).
+         --  (SPARK RM C.6(1)). Original_Node is necessary to account for
+         --  untagged derived types that are rewritten as subtypes of their
+         --  respective root types.
 
          if SPARK_Mode = On
            and then Prag_Id = Pragma_Volatile
-           and then not Nkind_In (K, N_Full_Type_Declaration,
-                                     N_Object_Declaration)
+           and then
+             not Nkind_In (Original_Node (Decl), N_Full_Type_Declaration,
+                                                 N_Object_Declaration)
          then
             Error_Pragma_Arg
               ("argument of pragma % must denote a full type or object "
@@ -9024,14 +9017,9 @@ package body Sem_Prag is
          Mark_Pragma_As_Ghost (N, Handler);
          Set_Is_Interrupt_Handler (Handler);
 
-         --  If the pragma is not associated with a handler procedure within a
-         --  protected type, then it must be for a nonprotected procedure for
-         --  the AAMP target, in which case we don't associate a representation
-         --  item with the procedure's scope.
+         pragma Assert (Ekind (Prot_Typ) = E_Protected_Type);
 
-         if Ekind (Prot_Typ) = E_Protected_Type then
-            Record_Rep_Item (Prot_Typ, N);
-         end if;
+         Record_Rep_Item (Prot_Typ, N);
 
          --  Chain the pragma on the contract for completeness
 
@@ -11061,9 +11049,11 @@ package body Sem_Prag is
 
             --  Now set Ada 83 mode
 
-            Ada_Version          := Ada_83;
-            Ada_Version_Explicit := Ada_83;
-            Ada_Version_Pragma   := N;
+            if not Latest_Ada_Only then
+               Ada_Version          := Ada_83;
+               Ada_Version_Explicit := Ada_83;
+               Ada_Version_Pragma   := N;
+            end if;
 
          ------------
          -- Ada_95 --
@@ -11093,9 +11083,11 @@ package body Sem_Prag is
 
             --  Now set Ada 95 mode
 
-            Ada_Version          := Ada_95;
-            Ada_Version_Explicit := Ada_95;
-            Ada_Version_Pragma   := N;
+            if not Latest_Ada_Only then
+               Ada_Version          := Ada_95;
+               Ada_Version_Explicit := Ada_95;
+               Ada_Version_Pragma   := N;
+            end if;
 
          ---------------------
          -- Ada_05/Ada_2005 --
@@ -11150,9 +11142,11 @@ package body Sem_Prag is
 
                --  Now set appropriate Ada mode
 
-               Ada_Version          := Ada_2005;
-               Ada_Version_Explicit := Ada_2005;
-               Ada_Version_Pragma   := N;
+               if not Latest_Ada_Only then
+                  Ada_Version          := Ada_2005;
+                  Ada_Version_Explicit := Ada_2005;
+                  Ada_Version_Pragma   := N;
+               end if;
             end if;
          end;
 
@@ -15031,6 +15025,18 @@ package body Sem_Prag is
                      Id := Defining_Entity (Stmt);
                      exit;
 
+                  --  When pragma Ghost applies to an object declaration which
+                  --  is initialized by means of a function call that returns
+                  --  on the secondary stack, the object declaration becomes a
+                  --  renaming.
+
+                  elsif Nkind (Stmt) = N_Object_Renaming_Declaration
+                    and then Comes_From_Source (Orig_Stmt)
+                    and then Nkind (Orig_Stmt) = N_Object_Declaration
+                  then
+                     Id := Defining_Entity (Stmt);
+                     exit;
+
                   --  When pragma Ghost applies to an expression function, the
                   --  expression function is transformed into a subprogram.
 
@@ -18738,8 +18744,15 @@ package body Sem_Prag is
             --  the rep item chain, for processing when the type is frozen.
             --  This is accomplished by a call to Rep_Item_Too_Late. We also
             --  mark the type as having predicates.
+            --  If the current policy is Ignore mark the subtype accordingly.
+            --  In the case of predicates we consider them enabled unless an
+            --  Ignore is specified, to preserve existing warnings.
 
             Set_Has_Predicates (Typ);
+            Set_Predicates_Ignored (Typ,
+              Present (Check_Policy_List)
+                and then
+                  Policy_In_Effect (Name_Assertion_Policy) = Name_Ignore);
             Discard := Rep_Item_Too_Late (Typ, N, FOnly => True);
          end Predicate;
 
@@ -23284,7 +23297,7 @@ package body Sem_Prag is
 
       --  Set the Ghost mode in effect from the pragma. Due to the delayed
       --  analysis of the pragma, the Ghost mode at point of declaration and
-      --  point of analysis may not necessarely be the same. Use the mode in
+      --  point of analysis may not necessarily be the same. Use the mode in
       --  effect at the point of declaration.
 
       Set_Ghost_Mode (N);
@@ -23319,11 +23332,12 @@ package body Sem_Prag is
       if Class_Present (N) then
 
          --  Verify that a class-wide condition is legal, i.e. the operation is
-         --  a primitive of a tagged type.
+         --  a primitive of a tagged type. Note that a generic subprogram is
+         --  not a primitive operation.
 
          Disp_Typ := Find_Dispatching_Type (Spec_Id);
 
-         if No (Disp_Typ) then
+         if No (Disp_Typ) or else Is_Generic_Subprogram (Spec_Id) then
             Error_Msg_Name_1 := Original_Aspect_Pragma_Name (N);
 
             if From_Aspect_Specification (N) then
@@ -28556,6 +28570,7 @@ package body Sem_Prag is
             --  RM defined
 
             Name_Assert                    |
+            Name_Assertion_Policy          |
             Name_Static_Predicate          |
             Name_Dynamic_Predicate         |
             Name_Pre                       |
@@ -28941,12 +28956,10 @@ package body Sem_Prag is
    begin
       --  If first character is asterisk, this is a link name, and we leave it
       --  completely unmodified. We also ignore null strings (the latter case
-      --  happens only in error cases) and no encoding should occur for AAMP
-      --  interface names.
+      --  happens only in error cases).
 
       if Len = 0
         or else Get_String_Char (Str, 1) = Get_Char_Code ('*')
-        or else AAMP_On_Target
       then
          Set_Interface_Name (E, S);
 
