@@ -356,42 +356,38 @@
   [(set_attr "type" "fp")])
 
 (define_expand "bcdtstsfi_<code>_<mode>"
-  [(parallel [(set
-	       (reg:CCFP 74)
-	       (compare:CCFP
-	        (unspec:D64_D128 
-		 [(match_operand:SI 1 "const_int_operand" "i")
-		  (match_operand:D64_D128 2 "gpc_reg_operand" "d")]
-	 	 UNSPEC_DTSTSFI)
-		(match_dup 3)))
-	       (clobber (match_scratch:CCFP 4 ""))])
+  [(set (match_dup 3)
+	(compare:CCFP
+         (unspec:D64_D128 
+	  [(match_operand:SI 1 "const_int_operand" "n")
+	   (match_operand:D64_D128 2 "gpc_reg_operand" "d")]
+	  UNSPEC_DTSTSFI)
+	 (match_dup 4)))
    (set (match_operand:SI 0 "register_operand" "")
-   	(BCD_TEST:SI (reg:CCFP 74) (const_int 0)))
+   	(BCD_TEST:SI (match_dup 3) 
+		     (const_int 0)))
   ]
   "TARGET_P9_VECTOR"
 {
-  operands[3] = CONST0_RTX (SImode);
+  operands[3] = gen_reg_rtx (CCFPmode);
+  operands[4] = CONST0_RTX (SImode);
 })
 
 (define_insn "*dfp_sgnfcnc_<mode>"
-  [(set (reg:CCFP 74)
+  [(set (match_operand:CCFP 0 "" "=y")
         (compare:CCFP
-	 (unspec:D64_D128 [(match_operand:SI 1 "" "i")
+	 (unspec:D64_D128 [(match_operand:SI 1 "const_int_operand" "n")
 	 	           (match_operand:D64_D128 2 "gpc_reg_operand" "d")]
           UNSPEC_DTSTSFI)
-	 (match_operand:SI 3 "zero_constant" "j")))
-   (clobber (match_scratch:CCFP 0 "=y"))]
+	 (match_operand:SI 3 "zero_constant" "j")))]
   "TARGET_P9_VECTOR"
   {
-    if (UINTVAL (operands[1]) > 63)
-    {
-      /* If immediate operand is greater than 63, it will behave as if
-       * the value had been 63.  The code generator does not support 
-       * immediate operand values greater than 63. */
-      return "dtstfiq<dfp_suffix> %0,63,%2";
-    }
-    else
-      return "dtstfiq<dfp_suffix> %0,%1,%2";
+    /* If immediate operand is greater than 63, it will behave as if
+     * the value had been 63.  The code generator does not support 
+     * immediate operand values greater than 63. */
+    if (!(IN_RANGE (INTVAL (operands[1]), 0, 63)))
+      operands[1] = GEN_INT (63);
+    return "dtstsfi<dfp_suffix> %0,%1,%2";
   }
   [(set_attr "type" "fp")])
 

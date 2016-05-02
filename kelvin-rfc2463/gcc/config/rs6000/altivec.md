@@ -3609,6 +3609,7 @@
 	 (match_operand:V2DF 4 "zero_constant" "j")))
    (clobber (match_scratch:V1TI 0 "=v"))]
   "TARGET_P8_VECTOR"
+  
   "bcd<bcd_add_sub>. %0,%1,%2,%3"
   [(set_attr "length" "4")
    (set_attr "type" "vecsimple")])

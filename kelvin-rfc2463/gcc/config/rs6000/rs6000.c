@@ -13224,6 +13224,24 @@ rs6000_expand_binop_builtin (enum insn_code icode, tree exp, rtx target)
 	  return const0_rtx;
 	}
     }
+  else if (icode == CODE_FOR_bcdtstsfi_eq_dd
+      || icode == CODE_FOR_bcdtstsfi_lt_dd
+      || icode == CODE_FOR_bcdtstsfi_gt_dd 
+      || icode == CODE_FOR_bcdtstsfi_unordered_dd
+      || icode == CODE_FOR_bcdtstsfi_eq_td 
+      || icode == CODE_FOR_bcdtstsfi_lt_td 
+      || icode == CODE_FOR_bcdtstsfi_gt_td 
+      || icode == CODE_FOR_bcdtstsfi_unordered_td)
+    {
+      /* Only allow 5-bit unsigned literals.  */
+      STRIP_NOPS (arg0);
+      if (TREE_CODE (arg0) != INTEGER_CST
+	  || TREE_INT_CST_LOW (arg0) & ~0x3f)
+	{
+	  error ("argument 1 must be a 6-bit unsigned literal");
+	  return CONST0_RTX (tmode);
+	}
+    }
 
   if (target == 0
       || GET_MODE (target) != tmode
@@ -15167,6 +15185,19 @@ rs6000_invalid_builtin (enum rs6000_builtins fncode)
 	   == (RS6000_BTM_DFP | RS6000_BTM_P8_VECTOR))
     error ("Builtin function %s requires the -mhard-dfp and"
 	   " -mpower8-vector options", name);
+  /*
+   * kelvin thinking about this.  as described currently in
+   * rs6000-builtin.def, the BU_P9_DFP_MISC_?? macros specify flag
+   * RS6000_BTM_MODULO | RS6000_BTM_DFP.  Maybe that's an error.
+   * Should probably just list RS6000_BTM_MODULO.  (because BTM_MODULO
+   * means Power9 and there are no optional features of Power9.)
+   *
+  else if ((fnmask & (RS6000_BTM_DFP | RS6000_BTM_P9_VECTOR))
+	   == (RS6000_BTM_DFP | RS6000_BTM_P9_VECTOR))
+    error ("Builtin function %s requires the -mhard-dfp and"
+	   " -mpower9-vector options", name);
+  */
+
   else if ((fnmask & RS6000_BTM_DFP) != 0)
     error ("Builtin function %s requires the -mhard-dfp option", name);
   else if ((fnmask & RS6000_BTM_P8_VECTOR) != 0)
