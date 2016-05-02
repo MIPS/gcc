@@ -34,4 +34,10 @@ typedef loop_p melt_loopptr_t;
 typedef rtx melt_rtxptr_t;
 typedef bitmap melt_bitmapptr_t;
 typedef rtvec melt_rtvecptr_t;
+
+static void gt_ggc_mx_gimple(melt_gimpleptr_t g) {
+  extern void gt_ggc_mx_gimple_statement_base(void*);
+  if (g) gt_ggc_mx_gimple_statement_base(g);
+} // end of gt_ggc_mx_gimple
+
 #endif /*MELTRUNTYPES_INCLUDED_*/

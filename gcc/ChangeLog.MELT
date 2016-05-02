@@ -1,5 +1,11 @@
 
 2016-05-02   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{unstable as GCC5 plugin}}
+	* melt-runtypes-5.h:
+	(gt_ggc_mx_gimple): New function, workaround to work as GCC 5
+	plugin.
+
+2016-05-02   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-run.proto.h: Include "gimple-predict.h" &
 	"tree-ssa-scopedtables.h" only for GCC 6.
 
