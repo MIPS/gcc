@@ -2702,7 +2702,7 @@ rs6000_setup_reg_addr_masks (void)
 
   for (m = 0; m < NUM_MACHINE_MODES; ++m)
     {
-      machine_mode m2 = (machine_mode)m;
+      machine_mode m2 = (machine_mode) m;
       bool complex_p = false;
       size_t msize;
 
@@ -34119,7 +34119,7 @@ rs6000_complex_function_value (machine_mode mode)
   unsigned int inner_bytes = GET_MODE_UNIT_SIZE (mode);
 
   if (TARGET_FLOAT128
-      && ((mode == KCmode)
+      && (mode == KCmode
 	  || (mode == TCmode && TARGET_IEEEQUAD)))
     regno = ALTIVEC_ARG_RETURN;
 
