@@ -31,7 +31,6 @@
 ;; This MELT module is GPL compatible since it is GPLv3+ licensed.
 (module_is_gpl_compatible "GPLv3+")
 
-;;; perhaps we want a (cheader #{ #include "gimple-predict.h" }#) here
 
 ;;;****************************************************************
 ;; list of still unhandled GIMPLE codes from gimple.def
@@ -3207,6 +3206,7 @@ the $N-th edge of a gimple phinode.}#
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; notice that GCC 5 plugin support don't give gimple-predict.h
 (defcmatcher gimple_predict 
   (:gimple gr)
   (:long predictor outcome)
@@ -3216,8 +3216,10 @@ the $N-th edge of a gimple phinode.}#
   #{ /* gimple_predict $GIMPREDI ? */ ($GR && gimple_code($GR) == GIMPLE_PREDICT) }#
   ;; fill
   #{ /* gimple_predict $GIMPREDI ! */
-   $PREDICTOR = (long) gimple_predict_predictor ($GR);
-   $OUTCOME = (long) gimple_predict_outcome ($GR);
+  /* notice for GCC 5. The gimple-predict.h is not public;
+     we are stealing code from gimple-predict.h; not sure it is a good idea! */
+   $PREDICTOR = (long)  (($GR)->subcode & ~GF_PREDICT_TAKEN);
+   $OUTCOME = (long) ((($GR)->subcode & GF_PREDICT_TAKEN) ? TAKEN : NOT_TAKEN);
   }#)
 
 

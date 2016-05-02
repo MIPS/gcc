@@ -1,5 +1,15 @@
 
-2016-05-O2   Basile Starynkevitch  <basile@starynkevitch.net>
+2016-05-02   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-run.proto.h: Include "gimple-predict.h" &
+	"tree-ssa-scopedtables.h" only for GCC 6.
+
+	* melt/warmelt-base.melt: Update copyright year.
+
+	* melt/libmelt-ana-gimple.melt:
+	(gimple_predict): Don't use "gimple-predict.h" functions but steal
+	code from it for GCC 5 compatibility.
+
+2016-05-02   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerated all.
 
 2016-05-02   Basile Starynkevitch  <basile@starynkevitch.net>

@@ -73,9 +73,9 @@ along with GCC; see the file COPYING3.   If not see
 #include "ggc.h"
 #include "cgraph.h"
 
-#if GCCPLUGIN_VERSION >= 5000
+#if GCCPLUGIN_VERSION >= 6000
 #include "gimple-predict.h"	/* at least for GCC 6 */
-#endif	/* GCC 5 or better */
+#endif	/* GCC 6 or better */
 
 /* Notice that gtype-desc.h is included thru ggc.h so all the
    gt_ggc_mx_* marking routines are visible.  */
@@ -90,7 +90,13 @@ along with GCC; see the file COPYING3.   If not see
 #include "tree-cfg.h"
 #include "gimple-iterator.h"
 #include "stringpool.h"
+
+
+#if GCCPLUGIN_VERSION >= 6000 /* GCC 6 */
 #include "tree-ssa-scopedtables.h"
+#endif /* GCC 6 or better */
+
+
 #include "tree-ssa-threadedge.h"
 
 #include "flags.h"
