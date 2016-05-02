@@ -1,4 +1,7 @@
 
+2016-05-O2   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerated all.
+
 2016-05-02   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h: Improve comment about MELT_VERSION_STRING.
 	Update it to 1.3.pre1.
