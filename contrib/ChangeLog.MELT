@@ -1,4 +1,10 @@
 
+2016-05-02  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* contrib/make-melt-plugin-source-tar.sh: Don't use tardy anymore,
+	but expect a GNU tar and use specific options.
+	{{however, the -s snapshot option don't work well}}
+
 2015-07-28  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* MELT-Plugin-Makefile: Comment about MELTGCC_PLUGIN_DIR.

@@ -7,7 +7,7 @@
 ##
 ##    Middle End Lisp Translator = MELT
 ##
-##    Copyright (C)  2010 - 2013 Free Software Foundation, Inc.
+##    Copyright (C)  2010 - 2016 Free Software Foundation, Inc.
 ##    Contributed by Basile Starynkevitch <basile@starynkevitch.net>
 ## 
 ## This file is part of GCC.
@@ -157,6 +157,7 @@ copymelt gcc/melt-build-script.def
 copymelt gcc/melt-build-script.sh
 copymelt gcc/melt-runtime.cc
 copymelt gcc/melt-runtime.h
+copymelt gcc/melt-runtypes-?.h
 
 for mf in $gccmelt_source_tree/gcc/melt/*.melt ; do 
     $gccmelt_copy $mf  $gccmelt_tarbase/melt/
@@ -185,30 +186,28 @@ for cf in   $gccmelt_source_tree/contrib/simplemelt-gtkmm-probe.cc $gccmelt_sour
 done
 
 copymelt INSTALL/README-MELT-PLUGIN
-copymelt libmeltopengpu/meltopengpu-runtime.c
 
 if [ -n "$gccmelt_snapshot" ]; then
     gccmelt_origpat='#define *MELT_VERSION_STRING *"\([a-zA-Z0-9.-]*\)" *'
     gccmelt_replac="#define MELT_VERSION_STRING \"\\1-$gccmelt_snapshot\""
+    echo gccmelt_origpat= $gccmelt_origpat
+    echo gccmelt_replac= $gccmelt_replac
     sed -i "s/$gccmelt_origpat/$gccmelt_replac/" $gccmelt_tarbase/melt-runtime.h
     grep "define *MELT_VERSION_STRING"  $gccmelt_tarbase/melt-runtime.h
 fi
 
+eval $(sed -i 's/#define *MELT_VERSION_STRING *"\([a-zA-Z0-9.-]*\)"/melt_version_string="\\1"/'  $gccmelt_tarbase/melt-runtime.h)
 
 if [ -n "$gengtype_prog" ]; then
     gengtype_version=$($gengtype_prog -V | head -1 | awk '{print $NF}' 2>/dev/null)
     $gengtype_prog $gengtype_args -P $gccmelt_tarbase/gt-melt-runtime-$gengtype_version-plugin.h $gccmelt_tarbase/melt-runtime.h  $gccmelt_tarbase/melt/generated/meltrunsup.h
 fi
 
-tar -cvf $gccmelt_tarbase-tmp.tar \
-   --exclude-backups --exclude='*~' --exclude='*%' \
+tar -cjf $gccmelt_tarbase.tar.bz2 \
+    --format=pax --owner=melt --group=gcc \
+    --label="GCC-MELT-$melt_version_string" \
+   --exclude-backups --exclude='*~' --exclude='*%'  --exclude-vcs  \
    -C $(dirname $gccmelt_tarbase) $(basename $gccmelt_tarbase)
 
-## we use tardy http://tardy.sourceforge.net/ to remove our name and
-## group.. and make a tarball owned by melt/gcc
-
-tardy -User_NAme melt -Group_NAme gcc $gccmelt_tarbase-tmp.tar $gccmelt_tarbase.tar 
-
-rm -f $gccmelt_tarbase-tmp.tar 
-bzip2 -v9 $gccmelt_tarbase.tar
+ls -l $gccmelt_tarbase.tar.bz2 
 #eof make-melt-plugin-source-tar.sh
