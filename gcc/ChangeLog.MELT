@@ -1,4 +1,8 @@
 
+2016-05-03   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h (MELT_ALIGN, MELT_LIKELY, MELT_UNLIKELY):
+	Moved before.
+
 2016-05-02   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{unstable as GCC5 plugin}}
 	* melt-runtypes-5.h:

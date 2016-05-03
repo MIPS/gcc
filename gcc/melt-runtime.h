@@ -1033,43 +1033,6 @@ extern bool melt_is_forwarding;
 melt_ptr_t melt_forwarded_copy (melt_ptr_t);
 
 
-static inline bool
-melt_is_young (const void *const p)
-{
-  return (const char * const) p >= (const char * const) melt_startalz
-         && (const char * const) p < (const char * const) melt_endalz;
-}
-
-static inline void *
-melt_forwarded (void *ptr)
-{
-  melt_ptr_t p = (melt_ptr_t) ptr;
-  if (p && melt_is_young (p))
-    {
-      if (p->u_discr == MELT_FORWARDED_DISCR)
-        p = ((struct meltforward_st *) p)->forward;
-      else
-        p = melt_forwarded_copy (p);
-    }
-  return p;
-}
-
-#if defined(__GNUC__) && GCC_VERSION > 4000
-#define MELT_FORWARDED(P) do {if (P) { \
-  (P) = (__typeof__(P))melt_forwarded((void*)(P));} } while(0)
-#else
-#define MELT_FORWARDED(P) do {if (P) { 		       		\
-  (P) = (melt_ptr_t)melt_forwarded((melt_ptr_t)(P));} }  while(0)
-#endif /*GCC_VERSION*/
-
-/* the MELT copying garbage collector routine - moves all locals on
-   the stack!  Minor GC is only moving, Minor or Full chooses either
-   minor or full appropriately, and Full GC is the minor one followed by
-   GCC garbage collector Ggc. */
-enum melt_gckind_en
-{ MELT_ONLY_MINOR= 0, MELT_MINOR_OR_FULL = 1, MELT_NEED_FULL = 2};
-void melt_garbcoll (size_t wanted, enum melt_gckind_en gckd);
-
 /* the alignment */
 #if defined(__GNUC__) && !defined(__STRICT_ANSI__)
 #define MELT_ALIGN (__alignof__(union melt_un))
@@ -1080,6 +1043,45 @@ void melt_garbcoll (size_t wanted, enum melt_gckind_en gckd);
 #define MELT_LIKELY(P) (P)
 #define MELT_UNLIKELY(P) (P)
 #endif
+
+static inline bool
+melt_is_young (const void *const p)
+{
+  return (const char * const) p >= (const char * const) melt_startalz
+         && (const char * const) p < (const char * const) melt_endalz;
+}
+
+#if defined(__GNUC__) && GCC_VERSION > 4000
+#define MELT_FORWARDED(P) do {if (P) { \
+  (P) = (__typeof__(P))melt_forwarded((void*)(P));} } while(0)
+#else
+#define MELT_FORWARDED(P) do {if (P) { 		       		\
+  (P) = (melt_ptr_t)melt_forwarded((melt_ptr_t)(P));} }  while(0)
+#endif /*GCC_VERSION*/
+
+static inline void *
+melt_forwarded (void *ptr)
+{
+  melt_ptr_t p = (melt_ptr_t) ptr;
+  if (p && melt_is_young (p))
+    {
+      if (p->u_discr == MELT_FORWARDED_DISCR)
+        p = ((struct meltforward_st *) p)->forward;
+      else {
+        p = melt_forwarded_copy (p);
+      }
+    }
+  return p;
+}
+
+/* the MELT copying garbage collector routine - moves all locals on
+   the stack!  Minor GC is only moving, Minor or Full chooses either
+   minor or full appropriately, and Full GC is the minor one followed by
+   GCC garbage collector Ggc. */
+enum melt_gckind_en
+{ MELT_ONLY_MINOR= 0, MELT_MINOR_OR_FULL = 1, MELT_NEED_FULL = 2};
+void melt_garbcoll (size_t wanted, enum melt_gckind_en gckd);
+
 
 
 
