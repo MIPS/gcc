@@ -772,9 +772,6 @@ extern opt_pass* make_pass_sh_optimize_sett_clrt (gcc::context* ctx,
 static void
 register_sh_passes (void)
 {
-  if (!TARGET_SH1)
-    return;
-
 /* Running the sh_treg_combine pass after ce1 generates better code when
    comparisons are combined and reg-reg moves are introduced, because
    reg-reg moves will be eliminated afterwards.  However, there are quite
@@ -812,10 +809,6 @@ sh_option_override (void)
   if (optimize > 1 && !optimize_size)
     target_flags |= MASK_SAVE_ALL_TARGET_REGS;
 
-  /* Set default values of TARGET_CBRANCHDI4 and TARGET_CMPEQDI_T.  */
-  TARGET_CBRANCHDI4 = 1;
-  TARGET_CMPEQDI_T = 0;
-
   sh_cpu = PROCESSOR_SH1;
   assembler_dialect = 0;
   if (TARGET_SH2)
@@ -848,36 +841,31 @@ sh_option_override (void)
   if (!TARGET_SH3 && TARGET_USERMODE)
     TARGET_USERMODE = false;
 
-  if (TARGET_SH1)
+  if (! strcmp (sh_div_str, "call-div1"))
+    sh_div_strategy = SH_DIV_CALL_DIV1;
+  else if (! strcmp (sh_div_str, "call-fp") && TARGET_FPU_ANY)
+    sh_div_strategy = SH_DIV_CALL_FP;
+  else if (! strcmp (sh_div_str, "call-table") && TARGET_DYNSHIFT)
+    sh_div_strategy = SH_DIV_CALL_TABLE;
+  else
     {
-      if (! strcmp (sh_div_str, "call-div1"))
-	sh_div_strategy = SH_DIV_CALL_DIV1;
-      else if (! strcmp (sh_div_str, "call-fp")
-	       && (TARGET_FPU_DOUBLE || TARGET_FPU_SINGLE_ONLY
-		   || TARGET_FPU_ANY))
-	sh_div_strategy = SH_DIV_CALL_FP;
-      else if (! strcmp (sh_div_str, "call-table") && TARGET_DYNSHIFT)
-	sh_div_strategy = SH_DIV_CALL_TABLE;
-      else
-	/* Pick one that makes most sense for the target in general.
-	   It is not much good to use different functions depending
-	   on -Os, since then we'll end up with two different functions
-	   when some of the code is compiled for size, and some for
-	   speed.  */
+      /* Pick one that makes most sense for the target in general.
+	 It is not much good to use different functions depending on -Os,
+	 since then we'll end up with two different functions when some of
+	 the code is compiled for size, and some for speed.  */
 
-	/* SH4 tends to emphasize speed.  */
-	if (TARGET_HARD_SH4)
-	  sh_div_strategy = SH_DIV_CALL_TABLE;
-	/* These have their own way of doing things.  */
-	else if (TARGET_SH2A)
-	  sh_div_strategy = SH_DIV_INTRINSIC;
-	/* SH1 .. SH3 cores often go into small-footprint systems, so
-	   default to the smallest implementation available.  */
-	else
-	  sh_div_strategy = SH_DIV_CALL_DIV1;
+      /* SH4 tends to emphasize speed.  */
+      if (TARGET_HARD_SH4)
+	sh_div_strategy = SH_DIV_CALL_TABLE;
+      /* These have their own way of doing things.  */
+      else if (TARGET_SH2A)
+	sh_div_strategy = SH_DIV_INTRINSIC;
+      /* SH1 .. SH3 cores often go into small-footprint systems, so
+	 default to the smallest implementation available.  */
+      else
+	sh_div_strategy = SH_DIV_CALL_DIV1;
     }
-  if (!TARGET_SH1)
-    TARGET_PRETEND_CMOVE = 0;
+
   if (sh_divsi3_libfunc[0])
     ; /* User supplied - leave it alone.  */
   else if (TARGET_DIVIDE_CALL_FP)
@@ -1177,9 +1165,6 @@ sh_print_operand (FILE *stream, rtx x, int code)
       output_addr_const (stream, x);
       break;
     /* N.B.: %R / %S / %T adjust memory addresses by four.
-       For SHMEDIA, that means they can be used to access the first and
-       second 32 bit part of a 64 bit (or larger) value that
-       might be held in floating point registers or memory.
        While they can be used to access 64 bit parts of a larger value
        held in general purpose registers, that won't work with memory -
        neither for fp registers, since the frxx names are used.  */
@@ -1446,8 +1431,7 @@ sh_print_operand (FILE *stream, rtx x, int code)
 	  break;
 
 	default:
-	  if (TARGET_SH1)
-	    fputc ('#', stream);
+	  fputc ('#', stream);
 	  output_addr_const (stream, x);
 	  break;
 	}
@@ -1621,8 +1605,7 @@ prepare_move_operands (rtx operands[], machine_mode mode)
 	 of a library call to the target.  Reject `st r0,@(rX,rY)' because
 	 reload will fail to find a spill register for rX, since r0 is already
 	 being used for the source.  */
-      else if (TARGET_SH1
-	       && refers_to_regno_p (R0_REG, operands[1])
+      else if (refers_to_regno_p (R0_REG, operands[1])
 	       && MEM_P (operands[0])
 	       && GET_CODE (XEXP (operands[0], 0)) == PLUS
 	       && REG_P (XEXP (XEXP (operands[0], 0), 1)))
@@ -1642,7 +1625,7 @@ prepare_move_operands (rtx operands[], machine_mode mode)
 	 case.  We can pre-allocate R0 for that index term to avoid
 	 the issue.  See PR target/66591.  */
       else if (sh_lra_p ()
-	       && TARGET_SH1 && ! TARGET_SH2A
+	       && ! TARGET_SH2A
 	       && ((REG_P (operands[0]) && MEM_P (operands[1]))
 		   || (REG_P (operands[1]) && MEM_P (operands[0]))))
 	{
@@ -1949,24 +1932,17 @@ enum rtx_code
 prepare_cbranch_operands (rtx *operands, machine_mode mode,
 			  enum rtx_code comparison)
 {
-  /* The scratch reg is only available when this is invoked from within
-     the cbranchdi4_i splitter, through expand_cbranchdi4.  */
-  rtx scratch = NULL_RTX;
+  gcc_assert (can_create_pseudo_p ());
 
   if (comparison == LAST_AND_UNUSED_RTX_CODE)
     comparison = GET_CODE (operands[0]);
-  else
-    scratch = operands[4];
 
   sh_canonicalize_comparison (comparison, operands[1], operands[2],
 			      mode, false);
 
-  /* Notice that this function is also invoked after reload by
-     the cbranchdi4_i pattern, through expand_cbranchdi4.  */
   rtx op1 = operands[1];
+  operands[1] = force_reg (mode, op1);
 
-  if (can_create_pseudo_p ())
-    operands[1] = force_reg (mode, op1);
   /* When we are handling DImode comparisons, we want to keep constants so
      that we can optimize the component comparisons; however, memory loads
      are better issued as a whole so that they can be scheduled well.
@@ -1982,15 +1958,8 @@ prepare_cbranch_operands (rtx *operands, machine_mode mode,
 	      && ((comparison != EQ && comparison != NE)
 		  || (REG_P (op1) && REGNO (op1) != R0_REG)
 		  || !satisfies_constraint_I08 (operands[2])))))
-    {
-      if (scratch && GET_MODE (scratch) == mode)
-	{
-	  emit_move_insn (scratch, operands[2]);
-	  operands[2] = scratch;
-	}
-      else if (can_create_pseudo_p ())
-	operands[2] = force_reg (mode, operands[2]);
-    }
+    operands[2] = force_reg (mode, operands[2]);
+
   return comparison;
 }
 
@@ -2040,7 +2009,6 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
   int num_branches;
   int prob, rev_prob;
   int msw_taken_prob = -1, msw_skip_prob = -1, lsw_taken_prob = -1;
-  rtx scratch = operands[4];
 
   comparison = prepare_cbranch_operands (operands, DImode, comparison);
   op1h = gen_highpart_mode (SImode, DImode, operands[1]);
@@ -2052,17 +2020,7 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
   rev_prob = REG_BR_PROB_BASE - prob;
   switch (comparison)
     {
-    /* ??? Should we use the cmpeqdi_t pattern for equality comparisons?
-       That costs 1 cycle more when the first branch can be predicted taken,
-       but saves us mispredicts because only one branch needs prediction.
-       It also enables generating the cmpeqdi_t-1 pattern.  */
     case EQ:
-      if (TARGET_CMPEQDI_T)
-	{
-	  emit_insn (gen_cmpeqdi_t (operands[1], operands[2]));
-	  emit_jump_insn (gen_branch_true (operands[3]));
-	  return true;
-	}
       msw_skip = NE;
       lsw_taken = EQ;
       if (prob >= 0)
@@ -2083,12 +2041,6 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
 	}
       break;
     case NE:
-      if (TARGET_CMPEQDI_T)
-	{
-	  emit_insn (gen_cmpeqdi_t (operands[1], operands[2]));
-	  emit_jump_insn (gen_branch_false (operands[3]));
-	  return true;
-	}
       msw_taken = NE;
       msw_taken_prob = prob;
       lsw_taken = NE;
@@ -2165,15 +2117,7 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
   operands[1] = op1h;
   operands[2] = op2h;
   operands[4] = NULL_RTX;
-  if (reload_completed
-      && ! arith_reg_or_0_operand (op2h, SImode)
-      && (true_regnum (op1h) || (comparison != EQ && comparison != NE))
-      && (msw_taken != LAST_AND_UNUSED_RTX_CODE
-	  || msw_skip != LAST_AND_UNUSED_RTX_CODE))
-    {
-      emit_move_insn (scratch, operands[2]);
-      operands[2] = scratch;
-    }
+
   if (msw_taken != LAST_AND_UNUSED_RTX_CODE)
     expand_cbranchsi4 (operands, msw_taken, msw_taken_prob);
   if (msw_skip != LAST_AND_UNUSED_RTX_CODE)
@@ -2186,13 +2130,6 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
 	{
 	  operands[1] = op1h;
 	  operands[2] = op2h;
-	  if (reload_completed
-	      && ! arith_reg_or_0_operand (op2h, SImode)
-	      && (true_regnum (op1h) || (comparison != EQ && comparison != NE)))
-	    {
-	      emit_move_insn (scratch, operands[2]);
-	      operands[2] = scratch;
-	    }
 	}
 
       operands[3] = skip_label = gen_label_rtx ();
@@ -2202,16 +2139,7 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
   operands[1] = op1l;
   operands[2] = op2l;
   if (lsw_taken != LAST_AND_UNUSED_RTX_CODE)
-    {
-      if (reload_completed
-	  && ! arith_reg_or_0_operand (op2l, SImode)
-	  && (true_regnum (op1l) || (lsw_taken != EQ && lsw_taken != NE)))
-	{
-	  emit_move_insn (scratch, operands[2]);
-	  operands[2] = scratch;
-	}
-      expand_cbranchsi4 (operands, lsw_taken, lsw_taken_prob);
-    }
+    expand_cbranchsi4 (operands, lsw_taken, lsw_taken_prob);
   if (msw_skip != LAST_AND_UNUSED_RTX_CODE)
     emit_label (skip_label);
   return true;
@@ -6748,15 +6676,12 @@ output_stack_adjust (int size, rtx reg, int epilogue_p,
 	      rtx adj_reg, tmp_reg, mem;
 	      
 	      /* If we reached here, the most likely case is the (sibcall)
-		 epilogue for non SHmedia.  Put a special push/pop sequence
-		 for such case as the last resort.  This looks lengthy but
-		 would not be problem because it seems to be very
-		 rare.  */
-	      
+		 epilogue.  Put a special push/pop sequence for such case as
+		 the last resort.  This looks lengthy but would not be problem
+		 because it seems to be very rare.  */
 	      gcc_assert (epilogue_p);
-	      
 
-	       /* ??? There is still the slight possibility that r4 or
+	      /* ??? There is still the slight possibility that r4 or
 		  r5 have been reserved as fixed registers or assigned
 		  as global registers, and they change during an
 		  interrupt.  There are possible ways to handle this:
@@ -6837,7 +6762,7 @@ push (int rn)
     x = gen_push_fpul ();
   else if (rn == FPSCR_REG)
     x = gen_push_fpscr ();
-  else if ((TARGET_SH4 || TARGET_SH2A_DOUBLE) && TARGET_FMOVD
+  else if (TARGET_FPU_DOUBLE && TARGET_FMOVD
 	   && ! TARGET_FPU_SINGLE && FP_OR_XD_REGISTER_P (rn))
     {
       if (FP_REGISTER_P (rn) && (rn - FIRST_FP_REG) & 1)
@@ -6863,7 +6788,7 @@ pop (int rn)
     x = gen_pop_fpul ();
   else if (rn == FPSCR_REG)
     x = gen_pop_fpscr ();
-  else if ((TARGET_SH4 || TARGET_SH2A_DOUBLE) && TARGET_FMOVD
+  else if (TARGET_FPU_DOUBLE && TARGET_FMOVD
 	   && ! TARGET_FPU_SINGLE && FP_OR_XD_REGISTER_P (rn))
     {
       if (FP_REGISTER_P (rn) && (rn - FIRST_FP_REG) & 1)
@@ -7007,12 +6932,11 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
   nosave_low_regs = lookup_attribute ("nosave_low_regs", attrs) != NULL_TREE;
 
   CLEAR_HARD_REG_SET (*live_regs_mask);
-  if ((TARGET_SH4 || TARGET_SH2A_DOUBLE) && TARGET_FMOVD && interrupt_handler
+  if (TARGET_FPU_DOUBLE && TARGET_FMOVD && interrupt_handler
       && df_regs_ever_live_p (FPSCR_REG))
     target_flags &= ~MASK_FPU_SINGLE;
   /* If we can save a lot of saves by switching to double mode, do that.  */
-  else if ((TARGET_SH4 || TARGET_SH2A_DOUBLE) && TARGET_FMOVD
-	   && TARGET_FPU_SINGLE)
+  else if (TARGET_FPU_DOUBLE && TARGET_FMOVD && TARGET_FPU_SINGLE)
     for (count = 0, reg = FIRST_FP_REG; reg <= LAST_FP_REG; reg += 2)
       if (df_regs_ever_live_p (reg) && df_regs_ever_live_p (reg+1)
 	  && (! call_really_used_regs[reg]
@@ -7074,7 +6998,7 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
 	  SET_HARD_REG_BIT (*live_regs_mask, reg);
 	  count += GET_MODE_SIZE (REGISTER_NATURAL_MODE (reg));
 
-	  if ((TARGET_SH4 || TARGET_SH2A_DOUBLE) && TARGET_FMOVD
+	  if (TARGET_FPU_DOUBLE && TARGET_FMOVD
 	      && GET_MODE_CLASS (REGISTER_NATURAL_MODE (reg)) == MODE_FLOAT)
 	    {
 	      if (FP_REGISTER_P (reg))
@@ -7559,7 +7483,7 @@ sh_builtin_saveregs (void)
   fpregs = copy_to_mode_reg (Pmode,
 			     plus_constant (Pmode, XEXP (regbuf, 0),
 					    n_floatregs * UNITS_PER_WORD));
-  if (TARGET_SH4 || TARGET_SH2A_DOUBLE)
+  if (TARGET_FPU_DOUBLE)
     {
       rtx mem;
       for (regno = NPARM_REGS (DFmode) - 2; regno >= first_floatreg; regno -= 2)
@@ -7812,7 +7736,7 @@ sh_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 	    }
 	}
 
-      if (TARGET_SH4 || TARGET_SH2A_DOUBLE)
+      if (TARGET_FPU_DOUBLE)
 	{
 	  pass_as_float = ((TREE_CODE (eff_type) == REAL_TYPE && size <= 8)
 			   || (TREE_CODE (eff_type) == COMPLEX_TYPE
@@ -8036,7 +7960,7 @@ sh_round_reg (const CUMULATIVE_ARGS& cum, machine_mode mode)
      function as is.  Make this more readable.  */
   return
   (((TARGET_ALIGN_DOUBLE
-      || ((TARGET_SH4 || TARGET_SH2A_DOUBLE)
+      || (TARGET_FPU_DOUBLE
 	  && (mode == DFmode || mode == DCmode)
 	  && cum.arg_count[(int) SH_ARG_FLOAT] < NPARM_REGS (mode)))
      && GET_MODE_UNIT_SIZE (mode) > UNITS_PER_WORD)
@@ -8081,7 +8005,7 @@ sh_arg_partial_bytes (cumulative_args_t cum_v, machine_mode mode,
   int words = 0;
 
   if (sh_pass_in_reg_p (*cum, mode, type)
-      && !(TARGET_SH4 || TARGET_SH2A_DOUBLE)
+      && !TARGET_FPU_DOUBLE
       && (sh_round_reg (*cum, mode)
 	  + (mode != BLKmode
 	     ? CEIL (GET_MODE_SIZE (mode), UNITS_PER_WORD)
@@ -9203,8 +9127,7 @@ sh_legitimate_address_p (machine_mode mode, rtx x, bool strict)
 	return true;
 
       if (GET_MODE_SIZE (mode) <= 4
-	  || ((TARGET_SH4 || TARGET_SH2A_DOUBLE)
-	      && TARGET_FMOVD && mode == DFmode))
+	  || (TARGET_FPU_DOUBLE && TARGET_FMOVD && mode == DFmode))
 	{
 	  if (MAYBE_BASE_REGISTER_RTX_P (xop1, strict)
 	      && MAYBE_INDEX_REGISTER_RTX_P (xop0, strict))
@@ -9389,7 +9312,7 @@ sh_legitimize_address (rtx x, rtx oldx, machine_mode mode)
   if (flag_pic)
     x = legitimize_pic_address (oldx, mode, NULL_RTX);
 
-  if (((TARGET_SH4 || TARGET_SH2A_DOUBLE) && mode == DFmode)
+  if ((TARGET_FPU_DOUBLE && mode == DFmode)
       || (TARGET_SH2E && mode == SFmode))
     return x;
 
@@ -9596,8 +9519,7 @@ sh_can_follow_jump (const rtx_insn *branch1, const rtx_insn *branch2)
 {
   /* Don't follow if BRANCH2 is possible to be a jump crossing between
      hot and cold partitions.  */
-  if (TARGET_SH1
-      && flag_reorder_blocks_and_partition
+  if (flag_reorder_blocks_and_partition
       && simplejump_p (branch2)
       && CROSSING_JUMP_P (branch2))
     return false;
@@ -10749,8 +10671,7 @@ sh_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
       if (mode == SFmode
 	  || mode == SImode
 	  || ((TARGET_SH2E) && mode == SCmode)
-	  || ((((TARGET_SH4 || TARGET_SH2A_DOUBLE) && mode == DFmode)
-	       || mode == DCmode)
+	  || (((TARGET_FPU_DOUBLE && mode == DFmode) || mode == DCmode)
 	      && ((regno - FIRST_FP_REG) & 1) == 0)
 	  || (TARGET_SH4 && mode == TImode
 	      && ((regno - FIRST_FP_REG) & 3) == 0))
@@ -11575,7 +11496,7 @@ static bool
 sh_legitimize_address_displacement (rtx *disp, rtx *offs,
 				    machine_mode mode)
 {
-  if (((TARGET_SH4 || TARGET_SH2A_DOUBLE) && mode == DFmode)
+  if ((TARGET_FPU_DOUBLE && mode == DFmode)
       || (TARGET_SH2E && mode == SFmode))
     return false;
 

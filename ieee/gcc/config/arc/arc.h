@@ -326,9 +326,17 @@ along with GCC; see the file COPYING3.  If not see
 #define UNALIGNED_ACCESS_DEFAULT 0
 #endif
 
+#ifndef TARGET_NPS_BITOPS_DEFAULT
+#define TARGET_NPS_BITOPS_DEFAULT 0
+#endif
+
 #ifndef TARGET_NPS_CMEM_DEFAULT
 #define TARGET_NPS_CMEM_DEFAULT 0
 #endif
+
+/* Enable the RRQ instruction alternatives.  */
+
+#define TARGET_RRQ_CLASS TARGET_NPS_BITOPS
 
 /* Target machine storage layout.  */
 
@@ -666,6 +674,9 @@ enum reg_class
    WRITABLE_CORE_REGS,		/* 'w' */
    CHEAP_CORE_REGS,		/* 'c' */
    ALL_CORE_REGS,		/* 'Rac' */
+   R0R3_CD_REGS,		/* 'Rcd' */
+   R0R1_CD_REGS,		/* 'Rsd' */
+   AC16_H_REGS,			/* 'h' */
    ALL_REGS,
    LIM_REG_CLASSES
 };
@@ -692,6 +703,9 @@ enum reg_class
   "MPY_WRITABLE_CORE_REGS",   \
   "WRITABLE_CORE_REGS",   \
   "CHEAP_CORE_REGS",	  \
+  "R0R3_CD_REGS", \
+  "R0R1_CD_REGS", \
+  "AC16_H_REGS",	    \
   "ALL_CORE_REGS",	  \
   "ALL_REGS"          	  \
 }
@@ -724,6 +738,9 @@ enum reg_class
   {0xffffffff, 0xd0000000, 0x00000000, 0x00000000, 0x00000000},      /* 'w', r0-r31, r60 */ \
   {0xffffffff, 0xdfffffff, 0x00000000, 0x00000000, 0x00000000},      /* 'c', r0-r60, ap, pcl */ \
   {0xffffffff, 0xdfffffff, 0x00000000, 0x00000000, 0x00000000},      /* 'Rac', r0-r60, ap, pcl */ \
+  {0x0000000f, 0x00000000, 0x00000000, 0x00000000, 0x00000000},      /* 'Rcd', r0-r3 */ \
+  {0x00000003, 0x00000000, 0x00000000, 0x00000000, 0x00000000},      /* 'Rsd', r0-r1 */ \
+  {0x9fffffff, 0x00000000, 0x00000000, 0x00000000, 0x00000000},      /* 'h',  r0-28, r30 */ \
   {0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0x0003ffff}       /* All Registers */		\
 }
 
@@ -807,6 +824,8 @@ extern enum reg_class arc_regno_reg_class[];
 #define UNSIGNED_INT6(X) ((unsigned) (X) < 0x40)
 #define UNSIGNED_INT7(X) ((unsigned) (X) < 0x80)
 #define UNSIGNED_INT8(X) ((unsigned) (X) < 0x100)
+#define UNSIGNED_INT12(X) ((unsigned) (X) < 0x800)
+#define UNSIGNED_INT16(X) ((unsigned) (X) < 0x10000)
 #define IS_ONE(X) ((X) == 1)
 #define IS_ZERO(X) ((X) == 0)
 
@@ -1033,6 +1052,7 @@ extern int arc_initial_elimination_offset(int from, int to);
 
 /* Is the argument a const_int rtx, containing an exact power of 2 */
 #define  IS_POWEROF2_P(X) (! ( (X) & ((X) - 1)) && (X))
+#define  IS_POWEROF2_OR_0_P(X) (! ( (X) & ((X) - 1)))
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.

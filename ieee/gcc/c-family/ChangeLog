@@ -1,3 +1,42 @@
+2016-05-03  Richard Biener  <rguenther@suse.de>
+
+	* cilk.c (cilk_gimplify_call_params_in_spawned_fn): Do not
+	allow call args to gimplify to SSA names.
+
+2016-05-03  Marek Polacek  <polacek@redhat.com>
+
+	* c-common.h (enum c_omp_region_type): Remove stray comma.
+
+2016-05-02  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-common.h (enum c_omp_region_type): Define.
+
+2016-05-02  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* c-common.c (shorten_compare): Use wi::to_wide.
+
+2016-04-29  Cesar Philippidis  <cesar@codesourcery.com>
+
+	PR middle-end/70626
+	* c-common.h (c_oacc_split_loop_clauses): Add boolean argument.
+	* c-omp.c (c_oacc_split_loop_clauses): Use it to duplicate
+	reduction clauses in acc parallel loops.
+
+2016-04-29  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70852
+	* c-common.c (warn_for_memset): Check domain before accessing it.
+
+2016-04-29  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	PR/69089
+	* c-common.c (handle_aligned_attribute): Allow 0 as an argument to the
+	"aligned" attribute.
+
+2016-04-28  Jason Merrill  <jason@redhat.com>
+
+	* c-lex.c (c_common_has_attribute): Handle nodiscard.
+
 2016-04-28  Eduard Sanou  <dhole@openmailbox.org>
 	    Matthias Klose  <doko@debian.org>
 

@@ -5694,6 +5694,9 @@ extern tree ocp_convert				(tree, tree, int, int,
 extern tree cp_convert				(tree, tree, tsubst_flags_t);
 extern tree cp_convert_and_check                (tree, tree, tsubst_flags_t);
 extern tree cp_fold_convert			(tree, tree);
+extern tree cp_get_callee			(tree);
+extern tree cp_get_callee_fndecl		(tree);
+extern tree cp_get_fndecl_from_callee		(tree);
 extern tree convert_to_void			(tree, impl_conv_void,
                                  		 tsubst_flags_t);
 extern tree convert_force			(tree, tree, int,
@@ -6396,8 +6399,7 @@ extern tree omp_reduction_id			(enum tree_code, tree, tree);
 extern tree cp_remove_omp_priv_cleanup_stmt	(tree *, int *, void *);
 extern void cp_check_omp_declare_reduction	(tree);
 extern void finish_omp_declare_simd_methods	(tree);
-extern tree finish_omp_clauses			(tree, bool, bool = false,
-						 bool = false);
+extern tree finish_omp_clauses			(tree, enum c_omp_region_type);
 extern tree push_omp_privatization_clauses	(bool);
 extern void pop_omp_privatization_clauses	(tree);
 extern void save_omp_privatization_clauses	(vec<tree> &);

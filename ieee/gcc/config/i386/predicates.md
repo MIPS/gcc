@@ -121,11 +121,21 @@
     (match_operand 0 "nonmemory_operand")
     (match_operand 0 "general_operand")))
 
-;; Match register operands, include memory operand for TARGET_MIX_SSE_I387.
-(define_predicate "register_mixssei387nonimm_operand"
-  (if_then_else (match_test "TARGET_MIX_SSE_I387")
+;; Match register operands, but include memory operands for TARGET_SSE_MATH.
+(define_predicate "register_ssemem_operand"
+  (if_then_else
+    (match_test "SSE_FLOAT_MODE_P (mode) && TARGET_SSE_MATH")
     (match_operand 0 "nonimmediate_operand")
     (match_operand 0 "register_operand")))
+
+;; Match nonimmediate operands, but exclude memory operands
+;; for TARGET_SSE_MATH if TARGET_MIX_SSE_I387 is not enabled.
+(define_predicate "nonimm_ssenomem_operand"
+  (if_then_else
+    (and (match_test "SSE_FLOAT_MODE_P (mode) && TARGET_SSE_MATH")
+	 (not (match_test "TARGET_MIX_SSE_I387 && X87_ENABLE_ARITH (mode)")))
+    (match_operand 0 "register_operand")
+    (match_operand 0 "nonimmediate_operand")))
 
 ;; Match register operands, include memory operand for TARGET_SSE4_1.
 (define_predicate "register_sse4nonimm_operand"
@@ -332,6 +342,29 @@
   return false;
 })
 
+;; Return true if VALUE is a constant integer whose low and high words satisfy
+;; x86_64_immediate_operand.
+(define_predicate "x86_64_hilo_int_operand"
+  (match_code "const_int,const_wide_int")
+{
+  switch (GET_CODE (op))
+    {
+    case CONST_INT:
+      return x86_64_immediate_operand (op, mode);
+
+    case CONST_WIDE_INT:
+      gcc_assert (CONST_WIDE_INT_NUNITS (op) == 2);
+      return (x86_64_immediate_operand (GEN_INT (CONST_WIDE_INT_ELT (op, 0)),
+					DImode)
+	      && x86_64_immediate_operand (GEN_INT (CONST_WIDE_INT_ELT (op,
+									1)),
+					   DImode));
+
+    default:
+      gcc_unreachable ();
+    }
+})
+
 ;; Return true if size of VALUE can be stored in a sign
 ;; extended immediate field.
 (define_predicate "x86_64_immediate_size_operand"
@@ -345,6 +378,14 @@
   (if_then_else (match_test "TARGET_64BIT")
     (ior (match_operand 0 "nonimmediate_operand")
 	 (match_operand 0 "x86_64_immediate_operand"))
+    (match_operand 0 "general_operand")))
+
+;; Return true if OP's both words are general operands representable
+;; on x86_64.
+(define_predicate "x86_64_hilo_general_operand"
+  (if_then_else (match_test "TARGET_64BIT")
+    (ior (match_operand 0 "nonimmediate_operand")
+	 (match_operand 0 "x86_64_hilo_int_operand"))
     (match_operand 0 "general_operand")))
 
 ;; Return true if OP is non-VOIDmode general operand representable
@@ -678,7 +719,7 @@
 ;; Match exactly -1.
 (define_predicate "constm1_operand"
   (and (match_code "const_int")
-       (match_test "op = constm1_rtx")))
+       (match_test "op == constm1_rtx")))
 
 ;; Match exactly eight.
 (define_predicate "const8_operand"
