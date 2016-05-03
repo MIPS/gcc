@@ -1,14 +1,7 @@
 2016-05-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 235831.
-	* REVISION: Update subversion id.
-
-2016-05-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
-
-	Merge up to 235794.
-	* REVISION: Update subversion id.
 
 2016-05-02   Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch subversion id 235776
-

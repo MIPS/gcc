@@ -1,3 +1,194 @@
+2016-05-03  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* dwarf2out.c (resolve_args_picking_1): Replace the frame_offset
+	occurence with frame_offset_ ones.
+
+2016-05-03  Alan Modra  <amodra@gmail.com>
+
+	PR rtl-optimization/70890
+	* ira.c (combine_and_move_insns): When moving def_insn, remove
+	equivs on use_insn.
+
+2016-05-03  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* config/s390/s390.md ("*r<noxa>sbg_<mode>_sll")
+	("*r<noxa>sbg_<mode>_srl"): New define_insns.
+	("*r<noxa>sbg_<mode>_srl_bitmask"): Rename by adding "_bitmask".
+	("*r<noxa>sbg_<mode>_sll_bitmask"): Likewise.
+
+2016-05-03  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_savres_strategy): Correct condition
+	for SAVE_MULTIPLE/STORE_MULTIPLE.
+
+2016-05-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.md (*truncdfsf_mixed, *truncdfsf_i387,
+	*truncxfsf2_mixed, *truncxfdf2_mixed): Use v constraint instead
+	of x.
+
+2016-05-03  Richard Biener  <rguenther@suse.de>
+
+	* gimplify.h (get_initialized_tmp_var): Add allow_ssa parameter
+	default true.
+	(gimplify_arg): Likewise.
+	* gimplify.c (gimplify_expr): Add overload with allow_ssa parameter,
+	re-writing the result to a decl if required.
+	(internal_get_tmp_var): Add allow_ssa parameter
+	and override into_ssa with it.
+	(get_formal_tmp_var): Adjust.
+	(get_initialized_tmp_var): Add allow_ssa parameter.
+	(gimplify_arg): Add allow_ssa parameter and avoid generating
+	SSA names for the result false.
+	(gimplify_call_expr): If the call may return twice do not
+	gimplify parameters into SSA.
+	(prepare_gimple_addressable): Do not allow an SSA name as
+	temporary.
+	(gimplify_modify_expr): Adjust assert.  For noreturn calls
+	with a SSA name LHS adjust its def.
+	(gimplify_save_expr): Do not allow an SSA name as save-expr
+	result.
+	(gimplify_one_sizepos): Do not allow an SSA name as a sizepos.
+	(gimplify_body): Init GIMPLE SSA data structures and gimplify
+	into-SSA.
+	(gimplify_scan_omp_clauses): Make sure OMP_CLAUSE_SIZE is not
+	an SSA name.  Likewise for OMP_CLAUSE_REDUCTION operands.
+	(gimplify_omp_for): Likewise for OMP_CLAUSE_DECL.  Likewise
+	for OMP_FOR_COND,  OMP_FOR_INCR and OMP_CLAUSE_LINEAR_STEP.
+	(optimize_target_teams): Do not allow SSA names for clause operands.
+	(gimplify_expr): Likewise for where we mark the result addressable.
+	* passes.def (pass_init_datastructures): Remove.
+	* tree-into-ssa.c (mark_def_sites): Ignore existing SSA names.
+	(rewrite_stmt): Likewise.
+	* tree-inline.c (initialize_cfun): Properly transfer SSA state.
+	(replace_locals_op): Replace SSA names.
+	(copy_gimple_seq_and_replace_locals): Init src_cfun.
+	* gimple-low.c (lower_builtin_setjmp): Deal with SSA.
+	* cgraph.c (release_function_body): Free CFG annotations only
+	when we have a CFG.  Simplify.
+	* gimple-fold.c (gimplify_and_update_call_from_tree): Use
+	force_gimple_operand instead of get_initialized_tmp_var.
+	* tree-pass.h (make_pass_init_datastructures): Remove.
+	* tree-ssa.c (execute_init_datastructures): Remove.
+	(pass_data_init_datastructures): Likewise.
+	(class pass_init_datastructures): Likewise.
+	(make_pass_init_datastructures): Likewise.
+	* omp-low.c (create_omp_child_function): Init SSA data structures.
+	(grid_expand_target_grid_body): Likewise.
+	* tree-cfg.c (move_block_to_fn): Double-check the DEF is an SSA
+	name before adding it to names_to_release.
+	(remove_bb): Always release SSA defs.
+	* tree-ssa-ccp.c (get_default_value): Check SSA_NAME_VAR
+	before dereferencing it.
+	* cgraphunit.c (init_lowered_empty_function): Always
+	int SSA data structures.
+	* tree-ssanames.c (release_defs): Remove assert that we are in
+	SSA form.
+	* trans-mem.c (diagnose_tm_1): Handle SSA name function.
+
+2016-05-03  Jakub Jelinek  <jakub@redhat.com>
+	    Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/70467
+	* config/i386/predicates.md (x86_64_hilo_int_operand,
+	x86_64_hilo_general_operand): New predicates.
+	* config/i386/constraints.md (Wd): New constraint.
+	* config/i386/i386.md (mode attr di): Use Wd instead of e.
+	(general_hilo_operand): New mode attr.
+	(add<mode>3, sub<mode>3): Use <general_hilo_operand>
+	instead of <general_operand>.
+	(*add<dwi>3_doubleword, *sub<dwi>3_doubleword): Use
+	x86_64_hilo_general_operand instead of <general_operand>.
+
+2016-05-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/70916
+	* tree-if-conv.c (constant_or_ssa_name): Removed.
+	(fold_build_cond_expr): Use is_gimple_val instead of
+	constant_or_ssa_name.
+
+	PR tree-optimization/70916
+	* tree-vect-patterns.c (vect_recog_mask_conversion_pattern): Give up
+	if COND_EXPR rhs1 is neither SSA_NAME nor COMPARISON_CLASS_P.
+
+	PR target/49244
+	* tree-ssa-ccp.c: Include stor-layout.h and optabs-query.h.
+	(optimize_atomic_bit_test_and): New function.
+	(pass_fold_builtins::execute): Use it.
+	* optabs.def (atomic_bit_test_and_set_optab,
+	atomic_bit_test_and_complement_optab,
+	atomic_bit_test_and_reset_optab): New optabs.
+	* internal-fn.def (ATOMIC_BIT_TEST_AND_SET,
+	ATOMIC_BIT_TEST_AND_COMPLEMENT, ATOMIC_BIT_TEST_AND_RESET): New ifns.
+	* builtins.h (expand_ifn_atomic_bit_test_and): New prototype.
+	* builtins.c (expand_ifn_atomic_bit_test_and): New function.
+	* internal-fn.c (expand_ATOMIC_BIT_TEST_AND_SET,
+	expand_ATOMIC_BIT_TEST_AND_COMPLEMENT,
+	expand_ATOMIC_BIT_TEST_AND_RESET): New functions.
+	* doc/md.texi (atomic_bit_test_and_set@var{mode},
+	atomic_bit_test_and_complement@var{mode},
+	atomic_bit_test_and_reset@var{mode}): Document.
+	* config/i386/sync.md (atomic_bit_test_and_set<mode>,
+	atomic_bit_test_and_complement<mode>,
+	atomic_bit_test_and_reset<mode>): New expanders.
+	(atomic_bit_test_and_set<mode>_1,
+	atomic_bit_test_and_complement<mode>_1,
+	atomic_bit_test_and_reset<mode>_1): New insns.
+
+2016-05-03  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR rtl-optimization/70687
+	* combine.c (change_zero_ext): Check for scalar modes.  Use wide_int
+	instead of unsigned HOST_WIDE_INT.
+
+2016-05-03  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR rtl-optimization/44281
+	* hard-reg-set.h (struct target_hard_regs): New field
+	x_fixed_nonglobal_reg_set.
+	(fixed_nonglobal_reg_set): New macro.
+	* reginfo.c (init_reg_sets_1): Initialize it.
+	* ira.c (setup_alloc_regs): Use fixed_nonglobal_reg_set instead
+	of fixed_reg_set.
+	* df-scan.c (df_insn_refs_collect): Asms may reference global regs.
+
+2016-05-03  bin cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/56541
+	* doc/invoke.texi (@item max-tree-if-conversion-phi-args): New item.
+	* params.def (PARAM_MAX_TREE_IF_CONVERSION_PHI_ARGS): new param.
+	* tree-if-conv.c (MAX_PHI_ARG_NUM): new macro.
+	(any_complicated_phi): new static variable.
+	(aggressive_if_conv): delete.
+	(if_convertible_phi_p): support phis with more than two arguments.
+	(if_convertible_bb_p): remvoe check on aggressive_if_conv and
+	critical pred edges.
+	(ifcvt_split_critical_edges): support phis with more than two
+	arguments by checking new parameter.  only split critical edges
+	if needed.
+	(tree_if_conversion): handle simd pragma marked loop using new
+	local variable aggressive_if_conv.  check any_complicated_phi.
+
+2016-05-03  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-ssa-loop-ivopts.c (get_computation_cost_at): Check depends_on
+	before using it.
+
+2016-05-03  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-ssa-loop-ivopts.c (get_computation_cost_at): Don't clobber
+	cbase.
+
+2016-05-03  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* config/sh/sh.md (udivsi3, divsi3, mulsi3): Simplify.
+	(mulhisi3, umulhisi3, (smulsi3_highpart, umulsi3_highpart): Convert to
+	define_insn_and_split.
+	(mulsi3_i): New define_insn_and_split.
+	(mulsi3_call): Convert to define_insn.
+	(mulsidi3, mulsidi3_compact, umulsidi3, umulsidi3_compact):
+	Remove constraints.
+
 2016-05-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* machmode.h (mode_complex): Add support to give the complex mode
