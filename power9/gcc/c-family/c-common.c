@@ -4012,10 +4012,9 @@ shorten_compare (location_t loc, tree *op0_ptr, tree *op1_ptr,
 	  /* Convert primop1 to target type, but do not introduce
 	     additional overflow.  We know primop1 is an int_cst.  */
 	  primop1 = force_fit_type (*restype_ptr,
-				    wide_int::from
-				      (primop1,
-				       TYPE_PRECISION (*restype_ptr),
-				       TYPE_SIGN (TREE_TYPE (primop1))),
+				    wi::to_wide
+				     (primop1,
+				      TYPE_PRECISION (*restype_ptr)),
 				    0, TREE_OVERFLOW (primop1));
 	}
       if (type != *restype_ptr)
@@ -7815,7 +7814,7 @@ handle_aligned_attribute (tree *node, tree ARG_UNUSED (name), tree args,
   else if (TYPE_P (*node))
     type = node, is_type = 1;
 
-  if ((i = check_user_alignment (align_expr, false)) == -1
+  if ((i = check_user_alignment (align_expr, true)) == -1
       || !check_cxx_fundamental_alignment_constraints (*node, i, flags))
     *no_add_attrs = true;
   else if (is_type)
@@ -11796,6 +11795,7 @@ warn_for_memset (location_t loc, tree arg0, tree arg2,
 	  tree elt_type = TREE_TYPE (type);
 	  tree domain = TYPE_DOMAIN (type);
 	  if (!integer_onep (TYPE_SIZE_UNIT (elt_type))
+	      && domain != NULL_TREE
 	      && TYPE_MAXVAL (domain)
 	      && TYPE_MINVAL (domain)
 	      && integer_zerop (TYPE_MINVAL (domain))

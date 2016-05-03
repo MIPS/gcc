@@ -44,6 +44,7 @@ class Func_descriptor_expression;
 class Unknown_expression;
 class Index_expression;
 class Array_index_expression;
+class String_index_expression;
 class Map_index_expression;
 class Bound_method_expression;
 class Field_reference_expression;
@@ -674,6 +675,13 @@ class Expression
   Array_index_expression*
   array_index_expression()
   { return this->convert<Array_index_expression, EXPRESSION_ARRAY_INDEX>(); }
+
+  // If this is an expression which refers to indexing in a string,
+  // return the String_index_expression structure.  Otherwise, return
+  // NULL.
+  String_index_expression*
+  string_index_expression()
+  { return this->convert<String_index_expression, EXPRESSION_STRING_INDEX>(); }
 
   // If this is an expression which refers to indexing in a map,
   // return the Map_index_expression structure.  Otherwise, return
@@ -1977,8 +1985,8 @@ class Call_expression : public Expression
       fn_(fn), args_(args), type_(NULL), results_(NULL), call_(NULL),
       call_temp_(NULL), expected_result_count_(0), is_varargs_(is_varargs),
       varargs_are_lowered_(false), types_are_determined_(false),
-      is_deferred_(false), issued_error_(false), is_multi_value_arg_(false),
-      is_flattened_(false)
+      is_deferred_(false), is_concurrent_(false), issued_error_(false),
+      is_multi_value_arg_(false), is_flattened_(false)
   { }
 
   // The function to call.
@@ -2048,6 +2056,16 @@ class Call_expression : public Expression
   void
   set_is_deferred()
   { this->is_deferred_ = true; }
+
+  // Whether this call is concurrently executed.
+  bool
+  is_concurrent() const
+  { return this->is_concurrent_; }
+
+  // Note that the call is concurrently executed.
+  void
+  set_is_concurrent()
+  { this->is_concurrent_ = true; }
 
   // We have found an error with this call expression; return true if
   // we should report it.
@@ -2162,6 +2180,8 @@ class Call_expression : public Expression
   bool types_are_determined_;
   // True if the call is an argument to a defer statement.
   bool is_deferred_;
+  // True if the call is an argument to a go statement.
+  bool is_concurrent_;
   // True if we reported an error about a mismatch between call
   // results and uses.  This is to avoid producing multiple errors
   // when there are multiple Call_result_expressions.
@@ -2581,6 +2601,72 @@ class Array_index_expression : public Expression
   Expression* cap_;
   // The type of the expression.
   Type* type_;
+};
+
+// A string index.  This is used for both indexing and slicing.
+
+class String_index_expression : public Expression
+{
+ public:
+  String_index_expression(Expression* string, Expression* start,
+			  Expression* end, Location location)
+    : Expression(EXPRESSION_STRING_INDEX, location),
+      string_(string), start_(start), end_(end)
+  { }
+
+  // Return the string being indexed.
+  Expression*
+  string() const
+  { return this->string_; }
+
+ protected:
+  int
+  do_traverse(Traverse*);
+
+  Expression*
+  do_flatten(Gogo*, Named_object*, Statement_inserter*);
+
+  Type*
+  do_type();
+
+  void
+  do_determine_type(const Type_context*);
+
+  void
+  do_check_types(Gogo*);
+
+  Expression*
+  do_copy()
+  {
+    return Expression::make_string_index(this->string_->copy(),
+					 this->start_->copy(),
+					 (this->end_ == NULL
+					  ? NULL
+					  : this->end_->copy()),
+					 this->location());
+  }
+
+  bool
+  do_must_eval_subexpressions_in_order(int* skip) const
+  {
+    *skip = 1;
+    return true;
+  }
+
+  Bexpression*
+  do_get_backend(Translate_context*);
+
+  void
+  do_dump_expression(Ast_dump_context*) const;
+
+ private:
+  // The string we are getting a value from.
+  Expression* string_;
+  // The start or only index.
+  Expression* start_;
+  // The end index of a slice.  This may be NULL for a single index,
+  // or it may be a nil expression for the length of the string.
+  Expression* end_;
 };
 
 // An index into a map.
