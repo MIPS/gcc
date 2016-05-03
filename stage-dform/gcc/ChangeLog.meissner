@@ -1,5 +1,19 @@
 2016-05-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000-cpus.def (ISA_3_0_MASKS_SERVER): Add -mlra
+	and -mvsx-timode as defaults.
+
+	* config/rs6000/rs6000.opt (-mlra): Make the option an option
+	mask.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Drop printing
+	whether we have LRA since it is an option mask.
+	(rs6000_option_override_internal): Rework -mlra and -mvsx-timode
+	settings.
+	(legitimate_lo_sum_address_p): Fix comment.
+	(rs6000_lra_p): Use TARGET_LRA instead of flag_lra_p.
+	(rs6000_opt_masks): Print -mlra, -mno-lra.
+
 	Merge up to 235831.
 	* REVISION: Update subversion id.
 
