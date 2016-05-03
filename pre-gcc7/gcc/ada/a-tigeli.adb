@@ -120,10 +120,15 @@ is
             K : Natural := Natural (P - S);
 
          begin
-            --  Now Buf (K + 2) should be 0, or otherwise Buf (K) is the 0
-            --  put in by fgets, so compensate.
+            --  If K + 2 is greater than N, then Buf (K + 1) cannot be a LM
+            --  character from the source file, as the call to fgets copied at
+            --  most N - 1 characters. Otherwise, either LM is a character from
+            --  the source file and then Buf (K + 2) should be 0, or LM is a
+            --  character put in Buf by memset and then Buf (K) is the 0 put in
+            --  by fgets. In both cases where LM does not come from the source
+            --  file, compensate.
 
-            if K + 2 > Buf'Last or else Buf (K + 2) /= ASCII.NUL then
+            if K + 2 > N or else Buf (K + 2) /= ASCII.NUL then
 
                --  Incomplete last line, so remove the extra 0
 
@@ -145,6 +150,12 @@ is
 begin
    FIO.Check_Read_Status (AP (File));
 
+   --  Set Last to Item'First - 1 when no characters are read, as mandated by
+   --  Ada RM. In the case where Item'First is negative or null, this results
+   --  in Constraint_Error being raised.
+
+   Last := Item'First - 1;
+
    --  Immediate exit for null string, this is a case in which we do not
    --  need to test for end of file and we do not skip a line mark under
    --  any circumstances.
@@ -154,8 +165,6 @@ begin
    end if;
 
    N := Item'Last - Item'First + 1;
-
-   Last := Item'First - 1;
 
    --  Here we have at least one character, if we are immediately before
    --  a line mark, then we will just skip past it storing no characters.

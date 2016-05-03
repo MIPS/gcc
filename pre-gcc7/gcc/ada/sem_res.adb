@@ -4767,13 +4767,21 @@ package body Sem_Res is
            and then not In_Instance_Body
          then
             if not OK_For_Limited_Init (Etype (E), Expression (E)) then
-               Error_Msg_N ("initialization not allowed for limited types", N);
+               if Nkind (Parent (N)) = N_Assignment_Statement then
+                  Error_Msg_N
+                    ("illegal expression for initialized allocator of a "
+                     & "limited type (RM 7.5 (2.7/2))", N);
+               else
+                  Error_Msg_N
+                    ("initialization not allowed for limited types", N);
+               end if;
+
                Explain_Limited_Type (Etype (E), N);
             end if;
          end if;
 
-         --  A qualified expression requires an exact match of the type.
-         --  Class-wide matching is not allowed.
+         --  A qualified expression requires an exact match of the type. Class-
+         --  wide matching is not allowed.
 
          if (Is_Class_Wide_Type (Etype (Expression (E)))
               or else Is_Class_Wide_Type (Etype (E)))
@@ -9444,6 +9452,24 @@ package body Sem_Res is
 
       if Nkind (N) = N_Qualified_Expression and then Is_Scalar_Type (Typ) then
          Apply_Scalar_Range_Check (Expr, Typ);
+      end if;
+
+      --  Finally, check whether a predicate applies to the target type. This
+      --  comes from AI12-0100. As for type conversions, check the enclosing
+      --  context to prevent an infinite expansion.
+
+      if Has_Predicates (Target_Typ) then
+         if Nkind (Parent (N)) = N_Function_Call
+           and then Present (Name (Parent (N)))
+           and then (Is_Predicate_Function (Entity (Name (Parent (N))))
+                       or else
+                     Is_Predicate_Function_M (Entity (Name (Parent (N)))))
+         then
+            null;
+
+         elsif Nkind (N) = N_Qualified_Expression then
+            Apply_Predicate_Check (N, Target_Typ);
+         end if;
       end if;
    end Resolve_Qualified_Expression;
 

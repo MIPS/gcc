@@ -185,10 +185,9 @@
   (match_operand 0 "constant_call_address_operand"))
 
 (define_constraint "BC"
-  "@internal SSE constant operand."
+  "@internal SSE constant -1 operand."
   (and (match_test "TARGET_SSE")
-       (ior (match_test "op == const0_rtx || op == constm1_rtx")
-	    (match_operand 0 "const0_operand")
+       (ior (match_test "op == constm1_rtx")
 	    (match_operand 0 "vector_all_ones_operand"))))
 
 ;; Integer constant constraints.
@@ -270,6 +269,11 @@
    require non-VOIDmode immediate operands)."
   (and (match_operand 0 "x86_64_zext_immediate_operand")
        (match_test "GET_MODE (op) != VOIDmode")))
+
+(define_constraint "Wd"
+  "128-bit integer constant where both the high and low 64-bit word
+   of it satisfies the e constraint."
+  (match_operand 0 "x86_64_hilo_int_operand"))
 
 (define_constraint "Z"
   "32-bit unsigned integer constant, or a symbolic reference known

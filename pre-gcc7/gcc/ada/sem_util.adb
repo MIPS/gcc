@@ -290,7 +290,7 @@ package body Sem_Util is
    -- Addressable --
    -----------------
 
-   --  For now, just 8/16/32/64. but analyze later if AAMP is special???
+   --  For now, just 8/16/32/64
 
    function Addressable (V : Uint) return Boolean is
    begin
@@ -326,21 +326,19 @@ package body Sem_Util is
       --  Ada 2005 (AI-230): Generate a conversion to an anonymous access
       --  component's type to force the appropriate accessibility checks.
 
-      --  Ada 2005 (AI-231): Generate conversion to the null-excluding
-      --  type to force the corresponding run-time check
+      --  Ada 2005 (AI-231): Generate conversion to the null-excluding type to
+      --  force the corresponding run-time check
 
       if Is_Access_Type (Check_Typ)
-        and then ((Is_Local_Anonymous_Access (Check_Typ))
-                    or else (Can_Never_Be_Null (Check_Typ)
-                              and then not Can_Never_Be_Null (Exp_Typ)))
+        and then Is_Local_Anonymous_Access (Check_Typ)
       then
          Rewrite (Exp, Convert_To (Check_Typ, Relocate_Node (Exp)));
          Analyze_And_Resolve (Exp, Check_Typ);
          Check_Unset_Reference (Exp);
       end if;
 
-      --  This is really expansion activity, so make sure that expansion is
-      --  on and is allowed. In GNATprove mode, we also want check flags to
+      --  What follows is really expansion activity, so check that expansion
+      --  is on and is allowed. In GNATprove mode, we also want check flags to
       --  be added in the tree, so that the formal verification can rely on
       --  those to be present. In GNATprove mode for formal verification, some
       --  treatment typically only done during expansion needs to be performed
@@ -351,6 +349,13 @@ package body Sem_Util is
         and (Inside_A_Generic or not Full_Analysis or not GNATprove_Mode)
       then
          return;
+      end if;
+
+      if Is_Access_Type (Check_Typ)
+        and then Can_Never_Be_Null (Check_Typ)
+        and then not Can_Never_Be_Null (Exp_Typ)
+      then
+         Install_Null_Excluding_Check (Exp);
       end if;
 
       --  First check if we have to insert discriminant checks
@@ -7153,7 +7158,7 @@ package body Sem_Util is
       end if;
 
       while Present (Old_Disc) and then Present (New_Disc) loop
-         if Old_Disc = Par_Disc  then
+         if Old_Disc = Par_Disc then
             return New_Disc;
          end if;
 
@@ -8321,6 +8326,73 @@ package body Sem_Util is
    begin
       return Get_Pragma_Id (Pragma_Name (N));
    end Get_Pragma_Id;
+
+   ------------------------
+   -- Get_Qualified_Name --
+   ------------------------
+
+   function Get_Qualified_Name
+     (Id     : Entity_Id;
+      Suffix : Entity_Id := Empty) return Name_Id
+   is
+      Suffix_Nam : Name_Id := No_Name;
+
+   begin
+      if Present (Suffix) then
+         Suffix_Nam := Chars (Suffix);
+      end if;
+
+      return Get_Qualified_Name (Chars (Id), Suffix_Nam, Scope (Id));
+   end Get_Qualified_Name;
+
+   function Get_Qualified_Name
+     (Nam    : Name_Id;
+      Suffix : Name_Id   := No_Name;
+      Scop   : Entity_Id := Current_Scope) return Name_Id
+   is
+      procedure Add_Scope (S : Entity_Id);
+      --  Add the fully qualified form of scope S to the name buffer. The
+      --  format is:
+      --    s-1__s__
+
+      ---------------
+      -- Add_Scope --
+      ---------------
+
+      procedure Add_Scope (S : Entity_Id) is
+      begin
+         if S = Empty then
+            null;
+
+         elsif S = Standard_Standard then
+            null;
+
+         else
+            Add_Scope (Scope (S));
+            Get_Name_String_And_Append (Chars (S));
+            Add_Str_To_Name_Buffer ("__");
+         end if;
+      end Add_Scope;
+
+   --  Start of processing for Get_Qualified_Name
+
+   begin
+      Name_Len := 0;
+      Add_Scope (Scop);
+
+      --  Append the base name after all scopes have been chained
+
+      Get_Name_String_And_Append (Nam);
+
+      --  Append the suffix (if present)
+
+      if Suffix /= No_Name then
+         Add_Str_To_Name_Buffer ("__");
+         Get_Name_String_And_Append (Suffix);
+      end if;
+
+      return Name_Find;
+   end Get_Qualified_Name;
 
    -----------------------
    -- Get_Reason_String --
@@ -17088,9 +17160,24 @@ package body Sem_Util is
                  and then Actual /= Last
                  and then No (Next_Named_Actual (Actual))
                then
-                  Error_Msg_N ("unmatched actual & in call",
-                    Selector_Name (Actual));
-                  exit;
+                  --  A validity check may introduce a copy of a call that
+                  --  includes an extra actual (for example for an unrelated
+                  --  accessibility check). Check that the extra actual matches
+                  --  some extra formal, which must exist already because
+                  --  subprogram must be frozen at this point.
+
+                  if Present (Extra_Formals (S))
+                    and then not Comes_From_Source (Actual)
+                    and then Nkind (Actual) = N_Parameter_Association
+                    and then Chars (Extra_Formals (S)) =
+                               Chars (Selector_Name (Actual))
+                  then
+                     null;
+                  else
+                     Error_Msg_N
+                       ("unmatched actual & in call", Selector_Name (Actual));
+                     exit;
+                  end if;
                end if;
 
                Next (Actual);
@@ -17747,39 +17834,13 @@ package body Sem_Util is
    -----------------
 
    procedure Output_Name (Nam : Name_Id; Scop : Entity_Id := Current_Scope) is
-      procedure Output_Scope (S : Entity_Id);
-      --  Add the fully qualified form of scope S to the name buffer. The
-      --  qualification format is:
-      --    scope1__scopeN__
-
-      ------------------
-      -- Output_Scope --
-      ------------------
-
-      procedure Output_Scope (S : Entity_Id) is
-      begin
-         if S = Empty then
-            null;
-
-         elsif S = Standard_Standard then
-            null;
-
-         else
-            Output_Scope (Scope (S));
-            Add_Str_To_Name_Buffer (Get_Name_String (Chars (S)));
-            Add_Str_To_Name_Buffer ("__");
-         end if;
-      end Output_Scope;
-
-   --  Start of processing for Output_Name
-
    begin
-      Name_Len := 0;
-      Output_Scope (Scop);
-
-      Add_Str_To_Name_Buffer (Get_Name_String (Nam));
-
-      Write_Str (Name_Buffer (1 .. Name_Len));
+      Write_Str
+        (Get_Name_String
+          (Get_Qualified_Name
+            (Nam    => Nam,
+             Suffix => No_Name,
+             Scop   => Scop)));
       Write_Eol;
    end Output_Name;
 

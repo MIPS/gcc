@@ -60,15 +60,10 @@ extern int code_for_indirect_jump_scratch;
 #define TARGET_SUPERSCALAR (TARGET_HARD_SH4 || TARGET_SH2A)
 
 /* Nonzero if a double-precision FPU is available.  */
-#define TARGET_FPU_DOUBLE \
-  ((target_flags & MASK_SH4) != 0 || TARGET_SH2A_DOUBLE)
+#define TARGET_FPU_DOUBLE (TARGET_SH4 || TARGET_SH2A_DOUBLE)
 
 /* Nonzero if an FPU is available.  */
 #define TARGET_FPU_ANY (TARGET_SH2E || TARGET_FPU_DOUBLE)
-
-/* Nonzero if we should generate code using type 4 insns.  */
-#undef TARGET_SH4
-#define TARGET_SH4 ((target_flags & MASK_SH4) != 0 && TARGET_SH1)
 
 /* Nonzero if we're generating code for SH4a, unless the use of the
    FPU is disabled (which makes it compatible with SH4al-dsp).  */
@@ -77,7 +72,7 @@ extern int code_for_indirect_jump_scratch;
 
 /* This is not used by the SH2E calling convention  */
 #define TARGET_VARARGS_PRETEND_ARGS(FUN_DECL) \
-  (TARGET_SH1 && ! TARGET_SH2E \
+  (! TARGET_SH2E \
    && ! (TARGET_HITACHI || sh_attr_renesas_p (FUN_DECL)))
 
 #ifndef TARGET_CPU_DEFAULT
@@ -206,7 +201,7 @@ extern int code_for_indirect_jump_scratch;
   SUBTARGET_EXTRA_SPECS
 
 #if TARGET_CPU_DEFAULT & MASK_HARD_SH4
-#define SUBTARGET_ASM_RELAX_SPEC "%{!m1:%{!m2:%{!m3*:%{!m5*:-isa=sh4-up}}}}"
+#define SUBTARGET_ASM_RELAX_SPEC "%{!m1:%{!m2:%{!m3*::-isa=sh4-up}}}"
 #else
 #define SUBTARGET_ASM_RELAX_SPEC "%{m4*:-isa=sh4-up}"
 #endif
@@ -250,7 +245,7 @@ extern int code_for_indirect_jump_scratch;
 /* Strict nofpu means that the compiler should tell the assembler
    to reject FPU instructions. E.g. from ASM inserts.  */
 #if TARGET_CPU_DEFAULT & MASK_HARD_SH4 && !(TARGET_CPU_DEFAULT & MASK_SH_E)
-#define SUBTARGET_ASM_ISA_SPEC "%{!m1:%{!m2:%{!m3*:%{m4-nofpu|!m4*:%{!m5:-isa=sh4-nofpu}}}}}"
+#define SUBTARGET_ASM_ISA_SPEC "%{!m1:%{!m2:%{!m3*:%{m4-nofpu|!m4*::-isa=sh4-nofpu}}}}"
 #else
 
 #define SUBTARGET_ASM_ISA_SPEC \
@@ -299,7 +294,7 @@ extern int code_for_indirect_jump_scratch;
  
 #if TARGET_CPU_DEFAULT & MASK_HARD_SH2A
 #define UNSUPPORTED_SH2A IS_LITTLE_ENDIAN_OPTION \
-"%{m2a*|!m1:%{!m2*:%{!m3*:%{!m4*:{!m5*:%eSH2a does not support little-endian}}}}}}"
+"%{m2a*|!m1:%{!m2*:%{!m3*:%{!m4*:%eSH2a does not support little-endian}}}}}"
 #else
 #define UNSUPPORTED_SH2A IS_LITTLE_ENDIAN_OPTION \
 "%{m2a*:%eSH2a does not support little-endian}}"
@@ -323,17 +318,6 @@ extern int code_for_indirect_jump_scratch;
 extern int assembler_dialect;
 
 enum sh_divide_strategy_e {
-  /* SH5 strategies.  */
-  SH_DIV_CALL,
-  SH_DIV_CALL2,
-  SH_DIV_FP, /* We could do this also for SH4.  */
-  SH_DIV_INV,
-  SH_DIV_INV_MINLAT,
-  SH_DIV_INV20U,
-  SH_DIV_INV20L,
-  SH_DIV_INV_CALL,
-  SH_DIV_INV_CALL2,
-  SH_DIV_INV_FP,
   /* SH1 .. SH4 strategies.  Because of the small number of registers
      available, the compiler uses knowledge of the actual set of registers
      being clobbered by the different functions called.  */
@@ -390,10 +374,7 @@ extern enum sh_divide_strategy_e sh_div_strategy;
 #define MIN_UNITS_PER_WORD 4
 
 /* Scaling factor for Dwarf data offsets for CFI information.
-   The dwarf2out.c default would use -UNITS_PER_WORD, which is -8 for
-   SHmedia; however, since we do partial register saves for the registers
-   visible to SHcompact, and for target registers for SHMEDIA32, we have
-   to allow saves that are only 4-byte aligned.  */
+   The dwarf2out.c default would use -UNITS_PER_WORD.  */
 #define DWARF_CIE_DATA_ALIGNMENT -4
 
 /* Width in bits of a pointer.
@@ -415,11 +396,6 @@ extern enum sh_divide_strategy_e sh_div_strategy;
    code of a function.  */
 #define FUNCTION_BOUNDARY (16)
 
-/* On SH5, the lowest bit is used to indicate SHmedia functions, so
-   the vbit must go into the delta field of
-   pointers-to-member-functions.  */
-#define TARGET_PTRMEMFUNC_VBIT_LOCATION (ptrmemfunc_vbit_in_pfn)
-
 /* Alignment of field after `int : 0' in a structure.  */
 #define EMPTY_FIELD_BOUNDARY  32
 
@@ -437,9 +413,7 @@ extern enum sh_divide_strategy_e sh_div_strategy;
 
 /* get_mode_alignment assumes complex values are always held in multiple
    registers, but that is not the case on the SH; CQImode and CHImode are
-   held in a single integer register.  SH5 also holds CSImode and SCmode
-   values in integer registers.  This is relevant for argument passing on
-   SHcompact as we use a stack temp in order to pass CSImode by reference.  */
+   held in a single integer register.  */
 #define LOCAL_ALIGNMENT(TYPE, ALIGN) \
   ((GET_MODE_CLASS (TYPE_MODE (TYPE)) == MODE_COMPLEX_INT \
     || GET_MODE_CLASS (TYPE_MODE (TYPE)) == MODE_COMPLEX_FLOAT) \
@@ -657,7 +631,7 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
    || XD_REGISTER_P (REGNO) \
    || (REGNO) == AP_REG || (REGNO) == RAP_REG \
    || (REGNO) == FRAME_POINTER_REGNUM \
-   || (TARGET_SH1 && (SPECIAL_REGISTER_P (REGNO) || (REGNO) == PR_REG)) \
+   || ((SPECIAL_REGISTER_P (REGNO) || (REGNO) == PR_REG)) \
    || (TARGET_SH2E && (REGNO) == FPUL_REG))
 
 /* The mode that should be generally used to store a register by
@@ -1106,7 +1080,7 @@ extern enum reg_class regno_reg_class[FIRST_PSEUDO_REGISTER];
 #define NPARM_REGS(MODE) \
   (TARGET_FPU_ANY && (MODE) == SFmode \
    ? 8 \
-   : (TARGET_SH4 || TARGET_SH2A_DOUBLE) \
+   : TARGET_FPU_DOUBLE \
      && (GET_MODE_CLASS (MODE) == MODE_FLOAT \
 	 || GET_MODE_CLASS (MODE) == MODE_COMPLEX_FLOAT) \
    ? 8 \
@@ -1163,8 +1137,9 @@ extern enum reg_class regno_reg_class[FIRST_PSEUDO_REGISTER];
 #define BASE_ARG_REG(MODE) \
   ((TARGET_SH2E && ((MODE) == SFmode))			\
    ? FIRST_FP_PARM_REG					\
-   : (TARGET_SH4 || TARGET_SH2A_DOUBLE) && (GET_MODE_CLASS (MODE) == MODE_FLOAT	\
-		    || GET_MODE_CLASS (MODE) == MODE_COMPLEX_FLOAT)\
+   : TARGET_FPU_DOUBLE					\
+     && (GET_MODE_CLASS (MODE) == MODE_FLOAT		\
+	 || GET_MODE_CLASS (MODE) == MODE_COMPLEX_FLOAT)\
    ? FIRST_FP_PARM_REG					\
    : FIRST_PARM_REG)
 
@@ -1508,8 +1483,7 @@ struct sh_args {
 
 /* Since the SH2e has only `float' support, it is desirable to make all
    floating point types equivalent to `float'.  */
-#define DOUBLE_TYPE_SIZE ((TARGET_SH2E && ! TARGET_SH4 && ! TARGET_SH2A_DOUBLE)\
-			  ? 32 : 64)
+#define DOUBLE_TYPE_SIZE (TARGET_FPU_SINGLE_ONLY ? 32 : 64)
 
 /* 'char' is signed by default.  */
 #define DEFAULT_SIGNED_CHAR  1
@@ -1544,10 +1518,7 @@ struct sh_args {
 /* Define if loading in MODE, an integral mode narrower than BITS_PER_WORD
    will either zero-extend or sign-extend.  The value of this macro should
    be the code that says which one of the two operations is implicitly
-   done, UNKNOWN if none.
-   For SHmedia, we can truncate to QImode easier using zero extension.
-   FP registers can load SImode values, but don't implicitly sign-extend
-   them to DImode.  */
+   done, UNKNOWN if none.  */
 #define LOAD_EXTEND_OP(MODE) ((MODE) != SImode ? SIGN_EXTEND : UNKNOWN)
 
 /* Define if loading short immediate values into registers sign extends.  */
@@ -1900,8 +1871,7 @@ extern int current_function_interrupt;
 #define PROMOTE_MODE(MODE, UNSIGNEDP, TYPE) \
   if (GET_MODE_CLASS (MODE) == MODE_INT			\
       && GET_MODE_SIZE (MODE) < 4/* ! UNITS_PER_WORD */)\
-    (UNSIGNEDP) = ((MODE) == SImode ? 0 : (UNSIGNEDP)),	\
-    (MODE) = (TARGET_SH1 ? SImode : DImode);
+    (UNSIGNEDP) = ((MODE) == SImode ? 0 : (UNSIGNEDP)),	(MODE) = SImode;
 
 #define MAX_FIXED_MODE_SIZE (64)
 
@@ -1911,7 +1881,7 @@ extern int current_function_interrupt;
 
 #define NUM_MODES_FOR_MODE_SWITCHING { FP_MODE_NONE }
 
-#define OPTIMIZE_MODE_SWITCHING(ENTITY) (TARGET_SH4 || TARGET_SH2A_DOUBLE)
+#define OPTIMIZE_MODE_SWITCHING(ENTITY) (TARGET_FPU_DOUBLE)
 
 #define ACTUAL_NORMAL_MODE(ENTITY) \
   (TARGET_FPU_SINGLE ? FP_MODE_SINGLE : FP_MODE_DOUBLE)

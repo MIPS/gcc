@@ -3560,9 +3560,7 @@ package body Sem_Ch3 is
 
       --  Special checks for protected objects not at library level
 
-      if Is_Protected_Type (T)
-        and then not Is_Library_Level_Entity (Id)
-      then
+      if Has_Protected (T) and then not Is_Library_Level_Entity (Id) then
          Check_Restriction (No_Local_Protected_Objects, Id);
 
          --  Protected objects with interrupt handlers must be at library level
@@ -3574,7 +3572,10 @@ package body Sem_Ch3 is
          --  AI05-0303: The AI is in fact a binding interpretation, and thus
          --  applies to the '95 version of the language as well.
 
-         if Has_Interrupt_Handler (T) and then Ada_Version < Ada_95 then
+         if Is_Protected_Type (T)
+           and then Has_Interrupt_Handler (T)
+           and then Ada_Version < Ada_95
+         then
             Error_Msg_N
               ("interrupt object can only be declared at library level", Id);
          end if;
@@ -3814,14 +3815,15 @@ package body Sem_Ch3 is
       --  do this in the analyzer and not the expander because the analyzer
       --  does some substantial rewriting in some cases.
 
-      --  We need a predicate check if the type has predicates, and if either
-      --  there is an initializing expression, or for default initialization
-      --  when we have at least one case of an explicit default initial value
-      --  and then this is not an internal declaration whose initialization
-      --  comes later (as for an aggregate expansion).
+      --  We need a predicate check if the type has predicates that are not
+      --  ignored, and if either there is an initializing expression, or for
+      --  default initialization when we have at least one case of an explicit
+      --  default initial value and then this is not an internal declaration
+      --  whose initialization comes later (as for an aggregate expansion).
 
       if not Suppress_Assignment_Checks (N)
         and then Present (Predicate_Function (T))
+        and then not Predicates_Ignored (T)
         and then not No_Initialization (N)
         and then
           (Present (E)
@@ -18654,11 +18656,14 @@ package body Sem_Ch3 is
    is
    begin
       --  An object of a limited interface type can be initialized with any
-      --  expression of a nonlimited descendant type.
+      --  expression of a nonlimited descendant type. However this does not
+      --  apply if this is a view conversion of some other expression. This
+      --  is checked below.
 
       if Is_Class_Wide_Type (Typ)
         and then Is_Limited_Interface (Typ)
         and then not Is_Limited_Type (Etype (Exp))
+        and then Nkind (Exp) /= N_Type_Conversion
       then
          return True;
       end if;
@@ -19826,13 +19831,20 @@ package body Sem_Ch3 is
                                    (Subp_Id => Prim,
                                     Obj_Typ => Conc_Typ,
                                     Formals =>
-                                      Parameter_Specifications (
-                                        Parent (Prim))));
+                                      Parameter_Specifications
+                                        (Parent (Prim))));
 
                            Insert_After (Curr_Nod, Wrap_Spec);
                            Curr_Nod := Wrap_Spec;
 
                            Analyze (Wrap_Spec);
+
+                           --  Remove the wrapper from visibility to avoid
+                           --  spurious conflict with the wrapped entity.
+
+                           Set_Is_Immediately_Visible
+                             (Defining_Entity (Specification (Wrap_Spec)),
+                              False);
                         end if;
 
                         Next_Elmt (Prim_Elmt);

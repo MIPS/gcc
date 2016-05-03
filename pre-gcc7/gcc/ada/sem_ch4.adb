@@ -583,6 +583,48 @@ package body Sem_Ch4 is
             --  so that the bounds of the subtype indication are attached to
             --  the tree in case the allocator is inside a generic unit.
 
+            --  Finally, if there is no subtype indication and the type is
+            --  a tagged unconstrained type with discriminants, the designated
+            --  object is constrained by their default values, and it is
+            --  simplest to introduce an explicit constraint now. In some cases
+            --  this is done during expansion, but freeze actions are certain
+            --  to be emitted in the proper order if constraint is explicit.
+
+            if Is_Entity_Name (E) and then Expander_Active then
+               Find_Type (E);
+               Type_Id := Entity (E);
+
+               if Is_Tagged_Type (Type_Id)
+                 and then Has_Discriminants (Type_Id)
+                 and then not Is_Constrained (Type_Id)
+                 and then
+                   Present
+                     (Discriminant_Default_Value
+                       (First_Discriminant (Type_Id)))
+               then
+                  declare
+                     Constr : constant List_Id    := New_List;
+                     Loc    : constant Source_Ptr := Sloc (E);
+                     Discr  : Entity_Id := First_Discriminant (Type_Id);
+
+                  begin
+                     if Present (Discriminant_Default_Value (Discr)) then
+                        while Present (Discr) loop
+                           Append (Discriminant_Default_Value (Discr), Constr);
+                           Next_Discriminant (Discr);
+                        end loop;
+
+                        Rewrite (E,
+                          Make_Subtype_Indication (Loc,
+                            Subtype_Mark => New_Occurrence_Of (Type_Id, Loc),
+                            Constraint   =>
+                              Make_Index_Or_Discriminant_Constraint (Loc,
+                                Constraints => Constr)));
+                     end if;
+                  end;
+               end if;
+            end if;
+
             if Nkind (E) = N_Subtype_Indication then
 
                --  A constraint is only allowed for a composite type in Ada
@@ -599,7 +641,7 @@ package body Sem_Ch4 is
                      Error_Msg_N ("constraint not allowed here", E);
 
                      if Nkind (Constraint (E)) =
-                       N_Index_Or_Discriminant_Constraint
+                          N_Index_Or_Discriminant_Constraint
                      then
                         Error_Msg_N -- CODEFIX
                           ("\if qualified expression was meant, " &
@@ -7427,7 +7469,7 @@ package body Sem_Ch4 is
             Subp_Id  : Entity_Id;
 
          begin
-            --  Ensure that the routine is not called with itypes which lack a
+            --  Ensure that the routine is not called with itypes, which lack a
             --  declarative node.
 
             pragma Assert (Present (Typ_Decl));
@@ -7484,7 +7526,7 @@ package body Sem_Ch4 is
             Param_Typ  : Node_Id;
 
          begin
-            --  The classify as a suitable candidate, the subprogram must be a
+            --  To classify as a suitable candidate, the subprogram must be a
             --  function whose name matches the argument of aspect Constant or
             --  Variable_Indexing.
 
@@ -7577,12 +7619,14 @@ package body Sem_Ch4 is
       begin
          Typ := T;
 
+         --  Use the specific type when the parameter type is class-wide
+
          if Is_Class_Wide_Type (Typ) then
             Typ := Root_Type (Typ);
          end if;
 
          Ref := Empty;
-         Typ := Underlying_Type (Typ);
+         Typ := Underlying_Type (Base_Type (Typ));
 
          Inspect_Primitives   (Typ, Ref);
          Inspect_Declarations (Typ, Ref);
@@ -7623,12 +7667,12 @@ package body Sem_Ch4 is
          C_Type := Etype (Base_Type (C_Type));
       end if;
 
-      --  Check whether type the has a specified indexing aspect
+      --  Check whether the type has a specified indexing aspect
 
       Func_Name := Empty;
 
-      --  The context is suitable for constant indexing, obtain the name of the
-      --  indexing function from aspect Constant_Indexing.
+      --  The context is suitable for constant indexing, so obtain the name of
+      --  the indexing function from aspect Constant_Indexing.
 
       if Constant_Indexing_OK then
          Func_Name :=
@@ -8773,6 +8817,15 @@ package body Sem_Ch4 is
          --  is visible a direct call to it will dispatch to the private one,
          --  which is therefore a valid candidate.
 
+         function Names_Match
+           (Obj_Type : Entity_Id;
+            Prim_Op  : Entity_Id;
+            Subprog  : Entity_Id) return Boolean;
+         --  Return True if the names of Prim_Op and Subprog match. If Obj_Type
+         --  is a protected type then compare also the original name of Prim_Op
+         --  with the name of Subprog (since the expander may have added a
+         --  prefix to its original name --see Exp_Ch9.Build_Selected_Name).
+
          function Valid_First_Argument_Of (Op : Entity_Id) return Boolean;
          --  Verify that the prefix, dereferenced if need be, is a valid
          --  controlling argument in a call to Op. The remaining actuals
@@ -8949,6 +9002,35 @@ package body Sem_Ch4 is
               and then not Is_Hidden (Visible_Op);
          end Is_Private_Overriding;
 
+         -----------------
+         -- Names_Match --
+         -----------------
+
+         function Names_Match
+           (Obj_Type : Entity_Id;
+            Prim_Op  : Entity_Id;
+            Subprog  : Entity_Id) return Boolean is
+         begin
+            --  Common case: exact match
+
+            if Chars (Prim_Op) = Chars (Subprog) then
+               return True;
+
+            --  For protected type primitives the expander may have built the
+            --  name of the dispatching primitive prepending the type name to
+            --  avoid conflicts with the name of the protected subprogram (see
+            --  Exp_Ch9.Build_Selected_Name).
+
+            elsif Is_Protected_Type (Obj_Type) then
+               return
+                 Present (Original_Protected_Subprogram (Prim_Op))
+                   and then Chars (Original_Protected_Subprogram (Prim_Op)) =
+                              Chars (Subprog);
+            end if;
+
+            return False;
+         end Names_Match;
+
          -----------------------------
          -- Valid_First_Argument_Of --
          -----------------------------
@@ -9015,7 +9097,7 @@ package body Sem_Ch4 is
          while Present (Elmt) loop
             Prim_Op := Node (Elmt);
 
-            if Chars (Prim_Op) = Chars (Subprog)
+            if Names_Match (Obj_Type, Prim_Op, Subprog)
               and then Present (First_Formal (Prim_Op))
               and then Valid_First_Argument_Of (Prim_Op)
               and then
