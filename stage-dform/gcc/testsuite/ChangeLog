@@ -1,3 +1,25 @@
+2016-05-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/float128-complex-1.c: New tests for complex
+	__float128.
+	* gcc.target/powerpc/float128-complex-2.c: Likewise.
+
+2016-05-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR testsuite/70520
+	* c-c++-common/asan/clone-test-1.c (main): Align child process
+	stack to 16 bytes.
+
+2016-05-02  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/62314
+	* g++.dg/spellcheck-fields-2.C: New test case.
+
+2016-05-02  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/62314
+	* g++.dg/pr62314.C: New test case.
+
 2016-05-02  Jan Hubicka  <hubicka@ucw.cz>
 
 	* gcc.dg/ipa/inline-8.c: New testcase.
