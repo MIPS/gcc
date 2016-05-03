@@ -155,7 +155,7 @@ MELT_EXTERN int melt_count_runtime_extensions;
    important, don't add spaces after the terminating double-quote!
    That MELT version string is extracted and used by scripts or
    makefiles... */
-#define MELT_VERSION_STRING "1.3.pre1"
+#define MELT_VERSION_STRING "1.3.rc1"
 
 /* return a read only version string */
 extern const char* melt_version_str(void);
@@ -198,7 +198,6 @@ extern const int melt_is_plugin;
 #endif /* undef MELT_HAVE_DEBUG */
 #endif /*ENABLE_CHECKING */
 #else /* GCC 6 */
-#define MELT_HAVE_DEBUG 1 /* temporary hack */
 #endif /* GCC 6.0 */
 
 #ifndef MELT_HAVE_DEBUG
