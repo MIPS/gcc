@@ -1,5 +1,11 @@
 
 2016-05-03   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-modes.melt (generate_runtypesupport_forwcopy_fun)
+	In the generated melt_forwarded_copy handle the unlikely case of
+	young discriminant which should be forwarded after copying the
+	original object.
+
+2016-05-03   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h (MELT_ALIGN, MELT_LIKELY, MELT_UNLIKELY):
 	Moved before.
 
