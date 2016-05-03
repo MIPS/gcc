@@ -2720,7 +2720,7 @@ rs6000_setup_reg_addr_masks (void)
 
   for (m = 0; m < NUM_MACHINE_MODES; ++m)
     {
-      machine_mode m2 = (machine_mode)m;
+      machine_mode m2 = (machine_mode) m;
       bool complex_p = false;
       size_t msize;
 
@@ -19722,7 +19722,7 @@ rs6000_preferred_reload_class (rtx x, enum reg_class rclass)
 	return ALTIVEC_REGS;
 
       if (DECIMAL_FLOAT_MODE_P (mode))
-	return (TARGET_DFP) ? FLOAT_REGS : NO_REGS;
+	return TARGET_DFP ? FLOAT_REGS : NO_REGS;
 
       if (TARGET_FPRS && TARGET_HARD_FLOAT && FLOAT_MODE_P (mode)
 	  && (reg_addr[mode].addr_mask[RELOAD_REG_FPR] & RELOAD_REG_VALID) == 0)
@@ -34759,7 +34759,7 @@ rs6000_complex_function_value (machine_mode mode)
   unsigned int inner_bytes = GET_MODE_UNIT_SIZE (mode);
 
   if (TARGET_FLOAT128
-      && ((mode == KCmode)
+      && (mode == KCmode
 	  || (mode == TCmode && TARGET_IEEEQUAD)))
     regno = ALTIVEC_ARG_RETURN;
 
