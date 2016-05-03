@@ -12,7 +12,7 @@ MELT_EXTERN const char meltrun_used_md5_melt_f1[] = MELT_RUN_HASHMD5 /* from mel
 
 /****++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ***
-    Copyright 2008 - 2015  Free Software Foundation, Inc.
+    Copyright 2008 - 2016  Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
                and Pierre Vittet  <piervit@pvittet.com>
 
@@ -40,11 +40,11 @@ MELT_EXTERN const char meltrun_used_md5_melt_f1[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiBASE_h706002083; // forward declaration fromline 6691
-typedef Melt_InitialClassyFrame_WARMELTmiBASE_h706002083 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiBASE_h974049601; // forward declaration fromline 6691
+typedef Melt_InitialClassyFrame_WARMELTmiBASE_h974049601 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
-/*** 4 MELT called hook declarations ***/
+/*** 5 MELT called hook declarations ***/
 
 /*declare MELT called hook #0 HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER **/
 MELT_EXTERN melt_ptr_t melthook_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER (melt_ptr_t melthookdatap, melt_ptr_t meltinp0_PREVENV, const char* meltinp1_MODULNAME);
@@ -58,12 +58,15 @@ MELT_EXTERN melt_ptr_t melthook_HOOK_SYMBOL_IMPORTER (melt_ptr_t melthookdatap, 
 /*declare MELT called hook #3 HOOK_VALUE_EXPORTER **/
 MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdatap, melt_ptr_t meltinp0_SYM, melt_ptr_t meltinp1_VAL, melt_ptr_t meltinp2_CONTENV);
 
-/*** end of 4 MELT called hook declarations ***/
+/*declare MELT called hook #4 HOOK_VALUE_EXPORTER **/
+MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdatap, melt_ptr_t meltinp0_SYM, melt_ptr_t meltinp1_VAL, melt_ptr_t meltinp2_CONTENV);
+
+/*** end of 5 MELT called hook declarations ***/
 
 /*** 2 extra MELT c-headers ***/
 
 
-/** MELT extra c-header 1 : h207433331 **/
+/** MELT extra c-header 1 : h234126009 **/
 
 
 /* C++ standard headers for multiple_sort */
@@ -73,7 +76,7 @@ MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdatap, melt_pt
 
 
 
-/** MELT extra c-header 2 : h929980025 **/
+/** MELT extra c-header 2 : h437029415 **/
 
 
 /* A compare structure used in multiple_sort for std::stable_sort;
@@ -384,7 +387,7 @@ MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiBASE_h706002083 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiBASE_h974049601 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -6091,7 +6094,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
             static long meltlab_count_1;
             meltlab_count_1++;
-            debugeprintf("objlabel_1 mtch1_*CLASS_NORMTESTER_INSTANCE/3ec7b5c8. *CLASS_OBJLABELINSTR/10e5006b. %ld", meltlab_count_1);
+            debugeprintf("objlabel_1 mtch1_*CLASS_NORMTESTER_INSTANCE/288e44d6. *CLASS_OBJLABELINSTR/3b6ba731. %ld", meltlab_count_1);
 #endif
 
             ;
@@ -6154,7 +6157,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
             static long meltlab_count_2;
             meltlab_count_2++;
-            debugeprintf("objlabel_2 mtch1_*CLASS_NORMTESTER_MATCHER/6b38f71. *CLASS_OBJLABELINSTR/32dacc06. %ld", meltlab_count_2);
+            debugeprintf("objlabel_2 mtch1_*CLASS_NORMTESTER_MATCHER/3b9bb98f. *CLASS_OBJLABELINSTR/8eb695c. %ld", meltlab_count_2);
 #endif
 
             ;
@@ -6207,7 +6210,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
             static long meltlab_count_3;
             meltlab_count_3++;
-            debugeprintf("objlabel_3 mtch1_*CLASS_NORMTESTER_SUCCESS/1a5721a7. *CLASS_OBJLABELINSTR/359ec417. %ld", meltlab_count_3);
+            debugeprintf("objlabel_3 mtch1_*CLASS_NORMTESTER_SUCCESS/348b0fa5. *CLASS_OBJLABELINSTR/3961b355. %ld", meltlab_count_3);
 #endif
 
             ;
@@ -6325,7 +6328,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
             static long meltlab_count_4;
             meltlab_count_4++;
-            debugeprintf("objlabel_4 mtch1_*CLASS_NORMTESTER_SUCCESS/141fd9e1. *CLASS_OBJLABELINSTR/2603164c. %ld", meltlab_count_4);
+            debugeprintf("objlabel_4 mtch1_*CLASS_NORMTESTER_SUCCESS/2ee0410f. *CLASS_OBJLABELINSTR/108ffa9a. %ld", meltlab_count_4);
 #endif
 
             ;
@@ -6410,7 +6413,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
             static long meltlab_count_5;
             meltlab_count_5++;
-            debugeprintf("objlabel_5 mtch1__end_h1031430337 *CLASS_OBJLABELINSTR/3d7a60c1. %ld", meltlab_count_5);
+            debugeprintf("objlabel_5 mtch1__end_h169630871 *CLASS_OBJLABELINSTR/a1c5c97. %ld", meltlab_count_5);
 #endif
 
             ;

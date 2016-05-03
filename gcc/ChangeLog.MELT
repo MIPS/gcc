@@ -1,5 +1,15 @@
 
 2016-05-03   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{more stable as GCC5 plugin}}
+	* melt/warmelt-modes.melt (generate_runtypesupport_forwcopy_fun)
+	In the generated melt_forwarded_copy handle the unlikely case of
+	young discriminant same as current object...
+	(generate_runtypesupport_scanning): In the generated melt_scanning
+	handle the unlikely case of an already forwarded pointer...
+
+	* melt/generated/*: Regenerated all.
+
+2016-05-03   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.cc (meltgc_start_all_new_modules): Reserve a few
 	kilowords before running each module initialization.
 
