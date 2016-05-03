@@ -2663,9 +2663,6 @@ rs6000_debug_reg_global (void)
   if (TARGET_LINK_STACK)
     fprintf (stderr, DEBUG_FMT_S, "link_stack", "true");
 
-  if (targetm.lra_p ())
-    fprintf (stderr, DEBUG_FMT_S, "lra", "true");
-
   if (TARGET_P8_FUSION)
     {
       char options[80];
@@ -4295,32 +4292,46 @@ rs6000_option_override_internal (bool global_init_p)
     }
 
   /* There have been bugs with both -mvsx-timode and -mpower9-dform-vector that
-     don't show up with -mlra, but do show up with -mno-lra.  Given -mlra is
-     now the default, turn off the options with problems by default if -mno-lra
-     was used, and warn if the user explicitly asked for the option.  */
+     don't show up with -mlra, but do show up with -mno-lra.  Given -mlra will
+     become the default once PR 69847 is fixed, turn off the options with
+     problems by default if -mno-lra was used, and warn if the user explicitly
+     asked for the option. Set -mlra if it wasn't set and we want to generate
+     ISA 3.0 vector d-form instructions. Enable vsx-timode by default if
+     LRA.  */
   if (!TARGET_LRA)
     {
-      if (TARGET_VSX_TIMODE)
+      if ((rs6000_isa_flags_explicit & OPTION_MASK_LRA) == 0)
+	rs6000_isa_flags |= OPTION_MASK_LRA;
+
+      else
 	{
-	  if (rs6000_isa_flags_explicit & OPTION_MASK_VSX_TIMODE)
-	    warning (0, "-mno-lra and -mvsx-timode might be incompatible");
-	  else
-	    rs6000_isa_flags &= ~OPTION_MASK_VSX_TIMODE;
-	}
+	  if (TARGET_VSX_TIMODE)
+	    {
+	      if (rs6000_isa_flags_explicit & OPTION_MASK_VSX_TIMODE)
+		warning (0, "-mno-lra and -mvsx-timode might be incompatible");
+	      else
+		rs6000_isa_flags &= ~OPTION_MASK_VSX_TIMODE;
+	    }
 
-      if (TARGET_P9_DFORM_VECTOR)
-	{
-	  if (TARGET_P9_DFORM_BOTH > 0)
-	    warning (0, "-mno-lra and -mpower9-dform might be incompatible");
+	  if (TARGET_P9_DFORM_VECTOR)
+	    {
+	      if (TARGET_P9_DFORM_BOTH > 0)
+		warning (0, "-mno-lra and -mpower9-dform might be "
+			 "incompatible");
 
-	  else if (rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_VECTOR)
-	    warning (0, "-mno-lra and -mpower9-dform-vector might be "
-		     " incompatible");
+	      else if (rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_VECTOR)
+		warning (0, "-mno-lra and -mpower9-dform-vector might be "
+			 "incompatible");
 
-	  else
-	    rs6000_isa_flags &= ~OPTION_MASK_P9_DFORM_VECTOR;
+	      else
+		rs6000_isa_flags &= ~OPTION_MASK_P9_DFORM_VECTOR;
+	    }
 	}
     }
+
+  if (TARGET_LRA && TARGET_VSX && !TARGET_VSX_TIMODE
+      && (rs6000_isa_flags_explicit & OPTION_MASK_VSX_TIMODE) == 0)
+    rs6000_isa_flags |= OPTION_MASK_VSX_TIMODE;
 
   /* Set -mallow-movmisalign to explicitly on if we have full ISA 2.07
      support. If we only have ISA 2.06 support, and the user did not specify
@@ -7673,7 +7684,7 @@ legitimate_lo_sum_address_p (machine_mode mode, rtx x, int strict)
 
       if (DEFAULT_ABI == ABI_V4 && flag_pic)
 	return false;
-      /* LRA don't use LEGITIMIZE_RELOAD_ADDRESS as it usually calls
+      /* LRA doesn't use LEGITIMIZE_RELOAD_ADDRESS as it usually calls
 	 push_reload from reload pass code.  LEGITIMIZE_RELOAD_ADDRESS
 	 recognizes some LO_SUM addresses as valid although this
 	 function says opposite.  In most cases, LRA through different
@@ -35401,7 +35412,7 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "hard-dfp",			OPTION_MASK_DFP,		false, true  },
   { "htm",			OPTION_MASK_HTM,		false, true  },
   { "isel",			OPTION_MASK_ISEL,		false, true  },
-  { "lra",			OPTION_MASK_NO_LRA,		true,  false },
+  { "lra",			OPTION_MASK_LRA,		false, false },
   { "mfcrf",			OPTION_MASK_MFCRF,		false, true  },
   { "mfpgpr",			OPTION_MASK_MFPGPR,		false, true  },
   { "modulo",			OPTION_MASK_MODULO,		false, true  },
