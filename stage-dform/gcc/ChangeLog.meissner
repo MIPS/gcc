@@ -1,5 +1,61 @@
 2016-05-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	<fsf submission>
+	* config/rs6000/rs6000-cpus.def (ISA_3_0_MASKS_SERVER): Make -mlra
+	an option mask instead of setting a separate word.  Add -mlra and
+	-mvsx-timode as defaults for power9. Split -mpower9-dform into
+	-mpower9-dform-scalar and -mpower9-dform-vector. Add support for
+	ISA 3.0 vector d-form instructions. Set -mlra by default if
+	-mpower9-dform-vector. Set -mvsx-timode if -mlra. Add more debug
+	printouts. If we have ISA 3.0 d-form vector instructions use them
+	for the epilog and prolog. Add wO constraint for ISA 3.0 vector
+	d-form instructions. Rewrite quad memory support to support both
+	lq/stq for GPRs and ISA 3.0 vector d-forms for vector registers.
+	Delete p9_vecload_<mode> and p9_vecstore_<mode> in favor of
+	folding the ISA 3.0 endian load/store into the general mov<mode>
+	insns.
+	(POWERPC_MASKS): Likewise.
+	* config/rs6000/rs6000.opt (-mlra): Likewise.
+	(-mpower9-dform): Likewise.
+	(-mpower9-dform-scalar): Likewise.
+	(-mpower9-dform-vector): Likewise.
+	* config/rs6000/rs6000.c (RELOAD_REG_QUAD_OFFSET): Likewise.
+	(mode_supports_vsx_dform_quad): Likewise.
+	(rs6000_debug_addr_mask): Likewise.
+	(rs6000_setup_reg_addr_masks): Likewise.
+	(rs6000_option_override_internal): Likewise.
+	(quad_address_offset_p): Likewise.
+	(mem_operand_gpr): Likewise.
+	(reg_offset_addressing_ok_p): Likewise.
+	(offsettable_ok_by_alignment): Likewise.
+	(rs6000_legitimate_offset_address_p): Likewise.
+	(legitimate_lo_sum_address_p): Likewise.
+	(rs6000_legitimize_address): Likewise.
+	(rs6000_legitimize_reload_address): Likewise.
+	(rs6000_legitimate_address_p): Likewise.
+	(rs6000_secondary_reload_memory): Likewise.
+	(rs6000_secondary_reload_inner): Likewise.
+	(rs6000_preferred_reload_class): Likewise.
+	(rs6000_output_move_128bit): Likewise.
+	(rs6000_emit_prologue): Likewise.
+	(rs6000_emit_epilogue): Likewise.
+	(rs6000_lra_p): Likewise.
+	(rs6000_opt_masks): Likewise.
+	(rs6000_print_options_internal): Likewise.
+	* config/rs6000/constraints.md (wO constraint): Likewise.
+	* config/rs6000/predicates.md (quad_memory_operand): Likewise.
+	(vsx_quad_dform_memory_operand): Likewise.
+	* config/rs6000/rs6000-protos.h (quad_address_p): Likewise.
+	* config/rs6000/vsx.md (p9_vecload_<mode>): Likewise.
+	(p9_vecstore_<mode>): Likewise.
+	(vsx_mov<mode): Likewise.
+	(vsx_movti_64bi): Likewise.
+	(vsx_movti_32bit): Likewise.
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Likewise.
+	* doc/md.texi (wO constraint): Likewise.
+
+2016-05-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* config/rs6000/rs6000-cpus.def (ISA_3_0_MASKS_SERVER): Add -mlra
 	and -mvsx-timode as defaults.
 
