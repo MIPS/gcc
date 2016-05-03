@@ -13233,7 +13233,7 @@ rs6000_expand_binop_builtin (enum insn_code icode, tree exp, rtx target)
       || icode == CODE_FOR_bcdtstsfi_gt_td 
       || icode == CODE_FOR_bcdtstsfi_unordered_td)
     {
-      /* Only allow 5-bit unsigned literals.  */
+      /* Only allow 6-bit unsigned literals.  */
       STRIP_NOPS (arg0);
       if (TREE_CODE (arg0) != INTEGER_CST
 	  || TREE_INT_CST_LOW (arg0) & ~0x3f)

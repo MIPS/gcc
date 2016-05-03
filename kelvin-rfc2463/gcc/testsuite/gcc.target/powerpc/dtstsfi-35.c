@@ -1,0 +1,15 @@
+/* { dg-do compile { target { powerpc*-*-* } } } */
+/* { dg-options "-mcpu=power9" } */
+
+/* This test should succeed on both 32- and 64-bit configurations.  */
+#include <altivec.h>
+
+int doTestBCDSignificance (_Decimal128 *p)
+{
+  _Decimal128 source = *p;
+
+  return __builtin_dfp_dtstsfi_gt_td (5, source);
+}
+
+/* { dg-final { scan-assembler	   "dtstsfiq" } } */
+
