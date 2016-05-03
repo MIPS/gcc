@@ -594,6 +594,15 @@ extern int rs6000_vector_align[];
    in the register.  */
 #define TARGET_NO_SDMODE_STACK	(TARGET_LFIWZX && TARGET_STFIWX && TARGET_DFP)
 
+/* ISA 3.0 has new min/max functions that don't need fast math that are being
+   phased in.  Min/max using FSEL or XSMAXDP/XSMINDP do not return the correct
+   answers if the arguments are not in the normal range.  */
+#define TARGET_MINMAX_SF	(TARGET_SF_FPR && TARGET_PPC_GFXOPT	\
+				 && (TARGET_P9_MINMAX || !flag_trapping_math))
+
+#define TARGET_MINMAX_DF	(TARGET_DF_FPR && TARGET_PPC_GFXOPT	\
+				 && (TARGET_P9_MINMAX || !flag_trapping_math))
+
 /* In switching from using target_flags to using rs6000_isa_flags, the options
    machinery creates OPTION_MASK_<xxx> instead of MASK_<xxx>.  For now map
    OPTION_MASK_<xxx> back into MASK_<xxx>.  */
@@ -2606,7 +2615,7 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
 
 /* Define which CODE values are valid.  */
 
-#define PRINT_OPERAND_PUNCT_VALID_P(CODE)  ((CODE) == '&')
+#define PRINT_OPERAND_PUNCT_VALID_P(CODE)  ((CODE) == '&' || (CODE) == '@')
 
 /* Print a memory address as an operand to reference that memory location.  */
 
