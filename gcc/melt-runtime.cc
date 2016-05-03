@@ -9662,6 +9662,11 @@ meltgc_start_all_new_modules (melt_ptr_t env_p)
       if (!plmod)
         continue;
       if (plmod->started()) continue;
+      unsigned nbkw = 2+ melt_minorsizekilow/3;
+      MELT_LOCATION_HERE_PRINTF
+      (locbuf, "meltgc_start_all_new_modules before reserving %d Kw for #%d module %s",
+       nbkw, modix, plmod->module_path());
+      meltgc_reserve(nbkw*1024*sizeof(void*));
       MELT_LOCATION_HERE_PRINTF
       (locbuf, "meltgc_start_all_new_modules before starting #%d module %s",
        modix, plmod->module_path());

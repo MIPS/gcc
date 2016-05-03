@@ -1,9 +1,7 @@
 
 2016-05-03   Basile Starynkevitch  <basile@starynkevitch.net>
-	* melt/warmelt-modes.melt (generate_runtypesupport_forwcopy_fun)
-	In the generated melt_forwarded_copy handle the unlikely case of
-	young discriminant which should be forwarded after copying the
-	original object.
+	* melt-runtime.cc (meltgc_start_all_new_modules): Reserve a few
+	kilowords before running each module initialization.
 
 2016-05-03   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h (MELT_ALIGN, MELT_LIKELY, MELT_UNLIKELY):
