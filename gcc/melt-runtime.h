@@ -155,7 +155,7 @@ MELT_EXTERN int melt_count_runtime_extensions;
    important, don't add spaces after the terminating double-quote!
    That MELT version string is extracted and used by scripts or
    makefiles... */
-#define MELT_VERSION_STRING "1.3.rc1"
+#define MELT_VERSION_STRING "1.3.rc1+"
 
 /* return a read only version string */
 extern const char* melt_version_str(void);
@@ -184,12 +184,12 @@ extern const int melt_is_plugin;
 #ifdef MELT_IS_PLUGIN
 
 #ifndef MELT_HAVE_DEBUG
-#define MELT_HAVE_DEBUG 1
+#define MELT_HAVE_DEBUG 0
 #endif /*MELT_HAVE_DEBUG*/
 
 #endif /*MELT_IS_PLUGIN*/
 
-#if  GCCPLUGIN_VERSION < 6000
+#if  GCCPLUGIN_VERSION < 6000 /*GCC 5*/
 #if defined(ENABLE_CHECKING)
 #define MELT_HAVE_DEBUG 1
 #else
@@ -198,7 +198,10 @@ extern const int melt_is_plugin;
 #endif /* undef MELT_HAVE_DEBUG */
 #endif /*ENABLE_CHECKING */
 #else /* GCC 6 */
-#endif /* GCC 6.0 */
+#if CHECKING_P
+#define MELT_HAVE_DEBUG 1
+#endif /*CHECKING_P*/
+#endif /* GCC 5 or 6.0 */
 
 #ifndef MELT_HAVE_DEBUG
 #define MELT_HAVE_DEBUG 0
@@ -1084,7 +1087,8 @@ void melt_garbcoll (size_t wanted, enum melt_gckind_en gckd);
 
 
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
+/***** with debugging *****/
 /* to ease debugging we sometimes want to know when some pointer is
    allocated: set these variables in the debugger */
 MELT_EXTERN void *melt_alptr_1;
@@ -1122,7 +1126,19 @@ melt_dbgtrace_written_object_at(meltobject_ptr_t ob, const char*msg, const char*
   melt_dbgtrace_written_object_at ((meltobject_ptr_t)(Obj),(Msg),\
 				  __FILE__,__LINE__); }while(0)
 #else  /*!MELT_HAVE_DEBUG*/
+/***** without debugging ******/
+static void inline
+melt_dbgtrace_written_object_at(meltobject_ptr_t, const char*, const char*, int)
+{
+}
 #define melt_dbgtrace_written_object(Obj,Msg) do{}while(0)
+#define melt_break_alptr_1(Msg) do{}while(0)
+#define melt_break_alptr_2(Msg) do{}while(0)
+#define melt_break_objhash_1(Msg) do{}while(0)
+#define melt_break_objhash_2(Msg) do{}while(0)
+
+#pragma GCC poison melt_alptr_1
+#pragma GCC poison melt_alptr_2
 #endif /*MELT_HAVE_DEBUG*/
 
 /* the allocator routine allocates a zone of BASESZ with extra GAP */

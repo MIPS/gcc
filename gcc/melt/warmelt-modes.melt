@@ -2662,7 +2662,7 @@ melt_forwarded_copy (melt_ptr_t p)
     gcc_assert (n->u_discr != NULL);
     gcc_assert (n->u_discr != MELT_FORWARDED_DISCR);
     
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
       if (melt_alptr_1 && (void*)melt_alptr_1 == (void*)n) 
 	{
 	  fprintf (stderr, "melt_forwarded_copy to alptr_1 %p mag %d\n",  melt_alptr_1, mag);

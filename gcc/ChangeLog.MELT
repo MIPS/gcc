@@ -1,4 +1,15 @@
 
+2016-05-04   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.3.rc1+. Use
+	CHECKING_P instead of ENABLE_CHECKING with GCC 6 to get
+	MELT_HAVE_DEBUG.
+	(melt_break_alptr_1, melt_break_alptr_2, melt_break_objhash_1)
+	(melt_break_objhash_2): defined as no-op without MELT_HAVE_DEBUG.
+	* melt-runtime.cc (melt_alptr_1, melt_alptr_2): Always defined,
+	probably a temporary bug...
+	* melt/warmelt-modes.melt (generate_runtypesupport_forwcopy_fun):
+	In emitted melt_forwarded_copy use #if MELT_HAVE_DEBUG > 0.
+
 2016-05-03   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{MELT plugin 1.3 release candidate 1}}
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.3.rc1
