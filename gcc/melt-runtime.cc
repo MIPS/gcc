@@ -29,6 +29,8 @@ along with GCC; see the file COPYING3.   If not see
 
 /* for debugging -fmelt-debug is useful */
 
+
+
 #include "melt-run.h"
 
 /* To compile MELT as a plugin, try compiling with -DMELT_IS_PLUGIN. */
@@ -159,21 +161,6 @@ opt_pass* melt_current_pass_ptr;
 const int melt_gccplugin_version = GCCPLUGIN_VERSION;
 #else
 const int melt_gccplugin_version = 0;
-#endif
-
-/* For debugging purposes, used thru gdb.  */
-// for some reason, I need to declare these even when MELT_HAVE_DEBUG is 0
-#ifndef melt_alptr_1
-void *melt_alptr_1=NULL;
-#endif
-#ifndef melt_alptr_2
-void *melt_alptr_2=NULL;
-#endif
-#ifndef melt_objhash_1
-unsigned melt_objhash_1=0;
-#endif
-#ifndef melt_objhash_2
-unsigned melt_objhash_2=0;
 #endif
 
 int melt_count_runtime_extensions;
@@ -13331,5 +13318,17 @@ void melt_gt_ggc_mx_gimple_seq_d(void*p)
 #endif /* GCC 6, 5 or less */
 
 
+///////////////// always at end of file 
+/* For debugging purposes, used thru gdb.  */
+// for some reason, I need to always declare these, so before any include;
+// this might be a dirty hack...
+#undef melt_alptr_1
+#undef melt_alptr_2
+#undef melt_objhash_1
+#undef melt_objhash_2
+extern "C" void *melt_alptr_1=(void*)0;
+extern "C" void *melt_alptr_2=(void*)0;
+extern "C" unsigned melt_objhash_1=0;
+extern "C" unsigned melt_objhash_2=0;
 
 /* eof $Id$ */

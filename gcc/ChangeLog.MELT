@@ -1,5 +1,10 @@
 
 2016-05-04   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.cc (melt_alptr_1, melt_alptr_2, melt_objhash_1)
+	(melt_objhash_2): Forcibly always defined near end of file.
+	This is a dirty hack.
+
+2016-05-04   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerated all.
 
 2016-05-04   Basile Starynkevitch  <basile@starynkevitch.net>
