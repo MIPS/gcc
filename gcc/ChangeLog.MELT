@@ -1,6 +1,19 @@
 
 2016-05-04   Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{replace (cppif MELT_HAVE_DEBUG ...) with
+	some (cppif ##{MELT_HAVE_DEBUG>0} ...) everywhere}}
+	* melt/warmelt-macro.melt: Rewrite (cppif MELT_HAVE_DEBUG...)
+	(mexpand_assert_msg, mexpand_debug): Expand to "MELT_HAVE_DEBUG>0"
+
+	* melt/warmelt-normal.melt (normexp_cheader): Rewrite (cppif
+	MELT_HAVE_DEBUG...)
+
+	* melt/warmelt-outobj.melt: Ditto. Also in emitted frame
+	handling...
+
+2016-05-04   Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/*: Regenerated all.
 
 2016-05-04   Basile Starynkevitch  <basile@starynkevitch.net>

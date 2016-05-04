@@ -9075,7 +9075,7 @@ source location.}#
     (shortbacktrace_dbg "normexp_cheader" 12)
     (assert_msg "check modctx" (is_a modctx class_any_module_context) modctx)
     (assert_msg "check mcheadlist" (is_list mcheadlist) mcheadlist)
-    (cppif MELT_HAVE_DEBUG
+    (cppif ##{MELT_HAVE_DEBUG>0}#
 	   (foreach_pair_component_in_list
 	    (mcheadlist)
 	    (curpair curhead)

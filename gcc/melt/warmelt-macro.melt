@@ -1525,7 +1525,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 	 (symb (get_field :binder bind))
 	 )
     (assert_msg "check basenv" (is_a basenv class_environment) basenv modctx)
-    (cppif MELT_HAVE_DEBUG
+    (cppif ##{MELT_HAVE_DEBUG>0}#
 	   (let ( (curenv env)
 		  )
 	     (forever checkenvloop
@@ -2073,7 +2073,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 			(resm otherm)
 			(mexp sexpr env mexpander modctx)
 			(debug "macroexpand_1 result for macro resm=" resm "\n.. otherm=" otherm)
-			(cppif MELT_HAVE_DEBUG
+			(cppif ##{MELT_HAVE_DEBUG>0}#
 			       (if (null resm)
 				   (debug "macroexpand_1 null result for macro sexpr=" sexpr)))
 			 (return resm otherm)
@@ -8464,7 +8464,7 @@ remain.}#)
 ;;; assert_msg macro is expanded into other src..
 ;;;;;; (assert_msg msg check ...)
 ;;; becomes
-;;;;;; (cppif MELT_HAVE_DEBUG (if check (melt_assert_failure_fun () msg filename lineno ...)) ())
+;;;;;; (cppif ##{MELT_HAVE_DEBUG>0} (if check (melt_assert_failure_fun () msg filename lineno ...)) ())
 ;;; where melt_assert_failure_fun is a function.
 
 (defun mexpand_assert_msg (sexpr env mexpander modctx)
@@ -8542,7 +8542,7 @@ remain.}#)
 		  :sif_else afapply))
 	  (acppif (instance class_source_cppif
 			    :loca_location loc
-			    :sifp_cond 'MELT_HAVE_DEBUG
+			    :sifp_cond '"MELT_HAVE_DEBUG>0"
 			    :sifp_then atest
 			    :sifp_else ()
 			    )) 
@@ -8608,7 +8608,7 @@ remain.}#)
 
 ;;;;;; (debug ...) 
 ;;; becomes
-;;;;;; (cppif MELT_HAVE_DEBUG (if (melt_need_dbg 0) (melt_debug_fun () count filename lineno ...)))
+;;;;;; (cppif ##{MELT_HAVE_DEBUG>0} (if (melt_need_dbg 0) (melt_debug_fun () count filename lineno ...)))
 ;;; where count is (melt_callcount) 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun mexpand_debug  (sexpr env mexpander modctx)
@@ -8725,7 +8725,7 @@ remain.}#)
 		   ))
 	  (dcppif (instance class_source_cppif
 			    :loca_location loc
-			    :sifp_cond 'MELT_HAVE_DEBUG
+			    :sifp_cond '"MELT_HAVE_DEBUG>0"
 			    :sifp_then dprogn
 			    :sifp_else dvoid
 			    )) 
@@ -8746,7 +8746,7 @@ remain.}#)
    flavors, and at run time with the
    @code{-f[plugin-arg-]melt-debugging=} option. Internally
    @code{(DEBUG @var{arg...})} is macro expanded to something similar to
-   @code{(cppif MELT_HAVE_DEBUG (if (melt_need_dbg 0) (melt_debug_fun ()
+   @code{(cppif "MELT_HAVE_DEBUG>0" (if (melt_need_dbg 0) (melt_debug_fun ()
    @var{count} @var{filename} @var{lineno} ...)))}}#)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

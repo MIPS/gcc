@@ -1671,7 +1671,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	(add2sbuf_indentnl dsbuf 2)
 	(add2out dsbuf " : Melt_CallFrameWithValues<" nbval "> (")
 	(add2sbuf_indentnl dsbuf 0)
-	(add2out dsbuf "#if MELT_HAVE_DEBUG /*fromline " (this_line) "*/")
+	(add2out dsbuf "#if MELT_HAVE_DEBUG>0 /*fromline " (this_line) "*/")
 	(add2sbuf_indentnl dsbuf 3)
 	(add2out dsbuf " __FILE__, __LINE__,")
 	(add2sbuf_indentnl dsbuf 0)
@@ -1784,7 +1784,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
      ( (is_a rou class_procroutineobj)
        (add2out implbuf "/*classyprocarg " rouname " fromline " (this_line) "*/")
        (add2sbuf_indentnl implbuf 0)
-       (add2out implbuf "#if MELT_HAVE_DEBUG")
+       (add2out implbuf "#if MELT_HAVE_DEBUG > 0")
        (add2sbuf_indentnl implbuf 1)
        (add2out implbuf " (__FILE__, __LINE__, meltclosp_) /* fromline " (this_line) "*/")
        (add2sbuf_indentnl implbuf 0)
@@ -2692,7 +2692,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 * of $OMODNAM [outpucod_initialextensionroutine] **/
 MELT_EXTERN melt_ptr_t $ONAME (melt_ptr_t meltarg_curenvbox_p, melt_ptr_t meltarg_tuplitval_p) ;
 
-#ifdef MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
 MELT_EXTERN const char meltextend_$OMODCNAME#_have_debug_enabled[] ;
 #define melt_have_debug_string meltextend_$OMODCNAME#_have_debug_enabled
 #else
@@ -2706,7 +2706,7 @@ MELT_EXTERN const char meltextend_$OMODCNAME#_have_debug_disabled[] ;
      implbuf
 ##{ /* implement extension running routine $ONAME 
 of $OMODNAM [outpucod_initialextensionroutine] **/
-#ifdef MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
 const char meltextend_$OMODCNAME#_have_debug_enabled[]
 = "MELT running extension $OMODNAM has debug enabled" ;
 #else
@@ -6232,7 +6232,7 @@ if (1) return;
 	(debug "give_normalized_macroexpanded_list nexp=" nexp "\n.. nbind=" nbind "\n.. for sexp=" debug_less sexp "\n.. psloc=" psloc "\n")
 	;; check the nbind and its elements
 	(assert_msg "check nbind" (is_list_or_null nbind) nbind)
-	(cppif MELT_HAVE_DEBUG
+	(cppif ##{MELT_HAVE_DEBUG>0}#
 	       (foreach_pair_component_in_list
 		(nbind)
 		(curpair curbind)
