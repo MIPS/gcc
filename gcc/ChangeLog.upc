@@ -1,3 +1,7 @@
+2016-05-03  Gary Funck  <gary@intrepid.com>
+
+	Merge GCC 6.0 version 235850 into gupc-6-branch.
+
 2016-04-18  Gary Funck  <gary@intrepid.com>
 
 	Merge GCC 6.0 version 235186 into gupc-6-branch.

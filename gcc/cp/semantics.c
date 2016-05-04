@@ -3276,7 +3276,7 @@ process_outer_var_ref (tree decl, tsubst_flags_t complain)
   tree initializer = convert_from_reference (decl);
 
   /* Mark it as used now even if the use is ill-formed.  */
-  if (!mark_used (decl, complain) && !(complain & tf_error))
+  if (!mark_used (decl, complain))
     return error_mark_node;
 
   bool saw_generic_lambda = false;
@@ -3486,6 +3486,12 @@ finish_id_expression (tree id_expression,
 	 was entirely defined.  */
       if (!scope && decl != error_mark_node && identifier_p (id_expression))
 	maybe_note_name_used_in_class (id_expression, decl);
+
+      /* A use in unevaluated operand might not be instantiated appropriately
+	 if tsubst_copy builds a dummy parm, or if we never instantiate a
+	 generic lambda, so mark it now.  */
+      if (processing_template_decl && cp_unevaluated_operand)
+	mark_type_use (decl);
 
       /* Disallow uses of local variables from containing functions, except
 	 within lambda-expressions.  */

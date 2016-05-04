@@ -1,3 +1,46 @@
+2016-04-29  Cesar Philippidis  <cesar@codesourcery.com>
+
+	PR middle-end/70626
+	* parser.c (cp_parser_oacc_loop): Don't augment mask with
+	OACC_LOOP_CLAUSE_MASK.
+	(cp_parser_oacc_kernels_parallel): Update call to
+	c_oacc_split_loop_clauses.
+
+2016-04-28  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/70540
+	* semantics.c (process_outer_var_ref): Unconditionally return
+	error_mark_node when mark_used returns false.
+
+2016-04-27  Release Manager
+
+	* GCC 6.1.0 released.
+
+2016-04-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/70704
+	* pt.c (build_non_dependent_expr): Temporarily disable flag_checking
+	guarded code.
+
+2016-04-22  Jason Merrill  <jason@redhat.com>
+
+	PR c++/68206
+	PR c++/68530
+	* constexpr.c (potential_constant_expression_1): Handle LOOP_EXPR
+	and GOTO_EXPR.
+
+	PR c++/70522
+	* name-lookup.c (qualified_lookup_using_namespace): Look through
+	hidden names.
+
+2016-04-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/66543
+	* expr.c (mark_exp_read): Handle NON_DEPENDENT_EXPR.
+	* pt.c (make_pack_expansion): Call mark_exp_read.
+	* semantics.c (finish_id_expression): Call mark_type_use in
+	unevaluated context.
+
 2016-04-18  Jason Merrill  <jason@redhat.com>
 
 	PR c++/70690

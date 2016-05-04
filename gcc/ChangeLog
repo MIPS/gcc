@@ -1,3 +1,176 @@
+2016-05-03  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* dwarf2out.c (resolve_args_picking_1): Replace the frame_offset
+	occurence with frame_offset_ ones.
+
+2016-04-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/70858
+	* config/i386/i386.c (bdesc_special_args): Add | OPTION_MASK_ISA_64BIT
+	to __builtin_ia32_lwpval64 and __builtin_ia32_lwpins64.
+	(bdesc_args): Add | OPTION_MASK_ISA_64BIT to __builtin_ia32_bextr_u64,
+	__builtin_ia32_bextri_u64, __builtin_ia32_bzhi_di,
+	__builtin_ia32_pdep_di and __builtin_ia32_pext_di.
+
+2016-04-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	Backport from mainline
+	2016-04-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/70759
+	* stor-layout.h (internal_reference_types): Delete.
+	* stor-layout.c (reference_types_internal): Likewise.
+	(internal_reference_types): Likewise.
+	(layout_type) <REFERENCE_TYPE>: Adjust.
+
+2016-04-27  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2016-04-25  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-builtin.def: Correct pasto error for
+	stxvd2x and stxvw4x built-in functions.
+
+2016-04-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backported from mainline
+	2016-04-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/70750
+	* config/i386/predicates.md (call_insn_operand): Replace
+	sibcall_memory_operand with memory_operand.
+
+2016-04-27  Richard Biener  <rguenther@suse.de>
+
+	PR ipa/70785
+	* tree-ssa-structalias.c (refered_from_nonlocal_fn): New
+	function cummulating used_from_other_partition, externally_visible
+	and force_output from aliases.
+	(refered_from_nonlocal_var): Likewise.
+	(ipa_pta_execute): Use call_for_symbol_and_aliases to cummulate
+	node flags properly.
+
+2016-04-27  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2016-04-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/70712
+	* cfgexpand.c (expand_stack_vars): Fix typo.
+
+	2016-04-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/70680
+	* gimplify.c (gimplify_omp_for): Call omp_notice_variable for
+	implicitly linear or lastprivate iterator on the outer context.
+
+2016-04-27  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	PR target/70728
+	* gcc/config/i386/sse.md (define_insn "<shift_insn><mode>3<mask_name>"):
+	Extract AVX-512BW constraint from AVX.
+
+2016-04-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* BASE-VER: Set to 6.1.1.
+
+2016-04-27  Release Manager
+
+	* GCC 6.1.0 released.
+
+2016-04-25  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70780
+	* tree-ssa-pre.c (compute_antic_aux): Also return true if the block
+	wasn't visited yet.
+	(compute_antic): Mark blocks with abnormal preds as visited as
+	they have a final empty antic-in solution already.
+
+2016-04-22  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2016-04-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* doc/invoke.texi: Replace -skip-rax-setup with -mskip-rax-setup.
+
+2016-04-22  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	* system.h (list, map, set, vector): Include conditionally.
+	* auto-profile.c (INCLUDE_MAP, INCLUDE_SET): Define.
+	* graphite-isl-ast-to-gimple.c (INCLUDE_MAP): Define.
+	* ipa-icf.c (INCLUDE_LIST): Define.
+	* config/aarch64/cortex-a57-fma-steering.c (INCLUDE_LIST): Define.
+	* config/sh/sh.c (INCLUDE_VECTOR): Define.
+	* config/sh/sh_treg_combine.cc (INCLUDE_ALGORITHM): Define.
+	(INCLUDE_LIST, INCLUDE_VECTOR): Define.
+	* cp/logic.cc (INCLUDE_LIST): Define.
+	* fortran/trans-common.c (INCLUDE_MAP): Define.
+
+2016-04-22  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	* auto-profile.c: Remove <string.h> include.
+	* ipa-icf-gimple.c: Remove <list> include.
+	* diagnostic.c: Remove <new> include.
+	* genmatch.c: Likewise.
+	* pretty-print.c: Likewise.
+	* toplev.c: Likewise
+	* c/c-objc-common.c: Likewise.
+	* cp/error.c: Likewise.
+	* fortran/error.c: Likewise.
+
+2016-04-21  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70747
+	* fold-const.c (fold_comparison): Return properly typed
+	constant boolean.
+
+2016-04-20  Andrew Pinski  <apinski@cavium.com>
+            Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/64971
+	* config/aarch64/aarch64.md (sibcall): Force call
+	address to be DImode for ILP32.
+	(sibcall_value): Likewise.
+
+2016-04-20  Marek Polacek  <polacek@redhat.com>
+
+	* tree-if-conv.c (is_false_predicate): For NULL_TREE return false
+	rather than true.
+
+2016-04-20  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/70725
+	* tree-if-conv.c (is_false_predicate): New function.
+	(predicate_mem_writes): Use it.
+
+2016-04-20  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70726
+	* tree-vect-stmts.c (vectorizable_shift): Do not use scalar
+	shift amounts from a pattern stmt operand.
+
+2016-04-20  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	PR target/70674
+	* config/s390/s390.c (s390_restore_gprs_from_fprs): Pick the new
+	stack_restore_from_fpr pattern when restoring r15.
+	(s390_optimize_prologue): Strip away the memory barrier in the
+	parallel when trying to get rid of restore insns.
+	* config/s390/s390.md ("stack_restore_from_fpr"): New insn
+	definition for loading the stack pointer from an FPR.  Compared to
+	the normal move insn this pattern includes a full memory barrier.
+
+2016-04-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70724
+	* tree-ssa-sccvn.c (scc_vn_restore_ssa_info): Split SSA info
+	restoring out from ...
+	(free_scc_vn): ... here.
+	* tree-ssa-sccvn.h (scc_vn_restore_ssa_info): Declare.
+	* tres-ssa-pre.c (pass_pre::execute): Restore SSA info before
+	tail merging.
+	(pass_fre::execute): Restore SSA info.
+
 2016-04-18  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
 	* doc/install.texi (Specific, i?86-*-solaris2.10): Update gas and

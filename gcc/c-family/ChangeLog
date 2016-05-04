@@ -1,3 +1,18 @@
+2016-04-29  Cesar Philippidis  <cesar@codesourcery.com>
+
+	PR middle-end/70626
+	* c-common.h (c_oacc_split_loop_clauses): Add boolean argument.
+	* c-omp.c (c_oacc_split_loop_clauses): Use it to duplicate
+	reduction clauses in acc parallel loops.
+
+2016-04-27  Release Manager
+
+	* GCC 6.1.0 released.
+
+2016-04-19  Jason Merrill  <jason@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Fix __cpp_range_based_for.
+
 2016-04-15  Marek Polacek  <polacek@redhat.com>
 
 	PR c/70651

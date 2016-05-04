@@ -1,3 +1,94 @@
+2016-05-03  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* gnat.dg/debug5.adb: New testcase.
+
+2016-04-29  Cesar Philippidis  <cesar@codesourcery.com>
+
+	PR middle-end/70626
+	* c-c++-common/goacc/combined-reduction.c: New test.
+	* gfortran.dg/goacc/reduction-2.f95: Add check for kernels reductions.
+
+2016-04-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/70858
+	* gcc.target/i386/pr70858.c: New test.
+
+2016-04-28  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/70540
+	* g++.dg/cpp0x/auto48.C: New.
+
+2016-04-27  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	* gfortran.dg/submodule_14.f08: Add cleanup-submodules.
+	* gfortran.dg/submodule_15.f08: Likewise.
+
+2016-04-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backported from mainline
+	2016-04-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/70750
+	* gcc.target/i386/pr70750-1.c: New test.
+	* gcc.target/i386/pr70750-2.c: Likewise.
+
+2016-04-27  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2016-04-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/70712
+	* c-c++-common/asan/pr70712.c: New test.
+
+2016-04-21  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	PR target/70728
+	* gcc.target/i386/pr70728.c: New test.
+
+2016-04-27  Release Manager
+
+	* GCC 6.1.0 released.
+
+2016-04-25  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70780
+	* gcc.dg/torture/pr70780.c: New testcase.
+
+2016-04-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/70684
+	* gfortran.dg/list_read_14.f90: New test.
+
+2016-04-21  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70747
+	* gcc.dg/pr70747.c: New testcase.
+
+2016-04-20  Andrew Pinski  <apinski@cavium.com>
+
+	PR target/64971
+	* gcc.c-torture/compile/pr37433-1.c: New testcase.
+
+2016-04-20  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/70725
+	* gcc.dg/pr70725.c: New test.
+
+2016-04-20  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70726
+	* g++.dg/vect/pr70726.cc: New testcase.
+
+2016-04-20  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	PR target/70674
+	* gcc.target/s390/pr70674.c: New test.
+
+2016-04-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70724
+	* gcc.dg/torture/pr70724.c: New testcase.
+
 2016-04-15  Marek Polacek  <polacek@redhat.com>
 
 	PR c/70671
