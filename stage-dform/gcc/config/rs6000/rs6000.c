@@ -4294,7 +4294,7 @@ rs6000_option_override_internal (bool global_init_p)
     {
       if (TARGET_VSX_TIMODE)
 	{
-	  if ((rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_VECTOR) != 0)
+	  if ((rs6000_isa_flags_explicit & OPTION_MASK_VSX_TIMODE) != 0)
 	    warning (0, "-mvsx-timode might need -mlra");
 
 	  else
