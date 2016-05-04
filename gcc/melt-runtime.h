@@ -1137,8 +1137,10 @@ melt_dbgtrace_written_object_at(meltobject_ptr_t, const char*, const char*, int)
 #define melt_break_objhash_1(Msg) do{}while(0)
 #define melt_break_objhash_2(Msg) do{}while(0)
 
-#pragma GCC poison melt_alptr_1
-#pragma GCC poison melt_alptr_2
+#define melt_alptr_1 NULL
+#define melt_alptr_2 NULL
+#define melt_objhash_1 0U
+#define melt_objhash_2 0U
 #endif /*MELT_HAVE_DEBUG*/
 
 /* the allocator routine allocates a zone of BASESZ with extra GAP */

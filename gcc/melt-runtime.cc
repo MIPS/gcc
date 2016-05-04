@@ -161,10 +161,10 @@ const int melt_gccplugin_version = GCCPLUGIN_VERSION;
 const int melt_gccplugin_version = 0;
 #endif
 
+#if MELT_HAVE_DEBUG > 0
+/* For debugging purposes, used thru gdb.  */
 void *melt_alptr_1=NULL;
 void *melt_alptr_2=NULL;
-#if MELT_HAVE_DEBUG
-/* For debugging purposes, used thru gdb.  */
 unsigned melt_objhash_1=0;
 unsigned melt_objhash_2=0;
 #endif /* MELT_HAVE_DEBUG */
