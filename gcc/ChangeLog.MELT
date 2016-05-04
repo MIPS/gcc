@@ -1,5 +1,9 @@
 
 2016-05-04   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-base.melt (valdesc_multiple, valdesc_jsonobject)
+	(valdesc_double) Typos.
+
+2016-05-04   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h: Don't early define MELT_HAVE_DEBUG when
 	MELT_IS_PLUGIN.
 	Force MELT_HAVE_DEBUG 1 when CHECKING_P.

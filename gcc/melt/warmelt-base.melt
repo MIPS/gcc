@@ -2494,7 +2494,7 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
   }#
   :valdesc_copychunk #{$'  /* copy chunk from VALDESC_MULTIPLE in warmelt-base.melt */
     // in file $_MELT_FILE_ line $_MELT_LINE_
-  /* ggc_alloc_meltmultiple_st should be gengtype generated for VALDESC_MULTIPLE *//
+  /* ggc_alloc_meltmultiple_st should be gengtype generated for VALDESC_MULTIPLE */
 #ifndef ggc_alloc_meltmultiple_st
 #define ggc_alloc_meltmultiple_st(SIZE) ((struct meltmultiple_st *)(ggc_internal_alloc(SIZE)))
 #endif /* ggc_alloc_meltmultiple_st */
@@ -2894,6 +2894,7 @@ typedef struct melthook_st *melthook_ptr_t;
   typedef struct meltjsonobject_st* meltjsonobject_ptr_t;
 #ifndef ggc_alloc_meltjsonobject_st
 #define ggc_alloc_meltjsonobject_st(SIZE) ((struct meltjsonobject_st *)(ggc_internal_alloc (SIZE)))
+#endif
 
   // small functions from VALDESC_JSONOBJECT in warmelt-base.melt
   static inline melt_ptr_t 
@@ -3067,6 +3068,7 @@ typedef struct melthook_st *melthook_ptr_t;
 /* ggc_alloc_meltstrbuf_st should be gengtype gengtype for VALDESC_STRBUF */
 #ifndef ggc_alloc_meltstrbuf_st
 #define ggc_alloc_meltstrbuf_st() ((struct meltstrbuf_st *)(ggc_internal_alloc (sizeof (struct meltstrbuf_st))))
+#endif 
      unsigned blen = melt_primtab[src->buflenix];
      size_t sz = sizeof(*dst);
      dst = 
@@ -3251,6 +3253,7 @@ typedef struct melthook_st *melthook_ptr_t;
 /* ggc_alloc_meltdouble_st should be gengtype generated for VALDESC_DOUBLE */
 #ifndef ggc_alloc_meltdouble_st
 #define ggc_alloc_meltdouble_st() ((struct meltdouble_st *)(ggc_internal_alloc (sizeof (struct meltdouble_st))))
+#endif
      dst = 
         /* Don't need a cleared allocation.  */
 	  ggc_alloc_meltdouble_st ();
