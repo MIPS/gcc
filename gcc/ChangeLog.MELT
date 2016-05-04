@@ -1,5 +1,28 @@
 
 2016-05-04   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{systematically use #if MELT_HAVE_DEBUG > 0 everywhere, but
+	cppif MELT_HAVE_DEBUG remains}}
+	* melt-runtime.h: Use  #if MELT_HAVE_DEBUG > 0
+	(melt_magic_discr, melt_dynobjstruct_make_raw_object)
+	(melt_getfield_object_at, class Melt_CallProtoFrame)
+	(Melt_CallFrameWithValues<>)
+	(MELT_LOCATION,MELT_LOCATION_HERE_MACRO, MELT_LOCATION_HERE)
+	(MELT_LOCATION_HERE_PRINTF_MACRO, MELT_LOCATION_HERE_PRINTF):
+	Ditto.
+
+	* melt-runtime.cc (Melt_CallProtoFrame::_dbgcall_file_)
+	(Melt_CallProtoFrame::_dbgcall_count_): Ditto.
+
+	* melt/warmelt-first.melt (melt_callcount, melt_need_dbg)
+	(melt_need_dbglim, hook_symbol_importer): Ditto.
+
+	* melt/warmelt-genobj.melt (compilobj_nrep_return): Ditto.
+
+	* melt/warmelt-outobj.melt (output_curframe_declstruct)
+	(output_curframe_declstruct_init, outpucod_initialmoduleroutine)
+	(emit_syntax_testing_routine): Ditto, in emitted code.
+
+2016-05-04   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.cc (melt_alptr_1, melt_alptr_2, melt_objhash_1)
 	(melt_objhash_2): Wrapping extern "C" when defining them...
 

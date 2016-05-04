@@ -1110,7 +1110,7 @@ compiled C abstract syntax trees (that is @code{:tree} and
 ;;; the call counter - do not redefine the name, it is used by expansion of debug_msg macro!
 (defprimitive melt_callcount () :long 
 #{/* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
   meltcallcount  /* melt_callcount debugging */
 #else
   0L  /* melt_callcount without debug */
@@ -1383,7 +1383,7 @@ an integer $I if $I is greater than $N.}#
 (defprimitive melt_need_dbg (:long depth) :long 
 :doc #{Test if debug messages are needed for the given $DEPTH. Trivially false in optimized flavor.}#
   #{/*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
  (/*melt_need_dbg*/ melt_need_debug ((int) $DEPTH))
 #else
  0 /* no melt_need_dbg */
@@ -1393,7 +1393,7 @@ an integer $I if $I is greater than $N.}#
 (defprimitive melt_need_dbglim (:long depth limit) :long 
 :doc #{Test if debug messages are needed for the given $DEPTH and $LIMIT. Trivially false in optimized flavor.}#
   #{ /*melt_need_dbglim*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
 ( /*melt_need_dbglim*/ melt_need_debug_limit ((int) $DEPTH, (int) $LIMIT))
 #else
  0 /* no melt_need_dbglim */
@@ -1403,7 +1403,7 @@ an integer $I if $I is greater than $N.}#
 (defprimitive shortbacktrace_dbg (:cstring msg :long maxdepth) :void
   :doc #{Short debug backtrace with message $MSG up to $MAXDEPTH.}#
   #{ 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
   if (melt_need_debug (0))
     melt_dbgshortbacktrace(($msg), ($maxdepth));
 #endif
@@ -4660,7 +4660,7 @@ $CREATE is true i.e. non zero.}#
                     {
                       warning (0, "MELT importing unknown symbol %s in module %s", 
                                   $SYMNAMESTR, $MODULENAMESTR)  ;
- #if MELT_HAVE_DEBUG
+ #if MELT_HAVE_DEBUG > 0
                       melt_dbgshortbacktrace("MELT importing unknown symbol", 16);
  #endif /* MELT_HAVE_DEBUG */
                     };

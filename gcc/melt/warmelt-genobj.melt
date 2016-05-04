@@ -5235,7 +5235,7 @@
 		    (make_objlocatedexp 
 		     rloc ctype_void		
 		     "/*ochecknores compilobj_nrep_return*/\n"
-		     "#if MELT_HAVE_DEBUG\n"
+		     "#if MELT_HAVE_DEBUG > 0\n"
 		     " if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)\n"
 		     "    melt_warn_for_no_expected_secondary_results();\n"
 		     "/* we warned when secondary results are expected but not returned. */\n"

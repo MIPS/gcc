@@ -241,7 +241,7 @@ long melt_cpu_time_millisec (void);
 void melt_set_real_timer_millisec (long millisec);
 
 
-#if MELT_HAVE_DEBUG && ENABLE_GC_CHECKING
+#if MELT_HAVE_DEBUG > 0 && ENABLE_GC_CHECKING
 /* memory is poisoned by an 0xa5a5a5a5a5a5a5a5... pointer in ggc-zone.c or ggc-page.c */
 #if SIZEOF_VOID_P == 8
 #define MELT_POISON_POINTER (void*)0xa5a5a5a5a5a5a5a5
@@ -250,7 +250,7 @@ void melt_set_real_timer_millisec (long millisec);
 #else
 #error cannot set MELT_POISON_POINTER
 #endif
-#endif /*MELT_HAVE_DEBUG && ENABLE_GC_CHECKING*/
+#endif /*MELT_HAVE_DEBUG > 0 && ENABLE_GC_CHECKING*/
 
 /* the MELT debug depth for debug_msg ... can be set with -fmelt-debug-depth= */
 MELT_EXTERN int melt_debug_depth(void);
@@ -261,7 +261,7 @@ extern "C" int melt_flag_bootstrapping;
 
 
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
 
 #define debugeprintf_raw(Fmt,...) do{if (melt_flag_debug) \
       {fprintf(stderr, Fmt, ##__VA_ARGS__); fflush(stderr);}}while(0)
@@ -805,7 +805,7 @@ melt_magic_discr (melt_ptr_t p)
 {
   if (!p)
     return 0;
-#if MELT_HAVE_DEBUG && ENABLE_GC_CHECKING
+#if MELT_HAVE_DEBUG > 0 && ENABLE_GC_CHECKING
   if ((void*) p == MELT_POISON_POINTER)
     {
       /* This should never happen, and if it happens it means that p
@@ -816,8 +816,8 @@ melt_magic_discr (melt_ptr_t p)
        " (= the poison pointer)",
        (void*) p);
     }
-#endif /*MELT_HAVE_DEBUG && ENABLE_GC_CHECKING */
-#if MELT_HAVE_DEBUG
+#endif /*MELT_HAVE_DEBUG > 0 && ENABLE_GC_CHECKING */
+#if MELT_HAVE_DEBUG > 0 
   if (!p->u_discr)
     {
       /* This should never happen, we are asking the discriminant of a
@@ -828,7 +828,7 @@ melt_magic_discr (melt_ptr_t p)
        (void*) p);
     }
 #endif /*MELT_HAVE_DEBUG*/
-#if MELT_HAVE_DEBUG && ENABLE_GC_CHECKING
+#if MELT_HAVE_DEBUG > 0 && ENABLE_GC_CHECKING
   if ((void*) (p->u_discr) == MELT_POISON_POINTER)
     {
       /* This should never happen, we are asking the discriminant of a
@@ -838,7 +838,7 @@ melt_magic_discr (melt_ptr_t p)
        "(= a freed and poisoned memory zone)",
        (void*) p);
     }
-#endif /*MELT_HAVE_DEBUG && ENABLE_GC_CHECKING*/
+#endif /*MELT_HAVE_DEBUG > 0 && ENABLE_GC_CHECKING*/
   return p->u_discr->meltobj_magic;
 }
 
@@ -1644,7 +1644,7 @@ melt_dynobjstruct_make_raw_object (melt_ptr_t klas, int len,
 					 Clanam, __FILE__, __LINE__,	\
 				      (int**)0, (int*)0)
 
-#elif MELT_HAVE_DEBUG
+#elif MELT_HAVE_DEBUG > 0
 static inline melt_ptr_t
 melt_getfield_object_at (melt_ptr_t ob, unsigned off, const char*msg, const char*fil, int lin)
 {
@@ -3092,7 +3092,7 @@ protected:
 public:
   const char* mcfr_flocs;
 protected:
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
   const char* _meltcf_dbgfile;
   const long _meltcf_dbgline;
   const long _meltcf_dbgserial;
@@ -3136,7 +3136,7 @@ public:
   {
     mcfr_flocs = s;
   };
-#if MELT_HAVE_DEBUG 
+#if MELT_HAVE_DEBUG > 0
   const char* dbg_file() const
   {
     return _meltcf_dbgfile;
@@ -3227,7 +3227,7 @@ public:
   ////
   ~Melt_CallProtoFrame()
   {
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     if (MELT_UNLIKELY( _dbgcall_file_ != NULL))
       {
         fprintf (_dbgcall_file_, "- %s:%d\n",  _meltcf_dbgfile, (int)_meltcf_dbgline);
@@ -3237,7 +3237,7 @@ public:
     mcfr_flocs = NULL;
     melt_top_call_frame = _meltcf_prev;
   }
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
 public:
   static void set_debug_file(FILE*f)
   {
@@ -3289,7 +3289,7 @@ public:
     return meltcast_melthook_st (mcfr_current);
   };
 protected:
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
   Melt_CallFrame(const char*file, int lin, size_t sz, meltclosure_ptr_t clos=NULL)
     : Melt_CallProtoFrame(file,lin,sz), mcfr_clos(clos)
   {
@@ -3344,7 +3344,7 @@ public:
   melt_ptr_t mcfr_varptr[(NbVal>0)?NbVal:1];
   virtual void melt_forward_values (void)
   {
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     if (dbg_file())
       melt_debuggc_eprintf("forwarding %d values call frame @%p from %s:%ld #%ld",
                            NbVal, (void*) this, dbg_file(), dbg_line(), dbg_serial());
@@ -3368,7 +3368,7 @@ public:
   {
     melt_mark_values ();
   };
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
   Melt_CallFrameWithValues(const char*fil, int lin,
                            size_t sz, meltclosure_ptr_t clos=NULL)
     : Melt_CallFrame(fil, lin, sz, clos) {};
@@ -3383,7 +3383,7 @@ public:
 };				// end template class Melt_CallFrameWithValues
 
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
 
 #define MELT_ENTERFRAME_AT(NbVar,Clos,Lin)			\
   /* classy enter frame, debugged */   				\
@@ -3439,7 +3439,7 @@ melt_curframdepth (void)
    debugging. */
 
 #define MELT_LOCATION(LOCS) do{			\
-    if (MELT_HAVE_DEBUG)			\
+    if (MELT_HAVE_DEBUG > 0)			\
        meltfram__.mcfr_flocs = LOCS;		\
 }while(0)
 
@@ -3462,7 +3462,7 @@ melt_curframdepth (void)
 #define MELT_LOCATION_HERE_MACRO(MSG)  \
   MELT_LOCATION_HERE_AT_MACRO(__FILE__,__LINE__,MSG)
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
 #define MELT_LOCATION_HERE(MSG)  MELT_LOCATION_HERE_MACRO(MSG)
 #else
 #define MELT_LOCATION_HERE(MSG) do{}while(0)
@@ -3487,7 +3487,7 @@ melt_curframdepth (void)
 #define MELT_LOCATION_HERE_PRINTF_MACRO(SBUF,FMT,...)			\
   MELT_LOCATION_HERE_PRINTF_AT_MACRO(SBUF,__FILE__,__LINE__,FMT,__VA_ARGS__)
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
 #define MELT_LOCATION_HERE_PRINTF(SBUF,FMT,...)		\
   MELT_LOCATION_HERE_PRINTF_MACRO(SBUF,FMT, __VA_ARGS__)
 #else
@@ -3671,7 +3671,7 @@ void melt_dbgshortbacktrace(const char* msg, int maxdepth);
 void melt_warn_for_no_expected_secondary_results_at (const char*fil, int lin);
 
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
 extern void* melt_checkedp_ptr1;
 extern void* melt_checkedp_ptr2;
 
@@ -3799,7 +3799,7 @@ FILE* meltgc_set_dump_file (FILE* dumpf);
 void meltgc_restore_dump_file (FILE* oldf);
 
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
 /* some useless routines in wich we can add a breakpoint from gdb. */
 MELT_EXTERN void melt_sparebreakpoint_0_at (const char*fil, int lin, void*ptr, const char*msg);
 MELT_EXTERN void melt_sparebreakpoint_1_at (const char*fil, int lin, void*ptr, const char*msg);

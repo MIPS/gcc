@@ -532,7 +532,7 @@ Melt_Module::~Melt_Module()
 
 
 Melt_CallProtoFrame* melt_top_call_frame =NULL;
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
 FILE* Melt_CallProtoFrame::_dbgcall_file_ = NULL;
 long Melt_CallProtoFrame::_dbgcall_count_ = 0L;
 #endif /*MELT_HAVE_DEBUG*/
