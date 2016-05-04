@@ -13326,9 +13326,10 @@ void melt_gt_ggc_mx_gimple_seq_d(void*p)
 #undef melt_alptr_2
 #undef melt_objhash_1
 #undef melt_objhash_2
-extern "C" void *melt_alptr_1=(void*)0;
-extern "C" void *melt_alptr_2=(void*)0;
-extern "C" unsigned melt_objhash_1=0;
-extern "C" unsigned melt_objhash_2=0;
-
+extern "C" {
+void *melt_alptr_1=(void*)0;
+void *melt_alptr_2=(void*)0;
+unsigned melt_objhash_1=0;
+unsigned melt_objhash_2=0;
+};
 /* eof $Id$ */
