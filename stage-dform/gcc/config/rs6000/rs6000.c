@@ -4294,31 +4294,34 @@ rs6000_option_override_internal (bool global_init_p)
     {
       if (TARGET_VSX_TIMODE)
 	{
-	  if (rs6000_isa_flags_explicit & OPTION_MASK_VSX_TIMODE)
-	    warning (0, "-mno-lra and -mvsx-timode might be incompatible");
+	  if ((rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_VECTOR) != 0)
+	    warning (0, "-mvsx-timode might need -mlra");
+
 	  else
 	    rs6000_isa_flags &= ~OPTION_MASK_VSX_TIMODE;
 	}
 
       if (TARGET_P9_DFORM_VECTOR)
 	{
-	  if (TARGET_P9_DFORM_BOTH > 0
-	      || (rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_VECTOR) != 0)
-	    warning (0, "-mno-lra and -mpower9-dform might be incompatible");
+	  if ((rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_VECTOR) != 0)
+	    warning (0, "-mpower9-dform-vector might need -mlra");
 
 	  else
 	    rs6000_isa_flags &= ~OPTION_MASK_P9_DFORM_VECTOR;
 	}
     }
 
-  if (TARGET_LRA && TARGET_VSX && !TARGET_VSX_TIMODE
-      && (rs6000_isa_flags_explicit & OPTION_MASK_VSX_TIMODE) == 0)
-    rs6000_isa_flags |= OPTION_MASK_VSX_TIMODE;
+  else
+    {
+      if (TARGET_VSX && !TARGET_VSX_TIMODE
+	  && (rs6000_isa_flags_explicit & OPTION_MASK_VSX_TIMODE) == 0)
+	rs6000_isa_flags |= OPTION_MASK_VSX_TIMODE;
 
-  if (TARGET_LRA && TARGET_VSX && TARGET_P9_VECTOR && !TARGET_P9_DFORM_VECTOR
-      && TARGET_P9_DFORM_SCALAR && TARGET_P9_DFORM_BOTH < 0
-      && (rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_VECTOR) == 0)
-    rs6000_isa_flags |= OPTION_MASK_P9_DFORM_VECTOR;
+      if (TARGET_VSX && TARGET_P9_VECTOR && !TARGET_P9_DFORM_VECTOR
+	  && TARGET_P9_DFORM_SCALAR && TARGET_P9_DFORM_BOTH < 0
+	  && (rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_VECTOR) == 0)
+	rs6000_isa_flags |= OPTION_MASK_P9_DFORM_VECTOR;
+    }
 
   /* Set -mallow-movmisalign to explicitly on if we have full ISA 2.07
      support. If we only have ISA 2.06 support, and the user did not specify
