@@ -1,6 +1,8 @@
 
 2016-05-04   Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{we should also check that the same melt.so can be used with and
+	without MELT_HAVE_DEBUG}}
 	* melt/generated/*: Regenerated all.
 
 2016-05-04   Basile Starynkevitch  <basile@starynkevitch.net>
