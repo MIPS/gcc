@@ -1,3 +1,111 @@
+2015-10-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (classify_argument): Use CEIL where applicable.
+	(ix86_function_arg_advance): Ditto.
+	(ix86_function_arg): Ditto.
+	(ix86_gimplify_va_arg): Ditto.
+	(ix86_class_max_nregs): Ditto.
+	(inline_memory_move_cost): Ditto.
+	(ix86_set_reg_reg_cost): Ditto.
+	* config/i386/i386.h (HARD_REGNO_NREGS): Ditto.
+
+2015-10-13  Alexandre Oliva <aoliva@redhat.com>
+
+	PR middle-end/67912
+	* expmed.c (store_bit_field_1): Adjust mode of BLKmode inputs.
+
+2015-10-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/sparc/sparc.h (SPARC_STACK_ALIGN): Implement using
+	ROUND_UP macro and UNITS_PER_WORD * 2.
+	* config/sparc/sparc.c (sparc_compute_frame_size):
+	Use ROUND_UP and ROUND_DOWN macros where applicable.
+	(function_arg_record_value, function_arg_record_value_1)
+	(function_arg_record_value_1): Ditto.
+	(emit_save_or_restore_regs): Use ROUND_DOWN to preserve offset
+	alignment to double-word.
+	(sparc_gimplify_va_arg): Use ROUND_UP to calculate rsize.
+	(sparc_emit_probe_stack_range): Use ROUND_DOWN to calculate
+	rounded_size.
+
+2015-10-13  Nikolai Bozhenov  <n.bozhenov@samsung.com>
+
+	* gcc/rtl.h (print_insn): Fix prototype.
+
+2015-10-13  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-parloops.c (reduction_phi): Handle cases that gimple_uid is 0 or
+	-1.  Add assert that returned entry matches phi argument.
+	(parallelize_loops): Move calls to init_stmt_vec_info_vec and
+	free_stmt_vec_info_vec ...
+	(gather_scalar_reductions): ... here.  Initialize gimple_uids of phis
+	with -1.
+
+2014-10-13  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR tree-optimization/67909, 67947
+	* tree-ssa-loop-unswitch.c (find_loop_guard): Add check that GUARD_EDGE
+	really skip the inner loop.
+
+2015-10-13  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-threadbackward.c (fsm_find_control_statement_thread_paths):
+	Allow single block jump threading paths.
+
+2015-10-13  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/67476
+	* doc/invoke.texi (@item parloops-schedule): New item.
+	* params.def (PARAM_PARLOOPS_SCHEDULE): New DEFPARAMENUM5.
+	* tree-parloops.c: Include params-enum.h.
+	(create_parallel_loop): Handle PARAM_PARLOOPS_SCHEDULE.
+
+2015-10-13  Tom de Vries  <tom@codesourcery.com>
+
+	* Makefile.in (PARAMS_H, PLUGIN_HEADERS): Add params-enum.h.
+	* params-enum.h: New file.
+	* opts.c (handle_param): Handle case that param arg is a string.
+	* params-list.h: Handle DEFPARAMENUM5 in params.def.
+	* params.c (find_param): New function, factored out of ...
+	(set_param_value): ... here.
+	(param_string_value_p): New function.
+	* params.h (struct param_info): Add value_names field.
+	(find_param, param_string_value_p): Declare.
+
+2015-10-13  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/67476
+	* omp-low.c (expand_omp_for_generic): Handle original loop tree.
+
+2015-10-13  Richard Biener  <rguenther@suse.de>
+
+	* tree-vect-data-refs.c (vect_analyze_data_ref_dependences): Allocate
+	the data dependence vector.
+	(vect_peeling_hash_insert): Get the peeling hash table as argument.
+	(vect_peeling_hash_get_lowest_cost): Likewise.
+	(vect_enhance_data_refs_alignment): Adjust.
+	(struct _vect_peel_info, struct _vect_peel_extended_info,
+	struct peel_info_hasher): Move from ...
+	* tree-vectorizer.h: ... here.
+	(LOOP_VINFO_COST_MODEL_MIN_ITERS): Remove.
+	(LOOP_VINFO_PEELING_HTAB): Likewise.
+	(struct _loop_vec_info): Remove min_profitable_iters and
+	peeling_htab members.
+	* tree-vect-loop.c (new_loop_vec_info): Do not allocate vectors
+	here.
+	(destroy_loop_vec_info): Adjust.
+	(vect_analyze_loop_2): Do not set LOOP_VINFO_COST_MODEL_MIN_ITERS.
+	(vect_estimate_min_profitable_iters): Use LOOP_VINFO_COMP_ALIAS_DDRS
+	to estimate alias versioning cost.
+	* tree-vect-slp.c (vect_analyze_slp_cost): Dump header.
+
+2015-10-13  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* real.h (real_isinteger): Declare.
+	* real.c (real_isinteger): New function.
+	* match.pd: Simplify pow(|x|,y) and pow(-x,y) to pow(x,y)
+	if y is an even integer.
+
 2015-10-11  Jan Hubicka  <hubicka@ucw.cz>
 
 	revert:
@@ -10,7 +118,7 @@
 	* tree-ssa-threadbackward.c (get_gimple_control_stmt): New function.
 	(fsm_find_control_stmt_paths): Change name of first argument to
 	more accurately relfect what it really is.  Handle simplification
-	of GIMPLE_COND after finding a thread path for NAME. 
+	of GIMPLE_COND after finding a thread path for NAME.
 	* tree-ssa-threadedge.c (simplify_control_stmt_condition): Allow
 	nontrivial conditions to be handled by FSM threader.
 	(thread_through_normal_block): Extract the name to looup via
