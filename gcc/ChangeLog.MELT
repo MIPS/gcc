@@ -1,5 +1,8 @@
 
 2016-05-04   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerated all.
+
+2016-05-04   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.3.rc1+. Use
 	CHECKING_P instead of ENABLE_CHECKING with GCC 6 to get
 	MELT_HAVE_DEBUG.
