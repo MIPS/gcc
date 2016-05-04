@@ -1,5 +1,20 @@
 
 2016-05-04   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h: Don't early define MELT_HAVE_DEBUG when
+	MELT_IS_PLUGIN.
+	Force MELT_HAVE_DEBUG 1 when CHECKING_P.
+
+	* melt/warmelt-base.melt: Emit #if MELT_HAVE_DEBUG > 0 test.
+	(valdesc_object, valdesc_mapstrings)
+	(valdesc_decay, valdesc_multiple, valdesc_closure)
+	(valdesc_routine, valdesc_hook, valdesc_jsonobject)
+	(valdesc_string, valdesc_strbuf, valdesc_pair, valdesc_list)
+	(valdesc_int, valdesc_double, valdesc_mixloc, valdesc_mixbigint)
+	(valdesc_real, valdesc_special_data): Remove GCC 4.9 specific
+	generated code, for macros like ggc_alloc_*, notably in the copy
+	chunks :valdesc_copychunk field.
+
+2016-05-04   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.cc (melt_alptr_1, melt_alptr_2, melt_objhash_1)
 	(melt_objhash_2): Declare them if they are not macro, even without
 	MELT_HAVE_DEBUG..

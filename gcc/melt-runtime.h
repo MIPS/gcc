@@ -181,13 +181,6 @@ extern const int melt_is_plugin;
 #define MELT_DYNLOADED_SUFFIX ".so"
 #endif /*MELT_DYNLOADED_SUFFIX */
 
-#ifdef MELT_IS_PLUGIN
-
-#ifndef MELT_HAVE_DEBUG
-#define MELT_HAVE_DEBUG 0
-#endif /*MELT_HAVE_DEBUG*/
-
-#endif /*MELT_IS_PLUGIN*/
 
 #if  GCCPLUGIN_VERSION < 6000 /*GCC 5*/
 #if defined(ENABLE_CHECKING)
@@ -199,6 +192,7 @@ extern const int melt_is_plugin;
 #endif /*ENABLE_CHECKING */
 #else /* GCC 6 */
 #if CHECKING_P
+#undef MELT_HAVE_DEBUG
 #define MELT_HAVE_DEBUG 1
 #endif /*CHECKING_P*/
 #endif /* GCC 5 or 6.0 */
