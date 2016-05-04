@@ -595,7 +595,7 @@ meltrout_29_WARMELTmiBASE_INSTALL_VALUE_DESCRIPTOR(meltclosure_ptr_t meltclosp_,
     /* classy proc frame meltrout_29_WARMELTmiBASE_INSTALL_VALUE_DESCRIPTOR */ MeltFrame_meltrout_29_WARMELTmiBASE_INSTALL_VALUE_DESCRIPTOR
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_29_WARMELTmiBASE_INSTALL_VALUE_DESCRIPTOR fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -626,7 +626,7 @@ meltlab_endgetargs:
     {
 
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG>0
         MELT_LOCATION("warmelt-base.melt:2066:/ cppif.then");
         /*^block*/
         /*anyblock*/
@@ -688,10 +688,10 @@ meltlab_endgetargs:
             /*clear*/ /*_._IFELSE___V4*/ meltfptr[3] = 0 ;
         }
 
-#else /*MELT_HAVE_DEBUG*/
+#else /*MELT_HAVE_DEBUG>0*/
         /*^cppif.else*/
         /*_.IFCPP___V3*/ meltfptr[2] = (/*nil*/NULL);
-#endif /*MELT_HAVE_DEBUG*/
+#endif /*MELT_HAVE_DEBUG>0*/
         ;
         MELT_LOCATION("warmelt-base.melt:2067:/ cond");
         /*cond*/ if (
@@ -814,7 +814,7 @@ meltrout_30_WARMELTmiBASE_RETRIEVE_VALUE_DESCRIPTOR_LIST(meltclosure_ptr_t meltc
     /* classy proc frame meltrout_30_WARMELTmiBASE_RETRIEVE_VALUE_DESCRIPTOR_LIST */ MeltFrame_meltrout_30_WARMELTmiBASE_RETRIEVE_VALUE_DESCRIPTOR_LIST
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_30_WARMELTmiBASE_RETRIEVE_VALUE_DESCRIPTOR_LIST fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -969,7 +969,7 @@ meltrout_31_WARMELTmiBASE_LIST_REMOVE_LAST_ELEMENT(meltclosure_ptr_t meltclosp_,
     /* classy proc frame meltrout_31_WARMELTmiBASE_LIST_REMOVE_LAST_ELEMENT */ MeltFrame_meltrout_31_WARMELTmiBASE_LIST_REMOVE_LAST_ELEMENT
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_31_WARMELTmiBASE_LIST_REMOVE_LAST_ELEMENT fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -1070,7 +1070,7 @@ meltlab_endgetargs:
                 {
 
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG>0
                     /*^cppif.then*/
                     /*^block*/
                     /*anyblock*/
@@ -1127,10 +1127,10 @@ meltlab_endgetargs:
                         /*clear*/ /*_._IFELSE___V9*/ meltfptr[8] = 0 ;
                     }
 
-#else /*MELT_HAVE_DEBUG*/
+#else /*MELT_HAVE_DEBUG>0*/
                     /*^cppif.else*/
                     /*_.IFCPP___V8*/ meltfptr[7] = (/*nil*/NULL);
-#endif /*MELT_HAVE_DEBUG*/
+#endif /*MELT_HAVE_DEBUG>0*/
                     ;
                     /*^compute*/
                     /*_._IFELSE___V7*/ meltfptr[6] = /*_.IFCPP___V8*/ meltfptr[7];;
@@ -1158,7 +1158,7 @@ meltlab_endgetargs:
 
 
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG>0
                     MELT_LOCATION("warmelt-base.melt:3455:/ cppif.then");
                     /*^block*/
                     /*anyblock*/
@@ -1220,10 +1220,10 @@ meltlab_endgetargs:
                         /*clear*/ /*_._IFELSE___V14*/ meltfptr[13] = 0 ;
                     }
 
-#else /*MELT_HAVE_DEBUG*/
+#else /*MELT_HAVE_DEBUG>0*/
                     /*^cppif.else*/
                     /*_.IFCPP___V13*/ meltfptr[7] = (/*nil*/NULL);
-#endif /*MELT_HAVE_DEBUG*/
+#endif /*MELT_HAVE_DEBUG>0*/
                     ;
 
                     MELT_CHECK_SIGNAL();
@@ -1468,7 +1468,7 @@ meltrout_32_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_TUPLE(meltclosure_ptr_t meltclosp
     /* classy proc frame meltrout_32_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_TUPLE */ MeltFrame_meltrout_32_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_TUPLE
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_32_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_TUPLE fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -1760,7 +1760,7 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                         }
                                         ;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG>0
                                         MELT_LOCATION("warmelt-base.melt:3509:/ cppif.then");
                                         /*^block*/
                                         /*anyblock*/
@@ -1818,10 +1818,10 @@ meltlabloop_ARGLOOP_5:;/*^loopbody*/
                                             /*clear*/ /*_._IFELSE___V15*/ meltfptr[14] = 0 ;
                                         }
 
-#else /*MELT_HAVE_DEBUG*/
+#else /*MELT_HAVE_DEBUG>0*/
                                         /*^cppif.else*/
                                         /*_.IFCPP___V14*/ meltfptr[13] = (/*nil*/NULL);
-#endif /*MELT_HAVE_DEBUG*/
+#endif /*MELT_HAVE_DEBUG>0*/
                                         ;
                                         /*^compute*/
                                         /*_.LET___V11*/ meltfptr[9] = /*_.IFCPP___V14*/ meltfptr[13];;
@@ -2021,7 +2021,7 @@ meltrout_33_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_LIST(meltclosure_ptr_t meltclosp_
     /* classy proc frame meltrout_33_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_LIST */ MeltFrame_meltrout_33_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_LIST
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_33_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_LIST fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -2313,7 +2313,7 @@ meltlabloop_ARGLOOP_6:;/*^loopbody*/
                                         }
                                         ;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG>0
                                         MELT_LOCATION("warmelt-base.melt:3549:/ cppif.then");
                                         /*^block*/
                                         /*anyblock*/
@@ -2371,10 +2371,10 @@ meltlabloop_ARGLOOP_6:;/*^loopbody*/
                                             /*clear*/ /*_._IFELSE___V15*/ meltfptr[14] = 0 ;
                                         }
 
-#else /*MELT_HAVE_DEBUG*/
+#else /*MELT_HAVE_DEBUG>0*/
                                         /*^cppif.else*/
                                         /*_.IFCPP___V14*/ meltfptr[13] = (/*nil*/NULL);
-#endif /*MELT_HAVE_DEBUG*/
+#endif /*MELT_HAVE_DEBUG>0*/
                                         ;
                                         /*^compute*/
                                         /*_.LET___V11*/ meltfptr[9] = /*_.IFCPP___V14*/ meltfptr[13];;
@@ -2552,7 +2552,7 @@ meltrout_34_WARMELTmiBASE_MELT_PREDEFINED_GET(meltclosure_ptr_t meltclosp_, melt
     /* classy proc frame meltrout_34_WARMELTmiBASE_MELT_PREDEFINED_GET */ MeltFrame_meltrout_34_WARMELTmiBASE_MELT_PREDEFINED_GET
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_34_WARMELTmiBASE_MELT_PREDEFINED_GET fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -2867,7 +2867,7 @@ meltrout_35_WARMELTmiBASE_SYMBOL_CNAME(meltclosure_ptr_t meltclosp_, melt_ptr_t 
     /* classy proc frame meltrout_35_WARMELTmiBASE_SYMBOL_CNAME */ MeltFrame_meltrout_35_WARMELTmiBASE_SYMBOL_CNAME
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_35_WARMELTmiBASE_SYMBOL_CNAME fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -3308,7 +3308,7 @@ meltrout_37_WARMELTmiBASE_MULTIPLE_SORT(meltclosure_ptr_t meltclosp_, melt_ptr_t
     /* classy proc frame meltrout_37_WARMELTmiBASE_MULTIPLE_SORT */ MeltFrame_meltrout_37_WARMELTmiBASE_MULTIPLE_SORT
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_37_WARMELTmiBASE_MULTIPLE_SORT fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -3437,7 +3437,7 @@ meltlab_endgetargs:
                 {
 
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG>0
                     MELT_LOCATION("warmelt-base.melt:3699:/ cppif.then");
                     /*^block*/
                     /*anyblock*/
@@ -3503,10 +3503,10 @@ meltlab_endgetargs:
                         /*clear*/ /*_._IFELSE___V9*/ meltfptr[8] = 0 ;
                     }
 
-#else /*MELT_HAVE_DEBUG*/
+#else /*MELT_HAVE_DEBUG>0*/
                     /*^cppif.else*/
                     /*_.IFCPP___V8*/ meltfptr[7] = (/*nil*/NULL);
-#endif /*MELT_HAVE_DEBUG*/
+#endif /*MELT_HAVE_DEBUG>0*/
                     ;
 
                     MELT_CHECK_SIGNAL();
@@ -3766,7 +3766,7 @@ meltlab_endgetargs:
             }
         ;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG>0
         MELT_LOCATION("warmelt-base.melt:3716:/ cppif.then");
         /*^block*/
         /*anyblock*/
@@ -3828,10 +3828,10 @@ meltlab_endgetargs:
             /*clear*/ /*_._IFELSE___V22*/ meltfptr[21] = 0 ;
         }
 
-#else /*MELT_HAVE_DEBUG*/
+#else /*MELT_HAVE_DEBUG>0*/
         /*^cppif.else*/
         /*_.IFCPP___V21*/ meltfptr[19] = (/*nil*/NULL);
-#endif /*MELT_HAVE_DEBUG*/
+#endif /*MELT_HAVE_DEBUG>0*/
         ;
         MELT_LOCATION("warmelt-base.melt:3717:/ quasiblock");
 
@@ -3881,7 +3881,7 @@ meltlab_endgetargs:
         }
         ;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG>0
         MELT_LOCATION("warmelt-base.melt:3753:/ cppif.then");
         /*^block*/
         /*anyblock*/
@@ -3943,10 +3943,10 @@ meltlab_endgetargs:
             /*clear*/ /*_._IFELSE___V28*/ meltfptr[27] = 0 ;
         }
 
-#else /*MELT_HAVE_DEBUG*/
+#else /*MELT_HAVE_DEBUG>0*/
         /*^cppif.else*/
         /*_.IFCPP___V27*/ meltfptr[26] = (/*nil*/NULL);
-#endif /*MELT_HAVE_DEBUG*/
+#endif /*MELT_HAVE_DEBUG>0*/
         ;
 
         MELT_CHECK_SIGNAL();
@@ -4122,7 +4122,7 @@ meltrout_38_WARMELTmiBASE_MAPOBJECT_SORTED_ATTRIBUTE_TUPLE(meltclosure_ptr_t mel
     /* classy proc frame meltrout_38_WARMELTmiBASE_MAPOBJECT_SORTED_ATTRIBUTE_TUPLE */ MeltFrame_meltrout_38_WARMELTmiBASE_MAPOBJECT_SORTED_ATTRIBUTE_TUPLE
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_38_WARMELTmiBASE_MAPOBJECT_SORTED_ATTRIBUTE_TUPLE fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -4407,7 +4407,7 @@ meltrout_39_WARMELTmiBASE_LAMBDA_cl1(meltclosure_ptr_t meltclosp_, melt_ptr_t me
     /* classy proc frame meltrout_39_WARMELTmiBASE_LAMBDA_cl1 */ MeltFrame_meltrout_39_WARMELTmiBASE_LAMBDA_cl1
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_39_WARMELTmiBASE_LAMBDA_cl1 fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -4606,7 +4606,7 @@ meltrout_40_WARMELTmiBASE_LAMBDA_cl2(meltclosure_ptr_t meltclosp_, melt_ptr_t me
     /* classy proc frame meltrout_40_WARMELTmiBASE_LAMBDA_cl2 */ MeltFrame_meltrout_40_WARMELTmiBASE_LAMBDA_cl2
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_40_WARMELTmiBASE_LAMBDA_cl2 fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -4826,7 +4826,7 @@ meltrout_41_WARMELTmiBASE_LAMBDA_cl3(meltclosure_ptr_t meltclosp_, melt_ptr_t me
     /* classy proc frame meltrout_41_WARMELTmiBASE_LAMBDA_cl3 */ MeltFrame_meltrout_41_WARMELTmiBASE_LAMBDA_cl3
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_41_WARMELTmiBASE_LAMBDA_cl3 fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -4965,7 +4965,7 @@ meltrout_42_WARMELTmiBASE_JSON_NAME_LESS(meltclosure_ptr_t meltclosp_, melt_ptr_
     /* classy proc frame meltrout_42_WARMELTmiBASE_JSON_NAME_LESS */ MeltFrame_meltrout_42_WARMELTmiBASE_JSON_NAME_LESS
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_42_WARMELTmiBASE_JSON_NAME_LESS fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -5473,7 +5473,7 @@ meltrout_43_WARMELTmiBASE_JSON_NAME_EQUAL(meltclosure_ptr_t meltclosp_, melt_ptr
     /* classy proc frame meltrout_43_WARMELTmiBASE_JSON_NAME_EQUAL */ MeltFrame_meltrout_43_WARMELTmiBASE_JSON_NAME_EQUAL
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_43_WARMELTmiBASE_JSON_NAME_EQUAL fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -6037,7 +6037,7 @@ meltrout_44_WARMELTmiBASE_JSON_CANONICAL_NAME(meltclosure_ptr_t meltclosp_, melt
     /* classy proc frame meltrout_44_WARMELTmiBASE_JSON_CANONICAL_NAME */ MeltFrame_meltrout_44_WARMELTmiBASE_JSON_CANONICAL_NAME
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_44_WARMELTmiBASE_JSON_CANONICAL_NAME fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -6210,7 +6210,7 @@ meltlab_endgetargs:
                                                                 {
 
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG>0
                                                                     MELT_LOCATION("warmelt-base.melt:3868:/ cppif.then");
                                                                     /*^block*/
                                                                     /*anyblock*/
@@ -6279,10 +6279,10 @@ meltlab_endgetargs:
                                                                         /*clear*/ /*_._IFELSE___V14*/ meltfptr[13] = 0 ;
                                                                     }
 
-#else /*MELT_HAVE_DEBUG*/
+#else /*MELT_HAVE_DEBUG>0*/
                                                                     /*^cppif.else*/
                                                                     /*_.IFCPP___V13*/ meltfptr[12] = (/*nil*/NULL);
-#endif /*MELT_HAVE_DEBUG*/
+#endif /*MELT_HAVE_DEBUG>0*/
                                                                     ;
 
                                                                     {
@@ -6697,7 +6697,7 @@ meltrout_45_WARMELTmiBASE_MAKE_JSONOBJECT(meltclosure_ptr_t meltclosp_, melt_ptr
     /* classy proc frame meltrout_45_WARMELTmiBASE_MAKE_JSONOBJECT */ MeltFrame_meltrout_45_WARMELTmiBASE_MAKE_JSONOBJECT
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_45_WARMELTmiBASE_MAKE_JSONOBJECT fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -8465,7 +8465,7 @@ meltlabexit_ARGLOOP_7:;/*^loopepilog*/
 
 
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG>0
                     MELT_LOCATION("warmelt-base.melt:4010:/ cppif.then");
                     /*^block*/
                     /*anyblock*/
@@ -8530,10 +8530,10 @@ meltlabexit_ARGLOOP_7:;/*^loopepilog*/
                         /*clear*/ /*_._IFELSE___V93*/ meltfptr[15] = 0 ;
                     }
 
-#else /*MELT_HAVE_DEBUG*/
+#else /*MELT_HAVE_DEBUG>0*/
                     /*^cppif.else*/
                     /*_.IFCPP___V92*/ meltfptr[54] = (/*nil*/NULL);
-#endif /*MELT_HAVE_DEBUG*/
+#endif /*MELT_HAVE_DEBUG>0*/
                     ;
                     MELT_LOCATION("warmelt-base.melt:4011:/ quasiblock");
 
@@ -8544,7 +8544,7 @@ meltlabexit_ARGLOOP_7:;/*^loopepilog*/
                     /*_.CURVAL__V96*/ meltfptr[53] =
                         (melt_multiple_nth((melt_ptr_t)(/*_.CURENT__V91*/ meltfptr[14]), (1)));;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG>0
                     MELT_LOCATION("warmelt-base.melt:4014:/ cppif.then");
                     /*^block*/
                     /*anyblock*/
@@ -8636,10 +8636,10 @@ meltlabexit_ARGLOOP_7:;/*^loopepilog*/
                         /*clear*/ /*_._IFELSE___V98*/ meltfptr[16] = 0 ;
                     }
 
-#else /*MELT_HAVE_DEBUG*/
+#else /*MELT_HAVE_DEBUG>0*/
                     /*^cppif.else*/
                     /*_.IFCPP___V97*/ meltfptr[17] = (/*nil*/NULL);
-#endif /*MELT_HAVE_DEBUG*/
+#endif /*MELT_HAVE_DEBUG>0*/
                     ;
 
                     {
@@ -8847,7 +8847,7 @@ meltrout_46_WARMELTmiBASE_LAMBDA_cl4(meltclosure_ptr_t meltclosp_, melt_ptr_t me
     /* classy proc frame meltrout_46_WARMELTmiBASE_LAMBDA_cl4 */ MeltFrame_meltrout_46_WARMELTmiBASE_LAMBDA_cl4
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_46_WARMELTmiBASE_LAMBDA_cl4 fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -9013,7 +9013,7 @@ meltrout_47_WARMELTmiBASE_JSONOBJECT_GET_NAMED(meltclosure_ptr_t meltclosp_, mel
     /* classy proc frame meltrout_47_WARMELTmiBASE_JSONOBJECT_GET_NAMED */ MeltFrame_meltrout_47_WARMELTmiBASE_JSONOBJECT_GET_NAMED
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_47_WARMELTmiBASE_JSONOBJECT_GET_NAMED fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -9732,7 +9732,7 @@ meltrout_48_WARMELTmiBASE_OUTJSON_JSONOBJ_METHOD(meltclosure_ptr_t meltclosp_, m
     /* classy proc frame meltrout_48_WARMELTmiBASE_OUTJSON_JSONOBJ_METHOD */ MeltFrame_meltrout_48_WARMELTmiBASE_OUTJSON_JSONOBJ_METHOD
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_48_WARMELTmiBASE_OUTJSON_JSONOBJ_METHOD fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -9770,7 +9770,7 @@ meltlab_endgetargs:
     {
 
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG>0
         MELT_LOCATION("warmelt-base.melt:4120:/ cppif.then");
         /*^block*/
         /*anyblock*/
@@ -9832,13 +9832,13 @@ meltlab_endgetargs:
             /*clear*/ /*_._IFELSE___V5*/ meltfptr[4] = 0 ;
         }
 
-#else /*MELT_HAVE_DEBUG*/
+#else /*MELT_HAVE_DEBUG>0*/
         /*^cppif.else*/
         /*_.IFCPP___V4*/ meltfptr[3] = (/*nil*/NULL);
-#endif /*MELT_HAVE_DEBUG*/
+#endif /*MELT_HAVE_DEBUG>0*/
         ;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG>0
         MELT_LOCATION("warmelt-base.melt:4121:/ cppif.then");
         /*^block*/
         /*anyblock*/
@@ -9900,10 +9900,10 @@ meltlab_endgetargs:
             /*clear*/ /*_._IFELSE___V8*/ meltfptr[4] = 0 ;
         }
 
-#else /*MELT_HAVE_DEBUG*/
+#else /*MELT_HAVE_DEBUG>0*/
         /*^cppif.else*/
         /*_.IFCPP___V7*/ meltfptr[5] = (/*nil*/NULL);
-#endif /*MELT_HAVE_DEBUG*/
+#endif /*MELT_HAVE_DEBUG>0*/
         ;
 
         MELT_CHECK_SIGNAL();
@@ -10046,7 +10046,7 @@ meltlab_endgetargs:
                                                 }
                                             ;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG>0
                                             MELT_LOCATION("warmelt-base.melt:4132:/ cppif.then");
                                             /*^block*/
                                             /*anyblock*/
@@ -10108,10 +10108,10 @@ meltlab_endgetargs:
                                                 /*clear*/ /*_._IFELSE___V20*/ meltfptr[19] = 0 ;
                                             }
 
-#else /*MELT_HAVE_DEBUG*/
+#else /*MELT_HAVE_DEBUG>0*/
                                             /*^cppif.else*/
                                             /*_.IFCPP___V19*/ meltfptr[18] = (/*nil*/NULL);
-#endif /*MELT_HAVE_DEBUG*/
+#endif /*MELT_HAVE_DEBUG>0*/
                                             ;
 
                                             MELT_CHECK_SIGNAL();
@@ -10184,7 +10184,7 @@ meltlab_endgetargs:
                                         {
 
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG>0
                                             MELT_LOCATION("warmelt-base.melt:4151:/ cppif.then");
                                             /*^block*/
                                             /*anyblock*/
@@ -10242,10 +10242,10 @@ meltlab_endgetargs:
                                                 /*clear*/ /*_._IFELSE___V25*/ meltfptr[18] = 0 ;
                                             }
 
-#else /*MELT_HAVE_DEBUG*/
+#else /*MELT_HAVE_DEBUG>0*/
                                             /*^cppif.else*/
                                             /*_.IFCPP___V24*/ meltfptr[17] = (/*nil*/NULL);
-#endif /*MELT_HAVE_DEBUG*/
+#endif /*MELT_HAVE_DEBUG>0*/
                                             ;
                                             MELT_LOCATION("warmelt-base.melt:4150:/ quasiblock");
 
@@ -10478,7 +10478,7 @@ meltrout_49_WARMELTmiBASE_OUTJSON_MULTIPLE_METHOD(meltclosure_ptr_t meltclosp_, 
     /* classy proc frame meltrout_49_WARMELTmiBASE_OUTJSON_MULTIPLE_METHOD */ MeltFrame_meltrout_49_WARMELTmiBASE_OUTJSON_MULTIPLE_METHOD
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_49_WARMELTmiBASE_OUTJSON_MULTIPLE_METHOD fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -10516,7 +10516,7 @@ meltlab_endgetargs:
     {
 
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG>0
         MELT_LOCATION("warmelt-base.melt:4161:/ cppif.then");
         /*^block*/
         /*anyblock*/
@@ -10578,13 +10578,13 @@ meltlab_endgetargs:
             /*clear*/ /*_._IFELSE___V5*/ meltfptr[4] = 0 ;
         }
 
-#else /*MELT_HAVE_DEBUG*/
+#else /*MELT_HAVE_DEBUG>0*/
         /*^cppif.else*/
         /*_.IFCPP___V4*/ meltfptr[3] = (/*nil*/NULL);
-#endif /*MELT_HAVE_DEBUG*/
+#endif /*MELT_HAVE_DEBUG>0*/
         ;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG>0
         MELT_LOCATION("warmelt-base.melt:4162:/ cppif.then");
         /*^block*/
         /*anyblock*/
@@ -10646,10 +10646,10 @@ meltlab_endgetargs:
             /*clear*/ /*_._IFELSE___V8*/ meltfptr[4] = 0 ;
         }
 
-#else /*MELT_HAVE_DEBUG*/
+#else /*MELT_HAVE_DEBUG>0*/
         /*^cppif.else*/
         /*_.IFCPP___V7*/ meltfptr[5] = (/*nil*/NULL);
-#endif /*MELT_HAVE_DEBUG*/
+#endif /*MELT_HAVE_DEBUG>0*/
         ;
 
         MELT_CHECK_SIGNAL();
@@ -10871,7 +10871,7 @@ meltrout_50_WARMELTmiBASE_OUTJSON_NAMED_METHOD(meltclosure_ptr_t meltclosp_, mel
     /* classy proc frame meltrout_50_WARMELTmiBASE_OUTJSON_NAMED_METHOD */ MeltFrame_meltrout_50_WARMELTmiBASE_OUTJSON_NAMED_METHOD
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_50_WARMELTmiBASE_OUTJSON_NAMED_METHOD fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -10909,7 +10909,7 @@ meltlab_endgetargs:
     {
 
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG>0
         MELT_LOCATION("warmelt-base.melt:4176:/ cppif.then");
         /*^block*/
         /*anyblock*/
@@ -10971,13 +10971,13 @@ meltlab_endgetargs:
             /*clear*/ /*_._IFELSE___V5*/ meltfptr[4] = 0 ;
         }
 
-#else /*MELT_HAVE_DEBUG*/
+#else /*MELT_HAVE_DEBUG>0*/
         /*^cppif.else*/
         /*_.IFCPP___V4*/ meltfptr[3] = (/*nil*/NULL);
-#endif /*MELT_HAVE_DEBUG*/
+#endif /*MELT_HAVE_DEBUG>0*/
         ;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG>0
         MELT_LOCATION("warmelt-base.melt:4177:/ cppif.then");
         /*^block*/
         /*anyblock*/
@@ -11039,10 +11039,10 @@ meltlab_endgetargs:
             /*clear*/ /*_._IFELSE___V8*/ meltfptr[4] = 0 ;
         }
 
-#else /*MELT_HAVE_DEBUG*/
+#else /*MELT_HAVE_DEBUG>0*/
         /*^cppif.else*/
         /*_.IFCPP___V7*/ meltfptr[5] = (/*nil*/NULL);
-#endif /*MELT_HAVE_DEBUG*/
+#endif /*MELT_HAVE_DEBUG>0*/
         ;
         MELT_LOCATION("warmelt-base.melt:4178:/ quasiblock");
 
@@ -11056,7 +11056,7 @@ meltlab_endgetargs:
         };
         ;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG>0
         MELT_LOCATION("warmelt-base.melt:4180:/ cppif.then");
         /*^block*/
         /*anyblock*/
@@ -11120,10 +11120,10 @@ meltlab_endgetargs:
             /*clear*/ /*_._IFELSE___V13*/ meltfptr[12] = 0 ;
         }
 
-#else /*MELT_HAVE_DEBUG*/
+#else /*MELT_HAVE_DEBUG>0*/
         /*^cppif.else*/
         /*_.IFCPP___V12*/ meltfptr[11] = (/*nil*/NULL);
-#endif /*MELT_HAVE_DEBUG*/
+#endif /*MELT_HAVE_DEBUG>0*/
         ;
 
         MELT_CHECK_SIGNAL();

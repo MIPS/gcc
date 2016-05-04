@@ -443,7 +443,7 @@ meltrout_55_WARMELTmiDEBUG_DISPLAY_DEBUG_MESSAGE(meltclosure_ptr_t meltclosp_, m
     /* classy proc frame meltrout_55_WARMELTmiDEBUG_DISPLAY_DEBUG_MESSAGE */ MeltFrame_meltrout_55_WARMELTmiDEBUG_DISPLAY_DEBUG_MESSAGE
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_55_WARMELTmiDEBUG_DISPLAY_DEBUG_MESSAGE fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/

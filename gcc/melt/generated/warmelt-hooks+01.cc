@@ -1324,7 +1324,7 @@ meltrout_15_WARMELTmiHOOKS_AT_START_UNIT_FIRST(meltclosure_ptr_t meltclosp_, mel
     /* classy proc frame meltrout_15_WARMELTmiHOOKS_AT_START_UNIT_FIRST */ MeltFrame_meltrout_15_WARMELTmiHOOKS_AT_START_UNIT_FIRST
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_15_WARMELTmiHOOKS_AT_START_UNIT_FIRST fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -1494,7 +1494,7 @@ meltrout_16_WARMELTmiHOOKS_AT_START_UNIT_LAST(meltclosure_ptr_t meltclosp_, melt
     /* classy proc frame meltrout_16_WARMELTmiHOOKS_AT_START_UNIT_LAST */ MeltFrame_meltrout_16_WARMELTmiHOOKS_AT_START_UNIT_LAST
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_16_WARMELTmiHOOKS_AT_START_UNIT_LAST fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -1664,7 +1664,7 @@ meltrout_17_WARMELTmiHOOKS_LAMBDA_cl4(meltclosure_ptr_t meltclosp_, melt_ptr_t m
     /* classy proc frame meltrout_17_WARMELTmiHOOKS_LAMBDA_cl4 */ MeltFrame_meltrout_17_WARMELTmiHOOKS_LAMBDA_cl4
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_17_WARMELTmiHOOKS_LAMBDA_cl4 fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -1827,7 +1827,7 @@ meltrout_18_WARMELTmiHOOKS_LAMBDA_cl5(meltclosure_ptr_t meltclosp_, melt_ptr_t m
     /* classy proc frame meltrout_18_WARMELTmiHOOKS_LAMBDA_cl5 */ MeltFrame_meltrout_18_WARMELTmiHOOKS_LAMBDA_cl5
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_18_WARMELTmiHOOKS_LAMBDA_cl5 fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -1969,7 +1969,7 @@ meltrout_19_WARMELTmiHOOKS_LAMBDA_cl6(meltclosure_ptr_t meltclosp_, melt_ptr_t m
     /* classy proc frame meltrout_19_WARMELTmiHOOKS_LAMBDA_cl6 */ MeltFrame_meltrout_19_WARMELTmiHOOKS_LAMBDA_cl6
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_19_WARMELTmiHOOKS_LAMBDA_cl6 fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -2132,7 +2132,7 @@ meltrout_21_WARMELTmiHOOKS_ENABLE_FINISH_UNIT(meltclosure_ptr_t meltclosp_, melt
     /* classy proc frame meltrout_21_WARMELTmiHOOKS_ENABLE_FINISH_UNIT */ MeltFrame_meltrout_21_WARMELTmiHOOKS_ENABLE_FINISH_UNIT
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_21_WARMELTmiHOOKS_ENABLE_FINISH_UNIT fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -2257,7 +2257,7 @@ meltrout_22_WARMELTmiHOOKS_AT_FINISH_UNIT_FIRST(meltclosure_ptr_t meltclosp_, me
     /* classy proc frame meltrout_22_WARMELTmiHOOKS_AT_FINISH_UNIT_FIRST */ MeltFrame_meltrout_22_WARMELTmiHOOKS_AT_FINISH_UNIT_FIRST
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_22_WARMELTmiHOOKS_AT_FINISH_UNIT_FIRST fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -2427,7 +2427,7 @@ meltrout_23_WARMELTmiHOOKS_AT_FINISH_UNIT_LAST(meltclosure_ptr_t meltclosp_, mel
     /* classy proc frame meltrout_23_WARMELTmiHOOKS_AT_FINISH_UNIT_LAST */ MeltFrame_meltrout_23_WARMELTmiHOOKS_AT_FINISH_UNIT_LAST
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_23_WARMELTmiHOOKS_AT_FINISH_UNIT_LAST fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -2597,7 +2597,7 @@ meltrout_25_WARMELTmiHOOKS_ENABLE_ALL_PASSES_START(meltclosure_ptr_t meltclosp_,
     /* classy proc frame meltrout_25_WARMELTmiHOOKS_ENABLE_ALL_PASSES_START */ MeltFrame_meltrout_25_WARMELTmiHOOKS_ENABLE_ALL_PASSES_START
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_25_WARMELTmiHOOKS_ENABLE_ALL_PASSES_START fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -2722,7 +2722,7 @@ meltrout_26_WARMELTmiHOOKS_REGISTER_ALL_PASSES_START_FIRST(meltclosure_ptr_t mel
     /* classy proc frame meltrout_26_WARMELTmiHOOKS_REGISTER_ALL_PASSES_START_FIRST */ MeltFrame_meltrout_26_WARMELTmiHOOKS_REGISTER_ALL_PASSES_START_FIRST
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_26_WARMELTmiHOOKS_REGISTER_ALL_PASSES_START_FIRST fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -2993,7 +2993,7 @@ meltrout_27_WARMELTmiHOOKS_REGISTER_ALL_PASSES_START_LAST(meltclosure_ptr_t melt
     /* classy proc frame meltrout_27_WARMELTmiHOOKS_REGISTER_ALL_PASSES_START_LAST */ MeltFrame_meltrout_27_WARMELTmiHOOKS_REGISTER_ALL_PASSES_START_LAST
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_27_WARMELTmiHOOKS_REGISTER_ALL_PASSES_START_LAST fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -3264,7 +3264,7 @@ meltrout_29_WARMELTmiHOOKS_ENABLE_ALL_PASSES_END(meltclosure_ptr_t meltclosp_, m
     /* classy proc frame meltrout_29_WARMELTmiHOOKS_ENABLE_ALL_PASSES_END */ MeltFrame_meltrout_29_WARMELTmiHOOKS_ENABLE_ALL_PASSES_END
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_29_WARMELTmiHOOKS_ENABLE_ALL_PASSES_END fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -3389,7 +3389,7 @@ meltrout_30_WARMELTmiHOOKS_REGISTER_ALL_PASSES_END_FIRST(meltclosure_ptr_t meltc
     /* classy proc frame meltrout_30_WARMELTmiHOOKS_REGISTER_ALL_PASSES_END_FIRST */ MeltFrame_meltrout_30_WARMELTmiHOOKS_REGISTER_ALL_PASSES_END_FIRST
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_30_WARMELTmiHOOKS_REGISTER_ALL_PASSES_END_FIRST fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -3660,7 +3660,7 @@ meltrout_31_WARMELTmiHOOKS_REGISTER_ALL_PASSES_END_LAST(meltclosure_ptr_t meltcl
     /* classy proc frame meltrout_31_WARMELTmiHOOKS_REGISTER_ALL_PASSES_END_LAST */ MeltFrame_meltrout_31_WARMELTmiHOOKS_REGISTER_ALL_PASSES_END_LAST
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_31_WARMELTmiHOOKS_REGISTER_ALL_PASSES_END_LAST fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -3931,7 +3931,7 @@ meltrout_33_WARMELTmiHOOKS_ENABLE_ALL_IPA_PASSES_START(meltclosure_ptr_t meltclo
     /* classy proc frame meltrout_33_WARMELTmiHOOKS_ENABLE_ALL_IPA_PASSES_START */ MeltFrame_meltrout_33_WARMELTmiHOOKS_ENABLE_ALL_IPA_PASSES_START
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_33_WARMELTmiHOOKS_ENABLE_ALL_IPA_PASSES_START fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -4056,7 +4056,7 @@ meltrout_34_WARMELTmiHOOKS_REGISTER_ALL_IPA_PASSES_START_FIRST(meltclosure_ptr_t
     /* classy proc frame meltrout_34_WARMELTmiHOOKS_REGISTER_ALL_IPA_PASSES_START_FIRST */ MeltFrame_meltrout_34_WARMELTmiHOOKS_REGISTER_ALL_IPA_PASSES_START_FIRST
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_34_WARMELTmiHOOKS_REGISTER_ALL_IPA_PASSES_START_FIRST fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -4327,7 +4327,7 @@ meltrout_35_WARMELTmiHOOKS_REGISTER_ALL_IPA_PASSES_START_LAST(meltclosure_ptr_t 
     /* classy proc frame meltrout_35_WARMELTmiHOOKS_REGISTER_ALL_IPA_PASSES_START_LAST */ MeltFrame_meltrout_35_WARMELTmiHOOKS_REGISTER_ALL_IPA_PASSES_START_LAST
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_35_WARMELTmiHOOKS_REGISTER_ALL_IPA_PASSES_START_LAST fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -4598,7 +4598,7 @@ meltrout_37_WARMELTmiHOOKS_ENABLE_ALL_IPA_PASSES_END(meltclosure_ptr_t meltclosp
     /* classy proc frame meltrout_37_WARMELTmiHOOKS_ENABLE_ALL_IPA_PASSES_END */ MeltFrame_meltrout_37_WARMELTmiHOOKS_ENABLE_ALL_IPA_PASSES_END
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_37_WARMELTmiHOOKS_ENABLE_ALL_IPA_PASSES_END fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -4723,7 +4723,7 @@ meltrout_38_WARMELTmiHOOKS_REGISTER_ALL_IPA_PASSES_END_FIRST(meltclosure_ptr_t m
     /* classy proc frame meltrout_38_WARMELTmiHOOKS_REGISTER_ALL_IPA_PASSES_END_FIRST */ MeltFrame_meltrout_38_WARMELTmiHOOKS_REGISTER_ALL_IPA_PASSES_END_FIRST
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_38_WARMELTmiHOOKS_REGISTER_ALL_IPA_PASSES_END_FIRST fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -4994,7 +4994,7 @@ meltrout_39_WARMELTmiHOOKS_REGISTER_ALL_IPA_PASSES_END_LAST(meltclosure_ptr_t me
     /* classy proc frame meltrout_39_WARMELTmiHOOKS_REGISTER_ALL_IPA_PASSES_END_LAST */ MeltFrame_meltrout_39_WARMELTmiHOOKS_REGISTER_ALL_IPA_PASSES_END_LAST
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_39_WARMELTmiHOOKS_REGISTER_ALL_IPA_PASSES_END_LAST fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -5265,7 +5265,7 @@ meltrout_41_WARMELTmiHOOKS_ENABLE_EARLY_GIMPLE_PASSES_START(meltclosure_ptr_t me
     /* classy proc frame meltrout_41_WARMELTmiHOOKS_ENABLE_EARLY_GIMPLE_PASSES_START */ MeltFrame_meltrout_41_WARMELTmiHOOKS_ENABLE_EARLY_GIMPLE_PASSES_START
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_41_WARMELTmiHOOKS_ENABLE_EARLY_GIMPLE_PASSES_START fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -5390,7 +5390,7 @@ meltrout_42_WARMELTmiHOOKS_REGISTER_EARLY_GIMPLE_PASSES_START_FIRST(meltclosure_
     /* classy proc frame meltrout_42_WARMELTmiHOOKS_REGISTER_EARLY_GIMPLE_PASSES_START_FIRST */ MeltFrame_meltrout_42_WARMELTmiHOOKS_REGISTER_EARLY_GIMPLE_PASSES_START_FIRST
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_42_WARMELTmiHOOKS_REGISTER_EARLY_GIMPLE_PASSES_START_FIRST fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/
@@ -5662,7 +5662,7 @@ meltrout_43_WARMELTmiHOOKS_REGISTER_EARLY_GIMPLE_PASSES_START_LAST(meltclosure_p
     /* classy proc frame meltrout_43_WARMELTmiHOOKS_REGISTER_EARLY_GIMPLE_PASSES_START_LAST */ MeltFrame_meltrout_43_WARMELTmiHOOKS_REGISTER_EARLY_GIMPLE_PASSES_START_LAST
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyprocarg meltrout_43_WARMELTmiHOOKS_REGISTER_EARLY_GIMPLE_PASSES_START_LAST fromline 1785*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
 #else /*MELT_HAVE_DEBUG */
     (meltclosp_) /* fromline 1793*/

@@ -1,6 +1,10 @@
 
 2016-05-04   Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/generated/*: Regenerated all.
+
+2016-05-04   Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{replace (cppif MELT_HAVE_DEBUG ...) with
 	some (cppif ##{MELT_HAVE_DEBUG>0} ...) everywhere}}
 	* melt/warmelt-macro.melt: Rewrite (cppif MELT_HAVE_DEBUG...)
