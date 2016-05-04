@@ -1,5 +1,10 @@
 
 2016-05-04   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.cc (melt_alptr_1, melt_alptr_2, melt_objhash_1)
+	(melt_objhash_2): Declare them if they are not macro, even without
+	MELT_HAVE_DEBUG..
+
+2016-05-04   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h (meltgc_allocate, melt_allocatereserved): Use
 	melt_alptr_1 ... only when MELT_HAVE_DEBUG > 0.
 

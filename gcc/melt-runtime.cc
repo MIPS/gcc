@@ -161,13 +161,20 @@ const int melt_gccplugin_version = GCCPLUGIN_VERSION;
 const int melt_gccplugin_version = 0;
 #endif
 
-#if MELT_HAVE_DEBUG > 0
 /* For debugging purposes, used thru gdb.  */
+// for some reason, I need to declare these even when MELT_HAVE_DEBUG is 0
+#ifndef melt_alptr_1
 void *melt_alptr_1=NULL;
+#endif
+#ifndef melt_alptr_2
 void *melt_alptr_2=NULL;
+#endif
+#ifndef melt_objhash_1
 unsigned melt_objhash_1=0;
+#endif
+#ifndef melt_objhash_2
 unsigned melt_objhash_2=0;
-#endif /* MELT_HAVE_DEBUG */
+#endif
 
 int melt_count_runtime_extensions;
 
