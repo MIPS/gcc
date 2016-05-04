@@ -2220,7 +2220,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -2441,7 +2441,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -2582,7 +2582,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -2734,7 +2734,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
                                     {
                                         /*^locexp*/
                                         /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                         melt_dbgcounter++;
 #endif
                                         ;
@@ -2947,7 +2947,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -3154,7 +3154,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -3294,7 +3294,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -3967,7 +3967,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -4297,7 +4297,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -4627,7 +4627,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -4898,7 +4898,7 @@ meltlab_endgetargs:
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -5062,7 +5062,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -5349,7 +5349,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -5620,7 +5620,7 @@ meltlab_endgetargs:
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -5784,7 +5784,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -10409,7 +10409,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -10562,7 +10562,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
                     {
                         /*^locexp*/
                         /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         melt_dbgcounter++;
 #endif
                         ;
@@ -10688,7 +10688,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
                     {
                         /*^locexp*/
                         /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         melt_dbgcounter++;
 #endif
                         ;
@@ -10851,7 +10851,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
                                 {
                                     /*^locexp*/
                                     /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     melt_dbgcounter++;
 #endif
                                     ;
@@ -10991,7 +10991,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
                                                     {
                                                         /*^locexp*/
                                                         /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                         melt_dbgcounter++;
 #endif
                                                         ;
@@ -11146,7 +11146,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
                                                     {
                                                         /*^locexp*/
                                                         /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                         melt_dbgcounter++;
 #endif
                                                         ;
@@ -11334,7 +11334,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
                                 {
                                     /*^locexp*/
                                     /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     melt_dbgcounter++;
 #endif
                                     ;
@@ -11472,7 +11472,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -11754,7 +11754,7 @@ long melthook_HOOK_GIMPLE_EXECUTE(melt_ptr_t melthookdatap)
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -11891,7 +11891,7 @@ long melthook_HOOK_GIMPLE_EXECUTE(melt_ptr_t melthookdatap)
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -12048,7 +12048,7 @@ long melthook_HOOK_GIMPLE_EXECUTE(melt_ptr_t melthookdatap)
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -12232,7 +12232,7 @@ long melthook_HOOK_GIMPLE_EXECUTE(melt_ptr_t melthookdatap)
                                             {
                                                 /*^locexp*/
                                                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 melt_dbgcounter++;
 #endif
                                                 ;
@@ -12380,7 +12380,7 @@ long melthook_HOOK_GIMPLE_EXECUTE(melt_ptr_t melthookdatap)
                                             {
                                                 /*^locexp*/
                                                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 melt_dbgcounter++;
 #endif
                                                 ;
@@ -12926,7 +12926,7 @@ long melthook_HOOK_RTL_GATE(melt_ptr_t melthookdatap)
                                             {
                                                 /*^locexp*/
                                                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 melt_dbgcounter++;
 #endif
                                                 ;
@@ -13085,7 +13085,7 @@ long melthook_HOOK_RTL_GATE(melt_ptr_t melthookdatap)
                                             {
                                                 /*^locexp*/
                                                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 melt_dbgcounter++;
 #endif
                                                 ;
@@ -13567,7 +13567,7 @@ long melthook_HOOK_RTL_EXECUTE(melt_ptr_t melthookdatap)
                                             {
                                                 /*^locexp*/
                                                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 melt_dbgcounter++;
 #endif
                                                 ;
@@ -13715,7 +13715,7 @@ long melthook_HOOK_RTL_EXECUTE(melt_ptr_t melthookdatap)
                                             {
                                                 /*^locexp*/
                                                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 melt_dbgcounter++;
 #endif
                                                 ;
@@ -14259,7 +14259,7 @@ long melthook_HOOK_SIMPLE_IPA_EXECUTE(melt_ptr_t melthookdatap)
                                             {
                                                 /*^locexp*/
                                                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 melt_dbgcounter++;
 #endif
                                                 ;
@@ -14407,7 +14407,7 @@ long melthook_HOOK_SIMPLE_IPA_EXECUTE(melt_ptr_t melthookdatap)
                                             {
                                                 /*^locexp*/
                                                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 melt_dbgcounter++;
 #endif
                                                 ;
@@ -14977,7 +14977,7 @@ void melthook_HOOK_MELT_DO_INITIAL_MODE(melt_ptr_t melthookdatap,
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -15098,7 +15098,7 @@ void melthook_HOOK_MELT_DO_INITIAL_MODE(melt_ptr_t melthookdatap,
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -15539,7 +15539,7 @@ void melthook_HOOK_MELT_DO_INITIAL_MODE(melt_ptr_t melthookdatap,
                                     {
                                         /*^locexp*/
                                         /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                         melt_dbgcounter++;
 #endif
                                         ;
@@ -15863,7 +15863,7 @@ void melthook_HOOK_INSTALL_ATTRIBUTES(melt_ptr_t melthookdatap)
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -16070,7 +16070,7 @@ meltlabloop_ATLOOP_1:;/*^loopbody*/
                     {
                         /*^locexp*/
                         /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         melt_dbgcounter++;
 #endif
                         ;
@@ -16296,7 +16296,7 @@ meltlabexit_ATLOOP_1:;/*^loopepilog*/
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -16592,7 +16592,7 @@ melt_treeptr_t melthook_HOOK_HANDLE_ATTRIBUTE(melt_ptr_t melthookdatap,
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -16739,7 +16739,7 @@ melt_treeptr_t melthook_HOOK_HANDLE_ATTRIBUTE(melt_ptr_t melthookdatap,
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -16950,7 +16950,7 @@ melt_treeptr_t melthook_HOOK_HANDLE_ATTRIBUTE(melt_ptr_t melthookdatap,
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -17087,7 +17087,7 @@ melt_treeptr_t melthook_HOOK_HANDLE_ATTRIBUTE(melt_ptr_t melthookdatap,
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -17342,7 +17342,7 @@ melt_treeptr_t melthook_HOOK_HANDLE_ATTRIBUTE(melt_ptr_t melthookdatap,
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -17493,7 +17493,7 @@ melt_treeptr_t melthook_HOOK_HANDLE_ATTRIBUTE(melt_ptr_t melthookdatap,
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -17647,7 +17647,7 @@ melt_treeptr_t melthook_HOOK_HANDLE_ATTRIBUTE(melt_ptr_t melthookdatap,
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -17939,7 +17939,7 @@ void melthook_HOOK_EXIT_FINALIZER(melt_ptr_t melthookdatap)
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -18337,7 +18337,7 @@ void melthook_HOOK_PROCESS_PRAGMA(melt_ptr_t melthookdatap,
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -18478,7 +18478,7 @@ void melthook_HOOK_PROCESS_PRAGMA(melt_ptr_t melthookdatap,
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -18694,7 +18694,7 @@ void melthook_HOOK_PROCESS_PRAGMA(melt_ptr_t melthookdatap,
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -18926,7 +18926,7 @@ void melthook_HOOK_REGISTER_PRAGMAS(melt_ptr_t melthookdatap)
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -19081,7 +19081,7 @@ void melthook_HOOK_REGISTER_PRAGMAS(melt_ptr_t melthookdatap)
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -19210,7 +19210,7 @@ void melthook_HOOK_REGISTER_PRAGMAS(melt_ptr_t melthookdatap)
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -19348,7 +19348,7 @@ void melthook_HOOK_REGISTER_PRAGMAS(melt_ptr_t melthookdatap)
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -19690,7 +19690,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -19822,7 +19822,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -20001,7 +20001,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                                 {
                                     /*^locexp*/
                                     /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     melt_dbgcounter++;
 #endif
                                     ;
@@ -20278,7 +20278,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                     {
                         /*^locexp*/
                         /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         melt_dbgcounter++;
 #endif
                         ;
@@ -20459,7 +20459,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                                             {
                                                 /*^locexp*/
                                                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 melt_dbgcounter++;
 #endif
                                                 ;
@@ -20592,7 +20592,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                                                         {
                                                             /*^locexp*/
                                                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                             melt_dbgcounter++;
 #endif
                                                             ;
@@ -20741,7 +20741,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                                                                     {
                                                                         /*^locexp*/
                                                                         /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                         melt_dbgcounter++;
 #endif
                                                                         ;
@@ -20911,7 +20911,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                                 {
                                     /*^locexp*/
                                     /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     melt_dbgcounter++;
 #endif
                                     ;
@@ -21044,7 +21044,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                                             {
                                                 /*^locexp*/
                                                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 melt_dbgcounter++;
 #endif
                                                 ;
@@ -21181,7 +21181,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                                 {
                                     /*^locexp*/
                                     /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     melt_dbgcounter++;
 #endif
                                     ;
@@ -21319,7 +21319,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                                 {
                                     /*^locexp*/
                                     /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     melt_dbgcounter++;
 #endif
                                     ;
@@ -21698,7 +21698,7 @@ void melthook_HOOK_HANDLE_SIGALRM(melt_ptr_t melthookdatap)
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -21976,7 +21976,7 @@ meltlabloop_HANDLELOOP_1:;/*^loopbody*/
                     {
                         /*^locexp*/
                         /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         melt_dbgcounter++;
 #endif
                         ;
@@ -22703,7 +22703,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -22897,7 +22897,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
                             {
                                 /*^locexp*/
                                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 melt_dbgcounter++;
 #endif
                                 ;
@@ -23417,7 +23417,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -23629,7 +23629,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
                                                     {
                                                         /*^locexp*/
                                                         /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                         melt_dbgcounter++;
 #endif
                                                         ;
@@ -23779,7 +23779,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
                                                     {
                                                         /*^locexp*/
                                                         /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                         melt_dbgcounter++;
 #endif
                                                         ;
@@ -23959,7 +23959,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
                                                     {
                                                         /*^locexp*/
                                                         /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                         melt_dbgcounter++;
 #endif
                                                         ;

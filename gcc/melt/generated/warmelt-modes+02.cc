@@ -605,7 +605,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -957,7 +957,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -1514,7 +1514,7 @@ meltlab_endgetargs:
                                                                                                 {
                                                                                                     /*^locexp*/
                                                                                                     /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                     melt_dbgcounter++;
 #endif
                                                                                                     ;
@@ -1649,7 +1649,7 @@ meltlab_endgetargs:
                                                                                                 {
                                                                                                     /*^locexp*/
                                                                                                     /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                     melt_dbgcounter++;
 #endif
                                                                                                     ;
@@ -1965,7 +1965,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -2226,7 +2226,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -2630,7 +2630,7 @@ meltlab_endgetargs:
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -2996,7 +2996,7 @@ meltlab_endgetargs:
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -3391,7 +3391,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -3710,7 +3710,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -4148,7 +4148,7 @@ meltlab_endgetargs:
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -5062,7 +5062,7 @@ meltlab_endgetargs:
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -6045,7 +6045,7 @@ meltlab_endgetargs:
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -6580,7 +6580,7 @@ meltlab_endgetargs:
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -6934,7 +6934,7 @@ meltlab_endgetargs:
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -7416,7 +7416,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -7677,7 +7677,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -8087,7 +8087,7 @@ meltlab_endgetargs:
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -8643,7 +8643,7 @@ meltlab_endgetargs:
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -10525,7 +10525,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -10958,7 +10958,7 @@ NANT)\n    goto end;\n  if (!melt_is_instance_of((melt_ptr_t)newdiscrv\
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -11491,7 +11491,8 @@ NANT)\n    goto end;\n  if (!melt_is_instance_of((melt_ptr_t)newdiscrv\
 \
 \n\t  if (src->entab)\n            for (ix=0; ix<oldlen; \
 \n\t\t ix++) {\n\t       melt_ptr_t curva = src->entab[ix].e_va;\
-\n\t       ";
+\n\t \
+      ";
                                     /*^apply.arg*/
                                     argtab[13].meltbp_aptr = (melt_ptr_t*) &/*_.TYCNAME__V27*/ meltfptr[26];
                                     /*^apply.arg*/
@@ -12054,7 +12055,7 @@ NANT)\n    goto end;\n  if (!melt_is_instance_of((melt_ptr_t)newdiscrv\
                                                                         {
                                                                             /*^locexp*/
                                                                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                             melt_dbgcounter++;
 #endif
                                                                             ;
@@ -12485,7 +12486,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -12865,7 +12866,7 @@ meltlab_endgetargs:
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -13394,7 +13395,7 @@ meltlab_endgetargs:
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -14377,7 +14378,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -14780,7 +14781,7 @@ meltlab_endgetargs:
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -15463,7 +15464,7 @@ meltlab_endgetargs:
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -16097,7 +16098,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -16494,7 +16495,7 @@ meltlab_endgetargs:
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -16999,7 +17000,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -17495,7 +17496,7 @@ meltlab_endgetargs:
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -17916,7 +17917,7 @@ meltlab_endgetargs:
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -18464,7 +18465,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -18855,7 +18856,7 @@ meltlab_endgetargs:
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -20805,7 +20806,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -21059,7 +21060,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -21358,7 +21359,7 @@ meltlab_endgetargs:
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -24745,7 +24746,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -24983,7 +24984,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -25228,7 +25229,7 @@ meltlab_endgetargs:
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -25770,7 +25771,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -26165,7 +26166,7 @@ meltlab_endgetargs:
                                     {
                                         /*^locexp*/
                                         /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                         melt_dbgcounter++;
 #endif
                                         ;
@@ -26534,7 +26535,7 @@ meltlab_endgetargs:
                                                             {
                                                                 /*^locexp*/
                                                                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                 melt_dbgcounter++;
 #endif
                                                                 ;
@@ -27085,7 +27086,7 @@ meltlab_endgetargs:
                                                             {
                                                                 /*^locexp*/
                                                                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                 melt_dbgcounter++;
 #endif
                                                                 ;
@@ -28739,7 +28740,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -29008,7 +29009,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -29213,7 +29214,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -29388,7 +29389,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -29595,7 +29596,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -30004,7 +30005,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -30389,7 +30390,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -30769,7 +30770,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -30920,7 +30921,7 @@ meltlab_endgetargs:
                         {
                             /*^locexp*/
                             /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             melt_dbgcounter++;
 #endif
                             ;
@@ -31090,7 +31091,7 @@ meltlab_endgetargs:
                                                 {
                                                     /*^locexp*/
                                                     /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                     melt_dbgcounter++;
 #endif
                                                     ;
@@ -31273,7 +31274,7 @@ meltlab_endgetargs:
                                                             {
                                                                 /*^locexp*/
                                                                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                 melt_dbgcounter++;
 #endif
                                                                 ;
@@ -31433,7 +31434,7 @@ meltlab_endgetargs:
                                                 {
                                                     /*^locexp*/
                                                     /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                     melt_dbgcounter++;
 #endif
                                                     ;
@@ -31828,7 +31829,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -31985,7 +31986,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -32373,7 +32374,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -32530,7 +32531,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -32870,7 +32871,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -33027,7 +33028,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -33367,7 +33368,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;
@@ -33524,7 +33525,7 @@ meltlab_endgetargs:
             {
                 /*^locexp*/
                 /*melt_increment_dbgcounter*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 melt_dbgcounter++;
 #endif
                 ;

@@ -292,7 +292,7 @@ melt_forwarded_copy (melt_ptr_t p)
             struct meltbucketlongs_st*src = (struct meltbucketlongs_st*) p;
             struct meltbucketlongs_st*dst = NULL;
             /* copy chunk from  VALDESC_BUCKETLONGS  in warmelt-base.melt */
-            // in file warmelt-base.melt line 2856
+            // in file warmelt-base.melt line 2790
             /* ggc_alloc_meltbucketlongs_st should be gengtype generated for VALDESC_BUCKETLONGS */
             unsigned lnix = src->buckl_lenix;
             unsigned len = melt_primtab[lnix];
@@ -333,17 +333,11 @@ melt_forwarded_copy (melt_ptr_t p)
             struct meltclosure_st*src = (struct meltclosure_st*) p;
             struct meltclosure_st*dst = NULL;
             /* copy VALDESC_CLOSURE in warmelt-base.melt  */
-            // in file warmelt-base.melt line 2606
+            // in file warmelt-base.melt line 2564
             /* ggc_alloc_meltclosure_st should be gengtype generated for VALDESC_CLOSURE */
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltclosure_st
 #define ggc_alloc_meltclosure_st(SIZE) ((struct meltclosure_st *)(ggc_internal_alloc (SIZE)))
 #endif /* ggc_alloc_meltclosure_st */
-#else /* GCC 4.9 */
-#ifndef ggc_alloc_meltclosure_st
-#define ggc_alloc_meltclosure_st(SIZE) ((struct meltclosure_st *)(ggc_internal_alloc_stat (SIZE MEM_STAT_INFO)))
-#endif /* ggc_alloc_meltclosure_st */
-#endif /* GCC 4.9 or 5.0 */
             int nbv = (int) src->nbval;
             size_t sz = nbv*sizeof(void*) + offsetof(struct meltclosure_st, tabval);
             dst =
@@ -368,17 +362,11 @@ melt_forwarded_copy (melt_ptr_t p)
             struct meltdecay_st*src = (struct meltdecay_st*) p;
             struct meltdecay_st*dst = NULL;
             /* from VALDESC_DECAY in warmelt-base.melt */
-            // in file warmelt-base.melt line 2484
+            // in file warmelt-base.melt line 2454
             /* ggc_alloc_meltdecay_st should be gengtype generated for VALDESC_DECAY */
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltdecay_st
 #define ggc_alloc_meltdecay_st() ((struct meltdecay_st *)(ggc_internal_alloc (sizeof (struct meltdecay_st))))
 #endif /* ggc_alloc_meltdecay_st */
-#else /* GCC 4.9 */
-#ifndef ggc_alloc_meltdecay_st
-#define ggc_alloc_meltdecay_st() ((struct meltdecay_st *)(ggc_internal_alloc_stat (sizeof (struct meltdecay_st) MEM_STAT_INFO)))
-#endif /* ggc_alloc_meltdecay_st */
-#endif /* GCC not 5.0 */
             dst = ggc_alloc_meltdecay_st ();
             *dst = *src;
             melt_forwarded_copy_byte_count += sizeof(*dst);
@@ -394,15 +382,9 @@ melt_forwarded_copy (melt_ptr_t p)
             struct meltdouble_st*dst = NULL;
             /* from VALDESC_DOUBLE in warmelt-base.melt  */
             /* ggc_alloc_meltdouble_st should be gengtype generated for VALDESC_DOUBLE */
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltdouble_st
 #define ggc_alloc_meltdouble_st() ((struct meltdouble_st *)(ggc_internal_alloc (sizeof (struct meltdouble_st))))
 #endif
-#else /* GCC 4.9 */
-#ifndef ggc_alloc_meltdouble_st
-#define ggc_alloc_meltdouble_st() ((struct meltdouble_st *)(ggc_internal_alloc_stat (sizeof (struct meltdouble_st) MEM_STAT_INFO)))
-#endif
-#endif /* GCC not 5.0 */
             dst =
                 /* Don't need a cleared allocation.  */
                 ggc_alloc_meltdouble_st ();
@@ -419,17 +401,11 @@ melt_forwarded_copy (melt_ptr_t p)
             struct melthook_st*src = (struct melthook_st*) p;
             struct melthook_st*dst = NULL;
             /* from VALDESC_HOOK in warmelt-base.melt */
-            // in file warmelt-base.melt line 2777
+            // in file warmelt-base.melt line 2723
             /* ggc_alloc_melthook_st should be gengtype generated for VALDESC_HOOK */
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_melthook_st
 #define ggc_alloc_melthook_st(SIZE) ((struct melthook_st *)(ggc_internal_alloc (SIZE)))
 #endif
-#else /* GCC 4.9 */
-#ifndef ggc_alloc_melthook_st
-#define ggc_alloc_melthook_st(SIZE) ((struct melthook_st *)(ggc_internal_alloc_stat (SIZE MEM_STAT_INFO)))
-#endif
-#endif /* GCC not 5.0 */
             int nbv = (int) src->nbval;
             int ix = 0;
             size_t sz = nbv*sizeof(void*) + offsetof(struct melthook_st, tabval);
@@ -459,15 +435,9 @@ melt_forwarded_copy (melt_ptr_t p)
             struct meltint_st*dst = NULL;
             /* from VALDESC_INT */
             /* ggc_alloc_meltint_st should be gengtype generated for VALDESC_INT */
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltint_st
 #define ggc_alloc_meltint_st() ((struct meltint_st *)(ggc_internal_alloc (sizeof (struct meltint_st))))
 #endif
-#else /* GCC 4.9 */
-#ifndef ggc_alloc_meltint_st
-#define ggc_alloc_meltint_st() ((struct meltint_st *)(ggc_internal_alloc_stat (sizeof (struct meltint_st) MEM_STAT_INFO)))
-#endif
-#endif /* GCC not 5.0 */
             dst =
                 /* Don't need a cleared allocation.  */
                 ggc_alloc_meltint_st ();
@@ -484,7 +454,7 @@ melt_forwarded_copy (melt_ptr_t p)
             struct meltjsonobject_st*src = (struct meltjsonobject_st*) p;
             struct meltjsonobject_st*dst = NULL;
             /* copy chunk from  VALDESC_JSONOBJECT in warmelt-base.melt */
-            // in file warmelt-base.melt line 3025
+            // in file warmelt-base.melt line 2953
             /* ggc_alloc_meltjsonobject_st should be gengtype generated for VALDESC_JSONOBJECT */
             unsigned srcsize = src->jsob_size;
             size_t sz = srcsize * sizeof(melt_jsonobentry_st)
@@ -511,17 +481,11 @@ melt_forwarded_copy (melt_ptr_t p)
             struct meltlist_st*src = (struct meltlist_st*) p;
             struct meltlist_st*dst = NULL;
             /* copy chunk from VALDESC_LIST */
-            // in file warmelt-base.melt line 3250
+            // in file warmelt-base.melt line 3160
             /* ggc_alloc_meltlist_st should be gengtype generated for VALDESC_LIST */
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltlist_st
 #define ggc_alloc_meltlist_st() ((struct meltlist_st *)(ggc_internal_alloc (sizeof (struct meltlist_st))))
 #endif
-#else /* GCC 4.9 */
-#ifndef ggc_alloc_meltlist_st
-#define ggc_alloc_meltlist_st() ((struct meltlist_st *)(ggc_internal_alloc_stat (sizeof (struct meltlist_st) MEM_STAT_INFO)))
-#endif
-#endif /* GCC not 5.0 */
             dst =
                 /* Don't need a cleared allocation!  */
                 ggc_alloc_meltlist_st ();
@@ -539,9 +503,8 @@ melt_forwarded_copy (melt_ptr_t p)
             struct meltmapobjects_st*src = (struct meltmapobjects_st*) p;
             struct meltmapobjects_st*dst = NULL;
             /* copy VALDESC_MAPOBJECTS in warmelt-base.melt */
-            // in file warmelt-base.melt line 2235
+            // in file warmelt-base.melt line 2229
             /* ggc_alloc_meltmapobjects_st should be gengtype generated for VALDESC_MAPOBJECTS */
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltmapobjects_st
 #define ggc_alloc_meltmapobjects_st() ((struct meltmapobjects_st *)(ggc_internal_alloc(sizeof(struct meltmapobjects_st))))
 #endif /* ggc_alloc_meltmapobjects_st */
@@ -551,17 +514,6 @@ melt_forwarded_copy (melt_ptr_t p)
 #ifndef  ggc_alloc_cleared_vec_entryobjectsmelt_st
 #define ggc_alloc_cleared_vec_entryobjectsmelt_st(N)  ((struct entryobjectsmelt_st *) (ggc_internal_cleared_alloc(sizeof(struct entryobjectsmelt_st)*(N))))
 #endif /* ggc_alloc_cleared_vec_entryobjectsmelt_st */
-#else /* GCC 4.9 */
-#ifndef ggc_alloc_meltmapobjects_st
-#define ggc_alloc_meltmapobjects_st() ((struct meltmapobjects_st *)(ggc_internal_alloc_stat (sizeof (struct meltmapobjects_st) MEM_STAT_INFO)))
-#endif /* ggc_alloc_meltmapobjects_st */
-#ifndef ggc_alloc_vec_entryobjectsmelt_st
-#define ggc_alloc_vec_entryobjectsmelt_st(N) ((struct entryobjectsmelt_st *) (ggc_internal_vec_alloc_stat (sizeof (struct entryobjectsmelt_st), N MEM_STAT_INFO)))
-#endif /* ggc_alloc_vec_entryobjectsmelt_st */
-#ifndef  ggc_alloc_cleared_vec_entryobjectsmelt_st
-#define ggc_alloc_cleared_vec_entryobjectsmelt_st(n) ((struct entryobjectsmelt_st *)(ggc_internal_cleared_vec_alloc_stat (sizeof (struct entryobjectsmelt_st), n MEM_STAT_INFO)))
-#endif /* ggc_alloc_cleared_vec_entryobjectsmelt_st */
-#endif /* GCC 4.9 */
             int siz = melt_primtab[src->lenix];
             size_t sz = 0;
             dst =
@@ -594,9 +546,8 @@ melt_forwarded_copy (melt_ptr_t p)
             struct meltmapstrings_st*src = (struct meltmapstrings_st*) p;
             struct meltmapstrings_st*dst = NULL;
             /* copy VALDESC_MAPSTRINGS in warmelt-base.melt */
-            // in file warmelt-base.melt line 2360
+            // in file warmelt-base.melt line 2342
             /* ggc_alloc_meltmapstrings_st should be gengtype generated for VALDESC_MAPSTRINGS */
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltmapstrings_st
 #define ggc_alloc_meltmapstrings_st() ((struct meltmapstrings_st *)(ggc_internal_alloc (sizeof (struct meltmapstrings_st))))
 #endif /* ggc_alloc_meltmapstrings_st */
@@ -606,17 +557,6 @@ melt_forwarded_copy (melt_ptr_t p)
 #ifndef ggc_alloc_cleared_vec_entrystringsmelt_st
 #define ggc_alloc_cleared_vec_entrystringsmelt_st(N) ((struct entrystringsmelt_st *)(ggc_internal_cleared_alloc (sizeof (struct entrystringsmelt_st)*(N))))
 #endif /* ggc_alloc_cleared_vec_entrystringsmelt_st */
-#else /* GCC 4.9 */
-#ifndef ggc_alloc_meltmapstrings_st
-#define ggc_alloc_meltmapstrings_st() ((struct meltmapstrings_st *)(ggc_internal_alloc_stat (sizeof (struct meltmapstrings_st) MEM_STAT_INFO)))
-#endif /* ggc_alloc_meltmapstrings_st */
-#ifndef ggc_alloc_vec_entrystringsmelt_st
-#define ggc_alloc_vec_entrystringsmelt_st(n) ((struct entrystringsmelt_st *)(ggc_internal_vec_alloc_stat (sizeof (struct entrystringsmelt_st), n MEM_STAT_INFO)))
-#endif /* ggc_alloc_vec_entrystringsmelt_st */
-#ifndef ggc_alloc_cleared_vec_entrystringsmelt_st
-#define ggc_alloc_cleared_vec_entrystringsmelt_st(n) ((struct entrystringsmelt_st *)(ggc_internal_cleared_vec_alloc_stat (sizeof (struct entrystringsmelt_st), n MEM_STAT_INFO)))
-#endif /* ggc_alloc_cleared_vec_entrystringsmelt_st */
-#endif /* GCC 5.0 or 4.9 */
             int siz = melt_primtab[src->lenix];
             size_t sz = 0;
             dst =
@@ -649,17 +589,11 @@ melt_forwarded_copy (melt_ptr_t p)
             struct meltmixbigint_st*src = (struct meltmixbigint_st*) p;
             struct meltmixbigint_st*dst = NULL;
             /* from VALDESC_MIXBIGINT in warmelt-base.melt */
-            // in file warmelt-base.melt line 3470
+            // in file warmelt-base.melt line 3350
             /* ggc_alloc_meltmixbigint_st should be gengtype generated for VALDESC_MIXBIGINT */
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltmixbigint_st
 #define ggc_alloc_meltmixbigint_st(SIZE) ((struct meltmixbigint_st *)(ggc_internal_alloc (SIZE)))
 #endif
-#else /* GCC 4.9 */
-#ifndef ggc_alloc_meltmixbigint_st
-#define ggc_alloc_meltmixbigint_st(SIZE) ((struct meltmixbigint_st *)(ggc_internal_alloc_stat (SIZE MEM_STAT_INFO)))
-#endif
-#endif /* GCC not 5.0 */
             unsigned blen = src->biglen;
             size_t sz = blen*sizeof(long) + offsetof(struct meltmixbigint_st, tabig);
             dst =
@@ -682,17 +616,11 @@ melt_forwarded_copy (melt_ptr_t p)
             struct meltmixint_st*src = (struct meltmixint_st*) p;
             struct meltmixint_st*dst = NULL;
             /* from VALDESC_MIXINT in warmelt-base.melt  */
-            // in file warmelt-base.melt line 3388
+            // in file warmelt-base.melt line 3280
             /* ggc_alloc_meltmixint_st should be gengtype generated for VALDESC_MIXINT */
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltmixint_st
 #define ggc_alloc_meltmixint_st() ((struct meltmixint_st *)(ggc_internal_alloc (sizeof (struct meltmixint_st))))
 #endif
-#else /* GCC 4.9 */
-#ifndef ggc_alloc_meltmixint_st
-#define ggc_alloc_meltmixint_st() ((struct meltmixint_st *)(ggc_internal_alloc_stat (sizeof (struct meltmixint_st) MEM_STAT_INFO)))
-#endif
-#endif /* GCC not 5.0 */
             dst =
                 /* Don't need a cleared allocation.  */
                 ggc_alloc_meltmixint_st ();
@@ -709,17 +637,11 @@ melt_forwarded_copy (melt_ptr_t p)
             struct meltmixloc_st*src = (struct meltmixloc_st*) p;
             struct meltmixloc_st*dst = NULL;
             /* from VALDESC_MIXLOC in warmelt-base.melt */
-            // in file warmelt-base.melt line 3426
+            // in file warmelt-base.melt line 3312
             /* ggc_alloc_meltmixloc_st should be gengtype generated for VALDESC_MIXLOC */
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltmixloc_st
 #define ggc_alloc_meltmixloc_st() ((struct meltmixloc_st *)(ggc_internal_alloc (sizeof (struct meltmixloc_st))))
 #endif
-#else /* GCC 4.9 */
-#ifndef ggc_alloc_meltmixloc_st
-#define ggc_alloc_meltmixloc_st() ((struct meltmixloc_st *)(ggc_internal_alloc_stat (sizeof (struct meltmixloc_st) MEM_STAT_INFO)))
-#endif
-#endif /* GCC not 5.0 */
             dst =
                 /* Don't need a cleared allocation.  */
                 ggc_alloc_meltmixloc_st ();
@@ -736,17 +658,11 @@ melt_forwarded_copy (melt_ptr_t p)
             struct meltmultiple_st*src = (struct meltmultiple_st*) p;
             struct meltmultiple_st*dst = NULL;
             /* copy chunk from VALDESC_MULTIPLE in warmelt-base.melt */
-            // in file warmelt-base.melt line 2532
+            // in file warmelt-base.melt line 2496
             /* ggc_alloc_meltmultiple_st should be gengtype generated for VALDESC_MULTIPLE */
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltmultiple_st
 #define ggc_alloc_meltmultiple_st(SIZE) ((struct meltmultiple_st *)(ggc_internal_alloc(SIZE)))
 #endif /* ggc_alloc_meltmultiple_st */
-#else /* GCC 4.9 */
-#ifndef ggc_alloc_meltmultiple_st
-#define ggc_alloc_meltmultiple_st(SIZE) ((struct meltmultiple_st *)(ggc_internal_alloc_stat (SIZE MEM_STAT_INFO)))
-#endif /* ggc_alloc_meltmultiple_st */
-#endif /* GCC not 5.0 */
             int nbv = (int) src->nbval;
             size_t sz = nbv*sizeof(void*) + offsetof(struct meltmultiple_st, tabval);
             dst =
@@ -775,15 +691,9 @@ melt_forwarded_copy (melt_ptr_t p)
             /* from VALDESC_OBJECT file warmelt-base.melt */
             // in file warmelt-base.melt line 2101
             /* ggc_alloc_meltobject_st should be gengtype generated for VALDESC_OBJECT */
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltobject_st
 #define ggc_alloc_meltobject_st(SIZE) ((struct meltobject_st *)(ggc_internal_alloc (SIZE)))
 #endif  /* ggc_alloc_meltobject_st */
-#else /* GCC 4.9 and before */
-#ifndef ggc_alloc_meltobject_st
-#define ggc_alloc_meltobject_st(SIZE) ((struct meltobject_st *)(ggc_internal_alloc_stat (SIZE MEM_STAT_INFO)))
-#endif  /* ggc_alloc_meltobject_st */
-#endif /* GCC 4.9 or GCC 5.0 */
 
             int ix = 0;
             int oblen = (int) (src->obj_len);
@@ -803,7 +713,7 @@ melt_forwarded_copy (melt_ptr_t p)
                     ix < oblen;
                     ix++)
                 dst->obj_vartab[ix] = src->obj_vartab[ix];
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             /* for low level debugging with gdb, we may want to catch some copy operations */
             if (melt_alptr_1 && (void*) src == melt_alptr_1)
                 melt_break_alptr_1 ("copyobj src=alptr1");
@@ -825,17 +735,11 @@ melt_forwarded_copy (melt_ptr_t p)
             struct meltpair_st*src = (struct meltpair_st*) p;
             struct meltpair_st*dst = NULL;
             /* copy VALDESC_PAIR in warmelt-base.melt */
-            // in file warmelt-base.melt line 3207
+            // in file warmelt-base.melt line 3123
             /* ggc_alloc_meltpair_st should be gengtype gengtype for VALDESC_PAIR */
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltpair_st
 #define ggc_alloc_meltpair_st() ((struct meltpair_st *)(ggc_internal_alloc (sizeof (struct meltpair_st))))
 #endif
-#else /* GCC 4.9 */
-#ifndef ggc_alloc_meltpair_st
-#define ggc_alloc_meltpair_st() ((struct meltpair_st *)(ggc_internal_alloc_stat (sizeof (struct meltpair_st) MEM_STAT_INFO)))
-#endif
-#endif /* GCC not 5.0 */
             dst = /* Don't need a cleared allocation.  */
                 ggc_alloc_meltpair_st ();
             *dst = *src;
@@ -851,17 +755,11 @@ melt_forwarded_copy (melt_ptr_t p)
             struct meltreal_st*src = (struct meltreal_st*) p;
             struct meltreal_st*dst = NULL;
             /* from VALDESC_REAL in warmelt-base.melt */
-            // in file warmelt-base.melt line 3513
+            // in file warmelt-base.melt line 3387
             /* ggc_alloc_meltreal_st should be gengtype generated for VALDESC_REAL */
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltreal_st
 #define ggc_alloc_meltreal_st() ((struct meltreal_st *)(ggc_internal_alloc (sizeof (struct meltreal_st))))
 #endif
-#else /* GCC 4.9 */
-#ifndef ggc_alloc_meltreal_st
-#define ggc_alloc_meltreal_st() ((struct meltreal_st *)(ggc_internal_alloc_stat (sizeof (struct meltreal_st) MEM_STAT_INFO)))
-#endif
-#endif /* GCC not 5.0 */
             dst =
                 /* Don't need a cleared allocation.  */
                 ggc_alloc_meltreal_st ();
@@ -878,17 +776,11 @@ melt_forwarded_copy (melt_ptr_t p)
             struct meltroutine_st*src = (struct meltroutine_st*) p;
             struct meltroutine_st*dst = NULL;
             /* from VALDESC_ROUTINE in warmelt-base.melt */
-            // in file warmelt-base.melt line 2697
+            // in file warmelt-base.melt line 2649
             /* ggc_alloc_meltroutine_st should be gengtype generated for VALDESC_ROUTINE */
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltroutine_st
 #define ggc_alloc_meltroutine_st(SIZE) ((struct meltroutine_st *)(ggc_internal_alloc (SIZE)))
 #endif
-#else /* GCC 4.9 */
-#ifndef ggc_alloc_meltroutine_st
-#define ggc_alloc_meltroutine_st(SIZE) ((struct meltroutine_st *)(ggc_internal_alloc_stat (SIZE MEM_STAT_INFO)))
-#endif
-#endif /* GCC 4.9 or 5.0 */
             int nbv = (int) src->nbval;
             size_t sz = nbv*sizeof(void*) + offsetof(struct meltroutine_st, tabval);
             int ix = 0;
@@ -917,17 +809,11 @@ melt_forwarded_copy (melt_ptr_t p)
             struct meltspecialdata_st*src = (struct meltspecialdata_st*) p;
             struct meltspecialdata_st*dst = NULL;
             /* from VALDESC_SPECIAL_DATA in warmelt-base.melt */
-            // in file warmelt-base.melt line 3550
+            // in file warmelt-base.melt line 3418
             /* ggc_alloc_meltspecialdata_st should be gengtype generated for VALDESC_SPECIAL_DATA */
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltspecialdata_st
 #define ggc_alloc_meltspecialdata_st() ((struct meltspecialdata_st *)(ggc_internal_alloc (sizeof (struct meltspecialdata_st))))
 #endif
-#else /* GCC 4.9 */
-#ifndef ggc_alloc_meltspecialdata_st
-#define ggc_alloc_meltspecialdata_st() ((struct meltspecialdata_st *)(ggc_internal_alloc_stat (sizeof (struct meltspecialdata_st) MEM_STAT_INFO)))
-#endif
-#endif /* GCC not 5.0 */
             dst = ggc_alloc_meltspecialdata_st ();
             *dst = *src;
             /* mark the new copy! */
@@ -947,17 +833,11 @@ melt_forwarded_copy (melt_ptr_t p)
             struct meltstrbuf_st*src = (struct meltstrbuf_st*) p;
             struct meltstrbuf_st*dst = NULL;
             /* copy chunk from VALDESC_STRBUF in warmelt-base.melt */
-            // in file warmelt-base.melt line 3145
+            // in file warmelt-base.melt line 3067
             /* ggc_alloc_meltstrbuf_st should be gengtype gengtype for VALDESC_STRBUF */
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltstrbuf_st
 #define ggc_alloc_meltstrbuf_st() ((struct meltstrbuf_st *)(ggc_internal_alloc (sizeof (struct meltstrbuf_st))))
 #endif
-#else /* GCC 4.9 */
-#ifndef ggc_alloc_meltstrbuf_st
-#define ggc_alloc_meltstrbuf_st() ((struct meltstrbuf_st *)(ggc_internal_alloc_stat (sizeof (struct meltstrbuf_st) MEM_STAT_INFO)))
-#endif
-#endif /* GCC not 5.0 */
             unsigned blen = melt_primtab[src->buflenix];
             size_t sz = sizeof(*dst);
             dst =
@@ -988,17 +868,11 @@ melt_forwarded_copy (melt_ptr_t p)
             struct meltstring_st*src = (struct meltstring_st*) p;
             struct meltstring_st*dst = NULL;
             /* copy from VALDESC_STRING file warmelt-base.melt */
-            // in file warmelt-base.melt line 3090
+            // in file warmelt-base.melt line 3018
             /* ggc_alloc_meltstring_st should be gengtype generated for VALDESC_STRING */
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
 #ifndef ggc_alloc_meltstring_st
 #define ggc_alloc_meltstring_st(SIZE) ((struct meltstring_st *)(ggc_internal_alloc (SIZE)))
 #endif
-#else /* GCC 4.9 */
-#ifndef ggc_alloc_meltstring_st
-#define ggc_alloc_meltstring_st(SIZE) ((struct meltstring_st *)(ggc_internal_alloc_stat (SIZE MEM_STAT_INFO)))
-#endif
-#endif /* GCC not 5.0 */
             int srclen = (src->val)?strlen (src->val):0;
             size_t sz = offsetof(struct meltstring_st, val) + (srclen+1);
             dst =
@@ -1488,7 +1362,7 @@ melt_scanning (melt_ptr_t p)
         {
             struct meltbucketlongs_st*src = (struct meltbucketlongs_st*) p;
             /* forwarding chunk from VALDESC_BUCKETLONGS in warmelt-base.melt */
-            // in file warmelt-base.melt line 2917
+            // in file warmelt-base.melt line 2851
             unsigned lnix = src->buckl_lenix;
             unsigned len = melt_primtab[lnix];
             unsigned ucnt = src->buckl_ucount;
@@ -1511,7 +1385,7 @@ melt_scanning (melt_ptr_t p)
         {
             struct meltclosure_st*src = (struct meltclosure_st*) p;
             /* forwarding from VALDESC_CLOSURE in warmelt-base.melt */
-            // in file warmelt-base.melt line 2632
+            // in file warmelt-base.melt line 2584
             int nbval = (int) src->nbval;
             MELT_FORWARDED (src->rout);
             for (int ix = 0;
@@ -1527,7 +1401,7 @@ melt_scanning (melt_ptr_t p)
         {
             struct meltdecay_st*src = (struct meltdecay_st*) p;
             /* from VALDESC_DECAY  in warmelt-base.melt */
-            // in file warmelt-base.melt line 2501
+            // in file warmelt-base.melt line 2465
             MELT_FORWARDED (src->val);
 
             break;
@@ -1544,7 +1418,7 @@ melt_scanning (melt_ptr_t p)
         {
             struct melthook_st*src = (struct melthook_st*) p;
             /* from VALDESC_HOOK in warmelt-base.melt */
-            // in file warmelt-base.melt line 2808
+            // in file warmelt-base.melt line 2748
             int nbval = (int) src->nbval;
             int ix = 0;
             for (ix = 0;
@@ -1567,7 +1441,7 @@ melt_scanning (melt_ptr_t p)
         {
             struct meltjsonobject_st*src = (struct meltjsonobject_st*) p;
             /* forwarding chunk from VALDESC_JSONOBJECT in warmelt-base.melt */
-            // in file warmelt-base.melt line 3054
+            // in file warmelt-base.melt line 2982
             unsigned srcsize = src->jsob_size;
             MELT_FORWARDED(src->jsob_aux);
             for (unsigned ix = 0;
@@ -1587,7 +1461,7 @@ melt_scanning (melt_ptr_t p)
         {
             struct meltlist_st*src = (struct meltlist_st*) p;
             /* from VALDESC_LIST in warmelt-base.melt */
-            // in file warmelt-base.melt line 3289
+            // in file warmelt-base.melt line 3193
             MELT_FORWARDED (src->first);
             MELT_FORWARDED (src->last);
 
@@ -1599,7 +1473,7 @@ melt_scanning (melt_ptr_t p)
         {
             struct meltmapobjects_st*src = (struct meltmapobjects_st*) p;
             /* forwarding from VALDESC_MAPOBJECTS in warmelt-base.melt */
-            // in file warmelt-base.melt line 2307
+            // in file warmelt-base.melt line 2289
             int siz, ix;
             MELT_FORWARDED(src->meltmap_aux);
             if (!src->entab)
@@ -1639,7 +1513,7 @@ melt_scanning (melt_ptr_t p)
         {
             struct meltmapstrings_st*src = (struct meltmapstrings_st*) p;
             /* forwarding from VALDESC_MAPSTRINGS  in warmelt-base.melt */
-            // in file warmelt-base.melt line 2433
+            // in file warmelt-base.melt line 2403
             int ix, siz;
             MELT_FORWARDED(src->meltmap_aux);
             if (!src->entab)
@@ -1679,7 +1553,7 @@ melt_scanning (melt_ptr_t p)
         {
             struct meltmixbigint_st*src = (struct meltmixbigint_st*) p;
             /* from VALDESC_MIXBIGINT file warmelt-base.melt */
-            // in file warmelt-base.melt line 3494
+            // in file warmelt-base.melt line 3368
             MELT_FORWARDED (src->ptrval);
 
             break;
@@ -1700,7 +1574,7 @@ melt_scanning (melt_ptr_t p)
         {
             struct meltmixloc_st*src = (struct meltmixloc_st*) p;
             /* from VALDESC_MIXLOC file warmelt-base.melt */
-            // in file warmelt-base.melt line 3445
+            // in file warmelt-base.melt line 3325
             MELT_FORWARDED (src->ptrval);
 
             break;
@@ -1711,7 +1585,7 @@ melt_scanning (melt_ptr_t p)
         {
             struct meltmultiple_st*src = (struct meltmultiple_st*) p;
             /* forwarding chunk from VALDESC_MULTIPLE in warmelt-base.melt */
-            // in file warmelt-base.melt line 2573
+            // in file warmelt-base.melt line 2531
             int nbval = (int) src->nbval;
             for (int ix = 0;
                     ix < nbval;
@@ -1727,12 +1601,12 @@ melt_scanning (melt_ptr_t p)
         {
             struct meltobject_st*src = (struct meltobject_st*) p;
             /* from VALDESC_OBJECT */
-            // in file warmelt-base.melt line 2187
+            // in file warmelt-base.melt line 2181
             int ix = 0;
             int oblen = (int) (src->obj_len);
             for (ix = 0; ix < oblen; ix++)
                 MELT_FORWARDED (src->obj_vartab[ix]);
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             /* for low level debugging with gdb, we may want to catch some forwarding operations */
             if (melt_alptr_1 && (void*) src == melt_alptr_1)
                 melt_break_alptr_1 ("forwardobj src=alptr1");
@@ -1752,7 +1626,7 @@ melt_scanning (melt_ptr_t p)
         {
             struct meltpair_st*src = (struct meltpair_st*) p;
             /* forward VALDESC_PAIR in warmelt-base.melt */
-            // in file warmelt-base.melt line 3225
+            // in file warmelt-base.melt line 3135
             MELT_FORWARDED (src->hd);
             MELT_FORWARDED (src->tl);
 
@@ -1770,7 +1644,7 @@ melt_scanning (melt_ptr_t p)
         {
             struct meltroutine_st*src = (struct meltroutine_st*) p;
             /* from VALDESC_ROUTINE in warmelt-base.melt */
-            // in file warmelt-base.melt line 2728
+            // in file warmelt-base.melt line 2674
             int nbval = (int) src->nbval;
             for (int ix = 0;
                     ix < nbval;
@@ -2767,7 +2641,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             struct meltbucketlongs_st *dst = NULL;
             /* explicit clone chunk for VALDESC_BUCKETLONGS:*/
             /* cloning chunk from VALDESC_BUCKETLONGS in warmelt-base.melt */
-            // in file warmelt-base.melt line 2887
+            // in file warmelt-base.melt line 2821
             unsigned lnix = src->buckl_lenix;
             unsigned len = melt_primtab[lnix];
             unsigned cnt = src->buckl_ucount;
@@ -2808,7 +2682,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             struct meltclosure_st *dst = NULL;
             /* explicit clone chunk for VALDESC_CLOSURE:*/
             /* cloning from VALDESC_CLOSURE  in warmelt-base.melt*/
-            // in file warmelt-base.melt line 2641
+            // in file warmelt-base.melt line 2593
             unsigned nbval = (int) src->nbval;
             dst
                 = (struct meltclosure_st*)meltgc_allocate (sizeof(struct meltclosure_st),
@@ -2875,7 +2749,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             struct meltjsonobject_st *dst = NULL;
             /* explicit clone chunk for VALDESC_JSONOBJECT:*/
             /* cloning chunk from VALDESC_JSONOBJECT in warmelt-base.melt */
-            // in file warmelt-base.melt line 3043
+            // in file warmelt-base.melt line 2971
             unsigned srcsize = src->jsob_size;
             dst = (struct meltjsonobject_st*)meltgc_allocate(sizeof(struct meltjsonobject_st),
                     srcsize*sizeof(melt_jsonobentry_st));
@@ -2897,7 +2771,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             struct meltlist_st *dst = NULL;
             /* explicit clone chunk for VALDESC_LIST:*/
             /* cloning from VALDESC_LIST in warmelt-base.melt */
-            // in file warmelt-base.melt line 3269
+            // in file warmelt-base.melt line 3173
             struct meltpair_st* curpair = NULL;
             dst = (struct meltlist_st*) meltgc_new_list ((meltobject_ptr_t)newdiscrv);
             resv = (melt_ptr_t) dst;
@@ -2929,7 +2803,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             struct meltmapobjects_st *dst = NULL;
             /* explicit clone chunk for VALDESC_MAPOBJECTS:*/
             /* cloning, from VALDESC_MAPOBJECTS in warmelt-base.melt */
-            // in file warmelt-base.melt line 2281
+            // in file warmelt-base.melt line 2263
             unsigned srccount = src->count;
             unsigned srclen = melt_primtab[src->lenix];
             unsigned newlen = 4*srccount/3+4;
@@ -2967,7 +2841,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             struct meltmapstrings_st *dst = NULL;
             /* explicit clone chunk for VALDESC_MAPSTRINGS:*/
             /* cloning from VALDESC_MAPSTRINGS in warmelt-base.melt */
-            // in file warmelt-base.melt line 2406
+            // in file warmelt-base.melt line 2376
             unsigned srccount = src->count;
             unsigned srclen = melt_primtab[src->lenix];
             unsigned newlen = 4*srccount/3+4;
@@ -3034,7 +2908,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             struct meltmultiple_st *dst = NULL;
             /* explicit clone chunk for VALDESC_MULTIPLE:*/
             /* cloning from VALDESC_MULTIPLE in warmelt-base.melt */
-            // in file warmelt-base.melt line 2560
+            // in file warmelt-base.melt line 2518
             unsigned srclen = src->nbval;
             dst =
                 (struct meltmultiple_st*) meltgc_new_multiple ((meltobject_ptr_t)newdiscrv, srclen);
@@ -3058,7 +2932,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             struct meltobject_st *dst = NULL;
             /* explicit clone chunk for VALDESC_OBJECT:*/
             /* cloning, from VALDESC_OBJECT */
-            // in file warmelt-base.melt line 2144
+            // in file warmelt-base.melt line 2138
             unsigned newlen = 0;
             unsigned srclen = src->obj_len;
             unsigned slotix = 0;
@@ -3090,7 +2964,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
                         dst->obj_vartab[slotix] = src->obj_vartab[slotix];
                     dst->obj_num = src->obj_num;
                 }
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             /* for low level debugging with gdb, we may want to catch some clone operations */
             if (melt_alptr_1 && (void*) src == melt_alptr_1)
                 melt_break_alptr_1 ("cloneobj src=alptr1");
@@ -3146,7 +3020,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             struct meltstrbuf_st *dst = NULL;
             /* explicit clone chunk for VALDESC_STRBUF:*/
             /* clone chunk from VALDESC_STRBUF in warmelt-base.melt */
-            // in file warmelt-base.melt line 3177
+            // in file warmelt-base.melt line 3093
             dst = (struct meltstrbuf_st*)
                   meltgc_new_strbuf ((meltobject_ptr_t)newdiscrv, NULL);
             resv = (melt_ptr_t) dst;
@@ -3166,7 +3040,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             struct meltstring_st *dst = NULL;
             /* explicit clone chunk for VALDESC_STRING:*/
             /* clone from VALDESC_STRING  file warmelt-base.melt */
-            // in file warmelt-base.melt line 3114
+            // in file warmelt-base.melt line 3036
             dst = (struct meltstring_st*)
                   meltgc_new_stringdup ((meltobject_ptr_t)newdiscrv,
                                         src->val);
@@ -4548,5 +4422,5 @@ void melthookproc_HOOK_VALUE_EXPORTER(melt_ptr_t meltin_SYM_p0, melt_ptr_t melti
 /* end of code generated by generate_runtypesupport_predefined_hooks for 161 predefined */
 
 /*** End of code file meltbuild-sources/generated/meltrunsup-inc.cc generated on 2016 May 04
- * by GCC MELT 6.0.0 20160415 (experimental) [melt-branch revision 235859] MELT_1.3.rc1+ . ***/
+ * by GCC MELT 6.0.0 20160415 (experimental) [melt-branch revision 235866] MELT_1.3.rc1+ . ***/
 

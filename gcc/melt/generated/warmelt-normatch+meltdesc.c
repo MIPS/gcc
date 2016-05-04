@@ -20,7 +20,7 @@
 	     #endif /*__cplusplus */
 	     
 /* version of the GCC compiler & MELT runtime generating this */
-const char melt_genversionstr[]="6.0.0 20160415 (experimental) [melt-branch revision 235859] MELT_1\
+const char melt_genversionstr[]="6.0.0 20160415 (experimental) [melt-branch revision 235866] MELT_1\
 .3.rc1+"
 
 	     #ifdef __cplusplus
@@ -30,26 +30,26 @@ const char melt_genversionstr[]="6.0.0 20160415 (experimental) [melt-branch revi
 	     #endif
 					;
 	     
-const char melt_versionmeltstr[]="1.3.rc1+ [melt-branch_revision_235859]";
+const char melt_versionmeltstr[]="1.3.rc1+ [melt-branch_revision_235866]";
 
 /* source name & real path of the module */
 /*MELTMODULENAME meltbuild-sources/warmelt-normatch */
 const char melt_modulename[]="warmelt-normatch";
-const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-pc-linux-gnu/6.0.0/melt-modules/1.3.rc1/warmelt-normatch";
+const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-pc-linux-gnu/6.0.0/melt-modules/1.3.rc1+/warmelt-normatch";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="61bcad919ce1b0d6ec837cb97dd65ada";
+const char melt_prepromd5meltrun[]="25f3900380beab25dc88727540911cc2";
 /* hexmd5checksum of primary C++ file */
-const char melt_primaryhexmd5[]="15004dc5d0c61979d3d7434c61e90c7f";
+const char melt_primaryhexmd5[]="59b01d75b2f7653b9c9d42b67083eb3a";
 
 /* hexmd5checksum of secondary C++ files */
 const char* const melt_secondaryhexmd5tab[]={
  /*nosecfile*/ (const char*)0,
- /*sechexmd5checksum meltbuild-sources/warmelt-normatch+01.cc #1 */ "6326c6a7ec9a04cb8df0090339c31f17",
- /*sechexmd5checksum meltbuild-sources/warmelt-normatch+02.cc #2 */ "feef5f34fc23af013a787800f4ef1ed1",
- /*sechexmd5checksum meltbuild-sources/warmelt-normatch+03.cc #3 */ "9426ff2d5f79c18be17589f81e4e7942",
- /*sechexmd5checksum meltbuild-sources/warmelt-normatch+04.cc #4 */ "03063c611590b7b66a6b4904039c6758",
- /*sechexmd5checksum meltbuild-sources/warmelt-normatch+05.cc #5 */ "eef976bede1db1416f74cc352af3e813",
+ /*sechexmd5checksum meltbuild-sources/warmelt-normatch+01.cc #1 */ "aefeee1530b288b7c16b889fa6c3e198",
+ /*sechexmd5checksum meltbuild-sources/warmelt-normatch+02.cc #2 */ "ad7d6448b96682c63585075268231461",
+ /*sechexmd5checksum meltbuild-sources/warmelt-normatch+03.cc #3 */ "ed28c926e2760b6c897648b99da9e7b2",
+ /*sechexmd5checksum meltbuild-sources/warmelt-normatch+04.cc #4 */ "8cb7ad342325ec17fead0617aaf69376",
+ /*sechexmd5checksum meltbuild-sources/warmelt-normatch+05.cc #5 */ "fb67a063b4dea8edbc8ed844a24621cc",
  /*nosecfile*/ (const char*)0,
  (const char*)0 };
 
@@ -57,13 +57,13 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=5;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="d74f10ea74cbc0086f982fe05edd1436" ;
+const char melt_cumulated_hexmd5[]="a7d1e1f867df5866ffd3cc4facf0c983" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiNORMATCH_mds__D74F10EA74CBC0086F982FE05EDD1436 1
+#define meltmod_WARMELTmiNORMATCH_mds__A7D1E1F867DF5866FFD3CC4FACF0C983 1
 #include "warmelt-normatch+melttime.h"
 	 
 
