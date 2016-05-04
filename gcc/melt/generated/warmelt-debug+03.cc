@@ -344,7 +344,7 @@ typedef Melt_InitialClassyFrame_WARMELTmiDEBUG_h640816647 /*opaqueinitialclassy*
 
 
 /* define different names when debugging or not */
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
 MELT_EXTERN const char meltmodule_WARMELTmiDEBUG__melt_have_debug_enabled[];
 #define melt_have_debug_string meltmodule_WARMELTmiDEBUG__melt_have_debug_enabled
 #else /*!MELT_HAVE_DEBUG*/
@@ -383,7 +383,7 @@ meltrout_55_WARMELTmiDEBUG_DISPLAY_DEBUG_MESSAGE(meltclosure_ptr_t meltclosp_, m
 {
     long current_blocklevel_signals_meltrout_55_WARMELTmiDEBUG_DISPLAY_DEBUG_MESSAGE_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -416,17 +416,17 @@ meltrout_55_WARMELTmiDEBUG_DISPLAY_DEBUG_MESSAGE(meltclosure_ptr_t meltclosp_, m
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_55_WARMELTmiDEBUG_DISPLAY_DEBUG_MESSAGE(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<8> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_55_WARMELTmiDEBUG_DISPLAY_DEBUG_MESSAGE), clos) {};
         MeltFrame_meltrout_55_WARMELTmiDEBUG_DISPLAY_DEBUG_MESSAGE() //the constructor fromline 1642
             : Melt_CallFrameWithValues<8> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_55_WARMELTmiDEBUG_DISPLAY_DEBUG_MESSAGE)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_55_WARMELTmiDEBUG_DISPLAY_DEBUG_MESSAGE(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<8> (fil,lin, sizeof(MeltFrame_meltrout_55_WARMELTmiDEBUG_DISPLAY_DEBUG_MESSAGE)) {};
         MeltFrame_meltrout_55_WARMELTmiDEBUG_DISPLAY_DEBUG_MESSAGE(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661

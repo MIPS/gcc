@@ -344,7 +344,7 @@ typedef Melt_InitialClassyFrame_WARMELTmiDEBUG_h640816647 /*opaqueinitialclassy*
 
 
 /* define different names when debugging or not */
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
 MELT_EXTERN const char meltmodule_WARMELTmiDEBUG__melt_have_debug_enabled[];
 #define melt_have_debug_string meltmodule_WARMELTmiDEBUG__melt_have_debug_enabled
 #else /*!MELT_HAVE_DEBUG*/
@@ -383,7 +383,7 @@ meltrout_33_WARMELTmiDEBUG_LAMBDA_cl6(meltclosure_ptr_t meltclosp_, melt_ptr_t m
 {
     long current_blocklevel_signals_meltrout_33_WARMELTmiDEBUG_LAMBDA_cl6_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -415,17 +415,17 @@ meltrout_33_WARMELTmiDEBUG_LAMBDA_cl6(meltclosure_ptr_t meltclosp_, melt_ptr_t m
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_33_WARMELTmiDEBUG_LAMBDA_cl6(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<6> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_33_WARMELTmiDEBUG_LAMBDA_cl6), clos) {};
         MeltFrame_meltrout_33_WARMELTmiDEBUG_LAMBDA_cl6() //the constructor fromline 1642
             : Melt_CallFrameWithValues<6> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_33_WARMELTmiDEBUG_LAMBDA_cl6)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_33_WARMELTmiDEBUG_LAMBDA_cl6(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<6> (fil,lin, sizeof(MeltFrame_meltrout_33_WARMELTmiDEBUG_LAMBDA_cl6)) {};
         MeltFrame_meltrout_33_WARMELTmiDEBUG_LAMBDA_cl6(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -582,7 +582,7 @@ meltrout_34_WARMELTmiDEBUG_LAMBDA_cl7(meltclosure_ptr_t meltclosp_, melt_ptr_t m
 {
     long current_blocklevel_signals_meltrout_34_WARMELTmiDEBUG_LAMBDA_cl7_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -614,17 +614,17 @@ meltrout_34_WARMELTmiDEBUG_LAMBDA_cl7(meltclosure_ptr_t meltclosp_, melt_ptr_t m
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_34_WARMELTmiDEBUG_LAMBDA_cl7(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<11> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_34_WARMELTmiDEBUG_LAMBDA_cl7), clos) {};
         MeltFrame_meltrout_34_WARMELTmiDEBUG_LAMBDA_cl7() //the constructor fromline 1642
             : Melt_CallFrameWithValues<11> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_34_WARMELTmiDEBUG_LAMBDA_cl7)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_34_WARMELTmiDEBUG_LAMBDA_cl7(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<11> (fil,lin, sizeof(MeltFrame_meltrout_34_WARMELTmiDEBUG_LAMBDA_cl7)) {};
         MeltFrame_meltrout_34_WARMELTmiDEBUG_LAMBDA_cl7(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -745,7 +745,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-debug.melt:1155:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -785,7 +785,7 @@ meltrout_35_WARMELTmiDEBUG_DBGOUT_BUCKETLONG_METHOD(meltclosure_ptr_t meltclosp_
 {
     long current_blocklevel_signals_meltrout_35_WARMELTmiDEBUG_DBGOUT_BUCKETLONG_METHOD_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -817,17 +817,17 @@ meltrout_35_WARMELTmiDEBUG_DBGOUT_BUCKETLONG_METHOD(meltclosure_ptr_t meltclosp_
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_35_WARMELTmiDEBUG_DBGOUT_BUCKETLONG_METHOD(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<28> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_35_WARMELTmiDEBUG_DBGOUT_BUCKETLONG_METHOD), clos) {};
         MeltFrame_meltrout_35_WARMELTmiDEBUG_DBGOUT_BUCKETLONG_METHOD() //the constructor fromline 1642
             : Melt_CallFrameWithValues<28> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_35_WARMELTmiDEBUG_DBGOUT_BUCKETLONG_METHOD)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_35_WARMELTmiDEBUG_DBGOUT_BUCKETLONG_METHOD(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<28> (fil,lin, sizeof(MeltFrame_meltrout_35_WARMELTmiDEBUG_DBGOUT_BUCKETLONG_METHOD)) {};
         MeltFrame_meltrout_35_WARMELTmiDEBUG_DBGOUT_BUCKETLONG_METHOD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -1456,7 +1456,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-debug.melt:1191:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -1500,7 +1500,7 @@ meltrout_36_WARMELTmiDEBUG_DBGOUT_JSONOBJECT_METHOD(meltclosure_ptr_t meltclosp_
 {
     long current_blocklevel_signals_meltrout_36_WARMELTmiDEBUG_DBGOUT_JSONOBJECT_METHOD_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -1532,17 +1532,17 @@ meltrout_36_WARMELTmiDEBUG_DBGOUT_JSONOBJECT_METHOD(meltclosure_ptr_t meltclosp_
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_36_WARMELTmiDEBUG_DBGOUT_JSONOBJECT_METHOD(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<29> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_36_WARMELTmiDEBUG_DBGOUT_JSONOBJECT_METHOD), clos) {};
         MeltFrame_meltrout_36_WARMELTmiDEBUG_DBGOUT_JSONOBJECT_METHOD() //the constructor fromline 1642
             : Melt_CallFrameWithValues<29> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_36_WARMELTmiDEBUG_DBGOUT_JSONOBJECT_METHOD)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_36_WARMELTmiDEBUG_DBGOUT_JSONOBJECT_METHOD(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<29> (fil,lin, sizeof(MeltFrame_meltrout_36_WARMELTmiDEBUG_DBGOUT_JSONOBJECT_METHOD)) {};
         MeltFrame_meltrout_36_WARMELTmiDEBUG_DBGOUT_JSONOBJECT_METHOD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -2167,7 +2167,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-debug.melt:1228:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -2211,7 +2211,7 @@ meltrout_37_WARMELTmiDEBUG_DBGOUT_ANYOBJECT_METHOD(meltclosure_ptr_t meltclosp_,
 {
     long current_blocklevel_signals_meltrout_37_WARMELTmiDEBUG_DBGOUT_ANYOBJECT_METHOD_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -2243,17 +2243,17 @@ meltrout_37_WARMELTmiDEBUG_DBGOUT_ANYOBJECT_METHOD(meltclosure_ptr_t meltclosp_,
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_37_WARMELTmiDEBUG_DBGOUT_ANYOBJECT_METHOD(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<14> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_37_WARMELTmiDEBUG_DBGOUT_ANYOBJECT_METHOD), clos) {};
         MeltFrame_meltrout_37_WARMELTmiDEBUG_DBGOUT_ANYOBJECT_METHOD() //the constructor fromline 1642
             : Melt_CallFrameWithValues<14> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_37_WARMELTmiDEBUG_DBGOUT_ANYOBJECT_METHOD)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_37_WARMELTmiDEBUG_DBGOUT_ANYOBJECT_METHOD(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<14> (fil,lin, sizeof(MeltFrame_meltrout_37_WARMELTmiDEBUG_DBGOUT_ANYOBJECT_METHOD)) {};
         MeltFrame_meltrout_37_WARMELTmiDEBUG_DBGOUT_ANYOBJECT_METHOD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -2673,7 +2673,7 @@ meltrout_38_WARMELTmiDEBUG_DBGOUT_ANYRECV_METHOD(meltclosure_ptr_t meltclosp_, m
 {
     long current_blocklevel_signals_meltrout_38_WARMELTmiDEBUG_DBGOUT_ANYRECV_METHOD_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -2705,17 +2705,17 @@ meltrout_38_WARMELTmiDEBUG_DBGOUT_ANYRECV_METHOD(meltclosure_ptr_t meltclosp_, m
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_38_WARMELTmiDEBUG_DBGOUT_ANYRECV_METHOD(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<9> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_38_WARMELTmiDEBUG_DBGOUT_ANYRECV_METHOD), clos) {};
         MeltFrame_meltrout_38_WARMELTmiDEBUG_DBGOUT_ANYRECV_METHOD() //the constructor fromline 1642
             : Melt_CallFrameWithValues<9> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_38_WARMELTmiDEBUG_DBGOUT_ANYRECV_METHOD)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_38_WARMELTmiDEBUG_DBGOUT_ANYRECV_METHOD(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<9> (fil,lin, sizeof(MeltFrame_meltrout_38_WARMELTmiDEBUG_DBGOUT_ANYRECV_METHOD)) {};
         MeltFrame_meltrout_38_WARMELTmiDEBUG_DBGOUT_ANYRECV_METHOD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -2942,7 +2942,7 @@ meltrout_39_WARMELTmiDEBUG_DBGOUTAGAIN_ANYOBJECT_METHOD(meltclosure_ptr_t meltcl
 {
     long current_blocklevel_signals_meltrout_39_WARMELTmiDEBUG_DBGOUTAGAIN_ANYOBJECT_METHOD_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -2974,17 +2974,17 @@ meltrout_39_WARMELTmiDEBUG_DBGOUTAGAIN_ANYOBJECT_METHOD(meltclosure_ptr_t meltcl
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_39_WARMELTmiDEBUG_DBGOUTAGAIN_ANYOBJECT_METHOD(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<12> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_39_WARMELTmiDEBUG_DBGOUTAGAIN_ANYOBJECT_METHOD), clos) {};
         MeltFrame_meltrout_39_WARMELTmiDEBUG_DBGOUTAGAIN_ANYOBJECT_METHOD() //the constructor fromline 1642
             : Melt_CallFrameWithValues<12> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_39_WARMELTmiDEBUG_DBGOUTAGAIN_ANYOBJECT_METHOD)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_39_WARMELTmiDEBUG_DBGOUTAGAIN_ANYOBJECT_METHOD(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<12> (fil,lin, sizeof(MeltFrame_meltrout_39_WARMELTmiDEBUG_DBGOUTAGAIN_ANYOBJECT_METHOD)) {};
         MeltFrame_meltrout_39_WARMELTmiDEBUG_DBGOUTAGAIN_ANYOBJECT_METHOD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -3305,7 +3305,7 @@ meltrout_40_WARMELTmiDEBUG_DBGOUT_NAMEDOBJECT_METHOD(meltclosure_ptr_t meltclosp
 {
     long current_blocklevel_signals_meltrout_40_WARMELTmiDEBUG_DBGOUT_NAMEDOBJECT_METHOD_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -3337,17 +3337,17 @@ meltrout_40_WARMELTmiDEBUG_DBGOUT_NAMEDOBJECT_METHOD(meltclosure_ptr_t meltclosp
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_40_WARMELTmiDEBUG_DBGOUT_NAMEDOBJECT_METHOD(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<22> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_40_WARMELTmiDEBUG_DBGOUT_NAMEDOBJECT_METHOD), clos) {};
         MeltFrame_meltrout_40_WARMELTmiDEBUG_DBGOUT_NAMEDOBJECT_METHOD() //the constructor fromline 1642
             : Melt_CallFrameWithValues<22> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_40_WARMELTmiDEBUG_DBGOUT_NAMEDOBJECT_METHOD)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_40_WARMELTmiDEBUG_DBGOUT_NAMEDOBJECT_METHOD(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<22> (fil,lin, sizeof(MeltFrame_meltrout_40_WARMELTmiDEBUG_DBGOUT_NAMEDOBJECT_METHOD)) {};
         MeltFrame_meltrout_40_WARMELTmiDEBUG_DBGOUT_NAMEDOBJECT_METHOD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -3919,7 +3919,7 @@ meltrout_41_WARMELTmiDEBUG_DBGOUTAGAIN_NAMEDOBJECT_METHOD(meltclosure_ptr_t melt
 {
     long current_blocklevel_signals_meltrout_41_WARMELTmiDEBUG_DBGOUTAGAIN_NAMEDOBJECT_METHOD_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -3951,17 +3951,17 @@ meltrout_41_WARMELTmiDEBUG_DBGOUTAGAIN_NAMEDOBJECT_METHOD(meltclosure_ptr_t melt
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_41_WARMELTmiDEBUG_DBGOUTAGAIN_NAMEDOBJECT_METHOD(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<13> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_41_WARMELTmiDEBUG_DBGOUTAGAIN_NAMEDOBJECT_METHOD), clos) {};
         MeltFrame_meltrout_41_WARMELTmiDEBUG_DBGOUTAGAIN_NAMEDOBJECT_METHOD() //the constructor fromline 1642
             : Melt_CallFrameWithValues<13> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_41_WARMELTmiDEBUG_DBGOUTAGAIN_NAMEDOBJECT_METHOD)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_41_WARMELTmiDEBUG_DBGOUTAGAIN_NAMEDOBJECT_METHOD(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<13> (fil,lin, sizeof(MeltFrame_meltrout_41_WARMELTmiDEBUG_DBGOUTAGAIN_NAMEDOBJECT_METHOD)) {};
         MeltFrame_meltrout_41_WARMELTmiDEBUG_DBGOUTAGAIN_NAMEDOBJECT_METHOD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -4268,7 +4268,7 @@ meltrout_42_WARMELTmiDEBUG_DBGOUTAGAIN_SYMBOL_METHOD(meltclosure_ptr_t meltclosp
 {
     long current_blocklevel_signals_meltrout_42_WARMELTmiDEBUG_DBGOUTAGAIN_SYMBOL_METHOD_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -4300,17 +4300,17 @@ meltrout_42_WARMELTmiDEBUG_DBGOUTAGAIN_SYMBOL_METHOD(meltclosure_ptr_t meltclosp
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_42_WARMELTmiDEBUG_DBGOUTAGAIN_SYMBOL_METHOD(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<11> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_42_WARMELTmiDEBUG_DBGOUTAGAIN_SYMBOL_METHOD), clos) {};
         MeltFrame_meltrout_42_WARMELTmiDEBUG_DBGOUTAGAIN_SYMBOL_METHOD() //the constructor fromline 1642
             : Melt_CallFrameWithValues<11> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_42_WARMELTmiDEBUG_DBGOUTAGAIN_SYMBOL_METHOD)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_42_WARMELTmiDEBUG_DBGOUTAGAIN_SYMBOL_METHOD(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<11> (fil,lin, sizeof(MeltFrame_meltrout_42_WARMELTmiDEBUG_DBGOUTAGAIN_SYMBOL_METHOD)) {};
         MeltFrame_meltrout_42_WARMELTmiDEBUG_DBGOUTAGAIN_SYMBOL_METHOD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -4626,7 +4626,7 @@ meltrout_43_WARMELTmiDEBUG_DBGOUT_SYMBOL_METHOD(meltclosure_ptr_t meltclosp_, me
 {
     long current_blocklevel_signals_meltrout_43_WARMELTmiDEBUG_DBGOUT_SYMBOL_METHOD_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -4658,17 +4658,17 @@ meltrout_43_WARMELTmiDEBUG_DBGOUT_SYMBOL_METHOD(meltclosure_ptr_t meltclosp_, me
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_43_WARMELTmiDEBUG_DBGOUT_SYMBOL_METHOD(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<12> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_43_WARMELTmiDEBUG_DBGOUT_SYMBOL_METHOD), clos) {};
         MeltFrame_meltrout_43_WARMELTmiDEBUG_DBGOUT_SYMBOL_METHOD() //the constructor fromline 1642
             : Melt_CallFrameWithValues<12> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_43_WARMELTmiDEBUG_DBGOUT_SYMBOL_METHOD)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_43_WARMELTmiDEBUG_DBGOUT_SYMBOL_METHOD(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<12> (fil,lin, sizeof(MeltFrame_meltrout_43_WARMELTmiDEBUG_DBGOUT_SYMBOL_METHOD)) {};
         MeltFrame_meltrout_43_WARMELTmiDEBUG_DBGOUT_SYMBOL_METHOD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -4942,7 +4942,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-debug.melt:1389:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -4988,7 +4988,7 @@ meltrout_44_WARMELTmiDEBUG_DBGOUT_CLASS_METHOD(meltclosure_ptr_t meltclosp_, mel
 {
     long current_blocklevel_signals_meltrout_44_WARMELTmiDEBUG_DBGOUT_CLASS_METHOD_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -5020,17 +5020,17 @@ meltrout_44_WARMELTmiDEBUG_DBGOUT_CLASS_METHOD(meltclosure_ptr_t meltclosp_, mel
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_44_WARMELTmiDEBUG_DBGOUT_CLASS_METHOD(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<12> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_44_WARMELTmiDEBUG_DBGOUT_CLASS_METHOD), clos) {};
         MeltFrame_meltrout_44_WARMELTmiDEBUG_DBGOUT_CLASS_METHOD() //the constructor fromline 1642
             : Melt_CallFrameWithValues<12> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_44_WARMELTmiDEBUG_DBGOUT_CLASS_METHOD)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_44_WARMELTmiDEBUG_DBGOUT_CLASS_METHOD(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<12> (fil,lin, sizeof(MeltFrame_meltrout_44_WARMELTmiDEBUG_DBGOUT_CLASS_METHOD)) {};
         MeltFrame_meltrout_44_WARMELTmiDEBUG_DBGOUT_CLASS_METHOD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -5304,7 +5304,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-debug.melt:1399:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -5350,7 +5350,7 @@ meltrout_45_WARMELTmiDEBUG_DBGOUTAGAIN_KEYWORD_METHOD(meltclosure_ptr_t meltclos
 {
     long current_blocklevel_signals_meltrout_45_WARMELTmiDEBUG_DBGOUTAGAIN_KEYWORD_METHOD_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -5382,17 +5382,17 @@ meltrout_45_WARMELTmiDEBUG_DBGOUTAGAIN_KEYWORD_METHOD(meltclosure_ptr_t meltclos
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_45_WARMELTmiDEBUG_DBGOUTAGAIN_KEYWORD_METHOD(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<11> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_45_WARMELTmiDEBUG_DBGOUTAGAIN_KEYWORD_METHOD), clos) {};
         MeltFrame_meltrout_45_WARMELTmiDEBUG_DBGOUTAGAIN_KEYWORD_METHOD() //the constructor fromline 1642
             : Melt_CallFrameWithValues<11> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_45_WARMELTmiDEBUG_DBGOUTAGAIN_KEYWORD_METHOD)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_45_WARMELTmiDEBUG_DBGOUTAGAIN_KEYWORD_METHOD(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<11> (fil,lin, sizeof(MeltFrame_meltrout_45_WARMELTmiDEBUG_DBGOUTAGAIN_KEYWORD_METHOD)) {};
         MeltFrame_meltrout_45_WARMELTmiDEBUG_DBGOUTAGAIN_KEYWORD_METHOD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -5673,7 +5673,7 @@ meltrout_46_WARMELTmiDEBUG_DBGOUT_KEYWORD_METHOD(meltclosure_ptr_t meltclosp_, m
 {
     long current_blocklevel_signals_meltrout_46_WARMELTmiDEBUG_DBGOUT_KEYWORD_METHOD_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -5705,17 +5705,17 @@ meltrout_46_WARMELTmiDEBUG_DBGOUT_KEYWORD_METHOD(meltclosure_ptr_t meltclosp_, m
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_46_WARMELTmiDEBUG_DBGOUT_KEYWORD_METHOD(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<12> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_46_WARMELTmiDEBUG_DBGOUT_KEYWORD_METHOD), clos) {};
         MeltFrame_meltrout_46_WARMELTmiDEBUG_DBGOUT_KEYWORD_METHOD() //the constructor fromline 1642
             : Melt_CallFrameWithValues<12> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_46_WARMELTmiDEBUG_DBGOUT_KEYWORD_METHOD)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_46_WARMELTmiDEBUG_DBGOUT_KEYWORD_METHOD(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<12> (fil,lin, sizeof(MeltFrame_meltrout_46_WARMELTmiDEBUG_DBGOUT_KEYWORD_METHOD)) {};
         MeltFrame_meltrout_46_WARMELTmiDEBUG_DBGOUT_KEYWORD_METHOD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -5989,7 +5989,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-debug.melt:1422:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -6035,7 +6035,7 @@ meltrout_47_WARMELTmiDEBUG_DBGOUTAGAIN_CLONED_SYMBOL_METHOD(meltclosure_ptr_t me
 {
     long current_blocklevel_signals_meltrout_47_WARMELTmiDEBUG_DBGOUTAGAIN_CLONED_SYMBOL_METHOD_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -6067,17 +6067,17 @@ meltrout_47_WARMELTmiDEBUG_DBGOUTAGAIN_CLONED_SYMBOL_METHOD(meltclosure_ptr_t me
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_47_WARMELTmiDEBUG_DBGOUTAGAIN_CLONED_SYMBOL_METHOD(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<7> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_47_WARMELTmiDEBUG_DBGOUTAGAIN_CLONED_SYMBOL_METHOD), clos) {};
         MeltFrame_meltrout_47_WARMELTmiDEBUG_DBGOUTAGAIN_CLONED_SYMBOL_METHOD() //the constructor fromline 1642
             : Melt_CallFrameWithValues<7> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_47_WARMELTmiDEBUG_DBGOUTAGAIN_CLONED_SYMBOL_METHOD)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_47_WARMELTmiDEBUG_DBGOUTAGAIN_CLONED_SYMBOL_METHOD(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<7> (fil,lin, sizeof(MeltFrame_meltrout_47_WARMELTmiDEBUG_DBGOUTAGAIN_CLONED_SYMBOL_METHOD)) {};
         MeltFrame_meltrout_47_WARMELTmiDEBUG_DBGOUTAGAIN_CLONED_SYMBOL_METHOD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -6244,7 +6244,7 @@ meltrout_48_WARMELTmiDEBUG_DBGOUT_CLONED_SYMBOL_METHOD(meltclosure_ptr_t meltclo
 {
     long current_blocklevel_signals_meltrout_48_WARMELTmiDEBUG_DBGOUT_CLONED_SYMBOL_METHOD_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -6276,17 +6276,17 @@ meltrout_48_WARMELTmiDEBUG_DBGOUT_CLONED_SYMBOL_METHOD(meltclosure_ptr_t meltclo
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_48_WARMELTmiDEBUG_DBGOUT_CLONED_SYMBOL_METHOD(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<12> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_48_WARMELTmiDEBUG_DBGOUT_CLONED_SYMBOL_METHOD), clos) {};
         MeltFrame_meltrout_48_WARMELTmiDEBUG_DBGOUT_CLONED_SYMBOL_METHOD() //the constructor fromline 1642
             : Melt_CallFrameWithValues<12> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_48_WARMELTmiDEBUG_DBGOUT_CLONED_SYMBOL_METHOD)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_48_WARMELTmiDEBUG_DBGOUT_CLONED_SYMBOL_METHOD(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<12> (fil,lin, sizeof(MeltFrame_meltrout_48_WARMELTmiDEBUG_DBGOUT_CLONED_SYMBOL_METHOD)) {};
         MeltFrame_meltrout_48_WARMELTmiDEBUG_DBGOUT_CLONED_SYMBOL_METHOD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -6560,7 +6560,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-debug.melt:1447:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -6606,7 +6606,7 @@ meltrout_49_WARMELTmiDEBUG_DBGOUT_ENVIRONMENT_METHOD(meltclosure_ptr_t meltclosp
 {
     long current_blocklevel_signals_meltrout_49_WARMELTmiDEBUG_DBGOUT_ENVIRONMENT_METHOD_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -6638,17 +6638,17 @@ meltrout_49_WARMELTmiDEBUG_DBGOUT_ENVIRONMENT_METHOD(meltclosure_ptr_t meltclosp
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_49_WARMELTmiDEBUG_DBGOUT_ENVIRONMENT_METHOD(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<34> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_49_WARMELTmiDEBUG_DBGOUT_ENVIRONMENT_METHOD), clos) {};
         MeltFrame_meltrout_49_WARMELTmiDEBUG_DBGOUT_ENVIRONMENT_METHOD() //the constructor fromline 1642
             : Melt_CallFrameWithValues<34> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_49_WARMELTmiDEBUG_DBGOUT_ENVIRONMENT_METHOD)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_49_WARMELTmiDEBUG_DBGOUT_ENVIRONMENT_METHOD(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<34> (fil,lin, sizeof(MeltFrame_meltrout_49_WARMELTmiDEBUG_DBGOUT_ENVIRONMENT_METHOD)) {};
         MeltFrame_meltrout_49_WARMELTmiDEBUG_DBGOUT_ENVIRONMENT_METHOD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -7772,7 +7772,7 @@ meltrout_50_WARMELTmiDEBUG_DBGOUTAGAIN_CTYPE_METHOD(meltclosure_ptr_t meltclosp_
 {
     long current_blocklevel_signals_meltrout_50_WARMELTmiDEBUG_DBGOUTAGAIN_CTYPE_METHOD_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -7804,17 +7804,17 @@ meltrout_50_WARMELTmiDEBUG_DBGOUTAGAIN_CTYPE_METHOD(meltclosure_ptr_t meltclosp_
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_50_WARMELTmiDEBUG_DBGOUTAGAIN_CTYPE_METHOD(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<6> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_50_WARMELTmiDEBUG_DBGOUTAGAIN_CTYPE_METHOD), clos) {};
         MeltFrame_meltrout_50_WARMELTmiDEBUG_DBGOUTAGAIN_CTYPE_METHOD() //the constructor fromline 1642
             : Melt_CallFrameWithValues<6> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_50_WARMELTmiDEBUG_DBGOUTAGAIN_CTYPE_METHOD)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_50_WARMELTmiDEBUG_DBGOUTAGAIN_CTYPE_METHOD(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<6> (fil,lin, sizeof(MeltFrame_meltrout_50_WARMELTmiDEBUG_DBGOUTAGAIN_CTYPE_METHOD)) {};
         MeltFrame_meltrout_50_WARMELTmiDEBUG_DBGOUTAGAIN_CTYPE_METHOD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -7955,7 +7955,7 @@ meltrout_51_WARMELTmiDEBUG_DBGOUT_CTYPE_METHOD(meltclosure_ptr_t meltclosp_, mel
 {
     long current_blocklevel_signals_meltrout_51_WARMELTmiDEBUG_DBGOUT_CTYPE_METHOD_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -7987,17 +7987,17 @@ meltrout_51_WARMELTmiDEBUG_DBGOUT_CTYPE_METHOD(meltclosure_ptr_t meltclosp_, mel
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_51_WARMELTmiDEBUG_DBGOUT_CTYPE_METHOD(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<12> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_51_WARMELTmiDEBUG_DBGOUT_CTYPE_METHOD), clos) {};
         MeltFrame_meltrout_51_WARMELTmiDEBUG_DBGOUT_CTYPE_METHOD() //the constructor fromline 1642
             : Melt_CallFrameWithValues<12> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_51_WARMELTmiDEBUG_DBGOUT_CTYPE_METHOD)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_51_WARMELTmiDEBUG_DBGOUT_CTYPE_METHOD(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<12> (fil,lin, sizeof(MeltFrame_meltrout_51_WARMELTmiDEBUG_DBGOUT_CTYPE_METHOD)) {};
         MeltFrame_meltrout_51_WARMELTmiDEBUG_DBGOUT_CTYPE_METHOD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -8271,7 +8271,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-debug.melt:1542:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -8317,7 +8317,7 @@ meltrout_52_WARMELTmiDEBUG_DBGOUT_ANYBINDING_METHOD(meltclosure_ptr_t meltclosp_
 {
     long current_blocklevel_signals_meltrout_52_WARMELTmiDEBUG_DBGOUT_ANYBINDING_METHOD_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -8349,17 +8349,17 @@ meltrout_52_WARMELTmiDEBUG_DBGOUT_ANYBINDING_METHOD(meltclosure_ptr_t meltclosp_
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_52_WARMELTmiDEBUG_DBGOUT_ANYBINDING_METHOD(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<18> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_52_WARMELTmiDEBUG_DBGOUT_ANYBINDING_METHOD), clos) {};
         MeltFrame_meltrout_52_WARMELTmiDEBUG_DBGOUT_ANYBINDING_METHOD() //the constructor fromline 1642
             : Melt_CallFrameWithValues<18> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_52_WARMELTmiDEBUG_DBGOUT_ANYBINDING_METHOD)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_52_WARMELTmiDEBUG_DBGOUT_ANYBINDING_METHOD(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<18> (fil,lin, sizeof(MeltFrame_meltrout_52_WARMELTmiDEBUG_DBGOUT_ANYBINDING_METHOD)) {};
         MeltFrame_meltrout_52_WARMELTmiDEBUG_DBGOUT_ANYBINDING_METHOD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -8824,7 +8824,7 @@ meltrout_53_WARMELTmiDEBUG_DEBUG_LESS_FUN(meltclosure_ptr_t meltclosp_, melt_ptr
 {
     long current_blocklevel_signals_meltrout_53_WARMELTmiDEBUG_DEBUG_LESS_FUN_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -8856,17 +8856,17 @@ meltrout_53_WARMELTmiDEBUG_DEBUG_LESS_FUN(meltclosure_ptr_t meltclosp_, melt_ptr
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_53_WARMELTmiDEBUG_DEBUG_LESS_FUN(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<10> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_53_WARMELTmiDEBUG_DEBUG_LESS_FUN), clos) {};
         MeltFrame_meltrout_53_WARMELTmiDEBUG_DEBUG_LESS_FUN() //the constructor fromline 1642
             : Melt_CallFrameWithValues<10> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_53_WARMELTmiDEBUG_DEBUG_LESS_FUN)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_53_WARMELTmiDEBUG_DEBUG_LESS_FUN(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<10> (fil,lin, sizeof(MeltFrame_meltrout_53_WARMELTmiDEBUG_DEBUG_LESS_FUN)) {};
         MeltFrame_meltrout_53_WARMELTmiDEBUG_DEBUG_LESS_FUN(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -9164,7 +9164,7 @@ meltrout_54_WARMELTmiDEBUG_DEBUG_MORE_FUN(meltclosure_ptr_t meltclosp_, melt_ptr
 {
     long current_blocklevel_signals_meltrout_54_WARMELTmiDEBUG_DEBUG_MORE_FUN_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -9196,17 +9196,17 @@ meltrout_54_WARMELTmiDEBUG_DEBUG_MORE_FUN(meltclosure_ptr_t meltclosp_, melt_ptr
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_54_WARMELTmiDEBUG_DEBUG_MORE_FUN(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<18> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_54_WARMELTmiDEBUG_DEBUG_MORE_FUN), clos) {};
         MeltFrame_meltrout_54_WARMELTmiDEBUG_DEBUG_MORE_FUN() //the constructor fromline 1642
             : Melt_CallFrameWithValues<18> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_54_WARMELTmiDEBUG_DEBUG_MORE_FUN)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_54_WARMELTmiDEBUG_DEBUG_MORE_FUN(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<18> (fil,lin, sizeof(MeltFrame_meltrout_54_WARMELTmiDEBUG_DEBUG_MORE_FUN)) {};
         MeltFrame_meltrout_54_WARMELTmiDEBUG_DEBUG_MORE_FUN(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661

@@ -1,5 +1,9 @@
 
 2016-05-04   Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/generated/*: Regenerated all.
+
+2016-05-04   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{systematically use #if MELT_HAVE_DEBUG > 0 everywhere, but
 	cppif MELT_HAVE_DEBUG remains}}
 	* melt-runtime.h: Use  #if MELT_HAVE_DEBUG > 0

@@ -345,7 +345,7 @@ typedef Melt_InitialClassyFrame_WARMELTmiDEBUG_h640816647 /*opaqueinitialclassy*
 
 
 /* define different names when debugging or not */
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
 MELT_EXTERN const char meltmodule_WARMELTmiDEBUG__melt_have_debug_enabled[];
 #define melt_have_debug_string meltmodule_WARMELTmiDEBUG__melt_have_debug_enabled
 #else /*!MELT_HAVE_DEBUG*/
@@ -386,7 +386,7 @@ meltrout_1_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN(meltclosure_ptr_t meltclosp_, 
 {
     long current_blocklevel_signals_meltrout_1_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -418,17 +418,17 @@ meltrout_1_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN(meltclosure_ptr_t meltclosp_, 
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_1_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<4> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_1_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN), clos) {};
         MeltFrame_meltrout_1_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN() //the constructor fromline 1642
             : Melt_CallFrameWithValues<4> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_1_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_1_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<4> (fil,lin, sizeof(MeltFrame_meltrout_1_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN)) {};
         MeltFrame_meltrout_1_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -592,7 +592,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-debug.melt:111:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -632,7 +632,7 @@ meltrout_2_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN(meltclosure_ptr_t meltclosp_
 {
     long current_blocklevel_signals_meltrout_2_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -664,17 +664,17 @@ meltrout_2_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN(meltclosure_ptr_t meltclosp_
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_2_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<4> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_2_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN), clos) {};
         MeltFrame_meltrout_2_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN() //the constructor fromline 1642
             : Melt_CallFrameWithValues<4> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_2_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_2_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<4> (fil,lin, sizeof(MeltFrame_meltrout_2_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN)) {};
         MeltFrame_meltrout_2_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -838,7 +838,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-debug.melt:124:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -878,7 +878,7 @@ meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN(meltclosure_ptr_t meltclo
 {
     long current_blocklevel_signals_meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -910,17 +910,17 @@ meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN(meltclosure_ptr_t meltclo
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<4> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN), clos) {};
         MeltFrame_meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN() //the constructor fromline 1642
             : Melt_CallFrameWithValues<4> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<4> (fil,lin, sizeof(MeltFrame_meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN)) {};
         MeltFrame_meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -1084,7 +1084,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-debug.melt:137:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -1124,7 +1124,7 @@ meltrout_4_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN(meltclosure_ptr_t meltclosp_, 
 {
     long current_blocklevel_signals_meltrout_4_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -1156,17 +1156,17 @@ meltrout_4_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN(meltclosure_ptr_t meltclosp_, 
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_4_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<4> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_4_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN), clos) {};
         MeltFrame_meltrout_4_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN() //the constructor fromline 1642
             : Melt_CallFrameWithValues<4> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_4_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_4_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<4> (fil,lin, sizeof(MeltFrame_meltrout_4_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN)) {};
         MeltFrame_meltrout_4_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -1330,7 +1330,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-debug.melt:150:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -1370,7 +1370,7 @@ meltrout_5_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN(meltclosure_ptr_t meltcl
 {
     long current_blocklevel_signals_meltrout_5_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -1402,17 +1402,17 @@ meltrout_5_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN(meltclosure_ptr_t meltcl
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_5_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<4> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_5_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN), clos) {};
         MeltFrame_meltrout_5_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN() //the constructor fromline 1642
             : Melt_CallFrameWithValues<4> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_5_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_5_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<4> (fil,lin, sizeof(MeltFrame_meltrout_5_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN)) {};
         MeltFrame_meltrout_5_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -1576,7 +1576,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-debug.melt:163:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -1616,7 +1616,7 @@ meltrout_6_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN(meltclosure_ptr_t meltclosp_, 
 {
     long current_blocklevel_signals_meltrout_6_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -1648,17 +1648,17 @@ meltrout_6_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN(meltclosure_ptr_t meltclosp_, 
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_6_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<4> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_6_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN), clos) {};
         MeltFrame_meltrout_6_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN() //the constructor fromline 1642
             : Melt_CallFrameWithValues<4> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_6_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_6_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<4> (fil,lin, sizeof(MeltFrame_meltrout_6_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN)) {};
         MeltFrame_meltrout_6_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -1822,7 +1822,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-debug.melt:176:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -1866,7 +1866,7 @@ meltrout_7_WARMELTmiDEBUG_MELT_DEBUG_FUN(meltclosure_ptr_t meltclosp_, melt_ptr_
 
     long current_blocklevel_signals_meltrout_7_WARMELTmiDEBUG_MELT_DEBUG_FUN_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -1934,17 +1934,17 @@ meltrout_7_WARMELTmiDEBUG_MELT_DEBUG_FUN(meltclosure_ptr_t meltclosp_, melt_ptr_
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_7_WARMELTmiDEBUG_MELT_DEBUG_FUN(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<70> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_7_WARMELTmiDEBUG_MELT_DEBUG_FUN), clos) {};
         MeltFrame_meltrout_7_WARMELTmiDEBUG_MELT_DEBUG_FUN() //the constructor fromline 1642
             : Melt_CallFrameWithValues<70> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_7_WARMELTmiDEBUG_MELT_DEBUG_FUN)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_7_WARMELTmiDEBUG_MELT_DEBUG_FUN(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<70> (fil,lin, sizeof(MeltFrame_meltrout_7_WARMELTmiDEBUG_MELT_DEBUG_FUN)) {};
         MeltFrame_meltrout_7_WARMELTmiDEBUG_MELT_DEBUG_FUN(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -4644,7 +4644,7 @@ meltlabend_rout:
 
 
 /****** emitted syntax checking for C generating devices *****/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
 
 /* generated syntax checking routine for 4 C generating devices */
 MELT_EXTERN void MELT_MODULE_VISIBILITY melt_syntax_tester_WARMELTmiDEBUG (void);
@@ -4726,17 +4726,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     Melt_InitialClassyFrame_WARMELTmiDEBUG_h640816647(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<444> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(Melt_InitialClassyFrame_WARMELTmiDEBUG_h640816647), clos) {};
     Melt_InitialClassyFrame_WARMELTmiDEBUG_h640816647() //the constructor fromline 1642
         : Melt_CallFrameWithValues<444> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(Melt_InitialClassyFrame_WARMELTmiDEBUG_h640816647)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     Melt_InitialClassyFrame_WARMELTmiDEBUG_h640816647(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<444> (fil,lin, sizeof(Melt_InitialClassyFrame_WARMELTmiDEBUG_h640816647)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -7850,7 +7850,7 @@ static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t 
 
 
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
 const char meltmodule_WARMELTmiDEBUG__melt_have_debug_enabled[] = "MELT module warmelt-debug have debug enabled";
 #else /*!MELT_HAVE_DEBUG*/
 const char meltmodule_WARMELTmiDEBUG__melt_have_debug_disabled[] = "MELT module warmelt-debug have debug disabled";
@@ -7862,7 +7862,7 @@ void* MELT_LOW_OPTIMIZATION melt_start_this_module (void* modargp_)
 
     char meltpredefinited[MELTGLOB__LASTGLOB+8];
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -7884,7 +7884,7 @@ void* MELT_LOW_OPTIMIZATION melt_start_this_module (void* modargp_)
     /* classy initial frame melt_start_this_module fromline 1773*/ Melt_InitialFrame
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyinitroutinearg melt_start_this_module fromline 1819*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     /*classyinitroutfram fromline 1823:*/ (__FILE__, __LINE__)
 #endif /*MELT_HAVE_DEBUG fromline1825*/
 

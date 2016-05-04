@@ -1209,7 +1209,7 @@ typedef Melt_InitialClassyFrame_WARMELTmiHOOKS_h244320376 /*opaqueinitialclassy*
 
 
 /* define different names when debugging or not */
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
 MELT_EXTERN const char meltmodule_WARMELTmiHOOKS__melt_have_debug_enabled[];
 #define melt_have_debug_string meltmodule_WARMELTmiHOOKS__melt_have_debug_enabled
 #else /*!MELT_HAVE_DEBUG*/
@@ -1582,17 +1582,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<3> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT), clos) {};
     MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT() //the constructor fromline 1642
         : Melt_CallFrameWithValues<3> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<3> (fil,lin, sizeof(MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -1603,7 +1603,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<3> (fil,lin, sizeof(MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -1627,7 +1627,7 @@ void melthook_HOOK_LOW_DEBUG_VALUE_AT(melt_ptr_t melthookdatap,
     /* body of hook melthook_HOOK_LOW_DEBUG_VALUE_AT from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_LOW_DEBUG_VALUE_AT hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_LOW_DEBUG_VALUE_AT ;
     long melt_thishookcall_counter_HOOK_LOW_DEBUG_VALUE_AT ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_LOW_DEBUG_VALUE_AT++ ;
@@ -1726,17 +1726,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<9> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT), clos) {};
     MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT() //the constructor fromline 1642
         : Melt_CallFrameWithValues<9> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<9> (fil,lin, sizeof(MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -1747,7 +1747,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<9> (fil,lin, sizeof(MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -1771,7 +1771,7 @@ void melthook_HOOK_LOW_STDERR_VALUE_AT(melt_ptr_t melthookdatap,
     /* body of hook melthook_HOOK_LOW_STDERR_VALUE_AT from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_LOW_STDERR_VALUE_AT hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_LOW_STDERR_VALUE_AT ;
     long melt_thishookcall_counter_HOOK_LOW_STDERR_VALUE_AT ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_LOW_STDERR_VALUE_AT++ ;
@@ -2147,17 +2147,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_OVERRIDE_GATE(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<38> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_OVERRIDE_GATE), clos) {};
     MeltFrame_melthook_HOOK_OVERRIDE_GATE() //the constructor fromline 1642
         : Melt_CallFrameWithValues<38> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_OVERRIDE_GATE)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_OVERRIDE_GATE(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<38> (fil,lin, sizeof(MeltFrame_melthook_HOOK_OVERRIDE_GATE)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -2168,7 +2168,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_OVERRIDE_GATE), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_OVERRIDE_GATE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<38> (fil,lin, sizeof(MeltFrame_melthook_HOOK_OVERRIDE_GATE), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -2189,7 +2189,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
     /* body of hook melthook_HOOK_OVERRIDE_GATE from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_OVERRIDE_GATE hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_OVERRIDE_GATE ;
     long melt_thishookcall_counter_HOOK_OVERRIDE_GATE ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_OVERRIDE_GATE++ ;
@@ -2231,7 +2231,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
             ;
             /*_#MELT_NEED_DBG__L3*/ meltfnum[2] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -2247,7 +2247,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
 
                         /*_#MELT_CALLCOUNT__L4*/ meltfnum[3] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -2452,7 +2452,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
             ;
             /*_#MELT_NEED_DBG__L7*/ meltfnum[6] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -2468,7 +2468,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
 
                         /*_#MELT_CALLCOUNT__L8*/ meltfnum[7] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -2593,7 +2593,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
                         ;
                         /*_#MELT_NEED_DBG__L9*/ meltfnum[7] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -2609,7 +2609,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
 
                                     /*_#MELT_CALLCOUNT__L10*/ meltfnum[6] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -2745,7 +2745,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
                                     ;
                                     /*_#MELT_NEED_DBG__L12*/ meltfnum[7] =
                                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                         0 /* no melt_need_dbg */
@@ -2761,7 +2761,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
 
                                                 /*_#MELT_CALLCOUNT__L13*/ meltfnum[12] =
                                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                     meltcallcount  /* melt_callcount debugging */
 #else
                                                     0L  /* melt_callcount without debug */
@@ -2958,7 +2958,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
                         ;
                         /*_#MELT_NEED_DBG__L15*/ meltfnum[7] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -2974,7 +2974,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
 
                                     /*_#MELT_CALLCOUNT__L16*/ meltfnum[15] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -3165,7 +3165,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
                         ;
                         /*_#MELT_NEED_DBG__L18*/ meltfnum[7] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -3181,7 +3181,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
 
                                     /*_#MELT_CALLCOUNT__L19*/ meltfnum[15] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -3305,7 +3305,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
             ;
             /*_#MELT_NEED_DBG__L20*/ meltfnum[15] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -3321,7 +3321,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
 
                         /*_#MELT_CALLCOUNT__L21*/ meltfnum[7] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -3505,7 +3505,7 @@ meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE(meltclosure_ptr_t meltclosp_, mel
 {
     long current_blocklevel_signals_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -3537,17 +3537,17 @@ meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE(meltclosure_ptr_t meltclosp_, mel
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<1> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE), clos) {};
         MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE() //the constructor fromline 1642
             : Melt_CallFrameWithValues<1> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<1> (fil,lin, sizeof(MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE)) {};
         MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -3630,7 +3630,7 @@ meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE(meltclosure_ptr_t meltclos
 {
     long current_blocklevel_signals_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -3662,17 +3662,17 @@ meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE(meltclosure_ptr_t meltclos
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<5> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE), clos) {};
         MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE() //the constructor fromline 1642
             : Melt_CallFrameWithValues<5> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<5> (fil,lin, sizeof(MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE)) {};
         MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -3867,7 +3867,7 @@ meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST(meltclosure_ptr_t meltclo
 {
     long current_blocklevel_signals_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -3899,17 +3899,17 @@ meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST(meltclosure_ptr_t meltclo
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<8> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST), clos) {};
         MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST() //the constructor fromline 1642
             : Melt_CallFrameWithValues<8> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<8> (fil,lin, sizeof(MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST)) {};
         MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -3978,7 +3978,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L1*/ meltfnum[0] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -3994,7 +3994,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L2*/ meltfnum[1] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -4155,7 +4155,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-hooks.melt:233:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -4197,7 +4197,7 @@ meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST(meltclosure_ptr_t meltclos
 {
     long current_blocklevel_signals_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -4229,17 +4229,17 @@ meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST(meltclosure_ptr_t meltclos
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<8> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST), clos) {};
         MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST() //the constructor fromline 1642
             : Melt_CallFrameWithValues<8> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<8> (fil,lin, sizeof(MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST)) {};
         MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -4308,7 +4308,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L1*/ meltfnum[0] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -4324,7 +4324,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L2*/ meltfnum[1] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -4485,7 +4485,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-hooks.melt:241:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -4527,7 +4527,7 @@ meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST(meltclosure_ptr_t meltc
 {
     long current_blocklevel_signals_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -4559,17 +4559,17 @@ meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST(meltclosure_ptr_t meltc
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<19> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST), clos) {};
         MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST() //the constructor fromline 1642
             : Melt_CallFrameWithValues<19> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<19> (fil,lin, sizeof(MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST)) {};
         MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -4638,7 +4638,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L1*/ meltfnum[0] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -4654,7 +4654,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L2*/ meltfnum[1] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -4909,7 +4909,7 @@ meltlab_endgetargs:
                         ;
                         /*_#MELT_NEED_DBG__L8*/ meltfnum[5] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -4925,7 +4925,7 @@ meltlab_endgetargs:
 
                                     /*_#MELT_CALLCOUNT__L9*/ meltfnum[6] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -5015,7 +5015,7 @@ meltlab_endgetargs:
                     {
                         MELT_LOCATION("warmelt-hooks.melt:268:/ locexp");
                         /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                             melt_warn_for_no_expected_secondary_results();
                         /* we warned when secondary results are expected but not returned. */
@@ -5073,7 +5073,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L10*/ meltfnum[6] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -5089,7 +5089,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L11*/ meltfnum[5] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -5175,7 +5175,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-hooks.melt:270:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -5209,7 +5209,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-hooks.melt:249:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -5249,7 +5249,7 @@ meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST(meltclosure_ptr_t meltcl
 {
     long current_blocklevel_signals_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -5281,17 +5281,17 @@ meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST(meltclosure_ptr_t meltcl
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<19> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST), clos) {};
         MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST() //the constructor fromline 1642
             : Melt_CallFrameWithValues<19> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<19> (fil,lin, sizeof(MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST)) {};
         MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -5360,7 +5360,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L1*/ meltfnum[0] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -5376,7 +5376,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L2*/ meltfnum[1] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -5631,7 +5631,7 @@ meltlab_endgetargs:
                         ;
                         /*_#MELT_NEED_DBG__L8*/ meltfnum[5] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -5647,7 +5647,7 @@ meltlab_endgetargs:
 
                                     /*_#MELT_CALLCOUNT__L9*/ meltfnum[6] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -5737,7 +5737,7 @@ meltlab_endgetargs:
                     {
                         MELT_LOCATION("warmelt-hooks.melt:291:/ locexp");
                         /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                             melt_warn_for_no_expected_secondary_results();
                         /* we warned when secondary results are expected but not returned. */
@@ -5795,7 +5795,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L10*/ meltfnum[6] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -5811,7 +5811,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L11*/ meltfnum[5] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -5897,7 +5897,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-hooks.melt:293:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -5931,7 +5931,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-hooks.melt:272:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -5971,7 +5971,7 @@ meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1(meltclosure_ptr_t meltclosp_, melt_ptr_t m
 {
     long current_blocklevel_signals_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -6003,17 +6003,17 @@ meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1(meltclosure_ptr_t meltclosp_, melt_ptr_t m
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<4> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1), clos) {};
         MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1() //the constructor fromline 1642
             : Melt_CallFrameWithValues<4> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<4> (fil,lin, sizeof(MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1)) {};
         MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -6134,7 +6134,7 @@ meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2(meltclosure_ptr_t meltclosp_, melt_ptr_t m
 {
     long current_blocklevel_signals_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -6166,17 +6166,17 @@ meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2(meltclosure_ptr_t meltclosp_, melt_ptr_t m
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<2> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2), clos) {};
         MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2() //the constructor fromline 1642
             : Melt_CallFrameWithValues<2> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<2> (fil,lin, sizeof(MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2)) {};
         MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -6276,7 +6276,7 @@ meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3(meltclosure_ptr_t meltclosp_, melt_ptr_t m
 {
     long current_blocklevel_signals_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -6308,17 +6308,17 @@ meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3(meltclosure_ptr_t meltclosp_, melt_ptr_t m
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<4> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3), clos) {};
         MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3() //the constructor fromline 1642
             : Melt_CallFrameWithValues<4> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<4> (fil,lin, sizeof(MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3)) {};
         MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -6452,17 +6452,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_START_UNIT(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<16> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_START_UNIT), clos) {};
     MeltFrame_melthook_HOOK_START_UNIT() //the constructor fromline 1642
         : Melt_CallFrameWithValues<16> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_START_UNIT)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_START_UNIT(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<16> (fil,lin, sizeof(MeltFrame_melthook_HOOK_START_UNIT)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -6473,7 +6473,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_START_UNIT), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_START_UNIT(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<16> (fil,lin, sizeof(MeltFrame_melthook_HOOK_START_UNIT), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -6492,7 +6492,7 @@ void melthook_HOOK_START_UNIT(melt_ptr_t melthookdatap)
     /* body of hook melthook_HOOK_START_UNIT from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_START_UNIT hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_START_UNIT ;
     long melt_thishookcall_counter_HOOK_START_UNIT ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_START_UNIT++ ;
@@ -6689,7 +6689,7 @@ meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT(meltclosure_ptr_t meltclosp_, melt_
 {
     long current_blocklevel_signals_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -6721,17 +6721,17 @@ meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT(meltclosure_ptr_t meltclosp_, melt_
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<1> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT), clos) {};
         MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT() //the constructor fromline 1642
             : Melt_CallFrameWithValues<1> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<1> (fil,lin, sizeof(MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT)) {};
         MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -6827,17 +6827,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_FINISH_UNIT(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<15> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_FINISH_UNIT), clos) {};
     MeltFrame_melthook_HOOK_FINISH_UNIT() //the constructor fromline 1642
         : Melt_CallFrameWithValues<15> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_FINISH_UNIT)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_FINISH_UNIT(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_FINISH_UNIT)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -6848,7 +6848,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_FINISH_UNIT), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_FINISH_UNIT(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_FINISH_UNIT), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -6867,7 +6867,7 @@ void melthook_HOOK_FINISH_UNIT(melt_ptr_t melthookdatap)
     /* body of hook melthook_HOOK_FINISH_UNIT from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_FINISH_UNIT hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_FINISH_UNIT ;
     long melt_thishookcall_counter_HOOK_FINISH_UNIT ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_FINISH_UNIT++ ;
@@ -7079,17 +7079,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_ALL_PASSES_START(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<15> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_ALL_PASSES_START), clos) {};
     MeltFrame_melthook_HOOK_ALL_PASSES_START() //the constructor fromline 1642
         : Melt_CallFrameWithValues<15> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_ALL_PASSES_START)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_ALL_PASSES_START(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_ALL_PASSES_START)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -7100,7 +7100,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_ALL_PASSES_START), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_ALL_PASSES_START(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_ALL_PASSES_START), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -7119,7 +7119,7 @@ void melthook_HOOK_ALL_PASSES_START(melt_ptr_t melthookdatap)
     /* body of hook melthook_HOOK_ALL_PASSES_START from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_ALL_PASSES_START hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_ALL_PASSES_START ;
     long melt_thishookcall_counter_HOOK_ALL_PASSES_START ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_ALL_PASSES_START++ ;
@@ -7384,17 +7384,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_ALL_PASSES_END(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<15> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_ALL_PASSES_END), clos) {};
     MeltFrame_melthook_HOOK_ALL_PASSES_END() //the constructor fromline 1642
         : Melt_CallFrameWithValues<15> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_ALL_PASSES_END)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_ALL_PASSES_END(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_ALL_PASSES_END)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -7405,7 +7405,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_ALL_PASSES_END), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_ALL_PASSES_END(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_ALL_PASSES_END), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -7424,7 +7424,7 @@ void melthook_HOOK_ALL_PASSES_END(melt_ptr_t melthookdatap)
     /* body of hook melthook_HOOK_ALL_PASSES_END from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_ALL_PASSES_END hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_ALL_PASSES_END ;
     long melt_thishookcall_counter_HOOK_ALL_PASSES_END ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_ALL_PASSES_END++ ;
@@ -7704,17 +7704,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<15> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START), clos) {};
     MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START() //the constructor fromline 1642
         : Melt_CallFrameWithValues<15> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -7725,7 +7725,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -7744,7 +7744,7 @@ void melthook_HOOK_ALL_IPA_PASSES_START(melt_ptr_t melthookdatap)
     /* body of hook melthook_HOOK_ALL_IPA_PASSES_START from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_ALL_IPA_PASSES_START hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_ALL_IPA_PASSES_START ;
     long melt_thishookcall_counter_HOOK_ALL_IPA_PASSES_START ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_ALL_IPA_PASSES_START++ ;
@@ -8009,17 +8009,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<15> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END), clos) {};
     MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END() //the constructor fromline 1642
         : Melt_CallFrameWithValues<15> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -8030,7 +8030,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -8049,7 +8049,7 @@ void melthook_HOOK_ALL_IPA_PASSES_END(melt_ptr_t melthookdatap)
     /* body of hook melthook_HOOK_ALL_IPA_PASSES_END from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_ALL_IPA_PASSES_END hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_ALL_IPA_PASSES_END ;
     long melt_thishookcall_counter_HOOK_ALL_IPA_PASSES_END ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_ALL_IPA_PASSES_END++ ;
@@ -8298,17 +8298,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<15> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START), clos) {};
     MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START() //the constructor fromline 1642
         : Melt_CallFrameWithValues<15> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -8319,7 +8319,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -8338,7 +8338,7 @@ void melthook_HOOK_EARLY_GIMPLE_PASSES_START(melt_ptr_t melthookdatap)
     /* body of hook melthook_HOOK_EARLY_GIMPLE_PASSES_START from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_EARLY_GIMPLE_PASSES_START hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_EARLY_GIMPLE_PASSES_START ;
     long melt_thishookcall_counter_HOOK_EARLY_GIMPLE_PASSES_START ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_EARLY_GIMPLE_PASSES_START++ ;
@@ -8603,17 +8603,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<15> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END), clos) {};
     MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END() //the constructor fromline 1642
         : Melt_CallFrameWithValues<15> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -8624,7 +8624,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -8643,7 +8643,7 @@ void melthook_HOOK_EARLY_GIMPLE_PASSES_END(melt_ptr_t melthookdatap)
     /* body of hook melthook_HOOK_EARLY_GIMPLE_PASSES_END from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_EARLY_GIMPLE_PASSES_END hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_EARLY_GIMPLE_PASSES_END ;
     long melt_thishookcall_counter_HOOK_EARLY_GIMPLE_PASSES_END ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_EARLY_GIMPLE_PASSES_END++ ;
@@ -8895,17 +8895,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_PRE_GENERICIZE(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<16> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_PRE_GENERICIZE), clos) {};
     MeltFrame_melthook_HOOK_PRE_GENERICIZE() //the constructor fromline 1642
         : Melt_CallFrameWithValues<16> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_PRE_GENERICIZE)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_PRE_GENERICIZE(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<16> (fil,lin, sizeof(MeltFrame_melthook_HOOK_PRE_GENERICIZE)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -8916,7 +8916,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_PRE_GENERICIZE), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_PRE_GENERICIZE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<16> (fil,lin, sizeof(MeltFrame_melthook_HOOK_PRE_GENERICIZE), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -8936,7 +8936,7 @@ void melthook_HOOK_PRE_GENERICIZE(melt_ptr_t melthookdatap,
     /* body of hook melthook_HOOK_PRE_GENERICIZE from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_PRE_GENERICIZE hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_PRE_GENERICIZE ;
     long melt_thishookcall_counter_HOOK_PRE_GENERICIZE ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_PRE_GENERICIZE++ ;
@@ -9206,17 +9206,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_FINISH_TYPE(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<16> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_FINISH_TYPE), clos) {};
     MeltFrame_melthook_HOOK_FINISH_TYPE() //the constructor fromline 1642
         : Melt_CallFrameWithValues<16> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_FINISH_TYPE)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_FINISH_TYPE(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<16> (fil,lin, sizeof(MeltFrame_melthook_HOOK_FINISH_TYPE)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -9227,7 +9227,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_FINISH_TYPE), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_FINISH_TYPE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<16> (fil,lin, sizeof(MeltFrame_melthook_HOOK_FINISH_TYPE), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -9247,7 +9247,7 @@ void melthook_HOOK_FINISH_TYPE(melt_ptr_t melthookdatap,
     /* body of hook melthook_HOOK_FINISH_TYPE from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_FINISH_TYPE hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_FINISH_TYPE ;
     long melt_thishookcall_counter_HOOK_FINISH_TYPE ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_FINISH_TYPE++ ;
@@ -9517,17 +9517,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_FINISH_DECL(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<16> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_FINISH_DECL), clos) {};
     MeltFrame_melthook_HOOK_FINISH_DECL() //the constructor fromline 1642
         : Melt_CallFrameWithValues<16> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_FINISH_DECL)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_FINISH_DECL(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<16> (fil,lin, sizeof(MeltFrame_melthook_HOOK_FINISH_DECL)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -9538,7 +9538,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_FINISH_DECL), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_FINISH_DECL(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<16> (fil,lin, sizeof(MeltFrame_melthook_HOOK_FINISH_DECL), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -9558,7 +9558,7 @@ void melthook_HOOK_FINISH_DECL(melt_ptr_t melthookdatap,
     /* body of hook melthook_HOOK_FINISH_DECL from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_FINISH_DECL hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_FINISH_DECL ;
     long melt_thishookcall_counter_HOOK_FINISH_DECL ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_FINISH_DECL++ ;
@@ -9826,17 +9826,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_PASS_EXECUTION(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<20> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_PASS_EXECUTION), clos) {};
     MeltFrame_melthook_HOOK_PASS_EXECUTION() //the constructor fromline 1642
         : Melt_CallFrameWithValues<20> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_PASS_EXECUTION)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_PASS_EXECUTION(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<20> (fil,lin, sizeof(MeltFrame_melthook_HOOK_PASS_EXECUTION)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -9847,7 +9847,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_PASS_EXECUTION), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_PASS_EXECUTION(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<20> (fil,lin, sizeof(MeltFrame_melthook_HOOK_PASS_EXECUTION), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -9869,7 +9869,7 @@ void melthook_HOOK_PASS_EXECUTION(melt_ptr_t melthookdatap,
     /* body of hook melthook_HOOK_PASS_EXECUTION from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_PASS_EXECUTION hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_PASS_EXECUTION ;
     long melt_thishookcall_counter_HOOK_PASS_EXECUTION ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_PASS_EXECUTION++ ;
@@ -10275,17 +10275,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_GIMPLE_GATE(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<22> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_GIMPLE_GATE), clos) {};
     MeltFrame_melthook_HOOK_GIMPLE_GATE() //the constructor fromline 1642
         : Melt_CallFrameWithValues<22> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_GIMPLE_GATE)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_GIMPLE_GATE(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<22> (fil,lin, sizeof(MeltFrame_melthook_HOOK_GIMPLE_GATE)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -10296,7 +10296,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_GIMPLE_GATE), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_GIMPLE_GATE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<22> (fil,lin, sizeof(MeltFrame_melthook_HOOK_GIMPLE_GATE), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -10315,7 +10315,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
     /* body of hook melthook_HOOK_GIMPLE_GATE from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_GIMPLE_GATE hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_GIMPLE_GATE ;
     long melt_thishookcall_counter_HOOK_GIMPLE_GATE ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_GIMPLE_GATE++ ;
@@ -10420,7 +10420,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
             ;
             /*_#MELT_NEED_DBG__L9*/ meltfnum[7] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -10436,7 +10436,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
 
                         /*_#MELT_CALLCOUNT__L10*/ meltfnum[9] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -10573,7 +10573,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
                     ;
                     /*_#MELT_NEED_DBG__L11*/ meltfnum[9] =
                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                         0 /* no melt_need_dbg */
@@ -10589,7 +10589,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
 
                                 /*_#MELT_CALLCOUNT__L12*/ meltfnum[7] =
                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                     meltcallcount  /* melt_callcount debugging */
 #else
                                     0L  /* melt_callcount without debug */
@@ -10699,7 +10699,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
                     ;
                     /*_#MELT_NEED_DBG__L13*/ meltfnum[7] =
                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                         0 /* no melt_need_dbg */
@@ -10715,7 +10715,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
 
                                 /*_#MELT_CALLCOUNT__L14*/ meltfnum[9] =
                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                     meltcallcount  /* melt_callcount debugging */
 #else
                                     0L  /* melt_callcount without debug */
@@ -10862,7 +10862,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
                                 ;
                                 /*_#MELT_NEED_DBG__L16*/ meltfnum[7] =
                                     /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                     0 /* no melt_need_dbg */
@@ -10878,7 +10878,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
 
                                             /*_#MELT_CALLCOUNT__L17*/ meltfnum[16] =
                                                 /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                 meltcallcount  /* melt_callcount debugging */
 #else
                                                 0L  /* melt_callcount without debug */
@@ -11002,7 +11002,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
                                                     ;
                                                     /*_#MELT_NEED_DBG__L20*/ meltfnum[19] =
                                                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                         0 /* no melt_need_dbg */
@@ -11018,7 +11018,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
 
                                                                 /*_#MELT_CALLCOUNT__L21*/ meltfnum[20] =
                                                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                     meltcallcount  /* melt_callcount debugging */
 #else
                                                                     0L  /* melt_callcount without debug */
@@ -11157,7 +11157,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
                                                     ;
                                                     /*_#MELT_NEED_DBG__L24*/ meltfnum[19] =
                                                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                         0 /* no melt_need_dbg */
@@ -11173,7 +11173,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
 
                                                                 /*_#MELT_CALLCOUNT__L25*/ meltfnum[24] =
                                                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                     meltcallcount  /* melt_callcount debugging */
 #else
                                                                     0L  /* melt_callcount without debug */
@@ -11345,7 +11345,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
                                 ;
                                 /*_#MELT_NEED_DBG__L27*/ meltfnum[19] =
                                     /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                     0 /* no melt_need_dbg */
@@ -11361,7 +11361,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
 
                                             /*_#MELT_CALLCOUNT__L28*/ meltfnum[20] =
                                                 /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                 meltcallcount  /* melt_callcount debugging */
 #else
                                                 0L  /* melt_callcount without debug */
@@ -11483,7 +11483,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
             ;
             /*_#MELT_NEED_DBG__L29*/ meltfnum[24] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -11499,7 +11499,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
 
                         /*_#MELT_CALLCOUNT__L30*/ meltfnum[16] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -11653,17 +11653,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_GIMPLE_EXECUTE(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<20> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_GIMPLE_EXECUTE), clos) {};
     MeltFrame_melthook_HOOK_GIMPLE_EXECUTE() //the constructor fromline 1642
         : Melt_CallFrameWithValues<20> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_GIMPLE_EXECUTE)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_GIMPLE_EXECUTE(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<20> (fil,lin, sizeof(MeltFrame_melthook_HOOK_GIMPLE_EXECUTE)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -11674,7 +11674,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_GIMPLE_EXECUTE), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_GIMPLE_EXECUTE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<20> (fil,lin, sizeof(MeltFrame_melthook_HOOK_GIMPLE_EXECUTE), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -11693,7 +11693,7 @@ long melthook_HOOK_GIMPLE_EXECUTE(melt_ptr_t melthookdatap)
     /* body of hook melthook_HOOK_GIMPLE_EXECUTE from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_GIMPLE_EXECUTE hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_GIMPLE_EXECUTE ;
     long melt_thishookcall_counter_HOOK_GIMPLE_EXECUTE ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_GIMPLE_EXECUTE++ ;
@@ -11765,7 +11765,7 @@ long melthook_HOOK_GIMPLE_EXECUTE(melt_ptr_t melthookdatap)
             ;
             /*_#MELT_NEED_DBG__L6*/ meltfnum[5] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -11781,7 +11781,7 @@ long melthook_HOOK_GIMPLE_EXECUTE(melt_ptr_t melthookdatap)
 
                         /*_#MELT_CALLCOUNT__L7*/ meltfnum[6] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -11902,7 +11902,7 @@ long melthook_HOOK_GIMPLE_EXECUTE(melt_ptr_t melthookdatap)
                         ;
                         /*_#MELT_NEED_DBG__L10*/ meltfnum[9] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -11918,7 +11918,7 @@ long melthook_HOOK_GIMPLE_EXECUTE(melt_ptr_t melthookdatap)
 
                                     /*_#MELT_CALLCOUNT__L11*/ meltfnum[10] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -12059,7 +12059,7 @@ long melthook_HOOK_GIMPLE_EXECUTE(melt_ptr_t melthookdatap)
             ;
             /*_#MELT_NEED_DBG__L14*/ meltfnum[10] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -12075,7 +12075,7 @@ long melthook_HOOK_GIMPLE_EXECUTE(melt_ptr_t melthookdatap)
 
                         /*_#MELT_CALLCOUNT__L15*/ meltfnum[9] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -12243,7 +12243,7 @@ long melthook_HOOK_GIMPLE_EXECUTE(melt_ptr_t melthookdatap)
                                             ;
                                             /*_#MELT_NEED_DBG__L18*/ meltfnum[17] =
                                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                 0 /* no melt_need_dbg */
@@ -12259,7 +12259,7 @@ long melthook_HOOK_GIMPLE_EXECUTE(melt_ptr_t melthookdatap)
 
                                                         /*_#MELT_CALLCOUNT__L19*/ meltfnum[18] =
                                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                             meltcallcount  /* melt_callcount debugging */
 #else
                                                             0L  /* melt_callcount without debug */
@@ -12391,7 +12391,7 @@ long melthook_HOOK_GIMPLE_EXECUTE(melt_ptr_t melthookdatap)
                                             ;
                                             /*_#MELT_NEED_DBG__L22*/ meltfnum[21] =
                                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                 0 /* no melt_need_dbg */
@@ -12407,7 +12407,7 @@ long melthook_HOOK_GIMPLE_EXECUTE(melt_ptr_t melthookdatap)
 
                                                         /*_#MELT_CALLCOUNT__L23*/ meltfnum[22] =
                                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                             meltcallcount  /* melt_callcount debugging */
 #else
                                                             0L  /* melt_callcount without debug */
@@ -12697,17 +12697,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_RTL_GATE(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<9> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_RTL_GATE), clos) {};
     MeltFrame_melthook_HOOK_RTL_GATE() //the constructor fromline 1642
         : Melt_CallFrameWithValues<9> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_RTL_GATE)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_RTL_GATE(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<9> (fil,lin, sizeof(MeltFrame_melthook_HOOK_RTL_GATE)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -12718,7 +12718,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_RTL_GATE), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_RTL_GATE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<9> (fil,lin, sizeof(MeltFrame_melthook_HOOK_RTL_GATE), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -12737,7 +12737,7 @@ long melthook_HOOK_RTL_GATE(melt_ptr_t melthookdatap)
     /* body of hook melthook_HOOK_RTL_GATE from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_RTL_GATE hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_RTL_GATE ;
     long melt_thishookcall_counter_HOOK_RTL_GATE ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_RTL_GATE++ ;
@@ -12937,7 +12937,7 @@ long melthook_HOOK_RTL_GATE(melt_ptr_t melthookdatap)
                                             ;
                                             /*_#MELT_NEED_DBG__L14*/ meltfnum[13] =
                                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                 0 /* no melt_need_dbg */
@@ -12953,7 +12953,7 @@ long melthook_HOOK_RTL_GATE(melt_ptr_t melthookdatap)
 
                                                         /*_#MELT_CALLCOUNT__L15*/ meltfnum[14] =
                                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                             meltcallcount  /* melt_callcount debugging */
 #else
                                                             0L  /* melt_callcount without debug */
@@ -13096,7 +13096,7 @@ long melthook_HOOK_RTL_GATE(melt_ptr_t melthookdatap)
                                             ;
                                             /*_#MELT_NEED_DBG__L18*/ meltfnum[13] =
                                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                 0 /* no melt_need_dbg */
@@ -13112,7 +13112,7 @@ long melthook_HOOK_RTL_GATE(melt_ptr_t melthookdatap)
 
                                                         /*_#MELT_CALLCOUNT__L19*/ meltfnum[18] =
                                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                             meltcallcount  /* melt_callcount debugging */
 #else
                                                             0L  /* melt_callcount without debug */
@@ -13340,17 +13340,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_RTL_EXECUTE(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<14> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_RTL_EXECUTE), clos) {};
     MeltFrame_melthook_HOOK_RTL_EXECUTE() //the constructor fromline 1642
         : Melt_CallFrameWithValues<14> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_RTL_EXECUTE)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_RTL_EXECUTE(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<14> (fil,lin, sizeof(MeltFrame_melthook_HOOK_RTL_EXECUTE)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -13361,7 +13361,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_RTL_EXECUTE), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_RTL_EXECUTE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<14> (fil,lin, sizeof(MeltFrame_melthook_HOOK_RTL_EXECUTE), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -13380,7 +13380,7 @@ long melthook_HOOK_RTL_EXECUTE(melt_ptr_t melthookdatap)
     /* body of hook melthook_HOOK_RTL_EXECUTE from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_RTL_EXECUTE hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_RTL_EXECUTE ;
     long melt_thishookcall_counter_HOOK_RTL_EXECUTE ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_RTL_EXECUTE++ ;
@@ -13578,7 +13578,7 @@ long melthook_HOOK_RTL_EXECUTE(melt_ptr_t melthookdatap)
                                             ;
                                             /*_#MELT_NEED_DBG__L11*/ meltfnum[10] =
                                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                 0 /* no melt_need_dbg */
@@ -13594,7 +13594,7 @@ long melthook_HOOK_RTL_EXECUTE(melt_ptr_t melthookdatap)
 
                                                         /*_#MELT_CALLCOUNT__L12*/ meltfnum[11] =
                                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                             meltcallcount  /* melt_callcount debugging */
 #else
                                                             0L  /* melt_callcount without debug */
@@ -13726,7 +13726,7 @@ long melthook_HOOK_RTL_EXECUTE(melt_ptr_t melthookdatap)
                                             ;
                                             /*_#MELT_NEED_DBG__L15*/ meltfnum[14] =
                                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                 0 /* no melt_need_dbg */
@@ -13742,7 +13742,7 @@ long melthook_HOOK_RTL_EXECUTE(melt_ptr_t melthookdatap)
 
                                                         /*_#MELT_CALLCOUNT__L16*/ meltfnum[15] =
                                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                             meltcallcount  /* melt_callcount debugging */
 #else
                                                             0L  /* melt_callcount without debug */
@@ -14032,17 +14032,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<14> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE), clos) {};
     MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE() //the constructor fromline 1642
         : Melt_CallFrameWithValues<14> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<14> (fil,lin, sizeof(MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -14053,7 +14053,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<14> (fil,lin, sizeof(MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -14072,7 +14072,7 @@ long melthook_HOOK_SIMPLE_IPA_EXECUTE(melt_ptr_t melthookdatap)
     /* body of hook melthook_HOOK_SIMPLE_IPA_EXECUTE from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_SIMPLE_IPA_EXECUTE hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_SIMPLE_IPA_EXECUTE ;
     long melt_thishookcall_counter_HOOK_SIMPLE_IPA_EXECUTE ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_SIMPLE_IPA_EXECUTE++ ;
@@ -14270,7 +14270,7 @@ long melthook_HOOK_SIMPLE_IPA_EXECUTE(melt_ptr_t melthookdatap)
                                             ;
                                             /*_#MELT_NEED_DBG__L11*/ meltfnum[10] =
                                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                 0 /* no melt_need_dbg */
@@ -14286,7 +14286,7 @@ long melthook_HOOK_SIMPLE_IPA_EXECUTE(melt_ptr_t melthookdatap)
 
                                                         /*_#MELT_CALLCOUNT__L12*/ meltfnum[11] =
                                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                             meltcallcount  /* melt_callcount debugging */
 #else
                                                             0L  /* melt_callcount without debug */
@@ -14418,7 +14418,7 @@ long melthook_HOOK_SIMPLE_IPA_EXECUTE(melt_ptr_t melthookdatap)
                                             ;
                                             /*_#MELT_NEED_DBG__L15*/ meltfnum[14] =
                                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                 0 /* no melt_need_dbg */
@@ -14434,7 +14434,7 @@ long melthook_HOOK_SIMPLE_IPA_EXECUTE(melt_ptr_t melthookdatap)
 
                                                         /*_#MELT_CALLCOUNT__L16*/ meltfnum[15] =
                                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                             meltcallcount  /* melt_callcount debugging */
 #else
                                                             0L  /* melt_callcount without debug */
@@ -14724,17 +14724,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_MELT_DO_INITIAL_MODE(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<33> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_MELT_DO_INITIAL_MODE), clos) {};
     MeltFrame_melthook_HOOK_MELT_DO_INITIAL_MODE() //the constructor fromline 1642
         : Melt_CallFrameWithValues<33> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_MELT_DO_INITIAL_MODE)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_MELT_DO_INITIAL_MODE(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<33> (fil,lin, sizeof(MeltFrame_melthook_HOOK_MELT_DO_INITIAL_MODE)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -14745,7 +14745,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_MELT_DO_INITIAL_MODE), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_MELT_DO_INITIAL_MODE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<33> (fil,lin, sizeof(MeltFrame_melthook_HOOK_MELT_DO_INITIAL_MODE), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -14766,7 +14766,7 @@ void melthook_HOOK_MELT_DO_INITIAL_MODE(melt_ptr_t melthookdatap,
     /* body of hook melthook_HOOK_MELT_DO_INITIAL_MODE from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_MELT_DO_INITIAL_MODE hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_MELT_DO_INITIAL_MODE ;
     long melt_thishookcall_counter_HOOK_MELT_DO_INITIAL_MODE ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_MELT_DO_INITIAL_MODE++ ;
@@ -14988,7 +14988,7 @@ void melthook_HOOK_MELT_DO_INITIAL_MODE(melt_ptr_t melthookdatap,
                         ;
                         /*_#MELT_NEED_DBG__L3*/ meltfnum[0] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -15004,7 +15004,7 @@ void melthook_HOOK_MELT_DO_INITIAL_MODE(melt_ptr_t melthookdatap,
 
                                     /*_#MELT_CALLCOUNT__L4*/ meltfnum[3] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -15109,7 +15109,7 @@ void melthook_HOOK_MELT_DO_INITIAL_MODE(melt_ptr_t melthookdatap,
                         ;
                         /*_#MELT_NEED_DBG__L5*/ meltfnum[3] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -15125,7 +15125,7 @@ void melthook_HOOK_MELT_DO_INITIAL_MODE(melt_ptr_t melthookdatap,
 
                                     /*_#MELT_CALLCOUNT__L6*/ meltfnum[0] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -15550,7 +15550,7 @@ void melthook_HOOK_MELT_DO_INITIAL_MODE(melt_ptr_t melthookdatap,
                                     ;
                                     /*_#MELT_NEED_DBG__L11*/ meltfnum[3] =
                                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                         0 /* no melt_need_dbg */
@@ -15566,7 +15566,7 @@ void melthook_HOOK_MELT_DO_INITIAL_MODE(melt_ptr_t melthookdatap,
 
                                                 /*_#MELT_CALLCOUNT__L12*/ meltfnum[11] =
                                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                     meltcallcount  /* melt_callcount debugging */
 #else
                                                     0L  /* melt_callcount without debug */
@@ -15794,17 +15794,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_INSTALL_ATTRIBUTES(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<21> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_INSTALL_ATTRIBUTES), clos) {};
     MeltFrame_melthook_HOOK_INSTALL_ATTRIBUTES() //the constructor fromline 1642
         : Melt_CallFrameWithValues<21> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_INSTALL_ATTRIBUTES)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_INSTALL_ATTRIBUTES(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<21> (fil,lin, sizeof(MeltFrame_melthook_HOOK_INSTALL_ATTRIBUTES)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -15815,7 +15815,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_INSTALL_ATTRIBUTES), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_INSTALL_ATTRIBUTES(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<21> (fil,lin, sizeof(MeltFrame_melthook_HOOK_INSTALL_ATTRIBUTES), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -15834,7 +15834,7 @@ void melthook_HOOK_INSTALL_ATTRIBUTES(melt_ptr_t melthookdatap)
     /* body of hook melthook_HOOK_INSTALL_ATTRIBUTES from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_INSTALL_ATTRIBUTES hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_INSTALL_ATTRIBUTES ;
     long melt_thishookcall_counter_HOOK_INSTALL_ATTRIBUTES ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_INSTALL_ATTRIBUTES++ ;
@@ -15874,7 +15874,7 @@ void melthook_HOOK_INSTALL_ATTRIBUTES(melt_ptr_t melthookdatap)
             ;
             /*_#MELT_NEED_DBG__L1*/ meltfnum[0] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -15890,7 +15890,7 @@ void melthook_HOOK_INSTALL_ATTRIBUTES(melt_ptr_t melthookdatap)
 
                         /*_#MELT_CALLCOUNT__L2*/ meltfnum[1] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -16081,7 +16081,7 @@ meltlabloop_ATLOOP_1:;/*^loopbody*/
                     ;
                     /*_#MELT_NEED_DBG__L5*/ meltfnum[4] =
                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                         0 /* no melt_need_dbg */
@@ -16097,7 +16097,7 @@ meltlabloop_ATLOOP_1:;/*^loopbody*/
 
                                 /*_#MELT_CALLCOUNT__L6*/ meltfnum[5] =
                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                     meltcallcount  /* melt_callcount debugging */
 #else
                                     0L  /* melt_callcount without debug */
@@ -16307,7 +16307,7 @@ meltlabexit_ATLOOP_1:;/*^loopepilog*/
             ;
             /*_#MELT_NEED_DBG__L8*/ meltfnum[4] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -16323,7 +16323,7 @@ meltlabexit_ATLOOP_1:;/*^loopepilog*/
 
                         /*_#MELT_CALLCOUNT__L9*/ meltfnum[5] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -16509,17 +16509,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_HANDLE_ATTRIBUTE(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<23> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_HANDLE_ATTRIBUTE), clos) {};
     MeltFrame_melthook_HOOK_HANDLE_ATTRIBUTE() //the constructor fromline 1642
         : Melt_CallFrameWithValues<23> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_HANDLE_ATTRIBUTE)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_HANDLE_ATTRIBUTE(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<23> (fil,lin, sizeof(MeltFrame_melthook_HOOK_HANDLE_ATTRIBUTE)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -16530,7 +16530,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_HANDLE_ATTRIBUTE), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_HANDLE_ATTRIBUTE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<23> (fil,lin, sizeof(MeltFrame_melthook_HOOK_HANDLE_ATTRIBUTE), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -16555,7 +16555,7 @@ melt_treeptr_t melthook_HOOK_HANDLE_ATTRIBUTE(melt_ptr_t melthookdatap,
     /* body of hook melthook_HOOK_HANDLE_ATTRIBUTE from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_HANDLE_ATTRIBUTE hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_HANDLE_ATTRIBUTE ;
     long melt_thishookcall_counter_HOOK_HANDLE_ATTRIBUTE ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_HANDLE_ATTRIBUTE++ ;
@@ -16603,7 +16603,7 @@ melt_treeptr_t melthook_HOOK_HANDLE_ATTRIBUTE(melt_ptr_t melthookdatap,
             ;
             /*_#MELT_NEED_DBG__L3*/ meltfnum[2] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -16619,7 +16619,7 @@ melt_treeptr_t melthook_HOOK_HANDLE_ATTRIBUTE(melt_ptr_t melthookdatap,
 
                         /*_#MELT_CALLCOUNT__L4*/ meltfnum[3] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -16750,7 +16750,7 @@ melt_treeptr_t melthook_HOOK_HANDLE_ATTRIBUTE(melt_ptr_t melthookdatap,
             ;
             /*_#MELT_NEED_DBG__L5*/ meltfnum[3] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -16766,7 +16766,7 @@ melt_treeptr_t melthook_HOOK_HANDLE_ATTRIBUTE(melt_ptr_t melthookdatap,
 
                         /*_#MELT_CALLCOUNT__L6*/ meltfnum[2] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -16961,7 +16961,7 @@ melt_treeptr_t melthook_HOOK_HANDLE_ATTRIBUTE(melt_ptr_t melthookdatap,
             ;
             /*_#MELT_NEED_DBG__L8*/ meltfnum[3] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -16977,7 +16977,7 @@ melt_treeptr_t melthook_HOOK_HANDLE_ATTRIBUTE(melt_ptr_t melthookdatap,
 
                         /*_#MELT_CALLCOUNT__L9*/ meltfnum[2] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -17098,7 +17098,7 @@ melt_treeptr_t melthook_HOOK_HANDLE_ATTRIBUTE(melt_ptr_t melthookdatap,
                         ;
                         /*_#MELT_NEED_DBG__L12*/ meltfnum[11] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -17114,7 +17114,7 @@ melt_treeptr_t melthook_HOOK_HANDLE_ATTRIBUTE(melt_ptr_t melthookdatap,
 
                                     /*_#MELT_CALLCOUNT__L13*/ meltfnum[12] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -17353,7 +17353,7 @@ melt_treeptr_t melthook_HOOK_HANDLE_ATTRIBUTE(melt_ptr_t melthookdatap,
             ;
             /*_#MELT_NEED_DBG__L14*/ meltfnum[12] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -17369,7 +17369,7 @@ melt_treeptr_t melthook_HOOK_HANDLE_ATTRIBUTE(melt_ptr_t melthookdatap,
 
                         /*_#MELT_CALLCOUNT__L15*/ meltfnum[11] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -17504,7 +17504,7 @@ melt_treeptr_t melthook_HOOK_HANDLE_ATTRIBUTE(melt_ptr_t melthookdatap,
             ;
             /*_#MELT_NEED_DBG__L16*/ meltfnum[11] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -17520,7 +17520,7 @@ melt_treeptr_t melthook_HOOK_HANDLE_ATTRIBUTE(melt_ptr_t melthookdatap,
 
                         /*_#MELT_CALLCOUNT__L17*/ meltfnum[12] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -17658,7 +17658,7 @@ melt_treeptr_t melthook_HOOK_HANDLE_ATTRIBUTE(melt_ptr_t melthookdatap,
             ;
             /*_#MELT_NEED_DBG__L20*/ meltfnum[19] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -17674,7 +17674,7 @@ melt_treeptr_t melthook_HOOK_HANDLE_ATTRIBUTE(melt_ptr_t melthookdatap,
 
                         /*_#MELT_CALLCOUNT__L21*/ meltfnum[20] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -17870,17 +17870,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_EXIT_FINALIZER(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<14> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_EXIT_FINALIZER), clos) {};
     MeltFrame_melthook_HOOK_EXIT_FINALIZER() //the constructor fromline 1642
         : Melt_CallFrameWithValues<14> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_EXIT_FINALIZER)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_EXIT_FINALIZER(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<14> (fil,lin, sizeof(MeltFrame_melthook_HOOK_EXIT_FINALIZER)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -17891,7 +17891,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_EXIT_FINALIZER), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_EXIT_FINALIZER(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<14> (fil,lin, sizeof(MeltFrame_melthook_HOOK_EXIT_FINALIZER), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -17910,7 +17910,7 @@ void melthook_HOOK_EXIT_FINALIZER(melt_ptr_t melthookdatap)
     /* body of hook melthook_HOOK_EXIT_FINALIZER from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_EXIT_FINALIZER hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_EXIT_FINALIZER ;
     long melt_thishookcall_counter_HOOK_EXIT_FINALIZER ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_EXIT_FINALIZER++ ;
@@ -17950,7 +17950,7 @@ void melthook_HOOK_EXIT_FINALIZER(melt_ptr_t melthookdatap)
             ;
             /*_#MELT_NEED_DBG__L1*/ meltfnum[0] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -17966,7 +17966,7 @@ void melthook_HOOK_EXIT_FINALIZER(melt_ptr_t melthookdatap)
 
                         /*_#MELT_CALLCOUNT__L2*/ meltfnum[1] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -18265,17 +18265,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_PROCESS_PRAGMA(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<15> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_PROCESS_PRAGMA), clos) {};
     MeltFrame_melthook_HOOK_PROCESS_PRAGMA() //the constructor fromline 1642
         : Melt_CallFrameWithValues<15> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_PROCESS_PRAGMA)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_PROCESS_PRAGMA(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_PROCESS_PRAGMA)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -18286,7 +18286,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_PROCESS_PRAGMA), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_PROCESS_PRAGMA(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_PROCESS_PRAGMA), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -18306,7 +18306,7 @@ void melthook_HOOK_PROCESS_PRAGMA(melt_ptr_t melthookdatap,
     /* body of hook melthook_HOOK_PROCESS_PRAGMA from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_PROCESS_PRAGMA hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_PROCESS_PRAGMA ;
     long melt_thishookcall_counter_HOOK_PROCESS_PRAGMA ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_PROCESS_PRAGMA++ ;
@@ -18348,7 +18348,7 @@ void melthook_HOOK_PROCESS_PRAGMA(melt_ptr_t melthookdatap,
             ;
             /*_#MELT_NEED_DBG__L2*/ meltfnum[1] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -18364,7 +18364,7 @@ void melthook_HOOK_PROCESS_PRAGMA(melt_ptr_t melthookdatap,
 
                         /*_#MELT_CALLCOUNT__L3*/ meltfnum[2] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -18460,7 +18460,7 @@ void melthook_HOOK_PROCESS_PRAGMA(melt_ptr_t melthookdatap,
         {
             MELT_LOCATION("warmelt-hooks.melt:2730:/ locexp");
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (melt_need_debug (0))
                 melt_dbgshortbacktrace(( "hook_process_pragma"), (12));
 #endif
@@ -18489,7 +18489,7 @@ void melthook_HOOK_PROCESS_PRAGMA(melt_ptr_t melthookdatap,
             ;
             /*_#MELT_NEED_DBG__L4*/ meltfnum[2] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -18505,7 +18505,7 @@ void melthook_HOOK_PROCESS_PRAGMA(melt_ptr_t melthookdatap,
 
                         /*_#MELT_CALLCOUNT__L5*/ meltfnum[1] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -18705,7 +18705,7 @@ void melthook_HOOK_PROCESS_PRAGMA(melt_ptr_t melthookdatap,
             ;
             /*_#MELT_NEED_DBG__L7*/ meltfnum[2] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -18721,7 +18721,7 @@ void melthook_HOOK_PROCESS_PRAGMA(melt_ptr_t melthookdatap,
 
                         /*_#MELT_CALLCOUNT__L8*/ meltfnum[1] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -18857,17 +18857,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_REGISTER_PRAGMAS(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<24> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_REGISTER_PRAGMAS), clos) {};
     MeltFrame_melthook_HOOK_REGISTER_PRAGMAS() //the constructor fromline 1642
         : Melt_CallFrameWithValues<24> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_REGISTER_PRAGMAS)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_REGISTER_PRAGMAS(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<24> (fil,lin, sizeof(MeltFrame_melthook_HOOK_REGISTER_PRAGMAS)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -18878,7 +18878,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_REGISTER_PRAGMAS), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_REGISTER_PRAGMAS(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<24> (fil,lin, sizeof(MeltFrame_melthook_HOOK_REGISTER_PRAGMAS), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -18897,7 +18897,7 @@ void melthook_HOOK_REGISTER_PRAGMAS(melt_ptr_t melthookdatap)
     /* body of hook melthook_HOOK_REGISTER_PRAGMAS from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_REGISTER_PRAGMAS hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_REGISTER_PRAGMAS ;
     long melt_thishookcall_counter_HOOK_REGISTER_PRAGMAS ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_REGISTER_PRAGMAS++ ;
@@ -18937,7 +18937,7 @@ void melthook_HOOK_REGISTER_PRAGMAS(melt_ptr_t melthookdatap)
             ;
             /*_#MELT_NEED_DBG__L1*/ meltfnum[0] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -18953,7 +18953,7 @@ void melthook_HOOK_REGISTER_PRAGMAS(melt_ptr_t melthookdatap)
 
                         /*_#MELT_CALLCOUNT__L2*/ meltfnum[1] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -19048,7 +19048,7 @@ void melthook_HOOK_REGISTER_PRAGMAS(melt_ptr_t melthookdatap)
         {
             MELT_LOCATION("warmelt-hooks.melt:2742:/ locexp");
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (melt_need_debug (0))
                 melt_dbgshortbacktrace(( "hook_register_pragmas"), (15));
 #endif
@@ -19092,7 +19092,7 @@ void melthook_HOOK_REGISTER_PRAGMAS(melt_ptr_t melthookdatap)
                         ;
                         /*_#MELT_NEED_DBG__L4*/ meltfnum[0] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -19108,7 +19108,7 @@ void melthook_HOOK_REGISTER_PRAGMAS(melt_ptr_t melthookdatap)
 
                                     /*_#MELT_CALLCOUNT__L5*/ meltfnum[4] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -19221,7 +19221,7 @@ void melthook_HOOK_REGISTER_PRAGMAS(melt_ptr_t melthookdatap)
                         ;
                         /*_#MELT_NEED_DBG__L6*/ meltfnum[4] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -19237,7 +19237,7 @@ void melthook_HOOK_REGISTER_PRAGMAS(melt_ptr_t melthookdatap)
 
                                     /*_#MELT_CALLCOUNT__L7*/ meltfnum[0] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -19359,7 +19359,7 @@ void melthook_HOOK_REGISTER_PRAGMAS(melt_ptr_t melthookdatap)
                         ;
                         /*_#MELT_NEED_DBG__L8*/ meltfnum[0] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -19375,7 +19375,7 @@ void melthook_HOOK_REGISTER_PRAGMAS(melt_ptr_t melthookdatap)
 
                                     /*_#MELT_CALLCOUNT__L9*/ meltfnum[4] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -19609,17 +19609,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_POLL_INPUTS(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<39> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_POLL_INPUTS), clos) {};
     MeltFrame_melthook_HOOK_POLL_INPUTS() //the constructor fromline 1642
         : Melt_CallFrameWithValues<39> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_POLL_INPUTS)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_POLL_INPUTS(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<39> (fil,lin, sizeof(MeltFrame_melthook_HOOK_POLL_INPUTS)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -19630,7 +19630,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_POLL_INPUTS), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_POLL_INPUTS(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<39> (fil,lin, sizeof(MeltFrame_melthook_HOOK_POLL_INPUTS), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -19650,7 +19650,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
     /* body of hook melthook_HOOK_POLL_INPUTS from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_POLL_INPUTS hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_POLL_INPUTS ;
     long melt_thishookcall_counter_HOOK_POLL_INPUTS ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_POLL_INPUTS++ ;
@@ -19701,7 +19701,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
             ;
             /*_#MELT_NEED_DBG__L4*/ meltfnum[3] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -19717,7 +19717,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
 
                         /*_#MELT_CALLCOUNT__L5*/ meltfnum[4] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -19833,7 +19833,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                         ;
                         /*_#MELT_NEED_DBG__L7*/ meltfnum[3] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -19849,7 +19849,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
 
                                     /*_#MELT_CALLCOUNT__L8*/ meltfnum[7] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -20012,7 +20012,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                                 ;
                                 /*_#MELT_NEED_DBG__L11*/ meltfnum[10] =
                                     /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                     0 /* no melt_need_dbg */
@@ -20028,7 +20028,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
 
                                             /*_#MELT_CALLCOUNT__L12*/ meltfnum[11] =
                                                 /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                 meltcallcount  /* melt_callcount debugging */
 #else
                                                 0L  /* melt_callcount without debug */
@@ -20289,7 +20289,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                     ;
                     /*_#MELT_NEED_DBG__L20*/ meltfnum[14] =
                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                         0 /* no melt_need_dbg */
@@ -20305,7 +20305,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
 
                                 /*_#MELT_CALLCOUNT__L21*/ meltfnum[15] =
                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                     meltcallcount  /* melt_callcount debugging */
 #else
                                     0L  /* melt_callcount without debug */
@@ -20470,7 +20470,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                                             ;
                                             /*_#MELT_NEED_DBG__L25*/ meltfnum[24] =
                                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                 0 /* no melt_need_dbg */
@@ -20486,7 +20486,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
 
                                                         /*_#MELT_CALLCOUNT__L26*/ meltfnum[25] =
                                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                             meltcallcount  /* melt_callcount debugging */
 #else
                                                             0L  /* melt_callcount without debug */
@@ -20603,7 +20603,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                                                         ;
                                                         /*_#MELT_NEED_DBG__L28*/ meltfnum[24] =
                                                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                             0 /* no melt_need_dbg */
@@ -20619,7 +20619,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
 
                                                                     /*_#MELT_CALLCOUNT__L29*/ meltfnum[28] =
                                                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                         meltcallcount  /* melt_callcount debugging */
 #else
                                                                         0L  /* melt_callcount without debug */
@@ -20752,7 +20752,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                                                                     ;
                                                                     /*_#MELT_NEED_DBG__L31*/ meltfnum[24] =
                                                                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                                         0 /* no melt_need_dbg */
@@ -20768,7 +20768,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
 
                                                                                 /*_#MELT_CALLCOUNT__L32*/ meltfnum[31] =
                                                                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                                     meltcallcount  /* melt_callcount debugging */
 #else
                                                                                     0L  /* melt_callcount without debug */
@@ -20922,7 +20922,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                                 ;
                                 /*_#MELT_NEED_DBG__L33*/ meltfnum[31] =
                                     /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                     0 /* no melt_need_dbg */
@@ -20938,7 +20938,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
 
                                             /*_#MELT_CALLCOUNT__L34*/ meltfnum[24] =
                                                 /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                 meltcallcount  /* melt_callcount debugging */
 #else
                                                 0L  /* melt_callcount without debug */
@@ -21055,7 +21055,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                                             ;
                                             /*_#MELT_NEED_DBG__L35*/ meltfnum[28] =
                                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                 0 /* no melt_need_dbg */
@@ -21071,7 +21071,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
 
                                                         /*_#MELT_CALLCOUNT__L36*/ meltfnum[25] =
                                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                             meltcallcount  /* melt_callcount debugging */
 #else
                                                             0L  /* melt_callcount without debug */
@@ -21192,7 +21192,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                                 ;
                                 /*_#MELT_NEED_DBG__L38*/ meltfnum[31] =
                                     /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                     0 /* no melt_need_dbg */
@@ -21208,7 +21208,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
 
                                             /*_#MELT_CALLCOUNT__L39*/ meltfnum[25] =
                                                 /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                 meltcallcount  /* melt_callcount debugging */
 #else
                                                 0L  /* melt_callcount without debug */
@@ -21330,7 +21330,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                                 ;
                                 /*_#MELT_NEED_DBG__L40*/ meltfnum[28] =
                                     /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                     0 /* no melt_need_dbg */
@@ -21346,7 +21346,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
 
                                             /*_#MELT_CALLCOUNT__L41*/ meltfnum[25] =
                                                 /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                 meltcallcount  /* melt_callcount debugging */
 #else
                                                 0L  /* melt_callcount without debug */
@@ -21513,17 +21513,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_HANDLE_SIGIO(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<1> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGIO), clos) {};
     MeltFrame_melthook_HOOK_HANDLE_SIGIO() //the constructor fromline 1642
         : Melt_CallFrameWithValues<1> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGIO)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_HANDLE_SIGIO(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<1> (fil,lin, sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGIO)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -21534,7 +21534,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGIO), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_HANDLE_SIGIO(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<1> (fil,lin, sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGIO), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -21553,7 +21553,7 @@ void melthook_HOOK_HANDLE_SIGIO(melt_ptr_t melthookdatap)
     /* body of hook melthook_HOOK_HANDLE_SIGIO from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_HANDLE_SIGIO hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_HANDLE_SIGIO ;
     long melt_thishookcall_counter_HOOK_HANDLE_SIGIO ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_HANDLE_SIGIO++ ;
@@ -21622,17 +21622,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_HANDLE_SIGALRM(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<32> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGALRM), clos) {};
     MeltFrame_melthook_HOOK_HANDLE_SIGALRM() //the constructor fromline 1642
         : Melt_CallFrameWithValues<32> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGALRM)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_HANDLE_SIGALRM(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<32> (fil,lin, sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGALRM)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -21643,7 +21643,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGALRM), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_HANDLE_SIGALRM(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<32> (fil,lin, sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGALRM), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -21662,7 +21662,7 @@ void melthook_HOOK_HANDLE_SIGALRM(melt_ptr_t melthookdatap)
     /* body of hook melthook_HOOK_HANDLE_SIGALRM from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_HANDLE_SIGALRM hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_HANDLE_SIGALRM ;
     long melt_thishookcall_counter_HOOK_HANDLE_SIGALRM ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_HANDLE_SIGALRM++ ;
@@ -21709,7 +21709,7 @@ void melthook_HOOK_HANDLE_SIGALRM(melt_ptr_t melthookdatap)
             ;
             /*_#MELT_NEED_DBG__L2*/ meltfnum[1] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -21725,7 +21725,7 @@ void melthook_HOOK_HANDLE_SIGALRM(melt_ptr_t melthookdatap)
 
                         /*_#MELT_CALLCOUNT__L3*/ meltfnum[2] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -21987,7 +21987,7 @@ meltlabloop_HANDLELOOP_1:;/*^loopbody*/
                     ;
                     /*_#MELT_NEED_DBG__L7*/ meltfnum[6] =
                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                         0 /* no melt_need_dbg */
@@ -22003,7 +22003,7 @@ meltlabloop_HANDLELOOP_1:;/*^loopbody*/
 
                                 /*_#MELT_CALLCOUNT__L8*/ meltfnum[7] =
                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                     meltcallcount  /* melt_callcount debugging */
 #else
                                     0L  /* melt_callcount without debug */
@@ -22634,17 +22634,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     MeltFrame_melthook_HOOK_HANDLE_SIGCHLD(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<49> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGCHLD), clos) {};
     MeltFrame_melthook_HOOK_HANDLE_SIGCHLD() //the constructor fromline 1642
         : Melt_CallFrameWithValues<49> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGCHLD)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     MeltFrame_melthook_HOOK_HANDLE_SIGCHLD(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<49> (fil,lin, sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGCHLD)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -22655,7 +22655,7 @@ public: /* fromline 1572*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1678*/
             sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGCHLD), hook) {};
-#if MELT_HAVE_DEBUG /*fromline 1682*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1682*/
     MeltFrame_melthook_HOOK_HANDLE_SIGCHLD(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1684
         : Melt_CallFrameWithValues<49> (fil,lin, sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGCHLD), hook) {};
 #endif /* MELT_HAVE_DEBUG fromline 1688*/
@@ -22674,7 +22674,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
     /* body of hook melthook_HOOK_HANDLE_SIGCHLD from outpucod_hookroutine */
     /* declare and initialize frame for melthook_HOOK_HANDLE_SIGCHLD hook */
 #undef meltcallcount
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melthook_call_counter_HOOK_HANDLE_SIGCHLD ;
     long melt_thishookcall_counter_HOOK_HANDLE_SIGCHLD ATTRIBUTE_UNUSED
         = melthook_call_counter_HOOK_HANDLE_SIGCHLD++ ;
@@ -22714,7 +22714,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
             ;
             /*_#MELT_NEED_DBG__L1*/ meltfnum[0] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -22730,7 +22730,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
 
                         /*_#MELT_CALLCOUNT__L2*/ meltfnum[1] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -22908,7 +22908,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
                             ;
                             /*_#MELT_NEED_DBG__L6*/ meltfnum[5] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -22924,7 +22924,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
 
                                         /*_#MELT_CALLCOUNT__L7*/ meltfnum[6] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -23428,7 +23428,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
                         ;
                         /*_#MELT_NEED_DBG__L19*/ meltfnum[18] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -23444,7 +23444,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
 
                                     /*_#MELT_CALLCOUNT__L20*/ meltfnum[19] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -23640,7 +23640,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
                                                     ;
                                                     /*_#MELT_NEED_DBG__L22*/ meltfnum[18] =
                                                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                         0 /* no melt_need_dbg */
@@ -23656,7 +23656,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
 
                                                                 /*_#MELT_CALLCOUNT__L23*/ meltfnum[22] =
                                                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                     meltcallcount  /* melt_callcount debugging */
 #else
                                                                     0L  /* melt_callcount without debug */
@@ -23790,7 +23790,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
                                                     ;
                                                     /*_#MELT_NEED_DBG__L24*/ meltfnum[22] =
                                                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                         0 /* no melt_need_dbg */
@@ -23806,7 +23806,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
 
                                                                 /*_#MELT_CALLCOUNT__L25*/ meltfnum[18] =
                                                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                     meltcallcount  /* melt_callcount debugging */
 #else
                                                                     0L  /* melt_callcount without debug */
@@ -23970,7 +23970,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
                                                     ;
                                                     /*_#MELT_NEED_DBG__L26*/ meltfnum[18] =
                                                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                         0 /* no melt_need_dbg */
@@ -23986,7 +23986,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
 
                                                                 /*_#MELT_CALLCOUNT__L27*/ meltfnum[22] =
                                                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                     meltcallcount  /* melt_callcount debugging */
 #else
                                                                     0L  /* melt_callcount without debug */
@@ -24222,17 +24222,17 @@ public: /* fromline 1572*/
     }; /*end melt_mark_ggc_data*/
     Melt_InitialClassyFrame_WARMELTmiHOOKS_h244320376(meltclosure_ptr_t clos) //the closure constructor fromline 1630
         : Melt_CallFrameWithValues<851> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
             sizeof(Melt_InitialClassyFrame_WARMELTmiHOOKS_h244320376), clos) {};
     Melt_InitialClassyFrame_WARMELTmiHOOKS_h244320376() //the constructor fromline 1642
         : Melt_CallFrameWithValues<851> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
             __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
             sizeof(Melt_InitialClassyFrame_WARMELTmiHOOKS_h244320376)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
     Melt_InitialClassyFrame_WARMELTmiHOOKS_h244320376(const char*fil, int lin) //the constructor fromline 1656
         : Melt_CallFrameWithValues<851> (fil,lin, sizeof(Melt_InitialClassyFrame_WARMELTmiHOOKS_h244320376)) {};
 #endif /* MELT_HAVE_DEBUG fromline 1666*/
@@ -31971,7 +31971,7 @@ static void melt_initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t 
 
 
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
 const char meltmodule_WARMELTmiHOOKS__melt_have_debug_enabled[] = "MELT module warmelt-hooks have debug enabled";
 #else /*!MELT_HAVE_DEBUG*/
 const char meltmodule_WARMELTmiHOOKS__melt_have_debug_disabled[] = "MELT module warmelt-hooks have debug disabled";
@@ -31983,7 +31983,7 @@ void* MELT_LOW_OPTIMIZATION melt_start_this_module (void* modargp_)
 
     char meltpredefinited[MELTGLOB__LASTGLOB+8];
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -32005,7 +32005,7 @@ void* MELT_LOW_OPTIMIZATION melt_start_this_module (void* modargp_)
     /* classy initial frame melt_start_this_module fromline 1773*/ Melt_InitialFrame
     meltfram__ /*declfrastruct fromline 1780*/
     /*classyinitroutinearg melt_start_this_module fromline 1819*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     /*classyinitroutfram fromline 1823:*/ (__FILE__, __LINE__)
 #endif /*MELT_HAVE_DEBUG fromline1825*/
 

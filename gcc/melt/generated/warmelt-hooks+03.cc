@@ -1208,7 +1208,7 @@ typedef Melt_InitialClassyFrame_WARMELTmiHOOKS_h244320376 /*opaqueinitialclassy*
 
 
 /* define different names when debugging or not */
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
 MELT_EXTERN const char meltmodule_WARMELTmiHOOKS__melt_have_debug_enabled[];
 #define melt_have_debug_string meltmodule_WARMELTmiHOOKS__melt_have_debug_enabled
 #else /*!MELT_HAVE_DEBUG*/
@@ -1265,7 +1265,7 @@ meltrout_79_WARMELTmiHOOKS_AT_EXIT_LAST(meltclosure_ptr_t meltclosp_, melt_ptr_t
 {
     long current_blocklevel_signals_meltrout_79_WARMELTmiHOOKS_AT_EXIT_LAST_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -1297,17 +1297,17 @@ meltrout_79_WARMELTmiHOOKS_AT_EXIT_LAST(meltclosure_ptr_t meltclosp_, melt_ptr_t
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_79_WARMELTmiHOOKS_AT_EXIT_LAST(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<3> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_79_WARMELTmiHOOKS_AT_EXIT_LAST), clos) {};
         MeltFrame_meltrout_79_WARMELTmiHOOKS_AT_EXIT_LAST() //the constructor fromline 1642
             : Melt_CallFrameWithValues<3> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_79_WARMELTmiHOOKS_AT_EXIT_LAST)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_79_WARMELTmiHOOKS_AT_EXIT_LAST(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<3> (fil,lin, sizeof(MeltFrame_meltrout_79_WARMELTmiHOOKS_AT_EXIT_LAST)) {};
         MeltFrame_meltrout_79_WARMELTmiHOOKS_AT_EXIT_LAST(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -1420,7 +1420,7 @@ meltrout_80_WARMELTmiHOOKS_REGISTER_PRAGMA_PROCESSOR(meltclosure_ptr_t meltclosp
 {
     long current_blocklevel_signals_meltrout_80_WARMELTmiHOOKS_REGISTER_PRAGMA_PROCESSOR_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -1452,17 +1452,17 @@ meltrout_80_WARMELTmiHOOKS_REGISTER_PRAGMA_PROCESSOR(meltclosure_ptr_t meltclosp
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_80_WARMELTmiHOOKS_REGISTER_PRAGMA_PROCESSOR(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<13> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_80_WARMELTmiHOOKS_REGISTER_PRAGMA_PROCESSOR), clos) {};
         MeltFrame_meltrout_80_WARMELTmiHOOKS_REGISTER_PRAGMA_PROCESSOR() //the constructor fromline 1642
             : Melt_CallFrameWithValues<13> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_80_WARMELTmiHOOKS_REGISTER_PRAGMA_PROCESSOR)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_80_WARMELTmiHOOKS_REGISTER_PRAGMA_PROCESSOR(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<13> (fil,lin, sizeof(MeltFrame_meltrout_80_WARMELTmiHOOKS_REGISTER_PRAGMA_PROCESSOR)) {};
         MeltFrame_meltrout_80_WARMELTmiHOOKS_REGISTER_PRAGMA_PROCESSOR(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -1531,7 +1531,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L1*/ meltfnum[0] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -1547,7 +1547,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L2*/ meltfnum[1] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -1711,7 +1711,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-hooks.melt:2716:/ locexp");
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (melt_need_debug (0))
                 melt_dbgshortbacktrace(( "register_pragma_processor"), (12));
 #endif
@@ -1761,7 +1761,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L5*/ meltfnum[1] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -1777,7 +1777,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L6*/ meltfnum[5] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -1892,7 +1892,7 @@ meltrout_83_WARMELTmiHOOKS_ADD_PRAGMA_HANDLER(meltclosure_ptr_t meltclosp_, melt
 {
     long current_blocklevel_signals_meltrout_83_WARMELTmiHOOKS_ADD_PRAGMA_HANDLER_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -1924,17 +1924,17 @@ meltrout_83_WARMELTmiHOOKS_ADD_PRAGMA_HANDLER(meltclosure_ptr_t meltclosp_, melt
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_83_WARMELTmiHOOKS_ADD_PRAGMA_HANDLER(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<25> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_83_WARMELTmiHOOKS_ADD_PRAGMA_HANDLER), clos) {};
         MeltFrame_meltrout_83_WARMELTmiHOOKS_ADD_PRAGMA_HANDLER() //the constructor fromline 1642
             : Melt_CallFrameWithValues<25> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_83_WARMELTmiHOOKS_ADD_PRAGMA_HANDLER)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_83_WARMELTmiHOOKS_ADD_PRAGMA_HANDLER(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<25> (fil,lin, sizeof(MeltFrame_meltrout_83_WARMELTmiHOOKS_ADD_PRAGMA_HANDLER)) {};
         MeltFrame_meltrout_83_WARMELTmiHOOKS_ADD_PRAGMA_HANDLER(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -2003,7 +2003,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L1*/ meltfnum[0] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -2019,7 +2019,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L2*/ meltfnum[1] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -2108,7 +2108,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-hooks.melt:2761:/ locexp");
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (melt_need_debug (0))
                 melt_dbgshortbacktrace(( "add_pragma_handler"), (12));
 #endif
@@ -2476,7 +2476,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L18*/ meltfnum[7] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -2492,7 +2492,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L19*/ meltfnum[8] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -2584,7 +2584,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-hooks.melt:2792:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -2622,7 +2622,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-hooks.melt:2755:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -2668,7 +2668,7 @@ meltrout_84_WARMELTmiHOOKS_REMOVE_PRAGMA_HANDLER(meltclosure_ptr_t meltclosp_, m
 {
     long current_blocklevel_signals_meltrout_84_WARMELTmiHOOKS_REMOVE_PRAGMA_HANDLER_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -2700,17 +2700,17 @@ meltrout_84_WARMELTmiHOOKS_REMOVE_PRAGMA_HANDLER(meltclosure_ptr_t meltclosp_, m
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_84_WARMELTmiHOOKS_REMOVE_PRAGMA_HANDLER(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<11> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_84_WARMELTmiHOOKS_REMOVE_PRAGMA_HANDLER), clos) {};
         MeltFrame_meltrout_84_WARMELTmiHOOKS_REMOVE_PRAGMA_HANDLER() //the constructor fromline 1642
             : Melt_CallFrameWithValues<11> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_84_WARMELTmiHOOKS_REMOVE_PRAGMA_HANDLER)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_84_WARMELTmiHOOKS_REMOVE_PRAGMA_HANDLER(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<11> (fil,lin, sizeof(MeltFrame_meltrout_84_WARMELTmiHOOKS_REMOVE_PRAGMA_HANDLER)) {};
         MeltFrame_meltrout_84_WARMELTmiHOOKS_REMOVE_PRAGMA_HANDLER(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -2779,7 +2779,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L1*/ meltfnum[0] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -2795,7 +2795,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L2*/ meltfnum[1] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -2876,7 +2876,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-hooks.melt:2800:/ locexp");
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (melt_need_debug (0))
                 melt_dbgshortbacktrace(( "remove_pragma_handler"), (12));
 #endif
@@ -3028,7 +3028,7 @@ meltrout_85_WARMELTmiHOOKS_MELT_INVOKE_INPUT_CALLBACKS(meltclosure_ptr_t meltclo
 {
     long current_blocklevel_signals_meltrout_85_WARMELTmiHOOKS_MELT_INVOKE_INPUT_CALLBACKS_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -3060,17 +3060,17 @@ meltrout_85_WARMELTmiHOOKS_MELT_INVOKE_INPUT_CALLBACKS(meltclosure_ptr_t meltclo
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_85_WARMELTmiHOOKS_MELT_INVOKE_INPUT_CALLBACKS(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<60> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_85_WARMELTmiHOOKS_MELT_INVOKE_INPUT_CALLBACKS), clos) {};
         MeltFrame_meltrout_85_WARMELTmiHOOKS_MELT_INVOKE_INPUT_CALLBACKS() //the constructor fromline 1642
             : Melt_CallFrameWithValues<60> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_85_WARMELTmiHOOKS_MELT_INVOKE_INPUT_CALLBACKS)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_85_WARMELTmiHOOKS_MELT_INVOKE_INPUT_CALLBACKS(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<60> (fil,lin, sizeof(MeltFrame_meltrout_85_WARMELTmiHOOKS_MELT_INVOKE_INPUT_CALLBACKS)) {};
         MeltFrame_meltrout_85_WARMELTmiHOOKS_MELT_INVOKE_INPUT_CALLBACKS(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -3151,7 +3151,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L2*/ meltfnum[1] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -3167,7 +3167,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L3*/ meltfnum[2] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -3363,7 +3363,7 @@ meltlab_endgetargs:
                             ;
                             /*_#MELT_NEED_DBG__L8*/ meltfnum[7] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -3379,7 +3379,7 @@ meltlab_endgetargs:
 
                                         /*_#MELT_CALLCOUNT__L9*/ meltfnum[8] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -3649,7 +3649,7 @@ meltlab_endgetargs:
                                         ;
                                         /*_#MELT_NEED_DBG__L12*/ meltfnum[8] =
                                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                             0 /* no melt_need_dbg */
@@ -3665,7 +3665,7 @@ meltlab_endgetargs:
 
                                                     /*_#MELT_CALLCOUNT__L13*/ meltfnum[7] =
                                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                         meltcallcount  /* melt_callcount debugging */
 #else
                                                         0L  /* melt_callcount without debug */
@@ -3843,7 +3843,7 @@ meltlab_endgetargs:
                                         ;
                                         /*_#MELT_NEED_DBG__L15*/ meltfnum[8] =
                                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                             0 /* no melt_need_dbg */
@@ -3859,7 +3859,7 @@ meltlab_endgetargs:
 
                                                     /*_#MELT_CALLCOUNT__L16*/ meltfnum[7] =
                                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                         meltcallcount  /* melt_callcount debugging */
 #else
                                                         0L  /* melt_callcount without debug */
@@ -3974,7 +3974,7 @@ meltlab_endgetargs:
                             ;
                             /*_#MELT_NEED_DBG__L17*/ meltfnum[7] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -3990,7 +3990,7 @@ meltlab_endgetargs:
 
                                         /*_#MELT_CALLCOUNT__L18*/ meltfnum[8] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -4171,7 +4171,7 @@ meltlabloop_SCANLOOP_1:;/*^loopbody*/
                                                             ;
                                                             /*_#MELT_NEED_DBG__L21*/ meltfnum[20] =
                                                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                                 0 /* no melt_need_dbg */
@@ -4187,7 +4187,7 @@ meltlabloop_SCANLOOP_1:;/*^loopbody*/
 
                                                                         /*_#MELT_CALLCOUNT__L22*/ meltfnum[21] =
                                                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                             meltcallcount  /* melt_callcount debugging */
 #else
                                                                             0L  /* melt_callcount without debug */
@@ -4400,7 +4400,7 @@ meltlabexit_SCANLOOP_1:
                                                     ;
                                                     /*_#MELT_NEED_DBG__L24*/ meltfnum[20] =
                                                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                         0 /* no melt_need_dbg */
@@ -4416,7 +4416,7 @@ meltlabexit_SCANLOOP_1:
 
                                                                 /*_#MELT_CALLCOUNT__L25*/ meltfnum[7] =
                                                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                     meltcallcount  /* melt_callcount debugging */
 #else
                                                                     0L  /* melt_callcount without debug */
@@ -4660,7 +4660,7 @@ meltlabexit_SCANLOOP_1:
                                         ;
                                         /*_#MELT_NEED_DBG__L27*/ meltfnum[20] =
                                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                             0 /* no melt_need_dbg */
@@ -4676,7 +4676,7 @@ meltlabexit_SCANLOOP_1:
 
                                                     /*_#MELT_CALLCOUNT__L28*/ meltfnum[21] =
                                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                         meltcallcount  /* melt_callcount debugging */
 #else
                                                         0L  /* melt_callcount without debug */
@@ -4846,7 +4846,7 @@ meltlabexit_SCANLOOP_1:
                 ;
                 /*_#MELT_NEED_DBG__L29*/ meltfnum[21] =
                     /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                     (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                     0 /* no melt_need_dbg */
@@ -4862,7 +4862,7 @@ meltlabexit_SCANLOOP_1:
 
                             /*_#MELT_CALLCOUNT__L30*/ meltfnum[20] =
                                 /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                 meltcallcount  /* melt_callcount debugging */
 #else
                                 0L  /* melt_callcount without debug */
@@ -4971,7 +4971,7 @@ meltlabexit_SCANLOOP_1:
                             ;
                             /*_#MELT_NEED_DBG__L31*/ meltfnum[5] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -4987,7 +4987,7 @@ meltlabexit_SCANLOOP_1:
 
                                         /*_#MELT_CALLCOUNT__L32*/ meltfnum[6] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -5137,7 +5137,7 @@ meltrout_87_WARMELTmiHOOKS_IS_POLLING_INPUTS(meltclosure_ptr_t meltclosp_, melt_
 {
     long current_blocklevel_signals_meltrout_87_WARMELTmiHOOKS_IS_POLLING_INPUTS_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -5169,17 +5169,17 @@ meltrout_87_WARMELTmiHOOKS_IS_POLLING_INPUTS(meltclosure_ptr_t meltclosp_, melt_
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_87_WARMELTmiHOOKS_IS_POLLING_INPUTS(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<6> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_87_WARMELTmiHOOKS_IS_POLLING_INPUTS), clos) {};
         MeltFrame_meltrout_87_WARMELTmiHOOKS_IS_POLLING_INPUTS() //the constructor fromline 1642
             : Melt_CallFrameWithValues<6> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_87_WARMELTmiHOOKS_IS_POLLING_INPUTS)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_87_WARMELTmiHOOKS_IS_POLLING_INPUTS(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<6> (fil,lin, sizeof(MeltFrame_meltrout_87_WARMELTmiHOOKS_IS_POLLING_INPUTS)) {};
         MeltFrame_meltrout_87_WARMELTmiHOOKS_IS_POLLING_INPUTS(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -5310,7 +5310,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-hooks.melt:3114:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -5350,7 +5350,7 @@ meltrout_88_WARMELTmiHOOKS_EVERY_POLLING_INPUT(meltclosure_ptr_t meltclosp_, mel
 {
     long current_blocklevel_signals_meltrout_88_WARMELTmiHOOKS_EVERY_POLLING_INPUT_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -5382,17 +5382,17 @@ meltrout_88_WARMELTmiHOOKS_EVERY_POLLING_INPUT(meltclosure_ptr_t meltclosp_, mel
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_88_WARMELTmiHOOKS_EVERY_POLLING_INPUT(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<12> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_88_WARMELTmiHOOKS_EVERY_POLLING_INPUT), clos) {};
         MeltFrame_meltrout_88_WARMELTmiHOOKS_EVERY_POLLING_INPUT() //the constructor fromline 1642
             : Melt_CallFrameWithValues<12> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_88_WARMELTmiHOOKS_EVERY_POLLING_INPUT)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_88_WARMELTmiHOOKS_EVERY_POLLING_INPUT(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<12> (fil,lin, sizeof(MeltFrame_meltrout_88_WARMELTmiHOOKS_EVERY_POLLING_INPUT)) {};
         MeltFrame_meltrout_88_WARMELTmiHOOKS_EVERY_POLLING_INPUT(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -5587,7 +5587,7 @@ meltlab_endgetargs:
                                                 ;
                                                 /*_#MELT_NEED_DBG__L5*/ meltfnum[4] =
                                                     /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                     (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                     0 /* no melt_need_dbg */
@@ -5603,7 +5603,7 @@ meltlab_endgetargs:
 
                                                             /*_#MELT_CALLCOUNT__L6*/ meltfnum[5] =
                                                                 /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                 meltcallcount  /* melt_callcount debugging */
 #else
                                                                 0L  /* melt_callcount without debug */
@@ -5789,7 +5789,7 @@ meltrout_89_WARMELTmiHOOKS_GET_POLLING_INPUT(meltclosure_ptr_t meltclosp_, melt_
 {
     long current_blocklevel_signals_meltrout_89_WARMELTmiHOOKS_GET_POLLING_INPUT_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -5821,17 +5821,17 @@ meltrout_89_WARMELTmiHOOKS_GET_POLLING_INPUT(meltclosure_ptr_t meltclosp_, melt_
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_89_WARMELTmiHOOKS_GET_POLLING_INPUT(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<9> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_89_WARMELTmiHOOKS_GET_POLLING_INPUT), clos) {};
         MeltFrame_meltrout_89_WARMELTmiHOOKS_GET_POLLING_INPUT() //the constructor fromline 1642
             : Melt_CallFrameWithValues<9> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_89_WARMELTmiHOOKS_GET_POLLING_INPUT)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_89_WARMELTmiHOOKS_GET_POLLING_INPUT(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<9> (fil,lin, sizeof(MeltFrame_meltrout_89_WARMELTmiHOOKS_GET_POLLING_INPUT)) {};
         MeltFrame_meltrout_89_WARMELTmiHOOKS_GET_POLLING_INPUT(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -5937,7 +5937,7 @@ meltlab_endgetargs:
                                     {
                                         MELT_LOCATION("warmelt-hooks.melt:3160:/ locexp");
                                         /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                             melt_warn_for_no_expected_secondary_results();
                                         /* we warned when secondary results are expected but not returned. */
@@ -6001,7 +6001,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-hooks.melt:3161:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -6030,7 +6030,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-hooks.melt:3148:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -6070,7 +6070,7 @@ meltrout_90_WARMELTmiHOOKS_REGISTER_PARAGRAPH_INPUT_CHANNEL_HANDLER(meltclosure_
 {
     long current_blocklevel_signals_meltrout_90_WARMELTmiHOOKS_REGISTER_PARAGRAPH_INPUT_CHANNEL_HANDLER_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -6102,17 +6102,17 @@ meltrout_90_WARMELTmiHOOKS_REGISTER_PARAGRAPH_INPUT_CHANNEL_HANDLER(meltclosure_
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_90_WARMELTmiHOOKS_REGISTER_PARAGRAPH_INPUT_CHANNEL_HANDLER(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<20> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_90_WARMELTmiHOOKS_REGISTER_PARAGRAPH_INPUT_CHANNEL_HANDLER), clos) {};
         MeltFrame_meltrout_90_WARMELTmiHOOKS_REGISTER_PARAGRAPH_INPUT_CHANNEL_HANDLER() //the constructor fromline 1642
             : Melt_CallFrameWithValues<20> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_90_WARMELTmiHOOKS_REGISTER_PARAGRAPH_INPUT_CHANNEL_HANDLER)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_90_WARMELTmiHOOKS_REGISTER_PARAGRAPH_INPUT_CHANNEL_HANDLER(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<20> (fil,lin, sizeof(MeltFrame_meltrout_90_WARMELTmiHOOKS_REGISTER_PARAGRAPH_INPUT_CHANNEL_HANDLER)) {};
         MeltFrame_meltrout_90_WARMELTmiHOOKS_REGISTER_PARAGRAPH_INPUT_CHANNEL_HANDLER(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -6193,7 +6193,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L2*/ meltfnum[1] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -6209,7 +6209,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L3*/ meltfnum[2] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -6381,7 +6381,7 @@ meltlab_endgetargs:
                     {
                         MELT_LOCATION("warmelt-hooks.melt:3196:/ locexp");
                         /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                             melt_warn_for_no_expected_secondary_results();
                         /* we warned when secondary results are expected but not returned. */
@@ -6540,7 +6540,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-hooks.melt:3220:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -6584,7 +6584,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-hooks.melt:3165:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -6626,7 +6626,7 @@ meltrout_91_WARMELTmiHOOKS_REGISTER_RAW_INPUT_CHANNEL_HANDLER(meltclosure_ptr_t 
 {
     long current_blocklevel_signals_meltrout_91_WARMELTmiHOOKS_REGISTER_RAW_INPUT_CHANNEL_HANDLER_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -6658,17 +6658,17 @@ meltrout_91_WARMELTmiHOOKS_REGISTER_RAW_INPUT_CHANNEL_HANDLER(meltclosure_ptr_t 
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_91_WARMELTmiHOOKS_REGISTER_RAW_INPUT_CHANNEL_HANDLER(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<20> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_91_WARMELTmiHOOKS_REGISTER_RAW_INPUT_CHANNEL_HANDLER), clos) {};
         MeltFrame_meltrout_91_WARMELTmiHOOKS_REGISTER_RAW_INPUT_CHANNEL_HANDLER() //the constructor fromline 1642
             : Melt_CallFrameWithValues<20> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_91_WARMELTmiHOOKS_REGISTER_RAW_INPUT_CHANNEL_HANDLER)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_91_WARMELTmiHOOKS_REGISTER_RAW_INPUT_CHANNEL_HANDLER(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<20> (fil,lin, sizeof(MeltFrame_meltrout_91_WARMELTmiHOOKS_REGISTER_RAW_INPUT_CHANNEL_HANDLER)) {};
         MeltFrame_meltrout_91_WARMELTmiHOOKS_REGISTER_RAW_INPUT_CHANNEL_HANDLER(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -6749,7 +6749,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L2*/ meltfnum[1] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -6765,7 +6765,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L3*/ meltfnum[2] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -6937,7 +6937,7 @@ meltlab_endgetargs:
                     {
                         MELT_LOCATION("warmelt-hooks.melt:3254:/ locexp");
                         /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                             melt_warn_for_no_expected_secondary_results();
                         /* we warned when secondary results are expected but not returned. */
@@ -7096,7 +7096,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-hooks.melt:3278:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -7140,7 +7140,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-hooks.melt:3224:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -7182,7 +7182,7 @@ meltrout_92_WARMELTmiHOOKS_UNREGISTER_INPUT_CHANNEL(meltclosure_ptr_t meltclosp_
 {
     long current_blocklevel_signals_meltrout_92_WARMELTmiHOOKS_UNREGISTER_INPUT_CHANNEL_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -7214,17 +7214,17 @@ meltrout_92_WARMELTmiHOOKS_UNREGISTER_INPUT_CHANNEL(meltclosure_ptr_t meltclosp_
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_92_WARMELTmiHOOKS_UNREGISTER_INPUT_CHANNEL(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<14> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_92_WARMELTmiHOOKS_UNREGISTER_INPUT_CHANNEL), clos) {};
         MeltFrame_meltrout_92_WARMELTmiHOOKS_UNREGISTER_INPUT_CHANNEL() //the constructor fromline 1642
             : Melt_CallFrameWithValues<14> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_92_WARMELTmiHOOKS_UNREGISTER_INPUT_CHANNEL)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_92_WARMELTmiHOOKS_UNREGISTER_INPUT_CHANNEL(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<14> (fil,lin, sizeof(MeltFrame_meltrout_92_WARMELTmiHOOKS_UNREGISTER_INPUT_CHANNEL)) {};
         MeltFrame_meltrout_92_WARMELTmiHOOKS_UNREGISTER_INPUT_CHANNEL(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -7293,7 +7293,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L1*/ meltfnum[0] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -7309,7 +7309,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L2*/ meltfnum[1] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -7483,7 +7483,7 @@ meltlab_endgetargs:
                                 {
                                     MELT_LOCATION("warmelt-hooks.melt:3296:/ locexp");
                                     /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                         melt_warn_for_no_expected_secondary_results();
                                     /* we warned when secondary results are expected but not returned. */
@@ -7579,7 +7579,7 @@ meltlab_endgetargs:
                             ;
                             /*_#MELT_NEED_DBG__L11*/ meltfnum[8] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -7595,7 +7595,7 @@ meltlab_endgetargs:
 
                                         /*_#MELT_CALLCOUNT__L12*/ meltfnum[4] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -7738,7 +7738,7 @@ meltrout_93_WARMELTmiHOOKS_CONNECT_TO_SERVER(meltclosure_ptr_t meltclosp_, melt_
 {
     long current_blocklevel_signals_meltrout_93_WARMELTmiHOOKS_CONNECT_TO_SERVER_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -7770,17 +7770,17 @@ meltrout_93_WARMELTmiHOOKS_CONNECT_TO_SERVER(meltclosure_ptr_t meltclosp_, melt_
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_93_WARMELTmiHOOKS_CONNECT_TO_SERVER(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<50> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_93_WARMELTmiHOOKS_CONNECT_TO_SERVER), clos) {};
         MeltFrame_meltrout_93_WARMELTmiHOOKS_CONNECT_TO_SERVER() //the constructor fromline 1642
             : Melt_CallFrameWithValues<50> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_93_WARMELTmiHOOKS_CONNECT_TO_SERVER)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_93_WARMELTmiHOOKS_CONNECT_TO_SERVER(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<50> (fil,lin, sizeof(MeltFrame_meltrout_93_WARMELTmiHOOKS_CONNECT_TO_SERVER)) {};
         MeltFrame_meltrout_93_WARMELTmiHOOKS_CONNECT_TO_SERVER(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -7854,7 +7854,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L2*/ meltfnum[1] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -7870,7 +7870,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L3*/ meltfnum[2] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -7993,7 +7993,7 @@ meltlab_endgetargs:
                                     {
                                         MELT_LOCATION("warmelt-hooks.melt:3367:/ locexp");
                                         /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                             melt_warn_for_no_expected_secondary_results();
                                         /* we warned when secondary results are expected but not returned. */
@@ -8040,7 +8040,7 @@ meltlab_endgetargs:
                                             {
                                                 MELT_LOCATION("warmelt-hooks.melt:3375:/ locexp");
                                                 /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                     melt_warn_for_no_expected_secondary_results();
                                                 /* we warned when secondary results are expected but not returned. */
@@ -8093,7 +8093,7 @@ meltlab_endgetargs:
                         ;
                         /*_#MELT_NEED_DBG__L6*/ meltfnum[5] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -8109,7 +8109,7 @@ meltlab_endgetargs:
 
                                     /*_#MELT_CALLCOUNT__L7*/ meltfnum[6] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -8203,7 +8203,7 @@ meltlab_endgetargs:
                     {
                         MELT_LOCATION("warmelt-hooks.melt:3383:/ locexp");
                         /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                             melt_warn_for_no_expected_secondary_results();
                         /* we warned when secondary results are expected but not returned. */
@@ -8276,7 +8276,7 @@ meltlab_endgetargs:
                                 {
                                     MELT_LOCATION("warmelt-hooks.melt:3389:/ locexp");
                                     /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                         melt_warn_for_no_expected_secondary_results();
                                     /* we warned when secondary results are expected but not returned. */
@@ -8350,7 +8350,7 @@ meltlab_endgetargs:
                                             {
                                                 MELT_LOCATION("warmelt-hooks.melt:3392:/ locexp");
                                                 /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                     melt_warn_for_no_expected_secondary_results();
                                                 /* we warned when secondary results are expected but not returned. */
@@ -8432,7 +8432,7 @@ meltlab_endgetargs:
                                                                         {
                                                                             MELT_LOCATION("warmelt-hooks.melt:3410:/ locexp");
                                                                             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                 melt_warn_for_no_expected_secondary_results();
                                                                             /* we warned when secondary results are expected but not returned. */
@@ -8478,7 +8478,7 @@ meltlab_endgetargs:
                                                                         {
                                                                             MELT_LOCATION("warmelt-hooks.melt:3418:/ locexp");
                                                                             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                 melt_warn_for_no_expected_secondary_results();
                                                                             /* we warned when secondary results are expected but not returned. */
@@ -8526,7 +8526,7 @@ meltlab_endgetargs:
                                                                         {
                                                                             MELT_LOCATION("warmelt-hooks.melt:3428:/ locexp");
                                                                             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                 melt_warn_for_no_expected_secondary_results();
                                                                             /* we warned when secondary results are expected but not returned. */
@@ -8579,7 +8579,7 @@ meltlab_endgetargs:
                                                             ;
                                                             /*_#MELT_NEED_DBG__L14*/ meltfnum[13] =
                                                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                                 0 /* no melt_need_dbg */
@@ -8595,7 +8595,7 @@ meltlab_endgetargs:
 
                                                                         /*_#MELT_CALLCOUNT__L15*/ meltfnum[14] =
                                                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                             meltcallcount  /* melt_callcount debugging */
 #else
                                                                             0L  /* melt_callcount without debug */
@@ -8689,7 +8689,7 @@ meltlab_endgetargs:
                                                         {
                                                             MELT_LOCATION("warmelt-hooks.melt:3436:/ locexp");
                                                             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                 melt_warn_for_no_expected_secondary_results();
                                                             /* we warned when secondary results are expected but not returned. */
@@ -8787,7 +8787,7 @@ meltlab_endgetargs:
                                                                                             {
                                                                                                 MELT_LOCATION("warmelt-hooks.melt:3472:/ locexp");
                                                                                                 /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                 if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                                     melt_warn_for_no_expected_secondary_results();
                                                                                                 /* we warned when secondary results are expected but not returned. */
@@ -8831,7 +8831,7 @@ meltlab_endgetargs:
                                                                                             {
                                                                                                 MELT_LOCATION("warmelt-hooks.melt:3478:/ locexp");
                                                                                                 /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                 if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                                     melt_warn_for_no_expected_secondary_results();
                                                                                                 /* we warned when secondary results are expected but not returned. */
@@ -8889,7 +8889,7 @@ meltlab_endgetargs:
                                                                                                 {
                                                                                                     MELT_LOCATION("warmelt-hooks.melt:3496:/ locexp");
                                                                                                     /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                     if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                                         melt_warn_for_no_expected_secondary_results();
                                                                                                     /* we warned when secondary results are expected but not returned. */
@@ -8943,7 +8943,7 @@ meltlab_endgetargs:
                                                                                                         {
                                                                                                             MELT_LOCATION("warmelt-hooks.melt:3511:/ locexp");
                                                                                                             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                                                 melt_warn_for_no_expected_secondary_results();
                                                                                                             /* we warned when secondary results are expected but not returned. */
@@ -8987,7 +8987,7 @@ meltlab_endgetargs:
                                                                                                         {
                                                                                                             MELT_LOCATION("warmelt-hooks.melt:3517:/ locexp");
                                                                                                             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                                                 melt_warn_for_no_expected_secondary_results();
                                                                                                             /* we warned when secondary results are expected but not returned. */
@@ -9037,7 +9037,7 @@ meltlab_endgetargs:
                                                                                                     ;
                                                                                                     /*_#MELT_NEED_DBG__L18*/ meltfnum[12] =
                                                                                                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                                                                         0 /* no melt_need_dbg */
@@ -9053,7 +9053,7 @@ meltlab_endgetargs:
 
                                                                                                                 /*_#MELT_CALLCOUNT__L19*/ meltfnum[18] =
                                                                                                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                                                                     meltcallcount  /* melt_callcount debugging */
 #else
                                                                                                                     0L  /* melt_callcount without debug */
@@ -9147,7 +9147,7 @@ meltlab_endgetargs:
                                                                                                 {
                                                                                                     MELT_LOCATION("warmelt-hooks.melt:3520:/ locexp");
                                                                                                     /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                     if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                                         melt_warn_for_no_expected_secondary_results();
                                                                                                     /* we warned when secondary results are expected but not returned. */
@@ -9199,7 +9199,7 @@ meltlab_endgetargs:
                                                                                             {
                                                                                                 MELT_LOCATION("warmelt-hooks.melt:3530:/ locexp");
                                                                                                 /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                 if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                                     melt_warn_for_no_expected_secondary_results();
                                                                                                 /* we warned when secondary results are expected but not returned. */
@@ -9265,7 +9265,7 @@ meltlab_endgetargs:
                                                                                                     {
                                                                                                         MELT_LOCATION("warmelt-hooks.melt:3557:/ locexp");
                                                                                                         /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                                             melt_warn_for_no_expected_secondary_results();
                                                                                                         /* we warned when secondary results are expected but not returned. */
@@ -9323,7 +9323,7 @@ meltlab_endgetargs:
                                                                                                     {
                                                                                                         MELT_LOCATION("warmelt-hooks.melt:3576:/ locexp");
                                                                                                         /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                                             melt_warn_for_no_expected_secondary_results();
                                                                                                         /* we warned when secondary results are expected but not returned. */
@@ -9391,7 +9391,7 @@ meltlab_endgetargs:
                                                                         ;
                                                                         /*_#MELT_NEED_DBG__L20*/ meltfnum[18] =
                                                                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                                             0 /* no melt_need_dbg */
@@ -9407,7 +9407,7 @@ meltlab_endgetargs:
 
                                                                                     /*_#MELT_CALLCOUNT__L21*/ meltfnum[12] =
                                                                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                                         meltcallcount  /* melt_callcount debugging */
 #else
                                                                                         0L  /* melt_callcount without debug */
@@ -9501,7 +9501,7 @@ meltlab_endgetargs:
                                                                     {
                                                                         MELT_LOCATION("warmelt-hooks.melt:3598:/ locexp");
                                                                         /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                             melt_warn_for_no_expected_secondary_results();
                                                                         /* we warned when secondary results are expected but not returned. */
@@ -9558,7 +9558,7 @@ meltlab_endgetargs:
                                                                     {
                                                                         MELT_LOCATION("warmelt-hooks.melt:3602:/ locexp");
                                                                         /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                             melt_warn_for_no_expected_secondary_results();
                                                                         /* we warned when secondary results are expected but not returned. */
@@ -9646,7 +9646,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-hooks.melt:3338:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -9688,7 +9688,7 @@ meltrout_94_WARMELTmiHOOKS_JSON_LEXER(meltclosure_ptr_t meltclosp_, melt_ptr_t m
 {
     long current_blocklevel_signals_meltrout_94_WARMELTmiHOOKS_JSON_LEXER_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -9720,17 +9720,17 @@ meltrout_94_WARMELTmiHOOKS_JSON_LEXER(meltclosure_ptr_t meltclosp_, melt_ptr_t m
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_94_WARMELTmiHOOKS_JSON_LEXER(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<113> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_94_WARMELTmiHOOKS_JSON_LEXER), clos) {};
         MeltFrame_meltrout_94_WARMELTmiHOOKS_JSON_LEXER() //the constructor fromline 1642
             : Melt_CallFrameWithValues<113> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_94_WARMELTmiHOOKS_JSON_LEXER)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_94_WARMELTmiHOOKS_JSON_LEXER(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<113> (fil,lin, sizeof(MeltFrame_meltrout_94_WARMELTmiHOOKS_JSON_LEXER)) {};
         MeltFrame_meltrout_94_WARMELTmiHOOKS_JSON_LEXER(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -9804,7 +9804,7 @@ meltlab_endgetargs:
                     {
                         MELT_LOCATION("warmelt-hooks.melt:3635:/ locexp");
                         /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                             melt_warn_for_no_expected_secondary_results();
                         /* we warned when secondary results are expected but not returned. */
@@ -9888,7 +9888,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
                                 ;
                                 /*_#MELT_NEED_DBG__L6*/ meltfnum[5] =
                                     /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                     0 /* no melt_need_dbg */
@@ -9904,7 +9904,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
 
                                             /*_#MELT_CALLCOUNT__L7*/ meltfnum[6] =
                                                 /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                 meltcallcount  /* melt_callcount debugging */
 #else
                                                 0L  /* melt_callcount without debug */
@@ -9987,7 +9987,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
                             {
                                 MELT_LOCATION("warmelt-hooks.melt:3644:/ locexp");
                                 /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                     melt_warn_for_no_expected_secondary_results();
                                 /* we warned when secondary results are expected but not returned. */
@@ -10051,7 +10051,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
                     ;
                     /*_#MELT_NEED_DBG__L8*/ meltfnum[6] =
                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                         0 /* no melt_need_dbg */
@@ -10067,7 +10067,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
 
                                 /*_#MELT_CALLCOUNT__L9*/ meltfnum[5] =
                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                     meltcallcount  /* melt_callcount debugging */
 #else
                                     0L  /* melt_callcount without debug */
@@ -10236,7 +10236,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
                                             ;
                                             /*_#MELT_NEED_DBG__L12*/ meltfnum[11] =
                                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                 0 /* no melt_need_dbg */
@@ -10252,7 +10252,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
 
                                                         /*_#MELT_CALLCOUNT__L13*/ meltfnum[12] =
                                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                             meltcallcount  /* melt_callcount debugging */
 #else
                                                             0L  /* melt_callcount without debug */
@@ -10405,7 +10405,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
                                                         ;
                                                         /*_#MELT_NEED_DBG__L15*/ meltfnum[11] =
                                                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                             0 /* no melt_need_dbg */
@@ -10421,7 +10421,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
 
                                                                     /*_#MELT_CALLCOUNT__L16*/ meltfnum[15] =
                                                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                         meltcallcount  /* melt_callcount debugging */
 #else
                                                                         0L  /* melt_callcount without debug */
@@ -10574,7 +10574,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
                                                                     ;
                                                                     /*_#MELT_NEED_DBG__L18*/ meltfnum[11] =
                                                                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                                         0 /* no melt_need_dbg */
@@ -10590,7 +10590,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
 
                                                                                 /*_#MELT_CALLCOUNT__L19*/ meltfnum[18] =
                                                                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                                     meltcallcount  /* melt_callcount debugging */
 #else
                                                                                     0L  /* melt_callcount without debug */
@@ -10743,7 +10743,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
                                                                                 ;
                                                                                 /*_#MELT_NEED_DBG__L21*/ meltfnum[11] =
                                                                                     /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                     (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                                                     0 /* no melt_need_dbg */
@@ -10759,7 +10759,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
 
                                                                                             /*_#MELT_CALLCOUNT__L22*/ meltfnum[21] =
                                                                                                 /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                                                 meltcallcount  /* melt_callcount debugging */
 #else
                                                                                                 0L  /* melt_callcount without debug */
@@ -10912,7 +10912,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
                                                                                             ;
                                                                                             /*_#MELT_NEED_DBG__L24*/ meltfnum[11] =
                                                                                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                                                                 0 /* no melt_need_dbg */
@@ -10928,7 +10928,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
 
                                                                                                         /*_#MELT_CALLCOUNT__L25*/ meltfnum[24] =
                                                                                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                                                             meltcallcount  /* melt_callcount debugging */
 #else
                                                                                                             0L  /* melt_callcount without debug */
@@ -11081,7 +11081,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
                                                                                                         ;
                                                                                                         /*_#MELT_NEED_DBG__L27*/ meltfnum[11] =
                                                                                                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                                                                             0 /* no melt_need_dbg */
@@ -11097,7 +11097,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
 
                                                                                                                     /*_#MELT_CALLCOUNT__L28*/ meltfnum[27] =
                                                                                                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                                                                         meltcallcount  /* melt_callcount debugging */
 #else
                                                                                                                         0L  /* melt_callcount without debug */
@@ -11247,7 +11247,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
                                                                                                                     ;
                                                                                                                     /*_#MELT_NEED_DBG__L30*/ meltfnum[11] =
                                                                                                                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                                                                                         0 /* no melt_need_dbg */
@@ -11263,7 +11263,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
 
                                                                                                                                 /*_#MELT_CALLCOUNT__L31*/ meltfnum[30] =
                                                                                                                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                                                                                     meltcallcount  /* melt_callcount debugging */
 #else
                                                                                                                                     0L  /* melt_callcount without debug */
@@ -11396,7 +11396,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
                                                                                                                     ;
                                                                                                                     /*_#MELT_NEED_DBG__L33*/ meltfnum[11] =
                                                                                                                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                                                                                         0 /* no melt_need_dbg */
@@ -11412,7 +11412,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
 
                                                                                                                                 /*_#MELT_CALLCOUNT__L34*/ meltfnum[33] =
                                                                                                                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                                                                                     meltcallcount  /* melt_callcount debugging */
 #else
                                                                                                                                     0L  /* melt_callcount without debug */
@@ -11532,7 +11532,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
                                                                                                                                 ;
                                                                                                                                 /*_#MELT_NEED_DBG__L35*/ meltfnum[33] =
                                                                                                                                     /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                                                     (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                                                                                                     0 /* no melt_need_dbg */
@@ -11548,7 +11548,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
 
                                                                                                                                             /*_#MELT_CALLCOUNT__L36*/ meltfnum[11] =
                                                                                                                                                 /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                                                                                                 meltcallcount  /* melt_callcount debugging */
 #else
                                                                                                                                                 0L  /* melt_callcount without debug */
@@ -11727,7 +11727,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
                                                                                                                                 ;
                                                                                                                                 /*_#MELT_NEED_DBG__L38*/ meltfnum[33] =
                                                                                                                                     /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                                                     (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                                                                                                     0 /* no melt_need_dbg */
@@ -11743,7 +11743,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
 
                                                                                                                                             /*_#MELT_CALLCOUNT__L39*/ meltfnum[30] =
                                                                                                                                                 /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                                                                                                 meltcallcount  /* melt_callcount debugging */
 #else
                                                                                                                                                 0L  /* melt_callcount without debug */
@@ -11857,7 +11857,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
                                                                                                                                 ;
                                                                                                                                 /*_#MELT_NEED_DBG__L41*/ meltfnum[33] =
                                                                                                                                     /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                                                     (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                                                                                                     0 /* no melt_need_dbg */
@@ -11873,7 +11873,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
 
                                                                                                                                             /*_#MELT_CALLCOUNT__L42*/ meltfnum[41] =
                                                                                                                                                 /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                                                                                                 meltcallcount  /* melt_callcount debugging */
 #else
                                                                                                                                                 0L  /* melt_callcount without debug */
@@ -12250,7 +12250,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
                                                                                                                                             ;
                                                                                                                                             /*_#MELT_NEED_DBG__L58*/ meltfnum[55] =
                                                                                                                                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                                                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                                                                                                                 0 /* no melt_need_dbg */
@@ -12266,7 +12266,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
 
                                                                                                                                                         /*_#MELT_CALLCOUNT__L59*/ meltfnum[56] =
                                                                                                                                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                                                                                                             meltcallcount  /* melt_callcount debugging */
 #else
                                                                                                                                                             0L  /* melt_callcount without debug */
@@ -12590,7 +12590,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
                                                                                                                                                         ;
                                                                                                                                                         /*_#MELT_NEED_DBG__L75*/ meltfnum[72] =
                                                                                                                                                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                                                                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                                                                                                                             0 /* no melt_need_dbg */
@@ -12606,7 +12606,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
 
                                                                                                                                                                     /*_#MELT_CALLCOUNT__L76*/ meltfnum[73] =
                                                                                                                                                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                                                                                                                         meltcallcount  /* melt_callcount debugging */
 #else
                                                                                                                                                                         0L  /* melt_callcount without debug */
@@ -12965,7 +12965,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
                                                                                                                                                                     ;
                                                                                                                                                                     /*_#MELT_NEED_DBG__L95*/ meltfnum[92] =
                                                                                                                                                                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                                                                                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                                                                                                                                         0 /* no melt_need_dbg */
@@ -12981,7 +12981,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
 
                                                                                                                                                                                 /*_#MELT_CALLCOUNT__L96*/ meltfnum[93] =
                                                                                                                                                                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                                                                                                                                     meltcallcount  /* melt_callcount debugging */
 #else
                                                                                                                                                                                     0L  /* melt_callcount without debug */
@@ -13136,7 +13136,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
                                                                                                                                                                                 ;
                                                                                                                                                                                 /*_#MELT_NEED_DBG__L99*/ meltfnum[89] =
                                                                                                                                                                                     /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                                                                                                     (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                                                                                                                                                     0 /* no melt_need_dbg */
@@ -13152,7 +13152,7 @@ meltlabloop_LEXLOOP_1:;/*^loopbody*/
 
                                                                                                                                                                                             /*_#MELT_CALLCOUNT__L100*/ meltfnum[90] =
                                                                                                                                                                                                 /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                                                                                                                                                 meltcallcount  /* melt_callcount debugging */
 #else
                                                                                                                                                                                                 0L  /* melt_callcount without debug */
@@ -13260,7 +13260,7 @@ meltlabloop_GETALNUMLOOP_1:;/*^loopbody*/
                                                                                                                                                                                                 {
                                                                                                                                                                                                     MELT_LOCATION("warmelt-hooks.melt:3803:/ locexp");
                                                                                                                                                                                                     /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                                                                                                                     if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                                                                                                                                         melt_warn_for_no_expected_secondary_results();
                                                                                                                                                                                                     /* we warned when secondary results are expected but not returned. */
@@ -13462,7 +13462,7 @@ meltlabexit_GETALNUMLOOP_1:;/*^loopepilog*/
                                                                                                                                                                                 ;
                                                                                                                                                                                 /*_#MELT_NEED_DBG__L106*/ meltfnum[49] =
                                                                                                                                                                                     /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                                                                                                     (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                                                                                                                                                     0 /* no melt_need_dbg */
@@ -13478,7 +13478,7 @@ meltlabexit_GETALNUMLOOP_1:;/*^loopepilog*/
 
                                                                                                                                                                                             /*_#MELT_CALLCOUNT__L107*/ meltfnum[50] =
                                                                                                                                                                                                 /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                                                                                                                                                 meltcallcount  /* melt_callcount debugging */
 #else
                                                                                                                                                                                                 0L  /* melt_callcount without debug */
@@ -13633,7 +13633,7 @@ meltlabexit_GETALNUMLOOP_1:;/*^loopepilog*/
                                                                                                                                                                                 ;
                                                                                                                                                                                 /*_#MELT_NEED_DBG__L108*/ meltfnum[46] =
                                                                                                                                                                                     /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                                                                                                     (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                                                                                                                                                     0 /* no melt_need_dbg */
@@ -13649,7 +13649,7 @@ meltlabexit_GETALNUMLOOP_1:;/*^loopepilog*/
 
                                                                                                                                                                                             /*_#MELT_CALLCOUNT__L109*/ meltfnum[45] =
                                                                                                                                                                                                 /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                                                                                                                                                 meltcallcount  /* melt_callcount debugging */
 #else
                                                                                                                                                                                                 0L  /* melt_callcount without debug */
@@ -13917,7 +13917,7 @@ meltlabexit_GETALNUMLOOP_1:;/*^loopepilog*/
                     ;
                     /*_#MELT_NEED_DBG__L110*/ meltfnum[56] =
                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                         0 /* no melt_need_dbg */
@@ -13933,7 +13933,7 @@ meltlabexit_GETALNUMLOOP_1:;/*^loopepilog*/
 
                                 /*_#MELT_CALLCOUNT__L111*/ meltfnum[93] =
                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                     meltcallcount  /* melt_callcount debugging */
 #else
                                     0L  /* melt_callcount without debug */
@@ -14016,7 +14016,7 @@ meltlabexit_GETALNUMLOOP_1:;/*^loopepilog*/
                 {
                     MELT_LOCATION("warmelt-hooks.melt:3837:/ locexp");
                     /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                     if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                         melt_warn_for_no_expected_secondary_results();
                     /* we warned when secondary results are expected but not returned. */
@@ -14069,7 +14069,7 @@ meltlabexit_LEXLOOP_1:;/*^loopepilog*/
         {
             MELT_LOCATION("warmelt-hooks.melt:3633:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -14113,7 +14113,7 @@ meltrout_95_WARMELTmiHOOKS_JSON_STATE_ACCEPTING_JVALUE(meltclosure_ptr_t meltclo
 {
     long current_blocklevel_signals_meltrout_95_WARMELTmiHOOKS_JSON_STATE_ACCEPTING_JVALUE_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -14145,17 +14145,17 @@ meltrout_95_WARMELTmiHOOKS_JSON_STATE_ACCEPTING_JVALUE(meltclosure_ptr_t meltclo
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_95_WARMELTmiHOOKS_JSON_STATE_ACCEPTING_JVALUE(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<10> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_95_WARMELTmiHOOKS_JSON_STATE_ACCEPTING_JVALUE), clos) {};
         MeltFrame_meltrout_95_WARMELTmiHOOKS_JSON_STATE_ACCEPTING_JVALUE() //the constructor fromline 1642
             : Melt_CallFrameWithValues<10> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_95_WARMELTmiHOOKS_JSON_STATE_ACCEPTING_JVALUE)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_95_WARMELTmiHOOKS_JSON_STATE_ACCEPTING_JVALUE(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<10> (fil,lin, sizeof(MeltFrame_meltrout_95_WARMELTmiHOOKS_JSON_STATE_ACCEPTING_JVALUE)) {};
         MeltFrame_meltrout_95_WARMELTmiHOOKS_JSON_STATE_ACCEPTING_JVALUE(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -14328,7 +14328,7 @@ meltlab_endgetargs:
             {
                 MELT_LOCATION("warmelt-hooks.melt:3859:/ locexp");
                 /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                     melt_warn_for_no_expected_secondary_results();
                 /* we warned when secondary results are expected but not returned. */
@@ -14462,7 +14462,7 @@ meltlab_endgetargs:
             {
                 MELT_LOCATION("warmelt-hooks.melt:3860:/ locexp");
                 /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                     melt_warn_for_no_expected_secondary_results();
                 /* we warned when secondary results are expected but not returned. */
@@ -14596,7 +14596,7 @@ meltlab_endgetargs:
             {
                 MELT_LOCATION("warmelt-hooks.melt:3861:/ locexp");
                 /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                     melt_warn_for_no_expected_secondary_results();
                 /* we warned when secondary results are expected but not returned. */
@@ -14640,7 +14640,7 @@ meltlab_endgetargs:
             {
                 MELT_LOCATION("warmelt-hooks.melt:3862:/ locexp");
                 /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                     melt_warn_for_no_expected_secondary_results();
                 /* we warned when secondary results are expected but not returned. */
@@ -14680,7 +14680,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-hooks.melt:3857:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -14720,7 +14720,7 @@ meltrout_96_WARMELTmiHOOKS_MAKE_JSON_PARSER(meltclosure_ptr_t meltclosp_, melt_p
 {
     long current_blocklevel_signals_meltrout_96_WARMELTmiHOOKS_MAKE_JSON_PARSER_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -14752,17 +14752,17 @@ meltrout_96_WARMELTmiHOOKS_MAKE_JSON_PARSER(meltclosure_ptr_t meltclosp_, melt_p
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_96_WARMELTmiHOOKS_MAKE_JSON_PARSER(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<16> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_96_WARMELTmiHOOKS_MAKE_JSON_PARSER), clos) {};
         MeltFrame_meltrout_96_WARMELTmiHOOKS_MAKE_JSON_PARSER() //the constructor fromline 1642
             : Melt_CallFrameWithValues<16> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_96_WARMELTmiHOOKS_MAKE_JSON_PARSER)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_96_WARMELTmiHOOKS_MAKE_JSON_PARSER(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<16> (fil,lin, sizeof(MeltFrame_meltrout_96_WARMELTmiHOOKS_MAKE_JSON_PARSER)) {};
         MeltFrame_meltrout_96_WARMELTmiHOOKS_MAKE_JSON_PARSER(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -14981,7 +14981,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L1*/ meltfnum[0] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -14997,7 +14997,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L2*/ meltfnum[1] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -15085,7 +15085,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-hooks.melt:3878:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -15116,7 +15116,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-hooks.melt:3866:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -15156,7 +15156,7 @@ meltrout_97_WARMELTmiHOOKS_JSON_PARSER_INPUT_PROCESSOR(meltclosure_ptr_t meltclo
 {
     long current_blocklevel_signals_meltrout_97_WARMELTmiHOOKS_JSON_PARSER_INPUT_PROCESSOR_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -15188,17 +15188,17 @@ meltrout_97_WARMELTmiHOOKS_JSON_PARSER_INPUT_PROCESSOR(meltclosure_ptr_t meltclo
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_97_WARMELTmiHOOKS_JSON_PARSER_INPUT_PROCESSOR(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<348> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_97_WARMELTmiHOOKS_JSON_PARSER_INPUT_PROCESSOR), clos) {};
         MeltFrame_meltrout_97_WARMELTmiHOOKS_JSON_PARSER_INPUT_PROCESSOR() //the constructor fromline 1642
             : Melt_CallFrameWithValues<348> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_97_WARMELTmiHOOKS_JSON_PARSER_INPUT_PROCESSOR)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_97_WARMELTmiHOOKS_JSON_PARSER_INPUT_PROCESSOR(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<348> (fil,lin, sizeof(MeltFrame_meltrout_97_WARMELTmiHOOKS_JSON_PARSER_INPUT_PROCESSOR)) {};
         MeltFrame_meltrout_97_WARMELTmiHOOKS_JSON_PARSER_INPUT_PROCESSOR(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -15274,7 +15274,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L1*/ meltfnum[0] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -15290,7 +15290,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L2*/ meltfnum[1] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -15396,7 +15396,7 @@ meltlab_endgetargs:
                     {
                         MELT_LOCATION("warmelt-hooks.melt:3885:/ locexp");
                         /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                             melt_warn_for_no_expected_secondary_results();
                         /* we warned when secondary results are expected but not returned. */
@@ -15910,7 +15910,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                     ;
                     /*_#MELT_NEED_DBG__L11*/ meltfnum[10] =
                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                         0 /* no melt_need_dbg */
@@ -15926,7 +15926,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                 /*_#MELT_CALLCOUNT__L12*/ meltfnum[11] =
                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                     meltcallcount  /* melt_callcount debugging */
 #else
                                     0L  /* melt_callcount without debug */
@@ -16059,7 +16059,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                     ;
                     /*_#MELT_NEED_DBG__L13*/ meltfnum[11] =
                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                         0 /* no melt_need_dbg */
@@ -16075,7 +16075,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                 /*_#MELT_CALLCOUNT__L14*/ meltfnum[10] =
                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                     meltcallcount  /* melt_callcount debugging */
 #else
                                     0L  /* melt_callcount without debug */
@@ -16391,7 +16391,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                         ;
                         /*_#MELT_NEED_DBG__L15*/ meltfnum[10] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -16407,7 +16407,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                     /*_#MELT_CALLCOUNT__L16*/ meltfnum[11] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -16629,7 +16629,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                                     ;
                                     /*_#MELT_NEED_DBG__L17*/ meltfnum[11] =
                                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                         0 /* no melt_need_dbg */
@@ -16645,7 +16645,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                                 /*_#MELT_CALLCOUNT__L18*/ meltfnum[10] =
                                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                     meltcallcount  /* melt_callcount debugging */
 #else
                                                     0L  /* melt_callcount without debug */
@@ -16761,7 +16761,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                                 {
                                     MELT_LOCATION("warmelt-hooks.melt:3924:/ locexp");
                                     /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                         melt_warn_for_no_expected_secondary_results();
                                     /* we warned when secondary results are expected but not returned. */
@@ -16974,7 +16974,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                         ;
                         /*_#MELT_NEED_DBG__L19*/ meltfnum[10] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -16990,7 +16990,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                     /*_#MELT_CALLCOUNT__L20*/ meltfnum[11] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -17296,7 +17296,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L24*/ meltfnum[11] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -17312,7 +17312,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L25*/ meltfnum[10] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -17435,7 +17435,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L26*/ meltfnum[22] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -17451,7 +17451,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L27*/ meltfnum[10] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -17675,7 +17675,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                                 ;
                                 /*_#MELT_NEED_DBG__L28*/ meltfnum[11] =
                                     /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                     0 /* no melt_need_dbg */
@@ -17691,7 +17691,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                             /*_#MELT_CALLCOUNT__L29*/ meltfnum[10] =
                                                 /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                 meltcallcount  /* melt_callcount debugging */
 #else
                                                 0L  /* melt_callcount without debug */
@@ -17858,7 +17858,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             {
                                 MELT_LOCATION("warmelt-hooks.melt:3945:/ locexp");
                                 /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                     melt_warn_for_no_expected_secondary_results();
                                 /* we warned when secondary results are expected but not returned. */
@@ -18038,7 +18038,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                                 ;
                                 /*_#MELT_NEED_DBG__L31*/ meltfnum[10] =
                                     /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                     0 /* no melt_need_dbg */
@@ -18054,7 +18054,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                             /*_#MELT_CALLCOUNT__L32*/ meltfnum[11] =
                                                 /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                 meltcallcount  /* melt_callcount debugging */
 #else
                                                 0L  /* melt_callcount without debug */
@@ -18287,7 +18287,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                                 ;
                                 /*_#MELT_NEED_DBG__L33*/ meltfnum[22] =
                                     /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                     0 /* no melt_need_dbg */
@@ -18303,7 +18303,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                             /*_#MELT_CALLCOUNT__L34*/ meltfnum[11] =
                                                 /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                 meltcallcount  /* melt_callcount debugging */
 #else
                                                 0L  /* melt_callcount without debug */
@@ -18426,7 +18426,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                                 ;
                                 /*_#MELT_NEED_DBG__L35*/ meltfnum[10] =
                                     /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                     0 /* no melt_need_dbg */
@@ -18442,7 +18442,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                             /*_#MELT_CALLCOUNT__L36*/ meltfnum[11] =
                                                 /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                 meltcallcount  /* melt_callcount debugging */
 #else
                                                 0L  /* melt_callcount without debug */
@@ -18536,7 +18536,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             {
                                 MELT_LOCATION("warmelt-hooks.melt:3960:/ locexp");
                                 /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                     melt_warn_for_no_expected_secondary_results();
                                 /* we warned when secondary results are expected but not returned. */
@@ -18629,7 +18629,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L37*/ meltfnum[22] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -18645,7 +18645,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L38*/ meltfnum[11] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -18739,7 +18739,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                         {
                             MELT_LOCATION("warmelt-hooks.melt:3966:/ locexp");
                             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                 melt_warn_for_no_expected_secondary_results();
                             /* we warned when secondary results are expected but not returned. */
@@ -18955,7 +18955,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                         ;
                         /*_#MELT_NEED_DBG__L39*/ meltfnum[10] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -18971,7 +18971,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                     /*_#MELT_CALLCOUNT__L40*/ meltfnum[11] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -19162,7 +19162,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                                     ;
                                     /*_#MELT_NEED_DBG__L41*/ meltfnum[22] =
                                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                         0 /* no melt_need_dbg */
@@ -19178,7 +19178,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                                 /*_#MELT_CALLCOUNT__L42*/ meltfnum[11] =
                                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                     meltcallcount  /* melt_callcount debugging */
 #else
                                                     0L  /* melt_callcount without debug */
@@ -19297,7 +19297,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                                     ;
                                     /*_#MELT_NEED_DBG__L43*/ meltfnum[10] =
                                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                         0 /* no melt_need_dbg */
@@ -19313,7 +19313,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                                 /*_#MELT_CALLCOUNT__L44*/ meltfnum[11] =
                                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                     meltcallcount  /* melt_callcount debugging */
 #else
                                                     0L  /* melt_callcount without debug */
@@ -19407,7 +19407,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                                 {
                                     MELT_LOCATION("warmelt-hooks.melt:3980:/ locexp");
                                     /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                         melt_warn_for_no_expected_secondary_results();
                                     /* we warned when secondary results are expected but not returned. */
@@ -19620,7 +19620,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                         ;
                         /*_#MELT_NEED_DBG__L45*/ meltfnum[22] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -19636,7 +19636,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                     /*_#MELT_CALLCOUNT__L46*/ meltfnum[11] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -19875,7 +19875,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L47*/ meltfnum[10] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -19891,7 +19891,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L48*/ meltfnum[11] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -20115,7 +20115,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                                 ;
                                 /*_#MELT_NEED_DBG__L49*/ meltfnum[22] =
                                     /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                     0 /* no melt_need_dbg */
@@ -20131,7 +20131,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                             /*_#MELT_CALLCOUNT__L50*/ meltfnum[11] =
                                                 /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                 meltcallcount  /* melt_callcount debugging */
 #else
                                                 0L  /* melt_callcount without debug */
@@ -20298,7 +20298,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             {
                                 MELT_LOCATION("warmelt-hooks.melt:3998:/ locexp");
                                 /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                     melt_warn_for_no_expected_secondary_results();
                                 /* we warned when secondary results are expected but not returned. */
@@ -20478,7 +20478,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                                 ;
                                 /*_#MELT_NEED_DBG__L52*/ meltfnum[11] =
                                     /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                     0 /* no melt_need_dbg */
@@ -20494,7 +20494,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                             /*_#MELT_CALLCOUNT__L53*/ meltfnum[22] =
                                                 /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                 meltcallcount  /* melt_callcount debugging */
 #else
                                                 0L  /* melt_callcount without debug */
@@ -20727,7 +20727,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                                 ;
                                 /*_#MELT_NEED_DBG__L54*/ meltfnum[10] =
                                     /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                     0 /* no melt_need_dbg */
@@ -20743,7 +20743,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                             /*_#MELT_CALLCOUNT__L55*/ meltfnum[22] =
                                                 /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                 meltcallcount  /* melt_callcount debugging */
 #else
                                                 0L  /* melt_callcount without debug */
@@ -20866,7 +20866,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                                 ;
                                 /*_#MELT_NEED_DBG__L56*/ meltfnum[11] =
                                     /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                     0 /* no melt_need_dbg */
@@ -20882,7 +20882,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                             /*_#MELT_CALLCOUNT__L57*/ meltfnum[22] =
                                                 /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                 meltcallcount  /* melt_callcount debugging */
 #else
                                                 0L  /* melt_callcount without debug */
@@ -20976,7 +20976,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             {
                                 MELT_LOCATION("warmelt-hooks.melt:4013:/ locexp");
                                 /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                     melt_warn_for_no_expected_secondary_results();
                                 /* we warned when secondary results are expected but not returned. */
@@ -21065,7 +21065,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L58*/ meltfnum[10] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -21081,7 +21081,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L59*/ meltfnum[22] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -21173,7 +21173,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                         {
                             MELT_LOCATION("warmelt-hooks.melt:4019:/ locexp");
                             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                 melt_warn_for_no_expected_secondary_results();
                             /* we warned when secondary results are expected but not returned. */
@@ -21389,7 +21389,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                         ;
                         /*_#MELT_NEED_DBG__L60*/ meltfnum[11] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -21405,7 +21405,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                     /*_#MELT_CALLCOUNT__L61*/ meltfnum[22] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -21629,7 +21629,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L62*/ meltfnum[10] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -21645,7 +21645,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L63*/ meltfnum[22] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -21877,7 +21877,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L64*/ meltfnum[11] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -21893,7 +21893,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L65*/ meltfnum[22] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -22018,7 +22018,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L66*/ meltfnum[10] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -22034,7 +22034,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L67*/ meltfnum[22] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -22132,7 +22132,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                         {
                             MELT_LOCATION("warmelt-hooks.melt:4037:/ locexp");
                             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                 melt_warn_for_no_expected_secondary_results();
                             /* we warned when secondary results are expected but not returned. */
@@ -22348,7 +22348,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                         ;
                         /*_#MELT_NEED_DBG__L68*/ meltfnum[11] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -22364,7 +22364,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                     /*_#MELT_CALLCOUNT__L69*/ meltfnum[22] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -22595,7 +22595,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L70*/ meltfnum[10] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -22611,7 +22611,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L71*/ meltfnum[22] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -22736,7 +22736,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L72*/ meltfnum[11] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -22752,7 +22752,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L73*/ meltfnum[22] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -22850,7 +22850,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                         {
                             MELT_LOCATION("warmelt-hooks.melt:4051:/ locexp");
                             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                 melt_warn_for_no_expected_secondary_results();
                             /* we warned when secondary results are expected but not returned. */
@@ -23026,7 +23026,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                         ;
                         /*_#MELT_NEED_DBG__L74*/ meltfnum[10] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -23042,7 +23042,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                     /*_#MELT_CALLCOUNT__L75*/ meltfnum[22] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -23281,7 +23281,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L76*/ meltfnum[11] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -23297,7 +23297,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L77*/ meltfnum[22] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -23537,7 +23537,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L78*/ meltfnum[10] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -23553,7 +23553,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L79*/ meltfnum[22] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -23774,7 +23774,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L80*/ meltfnum[11] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -23790,7 +23790,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L81*/ meltfnum[22] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -23957,7 +23957,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                         {
                             MELT_LOCATION("warmelt-hooks.melt:4072:/ locexp");
                             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                 melt_warn_for_no_expected_secondary_results();
                             /* we warned when secondary results are expected but not returned. */
@@ -24130,7 +24130,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L83*/ meltfnum[22] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -24146,7 +24146,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L84*/ meltfnum[11] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -24269,7 +24269,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L85*/ meltfnum[10] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -24285,7 +24285,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L86*/ meltfnum[11] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -24379,7 +24379,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                         {
                             MELT_LOCATION("warmelt-hooks.melt:4081:/ locexp");
                             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                 melt_warn_for_no_expected_secondary_results();
                             /* we warned when secondary results are expected but not returned. */
@@ -24557,7 +24557,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                         ;
                         /*_#MELT_NEED_DBG__L87*/ meltfnum[22] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -24573,7 +24573,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                     /*_#MELT_CALLCOUNT__L88*/ meltfnum[11] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -24793,7 +24793,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L89*/ meltfnum[10] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -24809,7 +24809,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L90*/ meltfnum[11] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -24976,7 +24976,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                         {
                             MELT_LOCATION("warmelt-hooks.melt:4092:/ locexp");
                             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                 melt_warn_for_no_expected_secondary_results();
                             /* we warned when secondary results are expected but not returned. */
@@ -25156,7 +25156,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L92*/ meltfnum[11] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -25172,7 +25172,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L93*/ meltfnum[10] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -25405,7 +25405,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L94*/ meltfnum[22] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -25421,7 +25421,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L95*/ meltfnum[10] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -25544,7 +25544,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L96*/ meltfnum[11] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -25560,7 +25560,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L97*/ meltfnum[10] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -25654,7 +25654,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                         {
                             MELT_LOCATION("warmelt-hooks.melt:4107:/ locexp");
                             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                 melt_warn_for_no_expected_secondary_results();
                             /* we warned when secondary results are expected but not returned. */
@@ -25872,7 +25872,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                         ;
                         /*_#MELT_NEED_DBG__L98*/ meltfnum[22] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -25888,7 +25888,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                     /*_#MELT_CALLCOUNT__L99*/ meltfnum[10] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -26125,7 +26125,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L100*/ meltfnum[11] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -26141,7 +26141,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L101*/ meltfnum[10] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -26374,7 +26374,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L102*/ meltfnum[22] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -26390,7 +26390,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L103*/ meltfnum[10] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -26513,7 +26513,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L104*/ meltfnum[11] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -26529,7 +26529,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L105*/ meltfnum[10] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -26627,7 +26627,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                         {
                             MELT_LOCATION("warmelt-hooks.melt:4126:/ locexp");
                             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                 melt_warn_for_no_expected_secondary_results();
                             /* we warned when secondary results are expected but not returned. */
@@ -26843,7 +26843,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                         ;
                         /*_#MELT_NEED_DBG__L106*/ meltfnum[22] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -26859,7 +26859,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                     /*_#MELT_CALLCOUNT__L107*/ meltfnum[10] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -27096,7 +27096,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L108*/ meltfnum[11] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -27112,7 +27112,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L109*/ meltfnum[10] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -27345,7 +27345,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L110*/ meltfnum[22] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -27361,7 +27361,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L111*/ meltfnum[10] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -27484,7 +27484,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L112*/ meltfnum[11] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -27500,7 +27500,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L113*/ meltfnum[10] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -27594,7 +27594,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                         {
                             MELT_LOCATION("warmelt-hooks.melt:4145:/ locexp");
                             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                 melt_warn_for_no_expected_secondary_results();
                             /* we warned when secondary results are expected but not returned. */
@@ -27810,7 +27810,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                         ;
                         /*_#MELT_NEED_DBG__L114*/ meltfnum[22] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -27826,7 +27826,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                     /*_#MELT_CALLCOUNT__L115*/ meltfnum[10] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -28063,7 +28063,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L116*/ meltfnum[11] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -28079,7 +28079,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L117*/ meltfnum[10] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -28312,7 +28312,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L118*/ meltfnum[22] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -28328,7 +28328,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L119*/ meltfnum[10] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -28451,7 +28451,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                             ;
                             /*_#MELT_NEED_DBG__L120*/ meltfnum[11] =
                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                 0 /* no melt_need_dbg */
@@ -28467,7 +28467,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                         /*_#MELT_CALLCOUNT__L121*/ meltfnum[10] =
                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                             meltcallcount  /* melt_callcount debugging */
 #else
                                             0L  /* melt_callcount without debug */
@@ -28561,7 +28561,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                         {
                             MELT_LOCATION("warmelt-hooks.melt:4164:/ locexp");
                             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                 melt_warn_for_no_expected_secondary_results();
                             /* we warned when secondary results are expected but not returned. */
@@ -28737,7 +28737,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                         ;
                         /*_#MELT_NEED_DBG__L122*/ meltfnum[22] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -28753,7 +28753,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                     /*_#MELT_CALLCOUNT__L123*/ meltfnum[10] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -28925,7 +28925,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                         ;
                         /*_#MELT_NEED_DBG__L124*/ meltfnum[11] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -28941,7 +28941,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                     /*_#MELT_CALLCOUNT__L125*/ meltfnum[10] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -29072,7 +29072,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
                         ;
                         /*_#MELT_NEED_DBG__L126*/ meltfnum[22] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -29088,7 +29088,7 @@ meltlabloop_JSONPARSELOOP_1:;/*^loopbody*/
 
                                     /*_#MELT_CALLCOUNT__L127*/ meltfnum[10] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -29310,7 +29310,7 @@ meltlabexit_JSONPARSELOOP_1:;/*^loopepilog*/
             ;
             /*_#MELT_NEED_DBG__L128*/ meltfnum[11] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -29326,7 +29326,7 @@ meltlabexit_JSONPARSELOOP_1:;/*^loopepilog*/
 
                         /*_#MELT_CALLCOUNT__L129*/ meltfnum[10] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -29458,7 +29458,7 @@ meltrout_98_WARMELTmiHOOKS_DO_BLOCKING_JSONRPC2_CALL(meltclosure_ptr_t meltclosp
 {
     long current_blocklevel_signals_meltrout_98_WARMELTmiHOOKS_DO_BLOCKING_JSONRPC2_CALL_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -29490,17 +29490,17 @@ meltrout_98_WARMELTmiHOOKS_DO_BLOCKING_JSONRPC2_CALL(meltclosure_ptr_t meltclosp
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_98_WARMELTmiHOOKS_DO_BLOCKING_JSONRPC2_CALL(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<101> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_98_WARMELTmiHOOKS_DO_BLOCKING_JSONRPC2_CALL), clos) {};
         MeltFrame_meltrout_98_WARMELTmiHOOKS_DO_BLOCKING_JSONRPC2_CALL() //the constructor fromline 1642
             : Melt_CallFrameWithValues<101> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_98_WARMELTmiHOOKS_DO_BLOCKING_JSONRPC2_CALL)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_98_WARMELTmiHOOKS_DO_BLOCKING_JSONRPC2_CALL(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<101> (fil,lin, sizeof(MeltFrame_meltrout_98_WARMELTmiHOOKS_DO_BLOCKING_JSONRPC2_CALL)) {};
         MeltFrame_meltrout_98_WARMELTmiHOOKS_DO_BLOCKING_JSONRPC2_CALL(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -29588,7 +29588,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L2*/ meltfnum[1] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -29604,7 +29604,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L3*/ meltfnum[2] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -29730,7 +29730,7 @@ meltlab_endgetargs:
                         ;
                         /*_#MELT_NEED_DBG__L6*/ meltfnum[5] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -29746,7 +29746,7 @@ meltlab_endgetargs:
 
                                     /*_#MELT_CALLCOUNT__L7*/ meltfnum[6] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -29877,7 +29877,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L8*/ meltfnum[6] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -29893,7 +29893,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L9*/ meltfnum[5] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -30033,7 +30033,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L10*/ meltfnum[1] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -30049,7 +30049,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L11*/ meltfnum[5] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -30174,7 +30174,7 @@ meltlab_endgetargs:
                     {
                         MELT_LOCATION("warmelt-hooks.melt:4231:/ locexp");
                         /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                             melt_warn_for_no_expected_secondary_results();
                         /* we warned when secondary results are expected but not returned. */
@@ -30232,7 +30232,7 @@ meltlab_endgetargs:
                         {
                             MELT_LOCATION("warmelt-hooks.melt:4244:/ locexp");
                             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                 melt_warn_for_no_expected_secondary_results();
                             /* we warned when secondary results are expected but not returned. */
@@ -30282,7 +30282,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L14*/ meltfnum[1] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -30298,7 +30298,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L15*/ meltfnum[14] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -30458,7 +30458,7 @@ meltlab_endgetargs:
                     ;
                     /*_#MELT_NEED_DBG__L16*/ meltfnum[14] =
                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                         0 /* no melt_need_dbg */
@@ -30474,7 +30474,7 @@ meltlab_endgetargs:
 
                                 /*_#MELT_CALLCOUNT__L17*/ meltfnum[1] =
                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                     meltcallcount  /* melt_callcount debugging */
 #else
                                     0L  /* melt_callcount without debug */
@@ -30753,7 +30753,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L20*/ meltfnum[19] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -30769,7 +30769,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L21*/ meltfnum[20] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -30903,7 +30903,7 @@ meltlabloop_POLLINGLOOP_1:;/*^loopbody*/
                     ;
                     /*_#MELT_NEED_DBG__L24*/ meltfnum[23] =
                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                         0 /* no melt_need_dbg */
@@ -30919,7 +30919,7 @@ meltlabloop_POLLINGLOOP_1:;/*^loopbody*/
 
                                 /*_#MELT_CALLCOUNT__L25*/ meltfnum[24] =
                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                     meltcallcount  /* melt_callcount debugging */
 #else
                                     0L  /* melt_callcount without debug */
@@ -31059,7 +31059,7 @@ meltlabloop_POLLINGLOOP_1:;/*^loopbody*/
                     ;
                     /*_#MELT_NEED_DBG__L30*/ meltfnum[27] =
                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                         0 /* no melt_need_dbg */
@@ -31075,7 +31075,7 @@ meltlabloop_POLLINGLOOP_1:;/*^loopbody*/
 
                                 /*_#MELT_CALLCOUNT__L31*/ meltfnum[28] =
                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                     meltcallcount  /* melt_callcount debugging */
 #else
                                     0L  /* melt_callcount without debug */
@@ -31229,7 +31229,7 @@ meltlabloop_POLLINGLOOP_1:;/*^loopbody*/
                                 ;
                                 /*_#MELT_NEED_DBG__L34*/ meltfnum[28] =
                                     /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                     0 /* no melt_need_dbg */
@@ -31245,7 +31245,7 @@ meltlabloop_POLLINGLOOP_1:;/*^loopbody*/
 
                                             /*_#MELT_CALLCOUNT__L35*/ meltfnum[31] =
                                                 /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                 meltcallcount  /* melt_callcount debugging */
 #else
                                                 0L  /* melt_callcount without debug */
@@ -31403,7 +31403,7 @@ meltlabloop_POLLINGLOOP_1:;/*^loopbody*/
                                             ;
                                             /*_#MELT_NEED_DBG__L36*/ meltfnum[32] =
                                                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                 0 /* no melt_need_dbg */
@@ -31419,7 +31419,7 @@ meltlabloop_POLLINGLOOP_1:;/*^loopbody*/
 
                                                         /*_#MELT_CALLCOUNT__L37*/ meltfnum[27] =
                                                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                             meltcallcount  /* melt_callcount debugging */
 #else
                                                             0L  /* melt_callcount without debug */
@@ -31609,7 +31609,7 @@ meltlabloop_POLLINGLOOP_1:;/*^loopbody*/
                                                         ;
                                                         /*_#MELT_NEED_DBG__L41*/ meltfnum[32] =
                                                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                             0 /* no melt_need_dbg */
@@ -31625,7 +31625,7 @@ meltlabloop_POLLINGLOOP_1:;/*^loopbody*/
 
                                                                     /*_#MELT_CALLCOUNT__L42*/ meltfnum[41] =
                                                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                         meltcallcount  /* melt_callcount debugging */
 #else
                                                                         0L  /* melt_callcount without debug */
@@ -31773,7 +31773,7 @@ meltlabloop_POLLINGLOOP_1:;/*^loopbody*/
                                                         ;
                                                         /*_#MELT_NEED_DBG__L43*/ meltfnum[41] =
                                                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                             0 /* no melt_need_dbg */
@@ -31789,7 +31789,7 @@ meltlabloop_POLLINGLOOP_1:;/*^loopbody*/
 
                                                                     /*_#MELT_CALLCOUNT__L44*/ meltfnum[32] =
                                                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                         meltcallcount  /* melt_callcount debugging */
 #else
                                                                         0L  /* melt_callcount without debug */
@@ -31946,7 +31946,7 @@ meltlabexit_POLLINGLOOP_1:;/*^loopepilog*/
             ;
             /*_#MELT_NEED_DBG__L45*/ meltfnum[32] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -31962,7 +31962,7 @@ meltlabexit_POLLINGLOOP_1:;/*^loopepilog*/
 
                         /*_#MELT_CALLCOUNT__L46*/ meltfnum[41] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -32194,7 +32194,7 @@ meltlabexit_POLLINGLOOP_1:;/*^loopepilog*/
                         ;
                         /*_#MELT_NEED_DBG__L48*/ meltfnum[28] =
                             /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                             0 /* no melt_need_dbg */
@@ -32210,7 +32210,7 @@ meltlabexit_POLLINGLOOP_1:;/*^loopepilog*/
 
                                     /*_#MELT_CALLCOUNT__L49*/ meltfnum[27] =
                                         /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                         meltcallcount  /* melt_callcount debugging */
 #else
                                         0L  /* melt_callcount without debug */
@@ -32412,7 +32412,7 @@ meltlabexit_POLLINGLOOP_1:;/*^loopepilog*/
                                 {
                                     MELT_LOCATION("warmelt-hooks.melt:4336:/ locexp");
                                     /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                         melt_warn_for_no_expected_secondary_results();
                                     /* we warned when secondary results are expected but not returned. */
@@ -32488,7 +32488,7 @@ meltlabexit_POLLINGLOOP_1:;/*^loopepilog*/
                                             {
                                                 MELT_LOCATION("warmelt-hooks.melt:4341:/ locexp");
                                                 /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                     melt_warn_for_no_expected_secondary_results();
                                                 /* we warned when secondary results are expected but not returned. */
@@ -32580,7 +32580,7 @@ meltlabexit_POLLINGLOOP_1:;/*^loopepilog*/
                                                 ;
                                                 /*_#MELT_NEED_DBG__L56*/ meltfnum[27] =
                                                     /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                     (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                                     0 /* no melt_need_dbg */
@@ -32596,7 +32596,7 @@ meltlabexit_POLLINGLOOP_1:;/*^loopepilog*/
 
                                                             /*_#MELT_CALLCOUNT__L57*/ meltfnum[28] =
                                                                 /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                                 meltcallcount  /* melt_callcount debugging */
 #else
                                                                 0L  /* melt_callcount without debug */
@@ -32838,7 +32838,7 @@ meltlabexit_POLLINGLOOP_1:;/*^loopepilog*/
         {
             MELT_LOCATION("warmelt-hooks.melt:4186:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -32880,7 +32880,7 @@ meltrout_99_WARMELTmiHOOKS_LAMBDA_cl8(meltclosure_ptr_t meltclosp_, melt_ptr_t m
 {
     long current_blocklevel_signals_meltrout_99_WARMELTmiHOOKS_LAMBDA_cl8_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -32912,17 +32912,17 @@ meltrout_99_WARMELTmiHOOKS_LAMBDA_cl8(meltclosure_ptr_t meltclosp_, melt_ptr_t m
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_99_WARMELTmiHOOKS_LAMBDA_cl8(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<4> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_99_WARMELTmiHOOKS_LAMBDA_cl8), clos) {};
         MeltFrame_meltrout_99_WARMELTmiHOOKS_LAMBDA_cl8() //the constructor fromline 1642
             : Melt_CallFrameWithValues<4> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_99_WARMELTmiHOOKS_LAMBDA_cl8)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_99_WARMELTmiHOOKS_LAMBDA_cl8(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<4> (fil,lin, sizeof(MeltFrame_meltrout_99_WARMELTmiHOOKS_LAMBDA_cl8)) {};
         MeltFrame_meltrout_99_WARMELTmiHOOKS_LAMBDA_cl8(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -32991,7 +32991,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L1*/ meltfnum[0] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -33007,7 +33007,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L2*/ meltfnum[1] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -33175,7 +33175,7 @@ meltrout_100_WARMELTmiHOOKS_LAMBDA_cl9(meltclosure_ptr_t meltclosp_, melt_ptr_t 
 {
     long current_blocklevel_signals_meltrout_100_WARMELTmiHOOKS_LAMBDA_cl9_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -33207,17 +33207,17 @@ meltrout_100_WARMELTmiHOOKS_LAMBDA_cl9(meltclosure_ptr_t meltclosp_, melt_ptr_t 
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_100_WARMELTmiHOOKS_LAMBDA_cl9(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<7> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_100_WARMELTmiHOOKS_LAMBDA_cl9), clos) {};
         MeltFrame_meltrout_100_WARMELTmiHOOKS_LAMBDA_cl9() //the constructor fromline 1642
             : Melt_CallFrameWithValues<7> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_100_WARMELTmiHOOKS_LAMBDA_cl9)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_100_WARMELTmiHOOKS_LAMBDA_cl9(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<7> (fil,lin, sizeof(MeltFrame_meltrout_100_WARMELTmiHOOKS_LAMBDA_cl9)) {};
         MeltFrame_meltrout_100_WARMELTmiHOOKS_LAMBDA_cl9(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -33286,7 +33286,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L1*/ meltfnum[0] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -33302,7 +33302,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L2*/ meltfnum[1] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -33504,7 +33504,7 @@ meltrout_103_WARMELTmiHOOKS_REGISTER_ALARM_TIMER(meltclosure_ptr_t meltclosp_, m
 {
     long current_blocklevel_signals_meltrout_103_WARMELTmiHOOKS_REGISTER_ALARM_TIMER_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -33536,17 +33536,17 @@ meltrout_103_WARMELTmiHOOKS_REGISTER_ALARM_TIMER(meltclosure_ptr_t meltclosp_, m
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_103_WARMELTmiHOOKS_REGISTER_ALARM_TIMER(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<18> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_103_WARMELTmiHOOKS_REGISTER_ALARM_TIMER), clos) {};
         MeltFrame_meltrout_103_WARMELTmiHOOKS_REGISTER_ALARM_TIMER() //the constructor fromline 1642
             : Melt_CallFrameWithValues<18> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_103_WARMELTmiHOOKS_REGISTER_ALARM_TIMER)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_103_WARMELTmiHOOKS_REGISTER_ALARM_TIMER(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<18> (fil,lin, sizeof(MeltFrame_meltrout_103_WARMELTmiHOOKS_REGISTER_ALARM_TIMER)) {};
         MeltFrame_meltrout_103_WARMELTmiHOOKS_REGISTER_ALARM_TIMER(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -33627,7 +33627,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L2*/ meltfnum[1] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -33643,7 +33643,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L3*/ meltfnum[2] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -33921,7 +33921,7 @@ meltlab_endgetargs:
                                 {
                                     MELT_LOCATION("warmelt-hooks.melt:4467:/ locexp");
                                     /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                         melt_warn_for_no_expected_secondary_results();
                                     /* we warned when secondary results are expected but not returned. */
@@ -33980,7 +33980,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-hooks.melt:4439:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -34022,7 +34022,7 @@ meltrout_104_WARMELTmiHOOKS_UNREGISTER_ALARM_TIMER(meltclosure_ptr_t meltclosp_,
 {
     long current_blocklevel_signals_meltrout_104_WARMELTmiHOOKS_UNREGISTER_ALARM_TIMER_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -34054,17 +34054,17 @@ meltrout_104_WARMELTmiHOOKS_UNREGISTER_ALARM_TIMER(meltclosure_ptr_t meltclosp_,
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_104_WARMELTmiHOOKS_UNREGISTER_ALARM_TIMER(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<26> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_104_WARMELTmiHOOKS_UNREGISTER_ALARM_TIMER), clos) {};
         MeltFrame_meltrout_104_WARMELTmiHOOKS_UNREGISTER_ALARM_TIMER() //the constructor fromline 1642
             : Melt_CallFrameWithValues<26> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_104_WARMELTmiHOOKS_UNREGISTER_ALARM_TIMER)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_104_WARMELTmiHOOKS_UNREGISTER_ALARM_TIMER(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<26> (fil,lin, sizeof(MeltFrame_meltrout_104_WARMELTmiHOOKS_UNREGISTER_ALARM_TIMER)) {};
         MeltFrame_meltrout_104_WARMELTmiHOOKS_UNREGISTER_ALARM_TIMER(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -34133,7 +34133,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L1*/ meltfnum[0] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -34149,7 +34149,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L2*/ meltfnum[1] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -34251,7 +34251,7 @@ meltlab_endgetargs:
                     {
                         MELT_LOCATION("warmelt-hooks.melt:4474:/ locexp");
                         /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                             melt_warn_for_no_expected_secondary_results();
                         /* we warned when secondary results are expected but not returned. */
@@ -34373,7 +34373,7 @@ meltlab_endgetargs:
                     {
                         MELT_LOCATION("warmelt-hooks.melt:4477:/ locexp");
                         /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                             melt_warn_for_no_expected_secondary_results();
                         /* we warned when secondary results are expected but not returned. */
@@ -34454,7 +34454,7 @@ meltlab_endgetargs:
                         {
                             MELT_LOCATION("warmelt-hooks.melt:4488:/ locexp");
                             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                 melt_warn_for_no_expected_secondary_results();
                             /* we warned when secondary results are expected but not returned. */
@@ -34693,7 +34693,7 @@ meltrout_106_WARMELTmiHOOKS_REGISTER_CHILD_PROCESS_HANDLER(meltclosure_ptr_t mel
 {
     long current_blocklevel_signals_meltrout_106_WARMELTmiHOOKS_REGISTER_CHILD_PROCESS_HANDLER_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -34725,17 +34725,17 @@ meltrout_106_WARMELTmiHOOKS_REGISTER_CHILD_PROCESS_HANDLER(meltclosure_ptr_t mel
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_106_WARMELTmiHOOKS_REGISTER_CHILD_PROCESS_HANDLER(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<26> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_106_WARMELTmiHOOKS_REGISTER_CHILD_PROCESS_HANDLER), clos) {};
         MeltFrame_meltrout_106_WARMELTmiHOOKS_REGISTER_CHILD_PROCESS_HANDLER() //the constructor fromline 1642
             : Melt_CallFrameWithValues<26> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_106_WARMELTmiHOOKS_REGISTER_CHILD_PROCESS_HANDLER)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_106_WARMELTmiHOOKS_REGISTER_CHILD_PROCESS_HANDLER(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<26> (fil,lin, sizeof(MeltFrame_meltrout_106_WARMELTmiHOOKS_REGISTER_CHILD_PROCESS_HANDLER)) {};
         MeltFrame_meltrout_106_WARMELTmiHOOKS_REGISTER_CHILD_PROCESS_HANDLER(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -34816,7 +34816,7 @@ meltlab_endgetargs:
             ;
             /*_#MELT_NEED_DBG__L2*/ meltfnum[1] =
                 /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                 (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                 0 /* no melt_need_dbg */
@@ -34832,7 +34832,7 @@ meltlab_endgetargs:
 
                         /*_#MELT_CALLCOUNT__L3*/ meltfnum[2] =
                             /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                             meltcallcount  /* melt_callcount debugging */
 #else
                             0L  /* melt_callcount without debug */
@@ -34978,7 +34978,7 @@ meltlab_endgetargs:
                                     ;
                                     /*_#MELT_NEED_DBG__L7*/ meltfnum[6] =
                                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                         0 /* no melt_need_dbg */
@@ -34994,7 +34994,7 @@ meltlab_endgetargs:
 
                                                 /*_#MELT_CALLCOUNT__L8*/ meltfnum[7] =
                                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                     meltcallcount  /* melt_callcount debugging */
 #else
                                                     0L  /* melt_callcount without debug */
@@ -35090,7 +35090,7 @@ meltlab_endgetargs:
                                             {
                                                 MELT_LOCATION("warmelt-hooks.melt:4630:/ locexp");
                                                 /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                     melt_warn_for_no_expected_secondary_results();
                                                 /* we warned when secondary results are expected but not returned. */
@@ -35177,7 +35177,7 @@ meltlab_endgetargs:
                                     ;
                                     /*_#MELT_NEED_DBG__L9*/ meltfnum[7] =
                                         /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                         (/*melt_need_dbg*/ melt_need_debug ((int) 0))
 #else
                                         0 /* no melt_need_dbg */
@@ -35193,7 +35193,7 @@ meltlab_endgetargs:
 
                                                 /*_#MELT_CALLCOUNT__L10*/ meltfnum[6] =
                                                     /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
+#if MELT_HAVE_DEBUG > 0 && defined (meltcallcount)
                                                     meltcallcount  /* melt_callcount debugging */
 #else
                                                     0L  /* melt_callcount without debug */
@@ -35411,7 +35411,7 @@ meltlab_endgetargs:
                                 {
                                     MELT_LOCATION("warmelt-hooks.melt:4648:/ locexp");
                                     /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                         melt_warn_for_no_expected_secondary_results();
                                     /* we warned when secondary results are expected but not returned. */
@@ -35480,7 +35480,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-hooks.melt:4614:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */

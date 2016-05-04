@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f1[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiFIRST_h311609429; // forward declaration fromline 6691
-typedef Melt_InitialClassyFrame_WARMELTmiFIRST_h311609429 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiFIRST_h583248052; // forward declaration fromline 6691
+typedef Melt_InitialClassyFrame_WARMELTmiFIRST_h583248052 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 2 MELT called hook declarations ***/
@@ -360,11 +360,11 @@ MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiFIRST_h311609429 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiFIRST_h583248052 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
 MELT_EXTERN const char meltmodule_WARMELTmiFIRST__melt_have_debug_enabled[];
 #define melt_have_debug_string meltmodule_WARMELTmiFIRST__melt_have_debug_enabled
 #else /*!MELT_HAVE_DEBUG*/
@@ -519,7 +519,7 @@ meltrout_8_WARMELTmiFIRST_MAPOBJECT_ITERATE_TEST(meltclosure_ptr_t meltclosp_, m
 {
     long current_blocklevel_signals_meltrout_8_WARMELTmiFIRST_MAPOBJECT_ITERATE_TEST_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -551,17 +551,17 @@ meltrout_8_WARMELTmiFIRST_MAPOBJECT_ITERATE_TEST(meltclosure_ptr_t meltclosp_, m
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_8_WARMELTmiFIRST_MAPOBJECT_ITERATE_TEST(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<10> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_8_WARMELTmiFIRST_MAPOBJECT_ITERATE_TEST), clos) {};
         MeltFrame_meltrout_8_WARMELTmiFIRST_MAPOBJECT_ITERATE_TEST() //the constructor fromline 1642
             : Melt_CallFrameWithValues<10> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_8_WARMELTmiFIRST_MAPOBJECT_ITERATE_TEST)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_8_WARMELTmiFIRST_MAPOBJECT_ITERATE_TEST(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<10> (fil,lin, sizeof(MeltFrame_meltrout_8_WARMELTmiFIRST_MAPOBJECT_ITERATE_TEST)) {};
         MeltFrame_meltrout_8_WARMELTmiFIRST_MAPOBJECT_ITERATE_TEST(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -806,7 +806,7 @@ meltrout_9_WARMELTmiFIRST_LIST_EVERY(meltclosure_ptr_t meltclosp_, melt_ptr_t me
 {
     long current_blocklevel_signals_meltrout_9_WARMELTmiFIRST_LIST_EVERY_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -838,17 +838,17 @@ meltrout_9_WARMELTmiFIRST_LIST_EVERY(meltclosure_ptr_t meltclosp_, melt_ptr_t me
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_9_WARMELTmiFIRST_LIST_EVERY(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<6> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_9_WARMELTmiFIRST_LIST_EVERY), clos) {};
         MeltFrame_meltrout_9_WARMELTmiFIRST_LIST_EVERY() //the constructor fromline 1642
             : Melt_CallFrameWithValues<6> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_9_WARMELTmiFIRST_LIST_EVERY)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_9_WARMELTmiFIRST_LIST_EVERY(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<6> (fil,lin, sizeof(MeltFrame_meltrout_9_WARMELTmiFIRST_LIST_EVERY)) {};
         MeltFrame_meltrout_9_WARMELTmiFIRST_LIST_EVERY(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -1004,7 +1004,7 @@ meltrout_10_WARMELTmiFIRST_LIST_ITERATE_TEST(meltclosure_ptr_t meltclosp_, melt_
 {
     long current_blocklevel_signals_meltrout_10_WARMELTmiFIRST_LIST_ITERATE_TEST_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -1036,17 +1036,17 @@ meltrout_10_WARMELTmiFIRST_LIST_ITERATE_TEST(meltclosure_ptr_t meltclosp_, melt_
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_10_WARMELTmiFIRST_LIST_ITERATE_TEST(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<10> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_10_WARMELTmiFIRST_LIST_ITERATE_TEST), clos) {};
         MeltFrame_meltrout_10_WARMELTmiFIRST_LIST_ITERATE_TEST() //the constructor fromline 1642
             : Melt_CallFrameWithValues<10> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_10_WARMELTmiFIRST_LIST_ITERATE_TEST)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_10_WARMELTmiFIRST_LIST_ITERATE_TEST(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<10> (fil,lin, sizeof(MeltFrame_meltrout_10_WARMELTmiFIRST_LIST_ITERATE_TEST)) {};
         MeltFrame_meltrout_10_WARMELTmiFIRST_LIST_ITERATE_TEST(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -1270,7 +1270,7 @@ meltrout_11_WARMELTmiFIRST_LIST_APPEND2LIST(meltclosure_ptr_t meltclosp_, melt_p
 {
     long current_blocklevel_signals_meltrout_11_WARMELTmiFIRST_LIST_APPEND2LIST_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -1302,17 +1302,17 @@ meltrout_11_WARMELTmiFIRST_LIST_APPEND2LIST(meltclosure_ptr_t meltclosp_, melt_p
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_11_WARMELTmiFIRST_LIST_APPEND2LIST(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<11> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_11_WARMELTmiFIRST_LIST_APPEND2LIST), clos) {};
         MeltFrame_meltrout_11_WARMELTmiFIRST_LIST_APPEND2LIST() //the constructor fromline 1642
             : Melt_CallFrameWithValues<11> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_11_WARMELTmiFIRST_LIST_APPEND2LIST)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_11_WARMELTmiFIRST_LIST_APPEND2LIST(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<11> (fil,lin, sizeof(MeltFrame_meltrout_11_WARMELTmiFIRST_LIST_APPEND2LIST)) {};
         MeltFrame_meltrout_11_WARMELTmiFIRST_LIST_APPEND2LIST(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -1393,7 +1393,7 @@ meltlab_endgetargs:
                     {
                         MELT_LOCATION("warmelt-first.melt:3395:/ locexp");
                         /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                             melt_warn_for_no_expected_secondary_results();
                         /* we warned when secondary results are expected but not returned. */
@@ -1495,7 +1495,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-first.melt:3401:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -1517,7 +1517,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-first.melt:3391:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -1569,7 +1569,7 @@ meltrout_12_WARMELTmiFIRST_LIST_MAP(meltclosure_ptr_t meltclosp_, melt_ptr_t mel
 {
     long current_blocklevel_signals_meltrout_12_WARMELTmiFIRST_LIST_MAP_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -1601,17 +1601,17 @@ meltrout_12_WARMELTmiFIRST_LIST_MAP(meltclosure_ptr_t meltclosp_, melt_ptr_t mel
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_12_WARMELTmiFIRST_LIST_MAP(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<14> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_12_WARMELTmiFIRST_LIST_MAP), clos) {};
         MeltFrame_meltrout_12_WARMELTmiFIRST_LIST_MAP() //the constructor fromline 1642
             : Melt_CallFrameWithValues<14> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_12_WARMELTmiFIRST_LIST_MAP)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_12_WARMELTmiFIRST_LIST_MAP(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<14> (fil,lin, sizeof(MeltFrame_meltrout_12_WARMELTmiFIRST_LIST_MAP)) {};
         MeltFrame_meltrout_12_WARMELTmiFIRST_LIST_MAP(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -1843,7 +1843,7 @@ meltlabexit_LISLOOP_1:;/*^loopepilog*/
         {
             MELT_LOCATION("warmelt-first.melt:3406:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -1885,7 +1885,7 @@ meltrout_13_WARMELTmiFIRST_LIST_FIND(meltclosure_ptr_t meltclosp_, melt_ptr_t me
 {
     long current_blocklevel_signals_meltrout_13_WARMELTmiFIRST_LIST_FIND_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -1917,17 +1917,17 @@ meltrout_13_WARMELTmiFIRST_LIST_FIND(meltclosure_ptr_t meltclosp_, melt_ptr_t me
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_13_WARMELTmiFIRST_LIST_FIND(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<25> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_13_WARMELTmiFIRST_LIST_FIND), clos) {};
         MeltFrame_meltrout_13_WARMELTmiFIRST_LIST_FIND() //the constructor fromline 1642
             : Melt_CallFrameWithValues<25> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_13_WARMELTmiFIRST_LIST_FIND)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_13_WARMELTmiFIRST_LIST_FIND(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<25> (fil,lin, sizeof(MeltFrame_meltrout_13_WARMELTmiFIRST_LIST_FIND)) {};
         MeltFrame_meltrout_13_WARMELTmiFIRST_LIST_FIND(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -2105,7 +2105,7 @@ meltlabloop_LISLOOP_2:;/*^loopbody*/
                                                     {
                                                         MELT_LOCATION("warmelt-first.melt:3433:/ locexp");
                                                         /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                             melt_warn_for_no_expected_secondary_results();
                                                         /* we warned when secondary results are expected but not returned. */
@@ -2258,7 +2258,7 @@ meltlabloop_MEMLOOP_1:;/*^loopbody*/
                                                     {
                                                         MELT_LOCATION("warmelt-first.melt:3439:/ locexp");
                                                         /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                             melt_warn_for_no_expected_secondary_results();
                                                         /* we warned when secondary results are expected but not returned. */
@@ -2360,7 +2360,7 @@ meltlabexit_MEMLOOP_1:;/*^loopepilog*/
         {
             MELT_LOCATION("warmelt-first.melt:3423:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -2402,7 +2402,7 @@ meltrout_14_WARMELTmiFIRST_LIST_TO_MULTIPLE(meltclosure_ptr_t meltclosp_, melt_p
 {
     long current_blocklevel_signals_meltrout_14_WARMELTmiFIRST_LIST_TO_MULTIPLE_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -2434,17 +2434,17 @@ meltrout_14_WARMELTmiFIRST_LIST_TO_MULTIPLE(meltclosure_ptr_t meltclosp_, melt_p
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_14_WARMELTmiFIRST_LIST_TO_MULTIPLE(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<15> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_14_WARMELTmiFIRST_LIST_TO_MULTIPLE), clos) {};
         MeltFrame_meltrout_14_WARMELTmiFIRST_LIST_TO_MULTIPLE() //the constructor fromline 1642
             : Melt_CallFrameWithValues<15> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_14_WARMELTmiFIRST_LIST_TO_MULTIPLE)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_14_WARMELTmiFIRST_LIST_TO_MULTIPLE(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_meltrout_14_WARMELTmiFIRST_LIST_TO_MULTIPLE)) {};
         MeltFrame_meltrout_14_WARMELTmiFIRST_LIST_TO_MULTIPLE(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -2688,7 +2688,7 @@ meltlab_endgetargs:
                     {
                         MELT_LOCATION("warmelt-first.melt:3470:/ locexp");
                         /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                             melt_warn_for_no_expected_secondary_results();
                         /* we warned when secondary results are expected but not returned. */
@@ -2736,7 +2736,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-first.melt:3449:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -2782,7 +2782,7 @@ meltrout_15_WARMELTmiFIRST_PAIRLIST_TO_MULTIPLE(meltclosure_ptr_t meltclosp_, me
 {
     long current_blocklevel_signals_meltrout_15_WARMELTmiFIRST_PAIRLIST_TO_MULTIPLE_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -2814,17 +2814,17 @@ meltrout_15_WARMELTmiFIRST_PAIRLIST_TO_MULTIPLE(meltclosure_ptr_t meltclosp_, me
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_15_WARMELTmiFIRST_PAIRLIST_TO_MULTIPLE(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<25> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_15_WARMELTmiFIRST_PAIRLIST_TO_MULTIPLE), clos) {};
         MeltFrame_meltrout_15_WARMELTmiFIRST_PAIRLIST_TO_MULTIPLE() //the constructor fromline 1642
             : Melt_CallFrameWithValues<25> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_15_WARMELTmiFIRST_PAIRLIST_TO_MULTIPLE)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_15_WARMELTmiFIRST_PAIRLIST_TO_MULTIPLE(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<25> (fil,lin, sizeof(MeltFrame_meltrout_15_WARMELTmiFIRST_PAIRLIST_TO_MULTIPLE)) {};
         MeltFrame_meltrout_15_WARMELTmiFIRST_PAIRLIST_TO_MULTIPLE(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -3165,7 +3165,7 @@ meltlabexit_LOOPFI_1:;/*^loopepilog*/
         {
             MELT_LOCATION("warmelt-first.melt:3497:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -3207,7 +3207,7 @@ meltlabexit_LOOPFI_1:;/*^loopepilog*/
         {
             MELT_LOCATION("warmelt-first.melt:3473:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -3251,7 +3251,7 @@ meltrout_16_WARMELTmiFIRST_MULTIPLE_ITERATE_TEST(meltclosure_ptr_t meltclosp_, m
 {
     long current_blocklevel_signals_meltrout_16_WARMELTmiFIRST_MULTIPLE_ITERATE_TEST_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -3283,17 +3283,17 @@ meltrout_16_WARMELTmiFIRST_MULTIPLE_ITERATE_TEST(meltclosure_ptr_t meltclosp_, m
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_16_WARMELTmiFIRST_MULTIPLE_ITERATE_TEST(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<9> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_16_WARMELTmiFIRST_MULTIPLE_ITERATE_TEST), clos) {};
         MeltFrame_meltrout_16_WARMELTmiFIRST_MULTIPLE_ITERATE_TEST() //the constructor fromline 1642
             : Melt_CallFrameWithValues<9> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_16_WARMELTmiFIRST_MULTIPLE_ITERATE_TEST)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_16_WARMELTmiFIRST_MULTIPLE_ITERATE_TEST(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<9> (fil,lin, sizeof(MeltFrame_meltrout_16_WARMELTmiFIRST_MULTIPLE_ITERATE_TEST)) {};
         MeltFrame_meltrout_16_WARMELTmiFIRST_MULTIPLE_ITERATE_TEST(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -3522,7 +3522,7 @@ meltrout_17_WARMELTmiFIRST_MULTIPLE_MAP(meltclosure_ptr_t meltclosp_, melt_ptr_t
 {
     long current_blocklevel_signals_meltrout_17_WARMELTmiFIRST_MULTIPLE_MAP_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -3554,17 +3554,17 @@ meltrout_17_WARMELTmiFIRST_MULTIPLE_MAP(meltclosure_ptr_t meltclosp_, melt_ptr_t
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_17_WARMELTmiFIRST_MULTIPLE_MAP(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<11> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_17_WARMELTmiFIRST_MULTIPLE_MAP), clos) {};
         MeltFrame_meltrout_17_WARMELTmiFIRST_MULTIPLE_MAP() //the constructor fromline 1642
             : Melt_CallFrameWithValues<11> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_17_WARMELTmiFIRST_MULTIPLE_MAP)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_17_WARMELTmiFIRST_MULTIPLE_MAP(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<11> (fil,lin, sizeof(MeltFrame_meltrout_17_WARMELTmiFIRST_MULTIPLE_MAP)) {};
         MeltFrame_meltrout_17_WARMELTmiFIRST_MULTIPLE_MAP(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -3799,7 +3799,7 @@ meltlabexit_TUPLOOP_1:;/*^loopepilog*/
         {
             MELT_LOCATION("warmelt-first.melt:3555:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -3841,7 +3841,7 @@ meltrout_18_WARMELTmiFIRST_MULTIPLE_TO_LIST(meltclosure_ptr_t meltclosp_, melt_p
 {
     long current_blocklevel_signals_meltrout_18_WARMELTmiFIRST_MULTIPLE_TO_LIST_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -3873,17 +3873,17 @@ meltrout_18_WARMELTmiFIRST_MULTIPLE_TO_LIST(meltclosure_ptr_t meltclosp_, melt_p
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_18_WARMELTmiFIRST_MULTIPLE_TO_LIST(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<12> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_18_WARMELTmiFIRST_MULTIPLE_TO_LIST), clos) {};
         MeltFrame_meltrout_18_WARMELTmiFIRST_MULTIPLE_TO_LIST() //the constructor fromline 1642
             : Melt_CallFrameWithValues<12> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_18_WARMELTmiFIRST_MULTIPLE_TO_LIST)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_18_WARMELTmiFIRST_MULTIPLE_TO_LIST(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<12> (fil,lin, sizeof(MeltFrame_meltrout_18_WARMELTmiFIRST_MULTIPLE_TO_LIST)) {};
         MeltFrame_meltrout_18_WARMELTmiFIRST_MULTIPLE_TO_LIST(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -4081,7 +4081,7 @@ meltlab_endgetargs:
                     {
                         MELT_LOCATION("warmelt-first.melt:3585:/ locexp");
                         /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                             melt_warn_for_no_expected_secondary_results();
                         /* we warned when secondary results are expected but not returned. */
@@ -4123,7 +4123,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-first.melt:3572:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -4169,7 +4169,7 @@ meltrout_19_WARMELTmiFIRST_CLOSURE_EVERY(meltclosure_ptr_t meltclosp_, melt_ptr_
 {
     long current_blocklevel_signals_meltrout_19_WARMELTmiFIRST_CLOSURE_EVERY_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -4201,17 +4201,17 @@ meltrout_19_WARMELTmiFIRST_CLOSURE_EVERY(meltclosure_ptr_t meltclosp_, melt_ptr_
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_19_WARMELTmiFIRST_CLOSURE_EVERY(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<10> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_19_WARMELTmiFIRST_CLOSURE_EVERY), clos) {};
         MeltFrame_meltrout_19_WARMELTmiFIRST_CLOSURE_EVERY() //the constructor fromline 1642
             : Melt_CallFrameWithValues<10> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_19_WARMELTmiFIRST_CLOSURE_EVERY)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_19_WARMELTmiFIRST_CLOSURE_EVERY(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<10> (fil,lin, sizeof(MeltFrame_meltrout_19_WARMELTmiFIRST_CLOSURE_EVERY)) {};
         MeltFrame_meltrout_19_WARMELTmiFIRST_CLOSURE_EVERY(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -4431,7 +4431,7 @@ meltlabexit_CLOLOOP_1:;/*^loopepilog*/
         {
             MELT_LOCATION("warmelt-first.melt:3590:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -4473,7 +4473,7 @@ meltrout_20_WARMELTmiFIRST_ROUTINE_EVERY(meltclosure_ptr_t meltclosp_, melt_ptr_
 {
     long current_blocklevel_signals_meltrout_20_WARMELTmiFIRST_ROUTINE_EVERY_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -4505,17 +4505,17 @@ meltrout_20_WARMELTmiFIRST_ROUTINE_EVERY(meltclosure_ptr_t meltclosp_, melt_ptr_
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_20_WARMELTmiFIRST_ROUTINE_EVERY(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<10> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_20_WARMELTmiFIRST_ROUTINE_EVERY), clos) {};
         MeltFrame_meltrout_20_WARMELTmiFIRST_ROUTINE_EVERY() //the constructor fromline 1642
             : Melt_CallFrameWithValues<10> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_20_WARMELTmiFIRST_ROUTINE_EVERY)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_20_WARMELTmiFIRST_ROUTINE_EVERY(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<10> (fil,lin, sizeof(MeltFrame_meltrout_20_WARMELTmiFIRST_ROUTINE_EVERY)) {};
         MeltFrame_meltrout_20_WARMELTmiFIRST_ROUTINE_EVERY(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -4735,7 +4735,7 @@ meltlabexit_ROULOOP_1:;/*^loopepilog*/
         {
             MELT_LOCATION("warmelt-first.melt:3603:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -4777,7 +4777,7 @@ meltrout_21_WARMELTmiFIRST_HOOK_EVERY(meltclosure_ptr_t meltclosp_, melt_ptr_t m
 {
     long current_blocklevel_signals_meltrout_21_WARMELTmiFIRST_HOOK_EVERY_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -4809,17 +4809,17 @@ meltrout_21_WARMELTmiFIRST_HOOK_EVERY(meltclosure_ptr_t meltclosp_, melt_ptr_t m
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_21_WARMELTmiFIRST_HOOK_EVERY(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<10> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_21_WARMELTmiFIRST_HOOK_EVERY), clos) {};
         MeltFrame_meltrout_21_WARMELTmiFIRST_HOOK_EVERY() //the constructor fromline 1642
             : Melt_CallFrameWithValues<10> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_21_WARMELTmiFIRST_HOOK_EVERY)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_21_WARMELTmiFIRST_HOOK_EVERY(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<10> (fil,lin, sizeof(MeltFrame_meltrout_21_WARMELTmiFIRST_HOOK_EVERY)) {};
         MeltFrame_meltrout_21_WARMELTmiFIRST_HOOK_EVERY(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -5039,7 +5039,7 @@ meltlabexit_HOOKLOOP_1:;/*^loopepilog*/
         {
             MELT_LOCATION("warmelt-first.melt:3617:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -5081,7 +5081,7 @@ meltrout_22_WARMELTmiFIRST_INSTALL_METHOD(meltclosure_ptr_t meltclosp_, melt_ptr
 {
     long current_blocklevel_signals_meltrout_22_WARMELTmiFIRST_INSTALL_METHOD_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -5113,17 +5113,17 @@ meltrout_22_WARMELTmiFIRST_INSTALL_METHOD(meltclosure_ptr_t meltclosp_, melt_ptr
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_22_WARMELTmiFIRST_INSTALL_METHOD(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<10> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_22_WARMELTmiFIRST_INSTALL_METHOD), clos) {};
         MeltFrame_meltrout_22_WARMELTmiFIRST_INSTALL_METHOD() //the constructor fromline 1642
             : Melt_CallFrameWithValues<10> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_22_WARMELTmiFIRST_INSTALL_METHOD)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_22_WARMELTmiFIRST_INSTALL_METHOD(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<10> (fil,lin, sizeof(MeltFrame_meltrout_22_WARMELTmiFIRST_INSTALL_METHOD)) {};
         MeltFrame_meltrout_22_WARMELTmiFIRST_INSTALL_METHOD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -5350,7 +5350,7 @@ meltlab_endgetargs:
                                             {
                                                 MELT_LOCATION("warmelt-first.melt:3653:/ locexp");
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 if (melt_need_debug (0))
                                                     melt_dbgshortbacktrace(( "INSTALL_METHOD failing on non-function"), (20));
 #endif
@@ -5421,7 +5421,7 @@ meltlab_endgetargs:
                                             {
                                                 MELT_LOCATION("warmelt-first.melt:3666:/ locexp");
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 if (melt_need_debug (0))
                                                     melt_dbgshortbacktrace(( "INSTALL_METHOD failing with bad named selector"), (20));
 #endif
@@ -5458,7 +5458,7 @@ meltlab_endgetargs:
                                             {
                                                 MELT_LOCATION("warmelt-first.melt:3677:/ locexp");
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 if (melt_need_debug (0))
                                                     melt_dbgshortbacktrace(( "INSTALL_METHOD failing with bad selector"), (20));
 #endif
@@ -5536,7 +5536,7 @@ meltlab_endgetargs:
                                 {
                                     MELT_LOCATION("warmelt-first.melt:3692:/ locexp");
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     if (melt_need_debug (0))
                                         melt_dbgshortbacktrace(( "INSTALL_METHOD failing with bad named discriminant"), (20));
 #endif
@@ -5572,7 +5572,7 @@ meltlab_endgetargs:
                                 {
                                     MELT_LOCATION("warmelt-first.melt:3702:/ locexp");
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                     if (melt_need_debug (0))
                                         melt_dbgshortbacktrace(( "INSTALL_METHOD failing with bad discriminant"), (20));
 #endif
@@ -5633,7 +5633,7 @@ meltrout_23_WARMELTmiFIRST_COMPARE_OBJ_RANKED(meltclosure_ptr_t meltclosp_, melt
 {
     long current_blocklevel_signals_meltrout_23_WARMELTmiFIRST_COMPARE_OBJ_RANKED_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -5665,17 +5665,17 @@ meltrout_23_WARMELTmiFIRST_COMPARE_OBJ_RANKED(meltclosure_ptr_t meltclosp_, melt
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_23_WARMELTmiFIRST_COMPARE_OBJ_RANKED(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<77> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_23_WARMELTmiFIRST_COMPARE_OBJ_RANKED), clos) {};
         MeltFrame_meltrout_23_WARMELTmiFIRST_COMPARE_OBJ_RANKED() //the constructor fromline 1642
             : Melt_CallFrameWithValues<77> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_23_WARMELTmiFIRST_COMPARE_OBJ_RANKED)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_23_WARMELTmiFIRST_COMPARE_OBJ_RANKED(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<77> (fil,lin, sizeof(MeltFrame_meltrout_23_WARMELTmiFIRST_COMPARE_OBJ_RANKED)) {};
         MeltFrame_meltrout_23_WARMELTmiFIRST_COMPARE_OBJ_RANKED(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -5788,7 +5788,7 @@ meltlab_endgetargs:
                     {
                         MELT_LOCATION("warmelt-first.melt:3717:/ locexp");
                         /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                             melt_warn_for_no_expected_secondary_results();
                         /* we warned when secondary results are expected but not returned. */
@@ -5882,7 +5882,7 @@ meltlab_endgetargs:
                                             {
                                                 MELT_LOCATION("warmelt-first.melt:3726:/ locexp");
                                                 /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                     melt_warn_for_no_expected_secondary_results();
                                                 /* we warned when secondary results are expected but not returned. */
@@ -5919,7 +5919,7 @@ meltlab_endgetargs:
                                             {
                                                 MELT_LOCATION("warmelt-first.melt:3727:/ locexp");
                                                 /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                 if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                     melt_warn_for_no_expected_secondary_results();
                                                 /* we warned when secondary results are expected but not returned. */
@@ -6016,7 +6016,7 @@ meltlab_endgetargs:
                                                         {
                                                             MELT_LOCATION("warmelt-first.melt:3733:/ locexp");
                                                             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                 melt_warn_for_no_expected_secondary_results();
                                                             /* we warned when secondary results are expected but not returned. */
@@ -6066,7 +6066,7 @@ meltlab_endgetargs:
                                                                     {
                                                                         MELT_LOCATION("warmelt-first.melt:3735:/ locexp");
                                                                         /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                             melt_warn_for_no_expected_secondary_results();
                                                                         /* we warned when secondary results are expected but not returned. */
@@ -6141,7 +6141,7 @@ meltlab_endgetargs:
                                                                                 {
                                                                                     MELT_LOCATION("warmelt-first.melt:3744:/ locexp");
                                                                                     /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                     if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                         melt_warn_for_no_expected_secondary_results();
                                                                                     /* we warned when secondary results are expected but not returned. */
@@ -6191,7 +6191,7 @@ meltlab_endgetargs:
                                                                                             {
                                                                                                 MELT_LOCATION("warmelt-first.melt:3746:/ locexp");
                                                                                                 /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                 if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                                     melt_warn_for_no_expected_secondary_results();
                                                                                                 /* we warned when secondary results are expected but not returned. */
@@ -6294,7 +6294,7 @@ meltlab_endgetargs:
                                                                                             {
                                                                                                 MELT_LOCATION("warmelt-first.melt:3750:/ locexp");
                                                                                                 /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                 if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                                     melt_warn_for_no_expected_secondary_results();
                                                                                                 /* we warned when secondary results are expected but not returned. */
@@ -6456,7 +6456,7 @@ meltlab_endgetargs:
                                                                     {
                                                                         MELT_LOCATION("warmelt-first.melt:3758:/ locexp");
                                                                         /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                             melt_warn_for_no_expected_secondary_results();
                                                                         /* we warned when secondary results are expected but not returned. */
@@ -6506,7 +6506,7 @@ meltlab_endgetargs:
                                                                                 {
                                                                                     MELT_LOCATION("warmelt-first.melt:3760:/ locexp");
                                                                                     /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                     if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                         melt_warn_for_no_expected_secondary_results();
                                                                                     /* we warned when secondary results are expected but not returned. */
@@ -6556,7 +6556,7 @@ meltlab_endgetargs:
                                                                                             {
                                                                                                 MELT_LOCATION("warmelt-first.melt:3762:/ locexp");
                                                                                                 /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                 if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                                     melt_warn_for_no_expected_secondary_results();
                                                                                                 /* we warned when secondary results are expected but not returned. */
@@ -6606,7 +6606,7 @@ meltlab_endgetargs:
                                                                                                         {
                                                                                                             MELT_LOCATION("warmelt-first.melt:3764:/ locexp");
                                                                                                             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                                                 melt_warn_for_no_expected_secondary_results();
                                                                                                             /* we warned when secondary results are expected but not returned. */
@@ -6643,7 +6643,7 @@ meltlab_endgetargs:
                                                                                                         {
                                                                                                             MELT_LOCATION("warmelt-first.melt:3766:/ locexp");
                                                                                                             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                                                 melt_warn_for_no_expected_secondary_results();
                                                                                                             /* we warned when secondary results are expected but not returned. */
@@ -6794,7 +6794,7 @@ meltlab_endgetargs:
                                                                     {
                                                                         MELT_LOCATION("warmelt-first.melt:3772:/ locexp");
                                                                         /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                             melt_warn_for_no_expected_secondary_results();
                                                                         /* we warned when secondary results are expected but not returned. */
@@ -6867,7 +6867,7 @@ meltlab_endgetargs:
                                                                                             {
                                                                                                 MELT_LOCATION("warmelt-first.melt:3775:/ locexp");
                                                                                                 /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                 if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                                     melt_warn_for_no_expected_secondary_results();
                                                                                                 /* we warned when secondary results are expected but not returned. */
@@ -6917,7 +6917,7 @@ meltlab_endgetargs:
                                                                                                         {
                                                                                                             MELT_LOCATION("warmelt-first.melt:3777:/ locexp");
                                                                                                             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                                                 melt_warn_for_no_expected_secondary_results();
                                                                                                             /* we warned when secondary results are expected but not returned. */
@@ -6967,7 +6967,7 @@ meltlab_endgetargs:
                                                                                                                     {
                                                                                                                         MELT_LOCATION("warmelt-first.melt:3779:/ locexp");
                                                                                                                         /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                                         if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                                                             melt_warn_for_no_expected_secondary_results();
                                                                                                                         /* we warned when secondary results are expected but not returned. */
@@ -7017,7 +7017,7 @@ meltlab_endgetargs:
                                                                                                                                 {
                                                                                                                                     MELT_LOCATION("warmelt-first.melt:3781:/ locexp");
                                                                                                                                     /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                                                     if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                                                                         melt_warn_for_no_expected_secondary_results();
                                                                                                                                     /* we warned when secondary results are expected but not returned. */
@@ -7054,7 +7054,7 @@ meltlab_endgetargs:
                                                                                                                                 {
                                                                                                                                     MELT_LOCATION("warmelt-first.melt:3783:/ locexp");
                                                                                                                                     /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                                                     if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                                                                         melt_warn_for_no_expected_secondary_results();
                                                                                                                                     /* we warned when secondary results are expected but not returned. */
@@ -7155,7 +7155,7 @@ meltlab_endgetargs:
                                                                                             {
                                                                                                 MELT_LOCATION("warmelt-first.melt:3785:/ locexp");
                                                                                                 /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                 if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                                     melt_warn_for_no_expected_secondary_results();
                                                                                                 /* we warned when secondary results are expected but not returned. */
@@ -7205,7 +7205,7 @@ meltlab_endgetargs:
                                                                                                         {
                                                                                                             MELT_LOCATION("warmelt-first.melt:3787:/ locexp");
                                                                                                             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                                                 melt_warn_for_no_expected_secondary_results();
                                                                                                             /* we warned when secondary results are expected but not returned. */
@@ -7242,7 +7242,7 @@ meltlab_endgetargs:
                                                                                                         {
                                                                                                             MELT_LOCATION("warmelt-first.melt:3789:/ locexp");
                                                                                                             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                                                                                             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                                                                                                 melt_warn_for_no_expected_secondary_results();
                                                                                                             /* we warned when secondary results are expected but not returned. */
@@ -7366,7 +7366,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-first.melt:3715:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -7408,7 +7408,7 @@ meltrout_24_WARMELTmiFIRST_FRESH_ENV(meltclosure_ptr_t meltclosp_, melt_ptr_t me
 {
     long current_blocklevel_signals_meltrout_24_WARMELTmiFIRST_FRESH_ENV_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -7440,17 +7440,17 @@ meltrout_24_WARMELTmiFIRST_FRESH_ENV(meltclosure_ptr_t meltclosp_, melt_ptr_t me
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_24_WARMELTmiFIRST_FRESH_ENV(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<11> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_24_WARMELTmiFIRST_FRESH_ENV), clos) {};
         MeltFrame_meltrout_24_WARMELTmiFIRST_FRESH_ENV() //the constructor fromline 1642
             : Melt_CallFrameWithValues<11> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_24_WARMELTmiFIRST_FRESH_ENV)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_24_WARMELTmiFIRST_FRESH_ENV(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<11> (fil,lin, sizeof(MeltFrame_meltrout_24_WARMELTmiFIRST_FRESH_ENV)) {};
         MeltFrame_meltrout_24_WARMELTmiFIRST_FRESH_ENV(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -7675,7 +7675,7 @@ meltlab_endgetargs:
         {
             MELT_LOCATION("warmelt-first.melt:3803:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -7719,7 +7719,7 @@ meltrout_25_WARMELTmiFIRST_FIND_ENV(meltclosure_ptr_t meltclosp_, melt_ptr_t mel
 {
     long current_blocklevel_signals_meltrout_25_WARMELTmiFIRST_FIND_ENV_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -7751,17 +7751,17 @@ meltrout_25_WARMELTmiFIRST_FIND_ENV(meltclosure_ptr_t meltclosp_, melt_ptr_t mel
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_25_WARMELTmiFIRST_FIND_ENV(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<28> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_25_WARMELTmiFIRST_FIND_ENV), clos) {};
         MeltFrame_meltrout_25_WARMELTmiFIRST_FIND_ENV() //the constructor fromline 1642
             : Melt_CallFrameWithValues<28> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_25_WARMELTmiFIRST_FIND_ENV)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_25_WARMELTmiFIRST_FIND_ENV(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<28> (fil,lin, sizeof(MeltFrame_meltrout_25_WARMELTmiFIRST_FIND_ENV)) {};
         MeltFrame_meltrout_25_WARMELTmiFIRST_FIND_ENV(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -8236,7 +8236,7 @@ meltlabloop_FINDLOOP_1:;/*^loopbody*/
                             {
                                 MELT_LOCATION("warmelt-first.melt:3841:/ locexp");
                                 /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
                                 if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                                     melt_warn_for_no_expected_secondary_results();
                                 /* we warned when secondary results are expected but not returned. */
@@ -8323,7 +8323,7 @@ meltlabexit_FINDLOOP_1:;/*^loopepilog*/
         {
             MELT_LOCATION("warmelt-first.melt:3825:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -8367,7 +8367,7 @@ meltrout_26_WARMELTmiFIRST_FIND_ENV_DEBUG(meltclosure_ptr_t meltclosp_, melt_ptr
 {
     long current_blocklevel_signals_meltrout_26_WARMELTmiFIRST_FIND_ENV_DEBUG_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -8399,17 +8399,17 @@ meltrout_26_WARMELTmiFIRST_FIND_ENV_DEBUG(meltclosure_ptr_t meltclosp_, melt_ptr
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_26_WARMELTmiFIRST_FIND_ENV_DEBUG(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<24> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_26_WARMELTmiFIRST_FIND_ENV_DEBUG), clos) {};
         MeltFrame_meltrout_26_WARMELTmiFIRST_FIND_ENV_DEBUG() //the constructor fromline 1642
             : Melt_CallFrameWithValues<24> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_26_WARMELTmiFIRST_FIND_ENV_DEBUG)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_26_WARMELTmiFIRST_FIND_ENV_DEBUG(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<24> (fil,lin, sizeof(MeltFrame_meltrout_26_WARMELTmiFIRST_FIND_ENV_DEBUG)) {};
         MeltFrame_meltrout_26_WARMELTmiFIRST_FIND_ENV_DEBUG(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -8943,7 +8943,7 @@ meltlabexit_FINDLOOP_2:;/*^loopepilog*/
         {
             MELT_LOCATION("warmelt-first.melt:3848:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
@@ -8987,7 +8987,7 @@ meltrout_27_WARMELTmiFIRST_FIND_ENCLOSING_ENV(meltclosure_ptr_t meltclosp_, melt
 {
     long current_blocklevel_signals_meltrout_27_WARMELTmiFIRST_FIND_ENCLOSING_ENV_melt =  melt_blocklevel_signals;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
     static long melt_call_counter__;
     long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++ melt_call_counter__;
 #undef meltcallcount
@@ -9019,17 +9019,17 @@ meltrout_27_WARMELTmiFIRST_FIND_ENCLOSING_ENV(meltclosure_ptr_t meltclosp_, melt
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_27_WARMELTmiFIRST_FIND_ENCLOSING_ENV(meltclosure_ptr_t clos) //the closure constructor fromline 1630
             : Melt_CallFrameWithValues<25> (
-#if MELT_HAVE_DEBUG /*fromline 1634*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1634*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1638*/
                 sizeof(MeltFrame_meltrout_27_WARMELTmiFIRST_FIND_ENCLOSING_ENV), clos) {};
         MeltFrame_meltrout_27_WARMELTmiFIRST_FIND_ENCLOSING_ENV() //the constructor fromline 1642
             : Melt_CallFrameWithValues<25> (
-#if MELT_HAVE_DEBUG /*fromline 1646*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1646*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1650*/
                 sizeof(MeltFrame_meltrout_27_WARMELTmiFIRST_FIND_ENCLOSING_ENV)) {};
-#if MELT_HAVE_DEBUG /*fromline 1654*/
+#if MELT_HAVE_DEBUG > 0 /*fromline 1654*/
         MeltFrame_meltrout_27_WARMELTmiFIRST_FIND_ENCLOSING_ENV(const char*fil, int lin) //the constructor fromline 1656
             : Melt_CallFrameWithValues<25> (fil,lin, sizeof(MeltFrame_meltrout_27_WARMELTmiFIRST_FIND_ENCLOSING_ENV)) {};
         MeltFrame_meltrout_27_WARMELTmiFIRST_FIND_ENCLOSING_ENV(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1661
@@ -9493,7 +9493,7 @@ meltlabexit_FINDLOOP_3:;/*^loopepilog*/
         {
             MELT_LOCATION("warmelt-first.melt:3870:/ locexp");
             /*ochecknores compilobj_nrep_return*/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
                 melt_warn_for_no_expected_secondary_results();
             /* we warned when secondary results are expected but not returned. */
