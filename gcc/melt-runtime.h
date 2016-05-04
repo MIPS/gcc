@@ -1161,7 +1161,7 @@ meltgc_allocate (size_t basesz, size_t gap)
                      >= (char *) melt_storalz))
     melt_garbcoll (wanted, MELT_MINOR_OR_FULL);
   ptr = melt_curalz;
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
   if (ptr == melt_alptr_1)
     melt_break_alptr_1("allocated alptr1");
   else if (ptr == melt_alptr_2)
@@ -1217,7 +1217,7 @@ melt_allocatereserved (size_t basesz, size_t gap)
     /* this should never happen */
     melt_reserved_allocation_failure((long) wanted);
   ptr = melt_curalz;
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_DEBUG > 0
   if (ptr == melt_alptr_1)
     melt_break_alptr_1("allocatedreserved alptr1");
   else if (ptr == melt_alptr_2)
