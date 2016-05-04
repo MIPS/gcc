@@ -1,5 +1,9 @@
 2016-05-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* gcc.target/powerpc/pr68805.c: Add -mlra to enable -mvsx-timode
+	tests.
+	* gcc.target/powerpc/p8vector-int128-1.c: Likewise.
+
 	* gcc.target/powerpc/p9-minmax-1.c: Fix typos.
 	* gcc.target/powerpc/p9-minmax-2.c: Likewise.
 

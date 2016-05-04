@@ -1,3 +1,24 @@
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Update
+	code.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Do not document
+	-mpower9-dform-vector or -mpower9-dform-scalar.
+
+	* config/rs6000/rs6000-cpus.def (ISA_3_0_MASKS_SERVER): Do not add
+	-mlra, -mvsx-timode or -mpower9-dform-vector.
+
+	* config/rs6000/rs6000.opt (-mlra): Turn LRA into an option mask.
+	(-mpower9-dform-scalar): Likewise.
+	(-mpower9-dform-vector): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Restore code
+	to print LRA status.
+	(rs6000_option_override_internal): Rework error messages to only
+	mention -mpower9-dform and not -mpower9-dform-{scalar,vector}.
+	Set -mpower9-dform-vector if -mlra and -mcpu=power9.
+	(rs6000_opt_masks): Remove "LRA".
+
 2016-05-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Don't set

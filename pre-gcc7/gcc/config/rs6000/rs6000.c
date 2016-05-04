@@ -2663,6 +2663,9 @@ rs6000_debug_reg_global (void)
   if (TARGET_LINK_STACK)
     fprintf (stderr, DEBUG_FMT_S, "link_stack", "true");
 
+  if (TARGET_LRA)
+    fprintf (stderr, DEBUG_FMT_S, "lra", "true");
+
   if (TARGET_P8_FUSION)
     {
       char options[80];
@@ -4234,10 +4237,13 @@ rs6000_option_override_internal (bool global_init_p)
     rs6000_isa_flags |= OPTION_MASK_TOC_FUSION;
 
   /* -mpower9-dform turns on both -mpower9-dform-scalar and
-      -mpower9-dform-vector.  */
+      -mpower9-dform-vector. There are currently problems if
+      -mpower9-dform-vector instructions are enabled when we use the RELOAD
+      register allocator.  */
   if (TARGET_P9_DFORM_BOTH > 0)
     {
-      if (!(rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_VECTOR))
+      if (!(rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_VECTOR)
+	  && TARGET_LRA)
 	rs6000_isa_flags |= OPTION_MASK_P9_DFORM_VECTOR;
 
       if (!(rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_SCALAR))
@@ -4252,35 +4258,27 @@ rs6000_option_override_internal (bool global_init_p)
 	rs6000_isa_flags &= ~OPTION_MASK_P9_DFORM_SCALAR;
     }
 
-  /* ISA 3.0 D-form scalar instructions require p9-vector and upper-regs.  */
-  if (TARGET_P9_DFORM_SCALAR && !TARGET_P9_VECTOR)
+  /* ISA 3.0 D-form instructions require p9-vector and upper-regs.  */
+  if ((TARGET_P9_DFORM_SCALAR || TARGET_P9_DFORM_VECTOR) && !TARGET_P9_VECTOR)
     {
       if (rs6000_isa_flags_explicit & OPTION_MASK_P9_VECTOR)
-	error ("-mpower9-dform-scalar requires -mpower9-vector");
-      rs6000_isa_flags &= ~OPTION_MASK_P9_DFORM_SCALAR;
+	error ("-mpower9-dform requires -mpower9-vector");
+      rs6000_isa_flags &= ~(OPTION_MASK_P9_DFORM_SCALAR
+			    | OPTION_MASK_P9_DFORM_VECTOR);
     }
 
   if (TARGET_P9_DFORM_SCALAR && !TARGET_UPPER_REGS_DF)
     {
       if (rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_DF)
-	error ("-mpower9-dform-scalar requires -mupper-regs-df");
+	error ("-mpower9-dform requires -mupper-regs-df");
       rs6000_isa_flags &= ~OPTION_MASK_P9_DFORM_SCALAR;
     }
 
   if (TARGET_P9_DFORM_SCALAR && !TARGET_UPPER_REGS_SF)
     {
       if (rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_SF)
-	error ("-mpower9-dform-scalar requires -mupper-regs-sf");
+	error ("-mpower9-dform requires -mupper-regs-sf");
       rs6000_isa_flags &= ~OPTION_MASK_P9_DFORM_SCALAR;
-    }
-
-  /* ISA 3.0 D-form instructions require p9-vector.  */
-  if (TARGET_P9_DFORM_VECTOR && !TARGET_P9_VECTOR)
-    {
-      if ((rs6000_isa_flags_explicit & OPTION_MASK_P9_VECTOR)
-	  && (rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_VECTOR))
-	error ("-mpower9-dform-vector requires -mpower9-vector");
-      rs6000_isa_flags &= ~OPTION_MASK_P9_DFORM_VECTOR;
     }
 
   /* ISA 3.0 vector instructions include ISA 2.07.  */
@@ -4295,43 +4293,42 @@ rs6000_option_override_internal (bool global_init_p)
      don't show up with -mlra, but do show up with -mno-lra.  Given -mlra will
      become the default once PR 69847 is fixed, turn off the options with
      problems by default if -mno-lra was used, and warn if the user explicitly
-     asked for the option. Set -mlra if it wasn't set and we want to generate
-     ISA 3.0 vector d-form instructions. Enable vsx-timode by default if
-     LRA.  */
+     asked for the option.
+
+     Enable -mpower9-dform-vector by default if LRA and other power9 options.
+     Enable -mvsx-timode by default if LRA and VSX.  */
   if (!TARGET_LRA)
     {
-      if ((rs6000_isa_flags_explicit & OPTION_MASK_LRA) == 0)
-	rs6000_isa_flags |= OPTION_MASK_LRA;
-
-      else
+      if (TARGET_VSX_TIMODE)
 	{
-	  if (TARGET_VSX_TIMODE)
-	    {
-	      if (rs6000_isa_flags_explicit & OPTION_MASK_VSX_TIMODE)
-		warning (0, "-mno-lra and -mvsx-timode might be incompatible");
-	      else
-		rs6000_isa_flags &= ~OPTION_MASK_VSX_TIMODE;
-	    }
+	  if ((rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_VECTOR) != 0)
+	    warning (0, "-mvsx-timode might need -mlra");
 
-	  if (TARGET_P9_DFORM_VECTOR)
-	    {
-	      if (TARGET_P9_DFORM_BOTH > 0)
-		warning (0, "-mno-lra and -mpower9-dform might be "
-			 "incompatible");
+	  else
+	    rs6000_isa_flags &= ~OPTION_MASK_VSX_TIMODE;
+	}
 
-	      else if (rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_VECTOR)
-		warning (0, "-mno-lra and -mpower9-dform-vector might be "
-			 "incompatible");
+      if (TARGET_P9_DFORM_VECTOR)
+	{
+	  if ((rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_VECTOR) != 0)
+	    warning (0, "-mpower9-dform-vector might need -mlra");
 
-	      else
-		rs6000_isa_flags &= ~OPTION_MASK_P9_DFORM_VECTOR;
-	    }
+	  else
+	    rs6000_isa_flags &= ~OPTION_MASK_P9_DFORM_VECTOR;
 	}
     }
 
-  if (TARGET_LRA && TARGET_VSX && !TARGET_VSX_TIMODE
-      && (rs6000_isa_flags_explicit & OPTION_MASK_VSX_TIMODE) == 0)
-    rs6000_isa_flags |= OPTION_MASK_VSX_TIMODE;
+  else
+    {
+      if (TARGET_VSX && !TARGET_VSX_TIMODE
+	  && (rs6000_isa_flags_explicit & OPTION_MASK_VSX_TIMODE) == 0)
+	rs6000_isa_flags |= OPTION_MASK_VSX_TIMODE;
+
+      if (TARGET_VSX && TARGET_P9_VECTOR && !TARGET_P9_DFORM_VECTOR
+	  && TARGET_P9_DFORM_SCALAR && TARGET_P9_DFORM_BOTH < 0
+	  && (rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_VECTOR) == 0)
+	rs6000_isa_flags |= OPTION_MASK_P9_DFORM_VECTOR;
+    }
 
   /* Set -mallow-movmisalign to explicitly on if we have full ISA 2.07
      support. If we only have ISA 2.06 support, and the user did not specify
@@ -7127,7 +7124,7 @@ quad_address_offset_p (HOST_WIDE_INT offset)
   return (IN_RANGE (offset, -32768, 32767) && ((offset) & 0xf) == 0);
 }
 
-/* Return true if the ADDR is an acceptiable address for a quad memory
+/* Return true if the ADDR is an acceptable address for a quad memory
    operation of mode MODE (either LQ/STQ for general purpose registers, or
    LXV/STXV for vector registers under ISA 3.0.  GPR_P is true if this address
    is intended for LQ/STQ.  If it is false, the address is intended for the ISA
@@ -35412,7 +35409,6 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "hard-dfp",			OPTION_MASK_DFP,		false, true  },
   { "htm",			OPTION_MASK_HTM,		false, true  },
   { "isel",			OPTION_MASK_ISEL,		false, true  },
-  { "lra",			OPTION_MASK_LRA,		false, false },
   { "mfcrf",			OPTION_MASK_MFCRF,		false, true  },
   { "mfpgpr",			OPTION_MASK_MFPGPR,		false, true  },
   { "modulo",			OPTION_MASK_MODULO,		false, true  },
