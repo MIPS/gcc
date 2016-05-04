@@ -1,3 +1,78 @@
+2016-05-02  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* download_prerequisites: Adjust gmp/mpfr/mpc versions.
+
+2016-04-30  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* compare-all-tests: Remove SH5 support.
+	* config-list.mk: Likewise.
+
+2016-04-28  Martin Liska  <mliska@suse.cz>
+
+	* analyze_brprob: Remove.
+	* analyze_brprob.py: New file.
+
+2016-04-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* gennews (files): Add files for GCC 6.
+
+2016-04-17  Jan Hubicka  <jh@suse.cz>
+
+	* analyze_brprob: Update comment.
+
+2016-04-13  Martin Sebor  <msebor@redhat.com>
+
+	* check_GNU_style.sh: Avoid false posivies in trailing operator
+	checks.
+
+2016-03-07  Martin Sebor  <msebor@redhat.com>
+
+	* check_GNU_style.sh (color): New global variable.
+	Add checks for trailing operators and spaces before left brackets.
+	Tightened up a check for a trailing left curly brace.
+	(g, ag, vg): Use color.
+	(col): Don't complain about excessively long lines with DejaGnu
+	directives.
+
+2016-03-06  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* mklog: Look for the ChangeLog file in $cwd.
+
+2016-02-26  Joel Sherrill <joel@rtems.org>
+
+	* config-list.mk: Add aarch64-rtems and x86_64-rtems
+
+2016-01-19  Jonathan Wakely  <jwakely@redhat.com>
+
+	* uninclude: Fix third argument to gensub.
+
+2016-01-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* update-copyright.py (GCCCopyright): Add NVIDIA Corporation
+	as external author.
+
+2015-12-17  Jan-Benedict Glaw  <jbglaw@lug-owl.de>
+
+	* config-list.mk (LIST): Add --enable-obsolete to recently obsoleted
+	targets x86_64-knetbsd-gnu, i686-knetbsd-gnu and i686-openbsd3.0 .
+
+2015-12-06  Tobias Burnus  <burnus@net-b.de>
+
+	* download_prerequisites: Download ISL 0.15 instead of 0.14.
+
+2015-11-20  Martin Liska  <mliska@suse.cz>
+
+	* clang-format: Split content of a list to multiple
+	lines.
+
+2015-11-19  Martin Liska  <mliska@suse.cz>
+
+	* clang-format: Enhance list of FOR_EACH macros.
+
+2015-11-19  Martin Liska  <mliska@suse.cz>
+
+	* clang-format: New file.
+
 2015-11-11  Andrew MacLeod  <amacleod@redhat.com>
 
 	* header-tools: New.  Directory containing a set of tools for

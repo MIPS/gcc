@@ -1,5 +1,5 @@
 /* Optimization of PHI nodes by converting them into straightline code.
-   Copyright (C) 2004-2015 Free Software Foundation, Inc.
+   Copyright (C) 2004-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -49,7 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 static unsigned int tree_ssa_phiopt_worker (bool, bool);
 static bool conditional_replacement (basic_block, basic_block,
 				     edge, edge, gphi *, tree, tree);
-static bool factor_out_conditional_conversion (edge, edge, gphi *, tree, tree);
+static gphi *factor_out_conditional_conversion (edge, edge, gphi *, tree, tree);
 static int value_replacement (basic_block, basic_block,
 			      edge, edge, gimple *, tree, tree);
 static bool minmax_replacement (basic_block, basic_block,
@@ -310,19 +310,19 @@ tree_ssa_phiopt_worker (bool do_store_elim, bool do_hoist_loads)
 
 	  /* Something is wrong if we cannot find the arguments in the PHI
 	     node.  */
-	  gcc_assert (arg0 != NULL && arg1 != NULL);
+	  gcc_assert (arg0 != NULL_TREE && arg1 != NULL_TREE);
 
-	  if (factor_out_conditional_conversion (e1, e2, phi, arg0, arg1))
+	  gphi *newphi = factor_out_conditional_conversion (e1, e2, phi,
+							    arg0, arg1);
+	  if (newphi != NULL)
 	    {
+	      phi = newphi;
 	      /* factor_out_conditional_conversion may create a new PHI in
 		 BB2 and eliminate an existing PHI in BB2.  Recompute values
 		 that may be affected by that change.  */
-	      phis = phi_nodes (bb2);
-	      phi = single_non_singleton_phi_for_edges (phis, e1, e2);
-	      gcc_assert (phi);
 	      arg0 = gimple_phi_arg_def (phi, e1->dest_idx);
 	      arg1 = gimple_phi_arg_def (phi, e2->dest_idx);
-	      gcc_assert (arg0 != NULL && arg1 != NULL);
+	      gcc_assert (arg0 != NULL_TREE && arg1 != NULL_TREE);
 	    }
 
 	  /* Do the replacement of conditional if it can be done.  */
@@ -402,9 +402,9 @@ replace_phi_edge_with_variable (basic_block cond_block,
 
 /* PR66726: Factor conversion out of COND_EXPR.  If the arguments of the PHI
    stmt are CONVERT_STMT, factor out the conversion and perform the conversion
-   to the result of PHI stmt.  */
+   to the result of PHI stmt.  Return the newly-created PHI, if any.  */
 
-static bool
+static gphi *
 factor_out_conditional_conversion (edge e0, edge e1, gphi *phi,
 				   tree arg0, tree arg1)
 {
@@ -421,7 +421,7 @@ factor_out_conditional_conversion (edge e0, edge e1, gphi *phi,
      statement have the same unary operation, we can handle more
      than two arguments too.  */
   if (gimple_phi_num_args (phi) != 2)
-    return false;
+    return NULL;
 
   /* First canonicalize to simplify tests.  */
   if (TREE_CODE (arg0) != SSA_NAME)
@@ -433,14 +433,14 @@ factor_out_conditional_conversion (edge e0, edge e1, gphi *phi,
   if (TREE_CODE (arg0) != SSA_NAME
       || (TREE_CODE (arg1) != SSA_NAME
 	  && TREE_CODE (arg1) != INTEGER_CST))
-    return false;
+    return NULL;
 
   /* Check if arg0 is an SSA_NAME and the stmt which defines arg0 is
      a conversion.  */
   arg0_def_stmt = SSA_NAME_DEF_STMT (arg0);
   if (!is_gimple_assign (arg0_def_stmt)
       || !gimple_assign_cast_p (arg0_def_stmt))
-    return false;
+    return NULL;
 
   /* Use the RHS as new_arg0.  */
   convert_code = gimple_assign_rhs_code (arg0_def_stmt);
@@ -455,7 +455,7 @@ factor_out_conditional_conversion (edge e0, edge e1, gphi *phi,
       arg1_def_stmt = SSA_NAME_DEF_STMT (arg1);
       if (!is_gimple_assign (arg1_def_stmt)
 	  || gimple_assign_rhs_code (arg1_def_stmt) != convert_code)
-	return false;
+	return NULL;
 
       /* Use the RHS as new_arg1.  */
       new_arg1 = gimple_assign_rhs1 (arg1_def_stmt);
@@ -471,21 +471,21 @@ factor_out_conditional_conversion (edge e0, edge e1, gphi *phi,
 	  if (gimple_assign_cast_p (arg0_def_stmt))
 	    new_arg1 = fold_convert (TREE_TYPE (new_arg0), arg1);
 	  else
-	    return false;
+	    return NULL;
 	}
       else
-	return false;
+	return NULL;
     }
 
   /*  If arg0/arg1 have > 1 use, then this transformation actually increases
       the number of expressions evaluated at runtime.  */
   if (!has_single_use (arg0)
       || (arg1_def_stmt && !has_single_use (arg1)))
-    return false;
+    return NULL;
 
   /* If types of new_arg0 and new_arg1 are different bailout.  */
   if (!types_compatible_p (TREE_TYPE (new_arg0), TREE_TYPE (new_arg1)))
-    return false;
+    return NULL;
 
   /* Create a new PHI stmt.  */
   result = PHI_RESULT (phi);
@@ -528,7 +528,7 @@ factor_out_conditional_conversion (edge e0, edge e1, gphi *phi,
   /* Remove the original PHI stmt.  */
   gsi = gsi_for_stmt (phi);
   gsi_remove (&gsi, true);
-  return true;
+  return newphi;
 }
 
 /*  The function conditional_replacement does the main work of doing the
@@ -1045,7 +1045,7 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
   gassign *new_stmt;
   edge true_edge, false_edge;
   enum tree_code cmp, minmax, ass_code;
-  tree smaller, larger, arg_true, arg_false;
+  tree smaller, alt_smaller, larger, alt_larger, arg_true, arg_false;
   gimple_stmt_iterator gsi, gsi_from;
 
   type = TREE_TYPE (PHI_RESULT (phi));
@@ -1059,15 +1059,59 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
 
   /* This transformation is only valid for order comparisons.  Record which
      operand is smaller/larger if the result of the comparison is true.  */
+  alt_smaller = NULL_TREE;
+  alt_larger = NULL_TREE;
   if (cmp == LT_EXPR || cmp == LE_EXPR)
     {
       smaller = gimple_cond_lhs (cond);
       larger = gimple_cond_rhs (cond);
+      /* If we have smaller < CST it is equivalent to smaller <= CST-1.
+	 Likewise smaller <= CST is equivalent to smaller < CST+1.  */
+      if (TREE_CODE (larger) == INTEGER_CST)
+	{
+	  if (cmp == LT_EXPR)
+	    {
+	      bool overflow;
+	      wide_int alt = wi::sub (larger, 1, TYPE_SIGN (TREE_TYPE (larger)),
+				      &overflow);
+	      if (! overflow)
+		alt_larger = wide_int_to_tree (TREE_TYPE (larger), alt);
+	    }
+	  else
+	    {
+	      bool overflow;
+	      wide_int alt = wi::add (larger, 1, TYPE_SIGN (TREE_TYPE (larger)),
+				      &overflow);
+	      if (! overflow)
+		alt_larger = wide_int_to_tree (TREE_TYPE (larger), alt);
+	    }
+	}
     }
   else if (cmp == GT_EXPR || cmp == GE_EXPR)
     {
       smaller = gimple_cond_rhs (cond);
       larger = gimple_cond_lhs (cond);
+      /* If we have larger > CST it is equivalent to larger >= CST+1.
+	 Likewise larger >= CST is equivalent to larger > CST-1.  */
+      if (TREE_CODE (smaller) == INTEGER_CST)
+	{
+	  if (cmp == GT_EXPR)
+	    {
+	      bool overflow;
+	      wide_int alt = wi::add (smaller, 1, TYPE_SIGN (TREE_TYPE (smaller)),
+				      &overflow);
+	      if (! overflow)
+		alt_smaller = wide_int_to_tree (TREE_TYPE (smaller), alt);
+	    }
+	  else
+	    {
+	      bool overflow;
+	      wide_int alt = wi::sub (smaller, 1, TYPE_SIGN (TREE_TYPE (smaller)),
+				      &overflow);
+	      if (! overflow)
+		alt_smaller = wide_int_to_tree (TREE_TYPE (smaller), alt);
+	    }
+	}
     }
   else
     return false;
@@ -1098,8 +1142,12 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
 
   if (empty_block_p (middle_bb))
     {
-      if (operand_equal_for_phi_arg_p (arg_true, smaller)
-	  && operand_equal_for_phi_arg_p (arg_false, larger))
+      if ((operand_equal_for_phi_arg_p (arg_true, smaller)
+	   || (alt_smaller
+	       && operand_equal_for_phi_arg_p (arg_true, alt_smaller)))
+	  && (operand_equal_for_phi_arg_p (arg_false, larger)
+	      || (alt_larger
+		  && operand_equal_for_phi_arg_p (arg_true, alt_larger))))
 	{
 	  /* Case
 
@@ -1109,8 +1157,12 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
 	     rslt = larger;  */
 	  minmax = MIN_EXPR;
 	}
-      else if (operand_equal_for_phi_arg_p (arg_false, smaller)
-	       && operand_equal_for_phi_arg_p (arg_true, larger))
+      else if ((operand_equal_for_phi_arg_p (arg_false, smaller)
+		|| (alt_smaller
+		    && operand_equal_for_phi_arg_p (arg_false, alt_smaller)))
+	       && (operand_equal_for_phi_arg_p (arg_true, larger)
+		   || (alt_larger
+		       && operand_equal_for_phi_arg_p (arg_true, alt_larger))))
 	minmax = MAX_EXPR;
       else
 	return false;
@@ -1148,7 +1200,9 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
 	  if (!operand_equal_for_phi_arg_p (lhs, arg_true))
 	    return false;
 
-	  if (operand_equal_for_phi_arg_p (arg_false, larger))
+	  if (operand_equal_for_phi_arg_p (arg_false, larger)
+	      || (alt_larger
+		  && operand_equal_for_phi_arg_p (arg_false, alt_larger)))
 	    {
 	      /* Case
 
@@ -1161,9 +1215,13 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
 		return false;
 
 	      minmax = MIN_EXPR;
-	      if (operand_equal_for_phi_arg_p (op0, smaller))
+	      if (operand_equal_for_phi_arg_p (op0, smaller)
+		  || (alt_smaller
+		      && operand_equal_for_phi_arg_p (op0, alt_smaller)))
 		bound = op1;
-	      else if (operand_equal_for_phi_arg_p (op1, smaller))
+	      else if (operand_equal_for_phi_arg_p (op1, smaller)
+		       || (alt_smaller
+			   && operand_equal_for_phi_arg_p (op1, alt_smaller)))
 		bound = op0;
 	      else
 		return false;
@@ -1173,7 +1231,9 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
 						  bound, larger)))
 		return false;
 	    }
-	  else if (operand_equal_for_phi_arg_p (arg_false, smaller))
+	  else if (operand_equal_for_phi_arg_p (arg_false, smaller)
+		   || (alt_smaller
+		       && operand_equal_for_phi_arg_p (arg_false, alt_smaller)))
 	    {
 	      /* Case
 
@@ -1186,9 +1246,13 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
 		return false;
 
 	      minmax = MAX_EXPR;
-	      if (operand_equal_for_phi_arg_p (op0, larger))
+	      if (operand_equal_for_phi_arg_p (op0, larger)
+		  || (alt_larger
+		      && operand_equal_for_phi_arg_p (op0, alt_larger)))
 		bound = op1;
-	      else if (operand_equal_for_phi_arg_p (op1, larger))
+	      else if (operand_equal_for_phi_arg_p (op1, larger)
+		       || (alt_larger
+			   && operand_equal_for_phi_arg_p (op1, alt_larger)))
 		bound = op0;
 	      else
 		return false;
@@ -1207,7 +1271,9 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
 	  if (!operand_equal_for_phi_arg_p (lhs, arg_false))
 	    return false;
 
-	  if (operand_equal_for_phi_arg_p (arg_true, larger))
+	  if (operand_equal_for_phi_arg_p (arg_true, larger)
+	      || (alt_larger
+		  && operand_equal_for_phi_arg_p (arg_true, alt_larger)))
 	    {
 	      /* Case
 
@@ -1220,9 +1286,13 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
 		return false;
 
 	      minmax = MAX_EXPR;
-	      if (operand_equal_for_phi_arg_p (op0, smaller))
+	      if (operand_equal_for_phi_arg_p (op0, smaller)
+		  || (alt_smaller
+		      && operand_equal_for_phi_arg_p (op0, alt_smaller)))
 		bound = op1;
-	      else if (operand_equal_for_phi_arg_p (op1, smaller))
+	      else if (operand_equal_for_phi_arg_p (op1, smaller)
+		       || (alt_smaller
+			   && operand_equal_for_phi_arg_p (op1, alt_smaller)))
 		bound = op0;
 	      else
 		return false;
@@ -1232,7 +1302,9 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
 						  bound, larger)))
 		return false;
 	    }
-	  else if (operand_equal_for_phi_arg_p (arg_true, smaller))
+	  else if (operand_equal_for_phi_arg_p (arg_true, smaller)
+		   || (alt_smaller
+		       && operand_equal_for_phi_arg_p (arg_true, alt_smaller)))
 	    {
 	      /* Case
 
@@ -1477,7 +1549,7 @@ public:
   nontrapping_dom_walker (cdi_direction direction, hash_set<tree> *ps)
     : dom_walker (direction), m_nontrapping (ps), m_seen_ssa_names (128) {}
 
-  virtual void before_dom_children (basic_block);
+  virtual edge before_dom_children (basic_block);
   virtual void after_dom_children (basic_block);
 
 private:
@@ -1496,7 +1568,7 @@ private:
 };
 
 /* Called by walk_dominator_tree, when entering the block BB.  */
-void
+edge
 nontrapping_dom_walker::before_dom_children (basic_block bb)
 {
   edge e;
@@ -1519,7 +1591,9 @@ nontrapping_dom_walker::before_dom_children (basic_block bb)
     {
       gimple *stmt = gsi_stmt (gsi);
 
-      if (is_gimple_call (stmt) && !nonfreeing_call_p (stmt))
+      if ((gimple_code (stmt) == GIMPLE_ASM && gimple_vdef (stmt))
+	  || (is_gimple_call (stmt)
+	      && (!nonfreeing_call_p (stmt) || !nonbarrier_call_p (stmt))))
 	nt_call_phase++;
       else if (gimple_assign_single_p (stmt) && !gimple_has_volatile_ops (stmt))
 	{
@@ -1527,6 +1601,7 @@ nontrapping_dom_walker::before_dom_children (basic_block bb)
 	  add_or_mark_expr (bb, gimple_assign_rhs1 (stmt), false);
 	}
     }
+  return NULL;
 }
 
 /* Called by walk_dominator_tree, when basic block BB is exited.  */

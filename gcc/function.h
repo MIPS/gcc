@@ -1,5 +1,5 @@
 /* Structure for saving state for a nested function.
-   Copyright (C) 1989-2015 Free Software Foundation, Inc.
+   Copyright (C) 1989-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -327,6 +327,10 @@ struct GTY(()) function {
   /* Nonzero if function being compiled receives nonlocal gotos
      from nested functions.  */
   unsigned int has_nonlocal_label : 1;
+
+  /* Nonzero if function being compiled has a forced label
+     placed into static storage.  */
+  unsigned int has_forced_label_in_static : 1;
 
   /* Nonzero if we've set cannot_be_copied_reason.  I.e. if
      (cannot_be_copied_set && !cannot_be_copied_reason), the function

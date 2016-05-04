@@ -1,5 +1,5 @@
 ;; Predicate definitions for ARM and Thumb
-;; Copyright (C) 2004-2015 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2016 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 
 ;; This file is part of GCC.
@@ -333,6 +333,13 @@
   (and (match_operand 0 "expandable_comparison_operator")
        (match_test "maybe_get_arm_condition_code (op) != ARM_NV")))
 
+;; Likewise, but don't ignore the mode.
+;; RTL SET operations require their operands source and destination have
+;; the same modes, so we can't ignore the modes there.  See PR target/69161.
+(define_predicate "arm_comparison_operator_mode"
+  (and (match_operand 0 "expandable_comparison_operator")
+       (match_test "maybe_get_arm_condition_code (op) != ARM_NV")))
+
 (define_special_predicate "lt_ge_comparison_operator"
   (match_code "lt,ge"))
 
@@ -605,59 +612,13 @@
 (define_special_predicate "vect_par_constant_high" 
   (match_code "parallel")
 {
-  HOST_WIDE_INT count = XVECLEN (op, 0);
-  int i;
-  int base = GET_MODE_NUNITS (mode);
-
-  if ((count < 1)
-      || (count != base/2))
-    return false;
-    
-  if (!VECTOR_MODE_P (mode))
-    return false;
-
-  for (i = 0; i < count; i++)
-   {
-     rtx elt = XVECEXP (op, 0, i);
-     int val;
-
-     if (!CONST_INT_P (elt))
-       return false;
-
-     val = INTVAL (elt);
-     if (val != (base/2) + i)
-       return false;
-   }
-  return true; 
+  return arm_simd_check_vect_par_cnst_half_p (op, mode, true);
 })
 
 (define_special_predicate "vect_par_constant_low"
   (match_code "parallel")
 {
-  HOST_WIDE_INT count = XVECLEN (op, 0);
-  int i;
-  int base = GET_MODE_NUNITS (mode);
-
-  if ((count < 1)
-      || (count != base/2))
-    return false;
-    
-  if (!VECTOR_MODE_P (mode))
-    return false;
-
-  for (i = 0; i < count; i++)
-   {
-     rtx elt = XVECEXP (op, 0, i);
-     int val;
-
-     if (!CONST_INT_P (elt))
-       return false;
-
-     val = INTVAL (elt);
-     if (val != i)
-       return false;
-   } 
-  return true; 
+  return arm_simd_check_vect_par_cnst_half_p (op, mode, false);
 })
 
 (define_predicate "const_double_vcvt_power_of_two_reciprocal"

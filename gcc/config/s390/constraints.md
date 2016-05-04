@@ -1,5 +1,5 @@
 ;; Constraints definitions belonging to the gcc backend for IBM S/390.
-;; Copyright (C) 2006-2015 Free Software Foundation, Inc.
+;; Copyright (C) 2006-2016 Free Software Foundation, Inc.
 ;; Written by Wolfgang Gellerich, using code and information found in
 ;; files s390.md, s390.h, and s390.c.
 ;;
@@ -34,6 +34,9 @@
 ;;         jm1: constant scalar or vector with all bits set
 ;;         jxx: contiguous bitmask of 0 or 1 in all vector elements
 ;;         jyy: constant consisting of byte chunks being either 0 or 0xff
+;;         jKK: constant vector with all elements having the same value and
+;;              matching K constraint
+;;         jm6: An integer operand with the lowest order 6 bits all ones.
 ;;    t -- Access registers 36 and 37.
 ;;    v -- Vector registers v0-v31.
 ;;    C -- A signed 8-bit constant (-128..127)
@@ -74,9 +77,9 @@
 ;;    B -- Multiple letter constraint followed by Q, R, S, or T:
 ;;         Memory reference of the type specified by second letter that
 ;;         does *not* refer to a literal pool entry.
-;;    U -- Pointer with short displacement. (deprecated - use ZQZR)
-;;    W -- Pointer with long displacement. (deprecated - use ZSZT)
-;;    Y -- Shift count operand.
+;;    U -- Pointer with short displacement. (deprecated - use ZR)
+;;    W -- Pointer with long displacement. (deprecated - use ZT)
+;;    Y -- Address style operand without index.
 ;;    ZQ -- Pointer without index register and with short displacement.
 ;;    ZR -- Pointer with index register and short displacement.
 ;;    ZS -- Pointer without index register but with long displacement.
@@ -108,23 +111,6 @@
   "FP_REGS"
   "Floating point registers")
 
-(define_constraint "j00"
-  "Zero scalar or vector constant"
-  (match_test "op == CONST0_RTX (GET_MODE (op))"))
-
-(define_constraint "jm1"
-  "All one bit scalar or vector constant"
-  (match_test "op == CONSTM1_RTX (GET_MODE (op))"))
-
-(define_constraint "jxx"
-  "@internal"
-  (and (match_code "const_vector")
-       (match_test "s390_contiguous_bitmask_vector_p (op, NULL, NULL)")))
-
-(define_constraint "jyy"
-  "@internal"
-  (and (match_code "const_vector")
-       (match_test "s390_bytemask_vector_p (op, NULL)")))
 
 (define_register_constraint "t"
   "ACCESS_REGS"
@@ -203,12 +189,12 @@
 
 
 (define_address_constraint "Y"
-  "Shift count operand"
+  "Address style operand without index register"
 
-;; Simply check for the basic form of a shift count.  Reload will
-;; take care of making sure we have a proper base register.
+;; Simply check for base + offset style operands.  Reload will take
+;; care of making sure we have a proper base register.
 
-  (match_test "s390_decompose_shift_count (op, NULL, NULL)"  ))
+  (match_test "s390_decompose_addrstyle_without_index (op, NULL, NULL)"  ))
 
 
 ;;    N -- Multiple letter constraint followed by 4 parameter letters.
@@ -402,7 +388,37 @@
        (match_test "s390_O_constraint_str ('n', ival)")))
 
 
+;;
+;; Vector constraints follow.
+;;
 
+(define_constraint "j00"
+  "Zero scalar or vector constant"
+  (match_test "op == CONST0_RTX (GET_MODE (op))"))
+
+(define_constraint "jm1"
+  "All one bit scalar or vector constant"
+  (match_test "op == CONSTM1_RTX (GET_MODE (op))"))
+
+(define_constraint "jxx"
+  "@internal"
+  (and (match_code "const_vector")
+       (match_test "s390_contiguous_bitmask_vector_p (op, NULL, NULL)")))
+
+(define_constraint "jyy"
+  "@internal"
+  (and (match_code "const_vector")
+       (match_test "s390_bytemask_vector_p (op, NULL)")))
+
+(define_constraint "jKK"
+  "@internal"
+  (and (and (match_code "const_vector")
+	    (match_test "const_vec_duplicate_p (op)"))
+       (match_test "satisfies_constraint_K (XVECEXP (op, 0, 0))")))
+
+(define_constraint "jm6"
+  "@internal An integer operand with the lowest order 6 bits all ones."
+  (match_operand 0 "const_int_6bitset_operand"))
 
 ;;
 ;; Memory constraints follow.
@@ -439,8 +455,7 @@
 ; the TARGET_MEM_CONSTRAINT macro.
 (define_memory_constraint "m"
   "Matches the most general memory address for pre-z10 machines."
-  (match_test "s390_mem_constraint (\"R\", op)
-               || s390_mem_constraint (\"T\", op)"))
+  (match_test "s390_mem_constraint (\"T\", op)"))
 
 (define_memory_constraint "AQ"
   "@internal
@@ -496,12 +511,12 @@
 
 
 (define_address_constraint "U"
-  "Pointer with short displacement. (deprecated - use ZQZR)"
-  (match_test "s390_mem_constraint (\"U\", op)"))
+  "Pointer with short displacement. (deprecated - use ZR)"
+  (match_test "s390_mem_constraint (\"ZR\", op)"))
 
 (define_address_constraint "W"
-  "Pointer with long displacement. (deprecated - use ZSZT)"
-  (match_test "s390_mem_constraint (\"W\", op)"))
+  "Pointer with long displacement. (deprecated - use ZT)"
+  (match_test "s390_mem_constraint (\"ZT\", op)"))
 
 
 (define_address_constraint "ZQ"

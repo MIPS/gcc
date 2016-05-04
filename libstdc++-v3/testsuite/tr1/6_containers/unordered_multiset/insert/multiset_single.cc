@@ -2,7 +2,7 @@
 
 // 2005-2-17  Matt Austern  <austern@apple.com>
 //
-// Copyright (C) 2005-2015 Free Software Foundation, Inc.
+// Copyright (C) 2005-2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -53,7 +53,7 @@ void test02()
   VERIFY(s.size() == 2);
   VERIFY(std::distance(s.begin(), s.end()) == 2);
   VERIFY(*i == "abcde");
-  
+
   Set::iterator i2 = s.begin();
   ++i2;
   VERIFY(i == s.begin() || i == i2);

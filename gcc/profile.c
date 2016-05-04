@@ -1,5 +1,5 @@
 /* Calculate branch probabilities, and basic block execution counts.
-   Copyright (C) 1990-2015 Free Software Foundation, Inc.
+   Copyright (C) 1990-2016 Free Software Foundation, Inc.
    Contributed by James E. Wilson, UC Berkeley/Cygnus Support;
    based on some ideas from Dain Samples of UC Berkeley.
    Further mangling by Bob Manson, Cygnus Support.
@@ -845,6 +845,8 @@ compute_branch_probabilities (unsigned cfg_checksum, unsigned lineno_checksum)
       fputc ('\n', dump_file);
       fputc ('\n', dump_file);
     }
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    report_predictor_hitrates ();
 
   free_aux_for_blocks ();
 }

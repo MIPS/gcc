@@ -1,4 +1,4 @@
-/* Copyright (C) 2005-2015 Free Software Foundation, Inc.
+/* Copyright (C) 2005-2016 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU Offloading and Multi Processing Library
@@ -278,8 +278,7 @@ extern void GOMP_single_copy_end (void *);
 extern void GOMP_target (int, void (*) (void *), const void *,
 			 size_t, void **, size_t *, unsigned char *);
 extern void GOMP_target_ext (int, void (*) (void *), size_t, void **, size_t *,
-			     unsigned short *, unsigned int, void **,
-			     int, int);
+			     unsigned short *, unsigned int, void **, void **);
 extern void GOMP_target_data (int, const void *,
 			      size_t, void **, size_t *, unsigned char *);
 extern void GOMP_target_data_ext (int, size_t, void **, size_t *,
@@ -296,17 +295,20 @@ extern void GOMP_teams (unsigned int, unsigned int);
 
 /* oacc-parallel.c */
 
+extern void GOACC_parallel_keyed (int, void (*) (void *), size_t,
+				  void **, size_t *, unsigned short *, ...);
+extern void GOACC_parallel (int, void (*) (void *), size_t, void **, size_t *,
+			    unsigned short *, int, int, int, int, int, ...);
 extern void GOACC_data_start (int, size_t, void **, size_t *,
 			      unsigned short *);
 extern void GOACC_data_end (void);
 extern void GOACC_enter_exit_data (int, size_t, void **,
 				   size_t *, unsigned short *, int, int, ...);
-extern void GOACC_parallel_keyd (int, void (*) (void *), size_t,
-			          void **, size_t *, unsigned short *, ...);
 extern void GOACC_update (int, size_t, void **, size_t *,
 			  unsigned short *, int, int, ...);
 extern void GOACC_wait (int, int, ...);
 extern int GOACC_get_num_threads (void);
 extern int GOACC_get_thread_num (void);
+extern void GOACC_declare (int, size_t, void **, size_t *, unsigned short *);
 
 #endif /* LIBGOMP_G_H */

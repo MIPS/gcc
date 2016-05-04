@@ -2,7 +2,7 @@
 
 // 2005-2-17  Matt Austern  <austern@apple.com>
 //
-// Copyright (C) 2005-2015 Free Software Foundation, Inc.
+// Copyright (C) 2005-2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -50,7 +50,7 @@ void test02()
   VERIFY(s.empty());
 
   std::pair<Set::iterator, bool> p1 = s.insert("abcde");
-  std::pair<Set::iterator, bool> p2 = s.insert("abcde");  
+  std::pair<Set::iterator, bool> p2 = s.insert("abcde");
   VERIFY(p1.second);
   VERIFY(!p2.second);
   VERIFY(s.size() == 1);

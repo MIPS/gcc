@@ -1,5 +1,5 @@
 /* Deal with I/O statements & related stuff.
-   Copyright (C) 2000-2015 Free Software Foundation, Inc.
+   Copyright (C) 2000-2016 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -549,7 +549,7 @@ check_format (bool is_input)
 {
   const char *posint_required	  = _("Positive width required");
   const char *nonneg_required	  = _("Nonnegative width required");
-  const char *unexpected_element  = _("Unexpected element %<%c%> in format "
+  const char *unexpected_element  = _("Unexpected element %qc in format "
 				      "string at %L");
   const char *unexpected_end	  = _("Unexpected end of format string");
   const char *zero_width	  = _("Zero width in format descriptor");
@@ -1890,13 +1890,16 @@ gfc_match_open (void)
 	  goto cleanup;
 	}
 
-      if (!(open->file || (open->status
-          && gfc_wide_strncasecmp (open->status->value.character.string,
-				   "scratch", 7) == 0)))
-	{
-	  gfc_error ("NEWUNIT specifier must have FILE= "
-		     "or STATUS='scratch' at %C");
-	  goto cleanup;
+      if (!open->file && open->status)
+        {
+	  if (open->status->expr_type == EXPR_CONSTANT
+	     && gfc_wide_strncasecmp (open->status->value.character.string,
+				       "scratch", 7) != 0)
+	   {
+	     gfc_error ("NEWUNIT specifier must have FILE= "
+			"or STATUS='scratch' at %C");
+	     goto cleanup;
+	   }
 	}
     }
   else if (!open->unit)
@@ -2006,8 +2009,8 @@ gfc_match_open (void)
 	{
 	  static const char *delim[] = { "APOSTROPHE", "QUOTE", "NONE", NULL };
 
-	if (!is_char_type ("DELIM", open->delim))
-	  goto cleanup;
+	  if (!is_char_type ("DELIM", open->delim))
+	    goto cleanup;
 
 	  if (!compare_to_allowed_values ("DELIM", delim, NULL, NULL,
 					  open->delim->value.character.string,

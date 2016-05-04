@@ -1093,7 +1093,7 @@ runtime_mstart(void* mp)
 			runtime_newextram();
 			runtime_needextram = 0;
 		}
-		runtime_initsig();
+		runtime_initsig(false);
 	}
 	
 	if(m->mstartfn)
@@ -2042,7 +2042,7 @@ doentersyscall()
 	m->mcache = nil;
 	m->p->m = nil;
 	runtime_atomicstore(&m->p->status, Psyscall);
-	if(runtime_sched.gcwaiting) {
+	if(runtime_atomicload(&runtime_sched.gcwaiting)) {
 		runtime_lock(&runtime_sched);
 		if (runtime_sched.stopwait > 0 && runtime_cas(&m->p->status, Psyscall, Pgcstop)) {
 			if(--runtime_sched.stopwait == 0)
@@ -2267,7 +2267,7 @@ runtime_malg(int32 stacksize, byte** ret_stack, size_t* ret_stacksize)
 		}
 		*ret_stacksize = stacksize;
 		newg->gcinitial_sp = *ret_stack;
-		newg->gcstack_size = stacksize;
+		newg->gcstack_size = (size_t)stacksize;
 #endif
 	}
 	return newg;

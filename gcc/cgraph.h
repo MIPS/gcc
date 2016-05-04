@@ -1,5 +1,5 @@
 /* Callgraph handling code.
-   Copyright (C) 2003-2015 Free Software Foundation, Inc.
+   Copyright (C) 2003-2016 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -242,16 +242,20 @@ public:
 
   /* Walk the alias chain to return the symbol NODE is alias of.
      If NODE is not an alias, return NODE.
-     When AVAILABILITY is non-NULL, get minimal availability in the chain.  */
-  symtab_node *ultimate_alias_target (enum availability *avail = NULL);
+     When AVAILABILITY is non-NULL, get minimal availability in the chain.
+     When REF is non-NULL, assume that reference happens in symbol REF
+     when determining the availability.  */
+  symtab_node *ultimate_alias_target (enum availability *avail = NULL,
+				      struct symtab_node *ref = NULL);
 
   /* Return next reachable static symbol with initializer after NODE.  */
   inline symtab_node *next_defined_symbol (void);
 
   /* Add reference recording that symtab node is alias of TARGET.
+     If TRANSPARENT is true make the alias to be transparent alias.
      The function can fail in the case of aliasing cycles; in this case
      it returns false.  */
-  bool resolve_alias (symtab_node *target);
+  bool resolve_alias (symtab_node *target, bool transparent = false);
 
   /* C++ FE sometimes change linkage flags after producing same
      body aliases.  */
@@ -286,11 +290,19 @@ public:
   /* Return the initialization priority.  */
   priority_type get_init_priority ();
 
-  /* Return availability of NODE.  */
-  enum availability get_availability (void);
+  /* Return availability of NODE when referenced from REF.  */
+  enum availability get_availability (symtab_node *ref = NULL);
+
+  /* Return true if NODE binds to current definition in final executable
+     when referenced from REF.  If REF is NULL return conservative value
+     for any reference.  */
+  bool binds_to_current_def_p (symtab_node *ref = NULL);
 
   /* Make DECL local.  */
   void make_decl_local (void);
+
+  /* Copy visibility from N.  */
+  void copy_visibility_from (symtab_node *n);
 
   /* Return desired alignment of the definition.  This is NOT alignment useful
      to access THIS, because THIS may be interposable and DECL_ALIGN should
@@ -319,15 +331,23 @@ public:
   /* Return true when there are references to the node.  */
   bool referred_to_p (bool include_self = true);
 
-  /* Return true if NODE can be discarded by linker from the binary.  */
+  /* Return true if symbol can be discarded by linker from the binary.
+     Assume that symbol is used (so there is no need to take into account
+     garbage collecting linkers)
+
+     This can happen for comdats, commons and weaks when they are previaled
+     by other definition at static linking time.  */
   inline bool
   can_be_discarded_p (void)
   {
     return (DECL_EXTERNAL (decl)
-	    || (get_comdat_group ()
-		&& resolution != LDPR_PREVAILING_DEF
-		&& resolution != LDPR_PREVAILING_DEF_IRONLY
-		&& resolution != LDPR_PREVAILING_DEF_IRONLY_EXP));
+	    || ((get_comdat_group ()
+		 || DECL_COMMON (decl)
+		 || (DECL_SECTION_NAME (decl) && DECL_WEAK (decl)))
+		&& ((resolution != LDPR_PREVAILING_DEF
+		     && resolution != LDPR_PREVAILING_DEF_IRONLY_EXP)
+		    || flag_incremental_link)
+		&& resolution != LDPR_PREVAILING_DEF_IRONLY));
   }
 
   /* Return true if NODE is local to a particular COMDAT group, and must not
@@ -346,8 +366,13 @@ public:
 
   /* Return 0 if symbol is known to have different address than S2,
      Return 1 if symbol is known to have same address as S2,
-     return 2 otherwise.   */
-  int equal_address_to (symtab_node *s2);
+     return 2 otherwise. 
+
+     If MEMORY_ACCESSED is true, assume that both memory pointer to THIS
+     and S2 is going to be accessed.  This eliminates the situations when
+     either THIS or S2 is NULL and is seful for comparing bases when deciding
+     about memory aliasing.  */
+  int equal_address_to (symtab_node *s2, bool memory_accessed = false);
 
   /* Return true if symbol's address may possibly be compared to other
      symbol's address.  */
@@ -413,6 +438,28 @@ public:
   /* True when symbol is an alias.
      Set by ssemble_alias.  */
   unsigned alias : 1;
+  /* When true the alias is translated into its target symbol either by GCC
+     or assembler (it also may just be a duplicate declaration of the same
+     linker name).
+
+     Currently transparent aliases come in three different flavors
+       - aliases having the same assembler name as their target (aka duplicated
+	 declarations). In this case the assembler names compare via
+	 assembler_names_equal_p and weakref is false
+       - aliases that are renamed at a time being output to final file
+	 by varasm.c. For those DECL_ASSEMBLER_NAME have
+	 IDENTIFIER_TRANSPARENT_ALIAS set and thus also their assembler
+	 name must be unique.
+	 Weakrefs belong to this cateogry when we target assembler without
+	 .weakref directive.
+       - weakrefs that are renamed by assembler via .weakref directive.
+	 In this case the alias may or may not be definition (depending if
+	 target declaration was seen by the compiler), weakref is set.
+	 Unless we are before renaming statics, assembler names are different.
+
+     Given that we now support duplicate declarations, the second option is
+     redundant and will be removed.  */
+  unsigned transparent_alias : 1;
   /* True when alias is a weakref.  */
   unsigned weakref : 1;
   /* C++ frontend produce same body aliases and extra name aliases for
@@ -556,7 +603,8 @@ private:
   static bool noninterposable_alias (symtab_node *node, void *data);
 
   /* Worker for ultimate_alias_target.  */
-  symtab_node *ultimate_alias_target_1 (enum availability *avail = NULL);
+  symtab_node *ultimate_alias_target_1 (enum availability *avail = NULL,
+					symtab_node *ref = NULL);
 };
 
 inline void
@@ -727,6 +775,11 @@ struct GTY(()) cgraph_simd_clone {
   /* Max hardware vector size in bits for floating point vectors.  */
   unsigned int vecsize_float;
 
+  /* Machine mode of the mask argument(s), if they are to be passed
+     as bitmasks in integer argument(s).  VOIDmode if masks are passed
+     as vectors of characteristic type.  */
+  machine_mode mask_mode;
+
   /* The mangling character for a given vector size.  This is used
      to determine the ISA mangling bit as specified in the Intel
      Vector ABI.  */
@@ -823,15 +876,21 @@ public:
 
   /* Walk the alias chain to return the function cgraph_node is alias of.
      Walk through thunk, too.
-     When AVAILABILITY is non-NULL, get minimal availability in the chain.  */
-  cgraph_node *function_symbol (enum availability *avail = NULL);
+     When AVAILABILITY is non-NULL, get minimal availability in the chain. 
+     When REF is non-NULL, assume that reference happens in symbol REF
+     when determining the availability.  */
+  cgraph_node *function_symbol (enum availability *avail = NULL,
+				struct symtab_node *ref = NULL);
 
   /* Walk the alias chain to return the function cgraph_node is alias of.
      Walk through non virtual thunks, too.  Thus we return either a function
      or a virtual thunk node.
-     When AVAILABILITY is non-NULL, get minimal availability in the chain.  */
+     When AVAILABILITY is non-NULL, get minimal availability in the chain.  
+     When REF is non-NULL, assume that reference happens in symbol REF
+     when determining the availability.  */
   cgraph_node *function_or_virtual_thunk_symbol
-				(enum availability *avail = NULL);
+				(enum availability *avail = NULL,
+				 struct symtab_node *ref = NULL);
 
   /* Create node representing clone of N executed COUNT times.  Decrease
      the execution counts from original node too.
@@ -930,9 +989,12 @@ public:
 
   /* Given function symbol, walk the alias chain to return the function node
      is alias of. Do not walk through thunks.
-     When AVAILABILITY is non-NULL, get minimal availability in the chain.  */
+     When AVAILABILITY is non-NULL, get minimal availability in the chain.
+     When REF is non-NULL, assume that reference happens in symbol REF
+     when determining the availability.  */
 
-  cgraph_node *ultimate_alias_target (availability *availability = NULL);
+  cgraph_node *ultimate_alias_target (availability *availability = NULL,
+				      symtab_node *ref = NULL);
 
   /* Expand thunk NODE to gimple if possible.
      When FORCE_GIMPLE_THUNK is true, gimple thunk is created and
@@ -1034,7 +1096,7 @@ public:
   cgraph_edge *get_edge (gimple *call_stmt);
 
   /* Collect all callers of cgraph_node and its aliases that are known to lead
-     to NODE (i.e. are not overwritable).  */
+     to NODE (i.e. are not overwritable) and that are not thunks.  */
   vec<cgraph_edge *> collect_callers (void);
 
   /* Remove all callers from the node.  */
@@ -1045,19 +1107,30 @@ public:
 
   /* Return function availability.  See cgraph.h for description of individual
      return values.  */
-  enum availability get_availability (void);
+  enum availability get_availability (symtab_node *ref = NULL);
 
   /* Set TREE_NOTHROW on cgraph_node's decl and on aliases of the node
      if any to NOTHROW.  */
-  void set_nothrow_flag (bool nothrow);
+  bool set_nothrow_flag (bool nothrow);
 
-  /* Set TREE_READONLY on cgraph_node's decl and on aliases of the node
-     if any to READONLY.  */
-  void set_const_flag (bool readonly, bool looping);
+  /* If SET_CONST is true, mark function, aliases and thunks to be ECF_CONST.
+    If SET_CONST if false, clear the flag.
+
+    When setting the flag be careful about possible interposition and
+    do not set the flag for functions that can be interposet and set pure
+    flag for functions that can bind to other definition. 
+
+    Return true if any change was done. */
+
+  bool set_const_flag (bool set_const, bool looping);
 
   /* Set DECL_PURE_P on cgraph_node's decl and on aliases of the node
-     if any to PURE.  */
-  void set_pure_flag (bool pure, bool looping);
+     if any to PURE.
+
+     When setting the flag, be careful about possible interposition.
+     Return true if any change was done. */
+
+  bool set_pure_flag (bool pure, bool looping);
 
   /* Call callback on function and aliases associated to the function.
      When INCLUDE_OVERWRITABLE is false, overwritable aliases and thunks are
@@ -1325,11 +1398,13 @@ public:
      accesses trapping.  */
   unsigned nonfreeing_fn : 1;
   /* True if there was multiple COMDAT bodies merged by lto-symtab.  */
-  unsigned merged : 1;
+  unsigned merged_comdat : 1;
   /* True if function was created to be executed in parallel.  */
   unsigned parallelized_function : 1;
   /* True if function is part split out by ipa-split.  */
   unsigned split_part : 1;
+  /* True if the function appears as possible target of indirect call.  */
+  unsigned indirect_call_target : 1;
 
 private:
   /* Worker for call_for_symbol_and_aliases.  */
@@ -1643,6 +1718,9 @@ struct GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_caller"),
      type.  */
   unsigned in_polymorphic_cdtor : 1;
 
+  /* Return true if call must bind to current definition.  */
+  bool binds_to_current_def_p ();
+
 private:
   /* Remove the edge from the list of the callers of the callee.  */
   void remove_caller (void);
@@ -1685,7 +1763,7 @@ public:
   void analyze (void);
 
   /* Return variable availability.  */
-  availability get_availability (void);
+  availability get_availability (symtab_node *ref = NULL);
 
   /* When doing LTO, read variable's constructor from disk if
      it is not already present.  */
@@ -1696,9 +1774,11 @@ public:
 
   /* For given variable pool node, walk the alias chain to return the function
      the variable is alias of. Do not walk through thunks.
-     When AVAILABILITY is non-NULL, get minimal availability in the chain.  */
+     When AVAILABILITY is non-NULL, get minimal availability in the chain.
+     When REF is non-NULL, assume that reference happens in symbol REF
+     when determining the availability.  */
   inline varpool_node *ultimate_alias_target
-    (availability *availability = NULL);
+    (availability *availability = NULL, symtab_node *ref = NULL);
 
   /* Return node that alias is aliasing.  */
   inline varpool_node *get_alias_target (void);
@@ -2090,6 +2170,10 @@ public:
   /* Set the DECL_ASSEMBLER_NAME and update symtab hashtables.  */
   void change_decl_assembler_name (tree decl, tree name);
 
+  /* Return true if assembler names NAME1 and NAME2 leads to the same symbol
+     name.  */
+  static bool assembler_names_equal_p (const char *name1, const char *name2);
+
   int cgraph_count;
   int cgraph_max_uid;
   int cgraph_max_summary_uid;
@@ -2130,6 +2214,9 @@ public:
   hash_map<symtab_node *, symbol_priority_map> *init_priority_hash;
 
   FILE* GTY ((skip)) dump_file;
+
+  /* Return symbol used to separate symbol name from suffix.  */
+  static char symbol_suffix_separator ();
 
 private:
   /* Allocate new callgraph node.  */
@@ -2242,6 +2329,8 @@ symtab_node::real_symbol_p (void)
   cgraph_node *cnode;
 
   if (DECL_ABSTRACT_P (decl))
+    return false;
+  if (transparent_alias && definition)
     return false;
   if (!is_a <cgraph_node *> (this))
     return true;
@@ -2833,30 +2922,36 @@ varpool_node::get_alias_target (void)
 
 /* Walk the alias chain to return the symbol NODE is alias of.
    If NODE is not an alias, return NODE.
-   When AVAILABILITY is non-NULL, get minimal availability in the chain.  */
+   When AVAILABILITY is non-NULL, get minimal availability in the chain.
+   When REF is non-NULL, assume that reference happens in symbol REF
+   when determining the availability.  */
 
 inline symtab_node *
-symtab_node::ultimate_alias_target (enum availability *availability)
+symtab_node::ultimate_alias_target (enum availability *availability,
+				    symtab_node *ref)
 {
   if (!alias)
     {
       if (availability)
-	*availability = get_availability ();
+	*availability = get_availability (ref);
       return this;
     }
 
-  return ultimate_alias_target_1 (availability);
+  return ultimate_alias_target_1 (availability, ref);
 }
 
 /* Given function symbol, walk the alias chain to return the function node
    is alias of. Do not walk through thunks.
-   When AVAILABILITY is non-NULL, get minimal availability in the chain.  */
+   When AVAILABILITY is non-NULL, get minimal availability in the chain.
+   When REF is non-NULL, assume that reference happens in symbol REF
+   when determining the availability.  */
 
 inline cgraph_node *
-cgraph_node::ultimate_alias_target (enum availability *availability)
+cgraph_node::ultimate_alias_target (enum availability *availability,
+				    symtab_node *ref)
 {
   cgraph_node *n = dyn_cast <cgraph_node *>
-    (symtab_node::ultimate_alias_target (availability));
+    (symtab_node::ultimate_alias_target (availability, ref));
   if (!n && availability)
     *availability = AVAIL_NOT_AVAILABLE;
   return n;
@@ -2864,13 +2959,16 @@ cgraph_node::ultimate_alias_target (enum availability *availability)
 
 /* For given variable pool node, walk the alias chain to return the function
    the variable is alias of. Do not walk through thunks.
-   When AVAILABILITY is non-NULL, get minimal availability in the chain.  */
+   When AVAILABILITY is non-NULL, get minimal availability in the chain.
+   When REF is non-NULL, assume that reference happens in symbol REF
+   when determining the availability.  */
 
 inline varpool_node *
-varpool_node::ultimate_alias_target (availability *availability)
+varpool_node::ultimate_alias_target (availability *availability,
+				     symtab_node *ref)
 {
   varpool_node *n = dyn_cast <varpool_node *>
-    (symtab_node::ultimate_alias_target (availability));
+    (symtab_node::ultimate_alias_target (availability, ref));
 
   if (!n && availability)
     *availability = AVAIL_NOT_AVAILABLE;
@@ -2930,6 +3028,17 @@ cgraph_edge::remove_callee (void)
     callee->callers = next_caller;
 }
 
+/* Return true if call must bind to current definition.  */
+
+inline bool
+cgraph_edge::binds_to_current_def_p ()
+{
+  if (callee)
+    return callee->binds_to_current_def_p (caller);
+  else
+    return NULL;
+}
+
 /* Return true if the TM_CLONE bit is set for a given FNDECL.  */
 static inline bool
 decl_is_tm_clone (const_tree fndecl)
@@ -2975,15 +3084,15 @@ symtab_node::get_create (tree node)
     return cgraph_node::get_create (node);
 }
 
-/* Return availability of NODE.  */
+/* Return availability of NODE when referenced from REF.  */
 
 inline enum availability
-symtab_node::get_availability (void)
+symtab_node::get_availability (symtab_node *ref)
 {
   if (is_a <cgraph_node *> (this))
-    return dyn_cast <cgraph_node *> (this)->get_availability ();
+    return dyn_cast <cgraph_node *> (this)->get_availability (ref);
   else
-    return dyn_cast <varpool_node *> (this)->get_availability ();
+    return dyn_cast <varpool_node *> (this)->get_availability (ref);
 }
 
 /* Call calback on symtab node and aliases associated to this node.

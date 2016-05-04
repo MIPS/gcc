@@ -1,5 +1,5 @@
 ;; Predicate definitions for IA-32 and x86-64.
-;; Copyright (C) 2004-2015 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2016 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -121,11 +121,29 @@
     (match_operand 0 "nonmemory_operand")
     (match_operand 0 "general_operand")))
 
-;; Match register operands, include memory operand for TARGET_MIX_SSE_I387.
-(define_predicate "register_mixssei387nonimm_operand"
-  (if_then_else (match_test "TARGET_MIX_SSE_I387")
+;; Match register operands, but include memory operands for TARGET_SSE_MATH.
+(define_predicate "register_ssemem_operand"
+  (if_then_else
+    (match_test "SSE_FLOAT_MODE_P (mode) && TARGET_SSE_MATH")
     (match_operand 0 "nonimmediate_operand")
     (match_operand 0 "register_operand")))
+
+;; Match nonimmediate operands, but exclude memory operands
+;; for TARGET_SSE_MATH if TARGET_MIX_SSE_I387 is not enabled.
+(define_predicate "nonimm_ssenomem_operand"
+  (if_then_else
+    (and (match_test "SSE_FLOAT_MODE_P (mode) && TARGET_SSE_MATH")
+	 (not (match_test "TARGET_MIX_SSE_I387")))
+    (match_operand 0 "register_operand")
+    (match_operand 0 "nonimmediate_operand")))
+
+;; The above predicate, suitable for x87 arithmetic operators.
+(define_predicate "x87nonimm_ssenomem_operand"
+  (if_then_else
+    (and (match_test "SSE_FLOAT_MODE_P (mode) && TARGET_SSE_MATH")
+	 (not (match_test "TARGET_MIX_SSE_I387 && X87_ENABLE_ARITH (mode)")))
+    (match_operand 0 "register_operand")
+    (match_operand 0 "nonimmediate_operand")))
 
 ;; Match register operands, include memory operand for TARGET_SSE4_1.
 (define_predicate "register_sse4nonimm_operand"
@@ -332,6 +350,29 @@
   return false;
 })
 
+;; Return true if VALUE is a constant integer whose low and high words satisfy
+;; x86_64_immediate_operand.
+(define_predicate "x86_64_hilo_int_operand"
+  (match_code "const_int,const_wide_int")
+{
+  switch (GET_CODE (op))
+    {
+    case CONST_INT:
+      return x86_64_immediate_operand (op, mode);
+
+    case CONST_WIDE_INT:
+      gcc_assert (CONST_WIDE_INT_NUNITS (op) == 2);
+      return (x86_64_immediate_operand (GEN_INT (CONST_WIDE_INT_ELT (op, 0)),
+					DImode)
+	      && x86_64_immediate_operand (GEN_INT (CONST_WIDE_INT_ELT (op,
+									1)),
+					   DImode));
+
+    default:
+      gcc_unreachable ();
+    }
+})
+
 ;; Return true if size of VALUE can be stored in a sign
 ;; extended immediate field.
 (define_predicate "x86_64_immediate_size_operand"
@@ -345,6 +386,14 @@
   (if_then_else (match_test "TARGET_64BIT")
     (ior (match_operand 0 "nonimmediate_operand")
 	 (match_operand 0 "x86_64_immediate_operand"))
+    (match_operand 0 "general_operand")))
+
+;; Return true if OP's both words are general operands representable
+;; on x86_64.
+(define_predicate "x86_64_hilo_general_operand"
+  (if_then_else (match_test "TARGET_64BIT")
+    (ior (match_operand 0 "nonimmediate_operand")
+	 (match_operand 0 "x86_64_hilo_int_operand"))
     (match_operand 0 "general_operand")))
 
 ;; Return true if OP is non-VOIDmode general operand representable
@@ -597,31 +646,28 @@
 	    (match_operand 0 "memory_operand"))))
 
 ;; Return true if OP is a memory operands that can be used in sibcalls.
+;; Since sibcall never returns, we can only use call-clobbered register
+;; as GOT base.  Allow GOT slot here only with pseudo register as GOT
+;; base.  Properly handle sibcall over GOT slot with *sibcall_GOT_32
+;; and *sibcall_value_GOT_32 patterns.
 (define_predicate "sibcall_memory_operand"
-  (and (match_operand 0 "memory_operand")
-       (match_test "CONSTANT_P (XEXP (op, 0))
-		    || (GET_CODE (XEXP (op, 0)) == PLUS
-			&& REG_P (XEXP (XEXP (op, 0), 0))
-			&& GET_CODE (XEXP (XEXP (op, 0), 1)) == CONST
-			&& GET_CODE (XEXP (XEXP (XEXP (op, 0), 1), 0)) == UNSPEC
-			&& XINT (XEXP (XEXP (XEXP (op, 0), 1), 0), 1) == UNSPEC_GOT)")))
-
-;; Test for a valid operand for a call instruction.
-;; Allow constant call address operands in Pmode only.
-(define_special_predicate "call_insn_operand"
-  (ior (match_test "constant_call_address_operand
-		     (op, mode == VOIDmode ? mode : Pmode)")
-       (match_operand 0 "call_register_no_elim_operand")
-       (and (not (match_test "TARGET_X32"))
-	    (match_operand 0 "memory_operand"))))
-
-;; Similarly, but for tail calls, in which we cannot allow memory references.
-(define_special_predicate "sibcall_insn_operand"
-  (ior (match_test "constant_call_address_operand
-		     (op, mode == VOIDmode ? mode : Pmode)")
-       (match_operand 0 "register_no_elim_operand")
-       (and (not (match_test "TARGET_X32"))
-	    (match_operand 0 "sibcall_memory_operand"))))
+  (match_operand 0 "memory_operand")
+{
+  op = XEXP (op, 0);
+  if (CONSTANT_P (op))
+    return true;
+  if (GET_CODE (op) == PLUS && REG_P (XEXP (op, 0)))
+    {
+      int regno = REGNO (XEXP (op, 0));
+      if (!HARD_REGISTER_NUM_P (regno) || call_used_regs[regno])
+	{
+	  op = XEXP (op, 1);
+	  if (GOT32_symbol_operand (op, VOIDmode))
+	    return true;
+	}
+    }
+  return false;
+})
 
 ;; Return true if OP is a GOT memory operand.
 (define_predicate "GOT_memory_operand"
@@ -633,32 +679,55 @@
 	  && XINT (XEXP (op, 0), 1) == UNSPEC_GOTPCREL);
 })
 
+;; Test for a valid operand for a call instruction.
+;; Allow constant call address operands in Pmode only.
+(define_special_predicate "call_insn_operand"
+  (ior (match_test "constant_call_address_operand
+		     (op, mode == VOIDmode ? mode : Pmode)")
+       (match_operand 0 "call_register_no_elim_operand")
+       (ior (and (not (match_test "TARGET_X32"))
+		 (match_operand 0 "memory_operand"))
+	    (and (match_test "TARGET_X32 && Pmode == DImode")
+		 (match_operand 0 "GOT_memory_operand")))))
+
+;; Similarly, but for tail calls, in which we cannot allow memory references.
+(define_special_predicate "sibcall_insn_operand"
+  (ior (match_test "constant_call_address_operand
+		     (op, mode == VOIDmode ? mode : Pmode)")
+       (match_operand 0 "register_no_elim_operand")
+       (ior (and (not (match_test "TARGET_X32"))
+		 (match_operand 0 "sibcall_memory_operand"))
+	    (and (match_test "TARGET_X32 && Pmode == DImode")
+		 (match_operand 0 "GOT_memory_operand")))))
+
+;; Return true if OP is a 32-bit GOT symbol operand.
+(define_predicate "GOT32_symbol_operand"
+  (match_test "GET_CODE (op) == CONST
+               && GET_CODE (XEXP (op, 0)) == UNSPEC
+               && XINT (XEXP (op, 0), 1) == UNSPEC_GOT"))
+
 ;; Match exactly zero.
 (define_predicate "const0_operand"
-  (match_code "const_int,const_wide_int,const_double,const_vector")
+  (match_code "const_int,const_double,const_vector")
 {
   if (mode == VOIDmode)
     mode = GET_MODE (op);
   return op == CONST0_RTX (mode);
 })
 
-;; Match -1.
-(define_predicate "constm1_operand"
-  (match_code "const_int,const_wide_int,const_double,const_vector")
-{
-  if (mode == VOIDmode)
-    mode = GET_MODE (op);
-  return op == CONSTM1_RTX (mode);
-})
-
-;; Match one or vector filled with ones.
+;; Match one or a vector with all elements equal to one.
 (define_predicate "const1_operand"
-  (match_code "const_int,const_wide_int,const_double,const_vector")
+  (match_code "const_int,const_double,const_vector")
 {
   if (mode == VOIDmode)
     mode = GET_MODE (op);
   return op == CONST1_RTX (mode);
 })
+
+;; Match exactly -1.
+(define_predicate "constm1_operand"
+  (and (match_code "const_int")
+       (match_test "op == constm1_rtx")))
 
 ;; Match exactly eight.
 (define_predicate "const8_operand"
@@ -927,6 +996,18 @@
        (match_test "INTEGRAL_MODE_P (GET_MODE (op))")
        (match_test "op == CONSTM1_RTX (GET_MODE (op))")))
 
+; Return true when OP is operand acceptable for vector memory operand.
+; Only AVX can have misaligned memory operand.
+(define_predicate "vector_memory_operand"
+  (and (match_operand 0 "memory_operand")
+       (ior (match_test "TARGET_AVX")
+	    (match_test "MEM_ALIGN (op) >= GET_MODE_ALIGNMENT (mode)"))))
+
+; Return true when OP is register_operand or vector_memory_operand.
+(define_predicate "vector_operand"
+  (ior (match_operand 0 "register_operand")
+       (match_operand 0 "vector_memory_operand")))
+
 ; Return true when OP is operand acceptable for standard SSE move.
 (define_predicate "vector_move_operand"
   (ior (match_operand 0 "nonimmediate_operand")
@@ -940,14 +1021,8 @@
 
 ;; Return true when OP is nonimmediate or standard SSE constant.
 (define_predicate "nonimmediate_or_sse_const_operand"
-  (match_operand 0 "general_operand")
-{
-  if (nonimmediate_operand (op, mode))
-    return true;
-  if (standard_sse_constant_p (op) > 0)
-    return true;
-  return false;
-})
+  (ior (match_operand 0 "nonimmediate_operand")
+       (match_test "standard_sse_constant_p (op, mode)")))
 
 ;; Return true if OP is a register or a zero.
 (define_predicate "reg_or_0_operand"
@@ -1567,9 +1642,9 @@
   return val == ((low << 8) | low);
 })
 
-;; Return true if OP is nonimmediate_operand or CONST_VECTOR.
+;; Return true if OP is vector_operand or CONST_VECTOR.
 (define_predicate "general_vector_operand"
-  (ior (match_operand 0 "nonimmediate_operand")
+  (ior (match_operand 0 "vector_operand")
        (match_code "const_vector")))
 
 ;; Return true if OP is either -1 constant or stored in register.

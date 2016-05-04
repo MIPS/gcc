@@ -1,5 +1,5 @@
 /* Callgraph handling code.
-   Copyright (C) 2003-2015 Free Software Foundation, Inc.
+   Copyright (C) 2003-2016 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -58,6 +58,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "tree-chkp.h"
 #include "context.h"
+#include "gimplify.h"
 
 /* FIXME: Only for PROP_loops, but cgraph shouldn't have to know about this.  */
 #include "tree-pass.h"
@@ -499,9 +500,8 @@ cgraph_node::create (tree decl)
       && lookup_attribute ("omp declare target", DECL_ATTRIBUTES (decl)))
     {
       node->offloadable = 1;
-#ifdef ENABLE_OFFLOADING
-      g->have_offload = true;
-#endif
+      if (ENABLE_OFFLOADING)
+	g->have_offload = true;
     }
 
   node->register_symbol ();
@@ -561,7 +561,7 @@ cgraph_node::create_alias (tree alias, tree target)
   alias_node->definition = true;
   alias_node->alias = true;
   if (lookup_attribute ("weakref", DECL_ATTRIBUTES (alias)) != NULL)
-    alias_node->weakref = true;
+    alias_node->transparent_alias = alias_node->weakref = true;
   return alias_node;
 }
 
@@ -859,9 +859,15 @@ symbol_table::create_edge (cgraph_node *caller, cgraph_node *callee,
       && callee && callee->decl
       && !gimple_check_call_matching_types (call_stmt, callee->decl,
 					    false))
-    edge->call_stmt_cannot_inline_p = true;
+    {
+      edge->inline_failed = CIF_MISMATCHED_ARGUMENTS;
+      edge->call_stmt_cannot_inline_p = true;
+    }
   else
-    edge->call_stmt_cannot_inline_p = false;
+    {
+      edge->inline_failed = CIF_FUNCTION_NOT_CONSIDERED;
+      edge->call_stmt_cannot_inline_p = false;
+    }
 
   edge->indirect_info = NULL;
   edge->indirect_inlining_edge = 0;
@@ -1240,10 +1246,12 @@ cgraph_edge::make_direct (cgraph_node *callee)
   /* Insert to callers list of the new callee.  */
   edge->set_callee (callee);
 
-  if (call_stmt)
-    call_stmt_cannot_inline_p
-      = !gimple_check_call_matching_types (call_stmt, callee->decl,
-					   false);
+  if (call_stmt
+      && !gimple_check_call_matching_types (call_stmt, callee->decl, false))
+    {
+      call_stmt_cannot_inline_p = true;
+      inline_failed = CIF_MISMATCHED_ARGUMENTS;
+    }
 
   /* We need to re-determine the inlining status of the edge.  */
   initialize_inline_failed (edge);
@@ -1276,7 +1284,7 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
       if (decl)
 	e = e->resolve_speculation (decl);
       /* If types do not match, speculation was likely wrong. 
-         The direct edge was posisbly redirected to the clone with a different
+         The direct edge was possibly redirected to the clone with a different
 	 signature.  We did not update the call statement yet, so compare it 
 	 with the reference that still points to the proper type.  */
       else if (!gimple_check_call_matching_types (e->call_stmt,
@@ -1421,6 +1429,70 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
 	SSA_NAME_DEF_STMT (gimple_vdef (new_stmt)) = new_stmt;
 
       gsi = gsi_for_stmt (e->call_stmt);
+
+      /* For optimized away parameters, add on the caller side
+	 before the call
+	 DEBUG D#X => parm_Y(D)
+	 stmts and associate D#X with parm in decl_debug_args_lookup
+	 vector to say for debug info that if parameter parm had been passed,
+	 it would have value parm_Y(D).  */
+      if (e->callee->clone.combined_args_to_skip && MAY_HAVE_DEBUG_STMTS)
+	{
+	  vec<tree, va_gc> **debug_args
+	    = decl_debug_args_lookup (e->callee->decl);
+	  tree old_decl = gimple_call_fndecl (e->call_stmt);
+	  if (debug_args && old_decl)
+	    {
+	      tree parm;
+	      unsigned i = 0, num;
+	      unsigned len = vec_safe_length (*debug_args);
+	      unsigned nargs = gimple_call_num_args (e->call_stmt);
+	      for (parm = DECL_ARGUMENTS (old_decl), num = 0;
+		   parm && num < nargs;
+		   parm = DECL_CHAIN (parm), num++)
+		if (bitmap_bit_p (e->callee->clone.combined_args_to_skip, num)
+		    && is_gimple_reg (parm))
+		  {
+		    unsigned last = i;
+
+		    while (i < len && (**debug_args)[i] != DECL_ORIGIN (parm))
+		      i += 2;
+		    if (i >= len)
+		      {
+			i = 0;
+			while (i < last
+			       && (**debug_args)[i] != DECL_ORIGIN (parm))
+			  i += 2;
+			if (i >= last)
+			  continue;
+		      }
+		    tree ddecl = (**debug_args)[i + 1];
+		    tree arg = gimple_call_arg (e->call_stmt, num);
+		    if (!useless_type_conversion_p (TREE_TYPE (ddecl),
+						    TREE_TYPE (arg)))
+		      {
+			tree rhs1;
+			if (!fold_convertible_p (TREE_TYPE (ddecl), arg))
+			  continue;
+			if (TREE_CODE (arg) == SSA_NAME
+			    && gimple_assign_cast_p (SSA_NAME_DEF_STMT (arg))
+			    && (rhs1
+				= gimple_assign_rhs1 (SSA_NAME_DEF_STMT (arg)))
+			    && useless_type_conversion_p (TREE_TYPE (ddecl),
+							  TREE_TYPE (rhs1)))
+			  arg = rhs1;
+			else
+			  arg = fold_convert (TREE_TYPE (ddecl), arg);
+		      }
+
+		    gimple *def_temp
+		      = gimple_build_debug_bind (ddecl, unshare_expr (arg),
+						 e->call_stmt);
+		    gsi_insert_before (&gsi, def_temp, GSI_SAME_STMT);
+		  }
+	    }
+	}
+
       gsi_replace (&gsi, new_stmt, false);
       /* We need to defer cleaning EH info on the new statement to
          fixup-cfg.  We may not have dominator information at this point
@@ -1665,30 +1737,26 @@ release_function_body (tree decl)
   if (fn)
     {
       if (fn->cfg
-	  || fn->gimple_df)
+	  && loops_for_fn (fn))
 	{
-	  if (fn->cfg
-	      && loops_for_fn (fn))
-	    {
-	      fn->curr_properties &= ~PROP_loops;
-	      loop_optimizer_finalize (fn);
-	    }
-	  if (fn->gimple_df)
-	    {
-	      delete_tree_ssa (fn);
-	      delete_tree_cfg_annotations (fn);
-	      fn->eh = NULL;
-	    }
-	  if (fn->cfg)
-	    {
-	      gcc_assert (!dom_info_available_p (fn, CDI_DOMINATORS));
-	      gcc_assert (!dom_info_available_p (fn, CDI_POST_DOMINATORS));
-	      clear_edges (fn);
-	      fn->cfg = NULL;
-	    }
-	  if (fn->value_histograms)
-	    free_histograms (fn);
+	  fn->curr_properties &= ~PROP_loops;
+	  loop_optimizer_finalize (fn);
 	}
+      if (fn->gimple_df)
+	{
+	  delete_tree_ssa (fn);
+	  fn->eh = NULL;
+	}
+      if (fn->cfg)
+	{
+	  gcc_assert (!dom_info_available_p (fn, CDI_DOMINATORS));
+	  gcc_assert (!dom_info_available_p (fn, CDI_POST_DOMINATORS));
+	  delete_tree_cfg_annotations (fn);
+	  clear_edges (fn);
+	  fn->cfg = NULL;
+	}
+      if (fn->value_histograms)
+	free_histograms (fn);
       gimple_set_body (decl, NULL);
       /* Struct function hangs a lot of data that would leak if we didn't
          removed all pointers to it.   */
@@ -1936,6 +2004,8 @@ cgraph_edge::dump_edge_flags (FILE *f)
     fprintf (f, "(speculative) ");
   if (!inline_failed)
     fprintf (f, "(inlined) ");
+  if (call_stmt_cannot_inline_p)
+    fprintf (f, "(call_stmt_cannot_inline_p) ");
   if (indirect_inlining_edge)
     fprintf (f, "(indirect_inlining) ");
   if (count)
@@ -1995,6 +2065,12 @@ cgraph_node::dump (FILE *f)
     fprintf (f, " tm_clone");
   if (icf_merged)
     fprintf (f, " icf_merged");
+  if (merged_comdat)
+    fprintf (f, " merged_comdat");
+  if (split_part)
+    fprintf (f, " split_part");
+  if (indirect_call_target)
+    fprintf (f, " indirect_call_target");
   if (nonfreeing_fn)
     fprintf (f, " nonfreeing_fn");
   if (DECL_STATIC_CONSTRUCTOR (decl))
@@ -2139,22 +2215,39 @@ cgraph_node::unnest (void)
 /* Return function availability.  See cgraph.h for description of individual
    return values.  */
 enum availability
-cgraph_node::get_availability (void)
+cgraph_node::get_availability (symtab_node *ref)
 {
+  if (ref)
+    {
+      cgraph_node *cref = dyn_cast <cgraph_node *> (ref);
+      if (cref)
+	ref = cref->global.inlined_to;
+    }
   enum availability avail;
   if (!analyzed)
     avail = AVAIL_NOT_AVAILABLE;
   else if (local.local)
     avail = AVAIL_LOCAL;
-  else if (alias && weakref)
-    ultimate_alias_target (&avail);
+  else if (global.inlined_to)
+    avail = AVAIL_AVAILABLE;
+  else if (transparent_alias)
+    ultimate_alias_target (&avail, ref);
   else if (lookup_attribute ("ifunc", DECL_ATTRIBUTES (decl)))
     avail = AVAIL_INTERPOSABLE;
   else if (!externally_visible)
     avail = AVAIL_AVAILABLE;
+  /* If this is a reference from symbol itself and there are no aliases, we
+     may be sure that the symbol was not interposed by soemthing else because
+     the symbol itself would be unreachable otherwise.
+
+     Also comdat groups are always resolved in groups.  */
+  else if ((this == ref && !has_aliases_p ())
+           || (ref && get_comdat_group ()
+               && get_comdat_group () == ref->get_comdat_group ()))
+    avail = AVAIL_AVAILABLE;
   /* Inline functions are safe to be analyzed even if their symbol can
      be overwritten at runtime.  It is not meaningful to enforce any sane
-     behaviour on replacing inline function by different body.  */
+     behavior on replacing inline function by different body.  */
   else if (DECL_DECLARED_INLINE_P (decl))
     avail = AVAIL_AVAILABLE;
 
@@ -2162,11 +2255,7 @@ cgraph_node::get_availability (void)
      care at least of two notable extensions - the COMDAT functions
      used to share template instantiations in C++ (this is symmetric
      to code cp_cannot_inline_tree_fn and probably shall be shared and
-     the inlinability hooks completely eliminated).
-
-     ??? Does the C++ one definition rule allow us to always return
-     AVAIL_AVAILABLE here?  That would be good reason to preserve this
-     bit.  */
+     the inlinability hooks completely eliminated).  */
 
   else if (decl_replaceable_p (decl) && !DECL_EXTERNAL (decl))
     avail = AVAIL_INTERPOSABLE;
@@ -2225,6 +2314,8 @@ cgraph_node::call_for_symbol_thunks_and_aliases (bool (*callback)
 						     exclude_virtual_thunks))
 	  return true;
     }
+  if (get_availability () <= AVAIL_INTERPOSABLE)
+    return false;
   for (e = callers; e; e = e->next_caller)
     if (e->caller->thunk.thunk_p
 	&& (include_overwritable
@@ -2254,8 +2345,9 @@ cgraph_node::make_local (cgraph_node *node, void *)
       node->forced_by_abi = false;
       node->local.local = true;
       node->set_section (NULL);
-      node->unique_name = (node->resolution == LDPR_PREVAILING_DEF_IRONLY
-				  || node->resolution == LDPR_PREVAILING_DEF_IRONLY_EXP);
+      node->unique_name = ((node->resolution == LDPR_PREVAILING_DEF_IRONLY
+			   || node->resolution == LDPR_PREVAILING_DEF_IRONLY_EXP)
+			   && !flag_incremental_link);
       node->resolution = LDPR_PREVAILING_DEF_IRONLY;
       gcc_assert (node->get_availability () == AVAIL_LOCAL);
     }
@@ -2272,87 +2364,272 @@ cgraph_node::make_local (void)
 
 /* Worker to set nothrow flag.  */
 
-static bool
-cgraph_set_nothrow_flag_1 (cgraph_node *node, void *data)
+static void
+set_nothrow_flag_1 (cgraph_node *node, bool nothrow, bool non_call,
+		    bool *changed)
 {
   cgraph_edge *e;
 
-  TREE_NOTHROW (node->decl) = data != NULL;
-
-  if (data != NULL)
-    for (e = node->callers; e; e = e->next_caller)
-      e->can_throw_external = false;
-  return false;
+  if (nothrow && !TREE_NOTHROW (node->decl))
+    {
+      /* With non-call exceptions we can't say for sure if other function body
+	 was not possibly optimized to stil throw.  */
+      if (!non_call || node->binds_to_current_def_p ())
+	{
+	  TREE_NOTHROW (node->decl) = true;
+	  *changed = true;
+	  for (e = node->callers; e; e = e->next_caller)
+	    e->can_throw_external = false;
+	}
+    }
+  else if (!nothrow && TREE_NOTHROW (node->decl))
+    {
+      TREE_NOTHROW (node->decl) = false;
+      *changed = true;
+    }
+  ipa_ref *ref;
+  FOR_EACH_ALIAS (node, ref)
+    {
+      cgraph_node *alias = dyn_cast <cgraph_node *> (ref->referring);
+      if (!nothrow || alias->get_availability () > AVAIL_INTERPOSABLE)
+	set_nothrow_flag_1 (alias, nothrow, non_call, changed);
+    }
+  for (cgraph_edge *e = node->callers; e; e = e->next_caller)
+    if (e->caller->thunk.thunk_p
+	&& (!nothrow || e->caller->get_availability () > AVAIL_INTERPOSABLE))
+      set_nothrow_flag_1 (e->caller, nothrow, non_call, changed);
 }
 
 /* Set TREE_NOTHROW on NODE's decl and on aliases of NODE
    if any to NOTHROW.  */
 
-void
+bool
 cgraph_node::set_nothrow_flag (bool nothrow)
 {
-  call_for_symbol_thunks_and_aliases (cgraph_set_nothrow_flag_1,
-				    (void *)(size_t)nothrow, false);
+  bool changed = false;
+  bool non_call = opt_for_fn (decl, flag_non_call_exceptions);
+
+  if (!nothrow || get_availability () > AVAIL_INTERPOSABLE)
+    set_nothrow_flag_1 (this, nothrow, non_call, &changed);
+  else
+    {
+      ipa_ref *ref;
+
+      FOR_EACH_ALIAS (this, ref)
+	{
+	  cgraph_node *alias = dyn_cast <cgraph_node *> (ref->referring);
+	  if (!nothrow || alias->get_availability () > AVAIL_INTERPOSABLE)
+	    set_nothrow_flag_1 (alias, nothrow, non_call, &changed);
+	}
+    }
+  return changed;
 }
 
-/* Worker to set const flag.  */
+/* Worker to set_const_flag.  */
 
-static bool
-cgraph_set_const_flag_1 (cgraph_node *node, void *data)
+static void
+set_const_flag_1 (cgraph_node *node, bool set_const, bool looping,
+		  bool *changed)
 {
   /* Static constructors and destructors without a side effect can be
      optimized out.  */
-  if (data && !((size_t)data & 2))
+  if (set_const && !looping)
     {
       if (DECL_STATIC_CONSTRUCTOR (node->decl))
-	DECL_STATIC_CONSTRUCTOR (node->decl) = 0;
+	{
+	  DECL_STATIC_CONSTRUCTOR (node->decl) = 0;
+	  *changed = true;
+	}
       if (DECL_STATIC_DESTRUCTOR (node->decl))
-	DECL_STATIC_DESTRUCTOR (node->decl) = 0;
+	{
+	  DECL_STATIC_DESTRUCTOR (node->decl) = 0;
+	  *changed = true;
+	}
     }
-  TREE_READONLY (node->decl) = data != NULL;
-  DECL_LOOPING_CONST_OR_PURE_P (node->decl) = ((size_t)data & 2) != 0;
-  return false;
+  if (!set_const)
+    {
+      if (TREE_READONLY (node->decl))
+	{
+          TREE_READONLY (node->decl) = 0;
+          DECL_LOOPING_CONST_OR_PURE_P (node->decl) = false;
+	  *changed = true;
+	}
+    }
+  else
+    {
+      /* Consider function:
+
+	 bool a(int *p)
+	 {
+	   return *p==*p;
+	 }
+
+	 During early optimization we will turn this into:
+
+	 bool a(int *p)
+	 {
+	   return true;
+	 }
+
+	 Now if this function will be detected as CONST however when interposed
+	 it may end up being just pure.  We always must assume the worst
+	 scenario here.  */
+      if (TREE_READONLY (node->decl))
+	{
+	  if (!looping && DECL_LOOPING_CONST_OR_PURE_P (node->decl))
+	    {
+              DECL_LOOPING_CONST_OR_PURE_P (node->decl) = false;
+	      *changed = true;
+	    }
+	}
+      else if (node->binds_to_current_def_p ())
+	{
+	  TREE_READONLY (node->decl) = true;
+          DECL_LOOPING_CONST_OR_PURE_P (node->decl) = looping;
+	  DECL_PURE_P (node->decl) = false;
+	  *changed = true;
+	}
+      else
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file, "Dropping state to PURE because function does "
+		     "not bind to current def.\n");
+	  if (!DECL_PURE_P (node->decl))
+	    {
+	      DECL_PURE_P (node->decl) = true;
+              DECL_LOOPING_CONST_OR_PURE_P (node->decl) = looping;
+	      *changed = true;
+	    }
+	  else if (!looping && DECL_LOOPING_CONST_OR_PURE_P (node->decl))
+	    {
+              DECL_LOOPING_CONST_OR_PURE_P (node->decl) = false;
+	      *changed = true;
+	    }
+	}
+    }
+
+  ipa_ref *ref;
+  FOR_EACH_ALIAS (node, ref)
+    {
+      cgraph_node *alias = dyn_cast <cgraph_node *> (ref->referring);
+      if (!set_const || alias->get_availability () > AVAIL_INTERPOSABLE)
+	set_const_flag_1 (alias, set_const, looping, changed);
+    }
+  for (cgraph_edge *e = node->callers; e; e = e->next_caller)
+    if (e->caller->thunk.thunk_p
+	&& (!set_const || e->caller->get_availability () > AVAIL_INTERPOSABLE))
+      {
+	/* Virtual thunks access virtual offset in the vtable, so they can
+	   only be pure, never const.  */
+        if (set_const
+	    && (e->caller->thunk.virtual_offset_p
+	        || !node->binds_to_current_def_p (e->caller)))
+	  *changed |= e->caller->set_pure_flag (true, looping);
+	else
+	  set_const_flag_1 (e->caller, set_const, looping, changed);
+      }
 }
 
-/* Set TREE_READONLY on cgraph_node's decl and on aliases of the node
-   if any to READONLY.  */
+/* If SET_CONST is true, mark function, aliases and thunks to be ECF_CONST.
+   If SET_CONST if false, clear the flag.
 
-void
-cgraph_node::set_const_flag (bool readonly, bool looping)
+   When setting the flag be careful about possible interposition and
+   do not set the flag for functions that can be interposet and set pure
+   flag for functions that can bind to other definition. 
+
+   Return true if any change was done. */
+
+bool
+cgraph_node::set_const_flag (bool set_const, bool looping)
 {
-  call_for_symbol_thunks_and_aliases (cgraph_set_const_flag_1,
-				    (void *)(size_t)(readonly + (int)looping * 2),
-				    false, true);
+  bool changed = false;
+  if (!set_const || get_availability () > AVAIL_INTERPOSABLE)
+    set_const_flag_1 (this, set_const, looping, &changed);
+  else
+    {
+      ipa_ref *ref;
+
+      FOR_EACH_ALIAS (this, ref)
+	{
+	  cgraph_node *alias = dyn_cast <cgraph_node *> (ref->referring);
+	  if (!set_const || alias->get_availability () > AVAIL_INTERPOSABLE)
+	    set_const_flag_1 (alias, set_const, looping, &changed);
+	}
+    }
+  return changed;
 }
 
-/* Worker to set pure flag.  */
+/* Info used by set_pure_flag_1.  */
+
+struct set_pure_flag_info
+{
+  bool pure;
+  bool looping;
+  bool changed;
+};
+
+/* Worker to set_pure_flag.  */
 
 static bool
-cgraph_set_pure_flag_1 (cgraph_node *node, void *data)
+set_pure_flag_1 (cgraph_node *node, void *data)
 {
+  struct set_pure_flag_info *info = (struct set_pure_flag_info *)data;
   /* Static constructors and destructors without a side effect can be
      optimized out.  */
-  if (data && !((size_t)data & 2))
+  if (info->pure && !info->looping)
     {
       if (DECL_STATIC_CONSTRUCTOR (node->decl))
-	DECL_STATIC_CONSTRUCTOR (node->decl) = 0;
+	{
+	  DECL_STATIC_CONSTRUCTOR (node->decl) = 0;
+	  info->changed = true;
+	}
       if (DECL_STATIC_DESTRUCTOR (node->decl))
-	DECL_STATIC_DESTRUCTOR (node->decl) = 0;
+	{
+	  DECL_STATIC_DESTRUCTOR (node->decl) = 0;
+	  info->changed = true;
+	}
     }
-  DECL_PURE_P (node->decl) = data != NULL;
-  DECL_LOOPING_CONST_OR_PURE_P (node->decl) = ((size_t)data & 2) != 0;
+  if (info->pure)
+    {
+      if (!DECL_PURE_P (node->decl) && !TREE_READONLY (node->decl))
+	{
+          DECL_PURE_P (node->decl) = true;
+          DECL_LOOPING_CONST_OR_PURE_P (node->decl) = info->looping;
+	  info->changed = true;
+	}
+      else if (DECL_LOOPING_CONST_OR_PURE_P (node->decl)
+	       && !info->looping)
+	{
+          DECL_LOOPING_CONST_OR_PURE_P (node->decl) = false;
+	  info->changed = true;
+	}
+    }
+  else
+    {
+      if (DECL_PURE_P (node->decl))
+	{
+          DECL_PURE_P (node->decl) = false;
+          DECL_LOOPING_CONST_OR_PURE_P (node->decl) = false;
+	  info->changed = true;
+	}
+    }
   return false;
 }
 
 /* Set DECL_PURE_P on cgraph_node's decl and on aliases of the node
-   if any to PURE.  */
+   if any to PURE.
 
-void
+   When setting the flag, be careful about possible interposition.
+   Return true if any change was done. */
+
+bool
 cgraph_node::set_pure_flag (bool pure, bool looping)
 {
-  call_for_symbol_thunks_and_aliases (cgraph_set_pure_flag_1,
-				    (void *)(size_t)(pure + (int)looping * 2),
-				    false, true);
+  struct set_pure_flag_info info = {pure, looping, false};
+  if (!pure)
+    looping = false;
+  call_for_symbol_thunks_and_aliases (set_pure_flag_1, &info, !pure, true);
+  return info.changed;
 }
 
 /* Return true when cgraph_node can not return or throw and thus
@@ -2590,7 +2867,8 @@ collect_callers_of_node_1 (cgraph_node *node, void *data)
 
   if (avail > AVAIL_INTERPOSABLE)
     for (cs = node->callers; cs != NULL; cs = cs->next_caller)
-      if (!cs->indirect_inlining_edge)
+      if (!cs->indirect_inlining_edge
+	  && !cs->caller->thunk.thunk_p)
         redirect_callers->safe_push (cs);
   return false;
 }
@@ -2716,7 +2994,7 @@ cgraph_edge::verify_corresponds_to_fndecl (tree decl)
   node = node->ultimate_alias_target ();
 
   /* Optimizers can redirect unreachable calls or calls triggering undefined
-     behaviour to builtin_unreachable.  */
+     behavior to builtin_unreachable.  */
   if (DECL_BUILT_IN_CLASS (callee->decl) == BUILT_IN_NORMAL
       && DECL_FUNCTION_CODE (callee->decl) == BUILT_IN_UNREACHABLE)
     return false;
@@ -3178,24 +3456,28 @@ cgraph_node::verify_cgraph_nodes (void)
 
 /* Walk the alias chain to return the function cgraph_node is alias of.
    Walk through thunks, too.
-   When AVAILABILITY is non-NULL, get minimal availability in the chain.  */
+   When AVAILABILITY is non-NULL, get minimal availability in the chain.
+   When REF is non-NULL, assume that reference happens in symbol REF
+   when determining the availability.  */
 
 cgraph_node *
-cgraph_node::function_symbol (enum availability *availability)
+cgraph_node::function_symbol (enum availability *availability,
+			      struct symtab_node *ref)
 {
-  cgraph_node *node = ultimate_alias_target (availability);
+  cgraph_node *node = ultimate_alias_target (availability, ref);
 
   while (node->thunk.thunk_p)
     {
+      ref = node;
       node = node->callees->callee;
       if (availability)
 	{
 	  enum availability a;
-	  a = node->get_availability ();
+	  a = node->get_availability (ref);
 	  if (a < *availability)
 	    *availability = a;
 	}
-      node = node->ultimate_alias_target (availability);
+      node = node->ultimate_alias_target (availability, ref);
     }
   return node;
 }
@@ -3203,25 +3485,29 @@ cgraph_node::function_symbol (enum availability *availability)
 /* Walk the alias chain to return the function cgraph_node is alias of.
    Walk through non virtual thunks, too.  Thus we return either a function
    or a virtual thunk node.
-   When AVAILABILITY is non-NULL, get minimal availability in the chain.  */
+   When AVAILABILITY is non-NULL, get minimal availability in the chain. 
+   When REF is non-NULL, assume that reference happens in symbol REF
+   when determining the availability.  */
 
 cgraph_node *
 cgraph_node::function_or_virtual_thunk_symbol
-				(enum availability *availability)
+				(enum availability *availability,
+				 struct symtab_node *ref)
 {
-  cgraph_node *node = ultimate_alias_target (availability);
+  cgraph_node *node = ultimate_alias_target (availability, ref);
 
   while (node->thunk.thunk_p && !node->thunk.virtual_offset_p)
     {
+      ref = node;
       node = node->callees->callee;
       if (availability)
 	{
 	  enum availability a;
-	  a = node->get_availability ();
+	  a = node->get_availability (ref);
 	  if (a < *availability)
 	    *availability = a;
 	}
-      node = node->ultimate_alias_target (availability);
+      node = node->ultimate_alias_target (availability, ref);
     }
   return node;
 }
@@ -3237,10 +3523,12 @@ cgraph_node::get_untransformed_body (void)
   size_t len;
   tree decl = this->decl;
 
-  if (DECL_RESULT (decl))
+  /* Check if body is already there.  Either we have gimple body or
+     the function is thunk and in that case we set DECL_ARGUMENTS.  */
+  if (DECL_ARGUMENTS (decl) || gimple_has_body_p (decl))
     return false;
 
-  gcc_assert (in_lto_p);
+  gcc_assert (in_lto_p && !DECL_RESULT (decl));
 
   timevar_push (TV_IPA_LTO_GIMPLE_IN);
 
@@ -3249,9 +3537,11 @@ cgraph_node::get_untransformed_body (void)
 
   /* We may have renamed the declaration, e.g., a static function.  */
   name = lto_get_decl_name_mapping (file_data, name);
+  struct lto_in_decl_state *decl_state
+	 = lto_get_function_in_decl_state (file_data, decl);
 
   data = lto_get_section_data (file_data, LTO_section_function_body,
-			       name, &len);
+			       name, &len, decl_state->compressed);
   if (!data)
     fatal_error (input_location, "%s: section %s is missing",
 		 file_data->file_name,
@@ -3262,7 +3552,7 @@ cgraph_node::get_untransformed_body (void)
   lto_input_function_body (file_data, this, data);
   lto_stats.num_function_bodies++;
   lto_free_section_data (file_data, LTO_section_function_body, name,
-			 data, len);
+			 data, len, decl_state->compressed);
   lto_free_function_in_decl_state_for_node (this);
   /* Keep lto file data so ipa-inline-analysis knows about cross module
      inlining.  */
@@ -3284,7 +3574,7 @@ cgraph_node::get_body (void)
   updated = get_untransformed_body ();
 
   /* Getting transformed body makes no sense for inline clones;
-     we should never use this on real clones becuase they are materialized
+     we should never use this on real clones because they are materialized
      early.
      TODO: Materializing clones here will likely lead to smaller LTRANS
      footprint. */
@@ -3293,7 +3583,10 @@ cgraph_node::get_body (void)
     {
       opt_pass *saved_current_pass = current_pass;
       FILE *saved_dump_file = dump_file;
+      const char *saved_dump_file_name = dump_file_name;
       int saved_dump_flags = dump_flags;
+      dump_file_name = NULL;
+      dump_file = NULL;
 
       push_cfun (DECL_STRUCT_FUNCTION (decl));
       execute_all_ipa_transforms ();
@@ -3305,6 +3598,7 @@ cgraph_node::get_body (void)
 
       current_pass = saved_current_pass;
       dump_file = saved_dump_file;
+      dump_file_name = saved_dump_file_name;
       dump_flags = saved_dump_flags;
     }
   return updated;

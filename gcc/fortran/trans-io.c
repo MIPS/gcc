@@ -1,5 +1,5 @@
 /* IO Code translation/library interface
-   Copyright (C) 2002-2015 Free Software Foundation, Inc.
+   Copyright (C) 2002-2016 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -309,8 +309,8 @@ gfc_build_io_library_fndecls (void)
      alignment that is at least as large as the needed alignment for those
      types.  See the st_parameter_dt structure in libgfortran/io/io.h for
      what really goes into this space.  */
-  TYPE_ALIGN (types[IOPARM_type_pad]) = MAX (TYPE_ALIGN (pchar_type_node),
-		     TYPE_ALIGN (gfc_get_int_type (gfc_intio_kind)));
+  SET_TYPE_ALIGN (types[IOPARM_type_pad], MAX (TYPE_ALIGN (pchar_type_node),
+		     TYPE_ALIGN (gfc_get_int_type (gfc_intio_kind))));
 
   for (ptype = IOPARM_ptype_common; ptype < IOPARM_ptype_num; ptype++)
     gfc_build_st_parameter ((enum ioparam_type) ptype, types);

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for ARM.
-   Copyright (C) 1991-2015 Free Software Foundation, Inc.
+   Copyright (C) 1991-2016 Free Software Foundation, Inc.
    Contributed by Pieter `Tiggr' Schoenmakers (rcpieter@win.tue.nl)
    and Martin Simmons (@harleqn.co.uk).
    More major hacks by Richard Earnshaw (rearnsha@arm.com)
@@ -131,6 +131,7 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
 #define TARGET_ARM_P(flags)    (!TARGET_THUMB_P (flags))
 #define TARGET_THUMB1_P(flags) (TARGET_THUMB_P (flags) && !arm_arch_thumb2)
 #define TARGET_THUMB2_P(flags) (TARGET_THUMB_P (flags) && arm_arch_thumb2)
+#define TARGET_32BIT_P(flags)  (TARGET_ARM_P (flags) || TARGET_THUMB2_P (flags))
 
 /* Run-time Target Specification.  */
 #define TARGET_SOFT_FLOAT		(arm_float_abi == ARM_FLOAT_ABI_SOFT)
@@ -138,7 +139,7 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
 #define TARGET_HARD_FLOAT		(arm_float_abi != ARM_FLOAT_ABI_SOFT)
 /* Use hardware floating point calling convention.  */
 #define TARGET_HARD_FLOAT_ABI		(arm_float_abi == ARM_FLOAT_ABI_HARD)
-#define TARGET_VFP		(arm_fpu_desc->model == ARM_FP_MODEL_VFP)
+#define TARGET_VFP		        (TARGET_FPU_MODEL == ARM_FP_MODEL_VFP)
 #define TARGET_IWMMXT			(arm_arch_iwmmxt)
 #define TARGET_IWMMXT2			(arm_arch_iwmmxt2)
 #define TARGET_REALLY_IWMMXT		(TARGET_IWMMXT && TARGET_32BIT)
@@ -176,39 +177,38 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
    to be more careful with TARGET_NEON as noted below.  */
 
 /* FPU is has the full VFPv3/NEON register file of 32 D registers.  */
-#define TARGET_VFPD32 (TARGET_VFP && arm_fpu_desc->regs == VFP_REG_D32)
+#define TARGET_VFPD32 (TARGET_VFP && TARGET_FPU_REGS == VFP_REG_D32)
 
 /* FPU supports VFPv3 instructions.  */
-#define TARGET_VFP3 (TARGET_VFP && arm_fpu_desc->rev >= 3)
+#define TARGET_VFP3 (TARGET_VFP && TARGET_FPU_REV >= 3)
 
 /* FPU supports FPv5 instructions.  */
-#define TARGET_VFP5 (TARGET_VFP && arm_fpu_desc->rev >= 5)
+#define TARGET_VFP5 (TARGET_VFP && TARGET_FPU_REV >= 5)
 
 /* FPU only supports VFP single-precision instructions.  */
-#define TARGET_VFP_SINGLE (TARGET_VFP && arm_fpu_desc->regs == VFP_REG_SINGLE)
+#define TARGET_VFP_SINGLE (TARGET_VFP && TARGET_FPU_REGS == VFP_REG_SINGLE)
 
 /* FPU supports VFP double-precision instructions.  */
-#define TARGET_VFP_DOUBLE (TARGET_VFP && arm_fpu_desc->regs != VFP_REG_SINGLE)
+#define TARGET_VFP_DOUBLE (TARGET_VFP && TARGET_FPU_REGS != VFP_REG_SINGLE)
 
 /* FPU supports half-precision floating-point with NEON element load/store.  */
 #define TARGET_NEON_FP16						\
   (TARGET_VFP								\
-   && ARM_FPU_FSET_HAS (arm_fpu_desc->features, FPU_FL_NEON | FPU_FL_FP16))
+   && ARM_FPU_FSET_HAS (TARGET_FPU_FEATURES, FPU_FL_NEON | FPU_FL_FP16))
 
 /* FPU supports VFP half-precision floating-point.  */
 #define TARGET_FP16							\
-  (TARGET_VFP && ARM_FPU_FSET_HAS (arm_fpu_desc->features, FPU_FL_FP16))
+  (TARGET_VFP && ARM_FPU_FSET_HAS (TARGET_FPU_FEATURES, FPU_FL_FP16))
 
 /* FPU supports fused-multiply-add operations.  */
-#define TARGET_FMA (TARGET_VFP && arm_fpu_desc->rev >= 4)
+#define TARGET_FMA (TARGET_VFP && TARGET_FPU_REV >= 4)
 
 /* FPU is ARMv8 compatible.  */
-#define TARGET_FPU_ARMV8 (TARGET_VFP && arm_fpu_desc->rev >= 8)
+#define TARGET_FPU_ARMV8 (TARGET_VFP && TARGET_FPU_REV >= 8)
 
 /* FPU supports Crypto extensions.  */
 #define TARGET_CRYPTO							\
-  (TARGET_VFP && ARM_FPU_FSET_HAS (arm_fpu_desc->features, FPU_FL_CRYPTO))
-
+  (TARGET_VFP && ARM_FPU_FSET_HAS (TARGET_FPU_FEATURES, FPU_FL_CRYPTO))
 
 /* FPU supports Neon instructions.  The setting of this macro gets
    revealed via __ARM_NEON__ so we add extra guards upon TARGET_32BIT
@@ -216,7 +216,10 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
    available.  */
 #define TARGET_NEON							\
   (TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP			\
-   && ARM_FPU_FSET_HAS (arm_fpu_desc->features, FPU_FL_NEON))
+   && ARM_FPU_FSET_HAS (TARGET_FPU_FEATURES, FPU_FL_NEON))
+
+/* FPU supports ARMv8.1 Adv.SIMD extensions.  */
+#define TARGET_NEON_RDMA (TARGET_NEON && arm_arch8_1)
 
 /* Q-bit is present.  */
 #define TARGET_ARM_QBIT \
@@ -249,6 +252,10 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
 
 /* Nonzero if this chip supports ldrex and strex */
 #define TARGET_HAVE_LDREX        ((arm_arch6 && TARGET_ARM) || arm_arch7)
+
+/* Nonzero if this chip supports LPAE.  */
+#define TARGET_HAVE_LPAE						\
+  (arm_arch7 && ARM_FSET_HAS_CPU1 (insn_flags, FL_FOR_ARCH7VE))
 
 /* Nonzero if this chip supports ldrex{bh} and strex{bh}.  */
 #define TARGET_HAVE_LDREXBH ((arm_arch6k && TARGET_ARM) || arm_arch7)
@@ -346,7 +353,15 @@ extern const struct arm_fpu_desc
   int rev;
   enum vfp_reg_type regs;
   arm_fpu_feature_set features;
-} *arm_fpu_desc;
+} all_fpus[];
+
+/* Accessors.  */
+
+#define TARGET_FPU_NAME     (all_fpus[arm_fpu_index].name)
+#define TARGET_FPU_MODEL    (all_fpus[arm_fpu_index].model)
+#define TARGET_FPU_REV      (all_fpus[arm_fpu_index].rev)
+#define TARGET_FPU_REGS     (all_fpus[arm_fpu_index].regs)
+#define TARGET_FPU_FEATURES (all_fpus[arm_fpu_index].features)
 
 /* Which floating point hardware to schedule for.  */
 extern int arm_fpu_attr;
@@ -428,6 +443,9 @@ extern int arm_arch7em;
 
 /* Nonzero if this chip supports the ARM Architecture 8 extensions.  */
 extern int arm_arch8;
+
+/* Nonzero if this chip supports the ARM Architecture 8.1 extensions.  */
+extern int arm_arch8_1;
 
 /* Nonzero if this chip can benefit from load scheduling.  */
 extern int arm_ld_sched;
@@ -526,16 +544,10 @@ extern int arm_arch_crc;
    type, but kept valid in the wider mode.  The signedness of the
    extension may differ from that of the type.  */
 
-/* It is far faster to zero extend chars than to sign extend them */
-
 #define PROMOTE_MODE(MODE, UNSIGNEDP, TYPE)	\
   if (GET_MODE_CLASS (MODE) == MODE_INT		\
       && GET_MODE_SIZE (MODE) < 4)      	\
     {						\
-      if (MODE == QImode)			\
-	UNSIGNEDP = 1;				\
-      else if (MODE == HImode)			\
-	UNSIGNEDP = 1;				\
       (MODE) = SImode;				\
     }
 
@@ -2025,7 +2037,8 @@ extern int making_const_table;
 		    "\t.syntax divided\n")
 
 #undef  ASM_APP_OFF
-#define ASM_APP_OFF "\t.syntax unified\n"
+#define ASM_APP_OFF (TARGET_ARM ? "\t.arm\n\t.syntax unified\n" : \
+		     "\t.thumb\n\t.syntax unified\n")
 
 /* Output a push or a pop instruction (only used when profiling).
    We can't push STATIC_CHAIN_REGNUM (r12) directly with Thumb-1.  We know

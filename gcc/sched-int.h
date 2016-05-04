@@ -1,6 +1,6 @@
 /* Instruction scheduling pass.  This file contains definitions used
    internally in the scheduler.
-   Copyright (C) 1992-2015 Free Software Foundation, Inc.
+   Copyright (C) 1992-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -100,7 +100,7 @@ extern int get_rgn_sched_max_insns_priority (void);
 extern void sel_add_to_insn_priority (rtx, int);
 
 /* True if during selective scheduling we need to emulate some of haifa
-   scheduler behaviour.  */
+   scheduler behavior.  */
 extern int sched_emulate_haifa_p;
 
 /* Mapping from INSN_UID to INSN_LUID.  In the end all other per insn data
@@ -1351,6 +1351,7 @@ extern void finish_deps_global (void);
 extern void deps_analyze_insn (struct deps_desc *, rtx_insn *);
 extern void remove_from_deps (struct deps_desc *, rtx_insn *);
 extern void init_insn_reg_pressure_info (rtx_insn *);
+extern void get_implicit_reg_pending_clobbers (HARD_REG_SET *, rtx_insn *);
 
 extern dw_t get_dep_weak (ds_t, ds_t);
 extern ds_t set_dep_weak (ds_t, ds_t, dw_t);

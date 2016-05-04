@@ -1,6 +1,6 @@
 /* Gimple walk support.
 
-   Copyright (C) 2007-2015 Free Software Foundation, Inc.
+   Copyright (C) 2007-2016 Free Software Foundation, Inc.
    Contributed by Aldy Hernandez <aldyh@redhat.com>
 
 This file is part of GCC.
@@ -100,9 +100,6 @@ walk_gimple_asm (gasm *stmt, walk_tree_fn callback_op,
   noutputs = gimple_asm_noutputs (stmt);
   oconstraints = (const char **) alloca ((noutputs) * sizeof (const char *));
 
-  if (wi)
-    wi->is_lhs = true;
-
   for (i = 0; i < noutputs; i++)
     {
       op = gimple_asm_output_op (stmt, i);
@@ -114,6 +111,8 @@ walk_gimple_asm (gasm *stmt, walk_tree_fn callback_op,
 				       &allows_reg, &is_inout))
 	    wi->val_only = (allows_reg || !allows_mem);
 	}
+      if (wi)
+	wi->is_lhs = true;
       ret = walk_tree (&TREE_VALUE (op), callback_op, wi, NULL);
       if (ret)
 	return ret;
@@ -181,6 +180,9 @@ walk_gimple_op (gimple *stmt, walk_tree_fn callback_op,
   hash_set<tree> *pset = (wi) ? wi->pset : NULL;
   unsigned i;
   tree ret = NULL_TREE;
+
+  if (wi)
+    wi->stmt = stmt;
 
   switch (gimple_code (stmt))
     {
@@ -474,11 +476,22 @@ walk_gimple_op (gimple *stmt, walk_tree_fn callback_op,
       break;
 
     case GIMPLE_TRANSACTION:
-      ret = walk_tree (gimple_transaction_label_ptr (
-			 as_a <gtransaction *> (stmt)),
-		       callback_op, wi, pset);
-      if (ret)
-	return ret;
+      {
+	gtransaction *txn = as_a <gtransaction *> (stmt);
+
+	ret = walk_tree (gimple_transaction_label_norm_ptr (txn),
+			 callback_op, wi, pset);
+	if (ret)
+	  return ret;
+	ret = walk_tree (gimple_transaction_label_uninst_ptr (txn),
+			 callback_op, wi, pset);
+	if (ret)
+	  return ret;
+	ret = walk_tree (gimple_transaction_label_over_ptr (txn),
+			 callback_op, wi, pset);
+	if (ret)
+	  return ret;
+      }
       break;
 
     case GIMPLE_OMP_RETURN:
@@ -644,6 +657,7 @@ walk_gimple_stmt (gimple_stmt_iterator *gsi, walk_stmt_fn callback_stmt,
     case GIMPLE_OMP_SINGLE:
     case GIMPLE_OMP_TARGET:
     case GIMPLE_OMP_TEAMS:
+    case GIMPLE_OMP_GRID_BODY:
       ret = walk_gimple_seq_mod (gimple_omp_body_ptr (stmt), callback_stmt,
 			     callback_op, wi);
       if (ret)

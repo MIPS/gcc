@@ -454,7 +454,7 @@ package System.OS_Lib is
    --  that is writable. Returns True if so, False otherwise. Note that this
    --  function simply interrogates the file attributes (e.g. using the C
    --  function stat), so it does not indicate a situation in which a file may
-   --  not actually be writeable due to some other process having exclusive
+   --  not actually be writable due to some other process having exclusive
    --  access.
 
    function Locate_Exec_On_Path (Exec_Name : String) return String_Access;
@@ -505,19 +505,17 @@ package System.OS_Lib is
       Resolve_Links  : Boolean := True;
       Case_Sensitive : Boolean := True) return String;
    --  Returns a file name as an absolute path name, resolving all relative
-   --  directories, and symbolic links. The parameter Directory is a fully
-   --  resolved path name for a directory, or the empty string (the default).
-   --  Name is the name of a file, which is either relative to the given
-   --  directory name, if Directory is non-null, or to the current working
-   --  directory if Directory is null. The result returned is the normalized
-   --  name of the file. For most cases, if two file names designate the same
-   --  file through different paths, Normalize_Pathname will return the same
-   --  canonical name in both cases. However, there are cases when this is not
-   --  true; for example, this is not true in Unix for two hard links
-   --  designating the same file.
+   --  directories, and symbolic links. If Name is a relative path, it is
+   --  interpreted relative to Directory, or to the current directory if
+   --  Directory is the empty string (the default). The result returned is
+   --  the normalized name of the file, containing no "." or ".." components,
+   --  and no duplicated directory separators. For most cases, if two file
+   --  names designate the same file through different paths,
+   --  Normalize_Pathname will return the same canonical name in both cases.
+   --  However, there are cases when this is not true; for example, this is
+   --  not true in Unix for two hard links designating the same file.
    --
-   --  On Windows, the returned path will start with a drive letter except
-   --  when Directory is not empty and does not include a drive letter. If
+   --  On Windows, the returned path will start with a drive letter. If
    --  Directory is empty (the default) and Name is a relative path or an
    --  absolute path without drive letter, the letter of the current drive
    --  will start the returned path. If Case_Sensitive is True (the default),
@@ -725,6 +723,10 @@ package System.OS_Lib is
    Invalid_Pid : constant Process_Id;
    --  A special value used to indicate errors, as described below
 
+   function Current_Process_Id return Process_Id;
+   --  Returns the current process id or Invalid_Pid if not supported by the
+   --  runtime.
+
    function Argument_String_To_List
      (Arg_String : String) return Argument_List_Access;
    --  Take a string that is a program and its arguments and parse it into an
@@ -745,6 +747,19 @@ package System.OS_Lib is
    --  If Hard_Kill is False, then a signal SIGINT is sent to the process on
    --  POSIX OS or a ctrl-C event on Windows, allowing the process a chance to
    --  terminate properly using a corresponding handler.
+
+   procedure Kill_Process_Tree (Pid : Process_Id; Hard_Kill : Boolean := True);
+   --  Kill the process designated by Pid and all it's children processes.
+   --  Does nothing if Pid is Invalid_Pid or on platforms where it is not
+   --  supported, such as VxWorks. Hard_Kill is True by default, and when True
+   --  the processes are terminated immediately. If Hard_Kill is False, then a
+   --  signal SIGINT is sent to the processes on POSIX OS or a ctrl-C event
+   --  on Windows, allowing the processes a chance to terminate properly
+   --  using a corresponding handler.
+   --
+   --  Note that this routine is not atomic and is supported only on Linux
+   --  and Windows. On other OS it will only kill the process identified by
+   --  Pid.
 
    function Non_Blocking_Spawn
      (Program_Name : String;
@@ -1049,6 +1064,7 @@ private
    pragma Import (C, Path_Separator, "__gnat_path_separator");
    pragma Import (C, Directory_Separator, "__gnat_dir_separator");
    pragma Import (C, Current_Time, "__gnat_current_time");
+   pragma Import (C, Current_Process_Id, "__gnat_current_process_id");
 
    type OS_Time is
      range -(2 ** (Standard'Address_Size - Integer'(1))) ..

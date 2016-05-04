@@ -1,6 +1,6 @@
 /* Read the GIMPLE representation from a file stream.
 
-   Copyright (C) 2009-2015 Free Software Foundation, Inc.
+   Copyright (C) 2009-2016 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
    Re-implemented by Diego Novillo <dnovillo@google.com>
 
@@ -881,10 +881,13 @@ input_ssa_names (struct lto_input_block *ib, struct data_in *data_in,
 
       is_default_def = (streamer_read_uchar (ib) != 0);
       name = stream_read_tree (ib, data_in);
-      ssa_name = make_ssa_name_fn (fn, name, gimple_build_nop ());
+      ssa_name = make_ssa_name_fn (fn, name, NULL);
 
       if (is_default_def)
-	set_ssa_default_def (cfun, SSA_NAME_VAR (ssa_name), ssa_name);
+	{
+	  set_ssa_default_def (cfun, SSA_NAME_VAR (ssa_name), ssa_name);
+	  SSA_NAME_DEF_STMT (ssa_name) = gimple_build_nop ();
+	}
 
       i = streamer_read_uhwi (ib);
     }
@@ -1008,6 +1011,7 @@ input_struct_function_base (struct function *fn, struct data_in *data_in,
   fn->after_inlining = bp_unpack_value (&bp, 1);
   fn->stdarg = bp_unpack_value (&bp, 1);
   fn->has_nonlocal_label = bp_unpack_value (&bp, 1);
+  fn->has_forced_label_in_static = bp_unpack_value (&bp, 1);
   fn->calls_alloca = bp_unpack_value (&bp, 1);
   fn->calls_setjmp = bp_unpack_value (&bp, 1);
   fn->has_force_vectorize_loops = bp_unpack_value (&bp, 1);
@@ -1231,7 +1235,9 @@ lto_read_body_or_constructor (struct lto_file_decl_data *file_data, struct symta
 	      if (TYPE_P (t))
 		{
 		  gcc_assert (TYPE_CANONICAL (t) == NULL_TREE);
-		  TYPE_CANONICAL (t) = TYPE_MAIN_VARIANT (t);
+		  if (type_with_alias_set_p (t)
+		      && canonical_type_used_p (t))
+		    TYPE_CANONICAL (t) = TYPE_MAIN_VARIANT (t);
 		  if (TYPE_MAIN_VARIANT (t) != t)
 		    {
 		      gcc_assert (TYPE_NEXT_VARIANT (t) == NULL_TREE);

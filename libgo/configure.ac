@@ -11,7 +11,7 @@ AC_INIT(package-unused, version-unused,, libgo)
 AC_CONFIG_SRCDIR(Makefile.am)
 AC_CONFIG_HEADER(config.h)
 
-libtool_VERSION=8:0:0
+libtool_VERSION=9:0:0
 AC_SUBST(libtool_VERSION)
 
 AM_ENABLE_MULTILIB(, ..)
@@ -316,6 +316,7 @@ AM_CONDITIONAL(LIBGO_IS_MIPSO32, test $mips_abi = o32)
 AM_CONDITIONAL(LIBGO_IS_MIPSN32, test $mips_abi = n32)
 AM_CONDITIONAL(LIBGO_IS_MIPSN64, test $mips_abi = n64)
 AM_CONDITIONAL(LIBGO_IS_MIPSO64, test $mips_abi = o64)
+AM_CONDITIONAL(LIBGO_IS_MIPS64, test $mips_abi = n64 -o $mips_abi = o64)
 AM_CONDITIONAL(LIBGO_IS_PPC, test $is_ppc = yes)
 AM_CONDITIONAL(LIBGO_IS_PPC64, test $is_ppc64 = yes)
 AM_CONDITIONAL(LIBGO_IS_PPC64LE, test $is_ppc64le = yes)
@@ -501,9 +502,10 @@ PTHREAD_LIBS=
 AC_CHECK_LIB([pthread], [pthread_create], PTHREAD_LIBS=-lpthread)
 AC_SUBST(PTHREAD_LIBS)
 
-dnl Test if -lrt is required for sched_yield and/or nanosleep.
+dnl Test if -lrt is required for sched_yield or nanosleep or clock_gettime.
 AC_SEARCH_LIBS([sched_yield], [rt])
 AC_SEARCH_LIBS([nanosleep], [rt])
+AC_SEARCH_LIBS([clock_gettime], [rt])
 
 AC_C_BIGENDIAN
 

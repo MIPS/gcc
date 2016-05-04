@@ -1,5 +1,5 @@
 /* RTL-based forward propagation pass for GNU compiler.
-   Copyright (C) 2005-2015 Free Software Foundation, Inc.
+   Copyright (C) 2005-2016 Free Software Foundation, Inc.
    Contributed by Paolo Bonzini and Steven Bosscher.
 
 This file is part of GCC.
@@ -208,11 +208,11 @@ class single_def_use_dom_walker : public dom_walker
 public:
   single_def_use_dom_walker (cdi_direction direction)
     : dom_walker (direction) {}
-  virtual void before_dom_children (basic_block);
+  virtual edge before_dom_children (basic_block);
   virtual void after_dom_children (basic_block);
 };
 
-void
+edge
 single_def_use_dom_walker::before_dom_children (basic_block bb)
 {
   int bb_index = bb->index;
@@ -245,6 +245,8 @@ single_def_use_dom_walker::before_dom_children (basic_block bb)
 
   process_uses (df_get_artificial_uses (bb_index), 0);
   process_defs (df_get_artificial_defs (bb_index), 0);
+
+  return NULL;
 }
 
 /* Pop the definitions created in this basic block when leaving its
@@ -893,7 +895,8 @@ update_uses (df_ref use)
       if (DF_REF_ID (use) >= (int) use_def_ref.length ())
         use_def_ref.safe_grow_cleared (DF_REF_ID (use) + 1);
 
-      gcc_checking_assert (sparseset_bit_p (active_defs_check, regno));
+      if (flag_checking)
+	gcc_assert (sparseset_bit_p (active_defs_check, regno));
       use_def_ref[DF_REF_ID (use)] = active_defs[regno];
     }
 }
@@ -996,10 +999,27 @@ try_fwprop_subst (df_ref use, rtx *loc, rtx new_rtx, rtx_insn *def_insn,
 	 making a new one if one does not already exist.  */
       if (set_reg_equal)
 	{
-	  if (dump_file)
-	    fprintf (dump_file, " Setting REG_EQUAL note\n");
+	  /* If there are any paradoxical SUBREGs, don't add REG_EQUAL note,
+	     because the bits in there can be anything and so might not
+	     match the REG_EQUAL note content.  See PR70574.  */
+	  subrtx_var_iterator::array_type array;
+	  FOR_EACH_SUBRTX_VAR (iter, array, *loc, NONCONST)
+	    {
+	      rtx x = *iter;
+	      if (SUBREG_P (x) && paradoxical_subreg_p (x))
+		{
+		  set_reg_equal = false;
+		  break;
+		}
+	    }
 
-	  note = set_unique_reg_note (insn, REG_EQUAL, copy_rtx (new_rtx));
+	  if (set_reg_equal)
+	    {
+	      if (dump_file)
+		fprintf (dump_file, " Setting REG_EQUAL note\n");
+
+	      note = set_unique_reg_note (insn, REG_EQUAL, copy_rtx (new_rtx));
+	    }
 	}
     }
 
@@ -1297,14 +1317,19 @@ forward_propagate_and_simplify (df_ref use, rtx_insn *def_insn, rtx def_set)
 	 that isn't mentioned in USE_SET, as the note would be invalid
 	 otherwise.  We also don't want to install a note if we are merely
 	 propagating a pseudo since verifying that this pseudo isn't dead
-	 is a pain; moreover such a note won't help anything.  */
+	 is a pain; moreover such a note won't help anything.
+	 If the use is a paradoxical subreg, make sure we don't add a
+	 REG_EQUAL note for it, because it is not equivalent, it is one
+	 possible value for it, but we can't rely on it holding that value.
+	 See PR70574.  */
       set_reg_equal = (note == NULL_RTX
 		       && REG_P (SET_DEST (use_set))
 		       && !REG_P (src)
 		       && !(GET_CODE (src) == SUBREG
 			    && REG_P (SUBREG_REG (src)))
 		       && !reg_mentioned_p (SET_DEST (use_set),
-					    SET_SRC (use_set)));
+					    SET_SRC (use_set))
+		       && !paradoxical_subreg_p (DF_REF_REG (use)));
     }
 
   if (GET_MODE (*loc) == VOIDmode)

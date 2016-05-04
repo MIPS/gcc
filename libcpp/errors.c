@@ -1,5 +1,5 @@
 /* Default error handlers for CPP Library.
-   Copyright (C) 1986-2015 Free Software Foundation, Inc.
+   Copyright (C) 1986-2016 Free Software Foundation, Inc.
    Written by Per Bothner, 1994.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -141,7 +141,8 @@ cpp_diagnostic_with_line (cpp_reader * pfile, int level, int reason,
   if (!pfile->cb.error)
     abort ();
   rich_location richloc (pfile->line_table, src_loc);
-  richloc.override_column (column);
+  if (column)
+    richloc.override_column (column);
   ret = pfile->cb.error (pfile, level, reason, &richloc, _(msgid), ap);
 
   return ret;
@@ -230,8 +231,18 @@ cpp_warning_with_line_syshdr (cpp_reader *pfile, int reason,
 bool
 cpp_errno (cpp_reader *pfile, int level, const char *msgid)
 {
-  if (msgid[0] == '\0')
-    msgid = _("stdout");
+  return cpp_error (pfile, level, "%s: %s", _(msgid), xstrerror (errno));
+}
 
-  return cpp_error (pfile, level, "%s: %s", msgid, xstrerror (errno));
+/* Print a warning or error, depending on the value of LEVEL.  Include
+   information from errno.  Unlike cpp_errno, the argument is a filename
+   that is not localized, but "" is replaced with localized "stdout".  */
+
+bool
+cpp_errno_filename (cpp_reader *pfile, int level, const char *filename)
+{
+  if (filename[0] == '\0')
+    filename = _("stdout");
+
+  return cpp_error (pfile, level, "%s: %s", filename, xstrerror (errno));
 }

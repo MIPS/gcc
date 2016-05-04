@@ -6,7 +6,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2015, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2016, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -34,14 +34,12 @@
    initial value (in GCC tree form). This is optional for variables.
    For renamed entities, GNU_EXPR gives the object being renamed.
 
-   DEFINITION is nonzero if this call is intended for a definition.  This is
-   used for separate compilation where it necessary to know whether an
-   external declaration or a definition should be created if the GCC equivalent
-   was not created previously.  The value of 1 is normally used for a nonzero
-   DEFINITION, but a value of 2 is used in special circumstances, defined in
-   the code.  */
+   DEFINITION is true if this call is intended for a definition.  This is used
+   for separate compilation where it is necessary to know whether an external
+   declaration or a definition must be created if the GCC equivalent was not
+   created previously.  */
 extern tree gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr,
-                                int definition);
+                                bool definition);
 
 /* Similar, but if the returned value is a COMPONENT_REF, return the
    FIELD_DECL.  */
@@ -50,6 +48,10 @@ extern tree gnat_to_gnu_field_decl (Entity_Id gnat_entity);
 /* Similar, but GNAT_ENTITY is assumed to refer to a GNAT type.  Return
    the GCC type corresponding to that entity.  */
 extern tree gnat_to_gnu_type (Entity_Id gnat_entity);
+
+/* Update the GCC tree previously built for the profiles involving GNU_TYPE,
+   a dummy type which appears in profiles.  */
+extern void update_profiles_with (tree gnu_type);
 
 /* Start a new statement group chained to the previous group.  */
 extern void start_stmt_group (void);
@@ -111,11 +113,6 @@ extern void elaborate_entity (Entity_Id gnat_entity);
 /* Get the unpadded version of a GNAT type.  */
 extern tree get_unpadded_type (Entity_Id gnat_entity);
 
-/* Return the DECL associated with the public subprogram GNAT_ENTITY but whose
-   type has been changed to that of the parameterless procedure, except if an
-   alias is already present, in which case it is returned instead.  */
-extern tree get_minimal_subprog_decl (Entity_Id gnat_entity);
-
 /* Return whether the E_Subprogram_Type/E_Function/E_Procedure GNAT_ENTITY is
    a C++ imported method or equivalent.  */
 extern bool is_cplusplus_method (Entity_Id gnat_entity);
@@ -148,7 +145,8 @@ extern tree make_type_from_size (tree type, tree size_tree, bool for_biased);
    IS_COMPONENT_TYPE is true if this is being done for the component type of
    an array.  IS_USER_TYPE is true if the original type needs to be completed.
    DEFINITION is true if this type is being defined.  SET_RM_SIZE is true if
-   the RM size of the resulting type is to be set to SIZE too.  */
+   the RM size of the resulting type is to be set to SIZE too; in this case,
+   the padded type is canonicalized before being returned.  */
 extern tree maybe_pad_type (tree type, tree size, unsigned int align,
 			    Entity_Id gnat_entity, bool is_component_type,
 			    bool is_user_type, bool definition,
@@ -246,7 +244,7 @@ extern "C" {
    structures and then generates code.  */
 extern void gigi (Node_Id gnat_root,
 	          int max_gnat_node,
-                  int number_name ATTRIBUTE_UNUSED,
+                  int number_name,
 		  struct Node *nodes_ptr,
 		  struct Flags *Flags_Ptr,
 		  Node_Id *next_node_ptr,
@@ -270,17 +268,19 @@ extern void gigi (Node_Id gnat_root,
 #endif
 
 /* GNAT_NODE is the root of some GNAT tree.  Return the root of the
-   GCC tree corresponding to that GNAT tree.  Normally, no code is generated;
-   we just return an equivalent tree which is used elsewhere to generate
-   code.  */
+   GCC tree corresponding to that GNAT tree.  */
 extern tree gnat_to_gnu (Node_Id gnat_node);
+
+/* Similar to gnat_to_gnu, but discard any object that might be created in
+   the course of the translation of GNAT_NODE, which must be an "external"
+   expression in the sense that it will be elaborated elsewhere.  */
+extern tree gnat_to_gnu_external (Node_Id gnat_node);
 
 /* GNU_STMT is a statement.  We generate code for that statement.  */
 extern void gnat_expand_stmt (tree gnu_stmt);
 
 /* Generate GIMPLE in place for the expression at *EXPR_P.  */
-extern int gnat_gimplify_expr (tree *expr_p, gimple_seq *pre_p,
-                               gimple_seq *post_p ATTRIBUTE_UNUSED);
+extern int gnat_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *);
 
 /* Do the processing for the declaration of a GNAT_ENTITY, a type.  If
    a separate Freeze node exists, delay the bulk of the processing.  Otherwise
@@ -342,7 +342,7 @@ extern bool fp_arith_may_widen;
 
 /* Data structures used to represent attributes.  */
 
-enum attr_type
+enum attrib_type
 {
   ATTR_MACHINE_ATTRIBUTE,
   ATTR_LINK_ALIAS,
@@ -356,7 +356,7 @@ enum attr_type
 struct attrib
 {
   struct attrib *next;
-  enum attr_type type;
+  enum attrib_type type;
   tree name;
   tree args;
   Node_Id error_point;
@@ -408,17 +408,18 @@ enum standard_datatypes
   /* Identifier for the name of the Exception_Data type.  */
   ADT_exception_data_name_id,
 
-  /* Types and decls used by our temporary exception mechanism.  See
-     init_gigi_decls for details.  */
+  /* Types and decls used by the SJLJ exception mechanism.  */
   ADT_jmpbuf_type,
   ADT_jmpbuf_ptr_type,
   ADT_get_jmpbuf_decl,
   ADT_set_jmpbuf_decl,
   ADT_get_excptr_decl,
+  ADT_not_handled_by_others_decl,
   ADT_setjmp_decl,
-  ADT_longjmp_decl,
   ADT_update_setjmp_buf_decl,
   ADT_raise_nodefer_decl,
+
+  /* Types and decls used by the ZCX exception mechanism.  */
   ADT_reraise_zcx_decl,
   ADT_set_exception_parameter_decl,
   ADT_begin_handler_decl,
@@ -427,6 +428,7 @@ enum standard_datatypes
   ADT_others_decl,
   ADT_all_others_decl,
   ADT_unhandled_others_decl,
+
   ADT_LAST};
 
 /* Define kind of exception information associated with raise statements.  */
@@ -475,13 +477,14 @@ extern GTY(()) tree gnat_raise_decls_ext[(int) LAST_REASON_CODE + 1];
 #define get_jmpbuf_decl gnat_std_decls[(int) ADT_get_jmpbuf_decl]
 #define set_jmpbuf_decl gnat_std_decls[(int) ADT_set_jmpbuf_decl]
 #define get_excptr_decl gnat_std_decls[(int) ADT_get_excptr_decl]
+#define not_handled_by_others_decl \
+	  gnat_std_decls[(int) ADT_not_handled_by_others_decl]
 #define setjmp_decl gnat_std_decls[(int) ADT_setjmp_decl]
-#define longjmp_decl gnat_std_decls[(int) ADT_longjmp_decl]
 #define update_setjmp_buf_decl gnat_std_decls[(int) ADT_update_setjmp_buf_decl]
 #define raise_nodefer_decl gnat_std_decls[(int) ADT_raise_nodefer_decl]
 #define reraise_zcx_decl gnat_std_decls[(int) ADT_reraise_zcx_decl]
 #define set_exception_parameter_decl \
-          gnat_std_decls[(int) ADT_set_exception_parameter_decl]
+	  gnat_std_decls[(int) ADT_set_exception_parameter_decl]
 #define begin_handler_decl gnat_std_decls[(int) ADT_begin_handler_decl]
 #define others_decl gnat_std_decls[(int) ADT_others_decl]
 #define all_others_decl gnat_std_decls[(int) ADT_all_others_decl]
@@ -535,11 +538,9 @@ extern tree gnat_type_for_mode (machine_mode mode, int unsignedp);
 /* Perform final processing on global declarations.  */
 extern void gnat_write_global_declarations (void);
 
-/* Return the unsigned version of a TYPE_NODE, a scalar type.  */
-extern tree gnat_unsigned_type (tree type_node);
-
-/* Return the signed version of a TYPE_NODE, a scalar type.  */
-extern tree gnat_signed_type (tree type_node);
+/* Return the signed or unsigned version of TYPE_NODE, a scalar type, the
+   signedness being specified by UNSIGNEDP.  */
+extern tree gnat_signed_or_unsigned_type_for (int unsignedp, tree type_node);
 
 /* Return 1 if the types T1 and T2 are compatible, i.e. if they can be
    transparently converted to each other.  */
@@ -603,6 +604,9 @@ extern void build_dummy_unc_pointer_types (Entity_Id gnat_desig_type,
 extern void record_builtin_type (const char *name, tree type,
 				 bool artificial_p);
 
+/* Finish constructing the character type CHAR_TYPE.  */
+extern void finish_character_type (tree char_type);
+
 /* Given a record type RECORD_TYPE and a list of FIELD_DECL nodes FIELD_LIST,
    finish constructing the record type as a fat pointer type.  */
 extern void finish_fat_pointer_type (tree record_type, tree field_list);
@@ -614,32 +618,17 @@ extern void finish_fat_pointer_type (tree record_type, tree field_list);
    laid out already; only set the sizes and alignment.  If REP_LEVEL is two,
    this record is derived from a parent record and thus inherits its layout;
    only make a pass on the fields to finalize them.  DEBUG_INFO_P is true if
-   we need to write debug information about this type.  */
+   additional debug info needs to be output for this type.  */
 extern void finish_record_type (tree record_type, tree field_list,
 				int rep_level, bool debug_info_p);
 
-/* Wrap up compilation of RECORD_TYPE, i.e. output all the debug information
-   associated with it.  It need not be invoked directly in most cases since
-   finish_record_type takes care of doing so, but this can be necessary if
-   a parallel type is to be attached to the record type.  */
+/* Wrap up compilation of RECORD_TYPE, i.e. output additional debug info
+   associated with it.  It need not be invoked directly in most cases as
+   finish_record_type takes care of doing so.  */
 extern void rest_of_record_type_compilation (tree record_type);
 
 /* Append PARALLEL_TYPE on the chain of parallel types for TYPE.  */
 extern void add_parallel_type (tree type, tree parallel_type);
-
-/* Return a FUNCTION_TYPE node.  RETURN_TYPE is the type returned by the
-   subprogram.  If it is VOID_TYPE, then we are dealing with a procedure,
-   otherwise we are dealing with a function.  PARAM_DECL_LIST is a list of
-   PARM_DECL nodes that are the subprogram parameters.  CICO_LIST is the
-   copy-in/copy-out list to be stored into the TYPE_CICO_LIST field.
-   RETURN_UNCONSTRAINED_P is true if the function returns an unconstrained
-   object.  RETURN_BY_DIRECT_REF_P is true if the function returns by direct
-   reference.  RETURN_BY_INVISI_REF_P is true if the function returns by
-   invisible reference.  */
-extern tree create_subprog_type (tree return_type, tree param_decl_list,
-				 tree cico_list, bool return_unconstrained_p,
-				 bool return_by_direct_ref_p,
-				 bool return_by_invisi_ref_p);
 
 /* Return a copy of TYPE, but safe to modify in any way.  */
 extern tree copy_type (tree type);
@@ -675,24 +664,29 @@ extern tree create_type_decl (tree name, tree type, bool artificial_p,
    CONST_FLAG is true if this variable is constant, in which case we might
    return a CONST_DECL node unless CONST_DECL_ALLOWED_P is false.
 
-   PUBLIC_FLAG is true if this definition is to be made visible outside of
-   the current compilation unit. This flag should be set when processing the
-   variable definitions in a package specification.
+   PUBLIC_FLAG is true if this is for a reference to a public entity or for a
+   definition to be made visible outside of the current compilation unit, for
+   instance variable definitions in a package specification.
 
-   EXTERN_FLAG is nonzero when processing an external variable declaration (as
+   EXTERN_FLAG is true when processing an external variable declaration (as
    opposed to a definition: no storage is to be allocated for the variable).
 
-   STATIC_FLAG is only relevant when not at top level.  In that case
-   it indicates whether to always allocate storage to the variable.
+   STATIC_FLAG is only relevant when not at top level and indicates whether
+   to always allocate storage to the variable.
+
+   VOLATILE_FLAG is true if this variable is declared as volatile.
 
    ARTIFICIAL_P is true if the variable was generated by the compiler.
 
    DEBUG_INFO_P is true if we need to write debug information for it.
 
+   ATTR_LIST is the list of attributes to be attached to the variable.
+
    GNAT_NODE is used for the position of the decl.  */
 extern tree create_var_decl (tree name, tree asm_name, tree type, tree init,
 			     bool const_flag, bool public_flag,
 			     bool extern_flag, bool static_flag,
+			     bool volatile_flag,
 			     bool artificial_p, bool debug_info_p,
 			     struct attrib *attr_list, Node_Id gnat_node,
 			     bool const_decl_allowed_p = true);
@@ -708,10 +702,8 @@ extern tree create_field_decl (tree name, tree type, tree record_type,
 			       tree size, tree pos, int packed,
 			       int addressable);
 
-/* Return a PARM_DECL node.  NAME is the name of the parameter and TYPE is
-   its type.  READONLY is true if the parameter is readonly (either an In
-   parameter or an address of a pass-by-ref parameter).  */
-extern tree create_param_decl (tree name, tree type, bool readonly);
+/* Return a PARM_DECL node with NAME and TYPE.  */
+extern tree create_param_decl (tree name, tree type);
 
 /* Return a LABEL_DECL with NAME.  GNAT_NODE is used for the position of
    the decl.  */
@@ -722,12 +714,18 @@ extern tree create_label_decl (tree name, Node_Id gnat_node);
    the list of its parameters (a list of PARM_DECL nodes chained through the
    DECL_CHAIN field).
 
-   INLINE_STATUS, PUBLIC_FLAG, EXTERN_FLAG and ATTR_LIST are used to set the
-   appropriate fields in the FUNCTION_DECL.
+   INLINE_STATUS describes the inline flags to be set on the FUNCTION_DECL.
+
+   PUBLIC_FLAG is true if this is for a reference to a public entity or for a
+   definition to be made visible outside of the current compilation unit.
+
+   EXTERN_FLAG is true when processing an external subprogram declaration.
 
    ARTIFICIAL_P is true if the subprogram was generated by the compiler.
 
    DEBUG_INFO_P is true if we need to write debug information for it.
+
+   ATTR_LIST is the list of attributes to be attached to the subprogram.
 
    GNAT_NODE is used for the position of the decl.  */
 extern tree create_subprog_decl (tree name, tree asm_name, tree type,
@@ -736,6 +734,10 @@ extern tree create_subprog_decl (tree name, tree asm_name, tree type,
 				 bool public_flag, bool extern_flag,
 				 bool artificial_p, bool debug_info_p,
 				 struct attrib *attr_list, Node_Id gnat_node);
+
+/* Given a subprogram declaration DECL and its TYPE, finish constructing the
+   subprogram declaration from TYPE.  */
+extern void finish_subprog_decl (tree decl, tree type);
 
 /* Process the attributes in ATTR_LIST for NODE, which is either a DECL or
    a TYPE.  If IN_PLACE is true, the tree pointed to by NODE should not be
@@ -885,27 +887,21 @@ extern tree build_call_raise (int msg, Node_Id gnat_node, char kind);
 
 /* Similar to build_call_raise, with extra information about the column
    where the check failed.  */
-extern tree build_call_raise_column (int msg, Node_Id gnat_node);
+extern tree build_call_raise_column (int msg, Node_Id gnat_node, char kind);
 
 /* Similar to build_call_raise_column, for an index or range check exception ,
    with extra information of the form "INDEX out of range FIRST..LAST".  */
-extern tree build_call_raise_range (int msg, Node_Id gnat_node,
+extern tree build_call_raise_range (int msg, Node_Id gnat_node, char kind,
 				    tree index, tree first, tree last);
 
 /* Return a CONSTRUCTOR of TYPE whose elements are V.  This is not the
    same as build_constructor in the language-independent tree.c.  */
 extern tree gnat_build_constructor (tree type, vec<constructor_elt, va_gc> *v);
 
-/* Return a COMPONENT_REF to access a field that is given by COMPONENT,
-   an IDENTIFIER_NODE giving the name of the field, FIELD, a FIELD_DECL,
-   for the field, or both.  Don't fold the result if NO_FOLD_P.  */
-extern tree build_simple_component_ref (tree record_variable, tree component,
-					tree field, bool no_fold_p);
-
-/* Likewise, but generate a Constraint_Error if the reference could not be
-   found.  */
-extern tree build_component_ref (tree record_variable, tree component,
-                                 tree field, bool no_fold_p);
+/* Return a COMPONENT_REF to access FIELD in RECORD, or NULL_EXPR and generate
+   a Constraint_Error if the field is not found in the record.  Don't fold the
+   result if NO_FOLD is true.  */
+extern tree build_component_ref (tree record, tree field, bool no_fold);
 
 /* Build a GCC tree to call an allocation or deallocation function.
    If GNU_OBJ is nonzero, it is an object to deallocate.  Otherwise,
@@ -964,6 +960,12 @@ extern tree gnat_rewrite_reference (tree ref, rewrite_fn func, void *data,
    ultimate containing object only if the reference (lvalue) is constant,
    i.e. if it doesn't depend on the context in which it is evaluated.  */
 extern tree get_inner_constant_reference (tree exp);
+
+/* Return true if EXPR is the addition or the subtraction of a constant and,
+   if so, set *ADD to the addend, *CST to the constant and *MINUS_P to true
+   if this is a subtraction.  */
+extern bool is_simple_additive_expression (tree expr, tree *add, tree *cst,
+					   bool *minus_p);
 
 /* If EXPR is an expression that is invariant in the current function, in the
    sense that it can be evaluated anywhere in the function and any number of
@@ -1106,4 +1108,58 @@ return_type_with_variable_size_p (tree type)
     return true;
 
   return false;
+}
+
+/* Return the unsigned version of TYPE_NODE, a scalar type.  */
+
+static inline tree
+gnat_unsigned_type_for (tree type_node)
+{
+  return gnat_signed_or_unsigned_type_for (1, type_node);
+}
+
+/* Return the signed version of TYPE_NODE, a scalar type.  */
+
+static inline tree
+gnat_signed_type_for (tree type_node)
+{
+  return gnat_signed_or_unsigned_type_for (0, type_node);
+}
+
+/* Adjust the character type TYPE if need be.  */
+
+static inline tree
+maybe_character_type (tree type)
+{
+  if (TYPE_STRING_FLAG (type) && !TYPE_UNSIGNED (type))
+    type = gnat_unsigned_type_for (type);
+
+  return type;
+}
+
+/* Adjust the character value EXPR if need be.  */
+
+static inline tree
+maybe_character_value (tree expr)
+{
+  tree type = TREE_TYPE (expr);
+
+  if (TYPE_STRING_FLAG (type) && !TYPE_UNSIGNED (type))
+    {
+      type = gnat_unsigned_type_for (type);
+      expr = convert (type, expr);
+    }
+
+  return expr;
+}
+
+/* Return the debug type of TYPE if it exists, otherwise TYPE itself.  */
+
+static inline tree
+maybe_debug_type (tree type)
+{
+  if (TYPE_CAN_HAVE_DEBUG_TYPE_P (type) && TYPE_DEBUG_TYPE (type))
+    type = TYPE_DEBUG_TYPE (type);
+
+  return type;
 }

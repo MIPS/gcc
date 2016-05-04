@@ -1,4 +1,4 @@
-// Copyright (C) 2011-2015 Free Software Foundation, Inc.
+// Copyright (C) 2011-2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -51,7 +51,7 @@ namespace __gnu_test
       typedef _Tp1 first_type;
       typedef _Tp2 second_type;
       typedef std::pair<_Tp1, _Tp2> pair_type;
-      
+
       pair_type build()
       {
 	static first_type _S_1;

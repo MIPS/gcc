@@ -1,5 +1,5 @@
 /* AddressSanitizer, a fast memory error detector.
-   Copyright (C) 2012-2015 Free Software Foundation, Inc.
+   Copyright (C) 2012-2016 Free Software Foundation, Inc.
    Contributed by Kostya Serebryany <kcc@google.com>
 
 This file is part of GCC.
@@ -897,6 +897,16 @@ has_stmt_been_instrumented_p (gimple *stmt)
 	  return true;
 	}
     }
+  else if (is_gimple_call (stmt) && gimple_store_p (stmt))
+    {
+      asan_mem_ref r;
+      asan_mem_ref_init (&r, NULL, 1);
+
+      r.start = gimple_call_lhs (stmt);
+      r.access_size = int_size_in_bytes (TREE_TYPE (r.start));
+      return has_mem_ref_been_instrumented (&r);
+    }
+
   return false;
 }
 
@@ -1756,6 +1766,8 @@ instrument_derefs (gimple_stmt_iterator *iter, tree t,
 
   tree type, base;
   HOST_WIDE_INT size_in_bytes;
+  if (location == UNKNOWN_LOCATION)
+    location = EXPR_LOCATION (t);
 
   type = TREE_TYPE (t);
   switch (TREE_CODE (t))
@@ -2038,7 +2050,39 @@ maybe_instrument_call (gimple_stmt_iterator *iter)
       gimple_set_location (g, gimple_location (stmt));
       gsi_insert_before (iter, g, GSI_SAME_STMT);
     }
-  return false;
+
+  bool instrumented = false;
+  if (gimple_store_p (stmt))
+    {
+      tree ref_expr = gimple_call_lhs (stmt);
+      instrument_derefs (iter, ref_expr,
+			 gimple_location (stmt),
+			 /*is_store=*/true);
+
+      instrumented = true;
+    }
+
+  /* Walk through gimple_call arguments and check them id needed.  */
+  unsigned args_num = gimple_call_num_args (stmt);
+  for (unsigned i = 0; i < args_num; ++i)
+    {
+      tree arg = gimple_call_arg (stmt, i);
+      /* If ARG is not a non-aggregate register variable, compiler in general
+	 creates temporary for it and pass it as argument to gimple call.
+	 But in some cases, e.g. when we pass by value a small structure that
+	 fits to register, compiler can avoid extra overhead by pulling out
+	 these temporaries.  In this case, we should check the argument.  */
+      if (!is_gimple_reg (arg) && !is_gimple_min_invariant (arg))
+	{
+	  instrument_derefs (iter, arg,
+			     gimple_location (stmt),
+			     /*is_store=*/false);
+	  instrumented = true;
+	}
+    }
+  if (instrumented)
+    gsi_next (iter);
+  return instrumented;
 }
 
 /* Walk each instruction of all basic block and instrument those that
@@ -2370,6 +2414,8 @@ initialize_sanitizer_builtins (void)
   /* ECF_COLD missing */ ATTR_CONST_NORETURN_NOTHROW_LEAF_LIST
 #undef ATTR_PURE_NOTHROW_LEAF_LIST
 #define ATTR_PURE_NOTHROW_LEAF_LIST ECF_PURE | ATTR_NOTHROW_LEAF_LIST
+#undef DEF_BUILTIN_STUB
+#define DEF_BUILTIN_STUB(ENUM, NAME)
 #undef DEF_SANITIZER_BUILTIN
 #define DEF_SANITIZER_BUILTIN(ENUM, NAME, TYPE, ATTRS) \
   decl = add_builtin_function ("__builtin_" NAME, TYPE, ENUM,		\
@@ -2389,6 +2435,7 @@ initialize_sanitizer_builtins (void)
 			   ATTR_PURE_NOTHROW_LEAF_LIST)
 
 #undef DEF_SANITIZER_BUILTIN
+#undef DEF_BUILTIN_STUB
 }
 
 /* Called via htab_traverse.  Count number of emitted
@@ -2533,9 +2580,11 @@ asan_expand_check_ifn (gimple_stmt_iterator *iter, bool use_calls)
 {
   gimple *g = gsi_stmt (*iter);
   location_t loc = gimple_location (g);
-
-  bool recover_p
-    = (flag_sanitize & flag_sanitize_recover & SANITIZE_KERNEL_ADDRESS) != 0;
+  bool recover_p;
+  if (flag_sanitize & SANITIZE_USER_ADDRESS)
+    recover_p = (flag_sanitize_recover & SANITIZE_USER_ADDRESS) != 0;
+  else
+    recover_p = (flag_sanitize_recover & SANITIZE_KERNEL_ADDRESS) != 0;
 
   HOST_WIDE_INT flags = tree_to_shwi (gimple_call_arg (g, 0));
   gcc_assert (flags < ASAN_CHECK_LAST);

@@ -1,5 +1,5 @@
 /* Core data structures for the 'tree' type.
-   Copyright (C) 1989-2015 Free Software Foundation, Inc.
+   Copyright (C) 1989-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -184,6 +184,35 @@ enum built_in_function {
   END_BUILTINS
 };
 
+/* Internal functions.  */
+enum internal_fn {
+#define DEF_INTERNAL_FN(CODE, FLAGS, FNSPEC) IFN_##CODE,
+#include "internal-fn.def"
+  IFN_LAST
+};
+
+/* An enum that combines target-independent built-in functions with
+   internal functions, so that they can be treated in a similar way.
+   The numbers for built-in functions are the same as for the
+   built_in_function enum.  The numbers for internal functions
+   start at END_BUITLINS.  */
+enum combined_fn {
+#define DEF_BUILTIN(ENUM, N, C, T, LT, B, F, NA, AT, IM, COND) \
+  CFN_##ENUM = int (ENUM),
+#include "builtins.def"
+
+#define DEF_BUILTIN(ENUM, N, C, T, LT, B, F, NA, AT, IM, COND)
+#define DEF_BUILTIN_CHKP(ENUM, N, C, T, LT, B, F, NA, AT, IM, COND) \
+  CFN_##ENUM##_CHKP = int (ENUM##_CHKP),
+#include "builtins.def"
+
+#define DEF_INTERNAL_FN(CODE, FLAGS, FNSPEC) \
+  CFN_##CODE = int (END_BUILTINS) + int (IFN_##CODE),
+#include "internal-fn.def"
+
+  CFN_LAST
+};
+
 /* Tree code classes.  Each tree_code has an associated code class
    represented by a TREE_CODE_CLASS.  */
 enum tree_code_class {
@@ -273,7 +302,8 @@ enum omp_clause_code {
      OpenMP clause: map ({alloc:,to:,from:,tofrom:,}variable-list).  */
   OMP_CLAUSE_MAP,
 
-  /* OpenMP clause: use_device_ptr (variable-list).  */
+  /* OpenACC clause: use_device (variable_list).
+     OpenMP clause: use_device_ptr (variable-list).  */
   OMP_CLAUSE_USE_DEVICE_PTR,
 
   /* OpenMP clause: is_device_ptr (variable-list).  */
@@ -285,9 +315,6 @@ enum omp_clause_code {
 
   /* OpenACC clause: device_resident (variable_list).  */
   OMP_CLAUSE_DEVICE_RESIDENT,
-
-  /* OpenACC clause: use_device (variable_list).  */
-  OMP_CLAUSE_USE_DEVICE,
 
   /* OpenACC clause: gang [(gang-argument-list)].
      Where
@@ -431,7 +458,11 @@ enum omp_clause_code {
   OMP_CLAUSE_VECTOR_LENGTH,
 
   /* OpenACC clause: tile ( size-expr-list ).  */
-  OMP_CLAUSE_TILE
+  OMP_CLAUSE_TILE,
+
+  /* OpenMP internal-only clause to specify grid dimensions of a gridified
+     kernel.  */
+  OMP_CLAUSE__GRIDDIM_
 };
 
 #undef DEFTREESTRUCT
@@ -734,7 +765,9 @@ enum operand_equal_flag {
   OEP_ONLY_CONST = 1,
   OEP_PURE_SAME = 2,
   OEP_MATCH_SIDE_EFFECTS = 4,
-  OEP_ADDRESS_OF = 8
+  OEP_ADDRESS_OF = 8,
+  /* Internal within operand_equal_p:  */
+  OEP_NO_HASH_CHECK = 16
 };
 
 /* Enum and arrays used for tree allocation stats.
@@ -764,13 +797,6 @@ enum annot_expr_kind {
   annot_expr_no_vector_kind,
   annot_expr_vector_kind,
   annot_expr_kind_last
-};
-
-/* Internal functions.  */
-enum internal_fn {
-#define DEF_INTERNAL_FN(CODE, FLAGS, FNSPEC) IFN_##CODE,
-#include "internal-fn.def"
-  IFN_LAST
 };
 
 /*---------------------------------------------------------------------------
@@ -1355,6 +1381,9 @@ struct GTY(()) tree_omp_clause {
     enum tree_code                 reduction_code;
     enum omp_clause_linear_kind    linear_kind;
     enum tree_code                 if_modifier;
+    /* The dimension a OMP_CLAUSE__GRIDDIM_ clause of a gridified target
+       construct describes.  */
+    unsigned int		   dimension;
   } GTY ((skip)) subcode;
 
   /* The gimplification of OMP_CLAUSE_REDUCTION_{INIT,MERGE} for omp-low's
@@ -1414,7 +1443,13 @@ struct GTY(()) tree_type_common {
   unsigned lang_flag_5 : 1;
   unsigned lang_flag_6 : 1;
 
-  unsigned int align;
+  /* TYPE_ALIGN in log2; this has to be large enough to hold values
+     of the maximum of BIGGEST_ALIGNMENT and MAX_OFILE_ALIGNMENT,
+     the latter being usually the larger.  For ELF it is 8<<28,
+     so we need to store the value 32 (not 31, as we need the zero
+     as well), hence six bits.  */
+  unsigned align : 6;
+  unsigned spare : 26;
   alias_set_type alias_set;
   tree pointer_to;
   tree reference_to;
@@ -1515,12 +1550,12 @@ struct GTY(()) tree_decl_common {
   unsigned decl_nonshareable_flag : 1;
 
   /* DECL_OFFSET_ALIGN, used only for FIELD_DECLs.  */
-  unsigned int off_align : 8;
-
-  /* 24 bits unused.  */
+  unsigned int off_align : 6;
 
   /* DECL_ALIGN.  It should have the same size as TYPE_ALIGN.  */
-  unsigned int align;
+  unsigned int align : 6;
+
+  /* 20 bits unused.  */
 
   /* UID for points-to sets, stable over copying from inlining.  */
   unsigned int pt_uid;

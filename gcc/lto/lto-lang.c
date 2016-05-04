@@ -1,5 +1,5 @@
 /* Language-dependent hooks for LTO.
-   Copyright (C) 2009-2015 Free Software Foundation, Inc.
+   Copyright (C) 2009-2016 Free Software Foundation, Inc.
    Contributed by CodeSourcery, Inc.
 
 This file is part of GCC.
@@ -819,6 +819,35 @@ lto_post_options (const char **pfilename ATTRIBUTE_UNUSED)
   if (flag_wpa)
     flag_generate_lto = 1;
 
+  /* Initialize the codegen flags according to the output type.  */
+  switch (flag_lto_linker_output)
+    {
+    case LTO_LINKER_OUTPUT_REL: /* .o: incremental link producing LTO IL  */
+      flag_whole_program = 0;
+      flag_incremental_link = 1;
+      break;
+
+    case LTO_LINKER_OUTPUT_DYN: /* .so: PID library */
+      /* On some targets, like i386 it makes sense to build PIC library wihout
+	 -fpic for performance reasons.  So no need to adjust flags.  */
+      break;
+
+    case LTO_LINKER_OUTPUT_PIE: /* PIE binary */
+      /* If -fPIC or -fPIE was used at compile time, be sure that
+         flag_pie is 2.  */
+      flag_pie = MAX (flag_pie, flag_pic);
+      flag_pic = flag_pie;
+      break;
+
+    case LTO_LINKER_OUTPUT_EXEC: /* Normal executable */
+      flag_pic = 0;
+      flag_pie = 0;
+      break;
+
+    case LTO_LINKER_OUTPUT_UNKNOWN:
+      break;
+    }
+
   /* Excess precision other than "fast" requires front-end
      support.  */
   flag_excess_precision_cmdline = EXCESS_PRECISION_FAST;
@@ -1217,7 +1246,7 @@ lto_init (void)
   flag_generate_lto = (flag_wpa != NULL);
 
   /* Create the basic integer types.  */
-  build_common_tree_nodes (flag_signed_char, flag_short_double);
+  build_common_tree_nodes (flag_signed_char);
 
   /* The global tree for the main identifier is filled in by
      language-specific front-end initialization that is not run in the

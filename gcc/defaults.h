@@ -1,5 +1,5 @@
 /* Definitions of various defaults for tm.h macros.
-   Copyright (C) 1992-2015 Free Software Foundation, Inc.
+   Copyright (C) 1992-2016 Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com)
 
 This file is part of GCC.
@@ -914,10 +914,14 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define DEFAULT_GDB_EXTENSIONS 1
 #endif
 
+#ifndef SDB_DEBUGGING_INFO
+#define SDB_DEBUGGING_INFO 0
+#endif
+
 /* If more than one debugging type is supported, you must define
    PREFERRED_DEBUGGING_TYPE to choose the default.  */
 
-#if 1 < (defined (DBX_DEBUGGING_INFO) + defined (SDB_DEBUGGING_INFO) \
+#if 1 < (defined (DBX_DEBUGGING_INFO) + (SDB_DEBUGGING_INFO) \
          + defined (DWARF2_DEBUGGING_INFO) + defined (XCOFF_DEBUGGING_INFO) \
          + defined (VMS_DEBUGGING_INFO))
 #ifndef PREFERRED_DEBUGGING_TYPE
@@ -929,7 +933,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #elif defined DBX_DEBUGGING_INFO
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
-#elif defined SDB_DEBUGGING_INFO
+#elif SDB_DEBUGGING_INFO
 #define PREFERRED_DEBUGGING_TYPE SDB_DEBUG
 
 #elif defined DWARF2_DEBUGGING_INFO || defined DWARF2_LINENO_DEBUGGING_INFO
@@ -1297,6 +1301,14 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define REVERSE_CONDITION(code, mode) reverse_condition (code)
 #endif
 
+#ifndef TARGET_PECOFF
+#define TARGET_PECOFF 0
+#endif
+
+#ifndef EH_RETURN_HANDLER_RTX
+#define EH_RETURN_HANDLER_RTX NULL
+#endif
+
 #ifdef GCC_INSN_FLAGS_H
 /* Dependent default target macro definitions
 
@@ -1475,5 +1487,9 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #endif
 
 #endif /* GCC_INSN_FLAGS_H  */
+
+#ifndef DWARF_GNAT_ENCODINGS_DEFAULT
+#define DWARF_GNAT_ENCODINGS_DEFAULT DWARF_GNAT_ENCODINGS_GDB
+#endif
 
 #endif  /* ! GCC_DEFAULTS_H */

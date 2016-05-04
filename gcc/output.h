@@ -1,6 +1,6 @@
 /* Declarations for insn-output.c and other code to write to asm_out_file.
    These functions are defined in final.c, and varasm.c.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -309,9 +309,7 @@ extern rtx_sequence *final_sequence;
 /* The line number of the beginning of the current function.  Various
    md code needs this so that it can output relative linenumbers.  */
 
-#ifdef SDB_DEBUGGING_INFO /* Avoid undef sym in certain broken linkers.  */
 extern int sdb_begin_function_line;
-#endif
 
 /* File in which assembler code is being written.  */
 

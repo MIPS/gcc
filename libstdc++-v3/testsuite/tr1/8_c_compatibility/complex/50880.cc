@@ -1,4 +1,4 @@
-// Copyright (C) 2011-2015 Free Software Foundation, Inc.
+// Copyright (C) 2011-2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -16,7 +16,7 @@
 // <http://www.gnu.org/licenses/>.
 
 #include <tr1/complex>
-#include <testsuite_hooks.h> 
+#include <testsuite_hooks.h>
 
 template<typename T>
   void test01_do()

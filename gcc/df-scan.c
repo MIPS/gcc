@@ -1,5 +1,5 @@
 /* Scanning of rtl for dataflow analysis.
-   Copyright (C) 1999-2015 Free Software Foundation, Inc.
+   Copyright (C) 1999-2016 Free Software Foundation, Inc.
    Originally contributed by Michael P. Hayes
              (m.hayes@elec.canterbury.ac.nz, mhayes@redhat.com)
    Major rewrite contributed by Danny Berlin (dberlin@dberlin.org)
@@ -396,7 +396,7 @@ df_scan_start_block (basic_block bb, FILE *file)
 #endif
 }
 
-static struct df_problem problem_SCAN =
+static const struct df_problem problem_SCAN =
 {
   DF_SCAN,                    /* Problem id.  */
   DF_NONE,                    /* Direction.  */
@@ -3223,11 +3223,22 @@ df_insn_refs_collect (struct df_collection_rec *collection_rec,
         }
     }
 
+  int flags = (is_cond_exec) ? DF_REF_CONDITIONAL : 0;
   /* For CALL_INSNs, first record DF_REF_BASE register defs, as well as
      uses from CALL_INSN_FUNCTION_USAGE. */
   if (CALL_P (insn_info->insn))
-    df_get_call_refs (collection_rec, bb, insn_info,
-		      (is_cond_exec) ? DF_REF_CONDITIONAL : 0);
+    df_get_call_refs (collection_rec, bb, insn_info, flags);
+
+  if (asm_noperands (PATTERN (insn_info->insn)) >= 0)
+    for (unsigned i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+      if (global_regs[i])
+       {
+         /* As with calls, asm statements reference all global regs. */
+         df_ref_record (DF_REF_BASE, collection_rec, regno_reg_rtx[i],
+                        NULL, bb, insn_info, DF_REF_REG_USE, flags);
+         df_ref_record (DF_REF_BASE, collection_rec, regno_reg_rtx[i],
+                        NULL, bb, insn_info, DF_REF_REG_DEF, flags);
+       }
 
   /* Record other defs.  These should be mostly for DF_REF_REGULAR, so
      that a qsort on the defs is unnecessary in most cases.  */
@@ -3714,7 +3725,6 @@ df_get_exit_block_use_set (bitmap exit_block_uses)
     }
 #endif
 
-#ifdef EH_RETURN_HANDLER_RTX
   if ((!targetm.have_epilogue () || ! epilogue_completed)
       && crtl->calls_eh_return)
     {
@@ -3722,7 +3732,6 @@ df_get_exit_block_use_set (bitmap exit_block_uses)
       if (tmp && REG_P (tmp))
 	df_mark_reg (tmp, exit_block_uses);
     }
-#endif
 
   /* Mark function return value.  */
   diddle_return_value (df_mark_reg, (void*) exit_block_uses);

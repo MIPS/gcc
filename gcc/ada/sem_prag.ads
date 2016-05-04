@@ -181,8 +181,12 @@ package Sem_Prag is
    procedure Analyze_Pragma (N : Node_Id);
    --  Analyze procedure for pragma reference node N
 
-   procedure Analyze_Contract_Cases_In_Decl_Part (N : Node_Id);
-   --  Perform full analysis of delayed pragma Contract_Cases
+   procedure Analyze_Contract_Cases_In_Decl_Part
+     (N         : Node_Id;
+      Freeze_Id : Entity_Id := Empty);
+   --  Perform full analysis of delayed pragma Contract_Cases. Freeze_Id is the
+   --  entity of [generic] package body or [generic] subprogram body which
+   --  caused "freezing" of the related contract where the pragma resides.
 
    procedure Analyze_Depends_In_Decl_Part (N : Node_Id);
    --  Perform full analysis of delayed pragma Depends. This routine is also
@@ -205,11 +209,20 @@ package Sem_Prag is
    procedure Analyze_Initializes_In_Decl_Part (N : Node_Id);
    --  Perform full analysis of delayed pragma Initializes
 
-   procedure Analyze_Part_Of_In_Decl_Part (N : Node_Id);
-   --  Perform full analysis of delayed pragma Part_Of
+   procedure Analyze_Part_Of_In_Decl_Part
+     (N         : Node_Id;
+      Freeze_Id : Entity_Id := Empty);
+   --  Perform full analysis of delayed pragma Part_Of. Freeze_Id is the entity
+   --  of [generic] package body or [generic] subprogram body which caused the
+   --  "freezing" of the related contract where the pragma resides.
 
-   procedure Analyze_Pre_Post_Condition_In_Decl_Part (N : Node_Id);
-   --  Perform full analysis of pragmas Precondition and Postcondition
+   procedure Analyze_Pre_Post_Condition_In_Decl_Part
+     (N         : Node_Id;
+      Freeze_Id : Entity_Id := Empty);
+   --  Perform full analysis of pragmas Precondition and Postcondition.
+   --  Freeze_Id denotes the entity of [generic] package body or [generic]
+   --  subprogram body which caused "freezing" of the related contract where
+   --  the pragma resides.
 
    procedure Analyze_Refined_Depends_In_Decl_Part (N : Node_Id);
    --  Preform full analysis of delayed pragma Refined_Depends. This routine
@@ -230,6 +243,16 @@ package Sem_Prag is
 
    procedure Analyze_Test_Case_In_Decl_Part (N : Node_Id);
    --  Perform preanalysis of pragma Test_Case
+
+   function Build_Pragma_Check_Equivalent
+     (Prag     : Node_Id;
+      Subp_Id  : Entity_Id := Empty;
+      Inher_Id : Entity_Id := Empty) return Node_Id;
+   --  Transform a [refined] pre- or postcondition denoted by Prag into an
+   --  equivalent pragma Check. When the pre- or postcondition is inherited,
+   --  the routine replaces the references of all formals of Inher_Id and
+   --  primitive operations of its controlling type by references to the
+   --  corresponding entities of Subp_Id and the descendant type.
 
    procedure Check_Applicable_Policy (N : Node_Id);
    --  N is either an N_Aspect or an N_Pragma node. There are two cases. If
@@ -287,6 +310,13 @@ package Sem_Prag is
    --  Determine whether the placement within the state space of an abstract
    --  state, variable or package instantiation denoted by Item_Id requires the
    --  use of indicator/option Part_Of. If this is the case, emit an error.
+
+   procedure Collect_Inherited_Class_Wide_Conditions (Subp : Entity_Id);
+   --  In GNATprove mode, when analyzing an overriding subprogram, check
+   --  whether the overridden operations have class-wide pre/postconditions,
+   --  and generate the corresponding pragmas. The pragmas are inserted after
+   --  the subprogram declaration, together with those generated for other
+   --  aspects of the subprogram.
 
    procedure Collect_Subprogram_Inputs_Outputs
      (Subp_Id      : Entity_Id;
@@ -367,8 +397,9 @@ package Sem_Prag is
    --  Context denotes the entity of the function, package or procedure where
    --  Prag resides.
 
-   function Get_SPARK_Mode_From_Pragma (N : Node_Id) return SPARK_Mode_Type;
-   --  Given a pragma SPARK_Mode node, return corresponding mode id
+   function Get_SPARK_Mode_From_Annotation
+     (N : Node_Id) return SPARK_Mode_Type;
+   --  Given an aspect or pragma SPARK_Mode node, return corresponding mode id
 
    procedure Initialize;
    --  Initializes data structures used for pragma processing. Must be called

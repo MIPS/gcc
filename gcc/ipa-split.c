@@ -1,5 +1,5 @@
 /* Function splitting pass
-   Copyright (C) 2010-2015 Free Software Foundation, Inc.
+   Copyright (C) 2010-2016 Free Software Foundation, Inc.
    Contributed by Jan Hubicka  <jh@suse.cz>
 
 This file is part of GCC.
@@ -629,7 +629,18 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
        4) For non-SSA we need to look where the var is computed. */
   retval = find_retval (return_bb);
   if (!retval)
-    current->split_part_set_retval = true;
+    {
+      /* If there is a return_bb with no return value in function returning
+	 value by reference, also make the split part return void, otherwise
+	 we expansion would try to create a non-POD temporary, which is
+	 invalid.  */
+      if (return_bb != EXIT_BLOCK_PTR_FOR_FN (cfun)
+	  && DECL_RESULT (current_function_decl)
+	  && DECL_BY_REFERENCE (DECL_RESULT (current_function_decl)))
+	current->split_part_set_retval = false;
+      else
+	current->split_part_set_retval = true;
+    }
   else if (is_gimple_min_invariant (retval))
     current->split_part_set_retval = false;
   /* Special case is value returned by reference we record as if it was non-ssa
@@ -1205,12 +1216,10 @@ split_function (basic_block return_bb, struct split_point *split_point,
   edge e;
   edge_iterator ei;
   tree retval = NULL, real_retval = NULL, retbnd = NULL;
-  bool split_part_return_p = false;
   bool with_bounds = chkp_function_instrumented_p (current_function_decl);
   gimple *last_stmt = NULL;
   unsigned int i;
   tree arg, ddef;
-  vec<tree, va_gc> **debug_args = NULL;
 
   if (dump_file)
     {
@@ -1247,11 +1256,12 @@ split_function (basic_block return_bb, struct split_point *split_point,
       }
 
   /* See if the split function will return.  */
+  bool split_part_return_p = false;
   FOR_EACH_EDGE (e, ei, return_bb->preds)
-    if (bitmap_bit_p (split_point->split_bbs, e->src->index))
-      break;
-  if (e)
-    split_part_return_p = true;
+    {
+      if (bitmap_bit_p (split_point->split_bbs, e->src->index))
+	split_part_return_p = true;
+    }
 
   /* Add return block to what will become the split function.
      We do not return; no return block is needed.  */
@@ -1265,8 +1275,8 @@ split_function (basic_block return_bb, struct split_point *split_point,
      FIXME: Once we are able to change return type, we should change function
      to return void instead of just outputting function with undefined return
      value.  For structures this affects quality of codegen.  */
-  else if (!split_point->split_part_set_retval
-           && find_retval (return_bb))
+  else if ((retval = find_retval (return_bb))
+	   && !split_point->split_part_set_retval)
     {
       bool redirected = true;
       basic_block new_return_bb = create_basic_block (NULL, 0, return_bb);
@@ -1290,10 +1300,14 @@ split_function (basic_block return_bb, struct split_point *split_point,
       e->count = new_return_bb->count;
       add_bb_to_loop (new_return_bb, current_loops->tree_root);
       bitmap_set_bit (split_point->split_bbs, new_return_bb->index);
+      retbnd = find_retbnd (return_bb);
     }
   /* When we pass around the value, use existing return block.  */
   else
-    bitmap_set_bit (split_point->split_bbs, return_bb->index);
+    {
+      bitmap_set_bit (split_point->split_bbs, return_bb->index);
+      retbnd = find_retbnd (return_bb);
+    }
 
   /* If RETURN_BB has virtual operand PHIs, they must be removed and the
      virtual operand marked for renaming as we change the CFG in a way that
@@ -1344,8 +1358,9 @@ split_function (basic_block return_bb, struct split_point *split_point,
   /* Now create the actual clone.  */
   cgraph_edge::rebuild_edges ();
   node = cur_node->create_version_clone_with_body
-    (vNULL, NULL, args_to_skip, !split_part_return_p, split_point->split_bbs,
-     split_point->entry_bb, "part");
+    (vNULL, NULL, args_to_skip,
+     !split_part_return_p || !split_point->split_part_set_retval,
+     split_point->split_bbs, split_point->entry_bb, "part");
 
   node->split_part = true;
 
@@ -1359,6 +1374,44 @@ split_function (basic_block return_bb, struct split_point *split_point,
     {
       DECL_BUILT_IN_CLASS (node->decl) = NOT_BUILT_IN;
       DECL_FUNCTION_CODE (node->decl) = (enum built_in_function) 0;
+    }
+
+  /* If return_bb contains any clobbers that refer to SSA_NAMEs
+     set in the split part, remove them.  Also reset debug stmts that
+     refer to SSA_NAMEs set in the split part.  */
+  if (return_bb != EXIT_BLOCK_PTR_FOR_FN (cfun))
+    {
+      gimple_stmt_iterator gsi = gsi_start_bb (return_bb);
+      while (!gsi_end_p (gsi))
+	{
+	  tree op;
+	  ssa_op_iter iter;
+	  gimple *stmt = gsi_stmt (gsi);
+	  bool remove = false;
+	  if (gimple_clobber_p (stmt) || is_gimple_debug (stmt))
+	    FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_USE)
+	      {
+		basic_block bb = gimple_bb (SSA_NAME_DEF_STMT (op));
+		if (op != retval
+		    && bb
+		    && bb != return_bb
+		    && bitmap_bit_p (split_point->split_bbs, bb->index))
+		  {
+		    if (is_gimple_debug (stmt))
+		      {
+			gimple_debug_bind_reset_value (stmt);
+			update_stmt (stmt);
+		      }
+		    else
+		      remove = true;
+		    break;
+		  }
+	      }
+	  if (remove)
+	    gsi_remove (&gsi, true);
+	  else
+	    gsi_next (&gsi);
+	}
     }
 
   /* If the original function is instrumented then it's
@@ -1411,73 +1464,38 @@ split_function (basic_block return_bb, struct split_point *split_point,
      vector to say for debug info that if parameter parm had been passed,
      it would have value parm_Y(D).  */
   if (args_to_skip)
-    for (parm = DECL_ARGUMENTS (current_function_decl), num = 0;
-	 parm; parm = DECL_CHAIN (parm), num++)
-      if (bitmap_bit_p (args_to_skip, num)
-	  && is_gimple_reg (parm))
-	{
-	  tree ddecl;
-	  gimple *def_temp;
-
-	  /* This needs to be done even without MAY_HAVE_DEBUG_STMTS,
-	     otherwise if it didn't exist before, we'd end up with
-	     different SSA_NAME_VERSIONs between -g and -g0.  */
-	  arg = get_or_create_ssa_default_def (cfun, parm);
-	  if (!MAY_HAVE_DEBUG_STMTS)
-	    continue;
-
-	  if (debug_args == NULL)
-	    debug_args = decl_debug_args_insert (node->decl);
-	  ddecl = make_node (DEBUG_EXPR_DECL);
-	  DECL_ARTIFICIAL (ddecl) = 1;
-	  TREE_TYPE (ddecl) = TREE_TYPE (parm);
-	  DECL_MODE (ddecl) = DECL_MODE (parm);
-	  vec_safe_push (*debug_args, DECL_ORIGIN (parm));
-	  vec_safe_push (*debug_args, ddecl);
-	  def_temp = gimple_build_debug_bind (ddecl, unshare_expr (arg),
-					      call);
-	  gsi_insert_after (&gsi, def_temp, GSI_NEW_STMT);
-	}
-  /* And on the callee side, add
-     DEBUG D#Y s=> parm
-     DEBUG var => D#Y
-     stmts to the first bb where var is a VAR_DECL created for the
-     optimized away parameter in DECL_INITIAL block.  This hints
-     in the debug info that var (whole DECL_ORIGIN is the parm PARM_DECL)
-     is optimized away, but could be looked up at the call site
-     as value of D#X there.  */
-  if (debug_args != NULL)
     {
-      unsigned int i;
-      tree var, vexpr;
-      gimple_stmt_iterator cgsi;
-      gimple *def_temp;
-
-      push_cfun (DECL_STRUCT_FUNCTION (node->decl));
-      var = BLOCK_VARS (DECL_INITIAL (node->decl));
-      i = vec_safe_length (*debug_args);
-      cgsi = gsi_after_labels (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
-      do
+      vec<tree, va_gc> **debug_args = NULL;
+      unsigned i = 0, len = 0;
+      if (MAY_HAVE_DEBUG_STMTS)
 	{
-	  i -= 2;
-	  while (var != NULL_TREE
-		 && DECL_ABSTRACT_ORIGIN (var) != (**debug_args)[i])
-	    var = TREE_CHAIN (var);
-	  if (var == NULL_TREE)
-	    break;
-	  vexpr = make_node (DEBUG_EXPR_DECL);
-	  parm = (**debug_args)[i];
-	  DECL_ARTIFICIAL (vexpr) = 1;
-	  TREE_TYPE (vexpr) = TREE_TYPE (parm);
-	  DECL_MODE (vexpr) = DECL_MODE (parm);
-	  def_temp = gimple_build_debug_source_bind (vexpr, parm,
-						     NULL);
-	  gsi_insert_before (&cgsi, def_temp, GSI_SAME_STMT);
-	  def_temp = gimple_build_debug_bind (var, vexpr, NULL);
-	  gsi_insert_before (&cgsi, def_temp, GSI_SAME_STMT);
+	  debug_args = decl_debug_args_lookup (node->decl);
+	  if (debug_args)
+	    len = vec_safe_length (*debug_args);
 	}
-      while (i);
-      pop_cfun ();
+      for (parm = DECL_ARGUMENTS (current_function_decl), num = 0;
+	   parm; parm = DECL_CHAIN (parm), num++)
+	if (bitmap_bit_p (args_to_skip, num) && is_gimple_reg (parm))
+	  {
+	    tree ddecl;
+	    gimple *def_temp;
+
+	    /* This needs to be done even without MAY_HAVE_DEBUG_STMTS,
+	       otherwise if it didn't exist before, we'd end up with
+	       different SSA_NAME_VERSIONs between -g and -g0.  */
+	    arg = get_or_create_ssa_default_def (cfun, parm);
+	    if (!MAY_HAVE_DEBUG_STMTS || debug_args == NULL)
+	      continue;
+
+	    while (i < len && (**debug_args)[i] != DECL_ORIGIN (parm))
+	      i += 2;
+	    if (i >= len)
+	      continue;
+	    ddecl = (**debug_args)[i + 1];
+	    def_temp
+	      = gimple_build_debug_bind (ddecl, unshare_expr (arg), call);
+	    gsi_insert_after (&gsi, def_temp, GSI_NEW_STMT);
+	  }
     }
 
   /* We avoid address being taken on any variable used by split part,
@@ -1513,9 +1531,7 @@ split_function (basic_block return_bb, struct split_point *split_point,
          return value into and put call just before it.  */
       if (return_bb != EXIT_BLOCK_PTR_FOR_FN (cfun))
 	{
-	  real_retval = retval = find_retval (return_bb);
-	  retbnd = find_retbnd (return_bb);
-
+	  real_retval = retval;
 	  if (real_retval && split_point->split_part_set_retval)
 	    {
 	      gphi_iterator psi;
@@ -1559,6 +1575,28 @@ split_function (basic_block return_bb, struct split_point *split_point,
 			    break;
 			  }
 		      update_stmt (gsi_stmt (bsi));
+		      /* Also adjust clobbers and debug stmts in return_bb.  */
+		      for (bsi = gsi_start_bb (return_bb); !gsi_end_p (bsi);
+			   gsi_next (&bsi))
+			{
+			  gimple *stmt = gsi_stmt (bsi);
+			  if (gimple_clobber_p (stmt)
+			      || is_gimple_debug (stmt))
+			    {
+			      ssa_op_iter iter;
+			      use_operand_p use_p;
+			      bool update = false;
+			      FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter,
+							SSA_OP_USE)
+				if (USE_FROM_PTR (use_p) == real_retval)
+				  {
+				    SET_USE (use_p, retval);
+				    update = true;
+				  }
+			      if (update)
+				update_stmt (stmt);
+			    }
+			}
 		    }
 
 		  /* Replace retbnd with new one.  */
@@ -1643,8 +1681,22 @@ split_function (basic_block return_bb, struct split_point *split_point,
 	        gimple_call_set_lhs (call, build_simple_mem_ref (retval));
 	      else
 	        gimple_call_set_lhs (call, retval);
+	      gsi_insert_after (&gsi, call, GSI_NEW_STMT);
 	    }
-          gsi_insert_after (&gsi, call, GSI_NEW_STMT);
+	  else
+	    {
+	      gsi_insert_after (&gsi, call, GSI_NEW_STMT);
+	      if (retval
+		  && is_gimple_reg_type (TREE_TYPE (retval))
+		  && !is_gimple_val (retval))
+		{
+		  gassign *g
+		    = gimple_build_assign (make_ssa_name (TREE_TYPE (retval)),
+					   retval);
+		  retval = gimple_assign_lhs (g);
+		  gsi_insert_after (&gsi, g, GSI_NEW_STMT);
+		}
+	    }
 	  /* Build bndret call to obtain returned bounds.  */
 	  if (retbnd)
 	    chkp_insert_retbnd_call (retbnd, retval, &gsi);

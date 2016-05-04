@@ -1,6 +1,6 @@
 // Reference-counted COW string instantiations -*- C++ -*-
 
-// Copyright (C) 2014-2015 Free Software Foundation, Inc.
+// Copyright (C) 2014-2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -42,17 +42,17 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   // These came from c++98/misc-inst.cc, repeat them for COW string
   // string related to iostreams.
-  template 
-    basic_istream<char>& 
+  template
+    basic_istream<char>&
     operator>>(basic_istream<char>&, string&);
-  template 
-    basic_ostream<char>& 
+  template
+    basic_ostream<char>&
     operator<<(basic_ostream<char>&, const string&);
-  template 
-    basic_istream<char>& 
+  template
+    basic_istream<char>&
     getline(basic_istream<char>&, string&, char);
-  template 
-    basic_istream<char>& 
+  template
+    basic_istream<char>&
     getline(basic_istream<char>&, string&);
 
 _GLIBCXX_END_NAMESPACE_VERSION

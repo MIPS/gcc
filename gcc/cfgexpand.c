@@ -1,5 +1,5 @@
 /* A pass for lowering trees to RTL.
-   Copyright (C) 2004-2015 Free Software Foundation, Inc.
+   Copyright (C) 2004-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -184,10 +184,15 @@ set_rtl (tree t, rtx x)
 				      || SUBREG_P (XEXP (x, 0)))
 				  && (REG_P (XEXP (x, 1))
 				      || SUBREG_P (XEXP (x, 1))))
+			      /* We need to accept PARALLELs for RESUT_DECLs
+				 because of vector types with BLKmode returned
+				 in multiple registers, but they are supposed
+				 to be uncoalesced.  */
 			      || (GET_CODE (x) == PARALLEL
 				  && SSAVAR (t)
 				  && TREE_CODE (SSAVAR (t)) == RESULT_DECL
-				  && !flag_tree_coalesce_vars))
+				  && (GET_MODE (x) == BLKmode
+				      || !flag_tree_coalesce_vars)))
 			   : (MEM_P (x) || x == pc_rtx
 			      || (GET_CODE (x) == CONCAT
 				  && MEM_P (XEXP (x, 0))
@@ -198,11 +203,14 @@ set_rtl (tree t, rtx x)
      PARM_DECLs and RESULT_DECLs, we'll have been called by
      set_parm_rtl, which will give us the default def, so we don't
      have to compute it ourselves.  For RESULT_DECLs, we accept mode
-     mismatches too, as long as we're not coalescing across variables,
-     so that we don't reject BLKmode PARALLELs or unpromoted REGs.  */
+     mismatches too, as long as we have BLKmode or are not coalescing
+     across variables, so that we don't reject BLKmode PARALLELs or
+     unpromoted REGs.  */
   gcc_checking_assert (!x || x == pc_rtx || TREE_CODE (t) != SSA_NAME
-		       || (SSAVAR (t) && TREE_CODE (SSAVAR (t)) == RESULT_DECL
-			   && !flag_tree_coalesce_vars)
+		       || (SSAVAR (t)
+			   && TREE_CODE (SSAVAR (t)) == RESULT_DECL
+			   && (promote_ssa_mode (t, NULL) == BLKmode
+			       || !flag_tree_coalesce_vars))
 		       || !use_register_for_decl (t)
 		       || GET_MODE (x) == promote_ssa_mode (t, NULL));
 
@@ -361,7 +369,7 @@ align_local_variable (tree decl)
   else
     {
       align = LOCAL_DECL_ALIGNMENT (decl);
-      DECL_ALIGN (decl) = align;
+      SET_DECL_ALIGN (decl, align);
     }
   return align / BITS_PER_UNIT;
 }
@@ -860,6 +868,18 @@ union_stack_vars (size_t a, size_t b)
     }
 }
 
+/* Return true if the current function should have its stack frame
+   protected by address sanitizer.  */
+
+static inline bool
+asan_sanitize_stack_p (void)
+{
+  return ((flag_sanitize & SANITIZE_ADDRESS)
+	  && ASAN_STACK
+	  && !lookup_attribute ("no_sanitize_address",
+				DECL_ATTRIBUTES (current_function_decl)));
+}
+
 /* A subroutine of expand_used_vars.  Binpack the variables into
    partitions constrained by the interference graph.  The overall
    algorithm used is as follows:
@@ -921,7 +941,7 @@ partition_stack_vars (void)
 	     sizes, as the shorter vars wouldn't be adequately protected.
 	     Don't do that for "large" (unsupported) alignment objects,
 	     those aren't protected anyway.  */
-	  if ((flag_sanitize & SANITIZE_ADDRESS) && ASAN_STACK && isize != jsize
+	  if (asan_sanitize_stack_p () && isize != jsize
 	      && ialign * BITS_PER_UNIT <= MAX_SUPPORTED_STACK_ALIGNMENT)
 	    break;
 
@@ -998,7 +1018,7 @@ expand_one_stack_var_at (tree decl, rtx base, unsigned base_align,
 	 alignment here, but (at least) the i386 port does exactly this
 	 via the MINIMUM_ALIGNMENT hook.  */
 
-      DECL_ALIGN (decl) = align;
+      SET_DECL_ALIGN (decl, align);
       DECL_USER_ALIGN (decl) = 0;
     }
 
@@ -1112,12 +1132,12 @@ expand_stack_vars (bool (*pred) (size_t), struct stack_vars_data *data)
       if (alignb * BITS_PER_UNIT <= MAX_SUPPORTED_STACK_ALIGNMENT)
 	{
 	  base = virtual_stack_vars_rtx;
-	  if ((flag_sanitize & SANITIZE_ADDRESS) && ASAN_STACK && pred)
+	  if (asan_sanitize_stack_p () && pred)
 	    {
 	      HOST_WIDE_INT prev_offset
 		= align_base (frame_offset,
 			      MAX (alignb, ASAN_RED_ZONE_SIZE),
-			      FRAME_GROWS_DOWNWARD);
+			      !FRAME_GROWS_DOWNWARD);
 	      tree repr_decl = NULL_TREE;
 	      offset
 		= alloc_stack_frame_space (stack_vars[i].size
@@ -1483,7 +1503,7 @@ defer_stack_allocation (tree var, bool toplevel)
   /* If stack protection is enabled, *all* stack variables must be deferred,
      so that we can re-order the strings to the top of the frame.
      Similarly for Address Sanitizer.  */
-  if (flag_stack_protect || ((flag_sanitize & SANITIZE_ADDRESS) && ASAN_STACK))
+  if (flag_stack_protect || asan_sanitize_stack_p ())
     return true;
 
   unsigned int align = TREE_CODE (var) == SSA_NAME
@@ -1542,6 +1562,9 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
 
   if (TREE_TYPE (var) != error_mark_node && TREE_CODE (var) == VAR_DECL)
     {
+      if (is_global_var (var))
+	return 0;
+
       /* Because we don't know if VAR will be in register or on stack,
 	 we conservatively assume it will be on stack even if VAR is
 	 eventually put into register after RA pass.  For non-automatic
@@ -2180,7 +2203,7 @@ expand_used_vars (void)
 	    expand_stack_vars (stack_protect_decl_phase_2, &data);
 	}
 
-      if ((flag_sanitize & SANITIZE_ADDRESS) && ASAN_STACK)
+      if (asan_sanitize_stack_p ())
 	/* Phase 3, any partitions that need asan protection
 	   in addition to phase 1 and 2.  */
 	expand_stack_vars (asan_decl_phase_3, &data);
@@ -2551,10 +2574,25 @@ expand_call_stmt (gcall *stmt)
       return;
     }
 
+  /* If this is a call to a built-in function and it has no effect other
+     than setting the lhs, try to implement it using an internal function
+     instead.  */
+  decl = gimple_call_fndecl (stmt);
+  if (gimple_call_lhs (stmt)
+      && !gimple_has_side_effects (stmt)
+      && (optimize || (decl && called_as_built_in (decl))))
+    {
+      internal_fn ifn = replacement_internal_fn (stmt);
+      if (ifn != IFN_LAST)
+	{
+	  expand_internal_call (ifn, stmt);
+	  return;
+	}
+    }
+
   exp = build_vl_exp (CALL_EXPR, gimple_call_num_args (stmt) + 3);
 
   CALL_EXPR_FN (exp) = gimple_call_fn (stmt);
-  decl = gimple_call_fndecl (stmt);
   builtin_p = decl && DECL_BUILT_IN (decl);
 
   /* If this is not a builtin function, the function type through which the
@@ -3519,6 +3557,12 @@ expand_gimple_stmt_1 (gimple *stmt)
 	  {
 	    tree result = DECL_RESULT (current_function_decl);
 
+	    /* Mark we have return statement with missing bounds.  */
+	    if (!bnd
+		&& chkp_function_instrumented_p (cfun->decl)
+		&& !DECL_P (op0))
+	      bnd = error_mark_node;
+
 	    /* If we are not returning the current function's RESULT_DECL,
 	       build an assignment to it.  */
 	    if (op0 != result)
@@ -3535,9 +3579,6 @@ expand_gimple_stmt_1 (gimple *stmt)
 		op0 = build2 (MODIFY_EXPR, TREE_TYPE (result),
 			      result, op0);
 	      }
-	    /* Mark we have return statement with missing bounds.  */
-	    if (!bnd && chkp_function_instrumented_p (cfun->decl))
-	      bnd = error_mark_node;
 	  }
 
 	if (!op0)
@@ -6274,6 +6315,9 @@ pass_expand::execute (function *fun)
     stack_protect_prologue ();
 
   expand_phi_nodes (&SA);
+
+  /* Release any stale SSA redirection data.  */
+  redirect_edge_var_map_empty ();
 
   /* Register rtl specific functions for cfg.  */
   rtl_register_cfg_hooks ();

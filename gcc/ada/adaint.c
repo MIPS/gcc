@@ -173,6 +173,7 @@ UINT CurrentCCSEncoding;
 #include <windows.h>
 #include <accctrl.h>
 #include <aclapi.h>
+#include <tlhelp32.h>
 #undef DIR_SEPARATOR
 #define DIR_SEPARATOR '\\'
 
@@ -2612,6 +2613,22 @@ __gnat_os_exit (int status)
   exit (status);
 }
 
+int
+__gnat_current_process_id (void)
+{
+#if defined (__vxworks) || defined (__PikeOS__)
+  return -1;
+
+#elif defined (_WIN32)
+
+  return (int)GetCurrentProcessId();
+
+#else
+
+  return (int)getpid();
+#endif
+}
+
 /* Locate file on path, that matches a predicate */
 
 char *
@@ -2790,7 +2807,7 @@ __gnat_locate_exec_on_path (char *exec_name)
   WS2SC (apath_val, wapath_val, EXPAND_BUFFER_SIZE);
 
 #else
-  char *path_val = getenv ("PATH");
+  const char *path_val = getenv ("PATH");
 
   /* If PATH is not defined, proceed with __gnat_locate_exec anyway, so we can
      find files that contain directory names.  */
@@ -3084,6 +3101,30 @@ __gnat_lwp_self (void)
 }
 #endif
 
+#if defined (__APPLE__)
+#include <mach/thread_info.h>
+#include <mach/mach_init.h>
+#include <mach/thread_act.h>
+
+/* System-wide thread identifier.  Note it could be truncated on 32 bit
+   hosts.
+   Previously was: pthread_mach_thread_np (pthread_self ()).  */
+void *
+__gnat_lwp_self (void)
+{
+  thread_identifier_info_data_t data;
+  mach_msg_type_number_t count = THREAD_IDENTIFIER_INFO_COUNT;
+  kern_return_t kret;
+
+  kret = thread_info (mach_thread_self (), THREAD_IDENTIFIER_INFO,
+		      (thread_info_t) &data, &count);
+  if (kret == KERN_SUCCESS)
+    return (void *)(uintptr_t)data.thread_id;
+  else
+    return 0;
+}
+#endif
+
 #if defined (__linux__)
 #include <sched.h>
 
@@ -3217,6 +3258,107 @@ __gnat_kill (int pid, int sig, int close ATTRIBUTE_UNUSED)
 #else
   kill (pid, sig);
 #endif
+}
+
+void __gnat_killprocesstree (int pid, int sig_num)
+{
+#if defined(_WIN32)
+  HANDLE hWnd;
+  PROCESSENTRY32 pe;
+
+  memset(&pe, 0, sizeof(PROCESSENTRY32));
+  pe.dwSize = sizeof(PROCESSENTRY32);
+
+  HANDLE hSnap = CreateToolhelp32Snapshot (TH32CS_SNAPPROCESS, 0);
+
+  /*  cannot take snapshot, just kill the parent process */
+
+  if (hSnap == INVALID_HANDLE_VALUE)
+    {
+      __gnat_kill (pid, sig_num, 1);
+      return;
+    }
+
+  if (Process32First(hSnap, &pe))
+    {
+      BOOL bContinue = TRUE;
+
+      /* kill child processes first */
+
+      while (bContinue)
+        {
+          if (pe.th32ParentProcessID == (int)pid)
+            __gnat_killprocesstree (pe.th32ProcessID, sig_num);
+
+          bContinue = Process32Next (hSnap, &pe);
+        }
+    }
+
+  CloseHandle (hSnap);
+
+  /* kill process */
+
+  __gnat_kill (pid, sig_num, 1);
+
+#elif defined (__vxworks)
+  /* not implemented */
+
+#elif defined (__linux__)
+  DIR *dir;
+  struct dirent *d;
+
+  /*  read all processes' pid and ppid */
+
+  dir = opendir ("/proc");
+
+  /*  cannot open proc, just kill the parent process */
+
+  if (!dir)
+    {
+      __gnat_kill (pid, sig_num, 1);
+      return;
+    }
+
+  /* kill child processes first */
+
+  while ((d = readdir (dir)) != NULL)
+    {
+      if ((d->d_type & DT_DIR) == DT_DIR)
+        {
+          char statfile[64] = { 0 };
+          int _pid, _ppid;
+
+          /* read /proc/<PID>/stat */
+
+          strncpy (statfile, "/proc/", sizeof(statfile));
+          strncat (statfile, d->d_name, sizeof(statfile));
+          strncat (statfile, "/stat", sizeof(statfile));
+
+          FILE *fd = fopen (statfile, "r");
+
+          if (fd)
+            {
+              const int match = fscanf (fd, "%d %*s %*s %d", &_pid, &_ppid);
+              fclose (fd);
+
+              if (match == 2 && _ppid == pid)
+                __gnat_killprocesstree (_pid, sig_num);
+            }
+        }
+    }
+
+  closedir (dir);
+
+  /* kill process */
+
+  __gnat_kill (pid, sig_num, 1);
+#else
+  __gnat_kill (pid, sig_num, 1);
+#endif
+  /* Note on Solaris it is possible to read /proc/<PID>/status.
+     The 5th and 6th words are the pid and the 7th and 8th the ppid.
+     See: /usr/include/sys/procfs.h (struct pstatus).
+  */
 }
 
 #ifdef __cplusplus

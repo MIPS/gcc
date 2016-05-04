@@ -1,5 +1,5 @@
 ;; Machine description of the Adaptiva epiphany cpu for GNU C compiler
-;; Copyright (C) 1994-2015 Free Software Foundation, Inc.
+;; Copyright (C) 1994-2016 Free Software Foundation, Inc.
 ;; Contributed by Embecosm on behalf of Adapteva, Inc.
 
 ;; This file is part of GCC.
@@ -2026,8 +2026,8 @@
 {
   operands[10] = simplify_gen_subreg (<WMODE:MODE>mode, operands[3],
 				      <WMODE2:MODE>mode, 0);
-  replace_rtx (operands[2], operands[9], operands[3]);
-  replace_rtx (operands[2], operands[0], operands[10]);
+  replace_rtx (operands[2], operands[9], operands[3], true);
+  replace_rtx (operands[2], operands[0], operands[10], true);
   gcc_assert (!reg_overlap_mentioned_p (operands[0], operands[2]));
 })
 

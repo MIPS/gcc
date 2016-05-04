@@ -1,5 +1,5 @@
 /* Callgraph clones
-   Copyright (C) 2003-2015 Free Software Foundation, Inc.
+   Copyright (C) 2003-2016 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -328,6 +328,7 @@ duplicate_thunk_for_node (cgraph_node *thunk, cgraph_node *node)
   new_thunk = cgraph_node::create (new_decl);
   set_new_clone_decl_and_node_flags (new_thunk);
   new_thunk->definition = true;
+  new_thunk->local.can_change_signature = node->local.can_change_signature;
   new_thunk->thunk = thunk->thunk;
   new_thunk->unique_name = in_lto_p;
   new_thunk->former_clone_of = thunk->decl;
@@ -337,6 +338,7 @@ duplicate_thunk_for_node (cgraph_node *thunk, cgraph_node *node)
   cgraph_edge *e = new_thunk->create_edge (node, NULL, 0,
 						  CGRAPH_FREQ_BASE);
   e->call_stmt_cannot_inline_p = true;
+  e->inline_failed = CIF_THUNK;
   symtab->call_edge_duplication_hooks (thunk->callees, e);
   symtab->call_cgraph_duplication_hooks (thunk, new_thunk);
   return new_thunk;
@@ -433,7 +435,7 @@ cgraph_node::create_clone (tree new_decl, gcov_type gcov_count, int freq,
   new_node->tp_first_run = tp_first_run;
   new_node->tm_clone = tm_clone;
   new_node->icf_merged = icf_merged;
-  new_node->merged = merged;
+  new_node->merged_comdat = merged_comdat;
 
   new_node->clone.tree_map = NULL;
   new_node->clone.args_to_skip = args_to_skip;
@@ -511,13 +513,7 @@ clone_function_name_1 (const char *name, const char *suffix)
   prefix = XALLOCAVEC (char, len + strlen (suffix) + 2);
   memcpy (prefix, name, len);
   strcpy (prefix + len + 1, suffix);
-#ifndef NO_DOT_IN_LABEL
-  prefix[len] = '.';
-#elif !defined NO_DOLLAR_IN_LABEL
-  prefix[len] = '$';
-#else
-  prefix[len] = '_';
-#endif
+  prefix[len] = symbol_table::symbol_suffix_separator ();
   ASM_FORMAT_PRIVATE_NAME (tmp_name, prefix, clone_fn_id_num++);
   return get_identifier (tmp_name);
 }

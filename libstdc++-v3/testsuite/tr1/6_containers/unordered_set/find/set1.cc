@@ -2,7 +2,7 @@
 
 // 2005-2-18  Matt Austern  <austern@apple.com>
 //
-// Copyright (C) 2005-2015 Free Software Foundation, Inc.
+// Copyright (C) 2005-2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -49,7 +49,7 @@ void test01()
   VERIFY(std::distance(p.first, p.second) == 1);
 
   Set::iterator i3 = s.find("lime");
-  VERIFY(i3 == s.end());  
+  VERIFY(i3 == s.end());
 
   std::pair<Set::iterator, Set::iterator> p2 = s.equal_range("lime");
   VERIFY(p2.first == p2.second);

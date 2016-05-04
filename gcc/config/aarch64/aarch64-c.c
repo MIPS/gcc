@@ -1,5 +1,5 @@
 /* Target-specific code for C family languages.
-   Copyright (C) 2015 Free Software Foundation, Inc.
+   Copyright (C) 2015-2016 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -126,6 +126,7 @@ aarch64_update_cpp_builtins (cpp_reader *pfile)
   aarch64_def_or_undef (TARGET_ILP32, "__ILP32__", pfile);
 
   aarch64_def_or_undef (TARGET_CRYPTO, "__ARM_FEATURE_CRYPTO", pfile);
+  aarch64_def_or_undef (TARGET_SIMD_RDMA, "__ARM_FEATURE_QRDMX", pfile);
 }
 
 /* Implement TARGET_CPU_CPP_BUILTINS.  */
@@ -176,6 +177,11 @@ aarch64_pragma_target_parse (tree args, tree pop_target)
   aarch64_update_cpp_builtins (parse_in);
 
   cpp_opts->warn_unused_macros = saved_warn_unused_macros;
+
+  /* If we're popping or reseting make sure to update the globals so that
+     the optab availability predicates get recomputed.  */
+  if (pop_target)
+    aarch64_save_restore_target_globals (pop_target);
 
   /* Initialize SIMD builtins if we haven't already.
      Set current_target_pragma to NULL for the duration so that

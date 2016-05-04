@@ -1,5 +1,5 @@
 /* Find near-matches for strings and identifiers.
-   Copyright (C) 2015 Free Software Foundation, Inc.
+   Copyright (C) 2015-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 typedef unsigned int edit_distance_t;
 const edit_distance_t MAX_EDIT_DISTANCE = UINT_MAX;
 
+/* spellcheck.c  */
 extern edit_distance_t
 levenshtein_distance (const char *s, int len_s,
 		      const char *t, int len_t);
@@ -30,7 +31,16 @@ levenshtein_distance (const char *s, int len_s,
 extern edit_distance_t
 levenshtein_distance (const char *s, const char *t);
 
+extern const char *
+find_closest_string (const char *target,
+		     const auto_vec<const char *> *candidates);
+
+/* spellcheck-tree.c  */
+
 extern edit_distance_t
 levenshtein_distance (tree ident_s, tree ident_t);
+
+extern tree
+find_closest_identifier (tree target, const auto_vec<tree> *candidates);
 
 #endif  /* GCC_SPELLCHECK_H  */

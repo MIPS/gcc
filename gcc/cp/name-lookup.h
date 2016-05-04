@@ -1,5 +1,5 @@
 /* Declarations for C++ name lookup routines.
-   Copyright (C) 2003-2015 Free Software Foundation, Inc.
+   Copyright (C) 2003-2016 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -327,7 +327,7 @@ extern tree namespace_binding (tree, tree);
 extern void set_namespace_binding (tree, tree, tree);
 extern bool hidden_name_p (tree);
 extern tree remove_hidden_names (tree);
-extern tree lookup_qualified_name (tree, tree, bool, bool);
+extern tree lookup_qualified_name (tree, tree, bool, bool, /*hidden*/bool = false);
 extern tree lookup_name_nonclass (tree);
 extern tree lookup_name_innermost_nonclass_level (tree);
 extern bool is_local_extern (tree);
@@ -347,7 +347,7 @@ extern void do_toplevel_using_decl (tree, tree, tree);
 extern void do_local_using_decl (tree, tree, tree);
 extern tree do_class_using_decl (tree, tree);
 extern void do_using_directive (tree);
-extern tree lookup_arg_dependent (tree, tree, vec<tree, va_gc> *);
+extern cp_expr lookup_arg_dependent (tree, tree, vec<tree, va_gc> *);
 extern bool is_associated_namespace (tree, tree);
 extern void parse_using_directive (tree, tree);
 extern tree innermost_non_namespace_value (tree);

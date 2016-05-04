@@ -1,6 +1,6 @@
 // { dg-options "-std=gnu++14" }
 
-// Copyright (C) 2015 Free Software Foundation, Inc.
+// Copyright (C) 2015-2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -20,7 +20,6 @@
 #include <memory>
 #include <experimental/memory_resource>
 #include <experimental/utility>
-#include <bits/uses_allocator.h>
 #include <testsuite_hooks.h>
 #include <testsuite_allocator.h>
 

@@ -1,5 +1,5 @@
 /* Control flow graph analysis code for GNU compiler.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -759,6 +759,9 @@ dfs_find_deadend (basic_block bb)
    (from successors to predecessors).
    This ordering can be used for forward dataflow problems among others.
 
+   Optionally if START_POINTS is specified, start from exit block and all
+   basic blocks in START_POINTS.  This is used by CD-DCE.
+
    This function assumes that all blocks in the CFG are reachable
    from the ENTRY (but not necessarily from EXIT).
 
@@ -776,7 +779,8 @@ dfs_find_deadend (basic_block bb)
    and do another inverted traversal from that block.  */
 
 int
-inverted_post_order_compute (int *post_order)
+inverted_post_order_compute (int *post_order,
+			     sbitmap *start_points)
 {
   basic_block bb;
   edge_iterator *stack;
@@ -797,6 +801,22 @@ inverted_post_order_compute (int *post_order)
   /* None of the nodes in the CFG have been visited yet.  */
   bitmap_clear (visited);
 
+  if (start_points)
+    {
+      FOR_ALL_BB_FN (bb, cfun)
+        if (bitmap_bit_p (*start_points, bb->index)
+	    && EDGE_COUNT (bb->preds) > 0)
+	  {
+            stack[sp++] = ei_start (bb->preds);
+            bitmap_set_bit (visited, bb->index);
+	  }
+      if (EDGE_COUNT (EXIT_BLOCK_PTR_FOR_FN (cfun)->preds))
+	{
+          stack[sp++] = ei_start (EXIT_BLOCK_PTR_FOR_FN (cfun)->preds);
+          bitmap_set_bit (visited, EXIT_BLOCK_PTR_FOR_FN (cfun)->index);
+	}
+    }
+  else
   /* Put all blocks that have no successor into the initial work list.  */
   FOR_ALL_BB_FN (bb, cfun)
     if (EDGE_COUNT (bb->succs) == 0)
@@ -1358,8 +1378,6 @@ bitmap_intersection_of_succs (sbitmap dst, sbitmap *src, basic_block b)
   edge e;
   unsigned ix;
 
-  gcc_assert (!dst->popcount);
-
   for (e = NULL, ix = 0; ix < EDGE_COUNT (b->succs); ix++)
     {
       e = EDGE_SUCC (b, ix);
@@ -1398,8 +1416,6 @@ bitmap_intersection_of_preds (sbitmap dst, sbitmap *src, basic_block b)
   unsigned int set_size = dst->size;
   edge e;
   unsigned ix;
-
-  gcc_assert (!dst->popcount);
 
   for (e = NULL, ix = 0; ix < EDGE_COUNT (b->preds); ix++)
     {
@@ -1440,8 +1456,6 @@ bitmap_union_of_succs (sbitmap dst, sbitmap *src, basic_block b)
   edge e;
   unsigned ix;
 
-  gcc_assert (!dst->popcount);
-
   for (ix = 0; ix < EDGE_COUNT (b->succs); ix++)
     {
       e = EDGE_SUCC (b, ix);
@@ -1480,8 +1494,6 @@ bitmap_union_of_preds (sbitmap dst, sbitmap *src, basic_block b)
   unsigned int set_size = dst->size;
   edge e;
   unsigned ix;
-
-  gcc_assert (!dst->popcount);
 
   for (ix = 0; ix < EDGE_COUNT (b->preds); ix++)
     {

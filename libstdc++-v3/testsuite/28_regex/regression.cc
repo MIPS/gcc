@@ -1,7 +1,7 @@
 // { dg-options "-std=gnu++11" }
 
 //
-// Copyright (C) 2015 Free Software Foundation, Inc.
+// Copyright (C) 2015-2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -33,10 +33,40 @@ test01()
   regex re("((.)", regex_constants::basic);
 }
 
+void
+test02()
+{
+  bool test __attribute__((unused)) = true;
+
+  std::string re_str
+    {
+      "/abcd" "\n"
+      "/aecf" "\n"
+      "/ghci"
+    };
+  auto rx = std::regex(re_str, std::regex_constants::grep | std::regex_constants::icase);
+  VERIFY(regex_search_debug("/abcd", rx));
+}
+
+void
+test03()
+{
+  bool test __attribute__((unused)) = true;
+
+  VERIFY(regex_match_debug("a.", regex(R"(a\b.)"), regex_constants::match_not_eow));
+  VERIFY(regex_match_debug(".a", regex(R"(.\ba)"), regex_constants::match_not_bow));
+  VERIFY(regex_search_debug("a", regex(R"(^\b)")));
+  VERIFY(regex_search_debug("a", regex(R"(\b$)")));
+  VERIFY(!regex_search_debug("a", regex(R"(^\b)"), regex_constants::match_not_bow));
+  VERIFY(!regex_search_debug("a", regex(R"(\b$)"), regex_constants::match_not_eow));
+}
+
 int
 main()
 {
   test01();
+  test02();
+  test03();
   return 0;
 }
 

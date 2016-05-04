@@ -1,5 +1,5 @@
 /* Data and functions related to line maps and input files.
-   Copyright (C) 2004-2015 Free Software Foundation, Inc.
+   Copyright (C) 2004-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -787,6 +787,16 @@ expansion_point_location_if_in_system_header (source_location location)
 					 LRK_MACRO_EXPANSION_POINT,
 					 NULL);
   return location;
+}
+
+/* If LOCATION is a virtual location for a token coming from the expansion
+   of a macro, unwind to the location of the expansion point of the macro.  */
+
+source_location
+expansion_point_location (source_location location)
+{
+  return linemap_resolve_location (line_table, location,
+				   LRK_MACRO_EXPANSION_POINT, NULL);
 }
 
 #define ONE_K 1024

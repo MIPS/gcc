@@ -1,5 +1,5 @@
 /* Allocation for dataflow support routines.
-   Copyright (C) 1999-2015 Free Software Foundation, Inc.
+   Copyright (C) 1999-2016 Free Software Foundation, Inc.
    Originally contributed by Michael P. Hayes
              (m.hayes@elec.canterbury.ac.nz, mhayes@redhat.com)
    Major rewrite contributed by Danny Berlin (dberlin@dberlin.org)
@@ -411,7 +411,7 @@ struct df_d *df;
 /* Add PROBLEM (and any dependent problems) to the DF instance.  */
 
 void
-df_add_problem (struct df_problem *problem)
+df_add_problem (const struct df_problem *problem)
 {
   struct dataflow *dflow;
   int i;
@@ -584,7 +584,7 @@ df_set_blocks (bitmap blocks)
 void
 df_remove_problem (struct dataflow *dflow)
 {
-  struct df_problem *problem;
+  const struct df_problem *problem;
   int i;
 
   if (!dflow)

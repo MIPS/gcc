@@ -1,5 +1,5 @@
 /* Inlining decision heuristics.
-   Copyright (C) 2003-2015 Free Software Foundation, Inc.
+   Copyright (C) 2003-2016 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -132,6 +132,8 @@ struct GTY(()) inline_summary
   /* True wen there is only one caller of the function before small function
      inlining.  */
   unsigned int single_caller : 1;
+  /* True if function contains any floating point expressions.  */
+  unsigned int fp_expressions : 1;
 
   /* Information about function that will result after applying all the
      inline decisions present in the callgraph.  Generally kept up to

@@ -1,6 +1,6 @@
 // random number generation -*- C++ -*-
 
-// Copyright (C) 2009-2015 Free Software Foundation, Inc.
+// Copyright (C) 2009-2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -32,6 +32,7 @@
 #define _RANDOM_H 1
 
 #include <vector>
+#include <bits/uniform_int_dist.h>
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
@@ -149,14 +150,6 @@ _GLIBCXX_END_NAMESPACE_VERSION
       __mod(_Tp __x)
       { return _Mod<_Tp, __m, __a, __c>::__calc(__x); }
 
-    /* Determine whether number is a power of 2.  */
-    template<typename _Tp>
-      inline bool
-      _Power_of_2(_Tp __x)
-      {
-	return ((__x - 1) & __x) == 0;
-      };
-
     /*
      * An adaptor class for converting the output of any Generator into
      * the input for a specific Distribution.
@@ -165,7 +158,7 @@ _GLIBCXX_END_NAMESPACE_VERSION
       struct _Adaptor
       {
 	static_assert(std::is_floating_point<_DInputType>::value,
-		      "template argument not a floating point type");
+		      "template argument must be a floating point type");
 
       public:
 	_Adaptor(_Engine& __g)
@@ -242,8 +235,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename _UIntType, _UIntType __a, _UIntType __c, _UIntType __m>
     class linear_congruential_engine
     {
-      static_assert(std::is_unsigned<_UIntType>::value, "template argument "
-		    "substituting _UIntType not an unsigned integral type");
+      static_assert(std::is_unsigned<_UIntType>::value,
+		    "result_type must be an unsigned integral type");
       static_assert(__m == 0u || (__a < __m && __c < __m),
 		    "template argument substituting __m out of bounds");
 
@@ -450,8 +443,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	   _UIntType __c, size_t __l, _UIntType __f>
     class mersenne_twister_engine
     {
-      static_assert(std::is_unsigned<_UIntType>::value, "template argument "
-		    "substituting _UIntType not an unsigned integral type");
+      static_assert(std::is_unsigned<_UIntType>::value,
+		    "result_type must be an unsigned integral type");
       static_assert(1u <= __m && __m <= __n,
 		    "template argument substituting __m out of bounds");
       static_assert(__r <= __w, "template argument substituting "
@@ -665,10 +658,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename _UIntType, size_t __w, size_t __s, size_t __r>
     class subtract_with_carry_engine
     {
-      static_assert(std::is_unsigned<_UIntType>::value, "template argument "
-		    "substituting _UIntType not an unsigned integral type");
+      static_assert(std::is_unsigned<_UIntType>::value,
+		    "result_type must be an unsigned integral type");
       static_assert(0u < __s && __s < __r,
-		    "template argument substituting __s out of bounds");
+		    "0 < s < r");
       static_assert(0u < __w && __w <= std::numeric_limits<_UIntType>::digits,
 		    "template argument substituting __w out of bounds");
 
@@ -1072,8 +1065,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename _RandomNumberEngine, size_t __w, typename _UIntType>
     class independent_bits_engine
     {
-      static_assert(std::is_unsigned<_UIntType>::value, "template argument "
-		    "substituting _UIntType not an unsigned integral type");
+      static_assert(std::is_unsigned<_UIntType>::value,
+		    "result_type must be an unsigned integral type");
       static_assert(0u < __w && __w <= std::numeric_limits<_UIntType>::digits,
 		    "template argument substituting __w out of bounds");
 
@@ -1285,7 +1278,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   /**
    * @brief Produces random numbers by combining random numbers from some
    * base engine to produce random numbers with a specifies number of bits
-   * @p __w.
+   * @p __k.
    */
   template<typename _RandomNumberEngine, size_t __k>
     class shuffle_order_engine
@@ -1656,164 +1649,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * @{
    */
 
-  /**
-   * @brief Uniform discrete distribution for random numbers.
-   * A discrete random distribution on the range @f$[min, max]@f$ with equal
-   * probability throughout the range.
-   */
-  template<typename _IntType = int>
-    class uniform_int_distribution
-    {
-      static_assert(std::is_integral<_IntType>::value,
-		    "template argument not an integral type");
-
-    public:
-      /** The type of the range of the distribution. */
-      typedef _IntType result_type;
-      /** Parameter type. */
-      struct param_type
-      {
-	typedef uniform_int_distribution<_IntType> distribution_type;
-
-	explicit
-	param_type(_IntType __a = 0,
-		   _IntType __b = std::numeric_limits<_IntType>::max())
-	: _M_a(__a), _M_b(__b)
-	{
-	  __glibcxx_assert(_M_a <= _M_b);
-	}
-
-	result_type
-	a() const
-	{ return _M_a; }
-
-	result_type
-	b() const
-	{ return _M_b; }
-
-	friend bool
-	operator==(const param_type& __p1, const param_type& __p2)
-	{ return __p1._M_a == __p2._M_a && __p1._M_b == __p2._M_b; }
-
-      private:
-	_IntType _M_a;
-	_IntType _M_b;
-      };
-
-    public:
-      /**
-       * @brief Constructs a uniform distribution object.
-       */
-      explicit
-      uniform_int_distribution(_IntType __a = 0,
-			   _IntType __b = std::numeric_limits<_IntType>::max())
-      : _M_param(__a, __b)
-      { }
-
-      explicit
-      uniform_int_distribution(const param_type& __p)
-      : _M_param(__p)
-      { }
-
-      /**
-       * @brief Resets the distribution state.
-       *
-       * Does nothing for the uniform integer distribution.
-       */
-      void
-      reset() { }
-
-      result_type
-      a() const
-      { return _M_param.a(); }
-
-      result_type
-      b() const
-      { return _M_param.b(); }
-
-      /**
-       * @brief Returns the parameter set of the distribution.
-       */
-      param_type
-      param() const
-      { return _M_param; }
-
-      /**
-       * @brief Sets the parameter set of the distribution.
-       * @param __param The new parameter set of the distribution.
-       */
-      void
-      param(const param_type& __param)
-      { _M_param = __param; }
-
-      /**
-       * @brief Returns the inclusive lower bound of the distribution range.
-       */
-      result_type
-      min() const
-      { return this->a(); }
-
-      /**
-       * @brief Returns the inclusive upper bound of the distribution range.
-       */
-      result_type
-      max() const
-      { return this->b(); }
-
-      /**
-       * @brief Generating functions.
-       */
-      template<typename _UniformRandomNumberGenerator>
-	result_type
-	operator()(_UniformRandomNumberGenerator& __urng)
-        { return this->operator()(__urng, _M_param); }
-
-      template<typename _UniformRandomNumberGenerator>
-	result_type
-	operator()(_UniformRandomNumberGenerator& __urng,
-		   const param_type& __p);
-
-      template<typename _ForwardIterator,
-	       typename _UniformRandomNumberGenerator>
-	void
-	__generate(_ForwardIterator __f, _ForwardIterator __t,
-		   _UniformRandomNumberGenerator& __urng)
-	{ this->__generate(__f, __t, __urng, _M_param); }
-
-      template<typename _ForwardIterator,
-	       typename _UniformRandomNumberGenerator>
-	void
-	__generate(_ForwardIterator __f, _ForwardIterator __t,
-		   _UniformRandomNumberGenerator& __urng,
-		   const param_type& __p)
-	{ this->__generate_impl(__f, __t, __urng, __p); }
-
-      template<typename _UniformRandomNumberGenerator>
-	void
-	__generate(result_type* __f, result_type* __t,
-		   _UniformRandomNumberGenerator& __urng,
-		   const param_type& __p)
-	{ this->__generate_impl(__f, __t, __urng, __p); }
-
-      /**
-       * @brief Return true if two uniform integer distributions have
-       *        the same parameters.
-       */
-      friend bool
-      operator==(const uniform_int_distribution& __d1,
-		 const uniform_int_distribution& __d2)
-      { return __d1._M_param == __d2._M_param; }
-
-    private:
-      template<typename _ForwardIterator,
-	       typename _UniformRandomNumberGenerator>
-	void
-	__generate_impl(_ForwardIterator __f, _ForwardIterator __t,
-			_UniformRandomNumberGenerator& __urng,
-			const param_type& __p);
-
-      param_type _M_param;
-    };
+  // std::uniform_int_distribution is defined in <bits/uniform_int_dist.h>
 
   /**
    * @brief Return true if two uniform integer distributions have
@@ -1866,7 +1702,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     class uniform_real_distribution
     {
       static_assert(std::is_floating_point<_RealType>::value,
-		    "template argument not a floating point type");
+		    "result_type must be a floating point type");
 
     public:
       /** The type of the range of the distribution. */
@@ -2084,7 +1920,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     class normal_distribution
     {
       static_assert(std::is_floating_point<_RealType>::value,
-		    "template argument not a floating point type");
+		    "result_type must be a floating point type");
 
     public:
       /** The type of the range of the distribution. */
@@ -2297,7 +2133,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     class lognormal_distribution
     {
       static_assert(std::is_floating_point<_RealType>::value,
-		    "template argument not a floating point type");
+		    "result_type must be a floating point type");
 
     public:
       /** The type of the range of the distribution. */
@@ -2501,7 +2337,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     class gamma_distribution
     {
       static_assert(std::is_floating_point<_RealType>::value,
-		    "template argument not a floating point type");
+		    "result_type must be a floating point type");
 
     public:
       /** The type of the range of the distribution. */
@@ -2718,7 +2554,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     class chi_squared_distribution
     {
       static_assert(std::is_floating_point<_RealType>::value,
-		    "template argument not a floating point type");
+		    "result_type must be a floating point type");
 
     public:
       /** The type of the range of the distribution. */
@@ -2928,7 +2764,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     class cauchy_distribution
     {
       static_assert(std::is_floating_point<_RealType>::value,
-		    "template argument not a floating point type");
+		    "result_type must be a floating point type");
 
     public:
       /** The type of the range of the distribution. */
@@ -3129,7 +2965,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     class fisher_f_distribution
     {
       static_assert(std::is_floating_point<_RealType>::value,
-		    "template argument not a floating point type");
+		    "result_type must be a floating point type");
 
     public:
       /** The type of the range of the distribution. */
@@ -3353,7 +3189,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     class student_t_distribution
     {
       static_assert(std::is_floating_point<_RealType>::value,
-		    "template argument not a floating point type");
+		    "result_type must be a floating point type");
 
     public:
       /** The type of the range of the distribution. */
@@ -3776,7 +3612,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     class binomial_distribution
     {
       static_assert(std::is_integral<_IntType>::value,
-		    "template argument not an integral type");
+		    "result_type must be an integral type");
 
     public:
       /** The type of the range of the distribution. */
@@ -4007,7 +3843,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     class geometric_distribution
     {
       static_assert(std::is_integral<_IntType>::value,
-		    "template argument not an integral type");
+		    "result_type must be an integral type");
 
     public:
       /** The type of the range of the distribution. */
@@ -4207,7 +4043,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     class negative_binomial_distribution
     {
       static_assert(std::is_integral<_IntType>::value,
-		    "template argument not an integral type");
+		    "result_type must be an integral type");
 
     public:
       /** The type of the range of the distribution. */
@@ -4429,7 +4265,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     class poisson_distribution
     {
       static_assert(std::is_integral<_IntType>::value,
-		    "template argument not an integral type");
+		    "result_type must be an integral type");
 
     public:
       /** The type of the range of the distribution. */
@@ -4645,7 +4481,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     class exponential_distribution
     {
       static_assert(std::is_floating_point<_RealType>::value,
-		    "template argument not a floating point type");
+		    "result_type must be a floating point type");
 
     public:
       /** The type of the range of the distribution. */
@@ -4847,7 +4683,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     class weibull_distribution
     {
       static_assert(std::is_floating_point<_RealType>::value,
-		    "template argument not a floating point type");
+		    "result_type must be a floating point type");
 
     public:
       /** The type of the range of the distribution. */
@@ -5050,7 +4886,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     class extreme_value_distribution
     {
       static_assert(std::is_floating_point<_RealType>::value,
-		    "template argument not a floating point type");
+		    "result_type must be a floating point type");
 
     public:
       /** The type of the range of the distribution. */
@@ -5250,7 +5086,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     class discrete_distribution
     {
       static_assert(std::is_integral<_IntType>::value,
-		    "template argument not an integral type");
+		    "result_type must be an integral type");
 
     public:
       /** The type of the range of the distribution. */
@@ -5480,7 +5316,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     class piecewise_constant_distribution
     {
       static_assert(std::is_floating_point<_RealType>::value,
-		    "template argument not a floating point type");
+		    "result_type must be a floating point type");
 
     public:
       /** The type of the range of the distribution. */
@@ -5747,7 +5583,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     class piecewise_linear_distribution
     {
       static_assert(std::is_floating_point<_RealType>::value,
-		    "template argument not a floating point type");
+		    "result_type must be a floating point type");
 
     public:
       /** The type of the range of the distribution. */

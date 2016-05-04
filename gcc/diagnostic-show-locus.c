@@ -1,5 +1,5 @@
 /* Diagnostic subroutines for printing source-code
-   Copyright (C) 1999-2015 Free Software Foundation, Inc.
+   Copyright (C) 1999-2016 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@codesourcery.com>
 
 This file is part of GCC.
@@ -78,6 +78,7 @@ class colorizer
 
   void set_range (int range_idx) { set_state (range_idx); }
   void set_normal_text () { set_state (STATE_NORMAL_TEXT); }
+  void set_fixit_hint () { set_state (0); }
 
  private:
   void set_state (int state);
@@ -116,7 +117,10 @@ class layout_point
 class layout_range
 {
  public:
-  layout_range (const location_range *loc_range);
+  layout_range (const expanded_location *start_exploc,
+		const expanded_location *finish_exploc,
+		bool show_caret_p,
+		const expanded_location *caret_exploc);
 
   bool contains_point (int row, int column) const;
 
@@ -136,11 +140,45 @@ struct line_bounds
   int m_last_non_ws;
 };
 
+/* A range of contiguous source lines within a layout (e.g. "lines 5-10"
+   or "line 23").  During the layout ctor, layout::calculate_line_spans
+   splits the pertinent source lines into a list of disjoint line_span
+   instances (e.g. lines 5-10, lines 15-20, line 23).  */
+
+struct line_span
+{
+  line_span (linenum_type first_line, linenum_type last_line)
+    : m_first_line (first_line), m_last_line (last_line)
+  {
+    gcc_assert (first_line <= last_line);
+  }
+  linenum_type get_first_line () const { return m_first_line; }
+  linenum_type get_last_line () const { return m_last_line; }
+
+  bool contains_line_p (linenum_type line) const
+  {
+    return line >= m_first_line && line <= m_last_line;
+  }
+
+  static int comparator (const void *p1, const void *p2)
+  {
+    const line_span *ls1 = (const line_span *)p1;
+    const line_span *ls2 = (const line_span *)p2;
+    int first_line_diff = (int)ls1->m_first_line - (int)ls2->m_first_line;
+    if (first_line_diff)
+      return first_line_diff;
+    return (int)ls1->m_last_line - (int)ls2->m_last_line;
+  }
+
+  linenum_type m_first_line;
+  linenum_type m_last_line;
+};
+
 /* A class to control the overall layout when printing a diagnostic.
 
    The layout is determined within the constructor.
-   It is then printed by repeatedly calling the "print_source_line"
-   and "print_annotation_line" methods.
+   It is then printed by repeatedly calling the "print_source_line",
+   "print_annotation_line" and "print_any_fixits" methods.
 
    We assume we have disjoint ranges.  */
 
@@ -150,13 +188,22 @@ class layout
   layout (diagnostic_context *context,
 	  const diagnostic_info *diagnostic);
 
-  int get_first_line () const { return m_first_line; }
-  int get_last_line () const { return m_last_line; }
+  int get_num_line_spans () const { return m_line_spans.length (); }
+  const line_span *get_line_span (int idx) const { return &m_line_spans[idx]; }
+
+  bool print_heading_for_line_span_index_p (int line_span_idx) const;
+
+  expanded_location get_expanded_location (const line_span *) const;
 
   bool print_source_line (int row, line_bounds *lbounds_out);
   void print_annotation_line (int row, const line_bounds lbounds);
+  void print_any_fixits (int row, const rich_location *richloc);
 
  private:
+  void calculate_line_spans ();
+
+  void print_newline ();
+
   bool
   get_state_at_point (/* Inputs.  */
 		      int row, int column,
@@ -168,6 +215,9 @@ class layout
   get_x_bound_for_row (int row, int caret_column,
 		       int last_non_ws);
 
+  void
+  move_to_column (int *column, int dest_column);
+
  private:
   diagnostic_context *m_context;
   pretty_printer *m_pp;
@@ -176,8 +226,7 @@ class layout
   colorizer m_colorizer;
   bool m_colorize_source_p;
   auto_vec <layout_range> m_layout_ranges;
-  int m_first_line;
-  int m_last_line;
+  auto_vec <line_span> m_line_spans;
   int m_x_offset;
 };
 
@@ -282,11 +331,14 @@ colorizer::finish_state (int state)
    Initialize various layout_point fields from expanded_location
    equivalents; we've already filtered on file.  */
 
-layout_range::layout_range (const location_range *loc_range)
-: m_start (loc_range->m_start),
-  m_finish (loc_range->m_finish),
-  m_show_caret_p (loc_range->m_show_caret_p),
-  m_caret (loc_range->m_caret)
+layout_range::layout_range (const expanded_location *start_exploc,
+			    const expanded_location *finish_exploc,
+			    bool show_caret_p,
+			    const expanded_location *caret_exploc)
+: m_start (*start_exploc),
+  m_finish (*finish_exploc),
+  m_show_caret_p (show_caret_p),
+  m_caret (*caret_exploc)
 {
 }
 
@@ -411,13 +463,90 @@ get_line_width_without_trailing_whitespace (const char *line, int line_width)
   return result;
 }
 
+/* Helper function for layout's ctor, for sanitizing locations relative
+   to the primary location within a diagnostic.
+
+   Compare LOC_A and LOC_B to see if it makes sense to print underlines
+   connecting their expanded locations.  Doing so is only guaranteed to
+   make sense if the locations share the same macro expansion "history"
+   i.e. they can be traced through the same macro expansions, eventually
+   reaching an ordinary map.
+
+   This may be too strong a condition, but it effectively sanitizes
+   PR c++/70105, which has an example of printing an expression where the
+   final location of the expression is in a different macro, which
+   erroneously was leading to hundreds of lines of irrelevant source
+   being printed.  */
+
+static bool
+compatible_locations_p (location_t loc_a, location_t loc_b)
+{
+  if (IS_ADHOC_LOC (loc_a))
+    loc_a = get_location_from_adhoc_loc (line_table, loc_a);
+  if (IS_ADHOC_LOC (loc_b))
+    loc_b = get_location_from_adhoc_loc (line_table, loc_b);
+
+  /* If either location is one of the special locations outside of a
+     linemap, they are only compatible if they are equal.  */
+  if (loc_a < RESERVED_LOCATION_COUNT
+      || loc_b < RESERVED_LOCATION_COUNT)
+    return loc_a == loc_b;
+
+  const line_map *map_a = linemap_lookup (line_table, loc_a);
+  linemap_assert (map_a);
+
+  const line_map *map_b = linemap_lookup (line_table, loc_b);
+  linemap_assert (map_b);
+
+  /* Are they within the same map?  */
+  if (map_a == map_b)
+    {
+      /* Are both within the same macro expansion?  */
+      if (linemap_macro_expansion_map_p (map_a))
+	{
+	  /* Expand each location towards the spelling location, and
+	     recurse.  */
+	  const line_map_macro *macro_map = linemap_check_macro (map_a);
+	  source_location loc_a_toward_spelling
+	    = linemap_macro_map_loc_unwind_toward_spelling (line_table,
+							    macro_map,
+							    loc_a);
+	  source_location loc_b_toward_spelling
+	    = linemap_macro_map_loc_unwind_toward_spelling (line_table,
+							    macro_map,
+							    loc_b);
+	  return compatible_locations_p (loc_a_toward_spelling,
+					 loc_b_toward_spelling);
+	}
+
+      /* Otherwise they are within the same ordinary map.  */
+      return true;
+    }
+  else
+    {
+      /* Within different maps.  */
+
+      /* If either is within a macro expansion, they are incompatible.  */
+      if (linemap_macro_expansion_map_p (map_a)
+	  || linemap_macro_expansion_map_p (map_b))
+	return false;
+
+      /* Within two different ordinary maps; they are compatible iff they
+	 are in the same file.  */
+      const line_map_ordinary *ord_map_a = linemap_check_ordinary (map_a);
+      const line_map_ordinary *ord_map_b = linemap_check_ordinary (map_b);
+      return ord_map_a->to_file == ord_map_b->to_file;
+    }
+}
+
 /* Implementation of class layout.  */
 
 /* Constructor for class layout.
 
    Filter the ranges from the rich_location to those that we can
    sanely print, populating m_layout_ranges.
-   Determine the range of lines that we will print.
+   Determine the range of lines that we will print, splitting them
+   up into an ordered list of disjoint spans of contiguous line numbers.
    Determine m_x_offset, to ensure that the primary caret
    will fit within the max_width provided by the diagnostic_context.  */
 
@@ -426,42 +555,86 @@ layout::layout (diagnostic_context * context,
 : m_context (context),
   m_pp (context->printer),
   m_diagnostic_kind (diagnostic->kind),
-  m_exploc (diagnostic->richloc->lazily_expand_location ()),
+  m_exploc (diagnostic->richloc->get_expanded_location (0)),
   m_colorizer (context, diagnostic),
   m_colorize_source_p (context->colorize_source_p),
   m_layout_ranges (rich_location::MAX_RANGES),
-  m_first_line (m_exploc.line),
-  m_last_line  (m_exploc.line),
+  m_line_spans (1 + rich_location::MAX_RANGES),
   m_x_offset (0)
 {
   rich_location *richloc = diagnostic->richloc;
+  source_location primary_loc = richloc->get_range (0)->m_loc;
+
   for (unsigned int idx = 0; idx < richloc->get_num_locations (); idx++)
     {
       /* This diagnostic printer can only cope with "sufficiently sane" ranges.
 	 Ignore any ranges that are awkward to handle.  */
-      location_range *loc_range = richloc->get_range (idx);
+      const location_range *loc_range = richloc->get_range (idx);
+
+      /* Split the "range" into caret and range information.  */
+      source_range src_range = get_range_from_loc (line_table, loc_range->m_loc);
+
+      /* Expand the various locations.  */
+      expanded_location start
+	= linemap_client_expand_location_to_spelling_point (src_range.m_start);
+      expanded_location finish
+	= linemap_client_expand_location_to_spelling_point (src_range.m_finish);
+      expanded_location caret
+	= linemap_client_expand_location_to_spelling_point (loc_range->m_loc);
 
       /* If any part of the range isn't in the same file as the primary
 	 location of this diagnostic, ignore the range.  */
-      if (loc_range->m_start.file != m_exploc.file)
+      if (start.file != m_exploc.file)
 	continue;
-      if (loc_range->m_finish.file != m_exploc.file)
+      if (finish.file != m_exploc.file)
 	continue;
       if (loc_range->m_show_caret_p)
-	if (loc_range->m_caret.file != m_exploc.file)
+	if (caret.file != m_exploc.file)
 	  continue;
+
+      /* Sanitize the caret location for non-primary ranges.  */
+      if (m_layout_ranges.length () > 0)
+	if (loc_range->m_show_caret_p)
+	  if (!compatible_locations_p (loc_range->m_loc, primary_loc))
+	    /* Discard any non-primary ranges that can't be printed
+	       sanely relative to the primary location.  */
+	    continue;
+
+      /* Everything is now known to be in the correct source file,
+	 but it may require further sanitization.  */
+      layout_range ri (&start, &finish, loc_range->m_show_caret_p, &caret);
+
+      /* If we have a range that finishes before it starts (perhaps
+	 from something built via macro expansion), printing the
+	 range is likely to be nonsensical.  Also, attempting to do so
+	 breaks assumptions within the printing code  (PR c/68473).
+	 Similarly, don't attempt to print ranges if one or both ends
+	 of the range aren't sane to print relative to the
+	 primary location (PR c++/70105).  */
+      if (start.line > finish.line
+	  || !compatible_locations_p (src_range.m_start, primary_loc)
+	  || !compatible_locations_p (src_range.m_finish, primary_loc))
+	{
+	  /* Is this the primary location?  */
+	  if (m_layout_ranges.length () == 0)
+	    {
+	      /* We want to print the caret for the primary location, but
+		 we must sanitize away m_start and m_finish.  */
+	      ri.m_start = ri.m_caret;
+	      ri.m_finish = ri.m_caret;
+	    }
+	  else
+	    /* This is a non-primary range; ignore it.  */
+	    continue;
+	}
 
       /* Passed all the tests; add the range to m_layout_ranges so that
 	 it will be printed.  */
-      layout_range ri (loc_range);
       m_layout_ranges.safe_push (ri);
-
-      /* Update m_first_line/m_last_line if necessary.  */
-      if (loc_range->m_start.line < m_first_line)
-	m_first_line = loc_range->m_start.line;
-      if (loc_range->m_finish.line > m_last_line)
-	m_last_line = loc_range->m_finish.line;
     }
+
+  /* Populate m_line_spans.  */
+  calculate_line_spans ();
 
   /* Adjust m_x_offset.
      Center the primary caret to fit in max_width; all columns
@@ -482,6 +655,142 @@ layout::layout (diagnostic_context * context,
     }
 }
 
+/* Return true iff we should print a heading when starting the
+   line span with the given index.  */
+
+bool
+layout::print_heading_for_line_span_index_p (int line_span_idx) const
+{
+  /* We print a heading for every change of line span, hence for every
+     line span after the initial one.  */
+  if (line_span_idx > 0)
+    return true;
+
+  /* We also do it for the initial span if the primary location of the
+     diagnostic is in a different span.  */
+  if (m_exploc.line > (int)get_line_span (0)->m_last_line)
+    return true;
+
+  return false;
+}
+
+/* Get an expanded_location for the first location of interest within
+   the given line_span.
+   Used when printing a heading to indicate a new line span.  */
+
+expanded_location
+layout::get_expanded_location (const line_span *line_span) const
+{
+  /* Whenever possible, use the caret location.  */
+  if (line_span->contains_line_p (m_exploc.line))
+    return m_exploc;
+
+  /* Otherwise, use the start of the first range that's present
+     within the line_span.  */
+  for (unsigned int i = 0; i < m_layout_ranges.length (); i++)
+    {
+      const layout_range *lr = &m_layout_ranges[i];
+      if (line_span->contains_line_p (lr->m_start.m_line))
+	{
+	  expanded_location exploc = m_exploc;
+	  exploc.line = lr->m_start.m_line;
+	  exploc.column = lr->m_start.m_column;
+	  return exploc;
+	}
+    }
+
+  /* It should not be possible to have a line span that didn't
+     contain any of the layout_range instances.  */
+  gcc_unreachable ();
+  return m_exploc;
+}
+
+/* We want to print the pertinent source code at a diagnostic.  The
+   rich_location can contain multiple locations.  This will have been
+   filtered into m_exploc (the caret for the primary location) and
+   m_layout_ranges, for those ranges within the same source file.
+
+   We will print a subset of the lines within the source file in question,
+   as a collection of "spans" of lines.
+
+   This function populates m_line_spans with an ordered, disjoint list of
+   the line spans of interest.
+
+   For example, if the primary caret location is on line 7, with ranges
+   covering lines 5-6 and lines 9-12:
+
+     004
+     005                   |RANGE 0
+     006                   |RANGE 0
+     007  |PRIMARY CARET
+     008
+     009                                |RANGE 1
+     010                                |RANGE 1
+     011                                |RANGE 1
+     012                                |RANGE 1
+     013
+
+   then we want two spans: lines 5-7 and lines 9-12.  */
+
+void
+layout::calculate_line_spans ()
+{
+  /* This should only be called once, by the ctor.  */
+  gcc_assert (m_line_spans.length () == 0);
+
+  /* Populate tmp_spans with individual spans, for each of
+     m_exploc, and for m_layout_ranges.  */
+  auto_vec<line_span> tmp_spans (1 + rich_location::MAX_RANGES);
+  tmp_spans.safe_push (line_span (m_exploc.line, m_exploc.line));
+  for (unsigned int i = 0; i < m_layout_ranges.length (); i++)
+    {
+      const layout_range *lr = &m_layout_ranges[i];
+      gcc_assert (lr->m_start.m_line <= lr->m_finish.m_line);
+      tmp_spans.safe_push (line_span (lr->m_start.m_line,
+				      lr->m_finish.m_line));
+    }
+
+  /* Sort them.  */
+  tmp_spans.qsort(line_span::comparator);
+
+  /* Now iterate through tmp_spans, copying into m_line_spans, and
+     combining where possible.  */
+  gcc_assert (tmp_spans.length () > 0);
+  m_line_spans.safe_push (tmp_spans[0]);
+  for (unsigned int i = 1; i < tmp_spans.length (); i++)
+    {
+      line_span *current = &m_line_spans[m_line_spans.length () - 1];
+      const line_span *next = &tmp_spans[i];
+      gcc_assert (next->m_first_line >= current->m_first_line);
+      if (next->m_first_line <= current->m_last_line + 1)
+	{
+	  /* We can merge them. */
+	  if (next->m_last_line > current->m_last_line)
+	    current->m_last_line = next->m_last_line;
+	}
+      else
+	{
+	  /* No merger possible.  */
+	  m_line_spans.safe_push (*next);
+	}
+    }
+
+  /* Verify the result, in m_line_spans.  */
+  gcc_assert (m_line_spans.length () > 0);
+  for (unsigned int i = 1; i < m_line_spans.length (); i++)
+    {
+      const line_span *prev = &m_line_spans[i - 1];
+      const line_span *next = &m_line_spans[i];
+      /* The individual spans must be sane.  */
+      gcc_assert (prev->m_first_line <= prev->m_last_line);
+      gcc_assert (next->m_first_line <= next->m_last_line);
+      /* The spans must be ordered.  */
+      gcc_assert (prev->m_first_line < next->m_first_line);
+      /* There must be a gap of at least one line between separate spans.  */
+      gcc_assert ((prev->m_last_line + 1) < next->m_first_line);
+    }
+}
+
 /* Attempt to print line ROW of source code, potentially colorized at any
    ranges.
    Return true if the line was printed, populating *LBOUNDS_OUT.
@@ -497,14 +806,13 @@ layout::print_source_line (int row, line_bounds *lbounds_out)
   if (!line)
     return false;
 
-  line += m_x_offset;
-
   m_colorizer.set_normal_text ();
 
   /* We will stop printing the source line at any trailing
      whitespace.  */
   line_width = get_line_width_without_trailing_whitespace (line,
 							   line_width);
+  line += m_x_offset;
 
   pp_space (m_pp);
   int first_non_ws = INT_MAX;
@@ -548,7 +856,7 @@ layout::print_source_line (int row, line_bounds *lbounds_out)
       pp_character (m_pp, c);
       line++;
     }
-  pp_newline (m_pp);
+  print_newline ();
 
   lbounds_out->m_first_non_ws = first_non_ws;
   lbounds_out->m_last_non_ws = last_non_ws;
@@ -590,6 +898,85 @@ layout::print_annotation_line (int row, const line_bounds lbounds)
 	  pp_character (m_pp, ' ');
 	}
     }
+  print_newline ();
+}
+
+/* If there are any fixit hints on source line ROW within RICHLOC, print them.
+   They are printed in order, attempting to combine them onto lines, but
+   starting new lines if necessary.  */
+
+void
+layout::print_any_fixits (int row, const rich_location *richloc)
+{
+  int column = 0;
+  for (unsigned int i = 0; i < richloc->get_num_fixit_hints (); i++)
+    {
+      fixit_hint *hint = richloc->get_fixit_hint (i);
+      if (hint->affects_line_p (m_exploc.file, row))
+	{
+	  /* For now we assume each fixit hint can only touch one line.  */
+	  switch (hint->get_kind ())
+	    {
+	    case fixit_hint::INSERT:
+	      {
+		fixit_insert *insert = static_cast <fixit_insert *> (hint);
+		/* This assumes the insertion just affects one line.  */
+		int start_column
+		  = LOCATION_COLUMN (insert->get_location ());
+		move_to_column (&column, start_column);
+		m_colorizer.set_fixit_hint ();
+		pp_string (m_pp, insert->get_string ());
+		m_colorizer.set_normal_text ();
+		column += insert->get_length ();
+	      }
+	      break;
+
+	    case fixit_hint::REMOVE:
+	      {
+		fixit_remove *remove = static_cast <fixit_remove *> (hint);
+		/* This assumes the removal just affects one line.  */
+		source_range src_range = remove->get_range ();
+		int start_column = LOCATION_COLUMN (src_range.m_start);
+		int finish_column = LOCATION_COLUMN (src_range.m_finish);
+		move_to_column (&column, start_column);
+		for (int column = start_column; column <= finish_column; column++)
+		  {
+		    m_colorizer.set_fixit_hint ();
+		    pp_character (m_pp, '-');
+		    m_colorizer.set_normal_text ();
+		  }
+	      }
+	      break;
+
+	    case fixit_hint::REPLACE:
+	      {
+		fixit_replace *replace = static_cast <fixit_replace *> (hint);
+		int start_column
+		  = LOCATION_COLUMN (replace->get_range ().m_start);
+		move_to_column (&column, start_column);
+		m_colorizer.set_fixit_hint ();
+		pp_string (m_pp, replace->get_string ());
+		m_colorizer.set_normal_text ();
+		column += replace->get_length ();
+	      }
+	      break;
+
+	    default:
+	      gcc_unreachable ();
+	    }
+	}
+    }
+
+  /* Add a trailing newline, if necessary.  */
+  move_to_column (&column, 0);
+}
+
+/* Disable any colorization and emit a newline.  */
+
+void
+layout::print_newline ()
+{
+  m_colorizer.set_normal_text ();
   pp_newline (m_pp);
 }
 
@@ -615,9 +1002,10 @@ layout::get_state_at_point (/* Inputs.  */
 
 	  /* Are we at the range's caret?  is it visible? */
 	  out_state->draw_caret_p = false;
-	  if (row == range->m_caret.m_line
+	  if (range->m_show_caret_p
+	      && row == range->m_caret.m_line
 	      && column == range->m_caret.m_column)
-	    out_state->draw_caret_p = range->m_show_caret_p;
+	    out_state->draw_caret_p = true;
 
 	  /* Within a multiline range, don't display any underline
 	     in any leading or trailing whitespace on a line.
@@ -675,6 +1063,27 @@ layout::get_x_bound_for_row (int row, int caret_column,
   return result;
 }
 
+/* Given *COLUMN as an x-coordinate, print spaces to position
+   successive output at DEST_COLUMN, printing a newline if necessary,
+   and updating *COLUMN.  */
+
+void
+layout::move_to_column (int *column, int dest_column)
+{
+  /* Start a new line if we need to.  */
+  if (*column > dest_column)
+    {
+      print_newline ();
+      *column = 0;
+    }
+
+  while (*column < dest_column)
+    {
+      pp_space (m_pp);
+      (*column)++;
+    }
+}
+
 } /* End of anonymous namespace.  */
 
 /* Print the physical source code corresponding to the location of
@@ -684,6 +1093,8 @@ void
 diagnostic_show_locus (diagnostic_context * context,
 		       const diagnostic_info *diagnostic)
 {
+  pp_newline (context->printer);
+
   if (!context->show_caret
       || diagnostic_location (diagnostic, 0) <= BUILTINS_LOCATION
       || diagnostic_location (diagnostic, 0) == context->last_location)
@@ -691,31 +1102,33 @@ diagnostic_show_locus (diagnostic_context * context,
 
   context->last_location = diagnostic_location (diagnostic, 0);
 
-  pp_newline (context->printer);
-
   const char *saved_prefix = pp_get_prefix (context->printer);
   pp_set_prefix (context->printer, NULL);
 
-  {
-    layout layout (context, diagnostic);
-    int last_line = layout.get_last_line ();
-    for (int row = layout.get_first_line ();
-	 row <= last_line;
-	 row++)
-      {
-	/* Print the source line, followed by an annotation line
-	   consisting of any caret/underlines.  If the source line can't
-	   be read, print nothing.  */
-	line_bounds lbounds;
-	if (layout.print_source_line (row, &lbounds))
-	  layout.print_annotation_line (row, lbounds);
-      }
-
-    /* The closing scope here leads to the dtor for layout and thus
-       colorizer being called here, which affects the precise
-       place where colorization is turned off in the unittest
-       for colorized output.  */
-  }
+  layout layout (context, diagnostic);
+  for (int line_span_idx = 0; line_span_idx < layout.get_num_line_spans ();
+       line_span_idx++)
+    {
+      const line_span *line_span = layout.get_line_span (line_span_idx);
+      if (layout.print_heading_for_line_span_index_p (line_span_idx))
+	{
+	  expanded_location exploc = layout.get_expanded_location (line_span);
+	  context->start_span (context, exploc);
+	}
+      int last_line = line_span->get_last_line ();
+      for (int row = line_span->get_first_line (); row <= last_line; row++)
+	{
+	  /* Print the source line, followed by an annotation line
+	     consisting of any caret/underlines, then any fixits.
+	     If the source line can't be read, print nothing.  */
+	  line_bounds lbounds;
+	  if (layout.print_source_line (row, &lbounds))
+	    {
+	      layout.print_annotation_line (row, lbounds);
+	      layout.print_any_fixits (row, diagnostic->richloc);
+	    }
+	}
+    }
 
   pp_set_prefix (context->printer, saved_prefix);
 }

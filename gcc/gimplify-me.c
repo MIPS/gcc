@@ -1,7 +1,7 @@
 /* Tree lowering to gimple for middle end use only.  
    This converts the GENERIC functions-as-trees tree representation into
    the GIMPLE form.
-   Copyright (C) 2013-2015 Free Software Foundation, Inc.
+   Copyright (C) 2013-2016 Free Software Foundation, Inc.
    Major work done by Sebastian Pop <s.pop@laposte.net>,
    Diego Novillo <dnovillo@redhat.com> and Jason Merrill <jason@redhat.com>.
 
@@ -299,7 +299,8 @@ gimple_regimplify_operands (gimple *stmt, gimple_stmt_iterator *gsi_p)
 	  if (need_temp)
 	    {
 	      tree temp = create_tmp_reg (TREE_TYPE (lhs));
-	      if (gimple_in_ssa_p (cfun))
+	      if (gimple_in_ssa_p (cfun)
+		  && is_gimple_reg_type (TREE_TYPE (lhs)))
 		temp = make_ssa_name (temp);
 	      gimple_set_lhs (stmt, temp);
 	      post_stmt = gimple_build_assign (lhs, temp);

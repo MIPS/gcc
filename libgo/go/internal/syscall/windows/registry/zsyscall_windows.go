@@ -4,18 +4,20 @@ package registry
 
 import "unsafe"
 import "syscall"
+import "internal/syscall/windows/sysdll"
 
 var _ unsafe.Pointer
 
 var (
-	modadvapi32 = syscall.NewLazyDLL("advapi32.dll")
-	modkernel32 = syscall.NewLazyDLL("kernel32.dll")
+	modadvapi32 = syscall.NewLazyDLL(sysdll.Add("advapi32.dll"))
+	modkernel32 = syscall.NewLazyDLL(sysdll.Add("kernel32.dll"))
 
 	procRegCreateKeyExW           = modadvapi32.NewProc("RegCreateKeyExW")
 	procRegDeleteKeyW             = modadvapi32.NewProc("RegDeleteKeyW")
 	procRegSetValueExW            = modadvapi32.NewProc("RegSetValueExW")
 	procRegEnumValueW             = modadvapi32.NewProc("RegEnumValueW")
 	procRegDeleteValueW           = modadvapi32.NewProc("RegDeleteValueW")
+	procRegLoadMUIStringW         = modadvapi32.NewProc("RegLoadMUIStringW")
 	procExpandEnvironmentStringsW = modkernel32.NewProc("ExpandEnvironmentStringsW")
 )
 
@@ -53,6 +55,14 @@ func regEnumValue(key syscall.Handle, index uint32, name *uint16, nameLen *uint3
 
 func regDeleteValue(key syscall.Handle, name *uint16) (regerrno error) {
 	r0, _, _ := syscall.Syscall(procRegDeleteValueW.Addr(), 2, uintptr(key), uintptr(unsafe.Pointer(name)), 0)
+	if r0 != 0 {
+		regerrno = syscall.Errno(r0)
+	}
+	return
+}
+
+func regLoadMUIString(key syscall.Handle, name *uint16, buf *uint16, buflen uint32, buflenCopied *uint32, flags uint32, dir *uint16) (regerrno error) {
+	r0, _, _ := syscall.Syscall9(procRegLoadMUIStringW.Addr(), 7, uintptr(key), uintptr(unsafe.Pointer(name)), uintptr(unsafe.Pointer(buf)), uintptr(buflen), uintptr(unsafe.Pointer(buflenCopied)), uintptr(flags), uintptr(unsafe.Pointer(dir)), 0, 0)
 	if r0 != 0 {
 		regerrno = syscall.Errno(r0)
 	}

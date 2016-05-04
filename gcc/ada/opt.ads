@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -112,6 +112,11 @@ package Opt is
    --  case of some binder variables, Gnatbind.Scan_Bind_Arg may modify
    --  the default values.
 
+   Latest_Ada_Only : Boolean := False;
+   --  If True, the only value valid for Ada_Version is Ada_Version_Type'Last,
+   --  trying to specify other values will be ignored (in case of pragma
+   --  Ada_xxx) or generate an error (in case of -gnat83/95/xx switches).
+
    type Ada_Version_Type is (Ada_83, Ada_95, Ada_2005, Ada_2012);
    pragma Ordered (Ada_Version_Type);
    --  Versions of Ada for Ada_Version below. Note that these are ordered,
@@ -202,6 +207,11 @@ package Opt is
    --  GNATBIND
    --  Set to non-null when Bind_Alternate_Main_Name is True. This value
    --  is modified as needed by Gnatbind.Scan_Bind_Arg.
+
+   ASIS_GNSA_Mode : Boolean := False;
+   --  GNAT
+   --  Enable GNSA back-end processing assuming ASIS_Mode is already set to
+   --  True. ASIS_GNSA mode suppresses the call to gigi.
 
    ASIS_Mode : Boolean := False;
    --  GNAT
@@ -573,27 +583,41 @@ package Opt is
    --  currently active.
 
    type Exception_Mechanism_Type is
-   --  Determines the handling of exceptions. See Exp_Ch11 for details
+   --  Determines the kind of mechanism used to handle exceptions
    --
-     (Front_End_Setjmp_Longjmp_Exceptions,
+     (Front_End_SJLJ,
       --  Exceptions use setjmp/longjmp generated explicitly by the front end
       --  (this includes gigi or other equivalent parts of the code generator).
       --  AT END handlers are converted into exception handlers by the front
       --  end in this mode.
 
-      Back_End_Exceptions);
+      Back_End_ZCX,
       --  Exceptions are handled by the back end. The front end simply
       --  generates the handlers as they appear in the source, and AT END
       --  handlers are left untouched (they are not converted into exception
-      --  handlers when operating in this mode.
+      --  handlers when operating in this mode). Propagation is performed
+      --  using a frame unwinding scheme and requires no particular setup code
+      --  at handler sites on regular execution paths.
+
+      Back_End_SJLJ);
+      --  Similar to Back_End_ZCX with respect to the front-end processing
+      --  of regular and AT-END handlers. A setjmp/longjmp scheme is used to
+      --  propagate and setup handler contexts on regular execution paths.
+
    pragma Convention (C, Exception_Mechanism_Type);
 
-   Exception_Mechanism : Exception_Mechanism_Type :=
-                           Front_End_Setjmp_Longjmp_Exceptions;
+   Exception_Mechanism : Exception_Mechanism_Type := Front_End_SJLJ;
    --  GNAT
-   --  Set to the appropriate value depending on the default as given in
-   --  system.ads (ZCX_By_Default). The C convention is there to make this
-   --  variable accessible to gigi.
+   --  Set to the appropriate value depending on the flags in system.ads
+   --  (Frontend_Exceptions + ZCX_By_Default). The C convention is there to
+   --  allow access by gigi.
+
+   function Back_End_Exceptions return Boolean;
+   function Front_End_Exceptions return Boolean;
+   function ZCX_Exceptions return Boolean;
+   function SJLJ_Exceptions return Boolean;
+   --  GNAT
+   --  Various properties of the active Exception_Mechanism
 
    Exception_Tracebacks : Boolean := False;
    --  GNATBIND
@@ -1046,6 +1070,12 @@ package Opt is
    Minimal_Recompilation : Boolean := False;
    --  GNATMAKE
    --  Set to True if minimal recompilation mode requested
+
+   Minimize_Expression_With_Actions : Boolean := False;
+   --  GNAT
+   --  If True, minimize the use of N_Expression_With_Actions node.
+   --  This can be used in particular on some back-ends where this node is
+   --  difficult to support.
 
    Modify_Tree_For_C : Boolean := False;
    --  GNAT

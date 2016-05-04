@@ -1,5 +1,5 @@
 ; Options for the C, ObjC, C++ and ObjC++ front ends.
-; Copyright (C) 2003-2015 Free Software Foundation, Inc.
+; Copyright (C) 2003-2016 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -370,6 +370,10 @@ Wctor-dtor-privacy
 C++ ObjC++ Var(warn_ctor_dtor_privacy) Warning
 Warn when all constructors and destructors are private.
 
+Wdangling-else
+C ObjC C++ ObjC++ Var(warn_dangling_else) Warning LangEnabledBy(C ObjC C++ ObjC++,Wparentheses)
+Warn about dangling else.
+
 Wdate-time
 C ObjC C++ ObjC++ CPP(warn_date_time) CppReason(CPP_W_DATE_TIME) Var(cpp_warn_date_time) Init(0) Warning
 Warn about __TIME__, __DATE__ and __TIMESTAMP__ usage.
@@ -435,7 +439,7 @@ C ObjC RejectNegative Warning Alias(Werror=, implicit-function-declaration)
 This switch is deprecated; use -Werror=implicit-function-declaration instead.
 
 Wfloat-conversion
-C ObjC C++ ObjC++ Var(warn_float_conversion) LangEnabledBy(C ObjC C++ ObjC++,Wconversion)
+C ObjC C++ ObjC++ Var(warn_float_conversion) Warning LangEnabledBy(C ObjC C++ ObjC++,Wconversion)
 Warn for implicit type conversions that cause loss of floating point precision.
 
 Wfloat-equal
@@ -481,6 +485,10 @@ Warn about printf/scanf/strftime/strfmon format string anomalies.
 Wignored-qualifiers
 C C++ Var(warn_ignored_qualifiers) Warning EnabledBy(Wextra)
 Warn whenever type qualifiers are ignored.
+
+Wignored-attributes
+C C++ Var(warn_ignored_attributes) Init(1) Warning
+Warn whenever attributes are ignored.
 
 Wincompatible-pointer-types
 C ObjC Var(warn_incompatible_pointer_types) Init(1) Warning
@@ -561,8 +569,12 @@ Wmemset-transposed-args
 C ObjC C++ ObjC++ Var(warn_memset_transposed_args) Warning LangEnabledBy(C ObjC C++ ObjC++,Wall)
 Warn about suspicious calls to memset where the third argument is constant literal zero and the second is not.
 
+Wmemset-elt-size
+C ObjC C++ ObjC++ Var(warn_memset_elt_size) Warning LangEnabledBy(C ObjC C++ ObjC++,Wall)
+Warn about suspicious calls to memset where the third argument contains the number of elements not multiplied by the element size.
+
 Wmisleading-indentation
-C C++ Common Var(warn_misleading_indentation) Warning
+C C++ Common Var(warn_misleading_indentation) Warning LangEnabledBy(C C++,Wall)
 Warn when the indentation of the code does not reflect the block structure.
 
 Wmissing-braces
@@ -627,7 +639,7 @@ C++ ObjC++ Var(warn_templates) Warning
 Warn on primary template declaration.
 
 Wmissing-format-attribute
-C ObjC C++ ObjC++ Alias(Wsuggest-attribute=format)
+C ObjC C++ ObjC++ Warning Alias(Wsuggest-attribute=format)
 ;
 
 Wmissing-include-dirs
@@ -677,8 +689,12 @@ Wnonnull
 C ObjC C++ ObjC++ LangEnabledBy(C ObjC C++ ObjC++,Wall)
 ;
 
+Wnonnull-compare
+C ObjC C++ ObjC++ LangEnabledBy(C ObjC C++ ObjC++,Wall)
+;
+
 Wnormalized
-C ObjC C++ ObjC++ Alias(Wnormalized=,nfc,none)
+C ObjC C++ ObjC++ Warning Alias(Wnormalized=,nfc,none)
 ;
 
 Wnormalized=
@@ -777,7 +793,11 @@ ObjC ObjC++ Var(warn_protocol) Init(1) Warning
 Warn if inherited methods are unimplemented.
 
 Wplacement-new
-C++ Var(warn_placement_new) Init(1) Warning
+C++ Warning Alias(Wplacement-new=, 1, 0)
+Warn for placement new expressions with undefined behavior.
+
+Wplacement-new=
+C++ Joined RejectNegative UInteger Var(warn_placement_new) Init(-1) Warning
 Warn for placement new expressions with undefined behavior.
 
 Wredundant-decls
@@ -837,7 +857,7 @@ C ObjC C++ ObjC++ EnabledBy(Wextra)
 ;
 
 Wsign-conversion
-C ObjC C++ ObjC++ Var(warn_sign_conversion) LangEnabledBy(C ObjC,Wconversion)
+C ObjC C++ ObjC++ Var(warn_sign_conversion) Warning LangEnabledBy(C ObjC,Wconversion)
 Warn for implicit type conversions between signed and unsigned integers.
 
 Wsign-promo
@@ -941,7 +961,11 @@ C ObjC C++ ObjC++ LangEnabledBy(C ObjC C++ ObjC++,Wunused)
 ; documented in common.opt
 
 Wunused-const-variable
-C ObjC C++ ObjC++ Var(warn_unused_const_variable) Warning LangEnabledBy(C ObjC,Wunused-variable)
+C ObjC C++ ObjC++ Warning Alias(Wunused-const-variable=, 2, 0)
+Warn when a const variable is unused.
+
+Wunused-const-variable=
+C ObjC C++ ObjC++ Joined RejectNegative UInteger Var(warn_unused_const_variable) Warning LangEnabledBy(C ObjC,Wunused-variable, 1, 0)
 Warn when a const variable is unused.
 
 Wvariadic-macros
@@ -1372,6 +1396,10 @@ fopenacc
 C ObjC C++ ObjC++ LTO Var(flag_openacc)
 Enable OpenACC.
 
+fopenacc-dim=
+C ObjC C++ ObjC++ LTO Joined Var(flag_openacc_dims)
+Specify default OpenACC compute dimensions.
+
 fopenmp
 C ObjC C++ ObjC++ LTO Var(flag_openmp)
 Enable OpenMP (implies -frecursive in Fortran).
@@ -1430,10 +1458,6 @@ Enable automatic template instantiation.
 frtti
 C++ ObjC++ Optimization Var(flag_rtti) Init(1)
 Generate run time type descriptor information.
-
-fshort-double
-C ObjC C++ ObjC++ LTO Optimization Var(flag_short_double)
-Use the same size for double as for float.
 
 fshort-enums
 C ObjC C++ ObjC++ LTO Optimization Var(flag_short_enums)

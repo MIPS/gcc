@@ -1,5 +1,5 @@
 /* Reload pseudo regs into hard regs for insns that require hard regs.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -981,7 +981,8 @@ reload (rtx_insn *first, int global)
       /* If we allocated another stack slot, redo elimination bookkeeping.  */
       if (something_was_spilled || starting_frame_size != get_frame_size ())
 	{
-	  update_eliminables_and_spill ();
+	  if (update_eliminables_and_spill ())
+	    finish_spills (global);
 	  continue;
 	}
 
@@ -1021,10 +1022,12 @@ reload (rtx_insn *first, int global)
 	  did_spill = 1;
 	  something_changed = 1;
 	}
-
-      select_reload_regs ();
-      if (failure)
-	goto failed;
+      else
+	{
+	  select_reload_regs ();
+	  if (failure)
+	    goto failed;
+	}
 
       if (insns_need_reload != 0 || did_spill)
 	something_changed |= finish_spills (global);
@@ -1257,28 +1260,6 @@ reload (rtx_insn *first, int global)
 	      }
 	  }
       }
-
-  /* If we are doing generic stack checking, give a warning if this
-     function's frame size is larger than we expect.  */
-  if (flag_stack_check == GENERIC_STACK_CHECK)
-    {
-      HOST_WIDE_INT size = get_frame_size () + STACK_CHECK_FIXED_FRAME_SIZE;
-      static int verbose_warned = 0;
-
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (df_regs_ever_live_p (i) && ! fixed_regs[i] && call_used_regs[i])
-	  size += UNITS_PER_WORD;
-
-      if (size > STACK_CHECK_MAX_FRAME_SIZE)
-	{
-	  warning (0, "frame size too large for reliable stack checking");
-	  if (! verbose_warned)
-	    {
-	      warning (0, "try reducing the number of local variables");
-	      verbose_warned = 1;
-	    }
-	}
-    }
 
   free (temp_pseudo_reg_arr);
 
@@ -7417,7 +7398,9 @@ emit_input_reload_insns (struct insn_chain *chain, struct reload *rl,
 	      /* Adjust any debug insns between temp and insn.  */
 	      while ((temp = NEXT_INSN (temp)) != insn)
 		if (DEBUG_INSN_P (temp))
-		  replace_rtx (PATTERN (temp), old, reloadreg);
+		  INSN_VAR_LOCATION_LOC (temp)
+		    = simplify_replace_rtx (INSN_VAR_LOCATION_LOC (temp),
+					    old, reloadreg);
 		else
 		  gcc_assert (NOTE_P (temp));
 	    }

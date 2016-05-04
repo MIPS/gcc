@@ -1,5 +1,5 @@
 /* Miscellaneous SSA utility functions.
-   Copyright (C) 2001-2015 Free Software Foundation, Inc.
+   Copyright (C) 2001-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -119,10 +119,10 @@ redirect_edge_var_map_vector (edge e)
 /* Clear the edge variable mappings.  */
 
 void
-redirect_edge_var_map_destroy (void)
+redirect_edge_var_map_empty (void)
 {
-  delete edge_var_maps;
-  edge_var_maps = NULL;
+  if (edge_var_maps)
+    edge_var_maps->empty ();
 }
 
 
@@ -1051,62 +1051,6 @@ init_tree_ssa (struct function *fn)
   init_ssanames (fn, 0);
 }
 
-/* Do the actions required to initialize internal data structures used
-   in tree-ssa optimization passes.  */
-
-static unsigned int
-execute_init_datastructures (void)
-{
-  /* Allocate hash tables, arrays and other structures.  */
-  gcc_assert (!cfun->gimple_df);
-  init_tree_ssa (cfun);
-  return 0;
-}
-
-namespace {
-
-const pass_data pass_data_init_datastructures =
-{
-  GIMPLE_PASS, /* type */
-  "*init_datastructures", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
-  TV_NONE, /* tv_id */
-  PROP_cfg, /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  0, /* todo_flags_finish */
-};
-
-class pass_init_datastructures : public gimple_opt_pass
-{
-public:
-  pass_init_datastructures (gcc::context *ctxt)
-    : gimple_opt_pass (pass_data_init_datastructures, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  virtual bool gate (function *fun)
-    {
-      /* Do nothing for funcions that was produced already in SSA form.  */
-      return !(fun->curr_properties & PROP_ssa);
-    }
-
-  virtual unsigned int execute (function *)
-    {
-      return execute_init_datastructures ();
-    }
-
-}; // class pass_init_datastructures
-
-} // anon namespace
-
-gimple_opt_pass *
-make_pass_init_datastructures (gcc::context *ctxt)
-{
-  return new pass_init_datastructures (ctxt);
-}
-
 /* Deallocate memory associated with SSA data structures for FNDECL.  */
 
 void
@@ -1124,8 +1068,10 @@ delete_tree_ssa (struct function *fn)
   if (fn->gimple_df->decls_to_pointers != NULL)
     delete fn->gimple_df->decls_to_pointers;
   fn->gimple_df->decls_to_pointers = NULL;
-  fn->gimple_df->modified_noreturn_calls = NULL;
   fn->gimple_df = NULL;
+
+  /* We no longer need the edge variable maps.  */
+  redirect_edge_var_map_empty ();
 }
 
 /* Return true if EXPR is a useless type conversion, otherwise return
@@ -1434,7 +1380,8 @@ execute_update_addresses_taken (void)
               tree lhs = gimple_get_lhs (stmt);
               if (lhs
 		  && TREE_CODE (lhs) != SSA_NAME
-		  && non_rewritable_lvalue_p (lhs))
+		  && ((code == GIMPLE_CALL && ! DECL_P (lhs))
+		      || non_rewritable_lvalue_p (lhs)))
 		{
 		  decl = get_base_address (lhs);
 		  if (DECL_P (decl))

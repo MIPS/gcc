@@ -2,7 +2,7 @@
 ; Generated automatically by genopt.sh from arm-cores.def, arm-arches.def
 ; and arm-fpus.def.
 
-; Copyright (C) 2011-2015 Free Software Foundation, Inc.
+; Copyright (C) 2011-2016 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -286,6 +286,9 @@ EnumValue
 Enum(processor_type) String(cortex-r7) Value(cortexr7)
 
 EnumValue
+Enum(processor_type) String(cortex-r8) Value(cortexr8)
+
+EnumValue
 Enum(processor_type) String(cortex-m7) Value(cortexm7)
 
 EnumValue
@@ -302,6 +305,12 @@ Enum(processor_type) String(cortex-a15.cortex-a7) Value(cortexa15cortexa7)
 
 EnumValue
 Enum(processor_type) String(cortex-a17.cortex-a7) Value(cortexa17cortexa7)
+
+EnumValue
+Enum(processor_type) String(cortex-a32) Value(cortexa32)
+
+EnumValue
+Enum(processor_type) String(cortex-a35) Value(cortexa35)
 
 EnumValue
 Enum(processor_type) String(cortex-a53) Value(cortexa53)
@@ -413,10 +422,16 @@ EnumValue
 Enum(arm_arch) String(armv8-a+crc) Value(26)
 
 EnumValue
-Enum(arm_arch) String(iwmmxt) Value(27)
+Enum(arm_arch) String(armv8.1-a) Value(27)
 
 EnumValue
-Enum(arm_arch) String(iwmmxt2) Value(28)
+Enum(arm_arch) String(armv8.1-a+crc) Value(28)
+
+EnumValue
+Enum(arm_arch) String(iwmmxt) Value(29)
+
+EnumValue
+Enum(arm_arch) String(iwmmxt2) Value(30)
 
 Enum
 Name(arm_fpu) Type(int)

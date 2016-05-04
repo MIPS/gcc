@@ -1,5 +1,5 @@
 /* Standard problems for dataflow support routines.
-   Copyright (C) 1999-2015 Free Software Foundation, Inc.
+   Copyright (C) 1999-2016 Free Software Foundation, Inc.
    Originally contributed by Michael P. Hayes
              (m.hayes@elec.canterbury.ac.nz, mhayes@redhat.com)
    Major rewrite contributed by Danny Berlin (dberlin@dberlin.org)
@@ -517,10 +517,7 @@ df_rd_transfer_function (int bb_index)
       bitmap_ior_into (&tmp, gen);
       changed = !bitmap_equal_p (&tmp, out);
       if (changed)
-	{
-	  bitmap_clear (out);
-	  bb_info->out = tmp;
-	}
+	bitmap_move (out, &tmp);
       else
 	bitmap_clear (&tmp);
     }
@@ -671,7 +668,7 @@ df_rd_bottom_dump (basic_block bb, FILE *file)
 
 /* All of the information associated with every instance of the problem.  */
 
-static struct df_problem problem_RD =
+static const struct df_problem problem_RD =
 {
   DF_RD,                      /* Problem id.  */
   DF_FORWARD,                 /* Direction.  */
@@ -1193,7 +1190,7 @@ df_lr_verify_solution_end (void)
 
 /* All of the information associated with every instance of the problem.  */
 
-static struct df_problem problem_LR =
+static const struct df_problem problem_LR =
 {
   DF_LR,                      /* Problem id.  */
   DF_BACKWARD,                /* Direction.  */
@@ -1721,7 +1718,7 @@ df_live_verify_solution_end (void)
 
 /* All of the information associated with every instance of the problem.  */
 
-static struct df_problem problem_LIVE =
+static const struct df_problem problem_LIVE =
 {
   DF_LIVE,                      /* Problem id.  */
   DF_FORWARD,                   /* Direction.  */
@@ -2172,7 +2169,7 @@ df_mir_verify_solution_end (void)
 
 /* All of the information associated with every instance of the problem.  */
 
-static struct df_problem problem_MIR =
+static const struct df_problem problem_MIR =
 {
   DF_MIR,                       /* Problem id.  */
   DF_FORWARD,                   /* Direction.  */
@@ -2644,7 +2641,7 @@ df_chain_insn_bottom_dump (const rtx_insn *insn, FILE *file)
     }
 }
 
-static struct df_problem problem_CHAIN =
+static const struct df_problem problem_CHAIN =
 {
   DF_CHAIN,                   /* Problem id.  */
   DF_NONE,                    /* Direction.  */
@@ -3011,7 +3008,7 @@ df_word_lr_bottom_dump (basic_block bb, FILE *file)
 
 /* All of the information associated with every instance of the problem.  */
 
-static struct df_problem problem_WORD_LR =
+static const struct df_problem problem_WORD_LR =
 {
   DF_WORD_LR,                      /* Problem id.  */
   DF_BACKWARD,                     /* Direction.  */
@@ -3686,7 +3683,7 @@ df_note_free (void)
 
 /* All of the information associated every instance of the problem.  */
 
-static struct df_problem problem_NOTE =
+static const struct df_problem problem_NOTE =
 {
   DF_NOTE,                    /* Problem id.  */
   DF_NONE,                    /* Direction.  */
@@ -4696,7 +4693,7 @@ df_md_bottom_dump (basic_block bb, FILE *file)
   df_print_regset (file, &bb_info->out);
 }
 
-static struct df_problem problem_MD =
+static const struct df_problem problem_MD =
 {
   DF_MD,                      /* Problem id.  */
   DF_FORWARD,                 /* Direction.  */

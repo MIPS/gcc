@@ -1,5 +1,5 @@
 /* Array translation routines
-   Copyright (C) 2002-2015 Free Software Foundation, Inc.
+   Copyright (C) 2002-2016 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -1093,6 +1093,16 @@ gfc_trans_create_temp_array (stmtblock_t * pre, stmtblock_t * post, gfc_ss * ss,
 
   info->descriptor = desc;
   size = gfc_index_one_node;
+
+  /* Emit a DECL_EXPR for the variable sized array type in
+     GFC_TYPE_ARRAY_DATAPTR_TYPE so the gimplification of its type
+     sizes works correctly.  */
+  tree arraytype = TREE_TYPE (GFC_TYPE_ARRAY_DATAPTR_TYPE (type));
+  if (! TYPE_NAME (arraytype))
+    TYPE_NAME (arraytype) = build_decl (UNKNOWN_LOCATION, TYPE_DECL,
+					NULL_TREE, arraytype);
+  gfc_add_expr_to_block (pre, build1 (DECL_EXPR,
+				      arraytype, TYPE_NAME (arraytype)));
 
   /* Fill in the array dtype.  */
   tmp = gfc_conv_descriptor_dtype (desc);
@@ -2464,10 +2474,12 @@ gfc_scalar_elemental_arg_saved_as_reference (gfc_ss_info * ss_info)
     return true;
 
   /* If the expression is a data reference of aggregate type,
+     and the data reference is not used on the left hand side,
      avoid a copy by saving a reference to the content.  */
-  if (ss_info->expr->expr_type == EXPR_VARIABLE
+  if (!ss_info->data.scalar.needs_temporary
       && (ss_info->expr->ts.type == BT_DERIVED
-	  || ss_info->expr->ts.type == BT_CLASS))
+	  || ss_info->expr->ts.type == BT_CLASS)
+      && gfc_expr_is_variable (ss_info->expr))
     return true;
 
   /* Otherwise the expression is evaluated to a temporary variable before the
@@ -3164,7 +3176,9 @@ gfc_conv_scalarized_array_ref (gfc_se * se, gfc_array_ref * ar)
     index = fold_build2_loc (input_location, PLUS_EXPR, gfc_array_index_type,
 			     index, info->offset);
 
-  if (expr && is_subref_array (expr))
+  if (expr && (is_subref_array (expr)
+	       || (expr->ts.deferred && (expr->expr_type == EXPR_VARIABLE
+					 || expr->expr_type == EXPR_FUNCTION))))
     decl = expr->symtree->n.sym->backend_decl;
 
   tmp = build_fold_indirect_ref_loc (input_location, info->data);
@@ -3600,7 +3614,8 @@ gfc_trans_scalarized_loop_end (gfc_loopinfo * loop, int n,
   tree init;
   tree incr;
 
-  if ((ompws_flags & (OMPWS_WORKSHARE_FLAG | OMPWS_SCALARIZER_WS))
+  if ((ompws_flags & (OMPWS_WORKSHARE_FLAG | OMPWS_SCALARIZER_WS
+		      | OMPWS_SCALARIZER_BODY))
       == (OMPWS_WORKSHARE_FLAG | OMPWS_SCALARIZER_WS)
       && n == loop->dimen - 1)
     {
@@ -3820,10 +3835,10 @@ evaluate_bound (stmtblock_t *block, tree *bounds, gfc_expr ** values,
       gfc_add_block_to_block (block, &se.pre);
       *output = se.expr;
     }
-  else if (deferred)
+  else if (deferred && GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (desc)))
     {
       /* The gfc_conv_array_lbound () routine returns a constant zero for
-	 deferred length arrays, which in the scalarizer wrecks havoc, when
+	 deferred length arrays, which in the scalarizer wreaks havoc, when
 	 copying to a (newly allocated) one-based array.
 	 Keep returning the actual result in sync for both bounds.  */
       *output = lbound ? gfc_conv_descriptor_lbound_get (desc,
@@ -4458,6 +4473,7 @@ gfc_conv_resolve_dependencies (gfc_loopinfo * loop, gfc_ss * dest,
   gfc_ss *ss;
   gfc_ref *lref;
   gfc_ref *rref;
+  gfc_ss_info *ss_info;
   gfc_expr *dest_expr;
   gfc_expr *ss_expr;
   int nDepend = 0;
@@ -4468,15 +4484,16 @@ gfc_conv_resolve_dependencies (gfc_loopinfo * loop, gfc_ss * dest,
 
   for (ss = rss; ss != gfc_ss_terminator; ss = ss->next)
     {
-      ss_expr = ss->info->expr;
+      ss_info = ss->info;
+      ss_expr = ss_info->expr;
 
-      if (ss->info->array_outer_dependency)
+      if (ss_info->array_outer_dependency)
 	{
 	  nDepend = 1;
 	  break;
 	}
 
-      if (ss->info->type != GFC_SS_SECTION)
+      if (ss_info->type != GFC_SS_SECTION)
 	{
 	  if (flag_realloc_lhs
 	      && dest_expr != ss_expr
@@ -4490,6 +4507,10 @@ gfc_conv_resolve_dependencies (gfc_loopinfo * loop, gfc_ss * dest,
 	      && ss_expr->expr_type == EXPR_VARIABLE)
 
 	    nDepend = gfc_check_dependency (dest_expr, ss_expr, false);
+
+	  if (ss_info->type == GFC_SS_REFERENCE
+	      && gfc_check_dependency (dest_expr, ss_expr, false))
+	    ss_info->data.scalar.needs_temporary = 1;
 
 	  continue;
 	}
@@ -5036,7 +5057,7 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
 		     gfc_expr ** lower, gfc_expr ** upper, stmtblock_t * pblock,
 		     stmtblock_t * descriptor_block, tree * overflow,
 		     tree expr3_elem_size, tree *nelems, gfc_expr *expr3,
-		     tree expr3_desc, bool e3_is_array_constr)
+		     tree expr3_desc, bool e3_is_array_constr, gfc_expr *expr)
 {
   tree type;
   tree tmp;
@@ -5061,8 +5082,19 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
   offset = gfc_index_zero_node;
 
   /* Set the dtype.  */
-  tmp = gfc_conv_descriptor_dtype (descriptor);
-  gfc_add_modify (descriptor_block, tmp, gfc_get_dtype (type));
+  if (expr->ts.type == BT_CHARACTER && expr->ts.deferred
+      && TREE_CODE (expr->ts.u.cl->backend_decl) == VAR_DECL)
+    {
+      type = gfc_typenode_for_spec (&expr->ts);
+      tmp = gfc_conv_descriptor_dtype (descriptor);
+      gfc_add_modify (descriptor_block, tmp,
+		      gfc_get_dtype_rank_type (rank, type));
+    }
+  else
+    {
+      tmp = gfc_conv_descriptor_dtype (descriptor);
+      gfc_add_modify (descriptor_block, tmp, gfc_get_dtype (type));
+    }
 
   or_expr = boolean_false_node;
 
@@ -5379,17 +5411,8 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
   if (!retrieve_last_ref (&ref, &prev_ref))
     return false;
 
-  if (ref->u.ar.type == AR_FULL && expr3 != NULL)
-    {
-      /* F08:C633: Array shape from expr3.  */
-      ref = expr3->ref;
-
-      /* Find the last reference in the chain.  */
-      if (!retrieve_last_ref (&ref, &prev_ref))
-	return false;
-      alloc_w_e3_arr_spec = true;
-    }
-
+  /* Take the allocatable and coarray properties solely from the expr-ref's
+     attributes and not from source=-expression.  */
   if (!prev_ref)
     {
       allocatable = expr->symtree->n.sym->attr.allocatable;
@@ -5405,6 +5428,17 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
 
   if (!dimension)
     gcc_assert (coarray);
+
+  if (ref->u.ar.type == AR_FULL && expr3 != NULL)
+    {
+      /* F08:C633: Array shape from expr3.  */
+      ref = expr3->ref;
+
+      /* Find the last reference in the chain.  */
+      if (!retrieve_last_ref (&ref, &prev_ref))
+	return false;
+      alloc_w_e3_arr_spec = true;
+    }
 
   /* Figure out the size of the array.  */
   switch (ref->u.ar.type)
@@ -5441,10 +5475,11 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
   gfc_init_block (&set_descriptor_block);
   size = gfc_array_init_size (se->expr, alloc_w_e3_arr_spec ? expr->rank
 							   : ref->u.ar.as->rank,
-			      ref->u.ar.as->corank, &offset, lower, upper,
+			      coarray ? ref->u.ar.as->corank : 0,
+			      &offset, lower, upper,
 			      &se->pre, &set_descriptor_block, &overflow,
 			      expr3_elem_size, nelems, expr3, e3_arr_desc,
-			      e3_is_array_constr);
+			      e3_is_array_constr, expr);
 
   if (dimension)
     {
@@ -5525,8 +5560,8 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
   else
       gfc_add_expr_to_block (&se->pre, set_descriptor);
 
-  if ((expr->ts.type == BT_DERIVED)
-	&& expr->ts.u.derived->attr.alloc_comp)
+  if (expr->ts.type == BT_DERIVED && expr->ts.u.derived->attr.alloc_comp
+      && !coarray)
     {
       tmp = gfc_nullify_alloc_comp (expr->ts.u.derived, se->expr,
 				    ref->u.ar.as->rank);
@@ -7112,7 +7147,7 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 				    gfc_array_index_type,
 				    stride, info->stride[n]);
 
-	  if (se->direct_byref
+	  if ((se->direct_byref || se->use_offset)
 	      && ((info->ref && info->ref->u.ar.type != AR_FULL)
 		  || (expr->expr_type == EXPR_ARRAY && se->use_offset)))
 	    {
@@ -7385,7 +7420,7 @@ gfc_conv_array_parameter (gfc_se * se, gfc_expr * expr, bool g77,
 		  && ref->u.ar.as->type != AS_ASSUMED_RANK
 		  && ref->u.ar.as->type != AS_ASSUMED_SHAPE)
 		      ||
-	     gfc_is_simply_contiguous (expr, false));
+	     gfc_is_simply_contiguous (expr, false, true));
 
   no_pack = contiguous && no_pack;
 
@@ -7463,7 +7498,7 @@ gfc_conv_array_parameter (gfc_se * se, gfc_expr * expr, bool g77,
     }
 
   if (g77 || (fsym && fsym->attr.contiguous
-	      && !gfc_is_simply_contiguous (expr, false)))
+	      && !gfc_is_simply_contiguous (expr, false, true)))
     {
       tree origptr = NULL_TREE;
 
@@ -8073,7 +8108,7 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 	    }
 
 	  if (cmp_has_alloc_comps
-		&& !c->attr.pointer
+		&& !c->attr.pointer && !c->attr.proc_pointer
 		&& !called_dealloc_with_status)
 	    {
 	      /* Do not deallocate the components of ultimate pointer
@@ -8263,7 +8298,8 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 	     components that are really allocated, the deep copy code has to
 	     be generated first and then added to the if-block in
 	     gfc_duplicate_allocatable ().  */
-	  if (cmp_has_alloc_comps)
+	  if (cmp_has_alloc_comps
+	      && !c->attr.proc_pointer)
 	    {
 	      rank = c->as ? c->as->rank : 0;
 	      tmp = fold_convert (TREE_TYPE (dcmp), comp);
@@ -8499,6 +8535,75 @@ gfc_is_reallocatable_lhs (gfc_expr *expr)
 }
 
 
+static tree
+concat_str_length (gfc_expr* expr)
+{
+  tree type;
+  tree len1;
+  tree len2;
+  gfc_se se;
+
+  type = gfc_typenode_for_spec (&expr->value.op.op1->ts);
+  len1 = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
+  if (len1 == NULL_TREE)
+    {
+      if (expr->value.op.op1->expr_type == EXPR_OP)
+	len1 = concat_str_length (expr->value.op.op1);
+      else if (expr->value.op.op1->expr_type == EXPR_CONSTANT)
+	len1 = build_int_cst (gfc_charlen_type_node,
+			expr->value.op.op1->value.character.length);
+      else if (expr->value.op.op1->ts.u.cl->length)
+	{
+	  gfc_init_se (&se, NULL);
+	  gfc_conv_expr (&se, expr->value.op.op1->ts.u.cl->length);
+	  len1 = se.expr;
+	}
+      else
+	{
+	  /* Last resort!  */
+	  gfc_init_se (&se, NULL);
+	  se.want_pointer = 1;
+	  se.descriptor_only = 1;
+	  gfc_conv_expr (&se, expr->value.op.op1);
+	  len1 = se.string_length;
+	}
+    }
+
+  type = gfc_typenode_for_spec (&expr->value.op.op2->ts);
+  len2 = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
+  if (len2 == NULL_TREE)
+    {
+      if (expr->value.op.op2->expr_type == EXPR_OP)
+	len2 = concat_str_length (expr->value.op.op2);
+      else if (expr->value.op.op2->expr_type == EXPR_CONSTANT)
+	len2 = build_int_cst (gfc_charlen_type_node,
+			expr->value.op.op2->value.character.length);
+      else if (expr->value.op.op2->ts.u.cl->length)
+	{
+	  gfc_init_se (&se, NULL);
+	  gfc_conv_expr (&se, expr->value.op.op2->ts.u.cl->length);
+	  len2 = se.expr;
+	}
+      else
+	{
+	  /* Last resort!  */
+	  gfc_init_se (&se, NULL);
+	  se.want_pointer = 1;
+	  se.descriptor_only = 1;
+	  gfc_conv_expr (&se, expr->value.op.op2);
+	  len2 = se.string_length;
+	}
+    }
+
+  gcc_assert(len1 && len2);
+  len1 = fold_convert (gfc_charlen_type_node, len1);
+  len2 = fold_convert (gfc_charlen_type_node, len2);
+
+  return fold_build2_loc (input_location, PLUS_EXPR,
+			  gfc_charlen_type_node, len1, len2);
+}
+
+
 /* Allocate the lhs of an assignment to an allocatable array, otherwise
    reallocate it.  */
 
@@ -8596,6 +8701,12 @@ gfc_alloc_allocatable_for_assignment (gfc_loopinfo *loop,
   /* Allocate if data is NULL.  */
   cond_null = fold_build2_loc (input_location, EQ_EXPR, boolean_type_node,
 			 array1, build_int_cst (TREE_TYPE (array1), 0));
+
+  if (expr1->ts.deferred)
+    cond_null = gfc_evaluate_now (boolean_true_node, &fblock);
+  else
+    cond_null= gfc_evaluate_now (cond_null, &fblock);
+
   tmp = build3_v (COND_EXPR, cond_null,
 		  build1_v (GOTO_EXPR, jump_label1),
 		  build_empty_stmt (input_location));
@@ -8684,7 +8795,13 @@ gfc_alloc_allocatable_for_assignment (gfc_loopinfo *loop,
 
   cond = fold_build2_loc (input_location, NE_EXPR, boolean_type_node,
 			  size1, size2);
-  neq_size = gfc_evaluate_now (cond, &fblock);
+
+  /* If the lhs is deferred length, assume that the element size
+     changes and force a reallocation.  */
+  if (expr1->ts.deferred)
+    neq_size = gfc_evaluate_now (boolean_true_node, &fblock);
+  else
+    neq_size = gfc_evaluate_now (cond, &fblock);
 
   /* Deallocation of allocatable components will have to occur on
      reallocation.  Fix the old descriptor now.  */
@@ -8789,6 +8906,12 @@ gfc_alloc_allocatable_for_assignment (gfc_loopinfo *loop,
       else
 	{
 	  tmp = expr2->ts.u.cl->backend_decl;
+	  if (!tmp && expr2->expr_type == EXPR_OP
+	      && expr2->value.op.op == INTRINSIC_CONCAT)
+	    {
+	      tmp = concat_str_length (expr2);
+	      expr2->ts.u.cl->backend_decl = gfc_evaluate_now (tmp, &fblock);
+	    }
 	  tmp = fold_convert (TREE_TYPE (expr1->ts.u.cl->backend_decl), tmp);
 	}
 
@@ -8815,6 +8938,22 @@ gfc_alloc_allocatable_for_assignment (gfc_loopinfo *loop,
   size2 = fold_build2_loc (input_location, MAX_EXPR, size_type_node,
 			   size2, size_one_node);
   size2 = gfc_evaluate_now (size2, &fblock);
+
+  /* For deferred character length, the 'size' field of the dtype might
+     have changed so set the dtype.  */
+  if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (desc))
+      && expr1->ts.type == BT_CHARACTER && expr1->ts.deferred)
+    {
+      tree type;
+      tmp = gfc_conv_descriptor_dtype (desc);
+      if (expr2->ts.u.cl->backend_decl)
+	type = gfc_typenode_for_spec (&expr2->ts);
+      else
+	type = gfc_typenode_for_spec (&expr1->ts);
+
+      gfc_add_modify (&fblock, tmp,
+		      gfc_get_dtype_rank_type (expr1->rank,type));
+    }
 
   /* Realloc expression.  Note that the scalarizer uses desc.data
      in the array reference - (*desc.data)[<element>].  */
@@ -8858,8 +8997,16 @@ gfc_alloc_allocatable_for_assignment (gfc_loopinfo *loop,
 			     1, size2);
   gfc_conv_descriptor_data_set (&alloc_block,
 				desc, tmp);
-  tmp = gfc_conv_descriptor_dtype (desc);
-  gfc_add_modify (&alloc_block, tmp, gfc_get_dtype (TREE_TYPE (desc)));
+
+  /* We already set the dtype in the case of deferred character
+     length arrays.  */
+  if (!(GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (desc))
+        && expr1->ts.type == BT_CHARACTER && expr1->ts.deferred))
+    {
+      tmp = gfc_conv_descriptor_dtype (desc);
+      gfc_add_modify (&alloc_block, tmp, gfc_get_dtype (TREE_TYPE (desc)));
+    }
+
   if ((expr1->ts.type == BT_DERIVED)
 	&& expr1->ts.u.derived->attr.alloc_comp)
     {

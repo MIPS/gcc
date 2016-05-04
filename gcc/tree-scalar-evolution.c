@@ -1,5 +1,5 @@
 /* Scalar evolution detector.
-   Copyright (C) 2003-2015 Free Software Foundation, Inc.
+   Copyright (C) 2003-2016 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <s.pop@laposte.net>
 
 This file is part of GCC.
@@ -1510,6 +1510,9 @@ analyze_evolution_in_loop (gphi *loop_phi_node,
       /* When there are multiple back edges of the loop (which in fact never
 	 happens currently, but nevertheless), merge their evolutions.  */
       evolution_function = chrec_merge (evolution_function, ev_fn);
+
+      if (evolution_function == chrec_dont_know)
+	break;
     }
 
   if (dump_file && (dump_flags & TDF_SCEV))
@@ -1520,6 +1523,34 @@ analyze_evolution_in_loop (gphi *loop_phi_node,
     }
 
   return evolution_function;
+}
+
+/* Looks to see if VAR is a copy of a constant (via straightforward assignments
+   or degenerate phi's).  If so, returns the constant; else, returns VAR.  */
+
+static tree
+follow_copies_to_constant (tree var)
+{
+  tree res = var;
+  while (TREE_CODE (res) == SSA_NAME)
+    {
+      gimple *def = SSA_NAME_DEF_STMT (res);
+      if (gphi *phi = dyn_cast <gphi *> (def))
+	{
+	  if (tree rhs = degenerate_phi_result (phi))
+	    res = rhs;
+	  else
+	    break;
+	}
+      else if (gimple_assign_single_p (def))
+	/* Will exit loop if not an SSA_NAME.  */
+	res = gimple_assign_rhs1 (def);
+      else
+	break;
+    }
+  if (CONSTANT_CLASS_P (res))
+    return res;
+  return var;
 }
 
 /* Given a loop-phi-node, return the initial conditions of the
@@ -1574,21 +1605,9 @@ analyze_initial_condition (gphi *loop_phi_node)
   if (init_cond == chrec_not_analyzed_yet)
     init_cond = chrec_dont_know;
 
-  /* During early loop unrolling we do not have fully constant propagated IL.
-     Handle degenerate PHIs here to not miss important unrollings.  */
-  if (TREE_CODE (init_cond) == SSA_NAME)
-    {
-      gimple *def = SSA_NAME_DEF_STMT (init_cond);
-      if (gphi *phi = dyn_cast <gphi *> (def))
-	{
-	  tree res = degenerate_phi_result (phi);
-	  if (res != NULL_TREE
-	      /* Only allow invariants here, otherwise we may break
-		 loop-closed SSA form.  */
-	      && is_gimple_min_invariant (res))
-	    init_cond = res;
-	}
-    }
+  /* We may not have fully constant propagated IL.  Handle degenerate PHIs here
+     to not miss important early loop unrollings.  */
+  init_cond = follow_copies_to_constant (init_cond);
 
   if (dump_file && (dump_flags & TDF_SCEV))
     {
@@ -1671,6 +1690,8 @@ interpret_condition_phi (struct loop *loop, gphi *condition_phi)
 	(loop, PHI_ARG_DEF (condition_phi, i));
 
       res = chrec_merge (res, branch_chrec);
+      if (res == chrec_dont_know)
+	break;
     }
 
   return res;
@@ -1687,7 +1708,7 @@ static tree
 interpret_rhs_expr (struct loop *loop, gimple *at_stmt,
 		    tree type, tree rhs1, enum tree_code code, tree rhs2)
 {
-  tree res, chrec1, chrec2;
+  tree res, chrec1, chrec2, ctype;
   gimple *def;
 
   if (get_gimple_rhs_class (code) == GIMPLE_SINGLE_RHS)
@@ -1782,30 +1803,63 @@ interpret_rhs_expr (struct loop *loop, gimple *at_stmt,
     case PLUS_EXPR:
       chrec1 = analyze_scalar_evolution (loop, rhs1);
       chrec2 = analyze_scalar_evolution (loop, rhs2);
-      chrec1 = chrec_convert (type, chrec1, at_stmt);
-      chrec2 = chrec_convert (type, chrec2, at_stmt);
+      ctype = type;
+      /* When the stmt is conditionally executed re-write the CHREC
+         into a form that has well-defined behavior on overflow.  */
+      if (at_stmt
+	  && INTEGRAL_TYPE_P (type)
+	  && ! TYPE_OVERFLOW_WRAPS (type)
+	  && ! dominated_by_p (CDI_DOMINATORS, loop->latch,
+			       gimple_bb (at_stmt)))
+	ctype = unsigned_type_for (type);
+      chrec1 = chrec_convert (ctype, chrec1, at_stmt);
+      chrec2 = chrec_convert (ctype, chrec2, at_stmt);
       chrec1 = instantiate_parameters (loop, chrec1);
       chrec2 = instantiate_parameters (loop, chrec2);
-      res = chrec_fold_plus (type, chrec1, chrec2);
+      res = chrec_fold_plus (ctype, chrec1, chrec2);
+      if (type != ctype)
+	res = chrec_convert (type, res, at_stmt);
       break;
 
     case MINUS_EXPR:
       chrec1 = analyze_scalar_evolution (loop, rhs1);
       chrec2 = analyze_scalar_evolution (loop, rhs2);
-      chrec1 = chrec_convert (type, chrec1, at_stmt);
-      chrec2 = chrec_convert (type, chrec2, at_stmt);
+      ctype = type;
+      /* When the stmt is conditionally executed re-write the CHREC
+         into a form that has well-defined behavior on overflow.  */
+      if (at_stmt
+	  && INTEGRAL_TYPE_P (type)
+	  && ! TYPE_OVERFLOW_WRAPS (type)
+	  && ! dominated_by_p (CDI_DOMINATORS,
+			       loop->latch, gimple_bb (at_stmt)))
+	ctype = unsigned_type_for (type);
+      chrec1 = chrec_convert (ctype, chrec1, at_stmt);
+      chrec2 = chrec_convert (ctype, chrec2, at_stmt);
       chrec1 = instantiate_parameters (loop, chrec1);
       chrec2 = instantiate_parameters (loop, chrec2);
-      res = chrec_fold_minus (type, chrec1, chrec2);
+      res = chrec_fold_minus (ctype, chrec1, chrec2);
+      if (type != ctype)
+	res = chrec_convert (type, res, at_stmt);
       break;
 
     case NEGATE_EXPR:
       chrec1 = analyze_scalar_evolution (loop, rhs1);
-      chrec1 = chrec_convert (type, chrec1, at_stmt);
+      ctype = type;
+      /* When the stmt is conditionally executed re-write the CHREC
+         into a form that has well-defined behavior on overflow.  */
+      if (at_stmt
+	  && INTEGRAL_TYPE_P (type)
+	  && ! TYPE_OVERFLOW_WRAPS (type)
+	  && ! dominated_by_p (CDI_DOMINATORS,
+			       loop->latch, gimple_bb (at_stmt)))
+	ctype = unsigned_type_for (type);
+      chrec1 = chrec_convert (ctype, chrec1, at_stmt);
       /* TYPE may be integer, real or complex, so use fold_convert.  */
       chrec1 = instantiate_parameters (loop, chrec1);
-      res = chrec_fold_multiply (type, chrec1,
-				 fold_convert (type, integer_minus_one_node));
+      res = chrec_fold_multiply (ctype, chrec1,
+				 fold_convert (ctype, integer_minus_one_node));
+      if (type != ctype)
+	res = chrec_convert (type, res, at_stmt);
       break;
 
     case BIT_NOT_EXPR:
@@ -1821,11 +1875,22 @@ interpret_rhs_expr (struct loop *loop, gimple *at_stmt,
     case MULT_EXPR:
       chrec1 = analyze_scalar_evolution (loop, rhs1);
       chrec2 = analyze_scalar_evolution (loop, rhs2);
-      chrec1 = chrec_convert (type, chrec1, at_stmt);
-      chrec2 = chrec_convert (type, chrec2, at_stmt);
+      ctype = type;
+      /* When the stmt is conditionally executed re-write the CHREC
+         into a form that has well-defined behavior on overflow.  */
+      if (at_stmt
+	  && INTEGRAL_TYPE_P (type)
+	  && ! TYPE_OVERFLOW_WRAPS (type)
+	  && ! dominated_by_p (CDI_DOMINATORS,
+			       loop->latch, gimple_bb (at_stmt)))
+	ctype = unsigned_type_for (type);
+      chrec1 = chrec_convert (ctype, chrec1, at_stmt);
+      chrec2 = chrec_convert (ctype, chrec2, at_stmt);
       chrec1 = instantiate_parameters (loop, chrec1);
       chrec2 = instantiate_parameters (loop, chrec2);
-      res = chrec_fold_multiply (type, chrec1, chrec2);
+      res = chrec_fold_multiply (ctype, chrec1, chrec2);
+      if (type != ctype)
+	res = chrec_convert (type, res, at_stmt);
       break;
 
     case LSHIFT_EXPR:
@@ -1870,6 +1935,36 @@ interpret_rhs_expr (struct loop *loop, gimple *at_stmt,
       else
 	chrec1 = analyze_scalar_evolution (loop, rhs1);
       res = chrec_convert (type, chrec1, at_stmt);
+      break;
+
+    case BIT_AND_EXPR:
+      /* Given int variable A, handle A&0xffff as (int)(unsigned short)A.
+	 If A is SCEV and its value is in the range of representable set
+	 of type unsigned short, the result expression is a (no-overflow)
+	 SCEV.  */
+      res = chrec_dont_know;
+      if (tree_fits_uhwi_p (rhs2))
+	{
+	  int precision;
+	  unsigned HOST_WIDE_INT val = tree_to_uhwi (rhs2);
+
+	  val ++;
+	  /* Skip if value of rhs2 wraps in unsigned HOST_WIDE_INT or
+	     it's not the maximum value of a smaller type than rhs1.  */
+	  if (val != 0
+	      && (precision = exact_log2 (val)) > 0
+	      && (unsigned) precision < TYPE_PRECISION (TREE_TYPE (rhs1)))
+	    {
+	      tree utype = build_nonstandard_integer_type (precision, 1);
+
+	      if (TYPE_PRECISION (utype) < TYPE_PRECISION (TREE_TYPE (rhs1)))
+		{
+		  chrec1 = analyze_scalar_evolution (loop, rhs1);
+		  chrec1 = chrec_convert (utype, chrec1, at_stmt);
+		  res = chrec_convert (TREE_TYPE (rhs1), chrec1, at_stmt);
+		}
+	    }
+	}
       break;
 
     default:
@@ -1968,8 +2063,8 @@ analyze_scalar_evolution_1 (struct loop *loop, tree var, tree res)
   if (bb == NULL
       || !flow_bb_inside_loop_p (loop, bb))
     {
-      /* Keep the symbolic form.  */
-      res = var;
+      /* Keep symbolic form, but look through obvious copies for constants.  */
+      res = follow_copies_to_constant (var);
       goto set_and_end;
     }
 
@@ -3417,6 +3512,131 @@ expression_expensive_p (tree expr)
     }
 }
 
+/* Do final value replacement for LOOP.  */
+
+void
+final_value_replacement_loop (struct loop *loop)
+{
+  /* If we do not know exact number of iterations of the loop, we cannot
+     replace the final value.  */
+  edge exit = single_exit (loop);
+  if (!exit)
+    return;
+
+  tree niter = number_of_latch_executions (loop);
+  if (niter == chrec_dont_know)
+    return;
+
+  /* Ensure that it is possible to insert new statements somewhere.  */
+  if (!single_pred_p (exit->dest))
+    split_loop_exit_edge (exit);
+
+  /* Set stmt insertion pointer.  All stmts are inserted before this point.  */
+  gimple_stmt_iterator gsi = gsi_after_labels (exit->dest);
+
+  struct loop *ex_loop
+    = superloop_at_depth (loop,
+			  loop_depth (exit->dest->loop_father) + 1);
+
+  gphi_iterator psi;
+  for (psi = gsi_start_phis (exit->dest); !gsi_end_p (psi); )
+    {
+      gphi *phi = psi.phi ();
+      tree rslt = PHI_RESULT (phi);
+      tree def = PHI_ARG_DEF_FROM_EDGE (phi, exit);
+      if (virtual_operand_p (def))
+	{
+	  gsi_next (&psi);
+	  continue;
+	}
+
+      if (!POINTER_TYPE_P (TREE_TYPE (def))
+	  && !INTEGRAL_TYPE_P (TREE_TYPE (def)))
+	{
+	  gsi_next (&psi);
+	  continue;
+	}
+
+      bool folded_casts;
+      def = analyze_scalar_evolution_in_loop (ex_loop, loop, def,
+					      &folded_casts);
+      def = compute_overall_effect_of_inner_loop (ex_loop, def);
+      if (!tree_does_not_contain_chrecs (def)
+	  || chrec_contains_symbols_defined_in_loop (def, ex_loop->num)
+	  /* Moving the computation from the loop may prolong life range
+	     of some ssa names, which may cause problems if they appear
+	     on abnormal edges.  */
+	  || contains_abnormal_ssa_name_p (def)
+	  /* Do not emit expensive expressions.  The rationale is that
+	     when someone writes a code like
+
+	     while (n > 45) n -= 45;
+
+	     he probably knows that n is not large, and does not want it
+	     to be turned into n %= 45.  */
+	  || expression_expensive_p (def))
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "not replacing:\n  ");
+	      print_gimple_stmt (dump_file, phi, 0, 0);
+	      fprintf (dump_file, "\n");
+	    }
+	  gsi_next (&psi);
+	  continue;
+	}
+
+      /* Eliminate the PHI node and replace it by a computation outside
+	 the loop.  */
+      if (dump_file)
+	{
+	  fprintf (dump_file, "\nfinal value replacement:\n  ");
+	  print_gimple_stmt (dump_file, phi, 0, 0);
+	  fprintf (dump_file, "  with\n  ");
+	}
+      def = unshare_expr (def);
+      remove_phi_node (&psi, false);
+
+      /* If def's type has undefined overflow and there were folded
+	 casts, rewrite all stmts added for def into arithmetics
+	 with defined overflow behavior.  */
+      if (folded_casts && ANY_INTEGRAL_TYPE_P (TREE_TYPE (def))
+	  && TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (def)))
+	{
+	  gimple_seq stmts;
+	  gimple_stmt_iterator gsi2;
+	  def = force_gimple_operand (def, &stmts, true, NULL_TREE);
+	  gsi2 = gsi_start (stmts);
+	  while (!gsi_end_p (gsi2))
+	    {
+	      gimple *stmt = gsi_stmt (gsi2);
+	      gimple_stmt_iterator gsi3 = gsi2;
+	      gsi_next (&gsi2);
+	      gsi_remove (&gsi3, false);
+	      if (is_gimple_assign (stmt)
+		  && arith_code_with_undefined_signed_overflow
+		  (gimple_assign_rhs_code (stmt)))
+		gsi_insert_seq_before (&gsi,
+				       rewrite_to_defined_overflow (stmt),
+				       GSI_SAME_STMT);
+	      else
+		gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+	    }
+	}
+      else
+	def = force_gimple_operand_gsi (&gsi, def, false, NULL_TREE,
+					true, GSI_SAME_STMT);
+
+      gassign *ass = gimple_build_assign (rslt, def);
+      gsi_insert_before (&gsi, ass, GSI_SAME_STMT);
+      if (dump_file)
+	{
+	  print_gimple_stmt (dump_file, ass, 0, 0);
+	  fprintf (dump_file, "\n");
+	}
+    }
+}
+
 /* Replace ssa names for that scev can prove they are constant by the
    appropriate constants.  Also perform final value replacement in loops,
    in case the replacement expressions are cheap.
@@ -3430,8 +3650,7 @@ scev_const_prop (void)
   basic_block bb;
   tree name, type, ev;
   gphi *phi;
-  gassign *ass;
-  struct loop *loop, *ex_loop;
+  struct loop *loop;
   bitmap ssa_names_to_remove = NULL;
   unsigned i;
   gphi_iterator psi;
@@ -3465,7 +3684,17 @@ scev_const_prop (void)
 
 	  /* Replace the uses of the name.  */
 	  if (name != ev)
-	    replace_uses_by (name, ev);
+	    {
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		{
+		  fprintf (dump_file, "Replacing uses of: ");
+		  print_generic_expr (dump_file, name, 0);
+		  fprintf (dump_file, " with: ");
+		  print_generic_expr (dump_file, ev, 0);
+		  fprintf (dump_file, "\n");
+		}
+	      replace_uses_by (name, ev);
+	    }
 
 	  if (!ssa_names_to_remove)
 	    ssa_names_to_remove = BITMAP_ALLOC (NULL);
@@ -3497,126 +3726,8 @@ scev_const_prop (void)
 
   /* Now the regular final value replacement.  */
   FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
-    {
-      edge exit;
-      tree def, rslt, niter;
-      gimple_stmt_iterator gsi;
+    final_value_replacement_loop (loop);
 
-      /* If we do not know exact number of iterations of the loop, we cannot
-	 replace the final value.  */
-      exit = single_exit (loop);
-      if (!exit)
-	continue;
-
-      niter = number_of_latch_executions (loop);
-      if (niter == chrec_dont_know)
-	continue;
-
-      /* Ensure that it is possible to insert new statements somewhere.  */
-      if (!single_pred_p (exit->dest))
-	split_loop_exit_edge (exit);
-      gsi = gsi_after_labels (exit->dest);
-
-      ex_loop = superloop_at_depth (loop,
-				    loop_depth (exit->dest->loop_father) + 1);
-
-      for (psi = gsi_start_phis (exit->dest); !gsi_end_p (psi); )
-	{
-	  phi = psi.phi ();
-	  rslt = PHI_RESULT (phi);
-	  def = PHI_ARG_DEF_FROM_EDGE (phi, exit);
-	  if (virtual_operand_p (def))
-	    {
-	      gsi_next (&psi);
-	      continue;
-	    }
-
-	  if (!POINTER_TYPE_P (TREE_TYPE (def))
-	      && !INTEGRAL_TYPE_P (TREE_TYPE (def)))
-	    {
-	      gsi_next (&psi);
-	      continue;
-	    }
-
-	  bool folded_casts;
-	  def = analyze_scalar_evolution_in_loop (ex_loop, loop, def,
-						  &folded_casts);
-	  def = compute_overall_effect_of_inner_loop (ex_loop, def);
-	  if (!tree_does_not_contain_chrecs (def)
-	      || chrec_contains_symbols_defined_in_loop (def, ex_loop->num)
-	      /* Moving the computation from the loop may prolong life range
-		 of some ssa names, which may cause problems if they appear
-		 on abnormal edges.  */
-	      || contains_abnormal_ssa_name_p (def)
-	      /* Do not emit expensive expressions.  The rationale is that
-		 when someone writes a code like
-
-		 while (n > 45) n -= 45;
-
-		 he probably knows that n is not large, and does not want it
-		 to be turned into n %= 45.  */
-	      || expression_expensive_p (def))
-	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-		{
-	          fprintf (dump_file, "not replacing:\n  ");
-	          print_gimple_stmt (dump_file, phi, 0, 0);
-	          fprintf (dump_file, "\n");
-		}
-	      gsi_next (&psi);
-	      continue;
-	    }
-
-	  /* Eliminate the PHI node and replace it by a computation outside
-	     the loop.  */
-	  if (dump_file)
-	    {
-	      fprintf (dump_file, "\nfinal value replacement:\n  ");
-	      print_gimple_stmt (dump_file, phi, 0, 0);
-	      fprintf (dump_file, "  with\n  ");
-	    }
-	  def = unshare_expr (def);
-	  remove_phi_node (&psi, false);
-
-	  /* If def's type has undefined overflow and there were folded
-	     casts, rewrite all stmts added for def into arithmetics
-	     with defined overflow behavior.  */
-	  if (folded_casts && ANY_INTEGRAL_TYPE_P (TREE_TYPE (def))
-	      && TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (def)))
-	    {
-	      gimple_seq stmts;
-	      gimple_stmt_iterator gsi2;
-	      def = force_gimple_operand (def, &stmts, true, NULL_TREE);
-	      gsi2 = gsi_start (stmts);
-	      while (!gsi_end_p (gsi2))
-		{
-		  gimple *stmt = gsi_stmt (gsi2);
-		  gimple_stmt_iterator gsi3 = gsi2;
-		  gsi_next (&gsi2);
-		  gsi_remove (&gsi3, false);
-		  if (is_gimple_assign (stmt)
-		      && arith_code_with_undefined_signed_overflow
-					(gimple_assign_rhs_code (stmt)))
-		    gsi_insert_seq_before (&gsi,
-					   rewrite_to_defined_overflow (stmt),
-					   GSI_SAME_STMT);
-		  else
-		    gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
-		}
-	    }
-	  else
-	    def = force_gimple_operand_gsi (&gsi, def, false, NULL_TREE,
-					    true, GSI_SAME_STMT);
-
-	  ass = gimple_build_assign (rslt, def);
-	  gsi_insert_before (&gsi, ass, GSI_SAME_STMT);
-	  if (dump_file)
-	    {
-	      print_gimple_stmt (dump_file, ass, 0, 0);
-	      fprintf (dump_file, "\n");
-	    }
-	}
-    }
   return 0;
 }
 

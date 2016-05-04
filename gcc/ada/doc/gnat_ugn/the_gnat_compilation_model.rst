@@ -2865,6 +2865,17 @@ where
 Switches for `gnatprep`
 ^^^^^^^^^^^^^^^^^^^^^^^
 
+.. index:: --version (gnatprep)
+
+:samp:`--version`
+  Display Copyright and version, then exit disregarding all other options.
+
+.. index:: --help (gnatprep)
+
+:samp:`--help`
+  If *--version* was not used, display usage, then exit disregarding
+  all other options.
+
 .. index:: -b (gnatprep)
 
 :samp:`-b`
@@ -2922,12 +2933,23 @@ Switches for `gnatprep`
   Causes a sorted list of symbol names and values to be
   listed on the standard output file.
 
+.. index:: -T (gnatprep)
+
+:samp:`-T`
+  Use LF as line terminators when writing files. By default the line terminator
+  of the host (LF under unix, CR/LF under Windows) is used.
+
 .. index:: -u (gnatprep)
 
 :samp:`-u`
   Causes undefined symbols to be treated as having the value FALSE in the context
   of a preprocessor test. In the absence of this option, an undefined symbol in
   a `#if` or `#elsif` test will be treated as an error.
+
+.. index:: -v (gnatprep)
+
+:samp:`-v`
+  Verbose mode: generates more output about work done.
 
 
 Note: if neither *-b* nor *-c* is present,
@@ -3126,10 +3148,18 @@ preprocessing is triggered and parameterized.
 :samp:`-gnatep={file}`
   This switch indicates to the compiler the file name (without directory
   information) of the preprocessor data file to use. The preprocessor data file
-  should be found in the source directories. Note that when the compiler is
-  called by a builder such as (*gnatmake* with a project
-  file, if the object directory is not also a source directory, the builder needs
-  to be called with *-x*.
+  should be found in the source directories. Alternatively when using project
+  files, you can reference to the project file's directory via the
+  ``project name'Project_Dir`` project attribute, e.g:
+
+  .. code-block:: gpr
+
+      project Prj is
+         package Compiler is
+            for Switches ("Ada") use
+              ("-gnatep=" & Prj'Project_Dir & "prep.def");
+         end Compiler;
+      end Prj;
 
   A preprocessing data file is a text file with significant lines indicating
   how should be preprocessed either a specific source or all sources not
@@ -4439,7 +4469,7 @@ easier to interface with other languages than previous versions of Ada.
 
 .. _Running_the_binding_generator:
 
-Running the binding generator
+Running the Binding Generator
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The binding generator is part of the *gcc* compiler and can be
@@ -4534,7 +4564,7 @@ and then generate Ada bindings from this file:
 
 .. _Generating_bindings_for_C++_headers:
 
-Generating bindings for C++ headers
+Generating Bindings for C++ Headers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Generating bindings for C++ headers is done using the same options, always
@@ -4662,6 +4692,91 @@ Switches
 :samp:`-C`
   Extract comments from headers and generate Ada comments in the Ada spec files.
 
+.. _Generating_C_Headers_for_Ada_Specifications:
+
+Generating C Headers for Ada Specifications
+-------------------------------------------
+
+.. index:: Binding generation (for Ada specs)
+.. index:: C headers (binding generation)
+
+GNAT includes a C header generator for Ada specifications which supports
+Ada types that have a direct mapping to C types. This includes in particular
+support for:
+
+* Scalar types
+* Constrained arrays
+* Records (untagged)
+* Composition of the above types
+* Constant declarations
+* Object declarations
+* Subprogram declarations
+
+Running the C Header Generator
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The C header generator is part of the GNAT compiler and can be invoked via
+the *-gnatceg* combination of switches, which will generate a :file:`.h`
+file corresponding to the given input file (Ada spec or body). Note that
+only spec files are processed in any case, so giving a spec or a body file
+as input is equivalent. For example:
+
+.. code-block:: sh
+
+   $ gcc -c -gnatceg pack1.ads
+
+will generate a self-contained file called :file:`pack1.h` including
+common definitions from the Ada Standard package, followed by the
+definitions included in :file:`pack1.ads`, as well as all the other units
+withed by this file.
+
+For instance, given the following Ada files:
+
+.. code-block:: ada
+
+   package Pack2 is
+      type Int is range 1 .. 10;
+   end Pack2;
+
+.. code-block:: ada
+
+   with Pack2;
+
+   package Pack1 is
+      type Rec is record
+         Field1, Field2 : Pack2.Int;
+      end record;
+
+      Global : Rec := (1, 2);
+
+      procedure Proc1 (R : Rec);
+      procedure Proc2 (R : in out Rec);
+   end Pack1;
+
+The above `gcc` command will generate the following :file:`pack1.h` file:
+
+.. code-block:: c
+
+   /* Standard definitions skipped */
+   #ifndef PACK2_ADS
+   #define PACK2_ADS
+   typedef short_short_integer pack2__TintB;
+   typedef pack2__TintB pack2__int;
+   #endif /* PACK2_ADS */
+
+   #ifndef PACK1_ADS
+   #define PACK1_ADS
+   typedef struct _pack1__rec {
+     pack2__int field1;
+     pack2__int field2;
+   } pack1__rec;
+   extern pack1__rec pack1__global;
+   extern void pack1__proc1(const pack1__rec r);
+   extern void pack1__proc2(pack1__rec *r);
+   #endif /* PACK1_ADS */
+
+You can then `include` :file:`pack1.h` from a C source file and use the types,
+call subprograms, reference objects, and constants.
 
 .. _GNAT_and_Other_Compilation_Models:
 

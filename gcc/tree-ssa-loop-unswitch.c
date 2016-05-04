@@ -1,5 +1,5 @@
 /* Loop unswitching.
-   Copyright (C) 2004-2015 Free Software Foundation, Inc.
+   Copyright (C) 2004-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -223,6 +223,8 @@ tree_unswitch_single_loop (struct loop *loop, int num)
       /* If the loop is not expected to iterate, there is no need
 	 for unswitching.  */
       iterations = estimated_loop_iterations_int (loop);
+      if (iterations < 0)
+        iterations = max_loop_iterations_int (loop);
       if (iterations >= 0 && iterations <= 1)
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -429,9 +431,9 @@ tree_unswitch_outer_loop (struct loop *loop)
   gcc_assert (loop->inner);
   if (loop->inner->next)
     return false;
-  /* Accept loops with single exit only.  */
+  /* Accept loops with single exit only which is not from inner loop.  */
   exit = single_exit (loop);
-  if (!exit)
+  if (!exit || exit->src->loop_father != loop)
     return false;
   /* Check that phi argument of exit edge is not defined inside loop.  */
   if (!check_exit_phi (loop))
@@ -439,12 +441,14 @@ tree_unswitch_outer_loop (struct loop *loop)
   /* If the loop is not expected to iterate, there is no need
       for unswitching.  */
   iterations = estimated_loop_iterations_int (loop);
+  if (iterations < 0)
+    iterations = max_loop_iterations_int (loop);
   if (iterations >= 0 && iterations <= 1)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, ";; Not unswitching, loop is not expected"
 		 " to iterate\n");
-	return false;
+      return false;
     }
 
   guard = find_loop_guard (loop);

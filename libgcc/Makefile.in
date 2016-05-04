@@ -1,6 +1,6 @@
 # Makefile.in
 
-# Copyright (C) 2005-2015 Free Software Foundation, Inc.
+# Copyright (C) 2005-2016 Free Software Foundation, Inc.
 #
 # This file is part of GCC.
 #
@@ -995,28 +995,37 @@ crtbeginT$(objext): $(srcdir)/crtstuff.c
 	$(crt_compile) $(CRTSTUFF_T_CFLAGS) -c $< -DCRT_BEGIN -DCRTSTUFFT_O
 
 # crtoffloadbegin and crtoffloadend contain symbols, that mark the begin and
-# the end of tables with addresses, required for offloading.
+# the end of tables with addresses, required for offloading.  crtoffloadtable
+# contains the array with addresses of those symbols.
 crtoffloadbegin$(objext): $(srcdir)/offloadstuff.c
 	$(crt_compile) $(CRTSTUFF_T_CFLAGS) -c $< -DCRT_BEGIN
 
 crtoffloadend$(objext): $(srcdir)/offloadstuff.c
 	$(crt_compile) $(CRTSTUFF_T_CFLAGS) -c $< -DCRT_END
+
+crtoffloadtable$(objext): $(srcdir)/offloadstuff.c
+	$(crt_compile) $(CRTSTUFF_T_CFLAGS) -c $< -DCRT_TABLE
 endif
 
 ifeq ($(enable_vtable_verify),yes)
 # These are used in vtable verification; see comments in source files for
 # more details.
+
+# Override -finhibit-size-directive to avoid mismatch between libgcc and libvtv
+# compilations.
+VTV_CFLAGS = $(CRTSTUFF_T_CFLAGS_S) -fno-inhibit-size-directive
+
 vtv_start$(objext): $(srcdir)/vtv_start.c
-	$(crt_compile) $(CRTSTUFF_T_CFLAGS_S) -c $(srcdir)/vtv_start.c
+	$(crt_compile) $(VTV_CFLAGS) -c $(srcdir)/vtv_start.c
 
 vtv_end$(objext): $(srcdir)/vtv_end.c
-	$(crt_compile) $(CRTSTUFF_T_CFLAGS_S) -c $(srcdir)/vtv_end.c
+	$(crt_compile) $(VTV_CFLAGS) -c $(srcdir)/vtv_end.c
 
 vtv_start_preinit$(objext): $(srcdir)/vtv_start_preinit.c
-	$(crt_compile) $(CRTSTUFF_T_CFLAGS_S) -c $(srcdir)/vtv_start_preinit.c
+	$(crt_compile) $(VTV_CFLAGS) -c $(srcdir)/vtv_start_preinit.c
 
 vtv_end_preinit$(objext): $(srcdir)/vtv_end_preinit.c
-	$(crt_compile) $(CRTSTUFF_T_CFLAGS_S) -c $(srcdir)/vtv_end_preinit.c
+	$(crt_compile) $(VTV_CFLAGS) -c $(srcdir)/vtv_end_preinit.c
 endif
 
 ifeq ($(CUSTOM_CRTIN),)

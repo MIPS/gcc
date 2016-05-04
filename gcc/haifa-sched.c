@@ -1,5 +1,5 @@
 /* Instruction scheduling pass.
-   Copyright (C) 1992-2015 Free Software Foundation, Inc.
+   Copyright (C) 1992-2016 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -5599,8 +5599,8 @@ autopref_multipass_init (const rtx_insn *insn, int write)
 
       int i = 0;
       rtx prev_base = NULL_RTX;
-      int min_offset;
-      int max_offset;
+      int min_offset = 0;
+      int max_offset = 0;
 
       for (i = 0; i < n_elems; i++)
 	{
@@ -9147,17 +9147,24 @@ haifa_finish_h_i_d (void)
 {
   int i;
   haifa_insn_data_t data;
-  struct reg_use_data *use, *next;
+  reg_use_data *use, *next_use;
+  reg_set_data *set, *next_set;
 
   FOR_EACH_VEC_ELT (h_i_d, i, data)
     {
       free (data->max_reg_pressure);
       free (data->reg_pressure);
-      for (use = data->reg_use_list; use != NULL; use = next)
+      for (use = data->reg_use_list; use != NULL; use = next_use)
 	{
-	  next = use->next_insn_use;
+	  next_use = use->next_insn_use;
 	  free (use);
 	}
+      for (set = data->reg_set_list; set != NULL; set = next_set)
+	{
+	  next_set = set->next_insn_set;
+	  free (set);
+	}
+
     }
   h_i_d.release ();
 }

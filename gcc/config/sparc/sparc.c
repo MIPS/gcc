@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for SPARC.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
    64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
@@ -518,7 +518,6 @@ int sparc_indent_opcode = 0;
 
 static void sparc_option_override (void);
 static void sparc_init_modes (void);
-static void scan_record_type (const_tree, int *, int *, int *);
 static int function_arg_slotno (const CUMULATIVE_ARGS *, machine_mode,
 				const_tree, bool, bool, int *, int *);
 
@@ -2086,13 +2085,6 @@ sparc_emit_set_symbolic_const64 (rtx op0, rtx op1, rtx temp)
     }
 }
 
-#if HOST_BITS_PER_WIDE_INT == 32
-static void
-sparc_emit_set_const64 (rtx op0 ATTRIBUTE_UNUSED, rtx op1 ATTRIBUTE_UNUSED)
-{
-  gcc_unreachable ();
-}
-#else
 /* These avoid problems when cross compiling.  If we do not
    go through all this hair then the optimizer will see
    invalid REG_EQUAL notes or in some cases none at all.  */
@@ -2636,8 +2628,7 @@ sparc_emit_set_const64 (rtx op0, rtx op1)
    *    sllx	%reg, 32, %reg
    *	or	%reg, low_bits, %reg
    */
-  if (SPARC_SIMM13_P(low_bits)
-      && ((int)low_bits > 0))
+  if (SPARC_SIMM13_P (low_bits) && ((int)low_bits > 0))
     {
       sparc_emit_set_const64_quick2 (op0, temp, high_bits, low_bits, 32);
       return;
@@ -2646,7 +2637,6 @@ sparc_emit_set_const64 (rtx op0, rtx op1)
   /* The easiest way when all else fails, is full decomposition.  */
   sparc_emit_set_const64_longway (op0, temp, high_bits, low_bits);
 }
-#endif /* HOST_BITS_PER_WIDE_INT == 32 */
 
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.  For floating-point,
@@ -3675,6 +3665,7 @@ sparc_cannot_force_const_mem (machine_mode mode, rtx x)
   switch (GET_CODE (x))
     {
     case CONST_INT:
+    case CONST_WIDE_INT:
     case CONST_DOUBLE:
     case CONST_VECTOR:
       /* Accept all non-symbolic constants.  */
@@ -3775,9 +3766,6 @@ sparc_legitimate_constant_p (machine_mode mode, rtx x)
       break;
 
     case CONST_DOUBLE:
-      if (GET_MODE (x) == VOIDmode)
-        return true;
-
       /* Floating point constants are generally not ok.
 	 The only exception is 0.0 and all-ones in VIS.  */
       if (TARGET_VIS
@@ -3832,7 +3820,7 @@ constant_address_p (rtx x)
 
 /* Nonzero if the constant value X is a legitimate general operand
    when generating PIC code.  It is given that flag_pic is on and
-   that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
+   that X satisfies CONSTANT_P.  */
 
 bool
 legitimate_pic_operand_p (rtx x)
@@ -4929,13 +4917,18 @@ sparc_compute_frame_size (HOST_WIDE_INT size, int leaf_function)
 
   /* Calculate space needed for global registers.  */
   if (TARGET_ARCH64)
-    for (i = 0; i < 8; i++)
-      if (save_global_or_fp_reg_p (i, 0))
-	n_global_fp_regs += 2;
+    {
+      for (i = 0; i < 8; i++)
+	if (save_global_or_fp_reg_p (i, 0))
+	  n_global_fp_regs += 2;
+    }
   else
-    for (i = 0; i < 8; i += 2)
-      if (save_global_or_fp_reg_p (i, 0) || save_global_or_fp_reg_p (i + 1, 0))
-	n_global_fp_regs += 2;
+    {
+      for (i = 0; i < 8; i += 2)
+	if (save_global_or_fp_reg_p (i, 0)
+	    || save_global_or_fp_reg_p (i + 1, 0))
+	  n_global_fp_regs += 2;
+    }
 
   /* In the flat window model, find out which local and in registers need to
      be saved.  We don't reserve space in the current frame for them as they
@@ -5058,9 +5051,9 @@ sparc_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
       emit_stack_probe (plus_constant (Pmode, g1, -size));
     }
 
-  /* The run-time loop is made up of 10 insns in the generic case while the
+  /* The run-time loop is made up of 9 insns in the generic case while the
      compile-time loop is made up of 4+2*(n-2) insns for n # of intervals.  */
-  else if (size <= 5 * PROBE_INTERVAL)
+  else if (size <= 4 * PROBE_INTERVAL)
     {
       HOST_WIDE_INT i;
 
@@ -5147,40 +5140,32 @@ const char *
 output_probe_stack_range (rtx reg1, rtx reg2)
 {
   static int labelno = 0;
-  char loop_lab[32], end_lab[32];
+  char loop_lab[32];
   rtx xops[2];
 
-  ASM_GENERATE_INTERNAL_LABEL (loop_lab, "LPSRL", labelno);
-  ASM_GENERATE_INTERNAL_LABEL (end_lab, "LPSRE", labelno++);
+  ASM_GENERATE_INTERNAL_LABEL (loop_lab, "LPSRL", labelno++);
 
+  /* Loop.  */
   ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, loop_lab);
 
-   /* Jump to END_LAB if TEST_ADDR == LAST_ADDR.  */
+  /* TEST_ADDR = TEST_ADDR + PROBE_INTERVAL.  */
   xops[0] = reg1;
+  xops[1] = GEN_INT (-PROBE_INTERVAL);
+  output_asm_insn ("add\t%0, %1, %0", xops);
+
+  /* Test if TEST_ADDR == LAST_ADDR.  */
   xops[1] = reg2;
   output_asm_insn ("cmp\t%0, %1", xops);
-  if (TARGET_ARCH64)
-    fputs ("\tbe,pn\t%xcc,", asm_out_file);
-  else
-    fputs ("\tbe\t", asm_out_file);
-  assemble_name_raw (asm_out_file, end_lab);
-  fputc ('\n', asm_out_file);
-
-  /* TEST_ADDR = TEST_ADDR + PROBE_INTERVAL.  */
-  xops[1] = GEN_INT (-PROBE_INTERVAL);
-  output_asm_insn (" add\t%0, %1, %0", xops);
 
   /* Probe at TEST_ADDR and branch.  */
   if (TARGET_ARCH64)
-    fputs ("\tba,pt\t%xcc,", asm_out_file);
+    fputs ("\tbne,pt\t%xcc,", asm_out_file);
   else
-    fputs ("\tba\t", asm_out_file);
+    fputs ("\tbne\t", asm_out_file);
   assemble_name_raw (asm_out_file, loop_lab);
   fputc ('\n', asm_out_file);
   xops[1] = GEN_INT (SPARC_STACK_BIAS);
   output_asm_insn (" st\t%%g0, [%0+%1]", xops);
-
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, end_lab);
 
   return "";
 }
@@ -6105,8 +6090,8 @@ conventions.  */
 #define SPARC_INT_ARG_MAX 6
 /* Maximum number of fp regs for args.  */
 #define SPARC_FP_ARG_MAX 16
-
-#define ROUND_ADVANCE(SIZE) (((SIZE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
+/* Number of words (partially) occupied for a given size in units.  */
+#define CEIL_NWORDS(SIZE) CEIL((SIZE), UNITS_PER_WORD)
 
 /* Handle the INIT_CUMULATIVE_ARGS macro.
    Initialize a variable CUM of type CUMULATIVE_ARGS
@@ -6114,25 +6099,20 @@ conventions.  */
    For a library call, FNTYPE is 0.  */
 
 void
-init_cumulative_args (struct sparc_args *cum, tree fntype,
-		      rtx libname ATTRIBUTE_UNUSED,
-		      tree fndecl ATTRIBUTE_UNUSED)
+init_cumulative_args (struct sparc_args *cum, tree fntype, rtx, tree)
 {
   cum->words = 0;
   cum->prototype_p = fntype && prototype_p (fntype);
-  cum->libcall_p = fntype == 0;
+  cum->libcall_p = !fntype;
 }
 
 /* Handle promotion of pointer and integer arguments.  */
 
 static machine_mode
-sparc_promote_function_mode (const_tree type,
-                             machine_mode mode,
-                             int *punsignedp,
-                             const_tree fntype ATTRIBUTE_UNUSED,
-                             int for_return ATTRIBUTE_UNUSED)
+sparc_promote_function_mode (const_tree type, machine_mode mode,
+			     int *punsignedp, const_tree, int)
 {
-  if (type != NULL_TREE && POINTER_TYPE_P (type))
+  if (type && POINTER_TYPE_P (type))
     {
       *punsignedp = POINTERS_EXTEND_UNSIGNED;
       return Pmode;
@@ -6154,38 +6134,75 @@ sparc_strict_argument_naming (cumulative_args_t ca ATTRIBUTE_UNUSED)
   return TARGET_ARCH64 ? true : false;
 }
 
-/* Scan the record type TYPE and return the following predicates:
-    - INTREGS_P: the record contains at least one field or sub-field
-      that is eligible for promotion in integer registers.
-    - FP_REGS_P: the record contains at least one field or sub-field
-      that is eligible for promotion in floating-point registers.
-    - PACKED_P: the record contains at least one field that is packed.
+/* Traverse the record TYPE recursively and call FUNC on its fields.
+   NAMED is true if this is for a named parameter.  DATA is passed
+   to FUNC for each field.  OFFSET is the starting position and
+   PACKED is true if we are inside a packed record.  */
 
-   Sub-fields are not taken into account for the PACKED_P predicate.  */
-
+template <typename T, void Func (const_tree, HOST_WIDE_INT, bool, T*)>
 static void
-scan_record_type (const_tree type, int *intregs_p, int *fpregs_p,
-		  int *packed_p)
+traverse_record_type (const_tree type, bool named, T *data,
+		      HOST_WIDE_INT offset = 0, bool packed = false)
 {
-  tree field;
-
-  for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
-    {
-      if (TREE_CODE (field) == FIELD_DECL)
+  /* The ABI obviously doesn't specify how packed structures are passed.
+     These are passed in integer regs if possible, otherwise memory.  */
+  if (!packed)
+    for (tree field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
+      if (TREE_CODE (field) == FIELD_DECL && DECL_PACKED (field))
 	{
-	  if (TREE_CODE (TREE_TYPE (field)) == RECORD_TYPE)
-	    scan_record_type (TREE_TYPE (field), intregs_p, fpregs_p, 0);
-	  else if ((FLOAT_TYPE_P (TREE_TYPE (field))
-		   || TREE_CODE (TREE_TYPE (field)) == VECTOR_TYPE)
-		  && TARGET_FPU)
-	    *fpregs_p = 1;
-	  else
-	    *intregs_p = 1;
-
-	  if (packed_p && DECL_PACKED (field))
-	    *packed_p = 1;
+	  packed = true;
+	  break;
 	}
+
+  /* Walk the real fields, but skip those with no size or a zero size.
+     ??? Fields with variable offset are handled as having zero offset.  */
+  for (tree field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
+    if (TREE_CODE (field) == FIELD_DECL)
+      {
+	if (!DECL_SIZE (field) || integer_zerop (DECL_SIZE (field)))
+	  continue;
+
+	HOST_WIDE_INT bitpos = offset;
+	if (TREE_CODE (DECL_FIELD_OFFSET (field)) == INTEGER_CST)
+	  bitpos += int_bit_position (field);
+
+	tree field_type = TREE_TYPE (field);
+	if (TREE_CODE (field_type) == RECORD_TYPE)
+	  traverse_record_type<T, Func> (field_type, named, data, bitpos,
+					 packed);
+	else
+	  {
+	    const bool fp_type
+	      = FLOAT_TYPE_P (field_type) || VECTOR_TYPE_P (field_type);
+	    Func (field, bitpos, fp_type && named && !packed && TARGET_FPU,
+		  data);
+	  }
+      }
+}
+
+/* Handle recursive register classifying for structure layout.  */
+
+typedef struct
+{
+  bool int_regs;	/* true if field eligible to int registers.  */
+  bool fp_regs;		/* true if field eligible to FP registers.  */
+  bool fp_regs_in_first_word;	/* true if such field in first word.  */
+} classify_data_t;
+
+/* A subroutine of function_arg_slotno.  Classify the field.  */
+
+inline void
+classify_registers (const_tree, HOST_WIDE_INT bitpos, bool fp,
+		    classify_data_t *data)
+{
+  if (fp)
+    {
+      data->fp_regs = true;
+      if (bitpos < BITS_PER_WORD)
+	data->fp_regs_in_first_word = true;
     }
+  else
+    data->int_regs = true;
 }
 
 /* Compute the slot number to pass an argument in.
@@ -6199,16 +6216,16 @@ scan_record_type (const_tree type, int *intregs_p, int *fpregs_p,
     not be available.
    NAMED is nonzero if this argument is a named parameter
     (otherwise it is an extra parameter matching an ellipsis).
-   INCOMING_P is zero for FUNCTION_ARG, nonzero for FUNCTION_INCOMING_ARG.
+   INCOMING is zero for FUNCTION_ARG, nonzero for FUNCTION_INCOMING_ARG.
    *PREGNO records the register number to use if scalar type.
    *PPADDING records the amount of padding needed in words.  */
 
 static int
 function_arg_slotno (const struct sparc_args *cum, machine_mode mode,
-		     const_tree type, bool named, bool incoming_p,
+		     const_tree type, bool named, bool incoming,
 		     int *pregno, int *ppadding)
 {
-  int regbase = (incoming_p
+  int regbase = (incoming
 		 ? SPARC_INCOMING_INT_ARG_FIRST
 		 : SPARC_OUTGOING_INT_ARG_FIRST);
   int slotno = cum->words;
@@ -6264,8 +6281,10 @@ function_arg_slotno (const struct sparc_args *cum, machine_mode mode,
     case MODE_VECTOR_INT:
       if (TARGET_ARCH64 && TARGET_FPU && named)
 	{
+	  /* If all arg slots are filled, then must pass on stack.  */
 	  if (slotno >= SPARC_FP_ARG_MAX)
 	    return -1;
+
 	  regno = SPARC_FP_ARG_FIRST + slotno * 2;
 	  /* Arguments filling only one single FP register are
 	     right-justified in the outer double FP register.  */
@@ -6277,8 +6296,10 @@ function_arg_slotno (const struct sparc_args *cum, machine_mode mode,
 
     case MODE_INT:
     case MODE_COMPLEX_INT:
+      /* If all arg slots are filled, then must pass on stack.  */
       if (slotno >= SPARC_INT_ARG_MAX)
 	return -1;
+
       regno = regbase + slotno;
       break;
 
@@ -6291,42 +6312,43 @@ function_arg_slotno (const struct sparc_args *cum, machine_mode mode,
 
       if (TARGET_ARCH32
 	  || !type
-	  || (TREE_CODE (type) != VECTOR_TYPE
-	      && TREE_CODE (type) != RECORD_TYPE))
+	  || (TREE_CODE (type) != RECORD_TYPE
+	      && TREE_CODE (type) != VECTOR_TYPE))
 	{
+	  /* If all arg slots are filled, then must pass on stack.  */
 	  if (slotno >= SPARC_INT_ARG_MAX)
 	    return -1;
+
 	  regno = regbase + slotno;
 	}
       else  /* TARGET_ARCH64 && type */
 	{
-	  int intregs_p = 0, fpregs_p = 0, packed_p = 0;
-
-	  /* First see what kinds of registers we would need.  */
-	  if (TREE_CODE (type) == VECTOR_TYPE)
-	    fpregs_p = 1;
-	  else
-	    scan_record_type (type, &intregs_p, &fpregs_p, &packed_p);
-
-	  /* The ABI obviously doesn't specify how packed structures
-	     are passed.  These are defined to be passed in int regs
-	     if possible, otherwise memory.  */
-	  if (packed_p || !named)
-	    fpregs_p = 0, intregs_p = 1;
-
 	  /* If all arg slots are filled, then must pass on stack.  */
-	  if (fpregs_p && slotno >= SPARC_FP_ARG_MAX)
+	  if (slotno >= SPARC_FP_ARG_MAX)
 	    return -1;
 
-	  /* If there are only int args and all int arg slots are filled,
-	     then must pass on stack.  */
-	  if (!fpregs_p && intregs_p && slotno >= SPARC_INT_ARG_MAX)
-	    return -1;
+	  if (TREE_CODE (type) == RECORD_TYPE)
+	    {
+	      classify_data_t data = { false, false, false };
+	      traverse_record_type<classify_data_t, classify_registers>
+		(type, named, &data);
 
-	  /* Note that even if all int arg slots are filled, fp members may
-	     still be passed in regs if such regs are available.
-	     *PREGNO isn't set because there may be more than one, it's up
-	     to the caller to compute them.  */
+	      /* If all slots are filled except for the last one, but there
+		 is no FP field in the first word, then must pass on stack.  */
+	      if (data.fp_regs
+		  && !data.fp_regs_in_first_word
+		  && slotno >= SPARC_FP_ARG_MAX - 1)
+		return -1;
+
+	      /* If there are only int args and all int slots are filled,
+		 then must pass on stack.  */
+	      if (!data.fp_regs
+		  && data.int_regs
+		  && slotno >= SPARC_INT_ARG_MAX)
+		return -1;
+	    }
+
+	  /* PREGNO isn't set since both int and FP regs can be used.  */
 	  return slotno;
 	}
       break;
@@ -6339,277 +6361,211 @@ function_arg_slotno (const struct sparc_args *cum, machine_mode mode,
   return slotno;
 }
 
-/* Handle recursive register counting for structure field layout.  */
+/* Handle recursive register counting/assigning for structure layout.  */
 
-struct function_arg_record_value_parms
+typedef struct
 {
-  rtx ret;		/* return expression being built.  */
   int slotno;		/* slot number of the argument.  */
-  int named;		/* whether the argument is named.  */
   int regbase;		/* regno of the base register.  */
-  int stack;		/* 1 if part of the argument is on the stack.  */
   int intoffset;	/* offset of the first pending integer field.  */
-  unsigned int nregs;	/* number of words passed in registers.  */
-};
+  int nregs;		/* number of words passed in registers.  */
+  bool stack;		/* true if part of the argument is on the stack.  */
+  rtx ret;		/* return expression being built.  */
+} assign_data_t;
 
-static void function_arg_record_value_3
- (HOST_WIDE_INT, struct function_arg_record_value_parms *);
-static void function_arg_record_value_2
- (const_tree, HOST_WIDE_INT, struct function_arg_record_value_parms *, bool);
-static void function_arg_record_value_1
- (const_tree, HOST_WIDE_INT, struct function_arg_record_value_parms *, bool);
-static rtx function_arg_record_value (const_tree, machine_mode, int, int, int);
-static rtx function_arg_union_value (int, machine_mode, int, int);
+/* A subroutine of function_arg_record_value.  Compute the number of integer
+   registers to be assigned between PARMS->intoffset and BITPOS.  Return
+   true if at least one integer register is assigned or false otherwise.  */
 
-/* A subroutine of function_arg_record_value.  Traverse the structure
-   recursively and determine how many registers will be required.  */
-
-static void
-function_arg_record_value_1 (const_tree type, HOST_WIDE_INT startbitpos,
-			     struct function_arg_record_value_parms *parms,
-			     bool packed_p)
+static bool
+compute_int_layout (HOST_WIDE_INT bitpos, assign_data_t *data, int *pnregs)
 {
-  tree field;
+  if (data->intoffset < 0)
+    return false;
 
-  /* We need to compute how many registers are needed so we can
-     allocate the PARALLEL but before we can do that we need to know
-     whether there are any packed fields.  The ABI obviously doesn't
-     specify how structures are passed in this case, so they are
-     defined to be passed in int regs if possible, otherwise memory,
-     regardless of whether there are fp values present.  */
+  const int intoffset = data->intoffset;
+  data->intoffset = -1;
 
-  if (! packed_p)
-    for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
-      {
-	if (TREE_CODE (field) == FIELD_DECL && DECL_PACKED (field))
-	  {
-	    packed_p = true;
-	    break;
-	  }
-      }
+  const int this_slotno = data->slotno + intoffset / BITS_PER_WORD;
+  const unsigned int startbit = ROUND_DOWN (intoffset, BITS_PER_WORD);
+  const unsigned int endbit = ROUND_UP (bitpos, BITS_PER_WORD);
+  int nregs = (endbit - startbit) / BITS_PER_WORD;
 
-  /* Compute how many registers we need.  */
-  for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
+  if (nregs > 0 && nregs > SPARC_INT_ARG_MAX - this_slotno)
     {
-      if (TREE_CODE (field) == FIELD_DECL)
-	{
-	  HOST_WIDE_INT bitpos = startbitpos;
+      nregs = SPARC_INT_ARG_MAX - this_slotno;
 
-	  if (DECL_SIZE (field) != 0)
-	    {
-	      if (integer_zerop (DECL_SIZE (field)))
-		continue;
+      /* We need to pass this field (partly) on the stack.  */
+      data->stack = 1;
+    }
 
-	      if (tree_fits_uhwi_p (bit_position (field)))
-		bitpos += int_bit_position (field);
-	    }
+  if (nregs <= 0)
+    return false;
 
-	  /* ??? FIXME: else assume zero offset.  */
+  *pnregs = nregs;
+  return true;
+}
 
-	  if (TREE_CODE (TREE_TYPE (field)) == RECORD_TYPE)
-	    function_arg_record_value_1 (TREE_TYPE (field),
-	    				 bitpos,
-					 parms,
-					 packed_p);
-	  else if ((FLOAT_TYPE_P (TREE_TYPE (field))
-		    || TREE_CODE (TREE_TYPE (field)) == VECTOR_TYPE)
-		   && TARGET_FPU
-		   && parms->named
-		   && ! packed_p)
-	    {
-	      if (parms->intoffset != -1)
-		{
-		  unsigned int startbit, endbit;
-		  int intslots, this_slotno;
+/* A subroutine of function_arg_record_value.  Compute the number and the mode
+   of the FP registers to be assigned for FIELD.  Return true if at least one
+   FP register is assigned or false otherwise.  */
 
-		  startbit = ROUND_DOWN (parms->intoffset, BITS_PER_WORD);
-		  endbit   = ROUND_UP (bitpos, BITS_PER_WORD);
+static bool
+compute_fp_layout (const_tree field, HOST_WIDE_INT bitpos,
+		   assign_data_t *data,
+		   int *pnregs, machine_mode *pmode)
+{
+  const int this_slotno = data->slotno + bitpos / BITS_PER_WORD;
+  machine_mode mode = DECL_MODE (field);
+  int nregs, nslots;
 
-		  intslots = (endbit - startbit) / BITS_PER_WORD;
-		  this_slotno = parms->slotno + parms->intoffset
-		    / BITS_PER_WORD;
+  /* Slots are counted as words while regs are counted as having the size of
+     the (inner) mode.  */
+  if (TREE_CODE (TREE_TYPE (field)) == VECTOR_TYPE && mode == BLKmode)
+    {
+      mode = TYPE_MODE (TREE_TYPE (TREE_TYPE (field)));
+      nregs = TYPE_VECTOR_SUBPARTS (TREE_TYPE (field));
+    }
+  else if (TREE_CODE (TREE_TYPE (field)) == COMPLEX_TYPE)
+    {
+      mode = TYPE_MODE (TREE_TYPE (TREE_TYPE (field)));
+      nregs = 2;
+    }
+  else
+    nregs = 1;
 
-		  if (intslots > 0 && intslots > SPARC_INT_ARG_MAX - this_slotno)
-		    {
-		      intslots = MAX (0, SPARC_INT_ARG_MAX - this_slotno);
-		      /* We need to pass this field on the stack.  */
-		      parms->stack = 1;
-		    }
+  nslots = CEIL_NWORDS (nregs * GET_MODE_SIZE (mode));
 
-		  parms->nregs += intslots;
-		  parms->intoffset = -1;
-		}
+  if (nslots > SPARC_FP_ARG_MAX - this_slotno)
+    {
+      nslots = SPARC_FP_ARG_MAX - this_slotno;
+      nregs = (nslots * UNITS_PER_WORD) / GET_MODE_SIZE (mode);
 
-	      /* There's no need to check this_slotno < SPARC_FP_ARG MAX.
-		 If it wasn't true we wouldn't be here.  */
-	      if (TREE_CODE (TREE_TYPE (field)) == VECTOR_TYPE
-		  && DECL_MODE (field) == BLKmode)
-		parms->nregs += TYPE_VECTOR_SUBPARTS (TREE_TYPE (field));
-	      else if (TREE_CODE (TREE_TYPE (field)) == COMPLEX_TYPE)
-		parms->nregs += 2;
-	      else
-		parms->nregs += 1;
-	    }
-	  else
-	    {
-	      if (parms->intoffset == -1)
-		parms->intoffset = bitpos;
-	    }
-	}
+      /* We need to pass this field (partly) on the stack.  */
+      data->stack = 1;
+
+      if (nregs <= 0)
+	return false;
+    }
+
+  *pnregs = nregs;
+  *pmode = mode;
+  return true;
+}
+
+/* A subroutine of function_arg_record_value.  Count the number of registers
+   to be assigned for FIELD and between PARMS->intoffset and BITPOS.  */
+
+inline void
+count_registers (const_tree field, HOST_WIDE_INT bitpos, bool fp,
+		 assign_data_t *data)
+{
+  if (fp)
+    {
+      int nregs;
+      machine_mode mode;
+
+      if (compute_int_layout (bitpos, data, &nregs))
+	data->nregs += nregs;
+
+      if (compute_fp_layout (field, bitpos, data, &nregs, &mode))
+	data->nregs += nregs;
+    }
+  else
+    {
+      if (data->intoffset < 0)
+	data->intoffset = bitpos;
     }
 }
 
 /* A subroutine of function_arg_record_value.  Assign the bits of the
-   structure between parms->intoffset and bitpos to integer registers.  */
+   structure between PARMS->intoffset and BITPOS to integer registers.  */
 
 static void
-function_arg_record_value_3 (HOST_WIDE_INT bitpos,
-			     struct function_arg_record_value_parms *parms)
+assign_int_registers (HOST_WIDE_INT bitpos, assign_data_t *data)
 {
+  int intoffset = data->intoffset;
   machine_mode mode;
-  unsigned int regno;
-  unsigned int startbit, endbit;
-  int this_slotno, intslots, intoffset;
-  rtx reg;
+  int nregs;
 
-  if (parms->intoffset == -1)
-    return;
-
-  intoffset = parms->intoffset;
-  parms->intoffset = -1;
-
-  startbit = ROUND_DOWN (intoffset, BITS_PER_WORD);
-  endbit = ROUND_UP (bitpos, BITS_PER_WORD);
-  intslots = (endbit - startbit) / BITS_PER_WORD;
-  this_slotno = parms->slotno + intoffset / BITS_PER_WORD;
-
-  intslots = MIN (intslots, SPARC_INT_ARG_MAX - this_slotno);
-  if (intslots <= 0)
+  if (!compute_int_layout (bitpos, data, &nregs))
     return;
 
   /* If this is the trailing part of a word, only load that much into
      the register.  Otherwise load the whole register.  Note that in
      the latter case we may pick up unwanted bits.  It's not a problem
      at the moment but may wish to revisit.  */
-
   if (intoffset % BITS_PER_WORD != 0)
     mode = smallest_mode_for_size (BITS_PER_WORD - intoffset % BITS_PER_WORD,
 			  	   MODE_INT);
   else
     mode = word_mode;
 
+  const int this_slotno = data->slotno + intoffset / BITS_PER_WORD;
+  unsigned int regno = data->regbase + this_slotno;
   intoffset /= BITS_PER_UNIT;
+
   do
     {
-      regno = parms->regbase + this_slotno;
-      reg = gen_rtx_REG (mode, regno);
-      XVECEXP (parms->ret, 0, parms->stack + parms->nregs)
+      rtx reg = gen_rtx_REG (mode, regno);
+      XVECEXP (data->ret, 0, data->stack + data->nregs)
 	= gen_rtx_EXPR_LIST (VOIDmode, reg, GEN_INT (intoffset));
-
-      this_slotno += 1;
-      intoffset = (intoffset | (UNITS_PER_WORD-1)) + 1;
+      data->nregs += 1;
       mode = word_mode;
-      parms->nregs += 1;
-      intslots -= 1;
+      regno += 1;
+      intoffset = (intoffset | (UNITS_PER_WORD - 1)) + 1;
     }
-  while (intslots > 0);
+  while (--nregs > 0);
 }
 
-/* A subroutine of function_arg_record_value.  Traverse the structure
-   recursively and assign bits to floating point registers.  Track which
-   bits in between need integer registers; invoke function_arg_record_value_3
-   to make that happen.  */
+/* A subroutine of function_arg_record_value.  Assign FIELD at position
+   BITPOS to FP registers.  */
 
 static void
-function_arg_record_value_2 (const_tree type, HOST_WIDE_INT startbitpos,
-			     struct function_arg_record_value_parms *parms,
-			     bool packed_p)
+assign_fp_registers (const_tree field, HOST_WIDE_INT bitpos,
+			     assign_data_t *data)
 {
-  tree field;
+  int nregs;
+  machine_mode mode;
 
-  if (! packed_p)
-    for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
-      {
-	if (TREE_CODE (field) == FIELD_DECL && DECL_PACKED (field))
-	  {
-	    packed_p = true;
-	    break;
-	  }
-      }
+  if (!compute_fp_layout (field, bitpos, data, &nregs, &mode))
+    return;
 
-  for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
+  const int this_slotno = data->slotno + bitpos / BITS_PER_WORD;
+  int regno = SPARC_FP_ARG_FIRST + this_slotno * 2;
+  if (GET_MODE_SIZE (mode) <= 4 && (bitpos & 32) != 0)
+    regno++;
+  int pos = bitpos / BITS_PER_UNIT;
+
+  do
     {
-      if (TREE_CODE (field) == FIELD_DECL)
-	{
-	  HOST_WIDE_INT bitpos = startbitpos;
+      rtx reg = gen_rtx_REG (mode, regno);
+      XVECEXP (data->ret, 0, data->stack + data->nregs)
+	= gen_rtx_EXPR_LIST (VOIDmode, reg, GEN_INT (pos));
+      data->nregs += 1;
+      regno += GET_MODE_SIZE (mode) / 4;
+      pos += GET_MODE_SIZE (mode);
+    }
+  while (--nregs > 0);
+}
 
-	  if (DECL_SIZE (field) != 0)
-	    {
-	      if (integer_zerop (DECL_SIZE (field)))
-		continue;
+/* A subroutine of function_arg_record_value.  Assign FIELD and the bits of
+   the structure between PARMS->intoffset and BITPOS to registers.  */
 
-	      if (tree_fits_uhwi_p (bit_position (field)))
-		bitpos += int_bit_position (field);
-	    }
+inline void
+assign_registers (const_tree field, HOST_WIDE_INT bitpos, bool fp,
+		  assign_data_t *data)
+{
+  if (fp)
+    {
+      assign_int_registers (bitpos, data);
 
-	  /* ??? FIXME: else assume zero offset.  */
-
-	  if (TREE_CODE (TREE_TYPE (field)) == RECORD_TYPE)
-	    function_arg_record_value_2 (TREE_TYPE (field),
-	    				 bitpos,
-					 parms,
-					 packed_p);
-	  else if ((FLOAT_TYPE_P (TREE_TYPE (field))
-		    || TREE_CODE (TREE_TYPE (field)) == VECTOR_TYPE)
-		   && TARGET_FPU
-		   && parms->named
-		   && ! packed_p)
-	    {
-	      int this_slotno = parms->slotno + bitpos / BITS_PER_WORD;
-	      int regno, nregs, pos;
-	      machine_mode mode = DECL_MODE (field);
-	      rtx reg;
-
-	      function_arg_record_value_3 (bitpos, parms);
-
-	      if (TREE_CODE (TREE_TYPE (field)) == VECTOR_TYPE
-		  && mode == BLKmode)
-	        {
-		  mode = TYPE_MODE (TREE_TYPE (TREE_TYPE (field)));
-		  nregs = TYPE_VECTOR_SUBPARTS (TREE_TYPE (field));
-		}
-	      else if (TREE_CODE (TREE_TYPE (field)) == COMPLEX_TYPE)
-	        {
-		  mode = TYPE_MODE (TREE_TYPE (TREE_TYPE (field)));
-		  nregs = 2;
-		}
-	      else
-	        nregs = 1;
-
-	      regno = SPARC_FP_ARG_FIRST + this_slotno * 2;
-	      if (GET_MODE_SIZE (mode) <= 4 && (bitpos & 32) != 0)
-		regno++;
-	      reg = gen_rtx_REG (mode, regno);
-	      pos = bitpos / BITS_PER_UNIT;
-	      XVECEXP (parms->ret, 0, parms->stack + parms->nregs)
-		= gen_rtx_EXPR_LIST (VOIDmode, reg, GEN_INT (pos));
-	      parms->nregs += 1;
-	      while (--nregs > 0)
-		{
-		  regno += GET_MODE_SIZE (mode) / 4;
-	  	  reg = gen_rtx_REG (mode, regno);
-		  pos += GET_MODE_SIZE (mode);
-		  XVECEXP (parms->ret, 0, parms->stack + parms->nregs)
-		    = gen_rtx_EXPR_LIST (VOIDmode, reg, GEN_INT (pos));
-		  parms->nregs += 1;
-		}
-	    }
-	  else
-	    {
-	      if (parms->intoffset == -1)
-		parms->intoffset = bitpos;
-	    }
-	}
+      assign_fp_registers (field, bitpos, data);
+    }
+  else
+    {
+      if (data->intoffset < 0)
+	data->intoffset = bitpos;
     }
 }
 
@@ -6623,52 +6579,34 @@ function_arg_record_value_2 (const_tree type, HOST_WIDE_INT startbitpos,
     not be available.
    MODE is the argument's machine mode.
    SLOTNO is the index number of the argument's slot in the parameter array.
-   NAMED is nonzero if this argument is a named parameter
+   NAMED is true if this argument is a named parameter
     (otherwise it is an extra parameter matching an ellipsis).
    REGBASE is the regno of the base register for the parameter array.  */
 
 static rtx
 function_arg_record_value (const_tree type, machine_mode mode,
-			   int slotno, int named, int regbase)
+			   int slotno, bool named, int regbase)
 {
   HOST_WIDE_INT typesize = int_size_in_bytes (type);
-  struct function_arg_record_value_parms parms;
-  unsigned int nregs;
+  assign_data_t data;
+  int nregs;
 
-  parms.ret = NULL_RTX;
-  parms.slotno = slotno;
-  parms.named = named;
-  parms.regbase = regbase;
-  parms.stack = 0;
+  data.slotno = slotno;
+  data.regbase = regbase;
 
-  /* Compute how many registers we need.  */
-  parms.nregs = 0;
-  parms.intoffset = 0;
-  function_arg_record_value_1 (type, 0, &parms, false);
+  /* Count how many registers we need.  */
+  data.nregs = 0;
+  data.intoffset = 0;
+  data.stack = false;
+  traverse_record_type<assign_data_t, count_registers> (type, named, &data);
 
   /* Take into account pending integer fields.  */
-  if (parms.intoffset != -1)
-    {
-      unsigned int startbit, endbit;
-      int intslots, this_slotno;
-
-      startbit = ROUND_DOWN (parms.intoffset, BITS_PER_WORD);
-      endbit = ROUND_UP (typesize*BITS_PER_UNIT, BITS_PER_WORD);
-      intslots = (endbit - startbit) / BITS_PER_WORD;
-      this_slotno = slotno + parms.intoffset / BITS_PER_WORD;
-
-      if (intslots > 0 && intslots > SPARC_INT_ARG_MAX - this_slotno)
-        {
-	  intslots = MAX (0, SPARC_INT_ARG_MAX - this_slotno);
-	  /* We need to pass this field on the stack.  */
-	  parms.stack = 1;
-        }
-
-      parms.nregs += intslots;
-    }
-  nregs = parms.nregs;
+  if (compute_int_layout (typesize * BITS_PER_UNIT, &data, &nregs))
+    data.nregs += nregs;
 
   /* Allocate the vector and handle some annoying special cases.  */
+  nregs = data.nregs;
+
   if (nregs == 0)
     {
       /* ??? Empty structure has no value?  Duh?  */
@@ -6680,18 +6618,17 @@ function_arg_record_value (const_tree type, machine_mode mode,
 	     load.  */
 	  return gen_rtx_REG (mode, regbase);
 	}
-      else
-	{
-	  /* ??? C++ has structures with no fields, and yet a size.  Give up
-	     for now and pass everything back in integer registers.  */
-	  nregs = (typesize + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
-	}
+
+      /* ??? C++ has structures with no fields, and yet a size.  Give up
+	 for now and pass everything back in integer registers.  */
+      nregs = (typesize + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
       if (nregs + slotno > SPARC_INT_ARG_MAX)
 	nregs = SPARC_INT_ARG_MAX - slotno;
     }
-  gcc_assert (nregs != 0);
 
-  parms.ret = gen_rtx_PARALLEL (mode, rtvec_alloc (parms.stack + nregs));
+  gcc_assert (nregs > 0);
+
+  data.ret = gen_rtx_PARALLEL (mode, rtvec_alloc (data.stack + nregs));
 
   /* If at least one field must be passed on the stack, generate
      (parallel [(expr_list (nil) ...) ...]) so that all fields will
@@ -6699,19 +6636,21 @@ function_arg_record_value (const_tree type, machine_mode mode,
      semantics of TARGET_ARG_PARTIAL_BYTES doesn't handle the case
      of structures for which the fields passed exclusively in registers
      are not at the beginning of the structure.  */
-  if (parms.stack)
-    XVECEXP (parms.ret, 0, 0)
+  if (data.stack)
+    XVECEXP (data.ret, 0, 0)
       = gen_rtx_EXPR_LIST (VOIDmode, NULL_RTX, const0_rtx);
 
-  /* Fill in the entries.  */
-  parms.nregs = 0;
-  parms.intoffset = 0;
-  function_arg_record_value_2 (type, 0, &parms, false);
-  function_arg_record_value_3 (typesize * BITS_PER_UNIT, &parms);
+  /* Assign the registers.  */
+  data.nregs = 0;
+  data.intoffset = 0;
+  traverse_record_type<assign_data_t, assign_registers> (type, named, &data);
 
-  gcc_assert (parms.nregs == nregs);
+  /* Assign pending integer fields.  */
+  assign_int_registers (typesize * BITS_PER_UNIT, &data);
 
-  return parms.ret;
+  gcc_assert (data.nregs == nregs);
+
+  return data.ret;
 }
 
 /* Used by function_arg and sparc_function_value_1 to implement the conventions
@@ -6727,7 +6666,7 @@ static rtx
 function_arg_union_value (int size, machine_mode mode, int slotno,
 			  int regno)
 {
-  int nwords = ROUND_ADVANCE (size), i;
+  int nwords = CEIL_NWORDS (size), i;
   rtx regs;
 
   /* See comment in previous function for empty structures.  */
@@ -6798,17 +6737,17 @@ function_arg_vector_value (int size, int regno)
 
 static rtx
 sparc_function_arg_1 (cumulative_args_t cum_v, machine_mode mode,
-		      const_tree type, bool named, bool incoming_p)
+		      const_tree type, bool named, bool incoming)
 {
   const CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
 
-  int regbase = (incoming_p
+  int regbase = (incoming
 		 ? SPARC_INCOMING_INT_ARG_FIRST
 		 : SPARC_OUTGOING_INT_ARG_FIRST);
   int slotno, regno, padding;
   enum mode_class mclass = GET_MODE_CLASS (mode);
 
-  slotno = function_arg_slotno (cum, mode, type, named, incoming_p,
+  slotno = function_arg_slotno (cum, mode, type, named, incoming,
 				&regno, &padding);
   if (slotno == -1)
     return 0;
@@ -6858,35 +6797,7 @@ sparc_function_arg_1 (cumulative_args_t cum_v, machine_mode mode,
     {
       rtx reg = gen_rtx_REG (mode, regno);
       if (cum->prototype_p || cum->libcall_p)
-	{
-	  /* "* 2" because fp reg numbers are recorded in 4 byte
-	     quantities.  */
-#if 0
-	  /* ??? This will cause the value to be passed in the fp reg and
-	     in the stack.  When a prototype exists we want to pass the
-	     value in the reg but reserve space on the stack.  That's an
-	     optimization, and is deferred [for a bit].  */
-	  if ((regno - SPARC_FP_ARG_FIRST) >= SPARC_INT_ARG_MAX * 2)
-	    return gen_rtx_PARALLEL (mode,
-			    gen_rtvec (2,
-				       gen_rtx_EXPR_LIST (VOIDmode,
-						NULL_RTX, const0_rtx),
-				       gen_rtx_EXPR_LIST (VOIDmode,
-						reg, const0_rtx)));
-	  else
-#else
-	  /* ??? It seems that passing back a register even when past
-	     the area declared by REG_PARM_STACK_SPACE will allocate
-	     space appropriately, and will not copy the data onto the
-	     stack, exactly as we desire.
-
-	     This is due to locate_and_pad_parm being called in
-	     expand_call whenever reg_parm_stack_space > 0, which
-	     while beneficial to our example here, would seem to be
-	     in error from what had been intended.  Ho hum...  -- r~ */
-#endif
-	    return reg;
-	}
+	return reg;
       else
 	{
 	  rtx v0, v1;
@@ -6898,7 +6809,7 @@ sparc_function_arg_1 (cumulative_args_t cum_v, machine_mode mode,
 	      /* On incoming, we don't need to know that the value
 		 is passed in %f0 and %i0, and it confuses other parts
 		 causing needless spillage even on the simplest cases.  */
-	      if (incoming_p)
+	      if (incoming)
 		return reg;
 
 	      intreg = (SPARC_OUTGOING_INT_ARG_FIRST
@@ -6977,7 +6888,7 @@ sparc_arg_partial_bytes (cumulative_args_t cum, machine_mode mode,
 {
   int slotno, regno, padding;
 
-  /* We pass false for incoming_p here, it doesn't matter.  */
+  /* We pass false for incoming here, it doesn't matter.  */
   slotno = function_arg_slotno (get_cumulative_args (cum), mode, type, named,
 				false, &regno, &padding);
 
@@ -6987,8 +6898,8 @@ sparc_arg_partial_bytes (cumulative_args_t cum, machine_mode mode,
   if (TARGET_ARCH32)
     {
       if ((slotno + (mode == BLKmode
-		     ? ROUND_ADVANCE (int_size_in_bytes (type))
-		     : ROUND_ADVANCE (GET_MODE_SIZE (mode))))
+		     ? CEIL_NWORDS (int_size_in_bytes (type))
+		     : CEIL_NWORDS (GET_MODE_SIZE (mode))))
 	  > SPARC_INT_ARG_MAX)
 	return (SPARC_INT_ARG_MAX - slotno) * UNITS_PER_WORD;
     }
@@ -7003,7 +6914,8 @@ sparc_arg_partial_bytes (cumulative_args_t cum, machine_mode mode,
 	  int size = int_size_in_bytes (type);
 
 	  if (size > UNITS_PER_WORD
-	      && slotno == SPARC_INT_ARG_MAX - 1)
+	      && (slotno == SPARC_INT_ARG_MAX - 1
+		  || slotno == SPARC_FP_ARG_MAX - 1))
 	    return UNITS_PER_WORD;
 	}
       else if (GET_MODE_CLASS (mode) == MODE_COMPLEX_INT
@@ -7089,18 +7001,16 @@ sparc_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   int regno, padding;
 
-  /* We pass false for incoming_p here, it doesn't matter.  */
+  /* We pass false for incoming here, it doesn't matter.  */
   function_arg_slotno (cum, mode, type, named, false, &regno, &padding);
 
   /* If argument requires leading padding, add it.  */
   cum->words += padding;
 
   if (TARGET_ARCH32)
-    {
-      cum->words += (mode != BLKmode
-		     ? ROUND_ADVANCE (GET_MODE_SIZE (mode))
-		     : ROUND_ADVANCE (int_size_in_bytes (type)));
-    }
+    cum->words += (mode == BLKmode
+		   ? CEIL_NWORDS (int_size_in_bytes (type))
+		   : CEIL_NWORDS (GET_MODE_SIZE (mode)));
   else
     {
       if (type && AGGREGATE_TYPE_P (type))
@@ -7115,11 +7025,9 @@ sparc_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
 	    ++cum->words;
 	}
       else
-	{
-	  cum->words += (mode != BLKmode
-			 ? ROUND_ADVANCE (GET_MODE_SIZE (mode))
-			 : ROUND_ADVANCE (int_size_in_bytes (type)));
-	}
+	cum->words += (mode == BLKmode
+		       ? CEIL_NWORDS (int_size_in_bytes (type))
+		       : CEIL_NWORDS (GET_MODE_SIZE (mode)));
     }
 }
 
@@ -7130,7 +7038,7 @@ sparc_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
 enum direction
 function_arg_padding (machine_mode mode, const_tree type)
 {
-  if (TARGET_ARCH64 && type != 0 && AGGREGATE_TYPE_P (type))
+  if (TARGET_ARCH64 && type && AGGREGATE_TYPE_P (type))
     return upward;
 
   /* Fall back to the default.  */
@@ -7207,17 +7115,16 @@ sparc_struct_value_rtx (tree fndecl, int incoming)
 	  && TYPE_SIZE_UNIT (TREE_TYPE (fndecl))
 	  && TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (fndecl))) == INTEGER_CST)
 	{
-	  /* We must check and adjust the return address, as it is
-	     optional as to whether the return object is really
-	     provided.  */
-	  rtx ret_reg = gen_rtx_REG (Pmode, 31);
+	  /* We must check and adjust the return address, as it is optional
+	     as to whether the return object is really provided.  */
+	  rtx ret_reg = gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM);
 	  rtx scratch = gen_reg_rtx (SImode);
 	  rtx_code_label *endlab = gen_label_rtx ();
 
-	  /* Calculate the return object size */
+	  /* Calculate the return object size.  */
 	  tree size = TYPE_SIZE_UNIT (TREE_TYPE (fndecl));
 	  rtx size_rtx = GEN_INT (TREE_INT_CST_LOW (size) & 0xfff);
-	  /* Construct a temporary return value */
+	  /* Construct a temporary return value.  */
 	  rtx temp_val
 	    = assign_stack_local (Pmode, TREE_INT_CST_LOW (size), 0);
 
@@ -7229,13 +7136,13 @@ sparc_struct_value_rtx (tree fndecl, int incoming)
 	  emit_move_insn (scratch, gen_rtx_MEM (SImode,
 						plus_constant (Pmode,
 							       ret_reg, 8)));
-	  /* Assume the size is valid and pre-adjust */
+	  /* Assume the size is valid and pre-adjust.  */
 	  emit_insn (gen_add3_insn (ret_reg, ret_reg, GEN_INT (4)));
 	  emit_cmp_and_jump_insns (scratch, size_rtx, EQ, const0_rtx, SImode,
 				   0, endlab);
 	  emit_insn (gen_sub3_insn (ret_reg, ret_reg, GEN_INT (4)));
 	  /* Write the address of the memory pointed to by temp_val into
-	     the memory pointed to by mem */
+	     the memory pointed to by mem.  */
 	  emit_move_insn (mem, XEXP (temp_val, 0));
 	  emit_label (endlab);
 	}
@@ -8360,6 +8267,7 @@ epilogue_renumber (register rtx *where, int test)
     case CC0:
     case PC:
     case CONST_INT:
+    case CONST_WIDE_INT:
     case CONST_DOUBLE:
       return 0;
 
@@ -8905,8 +8813,6 @@ sparc_print_operand (FILE *file, rtx x, int code)
 	HOST_WIDE_INT i;
 	if (GET_CODE(x) == CONST_INT)
 	  i = INTVAL (x);
-	else if (GET_CODE(x) == CONST_DOUBLE)
-	  i = CONST_DOUBLE_LOW (x);
 	else
 	  {
 	    output_operand_lossage ("invalid %%s operand");
@@ -8953,21 +8859,10 @@ sparc_print_operand (FILE *file, rtx x, int code)
       output_addr_const (file, XEXP (x, 1));
       fputc (')', file);
     }
-  else if (GET_CODE (x) == CONST_DOUBLE
-	   && (GET_MODE (x) == VOIDmode
-	       || GET_MODE_CLASS (GET_MODE (x)) == MODE_INT))
-    {
-      if (CONST_DOUBLE_HIGH (x) == 0)
-	fprintf (file, "%u", (unsigned int) CONST_DOUBLE_LOW (x));
-      else if (CONST_DOUBLE_HIGH (x) == -1
-	       && CONST_DOUBLE_LOW (x) < 0)
-	fprintf (file, "%d", (int) CONST_DOUBLE_LOW (x));
-      else
-	output_operand_lossage ("long long constant not a valid immediate operand");
-    }
   else if (GET_CODE (x) == CONST_DOUBLE)
-    output_operand_lossage ("floating point constant not a valid immediate operand");
-  else { output_addr_const (file, x); }
+    output_operand_lossage ("floating-point constant not a valid immediate operand");
+  else
+    output_addr_const (file, x);
 }
 
 /* Implement TARGET_PRINT_OPERAND_ADDRESS.  */
@@ -9061,8 +8956,7 @@ sparc_assemble_integer (rtx x, unsigned int size, int aligned_p)
 {
   /* ??? We only output .xword's for symbols and only then in environments
      where the assembler can handle them.  */
-  if (aligned_p && size == 8
-      && (GET_CODE (x) != CONST_INT && GET_CODE (x) != CONST_DOUBLE))
+  if (aligned_p && size == 8 && GET_CODE (x) != CONST_INT)
     {
       if (TARGET_V9)
 	{
@@ -9361,8 +9255,8 @@ supersparc_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
 {
   enum attr_type insn_type;
 
-  if (! recog_memoized (insn))
-    return 0;
+  if (recog_memoized (insn) < 0)
+    return cost;
 
   insn_type = get_attr_type (insn);
 
@@ -9495,7 +9389,7 @@ hypersparc_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
 }
 
 static int
-sparc_adjust_cost(rtx_insn *insn, rtx link, rtx_insn *dep, int cost)
+sparc_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep, int cost)
 {
   switch (sparc_cpu)
     {
@@ -9611,10 +9505,8 @@ set_extends (rtx_insn *insn)
     case LSHIFTRT:
       return GET_MODE (SET_SRC (pat)) == SImode;
       /* Positive integers leave the high bits zero.  */
-    case CONST_DOUBLE:
-      return ! (CONST_DOUBLE_LOW (SET_SRC (pat)) & 0x80000000);
     case CONST_INT:
-      return ! (INTVAL (SET_SRC (pat)) & 0x80000000);
+      return !(INTVAL (SET_SRC (pat)) & 0x80000000);
     case ASHIFTRT:
     case SIGN_EXTEND:
       return - (GET_MODE (SET_SRC (pat)) == SImode);
@@ -10912,12 +10804,19 @@ sparc_rtx_costs (rtx x, machine_mode mode, int outer_code,
   switch (code)
     {
     case CONST_INT:
-      if (INTVAL (x) < 0x1000 && INTVAL (x) >= -0x1000)
-	{
-	  *total = 0;
-	  return true;
-	}
-      /* FALLTHRU */
+      if (SMALL_INT (x))
+	*total = 0;
+      else
+	*total = 2;
+      return true;
+
+    case CONST_WIDE_INT:
+      *total = 0;
+      if (!SPARC_SIMM13_P (CONST_WIDE_INT_ELT (x, 0)))
+	*total += 2;
+      if (!SPARC_SIMM13_P (CONST_WIDE_INT_ELT (x, 1)))
+	*total += 2;
+      return true;
 
     case HIGH:
       *total = 2;
@@ -10930,15 +10829,7 @@ sparc_rtx_costs (rtx x, machine_mode mode, int outer_code,
       return true;
 
     case CONST_DOUBLE:
-      if (mode == VOIDmode
-	  && ((CONST_DOUBLE_HIGH (x) == 0
-	       && CONST_DOUBLE_LOW (x) < 0x1000)
-	      || (CONST_DOUBLE_HIGH (x) == -1
-		  && CONST_DOUBLE_LOW (x) < 0
-		  && CONST_DOUBLE_LOW (x) >= -0x1000)))
-	*total = 0;
-      else
-	*total = 8;
+      *total = 8;
       return true;
 
     case MEM:
@@ -11009,18 +10900,6 @@ sparc_rtx_costs (rtx x, machine_mode mode, int outer_code,
 		{
 		  unsigned HOST_WIDE_INT value = INTVAL (XEXP (x, 1));
 		  for (nbits = 0; value != 0; value &= value - 1)
-		    nbits++;
-		}
-	      else if (GET_CODE (XEXP (x, 1)) == CONST_DOUBLE
-		       && GET_MODE (XEXP (x, 1)) == VOIDmode)
-		{
-		  rtx x1 = XEXP (x, 1);
-		  unsigned HOST_WIDE_INT value1 = CONST_DOUBLE_LOW (x1);
-		  unsigned HOST_WIDE_INT value2 = CONST_DOUBLE_HIGH (x1);
-
-		  for (nbits = 0; value1 != 0; value1 &= value1 - 1)
-		    nbits++;
-		  for (; value2 != 0; value2 &= value2 - 1)
 		    nbits++;
 		}
 	      else

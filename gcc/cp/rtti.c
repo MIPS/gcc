@@ -1,5 +1,5 @@
 /* RunTime Type Identification
-   Copyright (C) 1995-2015 Free Software Foundation, Inc.
+   Copyright (C) 1995-2016 Free Software Foundation, Inc.
    Mostly written by Jason Merrill (jason@cygnus.com).
 
 This file is part of GCC.
@@ -242,7 +242,7 @@ get_tinfo_decl_dynamic (tree exp, tsubst_flags_t complain)
   if (error_operand_p (exp))
     return error_mark_node;
 
-  exp = resolve_nondeduced_context (exp);
+  exp = resolve_nondeduced_context (exp, complain);
 
   /* peel back references, so they match.  */
   type = non_reference (TREE_TYPE (exp));
@@ -332,7 +332,7 @@ build_typeid (tree exp, tsubst_flags_t complain)
       /* So we need to look into the vtable of the type of exp.
          Make sure it isn't a null lvalue.  */
       exp = cp_build_addr_expr (exp, complain);
-      exp = stabilize_reference (exp);
+      exp = save_expr (exp);
       cond = cp_convert (boolean_type_node, exp, complain);
       exp = cp_build_indirect_ref (exp, RO_NULL, complain);
     }
@@ -507,12 +507,13 @@ get_typeid (tree type, tsubst_flags_t complain)
 static tree
 ifnonnull (tree test, tree result, tsubst_flags_t complain)
 {
-  return build3 (COND_EXPR, TREE_TYPE (result),
-		 build2 (EQ_EXPR, boolean_type_node, test,
-			 cp_convert (TREE_TYPE (test), nullptr_node,
-				     complain)),
-		 cp_convert (TREE_TYPE (result), nullptr_node, complain),
-		 result);
+  tree cond = build2 (NE_EXPR, boolean_type_node, test,
+		      cp_convert (TREE_TYPE (test), nullptr_node, complain));
+  /* This is a compiler generated comparison, don't emit
+     e.g. -Wnonnull-compare warning for it.  */
+  TREE_NO_WARNING (cond) = 1;
+  return build3 (COND_EXPR, TREE_TYPE (result), cond, result,
+		 cp_convert (TREE_TYPE (result), nullptr_node, complain));
 }
 
 /* Execute a dynamic cast, as described in section 5.2.6 of the 9/93 working
@@ -1602,7 +1603,7 @@ emit_tinfo_decl (tree decl)
       /* Avoid targets optionally bumping up the alignment to improve
 	 vector instruction accesses, tinfo are never accessed this way.  */
 #ifdef DATA_ABI_ALIGNMENT
-      DECL_ALIGN (decl) = DATA_ABI_ALIGNMENT (decl, TYPE_ALIGN (TREE_TYPE (decl)));
+      SET_DECL_ALIGN (decl, DATA_ABI_ALIGNMENT (decl, TYPE_ALIGN (TREE_TYPE (decl))));
       DECL_USER_ALIGN (decl) = true;
 #endif
       return true;

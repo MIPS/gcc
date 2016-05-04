@@ -1,5 +1,5 @@
 # Top level -*- makefile -*- fragment for GNU C++.
-#   Copyright (C) 1994-2015 Free Software Foundation, Inc.
+#   Copyright (C) 1994-2016 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -90,11 +90,18 @@ c++_OBJS = $(CXX_OBJS) cc1plus-checksum.o cp/g++spec.o
 cp-warn = $(STRICT_WARN)
 
 # compute checksum over all object files and the options
+# re-use the checksum from the prev-final stage so it passes
+# the bootstrap comparison and allows comparing of the cc1 binary
 cc1plus-checksum.c : build/genchecksum$(build_exeext) checksum-options \
 	$(CXX_OBJS) $(BACKEND) $(LIBDEPS) 
-	build/genchecksum$(build_exeext) $(CXX_OBJS) $(BACKEND) $(LIBDEPS) \
+	if [ -f ../stage_final ] \
+	   && cmp -s ../stage_current ../stage_final; then \
+	   cp ../prev-gcc/cc1plus-checksum.c cc1plus-checksum.c; \
+	else \
+	  build/genchecksum$(build_exeext) $(CXX_OBJS) $(BACKEND) $(LIBDEPS) \
                      checksum-options > cc1plus-checksum.c.tmp &&	   \
-	$(srcdir)/../move-if-change cc1plus-checksum.c.tmp cc1plus-checksum.c
+	  $(srcdir)/../move-if-change cc1plus-checksum.c.tmp cc1plus-checksum.c; \
+	fi
 
 cc1plus$(exeext): $(CXX_OBJS) cc1plus-checksum.o $(BACKEND) $(LIBDEPS)
 	+$(LLINKER) $(ALL_LINKERFLAGS) $(LDFLAGS) -o $@ \
@@ -112,7 +119,7 @@ else
 # deleting the $(srcdir)/cp/cfns.h file.
 $(srcdir)/cp/cfns.h:
 endif
-	gperf -o -C -E -k '1-6,$$' -j1 -D -N 'libc_name_p' -L ANSI-C \
+	gperf -o -C -E -k '1-6,$$' -j1 -D -N 'libc_name_p' -L C++ \
 		$(srcdir)/cp/cfns.gperf --output-file $(srcdir)/cp/cfns.h
 
 #
@@ -145,9 +152,15 @@ c++.srcman: doc/g++.1
 # check targets.  However, our DejaGNU framework requires 'check-g++' as its
 # entry point.  We feed the former to the latter here.
 check-c++ : check-g++
-# Run the testsute in C++0x mode.
-check-c++0x:
-	@echo Normal 'make check' now runs the testsuite in C++11 mode as well as C++98.
+
+# Run the testsuite in C++1z mode.
+check-c++1z:
+	$(MAKE) GXX_TESTSUITE_STDS=1z check-g++
+
+# Run the testsuite in all standard conformance levels.
+check-c++-all:
+	$(MAKE) RUNTESTFLAGS="$(RUNTESTFLAGS) --stds=98,11,14,1z,concepts" check-g++
+
 # Run the testsuite with garbage collection at every opportunity.
 check-g++-strict-gc:
 	$(MAKE) RUNTESTFLAGS="$(RUNTESTFLAGS) --extra_opts,--param,ggc-min-heapsize=0,--param,ggc-min-expand=0" \

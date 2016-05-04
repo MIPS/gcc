@@ -1,5 +1,5 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -81,6 +81,13 @@ opt_pass::clone ()
   internal_error ("pass %s does not support cloning", name);
 }
 
+void
+opt_pass::set_pass_param (unsigned int, bool)
+{
+  internal_error ("pass %s needs a set_pass_param implementation to handle the"
+		  " extra argument in NEXT_PASS", name);
+}
+
 bool
 opt_pass::gate (function *)
 {
@@ -144,7 +151,6 @@ debug_pass (void)
 
 /* Global variables used to communicate with passes.  */
 bool in_gimple_form;
-bool first_pass_instance;
 
 
 /* This is called from various places for FUNCTION_DECL, VAR_DECL,
@@ -358,10 +364,9 @@ finish_optimization_passes (void)
 
   /* Do whatever is necessary to finish printing the graphs.  */
   for (i = TDI_end; (dfi = dumps->get_dump_file_info (i)) != NULL; ++i)
-    if (dumps->dump_initialized_p (i)
-	&& (dfi->pflags & TDF_GRAPH) != 0
-	&& (name = dumps->get_dump_file_name (i)) != NULL)
+    if (dfi->graph_dump_initialized)
       {
+	name = dumps->get_dump_file_name (dfi);
 	finish_graph_dump_file (name);
 	free (name);
       }
@@ -1491,8 +1496,12 @@ pass_manager::register_pass (struct register_pass_info *pass_info)
         tdi = TDI_rtl_all;
       /* Check if dump-all flag is specified.  */
       if (dumps->get_dump_file_info (tdi)->pstate)
-        dumps->get_dump_file_info (added_pass_nodes->pass->static_pass_number)
+	{
+	  dumps->get_dump_file_info (added_pass_nodes->pass->static_pass_number)
             ->pstate = dumps->get_dump_file_info (tdi)->pstate;
+	  dumps->get_dump_file_info (added_pass_nodes->pass->static_pass_number)
+	    ->pflags = dumps->get_dump_file_info (tdi)->pflags;
+	}
       XDELETE (added_pass_nodes);
       added_pass_nodes = next_node;
     }
@@ -1549,8 +1558,15 @@ pass_manager::pass_manager (context *ctxt)
 
   /* Build the tree of passes.  */
 
-#define INSERT_PASSES_AFTER(PASS) \
-  p = &(PASS);
+#define INSERT_PASSES_AFTER(PASS)		\
+  {						\
+    opt_pass **p_start;				\
+    p_start = p = &(PASS);
+
+#define TERMINATE_PASS_LIST(PASS)		\
+    gcc_assert (p_start == &PASS);		\
+    *p = NULL;					\
+  }
 
 #define PUSH_INSERT_PASSES_WITHIN(PASS) \
   { \
@@ -1572,8 +1588,11 @@ pass_manager::pass_manager (context *ctxt)
     p = next_pass_1 (p, PASS ## _ ## NUM, PASS ## _1);  \
   } while (0)
 
-#define TERMINATE_PASS_LIST() \
-  *p = NULL;
+#define NEXT_PASS_WITH_ARG(PASS, NUM, ARG)		\
+    do {						\
+      NEXT_PASS (PASS, NUM);				\
+      PASS ## _ ## NUM->set_pass_param (0, ARG);	\
+    } while (0)
 
 #include "pass-instances.def"
 
@@ -1581,6 +1600,7 @@ pass_manager::pass_manager (context *ctxt)
 #undef PUSH_INSERT_PASSES_WITHIN
 #undef POP_INSERT_PASSES
 #undef NEXT_PASS
+#undef NEXT_PASS_WITH_ARG
 #undef TERMINATE_PASS_LIST
 
   /* Register the passes with the tree dump code.  */
@@ -1743,10 +1763,13 @@ execute_function_dump (function *fn, void *data)
       if ((fn->curr_properties & PROP_cfg)
 	  && (dump_flags & TDF_GRAPH))
 	{
-	  if (!pass->graph_dump_initialized)
+	  gcc::dump_manager *dumps = g->get_dumps ();
+	  struct dump_file_info *dfi
+	    = dumps->get_dump_file_info (pass->static_pass_number);
+	  if (!dfi->graph_dump_initialized)
 	    {
 	      clean_graph_dump_file (dump_file_name);
-	      pass->graph_dump_initialized = true;
+	      dfi->graph_dump_initialized = true;
 	    }
 	  print_graph_cfg (dump_file_name, fn);
 	}
@@ -1991,9 +2014,6 @@ execute_todo (unsigned int flags)
 
   timevar_push (TV_TODO);
 
-  /* Inform the pass whether it is the first time it is run.  */
-  first_pass_instance = (flags & TODO_mark_first_instance) != 0;
-
   statistics_fini_pass ();
 
   if (flags)
@@ -2093,7 +2113,9 @@ pass_init_dump_file (opt_pass *pass)
 	  && cfun && (cfun->curr_properties & PROP_cfg))
 	{
 	  clean_graph_dump_file (dump_file_name);
-	  pass->graph_dump_initialized = true;
+	  struct dump_file_info *dfi
+	    = dumps->get_dump_file_info (pass->static_pass_number);
+	  dfi->graph_dump_initialized = true;
 	}
       timevar_pop (TV_DUMP);
       return initializing_dump;
@@ -2204,10 +2226,11 @@ execute_one_ipa_transform_pass (struct cgraph_node *node,
     check_profile_consistency (pass->static_pass_number, 1, true);
 
   if (dump_file)
-    do_per_function (execute_function_dump, NULL);
+    do_per_function (execute_function_dump, pass);
   pass_fini_dump_file (pass);
 
   current_pass = NULL;
+  redirect_edge_var_map_empty ();
 
   /* Signal this is a suitable GC collection point.  */
   if (!(todo_after & TODO_do_not_ggc_collect))
@@ -2323,6 +2346,33 @@ execute_one_pass (opt_pass *pass)
 
   /* Do it!  */
   todo_after = pass->execute (cfun);
+
+  if (todo_after & TODO_discard_function)
+    {
+      pass_fini_dump_file (pass);
+
+      gcc_assert (cfun);
+      /* As cgraph_node::release_body expects release dominators info,
+	 we have to release it.  */
+      if (dom_info_available_p (CDI_DOMINATORS))
+       free_dominance_info (CDI_DOMINATORS);
+
+      if (dom_info_available_p (CDI_POST_DOMINATORS))
+       free_dominance_info (CDI_POST_DOMINATORS);
+
+      tree fn = cfun->decl;
+      pop_cfun ();
+      gcc_assert (!cfun);
+      cgraph_node::get (fn)->release_body ();
+
+      current_pass = NULL;
+      redirect_edge_var_map_empty ();
+
+      ggc_collect ();
+
+      return true;
+    }
+
   do_per_function (clear_last_verified, NULL);
 
   /* Stop timevar.  */
@@ -2340,15 +2390,15 @@ execute_one_pass (opt_pass *pass)
     check_profile_consistency (pass->static_pass_number, 1, true);
 
   verify_interpass_invariants ();
-  if (dump_file)
-    do_per_function (execute_function_dump, pass);
-  if (pass->type == IPA_PASS)
+  if (pass->type == IPA_PASS
+      && ((ipa_opt_pass_d *)pass)->function_transform)
     {
       struct cgraph_node *node;
-      if (((ipa_opt_pass_d *)pass)->function_transform)
-	FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (node)
-	  node->ipa_transforms_to_apply.safe_push ((ipa_opt_pass_d *)pass);
+      FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (node)
+	node->ipa_transforms_to_apply.safe_push ((ipa_opt_pass_d *)pass);
     }
+  else if (dump_file)
+    do_per_function (execute_function_dump, pass);
 
   if (!current_function_decl)
     symtab->process_new_functions ();
@@ -2360,23 +2410,7 @@ execute_one_pass (opt_pass *pass)
 		|| pass->type != RTL_PASS);
 
   current_pass = NULL;
-
-  if (todo_after & TODO_discard_function)
-    {
-      gcc_assert (cfun);
-      /* As cgraph_node::release_body expects release dominators info,
-	 we have to release it.  */
-      if (dom_info_available_p (CDI_DOMINATORS))
-	free_dominance_info (CDI_DOMINATORS);
-
-      if (dom_info_available_p (CDI_POST_DOMINATORS))
-	free_dominance_info (CDI_POST_DOMINATORS);
-
-      tree fn = cfun->decl;
-      pop_cfun ();
-      gcc_assert (!cfun);
-      cgraph_node::get (fn)->release_body ();
-    }
+  redirect_edge_var_map_empty ();
 
   /* Signal this is a suitable GC collection point.  */
   if (!((todo_after | pass->todo_flags_finish) & TODO_do_not_ggc_collect))

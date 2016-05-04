@@ -31,17 +31,17 @@ extern "C" {
 #endif
 
 #include <dlfcn.h>  // for dladdr()
+#include <fcntl.h>
+#include <libkern/OSAtomic.h>
 #include <mach-o/dyld.h>
 #include <mach-o/loader.h>
+#include <pthread.h>
+#include <stdlib.h>  // for free()
 #include <sys/mman.h>
 #include <sys/resource.h>
 #include <sys/sysctl.h>
 #include <sys/ucontext.h>
-#include <fcntl.h>
-#include <pthread.h>
-#include <stdlib.h>  // for free()
 #include <unistd.h>
-#include <libkern/OSAtomic.h>
 
 namespace __asan {
 
@@ -97,10 +97,14 @@ void DisableReexec() {
   reexec_disabled = true;
 }
 
-extern "C" double dyldVersionNumber;
+extern "C" SANITIZER_WEAK_ATTRIBUTE double dyldVersionNumber;
 static const double kMinDyldVersionWithAutoInterposition = 360.0;
 
 bool DyldNeedsEnvVariable() {
+  // Although sanitizer support was added to LLVM on OS X 10.7+, GCC users
+  // still may want use them on older systems. On older Darwin platforms, dyld
+  // doesn't export dyldVersionNumber symbol and we simply return true.
+  if (!&dyldVersionNumber) return true;
   // If running on OS X 10.11+ or iOS 9.0+, dyld will interpose even if
   // DYLD_INSERT_LIBRARIES is not set. However, checking OS version via
   // GetMacosVersion() doesn't work for the simulator. Let's instead check

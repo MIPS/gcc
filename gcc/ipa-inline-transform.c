@@ -1,5 +1,5 @@
 /* Callgraph transformations to handle inlining
-   Copyright (C) 2003-2015 Free Software Foundation, Inc.
+   Copyright (C) 2003-2016 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -301,9 +301,11 @@ inline_call (struct cgraph_edge *e, bool update_original,
   struct cgraph_node *callee = e->callee->ultimate_alias_target ();
   bool new_edges_found = false;
 
+  int estimated_growth = 0;
+  if (! update_overall_summary)
+    estimated_growth = estimate_edge_growth (e);
   /* This is used only for assert bellow.  */
 #if 0
-  int estimated_growth = estimate_edge_growth (e);
   bool predicated = inline_edge_summary (e)->predicate != NULL;
 #endif
 
@@ -322,6 +324,77 @@ inline_call (struct cgraph_edge *e, bool update_original,
   if (DECL_FUNCTION_PERSONALITY (callee->decl))
     DECL_FUNCTION_PERSONALITY (to->decl)
       = DECL_FUNCTION_PERSONALITY (callee->decl);
+  if (!opt_for_fn (callee->decl, flag_strict_aliasing)
+      && opt_for_fn (to->decl, flag_strict_aliasing))
+    {
+      struct gcc_options opts = global_options;
+
+      cl_optimization_restore (&opts, opts_for_fn (to->decl));
+      opts.x_flag_strict_aliasing = false;
+      if (dump_file)
+	fprintf (dump_file, "Dropping flag_strict_aliasing on %s:%i\n",
+		 to->name (), to->order);
+      build_optimization_node (&opts);
+      DECL_FUNCTION_SPECIFIC_OPTIMIZATION (to->decl)
+	 = build_optimization_node (&opts);
+    }
+  inline_summary *caller_info = inline_summaries->get (to);
+  inline_summary *callee_info = inline_summaries->get (callee);
+  if (!caller_info->fp_expressions && callee_info->fp_expressions)
+    {
+      caller_info->fp_expressions = true;
+      if (opt_for_fn (callee->decl, flag_rounding_math)
+	  != opt_for_fn (to->decl, flag_rounding_math)
+	  || opt_for_fn (callee->decl, flag_trapping_math)
+	     != opt_for_fn (to->decl, flag_trapping_math)
+	  || opt_for_fn (callee->decl, flag_unsafe_math_optimizations)
+	     != opt_for_fn (to->decl, flag_unsafe_math_optimizations)
+	  || opt_for_fn (callee->decl, flag_finite_math_only)
+	     != opt_for_fn (to->decl, flag_finite_math_only)
+	  || opt_for_fn (callee->decl, flag_signaling_nans)
+	     != opt_for_fn (to->decl, flag_signaling_nans)
+	  || opt_for_fn (callee->decl, flag_cx_limited_range)
+	     != opt_for_fn (to->decl, flag_cx_limited_range)
+	  || opt_for_fn (callee->decl, flag_signed_zeros)
+	     != opt_for_fn (to->decl, flag_signed_zeros)
+	  || opt_for_fn (callee->decl, flag_associative_math)
+	     != opt_for_fn (to->decl, flag_associative_math)
+	  || opt_for_fn (callee->decl, flag_reciprocal_math)
+	     != opt_for_fn (to->decl, flag_reciprocal_math)
+	  || opt_for_fn (callee->decl, flag_errno_math)
+	     != opt_for_fn (to->decl, flag_errno_math))
+	{
+	  struct gcc_options opts = global_options;
+
+	  cl_optimization_restore (&opts, opts_for_fn (to->decl));
+	  opts.x_flag_rounding_math
+	    = opt_for_fn (callee->decl, flag_rounding_math);
+	  opts.x_flag_trapping_math
+	    = opt_for_fn (callee->decl, flag_trapping_math);
+	  opts.x_flag_unsafe_math_optimizations
+	    = opt_for_fn (callee->decl, flag_unsafe_math_optimizations);
+	  opts.x_flag_finite_math_only
+	    = opt_for_fn (callee->decl, flag_finite_math_only);
+	  opts.x_flag_signaling_nans
+	    = opt_for_fn (callee->decl, flag_signaling_nans);
+	  opts.x_flag_cx_limited_range
+	    = opt_for_fn (callee->decl, flag_cx_limited_range);
+	  opts.x_flag_signed_zeros
+	    = opt_for_fn (callee->decl, flag_signed_zeros);
+	  opts.x_flag_associative_math
+	    = opt_for_fn (callee->decl, flag_associative_math);
+	  opts.x_flag_reciprocal_math
+	    = opt_for_fn (callee->decl, flag_reciprocal_math);
+	  opts.x_flag_errno_math
+	    = opt_for_fn (callee->decl, flag_errno_math);
+	  if (dump_file)
+	    fprintf (dump_file, "Copying FP flags from %s:%i to %s:%i\n",
+		     callee->name (), callee->order, to->name (), to->order);
+	  build_optimization_node (&opts);
+	  DECL_FUNCTION_SPECIFIC_OPTIMIZATION (to->decl)
+	     = build_optimization_node (&opts);
+	}
+    }
 
   /* If aliases are involved, redirect edge to the actual destination and
      possibly remove the aliases.  */
@@ -358,7 +431,13 @@ inline_call (struct cgraph_edge *e, bool update_original,
     new_edges_found = ipa_propagate_indirect_call_infos (curr, new_edges);
   check_speculations (e->callee);
   if (update_overall_summary)
-   inline_update_overall_summary (to);
+    inline_update_overall_summary (to);
+  else
+    /* Update self size by the estimate so overall function growth limits
+       work for further inlining into this function.  Before inlining
+       the function we inlined to again we expect the caller to update
+       the overall summary.  */
+    inline_summaries->get (to)->size += estimated_growth;
   new_size = inline_summaries->get (to)->size;
 
   if (callee->calls_comdat_local)

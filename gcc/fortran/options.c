@@ -1,5 +1,5 @@
 /* Parse and display command line options.
-   Copyright (C) 2000-2015 Free Software Foundation, Inc.
+   Copyright (C) 2000-2016 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -510,6 +510,15 @@ gfc_handle_runtime_check_option (const char *arg)
 	  if (optname[n] && strncmp (optname[n], arg, pos) == 0)
 	    {
 	      gfc_option.rtcheck |= optmask[n];
+	      arg += pos;
+	      pos = 0;
+	      result = 1;
+	      break;
+	    }
+	  else if (optname[n] && pos > 3 && strncmp ("no-", arg, 3) == 0
+		   && strncmp (optname[n], arg+3, pos-3) == 0)
+	    {
+	      gfc_option.rtcheck &= ~optmask[n];
 	      arg += pos;
 	      pos = 0;
 	      result = 1;

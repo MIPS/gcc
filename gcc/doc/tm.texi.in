@@ -1,4 +1,4 @@
-@c Copyright (C) 1988-2015 Free Software Foundation, Inc.
+@c Copyright (C) 1988-2016 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -4235,6 +4235,8 @@ address;  but often a machine-dependent strategy can generate better code.
 
 @hook TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION
 
+@hook TARGET_VECTORIZE_BUILTIN_MD_VECTORIZED_FUNCTION
+
 @hook TARGET_VECTORIZE_SUPPORT_VECTOR_MISALIGNMENT
 
 @hook TARGET_VECTORIZE_PREFERRED_SIMD_MODE
@@ -4250,10 +4252,6 @@ address;  but often a machine-dependent strategy can generate better code.
 @hook TARGET_VECTORIZE_FINISH_COST
 
 @hook TARGET_VECTORIZE_DESTROY_COST_DATA
-
-@hook TARGET_VECTORIZE_BUILTIN_TM_LOAD
-
-@hook TARGET_VECTORIZE_BUILTIN_TM_STORE
 
 @hook TARGET_VECTORIZE_BUILTIN_GATHER
 
@@ -4744,6 +4742,8 @@ Define this macro if a non-short-circuit operation produced by
 @code{BRANCH_COST} is greater than or equal to the value 2.
 @end defmac
 
+@hook TARGET_OPTAB_SUPPORTED_P
+
 @hook TARGET_RTX_COSTS
 
 @hook TARGET_ADDRESS_COST
@@ -4980,6 +4980,12 @@ containing the assembler operation to identify the following data as
 part of the @code{.fini_array} (or equivalent) section.  If not
 defined, GCC will assume such a section does not exist.  Do not define
 both this macro and @code{FINI_SECTION_ASM_OP}.
+@end defmac
+
+@defmac MACH_DEP_SECTION_ASM_FLAG
+If defined, a C expression whose value is a character constant
+containing the flag used to mark a machine-dependent section.  This
+corresponds to the @code{SECTION_MACH_DEP} section flag.
 @end defmac
 
 @defmac CRT_CALL_STATIC_FUNCTION (@var{section_op}, @var{function})
@@ -6997,7 +7003,7 @@ whose value is the highest absolute text address in the file.
 Here are macros for SDB and DWARF output.
 
 @defmac SDB_DEBUGGING_INFO
-Define this macro if GCC should produce COFF-style debugging output
+Define this macro to 1 if GCC should produce COFF-style debugging output
 for SDB in response to the @option{-g} option.
 @end defmac
 

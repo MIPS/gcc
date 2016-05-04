@@ -2390,7 +2390,7 @@ building. The syntax looks like
         for External ("BUILD") use "PRODUCTION";
 
         package Builder is
-           for Switches ("Ada") use ("-q");
+           for Global_Compilation_Switches ("Ada") use ("-g");
         end Builder;
      end Agg;
 
@@ -4156,9 +4156,9 @@ Package Builder Attributes
 * **Global_Compilation_Switches**: list, optional index, indexed,
   case-insensitive index
 
-  Index is either a language name or a source file name. Value is the list of
-  compilation switches to be used when building an executable. Index is either
-  the source file name of the executable to be built or its language name.
+  Index is a language name. Value is the list of compilation switches to be
+  used when building an executable. Index is either the source file name of
+  the executable to be built or its language name.
 
 * **Executable**: single, indexed, case-insensitive index
 

@@ -1,6 +1,6 @@
 /* Instruction scheduling pass.  This file computes dependencies between
    instructions.
-   Copyright (C) 1992-2015 Free Software Foundation, Inc.
+   Copyright (C) 1992-2016 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -2860,6 +2860,17 @@ sched_macro_fuse_insns (rtx_insn *insn)
 
 }
 
+/* Get the implicit reg pending clobbers for INSN and save them in TEMP.  */
+void
+get_implicit_reg_pending_clobbers (HARD_REG_SET *temp, rtx_insn *insn)
+{
+  extract_insn (insn);
+  preprocess_constraints (insn);
+  alternative_mask preferred = get_preferred_alternatives (insn);
+  ira_implicitly_set_insn_hard_regs (temp, preferred);
+  AND_COMPL_HARD_REG_SET (*temp, ira_no_alloc_regs);
+}
+
 /* Analyze an INSN with pattern X to find all dependencies.  */
 static void
 sched_analyze_insn (struct deps_desc *deps, rtx x, rtx_insn *insn)
@@ -2872,12 +2883,7 @@ sched_analyze_insn (struct deps_desc *deps, rtx x, rtx_insn *insn)
   if (! reload_completed)
     {
       HARD_REG_SET temp;
-
-      extract_insn (insn);
-      preprocess_constraints (insn);
-      alternative_mask prefrred = get_preferred_alternatives (insn);
-      ira_implicitly_set_insn_hard_regs (&temp, prefrred);
-      AND_COMPL_HARD_REG_SET (temp, ira_no_alloc_regs);
+      get_implicit_reg_pending_clobbers (&temp, insn);
       IOR_HARD_REG_SET (implicit_reg_pending_clobbers, temp);
     }
 
@@ -3489,7 +3495,8 @@ sched_analyze_insn (struct deps_desc *deps, rtx x, rtx_insn *insn)
     {
       if (deps->last_args_size)
 	add_dependence (insn, deps->last_args_size, REG_DEP_OUTPUT);
-      deps->last_args_size = insn;
+      if (!deps->readonly)
+	deps->last_args_size = insn;
     }
 }
 
@@ -4175,22 +4182,29 @@ finish_deps_global (void)
 dw_t
 estimate_dep_weak (rtx mem1, rtx mem2)
 {
-  rtx r1, r2;
-
   if (mem1 == mem2)
     /* MEMs are the same - don't speculate.  */
     return MIN_DEP_WEAK;
 
-  r1 = XEXP (mem1, 0);
-  r2 = XEXP (mem2, 0);
+  rtx r1 = XEXP (mem1, 0);
+  rtx r2 = XEXP (mem2, 0);
+
+  if (sched_deps_info->use_cselib)
+    {
+      /* We cannot call rtx_equal_for_cselib_p because the VALUEs might be
+	 dangling at this point, since we never preserve them.  Instead we
+	 canonicalize manually to get stable VALUEs out of hashing.  */
+      if (GET_CODE (r1) == VALUE && CSELIB_VAL_PTR (r1))
+	r1 = canonical_cselib_val (CSELIB_VAL_PTR (r1))->val_rtx;
+      if (GET_CODE (r2) == VALUE && CSELIB_VAL_PTR (r2))
+	r2 = canonical_cselib_val (CSELIB_VAL_PTR (r2))->val_rtx;
+    }
 
   if (r1 == r2
-      || (REG_P (r1) && REG_P (r2)
-	  && REGNO (r1) == REGNO (r2)))
+      || (REG_P (r1) && REG_P (r2) && REGNO (r1) == REGNO (r2)))
     /* Again, MEMs are the same.  */
     return MIN_DEP_WEAK;
-  else if ((REG_P (r1) && !REG_P (r2))
-	   || (!REG_P (r1) && REG_P (r2)))
+  else if ((REG_P (r1) && !REG_P (r2)) || (!REG_P (r1) && REG_P (r2)))
     /* Different addressing modes - reason to be more speculative,
        than usual.  */
     return NO_DEP_WEAK - (NO_DEP_WEAK - UNCERTAIN_DEP_WEAK) / 2;

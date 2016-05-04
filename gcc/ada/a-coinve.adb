@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -376,15 +376,15 @@ package body Ada.Containers.Indefinite_Vectors is
       C : Count_Type;
 
    begin
-      if Capacity = 0 then
+      if Capacity < Source.Length then
+         if Checks and then Capacity /= 0 then
+            raise Capacity_Error
+              with "Requested capacity is less than Source length";
+         end if;
+
          C := Source.Length;
-
-      elsif Capacity >= Source.Length then
+      else
          C := Capacity;
-
-      elsif Checks then
-         raise Capacity_Error with
-           "Requested capacity is less than Source length";
       end if;
 
       return Target : Vector do
@@ -748,9 +748,6 @@ package body Ada.Containers.Indefinite_Vectors is
    end Finalize;
 
    procedure Finalize (Object : in out Iterator) is
-      pragma Warnings (Off);
-      pragma Assert (T_Check); -- not called if check suppressed
-      pragma Warnings (On);
    begin
       Unbusy (Object.Container.TC);
    end Finalize;
@@ -1076,9 +1073,22 @@ package body Ada.Containers.Indefinite_Vectors is
    ------------------------
 
    function Get_Element_Access
-     (Position : Cursor) return not null Element_Access is
+     (Position : Cursor) return not null Element_Access
+   is
+      Ptr : constant Element_Access :=
+              Position.Container.Elements.EA (Position.Index);
+
    begin
-      return Position.Container.Elements.EA (Position.Index);
+      --  An indefinite vector may contain spaces that hold no elements.
+      --  Any iteration over an indefinite vector with spaces will raise
+      --  Constraint_Error.
+
+      if Ptr = null then
+         raise Constraint_Error;
+
+      else
+         return Ptr;
+      end if;
    end Get_Element_Access;
 
    -----------------

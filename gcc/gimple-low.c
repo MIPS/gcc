@@ -1,6 +1,6 @@
 /* GIMPLE lowering pass.  Converts High GIMPLE into Low GIMPLE.
 
-   Copyright (C) 2003-2015 Free Software Foundation, Inc.
+   Copyright (C) 2003-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -358,6 +358,7 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
     case GIMPLE_OMP_TASK:
     case GIMPLE_OMP_TARGET:
     case GIMPLE_OMP_TEAMS:
+    case GIMPLE_OMP_GRID_BODY:
       data->cannot_fallthru = false;
       lower_omp_directive (gsi, data);
       data->cannot_fallthru = false;
@@ -739,7 +740,9 @@ lower_builtin_setjmp (gimple_stmt_iterator *gsi)
      passed to both __builtin_setjmp_setup and __builtin_setjmp_receiver.  */
   FORCED_LABEL (next_label) = 1;
 
-  dest = gimple_call_lhs (stmt);
+  tree orig_dest = dest = gimple_call_lhs (stmt);
+  if (orig_dest && TREE_CODE (orig_dest) == SSA_NAME)
+    dest = create_tmp_reg (TREE_TYPE (orig_dest));
 
   /* Build '__builtin_setjmp_setup (BUF, NEXT_LABEL)' and insert.  */
   arg = build_addr (next_label);
@@ -787,6 +790,13 @@ lower_builtin_setjmp (gimple_stmt_iterator *gsi)
   /* Build 'CONT_LABEL:' and insert.  */
   g = gimple_build_label (cont_label);
   gsi_insert_before (gsi, g, GSI_SAME_STMT);
+
+  /* Build orig_dest = dest if necessary.  */
+  if (dest != orig_dest)
+    {
+      g = gimple_build_assign (orig_dest, dest);
+      gsi_insert_before (gsi, g, GSI_SAME_STMT);
+    }
 
   /* Remove the call to __builtin_setjmp.  */
   gsi_remove (gsi, false);

@@ -1,5 +1,5 @@
 /* Implements exception handling.
-   Copyright (C) 1989-2015 Free Software Foundation, Inc.
+   Copyright (C) 1989-2016 Free Software Foundation, Inc.
    Contributed by Mike Stump <mrs@cygnus.com>.
 
 This file is part of GCC.
@@ -300,7 +300,7 @@ init_eh (void)
 #ifdef DONT_USE_BUILTIN_SETJMP
       /* We don't know what the alignment requirements of the
 	 runtime's jmp_buf has.  Overestimate.  */
-      DECL_ALIGN (f_jbuf) = BIGGEST_ALIGNMENT;
+      SET_DECL_ALIGN (f_jbuf, BIGGEST_ALIGNMENT);
       DECL_USER_ALIGN (f_jbuf) = 1;
 #endif
       DECL_FIELD_CONTEXT (f_jbuf) = sjlj_fc_type_node;
@@ -2255,11 +2255,10 @@ expand_eh_return (void)
     emit_insn (targetm.gen_eh_return (crtl->eh.ehr_handler));
   else
     {
-#ifdef EH_RETURN_HANDLER_RTX
-      emit_move_insn (EH_RETURN_HANDLER_RTX, crtl->eh.ehr_handler);
-#else
-      error ("__builtin_eh_return not supported on this target");
-#endif
+      if (rtx handler = EH_RETURN_HANDLER_RTX)
+	emit_move_insn (handler, crtl->eh.ehr_handler);
+      else
+	error ("__builtin_eh_return not supported on this target");
     }
 
   emit_label (around_label);

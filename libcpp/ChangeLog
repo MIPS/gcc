@@ -1,3 +1,242 @@
+2016-04-28  Eduard Sanou  <dhole@openmailbox.org>
+	    Matthias Klose  <doko@debian.org>
+
+	* include/cpplib.h (cpp_init_source_date_epoch): Prototype.
+	* init.c (cpp_init_source_date_epoch): New function.
+	* internal.h: Added source_date_epoch variable to struct
+	cpp_reader to store a reproducible date.
+	* macro.c (_cpp_builtin_macro_text): Set pfile->date timestamp from 
+	pfile->source_date_epoch instead of localtime if source_date_epoch is 
+	set, to be used for __DATE__ and __TIME__ macros to help reproducible 
+	builds.
+
+2016-04-13  Bernd Schmidt  <bschmidt@redhat.com>
+
+	Patch from Roger Orr <rogero@howzatt.demon.co.uk>
+	PR preprocessor/69650
+	* directives.c (do_linemarker): Reread map after calling
+	cpp_get_token.
+
+2016-04-06  Richard Henderson  <rth@redhat.com>
+
+	PR preprocessor/61817
+	PR preprocessor/69391
+	* internal.h (_cpp_builtin_macro_text): Update decl.
+	* macro.c (_cpp_builtin_macro_text): Accept location for __LINE__.
+	(builtin_macro): Accept a second location for __LINE__.
+	(enter_macro_context): Compute both virtual and real expansion
+	locations for the macro.
+
+2016-03-25  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR lto/69650
+	* directives.c (do_linemarker): Test for file left but not entered
+	here.
+	* line-map.c (linemap_add): Not here.
+
+2016-03-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/70296
+	* include/cpplib.h (cpp_fun_like_macro_p): New prototype.
+	* macro.c (cpp_fun_like_macro_p): New function.
+
+2016-03-15  Richard Henderson  <rth@redhat.com>
+
+	* line-map.c (new_linemap): Make alloc_size a size_t.
+
+2016-03-14  Jason Merrill  <jason@redhat.com>
+
+	* expr.c (cpp_classify_number): Hex floats are new in C++1z.
+	* init.c (lang_defaults): Likewise.
+
+2016-03-09  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/68473
+	PR c++/70105
+	* line-map.c (linemap_macro_map_loc_unwind_toward_spelling): Move
+	decl...
+	* include/line-map.h
+	(linemap_macro_map_loc_unwind_toward_spelling): ...here,
+	converting from static to extern.
+
+2016-03-09  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/68473
+	PR c++/70105
+	* include/line-map.h (source_range::debug): Delete.
+	(struct location_range): Update comment.  Replace
+	expanded_location fields "m_start", "m_finish", and "m_caret" with
+	a source_location field: "m_loc".
+	(class rich_location): Reword comment.
+	(rich_location::get_loc): Reimplement in terms of a new overloaded
+	variant which takes an unsigned int.
+	(rich_location::get_loc_addr): Delete.
+	(rich_location::add_range): Drop params "start" and "finish" in
+	favor of param "loc".  Drop overloaded variants taking a
+	source_range or location_range *.
+	(rich_location::lazily_expand_location): Delete in favor of...
+	(rich_location::get_expanded_location): New decl.
+	(rich_location::m_loc): Delete field.
+	(rich_location::m_column_override): New field.
+	* line-map.c (rich_location::rich_location):  Drop name of
+	line_maps * param.  Update initializations for deletion of field
+	"m_loc" and addition of field "m_column_override".  Reimplement
+	body as a call to add_range.  Delete overloaded variant taking a
+	source_range.
+	(rich_location::get_loc): New function.
+	(rich_location::lazily_expand_location): Delete in favor of...
+	(rich_location::get_expanded_location): New function.
+	(rich_location::override_column): Reimplement.
+	(rich_location::add_range): Drop params "start" and "finish" in
+	favor of param "loc".  Eliminate location expansion in favor of
+	simply storing loc.  Drop overloaded variants taking a
+	source_range or location_range *.
+	(rich_location::set_range): Eliminate location expansion.
+
+2016-02-29  David Malcolm  <dmalcolm@redhat.com>
+
+	PR preprocessor/69985
+	(linemap_position_for_loc_and_offset): Rename param from "offset"
+	to "column_offset".  Right-shift the column_offset by m_range_bits
+	of the pertinent ordinary map whenever offsetting a
+	source_location.  For clarity, offset the column by the column
+	offset, rather than the other way around.
+
+2016-02-23  David Malcolm  <dmalcolm@redhat.com>
+
+	PR preprocessor/69126
+	PR preprocessor/69543
+	* line-map.c (linemap_compare_locations): At the function top,
+	replace inlined bodies of get_location_from_adhoc_loc with calls
+	to get_location_from_adhoc_loc.  Add a pair of calls to
+	get_location_from_adhoc_loc at the bottom of the function, to
+	avoid meaningless comparisons of ad-hoc and non-ad-hoc locations.
+
+2016-02-08  David Malcolm  <dmalcolm@redhat.com>
+
+	PR preprocessor/69664
+	* errors.c (cpp_diagnostic_with_line): Only call
+	rich_location::override_column if the column is non-zero.
+	* line-map.c (rich_location::override_column): Update columns
+	within m_ranges[0].  Add assertions to verify that doing so is
+	sane.
+
+2016-02-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/69628
+	* charset.c (cpp_interpret_charconst): Clear *PCHARS_SEEN
+	and *UNSIGNEDP if bailing out early due to errors.
+
+2016-01-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR pch/68176
+	* files.c (_cpp_find_file): Set file->implicit_preinclude even if
+	included from file->implicit_preinclude header.
+
+	* directives.c (destringize_and_run): Adjust prototype.
+
+2016-01-27  David Malcolm  <dmalcolm@redhat.com>
+
+	PR preprocessor/69126
+	* directives.c (destringize_and_run): Add expansion_loc param; use
+	it when handling unexpanded pragmas to fixup the locations of the
+	synthesized tokens.
+	(_cpp_do__Pragma): Add expansion_loc param and use it when calling
+	destringize_and_run.
+	* internal.h (_cpp_do__Pragma): Add expansion_loc param.
+	* macro.c (builtin_macro): Pass expansion location of _Pragma to
+	_cpp_do__Pragma.
+
+2016-01-14  David Malcolm  <dmalcolm@redhat.com>
+
+	PR preprocessor/69177
+	* line-map.c (LINE_MAP_MAX_LOCATION_WITH_PACKED_RANGES): New
+	constant.
+	(LINE_MAP_MAX_LOCATION_WITH_COLS): Add note about unit tests
+	to comment.
+	(can_be_stored_compactly_p): Reduce threshold from
+	LINE_MAP_MAX_LOCATION_WITH_COLS to
+	LINE_MAP_MAX_LOCATION_WITH_PACKED_RANGES.
+	(get_combined_adhoc_loc): Likewise.
+	(get_range_from_loc): Likewise.
+	(linemap_line_start): Ensure that a new ordinary map is created
+	when transitioning from range-packing being enabled to disabled,
+	at the LINE_MAP_MAX_LOCATION_WITH_PACKED_RANGES threshold.  Set
+	range_bits to 0 for new ordinary maps when beyond this limit.
+	Prevent the "increase the column bits of a freshly created map"
+	optimization if the range bits has reduced.
+
+2016-01-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/69145
+	* files.c (cpp_included_before): If IS_ADHOC_LOC (location), lookup
+	real location from the line_table.
+
+2016-01-04  Jakub Jelinek  <jakub@redhat.com>
+
+	Update copyright years.
+
+2015-12-22  David Malcolm  <dmalcolm@redhat.com>
+
+	* line-map.c (get_combined_adhoc_loc): Remove condition
+	on locus < RESERVED_LOCATION_COUNT when considering
+	whether a caret == start == finish location can be
+	simply stored as the caret location.
+
+2015-12-07  David Malcolm  <dmalcolm@redhat.com>
+
+	* include/line-map.h (rich_location::set_range): Add line_maps *
+	param; convert param from source_range to source_location.  Drop
+	"overwrite_loc_p" param.
+	* line-map.c (rich_location::set_range): Likewise, acting as if
+	"overwrite_loc_p" were true, and getting range from the location.
+
+2015-11-20  David Malcolm  <dmalcolm@redhat.com>
+
+	PR 62314
+	* include/line-map.h (source_range::intersects_line_p): New
+	method.
+	(rich_location::~rich_location): New.
+	(rich_location::add_fixit_insert): New method.
+	(rich_location::add_fixit_remove): New method.
+	(rich_location::add_fixit_replace): New method.
+	(rich_location::get_num_fixit_hints): New accessor.
+	(rich_location::get_fixit_hint): New accessor.
+	(rich_location::MAX_FIXIT_HINTS): New constant.
+	(rich_location::m_num_fixit_hints): New field.
+	(rich_location::m_fixit_hints): New field.
+	(class fixit_hint): New class.
+	(class fixit_insert): New class.
+	(class fixit_remove): New class.
+	(class fixit_replace): New class.
+	* line-map.c (source_range::intersects_line_p): New method.
+	(rich_location::rich_location): Add initialization of
+	m_num_fixit_hints to both ctors.
+	(rich_location::~rich_location): New.
+	(rich_location::add_fixit_insert): New method.
+	(rich_location::add_fixit_remove): New method.
+	(rich_location::add_fixit_replace): New method.
+	(fixit_insert::fixit_insert): New.
+	(fixit_insert::~fixit_insert): New.
+	(fixit_insert::affects_line_p): New.
+	(fixit_remove::fixit_remove): New.
+	(fixit_remove::affects_line_p): New.
+	(fixit_replace::fixit_replace): New.
+	(fixit_replace::~fixit_replace): New.
+	(fixit_replace::affects_line_p): New.
+
+2015-11-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/60736
+	* include/cpplib.h (cpp_errno_filename): New prototype.
+	* errors.c (cpp_errno): Don't handle msgid "" specially, use
+	_(msgid) instead of msgid as argument to cpp_error.
+	(cpp_errno_filename): New function.
+	* files.c (read_file_guts): Use cpp_errno_filename instead of
+	cpp_errno.
+	(open_file_failed): Likewise.  Use file->name if file->path is NULL
+	in diagnostics.
+
 2015-11-13  David Malcolm  <dmalcolm@redhat.com>
 
 	* errors.c (cpp_diagnostic): Pass pfile->line_table to
@@ -4304,3 +4543,9 @@
 	* include/mkdeps.h: Moved from gcc.  Change header guard name.
 	* include/symtab.h: Moved from gcc/hashtable.h.  Change header
 	guard name.
+
+Copyright (C) 2004-2016 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

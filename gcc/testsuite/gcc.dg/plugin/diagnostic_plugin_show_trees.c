@@ -32,50 +32,6 @@
 #include "gcc-rich-location.h"
 #include "print-tree.h"
 
-/*
-  Hack: fails with linker error:
-./diagnostic_plugin_show_trees.so: undefined symbol: _ZN17gcc_rich_location8add_exprEP9tree_node
-  since nothing in the tree is using gcc_rich_location::add_expr yet.
-
-  I've tried various workarounds (adding DEBUG_FUNCTION to the
-  method, taking its address), but can't seem to fix it that way.
-  So as a nasty workaround, the following material is copied&pasted
-  from gcc-rich-location.c: */
-
-static bool
-get_range_for_expr (tree expr, location_range *r)
-{
-  if (EXPR_HAS_RANGE (expr))
-    {
-      source_range sr = EXPR_LOCATION_RANGE (expr);
-
-      /* Do we have meaningful data?  */
-      if (sr.m_start && sr.m_finish)
-	{
-	  r->m_start = expand_location (sr.m_start);
-	  r->m_finish = expand_location (sr.m_finish);
-	  return true;
-	}
-    }
-
-  return false;
-}
-
-/* Add a range to the rich_location, covering expression EXPR. */
-
-void
-gcc_rich_location::add_expr (tree expr)
-{
-  gcc_assert (expr);
-
-  location_range r;
-  r.m_show_caret_p = false;
-  if (get_range_for_expr (expr, &r))
-    add_range (&r);
-}
-
-/* FIXME: end of material taken from gcc-rich-location.c */
-
 int plugin_is_GPL_compatible;
 
 static void
@@ -96,13 +52,7 @@ show_tree (tree node)
   enum tree_code code = TREE_CODE (node);
 
   location_range *range = richloc.get_range (1);
-  inform_at_rich_loc (&richloc,
-		      "%s at range %i:%i-%i:%i",
-		      get_tree_code_name (code),
-		      range->m_start.line,
-		      range->m_start.column,
-		      range->m_finish.line,
-		      range->m_finish.column);
+  inform_at_rich_loc (&richloc, "%s", get_tree_code_name (code));
 
   /* Recurse.  */
   int min_idx = 0;

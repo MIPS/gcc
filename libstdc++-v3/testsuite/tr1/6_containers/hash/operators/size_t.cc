@@ -1,6 +1,6 @@
 // 2007-08-20  <benjamin@redhat.com>
 //
-// Copyright (C) 2007-2015 Free Software Foundation, Inc.
+// Copyright (C) 2007-2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -37,13 +37,13 @@ template<typename T>
                         // that matters.
     hash_type h1;
     size_t r1 = size_t(h1(v));
-    
+
     hash_type h2;
     size_t r2 = size_t(h2(v));
 
     VERIFY( r1 == r2 );
   }
-  
+
 void test01()
 {
   do_test<bool>();

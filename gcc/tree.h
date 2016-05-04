@@ -1,5 +1,5 @@
 /* Definitions for the ubiquitous 'tree' type for GNU compilers.
-   Copyright (C) 1989-2015 Free Software Foundation, Inc.
+   Copyright (C) 1989-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,6 +21,58 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_TREE_H
 
 #include "tree-core.h"
+
+/* Convert a target-independent built-in function code to a combined_fn.  */
+
+inline combined_fn
+as_combined_fn (built_in_function fn)
+{
+  return combined_fn (int (fn));
+}
+
+/* Convert an internal function code to a combined_fn.  */
+
+inline combined_fn
+as_combined_fn (internal_fn fn)
+{
+  return combined_fn (int (fn) + int (END_BUILTINS));
+}
+
+/* Return true if CODE is a target-independent built-in function.  */
+
+inline bool
+builtin_fn_p (combined_fn code)
+{
+  return int (code) < int (END_BUILTINS);
+}
+
+/* Return the target-independent built-in function represented by CODE.
+   Only valid if builtin_fn_p (CODE).  */
+
+inline built_in_function
+as_builtin_fn (combined_fn code)
+{
+  gcc_checking_assert (builtin_fn_p (code));
+  return built_in_function (int (code));
+}
+
+/* Return true if CODE is an internal function.  */
+
+inline bool
+internal_fn_p (combined_fn code)
+{
+  return int (code) >= int (END_BUILTINS);
+}
+
+/* Return the internal function represented by CODE.  Only valid if
+   internal_fn_p (CODE).  */
+
+inline internal_fn
+as_internal_fn (combined_fn code)
+{
+  gcc_checking_assert (internal_fn_p (code));
+  return internal_fn (int (code) - int (END_BUILTINS));
+}
 
 /* Macros for initializing `tree_contains_struct'.  */
 #define MARK_TS_BASE(C)					\
@@ -180,22 +232,6 @@ along with GCC; see the file COPYING3.  If not see
 
 
 /* Helper macros for math builtins.  */
-
-#define BUILTIN_EXP10_P(FN) \
- ((FN) == BUILT_IN_EXP10 || (FN) == BUILT_IN_EXP10F || (FN) == BUILT_IN_EXP10L \
-  || (FN) == BUILT_IN_POW10 || (FN) == BUILT_IN_POW10F || (FN) == BUILT_IN_POW10L)
-
-#define BUILTIN_EXPONENT_P(FN) (BUILTIN_EXP10_P (FN) \
-  || (FN) == BUILT_IN_EXP || (FN) == BUILT_IN_EXPF || (FN) == BUILT_IN_EXPL \
-  || (FN) == BUILT_IN_EXP2 || (FN) == BUILT_IN_EXP2F || (FN) == BUILT_IN_EXP2L)
-
-#define BUILTIN_SQRT_P(FN) \
- ((FN) == BUILT_IN_SQRT || (FN) == BUILT_IN_SQRTF || (FN) == BUILT_IN_SQRTL)
-
-#define BUILTIN_CBRT_P(FN) \
- ((FN) == BUILT_IN_CBRT || (FN) == BUILT_IN_CBRTF || (FN) == BUILT_IN_CBRTL)
-
-#define BUILTIN_ROOT_P(FN) (BUILTIN_SQRT_P (FN) || BUILTIN_CBRT_P (FN))
 
 #define CASE_FLT_FN(FN) case FN: case FN##F: case FN##L
 #define CASE_FLT_FN_REENT(FN) case FN##_R: case FN##F_R: case FN##L_R
@@ -880,10 +916,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    of this type is aligned at least to the alignment of the type, even if it
    doesn't appear that it is.  We see this, for example, in object-oriented
    languages where a tag field may show this is an object of a more-aligned
-   variant of the more generic type.
-
-   In an SSA_NAME node, nonzero if the SSA_NAME node is on the SSA_NAME
-   freelist.  */
+   variant of the more generic type.  */
 #define TYPE_ALIGN_OK(NODE) (TYPE_CHECK (NODE)->base.nothrow_flag)
 
 /* Used in classes in C++.  */
@@ -1394,6 +1427,10 @@ extern void protected_set_expr_location (tree, location_t);
 #define OMP_CLAUSE_PRIVATE_TASKLOOP_IV(NODE) \
   TREE_PROTECTED (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_PRIVATE))
 
+/* True on a FIRSTPRIVATE clause if it has been added implicitly.  */
+#define OMP_CLAUSE_FIRSTPRIVATE_IMPLICIT(NODE) \
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_FIRSTPRIVATE)->base.public_flag)
+
 /* True on a LASTPRIVATE clause if a FIRSTPRIVATE clause for the same
    decl is present in the chain.  */
 #define OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE(NODE) \
@@ -1416,6 +1453,11 @@ extern void protected_set_expr_location (tree, location_t);
    with FIRSTPRIVATE/LASTPRIVATE on it originally.  */
 #define OMP_CLAUSE_SHARED_FIRSTPRIVATE(NODE) \
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_SHARED)->base.public_flag)
+
+/* True on a SHARED clause if a scalar is not modified in the body and
+   thus could be optimized as firstprivate.  */
+#define OMP_CLAUSE_SHARED_READONLY(NODE) \
+  TREE_PRIVATE (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_SHARED))
 
 #define OMP_CLAUSE_IF_MODIFIER(NODE)	\
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_IF)->omp_clause.subcode.if_modifier)
@@ -1491,6 +1533,9 @@ extern void protected_set_expr_location (tree, location_t);
    treatment if OMP_CLAUSE_SIZE is zero.  */
 #define OMP_CLAUSE_MAP_MAYBE_ZERO_LENGTH_ARRAY_SECTION(NODE) \
   TREE_PROTECTED (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP))
+/* Nonzero if this map clause is for an ACC parallel reduction variable.  */
+#define OMP_CLAUSE_MAP_IN_REDUCTION(NODE) \
+  TREE_PRIVATE (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP))
 
 #define OMP_CLAUSE_PROC_BIND_KIND(NODE) \
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_PROC_BIND)->omp_clause.subcode.proc_bind_kind)
@@ -1594,6 +1639,14 @@ extern void protected_set_expr_location (tree, location_t);
 
 #define OMP_CLAUSE_TILE_LIST(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_TILE), 0)
+
+#define OMP_CLAUSE__GRIDDIM__DIMENSION(NODE) \
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE__GRIDDIM_)\
+   ->omp_clause.subcode.dimension)
+#define OMP_CLAUSE__GRIDDIM__SIZE(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE__GRIDDIM_), 0)
+#define OMP_CLAUSE__GRIDDIM__GROUP(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE__GRIDDIM_), 1)
 
 /* SSA_NAME accessors.  */
 
@@ -1752,6 +1805,7 @@ extern void protected_set_expr_location (tree, location_t);
 #define TYPE_MAIN_VARIANT(NODE) (TYPE_CHECK (NODE)->type_common.main_variant)
 #define TYPE_CONTEXT(NODE) (TYPE_CHECK (NODE)->type_common.context)
 
+#define TYPE_MODE_RAW(NODE) (TYPE_CHECK (NODE)->type_common.mode)
 #define TYPE_MODE(NODE) \
   (VECTOR_TYPE_P (TYPE_CHECK (NODE)) \
    ? vector_type_mode (NODE) : (NODE)->type_common.mode)
@@ -1808,8 +1862,15 @@ extern machine_mode element_mode (const_tree t);
 #define TYPE_ATTRIBUTES(NODE) (TYPE_CHECK (NODE)->type_common.attributes)
 
 /* The alignment necessary for objects of this type.
-   The value is an int, measured in bits.  */
-#define TYPE_ALIGN(NODE) (TYPE_CHECK (NODE)->type_common.align)
+   The value is an int, measured in bits and must be a power of two.
+   We support also an "alignement" of zero.  */
+#define TYPE_ALIGN(NODE) \
+    (TYPE_CHECK (NODE)->type_common.align \
+     ? ((unsigned)1) << ((NODE)->type_common.align - 1) : 0)
+
+/* Specify that TYPE_ALIGN(NODE) is X.  */
+#define SET_TYPE_ALIGN(NODE, X) \
+    (TYPE_CHECK (NODE)->type_common.align = ffs_hwi (X))
 
 /* 1 if the alignment for this type was requested by "aligned" attribute,
    0 if it is the default for this type.  */
@@ -2046,7 +2107,7 @@ extern machine_mode element_mode (const_tree t);
 #define BINFO_VIRTUAL_P(NODE) (TREE_BINFO_CHECK (NODE)->base.static_flag)
 
 /* Flags for language dependent use.  */
-#define BINFO_MARKED(NODE) TREE_LANG_FLAG_0 (TREE_BINFO_CHECK (NODE))
+#define BINFO_FLAG_0(NODE) TREE_LANG_FLAG_0 (TREE_BINFO_CHECK (NODE))
 #define BINFO_FLAG_1(NODE) TREE_LANG_FLAG_1 (TREE_BINFO_CHECK (NODE))
 #define BINFO_FLAG_2(NODE) TREE_LANG_FLAG_2 (TREE_BINFO_CHECK (NODE))
 #define BINFO_FLAG_3(NODE) TREE_LANG_FLAG_3 (TREE_BINFO_CHECK (NODE))
@@ -2249,8 +2310,16 @@ extern machine_mode element_mode (const_tree t);
 #define DECL_SIZE(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.size)
 /* Likewise for the size in bytes.  */
 #define DECL_SIZE_UNIT(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.size_unit)
-/* Holds the alignment required for the datum, in bits.  */
-#define DECL_ALIGN(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.align)
+/* Returns the alignment required for the datum, in bits.  It must
+   be a power of two, but an "alignment" of zero is supported
+   (e.g. as "uninitialized" sentinel).  */
+#define DECL_ALIGN(NODE) \
+    (DECL_COMMON_CHECK (NODE)->decl_common.align \
+     ? ((unsigned)1) << ((NODE)->decl_common.align - 1) : 0)
+/* Specify that DECL_ALIGN(NODE) is X.  */
+#define SET_DECL_ALIGN(NODE, X) \
+    (DECL_COMMON_CHECK (NODE)->decl_common.align = ffs_hwi (X))
+
 /* The alignment of NODE, in bytes.  */
 #define DECL_ALIGN_UNIT(NODE) (DECL_ALIGN (NODE) / BITS_PER_UNIT)
 /* Set if the alignment of this DECL has been set by the user, for
@@ -2453,7 +2522,7 @@ extern void decl_value_expr_insert (tree, tree);
 #define DECL_OFFSET_ALIGN(NODE) \
   (((unsigned HOST_WIDE_INT)1) << FIELD_DECL_CHECK (NODE)->decl_common.off_align)
 
-/* Specify that DECL_ALIGN(NODE) is a multiple of X.  */
+/* Specify that DECL_OFFSET_ALIGN(NODE) is X.  */
 #define SET_DECL_OFFSET_ALIGN(NODE, X) \
   (FIELD_DECL_CHECK (NODE)->decl_common.off_align = ffs_hwi (X) - 1)
 
@@ -3727,6 +3796,10 @@ extern int allocate_decl_uid (void);
 extern tree make_node_stat (enum tree_code MEM_STAT_DECL);
 #define make_node(t) make_node_stat (t MEM_STAT_INFO)
 
+/* Free tree node.  */
+
+extern void free_node (tree);
+
 /* Make a copy of a node, with all the same contents.  */
 
 extern tree copy_node_stat (tree MEM_STAT_DECL);
@@ -3864,6 +3937,8 @@ extern tree build_vector_stat (tree, tree * MEM_STAT_DECL);
 #define build_vector(t,v) build_vector_stat (t, v MEM_STAT_INFO)
 extern tree build_vector_from_ctor (tree, vec<constructor_elt, va_gc> *);
 extern tree build_vector_from_val (tree, tree);
+extern void recompute_constructor_flags (tree);
+extern void verify_constructor_flags (tree);
 extern tree build_constructor (tree, vec<constructor_elt, va_gc> *);
 extern tree build_constructor_single (tree, tree, tree);
 extern tree build_constructor_from_list (tree, tree);
@@ -3905,6 +3980,10 @@ extern tree build_call_expr_loc (location_t, tree, int, ...);
 extern tree build_call_expr (tree, int, ...);
 extern tree build_call_expr_internal_loc (location_t, enum internal_fn,
 					  tree, int, ...);
+extern tree build_call_expr_internal_loc (location_t, enum internal_fn,
+					  tree, int, tree *);
+extern tree maybe_build_call_expr_loc (location_t, combined_fn, tree,
+				       int, ...);
 extern tree build_string_literal (int, const char *);
 
 /* Construct various nodes representing data types.  */
@@ -4271,6 +4350,10 @@ extern tree staticp (tree);
 
 extern tree save_expr (tree);
 
+/* Return true if T is function-invariant.  */
+
+extern bool tree_invariant_p (tree);
+
 /* Look inside EXPR into any simple arithmetic operations.  Return the
    outermost non-arithmetic or non-invariant node.  */
 
@@ -4529,6 +4612,7 @@ extern unsigned crc32_unsigned (unsigned, unsigned);
 extern void clean_symbol_name (char *);
 extern tree get_file_function_name (const char *);
 extern tree get_callee_fndecl (const_tree);
+extern combined_fn get_call_combined_fn (const_tree);
 extern int type_num_arguments (const_tree);
 extern bool associative_tree_code (enum tree_code);
 extern bool commutative_tree_code (enum tree_code);
@@ -4554,6 +4638,7 @@ extern tree lhd_gcc_personality (void);
 extern void assign_assembler_name_if_neeeded (tree);
 extern void warn_deprecated_use (tree, tree);
 extern void cache_integer_cst (tree);
+extern const char *combined_fn_name (combined_fn);
 
 /* Return the memory model from a host integer.  */
 static inline enum memmodel
@@ -4674,7 +4759,7 @@ extern int simple_cst_equal (const_tree, const_tree);
 namespace inchash
 {
 
-extern void add_expr (const_tree, hash &);
+extern void add_expr (const_tree, hash &, unsigned int = 0);
 
 }
 
@@ -4697,7 +4782,7 @@ extern tree reconstruct_complex_type (tree, tree);
 extern int real_onep (const_tree);
 extern int real_minus_onep (const_tree);
 extern void init_ttree (void);
-extern void build_common_tree_nodes (bool, bool);
+extern void build_common_tree_nodes (bool);
 extern void build_common_builtin_nodes (void);
 extern tree build_nonstandard_integer_type (unsigned HOST_WIDE_INT, int);
 extern tree build_nonstandard_boolean_type (unsigned HOST_WIDE_INT);
@@ -4765,7 +4850,9 @@ extern void DEBUG_FUNCTION verify_type (const_tree t);
 extern bool gimple_canonical_types_compatible_p (const_tree, const_tree,
 						 bool trust_type_canonical = true);
 extern bool type_with_interoperable_signedness (const_tree);
-/* Return simplified tree code of type that is used for canonical type merging.  */
+
+/* Return simplified tree code of type that is used for canonical type
+   merging.  */
 inline enum tree_code
 tree_code_for_canonical_type_merging (enum tree_code code)
 {
@@ -4785,6 +4872,23 @@ tree_code_for_canonical_type_merging (enum tree_code code)
   if (code == REFERENCE_TYPE)
     return POINTER_TYPE;
   return code;
+}
+
+/* Return ture if get_alias_set care about TYPE_CANONICAL of given type.
+   We don't define the types for pointers, arrays and vectors.  The reason is
+   that pointers are handled specially: ptr_type_node accesses conflict with
+   accesses to all other pointers.  This is done by alias.c.
+   Because alias sets of arrays and vectors are the same as types of their
+   elements, we can't compute canonical type either.  Otherwise we could go
+   form void *[10] to int *[10] (because they are equivalent for canonical type
+   machinery) and get wrong TBAA.  */
+
+inline bool
+canonical_type_used_p (const_tree t)
+{
+  return !(POINTER_TYPE_P (t)
+	   || TREE_CODE (t) == ARRAY_TYPE
+	   || TREE_CODE (t) == VECTOR_TYPE);
 }
 
 #define tree_map_eq tree_map_base_eq
@@ -5107,6 +5211,8 @@ namespace wi
   to_widest (const_tree);
 
   generic_wide_int <extended_tree <ADDR_MAX_PRECISION> > to_offset (const_tree);
+
+  wide_int to_wide (const_tree, unsigned int);
 }
 
 inline unsigned int
@@ -5134,6 +5240,16 @@ inline generic_wide_int <wi::extended_tree <ADDR_MAX_PRECISION> >
 wi::to_offset (const_tree t)
 {
   return t;
+}
+
+/* Convert INTEGER_CST T to a wide_int of precision PREC, extending or
+   truncating as necessary.  When extending, use sign extension if T's
+   type is signed and zero extension if T's type is unsigned.  */
+
+inline wide_int
+wi::to_wide (const_tree t, unsigned int prec)
+{
+  return wide_int::from (t, prec, TYPE_SIGN (TREE_TYPE (t)));
 }
 
 template <int N>
@@ -5214,7 +5330,7 @@ wi::max_value (const_tree type)
 inline bool
 tree_int_cst_lt (const_tree t1, const_tree t2)
 {
-  return wi::lts_p (wi::to_widest (t1), wi::to_widest (t2));
+  return wi::to_widest (t1) < wi::to_widest (t2);
 }
 
 /* Return true if INTEGER_CST T1 is less than or equal to INTEGER_CST T2,
@@ -5223,7 +5339,7 @@ tree_int_cst_lt (const_tree t1, const_tree t2)
 inline bool
 tree_int_cst_le (const_tree t1, const_tree t2)
 {
-  return wi::les_p (wi::to_widest (t1), wi::to_widest (t2));
+  return wi::to_widest (t1) <= wi::to_widest (t2);
 }
 
 /* Returns -1 if T1 < T2, 0 if T1 == T2, and 1 if T1 > T2.  T1 and T2
@@ -5271,7 +5387,7 @@ extern GTY(()) struct int_n_trees_t int_n_trees[NUM_INT_N_ENTS];
 inline HOST_WIDE_INT
 int_bit_position (const_tree field)
 { 
-  return (wi::lshift (wi::to_offset (DECL_FIELD_OFFSET (field)), BITS_PER_UNIT_LOG)
+  return ((wi::to_offset (DECL_FIELD_OFFSET (field)) << BITS_PER_UNIT_LOG)
 	  + wi::to_offset (DECL_FIELD_BIT_OFFSET (field))).to_shwi ();
 }
 
@@ -5295,6 +5411,16 @@ type_with_alias_set_p (const_tree t)
   return false;
 }
 
+extern location_t get_pure_location (location_t loc);
+
+/* Get the endpoint of any range encoded within location LOC.  */
+
+static inline location_t
+get_finish (location_t loc)
+{
+  return get_range_from_loc (line_table, loc).m_finish;
+}
+
 extern location_t set_block (location_t loc, tree block);
 
 extern void gt_ggc_mx (tree &);
@@ -5302,11 +5428,12 @@ extern void gt_pch_nx (tree &);
 extern void gt_pch_nx (tree &, gt_pointer_operator, void *);
 
 extern bool nonnull_arg_p (const_tree);
+extern bool is_redundant_typedef (const_tree);
 
-extern void
+extern location_t
 set_source_range (tree expr, location_t start, location_t finish);
 
-extern void
+extern location_t
 set_source_range (tree expr, source_range src_range);
 
 static inline source_range
@@ -5314,6 +5441,23 @@ get_decl_source_range (tree decl)
 {
   location_t loc = DECL_SOURCE_LOCATION (decl);
   return get_range_from_loc (line_table, loc);
+}
+
+extern location_t
+make_location (location_t caret, location_t start, location_t finish);
+
+/* Return true if it makes sense to promote/demote from_type to to_type. */
+inline bool
+desired_pro_or_demotion_p (const_tree to_type, const_tree from_type)
+{
+  unsigned int to_type_precision = TYPE_PRECISION (to_type);
+
+  /* OK to promote if to_type is no bigger than word_mode. */
+  if (to_type_precision <= GET_MODE_PRECISION (word_mode))
+    return true;
+
+  /* Otherwise, allow only if narrowing or same precision conversions. */
+  return to_type_precision <= TYPE_PRECISION (from_type);
 }
 
 #endif  /* GCC_TREE_H  */

@@ -1,3 +1,527 @@
+2016-05-04  Marek Polacek  <polacek@redhat.com>
+
+	* c-parser.c (c_parser_if_statement): Replace OPT_Wparentheses with
+	OPT_Wdangling_else.
+
+2016-05-04  Marek Polacek  <polacek@redhat.com>
+
+	PR c/48778
+	* c-typeck.c (build_binary_op): Don't issue -Waddress warnings
+	for macro expansions.
+
+2016-05-03  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70859
+	* c-typeck.c (build_function_call_vec): Pass LOC and ARG_LOC down to
+	check_builtin_function_arguments.
+
+2016-05-03  Richard Biener  <rguenther@suse.de>
+
+	* Make-lang.in (cc1-checksum.c): For stage-final re-use
+	the checksum from the previous stage.
+
+2016-05-02  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-parser.c (c_parser_oacc_all_clauses): Update call to
+	c_finish_omp_clauses.
+	(c_parser_omp_all_clauses): Likewise.
+	(c_parser_oacc_cache): Likewise.
+	(c_parser_oacc_loop): Likewise.
+	(omp_split_clauses): Likewise.
+	(c_parser_omp_declare_target): Likewise.
+	(c_parser_cilk_all_clauses): Likewise.
+	(c_parser_cilk_for): Likewise.
+	* c-typeck.c (c_finish_omp_clauses): Replace bool arguments
+	is_omp, declare_simd, and is_cilk with enum c_omp_region_type ort.
+
+2016-05-02  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70851
+	* c-decl.c (grokdeclarator): Diagnose when array's size has an
+	incomplete type.
+
+2016-04-29  Cesar Philippidis  <cesar@codesourcery.com>
+
+	PR middle-end/70626
+	* c-parser.c (c_parser_oacc_loop): Don't augment mask with
+	OACC_LOOP_CLAUSE_MASK.
+	(c_parser_oacc_kernels_parallel): Update call to
+	c_oacc_split_loop_clauses.
+
+2016-04-28  Andrew MacLeod  <amacleod@redhat.com>
+
+	* c-array-notation.c (fix_builtin_array_notation_fn): Fix final
+	argument to build_modify_expr in two cases.
+
+2016-04-27  Bernd Schmidt  <bschmidt@redhat.com>
+
+	* c-parser.c (c_parser_postfix_expression_after_primary): Call
+	warn_for_memset instead of warning directly here.
+
+2016-04-26  Marek Polacek  <polacek@redhat.com>
+
+	PR c/67784
+	* c-parser.c (c_parser_maybe_reclassify_token): New function factored
+	out of ...
+	(c_parser_for_statement): ... here.
+	(c_parser_if_statement): Use it.
+	(c_parser_switch_statement): Use it.
+	(c_parser_while_statement): Use it.
+
+	PR c/70791
+	* c-decl.c (pushdecl): Pass LOCUS down to warning.
+
+2016-04-20  Ilya Verbin  <ilya.verbin@intel.com>
+
+	PR c++/69363
+	* c-parser.c (c_parser_cilk_all_clauses): Use c_finish_omp_clauses
+	instead of c_finish_cilk_clauses.
+	* c-tree.h (c_finish_omp_clauses): Add new default argument.
+	* c-typeck.c (c_finish_omp_clauses): Add new argument.  Allow
+	floating-point variables in the linear clause for Cilk Plus.
+
+2016-04-18  Michael Matz  <matz@suse.de>
+
+	* c-decl.c (merge_decls): Use SET_DECL_ALIGN and SET_TYPE_ALIGN.
+	(grokdeclarator, parser_xref_tag, finish_enum): Use SET_TYPE_ALIGN.
+
+2016-04-15  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70671
+	* c-typeck.c (build_unary_op): Pass location down to error and
+	warning call.
+
+2016-04-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/70436
+	* c-parser.c (c_parser_pragma): Add IF_P argument, pass it down
+	where needed.
+	(c_parser_external_declaration, c_parser_struct_or_union_specifier,
+	c_parser_parameter_declaration, c_parser_compound_statement_nostart,
+	c_parser_objc_class_instance_variables, c_parser_objc_methodprotolist):
+	Adjust c_parser_pragma callers.
+	(c_parser_statement_after_labels): Likewise.  Adjust c_parser_cilk_for
+	caller.
+	(c_parser_omp_structured_block): Add IF_P argument, pass it down to
+	c_parser_statement.
+	(c_parser_oacc_data, c_parser_oacc_host_data, c_parser_oacc_loop,
+	c_parser_oacc_kernels_parallel, c_parser_omp_critical,
+	c_parser_omp_simd, c_parser_omp_for, c_parser_omp_master,
+	c_parser_omp_ordered, c_parser_omp_parallel, c_parser_omp_single,
+	c_parser_omp_task, c_parser_omp_taskgroup, c_parser_omp_distribute,
+	c_parser_omp_teams, c_parser_omp_target_data, c_parser_omp_target,
+	c_parser_omp_taskloop, c_parser_omp_construct, c_parser_cilk_grainsize,
+	c_parser_cilk_simd, c_parser_cilk_for): Add IF_P argument, pass it
+	down where needed.
+	(c_parser_omp_for_loop): Likewise.  Clear IF_P if nbraces.
+	(c_parser_omp_sections_scope): Adjust c_parser_omp_structured_block
+	calls.
+
+2016-04-13  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70436
+	* c-parser.c (c_parser_statement_after_labels): Add IF_P argument and
+	adjust callers.
+	(c_parser_statement): Likewise.
+	(c_parser_c99_block_statement): Likewise.
+	(c_parser_while_statement): Likewise.
+	(c_parser_for_statement): Likewise.
+	(c_parser_if_body): Don't set IF_P here.
+	(c_parser_if_statement): Add IF_P argument.  Set IF_P here.  Warn
+	about dangling else here.
+	* c-tree.h (c_finish_if_stmt): Adjust declaration.
+	* c-typeck.c (c_finish_if_stmt): Remove NESTED_IF parameter.  Don't
+	warn about dangling else here.
+
+2016-04-04  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70307
+	* c-fold.c (c_fully_fold_internal): Handle VEC_COND_EXPR.
+
+2016-03-31  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70297
+	* c-decl.c (merge_decls): Also set TYPE_ALIGN and TYPE_USER_ALIGN.
+
+2016-03-18  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/70281
+	* c-parser.c (c_parser_postfix_expression): Set the source range
+	for uses of "__builtin_types_compatible_p".
+
+2016-03-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/70280
+	* c-typeck.c (composite_type): Don't count void_list_node
+	into len, if the list is terminated by void_list_node, start
+	with void_list_node instead of NULL for newargs.  Stop
+	at void_list_node.
+
+2016-03-16  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70093
+	* c-typeck.c (build_function_call_vec): Create a TARGET_EXPR for
+	nested functions returning VM types.
+
+2016-03-09  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-parser.c (c_parser_oacc_loop): Update cclauses and clauses
+	when calling c_finish_omp_clauses.
+
+2016-03-04  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR c/69824
+	* c-decl.c (get_parm_info): Don't queue implicit function declarations
+	for later.
+
+2016-03-04  Marek Polacek  <polacek@redhat.com>
+
+	PR c/69798
+	* c-parser.c (c_parser_postfix_expression): Call
+	c_parser_cast_expression rather than c_parser_postfix_expression.
+
+2016-03-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/69796
+	PR c/69974
+	* c-parser.c (c_parser_translation_unit): Don't change TREE_TYPE
+	of incomplete decls to error_mark_node.
+
+2016-02-24  Marek Polacek  <polacek@redhat.com>
+
+	PR c/69819
+	* c-decl.c (finish_decl): Don't update the copy of the type of a
+	different decl type.
+
+2016-02-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR objc/69844
+	* c-parser.c (c_parser_for_statement): Properly handle ObjC classes
+	in id_kind reclassification.
+
+2016-02-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/69835
+	* c-typeck.c (build_binary_op): Revert 2015-09-09 change.
+
+2016-02-16  James Norris  <jnorris@codesourcery.com>
+
+	PR c/64748
+	* c-parser.c (c_parser_oacc_data_clause_deviceptr): Allow parms.
+
+2016-02-12  Bernd Schmidt  <bschmidt@redhat.com>
+
+	* c-decl.c (build_null_declspecs): Zero the entire struct.
+
+	PR c/69522
+	* c-parser.c (c_parser_braced_init): New arg outer_obstack.  All
+	callers changed.  If nested_p is true, use it to call
+	finish_implicit_inits.
+	* c-tree.h (finish_implicit_inits): Declare.
+	* c-typeck.c (finish_implicit_inits): New function.  Move code
+	from ...
+	(push_init_level): ... here.
+	(set_designator, process_init_element): Call finish_implicit_inits.
+
+2016-02-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/69768
+	* c-typeck.c (parser_build_binary_op): Strip nops from integer_zerop
+	arguments for -Waddress warning.
+
+2016-02-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/69669
+	* c-decl.c (finish_enum): When honoring mode attribute,
+	make sure to use proper TYPE_MIN_VALUE and TYPE_MAX_VALUE.
+
+2016-01-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/69518
+	* c-decl.c (finish_struct): Clear C_TYPE_INCOMPLETE_VARS in
+	all type variants, not just TYPE_MAIN_VARIANT.
+
+2016-01-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/66869
+	* c-decl.c (c_write_global_declarations_1): Warn with
+	warn_unused_function if static prototype without definition
+	is not C_DECL_USED.
+
+2016-01-27  Marek Polacek  <polacek@redhat.com>
+
+	PR c/68062
+	* c-typeck.c (build_binary_op) [EQ_EXPR, GE_EXPR]: Promote operand
+	to unsigned, if needed.  Add -Wsign-compare warning.
+
+2016-01-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/69483
+	* c-parser.c (c_parser_translation_unit): Use FOR_EACH_VEC_ELT.
+
+2016-01-20  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	PR c/24293
+	* c-tree.h (incomplete_record_decls): Declare.
+	* c-parser.c (incomplete_record_decls): Define.
+	(c_parser_translation_unit): Iterate through incomplete_record_decls and
+	report error if any decl has zero size.
+	* c-decl.c (finish_decl): Append static decl with incomplete struct/union
+	or enum type to incomplete_record_decls.
+
+2016-01-14  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/68773
+	* c-parser.c (c_parser_oacc_declare, c_parser_omp_declare_target): Don't
+	set force_output.
+
+2016-01-14  Marek Polacek  <polacek@redhat.com>
+
+	PR c/69262
+	* c-decl.c (grokdeclarator): Provide more information for invalid
+	array declarations.
+
+2016-01-06  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-parser.c (c_parser_unary_expression): For dereferences, build
+	a combined location before calling build_indirect_ref, so that
+	error reports cover the full range, manually updating the c_expr
+	src_range.
+
+2016-01-06  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/69099
+	* c-convert.c (convert) [INTEGER_TYPE]: Drop ARG.  Don't pass ARG to
+	ubsan_instrument_float_cast.  Fold EXPR.  Use NULL_TREE instead of
+	NULL.
+
+2016-01-04  Jakub Jelinek  <jakub@redhat.com>
+
+	Update copyright years.
+
+2016-01-04  Marek Polacek  <polacek@redhat.com>
+
+	PR c/68908
+	* c-typeck.c (build_atomic_assign): Improve commentary.  Add
+	optimization to use __atomic_fetch_* built-in if possible.
+
+2015-12-23  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-parser.c (c_parser_oacc_clause_use_device): Merge function
+	into...
+	(c_parser_omp_clause_use_device_ptr): ... this function.  Adjust
+	all users.
+
+2015-12-22  Marek Polacek  <polacek@redhat.com>
+
+	PR c/69002
+	* c-typeck.c (build_component_ref): Warn when acessing elements of
+	atomic structures or unions.
+
+2015-12-21  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-typeck.c: Include "gcc-rich-location.h".
+	(build_binary_op): In the two places that call binary_op_error,
+	create a gcc_rich_location and populate it with the location of
+	the binary op and its two operands.
+
+2015-12-16  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-parser.c (c_parser_statement_after_labels): When calling
+	c_finish_return, Use the return expression's location if it has
+	one, falling back to the location of the first token within it.
+	* c-typeck.c (c_finish_return): When issuing warnings about
+	the incorrect presence/absence of a return value, issue a note
+	showing the declaration of the function.
+
+2015-12-16  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-parser.c (struct c_parser): Expand array "tokens_buf" from 2
+	to 4.
+	(c_parser_peek_nth_token): New function.
+	(c_parser_peek_conflict_marker): New function.
+	(c_parser_error): Detect conflict markers and report them as such.
+
+2015-12-16  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-parser.c (c_parser_postfix_expression): Use EXPR_LOC_OR_LOC
+	to preserve range information for the primary expression
+	in the call to c_parser_postfix_expression_after_primary.
+
+2015-12-16  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-parser.c (c_parser_static_assert_declaration_no_semi): Use the
+	expression location, falling back on the first token location,
+	rather than always using the latter.
+
+2015-12-16  Marek Polacek  <polacek@redhat.com>
+
+	PR c/64637
+	* c-typeck.c (c_process_expr_stmt): Use location of the expression if
+	available.
+
+2015-12-15  Marek Polacek  <polacek@redhat.com>
+
+	PR c/68907
+	* c-typeck.c (build_atomic_assign): Set TREE_NO_WARNING on an
+	artificial decl.
+
+2015-12-08  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-parser.c (c_parser_alignof_expression): Capture location of
+	closing parenthesis (if any), or of end of unary expression, and
+	use it to build a src_range for the expression.
+
+2015-12-08  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/68757
+	* c-parser.c (c_parser_get_builtin_args): Add
+	"out_close_paren_loc" param, and write back to it.
+	(c_parser_postfix_expression): Capture the closing
+	parenthesis location for RID_CHOOSE_EXPR,
+	RID_BUILTIN_CALL_WITH_STATIC_CHAIN, RID_BUILTIN_COMPLEX,
+	RID_BUILTIN_SHUFFLE and use it to set the source range
+	for such expressions; within RID_BUILTIN_COMPLEX set
+	the underlying location.
+
+2015-12-07  Marek Polacek  <polacek@redhat.com>
+
+	PR c/68668
+	* c-decl.c (grokdeclarator): If ORIG_QUAL_INDIRECT is indirect, use
+	TREE_TYPE of ORIG_QUAL_TYPE, otherwise decrement ORIG_QUAL_INDIRECT.
+
+2015-12-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* c-tree.h (c_build_va_arg): Adjust prototype.
+	* c-parser.c (c_parser_postfix_expression): Adjust call to above.
+	* c-typeck.c (c_build_va_arg): Rename LOC parameter to LOC2, add LOC1
+	parameter, adjust throughout and issue an error if EXPR is a component
+	with reverse storage order.
+
+2015-12-02  Jason Merrill  <jason@redhat.com>
+
+	* c-fold.c (c_disable_warnings, c_enable_warnings, c_fully_fold)
+	(c_fully_fold_internal, decl_constant_value_for_optimization):
+	Move from c-common.c.
+	* c-tree.h: Declare decl_constant_value_for_optimization.
+	* Make-lang.in (C_AND_OBJC_OBJS): Add c-fold.o.
+
+2015-12-02  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/68162
+	* c-decl.c (grokdeclarator): Set first_non_attr_kind before
+	following link from declarator to next declarator.  Track original
+	qualified type and pass it to c_build_qualified_type.
+	* c-typeck.c (c_build_qualified_type): Add arguments
+	orig_qual_type and orig_qual_indirect.
+
+2015-12-02  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-parser.c (c_parser_omp_clause_name)
+	(c_parser_oacc_all_clauses): Alphabetical sorting.
+
+2015-12-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/68533
+	* c-decl.c (get_parm_info): Use b->locus instead of input_location
+	for diagnostics.
+
+2015-12-01  Julian Brown  <julian@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+	    James Norris  <James_Norris@mentor.com>
+
+	* c-parser.c (c_parser_omp_clause_name): Add use_device support.
+	(c_parser_oacc_clause_use_device): New function.
+	(c_parser_oacc_all_clauses): Add use_device support.
+	(OACC_HOST_DATA_CLAUSE_MASK): New macro.
+	(c_parser_oacc_host_data): New function.
+	(c_parser_omp_construct): Add host_data support.
+	* c-tree.h (c_finish_oacc_host_data): Add prototype.
+	* c-typeck.c (c_finish_oacc_host_data): New function.
+	(c_finish_omp_clauses): Add use_device support.
+
+2015-11-29  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR c/67106
+	* c-decl.c: Set TYPE_PACKED in variants.
+
+2015-11-27  Martin Liska  <mliska@suse.cz>
+
+	PR c++/68312
+	* c-array-notation.c (fix_builtin_array_notation_fn):
+	Use release_vec_vec instead of vec::release.
+	(build_array_notation_expr): Likewise.
+	(fix_conditional_array_notations_1): Likewise.
+	(fix_array_notation_expr): Likewise.
+	(fix_array_notation_call_expr): Likewise.
+
+2015-11-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/63326
+	* c-parser.c (c_parser_compound_statement_nostart): If
+	last_label is true, use pragma_stmt instead of pragma_compound
+	as second c_parser_pragma argument.
+	(c_parser_omp_ordered, c_parser_omp_target_update,
+	c_parser_omp_target_enter_data, c_parser_omp_target_exit_data): Pass
+	false as second argument to c_parser_skip_to_pragma_eol after
+	diagnosing standalone directives used in pragma_stmt context.
+
+2015-11-24  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* c-parser.c (c_parser_oacc_declare): Replace "ifdef ENABLE_OFFLOADING"
+	with "if (ENABLE_OFFLOADING)".
+
+2015-11-23  David Malcolm  <dmalcolm@redhat.com>
+
+	PR objc/68438
+	* c-parser.c (c_parser_postfix_expression): Set up source ranges
+	for various Objective-C constructs: Class.name syntax,
+	@selector(), @protocol(), @encode(), and [] message syntax.
+
+2015-11-20  David Malcolm  <dmalcolm@redhat.com>
+
+	PR 62314
+	* c-typeck.c (should_suggest_deref_p): New function.
+	(build_component_ref): Special-case POINTER_TYPE when
+	generating a "not a structure of union"  error message, and
+	suggest a "->" rather than a ".", providing a fix-it hint.
+
+2015-11-19  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-typeck.c (lookup_field_fuzzy): Move determination of closest
+	candidate into a new function, find_closest_identifier.
+
+2015-11-19  Marek Polacek  <polacek@redhat.com>
+
+	PR c/68412
+	* c-typeck.c (parser_build_binary_op): Properly handle
+	C_MAYBE_CONST_EXPR before calling warn_tautological_cmp.
+
+2015-11-17  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-parser.c (set_c_expr_source_range): Bulletproof both
+	overloaded implementations against NULL expr->value.
+	(c_parser_braced_init): Set src_range for "ret" to a sane pair of
+	values.
+	(c_parser_unary_expression): Likewise when handling addresses of
+	labels.
+	(c_parser_postfix_expression): Likewise for statement expressions,
+	for __FUNCTION__, __PRETTY_FUNCTION_ and __func__ keywords, for
+	__builtin_va_arg, and for __builtin_offset_of.
+	(c_parser_postfix_expression_after_paren_type): Initialize expr's
+	src_range using the range of the braced initializer.
+	(c_parser_transaction_expression): Set src_range for "ret" to a
+	sane pair of values.
+
+2015-11-16  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* c-parser.c (c_finish_omp_declare_simd): Look for
+	"simd" attribute as well. Update error message.
+
+2015-11-14  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* c-parser.c (c_parser_omp_declare_target): Adjust.
+
 2015-11-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-typeck.c (c_finish_omp_clauses): Don't mark
@@ -2937,7 +3461,7 @@
 	* c-decl.c: Likewise.  Include gt-c-c-decl.h, not gt-c-decl.h.
 	* c-parser.c: Likewise.  Include gt-c-c-parser.h, not gt-c-parser.h.
 
-Copyright (C) 2012-2015 Free Software Foundation, Inc.
+Copyright (C) 2012-2016 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright

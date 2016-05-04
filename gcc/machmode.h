@@ -1,5 +1,5 @@
 /* Machine mode definitions for GCC; included by rtl.h and tree.h.
-   Copyright (C) 1991-2015 Free Software Foundation, Inc.
+   Copyright (C) 1991-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -268,6 +268,10 @@ extern const unsigned char mode_wider[NUM_MACHINE_MODES];
    this is a mode with the same inner mode but with twice the elements.  */
 extern const unsigned char mode_2xwider[NUM_MACHINE_MODES];
 #define GET_MODE_2XWIDER_MODE(MODE) ((machine_mode) mode_2xwider[MODE])
+
+/* Get the complex mode from the component mode.  */
+extern const unsigned char mode_complex[NUM_MACHINE_MODES];
+#define GET_MODE_COMPLEX_MODE(MODE) ((machine_mode) mode_complex[MODE])
 
 /* Return the mode for data of a given size SIZE and mode class CLASS.
    If LIMIT is nonzero, then don't use modes bigger than MAX_FIXED_MODE_SIZE.

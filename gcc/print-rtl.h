@@ -1,5 +1,5 @@
 /* Print RTL for GCC.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifdef BUFSIZ
 extern void print_rtl (FILE *, const_rtx);
 #endif
+extern void print_rtx_insn_vec (FILE *file, const vec<rtx_insn *> &vec);
 
 extern void dump_value_slim (FILE *, const_rtx, int);
 extern void dump_insn_slim (FILE *, const rtx_insn *);

@@ -1,5 +1,5 @@
 /* Data structures and function exported by the C++ Parser.
-   Copyright (C) 2010-2015 Free Software Foundation, Inc.
+   Copyright (C) 2010-2016 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -47,8 +47,6 @@ struct GTY (()) cp_token {
   ENUM_BITFIELD (rid) keyword : 8;
   /* Token flags.  */
   unsigned char flags;
-  /* Identifier for the pragma.  */
-  ENUM_BITFIELD (pragma_kind) pragma_kind : 8;
   /* True if this token is from a context where it is implicitly extern "C" */
   BOOL_BITFIELD implicit_extern_c : 1;
   /* True if an error has already been reported for this token, such as a
@@ -59,15 +57,18 @@ struct GTY (()) cp_token {
      it is no longer a valid token and it should be considered
      deleted.  */
   BOOL_BITFIELD purged_p : 1;
+  /* 5 unused bits.  */
   /* The location at which this token was found.  */
   location_t location;
   /* The value associated with this token, if any.  */
   union cp_token_value {
-    /* Used for CPP_NESTED_NAME_SPECIFIER and CPP_TEMPLATE_ID.  */
+    /* Used for compound tokens such as CPP_NESTED_NAME_SPECIFIER.  */
     struct tree_check* GTY((tag ("1"))) tree_check_value;
     /* Use for all other tokens.  */
     tree GTY((tag ("0"))) value;
-  } GTY((desc ("(%1.type == CPP_TEMPLATE_ID) || (%1.type == CPP_NESTED_NAME_SPECIFIER)"))) u;
+  } GTY((desc ("(%1.type == CPP_TEMPLATE_ID)"
+	       "|| (%1.type == CPP_NESTED_NAME_SPECIFIER)"
+	       "|| (%1.type == CPP_DECLTYPE)"))) u;
 };
 
 
@@ -203,6 +204,7 @@ struct cp_omp_declare_simd_data {
   bool error_seen; /* Set if error has been reported.  */
   bool fndecl_seen; /* Set if one fn decl/definition has been seen already.  */
   vec<cp_token_cache_ptr> tokens;
+  tree clauses;
 };
 
 
@@ -371,8 +373,8 @@ struct GTY(()) cp_parser {
      necessary.  */
   cp_omp_declare_simd_data * GTY((skip)) cilk_simd_fn_info;
 
-  /* OpenACC routine clauses for subsequent decl/defn.  */
-  tree oacc_routine;
+  /* Parsing information for #pragma acc routine.  */
+  cp_omp_declare_simd_data * GTY((skip)) oacc_routine;
   
   /* Nonzero if parsing a parameter list where 'auto' should trigger an implicit
      template parameter.  */

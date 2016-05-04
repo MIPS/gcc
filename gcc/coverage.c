@@ -1,5 +1,5 @@
 /* Read and write coverage files, and associated functionality.
-   Copyright (C) 1990-2015 Free Software Foundation, Inc.
+   Copyright (C) 1990-2016 Free Software Foundation, Inc.
    Contributed by James E. Wilson, UC Berkeley/Cygnus Support;
    based on some ideas from Dain Samples of UC Berkeley.
    Further mangling by Bob Manson, Cygnus Support.
@@ -745,17 +745,13 @@ build_var (tree fn_decl, tree type, int counter)
   else
     sprintf (buf, "__gcov%u_", counter);
   len = strlen (buf);
-#ifndef NO_DOT_IN_LABEL
-  buf[len - 1] = '.';
-#elif !defined NO_DOLLAR_IN_LABEL
-  buf[len - 1] = '$';
-#endif
+  buf[len - 1] = symbol_table::symbol_suffix_separator ();
   memcpy (buf + len, fn_name, fn_name_len + 1);
   DECL_NAME (var) = get_identifier (buf);
   TREE_STATIC (var) = 1;
   TREE_ADDRESSABLE (var) = 1;
   DECL_NONALIASED (var) = 1;
-  DECL_ALIGN (var) = TYPE_ALIGN (type);
+  SET_DECL_ALIGN (var, TYPE_ALIGN (type));
 
   return var;
 }

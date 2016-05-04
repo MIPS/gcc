@@ -1,5 +1,5 @@
 /* Generate code from machine description to recognize rtl as insns.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -105,6 +105,7 @@
    5. Write out C++ code for each function.  */
 
 #include "bconfig.h"
+#define INCLUDE_ALGORITHM
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
@@ -112,7 +113,6 @@
 #include "errors.h"
 #include "read-md.h"
 #include "gensupport.h"
-#include <algorithm>
 
 #undef GENERATOR_FILE
 enum true_rtx_doe {
@@ -3382,7 +3382,8 @@ safe_predicate_mode (const struct pred_data *pred, machine_mode mode)
   if (GET_MODE_CLASS (mode) == MODE_INT
       && (pred->codes[CONST_INT]
 	  || pred->codes[CONST_DOUBLE]
-	  || pred->codes[CONST_WIDE_INT]))
+	  || pred->codes[CONST_WIDE_INT]
+	  || pred->codes[LABEL_REF]))
     return false;
 
   return !pred->special && mode != VOIDmode;
@@ -4036,7 +4037,7 @@ match_pattern_2 (state *s, md_rtx_info *info, position *pos, rtx pattern)
 		/* Check the mode first, to distinguish things like SImode
 		   and DImode register_operands, as described above.  */
 		machine_mode mode = GET_MODE (e->pattern);
-		if (safe_predicate_mode (pred, mode))
+		if (pred && safe_predicate_mode (pred, mode))
 		  s = add_decision (s, rtx_test::mode (e->pos), mode, true);
 
 		/* Assign to operands[] first, so that the rtx usually doesn't

@@ -1,5 +1,5 @@
 /* FMA steering optimization pass for Cortex-A57.
-   Copyright (C) 2015 Free Software Foundation, Inc.
+   Copyright (C) 2015-2016 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
    This file is part of GCC.
@@ -19,6 +19,7 @@
    <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
+#define INCLUDE_LIST
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
@@ -36,8 +37,6 @@
 #include "regrename.h"
 #include "cortex-a57-fma-steering.h"
 #include "aarch64-protos.h"
-
-#include <list>
 
 /* For better performance, the destination of FMADD/FMSUB instructions should
    have the same parity as their accumulator register if the accumulator
@@ -1082,7 +1081,7 @@ aarch64_register_fma_steering ()
 {
   opt_pass *pass_fma_steering = make_pass_fma_steering (g);
 
-  static struct register_pass_info fma_steering_info
+  struct register_pass_info fma_steering_info
     = { pass_fma_steering, "rnreg", 1, PASS_POS_INSERT_AFTER };
 
   register_pass (&fma_steering_info);

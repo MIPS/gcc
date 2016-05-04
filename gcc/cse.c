@@ -1,5 +1,5 @@
 /* Common subexpression elimination for GNU compiler.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -3874,6 +3874,13 @@ record_jump_equiv (rtx_insn *insn, bool taken)
   op0 = fold_rtx (XEXP (XEXP (SET_SRC (set), 0), 0), insn);
   op1 = fold_rtx (XEXP (XEXP (SET_SRC (set), 0), 1), insn);
 
+  /* On a cc0 target the cc0-setter and cc0-user may end up in different
+     blocks.  When that happens the tracking of the cc0-setter via
+     PREV_INSN_CC0 is spoiled.  That means that fold_rtx may return
+     NULL_RTX.  In those cases, there's nothing to record.  */
+  if (op0 == NULL_RTX || op1 == NULL_RTX)
+    return;
+
   code = find_comparison_args (code, &op0, &op1, &mode0, &mode1);
   if (! cond_known_true)
     {
@@ -4568,6 +4575,7 @@ cse_insn (rtx_insn *insn)
   for (i = 0; i < n_sets; i++)
     {
       bool repeat = false;
+      bool mem_noop_insn = false;
       rtx src, dest;
       rtx src_folded;
       struct table_elt *elt = 0, *p;
@@ -4629,7 +4637,7 @@ cse_insn (rtx_insn *insn)
 
       /* Simplify and foldable subexpressions in SRC.  Then get the fully-
 	 simplified result, which may not necessarily be valid.  */
-      src_folded = fold_rtx (src, insn);
+      src_folded = fold_rtx (src, NULL);
 
 #if 0
       /* ??? This caused bad code to be generated for the m68k port with -O2.
@@ -5159,7 +5167,7 @@ cse_insn (rtx_insn *insn)
 	    }
 
 	  /* Avoid creation of overlapping memory moves.  */
-	  if (MEM_P (trial) && MEM_P (SET_DEST (sets[i].rtl)))
+	  if (MEM_P (trial) && MEM_P (dest) && !rtx_equal_p (trial, dest))
 	    {
 	      rtx src, dest;
 
@@ -5267,6 +5275,21 @@ cse_insn (rtx_insn *insn)
 
 	      SET_SRC (sets[i].rtl) = trial;
 	      cse_jumps_altered = true;
+	      break;
+	    }
+
+	  /* Similarly, lots of targets don't allow no-op
+	     (set (mem x) (mem x)) moves.  */
+	  else if (n_sets == 1
+		   && MEM_P (trial)
+		   && MEM_P (dest)
+		   && rtx_equal_p (trial, dest)
+		   && !side_effects_p (dest)
+		   && (cfun->can_delete_dead_exceptions
+		       || insn_nothrow_p (insn)))
+	    {
+	      SET_SRC (sets[i].rtl) = trial;
+	      mem_noop_insn = true;
 	      break;
 	    }
 
@@ -5484,6 +5507,16 @@ cse_insn (rtx_insn *insn)
 	  /* One less use of the label this insn used to jump to.  */
 	  delete_insn_and_edges (insn);
 	  cse_jumps_altered = true;
+	  /* No more processing for this set.  */
+	  sets[i].rtl = 0;
+	}
+
+      /* Similarly for no-op MEM moves.  */
+      else if (mem_noop_insn)
+	{
+	  if (cfun->can_throw_non_call_exceptions && can_throw_internal (insn))
+	    cse_cfg_altered = true;
+	  delete_insn_and_edges (insn);
 	  /* No more processing for this set.  */
 	  sets[i].rtl = 0;
 	}

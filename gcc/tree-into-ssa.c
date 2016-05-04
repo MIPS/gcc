@@ -1,5 +1,5 @@
 /* Rewrite a program in Normal form into SSA.
-   Copyright (C) 2001-2015 Free Software Foundation, Inc.
+   Copyright (C) 2001-2016 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -666,6 +666,8 @@ mark_def_sites (basic_block bb, gimple *stmt, bitmap kills)
   FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
     {
       tree sym = USE_FROM_PTR (use_p);
+      if (TREE_CODE (sym) == SSA_NAME)
+	continue;
       gcc_checking_assert (DECL_P (sym));
       if (!bitmap_bit_p (kills, DECL_UID (sym)))
 	set_livein_block (sym, bb);
@@ -676,6 +678,8 @@ mark_def_sites (basic_block bb, gimple *stmt, bitmap kills)
      each def to the set of killed symbols.  */
   FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
     {
+      if (TREE_CODE (def) == SSA_NAME)
+	continue;
       gcc_checking_assert (DECL_P (def));
       set_def_block (def, bb, false);
       bitmap_set_bit (kills, DECL_UID (def));
@@ -1310,6 +1314,8 @@ rewrite_stmt (gimple_stmt_iterator *si)
 	FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_ALL_USES)
 	  {
 	    tree var = USE_FROM_PTR (use_p);
+	    if (TREE_CODE (var) == SSA_NAME)
+	      continue;
 	    gcc_checking_assert (DECL_P (var));
 	    SET_USE (use_p, get_reaching_def (var));
 	  }
@@ -1323,6 +1329,8 @@ rewrite_stmt (gimple_stmt_iterator *si)
 	tree name;
 	tree tracked_var;
 
+	if (TREE_CODE (var) == SSA_NAME)
+	  continue;
 	gcc_checking_assert (DECL_P (var));
 
 	if (gimple_clobber_p (stmt)
@@ -1391,7 +1399,7 @@ class rewrite_dom_walker : public dom_walker
 public:
   rewrite_dom_walker (cdi_direction direction) : dom_walker (direction) {}
 
-  virtual void before_dom_children (basic_block);
+  virtual edge before_dom_children (basic_block);
   virtual void after_dom_children (basic_block);
 };
 
@@ -1400,7 +1408,7 @@ public:
    (BLOCK_DEFS).  Register new definitions for every PHI node in the
    block.  */
 
-void
+edge
 rewrite_dom_walker::before_dom_children (basic_block bb)
 {
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1432,6 +1440,8 @@ rewrite_dom_walker::before_dom_children (basic_block bb)
      reaching definition for the variable and the edge through which that
      definition is reaching the PHI node.  */
   rewrite_add_phi_arguments (bb);
+
+  return NULL;
 }
 
 
@@ -2055,7 +2065,7 @@ class rewrite_update_dom_walker : public dom_walker
 public:
   rewrite_update_dom_walker (cdi_direction direction) : dom_walker (direction) {}
 
-  virtual void before_dom_children (basic_block);
+  virtual edge before_dom_children (basic_block);
   virtual void after_dom_children (basic_block);
 };
 
@@ -2064,7 +2074,7 @@ public:
    for new SSA names produced in this block (BLOCK_DEFS).  Register
    new definitions for every PHI node in the block.  */
 
-void
+edge
 rewrite_update_dom_walker::before_dom_children (basic_block bb)
 {
   bool is_abnormal_phi;
@@ -2077,7 +2087,7 @@ rewrite_update_dom_walker::before_dom_children (basic_block bb)
   block_defs_stack.safe_push (NULL_TREE);
 
   if (!bitmap_bit_p (blocks_to_update, bb->index))
-    return;
+    return NULL;
 
   /* Mark the LHS if any of the arguments flows through an abnormal
      edge.  */
@@ -2133,6 +2143,8 @@ rewrite_update_dom_walker::before_dom_children (basic_block bb)
 
   /* Step 3.  Update PHI nodes.  */
   rewrite_update_phi_arguments (bb);
+
+  return NULL;
 }
 
 /* Called after visiting block BB.  Unwind BLOCK_DEFS_STACK to restore
@@ -2210,7 +2222,7 @@ public:
   mark_def_dom_walker (cdi_direction direction);
   ~mark_def_dom_walker ();
 
-  virtual void before_dom_children (basic_block);
+  virtual edge before_dom_children (basic_block);
 
 private:
   /* Notice that this bitmap is indexed using variable UIDs, so it must be
@@ -2232,7 +2244,7 @@ mark_def_dom_walker::~mark_def_dom_walker ()
 /* Block processing routine for mark_def_sites.  Clear the KILLS bitmap
    at the start of each block, and call mark_def_sites for each statement.  */
 
-void
+edge
 mark_def_dom_walker::before_dom_children (basic_block bb)
 {
   gimple_stmt_iterator gsi;
@@ -2240,6 +2252,7 @@ mark_def_dom_walker::before_dom_children (basic_block bb)
   bitmap_clear (m_kills);
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     mark_def_sites (bb, gsi_stmt (gsi), m_kills);
+  return NULL;
 }
 
 /* Initialize internal data needed during renaming.  */

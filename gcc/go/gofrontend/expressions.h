@@ -11,6 +11,7 @@
 #include <mpc.h>
 
 #include "operator.h"
+#include "runtime.h"
 
 class Gogo;
 class Translate_context;
@@ -28,6 +29,7 @@ class Struct_type;
 class Struct_field;
 class Expression_list;
 class Var_expression;
+class Enclosed_var_expression;
 class Temporary_reference_expression;
 class Set_and_use_temporary_expression;
 class String_expression;
@@ -42,11 +44,13 @@ class Func_descriptor_expression;
 class Unknown_expression;
 class Index_expression;
 class Array_index_expression;
+class String_index_expression;
 class Map_index_expression;
 class Bound_method_expression;
 class Field_reference_expression;
 class Interface_field_reference_expression;
 class Allocation_expression;
+class Composite_literal_expression;
 class Struct_construction_expression;
 class Array_construction_expression;
 class Fixed_array_construction_expression;
@@ -83,6 +87,7 @@ class Expression
     EXPRESSION_BINARY,
     EXPRESSION_CONST_REFERENCE,
     EXPRESSION_VAR_REFERENCE,
+    EXPRESSION_ENCLOSED_VAR_REFERENCE,
     EXPRESSION_TEMPORARY_REFERENCE,
     EXPRESSION_SET_AND_USE_TEMPORARY,
     EXPRESSION_SINK,
@@ -163,6 +168,10 @@ class Expression
   // Make a reference to a variable in an expression.
   static Expression*
   make_var_reference(Named_object*, Location);
+
+  // Make a reference to a variable within an enclosing function.
+  static Expression*
+  make_enclosing_var_reference(Expression*, Named_object*, Location);
 
   // Make a reference to a temporary variable.  Temporary variables
   // are always created by a single statement, which is what we use to
@@ -537,6 +546,20 @@ class Expression
   var_expression() const
   { return this->convert<const Var_expression, EXPRESSION_VAR_REFERENCE>(); }
 
+  // If this is a enclosed_variable reference, return the
+  // Enclosed_var_expression structure.  Otherwise, return NULL.
+  // This is a controlled dynamic cast.
+  Enclosed_var_expression*
+  enclosed_var_expression()
+  { return this->convert<Enclosed_var_expression,
+			 EXPRESSION_ENCLOSED_VAR_REFERENCE>(); }
+
+  const Enclosed_var_expression*
+  enclosed_var_expression() const
+  { return this->convert<const Enclosed_var_expression,
+			 EXPRESSION_ENCLOSED_VAR_REFERENCE>(); }
+
+
   // If this is a reference to a temporary variable, return the
   // Temporary_reference_expression.  Otherwise, return NULL.
   Temporary_reference_expression*
@@ -653,6 +676,13 @@ class Expression
   array_index_expression()
   { return this->convert<Array_index_expression, EXPRESSION_ARRAY_INDEX>(); }
 
+  // If this is an expression which refers to indexing in a string,
+  // return the String_index_expression structure.  Otherwise, return
+  // NULL.
+  String_index_expression*
+  string_index_expression()
+  { return this->convert<String_index_expression, EXPRESSION_STRING_INDEX>(); }
+
   // If this is an expression which refers to indexing in a map,
   // return the Map_index_expression structure.  Otherwise, return
   // NULL.
@@ -690,6 +720,15 @@ class Expression
   Allocation_expression*
   allocation_expression()
   { return this->convert<Allocation_expression, EXPRESSION_ALLOCATION>(); }
+
+  // If this is a general composite literal, return the
+  // Composite_literal_expression structure.  Otherwise, return NULL.
+  Composite_literal_expression*
+  complit()
+  {
+    return this->convert<Composite_literal_expression,
+			 EXPRESSION_COMPOSITE_LITERAL>();
+  }
 
   // If this is a struct composite literal, return the
   // Struct_construction_expression structure.  Otherwise, return NULL.
@@ -1244,6 +1283,71 @@ class Var_expression : public Expression
 
  private:
   // The variable we are referencing.
+  Named_object* variable_;
+};
+
+// A reference to a variable within an enclosing function.
+
+class Enclosed_var_expression : public Expression
+{
+ public:
+  Enclosed_var_expression(Expression* reference, Named_object* variable,
+			  Location location)
+    : Expression(EXPRESSION_ENCLOSED_VAR_REFERENCE, location),
+      reference_(reference), variable_(variable)
+  { }
+
+  // The reference to the enclosed variable.  This will be an indirection of the
+  // the field stored within closure variable.
+  Expression*
+  reference() const
+  { return this->reference_; }
+
+  // The variable being enclosed and referenced.
+  Named_object*
+  variable() const
+  { return this->variable_; }
+
+ protected:
+  int
+  do_traverse(Traverse*);
+
+  Expression*
+  do_lower(Gogo*, Named_object*, Statement_inserter*, int);
+
+  Expression*
+  do_flatten(Gogo*, Named_object*, Statement_inserter*);
+
+  Type*
+  do_type()
+  { return this->reference_->type(); }
+
+  void
+  do_determine_type(const Type_context* context)
+  { return this->reference_->determine_type(context); }
+
+  Expression*
+  do_copy()
+  { return this; }
+
+  bool
+  do_is_addressable() const
+  { return this->reference_->is_addressable(); }
+
+  void
+  do_address_taken(bool escapes);
+
+  Bexpression*
+  do_get_backend(Translate_context* context)
+  { return this->reference_->get_backend(context); }
+
+  void
+  do_dump_expression(Ast_dump_context*) const;
+
+ private:
+  // The reference to the enclosed variable.
+  Expression* reference_;
+  // The variable being enclosed.
   Named_object* variable_;
 };
 
@@ -1881,8 +1985,8 @@ class Call_expression : public Expression
       fn_(fn), args_(args), type_(NULL), results_(NULL), call_(NULL),
       call_temp_(NULL), expected_result_count_(0), is_varargs_(is_varargs),
       varargs_are_lowered_(false), types_are_determined_(false),
-      is_deferred_(false), issued_error_(false), is_multi_value_arg_(false),
-      is_flattened_(false)
+      is_deferred_(false), is_concurrent_(false), issued_error_(false),
+      is_multi_value_arg_(false), is_flattened_(false)
   { }
 
   // The function to call.
@@ -1952,6 +2056,16 @@ class Call_expression : public Expression
   void
   set_is_deferred()
   { this->is_deferred_ = true; }
+
+  // Whether this call is concurrently executed.
+  bool
+  is_concurrent() const
+  { return this->is_concurrent_; }
+
+  // Note that the call is concurrently executed.
+  void
+  set_is_concurrent()
+  { this->is_concurrent_ = true; }
 
   // We have found an error with this call expression; return true if
   // we should report it.
@@ -2066,6 +2180,8 @@ class Call_expression : public Expression
   bool types_are_determined_;
   // True if the call is an argument to a defer statement.
   bool is_deferred_;
+  // True if the call is an argument to a go statement.
+  bool is_concurrent_;
   // True if we reported an error about a mismatch between call
   // results and uses.  This is to avoid producing multiple errors
   // when there are multiple Call_result_expressions.
@@ -2139,7 +2255,8 @@ class Func_expression : public Expression
   Func_expression(Named_object* function, Expression* closure,
 		  Location location)
     : Expression(EXPRESSION_FUNC_REFERENCE, location),
-      function_(function), closure_(closure)
+      function_(function), closure_(closure),
+      runtime_code_(Runtime::NUMBER_OF_FUNCTIONS)
   { }
 
   // Return the object associated with the function.
@@ -2152,6 +2269,23 @@ class Func_expression : public Expression
   Expression*
   closure()
   { return this->closure_; }
+
+  // Return whether this is a reference to a runtime function.
+  bool
+  is_runtime_function() const
+  { return this->runtime_code_ != Runtime::NUMBER_OF_FUNCTIONS; }
+
+  // Return the runtime code for this function expression.
+  // Returns Runtime::NUMBER_OF_FUNCTIONS if this is not a reference to a
+  // runtime function.
+  Runtime::Function
+  runtime_code() const
+  { return this->runtime_code_; }
+
+  // Set the runtime code for this function expression.
+  void
+  set_runtime_code(Runtime::Function code)
+  { this->runtime_code_ = code; }
 
   // Return a backend expression for the code of a function.
   static Bexpression*
@@ -2194,6 +2328,8 @@ class Func_expression : public Expression
   // be a struct holding pointers to all the variables referenced by
   // this function and defined in enclosing functions.
   Expression* closure_;
+  // The runtime code for the referenced function.
+  Runtime::Function runtime_code_;
 };
 
 // A function descriptor.  A function descriptor is a struct with a
@@ -2465,6 +2601,72 @@ class Array_index_expression : public Expression
   Expression* cap_;
   // The type of the expression.
   Type* type_;
+};
+
+// A string index.  This is used for both indexing and slicing.
+
+class String_index_expression : public Expression
+{
+ public:
+  String_index_expression(Expression* string, Expression* start,
+			  Expression* end, Location location)
+    : Expression(EXPRESSION_STRING_INDEX, location),
+      string_(string), start_(start), end_(end)
+  { }
+
+  // Return the string being indexed.
+  Expression*
+  string() const
+  { return this->string_; }
+
+ protected:
+  int
+  do_traverse(Traverse*);
+
+  Expression*
+  do_flatten(Gogo*, Named_object*, Statement_inserter*);
+
+  Type*
+  do_type();
+
+  void
+  do_determine_type(const Type_context*);
+
+  void
+  do_check_types(Gogo*);
+
+  Expression*
+  do_copy()
+  {
+    return Expression::make_string_index(this->string_->copy(),
+					 this->start_->copy(),
+					 (this->end_ == NULL
+					  ? NULL
+					  : this->end_->copy()),
+					 this->location());
+  }
+
+  bool
+  do_must_eval_subexpressions_in_order(int* skip) const
+  {
+    *skip = 1;
+    return true;
+  }
+
+  Bexpression*
+  do_get_backend(Translate_context*);
+
+  void
+  do_dump_expression(Ast_dump_context*) const;
+
+ private:
+  // The string we are getting a value from.
+  Expression* string_;
+  // The start or only index.
+  Expression* start_;
+  // The end index of a slice.  This may be NULL for a single index,
+  // or it may be a nil expression for the length of the string.
+  Expression* end_;
 };
 
 // An index into a map.
@@ -2888,6 +3090,87 @@ class Allocation_expression : public Expression
   Type* type_;
   // Whether or not this is a stack allocation.
   bool allocate_on_stack_;
+};
+
+// A general composite literal.  This is lowered to a type specific
+// version.
+
+class Composite_literal_expression : public Parser_expression
+{
+ public:
+  Composite_literal_expression(Type* type, int depth, bool has_keys,
+			       Expression_list* vals, bool all_are_names,
+			       Location location)
+    : Parser_expression(EXPRESSION_COMPOSITE_LITERAL, location),
+      type_(type), depth_(depth), vals_(vals), has_keys_(has_keys),
+      all_are_names_(all_are_names), key_path_(std::vector<bool>(depth))
+  {}
+
+
+  // Mark the DEPTH entry of KEY_PATH as containing a key.
+  void
+  update_key_path(size_t depth)
+  {
+    go_assert(depth < this->key_path_.size());
+    this->key_path_[depth] = true;
+  }
+
+ protected:
+  int
+  do_traverse(Traverse* traverse);
+
+  Expression*
+  do_lower(Gogo*, Named_object*, Statement_inserter*, int);
+
+  Expression*
+  do_copy()
+  {
+    Composite_literal_expression *ret =
+      new Composite_literal_expression(this->type_, this->depth_,
+				       this->has_keys_,
+				       (this->vals_ == NULL
+					? NULL
+					: this->vals_->copy()),
+				       this->all_are_names_,
+				       this->location());
+    ret->key_path_ = this->key_path_;
+    return ret;
+  }
+
+  void
+  do_dump_expression(Ast_dump_context*) const;
+
+ private:
+  Expression*
+  lower_struct(Gogo*, Type*);
+
+  Expression*
+  lower_array(Type*);
+
+  Expression*
+  make_array(Type*, const std::vector<unsigned long>*, Expression_list*);
+
+  Expression*
+  lower_map(Gogo*, Named_object*, Statement_inserter*, Type*);
+
+  // The type of the composite literal.
+  Type* type_;
+  // The depth within a list of composite literals within a composite
+  // literal, when the type is omitted.
+  int depth_;
+  // The values to put in the composite literal.
+  Expression_list* vals_;
+  // If this is true, then VALS_ is a list of pairs: a key and a
+  // value.  In an array initializer, a missing key will be NULL.
+  bool has_keys_;
+  // If this is true, then HAS_KEYS_ is true, and every key is a
+  // simple identifier.
+  bool all_are_names_;
+  // A complement to DEPTH that indicates for each level starting from 0 to
+  // DEPTH-1 whether or not this composite literal is nested inside of key or
+  // a value.  This is used to decide which type to use when given a map literal
+  // with omitted key types.
+  std::vector<bool> key_path_;
 };
 
 // Construct a struct.

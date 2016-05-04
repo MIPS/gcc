@@ -1,6 +1,6 @@
 // 2006-02-22  Paolo Carlini  <pcarlini@suse.de>
 //
-// Copyright (C) 2006-2015 Free Software Foundation, Inc.
+// Copyright (C) 2006-2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -32,7 +32,7 @@ void test01()
       {
 	std::tr1::unordered_set<int> us1;
 	typedef std::tr1::unordered_set<int>::size_type size_type;
-	
+
 	us1.max_load_factor(10.0);
 
 	for (int i = 0; i < size; ++i)

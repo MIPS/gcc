@@ -1,5 +1,5 @@
 /* Machine description for AArch64 architecture.
-   Copyright (C) 2009-2015 Free Software Foundation, Inc.
+   Copyright (C) 2009-2016 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
    This file is part of GCC.
@@ -53,7 +53,7 @@
   " %{mfix-cortex-a53-835769:--fix-cortex-a53-835769}"
 #endif
 
-#ifdef TARGET_FIX_ERR_A53_843419_DEFAULT
+#if TARGET_FIX_ERR_A53_843419_DEFAULT
 #define CA53_ERR_843419_SPEC \
   " %{!mno-fix-cortex-a53-843419:--fix-cortex-a53-843419}"
 #else
@@ -87,5 +87,8 @@
    to COPY relocated symbol in the executable.  See PR65780.  */
 #undef TARGET_BINDS_LOCAL_P
 #define TARGET_BINDS_LOCAL_P default_binds_local_p_2
+
+/* Define this to be nonzero if static stack checking is supported.  */
+#define STACK_CHECK_STATIC_BUILTIN 1
 
 #endif  /* GCC_AARCH64_LINUX_H */

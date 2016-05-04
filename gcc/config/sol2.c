@@ -1,5 +1,5 @@
 /* General Solaris system support.
-   Copyright (C) 2004-2015 Free Software Foundation, Inc.
+   Copyright (C) 2004-2016 Free Software Foundation, Inc.
    Contributed by CodeSourcery, LLC.
 
 This file is part of GCC.
@@ -142,8 +142,11 @@ solaris_assemble_visibility (tree decl, int vis ATTRIBUTE_UNUSED)
   };
 
   const char *name, *type;
+  tree id = DECL_ASSEMBLER_NAME (decl);
 
-  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+  while (IDENTIFIER_TRANSPARENT_ALIAS (id))
+    id = TREE_CHAIN (id);
+  name = IDENTIFIER_POINTER (id);
   type = visibility_types[vis];
 
   fprintf (asm_out_file, "\t.%s\t", type);

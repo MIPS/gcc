@@ -1,5 +1,5 @@
 /* Definitions for C parsing and type checking.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -625,6 +625,7 @@ extern void maybe_warn_string_init (location_t, tree, struct c_expr);
 extern void start_init (tree, tree, int);
 extern void finish_init (void);
 extern void really_start_incremental_init (tree);
+extern void finish_implicit_inits (location_t, struct obstack *);
 extern void push_init_level (location_t, int, struct obstack *);
 extern struct c_expr pop_init_level (location_t, int, struct obstack *);
 extern void set_init_index (location_t, tree, tree, struct obstack *);
@@ -640,7 +641,7 @@ extern tree build_asm_stmt (tree, tree);
 extern int c_types_compatible_p (tree, tree);
 extern tree c_begin_compound_stmt (bool);
 extern tree c_end_compound_stmt (location_t, tree, bool);
-extern void c_finish_if_stmt (location_t, tree, tree, tree, bool);
+extern void c_finish_if_stmt (location_t, tree, tree, tree);
 extern void c_finish_loop (location_t, tree, tree, tree, tree, tree, bool);
 extern tree c_begin_stmt_expr (void);
 extern tree c_finish_stmt_expr (location_t, tree);
@@ -653,14 +654,15 @@ extern tree c_finish_goto_ptr (location_t, tree);
 extern tree c_expr_to_decl (tree, bool *, bool *);
 extern tree c_finish_omp_construct (location_t, enum tree_code, tree, tree);
 extern tree c_finish_oacc_data (location_t, tree, tree);
+extern tree c_finish_oacc_host_data (location_t, tree, tree);
 extern tree c_begin_omp_parallel (void);
 extern tree c_finish_omp_parallel (location_t, tree, tree);
 extern tree c_begin_omp_task (void);
 extern tree c_finish_omp_task (location_t, tree, tree);
 extern void c_finish_omp_cancel (location_t, tree);
 extern void c_finish_omp_cancellation_point (location_t, tree);
-extern tree c_finish_omp_clauses (tree, bool, bool = false);
-extern tree c_build_va_arg (location_t, tree, tree);
+extern tree c_finish_omp_clauses (tree, enum c_omp_region_type);
+extern tree c_build_va_arg (location_t, tree, location_t, tree);
 extern tree c_finish_transaction (location_t, tree, int);
 extern bool c_tree_equal (tree, tree);
 extern tree c_build_function_call_vec (location_t, vec<location_t>, tree,
@@ -726,5 +728,10 @@ set_c_expr_source_range (c_expr *expr,
 extern void
 set_c_expr_source_range (c_expr *expr,
 			 source_range src_range);
+
+/* In c-fold.c */
+extern tree decl_constant_value_for_optimization (tree);
+
+extern vec<tree> incomplete_record_decls;
 
 #endif /* ! GCC_C_TREE_H */

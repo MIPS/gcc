@@ -1,5 +1,5 @@
 /* Perform optimizations on tree structure.
-   Copyright (C) 1998-2015 Free Software Foundation, Inc.
+   Copyright (C) 1998-2016 Free Software Foundation, Inc.
    Written by Mark Michell (mark@codesourcery.com).
 
 This file is part of GCC.
@@ -112,26 +112,24 @@ clone_body (tree clone, tree fn, void *arg_map)
 static void
 build_delete_destructor_body (tree delete_dtor, tree complete_dtor)
 {
-  tree call_dtor, call_delete;
   tree parm = DECL_ARGUMENTS (delete_dtor);
   tree virtual_size = cxx_sizeof (current_class_type);
 
   /* Call the corresponding complete destructor.  */
   gcc_assert (complete_dtor);
-  call_dtor = build_cxx_call (complete_dtor, 1, &parm,
-			      tf_warning_or_error);
-  add_stmt (call_dtor);
-
-  add_stmt (build_stmt (0, LABEL_EXPR, cdtor_label));
+  tree call_dtor = build_cxx_call (complete_dtor, 1, &parm,
+				   tf_warning_or_error);
 
   /* Call the delete function.  */
-  call_delete = build_op_delete_call (DELETE_EXPR, current_class_ptr,
-                                      virtual_size,
-                                      /*global_p=*/false,
-                                      /*placement=*/NULL_TREE,
-                                      /*alloc_fn=*/NULL_TREE,
-				      tf_warning_or_error);
-  add_stmt (call_delete);
+  tree call_delete = build_op_delete_call (DELETE_EXPR, current_class_ptr,
+					   virtual_size,
+					   /*global_p=*/false,
+					   /*placement=*/NULL_TREE,
+					   /*alloc_fn=*/NULL_TREE,
+					   tf_warning_or_error);
+
+  /* Operator delete must be called, whether or not the dtor throws.  */
+  add_stmt (build2 (TRY_FINALLY_EXPR, void_type_node, call_dtor, call_delete));
 
   /* Return the address of the object.  */
   if (targetm.cxx.cdtor_returns_this ())
@@ -270,7 +268,11 @@ maybe_thunk_body (tree fn, bool force)
     }
   else if (HAVE_COMDAT_GROUP)
     {
+      /* At eof, defer creation of mangling aliases temporarily.  */
+      bool save_defer_mangling_aliases = defer_mangling_aliases;
+      defer_mangling_aliases = true;
       tree comdat_group = cdtor_comdat_group (fns[1], fns[0]);
+      defer_mangling_aliases = save_defer_mangling_aliases;
       cgraph_node::get_create (fns[0])->set_comdat_group (comdat_group);
       cgraph_node::get_create (fns[1])->add_to_same_comdat_group
 	(cgraph_node::get_create (fns[0]));
@@ -281,6 +283,9 @@ maybe_thunk_body (tree fn, bool force)
 	   virtual, it goes into the same comdat group as well.  */
 	cgraph_node::get_create (fns[2])->add_to_same_comdat_group
 	  (symtab_node::get (fns[0]));
+      /* Emit them now that the thunks are same comdat group aliases.  */
+      if (!save_defer_mangling_aliases)
+	generate_mangling_aliases ();
       TREE_PUBLIC (fn) = false;
       DECL_EXTERNAL (fn) = false;
       DECL_INTERFACE_KNOWN (fn) = true;
@@ -639,6 +644,8 @@ maybe_clone_body (tree fn)
 	{
 	  if (expand_or_defer_fn_1 (clone))
 	    emit_associated_thunks (clone);
+	  /* We didn't generate a body, so remove the empty one.  */
+	  DECL_SAVED_TREE (clone) = NULL_TREE;
 	}
       else
 	expand_or_defer_fn (clone);

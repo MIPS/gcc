@@ -1,5 +1,5 @@
 /* CPP Library.
-   Copyright (C) 1986-2015 Free Software Foundation, Inc.
+   Copyright (C) 1986-2016 Free Software Foundation, Inc.
    Contributed by Per Bothner, 1994-95.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -105,9 +105,9 @@ static const struct lang_flags lang_defaults[] =
   /* GNUCXX   */  { 0,  1,  1,  1,  0,  0,  1,   0,   0,   0,    0,     0,     0,   0 },
   /* CXX98    */  { 0,  1,  0,  1,  0,  1,  1,   0,   0,   0,    0,     0,     1,   0 },
   /* GNUCXX11 */  { 1,  1,  1,  1,  1,  0,  1,   1,   1,   1,    0,     0,     0,   0 },
-  /* CXX11    */  { 1,  1,  1,  1,  1,  1,  1,   1,   1,   1,    0,     0,     1,   0 },
+  /* CXX11    */  { 1,  1,  0,  1,  1,  1,  1,   1,   1,   1,    0,     0,     1,   0 },
   /* GNUCXX14 */  { 1,  1,  1,  1,  1,  0,  1,   1,   1,   1,    1,     1,     0,   0 },
-  /* CXX14    */  { 1,  1,  1,  1,  1,  1,  1,   1,   1,   1,    1,     1,     1,   0 },
+  /* CXX14    */  { 1,  1,  0,  1,  1,  1,  1,   1,   1,   1,    1,     1,     1,   0 },
   /* GNUCXX1Z */  { 1,  1,  1,  1,  1,  0,  1,   1,   1,   1,    1,     1,     0,   1 },
   /* CXX1Z    */  { 1,  1,  1,  1,  1,  1,  1,   1,   1,   1,    1,     1,     0,   1 },
   /* ASM      */  { 0,  0,  1,  0,  0,  0,  0,   0,   0,   0,    0,     0,     0,   0 }
@@ -533,8 +533,15 @@ cpp_init_builtins (cpp_reader *pfile, int hosted)
     _cpp_define_builtin (pfile, "__OBJC__ 1");
 }
 
+/* Initialize the source_date_epoch value.  */
+void
+cpp_init_source_date_epoch (cpp_reader *pfile, time_t source_date_epoch)
+{
+  pfile->source_date_epoch = source_date_epoch; 
+}
+
 /* Sanity-checks are dependent on command-line options, so it is
-   called as a subroutine of cpp_read_main_file ().  */
+   called as a subroutine of cpp_read_main_file.  */
 #if CHECKING_P
 static void sanity_checks (cpp_reader *);
 static void sanity_checks (cpp_reader *pfile)

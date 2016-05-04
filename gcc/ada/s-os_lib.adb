@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                     Copyright (C) 1995-2015, AdaCore                     --
+--                     Copyright (C) 1995-2016, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1609,6 +1609,27 @@ package body System.OS_Lib is
       end if;
    end Kill;
 
+   -----------------------
+   -- Kill_Process_Tree --
+   -----------------------
+
+   procedure Kill_Process_Tree
+     (Pid : Process_Id; Hard_Kill : Boolean := True)
+   is
+      SIGKILL : constant := 9;
+      SIGINT  : constant := 2;
+
+      procedure C_Kill_PT (Pid : Process_Id; Sig_Num : Integer);
+      pragma Import (C, C_Kill_PT, "__gnat_killprocesstree");
+
+   begin
+      if Hard_Kill then
+         C_Kill_PT (Pid, SIGKILL);
+      else
+         C_Kill_PT (Pid, SIGINT);
+      end if;
+   end Kill_Process_Tree;
+
    -------------------------
    -- Locate_Exec_On_Path --
    -------------------------
@@ -1827,6 +1848,8 @@ package body System.OS_Lib is
       Saved_Error  : File_Descriptor;
       Saved_Output : File_Descriptor;
 
+      Dummy_Status : Boolean;
+
    begin
       --  Do not attempt to spawn if the output files could not be created
 
@@ -1841,6 +1864,17 @@ package body System.OS_Lib is
 
       Saved_Error  := Dup (Standerr);
       Dup2 (Stderr_FD, Standerr);
+
+      Set_Close_On_Exec (Saved_Output, True, Dummy_Status);
+      Set_Close_On_Exec (Saved_Error,  True, Dummy_Status);
+
+      --  Close the files just created for the output, as the file descriptors
+      --  cannot be used anywhere, being local values. It is safe to do that,
+      --  as the file descriptors have been duplicated to form standard output
+      --  and standard error of the spawned process.
+
+      Close (Stdout_FD);
+      Close (Stderr_FD);
 
       --  Spawn the program
 
@@ -2060,33 +2094,36 @@ package body System.OS_Lib is
       -------------------
 
       function Get_Directory (Dir : String) return String is
-         Result : String (1 .. Dir'Length + 1);
-         Length : constant Natural := Dir'Length;
-
       begin
          --  Directory given, add directory separator if needed
 
-         if Length > 0 then
-            Result (1 .. Length) := Dir;
+         if Dir'Length > 0 then
+            declare
+               Result : String   :=
+                          Normalize_Pathname
+                            (Dir, "", Resolve_Links, Case_Sensitive) &
+                             Directory_Separator;
+               Last   : Positive := Result'Last - 1;
 
-            --  On Windows, change all '/' to '\'
+            begin
+               --  On Windows, change all '/' to '\'
 
-            if On_Windows then
-               for J in 1 .. Length loop
-                  if Result (J) = '/' then
-                     Result (J) := Directory_Separator;
-                  end if;
-               end loop;
-            end if;
+               if On_Windows then
+                  for J in Result'First .. Last - 1 loop
+                     if Result (J) = '/' then
+                        Result (J) := Directory_Separator;
+                     end if;
+                  end loop;
+               end if;
 
-            --  Add directory separator, if needed
+               --  Include additional directory separator, if needed
 
-            if Result (Length) = Directory_Separator then
-               return Result (1 .. Length);
-            else
-               Result (Result'Length) := Directory_Separator;
-               return Result;
-            end if;
+               if Result (Last) /= Directory_Separator then
+                  Last := Last + 1;
+               end if;
+
+               return Result (Result'First .. Last);
+            end;
 
          --  Directory name not given, get current directory
 

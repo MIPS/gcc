@@ -1,5 +1,5 @@
 /* Compilation switch flag type definitions for GCC.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -91,6 +91,21 @@ enum debug_struct_file
   DINFO_STRUCT_FILE_ANY     /* Debug structs defined in all files. */
 };
 
+/* Balance between GNAT encodings and standard DWARF to emit.  */
+
+enum dwarf_gnat_encodings
+{
+  DWARF_GNAT_ENCODINGS_ALL = 0,	    /* Emit all GNAT encodings, then emit as
+				       much standard DWARF as possible so it
+				       does not conflict with GNAT
+				       encodings.  */
+  DWARF_GNAT_ENCODINGS_GDB = 1,	    /* Emit as much standard DWARF as possible
+				       as long as GDB handles them.  Emit GNAT
+				       encodings for the rest.  */
+  DWARF_GNAT_ENCODINGS_MINIMAL = 2  /* Emit all the standard DWARF we can.
+				       Emit GNAT encodings for the rest.  */
+};
+
 /* Enumerate Objective-c instance variable visibility settings. */
 
 enum ivar_visibility
@@ -161,30 +176,6 @@ enum stack_check_type
   /* Check the stack and entirely rely on the target configuration
      files, i.e. do not use the generic mechanism at all.  */
   FULL_BUILTIN_STACK_CHECK
-};
-
-/* Names for the different levels of -Wstrict-overflow=N.  The numeric
-   values here correspond to N.  */
-enum warn_strict_overflow_code
-{
-  /* Overflow warning that should be issued with -Wall: a questionable
-     construct that is easy to avoid even when using macros.  Example:
-     folding (x + CONSTANT > x) to 1.  */
-  WARN_STRICT_OVERFLOW_ALL = 1,
-  /* Overflow warning about folding a comparison to a constant because
-     of undefined signed overflow, other than cases covered by
-     WARN_STRICT_OVERFLOW_ALL.  Example: folding (abs (x) >= 0) to 1
-     (this is false when x == INT_MIN).  */
-  WARN_STRICT_OVERFLOW_CONDITIONAL = 2,
-  /* Overflow warning about changes to comparisons other than folding
-     them to a constant.  Example: folding (x + 1 > 1) to (x > 0).  */
-  WARN_STRICT_OVERFLOW_COMPARISON = 3,
-  /* Overflow warnings not covered by the above cases.  Example:
-     folding ((x * 10) / 5) to (x * 2).  */
-  WARN_STRICT_OVERFLOW_MISC = 4,
-  /* Overflow warnings about reducing magnitude of constants in
-     comparison.  Example: folding (x + 2 > y) to (x + 1 >= y).  */
-  WARN_STRICT_OVERFLOW_MAGNITUDE = 5
 };
 
 /* Floating-point contraction mode.  */
@@ -265,6 +256,14 @@ enum lto_partition_model {
   LTO_PARTITION_MAX = 4
 };
 
+/* flag_lto_linker_output initialization values.  */
+enum lto_linker_output {
+  LTO_LINKER_OUTPUT_UNKNOWN,
+  LTO_LINKER_OUTPUT_REL,
+  LTO_LINKER_OUTPUT_DYN,
+  LTO_LINKER_OUTPUT_PIE,
+  LTO_LINKER_OUTPUT_EXEC
+};
 
 /* gfortran -finit-real= values.  */
 

@@ -419,6 +419,8 @@ Parse::array_type(bool may_use_ellipsis)
     }
 
   Type* element_type = this->type();
+  if (element_type->is_error_type())
+    return Type::make_error_type();
 
   return Type::make_array_type(element_type, length);
 }
@@ -2656,7 +2658,7 @@ Parse::enclosing_var_reference(Named_object* in_function, Named_object* var,
 						   ins.first->index(),
 						   location);
   e = Expression::make_unary(OPERATOR_MULT, e, location);
-  return e;
+  return Expression::make_enclosing_var_reference(e, var, location);
 }
 
 // CompositeLit  = LiteralType LiteralValue .
@@ -2737,7 +2739,7 @@ Parse::composite_lit(Type* type, int depth, Location location)
 	  // This must be a composite literal inside another composite
 	  // literal, with the type omitted for the inner one.
 	  val = this->composite_lit(type, depth + 1, token->location());
-	  is_type_omitted = true;
+          is_type_omitted = true;
 	}
 
       token = this->peek_token();
@@ -2749,11 +2751,14 @@ Parse::composite_lit(Type* type, int depth, Location location)
 	}
       else
 	{
-	  if (is_type_omitted && !val->is_error_expression())
-	    {
-	      error_at(this->location(), "unexpected %<:%>");
-	      val = Expression::make_error(this->location());
-	    }
+          if (is_type_omitted)
+            {
+              // VAL is a nested composite literal with an omitted type being
+              // used a key.  Record this information in VAL so that the correct
+              // type is associated with the literal value if VAL is a
+              // map literal.
+              val->complit()->update_key_path(depth);
+            }
 
 	  this->advance_token();
 
@@ -5786,24 +5791,10 @@ Parse::verify_not_sink(Expression* expr)
 
   // If this can not be a sink, and it is a variable, then we are
   // using the variable, not just assigning to it.
-  Var_expression* ve = expr->var_expression();
-  if (ve != NULL)
-    this->mark_var_used(ve->named_object());
-  else if (expr->deref()->field_reference_expression() != NULL
-	   && this->gogo_->current_function() != NULL)
-    {
-      // We could be looking at a variable referenced from a closure.
-      // If so, we need to get the enclosed variable and mark it as used.
-      Function* this_function = this->gogo_->current_function()->func_value();
-      Named_object* closure = this_function->closure_var();
-      if (closure != NULL)
-	{
-	  unsigned int var_index =
-	    expr->deref()->field_reference_expression()->field_index();
-	  this->mark_var_used(this_function->enclosing_var(var_index - 1));
-	}
-    }
-
+  if (expr->var_expression() != NULL)
+    this->mark_var_used(expr->var_expression()->named_object());
+  else if (expr->enclosed_var_expression() != NULL)
+    this->mark_var_used(expr->enclosed_var_expression()->variable());
   return expr;
 }
 

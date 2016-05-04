@@ -2,7 +2,7 @@
 
 // 2005-02-17  Matt Austern  <austern@apple.com>
 //
-// Copyright (C) 2005-2015 Free Software Foundation, Inc.
+// Copyright (C) 2005-2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -32,11 +32,11 @@ using std::pair;
 
 template class unordered_multimap<string, float>;
 template class unordered_multimap<string, int,
-				  hash<string>, equal_to<string>, 
+				  hash<string>, equal_to<string>,
 				  allocator<pair<const string, int> > >;
 template class unordered_multimap<string, float,
 				  hash<string>, equal_to<string>,
 				  allocator<char> >;
 template class __unordered_multimap<string, int,
-				    hash<string>, equal_to<string>, 
+				    hash<string>, equal_to<string>,
 				    allocator<pair<const string, int> >, true>;

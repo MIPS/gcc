@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1997-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1997-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -91,16 +91,16 @@ package body Sem_Elab is
      Table_Increment      => 100,
      Table_Name           => "Elab_Visited");
 
-   --  This table stores calls to Check_Internal_Call that are delayed
-   --  until all generics are instantiated, and in particular that all
-   --  generic bodies have been inserted. We need to delay, because we
-   --  need to be able to look through the inserted bodies.
+   --  This table stores calls to Check_Internal_Call that are delayed until
+   --  all generics are instantiated and in particular until after all generic
+   --  bodies have been inserted. We need to delay, because we need to be able
+   --  to look through the inserted bodies.
 
    type Delay_Element is record
       N : Node_Id;
-      --  The parameter N from the call to Check_Internal_Call. Note that
-      --  this node may get rewritten over the delay period by expansion
-      --  in the call case (but not in the instantiation case).
+      --  The parameter N from the call to Check_Internal_Call. Note that this
+      --  node may get rewritten over the delay period by expansion in the call
+      --  case (but not in the instantiation case).
 
       E : Entity_Id;
       --  The parameter E from the call to Check_Internal_Call
@@ -109,8 +109,8 @@ package body Sem_Elab is
       --  The parameter Orig_Ent from the call to Check_Internal_Call
 
       Curscop : Entity_Id;
-      --  The current scope of the call. This is restored when we complete
-      --  the delayed call, so that we do this in the right scope.
+      --  The current scope of the call. This is restored when we complete the
+      --  delayed call, so that we do this in the right scope.
 
       From_Elab_Code : Boolean;
       --  Save indication of whether this call is from elaboration code
@@ -958,10 +958,10 @@ package body Sem_Elab is
             Ent := Alias (Ent);
             E_Scope := Ent;
 
-            --  If no alias, there is a previous error
+            --  If no alias, there could be a previous error, but not if we've
+            --  already reached the outermost level (Standard).
 
             if No (Ent) then
-               Check_Error_Detected;
                return;
             end if;
          end loop;
@@ -1233,8 +1233,8 @@ package body Sem_Elab is
       --  then the body of the generic will be in the earlier instance.
 
       declare
-         D1 : constant Int := Instantiation_Depth (Sloc (Ent));
-         D2 : constant Int := Instantiation_Depth (Sloc (N));
+         D1 : constant Nat := Instantiation_Depth (Sloc (Ent));
+         D2 : constant Nat := Instantiation_Depth (Sloc (N));
 
       begin
          if D1 > D2 then
@@ -2032,24 +2032,85 @@ package body Sem_Elab is
       Outer_Scope : Entity_Id;
       Orig_Ent    : Entity_Id)
    is
+      function Within_Initial_Condition (Call : Node_Id) return Boolean;
+      --  Determine whether call Call occurs within pragma Initial_Condition or
+      --  pragma Check with check_kind set to Initial_Condition.
+
+      ------------------------------
+      -- Within_Initial_Condition --
+      ------------------------------
+
+      function Within_Initial_Condition (Call : Node_Id) return Boolean is
+         Args : List_Id;
+         Nam  : Name_Id;
+         Par  : Node_Id;
+
+      begin
+         --  Traverse the parent chain looking for an enclosing pragma
+
+         Par := Call;
+         while Present (Par) loop
+            if Nkind (Par) = N_Pragma then
+               Nam := Pragma_Name (Par);
+
+               --  Pragma Initial_Condition appears in its alternative from as
+               --  Check (Initial_Condition, ...).
+
+               if Nam = Name_Check then
+                  Args := Pragma_Argument_Associations (Par);
+
+                  --  Pragma Check should have at least two arguments
+
+                  pragma Assert (Present (Args));
+
+                  return
+                    Chars (Expression (First (Args))) = Name_Initial_Condition;
+
+               --  Direct match
+
+               elsif Nam = Name_Initial_Condition then
+                  return True;
+
+               --  Since pragmas are never nested within other pragmas, stop
+               --  the traversal.
+
+               else
+                  return False;
+               end if;
+
+            --  Prevent the search from going too far
+
+            elsif Is_Body_Or_Package_Declaration (Par) then
+               exit;
+            end if;
+
+            Par := Parent (Par);
+         end loop;
+
+         return False;
+      end Within_Initial_Condition;
+
+      --  Local variables
+
       Inst_Case : constant Boolean := Nkind (N) in N_Generic_Instantiation;
+
+   --  Start of processing for Check_Internal_Call
 
    begin
       --  For P'Access, we want to warn if the -gnatw.f switch is set, and the
       --  node comes from source.
 
-      if Nkind (N) = N_Attribute_Reference and then
-        (not Warn_On_Elab_Access or else not Comes_From_Source (N))
+      if Nkind (N) = N_Attribute_Reference
+        and then (not Warn_On_Elab_Access or else not Comes_From_Source (N))
       then
          return;
 
       --  If not function or procedure call, instantiation, or 'Access, then
       --  ignore call (this happens in some error cases and rewriting cases).
 
-      elsif not Nkind_In
-               (N, N_Function_Call,
-                   N_Procedure_Call_Statement,
-                   N_Attribute_Reference)
+      elsif not Nkind_In (N, N_Attribute_Reference,
+                             N_Function_Call,
+                             N_Procedure_Call_Statement)
         and then not Inst_Case
       then
          return;
@@ -2091,6 +2152,14 @@ package body Sem_Elab is
 
       elsif Inside_A_Generic then
          return;
+
+      --  Nothing to do when the call appears within pragma Initial_Condition.
+      --  The pragma is part of the elaboration statements of a package body
+      --  and may only call external subprograms or subprograms whose body is
+      --  already available.
+
+      elsif Within_Initial_Condition (N) then
+         return;
       end if;
 
       --  Delay this call if we are still delaying calls
@@ -2122,12 +2191,6 @@ package body Sem_Elab is
       Outer_Scope : Entity_Id;
       Orig_Ent    : Entity_Id)
    is
-      Loc       : constant Source_Ptr := Sloc (N);
-      Inst_Case : constant Boolean := Is_Generic_Unit (E);
-
-      Sbody : Node_Id;
-      Ebody : Entity_Id;
-
       function Find_Elab_Reference (N : Node_Id) return Traverse_Result;
       --  Function applied to each node as we traverse the body. Checks for
       --  call or entity reference that needs checking, and if so checks it.
@@ -2234,6 +2297,12 @@ package body Sem_Elab is
             return OK;
          end if;
       end Find_Elab_Reference;
+
+      Inst_Case : constant Boolean    := Is_Generic_Unit (E);
+      Loc       : constant Source_Ptr := Sloc (N);
+
+      Ebody : Entity_Id;
+      Sbody : Node_Id;
 
    --  Start of processing for Check_Internal_Call_Continue
 
@@ -2379,27 +2448,43 @@ package body Sem_Elab is
       --  Not that special case, warning and dynamic check is required
 
       --  If we have nothing in the call stack, then this is at the outer
-      --  level, and the ABE is bound to occur, unless it's a 'Access.
+      --  level, and the ABE is bound to occur, unless it's a 'Access, or
+      --  it's a renaming.
 
       if Elab_Call.Last = 0 then
          Error_Msg_Warn := SPARK_Mode /= On;
 
-         if Inst_Case then
-            Error_Msg_NE
-              ("cannot instantiate& before body seen<<", N, Orig_Ent);
-         elsif Nkind (N) /= N_Attribute_Reference then
-            Error_Msg_NE
-              ("cannot call& before body seen<<", N, Orig_Ent);
-         else
-            Error_Msg_NE
-              ("Access attribute of & before body seen<<", N, Orig_Ent);
-            Error_Msg_N ("\possible Program_Error on later references<", N);
-         end if;
+         declare
+            Insert_Check : Boolean := True;
+            --  This flag is set to True if an elaboration check should be
+            --  inserted.
 
-         if Nkind (N) /= N_Attribute_Reference then
-            Error_Msg_N ("\Program_Error [<<", N);
-            Insert_Elab_Check (N);
-         end if;
+         begin
+            if Inst_Case then
+               Error_Msg_NE
+                 ("cannot instantiate& before body seen<<", N, Orig_Ent);
+
+            elsif Nkind (N) = N_Attribute_Reference then
+               Error_Msg_NE
+                 ("Access attribute of & before body seen<<", N, Orig_Ent);
+               Error_Msg_N ("\possible Program_Error on later references<", N);
+               Insert_Check := False;
+
+            elsif Nkind (Unit_Declaration_Node (Orig_Ent)) /=
+                    N_Subprogram_Renaming_Declaration
+            then
+               Error_Msg_NE
+                 ("cannot call& before body seen<<", N, Orig_Ent);
+
+            elsif not Is_Generic_Actual_Subprogram (Orig_Ent) then
+               Insert_Check := False;
+            end if;
+
+            if Insert_Check then
+               Error_Msg_N ("\Program_Error [<<", N);
+               Insert_Elab_Check (N);
+            end if;
+         end;
 
       --  Call is not at outer level
 
@@ -3271,11 +3356,11 @@ package body Sem_Elab is
       --  Determine whether to emit an error message based on the combination
       --  of flags Check_Elab_Flag and Flag.
 
-      function Is_Printable_Error_Name (Nm : Name_Id) return Boolean;
-      --  An internal function, used to determine if a name, Nm, is either
-      --  a non-internal name, or is an internal name that is printable
-      --  by the error message circuits (i.e. it has a single upper
-      --  case letter at the end).
+      function Is_Printable_Error_Name return Boolean;
+      --  An internal function, used to determine if a name, stored in the
+      --  Name_Buffer, is either a non-internal name, or is an internal name
+      --  that is printable by the error message circuits (i.e. it has a single
+      --  upper case letter at the end).
 
       ----------
       -- Emit --
@@ -3294,9 +3379,9 @@ package body Sem_Elab is
       -- Is_Printable_Error_Name --
       -----------------------------
 
-      function Is_Printable_Error_Name (Nm : Name_Id) return Boolean is
+      function Is_Printable_Error_Name return Boolean is
       begin
-         if not Is_Internal_Name (Nm) then
+         if not Is_Internal_Name then
             return True;
 
          elsif Name_Len = 1 then
@@ -3319,6 +3404,7 @@ package body Sem_Elab is
          Error_Msg_Sloc := Elab_Call.Table (J).Cloc;
 
          Ent := Elab_Call.Table (J).Ent;
+         Get_Name_String (Chars (Ent));
 
          --  Dynamic elaboration model, warnings controlled by -gnatwl
 
@@ -3328,7 +3414,7 @@ package body Sem_Elab is
                   Error_Msg_NE ("\\?l?& instantiated #", N, Ent);
                elsif Is_Init_Proc (Ent) then
                   Error_Msg_N ("\\?l?initialization procedure called #", N);
-               elsif Is_Printable_Error_Name (Chars (Ent)) then
+               elsif Is_Printable_Error_Name then
                   Error_Msg_NE ("\\?l?& called #", N, Ent);
                else
                   Error_Msg_N ("\\?l?called #", N);
@@ -3343,7 +3429,7 @@ package body Sem_Elab is
                   Error_Msg_NE ("\\?$?& instantiated #", N, Ent);
                elsif Is_Init_Proc (Ent) then
                   Error_Msg_N ("\\?$?initialization procedure called #", N);
-               elsif Is_Printable_Error_Name (Chars (Ent)) then
+               elsif Is_Printable_Error_Name then
                   Error_Msg_NE ("\\?$?& called #", N, Ent);
                else
                   Error_Msg_N ("\\?$?called #", N);

@@ -1,5 +1,5 @@
 /* Fold a constant sub-tree into a single node for C-compiler
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -86,6 +86,7 @@ extern void fold_defer_overflow_warnings (void);
 extern void fold_undefer_overflow_warnings (bool, const gimple *, int);
 extern void fold_undefer_and_ignore_overflow_warnings (void);
 extern bool fold_deferring_overflow_warnings_p (void);
+extern void fold_overflow_warning (const char*, enum warn_strict_overflow_code);
 extern int operand_equal_p (const_tree, const_tree, unsigned int);
 extern int multiple_of_p (tree, const_tree, const_tree);
 #define omit_one_operand(T1,T2,T3)\
@@ -137,12 +138,12 @@ extern bool tree_unary_nonnegative_warnv_p (enum tree_code, tree, tree,
 extern bool tree_binary_nonnegative_warnv_p (enum tree_code, tree, tree, tree,
 					     bool *, int);
 extern bool tree_single_nonnegative_warnv_p (tree, bool *, int);
-extern bool tree_call_nonnegative_warnv_p (tree, tree, tree, tree, bool *,
-					   int);
+extern bool tree_call_nonnegative_warnv_p (tree, combined_fn, tree, tree,
+					   bool *, int);
 
 extern bool integer_valued_real_unary_p (tree_code, tree, int);
 extern bool integer_valued_real_binary_p (tree_code, tree, tree, int);
-extern bool integer_valued_real_call_p (tree, tree, tree, int);
+extern bool integer_valued_real_call_p (combined_fn, tree, tree, int);
 extern bool integer_valued_real_single_p (tree, int);
 extern bool integer_valued_real_p (tree, int = 0);
 
@@ -177,9 +178,10 @@ extern bool merge_ranges (int *, tree *, tree *, int, tree, tree, int,
 			  tree, tree);
 extern tree sign_bit_p (tree, const_tree);
 extern tree exact_inverse (tree, tree);
+extern bool expr_not_equal_to (tree t, const wide_int &);
 extern tree const_unop (enum tree_code, tree, tree);
 extern tree const_binop (enum tree_code, tree, tree, tree);
-extern bool negate_mathfn_p (enum built_in_function);
+extern bool negate_mathfn_p (combined_fn);
 extern const char *c_getstr (tree);
 
 /* Return OFF converted to a pointer offset type suitable as offset for

@@ -1,5 +1,5 @@
 /* Backend support for Fortran 95 basic types and derived types.
-   Copyright (C) 2002-2015 Free Software Foundation, Inc.
+   Copyright (C) 2002-2016 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -828,6 +828,7 @@ gfc_build_complex_type (tree scalar_type)
 
   new_type = make_node (COMPLEX_TYPE);
   TREE_TYPE (new_type) = scalar_type;
+  SET_TYPE_MODE (new_type, GET_MODE_COMPLEX_MODE (TYPE_MODE (scalar_type)));
   layout_type (new_type);
   return new_type;
 }
@@ -1045,6 +1046,8 @@ gfc_get_character_type (int kind, gfc_charlen * cl)
   tree len;
 
   len = (cl == NULL) ? NULL_TREE : cl->backend_decl;
+  if (len && POINTER_TYPE_P (TREE_TYPE (len)))
+    len = build_fold_indirect_ref (len);
 
   return gfc_get_character_type_len (kind, len);
 }
@@ -2273,7 +2276,7 @@ gfc_add_field_to_struct (tree context, tree name, tree type, tree **chain)
   tree decl = gfc_add_field_to_struct_1 (context, name, type, chain);
 
   DECL_INITIAL (decl) = 0;
-  DECL_ALIGN (decl) = 0;
+  SET_DECL_ALIGN (decl, 0);
   DECL_USER_ALIGN (decl) = 0;
 
   return decl;
@@ -2368,8 +2371,14 @@ gfc_get_derived_type (gfc_symbol * derived)
   if (derived->attr.unlimited_polymorphic
       || (flag_coarray == GFC_FCOARRAY_LIB
 	  && derived->from_intmod == INTMOD_ISO_FORTRAN_ENV
-	  && derived->intmod_sym_id == ISOFORTRAN_LOCK_TYPE))
+	  && (derived->intmod_sym_id == ISOFORTRAN_LOCK_TYPE
+	      || derived->intmod_sym_id == ISOFORTRAN_EVENT_TYPE)))
     return ptr_type_node;
+
+  if (flag_coarray != GFC_FCOARRAY_LIB
+      && derived->from_intmod == INTMOD_ISO_FORTRAN_ENV
+      && derived->intmod_sym_id == ISOFORTRAN_EVENT_TYPE)
+    return gfc_get_int_type (gfc_default_integer_kind);
 
   if (derived && derived->attr.flavor == FL_PROCEDURE
       && derived->attr.generic)

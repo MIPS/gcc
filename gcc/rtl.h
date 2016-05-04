@@ -1,5 +1,5 @@
 /* Register Transfer Language (RTL) definitions for GCC
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2747,6 +2747,8 @@ extern unsigned int subreg_highpart_offset (machine_mode,
 					    machine_mode);
 extern int byte_lowpart_offset (machine_mode, machine_mode);
 extern rtx make_safe_from (rtx, rtx);
+extern rtx convert_memory_address_addr_space_1 (machine_mode, rtx,
+						addr_space_t, bool, bool);
 extern rtx convert_memory_address_addr_space (machine_mode, rtx,
 					      addr_space_t);
 #define convert_memory_address(to_mode,x) \
@@ -2931,6 +2933,7 @@ extern void set_insn_deleted (rtx);
 
 extern rtx single_set_2 (const rtx_insn *, const_rtx);
 extern bool contains_symbol_ref_p (const_rtx);
+extern bool contains_symbolic_reference_p (const_rtx);
 
 /* Handle the cheap and common cases inline for performance.  */
 
@@ -3010,7 +3013,7 @@ extern bool can_nonlocal_goto (const rtx_insn *);
 extern void copy_reg_eh_region_note_forward (rtx, rtx_insn *, rtx);
 extern void copy_reg_eh_region_note_backward (rtx, rtx_insn *, rtx);
 extern int inequality_comparisons_p (const_rtx);
-extern rtx replace_rtx (rtx, rtx, rtx);
+extern rtx replace_rtx (rtx, rtx, rtx, bool = false);
 extern void replace_label (rtx *, rtx, rtx, bool);
 extern void replace_label_in_insn (rtx_insn *, rtx, rtx, bool);
 extern bool rtx_referenced_p (const_rtx, const_rtx);
@@ -3505,7 +3508,7 @@ extern int condjump_in_parallel_p (const rtx_insn *);
 extern int max_reg_num (void);
 extern int max_label_num (void);
 extern int get_first_label_num (void);
-extern void maybe_set_first_label_num (rtx);
+extern void maybe_set_first_label_num (rtx_code_label *);
 extern void delete_insns_since (rtx_insn *);
 extern void mark_reg_pointer (rtx, int);
 extern void mark_user_reg (rtx);
@@ -3591,7 +3594,7 @@ extern void init_lower_subreg (void);
 
 /* In gcse.c */
 extern bool can_copy_p (machine_mode);
-extern bool can_assign_to_reg_without_clobbers_p (rtx);
+extern bool can_assign_to_reg_without_clobbers_p (rtx, machine_mode);
 extern rtx fis_get_condition (rtx_insn *);
 
 /* In ira.c */
@@ -3651,13 +3654,14 @@ extern int anti_dependence (const_rtx, const_rtx);
 extern int canon_anti_dependence (const_rtx, bool,
 				  const_rtx, machine_mode, rtx);
 extern int output_dependence (const_rtx, const_rtx);
+extern int canon_output_dependence (const_rtx, bool,
+				    const_rtx, machine_mode, rtx);
 extern int may_alias_p (const_rtx, const_rtx);
 extern void init_alias_target (void);
 extern void init_alias_analysis (void);
 extern void end_alias_analysis (void);
 extern void vt_equate_reg_base_value (const_rtx, const_rtx);
 extern bool memory_modified_in_insn_p (const_rtx, const_rtx);
-extern bool memory_must_be_modified_in_insn_p (const_rtx, const_rtx);
 extern bool may_be_sp_based_p (rtx);
 extern rtx gen_hard_reg_clobber (machine_mode, unsigned int);
 extern rtx get_reg_known_value (unsigned int);

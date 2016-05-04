@@ -1,5 +1,5 @@
 /* Statement simplification on GIMPLE.
-   Copyright (C) 2010-2015 Free Software Foundation, Inc.
+   Copyright (C) 2010-2016 Free Software Foundation, Inc.
    Split out from tree-ssa-ccp.c.
 
 This file is part of GCC.
@@ -53,6 +53,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gomp-constants.h"
 #include "optabs-query.h"
 #include "omp-low.h"
+#include "ipa-chkp.h"
 
 
 /* Return true when DECL can be referenced from current unit.
@@ -193,6 +194,8 @@ canonicalize_constructor_val (tree cval, tree from_decl)
       if ((TREE_CODE (base) == VAR_DECL
 	   || TREE_CODE (base) == FUNCTION_DECL)
 	  && !can_refer_decl_in_current_unit_p (base, from_decl))
+	return NULL_TREE;
+      if (TREE_TYPE (base) == error_mark_node)
 	return NULL_TREE;
       if (TREE_CODE (base) == VAR_DECL)
 	TREE_ADDRESSABLE (base) = 1;
@@ -539,7 +542,7 @@ gimplify_and_update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
     }
   else
     {
-      tree tmp = get_initialized_tmp_var (expr, &stmts, NULL);
+      tree tmp = force_gimple_operand (expr, &stmts, false, NULL_TREE);
       new_stmt = gimple_build_assign (lhs, tmp);
       i = gsi_last (stmts);
       gsi_insert_after_without_update (&i, new_stmt,
@@ -663,6 +666,18 @@ gimple_fold_builtin_memory_op (gimple_stmt_iterator *gsi,
       tree srctype, desttype;
       unsigned int src_align, dest_align;
       tree off0;
+
+      /* Inlining of memcpy/memmove may cause bounds lost (if we copy
+	 pointers as wide integer) and also may result in huge function
+	 size because of inlined bounds copy.  Thus don't inline for
+	 functions we want to instrument.  */
+      if (flag_check_pointer_bounds
+	  && chkp_instrumentable_p (cfun->decl)
+	  /* Even if data may contain pointers we can inline if copy
+	     less than a pointer size.  */
+	  && (!tree_fits_uhwi_p (len)
+	      || compare_tree_int (len, POINTER_SIZE_UNITS) >= 0))
+	return false;
 
       /* Build accesses at offset zero with a ref-all character type.  */
       off0 = build_int_cst (build_pointer_type_for_mode (char_type_node,
@@ -1697,7 +1712,8 @@ gimple_fold_builtin_memory_chk (gimple_stmt_iterator *gsi,
 	{
 	  gimple_seq stmts = NULL;
 	  len = gimple_convert_to_ptrofftype (&stmts, loc, len);
-	  tree temp = gimple_build (&stmts, loc, POINTER_PLUS_EXPR, dest, len);
+	  tree temp = gimple_build (&stmts, loc, POINTER_PLUS_EXPR,
+				    TREE_TYPE (dest), dest, len);
 	  gsi_insert_seq_before (gsi, stmts, GSI_SAME_STMT);
 	  replace_call_with_value (gsi, temp);
 	  return true;
@@ -3295,7 +3311,14 @@ replace_stmt_with_simplification (gimple_stmt_iterator *gsi,
       || (ops[2]
 	  && TREE_CODE (ops[2]) == SSA_NAME
 	  && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[2])
-	  && !has_use_on_stmt (ops[2], stmt)))
+	  && !has_use_on_stmt (ops[2], stmt))
+      || (COMPARISON_CLASS_P (ops[0])
+	  && ((TREE_CODE (TREE_OPERAND (ops[0], 0)) == SSA_NAME
+	       && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (TREE_OPERAND (ops[0], 0))
+	       && !has_use_on_stmt (TREE_OPERAND (ops[0], 0), stmt))
+	      || (TREE_CODE (TREE_OPERAND (ops[0], 1)) == SSA_NAME
+		  && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (TREE_OPERAND (ops[0], 1))
+		  && !has_use_on_stmt (TREE_OPERAND (ops[0], 1), stmt)))))
     return false;
 
   /* Don't insert new statements when INPLACE is true, even if we could
@@ -3353,8 +3376,7 @@ replace_stmt_with_simplification (gimple_stmt_iterator *gsi,
 	  || gimple_num_ops (stmt) > get_gimple_rhs_num_ops (rcode))
 	{
 	  maybe_build_generic_op (rcode,
-				  TREE_TYPE (gimple_assign_lhs (stmt)),
-				  &ops[0], ops[1], ops[2]);
+				  TREE_TYPE (gimple_assign_lhs (stmt)), ops);
 	  gimple_assign_set_rhs_with_ops (gsi, rcode, ops[0], ops[1], ops[2]);
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -3369,7 +3391,7 @@ replace_stmt_with_simplification (gimple_stmt_iterator *gsi,
 	}
     }
   else if (rcode.is_fn_code ()
-	   && gimple_call_builtin_p (stmt, rcode))
+	   && gimple_call_combined_fn (stmt) == rcode)
     {
       unsigned i;
       for (i = 0; i < gimple_call_num_args (stmt); ++i)
@@ -3503,7 +3525,9 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace, tree (*valueize) (tree))
 {
   bool changed = false;
   gimple *stmt = gsi_stmt (*gsi);
+  bool nowarning = gimple_no_warning_p (stmt);
   unsigned i;
+  fold_defer_overflow_warnings ();
 
   /* First do required canonicalization of [TARGET_]MEM_REF addresses
      after propagation.
@@ -3796,6 +3820,7 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace, tree (*valueize) (tree))
 	}
     }
 
+  fold_undefer_overflow_warnings (changed && !nowarning, stmt, 0);
   return changed;
 }
 
@@ -5358,7 +5383,7 @@ fold_array_ctor_reference (tree type, tree ctor,
      be larger than size of array element.  */
   if (!TYPE_SIZE_UNIT (type)
       || TREE_CODE (TYPE_SIZE_UNIT (type)) != INTEGER_CST
-      || wi::lts_p (elt_size, wi::to_offset (TYPE_SIZE_UNIT (type)))
+      || elt_size < wi::to_offset (TYPE_SIZE_UNIT (type))
       || elt_size == 0)
     return NULL_TREE;
 
@@ -5413,8 +5438,7 @@ fold_nonarray_ctor_reference (tree type, tree ctor,
 
       /* Compute bit offset of the field.  */
       bitoffset = (wi::to_offset (field_offset)
-		   + wi::lshift (wi::to_offset (byte_offset),
-				 LOG2_BITS_PER_UNIT));
+		   + (wi::to_offset (byte_offset) << LOG2_BITS_PER_UNIT));
       /* Compute bit offset where the field ends.  */
       if (field_size != NULL_TREE)
 	bitoffset_end = bitoffset + wi::to_offset (field_size);
@@ -5435,7 +5459,7 @@ fold_nonarray_ctor_reference (tree type, tree ctor,
 	     fields.  */
 	  if (wi::cmps (access_end, bitoffset_end) > 0)
 	    return NULL_TREE;
-	  if (wi::lts_p (offset, bitoffset))
+	  if (offset < bitoffset)
 	    return NULL_TREE;
 	  return fold_ctor_reference (type, cval,
 				      inner_offset.to_uhwi (), size,
@@ -5482,9 +5506,10 @@ fold_ctor_reference (tree type, tree ctor, unsigned HOST_WIDE_INT offset,
       && size <= MAX_BITSIZE_MODE_ANY_MODE)
     {
       unsigned char buf[MAX_BITSIZE_MODE_ANY_MODE / BITS_PER_UNIT];
-      if (native_encode_expr (ctor, buf, size / BITS_PER_UNIT,
-			      offset / BITS_PER_UNIT) > 0)
-	return native_interpret_expr (type, buf, size / BITS_PER_UNIT);
+      int len = native_encode_expr (ctor, buf, size / BITS_PER_UNIT,
+				    offset / BITS_PER_UNIT);
+      if (len > 0)
+	return native_interpret_expr (type, buf, len);
     }
   if (TREE_CODE (ctor) == CONSTRUCTOR)
     {
@@ -6202,7 +6227,7 @@ gimple_call_nonnegative_warnv_p (gimple *stmt, bool *strict_overflow_p,
     gimple_call_arg (stmt, 1) : NULL_TREE;
 
   return tree_call_nonnegative_warnv_p (gimple_expr_type (stmt),
-					gimple_call_fndecl (stmt),
+					gimple_call_combined_fn (stmt),
 					arg0,
 					arg1,
 					strict_overflow_p, depth);
@@ -6253,7 +6278,7 @@ gimple_stmt_nonnegative_warnv_p (gimple *stmt, bool *strict_overflow_p,
 
 /* Return true if the floating-point value computed by assignment STMT
    is known to have an integer value.  We also allow +Inf, -Inf and NaN
-   to be considered integer values.
+   to be considered integer values. Return false for signaling NaN.
 
    DEPTH is the current nesting depth of the query.  */
 
@@ -6282,7 +6307,7 @@ gimple_assign_integer_valued_real_p (gimple *stmt, int depth)
 
 /* Return true if the floating-point value computed by call STMT is known
    to have an integer value.  We also allow +Inf, -Inf and NaN to be
-   considered integer values.
+   considered integer values. Return false for signaling NaN.
 
    DEPTH is the current nesting depth of the query.  */
 
@@ -6295,13 +6320,13 @@ gimple_call_integer_valued_real_p (gimple *stmt, int depth)
   tree arg1 = (gimple_call_num_args (stmt) > 1
 	       ? gimple_call_arg (stmt, 1)
 	       : NULL_TREE);
-  return integer_valued_real_call_p (gimple_call_fndecl (stmt),
+  return integer_valued_real_call_p (gimple_call_combined_fn (stmt),
 				     arg0, arg1, depth);
 }
 
 /* Return true if the floating-point result of phi STMT is known to have
    an integer value.  We also allow +Inf, -Inf and NaN to be considered
-   integer values.
+   integer values. Return false for signaling NaN.
 
    DEPTH is the current nesting depth of the query.  */
 
@@ -6319,7 +6344,7 @@ gimple_phi_integer_valued_real_p (gimple *stmt, int depth)
 
 /* Return true if the floating-point value computed by STMT is known
    to have an integer value.  We also allow +Inf, -Inf and NaN to be
-   considered integer values.
+   considered integer values. Return false for signaling NaN.
 
    DEPTH is the current nesting depth of the query.  */
 

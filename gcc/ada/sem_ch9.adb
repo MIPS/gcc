@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1192,12 +1192,13 @@ package body Sem_Ch9 is
       Entry_Name : Entity_Id;
 
    begin
-      --  An entry body "freezes" the contract of the nearest enclosing
-      --  package body. This ensures that any annotations referenced by the
-      --  contract of an entry or subprogram body declared within the current
-      --  protected body are available.
+      --  An entry body "freezes" the contract of the nearest enclosing package
+      --  body and all other contracts encountered in the same declarative part
+      --  up to and excluding the entry body. This ensures that any annotations
+      --  referenced by the contract of an entry or subprogram body declared
+      --  within the current protected body are available.
 
-      Analyze_Enclosing_Package_Body_Contract (N);
+      Analyze_Previous_Contracts (N);
 
       Tasking_Used := True;
 
@@ -1353,11 +1354,6 @@ package body Sem_Ch9 is
          Install_Private_Data_Declarations
            (Sloc (N), Entry_Name, P_Type, N, Decls);
       end if;
-
-      --  An entry body "freezes" the contract of its initial declaration. This
-      --  analysis depends on attribute Corresponding_Body being set.
-
-      Analyze_Initial_Declaration_Contract (N);
 
       if Present (Decls) then
          Analyze_Declarations (Decls);
@@ -1772,11 +1768,13 @@ package body Sem_Ch9 is
 
    begin
       --  A protected body "freezes" the contract of the nearest enclosing
-      --  package body. This ensures that any annotations referenced by the
-      --  contract of an entry or subprogram body declared within the current
-      --  protected body are available.
+      --  package body and all other contracts encountered in the same
+      --  declarative part up to and excluding the protected body. This ensures
+      --  that any annotations referenced by the contract of an entry or
+      --  subprogram body declared within the current protected body are
+      --  available.
 
-      Analyze_Enclosing_Package_Body_Contract (N);
+      Analyze_Previous_Contracts (N);
 
       Tasking_Used := True;
       Set_Ekind (Body_Id, E_Protected_Body);
@@ -1818,11 +1816,6 @@ package body Sem_Ch9 is
       Install_Declarations (Spec_Id);
       Expand_Protected_Body_Declarations (N, Spec_Id);
       Last_E := Last_Entity (Spec_Id);
-
-      --  A protected body "freezes" the contract of its initial declaration.
-      --  This analysis depends on attribute Corresponding_Spec being set.
-
-      Analyze_Initial_Declaration_Contract (N);
 
       Analyze_Declarations (Declarations (N));
 
@@ -2692,7 +2685,6 @@ package body Sem_Ch9 is
       Enter_Name (Obj_Id);
       Set_Ekind                  (Obj_Id, E_Variable);
       Set_Etype                  (Obj_Id, Typ);
-      Set_Part_Of_Constituents   (Obj_Id, New_Elmt_List);
       Set_SPARK_Pragma           (Obj_Id, SPARK_Mode_Pragma);
       Set_SPARK_Pragma_Inherited (Obj_Id);
 
@@ -2779,7 +2771,6 @@ package body Sem_Ch9 is
       Enter_Name (Obj_Id);
       Set_Ekind                  (Obj_Id, E_Variable);
       Set_Etype                  (Obj_Id, Typ);
-      Set_Part_Of_Constituents   (Obj_Id, New_Elmt_List);
       Set_SPARK_Pragma           (Obj_Id, SPARK_Mode_Pragma);
       Set_SPARK_Pragma_Inherited (Obj_Id);
 
@@ -2816,11 +2807,12 @@ package body Sem_Ch9 is
 
    begin
       --  A task body "freezes" the contract of the nearest enclosing package
-      --  body. This ensures that annotations referenced by the contract of an
-      --  entry or subprogram body declared within the current protected body
-      --  are available.
+      --  body and all other contracts encountered in the same declarative part
+      --  up to and excluding the task body. This ensures that annotations
+      --  referenced by the contract of an entry or subprogram body declared
+      --  within the current protected body are available.
 
-      Analyze_Enclosing_Package_Body_Contract (N);
+      Analyze_Previous_Contracts (N);
 
       Tasking_Used := True;
       Set_Scope (Body_Id, Current_Scope);
@@ -2881,11 +2873,6 @@ package body Sem_Ch9 is
       Set_Has_Completion (Spec_Id);
       Install_Declarations (Spec_Id);
       Last_E := Last_Entity (Spec_Id);
-
-      --  A task body "freezes" the contract of its initial declaration. This
-      --  analysis depends on attribute Corresponding_Spec being set.
-
-      Analyze_Initial_Declaration_Contract (N);
 
       Analyze_Declarations (Decls);
       Inspect_Deferred_Constant_Completion (Decls);
@@ -3088,6 +3075,7 @@ package body Sem_Ch9 is
       if Restriction_Check_Required (No_Task_Hierarchy)
         and then not Is_Library_Level_Entity (T)
         and then Comes_From_Source (T)
+        and then not CodePeer_Mode
       then
          Error_Msg_Sloc := Restrictions_Loc (No_Task_Hierarchy);
 

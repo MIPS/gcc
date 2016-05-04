@@ -1,5 +1,5 @@
 /* Header for code translation functions
-   Copyright (C) 2002-2015 Free Software Foundation, Inc.
+   Copyright (C) 2002-2016 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -113,7 +113,9 @@ enum gfc_coarray_type
   GFC_CAF_COARRAY_ALLOC,
   GFC_CAF_LOCK_STATIC,
   GFC_CAF_LOCK_ALLOC,
-  GFC_CAF_CRITICAL
+  GFC_CAF_CRITICAL,
+  GFC_CAF_EVENT_STATIC,
+  GFC_CAF_EVENT_ALLOC
 };
 
 
@@ -208,6 +210,10 @@ typedef struct gfc_ss_info
 	 this is the symbol of the corresponding dummy argument.  */
       gfc_symbol *dummy_arg;
       tree value;
+      /* Tells that the scalar is a reference to a variable that might
+	 be present on the lhs, so that we should evaluate the value
+	 itself before the loop, not just the reference.  */
+      unsigned needs_temporary:1;
     }
     scalar;
 
@@ -359,6 +365,7 @@ tree gfc_class_set_static_fields (tree, tree, tree);
 tree gfc_class_data_get (tree);
 tree gfc_class_vptr_get (tree);
 tree gfc_class_len_get (tree);
+tree gfc_class_len_or_zero_get (tree);
 gfc_expr * gfc_find_and_cut_at_last_class_ref (gfc_expr *);
 /* Get an accessor to the class' vtab's * field, when a class handle is
    available.  */
@@ -462,6 +469,7 @@ bool gfc_conv_ieee_arithmetic_function (gfc_se *, gfc_expr *);
 tree gfc_save_fp_state (stmtblock_t *);
 void gfc_restore_fp_state (stmtblock_t *, tree);
 
+bool gfc_expr_is_variable (gfc_expr *);
 
 /* Does an intrinsic map directly to an external library call
    This is true for array-returning intrinsics, unless
@@ -755,6 +763,8 @@ extern GTY(()) tree gfor_fndecl_caf_sendget;
 extern GTY(()) tree gfor_fndecl_caf_sync_all;
 extern GTY(()) tree gfor_fndecl_caf_sync_memory;
 extern GTY(()) tree gfor_fndecl_caf_sync_images;
+extern GTY(()) tree gfor_fndecl_caf_stop_numeric;
+extern GTY(()) tree gfor_fndecl_caf_stop_str;
 extern GTY(()) tree gfor_fndecl_caf_error_stop;
 extern GTY(()) tree gfor_fndecl_caf_error_stop_str;
 extern GTY(()) tree gfor_fndecl_caf_atomic_def;
@@ -763,6 +773,9 @@ extern GTY(()) tree gfor_fndecl_caf_atomic_cas;
 extern GTY(()) tree gfor_fndecl_caf_atomic_op;
 extern GTY(()) tree gfor_fndecl_caf_lock;
 extern GTY(()) tree gfor_fndecl_caf_unlock;
+extern GTY(()) tree gfor_fndecl_caf_event_post;
+extern GTY(()) tree gfor_fndecl_caf_event_wait;
+extern GTY(()) tree gfor_fndecl_caf_event_query;
 extern GTY(()) tree gfor_fndecl_co_broadcast;
 extern GTY(()) tree gfor_fndecl_co_max;
 extern GTY(()) tree gfor_fndecl_co_min;
@@ -1034,7 +1047,9 @@ extern const char gfc_msg_wrong_return[];
 					   construct is not workshared.  */
 #define OMPWS_SCALARIZER_WS	4	/* Set if scalarizer should attempt
 					   to create parallel loops.  */
-#define OMPWS_NOWAIT		8	/* Use NOWAIT on OMP_FOR.  */
+#define OMPWS_SCALARIZER_BODY	8	/* Set if handling body of potential
+					   parallel loop.  */
+#define OMPWS_NOWAIT		16	/* Use NOWAIT on OMP_FOR.  */
 extern int ompws_flags;
 
 #endif /* GFC_TRANS_H */

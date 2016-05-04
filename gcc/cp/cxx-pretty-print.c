@@ -1,5 +1,5 @@
 /* Implementation of subroutines for the GNU C++ pretty-printer.
-   Copyright (C) 2003-2015 Free Software Foundation, Inc.
+   Copyright (C) 2003-2016 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -490,8 +490,7 @@ cxx_pretty_printer::postfix_expression (tree t)
     case AGGR_INIT_EXPR:
     case CALL_EXPR:
       {
-	tree fun = (code == AGGR_INIT_EXPR ? AGGR_INIT_EXPR_FN (t)
-					   : CALL_EXPR_FN (t));
+	tree fun = cp_get_callee (t);
 	tree saved_scope = enclosing_scope;
 	bool skipfirst = false;
 	tree arg;

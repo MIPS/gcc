@@ -1,5 +1,5 @@
 /* Map (unsigned int) keys to (source file, line, column) triples.
-   Copyright (C) 2001-2015 Free Software Foundation, Inc.
+   Copyright (C) 2001-2016 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -273,20 +273,6 @@ struct GTY(()) source_range
   source_location m_start;
   source_location m_finish;
 
-  /* Display this source_range instance, with MSG as a descriptive
-     comment.  This issues a "note" diagnostic at the range, using
-     gcc's diagnostic machinery.
-
-     This is declared here, but is implemented within gcc/diagnostic.c,
-     since it makes use of gcc's diagnostic-printing machinery.  This
-     is a slight layering violation, but this is sufficiently useful
-     for debugging that it's worth it.
-
-     This declaration would have a DEBUG_FUNCTION annotation, but that
-     is implemented in gcc/system.h and thus is not available here in
-     libcpp.  */
-  void debug (const char *msg) const;
-
   /* We avoid using constructors, since various structs that
      don't yet have constructors will embed instances of
      source_range.  */
@@ -299,6 +285,9 @@ struct GTY(()) source_range
     result.m_finish = loc;
     return result;
   }
+
+  /* Is there any part of this range on the given line?  */
+  bool intersects_line_p (const char *file, int line) const;
 };
 
 /* Memory allocation function typedef.  Works like xrealloc.  */
@@ -1077,6 +1066,14 @@ int linemap_location_in_system_header_p (struct line_maps *,
 bool linemap_location_from_macro_expansion_p (const struct line_maps *,
 					      source_location);
 
+/* With the precondition that LOCATION is the locus of a token that is
+   an argument of a function-like macro MACRO_MAP and appears in the
+   expansion of MACRO_MAP, return the locus of that argument in the
+   context of the caller of MACRO_MAP.  */
+
+extern source_location linemap_macro_map_loc_unwind_toward_spelling
+  (line_maps *set, const line_map_macro *macro_map, source_location location);
+
 /* source_location values from 0 to RESERVED_LOCATION_COUNT-1 will
    be reserved for libcpp user as special values, no token from libcpp
    will contain any of those locations.  */
@@ -1246,13 +1243,12 @@ typedef struct
 
    i.e. "3:1:" in GCC corresponds to "(3, 0)" in Emacs.  */
 
-/* Ranges are closed
-   m_start is the first location within the range, and
-   m_finish is the last location within the range.  */
+/* A location within a rich_location: a caret&range, with
+   the caret potentially flagged for display.  */
+
 struct location_range
 {
-  expanded_location m_start;
-  expanded_location m_finish;
+  source_location m_loc;
 
   /* Should a caret be drawn for this range?  Typically this is
      true for the 0th range, and false for subsequent ranges,
@@ -1264,13 +1260,18 @@ struct location_range
 
      where "1" and "2" are notionally carets.  */
   bool m_show_caret_p;
-  expanded_location m_caret;
 };
 
+class fixit_hint;
+  class fixit_insert;
+  class fixit_remove;
+  class fixit_replace;
+
 /* A "rich" source code location, for use when printing diagnostics.
-   A rich_location has one or more ranges, each optionally with
-   a caret.   Typically the zeroth range has a caret; other ranges
-   sometimes have carets.
+   A rich_location has one or more carets&ranges, where the carets
+   are optional.  These are referred to as "ranges" from here.
+   Typically the zeroth range has a caret; other ranges sometimes
+   have carets.
 
    The "primary" location of a rich_location is the caret of range 0,
    used for determining the line/column when printing diagnostic
@@ -1349,24 +1350,19 @@ class rich_location
   /* Constructing from a source_range.  */
   rich_location (source_range src_range);
 
+  /* Destructor.  */
+  ~rich_location ();
+
   /* Accessors.  */
-  source_location get_loc () const { return m_loc; }
-
-  source_location *get_loc_addr () { return &m_loc; }
+  source_location get_loc () const { return get_loc (0); }
+  source_location get_loc (unsigned int idx) const;
 
   void
-  add_range (source_location start, source_location finish,
+  add_range (source_location loc,  bool show_caret_p);
+
+  void
+  set_range (line_maps *set, unsigned int idx, source_location loc,
 	     bool show_caret_p);
-
-  void
-  add_range (source_range src_range, bool show_caret_p);
-
-  void
-  add_range (location_range *src_range);
-
-  void
-  set_range (unsigned int idx, source_range src_range,
-	     bool show_caret_p, bool overwrite_loc_p);
 
   unsigned int get_num_locations () const { return m_num_ranges; }
 
@@ -1376,23 +1372,108 @@ class rich_location
     return &m_ranges[idx];
   }
 
-  expanded_location lazily_expand_location ();
+  expanded_location get_expanded_location (unsigned int idx);
 
   void
   override_column (int column);
 
+  /* Fix-it hints.  */
+  void
+  add_fixit_insert (source_location where,
+		    const char *new_content);
+
+  void
+  add_fixit_remove (source_range src_range);
+
+  void
+  add_fixit_replace (source_range src_range,
+		     const char *new_content);
+
+  unsigned int get_num_fixit_hints () const { return m_num_fixit_hints; }
+  fixit_hint *get_fixit_hint (int idx) const { return m_fixit_hints[idx]; }
+
 public:
   static const int MAX_RANGES = 3;
+  static const int MAX_FIXIT_HINTS = 2;
 
 protected:
-  source_location m_loc;
-
   unsigned int m_num_ranges;
   location_range m_ranges[MAX_RANGES];
 
+  int m_column_override;
+
   bool m_have_expanded_location;
   expanded_location m_expanded_location;
+
+  unsigned int m_num_fixit_hints;
+  fixit_hint *m_fixit_hints[MAX_FIXIT_HINTS];
 };
+
+class fixit_hint
+{
+public:
+  enum kind {INSERT, REMOVE, REPLACE};
+
+  virtual ~fixit_hint () {}
+
+  virtual enum kind get_kind () const = 0;
+  virtual bool affects_line_p (const char *file, int line) = 0;
+};
+
+class fixit_insert : public fixit_hint
+{
+ public:
+  fixit_insert (source_location where,
+		const char *new_content);
+  ~fixit_insert ();
+  enum kind get_kind () const { return INSERT; }
+  bool affects_line_p (const char *file, int line);
+
+  source_location get_location () const { return m_where; }
+  const char *get_string () const { return m_bytes; }
+  size_t get_length () const { return m_len; }
+
+ private:
+  source_location m_where;
+  char *m_bytes;
+  size_t m_len;
+};
+
+class fixit_remove : public fixit_hint
+{
+ public:
+  fixit_remove (source_range src_range);
+  ~fixit_remove () {}
+
+  enum kind get_kind () const { return REMOVE; }
+  bool affects_line_p (const char *file, int line);
+
+  source_range get_range () const { return m_src_range; }
+
+ private:
+  source_range m_src_range;
+};
+
+class fixit_replace : public fixit_hint
+{
+ public:
+  fixit_replace (source_range src_range,
+                 const char *new_content);
+  ~fixit_replace ();
+
+  enum kind get_kind () const { return REPLACE; }
+  bool affects_line_p (const char *file, int line);
+
+  source_range get_range () const { return m_src_range; }
+  const char *get_string () const { return m_bytes; }
+  size_t get_length () const { return m_len; }
+
+ private:
+  source_range m_src_range;
+  char *m_bytes;
+  size_t m_len;
+};
+
 
 /* This is enum is used by the function linemap_resolve_location
    below.  The meaning of the values is explained in the comment of

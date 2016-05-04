@@ -1,5 +1,5 @@
 /* Definitions for describing one tree-ssa optimization pass.
-   Copyright (C) 2004-2015 Free Software Foundation, Inc.
+   Copyright (C) 2004-2016 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>
 
 This file is part of GCC.
@@ -83,6 +83,7 @@ public:
 
      The default implementation prints an error message and aborts.  */
   virtual opt_pass *clone ();
+  virtual void set_pass_param (unsigned int, bool);
 
   /* This pass and all sub-passes are executed only if the function returns
      true.  The default implementation returns true.  */
@@ -106,11 +107,6 @@ public:
 
   /* Static pass number, used as a fragment of the dump file name.  */
   int static_pass_number;
-
-  /* When a given dump file is being initialized, this flag is set to
-     true if the corresponding TDF_graph dump file has also been
-     initialized.  */
-  bool graph_dump_initialized;
 
 protected:
   gcc::context *m_ctxt;
@@ -350,6 +346,8 @@ extern gimple_opt_pass *make_pass_asan (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_asan_O0 (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_tsan (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_tsan_O0 (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_sancov (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_sancov_O0 (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_lower_cf (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_refactor_eh (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_lower_eh (gcc::context *ctxt);
@@ -414,6 +412,7 @@ extern gimple_opt_pass *make_pass_lower_omp (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_diagnose_omp_blocks (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_expand_omp (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_expand_omp_ssa (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_omp_target_link (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_oacc_device_lower (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_object_sizes (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_strlen (gcc::context *ctxt);
@@ -464,6 +463,11 @@ extern gimple_opt_pass *make_pass_strength_reduction (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_vtable_verify (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_ubsan (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_sanopt (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_oacc_kernels (gcc::context *ctxt);
+extern simple_ipa_opt_pass *make_pass_ipa_oacc (gcc::context *ctxt);
+extern simple_ipa_opt_pass *make_pass_ipa_oacc_kernels (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_gen_hsail (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_warn_nonnull_compare (gcc::context *ctxt);
 
 /* IPA Passes */
 extern simple_ipa_opt_pass *make_pass_ipa_lower_emutls (gcc::context *ctxt);
@@ -488,6 +492,7 @@ extern ipa_opt_pass_d *make_pass_ipa_cp (gcc::context *ctxt);
 extern ipa_opt_pass_d *make_pass_ipa_icf (gcc::context *ctxt);
 extern ipa_opt_pass_d *make_pass_ipa_devirt (gcc::context *ctxt);
 extern ipa_opt_pass_d *make_pass_ipa_reference (gcc::context *ctxt);
+extern ipa_opt_pass_d *make_pass_ipa_hsa (gcc::context *ctxt);
 extern ipa_opt_pass_d *make_pass_ipa_pure_const (gcc::context *ctxt);
 extern simple_ipa_opt_pass *make_pass_ipa_pta (gcc::context *ctxt);
 extern simple_ipa_opt_pass *make_pass_ipa_tm (gcc::context *ctxt);
@@ -501,7 +506,6 @@ extern ipa_opt_pass_d *make_pass_ipa_comdats (gcc::context *ctxt);
 
 extern gimple_opt_pass *make_pass_cleanup_cfg_post_optimizing (gcc::context
 							       *ctxt);
-extern gimple_opt_pass *make_pass_init_datastructures (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_fixup_cfg (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_backprop (gcc::context *ctxt);
 
@@ -627,15 +631,6 @@ extern void ipa_read_summaries (void);
 extern void ipa_read_optimization_summaries (void);
 extern void register_one_dump_file (opt_pass *);
 extern bool function_called_by_processed_nodes_p (void);
-
-/* Set to true if the pass is called the first time during compilation of the
-   current function.  Note that using this information in the optimization
-   passes is considered not to be clean, and it should be avoided if possible.
-   This flag is currently used to prevent loops from being peeled repeatedly
-   in jump threading; it will be removed once we preserve loop structures
-   throughout the compilation -- we will be able to mark the affected loops
-   directly in jump threading, and avoid peeling them next time.  */
-extern bool first_pass_instance;
 
 /* Declare for plugins.  */
 extern void do_per_function_toporder (void (*) (function *, void *), void *);

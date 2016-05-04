@@ -1,5 +1,5 @@
 /* Part of CPP library.
-   Copyright (C) 1997-2015 Free Software Foundation, Inc.
+   Copyright (C) 1997-2016 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -502,6 +502,10 @@ struct cpp_reader
   const unsigned char *date;
   const unsigned char *time;
 
+  /* Externally set timestamp to replace current date and time useful for
+     reproducibility.  */
+  time_t source_date_epoch;
+
   /* EOF token, and a token forcing paste avoidance.  */
   cpp_token avoid_paste;
   cpp_token eof;
@@ -626,7 +630,8 @@ extern bool _cpp_save_parameter (cpp_reader *, cpp_macro *, cpp_hashnode *,
 extern bool _cpp_arguments_ok (cpp_reader *, cpp_macro *, const cpp_hashnode *,
 			       unsigned int);
 extern const unsigned char *_cpp_builtin_macro_text (cpp_reader *,
-						     cpp_hashnode *);
+						     cpp_hashnode *,
+						     source_location = 0);
 extern int _cpp_warn_if_unused_macro (cpp_reader *, cpp_hashnode *, void *);
 extern void _cpp_push_token_context (cpp_reader *, cpp_hashnode *,
 				     const cpp_token *, unsigned int);
@@ -688,7 +693,7 @@ extern int _cpp_handle_directive (cpp_reader *, int);
 extern void _cpp_define_builtin (cpp_reader *, const char *);
 extern char ** _cpp_save_pragma_names (cpp_reader *);
 extern void _cpp_restore_pragma_names (cpp_reader *, char **);
-extern int _cpp_do__Pragma (cpp_reader *);
+extern int _cpp_do__Pragma (cpp_reader *, source_location);
 extern void _cpp_init_directives (cpp_reader *);
 extern void _cpp_init_internal_pragmas (cpp_reader *);
 extern void _cpp_do_file_change (cpp_reader *, enum lc_reason, const char *,

@@ -1,5 +1,5 @@
 /* Header file for SSA iterators.
-   Copyright (C) 2013-2015 Free Software Foundation, Inc.
+   Copyright (C) 2013-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -448,9 +448,11 @@ num_imm_uses (const_tree var)
   unsigned int num = 0;
 
   if (!MAY_HAVE_DEBUG_STMTS)
-    for (ptr = start->next; ptr != start; ptr = ptr->next)
-      if (USE_STMT (ptr))
-	num++;
+    {
+      for (ptr = start->next; ptr != start; ptr = ptr->next)
+	if (USE_STMT (ptr))
+	  num++;
+    }
   else
     for (ptr = start->next; ptr != start; ptr = ptr->next)
       if (USE_STMT (ptr) && !is_gimple_debug (USE_STMT (ptr)))

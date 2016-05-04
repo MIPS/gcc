@@ -1,5 +1,5 @@
 /* Data flow functions for trees.
-   Copyright (C) 2001-2015 Free Software Foundation, Inc.
+   Copyright (C) 2001-2016 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -395,7 +395,7 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
       if (mode == BLKmode)
 	size_tree = TYPE_SIZE (TREE_TYPE (exp));
       else
-	bitsize = int (GET_MODE_PRECISION (mode));
+	bitsize = int (GET_MODE_BITSIZE (mode));
     }
   if (size_tree != NULL_TREE
       && TREE_CODE (size_tree) == INTEGER_CST)
@@ -424,8 +424,8 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
 
 	    if (this_offset && TREE_CODE (this_offset) == INTEGER_CST)
 	      {
-		offset_int woffset = wi::lshift (wi::to_offset (this_offset),
-						 LOG2_BITS_PER_UNIT);
+		offset_int woffset = (wi::to_offset (this_offset)
+				      << LOG2_BITS_PER_UNIT);
 		woffset += wi::to_offset (DECL_FIELD_BIT_OFFSET (field));
 		bit_offset += woffset;
 
@@ -453,7 +453,7 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
 			  {
 			    offset_int tem = (wi::to_offset (ssize)
 					      - wi::to_offset (fsize));
-			    tem = wi::lshift (tem, LOG2_BITS_PER_UNIT);
+			    tem <<= LOG2_BITS_PER_UNIT;
 			    tem -= woffset;
 			    maxsize += tem;
 			  }
@@ -493,7 +493,7 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
 		  = wi::sext (wi::to_offset (index) - wi::to_offset (low_bound),
 			      TYPE_PRECISION (TREE_TYPE (index)));
 		woffset *= wi::to_offset (unit_size);
-		woffset = wi::lshift (woffset, LOG2_BITS_PER_UNIT);
+		woffset <<= LOG2_BITS_PER_UNIT;
 		bit_offset += woffset;
 
 		/* An array ref with a constant index up in the structure
@@ -570,7 +570,7 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
 	      else
 		{
 		  offset_int off = mem_ref_offset (exp);
-		  off = wi::lshift (off, LOG2_BITS_PER_UNIT);
+		  off <<= LOG2_BITS_PER_UNIT;
 		  off += bit_offset;
 		  if (wi::fits_shwi_p (off))
 		    {
@@ -587,15 +587,6 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
 
       exp = TREE_OPERAND (exp, 0);
     }
-
-  /* We need to deal with variable arrays ending structures.  */
-  if (seen_variable_array_ref
-      && maxsize != -1
-      && (TYPE_SIZE (TREE_TYPE (exp)) == NULL_TREE
-	  || TREE_CODE (TYPE_SIZE (TREE_TYPE (exp))) != INTEGER_CST
-	  || (bit_offset + maxsize
-	      == wi::to_offset (TYPE_SIZE (TREE_TYPE (exp))))))
-    maxsize = -1;
 
  done:
   if (!wi::fits_shwi_p (bitsize) || wi::neg_p (bitsize))
@@ -621,9 +612,22 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
 
   if (DECL_P (exp))
     {
+      if (flag_unconstrained_commons
+	  && TREE_CODE (exp) == VAR_DECL && DECL_COMMON (exp))
+	{
+	  tree sz_tree = TYPE_SIZE (TREE_TYPE (exp));
+	  /* If size is unknown, or we have read to the end, assume there
+	     may be more to the structure than we are told.  */
+	  if (TREE_CODE (TREE_TYPE (exp)) == ARRAY_TYPE
+	      || (seen_variable_array_ref
+		  && (sz_tree == NULL_TREE
+		      || TREE_CODE (sz_tree) != INTEGER_CST
+		      || (bit_offset + maxsize == wi::to_offset (sz_tree)))))
+	    maxsize = -1;
+	}
       /* If maxsize is unknown adjust it according to the size of the
          base decl.  */
-      if (maxsize == -1
+      else if (maxsize == -1
 	  && DECL_SIZE (exp)
 	  && TREE_CODE (DECL_SIZE (exp)) == INTEGER_CST)
 	maxsize = wi::to_offset (DECL_SIZE (exp)) - bit_offset;

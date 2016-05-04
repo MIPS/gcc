@@ -1,7 +1,7 @@
 // { dg-options "-std=gnu++14" }
 // { dg-do compile }
 
-// Copyright (C) 2014-2015 Free Software Foundation, Inc.
+// Copyright (C) 2014-2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -323,23 +323,23 @@ static_assert(is_convertible_v<int&, const int&>
 static_assert(!is_convertible_v<const int&, int&>
 	      && !is_convertible<const int&, int&>::value, "");
 
-static_assert(negation_v<false_type>);
-static_assert(!negation_v<true_type>);
-static_assert(conjunction_v<>);
-static_assert(!disjunction_v<>);
-static_assert(conjunction_v<true_type>);
-static_assert(!conjunction_v<false_type>);
-static_assert(disjunction_v<true_type>);
-static_assert(!disjunction_v<false_type>);
-static_assert(conjunction_v<true_type, true_type>);
-static_assert(!conjunction_v<true_type, false_type>);
-static_assert(disjunction_v<false_type, true_type>);
-static_assert(!disjunction_v<false_type, false_type>);
+static_assert(negation_v<false_type>, "");
+static_assert(!negation_v<true_type>, "");
+static_assert(conjunction_v<>, "");
+static_assert(!disjunction_v<>, "");
+static_assert(conjunction_v<true_type>, "");
+static_assert(!conjunction_v<false_type>, "");
+static_assert(disjunction_v<true_type>, "");
+static_assert(!disjunction_v<false_type>, "");
+static_assert(conjunction_v<true_type, true_type>, "");
+static_assert(!conjunction_v<true_type, false_type>, "");
+static_assert(disjunction_v<false_type, true_type>, "");
+static_assert(!disjunction_v<false_type, false_type>, "");
 static_assert(conjunction_v<true_type, true_type,
-              true_type>);
+              true_type>, "");
 static_assert(!conjunction_v<true_type, true_type,
-              false_type>);
+              false_type>, "");
 static_assert(disjunction_v<false_type, false_type,
-              true_type>);
+              true_type>, "");
 static_assert(!disjunction_v<false_type, false_type,
-              false_type>);
+              false_type>, "");

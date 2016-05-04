@@ -1,6 +1,6 @@
 /* Declarations for variables relating to reading the source file.
    Used by parsers, lexical analyzers, and error message routines.
-   Copyright (C) 1993-2015 Free Software Foundation, Inc.
+   Copyright (C) 1993-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -42,6 +42,7 @@ extern const char *location_get_source_line (const char *file_path, int line,
 					     int *line_size);
 extern expanded_location expand_location_to_spelling_point (source_location);
 extern source_location expansion_point_location_if_in_system_header (source_location);
+extern source_location expansion_point_location (source_location);
 
 /* Historically GCC used location_t, while cpp used source_location.
    This could be removed but it hardly seems worth the effort.  */

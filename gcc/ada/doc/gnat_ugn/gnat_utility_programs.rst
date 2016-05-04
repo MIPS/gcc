@@ -4527,7 +4527,7 @@ Alternatively, you may run the script using the following command line:
        ``--additional-tests`` switch.
 
   * ``Skeletons_Default``
-       is used to specify the default behaviour of test skeletons, otherwise
+       is used to specify the default behavior of test skeletons, otherwise
        specified by ``--skeleton-default`` option. The value of this attribute
        should be either ``pass`` or ``fail``.
 
@@ -4962,6 +4962,7 @@ Alternatively, you may run the script using the following command line:
     not supported;
   * tests for protected subprograms and entries are not supported;
   * pragma *No_Run_Time* is not supported;
+  * pragma *No_Secondary_Stack* is not supported;
   * if pragmas for interfacing with foreign languages are used, manual
     adjustments might be necessary to make the test harness compilable;
   * use of elaboration control pragmas may result in elaboration circularities

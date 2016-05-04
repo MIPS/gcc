@@ -1,6 +1,6 @@
 /* Get common system includes and various definitions and declarations based
    on autoconf macros.
-   Copyright (C) 1998-2015 Free Software Foundation, Inc.
+   Copyright (C) 1998-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -198,7 +198,9 @@ extern int fprintf_unlocked (FILE *, const char *, ...);
    the ctype macros through safe-ctype.h */
 
 #ifdef __cplusplus
+#ifdef INCLUDE_STRING
 # include <string>
+#endif
 #endif
 
 /* There are an extraordinary number of issues with <ctype.h>.
@@ -215,8 +217,23 @@ extern int errno;
 #endif
 
 #ifdef __cplusplus
+#if defined (INCLUDE_ALGORITHM) || !defined (HAVE_SWAP_IN_UTILITY)
 # include <algorithm>
+#endif
+#ifdef INCLUDE_LIST
+# include <list>
+#endif
+#ifdef INCLUDE_MAP
+# include <map>
+#endif
+#ifdef INCLUDE_SET
+# include <set>
+#endif
+#ifdef INCLUDE_VECTOR
+# include <vector>
+#endif
 # include <cstring>
+# include <new>
 # include <utility>
 #endif
 
@@ -798,9 +815,12 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
    compiling gcc, so that the autoconf declaration tests for malloc
    etc don't spuriously fail.  */
 #ifdef IN_GCC
+
+#ifndef USES_ISL
 #undef calloc
 #undef strdup
  #pragma GCC poison calloc strdup
+#endif
 
 #if !defined(FLEX_SCANNER) && !defined(YYBISON)
 #undef malloc
@@ -967,7 +987,7 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 	TARGET_HANDLE_PRAGMA_EXTERN_PREFIX \
 	TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN \
 	TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD \
-	TARGET_MD_ASM_CLOBBERS TARGET_RELAXED_ORDERING
+	TARGET_MD_ASM_CLOBBERS TARGET_RELAXED_ORDERING EXTENDED_SDB_BASIC_TYPES
 
 /* Arrays that were deleted in favor of a functional interface.  */
  #pragma GCC poison built_in_decls implicit_built_in_decls
@@ -1005,6 +1025,10 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 #undef bcmp
 #undef rindex
  #pragma GCC poison bcopy bzero bcmp rindex
+
+/* Poison ENABLE_CHECKING macro that should be replaced with
+   'if (flag_checking)', or with CHECKING_P macro.  */
+#pragma GCC poison ENABLE_CHECKING
 
 #endif /* GCC >= 3.0 */
 

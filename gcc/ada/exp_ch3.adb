@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -201,9 +201,9 @@ package body Exp_Ch3 is
    --  subprogram they rename is not frozen when the type is frozen.
 
    procedure Insert_Component_Invariant_Checks
-     (N   : Node_Id;
-     Typ  : Entity_Id;
-     Proc : Node_Id);
+     (N    : Node_Id;
+      Typ  : Entity_Id;
+      Proc : Node_Id);
    --  If a composite type has invariants and also has components with defined
    --  invariants. the component invariant procedure is inserted into the user-
    --  defined invariant procedure and added to the checks to be performed.
@@ -225,6 +225,9 @@ package body Exp_Ch3 is
    --    _Task_Name : String
    --
    --  The caller must append additional entries for discriminants if required.
+
+   function Inline_Init_Proc (Typ : Entity_Id) return Boolean;
+   --  Returns true if the initialization procedure of Typ should be inlined
 
    function In_Runtime (E : Entity_Id) return Boolean;
    --  Check if E is defined in the RTL (in a child of Ada or System). Used
@@ -756,14 +759,10 @@ package body Exp_Ch3 is
             Set_Debug_Info_Off (Proc_Id);
          end if;
 
-         --  Set inlined unless tasks are around, in which case we do not
-         --  want to inline, because nested stuff may cause difficulties in
-         --  inter-unit inlining, and furthermore there is in any case no
-         --  point in inlining such complex init procs.
+         --  Set Inlined on Init_Proc if it is set on the Init_Proc of the
+         --  component type itself (see also Build_Record_Init_Proc).
 
-         if not Has_Task (Proc_Id) then
-            Set_Is_Inlined (Proc_Id);
-         end if;
+         Set_Is_Inlined (Proc_Id, Inline_Init_Proc (Comp_Type));
 
          --  Associate Init_Proc with type, and determine if the procedure
          --  is null (happens because of the Initialize_Scalars pragma case,
@@ -1721,7 +1720,7 @@ package body Exp_Ch3 is
       Decls     : constant List_Id  := New_List;
       Discr_Map : constant Elist_Id := New_Elmt_List;
       Loc       : constant Source_Ptr := Sloc (Rec_Ent);
-      Counter   : Int := 0;
+      Counter   : Nat := 0;
       Proc_Id   : Entity_Id;
       Rec_Type  : Entity_Id;
       Set_Tag   : Entity_Id := Empty;
@@ -3592,25 +3591,16 @@ package body Exp_Ch3 is
          Build_Offset_To_Top_Functions;
          Build_CPP_Init_Procedure;
          Build_Init_Procedure;
-         Set_Is_Public (Proc_Id, Is_Public (Rec_Ent));
 
-         --  The initialization of protected records is not worth inlining.
-         --  In addition, when compiled for another unit for inlining purposes,
-         --  it may make reference to entities that have not been elaborated
-         --  yet. Similar considerations apply to task types.
-
-         if not Is_Concurrent_Type (Rec_Type)
-           and then not Has_Task (Rec_Type)
-         then
-            Set_Is_Inlined  (Proc_Id);
-         end if;
-
+         Set_Is_Public      (Proc_Id, Is_Public (Rec_Ent));
          Set_Is_Internal    (Proc_Id);
          Set_Has_Completion (Proc_Id);
 
          if not Debug_Generated_Code then
             Set_Debug_Info_Off (Proc_Id);
          end if;
+
+         Set_Is_Inlined (Proc_Id, Inline_Init_Proc (Rec_Type));
 
          --  Do not build an aggregate if Modify_Tree_For_C, this isn't
          --  needed and may generate early references to non frozen types
@@ -3931,7 +3921,7 @@ package body Exp_Ch3 is
    --          return;
    --       end if;
 
-   --       if Rev  then
+   --       if Rev then
    --          Li1 := Left_Hi;
    --          Ri1 := Right_Hi;
    --       else
@@ -4610,8 +4600,6 @@ package body Exp_Ch3 is
 
       Save_Ghost_Mode : constant Ghost_Mode_Type := Ghost_Mode;
 
-      Ins_Node : Node_Id;
-
    begin
       --  Ensure that all freezing activities are properly flagged as Ghost
 
@@ -4664,39 +4652,13 @@ package body Exp_Ch3 is
             end if;
          end if;
 
-         if Typ = Base then
-            if Has_Controlled_Component (Base) then
-               Build_Controlling_Procs (Base);
+         if Typ = Base and then Has_Controlled_Component (Base) then
+            Build_Controlling_Procs (Base);
 
-               if not Is_Limited_Type (Comp_Typ)
-                 and then Number_Dimensions (Typ) = 1
-               then
-                  Build_Slice_Assignment (Typ);
-               end if;
-            end if;
-
-            --  Create a finalization master to service the anonymous access
-            --  components of the array.
-
-            if Ekind (Comp_Typ) = E_Anonymous_Access_Type
-              and then Needs_Finalization (Designated_Type (Comp_Typ))
+            if not Is_Limited_Type (Comp_Typ)
+              and then Number_Dimensions (Typ) = 1
             then
-               --  The finalization master is inserted before the declaration
-               --  of the array type. The only exception to this is when the
-               --  array type is an itype, in which case the master appears
-               --  before the related context.
-
-               if Is_Itype (Typ) then
-                  Ins_Node := Associated_Node_For_Itype (Typ);
-               else
-                  Ins_Node := Parent (Typ);
-               end if;
-
-               Build_Finalization_Master
-                 (Typ            => Comp_Typ,
-                  For_Anonymous  => True,
-                  Context_Scope  => Scope (Typ),
-                  Insertion_Node => Ins_Node);
+               Build_Slice_Assignment (Typ);
             end if;
          end if;
 
@@ -5044,19 +5006,22 @@ package body Exp_Ch3 is
          end loop;
       end if;
 
-      --  In normal mode, add the others clause with the test
+      --  In normal mode, add the others clause with the test.
+      --  If Predicates_Ignored is True, validity checks do not apply to
+      --  the subtype.
 
-      if not No_Exception_Handlers_Set then
+      if not No_Exception_Handlers_Set
+        and then not Predicates_Ignored (Typ)
+      then
          Append_To (Lst,
            Make_Case_Statement_Alternative (Loc,
              Discrete_Choices => New_List (Make_Others_Choice (Loc)),
-             Statements => New_List (
+             Statements       => New_List (
                Make_Raise_Constraint_Error (Loc,
                  Condition => Make_Identifier (Loc, Name_uF),
                  Reason    => CE_Invalid_Data),
                Make_Simple_Return_Statement (Loc,
-                 Expression =>
-                   Make_Integer_Literal (Loc, -1)))));
+                 Expression => Make_Integer_Literal (Loc, -1)))));
 
       --  If either of the restrictions No_Exceptions_Handlers/Propagation is
       --  active then return -1 (we cannot usefully raise Constraint_Error in
@@ -5066,10 +5031,9 @@ package body Exp_Ch3 is
          Append_To (Lst,
            Make_Case_Statement_Alternative (Loc,
              Discrete_Choices => New_List (Make_Others_Choice (Loc)),
-             Statements => New_List (
+             Statements       => New_List (
                Make_Simple_Return_Statement (Loc,
-                 Expression =>
-                   Make_Integer_Literal (Loc, -1)))));
+                 Expression => Make_Integer_Literal (Loc, -1)))));
       end if;
 
       --  Now we can build the function body
@@ -5143,8 +5107,10 @@ package body Exp_Ch3 is
 
       Comp        : Entity_Id;
       Comp_Typ    : Entity_Id;
-      Has_AACC    : Boolean;
       Predef_List : List_Id;
+
+      Wrapper_Decl_List : List_Id := No_List;
+      Wrapper_Body_List : List_Id := No_List;
 
       Renamed_Eq : Node_Id := Empty;
       --  Defining unit name for the predefined equality function in the case
@@ -5152,9 +5118,6 @@ package body Exp_Ch3 is
       --  predefined equality (but only if there is also an overriding
       --  user-defined equality function). Used to pass this entity from
       --  Make_Predefined_Primitive_Specs to Predefined_Primitive_Bodies.
-
-      Wrapper_Decl_List : List_Id := No_List;
-      Wrapper_Body_List : List_Id := No_List;
 
    --  Start of processing for Expand_Freeze_Record_Type
 
@@ -5197,8 +5160,8 @@ package body Exp_Ch3 is
                if Ekind (Comp) = E_Component
                  and then Chars (Comp) = Chars (Old_Comp)
                then
-                  Set_Discriminant_Checking_Func (Comp,
-                    Discriminant_Checking_Func (Old_Comp));
+                  Set_Discriminant_Checking_Func
+                    (Comp, Discriminant_Checking_Func (Old_Comp));
                end if;
 
                Next_Component (Old_Comp);
@@ -5217,8 +5180,6 @@ package body Exp_Ch3 is
       --  Update task, protected, and controlled component flags, because some
       --  of the component types may have been private at the point of the
       --  record declaration. Detect anonymous access-to-controlled components.
-
-      Has_AACC := False;
 
       Comp := First_Component (Typ);
       while Present (Comp) loop
@@ -5242,15 +5203,6 @@ package body Exp_Ch3 is
                          and then (Is_Controlled_Active (Comp_Typ))))
          then
             Set_Has_Controlled_Component (Typ);
-         end if;
-
-         --  Non-self-referential anonymous access-to-controlled component
-
-         if Ekind (Comp_Typ) = E_Anonymous_Access_Type
-           and then Needs_Finalization (Designated_Type (Comp_Typ))
-           and then Designated_Type (Comp_Typ) /= Typ
-         then
-            Has_AACC := True;
          end if;
 
          Next_Component (Comp);
@@ -5597,97 +5549,6 @@ package body Exp_Ch3 is
                end if;
 
                Next_Elmt (Elmt);
-            end loop;
-         end;
-      end if;
-
-      --  Create a heterogeneous finalization master to service the anonymous
-      --  access-to-controlled components of the record type.
-
-      if Has_AACC then
-         declare
-            Encl_Scope : constant Entity_Id  := Scope (Typ);
-            Ins_Node   : constant Node_Id    := Parent (Typ);
-            Loc        : constant Source_Ptr := Sloc (Typ);
-            Fin_Mas_Id : Entity_Id;
-
-            Attributes_Set : Boolean := False;
-            Master_Built   : Boolean := False;
-            --  Two flags which control the creation and initialization of a
-            --  common heterogeneous master.
-
-         begin
-            Comp := First_Component (Typ);
-            while Present (Comp) loop
-               Comp_Typ := Etype (Comp);
-
-               --  A non-self-referential anonymous access-to-controlled
-               --  component.
-
-               if Ekind (Comp_Typ) = E_Anonymous_Access_Type
-                 and then Needs_Finalization (Designated_Type (Comp_Typ))
-                 and then Designated_Type (Comp_Typ) /= Typ
-               then
-                  --  Build a homogeneous master for the first anonymous
-                  --  access-to-controlled component. This master may be
-                  --  converted into a heterogeneous collection if more
-                  --  components are to follow.
-
-                  if not Master_Built then
-                     Master_Built := True;
-
-                     --  All anonymous access-to-controlled types allocate
-                     --  on the global pool. Note that the finalization
-                     --  master and the associated storage pool must be set
-                     --  on the root type (both are "root type only").
-
-                     Set_Associated_Storage_Pool
-                       (Root_Type (Comp_Typ), RTE (RE_Global_Pool_Object));
-
-                     Build_Finalization_Master
-                       (Typ            => Root_Type (Comp_Typ),
-                        For_Anonymous  => True,
-                        Context_Scope  => Encl_Scope,
-                        Insertion_Node => Ins_Node);
-
-                     Fin_Mas_Id := Finalization_Master (Comp_Typ);
-
-                  --  Subsequent anonymous access-to-controlled components
-                  --  reuse the available master.
-
-                  else
-                     --  All anonymous access-to-controlled types allocate
-                     --  on the global pool. Note that both the finalization
-                     --  master and the associated storage pool must be set
-                     --  on the root type (both are "root type only").
-
-                     Set_Associated_Storage_Pool
-                       (Root_Type (Comp_Typ), RTE (RE_Global_Pool_Object));
-
-                     --  Shared the master among multiple components
-
-                     Set_Finalization_Master
-                       (Root_Type (Comp_Typ), Fin_Mas_Id);
-
-                     --  Convert the master into a heterogeneous collection.
-                     --  Generate:
-                     --    Set_Is_Heterogeneous (<Fin_Mas_Id>);
-
-                     if not Attributes_Set then
-                        Attributes_Set := True;
-
-                        Insert_Action (Ins_Node,
-                          Make_Procedure_Call_Statement (Loc,
-                            Name                   =>
-                              New_Occurrence_Of
-                                (RTE (RE_Set_Is_Heterogeneous), Loc),
-                            Parameter_Associations => New_List (
-                              New_Occurrence_Of (Fin_Mas_Id, Loc))));
-                     end if;
-                  end if;
-               end if;
-
-               Next_Component (Comp);
             end loop;
          end;
       end if;
@@ -6083,20 +5944,19 @@ package body Exp_Ch3 is
 
          --  Local variables
 
-         Abrt_Blk   : Node_Id;
-         Abrt_HSS   : Node_Id;
-         Abrt_Id    : Entity_Id;
-         Abrt_Stmts : List_Id;
-         Aggr_Init  : Node_Id;
-         Comp_Init  : List_Id := No_List;
-         Fin_Call   : Node_Id;
-         Fin_Stmts  : List_Id := No_List;
-         Obj_Init   : Node_Id := Empty;
-         Obj_Ref    : Node_Id;
+         Exceptions_OK : constant Boolean :=
+                           not Restriction_Active (No_Exception_Propagation);
 
-         Dummy : Entity_Id;
-         --  This variable captures a dummy internal entity, see the comment
-         --  associated with its use.
+         Abrt_Blk    : Node_Id;
+         Abrt_Blk_Id : Entity_Id;
+         Abrt_HSS    : Node_Id;
+         Aggr_Init   : Node_Id;
+         AUD         : Entity_Id;
+         Comp_Init   : List_Id := No_List;
+         Fin_Call    : Node_Id;
+         Init_Stmts  : List_Id := No_List;
+         Obj_Init    : Node_Id := Empty;
+         Obj_Ref     : Node_Id;
 
       --  Start of processing for Default_Initialize_Object
 
@@ -6112,19 +5972,25 @@ package body Exp_Ch3 is
             return;
          end if;
 
-         --  Step 1: Initialize the object
+         --  The expansion performed by this routine is as follows:
 
-         if Needs_Finalization (Typ) and then not No_Initialization (N) then
-            Obj_Init :=
-              Make_Init_Call
-                (Obj_Ref => New_Occurrence_Of (Def_Id, Loc),
-                 Typ     => Typ);
-         end if;
+         --    begin
+         --       Abort_Defer;
+         --       Type_Init_Proc (Obj);
 
-         --  Step 2: Initialize the components of the object
+         --       begin
+         --          [Deep_]Initialize (Obj);
 
-         --  Do not initialize the components if their initialization is
-         --  prohibited.
+         --       exception
+         --          when others =>
+         --             [Deep_]Finalize (Obj, Self => False);
+         --             raise;
+         --       end;
+         --    at end
+         --       Abort_Undefer_Direct;
+         --    end;
+
+         --  Initialize the components of the object
 
          if Has_Non_Null_Base_Init_Proc (Typ)
            and then not No_Initialization (N)
@@ -6154,7 +6020,8 @@ package body Exp_Ch3 is
                elsif Build_Equivalent_Aggregate then
                   null;
 
-               --  Otherwise invoke the type init proc
+               --  Otherwise invoke the type init proc, generate:
+               --    Type_Init_Proc (Obj);
 
                else
                   Obj_Ref := New_Object_Reference;
@@ -6182,41 +6049,35 @@ package body Exp_Ch3 is
             Analyze_And_Resolve (Expression (N), Typ);
          end if;
 
-         --  Step 3: Add partial finalization and abort actions, generate:
+         --  Initialize the object, generate:
+         --    [Deep_]Initialize (Obj);
 
-         --    Type_Init_Proc (Obj);
+         if Needs_Finalization (Typ) and then not No_Initialization (N) then
+            Obj_Init :=
+              Make_Init_Call
+                (Obj_Ref => New_Occurrence_Of (Def_Id, Loc),
+                 Typ     => Typ);
+         end if;
+
+         --  Build a special finalization block when both the object and its
+         --  controlled components are to be initialized. The block finalizes
+         --  the components if the object initialization fails. Generate:
+
          --    begin
-         --       Deep_Initialize (Obj);
+         --       <Obj_Init>
+
          --    exception
          --       when others =>
-         --          Deep_Finalize (Obj, Self => False);
+         --          <Fin_Call>
          --          raise;
          --    end;
-
-         --  Step 3a: Build the finalization block (if applicable)
-
-         --  The finalization block is required when both the object and its
-         --  controlled components are to be initialized. The block finalizes
-         --  the components if the object initialization fails.
 
          if Has_Controlled_Component (Typ)
            and then Present (Comp_Init)
            and then Present (Obj_Init)
-           and then not Restriction_Active (No_Exception_Propagation)
+           and then Exceptions_OK
          then
-            --  Generate:
-            --    Type_Init_Proc (Obj);
-
-            Fin_Stmts := Comp_Init;
-
-            --  Generate:
-            --    begin
-            --       Deep_Initialize (Obj);
-            --    exception
-            --       when others =>
-            --          Deep_Finalize (Obj, Self => False);
-            --          raise;
-            --    end;
+            Init_Stmts := Comp_Init;
 
             Fin_Call :=
               Make_Final_Call
@@ -6232,7 +6093,7 @@ package body Exp_Ch3 is
 
                Set_No_Elaboration_Check (Fin_Call);
 
-               Append_To (Fin_Stmts,
+               Append_To (Init_Stmts,
                  Make_Block_Statement (Loc,
                    Declarations               => No_List,
 
@@ -6250,100 +6111,93 @@ package body Exp_Ch3 is
                              Make_Raise_Statement (Loc)))))));
             end if;
 
-         --  Finalization is not required, the initialization calls are passed
-         --  to the abort block building circuitry, generate:
+         --  Otherwise finalization is not required, the initialization calls
+         --  are passed to the abort block building circuitry, generate:
 
          --    Type_Init_Proc (Obj);
-         --    Deep_Initialize (Obj);
+         --    [Deep_]Initialize (Obj);
 
          else
             if Present (Comp_Init) then
-               Fin_Stmts := Comp_Init;
+               Init_Stmts := Comp_Init;
             end if;
 
             if Present (Obj_Init) then
-               if No (Fin_Stmts) then
-                  Fin_Stmts := New_List;
+               if No (Init_Stmts) then
+                  Init_Stmts := New_List;
                end if;
 
-               Append_To (Fin_Stmts, Obj_Init);
+               Append_To (Init_Stmts, Obj_Init);
             end if;
          end if;
 
-         --  Step 3b: Build the abort block (if applicable)
+         --  Build an abort block to protect the initialization calls
 
-         --  The abort block is required when aborts are allowed in order to
-         --  protect both initialization calls.
+         if Abort_Allowed
+           and then Present (Comp_Init)
+           and then Present (Obj_Init)
+         then
+            --  Generate:
+            --    Abort_Defer;
 
-         if Present (Comp_Init) and then Present (Obj_Init) then
-            if Abort_Allowed then
+            Prepend_To (Init_Stmts, Build_Runtime_Call (Loc, RE_Abort_Defer));
 
-               --  Generate:
-               --    Abort_Defer;
+            --  When exceptions are propagated, abort deferral must take place
+            --  in the presence of initialization or finalization exceptions.
+            --  Generate:
 
-               Prepend_To
-                 (Fin_Stmts, Build_Runtime_Call (Loc, RE_Abort_Defer));
+            --    begin
+            --       Abort_Defer;
+            --       <Init_Stmts>
+            --    at end
+            --       Abort_Undefer_Direct;
+            --    end;
 
-               --  Generate:
-               --    begin
-               --       Abort_Defer;
-               --       <finalization statements>
-               --    at end
-               --       Abort_Undefer_Direct;
-               --    end;
+            if Exceptions_OK then
+               AUD := RTE (RE_Abort_Undefer_Direct);
 
-               declare
-                  AUD : constant Entity_Id := RTE (RE_Abort_Undefer_Direct);
-
-               begin
-                  Abrt_HSS :=
-                    Make_Handled_Sequence_Of_Statements (Loc,
-                      Statements  => Fin_Stmts,
-                      At_End_Proc => New_Occurrence_Of (AUD, Loc));
-
-                  --  Present the Abort_Undefer_Direct function to the backend
-                  --  so that it can inline the call to the function.
-
-                  Add_Inlined_Body (AUD, N);
-               end;
+               Abrt_HSS :=
+                 Make_Handled_Sequence_Of_Statements (Loc,
+                   Statements  => Init_Stmts,
+                   At_End_Proc => New_Occurrence_Of (AUD, Loc));
 
                Abrt_Blk :=
                  Make_Block_Statement (Loc,
-                   Declarations               => No_List,
                    Handled_Statement_Sequence => Abrt_HSS);
 
-               Add_Block_Identifier (Abrt_Blk, Abrt_Id);
-               Expand_At_End_Handler (Abrt_HSS, Abrt_Id);
+               Add_Block_Identifier  (Abrt_Blk, Abrt_Blk_Id);
+               Expand_At_End_Handler (Abrt_HSS, Abrt_Blk_Id);
 
-               Abrt_Stmts := New_List (Abrt_Blk);
+               --  Present the Abort_Undefer_Direct function to the backend so
+               --  that it can inline the call to the function.
 
-            --  Abort is not required
+               Add_Inlined_Body (AUD, N);
+
+               Init_Stmts := New_List (Abrt_Blk);
+
+            --  Otherwise exceptions are not propagated. Generate:
+
+            --    Abort_Defer;
+            --    <Init_Stmts>
+            --    Abort_Undefer;
 
             else
-               --  Generate a dummy entity to ensure that the internal symbols
-               --  are in sync when a unit is compiled with and without aborts.
-               --  The entity is a block with proper scope and type.
-
-               Dummy := New_Internal_Entity (E_Block, Current_Scope, Loc, 'B');
-               Set_Etype (Dummy, Standard_Void_Type);
-               Abrt_Stmts := Fin_Stmts;
+               Append_To (Init_Stmts,
+                 Build_Runtime_Call (Loc, RE_Abort_Undefer));
             end if;
-
-         --  No initialization calls present
-
-         else
-            Abrt_Stmts := Fin_Stmts;
          end if;
 
-         --  Step 4: Insert the whole initialization sequence into the tree
-         --  If the object has a delayed freeze, as will be the case when
-         --  it has aspect specifications, the initialization sequence is
-         --  part of the freeze actions.
+         --  Insert the whole initialization sequence into the tree. If the
+         --  object has a delayed freeze, as will be the case when it has
+         --  aspect specifications, the initialization sequence is part of
+         --  the freeze actions.
 
-         if Has_Delayed_Freeze (Def_Id) then
-            Append_Freeze_Actions (Def_Id, Abrt_Stmts);
-         else
-            Insert_Actions_After (After, Abrt_Stmts);
+         if Present (Init_Stmts) then
+            if Has_Delayed_Freeze (Def_Id) then
+               Append_Freeze_Actions (Def_Id, Init_Stmts);
+            else
+               Insert_Actions_After (After, Init_Stmts);
+            end if;
          end if;
       end Default_Initialize_Object;
 
@@ -6353,11 +6207,49 @@ package body Exp_Ch3 is
 
       function Rewrite_As_Renaming return Boolean is
       begin
-         return not Aliased_Present (N)
-           and then Is_Entity_Name (Expr_Q)
-           and then Ekind (Entity (Expr_Q)) = E_Variable
-           and then OK_To_Rename (Entity (Expr_Q))
-           and then Is_Entity_Name (Obj_Def);
+         --  If the object declaration appears in the form
+
+         --    Obj : Ctrl_Typ := Func (...);
+
+         --  where Ctrl_Typ is controlled but not immutably limited type, then
+         --  the expansion of the function call should use a dereference of the
+         --  result to reference the value on the secondary stack.
+
+         --    Obj : Ctrl_Typ renames Func (...).all;
+
+         --  As a result, the call avoids an extra copy. This an optimization,
+         --  but it is required for passing ACATS tests in some cases where it
+         --  would otherwise make two copies. The RM allows removing redunant
+         --  Adjust/Finalize calls, but does not allow insertion of extra ones.
+
+         --  This part is disabled for now, because it breaks GPS builds
+
+         return (False -- ???
+             and then Nkind (Expr_Q) = N_Explicit_Dereference
+             and then not Comes_From_Source (Expr_Q)
+             and then Nkind (Original_Node (Expr_Q)) = N_Function_Call
+             and then Nkind (Object_Definition (N)) in N_Has_Entity
+             and then (Needs_Finalization (Entity (Object_Definition (N)))))
+
+           --  If the initializing expression is for a variable with attribute
+           --  OK_To_Rename set, then transform:
+
+           --     Obj : Typ := Expr;
+
+           --  into
+
+           --     Obj : Typ renames Expr;
+
+           --  provided that Obj is not aliased. The aliased case has to be
+           --  excluded in general because Expr will not be aliased in
+           --  general.
+
+           or else
+             (not Aliased_Present (N)
+               and then Is_Entity_Name (Expr_Q)
+               and then Ekind (Entity (Expr_Q)) = E_Variable
+               and then OK_To_Rename (Entity (Expr_Q))
+               and then Is_Entity_Name (Obj_Def));
       end Rewrite_As_Renaming;
 
       --  Local variables
@@ -7010,58 +6902,9 @@ package body Exp_Ch3 is
                Insert_After_And_Analyze (Init_After, Stat);
             end;
          end if;
-
-         --  Final transformation, if the initializing expression is an entity
-         --  for a variable with OK_To_Rename set, then we transform:
-
-         --     X : typ := expr;
-
-         --  into
-
-         --     X : typ renames expr
-
-         --  provided that X is not aliased. The aliased case has to be
-         --  excluded in general because Expr will not be aliased in general.
-
-         if Rewrite_As_Renaming then
-            Rewrite (N,
-              Make_Object_Renaming_Declaration (Loc,
-                Defining_Identifier => Defining_Identifier (N),
-                Subtype_Mark        => Obj_Def,
-                Name                => Expr_Q));
-
-            --  We do not analyze this renaming declaration, because all its
-            --  components have already been analyzed, and if we were to go
-            --  ahead and analyze it, we would in effect be trying to generate
-            --  another declaration of X, which won't do.
-
-            Set_Renamed_Object (Defining_Identifier (N), Expr_Q);
-            Set_Analyzed (N);
-
-            --  We do need to deal with debug issues for this renaming
-
-            --  First, if entity comes from source, then mark it as needing
-            --  debug information, even though it is defined by a generated
-            --  renaming that does not come from source.
-
-            if Comes_From_Source (Defining_Identifier (N)) then
-               Set_Debug_Info_Needed (Defining_Identifier (N));
-            end if;
-
-            --  Now call the routine to generate debug info for the renaming
-
-            declare
-               Decl : constant Node_Id := Debug_Renaming_Declaration (N);
-            begin
-               if Present (Decl) then
-                  Insert_Action (N, Decl);
-               end if;
-            end;
-         end if;
       end if;
 
-      if Nkind (N) = N_Object_Declaration
-        and then Nkind (Obj_Def) = N_Access_Definition
+      if Nkind (Obj_Def) = N_Access_Definition
         and then not Is_Local_Anonymous_Access (Etype (Def_Id))
       then
          --  An Ada 2012 stand-alone object of an anonymous access type
@@ -7137,6 +6980,49 @@ package body Exp_Ch3 is
                Analyze (DIC_Call);
             end if;
          end;
+      end if;
+
+      --  Final transformation - turn the object declaration into a renaming
+      --  if appropriate. If this is the completion of a deferred constant
+      --  declaration, then this transformation generates what would be
+      --  illegal code if written by hand, but that's OK.
+
+      if Present (Expr) then
+         if Rewrite_As_Renaming then
+            Rewrite (N,
+              Make_Object_Renaming_Declaration (Loc,
+                Defining_Identifier => Defining_Identifier (N),
+                Subtype_Mark        => Obj_Def,
+                Name                => Expr_Q));
+
+            --  We do not analyze this renaming declaration, because all its
+            --  components have already been analyzed, and if we were to go
+            --  ahead and analyze it, we would in effect be trying to generate
+            --  another declaration of X, which won't do.
+
+            Set_Renamed_Object (Defining_Identifier (N), Expr_Q);
+            Set_Analyzed (N);
+
+            --  We do need to deal with debug issues for this renaming
+
+            --  First, if entity comes from source, then mark it as needing
+            --  debug information, even though it is defined by a generated
+            --  renaming that does not come from source.
+
+            if Comes_From_Source (Defining_Identifier (N)) then
+               Set_Debug_Info_Needed (Defining_Identifier (N));
+            end if;
+
+            --  Now call the routine to generate debug info for the renaming
+
+            declare
+               Decl : constant Node_Id := Debug_Renaming_Declaration (N);
+            begin
+               if Present (Decl) then
+                  Insert_Action (N, Decl);
+               end if;
+            end;
+         end if;
       end if;
 
    --  Exception on library entity not available
@@ -8234,6 +8120,34 @@ package body Exp_Ch3 is
 
       end if;
    end Has_New_Non_Standard_Rep;
+
+   ----------------------
+   -- Inline_Init_Proc --
+   ----------------------
+
+   function Inline_Init_Proc (Typ : Entity_Id) return Boolean is
+   begin
+      --  The initialization proc of protected records is not worth inlining.
+      --  In addition, when compiled for another unit for inlining purposes,
+      --  it may make reference to entities that have not been elaborated yet.
+      --  The initialization proc of records that need finalization contains
+      --  a nested clean-up procedure that makes it impractical to inline as
+      --  well, except for simple controlled types themselves. And similar
+      --  considerations apply to task types.
+
+      if Is_Concurrent_Type (Typ) then
+         return False;
+
+      elsif Needs_Finalization (Typ) and then not Is_Controlled (Typ) then
+         return False;
+
+      elsif Has_Task (Typ) then
+         return False;
+
+      else
+         return True;
+      end if;
+   end Inline_Init_Proc;
 
    ----------------
    -- In_Runtime --
@@ -9597,11 +9511,13 @@ package body Exp_Ch3 is
                   exit;
 
                --  If the parent is not an interface type and has an abstract
-               --  equality function, the inherited equality is abstract as
-               --  well, and no body can be created for it.
+               --  equality function explicitly defined in the sources, then
+               --  the inherited equality is abstract as well, and no body can
+               --  be created for it.
 
                elsif not Is_Interface (Etype (Tag_Typ))
                  and then Present (Alias (Node (Prim)))
+                 and then Comes_From_Source (Alias (Node (Prim)))
                  and then Is_Abstract_Subprogram (Alias (Node (Prim)))
                then
                   Eq_Needed := False;

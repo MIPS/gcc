@@ -1,6 +1,6 @@
 /* Medium-level subroutines: convert bit-field store and extract
    and shifts, multiplies and divides to rtl instructions.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -658,24 +658,28 @@ store_bit_field_using_insv (const extraction_insn *insv, rtx op0,
     {
       if (GET_MODE_BITSIZE (GET_MODE (value)) >= bitsize)
 	{
+	  rtx tmp;
 	  /* Optimization: Don't bother really extending VALUE
 	     if it has all the bits we will actually use.  However,
 	     if we must narrow it, be sure we do it correctly.  */
 
 	  if (GET_MODE_SIZE (GET_MODE (value)) < GET_MODE_SIZE (op_mode))
 	    {
-	      rtx tmp;
-
 	      tmp = simplify_subreg (op_mode, value1, GET_MODE (value), 0);
 	      if (! tmp)
 		tmp = simplify_gen_subreg (op_mode,
 					   force_reg (GET_MODE (value),
 						      value1),
 					   GET_MODE (value), 0);
-	      value1 = tmp;
 	    }
 	  else
-	    value1 = gen_lowpart (op_mode, value1);
+	    {
+	      tmp = gen_lowpart_if_possible (op_mode, value1);
+	      if (! tmp)
+		tmp = gen_lowpart (op_mode, force_reg (GET_MODE (value),
+						       value1));
+	    }
+	  value1 = tmp;
 	}
       else if (CONST_INT_P (value))
 	value1 = gen_int_mode (INTVAL (value), op_mode);
@@ -1642,17 +1646,6 @@ extract_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	       aren't going to be able to do another SUBREG on it.  */
 	    if (GET_CODE (op0) == SUBREG)
 	      op0 = force_reg (imode, op0);
-	  }
-	else if (REG_P (op0))
-	  {
-	    rtx reg, subreg;
-	    imode = smallest_mode_for_size (GET_MODE_BITSIZE (GET_MODE (op0)),
-					    MODE_INT);
-	    reg = gen_reg_rtx (imode);
-	    subreg = gen_lowpart_SUBREG (GET_MODE (op0), reg);
-	    emit_move_insn (subreg, op0);
-	    op0 = reg;
-	    bitnum += SUBREG_BYTE (subreg) * BITS_PER_UNIT;
 	  }
 	else
 	  {

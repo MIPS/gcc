@@ -1,5 +1,5 @@
 /* Machine description for AArch64 architecture.
-   Copyright (C) 2009-2015 Free Software Foundation, Inc.
+   Copyright (C) 2009-2016 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
    This file is part of GCC.
@@ -156,9 +156,10 @@ struct cpu_vector_cost
   const int scalar_load_cost;		 /* Cost of scalar load.  */
   const int scalar_store_cost;		 /* Cost of scalar store.  */
   const int vec_stmt_cost;		 /* Cost of any vector operation,
-					    excluding load, store,
+					    excluding load, store, permute,
 					    vector-to-scalar and
 					    scalar-to-vector operation.  */
+  const int vec_permute_cost;		 /* Cost of permute operation.  */
   const int vec_to_scalar_cost;		 /* Cost of vec-to-scalar operation.  */
   const int scalar_to_vec_cost;		 /* Cost of scalar-to-vector
 					    operation.  */
@@ -262,6 +263,18 @@ enum aarch64_extra_tuning_flags
 };
 #undef AARCH64_EXTRA_TUNING_OPTION
 
+/* Enum describing the various ways that the
+   aarch64_parse_{arch,tune,cpu,extension} functions can fail.
+   This way their callers can choose what kind of error to give.  */
+
+enum aarch64_parse_opt_result
+{
+  AARCH64_PARSE_OK,			/* Parsing was successful.  */
+  AARCH64_PARSE_MISSING_ARG,		/* Missing argument.  */
+  AARCH64_PARSE_INVALID_FEATURE,	/* Invalid feature modifier.  */
+  AARCH64_PARSE_INVALID_ARG		/* Invalid arch, tune, cpu arg.  */
+};
+
 extern struct tune_params aarch64_tune_params;
 
 HOST_WIDE_INT aarch64_initial_elimination_offset (unsigned, unsigned);
@@ -269,6 +282,9 @@ int aarch64_get_condition_code (rtx);
 bool aarch64_bitmask_imm (HOST_WIDE_INT val, machine_mode);
 int aarch64_branch_cost (bool, bool);
 enum aarch64_symbol_type aarch64_classify_symbolic_expression (rtx);
+bool aarch64_cannot_change_mode_class (machine_mode,
+				       machine_mode,
+				       enum reg_class);
 bool aarch64_const_vec_all_same_int_p (rtx, HOST_WIDE_INT);
 bool aarch64_constant_address_p (rtx);
 bool aarch64_expand_movmem (rtx *);
@@ -276,8 +292,6 @@ bool aarch64_float_const_zero_rtx_p (rtx);
 bool aarch64_function_arg_regno_p (unsigned);
 bool aarch64_gen_movmemqi (rtx *);
 bool aarch64_gimple_fold_builtin (gimple_stmt_iterator *);
-bool aarch64_handle_option (struct gcc_options *, struct gcc_options *,
-			     const struct cl_decoded_option *, location_t);
 bool aarch64_is_extend_from_extract (machine_mode, rtx, rtx);
 bool aarch64_is_long_call_p (rtx);
 bool aarch64_is_noplt_call_p (rtx);
@@ -286,6 +300,7 @@ void aarch64_declare_function_name (FILE *, const char*, tree);
 bool aarch64_legitimate_pic_operand_p (rtx);
 bool aarch64_modes_tieable_p (machine_mode mode1,
 			      machine_mode mode2);
+bool aarch64_zero_extend_const_eq (machine_mode, rtx, machine_mode, rtx);
 bool aarch64_move_imm (HOST_WIDE_INT, machine_mode);
 bool aarch64_mov_operand_p (rtx, machine_mode);
 int aarch64_simd_attr_length_rglist (enum machine_mode);
@@ -310,7 +325,6 @@ bool aarch64_uimm12_shift (HOST_WIDE_INT);
 bool aarch64_use_return_insn_p (void);
 const char *aarch64_mangle_builtin_type (const_tree);
 const char *aarch64_output_casesi (rtx *);
-const char *aarch64_rewrite_selected_cpu (const char *name);
 
 enum aarch64_symbol_type aarch64_classify_symbol (rtx, rtx);
 enum aarch64_symbol_type aarch64_classify_tls_symbol (rtx);
@@ -326,13 +340,13 @@ int aarch64_uxt_size (int, HOST_WIDE_INT);
 int aarch64_vec_fpconst_pow_of_2 (rtx);
 rtx aarch64_final_eh_return_addr (void);
 rtx aarch64_legitimize_reload_address (rtx *, machine_mode, int, int, int);
+rtx aarch64_mask_from_zextract_ops (rtx, rtx);
 const char *aarch64_output_move_struct (rtx *operands);
 rtx aarch64_return_addr (int, rtx);
 rtx aarch64_simd_gen_const_vector_dup (machine_mode, int);
 bool aarch64_simd_mem_operand_p (rtx);
 rtx aarch64_simd_vect_par_cnst_half (machine_mode, bool);
 rtx aarch64_tls_get_addr (void);
-std::string aarch64_get_extension_string_for_isa_flags (unsigned long);
 tree aarch64_fold_builtin (tree, int, tree *, bool);
 unsigned aarch64_dbx_register_number (unsigned);
 unsigned aarch64_trampoline_size (void);
@@ -340,6 +354,7 @@ void aarch64_asm_output_labelref (FILE *, const char *);
 void aarch64_cpu_cpp_builtins (cpp_reader *);
 void aarch64_elf_asm_named_section (const char *, unsigned, tree);
 const char * aarch64_gen_far_branch (rtx *, int, const char *, const char *);
+const char * aarch64_output_probe_stack_range (rtx, rtx);
 void aarch64_err_no_fpadvsimd (machine_mode, const char *);
 void aarch64_expand_epilogue (bool);
 void aarch64_expand_mov_immediate (rtx, rtx);
@@ -353,8 +368,8 @@ void aarch64_emit_call_insn (rtx);
 void aarch64_register_pragmas (void);
 void aarch64_relayout_simd_types (void);
 void aarch64_reset_previous_fndecl (void);
-
-void aarch64_emit_swrsqrt (rtx, rtx);
+void aarch64_save_restore_target_globals (tree);
+void aarch64_emit_approx_rsqrt (rtx, rtx);
 
 /* Initialize builtins for SIMD intrinsics.  */
 void init_aarch64_simd_builtins (void);
@@ -406,13 +421,8 @@ rtx aarch64_expand_builtin (tree exp,
 			    machine_mode mode ATTRIBUTE_UNUSED,
 			    int ignore ATTRIBUTE_UNUSED);
 tree aarch64_builtin_decl (unsigned, bool ATTRIBUTE_UNUSED);
-
-tree aarch64_builtin_rsqrt (unsigned int, bool);
-
-tree
-aarch64_builtin_vectorized_function (tree fndecl,
-				     tree type_out,
-				     tree type_in);
+tree aarch64_builtin_rsqrt (unsigned int);
+tree aarch64_builtin_vectorized_function (unsigned int, tree, tree);
 
 extern void aarch64_split_combinev16qi (rtx operands[3]);
 extern void aarch64_expand_vec_perm (rtx target, rtx op0, rtx op1, rtx sel);
@@ -427,4 +437,17 @@ bool extract_base_offset_in_addr (rtx mem, rtx *base, rtx *offset);
 bool aarch64_operands_ok_for_ldpstp (rtx *, bool, enum machine_mode);
 bool aarch64_operands_adjust_ok_for_ldpstp (rtx *, bool, enum machine_mode);
 extern bool aarch64_nopcrelative_literal_loads;
+
+extern void aarch64_asm_output_pool_epilogue (FILE *, const char *,
+					      tree, HOST_WIDE_INT);
+
+/* Defined in common/config/aarch64-common.c.  */
+bool aarch64_handle_option (struct gcc_options *, struct gcc_options *,
+			     const struct cl_decoded_option *, location_t);
+const char *aarch64_rewrite_selected_cpu (const char *name);
+enum aarch64_parse_opt_result aarch64_parse_extension (const char *,
+						       unsigned long *);
+std::string aarch64_get_extension_string_for_isa_flags (unsigned long,
+							unsigned long);
+
 #endif /* GCC_AARCH64_PROTOS_H */

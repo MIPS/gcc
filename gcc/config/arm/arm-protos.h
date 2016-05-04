@@ -1,5 +1,5 @@
 /* Prototypes for exported functions defined in arm.c and pe.c
-   Copyright (C) 1999-2015 Free Software Foundation, Inc.
+   Copyright (C) 1999-2016 Free Software Foundation, Inc.
    Contributed by Richard Earnshaw (rearnsha@arm.com)
    Minor hacks by Nick Clifton (nickc@cygnus.com)
 
@@ -50,7 +50,9 @@ extern tree arm_builtin_decl (unsigned code, bool initialize_p
 			      ATTRIBUTE_UNUSED);
 extern void arm_init_builtins (void);
 extern void arm_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update);
-
+extern rtx arm_simd_vect_par_cnst_half (machine_mode mode, bool high);
+extern bool arm_simd_check_vect_par_cnst_half_p (rtx op, machine_mode mode,
+						 bool high);
 #ifdef RTX_CODE
 extern bool arm_vector_mode_supported_p (machine_mode);
 extern bool arm_small_register_classes_for_mode_p (machine_mode);
@@ -84,12 +86,11 @@ extern char *neon_output_shift_immediate (const char *, char, rtx *,
 extern void neon_pairwise_reduce (rtx, rtx, machine_mode,
 				  rtx (*) (rtx, rtx, rtx));
 extern rtx neon_make_constant (rtx);
-extern tree arm_builtin_vectorized_function (tree, tree, tree);
+extern tree arm_builtin_vectorized_function (unsigned int, tree, tree);
 extern void neon_expand_vector_init (rtx, rtx);
 extern void neon_lane_bounds (rtx, HOST_WIDE_INT, HOST_WIDE_INT, const_tree);
 extern void neon_const_bounds (rtx, HOST_WIDE_INT, HOST_WIDE_INT);
 extern HOST_WIDE_INT neon_element_bits (machine_mode);
-extern void neon_reinterpret (rtx, rtx);
 extern void neon_emit_pair_result_insn (machine_mode,
 					rtx (*) (rtx, rtx, rtx, rtx),
 					rtx, rtx, rtx);
@@ -132,7 +133,6 @@ extern bool arm_const_double_by_parts (rtx);
 extern bool arm_const_double_by_immediates (rtx);
 extern void arm_emit_call_insn (rtx, rtx, bool);
 extern const char *output_call (rtx *);
-extern const char *output_call_mem (rtx *);
 void arm_emit_movpair (rtx, rtx);
 extern const char *output_mov_long_double_arm_from_arm (rtx *);
 extern const char *output_move_double (rtx *, bool, int *count);
@@ -302,8 +302,9 @@ struct tune_params
   enum fuse_ops
   {
     FUSE_NOTHING   = 0,
-    FUSE_MOVW_MOVT = 1 << 0
-  } fusible_ops: 1;
+    FUSE_MOVW_MOVT = 1 << 0,
+    FUSE_AES_AESMC = 1 << 1
+  } fusible_ops: 2;
   /* Depth of scheduling queue to check for L2 autoprefetcher.  */
   enum {SCHED_AUTOPREF_OFF, SCHED_AUTOPREF_RANK, SCHED_AUTOPREF_FULL}
     sched_autopref: 2;
@@ -333,6 +334,7 @@ extern bool arm_autoinc_modes_ok_p (machine_mode, enum arm_auto_incmodes);
 extern void arm_emit_eabi_attribute (const char *, int, int);
 
 extern void arm_reset_previous_fndecl (void);
+extern void save_restore_target_globals (tree);
 
 /* Defined in gcc/common/config/arm-common.c.  */
 extern const char *arm_rewrite_selected_cpu (const char *name);
@@ -387,6 +389,8 @@ extern bool arm_is_constant_pool_ref (rtx);
 #define FL_IWMMXT2    (1 << 30)       /* "Intel Wireless MMX2 technology".  */
 #define FL_ARCH6KZ    (1 << 31)       /* ARMv6KZ architecture.  */
 
+#define FL2_ARCH8_1   (1 << 0)	      /* Architecture 8.1.  */
+
 /* Flags that only effect tuning, not available instructions.  */
 #define FL_TUNE		(FL_WBUF | FL_VFPV2 | FL_STRONG | FL_LDSCHED \
 			 | FL_CO_PROC)
@@ -415,6 +419,7 @@ extern bool arm_is_constant_pool_ref (rtx);
 #define FL_FOR_ARCH7M	(FL_FOR_ARCH7 | FL_THUMB_DIV)
 #define FL_FOR_ARCH7EM  (FL_FOR_ARCH7M | FL_ARCH7EM)
 #define FL_FOR_ARCH8A	(FL_FOR_ARCH7VE | FL_ARCH8)
+#define FL2_FOR_ARCH8_1A	FL2_ARCH8_1
 
 /* There are too many feature bits to fit in a single word so the set of cpu and
    fpu capabilities is a structure.  A feature set is created and manipulated

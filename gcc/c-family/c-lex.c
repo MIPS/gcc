@@ -1,5 +1,5 @@
 /* Mainly the interface between cpplib and the C front ends.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -340,22 +340,26 @@ c_common_has_attribute (cpp_reader *pfile)
 		  attr_name = NULL_TREE;
 		}
 	    }
+	  else
+	    {
+	      /* Some standard attributes need special handling.  */
+	      if (is_attribute_p ("noreturn", attr_name))
+		result = 200809;
+	      else if (is_attribute_p ("deprecated", attr_name))
+		result = 201309;
+	      else if (is_attribute_p ("maybe_unused", attr_name)
+		       || is_attribute_p ("nodiscard", attr_name))
+		result = 201603;
+	      if (result)
+		attr_name = NULL_TREE;
+	    }
 	}
       if (attr_name)
 	{
 	  init_attributes ();
 	  const struct attribute_spec *attr = lookup_attribute_spec (attr_name);
 	  if (attr)
-	    {
-	      if (TREE_CODE (attr_name) == TREE_LIST)
-		attr_name = TREE_VALUE (attr_name);
-	      if (is_attribute_p ("noreturn", attr_name))
-		result = 200809;
-	      else if (is_attribute_p ("deprecated", attr_name))
-		result = 201309;
-	      else
-		result = 1;
-	    }
+	    result = 1;
 	}
     }
   else
@@ -385,6 +389,9 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
   enum cpp_ttype type;
   unsigned char add_flags = 0;
   enum overflow_type overflow = OT_NONE;
+  time_t source_date_epoch = get_source_date_epoch ();
+
+  cpp_init_source_date_epoch (parse_in, source_date_epoch);
 
   timevar_push (TV_CPP);
  retry:
@@ -1262,4 +1269,30 @@ lex_charconst (const cpp_token *token)
     value = build_int_cst (type, (cppchar_signed_t) result);
 
   return value;
+}
+
+/* Helper function for c_parser_peek_conflict_marker
+   and cp_lexer_peek_conflict_marker.
+   Given a possible conflict marker token of kind TOK1_KIND
+   consisting of a pair of characters, get the token kind for the
+   standalone final character.  */
+
+enum cpp_ttype
+conflict_marker_get_final_tok_kind (enum cpp_ttype tok1_kind)
+{
+  switch (tok1_kind)
+    {
+    default: gcc_unreachable ();
+    case CPP_LSHIFT:
+      /* "<<" and '<' */
+      return CPP_LESS;
+
+    case CPP_EQ_EQ:
+      /* "==" and '=' */
+      return CPP_EQ;
+
+    case CPP_RSHIFT:
+      /* ">>" and '>' */
+      return CPP_GREATER;
+    }
 }

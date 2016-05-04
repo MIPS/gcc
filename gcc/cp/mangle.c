@@ -1,5 +1,5 @@
 /* Name mangling for the 3.0 C++ ABI.
-   Copyright (C) 2000-2015 Free Software Foundation, Inc.
+   Copyright (C) 2000-2016 Free Software Foundation, Inc.
    Written by Alex Samuel <samuel@codesourcery.com>
 
    This file is part of GCC.
@@ -223,6 +223,7 @@ static void write_local_name (tree, const tree, const tree);
 static void dump_substitution_candidates (void);
 static tree mangle_decl_string (const tree);
 static int local_class_index (tree);
+static void maybe_check_abi_tags (tree, tree = NULL_TREE);
 
 /* Control functions.  */
 
@@ -263,9 +264,9 @@ static void write_java_integer_type_codes (const tree);
 #define write_unsigned_number(NUMBER)					\
   write_number ((NUMBER), /*unsigned_p=*/1, 10)
 
-/* If DECL is a template instance, return nonzero and, if
-   TEMPLATE_INFO is non-NULL, set *TEMPLATE_INFO to its template info.
-   Otherwise return zero.  */
+/* If DECL is a template instance (including the uninstantiated template
+   itself), return nonzero and, if TEMPLATE_INFO is non-NULL, set
+   *TEMPLATE_INFO to its template info.  Otherwise return zero.  */
 
 static int
 decl_is_template_id (const tree decl, tree* const template_info)
@@ -289,7 +290,8 @@ decl_is_template_id (const tree decl, tree* const template_info)
     {
       /* Check if this is a primary template.  */
       if (DECL_LANG_SPECIFIC (decl) != NULL
-	  && DECL_USE_TEMPLATE (decl)
+	  && VAR_OR_FUNCTION_DECL_P (decl)
+	  && DECL_TEMPLATE_INFO (decl)
 	  && PRIMARY_TEMPLATE_P (DECL_TI_TEMPLATE (decl))
 	  && TREE_CODE (decl) != TEMPLATE_DECL)
 	{
@@ -1145,7 +1147,7 @@ write_template_prefix (const tree node)
      So, for the example above, `Outer<int>::Inner' is represented as a
      substitution candidate by a TREE_LIST whose purpose is `Outer<int>'
      and whose value is `Outer<T>::Inner<U>'.  */
-  if (TYPE_P (context))
+  if (context && TYPE_P (context))
     substitution = build_tree_list (context, templ);
   else
     substitution = templ;
@@ -3280,8 +3282,10 @@ write_template_template_arg (const tree decl)
 		  ::= A <expression> _ </element/ type>
 
      "Array types encode the dimension (number of elements) and the
-     element type. For variable length arrays, the dimension (but not
-     the '_' separator) is omitted."  */
+     element type.  For variable length arrays, the dimension (but not
+     the '_' separator) is omitted."
+     Note that for flexible array members, like for other arrays of
+     unspecified size, the dimension is also omitted.  */
 
 static void
 write_array_type (const tree type)
@@ -3290,29 +3294,31 @@ write_array_type (const tree type)
   if (TYPE_DOMAIN (type))
     {
       tree index_type;
-      tree max;
 
       index_type = TYPE_DOMAIN (type);
-      /* The INDEX_TYPE gives the upper and lower bounds of the
-	 array.  */
-      max = TYPE_MAX_VALUE (index_type);
-      if (TREE_CODE (max) == INTEGER_CST)
+      /* The INDEX_TYPE gives the upper and lower bounds of the array.
+	 It's null for flexible array members which have no upper bound
+	 (this is a change from GCC 5 and prior where such members were
+	 incorrectly mangled as zero-length arrays).  */
+      if (tree max = TYPE_MAX_VALUE (index_type))
 	{
-	  /* The ABI specifies that we should mangle the number of
-	     elements in the array, not the largest allowed index.  */
-	  offset_int wmax = wi::to_offset (max) + 1;
-	  /* Truncate the result - this will mangle [0, SIZE_INT_MAX]
-	     number of elements as zero.  */
-	  wmax = wi::zext (wmax, TYPE_PRECISION (TREE_TYPE (max)));
-	  gcc_assert (wi::fits_uhwi_p (wmax));
-	  write_unsigned_number (wmax.to_uhwi ());
+	  if (TREE_CODE (max) == INTEGER_CST)
+	    {
+	      /* The ABI specifies that we should mangle the number of
+		 elements in the array, not the largest allowed index.  */
+	      offset_int wmax = wi::to_offset (max) + 1;
+	      /* Truncate the result - this will mangle [0, SIZE_INT_MAX]
+		 number of elements as zero.  */
+	      wmax = wi::zext (wmax, TYPE_PRECISION (TREE_TYPE (max)));
+	      gcc_assert (wi::fits_uhwi_p (wmax));
+	      write_unsigned_number (wmax.to_uhwi ());
+	    }
+	  else
+	    {
+	      max = TREE_OPERAND (max, 0);
+	      write_expression (max);
+	    }
 	}
-      else
-	{
-	  max = TREE_OPERAND (max, 0);
-	  write_expression (max);
-	}
-
     }
   write_char ('_');
   write_type (TREE_TYPE (type));
@@ -3595,6 +3601,9 @@ mangle_decl (const tree decl)
     {
       gcc_assert (TREE_CODE (decl) != TYPE_DECL
 		  || !no_linkage_check (TREE_TYPE (decl), true));
+      if (abi_version_at_least (10))
+	if (tree fn = decl_function_context (decl))
+	  maybe_check_abi_tags (fn, decl);
       id = get_mangled_id (decl);
     }
   SET_DECL_ASSEMBLER_NAME (decl, id);
@@ -3657,13 +3666,13 @@ mangle_decl (const tree decl)
 	    warning_at (DECL_SOURCE_LOCATION (G.entity), OPT_Wabi,
 			"the mangled name of %qD changed between "
 			"-fabi-version=%d (%D) and -fabi-version=%d (%D)",
-			G.entity, warn_abi_version, id2,
-			flag_abi_version, id);
+			G.entity, save_ver, id2,
+			warn_abi_version, id);
 	  else
 	    warning_at (DECL_SOURCE_LOCATION (G.entity), OPT_Wabi,
 			"the mangled name of %qD changes between "
 			"-fabi-version=%d (%D) and -fabi-version=%d (%D)",
-			G.entity, flag_abi_version, id,
+			G.entity, save_ver, id,
 			warn_abi_version, id2);
 	}
 
@@ -3931,6 +3940,43 @@ mangle_conv_op_name_for_type (const tree type)
   return identifier;
 }
 
+/* Handle ABI backwards compatibility for past bugs where we didn't call
+   check_abi_tags in places where it's needed: call check_abi_tags and warn if
+   it makes a difference.  If FOR_DECL is non-null, it's the declaration
+   that we're actually trying to mangle; if it's null, we're mangling the
+   guard variable for T.  */
+
+static void
+maybe_check_abi_tags (tree t, tree for_decl)
+{
+  if (DECL_ASSEMBLER_NAME_SET_P (t))
+    return;
+
+  tree attr = lookup_attribute ("abi_tag", DECL_ATTRIBUTES (t));
+  tree oldtags = NULL_TREE;
+  if (attr)
+    oldtags = TREE_VALUE (attr);
+
+  mangle_decl (t);
+
+  if (!attr)
+    attr = lookup_attribute ("abi_tag", DECL_ATTRIBUTES (t));
+  if (attr && TREE_VALUE (attr) != oldtags
+      && abi_version_crosses (10))
+    {
+      if (for_decl)
+	warning_at (DECL_SOURCE_LOCATION (for_decl), OPT_Wabi,
+		    "the mangled name of %qD changes between "
+		    "-fabi-version=%d and -fabi-version=%d",
+		    for_decl, flag_abi_version, warn_abi_version);
+      else
+	warning_at (DECL_SOURCE_LOCATION (t), OPT_Wabi,
+		    "the mangled name of the initialization guard variable for"
+		    "%qD changes between -fabi-version=%d and -fabi-version=%d",
+		    t, flag_abi_version, warn_abi_version);
+    }
+}
+
 /* Write out the appropriate string for this variable when generating
    another mangled name based on this one.  */
 
@@ -3952,6 +3998,8 @@ write_guarded_var_name (const tree variable)
 tree
 mangle_guard_variable (const tree variable)
 {
+  if (abi_version_at_least (10))
+    maybe_check_abi_tags (variable);
   start_mangling (variable);
   write_string ("_ZGV");
   write_guarded_var_name (variable);
@@ -4007,6 +4055,7 @@ mangle_ref_init_variable (const tree variable)
 {
   start_mangling (variable);
   write_string ("_ZGR");
+  check_abi_tags (variable);
   write_name (variable, /*ignore_local_scope=*/0);
   /* Avoid name clashes with aggregate initialization of multiple
      references at once.  */

@@ -1,5 +1,5 @@
 /* Decompose multiword subregs.
-   Copyright (C) 2007-2015 Free Software Foundation, Inc.
+   Copyright (C) 2007-2016 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>
 		  Ian Lance Taylor <iant@google.com>
 
@@ -614,7 +614,8 @@ simplify_subreg_concatn (machine_mode outermode, rtx op,
 
   innermode = GET_MODE (op);
   gcc_assert (byte < GET_MODE_SIZE (innermode));
-  gcc_assert (GET_MODE_SIZE (outermode) <= GET_MODE_SIZE (innermode));
+  if (GET_MODE_SIZE (outermode) > GET_MODE_SIZE (innermode))
+    return NULL_RTX;
 
   inner_size = GET_MODE_SIZE (innermode) / XVECLEN (op, 0);
   part = XVECEXP (op, 0, byte / inner_size);

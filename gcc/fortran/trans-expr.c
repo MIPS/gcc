@@ -1,5 +1,5 @@
 /* Expression translation
-   Copyright (C) 2002-2015 Free Software Foundation, Inc.
+   Copyright (C) 2002-2016 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -173,6 +173,29 @@ gfc_class_len_get (tree decl)
 }
 
 
+/* Try to get the _len component of a class.  When the class is not unlimited
+   poly, i.e. no _len field exists, then return a zero node.  */
+
+tree
+gfc_class_len_or_zero_get (tree decl)
+{
+  tree len;
+  /* For class arrays decl may be a temporary descriptor handle, the vptr is
+     then available through the saved descriptor.  */
+  if (TREE_CODE (decl) == VAR_DECL && DECL_LANG_SPECIFIC (decl)
+      && GFC_DECL_SAVED_DESCRIPTOR (decl))
+    decl = GFC_DECL_SAVED_DESCRIPTOR (decl);
+  if (POINTER_TYPE_P (TREE_TYPE (decl)))
+    decl = build_fold_indirect_ref_loc (input_location, decl);
+  len = gfc_advance_chain (TYPE_FIELDS (TREE_TYPE (decl)),
+			   CLASS_LEN_FIELD);
+  return len != NULL_TREE ? fold_build3_loc (input_location, COMPONENT_REF,
+					     TREE_TYPE (len), decl, len,
+					     NULL_TREE)
+			  : integer_zero_node;
+}
+
+
 /* Get the specified FIELD from the VPTR.  */
 
 static tree
@@ -250,6 +273,7 @@ gfc_vptr_size_get (tree vptr)
 
 #undef CLASS_DATA_FIELD
 #undef CLASS_VPTR_FIELD
+#undef CLASS_LEN_FIELD
 #undef VTABLE_HASH_FIELD
 #undef VTABLE_SIZE_FIELD
 #undef VTABLE_EXTENDS_FIELD
@@ -1103,7 +1127,14 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems, bool unlimited)
 	}
       else
 	{
-	  from_data = gfc_class_data_get (from);
+	  /* Check that from is a class.  When the class is part of a coarray,
+	     then from is a common pointer and is to be used as is.  */
+	  tmp = POINTER_TYPE_P (TREE_TYPE (from))
+	      ? build_fold_indirect_ref (from) : from;
+	  from_data =
+	      (GFC_CLASS_TYPE_P (TREE_TYPE (tmp))
+	       || (DECL_P (tmp) && GFC_DECL_CLASS (tmp)))
+	      ? gfc_class_data_get (from) : from;
 	  is_from_desc = GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (from_data));
 	}
      }
@@ -1113,7 +1144,7 @@ gfc_copy_class_to_class (tree from, tree to, tree nelems, bool unlimited)
   if (unlimited)
     {
       if (from != NULL_TREE && unlimited)
-	from_len = gfc_class_len_get (from);
+	from_len = gfc_class_len_or_zero_get (from);
       else
 	from_len = integer_zero_node;
     }
@@ -4723,8 +4754,9 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
      is the third and fourth argument to such a function call a value
      denoting the number of elements to copy (i.e., most of the time the
      length of a deferred length string).  */
-  ulim_copy = formal == NULL && UNLIMITED_POLY (sym)
-      && strcmp ("_copy", comp->name) == 0;
+  ulim_copy = (formal == NULL)
+	       && UNLIMITED_POLY (sym)
+	       && comp && (strcmp ("_copy", comp->name) == 0);
 
   /* Evaluate the arguments.  */
   for (arg = args, argc = 0; arg != NULL;
@@ -5599,7 +5631,8 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	  else
 	    {
 	      tmp = parmse.string_length;
-	      if (TREE_CODE (tmp) != VAR_DECL)
+	      if (TREE_CODE (tmp) != VAR_DECL
+		  && TREE_CODE (tmp) != COMPONENT_REF)
 		tmp = gfc_evaluate_now (parmse.string_length, &se->pre);
 	      parmse.string_length = gfc_build_addr_expr (NULL_TREE, tmp);
 	    }
@@ -5619,7 +5652,8 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
       if (sym->name[0] == '_' && e && e->ts.type == BT_CHARACTER
 	  && strncmp (sym->name, "__vtab_CHARACTER", 16) == 0
 	  && arg->next && arg->next->expr
-	  && arg->next->expr->ts.type == BT_DERIVED
+	  && (arg->next->expr->ts.type == BT_DERIVED
+	      || arg->next->expr->ts.type == BT_CLASS)
 	  && arg->next->expr->ts.u.derived->attr.unlimited_polymorphic)
 	vec_safe_push (stringargs, parmse.string_length);
 
@@ -5783,8 +5817,9 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
       len = cl.backend_decl;
     }
 
-  byref = (comp && (comp->attr.dimension || comp->ts.type == BT_CHARACTER))
-	  || (!comp && gfc_return_by_reference (sym));
+  byref = (comp && (comp->attr.dimension
+	   || (comp->ts.type == BT_CHARACTER && !sym->attr.is_bind_c)))
+	   || (!comp && gfc_return_by_reference (sym));
   if (byref)
     {
       if (se->direct_byref)
@@ -5940,6 +5975,9 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	  tmp = len;
 	  if (TREE_CODE (tmp) != VAR_DECL)
 	    tmp = gfc_evaluate_now (len, &se->pre);
+	  TREE_STATIC (tmp) = 1;
+	  gfc_add_modify (&se->pre, tmp,
+			  build_int_cst (TREE_TYPE (tmp), 0));
 	  tmp = gfc_build_addr_expr (NULL_TREE, tmp);
 	  vec_safe_push (retargs, tmp);
 	}
@@ -6609,6 +6647,11 @@ gfc_conv_initializer (gfc_expr * expr, gfc_typespec * ts, tree type,
 		      bool array, bool pointer, bool procptr)
 {
   gfc_se se;
+
+  if (flag_coarray != GFC_FCOARRAY_LIB && ts->type == BT_DERIVED
+      && ts->u.derived->from_intmod == INTMOD_ISO_FORTRAN_ENV
+      && ts->u.derived->intmod_sym_id == ISOFORTRAN_EVENT_TYPE)
+    return build_constructor (type, NULL);
 
   if (!(expr || pointer || procptr))
     return NULL_TREE;
@@ -8815,8 +8858,8 @@ gfc_trans_array_constructor_copy (gfc_expr * expr1, gfc_expr * expr2)
 
 /* Tells whether the expression is to be treated as a variable reference.  */
 
-static bool
-expr_is_variable (gfc_expr *expr)
+bool
+gfc_expr_is_variable (gfc_expr *expr)
 {
   gfc_expr *arg;
   gfc_component *comp;
@@ -8829,7 +8872,7 @@ expr_is_variable (gfc_expr *expr)
   if (arg)
     {
       gcc_assert (expr->value.function.isym->id == GFC_ISYM_TRANSPOSE);
-      return expr_is_variable (arg);
+      return gfc_expr_is_variable (arg);
     }
 
   /* A data-pointer-returning function should be considered as a variable
@@ -8891,10 +8934,11 @@ is_scalar_reallocatable_lhs (gfc_expr *expr)
 	&& !expr->ref)
     return true;
 
-  /* All that can be left are allocatable components.  */
-  if ((expr->symtree->n.sym->ts.type != BT_DERIVED
+  /* All that can be left are allocatable components.  However, we do
+     not check for allocatable components here because the expression
+     could be an allocatable component of a pointer component.  */
+  if (expr->symtree->n.sym->ts.type != BT_DERIVED
 	&& expr->symtree->n.sym->ts.type != BT_CLASS)
-	|| !expr->symtree->n.sym->ts.u.derived->attr.alloc_comp)
     return false;
 
   /* Find an allocatable component ref last.  */
@@ -9153,6 +9197,7 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
   bool scalar_to_array;
   tree string_length;
   int n;
+  bool maybe_workshare = false;
 
   /* Assignment of the form lhs = rhs.  */
   gfc_start_block (&block);
@@ -9227,8 +9272,13 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
 	}
 
       /* Allow the scalarizer to workshare array assignments.  */
-      if ((ompws_flags & OMPWS_WORKSHARE_FLAG) && loop.temp_ss == NULL)
-	ompws_flags |= OMPWS_SCALARIZER_WS;
+      if ((ompws_flags & (OMPWS_WORKSHARE_FLAG | OMPWS_SCALARIZER_BODY))
+	  == OMPWS_WORKSHARE_FLAG
+	  && loop.temp_ss == NULL)
+	{
+	  maybe_workshare = true;
+	  ompws_flags |= OMPWS_SCALARIZER_WS | OMPWS_SCALARIZER_BODY;
+	}
 
       /* Start the scalarized loop body.  */
       gfc_start_scalarized_body (&loop, &body);
@@ -9250,8 +9300,13 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
     }
 
   /* Stabilize a string length for temporaries.  */
-  if (expr2->ts.type == BT_CHARACTER)
+  if (expr2->ts.type == BT_CHARACTER && !expr1->ts.deferred
+      && !(TREE_CODE (rse.string_length) == VAR_DECL
+	   || TREE_CODE (rse.string_length) == PARM_DECL
+	   || TREE_CODE (rse.string_length) == INDIRECT_REF))
     string_length = gfc_evaluate_now (rse.string_length, &rse.pre);
+  else if (expr2->ts.type == BT_CHARACTER)
+    string_length = rse.string_length;
   else
     string_length = NULL_TREE;
 
@@ -9262,14 +9317,43 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
 	lse.string_length = string_length;
     }
   else
-    gfc_conv_expr (&lse, expr1);
+    {
+      gfc_conv_expr (&lse, expr1);
+      if (gfc_option.rtcheck & GFC_RTCHECK_MEM
+	  && !init_flag
+	  && gfc_expr_attr (expr1).allocatable
+	  && expr1->rank
+	  && !expr2->rank)
+	{
+	  tree cond;
+	  const char* msg;
+
+	  /* We should only get array references here.  */
+	  gcc_assert (TREE_CODE (lse.expr) == POINTER_PLUS_EXPR
+		      || TREE_CODE (lse.expr) == ARRAY_REF);
+
+	  /* 'tmp' is either the pointer to the array(POINTER_PLUS_EXPR)
+	     or the array itself(ARRAY_REF).  */
+	  tmp = TREE_OPERAND (lse.expr, 0);
+
+	  /* Provide the address of the array.  */
+	  if (TREE_CODE (lse.expr) == ARRAY_REF)
+	    tmp = gfc_build_addr_expr (NULL_TREE, tmp);
+
+	  cond = fold_build2_loc (input_location, EQ_EXPR, boolean_type_node,
+				  tmp, build_int_cst (TREE_TYPE (tmp), 0));
+	  msg = _("Assignment of scalar to unallocated array");
+	  gfc_trans_runtime_check (true, false, cond, &loop.pre,
+				   &expr1->where, msg);
+	}
+    }
 
   /* Assignments of scalar derived types with allocatable components
      to arrays must be done with a deep copy and the rhs temporary
      must have its components deallocated afterwards.  */
   scalar_to_array = (expr2->ts.type == BT_DERIVED
 		       && expr2->ts.u.derived->attr.alloc_comp
-		       && !expr_is_variable (expr2)
+		       && !gfc_expr_is_variable (expr2)
 		       && expr1->rank && !expr2->rank);
   scalar_to_array |= (expr1->ts.type == BT_DERIVED
 				    && expr1->rank
@@ -9285,8 +9369,14 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
      the function call must happen before the (re)allocation of the lhs -
      otherwise the character length of the result is not known.
      NOTE: This relies on having the exact dependence of the length type
-     parameter available to the caller; gfortran saves it in the .mod files.  */
-  if (flag_realloc_lhs && expr2->ts.type == BT_CHARACTER && expr1->ts.deferred)
+     parameter available to the caller; gfortran saves it in the .mod files.
+     NOTE ALSO: The concatenation operation generates a temporary pointer,
+     whose allocation must go to the innermost loop.  */
+  if (flag_realloc_lhs
+      && expr2->ts.type == BT_CHARACTER && expr1->ts.deferred
+      && !(lss != gfc_ss_terminator
+	   && expr2->expr_type == EXPR_OP
+	   && expr2->value.op.op == INTRINSIC_CONCAT))
     gfc_add_block_to_block (&block, &rse.pre);
 
   /* Nullify the allocatable components corresponding to those of the lhs
@@ -9307,7 +9397,7 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
     }
 
   tmp = gfc_trans_scalar_assign (&lse, &rse, expr1->ts,
-				 expr_is_variable (expr2) || scalar_to_array
+				 gfc_expr_is_variable (expr2) || scalar_to_array
 				 || expr2->expr_type == EXPR_ARRAY,
 				 !(l_is_temp || init_flag) && dealloc);
   gfc_add_expr_to_block (&body, tmp);
@@ -9368,6 +9458,9 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
 	  if (tmp != NULL_TREE)
 	    gfc_add_expr_to_block (&loop.code[expr1->rank - 1], tmp);
 	}
+
+      if (maybe_workshare)
+	ompws_flags &= ~OMPWS_SCALARIZER_BODY;
 
       /* Generate the copying loops.  */
       gfc_trans_scalarizing_loops (&loop, &body);

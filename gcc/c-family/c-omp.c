@@ -1,7 +1,7 @@
 /* This file contains routines to construct OpenACC and OpenMP constructs,
    called from parsing in the C and C++ front ends.
 
-   Copyright (C) 2005-2015 Free Software Foundation, Inc.
+   Copyright (C) 2005-2016 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>,
 		  Diego Novillo <dnovillo@redhat.com>.
 
@@ -63,7 +63,6 @@ c_finish_oacc_wait (location_t loc, tree parms, tree clauses)
     }
 
   stmt = build_call_expr_loc_vec (loc, stmt, args);
-  add_stmt (stmt);
 
   vec_free (args);
 
@@ -862,9 +861,10 @@ c_omp_check_loop_iv_exprs (location_t stmt_loc, tree declv, tree decl,
    #pragma acc parallel loop  */
 
 tree
-c_oacc_split_loop_clauses (tree clauses, tree *not_loop_clauses)
+c_oacc_split_loop_clauses (tree clauses, tree *not_loop_clauses,
+			   bool is_parallel)
 {
-  tree next, loop_clauses, t;
+  tree next, loop_clauses, nc;
 
   loop_clauses = *not_loop_clauses = NULL_TREE;
   for (; clauses ; clauses = next)
@@ -887,11 +887,22 @@ c_oacc_split_loop_clauses (tree clauses, tree *not_loop_clauses)
 	  loop_clauses = clauses;
 	  break;
 
-	  /* Reductions belong in both constructs.  */
+	  /* Reductions must be duplicated on both constructs.  */
 	case OMP_CLAUSE_REDUCTION:
-	  t = copy_node (clauses);
-	  OMP_CLAUSE_CHAIN (t) = loop_clauses;
-	  loop_clauses = t;
+	  if (is_parallel)
+	    {
+	      nc = build_omp_clause (OMP_CLAUSE_LOCATION (clauses),
+				     OMP_CLAUSE_REDUCTION);
+	      OMP_CLAUSE_DECL (nc) = OMP_CLAUSE_DECL (clauses);
+	      OMP_CLAUSE_REDUCTION_CODE (nc)
+		= OMP_CLAUSE_REDUCTION_CODE (clauses);
+	      OMP_CLAUSE_CHAIN (nc) = *not_loop_clauses;
+	      *not_loop_clauses = nc;
+	    }
+
+	  OMP_CLAUSE_CHAIN (clauses) = loop_clauses;
+	  loop_clauses = clauses;
+	  break;
 
 	  /* Parallel/kernels clauses.  */
 	default:

@@ -1,7 +1,7 @@
 // -*- C++ -*-
 // Testing utilities for the rvalue reference.
 //
-// Copyright (C) 2005-2015 Free Software Foundation, Inc.
+// Copyright (C) 2005-2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -43,7 +43,7 @@ namespace __gnu_test
 
     rvalstruct&
     operator=(int newval)
-    { 
+    {
       val = newval;
       valid = true;
       return *this;
@@ -76,7 +76,7 @@ namespace __gnu_test
     }
   };
 
-  inline bool 
+  inline bool
   operator==(const rvalstruct& lhs, const rvalstruct& rhs)
   { return lhs.val == rhs.val; }
 
@@ -103,7 +103,7 @@ namespace __gnu_test
     static int copycount;
     int val;
     bool valid;
-    
+
     copycounter() : val(0), valid(true)
     { }
 
@@ -125,17 +125,17 @@ namespace __gnu_test
       in.valid = false;
       valid = true;
     }
-    
+
     copycounter&
     operator=(int newval)
-    { 
+    {
       val = newval;
       valid = true;
       return *this;
     }
 
     bool
-    operator=(const copycounter& in) 
+    operator=(const copycounter& in)
     {
       bool test __attribute__((unused)) = true;
       VERIFY( in.valid == true );
@@ -155,13 +155,13 @@ namespace __gnu_test
       valid = true;
       return *this;
     }
-    
+
     ~copycounter() noexcept
     { valid = false; }
   };
 
   int copycounter::copycount = 0;
-  
+
   inline bool
   operator==(const copycounter& lhs, const copycounter& rhs)
   { return lhs.val == rhs.val; }

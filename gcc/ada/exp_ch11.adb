@@ -116,9 +116,10 @@ package body Exp_Ch11 is
       pragma Assert (Present (Clean));
       pragma Assert (No (Exception_Handlers (HSS)));
 
-      --  Don't expand if back end exception handling active
+      --  Back end exception schemes don't need explicit handlers to
+      --  trigger AT-END actions on exceptional paths.
 
-      if Exception_Mechanism = Back_End_Exceptions then
+      if Back_End_Exceptions then
          return;
       end if;
 
@@ -1025,11 +1026,12 @@ package body Exp_Ch11 is
                --        ...
                --     end;
 
-               --  This expansion is not performed when using GCC ZCX. Gigi
-               --  will insert a call to initialize the choice parameter.
+               --  This expansion is only performed when using front-end
+               --  exceptions. Gigi will insert a call to initialize the
+               --  choice parameter.
 
                if Present (Choice_Parameter (Handler))
-                 and then (Exception_Mechanism /= Back_End_Exceptions
+                 and then (Front_End_Exceptions
                             or else CodePeer_Mode)
                then
                   declare
@@ -1102,7 +1104,7 @@ package body Exp_Ch11 is
                --  are allowed.
 
                if Abort_Allowed
-                 and then Exception_Mechanism /= Back_End_Exceptions
+                 and then not ZCX_Exceptions
                then
                   --  There are some special cases in which we do not do the
                   --  undefer. In particular a finalization (AT END) handler
@@ -1250,6 +1252,12 @@ package body Exp_Ch11 is
    --  Start of processing for Expand_N_Exception_Declaration
 
    begin
+      --  Nothing to do when generating C code
+
+      if Generate_C_Code then
+         return;
+      end if;
+
       --  Definition of the external name: nam : constant String := "A.B.NAME";
 
       Ex_Id :=
@@ -1557,13 +1565,15 @@ package body Exp_Ch11 is
          if Prefix_Exception_Messages
            and then Nkind (Expression (N)) = N_String_Literal
          then
-            Name_Len := 0;
-            Add_Source_Info (Loc, Name_Enclosing_Entity);
-            Add_Str_To_Name_Buffer (": ");
-            Add_String_To_Name_Buffer (Strval (Expression (N)));
-            Rewrite (Expression (N),
-              Make_String_Literal (Loc, Name_Buffer (1 .. Name_Len)));
-            Analyze_And_Resolve (Expression (N), Standard_String);
+            declare
+               Buf : Bounded_String;
+            begin
+               Add_Source_Info (Buf, Loc, Name_Enclosing_Entity);
+               Append (Buf, ": ");
+               Append (Buf, Strval (Expression (N)));
+               Rewrite (Expression (N), Make_String_Literal (Loc, +Buf));
+               Analyze_And_Resolve (Expression (N), Standard_String);
+            end;
          end if;
 
          --  Avoid passing exception-name'identity in runtimes in which this
@@ -1650,10 +1660,10 @@ package body Exp_Ch11 is
       if Present (Name (N)) then
          declare
             Id : Entity_Id := Entity (Name (N));
+            Buf : Bounded_String;
 
          begin
-            Name_Len := 0;
-            Build_Location_String (Loc);
+            Build_Location_String (Buf, Loc);
 
             --  If the exception is a renaming, use the exception that it
             --  renames (which might be a predefined exception, e.g.).
@@ -1671,19 +1681,17 @@ package body Exp_Ch11 is
                --  Suppress_Exception_Locations is set for this unit.
 
                if Opt.Exception_Locations_Suppressed then
-                  Name_Len := 1;
-               else
-                  Name_Len := Name_Len + 1;
+                  Buf.Length := 0;
                end if;
 
-               Name_Buffer (Name_Len) := ASCII.NUL;
+               Append (Buf, ASCII.NUL);
             end if;
 
             if Opt.Exception_Locations_Suppressed then
-               Name_Len := 0;
+               Buf.Length := 0;
             end if;
 
-            Str := String_From_Name_Buffer;
+            Str := String_From_Name_Buffer (Buf);
 
             --  Convert raise to call to the Raise_Exception routine
 
@@ -1713,7 +1721,7 @@ package body Exp_Ch11 is
          --  code which can be formally analyzed.
 
          if not CodePeer_Mode
-           and then Exception_Mechanism = Back_End_Exceptions
+           and then Back_End_Exceptions
          then
             return;
          end if;

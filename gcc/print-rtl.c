@@ -1,5 +1,5 @@
 /* Print RTL for GCC.
-   Copyright (C) 1987-2015 Free Software Foundation, Inc.
+   Copyright (C) 1987-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -868,6 +868,24 @@ print_simple_rtl (FILE *outf, const_rtx x)
   flag_simple = 1;
   print_rtl (outf, x);
   flag_simple = 0;
+}
+
+/* Print the elements of VEC to FILE.  */
+
+void
+print_rtx_insn_vec (FILE *file, const vec<rtx_insn *> &vec)
+{
+  fputc('{', file);
+
+  unsigned int len = vec.length ();
+  for (unsigned int i = 0; i < len; i++)
+    {
+      print_rtl (file, vec[i]);
+      if (i < len - 1)
+	fputs (", ", file);
+    }
+
+  fputc ('}', file);
 }
 
 #ifndef GENERATOR_FILE

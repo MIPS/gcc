@@ -1,11 +1,3 @@
-! { dg-do compile }
-! { dg-additional-options "-fmax-errors=100" }
-
-! This error is temporary.  Remove when support is added for these clauses
-! in the middle end.
-! { dg-prune-output "sorry, unimplemented" }
-! { dg-prune-output "Error: work-sharing region" }
-
 program test
   implicit none
   integer :: i, j
@@ -49,10 +41,10 @@ program test
     !$acc loop vector
     DO i = 1,10
     ENDDO
-    !$acc loop vector(5) ! { dg-error "argument not permitted" }
+    !$acc loop vector(5) ! { dg-error "length arguments" }
     DO i = 1,10
     ENDDO
-    !$acc loop vector(length:5) ! { dg-error "argument not permitted" }
+    !$acc loop vector(length:5) ! { dg-error "length arguments" }
     DO i = 1,10
     ENDDO
     !$acc loop vector
@@ -73,10 +65,10 @@ program test
   !$acc parallel loop vector
   DO i = 1,10
   ENDDO
-  !$acc parallel loop vector(5) ! { dg-error "argument not permitted" }
+  !$acc parallel loop vector(5) ! { dg-error "length arguments" }
   DO i = 1,10
   ENDDO
-  !$acc parallel loop vector(length:5) ! { dg-error "argument not permitted" }
+  !$acc parallel loop vector(length:5) ! { dg-error "length arguments" }
   DO i = 1,10
   ENDDO
 end

@@ -1,6 +1,6 @@
 /* Basic IPA utilities for type inheritance graph construction and
    devirtualization.
-   Copyright (C) 2013-2015 Free Software Foundation, Inc.
+   Copyright (C) 2013-2016 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -209,93 +209,6 @@ struct GTY(()) odr_type_d
   bool rtti_broken;
 };
 
-/* Return true if T is a type with linkage defined.  */
-
-bool
-type_with_linkage_p (const_tree t)
-{
-  /* Builtin types do not define linkage, their TYPE_CONTEXT is NULL.  */
-  if (!TYPE_CONTEXT (t)
-      || !TYPE_NAME (t) || TREE_CODE (TYPE_NAME (t)) != TYPE_DECL
-      || !TYPE_STUB_DECL (t))
-    return false;
-
-  /* In LTO do not get confused by non-C++ produced types or types built
-     with -fno-lto-odr-type-merigng.  */
-  if (in_lto_p)
-    {
-      /* To support -fno-lto-odr-type-merigng recognize types with vtables
-         to have linkage.  */
-      if (RECORD_OR_UNION_TYPE_P (t)
-	  && TYPE_BINFO (t) && BINFO_VTABLE (TYPE_BINFO (t)))
-        return true;
-      /* Do not accept any other types - we do not know if they were produced
-         by C++ FE.  */
-      if (!DECL_ASSEMBLER_NAME_SET_P (TYPE_NAME (t)))
-        return false;
-    }
-
-  return (RECORD_OR_UNION_TYPE_P (t)
-	  || TREE_CODE (t) == ENUMERAL_TYPE);
-}
-
-/* Return true if T is in anonymous namespace.
-   This works only on those C++ types with linkage defined.  */
-
-bool
-type_in_anonymous_namespace_p (const_tree t)
-{
-  gcc_assert (type_with_linkage_p (t));
-
-  /* Keep -fno-lto-odr-type-merging working by recognizing classes with vtables
-     properly into anonymous namespaces.  */
-  if (RECORD_OR_UNION_TYPE_P (t)
-      && TYPE_BINFO (t) && BINFO_VTABLE (TYPE_BINFO (t)))
-    return (TYPE_STUB_DECL (t) && !TREE_PUBLIC (TYPE_STUB_DECL (t)));
-
-  if (TYPE_STUB_DECL (t) && !TREE_PUBLIC (TYPE_STUB_DECL (t)))
-    {
-      /* C++ FE uses magic <anon> as assembler names of anonymous types.
- 	 verify that this match with type_in_anonymous_namespace_p.  */
-      if (in_lto_p)
-	gcc_checking_assert (!strcmp ("<anon>",
-				      IDENTIFIER_POINTER
-					(DECL_ASSEMBLER_NAME (TYPE_NAME (t)))));
-      return true;
-    }
-  return false;
-}
-
-/* Return true of T is type with One Definition Rule info attached. 
-   It means that either it is anonymous type or it has assembler name
-   set.  */
-
-bool
-odr_type_p (const_tree t)
-{
-  /* We do not have this information when not in LTO, but we do not need
-     to care, since it is used only for type merging.  */
-  gcc_checking_assert (in_lto_p || flag_lto);
-
-  /* To support -fno-lto-odr-type-merging consider types with vtables ODR.  */
-  if (type_with_linkage_p (t) && type_in_anonymous_namespace_p (t))
-    return true;
-
-  if (TYPE_NAME (t) && TREE_CODE (TYPE_NAME (t)) == TYPE_DECL
-      && (DECL_ASSEMBLER_NAME_SET_P (TYPE_NAME (t))))
-    {
-      /* C++ FE uses magic <anon> as assembler names of anonymous types.
- 	 verify that this match with type_in_anonymous_namespace_p.  */
-      gcc_checking_assert (!type_with_linkage_p (t)
-			   || strcmp ("<anon>",
-				      IDENTIFIER_POINTER
-					(DECL_ASSEMBLER_NAME (TYPE_NAME (t))))
-			   || type_in_anonymous_namespace_p (t));
-      return true;
-    }
-  return false;
-}
-
 /* Return TRUE if all derived types of T are known and thus
    we may consider the walk of derived type complete.
 
@@ -480,7 +393,7 @@ odr_vtable_hasher::hash (const odr_type_d *odr_type)
 
    When STRICT is true, we compare types by their names for purposes of
    ODR violation warnings.  When strict is false, we consider variants
-   equivalent, becuase it is all that matters for devirtualization machinery.
+   equivalent, because it is all that matters for devirtualization machinery.
 */
 
 bool
@@ -792,6 +705,29 @@ odr_subtypes_equivalent_p (tree t1, tree t2,
   return odr_types_equivalent_p (t1, t2, false, NULL, visited, loc1, loc2);
 }
 
+/* Return true if DECL1 and DECL2 are identical methods.  Consider
+   name equivalent to name.localalias.xyz.  */
+
+static bool
+methods_equal_p (tree decl1, tree decl2)
+{
+  if (DECL_ASSEMBLER_NAME (decl1) == DECL_ASSEMBLER_NAME (decl2))
+    return true;
+  const char sep = symbol_table::symbol_suffix_separator ();
+
+  const char *name1 = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl1));
+  const char *ptr1 = strchr (name1, sep);
+  int len1 = ptr1 ? ptr1 - name1 : strlen (name1);
+
+  const char *name2 = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl2));
+  const char *ptr2 = strchr (name2, sep);
+  int len2 = ptr2 ? ptr2 - name2 : strlen (name2);
+
+  if (len1 != len2)
+    return false;
+  return !strncmp (name1, name2, len1);
+}
+
 /* Compare two virtual tables, PREVAILING and VTABLE and output ODR
    violation warnings.  */
 
@@ -845,8 +781,8 @@ compare_virtual_tables (varpool_node *prevailing, varpool_node *vtable)
 	 accept the other case.  */
       while (!end2
 	     && (end1
-	         || (DECL_ASSEMBLER_NAME (ref1->referred->decl)
-		     != DECL_ASSEMBLER_NAME (ref2->referred->decl)
+	         || (methods_equal_p (ref1->referred->decl,
+				      ref2->referred->decl)
 	             && TREE_CODE (ref1->referred->decl) == FUNCTION_DECL))
 	     && TREE_CODE (ref2->referred->decl) != FUNCTION_DECL)
 	{
@@ -872,8 +808,7 @@ compare_virtual_tables (varpool_node *prevailing, varpool_node *vtable)
 	}
       while (!end1
 	     && (end2
-	         || (DECL_ASSEMBLER_NAME (ref2->referred->decl)
-		     != DECL_ASSEMBLER_NAME (ref1->referred->decl)
+	         || (methods_equal_p (ref2->referred->decl, ref1->referred->decl)
 	             && TREE_CODE (ref2->referred->decl) == FUNCTION_DECL))
 	     && TREE_CODE (ref1->referred->decl) != FUNCTION_DECL)
 	{
@@ -910,8 +845,7 @@ compare_virtual_tables (varpool_node *prevailing, varpool_node *vtable)
 
       if (!end1 && !end2)
 	{
-	  if (DECL_ASSEMBLER_NAME (ref1->referred->decl)
-	      == DECL_ASSEMBLER_NAME (ref2->referred->decl))
+	  if (methods_equal_p (ref1->referred->decl, ref2->referred->decl))
 	    continue;
 
 	  class_type->odr_violated = true;
@@ -1007,11 +941,14 @@ compare_virtual_tables (varpool_node *prevailing, varpool_node *vtable)
 		      "unit");
 	      gcc_assert (TREE_CODE (ref2->referred->decl)
 			  == FUNCTION_DECL);
-	      inform (DECL_SOURCE_LOCATION (ref1->referred->decl),
-		      "virtual method %qD", ref1->referred->decl);
-	      inform (DECL_SOURCE_LOCATION (ref2->referred->decl),
+	      inform (DECL_SOURCE_LOCATION
+			 (ref1->referred->ultimate_alias_target ()->decl),
+		      "virtual method %qD",
+		      ref1->referred->ultimate_alias_target ()->decl);
+	      inform (DECL_SOURCE_LOCATION
+			 (ref2->referred->ultimate_alias_target ()->decl),
 		      "ought to match virtual method %qD but does not",
-		      ref2->referred->decl);
+		      ref2->referred->ultimate_alias_target ()->decl);
 	    }
 	  else
 	    inform (DECL_SOURCE_LOCATION
@@ -1969,15 +1906,6 @@ add_type_duplicate (odr_type val, tree type)
       merge = false;
       odr_violation_reported = true;
       val->odr_violated = true;
-      if (symtab->dump_file)
-	{
-	  fprintf (symtab->dump_file, "ODR violation\n");
-
-	  print_node (symtab->dump_file, "", val->type, 0);
-	  putc ('\n',symtab->dump_file);
-	  print_node (symtab->dump_file, "", type, 0);
-	  putc ('\n',symtab->dump_file);
-	}
     }
   gcc_assert (val->odr_violated || !odr_must_violate);
   /* Sanity check that all bases will be build same way again.  */
@@ -2342,7 +2270,7 @@ build_type_inheritance_graph (void)
     odr_vtable_hash = new odr_vtable_hash_type (23);
 
   /* We reconstruct the graph starting of types of all methods seen in the
-     the unit.  */
+     unit.  */
   FOR_EACH_SYMBOL (n)
     if (is_a <cgraph_node *> (n)
 	&& DECL_VIRTUAL_P (n->decl)
@@ -2423,6 +2351,17 @@ referenced_from_vtable_p (struct cgraph_node *node)
   return found;
 }
 
+/* Return if TARGET is cxa_pure_virtual.  */
+
+static bool
+is_cxa_pure_virtual_p (tree target)
+{
+  return target && TREE_CODE (TREE_TYPE (target)) != METHOD_TYPE
+	 && DECL_NAME (target)
+	 && !strcmp (IDENTIFIER_POINTER (DECL_NAME (target)),
+		     "__cxa_pure_virtual");
+}
+
 /* If TARGET has associated node, record it in the NODES array.
    CAN_REFER specify if program can refer to the target directly.
    if TARGET is unknown (NULL) or it can not be inserted (for example because
@@ -2437,11 +2376,12 @@ maybe_record_node (vec <cgraph_node *> &nodes,
 {
   struct cgraph_node *target_node, *alias_target;
   enum availability avail;
+  bool pure_virtual = is_cxa_pure_virtual_p (target);
 
-  /* cxa_pure_virtual and __builtin_unreachable do not need to be added into
+  /* __builtin_unreachable do not need to be added into
      list of targets; the runtime effect of calling them is undefined.
      Only "real" virtual methods should be accounted.  */
-  if (target && TREE_CODE (TREE_TYPE (target)) != METHOD_TYPE)
+  if (target && TREE_CODE (TREE_TYPE (target)) != METHOD_TYPE && !pure_virtual)
     return;
 
   if (!can_refer)
@@ -2484,6 +2424,7 @@ maybe_record_node (vec <cgraph_node *> &nodes,
      ??? Maybe it would make sense to be more aggressive for LTO even
      elsewhere.  */
   if (!flag_ltrans
+      && !pure_virtual
       && type_in_anonymous_namespace_p (DECL_CONTEXT (target))
       && (!target_node
           || !referenced_from_vtable_p (target_node)))
@@ -2497,6 +2438,24 @@ maybe_record_node (vec <cgraph_node *> &nodes,
     {
       gcc_assert (!target_node->global.inlined_to);
       gcc_assert (target_node->real_symbol_p ());
+      /* When sanitizing, do not assume that __cxa_pure_virtual is not called
+	 by valid program.  */
+      if (flag_sanitize & SANITIZE_UNREACHABLE)
+	;
+      /* Only add pure virtual if it is the only possible target.  This way
+	 we will preserve the diagnostics about pure virtual called in many
+	 cases without disabling optimization in other.  */
+      else if (pure_virtual)
+	{
+	  if (nodes.length ())
+	    return;
+	}
+      /* If we found a real target, take away cxa_pure_virtual.  */
+      else if (!pure_virtual && nodes.length () == 1
+	       && is_cxa_pure_virtual_p (nodes[0]->decl))
+	nodes.pop ();
+      if (pure_virtual && nodes.length ())
+	return;
       if (!inserted->add (target))
 	{
 	  cached_polymorphic_call_targets->add (target_node);
@@ -2987,7 +2946,7 @@ struct decl_warn_count
 struct final_warning_record
 {
   gcov_type dyn_count;
-  vec<odr_type_warn_count> type_warnings;
+  auto_vec<odr_type_warn_count> type_warnings;
   hash_map<tree, decl_warn_count> decl_warnings;
 };
 struct final_warning_record *final_warning_records;
@@ -3246,10 +3205,11 @@ possible_polymorphic_call_targets (tree otr_type,
 
 	  if (!outer_type->all_derivations_known)
 	    {
-	      if (!speculative && final_warning_records)
+	      if (!speculative && final_warning_records
+		  && nodes.length () == 1
+		  && TREE_CODE (TREE_TYPE (nodes[0]->decl)) == METHOD_TYPE)
 		{
 		  if (complete
-		      && nodes.length () == 1
 		      && warn_suggest_final_types
 		      && !outer_type->derived_types.length ())
 		    {
@@ -3265,7 +3225,6 @@ possible_polymorphic_call_targets (tree otr_type,
 		    }
 		  if (complete
 		      && warn_suggest_final_methods
-		      && nodes.length () == 1
 		      && types_same_for_odr (DECL_CONTEXT (nodes[0]->decl),
 					     outer_type->type))
 		    {
@@ -3419,9 +3378,11 @@ possible_polymorphic_call_target_p (tree otr_type,
   bool final;
 
   if (TREE_CODE (TREE_TYPE (n->decl)) == FUNCTION_TYPE
-      && ((fcode = DECL_FUNCTION_CODE (n->decl))
-	  == BUILT_IN_UNREACHABLE
+      && ((fcode = DECL_FUNCTION_CODE (n->decl)) == BUILT_IN_UNREACHABLE
           || fcode == BUILT_IN_TRAP))
+    return true;
+
+  if (is_cxa_pure_virtual_p (n->decl))
     return true;
 
   if (!odr_hash)
@@ -3472,7 +3433,7 @@ update_type_inheritance_graph (void)
   free_polymorphic_call_targets_hash ();
   timevar_push (TV_IPA_INHERITANCE);
   /* We reconstruct the graph starting from types of all methods seen in the
-     the unit.  */
+     unit.  */
   FOR_EACH_FUNCTION (n)
     if (DECL_VIRTUAL_P (n->decl)
 	&& !n->definition
@@ -3609,7 +3570,6 @@ ipa_devirt (void)
   if (warn_suggest_final_methods || warn_suggest_final_types)
     {
       final_warning_records = new (final_warning_record);
-      final_warning_records->type_warnings = vNULL;
       final_warning_records->type_warnings.safe_grow_cleared (odr_types.length ());
       free_polymorphic_call_targets_hash ();
     }
@@ -3837,7 +3797,7 @@ ipa_devirt (void)
 
       if (warn_suggest_final_methods)
 	{
-	  vec<const decl_warn_count*> decl_warnings_vec = vNULL;
+	  auto_vec<const decl_warn_count*> decl_warnings_vec;
 
 	  final_warning_records->decl_warnings.traverse
 	    <vec<const decl_warn_count *> *, add_decl_warning> (&decl_warnings_vec);
@@ -3887,7 +3847,7 @@ ipa_devirt (void)
 			      decl, count, dyn_count);
 	    }
 	}
-	
+
       delete (final_warning_records);
       final_warning_records = 0;
     }

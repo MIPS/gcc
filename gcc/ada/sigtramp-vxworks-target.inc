@@ -139,6 +139,32 @@
    the latter depends on the platform.
 */
 
+#elif defined (__x86_64__)
+
+/* These are the cfi colunm numbers */
+
+#define REGNO_RAX 0
+#define REGNO_RDX 1
+#define REGNO_RCX 2
+#define REGNO_RBX 3
+#define REGNO_RSI 4
+#define REGNO_RDI 5
+#define REGNO_RBP 6
+#define REGNO_RSP 7
+#define REGNO_R8 8
+#define REGNO_R9 9
+#define REGNO_R10 10
+#define REGNO_R11 11
+#define REGNO_R12 12
+#define REGNO_R13 13
+#define REGNO_R14 14
+#define REGNO_R15 15
+#define REGNO_RPC 16 /* aka %rip */
+#define REGNO_EFLAGS 49
+#define REGNO_FS 54
+
+#define FUNCTION "@function"
+
 #else
 Not_implemented;
 #endif /* REGNO constants */
@@ -173,6 +199,11 @@ Not_implemented;
 #elif defined (i386)
 
 #define CFA_REG 7
+
+#elif defined (__x86_64__)
+
+/* R15 register */
+#define CFA_REG 15
 
 #else
 Not_implemented;
@@ -366,6 +397,49 @@ TCR("popl	%edi") \
 TCR("leave") \
 TCR("ret")
 
+#elif defined (__x86_64__)
+
+#define COMMON_CFI(REG) \
+  ".cfi_offset " S(REGNO_##REG) "," S(REG_##REG)
+
+#define CFI_COMMON_REGS \
+CR("# CFI for common registers\n") \
+TCR(COMMON_CFI(R15)) \
+TCR(COMMON_CFI(R14)) \
+TCR(COMMON_CFI(R13)) \
+TCR(COMMON_CFI(R12)) \
+TCR(COMMON_CFI(R11)) \
+TCR(COMMON_CFI(R10)) \
+TCR(COMMON_CFI(R9)) \
+TCR(COMMON_CFI(R8)) \
+TCR(COMMON_CFI(RDI)) \
+TCR(COMMON_CFI(RSI)) \
+TCR(COMMON_CFI(RBP)) \
+TCR(COMMON_CFI(RSP)) \
+TCR(COMMON_CFI(RBX)) \
+TCR(COMMON_CFI(RDX)) \
+TCR(COMMON_CFI(RCX)) \
+TCR(COMMON_CFI(RAX)) \
+TCR(COMMON_CFI(RPC)) \
+TCR(".cfi_return_column " S(REGNO_RPC))
+
+/* Trampoline body block
+   ---------------------  */
+
+#define SIGTRAMP_BODY \
+CR("") \
+TCR("# Allocate frame and save the non-volatile") \
+TCR("# registers we're going to modify") \
+TCR("subq	$8, %rsp") \
+TCR("# Setup CFA_REG = context, which we'll retrieve as our CFA value") \
+TCR("movq	%r8, %r15") \
+TCR("# Call the real handler. The signo, siginfo and sigcontext") \
+TCR("# arguments are the same as those we received") \
+TCR("call	*%rcx") \
+TCR("# This part should never be executed") \
+TCR("addq	$8, %rsp") \
+TCR("ret")
+
 #else
 Not_implemented;
 #endif /* CFI_COMMON_REGS and SIGTRAMP_BODY */
@@ -373,10 +447,17 @@ Not_implemented;
 /* Symbol definition block
    -----------------------  */
 
+#ifdef __x86_64__
+#define FUNC_ALIGN TCR(".p2align 4,,15")
+#else
+#define FUNC_ALIGN
+#endif
+
 #define SIGTRAMP_START(SYM) \
 CR("# " S(SYM) " cfi trampoline") \
 TCR(".type " S(SYM) ", "FUNCTION) \
 CR("") \
+FUNC_ALIGN \
 CR(S(SYM) ":") \
 TCR(".cfi_startproc") \
 TCR(".cfi_signal_frame")
@@ -396,4 +477,3 @@ TCR(".size " S(SYM) ", .-" S(SYM))
 
 asm (".text\n"
      TCR(".align 2"));
-

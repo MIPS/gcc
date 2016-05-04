@@ -1,5 +1,5 @@
 /* Various declarations for language-independent pretty-print subroutines.
-   Copyright (C) 2003-2015 Free Software Foundation, Inc.
+   Copyright (C) 2003-2016 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -25,20 +25,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "pretty-print.h"
 #include "diagnostic-color.h"
 
-#include <new>                    // For placement-new.
-
 #if HAVE_ICONV
 #include <iconv.h>
 #endif
 
-/* Overwrite the range within this text_info's rich_location.
+/* Overwrite the given location/range within this text_info's rich_location.
    For use e.g. when implementing "+" in client format decoders.  */
 
 void
-text_info::set_range (unsigned int idx, source_range range, bool caret_p)
+text_info::set_location (unsigned int idx, location_t loc, bool show_caret_p)
 {
   gcc_checking_assert (m_richloc);
-  m_richloc->set_range (idx, range, caret_p, true);
+  m_richloc->set_range (line_table, idx, loc, show_caret_p);
 }
 
 location_t
@@ -159,37 +157,48 @@ pp_write_text_as_dot_label_to_stream (pretty_printer *pp, bool for_record)
   const char *p = text;
   FILE *fp = pp_buffer (pp)->stream;
 
-  while (*p)
+  for (;*p; p++)
     {
+      bool escape_char;
       switch (*p)
 	{
 	/* Print newlines as a left-aligned newline.  */
 	case '\n':
-	  fputs ("\\l\\\n", fp);
+	  fputs ("\\l", fp);
+	  escape_char = true;
 	  break;
 
-	/* A pipe is only special for record-shape nodes.  */
+	/* The following characters are only special for record-shape nodes.  */
 	case '|':
-	  if (for_record)
-	    fputc ('\\', fp);
-	  fputc (*p, fp);
-	  break;
-
-	/* The following characters always have to be escaped
-	   for use in labels.  */
 	case '{':
 	case '}':
 	case '<':
 	case '>':
-	case '"':
 	case ' ':
-	  fputc ('\\', fp);
-	  /* fall through */
+	  escape_char = for_record;
+	  break;
+
+	/* The following characters always have to be escaped
+	   for use in labels.  */
+	case '\\':
+	  /* There is a bug in some (f.i. 2.36.0) versions of graphiz
+	     ( http://www.graphviz.org/mantisbt/view.php?id=2524 ) related to
+	     backslash as last char in label.  Let's avoid triggering it.  */
+	  gcc_assert (*(p + 1) != '\0');
+	  /* Fall through.  */
+	case '"':
+	  escape_char = true;
+	  break;
+
 	default:
-	  fputc (*p, fp);
+	  escape_char = false;
 	  break;
 	}
-      p++;
+
+      if (escape_char)
+	fputc ('\\', fp);
+
+      fputc (*p, fp);
     }
 
   pp_clear_output_area (pp);

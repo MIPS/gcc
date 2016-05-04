@@ -1,5 +1,5 @@
 /* Lower vector operations to scalar operations.
-   Copyright (C) 2004-2015 Free Software Foundation, Inc.
+   Copyright (C) 2004-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -897,7 +897,7 @@ expand_vector_condition (gimple_stmt_iterator *gsi)
 	{
 	  tree aa1 = tree_vec_extract (gsi, comp_inner_type, a1, width, index);
 	  tree aa2 = tree_vec_extract (gsi, comp_inner_type, a2, width, index);
-	  aa = build2 (TREE_CODE (a), cond_type, aa1, aa2);
+	  aa = fold_build2 (TREE_CODE (a), cond_type, aa1, aa2);
 	}
       else
 	aa = tree_vec_extract (gsi, cond_type, a, width, index);
@@ -1272,6 +1272,30 @@ lower_vec_perm (gimple_stmt_iterator *gsi)
 	  update_stmt (stmt);
 	  return;
 	}
+      /* Also detect vec_shr pattern - VEC_PERM_EXPR with zero
+	 vector as VEC1 and a right element shift MASK.  */
+      if (optab_handler (vec_shr_optab, TYPE_MODE (vect_type))
+	  != CODE_FOR_nothing
+	  && TREE_CODE (vec1) == VECTOR_CST
+	  && initializer_zerop (vec1)
+	  && sel_int[0]
+	  && sel_int[0] < elements)
+	{
+	  for (i = 1; i < elements; ++i)
+	    {
+	      unsigned int expected = i + sel_int[0];
+	      /* Indices into the second vector are all equivalent.  */
+	      if (MIN (elements, (unsigned) sel_int[i])
+		  != MIN (elements, expected))
+ 		break;
+	    }
+	  if (i == elements)
+	    {
+	      gimple_assign_set_rhs3 (stmt, mask);
+	      update_stmt (stmt);
+	      return;
+	    }
+	}
     }
   else if (can_vec_perm_p (TYPE_MODE (vect_type), true, NULL))
     return;
@@ -1383,6 +1407,7 @@ get_compute_type (enum tree_code code, optab op, tree type)
       if (vector_compute_type != NULL_TREE
 	  && (TYPE_VECTOR_SUBPARTS (vector_compute_type)
 	      < TYPE_VECTOR_SUBPARTS (compute_type))
+	  && TYPE_VECTOR_SUBPARTS (vector_compute_type) > 1
 	  && (optab_handler (op, TYPE_MODE (vector_compute_type))
 	      != CODE_FOR_nothing))
 	compute_type = vector_compute_type;

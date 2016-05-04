@@ -782,6 +782,74 @@ Expression::make_var_reference(Named_object* var, Location location)
   return new Var_expression(var, location);
 }
 
+// Class Enclosed_var_expression.
+
+int
+Enclosed_var_expression::do_traverse(Traverse*)
+{
+  return TRAVERSE_CONTINUE;
+}
+
+// Lower the reference to the enclosed variable.
+
+Expression*
+Enclosed_var_expression::do_lower(Gogo* gogo, Named_object* function,
+				  Statement_inserter* inserter, int)
+{
+  gogo->lower_expression(function, inserter, &this->reference_);
+  return this;
+}
+
+// Flatten the reference to the enclosed variable.
+
+Expression*
+Enclosed_var_expression::do_flatten(Gogo* gogo, Named_object* function,
+				    Statement_inserter* inserter)
+{
+  gogo->flatten_expression(function, inserter, &this->reference_);
+  return this;
+}
+
+void
+Enclosed_var_expression::do_address_taken(bool escapes)
+{
+  if (!escapes)
+    {
+      if (this->variable_->is_variable())
+	this->variable_->var_value()->set_non_escaping_address_taken();
+      else if (this->variable_->is_result_variable())
+	this->variable_->result_var_value()->set_non_escaping_address_taken();
+      else
+	go_unreachable();
+    }
+  else
+    {
+      if (this->variable_->is_variable())
+	this->variable_->var_value()->set_address_taken();
+      else if (this->variable_->is_result_variable())
+	this->variable_->result_var_value()->set_address_taken();
+      else
+	go_unreachable();
+    }
+}
+
+// Ast dump for enclosed variable expression.
+
+void
+Enclosed_var_expression::do_dump_expression(Ast_dump_context* adc) const
+{
+  adc->ostream() << this->variable_->name();
+}
+
+// Make a reference to a variable within an enclosing function.
+
+Expression*
+Expression::make_enclosing_var_reference(Expression* reference,
+					 Named_object* var, Location location)
+{
+  return new Enclosed_var_expression(reference, var, location);
+}
+
 // Class Temporary_reference_expression.
 
 // The type.
@@ -1141,7 +1209,13 @@ Expression*
 Expression::make_func_reference(Named_object* function, Expression* closure,
 				Location location)
 {
-  return new Func_expression(function, closure, location);
+  Func_expression* fe = new Func_expression(function, closure, location);
+
+  // Detect references to builtin functions and set the runtime code if
+  // appropriate.
+  if (function->is_function_declaration())
+    fe->set_runtime_code(Runtime::name_to_code(function->name()));
+  return fe;
 }
 
 // Class Func_descriptor_expression.
@@ -10306,66 +10380,7 @@ Expression::make_array_index(Expression* array, Expression* start,
   return new Array_index_expression(array, start, end, cap, location);
 }
 
-// A string index.  This is used for both indexing and slicing.
-
-class String_index_expression : public Expression
-{
- public:
-  String_index_expression(Expression* string, Expression* start,
-			  Expression* end, Location location)
-    : Expression(EXPRESSION_STRING_INDEX, location),
-      string_(string), start_(start), end_(end)
-  { }
-
- protected:
-  int
-  do_traverse(Traverse*);
-
-  Expression*
-  do_flatten(Gogo*, Named_object*, Statement_inserter*);
-
-  Type*
-  do_type();
-
-  void
-  do_determine_type(const Type_context*);
-
-  void
-  do_check_types(Gogo*);
-
-  Expression*
-  do_copy()
-  {
-    return Expression::make_string_index(this->string_->copy(),
-					 this->start_->copy(),
-					 (this->end_ == NULL
-					  ? NULL
-					  : this->end_->copy()),
-					 this->location());
-  }
-
-  bool
-  do_must_eval_subexpressions_in_order(int* skip) const
-  {
-    *skip = 1;
-    return true;
-  }
-
-  Bexpression*
-  do_get_backend(Translate_context*);
-
-  void
-  do_dump_expression(Ast_dump_context*) const;
-
- private:
-  // The string we are getting a value from.
-  Expression* string_;
-  // The start or only index.
-  Expression* start_;
-  // The end index of a slice.  This may be NULL for a single index,
-  // or it may be a nil expression for the length of the string.
-  Expression* end_;
-};
+// Class String_index_expression.
 
 // String index traversal.
 
@@ -12583,69 +12598,7 @@ Map_construction_expression::do_dump_expression(
   ast_dump_context->ostream() << "}";
 }
 
-// A general composite literal.  This is lowered to a type specific
-// version.
-
-class Composite_literal_expression : public Parser_expression
-{
- public:
-  Composite_literal_expression(Type* type, int depth, bool has_keys,
-			       Expression_list* vals, bool all_are_names,
-			       Location location)
-    : Parser_expression(EXPRESSION_COMPOSITE_LITERAL, location),
-      type_(type), depth_(depth), vals_(vals), has_keys_(has_keys),
-      all_are_names_(all_are_names)
-  { }
-
- protected:
-  int
-  do_traverse(Traverse* traverse);
-
-  Expression*
-  do_lower(Gogo*, Named_object*, Statement_inserter*, int);
-
-  Expression*
-  do_copy()
-  {
-    return new Composite_literal_expression(this->type_, this->depth_,
-					    this->has_keys_,
-					    (this->vals_ == NULL
-					     ? NULL
-					     : this->vals_->copy()),
-					    this->all_are_names_,
-					    this->location());
-  }
-
-  void
-  do_dump_expression(Ast_dump_context*) const;
-  
- private:
-  Expression*
-  lower_struct(Gogo*, Type*);
-
-  Expression*
-  lower_array(Type*);
-
-  Expression*
-  make_array(Type*, const std::vector<unsigned long>*, Expression_list*);
-
-  Expression*
-  lower_map(Gogo*, Named_object*, Statement_inserter*, Type*);
-
-  // The type of the composite literal.
-  Type* type_;
-  // The depth within a list of composite literals within a composite
-  // literal, when the type is omitted.
-  int depth_;
-  // The values to put in the composite literal.
-  Expression_list* vals_;
-  // If this is true, then VALS_ is a list of pairs: a key and a
-  // value.  In an array initializer, a missing key will be NULL.
-  bool has_keys_;
-  // If this is true, then HAS_KEYS_ is true, and every key is a
-  // simple identifier.
-  bool all_are_names_;
-};
+// Class Composite_literal_expression.
 
 // Traversal.
 
@@ -12664,12 +12617,17 @@ Composite_literal_expression::do_traverse(Traverse* traverse)
       // The type may not be resolvable at this point.
       Type* type = this->type_;
 
-      for (int depth = this->depth_; depth > 0; --depth)
+      for (int depth = 0; depth < this->depth_; ++depth)
         {
           if (type->array_type() != NULL)
             type = type->array_type()->element_type();
           else if (type->map_type() != NULL)
-            type = type->map_type()->val_type();
+            {
+              if (this->key_path_[depth])
+                type = type->map_type()->key_type();
+              else
+                type = type->map_type()->val_type();
+            }
           else
             {
               // This error will be reported during lowering.
@@ -12723,12 +12681,17 @@ Composite_literal_expression::do_lower(Gogo* gogo, Named_object* function,
 {
   Type* type = this->type_;
 
-  for (int depth = this->depth_; depth > 0; --depth)
+  for (int depth = 0; depth < this->depth_; ++depth)
     {
       if (type->array_type() != NULL)
 	type = type->array_type()->element_type();
       else if (type->map_type() != NULL)
-	type = type->map_type()->val_type();
+        {
+          if (this->key_path_[depth])
+            type = type->map_type()->key_type();
+          else
+            type = type->map_type()->val_type();
+        }
       else
 	{
 	  if (!type->is_error())
@@ -12860,53 +12823,12 @@ Composite_literal_expression::lower_struct(Gogo* gogo, Type* type)
 	  no = name_expr->var_expression()->named_object();
 	  break;
 
-	case EXPRESSION_FUNC_REFERENCE:
-	  no = name_expr->func_expression()->named_object();
+	case EXPRESSION_ENCLOSED_VAR_REFERENCE:
+	  no = name_expr->enclosed_var_expression()->variable();
 	  break;
 
-	case EXPRESSION_UNARY:
-	  // If there is a local variable around with the same name as
-	  // the field, and this occurs in the closure, then the
-	  // parser may turn the field reference into an indirection
-	  // through the closure.  FIXME: This is a mess.
-	  {
-	    bad_key = true;
-	    Unary_expression* ue = static_cast<Unary_expression*>(name_expr);
-	    if (ue->op() == OPERATOR_MULT)
-	      {
-		Field_reference_expression* fre =
-		  ue->operand()->field_reference_expression();
-		if (fre != NULL)
-		  {
-		    Struct_type* st =
-		      fre->expr()->type()->deref()->struct_type();
-		    if (st != NULL)
-		      {
-			const Struct_field* sf = st->field(fre->field_index());
-			name = sf->field_name();
-
-			// See below.  FIXME.
-			if (!Gogo::is_hidden_name(name)
-			    && name[0] >= 'a'
-			    && name[0] <= 'z')
-			  {
-			    if (gogo->lookup_global(name.c_str()) != NULL)
-			      name = gogo->pack_hidden_name(name, false);
-			  }
-
-			char buf[20];
-			snprintf(buf, sizeof buf, "%u", fre->field_index());
-			size_t buflen = strlen(buf);
-			if (name.compare(name.length() - buflen, buflen, buf)
-			    == 0)
-			  {
-			    name = name.substr(0, name.length() - buflen);
-			    bad_key = false;
-			  }
-		      }
-		  }
-	      }
-	  }
+	case EXPRESSION_FUNC_REFERENCE:
+	  no = name_expr->func_expression()->named_object();
 	  break;
 
 	default:
@@ -13347,6 +13269,7 @@ Expression::is_variable() const
     case EXPRESSION_VAR_REFERENCE:
     case EXPRESSION_TEMPORARY_REFERENCE:
     case EXPRESSION_SET_AND_USE_TEMPORARY:
+    case EXPRESSION_ENCLOSED_VAR_REFERENCE:
       return true;
     default:
       return false;

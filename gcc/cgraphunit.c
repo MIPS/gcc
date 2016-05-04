@@ -1,5 +1,5 @@
 /* Driver of optimization process
-   Copyright (C) 2003-2015 Free Software Foundation, Inc.
+   Copyright (C) 2003-2016 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -369,6 +369,7 @@ cgraph_node::reset (void)
   analyzed = false;
   definition = false;
   alias = false;
+  transparent_alias = false;
   weakref = false;
   cpp_implicit_alias = false;
 
@@ -575,6 +576,7 @@ cgraph_node::analyze (void)
       cgraph_node *t = cgraph_node::get (thunk.alias);
 
       create_edge (t, NULL, 0, CGRAPH_FREQ_BASE);
+      callees->can_throw_external = !TREE_NOTHROW (t->decl);
       /* Target code in expand_thunk may need the thunk's target
 	 to be analyzed, so recurse here.  */
       if (!t->analyzed)
@@ -593,7 +595,7 @@ cgraph_node::analyze (void)
       thunk.alias = NULL;
     }
   if (alias)
-    resolve_alias (cgraph_node::get (alias_target));
+    resolve_alias (cgraph_node::get (alias_target), transparent_alias);
   else if (dispatcher_function)
     {
       /* Generate the dispatcher body of multi-versioned functions.  */
@@ -915,6 +917,7 @@ walk_polymorphic_call_targets (hash_set<void *> *reachable_call_targets,
 static void
 check_global_declaration (symtab_node *snode)
 {
+  const char *decl_file;
   tree decl = snode->decl;
 
   /* Warn about any function declared static but not defined.  We don't
@@ -940,7 +943,12 @@ check_global_declaration (symtab_node *snode)
   /* Warn about static fns or vars defined but not used.  */
   if (((warn_unused_function && TREE_CODE (decl) == FUNCTION_DECL)
        || (((warn_unused_variable && ! TREE_READONLY (decl))
-	    || (warn_unused_const_variable && TREE_READONLY (decl)))
+	    || (warn_unused_const_variable > 0 && TREE_READONLY (decl)
+		&& (warn_unused_const_variable == 2
+		    || (main_input_filename != NULL
+			&& (decl_file = DECL_SOURCE_FILE (decl)) != NULL
+			&& filename_cmp (main_input_filename,
+					 decl_file) == 0))))
 	   && TREE_CODE (decl) == VAR_DECL))
       && ! DECL_IN_SYSTEM_HEADER (decl)
       && ! snode->referred_to_p (/*include_self=*/false)
@@ -956,7 +964,7 @@ check_global_declaration (symtab_node *snode)
       && ! DECL_ABSTRACT_ORIGIN (decl)
       && ! TREE_PUBLIC (decl)
       /* A volatile variable might be used in some non-obvious way.  */
-      && ! TREE_THIS_VOLATILE (decl)
+      && (! VAR_P (decl) || ! TREE_THIS_VOLATILE (decl))
       /* Global register variables must be declared to reserve them.  */
       && ! (TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
       /* Global ctors and dtors are called by the runtime.  */
@@ -969,7 +977,7 @@ check_global_declaration (symtab_node *snode)
 		(TREE_CODE (decl) == FUNCTION_DECL)
 		? OPT_Wunused_function
 		: (TREE_READONLY (decl)
-		   ? OPT_Wunused_const_variable
+		   ? OPT_Wunused_const_variable_
 		   : OPT_Wunused_variable),
 		"%qD defined but not used", decl);
 }
@@ -1253,6 +1261,7 @@ handle_alias_pairs (void)
 	      node->alias_target = p->target;
 	      node->weakref = true;
 	      node->alias = true;
+	      node->transparent_alias = true;
 	    }
 	  alias_pairs->unordered_remove (i);
 	  continue;
@@ -1419,10 +1428,10 @@ init_lowered_empty_function (tree decl, bool in_ssa, gcov_type count)
   allocate_struct_function (decl, false);
   gimple_register_cfg_hooks ();
   init_empty_tree_cfg ();
+  init_tree_ssa (cfun);
 
   if (in_ssa)
     {
-      init_tree_ssa (cfun);
       init_ssa_operands (cfun);
       cfun->gimple_df->in_ssa_p = true;
       cfun->curr_properties |= PROP_ssa;
@@ -1661,7 +1670,9 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
       greturn *ret;
       bool alias_is_noreturn = TREE_THIS_VOLATILE (alias);
 
-      if (in_lto_p)
+      /* We may be called from expand_thunk that releses body except for
+	 DECL_ARGUMENTS.  In this case force_gimple_thunk is true.  */
+      if (in_lto_p && !force_gimple_thunk)
 	get_untransformed_body ();
       a = DECL_ARGUMENTS (thunk_fndecl);
 
@@ -1696,7 +1707,10 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
       bsi = gsi_start_bb (bb);
 
       /* Build call to the function being thunked.  */
-      if (!VOID_TYPE_P (restype) && !alias_is_noreturn)
+      if (!VOID_TYPE_P (restype)
+	  && (!alias_is_noreturn
+	      || TREE_ADDRESSABLE (restype)
+	      || TREE_CODE (TYPE_SIZE_UNIT (restype)) != INTEGER_CST))
 	{
 	  if (DECL_BY_REFERENCE (resdecl))
 	    {
@@ -1763,7 +1777,7 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
 	      || DECL_BY_REFERENCE (resdecl)))
         gimple_call_set_return_slot_opt (call, true);
 
-      if (restmp && !alias_is_noreturn)
+      if (restmp)
 	{
           gimple_call_set_lhs (call, restmp);
 	  gcc_assert (useless_type_conversion_p (TREE_TYPE (restmp),
@@ -1907,15 +1921,18 @@ cgraph_node::assemble_thunks_and_aliases (void)
   FOR_EACH_ALIAS (this, ref)
     {
       cgraph_node *alias = dyn_cast <cgraph_node *> (ref->referring);
-      bool saved_written = TREE_ASM_WRITTEN (decl);
+      if (!alias->transparent_alias)
+	{
+	  bool saved_written = TREE_ASM_WRITTEN (decl);
 
-      /* Force assemble_alias to really output the alias this time instead
-	 of buffering it in same alias pairs.  */
-      TREE_ASM_WRITTEN (decl) = 1;
-      do_assemble_alias (alias->decl,
-			 DECL_ASSEMBLER_NAME (decl));
-      alias->assemble_thunks_and_aliases ();
-      TREE_ASM_WRITTEN (decl) = saved_written;
+	  /* Force assemble_alias to really output the alias this time instead
+	     of buffering it in same alias pairs.  */
+	  TREE_ASM_WRITTEN (decl) = 1;
+	  do_assemble_alias (alias->decl,
+			     DECL_ASSEMBLER_NAME (decl));
+	  alias->assemble_thunks_and_aliases ();
+	  TREE_ASM_WRITTEN (decl) = saved_written;
+	}
     }
 }
 
@@ -2204,6 +2221,13 @@ output_in_order (bool no_reorder)
 	  break;
 
 	case ORDER_VAR:
+#ifdef ACCEL_COMPILER
+	  /* Do not assemble "omp declare target link" vars.  */
+	  if (DECL_HAS_VALUE_EXPR_P (nodes[i].u.v->decl)
+	      && lookup_attribute ("omp declare target link",
+				   DECL_ATTRIBUTES (nodes[i].u.v->decl)))
+	    break;
+#endif
 	  nodes[i].u.v->assemble_decl ();
 	  break;
 
