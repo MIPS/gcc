@@ -1,3 +1,71 @@
+2016-05-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	<fsf submission>
+	* config/rs6000/predicates.md (all_ones_constant): New predicate
+	to recognize a vector/integer constant that is all 1's.
+	(min_max_operator): Don't match umin or umax, since it is only
+	used for floating point min/maxes.
+	(fpmask_comparison_operator): New predicate for returning true if
+	a comparison operator can generate -1/0 mask.
+	* config/rs6000/rs6000.c (print_operand): Add support for ISA 3.0
+	floating point min/max instructions.
+	(rs6000_emit_power9_minmax): New function to generate ISA 3.0
+	XSMAXCDP and XSMINCDP instructions.
+	(rs6000_emit_power9_cmove): New function to generate ISA 3.0
+	XSCMP{EQ,GE,GT,NE}DP instructions and XXSEL to speed up floating
+	point conditional moves.
+	(rs6000_emit_cmove): Add support for ISA 3.0 floating point
+	condition moves and min/max instructions.
+	* config/rs6000/rs6000.h (TARGET_MINMAX_SF): New target macros to
+	say whether the machine has floating point min/maxes that can be
+	generated directly.
+	(TARGET_MINMAX_DF): Likewise.
+	(PRINT_OPERAND_PUNCT_VALID_P): Add '@' for ISA 3.0 min/max.
+	* config/rs6000/rs6000.md (SFDF2): New iterator to allow mixed
+	mode floating point conditional moves.
+	(fp_minmax): New code iterator for ISA 3.0 min/max support.
+	(minmax): New code attributes for ISA 3.0 min/max support.
+	(MINMAX): Likewise.
+	(smax<mode>3): Rework floating point min/max to be a combined insn
+	using code iterators for min and max. Add support for ISA 3.0
+	min/max instructions.
+	(s<minmax><mode>3): Likewise.
+	(smax<mode>3_vsx): Likewise.
+	(s<minmax><mode>3_vsx): Likewise.
+	(smin<mode>3): Likewise.
+	(smin<mode>3_vsx): Likewise.
+	(*s<minmax>dfsf3_vsx_1): Add support for min/max where one or both
+	operands are float that are promoted to double.
+	(s<minmax>dfsf3_vsx_2): Likewise.
+	(s<minmax>dfsf3_vsx_3): Likewise.
+	(s<minmax>dfsf3_vsx_4): Likewise.
+	(min/max splitter, non-VSX): Use TARGET_MINMAX_<MODE>.
+	(SF conditional move splitter): Merge SF and DF insns for
+	generating conditional move into one insn.
+	(movsfcc): Likewise.
+	(mov<mode>cc): Likewise.
+	(fselsfsf4): Merge SF/DF conditional move variants into one insn
+	that handles different types for comparison and move.
+	(fseldfsf4): Likewise.
+	(DF conditional move splitter): Likewise.
+	(movdfcc): Likewise.
+	(fseldfdf4): Likewise.
+	(fselsfdf4): Likewise.
+	(mov<SFDF:mode><SFDF2:mode>cc_p9): New floating point conditional
+	move support for ISA 3.0.
+	(fpmask<mode>): Likewise.
+	(xxsel<mode>): Likewise.
+	(lfiwax): Correct scratch constraint to be wi, since we don't
+	require direct move support.
+	(lfiwzx): Likewise.
+	(floatsi<mode>2_lfiwax_mem): Combine alternatives into a single
+	alternative.
+	(floatunssi<mode>2_lfiwzx_mem): Likewise.
+	(fix_trunc<mode>si2): Fix comment.
+	(fix_trunc<mode>di2_fctidz): Allow any VSX register instead of
+	Altivec register as the second alternative.
+	(fixuns_trunc<mode>di2_fctiduz): Likewise.
+
 2016-05-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 235831.
