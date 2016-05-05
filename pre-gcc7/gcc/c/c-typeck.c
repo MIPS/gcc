@@ -3046,7 +3046,8 @@ build_function_call_vec (location_t loc, vec<location_t> arg_loc,
   if (fundecl
       && DECL_BUILT_IN (fundecl)
       && DECL_BUILT_IN_CLASS (fundecl) == BUILT_IN_NORMAL
-      && !check_builtin_function_arguments (fundecl, nargs, argarray))
+      && !check_builtin_function_arguments (loc, arg_loc, fundecl, nargs,
+					    argarray))
     return error_mark_node;
 
   /* Check that the arguments to the function are valid.  */
@@ -11066,7 +11067,8 @@ build_binary_op (location_t location, enum tree_code code,
       else if (code0 == POINTER_TYPE && null_pointer_constant_p (orig_op1))
 	{
 	  if (TREE_CODE (op0) == ADDR_EXPR
-	      && decl_with_nonnull_addr_p (TREE_OPERAND (op0, 0)))
+	      && decl_with_nonnull_addr_p (TREE_OPERAND (op0, 0))
+	      && !from_macro_expansion_at (location))
 	    {
 	      if (code == EQ_EXPR)
 		warning_at (location,
@@ -11086,7 +11088,8 @@ build_binary_op (location_t location, enum tree_code code,
       else if (code1 == POINTER_TYPE && null_pointer_constant_p (orig_op0))
 	{
 	  if (TREE_CODE (op1) == ADDR_EXPR
-	      && decl_with_nonnull_addr_p (TREE_OPERAND (op1, 0)))
+	      && decl_with_nonnull_addr_p (TREE_OPERAND (op1, 0))
+	      && !from_macro_expansion_at (location))
 	    {
 	      if (code == EQ_EXPR)
 		warning_at (location,

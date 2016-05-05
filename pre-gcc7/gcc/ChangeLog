@@ -1,3 +1,275 @@
+2016-05-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (peehole2 patterns): Change true_regnum
+	to REGNUM in all peephole2 patterns.
+	(post-reload splitters): Change true_regnum to REGNUM in
+	post-reload splitters.
+	(zero_extend splitters): Use general_reg_operand and
+	nonimmediate_gr_operand predicates.
+
+2016-05-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/sse.md (<avx512>_fmadd_<mode>_mask3<round_name>): Use
+	v constraint instead of x.
+
+2016-05-05  Alan Modra  <amodra@gmail.com>
+
+	PR target/68662
+	* config/rs6000/sysv4.h (SUBTARGET_OVERRIDE_OPTIONS): Don't
+	set OPTION_MASK_RELOCATABLE when flag_pic == 2.  Set
+	TARGET_NO_FP_IN_TOC for -mrelocatable.
+	(MINIMAL_TOC_SECTION_ASM_OP): Remove redundant
+	TARGET_RELOCATABLE test.
+	(ASM_OUTPUT_SPECIAL_POOL_ENTRY_P): Likewise.
+	(ASM_PREFERRED_EH_DATA_FORMAT): Likewise.
+	* config/rs6000/linux64.h (MINIMAL_TOC_SECTION_ASM_OP): Likewise.
+	(ASM_OUTPUT_SPECIAL_POOL_ENTRY_P): Likewise.
+	(ASM_PREFERRED_EH_DATA_FORMAT): Likewise.
+	* config/rs6000/freebsd64.h (MINIMAL_TOC_SECTION_ASM_OP): Likewise.
+	(ASM_OUTPUT_SPECIAL_POOL_ENTRY_P): Likewise.
+	(ASM_PREFERRED_EH_DATA_FORMAT): Likewise.
+	* config/rs6000/predicates.md (easy_fp_constant): Likewise.
+	* config/rs6000/rs6000.c (rs6000_elf_output_toc_section_asm_op):
+	Likewise.
+	(rs6000_assemble_integer): Update TARGET_RELOCATABLE test.
+	(rs6000_stack_info): Likewise.
+	(rs6000_elf_asm_out_constructor): Likewise.
+	(rs6000_elf_asm_out_destructor): Likewise.
+	(rs6000_elf_declare_function_name): Likewise.
+	* config/rs6000/rs6000.md (load_toc_aix_di): Likewise.
+	* config/rs6000/rs6000.h (MASK_RELOCATABLE, MASK_MINIMAL_TOC):
+	Don't define.
+
+2016-05-05  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_frame_related): Rewrite.
+
+2016-05-05  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_savres_strategy): Don't use
+	out-of-line gpr restore for one or two regs if that would add
+	a save of lr.
+
+2016-05-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/70873
+	* config/i386/i386.md
+	(TARGET_SSE_PARTIAL_REG_DEPENDENCY float_extend sf->df peephole2):
+	Change to post-epilogue_completed late splitter.  Use sse_reg_operand
+	as operand 0 predicate.
+	(TARGET_SSE_PARTIAL_REG_DEPENDENCY float_truncate df->sf peephole2):
+	Ditto.
+	(TARGET_SSE_PARTIAL_REG_DEPENDENCY float {si,di}->{sf,df} peephole2):
+	Ditto.  Emit the pattern using RTX.
+
+	(TARGET_USE_VECTOR_FP_CONVERTS float_extend sf->df splitter):
+	Use sse_reg_opreand as operand 0 predicate.  Do not use true_regnum in
+	the post-reload splitter.  Use lowpart_subreg instead of gen_rtx_REG.
+	(TARGET_USE_VECTOR_FP_CONVERTS float_truncate df->sf splitter):
+	Ditto.
+	(TARGET_USE_VECTOR_CONVERTS float si->{sf,df} splitter): Use
+	sse_reg_operand as operand 0 predicate.
+
+	(TARGET_SPLIT_MEM_OPND_FOR_FP_CONVERTS float_extend sf->df peephole2):
+	Use sse_reg_opreand as operand 0 predicate.  Use lowpart_subreg
+	instead of gen_rtx_REG.
+	(TARGET_SPLIT_MEM_OPND_FOR_FP_CONVERTS float_truncate sf->df peephole2):
+	Ditto.
+
+2016-05-04  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* function.c (emit_use_return_register_into_block): Delete.
+	(gen_return_pattern): Delete.
+	(emit_return_into_block): Delete.
+	(active_insn_between): Delete.
+	(convert_jumps_to_returns): Delete.
+	(emit_return_for_exit): Delete.
+	(thread_prologue_and_epilogue_insns): Delete all code dealing with
+	simple_return for shrink-wrapped blocks.
+	* shrink-wrap.c (try_shrink_wrapping): Insert simple_return at the
+	end of blocks that need one.
+	(get_unconverted_simple_return): Delete.
+	(convert_to_simple_return): Delete.
+	* shrink-wrap.c (get_unconverted_simple_return): Delete declaration.
+	(convert_to_simple_return): Ditto.
+
+2016-05-04  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* cfgcleanup.c (bb_is_just_return): New function.
+	(try_optimize_cfg): Simplify jumps to return, branches to return,
+	and branches around return.
+
+2016-05-04  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* cfgcleanup.c (try_simplify_condjump): Don't try to simplify a
+	branch to a return.
+
+2016-05-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/70906
+	PR c++/70933
+	* tree-core.h (enum operand_equal_flag): Add OEP_HASH_CHECK.
+	* tree.c (inchash::add_expr): If !IS_EXPR_CODE_CLASS (tclass),
+	assert flags & OEP_HASH_CHECK, instead of asserting it
+	never happens.  Handle TARGET_EXPR.
+	* fold-const.c (operand_equal_p): For hash verification,
+	or in OEP_HASH_CHECK into flags.
+
+2016-05-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-ssa-coalesce.c (gimple_can_coalesce_p): Fix reference in head
+	comment.
+	(compute_samebase_partition_bases): Fix typo.
+
+2016-05-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/sse.md (vec_interleave_highv8sf,
+	vec_interleave_lowv8sf, vec_interleave_highv4df,
+	vec_interleave_lowv4df): Remove constraints from expanders.
+
+	* config/i386/sse.md (sse2_movq128): Use v constraint instead of x.
+
+2016-05-04  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-inline.c (expand_call_inline): Fix path dealing with
+	making lhs of call statement undefined.
+
+2016-05-04  Jan Hubicka  <hubicka@ucw.cz>
+
+	* cgraph.c (cgraph_node::call_for_symbol_thunks_and_aliases):
+	Check availability on NODE, too.
+	* cgraph.h (symtab_node::call_for_symbol_and_aliases): Likewise.
+	(cgraph_node::call_for_symbol_and_aliases): Likewise.
+	(varpool_node::call_for_symbol_and_aliase): Likewise.
+	* ipa-pure-const.c (add_new_function): Analyze all bodies.
+	(propagate_pure_const): Propagate across interposable functions, too.
+	(skip_function_for_local_pure_const): Do not skip interposable bodies
+	with aliases.
+	(pass_local_pure_const::execute): Update.
+
+2016-05-04  Marek Polacek  <polacek@redhat.com>
+
+	* doc/invoke.texi: Document -Wdangling-else.
+
+2016-05-04  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config.gcc: Error out when conflicting multilib is detected.  Do not
+	loop over multilibs since no combination is legal.
+
+2016-05-04  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.h (PIC_OFFSET_TABLE_REGNUM): Correct.
+	* config/rs6000/sysv4.h (TARGET_TOC): Simplify.
+	* config/rs6000/rs6000.c (rs6000_elf_output_toc_section_asm_op):
+	Align .toc.
+
+2016-05-04  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	* config/mips/mips-cpus.def (p5600): Avoid IMADD by default.
+	Clean up p5600 comments.
+
+2016-05-04  Richard Biener  <rguenther@suse.de>
+
+	* match.pd: Add BIT_FIELD_REF canonicalizations and vector
+	constructor simplifications.
+	* fold-const.c (fold_ternary_loc): Remove duplicate functionality here.
+
+2016-05-04  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* config/sh/predicates (post_inc_mem, pre_dec_mem): New predicates.
+	* config/sh/sh-protos.h (sh_find_set_of_reg): Return null result if
+	result.set_rtx is null instead of aborting.
+	* config/sh/sh.h (USE_LOAD_POST_INCREMENT, USE_STORE_PRE_DECREMENT):
+	Always enable.
+	(USE_LOAD_PRE_DECREMENT, USE_STORE_POST_INCREMENT): Enable for SH2A.
+	* config/sh/sh.md (*extend<mode>si2_predec, *mov<mode>_load_predec,
+	*mov<mode>_store_postinc): New patterns.
+
+2016-05-04  Marc Glisse  <marc.glisse@inria.fr>
+
+	* match.pd ((A | B) & (A | C)): Generalize to BIT_XOR_EXPR.  Mark
+	as commutative.  Check both conversions are NOP.
+	((A & B) OP (C & B)): Remove.
+
+2016-05-04  Alan Modra  <amodra@gmail.com>
+
+	* combine.c (simplify_set): Correct WORD_REGISTER_OPERATIONS test.
+
+2016-05-04  Alan Modra  <amodra@gmail.com>
+
+	PR target/70866
+	* config/rs6000/rs6000.c (rs6000_stack_info): Don't set cr_save_p
+	when cr2,3,4 are all fixed regs.
+
+2016-05-04  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR rtl-optimization/57193
+	* opts.c (default_options_table): Revert OPT_frename_registers change.
+	* doc/invoke.texi (-frename-registers, -O2): Likewise.
+
+2016-05-03  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/66561
+	* builtins.c (fold_builtin_FILE): New function.
+	(fold_builtin_FUNCTION, fold_builtin_LINE): New functions.
+	(fold_builtin_0): Call them.
+	* gimplify.c (gimplify_call_expr): Remove the handling of
+	BUILT_IN_FILE, BUILT_IN_FUNCTION, and BUILT_IN_LINE.
+
+	PR c++/66561
+	* doc/extend.texi (Other Builtins): Update __builtin_FILE,
+	__builtin_FUNCTION, and __builtin_LINE to reflect they yield
+	constants.
+
+	PR c++/66639
+	* doc/extend.texi (Function Names as Strings): Update __func__,
+	__FUNCTION__, __PRETTY_FUNCTION__ to reflect they evaluate to
+	constants.
+
+2016-05-03  Jakub Jelinek  <jakub@redhat.com>
+	    Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70916
+	* tree-if-conv.c: Include cfganal.h.
+	(pass_if_conversion::execute): Call connect_infinite_loops_to_exit
+	and remove_fake_exit_edges around the optimization pass.
+
+2016-05-03  Jan Hubicka  <hubicka@ucw.cz>
+
+	* cgraph.c (symbol_table::create_edge): Set inline_failed.
+	(cgraph_edge::make_direct): Likewise.
+	(cgraph_edge::dump_edge_flags): Dump call_stmt_cannot_inline_p.
+	* cgraphclones.c (duplicate_thunk_for_node): Set inline_failed.
+	* cif-code.def (CIF_LTO_MISMATCHED_DECLARATIONS): New code
+	(CIF_THUNK): New code.
+	* ipa-inline-analysis.c (initialize_inline_failed): Preserve
+	CIF_FINAL_ERROR codes; do not deal with call_stmt_cannot_inline_p.
+	(compute_inline_parameters): Set inline_failed for thunks.
+	(inline_analyze_function): Cleanup.
+	* ipa-inline.c (can_inline_edge_p): Do not deal with
+	call_stmt_cannot_inline_p.
+	(can_early_inline_edge_p): Likewise.
+	(early_inliner): Initialize inline_failed.
+	* lto-cgraph.c (lto_output_edge): Sanity check inline_failed.
+
+2016-05-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/predicates.md (x87nonimm_ssenomem_operand): Rename
+	from nonimm_ssenomem_operand.
+	(nonimm_ssenomem_operand): New predicate.
+	* config/i386/i386.md (extendsfdf2): Use nonimm_ssenomem_operand
+	as operand 0 predicate.
+	(*extendsfdf2): Merge from *extendsfdf2_mixed and *extendsfdf2_i387.
+	Disable unsupported alternatives using "enabled" attribute.
+	Use register_ssemem_operand as operand 0 predicate.
+	(*fop_<mode>_1): Use x87nonimm_ssenomem_operand as operand 1 predicate.
+
+2016-05-03  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70859
+	* input.c (expansion_point_location): New function.
+	* input.h (expansion_point_location): Declare.
+
 2016-05-03  Pierre-Marie de Rodat  <derodat@adacore.com>
 
 	* dwarf2out.c (resolve_args_picking_1): Replace the frame_offset
@@ -24,8 +296,7 @@
 2016-05-03  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/i386/i386.md (*truncdfsf_mixed, *truncdfsf_i387,
-	*truncxfsf2_mixed, *truncxfdf2_mixed): Use v constraint instead
-	of x.
+	*truncxfsf2_mixed, *truncxfdf2_mixed): Use v constraint instead of x.
 
 2016-05-03  Richard Biener  <rguenther@suse.de>
 
@@ -42,15 +313,12 @@
 	SSA names for the result false.
 	(gimplify_call_expr): If the call may return twice do not
 	gimplify parameters into SSA.
-	(prepare_gimple_addressable): Do not allow an SSA name as
-	temporary.
+	(prepare_gimple_addressable): Do not allow an SSA name as temporary.
 	(gimplify_modify_expr): Adjust assert.  For noreturn calls
 	with a SSA name LHS adjust its def.
-	(gimplify_save_expr): Do not allow an SSA name as save-expr
-	result.
+	(gimplify_save_expr): Do not allow an SSA name as save-expr result.
 	(gimplify_one_sizepos): Do not allow an SSA name as a sizepos.
-	(gimplify_body): Init GIMPLE SSA data structures and gimplify
-	into-SSA.
+	(gimplify_body): Init GIMPLE SSA data structures and gimplify into-SSA.
 	(gimplify_scan_omp_clauses): Make sure OMP_CLAUSE_SIZE is not
 	an SSA name.  Likewise for OMP_CLAUSE_REDUCTION operands.
 	(gimplify_omp_for): Likewise for OMP_CLAUSE_DECL.  Likewise
@@ -152,7 +420,7 @@
 	of fixed_reg_set.
 	* df-scan.c (df_insn_refs_collect): Asms may reference global regs.
 
-2016-05-03  bin cheng  <bin.cheng@arm.com>
+2016-05-03  Bin Cheng  <bin.cheng@arm.com>
 
 	PR tree-optimization/56541
 	* doc/invoke.texi (@item max-tree-if-conversion-phi-args): New item.

@@ -1,3 +1,63 @@
+2016-05-05  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/57206
+	* gcc.dg/vect/pr57206.c: New test.
+
+2016-05-05  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/ipa/inline-8.c	(isnanf): Declare.
+
+2016-05-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.target/i386/avx512f-vfmadd-1.c: New test.
+
+	* c-c++-common/Wdangling-else-4.c: New test.
+
+2016-05-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/70906
+	PR c++/70933
+	* g++.dg/opt/pr70906.C: New test.
+	* g++.dg/opt/pr70933.C: New test.
+
+	* gcc.target/i386/avx512vl-vmovq-1.c: New test.
+
+2016-05-04  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gcc.dg/ipa/pure-const-3.c: New testcase.
+
+2016-05-04  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/Wdangling-else-1.c: New test.
+	* c-c++-common/Wdangling-else-2.c: New test.
+	* c-c++-common/Wdangling-else-3.c: New test.
+
+2016-05-04  Kwok Cheung Yeung  <kcy@codesourcery.com>
+
+	* gcc.target/mips/mips16-attributes.c: Skip if -mmicromips
+	flag is present.
+
+2016-05-04  Marek Polacek  <polacek@redhat.com>
+
+	PR c/48778
+	* gcc.dg/Waddress-2.c: New test.
+
+2016-05-04  Alan Modra  <amodra@gmail.com>
+
+	* gcc.target/powerpc/pr70866.c: New.
+
+2016-05-03  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/66561
+	* c-c++-common/builtin_location.c: New test.
+	* g++.dg/cpp1y/builtin_location.C: New test.
+
+2016-05-03  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70859
+	* gcc.dg/pr70859.c: New test.
+	* gcc.dg/pr70859-2.c: New test.
+
 2016-05-03  Pierre-Marie de Rodat  <derodat@adacore.com>
 
 	* gnat.dg/debug5.adb: New testcase.
