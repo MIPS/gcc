@@ -1,3 +1,143 @@
+2016-05-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/sse.md (<avx512>_fmadd_<mode>_mask3<round_name>): Use
+	v constraint instead of x.
+
+2016-05-05  Alan Modra  <amodra@gmail.com>
+
+	PR target/68662
+	* config/rs6000/sysv4.h (SUBTARGET_OVERRIDE_OPTIONS): Don't
+	set OPTION_MASK_RELOCATABLE when flag_pic == 2.  Set
+	TARGET_NO_FP_IN_TOC for -mrelocatable.
+	(MINIMAL_TOC_SECTION_ASM_OP): Remove redundant
+	TARGET_RELOCATABLE test.
+	(ASM_OUTPUT_SPECIAL_POOL_ENTRY_P): Likewise.
+	(ASM_PREFERRED_EH_DATA_FORMAT): Likewise.
+	* config/rs6000/linux64.h (MINIMAL_TOC_SECTION_ASM_OP): Likewise.
+	(ASM_OUTPUT_SPECIAL_POOL_ENTRY_P): Likewise.
+	(ASM_PREFERRED_EH_DATA_FORMAT): Likewise.
+	* config/rs6000/freebsd64.h (MINIMAL_TOC_SECTION_ASM_OP): Likewise.
+	(ASM_OUTPUT_SPECIAL_POOL_ENTRY_P): Likewise.
+	(ASM_PREFERRED_EH_DATA_FORMAT): Likewise.
+	* config/rs6000/predicates.md (easy_fp_constant): Likewise.
+	* config/rs6000/rs6000.c (rs6000_elf_output_toc_section_asm_op):
+	Likewise.
+	(rs6000_assemble_integer): Update TARGET_RELOCATABLE test.
+	(rs6000_stack_info): Likewise.
+	(rs6000_elf_asm_out_constructor): Likewise.
+	(rs6000_elf_asm_out_destructor): Likewise.
+	(rs6000_elf_declare_function_name): Likewise.
+	* config/rs6000/rs6000.md (load_toc_aix_di): Likewise.
+	* config/rs6000/rs6000.h (MASK_RELOCATABLE, MASK_MINIMAL_TOC):
+	Don't define.
+
+2016-05-05  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_frame_related): Rewrite.
+
+2016-05-05  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_savres_strategy): Don't use
+	out-of-line gpr restore for one or two regs if that would add
+	a save of lr.
+
+2016-05-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/70873
+	* config/i386/i386.md
+	(TARGET_SSE_PARTIAL_REG_DEPENDENCY float_extend sf->df peephole2):
+	Change to post-epilogue_completed late splitter.  Use sse_reg_operand
+	as operand 0 predicate.
+	(TARGET_SSE_PARTIAL_REG_DEPENDENCY float_truncate df->sf peephole2):
+	Ditto.
+	(TARGET_SSE_PARTIAL_REG_DEPENDENCY float {si,di}->{sf,df} peephole2):
+	Ditto.  Emit the pattern using RTX.
+
+	(TARGET_USE_VECTOR_FP_CONVERTS float_extend sf->df splitter):
+	Use sse_reg_opreand as operand 0 predicate.  Do not use true_regnum in
+	the post-reload splitter.  Use lowpart_subreg instead of gen_rtx_REG.
+	(TARGET_USE_VECTOR_FP_CONVERTS float_truncate df->sf splitter):
+	Ditto.
+	(TARGET_USE_VECTOR_CONVERTS float si->{sf,df} splitter): Use
+	sse_reg_operand as operand 0 predicate.
+
+	(TARGET_SPLIT_MEM_OPND_FOR_FP_CONVERTS float_extend sf->df peephole2):
+	Use sse_reg_opreand as operand 0 predicate.  Use lowpart_subreg
+	instead of gen_rtx_REG.
+	(TARGET_SPLIT_MEM_OPND_FOR_FP_CONVERTS float_truncate sf->df peephole2):
+	Ditto.
+
+2016-05-04  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* function.c (emit_use_return_register_into_block): Delete.
+	(gen_return_pattern): Delete.
+	(emit_return_into_block): Delete.
+	(active_insn_between): Delete.
+	(convert_jumps_to_returns): Delete.
+	(emit_return_for_exit): Delete.
+	(thread_prologue_and_epilogue_insns): Delete all code dealing with
+	simple_return for shrink-wrapped blocks.
+	* shrink-wrap.c (try_shrink_wrapping): Insert simple_return at the
+	end of blocks that need one.
+	(get_unconverted_simple_return): Delete.
+	(convert_to_simple_return): Delete.
+	* shrink-wrap.c (get_unconverted_simple_return): Delete declaration.
+	(convert_to_simple_return): Ditto.
+
+2016-05-04  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* cfgcleanup.c (bb_is_just_return): New function.
+	(try_optimize_cfg): Simplify jumps to return, branches to return,
+	and branches around return.
+
+2016-05-04  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* cfgcleanup.c (try_simplify_condjump): Don't try to simplify a
+	branch to a return.
+
+2016-05-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/70906
+	PR c++/70933
+	* tree-core.h (enum operand_equal_flag): Add OEP_HASH_CHECK.
+	* tree.c (inchash::add_expr): If !IS_EXPR_CODE_CLASS (tclass),
+	assert flags & OEP_HASH_CHECK, instead of asserting it
+	never happens.  Handle TARGET_EXPR.
+	* fold-const.c (operand_equal_p): For hash verification,
+	or in OEP_HASH_CHECK into flags.
+
+2016-05-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-ssa-coalesce.c (gimple_can_coalesce_p): Fix reference in head
+	comment.
+	(compute_samebase_partition_bases): Fix typo.
+
+2016-05-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/sse.md (vec_interleave_highv8sf,
+	vec_interleave_lowv8sf, vec_interleave_highv4df,
+	vec_interleave_lowv4df): Remove constraints from expanders.
+
+	* config/i386/sse.md (sse2_movq128): Use v constraint instead of x.
+
+2016-05-04  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-inline.c (expand_call_inline): Fix path dealing with
+	making lhs of call statement undefined.
+
+2016-05-04  Jan Hubicka  <hubicka@ucw.cz>
+
+	* cgraph.c (cgraph_node::call_for_symbol_thunks_and_aliases):
+	Check availability on NODE, too.
+	* cgraph.h (symtab_node::call_for_symbol_and_aliases): Likewise.
+	(cgraph_node::call_for_symbol_and_aliases): Likewise.
+	(varpool_node::call_for_symbol_and_aliase): Likewise.
+	* ipa-pure-const.c (add_new_function): Analyze all bodies.
+	(propagate_pure_const): Propagate across interposable functions, too.
+	(skip_function_for_local_pure_const): Do not skip interposable bodies
+	with aliases.
+	(pass_local_pure_const::execute): Update.
+
 2016-05-04  Marek Polacek  <polacek@redhat.com>
 
 	* doc/invoke.texi: Document -Wdangling-else.
@@ -23,8 +163,7 @@
 
 	* match.pd: Add BIT_FIELD_REF canonicalizations and vector
 	constructor simplifications.
-	* fold-const.c (fold_ternary_loc): Remove duplicate functionality
-	here.
+	* fold-const.c (fold_ternary_loc): Remove duplicate functionality here.
 
 2016-05-04  Oleg Endo  <olegendo@gcc.gnu.org>
 
@@ -148,8 +287,7 @@
 2016-05-03  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/i386/i386.md (*truncdfsf_mixed, *truncdfsf_i387,
-	*truncxfsf2_mixed, *truncxfdf2_mixed): Use v constraint instead
-	of x.
+	*truncxfsf2_mixed, *truncxfdf2_mixed): Use v constraint instead of x.
 
 2016-05-03  Richard Biener  <rguenther@suse.de>
 
