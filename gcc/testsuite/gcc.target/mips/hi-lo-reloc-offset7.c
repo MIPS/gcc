@@ -1,16 +1,17 @@
-/* { dg-options "-mcode-readable=no -mabi=32 -mfp32 isa=1" } */
+/* { dg-options "-mcode-readable=no -mno-gpopt" } */
 /* { dg-final { scan-assembler-not "%lo\\(h\\+\[1-9\]\\)" } } */
 
 struct __attribute__((packed))
 {
+ char c;
  short s;
- double d;
- float f;
+ int i;
 } h;
 
 void foo (void)
 {
- h.d = 0;
- h.f = 0;
+ h.c = 0;
+ h.s = 0;
+ h.i = 0;
 }
 
