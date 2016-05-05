@@ -1,3 +1,9 @@
+2016-05-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gimple.c (gimple_call_same_target_p): Unique functions are eq.
+	* tree-ssa-tail-merge.c (same_succ::equal): Check pointer eq
+	equality first.
+
 2016-05-02  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* omp-low.c (lower_oacc_head_tail): Assert there is at least one
