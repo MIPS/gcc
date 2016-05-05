@@ -1,7 +1,8 @@
 Version: 1
-Previous: 37f59eea8e7f04cee147d11a477fc8a9d3df8305
-Head: 50e7f3c4209b64ae78bfcd03ca62fbc8ac83a892
+Previous: 2042d630e24074be62766169de90da237e0b8eea
+Head: 73afe7af7a4aee9bbe02c34d5d98cc76caa73f38
 Applied:
+Unapplied:
   debug-aliases-and-trampolines.patch: a63d78e18413a855742c1d76467b90f455e3ed0e
   debug-aliases-and-trampolines-inc.patch: cd52961beeb022adabf58deabfda7aaa50d5dcd9
   adjust-copyright-notice.patch: e670710585dae08b9b1191529df960730b56376f
@@ -18,6 +19,5 @@ Applied:
   revamp-cdtor-api.patch: d6085df29c76704441fa73f7358a74eaa684a6cd
   template-friends.patch: e84dae701d4d50c7abe795182844a6052f3d4526
   ditch-typedecls.patch: 50e7f3c4209b64ae78bfcd03ca62fbc8ac83a892
-Unapplied:
   special-memfuncs-testing.patch: 5dadb8e81f23ef0a3a559dc1776fa25b2cc8c5db
 Hidden:
