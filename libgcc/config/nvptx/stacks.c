@@ -21,5 +21,5 @@
    see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    <http://www.gnu.org/licenses/>.  */
 
-char *__nvptx_stacks[32] __attribute__((shared)) = { 0 };
-unsigned __nvptx_uni[32] __attribute__((shared)) = { 0 };
+char *__nvptx_stacks[32] __attribute__((shared,nocommon));
+unsigned __nvptx_uni[32] __attribute__((shared,nocommon));
