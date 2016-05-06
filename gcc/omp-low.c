@@ -6396,9 +6396,9 @@ lower_oacc_head_mark (location_t loc, tree ddvar, tree clauses,
 	       | OLF_SEQ)))
       tag |= OLF_AUTO;
 
-  /* Ensure at least one level.  */
-  if (!levels)
-    levels++;
+  /* Ensure at least one level, or 2 for AUTO partitioning  */
+  if (levels < 1 + ((tag & OLF_AUTO) != 0))
+    levels = 1 + ((tag & OLF_AUTO) != 0);
 
   args.quick_push (build_int_cst (integer_type_node, levels));
   args.quick_push (build_int_cst (integer_type_node, tag));
@@ -19682,11 +19682,13 @@ oacc_loop_fixed_partitions (oacc_loop *loop, unsigned outer_mask)
 
 /* Walk the OpenACC loop heirarchy to assign auto-partitioned loops.
    OUTER_MASK is the partitioning this loop is contained within.
+   OUTER_ASSIGN is true if an outer loop is being auto-partitioned.
    Return the cumulative partitioning used by this loop, siblings and
    children.  */
 
 static unsigned
-oacc_loop_auto_partitions (oacc_loop *loop, unsigned outer_mask)
+oacc_loop_auto_partitions (oacc_loop *loop, unsigned outer_mask,
+			   bool outer_assign)
 {
   bool assign = (loop->flags & OLF_AUTO) && (loop->flags & OLF_INDEPENDENT);
   bool noisy = true;
@@ -19697,31 +19699,34 @@ oacc_loop_auto_partitions (oacc_loop *loop, unsigned outer_mask)
   noisy = false;
 #endif
 
-  if (assign && outer_mask < GOMP_DIM_MASK (GOMP_DIM_MAX - 1))
+  if (assign && (!outer_assign | loop->inner))
     {
-      /* Allocate the outermost loop at the outermost available
-	 level.  */
+      /* Allocate outermost and non-innermost loops at the outermost
+	 non-innermost available level.  */
       unsigned this_mask = outer_mask + 1;
 
-      if (!(this_mask & loop->inner))
+      /* Make sure it's the single outermost available partition.  */
+      while (this_mask != (this_mask & -this_mask))
+	this_mask += this_mask & -this_mask;
+
+      if (!(this_mask & (loop->inner | GOMP_DIM_MASK (GOMP_DIM_MAX)
+			 | GOMP_DIM_MASK (GOMP_DIM_MAX - 1))))
 	loop->mask = this_mask;
     }
 
   if (loop->child)
+    loop->inner = oacc_loop_auto_partitions (loop->child,
+					     outer_mask | loop->mask,
+					     outer_assign | assign);
+
+  if (assign && (!loop->mask || !outer_assign))
     {
-      unsigned child_mask = outer_mask | loop->mask;
-
-      if (loop->mask || assign)
-	child_mask |= GOMP_DIM_MASK (GOMP_DIM_MAX);
-
-      loop->inner = oacc_loop_auto_partitions (loop->child, child_mask);
-    }
-
-  if (assign && !loop->mask)
-    {
-      /* Allocate the loop at the innermost available level.  */
+      /* Allocate the loop at the innermost available level.  Note
+	 that we do this even if we already assigned this loop the
+	 outermost available level above.  That way we'll partition
+	 this along 2 axes, if they are available.  */
       unsigned this_mask = 0;
-      
+
       /* Determine the outermost partitioning used within this loop. */
       this_mask = loop->inner | GOMP_DIM_MASK (GOMP_DIM_MAX);
       this_mask = (this_mask & -this_mask);
@@ -19732,11 +19737,11 @@ oacc_loop_auto_partitions (oacc_loop *loop, unsigned outer_mask)
       /* And avoid picking one use by an outer loop. */
       this_mask &= ~outer_mask;
 
-      if (!this_mask && noisy)
+      if (!this_mask && !loop->mask && noisy)
 	warning_at (loop->loc, 0,
 		    "insufficient partitioning available to parallelize loop");
 
-      loop->mask = this_mask;
+      loop->mask |= this_mask;
     }
 
   if (assign && dump_file)
@@ -19747,7 +19752,8 @@ oacc_loop_auto_partitions (oacc_loop *loop, unsigned outer_mask)
   unsigned inner_mask = 0;
   
   if (loop->sibling)
-    inner_mask |= oacc_loop_auto_partitions (loop->sibling, outer_mask);
+    inner_mask |= oacc_loop_auto_partitions (loop->sibling,
+					     outer_mask, outer_assign);
   
   inner_mask |= loop->inner | loop->mask;
 
@@ -19765,7 +19771,7 @@ oacc_loop_partition (oacc_loop *loop, unsigned outer_mask)
   if (mask_all & GOMP_DIM_MASK (GOMP_DIM_MAX))
     {
       mask_all ^= GOMP_DIM_MASK (GOMP_DIM_MAX);
-      mask_all |= oacc_loop_auto_partitions (loop, outer_mask);
+      mask_all |= oacc_loop_auto_partitions (loop, outer_mask, false);
     }
   return mask_all;
 }

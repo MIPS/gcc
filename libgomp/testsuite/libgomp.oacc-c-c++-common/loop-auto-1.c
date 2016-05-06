@@ -102,7 +102,6 @@ int vector_1 (int *ary, int size)
   clear (ary, size);
   
 #pragma acc parallel num_workers (32) vector_length(32) copy(ary[0:size]) firstprivate (size)
-  /* { dg-warning "region is worker partitioned but does not contain worker partitioned code" "worker" { target *-*-* } 104 } */
   {
 #pragma acc loop gang
     for (int jx = 0; jx < 1; jx++)
@@ -111,7 +110,7 @@ int vector_1 (int *ary, int size)
 	ary[ix] = place ();
   }
 
-  return check (ary, size, 0, 0, 1);
+  return check (ary, size, 0, 1, 1);
 }
 
 int vector_2 (int *ary, int size)
@@ -153,7 +152,7 @@ int gang_1 (int *ary, int size)
   clear (ary, size);
   
 #pragma acc parallel num_gangs (32) num_workers (32) vector_length(32) copy(ary[0:size]) firstprivate (size)
-  /* { dg-warning "region is vector partitioned but does not contain vector partitioned code" "vector" { target *-*-* } 155 } */
+  /* { dg-warning "region is vector partitioned but does not contain vector partitioned code" "vector" { target *-*-* } 154 } */
   {
 #pragma acc loop auto
     for (int jx = 0; jx <  size  / 64; jx++)
@@ -188,7 +187,6 @@ int gang_3 (int *ary, int size)
   clear (ary, size);
   
 #pragma acc parallel num_workers (32) vector_length(32) copy(ary[0:size]) firstprivate (size)
-  /* { dg-warning "region is worker partitioned but does not contain worker partitioned code" "worker" { target *-*-* } 190 } */
   {
 #pragma acc loop auto
     for (int jx = 0; jx <  size  / 64; jx++)
@@ -197,10 +195,24 @@ int gang_3 (int *ary, int size)
 	ary[ix + jx * 64] = place ();
   }
 
+  return check (ary, size, 1, 1, 1);
+}
+
+int gang_4 (int *ary, int size)
+{
+  clear (ary, size);
+  
+#pragma acc parallel vector_length(32) copy(ary[0:size]) firstprivate (size)
+  {
+#pragma acc loop auto
+    for (int jx = 0; jx <  size; jx++)
+      ary[jx] = place ();
+  }
+
   return check (ary, size, 1, 0, 1);
 }
 
-#define N (32*32*32)
+#define N (32*32*32*2)
 int main ()
 {
   int ondev = 0;
@@ -227,6 +239,8 @@ int main ()
   if (gang_2 (ary,  N))
     return 1;
   if (gang_3 (ary,  N))
+    return 1;
+  if (gang_4 (ary,  N))
     return 1;
 
   return 0;

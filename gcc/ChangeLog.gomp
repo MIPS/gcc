@@ -1,3 +1,12 @@
+2016-05-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* omp-low.c (lower_oacc_head_mark): Ensure 2 levels for auto
+	loops.
+	(oacc_loop_auto_partitions): Add outer_assign parm. Assign all but
+	vector partitioning to outer loops.  Assign 2 partitions to loops
+	when available.
+	(oacc_loop_partition): Adjust oacc_loop_auto_partitions call.
+
 2016-05-05  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gimple.c (gimple_call_same_target_p): Unique functions are eq.
