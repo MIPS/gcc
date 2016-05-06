@@ -1,3 +1,9 @@
+2016-05-06  Alexander Monakov  <amonakov@ispras.ru>
+
+	* config/nvptx/nvptx.c (nvptx_encode_section_info): Diagnose explicit
+	static initialization of variables in .shared memory.
+	(nvptx_handle_shared_attribute): Reword diagnostic message.
+
 2016-04-19  Alexander Monakov  <amonakov@ispras.ru>
 
 	* doc/extend.texi (Nvidia PTX Variable Attributes): New section.

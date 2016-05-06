@@ -226,7 +226,12 @@ nvptx_encode_section_info (tree decl, rtx rtl, int first)
       else if (TREE_CODE (decl) == VAR_DECL)
 	{
 	  if (lookup_attribute ("shared", DECL_ATTRIBUTES (decl)))
-	    area = DATA_AREA_SHARED;
+	    {
+	      area = DATA_AREA_SHARED;
+	      if (DECL_INITIAL (decl))
+		error ("static initialization of variable %q+D in %<.shared%>"
+		       " memory is not supported", decl);
+	    }
 	  else
 	    area = TREE_READONLY (decl) ? DATA_AREA_CONST : DATA_AREA_GLOBAL;
 	}
@@ -4041,7 +4046,7 @@ nvptx_handle_shared_attribute (tree *node, tree name, tree ARG_UNUSED (args),
     }
   else if (current_function_decl && !TREE_STATIC (decl))
     {
-      error ("%qE attribute only applies to non-stack variables", name);
+      error ("%qE attribute not allowed with auto storage class", name);
       *no_add_attrs = true;
     }
 
