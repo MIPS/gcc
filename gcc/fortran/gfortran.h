@@ -1121,7 +1121,10 @@ enum gfc_omp_map_op
   OMP_MAP_FORCE_DEVICEPTR,
   OMP_MAP_DEVICE_RESIDENT,
   OMP_MAP_LINK,
-  OMP_MAP_RELEASE
+  OMP_MAP_RELEASE,
+  OMP_MAP_ALWAYS_TO,
+  OMP_MAP_ALWAYS_FROM,
+  OMP_MAP_ALWAYS_TOFROM
 };
 
 /* For use in OpenMP clauses in case we need extra information
@@ -1166,6 +1169,8 @@ enum
   OMP_LIST_LINK,
   OMP_LIST_USE_DEVICE,
   OMP_LIST_CACHE,
+  OMP_LIST_IS_DEVICE_PTR,
+  OMP_LIST_USE_DEVICE_PTR,
   OMP_LIST_NUM
 };
 
@@ -1208,6 +1213,19 @@ enum gfc_omp_cancel_kind
   OMP_CANCEL_TASKGROUP
 };
 
+enum gfc_omp_if_kind
+{
+  OMP_IF_PARALLEL,
+  OMP_IF_TASK,
+  OMP_IF_TASKLOOP,
+  OMP_IF_TARGET,
+  OMP_IF_TARGET_DATA,
+  OMP_IF_TARGET_UPDATE,
+  OMP_IF_TARGET_ENTER_DATA,
+  OMP_IF_TARGET_EXIT_DATA,
+  OMP_IF_LAST
+};
+
 typedef struct gfc_omp_clauses
 {
   struct gfc_expr *if_expr;
@@ -1217,9 +1235,11 @@ typedef struct gfc_omp_clauses
   enum gfc_omp_sched_kind sched_kind;
   struct gfc_expr *chunk_size;
   enum gfc_omp_default_sharing default_sharing;
-  int collapse;
+  int collapse, orderedc;
   bool nowait, ordered, untied, mergeable;
-  bool inbranch, notinbranch;
+  bool inbranch, notinbranch, defaultmap, nogroup;
+  bool sched_simd, sched_monotonic, sched_nonmonotonic;
+  bool simd, threads;
   enum gfc_omp_cancel_kind cancel;
   enum gfc_omp_proc_bind_kind proc_bind;
   struct gfc_expr *safelen_expr;
@@ -1227,6 +1247,11 @@ typedef struct gfc_omp_clauses
   struct gfc_expr *num_teams;
   struct gfc_expr *device;
   struct gfc_expr *thread_limit;
+  struct gfc_expr *grainsize;
+  struct gfc_expr *hint;
+  struct gfc_expr *num_tasks;
+  struct gfc_expr *priority;
+  struct gfc_expr *if_exprs[OMP_IF_LAST];
   enum gfc_omp_sched_kind dist_sched_kind;
   struct gfc_expr *dist_chunk_size;
 

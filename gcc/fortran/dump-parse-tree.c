@@ -1078,7 +1078,7 @@ show_omp_namelist (int list_type, gfc_omp_namelist *n)
 static void
 show_omp_clauses (gfc_omp_clauses *omp_clauses)
 {
-  int list_type;
+  int list_type, i;
 
   switch (omp_clauses->cancel)
     {
@@ -1200,7 +1200,20 @@ show_omp_clauses (gfc_omp_clauses *omp_clauses)
 	default:
 	  gcc_unreachable ();
 	}
-      fprintf (dumpfile, " SCHEDULE (%s", type);
+      fputs (" SCHEDULE (", dumpfile);
+      if (omp_clauses->sched_simd)
+	{
+	  if (omp_clauses->sched_monotonic
+	      || omp_clauses->sched_nonmonotonic)
+	    fputs ("SIMD, ", dumpfile);
+	  else
+	    fputs ("SIMD: ", dumpfile);
+	}
+      if (omp_clauses->sched_monotonic)
+	fputs ("MONOTONIC: ", dumpfile);
+      else if (omp_clauses->sched_nonmonotonic)
+	fputs ("NONMONOTONIC: ", dumpfile);
+      fputs (type, dumpfile);
       if (omp_clauses->chunk_size)
 	{
 	  fputc (',', dumpfile);
@@ -1251,7 +1264,12 @@ show_omp_clauses (gfc_omp_clauses *omp_clauses)
   if (omp_clauses->independent)
     fputs (" INDEPENDENT", dumpfile);
   if (omp_clauses->ordered)
-    fputs (" ORDERED", dumpfile);
+    {
+      if (omp_clauses->orderedc)
+	fprintf (dumpfile, " ORDERED(%d)", omp_clauses->orderedc);
+      else
+	fputs (" ORDERED", dumpfile);
+    }
   if (omp_clauses->untied)
     fputs (" UNTIED", dumpfile);
   if (omp_clauses->mergeable)
@@ -1277,6 +1295,8 @@ show_omp_clauses (gfc_omp_clauses *omp_clauses)
 	  case OMP_LIST_ALIGNED: type = "ALIGNED"; break;
 	  case OMP_LIST_LINEAR: type = "LINEAR"; break;
 	  case OMP_LIST_REDUCTION: type = "REDUCTION"; break;
+	  case OMP_LIST_IS_DEVICE_PTR: type = "IS_DEVICE_PTR"; break;
+	  case OMP_LIST_USE_DEVICE_PTR: type = "USE_DEVICE_PTR"; break;
 	  case OMP_LIST_DEPEND: type = "DEPEND"; break;
 	  default:
 	    gcc_unreachable ();
@@ -1334,12 +1354,63 @@ show_omp_clauses (gfc_omp_clauses *omp_clauses)
     }
   if (omp_clauses->dist_sched_kind != OMP_SCHED_NONE)
     {
-      fprintf (dumpfile, " DIST_SCHEDULE (static");
+      fprintf (dumpfile, " DIST_SCHEDULE (STATIC");
       if (omp_clauses->dist_chunk_size)
 	{
 	  fputc (',', dumpfile);
 	  show_expr (omp_clauses->dist_chunk_size);
 	}
+      fputc (')', dumpfile);
+    }
+  if (omp_clauses->defaultmap)
+    fputs (" DEFALTMAP (TOFROM: SCALAR)", dumpfile);
+  if (omp_clauses->nogroup)
+    fputs (" NOGROUP", dumpfile);
+  if (omp_clauses->simd)
+    fputs (" SIMD", dumpfile);
+  if (omp_clauses->threads)
+    fputs (" THREADS", dumpfile);
+  if (omp_clauses->grainsize)
+    {
+      fputs (" GRAINSIZE(", dumpfile);
+      show_expr (omp_clauses->grainsize);
+      fputc (')', dumpfile);
+    }
+  if (omp_clauses->hint)
+    {
+      fputs (" HINT(", dumpfile);
+      show_expr (omp_clauses->hint);
+      fputc (')', dumpfile);
+    }
+  if (omp_clauses->num_tasks)
+    {
+      fputs (" NUM_TASKS(", dumpfile);
+      show_expr (omp_clauses->num_tasks);
+      fputc (')', dumpfile);
+    }
+  if (omp_clauses->priority)
+    {
+      fputs (" PRIORITY(", dumpfile);
+      show_expr (omp_clauses->priority);
+      fputc (')', dumpfile);
+    }
+  for (i = 0; i < OMP_IF_LAST; i++)
+    if (omp_clauses->if_exprs[i])
+      {
+	static const char *ifs[] = {
+	  "PARALLEL",
+	  "TASK",
+	  "TASKLOOP",
+	  "TARGET",
+	  "TARGET DATA",
+	  "TARGET UPDATE",
+	  "TARGET ENTER DATA",
+	  "TARGET EXIT DATA"
+	};
+      fputs (" IF(", dumpfile);
+      fputs (ifs[i], dumpfile);
+      fputs (": ", dumpfile);
+      show_expr (omp_clauses->if_exprs[i]);
       fputc (')', dumpfile);
     }
 }

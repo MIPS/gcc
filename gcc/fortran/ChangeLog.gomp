@@ -1,5 +1,44 @@
 2016-05-06  Jakub Jelinek  <jakub@redhat.com>
 
+	* gfortran.h (enum gfc_omp_map_op): Add OMP_MAP_RELEASE,
+	OMP_MAP_ALWAYS_TO, OMP_MAP_ALWAYS_FROM and OMP_MAP_ALWAYS_TOFROM.
+	(OMP_LIST_IS_DEVICE_PTR, OMP_LIST_USE_DEVICE_PTR): New.
+	(enum gfc_omp_if_kind): New.
+	(struct gfc_omp_clauses): Add orderedc, defaultmap, nogroup,
+	sched_simd, sched_monotonic, sched_nonmonotonic, simd, threads,
+	grainsize, hint, num_tasks, priority and if_exprs fields.
+	* openmp.c (gfc_free_omp_clauses): Free grainsize, hint, num_tasks,
+	priority and if_exprs.
+	(enum omp_mask1): Add OMP_CLAUSE_DEFAULTMAP, OMP_CLAUSE_GRAINSIZE,
+	OMP_CLAUSE_HINT, OMP_CLAUSE_IS_DEVICE_PTR, OMP_CLAUSE_LINK,
+	OMP_CLAUSE_NOGROUP, OMP_CLAUSE_NUM_TASKS, OMP_CLAUSE_PRIORITY,
+	OMP_CLAUSE_SIMD, OMP_CLAUSE_THREADS, OMP_CLAUSE_USE_DEVICE_PTR
+	and OMP_CLAUSE_NOWAIT.
+	(enum omp_mask2): Remove OMP_CLAUSE_OACC_DEVICE and OMP_CLAUSE_LINK.
+	(gfc_match_omp_clauses): Move delete clause handling to where it
+	alphabetically belongs.  Parse defaultmap, grainsize, hint,
+	is_device_ptr, nogroup, nowait, num_tasks, priority, simd, threads
+	and use_device_ptr clauses.  Parse if clause modifier.  Parse map
+	clause always modifier, and release and delete kinds.  Parse ordered
+	clause with argument.  Parse schedule clause modifiers.  Differentiate
+	device clause parsing based on openacc flag.  Guard link clause
+	parsing with openacc flag.
+	(OACC_UPDATE_CLAUSES): Replace OMP_CLAUSE_OACC_DEVICE with
+	OMP_CLAUSE_DEVICE.
+	(OMP_TASK_CLAUSES): Add OMP_CLAUSE_PRIORITY.
+	(OMP_TARGET_CLAUSES): Add OMP_CLAUSE_DEPEND, OMP_CLAUSE_NOWAIT,
+	OMP_CLAUSE_PRIVATE, OMP_CLAUSE_FIRSTPRIVATE, OMP_CLAUSE_DEFAULTMAP
+	and OMP_CLAUSE_IS_DEVICE_PTR.     
+	(OMP_TARGET_DATA_CLAUSES): Add OMP_CLAUSE_USE_DEVICE_PTR.
+	(OMP_TARGET_UPDATE_CLAUSES): Add OMP_CLAUSE_DEPEND and
+	OMP_CLAUSE_NOWAIT.
+	(resolve_omp_clauses): Add dummy OMP_LIST_IS_DEVICE_PTR and
+	OMP_LIST_USE_DEVICE_PTR cases.
+	* frontend-passes.c (gfc_code_walker): Handle new OpenMP 4.5
+	expressions.
+	* dump-parse-tree.c (show_omp_clauses): Adjust for OpenMP 4.5
+	clause changes.  
+
 	* openmp.c (enum omp_mask1, enum omp_mask2): New enums.
 	Change all OMP_CLAUSE_* defines into enum values, and change their
 	values from ((uint64_t) 1 << bit) to just bit.
