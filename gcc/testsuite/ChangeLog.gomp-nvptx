@@ -1,0 +1,4 @@
+2016-05-06  Alexander Monakov  <amonakov@ispras.ru>
+
+	* gcc.target/nvptx/decl-shared.c: New test.
+	* gcc.target/nvptx/decl-shared-init.c: New test.
