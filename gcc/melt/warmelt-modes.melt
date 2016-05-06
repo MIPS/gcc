@@ -2662,7 +2662,7 @@ melt_forwarded_copy (melt_ptr_t p)
     gcc_assert (n->u_discr != NULL);
     gcc_assert (n->u_discr != MELT_FORWARDED_DISCR);
     
-#if MELT_HAVE_DEBUG > 0
+#if MELT_HAVE_RUNTIME_DEBUG > 0
       if (melt_alptr_1 && (void*)melt_alptr_1 == (void*)n) 
 	{
 	  fprintf (stderr, "melt_forwarded_copy to alptr_1 %p mag %d\n",  melt_alptr_1, mag);
@@ -2679,7 +2679,7 @@ melt_forwarded_copy (melt_ptr_t p)
 			       melt_nb_garbcoll, melt_alptr_2);
 	  melt_break_alptr_2 ("forwarded copy to alptr_2");
 	};
-#endif /*MELT_HAVE_DEBUG*/
+#endif /*MELT_HAVE_RUNTIME_DEBUG*/
 
       p->u_forward.discr = MELT_FORWARDED_DISCR;
       p->u_forward.forward = n;

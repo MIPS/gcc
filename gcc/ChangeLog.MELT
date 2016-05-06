@@ -1,4 +1,13 @@
 
+2016-05-06   Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-base.melt: Use #if MELT_HAVE_RUNTIME_DEBUG > 0
+	in most runtime code.
+
+	* melt/warmelt-modes.melt: Likewise.
+	(generate_runtypesupport_forwcopy_fun): Ditto, in emitted
+	melt_forwarded_copy.
+
 2016-05-04   Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{we should also check that the same melt.so can be used with and
