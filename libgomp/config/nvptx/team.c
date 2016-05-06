@@ -31,7 +31,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct gomp_thread *nvptx_thrs __attribute__((shared));
+struct gomp_thread *nvptx_thrs __attribute__((shared,nocommon));
 
 static void gomp_thread_start (struct gomp_thread_pool *);
 
