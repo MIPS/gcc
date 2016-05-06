@@ -1,3 +1,33 @@
+2016-05-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* openmp.c (enum omp_mask1, enum omp_mask2): New enums.
+	Change all OMP_CLAUSE_* defines into enum values, and change their
+	values from ((uint64_t) 1 << bit) to just bit.
+	(omp_mask, omp_inv_mask): New classes.  Add ctors and operators.
+	(gfc_match_omp_clauses): Change mask argument from uint64_t to
+	const omp_mask.  Assert OMP_MASK1_LAST and OMP_MASK2_LAST are
+	at most 64.
+	(OACC_PARALLEL_CLAUSES, OACC_KERNELS_CLAUSES, OACC_DATA_CLAUSES,
+	OACC_LOOP_CLAUSES, OACC_HOST_DATA_CLAUSES, OACC_DECLARE_CLAUSES,
+	OACC_UPDATE_CLAUSES, OACC_ENTER_DATA_CLAUSES, OACC_EXIT_DATA_CLAUSES,
+	OACC_WAIT_CLAUSES, OACC_ROUTINE_CLAUSES, OMP_PARALLEL_CLAUSES,
+	OMP_DECLARE_SIMD_CLAUSES, OMP_DO_CLAUSES, OMP_SECTIONS_CLAUSES,
+	OMP_SIMD_CLAUSES, OMP_TASK_CLAUSES, OMP_TARGET_CLAUSES,
+	OMP_TARGET_DATA_CLAUSES, OMP_TARGET_UPDATE_CLAUSES,
+	OMP_TEAMS_CLAUSES, OMP_DISTRIBUTE_CLAUSES): Replace first or only
+	OMP_CLAUSE_* value in bitset with omp_mask (OMP_CLAUSE_*).
+	(OMP_SINGLE_CLAUSES): Define.
+	(match_omp): Change mask argument from unsigned int to
+	const omp_mask.
+	(gfc_match_omp_distribute_parallel_do_simd, gfc_match_omp_do_simd,
+	gfc_match_omp_parallel_do_simd,
+	gfc_match_omp_target_teams_distribute_parallel_do_simd,
+	gfc_match_omp_teams_distribute_parallel_do_simd): Use
+	& ~(omp_mask (OMP_CLAUSE_*)) instead of & ~OMP_CLAUSE_*.
+	(gfc_match_omp_single): Use OMP_SINGLE_CLAUSES.
+	(gfc_match_omp_cancel, gfc_match_omp_end_single): Use
+	omp_mask (OMP_CLAUSE_*) instead of OMP_CLAUSE_*.
+
 2015-10-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* types.def (BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_UINT_PTR): Remove.

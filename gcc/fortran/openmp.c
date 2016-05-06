@@ -539,67 +539,173 @@ cleanup:
   return MATCH_ERROR;
 }
 
-#define OMP_CLAUSE_PRIVATE		((uint64_t) 1 << 0)
-#define OMP_CLAUSE_FIRSTPRIVATE		((uint64_t) 1 << 1)
-#define OMP_CLAUSE_LASTPRIVATE		((uint64_t) 1 << 2)
-#define OMP_CLAUSE_COPYPRIVATE		((uint64_t) 1 << 3)
-#define OMP_CLAUSE_SHARED		((uint64_t) 1 << 4)
-#define OMP_CLAUSE_COPYIN		((uint64_t) 1 << 5)
-#define OMP_CLAUSE_REDUCTION		((uint64_t) 1 << 6)
-#define OMP_CLAUSE_IF			((uint64_t) 1 << 7)
-#define OMP_CLAUSE_NUM_THREADS		((uint64_t) 1 << 8)
-#define OMP_CLAUSE_SCHEDULE		((uint64_t) 1 << 9)
-#define OMP_CLAUSE_DEFAULT		((uint64_t) 1 << 10)
-#define OMP_CLAUSE_ORDERED		((uint64_t) 1 << 11)
-#define OMP_CLAUSE_COLLAPSE		((uint64_t) 1 << 12)
-#define OMP_CLAUSE_UNTIED		((uint64_t) 1 << 13)
-#define OMP_CLAUSE_FINAL		((uint64_t) 1 << 14)
-#define OMP_CLAUSE_MERGEABLE		((uint64_t) 1 << 15)
-#define OMP_CLAUSE_ALIGNED		((uint64_t) 1 << 16)
-#define OMP_CLAUSE_DEPEND		((uint64_t) 1 << 17)
-#define OMP_CLAUSE_INBRANCH		((uint64_t) 1 << 18)
-#define OMP_CLAUSE_LINEAR		((uint64_t) 1 << 19)
-#define OMP_CLAUSE_NOTINBRANCH		((uint64_t) 1 << 20)
-#define OMP_CLAUSE_PROC_BIND		((uint64_t) 1 << 21)
-#define OMP_CLAUSE_SAFELEN		((uint64_t) 1 << 22)
-#define OMP_CLAUSE_SIMDLEN		((uint64_t) 1 << 23)
-#define OMP_CLAUSE_UNIFORM		((uint64_t) 1 << 24)
-#define OMP_CLAUSE_DEVICE		((uint64_t) 1 << 25)
-#define OMP_CLAUSE_MAP			((uint64_t) 1 << 26)
-#define OMP_CLAUSE_TO			((uint64_t) 1 << 27)
-#define OMP_CLAUSE_FROM			((uint64_t) 1 << 28)
-#define OMP_CLAUSE_NUM_TEAMS		((uint64_t) 1 << 29)
-#define OMP_CLAUSE_THREAD_LIMIT		((uint64_t) 1 << 30)
-#define OMP_CLAUSE_DIST_SCHEDULE	((uint64_t) 1 << 31)
+/* OpenMP 4.5 clauses.  */
+enum omp_mask1
+{
+  OMP_CLAUSE_PRIVATE,
+  OMP_CLAUSE_FIRSTPRIVATE,
+  OMP_CLAUSE_LASTPRIVATE,
+  OMP_CLAUSE_COPYPRIVATE,
+  OMP_CLAUSE_SHARED,
+  OMP_CLAUSE_COPYIN,
+  OMP_CLAUSE_REDUCTION,
+  OMP_CLAUSE_IF,
+  OMP_CLAUSE_NUM_THREADS,
+  OMP_CLAUSE_SCHEDULE,
+  OMP_CLAUSE_DEFAULT,
+  OMP_CLAUSE_ORDERED,
+  OMP_CLAUSE_COLLAPSE,
+  OMP_CLAUSE_UNTIED,
+  OMP_CLAUSE_FINAL,
+  OMP_CLAUSE_MERGEABLE,
+  OMP_CLAUSE_ALIGNED,
+  OMP_CLAUSE_DEPEND,
+  OMP_CLAUSE_INBRANCH,
+  OMP_CLAUSE_LINEAR,
+  OMP_CLAUSE_NOTINBRANCH,
+  OMP_CLAUSE_PROC_BIND,
+  OMP_CLAUSE_SAFELEN,
+  OMP_CLAUSE_SIMDLEN,
+  OMP_CLAUSE_UNIFORM,
+  OMP_CLAUSE_DEVICE,
+  OMP_CLAUSE_MAP,
+  OMP_CLAUSE_TO,
+  OMP_CLAUSE_FROM,
+  OMP_CLAUSE_NUM_TEAMS,
+  OMP_CLAUSE_THREAD_LIMIT,
+  OMP_CLAUSE_DIST_SCHEDULE,
+  /* This must come last.  */
+  OMP_MASK1_LAST
+};
 
-/* OpenACC 2.0 clauses. */
-#define OMP_CLAUSE_ASYNC		((uint64_t) 1 << 32)
-#define OMP_CLAUSE_NUM_GANGS		((uint64_t) 1 << 33)
-#define OMP_CLAUSE_NUM_WORKERS		((uint64_t) 1 << 34)
-#define OMP_CLAUSE_VECTOR_LENGTH	((uint64_t) 1 << 35)
-#define OMP_CLAUSE_COPY			((uint64_t) 1 << 36)
-#define OMP_CLAUSE_COPYOUT		((uint64_t) 1 << 37)
-#define OMP_CLAUSE_CREATE		((uint64_t) 1 << 38)
-#define OMP_CLAUSE_PRESENT		((uint64_t) 1 << 39)
-#define OMP_CLAUSE_PRESENT_OR_COPY	((uint64_t) 1 << 40)
-#define OMP_CLAUSE_PRESENT_OR_COPYIN	((uint64_t) 1 << 41)
-#define OMP_CLAUSE_PRESENT_OR_COPYOUT	((uint64_t) 1 << 42)
-#define OMP_CLAUSE_PRESENT_OR_CREATE	((uint64_t) 1 << 43)
-#define OMP_CLAUSE_DEVICEPTR		((uint64_t) 1 << 44)
-#define OMP_CLAUSE_GANG			((uint64_t) 1 << 45)
-#define OMP_CLAUSE_WORKER		((uint64_t) 1 << 46)
-#define OMP_CLAUSE_VECTOR		((uint64_t) 1 << 47)
-#define OMP_CLAUSE_SEQ			((uint64_t) 1 << 48)
-#define OMP_CLAUSE_INDEPENDENT		((uint64_t) 1 << 49)
-#define OMP_CLAUSE_USE_DEVICE		((uint64_t) 1 << 50)
-#define OMP_CLAUSE_DEVICE_RESIDENT	((uint64_t) 1 << 51)
-#define OMP_CLAUSE_HOST_SELF		((uint64_t) 1 << 52)
-#define OMP_CLAUSE_OACC_DEVICE		((uint64_t) 1 << 53)
-#define OMP_CLAUSE_WAIT			((uint64_t) 1 << 54)
-#define OMP_CLAUSE_DELETE		((uint64_t) 1 << 55)
-#define OMP_CLAUSE_AUTO			((uint64_t) 1 << 56)
-#define OMP_CLAUSE_TILE			((uint64_t) 1 << 57)
-#define OMP_CLAUSE_LINK			((uint64_t) 1 << 58)
+/* OpenACC 2.0 specific clauses. */
+enum omp_mask2
+{
+  OMP_CLAUSE_ASYNC,
+  OMP_CLAUSE_NUM_GANGS,
+  OMP_CLAUSE_NUM_WORKERS,
+  OMP_CLAUSE_VECTOR_LENGTH,
+  OMP_CLAUSE_COPY,
+  OMP_CLAUSE_COPYOUT,
+  OMP_CLAUSE_CREATE,
+  OMP_CLAUSE_PRESENT,
+  OMP_CLAUSE_PRESENT_OR_COPY,
+  OMP_CLAUSE_PRESENT_OR_COPYIN,
+  OMP_CLAUSE_PRESENT_OR_COPYOUT,
+  OMP_CLAUSE_PRESENT_OR_CREATE,
+  OMP_CLAUSE_DEVICEPTR,
+  OMP_CLAUSE_GANG,
+  OMP_CLAUSE_WORKER,
+  OMP_CLAUSE_VECTOR,
+  OMP_CLAUSE_SEQ,
+  OMP_CLAUSE_INDEPENDENT,
+  OMP_CLAUSE_USE_DEVICE,
+  OMP_CLAUSE_DEVICE_RESIDENT,
+  OMP_CLAUSE_HOST_SELF,
+  OMP_CLAUSE_OACC_DEVICE,
+  OMP_CLAUSE_WAIT,
+  OMP_CLAUSE_DELETE,
+  OMP_CLAUSE_AUTO,
+  OMP_CLAUSE_TILE,
+  OMP_CLAUSE_LINK,
+  /* This must come last.  */
+  OMP_MASK2_LAST
+};
+
+struct omp_inv_mask;
+
+/* Customized bitset for up to 128-bits.
+   The two enums above provide bit numbers to use, and which of the
+   two enums it is determines which of the two mask fields is used.
+   Supported operations are defining a mask, like:
+   #define XXX_CLAUSES \
+     (omp_mask (OMP_CLAUSE_XXX) | OMP_CLAUSE_YYY | OMP_CLAUSE_ZZZ)
+   oring such bitsets together or removing selected bits:
+   (XXX_CLAUSES | YYY_CLAUSES) & ~(omp_mask (OMP_CLAUSE_VVV))
+   and testing individual bits:
+   if (mask & OMP_CLAUSE_UUU)  */
+
+struct omp_mask {
+  const uint64_t mask1;
+  const uint64_t mask2;
+  inline omp_mask ();
+  inline omp_mask (omp_mask1);
+  inline omp_mask (omp_mask2);
+  inline omp_mask (uint64_t, uint64_t);
+  inline omp_mask operator| (omp_mask1) const;
+  inline omp_mask operator| (omp_mask2) const;
+  inline omp_mask operator| (omp_mask) const;
+  inline omp_mask operator& (const omp_inv_mask &) const;
+  inline bool operator& (omp_mask1) const;
+  inline bool operator& (omp_mask2) const;
+  inline omp_inv_mask operator~ () const;
+};
+
+struct omp_inv_mask : public omp_mask {
+  inline omp_inv_mask (const omp_mask &);
+};
+
+omp_mask::omp_mask () : mask1 (0), mask2 (0)
+{
+}
+
+omp_mask::omp_mask (omp_mask1 m) : mask1 (((uint64_t) 1) << m), mask2 (0)
+{
+}
+
+omp_mask::omp_mask (omp_mask2 m) : mask1 (0), mask2 (((uint64_t) 1) << m)
+{
+}
+
+omp_mask::omp_mask (uint64_t m1, uint64_t m2) : mask1 (m1), mask2 (m2)
+{
+}
+
+omp_mask
+omp_mask::operator| (omp_mask1 m) const
+{
+  return omp_mask (mask1 | (((uint64_t) 1) << m), mask2);
+}
+
+omp_mask
+omp_mask::operator| (omp_mask2 m) const
+{
+  return omp_mask (mask1, mask2 | (((uint64_t) 1) << m));
+}
+
+omp_mask
+omp_mask::operator| (omp_mask m) const
+{
+  return omp_mask (mask1 | m.mask1, mask2 | m.mask2);
+}
+
+omp_mask
+omp_mask::operator& (const omp_inv_mask &m) const
+{
+  return omp_mask (mask1 & ~m.mask1, mask2 & ~m.mask2);
+}
+
+bool
+omp_mask::operator& (omp_mask1 m) const
+{
+  return (mask1 & (((uint64_t) 1) << m)) != 0;
+}
+
+bool
+omp_mask::operator& (omp_mask2 m) const
+{
+  return (mask2 & (((uint64_t) 1) << m)) != 0;
+}
+
+omp_inv_mask
+omp_mask::operator~ () const
+{
+  return omp_inv_mask (*this);
+}
+
+omp_inv_mask::omp_inv_mask (const omp_mask &m) : omp_mask (m)
+{
+}
 
 /* Helper function for OpenACC and OpenMP clauses involving memory
    mapping.  */
@@ -624,13 +730,14 @@ gfc_match_omp_map_clause (gfc_omp_namelist **list, gfc_omp_map_op map_op)
    clauses that are allowed for a particular directive.  */
 
 static match
-gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
+gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 		       bool first = true, bool needs_space = true,
 		       bool openacc = false)
 {
   gfc_omp_clauses *c = gfc_get_omp_clauses ();
   locus old_loc;
 
+  gcc_checking_assert (OMP_MASK1_LAST <= 64 && OMP_MASK2_LAST <= 64);
   *cp = NULL;
   while (1)
     {
@@ -1360,55 +1467,56 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
 
 
 #define OACC_PARALLEL_CLAUSES \
-  (OMP_CLAUSE_IF | OMP_CLAUSE_ASYNC | OMP_CLAUSE_NUM_GANGS                    \
+  (omp_mask (OMP_CLAUSE_IF) | OMP_CLAUSE_ASYNC | OMP_CLAUSE_NUM_GANGS	      \
    | OMP_CLAUSE_NUM_WORKERS | OMP_CLAUSE_VECTOR_LENGTH | OMP_CLAUSE_REDUCTION \
-   | OMP_CLAUSE_COPY | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT                 \
+   | OMP_CLAUSE_COPY | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT		      \
    | OMP_CLAUSE_CREATE | OMP_CLAUSE_PRESENT | OMP_CLAUSE_PRESENT_OR_COPY      \
-   | OMP_CLAUSE_PRESENT_OR_COPYIN | OMP_CLAUSE_PRESENT_OR_COPYOUT             \
+   | OMP_CLAUSE_PRESENT_OR_COPYIN | OMP_CLAUSE_PRESENT_OR_COPYOUT	      \
    | OMP_CLAUSE_PRESENT_OR_CREATE | OMP_CLAUSE_DEVICEPTR | OMP_CLAUSE_PRIVATE \
    | OMP_CLAUSE_FIRSTPRIVATE | OMP_CLAUSE_DEFAULT | OMP_CLAUSE_WAIT)
 #define OACC_KERNELS_CLAUSES \
-  (OMP_CLAUSE_IF | OMP_CLAUSE_ASYNC | OMP_CLAUSE_DEVICEPTR                    \
-   | OMP_CLAUSE_COPY | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT                 \
+  (omp_mask (OMP_CLAUSE_IF) | OMP_CLAUSE_ASYNC | OMP_CLAUSE_DEVICEPTR	      \
+   | OMP_CLAUSE_COPY | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT		      \
    | OMP_CLAUSE_CREATE | OMP_CLAUSE_PRESENT | OMP_CLAUSE_PRESENT_OR_COPY      \
-   | OMP_CLAUSE_PRESENT_OR_COPYIN | OMP_CLAUSE_PRESENT_OR_COPYOUT             \
+   | OMP_CLAUSE_PRESENT_OR_COPYIN | OMP_CLAUSE_PRESENT_OR_COPYOUT	      \
    | OMP_CLAUSE_PRESENT_OR_CREATE | OMP_CLAUSE_DEFAULT | OMP_CLAUSE_WAIT)
 #define OACC_DATA_CLAUSES \
-  (OMP_CLAUSE_IF | OMP_CLAUSE_DEVICEPTR  | OMP_CLAUSE_COPY                    \
-   | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT | OMP_CLAUSE_CREATE               \
-   | OMP_CLAUSE_PRESENT | OMP_CLAUSE_PRESENT_OR_COPY                          \
-   | OMP_CLAUSE_PRESENT_OR_COPYIN | OMP_CLAUSE_PRESENT_OR_COPYOUT             \
+  (omp_mask (OMP_CLAUSE_IF) | OMP_CLAUSE_DEVICEPTR  | OMP_CLAUSE_COPY	      \
+   | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT | OMP_CLAUSE_CREATE		      \
+   | OMP_CLAUSE_PRESENT | OMP_CLAUSE_PRESENT_OR_COPY			      \
+   | OMP_CLAUSE_PRESENT_OR_COPYIN | OMP_CLAUSE_PRESENT_OR_COPYOUT	      \
    | OMP_CLAUSE_PRESENT_OR_CREATE)
 #define OACC_LOOP_CLAUSES \
-  (OMP_CLAUSE_COLLAPSE | OMP_CLAUSE_GANG | OMP_CLAUSE_WORKER     \
-   | OMP_CLAUSE_VECTOR | OMP_CLAUSE_SEQ | OMP_CLAUSE_INDEPENDENT \
-   | OMP_CLAUSE_PRIVATE | OMP_CLAUSE_REDUCTION | OMP_CLAUSE_AUTO \
+  (omp_mask (OMP_CLAUSE_COLLAPSE) | OMP_CLAUSE_GANG | OMP_CLAUSE_WORKER	      \
+   | OMP_CLAUSE_VECTOR | OMP_CLAUSE_SEQ | OMP_CLAUSE_INDEPENDENT	      \
+   | OMP_CLAUSE_PRIVATE | OMP_CLAUSE_REDUCTION | OMP_CLAUSE_AUTO	      \
    | OMP_CLAUSE_TILE)
 #define OACC_PARALLEL_LOOP_CLAUSES \
   (OACC_LOOP_CLAUSES | OACC_PARALLEL_CLAUSES)
 #define OACC_KERNELS_LOOP_CLAUSES \
   (OACC_LOOP_CLAUSES | OACC_KERNELS_CLAUSES)
-#define OACC_HOST_DATA_CLAUSES OMP_CLAUSE_USE_DEVICE
+#define OACC_HOST_DATA_CLAUSES omp_mask (OMP_CLAUSE_USE_DEVICE)
 #define OACC_DECLARE_CLAUSES \
-  (OMP_CLAUSE_COPY | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT                   \
+  (omp_mask (OMP_CLAUSE_COPY) | OMP_CLAUSE_COPYIN | OMP_CLAUSE_COPYOUT	      \
    | OMP_CLAUSE_CREATE | OMP_CLAUSE_DEVICEPTR | OMP_CLAUSE_DEVICE_RESIDENT    \
-   | OMP_CLAUSE_PRESENT | OMP_CLAUSE_PRESENT_OR_COPY                          \
-   | OMP_CLAUSE_PRESENT_OR_COPYIN | OMP_CLAUSE_PRESENT_OR_COPYOUT             \
+   | OMP_CLAUSE_PRESENT | OMP_CLAUSE_PRESENT_OR_COPY			      \
+   | OMP_CLAUSE_PRESENT_OR_COPYIN | OMP_CLAUSE_PRESENT_OR_COPYOUT	      \
    | OMP_CLAUSE_PRESENT_OR_CREATE | OMP_CLAUSE_LINK)
 #define OACC_UPDATE_CLAUSES \
-  (OMP_CLAUSE_IF | OMP_CLAUSE_ASYNC | OMP_CLAUSE_HOST_SELF \
+  (omp_mask (OMP_CLAUSE_IF) | OMP_CLAUSE_ASYNC | OMP_CLAUSE_HOST_SELF	      \
    | OMP_CLAUSE_OACC_DEVICE | OMP_CLAUSE_WAIT)
 #define OACC_ENTER_DATA_CLAUSES \
-  (OMP_CLAUSE_IF | OMP_CLAUSE_ASYNC | OMP_CLAUSE_WAIT | OMP_CLAUSE_COPYIN    \
-   | OMP_CLAUSE_CREATE | OMP_CLAUSE_PRESENT_OR_COPYIN                          \
+  (omp_mask (OMP_CLAUSE_IF) | OMP_CLAUSE_ASYNC | OMP_CLAUSE_WAIT	      \
+   | OMP_CLAUSE_COPYIN | OMP_CLAUSE_CREATE | OMP_CLAUSE_PRESENT_OR_COPYIN     \
    | OMP_CLAUSE_PRESENT_OR_CREATE)
 #define OACC_EXIT_DATA_CLAUSES \
-  (OMP_CLAUSE_IF | OMP_CLAUSE_ASYNC | OMP_CLAUSE_WAIT | OMP_CLAUSE_COPYOUT \
-   | OMP_CLAUSE_DELETE)
+  (omp_mask (OMP_CLAUSE_IF) | OMP_CLAUSE_ASYNC | OMP_CLAUSE_WAIT	      \
+   | OMP_CLAUSE_COPYOUT | OMP_CLAUSE_DELETE)
 #define OACC_WAIT_CLAUSES \
-  (OMP_CLAUSE_ASYNC)
+  omp_mask (OMP_CLAUSE_ASYNC)
 #define OACC_ROUTINE_CLAUSES \
-  (OMP_CLAUSE_GANG | OMP_CLAUSE_WORKER | OMP_CLAUSE_VECTOR | OMP_CLAUSE_SEQ)
+  (omp_mask (OMP_CLAUSE_GANG) | OMP_CLAUSE_WORKER | OMP_CLAUSE_VECTOR	      \
+   | OMP_CLAUSE_SEQ)
 
 
 match
@@ -1849,44 +1957,50 @@ cleanup:
 
 
 #define OMP_PARALLEL_CLAUSES \
-  (OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE | OMP_CLAUSE_SHARED	\
-   | OMP_CLAUSE_COPYIN | OMP_CLAUSE_REDUCTION | OMP_CLAUSE_IF		\
-   | OMP_CLAUSE_NUM_THREADS | OMP_CLAUSE_DEFAULT | OMP_CLAUSE_PROC_BIND)
+  (omp_mask (OMP_CLAUSE_PRIVATE) | OMP_CLAUSE_FIRSTPRIVATE		\
+   | OMP_CLAUSE_SHARED | OMP_CLAUSE_COPYIN | OMP_CLAUSE_REDUCTION	\
+   | OMP_CLAUSE_IF | OMP_CLAUSE_NUM_THREADS | OMP_CLAUSE_DEFAULT	\
+   | OMP_CLAUSE_PROC_BIND)
 #define OMP_DECLARE_SIMD_CLAUSES \
-  (OMP_CLAUSE_SIMDLEN | OMP_CLAUSE_LINEAR | OMP_CLAUSE_UNIFORM		\
-   | OMP_CLAUSE_ALIGNED | OMP_CLAUSE_INBRANCH | OMP_CLAUSE_NOTINBRANCH)
+  (omp_mask (OMP_CLAUSE_SIMDLEN) | OMP_CLAUSE_LINEAR			\
+   | OMP_CLAUSE_UNIFORM	| OMP_CLAUSE_ALIGNED | OMP_CLAUSE_INBRANCH	\
+   | OMP_CLAUSE_NOTINBRANCH)
 #define OMP_DO_CLAUSES \
-  (OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE				\
+  (omp_mask (OMP_CLAUSE_PRIVATE) | OMP_CLAUSE_FIRSTPRIVATE		\
    | OMP_CLAUSE_LASTPRIVATE | OMP_CLAUSE_REDUCTION			\
    | OMP_CLAUSE_SCHEDULE | OMP_CLAUSE_ORDERED | OMP_CLAUSE_COLLAPSE)
 #define OMP_SECTIONS_CLAUSES \
-  (OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE				\
+  (omp_mask (OMP_CLAUSE_PRIVATE) | OMP_CLAUSE_FIRSTPRIVATE		\
    | OMP_CLAUSE_LASTPRIVATE | OMP_CLAUSE_REDUCTION)
 #define OMP_SIMD_CLAUSES \
-  (OMP_CLAUSE_PRIVATE | OMP_CLAUSE_LASTPRIVATE | OMP_CLAUSE_REDUCTION	\
-   | OMP_CLAUSE_COLLAPSE | OMP_CLAUSE_SAFELEN | OMP_CLAUSE_LINEAR	\
-   | OMP_CLAUSE_ALIGNED)
+  (omp_mask (OMP_CLAUSE_PRIVATE) | OMP_CLAUSE_LASTPRIVATE		\
+   | OMP_CLAUSE_REDUCTION | OMP_CLAUSE_COLLAPSE | OMP_CLAUSE_SAFELEN	\
+   | OMP_CLAUSE_LINEAR | OMP_CLAUSE_ALIGNED)
 #define OMP_TASK_CLAUSES \
-  (OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE | OMP_CLAUSE_SHARED	\
-   | OMP_CLAUSE_IF | OMP_CLAUSE_DEFAULT | OMP_CLAUSE_UNTIED		\
-   | OMP_CLAUSE_FINAL | OMP_CLAUSE_MERGEABLE | OMP_CLAUSE_DEPEND)
+  (omp_mask (OMP_CLAUSE_PRIVATE) | OMP_CLAUSE_FIRSTPRIVATE		\
+   | OMP_CLAUSE_SHARED | OMP_CLAUSE_IF | OMP_CLAUSE_DEFAULT		\
+   | OMP_CLAUSE_UNTIED | OMP_CLAUSE_FINAL | OMP_CLAUSE_MERGEABLE	\
+   | OMP_CLAUSE_DEPEND)
 #define OMP_TARGET_CLAUSES \
-  (OMP_CLAUSE_DEVICE | OMP_CLAUSE_MAP | OMP_CLAUSE_IF)
+  (omp_mask (OMP_CLAUSE_DEVICE) | OMP_CLAUSE_MAP | OMP_CLAUSE_IF)
 #define OMP_TARGET_DATA_CLAUSES \
-  (OMP_CLAUSE_DEVICE | OMP_CLAUSE_MAP | OMP_CLAUSE_IF)
+  (omp_mask (OMP_CLAUSE_DEVICE) | OMP_CLAUSE_MAP | OMP_CLAUSE_IF)
 #define OMP_TARGET_UPDATE_CLAUSES \
-  (OMP_CLAUSE_DEVICE | OMP_CLAUSE_IF | OMP_CLAUSE_TO | OMP_CLAUSE_FROM)
+  (omp_mask (OMP_CLAUSE_DEVICE) | OMP_CLAUSE_IF | OMP_CLAUSE_TO		\
+   | OMP_CLAUSE_FROM)
 #define OMP_TEAMS_CLAUSES \
-  (OMP_CLAUSE_NUM_TEAMS | OMP_CLAUSE_THREAD_LIMIT | OMP_CLAUSE_DEFAULT	\
-   | OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE | OMP_CLAUSE_SHARED	\
-   | OMP_CLAUSE_REDUCTION)
+  (omp_mask (OMP_CLAUSE_NUM_TEAMS) | OMP_CLAUSE_THREAD_LIMIT		\
+   | OMP_CLAUSE_DEFAULT	| OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE	\
+   | OMP_CLAUSE_SHARED | OMP_CLAUSE_REDUCTION)
 #define OMP_DISTRIBUTE_CLAUSES \
-  (OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE | OMP_CLAUSE_COLLAPSE	\
-   | OMP_CLAUSE_DIST_SCHEDULE)
+  (omp_mask (OMP_CLAUSE_PRIVATE) | OMP_CLAUSE_FIRSTPRIVATE		\
+   | OMP_CLAUSE_COLLAPSE | OMP_CLAUSE_DIST_SCHEDULE)
+#define OMP_SINGLE_CLAUSES \
+  (omp_mask (OMP_CLAUSE_PRIVATE) | OMP_CLAUSE_FIRSTPRIVATE)
 
 
 static match
-match_omp (gfc_exec_op op, unsigned int mask)
+match_omp (gfc_exec_op op, const omp_mask mask)
 {
   gfc_omp_clauses *c;
   if (gfc_match_omp_clauses (&c, mask) != MATCH_YES)
@@ -1937,7 +2051,7 @@ gfc_match_omp_distribute_parallel_do_simd (void)
   return match_omp (EXEC_OMP_DISTRIBUTE_PARALLEL_DO_SIMD,
 		    (OMP_DISTRIBUTE_CLAUSES | OMP_PARALLEL_CLAUSES
 		     | OMP_DO_CLAUSES | OMP_SIMD_CLAUSES)
-		    & ~OMP_CLAUSE_ORDERED);
+		    & ~(omp_mask (OMP_CLAUSE_ORDERED)));
 }
 
 
@@ -1960,7 +2074,7 @@ match
 gfc_match_omp_do_simd (void)
 {
   return match_omp (EXEC_OMP_DO_SIMD, ((OMP_DO_CLAUSES | OMP_SIMD_CLAUSES)
-				       & ~OMP_CLAUSE_ORDERED));
+				       & ~(omp_mask (OMP_CLAUSE_ORDERED))));
 }
 
 
@@ -2587,7 +2701,7 @@ gfc_match_omp_parallel_do_simd (void)
 {
   return match_omp (EXEC_OMP_PARALLEL_DO_SIMD,
 		    (OMP_PARALLEL_CLAUSES | OMP_DO_CLAUSES | OMP_SIMD_CLAUSES)
-		    & ~OMP_CLAUSE_ORDERED);
+		    & ~(omp_mask (OMP_CLAUSE_ORDERED)));
 }
 
 
@@ -2623,8 +2737,7 @@ gfc_match_omp_simd (void)
 match
 gfc_match_omp_single (void)
 {
-  return match_omp (EXEC_OMP_SINGLE,
-		    OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE);
+  return match_omp (EXEC_OMP_SINGLE, OMP_SINGLE_CLAUSES);
 }
 
 
@@ -2711,7 +2824,7 @@ gfc_match_omp_target_teams_distribute_parallel_do_simd (void)
 		    (OMP_TARGET_CLAUSES | OMP_TEAMS_CLAUSES
 		     | OMP_DISTRIBUTE_CLAUSES | OMP_PARALLEL_CLAUSES
 		     | OMP_DO_CLAUSES | OMP_SIMD_CLAUSES)
-		    & ~OMP_CLAUSE_ORDERED);
+		    & ~(omp_mask (OMP_CLAUSE_ORDERED)));
 }
 
 
@@ -2761,7 +2874,7 @@ gfc_match_omp_teams_distribute_parallel_do_simd (void)
   return match_omp (EXEC_OMP_TEAMS_DISTRIBUTE_PARALLEL_DO_SIMD,
 		    (OMP_TEAMS_CLAUSES | OMP_DISTRIBUTE_CLAUSES
 		     | OMP_PARALLEL_CLAUSES | OMP_DO_CLAUSES
-		     | OMP_SIMD_CLAUSES) & ~OMP_CLAUSE_ORDERED);
+		     | OMP_SIMD_CLAUSES) & ~(omp_mask (OMP_CLAUSE_ORDERED)));
 }
 
 
@@ -2925,7 +3038,7 @@ gfc_match_omp_cancel (void)
   enum gfc_omp_cancel_kind kind = gfc_match_omp_cancel_kind ();
   if (kind == OMP_CANCEL_UNKNOWN)
     return MATCH_ERROR;
-  if (gfc_match_omp_clauses (&c, OMP_CLAUSE_IF, false) != MATCH_YES)
+  if (gfc_match_omp_clauses (&c, omp_mask (OMP_CLAUSE_IF), false) != MATCH_YES)
     return MATCH_ERROR;
   c->cancel = kind;
   new_st.op = EXEC_OMP_CANCEL;
@@ -2982,7 +3095,8 @@ gfc_match_omp_end_single (void)
       new_st.ext.omp_bool = true;
       return MATCH_YES;
     }
-  if (gfc_match_omp_clauses (&c, OMP_CLAUSE_COPYPRIVATE) != MATCH_YES)
+  if (gfc_match_omp_clauses (&c, omp_mask (OMP_CLAUSE_COPYPRIVATE))
+      != MATCH_YES)
     return MATCH_ERROR;
   new_st.op = EXEC_OMP_END_SINGLE;
   new_st.ext.omp_clauses = c;

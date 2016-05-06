@@ -1120,7 +1120,8 @@ enum gfc_omp_map_op
   OMP_MAP_FORCE_PRESENT,
   OMP_MAP_FORCE_DEVICEPTR,
   OMP_MAP_DEVICE_RESIDENT,
-  OMP_MAP_LINK
+  OMP_MAP_LINK,
+  OMP_MAP_RELEASE
 };
 
 /* For use in OpenMP clauses in case we need extra information
