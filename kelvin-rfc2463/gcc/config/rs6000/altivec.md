@@ -3609,7 +3609,6 @@
 	 (match_operand:V2DF 4 "zero_constant" "j")))
    (clobber (match_scratch:V1TI 0 "=v"))]
   "TARGET_P8_VECTOR"
-  
   "bcd<bcd_add_sub>. %0,%1,%2,%3"
   [(set_attr "length" "4")
    (set_attr "type" "vecsimple")])
@@ -3635,7 +3634,7 @@
 (define_insn "darn_32"
   [(set (match_operand:SI 0 "register_operand" "")
         (unspec:SI [(const_int 0)] UNSPEC_DARN_32))]
-  "TARGET_MODULO"
+  "TARGET_P9_MISC"
   {
      return "darn %0,0";
   }
@@ -3645,7 +3644,7 @@
 (define_insn "darn_raw"
   [(set (match_operand:DI 0 "register_operand" "")
         (unspec:DI [(const_int 0)] UNSPEC_DARN_RAW))]
-  "TARGET_MODULO && TARGET_64BIT"
+  "TARGET_P9_MISC && TARGET_64BIT"
   {
      return "darn %0,2";
   }
@@ -3655,7 +3654,7 @@
 (define_insn "darn"
   [(set (match_operand:DI 0 "register_operand" "")
         (unspec:DI [(const_int 0)] UNSPEC_DARN))]
-  "TARGET_MODULO && TARGET_64BIT"
+  "TARGET_P9_MISC && TARGET_64BIT"
   {
      return "darn %0,1";
   }

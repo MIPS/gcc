@@ -659,7 +659,7 @@
 #define BU_P9_MISC_0(ENUM, NAME, ATTR, ICODE)                      \
   RS6000_BUILTIN_0 (MISC_BUILTIN_ ## ENUM,		/* ENUM */	\
 		    "__builtin_" NAME,			/* NAME */	\
-		    RS6000_BTM_MODULO,			/* MASK */	\
+		    RS6000_BTM_P9_MISC,			/* MASK */	\
 		    (RS6000_BTC_ ## ATTR		/* ATTR */	\
 		     | RS6000_BTC_SPECIAL),				\
 		    CODE_FOR_ ## ICODE)			/* ICODE */
@@ -667,7 +667,7 @@
 #define BU_P9_MISC_1(ENUM, NAME, ATTR, ICODE)				\
   RS6000_BUILTIN_1 (MISC_BUILTIN_ ## ENUM,		/* ENUM */	\
 		    "__builtin_" NAME,			/* NAME */	\
-		    RS6000_BTM_MODULO,			/* MASK */	\
+		    RS6000_BTM_P9_MISC,			/* MASK */	\
 		    (RS6000_BTC_ ## ATTR		/* ATTR */	\
 		     | RS6000_BTC_UNARY),				\
 		    CODE_FOR_ ## ICODE)			/* ICODE */
@@ -679,7 +679,7 @@
 #define BU_P9_64BIT_MISC_0(ENUM, NAME, ATTR, ICODE)			\
   RS6000_BUILTIN_0 (MISC_BUILTIN_ ## ENUM,		/* ENUM */	\
 		    "__builtin_" NAME,			/* NAME */	\
-		    RS6000_BTM_MODULO                                   \
+		    RS6000_BTM_P9_MISC					\
                      | RS6000_BTM_64BIT,		/* MASK */	\
 		    (RS6000_BTC_ ## ATTR		/* ATTR */	\
 		     | RS6000_BTC_SPECIAL),				\
@@ -692,8 +692,7 @@
 #define BU_P9_DFP_MISC_0(ENUM, NAME, ATTR, ICODE)			\
   RS6000_BUILTIN_0 (MISC_BUILTIN_ ## ENUM,		/* ENUM */	\
 		    "__builtin_" NAME,			/* NAME */	\
-		    (RS6000_BTM_MODULO 					\
-		     | RS6000_BTM_DFP),			/* MASK */	\
+		    RS6000_BTM_P9_MISC,			/* MASK */	\
 		    (RS6000_BTC_ ## ATTR		/* ATTR */	\
 		     | RS6000_BTC_SPECIAL),				\
 		    CODE_FOR_ ## ICODE)			/* ICODE */
@@ -701,8 +700,7 @@
 #define BU_P9_DFP_MISC_1(ENUM, NAME, ATTR, ICODE)			\
   RS6000_BUILTIN_1 (MISC_BUILTIN_ ## ENUM,		/* ENUM */	\
 		    "__builtin_" NAME,			/* NAME */	\
-		    (RS6000_BTM_MODULO 					\
-		     | RS6000_BTM_DFP),			/* MASK */	\
+		    RS6000_BTM_P9_MISC,			/* MASK */	\
 		    (RS6000_BTC_ ## ATTR		/* ATTR */	\
 		     | RS6000_BTC_SPECIAL),				\
 		    CODE_FOR_ ## ICODE)			/* ICODE */
@@ -710,8 +708,7 @@
 #define BU_P9_DFP_MISC_2(ENUM, NAME, ATTR, ICODE)			\
   RS6000_BUILTIN_2 (MISC_BUILTIN_ ## ENUM,		/* ENUM */	\
 		    "__builtin_" NAME,			/* NAME */	\
-		    (RS6000_BTM_MODULO 					\
-		     | RS6000_BTM_DFP),			/* MASK */	\
+		    RS6000_BTM_P9_MISC,			/* MASK */	\
 		    (RS6000_BTC_ ## ATTR		/* ATTR */	\
 		     | RS6000_BTC_SPECIAL),				\
 		    CODE_FOR_ ## ICODE)			/* ICODE */
@@ -720,7 +717,7 @@
 #define BU_P9_DFP_OVERLOAD_1(ENUM, NAME)				\
   RS6000_BUILTIN_1 (P9_BUILTIN_DFP_ ## ENUM,		/* ENUM */	\
 		    "__builtin_dfp_" NAME,		/* NAME */	\
-		    RS6000_BTM_MODULO,			/* MASK */	\
+		    RS6000_BTM_P9_MISC,			/* MASK */	\
 		    (RS6000_BTC_OVERLOADED		/* ATTR */	\
 		     | RS6000_BTC_UNARY),				\
 		    CODE_FOR_nothing)			/* ICODE */
@@ -728,7 +725,7 @@
 #define BU_P9_DFP_OVERLOAD_2(ENUM, NAME)				\
   RS6000_BUILTIN_2 (P9_BUILTIN_DFP_ ## ENUM,		/* ENUM */	\
 		    "__builtin_dfp_" NAME,		/* NAME */	\
-		    RS6000_BTM_MODULO,			/* MASK */	\
+		    RS6000_BTM_P9_MISC,			/* MASK */	\
 		    (RS6000_BTC_OVERLOADED		/* ATTR */	\
 		     | RS6000_BTC_BINARY),				\
 		    CODE_FOR_nothing)			/* ICODE */
@@ -736,7 +733,7 @@
 #define BU_P9_DFP_OVERLOAD_3(ENUM, NAME)				\
   RS6000_BUILTIN_3 (P9_BUILTIN_DFP_ ## ENUM,		/* ENUM */	\
 		    "__builtin_dfp_" NAME,		/* NAME */	\
-		    RS6000_BTM_MODULO,			/* MASK */	\
+		    RS6000_BTM_P9_MISC,			/* MASK */	\
 		    (RS6000_BTC_OVERLOADED		/* ATTR */	\
 		     | RS6000_BTC_TERNARY),				\
 		    CODE_FOR_nothing)			/* ICODE */

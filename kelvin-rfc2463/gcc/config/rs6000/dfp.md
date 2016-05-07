@@ -367,7 +367,7 @@
    	(BCD_TEST:SI (match_dup 3) 
 		     (const_int 0)))
   ]
-  "TARGET_P9_VECTOR"
+  "TARGET_P9_MISC"
 {
   operands[3] = gen_reg_rtx (CCFPmode);
   operands[4] = CONST0_RTX (SImode);
@@ -380,7 +380,7 @@
 	 	           (match_operand:D64_D128 2 "gpc_reg_operand" "d")]
           UNSPEC_DTSTSFI)
 	 (match_operand:SI 3 "zero_constant" "j")))]
-  "TARGET_P9_VECTOR"
+  "TARGET_P9_MISC"
   {
     /* If immediate operand is greater than 63, it will behave as if
      * the value had been 63.  The code generator does not support 
