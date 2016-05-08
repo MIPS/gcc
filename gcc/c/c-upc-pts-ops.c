@@ -55,7 +55,7 @@ upc_pts_init_type (void)
   int save_pedantic = pedantic;
   ref = start_struct (loc, RECORD_TYPE, name, &null_struct_parse_info);
   /* Ensure that shared pointers have twice the alignment of a pointer.  */
-  TYPE_ALIGN (ref) = 2 * TYPE_ALIGN (ptr_type_node);
+  SET_TYPE_ALIGN (ref, 2 * TYPE_ALIGN (ptr_type_node));
   TYPE_USER_ALIGN (ref) = 1;
   name = get_identifier ("vaddr");
   upc_vaddr_field_node = build_decl (loc, FIELD_DECL, name,

@@ -72,7 +72,7 @@ upc_build_pointer_type (tree to_type)
   gcc_assert (pointer_mode == BLKmode);
   TYPE_SIZE (ptr_type)      = TYPE_SIZE (upc_pts_rep_type_node);
   TYPE_SIZE_UNIT (ptr_type) = TYPE_SIZE_UNIT (upc_pts_rep_type_node);
-  TYPE_ALIGN (ptr_type)     = TYPE_ALIGN (upc_pts_rep_type_node);
+  SET_TYPE_ALIGN (ptr_type, TYPE_ALIGN (upc_pts_rep_type_node));
   TYPE_UNSIGNED (ptr_type)  = TYPE_UNSIGNED (upc_pts_rep_type_node);
   TYPE_PRECISION (ptr_type) = TYPE_PRECISION (upc_pts_rep_type_node);
   return ptr_type;

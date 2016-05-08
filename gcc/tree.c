@@ -8156,7 +8156,7 @@ build_pointer_type (tree to_type)
       upc_pts_type = build_pointer_type_for_mode (to_type, pointer_mode,
                                                   false);
       TYPE_USER_ALIGN (upc_pts_type) = TYPE_USER_ALIGN (upc_pts_rep_type_node);
-      TYPE_ALIGN (upc_pts_type) = TYPE_ALIGN (upc_pts_rep_type_node);
+      SET_TYPE_ALIGN (upc_pts_type, TYPE_ALIGN (upc_pts_rep_type_node));
       return upc_pts_type;
     }
   return build_pointer_type_for_mode (to_type, pointer_mode, false);

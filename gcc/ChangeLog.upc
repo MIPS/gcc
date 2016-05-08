@@ -1,3 +1,9 @@
+2016-05-08  Gary Funck  <gary@intrepid.com>
+
+	* c/c-upc-pts-ops.c (upc_pts_init_type): Adjust to use SET_ALIGN().
+	* c/c-upc.c (upc_build_pointer_type): Ditto.
+	* tree.c (build_pointer_type): Ditto.
+
 2016-05-04  Gary Funck  <gary@intrepid.com>
 
 	Merge trunk version 235893 into gupc branch.
@@ -7,7 +13,7 @@
 	Merge trunk version 235033 into gupc branch.
 	This trunk version is the origin of the GCC 6 branch.
 
-	c/c-parser.c: Adjust calls to c_parser_pragm() and
+	* c/c-parser.c: Adjust calls to c_parser_pragm() and
 	c_parser_c99_block_statement(), passing null 'if_p' pointer.
 
 2016-04-11  Gary Funck  <gary@intrepid.com>
