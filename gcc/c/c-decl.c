@@ -2373,7 +2373,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
       if (TYPE_USER_ALIGN (tem))
 	{
 	  if (TYPE_ALIGN (tem) > TYPE_ALIGN (newtype))
-	    TYPE_ALIGN (newtype) = TYPE_ALIGN (tem);
+	    SET_TYPE_ALIGN (newtype, TYPE_ALIGN (tem));
 	  TYPE_USER_ALIGN (newtype) = true;
 	}
 
@@ -2414,7 +2414,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
       DECL_MODE (newdecl) = DECL_MODE (olddecl);
       if (DECL_ALIGN (olddecl) > DECL_ALIGN (newdecl))
 	{
-	  DECL_ALIGN (newdecl) = DECL_ALIGN (olddecl);
+	  SET_DECL_ALIGN (newdecl, DECL_ALIGN (olddecl));
 	  DECL_USER_ALIGN (newdecl) |= DECL_USER_ALIGN (olddecl);
 	}
     }
@@ -2960,7 +2960,8 @@ pushdecl (tree x)
 	}
       if (scope != file_scope
 	  && !DECL_IN_SYSTEM_HEADER (x))
-	warning (OPT_Wnested_externs, "nested extern declaration of %qD", x);
+	warning_at (locus, OPT_Wnested_externs,
+		    "nested extern declaration of %qD", x);
 
       while (b && !B_IN_EXTERNAL_SCOPE (b))
 	{
@@ -5869,10 +5870,21 @@ grokdeclarator (const struct c_declarator *declarator,
 		  {
 		    if (name)
 		      error_at (loc, "size of array %qE has non-integer type",
-			  	name);
+				name);
 		    else
 		      error_at (loc,
-			  	"size of unnamed array has non-integer type");
+				"size of unnamed array has non-integer type");
+		    size = integer_one_node;
+		  }
+		/* This can happen with enum forward declaration.  */
+		else if (!COMPLETE_TYPE_P (TREE_TYPE (size)))
+		  {
+		    if (name)
+		      error_at (loc, "size of array %qE has incomplete type",
+				name);
+		    else
+		      error_at (loc, "size of unnamed array has incomplete "
+				"type");
 		    size = integer_one_node;
 		  }
 
@@ -6943,7 +6955,7 @@ grokdeclarator (const struct c_declarator *declarator,
     /* Apply _Alignas specifiers.  */
     if (alignas_align)
       {
-	DECL_ALIGN (decl) = alignas_align * BITS_PER_UNIT;
+	SET_DECL_ALIGN (decl, alignas_align * BITS_PER_UNIT);
 	DECL_USER_ALIGN (decl) = 1;
       }
 
@@ -7392,7 +7404,7 @@ parser_xref_tag (location_t loc, enum tree_code code, tree name)
       /* Give the type a default layout like unsigned int
 	 to avoid crashing if it does not get defined.  */
       SET_TYPE_MODE (ref, TYPE_MODE (unsigned_type_node));
-      TYPE_ALIGN (ref) = TYPE_ALIGN (unsigned_type_node);
+      SET_TYPE_ALIGN (ref, TYPE_ALIGN (unsigned_type_node));
       TYPE_USER_ALIGN (ref) = 0;
       TYPE_UNSIGNED (ref) = 1;
       TYPE_PRECISION (ref) = TYPE_PRECISION (unsigned_type_node);
@@ -8288,7 +8300,7 @@ finish_enum (tree enumtype, tree values, tree attributes)
   TYPE_MIN_VALUE (enumtype) = TYPE_MIN_VALUE (tem);
   TYPE_MAX_VALUE (enumtype) = TYPE_MAX_VALUE (tem);
   TYPE_UNSIGNED (enumtype) = TYPE_UNSIGNED (tem);
-  TYPE_ALIGN (enumtype) = TYPE_ALIGN (tem);
+  SET_TYPE_ALIGN (enumtype, TYPE_ALIGN (tem));
   TYPE_SIZE (enumtype) = 0;
   TYPE_PRECISION (enumtype) = TYPE_PRECISION (tem);
 
@@ -8350,7 +8362,7 @@ finish_enum (tree enumtype, tree values, tree attributes)
       TYPE_SIZE_UNIT (tem) = TYPE_SIZE_UNIT (enumtype);
       SET_TYPE_MODE (tem, TYPE_MODE (enumtype));
       TYPE_PRECISION (tem) = TYPE_PRECISION (enumtype);
-      TYPE_ALIGN (tem) = TYPE_ALIGN (enumtype);
+      SET_TYPE_ALIGN (tem, TYPE_ALIGN (enumtype));
       TYPE_USER_ALIGN (tem) = TYPE_USER_ALIGN (enumtype);
       TYPE_UNSIGNED (tem) = TYPE_UNSIGNED (enumtype);
       TYPE_LANG_SPECIFIC (tem) = TYPE_LANG_SPECIFIC (enumtype);

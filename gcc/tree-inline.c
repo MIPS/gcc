@@ -863,10 +863,16 @@ remap_gimple_op_r (tree *tp, int *walk_subtrees, void *data)
   copy_body_data *id = (copy_body_data *) wi_p->info;
   tree fn = id->src_fn;
 
+  /* For recursive invocations this is no longer the LHS itself.  */
+  bool is_lhs = wi_p->is_lhs;
+  wi_p->is_lhs = false;
+
   if (TREE_CODE (*tp) == SSA_NAME)
     {
       *tp = remap_ssa_name (*tp, id);
       *walk_subtrees = 0;
+      if (is_lhs)
+	SSA_NAME_DEF_STMT (*tp) = wi_p->stmt;
       return NULL;
     }
   else if (auto_var_in_fn_p (*tp, fn))
@@ -2095,16 +2101,6 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 	  maybe_duplicate_eh_stmt_fn (cfun, stmt, id->src_cfun, orig_stmt,
 				      id->eh_map, id->eh_lp_nr);
 
-	  if (gimple_in_ssa_p (cfun) && !is_gimple_debug (stmt))
-	    {
-	      ssa_op_iter i;
-	      tree def;
-
-	      FOR_EACH_SSA_TREE_OPERAND (def, stmt, i, SSA_OP_DEF)
-		if (TREE_CODE (def) == SSA_NAME)
-		  SSA_NAME_DEF_STMT (def) = stmt;
-	    }
-
 	  gsi_next (&copy_gsi);
 	}
       while (!gsi_end_p (copy_gsi));
@@ -2460,8 +2456,9 @@ initialize_cfun (tree new_fndecl, tree callee_fndecl, gcov_type count)
   if (src_cfun->gimple_df)
     {
       init_tree_ssa (cfun);
-      cfun->gimple_df->in_ssa_p = true;
-      init_ssa_operands (cfun);
+      cfun->gimple_df->in_ssa_p = src_cfun->gimple_df->in_ssa_p;
+      if (cfun->gimple_df->in_ssa_p)
+	init_ssa_operands (cfun);
     }
 }
 
@@ -4711,7 +4708,7 @@ expand_call_inline (basic_block bb, gimple *stmt, copy_body_data *id)
 	{
 	  tree name = gimple_call_lhs (stmt);
 	  tree var = SSA_NAME_VAR (name);
-	  tree def = ssa_default_def (cfun, var);
+	  tree def = var ? ssa_default_def (cfun, var) : NULL;
 
 	  if (def)
 	    {
@@ -4722,6 +4719,11 @@ expand_call_inline (basic_block bb, gimple *stmt, copy_body_data *id)
 	    }
 	  else
 	    {
+	      if (!var)
+		{
+		  tree var = create_tmp_reg_fn (cfun, TREE_TYPE (name), NULL);
+		  SET_SSA_NAME_VAR_OR_IDENTIFIER (name, var);
+		}
 	      /* Otherwise make this variable undefined.  */
 	      gsi_remove (&stmt_gsi, true);
 	      set_ssa_default_def (cfun, var, name);
@@ -5123,10 +5125,21 @@ replace_locals_op (tree *tp, int *walk_subtrees, void *data)
   tree *n;
   tree expr = *tp;
 
+  /* For recursive invocations this is no longer the LHS itself.  */
+  bool is_lhs = wi->is_lhs;
+  wi->is_lhs = false;
+
+  if (TREE_CODE (expr) == SSA_NAME)
+    {
+      *tp = remap_ssa_name (*tp, id);
+      *walk_subtrees = 0;
+      if (is_lhs)
+	SSA_NAME_DEF_STMT (*tp) = gsi_stmt (wi->gsi);
+    }
   /* Only a local declaration (variable or label).  */
-  if ((TREE_CODE (expr) == VAR_DECL
-       && !TREE_STATIC (expr))
-      || TREE_CODE (expr) == LABEL_DECL)
+  else if ((TREE_CODE (expr) == VAR_DECL
+	    && !TREE_STATIC (expr))
+	   || TREE_CODE (expr) == LABEL_DECL)
     {
       /* Lookup the declaration.  */
       n = st->get (expr);
@@ -5266,6 +5279,7 @@ copy_gimple_seq_and_replace_locals (gimple_seq seq)
   memset (&id, 0, sizeof (id));
   id.src_fn = current_function_decl;
   id.dst_fn = current_function_decl;
+  id.src_cfun = cfun;
   id.decl_map = new hash_map<tree, tree>;
   id.debug_map = NULL;
 

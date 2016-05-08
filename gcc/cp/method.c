@@ -1002,12 +1002,8 @@ get_inherited_ctor (tree ctor)
 static tree
 check_nontriv (tree *tp, int *, void *)
 {
-  tree fn;
-  if (TREE_CODE (*tp) == CALL_EXPR)
-    fn = CALL_EXPR_FN (*tp);
-  else if (TREE_CODE (*tp) == AGGR_INIT_EXPR)
-    fn = AGGR_INIT_EXPR_FN (*tp);
-  else
+  tree fn = cp_get_callee (*tp);
+  if (fn == NULL_TREE)
     return NULL_TREE;
 
   if (TREE_CODE (fn) == ADDR_EXPR)
@@ -1865,7 +1861,7 @@ implicitly_declare_fn (special_function_kind kind, tree type,
       SET_OVERLOADED_OPERATOR_CODE (fn, NOP_EXPR);
     }
 
-  DECL_ALIGN (fn) = MINIMUM_METHOD_BOUNDARY;
+  SET_DECL_ALIGN (fn, MINIMUM_METHOD_BOUNDARY);
 
   /* Create the explicit arguments.  */
   if (rhs_parm_type)

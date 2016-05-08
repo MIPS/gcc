@@ -788,8 +788,7 @@ copy_reference_ops_from_ref (tree ref, vec<vn_reference_op_s> *result)
 		  {
 		    offset_int off
 		      = (wi::to_offset (this_offset)
-			 + wi::lrshift (wi::to_offset (bit_offset),
-					LOG2_BITS_PER_UNIT));
+			 + (wi::to_offset (bit_offset) >> LOG2_BITS_PER_UNIT));
 		    if (wi::fits_shwi_p (off)
 			/* Probibit value-numbering zero offset components
 			   of addresses the same before the pass folding
@@ -999,8 +998,8 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
 	      max_size = -1;
 	    else
 	      {
-		offset_int woffset = wi::lshift (wi::to_offset (this_offset),
-						 LOG2_BITS_PER_UNIT);
+		offset_int woffset = (wi::to_offset (this_offset)
+				      << LOG2_BITS_PER_UNIT);
 		woffset += wi::to_offset (DECL_FIELD_BIT_OFFSET (field));
 		offset += woffset;
 	      }
@@ -1020,7 +1019,7 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
 		= wi::sext (wi::to_offset (op->op0) - wi::to_offset (op->op1),
 			    TYPE_PRECISION (TREE_TYPE (op->op0)));
 	      woffset *= wi::to_offset (op->op2);
-	      woffset = wi::lshift (woffset, LOG2_BITS_PER_UNIT);
+	      woffset <<= LOG2_BITS_PER_UNIT;
 	      offset += woffset;
 	    }
 	  break;
@@ -2151,6 +2150,12 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
       op.off = -1;
       vr->operands[1] = op;
       vr->hashcode = vn_reference_compute_hash (vr);
+
+      /* Try folding the new reference to a constant.  */
+      tree val = fully_constant_vn_reference_p (vr);
+      if (val)
+	return vn_reference_lookup_or_insert_for_pieces
+		 (vuse, vr->set, vr->type, vr->operands, val);
 
       /* Adjust *ref from the new operands.  */
       if (!ao_ref_init_from_vn_reference (&r, vr->set, vr->type, vr->operands))
@@ -4300,6 +4305,33 @@ init_scc_vn (void)
     }
 }
 
+/* Restore SSA info that has been reset on value leaders.  */
+
+void
+scc_vn_restore_ssa_info (void)
+{
+  for (unsigned i = 0; i < num_ssa_names; i++)
+    {
+      tree name = ssa_name (i);
+      if (name
+	  && has_VN_INFO (name))
+	{
+	  if (VN_INFO (name)->needs_insertion)
+	    ;
+	  else if (POINTER_TYPE_P (TREE_TYPE (name))
+		   && VN_INFO (name)->info.ptr_info)
+	    SSA_NAME_PTR_INFO (name) = VN_INFO (name)->info.ptr_info;
+	  else if (INTEGRAL_TYPE_P (TREE_TYPE (name))
+		   && VN_INFO (name)->info.range_info)
+	    {
+	      SSA_NAME_RANGE_INFO (name) = VN_INFO (name)->info.range_info;
+	      SSA_NAME_ANTI_RANGE_P (name)
+		= VN_INFO (name)->range_info_anti_range_p;
+	    }
+	}
+    }
+}
+
 void
 free_scc_vn (void)
 {
@@ -4316,21 +4348,9 @@ free_scc_vn (void)
     {
       tree name = ssa_name (i);
       if (name
-	  && has_VN_INFO (name))
-	{
-	  if (VN_INFO (name)->needs_insertion)
-	    release_ssa_name (name);
-	  else if (POINTER_TYPE_P (TREE_TYPE (name))
-		   && VN_INFO (name)->info.ptr_info)
-	    SSA_NAME_PTR_INFO (name) = VN_INFO (name)->info.ptr_info;
-	  else if (INTEGRAL_TYPE_P (TREE_TYPE (name))
-		   && VN_INFO (name)->info.range_info)
-	    {
-	      SSA_NAME_RANGE_INFO (name) = VN_INFO (name)->info.range_info;
-	      SSA_NAME_ANTI_RANGE_P (name)
-		= VN_INFO (name)->range_info_anti_range_p;
-	    }
-	}
+	  && has_VN_INFO (name)
+	  && VN_INFO (name)->needs_insertion)
+	release_ssa_name (name);
     }
   obstack_free (&vn_ssa_aux_obstack, NULL);
   vn_ssa_aux_table.release ();

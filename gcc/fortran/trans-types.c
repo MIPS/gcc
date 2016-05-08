@@ -828,6 +828,7 @@ gfc_build_complex_type (tree scalar_type)
 
   new_type = make_node (COMPLEX_TYPE);
   TREE_TYPE (new_type) = scalar_type;
+  SET_TYPE_MODE (new_type, GET_MODE_COMPLEX_MODE (TYPE_MODE (scalar_type)));
   layout_type (new_type);
   return new_type;
 }
@@ -2275,7 +2276,7 @@ gfc_add_field_to_struct (tree context, tree name, tree type, tree **chain)
   tree decl = gfc_add_field_to_struct_1 (context, name, type, chain);
 
   DECL_INITIAL (decl) = 0;
-  DECL_ALIGN (decl) = 0;
+  SET_DECL_ALIGN (decl, 0);
   DECL_USER_ALIGN (decl) = 0;
 
   return decl;

@@ -2812,8 +2812,7 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
 
 	  unsigned shift = (max_outer_nelts.get_precision ()) - 7
 	    - wi::clz (max_outer_nelts);
-	  max_outer_nelts = wi::lshift (wi::lrshift (max_outer_nelts, shift),
-				        shift);
+	  max_outer_nelts = (max_outer_nelts >> shift) << shift;
 
           outer_nelts_check = fold_build2 (LE_EXPR, boolean_type_node,
 					   outer_nelts,
@@ -3673,7 +3672,9 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
   else if (!body)
     body = deallocate_expr;
   else
-    body = build_compound_expr (input_location, body, deallocate_expr);
+    /* The delete operator mist be called, even if a destructor
+       throws.  */
+    body = build2 (TRY_FINALLY_EXPR, void_type_node, body, deallocate_expr);
 
   if (!body)
     body = integer_zero_node;
@@ -4510,7 +4511,13 @@ build_delete (tree otype, tree addr, special_function_kind auto_delete,
       if (expr == error_mark_node)
 	return error_mark_node;
       if (do_delete)
-	expr = build2 (COMPOUND_EXPR, void_type_node, expr, do_delete);
+	/* The delete operator must be called, regardless of whether
+	   the destructor throws.
+
+	   [expr.delete]/7 The deallocation function is called
+	   regardless of whether the destructor for the object or some
+	   element of the array throws an exception.  */
+	expr = build2 (TRY_FINALLY_EXPR, void_type_node, expr, do_delete);
 
       /* We need to calculate this before the dtor changes the vptr.  */
       if (head)

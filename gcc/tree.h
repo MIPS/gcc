@@ -942,10 +942,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    of this type is aligned at least to the alignment of the type, even if it
    doesn't appear that it is.  We see this, for example, in object-oriented
    languages where a tag field may show this is an object of a more-aligned
-   variant of the more generic type.
-
-   In an SSA_NAME node, nonzero if the SSA_NAME node is on the SSA_NAME
-   freelist.  */
+   variant of the more generic type.  */
 #define TYPE_ALIGN_OK(NODE) (TYPE_CHECK (NODE)->base.nothrow_flag)
 
 /* Used in classes in C++.  */
@@ -1896,8 +1893,15 @@ extern machine_mode element_mode (const_tree t);
 #define TYPE_ATTRIBUTES(NODE) (TYPE_CHECK (NODE)->type_common.attributes)
 
 /* The alignment necessary for objects of this type.
-   The value is an int, measured in bits.  */
-#define TYPE_ALIGN(NODE) (TYPE_CHECK (NODE)->type_common.align)
+   The value is an int, measured in bits and must be a power of two.
+   We support also an "alignement" of zero.  */
+#define TYPE_ALIGN(NODE) \
+    (TYPE_CHECK (NODE)->type_common.align \
+     ? ((unsigned)1) << ((NODE)->type_common.align - 1) : 0)
+
+/* Specify that TYPE_ALIGN(NODE) is X.  */
+#define SET_TYPE_ALIGN(NODE, X) \
+    (TYPE_CHECK (NODE)->type_common.align = ffs_hwi (X))
 
 /* 1 if the alignment for this type was requested by "aligned" attribute,
    0 if it is the default for this type.  */
@@ -2427,8 +2431,16 @@ extern tree get_block_factor (const tree);
 #define DECL_SIZE(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.size)
 /* Likewise for the size in bytes.  */
 #define DECL_SIZE_UNIT(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.size_unit)
-/* Holds the alignment required for the datum, in bits.  */
-#define DECL_ALIGN(NODE) (DECL_COMMON_CHECK (NODE)->decl_common.align)
+/* Returns the alignment required for the datum, in bits.  It must
+   be a power of two, but an "alignment" of zero is supported
+   (e.g. as "uninitialized" sentinel).  */
+#define DECL_ALIGN(NODE) \
+    (DECL_COMMON_CHECK (NODE)->decl_common.align \
+     ? ((unsigned)1) << ((NODE)->decl_common.align - 1) : 0)
+/* Specify that DECL_ALIGN(NODE) is X.  */
+#define SET_DECL_ALIGN(NODE, X) \
+    (DECL_COMMON_CHECK (NODE)->decl_common.align = ffs_hwi (X))
+
 /* The alignment of NODE, in bytes.  */
 #define DECL_ALIGN_UNIT(NODE) (DECL_ALIGN (NODE) / BITS_PER_UNIT)
 /* Set if the alignment of this DECL has been set by the user, for
@@ -2631,7 +2643,7 @@ extern void decl_value_expr_insert (tree, tree);
 #define DECL_OFFSET_ALIGN(NODE) \
   (((unsigned HOST_WIDE_INT)1) << FIELD_DECL_CHECK (NODE)->decl_common.off_align)
 
-/* Specify that DECL_ALIGN(NODE) is a multiple of X.  */
+/* Specify that DECL_OFFSET_ALIGN(NODE) is X.  */
 #define SET_DECL_OFFSET_ALIGN(NODE, X) \
   (FIELD_DECL_CHECK (NODE)->decl_common.off_align = ffs_hwi (X) - 1)
 
@@ -4886,7 +4898,7 @@ extern int simple_cst_equal (const_tree, const_tree);
 namespace inchash
 {
 
-extern void add_expr (const_tree, hash &);
+extern void add_expr (const_tree, hash &, unsigned int = 0);
 
 }
 
@@ -5338,6 +5350,8 @@ namespace wi
   to_widest (const_tree);
 
   generic_wide_int <extended_tree <ADDR_MAX_PRECISION> > to_offset (const_tree);
+
+  wide_int to_wide (const_tree, unsigned int);
 }
 
 inline unsigned int
@@ -5365,6 +5379,16 @@ inline generic_wide_int <wi::extended_tree <ADDR_MAX_PRECISION> >
 wi::to_offset (const_tree t)
 {
   return t;
+}
+
+/* Convert INTEGER_CST T to a wide_int of precision PREC, extending or
+   truncating as necessary.  When extending, use sign extension if T's
+   type is signed and zero extension if T's type is unsigned.  */
+
+inline wide_int
+wi::to_wide (const_tree t, unsigned int prec)
+{
+  return wide_int::from (t, prec, TYPE_SIGN (TREE_TYPE (t)));
 }
 
 template <int N>
@@ -5445,7 +5469,7 @@ wi::max_value (const_tree type)
 inline bool
 tree_int_cst_lt (const_tree t1, const_tree t2)
 {
-  return wi::lts_p (wi::to_widest (t1), wi::to_widest (t2));
+  return wi::to_widest (t1) < wi::to_widest (t2);
 }
 
 /* Return true if INTEGER_CST T1 is less than or equal to INTEGER_CST T2,
@@ -5454,7 +5478,7 @@ tree_int_cst_lt (const_tree t1, const_tree t2)
 inline bool
 tree_int_cst_le (const_tree t1, const_tree t2)
 {
-  return wi::les_p (wi::to_widest (t1), wi::to_widest (t2));
+  return wi::to_widest (t1) <= wi::to_widest (t2);
 }
 
 /* Returns -1 if T1 < T2, 0 if T1 == T2, and 1 if T1 > T2.  T1 and T2
@@ -5502,7 +5526,7 @@ extern GTY(()) struct int_n_trees_t int_n_trees[NUM_INT_N_ENTS];
 inline HOST_WIDE_INT
 int_bit_position (const_tree field)
 { 
-  return (wi::lshift (wi::to_offset (DECL_FIELD_OFFSET (field)), BITS_PER_UNIT_LOG)
+  return ((wi::to_offset (DECL_FIELD_OFFSET (field)) << BITS_PER_UNIT_LOG)
 	  + wi::to_offset (DECL_FIELD_BIT_OFFSET (field))).to_shwi ();
 }
 

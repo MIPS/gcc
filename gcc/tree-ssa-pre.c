@@ -432,10 +432,6 @@ typedef struct bb_bitmap_sets
 #define BB_LIVE_VOP_ON_EXIT(BB) ((bb_value_sets_t) ((BB)->aux))->vop_on_exit
 
 
-/* Basic block list in postorder.  */
-static int *postorder;
-static int postorder_num;
-
 /* This structure is used to keep track of statistics on what
    optimization PRE was able to perform.  */
 static struct
@@ -2081,6 +2077,7 @@ compute_antic_aux (basic_block block, bool block_has_abnormal_pred_edge)
   unsigned int bii;
   edge e;
   edge_iterator ei;
+  bool was_visited = BB_VISITED (block);
 
   old = ANTIC_OUT = S = NULL;
   BB_VISITED (block) = 1;
@@ -2171,7 +2168,7 @@ compute_antic_aux (basic_block block, bool block_has_abnormal_pred_edge)
 
   clean (ANTIC_IN (block));
 
-  if (!bitmap_set_equal (old, ANTIC_IN (block)))
+  if (!was_visited || !bitmap_set_equal (old, ANTIC_IN (block)))
     changed = true;
 
  maybe_dump_sets:
@@ -2209,11 +2206,10 @@ compute_antic_aux (basic_block block, bool block_has_abnormal_pred_edge)
 				  - ANTIC_IN[BLOCK])
 
 */
-static bool
+static void
 compute_partial_antic_aux (basic_block block,
 			   bool block_has_abnormal_pred_edge)
 {
-  bool changed = false;
   bitmap_set_t old_PA_IN;
   bitmap_set_t PA_OUT;
   edge e;
@@ -2312,9 +2308,6 @@ compute_partial_antic_aux (basic_block block,
 
   dependent_clean (PA_IN (block), ANTIC_IN (block));
 
-  if (!bitmap_set_equal (old_PA_IN, PA_IN (block)))
-    changed = true;
-
  maybe_dump_sets:
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -2327,7 +2320,6 @@ compute_partial_antic_aux (basic_block block,
     bitmap_set_free (old_PA_IN);
   if (PA_OUT)
     bitmap_set_free (PA_OUT);
-  return changed;
 }
 
 /* Compute ANTIC and partial ANTIC sets.  */
@@ -2349,22 +2341,32 @@ compute_antic (void)
 
   FOR_ALL_BB_FN (block, cfun)
     {
+      BB_VISITED (block) = 0;
+
       FOR_EACH_EDGE (e, ei, block->preds)
 	if (e->flags & EDGE_ABNORMAL)
 	  {
 	    bitmap_set_bit (has_abnormal_preds, block->index);
+
+	    /* We also anticipate nothing.  */
+	    BB_VISITED (block) = 1;
 	    break;
 	  }
 
-      BB_VISITED (block) = 0;
-
       /* While we are here, give empty ANTIC_IN sets to each block.  */
       ANTIC_IN (block) = bitmap_set_new ();
-      PA_IN (block) = bitmap_set_new ();
+      if (do_partial_partial)
+	PA_IN (block) = bitmap_set_new ();
     }
 
   /* At the exit block we anticipate nothing.  */
   BB_VISITED (EXIT_BLOCK_PTR_FOR_FN (cfun)) = 1;
+
+  /* For ANTIC computation we need a postorder that also guarantees that
+     a block with a single successor is visited after its successor.
+     RPO on the inverted CFG has this property.  */
+  int *postorder = XNEWVEC (int, n_basic_blocks_for_fn (cfun));
+  int postorder_num = inverted_post_order_compute (postorder);
 
   sbitmap worklist = sbitmap_alloc (last_basic_block_for_fn (cfun) + 1);
   bitmap_ones (worklist);
@@ -2403,39 +2405,21 @@ compute_antic (void)
 
   if (do_partial_partial)
     {
-      bitmap_ones (worklist);
-      num_iterations = 0;
-      changed = true;
-      while (changed)
+      /* For partial antic we ignore backedges and thus we do not need
+         to perform any iteration when we process blocks in postorder.  */
+      postorder_num = pre_and_rev_post_order_compute (NULL, postorder, false);
+      for (i = postorder_num - 1 ; i >= 0; i--)
 	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file, "Starting iteration %d\n", num_iterations);
-	  num_iterations++;
-	  changed = false;
-	  for (i = postorder_num - 1 ; i >= 0; i--)
-	    {
-	      if (bitmap_bit_p (worklist, postorder[i]))
-		{
-		  basic_block block = BASIC_BLOCK_FOR_FN (cfun, postorder[i]);
-		  bitmap_clear_bit (worklist, block->index);
-		  if (compute_partial_antic_aux (block,
-						 bitmap_bit_p (has_abnormal_preds,
-							       block->index)))
-		    {
-		      FOR_EACH_EDGE (e, ei, block->preds)
-			bitmap_set_bit (worklist, e->src->index);
-		      changed = true;
-		    }
-		}
-	    }
-	  /* Theoretically possible, but *highly* unlikely.  */
-	  gcc_checking_assert (num_iterations < 500);
+	  basic_block block = BASIC_BLOCK_FOR_FN (cfun, postorder[i]);
+	  compute_partial_antic_aux (block,
+				     bitmap_bit_p (has_abnormal_preds,
+						   block->index));
 	}
-      statistics_histogram_event (cfun, "compute_partial_antic iterations",
-				  num_iterations);
     }
+
   sbitmap_free (has_abnormal_preds);
   sbitmap_free (worklist);
+  free (postorder);
 }
 
 
@@ -4694,12 +4678,6 @@ init_pre (void)
   connect_infinite_loops_to_exit ();
   memset (&pre_stats, 0, sizeof (pre_stats));
 
-  /* For ANTIC computation we need a postorder that also guarantees that
-     a block with a single successor is visited after its successor.
-     RPO on the inverted CFG has this property.  */
-  postorder = XNEWVEC (int, n_basic_blocks_for_fn (cfun));
-  postorder_num = inverted_post_order_compute (postorder);
-
   alloc_aux_for_blocks (sizeof (struct bb_bitmap_sets));
 
   calculate_dominance_info (CDI_DOMINATORS);
@@ -4722,7 +4700,6 @@ init_pre (void)
 static void
 fini_pre ()
 {
-  free (postorder);
   value_expressions.release ();
   BITMAP_FREE (inserted_exprs);
   bitmap_obstack_release (&grand_bitmap_obstack);
@@ -4828,6 +4805,9 @@ pass_pre::execute (function *fun)
   todo |= fini_eliminate ();
   loop_optimizer_finalize ();
 
+  /* Restore SSA info before tail-merging as that resets it as well.  */
+  scc_vn_restore_ssa_info ();
+
   /* TODO: tail_merge_optimize may merge all predecessors of a block, in which
      case we can merge the block with the remaining predecessor of the block.
      It should either:
@@ -4901,6 +4881,7 @@ pass_fre::execute (function *fun)
 
   todo |= fini_eliminate ();
 
+  scc_vn_restore_ssa_info ();
   free_scc_vn ();
 
   statistics_counter_event (fun, "Insertions", pre_stats.insertions);
