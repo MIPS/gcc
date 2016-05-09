@@ -686,7 +686,7 @@
 		    CODE_FOR_ ## ICODE)			/* ICODE */
 
 /* Miscellaneous builtins for decimal floating point instructions
-   added in ISA 3.0.  These instructions don't require either the VSX
+   added in ISA 3.0.  These instructions don't require the VSX
    options, just the basic ISA 3.0 enablement since they operate on
    general purpose registers.  */ 
 #define BU_P9_DFP_MISC_0(ENUM, NAME, ATTR, ICODE)			\
