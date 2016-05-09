@@ -1,4 +1,38 @@
 2016-05-06   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{very unstable; I had an heisenbug... -code crashing with ASLR,
+	but nearly working without; The commit on 2016-05-03 commented as
+	more stable as GCC5 plugin; but perhaps wrong with
+	generate_runtypesupport_forwcopy_fun handle the unlikely case of
+	young discriminant same as current object... etc is perhaps
+	incorrect}}
+	* melt-runtime.h: Add long comment about MELT_HAVE_DEBUG vs
+	MELT_HAVE_RUNTIME_DEBUG and melt_flag_debug. Use more
+	systematically MELT_HAVE_RUNTIME_DEBUG...
+	(MELT_ENTERFRAME_AT): Test melt_flag_debug. The buffer for
+	location is always needed.
+	(MELT_TOUCHED_CACHE_SIZE): Raised slightly.
+	(meltgc_touch): Introduce the touchgapwords constant.
+
+	* melt-runtime.cc: Use more systematically
+	MELT_HAVE_RUNTIME_DEBUG...
+
+	(Melt_Module::Melt_Module): Copy dlerror() to some static buffer
+	before showing it.
+	(melt_compile_source, meltgc_readsexpr)
+	(meltgc_readmacrostringsequence, meltgc_readval)
+	(meltgc_read_from_rawstring, meltgc_read_from_val): Always have a
+	curlocbuf..
+	(meltgc_run_cc_extension): Copy dlerror() to some static buffer
+	before showing it.
+	(meltgc_start_module_by_index,meltgc_load_flavored_module)
+	(meltgc_start_flavored_module, meltgc_load_one_module)
+	(meltgc_load_module_list, meltgc_load_modules_and_do_mode): Always
+	have some locbuf.
+	(melt_really_initialize): Copy dlerror() to some static buffer.
+	(melt_fatal_info): call melt_dbgshortbacktrace on runtime or
+	flagged debugging.
+
+2016-05-06   Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/generated/*: Regenerated all.
 
@@ -126,7 +160,7 @@
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.3.rc1
 
 2016-05-03   Basile Starynkevitch  <basile@starynkevitch.net>
-	{{more stable as GCC5 plugin}}
+	{{more stable as GCC5 plugin; but perhaps wrong}}
 	* melt/warmelt-modes.melt (generate_runtypesupport_forwcopy_fun)
 	In the generated melt_forwarded_copy handle the unlikely case of
 	young discriminant same as current object...

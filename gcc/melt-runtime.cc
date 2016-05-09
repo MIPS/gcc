@@ -49,7 +49,7 @@ const int melt_is_plugin = 0;
 #error MELT Gcc version and GCC plugin version does not match
 #if GCCPLUGIN_VERSION==5005
 /** See e.g. https://lists.debian.org/debian-gcc/2015/07/msg00167.html
-   and https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=793478 
+   and https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=793478
    or the bug report
    https://gcc.gnu.org/bugzilla/show_bug.cgi?id=66991 which is a wrong
    report, since specific to Debian.  **/
@@ -494,7 +494,13 @@ Melt_Module::Melt_Module (unsigned magic, const char*modpath, const char* descrb
       errno = 0;
       dlh = dlopen (_mm_modpath.c_str(),  RTLD_NOW | RTLD_GLOBAL);
       if (!dlh)
-        melt_fatal_error ("failed to dlopen Melt module %s - %s", _mm_modpath.c_str(), dlerror());
+        {
+          static char dldup[256];
+          const char*dle = dlerror();
+          if (!dle) dle = "??";
+          strncpy (dldup, dle, sizeof(dldup)-1);
+          melt_fatal_error ("failed to dlopen Melt module %s - %s", _mm_modpath.c_str(), dldup);
+        }
     }
   _mm_dlh = dlh;
   _mm_index = ix;
@@ -532,10 +538,10 @@ Melt_Module::~Melt_Module()
 
 
 Melt_CallProtoFrame* melt_top_call_frame =NULL;
-#if MELT_HAVE_DEBUG > 0
+#if MELT_HAVE_RUNTIME_DEBUG > 0
 FILE* Melt_CallProtoFrame::_dbgcall_file_ = NULL;
 long Melt_CallProtoFrame::_dbgcall_count_ = 0L;
-#endif /*MELT_HAVE_DEBUG*/
+#endif /*MELT_HAVE_RUNTIME_DEBUG*/
 
 /* The start routine of every MELT extension (dynamically loaded
    shared object to evaluate at runtime some expressions in a given
@@ -739,7 +745,7 @@ melt_intern_cstring (const char* s)
 }
 
 /*****************************************************************/
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_RUNTIME_DEBUG > 0
 
 void melt_break_alptr_1_at (const char*msg, const char* fil, int line);
 void melt_break_alptr_2_at (const char*msg, const char* fil, int line);
@@ -1145,7 +1151,7 @@ static void melt_scanning (melt_ptr_t);
 
 
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_RUNTIME_DEBUG > 0
 /***
  * check our call frames
  ***/
@@ -1190,7 +1196,7 @@ melt_cbreak_at (const char *msg, const char *fil, int lin)
   gcc_assert (nbcbreak>0);  // useless, but you can put a GDB breakpoint here
 }
 
-#endif /*MELT_HAVE_DEBUG*/
+#endif /*MELT_HAVE_RUNTIME_DEBUG*/
 
 
 /* make a special value; return NULL if the discriminant is not special */
@@ -1209,7 +1215,7 @@ meltgc_make_special (melt_ptr_t discr_p)
   magic = ((meltobject_ptr_t)discrv)->meltobj_magic;
   switch (magic)
     {
-      /* our new special data */
+    /* our new special data */
     case MELTOBMAG_SPECIAL_DATA:
     {
       specv = (melt_ptr_t) meltgc_allocate (sizeof(struct meltspecialdata_st), 0);
@@ -1551,7 +1557,7 @@ melt_ggcstart_callback (void *gcc_data ATTRIBUTE_UNUSED,
     {
       if (melt_prohibit_garbcoll)
         melt_fatal_error ("MELT minor garbage collection prohibited from GGC start callback (with %ld young Kilobytes)",
-			  (((char *) melt_curalz - (char *) melt_startalz))>>10);
+                          (((char *) melt_curalz - (char *) melt_startalz))>>10);
       melt_debuggc_eprintf
       ("melt_ggcstart_callback need a minor copying GC with %ld young Kilobytes\n",
        (((char *) melt_curalz - (char *) melt_startalz))>>10);
@@ -1666,7 +1672,7 @@ melt_garbcoll (size_t wanted, enum melt_gckind_en gckd)
   const char* needfullreason = NULL;
   if (melt_prohibit_garbcoll)
     melt_fatal_error ("MELT garbage collection prohibited (wanted %ld)",
-		      (long)wanted);
+                      (long)wanted);
   gcc_assert (melt_scangcvect == NULL);
   melt_nb_garbcoll++;
   if (gckd == MELT_NEED_FULL)
@@ -3432,13 +3438,14 @@ meltgc_new_list_from_pair (meltobject_ptr_t discr_p, melt_ptr_t pair_p)
     goto end;
   if (object_discrv->meltobj_magic != MELTOBMAG_LIST)
     goto end;
-  if (melt_magic_discr((melt_ptr_t) pairv) == MELTOBMAG_PAIR) {
-    firstpairv = pairv;
-    lastpairv = firstpairv;
-    while (melt_magic_discr((melt_ptr_t) lastpairv) == MELTOBMAG_PAIR
-	   && (((struct meltpair_st *)lastpairv)->tl) != NULL)
-      lastpairv = (melt_ptr_t)(((struct meltpair_st *)lastpairv)->tl);
-  }
+  if (melt_magic_discr((melt_ptr_t) pairv) == MELTOBMAG_PAIR)
+    {
+      firstpairv = pairv;
+      lastpairv = firstpairv;
+      while (melt_magic_discr((melt_ptr_t) lastpairv) == MELTOBMAG_PAIR
+             && (((struct meltpair_st *)lastpairv)->tl) != NULL)
+        lastpairv = (melt_ptr_t)(((struct meltpair_st *)lastpairv)->tl);
+    }
   newlist = (melt_ptr_t) meltgc_allocate (sizeof (struct meltlist_st), 0);
   list_newlist->discr = object_discrv;
   list_newlist->first = (struct meltpair_st*)firstpairv;
@@ -5843,10 +5850,8 @@ melt_compile_source (const char *srcbase, const char *binbase, const char*workdi
   const char* ourmakefile = NULL;
   const char* ourcflags = NULL;
   const char* mycwd = NULL;
-#if MELT_HAVE_DEBUG
   char curlocbuf[250];
   curlocbuf[0] = 0;
-#endif
   /* we want a MELT frame for MELT_LOCATION here */
   MELT_ENTEREMPTYFRAME(NULL);
   mycwd = getpwd ();
@@ -5859,15 +5864,15 @@ melt_compile_source (const char *srcbase, const char *binbase, const char*workdi
   MELT_LOCATION_HERE_PRINTF (curlocbuf,
                              "melt_compile_source srcbase %s binbase %s flavor %s",
                              srcbase?(srcbase[0]?srcbase:"*empty*"):"*null*",
-                               binbase?(binbase[0]?binbase:"*empty*"):"*null*",
-                               flavor?(flavor[0]?flavor:"*empty*"):"*null*");
+                             binbase?(binbase[0]?binbase:"*empty*"):"*null*",
+                             flavor?(flavor[0]?flavor:"*empty*"):"*null*");
   if (getenv ("IFS"))
     /* Having an IFS is a huge security risk for shells. */
     melt_fatal_error
     ("MELT cannot compile source base %s of flavor %s with an $IFS (probable security risk)",
      srcbase, flavor);
   if (!srcbase || !srcbase[0])
-  {
+    {
       melt_fatal_error ("no source base given to compile for MELT (%p)",
                         srcbase);
     }
@@ -6829,10 +6834,8 @@ meltgc_readsexpr (struct melt_reading_st *rd, int endc)
 {
   int lineno = rd->rlineno;
   location_t loc = 0;
-#if MELT_HAVE_DEBUG
   char curlocbuf[100];
   curlocbuf[0] = 0;
-#endif
   MELT_ENTERFRAME (3, NULL);
 #define sexprv  meltfram__.mcfr_varptr[0]
 #define contv   meltfram__.mcfr_varptr[1]
@@ -7211,10 +7214,8 @@ meltgc_readmacrostringsequence (struct melt_reading_st *rd)
   int escaped = 0;
   int quoted = 0;
   location_t loc = 0;
-#if MELT_HAVE_DEBUG
   char curlocbuf[100];
   curlocbuf[0] = 0;
-#endif
   MELT_ENTERFRAME (8, NULL);
 #define readv    meltfram__.mcfr_varptr[0]
 #define strv     meltfram__.mcfr_varptr[1]
@@ -7288,135 +7289,137 @@ meltgc_readmacrostringsequence (struct melt_reading_st *rd)
 
       if (rdcurc()=='}' && rdfollowc(1)=='#')
         {
-      melt_macrostring_flush_sbufv ();
-      rdnext ();
-      rdnext ();
+          melt_macrostring_flush_sbufv ();
+          rdnext ();
+          rdnext ();
 
-      break;
-    }
+          break;
+        }
       else if (rdcurc()=='$')
         {
-      /* $ followed by letters or underscore makes a symbol */
-      if (ISALPHA(rdfollowc(1)) || rdfollowc(1)=='_')
-	{
-      int lnam = 1;
-      char tinybuf[80];
-      memset(tinybuf, 0, sizeof(tinybuf));
-      melt_macrostring_flush_sbufv ();
-      symbv = NULL;
-      gcc_assert(sizeof(tinybuf)-1 >= sizeof(MELT_MAGICSYMB_FILE));
-      gcc_assert(sizeof(tinybuf)-1 >= sizeof(MELT_MAGICSYMB_LINE));
-      while (ISALNUM(rdfollowc(lnam)) || rdfollowc(lnam) == '_')
-	lnam++;
-      if (lnam< (int)sizeof(tinybuf)-2)
-	{
-      memcpy(tinybuf, &rdfollowc(1), lnam-1);
-      for (int ix=0; ix<lnam; ix++)
-	if (ISLOWER(tinybuf[lnam]))
-	  tinybuf[lnam] = TOUPPER(tinybuf[lnam]);
-      tinybuf[lnam] = (char)0;
-      // handle the magic symbols _MELT_FILE_ & _MELT_LINE_ to expand
-      // them at read time to the file name and the line number
-      // respectively
-      if (MELT_UNLIKELY(tinybuf[0] == '_' && tinybuf[1] == 'M')) {
-      if (!strcmp(tinybuf, MELT_MAGICSYMB_FILE))
-	symbv = (*rd->rpfilnam)?(*rd->rpfilnam):MELT_PREDEF(UNKNOWN_LOCATION);
-      else if (!strcmp(tinybuf, MELT_MAGICSYMB_LINE))
-	symbv = meltgc_new_int((meltobject_ptr_t) MELT_PREDEF(DISCR_INTEGER),
-	                       rd->rlineno);
-    };
-      if (MELT_LIKELY(!symbv)) {	
-	if (quoted)
-	  MELT_READ_WARNING ("quoted macro string with $%s symbol", tinybuf);
-	symbv = melthookproc_HOOK_NAMED_SYMBOL(tinybuf, (long) MELT_CREATE);
-      }
-    }
-      else
-	{
-      char *nambuf = (char*) xcalloc(lnam+2, 1);
-      memcpy(nambuf, &rdfollowc(1), lnam-1);
-      nambuf[lnam] = (char)0;
-      symbv = melthookproc_HOOK_NAMED_SYMBOL(nambuf, (long) MELT_CREATE);
-      if (quoted)
-	MELT_READ_WARNING ("quoted macro string with $%s symbol", nambuf);
-      free(nambuf);
-    }
-      rd->rcol += lnam;
-      /* skip the hash # if just after the symbol */
-      if (rdcurc() == '#')
-	rdnext();
-      /* append the symbol */
-      meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) symbv);;
-      melt_dbgread_value ("readmacrostringsequence symbv=", symbv);
-      symbv = NULL;
-    }
-      /* $. is silently skipped */
-      else if (rdfollowc(1) == '.')
-	{
-      escaped = 1;
-      rdnext();
-      rdnext();
-    }
-      /* $$ is handled as a single dollar $ */
-      else if (rdfollowc(1) == '$')
-	{
-      if (!sbufv)
-	sbufv = (melt_ptr_t) meltgc_new_strbuf((meltobject_ptr_t) MELT_PREDEF(DISCR_STRBUF), (char*)0);
-      meltgc_add_strbuf_raw_len((melt_ptr_t)sbufv, "$", 1);
-      rdnext();
-      rdnext();
-    }
-      /* $# is handled as a single hash # */
-      else if (rdfollowc(1) == '#')
-	{
-      escaped = 1;
-      if (!sbufv)
-	sbufv = (melt_ptr_t) meltgc_new_strbuf((meltobject_ptr_t) MELT_PREDEF(DISCR_STRBUF), (char*)0);
-      meltgc_add_strbuf_raw_len((melt_ptr_t)sbufv, "#", 1);
-      rdnext();
-      rdnext();
-    }
-      /* $(some s-expr) is acceptable to embed a single s-expression */
-      else if (rdfollowc(1) == '(')
-	{
-      melt_macrostring_flush_sbufv ();
-      rdnext ();
-      rdnext ();
-      compv = meltgc_readsexpr (rd, ')');
-      melt_dbgread_value ("readmacrostringsequence sexpr compv=", compv);
-      /* append the s-expr */
-      meltgc_append_list((melt_ptr_t) seqv, (melt_ptr_t) compv);
-      compv = NULL;
-    }
-      /* $[several sub-expr] is acceptable to embed a sequence of s-expressions */
-      else if (rdfollowc(1) == '[')
-	{
-      melt_macrostring_flush_sbufv ();
-      rdnext ();
-      rdnext ();
-      subseqv = meltgc_readseqlist(rd, ']');
-      if (melt_magic_discr ((melt_ptr_t)subseqv) == MELTOBMAG_LIST)
-	{
-      compv = NULL;
-      for (pairv = (melt_ptr_t) ((struct meltlist_st*)(subseqv))->first;
-      pairv && melt_magic_discr((melt_ptr_t)pairv) == MELTOBMAG_PAIR;
-      pairv = (melt_ptr_t) ((struct meltpair_st*)(pairv))->tl)
-	{
-      compv = (melt_ptr_t) ((struct meltpair_st*)(pairv))->hd;
-      if (compv)
-	{
-      meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) compv);
-      melt_dbgread_value ("readmacrostringsequence sexpr compv=", compv);
-    }
-    }
-      pairv = NULL;
-      compv = NULL;
-    }
-    }
-      /* any other dollar something is an error */
-      else MELT_READ_FAILURE("unexpected dollar escape in macrostring %.4s started line %d",
-	&rdcurc(), lineno);
-    }
+          /* $ followed by letters or underscore makes a symbol */
+          if (ISALPHA(rdfollowc(1)) || rdfollowc(1)=='_')
+            {
+              int lnam = 1;
+              char tinybuf[80];
+              memset(tinybuf, 0, sizeof(tinybuf));
+              melt_macrostring_flush_sbufv ();
+              symbv = NULL;
+              gcc_assert(sizeof(tinybuf)-1 >= sizeof(MELT_MAGICSYMB_FILE));
+              gcc_assert(sizeof(tinybuf)-1 >= sizeof(MELT_MAGICSYMB_LINE));
+              while (ISALNUM(rdfollowc(lnam)) || rdfollowc(lnam) == '_')
+                lnam++;
+              if (lnam< (int)sizeof(tinybuf)-2)
+                {
+                  memcpy(tinybuf, &rdfollowc(1), lnam-1);
+                  for (int ix=0; ix<lnam; ix++)
+                    if (ISLOWER(tinybuf[lnam]))
+                      tinybuf[lnam] = TOUPPER(tinybuf[lnam]);
+                  tinybuf[lnam] = (char)0;
+                  // handle the magic symbols _MELT_FILE_ & _MELT_LINE_ to expand
+                  // them at read time to the file name and the line number
+                  // respectively
+                  if (MELT_UNLIKELY(tinybuf[0] == '_' && tinybuf[1] == 'M'))
+                    {
+                      if (!strcmp(tinybuf, MELT_MAGICSYMB_FILE))
+                        symbv = (*rd->rpfilnam)?(*rd->rpfilnam):MELT_PREDEF(UNKNOWN_LOCATION);
+                      else if (!strcmp(tinybuf, MELT_MAGICSYMB_LINE))
+                        symbv = meltgc_new_int((meltobject_ptr_t) MELT_PREDEF(DISCR_INTEGER),
+                                               rd->rlineno);
+                    };
+                  if (MELT_LIKELY(!symbv))
+                    {
+                      if (quoted)
+                        MELT_READ_WARNING ("quoted macro string with $%s symbol", tinybuf);
+                      symbv = melthookproc_HOOK_NAMED_SYMBOL(tinybuf, (long) MELT_CREATE);
+                    }
+                }
+              else
+                {
+                  char *nambuf = (char*) xcalloc(lnam+2, 1);
+                  memcpy(nambuf, &rdfollowc(1), lnam-1);
+                  nambuf[lnam] = (char)0;
+                  symbv = melthookproc_HOOK_NAMED_SYMBOL(nambuf, (long) MELT_CREATE);
+                  if (quoted)
+                    MELT_READ_WARNING ("quoted macro string with $%s symbol", nambuf);
+                  free(nambuf);
+                }
+              rd->rcol += lnam;
+              /* skip the hash # if just after the symbol */
+              if (rdcurc() == '#')
+                rdnext();
+              /* append the symbol */
+              meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) symbv);;
+              melt_dbgread_value ("readmacrostringsequence symbv=", symbv);
+              symbv = NULL;
+            }
+          /* $. is silently skipped */
+          else if (rdfollowc(1) == '.')
+            {
+              escaped = 1;
+              rdnext();
+              rdnext();
+            }
+          /* $$ is handled as a single dollar $ */
+          else if (rdfollowc(1) == '$')
+            {
+              if (!sbufv)
+                sbufv = (melt_ptr_t) meltgc_new_strbuf((meltobject_ptr_t) MELT_PREDEF(DISCR_STRBUF), (char*)0);
+              meltgc_add_strbuf_raw_len((melt_ptr_t)sbufv, "$", 1);
+              rdnext();
+              rdnext();
+            }
+          /* $# is handled as a single hash # */
+          else if (rdfollowc(1) == '#')
+            {
+              escaped = 1;
+              if (!sbufv)
+                sbufv = (melt_ptr_t) meltgc_new_strbuf((meltobject_ptr_t) MELT_PREDEF(DISCR_STRBUF), (char*)0);
+              meltgc_add_strbuf_raw_len((melt_ptr_t)sbufv, "#", 1);
+              rdnext();
+              rdnext();
+            }
+          /* $(some s-expr) is acceptable to embed a single s-expression */
+          else if (rdfollowc(1) == '(')
+            {
+              melt_macrostring_flush_sbufv ();
+              rdnext ();
+              rdnext ();
+              compv = meltgc_readsexpr (rd, ')');
+              melt_dbgread_value ("readmacrostringsequence sexpr compv=", compv);
+              /* append the s-expr */
+              meltgc_append_list((melt_ptr_t) seqv, (melt_ptr_t) compv);
+              compv = NULL;
+            }
+          /* $[several sub-expr] is acceptable to embed a sequence of s-expressions */
+          else if (rdfollowc(1) == '[')
+            {
+              melt_macrostring_flush_sbufv ();
+              rdnext ();
+              rdnext ();
+              subseqv = meltgc_readseqlist(rd, ']');
+              if (melt_magic_discr ((melt_ptr_t)subseqv) == MELTOBMAG_LIST)
+                {
+                  compv = NULL;
+                  for (pairv = (melt_ptr_t) ((struct meltlist_st*)(subseqv))->first;
+                       pairv && melt_magic_discr((melt_ptr_t)pairv) == MELTOBMAG_PAIR;
+                       pairv = (melt_ptr_t) ((struct meltpair_st*)(pairv))->tl)
+                    {
+                      compv = (melt_ptr_t) ((struct meltpair_st*)(pairv))->hd;
+                      if (compv)
+                        {
+                          meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) compv);
+                          melt_dbgread_value ("readmacrostringsequence sexpr compv=", compv);
+                        }
+                    }
+                  pairv = NULL;
+                  compv = NULL;
+                }
+            }
+          /* any other dollar something is an error */
+          else MELT_READ_FAILURE("unexpected dollar escape in macrostring %.4s started line %d",
+                                   &rdcurc(), lineno);
+        }
       else if ( ISALNUM(rdcurc()) || ISSPACE(rdcurc()) )
         {
           /* handle efficiently the common case of alphanum and spaces */
@@ -7646,10 +7649,8 @@ meltgc_readval (struct melt_reading_st *rd, bool * pgot)
   char *nam = 0;
   int lineno = rd->rlineno;
   location_t loc = 0;
-#if MELT_HAVE_DEBUG
   char curlocbuf[120];
   curlocbuf[0] = 0;
-#endif
   MELT_ENTERFRAME (4, NULL);
 #define readv   meltfram__.mcfr_varptr[0]
 #define compv   meltfram__.mcfr_varptr[1]
@@ -7900,15 +7901,16 @@ meltgc_readval (struct melt_reading_st *rd, bool * pgot)
       // handle the magic symbols _MELT_FILE_ and _MELT_LINE_ to
       // expand them to the file name and the line number respectively
       // at read time!
-      if (MELT_UNLIKELY(((nam[0]=='_') && (nam[1]=='M' || nam[1]=='M')))) {
-	if (!strcasecmp(nam, MELT_MAGICSYMB_FILE))
-	  readv = (*rd->rpfilnam)?(*rd->rpfilnam):MELT_PREDEF(UNKNOWN_LOCATION);
-	else if (!strcasecmp(nam,  MELT_MAGICSYMB_LINE))
-	  readv = meltgc_new_int((meltobject_ptr_t) MELT_PREDEF(DISCR_INTEGER),
-				 rd->rlineno);	    
-      }
+      if (MELT_UNLIKELY(((nam[0]=='_') && (nam[1]=='M' || nam[1]=='M'))))
+        {
+          if (!strcasecmp(nam, MELT_MAGICSYMB_FILE))
+            readv = (*rd->rpfilnam)?(*rd->rpfilnam):MELT_PREDEF(UNKNOWN_LOCATION);
+          else if (!strcasecmp(nam,  MELT_MAGICSYMB_LINE))
+            readv = meltgc_new_int((meltobject_ptr_t) MELT_PREDEF(DISCR_INTEGER),
+                                   rd->rlineno);
+        }
       if (!readv)
-	readv = melthookproc_HOOK_NAMED_SYMBOL (nam, (long) MELT_CREATE);
+        readv = melthookproc_HOOK_NAMED_SYMBOL (nam, (long) MELT_CREATE);
       melt_dbgread_value ("readval symbol readv=", readv);
       *pgot = TRUE;
       goto end;
@@ -8299,9 +8301,8 @@ melt_inform_str (melt_ptr_t mixloc_p, const char *msg,
 melt_ptr_t
 meltgc_read_file (const char *filnam, const char *locnam)
 {
-#if MELT_HAVE_DEBUG
   char curlocbuf[140];
-#endif
+  memset (curlocbuf, 0, sizeof(curlocbuf));
   struct melt_reading_st rds;
   FILE *fil = NULL;
   struct melt_reading_st *rd = NULL;
@@ -8449,9 +8450,8 @@ melt_ptr_t
 meltgc_read_from_rawstring (const char *rawstr, const char *locnam,
                             location_t loch)
 {
-#if MELT_HAVE_DEBUG
   char curlocbuf[140];
-#endif
+  memset (curlocbuf, 0, sizeof(curlocbuf));
   struct melt_reading_st rds;
   char *rbuf = 0;
   struct melt_reading_st *rd = 0;
@@ -8525,9 +8525,8 @@ melt_ptr_t
 meltgc_read_from_val (melt_ptr_t strv_p, melt_ptr_t locnam_p)
 {
   static long parsecount;
-#if MELT_HAVE_DEBUG
   char curlocbuf[140];
-#endif
+  memset (curlocbuf, 0, sizeof(curlocbuf));
   struct melt_reading_st rds;
   char *rbuf = 0;
   struct melt_reading_st *rd = 0;
@@ -9114,7 +9113,13 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
   errno = 0;
   dlh = dlopen (sopath, RTLD_NOW | RTLD_GLOBAL);
   if (!dlh)
-    melt_fatal_error ("Failed to dlopen MELT module %s - %s", sopath, dlerror ());
+    {
+      static char dldup[256];
+      const char* dle = dlerror();
+      if (!dle) dle = "??";
+      strncpy(dldup, dle, sizeof(dldup)-1);
+      melt_fatal_error ("Failed to dlopen MELT module %s - %s", sopath, dldup);
+    }
   if (melt_trace_module_fil)
     fprintf (melt_trace_module_fil,
              "dlopened %s #%d\n", sopath, Melt_Module::nb_modules());
@@ -9508,8 +9513,14 @@ meltgc_run_cc_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t lit
   debugeprintf("meltgc_run_cc_extension sopath %s before dlopen", sopath);
   dlh = dlopen (sopath, RTLD_NOW | RTLD_GLOBAL);
   if (!dlh)
-    melt_fatal_error ("failed to dlopen runtime extension %s - %s",
-                      sopath, dlerror ());
+    {
+      static char dldup[256];
+      const char*dle = dlerror();
+      if (!dle) dle = "??";
+      strncpy(dldup, dle, sizeof(dldup)-1);
+      melt_fatal_error ("failed to dlopen runtime extension %s - %s",
+                        sopath, dldup);
+    }
   MELT_LOCATION_HERE ("meltgc_run_cc_extension after dlopen");
 
 
@@ -9595,9 +9606,8 @@ end:
 melt_ptr_t
 meltgc_start_module_by_index (melt_ptr_t env_p, int modix)
 {
-#if MELT_HAVE_DEBUG
   char locbuf[200];
-#endif
+  memset (locbuf, 0, sizeof(locbuf));
   MELT_ENTERFRAME(2, NULL);
 #define resmodv   meltfram__.mcfr_varptr[0]
 #define env       meltfram__.mcfr_varptr[1]
@@ -9692,14 +9702,10 @@ meltgc_load_flavored_module (const char*modulbase, const char*flavor)
   char* descrfull = NULL;
   char* tempdirpath = melt_tempdir_path(NULL, NULL);
   int modix = 0;
-#if MELT_HAVE_DEBUG
   /* The location buffer is local, since this function may recurse!  */
-  char curlocbuf[220];
-#endif
+  char curlocbuf[160];
   MELT_ENTEREMPTYFRAME (NULL);
-#if MELT_HAVE_DEBUG
   memset (curlocbuf, 0, sizeof (curlocbuf));
-#endif
   debugeprintf("meltgc_load_flavored_module start base %s flavor %s tempdirpath %s",
                modulbase, flavor, tempdirpath);
   if (!modulbase || !modulbase[0])
@@ -9803,15 +9809,11 @@ meltgc_start_flavored_module (melt_ptr_t env_p, const char*modulbase, const char
   int modix = -1;
   char modulbuf[80];
   char flavorbuf[32];
-#if MELT_HAVE_DEBUG
   /* The location buffer is local, since this function may recurse!  */
-  char curlocbuf[220];
-#endif
+  char curlocbuf[200];
   MELT_ENTERFRAME(1, NULL);
 #define env       meltfram__.mcfr_varptr[0]
-#if MELT_HAVE_DEBUG
   memset (curlocbuf, 0, sizeof (curlocbuf));
-#endif
   env = env_p;
   memset (modulbuf, 0, sizeof(modulbuf));
   memset (flavorbuf, 0, sizeof(flavorbuf));
@@ -9882,14 +9884,10 @@ meltgc_load_one_module (const char*flavoredmodule)
   char* dupflavmod = NULL;
   char* dotptr = NULL;
   char* flavor = NULL;
-#if MELT_HAVE_DEBUG
   /* The location buffer is local, since this function may recurse!  */
-  char curlocbuf[220];
-#endif
-  MELT_ENTEREMPTYFRAME (NULL);
-#if MELT_HAVE_DEBUG
+  char curlocbuf[200];
   memset (curlocbuf, 0, sizeof (curlocbuf));
-#endif
+  MELT_ENTEREMPTYFRAME (NULL);
   if (!flavoredmodule)
     goto end;
   memset (tinybuf, 0, sizeof(tinybuf));
@@ -9941,14 +9939,10 @@ meltgc_load_module_list (int depth, const char *modlistbase)
   int modlistbaselen = 0;
   int lincnt = 0;
   const char* srcpathstr = melt_argument ("source-path");
-#if MELT_HAVE_DEBUG
   /* The location buffer is local, since this function recurses!  */
-  char curlocbuf[220];
-#endif
-  MELT_ENTEREMPTYFRAME (NULL);
-#if MELT_HAVE_DEBUG
+  char curlocbuf[200];
   memset (curlocbuf, 0, sizeof (curlocbuf));
-#endif
+  MELT_ENTEREMPTYFRAME (NULL);
   debugeprintf("meltgc_load_module_list start modlistbase %s depth %d",
                modlistbase, depth);
   MELT_LOCATION_HERE_PRINTF (curlocbuf,
@@ -10106,9 +10100,8 @@ meltgc_load_modules_and_do_mode (void)
   const char* xtrastr = NULL;
   char *dupmodpath = NULL;
   int lastmodix = 0;
-#if MELT_HAVE_DEBUG
-  char locbuf[240];
-#endif
+  char locbuf[200];
+  memset(locbuf, 0, sizeof(locbuf));
   MELT_ENTERFRAME(1, NULL);
 #define modatv     meltfram__.mcfr_varptr[0]
   inistr = melt_argument ("init");
@@ -10136,9 +10129,6 @@ meltgc_load_modules_and_do_mode (void)
   curmod = dupmodpath;
   while (curmod && curmod[0])
     {
-#if MELT_HAVE_DEBUG
-      char locbuf[250];
-#endif
       nextmod = strchr (curmod, ':');
       if (nextmod)
         {
@@ -10719,16 +10709,14 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
   proghandle = dlopen (NULL, RTLD_NOW | RTLD_GLOBAL);
   if (!proghandle)
     {
+      const char*dle = dlerror();
+      if (!dle) dle="??";
+      static char dlbuf[256];
+      strncpy(dlbuf, dle, sizeof(dlbuf)-1);
       /* Don't call melt_fatal_error - we are initializing! */
-#if GCCPLUGIN_VERSION >= 5000 /* GCC 5.0 */
       fatal_error (UNKNOWN_LOCATION,
                    "MELT failed to get whole program handle - %s",
-                   dlerror ());
-#else
-      /* Don't call melt_fatal_error - we are initializing! */
-      fatal_error ("MELT failed to get whole program handle - %s",
-                   dlerror ());
-#endif /* GCC 5.0 */
+                   dlbuf);
     }
 
   if (countdbgstr != (char *) 0)
@@ -11783,7 +11771,7 @@ meltgc_ppout_gimple_seq (melt_ptr_t out_p, int indentsp,
   outmagic = melt_magic_discr ((melt_ptr_t) outv);
   switch (outmagic)
     {
-      // Nota Bene: passing TDF_VOPS give a crash from an IPA pass like justcount
+    // Nota Bene: passing TDF_VOPS give a crash from an IPA pass like justcount
     case MELTOBMAG_STRBUF:
     {
       FILE* oldfil = melt_open_ppfile ();
@@ -11941,7 +11929,7 @@ meltgc_out_edge (melt_ptr_t out_p, edge edg)
       if (!f)
         goto end;
       dump_edge_info (f, edg,
-                      TDF_DETAILS, 
+                      TDF_DETAILS,
                       /*do_succ=*/ 1);
       fflush (f);
     }
@@ -12598,9 +12586,8 @@ melt_fatal_info (const char*filename, int lineno)
               "MELT failed with work directory %s", workdir);
     }
   fflush (NULL);
-#if MELT_HAVE_DEBUG
-  melt_dbgshortbacktrace ("MELT fatal failure", 100);
-#endif
+  if (MELT_HAVE_RUNTIME_DEBUG > 0 || melt_flag_debug > 0)
+    melt_dbgshortbacktrace ("MELT fatal failure", 100);
   /* Index 0 is unused in melt_modulinfo. */
   for (ix = 1; ix <= Melt_Module::nb_modules(); ix++)
     {
@@ -13318,7 +13305,7 @@ void melt_gt_ggc_mx_gimple_seq_d(void*p)
 #endif /* GCC 6, 5 or less */
 
 
-///////////////// always at end of file 
+///////////////// always at end of file
 /* For debugging purposes, used thru gdb.  */
 // for some reason, I need to always declare these, so before any include;
 // this might be a dirty hack...
@@ -13327,9 +13314,9 @@ void melt_gt_ggc_mx_gimple_seq_d(void*p)
 #undef melt_objhash_1
 #undef melt_objhash_2
 extern "C" {
-void *melt_alptr_1=(void*)0;
-void *melt_alptr_2=(void*)0;
-unsigned melt_objhash_1=0;
-unsigned melt_objhash_2=0;
-};
+  void *melt_alptr_1=(void*)0;
+  void *melt_alptr_2=(void*)0;
+  unsigned melt_objhash_1=0;
+  unsigned melt_objhash_2=0;
+}
 /* eof $Id$ */
