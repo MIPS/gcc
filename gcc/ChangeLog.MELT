@@ -1,4 +1,10 @@
-2016-05-06   Basile Starynkevitch  <basile@starynkevitch.net>
+
+2016-05-09   Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{still unstable}}
+	* melt/generated/*: Regenerated all.
+
+2016-05-09   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{very unstable; I had an heisenbug... -code crashing with ASLR,
 	but nearly working without; The commit on 2016-05-03 commented as
 	more stable as GCC5 plugin; but perhaps wrong with
