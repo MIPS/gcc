@@ -1,5 +1,12 @@
 2016-05-09  Cesar Philippidis  <cesar@codesourcery.com>
 
+	Backport from trunk r235780:
+	2016-05-02  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-common.h (enum c_omp_region_type): Define.
+
+2016-05-09  Cesar Philippidis  <cesar@codesourcery.com>
+
 	Backport trunk r235290:
 	2016-04-20  Ilya Verbin  <ilya.verbin@intel.com>
 

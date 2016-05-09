@@ -12496,8 +12496,7 @@ c_find_omp_placeholder_r (tree *tp, int *, void *data)
    Remove any elements from the list that are invalid.  */
 
 tree
-c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp,
-		      bool declare_simd, bool is_cilk)
+c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 {
   bitmap_head generic_head, firstprivate_head, lastprivate_head;
   bitmap_head aligned_head, map_head, map_field_head;
@@ -12539,18 +12538,18 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp,
 	  need_complete = true;
 	  oacc_data = true;
 	  need_implicitly_determined = true;
-	  if (is_oacc)
+	  if (ort == C_ORT_ACC)
 	    goto check_dup_oacc;
 	  else
 	    goto check_dup_generic;
 
 	case OMP_CLAUSE_REDUCTION:
-	  need_implicitly_determined = !is_oacc;
+	  need_implicitly_determined = ort != C_ORT_ACC;
 	  reduction = true;
 	  t = OMP_CLAUSE_DECL (c);
 	  if (TREE_CODE (t) == TREE_LIST)
 	    {
-	      if (handle_omp_array_sections (c, is_omp))
+	      if (handle_omp_array_sections (c, ort & C_ORT_OMP))
 		{
 		  remove = true;
 		  break;
@@ -12752,7 +12751,7 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp,
 	      if (TREE_CODE (t) == ADDR_EXPR)
 		t = TREE_OPERAND (t, 0);
 	    }
-	  if (is_oacc)
+	  if (ort == C_ORT_ACC)
 	    goto check_dup_oacc_t;
 	  else
 	    goto check_dup_generic_t;
@@ -12781,10 +12780,10 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp,
 	  goto check_dup_generic;
 
 	case OMP_CLAUSE_LINEAR:
-	  if (!declare_simd)
+	  if (ort != C_ORT_OMP_DECLARE_SIMD)
 	    need_implicitly_determined = true;
 	  t = OMP_CLAUSE_DECL (c);
-	  if (!declare_simd
+	  if (ort != C_ORT_OMP_DECLARE_SIMD
 	      && OMP_CLAUSE_LINEAR_KIND (c) != OMP_CLAUSE_LINEAR_DEFAULT)
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),
@@ -12792,7 +12791,7 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp,
 			"clause on %<simd%> or %<for%> constructs");
 	      OMP_CLAUSE_LINEAR_KIND (c) = OMP_CLAUSE_LINEAR_DEFAULT;
 	    }
-	  if (is_cilk)
+	  if (ort & C_ORT_CILK)
 	    {
 	      if (!INTEGRAL_TYPE_P (TREE_TYPE (t))
 		  && !SCALAR_FLOAT_TYPE_P (TREE_TYPE (t))
@@ -12818,7 +12817,7 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp,
 		  break;
 		}
 	    }
-	  if (declare_simd)
+	  if (ort == C_ORT_OMP_DECLARE_SIMD)
 	    {
 	      tree s = OMP_CLAUSE_LINEAR_STEP (c);
 	      if (TREE_CODE (s) == PARM_DECL)
@@ -12908,7 +12907,8 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp,
 	    }
 	  else if (reduction)
 	    {
-	      if (is_oacc && bitmap_bit_p (&oacc_reduction_head, DECL_UID (t)))
+	      if (ort == C_ORT_ACC
+		  && bitmap_bit_p (&oacc_reduction_head, DECL_UID (t)))
 		{
 		  error_at (OMP_CLAUSE_LOCATION (c),
 			    "%qE appears in multiple reduction clauses", t);
@@ -12940,7 +12940,7 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp,
 			"%qE is not a variable in clause %<firstprivate%>", t);
 	      remove = true;
 	    }
-	  else if (is_oacc)
+	  else if (ort == C_ORT_ACC)
 	    {
 	      if (bitmap_bit_p (&oacc_data_head, DECL_UID (t)))
 		{
@@ -13056,7 +13056,7 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp,
 	    }
 	  if (TREE_CODE (t) == TREE_LIST)
 	    {
-	      if (handle_omp_array_sections (c, is_omp))
+	      if (handle_omp_array_sections (c, ort & C_ORT_OMP))
 		remove = true;
 	      break;
 	    }
@@ -13079,7 +13079,7 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp,
 	  t = OMP_CLAUSE_DECL (c);
 	  if (TREE_CODE (t) == TREE_LIST)
 	    {
-	      if (handle_omp_array_sections (c, is_omp))
+	      if (handle_omp_array_sections (c, ort & C_ORT_OMP))
 		remove = true;
 	      else
 		{
@@ -13126,7 +13126,7 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp,
 	      break;
 	    }
 	  if (TREE_CODE (t) == COMPONENT_REF
-	      && is_omp
+	      && (ort & C_ORT_OMP)
 	      && OMP_CLAUSE_CODE (c) != OMP_CLAUSE__CACHE_)
 	    {
 	      if (DECL_BIT_FIELD (TREE_OPERAND (t, 1)))
@@ -13213,7 +13213,7 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp,
 	      else
 		bitmap_set_bit (&generic_head, DECL_UID (t));
 	    }
-	  else if ((is_oacc && bitmap_bit_p (&oacc_data_head, DECL_UID (t)))
+	  else if ((ort == C_ORT_ACC && bitmap_bit_p (&oacc_data_head, DECL_UID (t)))
 		   || bitmap_bit_p (&map_head, DECL_UID (t)))
 	    {
 	      if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP)
@@ -13222,7 +13222,7 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp,
 		error ("%qD appears more than once in map clauses", t);
 	      remove = true;
 	    }
-	  else if (is_oacc)
+	  else if (ort == C_ORT_ACC)
 	    bitmap_set_bit (&oacc_data_head, DECL_UID (t));
 	  else if (bitmap_bit_p (&generic_head, DECL_UID (t))
 		   || bitmap_bit_p (&firstprivate_head, DECL_UID (t)))
@@ -13372,8 +13372,7 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp,
 
         case OMP_CLAUSE_DEVICE_TYPE:
 	  OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c)
-	    = c_finish_omp_clauses (OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c),
-				    is_oacc, is_omp);
+	    = c_finish_omp_clauses (OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c), ort);
 	  pc = &OMP_CLAUSE_CHAIN (c);
 	  continue;
 

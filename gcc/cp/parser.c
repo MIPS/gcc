@@ -32432,7 +32432,7 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
   cp_parser_skip_to_pragma_eol (parser, pragma_tok);
 
   if (finish_p)
-    return finish_omp_clauses (clauses, true, true);
+    return finish_omp_clauses (clauses, C_ORT_ACC);
 
   return clauses;
 }
@@ -32751,9 +32751,9 @@ cp_parser_omp_all_clauses (cp_parser *parser, omp_clause_mask mask,
   if (finish_p)
     {
       if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_UNIFORM)) != 0)
-	return finish_omp_clauses (clauses, false, false, true);
+	return finish_omp_clauses (clauses, C_ORT_OMP_DECLARE_SIMD);
       else
-	return finish_omp_clauses (clauses, false, true);
+	return finish_omp_clauses (clauses, C_ORT_OMP);
     }
   return clauses;
 }
@@ -33828,7 +33828,7 @@ cp_parser_omp_for_loop (cp_parser *parser, enum tree_code code, tree clauses,
 	      else
 		c = build_omp_clause (loc, OMP_CLAUSE_LASTPRIVATE);
 	      OMP_CLAUSE_DECL (c) = add_private_clause;
-	      c = finish_omp_clauses (c, false, true);
+	      c = finish_omp_clauses (c, C_ORT_OMP);
 	      if (c)
 		{
 		  OMP_CLAUSE_CHAIN (c) = clauses;
@@ -33980,7 +33980,7 @@ cp_omp_split_clauses (location_t loc, enum tree_code code,
   c_omp_split_clauses (loc, code, mask, clauses, cclauses);
   for (i = 0; i < C_OMP_CLAUSE_SPLIT_COUNT; i++)
     if (cclauses[i])
-      cclauses[i] = finish_omp_clauses (cclauses[i], false, true);
+      cclauses[i] = finish_omp_clauses (cclauses[i], C_ORT_OMP);
 }
 
 /* OpenMP 4.0:
@@ -35263,7 +35263,7 @@ cp_parser_oacc_cache (cp_parser *parser, cp_token *pragma_tok)
   tree stmt, clauses;
 
   clauses = cp_parser_omp_var_list (parser, OMP_CLAUSE__CACHE_, NULL_TREE);
-  clauses = finish_omp_clauses (clauses, true, true);
+  clauses = finish_omp_clauses (clauses, C_ORT_ACC);
 
   cp_parser_require_pragma_eol (parser, cp_lexer_peek_token (parser->lexer));
 
@@ -35591,9 +35591,9 @@ cp_parser_oacc_loop (cp_parser *parser, cp_token *pragma_tok, char *p_name,
     {
       clauses = c_oacc_split_loop_clauses (clauses, cclauses);
       if (*cclauses)
-	*cclauses = finish_omp_clauses (*cclauses, true, true);
+	*cclauses = finish_omp_clauses (*cclauses, C_ORT_ACC);
       if (clauses)
-	clauses = finish_omp_clauses (clauses, true, true);
+	clauses = finish_omp_clauses (clauses, C_ORT_ACC);
     }
 
   tree block = begin_omp_structured_block ();
@@ -35979,7 +35979,7 @@ cp_parser_omp_declare_target (cp_parser *parser, cp_token *pragma_tok)
     {
       clauses = cp_parser_omp_var_list (parser, OMP_CLAUSE_TO_DECLARE,
 					clauses);
-      clauses = finish_omp_clauses (clauses, false, true);
+      clauses = finish_omp_clauses (clauses, C_ORT_OMP);
       cp_parser_require_pragma_eol (parser, pragma_tok);
     }
   else
@@ -37997,7 +37997,7 @@ cp_parser_cilk_simd_all_clauses (cp_parser *parser, cp_token *pragma_token)
   if (clauses == error_mark_node)
     return error_mark_node;
   else
-    return finish_omp_clauses (clauses, false, false, false, true);
+    return finish_omp_clauses (clauses, C_ORT_CILK);
 }
 
 /* Main entry-point for parsing Cilk Plus <#pragma simd> for loops.  */
@@ -38042,7 +38042,7 @@ cp_parser_cilk_for (cp_parser *parser, tree grain, bool *if_p)
   tree clauses = build_omp_clause (EXPR_LOCATION (grain), OMP_CLAUSE_SCHEDULE);
   OMP_CLAUSE_SCHEDULE_KIND (clauses) = OMP_CLAUSE_SCHEDULE_CILKFOR;
   OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (clauses) = grain;
-  clauses = finish_omp_clauses (clauses, false, false);
+  clauses = finish_omp_clauses (clauses, C_ORT_CILK);
 
   tree ret = cp_parser_omp_for_loop (parser, CILK_FOR, clauses, NULL, if_p);
   if (ret)
