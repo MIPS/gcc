@@ -1,3 +1,7 @@
+2016-05-09  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 236021 into gupc branch.
+
 2016-05-08  Gary Funck  <gary@intrepid.com>
 
 	* c/c-upc-pts-ops.c (upc_pts_init_type): Adjust to use SET_ALIGN().

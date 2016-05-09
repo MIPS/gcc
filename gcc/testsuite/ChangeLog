@@ -1,4 +1,116 @@
+2016-05-09  Richard Biener  <rguenther@suse.de>
+
+	PR fortran/70937
+	* gfortran.dg/pr70937.f90: New testcase.
+
+2016-05-08  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/ipa/pure-const-3.c: Scan local-pure-const1 dump.
+
+2016-05-07  Fritz Reese  <fritzoreese@gmail.com>
+
+	PR fortran/56226
+	* gfortran.dg/dec_structure_1.f90: New testcase.
+	* gfortran.dg/dec_structure_2.f90: Ditto.
+	* gfortran.dg/dec_structure_3.f90: Ditto.
+	* gfortran.dg/dec_structure_4.f90: Ditto.
+	* gfortran.dg/dec_structure_5.f90: Ditto.
+	* gfortran.dg/dec_structure_6.f90: Ditto.
+	* gfortran.dg/dec_structure_7.f90: Ditto.
+	* gfortran.dg/dec_structure_8.f90: Ditto.
+	* gfortran.dg/dec_structure_9.f90: Ditto.
+	* gfortran.dg/dec_structure_10.f90: Ditto.
+	* gfortran.dg/dec_structure_11.f90: Ditto.
+	* gfortran.dg/dec_union_1.f90: Ditto.
+	* gfortran.dg/dec_union_2.f90: Ditto.
+	* gfortran.dg/dec_union_3.f90: Ditto.
+	* gfortran.dg/dec_union_4.f90: Ditto.
+	* gfortran.dg/dec_union_5.f90: Ditto.
+	* gfortran.dg/dec_union_6.f90: Ditto.
+	* gfortran.dg/dec_union_7.f90: Ditto.
+
+2016-05-07  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/70956
+	* gcc.dg/graphite/pr70956.c: New test.
+
+2016-05-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/70941
+	* gcc.dg/torture/pr70941.c (abort): Remove prototype.
+	(a, b, c, d): Change type from char to signed char.
+	(main): Compare against (signed char) -1634678893 instead of
+	hardcoded -109.  Use __builtin_abort instead of abort.
+
+	* gcc.target/i386/avx512bw-vpsraw-3.c: New test.
+	* gcc.target/i386/avx512vl-vpsrad-3.c: New test.
+
+	* gcc.target/i386/avx512bw-vpmaddwd-3.c: New test.
+
+2016-05-06  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR debug/70935
+	* gcc.dg/torture/pr70935.c: New test.
+
+2016-05-06  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/58219
+	* gcc.target/sh/pr58219.c: New tests.
+
+2016-05-06  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70960
+	* gfortran.fortran-torture/compile/pr70960.f90: New testcase.
+
+2016-05-06  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/52933
+	* gcc.target/sh/pr52933-1.c (test_31, test_32, test_33, test_34,
+	test_35, test_36, test_37, test_38, test_39, test_40): New sub-tests.
+	Adjust expected instruction counts.
+	* gcc.target/sh/pr52933-2.c: Adjust expected instruction counts.
+
+2016-05-06  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/70875
+	* gcc.dg/ubsan/bounds-3.c: New test.
+
+2016-05-06  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/54089
+	* gcc.target/sh/pr54089-1.c (test_24): Add new sub-test.
+
+2016-05-06  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70931
+	* gfortran.dg/pr70931.f90: New testcase.
+
+2016-05-06  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70941
+	* gcc.dg/torture/pr70941.c: New testcase.
+
+2016-05-05  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/57206
+	* gcc.dg/vect/pr57206.c: New test.
+
+2016-05-05  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/ipa/inline-8.c	(isnanf): Declare.
+
+2016-05-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.target/i386/avx512f-vfmadd-1.c: New test.
+
+	* c-c++-common/Wdangling-else-4.c: New test.
+
 2016-05-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/70906
+	PR c++/70933
+	* g++.dg/opt/pr70906.C: New test.
+	* g++.dg/opt/pr70933.C: New test.
 
 	* gcc.target/i386/avx512vl-vmovq-1.c: New test.
 
