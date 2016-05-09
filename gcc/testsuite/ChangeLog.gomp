@@ -1,3 +1,13 @@
+2016-05-09  Cesar Philippidis  <cesar@codesourcery.com>
+
+	Backport trunk r235290:
+	2016-04-20  Ilya Verbin  <ilya.verbin@intel.com>
+
+	PR c++/69363
+	* c-c++-common/cilk-plus/PS/clauses3.c: Adjust dg-error string.
+	* c-c++-common/cilk-plus/PS/clauses4.c: New test.
+	* c-c++-common/cilk-plus/PS/pr69363.c: New test.
+
 2016-05-06  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* c-c++-common/goacc/loop-auto-1.c: Adjust and add additionnal
