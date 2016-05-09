@@ -1,35 +1,46 @@
 /* { dg-options "-mcode-readable=no -mno-gpopt" } */
-/* { dg-final { scan-assembler-not "%lo\\(h\\+\[1-9\]\[0-9\]?)" } } */
+/* { dg-final { scan-assembler "%lo\\(h\\+\[1-9\]\[0-9\]?)" } } */
 /* { dg-final { scan-assembler-not "%lo\\(j\\+\[1-9\]\[0-9\]?)" } } */
 /* { dg-final { scan-assembler-not "%lo\\(k\\+\[1-9\]\[0-9\]?)" } } */
+/* { dg-final { scan-assembler-not "%lo\\(m\\+\[1-9\]\[0-9\]?)" } } */
+/* { dg-final { scan-assembler-not "%lo\\(n\\+\[1-9\]\[0-9\]?)" } } */
 
 struct __attribute__((packed))
 {
   char c;
   short s;
+} a ;
+
+struct __attribute__((packed))
+{
+  char c;
   int i;
-} h __attribute__((aligned(1)));
+} b ;
 
 struct __attribute__((packed))
 {
   char c;
   long long l;
-} j __attribute__((aligned(1)));
+} c ;
 
 struct __attribute__((packed))
 {
   char c;
   float f;
+} d ;
+
+struct __attribute__((packed))
+{
+  char c;
   double d;
-} k __attribute__((aligned(1)));
+} e ;
 
 void
 foo (void)
 {
-  h.c = 0;
-  h.s = 0;
-  h.i = 0;
-  j.l = 0;
-  k.f = 0;
-  k.d = 0;
+  a.s = 0;
+  b.i = 0;
+  c.l = 0;
+  d.f = 0;
+  e.d = 0;
 }
