@@ -610,7 +610,7 @@ Target Report Mask(P9_FUSION) Var(rs6000_isa_flags)
 Fuse certain operations together for better performance on power9.
 
 mpower9-misc
-Target Report Mask(P9_MISC) Var(rs6000_isa_flags)
+Target Undocumented Report Mask(P9_MISC) Var(rs6000_isa_flags)
 Use/do not certain scalar instructions added in ISA 3.0.
 
 mpower9-vector
