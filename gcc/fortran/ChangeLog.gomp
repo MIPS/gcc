@@ -1,3 +1,12 @@
+2016-05-09  Cesar Philippidis  <cesar@codesourcery.com>
+
+	Backport trunk r235651:
+	2016-04-29  Cesar Philippidis  <cesar@codesourcery.com>
+
+	PR middle-end/70626
+	* trans-openmp.c (gfc_trans_oacc_combined_directive): Duplicate
+	the reduction clause in both parallel and loop directives.
+
 2016-01-12  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* trans-openmp.c (gfc_privatize_nodesc_arrays): Use

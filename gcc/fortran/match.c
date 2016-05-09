@@ -4744,6 +4744,28 @@ gfc_free_omp_namelist (gfc_omp_namelist *name)
     }
 }
 
+/* Duplicate an omp namelist.  */
+
+gfc_omp_namelist *
+gfc_copy_omp_namelist (gfc_omp_namelist *name)
+{
+  gfc_omp_namelist *nl = NULL, *t;
+
+  for (; name; name = name->next)
+    {
+      t = gfc_get_omp_namelist ();
+      t->sym = name->sym;
+      t->expr = gfc_copy_expr (name->expr);;
+      t->u = name->u;
+      t->udr = NULL;
+      t->where = name->where;
+      t->next = nl;
+      nl = t;
+    }
+
+  return nl;
+}
+
 
 /* Match a NAMELIST statement.  */
 

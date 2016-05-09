@@ -3642,7 +3642,8 @@ gfc_trans_omp_do (gfc_code *code, gfc_exec_op op, stmtblock_t *pblock,
 
 static void
 gfc_filter_oacc_combined_clauses (gfc_omp_clauses **orig_clauses,
-				  gfc_omp_clauses **loop_clauses)
+				  gfc_omp_clauses **loop_clauses,
+				  enum tree_code construct_code)
 {
   if (*orig_clauses == NULL)
     {
@@ -3683,8 +3684,9 @@ gfc_filter_oacc_combined_clauses (gfc_omp_clauses **orig_clauses,
   (*loop_clauses)->tile_list = (*orig_clauses)->tile_list;
   (*orig_clauses)->tile_list = NULL;
   (*loop_clauses)->lists[OMP_LIST_REDUCTION]
-    = (*orig_clauses)->lists[OMP_LIST_REDUCTION];
-  (*orig_clauses)->lists[OMP_LIST_REDUCTION] = NULL;
+    = gfc_copy_omp_namelist ((*orig_clauses)->lists[OMP_LIST_REDUCTION]);
+  if (construct_code == OACC_KERNELS)
+    (*orig_clauses)->lists[OMP_LIST_REDUCTION] = NULL;
 #if 0
   (*loop_clauses)->lists[OMP_LIST_PRIVATE]
     = (*orig_clauses)->lists[OMP_LIST_PRIVATE];
@@ -3693,7 +3695,8 @@ gfc_filter_oacc_combined_clauses (gfc_omp_clauses **orig_clauses,
   (*loop_clauses)->device_types = (*orig_clauses)->device_types;
 
   gfc_filter_oacc_combined_clauses (&(*orig_clauses)->dtype_clauses,
-				    &(*loop_clauses)->dtype_clauses);
+				    &(*loop_clauses)->dtype_clauses,
+				    construct_code);
 }
 
 /* Combined OpenACC parallel loop and kernels loop. */
@@ -3723,7 +3726,8 @@ gfc_trans_oacc_combined_directive (gfc_code *code)
 
   gfc_start_block (&block);
 
-  gfc_filter_oacc_combined_clauses (&code->ext.omp_clauses, &loop_clauses);
+  gfc_filter_oacc_combined_clauses (&code->ext.omp_clauses, &loop_clauses,
+				    construct_code);
   oacc_clauses = gfc_trans_omp_clauses (&block, code->ext.omp_clauses,
 					code->loc);
 

@@ -1,5 +1,15 @@
 2016-05-09  Cesar Philippidis  <cesar@codesourcery.com>
 
+	Backport trunk r235651:
+	2016-04-29  Cesar Philippidis  <cesar@codesourcery.com>
+
+	PR middle-end/70626
+	* testsuite/libgomp.oacc-c++/template-reduction.C: Adjust test.
+	* testsuite/libgomp.oacc-c-c++-common/combined-reduction.c: New test.
+	* testsuite/libgomp.oacc-fortran/combined-reduction.f90: New test.
+
+2016-05-09  Cesar Philippidis  <cesar@codesourcery.com>
+
 	Backport trunk r235290:
 	2016-04-20  Ilya Verbin  <ilya.verbin@intel.com>
 

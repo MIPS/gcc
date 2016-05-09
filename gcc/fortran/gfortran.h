@@ -2948,6 +2948,7 @@ bool gfc_check_intrinsic_standard (const gfc_intrinsic_sym*, const char**,
 				      bool, locus);
 
 /* match.c -- FIXME */
+gfc_omp_namelist *gfc_copy_omp_namelist (gfc_omp_namelist *);
 void gfc_free_iterator (gfc_iterator *, int);
 void gfc_free_forall_iterator (gfc_forall_iterator *);
 void gfc_free_alloc_list (gfc_alloc *);

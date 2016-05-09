@@ -1,3 +1,4 @@
+! { dg-do compile } 
 ! { dg-additional-options "-fdump-tree-gimple" }
 
 subroutine foo ()
@@ -14,5 +15,8 @@ subroutine foo ()
   !$acc end kernels loop
 end subroutine
 
-! { dg-final { scan-tree-dump-times "target oacc_parallel firstprivate.a." 1 "gimple" } }
+! { dg-final { scan-tree-dump-times "target oacc_parallel reduction..:a. map.tofrom.a." 1 "gimple" } }
 ! { dg-final { scan-tree-dump-times "acc loop reduction..:a. private.p." 1 "gimple" } }
+! { dg-final { scan-tree-dump-times "target oacc_kernels map.force_tofrom:a .len: 4.." 1 "gimple" } }
+! { dg-final { scan-tree-dump-times "acc loop reduction..:a. private.k." 1 "gimple" } }
+
