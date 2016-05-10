@@ -106,6 +106,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
+#include "tree-ssa-loop.h"
+#include "tree-ssa-loop-niter.h"
 #include "tree-ssa-loop-ivopts.h"
 #include "tree-ssa-address.h"
 #include "dbgcnt.h"
@@ -113,6 +115,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "varasm.h"
 #include "builtins.h"
 #include "params.h"
+#include "cfganal.h"
 
 /* Only handle PHIs with no more arguments unless we are asked to by
    simd pragma.  */
@@ -717,6 +720,105 @@ hash_memrefs_baserefs_and_store_DRs_read_written_info (data_reference_p a)
     }
 }
 
+/* Return TRUE if can prove the index IDX of an array reference REF is
+   within array bound.  Return false otherwise.  */
+
+static bool
+idx_within_array_bound (tree ref, tree *idx, void *dta)
+{
+  bool overflow;
+  widest_int niter, valid_niter, delta, wi_step;
+  tree ev, init, step;
+  tree low, high;
+  struct loop *loop = (struct loop*) dta;
+
+  /* Only support within-bound access for array references.  */
+  if (TREE_CODE (ref) != ARRAY_REF)
+    return false;
+
+  /* For arrays at the end of the structure, we are not guaranteed that they
+     do not really extend over their declared size.  However, for arrays of
+     size greater than one, this is unlikely to be intended.  */
+  if (array_at_struct_end_p (ref))
+    return false;
+
+  ev = analyze_scalar_evolution (loop, *idx);
+  ev = instantiate_parameters (loop, ev);
+  init = initial_condition (ev);
+  step = evolution_part_in_loop_num (ev, loop->num);
+
+  if (!init || TREE_CODE (init) != INTEGER_CST
+      || (step && TREE_CODE (step) != INTEGER_CST))
+    return false;
+
+  low = array_ref_low_bound (ref);
+  high = array_ref_up_bound (ref);
+
+  /* The case of nonconstant bounds could be handled, but it would be
+     complicated.  */
+  if (TREE_CODE (low) != INTEGER_CST
+      || !high || TREE_CODE (high) != INTEGER_CST)
+    return false;
+
+  /* Check if the intial idx is within bound.  */
+  if (wi::to_widest (init) < wi::to_widest (low)
+      || wi::to_widest (init) > wi::to_widest (high))
+    return false;
+
+  /* The idx is always within bound.  */
+  if (!step || integer_zerop (step))
+    return true;
+
+  if (!max_loop_iterations (loop, &niter))
+    return false;
+
+  if (wi::to_widest (step) < 0)
+    {
+      delta = wi::to_widest (init) - wi::to_widest (low);
+      wi_step = -wi::to_widest (step);
+    }
+  else
+    {
+      delta = wi::to_widest (high) - wi::to_widest (init);
+      wi_step = wi::to_widest (step);
+    }
+
+  valid_niter = wi::div_floor (delta, wi_step, SIGNED, &overflow);
+  /* The iteration space of idx is within array bound.  */
+  if (!overflow && niter <= valid_niter)
+    return true;
+
+  return false;
+}
+
+/* Return TRUE if ref is a within bound array reference.  */
+
+static bool
+ref_within_array_bound (gimple *stmt, tree ref)
+{
+  struct loop *loop = loop_containing_stmt (stmt);
+
+  gcc_assert (loop != NULL);
+  return for_each_index (&ref, idx_within_array_bound, loop);
+}
+
+
+/* Given a memory reference expression T, return TRUE if base object
+   it refers to is writable.  The base object of a memory reference
+   is the main object being referenced, which is returned by function
+   get_base_address.  */
+
+static bool
+base_object_writable (tree ref)
+{
+  tree base_tree = get_base_address (ref);
+
+  return (base_tree
+	  && DECL_P (base_tree)
+	  && decl_binds_to_current_def_p (base_tree)
+	  && !TREE_READONLY (base_tree));
+}
+
 /* Return true when the memory references of STMT won't trap in the
    if-converted code.  There are two things that we have to check for:
 
@@ -764,8 +866,13 @@ ifcvt_memrefs_wont_trap (gimple *stmt, vec<data_reference_p> drs)
   if (DR_W_UNCONDITIONALLY (*master_dr))
     return true;
 
-  /* If a is unconditionally accessed then ... */
-  if (DR_RW_UNCONDITIONALLY (*master_dr))
+  /* If a is unconditionally accessed then ...
+
+     Even a is conditional access, we can treat it as an unconditional
+     one if it's an array reference and all its index are within array
+     bound.  */
+  if (DR_RW_UNCONDITIONALLY (*master_dr)
+      || ref_within_array_bound (stmt, DR_REF (a)))
     {
       /* an unconditional read won't trap.  */
       if (DR_IS_READ (a))
@@ -776,16 +883,11 @@ ifcvt_memrefs_wont_trap (gimple *stmt, vec<data_reference_p> drs)
       if (base_master_dr
 	  && DR_BASE_W_UNCONDITIONALLY (*base_master_dr))
 	return PARAM_VALUE (PARAM_ALLOW_STORE_DATA_RACES);
-      else
-	{
-	  /* or the base is know to be not readonly.  */
-	  tree base_tree = get_base_address (DR_REF (a));
-	  if (DECL_P (base_tree)
-	      && decl_binds_to_current_def_p (base_tree)
-	      && ! TREE_READONLY (base_tree))
-	    return PARAM_VALUE (PARAM_ALLOW_STORE_DATA_RACES);
-	}
+      /* or the base is known to be not readonly.  */
+      else if (base_object_writable (DR_REF (a)))
+	return PARAM_VALUE (PARAM_ALLOW_STORE_DATA_RACES);
     }
+
   return false;
 }
 
@@ -2360,7 +2462,7 @@ ifcvt_split_critical_edges (struct loop *loop, bool aggressive_if_conv)
   gimple *stmt;
   edge e;
   edge_iterator ei;
-  vec<edge> critical_edges = vNULL;
+  auto_vec<edge> critical_edges;
 
   /* Loop is not well formed.  */
   if (num <= 2 || loop->inner || !single_exit (loop))
@@ -2380,7 +2482,6 @@ ifcvt_split_critical_edges (struct loop *loop, bool aggressive_if_conv)
 		     bb->index, MAX_PHI_ARG_NUM);
 
 	  free (body);
-	  critical_edges.release ();
 	  return false;
 	}
       if (bb == loop->latch || bb_with_exit_edge_p (loop, bb))
@@ -2460,6 +2561,9 @@ ifcvt_walk_pattern_tree (tree var, vec<gimple *> *defuse_list,
   tree rhs1, rhs2;
   enum tree_code code;
   gimple *def_stmt;
+
+  if (TREE_CODE (var) != SSA_NAME)
+    return;
 
   def_stmt = SSA_NAME_DEF_STMT (var);
   if (gimple_code (def_stmt) != GIMPLE_ASSIGN)
@@ -2812,12 +2916,22 @@ pass_if_conversion::execute (function *fun)
   if (number_of_loops (fun) <= 1)
     return 0;
 
+  /* If there are infinite loops, during CDI_POST_DOMINATORS computation
+     we can pick pretty much random bb inside of the infinite loop that
+     has the fake edge.  If we are unlucky enough, this can confuse the
+     add_to_predicate_list post-dominator check to optimize as if that
+     bb or some other one is a join block when it actually is not.
+     See PR70916.  */
+  connect_infinite_loops_to_exit ();
+
   FOR_EACH_LOOP (loop, 0)
     if (flag_tree_loop_if_convert == 1
 	|| flag_tree_loop_if_convert_stores == 1
 	|| ((flag_tree_loop_vectorize || loop->force_vectorize)
 	    && !loop->dont_vectorize))
       todo |= tree_if_conversion (loop);
+
+  remove_fake_exit_edges ();
 
   if (flag_checking)
     {
