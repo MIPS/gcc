@@ -1,4 +1,21 @@
 
+2016-05-10   Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.cc (melt_allocate_young_gc_zone): Correct order of
+	arguments to xcalloc. Test MELT_HAVE_RUNTIME_DEBUG.
+	(melt_free_young_gc_zone): Use #if MELT_HAVE_RUNTIME_DEBUG.
+	(meltgc_make_special): Ditto.
+	(meltgc_make_specialdata): Ditto.
+	(melt_delete_unmarked_new_specialdata): Ditto.
+	(melt_clear_old_specialdata): Ditto.
+	(melt_garbcoll): Ditto.
+	(meltgc_new_raw_object): Ditto.
+	(melt_application_count, melt_application_depth): Always defined.
+	(melt_apply): Runtime test on MELT_HAVE_RUNTIME_DEBUG or
+	melt_flag_debug.
+	(melt_compile_source): Use #if MELT_HAVE_RUNTIME_DEBUG.
+	(meltgc_run_cc_extension): Ditto.
+
 2016-05-09   Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{still unstable}}

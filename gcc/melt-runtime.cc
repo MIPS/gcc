@@ -49,7 +49,7 @@ const int melt_is_plugin = 0;
 #error MELT Gcc version and GCC plugin version does not match
 #if GCCPLUGIN_VERSION==5005
 /** See e.g. https://lists.debian.org/debian-gcc/2015/07/msg00167.html
-   and https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=793478
+   and https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=793478 
    or the bug report
    https://gcc.gnu.org/bugzilla/show_bug.cgi?id=66991 which is a wrong
    report, since specific to Debian.  **/
@@ -796,19 +796,20 @@ melt_break_objhash_2_at (const char*msg, const char* fil, int line)
 static void
 melt_allocate_young_gc_zone (long wantedbytes)
 {
-  if (wantedbytes & 0xffff)
-    wantedbytes = (wantedbytes | 0xffff) + 1;
+  if (wantedbytes & 0x3fff)
+    wantedbytes = (wantedbytes | 0x3fff) + 1;
   melt_debuggc_eprintf("allocate #%ld young zone %ld [=%ldK] bytes",
                        melt_nb_garbcoll, wantedbytes, wantedbytes >> 10);
   melt_startalz = melt_curalz =
-                    (char *) xcalloc (sizeof (void *), wantedbytes / sizeof (void *));
+    (char *) xcalloc (wantedbytes / sizeof (void *),
+		      sizeof(void*));
   melt_endalz = (char *) melt_curalz + wantedbytes;
   melt_storalz = melt_initialstoralz = ((void **) melt_endalz) - 2;
   melt_debuggc_eprintf("allocated young zone %p-%p",
                        (void*)melt_startalz, (void*)melt_endalz);
   /* You could put a breakpoint here under gdb! */
   gcc_assert (melt_startalz != NULL);
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_RUNTIME_DEBUG>0
   if (melt_alptr_1 && (char*)melt_alptr_1 >= (char*)melt_startalz
       && (char*)melt_alptr_1 < (char*)melt_endalz)
     {
@@ -840,7 +841,7 @@ melt_free_young_gc_zone (void)
   melt_debuggc_eprintf("freeing #%ld young zone %p-%p",
                        melt_nb_garbcoll,
                        (void*)melt_startalz, (void*)melt_endalz);
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_RUNTIME_DEBUG>0
   if (melt_alptr_1 && (char*)melt_alptr_1 >= (char*)melt_startalz
       && (char*)melt_alptr_1 < (char*)melt_endalz)
     {
@@ -1215,7 +1216,7 @@ meltgc_make_special (melt_ptr_t discr_p)
   magic = ((meltobject_ptr_t)discrv)->meltobj_magic;
   switch (magic)
     {
-    /* our new special data */
+      /* our new special data */
     case MELTOBMAG_SPECIAL_DATA:
     {
       specv = (melt_ptr_t) meltgc_allocate (sizeof(struct meltspecialdata_st), 0);
@@ -1226,7 +1227,7 @@ meltgc_make_special (melt_ptr_t discr_p)
       melt_newspecdatalist = (struct meltspecialdata_st*)specv;
       melt_debuggc_eprintf ("make_special data %p discr %p magic %d %s",
                             (void*)specv, (void*)discrv, magic, melt_obmag_string(magic));
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_RUNTIME_DEBUG>0
       if (melt_alptr_1 && (void*)melt_alptr_1 == specv)
         {
           fprintf (stderr, "meltgc_make_special data alptr_1 %p mag %d %s\n",
@@ -1280,7 +1281,7 @@ meltgc_make_specialdata (melt_ptr_t discr_p)
   melt_newspecdatalist = (struct meltspecialdata_st*)specv;
   melt_debuggc_eprintf ("make_specialdata %p discr %p magic %d %s",
                         (void*)specv, (void*)discrv, magic, melt_obmag_string(magic));
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_RUNTIME_DEBUG>0
   if (melt_alptr_1 && (void*)melt_alptr_1 == specv)
     {
       fprintf (stderr, "meltgc_make_specialdata alptr_1 %p mag %d %s\n",
@@ -1399,7 +1400,7 @@ melt_delete_unmarked_new_specialdata (void)
       melt_debuggc_eprintf ("melt_delete_unmarked_new_specialdata specda %p has mark %d",
                             (void*) specda, specda->meltspec_mark);
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_RUNTIME_DEBUG > 0
       if (melt_alptr_1 && (void*)melt_alptr_1 == (void*)specda)
         {
           unsigned mag = specda->discr->meltobj_magic;
@@ -1557,7 +1558,7 @@ melt_ggcstart_callback (void *gcc_data ATTRIBUTE_UNUSED,
     {
       if (melt_prohibit_garbcoll)
         melt_fatal_error ("MELT minor garbage collection prohibited from GGC start callback (with %ld young Kilobytes)",
-                          (((char *) melt_curalz - (char *) melt_startalz))>>10);
+			  (((char *) melt_curalz - (char *) melt_startalz))>>10);
       melt_debuggc_eprintf
       ("melt_ggcstart_callback need a minor copying GC with %ld young Kilobytes\n",
        (((char *) melt_curalz - (char *) melt_startalz))>>10);
@@ -1580,7 +1581,7 @@ melt_clear_old_specialdata (void)
       nextspecda = specda->meltspec_next;
       nboldspecdata++;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_RUNTIME_DEBUG > 0
       if (melt_alptr_1 && (void*)melt_alptr_1 == (void*)specda)
         {
           unsigned mag = specda->discr->meltobj_magic;
@@ -1617,7 +1618,7 @@ melt_delete_unmarked_old_specialdata (void)
     {
       nextspecda = specda->meltspec_next;
 
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_RUNTIME_DEBUG > 0
       if (melt_alptr_1 && (void*)melt_alptr_1 == (void*)specda)
         {
           int mag = specda->discr->meltobj_magic;
@@ -1672,7 +1673,7 @@ melt_garbcoll (size_t wanted, enum melt_gckind_en gckd)
   const char* needfullreason = NULL;
   if (melt_prohibit_garbcoll)
     melt_fatal_error ("MELT garbage collection prohibited (wanted %ld)",
-                      (long)wanted);
+		      (long)wanted);
   gcc_assert (melt_scangcvect == NULL);
   melt_nb_garbcoll++;
   if (gckd == MELT_NEED_FULL)
@@ -2480,7 +2481,7 @@ meltgc_strbuf_reserve (melt_ptr_t outbuf_p, unsigned reslen)
       unsigned long newsiz = slen + reslen + 10;
       bool wasyoung = FALSE;
       newsiz += newsiz/8;
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_RUNTIME_DEBUG > 0
       /* to help catching monster buffer overflow */
       if (newsiz > MELT_BIGLEN)
         {
@@ -3192,7 +3193,7 @@ meltgc_new_raw_object (meltobject_ptr_t klass_p, unsigned len)
   while (h == 0);
   obj_newobjv->obj_hash = h;
   obj_newobjv->obj_len = len;
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_RUNTIME_DEBUG > 0
   if (melt_alptr_1 && (void*)melt_alptr_1 == (void*)newobjv)
     melt_break_alptr_1("newrawobj alptr_1");
   if (melt_alptr_2 && (void*)melt_alptr_2 == (void*)newobjv)
@@ -3438,14 +3439,13 @@ meltgc_new_list_from_pair (meltobject_ptr_t discr_p, melt_ptr_t pair_p)
     goto end;
   if (object_discrv->meltobj_magic != MELTOBMAG_LIST)
     goto end;
-  if (melt_magic_discr((melt_ptr_t) pairv) == MELTOBMAG_PAIR)
-    {
-      firstpairv = pairv;
-      lastpairv = firstpairv;
-      while (melt_magic_discr((melt_ptr_t) lastpairv) == MELTOBMAG_PAIR
-             && (((struct meltpair_st *)lastpairv)->tl) != NULL)
-        lastpairv = (melt_ptr_t)(((struct meltpair_st *)lastpairv)->tl);
-    }
+  if (melt_magic_discr((melt_ptr_t) pairv) == MELTOBMAG_PAIR) {
+    firstpairv = pairv;
+    lastpairv = firstpairv;
+    while (melt_magic_discr((melt_ptr_t) lastpairv) == MELTOBMAG_PAIR
+	   && (((struct meltpair_st *)lastpairv)->tl) != NULL)
+      lastpairv = (melt_ptr_t)(((struct meltpair_st *)lastpairv)->tl);
+  }
   newlist = (melt_ptr_t) meltgc_allocate (sizeof (struct meltlist_st), 0);
   list_newlist->discr = object_discrv;
   list_newlist->first = (struct meltpair_st*)firstpairv;
@@ -5142,28 +5142,23 @@ end:
 
 
 
-#if MELT_HAVE_DEBUG
+
 static long applcount_melt;
 static int appldepth_melt;
 #define MAXDEPTH_APPLY_MELT 512
 long melt_application_count (void)
 {
+  if (melt_flag_debug > 0)
   return (long) applcount_melt;
+  else return 0;
 }
 long melt_application_depth (void)
 {
+    if (melt_flag_debug > 0)
   return (long) appldepth_melt;
+    else return 0;
 }
-#else
-long melt_application_count (void)
-{
-  return 0L;
-}
-long melt_application_depth (void)
-{
-  return 0L;
-}
-#endif
+
 /*************** closure application ********************/
 
 /* the argument description string are currently char* strings; this
@@ -5184,17 +5179,17 @@ melt_apply (meltclosure_ptr_t clos_p,
 {
   melt_ptr_t res = NULL;
   meltroutfun_t*routfun = 0;
-#if MELT_HAVE_DEBUG
-  applcount_melt++;
-  appldepth_melt++;
-  if (appldepth_melt > MAXDEPTH_APPLY_MELT)
-    {
-      melt_fatal_error ("too deep (%d) MELT applications", appldepth_melt);
-    }
-  if ((int) MELTBPAR__LAST >= (int) MELT_ARGDESCR_MAX - 2)
-    melt_fatal_error ("too many different MELT ctypes since MELTBPAR__LAST= %d",
-                      (int) MELTBPAR__LAST);
-#endif
+  if (MELT_HAVE_RUNTIME_DEBUG > 0 || melt_flag_debug > 0) {
+    applcount_melt++;
+    appldepth_melt++;
+    if (appldepth_melt > MAXDEPTH_APPLY_MELT)
+      {
+	melt_fatal_error ("too deep (%d) MELT applications", appldepth_melt);
+      }
+    if ((int) MELTBPAR__LAST >= (int) MELT_ARGDESCR_MAX - 2)
+      melt_fatal_error ("too many different MELT ctypes since MELTBPAR__LAST= %d",
+			(int) MELTBPAR__LAST);
+  }
   if (melt_magic_discr ((melt_ptr_t) clos_p) != MELTOBMAG_CLOSURE)
     goto end;
   {
@@ -5215,10 +5210,9 @@ melt_apply (meltclosure_ptr_t clos_p,
       goto end;
     }
   res = (*routfun) (clos_p, arg1_p, xargdescr_, xargtab_, xresdescr_, xrestab_);
-end:
-#if MELT_HAVE_DEBUG
-  appldepth_melt--;
-#endif
+ end:
+  if (MELT_HAVE_RUNTIME_DEBUG>0 || melt_flag_debug>0)
+    appldepth_melt--;
   return res;
 }
 
@@ -5850,8 +5844,10 @@ melt_compile_source (const char *srcbase, const char *binbase, const char*workdi
   const char* ourmakefile = NULL;
   const char* ourcflags = NULL;
   const char* mycwd = NULL;
+#if MELT_HAVE_RUNTIME_DEBUG >0
   char curlocbuf[250];
   curlocbuf[0] = 0;
+#endif
   /* we want a MELT frame for MELT_LOCATION here */
   MELT_ENTEREMPTYFRAME(NULL);
   mycwd = getpwd ();
@@ -5864,15 +5860,15 @@ melt_compile_source (const char *srcbase, const char *binbase, const char*workdi
   MELT_LOCATION_HERE_PRINTF (curlocbuf,
                              "melt_compile_source srcbase %s binbase %s flavor %s",
                              srcbase?(srcbase[0]?srcbase:"*empty*"):"*null*",
-                             binbase?(binbase[0]?binbase:"*empty*"):"*null*",
-                             flavor?(flavor[0]?flavor:"*empty*"):"*null*");
+                               binbase?(binbase[0]?binbase:"*empty*"):"*null*",
+                               flavor?(flavor[0]?flavor:"*empty*"):"*null*");
   if (getenv ("IFS"))
     /* Having an IFS is a huge security risk for shells. */
     melt_fatal_error
     ("MELT cannot compile source base %s of flavor %s with an $IFS (probable security risk)",
      srcbase, flavor);
   if (!srcbase || !srcbase[0])
-    {
+  {
       melt_fatal_error ("no source base given to compile for MELT (%p)",
                         srcbase);
     }
@@ -9568,7 +9564,7 @@ meltgc_run_cc_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t lit
   envrefv = meltgc_new_reference ((melt_ptr_t) environv);
   debugeprintf ("meltgc_run_cc_extension envrefv@%p", (void*)envrefv);
   {
-#if MELT_HAVE_DEBUG
+#if MELT_HAVE_RUNTIME_DEBUG>0
     char locbuf[96];
     memset (locbuf,0,sizeof(locbuf));
     MELT_LOCATION_HERE_PRINTF (locbuf,
