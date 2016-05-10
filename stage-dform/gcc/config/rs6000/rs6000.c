@@ -2661,8 +2661,7 @@ rs6000_debug_reg_global (void)
   if (TARGET_LINK_STACK)
     fprintf (stderr, DEBUG_FMT_S, "link_stack", "true");
 
-  if (TARGET_LRA)
-    fprintf (stderr, DEBUG_FMT_S, "lra", "true");
+  fprintf (stderr, DEBUG_FMT_S, "lra", TARGET_LRA ? "true" : "false");
 
   if (TARGET_P8_FUSION)
     {

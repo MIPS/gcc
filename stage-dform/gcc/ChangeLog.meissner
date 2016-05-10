@@ -16,8 +16,8 @@
 	register class uses quad word memory offsets.
 	(rs6000_debug_addr_mask): Add support for quad word memory
 	offsets.
-	(rs6000_debug_reg_global): Use TARGET_LRA instead of calling the
-	lra_p target hook.
+	(rs6000_debug_reg_global): Always print if we are using LRA or
+	not.
 	(rs6000_setup_reg_addr_masks): If ISA 3.0 vector d-form
 	instructions are enabled, set up the appropriate addr_masks for
 	128-bit types.
