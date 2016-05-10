@@ -1,4 +1,4 @@
-Bottom: 51800dab1f083c7d2ac493d7b159cf0db265d1e1
+Bottom: 7e39d72b4dcd027ad7ae3c70e54b6700a841fdb6
 Top:    da89f4ba0ba98702f0af9315171a76b333bd3c15
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-05-10 03:25:15 -0300
@@ -185,19 +185,6 @@ index c276d5a..1d0d4c7 100644
    GCC_CP_SYMBOL_MASK = 15,
  
    /* When defining a class member, at least one of the
-diff --git a/libcc1/libcc1plugin.cc b/libcc1/libcc1plugin.cc
-index e61e042..4403dd1 100644
---- a/libcc1/libcc1plugin.cc
-+++ b/libcc1/libcc1plugin.cc
-@@ -585,7 +585,7 @@ plugin_finish_record_or_union (cc1_plugin::connection *,
-       C_TYPE_FIELDS_VOLATILE (x) = C_TYPE_FIELDS_VOLATILE (t);
-       C_TYPE_VARIABLE_SIZE (x) = C_TYPE_VARIABLE_SIZE (t);
-       /* We copy these fields too.  */
--      TYPE_ALIGN (x) = TYPE_ALIGN (t);
-+      SET_TYPE_ALIGN (x, TYPE_ALIGN (t));
-       TYPE_SIZE (x) = TYPE_SIZE (t);
-       TYPE_SIZE_UNIT (x) = TYPE_SIZE_UNIT (t);
-       if (x != record_or_union_type)
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
 index 3741dfb..d258f35 100644
 --- a/libcc1/libcp1plugin.cc
