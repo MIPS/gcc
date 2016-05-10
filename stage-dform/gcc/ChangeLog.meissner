@@ -1,11 +1,11 @@
 2016-05-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	<fsf submission>
-	* config/rs6000/rs6000-cpus.def (ISA_3_0_MASKS_SERVER): Use
-	-mpower9-dform-scalar instead of -mpower9-dform.  Add note not to
-	include -mpower9-dform-vector until we switch over to LRA.
-	(POWERPC_MASKS): Add -mlra. Split -mpower9-dform into two. 
-	switches, -mpower9-dform-scalar and -mpower9-dform-vector.
+	* config/rs6000/predicates.md (quad_memory_operand): Move most of
+	the code into quad_address_p and call it to share code with
+	vsx_quad_dform_memory_operand.
+	(vsx_quad_dform_memory_operand): New predicate for ISA 3.0 vector
+	d-form support.
 	* config/rs6000/rs6000.opt (-mlra): Switch to being an option mask
 	bit instead of being a separate word.  Split -mpower9-dform into
 	two switches, -mpower9-dform-scalar and -mpower9-dform-vector.
@@ -63,15 +63,7 @@
 	-mpower9-dform-scalar and -mpower9-dform-vector.
 	(rs6000_print_options_internal): Print -mno-<switch> if <switch>
 	was not selected.
-	* config/rs6000/constraints.md (wO constraint): New constraint for
-	ISA 3.0 vector d-form support.
-	* config/rs6000/predicates.md (quad_memory_operand): Move most of
-	the code into quad_address_p and call it to share code with
-	vsx_quad_dform_memory_operand.
-	(vsx_quad_dform_memory_operand): New predicate for ISA 3.0 vector
-	d-form support.
-	* config/rs6000/rs6000-protos.h (quad_address_p): Add declaration.
-	* config/rs6000/rs6000.md (p9_vecload_<mode>): Delete hack to emit
+	* config/rs6000/vsx.md (p9_vecload_<mode>): Delete hack to emit
 	ISA 3.0 vector indexed memory instructions, and fold the code into
 	the normal mov<mode> patterns.
 	(p9_vecstore_<mode>): Likewise.
@@ -79,8 +71,16 @@
 	instructions.
 	(vsx_movti_64bit): Likewise.
 	(vsx_movti_32bit): Likewise.
+	* config/rs6000/constraints.md (wO constraint): New constraint for
+	ISA 3.0 vector d-form support.
+	* config/rs6000/rs6000-cpus.def (ISA_3_0_MASKS_SERVER): Use
+	-mpower9-dform-scalar instead of -mpower9-dform.  Add note not to
+	include -mpower9-dform-vector until we switch over to LRA.
+	(POWERPC_MASKS): Add -mlra. Split -mpower9-dform into two. 
+	switches, -mpower9-dform-scalar and -mpower9-dform-vector.
+	* config/rs6000/rs6000-protos.h (quad_address_p): Add declaration.
 	* doc/invoke.texi (RS/6000 and PowerPC Options): Add documentation
-	for -mpower9-dform.  Document -mlra.
+	for -mpower9-dform and -mlra.
 	* doc/md.texi (wO constraint): Document wO constraint.
 
 2016-05-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
