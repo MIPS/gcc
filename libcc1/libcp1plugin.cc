@@ -454,6 +454,47 @@ plugin_get_current_binding_level (cc1_plugin::connection *)
   return convert_out (decl);
 }
 
+int
+plugin_using_namespace (cc1_plugin::connection *,
+			gcc_decl used_ns_in,
+			int inline_p)
+{
+  tree used_ns = convert_in (used_ns_in);
+
+  gcc_assert (TREE_CODE (used_ns) == NAMESPACE_DECL);
+
+  do_using_directive (used_ns);
+
+  /* ??? Should we build the attribute and call parse_using_directive
+     instead, to avoid logic duplication?  */
+  if (inline_p)
+    {
+      /* Make sure other values are not used; we might want to make it
+	 an enum bitfield in the future.  */
+      gcc_assert (inline_p == 1);
+
+      gcc_assert (toplevel_bindings_p ());
+      gcc_assert (is_ancestor (current_namespace, used_ns));
+      DECL_NAMESPACE_ASSOCIATIONS (used_ns)
+	= tree_cons (current_namespace, 0,
+		     DECL_NAMESPACE_ASSOCIATIONS (used_ns));
+    }
+
+  return 1;
+}
+
+int
+plugin_new_namespace_alias (cc1_plugin::connection *,
+			    const char *id,
+			    gcc_decl target_in)
+{
+  tree name = get_identifier (id);
+  tree target = convert_in (target_in);
+
+  do_namespace_alias (name, target);
+
+  return 1;
+}
 
 static inline void
 set_access_flags (tree decl, enum gcc_cp_symbol_kind flags)
@@ -464,18 +505,65 @@ set_access_flags (tree decl, enum gcc_cp_symbol_kind flags)
     {
     case GCC_CP_ACCESS_PRIVATE:
       TREE_PRIVATE (decl) = true;
+      current_access_specifier = access_private_node;
       break;
 
     case GCC_CP_ACCESS_PROTECTED:
       TREE_PROTECTED (decl) = true;
+      current_access_specifier = access_protected_node;
       break;
 
     case GCC_CP_ACCESS_PUBLIC:
+      current_access_specifier = access_public_node;
       break;
 
     default:
       break;
     }
+}
+
+int
+plugin_new_using_decl (cc1_plugin::connection *,
+		       enum gcc_cp_symbol_kind flags,
+		       gcc_decl target_in)
+{
+  tree target = convert_in (target_in);
+  gcc_assert ((flags & GCC_CP_SYMBOL_MASK) == GCC_CP_SYMBOL_USING);
+  gcc_assert (!(flags & GCC_CP_FLAG_MASK));
+  enum gcc_cp_symbol_kind acc_flags;
+  acc_flags = (enum gcc_cp_symbol_kind) (flags & GCC_CP_ACCESS_MASK);
+
+  gcc_assert (!template_parm_scope_p ());
+
+  bool class_member_p = at_class_scope_p ();
+  gcc_assert (!(acc_flags & GCC_CP_ACCESS_MASK) == !class_member_p);
+
+  tree identifier = DECL_NAME (target);
+  tree tcontext = DECL_CONTEXT (target);
+
+  if (UNSCOPED_ENUM_P (tcontext))
+    tcontext = CP_TYPE_CONTEXT (tcontext);
+
+  if (class_member_p)
+    {
+      tree decl = do_class_using_decl (tcontext, identifier);
+
+      if (DECL_DECLARES_TYPE_P (target))
+	USING_DECL_TYPENAME_P (decl);
+
+      set_access_flags (decl, flags);
+
+      finish_member_declaration (decl);
+    }
+  else if (!at_namespace_scope_p ())
+    {
+      gcc_unreachable ();
+      do_local_using_decl (target, tcontext, identifier);
+    }
+  else
+    do_toplevel_using_decl (target, tcontext, identifier);
+
+  return 1;
 }
 
 /* Abuse an unused field of the dummy template parms entry to hold the
@@ -542,8 +630,8 @@ plugin_new_decl (cc1_plugin::connection *self,
 
   if (template_decl_p)
     {
-      /* FIXME: template using declarations will require changes here.  */
-      gcc_assert (code == FUNCTION_DECL || code == RECORD_TYPE);
+      gcc_assert (code == FUNCTION_DECL || code == RECORD_TYPE
+		  || code == TYPE_DECL);
 
       /* Finish the template parm list that started this template parm.  */
       end_template_parm_list (TP_PARM_LIST);
@@ -1337,7 +1425,7 @@ plugin_start_new_enum_type (cc1_plugin::connection *self,
   return convert_out (ctx->preserve (type));
 }
 
-int
+gcc_decl
 plugin_build_add_enum_constant (cc1_plugin::connection *,
 				gcc_type enum_type_in,
 				const char *name,
@@ -1350,7 +1438,7 @@ plugin_build_add_enum_constant (cc1_plugin::connection *,
   build_enumerator (get_identifier (name), build_int_cst (enum_type, value),
 		    enum_type, NULL_TREE, BUILTINS_LOCATION);
 
-  return 1;
+  return convert_out (TREE_VALUE (TYPE_VALUES (enum_type)));
 }
 
 int
