@@ -585,7 +585,7 @@ plugin_finish_record_or_union (cc1_plugin::connection *,
       C_TYPE_FIELDS_VOLATILE (x) = C_TYPE_FIELDS_VOLATILE (t);
       C_TYPE_VARIABLE_SIZE (x) = C_TYPE_VARIABLE_SIZE (t);
       /* We copy these fields too.  */
-      TYPE_ALIGN (x) = TYPE_ALIGN (t);
+      SET_TYPE_ALIGN (x, TYPE_ALIGN (t));
       TYPE_SIZE (x) = TYPE_SIZE (t);
       TYPE_SIZE_UNIT (x) = TYPE_SIZE_UNIT (t);
       if (x != record_or_union_type)
