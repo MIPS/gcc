@@ -1755,6 +1755,9 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #undef TARGET_CONDITIONAL_REGISTER_USAGE
 #define TARGET_CONDITIONAL_REGISTER_USAGE rs6000_conditional_register_usage
 
+#undef TARGET_SCHED_REASSOCIATION_WIDTH
+#define TARGET_SCHED_REASSOCIATION_WIDTH rs6000_reassociation_width
+
 #undef TARGET_TRAMPOLINE_INIT
 #define TARGET_TRAMPOLINE_INIT rs6000_trampoline_init
 
@@ -8631,6 +8634,40 @@ rs6000_offsettable_memref_p (rtx op, machine_mode reg_mode)
 		|| GET_MODE_SIZE (reg_mode) == 4);
   return rs6000_legitimate_offset_address_p (GET_MODE (op), XEXP (op, 0),
 					     true, worst_case);
+}
+
+/* Determine the reassociation width to be used in reassociate_bb.
+   This takes into account how many parallel operations we
+   can actually do of a given type, and also the latency.
+   P8:
+     int add/sub 6/cycle     
+         mul 2/cycle
+     vect add/sub/mul 2/cycle
+     fp   add/sub/mul 2/cycle
+     dfp  1/cycle
+*/
+ 
+static int
+rs6000_reassociation_width (unsigned int opc ATTRIBUTE_UNUSED,
+                            enum machine_mode mode)
+{
+  switch (rs6000_cpu)
+    {
+    case PROCESSOR_POWER8:
+    case PROCESSOR_POWER9:
+      if (DECIMAL_FLOAT_MODE_P (mode))
+	return 1;
+      if (VECTOR_MODE_P (mode))
+	return 4;
+      if (INTEGRAL_MODE_P (mode)) 
+	return opc == MULT_EXPR ? 4 : 6;
+      if (FLOAT_MODE_P (mode))
+	return 4;
+      break;
+    default:
+      break;
+    }
+  return 1;
 }
 
 /* Change register usage conditional on target flags.  */
@@ -20671,7 +20708,8 @@ rs6000_assemble_integer (rtx x, unsigned int size, int aligned_p)
 	 don't need to mark it here.  We used to skip the text section, but it
 	 should never be valid for relocated addresses to be placed in the text
 	 section.  */
-      if (TARGET_RELOCATABLE
+      if (DEFAULT_ABI == ABI_V4
+	  && (TARGET_RELOCATABLE || flag_pic > 1)
 	  && in_section != toc_section
 	  && !recurse
 	  && !CONST_SCALAR_INT_P (x)
@@ -23548,6 +23586,15 @@ rs6000_savres_strategy (rs6000_stack_t *info,
 	  }
     }
 
+  /* info->lr_save_p isn't yet set if the only reason lr needs to be
+     saved is an out-of-line save or restore.  Set up the value for
+     the next test (excluding out-of-line gprs).  */
+  bool lr_save_p = (info->lr_save_p
+		    || !(strategy & SAVE_INLINE_FPRS)
+		    || !(strategy & SAVE_INLINE_VRS)
+		    || !(strategy & REST_INLINE_FPRS)
+		    || !(strategy & REST_INLINE_VRS));
+
   if (TARGET_MULTIPLE
       && !TARGET_POWERPC64
       && !(TARGET_SPE_ABI && info->spe_64bit_regs_used)
@@ -23556,15 +23603,6 @@ rs6000_savres_strategy (rs6000_stack_t *info,
       /* Prefer store multiple for saves over out-of-line routines,
 	 since the store-multiple instruction will always be smaller.  */
       strategy |= SAVE_INLINE_GPRS | SAVE_MULTIPLE;
-
-      /* info->lr_save_p isn't yet set if the only reason lr needs to be
-	 saved is an out-of-line save or restore.  Set up the value for
-	 the next test (excluding out-of-line gprs).  */
-      bool lr_save_p = (info->lr_save_p
-			|| !(strategy & SAVE_INLINE_FPRS)
-			|| !(strategy & SAVE_INLINE_VRS)
-			|| !(strategy & REST_INLINE_FPRS)
-			|| !(strategy & REST_INLINE_VRS));
 
       /* The situation is more complicated with load multiple.  We'd
 	 prefer to use the out-of-line routines for restores, since the
@@ -23577,6 +23615,12 @@ rs6000_savres_strategy (rs6000_stack_t *info,
       if (info->first_fp_reg_save != 64 || !lr_save_p)
 	strategy |= REST_INLINE_GPRS | REST_MULTIPLE;
     }
+
+  /* Using the "exit" out-of-line routine does not improve code size
+     if using it would require lr to be saved and if only saving one
+     or two gprs.  */
+  else if (!lr_save_p && info->first_gp_reg_save > 29)
+    strategy |= SAVE_INLINE_GPRS | REST_INLINE_GPRS;
 
   /* We can only use load multiple or the out-of-line routines to
      restore gprs if we've saved all the registers from
@@ -23815,9 +23859,9 @@ rs6000_stack_info (void)
   info->calls_p = (!crtl->is_leaf || cfun->machine->ra_needs_full_frame);
 
   /* Determine if we need to save the condition code registers.  */
-  if (df_regs_ever_live_p (CR2_REGNO)
-      || df_regs_ever_live_p (CR3_REGNO)
-      || df_regs_ever_live_p (CR4_REGNO))
+  if (save_reg_p (CR2_REGNO)
+      || save_reg_p (CR3_REGNO)
+      || save_reg_p (CR4_REGNO))
     {
       info->cr_save_p = 1;
       if (DEFAULT_ABI == ABI_V4)
@@ -23982,7 +24026,9 @@ rs6000_stack_info (void)
 	  && !TARGET_PROFILE_KERNEL)
       || (DEFAULT_ABI == ABI_V4 && cfun->calls_alloca)
 #ifdef TARGET_RELOCATABLE
-      || (TARGET_RELOCATABLE && (get_pool_size () != 0))
+      || (DEFAULT_ABI == ABI_V4
+	  && (TARGET_RELOCATABLE || flag_pic > 1)
+	  && get_pool_size () != 0)
 #endif
       || rs6000_ra_ever_killed ())
     info->lr_save_p = 1;
@@ -24838,7 +24884,7 @@ output_probe_stack_range (rtx reg1, rtx reg2)
 }
 
 /* Add to 'insn' a note which is PATTERN (INSN) but with REG replaced
-   with (plus:P (reg 1) VAL), and with REG2 replaced with RREG if REG2
+   with (plus:P (reg 1) VAL), and with REG2 replaced with REPL2 if REG2
    is not NULL.  It would be nice if dwarf2out_frame_debug_expr could
    deduce these equivalences by itself so it wasn't necessary to hold
    its hand so much.  Don't be tempted to always supply d2_f_d_e with
@@ -24848,22 +24894,28 @@ output_probe_stack_range (rtx reg1, rtx reg2)
 
 static rtx
 rs6000_frame_related (rtx insn, rtx reg, HOST_WIDE_INT val,
-		      rtx reg2, rtx rreg)
+		      rtx reg2, rtx repl2)
 {
-  rtx real, temp;
+  rtx repl;
 
-  if (REGNO (reg) == STACK_POINTER_REGNUM && reg2 == NULL_RTX)
+  if (REGNO (reg) == STACK_POINTER_REGNUM)
+    {
+      gcc_checking_assert (val == 0);
+      repl = NULL_RTX;
+    }
+  else
+    repl = gen_rtx_PLUS (Pmode, gen_rtx_REG (Pmode, STACK_POINTER_REGNUM),
+			 GEN_INT (val));
+
+  rtx pat = PATTERN (insn);
+  if (!repl && !reg2)
     {
       /* No need for any replacement.  Just set RTX_FRAME_RELATED_P.  */
-      int i;
-
-      gcc_checking_assert (val == 0);
-      real = PATTERN (insn);
-      if (GET_CODE (real) == PARALLEL)
-	for (i = 0; i < XVECLEN (real, 0); i++)
-	  if (GET_CODE (XVECEXP (real, 0, i)) == SET)
+      if (GET_CODE (pat) == PARALLEL)
+	for (int i = 0; i < XVECLEN (pat, 0); i++)
+	  if (GET_CODE (XVECEXP (pat, 0, i)) == SET)
 	    {
-	      rtx set = XVECEXP (real, 0, i);
+	      rtx set = XVECEXP (pat, 0, i);
 
 	      /* If this PARALLEL has been emitted for out-of-line
 		 register save functions, or store multiple, then omit
@@ -24878,79 +24930,47 @@ rs6000_frame_related (rtx insn, rtx reg, HOST_WIDE_INT val,
       return insn;
     }
 
-  /* copy_rtx will not make unique copies of registers, so we need to
-     ensure we don't have unwanted sharing here.  */
-  if (reg == reg2)
-    reg = gen_raw_REG (GET_MODE (reg), REGNO (reg));
-
-  if (reg == rreg)
-    reg = gen_raw_REG (GET_MODE (reg), REGNO (reg));
-
-  real = copy_rtx (PATTERN (insn));
-
-  if (reg2 != NULL_RTX)
-    real = replace_rtx (real, reg2, rreg);
-
-  if (REGNO (reg) == STACK_POINTER_REGNUM)
-    gcc_checking_assert (val == 0);
-  else
-    real = replace_rtx (real, reg,
-			gen_rtx_PLUS (Pmode, gen_rtx_REG (Pmode,
-							  STACK_POINTER_REGNUM),
-				      GEN_INT (val)));
-
-  /* We expect that 'real' is either a SET or a PARALLEL containing
+  /* We expect that 'pat' is either a SET or a PARALLEL containing
      SETs (and possibly other stuff).  In a PARALLEL, all the SETs
-     are important so they all have to be marked RTX_FRAME_RELATED_P.  */
+     are important so they all have to be marked RTX_FRAME_RELATED_P.
+     Call simplify_replace_rtx on the SETs rather than the whole insn
+     so as to leave the other stuff alone (for example USE of r12).  */
 
-  if (GET_CODE (real) == SET)
+  if (GET_CODE (pat) == SET)
     {
-      rtx set = real;
-
-      temp = simplify_rtx (SET_SRC (set));
-      if (temp)
-	SET_SRC (set) = temp;
-      temp = simplify_rtx (SET_DEST (set));
-      if (temp)
-	SET_DEST (set) = temp;
-      if (GET_CODE (SET_DEST (set)) == MEM)
-	{
-	  temp = simplify_rtx (XEXP (SET_DEST (set), 0));
-	  if (temp)
-	    XEXP (SET_DEST (set), 0) = temp;
-	}
+      if (repl)
+	pat = simplify_replace_rtx (pat, reg, repl);
+      if (reg2)
+	pat = simplify_replace_rtx (pat, reg2, repl2);
     }
-  else
+  else if (GET_CODE (pat) == PARALLEL)
     {
-      int i;
+      pat = shallow_copy_rtx (pat);
+      XVEC (pat, 0) = shallow_copy_rtvec (XVEC (pat, 0));
 
-      gcc_assert (GET_CODE (real) == PARALLEL);
-      for (i = 0; i < XVECLEN (real, 0); i++)
-	if (GET_CODE (XVECEXP (real, 0, i)) == SET)
+      for (int i = 0; i < XVECLEN (pat, 0); i++)
+	if (GET_CODE (XVECEXP (pat, 0, i)) == SET)
 	  {
-	    rtx set = XVECEXP (real, 0, i);
+	    rtx set = XVECEXP (pat, 0, i);
 
-	    temp = simplify_rtx (SET_SRC (set));
-	    if (temp)
-	      SET_SRC (set) = temp;
-	    temp = simplify_rtx (SET_DEST (set));
-	    if (temp)
-	      SET_DEST (set) = temp;
-	    if (GET_CODE (SET_DEST (set)) == MEM)
-	      {
-		temp = simplify_rtx (XEXP (SET_DEST (set), 0));
-		if (temp)
-		  XEXP (SET_DEST (set), 0) = temp;
-	      }
+	    if (repl)
+	      set = simplify_replace_rtx (set, reg, repl);
+	    if (reg2)
+	      set = simplify_replace_rtx (set, reg2, repl2);
+	    XVECEXP (pat, 0, i) = set;
+
 	    /* Omit eh_frame info for any user-defined global regs.  */
 	    if (!REG_P (SET_SRC (set))
 		|| !fixed_reg_p (REGNO (SET_SRC (set))))
 	      RTX_FRAME_RELATED_P (set) = 1;
 	  }
     }
+  else
+    gcc_unreachable ();
 
   RTX_FRAME_RELATED_P (insn) = 1;
-  add_reg_note (insn, REG_FRAME_RELATED_EXPR, real);
+  if (repl || reg2)
+    add_reg_note (insn, REG_FRAME_RELATED_EXPR, pat);
 
   return insn;
 }
@@ -28099,6 +28119,11 @@ rs6000_expand_split_stack_prologue (void)
 				   const0_rtx, const0_rtx));
   call_fusage = NULL_RTX;
   use_reg (&call_fusage, r12);
+  /* Say the call uses r0, even though it doesn't, to stop regrename
+     from twiddling with the insns saving lr, trashing args for cfun.
+     The insns restoring lr are similarly protected by making
+     split_stack_return use r0.  */
+  use_reg (&call_fusage, r0);
   add_function_usage_to (insn, call_fusage);
   emit_insn (gen_frame_load (r0, r1, info->lr_save_offset));
   insn = emit_move_insn (lr, r0);
@@ -31460,13 +31485,12 @@ static void
 rs6000_elf_output_toc_section_asm_op (const void *data ATTRIBUTE_UNUSED)
 {
   if ((DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_ELFv2)
-      && TARGET_MINIMAL_TOC
-      && !TARGET_RELOCATABLE)
+      && TARGET_MINIMAL_TOC)
     {
       if (!toc_initialized)
 	{
-	  toc_initialized = 1;
 	  fprintf (asm_out_file, "%s\n", TOC_SECTION_ASM_OP);
+	  ASM_OUTPUT_ALIGN (asm_out_file, TARGET_64BIT ? 3 : 2);
 	  (*targetm.asm_out.internal_label) (asm_out_file, "LCTOC", 0);
 	  fprintf (asm_out_file, "\t.tc ");
 	  ASM_OUTPUT_INTERNAL_LABEL_PREFIX (asm_out_file, "LCTOC1[TC],");
@@ -31474,20 +31498,29 @@ rs6000_elf_output_toc_section_asm_op (const void *data ATTRIBUTE_UNUSED)
 	  fprintf (asm_out_file, "\n");
 
 	  fprintf (asm_out_file, "%s\n", MINIMAL_TOC_SECTION_ASM_OP);
+	  ASM_OUTPUT_ALIGN (asm_out_file, TARGET_64BIT ? 3 : 2);
 	  ASM_OUTPUT_INTERNAL_LABEL_PREFIX (asm_out_file, "LCTOC1");
 	  fprintf (asm_out_file, " = .+32768\n");
+	  toc_initialized = 1;
 	}
       else
 	fprintf (asm_out_file, "%s\n", MINIMAL_TOC_SECTION_ASM_OP);
     }
-  else if ((DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_ELFv2)
-	   && !TARGET_RELOCATABLE)
-    fprintf (asm_out_file, "%s\n", TOC_SECTION_ASM_OP);
+  else if (DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_ELFv2)
+    {
+      fprintf (asm_out_file, "%s\n", TOC_SECTION_ASM_OP);
+      if (!toc_initialized)
+	{
+	  ASM_OUTPUT_ALIGN (asm_out_file, TARGET_64BIT ? 3 : 2);
+	  toc_initialized = 1;
+	}
+    }
   else
     {
       fprintf (asm_out_file, "%s\n", MINIMAL_TOC_SECTION_ASM_OP);
       if (!toc_initialized)
 	{
+	  ASM_OUTPUT_ALIGN (asm_out_file, TARGET_64BIT ? 3 : 2);
 	  ASM_OUTPUT_INTERNAL_LABEL_PREFIX (asm_out_file, "LCTOC1");
 	  fprintf (asm_out_file, " = .+32768\n");
 	  toc_initialized = 1;
@@ -32064,7 +32097,8 @@ rs6000_elf_asm_out_constructor (rtx symbol, int priority)
   switch_to_section (get_section (section, SECTION_WRITE, NULL));
   assemble_align (POINTER_SIZE);
 
-  if (TARGET_RELOCATABLE)
+  if (DEFAULT_ABI == ABI_V4
+      && (TARGET_RELOCATABLE || flag_pic > 1))
     {
       fputs ("\t.long (", asm_out_file);
       output_addr_const (asm_out_file, symbol);
@@ -32094,7 +32128,8 @@ rs6000_elf_asm_out_destructor (rtx symbol, int priority)
   switch_to_section (get_section (section, SECTION_WRITE, NULL));
   assemble_align (POINTER_SIZE);
 
-  if (TARGET_RELOCATABLE)
+  if (DEFAULT_ABI == ABI_V4
+      && (TARGET_RELOCATABLE || flag_pic > 1))
     {
       fputs ("\t.long (", asm_out_file);
       output_addr_const (asm_out_file, symbol);
@@ -32136,7 +32171,8 @@ rs6000_elf_declare_function_name (FILE *file, const char *name, tree decl)
       return;
     }
 
-  if (TARGET_RELOCATABLE
+  if (DEFAULT_ABI == ABI_V4
+      && (TARGET_RELOCATABLE || flag_pic > 1)
       && !TARGET_SECURE_PLT
       && (get_pool_size () != 0 || crtl->profile)
       && uses_TOC ())

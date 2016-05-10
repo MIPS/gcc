@@ -257,7 +257,8 @@ Objective-C and Objective-C++ Dialects}.
 -Wc90-c99-compat -Wc99-c11-compat @gol
 -Wc++-compat -Wc++11-compat -Wc++14-compat -Wcast-align  -Wcast-qual  @gol
 -Wchar-subscripts -Wclobbered  -Wcomment -Wconditionally-supported  @gol
--Wconversion -Wcoverage-mismatch -Wno-cpp -Wdate-time -Wdelete-incomplete @gol
+-Wconversion -Wcoverage-mismatch -Wno-cpp -Wdangling-else -Wdate-time @gol
+-Wdelete-incomplete @gol
 -Wno-deprecated -Wno-deprecated-declarations -Wno-designated-init @gol
 -Wdisabled-optimization @gol
 -Wno-discarded-qualifiers -Wno-discarded-array-qualifiers @gol
@@ -848,6 +849,7 @@ Objective-C and Objective-C++ Dialects}.
 -mvirt -mno-virt @gol
 -mxpa -mno-xpa @gol
 -mmicromips -mno-micromips @gol
+-mmsa -mno-msa @gol
 -mfpu=@var{fpu-type} @gol
 -msmartmips  -mno-smartmips @gol
 -mpaired-single  -mno-paired-single  -mdmx  -mno-mdmx @gol
@@ -946,7 +948,7 @@ See RS/6000 and PowerPC Options.
 @emph{RL78 Options}
 @gccoptlist{-msim -mmul=none -mmul=g13 -mmul=g14 -mallregs @gol
 -mcpu=g10 -mcpu=g13 -mcpu=g14 -mg10 -mg13 -mg14 @gol
--m64bit-doubles -m32bit-doubles}
+-m64bit-doubles -m32bit-doubles -msave-mduc-in-interrupts}
 
 @emph{RS/6000 and PowerPC Options}
 @gccoptlist{-mcpu=@var{cpu-type} @gol
@@ -1050,7 +1052,7 @@ See RS/6000 and PowerPC Options.
 -mb  -ml  -mdalign  -mrelax @gol
 -mbigtable -mfmovd -mrenesas -mno-renesas -mnomacsave @gol
 -mieee -mno-ieee -mbitops  -misize  -minline-ic_invalidate -mpadstruct @gol
--mspace -mprefergot  -musermode -multcost=@var{number} -mdiv=@var{strategy} @gol
+-mprefergot -musermode -multcost=@var{number} -mdiv=@var{strategy} @gol
 -mdivsi3_libfunc=@var{name} -mfixed-range=@var{register-range} @gol
 -maccumulate-outgoing-args @gol
 -matomic-model=@var{atomic-model} @gol
@@ -3976,46 +3978,6 @@ Also warn if a comparison like @code{x<=y<=z} appears; this is
 equivalent to @code{(x<=y ? 1 : 0) <= z}, which is a different
 interpretation from that of ordinary mathematical notation.
 
-Also warn about constructions where there may be confusion to which
-@code{if} statement an @code{else} branch belongs.  Here is an example of
-such a case:
-
-@smallexample
-@group
-@{
-  if (a)
-    if (b)
-      foo ();
-  else
-    bar ();
-@}
-@end group
-@end smallexample
-
-In C/C++, every @code{else} branch belongs to the innermost possible
-@code{if} statement, which in this example is @code{if (b)}.  This is
-often not what the programmer expected, as illustrated in the above
-example by indentation the programmer chose.  When there is the
-potential for this confusion, GCC issues a warning when this flag
-is specified.  To eliminate the warning, add explicit braces around
-the innermost @code{if} statement so there is no way the @code{else}
-can belong to the enclosing @code{if}.  The resulting code
-looks like this:
-
-@smallexample
-@group
-@{
-  if (a)
-    @{
-      if (b)
-        foo ();
-      else
-        bar ();
-    @}
-@}
-@end group
-@end smallexample
-
 Also warn for dangerous uses of the GNU extension to
 @code{?:} with omitted middle operand. When the condition
 in the @code{?}: operator is a boolean expression, the omitted value is
@@ -5148,6 +5110,51 @@ compiler doesn't give this warning for types defined in the main .C
 file, as those are unlikely to have multiple definitions.
 @option{-Wsubobject-linkage} is enabled by default.
 
+@item -Wdangling-else
+@opindex Wdangling-else
+@opindex Wno-dangling-else
+Warn about constructions where there may be confusion to which
+@code{if} statement an @code{else} branch belongs.  Here is an example of
+such a case:
+
+@smallexample
+@group
+@{
+  if (a)
+    if (b)
+      foo ();
+  else
+    bar ();
+@}
+@end group
+@end smallexample
+
+In C/C++, every @code{else} branch belongs to the innermost possible
+@code{if} statement, which in this example is @code{if (b)}.  This is
+often not what the programmer expected, as illustrated in the above
+example by indentation the programmer chose.  When there is the
+potential for this confusion, GCC issues a warning when this flag
+is specified.  To eliminate the warning, add explicit braces around
+the innermost @code{if} statement so there is no way the @code{else}
+can belong to the enclosing @code{if}.  The resulting code
+looks like this:
+
+@smallexample
+@group
+@{
+  if (a)
+    @{
+      if (b)
+        foo ();
+      else
+        bar ();
+    @}
+@}
+@end group
+@end smallexample
+
+This warning is enabled by @option{-Wparentheses}.
+
 @item -Wdate-time
 @opindex Wdate-time
 @opindex Wno-date-time
@@ -6265,7 +6272,6 @@ also turns on the following optimization flags:
 -foptimize-strlen @gol
 -fpartial-inlining @gol
 -fpeephole2 @gol
--frename-registers @gol
 -freorder-blocks-algorithm=stc @gol
 -freorder-blocks-and-partition -freorder-functions @gol
 -frerun-cse-after-loop  @gol
@@ -8573,8 +8579,7 @@ debug information format adopted by the target, however, it can
 make debugging impossible, since variables no longer stay in
 a ``home register''.
 
-Enabled by default with @option{-funroll-loops} and @option{-fpeel-loops},
-and also enabled at levels @option{-O2}, @option{-O3} and @option{-Os}.
+Enabled by default with @option{-funroll-loops} and @option{-fpeel-loops}.
 
 @item -fschedule-fusion
 @opindex fschedule-fusion
@@ -19778,6 +19783,20 @@ functions as well.
 Make the @code{double} data type be 64 bits (@option{-m64bit-doubles})
 or 32 bits (@option{-m32bit-doubles}) in size.  The default is
 @option{-m32bit-doubles}.
+
+@item -msave-mduc-in-interrupts
+@item -mno-save-mduc-in-interrupts
+@opindex msave-mduc-in-interrupts
+@opindex mno-save-mduc-in-interrupts
+Specifies that interrupt handler functions should preserve the
+MDUC registers.  This is only necessary if normal code might use
+the MDUC registers, for example because it performs multiplication
+and division operations.  The default is to ignore the MDUC registers
+as this makes the interrupt handlers faster.  The target option -mg13
+needs to be passed for this to work as this feature is only available
+on the G13 target (S2 core).  The MDUC registers will only be saved
+if the interrupt handler performs a multiplication or division
+operation or it calls another function.
 
 @end table
 
