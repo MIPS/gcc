@@ -1,3 +1,124 @@
+2016-05-10  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2016-05-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/70916
+	* tree-vect-patterns.c (vect_recog_mask_conversion_pattern): Give up
+	if COND_EXPR rhs1 is neither SSA_NAME nor COMPARISON_CLASS_P.
+
+2016-05-10  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	Backport from mainline r235962.
+	2016-05-06  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR debug/70935
+	* tree-ssa-loop-unswitch.c (find_loop_guard): Reject guard edge with
+	loop latch destination.
+
+2016-05-10  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2016-05-10  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.md ("*vec_cmp<insn_cmp>df_cconly")
+	("*fixuns_truncdfdi2_z13")
+	("*fixuns_trunc<FP:mode><GPR:mode>2_z196")
+	("*fix_truncdfdi2_bfp_z13", "*floatunsdidf2_z13")
+	("*extendsfdf2_z13"): Replace TARGET_Z13 with TARGET_VX.
+
+2016-05-10  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	Backport from mainline
+	2016-04-27  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* config/rtems.h (LIB_SPEC): Add -latomic.
+
+2016-05-10  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	Backport from mainline
+	2016-04-27  Joel Sherrill  <joel@rtems.org>
+
+	* config/microblaze/rtems.h: Redefine LINK_SPEC to avoid
+	xilink.ld and flags not relevant to RTEMS.
+
+2016-05-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (absneg splitters with general regs): Use
+	general_reg_operand predicate.
+	(btsq peephole2): Use x86_64_immediate_operand to check if new
+	value is suitable for immediate operand.  Generate emitted insn
+	using RTL expressions.
+	(btcq peephole2): Ditto.
+	(btrq peephole2): Ditto.  Generate correct immediate operand
+	for AND masking.
+
+2016-05-07  Tom de Vries  <tom@codesourcery.com>
+
+	backport:
+	2016-05-07  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/70956
+	* graphite-scop-detection.c (build_cross_bb_scalars_def): Handle NULL
+	def.
+
+2016-05-06  Marek Polacek  <polacek@redhat.com>
+
+	Backported from mainline
+	2016-05-06  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/70875
+	* ubsan.c (get_ubsan_type_info_for_type): Remove assert.
+
+2016-05-06  Marek Polacek  <polacek@redhat.com>
+
+	Backported from mainline
+	2016-04-29  Marek Polacek  <polacek@redhat.com>
+		    Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/70342
+	* fold-const.c (tree_single_nonzero_warnv_p): For TARGET_EXPR, use
+	TARGET_EXPR_SLOT as a base.
+
+2016-05-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-ssa-coalesce.c (gimple_can_coalesce_p): Fix reference in head
+	comment.
+	(compute_samebase_partition_bases): Fix typo.
+
+2016-05-03  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* dwarf2out.c (resolve_args_picking_1): Replace the frame_offset
+	occurence with frame_offset_ ones.
+
+2016-04-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/70858
+	* config/i386/i386.c (bdesc_special_args): Add | OPTION_MASK_ISA_64BIT
+	to __builtin_ia32_lwpval64 and __builtin_ia32_lwpins64.
+	(bdesc_args): Add | OPTION_MASK_ISA_64BIT to __builtin_ia32_bextr_u64,
+	__builtin_ia32_bextri_u64, __builtin_ia32_bzhi_di,
+	__builtin_ia32_pdep_di and __builtin_ia32_pext_di.
+
+2016-04-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	Backport from mainline
+	2016-04-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/70759
+	* stor-layout.h (internal_reference_types): Delete.
+	* stor-layout.c (reference_types_internal): Likewise.
+	(internal_reference_types): Likewise.
+	(layout_type) <REFERENCE_TYPE>: Adjust.
+
+2016-04-27  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2016-04-25  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-builtin.def: Correct pasto error for
+	stxvd2x and stxvw4x built-in functions.
+
 2016-04-27  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backported from mainline
@@ -92,7 +213,7 @@
 	constant boolean.
 
 2016-04-20  Andrew Pinski  <apinski@cavium.com>
-            Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+	    Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
 
 	PR target/64971
 	* config/aarch64/aarch64.md (sibcall): Force call

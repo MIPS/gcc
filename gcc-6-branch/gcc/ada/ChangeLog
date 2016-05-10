@@ -1,3 +1,49 @@
+2016-05-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/70969
+	* system-darwin-ppc64.ads: Add pragma No_Elaboration_Code_All.
+	* system-linux-armeb.ads: Likewise.
+	* system-linux-mips64el.ads: Likewise.
+	* system-linux-mips.ads: Likewise.
+	* system-linux-mipsel.ads: Likewise.
+	* system-linux-ppc64.ads: Likewise.
+	* system-linux-sparcv9.ads: Likewise.
+	* system-rtems.ads: Likewise.
+
+2016-05-04  Samuel Thibault  <samuel.thibault@ens-lyon.org>
+
+	* s-osinte-gnu.ads (Get_Page_Size): Return int and use getpagesize
+	instead of __getpagesize.
+
+2016-04-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/70900
+	Backport from mainline
+	2016-04-18  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch6.adb (Process_Formals): Do not set a delay freeze on
+	a subprogram that returns a class-wide type, if the subprogram
+	is a compilation unit, because otherwise gigi will treat the
+	subprogram as external, leading to link errors.
+
+2016-05-02  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc-interface/Makefile.in (install-gcc-specs): Use foreach.
+	Honor DESTDIR.
+
+2016-04-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/70786
+	* a-textio.adb (Get_Immediate): Add missing 'not' in expression.
+
+2016-04-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	Backport from mainline
+	2016-04-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/misc.c (gnat_init): Do not call
+	internal_reference_types.
+
 2016-04-27  Release Manager
 
 	* GCC 6.1.0 released.
