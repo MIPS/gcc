@@ -1,0 +1,349 @@
+Bottom: 51800dab1f083c7d2ac493d7b159cf0db265d1e1
+Top:    da89f4ba0ba98702f0af9315171a76b333bd3c15
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-05-10 03:25:20 -0300
+
+Refresh of using-inline-ns-aliases-etc.patch
+
+---
+
+diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
+index c520276..2d8bb7a 100644
+--- a/include/gcc-cp-fe.def
++++ b/include/gcc-cp-fe.def
+@@ -23,13 +23,17 @@
+    newly-introduced decls will be bound.  An empty string identifies
+    the global namespace, whereas NULL identifies an anonymous
+    namespace.  A namespace named NAME is created in the current scope,
+-   if needed.  */
++   if needed.
++
++   If the newly-created namespace is to be an inline namespace, after
++   push_namespace, get the nested namespace decl with
++   get_current_binding_level, pop back to the enclosing namespace,
++   call using_namespace with INLINE_P, and then push to the inline
++   namespace again.  */
+ 
+ GCC_METHOD1 (int /* bool */, push_namespace,
+ 	     const char *)	      /* Argument NAME.  */
+ 
+-// FIXME: inline namespaces, anyone?
+-
+ /* Pop the namespace last entered with push_namespace, restoring the
+    binding level in effect before the matching push_namespace.  */
+ 
+@@ -40,6 +44,49 @@ GCC_METHOD0 (int /* bool */, pop_namespace)
+ 
+ GCC_METHOD0 (gcc_decl, get_current_binding_level)
+ 
++/* Add USED_NS to the namespaces used by the current binding level.
++   Use get_current_binding_level to obtain USED_NS's gcc_decl.
++   INLINE_P indicates USED_NS was declared as an inline namespace, or
++   the presence of attribute strong in the using directive, which
++   is an older but equivalent GCC extension.  */
++
++GCC_METHOD2 (int /* bool */, using_namespace,
++	     gcc_decl,			/* Argument USED_NS.  */
++	     int /* bool */)		/* Argument INLINE_P.  */
++
++/* Introduce a namespace alias declaration, as in:
++
++   namespace foo = [... ::] bar;
++
++   After this call, namespace TARGET will be visible as ALIAS within
++   the current namespace.  Get the declaration for TARGET by calling
++   get_current_binding_level after pushing into it.  */
++
++GCC_METHOD2 (int /* bool */, new_namespace_alias,
++	     const char *,		/* Argument ALIAS.  */
++	     gcc_decl)			/* Argument TARGET.  */
++
++/* Introduce a using declaration, as in:
++
++   using foo::bar;
++
++   The TARGET decl names the qualifying scope (foo:: above) and the
++   identifier (bar), but that does not mean that only TARGET will be
++   brought into the current scope: all bindings of TARGET's identifier
++   in the qualifying scope will be brought in.
++
++   FLAGS should specify GCC_CP_SYMBOL_USING.  If the current scope is
++   a class scope, visibility flags must be supplied.
++
++   Even when TARGET is template dependent, we don't need to specify
++   whether or not it is a typename: the supplied declaration (that
++   could be a template-dependent type converted to declaration by
++   type_decl) indicates so.  */
++
++GCC_METHOD2 (int /* bool */, new_using_decl,
++	     enum gcc_cp_symbol_kind, /* Argument FLAGS.  */
++	     gcc_decl)		      /* Argument TARGET.  */
++
+ /* Create a new "decl" in GCC, and bind it in the current binding
+    level.  A decl is a declaration, basically a kind of symbol.
+ 
+@@ -157,10 +204,6 @@ GCC_METHOD0 (gcc_decl, get_current_binding_level)
+      cv      operator <T> (conversion operator)
+      li<id>  operator "" <id>
+ 
+-   FIXME: we would benefit from a gcc_decl argument, to be able to
+-   introduce using declarations, using directives and namespace
+-   aliases.
+-
+    FIXME: How about attributes; static_assert; lambdas?  */
+ 
+ GCC_METHOD7 (gcc_decl, new_decl,
+@@ -398,6 +441,9 @@ GCC_METHOD3 (gcc_decl, new_dependent_value_expr,
+ 	     const char *,			      /* Argument ID.  */
+ 	     const struct gcc_cp_template_args *)  /* Argument TARGS.  */
+ 
++// FIXME: the above needs to support special member function names and
++// overloaded operator names too.
++
+ /* Build a gcc_expr for the value VALUE in type TYPE.  */
+ 
+ GCC_METHOD2 (gcc_expr, literal_expr,
+@@ -507,9 +553,6 @@ GCC_METHOD5 (gcc_type, start_new_class_type,
+ 	     const char *,	      /* Argument FILENAME.  */
+ 	     unsigned int)	      /* Argument LINE_NUMBER.  */
+ 
+-// FIXME: do we need a flag to distinguish structs and classes?  This
+-// would be beneficial at least for error messages.
+-
+ /* Create a new 'union' type, record it in the current binding level,
+    and enter its own binding level.  Initially it has no fields.
+ 
+@@ -556,9 +599,9 @@ GCC_METHOD5 (gcc_type, start_new_enum_type,
+ 	     unsigned int)	      /* Argument LINE_NUMBER.  */
+ 
+ /* Add a new constant to an enum type.  NAME is the constant's name
+-   and VALUE is its value.  */
++   and VALUE is its value.  Returns a gcc_decl for the constant.  */
+ 
+-GCC_METHOD3 (int /* bool */, build_add_enum_constant,
++GCC_METHOD3 (gcc_decl, build_add_enum_constant,
+ 	     gcc_type,		       /* Argument ENUM_TYPE.  */
+ 	     const char *,	       /* Argument NAME.  */
+ 	     unsigned long)	       /* Argument VALUE.  */
+@@ -620,8 +663,6 @@ GCC_METHOD4 (gcc_type, build_method_type,
+ 	     enum gcc_cp_qualifiers,	   /* Argument QUALS.  */
+ 	     enum gcc_cp_ref_qualifiers)   /* Argument RQUALS.  */
+ 
+-// FIXME: add default expressions for function arguments?
+-
+ /* Return an integer type with the given properties.  If BUILTIN_NAME
+    is non-NULL, it must name a builtin integral type with the given
+    signedness and size, and that is the type that will be returned.  */
+diff --git a/include/gcc-cp-interface.h b/include/gcc-cp-interface.h
+index c276d5a..1d0d4c7 100644
+--- a/include/gcc-cp-interface.h
++++ b/include/gcc-cp-interface.h
+@@ -41,7 +41,7 @@ struct gcc_cp_context;
+ 
+ enum gcc_cp_api_version
+ {
+-  GCC_CP_FE_VERSION_0 = 0xffffffff-10
++  GCC_CP_FE_VERSION_0 = 0xffffffff-11
+ };
+ 
+ /* Qualifiers.  */
+@@ -126,7 +126,7 @@ enum gcc_cp_symbol_kind
+ 
+   GCC_CP_SYMBOL_VARIABLE,
+ 
+-  /* A typedef.  */
++  /* A typedef, or an alias declaration (including template ones).  */
+ 
+   GCC_CP_SYMBOL_TYPEDEF,
+ 
+@@ -141,17 +141,28 @@ enum gcc_cp_symbol_kind
+   GCC_CP_SYMBOL_CLASS,
+ 
+   /* A union being introduced with start_new_union_type.  */
++
+   GCC_CP_SYMBOL_UNION,
+ 
+   /* An enumeration type being introduced with start_new_enum_type.  */
++
+   GCC_CP_SYMBOL_ENUM,
+ 
+   /* A nonstatic data member being introduced with new_field.  */
++
+   GCC_CP_SYMBOL_FIELD,
+ 
+   /* A base class in a gcc_vbase_array.  */
++
+   GCC_CP_SYMBOL_BASECLASS,
+ 
++  /* A using declaration in new_using_decl.  */
++
++  GCC_CP_SYMBOL_USING,
++
++  /* Marker to check that we haven't exceeded GCC_CP_SYMBOL_MASK.  */
++  GCC_CP_SYMBOL_END,
++
+   GCC_CP_SYMBOL_MASK = 15,
+ 
+   /* When defining a class member, at least one of the
+diff --git a/libcc1/libcc1plugin.cc b/libcc1/libcc1plugin.cc
+index e61e042..4403dd1 100644
+--- a/libcc1/libcc1plugin.cc
++++ b/libcc1/libcc1plugin.cc
+@@ -585,7 +585,7 @@ plugin_finish_record_or_union (cc1_plugin::connection *,
+       C_TYPE_FIELDS_VOLATILE (x) = C_TYPE_FIELDS_VOLATILE (t);
+       C_TYPE_VARIABLE_SIZE (x) = C_TYPE_VARIABLE_SIZE (t);
+       /* We copy these fields too.  */
+-      TYPE_ALIGN (x) = TYPE_ALIGN (t);
++      SET_TYPE_ALIGN (x, TYPE_ALIGN (t));
+       TYPE_SIZE (x) = TYPE_SIZE (t);
+       TYPE_SIZE_UNIT (x) = TYPE_SIZE_UNIT (t);
+       if (x != record_or_union_type)
+diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
+index 3741dfb..d258f35 100644
+--- a/libcc1/libcp1plugin.cc
++++ b/libcc1/libcp1plugin.cc
+@@ -454,6 +454,47 @@ plugin_get_current_binding_level (cc1_plugin::connection *)
+   return convert_out (decl);
+ }
+ 
++int
++plugin_using_namespace (cc1_plugin::connection *,
++			gcc_decl used_ns_in,
++			int inline_p)
++{
++  tree used_ns = convert_in (used_ns_in);
++
++  gcc_assert (TREE_CODE (used_ns) == NAMESPACE_DECL);
++
++  do_using_directive (used_ns);
++
++  /* ??? Should we build the attribute and call parse_using_directive
++     instead, to avoid logic duplication?  */
++  if (inline_p)
++    {
++      /* Make sure other values are not used; we might want to make it
++	 an enum bitfield in the future.  */
++      gcc_assert (inline_p == 1);
++
++      gcc_assert (toplevel_bindings_p ());
++      gcc_assert (is_ancestor (current_namespace, used_ns));
++      DECL_NAMESPACE_ASSOCIATIONS (used_ns)
++	= tree_cons (current_namespace, 0,
++		     DECL_NAMESPACE_ASSOCIATIONS (used_ns));
++    }
++
++  return 1;
++}
++
++int
++plugin_new_namespace_alias (cc1_plugin::connection *,
++			    const char *id,
++			    gcc_decl target_in)
++{
++  tree name = get_identifier (id);
++  tree target = convert_in (target_in);
++
++  do_namespace_alias (name, target);
++
++  return 1;
++}
+ 
+ static inline void
+ set_access_flags (tree decl, enum gcc_cp_symbol_kind flags)
+@@ -464,13 +505,16 @@ set_access_flags (tree decl, enum gcc_cp_symbol_kind flags)
+     {
+     case GCC_CP_ACCESS_PRIVATE:
+       TREE_PRIVATE (decl) = true;
++      current_access_specifier = access_private_node;
+       break;
+ 
+     case GCC_CP_ACCESS_PROTECTED:
+       TREE_PROTECTED (decl) = true;
++      current_access_specifier = access_protected_node;
+       break;
+ 
+     case GCC_CP_ACCESS_PUBLIC:
++      current_access_specifier = access_public_node;
+       break;
+ 
+     default:
+@@ -478,6 +522,50 @@ set_access_flags (tree decl, enum gcc_cp_symbol_kind flags)
+     }
+ }
+ 
++int
++plugin_new_using_decl (cc1_plugin::connection *,
++		       enum gcc_cp_symbol_kind flags,
++		       gcc_decl target_in)
++{
++  tree target = convert_in (target_in);
++  gcc_assert ((flags & GCC_CP_SYMBOL_MASK) == GCC_CP_SYMBOL_USING);
++  gcc_assert (!(flags & GCC_CP_FLAG_MASK));
++  enum gcc_cp_symbol_kind acc_flags;
++  acc_flags = (enum gcc_cp_symbol_kind) (flags & GCC_CP_ACCESS_MASK);
++
++  gcc_assert (!template_parm_scope_p ());
++
++  bool class_member_p = at_class_scope_p ();
++  gcc_assert (!(acc_flags & GCC_CP_ACCESS_MASK) == !class_member_p);
++
++  tree identifier = DECL_NAME (target);
++  tree tcontext = DECL_CONTEXT (target);
++
++  if (UNSCOPED_ENUM_P (tcontext))
++    tcontext = CP_TYPE_CONTEXT (tcontext);
++
++  if (class_member_p)
++    {
++      tree decl = do_class_using_decl (tcontext, identifier);
++
++      if (DECL_DECLARES_TYPE_P (target))
++	USING_DECL_TYPENAME_P (decl);
++
++      set_access_flags (decl, flags);
++
++      finish_member_declaration (decl);
++    }
++  else if (!at_namespace_scope_p ())
++    {
++      gcc_unreachable ();
++      do_local_using_decl (target, tcontext, identifier);
++    }
++  else
++    do_toplevel_using_decl (target, tcontext, identifier);
++
++  return 1;
++}
++
+ /* Abuse an unused field of the dummy template parms entry to hold the
+    parm list.  */
+ #define TP_PARM_LIST TREE_TYPE (current_template_parms)
+@@ -542,8 +630,8 @@ plugin_new_decl (cc1_plugin::connection *self,
+ 
+   if (template_decl_p)
+     {
+-      /* FIXME: template using declarations will require changes here.  */
+-      gcc_assert (code == FUNCTION_DECL || code == RECORD_TYPE);
++      gcc_assert (code == FUNCTION_DECL || code == RECORD_TYPE
++		  || code == TYPE_DECL);
+ 
+       /* Finish the template parm list that started this template parm.  */
+       end_template_parm_list (TP_PARM_LIST);
+@@ -1337,7 +1425,7 @@ plugin_start_new_enum_type (cc1_plugin::connection *self,
+   return convert_out (ctx->preserve (type));
+ }
+ 
+-int
++gcc_decl
+ plugin_build_add_enum_constant (cc1_plugin::connection *,
+ 				gcc_type enum_type_in,
+ 				const char *name,
+@@ -1350,7 +1438,7 @@ plugin_build_add_enum_constant (cc1_plugin::connection *,
+   build_enumerator (get_identifier (name), build_int_cst (enum_type, value),
+ 		    enum_type, NULL_TREE, BUILTINS_LOCATION);
+ 
+-  return 1;
++  return convert_out (TREE_VALUE (TYPE_VALUES (enum_type)));
+ }
+ 
+ int
