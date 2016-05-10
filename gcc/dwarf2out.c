@@ -15571,7 +15571,7 @@ resolve_args_picking_1 (dw_loc_descr_ref loc, unsigned initial_frame_offset,
 
 	    if (stack_usage == NULL)
 	      return false;
-	    frame_offset += *stack_usage;
+	    frame_offset_ += *stack_usage;
 	    break;
 	  }
 
@@ -17806,7 +17806,7 @@ native_encode_initializer (tree init, unsigned char *array, int size)
 	      fieldsize = tree_to_shwi (DECL_SIZE_UNIT (field));
 	      pos = int_byte_position (field);
 	      gcc_assert (pos + fieldsize <= size);
-	      if (val
+	      if (val && fieldsize != 0
 		  && !native_encode_initializer (val, array + pos, fieldsize))
 		return false;
 	    }
