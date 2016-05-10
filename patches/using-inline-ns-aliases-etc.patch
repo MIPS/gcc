@@ -1,0 +1,10 @@
+Bottom: 51800dab1f083c7d2ac493d7b159cf0db265d1e1
+Top:    51800dab1f083c7d2ac493d7b159cf0db265d1e1
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-05-10 03:25:15 -0300
+
+implement namespace-related features: using, inline ns, aliases
+
+---
+
+
