@@ -1,5 +1,27 @@
 
 2016-05-11   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{very unstable; could work only with ASLR disabled...}}
+	* melt-runtime.h (MELT_ALIGN, MELT_LIKELY, MELT_UNLIKELY): Defined
+	earlier.
+	(melt_magic_discr): Use MELT_UNLIKELY.
+	(melt_debugbacktrace): Defined with melt_debugbacktrace_at.
+	(melt_debugmsgval): Defined correctly.
+	* melt-runtime.cc (Melt_Module::run_marking)
+	(Melt_Module::run_forwarding): use melt_debuggc_eprintf.
+	(melt_allocate_young_gc_zone, melt_free_young_gc_zone): Use
+	MELT_UNLIKELY for melt_alptr_1, ... tests.
+	(melt_really_initialize): Add mmap-reserve runtime argument to
+	forcibly reserve megabytes.
+	* melt/generated/meltrunsup-inc.cc: Manually edited for more
+	debuggc on forwarding.
+	* melt/warmelt-base.melt (messagenum_dbg, longbacktrace_dbg)
+	(debugcstring, debuglong): Use melt_debugeprintf.
+	(valdesc_object): Removed the hack for monitoring of copying of
+	alptr1, alptr2.
+	* melt/warmelt-modes.melt (generate_runtypesupport_forwcopy_fun):
+	Emit support for melt_alptr_1, ... in prologue of melt_forwarded_copy.
+
+2016-05-11   Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.h: Replace all the debugep* macros or functions
 	with melt_debugep*...
@@ -640,7 +662,7 @@
 	Move previous gcc/ChangeLog.MELT to gcc/ChangeLog.MELT.2012-2014
 
 
-Copyright (C) 2015 Free Software Foundation, Inc.
+Copyright (C) 2015 - 2016 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright

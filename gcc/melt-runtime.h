@@ -32,6 +32,17 @@ along with GCC; see the file COPYING3.   If not see
 #include <stdint.h>
 #endif /*HAVE_STDINT_H*/
 
+/* the alignment and the likely macros */
+#if defined(__GNUC__) && !defined(__STRICT_ANSI__)
+#define MELT_ALIGN (__alignof__(union melt_un))
+#define MELT_LIKELY(P) __builtin_expect((P),1)
+#define MELT_UNLIKELY(P) __builtin_expect((P),0)
+#else
+#define MELT_ALIGN (2*sizeof(void*))
+#define MELT_LIKELY(P) (P)
+#define MELT_UNLIKELY(P) (P)
+#endif
+
 #define MELT_HAVE_CLASSY_FRAME 2
 
 #ifndef GCCPLUGIN_VERSION
@@ -653,7 +664,7 @@ melt_release_ppbuf (void)
 }
 
 #if MELT_HAVE_RUNTIME_DEBUG > 0
-extern int melt_debug_garbcoll;
+extern "C" int melt_debug_garbcoll;
 #define melt_debuggc_eprintf(Fmt,...) do {if (melt_debug_garbcoll > 0) \
       fprintf (stderr, "%s:%d:@$*" Fmt "\n",			       \
 	       melt_basename(__FILE__), __LINE__, ##__VA_ARGS__);} while(0)
@@ -862,7 +873,7 @@ melt_magic_discr (melt_ptr_t p)
   if (!p)
     return 0;
 #if MELT_HAVE_RUNTIME_DEBUG > 0 && defined(MELT_POISON_POINTER)
-  if ((void*) p == MELT_POISON_POINTER)
+  if (MELT_UNLIKELY((void*) p == MELT_POISON_POINTER))
     {
       /* This should never happen, and if it happens it means that p
       was insided a poisoned freed data zone, so the memory is
@@ -874,18 +885,17 @@ melt_magic_discr (melt_ptr_t p)
     }
 #endif /*MELT_HAVE_DEBUG > 0 && defined(MELT_POISON_POINTER) */
 #if MELT_HAVE_DEBUG > 0 || MELT_HAVE_RUNTIME_DEBUG > 0
-  if (!p->u_discr)
+  if (MELT_UNLIKELY(!p->u_discr))
     {
       /* This should never happen, we are asking the discriminant of a
       not yet filled, since cleared, memory zone. */
       melt_fatal_error
-      ("corrupted memory heap retrieving magic discriminant of %p,"
-       "(= a cleared memory zone)",
+      ("corrupted memory heap with null magic discriminant in %p",
        (void*) p);
     }
 #endif /*MELT_HAVE_DEBUG or MELT_HAVE_RUNTIME_DEBUG */
 #if MELT_HAVE_RUNTIME_DEBUG > 0 && defined(MELT_POISON_POINTER)
-  if ((void*) (p->u_discr) == MELT_POISON_POINTER)
+  if (MELT_UNLIKELY((void*) (p->u_discr) == MELT_POISON_POINTER))
     {
       /* This should never happen, we are asking the discriminant of a
       zone which has been poisoned, that is has been freed! */
@@ -1086,16 +1096,6 @@ extern bool melt_is_forwarding;
 melt_ptr_t melt_forwarded_copy (melt_ptr_t);
 
 
-/* the alignment */
-#if defined(__GNUC__) && !defined(__STRICT_ANSI__)
-#define MELT_ALIGN (__alignof__(union melt_un))
-#define MELT_LIKELY(P) __builtin_expect((P),1)
-#define MELT_UNLIKELY(P) __builtin_expect((P),0)
-#else
-#define MELT_ALIGN (2*sizeof(void*))
-#define MELT_LIKELY(P) (P)
-#define MELT_UNLIKELY(P) (P)
-#endif
 
 static inline bool
 melt_is_young (const void *const p)
@@ -3732,7 +3732,7 @@ melt_debugbacktrace_at (const char *fil, int lin, const char *msg, int depth)
     }
 }
 
-#define melt_debugbacktrace(Msg,Depth) debugbacktrace_at(__FILE__, __LINE__, (Msg), (Depth))
+#define melt_debugbacktrace(Msg,Depth) melt_debugbacktrace_at(__FILE__, __LINE__, (Msg), (Depth))
 
 static inline void
 melt_debugnum_at (const char *fil, int lin, const char *msg, long val)
@@ -3783,8 +3783,8 @@ void melt_cbreak_at(const char*msg, const char*fil, int lin);
 #define melt_cbreak(Msg) ((void)(Msg))
 #define melt_trace_start(Msg,Cnt) do{}while(0)
 #define melt_trace_end(Msg,Cnt) do{}while(0)
-#undef debugmsgval
-#define debugmsgval(Msg,Val,Count) do {}while(0)
+#undef melt_debugmsgval
+#define melt_debugmsgval(Msg,Val,Count) do {}while(0)
 #endif /*MELT_HAVE_DEBUG*/
 
 // temporarily, till we remove them

@@ -359,11 +359,23 @@ protected:
   };
   void run_marking(void)
   {
-    if (_mm_markrout) (*_mm_markrout) ();
+    if (_mm_markrout) {
+      melt_debuggc_eprintf("Melt_Module::run_marking index#%d descrbase=%s before",
+			   _mm_index, _mm_descrbase.c_str());
+      (*_mm_markrout) ();
+      melt_debuggc_eprintf("Melt_Module::run_marking index#%d descrbase=%s after",
+			   _mm_index, _mm_descrbase.c_str());
+    }
   };
   void run_forwarding (void)
   {
-    if (_mm_forwardrout) (*_mm_forwardrout) ();
+    if (_mm_forwardrout) {
+      melt_debuggc_eprintf("Melt_Module::run_forwarding index#%d descrbase=%s before",
+			   _mm_index, _mm_descrbase.c_str());
+      (*_mm_forwardrout) ();
+      melt_debuggc_eprintf("Melt_Module::run_forwarding index#%d descrbase=%s after",
+			   _mm_index, _mm_descrbase.c_str());
+    }
   };
 public:
   void *get_dlsym (const char*name) const
@@ -810,23 +822,25 @@ melt_allocate_young_gc_zone (long wantedbytes)
   /* You could put a breakpoint here under gdb! */
   gcc_assert (melt_startalz != NULL);
 #if MELT_HAVE_RUNTIME_DEBUG>0
-  if (melt_alptr_1 && (char*)melt_alptr_1 >= (char*)melt_startalz
-      && (char*)melt_alptr_1 < (char*)melt_endalz)
+  if (MELT_UNLIKELY(melt_alptr_1 != NULL
+		    && (char*)melt_alptr_1 >= (char*)melt_startalz
+		    && (char*)melt_alptr_1 < (char*)melt_endalz))
     {
-      fprintf (stderr, "melt_allocate_young_gc_zone zone %p-%p with alptr_1 %p",
+      fprintf (stderr, "melt_allocate_young_gc_zone zone %p-%p with alptr_1 %p;",
                (void*)melt_startalz,  (void*)melt_endalz, melt_alptr_1);
       fflush (stderr);
-      melt_debuggc_eprintf("allocate #%ld young with alptr_1 %p",
+      melt_debuggc_eprintf("allocate #%ld young with alptr_1 %p;",
                            melt_nb_garbcoll, melt_alptr_1);
       melt_break_alptr_1 ("allocate with alptr_1");
     };
-  if (melt_alptr_2 && (char*)melt_alptr_2 >= (char*)melt_startalz
-      && (char*)melt_alptr_2 < (char*)melt_endalz)
+  if (MELT_UNLIKELY(melt_alptr_2 != NULL
+		    && (char*)melt_alptr_2 >= (char*)melt_startalz
+		    && (char*)melt_alptr_2 < (char*)melt_endalz))
     {
-      fprintf (stderr, "melt_allocate_young_gc_zone zone %p-%p with alptr_2 %p",
+      fprintf (stderr, "melt_allocate_young_gc_zone zone %p-%p with alptr_2 %p;",
                (void*)melt_startalz,  (void*)melt_endalz, melt_alptr_2);
       fflush (stderr);
-      melt_debuggc_eprintf("allocate #%ld young with alptr_2 %p",
+      melt_debuggc_eprintf("allocate #%ld young with alptr_2 %p;",
                            melt_nb_garbcoll, melt_alptr_2);
       melt_break_alptr_2 ("allocate with alptr_2");
     };
@@ -842,23 +856,23 @@ melt_free_young_gc_zone (void)
                        melt_nb_garbcoll,
                        (void*)melt_startalz, (void*)melt_endalz);
 #if MELT_HAVE_RUNTIME_DEBUG>0
-  if (melt_alptr_1 && (char*)melt_alptr_1 >= (char*)melt_startalz
-      && (char*)melt_alptr_1 < (char*)melt_endalz)
+  if (MELT_UNLIKELY(melt_alptr_1 && (char*)melt_alptr_1 >= (char*)melt_startalz
+		    && (char*)melt_alptr_1 < (char*)melt_endalz))
     {
-      fprintf (stderr, "melt_free_young_gc_zone zone %p-%p with alptr_1 %p",
+      fprintf (stderr, "melt_free_young_gc_zone zone %p-%p with alptr_1 %p;",
                (void*)melt_startalz,  (void*)melt_endalz, melt_alptr_1);
       fflush (stderr);
-      melt_debuggc_eprintf("free #%ld young with alptr_1 %p",
+      melt_debuggc_eprintf("free #%ld young with alptr_1 %p;",
                            melt_nb_garbcoll, melt_alptr_1);
       melt_break_alptr_1 ("free with alptr_1");
     };
-  if (melt_alptr_2 && (char*)melt_alptr_2 >= (char*)melt_startalz
-      && (char*)melt_alptr_2 < (char*)melt_endalz)
+  if (MELT_UNLIKELY(melt_alptr_2 && (char*)melt_alptr_2 >= (char*)melt_startalz
+		    && (char*)melt_alptr_2 < (char*)melt_endalz))
     {
-      fprintf (stderr, "melt_free_young_gc_zone zone %p-%p with alptr_2 %p",
+      fprintf (stderr, "melt_free_young_gc_zone zone %p-%p with alptr_2 %p;",
                (void*)melt_startalz,  (void*)melt_endalz, melt_alptr_2);
       fflush (stderr);
-      melt_debuggc_eprintf("free #%ld young with alptr_2 %p",
+      melt_debuggc_eprintf("free #%ld young with alptr_2 %p;",
                            melt_nb_garbcoll, melt_alptr_2);
       melt_break_alptr_2("free with alptr_2");
     };
@@ -10349,7 +10363,6 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
 {
   static int inited;
   long seed = 0;
-  /* In GCC 4.7, the random seed is a number.  */
   long randomseednum = 0;
   const char *modstr = NULL;
   const char *inistr = NULL;
@@ -10378,6 +10391,37 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
           versionstr);
 #endif
 
+  // process the mmap-reserve argument; it is the size in megabytes to
+  // reserve memory to fill the virtual address space. Only useful for
+  // debugging the runtime GC, e.g. helpful for heisenbugs that
+  // happens with ASLR only
+  const char*mapresvarg = melt_argument("mmap-reserve");
+  if (MELT_UNLIKELY(mapresvarg != NULL)) {
+    int megabytereserve = atoi(mapresvarg);
+    if (megabytereserve > 0) {
+      size_t reservesize = (long)megabytereserve << 20;
+      void* reservead = mmap(NULL, reservesize, PROT_READ,
+			     MAP_PRIVATE
+#ifdef MAP_NORESERVE
+			     | MAP_NORESERVE
+#endif /*MAP_NORESERVE*/
+			     | MAP_ANONYMOUS,
+			     (int)-1 /*fd*/,
+			     (off_t)0);
+      if (reservead == MAP_FAILED) 
+	fatal_error (UNKNOWN_LOCATION,
+		     "MELT runtime failed to mmap-reserve %d megabytes (%s)",
+		     megabytereserve, xstrerror(errno));
+      else
+	inform (UNKNOWN_LOCATION, "MELT runtime reserved %d megabytes @%p"
+#ifdef MAP_NORESERVE
+		" using MAP_NORESERVE"
+#endif
+		 " at initialization",
+		megabytereserve, reservead);
+      }
+    }
+  
   Melt_Module::initialize ();
   melt_payload_initialize_static_descriptors ();
 
@@ -10717,7 +10761,6 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
 
   if (countdbgstr != (char *) 0)
     melt_debugskipcount = atol (countdbgstr);
-  seed = 0;
   randomseednum = get_random_seed (false);
   gcc_assert (MELT_ALIGN == sizeof (void *)
               || MELT_ALIGN == 2 * sizeof (void *)
@@ -13314,5 +13357,10 @@ extern "C" {
   void *melt_alptr_2=(void*)0;
   unsigned melt_objhash_1=0;
   unsigned melt_objhash_2=0;
+#if MELT_HAVE_RUNTIME_DEBUG > 0
+  const int melt_have_runtime_debug = MELT_HAVE_RUNTIME_DEBUG;
+#else
+  const int melt_dont_have_runtime_debug =  __LINE__;
+#endif 
 }
 /* eof $Id$ */

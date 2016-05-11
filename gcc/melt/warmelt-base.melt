@@ -909,12 +909,12 @@ an integer $I if $I is lower than $N.}#
   #{debugeputs(($msg))}#)
 (defprimitive messagenum_dbg (:cstring msg :long i) :void 
   :doc #{Debug output with message $msg number $i}#
-  #{debugnum(($msg), ($i))}#)
+  #{melt_debugnum(($msg), ($i))}#)
 
 
 (defprimitive longbacktrace_dbg (:cstring msg :long maxdepth) :void
   :doc #{Detailed debug backtrace with message $MSG up to $MAXDEPTH.}#
-  #{debugbacktrace(($MSG), (int)($MAXDEPTH))}#)
+  #{melt_debugbacktrace(($MSG), (int)($MAXDEPTH))}#)
 
 
 (defprimitive checkval_dbg (val :cstring msg) :void
@@ -925,11 +925,11 @@ an integer $I if $I is lower than $N.}#
 
 (defprimitive debugcstring (:cstring msg str) :void
   :doc #{Debug cstring $MSG $STR.}#
-  #{debugeprintf("debugcstring %s '%s'", $msg, $str)}#)
+  #{melt_debugeprintf("debugcstring %s '%s'", $msg, $str)}#)
 
 (defprimitive debuglong (:cstring msg :long num) :void
   :doc #{Debug long stuff with $MSG and number $NUM.}#
-  #{debugeprintf("debuglong %s %ld", $msg, $num)}#)
+  #{melt_debugeprintf("debuglong %s %ld", $msg, $num)}#)
 
 ;;;;;; STRBUF primitives
 ;; primitive to make a strbuf
@@ -2122,17 +2122,6 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
 	 ix < oblen;
 	 ix++)
         dst->obj_vartab[ix] = src->obj_vartab[ix];
-#if MELT_HAVE_RUNTIME_DEBUG > 0
- /* for low level debugging with gdb, we may want to catch some copy operations */
-  if (melt_alptr_1 && (void*) src == melt_alptr_1)
-  melt_break_alptr_1 ("copyobj src=alptr1");
-  if (melt_alptr_2 && (void*) src == melt_alptr_2)
-  melt_break_alptr_2 ("copyobj src=alptr2");
-  if (src->obj_hash == melt_objhash_1)
-  melt_break_objhash_1("copyobj src with objhash1");
-  if (src->obj_hash == melt_objhash_2)
-  melt_break_objhash_2("copyobj src with objhash2");
-#endif /* MELT_HAVE_RUNTIME_DEBUG */
   }#
   :valdesc_clonechunk #{$' /* cloning, from VALDESC_OBJECT */
     // in file $_MELT_FILE_ line $_MELT_LINE_
