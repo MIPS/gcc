@@ -1,5 +1,16 @@
 
 2016-05-11   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{notice the new plugin/program argument}}
+	* melt-runtime.cc (MELT_MIN_FULLTHRESHOLD_KW)
+	(MELT_DEFAULT_FULLTHRESHOLD_KW, MELT_MAX_FULLTHRESHOLD_KW):
+	Significantly increased.
+	(melt_verbose_full_gc): New flag. Can be set with
+	-fplugin-arg-melt-verbose-full-gc=1 ...
+	New plugin or program argument: verbose-full-gc....
+	(melt_really_initialize): Set melt_verbose_full_gc according to
+	verbose-full-gc argument.
+
+2016-05-11   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{still unstable probably}}
 	* melt-runtime.h (meltgc_allocate): The tracing with
 	melt_alptr_1... is done when MELT_HAVE_RUNTIME_DEBUG.

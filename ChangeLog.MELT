@@ -1,4 +1,8 @@
 
+2016-05-11   Basile Starynkevitch  <basile@starynkevitch.net>
+	INSTALL/README-MELT-PLUGIN: Improved for some plugin arguments:
+	verbose-full-gc && mmap-reserve.
+
 2016-05-03   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{MELT plugin 1.3 release candidate 1}}
 

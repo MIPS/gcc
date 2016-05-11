@@ -1,5 +1,5 @@
 Short installation instructions for MELT as a plugin to an installed
-gcc-5 or 5.x enabled for plugins.
+gcc-5 or 6.x enabled for plugins.
 
 See also http://gcc-melt.org/
 
@@ -236,7 +236,13 @@ No significant new language feature.
  symlink to a version specific file, which has typedef-s like 
 typedef gimple* melt_gimpleptr_t; // gimple is now a struct
 
+Added plugin options:
 
+   -fplugin-melt-arg-verbose-full-gc: if set to 1 or Y, a message is
+   output to stderr on MELT full garbage collections.
+   
+   -fplugin-melt-arg-mmap-reserve: don't use it, except to debug the
+    MELT runtime. See comment in melt-runtime.cc
 
 
 ################################################################
