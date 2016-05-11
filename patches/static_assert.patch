@@ -1,5 +1,5 @@
-Bottom: 560c2151e5242a7297be487017f8f0160716e6e9
-Top:    f260fd031be240c84249601021af299491d44345
+Bottom: 513ce1a13dd2e8b3eae396770711888fe7bf71f3
+Top:    c266ce6e381b621c2ad5ca6ce733e9977e2a3cb4
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-05-11 05:13:18 -0300
 
@@ -25,10 +25,10 @@ index bbc61d2e..cef4fd6 100644
 +	     const char *, /* Argument FILENAME.  */
 +	     unsigned int) /* Argument LINE_NUMBER.  */
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index 7c6033e..46b90af 100644
+index d51c04c..adff723 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
-@@ -2560,6 +2560,33 @@ plugin_error (cc1_plugin::connection *,
+@@ -2562,6 +2562,33 @@ plugin_error (cc1_plugin::connection *,
    return convert_out (error_mark_node);
  }
  
