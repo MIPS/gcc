@@ -169,7 +169,7 @@ MELT_EXTERN int melt_count_runtime_extensions;
    important, don't add spaces after the terminating double-quote!
    That MELT version string is extracted and used by scripts or
    makefiles... */
-#define MELT_VERSION_STRING "1.3.rc1+"
+#define MELT_VERSION_STRING "1.3.rc2"
 
 /* return a read only version string */
 extern const char* melt_version_str(void);

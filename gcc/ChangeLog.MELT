@@ -1,5 +1,9 @@
 
 2016-05-11   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT plugin 1.3 release candidate 2}}
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.3rc2.
+
+2016-05-11   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{more stable, but...}}
 	* melt/generated/*: Regenerated all.
 

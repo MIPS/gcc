@@ -1,5 +1,8 @@
 
 2016-05-11   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT plugin 1.3 release candidate 2}}
+
+2016-05-11   Basile Starynkevitch  <basile@starynkevitch.net>
 	* INSTALL/README-MELT-PLUGIN: Explain MELT runtime debugging...
 	e.g. a melt.so built with -DMELT_HAVE_RUNTIME_DEBUG=1 ...
 
