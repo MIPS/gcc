@@ -1,0 +1,10 @@
+Bottom: da89f4ba0ba98702f0af9315171a76b333bd3c15
+Top:    da89f4ba0ba98702f0af9315171a76b333bd3c15
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-05-11 05:13:18 -0300
+
+implement static_assert
+
+---
+
+
