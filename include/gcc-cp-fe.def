@@ -430,11 +430,15 @@ GCC_METHOD2 (gcc_type, new_dependent_typespec,
 	     const struct gcc_cp_template_args *)  /* Argument TARGS.  */
 
 /* Build a template-dependent value expression (e.g., T::val or
-   T::template f<X>).  ENCLOSING_TYPE should be the template-dependent
-   nested name specifier (e.g., T), ID should be the name of the
-   member of the ENCLOSING_TYPE (e.g., val or f), and TARGS should
-   list template arguments (e.g. <X>) when f is to name a template
-   function, or be NULL otherwise.
+   T::template mtf<X>, or unqualified f or template tf<X>).
+   ENCLOSING_TYPE should be the template-dependent nested name
+   specifier (e.g., T) or NULL for unqualified names, ID should be the
+   name of the member of the ENCLOSING_TYPE (e.g., val or mtf) or
+   unqualified overloaded function, and TARGS should list template
+   arguments (e.g. <X>) when mtf or tf are to name a template
+   function, or be NULL otherwise.  Unqualified template-dependent
+   names can only name overloaded functions, to be used in call
+   expressions with template-dependent arguments.
 
    If ID is the name of a special member function, FLAGS should be
    GCC_CP_SYMBOL_FUNCTION|GCC_CP_FLAG_SPECIAL_FUNCTION, and ID should
