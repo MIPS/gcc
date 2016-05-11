@@ -244,6 +244,10 @@ Added plugin options:
    -fplugin-melt-arg-mmap-reserve: don't use it, except to debug the
     MELT runtime. See comment in melt-runtime.cc
 
+The MELT runtime (that it the MELT plugin melt.so) could be built with
+-DMELT_HAVE_RUNTIME_DEBUG=1 to enable MELT runtime debugging. This is
+rarely useful for MELT users.
+
 
 ################################################################
 NEWS for 1.2 MELT plugin for GCC 4.9 and 5.x

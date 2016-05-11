@@ -1,5 +1,9 @@
 
 2016-05-11   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{more stable, but...}}
+	* melt/generated/*: Regenerated all.
+
+2016-05-11   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{notice the new plugin/program argument}}
 	* melt-runtime.cc (MELT_MIN_FULLTHRESHOLD_KW)
 	(MELT_DEFAULT_FULLTHRESHOLD_KW, MELT_MAX_FULLTHRESHOLD_KW):
