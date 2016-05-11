@@ -434,15 +434,25 @@ GCC_METHOD2 (gcc_type, new_dependent_typespec,
    nested name specifier (e.g., T), ID should be the name of the
    member of the ENCLOSING_TYPE (e.g., val or f), and TARGS should
    list template arguments (e.g. <X>) when f is to name a template
-   function, or be NULL otherwise.  */
+   function, or be NULL otherwise.
 
-GCC_METHOD3 (gcc_decl, new_dependent_value_expr,
+   If ID is the name of a special member function, FLAGS should be
+   GCC_CP_SYMBOL_FUNCTION|GCC_CP_FLAG_SPECIAL_FUNCTION, and ID should
+   be one of the encodings for special member functions documented in
+   new_decl.  Otherwise, FLAGS should be GCC_CP_SYMBOL_MASK, which
+   suggests the symbol kind is not known (though we know it is not a
+   type).
+
+   If ID denotes a conversion operator, CONV_TYPE should name the
+   target type of the conversion.  Otherwise, CONV_TYPE must be
+   NULL.  */
+
+GCC_METHOD5 (gcc_decl, new_dependent_value_expr,
 	     gcc_type,			  /* Argument ENCLOSING_TYPE.  */
-	     const char *,			      /* Argument ID.  */
+	     enum gcc_cp_symbol_kind,		   /* Argument FLAGS.  */
+	     const char *,			    /* Argument NAME.  */
+	     gcc_type,			       /* Argument CONV_TYPE.  */
 	     const struct gcc_cp_template_args *)  /* Argument TARGS.  */
-
-// FIXME: the above needs to support special member function names and
-// overloaded operator names too.
 
 /* Build a gcc_expr for the value VALUE in type TYPE.  */
 
