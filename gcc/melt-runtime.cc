@@ -1182,7 +1182,7 @@ void
 melt_caught_assign_at (void *ptr, const char *fil, int lin,
                        const char *msg)
 {
-  debugeprintf ("caught assign %p at %s:%d /// %s", ptr, melt_basename (fil), lin,
+  melt_debugeprintf ("caught assign %p at %s:%d /// %s", ptr, melt_basename (fil), lin,
                 msg);
 }
 
@@ -1192,7 +1192,7 @@ void
 melt_cbreak_at (const char *msg, const char *fil, int lin)
 {
   nbcbreak++;
-  debugeprintf_raw ("%s:%d: CBREAK#%ld %s\n", melt_basename (fil), lin, nbcbreak,
+  melt_debugeprintf_raw ("%s:%d: CBREAK#%ld %s\n", melt_basename (fil), lin, nbcbreak,
                     msg);
   gcc_assert (nbcbreak>0);  // useless, but you can put a GDB breakpoint here
 }
@@ -1759,14 +1759,14 @@ melt_garbcoll (size_t wanted, enum melt_gckind_en gckd)
     {
       long nboldspec = 0;
       melt_nb_full_garbcoll++;
-      debugeprintf ("melt_garbcoll #%ld fullgarbcoll #%ld",
+      melt_debugeprintf ("melt_garbcoll #%ld fullgarbcoll #%ld",
                     melt_nb_garbcoll, melt_nb_full_garbcoll);
       melt_clear_old_specialdata ();
-      debugeprintf ("melt_garbcoll calling gcc_collect #%ld after clearing %ld oldspecial marks", melt_nb_full_garbcoll, nboldspec);
+      melt_debugeprintf ("melt_garbcoll calling gcc_collect #%ld after clearing %ld oldspecial marks", melt_nb_full_garbcoll, nboldspec);
       /* There is no need to force a GGC collection, just to run it, and
          Ggc may decide to skip it.  */
       ggc_collect ();
-      debugeprintf ("melt_garbcoll after fullgarbcoll #%ld", melt_nb_full_garbcoll);
+      melt_debugeprintf ("melt_garbcoll after fullgarbcoll #%ld", melt_nb_full_garbcoll);
       melt_delete_unmarked_old_specialdata ();
       if (!quiet_flag)
         {
@@ -2494,21 +2494,21 @@ meltgc_strbuf_reserve (melt_ptr_t outbuf_p, unsigned reslen)
               shownsize = (int)(5000 + (sbufthreshold/(MELT_BIGLEN/16)));
               gcc_assert ((shownsize * 3L) < newsiz);
               /* we generate a quasirandom marker to ease searching */
-              debugeprintf_raw("\n\n##########%06lx##\n", rnd);
-              debugeprintf
+              melt_debugeprintf_raw("\n\n##########%06lx##\n", rnd);
+              melt_debugeprintf
               ("MELT string buffer @%p of length %ld growing very big to %ld\n",
                (void*) outbufv,
                (long) (buf_outbufv->bufend -  buf_outbufv->bufstart),
                newsiz);
-              debugeprintf("MELT big string buffer starts with %d bytes:\n%.*s\n",
+              melt_debugeprintf("MELT big string buffer starts with %d bytes:\n%.*s\n",
                            shownsize, shownsize,
                            buf_outbufv->bufzn + buf_outbufv->bufstart);
-              debugeprintf_raw("##########%06lx##\n", rnd);
-              debugeprintf("MELT big string buffer ends with %d bytes:\n%.*s\n",
+              melt_debugeprintf_raw("##########%06lx##\n", rnd);
+              melt_debugeprintf("MELT big string buffer ends with %d bytes:\n%.*s\n",
                            shownsize, shownsize,
                            buf_outbufv->bufzn + buf_outbufv->bufend
                            - shownsize);
-              debugeprintf_raw("##########%06lx##\n", rnd);
+              melt_debugeprintf_raw("##########%06lx##\n", rnd);
               melt_dbgshortbacktrace ("MELT big string buffer", 20);
             }
         }
@@ -4767,7 +4767,7 @@ meltgc_new_string_without_suffix (meltobject_ptr_t discr_p,
     goto end;
   if (!str)
     goto end;
-  debugeprintf ("meltgc_new_string_without_suffix str '%s' suffix '%s'",
+  melt_debugeprintf ("meltgc_new_string_without_suffix str '%s' suffix '%s'",
                 str, suffix);
   slen = strlen (str);
   if (slen < (int) sizeof(tinybuf) - 1)
@@ -4921,7 +4921,7 @@ meltgc_new_string_nakedbasename (meltobject_ptr_t discr_p,
 #define str_strv  ((struct meltstring_st*)(strv))
   strv = 0;
   discrv = (melt_ptr_t) discr_p;
-  debugeprintf ("meltgc_new_string_nakedbasename start str '%s'", str);
+  melt_debugeprintf ("meltgc_new_string_nakedbasename start str '%s'", str);
   if (!str)
     goto end;
   if (!discrv)
@@ -5382,7 +5382,7 @@ melt_tempdir_path (const char *srcnam, const char* suffix)
   time_t nowt = 0;
   int maymkdir = srcnam != NULL;
   basnam = srcnam?melt_basename (CONST_CAST (char*,srcnam)):0;
-  debugeprintf ("melt_tempdir_path srcnam '%s' basnam '%s' suffix '%s'", srcnam, basnam, suffix);
+  melt_debugeprintf ("melt_tempdir_path srcnam '%s' basnam '%s' suffix '%s'", srcnam, basnam, suffix);
   if (!tmpdirstr)
     tmpdirstr = melt_argument ("tempdir");
   gcc_assert (!basnam || (ISALNUM (basnam[0]) || basnam[0] == '_'));
@@ -5503,9 +5503,9 @@ melt_run_make_for_plugin (const char*ourmakecommand, const char*ourmakefile, con
   struct obstack cmd_obstack;
   memset (&cmd_obstack, 0, sizeof(cmd_obstack));
   obstack_init (&cmd_obstack);
-  debugeprintf ("starting melt_run_make_for_plugin ourmakecommand=%s ourmakefile=%s ourcflags=%s",
+  melt_debugeprintf ("starting melt_run_make_for_plugin ourmakecommand=%s ourmakefile=%s ourcflags=%s",
                 ourmakecommand, ourmakefile, ourcflags);
-  debugeprintf ("starting melt_run_make_for_plugin flavor=%s srcbase=%s binbase=%s workdir=%s pwd=%s",
+  melt_debugeprintf ("starting melt_run_make_for_plugin flavor=%s srcbase=%s binbase=%s workdir=%s pwd=%s",
                 flavor, srcbase, binbase, workdir, mycwd);
   if (!flavor)
     flavor = MELT_DEFAULT_FLAVOR;
@@ -5559,10 +5559,10 @@ melt_run_make_for_plugin (const char*ourmakecommand, const char*ourmakefile, con
   /* add the cflag argument if needed */
   if (ourcflags && ourcflags[0])
     {
-      debugeprintf ("melt_run_make_for_plugin ourcflags=%s", ourcflags);
+      melt_debugeprintf ("melt_run_make_for_plugin ourcflags=%s", ourcflags);
       obstack_1grow (&cmd_obstack, ' ');
       /* don't warn about escapes for cflags, they contain spaces...*/
-      debugeprintf ("melt_run_make_for_plugin CFLAGS_ARG=%s", CFLAGS_ARG);
+      melt_debugeprintf ("melt_run_make_for_plugin CFLAGS_ARG=%s", CFLAGS_ARG);
       obstack_grow (&cmd_obstack, CFLAGS_ARG, strlen (CFLAGS_ARG));
       obstack_add_escaped_path (&cmd_obstack, ourcflags);
       obstack_1grow (&cmd_obstack, ' ');
@@ -5575,7 +5575,7 @@ melt_run_make_for_plugin (const char*ourmakecommand, const char*ourmakefile, con
     {
       struct stat workstat;
       memset (&workstat, 0, sizeof(workstat));
-      debugeprintf ("melt_run_make_for_plugin handling workdir %s", workdir);
+      melt_debugeprintf ("melt_run_make_for_plugin handling workdir %s", workdir);
       if (stat (workdir, &workstat))
         melt_fatal_error ("bad MELT module workspace directory %s - stat failed %m", workdir);
       if (!S_ISDIR(workstat.st_mode))
@@ -5602,18 +5602,18 @@ melt_run_make_for_plugin (const char*ourmakecommand, const char*ourmakefile, con
   obstack_grow (&cmd_obstack, MAKE_TARGET, strlen (MAKE_TARGET));
   obstack_1grow (&cmd_obstack, (char) 0);
   cmdstr = XOBFINISH (&cmd_obstack, char *);
-  debugeprintf("melt_run_make_for_plugin cmdstr= %s", cmdstr);
+  melt_debugeprintf("melt_run_make_for_plugin cmdstr= %s", cmdstr);
   if (!quiet_flag || melt_flag_bootstrapping)
     printf ("MELT plugin running: %s\n", cmdstr);
   fflush (NULL);
   err = system (cmdstr);
-  debugeprintf("melt_run_make_for_plugin command got %d", err);
+  melt_debugeprintf("melt_run_make_for_plugin command got %d", err);
   if (err)
     melt_fatal_error ("MELT plugin module compilation failed (%d) in %s for command %s",
                       err, getpwd (), cmdstr);
   cmdstr = NULL;
   obstack_free (&cmd_obstack, NULL); /* free all the cmd_obstack */
-  debugeprintf ("melt_run_make_for_plugin meltplugin did built binbase %s flavor %s in workdir %s",
+  melt_debugeprintf ("melt_run_make_for_plugin meltplugin did built binbase %s flavor %s in workdir %s",
                 binbase, flavor, workdir);
   if (IS_ABSOLUTE_PATH (binbase))
     inform (UNKNOWN_LOCATION, "MELT plugin has built module %s flavor %s", binbase, flavor);
@@ -5651,7 +5651,7 @@ melt_run_make_for_branch (const char*ourmakecommand, const char*ourmakefile, con
   /* compute the ourmakecommand */
   pex = pex_init (PEX_RECORD_TIMES, ourmakecommand, NULL);
   argv[argc++] = ourmakecommand;
-  debugeprintf("melt_run_make_for_branch arg ourmakecommand %s", ourmakecommand);
+  melt_debugeprintf("melt_run_make_for_branch arg ourmakecommand %s", ourmakecommand);
   /* silent make if not debugging */
   if (!melt_flag_debug && quiet_flag)
     argv[argc++] = "-s";
@@ -5659,7 +5659,7 @@ melt_run_make_for_branch (const char*ourmakecommand, const char*ourmakefile, con
   /* the -f argument, and then the makefile */
   argv[argc++] = "-f";
   argv[argc++] = ourmakefile;
-  debugeprintf("melt_run_make_for_branch arg ourmakefile %s", ourmakefile);
+  melt_debugeprintf("melt_run_make_for_branch arg ourmakefile %s", ourmakefile);
 
   /* the source base argument */
   if (IS_ABSOLUTE_PATH(srcbase))
@@ -5667,14 +5667,14 @@ melt_run_make_for_branch (const char*ourmakecommand, const char*ourmakefile, con
   else
     srcarg = concat (MODULE_SOURCEBASE_ARG, mycwd, "/", srcbase, NULL);
   argv[argc++] = srcarg;
-  debugeprintf ("melt_run_make_for_branch arg srcarg %s", srcarg);
+  melt_debugeprintf ("melt_run_make_for_branch arg srcarg %s", srcarg);
 
   /* add the built with C++ argument if needed */
 #if defined(ENABLE_BUILD_WITH_CXX) || MELT_GCC_VERSION >= 4008 || defined(__cplusplus)
   {
     const char*cplusarg = BUILD_WITH_CXX_ARG "YesBranch";
     argv[argc++] = cplusarg;
-    debugeprintf ("melt_run_make_for_branch arg with C++: %s", cplusarg);
+    melt_debugeprintf ("melt_run_make_for_branch arg with C++: %s", cplusarg);
   }
 #endif /* endif */
 
@@ -5684,11 +5684,11 @@ melt_run_make_for_branch (const char*ourmakecommand, const char*ourmakefile, con
   else
     binarg = concat (MODULE_BINARYBASE_ARG, mycwd, "/", binbase, NULL);
   argv[argc++] = binarg;
-  debugeprintf("melt_run_make_for_branch arg binarg %s", binarg);
+  melt_debugeprintf("melt_run_make_for_branch arg binarg %s", binarg);
   if (ourcflags && ourcflags[0])
     {
       cflagsarg = concat (CFLAGS_ARG, ourcflags, NULL);
-      debugeprintf("melt_run_make_for_branch arg cflagsarg %s", cflagsarg);
+      melt_debugeprintf("melt_run_make_for_branch arg cflagsarg %s", cflagsarg);
       argv[argc++] = cflagsarg;
     }
   /* add the workspace argument if needed, that is if workdir is
@@ -5696,19 +5696,19 @@ melt_run_make_for_branch (const char*ourmakecommand, const char*ourmakefile, con
   if (workdir && workdir[0] && (workdir[0] != '.' || workdir[1]))
     {
       struct stat workstat;
-      debugeprintf ("melt_run_make_for_branch handling workdir %s", workdir);
+      melt_debugeprintf ("melt_run_make_for_branch handling workdir %s", workdir);
       memset (&workstat, 0, sizeof(workstat));
       if (stat (workdir, &workstat) || (!S_ISDIR (workstat.st_mode) && (errno = ENOTDIR) != 0))
         melt_fatal_error ("invalid MELT module workspace directory %s - %m", workdir);
       workarg = concat (WORKSPACE_ARG, workdir, NULL);
       argv[argc++] = workarg;
-      debugeprintf ("melt_run_make_for_branch arg workarg %s", workarg);
+      melt_debugeprintf ("melt_run_make_for_branch arg workarg %s", workarg);
     }
   if (flavor && flavor[0])
     {
       flavorarg = concat (FLAVOR_ARG, flavor, NULL);
       argv[argc++] = flavorarg;
-      debugeprintf ("melt_run_make_for_branch arg flavorarg %s", flavorarg);
+      melt_debugeprintf ("melt_run_make_for_branch arg flavorarg %s", flavorarg);
     }
 
   /* at last the target */
@@ -5720,9 +5720,9 @@ melt_run_make_for_branch (const char*ourmakecommand, const char*ourmakefile, con
   if (melt_flag_debug)
     {
       int i;
-      debugeprintf("melt_run_make_for_branch before pex_run argc=%d", argc);
+      melt_debugeprintf("melt_run_make_for_branch before pex_run argc=%d", argc);
       for (i=0; i<argc; i++)
-        debugeprintf ("melt_run_make_for_branch pex_run argv[%d]=%s", i, argv[i]);
+        melt_debugeprintf ("melt_run_make_for_branch pex_run argv[%d]=%s", i, argv[i]);
     }
   if (!quiet_flag || melt_flag_bootstrapping)
     {
@@ -5741,7 +5741,7 @@ melt_run_make_for_branch (const char*ourmakecommand, const char*ourmakefile, con
       cmdbuf = XOBFINISH (&cmd_obstack, char *);
       printf ("MELT branch running: %s\n", cmdbuf);
     }
-  debugeprintf("melt_run_make_for_branch before pex_run ourmakecommand='%s'", ourmakecommand);
+  melt_debugeprintf("melt_run_make_for_branch before pex_run ourmakecommand='%s'", ourmakecommand);
   fflush (NULL);
   errmsg =
     pex_run (pex, PEX_LAST | PEX_SEARCH, ourmakecommand,
@@ -5791,7 +5791,7 @@ melt_run_make_for_branch (const char*ourmakecommand, const char*ourmakefile, con
               + 1.0e-6*ptime.user_microseconds;
   mysystime = (double) ptime.system_seconds
               + 1.0e-6*ptime.system_microseconds;
-  debugeprintf("melt_run_make_for_branch melt did built binfile %s in %.3f usrtime + %.3f systime", binarg, myusrtime, mysystime);
+  melt_debugeprintf("melt_run_make_for_branch melt did built binfile %s in %.3f usrtime + %.3f systime", binarg, myusrtime, mysystime);
   snprintf (cputimebuf, sizeof(cputimebuf)-1, "%.3f", myusrtime + mysystime);
   if (IS_ABSOLUTE_PATH(binbase))
     inform (UNKNOWN_LOCATION,
@@ -5802,7 +5802,7 @@ melt_run_make_for_branch (const char*ourmakecommand, const char*ourmakefile, con
             "MELT has built module %s inside %s in %s sec.",
             binbase, mycwd, cputimebuf);
 
-  debugeprintf ("melt_run_make_for_branch done srcarg %s binarg %s flavorarg %s workarg %s",
+  melt_debugeprintf ("melt_run_make_for_branch done srcarg %s binarg %s flavorarg %s workarg %s",
                 srcarg, binarg, flavorarg, workarg);
   free (srcarg);
   free (binarg);
@@ -5853,10 +5853,10 @@ melt_compile_source (const char *srcbase, const char *binbase, const char*workdi
   mycwd = getpwd ();
   if (!flavor)
     flavor = MELT_DEFAULT_FLAVOR;
-  debugeprintf ("melt_compile_source start srcbase %s binbase %s flavor %s",
+  melt_debugeprintf ("melt_compile_source start srcbase %s binbase %s flavor %s",
                 srcbase, binbase, flavor);
-  debugeprintf ("melt_compile_source start workdir %s", workdir);
-  debugeprintf ("melt_compile_source start mycwd %s", mycwd);
+  melt_debugeprintf ("melt_compile_source start workdir %s", workdir);
+  melt_debugeprintf ("melt_compile_source start mycwd %s", mycwd);
   MELT_LOCATION_HERE_PRINTF (curlocbuf,
                              "melt_compile_source srcbase %s binbase %s flavor %s",
                              srcbase?(srcbase[0]?srcbase:"*empty*"):"*null*",
@@ -5902,23 +5902,23 @@ melt_compile_source (const char *srcbase, const char *binbase, const char*workdi
   ourmakecommand = melt_argument ("module-make-command");
   if (!ourmakecommand || !ourmakecommand[0])
     ourmakecommand = melt_module_make_command;
-  debugeprintf ("melt_compile_source ourmakecommand='%s'", ourmakecommand);
+  melt_debugeprintf ("melt_compile_source ourmakecommand='%s'", ourmakecommand);
   gcc_assert (ourmakecommand[0]);
   ourmakefile = melt_argument ("module-makefile");
   if (!ourmakefile || !ourmakefile[0])
     ourmakefile = melt_module_makefile;
-  debugeprintf ("melt_compile_source ourmakefile: %s", ourmakefile);
+  melt_debugeprintf ("melt_compile_source ourmakefile: %s", ourmakefile);
   gcc_assert (ourmakefile[0]);
   ourcflags = melt_argument ("module-cflags");
-  debugeprintf ("melt_compile_source ourcflags from melt_argument:%s", ourcflags);
+  melt_debugeprintf ("melt_compile_source ourcflags from melt_argument:%s", ourcflags);
   if (!ourcflags || !ourcflags[0])
     ourcflags = melt_flag_bootstrapping?NULL
                 :(getenv ("GCCMELT_MODULE_CFLAGS"));
   if (!ourcflags || !ourcflags[0])
     ourcflags = melt_module_cflags;
-  debugeprintf ("melt_compile_source ourcflags: %s", ourcflags);
+  melt_debugeprintf ("melt_compile_source ourcflags: %s", ourcflags);
 
-  debugeprintf ("melt_compile_source binbase='%s' srcbase='%s' flavor='%s'",
+  melt_debugeprintf ("melt_compile_source binbase='%s' srcbase='%s' flavor='%s'",
                 binbase, srcbase, flavor);
   gcc_assert (binbase != NULL && binbase[0] != (char)0);
   gcc_assert (srcbase != NULL && srcbase[0] != (char)0);
@@ -5931,13 +5931,13 @@ melt_compile_source (const char *srcbase, const char *binbase, const char*workdi
   fflush (stderr);
 
 #ifdef MELT_IS_PLUGIN
-  debugeprintf ("melt_compile_source before make/plugin flavor=%s srcbase=%s ourcflags=%s",
+  melt_debugeprintf ("melt_compile_source before make/plugin flavor=%s srcbase=%s ourcflags=%s",
                 flavor, srcbase, ourcflags);
   fflush (NULL);
   melt_run_make_for_plugin (ourmakecommand, ourmakefile, ourcflags,
                             flavor, srcbase, binbase, workdir);
 #else /* not MELT_IS_PLUGIN */
-  debugeprintf ("melt_compile_source before make/branch flavor=%s srcbase=%s ourcflags=%s",
+  melt_debugeprintf ("melt_compile_source before make/branch flavor=%s srcbase=%s ourcflags=%s",
                 flavor, srcbase, ourcflags);
   fflush (NULL);
   melt_run_make_for_branch (ourmakecommand, ourmakefile, ourcflags,
@@ -5945,7 +5945,7 @@ melt_compile_source (const char *srcbase, const char *binbase, const char*workdi
 #endif /*MELT_IS_PLUGIN*/
   goto end;
 end:
-  debugeprintf ("melt_compile_source end srcbase %s binbase %s flavor %s",
+  melt_debugeprintf ("melt_compile_source end srcbase %s binbase %s flavor %s",
                 srcbase, binbase, flavor);
   MELT_EXITFRAME ();
 }
@@ -6172,7 +6172,7 @@ melt_find_file_at (int lin, const char*path, ...)
                   fprintf (logf, "found %s in directory %s\n", fipath, indir);
                   fflush (logf);
                 }
-              debugeprintf ("found file %s in directory %s [%s:%d]",
+              melt_debugeprintf ("found file %s in directory %s [%s:%d]",
                             fipath, indir,
                             melt_basename(__FILE__), lin);
               return fipath;
@@ -6212,7 +6212,7 @@ melt_find_file_at (int lin, const char*path, ...)
                       fprintf (logf, "found %s in colon path %s\n", fipath, inpath);
                       fflush (logf);
                     }
-                  debugeprintf ("found file %s in colon path %s [%s:%d]",
+                  melt_debugeprintf ("found file %s in colon path %s [%s:%d]",
                                 fipath, inpath,
                                 melt_basename(__FILE__), lin);
                   free (dupinpath), dupinpath = NULL;
@@ -6262,7 +6262,7 @@ melt_find_file_at (int lin, const char*path, ...)
                       fprintf (logf, "found %s from environ %s in colon path %s\n", fipath, inenv, inpath);
                       fflush (logf);
                     }
-                  debugeprintf ("found file %s from environ %s in colon path %s [%s:%d]",
+                  melt_debugeprintf ("found file %s from environ %s in colon path %s [%s:%d]",
                                 fipath, inenv, inpath,
                                 melt_basename(__FILE__), lin);
                   free (dupinpath), dupinpath = NULL;
@@ -6292,7 +6292,7 @@ melt_find_file_at (int lin, const char*path, ...)
                path, melt_basename(__FILE__), lin);
       fflush (logf);
     }
-  debugeprintf ("not found file %s [%s:%d]", path, melt_basename(__FILE__), lin);
+  melt_debugeprintf ("not found file %s [%s:%d]", path, melt_basename(__FILE__), lin);
   return NULL;
 }
 
@@ -6558,7 +6558,7 @@ readline:
       if (endp && *endp) newpath=endp;
       if (endp && newpath) endp += strlen(endp) - 1;
       while (newpath && ISSPACE(*endp)) endp--;
-      debugeprintf (";;## directive for line newlineno=%ld newpath=%s",
+      melt_debugeprintf (";;## directive for line newlineno=%ld newpath=%s",
                     newlineno, newpath);
       if (newlineno>0)
         {
@@ -7661,7 +7661,7 @@ meltgc_readval (struct melt_reading_st *rd, bool * pgot)
   melt_dbgread_printf("readval start curlocbuf=%s", curlocbuf);
   readv = NULL;
   c = melt_skipspace_getc (rd, COMMENT_SKIP);
-  /*   debugeprintf ("start meltgc_readval line %d col %d char %c", rd->rlineno, rd->rcol,
+  /*   melt_debugeprintf ("start meltgc_readval line %d col %d char %c", rd->rlineno, rd->rcol,
   ISPRINT (c) ? c : ' '); */
   if (ISDIGIT (c)
       || ((c == '-' || c == '+')
@@ -8309,7 +8309,7 @@ meltgc_read_file (const char *filnam, const char *locnam)
 #define seqv      meltfram__.mcfr_varptr[1]
 #define locnamv   meltfram__.mcfr_varptr[2]
   memset (&rds, 0, sizeof (rds));
-  debugeprintf ("meltgc_read_file filnam %s locnam %s", filnam, locnam);
+  melt_debugeprintf ("meltgc_read_file filnam %s locnam %s", filnam, locnam);
   if (!filnam || !filnam[0])
     goto end;
   if (!locnam || !locnam[0])
@@ -8320,7 +8320,7 @@ meltgc_read_file (const char *filnam, const char *locnam)
       fflush (melt_trace_source_fil);
     }
   filnamdup = melt_intern_cstring (filnam);
-  debugeprintf ("meltgc_read_file filnamdup %s locnam %s", filnamdup, locnam);
+  melt_debugeprintf ("meltgc_read_file filnamdup %s locnam %s", filnamdup, locnam);
   if (!strcmp (filnamdup, "-"))
     fil = stdin;
   else
@@ -8335,7 +8335,7 @@ meltgc_read_file (const char *filnam, const char *locnam)
                         MELT_FILE_IN_ENVIRON_PATH, melt_flag_bootstrapping?NULL:"GCCMELT_SOURCE_PATH",
                         MELT_FILE_IN_DIRECTORY, melt_flag_bootstrapping?NULL:melt_source_dir,
                         NULL);
-      debugeprintf ("meltgc_read_file filenamdup %s", filnamdup);
+      melt_debugeprintf ("meltgc_read_file filenamdup %s", filnamdup);
       if (filnamdup)
         fil = fopen (filnamdup, "rt");
       if (fil)
@@ -8378,7 +8378,7 @@ meltgc_read_file (const char *filnam, const char *locnam)
 
     }
   MELT_LOCATION_HERE_PRINTF (curlocbuf, "meltgc_read_file start reading %s", filnamdup);
-  /*  debugeprintf ("starting loading file %s", filnamdup); */
+  /*  melt_debugeprintf ("starting loading file %s", filnamdup); */
   rds.rfil = fil;
   rds.rpath = filnamdup;
   rds.rlineno = 0;
@@ -8427,11 +8427,11 @@ end:
   melt_dbgread_value("read_file seqv=", seqv);
   if (!seqv)
     {
-      debugeprintf ("meltgc_read_file filnam %s fail & return NULL", filnamdup);
+      melt_debugeprintf ("meltgc_read_file filnam %s fail & return NULL", filnamdup);
       warning(0, "MELT file %s read without content, perhaps failed.", filnamdup);
     }
   else
-    debugeprintf ("meltgc_read_file filnam %s return list of %d elem",
+    melt_debugeprintf ("meltgc_read_file filnam %s return list of %d elem",
                   filnamdup, melt_list_length ((melt_ptr_t) seqv));
   MELT_EXITFRAME ();
   return (melt_ptr_t) seqv;
@@ -8623,9 +8623,9 @@ static void
 melt_attribute_callback (void *gcc_data ATTRIBUTE_UNUSED,
                          void* user_data ATTRIBUTE_UNUSED)
 {
-  debugeprintf("melt_attribute_callback before HOOK_INSTALL_ATTRIBUTES user_data@%p", user_data);
+  melt_debugeprintf("melt_attribute_callback before HOOK_INSTALL_ATTRIBUTES user_data@%p", user_data);
   melthookproc_HOOK_INSTALL_ATTRIBUTES ();
-  debugeprintf("melt_attribute_callback after HOOK_INSTALL_ATTRIBUTES user_data@%p", user_data);
+  melt_debugeprintf("melt_attribute_callback after HOOK_INSTALL_ATTRIBUTES user_data@%p", user_data);
 }
 
 
@@ -8653,7 +8653,7 @@ static void
 melt_finishall_callback(void *gcc_data ATTRIBUTE_UNUSED,
                         void* user_data ATTRIBUTE_UNUSED)
 {
-  debugeprintf ("melt_finishall_callback melt_nb_garbcoll=%ld", melt_nb_garbcoll);
+  melt_debugeprintf ("melt_finishall_callback melt_nb_garbcoll=%ld", melt_nb_garbcoll);
   melt_do_finalize ();
 }
 
@@ -8865,7 +8865,7 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
 #define MELTDESCR_OPTIONAL(Sym) dyno_##Sym
 #define MELTDESCR_REQUIRED(Sym) dynr_##Sym
 
-  debugeprintf ("melt_load_module_index start srcbase %s flavor %s",
+  melt_debugeprintf ("melt_load_module_index start srcbase %s flavor %s",
                 srcbase, flavor);
   if (errorp)
     *errorp = NULL;
@@ -8888,7 +8888,7 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
   }
   /* open and parse the descriptive file. */
   srcpath = concat (srcbase, MELT_DESC_FILESUFFIX, NULL);
-  debugeprintf ("melt_load_module_index srcpath %s flavor %s", srcpath, flavor);
+  melt_debugeprintf ("melt_load_module_index srcpath %s flavor %s", srcpath, flavor);
   descfil = fopen (srcpath, "r");
   if (!descfil)
     {
@@ -8916,7 +8916,7 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
       /* ignore lines with extern "C" */
       if (strstr(descline, "extern") && strstr(descline, "\"C\""))
         continue;
-      debugeprintf ("melt_load_module_index #%d,len%d: %s",
+      melt_debugeprintf ("melt_load_module_index #%d,len%d: %s",
                     desclinenum, (int) desclinlen, descline);
       /* parse the melt_versionmeltstr */
       if (descversionmelt == NULL
@@ -8925,10 +8925,10 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
           && (pqu2 = strchr (pqu1+1, '"')) != NULL
           && pqu2 > pqu1 + 2 /* shortest version is something like 1.1 */)
         {
-          debugeprintf ("melt_load_module_index got versionmeltstr pc=%s pqu1=%s",
+          melt_debugeprintf ("melt_load_module_index got versionmeltstr pc=%s pqu1=%s",
                         pc, pqu1);
           descversionmelt = melt_c_string_in_descr (pqu1);
-          debugeprintf ("melt_load_module_index found descversionmelt %s L%d",
+          melt_debugeprintf ("melt_load_module_index found descversionmelt %s L%d",
                         descversionmelt, desclinenum);
         }
       /* parse the melt_modulename */
@@ -8938,7 +8938,7 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
           && (pqu2 = strchr (pqu1+1, '"')) != NULL)
         {
           descmodulename = melt_c_string_in_descr (pqu1);
-          debugeprintf ("melt_load_module_index found descmodulename %s L%d",
+          melt_debugeprintf ("melt_load_module_index found descmodulename %s L%d",
                         descmodulename, desclinenum);
         }
       /* parse the melt_cumulated_hexmd5 which should be not too short. */
@@ -8949,13 +8949,13 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
           && pqu2 > pqu1+10 /*maybe more than 10*/)
         {
           desccumulatedhexmd5 = melt_c_string_in_descr (pqu1);
-          debugeprintf ("melt_load_module_index found desccumulatedhexmd5 %s L%d",
+          melt_debugeprintf ("melt_load_module_index found desccumulatedhexmd5 %s L%d",
                         desccumulatedhexmd5, desclinenum);
         }
     }
   if (descfil)
     fclose (descfil), descfil= NULL;
-  debugeprintf ("melt_load_module_index srcpath %s after meltdescr parsing",
+  melt_debugeprintf ("melt_load_module_index srcpath %s after meltdescr parsing",
                 srcpath);
   /* Perform simple checks */
   if (!descmodulename)
@@ -8982,7 +8982,7 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
             ".meltmod-",
             desccumulatedhexmd5, ".", flavor,
             MELT_DYNLOADED_SUFFIX, NULL);
-  debugeprintf ("melt_load_module_index long sobase %s workdir %s",
+  melt_debugeprintf ("melt_load_module_index long sobase %s workdir %s",
                 sobase, melt_argument ("workdir"));
   if (melt_trace_module_fil)
     fprintf (melt_trace_module_fil, "base of module: %s\n", sobase);
@@ -9004,7 +9004,7 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
      search in the current directory.  */
      MELT_FILE_IN_DIRECTORY, ".",
      NULL);
-  debugeprintf ("melt_load_module_index sopath %s", sopath);
+  melt_debugeprintf ("melt_load_module_index sopath %s", sopath);
   /* Try also the other flavors when asked for default flavor. */
   if (!sopath && !strcmp(flavor, MELT_DEFAULT_FLAVOR) && !melt_flag_bootstrapping)
     {
@@ -9016,11 +9016,11 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
            (curflavor=melt_flavors_array[curflavorix]) != NULL;
            curflavorix++)
         {
-          debugeprintf ("melt_load_module_index curflavor %s curflavorix %d", curflavor, curflavorix);
+          melt_debugeprintf ("melt_load_module_index curflavor %s curflavorix %d", curflavor, curflavorix);
           cursobase =
             concat (melt_basename(descmodulename), ".", desccumulatedhexmd5,
                     ".", curflavor, MELT_DYNLOADED_SUFFIX, NULL);
-          debugeprintf ("melt_load_module_index curflavor %s long cursobase %s workdir %s",
+          melt_debugeprintf ("melt_load_module_index curflavor %s long cursobase %s workdir %s",
                         curflavor, cursobase, melt_argument ("workdir"));
           cursopath =
             MELT_FIND_FILE
@@ -9040,7 +9040,7 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
              search in the current directory.  */
              MELT_FILE_IN_DIRECTORY, ".",
              NULL);
-          debugeprintf ("melt_load_module_index curflavorix=%d cursopath %s", curflavorix, cursopath);
+          melt_debugeprintf ("melt_load_module_index curflavorix=%d cursopath %s", curflavorix, cursopath);
           if (cursopath)
             {
               sopath = cursopath;
@@ -9065,7 +9065,7 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
       sopath =
         concat (binbase, ".meltmod-", desccumulatedhexmd5, ".", flavor,
                 MELT_DYNLOADED_SUFFIX, NULL);
-      debugeprintf ("sopath %s", sopath);
+      melt_debugeprintf ("sopath %s", sopath);
       (void) remove (sopath);
       melt_compile_source (srcbase, binbase, worktmpdir, flavor);
       if (access (sopath, R_OK))
@@ -9103,7 +9103,7 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
     }
   if (!IS_ABSOLUTE_PATH (sopath))
     sopath = reconcat (sopath, getpwd (), "/", sopath, NULL);
-  debugeprintf ("melt_load_module_index absolute sopath %s", sopath);
+  melt_debugeprintf ("melt_load_module_index absolute sopath %s", sopath);
   if (access (sopath, R_OK))
     melt_fatal_error ("Cannot access MELT module %s - %m", sopath);
   errno = 0;
@@ -9126,12 +9126,12 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
 #define MELTDESCR_REQUIRED_SYMBOL(Sym,Typ) do {                 \
     Typ* aptr_##Sym =                                           \
         reinterpret_cast<Typ*> (dlsym (dlh, #Sym));             \
-      debugeprintf ("melt_load_module_index req. " #Sym         \
+      melt_debugeprintf ("melt_load_module_index req. " #Sym         \
                     " %p validh %d",                            \
                     (void*)aptr_##Sym, (int) validh);           \
       if (!aptr_##Sym) {                                        \
         char* dler = dlerror ();                                \
-        debugeprintf("melt_load_module_index req. " #Sym        \
+        melt_debugeprintf("melt_load_module_index req. " #Sym        \
                      " not found - %s", dler);                  \
         if (dler && errorp && !*errorp)                         \
           *errorp = concat("Cannot find " #Sym, "; ",           \
@@ -9165,24 +9165,24 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
 
   if (melt_flag_bootstrapping)
     {
-      debugeprintf ("melt_load_module_index validh %d bootstrapping melt_modulename %s descmodulename %s",
+      melt_debugeprintf ("melt_load_module_index validh %d bootstrapping melt_modulename %s descmodulename %s",
                     validh, MELTDESCR_REQUIRED (melt_modulename), descmodulename);
       validh = validh
                && !strcmp (melt_basename (MELTDESCR_REQUIRED (melt_modulename)), melt_basename (descmodulename));
     }
   else
     {
-      debugeprintf ("melt_load_module_index validh %d melt_modulename %s descmodulename %s",
+      melt_debugeprintf ("melt_load_module_index validh %d melt_modulename %s descmodulename %s",
                     validh, MELTDESCR_REQUIRED (melt_modulename), descmodulename);
       validh = validh
                && !strcmp (MELTDESCR_REQUIRED (melt_modulename), descmodulename);
     }
 
-  debugeprintf ("melt_load_module_index validh %d melt_cumulated_hexmd5 %s desccumulatedhexmd5 %s",
+  melt_debugeprintf ("melt_load_module_index validh %d melt_cumulated_hexmd5 %s desccumulatedhexmd5 %s",
                 validh, MELTDESCR_REQUIRED (melt_cumulated_hexmd5), desccumulatedhexmd5);
   validh = validh
            && !strcmp (MELTDESCR_REQUIRED (melt_cumulated_hexmd5), desccumulatedhexmd5);
-  debugeprintf ("melt_load_module_index sopath %s validh %d melt_modulename %s melt_cumulated_hexmd5 %s",
+  melt_debugeprintf ("melt_load_module_index sopath %s validh %d melt_modulename %s melt_cumulated_hexmd5 %s",
                 sopath, (int)validh,
                 MELTDESCR_REQUIRED (melt_modulename),
                 MELTDESCR_REQUIRED (melt_cumulated_hexmd5));
@@ -9213,9 +9213,9 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
                  sopath, srcbase, MELTDESCR_REQUIRED (melt_prepromd5meltrun),
                  melt_run_preprocessed_md5);
       nbsecfile = *(MELTDESCR_REQUIRED(melt_lastsecfileindex));
-      debugeprintf ("melt_load_module_index descmodulename %s nbsecfile %d", descmodulename, nbsecfile);
+      melt_debugeprintf ("melt_load_module_index descmodulename %s nbsecfile %d", descmodulename, nbsecfile);
       srcpath = concat (descmodulename, ".cc", NULL);
-      debugeprintf ("melt_load_module_index srcpath=%s", srcpath);
+      melt_debugeprintf ("melt_load_module_index srcpath=%s", srcpath);
       curpath =
         MELT_FIND_FILE (srcpath,
                         MELT_FILE_LOG, melt_trace_source_fil,
@@ -9228,8 +9228,8 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
                         /* Search in the user provided work directory, if given. */
                         MELT_FILE_IN_DIRECTORY, melt_argument ("workdir"),
                         NULL);
-      debugeprintf ("melt_load_module_index srcpath %s ", srcpath);
-      debugeprintf ("melt_load_module_index curpath %s ", curpath);
+      melt_debugeprintf ("melt_load_module_index srcpath %s ", srcpath);
+      melt_debugeprintf ("melt_load_module_index curpath %s ", curpath);
       if (!curpath)
         warning (0,
                  "MELT module %s cannot find its source path for base %s flavor %s",
@@ -9267,7 +9267,7 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
                             MELT_FILE_IN_ENVIRON_PATH, melt_flag_bootstrapping?NULL:"GCCMELT_SOURCE_PATH",
                             MELT_FILE_IN_DIRECTORY, melt_source_dir,
                             NULL);
-          debugeprintf ("melt_load_module_index srcpath %s ", srcpath);
+          melt_debugeprintf ("melt_load_module_index srcpath %s ", srcpath);
           sfil = fopen (curpath, "r");
           if (!sfil)
             warning (0,
@@ -9296,11 +9296,11 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
                  "MELT module %s apparently generated in the future %s, now is %s",
                  sopath, MELTDESCR_REQUIRED(melt_gen_timestamp), ctime (&nowt));
     };
-  debugeprintf ("melt_load_module_index sopath %s validh %d dlh %p",
+  melt_debugeprintf ("melt_load_module_index sopath %s validh %d dlh %p",
                 sopath, (int)validh, dlh);
   if (validh)
     {
-      debugeprintf ("melt_load_module_index making Melt_Plain_Module of sopath=%s srcbase=%s dlh=%p",
+      melt_debugeprintf ("melt_load_module_index making Melt_Plain_Module of sopath=%s srcbase=%s dlh=%p",
                     sopath, srcbase, dlh);
       Melt_Plain_Module* pmod = new Melt_Plain_Module(sopath, srcbase, dlh);
       gcc_assert (pmod->valid_magic());
@@ -9308,7 +9308,7 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
       pmod->set_marking_routine (MELTDESCR_OPTIONAL (melt_marking_module_data));
       pmod->set_start_routine (MELTDESCR_REQUIRED (melt_start_this_module));
       ix = pmod->index ();
-      debugeprintf ("melt_load_module_index successful ix %d srcbase %s sopath %s flavor %s",
+      melt_debugeprintf ("melt_load_module_index successful ix %d srcbase %s sopath %s flavor %s",
                     ix, srcbase, sopath, flavor);
       if (!quiet_flag || melt_flag_debug)
         {
@@ -9322,7 +9322,7 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
     }
   else
     {
-      debugeprintf ("melt_load_module_index invalid dlh %p sopath %s", dlh, sopath);
+      melt_debugeprintf ("melt_load_module_index invalid dlh %p sopath %s", dlh, sopath);
       dlclose (dlh), dlh = NULL;
     }
 end:
@@ -9340,7 +9340,7 @@ end:
     free (sopath), sopath = NULL;
   if (sobase)
     free (sobase), sobase = NULL;
-  debugeprintf ("melt_load_module_index srcbase %s flavor %s return ix %d",
+  melt_debugeprintf ("melt_load_module_index srcbase %s flavor %s return ix %d",
                 srcbase, flavor, ix);
   return ix;
 }
@@ -9424,9 +9424,9 @@ meltgc_run_cc_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t lit
         goto end;
       }
   }
-  debugeprintf ("meltgc_run_cc_extension basenamebuf=%s", basenamebuf);
+  melt_debugeprintf ("meltgc_run_cc_extension basenamebuf=%s", basenamebuf);
   descpath = melt_tempdir_path (basenamebuf, "+meltdesc.c");
-  debugeprintf ("meltgc_run_cc_extension descpath=%s", descpath);
+  melt_debugeprintf ("meltgc_run_cc_extension descpath=%s", descpath);
   descfile = fopen (descpath, "r");
   if (!descfile)
     {
@@ -9463,7 +9463,7 @@ meltgc_run_cc_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t lit
           && pqu2 > pqu1 + 10 /*actually should be more than 10*/)
         {
           descversionmelt = melt_c_string_in_descr (pqu1);
-          debugeprintf ("meltgc_run_cc_extension found descversionmelt %s", descversionmelt);
+          melt_debugeprintf ("meltgc_run_cc_extension found descversionmelt %s", descversionmelt);
         };
       /* check that melt_lastsecfileindex is 0 */
       if (nbsecfileindex < 0 && (pc = strstr(descline, "melt_lastsecfileindex"))!= NULL
@@ -9502,11 +9502,11 @@ meltgc_run_cc_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t lit
                    ".runextend",
                    MELT_DYNLOADED_SUFFIX,
                    NULL);
-  debugeprintf ("meltgc_run_cc_extension sopath=%s", sopath);
+  melt_debugeprintf ("meltgc_run_cc_extension sopath=%s", sopath);
   if (access (sopath, R_OK))
     melt_fatal_error ("runtime extension module %s not accessible - %s",
                       sopath, xstrerror(errno));
-  debugeprintf("meltgc_run_cc_extension sopath %s before dlopen", sopath);
+  melt_debugeprintf("meltgc_run_cc_extension sopath %s before dlopen", sopath);
   dlh = dlopen (sopath, RTLD_NOW | RTLD_GLOBAL);
   if (!dlh)
     {
@@ -9557,12 +9557,12 @@ meltgc_run_cc_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t lit
       gcc_assert (ix>0);
       xmod->set_forwarding_routine (MELTDESCR_OPTIONAL (melt_forwarding_module_data));
       xmod->set_marking_routine (MELTDESCR_OPTIONAL (melt_marking_module_data));
-      debugeprintf ("meltgc_run_cc_extension %s has index %d",
+      melt_debugeprintf ("meltgc_run_cc_extension %s has index %d",
                     basenamebuf, ix);
     }
   }
   envrefv = meltgc_new_reference ((melt_ptr_t) environv);
-  debugeprintf ("meltgc_run_cc_extension envrefv@%p", (void*)envrefv);
+  melt_debugeprintf ("meltgc_run_cc_extension envrefv@%p", (void*)envrefv);
   {
 #if MELT_HAVE_RUNTIME_DEBUG>0
     char locbuf[96];
@@ -9570,11 +9570,11 @@ meltgc_run_cc_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t lit
     MELT_LOCATION_HERE_PRINTF (locbuf,
                                "run-cc-extension %s", melt_basename (basenamebuf));
 #endif
-    debugeprintf ("meltgc_run_cc_extension before calling dynr_melt_start_run_extension@%p",
+    melt_debugeprintf ("meltgc_run_cc_extension before calling dynr_melt_start_run_extension@%p",
                   (void*) dynr_melt_start_run_extension);
     resv = (*dynr_melt_start_run_extension) ((melt_ptr_t)envrefv,
            (melt_ptr_t)litvaltupv);
-    debugeprintf ("meltgc_run_cc_extension after call resv=%p", (void*)resv);
+    melt_debugeprintf ("meltgc_run_cc_extension after call resv=%p", (void*)resv);
     MELT_LOCATION_HERE ("meltgc_run_cc_extension ending");
   }
 end:
@@ -9649,7 +9649,7 @@ meltgc_start_all_new_modules (melt_ptr_t env_p)
   MELT_ENTERFRAME(1, NULL);
 #define env       meltfram__.mcfr_varptr[0]
   env = env_p;
-  debugeprintf ("meltgc_start_all_new_modules env %p", (void*) env);
+  melt_debugeprintf ("meltgc_start_all_new_modules env %p", (void*) env);
   for (int modix = 1;
        modix <= Melt_Module::nb_modules();
        modix++)
@@ -9670,7 +9670,7 @@ meltgc_start_all_new_modules (melt_ptr_t env_p)
       MELT_LOCATION_HERE_PRINTF
       (locbuf, "meltgc_start_all_new_modules before starting #%d module %s",
        modix, plmod->module_path());
-      debugeprintf ("meltgc_start_all_new_modules env %p before starting modix %d",
+      melt_debugeprintf ("meltgc_start_all_new_modules env %p before starting modix %d",
                     (void*) env, modix);
       env = meltgc_start_module_by_index ((melt_ptr_t) env, modix);
       if (!env)
@@ -9702,14 +9702,14 @@ meltgc_load_flavored_module (const char*modulbase, const char*flavor)
   char curlocbuf[160];
   MELT_ENTEREMPTYFRAME (NULL);
   memset (curlocbuf, 0, sizeof (curlocbuf));
-  debugeprintf("meltgc_load_flavored_module start base %s flavor %s tempdirpath %s",
+  melt_debugeprintf("meltgc_load_flavored_module start base %s flavor %s tempdirpath %s",
                modulbase, flavor, tempdirpath);
   if (!modulbase || !modulbase[0])
     goto end;
   dupmodul = xstrdup(modulbase);
   if (!flavor || !flavor[0])
     flavor = MELT_DEFAULT_FLAVOR;
-  debugeprintf ("meltgc_load_flavored_module dupmodul %s flavor %s",
+  melt_debugeprintf ("meltgc_load_flavored_module dupmodul %s flavor %s",
                 dupmodul, flavor);
   MELT_LOCATION_HERE_PRINTF (curlocbuf,
                              "meltgc_load_flavored_module module %s flavor %s",
@@ -9721,7 +9721,7 @@ meltgc_load_flavored_module (const char*modulbase, const char*flavor)
                         modulbase);
   }
   descrfull = concat (dupmodul, MELT_DESC_FILESUFFIX, NULL);
-  debugeprintf ("meltgc_load_flavored_module descrfull %s flavor %s",
+  melt_debugeprintf ("meltgc_load_flavored_module descrfull %s flavor %s",
                 descrfull, flavor);
   descrpath =
     MELT_FIND_FILE (descrfull,
@@ -9732,7 +9732,7 @@ meltgc_load_flavored_module (const char*modulbase, const char*flavor)
                     MELT_FILE_IN_ENVIRON_PATH, melt_flag_bootstrapping?NULL:"GCCMELT_SOURCE_PATH",
                     MELT_FILE_IN_DIRECTORY, melt_flag_bootstrapping?NULL:melt_source_dir,
                     NULL);
-  debugeprintf ("meltgc_load_flavored_module descrpath %s dupmodul %s",
+  melt_debugeprintf ("meltgc_load_flavored_module descrpath %s dupmodul %s",
                 descrpath, dupmodul);
   if (!descrpath)
     {
@@ -9760,7 +9760,7 @@ meltgc_load_flavored_module (const char*modulbase, const char*flavor)
   if (!IS_ABSOLUTE_PATH(descrpath))
     {
       char *realdescrpath = lrealpath (descrpath);
-      debugeprintf ("meltgc_load_flavored_module realdescrpath %s",
+      melt_debugeprintf ("meltgc_load_flavored_module realdescrpath %s",
                     realdescrpath);
       free (descrpath), descrpath = NULL;
       gcc_assert (realdescrpath != NULL);
@@ -9772,12 +9772,12 @@ meltgc_load_flavored_module (const char*modulbase, const char*flavor)
     gcc_assert (pc != NULL);
     *pc = (char)0;
   }
-  debugeprintf ("meltgc_load_flavored_module truncated descrpath %s flavor %s before melt_load_module_index",
+  melt_debugeprintf ("meltgc_load_flavored_module truncated descrpath %s flavor %s before melt_load_module_index",
                 descrpath, flavor);
   {
     char *moderr = NULL;
     modix = melt_load_module_index (descrpath, flavor, &moderr);
-    debugeprintf ("meltgc_load_flavored_module after melt_load_module_index modix %d descrpath %s",
+    melt_debugeprintf ("meltgc_load_flavored_module after melt_load_module_index modix %d descrpath %s",
                   modix, descrpath);
     if (modix < 0)
       melt_fatal_error ("failed to load MELT module %s flavor %s - %s",
@@ -9789,7 +9789,7 @@ end:
     free (descrpath), descrpath = NULL;
   if (tempdirpath)
     free (tempdirpath), tempdirpath = NULL;
-  debugeprintf ("meltgc_load_flavored_module modul %s return modix %d",
+  melt_debugeprintf ("meltgc_load_flavored_module modul %s return modix %d",
                 dupmodul, modix);
   if (dupmodul)
     free (dupmodul), dupmodul = NULL;
@@ -9813,7 +9813,7 @@ meltgc_start_flavored_module (melt_ptr_t env_p, const char*modulbase, const char
   env = env_p;
   memset (modulbuf, 0, sizeof(modulbuf));
   memset (flavorbuf, 0, sizeof(flavorbuf));
-  debugeprintf ("meltgc_start_flavored_module env %p modulbase %s flavor %s",
+  melt_debugeprintf ("meltgc_start_flavored_module env %p modulbase %s flavor %s",
                 (void*) env, modulbase?modulbase:"*none*", flavor?flavor:"*none*");
   if (!modulbase)
     {
@@ -9843,13 +9843,13 @@ meltgc_start_flavored_module (melt_ptr_t env_p, const char*modulbase, const char
       for (pc = flavordup; *pc; pc++)
         *pc = TOLOWER (*pc);
     }
-  debugeprintf ("meltgc_start_flavored_module moduldup %s flavordup %s before load",
+  melt_debugeprintf ("meltgc_start_flavored_module moduldup %s flavordup %s before load",
                 moduldup?moduldup:"*none*", flavordup?flavordup:"*none*");
   MELT_LOCATION_HERE_PRINTF (curlocbuf,
                              "meltgc_start_flavored_module module %s flavor %s",
                              moduldup, flavordup?flavordup:"*none*");
   modix = meltgc_load_flavored_module (moduldup, flavordup);
-  debugeprintf ("meltgc_start_flavored_module moduldup %s flavordup %s got modix %d",
+  melt_debugeprintf ("meltgc_start_flavored_module moduldup %s flavordup %s got modix %d",
                 moduldup, flavordup?flavordup:"*none*", modix);
   if (modix < 0)
     {
@@ -9858,9 +9858,9 @@ meltgc_start_flavored_module (melt_ptr_t env_p, const char*modulbase, const char
       env = NULL;
       goto end;
     }
-  debugeprintf ("meltgc_start_flavored_module moduldup %s before starting all new", moduldup);
+  melt_debugeprintf ("meltgc_start_flavored_module moduldup %s before starting all new", moduldup);
   env = meltgc_start_all_new_modules ((melt_ptr_t) env);
-  debugeprintf ("meltgc_start_flavored_module moduldup %s after starting all new env %p", moduldup, (void*) env);
+  melt_debugeprintf ("meltgc_start_flavored_module moduldup %s after starting all new env %p", moduldup, (void*) env);
 end:
   if (moduldup && moduldup != modulbuf)
     free (moduldup), moduldup = NULL;
@@ -9887,7 +9887,7 @@ meltgc_load_one_module (const char*flavoredmodule)
   if (!flavoredmodule)
     goto end;
   memset (tinybuf, 0, sizeof(tinybuf));
-  debugeprintf ("meltgc_load_one_module start flavoredmodule %s",
+  melt_debugeprintf ("meltgc_load_one_module start flavoredmodule %s",
                 flavoredmodule);
   MELT_LOCATION_HERE_PRINTF (curlocbuf,
                              "meltgc_load_one_module flavoredmodule %s",
@@ -9904,17 +9904,17 @@ meltgc_load_one_module (const char*flavoredmodule)
     {
       *dotptr = (char)0;
       flavor = dotptr + 1;
-      debugeprintf ("meltgc_load_one_module got flavor %s", flavor);
+      melt_debugeprintf ("meltgc_load_one_module got flavor %s", flavor);
     }
-  debugeprintf ("meltgc_load_one_module before loading module %s flavor %s",
+  melt_debugeprintf ("meltgc_load_one_module before loading module %s flavor %s",
                 dupflavmod, flavor?flavor:"*none*");
   modix = meltgc_load_flavored_module (dupflavmod, flavor);
-  debugeprintf ("meltgc_load_one_module after loading module %s modix %d",
+  melt_debugeprintf ("meltgc_load_one_module after loading module %s modix %d",
                 dupflavmod, modix);
 end:
   if (dupflavmod && dupflavmod != tinybuf)
     free (dupflavmod), dupflavmod = NULL;
-  debugeprintf ("meltgc_load_one_module flavoredmodule %s gives modix %d",
+  melt_debugeprintf ("meltgc_load_one_module flavoredmodule %s gives modix %d",
                 flavoredmodule, modix);
   MELT_EXITFRAME ();
   return modix;
@@ -9939,7 +9939,7 @@ meltgc_load_module_list (int depth, const char *modlistbase)
   char curlocbuf[200];
   memset (curlocbuf, 0, sizeof (curlocbuf));
   MELT_ENTEREMPTYFRAME (NULL);
-  debugeprintf("meltgc_load_module_list start modlistbase %s depth %d",
+  melt_debugeprintf("meltgc_load_module_list start modlistbase %s depth %d",
                modlistbase, depth);
   MELT_LOCATION_HERE_PRINTF (curlocbuf,
                              "meltgc_load_module_list start depth %d modlistbase %s",
@@ -9965,7 +9965,7 @@ meltgc_load_module_list (int depth, const char *modlistbase)
                     MELT_FILE_IN_ENVIRON_PATH, melt_flag_bootstrapping?NULL:"GCCMELT_SOURCE_PATH",
                     MELT_FILE_IN_DIRECTORY, melt_flag_bootstrapping?NULL:melt_source_dir,
                     NULL);
-  debugeprintf ("meltgc_load_module_list modlistpath %s", modlistpath);
+  melt_debugeprintf ("meltgc_load_module_list modlistpath %s", modlistpath);
   if (!modlistpath)
     {
       error ("cannot load MELT module list %s", modlistbase);
@@ -9989,12 +9989,12 @@ meltgc_load_module_list (int depth, const char *modlistbase)
   if (!IS_ABSOLUTE_PATH (modlistpath))
     {
       char *realmodlistpath = lrealpath (modlistpath);
-      debugeprintf ("real module list path %s", realmodlistpath);
+      melt_debugeprintf ("real module list path %s", realmodlistpath);
       free (modlistpath), modlistpath = NULL;
       modlistpath = realmodlistpath;
     }
   filmod = fopen (modlistpath, "r");
-  debugeprintf ("reading module list '%s'", modlistpath);
+  melt_debugeprintf ("reading module list '%s'", modlistpath);
   if (!filmod)
     melt_fatal_error ("failed to open melt module list file %s - %m",
                       modlistpath);
@@ -10006,7 +10006,7 @@ meltgc_load_module_list (int depth, const char *modlistbase)
         continue;
       while (modlinlen > 0 && ISSPACE(modlin[modlinlen-1]))
         modlin[--modlinlen] = (char)0;
-      debugeprintf ("meltgc_load_module_list line #%d: %s", lincnt, modlin);
+      melt_debugeprintf ("meltgc_load_module_list line #%d: %s", lincnt, modlin);
       MELT_LOCATION_HERE_PRINTF
       (curlocbuf,
        "meltgc_load_module_list %s line %d: %s",
@@ -10021,7 +10021,7 @@ meltgc_load_module_list (int depth, const char *modlistbase)
           (curlocbuf,
            "meltgc_load_module_list %s recursive line %d: '%s'",
            modlistpath, lincnt, modlin);
-          debugeprintf ("meltgc_load_module_list recurse depth %d sublist '%s'", depth, modlin+1);
+          melt_debugeprintf ("meltgc_load_module_list recurse depth %d sublist '%s'", depth, modlin+1);
           meltgc_load_module_list (depth+1, modlin+1);
         }
       /* Handle mode-conditional module item */
@@ -10036,7 +10036,7 @@ meltgc_load_module_list (int depth, const char *modlistbase)
             while (cix<modlinlen && ISSPACE(modlin[cix])) cix++;
             condcompstr = modlin+cix;
           }
-          debugeprintf ("meltgc_load_module_list modeconditional condmod='%s' condcomp='%s'",
+          melt_debugeprintf ("meltgc_load_module_list modeconditional condmod='%s' condcomp='%s'",
                         condmodstr.c_str(), condcompstr.c_str());
           unsigned nbaskedmodes = melt_asked_modes_vector.size();
           if (!condcompstr.empty())
@@ -10060,7 +10060,7 @@ meltgc_load_module_list (int depth, const char *modlistbase)
           (curlocbuf,
            "meltgc_load_module_list %s plain line %d: '%s'",
            modlistpath, lincnt, modlin);
-          debugeprintf ("meltgc_load_module_list depth %d module '%s'", depth, modlin);
+          melt_debugeprintf ("meltgc_load_module_list depth %d module '%s'", depth, modlin);
           (void) meltgc_load_one_module (modlin);
         }
       MELT_LOCATION_HERE_PRINTF
@@ -10101,11 +10101,11 @@ meltgc_load_modules_and_do_mode (void)
   MELT_ENTERFRAME(1, NULL);
 #define modatv     meltfram__.mcfr_varptr[0]
   inistr = melt_argument ("init");
-  debugeprintf ("meltgc_load_modules_and_do_mode startinistr %s",
+  melt_debugeprintf ("meltgc_load_modules_and_do_mode startinistr %s",
                 inistr);
   if (melt_asked_modes_vector.empty())
     {
-      debugeprintf ("meltgc_load_modules_and_do_mode do nothing without mode (inistr=%s)",
+      melt_debugeprintf ("meltgc_load_modules_and_do_mode do nothing without mode (inistr=%s)",
                     inistr);
       goto end;
     }
@@ -10113,11 +10113,11 @@ meltgc_load_modules_and_do_mode (void)
   if (!inistr || !inistr[0])
     {
       inistr = "@@";
-      debugeprintf ("meltgc_load_modules_and_do_mode inistr set to default %s", inistr);
+      melt_debugeprintf ("meltgc_load_modules_and_do_mode inistr set to default %s", inistr);
     }
   dupmodpath = xstrdup (inistr);
   xtrastr = melt_argument ("extra");
-  debugeprintf ("meltgc_load_modules_and_do_mode xtrastr %s", xtrastr);
+  melt_debugeprintf ("meltgc_load_modules_and_do_mode xtrastr %s", xtrastr);
   modatv = NULL;
   /**
    * first we load all the initial modules
@@ -10131,7 +10131,7 @@ meltgc_load_modules_and_do_mode (void)
           *nextmod = (char) 0;
           nextmod++;
         }
-      debugeprintf ("meltgc_load_modules_and_do_mode curmod %s before", curmod);
+      melt_debugeprintf ("meltgc_load_modules_and_do_mode curmod %s before", curmod);
       MELT_LOCATION_HERE_PRINTF
       (locbuf, "meltgc_load_modules_and_do_mode before loading curmod %s",
        curmod);
@@ -10142,36 +10142,36 @@ meltgc_load_modules_and_do_mode (void)
           if (Melt_Module::nb_modules() >0)
             melt_fatal_error ("MELT default module list should be loaded at first (%d modules already loaded)!",
                               Melt_Module::nb_modules());
-          debugeprintf ("meltgc_load_modules_and_do_mode loading default module list %s",
+          melt_debugeprintf ("meltgc_load_modules_and_do_mode loading default module list %s",
                         melt_default_modlis);
           meltgc_load_module_list (0, melt_default_modlis);
-          debugeprintf ("meltgc_load_modules_and_do_mode loaded default module list %s",
+          melt_debugeprintf ("meltgc_load_modules_and_do_mode loaded default module list %s",
                         melt_default_modlis);
         }
       else if (curmod[0] == '@')
         {
-          debugeprintf ("meltgc_load_modules_and_do_mode loading given module list %s", curmod+1);
+          melt_debugeprintf ("meltgc_load_modules_and_do_mode loading given module list %s", curmod+1);
           meltgc_load_module_list (0, curmod+1);
-          debugeprintf ("meltgc_load_modules_and_do_mode loaded given module list %s", curmod+1);
+          melt_debugeprintf ("meltgc_load_modules_and_do_mode loaded given module list %s", curmod+1);
         }
       else
         {
-          debugeprintf ("meltgc_load_modules_and_do_mode loading given single module %s", curmod);
+          melt_debugeprintf ("meltgc_load_modules_and_do_mode loading given single module %s", curmod);
           meltgc_load_one_module (curmod);
-          debugeprintf ("meltgc_load_modules_and_do_mode loaded given single module %s", curmod);
+          melt_debugeprintf ("meltgc_load_modules_and_do_mode loaded given single module %s", curmod);
         }
-      debugeprintf ("meltgc_load_modules_and_do_mode done curmod %s", curmod);
+      melt_debugeprintf ("meltgc_load_modules_and_do_mode done curmod %s", curmod);
       curmod = nextmod;
     }
   /**
    * Then we start all the initial modules
    **/
-  debugeprintf ("meltgc_load_modules_and_do_mode before starting all new modules modatv=%p", (void*) modatv);
+  melt_debugeprintf ("meltgc_load_modules_and_do_mode before starting all new modules modatv=%p", (void*) modatv);
   modatv = meltgc_start_all_new_modules ((melt_ptr_t) modatv);
-  debugeprintf ("meltgc_load_modules_and_do_mode started all new modules modatv=%p",  (void*) modatv);
+  melt_debugeprintf ("meltgc_load_modules_and_do_mode started all new modules modatv=%p",  (void*) modatv);
 
   /* Then we load and start every extra module, if given */
-  debugeprintf ("meltgc_load_modules_and_do_mode xtrastr %s lastmodix #%d",
+  melt_debugeprintf ("meltgc_load_modules_and_do_mode xtrastr %s lastmodix #%d",
                 xtrastr, lastmodix);
   if (xtrastr && xtrastr[0])
     {
@@ -10186,7 +10186,7 @@ meltgc_load_modules_and_do_mode (void)
               *nextxtra = (char) 0;
               nextxtra++;
             }
-          debugeprintf
+          melt_debugeprintf
           ("meltgc_load_modules_and_do_mode before loading curxtra %s",
            curxtra);
           if (curxtra[0] == '@' && curxtra[1])
@@ -10207,7 +10207,7 @@ meltgc_load_modules_and_do_mode (void)
             }
           /* Start all the new loaded modules. */
           modatv = meltgc_start_all_new_modules ((melt_ptr_t) modatv);
-          debugeprintf ("meltgc_load_modules_and_do_mode done curxtra %s",
+          melt_debugeprintf ("meltgc_load_modules_and_do_mode done curxtra %s",
                         curxtra);
         } /* end for curxtra */
     }
@@ -10225,7 +10225,7 @@ meltgc_load_modules_and_do_mode (void)
           (locbuf,
            "meltgc_load_modules_and_do_mode before #%u initial mode %s", modix, curmodstr.c_str());
           melthookproc_HOOK_MELT_DO_INITIAL_MODE((melt_ptr_t) modatv, curmodstr.c_str());
-          debugeprintf
+          melt_debugeprintf
           ("meltgc_load_modules_and_do_mode after doing #%u initial mode %s", modix, curmodstr.c_str());
           MELT_LOCATION_HERE_PRINTF
           (locbuf, "meltgc_load_modules_and_do_mode done #%u initial mode %s", modix, curmodstr.c_str());
@@ -10292,7 +10292,7 @@ melt_install_signal_handlers (void)
   signal (SIGIO, melt_raw_sigio_signal);
   signal (SIGPIPE, melt_raw_sigio_signal);
   signal (SIGCHLD, melt_raw_sigchld_signal);
-  debugeprintf ("melt_install_signal_handlers install handlers for SIGIO %d, SIGPIPE %d, SIGALRM %d, SIGVTALRM %d SIGCHLD %d",
+  melt_debugeprintf ("melt_install_signal_handlers install handlers for SIGIO %d, SIGPIPE %d, SIGALRM %d, SIGVTALRM %d SIGCHLD %d",
                 SIGIO, SIGPIPE, SIGALRM, SIGVTALRM, SIGCHLD);
 }
 
@@ -10360,15 +10360,15 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
     return;
   modstr = melt_argument ("mode");
   melt_plugin_gcc_version =  &gcc_version; /* from plugin-version.h */
-  debugeprintf ("melt_really_initialize pluginame '%s' versionstr '%s'", pluginame, versionstr);
-  debugeprintf ("melt_really_initialize update_path(\"plugins\", \"GCC\")=%s",
+  melt_debugeprintf ("melt_really_initialize pluginame '%s' versionstr '%s'", pluginame, versionstr);
+  melt_debugeprintf ("melt_really_initialize update_path(\"plugins\", \"GCC\")=%s",
                 update_path ("plugins","GCC"));
   gcc_assert (pluginame && pluginame[0]);
   gcc_assert (versionstr && versionstr[0]);
   errno = 0;
   if (gettimeofday (&melt_start_time, NULL))
     melt_fatal_error ("MELT cannot call gettimeofday for melt_start_time (%s)", xstrerror(errno));
-  debugeprintf ("melt_really_initialize melt_start_time=%ld",
+  melt_debugeprintf ("melt_really_initialize melt_start_time=%ld",
                 (long) melt_start_time.tv_sec);
 
 #if ENABLE_GC_ALWAYS_COLLECT
@@ -10451,8 +10451,8 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
   errno = 0;
   gcc_assert (melt_source_dir[0]);
   gcc_assert (melt_module_dir[0]);
-  debugeprintf ("melt_really_initialize builtin melt_source_dir %s", melt_source_dir);
-  debugeprintf ("melt_really_initialize builtin melt_module_dir %s", melt_module_dir);
+  melt_debugeprintf ("melt_really_initialize builtin melt_source_dir %s", melt_source_dir);
+  melt_debugeprintf ("melt_really_initialize builtin melt_module_dir %s", melt_module_dir);
   memset (&mystat, 0, sizeof(mystat));
   if (!melt_flag_bootstrapping
       && ((errno=ENOTDIR), (stat(melt_source_dir, &mystat) || !S_ISDIR(mystat.st_mode))))
@@ -10616,7 +10616,7 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
       if (!melt_flag_bootstrapping && !printset)
         inform  (UNKNOWN_LOCATION,
                  "MELT don't do anything without a mode; try -fplugin-arg-melt-mode=help");
-      debugeprintf ("melt_really_initialize return immediately since no mode (inistr=%s)",
+      melt_debugeprintf ("melt_really_initialize return immediately since no mode (inistr=%s)",
                     inistr);
       return;
     }
@@ -10634,7 +10634,7 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
         else
           curmod.assign(curmodstr);
         melt_asked_modes_vector.push_back (curmod);
-        debugeprintf("melt_really_initialize curmod='%s' #%d", curmod.c_str(),
+        melt_debugeprintf("melt_really_initialize curmod='%s' #%d", curmod.c_str(),
                      (int)melt_asked_modes_vector.size());
       }
   }
@@ -10739,7 +10739,7 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
     melt_allocate_young_gc_zone (wantedwords / sizeof(void*));
     melt_newspecdatalist = NULL;
     melt_oldspecdatalist = NULL;
-    debugeprintf ("melt_really_initialize alz %p-%p (%ld Kw)",
+    melt_debugeprintf ("melt_really_initialize alz %p-%p (%ld Kw)",
                   melt_startalz, melt_endalz, (long) wantedwords >> 10);
   }
   /* Install the signal handlers, even if the signals won't be
@@ -10759,15 +10759,15 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
   register_callback (melt_plugin_name, PLUGIN_FINISH,
                      melt_finishall_callback,
                      NULL);
-  debugeprintf ("melt_really_initialize cpp_PREFIX=%s", cpp_PREFIX);
-  debugeprintf ("melt_really_initialize cpp_EXEC_PREFIX=%s", cpp_EXEC_PREFIX);
-  debugeprintf ("melt_really_initialize gcc_exec_prefix=%s", gcc_exec_prefix);
-  debugeprintf ("melt_really_initialize melt_source_dir=%s", melt_source_dir);
-  debugeprintf ("melt_really_initialize melt_module_dir=%s", melt_module_dir);
-  debugeprintf ("melt_really_initialize inistr=%s", inistr);
+  melt_debugeprintf ("melt_really_initialize cpp_PREFIX=%s", cpp_PREFIX);
+  melt_debugeprintf ("melt_really_initialize cpp_EXEC_PREFIX=%s", cpp_EXEC_PREFIX);
+  melt_debugeprintf ("melt_really_initialize gcc_exec_prefix=%s", gcc_exec_prefix);
+  melt_debugeprintf ("melt_really_initialize melt_source_dir=%s", melt_source_dir);
+  melt_debugeprintf ("melt_really_initialize melt_module_dir=%s", melt_module_dir);
+  melt_debugeprintf ("melt_really_initialize inistr=%s", inistr);
   /* I really want meltgc_make_special to be linked in, even in plugin
      mode... So I test that the routine exists! */
-  debugeprintf ("melt_really_initialize meltgc_make_special=%#lx",
+  melt_debugeprintf ("melt_really_initialize meltgc_make_special=%#lx",
                 (long) meltgc_make_special);
   meltgc_load_modules_and_do_mode ();
   /* force a minor GC */
@@ -10775,9 +10775,9 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
   if (melt_debugging_after_mode)
     {
       melt_flag_debug = 1;
-      debugeprintf ("melt_really_initialize is debugging after mode=%s", modstr);
+      melt_debugeprintf ("melt_really_initialize is debugging after mode=%s", modstr);
     };
-  debugeprintf ("melt_really_initialize ended init=%s mode=%s",
+  melt_debugeprintf ("melt_really_initialize ended init=%s mode=%s",
                 inistr, modstr);
   if (!quiet_flag)
     {
@@ -10801,18 +10801,18 @@ melt_do_finalize (void)
   const char* modstr = NULL;
   int arrcount = 0;
 #define finclosv meltfram__.mcfr_varptr[0]
-  debugeprintf ("melt_do_finalize didfinal %d start", didfinal);
+  melt_debugeprintf ("melt_do_finalize didfinal %d start", didfinal);
   if (didfinal++>0)
     goto end;
   modstr = melt_argument ("mode");
-  debugeprintf ("melt_do_finalize modstr %s", modstr);
+  melt_debugeprintf ("melt_do_finalize modstr %s", modstr);
   if (!modstr)
     goto end;
   melthookproc_HOOK_EXIT_FINALIZER ();
   /* Always force a minor GC to be sure nothing stays in young
      region.  */
   melt_garbcoll (0, MELT_ONLY_MINOR);
-  debugeprintf("melt_do_finalize melt_tempdir %s melt_made_tempdir %d",
+  melt_debugeprintf("melt_do_finalize melt_tempdir %s melt_made_tempdir %d",
                melt_tempdir, melt_made_tempdir);
   /* Clear the temporary directory if needed.  */
   if (melt_tempdir[0])
@@ -10845,7 +10845,7 @@ melt_do_finalize (void)
           arrent[arrcount++] = xstrdup (dent->d_name);
         };
       closedir (tdir);
-      debugeprintf ("melt_do_finalize arrcount=%d melt_tempdir %s keeptemp=%d",
+      melt_debugeprintf ("melt_do_finalize arrcount=%d melt_tempdir %s keeptemp=%d",
                     arrcount, melt_tempdir, melt_flag_keep_temporary_files);
       if (melt_flag_keep_temporary_files)
         {
@@ -10861,7 +10861,7 @@ melt_do_finalize (void)
               char *tfilnam = arrent[ix];
               char *tfilpath = concat (melt_tempdir, "/", tfilnam, NULL);
               static char symlinkpath[512];
-              debugeprintf ("melt_do_finalize remove file #%d %s path %s", ix, tfilnam, tfilpath);
+              melt_debugeprintf ("melt_do_finalize remove file #%d %s path %s", ix, tfilnam, tfilpath);
               memset (symlinkpath, 0, sizeof(symlinkpath));
               if (readlink (tfilpath, symlinkpath, sizeof(symlinkpath)-1)>0)
                 {
@@ -10985,7 +10985,7 @@ plugin_init (struct plugin_name_args* plugin_info,
 lispy domain specific language to extend GCC.  See http://gcc-melt.org/";
   melt_really_initialize (plugin_info->base_name, gccversionstr);
   free (gccversionstr);
-  debugeprintf ("end of melt plugin_init");
+  melt_debugeprintf ("end of melt plugin_init");
   return 0; /* success */
 }
 
@@ -10993,7 +10993,7 @@ lispy domain specific language to extend GCC.  See http://gcc-melt.org/";
 void
 melt_initialize (void)
 {
-  debugeprintf ("start of melt_initialize [builtin MELT] version_string %s",
+  melt_debugeprintf ("start of melt_initialize [builtin MELT] version_string %s",
                 version_string);
   /* For the MELT branch, we are using the plugin facilities without
      calling add_new_plugin, so we need to force the flag_plugin_added
@@ -11001,7 +11001,7 @@ melt_initialize (void)
      MELT plugin!  */
   flag_plugin_added = true;
   melt_really_initialize ("MELT/_builtin", version_string);
-  debugeprintf ("end of melt_initialize [builtin MELT] meltruntime %s", __DATE__);
+  melt_debugeprintf ("end of melt_initialize [builtin MELT] meltruntime %s", __DATE__);
 }
 #endif  /* MELT_IS_PLUGIN */
 
@@ -11047,7 +11047,7 @@ void
 melt_finalize (void)
 {
   melt_do_finalize ();
-  debugeprintf ("melt_finalize with %ld GarbColl, %ld fullGc",
+  melt_debugeprintf ("melt_finalize with %ld GarbColl, %ld fullGc",
                 melt_nb_garbcoll, melt_nb_full_garbcoll);
 }
 
@@ -12220,7 +12220,7 @@ melt_output_cfile_decl_impl_secondary_option (melt_ptr_t unitnam,
     time (&now);
     if (melt_flag_generate_work_link)
       workdir = melt_argument ("workdir");
-    debugeprintf ("melt_output_cfile_decl_impl_secondary s=%s cnt=%u workdir=%s", s, cnt, workdir);
+    melt_debugeprintf ("melt_output_cfile_decl_impl_secondary s=%s cnt=%u workdir=%s", s, cnt, workdir);
     /* generate in bufpid a unique file suffix from the pid and the time */
     memset (bufpid, 0, sizeof(bufpid));
     snprintf (bufpid, sizeof(bufpid)-1, "_p%d_n%d_r%x_c%u",
@@ -12246,7 +12246,7 @@ melt_output_cfile_decl_impl_secondary_option (melt_ptr_t unitnam,
           dotempnam = concat (s, "%", bufpid, NULL);
       };
   }
-  debugeprintf ("melt_output_cfile_decl_impl_secondary_option dotempnam=%s melt_flag_generate_work_link=%d",
+  melt_debugeprintf ("melt_output_cfile_decl_impl_secondary_option dotempnam=%s melt_flag_generate_work_link=%d",
                 dotempnam, melt_flag_generate_work_link);
   /* we first write in the temporary name */
   cfil = fopen (dotempnam, "w");
@@ -12449,7 +12449,7 @@ melt_output_cfile_decl_impl_secondary_option (melt_ptr_t unitnam,
                      dotcnam);
         }
     }
-  debugeprintf ("output_cfile done dotcnam %s", dotcnam);
+  melt_debugeprintf ("output_cfile done dotcnam %s", dotcnam);
   free (dotcnam);
   free (dotempnam);
   free (dotcpercentnam);
@@ -12634,7 +12634,7 @@ melt_fatal_info (const char*filename, int lineno)
     warning (0, "MELT temporary directory %s may be dirty on fatal failure; please remove it manually",
              melt_tempdir);
   fflush (NULL);
-  debugeprintf ("ending melt_fatal_info filename=%s lineno=%d\n", filename, lineno);
+  melt_debugeprintf ("ending melt_fatal_info filename=%s lineno=%d\n", filename, lineno);
   return;
 }
 
@@ -12825,7 +12825,7 @@ melt_sparebreakpoint_0_at (const char*fil, int lin, void*ptr, const char*msg)
   snprintf (msgbuf, sizeof(msgbuf), "melt_sparebreakpoint_0@%.25s:%d: %s",
             melt_basename (fil), lin, msg);
   melt_dbgshortbacktrace(msgbuf, 20);
-  debugeprintf ("melt_sparebreakpoint_0_at msg %s", msg);
+  melt_debugeprintf ("melt_sparebreakpoint_0_at msg %s", msg);
   gcc_assert (fil != NULL); // useless, but can put a GDB breakpoint here
 }
 
@@ -12838,7 +12838,7 @@ melt_sparebreakpoint_1_at (const char*fil, int lin, void*ptr, const char*msg)
   snprintf (msgbuf, sizeof(msgbuf), "melt_sparebreakpoint_1@%.25s:%d: %s",
             melt_basename (fil), lin, msg);
   melt_dbgshortbacktrace(msgbuf, 20);
-  debugeprintf ("melt_sparebreakpoint_1_at msg %s", msg);
+  melt_debugeprintf ("melt_sparebreakpoint_1_at msg %s", msg);
   gcc_assert (fil != NULL); // useless, but can put a GDB breakpoint here
 }
 
@@ -12851,7 +12851,7 @@ melt_sparebreakpoint_2_at (const char*fil, int lin, void*ptr, const char*msg)
   snprintf (msgbuf, sizeof(msgbuf), "melt_sparebreakpoint_2@%.25s:%d: %s",
             melt_basename (fil), lin, msg);
   melt_dbgshortbacktrace(msgbuf, 20);
-  debugeprintf ("melt_sparebreakpoint_2_at msg %s", msg);
+  melt_debugeprintf ("melt_sparebreakpoint_2_at msg %s", msg);
   gcc_assert (fil != NULL); // useless, but can put a GDB breakpoint here
 }
 
@@ -13257,7 +13257,7 @@ void melt_set_flag_debug (void)
   time_t now;
   melt_flag_debug = 1;
   time (&now);
-  debugeprintf(" melt_set_flag_debug  forcibly set debug %s",
+  melt_debugeprintf(" melt_set_flag_debug  forcibly set debug %s",
                ctime(&now));
 }
 
@@ -13265,7 +13265,7 @@ void melt_clear_flag_debug (void)
 {
   time_t now;
   time (&now);
-  debugeprintf(" melt_clear_flag_debug forcibly clear debug %s",
+  melt_debugeprintf(" melt_clear_flag_debug forcibly clear debug %s",
                ctime(&now));
   melt_flag_debug = 0;
 }

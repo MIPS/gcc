@@ -1,4 +1,48 @@
 
+2016-05-11   Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.h: Replace all the debugep* macros or functions
+	with melt_debugep*...
+	(melt_debugeprintf_raw): Rename debugeprintf_raw macro.
+	(melt_debugeprintfline): Rename debugeprintfline macro.
+	(melt_debugeprintf): Rename debugeprintf macro.
+	(melt_debugeprintflinenonl): Rename debugeprintflinenonl macro.
+	(melt_debugeprintvalue): Rename debugeprintvalue macro.
+	(melt_debugebacktrace): Rename debugebacktrace macro.
+	(melt_debugeputs_at): Rename debugeputs_at inline function.
+	(melt_debugeputs): Rename debugeputs macro.
+	(melt_debugvalue_at): Rename debugvalue_at inline function.
+	(melt_debugvalue): Rename debugvalue macro.
+	(melt_debugmsgval_at): Rename debugmsgval_at inline function.
+	(melt_debugmsgval): Rename debugmsgval macro.
+	(melt_debugbacktrace_at): Rename debugbacktrace_at inline
+	function.
+	(melt_debugbacktrace): Rename debugbacktrace macro.
+	(melt_debugnum_at): Rename debugnum_at inline function.
+	(melt_debugnum): Rename debugnum macro.
+	(debugeprintf_raw, debugeprintf, debugeprintflinenonl)
+	(debugeprintfline, ebugeprintfnonl, debugeprintvalue)
+	(debugebacktrace, debugeputs, debugvalue, debugmsgval)
+	(debugbacktrace, debugnum): Temporarily define these as macros,
+	for backward compatibility till we regenerate everything.
+
+	* melt-runtime.cc: Likewise replace all the debugep* macros or
+	functions with melt_debugep* ...
+	(melt_caught_assign_at, melt_cbreak_at, melt_garbcoll)
+	(meltgc_new_string_without_suffix)
+	(meltgc_new_string_nakedbasename, melt_tempdir_path)
+	(melt_run_make_for_plugin, melt_run_make_for_branch)
+	(melt_compile_source, melt_find_file_at, melt_skipspace_getc)
+	(meltgc_readval, meltgc_read_file, melt_attribute_callback)
+	(melt_load_module_index, meltgc_run_cc_extension)
+	(meltgc_load_flavored_module, "meltgc_start_flavored_module)
+	(meltgc_load_one_module, meltgc_load_module_list)
+	(meltgc_load_modules_and_do_mode, melt_really_initialize)
+	(melt_do_finalize, melt_output_cfile_decl_impl_secondary)
+	(melt_fatal_info, melt_sparebreakpoint_0_at)
+	(melt_sparebreakpoint_1_at, melt_set_flag_debug)
+	(melt_clear_flag_debug): Use melt_debugeprintf, etc...
+
 2016-05-10   Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.cc (melt_allocate_young_gc_zone): Correct order of

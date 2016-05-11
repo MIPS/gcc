@@ -310,27 +310,27 @@ extern "C" int melt_flag_bootstrapping;
 ////////////////////////////////////////////////////////////////
 #if MELT_HAVE_DEBUG > 0
 
-#define debugeprintf_raw(Fmt,...) do{if (melt_flag_debug) \
+#define melt_debugeprintf_raw(Fmt,...) do{if (melt_flag_debug) \
       {fprintf(stderr, Fmt, ##__VA_ARGS__); fflush(stderr);}}while(0)
 /* Sometimes we need to pass an explicit line number.  */
-#define debugeprintfline(Lin,Fmt,...) \
-   debugeprintf_raw("!@%s:%d:\n@! " Fmt "\n", \
+#define melt_debugeprintfline(Lin,Fmt,...) \
+   melt_debugeprintf_raw("!@%s:%d:\n@! " Fmt "\n", \
                     melt_basename(__FILE__), Lin, ##__VA_ARGS__)
 /* The usual debugging macro.  */
-#define debugeprintf(Fmt,...) debugeprintfline(__LINE__,Fmt,##__VA_ARGS__)
+#define melt_debugeprintf(Fmt,...) melt_debugeprintfline(__LINE__,Fmt,##__VA_ARGS__)
 
-#define debugeprintflinenonl(Lin,Fmt,...)                       \
-  debugeprintf_raw("!@%s:%d:\n@! " Fmt,                         \
+#define melt_debugeprintflinenonl(Lin,Fmt,...)                       \
+  melt_debugeprintf_raw("!@%s:%d:\n@! " Fmt,                         \
                    melt_basename(__FILE__), Lin, ##__VA_ARGS__)
-#define debugeprintfnonl(Fmt,...) \
-  debugeprintflinenonl(__LINE__, Fmt, ##__VA_ARGS__)
+#define melt_debugeprintfnonl(Fmt,...) \
+  melt_debugeprintflinenonl(__LINE__, Fmt, ##__VA_ARGS__)
 
-#define debugeprintvalue(Msg,Val) do{if (melt_flag_debug){	\
+#define melt_debugeprintvalue(Msg,Val) do{if (melt_flag_debug){	\
       void* __val = (Val);					\
       fprintf(stderr,"!@%s:%d:\n@! %s @%p= ",			\
               melt_basename(__FILE__), __LINE__, (Msg), __val);	\
       melt_dbgeprint(__val); }} while(0)
-#define debugebacktrace(Msg,Depth)  do{if (melt_flag_debug){	\
+#define melt_debugebacktrace(Msg,Depth)  do{if (melt_flag_debug){	\
       void* __val = (Val);					\
       fprintf(stderr,"!@%s:%d: %s **backtrace** ",		\
               melt_basename(__FILE__), __LINE__, (Msg));		\
@@ -356,29 +356,29 @@ extern "C" int melt_flag_bootstrapping;
 
 #else /* !MELT_HAVE_DEBUG*/
 
-#define debugeprintf_raw(Fmt,...) do{if (false) \
+#define melt_debugeprintf_raw(Fmt,...) do{if (false) \
       {fprintf(stderr, Fmt, ##__VA_ARGS__); fflush(stderr);}}while(0)
 /* The usual debugging macro.  */
-#define debugeprintf(Fmt,...) debugeprintfline(__LINE__,Fmt,##__VA_ARGS__)
+#define melt_debugeprintf(Fmt,...) melt_debugeprintfline(__LINE__,Fmt,##__VA_ARGS__)
 
-#define debugeprintflinenonl(Lin,Fmt,...)                       \
-  debugeprintf_raw("!@%s:%d:\n@! " Fmt,                         \
+#define melt_debugeprintflinenonl(Lin,Fmt,...)                       \
+  melt_debugeprintf_raw("!@%s:%d:\n@! " Fmt,                         \
                    melt_basename(__FILE__), Lin, ##__VA_ARGS__)
 
-#define debugeprintfline(Lin,Fmt,...) \
-   debugeprintf_raw("!@%s:%d:\n@! " Fmt "\n", \
+#define melt_debugeprintfline(Lin,Fmt,...) \
+   melt_debugeprintf_raw("!@%s:%d:\n@! " Fmt "\n", \
                     melt_basename(__FILE__), Lin, ##__VA_ARGS__)
 
-#define debugeprintfnonl(Fmt,...) \
-  debugeprintflinenonl(__LINE__, Fmt, ##__VA_ARGS__)
+#define melt_debugeprintfnonl(Fmt,...) \
+  melt_debugeprintflinenonl(__LINE__, Fmt, ##__VA_ARGS__)
 
-#define debugeprintvalue(Msg,Val) do{if (false) {      		\
+#define melt_debugeprintvalue(Msg,Val) do{if (false) {      		\
       void* __val = (Val);					\
       fprintf(stderr,"!@%s:%d:\n@! %s @%p= ",			\
               melt_basename(__FILE__), __LINE__, (Msg), __val);	\
       melt_dbgeprint(__val); }} while(0)
 
-#define debugebacktrace(Msg,Depth)  do{if (false) {    		\
+#define melt_debugebacktrace(Msg,Depth)  do{if (false) {    		\
       void* __val = (Val);					\
       fprintf(stderr,"!@%s:%d: %s **backtrace** ",		\
               melt_basename(__FILE__), __LINE__, (Msg));	\
@@ -3683,18 +3683,18 @@ void meltgc_output_file (FILE* fil, melt_ptr_t val_p);
 
 #if MELT_HAVE_DEBUG > 0 || MELT_HAVE_RUNTIME_DEBUG > 0
 static inline void
-debugeputs_at (const char *fil, int lin, const char *msg)
+melt_debugeputs_at (const char *fil, int lin, const char *msg)
 {
-  debugeprintf_raw ("!@%s:%d:\n@! %s\n", basename (fil), lin, msg);
+ melt_debugeprintf_raw ("!@%s:%d:\n@! %s\n", basename (fil), lin, msg);
 }
 
-#define debugeputs(Msg) debugeputs_at(__FILE__,__LINE__,(Msg))
+#define melt_debugeputs(Msg) melt_debugeputs_at(__FILE__,__LINE__,(Msg))
 #else
-#define debugeputs(Msg) ((void) 0)
+#define melt_debugeputs(Msg) ((void) 0)
 #endif /* MELT_HAVE_DEBUG */
 
 static inline void
-debugvalue_at (const char *fil, int lin, const char *msg, void *val)
+melt_debugvalue_at (const char *fil, int lin, const char *msg, void *val)
 {
   if (melt_flag_debug)
     {
@@ -3704,11 +3704,11 @@ debugvalue_at (const char *fil, int lin, const char *msg, void *val)
     }
 }
 // deprecated macro
-#define debugvalue(Msg,Val) debugvalue_at(__FILE__, __LINE__, (Msg), (Val))
+#define melt_debugvalue(Msg,Val) melt_debugvalue_at(__FILE__, __LINE__, (Msg), (Val))
 
 
 static inline void
-debugmsgval_at (const char*fil, int lin, const char* msg, void*val, long count)
+melt_debugmsgval_at (const char*fil, int lin, const char* msg, void*val, long count)
 {
   if (melt_flag_debug)
     {
@@ -3717,11 +3717,11 @@ debugmsgval_at (const char*fil, int lin, const char* msg, void*val, long count)
 }
 
 // deprecated macro
-#define debugmsgval(Msg,Val,Count) do {					\
-    debugmsgval_at(__FILE__,__LINE__,(Msg),(Val),(Count)); } while(0)
+#define melt_debugmsgval(Msg,Val,Count) do {					\
+    melt_debugmsgval_at(__FILE__,__LINE__,(Msg),(Val),(Count)); } while(0)
 
 static inline void
-debugbacktrace_at (const char *fil, int lin, const char *msg, int depth)
+melt_debugbacktrace_at (const char *fil, int lin, const char *msg, int depth)
 {
   if (melt_flag_debug)
     {
@@ -3732,15 +3732,15 @@ debugbacktrace_at (const char *fil, int lin, const char *msg, int depth)
     }
 }
 
-#define debugbacktrace(Msg,Depth) debugbacktrace_at(__FILE__, __LINE__, (Msg), (Depth))
+#define melt_debugbacktrace(Msg,Depth) debugbacktrace_at(__FILE__, __LINE__, (Msg), (Depth))
 
 static inline void
-debugnum_at (const char *fil, int lin, const char *msg, long val)
+melt_debugnum_at (const char *fil, int lin, const char *msg, long val)
 {
-  debugeprintf_raw ("!@%s:%d: %s =#= %ld\n", basename (fil), lin, msg, val);
+  melt_debugeprintf_raw ("!@%s:%d: %s =#= %ld\n", basename (fil), lin, msg, val);
 }
 
-#define debugnum(Msg,Val) debugnum_at(__FILE__, __LINE__, (Msg), (Val))
+#define melt_debugnum(Msg,Val) melt_debugnum_at(__FILE__, __LINE__, (Msg), (Val))
 
 
 void melt_dbgshortbacktrace(const char* msg, int maxdepth);
@@ -3786,6 +3786,23 @@ void melt_cbreak_at(const char*msg, const char*fil, int lin);
 #undef debugmsgval
 #define debugmsgval(Msg,Val,Count) do {}while(0)
 #endif /*MELT_HAVE_DEBUG*/
+
+// temporarily, till we remove them
+#define debugeprintf_raw  melt_debugeprintf_raw
+#define debugeprintf melt_debugeprintf
+#define debugeprintflinenonl melt_debugeprintflinenonl
+#define debugeprintfline melt_debugeprintfline
+#define debugeprintfnonl melt_debugeprintfnonl
+#define debugeprintvalue melt_debugeprintvalue
+#define debugebacktrace melt_debugebacktrace
+#define debugeputs melt_debugeputs
+#define debugvalue melt_debugvalue
+#define debugmsgval melt_debugmsgval
+#define debugbacktrace melt_debugbacktrace
+#define debugnum melt_debugnum
+
+
+
 
 
 
