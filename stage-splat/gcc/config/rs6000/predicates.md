@@ -565,6 +565,21 @@
     }
 })
 
+;; Return 1 if the operand is a CONST_VECTOR that can loaded with a XXSPLTIB
+;; instruction and then a VECSB2W or VECSB2D instruction.
+
+(define_predicate "easy_p9_constant_split"
+  (match_code "const_vector")
+{
+  if (!TARGET_P9_VECTOR)
+    return false;
+
+  if (mode != V4SImode && mode != V2DImode)
+    return false;
+
+  return easy_p9_constant (op, mode, false);
+})
+
 ;; Return 1 if the operand is a CONST_VECTOR and can be loaded into a
 ;; vector register without using memory.
 (define_predicate "easy_vector_constant"
@@ -584,6 +599,9 @@
   if (VECTOR_MEM_ALTIVEC_OR_VSX_P (mode))
     {
       if (zero_constant (op, mode))
+	return true;
+
+      if (TARGET_P9_VECTOR && easy_p9_constant (op, mode, false))
 	return true;
 
       return easy_altivec_constant (op, mode);
@@ -661,6 +679,11 @@
 (define_predicate "zero_constant"
   (and (match_code "const_int,const_double,const_wide_int,const_vector")
        (match_test "op == CONST0_RTX (mode)")))
+
+;; Return 1 if operand is constant -1 (scalars and vectors).
+(define_predicate "all_ones_constant"
+  (and (match_code "const_int,const_double,const_wide_int,const_vector")
+       (match_test "op == CONSTM1_RTX (mode) && !FLOAT_MODE_P (mode)")))
 
 ;; Return 1 if operand is 0.0.
 (define_predicate "zero_fp_constant"

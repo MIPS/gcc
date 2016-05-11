@@ -1,3 +1,51 @@
+2016-05-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (wE constraint): New constraint for
+	constants that can be loaded with XXSPLTIB.
+	(wM constraint): New constraint for a vector constant with all
+	1's.
+
+	* config/rs6000/predicates.md (easy_p9_constant_split): New
+	predicate for splitting constants that can be setup with
+	XXSPLITB.
+	(easy_vector_constant): Add support for constants that can be
+	generated from XXSPLTIB.
+	(all_ones_constant): Recognize a vector constant with all 1's
+	set.
+
+	* config/rs6000/rs6000-protos.h (easy_p9_constant): Add
+	declaration.
+
+	* config/rs6000/rs6000.c (easy_p9_constant): Recognize constants
+	that can be generated with XXSPLTIB.
+	(output_vec_const_move): Add support for constants that can be
+	generated with XXSPLTIB.
+	(rs6000_expand_vector_init): Add support for ISA 3.0 word splat
+	instructions.
+	(rs6000_output_move_128bit): Add support for XXSPLTIB.
+
+	* config/rs6000/vsx.md (UNSPEC_VSX_SIGN_EXTEND): New UNSPEC.
+	(vsx_mov<mode>): Split move insn into 32-bit and 64-bit
+	versions. Add support for constants that can be generated with
+	XXSPLTIB. Rework insn so that it is easier to read, and the
+	alternatives/attributes don't use long lines. Prefer using
+	VSPLTIWS to load 0/-1 over XXLXOR/XXLORC. Eliminate
+	preferenced/alternate register classes.
+	(vsx_mov<mode>_64bit): Likewise.
+	(vsx_mov<mode>_32bit): Likewise.
+	(vsx_movti_64bit): Likewise.
+	(vsx_movti_32bit): Likewise.
+	(vsx_splat_v4si): Add support for ISA 3.0 word splat instructions.
+	(vsx_splat_v4sf): Likewise.
+	(vsx_xxspltw_<mode>): Likewise.
+	(V4SI_OR_V2DI mode iterator): Add support for ISA 3.0 sign extend
+	instructions.
+	(vsx_sign_extend_qi_<mode>): Likewise.
+	(vsx_sign_extend_hi_<mode>): Likewise.
+	(vsx_sign_extend_si_v2di): Likewise.
+	(xxsplitb): Expander to generate XXSPLTIB insn.
+	(XXSPLTIB splitters): Add splitters for using XXSPLTIB.
+
 2016-05-05   Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch subversion id 235929
