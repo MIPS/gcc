@@ -1,5 +1,5 @@
 Bottom: da89f4ba0ba98702f0af9315171a76b333bd3c15
-Top:    513ce1a13dd2e8b3eae396770711888fe7bf71f3
+Top:    0f4d72149256235783b6803753586825e5122870
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-05-11 05:30:57 -0300
 
@@ -8,17 +8,30 @@ support dependent overloaded operators and other special member functions
 ---
 
 diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
-index 2d8bb7a..bbc61d2e 100644
+index 2d8bb7a..855f4eb 100644
 --- a/include/gcc-cp-fe.def
 +++ b/include/gcc-cp-fe.def
-@@ -434,16 +434,26 @@ GCC_METHOD2 (gcc_type, new_dependent_typespec,
-    nested name specifier (e.g., T), ID should be the name of the
-    member of the ENCLOSING_TYPE (e.g., val or f), and TARGS should
-    list template arguments (e.g. <X>) when f is to name a template
--   function, or be NULL otherwise.  */
-+   function, or be NULL otherwise.
+@@ -430,20 +430,34 @@ GCC_METHOD2 (gcc_type, new_dependent_typespec,
+ 	     const struct gcc_cp_template_args *)  /* Argument TARGS.  */
  
+ /* Build a template-dependent value expression (e.g., T::val or
+-   T::template f<X>).  ENCLOSING_TYPE should be the template-dependent
+-   nested name specifier (e.g., T), ID should be the name of the
+-   member of the ENCLOSING_TYPE (e.g., val or f), and TARGS should
+-   list template arguments (e.g. <X>) when f is to name a template
+-   function, or be NULL otherwise.  */
+-
 -GCC_METHOD3 (gcc_decl, new_dependent_value_expr,
++   T::template mtf<X>, or unqualified f or template tf<X>).
++   ENCLOSING_TYPE should be the template-dependent nested name
++   specifier (e.g., T) or NULL for unqualified names, ID should be the
++   name of the member of the ENCLOSING_TYPE (e.g., val or mtf) or
++   unqualified overloaded function, and TARGS should list template
++   arguments (e.g. <X>) when mtf or tf are to name a template
++   function, or be NULL otherwise.  Unqualified template-dependent
++   names can only name overloaded functions, to be used in call
++   expressions with template-dependent arguments.
++
 +   If ID is the name of a special member function, FLAGS should be
 +   GCC_CP_SYMBOL_FUNCTION|GCC_CP_FLAG_SPECIAL_FUNCTION, and ID should
 +   be one of the encodings for special member functions documented in
