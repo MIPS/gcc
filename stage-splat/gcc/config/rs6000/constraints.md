@@ -166,6 +166,11 @@
   (and (match_test "TARGET_P8_VECTOR")
        (match_operand 0 "all_ones_constant")))
 
+;; ISA 3.0 vector d-form addresses
+(define_memory_constraint "wO"
+  "Memory operand suitable for the ISA 3.0 vector d-form instructions."
+  (match_operand 0 "vsx_quad_dform_memory_operand"))
+
 ;; Lq/stq validates the address for load/store quad
 (define_memory_constraint "wQ"
   "Memory operand suitable for the load/store quad instructions"

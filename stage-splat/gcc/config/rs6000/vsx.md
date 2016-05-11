@@ -302,24 +302,6 @@
    UNSPEC_VSX_SIGN_EXTEND
   ])
 
-;; VSX (P9) moves
-
-(define_insn "*p9_vecload_<mode>"
-  [(set (match_operand:VSX_M2 0 "vsx_register_operand" "=<VSa>")
-        (match_operand:VSX_M2 1 "memory_operand" "Z"))]
-  "TARGET_P9_VECTOR"
-  "lxvx %x0,%y1"
-  [(set_attr "type" "vecload")
-   (set_attr "length" "4")])
-
-(define_insn "*p9_vecstore_<mode>"
-  [(set (match_operand:VSX_M2 0 "memory_operand" "=Z")
-        (match_operand:VSX_M2 1 "vsx_register_operand" "<VSa>"))]
-  "TARGET_P9_VECTOR"
-  "stxvx %x1,%y0"
-  [(set_attr "type" "vecstore")
-   (set_attr "length" "4")])
-
 ;; VSX moves
 
 ;; The patterns for LE permuted loads and stores come before the general
@@ -801,14 +783,14 @@
 ;; (such as a store waiting on a slow instruction). But generate XXLXOR/XXLORC
 ;; if it will avoid a register move.
 (define_insn "*vsx_mov<mode>_64bit"
-  [(set (match_operand:VSX_M 0 "nonimmediate_operand" "=Z,          <VSa>,
+  [(set (match_operand:VSX_M 0 "nonimmediate_operand" "=ZwO,        <VSa>,
                                                        <VSa>,       *r,
                                                        *wo,         *$Y,
                                                        *$r,         *r,
                                                        v,           ?<VSa>,
                                                        *r,          wa,
                                                        wZ,          v")
-	(match_operand:VSX_M 1 "input_operand"        "<VSa>,       Z,
+	(match_operand:VSX_M 1 "input_operand"        "<VSa>,       ZwO,
                                                        <VSa>,       wo,
                                                        r,           r,
                                                        Y,           r,
@@ -880,8 +862,8 @@
 ;; use of TImode is for unions.  However for plain data movement, slightly
 ;; favor the vector loads
 (define_insn "*vsx_movti_64bit"
-  [(set (match_operand:TI 0 "nonimmediate_operand" "=Z,wa,wa,wa,r, we,wa,v,v, wZ,wQ,&r,Y,r,r,?r")
-	(match_operand:TI 1 "input_operand"        "wa,Z, wa,O, we,b, wE,W,wZ,v, r, wQ,r,Y,r,n"))]
+  [(set (match_operand:TI 0 "nonimmediate_operand" "=ZwO,wa,wa,wa,r, we,wa,v,v, wZ,wQ,&r,Y,r,r,?r")
+	(match_operand:TI 1 "input_operand"        "wa,ZwO, wa,O, we,b, wE,W,wZ,v, r, wQ,r,Y,r,n"))]
   "TARGET_POWERPC64 && VECTOR_MEM_VSX_P (TImode)
    && (register_operand (operands[0], TImode) 
        || register_operand (operands[1], TImode))"
@@ -892,8 +874,8 @@
    (set_attr "length" "4,       4,      4,        4,        8,     4,     4,        16,       4,       4,      8,    8,   8,    8,   8,8")])
 
 (define_insn "*vsx_movti_32bit"
-  [(set (match_operand:TI 0 "nonimmediate_operand" "=Z,wa,wa,wa,v, v,wZ,Q,Y,????r,????r,????r,r")
-	(match_operand:TI 1 "input_operand"        "wa, Z,wa, O,W,wZ, v,r,r,    Q,    Y,    r,n"))]
+  [(set (match_operand:TI 0 "nonimmediate_operand" "=ZwO,wa,wa,wa,v,v,wZ,Q,Y,????r,????r,????r,r")
+	(match_operand:TI 1 "input_operand"        "wa,ZwO,wa,O,W,wZ,v,r,r,Q,Y,r,n"))]
   "! TARGET_POWERPC64 && VECTOR_MEM_VSX_P (TImode)
    && (register_operand (operands[0], TImode)
        || register_operand (operands[1], TImode))"
@@ -1794,10 +1776,15 @@
 {
   rtx op0 = operands[0];
   rtx op1 = operands[1];
-  rtx tmp = gen_reg_rtx (V2DFmode);
-  int scale = INTVAL(operands[2]);
-  if (scale != 0)
-    rs6000_scale_v2df (tmp, op1, scale);
+  rtx tmp;
+  int scale = INTVAL (operands[2]);
+  if (scale == 0)
+    tmp = op1;
+  else
+    {
+      tmp  = gen_reg_rtx (V2DFmode);
+      rs6000_scale_v2df (tmp, op1, scale);
+    }
   emit_insn (gen_vsx_xvcvdpsxds (op0, tmp));
   DONE;
 })
@@ -1818,10 +1805,15 @@
 {
   rtx op0 = operands[0];
   rtx op1 = operands[1];
-  rtx tmp = gen_reg_rtx (V2DFmode);
-  int scale = INTVAL(operands[2]);
-  if (scale != 0)
-    rs6000_scale_v2df (tmp, op1, scale);
+  rtx tmp;
+  int scale = INTVAL (operands[2]);
+  if (scale == 0)
+    tmp = op1;
+  else
+    {
+      tmp = gen_reg_rtx (V2DFmode);
+      rs6000_scale_v2df (tmp, op1, scale);
+    }
   emit_insn (gen_vsx_xvcvdpuxds (op0, tmp));
   DONE;
 })
