@@ -519,6 +519,8 @@ GCC_METHOD3 (gcc_expr, type_value_expr,
 /* Return the type of the gcc_expr OPERAND.
    Use this for decltype.
 
+   FIXME: introduce decltype (auto).
+
    Note: for template-dependent expressions, the result is NULL,
    because the type is only computed when template argument
    substitution is performed.  */
