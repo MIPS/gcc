@@ -1,5 +1,5 @@
 Bottom: da89f4ba0ba98702f0af9315171a76b333bd3c15
-Top:    0f4d72149256235783b6803753586825e5122870
+Top:    e595827e0b21a6e6f34428119ebbd6b0d3ddb2bf
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-05-11 05:30:57 -0300
 
@@ -8,10 +8,10 @@ support dependent overloaded operators and other special member functions
 ---
 
 diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
-index 2d8bb7a..855f4eb 100644
+index 2d8bb7a..ab09ff8 100644
 --- a/include/gcc-cp-fe.def
 +++ b/include/gcc-cp-fe.def
-@@ -430,20 +430,34 @@ GCC_METHOD2 (gcc_type, new_dependent_typespec,
+@@ -430,20 +430,37 @@ GCC_METHOD2 (gcc_type, new_dependent_typespec,
  	     const struct gcc_cp_template_args *)  /* Argument TARGS.  */
  
  /* Build a template-dependent value expression (e.g., T::val or
@@ -29,8 +29,11 @@ index 2d8bb7a..855f4eb 100644
 +   unqualified overloaded function, and TARGS should list template
 +   arguments (e.g. <X>) when mtf or tf are to name a template
 +   function, or be NULL otherwise.  Unqualified template-dependent
-+   names can only name overloaded functions, to be used in call
-+   expressions with template-dependent arguments.
++   names can only resolve to overloaded functions, to be used in
++   contexts that make their argument types template-dependent, such as
++   call expressions with template-dependent arguments, conversion
++   expressions to function types with template-dependent argument
++   types or the like.
 +
 +   If ID is the name of a special member function, FLAGS should be
 +   GCC_CP_SYMBOL_FUNCTION|GCC_CP_FLAG_SPECIAL_FUNCTION, and ID should

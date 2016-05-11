@@ -1,11 +1,10 @@
 Version: 1
-Previous: 44b48e0b5947f8bc14b82a8e1d0335b6f299ba98
-Head: 2a33bcf84a9372b5dd12e6cca8e46671d8c51cd9
+Previous: f215f2d912c665bab94f68838dfc5dd62626261b
+Head: 832a4d7a816b577ba67afbce25eb2aba3ef020b0
 Applied:
   adjust-type-align-propagation.patch: 9d26d91ff0e9848b3d73088db0bb27dfe4ad6e53
   using-inline-ns-aliases-etc.patch: 1a6b7b9481c075e616afd1335f1a1b417edc0008
-  dependent-special-funcs.patch: 6f91c5552a214494e59c3d70d35c57658229e718
-  refresh-temp: 2a33bcf84a9372b5dd12e6cca8e46671d8c51cd9
+  dependent-special-funcs.patch: 832a4d7a816b577ba67afbce25eb2aba3ef020b0
 Unapplied:
   static_assert.patch: 23d2bf390703221c9688c0844612d49efaba13e9
   special-memfuncs-testing.patch: 5dadb8e81f23ef0a3a559dc1776fa25b2cc8c5db
