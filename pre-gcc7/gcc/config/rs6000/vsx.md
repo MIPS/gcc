@@ -302,7 +302,6 @@
    UNSPEC_VSX_SIGN_EXTEND
   ])
 
-
 ;; VSX moves
 
 ;; The patterns for LE permuted loads and stores come before the general
@@ -1717,10 +1716,15 @@
 {
   rtx op0 = operands[0];
   rtx op1 = operands[1];
-  rtx tmp = gen_reg_rtx (V2DFmode);
-  int scale = INTVAL(operands[2]);
-  if (scale != 0)
-    rs6000_scale_v2df (tmp, op1, scale);
+  rtx tmp;
+  int scale = INTVAL (operands[2]);
+  if (scale == 0)
+    tmp = op1;
+  else
+    {
+      tmp  = gen_reg_rtx (V2DFmode);
+      rs6000_scale_v2df (tmp, op1, scale);
+    }
   emit_insn (gen_vsx_xvcvdpsxds (op0, tmp));
   DONE;
 })
@@ -1741,10 +1745,15 @@
 {
   rtx op0 = operands[0];
   rtx op1 = operands[1];
-  rtx tmp = gen_reg_rtx (V2DFmode);
-  int scale = INTVAL(operands[2]);
-  if (scale != 0)
-    rs6000_scale_v2df (tmp, op1, scale);
+  rtx tmp;
+  int scale = INTVAL (operands[2]);
+  if (scale == 0)
+    tmp = op1;
+  else
+    {
+      tmp = gen_reg_rtx (V2DFmode);
+      rs6000_scale_v2df (tmp, op1, scale);
+    }
   emit_insn (gen_vsx_xvcvdpuxds (op0, tmp));
   DONE;
 })

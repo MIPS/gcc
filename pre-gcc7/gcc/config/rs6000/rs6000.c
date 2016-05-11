@@ -1771,6 +1771,9 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #undef TARGET_CONDITIONAL_REGISTER_USAGE
 #define TARGET_CONDITIONAL_REGISTER_USAGE rs6000_conditional_register_usage
 
+#undef TARGET_SCHED_REASSOCIATION_WIDTH
+#define TARGET_SCHED_REASSOCIATION_WIDTH rs6000_reassociation_width
+
 #undef TARGET_TRAMPOLINE_INIT
 #define TARGET_TRAMPOLINE_INIT rs6000_trampoline_init
 
@@ -2663,8 +2666,7 @@ rs6000_debug_reg_global (void)
   if (TARGET_LINK_STACK)
     fprintf (stderr, DEBUG_FMT_S, "link_stack", "true");
 
-  if (TARGET_LRA)
-    fprintf (stderr, DEBUG_FMT_S, "lra", "true");
+  fprintf (stderr, DEBUG_FMT_S, "lra", TARGET_LRA ? "true" : "false");
 
   if (TARGET_P8_FUSION)
     {
@@ -8952,6 +8954,40 @@ rs6000_offsettable_memref_p (rtx op, machine_mode reg_mode)
 					     true, worst_case);
 }
 
+/* Determine the reassociation width to be used in reassociate_bb.
+   This takes into account how many parallel operations we
+   can actually do of a given type, and also the latency.
+   P8:
+     int add/sub 6/cycle     
+         mul 2/cycle
+     vect add/sub/mul 2/cycle
+     fp   add/sub/mul 2/cycle
+     dfp  1/cycle
+*/
+ 
+static int
+rs6000_reassociation_width (unsigned int opc ATTRIBUTE_UNUSED,
+                            enum machine_mode mode)
+{
+  switch (rs6000_cpu)
+    {
+    case PROCESSOR_POWER8:
+    case PROCESSOR_POWER9:
+      if (DECIMAL_FLOAT_MODE_P (mode))
+	return 1;
+      if (VECTOR_MODE_P (mode))
+	return 4;
+      if (INTEGRAL_MODE_P (mode)) 
+	return opc == MULT_EXPR ? 4 : 6;
+      if (FLOAT_MODE_P (mode))
+	return 4;
+      break;
+    default:
+      break;
+    }
+  return 1;
+}
+
 /* Change register usage conditional on target flags.  */
 static void
 rs6000_conditional_register_usage (void)
@@ -10371,6 +10407,35 @@ rs6000_must_pass_in_stack (machine_mode mode, const_tree type)
     return must_pass_in_stack_var_size_or_pad (mode, type);
 }
 
+static inline bool
+is_complex_IBM_long_double (machine_mode mode)
+{
+  return mode == ICmode || (!TARGET_IEEEQUAD && mode == TCmode);
+}
+
+/* Whether ABI_V4 passes MODE args to a function in floating point
+   registers.  */
+
+static bool
+abi_v4_pass_in_fpr (machine_mode mode)
+{
+  if (!TARGET_FPRS || !TARGET_HARD_FLOAT)
+    return false;
+  if (TARGET_SINGLE_FLOAT && mode == SFmode)
+    return true;
+  if (TARGET_DOUBLE_FLOAT && mode == DFmode)
+    return true;
+  /* ABI_V4 passes complex IBM long double in 8 gprs.
+     Stupid, but we can't change the ABI now.  */
+  if (is_complex_IBM_long_double (mode))
+    return false;
+  if (FLOAT128_2REG_P (mode))
+    return true;
+  if (DECIMAL_FLOAT_MODE_P (mode))
+    return true;
+  return false;
+}
+
 /* If defined, a C expression which determines whether, and in which
    direction, to pad out an argument with extra space.  The value
    should be of type `enum direction': either `upward' to pad above
@@ -10455,6 +10520,7 @@ rs6000_function_arg_boundary (machine_mode mode, const_tree type)
       && (GET_MODE_SIZE (mode) == 8
 	  || (TARGET_HARD_FLOAT
 	      && TARGET_FPRS
+	      && !is_complex_IBM_long_double (mode)
 	      && FLOAT128_2REG_P (mode))))
     return 64;
   else if (FLOAT128_VECTOR_P (mode))
@@ -10834,11 +10900,7 @@ rs6000_function_arg_advance_1 (CUMULATIVE_ARGS *cum, machine_mode mode,
     }
   else if (DEFAULT_ABI == ABI_V4)
     {
-      if (TARGET_HARD_FLOAT && TARGET_FPRS
-	  && ((TARGET_SINGLE_FLOAT && mode == SFmode)
-	      || (TARGET_DOUBLE_FLOAT && mode == DFmode)
-	      || FLOAT128_2REG_P (mode)
-	      || DECIMAL_FLOAT_MODE_P (mode)))
+      if (abi_v4_pass_in_fpr (mode))
 	{
 	  /* _Decimal128 must use an even/odd register pair.  This assumes
 	     that the register number is odd when fregno is odd.  */
@@ -11495,11 +11557,7 @@ rs6000_function_arg (cumulative_args_t cum_v, machine_mode mode,
 
   else if (abi == ABI_V4)
     {
-      if (TARGET_HARD_FLOAT && TARGET_FPRS
-	  && ((TARGET_SINGLE_FLOAT && mode == SFmode)
-	      || (TARGET_DOUBLE_FLOAT && mode == DFmode)
-	      || FLOAT128_2REG_P (mode)
-	      || DECIMAL_FLOAT_MODE_P (mode)))
+      if (abi_v4_pass_in_fpr (mode))
 	{
 	  /* _Decimal128 must use an even/odd register pair.  This assumes
 	     that the register number is odd when fregno is odd.  */
@@ -12420,19 +12478,15 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   rsize = (size + 3) / 4;
   align = 1;
 
-  if (TARGET_HARD_FLOAT && TARGET_FPRS
-      && ((TARGET_SINGLE_FLOAT && TYPE_MODE (type) == SFmode)
-          || (TARGET_DOUBLE_FLOAT 
-              && (TYPE_MODE (type) == DFmode 
-		  || FLOAT128_2REG_P (TYPE_MODE (type))
-		  || DECIMAL_FLOAT_MODE_P (TYPE_MODE (type))))))
+  machine_mode mode = TYPE_MODE (type);
+  if (abi_v4_pass_in_fpr (mode))
     {
       /* FP args go in FP registers, if present.  */
       reg = fpr;
       n_reg = (size + 7) / 8;
       sav_ofs = ((TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT) ? 8 : 4) * 4;
       sav_scale = ((TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT) ? 8 : 4);
-      if (TYPE_MODE (type) != SFmode && TYPE_MODE (type) != SDmode)
+      if (mode != SFmode && mode != SDmode)
 	align = 8;
     }
   else
@@ -12452,7 +12506,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   addr = create_tmp_var (ptr_type_node, "addr");
 
   /*  AltiVec vectors never go in registers when -mabi=altivec.  */
-  if (TARGET_ALTIVEC_ABI && ALTIVEC_VECTOR_MODE (TYPE_MODE (type)))
+  if (TARGET_ALTIVEC_ABI && ALTIVEC_VECTOR_MODE (mode))
     align = 16;
   else
     {
@@ -12473,7 +12527,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 	}
       /* _Decimal128 is passed in even/odd fpr pairs; the stored
 	 reg number is 0 for f1, so we want to make it odd.  */
-      else if (reg == fpr && TYPE_MODE (type) == TDmode)
+      else if (reg == fpr && mode == TDmode)
 	{
 	  t = build2 (BIT_IOR_EXPR, TREE_TYPE (reg), unshare_expr (reg),
 		      build_int_cst (TREE_TYPE (reg), 1));
@@ -12500,7 +12554,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 	 FP register for 32-bit binaries.  */
       if (TARGET_32BIT
 	  && TARGET_HARD_FLOAT && TARGET_FPRS
-	  && TYPE_MODE (type) == SDmode)
+	  && mode == SDmode)
 	t = fold_build_pointer_plus_hwi (t, size);
 
       gimplify_assign (addr, t, pre_p);
@@ -28695,6 +28749,11 @@ rs6000_expand_split_stack_prologue (void)
 				   const0_rtx, const0_rtx));
   call_fusage = NULL_RTX;
   use_reg (&call_fusage, r12);
+  /* Say the call uses r0, even though it doesn't, to stop regrename
+     from twiddling with the insns saving lr, trashing args for cfun.
+     The insns restoring lr are similarly protected by making
+     split_stack_return use r0.  */
+  use_reg (&call_fusage, r0);
   add_function_usage_to (insn, call_fusage);
   emit_insn (gen_frame_load (r0, r1, info->lr_save_offset));
   insn = emit_move_insn (lr, r0);

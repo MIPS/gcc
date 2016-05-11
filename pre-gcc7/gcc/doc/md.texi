@@ -3230,6 +3230,9 @@ targets.
 @item wM
 Vector constant of all 1's (ISA 2.07 and above).
 
+@item wO
+A memory operand suitable for the ISA 3.0 vector d-form instructions.
+
 @item wQ
 A memory address that will work with the @code{lq} and @code{stq}
 instructions.

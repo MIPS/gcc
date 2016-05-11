@@ -474,8 +474,8 @@ Target Report RejectNegative Mask(NO_LRA) Var(rs6000_isa_flags)
 Use the old reload register allocator instead of the LRA register allocator.
 
 mlra
-Target Report RejectNegative InverseMask(NO_LRA, LRA) Var(rs6000_isa_flags)
-Use the LRA register allocator instead of the reload register allocator.
+Target Report Mask(LRA) Var(rs6000_isa_flags)
+Enable Local Register Allocation.
 
 msched-costly-dep=
 Target RejectNegative Joined Var(rs6000_sched_costly_dep_str)
