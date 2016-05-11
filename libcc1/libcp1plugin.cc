@@ -1823,18 +1823,262 @@ plugin_new_dependent_typespec (cc1_plugin::connection *self,
   return convert_out (ctx->preserve (TREE_TYPE (decl)));
 }
 
-gcc_decl
+gcc_expr
 plugin_new_dependent_value_expr (cc1_plugin::connection *self,
-				 gcc_type enclosing_type,
-				 const char *id,
+				 gcc_decl enclosing_scope,
+				 enum gcc_cp_symbol_kind flags,
+				 const char *name,
+				 gcc_type conv_type_in,
 				 const gcc_cp_template_args *targs)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
-  tree type = convert_in (enclosing_type);
-  tree name = get_identifier (id);
+  tree scope = convert_in (enclosing_scope);
+  tree conv_type = convert_in (conv_type_in);
+  tree identifier;
+
+  if (TREE_CODE (scope) != NAMESPACE_DECL)
+    {
+      tree type = TREE_TYPE (scope);
+      gcc_assert (TYPE_NAME (type) == scope);
+      scope = type;
+    }
+
+  if (flags == (GCC_CP_SYMBOL_FUNCTION | GCC_CP_FLAG_SPECIAL_FUNCTION))
+    {
+      bool assop = false, convop = false;
+      tree_code opcode = ERROR_MARK;
+
+      switch (CHARS2 (name[0], name[1]))
+	{
+	case CHARS2 ('C', 0x0): // ctor base declaration
+	case CHARS2 ('C', ' '):
+	case CHARS2 ('C', '1'):
+	case CHARS2 ('C', '2'):
+	case CHARS2 ('C', '4'):
+	  identifier = ctor_identifier;
+	  break;
+	case CHARS2 ('D', 0x0): // dtor base declaration
+	case CHARS2 ('D', ' '):
+	case CHARS2 ('D', '0'):
+	case CHARS2 ('D', '1'):
+	case CHARS2 ('D', '2'):
+	case CHARS2 ('D', '4'):
+	  gcc_assert (!targs);
+	  identifier = dtor_identifier;
+	  break;
+	case CHARS2 ('n', 'w'): // operator new
+	  opcode = NEW_EXPR;
+	  break;
+	case CHARS2 ('n', 'a'): // operator new[]
+	  opcode = VEC_NEW_EXPR;
+	  break;
+	case CHARS2 ('d', 'l'): // operator delete
+	  opcode = DELETE_EXPR;
+	  break;
+	case CHARS2 ('d', 'a'): // operator delete[]
+	  opcode = VEC_DELETE_EXPR;
+	  break;
+	case CHARS2 ('p', 's'): // operator + (unary)
+	  opcode = PLUS_EXPR;
+	  break;
+	case CHARS2 ('n', 'g'): // operator - (unary)
+	  opcode = MINUS_EXPR;
+	  break;
+	case CHARS2 ('a', 'd'): // operator & (unary)
+	  opcode = BIT_AND_EXPR;
+	  break;
+	case CHARS2 ('d', 'e'): // operator * (unary)
+	  opcode = MULT_EXPR;
+	  break;
+	case CHARS2 ('c', 'o'): // operator ~
+	  opcode = BIT_NOT_EXPR;
+	  break;
+	case CHARS2 ('p', 'l'): // operator +
+	  opcode = PLUS_EXPR;
+	  break;
+	case CHARS2 ('m', 'i'): // operator -
+	  opcode = MINUS_EXPR;
+	  break;
+	case CHARS2 ('m', 'l'): // operator *
+	  opcode = MULT_EXPR;
+	  break;
+	case CHARS2 ('d', 'v'): // operator /
+	  opcode = TRUNC_DIV_EXPR;
+	  break;
+	case CHARS2 ('r', 'm'): // operator %
+	  opcode = TRUNC_MOD_EXPR;
+	  break;
+	case CHARS2 ('a', 'n'): // operator &
+	  opcode = BIT_AND_EXPR;
+	  break;
+	case CHARS2 ('o', 'r'): // operator |
+	  opcode = BIT_IOR_EXPR;
+	  break;
+	case CHARS2 ('e', 'o'): // operator ^
+	  opcode = BIT_XOR_EXPR;
+	  break;
+	case CHARS2 ('a', 'S'): // operator =
+	  opcode = NOP_EXPR;
+	  assop = true;
+	  break;
+	case CHARS2 ('p', 'L'): // operator +=
+	  opcode = PLUS_EXPR;
+	  assop = true;
+	  break;
+	case CHARS2 ('m', 'I'): // operator -=
+	  opcode = MINUS_EXPR;
+	  assop = true;
+	  break;
+	case CHARS2 ('m', 'L'): // operator *=
+	  opcode = MULT_EXPR;
+	  assop = true;
+	  break;
+	case CHARS2 ('d', 'V'): // operator /=
+	  opcode = TRUNC_DIV_EXPR;
+	  assop = true;
+	  break;
+	case CHARS2 ('r', 'M'): // operator %=
+	  opcode = TRUNC_MOD_EXPR;
+	  assop = true;
+	  break;
+	case CHARS2 ('a', 'N'): // operator &=
+	  opcode = BIT_AND_EXPR;
+	  assop = true;
+	  break;
+	case CHARS2 ('o', 'R'): // operator |=
+	  opcode = BIT_IOR_EXPR;
+	  assop = true;
+	  break;
+	case CHARS2 ('e', 'O'): // operator ^=
+	  opcode = BIT_XOR_EXPR;
+	  assop = true;
+	  break;
+	case CHARS2 ('l', 's'): // operator <<
+	  opcode = LSHIFT_EXPR;
+	  break;
+	case CHARS2 ('r', 's'): // operator >>
+	  opcode = RSHIFT_EXPR;
+	  break;
+	case CHARS2 ('l', 'S'): // operator <<=
+	  opcode = LSHIFT_EXPR;
+	  assop = true;
+	  break;
+	case CHARS2 ('r', 'S'): // operator >>=
+	  opcode = RSHIFT_EXPR;
+	  assop = true;
+	  break;
+	case CHARS2 ('e', 'q'): // operator ==
+	  opcode = EQ_EXPR;
+	  break;
+	case CHARS2 ('n', 'e'): // operator !=
+	  opcode = NE_EXPR;
+	  break;
+	case CHARS2 ('l', 't'): // operator <
+	  opcode = LT_EXPR;
+	  break;
+	case CHARS2 ('g', 't'): // operator >
+	  opcode = GT_EXPR;
+	  break;
+	case CHARS2 ('l', 'e'): // operator <=
+	  opcode = LE_EXPR;
+	  break;
+	case CHARS2 ('g', 'e'): // operator >=
+	  opcode = GE_EXPR;
+	  break;
+	case CHARS2 ('n', 't'): // operator !
+	  opcode = TRUTH_NOT_EXPR;
+	  break;
+	case CHARS2 ('a', 'a'): // operator &&
+	  opcode = TRUTH_ANDIF_EXPR;
+	  break;
+	case CHARS2 ('o', 'o'): // operator ||
+	  opcode = TRUTH_ORIF_EXPR;
+	  break;
+	case CHARS2 ('p', 'p'): // operator ++
+	  opcode = POSTINCREMENT_EXPR;
+	  break;
+	case CHARS2 ('m', 'm'): // operator --
+	  opcode = POSTDECREMENT_EXPR;
+	  break;
+	case CHARS2 ('c', 'm'): // operator ,
+	  opcode = COMPOUND_EXPR;
+	  break;
+	case CHARS2 ('p', 'm'): // operator ->*
+	  opcode = MEMBER_REF;
+	  break;
+	case CHARS2 ('p', 't'): // operator ->
+	  opcode = COMPONENT_REF;
+	  break;
+	case CHARS2 ('c', 'l'): // operator ()
+	  opcode = CALL_EXPR;
+	  break;
+	case CHARS2 ('i', 'x'): // operator []
+	  opcode = ARRAY_REF;
+	  break;
+	case CHARS2 ('c', 'v'): // operator <T> (conversion operator)
+	  convop = true;
+	  identifier = mangle_conv_op_name_for_type (conv_type);
+	  break;
+	  // C++11-only:
+	case CHARS2 ('l', 'i'): // operator "" <id>
+	  {
+	    char *id = (char *)name + 2;
+	    bool freeid = false;
+	    if (*id >= '0' && *id <= '9')
+	      {
+		unsigned len = 0;
+		do
+		  {
+		    len *= 10;
+		    len += id[0] - '0';
+		    id++;
+		  }
+		while (*id && *id >= '0' && *id <= '9');
+		id = xstrndup (id, len);
+		freeid = true;
+	      }
+	    identifier = ansi_litopname (id);
+	    if (freeid)
+	      free (id);
+	  }
+	  break;
+	case CHARS2 ('q', 'u'): // ternary operator, not overloadable.
+	default:
+	  gcc_unreachable ();
+	}
+
+      gcc_assert (convop || !conv_type);
+
+      if (opcode != ERROR_MARK)
+	{
+	  if (assop)
+	    identifier = ansi_assopname (opcode);
+	  else
+	    identifier = ansi_opname (opcode);
+	}
+
+      gcc_assert (identifier);
+    }
+  else
+    {
+      gcc_assert (flags == GCC_CP_SYMBOL_MASK);
+      gcc_assert (!conv_type);
+      identifier = get_identifier (name);
+    }
+  tree res = identifier;
+  if (!scope)
+    res = lookup_name_real (res, 0, 0, true, 0, 0);
+  else if (!TYPE_P (scope) || !dependent_scope_p (scope))
+    {
+      res = lookup_qualified_name (scope, res, false, true);
+      /* We've already resolved the name in the scope, so skip the
+	 build_qualified_name call below.  */
+      scope = NULL;
+    }
   if (targs)
-    name = lookup_template_function (name, targlist (targs));
-  tree res = build_qualified_name (NULL_TREE, type, name, !!targs);
+    res = lookup_template_function (res, targlist (targs));
+  if (scope)
+    res = build_qualified_name (NULL_TREE, scope, res, !!targs);
   return convert_out (ctx->preserve (res));
 }
 
@@ -2057,7 +2301,14 @@ plugin_expr_type (cc1_plugin::connection *,
 		  gcc_expr operand)
 {
   tree op0 = convert_in (operand);
-  tree type = TREE_TYPE (op0);
+  tree type;
+  if (op0)
+    type = TREE_TYPE (op0);
+  else
+    {
+      type = make_decltype_auto ();
+      AUTO_IS_DECLTYPE (type) = true;
+    }
   return convert_out (type);
 }
 
