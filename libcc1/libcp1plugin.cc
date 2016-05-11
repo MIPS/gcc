@@ -1031,7 +1031,7 @@ plugin_new_decl (cc1_plugin::connection *self,
   if (template_decl_p)
     {
       decl = safe_push_template_decl (decl);
-      
+
       end_template_decl ();
 
       /* We only support one level of templates, because we only
@@ -1596,11 +1596,11 @@ plugin_build_method_type (cc1_plugin::connection *self,
     default:
       gcc_unreachable ();
     }
-  
+
   tree method_type = class_type
     ? build_memfn_type (func_type, class_type, quals, rquals)
     : apply_memfn_quals (func_type, quals, rquals);
-  
+
   plugin_context *ctx = static_cast<plugin_context *> (self);
   return convert_out (ctx->preserve (method_type));
 }
@@ -2324,7 +2324,7 @@ plugin_specialize_function_template (cc1_plugin::connection *self,
   source_location loc = ctx->get_source_location (filename, line_number);
   tree name = convert_in (template_decl);
   tree targsl = targlist (targs);
-  
+
   tree fnid = lookup_template_function (name, targsl);
   if (TREE_CODE (fnid) == TEMPLATE_ID_EXPR)
     SET_EXPR_LOCATION (fnid, loc);
@@ -2351,7 +2351,7 @@ plugin_start_specialize_class_template (cc1_plugin::connection *self,
 
   tree tdecl = finish_template_type (name, targlist (args), false);;
   DECL_SOURCE_LOCATION (tdecl) = loc;
-  
+
   tree type = start_class_def (TREE_TYPE (tdecl), base_classes);
 
   return convert_out (ctx->preserve (type));
@@ -2583,6 +2583,33 @@ plugin_error (cc1_plugin::connection *,
 {
   error ("%s", message);
   return convert_out (error_mark_node);
+}
+
+int
+plugin_new_static_assert (cc1_plugin::connection *self,
+			  gcc_expr condition_in,
+			  const char *errormsg,
+			  const char *filename,
+			  unsigned int line_number)
+{
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree condition = convert_in (condition_in);
+
+  if (!errormsg)
+    errormsg = "";
+
+  tree message = build_string (strlen (errormsg) + 1, errormsg);
+
+  TREE_TYPE (message) = char_array_type_node;
+  fix_string_type (message);
+
+  source_location loc = ctx->get_source_location (filename, line_number);
+
+  bool member_p = at_class_scope_p ();
+
+  finish_static_assert (condition, message, loc, member_p);
+
+  return 1;
 }
 
 
