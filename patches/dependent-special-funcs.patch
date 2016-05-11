@@ -1,5 +1,5 @@
 Bottom: da89f4ba0ba98702f0af9315171a76b333bd3c15
-Top:    e595827e0b21a6e6f34428119ebbd6b0d3ddb2bf
+Top:    b3c1d7a6f3a6760afdb78409535dd2c442776075
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-05-11 05:30:57 -0300
 
@@ -8,7 +8,7 @@ support dependent overloaded operators and other special member functions
 ---
 
 diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
-index 2d8bb7a..ab09ff8 100644
+index 2d8bb7a..6ba208c 100644
 --- a/include/gcc-cp-fe.def
 +++ b/include/gcc-cp-fe.def
 @@ -430,20 +430,37 @@ GCC_METHOD2 (gcc_type, new_dependent_typespec,
@@ -60,6 +60,15 @@ index 2d8bb7a..ab09ff8 100644
  /* Build a gcc_expr for the value VALUE in type TYPE.  */
  
  GCC_METHOD2 (gcc_expr, literal_expr,
+@@ -502,6 +519,8 @@ GCC_METHOD3 (gcc_expr, type_value_expr,
+ /* Return the type of the gcc_expr OPERAND.
+    Use this for decltype.
+ 
++   FIXME: introduce decltype (auto).
++
+    Note: for template-dependent expressions, the result is NULL,
+    because the type is only computed when template argument
+    substitution is performed.  */
 diff --git a/include/gcc-cp-interface.h b/include/gcc-cp-interface.h
 index 1d0d4c7..3710a3a8 100644
 --- a/include/gcc-cp-interface.h
