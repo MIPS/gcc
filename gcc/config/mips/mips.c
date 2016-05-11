@@ -9420,10 +9420,12 @@ mips16_expand_copy (rtx dest, rtx src, rtx length, rtx alignment)
 
   byte_count = INTVAL (length);
 
-  if (byte_count > MIPS_MAX_MOVE_BYTES_STRAIGHT)
+  if (byte_count > (mips_movmem_limit == -1
+		    ? MIPS_MAX_MOVE_BYTES_STRAIGHT
+		    : mips_movmem_limit))
     return false;
 
-  if (byte_count == MIPS_MAX_MOVE_BYTES_STRAIGHT
+  if (byte_count >= MIPS_MAX_MOVE_BYTES_STRAIGHT
       && align < 4)
     return false;
 
