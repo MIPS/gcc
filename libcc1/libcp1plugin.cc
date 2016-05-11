@@ -2562,6 +2562,33 @@ plugin_error (cc1_plugin::connection *,
   return convert_out (error_mark_node);
 }
 
+int
+plugin_new_static_assert (cc1_plugin::connection *self,
+			  gcc_expr condition_in,
+			  const char *errormsg,
+			  const char *filename,
+			  unsigned int line_number)
+{
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree condition = convert_in (condition_in);
+
+  if (!errormsg)
+    errormsg = "";
+  
+  tree message = build_string (strlen (errormsg) + 1, errormsg);
+
+  TREE_TYPE (message) = char_array_type_node;
+  fix_string_type (message);
+
+  source_location loc = ctx->get_source_location (filename, line_number);
+
+  member_p = at_class_scope_p ();
+
+  finish_static_assert (condition, message, loc, member_p);
+
+  return 1;
+}
+
 
 
 // Perform GC marking.
