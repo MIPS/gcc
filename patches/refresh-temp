@@ -1,0 +1,23 @@
+Bottom: 560c2151e5242a7297be487017f8f0160716e6e9
+Top:    513ce1a13dd2e8b3eae396770711888fe7bf71f3
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-05-11 06:09:27 -0300
+
+Refresh of dependent-special-funcs.patch
+
+---
+
+diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
+index 7c6033e..d51c04c 100644
+--- a/libcc1/libcp1plugin.cc
++++ b/libcc1/libcp1plugin.cc
+@@ -2060,7 +2060,9 @@ plugin_new_dependent_value_expr (cc1_plugin::connection *self,
+     }
+   if (targs)
+     identifier = lookup_template_function (identifier, targlist (targs));
+-  tree res = build_qualified_name (NULL_TREE, type, identifier, !!targs);
++  tree res = identifier;
++  if (type)
++    res = build_qualified_name (NULL_TREE, type, identifier, !!targs);
+   return convert_out (ctx->preserve (res));
+ }
