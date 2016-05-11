@@ -437,8 +437,11 @@ GCC_METHOD2 (gcc_type, new_dependent_typespec,
    unqualified overloaded function, and TARGS should list template
    arguments (e.g. <X>) when mtf or tf are to name a template
    function, or be NULL otherwise.  Unqualified template-dependent
-   names can only name overloaded functions, to be used in call
-   expressions with template-dependent arguments.
+   names can only resolve to overloaded functions, to be used in
+   contexts that make their argument types template-dependent, such as
+   call expressions with template-dependent arguments, conversion
+   expressions to function types with template-dependent argument
+   types or the like.
 
    If ID is the name of a special member function, FLAGS should be
    GCC_CP_SYMBOL_FUNCTION|GCC_CP_FLAG_SPECIAL_FUNCTION, and ID should
