@@ -6141,6 +6141,7 @@ vspltis_shifted (rtx op)
   return 0;
 }
 
+
 /* Return true if OP is of the given MODE and can be synthesized
    with a vspltisb, vspltish or vspltisw.  */
 
@@ -13146,6 +13147,7 @@ rs6000_expand_mtfsf_builtin (enum insn_code icode, tree exp)
   return NULL_RTX;
 }
 
+
 static rtx
 rs6000_expand_unop_builtin (enum insn_code icode, tree exp, rtx target)
 {
@@ -17164,6 +17166,7 @@ rs6000_common_init_builtins (void)
 	      if (TARGET_DEBUG_BUILTIN)
 		fprintf (stderr, "rs6000_builtin, skip binary %s (no code)\n",
 			 d->name);
+
 	      continue;
 	    }
 
