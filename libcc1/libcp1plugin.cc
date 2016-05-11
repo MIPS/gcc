@@ -2060,7 +2060,9 @@ plugin_new_dependent_value_expr (cc1_plugin::connection *self,
     }
   if (targs)
     identifier = lookup_template_function (identifier, targlist (targs));
-  tree res = build_qualified_name (NULL_TREE, type, identifier, !!targs);
+  tree res = identifier;
+  if (type)
+    res = build_qualified_name (NULL_TREE, type, identifier, !!targs);
   return convert_out (ctx->preserve (res));
 }
 
