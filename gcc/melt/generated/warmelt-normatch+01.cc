@@ -39233,7 +39233,7 @@ meltlabexit_LOOPSTUFF_4:;/*^loopepilog*/
 
                     {
                         MELT_LOCATION("warmelt-normatch.melt:1835:/ locexp");
-                        debugnum(( "normpat_anymatchpat ixm in outmatchs"), (/*_#IXM__L63*/ meltfnum[35]));
+                        melt_debugnum(( "normpat_anymatchpat ixm in outmatchs"), (/*_#IXM__L63*/ meltfnum[35]));
                     }
                     ;
 

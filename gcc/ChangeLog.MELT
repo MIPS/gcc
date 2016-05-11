@@ -1,5 +1,12 @@
 
 2016-05-11   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{still unstable probably}}
+	* melt-runtime.h (meltgc_allocate): The tracing with
+	melt_alptr_1... is done when MELT_HAVE_RUNTIME_DEBUG.
+
+	* melt/generated/*: Regenerated all.
+
+2016-05-11   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{very unstable; could work only with ASLR disabled...}}
 	* melt-runtime.h (MELT_ALIGN, MELT_LIKELY, MELT_UNLIKELY): Defined
 	earlier.

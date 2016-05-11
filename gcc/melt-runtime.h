@@ -1213,12 +1213,18 @@ meltgc_allocate (size_t basesz, size_t gap)
                      >= (char *) melt_storalz))
     melt_garbcoll (wanted, MELT_MINOR_OR_FULL);
   ptr = melt_curalz;
-#if MELT_HAVE_DEBUG > 0
-  if (ptr == melt_alptr_1)
+#if MELT_HAVE_RUNTIME_DEBUG > 0
+  if (MELT_UNLIKELY(ptr == melt_alptr_1)) {
+    melt_debuggc_eprintf("allocated alptr1@%p of wanted=%ld",
+			 (void*)ptr, (long)wanted);
     melt_break_alptr_1("allocated alptr1");
-  else if (ptr == melt_alptr_2)
+  }
+  else if (MELT_UNLIKELY(ptr == melt_alptr_2)) {
+    melt_debuggc_eprintf("allocated alptr2@%p of wanted=%ld",
+			 (void*)ptr, (long)wanted);
     melt_break_alptr_2("allocated alptr2");
-#endif /*MELT_HAVE_DEBUG*/
+  }
+#endif /*MELT_HAVE_RUNTIME_DEBUG*/
   melt_curalz += wanted;
   return ptr;
 }
