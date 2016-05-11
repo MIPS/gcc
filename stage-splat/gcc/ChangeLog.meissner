@@ -1,5 +1,29 @@
 2016-05-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/predicates.md (s1_cint_operand): New predicate to
+	recognize 0 and -1.
+
+	* config/rs6000/vsx.md (VSINT_84): New iterators for loading
+	constants with xxspltib.
+	(VSINT_842): Likewise.
+	(xxspltib_v16qi): New insn to support xxspltib.
+	(xxspltib_<mode>_set_0_m1): New insns to support loading
+	vec_duplicate of 0/-1 directly.
+	(vsx_<mode>_set_0): Likewise.
+	(vsx_<mode>_set_m1_p8): Likewise.
+	(vsx_<mode>_set_m1_p7): Likewise.
+	(xxspltib_<mode>): New insn/split to support loading vec_duplicate
+	of -128..127 into V2DI or V4SI using ISA 3.0 XXSPLTIB and sign
+	extend instructions.
+	(V4SI_OR_V2DI): Delete.
+	(vsx_sign_extend_qi_<mode>): Use VSINT_84 instead of
+	V4SI_OR_V2DI.
+	(vsx_sign_extend_hi_<mode>): Likewise.
+	(xxspltib): Move code earlier and rewrite.
+	(XXSPLTIB splitters): Likewise.
+
+2016-05-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Merge up to 236136.
 	* REVISION: Update subversion id.
 

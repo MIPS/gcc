@@ -127,6 +127,11 @@
   return CA_REGNO_P (REGNO (op));
 })
 
+;; Return 1 if op is -1/0
+(define_predicate "s1bit_cint_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), -1, 0)")))
+
 ;; Return 1 if op is a signed 5-bit constant integer.
 (define_predicate "s5bit_cint_operand"
   (and (match_code "const_int")

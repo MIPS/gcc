@@ -270,6 +270,10 @@
 (define_mode_attr VS_64reg [(V2DF	"ws")
 			    (V2DI	"wi")])
 
+;; Iterators for loading constants with xxspltib
+(define_mode_iterator VSINT_84	[V4SI V2DI])
+(define_mode_iterator VSINT_842	[V8HI V4SI V2DI])
+
 ;; Constants for creating unspecs
 (define_c_enum "unspec"
   [UNSPEC_VSX_CONCAT
@@ -2416,6 +2420,88 @@
   DONE;
 })
 
+(define_insn "xxspltib_v16qi"
+  [(set (match_operand:V16QI 0 "vsx_register_operand" "=wa")
+	(vec_duplicate:V16QI (match_operand:SI 1 "s8bit_cint_operand" "i")))]
+  "TARGET_P9_VECTOR"
+  "xxspltib %x0,%1"
+  [(set_attr "type" "vecsimple")])
+
+(define_insn "*xxspltib_<mode>_set_0_m1"
+  [(set (match_operand:VSINT_842 0 "vsx_register_operand" "=wa")
+	(vec_duplicate:VSINT_842
+	 (match_operand:SI 1 "s1bit_cint_operand" "i")))]
+  "TARGET_P9_VECTOR"
+  "xxspltib %x0,%1"
+  [(set_attr "type" "vecsimple")])
+
+(define_insn "*vsx_<mode>_set_0"
+  [(set (match_operand:VSINT_842 0 "vsx_register_operand" "=v,?wa")
+	(vec_duplicate:VSINT_842 (const_int 0)))]
+  "TARGET_VSX"
+  "@
+   vspltisw %0,0
+   xxlxor %x0,%x0,%x0"
+  [(set_attr "type" "vecsimple")])
+
+(define_insn "*vsx_<mode>_set_m1_p8"
+  [(set (match_operand:VSINT_842 0 "vsx_register_operand" "=v,?wa")
+	(vec_duplicate:VSINT_842 (const_int -1)))]
+  "TARGET_P8_VECTOR"
+  "@
+   vspltisw %0,-1
+   xxlorc %x0,%x0,%x0"
+  [(set_attr "type" "vecsimple")])
+
+(define_insn "*vsx_<mode>_set_m1_p7"
+  [(set (match_operand:VSINT_842 0 "vsx_register_operand" "=v")
+	(vec_duplicate:VSINT_842 (const_int -1)))]
+  "TARGET_VSX && !TARGET_P8_VECTOR"
+  "vspltisw %0,-1"
+  [(set_attr "type" "vecsimple")])
+
+;; Splitters for p9 easy constants to load the same byte value in each value
+
+(define_split
+  [(set (match_operand:VSINT_84 0 "vsx_register_operand" "")
+	(match_operand:VSINT_84 1 "easy_p9_constant_split" ""))]
+  "TARGET_P9_VECTOR"
+  [(const_int 0)]
+{
+  rtx op0 = operands[0];
+  rtx op1 = operands[1];
+  rtx tmp = ((can_create_pseudo_p ())
+	     ? gen_reg_rtx (V16QImode)
+	     : gen_lowpart (V16QImode, op0));
+
+  emit_insn (gen_xxspltib_v16qi (tmp, CONST_VECTOR_ELT (op1, 0)));
+  emit_insn (gen_vsx_sign_extend_qi_<mode> (op0, tmp));
+  DONE;
+})
+
+;; P9 easy constants using vec_duplicate instead of const_vector
+
+(define_insn_and_split "*xxspltib_<mode>"
+  [(set (match_operand:VSINT_84 0 "vsx_register_operand" "=v")
+	(vec_duplicate:VSINT_84 (match_operand:SI 1 "s8bit_cint_operand" "i")))]
+  "TARGET_P9_VECTOR && (!IN_RANGE (INTVAL (operands[1]), -1, 0))"
+  "#"
+  "&& 1"
+  [(const_int 0)]
+{
+  rtx op0 = operands[0];
+  rtx op1 = operands[1];
+  rtx tmp = ((can_create_pseudo_p ())
+	     ? gen_reg_rtx (V16QImode)
+	     : gen_lowpart (V16QImode, op0));
+
+  emit_insn (gen_xxspltib_v16qi (tmp, op1));
+  emit_insn (gen_vsx_sign_extend_qi_<mode> (op0, tmp));
+  DONE;
+}
+  [(set_attr "type" "vecsimple")
+   (set_attr "length" "8")])
+
 ;; V2DF/V2DI splat
 (define_insn "vsx_splat_<mode>"
   [(set (match_operand:VSX_D 0 "vsx_register_operand" "=wd,wd,wd,?<VSa>,?<VSa>,?<VSa>")
@@ -2729,11 +2815,9 @@
 
 ;; ISA 3.0 vector extend sign support
 
-(define_mode_iterator V4SI_OR_V2DI [V4SI V2DI])
-
 (define_insn "vsx_sign_extend_qi_<mode>"
-  [(set (match_operand:V4SI_OR_V2DI 0 "vsx_register_operand" "=v")
-	(unspec:V4SI_OR_V2DI
+  [(set (match_operand:VSINT_84 0 "vsx_register_operand" "=v")
+	(unspec:VSINT_84
 	 [(match_operand:V16QI 1 "vsx_register_operand" "v")]
 	 UNSPEC_VSX_SIGN_EXTEND))]
   "TARGET_P9_VECTOR"
@@ -2741,8 +2825,8 @@
   [(set_attr "type" "vecsimple")])
 
 (define_insn "*vsx_sign_extend_hi_<mode>"
-  [(set (match_operand:V4SI_OR_V2DI 0 "vsx_register_operand" "=v")
-	(unspec:V4SI_OR_V2DI
+  [(set (match_operand:VSINT_84 0 "vsx_register_operand" "=v")
+	(unspec:VSINT_84
 	 [(match_operand:V8HI 1 "vsx_register_operand" "v")]
 	 UNSPEC_VSX_SIGN_EXTEND))]
   "TARGET_P9_VECTOR"
@@ -2756,44 +2840,3 @@
   "TARGET_P9_VECTOR"
   "vextsw2d %0,%1"
   [(set_attr "type" "vecsimple")])
-
-(define_expand "xxspltib"
-  [(set (match_operand:V16QI 0 "vsx_register_operand" "")
-	(const_vector:V16QI [(match_operand:QI 1 "const_int_operand" "")
-			     (match_dup 1)
-			     (match_dup 1)
-			     (match_dup 1)
-			     (match_dup 1)
-			     (match_dup 1)
-			     (match_dup 1)
-			     (match_dup 1)
-			     (match_dup 1)
-			     (match_dup 1)
-			     (match_dup 1)
-			     (match_dup 1)
-			     (match_dup 1)
-			     (match_dup 1)
-			     (match_dup 1)
-			     (match_dup 1)]))]
-  "TARGET_P9_VECTOR"
-{
-})
-
-;; Splitters for p9 easy constants to load the same byte value in each value
-
-(define_split
-  [(set (match_operand:V4SI_OR_V2DI 0 "vsx_register_operand" "")
-	(match_operand:V4SI_OR_V2DI 1 "easy_p9_constant_split" ""))]
-  "TARGET_P9_VECTOR"
-  [(const_int 0)]
-{
-  rtx op0 = operands[0];
-  rtx op1 = operands[1];
-  rtx tmp = ((can_create_pseudo_p ())
-	     ? gen_reg_rtx (V16QImode)
-	     : gen_lowpart (V16QImode, op0));
-
-  emit_insn (gen_xxspltib (tmp, CONST_VECTOR_ELT (op1, 0)));
-  emit_insn (gen_vsx_sign_extend_qi_<mode> (op0, tmp));
-  DONE;
-})
