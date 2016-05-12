@@ -143,11 +143,15 @@ MELT_EXTERN void melt_fatal_info (const char*filename, int lineno);
 #define melt_fatal_error_at_line(Lin,Fmt,...) do{ melt_fatal_info (__FILE__,(Lin)); \
     fatal_error (UNKNOWN_LOCATION, (Fmt),##__VA_ARGS__); }while(0)
 
-#define dbgprintf_raw(Fmt,...) do{if (dump_file) \
-      {fprintf(dump_file, Fmt, ##__VA_ARGS__); fflush(dump_file);}}while(0)
-#define dbgprintf(Fmt,...) dbgprintf_raw("@%s:%d: " Fmt "\n", \
+#define melt_dumprintf_raw(Fmt,...) do{		\
+    if (MELT_UNLIKELY(dump_file != NULL))	\
+    { fprintf(dump_file, Fmt, ##__VA_ARGS__);	\
+      fflush(dump_file);}}while(0)
+#define melt_dumprintf(Fmt,...) melt_dumprintf_raw("@%s:%d: " Fmt "\n", \
  lbasename(__FILE__), __LINE__, ##__VA_ARGS__)
 
+// temporary
+#define dbgprintf melt_dumprintf
 
 /* the version string of GCC when MELT was initialized */
 MELT_EXTERN char* melt_gccversionstr;

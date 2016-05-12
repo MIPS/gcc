@@ -1374,7 +1374,7 @@ melt_marking_callback (void *gcc_data ATTRIBUTE_UNUSED,
   int ix = 0;
   melt_ptr_t *storp = NULL;
   meltmarkingcount++;
-  dbgprintf ("start of melt_marking_callback %ld", meltmarkingcount);
+  melt_dumprintf ("start of melt_marking_callback %ld", meltmarkingcount);
   /* Call the marking of every plain and extension modules */
   int nbmod = Melt_Module::nb_modules();
   for (ix = 1; ix <= nbmod; ix++)
@@ -1402,7 +1402,7 @@ melt_marking_callback (void *gcc_data ATTRIBUTE_UNUSED,
         if (curstorp)
           gt_ggc_mx_melt_un (curstorp);
       }
-  dbgprintf("end of melt_marking_callback %ld", meltmarkingcount);
+  melt_dumprintf("end of melt_marking_callback %ld", meltmarkingcount);
 }
 
 
@@ -4996,7 +4996,7 @@ meltgc_new_string_tempname_suffixed (meltobject_ptr_t
   if (dot)
     *dot=0;
   tempnampath = melt_tempdir_path (basestr, suffix);
-  dbgprintf ("new_string_tempbasename basestr='%s' tempnampath='%s'", basestr, tempnampath);
+  melt_dumprintf ("new_string_tempbasename basestr='%s' tempnampath='%s'", basestr, tempnampath);
   free(CONST_CAST(char*,basestr));
   basestr = 0;
   strv = 0;
@@ -6395,7 +6395,7 @@ bool melt_read_debug;		/* to be set in gdb */
 
 #define melt_dbgread_printf(Fmt,...) do {	\
     if (melt_read_debug)			\
-      dbgprintf(Fmt,##__VA_ARGS__);		\
+      melt_dumprintf(Fmt,##__VA_ARGS__);       	\
   } while(0)
 
 #else
@@ -10878,6 +10878,7 @@ melt_do_finalize (void)
   melt_garbcoll (0, MELT_ONLY_MINOR);
   melt_debugeprintf("melt_do_finalize melt_tempdir %s melt_made_tempdir %d",
                     melt_tempdir, melt_made_tempdir);
+  melt_debugeprintf ("melt_do_finalize ended with #%d modules", Melt_Module::nb_modules());
   /* Clear the temporary directory if needed.  */
   if (melt_tempdir[0])
     {
@@ -10970,7 +10971,7 @@ melt_do_finalize (void)
       fclose (melt_trace_source_fil);
       melt_trace_source_fil = NULL;
     }
-  dbgprintf ("melt_do_finalize ended with #%d modules", Melt_Module::nb_modules());
+  melt_dumprintf ("melt_do_finalize ended with #%d modules", Melt_Module::nb_modules());
   if (melt_verbose_full_gc || !quiet_flag)
     {
       /* when asked, the GGC collector displays data, so we show
@@ -12883,7 +12884,7 @@ end:
 void
 melt_sparebreakpoint_0_at (const char*fil, int lin, void*ptr, const char*msg)
 {
-  dbgprintf_raw ("@%s:%d: MELT sparebreakpoint_0 ptr=%p msg=%s\n",
+  melt_dumprintf_raw ("@%s:%d: MELT sparebreakpoint_0 ptr=%p msg=%s\n",
                  fil, lin, ptr, msg);
   char msgbuf[128];
   snprintf (msgbuf, sizeof(msgbuf), "melt_sparebreakpoint_0@%.25s:%d: %s",
@@ -12896,7 +12897,7 @@ melt_sparebreakpoint_0_at (const char*fil, int lin, void*ptr, const char*msg)
 void
 melt_sparebreakpoint_1_at (const char*fil, int lin, void*ptr, const char*msg)
 {
-  dbgprintf_raw ("@%s:%d: MELT sparebreakpoint_1 ptr=%p msg=%s\n",
+  melt_dumprintf_raw ("@%s:%d: MELT sparebreakpoint_1 ptr=%p msg=%s\n",
                  fil, lin, ptr, msg);
   char msgbuf[128];
   snprintf (msgbuf, sizeof(msgbuf), "melt_sparebreakpoint_1@%.25s:%d: %s",
@@ -12909,7 +12910,7 @@ melt_sparebreakpoint_1_at (const char*fil, int lin, void*ptr, const char*msg)
 void
 melt_sparebreakpoint_2_at (const char*fil, int lin, void*ptr, const char*msg)
 {
-  dbgprintf_raw ("@%s:%d: MELT sparebreakpoint_2 ptr=%p msg=%s\n",
+  melt_dumprintf_raw ("@%s:%d: MELT sparebreakpoint_2 ptr=%p msg=%s\n",
                  fil, lin, ptr, msg);
   char msgbuf[128];
   snprintf (msgbuf, sizeof(msgbuf), "melt_sparebreakpoint_2@%.25s:%d: %s",

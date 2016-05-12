@@ -1,5 +1,16 @@
 
 2016-05-12   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h (melt_dumprintf, melt_dumprintf_raw): Renaming ...
+	(dbgprintf, dbgprintf_raw): Renamed.
+	(dbgprintf): Temporarily redefined for backward compatibility.
+	* melt-runtime.cc (melt_marking_callback)
+	(meltgc_new_string_tempname_suffixed, melt_dbgread_printf)
+	(melt_do_finalize, melt_sparebreakpoint_0_at)
+	(melt_sparebreakpoint_1_at, melt_sparebreakpoint_2_at): Replace
+	dbgprintf with melt_dumprintf..
+
+
+2016-05-12   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h (melt_cbreak_at): Always declared, even
 	without MELT_HAVE_DEBUG.
 
