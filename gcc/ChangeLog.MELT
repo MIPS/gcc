@@ -1,5 +1,15 @@
 
 2016-05-12   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/melt-runtime.h (debugeprintf_raw, debugeprintf)
+	(debugeprintflinenonl, debugeprintfline, debugeprintfnonl)
+	(debugeprintvalue, debugebacktrace, debugeputs, debugvalue)
+	(debugmsgval, debugbacktrace, debugnum): Remove these macros. We
+	now use their melt_debugeprintf counterparts everywhere.
+
+	* melt/melt-runtime.cc (MELT_DEFAULT_PERIODFULL): Increase value
+	to 4096, to lower GC frequency.
+
+2016-05-12   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/libmelt-ana-base.melt (install_melt_pass_in_gcc)
 	(each_cgraph_fun_call_flow_graph): Use melt_debugeprintf...
 

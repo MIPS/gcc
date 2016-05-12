@@ -138,7 +138,7 @@ std::vector<std::string> melt_asked_modes_vector;
    MELT minor GC. You don't want that to happen often, so the default
    period is quite high; in principle it could be very high. */
 #define MELT_MIN_PERIODFULL 512
-#define MELT_DEFAULT_PERIODFULL 2048
+#define MELT_DEFAULT_PERIODFULL 4096
 #define MELT_MAX_PERIODFULL 262144
 
 ////// end of MELT parameter settings

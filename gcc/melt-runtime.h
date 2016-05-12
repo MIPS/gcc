@@ -3793,21 +3793,6 @@ void melt_cbreak_at(const char*msg, const char*fil, int lin);
 #define melt_debugmsgval(Msg,Val,Count) do {}while(0)
 #endif /*MELT_HAVE_DEBUG*/
 
-// temporarily, till we remove them
-#define debugeprintf_raw  melt_debugeprintf_raw
-#define debugeprintf melt_debugeprintf
-#define debugeprintflinenonl melt_debugeprintflinenonl
-#define debugeprintfline melt_debugeprintfline
-#define debugeprintfnonl melt_debugeprintfnonl
-#define debugeprintvalue melt_debugeprintvalue
-#define debugebacktrace melt_debugebacktrace
-#define debugeputs melt_debugeputs
-#define debugvalue melt_debugvalue
-#define debugmsgval melt_debugmsgval
-#define debugbacktrace melt_debugbacktrace
-#define debugnum melt_debugnum
-
-
 
 
 
