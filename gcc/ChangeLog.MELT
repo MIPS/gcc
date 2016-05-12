@@ -1,5 +1,15 @@
 
 2016-05-12   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/libmelt-ana-base.melt (install_melt_pass_in_gcc)
+	(each_cgraph_fun_call_flow_graph): Use melt_debugeprintf...
+
+	* melt/libmelt-ana-tree.melt (melt_register_pragmas_callback)
+	(melt_pragma_process_callback, real_pragma_processor)
+	(finalanatree_chk): Ditto.
+
+	* melt/xtramelt-ana-simple.melt (justscanpass_exec): Ditto.
+
+2016-05-12   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerated all.
 
 2016-05-12   Basile Starynkevitch  <basile@starynkevitch.net>

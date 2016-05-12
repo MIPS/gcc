@@ -3453,7 +3453,7 @@ c_register_pragma_with_data (const char *space, const char *name,
  {
    static long countregpragma;
    countregpragma++;
-   debugeprintf ("melt_register_pragmas_callback calling MELT hook_register_pragmas #%ld", 
+   melt_debugeprintf ("melt_register_pragmas_callback calling MELT hook_register_pragmas #%ld", 
 		 countregpragma++);
    gcc_assert (countregpragma > 0);
    melthookproc_HOOK_REGISTER_PRAGMAS ();
@@ -3463,7 +3463,7 @@ static void
 melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
 {
    long ix = (long) data;
-   debugeprintf ("melt_pragma_process_callback ix=%ld calling MELT hook_process_pragma", ix);
+   melt_debugeprintf ("melt_pragma_process_callback ix=%ld calling MELT hook_process_pragma", ix);
    melthookproc_HOOK_PROCESS_PRAGMA(ix);
 }
 
@@ -3723,18 +3723,18 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
 	(assert_msg "check namestr" (>i (string_length namestr) 0) namestr curpragma)
 	(code_chunk plainpragma_chk
 	 #{ /* real_pragma_processor $PLAINPRAGMA_CHK */
-	 debugeprintf ("real_pragma_processor $PLAINPRAGMA_CHK lix=%ld", $LIX);
+	 melt_debugeprintf ("real_pragma_processor $PLAINPRAGMA_CHK lix=%ld", $LIX);
 	 // we internize the space and name strings
 	 const char*internedspace = 
             ($SPACESTR)?(melt_intern_cstring (melt_string_str ($SPACESTR))):NULL;
 	 const char*internedname = 
             melt_intern_cstring (melt_string_str ($NAMESTR));
-	 debugeprintf ("real_pragma_processor $PLAINPRAGMA_CHK internedspace=%s internedname=%s", 
+	 melt_debugeprintf ("real_pragma_processor $PLAINPRAGMA_CHK internedspace=%s internedname=%s", 
 		       internedspace, internedname);
 	 c_register_pragma_with_data
 	    (internedspace, internedname, melt_pragma_process_callback,
 	     (void*) $LIX);
-	 debugeprintf ("real_pragma_processor $PLAINPRAGMA_CHK registered pragma space %s name %s lix#%ld",
+	 melt_debugeprintf ("real_pragma_processor $PLAINPRAGMA_CHK registered pragma space %s name %s lix#%ld",
 		      internedspace, internedname, $LIX);
 	 }#)
 	)
@@ -3755,19 +3755,19 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
 	(assert_msg "check namestr" (>i (string_length namestr) 0) namestr curpragma)
 	(code_chunk expandedpragma_chk
 	 #{ /* real_pragma_processor $EXPANDEDPRAGMA_CHK */
-	 debugeprintf ("real_pragma_processor $EXPANDEDPRAGMA_CHK lix=%ld", $LIX);
+	 melt_debugeprintf ("real_pragma_processor $EXPANDEDPRAGMA_CHK lix=%ld", $LIX);
 	 // we internize the space and name strings
 	 const char*internedspace
 	    = ($SPACESTR)?(melt_intern_cstring (melt_string_str ($SPACESTR))):NULL;
 	 const char*internedname
             =  melt_intern_cstring (melt_string_str ($NAMESTR));
-	 debugeprintf ("real_pragma_processor $EXPANDEDPRAGMA_CHK internedspace=%s internedname=%s", 
+	 melt_debugeprintf ("real_pragma_processor $EXPANDEDPRAGMA_CHK internedspace=%s internedname=%s", 
 		       internedspace, internedname);
 	 c_register_pragma_with_expansion_and_data
            (internedspace, internedname,
             melt_pragma_process_callback,
             (void*) $LIX) ;
-	 debugeprintf ("real_pragma_processor $EXPANDEDPRAGMA_CHK registered pragma space %s name %s lix#%ld",
+	 melt_debugeprintf ("real_pragma_processor $EXPANDEDPRAGMA_CHK registered pragma space %s name %s lix#%ld",
 		       internedspace, internedname, $LIX);
 	 }#)
 	)
@@ -4346,10 +4346,10 @@ melt_pragma_process_callback (struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
    finalanatree_chk 
    #{ /* libmelt-ana-tree.melt: start $FINALANATREE_CHK */
    static long count_$FINALANATREE_CHK ;
-   debugeprintf("count_$FINALANATREE_CHK  = %ld", count_$FINALANATREE_CHK) ;
+   melt_debugeprintf("count_$FINALANATREE_CHK  = %ld", count_$FINALANATREE_CHK) ;
    if (!count_$FINALANATREE_CHK) 
      {
-       debugeprintf ("$FINALANATREE_CHK #%ld registering pragmas", count_$FINALANATREE_CHK) ;
+       melt_debugeprintf ("$FINALANATREE_CHK #%ld registering pragmas", count_$FINALANATREE_CHK) ;
        register_callback (melt_plugin_name, PLUGIN_PRAGMAS,
 			  melt_register_pragmas_callback, NULL)	;
      };

@@ -2,7 +2,7 @@
 ;; file libmelt-ana-base.melt
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright 2008 - 2015 Free Software Foundation, Inc.
+    Copyright 2008 - 2016 Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
                 and Jeremie Salvucci  <jeremie.salvucci@free.fr>
                 and Pierre Vittet  <piervit@pvittet.com>
@@ -245,11 +245,11 @@ unsigned int melthk_rtl_execute(void)
 	 melt_intern_cstring (melt_string_str((melt_ptr_t) $REFPASSNAME));
 	 rpassinfo.ref_pass_instance_number = $REFPASSNUM;
 	 rpassinfo.pos_op = (enum pass_positioning_ops)$POSOPL;
-	 debugeprintf("installing MELT gimple classy pass named %s w.r.t. %s", 
+	 melt_debugeprintf("installing MELT gimple classy pass named %s w.r.t. %s", 
 		      rpassdata.name,  rpassinfo.reference_pass_name);
 	 register_callback (melt_plugin_name, PLUGIN_PASS_MANAGER_SETUP,
 			    NULL, &rpassinfo);
-	 debugeprintf("installed MELT gimple classy pass named %s", 
+	 melt_debugeprintf("installed MELT gimple classy pass named %s", 
 		      rpassdata.name);
 	 /* end install_melt_gcc_pass $GIMPLEPASS_CHK */
 	 }#)
@@ -283,11 +283,11 @@ unsigned int melthk_rtl_execute(void)
 	 melt_intern_cstring (melt_string_str((melt_ptr_t) $REFPASSNAME));
 	 rpassinfo.ref_pass_instance_number = $REFPASSNUM;
 	 rpassinfo.pos_op = (enum pass_positioning_ops)$POSOPL;
-	 debugeprintf("installing MELT simple_ipa classy pass named %s w.r.t %s", 
+	 melt_debugeprintf("installing MELT simple_ipa classy pass named %s w.r.t %s", 
 		      rpassdata.name, rpassinfo.reference_pass_name);
 	 register_callback (melt_plugin_name, PLUGIN_PASS_MANAGER_SETUP,
 			    NULL, &rpassinfo);
-	 debugeprintf("installed MELT simple_ipa classy pass named %s", 
+	 melt_debugeprintf("installed MELT simple_ipa classy pass named %s", 
 		      rpassdata.name);
 	 /* end install_melt_gcc_pass $SIMIPAPASS_CHK */
 	 }#)
@@ -753,11 +753,11 @@ unsigned int melthk_rtl_execute(void)
   #{ if (melt_flag_debug) { const int thislineno = __LINE__ ;
        extern void debug_dominance_info (enum cdi_direction);
        if (dom_info_available_p(CDI_DOMINATORS)) {
-         debugeprintflinenonl (thislineno,
+         melt_debugeprintflinenonl (thislineno,
 			       "debug_dominance_info %s", $MSG);
          debug_dominance_info (CDI_DOMINATORS);
        } 
-       else debugeprintfline (thislineno, 
+       else melt_debugeprintfline (thislineno, 
 			      "debug_dominance_info %s not available", $MSG);
      }}#
 )
@@ -768,11 +768,11 @@ unsigned int melthk_rtl_execute(void)
   #{ if (melt_flag_debug) { const int thislineno = __LINE__ ;
        extern void debug_dominance_info (enum cdi_direction);
        if (dom_info_available_p(CDI_POST_DOMINATORS)) {
-         debugeprintflinenonl (thislineno, 
+         melt_debugeprintflinenonl (thislineno, 
 			       "debug_post_dominance_info %s", $MSG);
          debug_dominance_info (CDI_POST_DOMINATORS);
        } 
-       else debugeprintfline (thislineno,
+       else melt_debugeprintfline (thislineno,
 			      "debug_post_dominance_info %s not available", 
 			      $MSG);
      }}#
@@ -1174,7 +1174,7 @@ unsigned int melthk_rtl_execute(void)
       $EACHCGRAFUNCFG#_fun = DECL_STRUCT_FUNCTION($EACHCGRAFUNCFG#_dcl);
       if (!$EACHCGRAFUNCFG#_fun) 
         continue;
-      debugeprintf("$EACHCGRAFUNCFG#_fun %p", (void*) $EACHCGRAFUNCFG#_fun);
+      melt_debugeprintf("$EACHCGRAFUNCFG#_fun %p", (void*) $EACHCGRAFUNCFG#_fun);
       $FUNTREE = $EACHCGRAFUNCFG#_dcl;
       $TMPV = NULL;
       $EACHCGRAFUNCFG#_n_bb = ($EACHCGRAFUNCFG#_fun->cfg)
@@ -1255,7 +1255,8 @@ unsigned int melthk_rtl_execute(void)
       $EACHCGRAPUSHCFUN#_fun = DECL_STRUCT_FUNCTION($EACHCGRAPUSHCFUN#_dcl);
       if (!$EACHCGRAPUSHCFUN#_fun) 
         continue;
-      debugeprintf("$EACHCGRAPUSHCFUN#_fun %p", (void*) $EACHCGRAPUSHCFUN#_fun);
+      melt_debugeprintf("$EACHCGRAPUSHCFUN#_fun %p",
+			(void*) $EACHCGRAPUSHCFUN#_fun);
       $FUNTREE = $EACHCGRAPUSHCFUN#_dcl;
    /* each_cgraph_fun_push_cfun $EACHCGRAPUSHCFUN : */
    $EACHCGRAPUSHCFUN#_entrybb =

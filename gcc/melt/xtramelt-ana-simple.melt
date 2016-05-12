@@ -2,7 +2,7 @@
 ;; file xtramelt-ana-simple.melt
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    (C) Copyright 2009 - 2014  Free Software Foundation, Inc.
+    (C) Copyright 2009 - 2016  Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
 
     This file is part of GCC.
@@ -184,8 +184,8 @@
 (defun justscanpass_exec (pass)
   (debug "justscanpass_exec at start pass=" pass)
   (code_chunk dbgcfun #{ /* $dbgcfun :: */
-	      debugeprintf("justscanpass_exec start cfun=%p cfg=%p", 
-			   (void*)cfun, cfun?cfun->cfg:NULL) ; 
+	      melt_debugeprintf("justscanpass_exec start cfun=%p cfg=%p", 
+			        (void*)cfun, cfun?cfun->cfg:NULL) ; 
 	      }#) 
   (assert_msg "justscanpass_exec check cfun has cfg" (cfun_has_cfg))
   (let ( (jsdata (instance class_justscan_data 
