@@ -1,4 +1,17 @@
 
+2016-05-12   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{use melt_debugeprintf... not debugeprintf... in MELT translator}}
+	* melt/warmelt-base.melt (message_dbg): Use melt_debugeputs.
+
+	* melt/warmelt-hooks.melt (hook_gimple_gate)
+	(melt_attribute_handler_glue, register_gcc_attribute)
+	(connect_to_server, json_lexer): Use melt_debugeprintf...
+
+	* melt/warmelt-modes.melt (eval_docmd): Ditto.
+
+	* melt/warmelt-outobj.melt (output_curframe_declstruct_init)
+	(outpucod_initialmoduleroutine): Ditto.
+
 2016-05-11   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.3rc2+.
 

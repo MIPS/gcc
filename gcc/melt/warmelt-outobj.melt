@@ -1768,9 +1768,11 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
        )     
      ( (is_a rou class_initialroutineobj)
        (add2sbuf_indentnl implbuf 1)
-       (add2out implbuf "debugeprintf(\"sizeof Melt_InitialFrame in " rouname "=%d\", (int) sizeof(Melt_InitialFrame));")
+       (add2out implbuf "melt_debugeprintf(\"sizeof Melt_InitialFrame in "
+		rouname "=%d\", (int) sizeof(Melt_InitialFrame));")
        (add2sbuf_indentnl implbuf 1)
-       (add2out implbuf "/* classy initial frame " rouname " fromline " (this_line) "*/ Melt_InitialFrame "))
+       (add2out implbuf "/* classy initial frame " rouname
+		" fromline " (this_line) "*/ Melt_InitialFrame "))
      ( :else
        (debug "output_curframe_declstruct_init classy bad routine=" rou)
        (assert_msg "unexpected routine for classy frame declaration" () rou))
@@ -2333,11 +2335,15 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	     )
 	;; declare each chunk and call it.
 	(add2sbuf_indentnl implbuf 1)
-	(add2out implbuf "debugeprintf (\" in initialization of " omodnam " thru " 
-		 (multiple_length chunktup) " chunk routines with frame @%p of %d bytes\",\n" 
-		 " /*fromline " (this_line) "*/ (void*)&meltfram__, (int) sizeof(meltfram__));")
+	(add2out implbuf "melt_debugeprintf (\" in initialization of "
+		 omodnam " thru " 
+		 (multiple_length chunktup)
+		 " chunk routines with frame @%p of %d bytes\",\n" 
+		 " /*fromline " (this_line)
+		 "*/ (void*)&meltfram__, (int) sizeof(meltfram__));")
 	(add2sbuf_indentnl implbuf 1)
-	(add2out implbuf "melt_debuggc_eprintf (\"initialization of " omodnam " thru " 
+	(add2out implbuf "melt_debuggc_eprintf (\"initialization of "
+		 omodnam " thru " 
 		 (multiple_length chunktup) " chunks, frame @%p of %d bytes\",\n  "
 		 " (void*)&meltfram__, (int) sizeof(meltfram__));")
 	(add2sbuf_indentnl implbuf 1)
@@ -2375,7 +2381,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	  (add2sbuf_strconst implbuf "/*noretval*/ NULL"))
 	(add2sbuf_strconst implbuf ";")
 	(add2sbuf_indentnl implbuf 1)
-	(add2out implbuf "debugeprintf (\"returning @%p from initial routine of " omodnam
+	(add2out implbuf "melt_debugeprintf (\"returning @%p from initial routine of " omodnam
 		 "\", (void*)retval); /*fromline " (this_line) "*/")
 	(add2sbuf_indentnl implbuf 0)
 	(add2sbuf_strconst implbuf " return retval;}")
@@ -3487,7 +3493,7 @@ meltlabend_rout:
      #if MELTDEBUG_MATCHING
      static long meltlab_count_$COUNT;   
      meltlab_count_$COUNT++;
-     debugeprintf("objlabel_$COUNT $OPREFIX#$OBRANK $OBLAB %ld", meltlab_count_$COUNT);
+     melt_debugeprintf("objlabel_$COUNT $OPREFIX#$OBRANK $OBLAB %ld", meltlab_count_$COUNT);
      #endif
      }#)
     (add2sbuf_indentnl implbuf depth)

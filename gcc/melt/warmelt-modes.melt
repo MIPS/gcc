@@ -210,7 +210,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	)
     (code_chunk evalstart_chk 
 		#{ /* eval_docmd $EVALSTART_CHK */
-		debugeprintf ("eval_docmd start cmd@%p", (void*)$CMD);
+		melt_debugeprintf ("eval_docmd start cmd@%p", (void*)$CMD);
 		MELT_LOCATION_HERE ("eval_docmd @*@starting eval@*@");
 		}#)
     (debug "eval_docmd start parmodenv=" parmodenv 
@@ -261,7 +261,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	)
     (code_chunk evalstart_chk 
 		#{ /* evalfile_docmd $EVALSTART_CHK */
-		debugeprintf ("evalfile_docmd start cmd@%p", (void*)$CMD);
+		melt_debugeprintf ("evalfile_docmd start cmd@%p", (void*)$CMD);
 		MELT_LOCATION_HERE ("evalfile_docmd @*@starting eval@*@");
 		}#)
     (debug "evalfile_docmd start parmodenv=" parmodenv 

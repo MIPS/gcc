@@ -906,7 +906,7 @@ an integer $I if $I is lower than $N.}#
 
 
 (defprimitive message_dbg (:cstring msg) :void :doc #{Debug message $msg}#
-  #{debugeputs(($msg))}#)
+  #{melt_debugeputs(($msg))}#)
 (defprimitive messagenum_dbg (:cstring msg :long i) :void 
   :doc #{Debug output with message $msg number $i}#
   #{melt_debugnum(($msg), ($i))}#)
