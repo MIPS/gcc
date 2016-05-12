@@ -554,10 +554,8 @@ Melt_Module::~Melt_Module()
 
 
 Melt_CallProtoFrame* melt_top_call_frame =NULL;
-#if MELT_HAVE_RUNTIME_DEBUG > 0
 FILE* Melt_CallProtoFrame::_dbgcall_file_ = NULL;
 long Melt_CallProtoFrame::_dbgcall_count_ = 0L;
-#endif /*MELT_HAVE_RUNTIME_DEBUG*/
 
 /* The start routine of every MELT extension (dynamically loaded
    shared object to evaluate at runtime some expressions in a given
@@ -1204,19 +1202,20 @@ melt_caught_assign_at (void *ptr, const char *fil, int lin,
                      msg);
 }
 
-static unsigned long nbcbreak;
+
+#endif /*MELT_HAVE_RUNTIME_DEBUG*/
+
+static unsigned long melt_nbcbreak;
 
 void
 melt_cbreak_at (const char *msg, const char *fil, int lin)
 {
-  nbcbreak++;
-  melt_debugeprintf_raw ("%s:%d: CBREAK#%ld %s\n", melt_basename (fil), lin, nbcbreak,
+  melt_nbcbreak++;
+  melt_debugeprintf_raw ("%s:%d: CBREAK#%ld %s\n", melt_basename (fil), lin,
+			 melt_nbcbreak,
                          msg);
-  gcc_assert (nbcbreak>0);  // useless, but you can put a GDB breakpoint here
+  gcc_assert (melt_nbcbreak>0);  // useless, but you can put a GDB breakpoint here
 }
-
-#endif /*MELT_HAVE_RUNTIME_DEBUG*/
-
 
 /* make a special value; return NULL if the discriminant is not special */
 struct meltspecial_st*

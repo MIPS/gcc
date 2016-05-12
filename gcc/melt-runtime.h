@@ -3757,6 +3757,7 @@ void melt_dbgshortbacktrace(const char* msg, int maxdepth);
 
 void melt_warn_for_no_expected_secondary_results_at (const char*fil, int lin);
 
+MELT_EXTERN void melt_cbreak_at(const char*msg, const char*fil, int lin);
 
 #if MELT_HAVE_DEBUG > 0
 extern void* melt_checkedp_ptr1;
@@ -3779,7 +3780,6 @@ void melt_caught_assign_at(void*ptr, const char*fil, int lin, const char*msg);
 #define melt_checked_assign(Assign) melt_checked_assign_internal(Assign)
 #define melt_checked_assignmsg(Assign,Msg) melt_checked_assignmsg_internal(Assign,Msg)
 
-void melt_cbreak_at(const char*msg, const char*fil, int lin);
 #define melt_cbreak(Msg) melt_cbreak_at((Msg),__FILE__,__LINE__)
 #define melt_trace_start(Msg,Cnt) do {} while(0)
 #define melt_trace_end(Msg,Cnt) do {} while(0)

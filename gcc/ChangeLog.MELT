@@ -1,12 +1,20 @@
 
 2016-05-12   Basile Starynkevitch  <basile@starynkevitch.net>
-	* melt/melt-runtime.h (debugeprintf_raw, debugeprintf)
+	* melt-runtime.h (melt_cbreak_at): Always declared, even
+	without MELT_HAVE_DEBUG.
+
+	* melt-runtime.cc (Melt_CallProtoFrame::_dbgcall_file_)
+	(Melt_CallProtoFrame::_dbgcall_count_, melt_cbreak_at): Always
+	defined.
+
+2016-05-12   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h (debugeprintf_raw, debugeprintf)
 	(debugeprintflinenonl, debugeprintfline, debugeprintfnonl)
 	(debugeprintvalue, debugebacktrace, debugeputs, debugvalue)
 	(debugmsgval, debugbacktrace, debugnum): Remove these macros. We
 	now use their melt_debugeprintf counterparts everywhere.
 
-	* melt/melt-runtime.cc (MELT_DEFAULT_PERIODFULL): Increase value
+	* melt-runtime.cc (MELT_DEFAULT_PERIODFULL): Increase value
 	to 4096, to lower GC frequency.
 
 2016-05-12   Basile Starynkevitch  <basile@starynkevitch.net>
