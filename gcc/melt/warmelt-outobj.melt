@@ -2262,6 +2262,13 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 ;;;
     (add2sbuf_strconst implbuf "/**initial routine prologue**/")
     (add2sbuf_indentnl implbuf 1)
+    (add2sbuf_strconst implbuf "melt_debugeprintf(\"initial routine begin ")
+    (add2sbuf_cident implbuf omodnam)
+    (add2sbuf_strconst implbuf " meltfram=%p-%p sized %d\", (void*)&meltfram__,")
+    (add2sbuf_indentnl implbuf 1)
+    (add2sbuf_strconst implbuf "        (void*)(((char*)&meltfram__)+sizeof(meltfram__)),")
+    (add2sbuf_strconst implbuf " (int)sizeof(meltfram__));")
+    (add2sbuf_indentnl implbuf 1)
     (foreach_pair_component_in_list
      (iprolog)
      (curpair curprol)

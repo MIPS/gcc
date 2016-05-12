@@ -1,5 +1,9 @@
 
 2016-05-12   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-outobj.melt (outpucod_initialmoduleroutine): Emit a
+	melt_debugeprintf about the current frame...
+
+2016-05-12   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h (melt_dumprintf, melt_dumprintf_raw): Renaming ...
 	(dbgprintf, dbgprintf_raw): Renamed.
 	(dbgprintf): Temporarily redefined for backward compatibility.
