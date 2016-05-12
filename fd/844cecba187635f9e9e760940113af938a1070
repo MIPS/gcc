@@ -1,7 +1,5 @@
 Needs
 upstreaming
-#
-#
 Write/edit
 the
 notes
@@ -10,14 +8,11 @@ the
 following
 object:
 
-#
 commit
 fd844cecba187635f9e9e760940113af938a1070
-#
 Author:
 mfortune
 <matthew.fortune@imgtec.com>
-#
 Date:
 
 Fri
@@ -26,15 +21,9 @@ Aug
 11:14:17
 2013
 +0100
-#
-#
 
 Add
 -mgrow-frame-downwards
-#
-
-
-#
 
 Grow
 the
@@ -48,10 +37,6 @@ for
 mips16
 code
 size.
-#
-
-
-#
 
 By
 growing
@@ -66,7 +51,6 @@ created
 at
 the
 lowest
-#
 
 address
 rather
@@ -80,7 +64,6 @@ frame.
 The
 benefit
 being
-#
 
 that
 when
@@ -96,7 +79,6 @@ still
 be
 accessed
 using
-#
 
 a
 16bit
@@ -110,7 +92,6 @@ for
 large
 local
 variables
-#
 
 to
 be
@@ -123,14 +104,9 @@ they
 are
 (probably)
 accessed
-#
 
 less
 frequently
-#
-
-
-#
 
 This
 is
@@ -138,21 +114,17 @@ default
 on
 for
 MIPS16.
-#
-#
 
 gcc/config/mips/mips.h
 
 |
 8
 +++++++-
-#
 
 gcc/config/mips/mips.opt
 |
 4
 ++++
-#
 
 2
 files
@@ -162,8 +134,6 @@ insertions(+),
 1
 deletion(-)
 
-#
-#
 Write/edit
 the
 notes
@@ -172,14 +142,11 @@ the
 following
 object:
 
-#
 commit
 fd844cecba187635f9e9e760940113af938a1070
-#
 Author:
 mfortune
 <matthew.fortune@imgtec.com>
-#
 Date:
 
 Fri
@@ -188,15 +155,9 @@ Aug
 11:14:17
 2013
 +0100
-#
-#
 
 Add
 -mgrow-frame-downwards
-#
-
-
-#
 
 Grow
 the
@@ -210,10 +171,6 @@ for
 mips16
 code
 size.
-#
-
-
-#
 
 By
 growing
@@ -228,7 +185,6 @@ created
 at
 the
 lowest
-#
 
 address
 rather
@@ -242,7 +198,6 @@ frame.
 The
 benefit
 being
-#
 
 that
 when
@@ -258,7 +213,6 @@ still
 be
 accessed
 using
-#
 
 a
 16bit
@@ -272,7 +226,6 @@ for
 large
 local
 variables
-#
 
 to
 be
@@ -285,14 +238,9 @@ they
 are
 (probably)
 accessed
-#
 
 less
 frequently
-#
-
-
-#
 
 This
 is
@@ -300,21 +248,17 @@ default
 on
 for
 MIPS16.
-#
-#
 
 gcc/config/mips/mips.h
 
 |
 8
 +++++++-
-#
 
 gcc/config/mips/mips.opt
 |
 4
 ++++
-#
 
 2
 files
