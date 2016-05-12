@@ -1,5 +1,9 @@
 
 2016-05-12   Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/generated/*: Regenerated all.
+
+2016-05-12   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-outobj.melt (outpucod_initialmoduleroutine): Emit a
 	melt_debugeprintf about the current frame...
 

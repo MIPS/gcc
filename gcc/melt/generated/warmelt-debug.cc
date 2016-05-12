@@ -40,7 +40,7 @@ MELT_EXTERN const char meltrun_used_md5_melt[] = MELT_RUN_HASHMD5 /* from melt-r
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiDEBUG_h640816647; // forward declaration fromline 6697
+class Melt_InitialClassyFrame_WARMELTmiDEBUG_h640816647; // forward declaration fromline 6704
 typedef Melt_InitialClassyFrame_WARMELTmiDEBUG_h640816647 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
@@ -7892,6 +7892,8 @@ void* MELT_LOW_OPTIMIZATION melt_start_this_module (void* modargp_)
 #define meltframe meltfram__
 
     /**initial routine prologue**/
+    melt_debugeprintf("initial routine begin WARMELTmiDEBUG meltfram=%p-%p sized %d", (void*)&meltfram__,
+                      (void*)(((char*)&meltfram__)+sizeof(meltfram__)), (int)sizeof(meltfram__));
     /**COMMENT: get previous environment **/;
 
     /*^compute*/
@@ -9236,7 +9238,7 @@ void* MELT_LOW_OPTIMIZATION melt_start_this_module (void* modargp_)
     /**initial routine body**/
 
     melt_debugeprintf (" in initialization of warmelt-debug thru 8 chunk routines with frame @%p of %d bytes",
-                       /*fromline 2342*/ (void*)&meltfram__, (int) sizeof(meltfram__));
+                       /*fromline 2349*/ (void*)&meltfram__, (int) sizeof(meltfram__));
     melt_debuggc_eprintf ("initialization of warmelt-debug thru 8 chunks, frame @%p of %d bytes",
                           (void*)&meltfram__, (int) sizeof(meltfram__));
 
@@ -9252,15 +9254,15 @@ void* MELT_LOW_OPTIMIZATION melt_start_this_module (void* modargp_)
 meltlabend_rout:
     ;
     {
-        /* return out of initial fromline 2377 */ melt_ptr_t retval = /*_._RETINIT___V1*/ meltfptr[0];
-        melt_debugeprintf ("returning @%p from initial routine of warmelt-debug", (void*)retval); /*fromline 2385*/
+        /* return out of initial fromline 2384 */ melt_ptr_t retval = /*_._RETINIT___V1*/ meltfptr[0];
+        melt_debugeprintf ("returning @%p from initial routine of warmelt-debug", (void*)retval); /*fromline 2392*/
         return retval;
     }
 #undef meltcallcount
 #undef meltfram__
 #undef MELTFRAM_NBVARNUM
 #undef MELTFRAM_NBVARPTR
-} /* end melt_start_this_module fromline 2397 */
+} /* end melt_start_this_module fromline 2404 */
 
 
 void meltmod__WARMELTmiDEBUG__initialmeltchunk_0 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
@@ -15361,4 +15363,3 @@ const int meltclasslen__CLASS_DEBUG_OUTPUT_INFORMATION = 3;
 
 
 /**** end of warmelt-debug ****/
-
