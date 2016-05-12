@@ -127,11 +127,6 @@
   return CA_REGNO_P (REGNO (op));
 })
 
-;; Return 1 if op is -1/0
-(define_predicate "s1bit_cint_operand"
-  (and (match_code "const_int")
-       (match_test "IN_RANGE (INTVAL (op), -1, 0)")))
-
 ;; Return 1 if op is a signed 5-bit constant integer.
 (define_predicate "s5bit_cint_operand"
   (and (match_code "const_int")
@@ -570,19 +565,36 @@
     }
 })
 
-;; Return 1 if the operand is a CONST_VECTOR that can loaded with a XXSPLTIB
-;; instruction and then a VECSB2W or VECSB2D instruction.
+;; Return 1 if the operand is a CONST_VECTOR or VEC_DUPLICATE of a constant
+;; that can loaded with a XXSPLTIB instruction and then a VUPKHSB, VECSB2W or
+;; VECSB2D instruction.
 
-(define_predicate "easy_p9_constant_split"
-  (match_code "const_vector")
+(define_predicate "xxspltib_constant_split"
+  (match_code "const_vector,vec_duplicate,const_int")
 {
-  if (!TARGET_P9_VECTOR)
+  int value	= 256;
+  int num_insns	= -1;
+
+  if (!xxspltib_constant_p (op, mode, &num_insns, &value))
     return false;
 
-  if (mode != V4SImode && mode != V2DImode)
+  return num_insns > 1;
+})
+
+
+;; Return 1 if the operand is a CONST_VECTOR that can loaded directly with a
+;; XXSPLTIB instruction.
+
+(define_predicate "xxspltib_constant_nosplit"
+  (match_code "const_vector,vec_duplicate,const_int")
+{
+  int value	= 256;
+  int num_insns	= -1;
+
+  if (!xxspltib_constant_p (op, mode, &num_insns, &value))
     return false;
 
-  return easy_p9_constant (op, mode, false);
+  return num_insns == 1;
 })
 
 ;; Return 1 if the operand is a CONST_VECTOR and can be loaded into a
@@ -603,10 +615,14 @@
 
   if (VECTOR_MEM_ALTIVEC_OR_VSX_P (mode))
     {
-      if (zero_constant (op, mode))
+      int value = 256;
+      int num_insns = -1;
+
+      if (zero_constant (op, mode) || all_ones_constant (op, mode))
 	return true;
 
-      if (TARGET_P9_VECTOR && easy_p9_constant (op, mode, false))
+      if (TARGET_P9_VECTOR
+          && xxspltib_constant_p (op, mode, &num_insns, &value))
 	return true;
 
       return easy_altivec_constant (op, mode);

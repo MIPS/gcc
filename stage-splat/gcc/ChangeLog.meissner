@@ -1,26 +1,77 @@
+2016-05-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (wE constraint): Use
+	xxsplitb_constant_nosplit instead of easy_p9_constant.
+	(wS constraint): New constraint for xxspltib constants that need a
+	sign extend operation.
+
+	* config/rs6000/predicates.md (s1_cint_operand): Delete.
+	(easy_p9_constant_split): Delete.
+	(xxspltib_constant_split): New predicates for XXSPLTIB constants.
+	(xxspltib_constant_nosplit): Likewise.
+	(easy_vector_constant): Use xxsplit_constant_p  and
+	all_ones_constant instead of easy_p9_constant_p.
+
+	* config/rs6000/rs6000-protos.h (easy_p9_constant): Delete.
+	(xxspltib_constant_p): New declaration.
+
+	* config/rs6000/rs6000.c (easy_p9_constant): Replace
+	easy_p9_constant with xxsplitib_constant_p.  Return the constant
+	being set.  Allow vec_duplicate as well as const_vector.  Return
+	the constant involved, and whether it expands to 1 or 2
+	instructions.
+	(output_vec_const_move): Use xxsplitib_constant_p instead of
+	easy_p9_constant.  Generate xxspltib <reg>,255 instead of -1.
+
+	* config/rs6000/rs6000.c (output_vec_const_move): Use xxspltib
+	255, instead of xxspltib -1.
+
+	* config/rs6000/vx.md (vsx_mov<mode>_64bit): Rework vector moves
+	to use constants that are matched by xxspltib_constant.  Reformat
+	to allow making it easier to figure out which alternative is being
+	used.  Remove string support from 320-bit TImode under VSX.
+	(vsx_mov<mode>_32bit): Likewise.
+	(vsx_movti_64bit): Likewise.
+	(vsx_movti_32bit): Likewise.
+	(vsx_<mode>_set_0): Rewrite setting vector to all 0's or all 1's.
+	(vsx_<mode>_set_m1): Likewise.
+	(vsx_<mode>_set_m1_p9): Likewise.
+	(vsx_<mode>_set_m1_p8): Likewise.
+	(vsx_<mode>_set_m1_p7): Likewise.
+	(xxspltib_<mode>): Add support for V8HImode constants.  Use
+	vecperm instead of vecsingle.
+
 2016-05-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/predicates.md (s1_cint_operand): New predicate to
 	recognize 0 and -1.
 
-	* config/rs6000/vsx.md (VSINT_84): New iterators for loading
+	* config/rs6000/vsx.md (VSX_M): Merge VSX_M, VSX_M2.  Delete
+	VSX_M2.
+	(VSg): New mode attribute to give appropriate register constraint
+	for TImode (if -mvsx-timode) and the vectors, to tell reload not
+	to look for putting vectors into GPR registers.
+	(VSINT_84): New iterators for loading
 	constants with xxspltib.
 	(VSINT_842): Likewise.
-	(xxspltib_v16qi): New insn to support xxspltib.
-	(xxspltib_<mode>_set_0_m1): New insns to support loading
-	vec_duplicate of 0/-1 directly.
+	(xxspltib_v16qi): New insns to support xxspltib.
+	(xxspltib_<mode>_nosplit): Likewise.
+	(xxspltib_<mode>_split): Likewise.
+	(mov<mode>): Split move into 64/32-bit moves.  Combine movti moves
+	when -mvsx-timode is available.  Make alternatives clearer.  Add
+	support for XXSPLTIB to load vector constants.
+	(xxspltib_<mode>_set_0_m1): Delete.
 	(vsx_<mode>_set_0): Likewise.
 	(vsx_<mode>_set_m1_p8): Likewise.
 	(vsx_<mode>_set_m1_p7): Likewise.
-	(xxspltib_<mode>): New insn/split to support loading vec_duplicate
-	of -128..127 into V2DI or V4SI using ISA 3.0 XXSPLTIB and sign
-	extend instructions.
 	(V4SI_OR_V2DI): Delete.
 	(vsx_sign_extend_qi_<mode>): Use VSINT_84 instead of
 	V4SI_OR_V2DI.
 	(vsx_sign_extend_hi_<mode>): Likewise.
 	(xxspltib): Move code earlier and rewrite.
 	(XXSPLTIB splitters): Likewise.
+
+	* doc/md.texi (Constraints): Document wE and wS.
 
 2016-05-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 

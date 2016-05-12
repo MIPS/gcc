@@ -6242,23 +6242,36 @@ gen_easy_altivec_constant (rtx op)
 }
 
 /* Return true if OP is of the given MODE and can be synthesized with ISA 3.0
-   instructions (xxspltib, vextsb2w/vextb2d, and possibly xxsldwi).  If
-   XXSPLTIB_ONLY, only return true for constants that only generate the
-   XXSPLTIB instruction and can go in any VSX register.  Using the vector sign
-   extend instructions restricts us to the Altivec registers.  */
+   instructions (xxspltib, vupkhsb/vextsb2w/vextb2d).
+
+   Return the number of instructions needed (1 or 2) into the address pointed
+   via NUM_INSNS_PTR.
+
+   If NOSPLIT_P, only return true for constants that only generate the XXSPLTIB
+   instruction and can go in any VSX register.  If !NOSPLIT_P, only return true
+   for constants that generate XXSPLTIB and need a sign extend operation, which
+   restricts us to the Altivec registers.
+
+   Allow either (vec_const [...]) or (vec_duplicate <const>).  If OP is a valid
+   XXSPLTIB constant, return the constant being set via the CONST_PTR
+   pointer.  */
 
 bool
-easy_p9_constant (rtx op, machine_mode mode, bool xxspltib_only)
+xxspltib_constant_p (rtx op,
+		     machine_mode mode,
+		     int *num_insns_ptr,
+		     int *constant_ptr)
 {
   size_t nunits = GET_MODE_NUNITS (mode);
   size_t i;
   HOST_WIDE_INT value;
   rtx element;
 
-  if (!TARGET_P9_VECTOR)
-    return false;
+  /* Set the returned values to out of bound values.  */
+  *num_insns_ptr = -1;
+  *constant_ptr = 256;
 
-  if (GET_CODE (op) != CONST_VECTOR)
+  if (!TARGET_P9_VECTOR)
     return false;
 
   if (mode == VOIDmode)
@@ -6267,41 +6280,86 @@ easy_p9_constant (rtx op, machine_mode mode, bool xxspltib_only)
   else if (mode != GET_MODE (op))
     return false;
 
-  /* All 0's and all 1's are handled in the move insn, don't allow them
-     here.  */
-  if (op == CONST0_RTX (mode) || op == CONSTM1_RTX (mode))
-    return false;
-
-  /* There is no VEXTSB2H instruction, so we can't do V8HImode.  */
-  if (mode == V16QImode)
-    ;
-
-  else if (xxspltib_only
-	   || (mode != V4SImode && mode != V2DImode))
-    return false;
-
-  element = CONST_VECTOR_ELT (op, 0);
-  if (!CONST_INT_P (element))
-    return false;
-
-  value = INTVAL (element);
-  if (!IN_RANGE (value, -128, 127))
-    return false;
-
-  /* If could generate vspltisw instead of xxspltib/vecsb2w, do so.  */
-  if (mode == V4SImode && EASY_VECTOR_15 (value))
-    return false;
-
-  for (i = 1; i < nunits; i++)
+  /* Handle (vec_duplicate <constant>).  */
+  if (GET_CODE (op) == VEC_DUPLICATE)
     {
-      element = CONST_VECTOR_ELT (op, i);
+      if (mode != V16QImode && mode != V8HImode && mode != V4SImode
+	  && mode != V2DImode)
+	return false;
+
+      element = XEXP (op, 0);
       if (!CONST_INT_P (element))
 	return false;
 
-      if (value != INTVAL (element))
+      value = INTVAL (element);
+      if (!IN_RANGE (value, -128, 127))
 	return false;
     }
 
+  /* Handle (const_vector [...]).  */
+  else if (GET_CODE (op) == CONST_VECTOR)
+    {
+      if (mode != V16QImode && mode != V8HImode && mode != V4SImode
+	  && mode != V2DImode)
+	return false;
+
+      element = CONST_VECTOR_ELT (op, 0);
+      if (!CONST_INT_P (element))
+	return false;
+
+      value = INTVAL (element);
+      if (!IN_RANGE (value, -128, 127))
+	return false;
+
+      for (i = 1; i < nunits; i++)
+	{
+	  element = CONST_VECTOR_ELT (op, i);
+	  if (!CONST_INT_P (element))
+	    return false;
+
+	  if (value != INTVAL (element))
+	    return false;
+	}
+
+      /* See if we could generate vspltisw/vspltish directly instead of
+	 xxspltib + sign extend.  Special case 0/-1 to allow getting
+         any VSX register instead of an Altivec register.  */
+      if (!IN_RANGE (value, -1, 0) && EASY_VECTOR_15 (value)
+	  && (mode == V4SImode || mode == V8HImode))
+	return false;
+    }
+
+  /* Handle integer constants being loaded into the upper part of the VSX
+     register as a scalar.  If the value isn't 0/-1, only allow it if
+     the mode can go in Altivec registers.  */
+  else if (CONST_INT_P (op))
+    {
+      if (!SCALAR_INT_MODE_P (mode))
+	return false;
+
+      value = INTVAL (op);
+      if (!IN_RANGE (value, -128, 127))
+	return false;
+
+      if (!IN_RANGE (value, -1, 0)
+	  && (reg_addr[mode].addr_mask[RELOAD_REG_VMX] & RELOAD_REG_VALID) == 0)
+	return false;
+    }
+
+  else
+    return false;
+
+  /* Return # of instructions and the constant byte for XXSPLTIB.  */
+  if (mode == V16QImode)
+    *num_insns_ptr = 1;
+
+  else if (IN_RANGE (value, -1, 0))
+    *num_insns_ptr = 1;
+
+  else
+    *num_insns_ptr = 2;
+
+  *constant_ptr = (int) value;
   return true;
 }
 
@@ -6319,6 +6377,8 @@ output_vec_const_move (rtx *operands)
   if (TARGET_VSX)
     {
       bool dest_vmx_p = ALTIVEC_REGNO_P (REGNO (dest));
+      int xxspltib_value = 256;
+      int num_insns = -1;
 
       if (zero_constant (vec, mode))
 	{
@@ -6335,7 +6395,7 @@ output_vec_const_move (rtx *operands)
       if (all_ones_constant (vec, mode))
 	{
 	  if (TARGET_P9_VECTOR)
-	    return "xxspltib %x0,-1";
+	    return "xxspltib %x0,255";
 
 	  else if (dest_vmx_p)
 	    return "vspltisw %0,-1";
@@ -6347,11 +6407,12 @@ output_vec_const_move (rtx *operands)
 	    gcc_unreachable ();
 	}
 
-      if (TARGET_P9_VECTOR && easy_p9_constant (vec, mode, false))
+      if (TARGET_P9_VECTOR
+	  && xxspltib_constant_p (vec, mode, &num_insns, &xxspltib_value))
 	{
-	  if (mode == V16QImode)
+	  if (num_insns == 1)
 	    {
-	      operands[2] = GEN_INT (INTVAL (CONST_VECTOR_ELT (vec, 0)) & 0xff);
+	      operands[2] = GEN_INT (xxspltib_value & 0xff);
 	      return "xxspltib %x0,%2";
 	    }
 
