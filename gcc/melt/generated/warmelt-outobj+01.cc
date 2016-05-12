@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f1[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h897178690; // forward declaration fromline 6691
-typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h897178690 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h966467420; // forward declaration fromline 6697
+typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h966467420 Melt_InitialFrame;
 /*** 1 MELT module variables declarations ****/
 MELT_EXTERN void melt_forwarding_module_data (void);
 MELT_EXTERN void melt_marking_module_data (void);
@@ -832,7 +832,7 @@ MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h897178690 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h966467420 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -962,12 +962,12 @@ meltrout_10_WARMELTmiOUTOBJ_OUTPUCOD_OBJINIELEM(meltclosure_ptr_t meltclosp_, me
     /* end of frame for routine meltrout_10_WARMELTmiOUTOBJ_OUTPUCOD_OBJINIELEM fromline 1756 */
 
     /* classy proc frame meltrout_10_WARMELTmiOUTOBJ_OUTPUCOD_OBJINIELEM */ MeltFrame_meltrout_10_WARMELTmiOUTOBJ_OUTPUCOD_OBJINIELEM
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_10_WARMELTmiOUTOBJ_OUTPUCOD_OBJINIELEM fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_10_WARMELTmiOUTOBJ_OUTPUCOD_OBJINIELEM fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -2021,12 +2021,12 @@ meltrout_11_WARMELTmiOUTOBJ_OUTCINITFILL_ROOT(meltclosure_ptr_t meltclosp_, melt
     /* end of frame for routine meltrout_11_WARMELTmiOUTOBJ_OUTCINITFILL_ROOT fromline 1756 */
 
     /* classy proc frame meltrout_11_WARMELTmiOUTOBJ_OUTCINITFILL_ROOT */ MeltFrame_meltrout_11_WARMELTmiOUTOBJ_OUTCINITFILL_ROOT
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_11_WARMELTmiOUTOBJ_OUTCINITFILL_ROOT fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_11_WARMELTmiOUTOBJ_OUTCINITFILL_ROOT fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -2359,12 +2359,12 @@ meltrout_12_WARMELTmiOUTOBJ_OUTCINITPREDEF_ROOT(meltclosure_ptr_t meltclosp_, me
     /* end of frame for routine meltrout_12_WARMELTmiOUTOBJ_OUTCINITPREDEF_ROOT fromline 1756 */
 
     /* classy proc frame meltrout_12_WARMELTmiOUTOBJ_OUTCINITPREDEF_ROOT */ MeltFrame_meltrout_12_WARMELTmiOUTOBJ_OUTCINITPREDEF_ROOT
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_12_WARMELTmiOUTOBJ_OUTCINITPREDEF_ROOT fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_12_WARMELTmiOUTOBJ_OUTCINITPREDEF_ROOT fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -2652,12 +2652,12 @@ meltrout_13_WARMELTmiOUTOBJ_OUTPUT_PREDEF(meltclosure_ptr_t meltclosp_, melt_ptr
     /* end of frame for routine meltrout_13_WARMELTmiOUTOBJ_OUTPUT_PREDEF fromline 1756 */
 
     /* classy proc frame meltrout_13_WARMELTmiOUTOBJ_OUTPUT_PREDEF */ MeltFrame_meltrout_13_WARMELTmiOUTOBJ_OUTPUT_PREDEF
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_13_WARMELTmiOUTOBJ_OUTPUT_PREDEF fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_13_WARMELTmiOUTOBJ_OUTPUT_PREDEF fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -3424,12 +3424,12 @@ meltrout_14_WARMELTmiOUTOBJ_OUTPUCOD_PREDEF(meltclosure_ptr_t meltclosp_, melt_p
     /* end of frame for routine meltrout_14_WARMELTmiOUTOBJ_OUTPUCOD_PREDEF fromline 1756 */
 
     /* classy proc frame meltrout_14_WARMELTmiOUTOBJ_OUTPUCOD_PREDEF */ MeltFrame_meltrout_14_WARMELTmiOUTOBJ_OUTPUCOD_PREDEF
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_14_WARMELTmiOUTOBJ_OUTPUCOD_PREDEF fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_14_WARMELTmiOUTOBJ_OUTPUCOD_PREDEF fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -3751,12 +3751,12 @@ meltrout_15_WARMELTmiOUTOBJ_OUTPUCOD_NIL(meltclosure_ptr_t meltclosp_, melt_ptr_
     /* end of frame for routine meltrout_15_WARMELTmiOUTOBJ_OUTPUCOD_NIL fromline 1756 */
 
     /* classy proc frame meltrout_15_WARMELTmiOUTOBJ_OUTPUCOD_NIL */ MeltFrame_meltrout_15_WARMELTmiOUTOBJ_OUTPUCOD_NIL
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_15_WARMELTmiOUTOBJ_OUTPUCOD_NIL fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_15_WARMELTmiOUTOBJ_OUTPUCOD_NIL fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -3967,12 +3967,12 @@ meltrout_16_WARMELTmiOUTOBJ_OUTPUCOD_OBJEXPANDPUREVAL(meltclosure_ptr_t meltclos
     /* end of frame for routine meltrout_16_WARMELTmiOUTOBJ_OUTPUCOD_OBJEXPANDPUREVAL fromline 1756 */
 
     /* classy proc frame meltrout_16_WARMELTmiOUTOBJ_OUTPUCOD_OBJEXPANDPUREVAL */ MeltFrame_meltrout_16_WARMELTmiOUTOBJ_OUTPUCOD_OBJEXPANDPUREVAL
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_16_WARMELTmiOUTOBJ_OUTPUCOD_OBJEXPANDPUREVAL fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_16_WARMELTmiOUTOBJ_OUTPUCOD_OBJEXPANDPUREVAL fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -5093,12 +5093,12 @@ meltrout_17_WARMELTmiOUTOBJ_OUTPUCOD_OBJHOOKNTH(meltclosure_ptr_t meltclosp_, me
     /* end of frame for routine meltrout_17_WARMELTmiOUTOBJ_OUTPUCOD_OBJHOOKNTH fromline 1756 */
 
     /* classy proc frame meltrout_17_WARMELTmiOUTOBJ_OUTPUCOD_OBJHOOKNTH */ MeltFrame_meltrout_17_WARMELTmiOUTOBJ_OUTPUCOD_OBJHOOKNTH
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_17_WARMELTmiOUTOBJ_OUTPUCOD_OBJHOOKNTH fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_17_WARMELTmiOUTOBJ_OUTPUCOD_OBJHOOKNTH fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -5954,12 +5954,12 @@ meltrout_18_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITOBJECT(meltclosure_ptr_t meltclos
     /* end of frame for routine meltrout_18_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITOBJECT fromline 1756 */
 
     /* classy proc frame meltrout_18_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITOBJECT */ MeltFrame_meltrout_18_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITOBJECT
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_18_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITOBJECT fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_18_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITOBJECT fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -6125,12 +6125,12 @@ meltrout_19_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITOBJECT(meltclosure_ptr_t meltclo
     /* end of frame for routine meltrout_19_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITOBJECT fromline 1756 */
 
     /* classy proc frame meltrout_19_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITOBJECT */ MeltFrame_meltrout_19_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITOBJECT
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_19_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITOBJECT fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_19_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITOBJECT fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -8570,12 +8570,12 @@ meltrout_20_WARMELTmiOUTOBJ_OUTCINITPREDEF_OBJINITOBJECT(meltclosure_ptr_t meltc
     /* end of frame for routine meltrout_20_WARMELTmiOUTOBJ_OUTCINITPREDEF_OBJINITOBJECT fromline 1756 */
 
     /* classy proc frame meltrout_20_WARMELTmiOUTOBJ_OUTCINITPREDEF_OBJINITOBJECT */ MeltFrame_meltrout_20_WARMELTmiOUTOBJ_OUTCINITPREDEF_OBJINITOBJECT
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_20_WARMELTmiOUTOBJ_OUTCINITPREDEF_OBJINITOBJECT fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_20_WARMELTmiOUTOBJ_OUTCINITPREDEF_OBJINITOBJECT fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -10419,12 +10419,12 @@ meltrout_21_WARMELTmiOUTOBJ_OUTCINITPREDEF_OBJINITHOOK(meltclosure_ptr_t meltclo
     /* end of frame for routine meltrout_21_WARMELTmiOUTOBJ_OUTCINITPREDEF_OBJINITHOOK fromline 1756 */
 
     /* classy proc frame meltrout_21_WARMELTmiOUTOBJ_OUTCINITPREDEF_OBJINITHOOK */ MeltFrame_meltrout_21_WARMELTmiOUTOBJ_OUTCINITPREDEF_OBJINITHOOK
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_21_WARMELTmiOUTOBJ_OUTCINITPREDEF_OBJINITHOOK fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_21_WARMELTmiOUTOBJ_OUTCINITPREDEF_OBJINITHOOK fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -11693,12 +11693,12 @@ meltrout_22_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITMULTIPLE(meltclosure_ptr_t meltcl
     /* end of frame for routine meltrout_22_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITMULTIPLE fromline 1756 */
 
     /* classy proc frame meltrout_22_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITMULTIPLE */ MeltFrame_meltrout_22_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITMULTIPLE
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_22_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITMULTIPLE fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_22_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITMULTIPLE fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -11864,12 +11864,12 @@ meltrout_23_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITMULTIPLE(meltclosure_ptr_t meltc
     /* end of frame for routine meltrout_23_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITMULTIPLE fromline 1756 */
 
     /* classy proc frame meltrout_23_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITMULTIPLE */ MeltFrame_meltrout_23_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITMULTIPLE
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_23_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITMULTIPLE fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_23_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITMULTIPLE fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -12836,12 +12836,12 @@ meltrout_24_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITCLOSURE(meltclosure_ptr_t meltclo
     /* end of frame for routine meltrout_24_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITCLOSURE fromline 1756 */
 
     /* classy proc frame meltrout_24_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITCLOSURE */ MeltFrame_meltrout_24_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITCLOSURE
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_24_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITCLOSURE fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_24_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITCLOSURE fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -13007,12 +13007,12 @@ meltrout_25_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITCLOSURE(meltclosure_ptr_t meltcl
     /* end of frame for routine meltrout_25_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITCLOSURE fromline 1756 */
 
     /* classy proc frame meltrout_25_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITCLOSURE */ MeltFrame_meltrout_25_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITCLOSURE
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_25_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITCLOSURE fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_25_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITCLOSURE fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -14082,12 +14082,12 @@ meltrout_26_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITROUTINE(meltclosure_ptr_t meltclo
     /* end of frame for routine meltrout_26_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITROUTINE fromline 1756 */
 
     /* classy proc frame meltrout_26_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITROUTINE */ MeltFrame_meltrout_26_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITROUTINE
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_26_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITROUTINE fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_26_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITROUTINE fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -14253,12 +14253,12 @@ meltrout_27_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITROUTINE(meltclosure_ptr_t meltcl
     /* end of frame for routine meltrout_27_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITROUTINE fromline 1756 */
 
     /* classy proc frame meltrout_27_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITROUTINE */ MeltFrame_meltrout_27_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITROUTINE
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_27_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITROUTINE fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_27_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITROUTINE fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -16041,12 +16041,12 @@ meltrout_28_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITHOOK(meltclosure_ptr_t meltclosp_
     /* end of frame for routine meltrout_28_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITHOOK fromline 1756 */
 
     /* classy proc frame meltrout_28_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITHOOK */ MeltFrame_meltrout_28_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITHOOK
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_28_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITHOOK fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_28_WARMELTmiOUTOBJ_OUTDECLINIT_OBJINITHOOK fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -16366,12 +16366,12 @@ meltrout_29_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITHOOK(meltclosure_ptr_t meltclosp
     /* end of frame for routine meltrout_29_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITHOOK fromline 1756 */
 
     /* classy proc frame meltrout_29_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITHOOK */ MeltFrame_meltrout_29_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITHOOK
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_29_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITHOOK fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_29_WARMELTmiOUTOBJ_OUTCINITFILL_OBJINITHOOK fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;

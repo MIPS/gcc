@@ -39,7 +39,7 @@ MELT_EXTERN const char meltrun_used_md5_melt_f2[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiFIRST_h583248052; // forward declaration fromline 6691
+class Melt_InitialClassyFrame_WARMELTmiFIRST_h583248052; // forward declaration fromline 6697
 typedef Melt_InitialClassyFrame_WARMELTmiFIRST_h583248052 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
@@ -576,12 +576,12 @@ meltrout_28_WARMELTmiFIRST_PUT_ENV(meltclosure_ptr_t meltclosp_, melt_ptr_t melt
     /* end of frame for routine meltrout_28_WARMELTmiFIRST_PUT_ENV fromline 1756 */
 
     /* classy proc frame meltrout_28_WARMELTmiFIRST_PUT_ENV */ MeltFrame_meltrout_28_WARMELTmiFIRST_PUT_ENV
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_28_WARMELTmiFIRST_PUT_ENV fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_28_WARMELTmiFIRST_PUT_ENV fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -1201,12 +1201,12 @@ meltrout_29_WARMELTmiFIRST_OVERWRITE_ENV(meltclosure_ptr_t meltclosp_, melt_ptr_
     /* end of frame for routine meltrout_29_WARMELTmiFIRST_OVERWRITE_ENV fromline 1756 */
 
     /* classy proc frame meltrout_29_WARMELTmiFIRST_OVERWRITE_ENV */ MeltFrame_meltrout_29_WARMELTmiFIRST_OVERWRITE_ENV
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_29_WARMELTmiFIRST_OVERWRITE_ENV fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_29_WARMELTmiFIRST_OVERWRITE_ENV fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -1789,12 +1789,12 @@ meltrout_31_WARMELTmiFIRST_POST_INITIALIZATION(meltclosure_ptr_t meltclosp_, mel
     /* end of frame for routine meltrout_31_WARMELTmiFIRST_POST_INITIALIZATION fromline 1756 */
 
     /* classy proc frame meltrout_31_WARMELTmiFIRST_POST_INITIALIZATION */ MeltFrame_meltrout_31_WARMELTmiFIRST_POST_INITIALIZATION
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_31_WARMELTmiFIRST_POST_INITIALIZATION fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_31_WARMELTmiFIRST_POST_INITIALIZATION fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -2169,12 +2169,12 @@ meltrout_32_WARMELTmiFIRST_RETRIEVE_DICTIONNARY_CTYPE_GTY(meltclosure_ptr_t melt
     /* end of frame for routine meltrout_32_WARMELTmiFIRST_RETRIEVE_DICTIONNARY_CTYPE_GTY fromline 1756 */
 
     /* classy proc frame meltrout_32_WARMELTmiFIRST_RETRIEVE_DICTIONNARY_CTYPE_GTY */ MeltFrame_meltrout_32_WARMELTmiFIRST_RETRIEVE_DICTIONNARY_CTYPE_GTY
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_32_WARMELTmiFIRST_RETRIEVE_DICTIONNARY_CTYPE_GTY fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_32_WARMELTmiFIRST_RETRIEVE_DICTIONNARY_CTYPE_GTY fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -2324,12 +2324,12 @@ meltrout_33_WARMELTmiFIRST_RETRIEVE_DICTIONNARY_CTYPE(meltclosure_ptr_t meltclos
     /* end of frame for routine meltrout_33_WARMELTmiFIRST_RETRIEVE_DICTIONNARY_CTYPE fromline 1756 */
 
     /* classy proc frame meltrout_33_WARMELTmiFIRST_RETRIEVE_DICTIONNARY_CTYPE */ MeltFrame_meltrout_33_WARMELTmiFIRST_RETRIEVE_DICTIONNARY_CTYPE
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_33_WARMELTmiFIRST_RETRIEVE_DICTIONNARY_CTYPE fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_33_WARMELTmiFIRST_RETRIEVE_DICTIONNARY_CTYPE fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;

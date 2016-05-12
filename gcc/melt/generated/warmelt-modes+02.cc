@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f2[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiMODES_h934805472; // forward declaration fromline 6691
-typedef Melt_InitialClassyFrame_WARMELTmiMODES_h934805472 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiMODES_h354098773; // forward declaration fromline 6697
+typedef Melt_InitialClassyFrame_WARMELTmiMODES_h354098773 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 4 MELT called hook declarations ***/
@@ -443,7 +443,7 @@ MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiMODES_h934805472 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiMODES_h354098773 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -555,12 +555,12 @@ meltrout_47_WARMELTmiMODES_NOP_DOCMD(meltclosure_ptr_t meltclosp_, melt_ptr_t me
     /* end of frame for routine meltrout_47_WARMELTmiMODES_NOP_DOCMD fromline 1756 */
 
     /* classy proc frame meltrout_47_WARMELTmiMODES_NOP_DOCMD */ MeltFrame_meltrout_47_WARMELTmiMODES_NOP_DOCMD
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_47_WARMELTmiMODES_NOP_DOCMD fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_47_WARMELTmiMODES_NOP_DOCMD fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -839,12 +839,12 @@ meltrout_48_WARMELTmiMODES_OUTPUT_FOR_RUNTIME(meltclosure_ptr_t meltclosp_, melt
     /* end of frame for routine meltrout_48_WARMELTmiMODES_OUTPUT_FOR_RUNTIME fromline 1756 */
 
     /* classy proc frame meltrout_48_WARMELTmiMODES_OUTPUT_FOR_RUNTIME */ MeltFrame_meltrout_48_WARMELTmiMODES_OUTPUT_FOR_RUNTIME
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_48_WARMELTmiMODES_OUTPUT_FOR_RUNTIME fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_48_WARMELTmiMODES_OUTPUT_FOR_RUNTIME fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -2162,12 +2162,12 @@ meltrout_49_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_ENUM_OBJMAGIC(meltclosure_ptr
     /* end of frame for routine meltrout_49_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_ENUM_OBJMAGIC fromline 1756 */
 
     /* classy proc frame meltrout_49_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_ENUM_OBJMAGIC */ MeltFrame_meltrout_49_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_ENUM_OBJMAGIC
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_49_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_ENUM_OBJMAGIC fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_49_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_ENUM_OBJMAGIC fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -3646,12 +3646,12 @@ meltrout_50_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_GTY(meltclosure_ptr_t meltclo
     /* end of frame for routine meltrout_50_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_GTY fromline 1756 */
 
     /* classy proc frame meltrout_50_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_GTY */ MeltFrame_meltrout_50_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_GTY
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_50_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_GTY fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_50_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_GTY fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -7613,12 +7613,12 @@ meltrout_51_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_FORWCOPY_FUN(meltclosure_ptr_
     /* end of frame for routine meltrout_51_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_FORWCOPY_FUN fromline 1756 */
 
     /* classy proc frame meltrout_51_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_FORWCOPY_FUN */ MeltFrame_meltrout_51_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_FORWCOPY_FUN
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_51_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_FORWCOPY_FUN fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_51_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_FORWCOPY_FUN fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -10461,12 +10461,12 @@ meltrout_52_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_CLONING_FUN(meltclosure_ptr_t
     /* end of frame for routine meltrout_52_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_CLONING_FUN fromline 1756 */
 
     /* classy proc frame meltrout_52_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_CLONING_FUN */ MeltFrame_meltrout_52_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_CLONING_FUN
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_52_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_CLONING_FUN fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_52_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_CLONING_FUN fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -12422,12 +12422,12 @@ meltrout_53_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_SCANNING(meltclosure_ptr_t me
     /* end of frame for routine meltrout_53_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_SCANNING fromline 1756 */
 
     /* classy proc frame meltrout_53_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_SCANNING */ MeltFrame_meltrout_53_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_SCANNING
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_53_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_SCANNING fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_53_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_SCANNING fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -14314,12 +14314,12 @@ meltrout_54_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_PARAM(meltclosure_ptr_t meltc
     /* end of frame for routine meltrout_54_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_PARAM fromline 1756 */
 
     /* classy proc frame meltrout_54_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_PARAM */ MeltFrame_meltrout_54_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_PARAM
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_54_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_PARAM fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_54_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_PARAM fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -16034,12 +16034,12 @@ meltrout_55_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_COD2CTYPE(meltclosure_ptr_t m
     /* end of frame for routine meltrout_55_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_COD2CTYPE fromline 1756 */
 
     /* classy proc frame meltrout_55_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_COD2CTYPE */ MeltFrame_meltrout_55_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_COD2CTYPE
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_55_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_COD2CTYPE fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_55_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_COD2CTYPE fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -16929,12 +16929,12 @@ meltrout_56_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_MAG2STR(meltclosure_ptr_t mel
     /* end of frame for routine meltrout_56_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_MAG2STR fromline 1756 */
 
     /* classy proc frame meltrout_56_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_MAG2STR */ MeltFrame_meltrout_56_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_MAG2STR
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_56_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_MAG2STR fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_56_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_MAG2STR fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -18401,12 +18401,12 @@ meltrout_57_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_BOXINGFUN(meltclosure_ptr_t m
     /* end of frame for routine meltrout_57_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_BOXINGFUN fromline 1756 */
 
     /* classy proc frame meltrout_57_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_BOXINGFUN */ MeltFrame_meltrout_57_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_BOXINGFUN
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_57_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_BOXINGFUN fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_57_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_BOXINGFUN fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -19046,7 +19046,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_40;
                         meltlab_count_40++;
-                        debugeprintf("objlabel_40 mtch1_*CLASS_NORMTESTER_INSTANCE/3ff89ae9. *CLASS_OBJLABELINSTR/303dd4f5. %ld", meltlab_count_40);
+                        melt_debugeprintf("objlabel_40 mtch1_*CLASS_NORMTESTER_INSTANCE/238f43bf. *CLASS_OBJLABELINSTR/245e3e98. %ld", meltlab_count_40);
 #endif
 
                         ;
@@ -19179,7 +19179,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_41;
                         meltlab_count_41++;
-                        debugeprintf("objlabel_41 mtch1_*CLASS_NORMTESTER_MATCHER/119ac9da. *CLASS_OBJLABELINSTR/15f5a3cb. %ld", meltlab_count_41);
+                        melt_debugeprintf("objlabel_41 mtch1_*CLASS_NORMTESTER_MATCHER/18eb5310. *CLASS_OBJLABELINSTR/b934d25. %ld", meltlab_count_41);
 #endif
 
                         ;
@@ -19231,7 +19231,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_42;
                         meltlab_count_42++;
-                        debugeprintf("objlabel_42 mtch1_*CLASS_NORMTESTER_MATCHER/1a3ce05d. *CLASS_OBJLABELINSTR/151c77c0. %ld", meltlab_count_42);
+                        melt_debugeprintf("objlabel_42 mtch1_*CLASS_NORMTESTER_MATCHER/370dd021. *CLASS_OBJLABELINSTR/6091904. %ld", meltlab_count_42);
 #endif
 
                         ;
@@ -19283,7 +19283,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_43;
                         meltlab_count_43++;
-                        debugeprintf("objlabel_43 mtch1_*CLASS_NORMTESTER_MATCHER/39bce0da. *CLASS_OBJLABELINSTR/15c43e1f. %ld", meltlab_count_43);
+                        melt_debugeprintf("objlabel_43 mtch1_*CLASS_NORMTESTER_MATCHER/2191b1c3. *CLASS_OBJLABELINSTR/1d8e4864. %ld", meltlab_count_43);
 #endif
 
                         ;
@@ -19335,7 +19335,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_44;
                         meltlab_count_44++;
-                        debugeprintf("objlabel_44 mtch1_*CLASS_NORMTESTER_MATCHER/5b0e8e5. *CLASS_OBJLABELINSTR/b5f8b45. %ld", meltlab_count_44);
+                        melt_debugeprintf("objlabel_44 mtch1_*CLASS_NORMTESTER_MATCHER/3342df6d. *CLASS_OBJLABELINSTR/cd89044. %ld", meltlab_count_44);
 #endif
 
                         ;
@@ -19387,7 +19387,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_45;
                         meltlab_count_45++;
-                        debugeprintf("objlabel_45 mtch1_*CLASS_NORMTESTER_INSTANCE/1ab9cd50. *CLASS_OBJLABELINSTR/15c3689. %ld", meltlab_count_45);
+                        melt_debugeprintf("objlabel_45 mtch1_*CLASS_NORMTESTER_INSTANCE/1d8a81c4. *CLASS_OBJLABELINSTR/38f3321b. %ld", meltlab_count_45);
 #endif
 
                         ;
@@ -19440,7 +19440,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_46;
                         meltlab_count_46++;
-                        debugeprintf("objlabel_46 mtch1_*CLASS_NORMTESTER_MATCHER/39a4709e. *CLASS_OBJLABELINSTR/3588e2db. %ld", meltlab_count_46);
+                        melt_debugeprintf("objlabel_46 mtch1_*CLASS_NORMTESTER_MATCHER/28127c83. *CLASS_OBJLABELINSTR/c50f32b. %ld", meltlab_count_46);
 #endif
 
                         ;
@@ -19492,7 +19492,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_47;
                         meltlab_count_47++;
-                        debugeprintf("objlabel_47 mtch1_*CLASS_NORMTESTER_MATCHER/24fd7374. *CLASS_OBJLABELINSTR/295afe63. %ld", meltlab_count_47);
+                        melt_debugeprintf("objlabel_47 mtch1_*CLASS_NORMTESTER_MATCHER/102ee7a8. *CLASS_OBJLABELINSTR/3c31de04. %ld", meltlab_count_47);
 #endif
 
                         ;
@@ -19544,7 +19544,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_48;
                         meltlab_count_48++;
-                        debugeprintf("objlabel_48 mtch1_*CLASS_NORMTESTER_MATCHER/2a315f62. *CLASS_OBJLABELINSTR/4841806. %ld", meltlab_count_48);
+                        melt_debugeprintf("objlabel_48 mtch1_*CLASS_NORMTESTER_MATCHER/3f00c97b. *CLASS_OBJLABELINSTR/2b206572. %ld", meltlab_count_48);
 #endif
 
                         ;
@@ -19596,7 +19596,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_49;
                         meltlab_count_49++;
-                        debugeprintf("objlabel_49 mtch1_*CLASS_NORMTESTER_SUCCESS/1e5b26ee. *CLASS_OBJLABELINSTR/174ad8b7. %ld", meltlab_count_49);
+                        melt_debugeprintf("objlabel_49 mtch1_*CLASS_NORMTESTER_SUCCESS/f62a920. *CLASS_OBJLABELINSTR/4f1185. %ld", meltlab_count_49);
 #endif
 
                         ;
@@ -20599,7 +20599,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_50;
                         meltlab_count_50++;
-                        debugeprintf("objlabel_50 mtch1_*CLASS_NORMTESTER_SUCCESS/1b8a6a47. *CLASS_OBJLABELINSTR/2e689de0. %ld", meltlab_count_50);
+                        melt_debugeprintf("objlabel_50 mtch1_*CLASS_NORMTESTER_SUCCESS/2564d716. *CLASS_OBJLABELINSTR/375e8fc0. %ld", meltlab_count_50);
 #endif
 
                         ;
@@ -20728,7 +20728,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_51;
                         meltlab_count_51++;
-                        debugeprintf("objlabel_51 mtch1__end_h224307184 *CLASS_OBJLABELINSTR/d5ea7f0. %ld", meltlab_count_51);
+                        melt_debugeprintf("objlabel_51 mtch1__end_h128046343 *CLASS_OBJLABELINSTR/7a1d507. %ld", meltlab_count_51);
 #endif
 
                         ;
@@ -21003,12 +21003,12 @@ meltrout_58_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_MAPFUN(meltclosure_ptr_t melt
     /* end of frame for routine meltrout_58_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_MAPFUN fromline 1756 */
 
     /* classy proc frame meltrout_58_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_MAPFUN */ MeltFrame_meltrout_58_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_MAPFUN
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_58_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_MAPFUN fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_58_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_MAPFUN fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -21610,7 +21610,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_52;
                         meltlab_count_52++;
-                        debugeprintf("objlabel_52 mtch1_*CLASS_NORMTESTER_INSTANCE/37ca6f74. *CLASS_OBJLABELINSTR/2fe8a255. %ld", meltlab_count_52);
+                        melt_debugeprintf("objlabel_52 mtch1_*CLASS_NORMTESTER_INSTANCE/235546d6. *CLASS_OBJLABELINSTR/2fe97448. %ld", meltlab_count_52);
 #endif
 
                         ;
@@ -21823,7 +21823,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_53;
                         meltlab_count_53++;
-                        debugeprintf("objlabel_53 mtch1_*CLASS_NORMTESTER_MATCHER/1e2269bd. *CLASS_OBJLABELINSTR/37d7a2b1. %ld", meltlab_count_53);
+                        melt_debugeprintf("objlabel_53 mtch1_*CLASS_NORMTESTER_MATCHER/3e65561c. *CLASS_OBJLABELINSTR/2a3431ab. %ld", meltlab_count_53);
 #endif
 
                         ;
@@ -21875,7 +21875,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_54;
                         meltlab_count_54++;
-                        debugeprintf("objlabel_54 mtch1_*CLASS_NORMTESTER_MATCHER/a4b0d46. *CLASS_OBJLABELINSTR/311d5246. %ld", meltlab_count_54);
+                        melt_debugeprintf("objlabel_54 mtch1_*CLASS_NORMTESTER_MATCHER/147965fb. *CLASS_OBJLABELINSTR/20526eaa. %ld", meltlab_count_54);
 #endif
 
                         ;
@@ -21927,7 +21927,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_55;
                         meltlab_count_55++;
-                        debugeprintf("objlabel_55 mtch1_*CLASS_NORMTESTER_MATCHER/a42a037. *CLASS_OBJLABELINSTR/1eda2fd2. %ld", meltlab_count_55);
+                        melt_debugeprintf("objlabel_55 mtch1_*CLASS_NORMTESTER_MATCHER/d36757a. *CLASS_OBJLABELINSTR/11f9c4b8. %ld", meltlab_count_55);
 #endif
 
                         ;
@@ -21979,7 +21979,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_56;
                         meltlab_count_56++;
-                        debugeprintf("objlabel_56 mtch1_*CLASS_NORMTESTER_MATCHER/28891540. *CLASS_OBJLABELINSTR/3c8a794f. %ld", meltlab_count_56);
+                        melt_debugeprintf("objlabel_56 mtch1_*CLASS_NORMTESTER_MATCHER/2b7519aa. *CLASS_OBJLABELINSTR/5ea6a6f. %ld", meltlab_count_56);
 #endif
 
                         ;
@@ -22031,7 +22031,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_57;
                         meltlab_count_57++;
-                        debugeprintf("objlabel_57 mtch1_*CLASS_NORMTESTER_INSTANCE/26facaf0. *CLASS_OBJLABELINSTR/1990008b. %ld", meltlab_count_57);
+                        melt_debugeprintf("objlabel_57 mtch1_*CLASS_NORMTESTER_INSTANCE/915daf7. *CLASS_OBJLABELINSTR/294e13bc. %ld", meltlab_count_57);
 #endif
 
                         ;
@@ -22084,7 +22084,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_58;
                         meltlab_count_58++;
-                        debugeprintf("objlabel_58 mtch1_*CLASS_NORMTESTER_MATCHER/3d4af30b. *CLASS_OBJLABELINSTR/22f88978. %ld", meltlab_count_58);
+                        melt_debugeprintf("objlabel_58 mtch1_*CLASS_NORMTESTER_MATCHER/2453f29c. *CLASS_OBJLABELINSTR/160131e7. %ld", meltlab_count_58);
 #endif
 
                         ;
@@ -22136,7 +22136,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_59;
                         meltlab_count_59++;
-                        debugeprintf("objlabel_59 mtch1_*CLASS_NORMTESTER_MATCHER/3b19f24d. *CLASS_OBJLABELINSTR/2c5b82ff. %ld", meltlab_count_59);
+                        melt_debugeprintf("objlabel_59 mtch1_*CLASS_NORMTESTER_MATCHER/21d5569c. *CLASS_OBJLABELINSTR/14faf641. %ld", meltlab_count_59);
 #endif
 
                         ;
@@ -22188,7 +22188,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_60;
                         meltlab_count_60++;
-                        debugeprintf("objlabel_60 mtch1_*CLASS_NORMTESTER_MATCHER/3b2932cd. *CLASS_OBJLABELINSTR/39006bbb. %ld", meltlab_count_60);
+                        melt_debugeprintf("objlabel_60 mtch1_*CLASS_NORMTESTER_MATCHER/1c9afe32. *CLASS_OBJLABELINSTR/18cc6a47. %ld", meltlab_count_60);
 #endif
 
                         ;
@@ -22240,7 +22240,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_61;
                         meltlab_count_61++;
-                        debugeprintf("objlabel_61 mtch1_*CLASS_NORMTESTER_MATCHER/33367b1c. *CLASS_OBJLABELINSTR/368a8667. %ld", meltlab_count_61);
+                        melt_debugeprintf("objlabel_61 mtch1_*CLASS_NORMTESTER_MATCHER/18c384cf. *CLASS_OBJLABELINSTR/1e59e7d4. %ld", meltlab_count_61);
 #endif
 
                         ;
@@ -22292,7 +22292,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_62;
                         meltlab_count_62++;
-                        debugeprintf("objlabel_62 mtch1_*CLASS_NORMTESTER_MATCHER/38e4b2b7. *CLASS_OBJLABELINSTR/d983fc5. %ld", meltlab_count_62);
+                        melt_debugeprintf("objlabel_62 mtch1_*CLASS_NORMTESTER_MATCHER/37bdc051. *CLASS_OBJLABELINSTR/17ce124c. %ld", meltlab_count_62);
 #endif
 
                         ;
@@ -22344,7 +22344,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_63;
                         meltlab_count_63++;
-                        debugeprintf("objlabel_63 mtch1_*CLASS_NORMTESTER_MATCHER/2526cb44. *CLASS_OBJLABELINSTR/ec65367. %ld", meltlab_count_63);
+                        melt_debugeprintf("objlabel_63 mtch1_*CLASS_NORMTESTER_MATCHER/2c91083b. *CLASS_OBJLABELINSTR/21170d60. %ld", meltlab_count_63);
 #endif
 
                         ;
@@ -22396,7 +22396,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_64;
                         meltlab_count_64++;
-                        debugeprintf("objlabel_64 mtch1_*CLASS_NORMTESTER_MATCHER/f83f7c. *CLASS_OBJLABELINSTR/60d0cc8. %ld", meltlab_count_64);
+                        melt_debugeprintf("objlabel_64 mtch1_*CLASS_NORMTESTER_MATCHER/8c9eaa9. *CLASS_OBJLABELINSTR/2799482b. %ld", meltlab_count_64);
 #endif
 
                         ;
@@ -22448,7 +22448,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_65;
                         meltlab_count_65++;
-                        debugeprintf("objlabel_65 mtch1_*CLASS_NORMTESTER_MATCHER/1597af60. *CLASS_OBJLABELINSTR/3adde175. %ld", meltlab_count_65);
+                        melt_debugeprintf("objlabel_65 mtch1_*CLASS_NORMTESTER_MATCHER/2fceb67b. *CLASS_OBJLABELINSTR/15c9395a. %ld", meltlab_count_65);
 #endif
 
                         ;
@@ -22500,7 +22500,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_66;
                         meltlab_count_66++;
-                        debugeprintf("objlabel_66 mtch1_*CLASS_NORMTESTER_MATCHER/339bc07c. *CLASS_OBJLABELINSTR/1be8b92a. %ld", meltlab_count_66);
+                        melt_debugeprintf("objlabel_66 mtch1_*CLASS_NORMTESTER_MATCHER/23a4619d. *CLASS_OBJLABELINSTR/7ae0149. %ld", meltlab_count_66);
 #endif
 
                         ;
@@ -22552,7 +22552,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_67;
                         meltlab_count_67++;
-                        debugeprintf("objlabel_67 mtch1_*CLASS_NORMTESTER_MATCHER/2942f6a5. *CLASS_OBJLABELINSTR/174a65ea. %ld", meltlab_count_67);
+                        melt_debugeprintf("objlabel_67 mtch1_*CLASS_NORMTESTER_MATCHER/13545fc4. *CLASS_OBJLABELINSTR/3c4a941b. %ld", meltlab_count_67);
 #endif
 
                         ;
@@ -22604,7 +22604,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_68;
                         meltlab_count_68++;
-                        debugeprintf("objlabel_68 mtch1_*CLASS_NORMTESTER_MATCHER/257142c. *CLASS_OBJLABELINSTR/1694c216. %ld", meltlab_count_68);
+                        melt_debugeprintf("objlabel_68 mtch1_*CLASS_NORMTESTER_MATCHER/2c9158a2. *CLASS_OBJLABELINSTR/238581d1. %ld", meltlab_count_68);
 #endif
 
                         ;
@@ -22656,7 +22656,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_69;
                         meltlab_count_69++;
-                        debugeprintf("objlabel_69 mtch1_*CLASS_NORMTESTER_MATCHER/127a9d45. *CLASS_OBJLABELINSTR/25e7f72c. %ld", meltlab_count_69);
+                        melt_debugeprintf("objlabel_69 mtch1_*CLASS_NORMTESTER_MATCHER/23ba3949. *CLASS_OBJLABELINSTR/a3bff09. %ld", meltlab_count_69);
 #endif
 
                         ;
@@ -22708,7 +22708,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_70;
                         meltlab_count_70++;
-                        debugeprintf("objlabel_70 mtch1_*CLASS_NORMTESTER_SUCCESS/31eb3d02. *CLASS_OBJLABELINSTR/3bc6b071. %ld", meltlab_count_70);
+                        melt_debugeprintf("objlabel_70 mtch1_*CLASS_NORMTESTER_SUCCESS/2323e5bd. *CLASS_OBJLABELINSTR/188691a8. %ld", meltlab_count_70);
 #endif
 
                         ;
@@ -24663,7 +24663,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_71;
                         meltlab_count_71++;
-                        debugeprintf("objlabel_71 mtch1_*CLASS_NORMTESTER_SUCCESS/49150fc. *CLASS_OBJLABELINSTR/1ed4fcab. %ld", meltlab_count_71);
+                        melt_debugeprintf("objlabel_71 mtch1_*CLASS_NORMTESTER_SUCCESS/14804db2. *CLASS_OBJLABELINSTR/1b2f8f00. %ld", meltlab_count_71);
 #endif
 
                         ;
@@ -24688,7 +24688,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_72;
                         meltlab_count_72++;
-                        debugeprintf("objlabel_72 mtch1__end_h485045226 *CLASS_OBJLABELINSTR/1ce933ea. %ld", meltlab_count_72);
+                        melt_debugeprintf("objlabel_72 mtch1__end_h190340306 *CLASS_OBJLABELINSTR/b585cd2. %ld", meltlab_count_72);
 #endif
 
                         ;
@@ -24941,12 +24941,12 @@ meltrout_59_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_PREDEF_FIELDS(meltclosure_ptr
     /* end of frame for routine meltrout_59_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_PREDEF_FIELDS fromline 1756 */
 
     /* classy proc frame meltrout_59_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_PREDEF_FIELDS */ MeltFrame_meltrout_59_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_PREDEF_FIELDS
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_59_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_PREDEF_FIELDS fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_59_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_PREDEF_FIELDS fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -25964,12 +25964,12 @@ meltrout_60_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_PREDEFINED_HOOKS(meltclosure_
     /* end of frame for routine meltrout_60_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_PREDEFINED_HOOKS fromline 1756 */
 
     /* classy proc frame meltrout_60_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_PREDEFINED_HOOKS */ MeltFrame_meltrout_60_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_PREDEFINED_HOOKS
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_60_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_PREDEFINED_HOOKS fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_60_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_PREDEFINED_HOOKS fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -28011,7 +28011,8 @@ meltlab_endgetargs:
                                                 argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.HKNAME__V8*/ meltfptr[7];
                                                 /*^apply.arg*/
                                                 argtab[4].meltbp_cstring =  "\",\n\t\t\t\t !strncmp (melthkp->hookname,\
-\n\t\t\t\t\t   \"";
+\n\t\t\t\
+\t\t   \"";
                                                 /*^apply.arg*/
                                                 argtab[5].meltbp_aptr = (melt_ptr_t*) &/*_.HKNAME__V8*/ meltfptr[7];
                                                 /*^apply.arg*/
@@ -28690,12 +28691,12 @@ meltrout_61_WARMELTmiMODES_RUNTYPESUPPORT_DOCMD(meltclosure_ptr_t meltclosp_, me
     /* end of frame for routine meltrout_61_WARMELTmiMODES_RUNTYPESUPPORT_DOCMD fromline 1756 */
 
     /* classy proc frame meltrout_61_WARMELTmiMODES_RUNTYPESUPPORT_DOCMD */ MeltFrame_meltrout_61_WARMELTmiMODES_RUNTYPESUPPORT_DOCMD
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_61_WARMELTmiMODES_RUNTYPESUPPORT_DOCMD fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_61_WARMELTmiMODES_RUNTYPESUPPORT_DOCMD fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -30319,12 +30320,12 @@ meltrout_62_WARMELTmiMODES_TRANSLATE_TO_FLAVORED_MODULE(meltclosure_ptr_t meltcl
     /* end of frame for routine meltrout_62_WARMELTmiMODES_TRANSLATE_TO_FLAVORED_MODULE fromline 1756 */
 
     /* classy proc frame meltrout_62_WARMELTmiMODES_TRANSLATE_TO_FLAVORED_MODULE */ MeltFrame_meltrout_62_WARMELTmiMODES_TRANSLATE_TO_FLAVORED_MODULE
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_62_WARMELTmiMODES_TRANSLATE_TO_FLAVORED_MODULE fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_62_WARMELTmiMODES_TRANSLATE_TO_FLAVORED_MODULE fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -31773,12 +31774,12 @@ meltrout_63_WARMELTmiMODES_TRANSLATETOMODULE_DOCMD(meltclosure_ptr_t meltclosp_,
     /* end of frame for routine meltrout_63_WARMELTmiMODES_TRANSLATETOMODULE_DOCMD fromline 1756 */
 
     /* classy proc frame meltrout_63_WARMELTmiMODES_TRANSLATETOMODULE_DOCMD */ MeltFrame_meltrout_63_WARMELTmiMODES_TRANSLATETOMODULE_DOCMD
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_63_WARMELTmiMODES_TRANSLATETOMODULE_DOCMD fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_63_WARMELTmiMODES_TRANSLATETOMODULE_DOCMD fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -31815,7 +31816,7 @@ meltlab_endgetargs:
 
         {
             MELT_LOCATION("warmelt-modes.melt:4486:/ locexp");
-            debugeputs(( "starting translatetomodule_docmd"));
+            melt_debugeputs(( "starting translatetomodule_docmd"));
         }
         ;
 
@@ -32324,12 +32325,12 @@ meltrout_64_WARMELTmiMODES_TRANSLATEDEBUG_DOCMD(meltclosure_ptr_t meltclosp_, me
     /* end of frame for routine meltrout_64_WARMELTmiMODES_TRANSLATEDEBUG_DOCMD fromline 1756 */
 
     /* classy proc frame meltrout_64_WARMELTmiMODES_TRANSLATEDEBUG_DOCMD */ MeltFrame_meltrout_64_WARMELTmiMODES_TRANSLATEDEBUG_DOCMD
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_64_WARMELTmiMODES_TRANSLATEDEBUG_DOCMD fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_64_WARMELTmiMODES_TRANSLATEDEBUG_DOCMD fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -32821,12 +32822,12 @@ meltrout_65_WARMELTmiMODES_TRANSLATEQUICKLY_DOCMD(meltclosure_ptr_t meltclosp_, 
     /* end of frame for routine meltrout_65_WARMELTmiMODES_TRANSLATEQUICKLY_DOCMD fromline 1756 */
 
     /* classy proc frame meltrout_65_WARMELTmiMODES_TRANSLATEQUICKLY_DOCMD */ MeltFrame_meltrout_65_WARMELTmiMODES_TRANSLATEQUICKLY_DOCMD
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_65_WARMELTmiMODES_TRANSLATEQUICKLY_DOCMD fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_65_WARMELTmiMODES_TRANSLATEQUICKLY_DOCMD fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -33318,12 +33319,12 @@ meltrout_66_WARMELTmiMODES_TRANSLATEOPTIMIZED_DOCMD(meltclosure_ptr_t meltclosp_
     /* end of frame for routine meltrout_66_WARMELTmiMODES_TRANSLATEOPTIMIZED_DOCMD fromline 1756 */
 
     /* classy proc frame meltrout_66_WARMELTmiMODES_TRANSLATEOPTIMIZED_DOCMD */ MeltFrame_meltrout_66_WARMELTmiMODES_TRANSLATEOPTIMIZED_DOCMD
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_66_WARMELTmiMODES_TRANSLATEOPTIMIZED_DOCMD fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_66_WARMELTmiMODES_TRANSLATEOPTIMIZED_DOCMD fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;

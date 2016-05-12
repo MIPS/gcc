@@ -40,8 +40,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f2[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiBASE_h511229027; // forward declaration fromline 6691
-typedef Melt_InitialClassyFrame_WARMELTmiBASE_h511229027 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiBASE_h915050744; // forward declaration fromline 6697
+typedef Melt_InitialClassyFrame_WARMELTmiBASE_h915050744 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 5 MELT called hook declarations ***/
@@ -66,7 +66,7 @@ MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdatap, melt_pt
 /*** 2 extra MELT c-headers ***/
 
 
-/** MELT extra c-header 1 : h831763251 **/
+/** MELT extra c-header 1 : h46045732 **/
 
 
 /* C++ standard headers for multiple_sort */
@@ -76,7 +76,7 @@ MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdatap, melt_pt
 
 
 
-/** MELT extra c-header 2 : h488759353 **/
+/** MELT extra c-header 2 : h945388070 **/
 
 
 /* A compare structure used in multiple_sort for std::stable_sort;
@@ -387,7 +387,7 @@ MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiBASE_h511229027 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiBASE_h915050744 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -593,12 +593,12 @@ meltrout_29_WARMELTmiBASE_INSTALL_VALUE_DESCRIPTOR(meltclosure_ptr_t meltclosp_,
     /* end of frame for routine meltrout_29_WARMELTmiBASE_INSTALL_VALUE_DESCRIPTOR fromline 1756 */
 
     /* classy proc frame meltrout_29_WARMELTmiBASE_INSTALL_VALUE_DESCRIPTOR */ MeltFrame_meltrout_29_WARMELTmiBASE_INSTALL_VALUE_DESCRIPTOR
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_29_WARMELTmiBASE_INSTALL_VALUE_DESCRIPTOR fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_29_WARMELTmiBASE_INSTALL_VALUE_DESCRIPTOR fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -812,12 +812,12 @@ meltrout_30_WARMELTmiBASE_RETRIEVE_VALUE_DESCRIPTOR_LIST(meltclosure_ptr_t meltc
     /* end of frame for routine meltrout_30_WARMELTmiBASE_RETRIEVE_VALUE_DESCRIPTOR_LIST fromline 1756 */
 
     /* classy proc frame meltrout_30_WARMELTmiBASE_RETRIEVE_VALUE_DESCRIPTOR_LIST */ MeltFrame_meltrout_30_WARMELTmiBASE_RETRIEVE_VALUE_DESCRIPTOR_LIST
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_30_WARMELTmiBASE_RETRIEVE_VALUE_DESCRIPTOR_LIST fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_30_WARMELTmiBASE_RETRIEVE_VALUE_DESCRIPTOR_LIST fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -967,12 +967,12 @@ meltrout_31_WARMELTmiBASE_LIST_REMOVE_LAST_ELEMENT(meltclosure_ptr_t meltclosp_,
     /* end of frame for routine meltrout_31_WARMELTmiBASE_LIST_REMOVE_LAST_ELEMENT fromline 1756 */
 
     /* classy proc frame meltrout_31_WARMELTmiBASE_LIST_REMOVE_LAST_ELEMENT */ MeltFrame_meltrout_31_WARMELTmiBASE_LIST_REMOVE_LAST_ELEMENT
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_31_WARMELTmiBASE_LIST_REMOVE_LAST_ELEMENT fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_31_WARMELTmiBASE_LIST_REMOVE_LAST_ELEMENT fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -1466,12 +1466,12 @@ meltrout_32_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_TUPLE(meltclosure_ptr_t meltclosp
     /* end of frame for routine meltrout_32_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_TUPLE fromline 1756 */
 
     /* classy proc frame meltrout_32_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_TUPLE */ MeltFrame_meltrout_32_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_TUPLE
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_32_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_TUPLE fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_32_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_TUPLE fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -2019,12 +2019,12 @@ meltrout_33_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_LIST(meltclosure_ptr_t meltclosp_
     /* end of frame for routine meltrout_33_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_LIST fromline 1756 */
 
     /* classy proc frame meltrout_33_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_LIST */ MeltFrame_meltrout_33_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_LIST
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_33_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_LIST fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_33_WARMELTmiBASE_COMPLETE_SEQUENCE_AS_LIST fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -2550,12 +2550,12 @@ meltrout_34_WARMELTmiBASE_MELT_PREDEFINED_GET(meltclosure_ptr_t meltclosp_, melt
     /* end of frame for routine meltrout_34_WARMELTmiBASE_MELT_PREDEFINED_GET fromline 1756 */
 
     /* classy proc frame meltrout_34_WARMELTmiBASE_MELT_PREDEFINED_GET */ MeltFrame_meltrout_34_WARMELTmiBASE_MELT_PREDEFINED_GET
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_34_WARMELTmiBASE_MELT_PREDEFINED_GET fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_34_WARMELTmiBASE_MELT_PREDEFINED_GET fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -2865,12 +2865,12 @@ meltrout_35_WARMELTmiBASE_SYMBOL_CNAME(meltclosure_ptr_t meltclosp_, melt_ptr_t 
     /* end of frame for routine meltrout_35_WARMELTmiBASE_SYMBOL_CNAME fromline 1756 */
 
     /* classy proc frame meltrout_35_WARMELTmiBASE_SYMBOL_CNAME */ MeltFrame_meltrout_35_WARMELTmiBASE_SYMBOL_CNAME
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_35_WARMELTmiBASE_SYMBOL_CNAME fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_35_WARMELTmiBASE_SYMBOL_CNAME fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -3306,12 +3306,12 @@ meltrout_37_WARMELTmiBASE_MULTIPLE_SORT(meltclosure_ptr_t meltclosp_, melt_ptr_t
     /* end of frame for routine meltrout_37_WARMELTmiBASE_MULTIPLE_SORT fromline 1756 */
 
     /* classy proc frame meltrout_37_WARMELTmiBASE_MULTIPLE_SORT */ MeltFrame_meltrout_37_WARMELTmiBASE_MULTIPLE_SORT
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_37_WARMELTmiBASE_MULTIPLE_SORT fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_37_WARMELTmiBASE_MULTIPLE_SORT fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -4120,12 +4120,12 @@ meltrout_38_WARMELTmiBASE_MAPOBJECT_SORTED_ATTRIBUTE_TUPLE(meltclosure_ptr_t mel
     /* end of frame for routine meltrout_38_WARMELTmiBASE_MAPOBJECT_SORTED_ATTRIBUTE_TUPLE fromline 1756 */
 
     /* classy proc frame meltrout_38_WARMELTmiBASE_MAPOBJECT_SORTED_ATTRIBUTE_TUPLE */ MeltFrame_meltrout_38_WARMELTmiBASE_MAPOBJECT_SORTED_ATTRIBUTE_TUPLE
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_38_WARMELTmiBASE_MAPOBJECT_SORTED_ATTRIBUTE_TUPLE fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_38_WARMELTmiBASE_MAPOBJECT_SORTED_ATTRIBUTE_TUPLE fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -4405,12 +4405,12 @@ meltrout_39_WARMELTmiBASE_LAMBDA_cl1(meltclosure_ptr_t meltclosp_, melt_ptr_t me
     /* end of frame for routine meltrout_39_WARMELTmiBASE_LAMBDA_cl1 fromline 1756 */
 
     /* classy proc frame meltrout_39_WARMELTmiBASE_LAMBDA_cl1 */ MeltFrame_meltrout_39_WARMELTmiBASE_LAMBDA_cl1
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_39_WARMELTmiBASE_LAMBDA_cl1 fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_39_WARMELTmiBASE_LAMBDA_cl1 fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -4604,12 +4604,12 @@ meltrout_40_WARMELTmiBASE_LAMBDA_cl2(meltclosure_ptr_t meltclosp_, melt_ptr_t me
     /* end of frame for routine meltrout_40_WARMELTmiBASE_LAMBDA_cl2 fromline 1756 */
 
     /* classy proc frame meltrout_40_WARMELTmiBASE_LAMBDA_cl2 */ MeltFrame_meltrout_40_WARMELTmiBASE_LAMBDA_cl2
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_40_WARMELTmiBASE_LAMBDA_cl2 fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_40_WARMELTmiBASE_LAMBDA_cl2 fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -4824,12 +4824,12 @@ meltrout_41_WARMELTmiBASE_LAMBDA_cl3(meltclosure_ptr_t meltclosp_, melt_ptr_t me
     /* end of frame for routine meltrout_41_WARMELTmiBASE_LAMBDA_cl3 fromline 1756 */
 
     /* classy proc frame meltrout_41_WARMELTmiBASE_LAMBDA_cl3 */ MeltFrame_meltrout_41_WARMELTmiBASE_LAMBDA_cl3
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_41_WARMELTmiBASE_LAMBDA_cl3 fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_41_WARMELTmiBASE_LAMBDA_cl3 fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -4963,12 +4963,12 @@ meltrout_42_WARMELTmiBASE_JSON_NAME_LESS(meltclosure_ptr_t meltclosp_, melt_ptr_
     /* end of frame for routine meltrout_42_WARMELTmiBASE_JSON_NAME_LESS fromline 1756 */
 
     /* classy proc frame meltrout_42_WARMELTmiBASE_JSON_NAME_LESS */ MeltFrame_meltrout_42_WARMELTmiBASE_JSON_NAME_LESS
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_42_WARMELTmiBASE_JSON_NAME_LESS fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_42_WARMELTmiBASE_JSON_NAME_LESS fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -5471,12 +5471,12 @@ meltrout_43_WARMELTmiBASE_JSON_NAME_EQUAL(meltclosure_ptr_t meltclosp_, melt_ptr
     /* end of frame for routine meltrout_43_WARMELTmiBASE_JSON_NAME_EQUAL fromline 1756 */
 
     /* classy proc frame meltrout_43_WARMELTmiBASE_JSON_NAME_EQUAL */ MeltFrame_meltrout_43_WARMELTmiBASE_JSON_NAME_EQUAL
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_43_WARMELTmiBASE_JSON_NAME_EQUAL fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_43_WARMELTmiBASE_JSON_NAME_EQUAL fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -6035,12 +6035,12 @@ meltrout_44_WARMELTmiBASE_JSON_CANONICAL_NAME(meltclosure_ptr_t meltclosp_, melt
     /* end of frame for routine meltrout_44_WARMELTmiBASE_JSON_CANONICAL_NAME fromline 1756 */
 
     /* classy proc frame meltrout_44_WARMELTmiBASE_JSON_CANONICAL_NAME */ MeltFrame_meltrout_44_WARMELTmiBASE_JSON_CANONICAL_NAME
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_44_WARMELTmiBASE_JSON_CANONICAL_NAME fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_44_WARMELTmiBASE_JSON_CANONICAL_NAME fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -6695,12 +6695,12 @@ meltrout_45_WARMELTmiBASE_MAKE_JSONOBJECT(meltclosure_ptr_t meltclosp_, melt_ptr
     /* end of frame for routine meltrout_45_WARMELTmiBASE_MAKE_JSONOBJECT fromline 1756 */
 
     /* classy proc frame meltrout_45_WARMELTmiBASE_MAKE_JSONOBJECT */ MeltFrame_meltrout_45_WARMELTmiBASE_MAKE_JSONOBJECT
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_45_WARMELTmiBASE_MAKE_JSONOBJECT fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_45_WARMELTmiBASE_MAKE_JSONOBJECT fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -8845,12 +8845,12 @@ meltrout_46_WARMELTmiBASE_LAMBDA_cl4(meltclosure_ptr_t meltclosp_, melt_ptr_t me
     /* end of frame for routine meltrout_46_WARMELTmiBASE_LAMBDA_cl4 fromline 1756 */
 
     /* classy proc frame meltrout_46_WARMELTmiBASE_LAMBDA_cl4 */ MeltFrame_meltrout_46_WARMELTmiBASE_LAMBDA_cl4
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_46_WARMELTmiBASE_LAMBDA_cl4 fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_46_WARMELTmiBASE_LAMBDA_cl4 fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -9011,12 +9011,12 @@ meltrout_47_WARMELTmiBASE_JSONOBJECT_GET_NAMED(meltclosure_ptr_t meltclosp_, mel
     /* end of frame for routine meltrout_47_WARMELTmiBASE_JSONOBJECT_GET_NAMED fromline 1756 */
 
     /* classy proc frame meltrout_47_WARMELTmiBASE_JSONOBJECT_GET_NAMED */ MeltFrame_meltrout_47_WARMELTmiBASE_JSONOBJECT_GET_NAMED
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_47_WARMELTmiBASE_JSONOBJECT_GET_NAMED fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_47_WARMELTmiBASE_JSONOBJECT_GET_NAMED fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -9730,12 +9730,12 @@ meltrout_48_WARMELTmiBASE_OUTJSON_JSONOBJ_METHOD(meltclosure_ptr_t meltclosp_, m
     /* end of frame for routine meltrout_48_WARMELTmiBASE_OUTJSON_JSONOBJ_METHOD fromline 1756 */
 
     /* classy proc frame meltrout_48_WARMELTmiBASE_OUTJSON_JSONOBJ_METHOD */ MeltFrame_meltrout_48_WARMELTmiBASE_OUTJSON_JSONOBJ_METHOD
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_48_WARMELTmiBASE_OUTJSON_JSONOBJ_METHOD fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_48_WARMELTmiBASE_OUTJSON_JSONOBJ_METHOD fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -10476,12 +10476,12 @@ meltrout_49_WARMELTmiBASE_OUTJSON_MULTIPLE_METHOD(meltclosure_ptr_t meltclosp_, 
     /* end of frame for routine meltrout_49_WARMELTmiBASE_OUTJSON_MULTIPLE_METHOD fromline 1756 */
 
     /* classy proc frame meltrout_49_WARMELTmiBASE_OUTJSON_MULTIPLE_METHOD */ MeltFrame_meltrout_49_WARMELTmiBASE_OUTJSON_MULTIPLE_METHOD
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_49_WARMELTmiBASE_OUTJSON_MULTIPLE_METHOD fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_49_WARMELTmiBASE_OUTJSON_MULTIPLE_METHOD fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -10869,12 +10869,12 @@ meltrout_50_WARMELTmiBASE_OUTJSON_NAMED_METHOD(meltclosure_ptr_t meltclosp_, mel
     /* end of frame for routine meltrout_50_WARMELTmiBASE_OUTJSON_NAMED_METHOD fromline 1756 */
 
     /* classy proc frame meltrout_50_WARMELTmiBASE_OUTJSON_NAMED_METHOD */ MeltFrame_meltrout_50_WARMELTmiBASE_OUTJSON_NAMED_METHOD
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_50_WARMELTmiBASE_OUTJSON_NAMED_METHOD fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_50_WARMELTmiBASE_OUTJSON_NAMED_METHOD fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;

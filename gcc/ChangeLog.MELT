@@ -1,5 +1,8 @@
 
 2016-05-12   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerated all.
+
+2016-05-12   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{use melt_debugeprintf... not debugeprintf... in MELT translator}}
 	* melt/warmelt-base.melt (message_dbg): Use melt_debugeputs.
 

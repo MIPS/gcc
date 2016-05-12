@@ -39,7 +39,7 @@ MELT_EXTERN const char meltrun_used_md5_melt_f7[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiGENOBJ_h96664924; // forward declaration fromline 6691
+class Melt_InitialClassyFrame_WARMELTmiGENOBJ_h96664924; // forward declaration fromline 6697
 typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h96664924 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
@@ -1205,12 +1205,12 @@ meltrout_169_WARMELTmiGENOBJ_NORMTESTER_GOTOINSTR(meltclosure_ptr_t meltclosp_, 
     /* end of frame for routine meltrout_169_WARMELTmiGENOBJ_NORMTESTER_GOTOINSTR fromline 1756 */
 
     /* classy proc frame meltrout_169_WARMELTmiGENOBJ_NORMTESTER_GOTOINSTR */ MeltFrame_meltrout_169_WARMELTmiGENOBJ_NORMTESTER_GOTOINSTR
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_169_WARMELTmiGENOBJ_NORMTESTER_GOTOINSTR fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_169_WARMELTmiGENOBJ_NORMTESTER_GOTOINSTR fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -2292,12 +2292,12 @@ meltrout_170_WARMELTmiGENOBJ_ENDMATCH_GOTOINSTR(meltclosure_ptr_t meltclosp_, me
     /* end of frame for routine meltrout_170_WARMELTmiGENOBJ_ENDMATCH_GOTOINSTR fromline 1756 */
 
     /* classy proc frame meltrout_170_WARMELTmiGENOBJ_ENDMATCH_GOTOINSTR */ MeltFrame_meltrout_170_WARMELTmiGENOBJ_ENDMATCH_GOTOINSTR
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_170_WARMELTmiGENOBJ_ENDMATCH_GOTOINSTR fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_170_WARMELTmiGENOBJ_ENDMATCH_GOTOINSTR fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -2937,12 +2937,12 @@ meltrout_171_WARMELTmiGENOBJ_TESTMATCH_GOTOINSTR(meltclosure_ptr_t meltclosp_, m
     /* end of frame for routine meltrout_171_WARMELTmiGENOBJ_TESTMATCH_GOTOINSTR fromline 1756 */
 
     /* classy proc frame meltrout_171_WARMELTmiGENOBJ_TESTMATCH_GOTOINSTR */ MeltFrame_meltrout_171_WARMELTmiGENOBJ_TESTMATCH_GOTOINSTR
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_171_WARMELTmiGENOBJ_TESTMATCH_GOTOINSTR fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_171_WARMELTmiGENOBJ_TESTMATCH_GOTOINSTR fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -3669,12 +3669,12 @@ meltrout_172_WARMELTmiGENOBJ_NORMTESTER_FREE_OBJLOC_LIST(meltclosure_ptr_t meltc
     /* end of frame for routine meltrout_172_WARMELTmiGENOBJ_NORMTESTER_FREE_OBJLOC_LIST fromline 1756 */
 
     /* classy proc frame meltrout_172_WARMELTmiGENOBJ_NORMTESTER_FREE_OBJLOC_LIST */ MeltFrame_meltrout_172_WARMELTmiGENOBJ_NORMTESTER_FREE_OBJLOC_LIST
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_172_WARMELTmiGENOBJ_NORMTESTER_FREE_OBJLOC_LIST fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_172_WARMELTmiGENOBJ_NORMTESTER_FREE_OBJLOC_LIST fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -4521,12 +4521,12 @@ meltrout_173_WARMELTmiGENOBJ_LAMBDA_cl42(meltclosure_ptr_t meltclosp_, melt_ptr_
     /* end of frame for routine meltrout_173_WARMELTmiGENOBJ_LAMBDA_cl42 fromline 1756 */
 
     /* classy proc frame meltrout_173_WARMELTmiGENOBJ_LAMBDA_cl42 */ MeltFrame_meltrout_173_WARMELTmiGENOBJ_LAMBDA_cl42
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_173_WARMELTmiGENOBJ_LAMBDA_cl42 fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_173_WARMELTmiGENOBJ_LAMBDA_cl42 fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -4833,12 +4833,12 @@ meltrout_174_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_ANY(meltclosure_ptr_t meltclos
     /* end of frame for routine meltrout_174_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_ANY fromline 1756 */
 
     /* classy proc frame meltrout_174_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_ANY */ MeltFrame_meltrout_174_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_ANY
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_174_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_ANY fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_174_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_ANY fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -5246,12 +5246,12 @@ meltrout_175_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_MATCHER(meltclosure_ptr_t melt
     /* end of frame for routine meltrout_175_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_MATCHER fromline 1756 */
 
     /* classy proc frame meltrout_175_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_MATCHER */ MeltFrame_meltrout_175_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_MATCHER
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_175_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_MATCHER fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_175_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_MATCHER fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -7369,12 +7369,12 @@ meltrout_176_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_INSTANCE(meltclosure_ptr_t mel
     /* end of frame for routine meltrout_176_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_INSTANCE fromline 1756 */
 
     /* classy proc frame meltrout_176_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_INSTANCE */ MeltFrame_meltrout_176_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_INSTANCE
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_176_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_INSTANCE fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_176_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_INSTANCE fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -9727,12 +9727,12 @@ meltrout_177_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_TUPLE(meltclosure_ptr_t meltcl
     /* end of frame for routine meltrout_177_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_TUPLE fromline 1756 */
 
     /* classy proc frame meltrout_177_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_TUPLE */ MeltFrame_meltrout_177_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_TUPLE
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_177_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_TUPLE fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_177_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_TUPLE fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -12189,12 +12189,12 @@ meltrout_178_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_SAME(meltclosure_ptr_t meltclo
     /* end of frame for routine meltrout_178_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_SAME fromline 1756 */
 
     /* classy proc frame meltrout_178_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_SAME */ MeltFrame_meltrout_178_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_SAME
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_178_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_SAME fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_178_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_SAME fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -13579,12 +13579,12 @@ meltrout_179_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_SUCCESS(meltclosure_ptr_t melt
     /* end of frame for routine meltrout_179_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_SUCCESS fromline 1756 */
 
     /* classy proc frame meltrout_179_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_SUCCESS */ MeltFrame_meltrout_179_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_SUCCESS
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_179_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_SUCCESS fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_179_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_SUCCESS fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -14553,12 +14553,12 @@ meltrout_180_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_ORCLEAR(meltclosure_ptr_t melt
     /* end of frame for routine meltrout_180_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_ORCLEAR fromline 1756 */
 
     /* classy proc frame meltrout_180_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_ORCLEAR */ MeltFrame_meltrout_180_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_ORCLEAR
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_180_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_ORCLEAR fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_180_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_ORCLEAR fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -15947,12 +15947,12 @@ meltrout_181_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_ORTRANSMIT(meltclosure_ptr_t m
     /* end of frame for routine meltrout_181_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_ORTRANSMIT fromline 1756 */
 
     /* classy proc frame meltrout_181_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_ORTRANSMIT */ MeltFrame_meltrout_181_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_ORTRANSMIT
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_181_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_ORTRANSMIT fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_181_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_ORTRANSMIT fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -17243,12 +17243,12 @@ meltrout_182_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_DISJUNCTION(meltclosure_ptr_t 
     /* end of frame for routine meltrout_182_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_DISJUNCTION fromline 1756 */
 
     /* classy proc frame meltrout_182_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_DISJUNCTION */ MeltFrame_meltrout_182_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_DISJUNCTION
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_182_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_DISJUNCTION fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_182_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_DISJUNCTION fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -18375,12 +18375,12 @@ meltrout_183_WARMELTmiGENOBJ_COMPILMATCHER_CMATCHER(meltclosure_ptr_t meltclosp_
     /* end of frame for routine meltrout_183_WARMELTmiGENOBJ_COMPILMATCHER_CMATCHER fromline 1756 */
 
     /* classy proc frame meltrout_183_WARMELTmiGENOBJ_COMPILMATCHER_CMATCHER */ MeltFrame_meltrout_183_WARMELTmiGENOBJ_COMPILMATCHER_CMATCHER
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_183_WARMELTmiGENOBJ_COMPILMATCHER_CMATCHER fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_183_WARMELTmiGENOBJ_COMPILMATCHER_CMATCHER fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -21022,12 +21022,12 @@ meltrout_184_WARMELTmiGENOBJ_LAMBDA_cl43(meltclosure_ptr_t meltclosp_, melt_ptr_
     /* end of frame for routine meltrout_184_WARMELTmiGENOBJ_LAMBDA_cl43 fromline 1756 */
 
     /* classy proc frame meltrout_184_WARMELTmiGENOBJ_LAMBDA_cl43 */ MeltFrame_meltrout_184_WARMELTmiGENOBJ_LAMBDA_cl43
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_184_WARMELTmiGENOBJ_LAMBDA_cl43 fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_184_WARMELTmiGENOBJ_LAMBDA_cl43 fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -21512,12 +21512,12 @@ meltrout_185_WARMELTmiGENOBJ_LAMBDA_cl44(meltclosure_ptr_t meltclosp_, melt_ptr_
     /* end of frame for routine meltrout_185_WARMELTmiGENOBJ_LAMBDA_cl44 fromline 1756 */
 
     /* classy proc frame meltrout_185_WARMELTmiGENOBJ_LAMBDA_cl44 */ MeltFrame_meltrout_185_WARMELTmiGENOBJ_LAMBDA_cl44
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_185_WARMELTmiGENOBJ_LAMBDA_cl44 fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_185_WARMELTmiGENOBJ_LAMBDA_cl44 fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -22006,12 +22006,12 @@ meltrout_186_WARMELTmiGENOBJ_LAMBDA_cl45(meltclosure_ptr_t meltclosp_, melt_ptr_
     /* end of frame for routine meltrout_186_WARMELTmiGENOBJ_LAMBDA_cl45 fromline 1756 */
 
     /* classy proc frame meltrout_186_WARMELTmiGENOBJ_LAMBDA_cl45 */ MeltFrame_meltrout_186_WARMELTmiGENOBJ_LAMBDA_cl45
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_186_WARMELTmiGENOBJ_LAMBDA_cl45 fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_186_WARMELTmiGENOBJ_LAMBDA_cl45 fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -22178,12 +22178,12 @@ meltrout_187_WARMELTmiGENOBJ_LAMBDA_cl46(meltclosure_ptr_t meltclosp_, melt_ptr_
     /* end of frame for routine meltrout_187_WARMELTmiGENOBJ_LAMBDA_cl46 fromline 1756 */
 
     /* classy proc frame meltrout_187_WARMELTmiGENOBJ_LAMBDA_cl46 */ MeltFrame_meltrout_187_WARMELTmiGENOBJ_LAMBDA_cl46
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_187_WARMELTmiGENOBJ_LAMBDA_cl46 fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_187_WARMELTmiGENOBJ_LAMBDA_cl46 fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -22636,12 +22636,12 @@ meltrout_188_WARMELTmiGENOBJ_COMPILMATCHER_FUNMATCHER(meltclosure_ptr_t meltclos
     /* end of frame for routine meltrout_188_WARMELTmiGENOBJ_COMPILMATCHER_FUNMATCHER fromline 1756 */
 
     /* classy proc frame meltrout_188_WARMELTmiGENOBJ_COMPILMATCHER_FUNMATCHER */ MeltFrame_meltrout_188_WARMELTmiGENOBJ_COMPILMATCHER_FUNMATCHER
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_188_WARMELTmiGENOBJ_COMPILMATCHER_FUNMATCHER fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_188_WARMELTmiGENOBJ_COMPILMATCHER_FUNMATCHER fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -24563,12 +24563,12 @@ meltrout_189_WARMELTmiGENOBJ_LAMBDA_cl47(meltclosure_ptr_t meltclosp_, melt_ptr_
     /* end of frame for routine meltrout_189_WARMELTmiGENOBJ_LAMBDA_cl47 fromline 1756 */
 
     /* classy proc frame meltrout_189_WARMELTmiGENOBJ_LAMBDA_cl47 */ MeltFrame_meltrout_189_WARMELTmiGENOBJ_LAMBDA_cl47
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_189_WARMELTmiGENOBJ_LAMBDA_cl47 fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_189_WARMELTmiGENOBJ_LAMBDA_cl47 fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -24713,12 +24713,12 @@ meltrout_190_WARMELTmiGENOBJ_LAMBDA_cl48(meltclosure_ptr_t meltclosp_, melt_ptr_
     /* end of frame for routine meltrout_190_WARMELTmiGENOBJ_LAMBDA_cl48 fromline 1756 */
 
     /* classy proc frame meltrout_190_WARMELTmiGENOBJ_LAMBDA_cl48 */ MeltFrame_meltrout_190_WARMELTmiGENOBJ_LAMBDA_cl48
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_190_WARMELTmiGENOBJ_LAMBDA_cl48 fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_190_WARMELTmiGENOBJ_LAMBDA_cl48 fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;

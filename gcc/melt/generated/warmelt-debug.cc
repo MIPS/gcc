@@ -40,7 +40,7 @@ MELT_EXTERN const char meltrun_used_md5_melt[] = MELT_RUN_HASHMD5 /* from melt-r
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiDEBUG_h640816647; // forward declaration fromline 6691
+class Melt_InitialClassyFrame_WARMELTmiDEBUG_h640816647; // forward declaration fromline 6697
 typedef Melt_InitialClassyFrame_WARMELTmiDEBUG_h640816647 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
@@ -443,12 +443,12 @@ meltrout_1_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN(meltclosure_ptr_t meltclosp_, 
     /* end of frame for routine meltrout_1_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN fromline 1756 */
 
     /* classy proc frame meltrout_1_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN */ MeltFrame_meltrout_1_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_1_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_1_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -689,12 +689,12 @@ meltrout_2_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN(meltclosure_ptr_t meltclosp_
     /* end of frame for routine meltrout_2_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN fromline 1756 */
 
     /* classy proc frame meltrout_2_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN */ MeltFrame_meltrout_2_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_2_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_2_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -935,12 +935,12 @@ meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN(meltclosure_ptr_t meltclo
     /* end of frame for routine meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN fromline 1756 */
 
     /* classy proc frame meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN */ MeltFrame_meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -1181,12 +1181,12 @@ meltrout_4_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN(meltclosure_ptr_t meltclosp_, 
     /* end of frame for routine meltrout_4_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN fromline 1756 */
 
     /* classy proc frame meltrout_4_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN */ MeltFrame_meltrout_4_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_4_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_4_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -1427,12 +1427,12 @@ meltrout_5_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN(meltclosure_ptr_t meltcl
     /* end of frame for routine meltrout_5_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN fromline 1756 */
 
     /* classy proc frame meltrout_5_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN */ MeltFrame_meltrout_5_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_5_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_5_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -1673,12 +1673,12 @@ meltrout_6_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN(meltclosure_ptr_t meltclosp_, 
     /* end of frame for routine meltrout_6_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN fromline 1756 */
 
     /* classy proc frame meltrout_6_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN */ MeltFrame_meltrout_6_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_6_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_6_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -1959,12 +1959,12 @@ meltrout_7_WARMELTmiDEBUG_MELT_DEBUG_FUN(meltclosure_ptr_t meltclosp_, melt_ptr_
     /* end of frame for routine meltrout_7_WARMELTmiDEBUG_MELT_DEBUG_FUN fromline 1756 */
 
     /* classy proc frame meltrout_7_WARMELTmiDEBUG_MELT_DEBUG_FUN */ MeltFrame_meltrout_7_WARMELTmiDEBUG_MELT_DEBUG_FUN
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyprocarg meltrout_7_WARMELTmiDEBUG_MELT_DEBUG_FUN fromline 1785*/
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyprocarg meltrout_7_WARMELTmiDEBUG_MELT_DEBUG_FUN fromline 1787*/
 #if MELT_HAVE_DEBUG > 0
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1789*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1791*/
 #else /*MELT_HAVE_DEBUG */
-    (meltclosp_) /* fromline 1793*/
+    (meltclosp_) /* fromline 1795*/
 #endif /*MELT_HAVE_DEBUG */
 
     ;
@@ -2700,7 +2700,7 @@ meltlabloop_ARGLOOP_1:;/*^loopbody*/
 #if MELTDEBUG_MATCHING
                                                                         static long meltlab_count_1;
                                                                         meltlab_count_1++;
-                                                                        debugeprintf("objlabel_1 mtch1_*CLASS_NORMTESTER_MATCHER/32ec7060. *CLASS_OBJLABELINSTR/2f85c3cf. %ld", meltlab_count_1);
+                                                                        melt_debugeprintf("objlabel_1 mtch1_*CLASS_NORMTESTER_MATCHER/32ec7060. *CLASS_OBJLABELINSTR/2f85c3cf. %ld", meltlab_count_1);
 #endif
 
                                                                         ;
@@ -2747,7 +2747,7 @@ meltlabloop_ARGLOOP_1:;/*^loopbody*/
 #if MELTDEBUG_MATCHING
                                                                         static long meltlab_count_2;
                                                                         meltlab_count_2++;
-                                                                        debugeprintf("objlabel_2 mtch1_*CLASS_NORMTESTER_SUCCESS/2cda9763. *CLASS_OBJLABELINSTR/2064825d. %ld", meltlab_count_2);
+                                                                        melt_debugeprintf("objlabel_2 mtch1_*CLASS_NORMTESTER_SUCCESS/2cda9763. *CLASS_OBJLABELINSTR/2064825d. %ld", meltlab_count_2);
 #endif
 
                                                                         ;
@@ -2797,7 +2797,7 @@ meltlabloop_ARGLOOP_1:;/*^loopbody*/
 #if MELTDEBUG_MATCHING
                                                                         static long meltlab_count_3;
                                                                         meltlab_count_3++;
-                                                                        debugeprintf("objlabel_3 mtch1_*CLASS_NORMTESTER_SUCCESS/3efa513c. *CLASS_OBJLABELINSTR/12eaf53a. %ld", meltlab_count_3);
+                                                                        melt_debugeprintf("objlabel_3 mtch1_*CLASS_NORMTESTER_SUCCESS/3efa513c. *CLASS_OBJLABELINSTR/12eaf53a. %ld", meltlab_count_3);
 #endif
 
                                                                         ;
@@ -2822,7 +2822,7 @@ meltlabloop_ARGLOOP_1:;/*^loopbody*/
 #if MELTDEBUG_MATCHING
                                                                         static long meltlab_count_4;
                                                                         meltlab_count_4++;
-                                                                        debugeprintf("objlabel_4 mtch1__end_h81269952 *CLASS_OBJLABELINSTR/4d814c0. %ld", meltlab_count_4);
+                                                                        melt_debugeprintf("objlabel_4 mtch1__end_h81269952 *CLASS_OBJLABELINSTR/4d814c0. %ld", meltlab_count_4);
 #endif
 
                                                                         ;
@@ -7871,7 +7871,7 @@ void* MELT_LOW_OPTIMIZATION melt_start_this_module (void* modargp_)
 #undef meltcallcount
 #define meltcallcount 0L
 #endif
-//// emitted by output_curframe_declstruct_init using LAMBDA_ @warmelt-outobj.melt:2253
+//// emitted by output_curframe_declstruct_init using LAMBDA_ @warmelt-outobj.melt:2255
 
     /* start of frame for routine melt_start_this_module fromline 1752 */
 
@@ -7880,13 +7880,13 @@ void* MELT_LOW_OPTIMIZATION melt_start_this_module (void* modargp_)
     /* end of frame for routine melt_start_this_module fromline 1756 */
 
 
-    debugeprintf("sizeof Melt_InitialFrame in melt_start_this_module=%d", (int) sizeof(Melt_InitialFrame));
-    /* classy initial frame melt_start_this_module fromline 1773*/ Melt_InitialFrame
-    meltfram__ /*declfrastruct fromline 1780*/
-    /*classyinitroutinearg melt_start_this_module fromline 1819*/
+    melt_debugeprintf("sizeof Melt_InitialFrame in melt_start_this_module=%d", (int) sizeof(Melt_InitialFrame));
+    /* classy initial frame melt_start_this_module fromline 1775*/ Melt_InitialFrame
+    meltfram__ /*declfrastruct fromline 1782*/
+    /*classyinitroutinearg melt_start_this_module fromline 1821*/
 #if MELT_HAVE_DEBUG > 0
-    /*classyinitroutfram fromline 1823:*/ (__FILE__, __LINE__)
-#endif /*MELT_HAVE_DEBUG fromline1825*/
+    /*classyinitroutfram fromline 1825:*/ (__FILE__, __LINE__)
+#endif /*MELT_HAVE_DEBUG fromline1827*/
 
     ;
 #define meltframe meltfram__
@@ -9235,8 +9235,8 @@ void* MELT_LOW_OPTIMIZATION melt_start_this_module (void* modargp_)
     melt_initialize_module_meltdata_WARMELTmiDEBUG (&meltfram__, meltpredefinited);
     /**initial routine body**/
 
-    debugeprintf (" in initialization of warmelt-debug thru 8 chunk routines with frame @%p of %d bytes",
-                  /*fromline 2338*/ (void*)&meltfram__, (int) sizeof(meltfram__));
+    melt_debugeprintf (" in initialization of warmelt-debug thru 8 chunk routines with frame @%p of %d bytes",
+                       /*fromline 2342*/ (void*)&meltfram__, (int) sizeof(meltfram__));
     melt_debuggc_eprintf ("initialization of warmelt-debug thru 8 chunks, frame @%p of %d bytes",
                           (void*)&meltfram__, (int) sizeof(meltfram__));
 
@@ -9252,15 +9252,15 @@ void* MELT_LOW_OPTIMIZATION melt_start_this_module (void* modargp_)
 meltlabend_rout:
     ;
     {
-        /* return out of initial fromline 2371 */ melt_ptr_t retval = /*_._RETINIT___V1*/ meltfptr[0];
-        debugeprintf ("returning @%p from initial routine of warmelt-debug", (void*)retval); /*fromline 2379*/
+        /* return out of initial fromline 2377 */ melt_ptr_t retval = /*_._RETINIT___V1*/ meltfptr[0];
+        melt_debugeprintf ("returning @%p from initial routine of warmelt-debug", (void*)retval); /*fromline 2385*/
         return retval;
     }
 #undef meltcallcount
 #undef meltfram__
 #undef MELTFRAM_NBVARNUM
 #undef MELTFRAM_NBVARPTR
-} /* end melt_start_this_module fromline 2391 */
+} /* end melt_start_this_module fromline 2397 */
 
 
 void meltmod__WARMELTmiDEBUG__initialmeltchunk_0 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
