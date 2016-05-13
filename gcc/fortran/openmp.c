@@ -94,6 +94,7 @@ gfc_free_omp_clauses (gfc_omp_clauses *c)
     gfc_free_omp_namelist (c->lists[i]);
   gfc_free_expr_list (c->wait_list);
   gfc_free_expr_list (c->tile_list);
+  free (CONST_CAST (char *, c->critical_name));
   free (c);
 }
 
@@ -2148,19 +2149,26 @@ cleanup:
 #define OMP_DO_CLAUSES \
   (omp_mask (OMP_CLAUSE_PRIVATE) | OMP_CLAUSE_FIRSTPRIVATE		\
    | OMP_CLAUSE_LASTPRIVATE | OMP_CLAUSE_REDUCTION			\
-   | OMP_CLAUSE_SCHEDULE | OMP_CLAUSE_ORDERED | OMP_CLAUSE_COLLAPSE)
+   | OMP_CLAUSE_SCHEDULE | OMP_CLAUSE_ORDERED | OMP_CLAUSE_COLLAPSE	\
+   | OMP_CLAUSE_LINEAR)
 #define OMP_SECTIONS_CLAUSES \
   (omp_mask (OMP_CLAUSE_PRIVATE) | OMP_CLAUSE_FIRSTPRIVATE		\
    | OMP_CLAUSE_LASTPRIVATE | OMP_CLAUSE_REDUCTION)
 #define OMP_SIMD_CLAUSES \
   (omp_mask (OMP_CLAUSE_PRIVATE) | OMP_CLAUSE_LASTPRIVATE		\
    | OMP_CLAUSE_REDUCTION | OMP_CLAUSE_COLLAPSE | OMP_CLAUSE_SAFELEN	\
-   | OMP_CLAUSE_LINEAR | OMP_CLAUSE_ALIGNED)
+   | OMP_CLAUSE_LINEAR | OMP_CLAUSE_ALIGNED | OMP_CLAUSE_SIMDLEN)
 #define OMP_TASK_CLAUSES \
   (omp_mask (OMP_CLAUSE_PRIVATE) | OMP_CLAUSE_FIRSTPRIVATE		\
    | OMP_CLAUSE_SHARED | OMP_CLAUSE_IF | OMP_CLAUSE_DEFAULT		\
    | OMP_CLAUSE_UNTIED | OMP_CLAUSE_FINAL | OMP_CLAUSE_MERGEABLE	\
    | OMP_CLAUSE_DEPEND | OMP_CLAUSE_PRIORITY)
+#define OMP_TASKLOOP_CLAUSES \
+  (omp_mask (OMP_CLAUSE_PRIVATE) | OMP_CLAUSE_FIRSTPRIVATE		\
+   | OMP_CLAUSE_LASTPRIVATE | OMP_CLAUSE_SHARED | OMP_CLAUSE_IF		\
+   | OMP_CLAUSE_DEFAULT	| OMP_CLAUSE_UNTIED | OMP_CLAUSE_FINAL		\
+   | OMP_CLAUSE_MERGEABLE | OMP_CLAUSE_PRIORITY | OMP_CLAUSE_GRAINSIZE	\
+   | OMP_CLAUSE_NUM_TASKS | OMP_CLAUSE_COLLAPSE | OMP_CLAUSE_NOGROUP)
 #define OMP_TARGET_CLAUSES \
   (omp_mask (OMP_CLAUSE_DEVICE) | OMP_CLAUSE_MAP | OMP_CLAUSE_IF	\
    | OMP_CLAUSE_DEPEND | OMP_CLAUSE_NOWAIT | OMP_CLAUSE_PRIVATE		\
@@ -2169,6 +2177,12 @@ cleanup:
 #define OMP_TARGET_DATA_CLAUSES \
   (omp_mask (OMP_CLAUSE_DEVICE) | OMP_CLAUSE_MAP | OMP_CLAUSE_IF	\
    | OMP_CLAUSE_USE_DEVICE_PTR)
+#define OMP_TARGET_ENTER_DATA_CLAUSES \
+  (omp_mask (OMP_CLAUSE_DEVICE) | OMP_CLAUSE_MAP | OMP_CLAUSE_IF	\
+   | OMP_CLAUSE_DEPEND | OMP_CLAUSE_NOWAIT)
+#define OMP_TARGET_EXIT_DATA_CLAUSES \
+  (omp_mask (OMP_CLAUSE_DEVICE) | OMP_CLAUSE_MAP | OMP_CLAUSE_IF	\
+   | OMP_CLAUSE_DEPEND | OMP_CLAUSE_NOWAIT)
 #define OMP_TARGET_UPDATE_CLAUSES \
   (omp_mask (OMP_CLAUSE_DEVICE) | OMP_CLAUSE_IF | OMP_CLAUSE_TO		\
    | OMP_CLAUSE_FROM | OMP_CLAUSE_DEPEND | OMP_CLAUSE_NOWAIT)
@@ -2199,6 +2213,32 @@ match
 gfc_match_omp_critical (void)
 {
   char n[GFC_MAX_SYMBOL_LEN+1];
+  gfc_omp_clauses *c = NULL;
+
+  if (gfc_match (" ( %n )", n) != MATCH_YES)
+    {
+      n[0] = '\0';
+      if (gfc_match_omp_eos () != MATCH_YES)
+	{
+	  gfc_error ("Unexpected junk after $OMP CRITICAL statement at %C");
+	  return MATCH_ERROR;
+	}
+    }
+  else if (gfc_match_omp_clauses (&c, omp_mask (OMP_CLAUSE_HINT)) != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OMP_CRITICAL;
+  new_st.ext.omp_clauses = c;
+  if (n[0])
+    c->critical_name = xstrdup (n);
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_omp_end_critical (void)
+{
+  char n[GFC_MAX_SYMBOL_LEN+1];
 
   if (gfc_match (" ( %n )", n) != MATCH_YES)
     n[0] = '\0';
@@ -2207,7 +2247,8 @@ gfc_match_omp_critical (void)
       gfc_error ("Unexpected junk after $OMP CRITICAL statement at %C");
       return MATCH_ERROR;
     }
-  new_st.op = EXEC_OMP_CRITICAL;
+
+  new_st.op = EXEC_OMP_END_CRITICAL;
   new_st.ext.omp_name = n[0] ? xstrdup (n) : NULL;
   return MATCH_YES;
 }
@@ -2224,8 +2265,10 @@ match
 gfc_match_omp_distribute_parallel_do (void)
 {
   return match_omp (EXEC_OMP_DISTRIBUTE_PARALLEL_DO,
-		    OMP_DISTRIBUTE_CLAUSES | OMP_PARALLEL_CLAUSES
-		    | OMP_DO_CLAUSES);
+		    (OMP_DISTRIBUTE_CLAUSES | OMP_PARALLEL_CLAUSES
+		     | OMP_DO_CLAUSES)
+		    & ~(omp_mask (OMP_CLAUSE_ORDERED))
+		    & ~(omp_mask (OMP_CLAUSE_LINEAR)));
 }
 
 
@@ -2257,8 +2300,7 @@ gfc_match_omp_do (void)
 match
 gfc_match_omp_do_simd (void)
 {
-  return match_omp (EXEC_OMP_DO_SIMD, ((OMP_DO_CLAUSES | OMP_SIMD_CLAUSES)
-				       & ~(omp_mask (OMP_CLAUSE_ORDERED))));
+  return match_omp (EXEC_OMP_DO_SIMD, OMP_DO_CLAUSES | OMP_SIMD_CLAUSES);
 }
 
 
@@ -2884,8 +2926,7 @@ match
 gfc_match_omp_parallel_do_simd (void)
 {
   return match_omp (EXEC_OMP_PARALLEL_DO_SIMD,
-		    (OMP_PARALLEL_CLAUSES | OMP_DO_CLAUSES | OMP_SIMD_CLAUSES)
-		    & ~(omp_mask (OMP_CLAUSE_ORDERED)));
+		    OMP_PARALLEL_CLAUSES | OMP_DO_CLAUSES | OMP_SIMD_CLAUSES);
 }
 
 
@@ -2926,9 +2967,144 @@ gfc_match_omp_single (void)
 
 
 match
+gfc_match_omp_target (void)
+{
+  return match_omp (EXEC_OMP_TARGET, OMP_TARGET_CLAUSES);
+}
+
+
+match
+gfc_match_omp_target_data (void)
+{
+  return match_omp (EXEC_OMP_TARGET_DATA, OMP_TARGET_DATA_CLAUSES);
+}
+
+
+match
+gfc_match_omp_target_enter_data (void)
+{
+  return match_omp (EXEC_OMP_TARGET_ENTER_DATA, OMP_TARGET_ENTER_DATA_CLAUSES);
+}
+
+
+match
+gfc_match_omp_target_exit_data (void)
+{
+  return match_omp (EXEC_OMP_TARGET_EXIT_DATA, OMP_TARGET_EXIT_DATA_CLAUSES);
+}
+
+
+match
+gfc_match_omp_target_parallel (void)
+{
+  return match_omp (EXEC_OMP_TARGET_PARALLEL,
+		    (OMP_TARGET_CLAUSES | OMP_PARALLEL_CLAUSES)
+		    & ~(omp_mask (OMP_CLAUSE_COPYIN)));
+}
+
+
+match
+gfc_match_omp_target_parallel_do (void)
+{
+  return match_omp (EXEC_OMP_TARGET_PARALLEL_DO,
+		    (OMP_TARGET_CLAUSES | OMP_PARALLEL_CLAUSES
+		     | OMP_DO_CLAUSES) & ~(omp_mask (OMP_CLAUSE_COPYIN)));
+}
+
+
+match
+gfc_match_omp_target_parallel_do_simd (void)
+{
+  return match_omp (EXEC_OMP_TARGET_PARALLEL_DO_SIMD,
+		    (OMP_TARGET_CLAUSES | OMP_PARALLEL_CLAUSES | OMP_DO_CLAUSES
+		     | OMP_SIMD_CLAUSES) & ~(omp_mask (OMP_CLAUSE_COPYIN)));
+}
+
+
+match
+gfc_match_omp_target_simd (void)
+{
+  return match_omp (EXEC_OMP_TARGET_SIMD,
+		    OMP_TARGET_CLAUSES | OMP_SIMD_CLAUSES);
+}
+
+
+match
+gfc_match_omp_target_teams (void)
+{
+  return match_omp (EXEC_OMP_TARGET_TEAMS,
+		    OMP_TARGET_CLAUSES | OMP_TEAMS_CLAUSES);
+}
+
+
+match
+gfc_match_omp_target_teams_distribute (void)
+{
+  return match_omp (EXEC_OMP_TARGET_TEAMS_DISTRIBUTE,
+		    OMP_TARGET_CLAUSES | OMP_TEAMS_CLAUSES
+		    | OMP_DISTRIBUTE_CLAUSES);
+}
+
+
+match
+gfc_match_omp_target_teams_distribute_parallel_do (void)
+{
+  return match_omp (EXEC_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_DO,
+		    (OMP_TARGET_CLAUSES | OMP_TEAMS_CLAUSES
+		     | OMP_DISTRIBUTE_CLAUSES | OMP_PARALLEL_CLAUSES
+		     | OMP_DO_CLAUSES)
+		    & ~(omp_mask (OMP_CLAUSE_ORDERED))
+		    & ~(omp_mask (OMP_CLAUSE_LINEAR)));
+}
+
+
+match
+gfc_match_omp_target_teams_distribute_parallel_do_simd (void)
+{
+  return match_omp (EXEC_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_DO_SIMD,
+		    (OMP_TARGET_CLAUSES | OMP_TEAMS_CLAUSES
+		     | OMP_DISTRIBUTE_CLAUSES | OMP_PARALLEL_CLAUSES
+		     | OMP_DO_CLAUSES | OMP_SIMD_CLAUSES)
+		    & ~(omp_mask (OMP_CLAUSE_ORDERED)));
+}
+
+
+match
+gfc_match_omp_target_teams_distribute_simd (void)
+{
+  return match_omp (EXEC_OMP_TARGET_TEAMS_DISTRIBUTE_SIMD,
+		    OMP_TARGET_CLAUSES | OMP_TEAMS_CLAUSES
+		    | OMP_DISTRIBUTE_CLAUSES | OMP_SIMD_CLAUSES);
+}
+
+
+match
+gfc_match_omp_target_update (void)
+{
+  return match_omp (EXEC_OMP_TARGET_UPDATE, OMP_TARGET_UPDATE_CLAUSES);
+}
+
+
+match
 gfc_match_omp_task (void)
 {
   return match_omp (EXEC_OMP_TASK, OMP_TASK_CLAUSES);
+}
+
+
+match
+gfc_match_omp_taskloop (void)
+{
+  return match_omp (EXEC_OMP_TASKLOOP, OMP_TASKLOOP_CLAUSES);
+}
+
+
+match
+gfc_match_omp_taskloop_simd (void)
+{
+  return match_omp (EXEC_OMP_TASKLOOP_SIMD,
+		    (OMP_TASKLOOP_CLAUSES | OMP_SIMD_CLAUSES)
+		    & ~(omp_mask (OMP_CLAUSE_REDUCTION)));
 }
 
 
@@ -2961,74 +3137,6 @@ gfc_match_omp_taskyield (void)
 
 
 match
-gfc_match_omp_target (void)
-{
-  return match_omp (EXEC_OMP_TARGET, OMP_TARGET_CLAUSES);
-}
-
-
-match
-gfc_match_omp_target_data (void)
-{
-  return match_omp (EXEC_OMP_TARGET_DATA, OMP_TARGET_DATA_CLAUSES);
-}
-
-
-match
-gfc_match_omp_target_teams (void)
-{
-  return match_omp (EXEC_OMP_TARGET_TEAMS,
-		    OMP_TARGET_CLAUSES | OMP_TEAMS_CLAUSES);
-}
-
-
-match
-gfc_match_omp_target_teams_distribute (void)
-{
-  return match_omp (EXEC_OMP_TARGET_TEAMS_DISTRIBUTE,
-		    OMP_TARGET_CLAUSES | OMP_TEAMS_CLAUSES
-		    | OMP_DISTRIBUTE_CLAUSES);
-}
-
-
-match
-gfc_match_omp_target_teams_distribute_parallel_do (void)
-{
-  return match_omp (EXEC_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_DO,
-		    OMP_TARGET_CLAUSES | OMP_TEAMS_CLAUSES
-		    | OMP_DISTRIBUTE_CLAUSES | OMP_PARALLEL_CLAUSES
-		    | OMP_DO_CLAUSES);
-}
-
-
-match
-gfc_match_omp_target_teams_distribute_parallel_do_simd (void)
-{
-  return match_omp (EXEC_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_DO_SIMD,
-		    (OMP_TARGET_CLAUSES | OMP_TEAMS_CLAUSES
-		     | OMP_DISTRIBUTE_CLAUSES | OMP_PARALLEL_CLAUSES
-		     | OMP_DO_CLAUSES | OMP_SIMD_CLAUSES)
-		    & ~(omp_mask (OMP_CLAUSE_ORDERED)));
-}
-
-
-match
-gfc_match_omp_target_teams_distribute_simd (void)
-{
-  return match_omp (EXEC_OMP_TARGET_TEAMS_DISTRIBUTE_SIMD,
-		    OMP_TARGET_CLAUSES | OMP_TEAMS_CLAUSES
-		    | OMP_DISTRIBUTE_CLAUSES | OMP_SIMD_CLAUSES);
-}
-
-
-match
-gfc_match_omp_target_update (void)
-{
-  return match_omp (EXEC_OMP_TARGET_UPDATE, OMP_TARGET_UPDATE_CLAUSES);
-}
-
-
-match
 gfc_match_omp_teams (void)
 {
   return match_omp (EXEC_OMP_TEAMS, OMP_TEAMS_CLAUSES);
@@ -3047,8 +3155,10 @@ match
 gfc_match_omp_teams_distribute_parallel_do (void)
 {
   return match_omp (EXEC_OMP_TEAMS_DISTRIBUTE_PARALLEL_DO,
-		    OMP_TEAMS_CLAUSES | OMP_DISTRIBUTE_CLAUSES
-		    | OMP_PARALLEL_CLAUSES | OMP_DO_CLAUSES);
+		    (OMP_TEAMS_CLAUSES | OMP_DISTRIBUTE_CLAUSES
+		     | OMP_PARALLEL_CLAUSES | OMP_DO_CLAUSES)
+		    & ~(omp_mask (OMP_CLAUSE_ORDERED))
+		    & ~(omp_mask (OMP_CLAUSE_LINEAR)));
 }
 
 

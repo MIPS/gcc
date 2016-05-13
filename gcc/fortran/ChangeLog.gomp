@@ -1,3 +1,81 @@
+2016-05-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* parse.c (decode_omp_directive): Use gfc_match_omp_end_critical
+	instead of gfc_match_omp_critical for !$omp end critical.
+	Handle new OpenMP 4.5 constructs.
+	(case_executable): Add ST_OMP_TARGET_ENTER_DATA and
+	ST_OMP_TARGET_EXIT_DATA cases.
+	(case_exec_markers): Add ST_OMP_TARGET_PARALLEL,
+	ST_OMP_TARGET_PARALLEL_DO, ST_OMP_TARGET_PARALLEL_DO_SIMD,
+	ST_OMP_TARGET_SIMD, ST_OMP_TASKLOOP and ST_OMP_TASKLOOP_SIMD cases.
+	(gfc_ascii_statement): Handle new OpenMP 4.5 constructs.
+	(parse_omp_do): Handle ST_OMP_TARGET_PARALLEL_DO,
+	ST_OMP_TARGET_PARALLEL_DO_SIMD, ST_OMP_TASKLOOP and
+	ST_OMP_TASKLOOP_SIMD.
+	(parse_omp_structured_block): Handle EXEC_OMP_END_CRITICAL instead
+	of EXEC_OMP_CRITICAL, adjust for EXEC_OMP_CRITICAL having omp clauses
+	now.
+	(parse_executable): Handle ST_OMP_TARGET_PARALLEL,
+	ST_OMP_TARGET_PARALLEL_DO, ST_OMP_TARGET_PARALLEL_DO_SIMD,
+	ST_OMP_TASKLOOP and ST_OMP_TASKLOOP_SIMD.
+	* st.c (gfc_free_statement): Handle EXEC_OMP_END_CRITICAL like
+	EXEC_OMP_CRITICAL before, free clauses for EXEC_OMP_CRITICAL
+	and new OpenMP 4.5 constructs.
+	* dump-parse-tree.c (show_omp_node): Formatting fixes.  Adjust
+	handling of EXEC_OMP_CRITICAL, handle new OpenMP 4.5 constructs
+	and some forgotten OpenMP 4.0 constructs.
+	(show_code_node): Handle new OpenMP 4.5 constructs and some forgotten
+	OpenMP 4.0 constructs.
+	* trans-openmp.c (gfc_trans_omp_critical): Adjust EXEC_OMP_CRITICAL
+	handling.
+	* gfortran.h (enum gfc_statement): Add ST_OMP_TARGET_PARALLEL,
+	ST_OMP_END_TARGET_PARALLEL, ST_OMP_TARGET_PARALLEL_DO,
+	ST_OMP_END_TARGET_PARALLEL_DO, ST_OMP_TARGET_PARALLEL_DO_SIMD,
+	ST_OMP_END_TARGET_PARALLEL_DO_SIMD, ST_OMP_TARGET_ENTER_DATA,
+	ST_OMP_TARGET_EXIT_DATA, ST_OMP_TARGET_SIMD, ST_OMP_END_TARGET_SIMD,
+	ST_OMP_TASKLOOP, ST_OMP_END_TASKLOOP, ST_OMP_TASKLOOP_SIMD and
+	ST_OMP_END_TASKLOOP_SIMD.
+	(struct gfc_omp_clauses): Add critical_name field.
+	(enum gfc_exec_op): Add EXEC_OMP_END_CRITICAL,
+	EXEC_OMP_TARGET_ENTER_DATA, EXEC_OMP_TARGET_EXIT_DATA,
+	EXEC_OMP_TARGET_PARALLEL, EXEC_OMP_TARGET_PARALLEL_DO,
+	EXEC_OMP_TARGET_PARALLEL_DO_SIMD, EXEC_OMP_TARGET_SIMD,
+	EXEC_OMP_TASKLOOP, EXEC_OMP_TASKLOOP_SIMD.
+	* frontend-passes.c (gfc_code_walker): Handle EXEC_OMP_CRITICAL,
+	EXEC_OMP_TASKLOOP, EXEC_OMP_TASKLOOP_SIMD, EXEC_OMP_TARGET_ENTER_DATA,
+	EXEC_OMP_TARGET_EXIT_DATA, EXEC_OMP_TARGET_PARALLEL,
+	EXEC_OMP_TARGET_PARALLEL_DO, EXEC_OMP_TARGET_PARALLEL_DO_SIMD and
+	EXEC_OMP_TARGET_SIMD.
+	* openmp.c (gfc_free_omp_clauses): Free critical_name field.
+	(OMP_DO_CLAUSES): Add OMP_CLAUSE_LINEAR.
+	(OMP_SIMD_CLAUSES): Add OMP_CLAUSE_SIMDLEN.
+	(OMP_TASKLOOP_CLAUSES, OMP_TARGET_ENTER_DATA_CLAUSES,
+	OMP_TARGET_EXIT_DATA_CLAUSES): Define.
+	(gfc_match_omp_critical): Parse optional clauses and use omp_clauses
+	union member instead of omp_name.
+	(gfc_match_omp_end_critical): New function.
+	(gfc_match_omp_distribute_parallel_do): Remove ordered and linear
+	clauses from the mask.
+	(gfc_match_omp_do_simd): Don't remove ordered clause from the mask.
+	(gfc_match_omp_parallel_do_simd): Likewise.
+	(gfc_match_omp_task, gfc_match_omp_taskwait, gfc_match_omp_taskyield):
+	Move around to where they belong alphabetically.
+	(gfc_match_omp_target_enter_data, gfc_match_omp_target_exit_data,
+	gfc_match_omp_target_parallel, gfc_match_omp_target_parallel_do,
+	gfc_match_omp_target_parallel_do_simd, gfc_match_omp_target_simd): New
+	functions.
+	(gfc_match_omp_target_teams_distribute_parallel_do): Remove ordered
+	and linear clauses from the mask.
+	(gfc_match_omp_taskloop, gfc_match_omp_taskloop_simd): New functions.
+	(gfc_match_omp_teams_distribute_parallel_do): Remove ordered and
+	linear clauses from the mask.
+	* match.h (gfc_match_omp_target_enter_data,
+	gfc_match_omp_target_exit_data, gfc_match_omp_target_parallel,
+	gfc_match_omp_target_parallel_do,
+	gfc_match_omp_target_parallel_do_simd, gfc_match_omp_target_simd,
+	gfc_match_omp_taskloop, gfc_match_omp_taskloop_simd,
+	gfc_match_omp_end_critical): New prototypes.
+
 2016-05-06  Jakub Jelinek  <jakub@redhat.com>
 
 	* gfortran.h (enum gfc_omp_map_op): Add OMP_MAP_RELEASE,
