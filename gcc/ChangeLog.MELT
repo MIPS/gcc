@@ -1,5 +1,13 @@
 
 2016-05-13   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{unstable, might crash with ASLR enabled in stage3}}
+
+	* melt-runtime.cc: Moved the comment about astyle indentation.
+
+	* melt/warmelt-outobj.melt (outpucod_initialmoduleroutine): Emit a
+	melt_debuggc_eprintf..
+
+2016-05-13   Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-outobj.melt (outpucod_initialmoduleroutine): Don't
 	emit dbgprintf but melt_dumprintf & melt_debugeprintf.

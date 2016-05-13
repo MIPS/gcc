@@ -2181,6 +2181,10 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_cident implbuf omodnam)
     (add2sbuf_strconst implbuf " iniframp__=%p\", (void*) iniframp__);")
     (add2sbuf_indentnl implbuf 1)
+    (add2out implbuf "melt_debuggc_eprintf (\"beginning melt_initialize_module_meltdata_")
+    (add2sbuf_cident implbuf omodnam)
+    (add2sbuf_strconst implbuf " iniframp__=%p\", (void*) iniframp__);")
+    (add2sbuf_indentnl implbuf 1)
     (add2sbuf_strconst implbuf "(void) meltpredefinited; /* avoid warning if non-used. */")
     (add2sbuf_indentnl implbuf 1)
 ;;; fill the meltcdat

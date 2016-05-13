@@ -8,8 +8,6 @@
        and Jeremie Salvucci  <jeremie.salvucci@free.fr>
        and Alexandre Lissy  <alissy@mandriva.com>
 
-     Indented with astyle.
-
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
@@ -29,6 +27,7 @@ along with GCC; see the file COPYING3.   If not see
 
 /* for debugging -fmelt-debug is useful */
 
+// Sometimes this file is indented with:      astyle --style=gnu -s2
 
 
 #include "melt-run.h"
