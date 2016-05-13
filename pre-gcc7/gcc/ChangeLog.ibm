@@ -1,6 +1,7 @@
 2016-05-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	<fsf submission for word splat/xxspltib>
+	PR target/70915
 	* config/rs6000/constraints.md (wE constraint): New constraint
 	for a vector constant that can be loaded with XXSPLTIB.
 	(wM constraint): New constraint for a vector constant of a 1's.
@@ -46,15 +47,15 @@
 	preferred register class (<VSr>) is listed first, and the
 	secondary register class (<VSa>) is listed second with a '?' to
 	discourage use.  Prefer loading 0/-1 in any VSX register for ISA
-	3.0, and Altivec registers for ISA 2.06/2.07 so that if the
-	register was involved in a slow operation, the clear/set operation
-	does not wait for the slow operation to finish.  Adjust the length
-	attributes for 32-bit mode.  Use rs6000_output_move_128bit and
-	drop the use of the string instructions for 32-bit movti when
-	-mvsx-timode is in effect.  Use spacing so that the alternatives
-	and attributes don't generate long lines, and put things in
-	columns, so that it is easier to match up the operands and
-	attributes with the insn alternatives.
+	3.0, and Altivec registers for ISA 2.06/2.07 (PR target/70915) so
+	that if the register was involved in a slow operation, the
+	clear/set operation does not wait for the slow operation to
+	finish.  Adjust the length attributes for 32-bit mode.  Use
+	rs6000_output_move_128bit and drop the use of the string
+	instructions for 32-bit movti when -mvsx-timode is in effect.  Use
+	spacing so that the alternatives and attributes don't generate
+	long lines, and put things in columns, so that it is easier to
+	match up the operands and attributes with the insn alternatives.
 	(vsx_mov<mode>_64bit): Likewise.
 	(vsx_mov<mode>_32bit): Likewise.
 	(vsx_movti_64bit): Fold movti into normal vector moves.
@@ -70,6 +71,7 @@
 	(vsx_sign_extend_si_v2di): Likewise.
 	* doc/md.texi (PowerPC constraints): Document wE, wM, and wS
 	constraints.
+
 
 2016-05-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
