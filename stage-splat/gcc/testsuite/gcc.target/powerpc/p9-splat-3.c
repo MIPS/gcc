@@ -50,13 +50,12 @@ void v8hi_33b  (v8hi_t  *p) { *p = (v8hi_t)  vec_splats ((short)33); }
 void v4si_33b  (v4si_t  *p) { *p = (v4si_t)  vec_splats ((int)33); }
 void v2di_33b  (v2di_t  *p) { *p = (v2di_t)  vec_splats ((long long)33); }
 
-/* { dg-final { scan-assembler     "xxspltib" } } */
-/* { dg-final { scan-assembler     "vextsb2d" } } */
-/* { dg-final { scan-assembler     "vextsb2w" } } */
-/* { dg-final { scan-assembler     "vextsb2h" } } */
-/* { dg-final { scan-assembler     "vupkhsb"  } } */
-/* { dg-final { scan-assembler-not "lxvd2x"   } } */
-/* { dg-final { scan-assembler-not "lxvw4x"   } } */
-/* { dg-final { scan-assembler-not "lxv "     } } */
-/* { dg-final { scan-assembler-not "lxvx"     } } */
-/* { dg-final { scan-assembler-not "lvx"      } } */
+/* { dg-final { scan-assembler     "xxspltib"     } } */
+/* { dg-final { scan-assembler     "vextsb2d"     } } */
+/* { dg-final { scan-assembler     "vextsb2w"     } } */
+/* { dg-final { scan-assembler     "vupk\[hl\]sb" } } */
+/* { dg-final { scan-assembler-not "lxvd2x"       } } */
+/* { dg-final { scan-assembler-not "lxvw4x"       } } */
+/* { dg-final { scan-assembler-not "lxv "         } } */
+/* { dg-final { scan-assembler-not "lxvx"         } } */
+/* { dg-final { scan-assembler-not "lvx"          } } */

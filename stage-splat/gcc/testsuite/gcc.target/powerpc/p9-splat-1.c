@@ -23,6 +23,7 @@ foo_p (int *a)
   return (vector int) { *a, *a, *a, *a };	/* lxvwsx */
 }
 
+#if 0
 static int a;
 int *p_a = &a;
 
@@ -31,7 +32,8 @@ foo_s (void)
 {
   return (vector int) { a, a, a, a };		/* lxvwsx */
 }
+#endif
 
 
 /* { dg-final { scan-assembler-times "mtvsrws" 2 } } */
-/* { dg-final { scan-assembler-times "lxvwsx"  2 } } */
+/* { dg-final { scan-assembler-times "lxvwsx"  1 } } */
