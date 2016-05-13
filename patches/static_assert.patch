@@ -1,5 +1,5 @@
-Bottom: 513ce1a13dd2e8b3eae396770711888fe7bf71f3
-Top:    c266ce6e381b621c2ad5ca6ce733e9977e2a3cb4
+Bottom: cee1587b3346bc4d0b8bda99f068516bafdfd361
+Top:    2beef383eea3109a55a8de3c03768e24dd46125c
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-05-11 05:13:18 -0300
 
@@ -8,10 +8,10 @@ implement static_assert
 ---
 
 diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
-index bbc61d2e..cef4fd6 100644
+index d149847..6536597 100644
 --- a/include/gcc-cp-fe.def
 +++ b/include/gcc-cp-fe.def
-@@ -769,3 +769,12 @@ GCC_METHOD5 (int /* bool */, build_constant,
+@@ -784,3 +784,12 @@ GCC_METHOD5 (int /* bool */, build_constant,
  
  GCC_METHOD1 (gcc_type, error,
  	     const char *)		 /* Argument MESSAGE.  */
@@ -25,10 +25,10 @@ index bbc61d2e..cef4fd6 100644
 +	     const char *, /* Argument FILENAME.  */
 +	     unsigned int) /* Argument LINE_NUMBER.  */
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index d51c04c..adff723 100644
+index 36fda16..1aeea55 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
-@@ -2562,6 +2562,33 @@ plugin_error (cc1_plugin::connection *,
+@@ -2571,6 +2571,33 @@ plugin_error (cc1_plugin::connection *,
    return convert_out (error_mark_node);
  }
  
