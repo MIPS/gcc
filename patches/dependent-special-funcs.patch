@@ -1,5 +1,5 @@
 Bottom: da89f4ba0ba98702f0af9315171a76b333bd3c15
-Top:    b3c1d7a6f3a6760afdb78409535dd2c442776075
+Top:    cee1587b3346bc4d0b8bda99f068516bafdfd361
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-05-11 05:30:57 -0300
 
@@ -8,13 +8,14 @@ support dependent overloaded operators and other special member functions
 ---
 
 diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
-index 2d8bb7a..6ba208c 100644
+index 2d8bb7a..d149847 100644
 --- a/include/gcc-cp-fe.def
 +++ b/include/gcc-cp-fe.def
-@@ -430,20 +430,37 @@ GCC_METHOD2 (gcc_type, new_dependent_typespec,
+@@ -429,21 +429,45 @@ GCC_METHOD2 (gcc_type, new_dependent_typespec,
+ 	     gcc_utempl,		   /* Argument TEMPLATE_DECL.  */
  	     const struct gcc_cp_template_args *)  /* Argument TARGS.  */
  
- /* Build a template-dependent value expression (e.g., T::val or
+-/* Build a template-dependent value expression (e.g., T::val or
 -   T::template f<X>).  ENCLOSING_TYPE should be the template-dependent
 -   nested name specifier (e.g., T), ID should be the name of the
 -   member of the ENCLOSING_TYPE (e.g., val or f), and TARGS should
@@ -22,18 +23,28 @@ index 2d8bb7a..6ba208c 100644
 -   function, or be NULL otherwise.  */
 -
 -GCC_METHOD3 (gcc_decl, new_dependent_value_expr,
-+   T::template mtf<X>, or unqualified f or template tf<X>).
-+   ENCLOSING_TYPE should be the template-dependent nested name
-+   specifier (e.g., T) or NULL for unqualified names, ID should be the
-+   name of the member of the ENCLOSING_TYPE (e.g., val or mtf) or
-+   unqualified overloaded function, and TARGS should list template
-+   arguments (e.g. <X>) when mtf or tf are to name a template
-+   function, or be NULL otherwise.  Unqualified template-dependent
-+   names can only resolve to overloaded functions, to be used in
-+   contexts that make their argument types template-dependent, such as
-+   call expressions with template-dependent arguments, conversion
+-	     gcc_type,			  /* Argument ENCLOSING_TYPE.  */
+-	     const char *,			      /* Argument ID.  */
++/* Build a template-dependent value expression (e.g., S::val or
++   S::template mtf<X>, or unqualified f or template tf<X>).
++
++   ENCLOSING_SCOPE should be a template-dependent nested name
++   specifier (e.g., T), a resolved namespace or class decl, or NULL
++   for unqualified names; ID should be the name of the member of the
++   ENCLOSING_SCOPE (e.g., val or mtf) or unqualified overloaded
++   function; and TARGS should list template arguments (e.g. <X>) when
++   mtf or tf are to name a template function, or be NULL otherwise.
++
++   Unqualified names and namespace- or class-qualified names can only
++   resolve to overloaded functions, to be used in contexts that
++   involve overload resolution that cannot be resolved because of
++   template-dependent argument or return types, such as call
++   expressions with template-dependent arguments, conversion
 +   expressions to function types with template-dependent argument
-+   types or the like.
++   types or the like.  Other cases of unqualified or
++   non-template-dependent-qualified names should NOT use this
++   function, and use decl_expr to convert the appropriate function or
++   object declaration to an expression.
 +
 +   If ID is the name of a special member function, FLAGS should be
 +   GCC_CP_SYMBOL_FUNCTION|GCC_CP_FLAG_SPECIAL_FUNCTION, and ID should
@@ -46,9 +57,8 @@ index 2d8bb7a..6ba208c 100644
 +   target type of the conversion.  Otherwise, CONV_TYPE must be
 +   NULL.  */
 +
-+GCC_METHOD5 (gcc_decl, new_dependent_value_expr,
- 	     gcc_type,			  /* Argument ENCLOSING_TYPE.  */
--	     const char *,			      /* Argument ID.  */
++GCC_METHOD5 (gcc_expr, new_dependent_value_expr,
++	     gcc_decl,			 /* Argument ENCLOSING_SCOPE.  */
 +	     enum gcc_cp_symbol_kind,		   /* Argument FLAGS.  */
 +	     const char *,			    /* Argument NAME.  */
 +	     gcc_type,			       /* Argument CONV_TYPE.  */
@@ -60,15 +70,14 @@ index 2d8bb7a..6ba208c 100644
  /* Build a gcc_expr for the value VALUE in type TYPE.  */
  
  GCC_METHOD2 (gcc_expr, literal_expr,
-@@ -502,6 +519,8 @@ GCC_METHOD3 (gcc_expr, type_value_expr,
+@@ -501,6 +525,7 @@ GCC_METHOD3 (gcc_expr, type_value_expr,
+ 
  /* Return the type of the gcc_expr OPERAND.
     Use this for decltype.
++   For decltype (auto), pass a NULL OPERAND.
  
-+   FIXME: introduce decltype (auto).
-+
     Note: for template-dependent expressions, the result is NULL,
     because the type is only computed when template argument
-    substitution is performed.  */
 diff --git a/include/gcc-cp-interface.h b/include/gcc-cp-interface.h
 index 1d0d4c7..3710a3a8 100644
 --- a/include/gcc-cp-interface.h
@@ -83,22 +92,28 @@ index 1d0d4c7..3710a3a8 100644
  
  /* Qualifiers.  */
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index d258f35..d51c04c 100644
+index d258f35..36fda16 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
-@@ -1826,15 +1826,243 @@ plugin_new_dependent_typespec (cc1_plugin::connection *self,
- gcc_decl
+@@ -1823,18 +1823,248 @@ plugin_new_dependent_typespec (cc1_plugin::connection *self,
+   return convert_out (ctx->preserve (TREE_TYPE (decl)));
+ }
+ 
+-gcc_decl
++gcc_expr
  plugin_new_dependent_value_expr (cc1_plugin::connection *self,
- 				 gcc_type enclosing_type,
+-				 gcc_type enclosing_type,
 -				 const char *id,
++				 gcc_decl enclosing_scope,
 +				 enum gcc_cp_symbol_kind flags,
 +				 const char *name,
 +				 gcc_type conv_type_in,
  				 const gcc_cp_template_args *targs)
  {
    plugin_context *ctx = static_cast<plugin_context *> (self);
-   tree type = convert_in (enclosing_type);
+-  tree type = convert_in (enclosing_type);
 -  tree name = get_identifier (id);
++  tree scope = convert_in (enclosing_scope);
 +  tree conv_type = convert_in (conv_type_in);
 +  tree identifier;
 +
@@ -324,12 +339,30 @@ index d258f35..d51c04c 100644
 +      gcc_assert (!conv_type);
 +      identifier = get_identifier (name);
 +    }
++  tree res = identifier;
++  if (!scope)
++    res = lookup_name_real (res, 0, 0, true, 0, 0);
    if (targs)
 -    name = lookup_template_function (name, targlist (targs));
 -  tree res = build_qualified_name (NULL_TREE, type, name, !!targs);
-+    identifier = lookup_template_function (identifier, targlist (targs));
-+  tree res = identifier;
-+  if (type)
-+    res = build_qualified_name (NULL_TREE, type, identifier, !!targs);
++    res = lookup_template_function (res, targlist (targs));
++  if (scope)
++    res = build_qualified_name (NULL_TREE, scope, res, !!targs);
    return convert_out (ctx->preserve (res));
+ }
+ 
+@@ -2057,7 +2287,14 @@ plugin_expr_type (cc1_plugin::connection *,
+ 		  gcc_expr operand)
+ {
+   tree op0 = convert_in (operand);
+-  tree type = TREE_TYPE (op0);
++  tree type;
++  if (op0)
++    type = TREE_TYPE (op0);
++  else
++    {
++      type = make_decltype_auto ();
++      AUTO_IS_DECLTYPE (type) = true;
++    }
+   return convert_out (type);
  }
