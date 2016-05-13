@@ -1,6 +1,6 @@
 /* { dg-options "-mno-gpopt" } */
-/* { dg-final { scan-assembler-not "%lo\\(n\\+\[4-9\])" } } */
-/* { dg-final { scan-assembler-not "%lo\\(n\\+\1\[0-9\])" } } */
+/* { dg-final { scan-assembler-not "%lo\\(n\\+\[4-9\]\\)" } } */
+/* { dg-final { scan-assembler-not "%lo\\(n\\+1\[0-9\]\\)" } } */
 
 struct __attribute__((packed))
 {
