@@ -1,3 +1,33 @@
+2016-05-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Kelvin Nilsen  <kdnilsen@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/ctz-3.c: New tests for ISA 3.0 built-in
+	functions.
+	* gcc.target/powerpc/darn-0.c: Likewise.
+	* gcc.target/powerpc/darn-1.c: Likewise.
+	* gcc.target/powerpc/darn-2.c: Likewise.
+	* gcc.target/powerpc/p9-vpermr.c: Likewise.
+	* gcc.target/powerpc/vadsdu-0.c: Likewise.
+	* gcc.target/powerpc/vadsdu-1.c: Likewise.
+	* gcc.target/powerpc/vadsdu-2.c: Likewise.
+	* gcc.target/powerpc/vadsdu-3.c: Likewise.
+	* gcc.target/powerpc/vadsdu-4.c: Likewise.
+	* gcc.target/powerpc/vadsdu-5.c: Likewise.
+	* gcc.target/powerpc/vadsdub-1.c: Likewise.
+	* gcc.target/powerpc/vadsdub-2.c: Likewise.
+	* gcc.target/powerpc/vadsduh-1.c: Likewise.
+	* gcc.target/powerpc/vadsduh-2.c: Likewise.
+	* gcc.target/powerpc/vadsduw-1.c: Likewise.
+	* gcc.target/powerpc/vadsduw-2.c: Likewise.
+	* gcc.target/powerpc/vslv-0.c: Likewise.
+	* gcc.target/powerpc/vslv-1.c: Likewise.
+	* gcc.target/powerpc/vsrv-0.c: Likewise.
+	* gcc.target/powerpc/vsrv-1.c: Likewise.
+	* gcc.target/powerpc/p9-vneg.c: New test for ISA 3.0 VNEGD, VNEGW
+	instructions.
+	* gcc.target/powerpc/p9-permute.c: Update test to run on both big
+	endian and little endian systems.
+
 2016-05-13   Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch subversion id 236136
