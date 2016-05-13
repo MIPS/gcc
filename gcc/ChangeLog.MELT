@@ -1,5 +1,21 @@
 
 2016-05-13   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{still very unstable; perhaps crashing only without ASLR}}
+	* melt-runtime.h (melt_nb_full_garbcoll, melt_nb_garbcoll):
+	Declared as MELT_EXTERN variables.
+	(melt_magic_discr): when runtime debugging, the fatal error
+	message shows the GC count.
+
+	* melt-runtime.cc (Melt_Plain_Module::Melt_Plain_Module): add a
+	melt_debuggc_eprintf.
+	(check_pointer_at): Renamed to ...
+	(melt_check_pointer_at): ... probably obsolete function.
+	(melt_garbcoll): Better debug printing.
+	(melt_really_initialize): For runtime debugging purposes, added
+	sbrk-reserve program/plugin argument.  Both sbrk-reserve &
+	mmap-reserve are Linux specific program/plugin argument.
+
+2016-05-13   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerated all.
 
 2016-05-13   Basile Starynkevitch  <basile@starynkevitch.net>

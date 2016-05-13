@@ -459,6 +459,7 @@ public:
   {
     if (_pm_startrout)
       {
+	melt_debuggc_eprintf ("starting plain module #%d %s (GC#%d)", index(), module_path(), melt_nb_garbcoll);
         _pm_started = true;
         return (*_pm_startrout) (p);
       }
@@ -1169,10 +1170,10 @@ static void melt_scanning (melt_ptr_t);
 
 #if MELT_HAVE_RUNTIME_DEBUG > 0
 /***
- * check our call frames
+ * check our call frames; this function might be obsolete.
  ***/
 static inline void
-check_pointer_at (const char msg[], long count, melt_ptr_t * pptr,
+melt_check_pointer_at (const char msg[], long count, melt_ptr_t * pptr,
                   const char *filenam, int lineno)
 {
   unsigned magic = 0;
@@ -1181,8 +1182,8 @@ check_pointer_at (const char msg[], long count, melt_ptr_t * pptr,
     return;
   if (!ptr->u_discr)
     melt_fatal_error
-    ("<%s#%ld> corrupted pointer %p (at %p) without discr at %s:%d", msg,
-     count, (void *) ptr, (void *) pptr, melt_basename (filenam), lineno);
+    ("<%s#%ld> corrupted pointer %p (at %p) without discr at %s:%d (GC#%ld)", msg,
+     count, (void *) ptr, (void *) pptr, melt_basename (filenam), lineno, melt_nb_garbcoll);
   magic = ptr->u_discr->meltobj_magic;
   if (magic < MELTOBMAG__FIRST || magic >= MELTOBMAG__LAST)
     melt_fatal_error ("<%s#%ld> bad pointer %p (at %p) bad magic %d at %s:%d",
@@ -1211,7 +1212,7 @@ melt_cbreak_at (const char *msg, const char *fil, int lin)
 {
   melt_nbcbreak++;
   melt_debugeprintf_raw ("%s:%d: CBREAK#%ld %s\n", melt_basename (fil), lin,
-			 melt_nbcbreak,
+                         melt_nbcbreak,
                          msg);
   gcc_assert (melt_nbcbreak>0);  // useless, but you can put a GDB breakpoint here
 }
@@ -1694,12 +1695,23 @@ melt_garbcoll (size_t wanted, enum melt_gckind_en gckd)
   melt_nb_garbcoll++;
   if (gckd == MELT_NEED_FULL)
     {
-      melt_debuggc_eprintf ("melt_garbcoll explicitly needs full gckd#%d",
-                            (int) gckd);
+      melt_debuggc_eprintf ("melt_garbcoll#%ld explicitly needs full GC",
+                            melt_nb_garbcoll);
       needfullreason = "explicit";
       melt_nb_fullgc_because_asked ++;
     }
-
+  else {
+#if MELT_HAVE_RUNTIME_DEBUG > 0
+    char buf[16];
+    memset (buf, 0, sizeof(buf));
+    melt_debuggc_eprintf ("melt_garbcoll#%ld start %s", melt_nb_garbcoll,
+			  (gckd==MELT_ONLY_MINOR)?"only minor"
+			  :(gckd==MELT_MINOR_OR_FULL)?"minor or full"
+			  :(gckd==MELT_NEED_FULL)?"need full"
+			  :(snprintf(buf, sizeof(buf), "?gckd#%d?", (int)gckd), buf));
+#endif /* MELT_HAVE_RUNTIME_DEBUG */
+  }
+  melt_debugeprintf("melt_garbcoll#%ld start wanted=%ld gckd#%d",  melt_nb_garbcoll, (long)wanted, (int)gckd);
   /* set some parameters if they are cleared.  Should happen once.
      The default values (used in particular in plugin mode) are not
      the minimal ones.  */
@@ -1707,7 +1719,7 @@ melt_garbcoll (size_t wanted, enum melt_gckind_en gckd)
     {
       const char* minzstr = melt_argument ("minor-zone");
       melt_minorsizekilow = minzstr? (atol (minzstr))
-                            : MELT_DEFAULT_MINORSIZE_KW;
+	: MELT_DEFAULT_MINORSIZE_KW;
       if (melt_minorsizekilow < MELT_MIN_MINORSIZE_KW)
         melt_minorsizekilow = MELT_MIN_MINORSIZE_KW;
       else if (melt_minorsizekilow > MELT_MAX_MINORSIZE_KW)
@@ -1717,7 +1729,7 @@ melt_garbcoll (size_t wanted, enum melt_gckind_en gckd)
     {
       const char* fullthstr = melt_argument ("full-threshold");
       melt_fullthresholdkilow = fullthstr ? (atol (fullthstr))
-                                : MELT_DEFAULT_FULLTHRESHOLD_KW;
+	: MELT_DEFAULT_FULLTHRESHOLD_KW;
       if (melt_fullthresholdkilow < MELT_MIN_FULLTHRESHOLD_KW)
         melt_fullthresholdkilow = MELT_MIN_FULLTHRESHOLD_KW;
       if (melt_fullthresholdkilow < 32*melt_minorsizekilow)
@@ -1729,7 +1741,7 @@ melt_garbcoll (size_t wanted, enum melt_gckind_en gckd)
     {
       const char* fullperstr = melt_argument ("full-period");
       melt_fullperiod = fullperstr ? (atoi (fullperstr))
-                        : MELT_DEFAULT_PERIODFULL;
+	: MELT_DEFAULT_PERIODFULL;
       if (melt_fullperiod < MELT_MIN_PERIODFULL)
         melt_fullperiod = MELT_MIN_PERIODFULL;
       else if (melt_fullperiod > MELT_MAX_PERIODFULL)
@@ -1763,7 +1775,7 @@ melt_garbcoll (size_t wanted, enum melt_gckind_en gckd)
       > (long) (5*melt_minorsizekilow*(1024*sizeof(void*))))
     {
       melt_kilowords_forwarded
-      += melt_forwarded_copy_byte_count/(1024*sizeof(void*));
+	+= melt_forwarded_copy_byte_count/(1024*sizeof(void*));
       melt_debuggc_eprintf ("melt_kilowords_forwarded %ld",
                             melt_kilowords_forwarded);
       melt_forwarded_copy_byte_count = 0;
@@ -10409,38 +10421,71 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
           versionstr);
 #endif
 
+#ifdef __linux__
+
+  // process the sbrk-reserve argument to reserve memory; it is the size in megabytes to
+  // reserve memory to fill the virtual address space. Only perhaps
+  // useful for debugging the runtime GC
+  {
+    const char*sbrkresarg = melt_argument("sbrk-reserve");
+    if  (MELT_UNLIKELY(sbrkresarg != 0))
+      {
+        int megabytesbrk = atoi(sbrkresarg);
+        if (megabytesbrk > 0)
+          {
+            intptr_t i = ((intptr_t)megabytesbrk) << 20;
+            void *ad = sbrk(i);
+            if (MELT_UNLIKELY(ad == (void*)-1 || ad == NULL))
+              fatal_error (UNKNOWN_LOCATION,
+                           "MELT runtime failed to sbrk-reserve %d megabytes (%s)",
+                           megabytesbrk, xstrerror(errno));
+            else
+              inform (UNKNOWN_LOCATION, "MELT runtime reserved by sbrk %d megabytes @%p-%p",
+
+                      megabytesbrk, ad, (void*)((char*)ad+i));
+          }
+        else
+          warning (0, "MELT runtime skipping bad sbrk-reserve %s option", sbrkresarg);
+      } /* end if sbrkresarg */
+  } /* end sbrk-reserve option */
+
   // process the mmap-reserve argument; it is the size in megabytes to
-  // reserve memory to fill the virtual address space. Only useful for
-  // debugging the runtime GC, e.g. helpful for heisenbugs that
-  // happens with ASLR only
-  const char*mapresvarg = melt_argument("mmap-reserve");
-  if (MELT_UNLIKELY(mapresvarg != NULL))
-    {
-      int megabytereserve = atoi(mapresvarg);
-      if (megabytereserve > 0)
-        {
-          size_t reservesize = (long)megabytereserve << 20;
-          void* reservead = mmap(NULL, reservesize, PROT_READ,
-                                 MAP_PRIVATE
+  // reserve memory to fill the virtual address space. Only perhaps
+  // useful for debugging the runtime GC, e.g. helpful for heisenbugs
+  // that happens with ASLR only
+  {
+    const char*mapresvarg = melt_argument("mmap-reserve");
+    if (MELT_UNLIKELY(mapresvarg != NULL))
+      {
+        int megabytereserve = atoi(mapresvarg);
+        if (megabytereserve > 0)
+          {
+            size_t reservesize = (long)megabytereserve << 20;
+            void* reservead = mmap(NULL, reservesize, PROT_READ,
+                                   MAP_PRIVATE
 #ifdef MAP_NORESERVE
-                                 | MAP_NORESERVE
+                                   | MAP_NORESERVE
 #endif /*MAP_NORESERVE*/
-                                 | MAP_ANONYMOUS,
-                                 (int)-1 /*fd*/,
-                                 (off_t)0);
-          if (reservead == MAP_FAILED)
-            fatal_error (UNKNOWN_LOCATION,
-                         "MELT runtime failed to mmap-reserve %d megabytes (%s)",
-                         megabytereserve, xstrerror(errno));
-          else
-            inform (UNKNOWN_LOCATION, "MELT runtime reserved %d megabytes @%p"
+                                   | MAP_ANONYMOUS,
+                                   (int)-1 /*fd*/,
+                                   (off_t)0);
+            if (reservead == MAP_FAILED)
+              fatal_error (UNKNOWN_LOCATION,
+                           "MELT runtime failed to mmap-reserve %d megabytes (%s)",
+                           megabytereserve, xstrerror(errno));
+            else
+              inform (UNKNOWN_LOCATION, "MELT runtime reserved by mmap %d megabytes @%p-%p"
 #ifdef MAP_NORESERVE
-                    " using MAP_NORESERVE"
+                      " using MAP_NORESERVE"
 #endif
-                    " at initialization",
-                    megabytereserve, reservead);
-        }
-    }
+                      " at initialization",
+                      megabytereserve, reservead, (void*)((char*)reservead+reservesize));
+          }
+        else
+          warning (0, "MELT runtime skipping bad mmap-reserve %s option", mapresvarg);
+      }
+  } /* end mmap-reserve option */
+#endif /*__linux__*/
 
   Melt_Module::initialize ();
   melt_payload_initialize_static_descriptors ();
@@ -12884,7 +12929,7 @@ void
 melt_sparebreakpoint_0_at (const char*fil, int lin, void*ptr, const char*msg)
 {
   melt_dumprintf_raw ("@%s:%d: MELT sparebreakpoint_0 ptr=%p msg=%s\n",
-                 fil, lin, ptr, msg);
+                      fil, lin, ptr, msg);
   char msgbuf[128];
   snprintf (msgbuf, sizeof(msgbuf), "melt_sparebreakpoint_0@%.25s:%d: %s",
             melt_basename (fil), lin, msg);
@@ -12897,7 +12942,7 @@ void
 melt_sparebreakpoint_1_at (const char*fil, int lin, void*ptr, const char*msg)
 {
   melt_dumprintf_raw ("@%s:%d: MELT sparebreakpoint_1 ptr=%p msg=%s\n",
-                 fil, lin, ptr, msg);
+                      fil, lin, ptr, msg);
   char msgbuf[128];
   snprintf (msgbuf, sizeof(msgbuf), "melt_sparebreakpoint_1@%.25s:%d: %s",
             melt_basename (fil), lin, msg);
@@ -12910,7 +12955,7 @@ void
 melt_sparebreakpoint_2_at (const char*fil, int lin, void*ptr, const char*msg)
 {
   melt_dumprintf_raw ("@%s:%d: MELT sparebreakpoint_2 ptr=%p msg=%s\n",
-                 fil, lin, ptr, msg);
+                      fil, lin, ptr, msg);
   char msgbuf[128];
   snprintf (msgbuf, sizeof(msgbuf), "melt_sparebreakpoint_2@%.25s:%d: %s",
             melt_basename (fil), lin, msg);

@@ -137,6 +137,8 @@ MELT_EXTERN std::vector<std::string> melt_done_modes_vector;
 
 MELT_EXTERN void melt_fatal_info (const char*filename, int lineno);
 
+MELT_EXTERN unsigned long melt_nb_full_garbcoll;
+MELT_EXTERN unsigned long melt_nb_garbcoll;
 
 #define melt_fatal_error(Fmt,...) do{ melt_fatal_info (__FILE__,__LINE__); \
     fatal_error (UNKNOWN_LOCATION, (Fmt),##__VA_ARGS__); }while(0)
@@ -884,8 +886,8 @@ melt_magic_discr (melt_ptr_t p)
       corrupted; a data zone has been freed and then dereferenced. */
       melt_fatal_error
       ("corrupted memory retrieving magic discriminant of %p,"
-       " (= the poison pointer)",
-       (void*) p);
+       " (= the poison pointer); GC#%ld",
+       (void*) p, melt_nb_garbcoll);
     }
 #endif /*MELT_HAVE_DEBUG > 0 && defined(MELT_POISON_POINTER) */
 #if MELT_HAVE_DEBUG > 0 || MELT_HAVE_RUNTIME_DEBUG > 0
@@ -894,8 +896,8 @@ melt_magic_discr (melt_ptr_t p)
       /* This should never happen, we are asking the discriminant of a
       not yet filled, since cleared, memory zone. */
       melt_fatal_error
-      ("corrupted memory heap with null magic discriminant in %p",
-       (void*) p);
+      ("corrupted memory heap with null magic discriminant in %p; GC#%ld",
+       (void*) p, melt_nb_garbcoll);
     }
 #endif /*MELT_HAVE_DEBUG or MELT_HAVE_RUNTIME_DEBUG */
 #if MELT_HAVE_RUNTIME_DEBUG > 0 && defined(MELT_POISON_POINTER)
@@ -905,8 +907,8 @@ melt_magic_discr (melt_ptr_t p)
       zone which has been poisoned, that is has been freed! */
       melt_fatal_error
       ("corrupted memory heap retrieving magic discriminant of %p,"
-       "(= a freed and poisoned memory zone)",
-       (void*) p);
+       "(= a freed and poisoned memory zone); GC#%ld",
+       (void*) p, melt_nb_garbcoll);
     }
 #endif /*MELT_HAVE_RUNTIME_DEBUG > 0 && defined(MELT_POISON_POINTER)*/
   gcc_assert (p->u_discr != NULL);
