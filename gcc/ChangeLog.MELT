@@ -1,4 +1,9 @@
 
+2016-05-13   Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-outobj.melt (outpucod_initialmoduleroutine): Don't
+	emit dbgprintf but melt_dumprintf & melt_debugeprintf.
+
 2016-05-12   Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/generated/*: Regenerated all.
