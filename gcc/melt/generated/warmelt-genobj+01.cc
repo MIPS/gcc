@@ -39,7 +39,7 @@ MELT_EXTERN const char meltrun_used_md5_melt_f1[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiGENOBJ_h96664924; // forward declaration fromline 6704
+class Melt_InitialClassyFrame_WARMELTmiGENOBJ_h96664924; // forward declaration fromline 6712
 typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h96664924 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
@@ -14901,8 +14901,7 @@ meltlab_endgetargs:
             argtab[11].meltbp_cstring =  "\") ;\n\t        }\n\t      else /* no prevenv */\
 \n\t        {\n#if MELT_HAS_INITIAL_ENVIRONMENT>0\
 \n\t      if (!melt_flag_bootstrapping)\
-\n\t        warning(0, \"MELT is not creating a fresh environment reference\
- for ";
+\n\t        warning(0, \"MELT is not creating a fresh environment reference for ";
             /*^apply.arg*/
             argtab[12].meltbp_aptr = (melt_ptr_t*) &/*_.RAWMODNAM__V29*/ meltfptr[28];
             /*^apply.arg*/
@@ -16737,7 +16736,8 @@ meltlab_endgetargs:
                                     argtab[4].meltbp_aptr = (melt_ptr_t*) &/*_.MODULVERBSTR__V152*/ meltfptr[121];
                                     /*^apply.arg*/
                                     argtab[5].meltbp_cstring =  " should have no parent\",\n\t\t\t\t     modargp_ == NULL) ;\
-\n\t\t      ";
+\n\t\t \
+     ";
                                     /*_.OCHECKNOPAR__V153*/ meltfptr[128] =  melt_apply ((meltclosure_ptr_t)((/*!MAKE_OBJCOMPUTE*/ meltfrout->tabval[25])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING ""), argtab, "", (union meltparam_un*)0);
                                 }
                                 ;
@@ -35939,3 +35939,4 @@ meltlabend_rout:
 
 
 /**** end of warmelt-genobj+01.cc ****/
+

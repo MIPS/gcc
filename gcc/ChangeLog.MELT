@@ -1,5 +1,8 @@
 
 2016-05-13   Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerated all.
+
+2016-05-13   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{unstable, might crash with ASLR enabled in stage3}}
 
 	* melt-runtime.cc: Moved the comment about astyle indentation.

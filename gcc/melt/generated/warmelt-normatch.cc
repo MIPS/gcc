@@ -40,7 +40,7 @@ MELT_EXTERN const char meltrun_used_md5_melt[] = MELT_RUN_HASHMD5 /* from melt-r
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiNORMATCH_h986759486; // forward declaration fromline 6704
+class Melt_InitialClassyFrame_WARMELTmiNORMATCH_h986759486; // forward declaration fromline 6712
 typedef Melt_InitialClassyFrame_WARMELTmiNORMATCH_h986759486 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
@@ -8235,7 +8235,9 @@ static void melt_initialize_module_meltdata_WARMELTmiNORMATCH (meltinitial_frame
         struct meltint_st dint_1389__;
         long spare_;
     } *meltcdat = NULL;
-    dbgprintf ("start melt_initialize_module_meltdata_WARMELTmiNORMATCH iniframp__=%p", (void*) iniframp__);
+    melt_dumprintf ("start melt_initialize_module_meltdata_WARMELTmiNORMATCH iniframp__=%p", (void*) iniframp__);
+    melt_debugeprintf("starting melt_initialize_module_meltdata_WARMELTmiNORMATCH iniframp__=%p", (void*) iniframp__);
+    melt_debuggc_eprintf ("beginning melt_initialize_module_meltdata_WARMELTmiNORMATCH iniframp__=%p", (void*) iniframp__);
     (void) meltpredefinited; /* avoid warning if non-used. */
     /*curframe_cdat_fill */
     meltcdat = (struct meltcdata_st*) meltgc_allocate(sizeof(*meltcdat),0);
@@ -19682,7 +19684,7 @@ void* MELT_LOW_OPTIMIZATION melt_start_this_module (void* modargp_)
 #undef meltcallcount
 #define meltcallcount 0L
 #endif
-//// emitted by output_curframe_declstruct_init using LAMBDA_ @warmelt-outobj.melt:2255
+//// emitted by output_curframe_declstruct_init using LAMBDA_ @warmelt-outobj.melt:2263
 
     /* start of frame for routine melt_start_this_module fromline 1752 */
 
@@ -23955,7 +23957,7 @@ void* MELT_LOW_OPTIMIZATION melt_start_this_module (void* modargp_)
     /**initial routine body**/
 
     melt_debugeprintf (" in initialization of warmelt-normatch thru 36 chunk routines with frame @%p of %d bytes",
-                       /*fromline 2349*/ (void*)&meltfram__, (int) sizeof(meltfram__));
+                       /*fromline 2357*/ (void*)&meltfram__, (int) sizeof(meltfram__));
     melt_debuggc_eprintf ("initialization of warmelt-normatch thru 36 chunks, frame @%p of %d bytes",
                           (void*)&meltfram__, (int) sizeof(meltfram__));
 
@@ -23999,15 +24001,15 @@ void* MELT_LOW_OPTIMIZATION melt_start_this_module (void* modargp_)
 meltlabend_rout:
     ;
     {
-        /* return out of initial fromline 2384 */ melt_ptr_t retval = /*_._RETINIT___V1*/ meltfptr[0];
-        melt_debugeprintf ("returning @%p from initial routine of warmelt-normatch", (void*)retval); /*fromline 2392*/
+        /* return out of initial fromline 2392 */ melt_ptr_t retval = /*_._RETINIT___V1*/ meltfptr[0];
+        melt_debugeprintf ("returning @%p from initial routine of warmelt-normatch", (void*)retval); /*fromline 2400*/
         return retval;
     }
 #undef meltcallcount
 #undef meltfram__
 #undef MELTFRAM_NBVARNUM
 #undef MELTFRAM_NBVARPTR
-} /* end melt_start_this_module fromline 2404 */
+} /* end melt_start_this_module fromline 2412 */
 
 
 void meltmod__WARMELTmiNORMATCH__initialmeltchunk_0 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
@@ -53014,3 +53016,4 @@ const int meltclasslen__CLASS_PATTERN_CONTEXT = 11;
 
 
 /**** end of warmelt-normatch ****/
+

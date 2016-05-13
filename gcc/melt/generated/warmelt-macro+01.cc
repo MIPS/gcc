@@ -39,7 +39,7 @@ MELT_EXTERN const char meltrun_used_md5_melt_f1[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiMACRO_h222289303; // forward declaration fromline 6704
+class Melt_InitialClassyFrame_WARMELTmiMACRO_h222289303; // forward declaration fromline 6712
 typedef Melt_InitialClassyFrame_WARMELTmiMACRO_h222289303 Melt_InitialFrame;
 /*** 6 MELT module variables declarations ****/
 MELT_EXTERN void melt_forwarding_module_data (void);
@@ -1211,7 +1211,7 @@ meltlab_endgetargs:
         ;
         /*^compute*/
         /*_.HOOK_MELT_MAKE_LOCATION__V7*/ meltfptr[6] =
-            /*hookcall*/ melthook_HOOK_MELT_MAKE_LOCATION ((melt_ptr_t) (/*!HOOK_MELT_MAKE_LOCATION*/ meltfrout->tabval[2]),  "/home/basile/ssd/gcc-melt-branch/gcc/melt/warmelt-macro.melt", 361) ;;
+            /*hookcall*/ melthook_HOOK_MELT_MAKE_LOCATION ((melt_ptr_t) (/*!HOOK_MELT_MAKE_LOCATION*/ meltfrout->tabval[2]),  "/usr/src/Lang/gcc-melt-branch/gcc/melt/warmelt-macro.melt", 361) ;;
         /*^compute*/
         /*_.MAKE_MAPOBJECT__V8*/ meltfptr[7] =
             (meltgc_new_mapobjects( (meltobject_ptr_t) ((/*!DISCR_MAP_OBJECTS*/ meltfrout->tabval[3])), (19)));;
@@ -3244,7 +3244,7 @@ meltlab_endgetargs:
         ;
         /*^compute*/
         /*_.HOOK_MELT_MAKE_LOCATION__V7*/ meltfptr[6] =
-            /*hookcall*/ melthook_HOOK_MELT_MAKE_LOCATION ((melt_ptr_t) (/*!HOOK_MELT_MAKE_LOCATION*/ meltfrout->tabval[2]),  "/home/basile/ssd/gcc-melt-branch/gcc/melt/warmelt-macro.melt", 383) ;;
+            /*hookcall*/ melthook_HOOK_MELT_MAKE_LOCATION ((melt_ptr_t) (/*!HOOK_MELT_MAKE_LOCATION*/ meltfrout->tabval[2]),  "/usr/src/Lang/gcc-melt-branch/gcc/melt/warmelt-macro.melt", 383) ;;
         /*^compute*/
         /*_.MAKE_MAPOBJECT__V8*/ meltfptr[7] =
             (meltgc_new_mapobjects( (meltobject_ptr_t) ((/*!DISCR_MAP_OBJECTS*/ meltfrout->tabval[3])), (19)));;
@@ -5280,7 +5280,7 @@ meltlab_endgetargs:
         ;
         /*^compute*/
         /*_.HOOK_MELT_MAKE_LOCATION__V6*/ meltfptr[5] =
-            /*hookcall*/ melthook_HOOK_MELT_MAKE_LOCATION ((melt_ptr_t) (/*!HOOK_MELT_MAKE_LOCATION*/ meltfrout->tabval[2]),  "/home/basile/ssd/gcc-melt-branch/gcc/melt/warmelt-macro.melt", 408) ;;
+            /*hookcall*/ melthook_HOOK_MELT_MAKE_LOCATION ((melt_ptr_t) (/*!HOOK_MELT_MAKE_LOCATION*/ meltfrout->tabval[2]),  "/usr/src/Lang/gcc-melt-branch/gcc/melt/warmelt-macro.melt", 408) ;;
         /*^compute*/
         /*_.MAKE_MAPOBJECT__V7*/ meltfptr[6] =
             (meltgc_new_mapobjects( (meltobject_ptr_t) ((/*!DISCR_MAP_OBJECTS*/ meltfrout->tabval[3])), (19)));;
@@ -7213,7 +7213,7 @@ meltlab_endgetargs:
         ;
         /*^compute*/
         /*_.HOOK_MELT_MAKE_LOCATION__V6*/ meltfptr[5] =
-            /*hookcall*/ melthook_HOOK_MELT_MAKE_LOCATION ((melt_ptr_t) (/*!HOOK_MELT_MAKE_LOCATION*/ meltfrout->tabval[2]),  "/home/basile/ssd/gcc-melt-branch/gcc/melt/warmelt-macro.melt", 430) ;;
+            /*hookcall*/ melthook_HOOK_MELT_MAKE_LOCATION ((melt_ptr_t) (/*!HOOK_MELT_MAKE_LOCATION*/ meltfrout->tabval[2]),  "/usr/src/Lang/gcc-melt-branch/gcc/melt/warmelt-macro.melt", 430) ;;
         /*^compute*/
         /*_.MAKE_MAPOBJECT__V7*/ meltfptr[6] =
             (meltgc_new_mapobjects( (meltobject_ptr_t) ((/*!DISCR_MAP_OBJECTS*/ meltfrout->tabval[3])), (19)));;
@@ -29278,3 +29278,4 @@ meltlabend_rout:
 
 
 /**** end of warmelt-macro+01.cc ****/
+
