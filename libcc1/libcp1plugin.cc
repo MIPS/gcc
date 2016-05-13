@@ -1823,16 +1823,16 @@ plugin_new_dependent_typespec (cc1_plugin::connection *self,
   return convert_out (ctx->preserve (TREE_TYPE (decl)));
 }
 
-gcc_decl
+gcc_expr
 plugin_new_dependent_value_expr (cc1_plugin::connection *self,
-				 gcc_type enclosing_type,
+				 gcc_decl enclosing_scope,
 				 enum gcc_cp_symbol_kind flags,
 				 const char *name,
 				 gcc_type conv_type_in,
 				 const gcc_cp_template_args *targs)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
-  tree type = convert_in (enclosing_type);
+  tree scope = convert_in (enclosing_scope);
   tree conv_type = convert_in (conv_type_in);
   tree identifier;
 
@@ -2058,11 +2058,13 @@ plugin_new_dependent_value_expr (cc1_plugin::connection *self,
       gcc_assert (!conv_type);
       identifier = get_identifier (name);
     }
-  if (targs)
-    identifier = lookup_template_function (identifier, targlist (targs));
   tree res = identifier;
-  if (type)
-    res = build_qualified_name (NULL_TREE, type, identifier, !!targs);
+  if (!scope)
+    res = lookup_name_real (res, 0, 0, true, 0, 0);
+  if (targs)
+    res = lookup_template_function (res, targlist (targs));
+  if (scope)
+    res = build_qualified_name (NULL_TREE, scope, res, !!targs);
   return convert_out (ctx->preserve (res));
 }
 
@@ -2285,7 +2287,14 @@ plugin_expr_type (cc1_plugin::connection *,
 		  gcc_expr operand)
 {
   tree op0 = convert_in (operand);
-  tree type = TREE_TYPE (op0);
+  tree type;
+  if (op0)
+    type = TREE_TYPE (op0);
+  else
+    {
+      type = make_decltype_auto ();
+      AUTO_IS_DECLTYPE (type) = true;
+    }
   return convert_out (type);
 }
 
