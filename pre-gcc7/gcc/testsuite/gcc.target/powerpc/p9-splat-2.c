@@ -32,18 +32,7 @@ foo_p (float *a)
   return (vector float) { *a, *a, *a, *a };		/* lxvwsx */
 }
 
-static float a;
-float *p_a = &a;
-
-vector float
-foo_s (void)
-{
-  return (vector float) { a, a, a, a };			/* lxvwsx */
-}
-
-
-
 /* { dg-final { scan-assembler-times "xscvdpspn" 2 } } */
 /* { dg-final { scan-assembler-times "xxspltw"   2 } } */
 /* { dg-final { scan-assembler-times "mtvsrws"   1 } } */
-/* { dg-final { scan-assembler-times "lxvwsx"    2 } } */
+/* { dg-final { scan-assembler-times "lxvwsx"    1 } } */

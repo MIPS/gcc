@@ -3215,7 +3215,7 @@ Floating point register if the LFIWZX instruction is enabled or NO_REGS.
 Int constant that is the element number of the 64-bit scalar in a vector.
 
 @item wE
-Vector constant that does not require memory using ISA 3.0 instructions.
+Vector constant that can be loaded with the XXSPLTIB instruction.
 
 @item wF
 Memory operand suitable for power9 fusion load/stores.
@@ -3228,7 +3228,7 @@ Int constant that is the element number that the MFVSRLD instruction
 targets.
 
 @item wM
-Vector constant of all 1's (ISA 2.07 and above).
+Vector constant with all bits set to 1.
 
 @item wO
 A memory operand suitable for the ISA 3.0 vector d-form instructions.
@@ -3236,6 +3236,9 @@ A memory operand suitable for the ISA 3.0 vector d-form instructions.
 @item wQ
 A memory address that will work with the @code{lq} and @code{stq}
 instructions.
+
+@item wS
+Vector constant that can be loaded with XXSPLTIB & sign extension.
 
 @item h
 @samp{MQ}, @samp{CTR}, or @samp{LINK} register

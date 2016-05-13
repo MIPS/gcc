@@ -141,8 +141,8 @@
        (match_test "TARGET_VSX && (ival == VECTOR_ELEMENT_SCALAR_64BIT)")))
 
 (define_constraint "wE"
-  "vector constant that can be loaded with the XXSPLTIB instruction"
-  (match_test "easy_p9_constant (op, mode, true)"))
+  "Vector constant that can be loaded with the XXSPLTIB instruction."
+  (match_test "xxspltib_constant_nosplit (op, mode)"))
 
 ;; Extended fusion store
 (define_memory_constraint "wF"
@@ -175,6 +175,10 @@
 (define_memory_constraint "wQ"
   "Memory operand suitable for the load/store quad instructions"
   (match_operand 0 "quad_memory_operand"))
+
+(define_constraint "wS"
+  "Vector constant that can be loaded with XXSPLTIB & sign extension."
+  (match_test "xxspltib_constant_split (op, mode)"))
 
 ;; Altivec style load/store that ignores the bottom bits of the address
 (define_memory_constraint "wZ"

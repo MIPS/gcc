@@ -23,15 +23,5 @@ foo_p (int *a)
   return (vector int) { *a, *a, *a, *a };	/* lxvwsx */
 }
 
-static int a;
-int *p_a = &a;
-
-vector int
-foo_s (void)
-{
-  return (vector int) { a, a, a, a };		/* lxvwsx */
-}
-
-
 /* { dg-final { scan-assembler-times "mtvsrws" 2 } } */
-/* { dg-final { scan-assembler-times "lxvwsx"  2 } } */
+/* { dg-final { scan-assembler-times "lxvwsx"  1 } } */
