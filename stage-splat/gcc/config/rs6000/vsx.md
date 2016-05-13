@@ -179,21 +179,6 @@
 			 (DF    "s")
 			 (KF	"v")])
 
-;; Map into either *r or ??r depending on whether we want a vector mode in GPRs
-;; to not select the register for going into GPRs unless the user asked for it,
-;; or to prefer GPRs if vector registers are not available.
-(define_mode_attr VSg  [(V16QI "*r")
-			(V8HI  "*r")
-			(V4SI  "*r")
-			(V4SF  "*r")
-			(V2DF  "*r")
-			(V2DI  "*r")
-			(DF    "*r")
-			(TF    "*r")
-			(KF    "*r")
-			(V1TI  "*r")
-			(TI    "??r")])
-
 ;; Appropriate type for add ops (and other simple FP ops)
 (define_mode_attr VStype_simple	[(V2DF "vecdouble")
 				 (V4SF "vecfloat")
@@ -857,25 +842,25 @@
 ;;							-1          GPR const.
 ;;                                                      AVX store   AVX load
 
-;; Prefer using ISA 3.0's XXSPLTISB or Altivec VSPLITW 0/-1 over XXLXOR/XXLORC
-;; to set a register to all 0's or all 1's, since the machine does not have to
-;; wait for the previous instruction using the register being set (such as a
-;; store waiting on a slow instruction). But generate XXLXOR/XXLORC if it will
-;; avoid a register move.
+;; Prefer using vector registers over GPRs.  Prefer using ISA 3.0's XXSPLTISB
+;; or Altivec VSPLITW 0/-1 over XXLXOR/XXLORC to set a register to all 0's or
+;; all 1's, since the machine does not have to wait for the previous
+;; instruction using the register being set (such as a store waiting on a slow
+;; instruction). But generate XXLXOR/XXLORC if it will avoid a register move.
 (define_insn "*vsx_mov<mode>_64bit"
   [(set (match_operand:VSX_M 0 "nonimmediate_operand" "=wOZ,        <VSa>,
                                                        <VSa>,       *r,
                                                        *wo,         $Y,
-                                                       <VSg>,       <VSg>,
+                                                       ??r,         ??r,
                                                        wo,          v,
                                                        v,           ?<VSa>,
-                                                       ?wh,         <VSg>,
+                                                       ?wh,         ??r,
                                                        wZ,          v")
 
 	(match_operand:VSX_M 1 "input_operand"        "<VSa>,       wOZ,
                                                        <VSa>,       wo,
-                                                       r,           <VSg>,
-                                                       Y,           <VSg>,
+                                                       r,           ??r,
+                                                       Y,           ??r,
                                                        wE,          W,
                                                        wS,          j,
                                                        wM,          WjwM,
@@ -915,15 +900,15 @@
 (define_insn "*vsx_mov<mode>_32bit"
   [(set (match_operand:VSX_M 0 "nonimmediate_operand" "=wOZ,        <VSa>,
                                                        <VSa>,       $Y,
-                                                       <VSg>,       <VSg>,
+                                                       ???r,        ???r,
                                                        wo,          v,
                                                        v,           ?<VSa>,
-                                                       ?wh,         <VSg>,
+                                                       ?wh,         ???r,
                                                        wZ,          v")
 
 	(match_operand:VSX_M 1 "input_operand"        "<VSa>,       wOZ,
-                                                       <VSa>,       <VSg>,
-                                                       Y,           <VSg>,
+                                                       <VSa>,       ???r,
+                                                       Y,           ???r,
                                                        wE,          W,
                                                        wS,          j,
                                                        wM,          WjwM,
@@ -2450,7 +2435,19 @@
 
 ;; V4SI splat (ISA 3.0)
 ;; When SI's are allowed in VSX registers, add XXSPLTW support
-(define_insn "vsx_splat_v4si"
+(define_expand "vsx_splat_<mode>"
+  [(set (match_operand:VSX_W 0 "vsx_register_operand" "")
+	(vec_duplicate:VSX_W
+	 (match_operand:<VS_scalar> 1 "splat_input_operand" "")))]
+  "TARGET_P9_VECTOR"
+{
+  if (MEM_P (operands[1]))
+    operands[1] = rs6000_address_for_fpconvert (operands[1]);
+  else if (!REG_P (operands[1]))
+    operands[1] = force_reg (<VS_scalar>mode, operands[1]);
+})
+
+(define_insn "*vsx_splat_v4si_internal"
   [(set (match_operand:V4SI 0 "vsx_register_operand" "=wa,wa")
 	(vec_duplicate:V4SI
 	 (match_operand:SI 1 "reg_or_indexed_operand" "r,Z")))]
@@ -2461,7 +2458,7 @@
   [(set_attr "type" "mftgpr,vecload")])
 
 ;; V4SF splat (ISA 3.0)
-(define_insn_and_split "vsx_splat_v4sf"
+(define_insn_and_split "*vsx_splat_v4sf_internal"
   [(set (match_operand:V4SF 0 "vsx_register_operand" "=wa,wa,wa")
 	(vec_duplicate:V4SF
 	 (match_operand:SF 1 "reg_or_indexed_operand" "Z,wy,r")))]

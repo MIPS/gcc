@@ -6707,8 +6707,7 @@ rs6000_expand_vector_init (rtx target, rtx vals)
   if (TARGET_P9_VECTOR && mode == V4SImode && all_same
       && VECTOR_MEM_VSX_P (mode))
     {
-      rtx op0 = XVECEXP (vals, 0, 0);
-      emit_insn (gen_vsx_splat_v4si (target, op0));
+      emit_insn (gen_vsx_splat_v4si (target, XVECEXP (vals, 0, 0)));
       return;
     }
 
@@ -8504,12 +8503,16 @@ rs6000_legitimize_reload_address (rtx x, machine_mode mode,
 {
   bool reg_offset_p = reg_offset_addressing_ok_p (mode);
 
-  /* Nasty hack for vsx_splat_V2DF/V2DI load from mem, which takes a
-     DFmode/DImode MEM.  */
+  /* Nasty hack for vsx_splat_v2df/v2di load from mem, which takes a
+     DFmode/DImode MEM.  Ditto for ISA 3.0 vsx_splat_v4sf/v4si.  */
   if (reg_offset_p
       && opnum == 1
       && ((mode == DFmode && recog_data.operand_mode[0] == V2DFmode)
-	  || (mode == DImode && recog_data.operand_mode[0] == V2DImode)))
+	  || (mode == DImode && recog_data.operand_mode[0] == V2DImode)
+	  || (mode == SFmode && recog_data.operand_mode[0] == V4SFmode
+	      && TARGET_P9_VECTOR)
+	  || (mode == SImode && recog_data.operand_mode[0] == V4SImode
+	      && TARGET_P9_VECTOR)))
     reg_offset_p = false;
 
   /* We must recognize output that we have already generated ourselves.  */

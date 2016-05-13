@@ -1068,6 +1068,10 @@
 	mode = V2DFmode;
       else if (mode == DImode)
 	mode = V2DImode;
+      else if (mode == SImode && TARGET_P9_VECTOR)
+	mode = V4SImode;	
+      else if (mode == SFmode && TARGET_P9_VECTOR)
+	mode = V4SFmode;	
       else
 	gcc_unreachable ();
       return memory_address_addr_space_p (mode, XEXP (op, 0),
