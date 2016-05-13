@@ -95,6 +95,7 @@ pdp11 port		Paul Koning		<ni1d@arrl.net>
 picochip port		Daniel Towner		<dant@picochip.com>
 rl78 port		DJ Delorie		<dj@redhat.com>
 rs6000/powerpc port	David Edelsohn		<dje.gcc@gmail.com>
+rs6000/powerpc port	Segher Boessenkool	<segher@kernel.crashing.org>
 rs6000 vector extns	Aldy Hernandez		<aldyh@redhat.com>
 rx port			Nick Clifton		<nickc@redhat.com>
 s390 port		Hartmut Penner		<hpenner@de.ibm.com>
@@ -559,6 +560,7 @@ Iain Sandoe					<iain@codesourcery.com>
 Duncan Sands					<baldrick@gcc.gnu.org>
 Sujoy Saraswati					<sujoy.saraswati@hpe.com>
 Trevor Saunders					<tsaunders@mozilla.com>
+Aaron Sawdey					<acsawdey@linux.vnet.ibm.com>
 William Schmidt					<wschmidt@linux.vnet.ibm.com>
 Tilo Schwarz					<tilo@tilo-schwarz.de>
 Martin Sebor					<msebor@gcc.gnu.org>
