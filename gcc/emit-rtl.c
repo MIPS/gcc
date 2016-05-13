@@ -2241,7 +2241,8 @@ adjust_address_1 (rtx memref, machine_mode mode, HOST_WIDE_INT offset,
       if (GET_MODE (memref) != BLKmode && GET_CODE (addr) == LO_SUM
 	  && offset >= 0
 	  && (unsigned HOST_WIDE_INT) offset
-	      < GET_MODE_ALIGNMENT (GET_MODE (memref)) / BITS_PER_UNIT)
+	      < GET_MODE_ALIGNMENT (GET_MODE (memref)) / BITS_PER_UNIT
+	  && (unsigned HOST_WIDE_INT) offset < attrs.align / BITS_PER_UNIT)
 	addr = gen_rtx_LO_SUM (address_mode, XEXP (addr, 0),
 			       plus_constant (address_mode,
 					      XEXP (addr, 1), offset));
