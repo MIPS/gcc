@@ -1,5 +1,5 @@
 Bottom: da89f4ba0ba98702f0af9315171a76b333bd3c15
-Top:    cee1587b3346bc4d0b8bda99f068516bafdfd361
+Top:    f01c07b33d36f554c3795dd734f232576262bbd6
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-05-11 05:30:57 -0300
 
@@ -92,10 +92,10 @@ index 1d0d4c7..3710a3a8 100644
  
  /* Qualifiers.  */
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index d258f35..36fda16 100644
+index d258f35..e359bc5 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
-@@ -1823,18 +1823,248 @@ plugin_new_dependent_typespec (cc1_plugin::connection *self,
+@@ -1823,18 +1823,262 @@ plugin_new_dependent_typespec (cc1_plugin::connection *self,
    return convert_out (ctx->preserve (TREE_TYPE (decl)));
  }
  
@@ -116,6 +116,13 @@ index d258f35..36fda16 100644
 +  tree scope = convert_in (enclosing_scope);
 +  tree conv_type = convert_in (conv_type_in);
 +  tree identifier;
++
++  if (TREE_CODE (scope) != NAMESPACE_DECL)
++    {
++      tree type = TREE_TYPE (scope);
++      gcc_assert (TYPE_NAME (type) == scope);
++      scope = type;
++    }
 +
 +  if (flags == (GCC_CP_SYMBOL_FUNCTION | GCC_CP_FLAG_SPECIAL_FUNCTION))
 +    {
@@ -342,6 +349,13 @@ index d258f35..36fda16 100644
 +  tree res = identifier;
 +  if (!scope)
 +    res = lookup_name_real (res, 0, 0, true, 0, 0);
++  else if (!TYPE_P (scope) || !dependent_scope_p (scope))
++    {
++      res = lookup_qualified_name (scope, res, false, true);
++      /* We've already resolved the name in the scope, so skip the
++	 build_qualified_name call below.  */
++      scope = NULL;
++    }
    if (targs)
 -    name = lookup_template_function (name, targlist (targs));
 -  tree res = build_qualified_name (NULL_TREE, type, name, !!targs);
@@ -351,7 +365,7 @@ index d258f35..36fda16 100644
    return convert_out (ctx->preserve (res));
  }
  
-@@ -2057,7 +2287,14 @@ plugin_expr_type (cc1_plugin::connection *,
+@@ -2057,7 +2301,14 @@ plugin_expr_type (cc1_plugin::connection *,
  		  gcc_expr operand)
  {
    tree op0 = convert_in (operand);
