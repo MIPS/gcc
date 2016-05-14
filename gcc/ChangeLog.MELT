@@ -1,4 +1,9 @@
 
+2016-05-14   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{see http://stackoverflow.com/q/37229005/841108}}
+	* melt-runtime.cc (memset, memcpy): Naive implementation when #if
+	MELT_HAVE_OWN_STRINGS_FUNCTIONS>0...
+
 2016-05-13   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{still very unstable; perhaps crashing only without ASLR}}
 	* melt-runtime.h (melt_nb_full_garbcoll, melt_nb_garbcoll):

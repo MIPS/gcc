@@ -13409,6 +13409,42 @@ void melt_gt_ggc_mx_gimple_seq_d(void*p)
 #error melt_gt_ggc_mx_gimple_seq_d unimplemented for this version of GCC
 #endif /* GCC 6, 5 or less */
 
+/** 
+See http://stackoverflow.com/q/37229005/841108 for motivations....
+While debugging (with gdb 7.10 or 7.11), I am sometimes hit by the
+https://sourceware.org/bugzilla/show_bug.cgi?id=19365 bug (or
+something related,
+e.g. https://bugzilla.redhat.com/show_bug.cgi?id=1136403 ...).
+I am not happy to have to do the following.
+ **/
+#if MELT_HAVE_OWN_STRINGS_FUNCTIONS >0
+#warning MELT_HAVE_OWN_STRINGS_FUNCTIONS is activated
+extern "C" const int melt_have_own_strings_functions
+= MELT_HAVE_OWN_STRINGS_FUNCTIONS;
+
+#pragma GCC optimize ("-Og")
+
+void *memset(void*s, int c, size_t n)  throw ()
+{
+  char*p = (char*)s;
+  for (long i=0; i<(long)n; i++)
+    p[i] = c;
+  return s;
+}
+
+void* memcpy(void*dest, const void*src, size_t n)  throw ()
+{
+  char*pd = (char*)dest;
+  const char*ps = (const char*)src;
+  for (long i=0; i<(long)n; i++)
+    pd[i] = ps[i];
+  return dest;
+}
+
+#pragma GCC reset_options
+#endif /*MELT_HAVE_OWN_STRINGS_FUNCTIONS*/
+
+
 
 ///////////////// always at end of file
 /* For debugging purposes, used thru gdb.  */
