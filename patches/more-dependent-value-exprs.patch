@@ -3,7 +3,8 @@ Top:    f01c07b33d36f554c3795dd734f232576262bbd6
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-05-11 05:30:57 -0300
 
-support dependent overloaded operators and other special member functions
+support more cases of dependent_value_exprs
+
 
 ---
 
