@@ -1134,6 +1134,27 @@ melt_forwarded (void *ptr)
   return p;
 }
 
+static inline void
+melt_forward_discriminant (void*ptr)
+{
+  if (ptr != NULL) {
+    melt_ptr_t p = (melt_ptr_t) ptr;
+#if MELT_HAVE_RUNTIME_DEBUG > 0 || MELT_HAVE_DEBUG > 0
+    if (p->u_discr == NULL)
+      melt_fatal_error("corrupted pointer @%p with null discriminant", ptr);
+#endif /* MELT_HAVE_RUNTIME_DEBUG or MELT_HAVE_DEBUG */
+    if (p->u_discr == MELT_FORWARDED_DISCR)
+      p = ((struct meltforward_st *) p)->forward;
+    if (MELT_UNLIKELY(melt_is_young(p->u_discr))) {
+      melt_debuggc_eprintf ("melt_forward_discriminant p@%p from ptr@%p of young discr @%p",
+			    (void*)p, ptr, (void*)(p->u_discr));
+      p->u_discr = (meltobject_ptr_t) melt_forwarded(p->u_discr);
+    }
+  }
+} /* end melt_forward_discriminant */
+
+
+
 /* the MELT copying garbage collector routine - moves all locals on
    the stack!  Minor GC is only moving, Minor or Full chooses either
    minor or full appropriately, and Full GC is the minor one followed by
@@ -3141,7 +3162,7 @@ melt_put_int (melt_ptr_t v, long x)
 
 ////++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 /***
- * CALL FRAMES
+ * MELT CALL FRAMES
  ***/
 
 
@@ -3155,6 +3176,7 @@ class Melt_CallProtoFrame
   friend void melt_garbcoll (size_t wanted, enum melt_gckind_en gckd);
   friend void melt_marking_callback (void *, void*);
   virtual void melt_forward_values (void) =0;
+  virtual void melt_forward_discriminant_of_values (void) =0;
   virtual void melt_mark_ggc_data (void) =0;
 protected:
   // this is tricky but essential; we need to explicitly zero the rest of the frame.
@@ -3340,6 +3362,8 @@ bool Melt_CallProtoFrame::top_call_deeper_than (int d)
   return melt_top_call_frame->call_deeper_than(d);
 }
 
+
+////////////////
 class Melt_CallFrame : public Melt_CallProtoFrame
 {
   friend void melt_minor_copying_garbage_collector (size_t wanted);
@@ -3431,7 +3455,23 @@ public:
     MELT_FORWARDED (mcfr_current);
     for (unsigned ix=0; ix<NbVal; ix++)
       MELT_FORWARDED (mcfr_varptr[ix]);
-  };
+  }; // end melt_forward_values
+  //
+  virtual void melt_forward_discriminant_of_values (void)
+  {
+#if MELT_HAVE_RUNTIME_DEBUG > 0 && MELT_HAVE_DEBUG > 0
+    if (dbg_file())
+      melt_debuggc_eprintf("forwarding discriminant of %d values call frame @%p from %s:%ld #%ld",
+                           NbVal, (void*) this, dbg_file(), dbg_line(), dbg_serial());
+    else
+      melt_debuggc_eprintf("forwarding discriminant of %d values call frame @%p #%ld",
+                           NbVal, (void*) this, dbg_serial());
+#endif /*MELT_HAVE_RUNTIME_DEBUG >0 && MELT_HAVE_DEBUG > 0*/
+    for (int ix=NbVal-1; ix>=0; ix--)
+      melt_forward_discriminant(mcfr_varptr[ix]);
+    melt_forward_discriminant (mcfr_current);
+  }; // end melt_forward_discriminant_of_values
+  //
   void melt_mark_values (void)
   {
     if (mcfr_current)
@@ -3439,7 +3479,7 @@ public:
     for (unsigned ix=0; ix<NbVal; ix++)
       if (mcfr_varptr[ix] != NULL)
         gt_ggc_mx_melt_un (mcfr_varptr[ix]);
-  };
+  }; // end melt_mark_values
   virtual void melt_mark_ggc_data (void)
   {
     melt_mark_values ();

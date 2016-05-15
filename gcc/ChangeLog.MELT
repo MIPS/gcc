@@ -1,4 +1,24 @@
 
+2016-05-15   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{unstable, but buildable with ASLR disabled}}
+	* melt-runtime.h (melt_forward_discriminant): New function.
+	(Melt_CallProtoFrame::melt_forward_discriminant_of_values): New
+	virtual function.
+	(Melt_CallFrameWithValues<>::melt_forward_discriminant_of_values):
+	New, using melt_forward_discriminant.
+
+	* melt-runtime.cc (Melt_Module::_mm_discforwardrout): New field.
+	(Melt_Module::run_forwarding): Use it.
+	(Melt_Module::set_discriminant_forwarding_routine): New function
+	setting that field.
+	(melt_minor_copying_garbage_collector): Run
+	melt_forward_discriminant on touched global pointers.
+	Run melt_forward_discriminant_of_values on call frames.
+	(melt_load_module_index): melt_discrforwarding_module_data is a
+	new optional symbol.
+	(melt_load_module_index): Call set_discriminant_forwarding_routine
+	with melt_discrforwarding_module_data.
+
 2016-05-14   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{see http://stackoverflow.com/q/37229005/841108}}
 	* melt-runtime.cc (memset, memcpy): Naive implementation when #if

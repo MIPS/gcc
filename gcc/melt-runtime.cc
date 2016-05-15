@@ -350,6 +350,10 @@ protected:
   std::string _mm_modpath;	// dlopened module path
   std::string _mm_descrbase;	// base path of descriptive file without +meltdesc.c suffix
   melt_forwarding_rout_t *_mm_forwardrout; // forwarding routine for MELT garbage collector
+  melt_forwarding_rout_t *_mm_discforwardrout; // discriminant
+					       // forwarding routine
+					       // for MELT garbage
+					       // collector
   melt_marking_rout_t * _mm_markrout;	   // marking routine for Ggc
   Melt_Module (unsigned magic, const char*modpath, const char* descrbase, void*dlh=NULL);
   virtual ~Melt_Module ();
@@ -371,7 +375,15 @@ protected:
   };
   void run_forwarding (void)
   {
-    if (_mm_forwardrout)
+    if (_mm_discforwardrout != NULL)
+      {
+        melt_debuggc_eprintf("Melt_Module::run_forwarding discr. index#%d descrbase=%s before",
+                             _mm_index, _mm_descrbase.c_str());
+        (*_mm_discforwardrout) ();
+        melt_debuggc_eprintf("Melt_Module::run_forwarding discr. index#%d descrbase=%s after",
+                             _mm_index, _mm_descrbase.c_str());
+      }
+    if (_mm_forwardrout != NULL)
       {
         melt_debuggc_eprintf("Melt_Module::run_forwarding index#%d descrbase=%s before",
                              _mm_index, _mm_descrbase.c_str());
@@ -426,6 +438,10 @@ public:
   void set_forwarding_routine (melt_forwarding_rout_t* r)
   {
     _mm_forwardrout = r;
+  };
+  void set_discriminant_forwarding_routine (melt_forwarding_rout_t* r)
+  {
+    _mm_discforwardrout = r;
   };
   void set_marking_routine (melt_marking_rout_t *r)
   {
@@ -494,7 +510,7 @@ void Melt_Module::initialize ()
 
 Melt_Module::Melt_Module (unsigned magic, const char*modpath, const char* descrbase, void*dlh)
   : _mm_magic(0), _mm_index(0), _mm_dlh(NULL), _mm_modpath(), _mm_descrbase(),
-    _mm_forwardrout(NULL), _mm_markrout(NULL)
+    _mm_forwardrout(NULL), _mm_discforwardrout(NULL), _mm_markrout(NULL)
 {
   int ix = _mm_vect_.size();
   gcc_assert (ix > 0);
@@ -535,6 +551,7 @@ Melt_Module::~Melt_Module()
   gcc_assert (_mm_vect_.at(_mm_index) == this);
   gcc_assert (!_mm_modpath.empty());
   _mm_forwardrout = NULL;
+  _mm_discforwardrout = NULL;
   _mm_markrout = NULL;
   if (_mm_dlh)
     {
@@ -1486,7 +1503,10 @@ melt_minor_copying_garbage_collector (size_t wanted)
       int j = 0;
       if (!melt_touchedglobalchunk[ix])
         continue;
+      melt_debuggc_eprintf ("melt_minor_copying_garbage_collector global chunk #%d", ix);
       chp = melt_globalptrs + ix * MELT_GLOBAL_ENTRY_CHUNK;
+      for (j=MELT_GLOBAL_ENTRY_CHUNK-1; j>=0; j--)
+	melt_forward_discriminant(chp[j]);
       for (j=0; j<MELT_GLOBAL_ENTRY_CHUNK; j++)
         MELT_FORWARDED(chp[j]);
       melt_touchedglobalchunk[ix] = false;
@@ -1502,13 +1522,14 @@ melt_minor_copying_garbage_collector (size_t wanted)
     };
 
   /* Forward the MELT frames */
-  melt_debuggc_eprintf ("melt_minor_copying_garbage_collector all classy frames top @%p",
+  melt_debuggc_eprintf ("melt_minor_copying_garbage_collector all frames top @%p",
                         (void*) melt_top_call_frame);
   for (Melt_CallProtoFrame *cfr = melt_top_call_frame;
        cfr != NULL;
        cfr = cfr->_meltcf_prev)
     {
       melt_debuggc_eprintf ("melt_minor_copying_garbage_collector forwardingclassyframe %p", (void*)cfr);
+      cfr->melt_forward_discriminant_of_values ();
       cfr->melt_forward_values ();
       melt_debuggc_eprintf ("melt_minor_copying_garbage_collector forwardedclassyframe %p", (void*)cfr);
     };
@@ -8877,6 +8898,7 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
   MELTDESCR_OPTIONAL_SYMBOL (melt_module_nb_module_vars, int);		\
   MELTDESCR_OPTIONAL_SYMBOL (melt_modulerealpath, char);		\
   MELTDESCR_OPTIONAL_SYMBOL (melt_forwarding_module_data, melt_forwarding_rout_t); \
+  MELTDESCR_OPTIONAL_SYMBOL (melt_discrforwarding_module_data, melt_forwarding_rout_t); \
   MELTDESCR_OPTIONAL_SYMBOL (melt_marking_module_data, melt_marking_rout_t);
 
 
@@ -9335,6 +9357,7 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
       Melt_Plain_Module* pmod = new Melt_Plain_Module(sopath, srcbase, dlh);
       gcc_assert (pmod->valid_magic());
       pmod->set_forwarding_routine (MELTDESCR_OPTIONAL (melt_forwarding_module_data));
+      pmod->set_discriminant_forwarding_routine (MELTDESCR_OPTIONAL (melt_discrforwarding_module_data));
       pmod->set_marking_routine (MELTDESCR_OPTIONAL (melt_marking_module_data));
       pmod->set_start_routine (MELTDESCR_REQUIRED (melt_start_this_module));
       ix = pmod->index ();
