@@ -43,6 +43,7 @@ class Melt_InitialClassyFrame_WARMELTmiHOOKS_h390879946; // forward declaration 
 typedef Melt_InitialClassyFrame_WARMELTmiHOOKS_h390879946 Melt_InitialFrame;
 /*** 8 MELT module variables declarations ****/
 MELT_EXTERN void melt_forwarding_module_data (void);
+MELT_EXTERN void melt_discrforwarding_module_data (void);
 MELT_EXTERN void melt_marking_module_data (void);
 
 MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY melt_WARMELTmiHOOKS_module_var_ptr_tab[16];

@@ -44,6 +44,7 @@ class Melt_InitialClassyFrame_WARMELTmiHOOKS_h390879946; // forward declaration 
 typedef Melt_InitialClassyFrame_WARMELTmiHOOKS_h390879946 Melt_InitialFrame;
 /*** 8 MELT module variables declarations ****/
 MELT_EXTERN void melt_forwarding_module_data (void);
+MELT_EXTERN void melt_discrforwarding_module_data (void);
 MELT_EXTERN void melt_marking_module_data (void);
 
 MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY melt_WARMELTmiHOOKS_module_var_ptr_tab[16];
@@ -1262,6 +1263,7 @@ melt_ptr_t melt_WARMELTmiHOOKS_module_var_ptr_tab[16];
 bool melt_WARMELTmiHOOKS_module_var_flags[1];
 
 /**** forwarding MELT module variables ****/
+// for Melt_Module::set_forwarding_routine
 void melt_forwarding_module_data (void)
 {
     int i, j;
@@ -1276,6 +1278,22 @@ void melt_forwarding_module_data (void)
                 };
         }
 } /* end melt_fowarding_module_data */
+
+// for Melt_Module::set_discriminant_forwarding_routine
+void melt_discrforwarding_module_data (void)
+{
+    int i, j;
+    melt_WARMELTmiHOOKS_module_var_ptr_tab[0] = NULL; /* unused modvar elem */
+    for (i=0; i<=0; i++)
+        {
+            if (melt_WARMELTmiHOOKS_module_var_flags[i])
+                {
+                    melt_WARMELTmiHOOKS_module_var_flags[i] = false;
+                    for (j=0; j<16; j++)
+                        melt_forward_discriminant (melt_WARMELTmiHOOKS_module_var_ptr_tab[i*16+j]);
+                };
+        }
+} /* end melt_discrforwarding_module_data */
 
 
 /**** marking MELT module variables ****/
