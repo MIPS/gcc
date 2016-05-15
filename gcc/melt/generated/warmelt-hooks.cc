@@ -46333,4 +46333,3 @@ const int meltclasslen__CLASS_RAW_INPUT_CHANNEL_HANDLER = 4;
 
 
 /**** end of warmelt-hooks ****/
-

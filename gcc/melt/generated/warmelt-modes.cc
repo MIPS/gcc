@@ -25933,4 +25933,3 @@ const int meltclasslen__CLASS_MAKEDOC_MODULE_CONTEXT = 38;
 
 
 /**** end of warmelt-modes ****/
-

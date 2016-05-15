@@ -1,5 +1,9 @@
 
 2016-05-15   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{unstable}}
+	* melt/generated/*: Regenerated all.
+
+2016-05-15   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{unstable, perhaps working only in ASLR}}
 	* melt/warmelt-genobj.melt (compilobj_datatuple): Use
 	foreach_in_multiple instead of multiple_every.
