@@ -9357,7 +9357,8 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
       Melt_Plain_Module* pmod = new Melt_Plain_Module(sopath, srcbase, dlh);
       gcc_assert (pmod->valid_magic());
       pmod->set_forwarding_routine (MELTDESCR_OPTIONAL (melt_forwarding_module_data));
-      pmod->set_discriminant_forwarding_routine (MELTDESCR_OPTIONAL (melt_discrforwarding_module_data));
+#warning temporarily dont set_discriminant_forwarding_routine
+      // pmod->set_discriminant_forwarding_routine (MELTDESCR_OPTIONAL (melt_discrforwarding_module_data));
       pmod->set_marking_routine (MELTDESCR_OPTIONAL (melt_marking_module_data));
       pmod->set_start_routine (MELTDESCR_REQUIRED (melt_start_this_module));
       ix = pmod->index ();

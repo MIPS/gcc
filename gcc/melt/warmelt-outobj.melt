@@ -6728,6 +6728,7 @@ if (1) return;
 		    (add2out declbuf "/*** " nbmodvars " MELT module variables declarations ****/\n")
 		    (add2out implbuf "/*** " nbmodvars " MELT module variables implementations ****/\n")
 		    (add2out declbuf "MELT_EXTERN void melt_forwarding_module_data (void);\n")
+		    (add2out declbuf "MELT_EXTERN void melt_discrforwarding_module_data (void);\n")
 		    (add2out declbuf "MELT_EXTERN void melt_marking_module_data (void);\n")
 		    ;; declare & define the static pointers and flags
 		    (let ( (:long nbvarslots (*i 16 (+i (/iraw (+i nbmodvars 1) 16) 1)))
@@ -6755,8 +6756,9 @@ if (1) return;
 			     "  if (ix > 0  &&  ix <= " nbmodvars ") {\n"
 			     "    melt_" modnamcident "_module_var_ptr_tab[ix]= val;\n"
 			     "    melt_" modnamcident "_module_var_flags[ix/16] = true;\n  }\n}\n\n")
-		    ;; emit the forwarding routine
+		    ;; emit the forwarding routines
 		    (add2out implbuf "\n/**** forwarding MELT module variables ****/\n")
+		    (add2out implbuf "// for Melt_Module::set_forwarding_routine\n")
 		    (add2out implbuf "void melt_forwarding_module_data (void) {\n")
 		    (add2out implbuf "  int i, j;\n")
 		    (add2out implbuf "  melt_" modnamcident "_module_var_ptr_tab[0] = NULL; /* unused modvar elem */\n")
@@ -6768,6 +6770,18 @@ if (1) return;
 		    (add2out implbuf "    };\n")
 		    (add2out implbuf "  }\n")
 		    (add2out implbuf "} /* end melt_fowarding_module_data */\n\n")
+		    (add2out implbuf "// for Melt_Module::set_discriminant_forwarding_routine\n")
+		    (add2out implbuf "void melt_discrforwarding_module_data (void) {\n")
+		    (add2out implbuf "  int i, j;\n")
+		    (add2out implbuf "  melt_" modnamcident "_module_var_ptr_tab[0] = NULL; /* unused modvar elem */\n")
+		    (add2out implbuf "  for (i=0; i<=" (/iraw (+i nbmodvars 1) 16) "; i++) {\n")
+		    (add2out implbuf "    if (melt_" modnamcident "_module_var_flags[i]) {\n")
+		    (add2out implbuf "      melt_" modnamcident "_module_var_flags[i] = false;\n")
+		    (add2out implbuf "      for (j=0; j<16; j++)\n")
+		    (add2out implbuf "        melt_forward_discriminant (melt_" modnamcident "_module_var_ptr_tab[i*16+j]);\n")
+		    (add2out implbuf "    };\n")
+		    (add2out implbuf "  }\n")
+		    (add2out implbuf "} /* end melt_discrforwarding_module_data */\n\n")
 		    ;; emit the marking routine
 		    (add2out implbuf "\n/**** marking MELT module variables ****/\n")
 		    (add2out implbuf "void melt_marking_module_data (void) {\n")

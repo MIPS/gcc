@@ -1,5 +1,12 @@
 
 2016-05-15   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{very unstable, but buildable with ASLR disabled}}
+	* melt-runtime.cc (melt_load_module_index): Temporarily disable
+	the set_discriminant_forwarding_routine of modules.
+	* melt/warmelt-outobj.melt (translate_macroexpanded_list): Emit a
+	melt_discrforwarding_module_data routine.
+
+2016-05-15   Basile Starynkevitch  <basile@starynkevitch.net>
 	{{unstable, but buildable with ASLR disabled}}
 	* melt-runtime.h (melt_forward_discriminant): New function.
 	(Melt_CallProtoFrame::melt_forward_discriminant_of_values): New
