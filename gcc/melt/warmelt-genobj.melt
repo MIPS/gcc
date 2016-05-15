@@ -5773,9 +5773,9 @@
 	(debug "compilobj_datatuple updated compicache=" compicache
 	       "\n.. nti=" nti "\n.. otup=" otup)
 	(put_int otup (multiple_length ncompi))
-	(multiple_every
-	 ncompi
-	 (lambda (scomp :long srk)
+	(foreach_in_multiple
+	 (ncompi)
+	 (scomp :long srk)
 	   (if scomp 
 	       (let ( (ocomp (multiple_nth ocompi srk)) )
 		 (list_append inibody
@@ -5783,7 +5783,7 @@
 					:oputu_tupled otup
 					:oputu_offset (make_integerbox discr_integer srk)
 					:oputu_value ocomp)))
-	     )))
+	     ))
 	(list_append inibody
 		     (instance class_objtouch
 			       :otouch_val otup
