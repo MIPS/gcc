@@ -3407,23 +3407,35 @@ oacc_is_loop (gfc_code *code)
 }
 
 static void
-resolve_oacc_scalar_int_expr (gfc_expr *expr, const char *clause)
+resolve_scalar_int_expr (gfc_expr *expr, const char *clause)
 {
   if (!gfc_resolve_expr (expr)
-      || expr->ts.type != BT_INTEGER || expr->rank != 0)
+      || expr->ts.type != BT_INTEGER
+      || expr->rank != 0)
     gfc_error ("%s clause at %L requires a scalar INTEGER expression",
-		     clause, &expr->where);
+	       clause, &expr->where);
 }
 
+static void
+resolve_positive_int_expr (gfc_expr *expr, const char *clause)
+{
+  resolve_scalar_int_expr (expr, clause);
+  if (expr->expr_type == EXPR_CONSTANT
+      && expr->ts.type == BT_INTEGER
+      && mpz_sgn (expr->value.integer) <= 0)
+    gfc_warning (0, "INTEGER expression of %s clause at %L must be positive",
+		 clause, &expr->where);
+}
 
 static void
-resolve_oacc_positive_int_expr (gfc_expr *expr, const char *clause)
+resolve_nonnegative_int_expr (gfc_expr *expr, const char *clause)
 {
-  resolve_oacc_scalar_int_expr (expr, clause);
-  if (expr->expr_type == EXPR_CONSTANT && expr->ts.type == BT_INTEGER
-      && mpz_sgn(expr->value.integer) <= 0)
-    gfc_warning (0, "INTEGER expression of %s clause at %L must be positive",
-		     clause, &expr->where);
+  resolve_scalar_int_expr (expr, clause);
+  if (expr->expr_type == EXPR_CONSTANT
+      && expr->ts.type == BT_INTEGER
+      && mpz_sgn (expr->value.integer) < 0)
+    gfc_warning (0, "INTEGER expression of %s clause at %L must be "
+		 "non-negative", clause, &expr->where);
 }
 
 /* Emits error when symbol is pointer, cray pointer or cray pointee
@@ -3627,11 +3639,13 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
   gfc_omp_namelist *n;
   gfc_expr_list *el;
   int list;
+  int ifc;
+  bool if_without_mod = false;
   static const char *clause_names[]
     = { "PRIVATE", "FIRSTPRIVATE", "LASTPRIVATE", "COPYPRIVATE", "SHARED",
 	"COPYIN", "UNIFORM", "ALIGNED", "LINEAR", "DEPEND", "MAP",
 	"TO", "FROM", "REDUCTION", "DEVICE_RESIDENT", "LINK", "USE_DEVICE",
-	"CACHE" };
+	"CACHE", "IS_DEVICE_PTR", "USE_DEVICE_PTR" };
 
   if (omp_clauses == NULL)
     return;
@@ -3643,7 +3657,101 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
 	  || expr->ts.type != BT_LOGICAL || expr->rank != 0)
 	gfc_error ("IF clause at %L requires a scalar LOGICAL expression",
 		   &expr->where);
+      if_without_mod = true;
     }
+  for (ifc = 0; ifc < OMP_IF_LAST; ifc++)
+    if (omp_clauses->if_exprs[ifc])
+      {
+	gfc_expr *expr = omp_clauses->if_exprs[ifc];
+	bool ok = true;
+	if (!gfc_resolve_expr (expr)
+	    || expr->ts.type != BT_LOGICAL || expr->rank != 0)
+	  gfc_error ("IF clause at %L requires a scalar LOGICAL expression",
+		     &expr->where);
+	else if (if_without_mod)
+	  {
+	    gfc_error ("IF clause without modifier at %L used together with"
+		       "IF clauses with modifiers",
+		       &omp_clauses->if_expr->where);
+	    if_without_mod = false;
+	  }
+	else
+	  switch (code->op)
+	    {
+	    case EXEC_OMP_PARALLEL:
+	    case EXEC_OMP_PARALLEL_DO:
+	    case EXEC_OMP_PARALLEL_SECTIONS:
+	    case EXEC_OMP_PARALLEL_WORKSHARE:
+	    case EXEC_OMP_PARALLEL_DO_SIMD:
+	    case EXEC_OMP_DISTRIBUTE_PARALLEL_DO:
+	    case EXEC_OMP_DISTRIBUTE_PARALLEL_DO_SIMD:
+	    case EXEC_OMP_TEAMS_DISTRIBUTE_PARALLEL_DO:
+	    case EXEC_OMP_TEAMS_DISTRIBUTE_PARALLEL_DO_SIMD:
+	      ok = ifc == OMP_IF_PARALLEL;
+	      break;
+
+	    case EXEC_OMP_TASK:
+	      ok = ifc == OMP_IF_TASK;
+	      break;
+
+	    case EXEC_OMP_TASKLOOP:
+	    case EXEC_OMP_TASKLOOP_SIMD:
+	      ok = ifc == OMP_IF_TASKLOOP;
+	      break;
+
+	    case EXEC_OMP_TARGET:
+	    case EXEC_OMP_TARGET_TEAMS:
+	    case EXEC_OMP_TARGET_TEAMS_DISTRIBUTE:
+	    case EXEC_OMP_TARGET_TEAMS_DISTRIBUTE_SIMD:
+	    case EXEC_OMP_TARGET_SIMD:
+	      ok = ifc == OMP_IF_TARGET;
+	      break;
+
+	    case EXEC_OMP_TARGET_DATA:
+	      ok = ifc == OMP_IF_TARGET_DATA;
+	      break;
+
+	    case EXEC_OMP_TARGET_UPDATE:
+	      ok = ifc == OMP_IF_TARGET_UPDATE;
+	      break;
+
+	    case EXEC_OMP_TARGET_ENTER_DATA:
+	      ok = ifc == OMP_IF_TARGET_ENTER_DATA;
+	      break;
+
+	    case EXEC_OMP_TARGET_EXIT_DATA:
+	      ok = ifc == OMP_IF_TARGET_EXIT_DATA;
+	      break;
+
+	    case EXEC_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_DO:
+	    case EXEC_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_DO_SIMD:
+	    case EXEC_OMP_TARGET_PARALLEL:
+	    case EXEC_OMP_TARGET_PARALLEL_DO:
+	    case EXEC_OMP_TARGET_PARALLEL_DO_SIMD:
+	      ok = ifc == OMP_IF_TARGET || ifc == OMP_IF_PARALLEL;
+	      break;
+
+	    default:
+	      ok = false;
+	      break;
+	  }
+	if (!ok)
+	  {
+	    static const char *ifs[] = {
+	      "PARALLEL",
+	      "TASK",
+	      "TASKLOOP",
+	      "TARGET",
+	      "TARGET DATA",
+	      "TARGET UPDATE",
+	      "TARGET ENTER DATA",
+	      "TARGET EXIT DATA"
+	    };
+	    gfc_error ("IF clause modifier %s at %L not appropriate for "
+		       "the current OpenMP construct", ifs[ifc], &expr->where);
+	  }
+      }
+
   if (omp_clauses->final_expr)
     {
       gfc_expr *expr = omp_clauses->final_expr;
@@ -3653,13 +3761,7 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
 		   &expr->where);
     }
   if (omp_clauses->num_threads)
-    {
-      gfc_expr *expr = omp_clauses->num_threads;
-      if (!gfc_resolve_expr (expr)
-	  || expr->ts.type != BT_INTEGER || expr->rank != 0)
-	gfc_error ("NUM_THREADS clause at %L requires a scalar "
-		   "INTEGER expression", &expr->where);
-    }
+    resolve_positive_int_expr (omp_clauses->num_threads, "NUM_THREADS");
   if (omp_clauses->chunk_size)
     {
       gfc_expr *expr = omp_clauses->chunk_size;
@@ -4179,37 +4281,17 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
 	  }
       }
   if (omp_clauses->safelen_expr)
-    {
-      gfc_expr *expr = omp_clauses->safelen_expr;
-      if (!gfc_resolve_expr (expr)
-	  || expr->ts.type != BT_INTEGER || expr->rank != 0)
-	gfc_error ("SAFELEN clause at %L requires a scalar "
-		   "INTEGER expression", &expr->where);
-    }
+    resolve_positive_int_expr (omp_clauses->safelen_expr, "SAFELEN");
   if (omp_clauses->simdlen_expr)
-    {
-      gfc_expr *expr = omp_clauses->simdlen_expr;
-      if (!gfc_resolve_expr (expr)
-	  || expr->ts.type != BT_INTEGER || expr->rank != 0)
-	gfc_error ("SIMDLEN clause at %L requires a scalar "
-		   "INTEGER expression", &expr->where);
-    }
+    resolve_positive_int_expr (omp_clauses->simdlen_expr, "SIMDLEN");
   if (omp_clauses->num_teams)
-    {
-      gfc_expr *expr = omp_clauses->num_teams;
-      if (!gfc_resolve_expr (expr)
-	  || expr->ts.type != BT_INTEGER || expr->rank != 0)
-	gfc_error ("NUM_TEAMS clause at %L requires a scalar "
-		   "INTEGER expression", &expr->where);
-    }
+    resolve_positive_int_expr (omp_clauses->num_teams, "NUM_TEAMS");
   if (omp_clauses->device)
-    {
-      gfc_expr *expr = omp_clauses->device;
-      if (!gfc_resolve_expr (expr)
-	  || expr->ts.type != BT_INTEGER || expr->rank != 0)
-	gfc_error ("DEVICE clause at %L requires a scalar "
-		   "INTEGER expression", &expr->where);
-    }
+    resolve_nonnegative_int_expr (omp_clauses->device, "DEVICE");
+  if (omp_clauses->hint)
+    resolve_scalar_int_expr (omp_clauses->hint, "HINT");
+  if (omp_clauses->priority)
+    resolve_nonnegative_int_expr (omp_clauses->priority, "PRIORITY");
   if (omp_clauses->dist_chunk_size)
     {
       gfc_expr *expr = omp_clauses->dist_chunk_size;
@@ -4219,36 +4301,33 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
 		   "a scalar INTEGER expression", &expr->where);
     }
   if (omp_clauses->thread_limit)
-    {
-      gfc_expr *expr = omp_clauses->thread_limit;
-      if (!gfc_resolve_expr (expr)
-	  || expr->ts.type != BT_INTEGER || expr->rank != 0)
-	gfc_error ("THREAD_LIMIT clause at %L requires a scalar "
-		   "INTEGER expression", &expr->where);
-    }
+    resolve_positive_int_expr (omp_clauses->thread_limit, "THREAD_LIMIT");
+  if (omp_clauses->grainsize)
+    resolve_positive_int_expr (omp_clauses->grainsize, "GRAINSIZE");
+  if (omp_clauses->num_tasks)
+    resolve_positive_int_expr (omp_clauses->num_tasks, "NUM_TASKS");
   if (omp_clauses->async)
     if (omp_clauses->async_expr)
-      resolve_oacc_scalar_int_expr (omp_clauses->async_expr, "ASYNC");
+      resolve_scalar_int_expr (omp_clauses->async_expr, "ASYNC");
   if (omp_clauses->num_gangs_expr)
-    resolve_oacc_positive_int_expr (omp_clauses->num_gangs_expr, "NUM_GANGS");
+    resolve_positive_int_expr (omp_clauses->num_gangs_expr, "NUM_GANGS");
   if (omp_clauses->num_workers_expr)
-    resolve_oacc_positive_int_expr (omp_clauses->num_workers_expr,
-				    "NUM_WORKERS");
+    resolve_positive_int_expr (omp_clauses->num_workers_expr, "NUM_WORKERS");
   if (omp_clauses->vector_length_expr)
-    resolve_oacc_positive_int_expr (omp_clauses->vector_length_expr,
-				    "VECTOR_LENGTH");
+    resolve_positive_int_expr (omp_clauses->vector_length_expr,
+			       "VECTOR_LENGTH");
   if (omp_clauses->gang_num_expr)
-    resolve_oacc_positive_int_expr (omp_clauses->gang_num_expr, "GANG");
+    resolve_positive_int_expr (omp_clauses->gang_num_expr, "GANG");
   if (omp_clauses->gang_static_expr)
-    resolve_oacc_positive_int_expr (omp_clauses->gang_static_expr, "GANG");
+    resolve_positive_int_expr (omp_clauses->gang_static_expr, "GANG");
   if (omp_clauses->worker_expr)
-    resolve_oacc_positive_int_expr (omp_clauses->worker_expr, "WORKER");
+    resolve_positive_int_expr (omp_clauses->worker_expr, "WORKER");
   if (omp_clauses->vector_expr)
-    resolve_oacc_positive_int_expr (omp_clauses->vector_expr, "VECTOR");
+    resolve_positive_int_expr (omp_clauses->vector_expr, "VECTOR");
   if (omp_clauses->wait)
     if (omp_clauses->wait_list)
       for (el = omp_clauses->wait_list; el; el = el->next)
-	resolve_oacc_scalar_int_expr (el->expr, "WAIT");
+	resolve_scalar_int_expr (el->expr, "WAIT");
 }
 
 
@@ -4784,6 +4863,8 @@ gfc_resolve_omp_parallel_blocks (gfc_code *code, gfc_namespace *ns)
     {
     case EXEC_OMP_PARALLEL_DO:
     case EXEC_OMP_PARALLEL_DO_SIMD:
+    case EXEC_OMP_TARGET_PARALLEL_DO:
+    case EXEC_OMP_TARGET_PARALLEL_DO_SIMD:
     case EXEC_OMP_TARGET_TEAMS_DISTRIBUTE:
     case EXEC_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_DO:
     case EXEC_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_DO_SIMD:
@@ -4909,8 +4990,17 @@ resolve_omp_do (gfc_code *code)
       is_simd = true;
       break;
     case EXEC_OMP_SIMD: name = "!$OMP SIMD"; is_simd = true; break;
+    case EXEC_OMP_TARGET_PARALLEL_DO: name = "!$OMP TARGET PARALLEL DO"; break;
+    case EXEC_OMP_TARGET_PARALLEL_DO_SIMD:
+      name = "!$OMP TARGET PARALLEL DO SIMD";
+      is_simd = true;
+      break;
+    case EXEC_OMP_TARGET_SIMD:
+      name = "!$OMP TARGET SIMD";
+      is_simd = true;
+      break;
     case EXEC_OMP_TARGET_TEAMS_DISTRIBUTE:
-      name = "!$OMP TARGET TEAMS_DISTRIBUTE";
+      name = "!$OMP TARGET TEAMS DISTRIBUTE";
       break;
     case EXEC_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_DO:
       name = "!$OMP TARGET TEAMS DISTRIBUTE PARALLEL DO";
@@ -4923,7 +5013,12 @@ resolve_omp_do (gfc_code *code)
       name = "!$OMP TARGET TEAMS DISTRIBUTE SIMD";
       is_simd = true;
       break;
-    case EXEC_OMP_TEAMS_DISTRIBUTE: name = "!$OMP TEAMS_DISTRIBUTE"; break;
+    case EXEC_OMP_TASKLOOP: name = "!$OMP TASKLOOP"; break;
+    case EXEC_OMP_TASKLOOP_SIMD:
+      name = "!$OMP TASKLOOP SIMD";
+      is_simd = true;
+      break;
+    case EXEC_OMP_TEAMS_DISTRIBUTE: name = "!$OMP TEAMS DISTRIBUTE"; break;
     case EXEC_OMP_TEAMS_DISTRIBUTE_PARALLEL_DO:
       name = "!$OMP TEAMS DISTRIBUTE PARALLEL DO";
       break;
@@ -5341,7 +5436,7 @@ resolve_oacc_loop_blocks (gfc_code *code)
 	    }
 	  else
 	    {
-	      resolve_oacc_positive_int_expr (el->expr, "TILE");
+	      resolve_positive_int_expr (el->expr, "TILE");
 	      if (el->expr->expr_type != EXPR_CONSTANT)
 		gfc_error ("TILE requires constant expression at %L",
 			   &code->loc);
@@ -5503,10 +5598,15 @@ gfc_resolve_omp_directive (gfc_code *code, gfc_namespace *ns ATTRIBUTE_UNUSED)
     case EXEC_OMP_PARALLEL_DO:
     case EXEC_OMP_PARALLEL_DO_SIMD:
     case EXEC_OMP_SIMD:
+    case EXEC_OMP_TARGET_PARALLEL_DO:
+    case EXEC_OMP_TARGET_PARALLEL_DO_SIMD:
+    case EXEC_OMP_TARGET_SIMD:
     case EXEC_OMP_TARGET_TEAMS_DISTRIBUTE:
     case EXEC_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_DO:
     case EXEC_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_DO_SIMD:
     case EXEC_OMP_TARGET_TEAMS_DISTRIBUTE_SIMD:
+    case EXEC_OMP_TASKLOOP:
+    case EXEC_OMP_TASKLOOP_SIMD:
     case EXEC_OMP_TEAMS_DISTRIBUTE:
     case EXEC_OMP_TEAMS_DISTRIBUTE_PARALLEL_DO:
     case EXEC_OMP_TEAMS_DISTRIBUTE_PARALLEL_DO_SIMD:
@@ -5521,6 +5621,9 @@ gfc_resolve_omp_directive (gfc_code *code, gfc_namespace *ns ATTRIBUTE_UNUSED)
     case EXEC_OMP_SINGLE:
     case EXEC_OMP_TARGET:
     case EXEC_OMP_TARGET_DATA:
+    case EXEC_OMP_TARGET_ENTER_DATA:
+    case EXEC_OMP_TARGET_EXIT_DATA:
+    case EXEC_OMP_TARGET_PARALLEL:
     case EXEC_OMP_TARGET_TEAMS:
     case EXEC_OMP_TASK:
     case EXEC_OMP_TEAMS:
