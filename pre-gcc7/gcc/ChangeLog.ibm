@@ -1,5 +1,8 @@
 2016-05-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 236325.
+	* REVISION: Update subversion id.
+
 	* doc/md.texi (Machine Constraints): Update for splat/xxspltib patches.
 	* config/rs6000/constraints.md (wM constraint): Likewise.
 	* config/rs6000/predicates.md (xxspltib_constant_split): Likewise.
