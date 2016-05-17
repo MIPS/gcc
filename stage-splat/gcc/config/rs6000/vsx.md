@@ -833,107 +833,71 @@
    (set_attr "length" "8")])
 
 
-;;                                                      VSX store   VSX load
-;;							VSX move    direct move
-;;						        direct move GPR store
-;;							GPR load    GPR move
-;;							P9 const.   AVX const.
-;;                                                      P9 const.   0
-;;							-1          GPR const.
-;;                                                      AVX store   AVX load
-
 ;; Prefer using vector registers over GPRs.  Prefer using ISA 3.0's XXSPLTISB
 ;; or Altivec VSPLITW 0/-1 over XXLXOR/XXLORC to set a register to all 0's or
 ;; all 1's, since the machine does not have to wait for the previous
 ;; instruction using the register being set (such as a store waiting on a slow
 ;; instruction). But generate XXLXOR/XXLORC if it will avoid a register move.
-(define_insn "*vsx_mov<mode>_64bit"
-  [(set (match_operand:VSX_M 0 "nonimmediate_operand" "=wOZ,        <VSa>,
-                                                       <VSa>,       *r,
-                                                       *wo,         $Y,
-                                                       ??r,         ??r,
-                                                       wo,          v,
-                                                       v,           ?<VSa>,
-                                                       ?wh,         ??r,
-                                                       wZ,          v")
 
-	(match_operand:VSX_M 1 "input_operand"        "<VSa>,       wOZ,
-                                                       <VSa>,       wo,
-                                                       r,           ??r,
-                                                       Y,           ??r,
-                                                       wE,          W,
-                                                       wS,          j,
-                                                       wM,          WjwM,
-                                                       wZ,          v"))]
+;;		VSX store  VSX load   VSX move  VSX->GPR   GPR->VSX    LQ (GPR)
+;;              STQ (GPR)  GPR load   GPR store GPR move   XXSPLTIB    VSPLTISW
+;;		VSX 0/-1   GPR 0/-1   AVX const GPR const  LVX (AVX)   STVX (AVX)
+(define_insn "*vsx_mov<mode>_64bit"
+  [(set (match_operand:VSX_M 0 "nonimmediate_operand"
+               "=ZwO,      <VSa>,     <VSa>,     r,         we,        ?wQ,
+		?&r,       ??r,       ??Y,       ??r,       wo,        v,
+		?<VSa>,    *r,        v,         ??r,       wZ,        v")
+
+	(match_operand:VSX_M 1 "input_operand" 
+               "<VSa>,     ZwO,       <VSa>,     we,        r,         r,
+		wQ,        Y,         r,         r,         wE,        jwM,
+		?jwM,      jwM,       W,         W,         v,         wZ"))]
+
   "TARGET_POWERPC64 && VECTOR_MEM_VSX_P (<MODE>mode)
    && (register_operand (operands[0], <MODE>mode) 
        || register_operand (operands[1], <MODE>mode))"
 {
   return rs6000_output_move_128bit (operands);
 }
-  [(set_attr "type"                                   "vecstore,    vecload,
-                                                       vecsimple,   mftgpr,
-                                                       mffgpr,      store,
-                                                       load,        *,
-                                                       vecsimple,   vecsimple,
-                                                       vecsimple,   vecsimple,
-                                                       vecsimple,   *,
-                                                       vecstore,    vecload")
+  [(set_attr "type"
+               "vecstore,  vecload,   vecsimple, mffgpr,    mftgpr,    load,
+		store,     load,      store,     *,         vecsimple, vecsimple,
+		vecsimple, *,         *,         *,         vecstore,  vecload")
 
-   (set_attr "length"                                 "4,           4,
-                                                       4,           8,
-                                                       4,           8,
-                                                       8,           8,
-                                                       4,           16,
-                                                       8,           4,
-                                                       4,           16,
-                                                       4,           4")])
+   (set_attr "length"
+               "4,         4,         4,         8,         4,         8,
+		8,         8,         8,         8,         4,         4,
+		4,         8,         20,        20,        4,         4")])
 
-;;                                                      VSX store   VSX load
-;;							VSX move    GPR store
-;;							GPR load    GPR move
-;;							P9 const.   AVX const.
-;;                                                      P9 const.   0
-;;							-1          GPR const.
-;;                                                      AVX store   AVX load
-
+;;		VSX store  VSX load   VSX move   GPR load   GPR store  GPR move
+;;		XXSPLTIB   VSPLTISW   VSX 0/-1   GPR 0/-1   AVX const  GPR const
+;;		LVX (AVX)  STVX (AVX)
 (define_insn "*vsx_mov<mode>_32bit"
-  [(set (match_operand:VSX_M 0 "nonimmediate_operand" "=wOZ,        <VSa>,
-                                                       <VSa>,       $Y,
-                                                       ???r,        ???r,
-                                                       wo,          v,
-                                                       v,           ?<VSa>,
-                                                       ?wh,         ???r,
-                                                       wZ,          v")
+  [(set (match_operand:VSX_M 0 "nonimmediate_operand"
+               "=ZwO,      <VSa>,     <VSa>,     ??r,       ??Y,       ??r,
+		wo,        v,         ?<VSa>,    *r,        v,         ??r,
+		wZ,        v")
 
-	(match_operand:VSX_M 1 "input_operand"        "<VSa>,       wOZ,
-                                                       <VSa>,       ???r,
-                                                       Y,           ???r,
-                                                       wE,          W,
-                                                       wS,          j,
-                                                       wM,          WjwM,
-                                                       wZ,          v"))]
+	(match_operand:VSX_M 1 "input_operand" 
+               "<VSa>,     ZwO,       <VSa>,     Y,         r,         r,
+		wE,        jwM,       ?jwM,      jwM,       W,         W,
+		v,         wZ"))]
+
   "!TARGET_POWERPC64 && VECTOR_MEM_VSX_P (<MODE>mode)
    && (register_operand (operands[0], <MODE>mode) 
        || register_operand (operands[1], <MODE>mode))"
 {
   return rs6000_output_move_128bit (operands);
 }
-  [(set_attr "type"                                   "vecstore,    vecload,
-                                                       vecsimple,   store,
-                                                       load,        *,
-                                                       vecsimple,   vecsimple,
-                                                       vecsimple,   vecsimple,
-                                                       vecsimple,   *,
-                                                       vecstore,    vecload")
+  [(set_attr "type"
+               "vecstore,  vecload,   vecsimple, load,      store,    *,
+		vecsimple, vecsimple, vecsimple, *,         *,        *,
+		vecstore,  vecload")
 
-   (set_attr "length"                                 "4,           4,
-                                                       4,           16,
-                                                       16,          16,
-                                                       4,           16,
-                                                       8,           4,
-                                                       4,           32,
-                                                       4,           4")])
+   (set_attr "length"
+               "4,         4,         4,         16,        16,        16,
+		4,         4,         4,         16,        20,        32,
+		4,         4")])
 
 ;; Explicit  load/store expanders for the builtin functions
 (define_expand "vsx_load_<mode>"
