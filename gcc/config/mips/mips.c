@@ -1755,6 +1755,7 @@ static int mips_register_move_cost (machine_mode, reg_class_t,
 static unsigned int mips_function_arg_boundary (machine_mode, const_tree);
 static machine_mode mips_get_reg_raw_mode (int regno);
 static rtx mips_gen_const_int_vector_shuffle (machine_mode, int);
+static void mips_load_store_bond_insns ();
 
 /* This hash table keeps track of implicit "mips16" and "nomips16" attributes
    for -mflip_mips16.  It maps decl names onto a boolean mode setting.  */
@@ -8967,6 +8968,9 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length,
       move_by_pieces (dest, src, length - offset,
 		      MIN (MEM_ALIGN (src), MEM_ALIGN (dest)), 0);
     }
+
+  if (ENABLE_LD_ST_PAIRS)
+    mips_load_store_bond_insns ();
 }
 
 /* Helper function for doing a loop-based block operation on memory
@@ -12977,8 +12981,9 @@ mips_for_each_saved_gpr_and_fpr (HOST_WIDE_INT sp_offset,
   machine_mode fpr_mode;
   int regno;
   const struct mips_frame_info *frame = &cfun->machine->frame;
-  HOST_WIDE_INT offset;
+  HOST_WIDE_INT offset, offset_dec;
   unsigned int mask;
+  bool increasing_order_p = false;
 
   /* Save registers starting from high to low.  The debuggers prefer at least
      the return register be stored at func+4, and also it allows us not to
@@ -12990,20 +12995,53 @@ mips_for_each_saved_gpr_and_fpr (HOST_WIDE_INT sp_offset,
   if (TARGET_MICROMIPS)
     umips_build_save_restore (fn, &mask, &offset);
 
-  for (regno = GP_REG_LAST; regno >= GP_REG_FIRST; regno--)
+  if (TUNE_I6400)
+    increasing_order_p = true;
+
+  if (BITSET_P (mask, (regno = GP_REG_LAST - GP_REG_FIRST)))
+    {
+      /* Record the ra offset for use by mips_function_profiler.  */
+      if (regno == RETURN_ADDR_REGNUM)
+	cfun->machine->frame.ra_fp_offset = offset + sp_offset;
+      mips_save_restore_reg (word_mode, regno, offset, fn);
+      offset -= UNITS_PER_WORD;
+    }
+
+  if (increasing_order_p)
+    {
+      offset_dec = 0;
+      for (regno = GP_REG_LAST - 1; regno >= GP_REG_FIRST; regno--)
+	if (BITSET_P (mask, regno - GP_REG_FIRST))
+	  offset_dec += UNITS_PER_WORD;
+      offset -= (offset_dec - UNITS_PER_WORD);
+    }
+
+  for (regno = GP_REG_LAST - 1; regno >= GP_REG_FIRST; regno--)
     if (BITSET_P (mask, regno - GP_REG_FIRST))
       {
-	/* Record the ra offset for use by mips_function_profiler.  */
-	if (regno == RETURN_ADDR_REGNUM)
-	  cfun->machine->frame.ra_fp_offset = offset + sp_offset;
 	mips_save_restore_reg (word_mode, regno, offset, fn);
-	offset -= UNITS_PER_WORD;
+	if (increasing_order_p)
+	  offset += UNITS_PER_WORD;
+	else
+	  offset -= UNITS_PER_WORD;
       }
 
   /* This loop must iterate over the same space as its companion in
      mips_compute_frame_info.  */
   offset = cfun->machine->frame.fp_sp_offset - sp_offset;
   fpr_mode = (TARGET_SINGLE_FLOAT ? SFmode : DFmode);
+
+  if (increasing_order_p)
+    {
+      offset_dec = 0;
+      for (regno = FP_REG_LAST - MAX_FPRS_PER_FMT + 1;
+	   regno >= FP_REG_FIRST;
+	   regno -= MAX_FPRS_PER_FMT)
+	if (BITSET_P (cfun->machine->frame.fmask, regno - FP_REG_FIRST))
+	  offset_dec += GET_MODE_SIZE (fpr_mode);
+      offset -= (offset_dec - GET_MODE_SIZE (fpr_mode));
+    }
+
   for (regno = FP_REG_LAST - MAX_FPRS_PER_FMT + 1;
        regno >= FP_REG_FIRST;
        regno -= MAX_FPRS_PER_FMT)
@@ -13019,7 +13057,10 @@ mips_for_each_saved_gpr_and_fpr (HOST_WIDE_INT sp_offset,
 	  }
 	else
 	  mips_save_restore_reg (fpr_mode, regno, offset, fn);
-	offset -= GET_MODE_SIZE (fpr_mode);
+	if (increasing_order_p)
+	  offset += GET_MODE_SIZE (fpr_mode);
+	else
+	  offset -= GET_MODE_SIZE (fpr_mode);
       }
 }
 
@@ -13764,6 +13805,9 @@ mips_expand_prologue (void)
      the call to mcount.  */
   if (crtl->profile)
     emit_insn (gen_blockage ());
+
+  if (ENABLE_LD_ST_PAIRS)
+    mips_load_store_bond_insns ();
 }
 
 /* Attach all pending register saves to the previous instruction.
@@ -14247,6 +14291,9 @@ mips_expand_epilogue (bool sibcall_p)
       emit_insn_before (gen_mips_di (), insn);
       emit_insn_before (gen_mips_ehb (), insn);
     }
+
+  if (ENABLE_LD_ST_PAIRS)
+    mips_load_store_bond_insns ();
 }
 
 /* Return nonzero if this function is known to have a null epilogue.
@@ -20434,7 +20481,7 @@ mips_avoid_hazard (rtx_insn *after, rtx_insn *insn, int *hilo_delay,
      imply it is not actually a compact branch anyway) and the current
      insn is not an inline asm, and can't go in a delay slot.  */
   else if (TARGET_FORBIDDEN_SLOTS && *fs_delay
-	   && get_attr_can_delay (insn) == CAN_DELAY_NO
+	   && get_attr_can_forbidden (insn) == CAN_FORBIDDEN_NO
 	   && GET_CODE (PATTERN (after)) != SEQUENCE
 	   && GET_CODE (pattern) != ASM_INPUT
 	   && asm_noperands (pattern) < 0)
@@ -20607,7 +20654,8 @@ mips_reorg_process_insns (void)
 		  && ((next_active
 		       && INSN_P (next_active)
 		       && GET_CODE (PATTERN (next_active)) != SEQUENCE
-		       && get_attr_can_delay (next_active) == CAN_DELAY_YES)
+		       && (get_attr_can_forbidden (next_active)
+			   == CAN_FORBIDDEN_YES))
 		      || !optimize_size))
 		{
 		  /* To hide a potential pipeline bubble, if we scan backwards
@@ -22821,12 +22869,75 @@ umips_load_store_pair_p_1 (bool load_p, bool swap_p,
   return true;
 }
 
+/* Return TRUE if OPERANDS represents a load or store of address in
+   the form of [BASE+OFFSET] that can be later bonded.  LOAD_P is set to TRUE
+   if it's a load.  Return FALSE otherwise.  */
+
+static bool
+mips_load_store_p (rtx *operands, rtx *base, HOST_WIDE_INT *offset,
+		   bool *load_p)
+{
+  rtx mem;
+  rtx dest = operands[0];
+  rtx src = operands[1];
+
+  if ((GET_CODE (src) == REG || src == const0_rtx)
+      && GET_CODE ((mem = dest)) == MEM)
+    *load_p = false;
+  else if (GET_CODE ((mem = src)) == MEM && GET_CODE (dest) == REG)
+    *load_p = true;
+  else
+    return false;
+
+  mips_split_plus (XEXP (mem, 0), base, offset);
+
+  if (GET_CODE (*base) != REG)
+    return false;
+
+  if (*load_p && MEM_VOLATILE_P (mem))
+    return false;
+
+  return true;
+}
+
+/* Return TRUE if operands OPERANDS represent two consecutive instructions
+   than can be bonded as load-load/store-store pair in mode MODE.
+   Return FALSE otherwise.  */
+
 bool
-mips_load_store_bonding_p (rtx *operands, machine_mode mode, bool load_p)
+mips_load_store_bonding_p (rtx *operands, machine_mode mode)
 {
   rtx reg1, reg2, mem1, mem2, base1, base2;
   enum reg_class rc1, rc2;
   HOST_WIDE_INT offset1, offset2;
+  bool load_p, load_p2;
+
+  /* Check the supported modes.  */
+  switch (mode)
+    {
+    case HImode:
+    case SImode:
+      break;
+    case DImode:
+      if (!TARGET_64BIT)
+	return false;
+      break;
+    case SFmode:
+      if (!TARGET_HARD_FLOAT)
+	return false;
+      break;
+    case DFmode:
+      if (!(TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT))
+	return false;
+      break;
+    default:
+      return false;
+    }
+
+  if (!mips_load_store_p (&operands[0], &base1, &offset1, &load_p)
+      || !mips_load_store_p (&operands[2], &base2, &offset2, &load_p2)
+      || load_p != load_p2)
+    return false;
 
   if (load_p)
     {
@@ -22843,12 +22954,13 @@ mips_load_store_bonding_p (rtx *operands, machine_mode mode, bool load_p)
       mem2 = operands[2];
     }
 
+  if (MEM_ALIGN (mem1) < GET_MODE_BITSIZE (GET_MODE (mem1))
+      || MEM_ALIGN (mem2) < GET_MODE_BITSIZE (GET_MODE (mem2)))
+    return false;
+
   if (mips_address_insns (XEXP (mem1, 0), mode, false) == 0
       || mips_address_insns (XEXP (mem2, 0), mode, false) == 0)
     return false;
-
-  mips_split_plus (XEXP (mem1, 0), &base1, &offset1);
-  mips_split_plus (XEXP (mem2, 0), &base2, &offset2);
 
   /* Base regs do not match.  */
   if (!REG_P (base1) || !rtx_equal_p (base1, base2))
@@ -22867,18 +22979,175 @@ mips_load_store_bonding_p (rtx *operands, machine_mode mode, bool load_p)
       && REGNO (reg1) == REGNO (reg2))
     return false;
 
-  /* The loads/stores are not of same type.  */
-  rc1 = REGNO_REG_CLASS (REGNO (reg1));
-  rc2 = REGNO_REG_CLASS (REGNO (reg2));
-  if (rc1 != rc2
-      && !reg_class_subset_p (rc1, rc2)
-      && !reg_class_subset_p (rc2, rc1))
+  /* Check if the loads/stores are of the same mode.
+     Skip the mode check for stores where we have $0 as source registers.  */
+  if ((GET_MODE (reg1) != GET_MODE (reg2)
+       && !(!load_p && (reg1 == const0_rtx || reg2 == const0_rtx)))
+      || GET_MODE (mem1) != GET_MODE (mem2)
+      || GET_MODE (base1) != GET_MODE (base2))
     return false;
 
-  if (abs (offset1 - offset2) != GET_MODE_SIZE (mode))
+  /* The loads/stores are not of same type.  */
+  if (reload_completed)
+    {
+      rc1 = REGNO_REG_CLASS (REGNO (reg1));
+      rc2 = REGNO_REG_CLASS (REGNO (reg2));
+      if (rc1 != rc2
+	  && !reg_class_subset_p (rc1, rc2)
+	  && !reg_class_subset_p (rc2, rc1))
+	return false;
+    }
+
+  if (abs(offset1 - offset2) != GET_MODE_SIZE (mode))
     return false;
 
   return true;
+}
+
+/* Return TRUE if INSN1 and INSN2 can be bonded, FALSE otherwise.  */
+
+bool
+mips_load_store_bonding_insn_p (rtx insn1, rtx insn2)
+{
+  rtx operands[4];
+  rtx pat1, pat2;
+
+  gcc_assert (INSN_P (insn1) && INSN_P (insn2));
+
+  pat1 = PATTERN (insn1);
+  pat2 = PATTERN (insn2);
+
+  if (GET_CODE (pat1) == SET && GET_CODE (pat2) == SET)
+    {
+      machine_mode mode;
+
+      operands[0] = SET_DEST (pat1);
+      operands[1] = SET_SRC (pat1);
+      operands[2] = SET_DEST (pat2);
+      operands[3] = SET_SRC (pat2);
+
+      /* We take the mode from either SET_DESTs and the remaining operands
+	 and modes will be checked later.  */
+      mode = GET_MODE (operands[0]);
+
+      return mips_load_store_bonding_p (operands, mode);
+    }
+
+  return false;
+}
+
+/* Find and bond load/store pairs in range FROM to TO.  */
+
+static void
+mips_load_store_bond_insns_in_range (rtx_insn *from, rtx_insn *to)
+{
+  rtx_insn *cur, *next;
+
+  if (!ENABLE_LD_ST_PAIRS)
+    return;
+
+  if (from == NULL || to == NULL || from == to)
+    return;
+
+  for (cur = from, next = NEXT_INSN (cur);
+       next;
+       cur = next, next = NEXT_INSN (next))
+    {
+      if (INSN_P (cur) && INSN_P (next)
+	  && mips_load_store_bonding_insn_p (cur, next))
+	{
+	  rtx_insn *bonded;
+	  int code;
+	  rtx base1, base2;
+	  HOST_WIDE_INT offset1, offset2;
+	  rtx par = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (2));
+
+	  XVECEXP (par, 0, 0) = PATTERN (cur);
+	  XVECEXP (par, 0, 1) = PATTERN (next);
+
+	  bonded = emit_insn_before (par, cur);
+	  code = recog_memoized (bonded);
+
+	  if (code < 0)
+	    {
+	      delete_insn (bonded);
+	      continue;
+	    }
+
+	  base1 = base2 = NULL_RTX;
+
+	  if (GET_CODE (SET_SRC (single_set (cur))) == REG
+	      && GET_CODE (SET_DEST (single_set (cur))) == MEM)
+	    {
+	      mips_split_plus (XEXP (SET_DEST (single_set (cur)), 0),
+				     &base1, &offset1);
+	      mips_split_plus (XEXP (SET_DEST (single_set (next)), 0),
+				     &base2, &offset2);
+	    }
+
+	  if (base1 != NULL_RTX
+	      && GET_CODE (base1) == REG
+	      && REGNO (base1) == STACK_POINTER_REGNUM)
+	    {
+	      rtx dwarf, dw_par[4];
+	      rtx set1, set2, note1, note2;
+	      int len;
+
+	      gcc_assert (base2 != NULL_RTX && GET_CODE (base2) == REG
+			  && REGNO (base2) == STACK_POINTER_REGNUM);
+
+	      set1 = copy_rtx (single_set (cur));
+	      set2 = copy_rtx (single_set (next));
+
+	      if ((note1 = find_reg_note (cur, REG_FRAME_RELATED_EXPR, 0)))
+		dw_par[0] = XEXP (note1, 0);
+	      else
+		dw_par[0] = set1;
+
+	      if ((note2 = find_reg_note (next, REG_FRAME_RELATED_EXPR, 0)))
+		dw_par[1] = XEXP (note2, 0);
+	      else
+		dw_par[1] = set2;
+
+	      len = GET_CODE (dw_par[0]) == SET ? 1 : XVECLEN (dw_par[0], 0);
+	      len += GET_CODE (dw_par[1]) == SET ? 1 : XVECLEN (dw_par[1], 0);
+
+	      gcc_assert (len == 2 || len == 4);
+
+	      if (len == 4)
+		{
+		  dw_par[3] = XVECEXP (dw_par[1], 0, 1);
+		  dw_par[2] = XVECEXP (dw_par[1], 0, 0);
+		  dw_par[1] = XVECEXP (dw_par[0], 0, 1);
+		  dw_par[0] = XVECEXP (dw_par[0], 0, 0);
+		}
+
+	      dwarf = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (len));
+	      for (int i = 0; i < len; i++)
+		{
+		  RTX_FRAME_RELATED_P (dw_par[i]) = 1;
+		  XVECEXP (dwarf, 0, i) = dw_par[i];
+		}
+
+	      RTX_FRAME_RELATED_P (dwarf) = 1;
+	      RTX_FRAME_RELATED_P (bonded) = 1;
+	      add_reg_note (bonded, REG_FRAME_RELATED_EXPR, dwarf);
+	    }
+
+	  remove_insn (cur);
+	  remove_insn (next);
+	  cur = PREV_INSN (cur);
+	  next = bonded;
+	}
+    }
+}
+
+/* Find and bond load/store pairs for the entire sequence.  */
+
+static void
+mips_load_store_bond_insns ()
+{
+  mips_load_store_bond_insns_in_range (get_insns (), get_last_insn ());
 }
 
 /* OPERANDS describes the operands to a pair of SETs, in the order
