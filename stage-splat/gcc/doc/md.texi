@@ -3224,11 +3224,11 @@ Memory operand suitable for power9 fusion load/stores.
 Memory operand suitable for TOC fusion memory references.
 
 @item wL
-Int constant that is the element number that the MFVSRLD instruction
+Int constant that is the element number that the MFVSRLD instruction.
 targets.
 
 @item wM
-Vector constant with all bits set to 1.
+Match vector constant with all 1's if the XXLORC instruction is available.
 
 @item wO
 A memory operand suitable for the ISA 3.0 vector d-form instructions.

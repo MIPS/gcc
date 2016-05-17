@@ -572,7 +572,7 @@
 (define_predicate "xxspltib_constant_split"
   (match_code "const_vector,vec_duplicate,const_int")
 {
-  int value	= 256;
+  int value = 256;
   int num_insns	= -1;
 
   if (!xxspltib_constant_p (op, mode, &num_insns, &value))
@@ -588,7 +588,7 @@
 (define_predicate "xxspltib_constant_nosplit"
   (match_code "const_vector,vec_duplicate,const_int")
 {
-  int value	= 256;
+  int value = 256;
   int num_insns	= -1;
 
   if (!xxspltib_constant_p (op, mode, &num_insns, &value))

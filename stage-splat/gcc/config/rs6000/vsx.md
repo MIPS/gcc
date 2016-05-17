@@ -767,7 +767,7 @@
 ;; 3.0.  Both (const_vector [..]) and (vec_duplicate ...) forms are recognized.
 (define_insn "xxspltib_v16qi"
   [(set (match_operand:V16QI 0 "vsx_register_operand" "=wa")
-	(vec_duplicate:V16QI (match_operand:SI 1 "s8bit_cint_operand" "i")))]
+	(vec_duplicate:V16QI (match_operand:SI 1 "s8bit_cint_operand" "n")))]
   "TARGET_P9_VECTOR"
 {
   operands[2] = GEN_INT (INTVAL (operands[1]) & 0xff);
@@ -841,7 +841,7 @@
 
 ;;		VSX store  VSX load   VSX move  VSX->GPR   GPR->VSX    LQ (GPR)
 ;;              STQ (GPR)  GPR load   GPR store GPR move   XXSPLTIB    VSPLTISW
-;;		VSX 0/-1   GPR 0/-1   AVX const GPR const  LVX (AVX)   STVX (AVX)
+;;		VSX 0/-1   GPR 0/-1   VMX const GPR const  LVX (VMX)   STVX (VMX)
 (define_insn "*vsx_mov<mode>_64bit"
   [(set (match_operand:VSX_M 0 "nonimmediate_operand"
                "=ZwO,      <VSa>,     <VSa>,     r,         we,        ?wQ,
@@ -870,8 +870,8 @@
 		4,         8,         20,        20,        4,         4")])
 
 ;;		VSX store  VSX load   VSX move   GPR load   GPR store  GPR move
-;;		XXSPLTIB   VSPLTISW   VSX 0/-1   GPR 0/-1   AVX const  GPR const
-;;		LVX (AVX)  STVX (AVX)
+;;		XXSPLTIB   VSPLTISW   VSX 0/-1   GPR 0/-1   VMX const  GPR const
+;;		LVX (VMX)  STVX (VMX)
 (define_insn "*vsx_mov<mode>_32bit"
   [(set (match_operand:VSX_M 0 "nonimmediate_operand"
                "=ZwO,      <VSa>,     <VSa>,     ??r,       ??Y,       ??r,

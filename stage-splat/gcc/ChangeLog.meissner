@@ -1,7 +1,19 @@
 2016-05-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	* config/rs6000/vsx.md (vsx_mov<mode>_64bit): Rewrite so it
-	doesn't cause reload to fail.
+	* config/doc/md.texi (wL constraint): Add period to documentation.
+	(wM): Reword description.
+
+	* config/rs6000/constraints.md (wM): Reword description.
+
+	* config/rs6000/predicates.md (xxspltib_constant_split): Spacing.
+	(xxspltib_constant_nosplit): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Eliminate
+	extra parenthesis.
+
+	* config/rs6000/vsx.md (xxspltib_v16qi): Use n constraint.
+	(vsx_mov<mode>_64bit): Rewrite so it doesn't cause reload to
+	fail.
 	(vsx_mov<mode>_32bit): Likewise.
 
 2016-05-13  Michael Meissner  <meissner@linux.vnet.ibm.com>

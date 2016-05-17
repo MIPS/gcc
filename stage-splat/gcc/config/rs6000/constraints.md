@@ -160,9 +160,9 @@
        (and (match_test "TARGET_DIRECT_MOVE_128")
 	    (match_test "(ival == VECTOR_ELEMENT_MFVSRLD_64BIT)"))))
 
-;; Generate the XXORC instruction which was added in ISA 2.07
+;; Generate the XXORC instruction to set a register to all 1's
 (define_constraint "wM"
-  "vector constant with all 1's, ISA 2.07 and above"
+  "Match vector constant with all 1's if the XXLORC instruction is available"
   (and (match_test "TARGET_P8_VECTOR")
        (match_operand 0 "all_ones_constant")))
 
