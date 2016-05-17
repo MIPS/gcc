@@ -3179,6 +3179,11 @@ while (0)
 #define MIPS_MAX_MOVE_BYTES_STRAIGHT \
   (MIPS_MAX_MOVE_BYTES_PER_LOOP_ITER * 2)
 
+/* The maximum number of bytes that can be copied by any expanded block move;
+   see mips_expand_block_move.  */
+#define MIPS_MAX_MOVE_MEM_STRAIGHT \
+  (MIPS_MAX_MOVE_BYTES_PER_LOOP_ITER * 3)
+
 /* The base cost of a memcpy call, for MOVE_RATIO and friends.  These
    values were determined experimentally by benchmarking with CSiBE.
    In theory, the call overhead is higher for TARGET_ABICALLS (especially
