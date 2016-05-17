@@ -3809,6 +3809,10 @@ gfc_split_omp_clauses (gfc_code *code,
 	     | GFC_OMP_MASK_SIMD;
       innermost = GFC_OMP_SPLIT_SIMD;
       break;
+    case EXEC_OMP_TARGET_SIMD:
+      mask = GFC_OMP_MASK_TARGET | GFC_OMP_MASK_SIMD;
+      innermost = GFC_OMP_SPLIT_SIMD;
+      break;
     case EXEC_OMP_TARGET_TEAMS:
       mask = GFC_OMP_MASK_TARGET | GFC_OMP_MASK_TEAMS;
       innermost = GFC_OMP_SPLIT_TEAMS;
@@ -4431,10 +4435,13 @@ gfc_trans_omp_teams (gfc_code *code, gfc_omp_clauses *clausesa)
       stmt = gfc_trans_omp_distribute (code, clausesa);
       break;
     }
-  stmt = build2_loc (input_location, OMP_TEAMS, void_type_node, stmt,
-		     omp_clauses);
-  if (combined)
-    OMP_TEAMS_COMBINED (stmt) = 1;
+  if (flag_openmp)
+    {
+      stmt = build2_loc (input_location, OMP_TEAMS, void_type_node, stmt,
+			 omp_clauses);
+      if (combined)
+	OMP_TEAMS_COMBINED (stmt) = 1;
+    }
   gfc_add_expr_to_block (&block, stmt);
   return gfc_finish_block (&block);
 }
@@ -4502,8 +4509,12 @@ gfc_trans_omp_target (gfc_code *code)
       break;
     }
   if (flag_openmp)
-    stmt = build2_loc (input_location, OMP_TARGET, void_type_node, stmt,
-		       omp_clauses);
+    {
+      stmt = build2_loc (input_location, OMP_TARGET, void_type_node, stmt,
+			 omp_clauses);
+      if (code->op != EXEC_OMP_TARGET)
+	OMP_TARGET_COMBINED (stmt) = 1;
+    }
   gfc_add_expr_to_block (&block, stmt);
   return gfc_finish_block (&block);
 }

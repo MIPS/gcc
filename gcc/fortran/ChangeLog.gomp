@@ -1,3 +1,9 @@
+2016-05-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-openmp.c (gfc_split_omp_clauses): Handle EXEC_OMP_TARGET_SIMD.
+	(gfc_trans_omp_teams): Don't wrap into OMP_TEAMS if -fopenmp-simd.
+	(gfc_trans_omp_target): Set OMP_TARGET_COMBINED if needed.
+
 2016-05-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* trans.c (trans_code): Handle new OpenMP 4.5 constructs.
