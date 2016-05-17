@@ -76,6 +76,17 @@ MULTILIB_OSDIRNAMES += mips64r6/mabi.n32/EL/msoft-float/mnan.2008=!mipsel-r6-sof
 MULTILIB_REQUIRED   += mips64r6/mabi=64/EL/msoft-float/mnan=2008
 MULTILIB_OSDIRNAMES += mips64r6/mabi.64/EL/msoft-float/mnan.2008=!mipsel-r6-soft$(is_newlib)/lib64
 
+# microMIPS32R6 - We will not include any 64 bit microMIPS combinations
+MULTILIB_REQUIRED   += mips32r6/mmicromips/mabi=32/EB/mnan=2008
+MULTILIB_OSDIRNAMES += mips32r6/mmicromips/mabi.32/EB/mnan.2008=!micromips-r6-hard$(is_newlib)/lib
+MULTILIB_REQUIRED   += mips32r6/mmicromips/mabi=32/EB/msoft-float/mnan=2008
+MULTILIB_OSDIRNAMES += mips32r6/mmicromips/mabi.32/EB/msoft-float/mnan.2008=!micromips-r6-soft$(is_newlib)/lib
+
+MULTILIB_REQUIRED   += mips32r6/mmicromips/mabi=32/EL/mnan=2008
+MULTILIB_OSDIRNAMES += mips32r6/mmicromips/mabi.32/EL/mnan.2008=!micromipsel-r6-hard$(is_newlib)/lib
+MULTILIB_REQUIRED   += mips32r6/mmicromips/mabi=32/EL/msoft-float/mnan=2008
+MULTILIB_OSDIRNAMES += mips32r6/mmicromips/mabi.32/EL/msoft-float/mnan.2008=!micromipsel-r6-soft$(is_newlib)/lib
+
 # Unsual configurations
 MULTILIB_REQUIRED   += mips32r6/mabi=32/EL/msingle-float/mnan=2008/fshort-double
 MULTILIB_OSDIRNAMES += mips32r6/mabi.32/EL/msingle-float/mnan.2008/fshort-double=!mipsel-r6-singleshort$(is_newlib)/lib
@@ -269,6 +280,15 @@ MULTILIB_OSDIRNAMES += mclib.tiny/mips32r2/mabi.32/EL/msoft-float=!mipsel-r2-sof
 MULTILIB_REUSE      += mclib.tiny/mips32r2/mabi.32/EL/msoft-float=mclib.tiny/mips64r2/mabi.32/EL/msoft-float
 
 # microMIPS Small/Tiny C library variants
+MULTILIB_REQUIRED   += mclib=small/mips32r6/mmicromips/mabi=32/EB/mnan=2008
+MULTILIB_OSDIRNAMES += mclib.small/mips32r6/mmicromips/mabi.32/EB/mnan.2008=!micromips-r6-hard-small/lib
+MULTILIB_REQUIRED   += mclib=small/mips32r6/mmicromips/mabi=32/EL/mnan=2008
+MULTILIB_OSDIRNAMES += mclib.small/mips32r6/mmicromips/mabi.32/EL/mnan.2008=!micromipsel-r6-hard-small/lib
+MULTILIB_REQUIRED   += mclib=small/mips32r6/mmicromips/mabi=32/EB/msoft-float
+MULTILIB_OSDIRNAMES += mclib.small/mips32r6/mmicromips/mabi.32/EB/msoft-float=!micromips-r6-soft-small/lib
+MULTILIB_REQUIRED   += mclib=small/mips32r6/mmicromips/mabi=32/EL/msoft-float
+MULTILIB_OSDIRNAMES += mclib.small/mips32r6/mmicromips/mabi.32/EL/msoft-float=!micromipsel-r6-soft-small/lib
+
 MULTILIB_REQUIRED   += mclib=small/mips32r2/mmicromips/mabi=32/EB/mnan=2008
 MULTILIB_OSDIRNAMES += mclib.small/mips32r2/mmicromips/mabi.32/EB/mnan.2008=!micromips-r2-hard-nan2008-small/lib
 MULTILIB_REQUIRED   += mclib=small/mips32r2/mmicromips/mabi=32/EL/mnan=2008
@@ -277,6 +297,15 @@ MULTILIB_REQUIRED   += mclib=small/mips32r2/mmicromips/mabi=32/EB/msoft-float
 MULTILIB_OSDIRNAMES += mclib.small/mips32r2/mmicromips/mabi.32/EB/msoft-float=!micromips-r2-soft-small/lib
 MULTILIB_REQUIRED   += mclib=small/mips32r2/mmicromips/mabi=32/EL/msoft-float
 MULTILIB_OSDIRNAMES += mclib.small/mips32r2/mmicromips/mabi.32/EL/msoft-float=!micromipsel-r2-soft-small/lib
+
+MULTILIB_REQUIRED   += mclib=tiny/mips32r6/mmicromips/mabi=32/EB/mnan=2008
+MULTILIB_OSDIRNAMES += mclib.tiny/mips32r6/mmicromips/mabi.32/EB/mnan.2008=!micromips-r6-hard-tiny/lib
+MULTILIB_REQUIRED   += mclib=tiny/mips32r6/mmicromips/mabi=32/EL/mnan=2008
+MULTILIB_OSDIRNAMES += mclib.tiny/mips32r6/mmicromips/mabi.32/EL/mnan.2008=!micromipsel-r6-hard-tiny/lib
+MULTILIB_REQUIRED   += mclib=tiny/mips32r6/mmicromips/mabi=32/EB/msoft-float
+MULTILIB_OSDIRNAMES += mclib.tiny/mips32r6/mmicromips/mabi.32/EB/msoft-float=!micromips-r6-soft-tiny/lib
+MULTILIB_REQUIRED   += mclib=tiny/mips32r6/mmicromips/mabi=32/EL/msoft-float
+MULTILIB_OSDIRNAMES += mclib.tiny/mips32r6/mmicromips/mabi.32/EL/msoft-float=!micromipsel-r6-soft-tiny/lib
 
 MULTILIB_REQUIRED   += mclib=tiny/mips32r2/mmicromips/mabi=32/EB/mnan=2008
 MULTILIB_OSDIRNAMES += mclib.tiny/mips32r2/mmicromips/mabi.32/EB/mnan.2008=!micromips-r2-hard-nan2008-tiny/lib
