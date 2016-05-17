@@ -492,9 +492,6 @@ for rrule in ${multilib_reuse}; do
       echo "The rule ${rrule} contains an option absent from MULTILIB_OPTIONS." >&2
       exit 1
     fi
-  else
-    echo "The rule ${rrule} is trying to reuse nonexistent multilib." >&2
-    exit 1
   fi
 done
 
