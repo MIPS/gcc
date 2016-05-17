@@ -6735,7 +6735,7 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 	    {
 	      rtx freg = gen_reg_rtx (V4SFmode);
 	      rtx sreg = force_reg (SFmode, op0);
-	      rtx cvt  = ((TARGET_XSCVDPSPN)
+	      rtx cvt  = (TARGET_XSCVDPSPN
 			  ? gen_vsx_xscvdpspn_scalar (freg, sreg)
 			  : gen_vsx_xscvdpsp_scalar (freg, sreg));
 

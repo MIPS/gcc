@@ -1,3 +1,14 @@
+2016-05-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/md.texi (Machine Constraints): Update for splat/xxspltib patches.
+	* config/rs6000/constraints.md (wM constraint): Likewise.
+	* config/rs6000/predicates.md (xxspltib_constant_split): Likewise.
+	(xxspltib_constant_nosplit): Likewise.
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Likewise.
+	* config/rs6000/vsx.md (xxspltib_v16qi): Likewise.
+	(vsx_mov<mode>_64bit): Likewise.
+	(vsx_mov<mode>_32bit): Likewise.
+
 2016-05-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	<fsf submission for word splat/xxspltib>
