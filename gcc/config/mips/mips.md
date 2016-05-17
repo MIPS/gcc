@@ -458,6 +458,8 @@
 		(const_string "yes")
 		(const_string "no")))
 
+(define_attr "tail_branch_mips16" "no,yes" (const_string "no"))
+
 (define_attr "compression" "none,all,micromips32,micromips"
   (const_string "none"))
 
@@ -1111,6 +1113,7 @@
 ;; branch detection condition in anyway.
 (define_delay (and (eq_attr "type" "call")
 		   (eq_attr "jal_macro" "no")
+		   (eq_attr "tail_branch_mips16" "no")
 		   (ior (match_test "TARGET_CB_NEVER")
 			(and (eq_attr "compact_form" "maybe")
 			     (not (match_test "TARGET_CB_ALWAYS")))
@@ -4647,7 +4650,7 @@
   "!TARGET_64BIT && !TARGET_MIPS16
    && (register_operand (operands[0], DImode)
        || reg_or_0_operand (operands[1], DImode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,const,load,store,imul,mtlo,mflo,mtc,fpload,mfc,fpstore,mtc,fpload,mfc,fpstore")
    (set (attr "mode")
    	(if_then_else (eq_attr "move_type" "imul")
@@ -4660,7 +4663,7 @@
   "!TARGET_64BIT && TARGET_MIPS16
    && (register_operand (operands[0], DImode)
        || register_operand (operands[1], DImode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,move,move,const,constN,load,store,mflo")
    (set_attr "mode" "DI")])
 
@@ -4670,7 +4673,7 @@
   "TARGET_64BIT && !TARGET_MIPS16
    && (register_operand (operands[0], DImode)
        || reg_or_0_operand (operands[1], DImode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,const,const,load,store,mtc,fpload,mfc,fpstore,mtlo,mflo,mtc,fpload,mfc,fpstore")
    (set_attr "mode" "DI")])
 
@@ -4680,7 +4683,7 @@
   "TARGET_64BIT && TARGET_MIPS16
    && (register_operand (operands[0], DImode)
        || register_operand (operands[1], DImode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,move,move,const,constN,const,loadpool,load,store,mflo")
    (set_attr "mode" "DI")])
 
@@ -4748,7 +4751,7 @@
   "!TARGET_MIPS16
    && (register_operand (operands[0], <MODE>mode)
        || reg_or_0_operand (operands[1], <MODE>mode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,move,const,const,const,load,load,load,store,store,store,mtc,fpload,mfc,fpstore,mfc,mtc,mtlo,mflo,mtc,fpload,mfc,fpstore")
    (set_attr "compression" "all,micromips,micromips,*,*,micromips,micromips,*,micromips,micromips,*,*,*,*,*,*,*,*,*,*,*,*,*")
    (set_attr "mode" "SI")])
@@ -4759,7 +4762,7 @@
   "TARGET_MIPS16
    && (register_operand (operands[0], <MODE>mode)
        || register_operand (operands[1], <MODE>mode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,move,move,const,constN,const,loadpool,load,store,mflo")
    (set_attr "mode" "SI")])
 
@@ -4889,7 +4892,7 @@
   "!TARGET_MIPS16
    && (register_operand (operands[0], HImode)
        || reg_or_0_operand (operands[1], HImode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,const,const,load,load,store,store,mtlo,mflo")
    (set_attr "compression" "all,micromips,*,micromips,*,micromips,*,*,*")
    (set_attr "mode" "HI")])
@@ -4900,7 +4903,7 @@
   "TARGET_MIPS16
    && (register_operand (operands[0], HImode)
        || register_operand (operands[1], HImode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,move,move,const,constN,load,store,mflo")
    (set_attr "mode" "HI")])
 
@@ -4965,7 +4968,7 @@
   "!TARGET_MIPS16
    && (register_operand (operands[0], QImode)
        || reg_or_0_operand (operands[1], QImode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,const,const,load,load,store,store,mtlo,mflo")
    (set_attr "compression" "all,micromips,*,micromips,*,micromips,*,*,*")
    (set_attr "mode" "QI")])
@@ -4976,7 +4979,7 @@
   "TARGET_MIPS16
    && (register_operand (operands[0], QImode)
        || register_operand (operands[1], QImode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,move,move,const,constN,load,store,mflo")
    (set_attr "mode" "QI")])
 
@@ -5022,7 +5025,7 @@
   [(set (match_operand:CCF 0 "nonimmediate_operand" "=f,f,m")
 	(match_operand:CCF 1 "nonimmediate_operand" "f,m,f"))]
   "ISA_HAS_CCF"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "fmove,fpload,fpstore")])
 
 (define_insn "*movsf_hardfloat"
@@ -5031,7 +5034,7 @@
   "TARGET_HARD_FLOAT
    && (register_operand (operands[0], SFmode)
        || reg_or_0_operand (operands[1], SFmode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "fmove,mtc,fpload,fpstore,store,mtc,mfc,move,load,store")
    (set_attr "mode" "SF")])
 
@@ -5041,7 +5044,7 @@
   "TARGET_SOFT_FLOAT && !TARGET_MIPS16
    && (register_operand (operands[0], SFmode)
        || reg_or_0_operand (operands[1], SFmode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,load,store")
    (set_attr "mode" "SF")])
 
@@ -5051,7 +5054,7 @@
   "TARGET_MIPS16
    && (register_operand (operands[0], SFmode)
        || register_operand (operands[1], SFmode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,move,move,load,store")
    (set_attr "mode" "SF")])
 
@@ -5072,7 +5075,7 @@
   "TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT
    && (register_operand (operands[0], DFmode)
        || reg_or_0_operand (operands[1], DFmode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "fmove,mtc,fpload,fpstore,store,mtc,mfc,move,load,store")
    (set_attr "mode" "DF")])
 
@@ -5082,7 +5085,7 @@
   "(TARGET_SOFT_FLOAT || TARGET_SINGLE_FLOAT) && !TARGET_MIPS16
    && (register_operand (operands[0], DFmode)
        || reg_or_0_operand (operands[1], DFmode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,load,store")
    (set_attr "mode" "DF")])
 
@@ -5092,7 +5095,7 @@
   "TARGET_MIPS16
    && (register_operand (operands[0], DFmode)
        || register_operand (operands[1], DFmode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,move,move,load,store")
    (set_attr "mode" "DF")])
 
@@ -5114,7 +5117,7 @@
    && !TARGET_MIPS16
    && (register_operand (operands[0], TImode)
        || reg_or_0_operand (operands[1], TImode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,const,load,store,imul,mtlo,mflo")
    (set (attr "mode")
    	(if_then_else (eq_attr "move_type" "imul")
@@ -5219,7 +5222,7 @@
    && TARGET_PAIRED_SINGLE_FLOAT
    && (register_operand (operands[0], V2SFmode)
        || reg_or_0_operand (operands[1], V2SFmode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "fmove,mtc,fpload,fpstore,store,mtc,mfc,move,load,store")
    (set_attr "mode" "DF")])
 
@@ -5294,7 +5297,7 @@
   "TARGET_HARD_FLOAT"
 {
   operands[0] = mips_subword (operands[0], 0);
-  return mips_output_move (operands[0], operands[1]);
+  return mips_output_move (insn, operands[0], operands[1]);
 }
   [(set_attr "move_type" "mtc,fpload")
    (set_attr "mode" "<HALFMODE>")])
@@ -5309,7 +5312,7 @@
   "TARGET_HARD_FLOAT"
 {
   operands[0] = mips_subword (operands[0], 1);
-  return mips_output_move (operands[0], operands[1]);
+  return mips_output_move (insn, operands[0], operands[1]);
 }
   [(set_attr "move_type" "mtc,fpload")
    (set_attr "mode" "<HALFMODE>")])
@@ -5324,7 +5327,7 @@
   "TARGET_HARD_FLOAT"
 {
   operands[1] = mips_subword (operands[1], INTVAL (operands[2]));
-  return mips_output_move (operands[0], operands[1]);
+  return mips_output_move (insn, operands[0], operands[1]);
 }
   [(set_attr "move_type" "mfc,fpstore")
    (set_attr "mode" "<HALFMODE>")])
@@ -5599,6 +5602,7 @@
      be careful not to allocate a new register if we've reached the
      reload pass.  */
   if (TARGET_MIPS16
+      && !TARGET_DEBUG_D_MODE
       && optimize
       && CONST_INT_P (operands[2])
       && INTVAL (operands[2]) > 8
@@ -6567,6 +6571,19 @@
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")])
 
+;; Return for common epilogue.
+
+(define_insn "return_epi_internal"
+  [(return)
+   (parallel [(use (match_operand 0 "pmode_register_operand" ""))
+	      (use (match_operand 1 "pmode_register_operand" ""))])]
+  ""
+  {
+    return mips_output_epi_jump ();
+  }
+  [(set_attr "type"     "jump")
+   (set_attr "mode"     "none")])
+
 ;; Normal return.
 
 (define_insn "<optab>_internal"
@@ -6630,7 +6647,7 @@
 	(unspec_volatile:SI [(match_operand:SI 1 "register_operand" "d,B")]
 			    UNSPEC_COP0))]
   ""
-{ return mips_output_move (operands[0], operands[1]); }
+{ return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "type"	"mtc,mfc")
    (set_attr "mode"	"SI")])
 
@@ -6829,12 +6846,17 @@
 })
 
 (define_insn "sibcall_internal"
-  [(call (mem:SI (match_operand 0 "call_insn_operand" "j,S"))
+  [(call (mem:SI (match_operand 0 "sibcall_insn_operand" "kc,YS"))
 	 (match_operand 1 "" ""))]
   "TARGET_SIBCALLS && SIBLING_CALL_P (insn)"
   { return mips_output_jump (operands, 0, 1, false); }
   [(set_attr "jal" "indirect,direct")
-   (set_attr "jal_macro" "no")])
+   (set_attr "jal_macro" "no")
+   (set (attr "tail_branch_mips16")
+	(cond [(and (eq_attr "alternative" "1")
+		    (match_test "TARGET_MIPS16 && TARGET_MIPS16_TAIL_BRANCH"))
+		  (const_string "yes")]
+		  (const_string "no")))])
 
 (define_expand "sibcall_value"
   [(parallel [(set (match_operand 0 "")
@@ -6850,16 +6872,21 @@
 
 (define_insn "sibcall_value_internal"
   [(set (match_operand 0 "register_operand" "")
-        (call (mem:SI (match_operand 1 "call_insn_operand" "j,S"))
+	(call (mem:SI (match_operand 1 "sibcall_insn_operand" "kc,YS"))
               (match_operand 2 "" "")))]
   "TARGET_SIBCALLS && SIBLING_CALL_P (insn)"
   { return mips_output_jump (operands, 1, 2, false); }
   [(set_attr "jal" "indirect,direct")
-   (set_attr "jal_macro" "no")])
+   (set_attr "jal_macro" "no")
+   (set (attr "tail_branch_mips16")
+	(cond [(and (eq_attr "alternative" "1")
+		    (match_test "TARGET_MIPS16 && TARGET_MIPS16_TAIL_BRANCH"))
+		  (const_string "yes")]
+		  (const_string "no")))])
 
 (define_insn "sibcall_value_multiple_internal"
   [(set (match_operand 0 "register_operand" "")
-        (call (mem:SI (match_operand 1 "call_insn_operand" "j,S"))
+	(call (mem:SI (match_operand 1 "sibcall_insn_operand" "kc,YS"))
               (match_operand 2 "" "")))
    (set (match_operand 3 "register_operand" "")
 	(call (mem:SI (match_dup 1))
@@ -6867,7 +6894,12 @@
   "TARGET_SIBCALLS && SIBLING_CALL_P (insn)"
   { return mips_output_jump (operands, 1, 2, false); }
   [(set_attr "jal" "indirect,direct")
-   (set_attr "jal_macro" "no")])
+   (set_attr "jal_macro" "no")
+   (set (attr "tail_branch_mips16")
+	(cond [(and (eq_attr "alternative" "1")
+		    (match_test "TARGET_MIPS16 && TARGET_MIPS16_TAIL_BRANCH"))
+		  (const_string "yes")]
+		  (const_string "no")))])
 
 (define_expand "call"
   [(parallel [(call (match_operand 0 "")
@@ -7368,7 +7400,7 @@
        [(set (match_operand:SI 1 "register_operand")
 	     (plus:SI (match_dup 1)
 		      (match_operand:SI 2 "const_int_operand")))])]
-  "operands[1] == stack_pointer_rtx
+  "GET_CODE (operands[1]) == REG && REGNO (operands[1]) == STACK_POINTER_REGNUM
    && mips16e_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL)"
   { return mips16e_output_save_restore (operands[0], INTVAL (operands[2])); }
   [(set_attr "type" "arith")
@@ -7547,16 +7579,16 @@
        However, order of the loads need to be checked for correctness.  */
     if (!load_p || !reg_overlap_mentioned_p (operands[0], operands[1]))
       {
-	output_asm_insn (mips_output_move (operands[0], operands[1]),
+	output_asm_insn (mips_output_move (insn, operands[0], operands[1]),
 			 operands);
-	output_asm_insn (mips_output_move (operands[2], operands[3]),
+	output_asm_insn (mips_output_move (insn, operands[2], operands[3]),
 			 &operands[2]);
       }
     else
       {
-	output_asm_insn (mips_output_move (operands[2], operands[3]),
+	output_asm_insn (mips_output_move (insn, operands[2], operands[3]),
 			 &operands[2]);
-	output_asm_insn (mips_output_move (operands[0], operands[1]),
+	output_asm_insn (mips_output_move (insn, operands[0], operands[1]),
 			 operands);
       }
     return "";

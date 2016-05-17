@@ -163,7 +163,10 @@ struct mips_cpu_info {
       - TARGET_USE_GOT && !TARGET_EXPLICIT_RELOCS.  call_insn_operand
 	accepts global constants, but all sibcalls must be indirect.  */
 #define TARGET_SIBCALLS \
-  (!TARGET_MIPS16 && (!TARGET_USE_GOT || TARGET_EXPLICIT_RELOCS))
+  ((!TARGET_MIPS16							\
+    || (TARGET_MIPS16 && (TARGET_MIPS16_TAIL_INDIRECT			\
+			  || TARGET_MIPS16_TAIL_BRANCH)))		\
+   && (!TARGET_USE_GOT || TARGET_EXPLICIT_RELOCS))
 
 /* True if we need to use a global offset table to access some symbols.  */
 #define TARGET_USE_GOT (TARGET_ABICALLS || TARGET_RTP_PIC)
@@ -2062,6 +2065,7 @@ FP_ASM_SPEC "\
 enum reg_class
 {
   NO_REGS,			/* no registers in set */
+  M16_TAIL_REGS,		/* mips sibling call registers  */
   M16_STORE_REGS,		/* microMIPS store registers  */
   M16_REGS,			/* mips16 directly accessible registers */
   M16_SP_REGS,			/* mips16 + $sp */
@@ -2102,9 +2106,10 @@ enum reg_class
 #define REG_CLASS_NAMES							\
 {									\
   "NO_REGS",								\
+  "M16_TAIL_REGS",							\
   "M16_STORE_REGS",							\
   "M16_REGS",								\
-  "M16_SP_REGS",								\
+  "M16_SP_REGS",							\
   "T_REG",								\
   "M16_T_REGS",								\
   "PIC_FN_ADDR_REG",							\
@@ -2145,14 +2150,15 @@ enum reg_class
 #define REG_CLASS_CONTENTS						                                \
 {									                                \
   { 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* NO_REGS */		\
+  { 0x000000fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_TAIL_REGS */	\
   { 0x000200fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_STORE_REGS */	\
   { 0x000300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_REGS */		\
-  { 0x200300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_SP_REGS */		\
+  { 0x200300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_SP_REGS */	\
   { 0x01000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* T_REG */		\
   { 0x010300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_T_REGS */	\
   { 0x02000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* PIC_FN_ADDR_REG */	\
   { 0x00000008, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* V1_REG */		\
-  { 0x0303fffc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* SPILL_REGS */      	\
+  { 0x03fffffc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* SPILL_REGS */      	\
   { 0xfdffffff, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* LEA_REGS */		\
   { 0xffffffff, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* GR_REGS */		\
   { 0x00000000, 0xffffffff, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* FP_REGS */		\
@@ -2316,7 +2322,13 @@ enum reg_class
 
 #define STACK_GROWS_DOWNWARD 1
 
-#define FRAME_GROWS_DOWNWARD flag_stack_protect
+/* Growing the frame downwards allows us to put spills closest to
+   the stack pointer which is good as they are likely to be accessed
+   frequently. We can also arrange for normal stack usage to place
+   scalars last so that they too are close to the stack pointer */
+#define FRAME_GROWS_DOWNWARD ((TARGET_MIPS16			    \
+			       && TARGET_FRAME_GROWS_DOWNWARDS)     \
+			      || flag_stack_protect)
 
 /* Size of the area allocated in the frame to save the GP.  */
 
@@ -3357,6 +3369,15 @@ struct GTY(())  machine_function {
 
   /* True if GCC stored callee saved registers in the frame header.  */
   bool use_frame_header_for_callee_saved_regs;
+
+  /* True if attribute common_epilogue is defined for this function.  */
+  bool use_common_epilogue_p;
+
+  /* If use_common_epilogue_p, holds suffix string.  */
+  const char *epi_suffix;
+
+  /* If use_common_epilogue_p, determines if $ra should also be restored.  */
+  bool epi_with_ra;
 };
 #endif
 
@@ -3419,3 +3440,8 @@ struct GTY(())  machine_function {
 #define ENABLE_LD_ST_PAIRS \
   (TARGET_LOAD_STORE_PAIRS && (TUNE_P5600 || TUNE_I6400) \
    && !TARGET_MICROMIPS && !TARGET_FIX_24K)
+
+#define ISA_SUPPORTS_COMMON_EPILOGUE \
+  (mips_isa_rev >= 2 && mips_abi == ABI_32 && !TARGET_MIPS16 && !TARGET_MICROMIPS)
+
+#define MIPS_EPI_MIN_GP_RESTORE 3
