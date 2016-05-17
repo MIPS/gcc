@@ -1,3 +1,51 @@
+2016-05-13  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-decl.c (grokdeclarator): For C11, discard qualifiers on
+	function return type.
+
+2016-05-12  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70756
+	* c-decl.c (build_compound_literal): Pass LOC down to
+	c_incomplete_type_error.
+	* c-tree.h (require_complete_type): Adjust declaration.
+	(c_incomplete_type_error): Likewise.
+	* c-typeck.c (require_complete_type): Add location parameter, pass it
+	down to c_incomplete_type_error.
+	(c_incomplete_type_error): Add location parameter, pass it down to
+	error_at.
+	(build_component_ref): Pass location down to c_incomplete_type_error.
+	(default_conversion): Pass location down to require_complete_type.
+	(build_array_ref): Likewise.
+	(build_function_call_vec): Likewise.
+	(convert_arguments): Likewise.
+	(build_unary_op): Likewise.
+	(build_c_cast): Likewise.
+	(build_modify_expr): Likewise.
+	(convert_for_assignment): Likewise.
+	(c_finish_omp_clauses): Likewise.
+
+2016-05-11  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	PR c/43651
+	* c-decl.c (declspecs_add_qual): Warn when -Wduplicate-decl-specifier
+	is enabled.
+	* c-errors.c (pedwarn_c90): Return true if warned.
+	* c-tree.h (pedwarn_c90): Change return type to bool.
+	(enum c_declspec_word): Add new enumerator cdw_atomic.
+
+2016-05-11  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/71024
+	* c-decl.c (diagnose_mismatched_decls): Factor out code to
+	diagnose_mismatched_attributes and call it.
+
+2016-05-10  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70255
+	* c-decl.c (diagnose_mismatched_decls): Warn for optimize attribute
+	on a declaration following the definition.
+
 2016-05-05  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-parser.c (c_parser_switch_statement): Add IF_P argument,

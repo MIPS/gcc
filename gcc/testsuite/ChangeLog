@@ -1,3 +1,303 @@
+2016-05-16  Jiong Wang  <jiong.wang@arm.com>
+
+	PR testsuite/70227
+	* g++.dg/lto/pr69589_0.C: Skip arm and aarch64 bare-metal targets.
+
+2016-05-15  Harald Anlauf  <anlauf@gmx.de>
+
+	PR fortran/69603
+	* gfortran.dg/pr69603.f90: New testcase.
+
+2016-05-14  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_union_4.f90: Fix endian issue.
+
+2016-05-14  Fritz Reese  <fritzoreese@gmail.com>
+
+	PR fortran/71047
+	* gfortran.dg/pr71047.f08: New test.
+
+2016-05-13  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/qual-return-5.c, gcc.dg/qual-return-6.c: New tests.
+	* gcc.dg/call-diag-2.c, gcc.dg/qual-return-2.c ,
+	gcc.dg/qual-return-3.c, gcc.dg/qual-return-4.c: Use -std=gnu99.
+
+2016-05-13  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/60049
+	* g++.dg/cpp0x/constexpr-60049.C: New test.
+
+2016-05-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/71071
+	* gcc.dg/pr71071.c: New test.
+
+2016-05-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/vect/tree-vect.h (check_vect): Handle AVX2,
+	remove XOP handling.
+	* gcc.dg/vect/pr66636.c (foo): Add __attribute__((noinline,noclone)).
+
+2016-05-13  Nathan Sidwell  <nathan@acm.org>
+
+	* gcc.dg/atomic-noinline-aux.c: Include stddef.h. Fix
+	__atomic_is_lock_free declaration.
+
+2016-05-13  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/42587
+	* gcc.dg/optimize-bswapsi-4.c: New testcase.
+
+2016-05-13  Martin Liska  <mliska@suse.cz>
+
+	* g++.dg/tree-ssa/ivopts-3.C: Change test-case to follow
+	the new format of dump output.
+
+2016-05-13  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* gcc.dg/pr71084.c: New test.
+
+2016-05-13  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+        PR target/53440
+        * g++.dg/inherit/thunk1.C: Support arm / aarch64.
+
+2016-05-13  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* gcc.target/aarch64/struct_return.c: New test.
+
+2016-05-12  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70756
+	* c-c++-common/pr70756-2.c: New test.
+	* c-c++-common/pr70756.c: New test.
+
+2016-05-12  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71059
+	* gcc.dg/torture/pr71059.c: New testcase.
+
+2016-05-12  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71062
+	* gcc.dg/torture/pr71062.c: New testcase.
+
+2016-05-12  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR tree-optimization/71006
+	* gcc.dg/pr71006.c: New test.
+
+2016-05-12  Marek Polacek  <polacek@redhat.com>
+
+	PR driver/71063
+	* gcc.dg/opts-7.c: New test.
+
+2016-05-12  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/70830
+	* gcc.target/arm/interrupt-1.c: Change dg-compile to dg-assemble.
+	Add -save-temps to dg-options.
+	Scan for ldmfd rather than pop instruction.
+	* gcc.target/arm/interrupt-2.c: Likewise.
+	* gcc.target/arm/pr70830.c: New test.
+
+2016-05-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.target/i386/avx512bw-vpextr-1.c: New test.
+	* gcc.target/i386/avx512dq-vpextr-1.c: New test.
+
+	* gcc.target/i386/avx512bw-vpinsr-1.c: New test.
+	* gcc.target/i386/avx512dq-vpinsr-1.c: New test.
+	* gcc.target/i386/avx512vl-vpinsr-1.c: New test.
+
+	PR target/71019
+	* gcc.target/i386/avx512vl-pack-1.c: New test.
+	* gcc.target/i386/avx512vl-pack-2.c: New test.
+	* gcc.target/i386/avx512bw-pack-2.c: New test.
+
+	* gcc.target/i386/avx512vl-vinsertps-1.c: New test.
+
+	* gcc.target/i386/avx512dq-abs-copysign-1.c: New test.
+	* gcc.target/i386/avx512vl-abs-copysign-1.c: New test.
+	* gcc.target/i386/avx512vl-abs-copysign-2.c: New test.
+
+2016-05-12  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70986
+	* gcc.dg/torture/pr70986-1.c: New testcase.
+	* gcc.dg/torture/pr70986-2.c: Likewise.
+	* gcc.dg/torture/pr70986-3.c: Likewise.
+
+2016-05-11  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	PR c/43651
+	* gcc.dg/Wduplicate-decl-specifier-c11.c: New test.
+	* gcc.dg/Wduplicate-decl-specifier.c: Likewise.
+
+2016-05-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/sse-13.c: Add dg-add-options bind_pic_locally
+	directive.
+	* gcc.target/i386/pr66746.c: Ditto.
+
+2016-05-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/dform-3.c: New test for ISA 3.0 vector d-form
+	support.
+	* gcc.target/powerpc/dform-1.c: Add -mlra option to silence
+	warning when using -mvsx-timode.
+	* gcc.target/powerpc/p8vector-int128-1.c: Likewise.
+	* gcc.target/powerpc/dform-2.c: Likewise.
+	* gcc.target/powerpc/pr68805.c: Likewise.
+
+2016-05-11  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/71024
+	* c-c++-common/attributes-3.c: New test.
+
+2016-05-11  Nathan Sidwell  <nathan@acm.org>
+
+	* gcc.dg/pr68671.c: Xfail on PTX -- assembler crash.
+	* gcc.c-torture/execute/pr68185.c: Likewise.
+	* gcc.dg/ipa/pr70306.c: Requires global constructors.
+	* gcc.dg/pr69634.c: Requires scheduling.
+	* gcc.dg/torture/pr66178.c: Require label values.
+	* gcc.dg/setjmp-6.c: Require indirect jumps.
+
+2016-05-11  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71055
+	* gcc.dg/torture/pr71055.c: New testcase.
+
+2016-05-11  Richard Biener  <rguenther@suse.de>
+
+	PR debug/71057
+	* g++.dg/debug/pr71057.C: New testcase.
+
+2016-05-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/70855
+	* gfortran.dg/gomp/pr70855.f90: New test.
+
+2016-05-11  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/71002
+	* g++.dg/torture/pr71002.C: New testcase.
+
+2016-05-11  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR middle-end/70807
+	* gcc.dg/pr70807.c: New test.
+
+2016-05-10  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/38611
+	* g++.dg/Wattributes.C: New test.
+
+2016-05-10  Marc Glisse  <marc.glisse@inria.fr>
+
+	* gcc.dg/tree-ssa/bit-assoc.c: New testcase.
+	* gcc.dg/tree-ssa/pr69270.c: Adjust.
+	* gcc.dg/tree-ssa/vrp59.c: Disable forwprop.
+
+2016-05-10  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR target/70799
+	* gcc.target/i386/pr70799-1.c: New test.
+
+2016-05-10  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* gnat.dg/debug6.adb, gnat.dg/debug6_pkg.ads: New testcase.
+
+2016-05-10  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR middle-end/70877
+	* gcc.target/i386/pr70877.c: New test.
+
+2016-05-10  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR tree-optimization/70786
+	* gcc.target/i386/pr70876.c: New test.
+
+2016-05-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/70927
+	* gcc.target/i386/avx512vl-logic-1.c: New test.
+	* gcc.target/i386/avx512vl-logic-2.c: New test.
+	* gcc.target/i386/avx512dq-logic-2.c: New test.
+
+2016-05-10  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/70963
+	* gcc.target/powerpc/pr70963.c: New.
+
+2016-05-10  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc.dg/plugin/diagnostic-test-show-locus-bw.c
+	(test_very_wide_line): Add ruler to expected output.
+	* gcc.dg/plugin/diagnostic-test-show-locus-color.c
+	(test_very_wide_line): Likewise.
+	* gcc.dg/plugin/diagnostic_plugin_test_show_locus.c
+	(test_show_locus): Within the handling of "test_very_wide_line",
+	enable show_ruler_p on the diagnostic context.
+
+2016-05-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71039
+	* gcc.dg/torture/pr71039.c: New testcase.
+
+2016-05-10  Nathan Sidwell  <nathan@acm.org>
+
+	* gcc.dg/nested-func-10.c: Requires alloca.
+	* gcc.dg/nested-func-9.c: Requires alloca.
+	* gcc.c-torture/execute/pr70460.c: Requires labels.
+	* gcc.c-torture/compile/pr70199.c: Requires labels.
+	* gcc.target/nvptx/decl.c: Compile only.
+	* gcc.target/nvptx/trailing-init.c: Compile only.
+	* gcc.target/nvptx/ary-init.c: Compile only.
+
+2016-05-10  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70255
+	* gcc.dg/attr-opt-1.c: New test.
+
+2016-05-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70497
+	PR tree-optimization/28367
+	* gcc.dg/torture/20160404-1.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-fre-54.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-fre-55.c: Likewise.
+
+2016-05-10  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* gcc.dg/debug/dwarf2/nested_fun.c: New testcase.
+
+2016-05-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/fabsneg-1.c New test.
+
+2016-05-09  Alan Modra  <amodra@gmail.com>
+
+	PR testsuite/70826
+	* gcc.target/powerpc/savres.c: Compile with -fno-rename-registers.
+
+2016-05-09  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70985
+	* gcc.dg/torture/pr70985.c: New testcase.
+
+2016-05-09  Bin Cheng  <bin.cheng@arm.com>
+
+	* gcc.dg/tree-ssa/ifc-9.c: New test.
+	* gcc.dg/tree-ssa/ifc-10.c: New test.
+	* gcc.dg/tree-ssa/ifc-11.c: New test.
+	* gcc.dg/tree-ssa/ifc-12.c: New test.
+	* gcc.dg/vect/pr61194.c: Remove XFAIL.
+	* gcc.dg/vect/vect-23.c: Remove XFAIL.
+	* gcc.dg/vect/vect-mask-store-move-1.c: Revise test check.
+
 2016-05-09  Richard Biener  <rguenther@suse.de>
 
 	PR fortran/70937

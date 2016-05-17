@@ -35,6 +35,9 @@ AC_CANONICAL_BUILD
 AC_CANONICAL_HOST
 AC_CANONICAL_TARGET
 
+# Determine the noncanonical host name, for Ada.
+ACX_NONCANONICAL_HOST
+
 # Determine the noncanonical target name, for directory use.
 ACX_NONCANONICAL_TARGET
 
@@ -864,6 +867,14 @@ AC_ARG_ENABLE(tls,
 Valid choices are 'yes' and 'no'.]) ;;
   esac
 ], [enable_tls=''])
+
+AC_ARG_ENABLE(vtable-verify,
+[AS_HELP_STRING([--enable-vtable-verify],
+		[enable vtable verification feature])],,
+[enable_vtable_verify=no])
+vtable_verify=`if test x$enable_vtable_verify = xyes; then echo 1; else echo 0; fi`
+AC_DEFINE_UNQUOTED(ENABLE_VTABLE_VERIFY, $vtable_verify,
+[Define 0/1 if vtable verification feature is enabled.])
 
 AC_ARG_ENABLE(objc-gc,
 [AS_HELP_STRING([--enable-objc-gc],

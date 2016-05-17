@@ -43,7 +43,7 @@ along with GCC; see the file COPYING3.  If not see
 
 
 static int recursive_count_upc_threads_refs (tree);
-static int upc_sizeof_type_check (const char *, tree);
+static int upc_sizeof_type_check (location_t, const char *, tree);
 
 
 /* Return a UPC pointer-to-shared type with target type, TO_TYPE.
@@ -95,7 +95,7 @@ upc_build_pointer_type (tree to_type)
    as the "C" language sizeof operator.  */
 
 static int
-upc_sizeof_type_check (const char *op_name, tree type)
+upc_sizeof_type_check (location_t loc, const char *op_name, tree type)
 {
   enum tree_code code = TREE_CODE (type);
   if (code == ERROR_MARK)
@@ -104,7 +104,7 @@ upc_sizeof_type_check (const char *op_name, tree type)
     }
   else if (!COMPLETE_TYPE_P (type))
     {
-      lang_hooks.types.incomplete_type_error (NULL_TREE, type);
+      lang_hooks.types.incomplete_type_error (loc, NULL_TREE, type);
       return 0;
     }
   else if (code == FUNCTION_TYPE)
@@ -137,12 +137,12 @@ upc_sizeof_type_check (const char *op_name, tree type)
    shared [*] int A[5*THREADS];     	5 (distributed by compiler) */
 
 tree
-upc_blocksizeof (location_t ARG_UNUSED (loc), tree type)
+upc_blocksizeof (location_t loc, tree type)
 {
   tree block_factor = size_one_node;
   if (!type || TREE_CODE (type) == ERROR_MARK)
     return error_mark_node;
-  if (upc_sizeof_type_check ("upc_blocksizeof", type))
+  if (upc_sizeof_type_check (loc, "upc_blocksizeof", type))
     block_factor = get_block_factor (type);
   return block_factor;
 }
@@ -154,7 +154,7 @@ upc_elemsizeof (location_t loc, tree type)
 {
   tree elem_size;
 
-  if (!(type && upc_sizeof_type_check ("upc_elemsizeof", type)))
+  if (!(type && upc_sizeof_type_check (loc, "upc_elemsizeof", type)))
     return size_int (1);
   elem_size = c_sizeof (loc, strip_array_types (type));
   return elem_size;
@@ -174,7 +174,7 @@ upc_localsizeof (location_t loc, tree type)
 {
   tree block_factor, local_size, total_size;
 
-  if (!(type && upc_sizeof_type_check ("upc_localsizeof", type)))
+  if (!(type && upc_sizeof_type_check (loc, "upc_localsizeof", type)))
     return size_one_node;
 
   /* for scalars, return sizeof */

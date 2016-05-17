@@ -6125,6 +6125,7 @@ extern bool any_dependent_template_arguments_p  (const_tree);
 extern bool dependent_template_p		(tree);
 extern bool dependent_template_id_p		(tree, tree);
 extern bool type_dependent_expression_p		(tree);
+extern bool type_dependent_object_expression_p	(tree);
 extern bool any_type_dependent_arguments_p      (const vec<tree, va_gc> *);
 extern bool any_type_dependent_elements_p       (const_tree);
 extern bool type_dependent_expression_p_push	(tree);
@@ -6233,6 +6234,7 @@ extern tree adjust_result_of_qualified_name_lookup
 extern tree copied_binfo			(tree, tree);
 extern tree original_binfo			(tree, tree);
 extern int shared_member_p			(tree);
+extern bool any_dependent_bases_p (tree = current_nonlambda_class_type ());
 
 /* The representation of a deferred access check.  */
 
@@ -6525,7 +6527,6 @@ extern tree get_first_fn			(tree);
 extern tree ovl_cons				(tree, tree);
 extern tree build_overload			(tree, tree);
 extern tree ovl_scope				(tree);
-extern bool non_static_member_function_p        (tree);
 extern const char *cxx_printable_name		(tree, int);
 extern const char *cxx_printable_name_translate	(tree, int);
 extern tree build_exception_variant		(tree, tree);
@@ -6666,7 +6667,8 @@ extern tree cp_build_c_cast			(tree, tree, tsubst_flags_t);
 extern cp_expr build_x_modify_expr		(location_t, tree,
 						 enum tree_code, tree,
 						 tsubst_flags_t);
-extern tree cp_build_modify_expr		(tree, enum tree_code, tree,
+extern tree cp_build_modify_expr		(location_t, tree,
+						 enum tree_code, tree,
 						 tsubst_flags_t);
 extern tree convert_for_initialization		(tree, tree, tree, int,
 						 impl_conv_rhs, tree, int,
@@ -6726,11 +6728,24 @@ extern tree finish_binary_fold_expr          (tree, tree, int);
 
 /* in typeck2.c */
 extern void require_complete_eh_spec_types	(tree, tree);
-extern void cxx_incomplete_type_diagnostic	(const_tree, const_tree, diagnostic_t);
-#undef cxx_incomplete_type_error
-extern void cxx_incomplete_type_error		(const_tree, const_tree);
-#define cxx_incomplete_type_error(V,T) \
-  (cxx_incomplete_type_diagnostic ((V), (T), DK_ERROR))
+extern void cxx_incomplete_type_diagnostic	(location_t, const_tree,
+						 const_tree, diagnostic_t);
+inline void
+cxx_incomplete_type_diagnostic (const_tree value, const_tree type,
+				diagnostic_t diag_kind)
+{
+  cxx_incomplete_type_diagnostic (EXPR_LOC_OR_LOC (value, input_location),
+				  value, type, diag_kind);
+}
+
+extern void cxx_incomplete_type_error		(location_t, const_tree,
+						 const_tree);
+inline void
+cxx_incomplete_type_error (const_tree value, const_tree type)
+{
+  cxx_incomplete_type_diagnostic (value, type, DK_ERROR);
+}
+
 extern void cxx_incomplete_type_inform 	        (const_tree);
 extern tree error_not_base_type			(tree, tree);
 extern tree binfo_or_else			(tree, tree);

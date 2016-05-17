@@ -1,3 +1,91 @@
+2016-05-13  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/71073
+	* include/debug/bitset: Add #pragma GCC system_header.
+	* include/debug/deque: Likewise.
+	* include/debug/list: Likewise.
+	* include/debug/map: Likewise.
+	* include/debug/set: Likewise.
+	* include/debug/string: Likewise.
+	* include/debug/unordered_map: Likewise.
+	* include/debug/unordered_set: Likewise.
+	* include/debug/vector: Likewise.
+	* include/debug/functions.h: Adjust whitespace.
+
+2016-05-12  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/71081
+	* testsuite/experimental/memory_resource/1.cc: Require atomics.
+
+2016-05-11  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/71049
+	* src/c++11/cow-stdexcept.cc [!_GLIBCXX_USE_DUAL_ABI]: Don't define
+	exception constructors with __sso_string parameters.
+
+2016-05-10  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/experimental/bits/fs_dir.h (begin, end): Add noexcept.
+	* testsuite/experimental/filesystem/iterators/directory_iterator.cc:
+	Test begin and end functions.
+	* testsuite/experimental/filesystem/iterators/
+	recursive_directory_iterator.cc: Likewise.
+
+	PR libstdc++/71038
+	* src/filesystem/ops.cc (do_copy_file): Fix backwards conditions.
+	* testsuite/experimental/filesystem/operations/copy_file.cc: New test.
+
+	* include/experimental/bits/fs_dir.h (__directory_iterator_proxy):
+	Overload operator* to move from rvalues.
+
+	PR libstdc++/71036
+	* src/filesystem/ops.cc (create_dir): Handle EEXIST from mkdir.
+	* testsuite/experimental/filesystem/operations/create_directory.cc:
+	New test.
+
+	PR libstdc++/71037
+	* src/filesystem/ops.cc (canonical(const path&, const path&)): Add
+	base path to exception.
+	* testsuite/experimental/filesystem/operations/canonical.cc: Test
+	paths contained in exception.
+
+	* testsuite/experimental/type_erased_allocator/2.cc: Remove unused
+	using declaration.
+
+	PR libstdc++/71005
+	* include/experimental/bits/fs_dir.h (__directory_iterator_proxy):
+	New type.
+	(directory_iterator::operator++(int)): Return proxy.
+	(recursive_directory_iterator::operator++(int)): Likewise.
+	* testsuite/experimental/filesystem/iterators/directory_iterator.cc:
+	Test post-increment.
+	* testsuite/experimental/filesystem/iterators/
+	recursive_directory_iterator.cc: Likewise.
+
+2016-05-09  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/71004
+	* testsuite/experimental/filesystem/iterators/
+	recursive_directory_iterator.cc: Fix test02 to not call member
+	functions on invalid iterator, and use VERIFY not assert.
+
+2016-05-09  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Avoid endless run-time recursion for copying single-element
+	tuples where the element type is by-value constructible
+	from any type.
+	* include/std/tuple (_NotSameTuple): New.
+	* include/std/tuple (tuple(_UElements&&...): Use it.
+	* testsuite/20_util/tuple/cons/element_accepts_anything_byval.cc: New.
+
+2016-05-09  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/71004
+	* include/experimental/bits/fs_dir.h (recursive_directory_iterator):
+	Initialize scalar member variables in default constructor.
+	* testsuite/experimental/filesystem/iterators/
+	recursive_directory_iterator.cc: Test default construction.
+
 2016-05-05  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
 	* testsuite/lib/libstdc++.exp (libstdc++_init): Enable on *-*-solaris*.
