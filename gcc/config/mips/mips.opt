@@ -376,6 +376,10 @@ msplit-addresses
 Target Report Mask(SPLIT_ADDRESSES)
 Optimize lui/addiu address loads.
 
+mmips16e2
+Target Report Var(TARGET_MIPS16E2) Init(0)
+Enable the MIPS16e V2 instructions.
+
 msym32
 Target Report Var(TARGET_SYM32)
 Assume all symbols have 32-bit values.
@@ -503,3 +507,9 @@ Enable tail optimization using a long style call.
 mmips16-tail-branch
 Target Var(TARGET_MIPS16_TAIL_BRANCH) Init(0)
 Enable tail optimization using a branch.
+
+muse-save-restore
+Target Undocumented Var(TARGET_USE_SAVE_RESTORE) Init(0)
+
+mmips16-copy-peep
+Target Undocumented Var(TARGET_MIPS16_COPY_PEEP) Init(1)
