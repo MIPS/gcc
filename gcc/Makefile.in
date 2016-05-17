@@ -566,6 +566,9 @@ else
   endif
 endif
 
+# Multilib control
+with_multi_buildlist = @with_multi_buildlist@
+
 # ------------------------
 # Installation directories
 # ------------------------
@@ -2844,10 +2847,27 @@ fixinc_list: s-fixinc_list; @true
 s-fixinc_list : $(GCC_PASSES)
 # Build up a list of multilib directories and corresponding sysroot
 # suffixes, in form sysroot;multilib.
+# Use a filtered multilib list if requested.
 	if $(GCC_FOR_TARGET) -print-sysroot-headers-suffix > /dev/null 2>&1; then \
 	  set -e; for ml in `$(GCC_FOR_TARGET) -print-multi-lib`; do \
 	    multi_dir=`echo $${ml} | sed -e 's/;.*$$//'`; \
 	    flags=`echo $${ml} | sed -e 's/^[^;]*;//' -e 's/@/ -/g'`; \
+	    case "$(target)" in \
+	    mips*-*-*) \
+	      if [ x$(with_multi_buildlist) != x ]; then \
+		if [ ! -f $(with_multi_buildlist) ]; then \
+		  echo "fixinc_list: Failed to find $(with_multi_buildlist)"; \
+		  exit 1; \
+		fi; \
+		set +e; \
+		found=`grep "^$${multi_dir}$$" $(with_multi_buildlist)`; \
+		set -e; \
+		if [ -z "$$found" ]; then \
+		  continue; \
+		fi; \
+	      fi; \
+	      ;; \
+	    esac; \
 	    sfx=`$(GCC_FOR_TARGET) $${flags} -print-sysroot-headers-suffix`; \
 	    if [ "$${multi_dir}" = "." ]; \
 	      then multi_dir=""; \
@@ -3600,7 +3620,7 @@ install-mkheaders: stmp-int-hdrs install-itoolsdirs \
 	set -e; for ml in `cat fixinc_list`; do \
 	  multi_dir=`echo $${ml} | sed -e 's/^[^;]*;//'`; \
 	  $(mkinstalldirs) $(DESTDIR)$(itoolsdatadir)/include$${multi_dir}; \
-	  $(INSTALL_DATA) include-fixed$${multidir}/limits.h $(DESTDIR)$(itoolsdatadir)/include$${multi_dir}/limits.h; \
+	  $(INSTALL_DATA) include-fixed$${multi_dir}/limits.h $(DESTDIR)$(itoolsdatadir)/include$${multi_dir}/limits.h; \
 	done
 	$(INSTALL_SCRIPT) $(srcdir)/../mkinstalldirs \
 		$(DESTDIR)$(itoolsdir)/mkinstalldirs ; \
