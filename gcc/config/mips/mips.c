@@ -8478,7 +8478,13 @@ mips_expand_block_move (rtx dest, rtx src, rtx length, rtx alignment)
 	{
 	  if (ISA_HAS_COPY)
 	    return mips16_expand_copy (dest, src, length, alignment);
-	  else if (INTVAL (length) <= MIPS_MAX_MOVE_BYTES_STRAIGHT)
+	  else if (INTVAL (length) <= MIPS_MAX_MOVE_BYTES_STRAIGHT
+		   /* We increase slightly the maximum number of bytes in
+		      a straight-line block if the source and destination
+		      are aligned to the register width.  */
+		   || (!optimize_size
+		       && INTVAL (alignment) == UNITS_PER_WORD
+		       && INTVAL (length) <= MIPS_MAX_MOVE_MEM_STRAIGHT))
 	    {
 	      mips_block_move_straight (dest, src, INTVAL (length),
 					INTVAL (alignment));
