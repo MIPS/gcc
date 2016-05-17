@@ -782,6 +782,7 @@ CONFIGURE_SPECS
 enable_shared
 enable_fixed_point
 enable_decimal_float
+with_multi_buildlist
 with_float
 with_cpu
 enable_multiarch
@@ -7434,6 +7435,9 @@ $as_echo "$enable_multiarch$ma_msg_suffix" >&6; }
 
 # needed for setting the multiarch name for soft-float/hard-float ABIs
 
+
+
+# needed for restricting the fixedincludes multilibs that we install
 
 
 # Enable __cxa_atexit for C++.
