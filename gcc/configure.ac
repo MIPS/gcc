@@ -811,6 +811,9 @@ AC_MSG_RESULT($enable_multiarch$ma_msg_suffix)
 AC_SUBST(with_cpu)
 AC_SUBST(with_float)
 
+# needed for restricting the fixedincludes multilibs that we install
+AC_SUBST(with_multi_buildlist)
+
 # Enable __cxa_atexit for C++.
 AC_ARG_ENABLE(__cxa_atexit,
 [AS_HELP_STRING([--enable-__cxa_atexit], [enable __cxa_atexit for C++])],
