@@ -1,5 +1,5 @@
-Bottom: aec4bb09a981818838d97ae3f4e194bd594ac989
-Top:    c3571bd3f12c5d28327d78838da86dedd1fa154e
+Bottom: 7e26936883e7f06be9584865905f500eb99a0580
+Top:    2b0710cae974d70ae245cc260cbe77377d14d5a7
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-05-17 22:52:52 -0300
 
@@ -8,7 +8,7 @@ fix template arguments: their decl is the TREE_VALUE of the list
 ---
 
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index 491a51c..d71b97e 100644
+index 2778b4f..59586a80 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -1676,8 +1676,11 @@ plugin_new_template_typename_parm (cc1_plugin::connection *self,

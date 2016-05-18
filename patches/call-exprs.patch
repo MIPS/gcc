@@ -1,5 +1,5 @@
-Bottom: 7e26936883e7f06be9584865905f500eb99a0580
-Top:    aec4bb09a981818838d97ae3f4e194bd594ac989
+Bottom: 2b0710cae974d70ae245cc260cbe77377d14d5a7
+Top:    c3571bd3f12c5d28327d78838da86dedd1fa154e
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-05-17 22:49:44 -0300
 
@@ -80,7 +80,7 @@ index 3710a3a8..de467a3 100644
    gcc_expr *elements;
  };
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index 2778b4f..491a51c 100644
+index 59586a80..d71b97e 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -1485,7 +1485,7 @@ plugin_build_function_type (cc1_plugin::connection *self,
@@ -92,7 +92,7 @@ index 2778b4f..491a51c 100644
  {
    tree function_type = convert_in (function_type_in);
  
-@@ -2296,6 +2296,15 @@ plugin_type_value_expr (cc1_plugin::connection *self,
+@@ -2303,6 +2303,15 @@ plugin_type_value_expr (cc1_plugin::connection *self,
    return convert_out (ctx->preserve (val));
  }
  
