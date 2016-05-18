@@ -1,0 +1,185 @@
+Bottom: 7e26936883e7f06be9584865905f500eb99a0580
+Top:    aec4bb09a981818838d97ae3f4e194bd594ac989
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-05-17 22:50:01 -0300
+
+Refresh of call-exprs.patch
+
+---
+
+diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
+index 6536597..6ae29eb 100644
+--- a/include/gcc-cp-fe.def
++++ b/include/gcc-cp-fe.def
+@@ -521,6 +521,16 @@ GCC_METHOD3 (gcc_expr, type_value_expr,
+ 	     gcc_type,		  /* Argument OPERAND1.  */
+ 	     gcc_expr)		  /* Argument OPERAND2.  */
+ 
++/* Return a call expression that calls CALLABLE with arguments ARGS.
++   CALLABLE may be a function, a callable object, a pointer to
++   function, an unresolved value expression, an unresolved overload
++   set, an object expression combined with a member function overload
++   set or a pointer-to-member.  */
++
++GCC_METHOD2 (gcc_expr, call_expr,
++	     gcc_expr,			      /* Argument CALLABLE.  */
++	     const struct gcc_cp_function_args *) /* Argument ARGS.  */
++	     
+ /* FIXME: function call operations?  ctor/dtor?  new/delete?  */
+ 
+ /* Return the type of the gcc_expr OPERAND.
+@@ -534,6 +544,7 @@ GCC_METHOD3 (gcc_expr, type_value_expr,
+ GCC_METHOD1 (gcc_type, expr_type,
+ 	     gcc_expr)		  /* Argument OPERAND.  */
+ 
++
+ /* Introduce a specialization of a template function.
+ 
+    TEMPLATE_DECL is the template function, and TARGS are the arguments
+@@ -659,8 +670,8 @@ GCC_METHOD3 (gcc_type, build_function_type,
+    the following argument list: (T1, T2 = V1, T3 = V2, T4 = V0). */
+ 
+ GCC_METHOD2 (gcc_type, add_function_default_args,
+-	     gcc_type,			   /* Argument FUNCTION_TYPE.  */
+-	     const struct gcc_cp_function_default_args *)/* DEFAULTS.  */
++	     gcc_type,			     /* Argument FUNCTION_TYPE.  */
++	     const struct gcc_cp_function_args *) /* Argument DEFAULTS.  */
+ 
+ /* Create a variant of a function type with an exception
+    specification.  FUNCTION_TYPE is a function or method type.
+diff --git a/include/gcc-cp-interface.h b/include/gcc-cp-interface.h
+index 3710a3a8..de467a3 100644
+--- a/include/gcc-cp-interface.h
++++ b/include/gcc-cp-interface.h
+@@ -41,7 +41,7 @@ struct gcc_cp_context;
+ 
+ enum gcc_cp_api_version
+ {
+-  GCC_CP_FE_VERSION_0 = 0xffffffff-12
++  GCC_CP_FE_VERSION_0 = 0xffffffff-13
+ };
+ 
+ /* Qualifiers.  */
+@@ -101,15 +101,15 @@ struct gcc_cp_template_args
+   gcc_cp_template_arg *elements;
+ };
+ 
+-/* An array of default function arguments.  */
++/* An array of (default) function arguments.  */
+ 
+-struct gcc_cp_function_default_args
++struct gcc_cp_function_args
+ {
+   /* Number of elements.  */
+ 
+   int n_elements;
+ 
+-  /* The default values.  */
++  /* The (default) values for each argument.  */
+ 
+   gcc_expr *elements;
+ };
+diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
+index 2778b4f..491a51c 100644
+--- a/libcc1/libcp1plugin.cc
++++ b/libcc1/libcp1plugin.cc
+@@ -1485,7 +1485,7 @@ plugin_build_function_type (cc1_plugin::connection *self,
+ gcc_type
+ plugin_add_function_default_args (cc1_plugin::connection *self,
+ 				  gcc_type function_type_in,
+-				  const struct gcc_cp_function_default_args *defaults)
++				  const struct gcc_cp_function_args *defaults)
+ {
+   tree function_type = convert_in (function_type_in);
+ 
+@@ -2296,6 +2296,15 @@ plugin_type_value_expr (cc1_plugin::connection *self,
+   return convert_out (ctx->preserve (val));
+ }
+ 
++gcc_expr
++plugin_call_expr (cc1_plugin::connection *self,
++		  gcc_expr callable_in,
++		  const struct gcc_cp_function_args *args)
++{
++  tree callable = convert_in (callable_in);
++  /* FIXME: implement more.  */
++}
++
+ gcc_type
+ plugin_expr_type (cc1_plugin::connection *,
+ 		  gcc_expr operand)
+diff --git a/libcc1/marshall-cp.hh b/libcc1/marshall-cp.hh
+index 87de7f9..a7abaa2 100644
+--- a/libcc1/marshall-cp.hh
++++ b/libcc1/marshall-cp.hh
+@@ -209,9 +209,9 @@ namespace cc1_plugin
+     return OK;
+   }
+ 
+-  // Send a gcc_cp_function_default_args marker followed by the array.
++  // Send a gcc_cp_function_args marker followed by the array.
+   status
+-  marshall (connection *conn, const gcc_cp_function_default_args *a)
++  marshall (connection *conn, const gcc_cp_function_args *a)
+   {
+     size_t len;
+ 
+@@ -230,12 +230,12 @@ namespace cc1_plugin
+ 				 a->elements);
+   }
+ 
+-  // Read a gcc_cp_function_default_args marker, followed by a
+-  // gcc_cp_function_default_args.  The resulting array must be freed
++  // Read a gcc_cp_function_args marker, followed by a
++  // gcc_cp_function_args.  The resulting array must be freed
+   // by the caller, using 'delete[]' on elements and virtualp, and
+   // 'delete' on the array object itself.
+   status
+-  unmarshall (connection *conn, struct gcc_cp_function_default_args **result)
++  unmarshall (connection *conn, struct gcc_cp_function_args **result)
+   {
+     size_t len;
+ 
+@@ -248,7 +248,7 @@ namespace cc1_plugin
+ 	return OK;
+       }
+ 
+-    struct gcc_cp_function_default_args *gva = new gcc_cp_function_default_args;
++    struct gcc_cp_function_args *gva = new gcc_cp_function_args;
+ 
+     gva->n_elements = len;
+     gva->elements = new gcc_expr[len];
+diff --git a/libcc1/rpc.hh b/libcc1/rpc.hh
+index 93d779ca..aafbb83 100644
+--- a/libcc1/rpc.hh
++++ b/libcc1/rpc.hh
+@@ -200,9 +200,9 @@ namespace cc1_plugin
+     argument_wrapper &operator= (const argument_wrapper &);
+   };
+ 
+-  // Specialization for gcc_cp_function_default_args.
++  // Specialization for gcc_cp_function_args.
+   template<>
+-  class argument_wrapper<const gcc_cp_function_default_args *>
++  class argument_wrapper<const gcc_cp_function_args *>
+   {
+   public:
+     argument_wrapper () : m_object (NULL) { }
+@@ -217,7 +217,7 @@ namespace cc1_plugin
+       delete m_object;
+     }
+ 
+-    operator const gcc_cp_function_default_args * () const
++    operator const gcc_cp_function_args * () const
+     {
+       return m_object;
+     }
+@@ -229,7 +229,7 @@ namespace cc1_plugin
+ 
+   private:
+ 
+-    gcc_cp_function_default_args *m_object;
++    gcc_cp_function_args *m_object;
+ 
+     // No copying or assignment allowed.
+     argument_wrapper (const argument_wrapper &);
