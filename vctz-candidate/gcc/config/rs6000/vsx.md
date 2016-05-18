@@ -797,8 +797,8 @@
    (set_attr "length" "4,4,4,4,8,4,16,4,4,8,8,8,8,8,8")])
 
 (define_insn "*vsx_movti_32bit"
-  [(set (match_operand:TI 0 "nonimmediate_operand" "=ZwO,wa,wa,wa,v,v,wZ,Q,Y,????r,????r,????r,r")
-	(match_operand:TI 1 "input_operand"        "wa,ZwO,wa,O,W,wZ,v,r,r,Q,Y,r,n"))]
+  [(set (match_operand:TI 0 "nonimmediate_operand" "=Z,wO,wa,wa,wa,wa,v,v, wZ,Q,Y,????r,????r,????r,r")
+	(match_operand:TI 1 "input_operand"        "wa,wa,Z, wO,wa, O,W,wZ,v, r,r,Q,    Y,    r,    n"))]
   "! TARGET_POWERPC64 && VECTOR_MEM_VSX_P (TImode)
    && (register_operand (operands[0], TImode)
        || register_operand (operands[1], TImode))"
@@ -806,34 +806,36 @@
   switch (which_alternative)
     {
     case 0:
-      return "stxvd2x %x1,%y0";
-
     case 1:
-      return "lxvd2x %x0,%y1";
+      return (TARGET_P9_DFORM_VECTOR ? "stxv %x1,%0" : "stxvd2x %x1,%y0");
 
     case 2:
-      return "xxlor %x0,%x1,%x1";
-
     case 3:
-      return "xxlxor %x0,%x0,%x0";
+      return (TARGET_P9_DFORM_VECTOR ? "lxv %x0,%1" : "lxvd2x %x0,%y1");
 
     case 4:
-      return output_vec_const_move (operands);
+      return "xxlor %x0,%x1,%x1";
 
     case 5:
-      return "stvx %1,%y0";
+      return "xxlxor %x0,%x0,%x0";
 
     case 6:
-      return "lvx %0,%y1";
+      return output_vec_const_move (operands);
 
     case 7:
+      return "stvx %1,%y0";
+
+    case 8:
+      return "lvx %0,%y1";
+
+    case 9:
       if (TARGET_STRING)
         return \"stswi %1,%P0,16\";
 
-    case 8:
+    case 10:
       return \"#\";
 
-    case 9:
+    case 11:
       /* If the address is not used in the output, we can use lsi.  Otherwise,
 	 fall through to generating four loads.  */
       if (TARGET_STRING
@@ -841,17 +843,18 @@
 	return \"lswi %0,%P1,16\";
       /* ... fall through ...  */
 
-    case 10:
-    case 11:
     case 12:
+    case 13:
+    case 14:
       return \"#\";
+
     default:
       gcc_unreachable ();
     }
 }
-  [(set_attr "type" "vecstore,vecload,vecsimple,vecsimple,vecsimple,vecstore,vecload,store,store,load,load, *, *")
-   (set_attr "update" "     *,      *,        *,       *,         *,       *,      *,  yes,  yes, yes, yes, *, *")
-   (set_attr "length" "     4,      4,        4,       4,         8,       4,      4,   16,   16,  16,  16,16,16")
+  [(set_attr "type" "vecstore,vecstore,vecload,vecload,vecsimple,vecsimple,vecsimple,vecstore,vecload,store,store,load,load, *, *")
+   (set_attr "update" "     *,       *,      *,      *,        *,       *,         *,       *,      *,  yes,  yes, yes, yes, *, *")
+   (set_attr "length" "     4,       4,      4,      4,        4,       4,         8,       4,      4,   16,   16,  16,  16,16,16")
    (set (attr "cell_micro") (if_then_else (match_test "TARGET_STRING")
    			                  (const_string "always")
 					  (const_string "conditional")))])
