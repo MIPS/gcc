@@ -839,19 +839,19 @@
 ;; instruction using the register being set (such as a store waiting on a slow
 ;; instruction). But generate XXLXOR/XXLORC if it will avoid a register move.
 
-;;		VSX store  VSX load   VSX move  VSX->GPR   GPR->VSX    LQ (GPR)
+;;              VSX store  VSX load   VSX move  VSX->GPR   GPR->VSX    LQ (GPR)
 ;;              STQ (GPR)  GPR load   GPR store GPR move   XXSPLTIB    VSPLTISW
-;;		VSX 0/-1   GPR 0/-1   VMX const GPR const  LVX (VMX)   STVX (VMX)
+;;              VSX 0/-1   GPR 0/-1   VMX const GPR const  LVX (VMX)   STVX (VMX)
 (define_insn "*vsx_mov<mode>_64bit"
   [(set (match_operand:VSX_M 0 "nonimmediate_operand"
                "=ZwO,      <VSa>,     <VSa>,     r,         we,        ?wQ,
-		?&r,       ??r,       ??Y,       ??r,       wo,        v,
-		?<VSa>,    *r,        v,         ??r,       wZ,        v")
+                ?&r,       ??r,       ??Y,       ??r,       wo,        v,
+                ?<VSa>,    *r,        v,         ??r,       wZ,        v")
 
 	(match_operand:VSX_M 1 "input_operand" 
                "<VSa>,     ZwO,       <VSa>,     we,        r,         r,
-		wQ,        Y,         r,         r,         wE,        jwM,
-		?jwM,      jwM,       W,         W,         v,         wZ"))]
+                wQ,        Y,         r,         r,         wE,        jwM,
+                ?jwM,      jwM,       W,         W,         v,         wZ"))]
 
   "TARGET_POWERPC64 && VECTOR_MEM_VSX_P (<MODE>mode)
    && (register_operand (operands[0], <MODE>mode) 
@@ -861,27 +861,27 @@
 }
   [(set_attr "type"
                "vecstore,  vecload,   vecsimple, mffgpr,    mftgpr,    load,
-		store,     load,      store,     *,         vecsimple, vecsimple,
-		vecsimple, *,         *,         *,         vecstore,  vecload")
+                store,     load,      store,     *,         vecsimple, vecsimple,
+                vecsimple, *,         *,         *,         vecstore,  vecload")
 
    (set_attr "length"
                "4,         4,         4,         8,         4,         8,
-		8,         8,         8,         8,         4,         4,
-		4,         8,         20,        20,        4,         4")])
+                8,         8,         8,         8,         4,         4,
+                4,         8,         20,        20,        4,         4")])
 
-;;		VSX store  VSX load   VSX move   GPR load   GPR store  GPR move
-;;		XXSPLTIB   VSPLTISW   VSX 0/-1   GPR 0/-1   VMX const  GPR const
-;;		LVX (VMX)  STVX (VMX)
+;;              VSX store  VSX load   VSX move   GPR load   GPR store  GPR move
+;;              XXSPLTIB   VSPLTISW   VSX 0/-1   GPR 0/-1   VMX const  GPR const
+;;              LVX (VMX)  STVX (VMX)
 (define_insn "*vsx_mov<mode>_32bit"
   [(set (match_operand:VSX_M 0 "nonimmediate_operand"
                "=ZwO,      <VSa>,     <VSa>,     ??r,       ??Y,       ??r,
-		wo,        v,         ?<VSa>,    *r,        v,         ??r,
-		wZ,        v")
+                wo,        v,         ?<VSa>,    *r,        v,         ??r,
+                wZ,        v")
 
 	(match_operand:VSX_M 1 "input_operand" 
                "<VSa>,     ZwO,       <VSa>,     Y,         r,         r,
-		wE,        jwM,       ?jwM,      jwM,       W,         W,
-		v,         wZ"))]
+                wE,        jwM,       ?jwM,      jwM,       W,         W,
+                v,         wZ"))]
 
   "!TARGET_POWERPC64 && VECTOR_MEM_VSX_P (<MODE>mode)
    && (register_operand (operands[0], <MODE>mode) 
@@ -891,13 +891,13 @@
 }
   [(set_attr "type"
                "vecstore,  vecload,   vecsimple, load,      store,    *,
-		vecsimple, vecsimple, vecsimple, *,         *,        *,
-		vecstore,  vecload")
+                vecsimple, vecsimple, vecsimple, *,         *,        *,
+                vecstore,  vecload")
 
    (set_attr "length"
                "4,         4,         4,         16,        16,        16,
-		4,         4,         4,         16,        20,        32,
-		4,         4")])
+                4,         4,         4,         16,        20,        32,
+                4,         4")])
 
 ;; Explicit  load/store expanders for the builtin functions
 (define_expand "vsx_load_<mode>"
