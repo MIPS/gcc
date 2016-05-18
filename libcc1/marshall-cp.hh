@@ -209,9 +209,9 @@ namespace cc1_plugin
     return OK;
   }
 
-  // Send a gcc_cp_function_default_args marker followed by the array.
+  // Send a gcc_cp_function_args marker followed by the array.
   status
-  marshall (connection *conn, const gcc_cp_function_default_args *a)
+  marshall (connection *conn, const gcc_cp_function_args *a)
   {
     size_t len;
 
@@ -230,12 +230,12 @@ namespace cc1_plugin
 				 a->elements);
   }
 
-  // Read a gcc_cp_function_default_args marker, followed by a
-  // gcc_cp_function_default_args.  The resulting array must be freed
+  // Read a gcc_cp_function_args marker, followed by a
+  // gcc_cp_function_args.  The resulting array must be freed
   // by the caller, using 'delete[]' on elements and virtualp, and
   // 'delete' on the array object itself.
   status
-  unmarshall (connection *conn, struct gcc_cp_function_default_args **result)
+  unmarshall (connection *conn, struct gcc_cp_function_args **result)
   {
     size_t len;
 
@@ -248,7 +248,7 @@ namespace cc1_plugin
 	return OK;
       }
 
-    struct gcc_cp_function_default_args *gva = new gcc_cp_function_default_args;
+    struct gcc_cp_function_args *gva = new gcc_cp_function_args;
 
     gva->n_elements = len;
     gva->elements = new gcc_expr[len];

@@ -1485,7 +1485,7 @@ plugin_build_function_type (cc1_plugin::connection *self,
 gcc_type
 plugin_add_function_default_args (cc1_plugin::connection *self,
 				  gcc_type function_type_in,
-				  const struct gcc_cp_function_default_args *defaults)
+				  const struct gcc_cp_function_args *defaults)
 {
   tree function_type = convert_in (function_type_in);
 
@@ -2294,6 +2294,15 @@ plugin_type_value_expr (cc1_plugin::connection *self,
   tree val = NULL_TREE;
   processing_template_decl--;
   return convert_out (ctx->preserve (val));
+}
+
+gcc_expr
+plugin_call_expr (cc1_plugin::connection *self,
+		  gcc_expr callable_in,
+		  const struct gcc_cp_function_args *args)
+{
+  tree callable = convert_in (callable_in);
+  /* FIXME: implement more.  */
 }
 
 gcc_type
