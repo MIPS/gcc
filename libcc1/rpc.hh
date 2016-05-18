@@ -200,9 +200,9 @@ namespace cc1_plugin
     argument_wrapper &operator= (const argument_wrapper &);
   };
 
-  // Specialization for gcc_cp_function_default_args.
+  // Specialization for gcc_cp_function_args.
   template<>
-  class argument_wrapper<const gcc_cp_function_default_args *>
+  class argument_wrapper<const gcc_cp_function_args *>
   {
   public:
     argument_wrapper () : m_object (NULL) { }
@@ -217,7 +217,7 @@ namespace cc1_plugin
       delete m_object;
     }
 
-    operator const gcc_cp_function_default_args * () const
+    operator const gcc_cp_function_args * () const
     {
       return m_object;
     }
@@ -229,7 +229,7 @@ namespace cc1_plugin
 
   private:
 
-    gcc_cp_function_default_args *m_object;
+    gcc_cp_function_args *m_object;
 
     // No copying or assignment allowed.
     argument_wrapper (const argument_wrapper &);
