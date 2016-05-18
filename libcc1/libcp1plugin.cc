@@ -1676,8 +1676,11 @@ plugin_new_template_typename_parm (cc1_plugin::connection *self,
   TP_PARM_LIST = process_template_parm (TP_PARM_LIST, loc, parm,
 					/* is_non_type = */ false, pack_p);
 
-  /* Return the type of the newly-added parm decl.  */
-  return convert_out (ctx->preserve (TREE_TYPE (tree_last (TP_PARM_LIST))));
+  /* Locate the decl of the newly-added, processed template parm.  */
+  parm = TREE_VALUE (tree_last (TP_PARM_LIST));
+
+  /* Return its type.  */
+  return convert_out (ctx->preserve (TREE_TYPE (parm)));
 }
 
 gcc_utempl
@@ -1709,8 +1712,10 @@ plugin_new_template_template_parm (cc1_plugin::connection *self,
   TP_PARM_LIST = process_template_parm (TP_PARM_LIST, loc, parm,
 					/* is_non_type = */ false, pack_p);
 
-  /* Return the decl of the newly-added template template parm.  */
-  return convert_out (ctx->preserve (tree_last (TP_PARM_LIST)));
+  /* Locate the decl of the newly-added, processed template parm.  */
+  parm = TREE_VALUE (tree_last (TP_PARM_LIST));
+
+  return convert_out (ctx->preserve (parm));
 }
 
 gcc_decl
@@ -1749,8 +1754,10 @@ plugin_new_template_value_parm (cc1_plugin::connection *self,
   TP_PARM_LIST = process_template_parm (TP_PARM_LIST, loc, parm,
 					/* is_non_type = */ true, false);
 
-  /* Return the newly-added parm decl.  */
-  return convert_out (ctx->preserve (tree_last (TP_PARM_LIST)));
+  /* Locate the decl of the newly-added, processed template parm.  */
+  parm = TREE_VALUE (tree_last (TP_PARM_LIST));
+
+  return convert_out (ctx->preserve (parm));
 }
 
 static tree
