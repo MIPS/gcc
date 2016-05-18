@@ -1,0 +1,102 @@
+Bottom: c3571bd3f12c5d28327d78838da86dedd1fa154e
+Top:    f32defb52679471b2cc3f73667c0a0e2abc3bb74
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-05-18 01:34:32 -0300
+
+Refresh of call-exprs.patch
+
+---
+
+diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
+index 6ae29eb..d9e4289 100644
+--- a/include/gcc-cp-fe.def
++++ b/include/gcc-cp-fe.def
+@@ -525,10 +525,13 @@ GCC_METHOD3 (gcc_expr, type_value_expr,
+    CALLABLE may be a function, a callable object, a pointer to
+    function, an unresolved value expression, an unresolved overload
+    set, an object expression combined with a member function overload
+-   set or a pointer-to-member.  */
++   set or a pointer-to-member.  If QUALIFIED_P, CALLABLE will be
++   interpreted as a qualified name, preventing virtual function
++   dispatch.  */
+ 
+-GCC_METHOD2 (gcc_expr, call_expr,
++GCC_METHOD3 (gcc_expr, call_expr,
+ 	     gcc_expr,			      /* Argument CALLABLE.  */
++	     int /* bool */,		  /* Argument QUALIFIED_P.  */
+ 	     const struct gcc_cp_function_args *) /* Argument ARGS.  */
+ 	     
+ /* FIXME: function call operations?  ctor/dtor?  new/delete?  */
+diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
+index d71b97e..04062d1 100644
+--- a/libcc1/libcp1plugin.cc
++++ b/libcc1/libcp1plugin.cc
+@@ -2305,11 +2305,65 @@ plugin_type_value_expr (cc1_plugin::connection *self,
+ 
+ gcc_expr
+ plugin_call_expr (cc1_plugin::connection *self,
+-		  gcc_expr callable_in,
+-		  const struct gcc_cp_function_args *args)
++		  gcc_expr callable_in, int qualified_p,
++		  const struct gcc_cp_function_args *args_in)
+ {
++  plugin_context *ctx = static_cast<plugin_context *> (self);
+   tree callable = convert_in (callable_in);
+-  /* FIXME: implement more.  */
++  tree call_expr;
++
++  vec<tree, va_gc> *args = make_tree_vector ();
++  for (int i = 0; i < args_in->n_elements; i++)
++    vec_safe_push (args, convert_in (args_in->elements[i]));
++
++  bool koenig_p = false;
++  if (!qualified_p && !args->is_empty ())
++    {
++      if (identifier_p (callable))
++	koenig_p = true;
++      else if (is_overloaded_fn (callable))
++	{
++	  tree fn = get_first_fn (callable);
++	  fn = STRIP_TEMPLATE (fn);
++
++	  if (!DECL_FUNCTION_MEMBER_P (fn)
++	      && !DECL_LOCAL_FUNCTION_P (fn))
++	    koenig_p = true;
++	}
++    }
++
++  if (koenig_p && !any_type_dependent_arguments_p (args))
++    callable = perform_koenig_lookup (callable, args, tf_none);
++
++  if (TREE_CODE (callable) == COMPONENT_REF)
++    {
++      tree object = TREE_OPERAND (callable, 0);
++      tree memfn = TREE_OPERAND (callable, 1);
++
++      if (type_dependent_expression_p (object)
++	  || (!BASELINK_P (memfn) && TREE_CODE (memfn) != FIELD_DECL)
++	  || type_dependent_expression_p (memfn)
++	  || any_type_dependent_arguments_p (args))
++	call_expr = build_nt_call_vec (callable, args);
++      else if (BASELINK_P (memfn))
++	call_expr = build_new_method_call (object, memfn, &args, NULL_TREE,
++					   qualified_p
++					   ? LOOKUP_NORMAL|LOOKUP_NONVIRTUAL
++					   : LOOKUP_NORMAL,
++					   NULL, tf_none);
++      else
++	call_expr = finish_call_expr (callable, &args, false, false, tf_none);
++    }
++  else if (TREE_CODE (callable) == OFFSET_REF
++	   || TREE_CODE (callable) == MEMBER_REF
++	   || TREE_CODE (callable) == DOTSTAR_EXPR)
++    call_expr = build_offset_ref_call_from_tree (callable, &args, tf_none);
++  else
++    call_expr = finish_call_expr (callable, &args,
++				  !!qualified_p, koenig_p, tf_none);
++
++  release_tree_vector (args);
++  return convert_out (ctx->preserve (call_expr));
+ }
+ 
+ gcc_type
