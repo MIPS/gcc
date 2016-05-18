@@ -1,3 +1,12 @@
+2016-05-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (xxspltib_constant_split):
+	Whitespace changes.
+	(xxspltib_constant_nosplit): Likewise.
+	(splat_input_operand): Likewise.
+	* config/rs6000/vsx.md (vsx_mov<mode>_64bit): Likewise.
+	(vsx_mov<mode>_32bit): Likewise.
+
 2016-05-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 236325.

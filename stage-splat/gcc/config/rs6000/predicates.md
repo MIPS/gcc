@@ -573,7 +573,7 @@
   (match_code "const_vector,vec_duplicate,const_int")
 {
   int value = 256;
-  int num_insns	= -1;
+  int num_insns = -1;
 
   if (!xxspltib_constant_p (op, mode, &num_insns, &value))
     return false;
@@ -589,7 +589,7 @@
   (match_code "const_vector,vec_duplicate,const_int")
 {
   int value = 256;
-  int num_insns	= -1;
+  int num_insns = -1;
 
   if (!xxspltib_constant_p (op, mode, &num_insns, &value))
     return false;
@@ -1069,9 +1069,9 @@
       else if (mode == DImode)
 	mode = V2DImode;
       else if (mode == SImode && TARGET_P9_VECTOR)
-	mode = V4SImode;	
+	mode = V4SImode;
       else if (mode == SFmode && TARGET_P9_VECTOR)
-	mode = V4SFmode;	
+	mode = V4SFmode;
       else
 	gcc_unreachable ();
       return memory_address_addr_space_p (mode, XEXP (op, 0),
