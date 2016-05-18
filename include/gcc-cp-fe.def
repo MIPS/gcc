@@ -525,10 +525,13 @@ GCC_METHOD3 (gcc_expr, type_value_expr,
    CALLABLE may be a function, a callable object, a pointer to
    function, an unresolved value expression, an unresolved overload
    set, an object expression combined with a member function overload
-   set or a pointer-to-member.  */
+   set or a pointer-to-member.  If QUALIFIED_P, CALLABLE will be
+   interpreted as a qualified name, preventing virtual function
+   dispatch.  */
 
-GCC_METHOD2 (gcc_expr, call_expr,
+GCC_METHOD3 (gcc_expr, call_expr,
 	     gcc_expr,			      /* Argument CALLABLE.  */
+	     int /* bool */,		  /* Argument QUALIFIED_P.  */
 	     const struct gcc_cp_function_args *) /* Argument ARGS.  */
 	     
 /* FIXME: function call operations?  ctor/dtor?  new/delete?  */
