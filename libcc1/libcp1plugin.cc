@@ -1485,7 +1485,7 @@ plugin_build_function_type (cc1_plugin::connection *self,
 gcc_type
 plugin_add_function_default_args (cc1_plugin::connection *self,
 				  gcc_type function_type_in,
-				  const struct gcc_cp_function_default_args *defaults)
+				  const struct gcc_cp_function_args *defaults)
 {
   tree function_type = convert_in (function_type_in);
 
@@ -2140,7 +2140,10 @@ plugin_unary_value_expr (cc1_plugin::connection *self,
     case CHARS2 ('n', 't'): // operator !
       opcode = TRUTH_NOT_EXPR;
       break;
-      /* FIXME: __real__, __imag__.  */
+      /* FIXME: __real__, __imag__, (global-scope) delete, delete[],
+	 preinc, predec, noexcept,
+	 non-type (and type) typeid, sizeof, alignof,
+	 sizeof...(pack), pack... (expansion), throw (rethrow?).  */
     case CHARS2 ('p', 'p'): // operator ++
     case CHARS2 ('m', 'm'): // operator --
     default:
@@ -2269,7 +2272,8 @@ plugin_unary_type_expr (cc1_plugin::connection *self,
   tree_code opcode = ERROR_MARK;
   switch (CHARS2 (unary_op[0], unary_op[1]))
     {
-      /* FIXME: implement sizeof, alignof, ...  */
+      /* FIXME: implement sizeof, alignof, new, new[] (but how about
+	 placement new args, ctor arguments, global scope?), ...  */
     default:
       gcc_unreachable ();
     }
@@ -2293,7 +2297,8 @@ plugin_type_value_expr (cc1_plugin::connection *self,
 #endif
   switch (CHARS2 (binary_op[0], binary_op[1]))
     {
-      /* FIXME: implement type casts, ...  */
+      /* FIXME: implement type casts; conversions taking argument
+	 lists or braced initializers?  */
     default:
       gcc_unreachable ();
     }
@@ -2301,6 +2306,69 @@ plugin_type_value_expr (cc1_plugin::connection *self,
   tree val = NULL_TREE;
   processing_template_decl--;
   return convert_out (ctx->preserve (val));
+}
+
+gcc_expr
+plugin_call_expr (cc1_plugin::connection *self,
+		  gcc_expr callable_in, int qualified_p,
+		  const struct gcc_cp_function_args *args_in)
+{
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree callable = convert_in (callable_in);
+  tree call_expr;
+
+  vec<tree, va_gc> *args = make_tree_vector ();
+  for (int i = 0; i < args_in->n_elements; i++)
+    vec_safe_push (args, convert_in (args_in->elements[i]));
+
+  bool koenig_p = false;
+  if (!qualified_p && !args->is_empty ())
+    {
+      if (identifier_p (callable))
+	koenig_p = true;
+      else if (is_overloaded_fn (callable))
+	{
+	  tree fn = get_first_fn (callable);
+	  fn = STRIP_TEMPLATE (fn);
+
+	  if (!DECL_FUNCTION_MEMBER_P (fn)
+	      && !DECL_LOCAL_FUNCTION_P (fn))
+	    koenig_p = true;
+	}
+    }
+
+  if (koenig_p && !any_type_dependent_arguments_p (args))
+    callable = perform_koenig_lookup (callable, args, tf_none);
+
+  if (TREE_CODE (callable) == COMPONENT_REF)
+    {
+      tree object = TREE_OPERAND (callable, 0);
+      tree memfn = TREE_OPERAND (callable, 1);
+
+      if (type_dependent_expression_p (object)
+	  || (!BASELINK_P (memfn) && TREE_CODE (memfn) != FIELD_DECL)
+	  || type_dependent_expression_p (memfn)
+	  || any_type_dependent_arguments_p (args))
+	call_expr = build_nt_call_vec (callable, args);
+      else if (BASELINK_P (memfn))
+	call_expr = build_new_method_call (object, memfn, &args, NULL_TREE,
+					   qualified_p
+					   ? LOOKUP_NORMAL|LOOKUP_NONVIRTUAL
+					   : LOOKUP_NORMAL,
+					   NULL, tf_none);
+      else
+	call_expr = finish_call_expr (callable, &args, false, false, tf_none);
+    }
+  else if (TREE_CODE (callable) == OFFSET_REF
+	   || TREE_CODE (callable) == MEMBER_REF
+	   || TREE_CODE (callable) == DOTSTAR_EXPR)
+    call_expr = build_offset_ref_call_from_tree (callable, &args, tf_none);
+  else
+    call_expr = finish_call_expr (callable, &args,
+				  !!qualified_p, koenig_p, tf_none);
+
+  release_tree_vector (args);
+  return convert_out (ctx->preserve (call_expr));
 }
 
 gcc_type
