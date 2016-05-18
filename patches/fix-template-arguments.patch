@@ -1,0 +1,10 @@
+Bottom: aec4bb09a981818838d97ae3f4e194bd594ac989
+Top:    aec4bb09a981818838d97ae3f4e194bd594ac989
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-05-17 22:52:52 -0300
+
+fix template arguments: their decl is the TREE_VALUE of the list
+
+---
+
+
