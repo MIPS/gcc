@@ -19343,10 +19343,15 @@ level of optimization is selected.
 
 @item -msoft-stack
 @opindex msoft-stack
-Do not use @code{.local} memory for automatic storage.  Instead, use pointer
-in shared memory array @code{char *__nvptx_stacks[]} at position @code{tid.y}
-as the stack pointer.  This is for placing automatic variables into storage
-that can be accessed from other threads, or modified with atomic instructions.
+Switch to code generation variant that does not use @code{.local} memory
+directly for stack storage. Instead, a per-warp stack pointer is
+maintained explicitely. This enables variable-length stack allocation (with
+variable-length arrays or @code{alloca}), and when global memory is used for
+underlying storage, makes possible to access automatic variables from other
+threads, or with atomic instructions. This code generation variant is used
+for OpenMP offloading, but the option is exposed on its own for the purpose
+of testing the compiler; to generate code suitable for linking into programs
+using OpenMP offloading, use option @option{-mgomp}.
 
 @item -muniform-simt
 @opindex muniform-simt
