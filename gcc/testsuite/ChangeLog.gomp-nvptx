@@ -1,5 +1,10 @@
 2016-05-19  Alexander Monakov  <amonakov@ispras.ru>
 
+	* lib/target-supports.exp (check_effective_target_alloca): Use a
+	compile test.
+
+2016-05-19  Alexander Monakov  <amonakov@ispras.ru>
+
 	* gcc.target/nvptx/softstack.c: New test.
 
 2016-05-06  Alexander Monakov  <amonakov@ispras.ru>
