@@ -1,5 +1,11 @@
 2016-05-19  Alexander Monakov  <amonakov@ispras.ru>
 
+	* config/nvptx/nvptx.c (nvptx_declare_function_name): Expand comments.
+	(nvptx_file_end): Do not emit element count in external declaration of
+	__nvptx_stacks.
+
+2016-05-19  Alexander Monakov  <amonakov@ispras.ru>
+
 	* doc/invoke.texi (msoft-stack): Rewrite.
 
 2016-05-06  Alexander Monakov  <amonakov@ispras.ru>

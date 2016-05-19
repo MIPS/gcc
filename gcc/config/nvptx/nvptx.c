@@ -1119,8 +1119,8 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
       fprintf (file, "\tmul%s.u32 %%fstmp1, %%fstmp0, %d;\n",
 	       bits == 64 ? ".wide" : ".lo", bits / 8);
       fprintf (file, "\tmov.u%d %%fstmp2, __nvptx_stacks;\n", bits);
-      /* fstmp2 = &__nvptx_stacks[tid.y];  */
       fprintf (file, "\tadd.u%d %%fstmp2, %%fstmp2, %%fstmp1;\n", bits);
+      /* Now %fstmp2 holds the value of '&__nvptx_stacks[%tid.y]'.  */
       fprintf (file, "\tld.shared.u%d %%fstmp1, [%%fstmp2];\n", bits);
       fprintf (file, "\tsub.u%d %%frame, %%fstmp1, "
 	       HOST_WIDE_INT_PRINT_DEC ";\n", bits, sz);
@@ -1132,7 +1132,8 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
       gcc_assert (sz % keep_align == 0);
       fprintf (file, "\tsub.u%d %%stack, %%frame, "
 	       HOST_WIDE_INT_PRINT_DEC ";\n", bits, sz);
-      /* crtl->is_leaf is not initialized because RA is not run.  */
+      /* Ideally we'd use 'crtl->is_leaf' here, but it is computed during
+         register allocator initialization, which is not done on NVPTX.  */
       if (!leaf_function_p ())
 	{
 	  fprintf (file, "\tst.shared.u%d [%%fstmp2], %%stack;\n", bits);
@@ -4192,7 +4193,7 @@ nvptx_file_end (void)
   if (need_softstack_decl)
     {
       write_var_marker (asm_out_file, false, true, "__nvptx_stacks");
-      fprintf (asm_out_file, ".extern .shared .u%d __nvptx_stacks[32];\n",
+      fprintf (asm_out_file, ".extern .shared .u%d __nvptx_stacks[];\n",
 	       POINTER_SIZE);
     }
   if (need_unisimt_decl)
