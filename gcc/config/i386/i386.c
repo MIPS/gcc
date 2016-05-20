@@ -2789,7 +2789,8 @@ dimode_scalar_to_vector_candidate_p (rtx_insn *insn)
     return convertible_comparison_p (insn);
 
   /* We are interested in DImode promotion only.  */
-  if (GET_MODE (src) != DImode
+  if ((GET_MODE (src) != DImode
+       && !CONST_INT_P (src))
       || GET_MODE (dst) != DImode)
     return false;
 
@@ -2809,24 +2810,31 @@ dimode_scalar_to_vector_candidate_p (rtx_insn *insn)
       return true;
 
     case MEM:
+    case CONST_INT:
       return REG_P (dst);
 
     default:
       return false;
     }
 
-  if (!REG_P (XEXP (src, 0)) && !MEM_P (XEXP (src, 0))
+  if (!REG_P (XEXP (src, 0))
+      && !MEM_P (XEXP (src, 0))
+      && !CONST_INT_P (XEXP (src, 0))
       /* Check for andnot case.  */
       && (GET_CODE (src) != AND
 	  || GET_CODE (XEXP (src, 0)) != NOT
 	  || !REG_P (XEXP (XEXP (src, 0), 0))))
       return false;
 
-  if (!REG_P (XEXP (src, 1)) && !MEM_P (XEXP (src, 1)))
+  if (!REG_P (XEXP (src, 1))
+      && !MEM_P (XEXP (src, 1))
+      && !CONST_INT_P (XEXP (src, 1)))
       return false;
 
-  if (GET_MODE (XEXP (src, 0)) != DImode
-      || GET_MODE (XEXP (src, 1)) != DImode)
+  if ((GET_MODE (XEXP (src, 0)) != DImode
+       && !CONST_INT_P (XEXP (src, 0)))
+      || (GET_MODE (XEXP (src, 1)) != DImode
+	  && !CONST_INT_P (XEXP (src, 1))))
     return false;
 
   return true;
@@ -3120,6 +3128,7 @@ class dimode_scalar_chain : public scalar_chain
   void convert_reg (unsigned regno);
   void make_vector_copies (unsigned regno);
   void convert_registers ();
+  int vector_const_cost (rtx exp);
 };
 
 class timode_scalar_chain : public scalar_chain
@@ -3328,6 +3337,19 @@ scalar_chain::build (bitmap candidates, unsigned insn_uid)
   BITMAP_FREE (queue);
 }
 
+/* Return a cost of building a vector costant
+   instead of using a scalar one.  */
+
+int
+dimode_scalar_chain::vector_const_cost (rtx exp)
+{
+  gcc_assert (CONST_INT_P (exp));
+
+  if (standard_sse_constant_p (exp, V2DImode))
+    return COSTS_N_INSNS (1);
+  return ix86_cost->sse_load[1];
+}
+
 /* Compute a gain for chain conversion.  */
 
 int
@@ -3359,10 +3381,24 @@ dimode_scalar_chain::compute_convert_gain ()
 	       || GET_CODE (src) == IOR
 	       || GET_CODE (src) == XOR
 	       || GET_CODE (src) == AND)
-	gain += ix86_cost->add;
+	{
+	  gain += ix86_cost->add;
+	  if (CONST_INT_P (XEXP (src, 0)))
+	    gain -= vector_const_cost (XEXP (src, 0));
+	  if (CONST_INT_P (XEXP (src, 1)))
+	    gain -= vector_const_cost (XEXP (src, 1));
+	}
       else if (GET_CODE (src) == COMPARE)
 	{
 	  /* Assume comparison cost is the same.  */
+	}
+      else if (GET_CODE (src) == CONST_INT)
+	{
+	  if (REG_P (dst))
+	    gain += COSTS_N_INSNS (2);
+	  else if (MEM_P (dst))
+	    gain += 2 * ix86_cost->int_store[2] - ix86_cost->sse_store[1];
+	  gain -= vector_const_cost (src);
 	}
       else
 	gcc_unreachable ();
@@ -3639,6 +3675,30 @@ dimode_scalar_chain::convert_op (rtx *op, rtx_insn *insn)
 	  }
       *op = gen_rtx_SUBREG (V2DImode, *op, 0);
     }
+  else if (CONST_INT_P (*op))
+    {
+      rtx vec_cst;
+      rtx tmp = gen_rtx_SUBREG (V2DImode, gen_reg_rtx (DImode), 0);
+
+      /* Prefer all ones vector in case of -1.  */
+      if (constm1_operand (*op, GET_MODE (*op)))
+	vec_cst = CONSTM1_RTX (V2DImode);
+      else
+	vec_cst = gen_rtx_CONST_VECTOR (V2DImode,
+					gen_rtvec (2, *op, const0_rtx));
+
+      if (!standard_sse_constant_p (vec_cst, V2DImode))
+	{
+	  start_sequence ();
+	  vec_cst = validize_mem (force_const_mem (V2DImode, vec_cst));
+	  rtx_insn *seq = get_insns ();
+	  end_sequence ();
+	  emit_insn_before (seq, insn);
+	}
+
+      emit_insn_before (gen_move_insn (tmp, vec_cst), insn);
+      *op = tmp;
+    }
   else
     {
       gcc_assert (SUBREG_P (*op));
@@ -3709,6 +3769,10 @@ dimode_scalar_chain::convert_insn (rtx_insn *insn)
       src = gen_rtx_UNSPEC (CCmode, gen_rtvec (2, copy_rtx_if_shared (src),
 					       copy_rtx_if_shared (src)),
 			    UNSPEC_PTEST);
+      break;
+
+    case CONST_INT:
+      convert_op (&src, insn);
       break;
 
     default:
@@ -3910,13 +3974,6 @@ convert_scalars_to_vector ()
   BITMAP_FREE (candidates);
   bitmap_obstack_release (NULL);
   df_process_deferred_rescans ();
-
-  /* FIXME: Since the CSE pass may change dominance info, which isn't
-     expected by the fwprop pass, call free_dominance_info to
-     invalidate dominance info.  Otherwise, the fwprop pass may crash
-     when dominance info is changed.  */
-  if (TARGET_64BIT)
-    free_dominance_info (CDI_DOMINATORS);
 
   /* Conversion means we may have 128bit register spills/fills
      which require aligned stack.  */
@@ -6770,6 +6827,9 @@ static bool
 ix86_in_large_data_p (tree exp)
 {
   if (ix86_cmodel != CM_MEDIUM && ix86_cmodel != CM_MEDIUM_PIC)
+    return false;
+
+  if (exp == NULL_TREE)
     return false;
 
   /* Functions are never large data.  */
@@ -11906,7 +11966,7 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
   to_allocate = offset - frame->sse_reg_save_offset;
 
   if ((!to_allocate && frame->nregs <= 1)
-      || (TARGET_64BIT && to_allocate >= (HOST_WIDE_INT) 0x80000000))
+      || (TARGET_64BIT && to_allocate >= HOST_WIDE_INT_C (0x80000000)))
     frame->save_regs_using_mov = false;
 
   if (ix86_using_red_zone ()
@@ -13328,7 +13388,7 @@ ix86_expand_prologue (void)
 	{
 	  HOST_WIDE_INT size = allocate;
 
-	  if (TARGET_64BIT && size >= (HOST_WIDE_INT) 0x80000000)
+	  if (TARGET_64BIT && size >= HOST_WIDE_INT_C (0x80000000))
 	    size = 0x80000000 - STACK_CHECK_PROTECT - 1;
 
 	  if (TARGET_STACK_PROBE)
@@ -14269,7 +14329,7 @@ ix86_expand_split_stack_prologue (void)
 	     different function: __morestack_large.  We pass the
 	     argument size in the upper 32 bits of r10 and pass the
 	     frame size in the lower 32 bits.  */
-	  gcc_assert ((allocate & (HOST_WIDE_INT) 0xffffffff) == allocate);
+	  gcc_assert ((allocate & HOST_WIDE_INT_C (0xffffffff)) == allocate);
 	  gcc_assert ((args_size & 0xffffffff) == args_size);
 
 	  if (split_stack_fn_large == NULL_RTX)
@@ -15375,15 +15435,16 @@ legitimize_pic_address (rtx orig, rtx reg)
 
   if (TARGET_64BIT && legitimate_pic_address_disp_p (addr))
     new_rtx = addr;
-  else if (TARGET_64BIT && !TARGET_PECOFF
-	   && ix86_cmodel != CM_SMALL_PIC && gotoff_operand (addr, Pmode))
+  else if ((!TARGET_64BIT
+	    || /* TARGET_64BIT && */ ix86_cmodel != CM_SMALL_PIC)
+	   && !TARGET_PECOFF
+	   && gotoff_operand (addr, Pmode))
     {
-      rtx tmpreg;
-      /* This symbol may be referenced via a displacement from the PIC
-	 base address (@GOTOFF).  */
-
+      /* This symbol may be referenced via a displacement
+	 from the PIC base address (@GOTOFF).  */
       if (GET_CODE (addr) == CONST)
 	addr = XEXP (addr, 0);
+
       if (GET_CODE (addr) == PLUS)
 	  {
             new_rtx = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, XEXP (addr, 0)),
@@ -15392,87 +15453,49 @@ legitimize_pic_address (rtx orig, rtx reg)
 	  }
 	else
           new_rtx = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOTOFF);
+
       new_rtx = gen_rtx_CONST (Pmode, new_rtx);
-      if (!reg)
-        tmpreg = gen_reg_rtx (Pmode);
-      else
-	tmpreg = reg;
-      emit_move_insn (tmpreg, new_rtx);
+
+      if (TARGET_64BIT)
+	new_rtx = copy_to_suggested_reg (new_rtx, reg, Pmode);
 
       if (reg != 0)
 	{
-	  new_rtx = expand_simple_binop (Pmode, PLUS, reg, pic_offset_table_rtx,
-					 tmpreg, 1, OPTAB_DIRECT);
-	  new_rtx = reg;
-	}
+ 	  gcc_assert (REG_P (reg));
+	  new_rtx = expand_simple_binop (Pmode, PLUS, pic_offset_table_rtx,
+					 new_rtx, reg, 1, OPTAB_DIRECT);
+ 	}
       else
-        new_rtx = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, tmpreg);
-    }
-  else if (!TARGET_64BIT && !TARGET_PECOFF && gotoff_operand (addr, Pmode))
-    {
-      /* This symbol may be referenced via a displacement from the PIC
-	 base address (@GOTOFF).  */
-
-      if (GET_CODE (addr) == CONST)
-	addr = XEXP (addr, 0);
-      if (GET_CODE (addr) == PLUS)
-	  {
-            new_rtx = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, XEXP (addr, 0)),
-				      UNSPEC_GOTOFF);
-	    new_rtx = gen_rtx_PLUS (Pmode, new_rtx, XEXP (addr, 1));
-	  }
-	else
-          new_rtx = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOTOFF);
-      new_rtx = gen_rtx_CONST (Pmode, new_rtx);
-      new_rtx = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, new_rtx);
-
-      if (reg != 0)
-	{
-	  emit_move_insn (reg, new_rtx);
-	  new_rtx = reg;
-	}
+	new_rtx = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, new_rtx);
     }
   else if ((GET_CODE (addr) == SYMBOL_REF && SYMBOL_REF_TLS_MODEL (addr) == 0)
-	   /* We can't use @GOTOFF for text labels on VxWorks;
-	      see gotoff_operand.  */
+	   /* We can't use @GOTOFF for text labels
+	      on VxWorks, see gotoff_operand.  */
 	   || (TARGET_VXWORKS_RTP && GET_CODE (addr) == LABEL_REF))
     {
       rtx tmp = legitimize_pe_coff_symbol (addr, true);
       if (tmp)
         return tmp;
 
-      /* For x64 PE-COFF there is no GOT table.  So we use address
-         directly.  */
+      /* For x64 PE-COFF there is no GOT table,
+	 so we use address directly.  */
       if (TARGET_64BIT && TARGET_PECOFF)
 	{
 	  new_rtx = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_PCREL);
 	  new_rtx = gen_rtx_CONST (Pmode, new_rtx);
-
-	  if (reg == 0)
-	    reg = gen_reg_rtx (Pmode);
-	  emit_move_insn (reg, new_rtx);
-	  new_rtx = reg;
 	}
       else if (TARGET_64BIT && ix86_cmodel != CM_LARGE_PIC)
 	{
-	  new_rtx = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOTPCREL);
+	  new_rtx = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr),
+				    UNSPEC_GOTPCREL);
 	  new_rtx = gen_rtx_CONST (Pmode, new_rtx);
 	  new_rtx = gen_const_mem (Pmode, new_rtx);
 	  set_mem_alias_set (new_rtx, ix86_GOT_alias_set ());
-
-	  if (reg == 0)
-	    reg = gen_reg_rtx (Pmode);
-	  /* Use directly gen_movsi, otherwise the address is loaded
-	     into register for CSE.  We don't want to CSE this addresses,
-	     instead we CSE addresses from the GOT table, so skip this.  */
-	  emit_insn (gen_movsi (reg, new_rtx));
-	  new_rtx = reg;
 	}
       else
 	{
-	  /* This symbol must be referenced via a load from the
-	     Global Offset Table (@GOT).  */
-
+	  /* This symbol must be referenced via a load
+	     from the Global Offset Table (@GOT).  */
 	  new_rtx = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOT);
 	  new_rtx = gen_rtx_CONST (Pmode, new_rtx);
 	  if (TARGET_64BIT)
@@ -15480,26 +15503,15 @@ legitimize_pic_address (rtx orig, rtx reg)
 	  new_rtx = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, new_rtx);
 	  new_rtx = gen_const_mem (Pmode, new_rtx);
 	  set_mem_alias_set (new_rtx, ix86_GOT_alias_set ());
-
-	  if (reg == 0)
-	    reg = gen_reg_rtx (Pmode);
-	  emit_move_insn (reg, new_rtx);
-	  new_rtx = reg;
 	}
+
+      new_rtx = copy_to_suggested_reg (new_rtx, reg, Pmode);
     }
   else
     {
       if (CONST_INT_P (addr)
 	  && !x86_64_immediate_operand (addr, VOIDmode))
-	{
-	  if (reg)
-	    {
-	      emit_move_insn (reg, addr);
-	      new_rtx = reg;
-	    }
-	  else
-	    new_rtx = force_reg (Pmode, addr);
-	}
+	new_rtx = copy_to_suggested_reg (addr, reg, Pmode);
       else if (GET_CODE (addr) == CONST)
 	{
 	  addr = XEXP (addr, 0);
@@ -15513,13 +15525,15 @@ legitimize_pic_address (rtx orig, rtx reg)
 	    return orig;
 	  gcc_assert (GET_CODE (addr) == PLUS);
 	}
+
       if (GET_CODE (addr) == PLUS)
 	{
 	  rtx op0 = XEXP (addr, 0), op1 = XEXP (addr, 1);
 
-	  /* Check first to see if this is a constant offset from a @GOTOFF
-	     symbol reference.  */
-	  if (!TARGET_PECOFF && gotoff_operand (op0, Pmode)
+	  /* Check first to see if this is a constant
+	     offset from a @GOTOFF symbol reference.  */
+	  if (!TARGET_PECOFF
+	      && gotoff_operand (op0, Pmode)
 	      && CONST_INT_P (op1))
 	    {
 	      if (!TARGET_64BIT)
@@ -15528,13 +15542,18 @@ legitimize_pic_address (rtx orig, rtx reg)
 					    UNSPEC_GOTOFF);
 		  new_rtx = gen_rtx_PLUS (Pmode, new_rtx, op1);
 		  new_rtx = gen_rtx_CONST (Pmode, new_rtx);
-		  new_rtx = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, new_rtx);
 
 		  if (reg != 0)
 		    {
-		      emit_move_insn (reg, new_rtx);
-		      new_rtx = reg;
+		      gcc_assert (REG_P (reg));
+		      new_rtx = expand_simple_binop (Pmode, PLUS,
+						     pic_offset_table_rtx,
+						     new_rtx, reg, 1,
+						     OPTAB_DIRECT);
 		    }
+		  else
+		    new_rtx
+		      = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, new_rtx);
 		}
 	      else
 		{
@@ -15543,7 +15562,9 @@ legitimize_pic_address (rtx orig, rtx reg)
 		    {
 		      if (!x86_64_immediate_operand (op1, Pmode))
 			op1 = force_reg (Pmode, op1);
-		      new_rtx = gen_rtx_PLUS (Pmode, force_reg (Pmode, op0), op1);
+
+		      new_rtx
+			= gen_rtx_PLUS (Pmode, force_reg (Pmode, op0), op1);
 		    }
 		}
 	    }
@@ -15561,6 +15582,7 @@ legitimize_pic_address (rtx orig, rtx reg)
 		    {
 		      if (!x86_64_immediate_operand (new_rtx, mode))
 			new_rtx = force_reg (mode, new_rtx);
+
 		      new_rtx
 		        = gen_rtx_PLUS (mode, force_reg (mode, base), new_rtx);
 		    }
@@ -15569,8 +15591,8 @@ legitimize_pic_address (rtx orig, rtx reg)
 		}
 	      else
 		{
-		  /* For %rip addressing, we have to use just disp32, not
-		     base nor index.  */
+		  /* For %rip addressing, we have to use
+		     just disp32, not base nor index.  */
 		  if (TARGET_64BIT
 		      && (GET_CODE (base) == SYMBOL_REF
 			  || GET_CODE (base) == LABEL_REF))
@@ -17600,6 +17622,10 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	    size = "QWORD";
 	  else if (code == 'x')
 	    size = "XMMWORD";
+	  else if (code == 't')
+	    size = "YMMWORD";
+	  else if (code == 'g')
+	    size = "ZMMWORD";
 	  else if (mode == BLKmode)
 	    /* ... or BLKmode operands, when not overridden.  */
 	    size = NULL;
@@ -24541,20 +24567,17 @@ ix86_split_to_parts (rtx operand, rtx *parts, machine_mode mode)
 	      real_to_target (l, CONST_DOUBLE_REAL_VALUE (operand), mode);
 
 	      /* real_to_target puts 32-bit pieces in each long.  */
-	      parts[0] =
-		gen_int_mode
-		  ((l[0] & (HOST_WIDE_INT) 0xffffffff)
-		   | ((l[1] & (HOST_WIDE_INT) 0xffffffff) << 32),
-		   DImode);
+	      parts[0] = gen_int_mode ((l[0] & HOST_WIDE_INT_C (0xffffffff))
+				       | ((l[1] & HOST_WIDE_INT_C (0xffffffff))
+					  << 32), DImode);
 
 	      if (upper_mode == SImode)
 	        parts[1] = gen_int_mode (l[2], SImode);
 	      else
-	        parts[1] =
-		  gen_int_mode
-		    ((l[2] & (HOST_WIDE_INT) 0xffffffff)
-		     | ((l[3] & (HOST_WIDE_INT) 0xffffffff) << 32),
-		     DImode);
+	        parts[1]
+		  = gen_int_mode ((l[2] & HOST_WIDE_INT_C (0xffffffff))
+				  | ((l[3] & HOST_WIDE_INT_C (0xffffffff))
+				     << 32), DImode);
 	    }
 	  else
 	    gcc_unreachable ();
@@ -26895,7 +26918,7 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
 	{
 	  if (UINTVAL (count_exp) >= (unsigned HOST_WIDE_INT)dynamic_check)
 	    {
-	      emit_block_move_via_libcall (dst, src, count_exp, false);
+	      emit_block_copy_via_libcall (dst, src, count_exp);
 	      count_exp = const0_rtx;
 	      goto epilogue;
 	    }
@@ -26910,9 +26933,9 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
 				   1, hot_label);
 	  predict_jump (REG_BR_PROB_BASE * 90 / 100);
 	  if (issetmem)
-	    set_storage_via_libcall (dst, count_exp, val_exp, false);
+	    set_storage_via_libcall (dst, count_exp, val_exp);
 	  else
-	    emit_block_move_via_libcall (dst, src, count_exp, false);
+	    emit_block_copy_via_libcall (dst, src, count_exp);
 	  emit_jump (jump_around_label);
 	  emit_label (hot_label);
 	}

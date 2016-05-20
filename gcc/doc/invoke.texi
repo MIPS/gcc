@@ -1006,7 +1006,8 @@ See RS/6000 and PowerPC Options.
 -mupper-regs-df -mno-upper-regs-df -mupper-regs-sf -mno-upper-regs-sf @gol
 -mupper-regs -mno-upper-regs -mmodulo -mno-modulo @gol
 -mfloat128 -mno-float128 -mfloat128-hardware -mno-float128-hardware @gol
--mpower9-fusion -mno-mpower9-fusion -mpower9-vector -mno-power9-vector}
+-mpower9-fusion -mno-mpower9-fusion -mpower9-vector -mno-power9-vector @gol
+-mpower9-dform -mno-power9-dform -mlra -mno-lra}
 
 @emph{RX Options}
 @gccoptlist{-m64bit-doubles  -m32bit-doubles  -fpu  -nofpu@gol
@@ -3541,6 +3542,7 @@ Options} and @ref{Objective-C and Objective-C++ Dialect Options}.
 -Wc++11-compat  -Wc++14-compat@gol
 -Wchar-subscripts  @gol
 -Wcomment  @gol
+-Wduplicate-decl-specifier @r{(C and Objective-C only)} @gol
 -Wenum-compare @r{(in C/ObjC; this is on by default in C++)} @gol
 -Wformat   @gol
 -Wimplicit @r{(C and Objective-C only)} @gol
@@ -3697,6 +3699,13 @@ float area(float radius)
 @end smallexample
 the compiler performs the entire computation with @code{double}
 because the floating-point literal is a @code{double}.
+
+@item -Wduplicate-decl-specifier @r{(C and Objective-C only)}
+@opindex Wduplicate-decl-specifier
+@opindex Wno-duplicate-decl-specifier
+Warn if a declaration has duplicate @code{const}, @code{volatile},
+@code{restrict} or @code{_Atomic} specifier.  This warning is enabled by
+@option{-Wall}.
 
 @item -Wformat
 @itemx -Wformat=@var{n}
@@ -10003,6 +10012,13 @@ for which this feature is experimental.
 accepted, the former enables recovery for all sanitizers that support it,
 the latter disables recovery for all sanitizers that support it.
 
+Even if a recovery mode is turned on the compiler side, it needs to be also
+enabled on the runtime library side, otherwise the failures are still fatal.
+The runtime library defaults to @code{halt_on_error=0} for
+ThreadSanitizer and UndefinedBehaviorSanitizer, while default value for
+AddressSanitizer is @code{halt_on_error=1}. This can be overridden through
+setting the @code{halt_on_error} flag in the corresponding environment variable.
+
 Syntax without explicit @var{opts} parameter is deprecated.  It is equivalent to
 @smallexample
 -fsanitize-recover=undefined,float-cast-overflow,float-divide-by-zero
@@ -12863,9 +12879,9 @@ These options are defined for AArch64 implementations:
 @item -mabi=@var{name}
 @opindex mabi
 Generate code for the specified data model.  Permissible values
-are @samp{ilp32} for SysV-like data model where int, long int and pointer
-are 32-bit, and @samp{lp64} for SysV-like data model where int is 32-bit,
-but long int and pointer are 64-bit.
+are @samp{ilp32} for SysV-like data model where int, long int and pointers
+are 32 bits, and @samp{lp64} for SysV-like data model where int is 32 bits,
+but long int and pointers are 64 bits.
 
 The default depends on the specific target configuration.  Note that
 the LP64 and ILP32 ABIs are not link-compatible; you must compile your
@@ -12890,25 +12906,24 @@ Generate little-endian code.  This is the default when GCC is configured for an
 @item -mcmodel=tiny
 @opindex mcmodel=tiny
 Generate code for the tiny code model.  The program and its statically defined
-symbols must be within 1GB of each other.  Pointers are 64 bits.  Programs can
-be statically or dynamically linked.  This model is not fully implemented and
-mostly treated as @samp{small}.
+symbols must be within 1MB of each other.  Programs can be statically or
+dynamically linked.
 
 @item -mcmodel=small
 @opindex mcmodel=small
 Generate code for the small code model.  The program and its statically defined
-symbols must be within 4GB of each other.  Pointers are 64 bits.  Programs can
-be statically or dynamically linked.  This is the default code model.
+symbols must be within 4GB of each other.  Programs can be statically or
+dynamically linked.  This is the default code model.
 
 @item -mcmodel=large
 @opindex mcmodel=large
 Generate code for the large code model.  This makes no assumptions about
-addresses and sizes of sections.  Pointers are 64 bits.  Programs can be
-statically linked only.
+addresses and sizes of sections.  Programs can be statically linked only.
 
 @item -mstrict-align
 @opindex mstrict-align
-Do not assume that unaligned memory references are handled by the system.
+Avoid generating memory accesses that may not be aligned on a natural object
+boundary as described in the architecture specification.
 
 @item -momit-leaf-frame-pointer
 @itemx -mno-omit-leaf-frame-pointer
@@ -12930,7 +12945,7 @@ of TLS variables.
 @item -mtls-size=@var{size}
 @opindex mtls-size
 Specify bit size of immediate TLS offsets.  Valid values are 12, 24, 32, 48.
-This option depends on binutils higher than 2.25.
+This option requires binutils 2.26 or newer.
 
 @item -mfix-cortex-a53-835769
 @itemx -mno-fix-cortex-a53-835769
@@ -12950,12 +12965,13 @@ corresponding flag to the linker.
 
 @item -mlow-precision-recip-sqrt
 @item -mno-low-precision-recip-sqrt
-@opindex -mlow-precision-recip-sqrt
-@opindex -mno-low-precision-recip-sqrt
-When calculating the reciprocal square root approximation,
-uses one less step than otherwise, thus reducing latency and precision.
-This is only relevant if @option{-ffast-math} enables the reciprocal square root
-approximation, which in turn depends on the target processor.
+@opindex mlow-precision-recip-sqrt
+@opindex mno-low-precision-recip-sqrt
+Enable or disable reciprocal square root approximation.
+This option only has an effect if @option{-ffast-math} or
+@option{-funsafe-math-optimizations} is used as well.  Enabling this reduces
+precision of reciprocal square root results to about 16 bits for
+single precision and to 32 bits for double precision.
 
 @item -march=@var{name}
 @opindex march
@@ -12992,17 +13008,15 @@ Specify the name of the target processor for which GCC should tune the
 performance of the code.  Permissible values for this option are:
 @samp{generic}, @samp{cortex-a35}, @samp{cortex-a53}, @samp{cortex-a57},
 @samp{cortex-a72}, @samp{exynos-m1}, @samp{qdf24xx}, @samp{thunderx},
-@samp{xgene1}.
+@samp{xgene1}, @samp{cortex-a57.cortex-a53}, @samp{cortex-a72.cortex-a53},
+@samp{native}.
 
-Additionally, this option can specify that GCC should tune the performance
-of the code for a big.LITTLE system.  Permissible values for this
-option are: @samp{cortex-a57.cortex-a53}, @samp{cortex-a72.cortex-a53}.
+The values @samp{cortex-a57.cortex-a53}, @samp{cortex-a72.cortex-a53}
+specify that GCC should tune for a big.LITTLE system.
 
 Additionally on native AArch64 GNU/Linux systems the value
-@samp{native} is available.  This option causes the compiler to pick
-the architecture of and tune the performance of the code for the
-processor of the host system.  This option has no effect if the
-compiler is unable to recognize the architecture of the host system.
+@samp{native} tunes performance to the host system.  This option has no effect
+if the compiler is unable to recognize the processor of the host system.
 
 Where none of @option{-mtune=}, @option{-mcpu=} or @option{-march=}
 are specified, the code is tuned to perform well across a range
@@ -13022,12 +13036,6 @@ documented in the sub-section on
 Feature Modifiers}.  Where conflicting feature modifiers are
 specified, the right-most feature is used.
 
-Additionally on native AArch64 GNU/Linux systems the value
-@samp{native} is available.  This option causes the compiler to tune
-the performance of the code for the processor of the host system.
-This option has no effect if the compiler is unable to recognize the
-architecture of the host system.
-
 GCC uses @var{name} to determine what kind of instructions it can emit when
 generating assembly code (as if by @option{-march}) and to determine
 the target processor for which to tune for performance (as if
@@ -13045,11 +13053,11 @@ across releases.
 This option is only intended to be useful when developing GCC.
 
 @item -mpc-relative-literal-loads
-@opindex mpcrelativeliteralloads
-Enable PC relative literal loads. If this option is used, literal
-pools are assumed to have a range of up to 1MiB and an appropriate
-instruction sequence is used. This option has no impact when used
-with @option{-mcmodel=tiny}.
+@opindex mpc-relative-literal-loads
+Enable PC-relative literal loads.  With this option literal pools are
+accessed using a single instruction and emitted after each function.  This
+limits the maximum size of functions to 1MB.  This is enabled by default for
+@option{-mcmodel=tiny}.
 
 @end table
 
@@ -13080,9 +13088,9 @@ Enable Large System Extension instructions.  This is on by default for
 
 @end table
 
-That is, @option{crypto} implies @option{simd} implies @option{fp}.
-Conversely, @option{nofp} (or equivalently, @option{-mgeneral-regs-only})
-implies @option{nosimd} implies @option{nocrypto}.
+Feature @option{crypto} implies @option{simd}, which implies @option{fp}.
+Conversely, @option{nofp} implies @option{nosimd}, which implies
+@option{nocrypto}.
 
 @node Adapteva Epiphany Options
 @subsection Adapteva Epiphany Options
@@ -13709,7 +13717,6 @@ Enable the use of indexed loads.  This can be problematic because some
 optimizers then assume that indexed stores exist, which is not
 the case.
 
-@item -mlra
 @opindex mlra
 Enable Local Register Allocation.  This is still experimental for ARC,
 so by default the compiler uses standard reload
@@ -18122,7 +18129,7 @@ IEEE 754 floating-point data.
 
 The @option{-mnan=legacy} option selects the legacy encoding.  In this
 case quiet NaNs (qNaNs) are denoted by the first bit of their trailing
-significand field being 0, whereas signalling NaNs (sNaNs) are denoted
+significand field being 0, whereas signaling NaNs (sNaNs) are denoted
 by the first bit of their trailing significand field being 1.
 
 The @option{-mnan=2008} option selects the IEEE 754-2008 encoding.  In
@@ -19935,7 +19942,7 @@ following options:
 -msimple-fpu -mstring  -mmulhw  -mdlmzb  -mmfpgpr -mvsx @gol
 -mcrypto -mdirect-move -mpower8-fusion -mpower8-vector @gol
 -mquad-memory -mquad-memory-atomic -mmodulo -mfloat128 -mfloat128-hardware @gol
--mpower9-fusion -mpower9-vector}
+-mpower9-fusion -mpower9-vector -mpower9-dform}
 
 The particular options set for any particular CPU varies between
 compiler versions, depending on what setting seems to produce optimal
@@ -20058,6 +20065,12 @@ This switch enables or disables the generation of ISEL instructions.
 @item -misel=@var{yes/no}
 This switch has been deprecated.  Use @option{-misel} and
 @option{-mno-isel} instead.
+
+@item -mlra
+@opindex mlra
+Enable Local Register Allocation.  This is still experimental for PowerPC,
+so by default the compiler uses standard reload
+(i.e. @option{-mno-lra}).
 
 @item -mspe
 @itemx -mno-spe
@@ -20208,9 +20221,18 @@ processors.
 @opindex mpower9-vector
 @opindex mno-power9-vector
 Generate code that uses (does not use) the vector and scalar
-instructions that were added in version 2.07 of the PowerPC ISA.  Also
+instructions that were added in version 3.0 of the PowerPC ISA.  Also
 enable the use of built-in functions that allow more direct access to
 the vector instructions.
+
+@item -mpower9-dform
+@itemx -mno-power9-dform
+@opindex mpower9-dform
+@opindex mno-power9-dform
+Enable (disable) scalar d-form (register + offset) memory instructions
+to load/store traditional Altivec registers. If the @var{LRA} register
+allocator is enabled, also enable (disable) vector d-form memory
+instructions.
 
 @item -mfloat-gprs=@var{yes/single/double/no}
 @itemx -mfloat-gprs

@@ -249,8 +249,6 @@ static void arm_output_dwarf_dtprel (FILE *, int, rtx) ATTRIBUTE_UNUSED;
 static bool arm_output_addr_const_extra (FILE *, rtx);
 static bool arm_allocate_stack_slots_for_args (void);
 static bool arm_warn_func_return (tree);
-static const char *arm_invalid_parameter_type (const_tree t);
-static const char *arm_invalid_return_type (const_tree t);
 static tree arm_promoted_type (const_tree t);
 static tree arm_convert_to_type (tree type, tree expr);
 static bool arm_scalar_mode_supported_p (machine_mode);
@@ -300,6 +298,9 @@ static void arm_canonicalize_comparison (int *code, rtx *op0, rtx *op1,
 static unsigned HOST_WIDE_INT arm_asan_shadow_offset (void);
 
 static void arm_sched_fusion_priority (rtx_insn *, int, int *, int*);
+static bool arm_can_output_mi_thunk (const_tree, HOST_WIDE_INT, HOST_WIDE_INT,
+				     const_tree);
+
 
 /* Table of machine attributes.  */
 static const struct attribute_spec arm_attribute_table[] =
@@ -463,7 +464,7 @@ static const struct attribute_spec arm_attribute_table[] =
 #undef  TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK arm_output_mi_thunk
 #undef  TARGET_ASM_CAN_OUTPUT_MI_THUNK
-#define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK arm_can_output_mi_thunk
 
 #undef  TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS arm_rtx_costs
@@ -653,12 +654,6 @@ static const struct attribute_spec arm_attribute_table[] =
 
 #undef TARGET_PREFERRED_RELOAD_CLASS
 #define TARGET_PREFERRED_RELOAD_CLASS arm_preferred_reload_class
-
-#undef TARGET_INVALID_PARAMETER_TYPE
-#define TARGET_INVALID_PARAMETER_TYPE arm_invalid_parameter_type
-
-#undef TARGET_INVALID_RETURN_TYPE
-#define TARGET_INVALID_RETURN_TYPE arm_invalid_return_type
 
 #undef TARGET_PROMOTED_TYPE
 #define TARGET_PROMOTED_TYPE arm_promoted_type
@@ -5549,7 +5544,7 @@ aapcs_vfp_sub_candidate (const_tree type, machine_mode *modep)
     {
     case REAL_TYPE:
       mode = TYPE_MODE (type);
-      if (mode != DFmode && mode != SFmode)
+      if (mode != DFmode && mode != SFmode && mode != HFmode)
 	return -1;
 
       if (*modep == VOIDmode)
@@ -5797,11 +5792,16 @@ aapcs_vfp_is_call_candidate (CUMULATIVE_ARGS *pcum, machine_mode mode,
 						&pcum->aapcs_vfp_rcount);
 }
 
+/* Implement the allocate field in aapcs_cp_arg_layout.  See the comment there
+   for the behaviour of this function.  */
+
 static bool
 aapcs_vfp_allocate (CUMULATIVE_ARGS *pcum, machine_mode mode,
 		    const_tree type  ATTRIBUTE_UNUSED)
 {
-  int shift = GET_MODE_SIZE (pcum->aapcs_vfp_rmode) / GET_MODE_SIZE (SFmode);
+  int rmode_size
+    = MAX (GET_MODE_SIZE (pcum->aapcs_vfp_rmode), GET_MODE_SIZE (SFmode));
+  int shift = rmode_size / GET_MODE_SIZE (SFmode);
   unsigned mask = (1 << (shift * pcum->aapcs_vfp_rcount)) - 1;
   int regno;
 
@@ -5849,6 +5849,9 @@ aapcs_vfp_allocate (CUMULATIVE_ARGS *pcum, machine_mode mode,
       }
   return false;
 }
+
+/* Implement the allocate_return_reg field in aapcs_cp_arg_layout.  See the
+   comment there for the behaviour of this function.  */
 
 static rtx
 aapcs_vfp_allocate_return_reg (enum arm_pcs pcs_variant ATTRIBUTE_UNUSED,
@@ -5940,13 +5943,13 @@ static struct
      required for a return from FUNCTION_ARG.  */
   bool (*allocate) (CUMULATIVE_ARGS *, machine_mode, const_tree);
 
-  /* Return true if a result of mode MODE (or type TYPE if MODE is
-     BLKmode) is can be returned in this co-processor's registers.  */
+  /* Return true if a result of mode MODE (or type TYPE if MODE is BLKmode) can
+     be returned in this co-processor's registers.  */
   bool (*is_return_candidate) (enum arm_pcs, machine_mode, const_tree);
 
-  /* Allocate and return an RTX element to hold the return type of a
-     call, this routine must not fail and will only be called if
-     is_return_candidate returned true with the same parameters.  */
+  /* Allocate and return an RTX element to hold the return type of a call.  This
+     routine must not fail and will only be called if is_return_candidate
+     returned true with the same parameters.  */
   rtx (*allocate_return_reg) (enum arm_pcs, machine_mode, const_tree);
 
   /* Finish processing this argument and prepare to start processing
@@ -10759,8 +10762,6 @@ arm_new_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code,
       if ((arm_arch4 || GET_MODE (XEXP (x, 0)) == SImode)
 	  && MEM_P (XEXP (x, 0)))
 	{
-	  *cost = rtx_cost (XEXP (x, 0), VOIDmode, code, 0, speed_p);
-
 	  if (mode == DImode)
 	    *cost += COSTS_N_INSNS (1);
 
@@ -17755,6 +17756,7 @@ arm_output_multireg_pop (rtx *operands, bool return_pc, rtx cond, bool reverse,
   int num_saves = XVECLEN (operands[0], 0);
   unsigned int regno;
   unsigned int regno_base = REGNO (operands[1]);
+  bool interrupt_p = IS_INTERRUPT (arm_current_func_type ());
 
   offset = 0;
   offset += update ? 1 : 0;
@@ -17772,7 +17774,8 @@ arm_output_multireg_pop (rtx *operands, bool return_pc, rtx cond, bool reverse,
     }
 
   conditional = reverse ? "%?%D0" : "%?%d0";
-  if ((regno_base == SP_REGNUM) && update)
+  /* Can't use POP if returning from an interrupt.  */
+  if ((regno_base == SP_REGNUM) && !(interrupt_p && return_pc))
     {
       sprintf (pattern, "pop%s\t{", conditional);
     }
@@ -17781,11 +17784,8 @@ arm_output_multireg_pop (rtx *operands, bool return_pc, rtx cond, bool reverse,
       /* Output ldmfd when the base register is SP, otherwise output ldmia.
          It's just a convention, their semantics are identical.  */
       if (regno_base == SP_REGNUM)
-	  /* update is never true here, hence there is no need to handle
-	     pop here.  */
-	sprintf (pattern, "ldmfd%s", conditional);
-
-      if (update)
+	sprintf (pattern, "ldmfd%s\t", conditional);
+      else if (update)
 	sprintf (pattern, "ldmia%s\t", conditional);
       else
 	sprintf (pattern, "ldm%s\t", conditional);
@@ -17811,7 +17811,7 @@ arm_output_multireg_pop (rtx *operands, bool return_pc, rtx cond, bool reverse,
 
   strcat (pattern, "}");
 
-  if (IS_INTERRUPT (arm_current_func_type ()) && return_pc)
+  if (interrupt_p && return_pc)
     strcat (pattern, "^");
 
   output_asm_insn (pattern, &cond);
@@ -18608,7 +18608,8 @@ output_move_vfp (rtx *operands)
 
   gcc_assert (REG_P (reg));
   gcc_assert (IS_VFP_REGNUM (REGNO (reg)));
-  gcc_assert (mode == SFmode
+  gcc_assert ((mode == HFmode && TARGET_HARD_FLOAT && TARGET_VFP)
+	      || mode == SFmode
 	      || mode == DFmode
 	      || mode == SImode
 	      || mode == DImode
@@ -19622,8 +19623,12 @@ output_return_instruction (rtx operand, bool really_return, bool reverse,
 		  sprintf (instr, "ldmfd%s\t%%|sp, {", conditional);
 		}
 	    }
+	  /* For interrupt returns we have to use an LDM rather than
+	     a POP so that we can use the exception return variant.  */
+	  else if (IS_INTERRUPT (func_type))
+	    sprintf (instr, "ldmfd%s\t%%|sp!, {", conditional);
 	  else
-	      sprintf (instr, "pop%s\t{", conditional);
+	    sprintf (instr, "pop%s\t{", conditional);
 
 	  p = instr + strlen (instr);
 
@@ -23397,10 +23402,8 @@ arm_hard_regno_mode_ok (unsigned int regno, machine_mode mode)
       if (mode == DFmode)
 	return VFP_REGNO_OK_FOR_DOUBLE (regno);
 
-      /* VFP registers can hold HFmode values, but there is no point in
-	 putting them there unless we have hardware conversion insns. */
       if (mode == HFmode)
-	return TARGET_FP16 && VFP_REGNO_OK_FOR_SINGLE (regno);
+	return VFP_REGNO_OK_FOR_SINGLE (regno);
 
       if (TARGET_NEON)
         return (VALID_NEON_DREG_MODE (mode) && VFP_REGNO_OK_FOR_DOUBLE (regno))
@@ -23604,26 +23607,6 @@ arm_debugger_arg_offset (int value, rtx addr)
   return value;
 }
 
-/* Implement TARGET_INVALID_PARAMETER_TYPE.  */
-
-static const char *
-arm_invalid_parameter_type (const_tree t)
-{
-  if (SCALAR_FLOAT_TYPE_P (t) && TYPE_PRECISION (t) == 16)
-    return N_("function parameters cannot have __fp16 type");
-  return NULL;
-}
-
-/* Implement TARGET_INVALID_PARAMETER_TYPE.  */
-
-static const char *
-arm_invalid_return_type (const_tree t)
-{
-  if (SCALAR_FLOAT_TYPE_P (t) && TYPE_PRECISION (t) == 16)
-    return N_("functions cannot return __fp16 type");
-  return NULL;
-}
-
 /* Implement TARGET_PROMOTED_TYPE.  */
 
 static tree
@@ -26129,11 +26112,10 @@ arm_internal_label (FILE *stream, const char *prefix, unsigned long labelno)
 
 /* Output code to add DELTA to the first argument, and then jump
    to FUNCTION.  Used for C++ multiple inheritance.  */
+
 static void
-arm_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
-		     HOST_WIDE_INT delta,
-		     HOST_WIDE_INT vcall_offset ATTRIBUTE_UNUSED,
-		     tree function)
+arm_thumb1_mi_thunk (FILE *file, tree, HOST_WIDE_INT delta,
+		     HOST_WIDE_INT, tree function)
 {
   static int thunk_label = 0;
   char label[256];
@@ -26272,6 +26254,76 @@ arm_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
     }
 
   final_end_function ();
+}
+
+/* MI thunk handling for TARGET_32BIT.  */
+
+static void
+arm32_output_mi_thunk (FILE *file, tree, HOST_WIDE_INT delta,
+		       HOST_WIDE_INT vcall_offset, tree function)
+{
+  /* On ARM, this_regno is R0 or R1 depending on
+     whether the function returns an aggregate or not.
+  */
+  int this_regno = (aggregate_value_p (TREE_TYPE (TREE_TYPE (function)),
+				       function)
+		    ? R1_REGNUM : R0_REGNUM);
+
+  rtx temp = gen_rtx_REG (Pmode, IP_REGNUM);
+  rtx this_rtx = gen_rtx_REG (Pmode, this_regno);
+  reload_completed = 1;
+  emit_note (NOTE_INSN_PROLOGUE_END);
+
+  /* Add DELTA to THIS_RTX.  */
+  if (delta != 0)
+    arm_split_constant (PLUS, Pmode, NULL_RTX,
+			delta, this_rtx, this_rtx, false);
+
+  /* Add *(*THIS_RTX + VCALL_OFFSET) to THIS_RTX.  */
+  if (vcall_offset != 0)
+    {
+      /* Load *THIS_RTX.  */
+      emit_move_insn (temp, gen_rtx_MEM (Pmode, this_rtx));
+      /* Compute *THIS_RTX + VCALL_OFFSET.  */
+      arm_split_constant (PLUS, Pmode, NULL_RTX, vcall_offset, temp, temp,
+			  false);
+      /* Compute *(*THIS_RTX + VCALL_OFFSET).  */
+      emit_move_insn (temp, gen_rtx_MEM (Pmode, temp));
+      emit_insn (gen_add3_insn (this_rtx, this_rtx, temp));
+    }
+
+  /* Generate a tail call to the target function.  */
+  if (!TREE_USED (function))
+    {
+      assemble_external (function);
+      TREE_USED (function) = 1;
+    }
+  rtx funexp = XEXP (DECL_RTL (function), 0);
+  funexp = gen_rtx_MEM (FUNCTION_MODE, funexp);
+  rtx_insn * insn = emit_call_insn (gen_sibcall (funexp, const0_rtx, NULL_RTX));
+  SIBLING_CALL_P (insn) = 1;
+
+  insn = get_insns ();
+  shorten_branches (insn);
+  final_start_function (insn, file, 1);
+  final (insn, file, 1);
+  final_end_function ();
+
+  /* Stop pretending this is a post-reload pass.  */
+  reload_completed = 0;
+}
+
+/* Output code to add DELTA to the first argument, and then jump
+   to FUNCTION.  Used for C++ multiple inheritance.  */
+
+static void
+arm_output_mi_thunk (FILE *file, tree thunk, HOST_WIDE_INT delta,
+		     HOST_WIDE_INT vcall_offset, tree function)
+{
+  if (TARGET_32BIT)
+    arm32_output_mi_thunk (file, thunk, delta, vcall_offset, function);
+  else
+    arm_thumb1_mi_thunk (file, thunk, delta, vcall_offset, function);
 }
 
 int
@@ -30375,6 +30427,20 @@ arm_simd_check_vect_par_cnst_half_p (rtx op, machine_mode mode,
 	  || INTVAL (elt_ideal) != INTVAL (elt_op))
 	return false;
     }
+  return true;
+}
+
+/* Can output mi_thunk for all cases except for non-zero vcall_offset
+   in Thumb1.  */
+static bool
+arm_can_output_mi_thunk (const_tree, HOST_WIDE_INT, HOST_WIDE_INT vcall_offset,
+			 const_tree)
+{
+  /* For now, we punt and not handle this for TARGET_THUMB1.  */
+  if (vcall_offset && TARGET_THUMB1)
+    return false;
+
+  /* Otherwise ok.  */
   return true;
 }
 

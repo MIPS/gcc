@@ -15407,6 +15407,7 @@ resolve_args_picking_1 (dw_loc_descr_ref loc, unsigned initial_frame_offset,
 	case DW_OP_swap:
 	case DW_OP_rot:
 	case DW_OP_abs:
+	case DW_OP_neg:
 	case DW_OP_not:
 	case DW_OP_plus_uconst:
 	case DW_OP_skip:
@@ -15543,7 +15544,6 @@ resolve_args_picking_1 (dw_loc_descr_ref loc, unsigned initial_frame_offset,
 	case DW_OP_minus:
 	case DW_OP_mod:
 	case DW_OP_mul:
-	case DW_OP_neg:
 	case DW_OP_or:
 	case DW_OP_plus:
 	case DW_OP_shl:
@@ -19405,11 +19405,13 @@ gen_entry_point_die (tree decl, dw_die_ref context_die)
 static void
 retry_incomplete_types (void)
 {
+  set_early_dwarf s;
   int i;
 
   for (i = vec_safe_length (incomplete_types) - 1; i >= 0; i--)
     if (should_emit_struct_debug ((*incomplete_types)[i], DINFO_USAGE_DIR_USE))
       gen_type_die ((*incomplete_types)[i], comp_unit_die ());
+  vec_safe_truncate (incomplete_types, 0);
 }
 
 /* Determine what tag to use for a record type.  */
@@ -27390,10 +27392,6 @@ dwarf2out_finish (const char *filename)
   resolve_addr (comp_unit_die ());
   move_marked_base_types ();
 
-  /* Walk through the list of incomplete types again, trying once more to
-     emit full debugging info for them.  */
-  retry_incomplete_types ();
-
   if (flag_eliminate_unused_debug_types)
     prune_unused_types ();
 
@@ -27694,6 +27692,10 @@ dwarf2out_finish (const char *filename)
 static void
 dwarf2out_early_finish (void)
 {
+  /* Walk through the list of incomplete types again, trying once more to
+     emit full debugging info for them.  */
+  retry_incomplete_types ();
+
   /* The point here is to flush out the limbo list so that it is empty
      and we don't need to stream it for LTO.  */
   flush_limbo_die_list ();
