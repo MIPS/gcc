@@ -1,5 +1,5 @@
 /* { dg-do compile { target { ! ia32 } } } */
-/* { dg-options "-O2 -mno-mpx -mno-sse -mno-mmx -mno-80387 -mno-cld -mred-zone" } */
+/* { dg-options "-O2 -mgeneral-regs-only -mno-cld -mred-zone" } */
 
 void
 __attribute__((interrupt))

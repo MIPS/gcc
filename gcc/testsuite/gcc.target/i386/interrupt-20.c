@@ -1,5 +1,5 @@
 /* { dg-do compile { target ia32 } } */
-/* { dg-options "-O2  -mno-mpx -mno-sse -mno-mmx -mno-80387 -mno-cld -miamcu -maccumulate-outgoing-args" } */
+/* { dg-options "-O2  -mgeneral-regs-only -mno-cld -miamcu -maccumulate-outgoing-args" } */
 
 struct interrupt_frame;
 

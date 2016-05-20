@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -mno-mpx -mno-sse -mno-mmx -mno-cld -m80387 -mlong-double-80 -mno-iamcu" } */
+/* { dg-options "-O2 -mgeneral-regs-only -mno-cld -m80387 -mlong-double-80 -mno-iamcu" } */
 
 void
 __attribute__((no_caller_saved_registers))

@@ -1,5 +1,5 @@
 /* { dg-do compile { target *-*-linux* } } */
-/* { dg-options "-O2 -mno-mpx -mno-sse -mno-mmx -mno-80387 -mno-cld -mno-iamcu -mno-push-args -maccumulate-outgoing-args" } */
+/* { dg-options "-O2 -mgeneral-regs-only -mno-cld -mno-iamcu -mno-push-args -maccumulate-outgoing-args" } */
 
 typedef unsigned int uword_t __attribute__ ((mode (__word__)));
 extern void bar (int) __attribute__ ((no_caller_saved_registers));

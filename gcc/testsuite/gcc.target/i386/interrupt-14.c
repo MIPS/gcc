@@ -1,5 +1,5 @@
 /* { dg-do compile { target *-*-linux* } } */
-/* { dg-options "-O2 -mno-mpx -mno-sse -mno-mmx -mno-80387 -mno-cld -mno-iamcu -mpush-args -mno-accumulate-outgoing-args" } */
+/* { dg-options "-O2 -mgeneral-regs-only -mno-cld -mno-iamcu -mpush-args -mno-accumulate-outgoing-args" } */
 
 extern void bar (int) __attribute__ ((no_caller_saved_registers));
 

@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -mno-mpx -mno-sse -mno-mmx -mno-80387 -mno-cld -Wall -g" } */
+/* { dg-options "-O2 -mgeneral-regs-only -mno-cld -Wall -g" } */
 
 void
 __attribute__((interrupt))

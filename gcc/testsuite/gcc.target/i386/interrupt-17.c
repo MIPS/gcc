@@ -1,5 +1,5 @@
 /* { dg-do compile { target *-*-linux* } } */
-/* { dg-options "-O3 -mno-mpx -mno-sse -mno-mmx -mno-80387 -mno-cld -mno-iamcu -mno-push-args" } */
+/* { dg-options "-O3 -mgeneral-regs-only -mno-cld -mno-iamcu -mno-push-args" } */
 
 extern int foo (int) __attribute__ ((no_caller_saved_registers));
 extern int bar (int) __attribute__ ((no_caller_saved_registers));

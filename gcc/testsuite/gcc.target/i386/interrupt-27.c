@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -mno-mpx -mno-sse -mno-mmx -mno-80387 -mcld" } */
+/* { dg-options "-O2 -mgeneral-regs-only -mcld" } */
 
 extern void bar (void);
 

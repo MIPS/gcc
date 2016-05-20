@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-Os -mno-mpx -mno-sse -mno-mmx -mno-80387 -mno-cld" } */
+/* { dg-options "-Os -mgeneral-regs-only -mno-cld" } */
 
 
 extern void *a;

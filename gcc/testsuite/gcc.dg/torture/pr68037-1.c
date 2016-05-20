@@ -1,5 +1,5 @@
 /* { dg-do run { target i?86-*-* x86_64-*-* } } */
-/* { dg-options "-mno-mpx -mno-sse -mno-mmx -mno-80387" } */
+/* { dg-options "-mgeneral-regs-only" } */
 
 extern void exit (int);
 

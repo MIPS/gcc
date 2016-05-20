@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -mno-mpx -mno-sse -mno-mmx -mno-80387 -mno-cld" } */
+/* { dg-options "-O2 -mgeneral-regs-only -mno-cld" } */
 
 extern int check_int (int *i, void *, int align);
 typedef int aligned __attribute__((aligned(64)));

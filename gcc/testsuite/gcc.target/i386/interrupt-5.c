@@ -1,5 +1,5 @@
 /* { dg-do link } */
-/* { dg-options "-O -mno-mpx -mno-sse -mno-mmx -mno-80387 -mno-cld -g" } */
+/* { dg-options "-O -mgeneral-regs-only -mno-cld -g" } */
 
 #include <stdint.h>
 
