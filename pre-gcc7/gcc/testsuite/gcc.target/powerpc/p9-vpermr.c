@@ -2,6 +2,8 @@
 /* { dg-skip-if "do not override -mcpu" { powerpc*-*-* } { "-mcpu=*" } { "-mcpu=power9" } } */
 /* { dg-options "-mcpu=power9 -O2" } */
 
+/* Test generation of VPERMR/XXPERMR on ISA 3.0 in little endian.  */
+
 #include <altivec.h>
 
 vector long long
@@ -16,4 +18,4 @@ permute (vector long long *p, vector long long *q, vector unsigned char mask)
   return vec_perm (a, b, mask);
 }
 
-/* { dg-final { scan-assembler	   "vpermr" } } */
+/* { dg-final { scan-assembler	   "vpermr\|xxpermr" } } */
