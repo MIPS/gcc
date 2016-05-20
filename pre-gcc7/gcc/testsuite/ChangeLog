@@ -1,3 +1,174 @@
+2016-05-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/71204
+	* gfortran.dg/pr71204.f90: New test.
+
+2016-05-20  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gcc.target/nvptx/sincos.c: New test.
+
+2016-05-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/70572
+	* g++.dg/cpp1y/auto-fn31.C: New.
+
+2016-05-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/70738
+	* gcc.target/i386/pr70738-1.c: Likewise.
+	* gcc.target/i386/pr70738-2.c: Likewise.
+	* gcc.target/i386/pr70738-3.c: Likewise.
+	* gcc.target/i386/pr70738-4.c: Likewise.
+	* gcc.target/i386/pr70738-5.c: Likewise.
+	* gcc.target/i386/pr70738-6.c: Likewise.
+	* gcc.target/i386/pr70738-7.c: Likewise.
+	* gcc.target/i386/pr70738-8.c: Likewise.
+	* gcc.target/i386/pr70738-9.c: Likewise.
+
+2016-05-20  Bill Seurer  <seurer@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vec-addec.c: New test.
+	* gcc.target/powerpc/vec-addec-int128.c: New test.
+
+2016-05-20  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc.dg/plugin/must-tail-call-1.c: New test case.
+	* gcc.dg/plugin/must-tail-call-2.c: New test case.
+	* gcc.dg/plugin/must_tail_call_plugin.c: New file.
+	* gcc.dg/plugin/plugin.exp (plugin_test_list): Add the above.
+
+2016-05-20  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gcc.dg/tree-ssa/prefetch-5.c: xfail.
+
+2016-05-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71210
+	* g++.dg/opt/pr71210-1.C: New test.
+	* g++.dg/opt/pr71210-2.C: New test.
+
+	PR tree-optimization/29756
+	gcc.dg/tree-ssa/vector-6.c: Add -Wno-psabi -w to dg-options.
+	Add -msse2 for x86 and -maltivec for powerpc.  Use scan-tree-dump-times
+	only on selected targets where V4SImode vectors are known to be
+	supported.
+
+2016-05-20  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR tree-optimization/71079
+	PR tree-optimization/71206
+	* gcc.dg/tree-ssa/pr71206.c: New testcase.
+
+2016-05-20  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* gcc.dg/vect/section-anchors-vect-70.c: New test-case.
+	* gcc.dg/vect/section-anchors-vect-71.c: Likewise.
+	* gcc.dg/vect/section-anchors-vect-72.c: Likewise.
+
+2016-05-20  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/29756
+	* gcc.dg/tree-ssa/vector-6.c: New testcase.
+
+2016-05-20  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71185
+	* gcc.dg/tree-ssa/pr71185.c: New testcase.
+
+2016-05-20  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/ifc-cd.c: Adjust.
+
+2016-05-19  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/71075
+	* g++.dg/diagnostic/pr71075.C: New test.
+
+2016-05-19  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/71184
+	* g++.dg/pr71184.C: New test case.
+
+2016-05-19  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* gcc.target/powerpc/darn-0.c: New test.
+	* gcc.target/powerpc/darn-1.c: New test.
+	* gcc.target/powerpc/darn-2.c: New test.
+
+2016-05-19  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/71031
+	* gcc.dg/tree-ssa/vrp100.c: New test.
+
+2016-05-19  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR rtl-optimization/71148
+	* gcc.dg/pr71148.c: New test.
+
+2016-05-19  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/71056
+	* gcc.target/arm/pr71056.c: New test.
+
+2016-05-19  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* c-c++-common/pr69669.c: Check the used mode.
+
+2016-05-19  Maxim Ostapenko  <m.ostapenko@samsung.com>
+
+	PR sanitizer/64354
+	* c-c++-common/tsan/sanitize-thread-macro.c: New test.
+
+2016-05-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/70729
+	* gcc.dg/autopar/outer-6.c: Adjust to avoid redundant store.
+	* gcc.dg/graphite/scop-18.c: Likewise.
+	* gcc.dg/pr41783.c: Disable LIM.
+	* gcc.dg/tree-ssa/loadpre10.c: Likewise.
+	* gcc.dg/tree-ssa/loadpre23.c: Likewise.
+	* gcc.dg/tree-ssa/loadpre24.c: Likewise.
+	* gcc.dg/tree-ssa/loadpre25.c: Likewise.
+	* gcc.dg/tree-ssa/loadpre4.c: Likewise.
+	* gcc.dg/tree-ssa/loadpre8.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-pre-16.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-pre-18.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-pre-20.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-pre-3.c: Likewise.
+	* gfortran.dg/pr42108.f90: Likewise.
+
+2016-05-18  David Malcolm  <dmalcolm@redhat.com>
+
+	PR driver/69265
+	* gcc.dg/spellcheck-options-11.c: New test case.
+
+2016-05-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71100
+	* g++.dg/opt/pr71100.C: New test.
+
+2016-05-18  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/69708
+	* gcc.dg/ipa/iinline-cstagg-2.c: New test.
+	* gcc.dg/ipa/ipcp-cstagg-5.c: Likewise.
+	* gcc.dg/ipa/ipcp-cstagg-6.c: Likewise.
+	* gcc.dg/ipa/ipcp-cstagg-7.c: Likewise.
+
+2016-05-18  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/69708
+	* gcc.dg/ipa/iinline-cstagg-1.c: New test.
+	* gcc.dg/ipa/ipcp-cstagg-1.c: Likewise.
+	* gcc.dg/ipa/ipcp-cstagg-2.c: Likewise.
+	* gcc.dg/ipa/ipcp-cstagg-3.c: Likewise.
+	* gcc.dg/ipa/ipcp-cstagg-4.c: Likewise.
+
+2016-05-18  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/69793
+	* g++.dg/template/crash122.C: New.
+
 2016-05-18  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/70466

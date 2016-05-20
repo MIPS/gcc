@@ -6609,6 +6609,13 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
                                                    adc_variable_type);
       if (type == error_mark_node)
 	return;
+      if (TREE_CODE (type) == FUNCTION_TYPE)
+	{
+	  error ("initializer for %<decltype(auto) %D%> has function type "
+		 "(did you forget the %<()%> ?)", decl);
+	  TREE_TYPE (decl) = error_mark_node;
+	  return;
+	}
       cp_apply_type_quals_to_decl (cp_type_quals (type), decl);
     }
 
@@ -13345,6 +13352,19 @@ finish_enum_value_list (tree enumtype)
 
       use_short_enum = flag_short_enums
         || lookup_attribute ("packed", TYPE_ATTRIBUTES (enumtype));
+
+      /* If the precision of the type was specified with an attribute and it
+	 was too small, give an error.  Otherwise, use it.  */
+      if (TYPE_PRECISION (enumtype))
+	{
+	  if (precision > TYPE_PRECISION (enumtype))
+	    error ("specified mode too small for enumeral values");
+	  else
+	    {
+	      use_short_enum = true;
+	      precision = TYPE_PRECISION (enumtype);
+	    }
+	}
 
       for (itk = (use_short_enum ? itk_char : itk_int);
            itk != itk_none;
