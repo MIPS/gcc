@@ -16313,7 +16313,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	      }
 	    if (tkind == GOMP_MAP_FIRSTPRIVATE_INT)
 	      s = size_int (0);
-	    else if (is_reference (var))
+	    else if (is_reference (ovar))
 	      s = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (ovar)));
 	    else
 	      s = TYPE_SIZE_UNIT (TREE_TYPE (ovar));

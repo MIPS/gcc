@@ -1,3 +1,18 @@
+2016-05-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans.h (gfc_omp_scalar_p): New prototype.
+	* f95-lang.c (LANG_HOOKS_OMP_SCALAR_P): Redefine to gfc_omp_scalar_p.
+	* trans-openmp.c (gfc_omp_scalar_p): New function.
+	(gfc_trans_omp_do): Clear sched_simd flag.
+	(gfc_split_omp_clauses): Change firstprivate and lastprivate
+	handling for OpenMP 4.5.
+	(gfc_trans_omp_teams): Add omp_clauses argument, add it to other
+	teams clauses.
+	(gfc_trans_omp_target): For -fopenmp, translate num_teams and
+	thread_limit clauses on combined target teams early and pass to
+	gfc_trans_omp_teams.
+	(gfc_trans_omp_directive): Adjust gfc_trans_omp_teams caller.
+
 2016-05-17  Jakub Jelinek  <jakub@redhat.com>
 
 	* trans-openmp.c (gfc_split_omp_clauses): Handle EXEC_OMP_TARGET_SIMD.

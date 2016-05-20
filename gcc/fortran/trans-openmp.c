@@ -1141,6 +1141,34 @@ gfc_omp_finish_clause (tree c, gimple_seq *pre_p)
 }
 
 
+/* Return true if DECL is a scalar variable (for the purpose of
+   implicit firstprivatization).  */
+
+bool
+gfc_omp_scalar_p (tree decl)
+{
+  tree type = TREE_TYPE (decl);
+  if (TREE_CODE (type) == REFERENCE_TYPE)
+    type = TREE_TYPE (type);
+  if (TREE_CODE (type) == POINTER_TYPE)
+    {
+      if (GFC_DECL_GET_SCALAR_ALLOCATABLE (decl)
+	  || GFC_DECL_GET_SCALAR_POINTER (decl))
+	type = TREE_TYPE (type);
+      if (GFC_ARRAY_TYPE_P (type)
+	  || GFC_CLASS_TYPE_P (type))
+	return false;
+    }
+  if (TYPE_STRING_FLAG (type))
+    return false;
+  if (INTEGRAL_TYPE_P (type)
+      || SCALAR_FLOAT_TYPE_P (type)
+      || COMPLEX_FLOAT_TYPE_P (type))
+    return true;
+  return false;
+}
+
+
 /* Return true if DECL's DECL_VALUE_EXPR (if any) should be
    disregarded in OpenMP construct, because it is going to be
    remapped during OpenMP lowering.  SHARED is true if DECL
@@ -3336,6 +3364,11 @@ gfc_trans_omp_do (gfc_code *code, gfc_exec_op op, stmtblock_t *pblock,
       pblock = &block;
     }
 
+  /* simd schedule modifier is only useful for composite do simd and other
+     constructs including that, where gfc_trans_omp_do is only called
+     on the simd construct and DO's clauses are translated elsewhere.  */
+  do_clauses->sched_simd = false;
+
   omp_clauses = gfc_trans_omp_clauses (pblock, do_clauses, code->loc);
 
   for (i = 0; i < collapse; i++)
@@ -4006,7 +4039,7 @@ gfc_split_omp_clauses (gfc_code *code,
 	}
       /* Private clause is supported on all constructs,
 	 it is enough to put it on the innermost one.  For
-	 !$ omp do put it on parallel though,
+	 !$ omp parallel do put it on parallel though,
 	 as that's what we did for OpenMP 3.1.  */
       clausesa[innermost == GFC_OMP_SPLIT_DO
 	       ? (int) GFC_OMP_SPLIT_PARALLEL
@@ -4014,7 +4047,10 @@ gfc_split_omp_clauses (gfc_code *code,
 	= code->ext.omp_clauses->lists[OMP_LIST_PRIVATE];
       /* Firstprivate clause is supported on all constructs but
 	 simd.  Put it on the outermost of those and duplicate
-	 on parallel.  */
+	 on parallel and teams.  */
+      if (mask & GFC_OMP_MASK_TARGET)
+	clausesa[GFC_OMP_SPLIT_TARGET].lists[OMP_LIST_FIRSTPRIVATE]
+	  = code->ext.omp_clauses->lists[OMP_LIST_FIRSTPRIVATE];
       if (mask & GFC_OMP_MASK_TEAMS)
 	clausesa[GFC_OMP_SPLIT_TEAMS].lists[OMP_LIST_FIRSTPRIVATE]
 	  = code->ext.omp_clauses->lists[OMP_LIST_FIRSTPRIVATE];
@@ -4027,9 +4063,12 @@ gfc_split_omp_clauses (gfc_code *code,
       else if (mask & GFC_OMP_MASK_DO)
 	clausesa[GFC_OMP_SPLIT_DO].lists[OMP_LIST_FIRSTPRIVATE]
 	  = code->ext.omp_clauses->lists[OMP_LIST_FIRSTPRIVATE];
-      /* Lastprivate is allowed on do and simd.  In
-	 parallel do{, simd} we actually want to put it on
+      /* Lastprivate is allowed on distribute, do and simd.
+         In parallel do{, simd} we actually want to put it on
 	 parallel rather than do.  */
+      if (mask & GFC_OMP_MASK_DISTRIBUTE)
+	clausesa[GFC_OMP_SPLIT_DISTRIBUTE].lists[OMP_LIST_LASTPRIVATE]
+	  = code->ext.omp_clauses->lists[OMP_LIST_LASTPRIVATE];
       if (mask & GFC_OMP_MASK_PARALLEL)
 	clausesa[GFC_OMP_SPLIT_PARALLEL].lists[OMP_LIST_LASTPRIVATE]
 	  = code->ext.omp_clauses->lists[OMP_LIST_LASTPRIVATE];
@@ -4401,11 +4440,12 @@ gfc_trans_omp_distribute (gfc_code *code, gfc_omp_clauses *clausesa)
 }
 
 static tree
-gfc_trans_omp_teams (gfc_code *code, gfc_omp_clauses *clausesa)
+gfc_trans_omp_teams (gfc_code *code, gfc_omp_clauses *clausesa,
+		     tree omp_clauses)
 {
   stmtblock_t block;
   gfc_omp_clauses clausesa_buf[GFC_OMP_SPLIT_NUM];
-  tree stmt, omp_clauses = NULL_TREE;
+  tree stmt;
   bool combined = true;
 
   gfc_start_block (&block);
@@ -4416,8 +4456,9 @@ gfc_trans_omp_teams (gfc_code *code, gfc_omp_clauses *clausesa)
     }
   if (flag_openmp)
     omp_clauses
-      = gfc_trans_omp_clauses (&block, &clausesa[GFC_OMP_SPLIT_TEAMS],
-			       code->loc);
+      = chainon (omp_clauses,
+		 gfc_trans_omp_clauses (&block, &clausesa[GFC_OMP_SPLIT_TEAMS],
+					code->loc));
   switch (code->op)
     {
     case EXEC_OMP_TARGET_TEAMS:
@@ -4500,8 +4541,30 @@ gfc_trans_omp_target (gfc_code *code)
 	poplevel (0, 0);
       break;
     default:
-      pushlevel ();
-      stmt = gfc_trans_omp_teams (code, clausesa);
+      if (flag_openmp
+	  && (clausesa[GFC_OMP_SPLIT_TEAMS].num_teams
+	      || clausesa[GFC_OMP_SPLIT_TEAMS].thread_limit))
+	{
+	  gfc_omp_clauses clausesb;
+	  tree teams_clauses;
+	  /* For combined !$omp target teams, the num_teams and
+	     thread_limit clauses are evaluated before entering the
+	     target construct.  */
+	  memset (&clausesb, '\0', sizeof (clausesb));
+	  clausesb.num_teams = clausesa[GFC_OMP_SPLIT_TEAMS].num_teams;
+	  clausesb.thread_limit = clausesa[GFC_OMP_SPLIT_TEAMS].thread_limit;
+	  clausesa[GFC_OMP_SPLIT_TEAMS].num_teams = NULL;
+	  clausesa[GFC_OMP_SPLIT_TEAMS].thread_limit = NULL;
+	  teams_clauses
+	    = gfc_trans_omp_clauses (&block, &clausesb, code->loc);
+	  pushlevel ();
+	  stmt = gfc_trans_omp_teams (code, clausesa, teams_clauses);
+	}
+      else
+	{
+	  pushlevel ();
+	  stmt = gfc_trans_omp_teams (code, clausesa, NULL_TREE);
+	}
       if (TREE_CODE (stmt) != BIND_EXPR)
 	stmt = build3_v (BIND_EXPR, NULL, stmt, poplevel (1, 0));
       else
@@ -4880,7 +4943,7 @@ gfc_trans_omp_directive (gfc_code *code)
     case EXEC_OMP_TEAMS_DISTRIBUTE_PARALLEL_DO:
     case EXEC_OMP_TEAMS_DISTRIBUTE_PARALLEL_DO_SIMD:
     case EXEC_OMP_TEAMS_DISTRIBUTE_SIMD:
-      return gfc_trans_omp_teams (code, NULL);
+      return gfc_trans_omp_teams (code, NULL, NULL_TREE);
     case EXEC_OMP_WORKSHARE:
       return gfc_trans_omp_workshare (code, code->ext.omp_clauses);
     default:
