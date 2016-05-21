@@ -430,18 +430,51 @@ plugin_push_namespace (cc1_plugin::connection *,
 }
 
 int
-plugin_pop_namespace (cc1_plugin::connection *)
+plugin_push_function (cc1_plugin::connection *,
+		      gcc_decl function_decl_in)
 {
-  if (toplevel_bindings_p () && current_namespace == global_namespace)
-    pop_from_top_level ();
-  else
-    pop_namespace ();
+  current_function_decl = convert_in (function_decl_in);
+  begin_scope (sk_function_parms, current_function_decl);
+  ++function_depth;
+  begin_scope (sk_block, NULL);
 
   return 1;
 }
 
-gcc_decl
-plugin_get_current_binding_level (cc1_plugin::connection *)
+int
+plugin_pop_namespace (cc1_plugin::connection *)
+{
+  if (toplevel_bindings_p () && current_namespace == global_namespace)
+    pop_from_top_level ();
+  else if (!at_function_scope_p ())
+    pop_namespace ();
+  else
+    {
+      gcc_assert (current_binding_level->kind == sk_block
+		  && current_binding_level->this_entity == NULL);
+      leave_scope ();
+      --function_depth;
+      gcc_assert (current_binding_level->kind == sk_function_parms
+		  && current_binding_level->this_entity == current_function_decl
+		  /* We don't mess with cfun, so make sure we're not
+		     popping the snippet context.  */
+		  && cfun->decl != current_function_decl);
+      leave_scope ();
+      current_function_decl = NULL;
+      for (cp_binding_level *scope = current_binding_level;
+	   scope; scope = scope->level_chain)
+	if (scope->kind == sk_function_parms)
+	  {
+	    current_function_decl = scope->this_entity;
+	    break;
+	  }
+    }
+
+  return 1;
+}
+
+static tree
+get_current_scope ()
 {
   tree decl;
 
@@ -453,6 +486,14 @@ plugin_get_current_binding_level (cc1_plugin::connection *)
     decl = TYPE_NAME (current_class_type);
   else
     gcc_unreachable ();
+
+  return decl;
+}
+
+gcc_decl
+plugin_get_current_binding_level (cc1_plugin::connection *)
+{
+  tree decl = get_current_scope ();
 
   return convert_out (decl);
 }
@@ -994,6 +1035,8 @@ plugin_new_decl (cc1_plugin::connection *self,
     DECL_CONTEXT (decl) = FROB_CONTEXT (current_class_type);
   else if (at_namespace_scope_p ())
     DECL_CONTEXT (decl) = FROB_CONTEXT (current_decl_namespace ());
+  else
+    DECL_CONTEXT (decl) = FROB_CONTEXT (current_function_decl);
 
   set_access_flags (decl, acc_flags);
 
@@ -1291,6 +1334,62 @@ plugin_start_new_class_type (cc1_plugin::connection *self,
 }
 
 gcc_type
+plugin_start_new_closure_type (cc1_plugin::connection *self,
+			       int discriminator,
+			       gcc_decl extra_scope_in,
+			       enum gcc_cp_symbol_kind flags,
+			       const char *filename,
+			       unsigned int line_number)
+{
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree extra_scope = convert_in (extra_scope_in);
+
+  gcc_assert ((flags & GCC_CP_SYMBOL_MASK) == GCC_CP_SYMBOL_LAMBDA_CLOSURE);
+  gcc_assert ((flags & (~(GCC_CP_SYMBOL_MASK | GCC_CP_ACCESS_MASK))) == 0);
+
+  gcc_assert (!(flags & GCC_CP_ACCESS_MASK) == !at_class_scope_p ());
+
+  if (extra_scope)
+    {
+      gcc_assert (at_function_scope_p ());
+      gcc_assert (DECL_CONTEXT (extra_scope) == current_function_decl);
+    }
+
+  tree lambda_expr = build_lambda_expr ();
+
+  LAMBDA_EXPR_LOCATION (lambda_expr) = ctx->get_source_location (filename,
+								 line_number);
+
+  tree type = begin_lambda_type (lambda_expr);
+
+  /* Instead of calling record_lambda_scope, do this:  */
+  LAMBDA_EXPR_EXTRA_SCOPE (lambda_expr) = extra_scope;
+  LAMBDA_EXPR_DISCRIMINATOR (lambda_expr) = discriminator;
+
+  tree decl = TYPE_NAME (type);
+  determine_visibility (decl);
+  set_access_flags (decl, flags);
+
+  return convert_out (ctx->preserve (type));
+}
+
+gcc_expr
+plugin_get_lambda_expr (cc1_plugin::connection *self,
+			gcc_type closure_type_in)
+{
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree closure_type = convert_in (closure_type_in);
+
+  gcc_assert (LAMBDA_TYPE_P (closure_type));
+
+  tree lambda_expr = CLASSTYPE_LAMBDA_EXPR (closure_type);
+
+  tree lambda_object = build_lambda_object (lambda_expr);
+
+  return convert_out (ctx->preserve (lambda_object));
+}
+
+gcc_type
 plugin_start_new_union_type (cc1_plugin::connection *self,
 			     const char *name,
 			     enum gcc_cp_symbol_kind flags,
@@ -1519,7 +1618,8 @@ plugin_add_function_default_args (cc1_plugin::connection *self,
     {
       gcc_assert (ndargs);
       tree deflt = convert_in (defaults->elements[i]);
-      gcc_assert (deflt);
+      if (!deflt)
+	deflt = error_mark_node;
       TREE_PURPOSE (ndargs) = deflt;
       ndargs = TREE_CHAIN (ndargs);
     }
@@ -1539,6 +1639,62 @@ plugin_add_function_default_args (cc1_plugin::connection *self,
 
   plugin_context *ctx = static_cast<plugin_context *> (self);
   return convert_out (ctx->preserve (result));
+}
+
+int
+plugin_set_deferred_function_default_args (cc1_plugin::connection *,
+					   gcc_decl function_in,
+					   const struct gcc_cp_function_args
+					   *defaults)
+{
+  tree function = convert_in (function_in);
+
+  gcc_assert (TREE_CODE (function) == FUNCTION_DECL);
+
+  if (!defaults || !defaults->n_elements)
+    return 1;
+
+  tree arg = FUNCTION_FIRST_USER_PARMTYPE (function);
+
+  for (int i = 0; i < defaults->n_elements; i++)
+    {
+      while (arg && TREE_PURPOSE (arg) != error_mark_node)
+	arg = TREE_CHAIN (arg);
+
+      if (!arg)
+	return 0;
+
+      TREE_PURPOSE (arg) = convert_in (defaults->elements[i]);
+      arg = TREE_CHAIN (arg);
+    }
+
+  return 1;
+}
+
+gcc_decl
+plugin_get_function_parameter_decl (cc1_plugin::connection *,
+				    gcc_decl function_in,
+				    int index)
+{
+  tree function = convert_in (function_in);
+
+  gcc_assert (TREE_CODE (function) == FUNCTION_DECL);
+
+  if (index == -1)
+    {
+      gcc_assert (TREE_CODE (TREE_TYPE (function)) == METHOD_TYPE);
+
+      return convert_out (DECL_ARGUMENTS (function));
+    }
+
+  gcc_assert (index >= 0);
+
+  tree args = FUNCTION_FIRST_USER_PARM (function);
+
+  for (int i = 0; args && i < index; i++)
+    args = DECL_CHAIN (args);
+
+  return convert_out (args);
 }
 
 gcc_type
