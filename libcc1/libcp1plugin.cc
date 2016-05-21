@@ -1288,6 +1288,72 @@ plugin_start_new_class_type (cc1_plugin::connection *self,
 }
 
 gcc_type
+plugin_start_new_closure_type (cc1_plugin::connection *self,
+			       int discriminator,
+			       gcc_decl extra_scope_in,
+			       enum gcc_cp_symbol_kind flags,
+			       const char *filename,
+			       unsigned int line_number)
+{
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree extra_scope = convert_in (extra_scope_in);
+
+  gcc_assert ((flags & GCC_CP_SYMBOL_MASK) == GCC_CP_SYMBOL_LAMBDA_CLOSURE);
+  gcc_assert ((flags & (~(GCC_CP_SYMBOL_MASK | GCC_CP_ACCESS_MASK))) == 0);
+
+  bool class_scope_p = at_class_scope_p ();
+  if (extra_scope)
+    switch (TREE_CODE (extra_scope))
+      {
+      case FUNCTION_DECL:
+	break;
+
+      case FIELD_DECL:
+      case VAR_DECL:
+      case PARM_DECL:
+	break;
+
+      default:
+	gcc_unreachable ();
+      }
+
+  gcc_assert (!(flags & GCC_CP_ACCESS_MASK) == !at_class_scope_p ());
+
+  tree lambda_expr = build_lambda_expr ();
+
+  LAMBDA_EXPR_LOCATION (lambda_expr) = ctx->get_source_location (filename,
+								 line_number);
+
+  tree type = begin_lambda_type (lambda_expr);
+
+  /* This replaces record_lambda_scope.  */
+  LAMBDA_EXPR_EXTRA_SCOPE (lambda_expr) = extra_scope;
+  LAMBDA_EXPR_DISCRIMINATOR (lambda_expr) = discriminator;
+
+  tree decl = TYPE_NAME (type);
+  determine_visibility (decl);
+  set_access_flags (decl, flags);
+
+  return convert_out (ctx->preserve (type));
+}
+
+gcc_expr
+plugin_get_lambda_expr (cc1_plugin::connection *self,
+			gcc_type closure_type_in)
+{
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree closure_type = convert_in (closure_type_in);
+
+  gcc_assert (LAMBDA_TYPE_P (closure_type));
+
+  tree lambda_expr = CLASSTYPE_LAMBDA_EXPR (closure_type);
+
+  tree lambda_object = build_lambda_object (lambda_expr);
+
+  return convert_out (ctx->preserve (lambda_object));
+}
+
+gcc_type
 plugin_start_new_union_type (cc1_plugin::connection *self,
 			     const char *name,
 			     enum gcc_cp_symbol_kind flags,
@@ -1516,7 +1582,8 @@ plugin_add_function_default_args (cc1_plugin::connection *self,
     {
       gcc_assert (ndargs);
       tree deflt = convert_in (defaults->elements[i]);
-      gcc_assert (deflt);
+      if (!deflt)
+	deflt = error_mark_node;
       TREE_PURPOSE (ndargs) = deflt;
       ndargs = TREE_CHAIN (ndargs);
     }
@@ -1536,6 +1603,62 @@ plugin_add_function_default_args (cc1_plugin::connection *self,
 
   plugin_context *ctx = static_cast<plugin_context *> (self);
   return convert_out (ctx->preserve (result));
+}
+
+int
+plugin_set_deferred_function_default_args (cc1_plugin::connection *,
+					   gcc_decl function_in,
+					   const struct gcc_cp_function_args
+					   *defaults)
+{
+  tree function = convert_in (function_in);
+
+  gcc_assert (TREE_CODE (function) == FUNCTION_DECL);
+
+  if (!defaults || !defaults->n_elements)
+    return 1;
+
+  tree arg = FUNCTION_FIRST_USER_PARMTYPE (function);
+
+  for (int i = 0; i < defaults->n_elements; i++)
+    {
+      while (arg && TREE_PURPOSE (arg) != error_mark_node)
+	arg = TREE_CHAIN (arg);
+
+      if (!arg)
+	return 0;
+
+      TREE_PURPOSE (arg) = convert_in (defaults->elements[i]);
+      arg = TREE_CHAIN (arg);
+    }
+
+  return 1;
+}
+
+gcc_decl
+plugin_get_function_parameter_decl (cc1_plugin::connection *,
+				    gcc_decl function_in,
+				    int index)
+{
+  tree function = convert_in (function_in);
+
+  gcc_assert (TREE_CODE (function) == FUNCTION_DECL);
+
+  if (index == -1)
+    {
+      gcc_assert (TREE_CODE (TREE_TYPE (function)) == METHOD_TYPE);
+
+      return convert_out (DECL_ARGUMENTS (function));
+    }
+
+  gcc_assert (index >= 0);
+
+  tree args = FUNCTION_FIRST_USER_PARM (function);
+
+  for (int i = 0; args && i < index; i++)
+    args = DECL_CHAIN (args);
+
+  return convert_out (args);
 }
 
 gcc_type
