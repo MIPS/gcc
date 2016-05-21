@@ -1,5 +1,5 @@
 Bottom: 2b0710cae974d70ae245cc260cbe77377d14d5a7
-Top:    f32defb52679471b2cc3f73667c0a0e2abc3bb74
+Top:    dc7515afd3bafeb8189262f26559c562c443a6ae
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-05-17 22:49:44 -0300
 
@@ -83,7 +83,7 @@ index 3710a3a8..de467a3 100644
    gcc_expr *elements;
  };
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index 59586a80..04062d1 100644
+index 59586a80..1486948 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -1485,7 +1485,7 @@ plugin_build_function_type (cc1_plugin::connection *self,
@@ -95,7 +95,39 @@ index 59586a80..04062d1 100644
  {
    tree function_type = convert_in (function_type_in);
  
-@@ -2303,6 +2303,69 @@ plugin_type_value_expr (cc1_plugin::connection *self,
+@@ -2140,7 +2140,10 @@ plugin_unary_value_expr (cc1_plugin::connection *self,
+     case CHARS2 ('n', 't'): // operator !
+       opcode = TRUTH_NOT_EXPR;
+       break;
+-      /* FIXME: __real__, __imag__.  */
++      /* FIXME: __real__, __imag__, (global-scope) delete, delete[],
++	 preinc, predec, noexcept,
++	 non-type (and type) typeid, sizeof, alignof,
++	 sizeof...(pack), pack... (expansion), throw (rethrow?).  */
+     case CHARS2 ('p', 'p'): // operator ++
+     case CHARS2 ('m', 'm'): // operator --
+     default:
+@@ -2269,7 +2272,8 @@ plugin_unary_type_expr (cc1_plugin::connection *self,
+   tree_code opcode = ERROR_MARK;
+   switch (CHARS2 (unary_op[0], unary_op[1]))
+     {
+-      /* FIXME: implement sizeof, alignof, ...  */
++      /* FIXME: implement sizeof, alignof, new, new[] (but how about
++	 placement new args, ctor arguments, global scope?), ...  */
+     default:
+       gcc_unreachable ();
+     }
+@@ -2293,7 +2297,8 @@ plugin_type_value_expr (cc1_plugin::connection *self,
+ #endif
+   switch (CHARS2 (binary_op[0], binary_op[1]))
+     {
+-      /* FIXME: implement type casts, ...  */
++      /* FIXME: implement type casts; conversions taking argument
++	 lists or braced initializers?  */
+     default:
+       gcc_unreachable ();
+     }
+@@ -2303,6 +2308,69 @@ plugin_type_value_expr (cc1_plugin::connection *self,
    return convert_out (ctx->preserve (val));
  }
  
