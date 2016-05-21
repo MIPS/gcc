@@ -1277,6 +1277,12 @@ plugin_start_new_class_type (cc1_plugin::connection *self,
   tree type = build_named_class_type (RECORD_TYPE, name, base_classes,
 				      ctx->get_source_location (filename,
 								line_number));
+  if ((flags & GCC_CP_FLAG_CLASS_IS_LAMBDA_CLOSURE))
+    {
+      gcc_assert (!name);
+      gcc_assert (!base_classes);
+      CLASSTYPE_LAMBDA_EXPR (type) = error_mark_node;
+    }
   tree decl = TYPE_NAME (type);
 
   set_access_flags (decl, flags);
