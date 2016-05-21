@@ -1,0 +1,10 @@
+Bottom: dc7515afd3bafeb8189262f26559c562c443a6ae
+Top:    dc7515afd3bafeb8189262f26559c562c443a6ae
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-05-21 04:28:47 -0300
+
+introduce lambda closures support
+
+---
+
+
