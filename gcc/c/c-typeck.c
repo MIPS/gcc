@@ -3547,8 +3547,8 @@ parser_build_unary_op (location_t loc, enum tree_code code, struct c_expr arg)
     {
       result.value = build_unary_op (loc, code, arg.value, 0);
 
-  if (TREE_OVERFLOW_P (result.value) && !TREE_OVERFLOW_P (arg.value))
-    overflow_warning (loc, result.value);
+      if (TREE_OVERFLOW_P (result.value) && !TREE_OVERFLOW_P (arg.value))
+	overflow_warning (loc, result.value);
     }
 
   /* We are typically called when parsing a prefix token at LOC acting on
@@ -3589,7 +3589,12 @@ parser_build_binary_op (location_t location, enum tree_code code,
   result.original_type = NULL;
 
   if (TREE_CODE (result.value) == ERROR_MARK)
-    return result;
+    {
+      set_c_expr_source_range (&result,
+			       arg1.get_start (),
+			       arg2.get_finish ());
+      return result;
+    }
 
   if (location != UNKNOWN_LOCATION)
     protected_set_expr_location (result.value, location);
@@ -6028,16 +6033,21 @@ error_init (location_t loc, const char *gmsgid)
    component name is taken from the spelling stack.  */
 
 static void
-pedwarn_init (location_t location, int opt, const char *gmsgid)
+pedwarn_init (location_t loc, int opt, const char *gmsgid)
 {
   char *ofwhat;
   bool warned;
 
+  /* Use the location where a macro was expanded rather than where
+     it was defined to make sure macros defined in system headers
+     but used incorrectly elsewhere are diagnosed.  */
+  source_location exploc = expansion_point_location_if_in_system_header (loc);
+
   /* The gmsgid may be a format string with %< and %>. */
-  warned = pedwarn (location, opt, gmsgid);
+  warned = pedwarn (exploc, opt, gmsgid);
   ofwhat = print_spelling ((char *) alloca (spelling_length () + 1));
   if (*ofwhat && warned)
-    inform (location, "(near initialization for %qs)", ofwhat);
+    inform (exploc, "(near initialization for %qs)", ofwhat);
 }
 
 /* Issue a warning for a bad initializer component.
@@ -6052,11 +6062,16 @@ warning_init (location_t loc, int opt, const char *gmsgid)
   char *ofwhat;
   bool warned;
 
+  /* Use the location where a macro was expanded rather than where
+     it was defined to make sure macros defined in system headers
+     but used incorrectly elsewhere are diagnosed.  */
+  source_location exploc = expansion_point_location_if_in_system_header (loc);
+
   /* The gmsgid may be a format string with %< and %>. */
-  warned = warning_at (loc, opt, gmsgid);
+  warned = warning_at (exploc, opt, gmsgid);
   ofwhat = print_spelling ((char *) alloca (spelling_length () + 1));
   if (*ofwhat && warned)
-    inform (loc, "(near initialization for %qs)", ofwhat);
+    inform (exploc, "(near initialization for %qs)", ofwhat);
 }
 
 /* If TYPE is an array type and EXPR is a parenthesized string

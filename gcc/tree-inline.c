@@ -2063,7 +2063,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 		  && id->dst_node->definition
 		  && (fn = gimple_call_fndecl (stmt)) != NULL)
 		{
-		  struct cgraph_node *dest = cgraph_node::get (fn);
+		  struct cgraph_node *dest = cgraph_node::get_create (fn);
 
 		  /* We have missing edge in the callgraph.  This can happen
 		     when previous inlining turned an indirect call into a
@@ -3941,6 +3941,10 @@ estimate_operator_cost (enum tree_code code, eni_weights *weights,
         return weights->div_mod_cost;
       return 1;
 
+    /* Bit-field insertion needs several shift and mask operations.  */
+    case BIT_INSERT_EXPR:
+      return 3;
+
     default:
       /* We expect a copy assignment with no operator.  */
       gcc_assert (get_gimple_rhs_class (code) == GIMPLE_SINGLE_RHS);
@@ -4485,6 +4489,8 @@ expand_call_inline (basic_block bb, gimple *stmt, copy_body_data *id)
       gimple_call_set_fndecl (stmt, edge->callee->decl);
       update_stmt (stmt);
       id->src_node->remove ();
+      expand_call_inline (bb, stmt, id);
+      maybe_remove_unused_call_args (cfun, stmt);
       return true;
     }
   fn = cg_edge->callee->decl;

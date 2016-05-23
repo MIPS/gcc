@@ -1,10 +1,26 @@
-2016-05-16  Matthew Wahab  <matthew.wahab@arm.com>
+2016-05-20  Bill Seurer  <seurer@linux.vnet.ibm.com>
 
-    * config/aarch64/aarch64.h (LEGITIMIZE_RELOAD_ADDRESS): Remove.
-    * config/aarch64/arch64-protos.h
-    (aarch64_legitimize_reload_address): Remove.
-    * config/aarch64/aarch64.c (aarch64_legitimize_reload_address):
-    Remove.
+	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin): Fix
+	code formatting in ALTIVEC_BUILTIN_VEC_ADDE section.
+
+2016-05-20  Bill Seurer  <seurer@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-builtin.def (vec_addec): Change vec_addec to a
+	special case builtin.
+	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin): Add
+	support for ALTIVEC_BUILTIN_VEC_ADDEC.
+	* config/rs6000/rs6000.c (altivec_init_builtins): Add definition
+	for __builtin_vec_addec.
+
+2016-05-16  Jakub Sejdak  <jakub.sejdak@phoesys.com>
+
+	* config.guess: Import version 2016-04-02 (newest).
+	* config.sub: Import version 2016-05-10 (newest).
+
+2016-05-16  Anton Kolesov  <anton.kolesov@synopsys.com>
+
+	* configure.ac: Add ARC support to libgloss.
+	* configure: Regenerate
 
 2016-05-09  Aaron Sawdey  <acsawdey@linux.vnet.ibm.com>
 

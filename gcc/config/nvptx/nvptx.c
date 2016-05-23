@@ -155,8 +155,19 @@ static void
 nvptx_option_override (void)
 {
   init_machine_status = nvptx_init_machine_status;
-  /* Gives us a predictable order, which we need especially for variables.  */
-  flag_toplevel_reorder = 1;
+
+  /* Set toplevel_reorder, unless explicitly disabled.  We need
+     reordering so that we emit necessary assembler decls of
+     undeclared variables. */
+  if (!global_options_set.x_flag_toplevel_reorder)
+    flag_toplevel_reorder = 1;
+
+  /* Set flag_no_common, unless explicitly disabled.  We fake common
+     using .weak, and that's not entirely accurate, so avoid it
+     unless forced.  */
+  if (!global_options_set.x_flag_no_common)
+    flag_no_common = 1;
+
   /* Assumes that it will see only hard registers.  */
   flag_var_tracking = 0;
 
@@ -211,31 +222,6 @@ nvptx_ptx_type_from_mode (machine_mode mode, bool promote)
     }
 }
 
-/* Return an identifier node for DECL.  Usually thee default mangled
-   name ID is useable.  Some names cannot be used directly, so prefix
-   them with __nvptx_.  */
-
-static tree
-nvptx_mangle_decl_assembler_name (tree ARG_UNUSED (decl), tree id)
-{
-  static const char *const bad_names[] =
-    {"call", "malloc", "free", "realloc", 0};
-  int ix;
-  const char *name = IDENTIFIER_POINTER (id);
-
-  for (ix = 0; bad_names[ix]; ix++)
-    if (!strcmp (bad_names[ix], name))
-      {
-	char *new_name = XALLOCAVEC (char,
-				     strlen (name) + sizeof ("__nvptx_"));
-	sprintf (new_name, "__nvptx_%s", name);
-	id = get_identifier (new_name);
-	break;
-      }
-
-  return id;
-}
-
 /* Encode the PTX data area that DECL (which might not actually be a
    _DECL) should reside in.  */
 
@@ -279,6 +265,27 @@ static const char *
 section_for_decl (const_tree decl)
 {
   return section_for_sym (XEXP (DECL_RTL (CONST_CAST (tree, decl)), 0));
+}
+
+/* Check NAME for special function names and redirect them by returning a
+   replacement.  This applies to malloc, free and realloc, for which we
+   want to use libgcc wrappers, and call, which triggers a bug in
+   ptxas.  We can't use TARGET_MANGLE_DECL_ASSEMBLER_NAME, as that's
+   not active in an offload compiler -- the names are all set by the
+   host-side compiler.  */
+
+static const char *
+nvptx_name_replacement (const char *name)
+{
+  if (strcmp (name, "call") == 0)
+    return "__nvptx_call";
+  if (strcmp (name, "malloc") == 0)
+    return "__nvptx_malloc";
+  if (strcmp (name, "free") == 0)
+    return "__nvptx_free";
+  if (strcmp (name, "realloc") == 0)
+    return "__nvptx_realloc";
+  return name;
 }
 
 /* If MODE should be treated as two registers of an inner mode, return
@@ -466,6 +473,17 @@ nvptx_function_arg_advance (cumulative_args_t cum_v,
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
 
   cum->count++;
+}
+
+/* Implement TARGET_FUNCTION_ARG_BOUNDARY.
+
+   For nvptx This is only used for varadic args.  The type has already
+   been promoted and/or converted to invisible reference.  */
+
+static unsigned
+nvptx_function_arg_boundary (machine_mode mode, const_tree ARG_UNUSED (type))
+{
+  return GET_MODE_ALIGNMENT (mode);
 }
 
 /* Handle the TARGET_STRICT_ARGUMENT_NAMING target hook.
@@ -738,8 +756,13 @@ write_fn_proto (std::stringstream &s, bool is_defn,
   if (is_defn)
     /* Emit a declaration. The PTX assembler gets upset without it.   */
     name = write_fn_proto (s, false, name, decl);
-  else if (name[0] == '*')
-    name++;
+  else
+    {
+      /* Avoid repeating the name replacement.  */
+      name = nvptx_name_replacement (name);
+      if (name[0] == '*')
+	name++;
+    }
 
   write_fn_marker (s, is_defn, TREE_PUBLIC (decl), name);
 
@@ -843,6 +866,7 @@ write_fn_proto_from_insn (std::stringstream &s, const char *name,
     }
   else
     {
+      name = nvptx_name_replacement (name);
       write_fn_marker (s, false, true, name);
       s << "\t.extern .func ";
     }
@@ -1860,6 +1884,7 @@ nvptx_output_call_insn (rtx_insn *insn, rtx result, rtx callee)
   if (decl)
     {
       const char *name = get_fnname_from_decl (decl);
+      name = nvptx_name_replacement (name);
       assemble_name (asm_out_file, name);
     }
   else
@@ -4832,6 +4857,8 @@ nvptx_goacc_reduction (gcall *call)
 #define TARGET_FUNCTION_INCOMING_ARG nvptx_function_incoming_arg
 #undef TARGET_FUNCTION_ARG_ADVANCE
 #define TARGET_FUNCTION_ARG_ADVANCE nvptx_function_arg_advance
+#undef TARGET_FUNCTION_ARG_BOUNDARY
+#define TARGET_FUNCTION_ARG_BOUNDARY nvptx_function_arg_boundary
 #undef TARGET_PASS_BY_REFERENCE
 #define TARGET_PASS_BY_REFERENCE nvptx_pass_by_reference
 #undef TARGET_FUNCTION_VALUE_REGNO_P
@@ -4886,9 +4913,6 @@ nvptx_goacc_reduction (gcall *call)
 #define TARGET_MACHINE_DEPENDENT_REORG nvptx_reorg
 #undef TARGET_NO_REGISTER_ALLOCATION
 #define TARGET_NO_REGISTER_ALLOCATION true
-
-#undef TARGET_MANGLE_DECL_ASSEMBLER_NAME
-#define TARGET_MANGLE_DECL_ASSEMBLER_NAME nvptx_mangle_decl_assembler_name
 
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO nvptx_encode_section_info

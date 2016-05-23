@@ -6609,6 +6609,13 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
                                                    adc_variable_type);
       if (type == error_mark_node)
 	return;
+      if (TREE_CODE (type) == FUNCTION_TYPE)
+	{
+	  error ("initializer for %<decltype(auto) %D%> has function type "
+		 "(did you forget the %<()%> ?)", decl);
+	  TREE_TYPE (decl) = error_mark_node;
+	  return;
+	}
       cp_apply_type_quals_to_decl (cp_type_quals (type), decl);
     }
 
@@ -9247,7 +9254,6 @@ grokdeclarator (const cp_declarator *declarator,
   bool late_return_type_p = false;
   bool array_parameter_p = false;
   source_location saved_loc = input_location;
-  const char *errmsg;
   tree reqs = NULL_TREE;
 
   signed_p = decl_spec_seq_has_spec_p (declspecs, ds_signed);
@@ -10046,12 +10052,6 @@ grokdeclarator (const cp_declarator *declarator,
 		/* We now know that the TYPE_QUALS don't apply to the
 		   decl, but to its return type.  */
 		type_quals = TYPE_UNQUALIFIED;
-	      }
-	    errmsg = targetm.invalid_return_type (type);
-	    if (errmsg)
-	      {
-		error (errmsg);
-		type = integer_type_node;
 	      }
 
 	    /* Error about some types functions can't return.  */
@@ -11686,7 +11686,6 @@ grokparms (tree parmlist, tree *parms)
       tree type = NULL_TREE;
       tree init = TREE_PURPOSE (parm);
       tree decl = TREE_VALUE (parm);
-      const char *errmsg;
 
       if (parm == void_list_node)
 	break;
@@ -11727,14 +11726,6 @@ grokparms (tree parmlist, tree *parms)
 	  type = error_mark_node;
 	  TREE_TYPE (decl) = error_mark_node;
 	  init = NULL_TREE;
-	}
-
-      if (type != error_mark_node
-	  && (errmsg = targetm.invalid_parameter_type (type)))
-	{
-	  error (errmsg);
-	  type = error_mark_node;
-	  TREE_TYPE (decl) = error_mark_node;
 	}
 
       if (type != error_mark_node)
@@ -13361,6 +13352,19 @@ finish_enum_value_list (tree enumtype)
 
       use_short_enum = flag_short_enums
         || lookup_attribute ("packed", TYPE_ATTRIBUTES (enumtype));
+
+      /* If the precision of the type was specified with an attribute and it
+	 was too small, give an error.  Otherwise, use it.  */
+      if (TYPE_PRECISION (enumtype))
+	{
+	  if (precision > TYPE_PRECISION (enumtype))
+	    error ("specified mode too small for enumeral values");
+	  else
+	    {
+	      use_short_enum = true;
+	      precision = TYPE_PRECISION (enumtype);
+	    }
+	}
 
       for (itk = (use_short_enum ? itk_char : itk_int);
            itk != itk_none;

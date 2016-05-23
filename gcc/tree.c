@@ -5477,7 +5477,7 @@ free_lang_data_in_decl (tree decl)
 	      DECL_INITIAL (decl) = error_mark_node;
 	    }
 	}
-      if (gimple_has_body_p (decl))
+      if (gimple_has_body_p (decl) || (node && node->thunk.thunk_p))
 	{
 	  tree t;
 
@@ -13177,9 +13177,28 @@ array_at_struct_end_p (tree ref)
       ref = TREE_OPERAND (ref, 0);
     }
 
+  tree size = NULL;
+
+  if (TREE_CODE (ref) == MEM_REF
+      && TREE_CODE (TREE_OPERAND (ref, 0)) == ADDR_EXPR)
+    {
+      size = TYPE_SIZE (TREE_TYPE (ref));
+      ref = TREE_OPERAND (TREE_OPERAND (ref, 0), 0);
+    }
+
   /* If the reference is based on a declared entity, the size of the array
      is constrained by its given domain.  (Do not trust commons PR/69368).  */
   if (DECL_P (ref)
+      /* Be sure the size of MEM_REF target match.  For example:
+
+	   char buf[10];
+	   struct foo *str = (struct foo *)&buf;
+
+	   str->trailin_array[2] = 1;
+
+	 is valid because BUF allocate enough space.  */
+
+      && (!size || operand_equal_p (DECL_SIZE (ref), size, 0))
       && !(flag_unconstrained_commons
 	   && TREE_CODE (ref) == VAR_DECL && DECL_COMMON (ref)))
     return false;

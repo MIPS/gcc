@@ -27,6 +27,9 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "jit-recording.h"
 
+struct diagnostic_context;
+struct diagnostic_info;
+
 namespace gcc {
 
 namespace jit {
@@ -130,12 +133,14 @@ public:
   rvalue *
   new_call (location *loc,
 	    function *func,
-	    const auto_vec<rvalue *> *args);
+	    const auto_vec<rvalue *> *args,
+	    bool require_tail_call);
 
   rvalue *
   new_call_through_ptr (location *loc,
 			rvalue *fn_ptr,
-			const auto_vec<rvalue *> *args);
+			const auto_vec<rvalue *> *args,
+			bool require_tail_call);
 
   rvalue *
   new_cast (location *loc,
@@ -203,6 +208,10 @@ public:
   get_first_error () const;
 
   void
+  add_diagnostic (struct diagnostic_context *context,
+		  struct diagnostic_info *diagnostic);
+
+  void
   set_tree_location (tree t, location *loc);
 
   tree
@@ -229,7 +238,8 @@ private:
   rvalue *
   build_call (location *loc,
 	      tree fn_ptr,
-	      const auto_vec<rvalue *> *args);
+	      const auto_vec<rvalue *> *args,
+	      bool require_tail_call);
 
   tree
   build_cast (location *loc,
