@@ -1,3 +1,145 @@
+2016-05-23  Marek Polacek  <polacek@redhat.com>
+
+	PR c/49859
+	* c-c++-common/Wswitch-unreachable-1.c: New test.
+	* gcc.dg/Wswitch-unreachable-1.c: New test.
+	* c-c++-common/goacc/sb-2.c (void foo): Add dg-warning.
+	* g++.dg/cpp0x/lambda/lambda-switch.C (main): Likewise.
+	* g++.dg/gomp/block-10.C: Likewise.
+	* gcc.dg/gomp/block-10.c: Likewise.
+	* g++.dg/gomp/block-9.C: Likewise.
+	* gcc.dg/gomp/block-9.c: Likewise.
+	* g++.dg/gomp/target-1.C: Likewise.
+	* g++.dg/gomp/target-2.C: Likewise.
+	* gcc.dg/gomp/target-1.c: Likewise.
+	* gcc.dg/gomp/target-2.c: Likewise. 
+	* g++.dg/gomp/taskgroup-1.C: Likewise.
+	* gcc.dg/gomp/taskgroup-1.c: Likewise.
+	* gcc.dg/gomp/teams-1.c: Likewise.
+	* g++.dg/gomp/teams-1.C: Likewise.
+	* g++.dg/overload/error3.C: Likewise.
+	* g++.dg/tm/jump1.C: Likewise.
+	* g++.dg/torture/pr40335.C: Likewise.
+	* gcc.dg/c99-vla-jump-5.c: Likewise.
+	* gcc.dg/switch-warn-1.c: Likewise.
+	* gcc.dg/Wjump-misses-init-1.c: Use -Wno-switch-unreachable.
+	* gcc.dg/nested-func-1.c: Likewise.
+	* gcc.dg/pr67784-4.c: Likewise.
+
+2016-05-23  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71230
+	* gfortran.dg/pr71230-1.f90: New testcase.
+	* gfortran.dg/pr71230-2.f90: Likewise.
+
+2016-05-23  Venkataramanan Kumar  <venkataramanan.kumar@amd.com>
+
+	* gcc.dg/vect/bb-slp-19.c:  Remove XFAIL. 
+	* gcc.dg/vect/pr58135.c:  Add new.
+	* gfortran.dg/pr46519-1.f: Adjust test case.
+
+2016-05-23  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/53401
+	* g++.dg/cpp0x/decltype64.C: New.
+
+2016-05-23  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vreinterpret.c: Add fp16 tests.
+	* gcc.target/aarch64/advsimd-intrinsics/vreinterpret_p128.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vreinterpret_p64.c: Likewise.
+
+2016-05-23  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/advsimd-intrinsics/arm-neon-ref.h (result):
+	Add poly64x1_t and poly64x2_t cases if supported.
+	* gcc.target/aarch64/advsimd-intrinsics/compute-ref-data.h
+	(buffer, buffer_pad, buffer_dup, buffer_dup_pad): Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/p64_p128.c: New file.
+	* gcc.target/aarch64/advsimd-intrinsics/vreinterpret_p128.c: New file.
+	* gcc.target/aarch64/advsimd-intrinsics/vreinterpret_p64.c: New file.
+
+2016-05-23  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vrnd.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vrndX.inc: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vrnda.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vrndm.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vrndn.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vrndp.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vrndx.c: New.
+
+2016-05-23  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vstX_lane.c: Add fp16 tests.
+
+2016-05-23  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vtst.c: Add tests for
+	vtst_p8, vtstq_p8, vtst_p16 and vtstq_p16.
+
+2016-05-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.target/i386/avx512bw-kunpckdq-1.c (avx512bw_test): Use "m"
+	constraint instead of "r".
+	* gcc.target/i386/avx512f-additional-reg-names.c (foo): Use vpxord
+	insn instead of vxorpd.
+	* gcc.target/i386/strinline.c: Add dg-require-effective-target ia32.
+
+	* gcc.target/i386/avx512dq-vinsert-1.c: New test.
+	* gcc.target/i386/avx512vl-vinsert-1.c: New test.
+
+	* gcc.target/i386/avx512vl-vinserti32x4-3.c: New test.
+
+	* gcc.target/i386/avx512dq-vbroadcast-2.c: New test.
+	* gcc.target/i386/avx512vl-vbroadcast-2.c: New test.
+
+	* gcc.target/i386/avx512vl-vbroadcast-1.c: New test.
+
+2016-05-22  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/40921
+	* gcc.dg/tree-ssa/pr40921.c: New test.
+
+2016-05-20  Pitchumani Sivanupandi  <pitchumani.s@atmel.com>
+
+	PR target/71103
+	* gcc.target/avr/pr71103.c: New test.
+
+2016-05-21  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/71179
+	* gcc.dg/tree-ssa/pr71179.c: New test.
+
+2016-05-20  Martin Sebor  <msebor@redhat.com>
+
+	PR c/71115
+	* gcc.dg/init-excess-2.c: New test.
+
+2016-05-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt53.adb: New test.
+	* gnat.dg/opt54.adb: Likewise.
+
+2016-05-20  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/70884
+	* gcc.dg/tree-ssa/pr70919.c: New test.
+
+2016-05-20  Bill Seurer  <seurer@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vec-adde.c: Change dejagnu options, fix code
+	formatting.
+	* gcc.target/powerpc/vec-adde-int128.c: Change dejagnu options, fix code
+	formatting.
+
+2016-05-20  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/all-non-failing-tests.h: Add
+	test-factorial-must-tail-call.c.
+	* jit.dg/test-error-impossible-must-tail-call.c: New test case.
+	* jit.dg/test-factorial-must-tail-call.c: New test case.
+
 2016-05-20  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/71204
@@ -11,19 +153,6 @@
 
 	PR c++/70572
 	* g++.dg/cpp1y/auto-fn31.C: New.
-
-2016-05-20  H.J. Lu  <hongjiu.lu@intel.com>
-
-	PR target/70738
-	* gcc.target/i386/pr70738-1.c: Likewise.
-	* gcc.target/i386/pr70738-2.c: Likewise.
-	* gcc.target/i386/pr70738-3.c: Likewise.
-	* gcc.target/i386/pr70738-4.c: Likewise.
-	* gcc.target/i386/pr70738-5.c: Likewise.
-	* gcc.target/i386/pr70738-6.c: Likewise.
-	* gcc.target/i386/pr70738-7.c: Likewise.
-	* gcc.target/i386/pr70738-8.c: Likewise.
-	* gcc.target/i386/pr70738-9.c: Likewise.
 
 2016-05-20  Bill Seurer  <seurer@linux.vnet.ibm.com>
 
