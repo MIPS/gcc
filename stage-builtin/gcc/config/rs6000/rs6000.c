@@ -3669,7 +3669,7 @@ rs6000_builtin_mask_calculate (void)
 	  | ((TARGET_P8_VECTOR)		    ? RS6000_BTM_P8_VECTOR : 0)
 	  | ((TARGET_P9_VECTOR)		    ? RS6000_BTM_P9_VECTOR : 0)
 	  | ((TARGET_MODULO)		    ? RS6000_BTM_MODULO    : 0)
-	  | ((TARGET_64BIT)		    ? RS6000_BTM_64BIT    : 0)
+	  | ((TARGET_64BIT)		    ? RS6000_BTM_64BIT     : 0)
 	  | ((TARGET_CRYPTO)		    ? RS6000_BTM_CRYPTO	   : 0)
 	  | ((TARGET_HTM)		    ? RS6000_BTM_HTM	   : 0)
 	  | ((TARGET_DFP)		    ? RS6000_BTM_DFP	   : 0)
@@ -13230,7 +13230,6 @@ rs6000_expand_mtfsf_builtin (enum insn_code icode, tree exp)
   return NULL_RTX;
 }
 
-
 static rtx
 rs6000_expand_unop_builtin (enum insn_code icode, tree exp, rtx target)
 {
@@ -15700,7 +15699,6 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     if (d->code == fcode)
       return rs6000_expand_zeroop_builtin (d->icode, target);
 
-  gcc_assert (false);
   gcc_unreachable ();
 }
 
@@ -16567,6 +16565,8 @@ altivec_init_builtins (void)
 
   def_builtin ("__builtin_vec_adde", opaque_ftype_opaque_opaque_opaque,
 		ALTIVEC_BUILTIN_VEC_ADDE);
+  def_builtin ("__builtin_vec_addec", opaque_ftype_opaque_opaque_opaque,
+		ALTIVEC_BUILTIN_VEC_ADDEC);
 
   /* Cell builtins.  */
   def_builtin ("__builtin_altivec_lvlx",  v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVLX);
@@ -17361,55 +17361,50 @@ rs6000_common_init_builtins (void)
       if ((mask & builtin_mask) != mask)
 	{
 	  if (TARGET_DEBUG_BUILTIN)
-	    fprintf (stderr, "rs6000_builtin, skip no-argumen %s\n", d->name);
+	    fprintf (stderr, "rs6000_builtin, skip no-argument %s\n", d->name);
 	  continue;
 	}
-
       if (rs6000_overloaded_builtin_p (d->code))
 	{
-	  if (! (type = opaque_ftype_opaque))
-	    type = opaque_ftype_opaque
-	      = build_function_type_list (opaque_V4SI_type_node,
-					  NULL_TREE);
+	  if (!opaque_ftype_opaque)
+	    opaque_ftype_opaque
+	      = build_function_type_list (opaque_V4SI_type_node, NULL_TREE);
+	  type = opaque_ftype_opaque;
 	}
       else
-        {
+	{
 	  enum insn_code icode = d->icode;
 	  if (d->name == 0)
 	    {
 	      if (TARGET_DEBUG_BUILTIN)
-		fprintf (stderr, "rs6000_builtin, bdesc_0arg[%ld] no name\n",
-			 (long unsigned)i);
-
+		fprintf (stderr, "rs6000_builtin, bdesc_0arg[%lu] no name\n",
+			 (long unsigned) i);
 	      continue;
 	    }
-
-          if (icode == CODE_FOR_nothing)
+	  if (icode == CODE_FOR_nothing)
 	    {
 	      if (TARGET_DEBUG_BUILTIN)
-		fprintf (stderr, 
+		fprintf (stderr,
 			 "rs6000_builtin, skip no-argument %s (no code)\n",
 			 d->name);
-
 	      continue;
 	    }
-
-          mode0 = insn_data[icode].operand[0].mode;
-
+	  mode0 = insn_data[icode].operand[0].mode;
 	  if (mode0 == V2SImode)
 	    {
-	      /* code for SPE, not well understood or thoroughly tested */
+	      /* code for SPE */
 	      if (! (type = v2si_ftype))
-		type = v2si_ftype
-		  = build_function_type_list (opaque_V2SI_type_node,
-					      NULL_TREE);
+		{
+		  v2si_ftype
+		    = build_function_type_list (opaque_V2SI_type_node, 
+						NULL_TREE);
+		  type = v2si_ftype;
+		}
 	    }
-
 	  else
 	    type = builtin_function_type (mode0, VOIDmode, VOIDmode, VOIDmode,
 					  d->code, d->name);
 	}
-
       def_builtin (d->name, type, d->code);
     }
 }

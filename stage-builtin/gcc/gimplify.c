@@ -1595,6 +1595,32 @@ gimplify_switch_expr (tree *expr_p, gimple_seq *pre_p)
       gimplify_ctxp->case_labels.create (8);
 
       gimplify_stmt (&SWITCH_BODY (switch_expr), &switch_body_seq);
+
+      /* Possibly warn about unreachable statements between switch's
+	 controlling expression and the first case.  */
+      if (warn_switch_unreachable
+	  /* This warning doesn't play well with Fortran when optimizations
+	     are on.  */
+	  && !lang_GNU_Fortran ()
+	  && switch_body_seq != NULL)
+	{
+	  gimple_seq seq = switch_body_seq;
+	  if (gimple_code (switch_body_seq) == GIMPLE_BIND)
+	    seq = gimple_bind_body (as_a <gbind *> (switch_body_seq));
+	  gimple *stmt = gimple_seq_first_stmt (seq);
+	  enum gimple_code code = gimple_code (stmt);
+	  if (code != GIMPLE_LABEL && code != GIMPLE_TRY)
+	    {
+	      if (code == GIMPLE_GOTO
+		  && TREE_CODE (gimple_goto_dest (stmt)) == LABEL_DECL
+		  && DECL_ARTIFICIAL (gimple_goto_dest (stmt)))
+		/* Don't warn for compiler-generated gotos.  These occur
+		   in Duff's devices, for example.  */;
+	      else
+		warning_at (gimple_location (stmt), OPT_Wswitch_unreachable,
+			    "statement will never be executed");
+	    }
+	}
       labels = gimplify_ctxp->case_labels;
       gimplify_ctxp->case_labels = saved_labels;
 
@@ -10930,6 +10956,10 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	case VEC_PERM_EXPR:
 	  /* Classified as tcc_expression.  */
 	  goto expr_3;
+
+	case BIT_INSERT_EXPR:
+	  /* Argument 3 is a constant.  */
+	  goto expr_2;
 
 	case POINTER_PLUS_EXPR:
 	  {

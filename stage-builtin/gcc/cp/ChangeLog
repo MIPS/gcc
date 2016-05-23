@@ -1,3 +1,48 @@
+2016-05-20  Nathan Sidwell  <nathan@acm.org>
+
+	* constexpr.c (cxx_bind_parameters_in_call): Avoid gratuitous if
+	... goto.
+	(cxx_eval_call_expression): Fix comment grammar.
+
+2016-05-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/70572
+	* decl.c (cp_finish_decl): Check do_auto_deduction return value
+	and return immediately in case of erroneous code.
+
+2016-05-19  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/71075
+	* pt.c (unify_template_argument_mismatch): Use %qE instead of %qD.
+
+2016-05-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/10200
+	* pt.c (fn_type_unification): Add outer template args if needed.
+	(type_unification_real): Handle getting full args.
+
+2016-05-19  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/71184
+	* parser.c (cp_parser_operator): For array new/delete, check that
+	cp_parser_require returned a non-NULL token before dereferencing
+	it.
+
+2016-05-19  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* decl.c (finish_enum_value_list): Use the specified mode.
+
+2016-05-18  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (value_dependent_expression_p): Tweak new cases to better
+	match the wording in the standard.
+
+2016-05-18  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/69793
+	* parser.c (cp_parser_template_id): Don't call cp_lexer_peek_nth_token
+	when the previous cp_lexer_peek_token returns CPP_EOF.
+
 2016-05-18  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/70466
