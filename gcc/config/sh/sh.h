@@ -201,7 +201,7 @@ extern int code_for_indirect_jump_scratch;
   SUBTARGET_EXTRA_SPECS
 
 #if TARGET_CPU_DEFAULT & MASK_HARD_SH4
-#define SUBTARGET_ASM_RELAX_SPEC "%{!m1:%{!m2:%{!m3*::-isa=sh4-up}}}"
+#define SUBTARGET_ASM_RELAX_SPEC "%{!m1:%{!m2:%{!m3*:-isa=sh4-up}}}"
 #else
 #define SUBTARGET_ASM_RELAX_SPEC "%{m4*:-isa=sh4-up}"
 #endif
@@ -245,7 +245,7 @@ extern int code_for_indirect_jump_scratch;
 /* Strict nofpu means that the compiler should tell the assembler
    to reject FPU instructions. E.g. from ASM inserts.  */
 #if TARGET_CPU_DEFAULT & MASK_HARD_SH4 && !(TARGET_CPU_DEFAULT & MASK_SH_E)
-#define SUBTARGET_ASM_ISA_SPEC "%{!m1:%{!m2:%{!m3*:%{m4-nofpu|!m4*::-isa=sh4-nofpu}}}}"
+#define SUBTARGET_ASM_ISA_SPEC "%{!m1:%{!m2:%{!m3*:%{m4-nofpu|!m4*:-isa=sh4-nofpu}}}}"
 #else
 
 #define SUBTARGET_ASM_ISA_SPEC \
@@ -1154,6 +1154,8 @@ extern enum reg_class regno_reg_class[FIRST_PSEUDO_REGISTER];
        && (unsigned) (REGNO) < (unsigned) (FIRST_FP_PARM_REG		\
 					   + NPARM_REGS (SFmode))))
 
+#ifdef __cplusplus
+
 /* Define a data type for recording info about an argument list
    during the scan of that argument list.  This data type should
    hold all necessary information about the function itself
@@ -1164,48 +1166,37 @@ extern enum reg_class regno_reg_class[FIRST_PSEUDO_REGISTER];
    of arguments scanned so far (including the invisible argument,
    if any, which holds the structure-value-address).
    Thus NARGREGS or more means all following args should go on the stack.  */
+
 enum sh_arg_class { SH_ARG_INT = 0, SH_ARG_FLOAT = 1 };
-struct sh_args {
-    int arg_count[2];
-    int force_mem;
+
+struct sh_args
+{
+  /* How many SH_ARG_INT and how many SH_ARG_FLOAT args there are.  */
+  int arg_count[2];
+
+  bool force_mem;
+
   /* Nonzero if a prototype is available for the function.  */
-    int prototype_p;
+  bool prototype_p;
+
   /* The number of an odd floating-point register, that should be used
      for the next argument of type float.  */
-    int free_single_fp_reg;
+  int free_single_fp_reg;
+
   /* Whether we're processing an outgoing function call.  */
-    int outgoing;
-  /* The number of general-purpose registers that should have been
-     used to pass partial arguments, that are passed totally on the
-     stack.  On SHcompact, a call trampoline will pop them off the
-     stack before calling the actual function, and, if the called
-     function is implemented in SHcompact mode, the incoming arguments
-     decoder will push such arguments back onto the stack.  For
-     incoming arguments, STACK_REGS also takes into account other
-     arguments passed by reference, that the decoder will also push
-     onto the stack.  */
-    int stack_regs;
-  /* The number of general-purpose registers that should have been
-     used to pass arguments, if the arguments didn't have to be passed
-     by reference.  */
-    int byref_regs;
-  /* Set as by shcompact_byref if the current argument is to be passed
-     by reference.  */
-    int byref;
+  bool outgoing;
 
   /* This is set to nonzero when the call in question must use the Renesas ABI,
      even without the -mrenesas option.  */
-    int renesas_abi;
+  bool renesas_abi;
 };
 
-#define CUMULATIVE_ARGS  struct sh_args
+typedef sh_args CUMULATIVE_ARGS;
 
-#define GET_SH_ARG_CLASS(MODE) \
-  ((TARGET_FPU_ANY && (MODE) == SFmode) \
-   ? SH_ARG_FLOAT \
-   : TARGET_FPU_DOUBLE && (GET_MODE_CLASS (MODE) == MODE_FLOAT \
-			   || GET_MODE_CLASS (MODE) == MODE_COMPLEX_FLOAT) \
-     ? SH_ARG_FLOAT : SH_ARG_INT)
+/* Set when processing a function with interrupt attribute.  */
+extern bool current_function_interrupt;
+
+#endif // __cplusplus
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
@@ -1307,12 +1298,10 @@ struct sh_args {
 #define HAVE_POST_INCREMENT  TARGET_SH1
 #define HAVE_PRE_DECREMENT   TARGET_SH1
 
-#define USE_LOAD_POST_INCREMENT(mode)    ((mode == SImode || mode == DImode) \
-					  ? 0 : TARGET_SH1)
-#define USE_LOAD_PRE_DECREMENT(mode)     0
-#define USE_STORE_POST_INCREMENT(mode)   0
-#define USE_STORE_PRE_DECREMENT(mode)    ((mode == SImode || mode == DImode) \
-					  ? 0 : TARGET_SH1)
+#define USE_LOAD_POST_INCREMENT(mode) TARGET_SH1
+#define USE_LOAD_PRE_DECREMENT(mode) TARGET_SH2A
+#define USE_STORE_POST_INCREMENT(mode) TARGET_SH2A
+#define USE_STORE_PRE_DECREMENT(mode) TARGET_SH1
 
 /* If a memory clear move would take CLEAR_RATIO or more simple
    move-instruction pairs, we will do a setmem instead.  */
@@ -1807,10 +1796,6 @@ struct sh_args {
 #define FINAL_PRESCAN_INSN(INSN, OPVEC, NOPERANDS) \
   final_prescan_insn ((INSN), (OPVEC), (NOPERANDS))
 
-
-extern rtx sh_compare_op0;
-extern rtx sh_compare_op1;
-
 /* Which processor to schedule for.  The elements of the enumeration must
    match exactly the cpu attribute in the sh.md file.  */
 enum processor_type {
@@ -1849,8 +1834,6 @@ extern enum mdep_reorg_phase_e mdep_reorg_phase;
 extern tree sh_deferred_function_attributes;
 extern tree *sh_deferred_function_attributes_tail;
 
-/* Set when processing a function with interrupt attribute.  */
-extern int current_function_interrupt;
 
 
 /* Instructions with unfilled delay slots take up an
@@ -1891,8 +1874,7 @@ extern int current_function_interrupt;
    ? (TARGET_FMOVD ? FP_MODE_DOUBLE : FP_MODE_NONE) \
    : ACTUAL_NORMAL_MODE (ENTITY))
 
-#define EPILOGUE_USES(REGNO) ((TARGET_SH2E || TARGET_SH4) \
-			      && (REGNO) == FPSCR_REG)
+#define EPILOGUE_USES(REGNO) (TARGET_FPU_ANY && REGNO == FPSCR_REG)
 
 #define DWARF_FRAME_RETURN_COLUMN (DWARF_FRAME_REGNUM (PR_REG))
 

@@ -937,23 +937,24 @@ make_aligning_type (tree type, unsigned int align, tree size,
 /* TYPE is a RECORD_TYPE, UNION_TYPE or QUAL_UNION_TYPE that is being used
    as the field type of a packed record if IN_RECORD is true, or as the
    component type of a packed array if IN_RECORD is false.  See if we can
-   rewrite it either as a type that has a non-BLKmode, which we can pack
-   tighter in the packed record case, or as a smaller type.  If so, return
-   the new type.  If not, return the original type.  */
+   rewrite it either as a type that has non-BLKmode, which we can pack
+   tighter in the packed record case, or as a smaller type with at most
+   MAX_ALIGN alignment if the value is non-zero.  If so, return the new
+   type; if not, return the original type.  */
 
 tree
-make_packable_type (tree type, bool in_record)
+make_packable_type (tree type, bool in_record, unsigned int max_align)
 {
   unsigned HOST_WIDE_INT size = tree_to_uhwi (TYPE_SIZE (type));
   unsigned HOST_WIDE_INT new_size;
-  tree new_type, old_field, field_list = NULL_TREE;
-  unsigned int align;
+  unsigned int align = TYPE_ALIGN (type);
+  unsigned int new_align;
 
   /* No point in doing anything if the size is zero.  */
   if (size == 0)
     return type;
 
-  new_type = make_node (TREE_CODE (type));
+  tree new_type = make_node (TREE_CODE (type));
 
   /* Copy the name and flags from the old type to that of the new.
      Note that we rely on the pointer equality created here for
@@ -970,49 +971,50 @@ make_packable_type (tree type, bool in_record)
      type with BLKmode.  */
   if (in_record && size <= MAX_FIXED_MODE_SIZE)
     {
-      align = ceil_pow2 (size);
-      SET_TYPE_ALIGN (new_type, align);
-      new_size = (size + align - 1) & -align;
+      new_size = ceil_pow2 (size);
+      new_align = MIN (new_size, BIGGEST_ALIGNMENT);
+      SET_TYPE_ALIGN (new_type, new_align);
     }
   else
     {
-      unsigned HOST_WIDE_INT align;
-
       /* Do not try to shrink the size if the RM size is not constant.  */
       if (TYPE_CONTAINS_TEMPLATE_P (type)
 	  || !tree_fits_uhwi_p (TYPE_ADA_SIZE (type)))
 	return type;
 
       /* Round the RM size up to a unit boundary to get the minimal size
-	 for a BLKmode record.  Give up if it's already the size.  */
+	 for a BLKmode record.  Give up if it's already the size and we
+	 don't need to lower the alignment.  */
       new_size = tree_to_uhwi (TYPE_ADA_SIZE (type));
       new_size = (new_size + BITS_PER_UNIT - 1) & -BITS_PER_UNIT;
-      if (new_size == size)
+      if (new_size == size && (max_align == 0 || align <= max_align))
 	return type;
 
-      align = new_size & -new_size;
-      SET_TYPE_ALIGN (new_type, MIN (TYPE_ALIGN (type), align));
+      new_align = MIN (new_size & -new_size, BIGGEST_ALIGNMENT);
+      if (max_align > 0 && new_align > max_align)
+	new_align = max_align;
+      SET_TYPE_ALIGN (new_type, MIN (align, new_align));
     }
 
   TYPE_USER_ALIGN (new_type) = 1;
 
   /* Now copy the fields, keeping the position and size as we don't want
      to change the layout by propagating the packedness downwards.  */
-  for (old_field = TYPE_FIELDS (type); old_field;
-       old_field = DECL_CHAIN (old_field))
+  tree new_field_list = NULL_TREE;
+  for (tree field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
     {
-      tree new_field_type = TREE_TYPE (old_field);
+      tree new_field_type = TREE_TYPE (field);
       tree new_field, new_size;
 
       if (RECORD_OR_UNION_TYPE_P (new_field_type)
 	  && !TYPE_FAT_POINTER_P (new_field_type)
 	  && tree_fits_uhwi_p (TYPE_SIZE (new_field_type)))
-	new_field_type = make_packable_type (new_field_type, true);
+	new_field_type = make_packable_type (new_field_type, true, max_align);
 
       /* However, for the last field in a not already packed record type
 	 that is of an aggregate type, we need to use the RM size in the
 	 packable version of the record type, see finish_record_type.  */
-      if (!DECL_CHAIN (old_field)
+      if (!DECL_CHAIN (field)
 	  && !TYPE_PACKED (type)
 	  && RECORD_OR_UNION_TYPE_P (new_field_type)
 	  && !TYPE_FAT_POINTER_P (new_field_type)
@@ -1020,24 +1022,24 @@ make_packable_type (tree type, bool in_record)
 	  && TYPE_ADA_SIZE (new_field_type))
 	new_size = TYPE_ADA_SIZE (new_field_type);
       else
-	new_size = DECL_SIZE (old_field);
+	new_size = DECL_SIZE (field);
 
       new_field
-	= create_field_decl (DECL_NAME (old_field), new_field_type, new_type,
-			     new_size, bit_position (old_field),
+	= create_field_decl (DECL_NAME (field), new_field_type, new_type,
+			     new_size, bit_position (field),
 			     TYPE_PACKED (type),
-			     !DECL_NONADDRESSABLE_P (old_field));
+			     !DECL_NONADDRESSABLE_P (field));
 
-      DECL_INTERNAL_P (new_field) = DECL_INTERNAL_P (old_field);
-      SET_DECL_ORIGINAL_FIELD_TO_FIELD (new_field, old_field);
+      DECL_INTERNAL_P (new_field) = DECL_INTERNAL_P (field);
+      SET_DECL_ORIGINAL_FIELD_TO_FIELD (new_field, field);
       if (TREE_CODE (new_type) == QUAL_UNION_TYPE)
-	DECL_QUALIFIER (new_field) = DECL_QUALIFIER (old_field);
+	DECL_QUALIFIER (new_field) = DECL_QUALIFIER (field);
 
-      DECL_CHAIN (new_field) = field_list;
-      field_list = new_field;
+      DECL_CHAIN (new_field) = new_field_list;
+      new_field_list = new_field;
     }
 
-  finish_record_type (new_type, nreverse (field_list), 2, false);
+  finish_record_type (new_type, nreverse (new_field_list), 2, false);
   relate_alias_sets (new_type, type, ALIAS_SET_COPY);
   if (TYPE_STUB_DECL (type))
     SET_DECL_PARALLEL_TYPE (TYPE_STUB_DECL (new_type),
@@ -1054,8 +1056,7 @@ make_packable_type (tree type, bool in_record)
   else
     {
       TYPE_SIZE (new_type) = bitsize_int (new_size);
-      TYPE_SIZE_UNIT (new_type)
-	= size_int ((new_size + BITS_PER_UNIT - 1) / BITS_PER_UNIT);
+      TYPE_SIZE_UNIT (new_type) = size_int (new_size / BITS_PER_UNIT);
     }
 
   if (!TYPE_CONTAINS_TEMPLATE_P (type))
@@ -1069,8 +1070,8 @@ make_packable_type (tree type, bool in_record)
     SET_TYPE_MODE (new_type,
 		   mode_for_size_tree (TYPE_SIZE (new_type), MODE_INT, 1));
 
-  /* If neither the mode nor the size has shrunk, return the old type.  */
-  if (TYPE_MODE (new_type) == BLKmode && new_size >= size)
+  /* If neither mode nor size nor alignment shrunk, return the old type.  */
+  if (TYPE_MODE (new_type) == BLKmode && new_size >= size && max_align == 0)
     return type;
 
   return new_type;
@@ -1115,7 +1116,14 @@ make_type_from_size (tree type, tree size_tree, bool for_biased)
 	break;
 
       biased_p |= for_biased;
-      if (TYPE_UNSIGNED (type) || biased_p)
+
+      /* The type should be an unsigned type if the original type is unsigned
+	 or if the lower bound is constant and non-negative or if the type is
+	 biased, see E_Signed_Integer_Subtype case of gnat_to_gnu_entity.  */
+      if (TYPE_UNSIGNED (type)
+	  || (TREE_CODE (TYPE_MIN_VALUE (type)) == INTEGER_CST
+	      && tree_int_cst_sgn (TYPE_MIN_VALUE (type)) >= 0)
+	  || biased_p)
 	new_type = make_unsigned_type (size);
       else
 	new_type = make_signed_type (size);
@@ -5110,7 +5118,9 @@ unchecked_convert (tree type, tree expr, bool notrunc_p)
   /* If the result is an integral type whose precision is not equal to its
      size, sign- or zero-extend the result.  We need not do this if the input
      is an integral type of the same precision and signedness or if the output
-     is a biased type or if both the input and output are unsigned.  */
+     is a biased type or if both the input and output are unsigned, or if the
+     lower bound is constant and non-negative, see E_Signed_Integer_Subtype
+     case of gnat_to_gnu_entity.  */
   if (!notrunc_p
       && INTEGRAL_TYPE_P (type)
       && TYPE_RM_SIZE (type)
@@ -5122,7 +5132,10 @@ unchecked_convert (tree type, tree expr, bool notrunc_p)
 				    ? TYPE_RM_SIZE (etype)
 				    : TYPE_SIZE (etype)) == 0)
       && !(code == INTEGER_TYPE && TYPE_BIASED_REPRESENTATION_P (type))
-      && !(TYPE_UNSIGNED (type) && TYPE_UNSIGNED (etype)))
+      && !((TYPE_UNSIGNED (type)
+	    || (TREE_CODE (TYPE_MIN_VALUE (type)) == INTEGER_CST
+		&& tree_int_cst_sgn (TYPE_MIN_VALUE (type)) >= 0))
+	   && TYPE_UNSIGNED (etype)))
     {
       tree base_type
 	= gnat_type_for_size (TREE_INT_CST_LOW (TYPE_SIZE (type)),

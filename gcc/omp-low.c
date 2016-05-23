@@ -2570,6 +2570,7 @@ create_omp_child_function (omp_context *ctx, bool task_copy)
      it afterward.  */
   push_struct_function (decl);
   cfun->function_end_locus = gimple_location (ctx->stmt);
+  init_tree_ssa (cfun);
   pop_cfun ();
 }
 
@@ -6402,12 +6403,10 @@ lower_oacc_head_tail (location_t loc, tree clauses,
   gimple_seq_add_stmt (head, gimple_build_assign (ddvar, integer_zero_node));
 
   unsigned count = lower_oacc_head_mark (loc, ddvar, clauses, head, ctx);
-  if (!count)
-    lower_oacc_loop_marker (loc, ddvar, false, integer_zero_node, tail);
-  
   tree fork_kind = build_int_cst (unsigned_type_node, IFN_UNIQUE_OACC_FORK);
   tree join_kind = build_int_cst (unsigned_type_node, IFN_UNIQUE_OACC_JOIN);
 
+  gcc_assert (count);
   for (unsigned done = 1; count; count--, done++)
     {
       gimple_seq fork_seq = NULL;
@@ -13674,6 +13673,7 @@ grid_expand_target_grid_body (struct omp_region *target)
   DECL_INITIAL (kern_fndecl) = fniniblock;
   push_struct_function (kern_fndecl);
   cfun->function_end_locus = gimple_location (tgt_stmt);
+  init_tree_ssa (cfun);
   pop_cfun ();
 
   tree old_parm_decl = DECL_ARGUMENTS (kern_fndecl);
@@ -13681,6 +13681,9 @@ grid_expand_target_grid_body (struct omp_region *target)
   tree new_parm_decl = copy_node (DECL_ARGUMENTS (kern_fndecl));
   DECL_CONTEXT (new_parm_decl) = kern_fndecl;
   DECL_ARGUMENTS (kern_fndecl) = new_parm_decl;
+  gcc_assert (VOID_TYPE_P (TREE_TYPE (DECL_RESULT (kern_fndecl))));
+  DECL_RESULT (kern_fndecl) = copy_node (DECL_RESULT (kern_fndecl));
+  DECL_CONTEXT (DECL_RESULT (kern_fndecl)) = kern_fndecl;
   struct function *kern_cfun = DECL_STRUCT_FUNCTION (kern_fndecl);
   kern_cfun->curr_properties = cfun->curr_properties;
 
@@ -19331,10 +19334,8 @@ oacc_loop_process (oacc_loop *loop)
 
       oacc_loop_xform_loop (loop->head_end, loop->ifns, mask_arg, chunk_arg);
 
-      for (ix = 0; ix != GOMP_DIM_MAX && loop->heads[ix]; ix++)
+      for (ix = 0; ix != GOMP_DIM_MAX && mask; ix++)
 	{
-	  gcc_assert (mask);
-
 	  while (!(GOMP_DIM_MASK (dim) & mask))
 	    dim++;
 

@@ -6851,7 +6851,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 		tree fn = TREE_OPERAND (postfix_expression, 1);
 
 		if (processing_template_decl
-		    && (type_dependent_expression_p (instance)
+		    && (type_dependent_object_expression_p (instance)
 			|| (!BASELINK_P (fn)
 			    && TREE_CODE (fn) != FIELD_DECL)
 			|| type_dependent_expression_p (fn)
@@ -7186,8 +7186,9 @@ cp_parser_postfix_dot_deref_expression (cp_parser *parser,
   if (token_type == CPP_DEREF)
     postfix_expression = build_x_arrow (location, postfix_expression,
 					tf_warning_or_error);
-  /* Check to see whether or not the expression is type-dependent.  */
-  dependent_p = type_dependent_expression_p (postfix_expression);
+  /* Check to see whether or not the expression is type-dependent and
+     not the current instantiation.  */
+  dependent_p = type_dependent_object_expression_p (postfix_expression);
   /* The identifier following the `->' or `.' is not qualified.  */
   parser->scope = NULL_TREE;
   parser->qualifying_scope = NULL_TREE;
@@ -7207,18 +7208,15 @@ cp_parser_postfix_dot_deref_expression (cp_parser *parser,
 	 underlying type here.  */
       scope = non_reference (scope);
       /* The type of the POSTFIX_EXPRESSION must be complete.  */
-      if (scope == unknown_type_node)
-	{
-	  error_at (location, "%qE does not have class type",
-		    postfix_expression.get_value ());
-	  scope = NULL_TREE;
-	}
       /* Unlike the object expression in other contexts, *this is not
 	 required to be of complete type for purposes of class member
 	 access (5.2.5) outside the member function body.  */
-      else if (postfix_expression != current_class_ref
-	       && !(processing_template_decl && scope == current_class_type))
-	scope = complete_type_or_else (scope, NULL_TREE);
+      if (postfix_expression != current_class_ref
+	  && !(processing_template_decl
+	       && current_class_type
+	       && (same_type_ignoring_top_level_qualifiers_p
+		   (scope, current_class_type))))
+	scope = complete_type_or_else (scope, postfix_expression);
       /* Let the name lookup machinery know that we are processing a
 	 class member access expression.  */
       parser->context->object_type = scope;
@@ -10951,7 +10949,7 @@ cp_parser_selection_statement (cp_parser* parser, bool *if_p,
 		   statement which does have an else clause.  We warn
 		   about the potential ambiguity.  */
 		if (nested_if)
-		  warning_at (EXPR_LOCATION (statement), OPT_Wparentheses,
+		  warning_at (EXPR_LOCATION (statement), OPT_Wdangling_else,
 			      "suggest explicit braces to avoid ambiguous"
 			      " %<else%>");
 		if (warn_duplicated_cond)
@@ -10978,7 +10976,7 @@ cp_parser_selection_statement (cp_parser* parser, bool *if_p,
 	    in_statement = parser->in_statement;
 	    parser->in_switch_statement_p = true;
 	    parser->in_statement |= IN_SWITCH_STMT;
-	    cp_parser_implicitly_scoped_statement (parser, NULL,
+	    cp_parser_implicitly_scoped_statement (parser, if_p,
 						   guard_tinfo);
 	    parser->in_switch_statement_p = in_switch_statement_p;
 	    parser->in_statement = in_statement;
@@ -13793,8 +13791,9 @@ cp_parser_operator (cp_parser* parser)
 	    /* Consume the `[' token.  */
 	    cp_lexer_consume_token (parser->lexer);
 	    /* Look for the `]' token.  */
-	    end_loc = cp_parser_require (parser, CPP_CLOSE_SQUARE,
-                                         RT_CLOSE_SQUARE)->location;
+	    if (cp_token *close_token
+		= cp_parser_require (parser, CPP_CLOSE_SQUARE, RT_CLOSE_SQUARE))
+	      end_loc = close_token->location;
 	    id = ansi_opname (op == NEW_EXPR
 			      ? VEC_NEW_EXPR : VEC_DELETE_EXPR);
 	  }
@@ -14837,11 +14836,11 @@ cp_parser_template_id (cp_parser *parser,
   /* If we find the sequence `[:' after a template-name, it's probably
      a digraph-typo for `< ::'. Substitute the tokens and check if we can
      parse correctly the argument list.  */
-  next_token = cp_lexer_peek_token (parser->lexer);
-  next_token_2 = cp_lexer_peek_nth_token (parser->lexer, 2);
-  if (next_token->type == CPP_OPEN_SQUARE
+  if (((next_token = cp_lexer_peek_token (parser->lexer))->type
+       == CPP_OPEN_SQUARE)
       && next_token->flags & DIGRAPH
-      && next_token_2->type == CPP_COLON
+      && ((next_token_2 = cp_lexer_peek_nth_token (parser->lexer, 2))->type
+	  == CPP_COLON)
       && !(next_token_2->flags & PREV_WHITE))
     {
       cp_parser_parse_tentatively (parser);
@@ -21656,6 +21655,8 @@ cp_parser_class_head (cp_parser* parser,
   if (class_key == none_type)
     return error_mark_node;
 
+  location_t class_head_start_location = input_location;
+
   /* Parse the attributes.  */
   attributes = cp_parser_attributes_opt (parser);
 
@@ -21872,8 +21873,20 @@ cp_parser_class_head (cp_parser* parser,
       && parser->num_template_parameter_lists == 0
       && template_id_p)
     {
-      error_at (type_start_token->location,
-		"an explicit specialization must be preceded by %<template <>%>");
+      /* Build a location of this form:
+           struct typename <ARGS>
+           ^~~~~~~~~~~~~~~~~~~~~~
+         with caret==start at the start token, and
+         finishing at the end of the type.  */
+      location_t reported_loc
+        = make_location (class_head_start_location,
+                         class_head_start_location,
+                         get_finish (type_start_token->location));
+      rich_location richloc (line_table, reported_loc);
+      richloc.add_fixit_insert (class_head_start_location, "template <> ");
+      error_at_rich_loc
+        (&richloc,
+         "an explicit specialization must be preceded by %<template <>%>");
       invalid_explicit_specialization_p = true;
       /* Take the same action that would have been taken by
 	 cp_parser_explicit_specialization.  */
@@ -24798,24 +24811,11 @@ cp_parser_lookup_name (cp_parser *parser, tree name,
 	decl = NULL_TREE;
 
       if (!decl)
-	{
-	  /* Look it up in the enclosing context.  */
-	  decl = lookup_name_real (name, tag_type != none_type,
-				   /*nonclass=*/0,
-				   /*block_p=*/true, is_namespace, 0);
-	  /* DR 141 says when looking for a template-name after -> or ., only
-	     consider class templates.  We need to fix our handling of
-	     dependent expressions to implement that properly, but for now
-	     let's ignore namespace-scope function templates.  */
-	  if (decl && is_template && !DECL_TYPE_TEMPLATE_P (decl))
-	    {
-	      tree d = decl;
-	      if (is_overloaded_fn (d))
-		d = get_first_fn (d);
-	      if (DECL_P (d) && !DECL_CLASS_SCOPE_P (d))
-		decl = NULL_TREE;
-	    }
-	}
+	/* Look it up in the enclosing context.  DR 141: When looking for a
+	   template-name after -> or ., only consider class templates.  */
+	decl = lookup_name_real (name, tag_type != none_type || is_template,
+				 /*nonclass=*/0,
+				 /*block_p=*/true, is_namespace, 0);
       if (object_type == unknown_type_node)
 	/* The object is type-dependent, so we can't look anything up; we used
 	   this to get the DR 141 behavior.  */
@@ -32261,7 +32261,7 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
   cp_parser_skip_to_pragma_eol (parser, pragma_tok);
 
   if (finish_p)
-    return finish_omp_clauses (clauses, false);
+    return finish_omp_clauses (clauses, C_ORT_ACC);
 
   return clauses;
 }
@@ -32580,9 +32580,9 @@ cp_parser_omp_all_clauses (cp_parser *parser, omp_clause_mask mask,
   if (finish_p)
     {
       if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_UNIFORM)) != 0)
-	return finish_omp_clauses (clauses, false, true);
+	return finish_omp_clauses (clauses, C_ORT_OMP_DECLARE_SIMD);
       else
-	return finish_omp_clauses (clauses, true);
+	return finish_omp_clauses (clauses, C_ORT_OMP);
     }
   return clauses;
 }
@@ -33657,7 +33657,7 @@ cp_parser_omp_for_loop (cp_parser *parser, enum tree_code code, tree clauses,
 	      else
 		c = build_omp_clause (loc, OMP_CLAUSE_LASTPRIVATE);
 	      OMP_CLAUSE_DECL (c) = add_private_clause;
-	      c = finish_omp_clauses (c, true);
+	      c = finish_omp_clauses (c, C_ORT_OMP);
 	      if (c)
 		{
 		  OMP_CLAUSE_CHAIN (c) = clauses;
@@ -33809,7 +33809,7 @@ cp_omp_split_clauses (location_t loc, enum tree_code code,
   c_omp_split_clauses (loc, code, mask, clauses, cclauses);
   for (i = 0; i < C_OMP_CLAUSE_SPLIT_COUNT; i++)
     if (cclauses[i])
-      cclauses[i] = finish_omp_clauses (cclauses[i], true);
+      cclauses[i] = finish_omp_clauses (cclauses[i], C_ORT_OMP);
 }
 
 /* OpenMP 4.0:
@@ -35092,7 +35092,7 @@ cp_parser_oacc_cache (cp_parser *parser, cp_token *pragma_tok)
   tree stmt, clauses;
 
   clauses = cp_parser_omp_var_list (parser, OMP_CLAUSE__CACHE_, NULL_TREE);
-  clauses = finish_omp_clauses (clauses, false);
+  clauses = finish_omp_clauses (clauses, C_ORT_ACC);
 
   cp_parser_require_pragma_eol (parser, cp_lexer_peek_token (parser->lexer));
 
@@ -35419,9 +35419,9 @@ cp_parser_oacc_loop (cp_parser *parser, cp_token *pragma_tok, char *p_name,
     {
       clauses = c_oacc_split_loop_clauses (clauses, cclauses, is_parallel);
       if (*cclauses)
-	*cclauses = finish_omp_clauses (*cclauses, false);
+	*cclauses = finish_omp_clauses (*cclauses, C_ORT_ACC);
       if (clauses)
-	clauses = finish_omp_clauses (clauses, false);
+	clauses = finish_omp_clauses (clauses, C_ORT_ACC);
     }
 
   tree block = begin_omp_structured_block ();
@@ -35786,7 +35786,7 @@ cp_parser_omp_declare_target (cp_parser *parser, cp_token *pragma_tok)
     {
       clauses = cp_parser_omp_var_list (parser, OMP_CLAUSE_TO_DECLARE,
 					clauses);
-      clauses = finish_omp_clauses (clauses, true);
+      clauses = finish_omp_clauses (clauses, C_ORT_OMP);
       cp_parser_require_pragma_eol (parser, pragma_tok);
     }
   else
@@ -37726,7 +37726,7 @@ cp_parser_cilk_simd_all_clauses (cp_parser *parser, cp_token *pragma_token)
   if (clauses == error_mark_node)
     return error_mark_node;
   else
-    return finish_omp_clauses (clauses, false, false, true);
+    return finish_omp_clauses (clauses, C_ORT_CILK);
 }
 
 /* Main entry-point for parsing Cilk Plus <#pragma simd> for loops.  */
@@ -37771,7 +37771,7 @@ cp_parser_cilk_for (cp_parser *parser, tree grain, bool *if_p)
   tree clauses = build_omp_clause (EXPR_LOCATION (grain), OMP_CLAUSE_SCHEDULE);
   OMP_CLAUSE_SCHEDULE_KIND (clauses) = OMP_CLAUSE_SCHEDULE_CILKFOR;
   OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (clauses) = grain;
-  clauses = finish_omp_clauses (clauses, false);
+  clauses = finish_omp_clauses (clauses, C_ORT_CILK);
 
   tree ret = cp_parser_omp_for_loop (parser, CILK_FOR, clauses, NULL, if_p);
   if (ret)

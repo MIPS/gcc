@@ -183,11 +183,12 @@ struct tagged_tu_seen_cache {
 static const struct tagged_tu_seen_cache * tagged_tu_seen_base;
 static void free_all_tagged_tu_seen_up_to (const struct tagged_tu_seen_cache *);
 
-/* Do `exp = require_complete_type (exp);' to make sure exp
-   does not have an incomplete type.  (That includes void types.)  */
+/* Do `exp = require_complete_type (loc, exp);' to make sure exp
+   does not have an incomplete type.  (That includes void types.)
+   LOC is the location of the use.  */
 
 tree
-require_complete_type (tree value)
+require_complete_type (location_t loc, tree value)
 {
   tree type = TREE_TYPE (value);
 
@@ -198,23 +199,24 @@ require_complete_type (tree value)
   if (COMPLETE_TYPE_P (type))
     return value;
 
-  c_incomplete_type_error (value, type);
+  c_incomplete_type_error (loc, value, type);
   return error_mark_node;
 }
 
 /* Print an error message for invalid use of an incomplete type.
    VALUE is the expression that was used (or 0 if that isn't known)
-   and TYPE is the type that was invalid.  */
+   and TYPE is the type that was invalid.  LOC is the location for
+   the error.  */
 
 void
-c_incomplete_type_error (const_tree value, const_tree type)
+c_incomplete_type_error (location_t loc, const_tree value, const_tree type)
 {
   /* Avoid duplicate error message.  */
   if (TREE_CODE (type) == ERROR_MARK)
     return;
 
   if (value != 0 && (VAR_P (value) || TREE_CODE (value) == PARM_DECL))
-    error ("%qD has an incomplete type %qT", value, type);
+    error_at (loc, "%qD has an incomplete type %qT", value, type);
   else
     {
     retry:
@@ -228,7 +230,7 @@ c_incomplete_type_error (const_tree value, const_tree type)
 	  break;
 
 	case VOID_TYPE:
-	  error ("invalid use of void expression");
+	  error_at (loc, "invalid use of void expression");
 	  return;
 
 	case ARRAY_TYPE:
@@ -236,13 +238,13 @@ c_incomplete_type_error (const_tree value, const_tree type)
 	    {
 	      if (TYPE_MAX_VALUE (TYPE_DOMAIN (type)) == NULL)
 		{
-		  error ("invalid use of flexible array member");
+		  error_at (loc, "invalid use of flexible array member");
 		  return;
 		}
 	      type = TREE_TYPE (type);
 	      goto retry;
 	    }
-	  error ("invalid use of array with unspecified bounds");
+	  error_at (loc, "invalid use of array with unspecified bounds");
 	  return;
 
 	default:
@@ -250,10 +252,10 @@ c_incomplete_type_error (const_tree value, const_tree type)
 	}
 
       if (TREE_CODE (TYPE_NAME (type)) == IDENTIFIER_NODE)
-	error ("invalid use of undefined type %qT", type);
+	error_at (loc, "invalid use of undefined type %qT", type);
       else
 	/* If this type has a typedef-name, the TYPE_NAME is a TYPE_DECL.  */
-	error ("invalid use of incomplete typedef %qT", type);
+	error_at (loc, "invalid use of incomplete typedef %qT", type);
     }
 }
 
@@ -2117,7 +2119,7 @@ default_conversion (tree exp)
       return error_mark_node;
     }
 
-  exp = require_complete_type (exp);
+  exp = require_complete_type (EXPR_LOC_OR_LOC (exp, input_location), exp);
   if (exp == error_mark_node)
     return error_mark_node;
 
@@ -2334,7 +2336,7 @@ build_component_ref (location_t loc, tree datum, tree component)
     {
       if (!COMPLETE_TYPE_P (type))
 	{
-	  c_incomplete_type_error (NULL_TREE, type);
+	  c_incomplete_type_error (loc, NULL_TREE, type);
 	  return error_mark_node;
 	}
 
@@ -2642,7 +2644,7 @@ build_array_ref (location_t loc, tree array, tree index)
 	       in an inline function.
 	       Hope it doesn't break something else.  */
 	    | TREE_THIS_VOLATILE (array));
-      ret = require_complete_type (rval);
+      ret = require_complete_type (loc, rval);
       protected_set_expr_location (ret, loc);
       if (non_lvalue)
 	ret = non_lvalue_loc (loc, ret);
@@ -3046,7 +3048,8 @@ build_function_call_vec (location_t loc, vec<location_t> arg_loc,
   if (fundecl
       && DECL_BUILT_IN (fundecl)
       && DECL_BUILT_IN_CLASS (fundecl) == BUILT_IN_NORMAL
-      && !check_builtin_function_arguments (fundecl, nargs, argarray))
+      && !check_builtin_function_arguments (loc, arg_loc, fundecl, nargs,
+					    argarray))
     return error_mark_node;
 
   /* Check that the arguments to the function are valid.  */
@@ -3087,7 +3090,7 @@ build_function_call_vec (location_t loc, vec<location_t> arg_loc,
 		 "function with qualified void return type called");
       return result;
     }
-  return require_complete_type (result);
+  return require_complete_type (loc, result);
 }
 
 /* Like build_function_call_vec, but call also resolve_overloaded_builtin.  */
@@ -3238,7 +3241,7 @@ convert_arguments (location_t loc, vec<location_t> arg_loc, tree typelist,
       val = c_fully_fold (val, false, NULL);
       STRIP_TYPE_NOPS (val);
 
-      val = require_complete_type (val);
+      val = require_complete_type (ploc, val);
 
       if (type != 0)
 	{
@@ -3488,8 +3491,8 @@ parser_build_unary_op (location_t loc, enum tree_code code, struct c_expr arg)
     {
       result.value = build_unary_op (loc, code, arg.value, 0);
 
-  if (TREE_OVERFLOW_P (result.value) && !TREE_OVERFLOW_P (arg.value))
-    overflow_warning (loc, result.value);
+      if (TREE_OVERFLOW_P (result.value) && !TREE_OVERFLOW_P (arg.value))
+	overflow_warning (loc, result.value);
     }
 
   /* We are typically called when parsing a prefix token at LOC acting on
@@ -3530,7 +3533,12 @@ parser_build_binary_op (location_t location, enum tree_code code,
   result.original_type = NULL;
 
   if (TREE_CODE (result.value) == ERROR_MARK)
-    return result;
+    {
+      set_c_expr_source_range (&result,
+			       arg1.get_start (),
+			       arg2.get_finish ());
+      return result;
+    }
 
   if (location != UNKNOWN_LOCATION)
     protected_set_expr_location (result.value, location);
@@ -4046,7 +4054,7 @@ build_unary_op (location_t location,
     arg = remove_c_maybe_const_expr (arg);
 
   if (code != ADDR_EXPR)
-    arg = require_complete_type (arg);
+    arg = require_complete_type (location, arg);
 
   typecode = TREE_CODE (TREE_TYPE (arg));
   if (typecode == ERROR_MARK)
@@ -5267,7 +5275,7 @@ build_c_cast (location_t loc, tree type, tree expr)
 
   if (!VOID_TYPE_P (type))
     {
-      value = require_complete_type (value);
+      value = require_complete_type (loc, value);
       if (value == error_mark_node)
 	return error_mark_node;
     }
@@ -5537,7 +5545,7 @@ build_modify_expr (location_t location, tree lhs, tree lhs_origtype,
   bool is_atomic_op;
 
   /* Types that aren't fully specified cannot be used in assignments.  */
-  lhs = require_complete_type (lhs);
+  lhs = require_complete_type (location, lhs);
 
   /* Avoid duplicate error messages from operands that had errors.  */
   if (TREE_CODE (lhs) == ERROR_MARK || TREE_CODE (rhs) == ERROR_MARK)
@@ -5871,16 +5879,21 @@ error_init (location_t loc, const char *gmsgid)
    component name is taken from the spelling stack.  */
 
 static void
-pedwarn_init (location_t location, int opt, const char *gmsgid)
+pedwarn_init (location_t loc, int opt, const char *gmsgid)
 {
   char *ofwhat;
   bool warned;
 
+  /* Use the location where a macro was expanded rather than where
+     it was defined to make sure macros defined in system headers
+     but used incorrectly elsewhere are diagnosed.  */
+  source_location exploc = expansion_point_location_if_in_system_header (loc);
+
   /* The gmsgid may be a format string with %< and %>. */
-  warned = pedwarn (location, opt, gmsgid);
+  warned = pedwarn (exploc, opt, gmsgid);
   ofwhat = print_spelling ((char *) alloca (spelling_length () + 1));
   if (*ofwhat && warned)
-    inform (location, "(near initialization for %qs)", ofwhat);
+    inform (exploc, "(near initialization for %qs)", ofwhat);
 }
 
 /* Issue a warning for a bad initializer component.
@@ -5895,11 +5908,16 @@ warning_init (location_t loc, int opt, const char *gmsgid)
   char *ofwhat;
   bool warned;
 
+  /* Use the location where a macro was expanded rather than where
+     it was defined to make sure macros defined in system headers
+     but used incorrectly elsewhere are diagnosed.  */
+  source_location exploc = expansion_point_location_if_in_system_header (loc);
+
   /* The gmsgid may be a format string with %< and %>. */
-  warned = warning_at (loc, opt, gmsgid);
+  warned = warning_at (exploc, opt, gmsgid);
   ofwhat = print_spelling ((char *) alloca (spelling_length () + 1));
   if (*ofwhat && warned)
-    inform (loc, "(near initialization for %qs)", ofwhat);
+    inform (exploc, "(near initialization for %qs)", ofwhat);
 }
 
 /* If TYPE is an array type and EXPR is a parenthesized string
@@ -6132,7 +6150,7 @@ convert_for_assignment (location_t location, location_t expr_loc, tree type,
       error_at (location, "void value not ignored as it ought to be");
       return error_mark_node;
     }
-  rhs = require_complete_type (rhs);
+  rhs = require_complete_type (location, rhs);
   if (rhs == error_mark_node)
     return error_mark_node;
 
@@ -11066,7 +11084,8 @@ build_binary_op (location_t location, enum tree_code code,
       else if (code0 == POINTER_TYPE && null_pointer_constant_p (orig_op1))
 	{
 	  if (TREE_CODE (op0) == ADDR_EXPR
-	      && decl_with_nonnull_addr_p (TREE_OPERAND (op0, 0)))
+	      && decl_with_nonnull_addr_p (TREE_OPERAND (op0, 0))
+	      && !from_macro_expansion_at (location))
 	    {
 	      if (code == EQ_EXPR)
 		warning_at (location,
@@ -11086,7 +11105,8 @@ build_binary_op (location_t location, enum tree_code code,
       else if (code1 == POINTER_TYPE && null_pointer_constant_p (orig_op0))
 	{
 	  if (TREE_CODE (op1) == ADDR_EXPR
-	      && decl_with_nonnull_addr_p (TREE_OPERAND (op1, 0)))
+	      && decl_with_nonnull_addr_p (TREE_OPERAND (op1, 0))
+	      && !from_macro_expansion_at (location))
 	    {
 	      if (code == EQ_EXPR)
 		warning_at (location,
@@ -12496,8 +12516,7 @@ c_find_omp_placeholder_r (tree *tp, int *, void *data)
    Remove any elements from the list that are invalid.  */
 
 tree
-c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd,
-		      bool is_cilk)
+c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 {
   bitmap_head generic_head, firstprivate_head, lastprivate_head;
   bitmap_head aligned_head, map_head, map_field_head;
@@ -12540,7 +12559,7 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd,
 	  t = OMP_CLAUSE_DECL (c);
 	  if (TREE_CODE (t) == TREE_LIST)
 	    {
-	      if (handle_omp_array_sections (c, is_omp))
+	      if (handle_omp_array_sections (c, ort & C_ORT_OMP))
 		{
 		  remove = true;
 		  break;
@@ -12548,7 +12567,7 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd,
 
 	      t = OMP_CLAUSE_DECL (c);
 	    }
-	  t = require_complete_type (t);
+	  t = require_complete_type (OMP_CLAUSE_LOCATION (c), t);
 	  if (t == error_mark_node)
 	    {
 	      remove = true;
@@ -12768,10 +12787,10 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd,
 	  goto check_dup_generic;
 
 	case OMP_CLAUSE_LINEAR:
-	  if (!declare_simd)
+	  if (ort != C_ORT_OMP_DECLARE_SIMD)
 	    need_implicitly_determined = true;
 	  t = OMP_CLAUSE_DECL (c);
-	  if (!declare_simd
+	  if (ort != C_ORT_OMP_DECLARE_SIMD
 	      && OMP_CLAUSE_LINEAR_KIND (c) != OMP_CLAUSE_LINEAR_DEFAULT)
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),
@@ -12779,7 +12798,7 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd,
 			"clause on %<simd%> or %<for%> constructs");
 	      OMP_CLAUSE_LINEAR_KIND (c) = OMP_CLAUSE_LINEAR_DEFAULT;
 	    }
-	  if (is_cilk)
+	  if (ort & C_ORT_CILK)
 	    {
 	      if (!INTEGRAL_TYPE_P (TREE_TYPE (t))
 		  && !SCALAR_FLOAT_TYPE_P (TREE_TYPE (t))
@@ -12805,7 +12824,7 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd,
 		  break;
 		}
 	    }
-	  if (declare_simd)
+	  if (ort == C_ORT_OMP_DECLARE_SIMD)
 	    {
 	      tree s = OMP_CLAUSE_LINEAR_STEP (c);
 	      if (TREE_CODE (s) == PARM_DECL)
@@ -12984,7 +13003,7 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd,
 	    }
 	  if (TREE_CODE (t) == TREE_LIST)
 	    {
-	      if (handle_omp_array_sections (c, is_omp))
+	      if (handle_omp_array_sections (c, ort & C_ORT_OMP))
 		remove = true;
 	      break;
 	    }
@@ -13007,7 +13026,7 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd,
 	  t = OMP_CLAUSE_DECL (c);
 	  if (TREE_CODE (t) == TREE_LIST)
 	    {
-	      if (handle_omp_array_sections (c, is_omp))
+	      if (handle_omp_array_sections (c, ort & C_ORT_OMP))
 		remove = true;
 	      else
 		{
@@ -13054,7 +13073,7 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd,
 	      break;
 	    }
 	  if (TREE_CODE (t) == COMPONENT_REF
-	      && is_omp
+	      && (ort & C_ORT_OMP)
 	      && OMP_CLAUSE_CODE (c) != OMP_CLAUSE__CACHE_)
 	    {
 	      if (DECL_BIT_FIELD (TREE_OPERAND (t, 1)))
@@ -13359,7 +13378,7 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd,
 
 	  if (need_complete)
 	    {
-	      t = require_complete_type (t);
+	      t = require_complete_type (OMP_CLAUSE_LOCATION (c), t);
 	      if (t == error_mark_node)
 		remove = true;
 	    }

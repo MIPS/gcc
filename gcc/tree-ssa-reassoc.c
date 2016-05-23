@@ -732,7 +732,7 @@ eliminate_duplicate_pair (enum tree_code opcode,
 
 	  if (ops->length () == 2)
 	    {
-	      ops->create (0);
+	      ops->truncate (0);
 	      add_to_ops_vec (ops, build_zero_cst (TREE_TYPE (last->op)));
 	      *all_done = true;
 	    }
@@ -1755,6 +1755,83 @@ eliminate_redundant_comparison (enum tree_code opcode,
 
   return false;
 }
+
+/* Transform repeated addition of same values into multiply with
+   constant.  */
+static bool
+transform_add_to_multiply (gimple *stmt, vec<operand_entry *> *ops)
+{
+  operand_entry *oe;
+  tree op = NULL_TREE;
+  int j;
+  int i, start = -1, end = 0, count = 0;
+  vec<std::pair <int, int> > indxs = vNULL;
+  bool changed = false;
+
+  if (!INTEGRAL_TYPE_P (TREE_TYPE ((*ops)[0]->op))
+      && (!SCALAR_FLOAT_TYPE_P (TREE_TYPE ((*ops)[0]->op))
+	  || !flag_unsafe_math_optimizations))
+    return false;
+
+  /* Look for repeated operands.  */
+  FOR_EACH_VEC_ELT (*ops, i, oe)
+    {
+      if (start == -1)
+	{
+	  count = 1;
+	  op = oe->op;
+	  start = i;
+	}
+      else if (operand_equal_p (oe->op, op, 0))
+	{
+	  count++;
+	  end = i;
+	}
+      else
+	{
+	  if (count > 1)
+	    indxs.safe_push (std::make_pair (start, end));
+	  count = 1;
+	  op = oe->op;
+	  start = i;
+	}
+    }
+
+  if (count > 1)
+    indxs.safe_push (std::make_pair (start, end));
+
+  for (j = indxs.length () - 1; j >= 0; --j)
+    {
+      /* Convert repeated operand addition to multiplication.  */
+      start = indxs[j].first;
+      end = indxs[j].second;
+      op = (*ops)[start]->op;
+      count = end - start + 1;
+      for (i = end; i >= start; --i)
+	ops->unordered_remove (i);
+      tree tmp = make_ssa_name (TREE_TYPE (op));
+      tree cst = build_int_cst (integer_type_node, count);
+      gimple *def_stmt = SSA_NAME_DEF_STMT (op);
+      gassign *mul_stmt
+	= gimple_build_assign (tmp, MULT_EXPR,
+			       op, fold_convert (TREE_TYPE (op), cst));
+      if (gimple_code (def_stmt) == GIMPLE_NOP
+	  || gimple_bb (stmt) != gimple_bb (def_stmt))
+	{
+	  gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
+	  gimple_set_uid (mul_stmt, gimple_uid (stmt));
+	  gsi_insert_before (&gsi, mul_stmt, GSI_NEW_STMT);
+	}
+      else
+	insert_stmt_after (mul_stmt, def_stmt);
+      gimple_set_visited (mul_stmt, true);
+      add_to_ops_vec (ops, tmp);
+      changed = true;
+    }
+
+  return changed;
+}
+
 
 /* Perform various identities and other optimizations on the list of
    operand entries, stored in OPS.  The tree code for the binary
@@ -4252,6 +4329,45 @@ acceptable_pow_call (gimple *stmt, tree *base, HOST_WIDE_INT *exponent)
   return true;
 }
 
+/* Try to derive and add operand entry for OP to *OPS.  Return false if
+   unsuccessful.  */
+
+static bool
+try_special_add_to_ops (vec<operand_entry *> *ops,
+			enum tree_code code,
+			tree op, gimple* def_stmt)
+{
+  tree base = NULL_TREE;
+  HOST_WIDE_INT exponent = 0;
+
+  if (TREE_CODE (op) != SSA_NAME)
+    return false;
+
+  if (code == MULT_EXPR
+      && acceptable_pow_call (def_stmt, &base, &exponent))
+    {
+      add_repeat_to_ops_vec (ops, base, exponent);
+      gimple_set_visited (def_stmt, true);
+      return true;
+    }
+  else if (code == MULT_EXPR
+	   && is_gimple_assign (def_stmt)
+	   && gimple_assign_rhs_code (def_stmt) == NEGATE_EXPR
+	   && !HONOR_SNANS (TREE_TYPE (op))
+	   && (!HONOR_SIGNED_ZEROS (TREE_TYPE (op))
+	       || !COMPLEX_FLOAT_TYPE_P (TREE_TYPE (op))))
+    {
+      tree rhs1 = gimple_assign_rhs1 (def_stmt);
+      tree cst = build_minus_one_cst (TREE_TYPE (op));
+      add_to_ops_vec (ops, rhs1);
+      add_to_ops_vec (ops, cst);
+      gimple_set_visited (def_stmt, true);
+      return true;
+    }
+
+  return false;
+}
+
 /* Recursively linearize a binary expression that is the RHS of STMT.
    Place the operands of the expression tree in the vector named OPS.  */
 
@@ -4266,8 +4382,6 @@ linearize_expr_tree (vec<operand_entry *> *ops, gimple *stmt,
   bool binrhsisreassoc = false;
   enum tree_code rhscode = gimple_assign_rhs_code (stmt);
   struct loop *loop = loop_containing_stmt (stmt);
-  tree base = NULL_TREE;
-  HOST_WIDE_INT exponent = 0;
 
   if (set_visited)
     gimple_set_visited (stmt, true);
@@ -4303,24 +4417,10 @@ linearize_expr_tree (vec<operand_entry *> *ops, gimple *stmt,
 
       if (!binrhsisreassoc)
 	{
-	  if (rhscode == MULT_EXPR
-	      && TREE_CODE (binrhs) == SSA_NAME
-	      && acceptable_pow_call (binrhsdef, &base, &exponent))
-	    {
-	      add_repeat_to_ops_vec (ops, base, exponent);
-	      gimple_set_visited (binrhsdef, true);
-	    }
-	  else
+	  if (!try_special_add_to_ops (ops, rhscode, binrhs, binrhsdef))
 	    add_to_ops_vec (ops, binrhs);
 
-	  if (rhscode == MULT_EXPR
-	      && TREE_CODE (binlhs) == SSA_NAME
-	      && acceptable_pow_call (binlhsdef, &base, &exponent))
-	    {
-	      add_repeat_to_ops_vec (ops, base, exponent);
-	      gimple_set_visited (binlhsdef, true);
-	    }
-	  else
+	  if (!try_special_add_to_ops (ops, rhscode, binlhs, binlhsdef))
 	    add_to_ops_vec (ops, binlhs);
 
 	  return;
@@ -4360,14 +4460,7 @@ linearize_expr_tree (vec<operand_entry *> *ops, gimple *stmt,
   linearize_expr_tree (ops, SSA_NAME_DEF_STMT (binlhs),
 		       is_associative, set_visited);
 
-  if (rhscode == MULT_EXPR
-      && TREE_CODE (binrhs) == SSA_NAME
-      && acceptable_pow_call (SSA_NAME_DEF_STMT (binrhs), &base, &exponent))
-    {
-      add_repeat_to_ops_vec (ops, base, exponent);
-      gimple_set_visited (SSA_NAME_DEF_STMT (binrhs), true);
-    }
-  else
+  if (!try_special_add_to_ops (ops, rhscode, binrhs, binrhsdef))
     add_to_ops_vec (ops, binrhs);
 }
 
@@ -5110,6 +5203,10 @@ reassociate_bb (basic_block bb)
 		  optimize_ops_list (rhs_code, &ops);
 		}
 
+	      if (rhs_code == PLUS_EXPR
+		  && transform_add_to_multiply (stmt, &ops))
+		ops.qsort (sort_by_operand_rank);
+
 	      if (rhs_code == BIT_IOR_EXPR || rhs_code == BIT_AND_EXPR)
 		{
 		  if (is_vector)
@@ -5125,6 +5222,24 @@ reassociate_bb (basic_block bb)
 		  if (reassoc_insert_powi_p
 		      && flag_unsafe_math_optimizations)
 		    powi_result = attempt_builtin_powi (stmt, &ops);
+		}
+
+	      operand_entry *last;
+	      bool negate_result = false;
+	      if (ops.length () > 1
+		  && rhs_code == MULT_EXPR)
+		{
+		  last = ops.last ();
+		  if (((TREE_CODE (last->op) == INTEGER_CST
+			&& integer_minus_onep (last->op))
+		       || real_minus_onep (last->op))
+		      && !HONOR_SNANS (TREE_TYPE (lhs))
+		      && (!HONOR_SIGNED_ZEROS (TREE_TYPE (lhs))
+			  || !COMPLEX_FLOAT_TYPE_P (TREE_TYPE (lhs))))
+		    {
+		      ops.pop ();
+		      negate_result = true;
+		    }
 		}
 
 	      /* If the operand vector is now empty, all operands were 
@@ -5188,6 +5303,18 @@ reassociate_bb (basic_block bb)
 		      gimple_set_uid (mul_stmt, gimple_uid (stmt));
 		      gsi_insert_after (&gsi, mul_stmt, GSI_NEW_STMT);
 		    }
+		}
+
+	      if (negate_result)
+		{
+		  stmt = SSA_NAME_DEF_STMT (lhs);
+		  tree tmp = make_ssa_name (TREE_TYPE (lhs));
+		  gimple_set_lhs (stmt, tmp);
+		  gassign *neg_stmt = gimple_build_assign (lhs, NEGATE_EXPR,
+							   tmp);
+		  gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
+		  gsi_insert_after (&gsi, neg_stmt, GSI_NEW_STMT);
+		  update_stmt (stmt);
 		}
 	    }
 	}

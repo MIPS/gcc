@@ -2939,7 +2939,7 @@ ctor_to_vec (tree ctor)
    make_unsigned_type).  */
 
 tree
-size_in_bytes (const_tree type)
+size_in_bytes_loc (location_t loc, const_tree type)
 {
   tree t;
 
@@ -2951,7 +2951,7 @@ size_in_bytes (const_tree type)
 
   if (t == 0)
     {
-      lang_hooks.types.incomplete_type_error (NULL_TREE, type);
+      lang_hooks.types.incomplete_type_error (loc, NULL_TREE, type);
       return size_zero_node;
     }
 
@@ -5418,7 +5418,7 @@ free_lang_data_in_decl (tree decl)
 	      DECL_INITIAL (decl) = error_mark_node;
 	    }
 	}
-      if (gimple_has_body_p (decl))
+      if (gimple_has_body_p (decl) || (node && node->thunk.thunk_p))
 	{
 	  tree t;
 
@@ -7915,9 +7915,12 @@ add_expr (const_tree t, inchash::hash &hstate, unsigned int flags)
 	       && integer_zerop (TREE_OPERAND (t, 1)))
 	inchash::add_expr (TREE_OPERAND (TREE_OPERAND (t, 0), 0),
 			   hstate, flags);
+      /* Don't ICE on FE specific trees, or their arguments etc.
+	 during operand_equal_p hash verification.  */
+      else if (!IS_EXPR_CODE_CLASS (tclass))
+	gcc_assert (flags & OEP_HASH_CHECK);
       else
 	{
-	  gcc_assert (IS_EXPR_CODE_CLASS (tclass));
 	  unsigned int sflags = flags;
 
 	  hstate.add_object (code);
@@ -7965,6 +7968,13 @@ add_expr (const_tree t, inchash::hash &hstate, unsigned int flags)
 	      if (CALL_EXPR_FN (t) == NULL_TREE)
 		hstate.add_int (CALL_EXPR_IFN (t));
 	      break;
+
+	    case TARGET_EXPR:
+	      /* For TARGET_EXPR, just hash on the TARGET_EXPR_SLOT.
+		 Usually different TARGET_EXPRs just should use
+		 different temporaries in their slots.  */
+	      inchash::add_expr (TARGET_EXPR_SLOT (t), hstate, flags);
+	      return;
 
 	    default:
 	      break;
@@ -8774,6 +8784,7 @@ build_complex_type (tree component_type)
   t = make_node (COMPLEX_TYPE);
 
   TREE_TYPE (t) = TYPE_MAIN_VARIANT (component_type);
+  SET_TYPE_MODE (t, GET_MODE_COMPLEX_MODE (TYPE_MODE (component_type)));
 
   /* If we already have such a type, use the old one.  */
   hstate.add_object (TYPE_HASH (component_type));
@@ -10440,6 +10451,11 @@ set_call_expr_flags (tree decl, int flags)
   if (flags & ECF_LEAF)
     DECL_ATTRIBUTES (decl) = tree_cons (get_identifier ("leaf"),
 					NULL, DECL_ATTRIBUTES (decl));
+  if (flags & ECF_RET1)
+    DECL_ATTRIBUTES (decl)
+      = tree_cons (get_identifier ("fn spec"),
+		   build_tree_list (NULL_TREE, build_string (1, "1")),
+		   DECL_ATTRIBUTES (decl));
   if ((flags & ECF_TM_PURE) && flag_tm)
     apply_tm_attr (decl, get_identifier ("transaction_pure"));
   /* Looping const or pure is implied by noreturn.
@@ -10475,13 +10491,20 @@ build_common_builtin_nodes (void)
   tree tmp, ftype;
   int ecf_flags;
 
-  if (!builtin_decl_explicit_p (BUILT_IN_UNREACHABLE))
+  if (!builtin_decl_explicit_p (BUILT_IN_UNREACHABLE)
+      || !builtin_decl_explicit_p (BUILT_IN_ABORT))
     {
       ftype = build_function_type (void_type_node, void_list_node);
-      local_define_builtin ("__builtin_unreachable", ftype, BUILT_IN_UNREACHABLE,
-			    "__builtin_unreachable",
-			    ECF_NOTHROW | ECF_LEAF | ECF_NORETURN
-			    | ECF_CONST);
+      if (!builtin_decl_explicit_p (BUILT_IN_UNREACHABLE))
+	local_define_builtin ("__builtin_unreachable", ftype,
+			      BUILT_IN_UNREACHABLE,
+			      "__builtin_unreachable",
+			      ECF_NOTHROW | ECF_LEAF | ECF_NORETURN
+			      | ECF_CONST);
+      if (!builtin_decl_explicit_p (BUILT_IN_ABORT))
+	local_define_builtin ("__builtin_abort", ftype, BUILT_IN_ABORT,
+			      "abort",
+			      ECF_LEAF | ECF_NORETURN | ECF_CONST);
     }
 
   if (!builtin_decl_explicit_p (BUILT_IN_MEMCPY)
@@ -10493,10 +10516,10 @@ build_common_builtin_nodes (void)
 
       if (!builtin_decl_explicit_p (BUILT_IN_MEMCPY))
 	local_define_builtin ("__builtin_memcpy", ftype, BUILT_IN_MEMCPY,
-			      "memcpy", ECF_NOTHROW | ECF_LEAF);
+			      "memcpy", ECF_NOTHROW | ECF_LEAF | ECF_RET1);
       if (!builtin_decl_explicit_p (BUILT_IN_MEMMOVE))
 	local_define_builtin ("__builtin_memmove", ftype, BUILT_IN_MEMMOVE,
-			      "memmove", ECF_NOTHROW | ECF_LEAF);
+			      "memmove", ECF_NOTHROW | ECF_LEAF | ECF_RET1);
     }
 
   if (!builtin_decl_explicit_p (BUILT_IN_MEMCMP))
@@ -10514,15 +10537,19 @@ build_common_builtin_nodes (void)
 					ptr_type_node, integer_type_node,
 					size_type_node, NULL_TREE);
       local_define_builtin ("__builtin_memset", ftype, BUILT_IN_MEMSET,
-			    "memset", ECF_NOTHROW | ECF_LEAF);
+			    "memset", ECF_NOTHROW | ECF_LEAF | ECF_RET1);
     }
+
+  /* If we're checking the stack, `alloca' can throw.  */
+  const int alloca_flags
+    = ECF_MALLOC | ECF_LEAF | (flag_stack_check ? 0 : ECF_NOTHROW);
 
   if (!builtin_decl_explicit_p (BUILT_IN_ALLOCA))
     {
       ftype = build_function_type_list (ptr_type_node,
 					size_type_node, NULL_TREE);
       local_define_builtin ("__builtin_alloca", ftype, BUILT_IN_ALLOCA,
-			    "alloca", ECF_MALLOC | ECF_NOTHROW | ECF_LEAF);
+			    "alloca", alloca_flags);
     }
 
   ftype = build_function_type_list (ptr_type_node, size_type_node,
@@ -10530,14 +10557,7 @@ build_common_builtin_nodes (void)
   local_define_builtin ("__builtin_alloca_with_align", ftype,
 			BUILT_IN_ALLOCA_WITH_ALIGN,
 			"__builtin_alloca_with_align",
-			ECF_MALLOC | ECF_NOTHROW | ECF_LEAF);
-
-  /* If we're checking the stack, `alloca' can throw.  */
-  if (flag_stack_check)
-    {
-      TREE_NOTHROW (builtin_decl_explicit (BUILT_IN_ALLOCA)) = 0;
-      TREE_NOTHROW (builtin_decl_explicit (BUILT_IN_ALLOCA_WITH_ALIGN)) = 0;
-    }
+			alloca_flags);
 
   ftype = build_function_type_list (void_type_node,
 				    ptr_type_node, ptr_type_node,
@@ -13056,9 +13076,28 @@ array_at_struct_end_p (tree ref)
       ref = TREE_OPERAND (ref, 0);
     }
 
+  tree size = NULL;
+
+  if (TREE_CODE (ref) == MEM_REF
+      && TREE_CODE (TREE_OPERAND (ref, 0)) == ADDR_EXPR)
+    {
+      size = TYPE_SIZE (TREE_TYPE (ref));
+      ref = TREE_OPERAND (TREE_OPERAND (ref, 0), 0);
+    }
+
   /* If the reference is based on a declared entity, the size of the array
      is constrained by its given domain.  (Do not trust commons PR/69368).  */
   if (DECL_P (ref)
+      /* Be sure the size of MEM_REF target match.  For example:
+
+	   char buf[10];
+	   struct foo *str = (struct foo *)&buf;
+
+	   str->trailin_array[2] = 1;
+
+	 is valid because BUF allocate enough space.  */
+
+      && (!size || operand_equal_p (DECL_SIZE (ref), size, 0))
       && !(flag_unconstrained_commons
 	   && TREE_CODE (ref) == VAR_DECL && DECL_COMMON (ref)))
     return false;

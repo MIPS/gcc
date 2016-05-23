@@ -542,7 +542,7 @@ gimplify_and_update_call_from_tree (gimple_stmt_iterator *si_p, tree expr)
     }
   else
     {
-      tree tmp = get_initialized_tmp_var (expr, &stmts, NULL);
+      tree tmp = force_gimple_operand (expr, &stmts, false, NULL_TREE);
       new_stmt = gimple_build_assign (lhs, tmp);
       i = gsi_last (stmts);
       gsi_insert_after_without_update (&i, new_stmt,
@@ -3039,10 +3039,25 @@ gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
 		}
 	      if (targets.length () == 1)
 		{
-		  gimple_call_set_fndecl (stmt, targets[0]->decl);
+		  tree fndecl = targets[0]->decl;
+		  gimple_call_set_fndecl (stmt, fndecl);
 		  changed = true;
+		  /* If changing the call to __cxa_pure_virtual
+		     or similar noreturn function, adjust gimple_call_fntype
+		     too.  */
+		  if ((gimple_call_flags (stmt) & ECF_NORETURN)
+		      && VOID_TYPE_P (TREE_TYPE (TREE_TYPE (fndecl)))
+		      && TYPE_ARG_TYPES (TREE_TYPE (fndecl))
+		      && (TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (fndecl)))
+			  == void_type_node))
+		    gimple_call_set_fntype (stmt, TREE_TYPE (fndecl));
 		  /* If the call becomes noreturn, remove the lhs.  */
-		  if (lhs && (gimple_call_flags (stmt) & ECF_NORETURN))
+		  if (lhs
+		      && (gimple_call_flags (stmt) & ECF_NORETURN)
+		      && (VOID_TYPE_P (TREE_TYPE (gimple_call_fntype (stmt)))
+			  || ((TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (lhs)))
+			       == INTEGER_CST)
+			      && !TREE_ADDRESSABLE (TREE_TYPE (lhs)))))
 		    {
 		      if (TREE_CODE (lhs) == SSA_NAME)
 			{
@@ -3525,7 +3540,9 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace, tree (*valueize) (tree))
 {
   bool changed = false;
   gimple *stmt = gsi_stmt (*gsi);
+  bool nowarning = gimple_no_warning_p (stmt);
   unsigned i;
+  fold_defer_overflow_warnings ();
 
   /* First do required canonicalization of [TARGET_]MEM_REF addresses
      after propagation.
@@ -3818,6 +3835,7 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace, tree (*valueize) (tree))
 	}
     }
 
+  fold_undefer_overflow_warnings (changed && !nowarning, stmt, 0);
   return changed;
 }
 

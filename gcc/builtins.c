@@ -3757,20 +3757,7 @@ expand_builtin_memcmp (tree exp, rtx target)
       return convert_to_mode (mode, result, 0);
     }
 
-  result = target;
-  if (! (result != 0
-	 && REG_P (result) && GET_MODE (result) == mode
-	 && REGNO (result) >= FIRST_PSEUDO_REGISTER))
-    result = gen_reg_rtx (mode);
-
-  emit_library_call_value (memcmp_libfunc, result, LCT_PURE,
-			   TYPE_MODE (integer_type_node), 3,
-			   XEXP (arg1_rtx, 0), Pmode,
-			   XEXP (arg2_rtx, 0), Pmode,
-			   convert_to_mode (TYPE_MODE (sizetype), arg3_rtx,
-					    TYPE_UNSIGNED (sizetype)),
-			   TYPE_MODE (sizetype));
-  return result;
+  return NULL_RTX;
 }
 
 /* Expand expression EXP, which is a call to the strcmp builtin.  Return NULL_RTX
@@ -4455,7 +4442,12 @@ expand_builtin_trap (void)
 	add_reg_note (insn, REG_ARGS_SIZE, GEN_INT (stack_pointer_delta));
     }
   else
-    emit_library_call (abort_libfunc, LCT_NORETURN, VOIDmode, 0);
+    {
+      tree fn = builtin_decl_implicit (BUILT_IN_ABORT);
+      tree call_expr = build_call_expr (fn, 0);
+      expand_call (call_expr, NULL_RTX, false);
+    }
+
   emit_barrier ();
 }
 
@@ -5308,6 +5300,90 @@ expand_builtin_atomic_fetch_op (machine_mode mode, tree exp, rtx target,
 				   OPTAB_LIB_WIDEN);
     }
   return ret;
+}
+
+/* Expand IFN_ATOMIC_BIT_TEST_AND_* internal function.  */
+
+void
+expand_ifn_atomic_bit_test_and (gcall *call)
+{
+  tree ptr = gimple_call_arg (call, 0);
+  tree bit = gimple_call_arg (call, 1);
+  tree flag = gimple_call_arg (call, 2);
+  tree lhs = gimple_call_lhs (call);
+  enum memmodel model = MEMMODEL_SYNC_SEQ_CST;
+  machine_mode mode = TYPE_MODE (TREE_TYPE (flag));
+  enum rtx_code code;
+  optab optab;
+  struct expand_operand ops[5];
+
+  gcc_assert (flag_inline_atomics);
+
+  if (gimple_call_num_args (call) == 4)
+    model = get_memmodel (gimple_call_arg (call, 3));
+
+  rtx mem = get_builtin_sync_mem (ptr, mode);
+  rtx val = expand_expr_force_mode (bit, mode);
+
+  switch (gimple_call_internal_fn (call))
+    {
+    case IFN_ATOMIC_BIT_TEST_AND_SET:
+      code = IOR;
+      optab = atomic_bit_test_and_set_optab;
+      break;
+    case IFN_ATOMIC_BIT_TEST_AND_COMPLEMENT:
+      code = XOR;
+      optab = atomic_bit_test_and_complement_optab;
+      break;
+    case IFN_ATOMIC_BIT_TEST_AND_RESET:
+      code = AND;
+      optab = atomic_bit_test_and_reset_optab;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  if (lhs == NULL_TREE)
+    {
+      val = expand_simple_binop (mode, ASHIFT, const1_rtx,
+				 val, NULL_RTX, true, OPTAB_DIRECT);
+      if (code == AND)
+	val = expand_simple_unop (mode, NOT, val, NULL_RTX, true);
+      expand_atomic_fetch_op (const0_rtx, mem, val, code, model, false);
+      return;
+    }
+
+  rtx target = expand_expr (lhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
+  enum insn_code icode = direct_optab_handler (optab, mode);
+  gcc_assert (icode != CODE_FOR_nothing);
+  create_output_operand (&ops[0], target, mode);
+  create_fixed_operand (&ops[1], mem);
+  create_convert_operand_to (&ops[2], val, mode, true);
+  create_integer_operand (&ops[3], model);
+  create_integer_operand (&ops[4], integer_onep (flag));
+  if (maybe_expand_insn (icode, 5, ops))
+    return;
+
+  rtx bitval = val;
+  val = expand_simple_binop (mode, ASHIFT, const1_rtx,
+			     val, NULL_RTX, true, OPTAB_DIRECT);
+  rtx maskval = val;
+  if (code == AND)
+    val = expand_simple_unop (mode, NOT, val, NULL_RTX, true);
+  rtx result = expand_atomic_fetch_op (gen_reg_rtx (mode), mem, val,
+				       code, model, false);
+  if (integer_onep (flag))
+    {
+      result = expand_simple_binop (mode, ASHIFTRT, result, bitval,
+				    NULL_RTX, true, OPTAB_DIRECT);
+      result = expand_simple_binop (mode, AND, result, const1_rtx, target,
+				    true, OPTAB_DIRECT);
+    }
+  else
+    result = expand_simple_binop (mode, AND, result, maskval, target, true,
+				  OPTAB_DIRECT);
+  if (result != target)
+    emit_move_insn (target, result);
 }
 
 /* Expand an atomic clear operation.
@@ -7927,6 +8003,39 @@ fold_builtin_arith_overflow (location_t loc, enum built_in_function fcode,
   return build2_loc (loc, COMPOUND_EXPR, boolean_type_node, store, ovfres);
 }
 
+/* Fold a call to __builtin_FILE to a constant string.  */
+
+static inline tree
+fold_builtin_FILE (location_t loc)
+{
+  if (const char *fname = LOCATION_FILE (loc))
+    return build_string_literal (strlen (fname) + 1, fname);
+
+  return build_string_literal (1, "");
+}
+
+/* Fold a call to __builtin_FUNCTION to a constant string.  */
+
+static inline tree
+fold_builtin_FUNCTION ()
+{
+  if (current_function_decl)
+    {
+      const char *name = IDENTIFIER_POINTER (DECL_NAME (current_function_decl));
+      return build_string_literal (strlen (name) + 1, name);
+    }
+
+  return build_string_literal (1, "");
+}
+
+/* Fold a call to __builtin_LINE to an integer constant.  */
+
+static inline tree
+fold_builtin_LINE (location_t loc, tree type)
+{
+  return build_int_cst (type, LOCATION_LINE (loc));
+}
+
 /* Fold a call to built-in function FNDECL with 0 arguments.
    This function returns NULL_TREE if no simplification was possible.  */
 
@@ -7937,6 +8046,15 @@ fold_builtin_0 (location_t loc, tree fndecl)
   enum built_in_function fcode = DECL_FUNCTION_CODE (fndecl);
   switch (fcode)
     {
+    case BUILT_IN_FILE:
+      return fold_builtin_FILE (loc);
+
+    case BUILT_IN_FUNCTION:
+      return fold_builtin_FUNCTION ();
+
+    case BUILT_IN_LINE:
+      return fold_builtin_LINE (loc, type);
+
     CASE_FLT_FN (BUILT_IN_INF):
     case BUILT_IN_INFD32:
     case BUILT_IN_INFD64:
@@ -9762,42 +9880,19 @@ fold_call_stmt (gcall *stmt, bool ignore)
 void
 set_builtin_user_assembler_name (tree decl, const char *asmspec)
 {
-  tree builtin;
   gcc_assert (TREE_CODE (decl) == FUNCTION_DECL
 	      && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
 	      && asmspec != 0);
 
-  builtin = builtin_decl_explicit (DECL_FUNCTION_CODE (decl));
+  tree builtin = builtin_decl_explicit (DECL_FUNCTION_CODE (decl));
   set_user_assembler_name (builtin, asmspec);
-  switch (DECL_FUNCTION_CODE (decl))
+
+  if (DECL_FUNCTION_CODE (decl) == BUILT_IN_FFS
+      && INT_TYPE_SIZE < BITS_PER_WORD)
     {
-    case BUILT_IN_MEMCPY:
-      init_block_move_fn (asmspec);
-      memcpy_libfunc = set_user_assembler_libfunc ("memcpy", asmspec);
-      break;
-    case BUILT_IN_MEMSET:
-      init_block_clear_fn (asmspec);
-      memset_libfunc = set_user_assembler_libfunc ("memset", asmspec);
-      break;
-    case BUILT_IN_MEMMOVE:
-      memmove_libfunc = set_user_assembler_libfunc ("memmove", asmspec);
-      break;
-    case BUILT_IN_MEMCMP:
-      memcmp_libfunc = set_user_assembler_libfunc ("memcmp", asmspec);
-      break;
-    case BUILT_IN_ABORT:
-      abort_libfunc = set_user_assembler_libfunc ("abort", asmspec);
-      break;
-    case BUILT_IN_FFS:
-      if (INT_TYPE_SIZE < BITS_PER_WORD)
-	{
-	  set_user_assembler_libfunc ("ffs", asmspec);
-	  set_optab_libfunc (ffs_optab, mode_for_size (INT_TYPE_SIZE,
-						       MODE_INT, 0), "ffs");
-	}
-      break;
-    default:
-      break;
+      set_user_assembler_libfunc ("ffs", asmspec);
+      set_optab_libfunc (ffs_optab, mode_for_size (INT_TYPE_SIZE, MODE_INT, 0),
+			 "ffs");
     }
 }
 

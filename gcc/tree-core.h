@@ -81,11 +81,14 @@ struct die_struct;
 /* The function does not lead to calls within current function unit.  */
 #define ECF_LEAF		  (1 << 10)
 
+/* Nonzero if this call returns its first argument.  */
+#define ECF_RET1		  (1 << 11)
+
 /* Nonzero if this call does not affect transactions.  */
-#define ECF_TM_PURE		  (1 << 11)
+#define ECF_TM_PURE		  (1 << 12)
 
 /* Nonzero if this call is into the transaction runtime library.  */
-#define ECF_TM_BUILTIN		  (1 << 12)
+#define ECF_TM_BUILTIN		  (1 << 13)
 
 /* Call argument flags.  */
 /* Nonzero if the argument is not dereferenced recursively, thus only
@@ -767,7 +770,9 @@ enum operand_equal_flag {
   OEP_MATCH_SIDE_EFFECTS = 4,
   OEP_ADDRESS_OF = 8,
   /* Internal within operand_equal_p:  */
-  OEP_NO_HASH_CHECK = 16
+  OEP_NO_HASH_CHECK = 16,
+  /* Internal within inchash::add_expr:  */
+  OEP_HASH_CHECK = 32
 };
 
 /* Enum and arrays used for tree allocation stats.
@@ -995,6 +1000,9 @@ struct GTY(()) tree_base {
 
        SSA_NAME_ANTI_RANGE_P in
 	   SSA_NAME
+
+       MUST_TAIL_CALL in
+	   CALL_EXPR
 
    public_flag:
 

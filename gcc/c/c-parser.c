@@ -1305,7 +1305,7 @@ static void c_parser_statement (c_parser *, bool *);
 static void c_parser_statement_after_labels (c_parser *, bool *,
 					     vec<tree> * = NULL);
 static void c_parser_if_statement (c_parser *, bool *, vec<tree> *);
-static void c_parser_switch_statement (c_parser *);
+static void c_parser_switch_statement (c_parser *, bool *);
 static void c_parser_while_statement (c_parser *, bool, bool *);
 static void c_parser_do_statement (c_parser *, bool);
 static void c_parser_for_statement (c_parser *, bool, bool *);
@@ -5138,7 +5138,7 @@ c_parser_statement_after_labels (c_parser *parser, bool *if_p,
 	  c_parser_if_statement (parser, if_p, chain);
 	  break;
 	case RID_SWITCH:
-	  c_parser_switch_statement (parser);
+	  c_parser_switch_statement (parser, if_p);
 	  break;
 	case RID_WHILE:
 	  c_parser_while_statement (parser, false, if_p);
@@ -5542,7 +5542,7 @@ c_parser_if_statement (c_parser *parser, bool *if_p, vec<tree> *chain)
       /* Diagnose an ambiguous else if if-then-else is nested inside
 	 if-then.  */
       if (nested_if)
-	warning_at (loc, OPT_Wparentheses,
+	warning_at (loc, OPT_Wdangling_else,
 		    "suggest explicit braces to avoid ambiguous %<else%>");
 
       if (warn_duplicated_cond)
@@ -5570,7 +5570,7 @@ c_parser_if_statement (c_parser *parser, bool *if_p, vec<tree> *chain)
 */
 
 static void
-c_parser_switch_statement (c_parser *parser)
+c_parser_switch_statement (c_parser *parser, bool *if_p)
 {
   struct c_expr ce;
   tree block, expr, body, save_break;
@@ -5605,7 +5605,7 @@ c_parser_switch_statement (c_parser *parser)
   c_start_case (switch_loc, switch_cond_loc, expr, explicit_cast_p);
   save_break = c_break_label;
   c_break_label = NULL_TREE;
-  body = c_parser_c99_block_statement (parser, NULL/*if??*/);
+  body = c_parser_c99_block_statement (parser, if_p);
   c_finish_case (body, ce.original_type);
   if (c_break_label)
     {
@@ -7194,7 +7194,7 @@ c_parser_generic_selection (c_parser *parser)
 
   error_expr.original_code = ERROR_MARK;
   error_expr.original_type = NULL;
-  error_expr.value = error_mark_node;
+  error_expr.set_error ();
   matched_assoc.type_location = UNKNOWN_LOCATION;
   matched_assoc.type = NULL_TREE;
   matched_assoc.expression = error_expr;
@@ -7505,13 +7505,13 @@ c_parser_postfix_expression (c_parser *parser)
 	    gcc_assert (c_dialect_objc ());
 	    if (!c_parser_require (parser, CPP_DOT, "expected %<.%>"))
 	      {
-		expr.value = error_mark_node;
+		expr.set_error ();
 		break;
 	      }
 	    if (c_parser_next_token_is_not (parser, CPP_NAME))
 	      {
 		c_parser_error (parser, "expected identifier");
-		expr.value = error_mark_node;
+		expr.set_error ();
 		break;
 	      }
 	    c_token *component_tok = c_parser_peek_token (parser);
@@ -7525,7 +7525,7 @@ c_parser_postfix_expression (c_parser *parser)
 	  }
 	default:
 	  c_parser_error (parser, "expected expression");
-	  expr.value = error_mark_node;
+	  expr.set_error ();
 	  break;
 	}
       break;
@@ -7547,7 +7547,7 @@ c_parser_postfix_expression (c_parser *parser)
 	      parser->error = true;
 	      c_parser_skip_until_found (parser, CPP_CLOSE_BRACE, NULL);
 	      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, NULL);
-	      expr.value = error_mark_node;
+	      expr.set_error ();
 	      break;
 	    }
 	  stmt = c_begin_stmt_expr ();
@@ -7576,7 +7576,7 @@ c_parser_postfix_expression (c_parser *parser)
 				     "expected %<)%>");
 	  if (type_name == NULL)
 	    {
-	      expr.value = error_mark_node;
+	      expr.set_error ();
 	    }
 	  else
 	    expr = c_parser_postfix_expression_after_paren_type (parser,
@@ -7636,7 +7636,7 @@ c_parser_postfix_expression (c_parser *parser)
 	    c_parser_consume_token (parser);
 	    if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
 	      {
-		expr.value = error_mark_node;
+		expr.set_error ();
 		break;
 	      }
 	    e1 = c_parser_expr_no_commas (parser, NULL);
@@ -7645,7 +7645,7 @@ c_parser_postfix_expression (c_parser *parser)
 	    if (!c_parser_require (parser, CPP_COMMA, "expected %<,%>"))
 	      {
 		c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, NULL);
-		expr.value = error_mark_node;
+		expr.set_error ();
 		break;
 	      }
 	    loc = c_parser_peek_token (parser)->location;
@@ -7655,7 +7655,7 @@ c_parser_postfix_expression (c_parser *parser)
 				       "expected %<)%>");
 	    if (t1 == NULL)
 	      {
-		expr.value = error_mark_node;
+		expr.set_error ();
 	      }
 	    else
 	      {
@@ -7677,7 +7677,7 @@ c_parser_postfix_expression (c_parser *parser)
 	  c_parser_consume_token (parser);
 	  if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
 	    {
-	      expr.value = error_mark_node;
+	      expr.set_error ();
 	      break;
 	    }
 	  t1 = c_parser_type_name (parser);
@@ -7688,7 +7688,7 @@ c_parser_postfix_expression (c_parser *parser)
 	  if (parser->error)
 	    {
 	      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, NULL);
-	      expr.value = error_mark_node;
+	      expr.set_error ();
 	      break;
 	    }
 
@@ -7777,7 +7777,7 @@ c_parser_postfix_expression (c_parser *parser)
 					    &cexpr_list, true,
 					    &close_paren_loc))
 	      {
-		expr.value = error_mark_node;
+		expr.set_error ();
 		break;
 	      }
 
@@ -7785,7 +7785,7 @@ c_parser_postfix_expression (c_parser *parser)
 	      {
 		error_at (loc, "wrong number of arguments to "
 			       "%<__builtin_choose_expr%>");
-		expr.value = error_mark_node;
+		expr.set_error ();
 		break;
 	      }
 
@@ -7810,25 +7810,25 @@ c_parser_postfix_expression (c_parser *parser)
 	  c_parser_consume_token (parser);
 	  if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
 	    {
-	      expr.value = error_mark_node;
+	      expr.set_error ();
 	      break;
 	    }
 	  t1 = c_parser_type_name (parser);
 	  if (t1 == NULL)
 	    {
-	      expr.value = error_mark_node;
+	      expr.set_error ();
 	      break;
 	    }
 	  if (!c_parser_require (parser, CPP_COMMA, "expected %<,%>"))
 	    {
 	      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, NULL);
-	      expr.value = error_mark_node;
+	      expr.set_error ();
 	      break;
 	    }
 	  t2 = c_parser_type_name (parser);
 	  if (t2 == NULL)
 	    {
-	      expr.value = error_mark_node;
+	      expr.set_error ();
 	      break;
 	    }
 	  {
@@ -7840,7 +7840,7 @@ c_parser_postfix_expression (c_parser *parser)
 	    e2 = groktypename (t2, NULL, NULL);
 	    if (e1 == error_mark_node || e2 == error_mark_node)
 	      {
-		expr.value = error_mark_node;
+		expr.set_error ();
 		break;
 	      }
 
@@ -7865,14 +7865,14 @@ c_parser_postfix_expression (c_parser *parser)
 					    &cexpr_list, false,
 					    &close_paren_loc))
 	      {
-		expr.value = error_mark_node;
+		expr.set_error ();
 		break;
 	      }
 	    if (vec_safe_length (cexpr_list) != 2)
 	      {
 		error_at (loc, "wrong number of arguments to "
 			       "%<__builtin_call_with_static_chain%>");
-		expr.value = error_mark_node;
+		expr.set_error ();
 		break;
 	      }
 
@@ -7907,7 +7907,7 @@ c_parser_postfix_expression (c_parser *parser)
 					    &cexpr_list, false,
 					    &close_paren_loc))
 	      {
-		expr.value = error_mark_node;
+		expr.set_error ();
 		break;
 	      }
 
@@ -7915,7 +7915,7 @@ c_parser_postfix_expression (c_parser *parser)
 	      {
 		error_at (loc, "wrong number of arguments to "
 			       "%<__builtin_complex%>");
-		expr.value = error_mark_node;
+		expr.set_error ();
 		break;
 	      }
 
@@ -7937,7 +7937,7 @@ c_parser_postfix_expression (c_parser *parser)
 	      {
 		error_at (loc, "%<__builtin_complex%> operand "
 			  "not of real binary floating-point type");
-		expr.value = error_mark_node;
+		expr.set_error ();
 		break;
 	      }
 	    if (TYPE_MAIN_VARIANT (TREE_TYPE (e1_p->value))
@@ -7945,7 +7945,7 @@ c_parser_postfix_expression (c_parser *parser)
 	      {
 		error_at (loc,
 			  "%<__builtin_complex%> operands of different types");
-		expr.value = error_mark_node;
+		expr.set_error ();
 		break;
 	      }
 	    pedwarn_c90 (loc, OPT_Wpedantic,
@@ -7971,7 +7971,7 @@ c_parser_postfix_expression (c_parser *parser)
 					    &cexpr_list, false,
 					    &close_paren_loc))
 	      {
-		expr.value = error_mark_node;
+		expr.set_error ();
 		break;
 	      }
 
@@ -7994,7 +7994,7 @@ c_parser_postfix_expression (c_parser *parser)
 	      {
 		error_at (loc, "wrong number of arguments to "
 			       "%<__builtin_shuffle%>");
-		expr.value = error_mark_node;
+		expr.set_error ();
 	      }
 	    set_c_expr_source_range (&expr, loc, close_paren_loc);
 	    break;
@@ -8004,7 +8004,7 @@ c_parser_postfix_expression (c_parser *parser)
 	  c_parser_consume_token (parser);
 	  if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
 	    {
-	      expr.value = error_mark_node;
+	      expr.set_error ();
 	      break;
 	    }
 	  {
@@ -8021,14 +8021,14 @@ c_parser_postfix_expression (c_parser *parser)
 	  c_parser_consume_token (parser);
 	  if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
 	    {
-	      expr.value = error_mark_node;
+	      expr.set_error ();
 	      break;
 	    }
 	  if (c_parser_next_token_is_not (parser, CPP_NAME))
 	    {
 	      c_parser_error (parser, "expected identifier");
 	      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, NULL);
-	      expr.value = error_mark_node;
+	      expr.set_error ();
 	      break;
 	    }
 	  {
@@ -8047,13 +8047,13 @@ c_parser_postfix_expression (c_parser *parser)
 	  c_parser_consume_token (parser);
 	  if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
 	    {
-	      expr.value = error_mark_node;
+	      expr.set_error ();
 	      break;
 	    }
 	  t1 = c_parser_type_name (parser);
 	  if (t1 == NULL)
 	    {
-	      expr.value = error_mark_node;
+	      expr.set_error ();
 	      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, NULL);
 	      break;
 	    }
@@ -8076,7 +8076,7 @@ c_parser_postfix_expression (c_parser *parser)
 	      error_at (loc, "-fcilkplus must be enabled to use "
 			"%<_Cilk_spawn%>");
 	      expr = c_parser_cast_expression (parser, NULL);
-	      expr.value = error_mark_node;
+	      expr.set_error ();
 	    }
 	  else if (c_parser_peek_token (parser)->keyword == RID_CILK_SPAWN)
 	    {
@@ -8095,7 +8095,7 @@ c_parser_postfix_expression (c_parser *parser)
 	  break;
 	default:
 	  c_parser_error (parser, "expected expression");
-	  expr.value = error_mark_node;
+	  expr.set_error ();
 	  break;
 	}
       break;
@@ -8116,7 +8116,7 @@ c_parser_postfix_expression (c_parser *parser)
       /* Else fall through to report error.  */
     default:
       c_parser_error (parser, "expected expression");
-      expr.value = error_mark_node;
+      expr.set_error ();
       break;
     }
   return c_parser_postfix_expression_after_primary
@@ -8331,7 +8331,7 @@ c_parser_postfix_expression_after_primary (c_parser *parser,
 	  else
 	    {
 	      c_parser_error (parser, "expected identifier");
-	      expr.value = error_mark_node;
+	      expr.set_error ();
 	      expr.original_code = ERROR_MARK;
               expr.original_type = NULL;
 	      return expr;
@@ -8363,7 +8363,7 @@ c_parser_postfix_expression_after_primary (c_parser *parser,
 	  else
 	    {
 	      c_parser_error (parser, "expected identifier");
-	      expr.value = error_mark_node;
+	      expr.set_error ();
 	      expr.original_code = ERROR_MARK;
 	      expr.original_type = NULL;
 	      return expr;
@@ -13183,7 +13183,7 @@ c_parser_oacc_all_clauses (c_parser *parser, omp_clause_mask mask,
   c_parser_skip_to_pragma_eol (parser);
 
   if (finish_p)
-    return c_finish_omp_clauses (clauses, false);
+    return c_finish_omp_clauses (clauses, C_ORT_ACC);
 
   return clauses;
 }
@@ -13468,8 +13468,8 @@ c_parser_omp_all_clauses (c_parser *parser, omp_clause_mask mask,
   if (finish_p)
     {
       if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_UNIFORM)) != 0)
-	return c_finish_omp_clauses (clauses, true, true);
-      return c_finish_omp_clauses (clauses, true);
+	return c_finish_omp_clauses (clauses, C_ORT_OMP_DECLARE_SIMD);
+      return c_finish_omp_clauses (clauses, C_ORT_OMP);
     }
 
   return clauses;
@@ -13503,7 +13503,7 @@ c_parser_oacc_cache (location_t loc, c_parser *parser)
   tree stmt, clauses;
 
   clauses = c_parser_omp_var_list_parens (parser, OMP_CLAUSE__CACHE_, NULL);
-  clauses = c_finish_omp_clauses (clauses, false);
+  clauses = c_finish_omp_clauses (clauses, C_ORT_ACC);
 
   c_parser_skip_to_pragma_eol (parser);
 
@@ -13839,9 +13839,9 @@ c_parser_oacc_loop (location_t loc, c_parser *parser, char *p_name,
     {
       clauses = c_oacc_split_loop_clauses (clauses, cclauses, is_parallel);
       if (*cclauses)
-	*cclauses = c_finish_omp_clauses (*cclauses, false);
+	*cclauses = c_finish_omp_clauses (*cclauses, C_ORT_ACC);
       if (clauses)
-	clauses = c_finish_omp_clauses (clauses, false);
+	clauses = c_finish_omp_clauses (clauses, C_ORT_ACC);
     }
 
   tree block = c_begin_compound_stmt (true);
@@ -15015,7 +15015,7 @@ omp_split_clauses (location_t loc, enum tree_code code,
   c_omp_split_clauses (loc, code, mask, clauses, cclauses);
   for (i = 0; i < C_OMP_CLAUSE_SPLIT_COUNT; i++)
     if (cclauses[i])
-      cclauses[i] = c_finish_omp_clauses (cclauses[i], true);
+      cclauses[i] = c_finish_omp_clauses (cclauses[i], C_ORT_OMP);
 }
 
 /* OpenMP 4.0:
@@ -16546,7 +16546,7 @@ c_parser_omp_declare_target (c_parser *parser)
     {
       clauses = c_parser_omp_var_list_parens (parser, OMP_CLAUSE_TO_DECLARE,
 					      clauses);
-      clauses = c_finish_omp_clauses (clauses, true);
+      clauses = c_finish_omp_clauses (clauses, C_ORT_OMP);
       c_parser_skip_to_pragma_eol (parser);
     }
   else
@@ -17515,7 +17515,7 @@ c_parser_cilk_all_clauses (c_parser *parser)
 
  saw_error:
   c_parser_skip_to_pragma_eol (parser);
-  return c_finish_omp_clauses (clauses, false, false, true);
+  return c_finish_omp_clauses (clauses, C_ORT_CILK);
 }
 
 /* This function helps parse the grainsize pragma for a _Cilk_for statement.
@@ -17597,7 +17597,7 @@ c_parser_cilk_for (c_parser *parser, tree grain, bool *if_p)
   tree clauses = build_omp_clause (EXPR_LOCATION (grain), OMP_CLAUSE_SCHEDULE);
   OMP_CLAUSE_SCHEDULE_KIND (clauses) = OMP_CLAUSE_SCHEDULE_CILKFOR;
   OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (clauses) = grain;
-  clauses = c_finish_omp_clauses (clauses, false);
+  clauses = c_finish_omp_clauses (clauses, C_ORT_CILK);
 
   tree block = c_begin_compound_stmt (true);
   tree sb = push_stmt_list ();
@@ -17663,7 +17663,7 @@ c_parser_cilk_for (c_parser *parser, tree grain, bool *if_p)
       OMP_CLAUSE_OPERAND (c, 0)
 	= cilk_for_number_of_iterations (omp_for);
       OMP_CLAUSE_CHAIN (c) = clauses;
-      OMP_PARALLEL_CLAUSES (omp_par) = c_finish_omp_clauses (c, true);
+      OMP_PARALLEL_CLAUSES (omp_par) = c_finish_omp_clauses (c, C_ORT_CILK);
       add_stmt (omp_par);
     }
 

@@ -1051,62 +1051,6 @@ init_tree_ssa (struct function *fn)
   init_ssanames (fn, 0);
 }
 
-/* Do the actions required to initialize internal data structures used
-   in tree-ssa optimization passes.  */
-
-static unsigned int
-execute_init_datastructures (void)
-{
-  /* Allocate hash tables, arrays and other structures.  */
-  gcc_assert (!cfun->gimple_df);
-  init_tree_ssa (cfun);
-  return 0;
-}
-
-namespace {
-
-const pass_data pass_data_init_datastructures =
-{
-  GIMPLE_PASS, /* type */
-  "*init_datastructures", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
-  TV_NONE, /* tv_id */
-  PROP_cfg, /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  0, /* todo_flags_finish */
-};
-
-class pass_init_datastructures : public gimple_opt_pass
-{
-public:
-  pass_init_datastructures (gcc::context *ctxt)
-    : gimple_opt_pass (pass_data_init_datastructures, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  virtual bool gate (function *fun)
-    {
-      /* Do nothing for funcions that was produced already in SSA form.  */
-      return !(fun->curr_properties & PROP_ssa);
-    }
-
-  virtual unsigned int execute (function *)
-    {
-      return execute_init_datastructures ();
-    }
-
-}; // class pass_init_datastructures
-
-} // anon namespace
-
-gimple_opt_pass *
-make_pass_init_datastructures (gcc::context *ctxt)
-{
-  return new pass_init_datastructures (ctxt);
-}
-
 /* Deallocate memory associated with SSA data structures for FNDECL.  */
 
 void
@@ -1331,20 +1275,47 @@ non_rewritable_lvalue_p (tree lhs)
       && DECL_P (TREE_OPERAND (lhs, 0)))
     return false;
 
-  /* A decl that is wrapped inside a MEM-REF that covers
-     it full is also rewritable.
-     ???  The following could be relaxed allowing component
+  /* ???  The following could be relaxed allowing component
      references that do not change the access size.  */
   if (TREE_CODE (lhs) == MEM_REF
-      && TREE_CODE (TREE_OPERAND (lhs, 0)) == ADDR_EXPR
-      && integer_zerop (TREE_OPERAND (lhs, 1)))
+      && TREE_CODE (TREE_OPERAND (lhs, 0)) == ADDR_EXPR)
     {
       tree decl = TREE_OPERAND (TREE_OPERAND (lhs, 0), 0);
-      if (DECL_P (decl)
+
+      /* A decl that is wrapped inside a MEM-REF that covers
+	 it full is also rewritable.  */
+      if (integer_zerop (TREE_OPERAND (lhs, 1))
+	  && DECL_P (decl)
 	  && DECL_SIZE (decl) == TYPE_SIZE (TREE_TYPE (lhs))
 	  && (TREE_THIS_VOLATILE (decl) == TREE_THIS_VOLATILE (lhs)))
 	return false;
+
+      /* A vector-insert using a MEM_REF or ARRAY_REF is rewritable
+	 using a BIT_INSERT_EXPR.  */
+      if (DECL_P (decl)
+	  && VECTOR_TYPE_P (TREE_TYPE (decl))
+	  && TYPE_MODE (TREE_TYPE (decl)) != BLKmode
+	  && types_compatible_p (TREE_TYPE (lhs),
+				 TREE_TYPE (TREE_TYPE (decl)))
+	  && tree_fits_uhwi_p (TREE_OPERAND (lhs, 1))
+	  && tree_int_cst_lt (TREE_OPERAND (lhs, 1),
+			      TYPE_SIZE_UNIT (TREE_TYPE (decl)))
+	  && (tree_to_uhwi (TREE_OPERAND (lhs, 1))
+	      % tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (lhs)))) == 0)
+	return false;
     }
+
+  /* A vector-insert using a BIT_FIELD_REF is rewritable using
+     BIT_INSERT_EXPR.  */
+  if (TREE_CODE (lhs) == BIT_FIELD_REF
+      && DECL_P (TREE_OPERAND (lhs, 0))
+      && VECTOR_TYPE_P (TREE_TYPE (TREE_OPERAND (lhs, 0)))
+      && TYPE_MODE (TREE_TYPE (TREE_OPERAND (lhs, 0))) != BLKmode
+      && types_compatible_p (TREE_TYPE (lhs),
+			     TREE_TYPE (TREE_TYPE (TREE_OPERAND (lhs, 0))))
+      && (tree_to_uhwi (TREE_OPERAND (lhs, 2))
+	  % tree_to_uhwi (TYPE_SIZE (TREE_TYPE (lhs)))) == 0)
+    return false;
 
   return true;
 }
@@ -1561,6 +1532,62 @@ execute_update_addresses_taken (void)
 		       ? other : gimple_assign_rhs1 (stmt),
 		       TREE_CODE (lhs) == IMAGPART_EXPR
 		       ? gimple_assign_rhs1 (stmt) : other, NULL_TREE);
+		    stmt = gsi_stmt (gsi);
+		    unlink_stmt_vdef (stmt);
+		    update_stmt (stmt);
+		    continue;
+		  }
+
+		/* Rewrite a vector insert via a BIT_FIELD_REF on the LHS
+		   into a BIT_INSERT_EXPR.  */
+		if (TREE_CODE (lhs) == BIT_FIELD_REF
+		    && DECL_P (TREE_OPERAND (lhs, 0))
+		    && bitmap_bit_p (suitable_for_renaming,
+				     DECL_UID (TREE_OPERAND (lhs, 0)))
+		    && VECTOR_TYPE_P (TREE_TYPE (TREE_OPERAND (lhs, 0)))
+		    && TYPE_MODE (TREE_TYPE (TREE_OPERAND (lhs, 0))) != BLKmode
+		    && types_compatible_p (TREE_TYPE (lhs),
+					   TREE_TYPE (TREE_TYPE
+						       (TREE_OPERAND (lhs, 0))))
+		    && (tree_to_uhwi (TREE_OPERAND (lhs, 2))
+			% tree_to_uhwi (TYPE_SIZE (TREE_TYPE (lhs))) == 0))
+		  {
+		    tree var = TREE_OPERAND (lhs, 0);
+		    tree val = gimple_assign_rhs1 (stmt);
+		    tree bitpos = TREE_OPERAND (lhs, 2);
+		    gimple_assign_set_lhs (stmt, var);
+		    gimple_assign_set_rhs_with_ops
+		      (&gsi, BIT_INSERT_EXPR, var, val, bitpos);
+		    stmt = gsi_stmt (gsi);
+		    unlink_stmt_vdef (stmt);
+		    update_stmt (stmt);
+		    continue;
+		  }
+
+		/* Rewrite a vector insert using a MEM_REF on the LHS
+		   into a BIT_INSERT_EXPR.  */
+		if (TREE_CODE (lhs) == MEM_REF
+		    && TREE_CODE (TREE_OPERAND (lhs, 0)) == ADDR_EXPR
+		    && (sym = TREE_OPERAND (TREE_OPERAND (lhs, 0), 0))
+		    && DECL_P (sym)
+		    && bitmap_bit_p (suitable_for_renaming, DECL_UID (sym))
+		    && VECTOR_TYPE_P (TREE_TYPE (sym))
+		    && TYPE_MODE (TREE_TYPE (sym)) != BLKmode
+		    && types_compatible_p (TREE_TYPE (lhs),
+					   TREE_TYPE (TREE_TYPE (sym)))
+		    && tree_fits_uhwi_p (TREE_OPERAND (lhs, 1))
+		    && tree_int_cst_lt (TREE_OPERAND (lhs, 1),
+					TYPE_SIZE_UNIT (TREE_TYPE (sym)))
+		    && (tree_to_uhwi (TREE_OPERAND (lhs, 1))
+			% tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (lhs)))) == 0)
+		  {
+		    tree val = gimple_assign_rhs1 (stmt);
+		    tree bitpos
+		      = wide_int_to_tree (bitsizetype,
+					  mem_ref_offset (lhs) * BITS_PER_UNIT);
+		    gimple_assign_set_lhs (stmt, sym);
+		    gimple_assign_set_rhs_with_ops
+		      (&gsi, BIT_INSERT_EXPR, sym, val, bitpos);
 		    stmt = gsi_stmt (gsi);
 		    unlink_stmt_vdef (stmt);
 		    update_stmt (stmt);

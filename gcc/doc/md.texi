@@ -3214,6 +3214,9 @@ Floating point register if the LFIWZX instruction is enabled or NO_REGS.
 @item wD
 Int constant that is the element number of the 64-bit scalar in a vector.
 
+@item wE
+Vector constant that can be loaded with the XXSPLTIB instruction.
+
 @item wF
 Memory operand suitable for power9 fusion load/stores.
 
@@ -3221,12 +3224,21 @@ Memory operand suitable for power9 fusion load/stores.
 Memory operand suitable for TOC fusion memory references.
 
 @item wL
-Int constant that is the element number that the MFVSRLD instruction
+Int constant that is the element number that the MFVSRLD instruction.
 targets.
+
+@item wM
+Match vector constant with all 1's if the XXLORC instruction is available.
+
+@item wO
+A memory operand suitable for the ISA 3.0 vector d-form instructions.
 
 @item wQ
 A memory address that will work with the @code{lq} and @code{stq}
 instructions.
+
+@item wS
+Vector constant that can be loaded with XXSPLTIB & sign extension.
 
 @item h
 @samp{MQ}, @samp{CTR}, or @samp{LINK} register
@@ -5015,7 +5027,7 @@ it is unspecified which of the two operands is returned as the result.
 IEEE-conformant minimum and maximum operations.  If one operand is a quiet
 @code{NaN}, then the other operand is returned.  If both operands are quiet
 @code{NaN}, then a quiet @code{NaN} is returned.  In the case when gcc supports
-signalling @code{NaN} (-fsignaling-nans) an invalid floating point exception is
+signaling @code{NaN} (-fsignaling-nans) an invalid floating point exception is
 raised and a quiet @code{NaN} is returned.
 
 All operands have mode @var{m}, which is a scalar or vector
@@ -6908,6 +6920,33 @@ model to be used.
 The specific value that defines "set" is implementation defined, and
 is normally based on what is performed by the native atomic test and set
 instruction.
+
+@cindex @code{atomic_bit_test_and_set@var{mode}} instruction pattern
+@cindex @code{atomic_bit_test_and_complement@var{mode}} instruction pattern
+@cindex @code{atomic_bit_test_and_reset@var{mode}} instruction pattern
+@item @samp{atomic_bit_test_and_set@var{mode}}
+@itemx @samp{atomic_bit_test_and_complement@var{mode}}
+@itemx @samp{atomic_bit_test_and_reset@var{mode}}
+These patterns emit code for an atomic bitwise operation on memory with memory
+model semantics, and return the original value of the specified bit.
+Operand 0 is an output operand which contains the value of the specified bit
+from the memory location before the operation was performed.  Operand 1 is the
+memory on which the atomic operation is performed.  Operand 2 is the bit within
+the operand, starting with least significant bit.  Operand 3 is the memory model
+to be used by the operation.  Operand 4 is a flag - it is @code{const1_rtx}
+if operand 0 should contain the original value of the specified bit in the
+least significant bit of the operand, and @code{const0_rtx} if the bit should
+be in its original position in the operand.
+@code{atomic_bit_test_and_set@var{mode}} atomically sets the specified bit after
+remembering its original value, @code{atomic_bit_test_and_complement@var{mode}}
+inverts the specified bit and @code{atomic_bit_test_and_reset@var{mode}} clears
+the specified bit.
+
+If these patterns are not defined, attempts will be made to use
+@code{atomic_fetch_or@var{mode}}, @code{atomic_fetch_xor@var{mode}} or
+@code{atomic_fetch_and@var{mode}} instruction patterns, or their @code{sync}
+counterparts.  If none of these are available a compare-and-swap
+loop will be used.
 
 @cindex @code{mem_thread_fence@var{mode}} instruction pattern
 @item @samp{mem_thread_fence@var{mode}}

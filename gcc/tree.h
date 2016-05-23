@@ -661,6 +661,11 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define CALL_EXPR_TAILCALL(NODE) \
   (CALL_EXPR_CHECK (NODE)->base.addressable_flag)
 
+/* Set on a CALL_EXPR if the call has been marked as requiring tail call
+   optimization for correctness.  */
+#define CALL_EXPR_MUST_TAIL_CALL(NODE) \
+  (CALL_EXPR_CHECK (NODE)->base.static_flag)
+
 /* Used as a temporary field on a CASE_LABEL_EXPR to indicate that the
    CASE_LOW operand has been processed.  */
 #define CASE_LOW_SEEN(NODE) \
@@ -4224,7 +4229,13 @@ extern tree type_hash_canon (unsigned int, tree);
 
 extern tree convert (tree, tree);
 extern unsigned int expr_align (const_tree);
-extern tree size_in_bytes (const_tree);
+extern tree size_in_bytes_loc (location_t, const_tree);
+inline tree
+size_in_bytes (const_tree t)
+{
+  return size_in_bytes_loc (input_location, t);
+}
+
 extern HOST_WIDE_INT int_size_in_bytes (const_tree);
 extern HOST_WIDE_INT max_int_size_in_bytes (const_tree);
 extern tree bit_position (const_tree);

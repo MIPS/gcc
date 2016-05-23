@@ -224,8 +224,12 @@ sh_find_set_of_reg (rtx reg, rtx_insn* insn, F stepfunc,
 	}
     }
 
-  if (result.set_src != NULL)
-    gcc_assert (result.insn != NULL && result.set_rtx != NULL);
+  /* If the searched reg is found inside a (mem (post_inc:SI (reg))), set_of
+     will return NULL and set_rtx will be NULL.
+     In this case report a 'not found'.  result.insn will always be non-null
+     at this point, so no need to check it.  */
+  if (result.set_src != NULL && result.set_rtx == NULL)
+    result.set_src = NULL;
 
   return result;
 }
@@ -344,13 +348,24 @@ private:
 
 extern sh_treg_insns sh_split_treg_set_expr (rtx x, rtx_insn* curr_insn);
 
+enum
+{
+  /* An effective conditional branch distance of zero bytes is impossible.
+     Hence we can use it to designate an unknown value.  */
+  unknown_cbranch_distance = 0u,
+  infinite_cbranch_distance = ~0u
+};
+
+unsigned int
+sh_cbranch_distance (rtx_insn* cbranch_insn,
+		     unsigned int max_dist = infinite_cbranch_distance);
+
 #endif /* RTX_CODE */
 
 extern void sh_cpu_cpp_builtins (cpp_reader* pfile);
 
 extern const char *output_jump_label_table (void);
 extern rtx get_t_reg_rtx (void);
-extern int sh_media_register_for_return (void);
 extern void sh_expand_prologue (void);
 extern void sh_expand_epilogue (bool);
 extern void sh_set_return_address (rtx, rtx);

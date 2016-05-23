@@ -512,7 +512,7 @@ setup_alloc_regs (bool use_hard_frame_p)
 #ifdef ADJUST_REG_ALLOC_ORDER
   ADJUST_REG_ALLOC_ORDER;
 #endif
-  COPY_HARD_REG_SET (no_unit_alloc_regs, fixed_reg_set);
+  COPY_HARD_REG_SET (no_unit_alloc_regs, fixed_nonglobal_reg_set);
   if (! use_hard_frame_p)
     SET_HARD_REG_BIT (no_unit_alloc_regs, HARD_FRAME_POINTER_REGNUM);
   setup_class_hard_regs ();
@@ -3741,6 +3741,22 @@ combine_and_move_insns (void)
 
 	  if (use_insn == BB_HEAD (use_bb))
 	    BB_HEAD (use_bb) = new_insn;
+
+	  /* We know regno dies in use_insn, but inside a loop
+	     REG_DEAD notes might be missing when def_insn was in
+	     another basic block.  However, when we move def_insn into
+	     this bb we'll definitely get a REG_DEAD note and reload
+	     will see the death.  It's possible that update_equiv_regs
+	     set up an equivalence referencing regno for a reg set by
+	     use_insn, when regno was seen as non-local.  Now that
+	     regno is local to this block, and dies, such an
+	     equivalence is invalid.  */
+	  if (find_reg_note (use_insn, REG_EQUIV, NULL_RTX))
+	    {
+	      rtx set = single_set (use_insn);
+	      if (set && REG_P (SET_DEST (set)))
+		no_equiv (SET_DEST (set), set, NULL);
+	    }
 
 	  ira_reg_equiv[regno].init_insns
 	    = gen_rtx_INSN_LIST (VOIDmode, new_insn, NULL_RTX);

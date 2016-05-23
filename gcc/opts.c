@@ -498,7 +498,6 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_2_PLUS, OPT_fstrict_overflow, NULL, 1 },
     { OPT_LEVELS_2_PLUS_SPEED_ONLY, OPT_freorder_blocks_algorithm_, NULL,
       REORDER_BLOCKS_ALGORITHM_STC },
-    { OPT_LEVELS_2_PLUS, OPT_frename_registers, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_freorder_functions, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_ftree_vrp, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_ftree_pre, NULL, 1 },
@@ -1596,7 +1595,7 @@ common_handle_option (struct gcc_options *opts,
 
     case OPT__help_:
       {
-	const char * a = arg;
+	const char *a = arg;
 	unsigned int include_flags = 0;
 	/* Note - by default we include undocumented options when listing
 	   specific classes.  If you only want to see documented options
@@ -1613,11 +1612,11 @@ common_handle_option (struct gcc_options *opts,
 	   arg = [^]{word}[,{arg}]
 	   word = {optimizers|target|warnings|undocumented|
 		   params|common|<language>}  */
-	while (* a != 0)
+	while (*a != 0)
 	  {
 	    static const struct
 	    {
-	      const char * string;
+	      const char *string;
 	      unsigned int flag;
 	    }
 	    specifics[] =
@@ -1632,19 +1631,24 @@ common_handle_option (struct gcc_options *opts,
 	      { "common", CL_COMMON },
 	      { NULL, 0 }
 	    };
-	    unsigned int * pflags;
-	    const char * comma;
+	    unsigned int *pflags;
+	    const char *comma;
 	    unsigned int lang_flag, specific_flag;
 	    unsigned int len;
 	    unsigned int i;
 
-	    if (* a == '^')
+	    if (*a == '^')
 	      {
-		++ a;
-		pflags = & exclude_flags;
+		++a;
+		if (*a == '\0')
+		  {
+		    error_at (loc, "missing argument to %qs", "--help=^");
+		    break;
+		  }
+		pflags = &exclude_flags;
 	      }
 	    else
-	      pflags = & include_flags;
+	      pflags = &include_flags;
 
 	    comma = strchr (a, ',');
 	    if (comma == NULL)
@@ -1681,7 +1685,7 @@ common_handle_option (struct gcc_options *opts,
 	    if (specific_flag != 0)
 	      {
 		if (lang_flag == 0)
-		  * pflags |= specific_flag;
+		  *pflags |= specific_flag;
 		else
 		  {
 		    /* The option's argument matches both the start of a
@@ -1690,7 +1694,7 @@ common_handle_option (struct gcc_options *opts,
 		       specified "--help=c", but otherwise we have to issue
 		       a warning.  */
 		    if (strncasecmp (a, "c", len) == 0)
-		      * pflags |= lang_flag;
+		      *pflags |= lang_flag;
 		    else
 		      warning_at (loc, 0,
 				  "--help argument %q.*s is ambiguous, "
@@ -1699,7 +1703,7 @@ common_handle_option (struct gcc_options *opts,
 		  }
 	      }
 	    else if (lang_flag != 0)
-	      * pflags |= lang_flag;
+	      *pflags |= lang_flag;
 	    else
 	      warning_at (loc, 0,
 			  "unrecognized argument to --help= option: %q.*s",

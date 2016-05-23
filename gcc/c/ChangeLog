@@ -1,3 +1,122 @@
+2016-05-20  Martin Sebor  <msebor@redhat.com>
+
+	PR c/71115
+	* c-typeck.c (error_init): Use
+	expansion_point_location_if_in_system_header.
+	(warning_init): Same.
+
+2016-05-19  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/71171
+	* c-parser.c (c_parser_generic_selection): Use c_expr::set_error
+	in error-handling.
+	(c_parser_postfix_expression): Likewise.
+	* c-tree.h (c_expr::set_error): New method.
+	* c-typeck.c (parser_build_binary_op): In error-handling, ensure
+	that result's range is initialized.
+
+2016-05-17  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* c-typeck.c (parser_build_unary_op): Fix formatting.
+
+2016-05-16  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* c-decl.c (grokdeclarator): Remove errmsg and use of
+	targetm.invalid_return_type.
+	(grokparms): Remove errmsg and use of
+	targetm.invalid_parameter_type.
+
+2016-05-13  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-decl.c (grokdeclarator): For C11, discard qualifiers on
+	function return type.
+
+2016-05-12  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70756
+	* c-decl.c (build_compound_literal): Pass LOC down to
+	c_incomplete_type_error.
+	* c-tree.h (require_complete_type): Adjust declaration.
+	(c_incomplete_type_error): Likewise.
+	* c-typeck.c (require_complete_type): Add location parameter, pass it
+	down to c_incomplete_type_error.
+	(c_incomplete_type_error): Add location parameter, pass it down to
+	error_at.
+	(build_component_ref): Pass location down to c_incomplete_type_error.
+	(default_conversion): Pass location down to require_complete_type.
+	(build_array_ref): Likewise.
+	(build_function_call_vec): Likewise.
+	(convert_arguments): Likewise.
+	(build_unary_op): Likewise.
+	(build_c_cast): Likewise.
+	(build_modify_expr): Likewise.
+	(convert_for_assignment): Likewise.
+	(c_finish_omp_clauses): Likewise.
+
+2016-05-11  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	PR c/43651
+	* c-decl.c (declspecs_add_qual): Warn when -Wduplicate-decl-specifier
+	is enabled.
+	* c-errors.c (pedwarn_c90): Return true if warned.
+	* c-tree.h (pedwarn_c90): Change return type to bool.
+	(enum c_declspec_word): Add new enumerator cdw_atomic.
+
+2016-05-11  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/71024
+	* c-decl.c (diagnose_mismatched_decls): Factor out code to
+	diagnose_mismatched_attributes and call it.
+
+2016-05-10  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70255
+	* c-decl.c (diagnose_mismatched_decls): Warn for optimize attribute
+	on a declaration following the definition.
+
+2016-05-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_switch_statement): Add IF_P argument,
+	parse it through to c_parser_c99_block_statement.
+	(c_parser_statement_after_labels): Adjust c_parser_switch_statement
+	caller.
+
+2016-05-04  Marek Polacek  <polacek@redhat.com>
+
+	* c-parser.c (c_parser_if_statement): Replace OPT_Wparentheses with
+	OPT_Wdangling_else.
+
+2016-05-04  Marek Polacek  <polacek@redhat.com>
+
+	PR c/48778
+	* c-typeck.c (build_binary_op): Don't issue -Waddress warnings
+	for macro expansions.
+
+2016-05-03  Marek Polacek  <polacek@redhat.com>
+
+	PR c/70859
+	* c-typeck.c (build_function_call_vec): Pass LOC and ARG_LOC down to
+	check_builtin_function_arguments.
+
+2016-05-03  Richard Biener  <rguenther@suse.de>
+
+	* Make-lang.in (cc1-checksum.c): For stage-final re-use
+	the checksum from the previous stage.
+
+2016-05-02  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-parser.c (c_parser_oacc_all_clauses): Update call to
+	c_finish_omp_clauses.
+	(c_parser_omp_all_clauses): Likewise.
+	(c_parser_oacc_cache): Likewise.
+	(c_parser_oacc_loop): Likewise.
+	(omp_split_clauses): Likewise.
+	(c_parser_omp_declare_target): Likewise.
+	(c_parser_cilk_all_clauses): Likewise.
+	(c_parser_cilk_for): Likewise.
+	* c-typeck.c (c_finish_omp_clauses): Replace bool arguments
+	is_omp, declare_simd, and is_cilk with enum c_omp_region_type ort.
+
 2016-05-02  Marek Polacek  <polacek@redhat.com>
 
 	PR c/70851

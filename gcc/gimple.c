@@ -359,6 +359,7 @@ gimple_build_call_from_tree (tree t)
   /* Carry all the CALL_EXPR flags to the new GIMPLE_CALL.  */
   gimple_call_set_chain (call, CALL_EXPR_STATIC_CHAIN (t));
   gimple_call_set_tail (call, CALL_EXPR_TAILCALL (t));
+  gimple_call_set_must_tail (call, CALL_EXPR_MUST_TAIL_CALL (t));
   gimple_call_set_return_slot_opt (call, CALL_EXPR_RETURN_SLOT_OPT (t));
   if (fndecl
       && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
@@ -1355,7 +1356,8 @@ gimple_call_same_target_p (const gimple *c1, const gimple *c2)
   if (gimple_call_internal_p (c1))
     return (gimple_call_internal_p (c2)
 	    && gimple_call_internal_fn (c1) == gimple_call_internal_fn (c2)
-	    && !gimple_call_internal_unique_p (as_a <const gcall *> (c1)));
+	    && (!gimple_call_internal_unique_p (as_a <const gcall *> (c1))
+		|| c1 == c2));
   else
     return (gimple_call_fn (c1) == gimple_call_fn (c2)
 	    || (gimple_call_fndecl (c1)
@@ -2042,6 +2044,7 @@ get_gimple_rhs_num_ops (enum tree_code code)
       || (SYM) == REALIGN_LOAD_EXPR					    \
       || (SYM) == VEC_COND_EXPR						    \
       || (SYM) == VEC_PERM_EXPR                                             \
+      || (SYM) == BIT_INSERT_EXPR					    \
       || (SYM) == FMA_EXPR) ? GIMPLE_TERNARY_RHS			    \
    : ((SYM) == CONSTRUCTOR						    \
       || (SYM) == OBJ_TYPE_REF						    \
@@ -2486,7 +2489,16 @@ gimple_builtin_call_types_compatible_p (const gimple *stmt, tree fndecl)
       if (!targs)
 	return true;
       tree arg = gimple_call_arg (stmt, i);
-      if (!useless_type_conversion_p (TREE_VALUE (targs), TREE_TYPE (arg)))
+      tree type = TREE_VALUE (targs);
+      if (!useless_type_conversion_p (type, TREE_TYPE (arg))
+	  /* char/short integral arguments are promoted to int
+	     by several frontends if targetm.calls.promote_prototypes
+	     is true.  Allow such promotion too.  */
+	  && !(INTEGRAL_TYPE_P (type)
+	       && TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node)
+	       && targetm.calls.promote_prototypes (TREE_TYPE (fndecl))
+	       && useless_type_conversion_p (integer_type_node,
+					     TREE_TYPE (arg))))
 	return false;
       targs = TREE_CHAIN (targs);
     }
@@ -2992,7 +3004,7 @@ gimple_seq_discard (gimple_seq seq)
 
 /* See if STMT now calls function that takes no parameters and if so, drop
    call arguments.  This is used when devirtualization machinery redirects
-   to __builtiln_unreacahble or __cxa_pure_virutal.  */
+   to __builtin_unreachable or __cxa_pure_virtual.  */
 
 void
 maybe_remove_unused_call_args (struct function *fn, gimple *stmt)

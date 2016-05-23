@@ -437,7 +437,9 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 	      /* Bool ops don't participate in vectorization factor
 		 computation.  For comparison use compared types to
 		 compute a factor.  */
-	      if (TREE_CODE (scalar_type) == BOOLEAN_TYPE)
+	      if (TREE_CODE (scalar_type) == BOOLEAN_TYPE
+		  && is_gimple_assign (stmt)
+		  && gimple_assign_rhs_code (stmt) != COND_EXPR)
 		{
 		  if (STMT_VINFO_RELEVANT_P (stmt_info))
 		    mask_producers.safe_push (stmt_info);
@@ -2063,6 +2065,8 @@ start_over:
 
   estimated_niter
     = estimated_stmt_executions_int (LOOP_VINFO_LOOP (loop_vinfo));
+  if (estimated_niter == -1)
+    estimated_niter = max_niter;
   if (estimated_niter != -1
       && ((unsigned HOST_WIDE_INT) estimated_niter
           <= MAX (th, (unsigned)min_profitable_estimate)))
@@ -6157,21 +6161,14 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
 	     Finally, we update the phi (NEW_PHI_TREE) to take the value of
 	     the new cond_expr (INDEX_COND_EXPR).  */
 
-	  /* Turn the condition from vec_stmt into an ssa name.  */
-	  gimple_stmt_iterator vec_stmt_gsi = gsi_for_stmt (*vec_stmt);
-	  tree ccompare = gimple_assign_rhs1 (*vec_stmt);
-	  tree ccompare_name = make_ssa_name (TREE_TYPE (ccompare));
-	  gimple *ccompare_stmt = gimple_build_assign (ccompare_name,
-						       ccompare);
-	  gsi_insert_before (&vec_stmt_gsi, ccompare_stmt, GSI_SAME_STMT);
-	  gimple_assign_set_rhs1 (*vec_stmt, ccompare_name);
-	  update_stmt (*vec_stmt);
+	  /* Duplicate the condition from vec_stmt.  */
+	  tree ccompare = unshare_expr (gimple_assign_rhs1 (*vec_stmt));
 
 	  /* Create a conditional, where the condition is taken from vec_stmt
-	     (CCOMPARE_NAME), then is the induction index (INDEX_BEFORE_INCR)
-	     and else is the phi (NEW_PHI_TREE).  */
+	     (CCOMPARE), then is the induction index (INDEX_BEFORE_INCR) and
+	     else is the phi (NEW_PHI_TREE).  */
 	  tree index_cond_expr = build3 (VEC_COND_EXPR, cr_index_vector_type,
-					 ccompare_name, indx_before_incr,
+					 ccompare, indx_before_incr,
 					 new_phi_tree);
 	  cond_name = make_ssa_name (cr_index_vector_type);
 	  gimple *index_condition = gimple_build_assign (cond_name,

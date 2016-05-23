@@ -477,16 +477,6 @@
 (define_attr "is_sfunc" ""
   (if_then_else (eq_attr "type" "sfunc") (const_int 1) (const_int 0)))
 
-(define_attr "branch_zero" "yes,no"
-  (cond [(eq_attr "type" "!cbranch") (const_string "no")
-	 (ne (symbol_ref "(next_active_insn (insn)\
-			   == (prev_active_insn\
-			       (XEXP (SET_SRC (PATTERN (insn)), 1))))\
-			  && get_attr_length (next_active_insn (insn)) == 2")
-	     (const_int 0))
-	 (const_string "yes")]
-	(const_string "no")))
-
 ;; SH4 Double-precision computation with double-precision result -
 ;; the two halves are ready at different times.
 (define_attr "dfp_comp" "yes,no"
@@ -539,8 +529,13 @@
 	(eq_attr "type" "!pstore,prget")) (nil) (nil)])
 
 ;; Conditional branches with delay slots are available starting with SH2.
+;; If zero displacement conditional branches are fast, disable the delay
+;; slot if the branch jumps over only one 2-byte insn.
 (define_delay
-  (and (eq_attr "type" "cbranch") (match_test "TARGET_SH2"))
+  (and (eq_attr "type" "cbranch")
+       (match_test "TARGET_SH2")
+       (not (and (match_test "TARGET_ZDCBRANCH")
+		 (match_test "sh_cbranch_distance (insn, 4) == 2"))))
   [(eq_attr "cond_delay_slot" "yes") (nil) (nil)])
 
 ;; -------------------------------------------------------------------------
@@ -909,22 +904,6 @@
   FAIL;
 })
 
-;; FIXME: For some reason, on SH4A and SH2A combine fails to simplify this
-;; pattern by itself.  What this actually does is:
-;;	x == 0: (1 >> 0-0) & 1 = 1
-;;	x != 0: (1 >> 0-x) & 1 = 0
-;; Without this the test pr51244-8.c fails on SH2A and SH4A.
-(define_insn_and_split "*cmpeqsi_t"
-  [(set (reg:SI T_REG)
-	(and:SI (lshiftrt:SI
-		  (const_int 1)
-		  (neg:SI (match_operand:SI 0 "arith_reg_operand" "r")))
-		(const_int 1)))]
-  "TARGET_SH1"
-  "#"
-  "&& 1"
-  [(set (reg:SI T_REG) (eq:SI (match_dup 0) (const_int 0)))])
-
 (define_insn "cmpgtsi_t"
   [(set (reg:SI T_REG)
 	(gt:SI (match_operand:SI 0 "arith_reg_operand" "r,r")
@@ -1103,6 +1082,97 @@
 	(lshiftrt:SI (xor:SI (match_dup 0) (match_dup 1)) (const_int 31)))
    (set (reg:SI T_REG) (xor:SI (reg:SI T_REG) (const_int 1)))])
 
+;; In some cases, it might be shorter to get a tested bit into bit 31 and
+;; use div0s.  Otherwise it's usually better to just leave the xor and tst
+;; sequence.  The only thing we can try to do here is avoiding the large
+;; tst constant.
+(define_insn_and_split "*cmp_div0s_7"
+  [(set (reg:SI T_REG)
+	(zero_extract:SI (xor:SI (match_operand:SI 0 "arith_reg_operand")
+				 (match_operand:SI 1 "arith_reg_operand"))
+			 (const_int 1)
+			 (match_operand 2 "const_int_operand")))]
+  "TARGET_SH1 && can_create_pseudo_p ()
+   && (INTVAL (operands[2]) == 7 || INTVAL (operands[2]) == 15
+       || INTVAL (operands[2]) == 23 || INTVAL (operands[2]) == 29
+       || INTVAL (operands[2]) == 30 || INTVAL (operands[2]) == 31)"
+  "#"
+  "&& 1"
+  [(const_int 0)]
+{
+  const int bitpos = INTVAL (operands[2]);
+
+  rtx op0 = gen_reg_rtx (SImode);
+  rtx op1 = gen_reg_rtx (SImode);
+
+  if (bitpos == 23 || bitpos == 30 || bitpos == 29)
+    {
+      emit_insn (gen_ashlsi3 (op0, operands[0], GEN_INT (31 - bitpos)));
+      emit_insn (gen_ashlsi3 (op1, operands[1], GEN_INT (31 - bitpos)));
+    }
+  else if (bitpos == 15)
+    {
+      emit_insn (gen_extendhisi2 (op0, gen_lowpart (HImode, operands[0])));
+      emit_insn (gen_extendhisi2 (op1, gen_lowpart (HImode, operands[1])));
+    }
+  else if (bitpos == 7)
+    {
+      emit_insn (gen_extendqisi2 (op0, gen_lowpart (QImode, operands[0])));
+      emit_insn (gen_extendqisi2 (op1, gen_lowpart (QImode, operands[1])));
+    }
+  else if (bitpos == 31)
+    {
+      op0 = operands[0];
+      op1 = operands[1];
+    }
+  else
+    gcc_unreachable ();
+
+  emit_insn (gen_cmp_div0s (op0, op1));
+  DONE;
+})
+
+;; For bits 0..7 using a xor and tst #imm,r0 sequence seems to be better.
+;; Thus allow the following patterns only for higher bit positions where
+;; we it's more likely to save the large tst constant.
+(define_insn_and_split "*cmp_div0s_8"
+  [(set (reg:SI T_REG)
+	(eq:SI (zero_extract:SI (match_operand:SI 0 "arith_reg_operand")
+				(const_int 1)
+				(match_operand 2 "const_int_operand"))
+	       (zero_extract:SI (match_operand:SI 1 "arith_reg_operand")
+				(const_int 1)
+				(match_dup 2))))]
+  "TARGET_SH1 && can_create_pseudo_p ()
+   && (INTVAL (operands[2]) == 15
+       || INTVAL (operands[2]) == 23 || INTVAL (operands[2]) == 29
+       || INTVAL (operands[2]) == 30 || INTVAL (operands[2]) == 31)"
+  "#"
+  "&& 1"
+  [(set (reg:SI T_REG)
+	(zero_extract:SI (xor:SI (match_dup 0) (match_dup 1))
+			 (const_int 1) (match_dup 2)))
+   (set (reg:SI T_REG) (xor:SI (reg:SI T_REG) (const_int 1)))])
+
+(define_insn_and_split "*cmp_div0s_9"
+  [(set (reg:SI T_REG)
+	(zero_extract:SI (xor:SI (xor:SI (match_operand:SI 0 "arith_reg_operand")
+					 (match_operand:SI 1 "arith_reg_operand"))
+				 (match_operand 2 "const_int_operand"))
+			 (const_int 1)
+			 (match_operand 3 "const_int_operand")))]
+  "TARGET_SH1 && can_create_pseudo_p ()
+   && (INTVAL (operands[2]) & 0xFFFFFFFF) == (1U << INTVAL (operands[3]))
+   && (INTVAL (operands[3]) == 15
+       || INTVAL (operands[3]) == 23 || INTVAL (operands[3]) == 29
+       || INTVAL (operands[3]) == 30 || INTVAL (operands[3]) == 31)"
+  "#"
+  "&& 1"
+  [(set (reg:SI T_REG)
+	(zero_extract:SI (xor:SI (match_dup 0) (match_dup 1))
+			 (const_int 1) (match_dup 3)))
+   (set (reg:SI T_REG) (xor:SI (reg:SI T_REG) (const_int 1)))])
+
 ;; -------------------------------------------------------------------------
 ;; SImode compare and branch
 ;; -------------------------------------------------------------------------
@@ -1134,29 +1204,6 @@
    (clobber (reg:SI T_REG))]
   "TARGET_SH1"
   [(set (reg:SI T_REG) (eq:SI (match_dup 0) (match_dup 1)))
-   (set (pc) (if_then_else (eq (reg:SI T_REG) (const_int 0))
-			   (label_ref (match_dup 2))
-			   (pc)))])
-
-;; FIXME: Similar to the *cmpeqsi_t pattern above, for some reason, on SH4A
-;; and SH2A combine fails to simplify this pattern by itself.
-;; What this actually does is:
-;;	x == 0: (1 >> 0-0) & 1 = 1
-;;	x != 0: (1 >> 0-x) & 1 = 0
-;; Without this the test pr51244-8.c fails on SH2A and SH4A.
-(define_split
-  [(set (pc)
-	(if_then_else
-	  (eq (and:SI (lshiftrt:SI
-			(const_int 1)
-			(neg:SI (match_operand:SI 0 "arith_reg_operand" "")))
-		      (const_int 1))
-	      (const_int 0))
-	  (label_ref (match_operand 2))
-	  (pc)))
-   (clobber (reg:SI T_REG))]
-  "TARGET_SH1"
-  [(set (reg:SI T_REG) (eq:SI (match_dup 0) (const_int 0)))
    (set (pc) (if_then_else (eq (reg:SI T_REG) (const_int 0))
 			   (label_ref (match_dup 2))
 			   (pc)))])
@@ -2244,16 +2291,9 @@
 
 
 (define_expand "udivsi3"
-  [(set (match_dup 3) (symbol_ref:SI "__udivsi3"))
-   (set (reg:SI R4_REG) (match_operand:SI 1 "general_operand" ""))
-   (set (reg:SI R5_REG) (match_operand:SI 2 "general_operand" ""))
-   (parallel [(set (match_operand:SI 0 "register_operand" "")
-		   (udiv:SI (reg:SI R4_REG)
-			    (reg:SI R5_REG)))
-	      (clobber (reg:SI T_REG))
-	      (clobber (reg:SI PR_REG))
-	      (clobber (reg:SI R4_REG))
-	      (use (match_dup 3))])]
+  [(set (match_operand:SI 0 "register_operand")
+	(udiv:SI (match_operand:SI 1 "general_operand")
+		 (match_operand:SI 2 "general_operand")))]
   ""
 {
   rtx last;
@@ -2379,18 +2419,9 @@
    (set_attr "needs_delay_slot" "yes")])
 
 (define_expand "divsi3"
-  [(set (match_dup 3) (symbol_ref:SI "__sdivsi3"))
-   (set (reg:SI R4_REG) (match_operand:SI 1 "general_operand" ""))
-   (set (reg:SI R5_REG) (match_operand:SI 2 "general_operand" ""))
-   (parallel [(set (match_operand:SI 0 "register_operand" "")
-		   (div:SI (reg:SI R4_REG)
-			   (reg:SI R5_REG)))
-	      (clobber (reg:SI T_REG))
-	      (clobber (reg:SI PR_REG))
-	      (clobber (reg:SI R1_REG))
-	      (clobber (reg:SI R2_REG))
-	      (clobber (reg:SI R3_REG))
-	      (use (match_dup 3))])]
+  [(set (match_operand:SI 0 "register_operand")
+	(div:SI (match_operand:SI 1 "general_operand")
+		(match_operand:SI 2 "general_operand")))]
   ""
 {
   rtx last;
@@ -2434,6 +2465,30 @@
 ;; Multiplication instructions
 ;; -------------------------------------------------------------------------
 
+(define_insn_and_split "mulhisi3"
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(mult:SI (sign_extend:SI (match_operand:HI 1 "arith_reg_operand"))
+		 (sign_extend:SI (match_operand:HI 2 "arith_reg_operand"))))
+   (clobber (reg:SI MACL_REG))]
+  "TARGET_SH1 && can_create_pseudo_p ()"
+  "#"
+  "&& 1"
+  [(set (reg:SI MACL_REG) (mult:SI (sign_extend:SI (match_dup 1))
+				   (sign_extend:SI (match_dup 2))))
+   (set (match_dup 0) (reg:SI MACL_REG))])
+
+(define_insn_and_split "umulhisi3"
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(mult:SI (zero_extend:SI (match_operand:HI 1 "arith_reg_operand"))
+		 (zero_extend:SI (match_operand:HI 2 "arith_reg_operand"))))
+   (clobber (reg:SI MACL_REG))]
+  "TARGET_SH1 && can_create_pseudo_p ()"
+  "#"
+  "&& 1"
+  [(set (reg:SI MACL_REG) (mult:SI (zero_extend:SI (match_dup 1))
+				   (zero_extend:SI (match_dup 2))))
+   (set (match_dup 0) (reg:SI MACL_REG))])
+
 (define_insn "umulhisi3_i"
   [(set (reg:SI MACL_REG)
 	(mult:SI (zero_extend:SI
@@ -2454,69 +2509,10 @@
   "muls.w	%1,%0"
   [(set_attr "type" "smpy")])
 
-(define_expand "mulhisi3"
-  [(set (reg:SI MACL_REG)
-	(mult:SI (sign_extend:SI
-		  (match_operand:HI 1 "arith_reg_operand" ""))
-		 (sign_extend:SI
-		  (match_operand:HI 2 "arith_reg_operand" ""))))
-   (set (match_operand:SI 0 "arith_reg_operand" "")
-	(reg:SI MACL_REG))]
-  "TARGET_SH1"
-{
-  rtx_insn *insn;
-  rtx macl;
-
-  macl = gen_rtx_REG (SImode, MACL_REG);
-  start_sequence ();
-  emit_insn (gen_mulhisi3_i (operands[1], operands[2]));
-  insn = get_insns ();  
-  end_sequence ();
-  /* expand_binop can't find a suitable code in umul_widen_optab to
-     make a REG_EQUAL note from, so make one here.
-     See also smulsi3_highpart.
-     ??? Alternatively, we could put this at the calling site of expand_binop,
-     i.e. expand_expr.  */
-  /* Use emit_libcall_block for loop invariant code motion and to make
-     a REG_EQUAL note.  */
-  emit_libcall_block (insn, operands[0], macl, SET_SRC (single_set (insn)));
-
-  DONE;
-})
-
-(define_expand "umulhisi3"
-  [(set (reg:SI MACL_REG)
-	(mult:SI (zero_extend:SI
-		  (match_operand:HI 1 "arith_reg_operand" ""))
-		 (zero_extend:SI
-		  (match_operand:HI 2 "arith_reg_operand" ""))))
-   (set (match_operand:SI 0 "arith_reg_operand" "")
-	(reg:SI MACL_REG))]
-  "TARGET_SH1"
-{
-  rtx_insn *insn;
-  rtx macl;
-
-  macl = gen_rtx_REG (SImode, MACL_REG);
-  start_sequence ();
-  emit_insn (gen_umulhisi3_i (operands[1], operands[2]));
-  insn = get_insns ();  
-  end_sequence ();
-  /* expand_binop can't find a suitable code in umul_widen_optab to
-     make a REG_EQUAL note from, so make one here.
-     See also smulsi3_highpart.
-     ??? Alternatively, we could put this at the calling site of expand_binop,
-     i.e. expand_expr.  */
-  /* Use emit_libcall_block for loop invariant code motion and to make
-     a REG_EQUAL note.  */
-  emit_libcall_block (insn, operands[0], macl, SET_SRC (single_set (insn)));
-
-  DONE;
-})
 
 ;; mulsi3 on the SH2 can be done in one instruction, on the SH1 we generate
 ;; a call to a routine which clobbers known registers.
-(define_insn ""
+(define_insn "mulsi3_call"
   [(set (match_operand:SI 1 "register_operand" "=z")
 	(mult:SI (reg:SI R4_REG) (reg:SI R5_REG)))
    (clobber (reg:SI MACL_REG))
@@ -2530,22 +2526,6 @@
   "jsr	@%0%#"
   [(set_attr "type" "sfunc")
    (set_attr "needs_delay_slot" "yes")])
-
-(define_expand "mulsi3_call"
-  [(set (reg:SI R4_REG) (match_operand:SI 1 "general_operand" ""))
-   (set (reg:SI R5_REG) (match_operand:SI 2 "general_operand" ""))
-   (parallel[(set (match_operand:SI 0 "register_operand" "")
-		  (mult:SI (reg:SI R4_REG)
-			   (reg:SI R5_REG)))
-	     (clobber (reg:SI MACL_REG))
-	     (clobber (reg:SI T_REG))
-	     (clobber (reg:SI PR_REG))
-	     (clobber (reg:SI R3_REG))
-	     (clobber (reg:SI R2_REG))
-	     (clobber (reg:SI R1_REG))
-	     (use (match_operand:SI 3 "register_operand" ""))])]
-  "TARGET_SH1"
-  "")
 
 (define_insn "mul_r"
   [(set (match_operand:SI 0 "arith_reg_dest" "=r")
@@ -2563,33 +2543,44 @@
   "mul.l	%1,%0"
   [(set_attr "type" "dmpy")])
 
+(define_insn_and_split "mulsi3_i"
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(mult:SI (match_operand:SI 1 "arith_reg_operand")
+		 (match_operand:SI 2 "arith_reg_operand")))
+   (clobber (reg:SI MACL_REG))]
+  "TARGET_SH2 && can_create_pseudo_p ()"
+  "#"
+  "&& 1"
+  [(set (reg:SI MACL_REG) (mult:SI (match_dup 1) (match_dup 2)))
+   (set (match_dup 0) (reg:SI MACL_REG))])
+
 (define_expand "mulsi3"
-  [(set (reg:SI MACL_REG)
-	(mult:SI  (match_operand:SI 1 "arith_reg_operand" "")
-		  (match_operand:SI 2 "arith_reg_operand" "")))
-   (set (match_operand:SI 0 "arith_reg_operand" "")
-	(reg:SI MACL_REG))]
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(mult:SI (match_operand:SI 1 "arith_reg_operand")
+		 (match_operand:SI 2 "arith_reg_operand")))]
   "TARGET_SH1"
 {
   if (!TARGET_SH2)
     {
-      /* The address must be set outside the libcall,
-	 since it goes into a pseudo.  */
+      emit_move_insn (gen_rtx_REG (SImode, R4_REG), operands[1]);
+      emit_move_insn (gen_rtx_REG (SImode, R5_REG), operands[2]);
+
       rtx sym = function_symbol (NULL, "__mulsi3", SFUNC_STATIC).sym;
-      rtx addr = force_reg (SImode, sym);
-      rtx insns = gen_mulsi3_call (operands[0], operands[1],
-				   operands[2], addr);
-      emit_insn (insns);
+
+      emit_insn (gen_mulsi3_call (force_reg (SImode, sym), operands[0]));
     }
   else
     {
-      rtx macl = gen_rtx_REG (SImode, MACL_REG);
+      /* FIXME: For some reason, expanding the mul_l insn and the macl store
+	 insn early gives slightly better code.  In particular it prevents
+	 the decrement-test loop type to be used in some cases which saves
+	 one multiplication in the loop setup code.
+
+         emit_insn (gen_mulsi3_i (operands[0], operands[1], operands[2]));
+      */
 
       emit_insn (gen_mul_l (operands[1], operands[2]));
-      /* consec_sets_giv can only recognize the first insn that sets a
-	 giv as the giv insn.  So we must tag this also with a REG_EQUAL
-	 note.  */
-      emit_insn (gen_movsi_i ((operands[0]), macl));
+      emit_move_insn (operands[0], gen_rtx_REG (SImode, MACL_REG));
     }
   DONE;
 })
@@ -2610,9 +2601,9 @@
   [(set_attr "type" "dmpy")])
 
 (define_expand "mulsidi3"
-  [(set (match_operand:DI 0 "arith_reg_dest" "")
-	(mult:DI (sign_extend:DI (match_operand:SI 1 "arith_reg_operand" ""))
-		 (sign_extend:DI (match_operand:SI 2 "arith_reg_operand" ""))))]
+  [(set (match_operand:DI 0 "arith_reg_dest")
+	(mult:DI (sign_extend:DI (match_operand:SI 1 "arith_reg_operand"))
+		 (sign_extend:DI (match_operand:SI 2 "arith_reg_operand"))))]
   "TARGET_SH2"
 {
   emit_insn (gen_mulsidi3_compact (operands[0], operands[1], operands[2]));
@@ -2620,13 +2611,12 @@
 })
 
 (define_insn_and_split "mulsidi3_compact"
-  [(set (match_operand:DI 0 "arith_reg_dest" "=r")
-	(mult:DI
-	 (sign_extend:DI (match_operand:SI 1 "arith_reg_operand" "r"))
-	 (sign_extend:DI (match_operand:SI 2 "arith_reg_operand" "r"))))
+  [(set (match_operand:DI 0 "arith_reg_dest")
+	(mult:DI (sign_extend:DI (match_operand:SI 1 "arith_reg_operand"))
+		 (sign_extend:DI (match_operand:SI 2 "arith_reg_operand"))))
    (clobber (reg:SI MACH_REG))
    (clobber (reg:SI MACL_REG))]
-  "TARGET_SH2"
+  "TARGET_SH2 && can_create_pseudo_p ()"
   "#"
   "&& 1"
   [(const_int 0)]
@@ -2659,9 +2649,9 @@
   [(set_attr "type" "dmpy")])
 
 (define_expand "umulsidi3"
-  [(set (match_operand:DI 0 "arith_reg_dest" "")
-	(mult:DI (zero_extend:DI (match_operand:SI 1 "arith_reg_operand" ""))
-		 (zero_extend:DI (match_operand:SI 2 "arith_reg_operand" ""))))]
+  [(set (match_operand:DI 0 "arith_reg_dest")
+	(mult:DI (zero_extend:DI (match_operand:SI 1 "arith_reg_operand"))
+		 (zero_extend:DI (match_operand:SI 2 "arith_reg_operand"))))]
   "TARGET_SH2"
 {
   emit_insn (gen_umulsidi3_compact (operands[0], operands[1], operands[2]));
@@ -2669,13 +2659,12 @@
 })
 
 (define_insn_and_split "umulsidi3_compact"
-  [(set (match_operand:DI 0 "arith_reg_dest" "=r")
-	(mult:DI
-	 (zero_extend:DI (match_operand:SI 1 "arith_reg_operand" "r"))
-	 (zero_extend:DI (match_operand:SI 2 "arith_reg_operand" "r"))))
+  [(set (match_operand:DI 0 "arith_reg_dest")
+	(mult:DI (zero_extend:DI (match_operand:SI 1 "arith_reg_operand"))
+		 (zero_extend:DI (match_operand:SI 2 "arith_reg_operand"))))
    (clobber (reg:SI MACH_REG))
    (clobber (reg:SI MACL_REG))]
-  "TARGET_SH2"
+  "TARGET_SH2 && can_create_pseudo_p ()"
   "#"
   "&& 1"
   [(const_int 0)]
@@ -2705,38 +2694,23 @@
   "dmuls.l	%1,%0"
   [(set_attr "type" "dmpy")])
 
-(define_expand "smulsi3_highpart"
-  [(parallel
-    [(set (reg:SI MACH_REG)
-	  (truncate:SI
-	   (lshiftrt:DI
+(define_insn_and_split "smulsi3_highpart"
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(truncate:SI
+	  (lshiftrt:DI
 	    (mult:DI
-	     (sign_extend:DI (match_operand:SI 1 "arith_reg_operand" ""))
-	     (sign_extend:DI (match_operand:SI 2 "arith_reg_operand" "")))
-	    (const_int 32))))
-    (clobber (reg:SI MACL_REG))])
-   (set (match_operand:SI 0 "arith_reg_operand" "")
-	(reg:SI MACH_REG))]
-  "TARGET_SH2"
+	      (sign_extend:DI (match_operand:SI 1 "arith_reg_operand"))
+	      (sign_extend:DI (match_operand:SI 2 "arith_reg_operand")))
+	  (const_int 32))))
+   (clobber (reg:SI MACL_REG))
+   (clobber (reg:SI MACH_REG))]
+  "TARGET_SH2 && can_create_pseudo_p ()"
+  "#"
+  "&& 1"
+  [(const_int 0)]
 {
-  rtx_insn *insn;
-  rtx mach;
-
-  mach = gen_rtx_REG (SImode, MACH_REG);
-  start_sequence ();
   emit_insn (gen_smulsi3_highpart_i (operands[1], operands[2]));
-  insn = get_insns ();  
-  end_sequence ();
-  /* expand_binop can't find a suitable code in mul_highpart_optab to
-     make a REG_EQUAL note from, so make one here.
-     See also {,u}mulhisi.
-     ??? Alternatively, we could put this at the calling site of expand_binop,
-     i.e. expand_mult_highpart.  */
-  /* Use emit_libcall_block for loop invariant code motion and to make
-     a REG_EQUAL note.  */
-  emit_libcall_block (insn, operands[0], mach, SET_SRC (single_set (insn)));
-
-  DONE;
+  emit_move_insn (operands[0], gen_rtx_REG (SImode, MACH_REG));
 })
 
 (define_insn "umulsi3_highpart_i"
@@ -2752,33 +2726,22 @@
   "dmulu.l	%1,%0"
   [(set_attr "type" "dmpy")])
 
-(define_expand "umulsi3_highpart"
-  [(parallel
-    [(set (reg:SI MACH_REG)
-	  (truncate:SI
-	   (lshiftrt:DI
+(define_insn_and_split "umulsi3_highpart"
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(truncate:SI
+	  (lshiftrt:DI
 	    (mult:DI
-	     (zero_extend:DI (match_operand:SI 1 "arith_reg_operand" ""))
-	     (zero_extend:DI (match_operand:SI 2 "arith_reg_operand" "")))
-	    (const_int 32))))
-    (clobber (reg:SI MACL_REG))])
-   (set (match_operand:SI 0 "arith_reg_operand" "")
-	(reg:SI MACH_REG))]
-  "TARGET_SH2"
+	      (zero_extend:DI (match_operand:SI 1 "arith_reg_operand"))
+	      (zero_extend:DI (match_operand:SI 2 "arith_reg_operand")))
+	  (const_int 32))))
+   (clobber (reg:SI MACL_REG))]
+  "TARGET_SH2 && can_create_pseudo_p ()"
+  "#"
+  "&& 1"
+  [(const_int 0)]
 {
-  rtx_insn *insn;
-  rtx mach;
-
-  mach = gen_rtx_REG (SImode, MACH_REG);
-  start_sequence ();
   emit_insn (gen_umulsi3_highpart_i (operands[1], operands[2]));
-  insn = get_insns ();  
-  end_sequence ();
-  /* Use emit_libcall_block for loop invariant code motion and to make
-     a REG_EQUAL note.  */
-  emit_libcall_block (insn, operands[0], mach, SET_SRC (single_set (insn)));
-
-  DONE;
+  emit_move_insn (operands[0], gen_rtx_REG (SImode, MACH_REG));
 })
 
 ;; -------------------------------------------------------------------------
@@ -3440,6 +3403,22 @@
   rtx tmp = gen_reg_rtx (SImode);
   emit_insn (gen_shll (tmp, operands[1]));
   emit_insn (gen_rotcr (operands[0], operands[2], get_t_reg_rtx ()));
+  DONE;
+})
+
+(define_insn_and_split "*rotcr"
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(ior:SI (lshiftrt:SI (match_operand:SI 1 "arith_reg_operand")
+			     (const_int 1))
+		(const_int -2147483648))) ;; 0xffffffff80000000
+   (clobber (reg:SI T_REG))]
+  "TARGET_SH1"
+  "#"
+  "&& can_create_pseudo_p ()"
+  [(const_int 0)]
+{
+  emit_insn (gen_sett ());
+  emit_insn (gen_rotcr (operands[0], operands[1], get_t_reg_rtx ()));
   DONE;
 })
 
@@ -4904,6 +4883,15 @@
   [(set_attr "type" "load")
    (set_attr "length" "2,2,4")])
 
+;; The pre-dec and post-inc mems must be captured by the '<' and '>'
+;; constraints, otherwise wrong code might get generated.
+(define_insn "*extend<mode>si2_predec"
+  [(set (match_operand:SI 0 "arith_reg_dest" "=z")
+	(sign_extend:SI (match_operand:QIHI 1 "pre_dec_mem" "<")))]
+  "TARGET_SH2A"
+  "mov.<bw>	%1,%0"
+  [(set_attr "type" "load")])
+
 ;; The *_snd patterns will take care of other QImode/HImode addressing
 ;; modes than displacement addressing.  They must be defined _after_ the
 ;; displacement addressing patterns.  Otherwise the displacement addressing
@@ -5149,20 +5137,23 @@
 ;; t/r must come after r/r, lest reload will try to reload stuff like
 ;; (set (subreg:SI (mem:QI (plus:SI (reg:SI SP_REG) (const_int 12)) 0) 0)
 ;; (made from (set (subreg:SI (reg:QI ###) 0) ) into T.
+;; Notice that although this pattern allows movi20 and movi20s on non-SH2A,
+;; those alternatives will not be taken, as they will be converted into
+;; PC-relative loads.
 (define_insn "movsi_i"
   [(set (match_operand:SI 0 "general_movdst_operand"
-	    "=r,r,r,r,r,r,m,<,<,x,l,x,l,r")
+			    "=r,r,  r,  r,  r, r,r,r,m,<,<,x,l,x,l,r")
 	(match_operand:SI 1 "general_movsrc_operand"
-	 "Q,r,I08,mr,x,l,r,x,l,r,r,>,>,i"))]
-  "TARGET_SH1
-   && ! TARGET_SH2E
-   && ! TARGET_SH2A
+			    " Q,r,I08,I20,I28,mr,x,l,r,x,l,r,r,>,>,i"))]
+  "TARGET_SH1 && !TARGET_FPU_ANY
    && (register_operand (operands[0], SImode)
        || register_operand (operands[1], SImode))"
   "@
 	mov.l	%1,%0
 	mov	%1,%0
 	mov	%1,%0
+	movi20	%1,%0
+	movi20s	%1,%0
 	mov.l	%1,%0
 	sts	%1,%0
 	sts	%1,%0
@@ -5174,9 +5165,27 @@
 	lds.l	%1,%0
 	lds.l	%1,%0
 	fake	%1,%0"
-  [(set_attr "type" "pcload_si,move,movi8,load_si,mac_gp,prget,store,mac_mem,
-		     pstore,gp_mac,prset,mem_mac,pload,pcload_si")
-   (set_attr "length" "*,*,*,*,*,*,*,*,*,*,*,*,*,*")])
+  [(set_attr "type" "pcload_si,move,movi8,move,move,load_si,mac_gp,prget,store,
+		     mac_mem,pstore,gp_mac,prset,mem_mac,pload,pcload_si")
+   (set_attr_alternative "length"
+     [(const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 4)
+      (const_int 4)
+      (if_then_else (match_operand 1 "long_displacement_mem_operand")
+		    (const_int 4) (const_int 2))
+      (const_int 2)
+      (const_int 2)
+      (if_then_else (match_operand 0 "long_displacement_mem_operand")
+		    (const_int 4) (const_int 2))
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 2)])])
 
 ;; t/r must come after r/r, lest reload will try to reload stuff like
 ;; (subreg:SI (reg:SF FR14_REG) 0) into T (compiling stdlib/strtod.c -m3e -O2)
@@ -5184,12 +5193,15 @@
 ;; will require a reload.
 ;; ??? We can't include f/f because we need the proper FPSCR setting when
 ;; TARGET_FMOVD is in effect, and mode switching is done before reload.
+;; Notice that although this pattern allows movi20 and movi20s on non-SH2A,
+;; those alternatives will not be taken, as they will be converted into
+;; PC-relative loads.
 (define_insn "movsi_ie"
   [(set (match_operand:SI 0 "general_movdst_operand"
-	    "=r,r,r,r,r,r,r,r,mr,<,<,x,l,x,l,y,<,r,y,r,*f,y,*f,y")
+	    "=r,r,  r,  r,  r, r,r,r,mr,<,<,x,l,x,l,y,<,r,y,r,*f, y,*f,y")
 	(match_operand:SI 1 "general_movsrc_operand"
-	 "Q,r,I08,I20,I28,mr,x,l,r,x,l,r,r,>,>,>,y,i,r,y,y,*f,*f,y"))]
-  "(TARGET_SH2E || TARGET_SH2A)
+	    " Q,r,I08,I20,I28,mr,x,l, r,x,l,r,r,>,>,>,y,i,r,y, y,*f,*f,y"))]
+  "TARGET_SH1 && TARGET_FPU_ANY
    && ((register_operand (operands[0], SImode)
 	&& !fpscr_operand (operands[0], SImode))
        || (register_operand (operands[1], SImode)
@@ -5229,14 +5241,12 @@
       (const_int 2)
       (const_int 4)
       (const_int 4)
-      (if_then_else
-	(match_test "TARGET_SH2A")
-	(const_int 4) (const_int 2))
+      (if_then_else (match_operand 1 "long_displacement_mem_operand")
+		    (const_int 4) (const_int 2))
       (const_int 2)
       (const_int 2)
-      (if_then_else
-	(match_test "TARGET_SH2A")
-	(const_int 4) (const_int 2))
+      (if_then_else (match_operand 0 "long_displacement_mem_operand")
+		    (const_int 4) (const_int 2))
       (const_int 2)
       (const_int 2)
       (const_int 2)
@@ -5253,23 +5263,44 @@
       (const_int 2)
       (const_int 0)])])
 
+;; Notice that although this pattern allows movi20 and movi20s on non-SH2A,
+;; those alternatives will not be taken, as they will be converted into
+;; PC-relative loads.
 (define_insn "movsi_i_lowpart"
   [(set (strict_low_part
-	  (match_operand:SI 0 "general_movdst_operand" "+r,r,r,r,r,r,m,r"))
-	(match_operand:SI 1 "general_movsrc_operand" "Q,r,I08,mr,x,l,r,i"))]
-   "TARGET_SH1
-    && (register_operand (operands[0], SImode)
-        || register_operand (operands[1], SImode))"
+	  (match_operand:SI 0 "general_movdst_operand"
+			      "+r,r,  r,  r,  r, r,r,r,m,r"))
+	(match_operand:SI 1 "general_movsrc_operand"
+			      " Q,r,I08,I20,I28,mr,x,l,r,i"))]
+  "TARGET_SH1
+   && (register_operand (operands[0], SImode)
+       || register_operand (operands[1], SImode))"
   "@
 	mov.l	%1,%0
 	mov	%1,%0
 	mov	%1,%0
+	movi20	%1,%0
+	movi20s	%1,%0
 	mov.l	%1,%0
 	sts	%1,%0
 	sts	%1,%0
 	mov.l	%1,%0
 	fake	%1,%0"
-  [(set_attr "type" "pcload,move,arith,load,mac_gp,prget,store,pcload")])
+  [(set_attr "type" "pcload,move,movi8,move,move,load,mac_gp,prget,store,
+		     pcload")
+   (set_attr_alternative "length"
+     [(const_int 2)
+      (const_int 2)
+      (const_int 2)
+      (const_int 4)
+      (const_int 4)
+      (if_then_else (match_operand 1 "long_displacement_mem_operand")
+		    (const_int 4) (const_int 2))
+      (const_int 2)
+      (const_int 2)
+      (if_then_else (match_operand 0 "long_displacement_mem_operand")
+		    (const_int 4) (const_int 2))
+      (const_int 2)])])
 
 (define_insn_and_split "load_ra"
   [(set (match_operand:SI 0 "general_movdst_operand" "")
@@ -5326,7 +5357,7 @@
 	 "	synco"		"\n"
 	 "	icbi	@%0";
 }
-  [(set_attr "length" "16")	;; FIXME: Why 16 and not 6?  Looks like typo.
+  [(set_attr "length" "6")
    (set_attr "type" "cwb")])
 
 (define_expand "mov<mode>"
@@ -5344,6 +5375,22 @@
 
   prepare_move_operands (operands, <MODE>mode);
 })
+
+;; The pre-dec and post-inc mems must be captured by the '<' and '>'
+;; constraints, otherwise wrong code might get generated.
+(define_insn "*mov<mode>_load_predec"
+  [(set (match_operand:QIHISI 0 "arith_reg_dest" "=z")
+	(match_operand:QIHISI 1 "pre_dec_mem" "<"))]
+  "TARGET_SH2A"
+  "mov.<bwl>	%1,%0"
+  [(set_attr "type" "load")])
+
+(define_insn "*mov<mode>_store_postinc"
+  [(set (match_operand:QIHISI 0 "post_inc_mem" "=>")
+	(match_operand:QIHISI 1 "arith_reg_operand" "z"))]
+  "TARGET_SH2A"
+  "mov.<bwl>	%1,%0"
+  [(set_attr "type" "store")])
 
 ;; Specifying the displacement addressing load / store patterns separately
 ;; before the generic movqi / movhi pattern allows controlling the order
@@ -5430,27 +5477,26 @@
 	lds	%1,%0"
   [(set_attr "type" "pcload,move,movi8,store,load,store,load,store,load,prget,prset")
    (set (attr "length")
-	(cond [(and (match_operand 0 "displacement_mem_operand")
-		    (not (match_operand 0 "short_displacement_mem_operand")))
-	       (const_int 4)
-	       (and (match_operand 1 "displacement_mem_operand")
-		    (not (match_operand 1 "short_displacement_mem_operand")))
-	       (const_int 4)]
+	(cond [(match_operand 0 "long_displacement_mem_operand") (const_int 4)
+	       (match_operand 1 "long_displacement_mem_operand") (const_int 4)]
 	      (const_int 2)))])
 
 ;; x/r can be created by inlining/cse, e.g. for execute/961213-1.c
 ;; compiled with -m2 -ml -O3 -funroll-loops
 (define_insn "*movdi_i"
-  [(set (match_operand:DI 0 "general_movdst_operand" "=r,r,r,m,r,r,r,*!x")
-	(match_operand:DI 1 "general_movsrc_operand" "Q,r,m,r,I08,i,x,r"))]
+  [(set (match_operand:DI 0 "general_movdst_operand" "=r,r,r,m,  r,r,r,*!x")
+	(match_operand:DI 1 "general_movsrc_operand" " Q,r,m,r,I08,i,x,  r"))]
   "TARGET_SH1
    && (arith_reg_operand (operands[0], DImode)
        || arith_reg_operand (operands[1], DImode))"
 {
   return output_movedouble (insn, operands, DImode);
 }
-  [(set_attr "length" "4")
-   (set_attr "type" "pcload,move,load,store,move,pcload,move,move")])
+  [(set_attr "type" "pcload,move,load,store,move,pcload,move,move")
+   (set (attr "length")
+	(cond [(match_operand 0 "long_displacement_mem_operand") (const_int 8)
+	       (match_operand 1 "long_displacement_mem_operand") (const_int 8)]
+	      (const_int 4)))])
 
 ;; If the output is a register and the input is memory or a register, we have
 ;; to be careful and see which word needs to be loaded first.
@@ -5528,8 +5574,8 @@
 
 ;; FIXME: This should be a define_insn_and_split.
 (define_insn "movdf_k"
-  [(set (match_operand:DF 0 "general_movdst_operand" "=r,r,r,m")
-	(match_operand:DF 1 "general_movsrc_operand" "r,FQ,m,r"))]
+  [(set (match_operand:DF 0 "general_movdst_operand" "=r, r,r,m")
+	(match_operand:DF 1 "general_movsrc_operand" " r,FQ,m,r"))]
   "TARGET_SH1
    && (!TARGET_FPU_DOUBLE || reload_completed
        /* ??? We provide some insn so that direct_{load,store}[DFmode] get set */
@@ -5540,8 +5586,11 @@
 {
   return output_movedouble (insn, operands, DFmode);
 }
-  [(set_attr "length" "4")
-   (set_attr "type" "move,pcload,load,store")])
+  [(set_attr "type" "move,pcload,load,store")
+   (set (attr "length")
+	(cond [(match_operand 0 "long_displacement_mem_operand") (const_int 8)
+	       (match_operand 1 "long_displacement_mem_operand") (const_int 8)]
+	      (const_int 4)))])
 
 ;; All alternatives of movdf_i4 are split for ! TARGET_FMOVD.
 ;; However, the d/F/c/z alternative cannot be split directly; it is converted
@@ -5549,11 +5598,19 @@
 ;; the d/m/c/X alternative, which is split later into single-precision
 ;; instructions.  And when not optimizing, no splits are done before fixing
 ;; up pcloads, so we need usable length information for that.
+;; A DF constant load results in the following worst-case 8 byte sequence:
+;;	mova	...,r0
+;;	fmov.s	@r0+,..
+;;	fmov.s	@r0,...
+;;	add	#-4,r0
 (define_insn "movdf_i4"
-  [(set (match_operand:DF 0 "general_movdst_operand" "=d,r,d,d,m,r,r,m,!??r,!???d")
-	(match_operand:DF 1 "general_movsrc_operand"  "d,r,F,m,d,FQ,m,r,d,r"))
+  [(set (match_operand:DF 0 "general_movdst_operand"
+				"=d,r, d,d,m, r,r,m,!??r,!???d")
+	(match_operand:DF 1 "general_movsrc_operand"
+				" d,r, F,m,d,FQ,m,r,   d,    r"))
    (use (reg:SI FPSCR_MODES_REG))
-   (clobber (match_scratch:SI 2                      "=X,X,&z,X,X,X,X,X,X,X"))]
+   (clobber (match_scratch:SI 2
+				"=X,X,&z,X,X, X,X,X,   X,    X"))]
   "TARGET_FPU_DOUBLE
    && (arith_reg_operand (operands[0], DFmode)
        || arith_reg_operand (operands[1], DFmode))"
@@ -5577,16 +5634,28 @@
     }
   }
   [(set_attr_alternative "length"
-     [(if_then_else (eq_attr "fmovd" "yes") (const_int 4) (const_int 8))
+     [(if_then_else (eq_attr "fmovd" "yes") (const_int 2) (const_int 4))
       (const_int 4)
-      (if_then_else (eq_attr "fmovd" "yes") (const_int 4) (const_int 6))
-      (if_then_else (eq_attr "fmovd" "yes") (const_int 4) (const_int 6))
-      (if_then_else (eq_attr "fmovd" "yes") (const_int 4) (const_int 6))
+      (if_then_else (eq_attr "fmovd" "yes") (const_int 4) (const_int 8))
+      (if_then_else (match_operand 1 "displacement_mem_operand")
+		    (if_then_else (eq_attr "fmovd" "yes")
+				  (const_int 4) (const_int 8))
+		    (if_then_else (eq_attr "fmovd" "yes")
+				  (const_int 2) (const_int 4)))
+      (if_then_else (match_operand 0 "displacement_mem_operand")
+		    (if_then_else (eq_attr "fmovd" "yes")
+				  (const_int 4) (const_int 8))
+		    (if_then_else (eq_attr "fmovd" "yes")
+				  (const_int 2) (const_int 4)))
       (const_int 4)
-      (const_int 8) (const_int 8) ;; these need only 8 bytes for @(r0,rn)
+      (if_then_else (match_operand 1 "long_displacement_mem_operand")
+		    (const_int 8) (const_int 4))
+      (if_then_else (match_operand 0 "long_displacement_mem_operand")
+		    (const_int 8) (const_int 4))
       (const_int 8)
       (const_int 8)])
-   (set_attr "type" "fmove,move,pcfload,fload,fstore,pcload,load,store,load,fload")
+   (set_attr "type" "fmove,move,pcfload,fload,fstore,pcload,load,store,load,
+		    fload")
    (set_attr "late_fp_use" "*,*,*,*,yes,*,*,*,*,*")
    (set (attr "fp_mode") (if_then_else (eq_attr "fmovd" "yes")
 					   (const_string "double")
@@ -5980,8 +6049,11 @@
     }
 })
 
+;; FIXME Although the movsf_i pattern is not used when there's an FPU,
+;; it somehow influences some RA choices also on FPU targets.
+;; For non-FPU targets it's actually not needed.
 (define_insn "movsf_i"
-  [(set (match_operand:SF 0 "general_movdst_operand" "=r,r,r,r,m,l,r")
+  [(set (match_operand:SF 0 "general_movdst_operand" "=r,r, r, r,m,l,r")
 	(match_operand:SF 1 "general_movsrc_operand"  "r,G,FQ,mr,r,r,l"))]
   "TARGET_SH1
    && (! TARGET_SH2E
@@ -5998,21 +6070,34 @@
 	mov.l	%1,%0
 	lds	%1,%0
 	sts	%1,%0"
-  [(set_attr "type" "move,move,pcload,load,store,move,move")])
+  [(set_attr "type" "move,move,pcload,load,store,move,move")
+   (set_attr_alternative "length"
+     [(const_int 2)
+      (const_int 2)
+      (if_then_else (match_operand 1 "long_displacement_mem_operand")
+		    (const_int 4) (const_int 2))
+      (if_then_else (match_operand 1 "long_displacement_mem_operand")
+		    (const_int 4) (const_int 2))
+      (if_then_else (match_operand 0 "long_displacement_mem_operand")
+		    (const_int 4) (const_int 2))
+      (const_int 2)
+      (const_int 2)])])
 
 ;; We may not split the ry/yr/XX alternatives to movsi_ie, since
 ;; update_flow_info would not know where to put REG_EQUAL notes
 ;; when the destination changes mode.
 (define_insn "movsf_ie"
   [(set (match_operand:SF 0 "general_movdst_operand"
-	 "=f,r,f,f,fy,f,m,r,r,m,f,y,y,rf,r,y,<,y,y")
+			        "=f,r,f,f,fy, f,m, r, r,m,f,y,y,rf,r,y,<,y,y")
 	(match_operand:SF 1 "general_movsrc_operand"
-	  "f,r,G,H,FQ,mf,f,FQ,mr,r,y,f,>,fr,y,r,y,>,y"))
+			        " f,r,G,H,FQ,mf,f,FQ,mr,r,y,f,>,fr,y,r,y,>,y"))
    (use (reg:SI FPSCR_MODES_REG))
-   (clobber (match_scratch:SI 2 "=X,X,X,X,&z,X,X,X,X,X,X,X,X,y,X,X,X,X,X"))]
+   (clobber (match_scratch:SI 2 "=X,X,X,X,&z, X,X, X, X,X,X,X,X, y,X,X,X,X,X"))]
   "TARGET_SH2E
-   && (arith_reg_operand (operands[0], SFmode) || fpul_operand (operands[0], SFmode)
-       || arith_reg_operand (operands[1], SFmode) || fpul_operand (operands[1], SFmode)
+   && (arith_reg_operand (operands[0], SFmode)
+       || fpul_operand (operands[0], SFmode)
+       || arith_reg_operand (operands[1], SFmode)
+       || fpul_operand (operands[1], SFmode)
        || arith_reg_operand (operands[2], SImode))"
   "@
 	fmov	%1,%0
@@ -6043,19 +6128,15 @@
       (const_int 2)
       (const_int 2)
       (const_int 4)
-      (if_then_else
-	(match_test "TARGET_SH2A")
-	(const_int 4) (const_int 2))
-      (if_then_else
-	(match_test "TARGET_SH2A")
-	(const_int 4) (const_int 2))
+      (if_then_else (match_operand 1 "displacement_mem_operand")
+		    (const_int 4) (const_int 2))
+      (if_then_else (match_operand 0 "displacement_mem_operand")
+		    (const_int 4) (const_int 2))
       (const_int 2)
-      (if_then_else
-	(match_test "TARGET_SH2A")
-	(const_int 4) (const_int 2))
-      (if_then_else
-	(match_test "TARGET_SH2A")
-	(const_int 4) (const_int 2))
+      (if_then_else (match_operand 1 "long_displacement_mem_operand")
+		    (const_int 4) (const_int 2))
+      (if_then_else (match_operand 0 "long_displacement_mem_operand")
+		    (const_int 4) (const_int 2))
       (const_int 2)
       (const_int 2)
       (const_int 2)
@@ -6091,11 +6172,11 @@
 
 (define_insn_and_split "movsf_ie_ra"
   [(set (match_operand:SF 0 "general_movdst_operand"
-	 "=f,r,f,f,fy,f,m,r,r,m,f,y,y,rf,r,y,<,y,y")
+	 			"=f,r,f,f,fy,f,m, r,r,m,f,y,y,rf,r,y,<,y,y")
 	(match_operand:SF 1 "general_movsrc_operand"
-	  "f,r,G,H,FQ,m,f,FQ,m,r,y,f,>,fr,y,r,y,>,y"))
+				" f,r,G,H,FQ,m,f,FQ,m,r,y,f,>,fr,y,r,y,>,y"))
    (use (reg:SI FPSCR_MODES_REG))
-   (clobber (match_scratch:SF 2 "=r,r,X,X,&z,r,r,X,r,r,r,r,r,y,r,r,r,r,r"))
+   (clobber (match_scratch:SF 2 "=r,r,X,X,&z,r,r, X,r,r,r,r,r, y,r,r,r,r,r"))
    (const_int 0)]
   "TARGET_SH2E
    && (arith_reg_operand (operands[0], SFmode)
@@ -6141,19 +6222,15 @@
       (const_int 2)
       (const_int 2)
       (const_int 4)
-      (if_then_else
-	(match_test "TARGET_SH2A")
-	(const_int 4) (const_int 2))
-      (if_then_else
-	(match_test "TARGET_SH2A")
-	(const_int 4) (const_int 2))
+      (if_then_else (match_operand 1 "displacement_mem_operand")
+		    (const_int 4) (const_int 2))
+      (if_then_else (match_operand 0 "displacement_mem_operand")
+		    (const_int 4) (const_int 2))
       (const_int 2)
-      (if_then_else
-	(match_test "TARGET_SH2A")
-	(const_int 4) (const_int 2))
-      (if_then_else
-	(match_test "TARGET_SH2A")
-	(const_int 4) (const_int 2))
+      (if_then_else (match_operand 1 "long_displacement_mem_operand")
+		    (const_int 4) (const_int 2))
+      (if_then_else (match_operand 0 "long_displacement_mem_operand")
+		    (const_int 4) (const_int 2))
       (const_int 2)
       (const_int 2)
       (const_int 2)
