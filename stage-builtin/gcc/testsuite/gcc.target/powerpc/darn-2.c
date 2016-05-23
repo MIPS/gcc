@@ -4,7 +4,7 @@
 
 #include <altivec.h>
 
-long long get_raw_random() 
+long long get_raw_random ()
 {
   return __builtin_darn_raw ();
 }

@@ -4,7 +4,7 @@
 
 #include <altivec.h>
 
-long long get_conditioned_random() 
+long long get_conditioned_random ()
 {
   return __builtin_darn ();
 }

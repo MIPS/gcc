@@ -2665,7 +2665,7 @@ extern int frame_pointer_needed;
 #define RS6000_BTM_ALTIVEC	MASK_ALTIVEC	/* VMX/altivec vectors.  */
 #define RS6000_BTM_VSX		MASK_VSX	/* VSX (vector/scalar).  */
 #define RS6000_BTM_P8_VECTOR	MASK_P8_VECTOR	/* ISA 2.07 vector.  */
-#define RS6000_BTM_P9_VECTOR	MASK_P9_VECTOR	/* ISA 3.00 vector.  */
+#define RS6000_BTM_P9_VECTOR	MASK_P9_VECTOR	/* ISA 3.0 vector.  */
 #define RS6000_BTM_CRYPTO	MASK_CRYPTO	/* crypto funcs.  */
 #define RS6000_BTM_HTM		MASK_HTM	/* hardware TM funcs.  */
 #define RS6000_BTM_SPE		MASK_STRING	/* E500 */
@@ -2685,7 +2685,6 @@ extern int frame_pointer_needed;
 				 | RS6000_BTM_VSX			\
 				 | RS6000_BTM_P8_VECTOR			\
 				 | RS6000_BTM_P9_VECTOR			\
-				 | RS6000_BTM_MODULO                    \
 				 | RS6000_BTM_CRYPTO			\
 				 | RS6000_BTM_FRE			\
 				 | RS6000_BTM_FRES			\
