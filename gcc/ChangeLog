@@ -1,3 +1,314 @@
+2016-05-23  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (gen_hsa_insns_for_switch_stmt): Create an empty
+	default block if a PHI node in the original one would be resized.
+
+2016-05-23  Venkataramanan Kumar  <venkataramanan.kumar@amd.com>
+
+	PR tree-optimization/58135
+	* tree-vect-slp.c: When group size is not multiple
+	of vector size, allow splitting of store group at
+	vector boundary.
+
+2016-05-23  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* config/arm/arm_neon.h (vtst_p16, vtstq_p16): New.
+
+2016-05-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/sse.md (vec_set_lo_<mode><mask_name>,
+	vec_set_hi_<mode><mask_name>): Add && <mask_avx512dq_condition>
+	condition.  For !TARGET_AVX512DQ, emit 32x4 instruction instead
+	of 64x2.
+
+	* config/i386/sse.md (vec_set_lo_v16hi, vec_set_hi_v16hi,
+	vec_set_lo_v32qi, vec_set_hi_v32qi): Add alternative with
+	v constraint instead of x and vinserti32x4 insn.
+
+	* config/i386/sse.md (i128vldq): New mode iterator.
+	(avx2_vbroadcasti128_<mode>, avx_vbroadcastf128_<mode>): Add
+	avx512dq and avx512vl alternatives.
+
+	* config/i386/sse.md (avx2_vec_dupv4df): Use v instead of x
+	constraint, use maybe_evex prefix instead of vex.
+	(vec_dupv4sf): Use v constraint instead of x for output
+	operand except for noavx alternative, use Yv constraint
+	instead of x for input.  Use maybe_evex prefix instead of vex.
+	(*vec_dupv4si): Likewise.
+	(*vec_dupv2di): Likewise.
+
+2016-05-22  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/40921
+        * tree-ssa-reassoc.c (try_special_add_to_ops): New.
+        (linearize_expr_tree): Call try_special_add_to_ops.
+        (reassociate_bb): Convert MULT_EXPR by (-1) to NEGATE_EXPR.
+
+2016-05-21  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* config/avr/avr.c (avr_expand_prologue): Add INCOMING_FRAME_SP_OFFSET
+	to computed stack_usage.
+
+2016-05-21  Pitchumani Sivanupandi  <pitchumani.s@atmel.com>
+
+	PR target/71103
+	* config/avr/avr.md (define_expand "mov<mode>"): If the source
+	operand is subreg (symbol_ref) then move the symbol ref to register.
+
+2016-05-21  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree.c (array_at_struct_end_p): Look through MEM_REF.
+
+2016-05-21  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/71179
+	* tree-ssa-reassoc.c (transform_add_to_multiply): Disallow float
+	VECTOR type.
+
+2016-05-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-vrp.c (compare_values_warnv): Simplify handling of symbolic
+	ranges by calling get_single_symbol and tidy up.  Look more closely
+	into NAME + CST1 vs CST2 comparisons if type overflow is undefined.
+
+2016-05-20  Jeff Law  <law@redhat.com>
+
+	* bitmap.c (bitmap_find_bit): Remove useless test.
+
+2016-05-20  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* function.c (thread_prologue_and_epilogue_insns): Commit the
+	insertion of the epilogue.
+
+2016-05-20  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/70884
+	* tree-sra.c (initialize_constant_pool_replacements): Do not check
+	should_scalarize_away_bitmap and cannot_scalarize_away_bitmap bits.
+	(sort_and_splice_var_accesses): Do not consider multiple scalar reads
+	of constant pool data as a reason for scalarization.
+
+2016-05-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/arm/arm.c (arm_expand_prologue): Set the stack usage to 0
+	for naked functions.
+	(thumb1_expand_prologue): Likewise.
+
+2016-05-20  Nathan Sidwell  <nathan@acm.org>
+
+	* config/nvptx/nptx.c (nvptx_option_override): Only set
+	flag_toplevel_reorder, if not explicitly specified.  Set
+	flag_no_common, unless explicitly specified.
+
+2016-05-20  David Malcolm  <dmalcolm@redhat.com>
+
+	* calls.c (can_implement_as_sibling_call_p): Mark param
+	reg_parm_stack_space with ATTRIBUTE_UNUSED.
+
+2016-05-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc/config/i386/i386.c (ix86_rtx_costs) <case CONST_DOUBLE>:
+	Use IS_STACK_MODE when calculating cost of standard 80387 constants.
+	Fallthru to CONST_VECTOR case to calculate cost of standard SSE
+	constants.
+	<case CONST_WIDE_INT>: Calculate cost of (MEM (SYMBOL_REF)).
+	(ix86_legitimate_constant_p): Use CASE_CONST_SCALAR_INT
+	and CASE_CONST_ANY.
+
+2016-05-20  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* config/nvptx/nvptx.md (sincossf3): New pattern.
+
+2016-05-20  David Malcolm  <dmalcolm@redhat.com>
+
+	* calls.c (maybe_complain_about_tail_call): New function.
+	(initialize_argument_information): Call
+	maybe_complain_about_tail_call when clearing *may_tailcall.
+	(can_implement_as_sibling_call_p): Call
+	maybe_complain_about_tail_call when returning false.
+	(expand_call): Read CALL_EXPR_MUST_TAIL_CALL and, if set,
+	ensure try_tail_call is set.  Call maybe_complain_about_tail_call
+	if tail-call optimization fails.
+	* cfgexpand.c (expand_call_stmt): Initialize
+	CALL_EXPR_MUST_TAIL_CALL from gimple_call_must_tail_p.
+	* gimple-pretty-print.c (dump_gimple_call): Dump
+	gimple_call_must_tail_p.
+	* gimple.c (gimple_build_call_from_tree): Call
+	gimple_call_set_must_tail with the value of
+	CALL_EXPR_MUST_TAIL_CALL.
+	* gimple.h (enum gf_mask): Add GF_CALL_MUST_TAIL_CALL.
+	(gimple_call_set_must_tail): New function.
+	(gimple_call_must_tail_p): New function.
+	* print-tree.c (print_node): Update printing of TREE_STATIC
+	to reflect its use for CALL_EXPR_MUST_TAIL_CALL.
+	* tree-core.h (struct tree_base): Add MUST_TAIL_CALL to the
+	trailing comment listing applicable flags.
+	* tree.h (CALL_EXPR_MUST_TAIL_CALL): New macro.
+
+2016-05-20  David Malcolm  <dmalcolm@redhat.com>
+
+	* calls.c (expand_call): Move "Rest of purposes for tail call
+	optimizations to fail" to...
+	(can_implement_as_sibling_call_p): ...this new function, and
+	split into multiple "if" statements.
+
+2016-05-20  Jan Hubicka  <hubicka@ucw.cz>
+
+	* cfgloop.h (expected_loop_iterations_unbounded,
+	expected_loop_iterations): Unconstify.
+	* cfgloopanal.c (expected_loop_iterations_unbounded): Sanity check the
+	profile with known upper bound; return 3 when profile is absent.
+	(expected_loop_iterations): Update.
+
+2016-05-20  Jan Hubicka  <hubicka@ucw.cz>
+
+	* loop-doloop.c (doloop_optimize): Use get_estimated_loop_iterations_int
+	and get_max_loop_iterations_int.
+
+2016-05-20  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-ssa-loop-niter.c (idx_infer_loop_bounds): We can not produce
+	realistic upper bounds here.
+
+2016-05-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71210
+	* gimple-fold.c (gimple_fold_call): Do not remove lhs of noreturn
+	calls if the LHS is variable length or has addressable type.
+	If targets[0]->decl is a noreturn call with void return type and
+	zero arguments, adjust fntype and remove lhs in that case.
+
+2016-05-20  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR tree-optimization/71079
+	PR tree-optimization/71206
+	* match.pd ((X ^ Y) ^ (X ^ Z)): Convert the arguments.
+
+2016-05-20  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* tree-vectorizer.c (get_vec_alignment_for_decl): New static function.
+	(get_vec_alignment_for_array_decl): Likewise.
+	(get_vec_alignment_for_record_decl): Likewise.
+	(increase_alignment::execute): Move code to find alignment to
+	get_vec_alignment_for_array_decl and call get_vec_alignment_for_decl.
+	(type_align_map): New hash_map.
+
+2016-05-20  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/29756
+	* tree.def (BIT_INSERT_EXPR): New tcc_expression tree code.
+	* expr.c (expand_expr_real_2): Handle BIT_INSERT_EXPR.
+	* fold-const.c (operand_equal_p): Likewise.
+	(fold_ternary_loc): Add constant folding of BIT_INSERT_EXPR.
+	* gimplify.c (gimplify_expr): Handle BIT_INSERT_EXPR.
+	* tree-inline.c (estimate_operator_cost): Likewise.
+	* tree-pretty-print.c (dump_generic_node): Likewise.
+	* tree-ssa-operands.c (get_expr_operands): Likewise.
+	* cfgexpand.c (expand_debug_expr): Likewise.
+	* gimple-pretty-print.c (dump_ternary_rhs): Likewise.
+	* gimple.c (get_gimple_rhs_num_ops): Handle BIT_INSERT_EXPR.
+	* tree-cfg.c (verify_gimple_assign_ternary): Verify BIT_INSERT_EXPR.
+	* tree-ssa.c (non_rewritable_lvalue_p): We can rewrite
+	vector inserts using BIT_FIELD_REF or MEM_REF on the lhs.
+	(execute_update_addresses_taken): Do it.
+
+2016-05-20  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71185
+	* tree-ssa-loop-prefetch.c (gather_memory_references): Drop
+	register operations.
+
+2016-05-20  Richard Biener  <rguenther@suse.de>
+
+	* tree-if-conv.c (add_bb_predicate_gimplified_stmts): Use
+	gimple_seq_add_seq_without_update.
+	(release_bb_predicate): Assert we have no operands to free.
+	(if_convertible_loop_p_1): Calculate post dominators later.
+	Do not free BB predicates here.
+	(combine_blocks): Do not recompute BB predicates.
+	(version_loop_for_if_conversion): Save BB predicates around
+	loop versioning.
+
+2016-05-19  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* function.c (make_epilogue_seq): Remove epilogue_end parameter.
+	(thread_prologue_and_epilogue_insns): Remove bb_flags.  Restructure
+	code.  Ignore sibcalls on EDGE_IGNORE edges.
+	* shrink-wrap.c (handle_simple_exit): New function.  Set EDGE_IGNORE
+	on edges for sibcalls that run without prologue.  The rest of the
+	function is combined from...
+	(fix_fake_fallthrough_edge): ... this, and ...
+	(try_shrink_wrapping): ... a part of this.  Remove the bb_with
+	function argument, make it a local variable.
+
+2016-05-19  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* config/i386/cygming.h (DWARF2_UNWIND_INFO): Allow 
+	--disable-sjlj-exceptions for TARGET_BI_ARCH to select DWARF-2 EH
+	for 32-bit mode and SEH for 64-bit.
+	* config/i386/mingw32.h (SHARED_LIBGCC_UNDEFS_SPEC): Handle
+	TARGET_64BIT_DEFAULT.
+
+2016-05-19  Ryan Burn  <contact@rnburn.com>
+
+	* Makefile.in (GTFILES): Add cilk.h and cilk-common.c.
+	* gengtype.c (open_base_files): Add cilk.h to ifiles.
+
+2016-05-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	* sched-deps.c (sched_analyze_2) <case TRAP_IF>: Also
+	force pending loads from memory.
+
+2016-05-19  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* config/rs6000/altivec.md (UNSPEC_DARN): New unspec constant.
+	(UNSPEC_DARN_32): New unspec constant.
+	(UNSPEC_DARN_RAW): New unspec constant.
+	(darn_32): New instruction.
+	(darn_raw): New instruction.
+	(darn): New instruction.
+	* config/rs6000/rs6000-builtin.def (RS6000_BUILTIN_0): Add
+	support and documentation for this macro.
+	(BU_P9_MISC_1): New macro definition.
+	(BU_P9_64BIT_MISC_0): New macro definition.
+	(BU_P9_MISC_0): New macro definition.
+	(darn_32): New builtin definition.
+	(darn_raw): New builtin definition.
+	(darn): New builtin definition.
+	* config/rs6000/rs6000.c: Add #define RS6000_BUILTIN_0 and #undef
+	RS6000_BUILTIN_0 directives to surround each occurrence of
+	#include "rs6000-builtin.def".
+	(rs6000_builtin_mask_calculate): Add in the RS6000_BTM_MODULO and
+	RS6000_BTM_64BIT flags to the returned mask, depending on
+	configuration.
+	(def_builtin): Correct an error in the assignments made to the
+	debugging variable attr_string.
+	(rs6000_expand_builtin): Add support for no-operand built-in
+	functions.
+	(builtin_function_type): Remove fatal_error assertion that is no
+	longer valid.
+	(rs6000_common_init_builtins): Add support for no-operand built-in
+	functions.
+	* config/rs6000/rs6000.h (RS6000_BTM_MODULO): New macro
+	definition.
+	(RS6000_BTM_PURE): Enhance comment to clarify intent of this flag
+	definition.
+	(RS6000_BTM_64BIT): New macro definition.
+	* doc/extend.texi: Document __builtin_darn (void),
+	__builtin_darn_raw (void), and __builtin_darn_32 (void) built-in
+	functions.
+
+2016-05-19  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-vect-loop.c (vect_analyze_loop_2): Use also
+	max_loop_iterations_int.
+
+2016-05-19  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/71031
+	* tree-vrp.c (extract_range_from_binary_expr_1): Turn assert into a
+	condition and adjust the code a bit.
+
 2016-05-19  Martin Liska  <mliska@suse.cz>
 
 	* tree-vect-stmts.c (vectorizable_simd_clone_call): Utilize
@@ -47,8 +358,7 @@
 2016-05-19  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
 
 	* config/arm/arm.c (arm_new_rtx_costs, SIGN_EXTEND case):
-	Don't add cost of inner memory when handling sign-extended
-	loads.
+	Don't add cost of inner memory when handling sign-extended loads.
 
 2016-05-19  Ilya Enkovich  <ilya.enkovich@intel.com>
 
