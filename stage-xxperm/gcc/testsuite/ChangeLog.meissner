@@ -1,4 +1,11 @@
 2016-05-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	<fsf submission>
+	* gcc.target/powerpc/p9-permute.c: Run test on big endian as well
+	as little endian.
+
+2016-05-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 236600.
 
