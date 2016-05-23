@@ -14664,6 +14664,21 @@ returns the Time Base Register value as an unsigned long, throwing away
 the most significant word on 32-bit environments.
 
 The following built-in functions are available for the PowerPC family
+of processors, starting with ISA 2.05 or later (@option{-mcpu=power6}
+or @option{-mcmpb}):
+@smallexample
+long long __builtin_cmpb (long long, long long);
+int __builtin_cmpb_32 (int, int);
+@end smallexample
+
+The @code{__builtin_cmpb} and @code{__builtin_cmpb_32} functions
+perform a byte-wise compare on the contents of their two arguments,
+returning the result of the byte-wise comparison in the returned
+value.  For each byte comparison, the corresponding byte of the return
+value holds 0xff if input bytes are equal, and 0 if the input bytes
+are not equal.
+
+The following built-in functions are available for the PowerPC family
 of processors, starting with ISA 2.06 or later (@option{-mcpu=power7}
 or @option{-mpopcntd}):
 @smallexample

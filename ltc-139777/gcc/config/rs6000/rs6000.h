@@ -2663,6 +2663,7 @@ extern int frame_pointer_needed;
    aren't in target_flags.  */
 #define RS6000_BTM_ALWAYS	0		/* Always enabled.  */
 #define RS6000_BTM_ALTIVEC	MASK_ALTIVEC	/* VMX/altivec vectors.  */
+#define RS6000_BTM_CMPB		MASK_CMPB	/* VMX/altivec vectors.  */
 #define RS6000_BTM_VSX		MASK_VSX	/* VSX (vector/scalar).  */
 #define RS6000_BTM_P8_VECTOR	MASK_P8_VECTOR	/* ISA 2.07 vector.  */
 #define RS6000_BTM_P9_VECTOR	MASK_P9_VECTOR	/* ISA 3.0 vector.  */
