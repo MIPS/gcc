@@ -1,3 +1,136 @@
+2016-05-23  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-threadbackward.c (profitable_jump_thread_path): New function
+	extracted from ...
+	(fsm_find_control_statement_thread_paths): Call it.
+
+2016-05-23  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/71234
+	* ipa-cp.c (ipa_get_indirect_edge_target_1): Only check value of
+	from_global_constant if t is not NULL.
+
+2016-05-23  Marek Polacek  <polacek@redhat.com>
+
+	PR c/49859
+	* common.opt (Wswitch-unreachable): New option.
+	* doc/invoke.texi: Document -Wswitch-unreachable.
+	* gimplify.c (gimplify_switch_expr): Implement the -Wswitch-unreachable
+	warning.
+
+2016-05-23  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-ssa-address.c (copy_ref_info): Check NULL TMR_STEP when
+	TMR_INDEX is non-NULL.
+
+2016-05-23  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71230
+	* tree-ssa-reassoc.c (acceptable_pow_call): Move initial condition...
+	(try_special_add_to_ops): ... here.  Always test for single-use.
+
+2016-05-23  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (gen_hsa_insns_for_switch_stmt): Create an empty
+	default block if a PHI node in the original one would be resized.
+
+2016-05-23  Venkataramanan Kumar  <venkataramanan.kumar@amd.com>
+
+	PR tree-optimization/58135
+	* tree-vect-slp.c: When group size is not multiple
+	of vector size, allow splitting of store group at
+	vector boundary.
+
+2016-05-23  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* config/arm/arm_neon.h (vtst_p16, vtstq_p16): New.
+
+2016-05-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/sse.md (vec_set_lo_<mode><mask_name>,
+	vec_set_hi_<mode><mask_name>): Add && <mask_avx512dq_condition>
+	condition.  For !TARGET_AVX512DQ, emit 32x4 instruction instead
+	of 64x2.
+
+	* config/i386/sse.md (vec_set_lo_v16hi, vec_set_hi_v16hi,
+	vec_set_lo_v32qi, vec_set_hi_v32qi): Add alternative with
+	v constraint instead of x and vinserti32x4 insn.
+
+	* config/i386/sse.md (i128vldq): New mode iterator.
+	(avx2_vbroadcasti128_<mode>, avx_vbroadcastf128_<mode>): Add
+	avx512dq and avx512vl alternatives.
+
+	* config/i386/sse.md (avx2_vec_dupv4df): Use v instead of x
+	constraint, use maybe_evex prefix instead of vex.
+	(vec_dupv4sf): Use v constraint instead of x for output
+	operand except for noavx alternative, use Yv constraint
+	instead of x for input.  Use maybe_evex prefix instead of vex.
+	(*vec_dupv4si): Likewise.
+	(*vec_dupv2di): Likewise.
+
+2016-05-22  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/40921
+        * tree-ssa-reassoc.c (try_special_add_to_ops): New.
+        (linearize_expr_tree): Call try_special_add_to_ops.
+        (reassociate_bb): Convert MULT_EXPR by (-1) to NEGATE_EXPR.
+
+2016-05-21  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* config/avr/avr.c (avr_expand_prologue): Add INCOMING_FRAME_SP_OFFSET
+	to computed stack_usage.
+
+2016-05-21  Pitchumani Sivanupandi  <pitchumani.s@atmel.com>
+
+	PR target/71103
+	* config/avr/avr.md (define_expand "mov<mode>"): If the source
+	operand is subreg (symbol_ref) then move the symbol ref to register.
+
+2016-05-21  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree.c (array_at_struct_end_p): Look through MEM_REF.
+
+2016-05-21  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/71179
+	* tree-ssa-reassoc.c (transform_add_to_multiply): Disallow float
+	VECTOR type.
+
+2016-05-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-vrp.c (compare_values_warnv): Simplify handling of symbolic
+	ranges by calling get_single_symbol and tidy up.  Look more closely
+	into NAME + CST1 vs CST2 comparisons if type overflow is undefined.
+
+2016-05-20  Jeff Law  <law@redhat.com>
+
+	* bitmap.c (bitmap_find_bit): Remove useless test.
+
+2016-05-20  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* function.c (thread_prologue_and_epilogue_insns): Commit the
+	insertion of the epilogue.
+
+2016-05-20  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/70884
+	* tree-sra.c (initialize_constant_pool_replacements): Do not check
+	should_scalarize_away_bitmap and cannot_scalarize_away_bitmap bits.
+	(sort_and_splice_var_accesses): Do not consider multiple scalar reads
+	of constant pool data as a reason for scalarization.
+
+2016-05-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/arm/arm.c (arm_expand_prologue): Set the stack usage to 0
+	for naked functions.
+	(thumb1_expand_prologue): Likewise.
+
+2016-05-20  Nathan Sidwell  <nathan@acm.org>
+
+	* config/nvptx/nptx.c (nvptx_option_override): Only set
+	flag_toplevel_reorder, if not explicitly specified.  Set
+	flag_no_common, unless explicitly specified.
+
 2016-05-20  David Malcolm  <dmalcolm@redhat.com>
 
 	* calls.c (can_implement_as_sibling_call_p): Mark param
@@ -16,19 +149,6 @@
 2016-05-20  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* config/nvptx/nvptx.md (sincossf3): New pattern.
-
-2016-05-20  H.J. Lu  <hongjiu.lu@intel.com>
-
-	PR target/70738
-	* common/config/i386/i386-common.c
-	(OPTION_MASK_ISA_GENERAL_REGS_ONLY_UNSET): New.
-	(ix86_handle_option): Disable MPX, MMX, SSE and x87 instructions
-	for -mgeneral-regs-only.
-	* config/i386/i386.c (ix86_option_override_internal): Don't
-	enable x87 instructions if only the general registers are
-	allowed.
-	* config/i386/i386.opt: Add -mgeneral-regs-only.
-	* doc/invoke.texi: Document -mgeneral-regs-only.
 
 2016-05-20  David Malcolm  <dmalcolm@redhat.com>
 
