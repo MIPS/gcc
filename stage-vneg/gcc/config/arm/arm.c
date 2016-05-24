@@ -4113,7 +4113,7 @@ optimal_immediate_sequence (enum rtx_code code, unsigned HOST_WIDE_INT val,
      yield a shorter sequence, we may as well use zero.  */
   insns1 = optimal_immediate_sequence_1 (code, val, return_sequence, best_start);
   if (best_start != 0
-      && ((((unsigned HOST_WIDE_INT) 1) << best_start) < val))
+      && ((HOST_WIDE_INT_1U << best_start) < val))
     {
       insns2 = optimal_immediate_sequence_1 (code, val, &tmp_sequence, 0);
       if (insns2 <= insns1)
@@ -4944,7 +4944,7 @@ arm_canonicalize_comparison (int *code, rtx *op0, rtx *op1,
   if (mode == VOIDmode)
     mode = GET_MODE (*op1);
 
-  maxval = (((unsigned HOST_WIDE_INT) 1) << (GET_MODE_BITSIZE(mode) - 1)) - 1;
+  maxval = (HOST_WIDE_INT_1U << (GET_MODE_BITSIZE (mode) - 1)) - 1;
 
   /* For DImode, we have GE/LT/GEU/LTU comparisons.  In ARM mode
      we can also use cmp/cmpeq for GTU/LEU.  GT/LE must be either
@@ -8320,8 +8320,8 @@ thumb1_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer)
 	  int i;
 	  /* This duplicates the tests in the andsi3 expander.  */
 	  for (i = 9; i <= 31; i++)
-	    if ((((HOST_WIDE_INT) 1) << i) - 1 == INTVAL (x)
-		|| (((HOST_WIDE_INT) 1) << i) - 1 == ~INTVAL (x))
+	    if ((HOST_WIDE_INT_1 << i) - 1 == INTVAL (x)
+		|| (HOST_WIDE_INT_1 << i) - 1 == ~INTVAL (x))
 	      return COSTS_N_INSNS (2);
 	}
       else if (outer == ASHIFT || outer == ASHIFTRT
@@ -9061,7 +9061,7 @@ thumb1_size_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer)
     case CONST_INT:
       if (outer == SET)
         {
-          if ((unsigned HOST_WIDE_INT) INTVAL (x) < 256)
+          if (UINTVAL (x) < 256)
             return COSTS_N_INSNS (1);
 	  /* See split "TARGET_THUMB1 && satisfies_constraint_J".  */
 	  if (INTVAL (x) >= -255 && INTVAL (x) <= -1)
@@ -9082,8 +9082,8 @@ thumb1_size_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer)
           int i;
           /* This duplicates the tests in the andsi3 expander.  */
           for (i = 9; i <= 31; i++)
-            if ((((HOST_WIDE_INT) 1) << i) - 1 == INTVAL (x)
-                || (((HOST_WIDE_INT) 1) << i) - 1 == ~INTVAL (x))
+            if ((HOST_WIDE_INT_1 << i) - 1 == INTVAL (x)
+                || (HOST_WIDE_INT_1 << i) - 1 == ~INTVAL (x))
               return COSTS_N_INSNS (2);
         }
       else if (outer == ASHIFT || outer == ASHIFTRT
@@ -12258,7 +12258,7 @@ vfp3_const_double_index (rtx x)
 
   /* We can permit four significant bits of mantissa only, plus a high bit
      which is always 1.  */
-  mask = ((unsigned HOST_WIDE_INT)1 << (point_pos - 5)) - 1;
+  mask = (HOST_WIDE_INT_1U << (point_pos - 5)) - 1;
   if ((mantissa & mask) != 0)
     return -1;
 
@@ -15982,14 +15982,17 @@ gen_operands_ldrd_strd (rtx *operands, bool load,
   /* If the same input register is used in both stores
      when storing different constants, try to find a free register.
      For example, the code
-        mov r0, 0
-        str r0, [r2]
-        mov r0, 1
-        str r0, [r2, #4]
+	mov r0, 0
+	str r0, [r2]
+	mov r0, 1
+	str r0, [r2, #4]
      can be transformed into
-        mov r1, 0
-        strd r1, r0, [r2]
-     in Thumb mode assuming that r1 is free.  */
+	mov r1, 0
+	mov r0, 1
+	strd r1, r0, [r2]
+     in Thumb mode assuming that r1 is free.
+     For ARM mode do the same but only if the starting register
+     can be made to be even.  */
   if (const_store
       && REGNO (operands[0]) == REGNO (operands[1])
       && INTVAL (operands[4]) != INTVAL (operands[5]))
@@ -16008,7 +16011,6 @@ gen_operands_ldrd_strd (rtx *operands, bool load,
       }
     else if (TARGET_ARM)
       {
-        return false;
         int regno = REGNO (operands[0]);
         if (!peep2_reg_dead_p (4, operands[0]))
           {
@@ -16362,7 +16364,7 @@ get_jump_table_size (rtx_jump_table_data *insn)
 	{
 	case 1:
 	  /* Round up size  of TBB table to a halfword boundary.  */
-	  size = (size + 1) & ~(HOST_WIDE_INT)1;
+	  size = (size + 1) & ~HOST_WIDE_INT_1;
 	  break;
 	case 2:
 	  /* No padding necessary for TBH.  */
@@ -29857,7 +29859,7 @@ aarch_macro_fusion_pair_p (rtx_insn* prev, rtx_insn* curr)
 static unsigned HOST_WIDE_INT
 arm_asan_shadow_offset (void)
 {
-  return (unsigned HOST_WIDE_INT) 1 << 29;
+  return HOST_WIDE_INT_1U << 29;
 }
 
 

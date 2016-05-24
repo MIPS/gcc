@@ -3761,7 +3761,8 @@ check_for_bare_parameter_packs (tree t)
 
   if (parameter_packs) 
     {
-      error ("parameter packs not expanded with %<...%>:");
+      location_t loc = EXPR_LOC_OR_LOC (t, input_location);
+      error_at (loc, "parameter packs not expanded with %<...%>:");
       while (parameter_packs)
         {
           tree pack = TREE_VALUE (parameter_packs);
@@ -3776,9 +3777,9 @@ check_for_bare_parameter_packs (tree t)
             name = DECL_NAME (pack);
 
 	  if (name)
-	    inform (input_location, "        %qD", name);
+	    inform (loc, "        %qD", name);
 	  else
-	    inform (input_location, "        <anonymous>");
+	    inform (loc, "        <anonymous>");
 
           parameter_packs = TREE_CHAIN (parameter_packs);
         }
@@ -12280,6 +12281,14 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    local_p = true;
 	    /* Subsequent calls to pushdecl will fill this in.  */
 	    ctx = NULL_TREE;
+	    /* Unless this is a reference to a static variable from an
+	       enclosing function, in which case we need to fill it in now.  */
+	    if (TREE_STATIC (t))
+	      {
+		tree fn = tsubst (DECL_CONTEXT (t), args, complain, in_decl);
+		if (fn != current_function_decl)
+		  ctx = fn;
+	      }
 	    spec = retrieve_local_specialization (t);
 	  }
 	/* If we already have the specialization we need, there is
@@ -13991,7 +14000,8 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     case FUNCTION_DECL:
       if (DECL_LANG_SPECIFIC (t) && DECL_TEMPLATE_INFO (t))
 	r = tsubst (t, args, complain, in_decl);
-      else if (local_variable_p (t))
+      else if (local_variable_p (t)
+	       && uses_template_parms (DECL_CONTEXT (t)))
 	{
 	  r = retrieve_local_specialization (t);
 	  if (r == NULL_TREE)
@@ -14035,14 +14045,9 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 		  gcc_assert (cp_unevaluated_operand || TREE_STATIC (r)
 			      || decl_constant_var_p (r)
 			      || errorcount || sorrycount);
-		  if (!processing_template_decl)
-		    {
-		      if (TREE_STATIC (r))
-			rest_of_decl_compilation (r, toplevel_bindings_p (),
-						  at_eof);
-		      else
-			r = process_outer_var_ref (r, complain);
-		    }
+		  if (!processing_template_decl
+		      && !TREE_STATIC (r))
+		    r = process_outer_var_ref (r, complain);
 		}
 	      /* Remember this for subsequent uses.  */
 	      if (local_specializations)
