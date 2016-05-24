@@ -17251,17 +17251,17 @@ vector __uint128_t vec_vadduqm (vector __uint128_t, vector __uint128_t);
 
 vector __int128_t vec_vaddecuq (vector __int128_t, vector __int128_t,
                                 vector __int128_t);
-vector __uint128_t vec_vaddecuq (vector __uint128_t, vector __uint128_t, 
+vector __uint128_t vec_vaddecuq (vector __uint128_t, vector __uint128_t,
                                  vector __uint128_t);
 
 vector __int128_t vec_vaddeuqm (vector __int128_t, vector __int128_t,
                                 vector __int128_t);
-vector __uint128_t vec_vaddeuqm (vector __uint128_t, vector __uint128_t, 
+vector __uint128_t vec_vaddeuqm (vector __uint128_t, vector __uint128_t,
                                  vector __uint128_t);
 
 vector __int128_t vec_vsubecuq (vector __int128_t, vector __int128_t,
                                 vector __int128_t);
-vector __uint128_t vec_vsubecuq (vector __uint128_t, vector __uint128_t, 
+vector __uint128_t vec_vsubecuq (vector __uint128_t, vector __uint128_t,
                                  vector __uint128_t);
 
 vector __int128_t vec_vsubeuqm (vector __int128_t, vector __int128_t,
@@ -17287,7 +17287,7 @@ int __builtin_bcdsub_gt (vector __int128_t, vector__int128_t);
 int __builtin_bcdsub_ov (vector __int128_t, vector__int128_t);
 @end smallexample
 
-If the ISA 3.00 additions to the vector/scalar (power9-vector)
+If the ISA 3.0 additions to the vector/scalar (power9-vector)
 instruction set are available:
 
 @smallexample
@@ -17325,7 +17325,7 @@ vector unsigned long long vec_vprtybd (vector unsigned long long);
 @end smallexample
 
 
-If the ISA 3.00 additions to the vector/scalar (power9-vector)
+If the ISA 3.0 additions to the vector/scalar (power9-vector)
 instruction set are available for 64-bit targets:
 
 @smallexample
