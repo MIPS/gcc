@@ -1,3 +1,33 @@
+2016-05-24  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* parser.c (cp_parser_oacc_declare): Add support for
+	GOMP_MAP_FIRSTPRIVATE_POINTER.
+	* semantics.c (handle_omp_array_sections_1): Replace bool is_omp
+	argument with enum c_omp_region_type ort.  Don't privatize OpenACC
+	non-static members.
+	(handle_omp_array_sections): Replace bool is_omp argument with enum
+	c_omp_region_type ort.  Update call to handle_omp_array_sections_1.
+	(finish_omp_clauses): Add specific errors and warning messages for
+	OpenACC.  Use firsrtprivate pointers for OpenACC subarrays.  Update
+	call to handle_omp_array_sections.
+
+2016-05-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/70584
+	* cp-gimplify.c (cp_fold_maybe_rvalue): Loop in case cp_fold
+	returns a decl.
+	(cp_fold) [INDIRECT_REF]: Don't fold to an rvalue.
+
+2016-05-24  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/71147
+	* decl.c (layout_var_decl, grokdeclarator): Use complete_or_array_type_p.
+	* pt.c (instantiate_class_template_1): Try to complete the element
+	type of a flexible array member.
+	(can_complete_type_without_circularity): Handle arrays of unknown bound.
+	* typeck.c (complete_type): Also complete the type of the elements of
+	arrays with an unspecified bound.
+
 2016-05-24  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/69872
