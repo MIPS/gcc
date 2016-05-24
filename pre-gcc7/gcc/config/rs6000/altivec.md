@@ -3465,7 +3465,6 @@
   [(set_attr "length" "4")
    (set_attr "type" "vecsimple")])
 
-
 ;; Vector absolute difference unsigned
 (define_expand "vadu<mode>3"
   [(set (match_operand:VI 0 "register_operand" "")

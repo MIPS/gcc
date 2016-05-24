@@ -413,6 +413,7 @@
 #define darn_32 __builtin_darn_32
 #define darn_raw __builtin_darn_raw
 #endif
+#endif
 
 /* Predicates.
    For C++, we use templates in order to allow non-parenthesized arguments.

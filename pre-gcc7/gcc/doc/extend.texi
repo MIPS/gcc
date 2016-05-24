@@ -17321,9 +17321,9 @@ int __builtin_bcdsub_gt (vector __int128_t, vector__int128_t);
 int __builtin_bcdsub_ov (vector __int128_t, vector__int128_t);
 @end smallexample
 
-The following built-in functions are available for the PowerPC family
-of processors, starting with ISA 3.0 or later (@option{-mcpu=power9})
-or with @option{-mpower9-vector}:
+If the ISA 3.0 additions to the vector/scalar (power9-vector)
+instruction set are available:
+
 @smallexample
 vector long long vec_vctz (vector long long);
 vector unsigned long long vec_vctz (vector unsigned long long);
@@ -17356,27 +17356,24 @@ vector unsigned int vec_vprtybw (vector unsigned int);
 
 vector long long vec_vprtybd (vector long long);
 vector unsigned long long vec_vprtybd (vector unsigned long long);
-
-__vector unsigned char
-vec_adu (__vector unsigned char arg1, __vector unsigned char arg2);
-__vector unsighed short
-vec_adu (__vector unsigned short arg1, __vector unsigned short arg2);
-__vector unsigned int
-vec_adu (__vector unsigned int arg1, __vector unsigned int arg2);
-
-__vector unsigned char
-vec_adub (__vector unsigned char arg1, __vector unsigned char arg2);
-__vector unsighed short
-vec_aduh (__vector unsigned short arg1, __vector unsigned short arg2);
-__vector unsigned int
-vec_aduw (__vector unsigned int arg1, __vector unsigned int arg2);
 @end smallexample
 
-The @code{vec_adu}, @code{vec_adub}, @code{vec_aduh}, and
-@code{vec_aduw} built-in functions each computes the absolute
-differences of the pairs of vector elements supplied in its two vector
-arguments, placing the absolute differences into the corresponding
-elements of the vector result.
+
+If the ISA 3.0 additions to the vector/scalar (power9-vector)
+instruction set are available for 64-bit targets:
+
+@smallexample
+vector long vec_vprtyb (vector long);
+vector unsigned long vec_vprtyb (vector unsigned long);
+vector __int128_t vec_vprtyb (vector __int128_t);
+vector __uint128_t vec_vprtyb (vector __uint128_t);
+
+vector long vec_vprtybd (vector long);
+vector unsigned long vec_vprtybd (vector unsigned long);
+
+vector __int128_t vec_vprtybq (vector __int128_t);
+vector __uint128_t vec_vprtybd (vector __uint128_t);
+@end smallexample
 
 If the cryptographic instructions are enabled (@option{-mcrypto} or
 @option{-mcpu=power8}), the following builtins are enabled.
