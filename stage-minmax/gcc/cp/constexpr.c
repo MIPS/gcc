@@ -1371,11 +1371,17 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
   else
     {
       new_call.fundef = retrieve_constexpr_fundef (fun);
-      if (new_call.fundef == NULL || new_call.fundef->body == NULL)
+      if (new_call.fundef == NULL || new_call.fundef->body == NULL
+	  || fun == current_function_decl)
         {
 	  if (!ctx->quiet)
 	    {
-	      if (DECL_INITIAL (fun) == error_mark_node)
+	      /* We need to check for current_function_decl here in case we're
+		 being called during cp_fold_function, because at that point
+		 DECL_INITIAL is set properly and we have a fundef but we
+		 haven't lowered invisirefs yet (c++/70344).  */
+	      if (DECL_INITIAL (fun) == error_mark_node
+		  || fun == current_function_decl)
 		error_at (loc, "%qD called in a constant expression before its "
 			  "definition is complete", fun);
 	      else if (DECL_INITIAL (fun))
@@ -1977,6 +1983,10 @@ cxx_eval_array_reference (const constexpr_ctx *ctx, tree t,
   else if (lval)
     return build4 (ARRAY_REF, TREE_TYPE (t), ary, index, NULL, NULL);
   elem_type = TREE_TYPE (TREE_TYPE (ary));
+  if (TREE_CODE (ary) == VIEW_CONVERT_EXPR
+      && VECTOR_TYPE_P (TREE_TYPE (TREE_OPERAND (ary, 0)))
+      && TREE_TYPE (t) == TREE_TYPE (TREE_TYPE (TREE_OPERAND (ary, 0))))
+    ary = TREE_OPERAND (ary, 0);
   if (TREE_CODE (ary) == CONSTRUCTOR)
     len = CONSTRUCTOR_NELTS (ary);
   else if (TREE_CODE (ary) == STRING_CST)
@@ -1985,6 +1995,8 @@ cxx_eval_array_reference (const constexpr_ctx *ctx, tree t,
 		     / TYPE_PRECISION (char_type_node));
       len = (unsigned) TREE_STRING_LENGTH (ary) / elem_nchars;
     }
+  else if (TREE_CODE (ary) == VECTOR_CST)
+    len = VECTOR_CST_NELTS (ary);
   else
     {
       /* We can't do anything with other tree codes, so use
@@ -2001,7 +2013,14 @@ cxx_eval_array_reference (const constexpr_ctx *ctx, tree t,
       return t;
     }
 
-  tree nelts = array_type_nelts_top (TREE_TYPE (ary));
+  tree nelts;
+  if (TREE_CODE (TREE_TYPE (ary)) == ARRAY_TYPE)
+    nelts = array_type_nelts_top (TREE_TYPE (ary));
+  else if (VECTOR_TYPE_P (TREE_TYPE (ary)))
+    nelts = size_int (TYPE_VECTOR_SUBPARTS (TREE_TYPE (ary)));
+  else
+    gcc_unreachable ();
+
   /* For VLAs, the number of elements won't be an integer constant.  */
   nelts = cxx_eval_constant_expression (ctx, nelts, false, non_constant_p,
 					overflow_p);
@@ -2047,6 +2066,8 @@ cxx_eval_array_reference (const constexpr_ctx *ctx, tree t,
 
   if (TREE_CODE (ary) == CONSTRUCTOR)
     return (*CONSTRUCTOR_ELTS (ary))[i].value;
+  else if (TREE_CODE (ary) == VECTOR_CST)
+    return VECTOR_CST_ELT (ary, i);
   else if (elem_nchars == 1)
     return build_int_cst (cv_unqualified (TREE_TYPE (TREE_TYPE (ary))),
 			  TREE_STRING_POINTER (ary)[i]);
