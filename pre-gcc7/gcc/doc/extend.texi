@@ -17285,17 +17285,17 @@ vector __uint128_t vec_vadduqm (vector __uint128_t, vector __uint128_t);
 
 vector __int128_t vec_vaddecuq (vector __int128_t, vector __int128_t,
                                 vector __int128_t);
-vector __uint128_t vec_vaddecuq (vector __uint128_t, vector __uint128_t, 
+vector __uint128_t vec_vaddecuq (vector __uint128_t, vector __uint128_t,
                                  vector __uint128_t);
 
 vector __int128_t vec_vaddeuqm (vector __int128_t, vector __int128_t,
                                 vector __int128_t);
-vector __uint128_t vec_vaddeuqm (vector __uint128_t, vector __uint128_t, 
+vector __uint128_t vec_vaddeuqm (vector __uint128_t, vector __uint128_t,
                                  vector __uint128_t);
 
 vector __int128_t vec_vsubecuq (vector __int128_t, vector __int128_t,
                                 vector __int128_t);
-vector __uint128_t vec_vsubecuq (vector __uint128_t, vector __uint128_t, 
+vector __uint128_t vec_vsubecuq (vector __uint128_t, vector __uint128_t,
                                  vector __uint128_t);
 
 vector __int128_t vec_vsubeuqm (vector __int128_t, vector __int128_t,
