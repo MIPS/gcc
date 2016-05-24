@@ -2796,7 +2796,6 @@
   [(set (match_operand:VI2 0 "register_operand" "")
 	(neg:VI2 (match_operand:VI2 1 "register_operand" "")))]
   "<VI_unit>"
-  "
 {
   if (!TARGET_P9_VECTOR || (<MODE>mode != V4SImode && <MODE>mode != V2DImode))
     {
@@ -2804,10 +2803,10 @@
 
       vzero = gen_reg_rtx (GET_MODE (operands[0]));
       emit_move_insn (vzero, CONST0_RTX (<MODE>mode));
-      emit_insn (gen_sub<mode>3 (operands[0], vzero, operands[1])); 
+      emit_insn (gen_sub<mode>3 (operands[0], vzero, operands[1]));
       DONE;
     }
-}")
+})
 
 (define_expand "udot_prod<mode>"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
