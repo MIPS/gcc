@@ -6865,11 +6865,11 @@ rs6000_expand_vector_set (rtx target, rtx val, int elt)
 			gen_rtvec (3, target, reg,
 				   force_reg (V16QImode, x)),
 			UNSPEC_VPERM);
-  else 
+  else
     {
       if (TARGET_P9_VECTOR)
 	x = gen_rtx_UNSPEC (mode,
-			    gen_rtvec (3, target, reg, 
+			    gen_rtvec (3, target, reg,
 				       force_reg (V16QImode, x)),
 			    UNSPEC_VPERMR);
       else
@@ -6883,7 +6883,7 @@ rs6000_expand_vector_set (rtx target, rtx val, int elt)
 		      : gen_rtx_AND (V16QImode, notx, notx));
 	  rtx tmp = gen_reg_rtx (V16QImode);
 	  emit_insn (gen_rtx_SET (tmp, iorx));
-	  
+
 	  /* Permute with operands reversed and adjusted selector.  */
 	  x = gen_rtx_UNSPEC (mode, gen_rtvec (3, reg, target, tmp),
 			      UNSPEC_VPERM);
@@ -34565,7 +34565,7 @@ altivec_expand_vec_perm_le (rtx operands[4])
 
   if (TARGET_P9_VECTOR)
     {
-      unspec = gen_rtx_UNSPEC (mode, gen_rtvec (3, op0, op1, sel), 
+      unspec = gen_rtx_UNSPEC (mode, gen_rtvec (3, op0, op1, sel),
 			       UNSPEC_VPERMR);
     }
   else
@@ -34577,7 +34577,7 @@ altivec_expand_vec_perm_le (rtx operands[4])
 	      ? gen_rtx_IOR (V16QImode, notx, notx)
 	      : gen_rtx_AND (V16QImode, notx, notx));
       emit_insn (gen_rtx_SET (norreg, iorx));
-      
+
       /* Permute with operands reversed and adjusted selector.  */
       unspec = gen_rtx_UNSPEC (mode, gen_rtvec (3, op1, op0, norreg),
 			       UNSPEC_VPERM);

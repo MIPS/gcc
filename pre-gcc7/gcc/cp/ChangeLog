@@ -1,3 +1,56 @@
+2016-05-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/69872
+	* typeck2.c (check_narrowing): Check pedwarn return value.
+
+2016-05-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71257
+	* semantics.c (finish_omp_clauses) <case OMP_CLAUSE_LINEAR>:
+	For OMP_CLAUSE_LINEAR_REF don't require type to be
+	integral or pointer.
+
+2016-05-24  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70434
+	PR c/69504
+	* expr.c (mark_exp_read): Handle VIEW_CONVERT_EXPR.
+	* constexpr.c (cxx_eval_array_reference): Handle indexed
+	vectors.
+	* typeck.c (cp_build_array_ref): Adjust.
+
+2016-05-23  Jason Merrill  <jason@redhat.com>
+
+	PR c++/70344
+	* constexpr.c (cxx_eval_call_expression): Check for
+	fun == current_function_decl again.
+
+	PR c++/70584
+	* cp-gimplify.c (cp_fold) [INDIRECT_REF]: Call
+	maybe_undo_parenthesized_ref.
+
+	PR c++/70735
+	* pt.c (tsubst_copy): Just return a local variable from
+	non-template context.  Don't call rest_of_decl_compilation for
+	duplicated static locals.
+	(tsubst_decl): Set DECL_CONTEXT of local static from another
+	function.
+
+2016-05-23  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/70972
+	* method.c (forward_parm): Use cp_build_reference_type.
+
+2016-05-23  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/69095
+	* parser.c (cp_parser_initializer): Use check_for_bare_parameter_packs.
+
+2016-05-23  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* pt.c (check_for_bare_parameter_packs): Improve error message
+	location for expressions.
+
 2016-05-20  Nathan Sidwell  <nathan@acm.org>
 
 	* constexpr.c (cxx_bind_parameters_in_call): Avoid gratuitous if

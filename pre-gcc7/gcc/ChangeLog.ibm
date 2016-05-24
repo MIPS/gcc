@@ -1,5 +1,10 @@
 2016-05-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 236663.
+	* REVISION: Update subversion id.
+
+2016-05-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* doc/extend.texi (PowerPC AltiVec/VSX Built-in Functions): Update
 	for FSF submission.  Flesh out vector parity support.
 	* config/rs6000/rs6000-builtin.def (VPRTYBD): Likewise.
