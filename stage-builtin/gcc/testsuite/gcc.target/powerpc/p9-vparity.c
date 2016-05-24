@@ -102,6 +102,6 @@ parity_ti_4u (__uint128_t a)
   return vec_vprtybq (a);
 }
 
-/* { dg-final { scan-assembler "vprtyd" } } */
-/* { dg-final { scan-assembler "vprtyq" } } */
-/* { dg-final { scan-assembler "vprtyw" } } */
+/* { dg-final { scan-assembler "vprtybd" } } */
+/* { dg-final { scan-assembler "vprtybq" } } */
+/* { dg-final { scan-assembler "vprtybw" } } */
