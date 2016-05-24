@@ -1,3 +1,133 @@
+2016-05-24  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* gcc.target/i386/avx-ceil-sfix-2-vec.c: Define __NO_MATH_INLINES before
+	math.h is included.
+	* gcc.target/i386/avx-floor-sfix-2-vec.c: Likewise.
+	* gcc.target/i386/avx-rint-sfix-2-vec.c: Likewise.
+	* gcc.target/i386/avx-round-sfix-2-vec.c: Likewise.
+	* gcc.target/i386/avx512f-ceil-sfix-vec-1.c: Likewise.
+	* gcc.target/i386/avx512f-floor-sfix-vec-1.c: Likewise.
+	* gcc.target/i386/sse4_1-ceil-sfix-vec.c: Likewise.
+	* gcc.target/i386/sse4_1-ceil-vec.c: Likewise.
+	* gcc.target/i386/sse4_1-ceilf-sfix-vec.c: Likewise.
+	* gcc.target/i386/sse4_1-ceilf-vec.c: Likewise.
+	* gcc.target/i386/sse4_1-floor-sfix-vec.c: Likewise.
+	* gcc.target/i386/sse4_1-floor-vec.c: Likewise.
+	* gcc.target/i386/sse4_1-rint-sfix-vec.c: Likewise.
+	* gcc.target/i386/sse4_1-rint-vec.c: Likewise.
+	* gcc.target/i386/sse4_1-rintf-sfix-vec.c: Likewise.
+	* gcc.target/i386/sse4_1-rintf-vec.c: Likewise.
+	* gcc.target/i386/sse4_1-round-sfix-vec.c: Likewise.
+	* gcc.target/i386/sse4_1-round-vec.c: Likewise.
+	* gcc.target/i386/sse4_1-roundf-sfix-vec.c: Likewise.
+	* gcc.target/i386/sse4_1-roundf-vec.c: Likewise.
+	* gcc.target/i386/sse4_1-trunc-vec.c: Likewise.
+	* gcc.target/i386/sse4_1-truncf-vec.c: Likewise.
+	* gcc.target/i386/sse4_1-floorf-sfix-vec.c: Likewise.
+	* gcc.target/i386/sse4_1-floorf-vec.c: Likewise.
+
+2016-05-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* gcc.target/powerpc/p9-vpermr.c: New test for ISA 3.0 vpermr
+	support.
+
+2016-05-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/69872
+	* g++.dg/warn/Wno-narrowing1.C: New.
+
+2016-05-24  Marek Polacek  <polacek@redhat.com>
+
+	PR c/71249
+	* c-c++-common/Wswitch-unreachable-2.c: New test.
+
+2016-05-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71257
+	* g++.dg/vect/simd-clone-6.cc: New test.
+	* g++.dg/gomp/declare-simd-6.C: New test.
+
+	PR middle-end/70434
+	PR c/69504
+	* c-c++-common/vector-subscript-5.c (foo): Move ; out of the ifdef.
+
+2016-05-24  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71240
+	* gcc.dg/optimize-bswapsi-5.c: New testcase.
+
+2016-05-24  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71230
+	* gcc.dg/torture/pr71230.c: New testcase.
+	* g++.dg/torture/pr71230.C: Likewise.
+
+2016-05-24  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc/routine-5.c: Add tests.
+	* g++.dg/goacc/routine-2.C: Remove duplicate tests.
+	* gfortran.dg/goacc/routine-6.f90: Add tests.
+
+2016-05-24  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71253
+	* gcc.dg/torture/pr71253.c: New testcase.
+
+2016-05-24  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/71252
+	* gfortran.dg/pr71252.f90: New test.
+
+2016-05-24  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* gcc.dg/vect/vect-load-lanes-peeling-1.c: New test.
+
+2016-05-24  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70434
+	PR c/69504
+	* c-c++-common/vector-subscript-4.c: New testcase.
+	* c-c++-common/vector-subscript-5.c: Likewise.
+
+2016-05-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/71123
+	* gfortran.dg/namelist_90.f: New test
+
+2016-05-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/66461
+	* gfortran.dg/unexpected_eof.f: New test
+
+2016-05-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* gcc.target/powerpc/p9-permute.c: Run test on big endian as well
+	as little endian.
+
+2016-05-23  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/70972
+	* g++.dg/cpp0x/inh-ctor20.C: New.
+	* g++.dg/cpp0x/inh-ctor21.C: Likewise.
+
+2016-05-23  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/69095
+	* g++.dg/cpp0x/variadic168.C: New.
+
+2016-05-23  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/cpp0x/pr31445.C: Test column number too.
+	* g++.dg/cpp0x/pr32253.C: Likewise.
+	* g++.dg/cpp0x/variadic-ex13.C: Likewise.
+	* g++.dg/cpp0x/variadic36.C: Likewise.
+
+2016-05-23  Marc Glisse  <marc.glisse@inria.fr>
+
+	* gcc.dg/fold-notshift-2.c: Adjust.
+
 2016-05-23  Marek Polacek  <polacek@redhat.com>
 
 	PR c/49859
@@ -12,7 +142,7 @@
 	* g++.dg/gomp/target-1.C: Likewise.
 	* g++.dg/gomp/target-2.C: Likewise.
 	* gcc.dg/gomp/target-1.c: Likewise.
-	* gcc.dg/gomp/target-2.c: Likewise. 
+	* gcc.dg/gomp/target-2.c: Likewise.
 	* g++.dg/gomp/taskgroup-1.C: Likewise.
 	* gcc.dg/gomp/taskgroup-1.c: Likewise.
 	* gcc.dg/gomp/teams-1.c: Likewise.
@@ -34,7 +164,7 @@
 
 2016-05-23  Venkataramanan Kumar  <venkataramanan.kumar@amd.com>
 
-	* gcc.dg/vect/bb-slp-19.c:  Remove XFAIL. 
+	* gcc.dg/vect/bb-slp-19.c:  Remove XFAIL.
 	* gcc.dg/vect/pr58135.c:  Add new.
 	* gfortran.dg/pr46519-1.f: Adjust test case.
 
