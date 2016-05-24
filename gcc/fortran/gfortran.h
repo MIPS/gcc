@@ -1134,6 +1134,14 @@ enum gfc_omp_map_op
   OMP_MAP_ALWAYS_TOFROM
 };
 
+enum gfc_omp_linear_op
+{
+  OMP_LINEAR_DEFAULT,
+  OMP_LINEAR_REF,
+  OMP_LINEAR_VAL,
+  OMP_LINEAR_UVAL
+};
+
 /* For use in OpenMP clauses in case we need extra information
    (aligned clause alignment, linear clause step, etc.).  */
 
@@ -1146,6 +1154,7 @@ typedef struct gfc_omp_namelist
       gfc_omp_reduction_op reduction_op;
       gfc_omp_depend_op depend_op;
       gfc_omp_map_op map_op;
+      gfc_omp_linear_op linear_op;
     } u;
   struct gfc_omp_namelist_udr *udr;
   struct gfc_omp_namelist *next;

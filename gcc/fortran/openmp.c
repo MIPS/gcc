@@ -1092,13 +1092,50 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 	  end_colon = false;
 	  head = NULL;
 	  if ((mask & OMP_CLAUSE_LINEAR)
-	      && gfc_match_omp_variable_list ("linear (",
-					      &c->lists[OMP_LIST_LINEAR],
-					      false, &end_colon,
-					      &head) == MATCH_YES)
+	      && gfc_match ("linear (") == MATCH_YES)
 	    {
+	      gfc_omp_linear_op linear_op = OMP_LINEAR_DEFAULT;
 	      gfc_expr *step = NULL;
 
+	      if (gfc_match_omp_variable_list (" ref (",
+					       &c->lists[OMP_LIST_LINEAR],
+					       false, NULL, &head)
+		  == MATCH_YES)
+		linear_op = OMP_LINEAR_REF;
+	      else if (gfc_match_omp_variable_list (" val (",
+						    &c->lists[OMP_LIST_LINEAR],
+						    false, NULL, &head)
+		  == MATCH_YES)
+		linear_op = OMP_LINEAR_VAL;
+	      else if (gfc_match_omp_variable_list (" uval (",
+						    &c->lists[OMP_LIST_LINEAR],
+						    false, NULL, &head)
+		  == MATCH_YES)
+		linear_op = OMP_LINEAR_UVAL;
+	      else if (gfc_match_omp_variable_list ("",
+						    &c->lists[OMP_LIST_LINEAR],
+						    false, &end_colon, &head)
+		  == MATCH_YES)
+		linear_op = OMP_LINEAR_DEFAULT;
+	      else
+		{
+		  gfc_free_omp_namelist (*head);
+		  gfc_current_locus = old_loc;
+		  *head = NULL;
+		  break;
+		}
+	      if (linear_op != OMP_LINEAR_DEFAULT)
+		{
+		  if (gfc_match (" :") == MATCH_YES)
+		    end_colon = true;
+		  else if (gfc_match (" )") != MATCH_YES)
+		    {
+		      gfc_free_omp_namelist (*head);
+		      gfc_current_locus = old_loc;
+		      *head = NULL;
+		      break;
+		    }
+		}
 	      if (end_colon && gfc_match (" %e )", &step) != MATCH_YES)
 		{
 		  gfc_free_omp_namelist (*head);
@@ -1114,6 +1151,9 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 		  mpz_set_si (step->value.integer, 1);
 		}
 	      (*head)->expr = step;
+	      if (linear_op != OMP_LINEAR_DEFAULT)
+		for (gfc_omp_namelist *n = *head; n; n = n->next)
+		  n->u.linear_op = linear_op;
 	      continue;
 	    }
 	  if ((mask & OMP_CLAUSE_LINK)
@@ -3641,6 +3681,7 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
   int list;
   int ifc;
   bool if_without_mod = false;
+  gfc_omp_linear_op linear_op = OMP_LINEAR_DEFAULT;
   static const char *clause_names[]
     = { "PRIVATE", "FIRSTPRIVATE", "LASTPRIVATE", "COPYPRIVATE", "SHARED",
 	"COPYIN", "UNIFORM", "ALIGNED", "LINEAR", "DEPEND", "MAP",
@@ -4225,12 +4266,26 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
 		      }
 		    break;
 		  case OMP_LIST_LINEAR:
-		    if (n->sym->ts.type != BT_INTEGER)
+		    if (code
+			&& n->u.linear_op != OMP_LINEAR_DEFAULT
+			&& n->u.linear_op != linear_op)
+		      {
+			gfc_error ("LINEAR clause modifier used on DO or SIMD"
+				   " construct at %L", &n->where);
+			linear_op = n->u.linear_op;
+		      }
+		    else if (n->u.linear_op != OMP_LINEAR_REF
+			     && n->sym->ts.type != BT_INTEGER)
 		      gfc_error ("LINEAR variable %qs must be INTEGER "
 				 "at %L", n->sym->name, &n->where);
-		    else if (!code && !n->sym->attr.value)
-		      gfc_error ("LINEAR dummy argument %qs must have VALUE "
-				 "attribute at %L", n->sym->name, &n->where);
+		    else if ((n->u.linear_op == OMP_LINEAR_REF
+			      || n->u.linear_op == OMP_LINEAR_UVAL)
+			     && n->sym->attr.value)
+		      gfc_error ("LINEAR dummy argument %qs with VALUE "
+				 "attribute with %s modifier at %L",
+				 n->sym->name,
+				 n->u.linear_op == OMP_LINEAR_REF
+				 ? "REF" : "UVAL", &n->where);
 		    else if (n->expr)
 		      {
 			gfc_expr *expr = n->expr;
@@ -4241,9 +4296,25 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
 				     "a scalar integer linear-step expression",
 				     n->sym->name, &n->where);
 			else if (!code && expr->expr_type != EXPR_CONSTANT)
-			  gfc_error ("%qs in LINEAR clause at %L requires "
-				     "a constant integer linear-step expression",
-				     n->sym->name, &n->where);
+			  {
+			    if (expr->expr_type == EXPR_VARIABLE
+				&& expr->symtree->n.sym->attr.dummy
+				&& expr->symtree->n.sym->ns == ns)
+			      {
+				gfc_omp_namelist *n2;
+				for (n2 = omp_clauses->lists[OMP_LIST_UNIFORM];
+				     n2; n2 = n2->next)
+				  if (n2->sym == expr->symtree->n.sym)
+				    break;
+				if (n2)
+				  break;
+			      }
+			    gfc_error ("%qs in LINEAR clause at %L requires "
+				       "a constant integer linear-step "
+				       "expression or dummy argument "
+				       "specified in UNIFORM clause",
+				       n->sym->name, &n->where);
+			  }
 		      }
 		    break;
 		  /* Workaround for PR middle-end/26316, nothing really needs

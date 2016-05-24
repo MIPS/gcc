@@ -1828,7 +1828,7 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 		      {
 			tree alignment_var;
 
-			if (block == NULL)
+			if (declare_simd)
 			  alignment_var = gfc_conv_constant_to_tree (n->expr);
 			else
 			  {
@@ -1848,6 +1848,7 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 	  {
 	    gfc_expr *last_step_expr = NULL;
 	    tree last_step = NULL_TREE;
+	    bool last_step_parm = false;
 
 	    for (; n != NULL; n = n->next)
 	      {
@@ -1855,6 +1856,7 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 		  {
 		    last_step_expr = n->expr;
 		    last_step = NULL_TREE;
+		    last_step_parm = false;
 		  }
 		if (n->sym->attr.referenced || declare_simd)
 		  {
@@ -1864,12 +1866,28 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 			tree node = build_omp_clause (input_location,
 						      OMP_CLAUSE_LINEAR);
 			OMP_CLAUSE_DECL (node) = t;
+			omp_clause_linear_kind kind;
+			switch (n->u.linear_op)
+			  {
+			  case OMP_LINEAR_DEFAULT:
+			    kind = OMP_CLAUSE_LINEAR_DEFAULT;
+			    break;
+			  case OMP_LINEAR_REF:
+			    kind = OMP_CLAUSE_LINEAR_REF;
+			    break;
+			  case OMP_LINEAR_VAL:
+			    kind = OMP_CLAUSE_LINEAR_VAL;
+			    break;
+			  case OMP_LINEAR_UVAL:
+			    kind = OMP_CLAUSE_LINEAR_UVAL;
+			    break;
+			  default:
+			    gcc_unreachable ();
+			  }
+			OMP_CLAUSE_LINEAR_KIND (node) = kind;
 			if (last_step_expr && last_step == NULL_TREE)
 			  {
-			    if (block == NULL)
-			      last_step
-				= gfc_conv_constant_to_tree (last_step_expr);
-			    else
+			    if (!declare_simd)
 			      {
 				gfc_init_se (&se, NULL);
 				gfc_conv_expr (&se, last_step_expr);
@@ -1877,10 +1895,27 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 				last_step = gfc_evaluate_now (se.expr, block);
 				gfc_add_block_to_block (block, &se.post);
 			      }
+			    else if (last_step_expr->expr_type == EXPR_VARIABLE)
+			      {
+				gfc_symbol *s = last_step_expr->symtree->n.sym;
+				last_step = gfc_trans_omp_variable (s, true);
+				last_step_parm = true;
+			      }
+			    else
+			      last_step
+				= gfc_conv_constant_to_tree (last_step_expr);
 			  }
-			OMP_CLAUSE_LINEAR_STEP (node)
-			  = fold_convert (gfc_typenode_for_spec (&n->sym->ts),
-					  last_step);
+			if (last_step_parm)
+			  {
+			    OMP_CLAUSE_LINEAR_VARIABLE_STRIDE (node) = 1;
+			    OMP_CLAUSE_LINEAR_STEP (node) = last_step;
+			  }
+			else
+			  {
+			    tree type = gfc_typenode_for_spec (&n->sym->ts);
+			    OMP_CLAUSE_LINEAR_STEP (node)
+			      = fold_convert (type, last_step);
+			  }
 			if (n->sym->attr.dimension || n->sym->attr.allocatable)
 			  OMP_CLAUSE_LINEAR_ARRAY (node) = 1;
 			omp_clauses = gfc_trans_add_clause (node, omp_clauses);

@@ -1,3 +1,21 @@
+2016-05-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.h (enum gfc_omp_linear_op): New.
+	(struct gfc_omp_namelist): Add u.linear_op field.
+	* openmp.c (gfc_match_omp_clauses): Add support for parsing
+	linear clause modifiers.
+	(resolve_omp_clauses): Diagnose linear clause modifiers when not
+	in declare simd.  Only check for integer type if ref modifier is not
+	used.  Remove diagnostics for required VALUE attribute.  Diagnose
+	VALUE attribute with ref or uval modifiers.  Allow non-constant
+	linear-step, if it is a dummy argument alone and is mentioned in
+	uniform clause.
+	* dump-parse-tree.c (show_omp_namelist): Print linear clause
+	modifiers.
+	* trans-openmp.c (gfc_trans_omp_clauses): Test declare_simd
+	instead of block == NULL_TREE.  Translate linear clause modifiers
+	and clause with uniform dummy argument linear-step.
+
 2016-05-20  Jakub Jelinek  <jakub@redhat.com>
 
 	* trans.h (gfc_omp_scalar_p): New prototype.
