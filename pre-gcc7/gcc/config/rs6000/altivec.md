@@ -196,10 +196,9 @@
 			   (KF "FLOAT128_VECTOR_P (KFmode)")
 			   (TF "FLOAT128_VECTOR_P (TFmode)")])
 
-;; Specific iterator for parity which does not have a byte form, but does have
-;; a quad word form
-(define_mode_iterator VParity [V8HI
-			       V4SI
+;; Specific iterator for parity which does not have a byte/half-word form, but
+;; does have a quad word form
+(define_mode_iterator VParity [V4SI
 			       V2DI
 			       V1TI
 			       (TI "TARGET_VSX_TIMODE")])
@@ -3510,7 +3509,7 @@
   [(set (match_operand:VParity 0 "register_operand" "=v")
         (parity:VParity (match_operand:VParity 1 "register_operand" "v")))]
   "TARGET_P9_VECTOR"
-  "vprtybd<wd> %0,%1"
+  "vprtyb<wd> %0,%1"
   [(set_attr "length" "4")
    (set_attr "type" "vecsimple")])
 

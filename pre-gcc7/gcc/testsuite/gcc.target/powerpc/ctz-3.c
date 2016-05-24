@@ -57,4 +57,6 @@ DO_BUILTIN (sc,  signed char,		__builtin_ctz)
 DO_BUILTIN (uc,  unsigned char,		__builtin_ctz)
 #endif
 
-/* { dg-final { scan-assembler-times "vctzw"     2 } } */
+/* { dg-final { scan-assembler-times "vctzw" 2 } } */
+/* { dg-final { scan-assembler-not "cnttzd" } } */
+/* { dg-final { scan-assembler-not "cnttzw" } } */

@@ -17187,27 +17187,6 @@ vector unsigned short vec_vclzh (vector unsigned short);
 vector int vec_vclzw (vector int);
 vector unsigned int vec_vclzw (vector int);
 
-vector long long vec_vctz (vector long long);
-vector unsigned long long vec_vctz (vector unsigned long long);
-vector int vec_vctz (vector int);
-vector unsigned int vec_vctz (vector int);
-vector short vec_vctz (vector short);
-vector unsigned short vec_vctz (vector unsigned short);
-vector signed char vec_vctz (vector signed char);
-vector unsigned char vec_vctz (vector unsigned char);
-
-vector signed char vec_vctzb (vector signed char);
-vector unsigned char vec_vctzb (vector unsigned char);
-
-vector long long vec_vctzd (vector long long);
-vector unsigned long long vec_vctzd (vector unsigned long long);
-
-vector short vec_vctzh (vector short);
-vector unsigned short vec_vctzh (vector unsigned short);
-
-vector int vec_vctzw (vector int);
-vector unsigned int vec_vctzw (vector int);
-
 vector signed char vec_vgbbd (vector signed char);
 vector unsigned char vec_vgbbd (vector unsigned char);
 
@@ -17346,6 +17325,38 @@ The following built-in functions are available for the PowerPC family
 of processors, starting with ISA 3.0 or later (@option{-mcpu=power9})
 or with @option{-mpower9-vector}:
 @smallexample
+vector long long vec_vctz (vector long long);
+vector unsigned long long vec_vctz (vector unsigned long long);
+vector int vec_vctz (vector int);
+vector unsigned int vec_vctz (vector int);
+vector short vec_vctz (vector short);
+vector unsigned short vec_vctz (vector unsigned short);
+vector signed char vec_vctz (vector signed char);
+vector unsigned char vec_vctz (vector unsigned char);
+
+vector signed char vec_vctzb (vector signed char);
+vector unsigned char vec_vctzb (vector unsigned char);
+
+vector long long vec_vctzd (vector long long);
+vector unsigned long long vec_vctzd (vector unsigned long long);
+
+vector short vec_vctzh (vector short);
+vector unsigned short vec_vctzh (vector unsigned short);
+
+vector int vec_vctzw (vector int);
+vector unsigned int vec_vctzw (vector int);
+
+vector int vec_vprtyb (vector int);
+vector unsigned int vec_vprtyb (vector unsigned int);
+vector long long vec_vprtyb (vector long long);
+vector unsigned long long vec_vprtyb (vector unsigned long long);
+
+vector int vec_vprtybw (vector int);
+vector unsigned int vec_vprtybw (vector unsigned int);
+
+vector long long vec_vprtybd (vector long long);
+vector unsigned long long vec_vprtybd (vector unsigned long long);
+
 __vector unsigned char
 vec_adu (__vector unsigned char arg1, __vector unsigned char arg2);
 __vector unsighed short
