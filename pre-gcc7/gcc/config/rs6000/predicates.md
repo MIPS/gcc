@@ -1109,12 +1109,6 @@
 (define_special_predicate "equality_operator"
   (match_code "eq,ne"))
 
-;; Return true if operand is MIN or MAX operator.  Since this is only used to
-;; convert floating point MIN/MAX operations into FSEL on pre-vsx systems,
-;; don't include UMIN or UMAX.
-(define_predicate "min_max_operator"
-  (match_code "smin,smax"))
-
 ;; Return 1 if OP is a comparison operation that is valid for a branch
 ;; instruction.  We check the opcode against the mode of the CC value.
 ;; validate_condition_mode is an assertion.

@@ -1,3 +1,21 @@
+2016-05-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	<stage-minmax changes>
+	* config/rs6000/predicates.md (min_max_operator): Delete, no
+	longer used.
+
+	* config/rs6000/rs6000.c (print_operand): Delete %@ support.
+	* config/rs6000/rs6000.h (PRINT_OPERAND_PUNCT_VALID_P): Likewise.
+
+	* config/rs6000/rs6000.md (s<minmax><mode>3_vsx): Rework min/max
+	support.  Delete support for including FLOAT_EXTEND from SFmode to
+	DFmode.
+	(s<minmax>dfsf3_vsx_1): Likewise.
+	(s<minmax>dfsf3_vsx_2): Likewise.
+	(s<minmax>dfsf3_vsx_3): Likewise.
+	(s<minmax>dfsf3_vsx_4): Likewise.
+	(s<minmax><mode>3_fpr): Rewrite to use minmax iterator.
+
 2016-05-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 236682.
