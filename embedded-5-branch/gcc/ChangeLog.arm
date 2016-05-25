@@ -1,3 +1,8 @@
+2016-05-25  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/t-baremetal (MULTILIB_MATCHES): Match ARMv8-M Mainline
+	with DSP extensions to ARMv8-M Mainline.
+
 2016-03-30  Andre Vieira        <andre.simoesdiasvieira@arm.com>
 	    Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
