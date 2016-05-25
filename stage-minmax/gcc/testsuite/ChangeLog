@@ -1,3 +1,94 @@
+2016-05-25  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/70738
+	* gcc.target/i386/pr70738-1.c: New test.
+	* gcc.target/i386/pr70738-2.c: Likewise.
+	* gcc.target/i386/pr70738-3.c: Likewise.
+	* gcc.target/i386/pr70738-4.c: Likewise.
+	* gcc.target/i386/pr70738-5.c: Likewise.
+	* gcc.target/i386/pr70738-6.c: Likewise.
+	* gcc.target/i386/pr70738-7.c: Likewise.
+	* gcc.target/i386/pr70738-8.c: Likewise.
+	* gcc.target/i386/pr70738-9.c: Likewise.
+
+2016-05-25  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/66940
+	* gcc.c-torture/execute/pr66940.c: New test.
+
+2016-05-25  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* gcc.target/i386/avx512f-ceil-vec-1.c: New test.
+	* gcc.target/i386/avx512f-ceil-vec-2.c: New test.
+	* gcc.target/i386/avx512f-ceilf-sfix-vec-1.c: New test.
+	* gcc.target/i386/avx512f-ceilf-sfix-vec-2.c: New test.
+	* gcc.target/i386/avx512f-ceilf-vec-1.c: New test.
+	* gcc.target/i386/avx512f-ceilf-vec-2.c: New test.
+	* gcc.target/i386/avx512f-floor-vec-1.c: New test.
+	* gcc.target/i386/avx512f-floor-vec-2.c: New test.
+	* gcc.target/i386/avx512f-floorf-sfix-vec-1.c: New test.
+	* gcc.target/i386/avx512f-floorf-sfix-vec-2.c: New test.
+	* gcc.target/i386/avx512f-floorf-vec-1.c: New test.
+	* gcc.target/i386/avx512f-floorf-vec-2.c: New test.
+	* gcc.target/i386/avx512f-rint-sfix-vec-1.c: New test.
+	* gcc.target/i386/avx512f-rint-sfix-vec-2.c: New test.
+	* gcc.target/i386/avx512f-rintf-sfix-vec-1.c: New test.
+	* gcc.target/i386/avx512f-rintf-sfix-vec-2.c: New test.
+	* gcc.target/i386/avx512f-round-sfix-vec-1.c: New test.
+	* gcc.target/i386/avx512f-round-sfix-vec-2.c: New test.
+	* gcc.target/i386/avx512f-roundf-sfix-vec-1.c: New test.
+	* gcc.target/i386/avx512f-roundf-sfix-vec-2.c: New test.
+	* gcc.target/i386/avx512f-trunc-vec-1.c: New test.
+	* gcc.target/i386/avx512f-trunc-vec-2.c: New test.
+	* gcc.target/i386/avx512f-truncf-vec-1.c: New test.
+	* gcc.target/i386/avx512f-truncf-vec-2.c: New test.
+
+2016-05-25  Marek Polacek  <polacek@redhat.com>
+
+	PR c/71265
+	* gcc.dg/noncompile/pr71265.c: New test.
+
+	PR c/71266
+	* gcc.dg/noncompile/old-style-parm-3.c: New test.
+
+2016-05-25  Nathan Sidwell  <nathan@acm.org>
+
+	* gcc.c-torture/execute/921110-1.c: Fix abort decl.
+
+2016-05-25  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71261
+	* c-c++-common/torture/pr71261.c: New testcase.
+
+2016-05-25  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71264
+	* gcc.dg/vect/pr71264.c: New testcase.
+
+2016-05-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/55992
+	* g++.dg/cpp0x/alias-decl-53.C: New.
+	* g++.dg/cpp0x/alias-decl-54.C: Likewise.
+
+2016-05-25  Martin Liska  <mliska@suse.cz>
+
+	* g++.dg/pr71239.C: New test.
+
+2016-05-25  Richard Biener  <rguenther@suse.de>
+
+	* gcc/testsuite/gcc.dg/vect/pr58135.c: Rename to ...
+	* gcc/testsuite/gcc.dg/vect/bb-slp-pr58135.c: ... this.
+
+2016-05-25  Marek Polacek  <polacek@redhat.com>
+
+	* g++.dg/pr65295.C: Use target c++14.
+
+2016-05-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+        * g++.dg/cpp1y/lambda-generic-static1.C: Use target c++14.
+        * g++.dg/cpp1y/lambda-generic-static2.C: Likewise.
+
 2016-05-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/p9-vneg.c: New test for ISA 3.0 VNEGW/VNEGD
@@ -52,8 +143,8 @@
 
 2016-05-24  Ilya Verbin  <ilya.verbin@intel.com>
 
-	* gcc.target/i386/avx-ceil-sfix-2-vec.c: Define __NO_MATH_INLINES before
-	math.h is included.
+	* gcc.target/i386/avx-ceil-sfix-2-vec.c: Define __NO_MATH_INLINES
+	before math.h is included.
 	* gcc.target/i386/avx-floor-sfix-2-vec.c: Likewise.
 	* gcc.target/i386/avx-rint-sfix-2-vec.c: Likewise.
 	* gcc.target/i386/avx-round-sfix-2-vec.c: Likewise.
@@ -312,8 +403,14 @@
 
 	* gcc.target/powerpc/vec-adde.c: Change dejagnu options, fix code
 	formatting.
-	* gcc.target/powerpc/vec-adde-int128.c: Change dejagnu options, fix code
-	formatting.
+	* gcc.target/powerpc/vec-adde-int128.c: Change dejagnu options,
+	fix code formatting.
+
+2016-05-20  Nathan Sidwell  <nathan@acm.org>
+
+	* gcc.target/nvptx/uninit-decl.c: Force common storage,  add
+	non-common cases.
+	* gcc.dg/tree-ssa/ssa-store-ccp-2.c: Add -fcommon.
 
 2016-05-20  David Malcolm  <dmalcolm@redhat.com>
 
