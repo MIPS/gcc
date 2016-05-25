@@ -323,7 +323,6 @@
 
 (define_code_iterator DFP_TEST [eq lt gt unordered])
 
-
 (define_mode_iterator D64_D128 [DD TD])
 
 (define_mode_attr dfp_suffix [(DD "")
@@ -355,7 +354,7 @@
   "dxex<dfp_suffix> %0,%1"
   [(set_attr "type" "fp")])
 
-(define_expand "bcdtstsfi_<code>_<mode>"
+(define_expand "dfptstsfi_<code>_<mode>"
   [(set (match_dup 3)
 	(compare:CCFP
          (unspec:D64_D128 
@@ -364,7 +363,7 @@
 	  UNSPEC_DTSTSFI)
 	 (match_dup 4)))
    (set (match_operand:SI 0 "register_operand" "")
-   	(BCD_TEST:SI (match_dup 3) 
+   	(DFP_TEST:SI (match_dup 3) 
 		     (const_int 0)))
   ]
   "TARGET_P9_MISC"

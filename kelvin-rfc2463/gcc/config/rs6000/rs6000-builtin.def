@@ -1811,17 +1811,17 @@ BU_P9_64BIT_MISC_0 (DARN_RAW,	"darn_raw", 		MISC, darn_raw)
 BU_P9_64BIT_MISC_0 (DARN,	"darn",			MISC, darn)
 
 /* 2 argument BCD functions added in ISA 3.0.  */
-BU_P9_DFP_MISC_2 (BCD_TSTSFI_LT_DD, "dtstsfi_lt_dd", CONST, bcdtstsfi_lt_dd)
-BU_P9_DFP_MISC_2 (BCD_TSTSFI_LT_TD, "dtstsfi_lt_td", CONST, bcdtstsfi_lt_td)
+BU_P9_DFP_MISC_2 (BCD_TSTSFI_LT_DD, "dtstsfi_lt_dd", CONST, dfptstsfi_lt_dd)
+BU_P9_DFP_MISC_2 (BCD_TSTSFI_LT_TD, "dtstsfi_lt_td", CONST, dfptstsfi_lt_td)
 
-BU_P9_DFP_MISC_2 (BCD_TSTSFI_EQ_DD, "dtstsfi_eq_dd", CONST, bcdtstsfi_eq_dd)
-BU_P9_DFP_MISC_2 (BCD_TSTSFI_EQ_TD, "dtstsfi_eq_td", CONST, bcdtstsfi_eq_td)
+BU_P9_DFP_MISC_2 (BCD_TSTSFI_EQ_DD, "dtstsfi_eq_dd", CONST, dfptstsfi_eq_dd)
+BU_P9_DFP_MISC_2 (BCD_TSTSFI_EQ_TD, "dtstsfi_eq_td", CONST, dfptstsfi_eq_td)
 
-BU_P9_DFP_MISC_2 (BCD_TSTSFI_GT_DD, "dtstsfi_gt_dd", CONST, bcdtstsfi_gt_dd)
-BU_P9_DFP_MISC_2 (BCD_TSTSFI_GT_TD, "dtstsfi_gt_td", CONST, bcdtstsfi_gt_td)
+BU_P9_DFP_MISC_2 (BCD_TSTSFI_GT_DD, "dtstsfi_gt_dd", CONST, dfptstsfi_gt_dd)
+BU_P9_DFP_MISC_2 (BCD_TSTSFI_GT_TD, "dtstsfi_gt_td", CONST, dfptstsfi_gt_td)
 
-BU_P9_DFP_MISC_2 (BCD_TSTSFI_OV_DD, "dtstsfi_ov_dd", CONST, bcdtstsfi_unordered_dd)
-BU_P9_DFP_MISC_2 (BCD_TSTSFI_OV_TD, "dtstsfi_ov_td", CONST, bcdtstsfi_unordered_td)
+BU_P9_DFP_MISC_2 (BCD_TSTSFI_OV_DD, "dtstsfi_ov_dd", CONST, dfptstsfi_unordered_dd)
+BU_P9_DFP_MISC_2 (BCD_TSTSFI_OV_TD, "dtstsfi_ov_td", CONST, dfptstsfi_unordered_td)
 
 /* 2 argument overloaded BCD functions added in ISA 3.0.  */
 BU_P9_DFP_OVERLOAD_2 (BCD_TSTSFI_LT,	"dtstsfi_lt")

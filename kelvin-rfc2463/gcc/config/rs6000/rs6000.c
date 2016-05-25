@@ -13225,14 +13225,14 @@ rs6000_expand_binop_builtin (enum insn_code icode, tree exp, rtx target)
 	  return const0_rtx;
 	}
     }
-  else if (icode == CODE_FOR_bcdtstsfi_eq_dd
-      || icode == CODE_FOR_bcdtstsfi_lt_dd
-      || icode == CODE_FOR_bcdtstsfi_gt_dd 
-      || icode == CODE_FOR_bcdtstsfi_unordered_dd
-      || icode == CODE_FOR_bcdtstsfi_eq_td 
-      || icode == CODE_FOR_bcdtstsfi_lt_td 
-      || icode == CODE_FOR_bcdtstsfi_gt_td 
-      || icode == CODE_FOR_bcdtstsfi_unordered_td)
+  else if (icode == CODE_FOR_dfptstsfi_eq_dd
+      || icode == CODE_FOR_dfptstsfi_lt_dd
+      || icode == CODE_FOR_dfptstsfi_gt_dd 
+      || icode == CODE_FOR_dfptstsfi_unordered_dd
+      || icode == CODE_FOR_dfptstsfi_eq_td 
+      || icode == CODE_FOR_dfptstsfi_lt_td 
+      || icode == CODE_FOR_dfptstsfi_gt_td 
+      || icode == CODE_FOR_dfptstsfi_unordered_td)
     {
       /* Only allow 6-bit unsigned literals.  */
       STRIP_NOPS (arg0);
