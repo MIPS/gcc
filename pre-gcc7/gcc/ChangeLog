@@ -1,3 +1,202 @@
+2016-05-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_emit_p9_fp_minmax): New function
+	for ISA 3.0 min/max support.
+	(rs6000_emit_p9_fp_cmove): New function for ISA 3.0 floating point
+	conditional move support.
+	(rs6000_emit_cmove): Call rs6000_emit_p9_fp_minmax and
+	rs6000_emit_p9_fp_cmove if the ISA 3.0 instructions are
+	available.
+	* config/rs6000/rs6000.md (SFDF2): New iterator to allow doing
+	conditional moves where the comparison type is different from move
+	type.
+	(fp_minmax): New code iterator for smin/smax.
+	(minmax): New code attributes for min/max.
+	(SMINMAX): Likewise.
+	(smax<mode>3): Combine min, max insns into one insn using the
+	fp_minmax code iterator.  Add support for ISA 3.0 min/max
+	instructions that don't need -ffast-math.
+	(s<minmax><mode>3): Likewise.
+	(smax<mode>3_vsx): Likewise.
+	(smin<mode>3): Likewise.
+	(s<minmax><mode>3_vsx): Likewise.
+	(smin<mode>3_vsx): Likewise.
+	(pre-VSX min/max splitters): Likewise.
+	(s<minmax><mode>3_fpr): Likewise.
+	(movsfcc): Rewrite floating point conditional moves to combine
+	SFmode/DFmode into a single insn.
+	(mov<mode>cc): Likewise.
+	(movdfcc): Likewise.
+	(fselsfsf4): Combine FSEL cases into a single insn, using SFDF and
+	SFDF2 iterators to handle all combinations.
+	(fseldfsf4): Likewise.
+	(fsel<SFDF:mode><SFDF2:mode>4): Likewise.
+	(fseldfdf4): Likewise.
+	(fselsfdf4): Likewise.
+	(mov<SFDF:mode><SFDF2:mode>cc_p9): Add support for the ISA 3.0
+	comparison instructions that set a 0/-1 mask, and use it for
+	floating point conditional move via XXSEL.
+	(fpmask<mode>): Likewise.
+	(xxsel<mode>): Likewise.
+	* config/rs6000/predicates.md (min_max_operator): Delete, no
+	longer used.
+	(fpmask_comparison_operaton): New insn for ISA 3.0 comparison
+	instructions that generate a 0/-1 mask for use with XXSEL.
+	* config/rs6000/rs6000.h (TARGET_MINMAX_SF): New helper macros to
+	say whether floating point min/max is available, either through
+	FSEL, ISA 2.06 min/max, and ISA 3.0 min/max instrucitons.
+	(TARGET_MINMAX_DF): Likewise.
+
+2016-05-27  Alan Modra  <amodra@gmail.com>
+
+	PR rtl-optimization/71275
+	* ira.c (ira): Call loop_optimizer_init to set up bb_loop_depth
+	for update_equiv_regs and combine_and_move_insns.
+
+2016-05-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*movqi_internal) <attr "isa">: Use
+	if_then_else or cond RTXes to calculate attribute value.
+	* config/i386/mmx.md (*vec_extractv2sf_1) <attr "prefix_rep">: Ditto.
+	<attr "length_immediate>: Ditto.
+	(*vec_extractv2sf_1) <attr "length_immediate">: Ditto.
+	* config/i386/sse.md (sse_loadlps) <attr "length_immediate">: Ditto.
+	(*vec_concatv2sf_sse4_1) <attr "isa">: Ditto.
+	<attr "type">: Ditto.
+	<attr "prefix_data16">: Ditto.
+	<attr "prefix_extra">: Ditto.
+	<attr "length_immediate">: Ditto.
+	<attr "prefix">: Ditto.
+	(vec_set<mode>_0) <attr "isa">: Ditto.
+	<attr "prefix_extra">: Ditto.
+	<attr "length_immediate">: Ditto.
+	<attr "prefix">: Ditto.
+	(*vec_interleave_highv2df) <attr "prefix_data16">: Ditto.
+	(*vec_interleave_lowv2df) <attr "prefix_data16">: Ditto.
+	(sse2_storelpd) <attr "prefix_data16">: Ditto.
+	(sse2_loadhpd) <attr "prefix_data16">: Ditto.
+	(sse2_loadlpd) <attr "prefix_data16">: Ditto.
+	<attr "length_immediate">: Ditto.
+	<attr "prefix">: Ditto.
+	(sse2_movsd) <attr "length_immediate">: Ditto.
+	<attr "prefix">: Ditto.
+	(vec_concatv2df)  <attr "isa">: Ditto.
+	<attr "prefix">: Ditto.
+	(*vec_extractv4si) <attr "prefix_extra">: Ditto.
+	(*vec_extractv2di_1) <attr "isa">: Ditto.
+	<attr "type">: Ditto.
+	<attr "length_immediate">: Ditto.
+	<attr "prefix_rex">: Ditto.
+	<attr "prefix_extra">: Ditto.
+	(*vec_concatv2si_sse4_1) <attr "type">: Ditto.
+	<attr "prefix_extra">: Ditto.
+	<attr "length_immediate">: Ditto.
+	(vec_concatv2di) <attr "isa">: Ditto.
+	<attr "prefix_extra">: Ditto.
+	<attr "length_immediate">: Ditto.
+	<attr "prefix">: Ditto.
+
+2016-05-26  Martin Liska  <mliska@suse.cz>
+
+	* tree-ssa-loop-ivopts.c (comp_cost::infinite_cost_p): New
+	function.
+	(operator+): Likewise.
+	(operator-): Likewise.
+	(comp_cost::operator+=): Likewise.
+	(comp_cost::operator-=): Likewise.
+	(comp_cost::operator/=): Likewise.
+	(comp_cost::operator*=): Likewise.
+	(operator<): Likewise.
+	(operator==): Likewise.
+	(operator<=): Likewise.
+	(new_cost): Remove.
+	(infinite_cost_p): Likewise.
+	(add_costs): Likewise.
+	(sub_costs): Likewise.
+	(compare_costs): Likewise.
+	(set_group_iv_cost): Use the newly introduced functions.
+	(get_address_cost): Likewise.
+	(get_shiftadd_cost): Likewise.
+	(force_expr_to_var_cost): Likewise.
+	(split_address_cost): Likewise.
+	(ptr_difference_cost): Likewise.
+	(difference_cost): Likewise.
+	(get_computation_cost_at): Likewise.
+	(determine_group_iv_cost_generic): Likewise.
+	(determine_group_iv_cost_address): Likewise.
+	(determine_group_iv_cost_cond): Likewise.
+	(autoinc_possible_for_pair): Likewise.
+	(determine_group_iv_costs): Likewise.
+	(cheaper_cost_pair): Likewise.
+	(iv_ca_recount_cost): Likewise.
+	(iv_ca_set_no_cp): Likewise.
+	(iv_ca_set_cp): Likewise.
+	(iv_ca_cost): Likewise.
+	(iv_ca_new): Likewise.
+	(iv_ca_dump): Likewise.
+	(iv_ca_narrow): Likewise.
+	(iv_ca_prune): Likewise.
+	(iv_ca_replace): Likewise.
+	(try_add_cand_for): Likewise.
+	(try_improve_iv_set): Likewise.
+	(find_optimal_iv_set): Likewise.
+
+2016-05-26  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* tree-ssa-loop-ivopts.c (loop_body_includes_call): Don't assume
+	that internal functions will clobber all caller-saved registers.
+
+2016-05-26  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_case_values_threshold):
+	Return a better case_values_threshold when optimizing.
+
+2016-05-26  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64-simd.md (aarch64_combinez):
+	Add ? to integer variant.
+	(aarch64_combinez_be): Likewise.
+
+2016-05-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/sse.md (*vcvtps2ph_store<mask_name>): Use v constraint
+	instead of x constraint.
+	(vcvtps2ph256<mask_name>): Likewise.
+
+	* config/i386/sse.md (*ssse3_palignr<mode>_perm): Add avx512bw
+	alternative.  Formatting fix.
+
+	* config/i386/sse.md
+	(<mask_codefor>avx512vl_shuf_<shuffletype>32x4_1<mask_name>): Rename
+	to ...
+	(avx512vl_shuf_<shuffletype>32x4_1<mask_name>): ... this.
+	(*avx_vperm_broadcast_v4sf): Use v constraint instead of x.  Use
+	maybe_evex prefix instead of vex.
+	(*avx_vperm_broadcast_<mode>): Use v constraint instead of x.  Handle
+	EXT_REX_SSE_REG_P (op0) case in the splitter.
+
+2016-05-25  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/71272
+	* tree-ssa-threadbackward.c (convert_and_register_jump_thread_path):
+	Update comments.  Add test for empty path.
+
+2016-05-25  Bill Seurer  <seurer@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.h (vec_cmpne): Add #define for vec_cmpne.
+	* config/rs6000/rs6000-builtin.def (vec_cmpne): Add vec_cmpne as a
+	special case builtin.
+	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin): Add
+	code for ALTIVEC_BUILTIN_VEC_CMPNE.
+	* config/rs6000/rs6000.c (altivec_init_builtins): Add definition
+	for __builtin_vec_cmpne.
+
+2016-05-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-ssa-phiopt.c (factor_out_conditional_conversion): Remove
+	redundant test and bail out if the type of the new operand is not
+	a GIMPLE register type after stripping a VIEW_CONVERT_EXPR.
+
 2016-05-25  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/i386/i386.opt (ix86_target_flags_explicit): Remove.

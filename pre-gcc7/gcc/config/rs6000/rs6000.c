@@ -16295,6 +16295,10 @@ altivec_init_builtins (void)
     = build_function_type_list (opaque_V4SI_type_node,
 				opaque_V4SI_type_node, opaque_V4SI_type_node,
 				opaque_V4SI_type_node, NULL_TREE);
+  tree opaque_ftype_opaque_opaque
+    = build_function_type_list (opaque_V4SI_type_node,
+				opaque_V4SI_type_node, opaque_V4SI_type_node,
+				NULL_TREE);
   tree int_ftype_int_opaque_opaque
     = build_function_type_list (integer_type_node,
                                 integer_type_node, opaque_V4SI_type_node,
@@ -16569,6 +16573,8 @@ altivec_init_builtins (void)
 		ALTIVEC_BUILTIN_VEC_ADDE);
   def_builtin ("__builtin_vec_addec", opaque_ftype_opaque_opaque_opaque,
 		ALTIVEC_BUILTIN_VEC_ADDEC);
+  def_builtin ("__builtin_vec_cmpne", opaque_ftype_opaque_opaque,
+		ALTIVEC_BUILTIN_VEC_CMPNE);
 
   /* Cell builtins.  */
   def_builtin ("__builtin_altivec_lvlx",  v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVLX);
@@ -22645,7 +22651,7 @@ rs6000_emit_vector_cond_expr (rtx dest, rtx op_true, rtx op_false,
    hardware has no such operation.  */
 
 static int
-rs6000_emit_power9_minmax (rtx dest, rtx op, rtx true_cond, rtx false_cond)
+rs6000_emit_p9_fp_minmax (rtx dest, rtx op, rtx true_cond, rtx false_cond)
 {
   enum rtx_code code = GET_CODE (op);
   rtx op0 = XEXP (op, 0);
@@ -22673,7 +22679,7 @@ rs6000_emit_power9_minmax (rtx dest, rtx op, rtx true_cond, rtx false_cond)
   else
     return 0;
 
-  rs6000_emit_minmax (dest, (max_p) ? SMAX : SMIN, op0, op1);
+  rs6000_emit_minmax (dest, max_p ? SMAX : SMIN, op0, op1);
   return 1;
 }
 
@@ -22683,13 +22689,12 @@ rs6000_emit_power9_minmax (rtx dest, rtx op, rtx true_cond, rtx false_cond)
    zero/false.  Return 0 if the hardware has no such operation.  */
 
 static int
-rs6000_emit_power9_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
+rs6000_emit_p9_fp_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
 {
   enum rtx_code code = GET_CODE (op);
   rtx op0 = XEXP (op, 0);
   rtx op1 = XEXP (op, 1);
   machine_mode result_mode = GET_MODE (dest);
-  bool swap_p = false;
   rtx compare_rtx;
   rtx cmove_rtx;
   rtx clobber_rtx;
@@ -22705,18 +22710,10 @@ rs6000_emit_power9_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
       break;
 
     case NE:
-      code = EQ;
-      swap_p = true;
-      break;
-
     case LT:
-      code = GT;
-      swap_p = true;
-      break;
-
     case LE:
-      code = GE;
-      swap_p = true;
+      code = swap_condition (code);
+      std::swap (op0, op1);
       break;
 
     default:
@@ -22729,11 +22726,7 @@ rs6000_emit_power9_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
 					       (false)))
 			    (clobber (scratch))])].  */
 
-  if (swap_p)
-    compare_rtx = gen_rtx_fmt_ee (code, CCFPmode, op1, op0);
-  else
-    compare_rtx = gen_rtx_fmt_ee (code, CCFPmode, op0, op1);
-
+  compare_rtx = gen_rtx_fmt_ee (code, CCFPmode, op0, op1);
   cmove_rtx = gen_rtx_SET (dest,
 			   gen_rtx_IF_THEN_ELSE (result_mode,
 						 compare_rtx,
@@ -22778,10 +22771,10 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
       && (compare_mode == SFmode || compare_mode == DFmode)
       && (result_mode == SFmode || result_mode == DFmode))
     {
-      if (rs6000_emit_power9_minmax (dest, op, true_cond, false_cond))
+      if (rs6000_emit_p9_fp_minmax (dest, op, true_cond, false_cond))
 	return 1;
 
-      if (rs6000_emit_power9_cmove (dest, op, true_cond, false_cond))
+      if (rs6000_emit_p9_fp_cmove (dest, op, true_cond, false_cond))
 	return 1;
     }
 
