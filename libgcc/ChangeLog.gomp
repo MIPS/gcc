@@ -1,3 +1,12 @@
+2016-05-26  Nathan Sidwell  <nathan@acm.org>
+
+	* config/nvptx/free.asm: Delete.
+	* config/nvptx/malloc.asm: Delete.
+	* config/nvptx/realloc.c: Delete.
+	* config/nvptx/crt0.s: Delete.
+	* config/nvptx/crt0.c: New.
+	* t-nvptx: Update.
+
 2015-11-16  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* config/nvtpx/reduction.c: New.
