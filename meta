@@ -1,6 +1,6 @@
 Version: 1
-Previous: 0449578f4294eb6810aa5ad65f824391d2009a5b
-Head: 7181f7c84ee7834ac321befbc7a191e50e7b00a1
+Previous: 63afa010c5e8d78e9110d850099dba1b99482a06
+Head: 96a3072294cf7420d174aafebca582bc832c36e9
 Applied:
   adjust-type-align-propagation.patch: 9d26d91ff0e9848b3d73088db0bb27dfe4ad6e53
   using-inline-ns-aliases-etc.patch: 1a6b7b9481c075e616afd1335f1a1b417edc0008
@@ -8,8 +8,7 @@ Applied:
   static_assert.patch: 1e6a3ffde575d8492779655a4a93a5ee8cb0c90f
   fix-template-arguments.patch: cc53b6eea1607214b81cb44f967b378bce9ea353
   call-exprs.patch: 82730d64aef0ddfc2c9932146b670dac2c135898
-  lambda-closures.patch: 69710f3f0a2082243de7cb4bd21c23d7dbbb2508
-  refresh-temp: 7181f7c84ee7834ac321befbc7a191e50e7b00a1
+  lambda-closures.patch: 96a3072294cf7420d174aafebca582bc832c36e9
 Unapplied:
   special-memfuncs-testing.patch: 5dadb8e81f23ef0a3a559dc1776fa25b2cc8c5db
 Hidden:
