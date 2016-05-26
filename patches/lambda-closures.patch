@@ -1,5 +1,5 @@
 Bottom: dc7515afd3bafeb8189262f26559c562c443a6ae
-Top:    95e679e593393880b8a8a8d8a7c360be2f581067
+Top:    c813a25dd2ab7491b67724c369d9f52f423354fa
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-05-21 04:28:47 -0300
 
@@ -8,10 +8,27 @@ introduce lambda closures support
 ---
 
 diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
-index d9e4289..a069e4f 100644
+index d9e4289..be6c736 100644
 --- a/include/gcc-cp-fe.def
 +++ b/include/gcc-cp-fe.def
-@@ -204,7 +204,7 @@ GCC_METHOD2 (int /* bool */, new_using_decl,
+@@ -34,8 +34,14 @@
+ GCC_METHOD1 (int /* bool */, push_namespace,
+ 	     const char *)	      /* Argument NAME.  */
+ 
+-/* Pop the namespace last entered with push_namespace, restoring the
+-   binding level in effect before the matching push_namespace.  */
++/* Push FUNCTION_DECL as the current context.  */
++
++GCC_METHOD1 (int /* bool */, push_function,
++	     gcc_decl)	     /* Argument FUNCTION_DECL.  */
++
++/* Pop the namespace last entered with push_namespace, or function
++   last entered with push_function, restoring the binding level in
++   effect before the matching push_* call.  */
+ 
+ GCC_METHOD0 (int /* bool */, pop_namespace)
+ 
+@@ -204,7 +210,7 @@ GCC_METHOD2 (int /* bool */, new_using_decl,
       cv      operator <T> (conversion operator)
       li<id>  operator "" <id>
  
@@ -20,16 +37,19 @@ index d9e4289..a069e4f 100644
  
  GCC_METHOD7 (gcc_decl, new_decl,
  	     const char *,	      /* Argument NAME.  */
-@@ -604,6 +604,20 @@ GCC_METHOD4 (gcc_type, start_new_union_type,
+@@ -604,6 +610,23 @@ GCC_METHOD4 (gcc_type, start_new_union_type,
  	     const char *,	      /* Argument FILENAME.  */
  	     unsigned int)	      /* Argument LINE_NUMBER.  */
  
-+/* Create a new closure class type, record it as the DISCRIMINATORth
-+   closure type in associated with EXTRA_SCOPE, and enter the closure
++/* Create a new closure class type, record it as the
++   DISCRIMINATOR-numbered closure type in the current scope (or
++   associated with EXTRA_SCOPE, if non-NULL), and enter the closure
 +   type's own binding level.  Initially it has no fields.
 +
 +   NAME is the class name.  FILENAME and LINE_NUMBER specify the
-+   source location associated with the class.  */
++   source location associated with the class.  EXTRA_SCOPE, if
++   non-NULL, must be a PARM_DECL of the current function, but if it is
++   NULL, the current scope needs not be a function.  */
 +
 +GCC_METHOD5 (gcc_type, start_new_closure_type,
 +	     int,		      /* Argument DISCRIMINATOR.  */
@@ -41,7 +61,7 @@ index d9e4289..a069e4f 100644
  /* Add a non-static data member to the most-recently-started
     unfinished struct or union type.  FIELD_NAME is the field's name.
     FIELD_TYPE is the type of the field.  BITSIZE and BITPOS indicate
-@@ -670,7 +684,10 @@ GCC_METHOD3 (gcc_type, build_function_type,
+@@ -670,7 +693,10 @@ GCC_METHOD3 (gcc_type, build_function_type,
     arguments without default values in FUNCTION_TYPE.  Say, if
     FUNCTION_TYPE has an argument list such as (T1, T2, T3, T4 = V0)
     and DEFAULTS has 2 elements (V1, V2), the returned type will have
@@ -53,7 +73,7 @@ index d9e4289..a069e4f 100644
  
  GCC_METHOD2 (gcc_type, add_function_default_args,
  	     gcc_type,			     /* Argument FUNCTION_TYPE.  */
-@@ -702,6 +719,34 @@ GCC_METHOD4 (gcc_type, build_method_type,
+@@ -702,6 +728,34 @@ GCC_METHOD4 (gcc_type, build_method_type,
  	     enum gcc_cp_qualifiers,	   /* Argument QUALS.  */
  	     enum gcc_cp_ref_qualifiers)   /* Argument RQUALS.  */
  
@@ -63,7 +83,7 @@ index d9e4289..a069e4f 100644
 +   expression, such as taking the size of an earlier parameter, or
 +   building a lambda expression in the parameter's context.  */
 +
-+GCC_METHOD2 (int, set_deferred_function_default_args,
++GCC_METHOD2 (int /* bool */, set_deferred_function_default_args,
 +	     gcc_decl,			     /* Argument FUNCTION_DECL.  */
 +	     const struct gcc_cp_function_args *) /* Argument DEFAULTS.  */
 +
@@ -120,10 +140,89 @@ index de467a3..69d3ec9 100644
    GCC_CP_SYMBOL_END,
  
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index 1486948..ec967f0 100644
+index 1486948..74e1f6c 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
-@@ -1288,6 +1288,72 @@ plugin_start_new_class_type (cc1_plugin::connection *self,
+@@ -427,18 +427,51 @@ plugin_push_namespace (cc1_plugin::connection *,
+ }
+ 
+ int
++plugin_push_function (cc1_plugin::connection *,
++		      gcc_decl function_decl_in)
++{
++  current_function_decl = convert_in (function_decl_in);
++  begin_scope (sk_function_parms, current_function_decl);
++  ++function_depth;
++  begin_scope (sk_block, NULL);
++
++  return 1;
++}
++
++int
+ plugin_pop_namespace (cc1_plugin::connection *)
+ {
+   if (toplevel_bindings_p () && current_namespace == global_namespace)
+     pop_from_top_level ();
+-  else
++  else if (!at_function_scope_p ())
+     pop_namespace ();
++  else
++    {
++      gcc_assert (current_binding_level->kind == sk_block
++		  && current_binding_level->this_entity == NULL);
++      leave_scope ();
++      --function_depth;
++      gcc_assert (current_binding_level->kind == sk_function_parms
++		  && current_binding_level->this_entity == current_function_decl
++		  /* We don't mess with cfun, so make sure we're not
++		     popping the snippet context.  */
++		  && cfun->decl != current_function_decl);
++      leave_scope ();
++      current_function_decl = NULL;
++      for (cp_binding_level *scope = current_binding_level;
++	   scope; scope = scope->level_chain)
++	if (scope->kind == sk_function_parms)
++	  {
++	    current_function_decl = scope->this_entity;
++	    break;
++	  }
++    }
+ 
+   return 1;
+ }
+ 
+-gcc_decl
+-plugin_get_current_binding_level (cc1_plugin::connection *)
++static tree
++get_current_scope ()
+ {
+   tree decl;
+ 
+@@ -451,6 +484,14 @@ plugin_get_current_binding_level (cc1_plugin::connection *)
+   else
+     gcc_unreachable ();
+ 
++  return decl;
++}
++
++gcc_decl
++plugin_get_current_binding_level (cc1_plugin::connection *)
++{
++  tree decl = get_current_scope ();
++
+   return convert_out (decl);
+ }
+ 
+@@ -991,6 +1032,8 @@ plugin_new_decl (cc1_plugin::connection *self,
+     DECL_CONTEXT (decl) = FROB_CONTEXT (current_class_type);
+   else if (at_namespace_scope_p ())
+     DECL_CONTEXT (decl) = FROB_CONTEXT (current_decl_namespace ());
++  else
++    DECL_CONTEXT (decl) = FROB_CONTEXT (current_function_decl);
+ 
+   set_access_flags (decl, acc_flags);
+ 
+@@ -1288,6 +1331,62 @@ plugin_start_new_class_type (cc1_plugin::connection *self,
  }
  
  gcc_type
@@ -140,23 +239,13 @@ index 1486948..ec967f0 100644
 +  gcc_assert ((flags & GCC_CP_SYMBOL_MASK) == GCC_CP_SYMBOL_LAMBDA_CLOSURE);
 +  gcc_assert ((flags & (~(GCC_CP_SYMBOL_MASK | GCC_CP_ACCESS_MASK))) == 0);
 +
-+  bool class_scope_p = at_class_scope_p ();
-+  if (extra_scope)
-+    switch (TREE_CODE (extra_scope))
-+      {
-+      case FUNCTION_DECL:
-+	break;
-+
-+      case FIELD_DECL:
-+      case VAR_DECL:
-+      case PARM_DECL:
-+	break;
-+
-+      default:
-+	gcc_unreachable ();
-+      }
-+
 +  gcc_assert (!(flags & GCC_CP_ACCESS_MASK) == !at_class_scope_p ());
++
++  if (extra_scope)
++    {
++      gcc_assert (at_function_scope_p ());
++      gcc_assert (DECL_CONTEXT (extra_scope) == current_function_decl);
++    }
 +
 +  tree lambda_expr = build_lambda_expr ();
 +
@@ -165,7 +254,7 @@ index 1486948..ec967f0 100644
 +
 +  tree type = begin_lambda_type (lambda_expr);
 +
-+  /* This replaces record_lambda_scope.  */
++  /* Instead of calling record_lambda_scope, do this:  */
 +  LAMBDA_EXPR_EXTRA_SCOPE (lambda_expr) = extra_scope;
 +  LAMBDA_EXPR_DISCRIMINATOR (lambda_expr) = discriminator;
 +
@@ -196,7 +285,7 @@ index 1486948..ec967f0 100644
  plugin_start_new_union_type (cc1_plugin::connection *self,
  			     const char *name,
  			     enum gcc_cp_symbol_kind flags,
-@@ -1516,7 +1582,8 @@ plugin_add_function_default_args (cc1_plugin::connection *self,
+@@ -1516,7 +1615,8 @@ plugin_add_function_default_args (cc1_plugin::connection *self,
      {
        gcc_assert (ndargs);
        tree deflt = convert_in (defaults->elements[i]);
@@ -206,7 +295,7 @@ index 1486948..ec967f0 100644
        TREE_PURPOSE (ndargs) = deflt;
        ndargs = TREE_CHAIN (ndargs);
      }
-@@ -1538,6 +1605,62 @@ plugin_add_function_default_args (cc1_plugin::connection *self,
+@@ -1538,6 +1638,62 @@ plugin_add_function_default_args (cc1_plugin::connection *self,
    return convert_out (ctx->preserve (result));
  }
  
