@@ -1,3 +1,22 @@
+2016-05-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* semantics.c (finish_omp_clauses) <case OMP_CLAUSE_SCHEDULE>: Warn
+	if OMP_CLAUSE_SCHEDULE_CHUNK_EXPR is known not to be positive.
+
+2016-05-26  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/70822
+	PR c++/70106
+	* cp-tree.h (REF_PARENTHESIZED_P): Make this flag apply to
+	SCOPE_REFs too.
+	* pt.c (tsubst_qualified_id): If REF_PARENTHESIZED_P is set
+	on the qualified_id then propagate it to the resulting
+	expression.
+	(do_auto_deduction): Check REF_PARENTHESIZED_P on SCOPE_REFs
+	too.
+	* semantics.c (force_paren_expr): If given a SCOPE_REF, just set
+	its REF_PARENTHESIZED_P flag.
+
 2016-05-25  Jason Merrill  <jason@redhat.com>
 
 	PR c++/71173

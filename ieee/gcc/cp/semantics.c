@@ -1647,17 +1647,10 @@ force_paren_expr (tree expr)
       && TREE_CODE (expr) != SCOPE_REF)
     return expr;
 
-  if (TREE_CODE (expr) == COMPONENT_REF)
+  if (TREE_CODE (expr) == COMPONENT_REF
+      || TREE_CODE (expr) == SCOPE_REF)
     REF_PARENTHESIZED_P (expr) = true;
-  else if (type_dependent_expression_p (expr)
-	   /* When processing_template_decl, a SCOPE_REF may actually be
-	      referring to a non-static data member of the current class, in
-	      which case its TREE_TYPE may not be properly cv-qualified (the
-	      cv-qualifiers of the implicit *this object haven't yet been taken
-	      into account) so we have to delay building a static_cast until
-	      instantiation.  */
-	   || (processing_template_decl
-	       && TREE_CODE (expr) == SCOPE_REF))
+  else if (type_dependent_expression_p (expr))
     expr = build1 (PAREN_EXPR, TREE_TYPE (expr), expr);
   else if (VAR_P (expr) && DECL_HARD_REGISTER (expr))
     /* We can't bind a hard register variable to a reference.  */;
@@ -6324,6 +6317,17 @@ finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 			{
 			  remove = true;
 			  break;
+			}
+		    }
+		  else
+		    {
+		      t = maybe_constant_value (t);
+		      if (TREE_CODE (t) == INTEGER_CST
+			  && tree_int_cst_sgn (t) != 1)
+			{
+			  warning_at (OMP_CLAUSE_LOCATION (c), 0,
+				      "chunk size value must be positive");
+			  t = integer_one_node;
 			}
 		    }
 		  t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
