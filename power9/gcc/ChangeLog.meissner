@@ -1,5 +1,10 @@
 2016-05-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 236796.
+	* REVISION: Update subversion id.
+
+2016-05-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* config/rs6000/constraints.md (wB constraint): New constraint for
 	constants that are easy to load into an Altivec register.
 
