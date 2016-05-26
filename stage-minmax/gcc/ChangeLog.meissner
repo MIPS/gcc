@@ -22,7 +22,7 @@
 	(smin<mode>3): Likewise.
 	(s<minmax><mode>3_vsx): Likewise.
 	(smin<mode>3_vsx): Likewise.
-	(pre-VSX min/max splitter): Likewise.
+	(pre-VSX min/max splitters): Likewise.
 	(s<minmax><mode>3_fpr): Likewise.
 	(movsfcc): Rewrite floating point conditional moves to combine
 	SFmode/DFmode into a single insn.
