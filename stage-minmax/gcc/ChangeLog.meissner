@@ -36,12 +36,12 @@
 	longer used.
 	(fpmask_comparison_operaton): New insn for ISA 3.0 comparison
 	instructions that generate a 0/-1 mask for use with XXSEL.
-	* config/rs6000/rs6000.c (rs6000_emit_power9_minmax): New function
+	* config/rs6000/rs6000.c (rs6000_emit_p9_fp_minmax): New function
 	for ISA 3.0 min/max support.
-	(rs6000_emit_power9_cmove): New function for ISA 3.0 floating
-	point conditional move support.
-	(rs6000_emit_cmove): Call rs6000_emit_power9_minmax and
-	rs6000_emit_power9_cmove if the ISA 3.0 instructions are
+	(rs6000_emit_p9_fp_cmove): New function for ISA 3.0 floating point
+	conditional move support.
+	(rs6000_emit_cmove): Call rs6000_emit_p9_fp_minmax and
+	rs6000_emit_p9_fp_cmove if the ISA 3.0 instructions are
 	available.
 	* config/rs6000/rs6000.h (TARGET_MINMAX_SF): New helper macros to
 	say whether floating point min/max is available, either through
