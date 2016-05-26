@@ -1,3 +1,74 @@
+2016-05-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (wB constraint): New constraint for
+	constants that are easy to load into an Altivec register.
+
+	* config/rs6000/predicates.md (s5bit_cint_operand_not_0_or_m1):
+	New predicate to match constants that are easy to load into an
+	Altivec register.
+	(indirect_address_mem): New predicate for indirect memory
+	addresses that are used in a peephole2 to collapse D-form
+	addresses created by the register allocator.
+	(dform_reg_operand_no_pseudo): New predicate to match hard
+	registers that support D-form addressing.
+	(lo_sum_operand): New predicate to match LO_SUM.
+
+	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Add
+	-mupper-regs-di.
+	(POWERPC_MASKS): Likewise.
+	(power7 cpu): Likewise.
+
+	* config/rs6000/rs6000.opt (-mupper-regs-di): New switch to
+	control whether DImode can go in Altivec registers.
+
+	* config/rs6000/rs6000.c (rs6000_tieable): New array to simplify
+	MODES_TIEABLE_P.
+	(rs6000_hard_regno_mode_ok): Add support for -mupper-regs-di.
+	(rs6000_init_hard_regno_mode_ok): Add support for
+	-mupper-regs-di.  Also pre-calculate the values for
+	MODES_TIEABLE_P.
+	(rs6000_option_override_internal): Add support for
+	-mupper-regs-di.
+	(rs6000_legitimize_reload_address): Don't optimize TOC addresses
+	if the type is allowed in the Altivec registers, but we don't have
+	D-form addressing for those registers.
+	(rs6000_secondary_reload): Add a missing test for !done_p.  Try to
+	load constants in vector registers via direct move.
+	(rs6000_preferred_reload_class): Prefer Altivec registers to load
+	integer constants that can be done with a few instructions.
+
+	* config/rs6000/rs6000.h (MODES_TIEABLE_P): Use pre-calculated
+	values set up in rs6000_init_hard_regno_mode_ok.
+
+	* config/rs6000/rs6000.md (floatsi<mode>2_lfiwax): Use wi
+	constraint instead of wj, in cases where we don't need to use
+	direct move instructions.
+	(floatsi<mode>2_lfiwax_mem): Collapse FPR/VSX alternatives into a
+	single alternative.  Use wi constraint for DImode scratch instead
+	of d.
+	(floatunssi<mode>2_lfiwzx_mem): Likewise.
+	(fix_trunc<mode>di2_fctidz): Add support for DImode registers that
+	can go in Altivec registers.
+	(fixuns_trunc<mode>di2_fctiduz): Likewise.
+	(movdi_internal32): Rewrite to allow DImode to go in Altivec
+	regsiters.  Line alternatives and attributes up so that they are
+	eaiser to read in a columnar fashion.
+	(movdi_internal64): Likewise.
+	(movdi 32-bit splitter): Use int_reg_operand, and simplify code.
+	(movdi 64-bit splitter): Likewise.
+	(movdi Altivec splitter): New splitter for loading constants into
+	Altivec registers.
+	(DFORM): New mode iterator for the modes that support D-form
+	addressing.
+	(d-form peephole2): Add peephole2's to recreate a D-form address
+	if the register allocator has created an address at register
+	allocation time.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
+	-mupper-regs-di.
+
+	* doc/md.texi (PowerPC and IBM RS6000 constraints): Document wB.
+
 2016-05-25   Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch subversion id 236740

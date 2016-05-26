@@ -381,6 +381,9 @@ bool cpu_builtin_p;
    don't link in rs6000-c.c, so we can't call it directly.  */
 void (*rs6000_target_modify_macros_ptr) (bool, HOST_WIDE_INT, HOST_WIDE_INT);
 
+/* Simplify MODES_TIEABLE_P classification.  */
+rs6000_tieable_type rs6000_tieable[NUM_MACHINE_MODES];
+
 /* Simplfy register classes into simpler classifications.  We assume
    GPR_REG_TYPE - FPR_REG_TYPE are ordered so that we can use a simple range
    check for standard register classes (gpr/floating/altivec/vsx) and
@@ -1938,7 +1941,8 @@ rs6000_hard_regno_mode_ok (int regno, machine_mode mode)
 	  || FLOAT128_VECTOR_P (mode)
 	  || reg_addr[mode].scalar_in_vmx_p
 	  || (TARGET_VSX_TIMODE && mode == TImode)
-	  || (TARGET_VADDUQM && mode == V1TImode)))
+	  || (TARGET_VADDUQM && mode == V1TImode)
+	  || (TARGET_UPPER_REGS_DI && mode == DImode)))
     {
       if (FP_REGNO_P (regno))
 	return FP_REGNO_P (last_regno);
@@ -3082,7 +3086,6 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
       rs6000_constraints[RS6000_CONSTRAINT_wa] = VSX_REGS;
       rs6000_constraints[RS6000_CONSTRAINT_wd] = VSX_REGS;	/* V2DFmode  */
       rs6000_constraints[RS6000_CONSTRAINT_wf] = VSX_REGS;	/* V4SFmode  */
-      rs6000_constraints[RS6000_CONSTRAINT_wi] = FLOAT_REGS;	/* DImode  */
 
       if (TARGET_VSX_TIMODE)
 	rs6000_constraints[RS6000_CONSTRAINT_wt] = VSX_REGS;	/* TImode  */
@@ -3094,6 +3097,11 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	}
       else
 	rs6000_constraints[RS6000_CONSTRAINT_ws] = FLOAT_REGS;
+
+      if (TARGET_UPPER_REGS_DF)					/* DImode  */
+	rs6000_constraints[RS6000_CONSTRAINT_wi] = VSX_REGS;
+      else
+	rs6000_constraints[RS6000_CONSTRAINT_wi] = FLOAT_REGS;
     }
 
   /* Add conditional constraints based on various options, to allow us to
@@ -3305,6 +3313,9 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 
       if (TARGET_UPPER_REGS_DF)
 	reg_addr[DFmode].scalar_in_vmx_p = true;
+
+      if (TARGET_UPPER_REGS_DI)
+	reg_addr[DImode].scalar_in_vmx_p = true;
 
       if (TARGET_UPPER_REGS_SF)
 	reg_addr[SFmode].scalar_in_vmx_p = true;
@@ -3553,6 +3564,50 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
      legitimate address support to figure out the appropriate addressing to
      use.  */
   rs6000_setup_reg_addr_masks ();
+
+  /* Precalculate the classifications for MODES_TIEABLE_P.
+
+     Value is 1 if it is a good idea to tie two pseudo registers when one has
+     mode MODE1 and one has mode MODE2.  If HARD_REGNO_MODE_OK could produce
+     different values for MODE1 and MODE2, for any hard reg, then this must be
+     0 for correct output.
+
+     PTImode cannot tie with other modes because PTImode is restricted to even
+     GPR registers, and TImode can go in any GPR as well as VSX registers (PR
+     57744).
+
+     Altivec/VSX vector tests were moved ahead of scalar float mode, so that
+     IEEE 128-bit floating point on VSX systems ties with other vectors.
+
+     SPE vectors don't tie with anything else, due to the GPR size being
+     different.  */
+
+  for (m = 0; m < NUM_MACHINE_MODES; ++m)
+    {
+      machine_mode m2 = (machine_mode)m;
+      rs6000_tieable_type tieable;
+
+      if (m2 == PTImode)
+	tieable = TIEABLE_PTI;
+
+      else if (ALTIVEC_OR_VSX_VECTOR_MODE (m2))
+	tieable = TIEABLE_VECTOR;
+
+      else if (SCALAR_FLOAT_MODE_P (m2) && TARGET_HARD_FLOAT
+	       && TARGET_FPRS)
+	tieable = TIEABLE_FP;
+
+      else if (SPE_VECTOR_MODE (m2))
+	tieable = TIEABLE_SPE;
+
+      else if (GET_MODE_CLASS (m2) == MODE_CC)
+	tieable = TIEABLE_CC;
+
+      else
+	tieable = TIEABLE_NORMAL;
+
+      rs6000_tieable[m] = tieable;
+    }
 
   if (global_init_p || TARGET_DEBUG_TARGET)
     {
@@ -4085,9 +4140,9 @@ rs6000_option_override_internal (bool global_init_p)
       rs6000_isa_flags &= ~OPTION_MASK_DFP;
     }
 
-  /* Allow an explicit -mupper-regs to set both -mupper-regs-df and
-     -mupper-regs-sf, depending on the cpu, unless the user explicitly also set
-     the individual option.  */
+  /* Allow an explicit -mupper-regs to set -mupper-regs-df, -mupper-regs-di,
+     and -mupper-regs-sf, depending on the cpu, unless the user explicitly also
+     set the individual option.  */
   if (TARGET_UPPER_REGS > 0)
     {
       if (TARGET_VSX
@@ -4095,6 +4150,12 @@ rs6000_option_override_internal (bool global_init_p)
 	{
 	  rs6000_isa_flags |= OPTION_MASK_UPPER_REGS_DF;
 	  rs6000_isa_flags_explicit |= OPTION_MASK_UPPER_REGS_DF;
+	}
+      if (TARGET_VSX
+	  && !(rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_DI))
+	{
+	  rs6000_isa_flags |= OPTION_MASK_UPPER_REGS_DI;
+	  rs6000_isa_flags_explicit |= OPTION_MASK_UPPER_REGS_DI;
 	}
       if (TARGET_P8_VECTOR
 	  && !(rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_SF))
@@ -4111,6 +4172,12 @@ rs6000_option_override_internal (bool global_init_p)
 	  rs6000_isa_flags &= ~OPTION_MASK_UPPER_REGS_DF;
 	  rs6000_isa_flags_explicit |= OPTION_MASK_UPPER_REGS_DF;
 	}
+      if (TARGET_VSX
+	  && !(rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_DI))
+	{
+	  rs6000_isa_flags &= ~OPTION_MASK_UPPER_REGS_DI;
+	  rs6000_isa_flags_explicit |= OPTION_MASK_UPPER_REGS_DI;
+	}
       if (TARGET_P8_VECTOR
 	  && !(rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_SF))
 	{
@@ -4123,6 +4190,13 @@ rs6000_option_override_internal (bool global_init_p)
     {
       if (rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_DF)
 	error ("-mupper-regs-df requires -mvsx");
+      rs6000_isa_flags &= ~OPTION_MASK_UPPER_REGS_DF;
+    }
+
+  if (TARGET_UPPER_REGS_DI && !TARGET_VSX)
+    {
+      if (rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_DF)
+	error ("-mupper-regs-di requires -mvsx");
       rs6000_isa_flags &= ~OPTION_MASK_UPPER_REGS_DF;
     }
 
@@ -4386,6 +4460,7 @@ rs6000_option_override_internal (bool global_init_p)
   if (TARGET_FLOAT128_HW
       && (rs6000_isa_flags & (OPTION_MASK_P9_VECTOR
 			      | OPTION_MASK_DIRECT_MOVE
+			      | OPTION_MASK_UPPER_REGS_DI
 			      | OPTION_MASK_UPPER_REGS_DF
 			      | OPTION_MASK_UPPER_REGS_SF)) == 0)
     {
@@ -8728,10 +8803,13 @@ rs6000_legitimize_reload_address (rtx x, machine_mode mode,
       return x;
     }
 
+  /* If the type is allowed in Altivec registers, but we don't have d-form
+     instructions for Altivec registers, don't allow this optimization.  */
   if (TARGET_TOC
       && reg_offset_p
       && GET_CODE (x) == SYMBOL_REF
-      && use_toc_relative_ref (x, mode))
+      && use_toc_relative_ref (x, mode)
+      && (!reg_addr[mode].scalar_in_vmx_p || mode_supports_vmx_dform (mode)))
     {
       x = create_TOC_reference (x, NULL_RTX);
       if (TARGET_CMODEL != CMODEL_SMALL)
@@ -19315,11 +19393,36 @@ rs6000_secondary_reload (bool in_p,
     }
 
   /* Make sure 0.0 is not reloaded or forced into memory.  */
-  if (x == CONST0_RTX (mode) && VSX_REG_CLASS_P (rclass))
+  if (!done_p && x == CONST0_RTX (mode) && VSX_REG_CLASS_P (rclass))
     {
       ret = NO_REGS;
       default_p = false;
       done_p = true;
+    }
+
+  /* If this is an integer constant that is being tried to be loaded into a
+     vector register, and we can do a direct move, load the constant in a GPR
+     register first. Also recognize the constants that can be directly loaded
+     into the Altivec registers.  */
+  if (!done_p && CONST_INT_P (x) && VSX_REG_CLASS_P (rclass))
+    {
+      HOST_WIDE_INT value = INTVAL (x);
+
+      if (TARGET_UPPER_REGS_DI
+	  && ((value == -1)
+	      || (TARGET_P8_VECTOR && IN_RANGE (value, -16, 15))))
+	{
+	  ret = (rclass == ALTIVEC_REGS) ? NO_REGS : ALTIVEC_REGS;
+	  default_p = false;
+	  done_p = true;
+	}
+
+      else if (TARGET_POWERPC64 && TARGET_DIRECT_MOVE)
+	{
+	  ret = GENERAL_REGS;
+	  default_p = false;
+	  done_p = true;
+	}
     }
 
   /* If this is a scalar floating point value and we want to load it into the
@@ -19915,6 +20018,12 @@ rs6000_preferred_reload_class (rtx x, enum reg_class rclass)
 	  /* If this is a vector constant that can be formed with a few Altivec
 	     instructions, we want altivec registers.  */
 	  if (GET_CODE (x) == CONST_VECTOR && easy_vector_constant (x, mode))
+	    return ALTIVEC_REGS;
+
+	  /* Allow constants that can be created with vspltisw/vupkhsw to get
+	     the Altivec registers if this is a scalar integer.  */
+	  if (TARGET_UPPER_REGS_DI && CONST_INT_P (x)
+	      && IN_RANGE (INTVAL (x), -16, 15))
 	    return ALTIVEC_REGS;
 
 	  /* Force constant to memory.  */
@@ -35370,6 +35479,7 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "string",			OPTION_MASK_STRING,		false, true  },
   { "toc-fusion",		OPTION_MASK_TOC_FUSION,		false, true  },
   { "update",			OPTION_MASK_NO_UPDATE,		true , true  },
+  { "upper-regs-di",		OPTION_MASK_UPPER_REGS_DI,	false, true  },
   { "upper-regs-df",		OPTION_MASK_UPPER_REGS_DF,	false, true  },
   { "upper-regs-sf",		OPTION_MASK_UPPER_REGS_SF,	false, true  },
   { "vsx",			OPTION_MASK_VSX,		false, true  },
