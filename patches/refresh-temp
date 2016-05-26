@@ -1,0 +1,180 @@
+Bottom: 95e679e593393880b8a8a8d8a7c360be2f581067
+Top:    c813a25dd2ab7491b67724c369d9f52f423354fa
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-05-26 17:49:33 -0300
+
+Refresh of lambda-closures.patch
+
+---
+
+diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
+index a069e4f..be6c736 100644
+--- a/include/gcc-cp-fe.def
++++ b/include/gcc-cp-fe.def
+@@ -34,8 +34,14 @@
+ GCC_METHOD1 (int /* bool */, push_namespace,
+ 	     const char *)	      /* Argument NAME.  */
+ 
+-/* Pop the namespace last entered with push_namespace, restoring the
+-   binding level in effect before the matching push_namespace.  */
++/* Push FUNCTION_DECL as the current context.  */
++
++GCC_METHOD1 (int /* bool */, push_function,
++	     gcc_decl)	     /* Argument FUNCTION_DECL.  */
++
++/* Pop the namespace last entered with push_namespace, or function
++   last entered with push_function, restoring the binding level in
++   effect before the matching push_* call.  */
+ 
+ GCC_METHOD0 (int /* bool */, pop_namespace)
+ 
+@@ -604,12 +610,15 @@ GCC_METHOD4 (gcc_type, start_new_union_type,
+ 	     const char *,	      /* Argument FILENAME.  */
+ 	     unsigned int)	      /* Argument LINE_NUMBER.  */
+ 
+-/* Create a new closure class type, record it as the DISCRIMINATORth
+-   closure type in associated with EXTRA_SCOPE, and enter the closure
++/* Create a new closure class type, record it as the
++   DISCRIMINATOR-numbered closure type in the current scope (or
++   associated with EXTRA_SCOPE, if non-NULL), and enter the closure
+    type's own binding level.  Initially it has no fields.
+ 
+    NAME is the class name.  FILENAME and LINE_NUMBER specify the
+-   source location associated with the class.  */
++   source location associated with the class.  EXTRA_SCOPE, if
++   non-NULL, must be a PARM_DECL of the current function, but if it is
++   NULL, the current scope needs not be a function.  */
+ 
+ GCC_METHOD5 (gcc_type, start_new_closure_type,
+ 	     int,		      /* Argument DISCRIMINATOR.  */
+@@ -725,7 +734,7 @@ GCC_METHOD4 (gcc_type, build_method_type,
+    expression, such as taking the size of an earlier parameter, or
+    building a lambda expression in the parameter's context.  */
+ 
+-GCC_METHOD2 (int, set_deferred_function_default_args,
++GCC_METHOD2 (int /* bool */, set_deferred_function_default_args,
+ 	     gcc_decl,			     /* Argument FUNCTION_DECL.  */
+ 	     const struct gcc_cp_function_args *) /* Argument DEFAULTS.  */
+ 
+diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
+index ec967f0..74e1f6c 100644
+--- a/libcc1/libcp1plugin.cc
++++ b/libcc1/libcp1plugin.cc
+@@ -427,18 +427,51 @@ plugin_push_namespace (cc1_plugin::connection *,
+ }
+ 
+ int
++plugin_push_function (cc1_plugin::connection *,
++		      gcc_decl function_decl_in)
++{
++  current_function_decl = convert_in (function_decl_in);
++  begin_scope (sk_function_parms, current_function_decl);
++  ++function_depth;
++  begin_scope (sk_block, NULL);
++
++  return 1;
++}
++
++int
+ plugin_pop_namespace (cc1_plugin::connection *)
+ {
+   if (toplevel_bindings_p () && current_namespace == global_namespace)
+     pop_from_top_level ();
+-  else
++  else if (!at_function_scope_p ())
+     pop_namespace ();
++  else
++    {
++      gcc_assert (current_binding_level->kind == sk_block
++		  && current_binding_level->this_entity == NULL);
++      leave_scope ();
++      --function_depth;
++      gcc_assert (current_binding_level->kind == sk_function_parms
++		  && current_binding_level->this_entity == current_function_decl
++		  /* We don't mess with cfun, so make sure we're not
++		     popping the snippet context.  */
++		  && cfun->decl != current_function_decl);
++      leave_scope ();
++      current_function_decl = NULL;
++      for (cp_binding_level *scope = current_binding_level;
++	   scope; scope = scope->level_chain)
++	if (scope->kind == sk_function_parms)
++	  {
++	    current_function_decl = scope->this_entity;
++	    break;
++	  }
++    }
+ 
+   return 1;
+ }
+ 
+-gcc_decl
+-plugin_get_current_binding_level (cc1_plugin::connection *)
++static tree
++get_current_scope ()
+ {
+   tree decl;
+ 
+@@ -451,6 +484,14 @@ plugin_get_current_binding_level (cc1_plugin::connection *)
+   else
+     gcc_unreachable ();
+ 
++  return decl;
++}
++
++gcc_decl
++plugin_get_current_binding_level (cc1_plugin::connection *)
++{
++  tree decl = get_current_scope ();
++
+   return convert_out (decl);
+ }
+ 
+@@ -991,6 +1032,8 @@ plugin_new_decl (cc1_plugin::connection *self,
+     DECL_CONTEXT (decl) = FROB_CONTEXT (current_class_type);
+   else if (at_namespace_scope_p ())
+     DECL_CONTEXT (decl) = FROB_CONTEXT (current_decl_namespace ());
++  else
++    DECL_CONTEXT (decl) = FROB_CONTEXT (current_function_decl);
+ 
+   set_access_flags (decl, acc_flags);
+ 
+@@ -1301,24 +1344,14 @@ plugin_start_new_closure_type (cc1_plugin::connection *self,
+   gcc_assert ((flags & GCC_CP_SYMBOL_MASK) == GCC_CP_SYMBOL_LAMBDA_CLOSURE);
+   gcc_assert ((flags & (~(GCC_CP_SYMBOL_MASK | GCC_CP_ACCESS_MASK))) == 0);
+ 
+-  bool class_scope_p = at_class_scope_p ();
+-  if (extra_scope)
+-    switch (TREE_CODE (extra_scope))
+-      {
+-      case FUNCTION_DECL:
+-	break;
+-
+-      case FIELD_DECL:
+-      case VAR_DECL:
+-      case PARM_DECL:
+-	break;
+-
+-      default:
+-	gcc_unreachable ();
+-      }
+-
+   gcc_assert (!(flags & GCC_CP_ACCESS_MASK) == !at_class_scope_p ());
+ 
++  if (extra_scope)
++    {
++      gcc_assert (at_function_scope_p ());
++      gcc_assert (DECL_CONTEXT (extra_scope) == current_function_decl);
++    }
++
+   tree lambda_expr = build_lambda_expr ();
+ 
+   LAMBDA_EXPR_LOCATION (lambda_expr) = ctx->get_source_location (filename,
+@@ -1326,7 +1359,7 @@ plugin_start_new_closure_type (cc1_plugin::connection *self,
+ 
+   tree type = begin_lambda_type (lambda_expr);
+ 
+-  /* This replaces record_lambda_scope.  */
++  /* Instead of calling record_lambda_scope, do this:  */
+   LAMBDA_EXPR_EXTRA_SCOPE (lambda_expr) = extra_scope;
+   LAMBDA_EXPR_DISCRIMINATOR (lambda_expr) = discriminator;
