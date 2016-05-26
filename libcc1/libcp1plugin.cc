@@ -427,18 +427,51 @@ plugin_push_namespace (cc1_plugin::connection *,
 }
 
 int
-plugin_pop_namespace (cc1_plugin::connection *)
+plugin_push_function (cc1_plugin::connection *,
+		      gcc_decl function_decl_in)
 {
-  if (toplevel_bindings_p () && current_namespace == global_namespace)
-    pop_from_top_level ();
-  else
-    pop_namespace ();
+  current_function_decl = convert_in (function_decl_in);
+  begin_scope (sk_function_parms, current_function_decl);
+  ++function_depth;
+  begin_scope (sk_block, NULL);
 
   return 1;
 }
 
-gcc_decl
-plugin_get_current_binding_level (cc1_plugin::connection *)
+int
+plugin_pop_namespace (cc1_plugin::connection *)
+{
+  if (toplevel_bindings_p () && current_namespace == global_namespace)
+    pop_from_top_level ();
+  else if (!at_function_scope_p ())
+    pop_namespace ();
+  else
+    {
+      gcc_assert (current_binding_level->kind == sk_block
+		  && current_binding_level->this_entity == NULL);
+      leave_scope ();
+      --function_depth;
+      gcc_assert (current_binding_level->kind == sk_function_parms
+		  && current_binding_level->this_entity == current_function_decl
+		  /* We don't mess with cfun, so make sure we're not
+		     popping the snippet context.  */
+		  && cfun->decl != current_function_decl);
+      leave_scope ();
+      current_function_decl = NULL;
+      for (cp_binding_level *scope = current_binding_level;
+	   scope; scope = scope->level_chain)
+	if (scope->kind == sk_function_parms)
+	  {
+	    current_function_decl = scope->this_entity;
+	    break;
+	  }
+    }
+
+  return 1;
+}
+
+static tree
+get_current_scope ()
 {
   tree decl;
 
@@ -450,6 +483,14 @@ plugin_get_current_binding_level (cc1_plugin::connection *)
     decl = TYPE_NAME (current_class_type);
   else
     gcc_unreachable ();
+
+  return decl;
+}
+
+gcc_decl
+plugin_get_current_binding_level (cc1_plugin::connection *)
+{
+  tree decl = get_current_scope ();
 
   return convert_out (decl);
 }
@@ -991,6 +1032,8 @@ plugin_new_decl (cc1_plugin::connection *self,
     DECL_CONTEXT (decl) = FROB_CONTEXT (current_class_type);
   else if (at_namespace_scope_p ())
     DECL_CONTEXT (decl) = FROB_CONTEXT (current_decl_namespace ());
+  else
+    DECL_CONTEXT (decl) = FROB_CONTEXT (current_function_decl);
 
   set_access_flags (decl, acc_flags);
 
@@ -1301,23 +1344,13 @@ plugin_start_new_closure_type (cc1_plugin::connection *self,
   gcc_assert ((flags & GCC_CP_SYMBOL_MASK) == GCC_CP_SYMBOL_LAMBDA_CLOSURE);
   gcc_assert ((flags & (~(GCC_CP_SYMBOL_MASK | GCC_CP_ACCESS_MASK))) == 0);
 
-  bool class_scope_p = at_class_scope_p ();
-  if (extra_scope)
-    switch (TREE_CODE (extra_scope))
-      {
-      case FUNCTION_DECL:
-	break;
-
-      case FIELD_DECL:
-      case VAR_DECL:
-      case PARM_DECL:
-	break;
-
-      default:
-	gcc_unreachable ();
-      }
-
   gcc_assert (!(flags & GCC_CP_ACCESS_MASK) == !at_class_scope_p ());
+
+  if (extra_scope)
+    {
+      gcc_assert (at_function_scope_p ());
+      gcc_assert (DECL_CONTEXT (extra_scope) == current_function_decl);
+    }
 
   tree lambda_expr = build_lambda_expr ();
 
@@ -1326,7 +1359,7 @@ plugin_start_new_closure_type (cc1_plugin::connection *self,
 
   tree type = begin_lambda_type (lambda_expr);
 
-  /* This replaces record_lambda_scope.  */
+  /* Instead of calling record_lambda_scope, do this:  */
   LAMBDA_EXPR_EXTRA_SCOPE (lambda_expr) = extra_scope;
   LAMBDA_EXPR_DISCRIMINATOR (lambda_expr) = discriminator;
 
