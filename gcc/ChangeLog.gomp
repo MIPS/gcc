@@ -1,3 +1,8 @@
+2016-05-26  Nathan Sidwell  <nathan@acm.org>
+
+	* config/nvptx/nvptx.c (nvptx_function_arg_boundary): New.
+	(TARGET_FUNCTION_ARG_BOUNDARY): Override.
+
 2016-05-23  Cesar Philippidis  <cesar@codesourcery.com>
 
 	Backport trunk r236523:

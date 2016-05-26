@@ -1,3 +1,7 @@
+2016-05-26  Nathan Sidwell  <nathan@acm.org>
+
+	* gcc.target/nvptx/abi-vararg-3.c: New.
+
 2016-05-23  Cesar Philippidis  <cesar@codesourcery.com>
 
 	Backport trunk r236523:
