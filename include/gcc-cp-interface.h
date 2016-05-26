@@ -160,6 +160,17 @@ enum gcc_cp_symbol_kind
 
   GCC_CP_SYMBOL_USING,
 
+  /* A (lambda) closure class type.  In many regards this is just like
+     a regular class, but it's not supposed to have base classes, some
+     of the member functions that are usually implicitly-defined are
+     deleted, and it should have an operator() member function that
+     holds the lambda body.  We can't instantiate objects of lambda
+     types from the snippet, but we can interact with them in such
+     ways as passing them to functions that take their types, and
+     calling their body.  */
+
+  GCC_CP_SYMBOL_LAMBDA_CLOSURE,
+
   /* Marker to check that we haven't exceeded GCC_CP_SYMBOL_MASK.  */
   GCC_CP_SYMBOL_END,
 
@@ -294,22 +305,6 @@ enum gcc_cp_symbol_kind
      class members must have explicit access control bits set, but it
      may affect error messages.  */
   GCC_CP_FLAG_CLASS_IS_STRUCT = GCC_CP_FLAG_BASE,
-
-  /* This indicates the class is a lambda closure type.  In most
-     regards this is just like a regular class, but it's not supposed
-     to have base classes, some of the member functions that are
-     usually implicitly-defined are deleted, and it should have an
-     operator() member function that holds the lambda body.  We can't
-     instantiate objects of lambda types from the snippet, but we can
-     interact with them in such ways as passing them to functions that
-     take their types, and calling their body.  The name of a closure
-     type doesn't matter, since its operator() and any functions we
-     might want to call that take it as an argument are defined with
-     an address that avoids the need for using the mangled names to
-     begin with.  For now, it is probably safest to define closure
-     types in anonymous namespaces, so that their names don't
-     interfere with other symbols.  */
-  GCC_CP_FLAG_CLASS_IS_LAMBDA_CLOSURE = GCC_CP_FLAG_BASE << 1,
 
   GCC_CP_FLAG_END_CLASS,
   GCC_CP_FLAG_MASK_CLASS = (((GCC_CP_FLAG_END_CLASS - 1) << 1)
