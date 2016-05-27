@@ -6381,6 +6381,8 @@ ix86_valid_target_attribute_inner_p (tree args, char *p_strings[],
     IX86_ATTR_ISA ("clzero",    OPT_mclzero),
     IX86_ATTR_ISA ("pku",	OPT_mpku),
 
+    IX86_ATTR_ISA ("general-regs-only",	OPT_mgeneral_regs_only),
+
     /* enum options */
     IX86_ATTR_ENUM ("fpmath=",	OPT_mfpmath_),
 
