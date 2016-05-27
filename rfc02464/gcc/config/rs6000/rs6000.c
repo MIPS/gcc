@@ -13365,6 +13365,20 @@ rs6000_expand_binop_builtin (enum insn_code icode, tree exp, rtx target)
 	  return const0_rtx;
 	}
     }
+  else if (icode == CODE_FOR_xststdcdp
+	   || icode == CODE_FOR_xtstdcsp
+	   || icode == CODE_FOR_xvtstdcdp
+	   || icode == CODE_FOR_xvtstdcsp)
+    {
+      /* Only allow 7-bit unsigned literals. */
+      STRIP_NOPS (arg1);
+      if (TREE_CODE (arg1) != INTEGER_CST
+	  || TREE_INT_CST_LOW (arg1) & ~0x7f)
+	{
+	  error ("argument 2 must be a 7-bit unsigned literal");
+	  return CONST0_RTX (tmode);
+	}
+    }
 
   if (target == 0
       || GET_MODE (target) != tmode
