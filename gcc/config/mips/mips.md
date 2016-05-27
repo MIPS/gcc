@@ -763,6 +763,12 @@
 		(const_string "yes")
 		(const_string "no")))
 
+;; Can the instruction be put into a forbidden slot?
+(define_attr "can_forbidden" "no,yes"
+  (if_then_else (eq_attr "can_delay" "yes")
+		(const_string "yes")
+		(const_string "no")))
+
 ;; Attribute defining whether or not we can use the branch-likely
 ;; instructions.
 (define_attr "branch_likely" "no,yes"
@@ -7559,6 +7565,7 @@
     return "";
   }
   [(set_attr "move_type" "load,fpload,store,fpstore")
+   (set_attr "can_forbidden" "yes")
    (set_attr "insn_count" "2,2,2,2")])
 
 ;; 2 HI/SI/SF/DF loads are joined.
@@ -7612,6 +7619,7 @@
     return "";
   }
   [(set_attr "move_type" "load")
+   (set_attr "can_forbidden" "yes")
    (set_attr "insn_count" "2")])
 
 
