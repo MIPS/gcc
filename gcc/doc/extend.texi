@@ -5272,11 +5272,16 @@ Use this attribute to indicate that the specified function has no
 caller-saved registers.  That is, all registers are callee-saved.
 The compiler generates proper function entry and exit sequences to
 save and restore any modified registers, except for the EFLAGS
-register.  If the compiler generates MPX, SSE, MMX or x87 instructions
-in a function with @code{no_caller_saved_registers} attribute or
-functions called from a function with @code{no_caller_saved_registers}
-attribute may contain MPX, SSE, MMX or x87 instructions, the compiler
-must save and restore the corresponding state.
+register.  Since GCC doesn't preserve MPX, SSE, MMX nor x87 states,
+the GCC option, @option{-mgeneral-regs-only}, should be used to
+compile functions with @code{no_caller_saved_registers} attribute.
+
+@emph{Note for compiler implementers:} If the compiler generates MPX,
+SSE, MMX or x87 instructions in a function with
+@code{no_caller_saved_registers} attribute or functions called from
+a function with @code{no_caller_saved_registers} attribute may contain
+MPX, SSE, MMX or x87 instructions, the compiler must save and restore
+the corresponding state.
 
 @item interrupt
 @cindex @code{interrupt} function attribute, x86
@@ -5286,11 +5291,16 @@ entry and exit sequences suitable for use in an interrupt handler when
 this attribute is present.  The @code{IRET} instruction, instead of the
 @code{RET} instruction, is used to return from interrupt handlers.  All
 registers, except for the EFLAGS register which is restored by the
-@code{IRET} instruction, are preserved by the compiler.  If the
-compiler generates MPX, SSE, MMX or x87 instructions in an interrupt
-handler, or functions called from an interrupt handler may contain MPX,
-SSE, MMX or x87 instructions, the compiler must save and restore the
-corresponding state.
+@code{IRET} instruction, are preserved by the compiler.  Since GCC
+doesn't preserve MPX, SSE, MMX nor x87 states, the GCC option,
+@option{-mgeneral-regs-only}, should be used to compile interrupt and
+exception handlers.
+
+@emph{Note for compiler implementers:} If the compiler generates MPX,
+SSE, MMX or x87 instructions in an interrupt or exception handler, or
+functions called from an interrupt or exception handler may contain
+MPX, SSE, MMX or x87 instructions, the compiler must save and restore
+the corresponding state.
 
 Since the direction flag in the FLAGS register in interrupt handlers
 is undetermined, cld instruction must be emitted in function prologue
