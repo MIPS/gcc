@@ -1,3 +1,10 @@
+2016-05-27  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gimplify.c (gimplify_scan_omp_clauses): Prune firstprivate
+	clause associated with OACC_DATA, OACC_ENTER_DATA and OACC_EXIT
+	data regions.
+	(gimplify_adjust_omp_clauses): Fix typo in comment.
+
 2016-06-10  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* tree-nested.c (convert_nonlocal_omp_clauses)

@@ -1,7 +1,6 @@
 /* Test 'acc enter/exit data' regions.  */
 
 /* { dg-do run } */
-/* { dg-xfail-run-if "TODO" { openacc_nvidia_accel_selected } } */
 
 #include <stdlib.h>
 #include <openacc.h>

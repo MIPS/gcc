@@ -1,3 +1,17 @@
+2018-05-14  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c++/non-scalar-data.C: Remove XFAIL.
+	* testsuite/libgomp.oacc-c-c++-common/data-2.c: Likewise.
+
+2016-05-27  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* oacc-parallel.c (GOACC_enter_exit_data) <GOMP_MAP_DELETE>:
+	Update.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-and-seq-3.c: Adjust
+	test.
+	* testsuite/libgomp.oacc-c-c++-common/kernels-loop-and-seq-4.c:
+	Likewise.
+
 2017-03-31  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* testsuite/libgomp.oacc-fortran/routine-8.f90: Adjust xfails.
