@@ -831,7 +831,14 @@ decode_omp_directive (void)
       matcho ("master", gfc_match_omp_master, ST_OMP_MASTER);
       break;
     case 'o':
-      matcho ("ordered", gfc_match_omp_ordered, ST_OMP_ORDERED);
+      if (flag_openmp && gfc_match ("ordered depend (") == MATCH_YES)
+	{
+	  gfc_current_locus = old_locus;
+	  matcho ("ordered", gfc_match_omp_ordered_depend,
+		  ST_OMP_ORDERED_DEPEND);
+	}
+      else
+	matcho ("ordered", gfc_match_omp_ordered, ST_OMP_ORDERED);
       break;
     case 'p':
       matchs ("parallel do simd", gfc_match_omp_parallel_do_simd,
@@ -1373,7 +1380,8 @@ next_statement (void)
   case ST_OMP_BARRIER: case ST_OMP_TASKWAIT: case ST_OMP_TASKYIELD: \
   case ST_OMP_CANCEL: case ST_OMP_CANCELLATION_POINT: \
   case ST_OMP_TARGET_UPDATE: case ST_OMP_TARGET_ENTER_DATA: \
-  case ST_OMP_TARGET_EXIT_DATA: case ST_ERROR_STOP: case ST_SYNC_ALL: \
+  case ST_OMP_TARGET_EXIT_DATA: case ST_OMP_ORDERED_DEPEND: \
+  case ST_ERROR_STOP: case ST_SYNC_ALL: \
   case ST_SYNC_IMAGES: case ST_SYNC_MEMORY: case ST_LOCK: case ST_UNLOCK: \
   case ST_EVENT_POST: case ST_EVENT_WAIT: \
   case ST_OACC_UPDATE: case ST_OACC_WAIT: case ST_OACC_CACHE: \
@@ -2149,6 +2157,7 @@ gfc_ascii_statement (gfc_statement st)
       p = "!$OMP MASTER";
       break;
     case ST_OMP_ORDERED:
+    case ST_OMP_ORDERED_DEPEND:
       p = "!$OMP ORDERED";
       break;
     case ST_OMP_PARALLEL:

@@ -215,6 +215,7 @@ gfc_free_statement (gfc_code *p)
     case EXEC_OMP_DO:
     case EXEC_OMP_DO_SIMD:
     case EXEC_OMP_END_SINGLE:
+    case EXEC_OMP_ORDERED:
     case EXEC_OMP_PARALLEL:
     case EXEC_OMP_PARALLEL_DO:
     case EXEC_OMP_PARALLEL_DO_SIMD:
@@ -261,7 +262,6 @@ gfc_free_statement (gfc_code *p)
     case EXEC_OMP_ATOMIC:
     case EXEC_OMP_BARRIER:
     case EXEC_OMP_MASTER:
-    case EXEC_OMP_ORDERED:
     case EXEC_OMP_END_NOWAIT:
     case EXEC_OMP_TASKGROUP:
     case EXEC_OMP_TASKWAIT:

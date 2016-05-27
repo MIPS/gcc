@@ -161,6 +161,7 @@ match gfc_match_omp_do_simd (void);
 match gfc_match_omp_flush (void);
 match gfc_match_omp_master (void);
 match gfc_match_omp_ordered (void);
+match gfc_match_omp_ordered_depend (void);
 match gfc_match_omp_parallel (void);
 match gfc_match_omp_parallel_do (void);
 match gfc_match_omp_parallel_do_simd (void);

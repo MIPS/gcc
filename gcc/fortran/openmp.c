@@ -340,6 +340,80 @@ cleanup:
   return MATCH_ERROR;
 }
 
+/* Match depend(sink : ...) construct a namelist from it.  */
+
+static match
+gfc_match_omp_depend_sink (gfc_omp_namelist **list)
+{
+  gfc_omp_namelist *head, *tail, *p;
+  locus old_loc, cur_loc;
+  gfc_symbol *sym;
+
+  head = tail = NULL;
+
+  old_loc = gfc_current_locus;
+
+  for (;;)
+    {
+      cur_loc = gfc_current_locus;
+      switch (gfc_match_symbol (&sym, 1))
+	{
+	case MATCH_YES:
+	  gfc_set_sym_referenced (sym);
+	  p = gfc_get_omp_namelist ();
+	  if (head == NULL)
+	    {
+	      head = tail = p;
+	      head->u.depend_op = OMP_DEPEND_SINK_FIRST;
+	    }
+	  else
+	    {
+	      tail->next = p;
+	      tail = tail->next;
+	      tail->u.depend_op = OMP_DEPEND_SINK;
+	    }
+	  tail->sym = sym;
+	  tail->expr = NULL;
+	  tail->where = cur_loc;
+	  if (gfc_match_char ('+') == MATCH_YES)
+	    {
+	      if (gfc_match_literal_constant (&tail->expr, 0) != MATCH_YES)
+		goto syntax;
+	    }
+	  else if (gfc_match_char ('-') == MATCH_YES)
+	    {
+	      if (gfc_match_literal_constant (&tail->expr, 0) != MATCH_YES)
+		goto syntax;
+	      tail->expr = gfc_uminus (tail->expr);
+	    }
+	  break;
+	case MATCH_NO:
+	  goto syntax;
+	case MATCH_ERROR:
+	  goto cleanup;
+	}
+
+      if (gfc_match_char (')') == MATCH_YES)
+	break;
+      if (gfc_match_char (',') != MATCH_YES)
+	goto syntax;
+    }
+
+  while (*list)
+    list = &(*list)->next;
+
+  *list = head;
+  return MATCH_YES;
+
+syntax:
+  gfc_error ("Syntax error in OpenMP DEPEND SINK list at %C");
+
+cleanup:
+  gfc_free_omp_namelist (head);
+  gfc_current_locus = old_loc;
+  return MATCH_ERROR;
+}
+
 static match
 match_oacc_expr_list (const char *str, gfc_expr_list **list,
 		      bool allow_asterisk)
@@ -923,6 +997,19 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 		depend_op = OMP_DEPEND_IN;
 	      else if (gfc_match ("out") == MATCH_YES)
 		depend_op = OMP_DEPEND_OUT;
+	      else if (!c->depend_source
+		       && gfc_match ("source )") == MATCH_YES)
+		{
+		  c->depend_source = true;
+		  continue;
+		}
+	      else if (gfc_match ("sink : ") == MATCH_YES)
+		{
+		  if (gfc_match_omp_depend_sink (&c->lists[OMP_LIST_DEPEND])
+		      == MATCH_YES)
+		    continue;
+		  m = MATCH_NO;
+		}
 	      else
 		m = MATCH_NO;
 	      head = NULL;
@@ -2235,6 +2322,8 @@ cleanup:
    | OMP_CLAUSE_COLLAPSE | OMP_CLAUSE_DIST_SCHEDULE)
 #define OMP_SINGLE_CLAUSES \
   (omp_mask (OMP_CLAUSE_PRIVATE) | OMP_CLAUSE_FIRSTPRIVATE)
+#define OMP_ORDERED_CLAUSES \
+  (omp_mask (OMP_CLAUSE_THREADS) | OMP_CLAUSE_SIMD)
 
 
 static match
@@ -3252,14 +3341,14 @@ gfc_match_omp_master (void)
 match
 gfc_match_omp_ordered (void)
 {
-  if (gfc_match_omp_eos () != MATCH_YES)
-    {
-      gfc_error ("Unexpected junk after $OMP ORDERED statement at %C");
-      return MATCH_ERROR;
-    }
-  new_st.op = EXEC_OMP_ORDERED;
-  new_st.ext.omp_clauses = NULL;
-  return MATCH_YES;
+  return match_omp (EXEC_OMP_ORDERED, OMP_ORDERED_CLAUSES);
+}
+
+
+match
+gfc_match_omp_ordered_depend (void)
+{
+  return match_omp (EXEC_OMP_ORDERED, omp_mask (OMP_CLAUSE_DEPEND));
 }
 
 
@@ -3691,6 +3780,10 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
   if (omp_clauses == NULL)
     return;
 
+  if (omp_clauses->orderedc && omp_clauses->orderedc < omp_clauses->collapse)
+    gfc_error ("ORDERED clause parameter is less than COLLAPSE at %L",
+	       &code->loc);
+
   if (omp_clauses->if_expr)
     {
       gfc_expr *expr = omp_clauses->if_expr;
@@ -4035,6 +4128,36 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
 	  case OMP_LIST_CACHE:
 	    for (; n != NULL; n = n->next)
 	      {
+		if (list == OMP_LIST_DEPEND)
+		  {
+		    if (n->u.depend_op == OMP_DEPEND_SINK_FIRST
+			|| n->u.depend_op == OMP_DEPEND_SINK)
+		      {
+			if (code->op != EXEC_OMP_ORDERED)
+			  gfc_error ("SINK dependence type only allowed "
+				     "on ORDERED directive at %L", &n->where);
+			else if (omp_clauses->depend_source)
+			  {
+			    gfc_error ("DEPEND SINK used together with "
+				       "DEPEND SOURCE on the same construct "
+				       "at %L", &n->where);
+			    omp_clauses->depend_source = false;
+			  }
+			else if (n->expr)
+			  {
+			    if (!gfc_resolve_expr (n->expr)
+				|| n->expr->ts.type != BT_INTEGER
+				|| n->expr->rank != 0)
+			      gfc_error ("SINK addend not a constant integer"
+					 "at %L", &n->where);
+			  }
+			continue;
+		      }
+		    else if (code->op == EXEC_OMP_ORDERED)
+		      gfc_error ("Only SOURCE or SINK dependence types "
+				 "are allowed on ORDERED directive at %L",
+				 &n->where);
+		  }
 		if (n->expr)
 		  {
 		    if (!gfc_resolve_expr (n->expr)
@@ -4274,6 +4397,10 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
 				   " construct at %L", &n->where);
 			linear_op = n->u.linear_op;
 		      }
+		    else if (omp_clauses->orderedc)
+		      gfc_error ("LINEAR clause specified together with"
+				 "ORDERED clause with argument at %L",
+				 &n->where);
 		    else if (n->u.linear_op != OMP_LINEAR_REF
 			     && n->sym->ts.type != BT_INTEGER)
 		      gfc_error ("LINEAR variable %qs must be INTEGER "
@@ -4399,6 +4526,9 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
     if (omp_clauses->wait_list)
       for (el = omp_clauses->wait_list; el; el = el->next)
 	resolve_scalar_int_expr (el->expr, "WAIT");
+  if (omp_clauses->depend_source && code->op != EXEC_OMP_ORDERED)
+    gfc_error ("SOURCE dependence type only allowed "
+	       "on ORDERED directive at %L", &code->loc);
 }
 
 
@@ -4880,7 +5010,10 @@ gfc_resolve_omp_do_blocks (gfc_code *code, gfc_namespace *ns)
       gfc_code *c;
 
       omp_current_do_code = code->block->next;
-      omp_current_do_collapse = code->ext.omp_clauses->collapse;
+      if (code->ext.omp_clauses->orderedc)
+	omp_current_do_collapse = code->ext.omp_clauses->orderedc;
+      else
+	omp_current_do_collapse = code->ext.omp_clauses->collapse;
       for (i = 1, c = omp_current_do_code; i < omp_current_do_collapse; i++)
 	{
 	  c = c->block;
@@ -5108,9 +5241,14 @@ resolve_omp_do (gfc_code *code)
     resolve_omp_clauses (code, code->ext.omp_clauses, NULL);
 
   do_code = code->block->next;
-  collapse = code->ext.omp_clauses->collapse;
-  if (collapse <= 0)
-    collapse = 1;
+  if (code->ext.omp_clauses->orderedc)
+    collapse = code->ext.omp_clauses->orderedc;
+  else
+    {
+      collapse = code->ext.omp_clauses->collapse;
+      if (collapse <= 0)
+	collapse = 1;
+    }
   for (i = 1; i <= collapse; i++)
     {
       if (do_code->op == EXEC_DO_WHILE)

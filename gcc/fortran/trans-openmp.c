@@ -1927,6 +1927,47 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 	case OMP_LIST_DEPEND:
 	  for (; n != NULL; n = n->next)
 	    {
+	      if (n->u.depend_op == OMP_DEPEND_SINK_FIRST)
+		{
+		  tree vec = NULL_TREE;
+		  while (1)
+		    {
+		      tree addend = integer_zero_node, t;
+		      bool neg = false;
+		      if (n->expr)
+			{
+			  addend = gfc_conv_constant_to_tree (n->expr);
+			  if (TREE_CODE (addend) == INTEGER_CST
+			      && tree_int_cst_sgn (addend) == -1)
+			    {
+			      neg = true;
+			      addend = const_unop (NEGATE_EXPR,
+						   TREE_TYPE (addend), addend);
+			    }
+			}
+		      t = gfc_trans_omp_variable (n->sym, false);
+		      if (t != error_mark_node)
+			{
+			  vec = tree_cons (addend, t, vec);
+			  if (neg)
+			    OMP_CLAUSE_DEPEND_SINK_NEGATIVE (vec) = 1;
+			}
+		      if (n->next == NULL
+			  || n->next->u.depend_op != OMP_DEPEND_SINK)
+			break;
+		      n = n->next;
+		    }
+		  if (vec == NULL_TREE)
+		    continue;
+
+		  tree node = build_omp_clause (input_location,
+						OMP_CLAUSE_DEPEND);
+		  OMP_CLAUSE_DEPEND_KIND (node) = OMP_CLAUSE_DEPEND_SINK;
+		  OMP_CLAUSE_DECL (node) = nreverse (vec);
+		  omp_clauses = gfc_trans_add_clause (node, omp_clauses);
+		  continue;
+		}
+
 	      if (!n->sym->attr.referenced)
 		continue;
 
@@ -2490,7 +2531,9 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
   if (clauses->ordered)
     {
       c = build_omp_clause (where.lb->location, OMP_CLAUSE_ORDERED);
-      OMP_CLAUSE_ORDERED_EXPR (c) = NULL_TREE;
+      OMP_CLAUSE_ORDERED_EXPR (c)
+	= clauses->orderedc ? build_int_cst (integer_type_node,
+					     clauses->orderedc) : NULL_TREE;
       omp_clauses = gfc_trans_add_clause (c, omp_clauses);
     }
 
@@ -2748,6 +2791,12 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
   if (clauses->defaultmap)
     {
       c = build_omp_clause (where.lb->location, OMP_CLAUSE_DEFAULTMAP);
+      omp_clauses = gfc_trans_add_clause (c, omp_clauses);
+    }
+  if (clauses->depend_source)
+    {
+      c = build_omp_clause (where.lb->location, OMP_CLAUSE_DEPEND);
+      OMP_CLAUSE_DEPEND_KIND (c) = OMP_CLAUSE_DEPEND_SOURCE;
       omp_clauses = gfc_trans_add_clause (c, omp_clauses);
     }
 
@@ -3373,7 +3422,7 @@ gfc_trans_omp_do (gfc_code *code, gfc_exec_op op, stmtblock_t *pblock,
 		  gfc_omp_clauses *do_clauses, tree par_clauses)
 {
   gfc_se se;
-  tree dovar, stmt, from, to, step, type, init, cond, incr;
+  tree dovar, stmt, from, to, step, type, init, cond, incr, orig_decls;
   tree count = NULL_TREE, cycle_label, tmp, omp_clauses;
   stmtblock_t block;
   stmtblock_t body;
@@ -3383,6 +3432,8 @@ gfc_trans_omp_do (gfc_code *code, gfc_exec_op op, stmtblock_t *pblock,
   dovar_init *di;
   unsigned ix;
 
+  if (clauses->orderedc)
+    collapse = clauses->orderedc;
   if (collapse <= 0)
     collapse = 1;
 
@@ -3392,6 +3443,7 @@ gfc_trans_omp_do (gfc_code *code, gfc_exec_op op, stmtblock_t *pblock,
   init = make_tree_vec (collapse);
   cond = make_tree_vec (collapse);
   incr = make_tree_vec (collapse);
+  orig_decls = clauses->orderedc ? make_tree_vec (collapse) : NULL_TREE;
 
   if (pblock == NULL)
     {
@@ -3517,6 +3569,8 @@ gfc_trans_omp_do (gfc_code *code, gfc_exec_op op, stmtblock_t *pblock,
 	  dovar_init e = {dovar, tmp};
 	  inits.safe_push (e);
 	}
+      if (orig_decls)
+	TREE_VEC_ELT (orig_decls, i) = dovar_decl;
 
       if (dovar_found == 2
 	  && op == EXEC_OMP_SIMD
@@ -3670,6 +3724,8 @@ gfc_trans_omp_do (gfc_code *code, gfc_exec_op op, stmtblock_t *pblock,
   OMP_FOR_INIT (stmt) = init;
   OMP_FOR_COND (stmt) = cond;
   OMP_FOR_INCR (stmt) = incr;
+  if (orig_decls)
+    OMP_FOR_ORIG_DECLS (stmt) = orig_decls;
   gfc_add_expr_to_block (&block, stmt);
 
   return gfc_finish_block (&block);
@@ -3773,8 +3829,11 @@ gfc_trans_omp_master (gfc_code *code)
 static tree
 gfc_trans_omp_ordered (gfc_code *code)
 {
+  tree omp_clauses = gfc_trans_omp_clauses (NULL, code->ext.omp_clauses,
+					    code->loc);
   return build2_loc (input_location, OMP_ORDERED, void_type_node,
-		     gfc_trans_code (code->block->next), NULL_TREE);
+		     code->block ? gfc_trans_code (code->block->next)
+		     : NULL_TREE, omp_clauses);
 }
 
 static tree
@@ -4011,6 +4070,8 @@ gfc_split_omp_clauses (gfc_code *code,
 	  /* First the clauses that are unique to some constructs.  */
 	  clausesa[GFC_OMP_SPLIT_DO].ordered
 	    = code->ext.omp_clauses->ordered;
+	  clausesa[GFC_OMP_SPLIT_DO].orderedc
+	    = code->ext.omp_clauses->orderedc;
 	  clausesa[GFC_OMP_SPLIT_DO].sched_kind
 	    = code->ext.omp_clauses->sched_kind;
 	  if (innermost == GFC_OMP_SPLIT_SIMD)

@@ -246,7 +246,7 @@ enum gfc_statement
   ST_OMP_TARGET_ENTER_DATA, ST_OMP_TARGET_EXIT_DATA,
   ST_OMP_TARGET_SIMD, ST_OMP_END_TARGET_SIMD,
   ST_OMP_TASKLOOP, ST_OMP_END_TASKLOOP,
-  ST_OMP_TASKLOOP_SIMD, ST_OMP_END_TASKLOOP_SIMD,
+  ST_OMP_TASKLOOP_SIMD, ST_OMP_END_TASKLOOP_SIMD, ST_OMP_ORDERED_DEPEND,
   ST_PROCEDURE, ST_GENERIC, ST_CRITICAL, ST_END_CRITICAL,
   ST_GET_FCN_CHARACTERISTICS, ST_LOCK, ST_UNLOCK, ST_EVENT_POST,
   ST_EVENT_WAIT,ST_NONE
@@ -1110,7 +1110,9 @@ enum gfc_omp_depend_op
 {
   OMP_DEPEND_IN,
   OMP_DEPEND_OUT,
-  OMP_DEPEND_INOUT
+  OMP_DEPEND_INOUT,
+  OMP_DEPEND_SINK_FIRST,
+  OMP_DEPEND_SINK
 };
 
 enum gfc_omp_map_op
@@ -1255,7 +1257,7 @@ typedef struct gfc_omp_clauses
   bool nowait, ordered, untied, mergeable;
   bool inbranch, notinbranch, defaultmap, nogroup;
   bool sched_simd, sched_monotonic, sched_nonmonotonic;
-  bool simd, threads;
+  bool simd, threads, depend_source;
   enum gfc_omp_cancel_kind cancel;
   enum gfc_omp_proc_bind_kind proc_bind;
   struct gfc_expr *safelen_expr;

@@ -1050,6 +1050,27 @@ show_omp_namelist (int list_type, gfc_omp_namelist *n)
 	  case OMP_DEPEND_IN: fputs ("in:", dumpfile); break;
 	  case OMP_DEPEND_OUT: fputs ("out:", dumpfile); break;
 	  case OMP_DEPEND_INOUT: fputs ("inout:", dumpfile); break;
+	  case OMP_DEPEND_SINK_FIRST:
+	    fputs ("sink:", dumpfile);
+	    while (1)
+	      {
+		fprintf (dumpfile, "%s", n->sym->name);
+		if (n->expr)
+		  {
+		    fputc ('+', dumpfile);
+		    show_expr (n->expr);
+		  }
+		if (n->next == NULL)
+		  break;
+		else if (n->next->u.depend_op != OMP_DEPEND_SINK)
+		  {
+		    fputs (") DEPEND(", dumpfile);
+		    break;
+		  }
+		fputc (',', dumpfile);
+		n = n->next;
+	      }
+	    continue;
 	  default: break;
 	  }
       else if (list_type == OMP_LIST_MAP)
@@ -1423,6 +1444,8 @@ show_omp_clauses (gfc_omp_clauses *omp_clauses)
       show_expr (omp_clauses->if_exprs[i]);
       fputc (')', dumpfile);
     }
+  if (omp_clauses->depend_source)
+    fputs (" DEPEND(source)", dumpfile);
 }
 
 /* Show a single OpenMP or OpenACC directive node and everything underneath it
@@ -1533,6 +1556,7 @@ show_omp_node (int level, gfc_code *c)
     case EXEC_OMP_DISTRIBUTE_SIMD:
     case EXEC_OMP_DO:
     case EXEC_OMP_DO_SIMD:
+    case EXEC_OMP_ORDERED:
     case EXEC_OMP_PARALLEL:
     case EXEC_OMP_PARALLEL_DO:
     case EXEC_OMP_PARALLEL_DO_SIMD:
@@ -1594,7 +1618,8 @@ show_omp_node (int level, gfc_code *c)
   if (c->op == EXEC_OACC_CACHE || c->op == EXEC_OACC_UPDATE
       || c->op == EXEC_OACC_ENTER_DATA || c->op == EXEC_OACC_EXIT_DATA
       || c->op == EXEC_OMP_TARGET_UPDATE || c->op == EXEC_OMP_TARGET_ENTER_DATA
-      || c->op == EXEC_OMP_TARGET_EXIT_DATA)
+      || c->op == EXEC_OMP_TARGET_EXIT_DATA
+      || (c->op == EXEC_OMP_ORDERED && c->block == NULL))
     return;
   if (c->op == EXEC_OMP_SECTIONS || c->op == EXEC_OMP_PARALLEL_SECTIONS)
     {

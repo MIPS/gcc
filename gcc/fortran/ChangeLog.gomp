@@ -1,3 +1,45 @@
+2016-05-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.h (enum gfc_statement): Add ST_OMP_ORDERED_DEPEND.
+	(enum gfc_omp_depend_op): Add OMP_DEPEND_SINK_FIRST and
+	OMP_DEPEND_SINK.
+	(struct gfc_omp_clauses): Add depend_source field.
+	* parse.c (decode_omp_directive): If ordered directive has
+	depend clause as the first of the clauses, use
+	gfc_match_omp_ordered_depend and ST_OMP_ORDERED_DEPEND instead of
+	gfc_match_omp_ordered and ST_OMP_ORDERED.
+	(case_executable): Add ST_OMP_ORDERED_DEPEND case.
+	(gfc_ascii_statement): Handle ST_OMP_ORDERED_DEPEND.
+	* st.c (gfc_free_statement): Free omp clauses even for
+	EXEC_OMP_ORDERED.
+	* dump-parse-tree.c (show_omp_namelist): Handle OMP_DEPEND_SINK_FIRST
+	depend_op.
+	(show_omp_clauses): Handle depend_source.
+	(show_omp_node): Print clauses for EXEC_OMP_ORDERED.  Allow NULL
+	c->block for EXEC_OMP_ORDERED.
+	* trans-openmp.c (gfc_trans_omp_clauses): Handle OMP_DEPEND_SINK_FIRST
+	depend_op.  Handle orderedc and depend_source.
+	(gfc_trans_omp_do): Set collapse to orderedc if non-zero.  Fill in
+	OMP_FOR_ORIG_DECLS for doacross loops.
+	(gfc_trans_omp_ordered): Translate omp clauses, allow NULL
+	code->block.
+	(gfc_split_omp_clauses): Copy orderedc together with ordered.
+	* frontend-passes.c (gfc_code_walker): Handle EXEC_OMP_ORDERED.
+	* openmp.c (gfc_match_omp_depend_sink): New function.
+	(gfc_match_omp_clauses): Parse depend(source) and depend(sink: ...).
+	(OMP_ORDERED_CLAUSES): Define.
+	(gfc_match_omp_ordered): Parse clauses.
+	(gfc_match_omp_ordered_depend): New function.
+	(resolve_omp_clauses): Require orderedc >= collapse if specified.
+	Handle depend(sink:) and depend(source) restrictions.  Disallow linear
+	clause when orderedc is non-zero.
+	(gfc_resolve_omp_do_blocks): Set omp_current_do_collapse to orderedc
+	if non-zero.
+	(resolve_omp_do): Set collapse to orderedc if non-zero.
+	* match.h (gfc_match_omp_ordered_depend): New prototype.
+	* match.c (match_exit_cycle): Rename collapse variable to count,
+	set it to orderedc if non-zero, instead of collapse.
+
 2016-05-24  Jakub Jelinek  <jakub@redhat.com>
 
 	* gfortran.h (enum gfc_omp_linear_op): New.
