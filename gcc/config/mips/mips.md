@@ -1157,6 +1157,7 @@
 (include "p5600.md")
 (include "m5100.md")
 (include "m6200.md")
+(include "p6600.md")
 (include "4k.md")
 (include "5k.md")
 (include "20kc.md")
