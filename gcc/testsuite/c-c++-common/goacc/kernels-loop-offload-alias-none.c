@@ -52,10 +52,10 @@ main (void)
 /* { dg-final { scan-tree-dump-times "(?n);; Function .*foo.*\\._omp_fn\\.0" 1 "optimized" } } */
 
 /* { dg-final { scan-tree-dump-times "clique 1 base 1" 3 "alias" } } */
-/* { dg-final { scan-tree-dump-times "clique 1 base 2" 1 "alias" } } */
-/* { dg-final { scan-tree-dump-times "clique 1 base 3" 1 "alias" } } */
-/* { dg-final { scan-tree-dump-times "clique 1 base 4" 1 "alias" } } */
-/* { dg-final { scan-tree-dump-times "clique 1 base 5" 1 "alias" } } */
-/* { dg-final { scan-tree-dump-times "clique 1 base 6" 1 "alias" } } */
-/* { dg-final { scan-tree-dump-times "clique 1 base 7" 1 "alias" } } */
-/* { dg-final { scan-tree-dump-times "(?n)clique .* base .*" 9 "alias" } } */
+/* { dg-final { scan-tree-dump-times "clique 1 base 2" 1 "alias" { xfail *-*-* } } } */
+/* { dg-final { scan-tree-dump-times "clique 1 base 3" 1 "alias" { xfail *-*-* } } } */
+/* { dg-final { scan-tree-dump-times "clique 1 base 4" 1 "alias" { xfail *-*-* } } } */
+/* { dg-final { scan-tree-dump-times "clique 1 base 5" 1 "alias" { xfail *-*-* } } } */
+/* { dg-final { scan-tree-dump-times "clique 1 base 6" 1 "alias" { xfail *-*-* } } } */
+/* { dg-final { scan-tree-dump-times "clique 1 base 7" 1 "alias" { xfail *-*-* } } } */
+/* { dg-final { scan-tree-dump-times "(?n)clique .* base .*" 9 "alias" { xfail *-*-* } } } */

@@ -54,12 +54,12 @@ main (void)
 
 /* Check that only two loops are analyzed, and that both can be
    parallelized.  */
-/* { dg-final { scan-tree-dump-times "SUCCESS: may be parallelized" 2 "parloops1" } } */
-/* { dg-final { scan-tree-dump-not "FAILED:" "parloops1" } } */
+/* { dg-final { scan-tree-dump-times "SUCCESS: may be parallelized" 2 "parloops1" { xfail *-*-* } } } */
+/* { dg-final { scan-tree-dump-not "FAILED:" "parloops1" { xfail *-*-* } } } */
 
 /* Check that the loop has been split off into a function.  */
 /* { dg-final { scan-tree-dump-times "(?n);; Function .*main._omp_fn.0" 1 "optimized" } } */
 /* { dg-final { scan-tree-dump-times "(?n);; Function .*main._omp_fn.1" 1 "optimized" } } */
 /* { dg-final { scan-tree-dump-times "(?n);; Function .*main._omp_fn.2" 1 "optimized" } } */
 
-/* { dg-final { scan-tree-dump-times "(?n)oacc function \\(0," 2 "parloops1" } } */
+/* { dg-final { scan-tree-dump-times "(?n)oacc function \\(0," 2 "parloops1" { xfail *-*-* } } } */

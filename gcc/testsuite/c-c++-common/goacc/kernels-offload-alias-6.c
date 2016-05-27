@@ -16,10 +16,10 @@ foo (int *a, size_t n)
   }
 }
 
-/* { dg-final { scan-tree-dump-times "(?n)\\*.* = 0" 1 "optimized" } } */
+/* { dg-final { scan-tree-dump-times "(?n)\\*.* = 0" 1 "optimized" { xfail *-*-* } } } */
 
 /* { dg-final { scan-tree-dump-times "clique 1 base 1" 2 "ealias" } } */
 /* { dg-final { scan-tree-dump-times "clique 1 base 2" 1 "ealias" } } */
-/* { dg-final { scan-tree-dump-times "clique 1 base 3" 1 "ealias" } } */
-/* { dg-final { scan-tree-dump-times "(?n)clique .* base .*" 4 "ealias" } } */
+/* { dg-final { scan-tree-dump-times "clique 1 base 3" 1 "ealias" { xfail *-*-* } } } */
+/* { dg-final { scan-tree-dump-times "(?n)clique .* base .*" 4 "ealias" { xfail *-*-* } } } */
 

@@ -1,5 +1,16 @@
 2016-05-27  Cesar Philippidis  <cesar@codesourcery.com>
 
+	Backport trunk r236678:
+	2016-05-24  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gimplify.c (omp_notice_variable): Use zero-length arrays for data
+	pointers inside OACC_DATA regions.
+	(gimplify_scan_omp_clauses): Prune firstprivate clause associated
+	with OACC_DATA, OACC_ENTER_DATA and OACC_EXIT data regions.
+	(gimplify_adjust_omp_clauses): Fix typo in comment.
+
+2016-05-27  Cesar Philippidis  <cesar@codesourcery.com>
+
 	* omp-low.c (oacc_loop_auto_partitions): Use boolean OR
 	when comparing outer_assign and loop->inner.
 

@@ -446,8 +446,6 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 	      case GOMP_MAP_DELETE:
 		if (acc_is_present (hostaddrs[i], sizes[i]))
 		  acc_delete (hostaddrs[i], sizes[i]);
-		else
-		  i++;
 		break;
 	      case GOMP_MAP_FORCE_FROM:
 		acc_copyout (hostaddrs[i], sizes[i]);

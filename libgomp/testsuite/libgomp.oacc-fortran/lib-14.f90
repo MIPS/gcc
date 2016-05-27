@@ -1,4 +1,7 @@
-! { dg-do run }
+! Exercise the data movement runtime library functions on non-shared memory
+! targets.
+
+! { dg-do run { target openacc_nvidia_accel_selected } }
 
 program main
   use openacc

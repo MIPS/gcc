@@ -1,3 +1,33 @@
+2016-05-27  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-c++-common/goacc/kernels-loop-offload-alias-none.c: Add xfails.
+	* c-c++-common/goacc/kernels-loop-offload-alias-ptr.c: Likewise.
+	* c-c++-common/goacc/kernels-offload-alias-2.c: Likewise.
+	* c-c++-common/goacc/kernels-offload-alias-3.c: Likewise.
+	* c-c++-common/goacc/kernels-offload-alias-6.c: Likewise.
+	* c-c++-common/goacc/kernels-offload-alias.c: Likewise.
+	* c-c++-common/goacc/kernels-parallel-loop-data-enter-exit.c:
+	Likewise.
+	* g++.dg/goacc/data-1.C: New test.
+
+	Backport trunk r236678:
+	2016-05-24  Cesar Philippidis  <cesar@codesourcery.com>
+	* c-c++-common/goacc/data-clause-duplicate-1.c: Adjust test.
+	* c-c++-common/goacc/deviceptr-1.c: Likewise.
+	* c-c++-common/goacc/kernels-alias-3.c: Likewise.
+	* c-c++-common/goacc/kernels-alias-4.c: Likewise.
+	* c-c++-common/goacc/kernels-alias-5.c: Likewise.
+	* c-c++-common/goacc/kernels-alias-8.c: Likewise.
+	* c-c++-common/goacc/kernels-alias-ipa-pta-3.c: Likewise.
+	* c-c++-common/goacc/pcopy.c: Likewise.
+	* c-c++-common/goacc/pcopyin.c: Likewise.
+	* c-c++-common/goacc/pcopyout.c: Likewise.
+	* c-c++-common/goacc/pcreate.c: Likewise.
+	* c-c++-common/goacc/pr70688.c: New test.
+	* c-c++-common/goacc/present-1.c: Adjust test.
+	* c-c++-common/goacc/reduction-5.c: Likewise.
+	* g++.dg/goacc/data-1.C: New test.
+
 2016-05-26  Nathan Sidwell  <nathan@acm.org>
 
 	* gcc.target/nvptx/abi-vararg-3.c: New.
