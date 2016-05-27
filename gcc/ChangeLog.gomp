@@ -1,3 +1,8 @@
+2016-05-27  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* omp-low.c (oacc_loop_auto_partitions): Use boolean OR
+	when comparing outer_assign and loop->inner.
+
 2016-05-26  Nathan Sidwell  <nathan@acm.org>
 
 	* config/nvptx/nvptx.c (nvptx_function_arg_boundary): New.
