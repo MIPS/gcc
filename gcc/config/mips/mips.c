@@ -20440,7 +20440,7 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
      imply it is not actually a compact branch anyway) and the current
      insn is not an inline asm, and can't go in a delay slot.  */
   else if (TARGET_FORBIDDEN_SLOTS && *fs_delay
-	   && get_attr_can_delay (insn) == CAN_DELAY_NO
+	   && get_attr_can_forbidden (insn) == CAN_FORBIDDEN_NO
 	   && GET_CODE (PATTERN (after)) != SEQUENCE
 	   && GET_CODE (pattern) != ASM_INPUT
 	   && asm_noperands (pattern) < 0)
@@ -20643,7 +20643,8 @@ mips_reorg_process_insns (void)
 		  && ((next_active
 		       && INSN_P (next_active)
 		       && GET_CODE (PATTERN (next_active)) != SEQUENCE
-		       && get_attr_can_delay (next_active) == CAN_DELAY_YES)
+		       && (get_attr_can_forbidden (next_active)
+			   == CAN_FORBIDDEN_YES))
 		      || !optimize_size))
 		{
 		  /* To hide a potential pipeline bubble, if we scan backwards
