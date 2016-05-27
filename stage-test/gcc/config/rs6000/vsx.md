@@ -263,6 +263,12 @@
 (define_mode_iterator VSINT_84  [V4SI V2DI])
 (define_mode_iterator VSINT_842 [V8HI V4SI V2DI])
 
+;; Iterator for splat define_expand
+(define_mode_iterator VSX_SPLAT [V2DI
+				 V2DF
+				 (V4SI	"TARGET_P9_VECTOR")
+				 (V4SF	"TARGET_P9_VECTOR")])
+
 ;; Constants for creating unspecs
 (define_c_enum "unspec"
   [UNSPEC_VSX_CONCAT
@@ -2382,39 +2388,77 @@
   DONE;
 })
 
+;; Splat expander.  Make sure addresses are indexed, and things are in
+;; registers.
+(define_expand "vsx_splat_<mode>"
+  [(set (match_operand:VSX_SPLAT 0 "vsx_register_operand" "")
+	(vec_duplicate:VSX_SPLAT
+	 (match_operand:<VS_scalar> 1 "input_operand" "")))]
+  "VECTOR_MEM_VSX_P (<MODE>mode)"
+{
+  rtx op0 = operands[0];
+  rtx op1 = operands[1];
+
+  if (MEM_P (op1))
+    operands[1] = rs6000_address_for_fpconvert (op1);
+
+  else if (op1 == CONST0_RTX (<MODE>mode))
+    {
+      emit_insn (gen_rtx_SET (op0, CONST0_RTX (<MODE>mode)));
+      DONE;
+    }
+
+  else if ((<MODE>mode == V4SImode || <MODE>mode == V2DImode)
+	   && CONST_INT_P (op1))
+    {
+      rtvec v = (<MODE>mode == V4SImode
+		 ? gen_rtvec (4, op1, op1, op1, op1)
+		 : gen_rtvec (2, op1, op1));
+      rtx cv = gen_rtx_CONST_VECTOR (<MODE>mode, v);
+      if (!easy_vector_constant (cv, <MODE>mode))
+	cv = force_const_mem (<MODE>mode, cv);
+
+      emit_insn (gen_rtx_SET (op0, cv));
+      DONE;
+    }
+
+  else if (!REG_P (op1))
+    operands[1] = force_reg (<VS_scalar>mode, op1);
+})
+
+;; Peephole to catch load followed by splat
+(define_peephole2
+  [(match_scratch:P 3 "b")
+   (set (match_operand:<VS_scalar> 0 "gpc_reg_operand" "")
+	(match_operand:<VS_scalar> 1 "offsettable_mem_operand" ""))
+   (set (match_operand:VSX_SPLAT 2 "vsx_register_operand" "")
+	(vec_duplicate:VSX_SPLAT (match_dup 0)))]
+  "TARGET_VSX"
+  [(set (match_dup 3) (match_dup 4))
+   (set (match_dup 2) (match_dup 5))]
+{
+  operands[4] = XEXP (operands[1], 0);
+  operands[5] = change_address (operands[1], <MODE>mode, operands[3]);
+})
+
 ;; V2DF/V2DI splat
-(define_insn "vsx_splat_<mode>"
-  [(set (match_operand:VSX_D 0 "vsx_register_operand" "=wd,wd,wd,?<VSa>,?<VSa>,?<VSa>")
+(define_insn "*vsx_splat_<mode>_internal"
+  [(set (match_operand:VSX_D 0 "vsx_register_operand" "=<VSa>,<VSa>,we")
 	(vec_duplicate:VSX_D
-	 (match_operand:<VS_scalar> 1 "splat_input_operand" "<VS_64reg>,f,Z,<VSa>,<VSa>,Z")))]
+	 (match_operand:<VS_scalar> 1 "splat_input_operand" "<VS_64reg>,Z,r")))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "@
    xxpermdi %x0,%x1,%x1,0
-   xxpermdi %x0,%x1,%x1,0
    lxvdsx %x0,%y1
-   xxpermdi %x0,%x1,%x1,0
-   xxpermdi %x0,%x1,%x1,0
-   lxvdsx %x0,%y1"
-  [(set_attr "type" "vecperm,vecperm,vecload,vecperm,vecperm,vecload")])
+   mtvsrdd %x0,%1,%1"
+  [(set_attr "type" "vecperm,vecload,mftgpr")])
 
 ;; V4SI splat (ISA 3.0)
 ;; When SI's are allowed in VSX registers, add XXSPLTW support
-(define_expand "vsx_splat_<mode>"
-  [(set (match_operand:VSX_W 0 "vsx_register_operand" "")
-	(vec_duplicate:VSX_W
-	 (match_operand:<VS_scalar> 1 "splat_input_operand" "")))]
-  "TARGET_P9_VECTOR"
-{
-  if (MEM_P (operands[1]))
-    operands[1] = rs6000_address_for_fpconvert (operands[1]);
-  else if (!REG_P (operands[1]))
-    operands[1] = force_reg (<VS_scalar>mode, operands[1]);
-})
-
 (define_insn "*vsx_splat_v4si_internal"
   [(set (match_operand:V4SI 0 "vsx_register_operand" "=wa,wa")
 	(vec_duplicate:V4SI
-	 (match_operand:SI 1 "reg_or_indexed_operand" "r,Z")))]
+	 (match_operand:SI 1 "splat_input_operand" "r,Z")))]
   "TARGET_P9_VECTOR"
   "@
    mtvsrws %x0,%1
@@ -2425,7 +2469,7 @@
 (define_insn_and_split "*vsx_splat_v4sf_internal"
   [(set (match_operand:V4SF 0 "vsx_register_operand" "=wa,wa,wa")
 	(vec_duplicate:V4SF
-	 (match_operand:SF 1 "reg_or_indexed_operand" "Z,wy,r")))]
+	 (match_operand:SF 1 "splat_input_operand" "Z,wy,r")))]
   "TARGET_P9_VECTOR"
   "@
    lxvwsx %x0,%y1

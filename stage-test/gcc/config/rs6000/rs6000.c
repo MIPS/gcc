@@ -6690,8 +6690,6 @@ rs6000_expand_vector_init (rtx target, rtx vals)
       rtx op1 = XVECEXP (vals, 0, 1);
       if (all_same)
 	{
-	  if (!MEM_P (op0) && !REG_P (op0))
-	    op0 = force_reg (inner_mode, op0);
 	  if (mode == V2DFmode)
 	    emit_insn (gen_vsx_splat_v2df (target, op0));
 	  else

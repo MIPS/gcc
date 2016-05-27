@@ -1055,29 +1055,34 @@
   return 0;
 })
 
-;; Return 1 if this operand is a valid input for a vsx_splat insn.
+;; Return true for non-constant arguments that can be the subject
+;; of a splat instruction.
 (define_predicate "splat_input_operand"
-  (match_code "symbol_ref,const,reg,subreg,mem,
-	       const_double,const_wide_int,const_vector,const_int")
+  (match_code "mem,reg,subreg")
 {
-  if (MEM_P (op))
+  if (!TARGET_VSX)
+    return 0;
+
+  switch (mode)
     {
-      if (! volatile_ok && MEM_VOLATILE_P (op))
+    case DFmode:
+    case DImode:
+      break;
+
+    case SFmode:
+    case SImode:
+      if (!TARGET_P9_VECTOR)
 	return 0;
-      if (mode == DFmode)
-	mode = V2DFmode;
-      else if (mode == DImode)
-	mode = V2DImode;
-      else if (mode == SImode && TARGET_P9_VECTOR)
-	mode = V4SImode;
-      else if (mode == SFmode && TARGET_P9_VECTOR)
-	mode = V4SFmode;
-      else
-	gcc_unreachable ();
-      return memory_address_addr_space_p (mode, XEXP (op, 0),
-					  MEM_ADDR_SPACE (op));
+      break;
+
+    default:
+      return 0;
     }
-  return input_operand (op, mode);
+
+  if (MEM_P (op))
+    return indexed_or_indirect_operand (op, mode);
+  else
+    return register_operand (op, mode);
 })
 
 ;; Return true if OP is a non-immediate operand and not an invalid
