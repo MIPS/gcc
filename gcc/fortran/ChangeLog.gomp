@@ -1,3 +1,12 @@
+2016-05-27  Cesar Philippidis  <cesar@codesourcery.com>
+
+	Backport trunk r235922:
+	2016-05-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* openmp.c (gfc_match_omp_clauses): Restructuralize, so that clause
+	parsing is done in a big switch based on gfc_peek_ascii_char and
+	individual clauses under their first letters are sorted too.
+
 2016-05-09  Cesar Philippidis  <cesar@codesourcery.com>
 
 	Backport trunk r235651:
