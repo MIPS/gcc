@@ -1,5 +1,5 @@
-Bottom: 590e5998f99aec6e26fed3bad33085ec9d3ba529
-Top:    b363eda95ac180a746051785a92435af60d47482
+Bottom: 689f19ebf3bf707e7d3f676eb892b3d39aefbdc9
+Top:    1bf4636e681b79e10d3a4ed89cb2bdc04bdf0fa6
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-05-21 04:28:47 -0300
 
@@ -140,10 +140,10 @@ index de467a3..69d3ec9 100644
    GCC_CP_SYMBOL_END,
  
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index 1486948..74e1f6c 100644
+index 1118f83..0f8e86a 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
-@@ -427,18 +427,51 @@ plugin_push_namespace (cc1_plugin::connection *,
+@@ -430,18 +430,51 @@ plugin_push_namespace (cc1_plugin::connection *,
  }
  
  int
@@ -198,7 +198,7 @@ index 1486948..74e1f6c 100644
  {
    tree decl;
  
-@@ -451,6 +484,14 @@ plugin_get_current_binding_level (cc1_plugin::connection *)
+@@ -454,6 +487,14 @@ plugin_get_current_binding_level (cc1_plugin::connection *)
    else
      gcc_unreachable ();
  
@@ -213,7 +213,7 @@ index 1486948..74e1f6c 100644
    return convert_out (decl);
  }
  
-@@ -991,6 +1032,8 @@ plugin_new_decl (cc1_plugin::connection *self,
+@@ -994,6 +1035,8 @@ plugin_new_decl (cc1_plugin::connection *self,
      DECL_CONTEXT (decl) = FROB_CONTEXT (current_class_type);
    else if (at_namespace_scope_p ())
      DECL_CONTEXT (decl) = FROB_CONTEXT (current_decl_namespace ());
@@ -222,7 +222,7 @@ index 1486948..74e1f6c 100644
  
    set_access_flags (decl, acc_flags);
  
-@@ -1288,6 +1331,62 @@ plugin_start_new_class_type (cc1_plugin::connection *self,
+@@ -1291,6 +1334,62 @@ plugin_start_new_class_type (cc1_plugin::connection *self,
  }
  
  gcc_type
@@ -285,7 +285,7 @@ index 1486948..74e1f6c 100644
  plugin_start_new_union_type (cc1_plugin::connection *self,
  			     const char *name,
  			     enum gcc_cp_symbol_kind flags,
-@@ -1516,7 +1615,8 @@ plugin_add_function_default_args (cc1_plugin::connection *self,
+@@ -1519,7 +1618,8 @@ plugin_add_function_default_args (cc1_plugin::connection *self,
      {
        gcc_assert (ndargs);
        tree deflt = convert_in (defaults->elements[i]);
@@ -295,7 +295,7 @@ index 1486948..74e1f6c 100644
        TREE_PURPOSE (ndargs) = deflt;
        ndargs = TREE_CHAIN (ndargs);
      }
-@@ -1538,6 +1638,62 @@ plugin_add_function_default_args (cc1_plugin::connection *self,
+@@ -1541,6 +1641,62 @@ plugin_add_function_default_args (cc1_plugin::connection *self,
    return convert_out (ctx->preserve (result));
  }
  
