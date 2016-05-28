@@ -1,0 +1,21 @@
+Bottom: dc17aa74e00105ddfa301688cff184c84925a55c
+Top:    590e5998f99aec6e26fed3bad33085ec9d3ba529
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-05-28 00:10:10 -0300
+
+Refresh of call-exprs.patch
+
+---
+
+diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
+index ce73496..d2f518b 100644
+--- a/include/gcc-cp-fe.def
++++ b/include/gcc-cp-fe.def
+@@ -545,7 +545,6 @@ GCC_METHOD3 (gcc_expr, call_expr,
+ GCC_METHOD1 (gcc_type, expr_type,
+ 	     gcc_expr)		  /* Argument OPERAND.  */
+ 
+-
+ /* Introduce a specialization of a template function.
+ 
+    TEMPLATE_DECL is the template function, and TARGS are the arguments
