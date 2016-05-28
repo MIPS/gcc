@@ -1,5 +1,5 @@
 Bottom: 2b0710cae974d70ae245cc260cbe77377d14d5a7
-Top:    590e5998f99aec6e26fed3bad33085ec9d3ba529
+Top:    689f19ebf3bf707e7d3f676eb892b3d39aefbdc9
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-05-17 22:49:44 -0300
 
@@ -75,10 +75,20 @@ index 3710a3a8..de467a3 100644
    gcc_expr *elements;
  };
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index 59586a80..1486948 100644
+index 59586a80..1118f83 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
-@@ -1485,7 +1485,7 @@ plugin_build_function_type (cc1_plugin::connection *self,
+@@ -78,6 +78,9 @@ int plugin_is_GPL_compatible;
+ 
+ 
+ 
++static int ATTRIBUTE_UNUSED
++check_symbol_mask[GCC_CP_SYMBOL_MASK >= GCC_CP_SYMBOL_END ? 1 : -1];
++
+ // This is put into the lang hooks when the plugin starts.
+ 
+ static void
+@@ -1485,7 +1488,7 @@ plugin_build_function_type (cc1_plugin::connection *self,
  gcc_type
  plugin_add_function_default_args (cc1_plugin::connection *self,
  				  gcc_type function_type_in,
@@ -87,7 +97,7 @@ index 59586a80..1486948 100644
  {
    tree function_type = convert_in (function_type_in);
  
-@@ -2140,7 +2140,10 @@ plugin_unary_value_expr (cc1_plugin::connection *self,
+@@ -2140,7 +2143,10 @@ plugin_unary_value_expr (cc1_plugin::connection *self,
      case CHARS2 ('n', 't'): // operator !
        opcode = TRUTH_NOT_EXPR;
        break;
@@ -99,7 +109,7 @@ index 59586a80..1486948 100644
      case CHARS2 ('p', 'p'): // operator ++
      case CHARS2 ('m', 'm'): // operator --
      default:
-@@ -2269,7 +2272,8 @@ plugin_unary_type_expr (cc1_plugin::connection *self,
+@@ -2269,7 +2275,8 @@ plugin_unary_type_expr (cc1_plugin::connection *self,
    tree_code opcode = ERROR_MARK;
    switch (CHARS2 (unary_op[0], unary_op[1]))
      {
@@ -109,7 +119,7 @@ index 59586a80..1486948 100644
      default:
        gcc_unreachable ();
      }
-@@ -2293,7 +2297,8 @@ plugin_type_value_expr (cc1_plugin::connection *self,
+@@ -2293,7 +2300,8 @@ plugin_type_value_expr (cc1_plugin::connection *self,
  #endif
    switch (CHARS2 (binary_op[0], binary_op[1]))
      {
@@ -119,7 +129,7 @@ index 59586a80..1486948 100644
      default:
        gcc_unreachable ();
      }
-@@ -2303,6 +2308,69 @@ plugin_type_value_expr (cc1_plugin::connection *self,
+@@ -2303,6 +2311,69 @@ plugin_type_value_expr (cc1_plugin::connection *self,
    return convert_out (ctx->preserve (val));
  }
  
