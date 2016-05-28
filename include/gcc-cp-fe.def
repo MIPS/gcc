@@ -545,7 +545,6 @@ GCC_METHOD3 (gcc_expr, call_expr,
 GCC_METHOD1 (gcc_type, expr_type,
 	     gcc_expr)		  /* Argument OPERAND.  */
 
-
 /* Introduce a specialization of a template function.
 
    TEMPLATE_DECL is the template function, and TARGS are the arguments
