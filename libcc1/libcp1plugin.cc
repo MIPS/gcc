@@ -1385,6 +1385,9 @@ plugin_start_new_closure_type (cc1_plugin::connection *self,
 	  gcc_assert (at_class_scope_p ());
 	  gcc_assert (DECL_CONTEXT (extra_scope) == current_class_type);
 	}
+      else
+	/* FIXME: does this ever really occur?  */
+	gcc_assert (TREE_CODE (extra_scope) == VAR_DECL);
     }
 
   tree lambda_expr = build_lambda_expr ();
