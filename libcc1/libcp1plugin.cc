@@ -441,24 +441,37 @@ plugin_push_function (cc1_plugin::connection *,
   return 1;
 }
 
+/* at_function_scope_p () tests cfun, indicating we're actually
+   compiling the function, but we don't even set it when pretending to
+   enter a function scope.  We use this distinction to tell these two
+   cases apart: we don't want to define e.g. class names in the user
+   expression function's scope, when they're local to the original
+   function, because they'd get the wrong linkage name.  */
+
+static bool
+at_fake_function_scope_p ()
+{
+  return !cfun && current_scope () == current_function_decl;
+}
+
 int
 plugin_pop_namespace (cc1_plugin::connection *)
 {
   if (toplevel_bindings_p () && current_namespace == global_namespace)
     pop_from_top_level ();
-  else if (!at_function_scope_p ())
+  else if (at_namespace_scope_p ())
     pop_namespace ();
   else
     {
+      gcc_assert (at_fake_function_scope_p ());
+      gcc_assert (!at_function_scope_p ());
       gcc_assert (current_binding_level->kind == sk_block
 		  && current_binding_level->this_entity == NULL);
       leave_scope ();
       --function_depth;
       gcc_assert (current_binding_level->kind == sk_function_parms
-		  && current_binding_level->this_entity == current_function_decl
-		  /* We don't mess with cfun, so make sure we're not
-		     popping the snippet context.  */
-		  && cfun->decl != current_function_decl);
+		  && (current_binding_level->this_entity
+		      == current_function_decl));
       leave_scope ();
       current_function_decl = NULL;
       for (cp_binding_level *scope = current_binding_level;
@@ -480,10 +493,10 @@ get_current_scope ()
 
   if (at_namespace_scope_p ())
     decl = current_namespace;
-  else if (at_function_scope_p ())
-    decl = current_function_decl;
   else if (at_class_scope_p ())
     decl = TYPE_NAME (current_class_type);
+  else if (at_fake_function_scope_p () || at_function_scope_p ())
+    decl = current_function_decl;
   else
     gcc_unreachable ();
 
@@ -1035,8 +1048,6 @@ plugin_new_decl (cc1_plugin::connection *self,
     DECL_CONTEXT (decl) = FROB_CONTEXT (current_class_type);
   else if (at_namespace_scope_p ())
     DECL_CONTEXT (decl) = FROB_CONTEXT (current_decl_namespace ());
-  else
-    DECL_CONTEXT (decl) = FROB_CONTEXT (current_function_decl);
 
   set_access_flags (decl, acc_flags);
 
@@ -1294,6 +1305,8 @@ build_named_class_type (enum tree_code code,
 			const gcc_vbase_array *base_classes,
 			source_location loc)
 {
+  /* See at_fake_function_scope_p.  */
+  gcc_assert (!at_function_scope_p ());
   tree type = make_class_type (code);
   tree id = name ? get_identifier (name) : make_anon_name ();
   tree type_decl = build_decl (loc, TYPE_DECL, id, type);
@@ -1349,10 +1362,29 @@ plugin_start_new_closure_type (cc1_plugin::connection *self,
 
   gcc_assert (!(flags & GCC_CP_ACCESS_MASK) == !at_class_scope_p ());
 
+  /* See at_fake_function_scope_p.  */
+  gcc_assert (!at_function_scope_p ());
+
   if (extra_scope)
     {
-      gcc_assert (at_function_scope_p ());
-      gcc_assert (DECL_CONTEXT (extra_scope) == current_function_decl);
+      if (TREE_CODE (extra_scope) == PARM_DECL)
+	{
+	  gcc_assert (at_fake_function_scope_p ());
+	  /* Check that the given extra_scope is one of the parameters of
+	     the current function.  */
+	  for (tree parm = DECL_ARGUMENTS (current_function_decl);
+	       ; parm = DECL_CHAIN (parm))
+	    {
+	      gcc_assert (parm);
+	      if (parm == extra_scope)
+		break;
+	    }
+	}
+      else if (TREE_CODE (extra_scope) == FIELD_DECL)
+	{
+	  gcc_assert (at_class_scope_p ());
+	  gcc_assert (DECL_CONTEXT (extra_scope) == current_class_type);
+	}
     }
 
   tree lambda_expr = build_lambda_expr ();
@@ -1412,7 +1444,7 @@ plugin_start_new_union_type (cc1_plugin::connection *self,
   return convert_out (ctx->preserve (type));
 }
 
-int
+gcc_decl
 plugin_new_field (cc1_plugin::connection *,
 		  const char *field_name,
 		  gcc_type field_type_in,
@@ -1465,7 +1497,7 @@ plugin_new_field (cc1_plugin::connection *,
   DECL_CHAIN (decl) = TYPE_FIELDS (record_or_union_type);
   TYPE_FIELDS (record_or_union_type) = decl;
 
-  return 1;
+  return convert_out (decl);
 }
 
 int

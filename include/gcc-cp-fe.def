@@ -629,7 +629,7 @@ GCC_METHOD5 (gcc_type, start_new_closure_type,
    FIELD_TYPE is the type of the field.  BITSIZE and BITPOS indicate
    where in the struct the field occurs.  */
 
-GCC_METHOD5 (int /* bool */, new_field,
+GCC_METHOD5 (gcc_decl, new_field,
 	     const char *,		   /* Argument FIELD_NAME.  */
 	     gcc_type,			   /* Argument FIELD_TYPE.  */
 	     enum gcc_cp_symbol_kind,	   /* Argument FIELD_FLAGS.  */
