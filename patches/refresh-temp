@@ -1,0 +1,23 @@
+Bottom: 590e5998f99aec6e26fed3bad33085ec9d3ba529
+Top:    689f19ebf3bf707e7d3f676eb892b3d39aefbdc9
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-05-28 00:35:38 -0300
+
+Refresh of call-exprs.patch
+
+---
+
+diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
+index 1486948..1118f83 100644
+--- a/libcc1/libcp1plugin.cc
++++ b/libcc1/libcp1plugin.cc
+@@ -78,6 +78,9 @@ int plugin_is_GPL_compatible;
+ 
+ 
+ 
++static int ATTRIBUTE_UNUSED
++check_symbol_mask[GCC_CP_SYMBOL_MASK >= GCC_CP_SYMBOL_END ? 1 : -1];
++
+ // This is put into the lang hooks when the plugin starts.
+ 
+ static void
