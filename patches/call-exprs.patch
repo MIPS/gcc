@@ -1,5 +1,5 @@
 Bottom: 2b0710cae974d70ae245cc260cbe77377d14d5a7
-Top:    dc7515afd3bafeb8189262f26559c562c443a6ae
+Top:    dc17aa74e00105ddfa301688cff184c84925a55c
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-05-17 22:49:44 -0300
 
@@ -8,13 +8,14 @@ introduce call exprs
 ---
 
 diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
-index 6536597..d9e4289 100644
+index 6536597..ce73496 100644
 --- a/include/gcc-cp-fe.def
 +++ b/include/gcc-cp-fe.def
-@@ -521,6 +521,19 @@ GCC_METHOD3 (gcc_expr, type_value_expr,
+@@ -521,7 +521,18 @@ GCC_METHOD3 (gcc_expr, type_value_expr,
  	     gcc_type,		  /* Argument OPERAND1.  */
  	     gcc_expr)		  /* Argument OPERAND2.  */
  
+-/* FIXME: function call operations?  ctor/dtor?  new/delete?  */
 +/* Return a call expression that calls CALLABLE with arguments ARGS.
 +   CALLABLE may be a function, a callable object, a pointer to
 +   function, an unresolved value expression, an unresolved overload
@@ -27,11 +28,10 @@ index 6536597..d9e4289 100644
 +	     gcc_expr,			      /* Argument CALLABLE.  */
 +	     int /* bool */,		  /* Argument QUALIFIED_P.  */
 +	     const struct gcc_cp_function_args *) /* Argument ARGS.  */
-+	     
- /* FIXME: function call operations?  ctor/dtor?  new/delete?  */
  
  /* Return the type of the gcc_expr OPERAND.
-@@ -534,6 +547,7 @@ GCC_METHOD3 (gcc_expr, type_value_expr,
+    Use this for decltype.
+@@ -534,6 +545,7 @@ GCC_METHOD3 (gcc_expr, type_value_expr,
  GCC_METHOD1 (gcc_type, expr_type,
  	     gcc_expr)		  /* Argument OPERAND.  */
  
@@ -39,7 +39,7 @@ index 6536597..d9e4289 100644
  /* Introduce a specialization of a template function.
  
     TEMPLATE_DECL is the template function, and TARGS are the arguments
-@@ -659,8 +673,8 @@ GCC_METHOD3 (gcc_type, build_function_type,
+@@ -659,8 +671,8 @@ GCC_METHOD3 (gcc_type, build_function_type,
     the following argument list: (T1, T2 = V1, T3 = V2, T4 = V0). */
  
  GCC_METHOD2 (gcc_type, add_function_default_args,
