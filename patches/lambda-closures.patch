@@ -1,5 +1,5 @@
 Bottom: 689f19ebf3bf707e7d3f676eb892b3d39aefbdc9
-Top:    1bf4636e681b79e10d3a4ed89cb2bdc04bdf0fa6
+Top:    27f4409d0d6116827a3d1d86269ca4e887d131c7
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-05-21 04:28:47 -0300
 
@@ -8,7 +8,7 @@ introduce lambda closures support
 ---
 
 diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
-index d2f518b..d765920 100644
+index d2f518b..73c7133 100644
 --- a/include/gcc-cp-fe.def
 +++ b/include/gcc-cp-fe.def
 @@ -34,8 +34,14 @@
@@ -37,7 +37,7 @@ index d2f518b..d765920 100644
  
  GCC_METHOD7 (gcc_decl, new_decl,
  	     const char *,	      /* Argument NAME.  */
-@@ -601,6 +607,23 @@ GCC_METHOD4 (gcc_type, start_new_union_type,
+@@ -601,12 +607,29 @@ GCC_METHOD4 (gcc_type, start_new_union_type,
  	     const char *,	      /* Argument FILENAME.  */
  	     unsigned int)	      /* Argument LINE_NUMBER.  */
  
@@ -61,6 +61,13 @@ index d2f518b..d765920 100644
  /* Add a non-static data member to the most-recently-started
     unfinished struct or union type.  FIELD_NAME is the field's name.
     FIELD_TYPE is the type of the field.  BITSIZE and BITPOS indicate
+    where in the struct the field occurs.  */
+ 
+-GCC_METHOD5 (int /* bool */, new_field,
++GCC_METHOD5 (gcc_decl, new_field,
+ 	     const char *,		   /* Argument FIELD_NAME.  */
+ 	     gcc_type,			   /* Argument FIELD_TYPE.  */
+ 	     enum gcc_cp_symbol_kind,	   /* Argument FIELD_FLAGS.  */
 @@ -667,7 +690,10 @@ GCC_METHOD3 (gcc_type, build_function_type,
     arguments without default values in FUNCTION_TYPE.  Say, if
     FUNCTION_TYPE has an argument list such as (T1, T2, T3, T4 = V0)
@@ -140,10 +147,10 @@ index de467a3..69d3ec9 100644
    GCC_CP_SYMBOL_END,
  
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index 1118f83..0f8e86a 100644
+index 1118f83..b280af4 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
-@@ -430,18 +430,51 @@ plugin_push_namespace (cc1_plugin::connection *,
+@@ -430,30 +430,84 @@ plugin_push_namespace (cc1_plugin::connection *,
  }
  
  int
@@ -158,25 +165,38 @@ index 1118f83..0f8e86a 100644
 +  return 1;
 +}
 +
++/* at_function_scope_p () tests cfun, indicating we're actually
++   compiling the function, but we don't even set it when pretending to
++   enter a function scope.  We use this distinction to tell these two
++   cases apart: we don't want to define e.g. class names in the user
++   expression function's scope, when they're local to the original
++   function, because they'd get the wrong linkage name.  */
++
++static bool
++at_fake_function_scope_p ()
++{
++  return !cfun && current_scope () == current_function_decl;
++}
++
 +int
  plugin_pop_namespace (cc1_plugin::connection *)
  {
    if (toplevel_bindings_p () && current_namespace == global_namespace)
      pop_from_top_level ();
 -  else
-+  else if (!at_function_scope_p ())
++  else if (at_namespace_scope_p ())
      pop_namespace ();
 +  else
 +    {
++      gcc_assert (at_fake_function_scope_p ());
++      gcc_assert (!at_function_scope_p ());
 +      gcc_assert (current_binding_level->kind == sk_block
 +		  && current_binding_level->this_entity == NULL);
 +      leave_scope ();
 +      --function_depth;
 +      gcc_assert (current_binding_level->kind == sk_function_parms
-+		  && current_binding_level->this_entity == current_function_decl
-+		  /* We don't mess with cfun, so make sure we're not
-+		     popping the snippet context.  */
-+		  && cfun->decl != current_function_decl);
++		  && (current_binding_level->this_entity
++		      == current_function_decl));
 +      leave_scope ();
 +      current_function_decl = NULL;
 +      for (cp_binding_level *scope = current_binding_level;
@@ -198,7 +218,14 @@ index 1118f83..0f8e86a 100644
  {
    tree decl;
  
-@@ -454,6 +487,14 @@ plugin_get_current_binding_level (cc1_plugin::connection *)
+   if (at_namespace_scope_p ())
+     decl = current_namespace;
+-  else if (at_function_scope_p ())
+-    decl = current_function_decl;
+   else if (at_class_scope_p ())
+     decl = TYPE_NAME (current_class_type);
++  else if (at_fake_function_scope_p () || at_function_scope_p ())
++    decl = current_function_decl;
    else
      gcc_unreachable ();
  
@@ -213,16 +240,16 @@ index 1118f83..0f8e86a 100644
    return convert_out (decl);
  }
  
-@@ -994,6 +1035,8 @@ plugin_new_decl (cc1_plugin::connection *self,
-     DECL_CONTEXT (decl) = FROB_CONTEXT (current_class_type);
-   else if (at_namespace_scope_p ())
-     DECL_CONTEXT (decl) = FROB_CONTEXT (current_decl_namespace ());
-+  else
-+    DECL_CONTEXT (decl) = FROB_CONTEXT (current_function_decl);
- 
-   set_access_flags (decl, acc_flags);
- 
-@@ -1291,6 +1334,62 @@ plugin_start_new_class_type (cc1_plugin::connection *self,
+@@ -1251,6 +1305,8 @@ build_named_class_type (enum tree_code code,
+ 			const gcc_vbase_array *base_classes,
+ 			source_location loc)
+ {
++  /* See at_fake_function_scope_p.  */
++  gcc_assert (!at_function_scope_p ());
+   tree type = make_class_type (code);
+   tree id = name ? get_identifier (name) : make_anon_name ();
+   tree type_decl = build_decl (loc, TYPE_DECL, id, type);
+@@ -1291,6 +1347,81 @@ plugin_start_new_class_type (cc1_plugin::connection *self,
  }
  
  gcc_type
@@ -241,10 +268,29 @@ index 1118f83..0f8e86a 100644
 +
 +  gcc_assert (!(flags & GCC_CP_ACCESS_MASK) == !at_class_scope_p ());
 +
++  /* See at_fake_function_scope_p.  */
++  gcc_assert (!at_function_scope_p ());
++
 +  if (extra_scope)
 +    {
-+      gcc_assert (at_function_scope_p ());
-+      gcc_assert (DECL_CONTEXT (extra_scope) == current_function_decl);
++      if (TREE_CODE (extra_scope) == PARM_DECL)
++	{
++	  gcc_assert (at_fake_function_scope_p ());
++	  /* Check that the given extra_scope is one of the parameters of
++	     the current function.  */
++	  for (tree parm = DECL_ARGUMENTS (current_function_decl);
++	       ; parm = DECL_CHAIN (parm))
++	    {
++	      gcc_assert (parm);
++	      if (parm == extra_scope)
++		break;
++	    }
++	}
++      else if (TREE_CODE (extra_scope) == FIELD_DECL)
++	{
++	  gcc_assert (at_class_scope_p ());
++	  gcc_assert (DECL_CONTEXT (extra_scope) == current_class_type);
++	}
 +    }
 +
 +  tree lambda_expr = build_lambda_expr ();
@@ -285,7 +331,25 @@ index 1118f83..0f8e86a 100644
  plugin_start_new_union_type (cc1_plugin::connection *self,
  			     const char *name,
  			     enum gcc_cp_symbol_kind flags,
-@@ -1519,7 +1618,8 @@ plugin_add_function_default_args (cc1_plugin::connection *self,
+@@ -1313,7 +1444,7 @@ plugin_start_new_union_type (cc1_plugin::connection *self,
+   return convert_out (ctx->preserve (type));
+ }
+ 
+-int
++gcc_decl
+ plugin_new_field (cc1_plugin::connection *,
+ 		  const char *field_name,
+ 		  gcc_type field_type_in,
+@@ -1366,7 +1497,7 @@ plugin_new_field (cc1_plugin::connection *,
+   DECL_CHAIN (decl) = TYPE_FIELDS (record_or_union_type);
+   TYPE_FIELDS (record_or_union_type) = decl;
+ 
+-  return 1;
++  return convert_out (decl);
+ }
+ 
+ int
+@@ -1519,7 +1650,8 @@ plugin_add_function_default_args (cc1_plugin::connection *self,
      {
        gcc_assert (ndargs);
        tree deflt = convert_in (defaults->elements[i]);
@@ -295,7 +359,7 @@ index 1118f83..0f8e86a 100644
        TREE_PURPOSE (ndargs) = deflt;
        ndargs = TREE_CHAIN (ndargs);
      }
-@@ -1541,6 +1641,62 @@ plugin_add_function_default_args (cc1_plugin::connection *self,
+@@ -1541,6 +1673,62 @@ plugin_add_function_default_args (cc1_plugin::connection *self,
    return convert_out (ctx->preserve (result));
  }
  
