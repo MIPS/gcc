@@ -1,0 +1,39 @@
+Bottom: 27f4409d0d6116827a3d1d86269ca4e887d131c7
+Top:    8ada914356fe580c94f51c68a5384f9cdb98fdce
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-05-28 04:13:48 -0300
+
+Refresh of lambda-more-contexts.patch
+
+---
+
+diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
+index 73c7133..ce59ad4 100644
+--- a/include/gcc-cp-fe.def
++++ b/include/gcc-cp-fe.def
+@@ -614,8 +614,9 @@ GCC_METHOD4 (gcc_type, start_new_union_type,
+ 
+    NAME is the class name.  FILENAME and LINE_NUMBER specify the
+    source location associated with the class.  EXTRA_SCOPE, if
+-   non-NULL, must be a PARM_DECL of the current function, but if it is
+-   NULL, the current scope needs not be a function.  */
++   non-NULL, must be a PARM_DECL of the current function, or a
++   FIELD_DECL of the current class.  If it is NULL, the current scope
++   needs not be a function.  */
+ 
+ GCC_METHOD5 (gcc_type, start_new_closure_type,
+ 	     int,		      /* Argument DISCRIMINATOR.  */
+diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
+index b280af4..67e421e 100644
+--- a/libcc1/libcp1plugin.cc
++++ b/libcc1/libcp1plugin.cc
+@@ -1385,6 +1385,9 @@ plugin_start_new_closure_type (cc1_plugin::connection *self,
+ 	  gcc_assert (at_class_scope_p ());
+ 	  gcc_assert (DECL_CONTEXT (extra_scope) == current_class_type);
+ 	}
++      else
++	/* FIXME: does this ever really occur?  */
++	gcc_assert (TREE_CODE (extra_scope) == VAR_DECL);
+     }
+ 
+   tree lambda_expr = build_lambda_expr ();
