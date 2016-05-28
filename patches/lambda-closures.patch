@@ -1,5 +1,5 @@
-Bottom: dc7515afd3bafeb8189262f26559c562c443a6ae
-Top:    c813a25dd2ab7491b67724c369d9f52f423354fa
+Bottom: 590e5998f99aec6e26fed3bad33085ec9d3ba529
+Top:    b363eda95ac180a746051785a92435af60d47482
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-05-21 04:28:47 -0300
 
@@ -8,7 +8,7 @@ introduce lambda closures support
 ---
 
 diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
-index d9e4289..be6c736 100644
+index d2f518b..d765920 100644
 --- a/include/gcc-cp-fe.def
 +++ b/include/gcc-cp-fe.def
 @@ -34,8 +34,14 @@
@@ -37,7 +37,7 @@ index d9e4289..be6c736 100644
  
  GCC_METHOD7 (gcc_decl, new_decl,
  	     const char *,	      /* Argument NAME.  */
-@@ -604,6 +610,23 @@ GCC_METHOD4 (gcc_type, start_new_union_type,
+@@ -601,6 +607,23 @@ GCC_METHOD4 (gcc_type, start_new_union_type,
  	     const char *,	      /* Argument FILENAME.  */
  	     unsigned int)	      /* Argument LINE_NUMBER.  */
  
@@ -61,7 +61,7 @@ index d9e4289..be6c736 100644
  /* Add a non-static data member to the most-recently-started
     unfinished struct or union type.  FIELD_NAME is the field's name.
     FIELD_TYPE is the type of the field.  BITSIZE and BITPOS indicate
-@@ -670,7 +693,10 @@ GCC_METHOD3 (gcc_type, build_function_type,
+@@ -667,7 +690,10 @@ GCC_METHOD3 (gcc_type, build_function_type,
     arguments without default values in FUNCTION_TYPE.  Say, if
     FUNCTION_TYPE has an argument list such as (T1, T2, T3, T4 = V0)
     and DEFAULTS has 2 elements (V1, V2), the returned type will have
@@ -73,7 +73,7 @@ index d9e4289..be6c736 100644
  
  GCC_METHOD2 (gcc_type, add_function_default_args,
  	     gcc_type,			     /* Argument FUNCTION_TYPE.  */
-@@ -702,6 +728,34 @@ GCC_METHOD4 (gcc_type, build_method_type,
+@@ -699,6 +725,34 @@ GCC_METHOD4 (gcc_type, build_method_type,
  	     enum gcc_cp_qualifiers,	   /* Argument QUALS.  */
  	     enum gcc_cp_ref_qualifiers)   /* Argument RQUALS.  */
  
