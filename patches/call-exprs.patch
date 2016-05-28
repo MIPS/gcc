@@ -1,5 +1,5 @@
 Bottom: 2b0710cae974d70ae245cc260cbe77377d14d5a7
-Top:    dc17aa74e00105ddfa301688cff184c84925a55c
+Top:    590e5998f99aec6e26fed3bad33085ec9d3ba529
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-05-17 22:49:44 -0300
 
@@ -8,7 +8,7 @@ introduce call exprs
 ---
 
 diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
-index 6536597..ce73496 100644
+index 6536597..d2f518b 100644
 --- a/include/gcc-cp-fe.def
 +++ b/include/gcc-cp-fe.def
 @@ -521,7 +521,18 @@ GCC_METHOD3 (gcc_expr, type_value_expr,
@@ -31,15 +31,7 @@ index 6536597..ce73496 100644
  
  /* Return the type of the gcc_expr OPERAND.
     Use this for decltype.
-@@ -534,6 +545,7 @@ GCC_METHOD3 (gcc_expr, type_value_expr,
- GCC_METHOD1 (gcc_type, expr_type,
- 	     gcc_expr)		  /* Argument OPERAND.  */
- 
-+
- /* Introduce a specialization of a template function.
- 
-    TEMPLATE_DECL is the template function, and TARGS are the arguments
-@@ -659,8 +671,8 @@ GCC_METHOD3 (gcc_type, build_function_type,
+@@ -659,8 +670,8 @@ GCC_METHOD3 (gcc_type, build_function_type,
     the following argument list: (T1, T2 = V1, T3 = V2, T4 = V0). */
  
  GCC_METHOD2 (gcc_type, add_function_default_args,
