@@ -533,8 +533,6 @@ GCC_METHOD3 (gcc_expr, call_expr,
 	     gcc_expr,			      /* Argument CALLABLE.  */
 	     int /* bool */,		  /* Argument QUALIFIED_P.  */
 	     const struct gcc_cp_function_args *) /* Argument ARGS.  */
-	     
-/* FIXME: function call operations?  ctor/dtor?  new/delete?  */
 
 /* Return the type of the gcc_expr OPERAND.
    Use this for decltype.
