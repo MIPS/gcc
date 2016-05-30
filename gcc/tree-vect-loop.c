@@ -1945,7 +1945,7 @@ start_over:
 		     LOOP_VINFO_INT_NITERS (loop_vinfo));
 
   HOST_WIDE_INT max_niter
-    = max_stmt_executions_int (LOOP_VINFO_LOOP (loop_vinfo));
+    = likely_max_stmt_executions_int (LOOP_VINFO_LOOP (loop_vinfo));
   if ((LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
        && (LOOP_VINFO_INT_NITERS (loop_vinfo) < vectorization_factor))
       || (max_niter != -1
@@ -5596,7 +5596,7 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
   if (STMT_VINFO_LIVE_P (vinfo_for_stmt (reduc_def_stmt)))
     return false;
 
-  if (slp_node || PURE_SLP_STMT (stmt_info))
+  if (slp_node)
     ncopies = 1;
   else
     ncopies = (LOOP_VINFO_VECT_FACTOR (loop_vinfo)

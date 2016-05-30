@@ -1,3 +1,39 @@
+2016-05-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_clause_schedule): Warn if
+	OMP_CLAUSE_SCHEDULE_CHUNK_EXPR is known not to be positive.
+
+2016-05-25  Marek Polacek  <polacek@redhat.com>
+
+	PR c/71265
+	* c-decl.c (c_make_fname_decl): Don't check seen_error.
+
+	PR c/71266
+	* c-decl.c (store_parm_decls_oldstyle): Skip non-PARM_DECLs.
+
+2016-05-24  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-parser.c (c_parser_oacc_declare): Add support for
+	GOMP_MAP_FIRSTPRIVATE_POINTER.
+	* c-typeck.c (handle_omp_array_sections_1): Replace bool is_omp
+	argument with enum c_omp_region_type ort.
+	(handle_omp_array_sections): Likewise.  Update call to
+	handle_omp_array_sections_1.
+	(c_finish_omp_clauses): Add specific errors and warning messages for
+	OpenACC.  Use firsrtprivate pointers for OpenACC subarrays.  Update
+	call to handle_omp_array_sections.
+
+2016-05-24  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-parser.c (c_parser_oacc_routine): Tighten syntax checks.
+
+2016-05-24  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70434
+	PR c/69504
+	* c-typeck.c (build_array_ref): Do not complain about indexing
+	non-lvalue vectors.  Adjust for function name change.
+
 2016-05-20  Martin Sebor  <msebor@redhat.com>
 
 	PR c/71115

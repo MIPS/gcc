@@ -2638,8 +2638,8 @@ build_array_ref (location_t loc, tree array, tree index)
 
   gcc_assert (TREE_CODE (TREE_TYPE (index)) == INTEGER_TYPE);
 
-  bool non_lvalue
-    = convert_vector_to_pointer_for_subscript (loc, &array, index);
+  bool was_vector = VECTOR_TYPE_P (TREE_TYPE (array));
+  bool non_lvalue = convert_vector_to_array_for_subscript (loc, &array, index);
 
   if (TREE_CODE (TREE_TYPE (array)) == ARRAY_TYPE
       && !SHARED_TYPE_P (TREE_TYPE (array)))
@@ -2669,7 +2669,8 @@ build_array_ref (location_t loc, tree array, tree index)
 	    return error_mark_node;
 	}
 
-      if (pedantic || warn_c90_c99_compat)
+      if ((pedantic || warn_c90_c99_compat)
+	  && ! was_vector)
 	{
 	  tree foo = array;
 	  while (TREE_CODE (foo) == COMPONENT_REF)
@@ -12265,7 +12266,7 @@ c_finish_omp_cancellation_point (location_t loc, tree clauses)
 static tree
 handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 			     bool &maybe_zero_len, unsigned int &first_non_one,
-			     bool is_omp)
+			     enum c_omp_region_type ort)
 {
   tree ret, low_bound, length, type;
   if (TREE_CODE (t) != TREE_LIST)
@@ -12274,7 +12275,7 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 	return error_mark_node;
       ret = t;
       if (TREE_CODE (t) == COMPONENT_REF
-	  && is_omp
+	  && ort == C_ORT_OMP
 	  && (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 	      || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_TO
 	      || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FROM))
@@ -12321,7 +12322,7 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
     }
 
   ret = handle_omp_array_sections_1 (c, TREE_CHAIN (t), types,
-				     maybe_zero_len, first_non_one, is_omp);
+				     maybe_zero_len, first_non_one, ort);
   if (ret == error_mark_node || ret == NULL_TREE)
     return ret;
 
@@ -12552,14 +12553,14 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 /* Handle array sections for clause C.  */
 
 static bool
-handle_omp_array_sections (tree c, bool is_omp)
+handle_omp_array_sections (tree c, enum c_omp_region_type ort)
 {
   bool maybe_zero_len = false;
   unsigned int first_non_one = 0;
   auto_vec<tree, 10> types;
   tree first = handle_omp_array_sections_1 (c, OMP_CLAUSE_DECL (c), types,
 					    maybe_zero_len, first_non_one,
-					    is_omp);
+					    ort);
   if (first == error_mark_node)
     return true;
   if (first == NULL_TREE)
@@ -12752,7 +12753,7 @@ handle_omp_array_sections (tree c, bool is_omp)
 	      && TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE))
 	return false;
       gcc_assert (OMP_CLAUSE_MAP_KIND (c) != GOMP_MAP_FORCE_DEVICEPTR);
-      if (is_omp)
+      if (ort == C_ORT_OMP || ort == C_ORT_ACC)
 	switch (OMP_CLAUSE_MAP_KIND (c))
 	  {
 	  case GOMP_MAP_ALLOC:
@@ -12770,7 +12771,7 @@ handle_omp_array_sections (tree c, bool is_omp)
 	    break;
 	  }
       tree c2 = build_omp_clause (OMP_CLAUSE_LOCATION (c), OMP_CLAUSE_MAP);
-      if (!is_omp)
+      if (ort != C_ORT_OMP && ort != C_ORT_ACC)
 	OMP_CLAUSE_SET_MAP_KIND (c2, GOMP_MAP_POINTER);
       else if (TREE_CODE (t) == COMPONENT_REF)
 	OMP_CLAUSE_SET_MAP_KIND (c2, GOMP_MAP_ALWAYS_POINTER);
@@ -12845,7 +12846,7 @@ tree
 c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 {
   bitmap_head generic_head, firstprivate_head, lastprivate_head;
-  bitmap_head aligned_head, map_head, map_field_head;
+  bitmap_head aligned_head, map_head, map_field_head, oacc_reduction_head;
   tree c, t, type, *pc;
   tree simdlen = NULL_TREE, safelen = NULL_TREE;
   bool branch_seen = false;
@@ -12862,6 +12863,7 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
   bitmap_initialize (&aligned_head, &bitmap_default_obstack);
   bitmap_initialize (&map_head, &bitmap_default_obstack);
   bitmap_initialize (&map_field_head, &bitmap_default_obstack);
+  bitmap_initialize (&oacc_reduction_head, &bitmap_default_obstack);
 
   for (pc = &clauses, c = clauses; c ; c = *pc)
     {
@@ -12885,7 +12887,7 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	  t = OMP_CLAUSE_DECL (c);
 	  if (TREE_CODE (t) == TREE_LIST)
 	    {
-	      if (handle_omp_array_sections (c, ort & C_ORT_OMP))
+	      if (handle_omp_array_sections (c, ort))
 		{
 		  remove = true;
 		  break;
@@ -13199,6 +13201,17 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	      remove = true;
 	    }
+	  else if (ort == C_ORT_ACC
+		   && OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION)
+	    {
+	      if (bitmap_bit_p (&oacc_reduction_head, DECL_UID (t)))
+		{
+		  error ("%qD appears more than once in reduction clauses", t);
+		  remove = true;
+		}
+	      else
+		bitmap_set_bit (&oacc_reduction_head, DECL_UID (t));
+	    }
 	  else if (bitmap_bit_p (&generic_head, DECL_UID (t))
 		   || bitmap_bit_p (&firstprivate_head, DECL_UID (t))
 		   || bitmap_bit_p (&lastprivate_head, DECL_UID (t)))
@@ -13210,7 +13223,10 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_PRIVATE
 		   && bitmap_bit_p (&map_head, DECL_UID (t)))
 	    {
-	      error ("%qD appears both in data and map clauses", t);
+	      if (ort == C_ORT_ACC)
+		error ("%qD appears more than once in data clauses", t);
+	      else
+		error ("%qD appears both in data and map clauses", t);
 	      remove = true;
 	    }
 	  else
@@ -13236,7 +13252,10 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	    }
 	  else if (bitmap_bit_p (&map_head, DECL_UID (t)))
 	    {
-	      error ("%qD appears both in data and map clauses", t);
+	      if (ort == C_ORT_ACC)
+		error ("%qD appears more than once in data clauses", t);
+	      else
+		error ("%qD appears both in data and map clauses", t);
 	      remove = true;
 	    }
 	  else
@@ -13329,7 +13348,7 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	    }
 	  if (TREE_CODE (t) == TREE_LIST)
 	    {
-	      if (handle_omp_array_sections (c, ort & C_ORT_OMP))
+	      if (handle_omp_array_sections (c, ort))
 		remove = true;
 	      break;
 	    }
@@ -13352,7 +13371,7 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	  t = OMP_CLAUSE_DECL (c);
 	  if (TREE_CODE (t) == TREE_LIST)
 	    {
-	      if (handle_omp_array_sections (c, ort & C_ORT_OMP))
+	      if (handle_omp_array_sections (c, ort))
 		remove = true;
 	      else
 		{
@@ -13378,6 +13397,9 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 			{
 			  if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP)
 			    error ("%qD appears more than once in motion"
+				   " clauses", t);
+			  else if (ort == C_ORT_ACC)
+			    error ("%qD appears more than once in data"
 				   " clauses", t);
 			  else
 			    error ("%qD appears more than once in map"
@@ -13480,7 +13502,10 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 		}
 	      else if (bitmap_bit_p (&map_head, DECL_UID (t)))
 		{
-		  error ("%qD appears both in data and map clauses", t);
+		  if (ort == C_ORT_ACC)
+		    error ("%qD appears more than once in data clauses", t);
+		  else
+		    error ("%qD appears both in data and map clauses", t);
 		  remove = true;
 		}
 	      else
@@ -13490,6 +13515,8 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	    {
 	      if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP)
 		error ("%qD appears more than once in motion clauses", t);
+	      else if (ort == C_ORT_ACC)
+		error ("%qD appears more than once in data clauses", t);
 	      else
 		error ("%qD appears more than once in map clauses", t);
 	      remove = true;
@@ -13497,7 +13524,10 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	  else if (bitmap_bit_p (&generic_head, DECL_UID (t))
 		   || bitmap_bit_p (&firstprivate_head, DECL_UID (t)))
 	    {
-	      error ("%qD appears both in data and map clauses", t);
+	      if (ort == C_ORT_ACC)
+		error ("%qD appears more than once in data clauses", t);
+	      else
+		error ("%qD appears both in data and map clauses", t);
 	      remove = true;
 	    }
 	  else

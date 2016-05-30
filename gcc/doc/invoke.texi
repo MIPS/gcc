@@ -300,7 +300,8 @@ Objective-C and Objective-C++ Dialects}.
 -Wsuggest-attribute=@r{[}pure@r{|}const@r{|}noreturn@r{|}format@r{]} @gol
 -Wsuggest-final-types @gol -Wsuggest-final-methods -Wsuggest-override @gol
 -Wmissing-format-attribute -Wsubobject-linkage @gol
--Wswitch  -Wswitch-default  -Wswitch-enum -Wswitch-bool -Wsync-nand @gol
+-Wswitch  -Wswitch-bool  -Wswitch-default  -Wswitch-enum @gol
+-Wswitch-unreachable  -Wsync-nand @gol
 -Wsystem-headers  -Wtautological-compare  -Wtrampolines  -Wtrigraphs @gol
 -Wtype-limits  -Wundef @gol
 -Wuninitialized  -Wunknown-pragmas  -Wunsafe-loop-optimizations @gol
@@ -1175,7 +1176,7 @@ See RS/6000 and PowerPC Options.
 -msse2avx -mfentry -mrecord-mcount -mnop-mcount -m8bit-idiv @gol
 -mavx256-split-unaligned-load -mavx256-split-unaligned-store @gol
 -malign-data=@var{type} -mstack-protector-guard=@var{guard} @gol
--mmitigate-rop}
+-mmitigate-rop -mgeneral-regs-only}
 
 @emph{x86 Windows Options}
 @gccoptlist{-mconsole -mcygwin -mno-cygwin -mdll @gol
@@ -4206,6 +4207,39 @@ expression to a type other than @code{bool}.  For example:
 @group
 switch ((int) (a == 4))
   @{
+  @dots{}
+  @}
+@end group
+@end smallexample
+This warning is enabled by default for C and C++ programs.
+
+@item -Wswitch-unreachable
+@opindex Wswitch-unreachable
+@opindex Wno-switch-unreachable
+Warn whenever a @code{switch} statement contains statements between the
+controlling expression and the first case label, which will never be
+executed.  For example:
+@smallexample
+@group
+switch (cond)
+  @{
+   i = 15;
+  @dots{}
+   case 5:
+  @dots{}
+  @}
+@end group
+@end smallexample
+@option{-Wswitch-unreachable} does not warn if the statement between the
+controlling expression and the first case label is just a declaration:
+@smallexample
+@group
+switch (cond)
+  @{
+   int i;
+  @dots{}
+   case 5:
+   i = 5;
   @dots{}
   @}
 @end group
@@ -24331,6 +24365,12 @@ Try to avoid generating code sequences that contain unintended return
 opcodes, to mitigate against certain forms of attack. At the moment,
 this option is limited in what it can do and should not be relied
 on to provide serious protection.
+
+@item -mgeneral-regs-only
+@opindex mgeneral-regs-only
+Generate code that uses only the general-purpose registers.  This
+prevents the compiler from using floating-point, vector, mask and bound
+registers.
 
 @end table
 

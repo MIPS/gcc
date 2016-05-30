@@ -1,6 +1,4 @@
-/* Implement realloc with the help of the malloc and free wrappers.
-
-   Copyright (C) 2014-2016 Free Software Foundation, Inc.
+/* Copyright (C) 2014-2016 Free Software Foundation, Inc.
 
    This file is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -21,30 +19,19 @@
    see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    <http://www.gnu.org/licenses/>.  */
 
-#include <stddef.h>
-#include "nvptx-malloc.h"
+int *__exitval_ptr;
 
-void *
-__nvptx_realloc (void *ptr, size_t newsz)
+extern void __attribute__((noreturn)) exit (int status);
+extern int main (int, void **);
+
+void __attribute__((kernel))
+__main (int *rval_ptr, int argc, void **argv)
 {
-  if (newsz == 0)
-    {
-      __nvptx_free (ptr);
-      return NULL;
-    }
-  void *newptr = __nvptx_malloc (newsz);
+  __exitval_ptr = rval_ptr;
+  /* Store something non-zero, so the host knows something went wrong,
+     if we fail to reach exit properly.   */
+  if (rval_ptr)
+    *rval_ptr = 255;
 
-  size_t oldsz;
-  if (ptr == NULL)
-    oldsz = 0;
-  else
-    {
-      size_t *sp = __extension__ (size_t *)(ptr - 8);
-      oldsz = *sp;
-    }
-  if (oldsz != 0)
-    __builtin_memcpy (newptr, ptr, oldsz > newsz ? newsz : oldsz);
-
-  __nvptx_free (ptr);
-  return newptr;
+  exit (main (argc, argv));
 }

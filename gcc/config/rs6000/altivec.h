@@ -196,6 +196,7 @@
 #define vec_andc __builtin_vec_andc
 #define vec_avg __builtin_vec_avg
 #define vec_cmpeq __builtin_vec_cmpeq
+#define vec_cmpne __builtin_vec_cmpne
 #define vec_cmpgt __builtin_vec_cmpgt
 #define vec_ctf __builtin_vec_ctf
 #define vec_dst __builtin_vec_dst
@@ -382,6 +383,23 @@
 #define vec_vsubuqm __builtin_vec_vsubuqm
 #define vec_vupkhsw __builtin_vec_vupkhsw
 #define vec_vupklsw __builtin_vec_vupklsw
+#endif
+
+#ifdef _ARCH_PWR9
+/* Vector additions added in ISA 3.0.  */
+#define vec_vctz __builtin_vec_vctz
+#define vec_cntlz __builtin_vec_vctz
+#define vec_vctzb __builtin_vec_vctzb
+#define vec_vctzd __builtin_vec_vctzd
+#define vec_vctzh __builtin_vec_vctzh
+#define vec_vctzw __builtin_vec_vctzw
+#define vec_vprtyb __builtin_vec_vprtyb
+#define vec_vprtybd __builtin_vec_vprtybd
+#define vec_vprtybw __builtin_vec_vprtybw
+
+#ifdef _ARCH_PPC64
+#define vec_vprtybq __builtin_vec_vprtybq
+#endif
 #endif
 
 /* Predicates.

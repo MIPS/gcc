@@ -282,14 +282,12 @@ int aarch64_get_condition_code (rtx);
 bool aarch64_bitmask_imm (HOST_WIDE_INT val, machine_mode);
 int aarch64_branch_cost (bool, bool);
 enum aarch64_symbol_type aarch64_classify_symbolic_expression (rtx);
-bool aarch64_cannot_change_mode_class (machine_mode,
-				       machine_mode,
-				       enum reg_class);
 bool aarch64_const_vec_all_same_int_p (rtx, HOST_WIDE_INT);
 bool aarch64_constant_address_p (rtx);
 bool aarch64_expand_movmem (rtx *);
 bool aarch64_float_const_zero_rtx_p (rtx);
 bool aarch64_function_arg_regno_p (unsigned);
+bool aarch64_fusion_enabled_p (enum aarch64_fusion_pairs);
 bool aarch64_gen_movmemqi (rtx *);
 bool aarch64_gimple_fold_builtin (gimple_stmt_iterator *);
 bool aarch64_is_extend_from_extract (machine_mode, rtx, rtx);

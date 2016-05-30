@@ -3572,7 +3572,12 @@ aarch64_cannot_force_const_mem (machine_mode mode ATTRIBUTE_UNUSED, rtx x)
   return aarch64_tls_referenced_p (x);
 }
 
-/* Implement TARGET_CASE_VALUES_THRESHOLD.  */
+/* Implement TARGET_CASE_VALUES_THRESHOLD.
+   The expansion for a table switch is quite expensive due to the number
+   of instructions, the table lookup and hard to predict indirect jump.
+   When optimizing for speed, and -O3 enabled, use the per-core tuning if 
+   set, otherwise use tables for > 16 cases as a tradeoff between size and
+   performance.  When optimizing for size, use the default setting.  */
 
 static unsigned int
 aarch64_case_values_threshold (void)
@@ -3583,7 +3588,7 @@ aarch64_case_values_threshold (void)
       && selected_cpu->tune->max_case_values != 0)
     return selected_cpu->tune->max_case_values;
   else
-    return default_case_values_threshold ();
+    return optimize_size ? default_case_values_threshold () : 17;
 }
 
 /* Return true if register REGNO is a valid index register.
@@ -4222,14 +4227,6 @@ aarch64_select_cc_mode (RTX_CODE code, rtx x, rtx y)
       && GET_CODE (x) == NEG)
     return CC_Zmode;
 
-  /* A compare of a mode narrower than SI mode against zero can be done
-     by extending the value in the comparison.  */
-  if ((GET_MODE (x) == QImode || GET_MODE (x) == HImode)
-      && y == const0_rtx)
-    /* Only use sign-extension if we really need it.  */
-    return ((code == GT || code == GE || code == LE || code == LT)
-	    ? CC_SESWPmode : CC_ZESWPmode);
-
   /* A test for unsigned overflow.  */
   if ((GET_MODE (x) == DImode || GET_MODE (x) == TImode)
       && code == NE
@@ -4298,8 +4295,6 @@ aarch64_get_condition_code_1 (enum machine_mode mode, enum rtx_code comp_code)
       break;
 
     case CC_SWPmode:
-    case CC_ZESWPmode:
-    case CC_SESWPmode:
       switch (comp_code)
 	{
 	case NE: return AARCH64_NE;
@@ -6286,10 +6281,6 @@ aarch64_rtx_costs (rtx x, machine_mode mode, int outer ATTRIBUTE_UNUSED,
         {
           /* TODO: A write to the CC flags possibly costs extra, this
 	     needs encoding in the cost tables.  */
-
-          /* CC_ZESWPmode supports zero extend for free.  */
-          if (mode == CC_ZESWPmode && GET_CODE (op0) == ZERO_EXTEND)
-            op0 = XEXP (op0, 0);
 
 	  mode = GET_MODE (op0);
           /* ANDS.  */
@@ -9339,6 +9330,13 @@ aarch64_build_builtin_va_list (void)
 			FIELD_DECL, get_identifier ("__vr_offs"),
 			integer_type_node);
 
+  /* Tell tree-stdarg pass about our internal offset fields.
+     NOTE: va_list_gpr/fpr_counter_field are only used for tree comparision
+     purpose to identify whether the code is updating va_list internal
+     offset fields through irregular way.  */
+  va_list_gpr_counter_field = f_groff;
+  va_list_fpr_counter_field = f_vroff;
+
   DECL_ARTIFICIAL (f_stack) = 1;
   DECL_ARTIFICIAL (f_grtop) = 1;
   DECL_ARTIFICIAL (f_vrtop) = 1;
@@ -9371,15 +9369,17 @@ aarch64_expand_builtin_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
   tree f_stack, f_grtop, f_vrtop, f_groff, f_vroff;
   tree stack, grtop, vrtop, groff, vroff;
   tree t;
-  int gr_save_area_size;
-  int vr_save_area_size;
+  int gr_save_area_size = cfun->va_list_gpr_size;
+  int vr_save_area_size = cfun->va_list_fpr_size;
   int vr_offset;
 
   cum = &crtl->args.info;
-  gr_save_area_size
-    = (NUM_ARG_REGS - cum->aapcs_ncrn) * UNITS_PER_WORD;
-  vr_save_area_size
-    = (NUM_FP_ARG_REGS - cum->aapcs_nvrn) * UNITS_PER_VREG;
+  if (cfun->va_list_gpr_size)
+    gr_save_area_size = MIN ((NUM_ARG_REGS - cum->aapcs_ncrn) * UNITS_PER_WORD,
+			     cfun->va_list_gpr_size);
+  if (cfun->va_list_fpr_size)
+    vr_save_area_size = MIN ((NUM_FP_ARG_REGS - cum->aapcs_nvrn)
+			     * UNITS_PER_VREG, cfun->va_list_fpr_size);
 
   if (!TARGET_FLOAT)
     {
@@ -9713,7 +9713,8 @@ aarch64_setup_incoming_varargs (cumulative_args_t cum_v, machine_mode mode,
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
   CUMULATIVE_ARGS local_cum;
-  int gr_saved, vr_saved;
+  int gr_saved = cfun->va_list_gpr_size;
+  int vr_saved = cfun->va_list_fpr_size;
 
   /* The caller has advanced CUM up to, but not beyond, the last named
      argument.  Advance a local copy of CUM past the last "real" named
@@ -9721,9 +9722,14 @@ aarch64_setup_incoming_varargs (cumulative_args_t cum_v, machine_mode mode,
   local_cum = *cum;
   aarch64_function_arg_advance (pack_cumulative_args(&local_cum), mode, type, true);
 
-  /* Found out how many registers we need to save.  */
-  gr_saved = NUM_ARG_REGS - local_cum.aapcs_ncrn;
-  vr_saved = NUM_FP_ARG_REGS - local_cum.aapcs_nvrn;
+  /* Found out how many registers we need to save.
+     Honor tree-stdvar analysis results.  */
+  if (cfun->va_list_gpr_size)
+    gr_saved = MIN (NUM_ARG_REGS - local_cum.aapcs_ncrn,
+		    cfun->va_list_gpr_size / UNITS_PER_WORD);
+  if (cfun->va_list_fpr_size)
+    vr_saved = MIN (NUM_FP_ARG_REGS - local_cum.aapcs_nvrn,
+		    cfun->va_list_fpr_size / UNITS_PER_VREG);
 
   if (!TARGET_FLOAT)
     {
@@ -9751,7 +9757,7 @@ aarch64_setup_incoming_varargs (cumulative_args_t cum_v, machine_mode mode,
 	  /* We can't use move_block_from_reg, because it will use
 	     the wrong mode, storing D regs only.  */
 	  machine_mode mode = TImode;
-	  int off, i;
+	  int off, i, vr_start;
 
 	  /* Set OFF to the offset from virtual_incoming_args_rtx of
 	     the first vector register.  The VR save area lies below
@@ -9760,14 +9766,15 @@ aarch64_setup_incoming_varargs (cumulative_args_t cum_v, machine_mode mode,
 			   STACK_BOUNDARY / BITS_PER_UNIT);
 	  off -= vr_saved * UNITS_PER_VREG;
 
-	  for (i = local_cum.aapcs_nvrn; i < NUM_FP_ARG_REGS; ++i)
+	  vr_start = V0_REGNUM + local_cum.aapcs_nvrn;
+	  for (i = 0; i < vr_saved; ++i)
 	    {
 	      rtx ptr, mem;
 
 	      ptr = plus_constant (Pmode, virtual_incoming_args_rtx, off);
 	      mem = gen_frame_mem (mode, ptr);
 	      set_mem_alias_set (mem, get_varargs_alias_set ());
-	      aarch64_emit_move (mem, gen_rtx_REG (mode, V0_REGNUM + i));
+	      aarch64_emit_move (mem, gen_rtx_REG (mode, vr_start + i));
 	      off += UNITS_PER_VREG;
 	    }
 	}
@@ -12624,24 +12631,6 @@ aarch64_vectorize_vec_perm_const_ok (machine_mode vmode,
   return ret;
 }
 
-/* Implement target hook CANNOT_CHANGE_MODE_CLASS.  */
-bool
-aarch64_cannot_change_mode_class (machine_mode from,
-				  machine_mode to,
-				  enum reg_class rclass)
-{
-  /* We cannot allow word_mode subregs of full vector modes.
-     Otherwise the middle-end will assume it's ok to store to
-     (subreg:DI (reg:TI 100) 0) in order to modify only the low 64 bits
-     of the 128-bit register.  However, after reload the subreg will
-     be dropped leaving a plain DImode store.  See PR67609 for a more
-     detailed dicussion.  In all other cases, we want to be permissive
-     and return false.  */
-  return (reg_classes_intersect_p (FP_REGS, rclass)
-	  && GET_MODE_SIZE (to) == UNITS_PER_WORD
-	  && GET_MODE_SIZE (from) > UNITS_PER_WORD);
-}
-
 rtx
 aarch64_reverse_mask (enum machine_mode mode)
 {
@@ -13190,6 +13179,14 @@ aarch_macro_fusion_pair_p (rtx_insn *prev, rtx_insn *curr)
     }
 
   return false;
+}
+
+/* Return true iff the instruction fusion described by OP is enabled.  */
+
+bool
+aarch64_fusion_enabled_p (enum aarch64_fusion_pairs op)
+{
+  return (aarch64_tune_params.fusible_ops & op) != 0;
 }
 
 /* If MEM is in the form of [base+offset], extract the two parts

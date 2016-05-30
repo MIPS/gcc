@@ -6863,21 +6863,29 @@ rs6000_expand_vector_set (rtx target, rtx val, int elt)
 			gen_rtvec (3, target, reg,
 				   force_reg (V16QImode, x)),
 			UNSPEC_VPERM);
-  else 
+  else
     {
-      /* Invert selector.  We prefer to generate VNAND on P8 so
-         that future fusion opportunities can kick in, but must
-         generate VNOR elsewhere.  */
-      rtx notx = gen_rtx_NOT (V16QImode, force_reg (V16QImode, x));
-      rtx iorx = (TARGET_P8_VECTOR
-		  ? gen_rtx_IOR (V16QImode, notx, notx)
-		  : gen_rtx_AND (V16QImode, notx, notx));
-      rtx tmp = gen_reg_rtx (V16QImode);
-      emit_insn (gen_rtx_SET (tmp, iorx));
+      if (TARGET_P9_VECTOR)
+	x = gen_rtx_UNSPEC (mode,
+			    gen_rtvec (3, target, reg,
+				       force_reg (V16QImode, x)),
+			    UNSPEC_VPERMR);
+      else
+	{
+	  /* Invert selector.  We prefer to generate VNAND on P8 so
+	     that future fusion opportunities can kick in, but must
+	     generate VNOR elsewhere.  */
+	  rtx notx = gen_rtx_NOT (V16QImode, force_reg (V16QImode, x));
+	  rtx iorx = (TARGET_P8_VECTOR
+		      ? gen_rtx_IOR (V16QImode, notx, notx)
+		      : gen_rtx_AND (V16QImode, notx, notx));
+	  rtx tmp = gen_reg_rtx (V16QImode);
+	  emit_insn (gen_rtx_SET (tmp, iorx));
 
-      /* Permute with operands reversed and adjusted selector.  */
-      x = gen_rtx_UNSPEC (mode, gen_rtvec (3, reg, target, tmp),
-			  UNSPEC_VPERM);
+	  /* Permute with operands reversed and adjusted selector.  */
+	  x = gen_rtx_UNSPEC (mode, gen_rtvec (3, reg, target, tmp),
+			      UNSPEC_VPERM);
+	}
     }
 
   emit_insn (gen_rtx_SET (target, x));
@@ -16315,6 +16323,10 @@ altivec_init_builtins (void)
     = build_function_type_list (opaque_V4SI_type_node,
 				opaque_V4SI_type_node, opaque_V4SI_type_node,
 				opaque_V4SI_type_node, NULL_TREE);
+  tree opaque_ftype_opaque_opaque
+    = build_function_type_list (opaque_V4SI_type_node,
+				opaque_V4SI_type_node, opaque_V4SI_type_node,
+				NULL_TREE);
   tree int_ftype_int_opaque_opaque
     = build_function_type_list (integer_type_node,
                                 integer_type_node, opaque_V4SI_type_node,
@@ -16589,6 +16601,8 @@ altivec_init_builtins (void)
 		ALTIVEC_BUILTIN_VEC_ADDE);
   def_builtin ("__builtin_vec_addec", opaque_ftype_opaque_opaque_opaque,
 		ALTIVEC_BUILTIN_VEC_ADDEC);
+  def_builtin ("__builtin_vec_cmpne", opaque_ftype_opaque_opaque,
+		ALTIVEC_BUILTIN_VEC_CMPNE);
 
   /* Cell builtins.  */
   def_builtin ("__builtin_altivec_lvlx",  v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVLX);
@@ -22659,6 +22673,101 @@ rs6000_emit_vector_cond_expr (rtx dest, rtx op_true, rtx op_false,
   return 1;
 }
 
+/* ISA 3.0 (power9) minmax subcase to emit a XSMAXCDP or XSMINCDP instruction
+   for SF/DF scalars.  Move TRUE_COND to DEST if OP of the operands of the last
+   comparison is nonzero/true, FALSE_COND if it is zero/false.  Return 0 if the
+   hardware has no such operation.  */
+
+static int
+rs6000_emit_p9_fp_minmax (rtx dest, rtx op, rtx true_cond, rtx false_cond)
+{
+  enum rtx_code code = GET_CODE (op);
+  rtx op0 = XEXP (op, 0);
+  rtx op1 = XEXP (op, 1);
+  machine_mode compare_mode = GET_MODE (op0);
+  machine_mode result_mode = GET_MODE (dest);
+  bool max_p = false;
+
+  if (result_mode != compare_mode)
+    return 0;
+
+  if (code == GE || code == GT)
+    max_p = true;
+  else if (code == LE || code == LT)
+    max_p = false;
+  else
+    return 0;
+
+  if (rtx_equal_p (op0, true_cond) && rtx_equal_p (op1, false_cond))
+    ;
+
+  else if (rtx_equal_p (op1, true_cond) && rtx_equal_p (op0, false_cond))
+    max_p = !max_p;
+
+  else
+    return 0;
+
+  rs6000_emit_minmax (dest, max_p ? SMAX : SMIN, op0, op1);
+  return 1;
+}
+
+/* ISA 3.0 (power9) conditional move subcase to emit XSCMP{EQ,GE,GT,NE}DP and
+   XXSEL instructions for SF/DF scalars.  Move TRUE_COND to DEST if OP of the
+   operands of the last comparison is nonzero/true, FALSE_COND if it is
+   zero/false.  Return 0 if the hardware has no such operation.  */
+
+static int
+rs6000_emit_p9_fp_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
+{
+  enum rtx_code code = GET_CODE (op);
+  rtx op0 = XEXP (op, 0);
+  rtx op1 = XEXP (op, 1);
+  machine_mode result_mode = GET_MODE (dest);
+  rtx compare_rtx;
+  rtx cmove_rtx;
+  rtx clobber_rtx;
+
+  if (!can_create_pseudo_p ())
+    return 0;
+
+  switch (code)
+    {
+    case EQ:
+    case GE:
+    case GT:
+      break;
+
+    case NE:
+    case LT:
+    case LE:
+      code = swap_condition (code);
+      std::swap (op0, op1);
+      break;
+
+    default:
+      return 0;
+    }
+
+  /* Generate:	[(parallel [(set (dest)
+				 (if_then_else (op (cmp1) (cmp2))
+					       (true)
+					       (false)))
+			    (clobber (scratch))])].  */
+
+  compare_rtx = gen_rtx_fmt_ee (code, CCFPmode, op0, op1);
+  cmove_rtx = gen_rtx_SET (dest,
+			   gen_rtx_IF_THEN_ELSE (result_mode,
+						 compare_rtx,
+						 true_cond,
+						 false_cond));
+
+  clobber_rtx = gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (V2DImode));
+  emit_insn (gen_rtx_PARALLEL (VOIDmode,
+			       gen_rtvec (2, cmove_rtx, clobber_rtx)));
+
+  return 1;
+}
+
 /* Emit a conditional move: move TRUE_COND to DEST if OP of the
    operands of the last comparison is nonzero/true, FALSE_COND if it
    is zero/false.  Return 0 if the hardware has no such operation.  */
@@ -22684,6 +22793,18 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
     return 0;
   if (GET_MODE (false_cond) != result_mode)
     return 0;
+
+  /* See if we can use the ISA 3.0 (power9) min/max/compare functions.  */
+  if (TARGET_P9_MINMAX
+      && (compare_mode == SFmode || compare_mode == DFmode)
+      && (result_mode == SFmode || result_mode == DFmode))
+    {
+      if (rs6000_emit_p9_fp_minmax (dest, op, true_cond, false_cond))
+	return 1;
+
+      if (rs6000_emit_p9_fp_cmove (dest, op, true_cond, false_cond))
+	return 1;
+    }
 
   /* Don't allow using floating point comparisons for integer results for
      now.  */
@@ -34395,17 +34516,25 @@ altivec_expand_vec_perm_le (rtx operands[4])
   if (!REG_P (target))
     tmp = gen_reg_rtx (mode);
 
-  /* Invert the selector with a VNAND if available, else a VNOR.
-     The VNAND is preferred for future fusion opportunities.  */
-  notx = gen_rtx_NOT (V16QImode, sel);
-  iorx = (TARGET_P8_VECTOR
-	  ? gen_rtx_IOR (V16QImode, notx, notx)
-	  : gen_rtx_AND (V16QImode, notx, notx));
-  emit_insn (gen_rtx_SET (norreg, iorx));
+  if (TARGET_P9_VECTOR)
+    {
+      unspec = gen_rtx_UNSPEC (mode, gen_rtvec (3, op0, op1, sel),
+			       UNSPEC_VPERMR);
+    }
+  else
+    {
+      /* Invert the selector with a VNAND if available, else a VNOR.
+	 The VNAND is preferred for future fusion opportunities.  */
+      notx = gen_rtx_NOT (V16QImode, sel);
+      iorx = (TARGET_P8_VECTOR
+	      ? gen_rtx_IOR (V16QImode, notx, notx)
+	      : gen_rtx_AND (V16QImode, notx, notx));
+      emit_insn (gen_rtx_SET (norreg, iorx));
 
-  /* Permute with operands reversed and adjusted selector.  */
-  unspec = gen_rtx_UNSPEC (mode, gen_rtvec (3, op1, op0, norreg),
-			   UNSPEC_VPERM);
+      /* Permute with operands reversed and adjusted selector.  */
+      unspec = gen_rtx_UNSPEC (mode, gen_rtvec (3, op1, op0, norreg),
+			       UNSPEC_VPERM);
+    }
 
   /* Copy into target, possibly by way of a register.  */
   if (!REG_P (target))

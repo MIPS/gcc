@@ -1513,10 +1513,7 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
     }
 
   /* If the call becomes noreturn, remove the LHS if possible.  */
-  if (lhs
-      && (gimple_call_flags (new_stmt) & ECF_NORETURN)
-      && TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (lhs))) == INTEGER_CST
-      && !TREE_ADDRESSABLE (TREE_TYPE (lhs)))
+  if (gimple_call_noreturn_p (new_stmt) && should_remove_lhs_p (lhs))
     {
       if (TREE_CODE (lhs) == SSA_NAME)
 	{
@@ -2238,7 +2235,7 @@ cgraph_node::get_availability (symtab_node *ref)
   else if (!externally_visible)
     avail = AVAIL_AVAILABLE;
   /* If this is a reference from symbol itself and there are no aliases, we
-     may be sure that the symbol was not interposed by soemthing else because
+     may be sure that the symbol was not interposed by something else because
      the symbol itself would be unreachable otherwise.
 
      Also comdat groups are always resolved in groups.  */

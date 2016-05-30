@@ -1256,10 +1256,11 @@ vect_init_vector (gimple *stmt, tree val, tree type, gimple_stmt_iterator *gsi)
   gimple *init_stmt;
   tree new_temp;
 
-  if (TREE_CODE (type) == VECTOR_TYPE
-      && TREE_CODE (TREE_TYPE (val)) != VECTOR_TYPE)
+  /* We abuse this function to push sth to a SSA name with initial 'val'.  */
+  if (! useless_type_conversion_p (type, TREE_TYPE (val)))
     {
-      if (!types_compatible_p (TREE_TYPE (type), TREE_TYPE (val)))
+      gcc_assert (TREE_CODE (type) == VECTOR_TYPE);
+      if (! types_compatible_p (TREE_TYPE (type), TREE_TYPE (val)))
 	{
 	  /* Scalar boolean value should be transformed into
 	     all zeros or all ones value before building a vector.  */
@@ -1284,7 +1285,13 @@ vect_init_vector (gimple *stmt, tree val, tree type, gimple_stmt_iterator *gsi)
 	  else
 	    {
 	      new_temp = make_ssa_name (TREE_TYPE (type));
-	      init_stmt = gimple_build_assign (new_temp, NOP_EXPR, val);
+	      if (! INTEGRAL_TYPE_P (TREE_TYPE (val)))
+		init_stmt = gimple_build_assign (new_temp,
+						 fold_build1 (VIEW_CONVERT_EXPR,
+							      TREE_TYPE (type),
+							      val));
+	      else
+		init_stmt = gimple_build_assign (new_temp, NOP_EXPR, val);
 	      vect_init_vector_1 (stmt, init_stmt, gsi);
 	      val = new_temp;
 	    }
@@ -2342,7 +2349,7 @@ vectorizable_call (gimple *gs, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	}
     }
 
-  if (slp_node || PURE_SLP_STMT (stmt_info))
+  if (slp_node)
     ncopies = 1;
   else if (modifier == NARROW && ifn == IFN_LAST)
     ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits_out;
@@ -2792,7 +2799,7 @@ vectorizable_simd_clone_call (gimple *stmt, gimple_stmt_iterator *gsi,
     return false;
 
   /* FORNOW */
-  if (slp_node || PURE_SLP_STMT (stmt_info))
+  if (slp_node)
     return false;
 
   /* Process function arguments.  */
@@ -3012,8 +3019,10 @@ vectorizable_simd_clone_call (gimple *stmt, gimple_stmt_iterator *gsi,
     {
       STMT_VINFO_SIMD_CLONE_INFO (stmt_info).safe_push (bestn->decl);
       for (i = 0; i < nargs; i++)
-	if (bestn->simdclone->args[i].arg_type
-	    == SIMD_CLONE_ARG_TYPE_LINEAR_CONSTANT_STEP)
+	if ((bestn->simdclone->args[i].arg_type
+	     == SIMD_CLONE_ARG_TYPE_LINEAR_CONSTANT_STEP)
+	    || (bestn->simdclone->args[i].arg_type
+		== SIMD_CLONE_ARG_TYPE_LINEAR_REF_CONSTANT_STEP))
 	  {
 	    STMT_VINFO_SIMD_CLONE_INFO (stmt_info).safe_grow_cleared (i * 3
 									+ 1);
@@ -3148,6 +3157,7 @@ vectorizable_simd_clone_call (gimple *stmt, gimple_stmt_iterator *gsi,
 	      vargs.safe_push (op);
 	      break;
 	    case SIMD_CLONE_ARG_TYPE_LINEAR_CONSTANT_STEP:
+	    case SIMD_CLONE_ARG_TYPE_LINEAR_REF_CONSTANT_STEP:
 	      if (j == 0)
 		{
 		  gimple_seq stmts;
@@ -3211,6 +3221,8 @@ vectorizable_simd_clone_call (gimple *stmt, gimple_stmt_iterator *gsi,
 		  vargs.safe_push (new_temp);
 		}
 	      break;
+	    case SIMD_CLONE_ARG_TYPE_LINEAR_VAL_CONSTANT_STEP:
+	    case SIMD_CLONE_ARG_TYPE_LINEAR_UVAL_CONSTANT_STEP:
 	    case SIMD_CLONE_ARG_TYPE_LINEAR_VARIABLE_STEP:
 	    case SIMD_CLONE_ARG_TYPE_LINEAR_REF_VARIABLE_STEP:
 	    case SIMD_CLONE_ARG_TYPE_LINEAR_VAL_VARIABLE_STEP:
@@ -3750,7 +3762,7 @@ vectorizable_conversion (gimple *stmt, gimple_stmt_iterator *gsi,
   /* Multiple types in SLP are handled by creating the appropriate number of
      vectorized stmts for each SLP node.  Hence, NCOPIES is always 1 in
      case of SLP.  */
-  if (slp_node || PURE_SLP_STMT (stmt_info))
+  if (slp_node)
     ncopies = 1;
   else if (modifier == NARROW)
     ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits_out;
@@ -4231,7 +4243,7 @@ vectorizable_assignment (gimple *stmt, gimple_stmt_iterator *gsi,
   /* Multiple types in SLP are handled by creating the appropriate number of
      vectorized stmts for each SLP node.  Hence, NCOPIES is always 1 in
      case of SLP.  */
-  if (slp_node || PURE_SLP_STMT (stmt_info))
+  if (slp_node)
     ncopies = 1;
   else
     ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits;
@@ -4491,7 +4503,7 @@ vectorizable_shift (gimple *stmt, gimple_stmt_iterator *gsi,
   /* Multiple types in SLP are handled by creating the appropriate number of
      vectorized stmts for each SLP node.  Hence, NCOPIES is always 1 in
      case of SLP.  */
-  if (slp_node || PURE_SLP_STMT (stmt_info))
+  if (slp_node)
     ncopies = 1;
   else
     ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits_in;
@@ -4922,7 +4934,7 @@ vectorizable_operation (gimple *stmt, gimple_stmt_iterator *gsi,
   /* Multiple types in SLP are handled by creating the appropriate number of
      vectorized stmts for each SLP node.  Hence, NCOPIES is always 1 in
      case of SLP.  */
-  if (slp_node || PURE_SLP_STMT (stmt_info))
+  if (slp_node)
     ncopies = 1;
   else
     ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits_in;
@@ -5239,6 +5251,10 @@ vectorizable_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
       && TREE_CODE (scalar_dest) != MEM_REF)
     return false;
 
+  /* Cannot have hybrid store SLP -- that would mean storing to the
+     same location twice.  */
+  gcc_assert (slp == PURE_SLP_STMT (stmt_info));
+
   gcc_assert (gimple_assign_single_p (stmt));
 
   tree vectype = STMT_VINFO_VECTYPE (stmt_info), rhs_vectype = NULL_TREE;
@@ -5250,7 +5266,7 @@ vectorizable_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
   /* Multiple types in SLP are handled by creating the appropriate number of
      vectorized stmts for each SLP node.  Hence, NCOPIES is always 1 in
      case of SLP.  */
-  if (slp || PURE_SLP_STMT (stmt_info))
+  if (slp)
     ncopies = 1;
   else
     ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits;
@@ -5332,9 +5348,7 @@ vectorizable_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
       grouped_store = true;
       first_stmt = GROUP_FIRST_ELEMENT (stmt_info);
       group_size = GROUP_SIZE (vinfo_for_stmt (first_stmt));
-      if (!slp
-	  && !PURE_SLP_STMT (stmt_info)
-	  && !STMT_VINFO_STRIDED_P (stmt_info))
+      if (!slp && !STMT_VINFO_STRIDED_P (stmt_info))
 	{
 	  if (vect_store_lanes_supported (vectype, group_size))
 	    store_lanes_p = true;
@@ -5343,7 +5357,7 @@ vectorizable_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	}
 
       if (STMT_VINFO_STRIDED_P (stmt_info)
-	  && (slp || PURE_SLP_STMT (stmt_info))
+	  && slp
 	  && (group_size > nunits
 	      || nunits % group_size != 0))
 	{
@@ -6252,7 +6266,7 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
   /* Multiple types in SLP are handled by creating the appropriate number of
      vectorized stmts for each SLP node.  Hence, NCOPIES is always 1 in
      case of SLP.  */
-  if (slp || PURE_SLP_STMT (stmt_info))
+  if (slp)
     ncopies = 1;
   else
     ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits;
@@ -6303,12 +6317,20 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
       gcc_assert (!nested_in_vect_loop && !STMT_VINFO_GATHER_SCATTER_P (stmt_info));
 
       first_stmt = GROUP_FIRST_ELEMENT (stmt_info);
+      group_size = GROUP_SIZE (vinfo_for_stmt (first_stmt));
+
+      if (!slp && !STMT_VINFO_STRIDED_P (stmt_info))
+	{
+	  if (vect_load_lanes_supported (vectype, group_size))
+	    load_lanes_p = true;
+	  else if (!vect_grouped_load_supported (vectype, group_size))
+	    return false;
+	}
 
       /* If this is single-element interleaving with an element distance
          that leaves unused vector loads around punt - we at least create
 	 very sub-optimal code in that case (and blow up memory,
 	 see PR65518).  */
-      bool force_peeling = false;
       if (first_stmt == stmt
 	  && !GROUP_NEXT_ELEMENT (stmt_info))
 	{
@@ -6322,7 +6344,7 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	    }
 
 	  /* Single-element interleaving requires peeling for gaps.  */
-	  force_peeling = true;
+	  gcc_assert (GROUP_GAP (stmt_info));
 	}
 
       /* If there is a gap in the end of the group or the group size cannot
@@ -6330,9 +6352,8 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	 elements in the last iteration and thus need to peel that off.  */
       if (loop_vinfo
 	  && ! STMT_VINFO_STRIDED_P (stmt_info)
-	  && (force_peeling
-	      || GROUP_GAP (vinfo_for_stmt (first_stmt)) != 0
-	      || (!slp && vf % GROUP_SIZE (vinfo_for_stmt (first_stmt)) != 0)))
+	  && (GROUP_GAP (vinfo_for_stmt (first_stmt)) != 0
+	      || (!slp && !load_lanes_p && vf % group_size != 0)))
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -6352,8 +6373,6 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
       if (slp && SLP_TREE_LOAD_PERMUTATION (slp_node).exists ())
 	slp_perm = true;
 
-      group_size = GROUP_SIZE (vinfo_for_stmt (first_stmt));
-
       /* ???  The following is overly pessimistic (as well as the loop
          case above) in the case we can statically determine the excess
 	 elements loaded are within the bounds of a decl that is accessed.
@@ -6364,16 +6383,6 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 			   "BB vectorization with gaps at the end of a load "
 			   "is not supported\n");
 	  return false;
-	}
-
-      if (!slp
-	  && !PURE_SLP_STMT (stmt_info)
-	  && !STMT_VINFO_STRIDED_P (stmt_info))
-	{
-	  if (vect_load_lanes_supported (vectype, group_size))
-	    load_lanes_p = true;
-	  else if (!vect_grouped_load_supported (vectype, group_size))
-	    return false;
 	}
 
       /* Invalidate assumptions made by dependence analysis when vectorization
@@ -6423,8 +6432,8 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
     }
   else if (STMT_VINFO_STRIDED_P (stmt_info))
     {
-      if ((grouped_load
-	   && (slp || PURE_SLP_STMT (stmt_info)))
+      if (grouped_load
+	  && slp
 	  && (group_size > nunits
 	      || nunits % group_size != 0))
 	{
@@ -7502,7 +7511,7 @@ vectorizable_condition (gimple *stmt, gimple_stmt_iterator *gsi,
   int nunits = TYPE_VECTOR_SUBPARTS (vectype);
   tree vectype1 = NULL_TREE, vectype2 = NULL_TREE;
 
-  if (slp_node || PURE_SLP_STMT (stmt_info))
+  if (slp_node)
     ncopies = 1;
   else
     ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits;
@@ -7708,7 +7717,7 @@ vectorizable_condition (gimple *stmt, gimple_stmt_iterator *gsi,
 
    Return FALSE if not a vectorizable STMT, TRUE otherwise.  */
 
-bool
+static bool
 vectorizable_comparison (gimple *stmt, gimple_stmt_iterator *gsi,
 			 gimple **vec_stmt, tree reduc_def,
 			 slp_tree slp_node)
@@ -7742,7 +7751,7 @@ vectorizable_comparison (gimple *stmt, gimple_stmt_iterator *gsi,
   mask_type = vectype;
   nunits = TYPE_VECTOR_SUBPARTS (vectype);
 
-  if (slp_node || PURE_SLP_STMT (stmt_info))
+  if (slp_node)
     ncopies = 1;
   else
     ncopies = LOOP_VINFO_VECT_FACTOR (loop_vinfo) / nunits;
@@ -8152,6 +8161,7 @@ vect_transform_stmt (gimple *stmt, gimple_stmt_iterator *gsi,
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   bool done;
 
+  gcc_assert (slp_node || !PURE_SLP_STMT (stmt_info));
   gimple *old_vec_stmt = STMT_VINFO_VEC_STMT (stmt_info);
 
   switch (STMT_VINFO_TYPE (stmt_info))

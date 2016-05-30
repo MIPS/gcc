@@ -12686,7 +12686,20 @@ c_parser_omp_clause_schedule (c_parser *parser, tree list)
 		  "schedule %<auto%> does not take "
 		  "a %<chunk_size%> parameter");
       else if (TREE_CODE (TREE_TYPE (t)) == INTEGER_TYPE)
-	OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (c) = t;
+	{
+	  /* Attempt to statically determine when the number isn't
+	     positive.  */
+	  tree s = fold_build2_loc (loc, LE_EXPR, boolean_type_node, t,
+				    build_int_cst (TREE_TYPE (t), 0));
+	  protected_set_expr_location (s, loc);
+	  if (s == boolean_true_node)
+	    {
+	      warning_at (loc, 0,
+			  "chunk size value must be positive");
+	      t = integer_one_node;
+	    }
+	  OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (c) = t;
+	}
       else
 	c_parser_error (parser, "expected integer expression");
 
@@ -14160,6 +14173,7 @@ c_parser_oacc_declare (c_parser *parser)
 
       switch (OMP_CLAUSE_MAP_KIND (t))
 	{
+	case GOMP_MAP_FIRSTPRIVATE_POINTER:
 	case GOMP_MAP_FORCE_ALLOC:
 	case GOMP_MAP_FORCE_TO:
 	case GOMP_MAP_FORCE_DEVICEPTR:
@@ -14541,25 +14555,24 @@ c_parser_oacc_routine (c_parser *parser, enum pragma_context context)
       c_parser_consume_token (parser);
 
       c_token *token = c_parser_peek_token (parser);
-
       if (token->type == CPP_NAME && (token->id_kind == C_ID_ID
 				      || token->id_kind == C_ID_TYPENAME))
 	{
 	  decl = lookup_name (token->value);
 	  if (!decl)
-	    {
-	      error_at (token->location, "%qE has not been declared",
-			token->value);
-	      decl = error_mark_node;
-	    }
+	    error_at (token->location, "%qE has not been declared",
+		      token->value);
+	  c_parser_consume_token (parser);
 	}
       else
 	c_parser_error (parser, "expected function name");
 
-      if (token->type != CPP_CLOSE_PAREN)
-	c_parser_consume_token (parser);
-
-      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, 0);
+      if (!decl
+	  || !c_parser_require (parser, CPP_CLOSE_PAREN, "expected %<)%>"))
+	{
+	  c_parser_skip_to_pragma_eol (parser, false);
+	  return;
+	}
     }
 
   /* Build a chain of clauses.  */

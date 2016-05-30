@@ -3761,7 +3761,8 @@ check_for_bare_parameter_packs (tree t)
 
   if (parameter_packs) 
     {
-      error ("parameter packs not expanded with %<...%>:");
+      location_t loc = EXPR_LOC_OR_LOC (t, input_location);
+      error_at (loc, "parameter packs not expanded with %<...%>:");
       while (parameter_packs)
         {
           tree pack = TREE_VALUE (parameter_packs);
@@ -3776,9 +3777,9 @@ check_for_bare_parameter_packs (tree t)
             name = DECL_NAME (pack);
 
 	  if (name)
-	    inform (input_location, "        %qD", name);
+	    inform (loc, "        %qD", name);
 	  else
-	    inform (input_location, "        <anonymous>");
+	    inform (loc, "        <anonymous>");
 
           parameter_packs = TREE_CHAIN (parameter_packs);
         }
@@ -9554,7 +9555,7 @@ can_complete_type_without_circularity (tree type)
     return 0;
   else if (COMPLETE_TYPE_P (type))
     return 1;
-  else if (TREE_CODE (type) == ARRAY_TYPE && TYPE_DOMAIN (type))
+  else if (TREE_CODE (type) == ARRAY_TYPE)
     return can_complete_type_without_circularity (TREE_TYPE (type));
   else if (CLASS_TYPE_P (type)
 	   && TYPE_BEING_DEFINED (TYPE_MAIN_VARIANT (type)))
@@ -10119,17 +10120,12 @@ instantiate_class_template_1 (tree type)
 			  if (can_complete_type_without_circularity (rtype))
 			    complete_type (rtype);
 
-                          if (TREE_CODE (r) == FIELD_DECL
-                              && TREE_CODE (rtype) == ARRAY_TYPE
-                              && COMPLETE_TYPE_P (TREE_TYPE (rtype))
-                              && !COMPLETE_TYPE_P (rtype))
-                            {
-                              /* Flexible array mmembers of elements
-                                 of complete type have an incomplete type
-                                 and that's okay.  */
-                            }
-                          else if (!COMPLETE_TYPE_P (rtype))
+			  if (!complete_or_array_type_p (rtype))
 			    {
+			      /* If R's type couldn't be completed and
+				 it isn't a flexible array member (whose
+				 type is incomplete by definition) give
+				 an error.  */
 			      cxx_incomplete_type_error (r, rtype);
 			      TREE_TYPE (r) = error_mark_node;
 			    }
@@ -12280,6 +12276,14 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    local_p = true;
 	    /* Subsequent calls to pushdecl will fill this in.  */
 	    ctx = NULL_TREE;
+	    /* Unless this is a reference to a static variable from an
+	       enclosing function, in which case we need to fill it in now.  */
+	    if (TREE_STATIC (t))
+	      {
+		tree fn = tsubst (DECL_CONTEXT (t), args, complain, in_decl);
+		if (fn != current_function_decl)
+		  ctx = fn;
+	      }
 	    spec = retrieve_local_specialization (t);
 	  }
 	/* If we already have the specialization we need, there is
@@ -13735,8 +13739,10 @@ tsubst_qualified_id (tree qualified_id, tree args,
     {
       if (is_template)
 	expr = build_min_nt_loc (loc, TEMPLATE_ID_EXPR, expr, template_args);
-      return build_qualified_name (NULL_TREE, scope, expr,
-				   QUALIFIED_NAME_IS_TEMPLATE (qualified_id));
+      tree r = build_qualified_name (NULL_TREE, scope, expr,
+				     QUALIFIED_NAME_IS_TEMPLATE (qualified_id));
+      REF_PARENTHESIZED_P (r) = REF_PARENTHESIZED_P (qualified_id);
+      return r;
     }
 
   if (!BASELINK_P (name) && !DECL_P (expr))
@@ -13815,6 +13821,9 @@ tsubst_qualified_id (tree qualified_id, tree args,
 	 want the referenced member referenced.  */
       && TREE_CODE (expr) != OFFSET_REF)
     expr = convert_from_reference (expr);
+
+  if (REF_PARENTHESIZED_P (qualified_id))
+    expr = force_paren_expr (expr);
 
   return expr;
 }
@@ -13991,7 +14000,8 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     case FUNCTION_DECL:
       if (DECL_LANG_SPECIFIC (t) && DECL_TEMPLATE_INFO (t))
 	r = tsubst (t, args, complain, in_decl);
-      else if (local_variable_p (t))
+      else if (local_variable_p (t)
+	       && uses_template_parms (DECL_CONTEXT (t)))
 	{
 	  r = retrieve_local_specialization (t);
 	  if (r == NULL_TREE)
@@ -14035,14 +14045,9 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 		  gcc_assert (cp_unevaluated_operand || TREE_STATIC (r)
 			      || decl_constant_var_p (r)
 			      || errorcount || sorrycount);
-		  if (!processing_template_decl)
-		    {
-		      if (TREE_STATIC (r))
-			rest_of_decl_compilation (r, toplevel_bindings_p (),
-						  at_eof);
-		      else
-			r = process_outer_var_ref (r, complain);
-		    }
+		  if (!processing_template_decl
+		      && !TREE_STATIC (r))
+		    r = process_outer_var_ref (r, complain);
 		}
 	      /* Remember this for subsequent uses.  */
 	      if (local_specializations)
@@ -24016,8 +24021,10 @@ do_auto_deduction (tree type, tree init, tree auto_node,
 
   if (AUTO_IS_DECLTYPE (auto_node))
     {
-      bool id = (DECL_P (init) || (TREE_CODE (init) == COMPONENT_REF
-				   && !REF_PARENTHESIZED_P (init)));
+      bool id = (DECL_P (init)
+		 || ((TREE_CODE (init) == COMPONENT_REF
+		      || TREE_CODE (init) == SCOPE_REF)
+		     && !REF_PARENTHESIZED_P (init)));
       targs = make_tree_vec (1);
       TREE_VEC_ELT (targs, 0)
 	= finish_decltype_type (init, id, tf_warning_or_error);
