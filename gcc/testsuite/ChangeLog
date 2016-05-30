@@ -1,3 +1,299 @@
+2016-05-30  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2016-05-11  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/71002
+	* g++.dg/torture/pr71002.C: New testcase.
+
+	2016-05-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/71071
+	* gcc.dg/pr71071.c: New test.
+
+2016-05-30  Tom de Vries  <tom@codesourcery.com>
+
+	backport:
+	2016-05-30  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/69067
+	* gcc.dg/graphite/pr69067.c: New test.
+
+2016-05-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71105
+	* g++.dg/cpp0x/lambda/lambda-conv11.C: New.
+	* g++.dg/cpp1y/lambda-conv1.C: Likewise.
+	* g++.dg/cpp1y/lambda-conv2.C: Likewise.
+
+2016-05-27  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	Backport from mainline r236810.
+	2016-05-27  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR middle-end/71279
+	* gcc.dg/pr71279.c: New test.
+
+2016-05-26  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from trunk.
+	PR fortran/66461
+	* gfortran.dg/unexpected_eof.f: New test
+
+2016-05-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt55.ad[sb]: New test.
+
+2016-05-24  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/71147
+	* g++.dg/ext/flexary16.C: New test.
+
+2016-05-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/69872
+	* g++.dg/warn/Wno-narrowing1.C: New.
+
+2016-05-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71257
+	* g++.dg/vect/simd-clone-6.cc: New test.
+	* g++.dg/gomp/declare-simd-6.C: New test.
+
+2016-05-23  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/70884
+	* gcc.dg/tree-ssa/pr70919.c: New test.
+
+2016-05-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71210
+	* g++.dg/opt/pr71210-1.C: New test.
+	* g++.dg/opt/pr71210-2.C: New test.
+
+	PR fortran/71204
+	* gfortran.dg/pr71204.f90: New test.
+
+2016-05-19  David Malcolm  <dmalcolm@redhat.com>
+
+	Backport from trunk r236483.
+	PR c++/71184
+	* g++.dg/pr71184.C: New test case.
+
+2016-05-19  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2016-05-19  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/71031
+	* gcc.dg/tree-ssa/vrp100.c: New test.
+
+2016-05-19  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	Backport from mainline
+	2016-05-19  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* c-c++-common/pr69669.c: Check the used mode.
+
+2016-05-19  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/70646
+	* gcc.dg/ipa/pr70646.c: New test.
+
+2016-05-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71100
+	* g++.dg/opt/pr71100.C: New test.
+
+2016-05-18  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/70466
+	* g++.dg/template/pr70466-1.C: New.
+	* g++.dg/template/pr70466-2.C: Likewise.
+
+2016-05-18  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	Backport from mainline r236377.
+	2016-05-19  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/noplt_3.c: Scan for "br\t".
+	* gcc.target/aarch64/tail_indirect_call_1.c: Scan for "br\t",
+	"blr\t" and switch to scan-assembler-times.
+
+2016-05-17  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2016-05-17  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/70809
+	* gcc.target/aarch64/pr70809_1.c: New test.
+
+2016-05-15  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2016-05-11  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/pr70963.c: Require at least power8 at both
+	compile and run time.
+
+2016-05-15  Harald Anlauf  <anlauf@gmx.de>
+
+	PR fortran/69603
+	* gfortran.dg/pr69603.f90: New testcase.
+
+2016-05-14  Fritz Reese  <fritzoreese@gmail.com>
+
+	Backport from trunk: r235999, r236241, r236242
+	* gfortran.dg/dec_union_4.f90: Fix endian issue.
+
+	PR fortran/71047
+	* gfortran.dg/pr71047.f08: New test.
+
+	PR fortran/56226
+	* gfortran.dg/dec_structure_1.f90: New testcase.
+	* gfortran.dg/dec_structure_2.f90: Ditto.
+	* gfortran.dg/dec_structure_3.f90: Ditto.
+	* gfortran.dg/dec_structure_4.f90: Ditto.
+	* gfortran.dg/dec_structure_5.f90: Ditto.
+	* gfortran.dg/dec_structure_6.f90: Ditto.
+	* gfortran.dg/dec_structure_7.f90: Ditto.
+	* gfortran.dg/dec_structure_8.f90: Ditto.
+	* gfortran.dg/dec_structure_9.f90: Ditto.
+	* gfortran.dg/dec_structure_10.f90: Ditto.
+	* gfortran.dg/dec_structure_11.f90: Ditto.
+	* gfortran.dg/dec_union_1.f90: Ditto.
+	* gfortran.dg/dec_union_2.f90: Ditto.
+	* gfortran.dg/dec_union_3.f90: Ditto.
+	* gfortran.dg/dec_union_4.f90: Ditto.
+	* gfortran.dg/dec_union_5.f90: Ditto.
+	* gfortran.dg/dec_union_6.f90: Ditto.
+	* gfortran.dg/dec_union_7.f90: Ditto.
+
+2016-05-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/vect/tree-vect.h (check_vect): Handle AVX2,
+	remove XOP handling.
+	* gcc.dg/vect/pr66636.c (foo): Add __attribute__((noinline,noclone)).
+
+2016-05-13  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2016-04-27  Richard Biener  <rguenther@suse.de>
+
+	PR ipa/70760
+	* g++.dg/ipa/ipa-pta-2.C: New testcase.
+
+	2016-05-06  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70931
+	* gfortran.dg/pr70931.f90: New testcase.
+
+	2016-05-06  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70941
+	* gcc.dg/torture/pr70941.c: New testcase.
+
+	2016-05-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/70941
+	* gcc.dg/torture/pr70941.c (abort): Remove prototype.
+	(a, b, c, d): Change type from char to signed char.
+	(main): Compare against (signed char) -1634678893 instead of
+	hardcoded -109.  Use __builtin_abort instead of abort.
+
+2016-05-12  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	Backport from mainline r236171.
+	2016-05-12  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR tree-optimization/71006
+	* gcc.dg/pr71006.c: New test.
+
+2016-05-12  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2016-05-12  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/70830
+	* gcc.target/arm/interrupt-1.c: Change dg-compile to dg-assemble.
+	Add -save-temps to dg-options.
+	Scan for ldmfd rather than pop instruction.
+	* gcc.target/arm/interrupt-2.c: Likewise.
+	* gcc.target/arm/pr70830.c: New test.
+
+2016-05-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/70855
+	* gfortran.dg/gomp/pr70855.f90: New test.
+
+2016-05-11  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	Backport from mainline r236088.
+	2016-05-10  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR middle-end/70877
+	* gcc.target/i386/pr70877.c: New test.
+
+2016-05-11  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	Backport from mainline r236086.
+	2016-05-10  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR tree-optimization/70876
+	* gcc.target/i386/pr70876.c: New test.
+
+2016-05-10  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2016-05-10  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/70963
+	* gcc.target/powerpc/pr70963.c: New.
+
+2016-05-10  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2016-05-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/70916
+	* gcc.c-torture/compile/pr70916.c: New test.
+
+2016-05-10  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	Backport from mainline r235962.
+	2016-05-06  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR debug/70935
+	* gcc.dg/torture/pr70935.c: New test.
+
+2016-05-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/fabsneg-1.c New test.
+
+2016-05-07  Tom de Vries  <tom@codesourcery.com>
+
+	backport:
+	2016-05-07  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/70956
+	* gcc.dg/graphite/pr70956.c: New test.
+
+2016-05-06  Marek Polacek  <polacek@redhat.com>
+
+	Backported from mainline
+	2016-05-06  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/70875
+	* gcc.dg/ubsan/bounds-3.c: New test.
+
+2016-05-06  Marek Polacek  <polacek@redhat.com>
+
+	Backported from mainline
+	2016-04-29  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/70342
+	* g++.dg/ubsan/null-7.C: New test.
+
 2016-05-03  Pierre-Marie de Rodat  <derodat@adacore.com>
 
 	* gnat.dg/debug5.adb: New testcase.

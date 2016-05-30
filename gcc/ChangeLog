@@ -1,3 +1,398 @@
+2016-05-30  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2016-05-11  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/71002
+	* alias.c (reference_alias_ptr_type): Preserve alias-set zero
+	if the langhook insists on it.
+	* fold-const.c (make_bit_field_ref): Add arg for the original
+	reference and preserve its alias-set.
+	(decode_field_reference): Take exp by reference and adjust it
+	to the original memory reference.
+	(optimize_bit_field_compare): Adjust callers.
+	(fold_truth_andor_1): Likewise.
+
+	2016-05-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/71071
+	* fold-const.c (fold_checksum_tree): Allow modification
+	of TYPE_ALIAS_SET during folding.
+
+2016-05-30  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/visium/visium.c (visium_split_double_add): Minor tweaks.
+	(visium_expand_copysign): Use gen_int_mode directly.
+	(visium_compute_frame_size): Minor tweaks.
+
+2016-05-30  Tom de Vries  <tom@codesourcery.com>
+
+	backport:
+	2016-05-30  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/69067
+	* graphite-isl-ast-to-gimple.c (get_def_bb_for_const): Remove assert.
+
+2016-05-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/visium/visium-protos.h (split_double_move): Rename into...
+	(visium_split_double_move): ...this.
+	(visium_split_double_add): Declare.
+	* config/visium/visium.c (split_double_move): Rename into...
+	(visium_split_double_move): ...this.
+	(visium_split_double_add): New function.
+	(visium_expand_copysign): Renumber operands for consistency.
+	* config/visium/visium.md (DImode move splitter): Adjust to renaming.
+	(DFmode move splitter): Likewise.
+	(*addi3_insn): Split by means of visium_split_double_add.
+	(*adddi3_insn_flags): Delete.
+	(*plus_plus_sltu<subst_arith>): New insn.
+	(*subdi3_insn): Split by means of visium_split_double_add.
+	(subdi3_insn_flags): Delete.
+	(*minus_minus_sltu<subst_arith>): New insn.
+	(*negdi2_insn): Split by means of visium_split_double_add.
+	(*negdi2_insn_flags): Delete.
+
+2016-05-27  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	Backport from mainline r236810.
+	2016-05-27  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR middle-end/71279
+	* fold-const.c (fold_ternary_loc): Don't fold VEC_COND_EXPR
+	into comparison.
+
+2016-05-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-ssa-phiopt.c (factor_out_conditional_conversion): Remove
+	redundant test and bail out if the type of the new operand is not
+	a GIMPLE register type after stripping a VIEW_CONVERT_EXPR.
+
+2016-05-24  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/71147
+	* tree.h (complete_or_array_type_p): New inline function.
+
+2016-05-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.h (TARGET_AVOID_4BYTE_PREFIXES): Define.
+	* config/i386/constraints.md (Yr): Test TARGET_AVOID_4BYTE_PREFIXES
+	rather than X86_TUNE_AVOID_4BYTE_PREFIXES.  Use SSE_REGS instead
+	of ALL_SSE_REGS.  Return SSE_REGS also when TARGET_AVX.
+
+2016-05-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71257
+	* tree-vect-stmts.c (vectorizable_simd_clone_call): Handle
+	SIMD_CLONE_ARG_TYPE_LINEAR_REF_CONSTANT_STEP like
+	SIMD_CLONE_ARG_TYPE_LINEAR_CONSTANT_STEP.  Add
+	SIMD_CLONE_ARG_TYPE_LINEAR_VAL_CONSTANT_STEP and
+	SIMD_CLONE_ARG_TYPE_LINEAR_UVAL_CONSTANT_STEP cases explicitly.
+
+2016-05-23  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (gen_hsa_insns_for_switch_stmt): Create an empty
+	default block if a PHI node in the original one would be resized.
+
+2016-05-23  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/70884
+	* tree-sra.c (initialize_constant_pool_replacements): Do not check
+	should_scalarize_away_bitmap and cannot_scalarize_away_bitmap bits.
+	(sort_and_splice_var_accesses): Do not consider multiple scalar reads
+	of constant pool data as a reason for scalarization.
+
+2016-05-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/arm/arm.c (arm_expand_prologue): Set the stack usage to 0
+	for naked functions.
+	(thumb1_expand_prologue): Likewise.
+
+2016-05-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71210
+	* gimple-fold.c (gimple_fold_call): Do not remove lhs of noreturn
+	calls if the LHS is variable length or has addressable type.
+	If targets[0]->decl is a noreturn call with void return type and
+	zero arguments, adjust fntype and remove lhs in that case.
+
+2016-05-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	* sched-deps.c (sched_analyze_2) <case TRAP_IF>: Also
+	force pending loads from memory.
+
+2016-05-19  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2016-05-19  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/71031
+	* tree-vrp.c (extract_range_from_binary_expr_1): Turn assert into a
+	condition and adjust the code a bit.
+
+2016-05-19  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/70646
+	* ipa-prop.c (determine_locally_known_aggregate_parts): Bail out early
+	if parameter PARAM_IPA_MAX_AGG_ITEMS is zero.
+
+2016-05-19  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/70646
+	* ipa-inline.h (condition): New field size.
+	* ipa-inline-analysis.c (add_condition): New parameter SIZE, use it
+	for comaprison and store it into the new condition.
+	(evaluate_conditions_for_known_args): Use condition size to check
+	access sizes for all but CHANGED conditions.
+	(unmodified_parm_1): New parameter size_p, store access size into it.
+	(unmodified_parm): Likewise.
+	(unmodified_parm_or_parm_agg_item): Likewise.
+	(eliminated_by_inlining_prob): Pass NULL to unmodified_parm as size_p.
+	(set_cond_stmt_execution_predicate): Extract access sizes and store
+	them to conditions.
+	(set_switch_stmt_execution_predicate): Likewise.
+	(will_be_nonconstant_expr_predicate): Likewise.
+	(will_be_nonconstant_predicate): Likewise.
+	(inline_read_section): Stream condition size.
+	(inline_write_summary): Likewise.
+	* lto-streamer.h (LTO_minor_version): Bump.
+
+2016-05-18  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2016-05-18  Martin Liska  <mliska@suse.cz>
+
+	PR fortran/70856
+	* ipa-icf.c (sem_variable::merge): Set DECL_PT_UID for
+	merged variables.
+
+2016-05-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71100
+	* cgraph.c (cgraph_edge::redirect_call_stmt_to_callee): Don't drop
+	lhs if it has TREE_ADDRESSABLE type.
+
+2016-05-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/71145
+	* config/alpha/alpha.md (trap): Add (use (reg:DI 29)).
+	(*exception_receiver_1): Return "#" for TARGET_EXPLICIT_RELOCS.
+
+2016-05-17  Thomas Schwinge  <thomas@codesourcery.com>
+
+	Backport trunk r235748:
+	PR target/70860
+	* config/nvptx/nvptx.c (nvptx_libcall_value): Handle NULL cfun.
+	(nvptx_function_value): Assert non-NULL cfun.
+
+2016-05-17  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2016-05-17  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/70809
+	* config/aarch64/aarch64-simd.md (aarch64_vmls<mode>): Delete.
+
+2016-05-16  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (fillup_for_decl): Increase alignment to natural one.
+	(get_symbol_for_decl): Sorry if a global symbol in under-aligned.
+
+2016-05-16  Martin Jambor  <mjambor@suse.cz>
+
+	PR hsa/70857
+	* omp-low.c (grid_expand_target_grid_body): Copy RESULT_DECL of
+	the outlined kernel function.
+
+2016-05-16  James Norris  <jnorris@codesourcery.com>
+
+	Backport from mainline r236098.
+	2016-05-10  James Norris  <jnorris@codesourcery.com>
+
+	PR driver/68463
+	* config/rs6000/sysv4.h (CRTOFFLOADBEGIN): Define. Add crtoffloadbegin.o
+	if offloading is enabled and -fopenacc or -fopenmp is specified.
+	(CRTOFFLOADEND): Likewise.
+	(STARTFILE_LINUX_SPEC): Add CRTOFFLOADBEGIN.
+	(ENDFILE_LINUX_SPEC): Add CRTOFFLOADEND.
+
+2016-05-16  Alan Modra  <amodra@gmail.com>
+
+	Apply from mainline
+	2016-05-10  Alan Modra  <amodra@gmail.com>
+	PR target/70947
+	* config/rs6000/rs6000.c (rs6000_expand_split_stack_prologue): Stop
+	regrename modifying insns saving lr before __morestack call.
+	* config/rs6000/rs6000.md (split_stack_return): Similarly for
+	insns restoring lr after __morestack call.
+
+2016-05-13  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2016-04-27  Richard Biener  <rguenther@suse.de>
+
+	PR ipa/70760
+	* tree-ssa-structalias.c (find_func_aliases_for_call): Use
+	aggregate_value_p to determine if a function result is
+	returned by reference.
+
+	2016-05-06  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70931
+	* dwarf2out.c (native_encode_initializer): Skip zero-sized fields.
+
+	2016-05-06  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70941
+	* fold-const.c (split_tree): Always convert to the original type
+	before negating.
+
+2016-05-12  Martin Liska  <mliska@suse.cz>
+
+	Backport from mainline
+	2016-05-10  Martin Liska  <mliska@suse.cz>
+
+	* tree-inline.c (remap_dependence_clique): Do not remap
+	debugging statements.
+
+2016-05-12  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	Backport from mainline r236171.
+	2016-05-12  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR tree-optimization/71006
+	* tree-vect-loop.c (vect_determine_vectorization_factor): Don't
+	consider COND_EXPR as a mask producer.
+
+2016-05-12  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2016-05-12  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/70830
+	* config/arm/arm.c (arm_output_multireg_pop): Avoid POP instruction
+	when popping the PC and within an interrupt handler routine.
+	Add missing tab to output of "ldmfd".
+	(output_return_instruction): Output LDMFD with SP update rather
+	than POP when returning from interrupt handler.
+
+2016-05-11  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	Backport from mainline r236088.
+	2016-05-10  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR middle-end/70877
+	* tree-chkp.c (chkp_add_bounds_to_call_stmt): Handle
+	calls with type casted fndecl.
+
+2016-05-11  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	Backport from mainline r236086.
+	2016-05-10  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR tree-optimization/70876
+	* tree-chkp.c (chkp_find_bounds_1): Support WITH_SIZE_EXPR.
+	* gcc/calls.c (initialize_argument_information): Bind bounds
+	with corresponding args passed by reference.
+
+2016-05-10  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2016-05-10  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/70963
+	* config/rs6000/vsx.md (vsx_xvcvdpsxds_scale): Generate correct
+	code for a zero scale factor.
+	(vsx_xvcvdpuxds_scale): Likewise.
+
+2016-05-10  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2016-05-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/70916
+	* tree-vect-patterns.c (vect_recog_mask_conversion_pattern): Give up
+	if COND_EXPR rhs1 is neither SSA_NAME nor COMPARISON_CLASS_P.
+
+2016-05-10  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	Backport from mainline r235962.
+	2016-05-06  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR debug/70935
+	* tree-ssa-loop-unswitch.c (find_loop_guard): Reject guard edge with
+	loop latch destination.
+
+2016-05-10  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2016-05-10  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.md ("*vec_cmp<insn_cmp>df_cconly")
+	("*fixuns_truncdfdi2_z13")
+	("*fixuns_trunc<FP:mode><GPR:mode>2_z196")
+	("*fix_truncdfdi2_bfp_z13", "*floatunsdidf2_z13")
+	("*extendsfdf2_z13"): Replace TARGET_Z13 with TARGET_VX.
+
+2016-05-10  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	Backport from mainline
+	2016-04-27  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* config/rtems.h (LIB_SPEC): Add -latomic.
+
+2016-05-10  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	Backport from mainline
+	2016-04-27  Joel Sherrill  <joel@rtems.org>
+
+	* config/microblaze/rtems.h: Redefine LINK_SPEC to avoid
+	xilink.ld and flags not relevant to RTEMS.
+
+2016-05-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (absneg splitters with general regs): Use
+	general_reg_operand predicate.
+	(btsq peephole2): Use x86_64_immediate_operand to check if new
+	value is suitable for immediate operand.  Generate emitted insn
+	using RTL expressions.
+	(btcq peephole2): Ditto.
+	(btrq peephole2): Ditto.  Generate correct immediate operand
+	for AND masking.
+
+2016-05-07  Tom de Vries  <tom@codesourcery.com>
+
+	backport:
+	2016-05-07  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/70956
+	* graphite-scop-detection.c (build_cross_bb_scalars_def): Handle NULL
+	def.
+
+2016-05-06  Marek Polacek  <polacek@redhat.com>
+
+	Backported from mainline
+	2016-05-06  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/70875
+	* ubsan.c (get_ubsan_type_info_for_type): Remove assert.
+
+2016-05-06  Marek Polacek  <polacek@redhat.com>
+
+	Backported from mainline
+	2016-04-29  Marek Polacek  <polacek@redhat.com>
+		    Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/70342
+	* fold-const.c (tree_single_nonzero_warnv_p): For TARGET_EXPR, use
+	TARGET_EXPR_SLOT as a base.
+
+2016-05-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-ssa-coalesce.c (gimple_can_coalesce_p): Fix reference in head
+	comment.
+	(compute_samebase_partition_bases): Fix typo.
+
 2016-05-03  Pierre-Marie de Rodat  <derodat@adacore.com>
 
 	* dwarf2out.c (resolve_args_picking_1): Replace the frame_offset
@@ -125,7 +520,7 @@
 	constant boolean.
 
 2016-04-20  Andrew Pinski  <apinski@cavium.com>
-            Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+	    Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
 
 	PR target/64971
 	* config/aarch64/aarch64.md (sibcall): Force call
