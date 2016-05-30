@@ -1,3 +1,9 @@
+2016-05-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (expand_omp_ordered_sink): Handle TREE_PURPOSE
+	of deps being TRUNC_DIV_EXPR.
+	* gimplify.c (gimplify_scan_omp_clauses): Likewise.
+
 2016-05-20  Jakub Jelinek  <jakub@redhat.com>
 
 	* langhooks.h (struct lang_hooks_for_decls): Add omp_scalar_p.

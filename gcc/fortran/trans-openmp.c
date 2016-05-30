@@ -1754,6 +1754,8 @@ gfc_convert_expr_to_tree (stmtblock_t *block, gfc_expr *expr)
   return result;
 }
 
+static vec<tree, va_heap, vl_embed> *doacross_steps;
+
 static tree
 gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 		       locus where, bool declare_simd = false)
@@ -1930,7 +1932,8 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 	      if (n->u.depend_op == OMP_DEPEND_SINK_FIRST)
 		{
 		  tree vec = NULL_TREE;
-		  while (1)
+		  unsigned int i;
+		  for (i = 0; ; i++)
 		    {
 		      tree addend = integer_zero_node, t;
 		      bool neg = false;
@@ -1948,6 +1951,15 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
 		      t = gfc_trans_omp_variable (n->sym, false);
 		      if (t != error_mark_node)
 			{
+			  if (i < vec_safe_length (doacross_steps)
+			      && !integer_zerop (addend)
+			      && (*doacross_steps)[i])
+			    {
+			      tree step = (*doacross_steps)[i];
+			      addend = fold_convert (TREE_TYPE (step), addend);
+			      addend = build2 (TRUNC_DIV_EXPR,
+					       TREE_TYPE (step), addend, step);
+			    }
 			  vec = tree_cons (addend, t, vec);
 			  if (neg)
 			    OMP_CLAUSE_DEPEND_SINK_NEGATIVE (vec) = 1;
@@ -3431,7 +3443,9 @@ gfc_trans_omp_do (gfc_code *code, gfc_exec_op op, stmtblock_t *pblock,
   vec<dovar_init> inits = vNULL;
   dovar_init *di;
   unsigned ix;
+  vec<tree, va_heap, vl_embed> *saved_doacross_steps = doacross_steps;
 
+  doacross_steps = NULL;
   if (clauses->orderedc)
     collapse = clauses->orderedc;
   if (collapse <= 0)
@@ -3568,6 +3582,12 @@ gfc_trans_omp_do (gfc_code *code, gfc_exec_op op, stmtblock_t *pblock,
 	  tmp = fold_build2_loc (input_location, PLUS_EXPR, type, from, tmp);
 	  dovar_init e = {dovar, tmp};
 	  inits.safe_push (e);
+	  if (clauses->orderedc)
+	    {
+	      if (doacross_steps == NULL)
+		vec_safe_grow_cleared (doacross_steps, clauses->orderedc);
+	      (*doacross_steps)[i] = step;
+	    }
 	}
       if (orig_decls)
 	TREE_VEC_ELT (orig_decls, i) = dovar_decl;
@@ -3727,6 +3747,9 @@ gfc_trans_omp_do (gfc_code *code, gfc_exec_op op, stmtblock_t *pblock,
   if (orig_decls)
     OMP_FOR_ORIG_DECLS (stmt) = orig_decls;
   gfc_add_expr_to_block (&block, stmt);
+
+  vec_free (doacross_steps);
+  doacross_steps = saved_doacross_steps;
 
   return gfc_finish_block (&block);
 }

@@ -1,3 +1,10 @@
+2016-05-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-openmp.c (doacross_steps): New variable.
+	(gfc_trans_omp_clauses): Wrap depend sink addend into
+	TRUNC_DIV_EXPR with second operand the non-simple step.
+	(gfc_trans_omp_do): Set up doacross_steps.
+
 2016-05-27  Jakub Jelinek  <jakub@redhat.com>
 
 	* gfortran.h (enum gfc_statement): Add ST_OMP_ORDERED_DEPEND.
