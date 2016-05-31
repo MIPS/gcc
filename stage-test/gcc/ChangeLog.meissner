@@ -13,7 +13,7 @@
 	force_reg, since gen_vsx_splat_v2di/gen_vsx_splat_v2df now does
 	it.
 
-	* config/rs6000/rs6000.md (VSX_SPLAT): New iterator for load/move
+	* config/rs6000/vsx.md (VSX_SPLAT): New iterator for load/move
 	with splat.
 	(vsx_splat_<mode>): Add expanders for 64-bit load/move splat
 	instructions, and rework the 32-bit load/move splat instructions.
