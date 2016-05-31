@@ -12888,7 +12888,8 @@ cp_parser_function_specifier_opt (cp_parser* parser,
       /* 14.5.2.3 [temp.mem]
 
 	 A member function template shall not be virtual.  */
-      if (PROCESSING_REAL_TEMPLATE_DECL_P ())
+      if (PROCESSING_REAL_TEMPLATE_DECL_P ()
+	  && current_class_type)
 	error_at (token->location, "templates may not be %<virtual%>");
       else
 	set_and_check_decl_spec_loc (decl_specs, ds_virtual, token);
@@ -17549,7 +17550,7 @@ cp_parser_namespace_definition (cp_parser* parser)
     }
 
   /* Start the namespace.  */
-  push_namespace (identifier);
+  bool ok = push_namespace (identifier);
 
   /* Parse any nested namespace definition. */
   if (cp_lexer_next_token_is (parser->lexer, CPP_SCOPE))
@@ -17582,7 +17583,7 @@ cp_parser_namespace_definition (cp_parser* parser)
 
   /* "inline namespace" is equivalent to a stub namespace definition
      followed by a strong using directive.  */
-  if (is_inline)
+  if (is_inline && ok)
     {
       tree name_space = current_namespace;
       /* Set up namespace association.  */
@@ -17610,7 +17611,8 @@ cp_parser_namespace_definition (cp_parser* parser)
     pop_namespace ();
 
   /* Finish the namespace.  */
-  pop_namespace ();
+  if (ok)
+    pop_namespace ();
   /* Look for the final `}'.  */
   cp_parser_require (parser, CPP_CLOSE_BRACE, RT_CLOSE_BRACE);
 }
@@ -33917,7 +33919,9 @@ cp_parser_omp_for (cp_parser *parser, cp_token *pragma_tok,
 
   strcat (p_name, " for");
   mask |= OMP_FOR_CLAUSE_MASK;
-  if (cclauses)
+  /* parallel for{, simd} disallows nowait clause, but for
+     target {teams distribute ,}parallel for{, simd} it should be accepted.  */
+  if (cclauses && (mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_MAP)) == 0)
     mask &= ~(OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NOWAIT);
   /* Composite distribute parallel for{, simd} disallows ordered clause.  */
   if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_DIST_SCHEDULE)) != 0)
@@ -34256,7 +34260,8 @@ cp_parser_omp_parallel (cp_parser *parser, cp_token *pragma_tok,
 	}
     }
 
-  clauses = cp_parser_omp_all_clauses (parser, mask, p_name, pragma_tok);
+  clauses = cp_parser_omp_all_clauses (parser, mask, p_name, pragma_tok,
+				       cclauses == NULL);
   if (cclauses)
     {
       cp_omp_split_clauses (loc, OMP_PARALLEL, mask, clauses, cclauses);
