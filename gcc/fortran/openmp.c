@@ -2458,8 +2458,12 @@ gfc_match_omp_declare_simd (void)
   gfc_omp_clauses *c;
   gfc_omp_declare_simd *ods;
 
-  if (gfc_match (" ( %s ) ", &proc_name) != MATCH_YES)
-    return MATCH_ERROR;
+  switch (gfc_match (" ( %s ) ", &proc_name))
+    {
+    case MATCH_YES: break;
+    case MATCH_NO: proc_name = NULL; break;
+    case MATCH_ERROR: return MATCH_ERROR;
+    }
 
   if (gfc_match_omp_clauses (&c, OMP_DECLARE_SIMD_CLAUSES, true,
 			     false) != MATCH_YES)
@@ -5866,7 +5870,8 @@ gfc_resolve_omp_declare_simd (gfc_namespace *ns)
 
   for (ods = ns->omp_declare_simd; ods; ods = ods->next)
     {
-      if (ods->proc_name != ns->proc_name)
+      if (ods->proc_name != NULL
+	  && ods->proc_name != ns->proc_name)
 	gfc_error ("!$OMP DECLARE SIMD should refer to containing procedure "
 		   "%qs at %L", ns->proc_name->name, &ods->where);
       if (ods->clauses)

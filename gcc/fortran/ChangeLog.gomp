@@ -1,5 +1,9 @@
 2016-05-31  Jakub Jelinek  <jakub@redhat.com>
 
+	* openmp.c (gfc_match_omp_declare_simd): Make (proc-name) optional.
+	If not present, set proc_name to NULL.
+	(gfc_resolve_omp_declare_simd): Allow ods->proc_name to be NULL.
+
 	* trans-openmp.c (gfc_trans_omp_do): For doacross loop, put into
 	OMP_CLAUSE_LASTPRIVATE_STMT dovar = count * step + from or
 	dovar = (count + 1) * step + from instead of dovar = dovar + step.

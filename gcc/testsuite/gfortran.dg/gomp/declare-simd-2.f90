@@ -12,3 +12,9 @@ function f1 (a, b, c, d, e, f)
   f = f + 1
   f1 = a + b + c + d + e + f
 end function f1
+integer function f2 (a, b)
+  integer :: a, b
+!$omp declare simd uniform(b) linear(ref(a):b)
+  a = a + 1
+  f2 = a + b
+end function f2

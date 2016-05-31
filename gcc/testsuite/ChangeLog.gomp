@@ -1,3 +1,7 @@
+2016-05-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/gomp/declare-simd-2.f90 (f2): New function.
+
 2016-05-24  Jakub Jelinek  <jakub@redhat.com>
 
 	* gfortran.dg/gomp/declare-simd-2.f90: New test.
