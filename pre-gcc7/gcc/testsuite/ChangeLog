@@ -1,3 +1,216 @@
+2016-05-31  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71248
+	* g++.dg/cpp0x/pr71248.C: New.
+	* g++.dg/cpp0x/auto7.C: Test column numbers too.
+	* g++.dg/cpp0x/constexpr-static8.C: Likewise.
+	* g++.dg/init/new37.C: Likewise.
+	* g++.dg/template/static1.C: Likewise.
+	* g++.dg/template/static2.C: Likewise.
+
+2016-05-31  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/avx512vl-vbroadcast-3.c: Scan %\[re\]di
+	instead of %rdi.
+	* gcc.target/i386/avx512vl-vcvtps2ph-3.c: Likewise.
+
+2016-05-31  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/Wswitch-unreachable-3.c: New test.
+	* g++.dg/warn/Wswitch-unreachable-1.C: New test.
+
+2016-05-31  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71352
+	* gcc.dg/tree-ssa/reassoc-45.c: New testcase.
+
+2016-05-31  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* gcc.target/arm/armv5_thumb_isa.c: New test.
+
+2016-05-31  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	PR target/71346
+	* gcc.target/i386/pr71346.c: New test.
+
+2016-05-31  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/69068
+	* gcc.dg/graphite/pr69068.c: New test.
+
+2016-05-27  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/71306
+	* g++.dg/warn/Wplacement-new-size-3.C: New test.
+
+2016-05-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71349
+	* c-c++-common/gomp/clauses-1.c (bar): Add dd argument.  Add
+	nowait depend(inout: dd[0]) clauses where permitted.
+
+2016-05-30  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71238
+	* g++.dg/parse/pr71238.C: New.
+	* g++.dg/concepts/friend1.C: Test column numbers too.
+	* g++.dg/cpp0x/initlist31.C: Likewise.
+	* g++.dg/cpp0x/pr51420.C: Likewise.
+	* g++.dg/cpp0x/udlit-declare-neg.C: Likewise.
+	* g++.dg/cpp0x/udlit-member-neg.C: Likewise.
+	* g++.dg/ext/builtin3.C: Likewise.
+	* g++.dg/lookup/friend12.C: Likewise.
+	* g++.dg/lookup/friend7.C: Likewise.
+	* g++.dg/lookup/koenig1.C: Likewise.
+	* g++.dg/lookup/koenig5.C: Likewise.
+	* g++.dg/lookup/used-before-declaration.C: Likewise.
+	* g++.dg/overload/koenig1.C: Likewise.
+	* g++.dg/template/crash65.C: Likewise.
+	* g++.dg/template/friend57.C: Likewise.
+	* g++.dg/warn/Wshadow-5.C: Likewise.
+	* g++.dg/warn/Wunused-8.C: Likewise.
+	* g++.old-deja/g++.bugs/900211_01.C: Likewise.
+	* g++.old-deja/g++.jason/lineno5.C: Likewise.
+	* g++.old-deja/g++.jason/member.C: Likewise.
+	* g++.old-deja/g++.jason/report.C: Likewise.
+	* g++.old-deja/g++.jason/scoping12.C: Likewise.
+	* g++.old-deja/g++.law/visibility20.C: Likewise.
+	* g++.old-deja/g++.ns/koenig5.C: Likewise.
+	* g++.old-deja/g++.other/static5.C: Likewise.
+	* g++.old-deja/g++.pt/overload2.C: Likewise.
+
+2016-05-30  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gcc.dg/tree-ssa/peel1.c: New testcase.
+	* gcc.dg/tree-ssa/pr61743-1.c: Disable loop peeling.
+	* gcc.dg/tree-ssa/pr61743-2.c: Disable loop peeling.
+
+2016-05-30  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/graphite/pr69067.c (main): Remove superfluous argument in call
+	to ce.
+
+2016-05-30  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71099
+	* g++.dg/parse/virtual1.C: New.
+
+2016-05-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/iamcu/args.h (clear_non_sret_int_hardware_registers):
+	Use correct register when clearing %edx.
+
+2016-05-30  Alexander Monakov  <amonakov@ispras.ru>
+
+	PR tree-optimization/71289
+	* gcc.dg/pr71289.c: New test.
+
+2016-05-30  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/71269
+	PR middle-end/71292
+	* gcc.dg/tree-ssa/pr71269.c: New test.
+	* gcc.dg/tree-ssa/pr71292.c: New test.
+
+2016-05-30  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/71252
+	* gcc.dg/tree-ssa/pr71252-2.c: New test.
+
+2016-05-30  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gcc.dg/tree-ssa/cunroll-12.c: New testcase.
+	* gcc.dg/tree-ssa/cunroll-13.c: New testcase.
+	* gcc.dg/tree-ssa/cunroll-14.c: New testcase.
+
+2016-05-30  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/69067
+	* gcc.dg/graphite/pr69067.c: New test.
+
+2016-05-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/71245
+	* gcc.target/i386/pr71245-1.c: New test.
+	* gcc.target/i386/pr71245-2.c: Ditto.
+
+2016-05-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71105
+	* g++.dg/cpp0x/lambda/lambda-conv11.C: New.
+	* g++.dg/cpp1y/lambda-conv1.C: Likewise.
+	* g++.dg/cpp1y/lambda-conv2.C: Likewise.
+
+2016-05-27  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gcc.dg/tree-ssa/prefetch-5.c: Remove xfail.
+
+2016-05-28  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Revert:
+	PR c++/69855
+	* g++.dg/overload/69855.C: New.
+	* g++.old-deja/g++.law/missed-error2.C: Adjust.
+	* g++.old-deja/g++.pt/crash3.C: Likewise.
+
+2016-05-27  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60385
+	* g++.dg/parse/namespace13.C: New.
+
+2016-05-26  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/pr21417.c: Update expected output.
+	* gcc.dg/tree-ssa/pr66752-3.c: Likewise.
+	* gcc.dg/tree-ssa/pr68198.c: Likewise.
+	* gcc.dg/tree-ssa/pr69196-1.c: Likewise.
+	* gcc.dg/tree-ssa/pr69270-3.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-dom-thread-2b.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-dom-thread-2g.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-dom-thread-2h.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-dom-thread-6.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-dom-thread-7.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-dom-thread-12.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-dom-thread-13.c: Likewise.
+	* gcc.dg/tree-ssa/vrp56.c: Likewise.
+
+2016-05-27  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	PR c++/69855
+	* g++.dg/overload/69855.C: New.
+	* g++.old-deja/g++.law/missed-error2.C: Adjust.
+	* g++.old-deja/g++.pt/crash3.C: Likewise.
+
+2016-05-27  Jiong Wang  <jiong.wang@arm.com>
+
+	PR target/63596
+	* gcc.target/aarch64/va_arg_1.c: New testcase.
+	* gcc.target/aarch64/va_arg_2.c: Likewise.
+	* gcc.target/aarch64/va_arg_3.c: Likewise.
+
+2016-05-27  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.dg/tree-ssa/stdarg-2.c: Enable all testcases for AArch64.
+	* gcc.dg/tree-ssa/stdarg-3.c: Likewise.
+	* gcc.dg/tree-ssa/stdarg-4.c: Likewise.
+	* gcc.dg/tree-ssa/stdarg-5.c: Likewise.
+	* gcc.dg/tree-ssa/stdarg-6.c: Likewise.
+
+2016-05-27  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/71308
+	* g++.dg/torture/pr71308.C: New test.
+
+2016-05-27  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* gcc.dg/zero_bits_compound-1.c: New test.
+	* gcc.dg/zero_bits_compound-2.c: New test.
+
+2016-05-27  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR middle-end/71279
+	* gcc.dg/pr71279.c: New test.
+
 2016-05-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/p9-minmax-1.c: New tests for ISA 3.0
@@ -177,8 +390,8 @@
 
 2016-05-24  Paolo Carlini  <paolo.carlini@oracle.com>
 
-        * g++.dg/cpp1y/lambda-generic-static1.C: Use target c++14.
-        * g++.dg/cpp1y/lambda-generic-static2.C: Likewise.
+	* g++.dg/cpp1y/lambda-generic-static1.C: Use target c++14.
+	* g++.dg/cpp1y/lambda-generic-static2.C: Likewise.
 
 2016-05-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
@@ -730,10 +943,10 @@
 
 2016-05-18  Jiong Wang  <jiong.wang@arm.com>
 
-        * gcc.target/aarch64/advsimd-intrinsics/arm-neon-ref.h: Guard float64_t
-        with __aarch64__.
-        * gcc.target/aarch64/advsimd-intrinsics/vfms_vfma_n.c: Guard variable
-        declarations under __aarch64__ and __ARM_FEATURE_FMA.
+	* gcc.target/aarch64/advsimd-intrinsics/arm-neon-ref.h: Guard float64_t
+	with __aarch64__.
+	* gcc.target/aarch64/advsimd-intrinsics/vfms_vfma_n.c: Guard variable
+	declarations under __aarch64__ and __ARM_FEATURE_FMA.
 
 2016-05-18  Jakub Jelinek  <jakub@redhat.com>
 
@@ -936,8 +1149,8 @@
 
 2016-05-13  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 
-        PR target/53440
-        * g++.dg/inherit/thunk1.C: Support arm / aarch64.
+	PR target/53440
+	* g++.dg/inherit/thunk1.C: Support arm / aarch64.
 
 2016-05-13  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 

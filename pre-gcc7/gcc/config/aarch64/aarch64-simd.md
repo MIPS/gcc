@@ -4639,7 +4639,7 @@
    ld1\\t{%S0.16b - %<Vendreg>0.16b}, %1"
   [(set_attr "type" "multiple,neon_store<nregs>_<nregs>reg_q,\
 		     neon_load<nregs>_<nregs>reg_q")
-   (set (attr "length") (symbol_ref "aarch64_simd_attr_length_move (insn)"))]
+   (set_attr "length" "<insn_count>,4,4")]
 )
 
 (define_insn "aarch64_be_ld1<mode>"
@@ -4672,7 +4672,7 @@
    stp\\t%q1, %R1, %0
    ldp\\t%q0, %R0, %1"
   [(set_attr "type" "multiple,neon_stp_q,neon_ldp_q")
-   (set (attr "length") (symbol_ref "aarch64_simd_attr_length_move (insn)"))]
+   (set_attr "length" "8,4,4")]
 )
 
 (define_insn "*aarch64_be_movci"
@@ -4683,7 +4683,7 @@
        || register_operand (operands[1], CImode))"
   "#"
   [(set_attr "type" "multiple")
-   (set (attr "length") (symbol_ref "aarch64_simd_attr_length_move (insn)"))]
+   (set_attr "length" "12,4,4")]
 )
 
 (define_insn "*aarch64_be_movxi"
@@ -4694,7 +4694,7 @@
        || register_operand (operands[1], XImode))"
   "#"
   [(set_attr "type" "multiple")
-   (set (attr "length") (symbol_ref "aarch64_simd_attr_length_move (insn)"))]
+   (set_attr "length" "16,4,4")]
 )
 
 (define_split
@@ -5401,13 +5401,25 @@
   [(set_attr "type" "crypto_aese")]
 )
 
+;; When AES/AESMC fusion is enabled we want the register allocation to
+;; look like:
+;;    AESE Vn, _
+;;    AESMC Vn, Vn
+;; So prefer to tie operand 1 to operand 0 when fusing.
+
 (define_insn "aarch64_crypto_aes<aesmc_op>v16qi"
-  [(set (match_operand:V16QI 0 "register_operand" "=w")
-	(unspec:V16QI [(match_operand:V16QI 1 "register_operand" "w")]
+  [(set (match_operand:V16QI 0 "register_operand" "=w,w")
+	(unspec:V16QI [(match_operand:V16QI 1 "register_operand" "0,w")]
 	 CRYPTO_AESMC))]
   "TARGET_SIMD && TARGET_CRYPTO"
   "aes<aesmc_op>\\t%0.16b, %1.16b"
-  [(set_attr "type" "crypto_aesmc")]
+  [(set_attr "type" "crypto_aesmc")
+   (set_attr_alternative "enabled"
+     [(if_then_else (match_test
+		       "aarch64_fusion_enabled_p (AARCH64_FUSE_AES_AESMC)")
+		     (const_string "yes" )
+		     (const_string "no"))
+      (const_string "yes")])]
 )
 
 ;; sha1
