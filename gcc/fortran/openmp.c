@@ -4218,6 +4218,62 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
 		    else
 		      resolve_oacc_data_clauses (n->sym, n->where, name);
 		  }
+		if (list == OMP_LIST_MAP && !openacc)
+		  switch (code->op)
+		    {
+		    case EXEC_OMP_TARGET:
+		    case EXEC_OMP_TARGET_DATA:
+		      switch (n->u.map_op)
+			{
+			case OMP_MAP_TO:
+			case OMP_MAP_ALWAYS_TO:
+			case OMP_MAP_FROM:
+			case OMP_MAP_ALWAYS_FROM:
+			case OMP_MAP_TOFROM:
+			case OMP_MAP_ALWAYS_TOFROM:
+			case OMP_MAP_ALLOC:
+			  break;
+			default:
+			  gfc_error ("TARGET%s with map-type other than TO, "
+				     "FROM, TOFROM, or ALLOC on MAP clause "
+				     "at %L",
+				     code->op == EXEC_OMP_TARGET
+				     ? "" : " DATA", &n->where);
+			  break;
+			}
+		      break;
+		    case EXEC_OMP_TARGET_ENTER_DATA:
+		      switch (n->u.map_op)
+			{
+			case OMP_MAP_TO:
+			case OMP_MAP_ALWAYS_TO:
+			case OMP_MAP_ALLOC:
+			  break;
+			default:
+			  gfc_error ("TARGET ENTER DATA with map-type other "
+				     "than TO, or ALLOC on MAP clause at %L",
+				     &n->where);
+			  break;
+			}
+		      break;
+		    case EXEC_OMP_TARGET_EXIT_DATA:
+		      switch (n->u.map_op)
+			{
+			case OMP_MAP_FROM:
+			case OMP_MAP_ALWAYS_FROM:
+			case OMP_MAP_RELEASE:
+			case OMP_MAP_DELETE:
+			  break;
+			default:
+			  gfc_error ("TARGET EXIT DATA with map-type other "
+				     "than FROM, RELEASE, or DELETE on MAP "
+				     "clause at %L", &n->where);
+			  break;
+			}
+		      break;
+		    default:
+		      break;
+		    }
 	      }
 
 	    if (list != OMP_LIST_DEPEND)
@@ -4533,6 +4589,20 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
   if (omp_clauses->depend_source && code->op != EXEC_OMP_ORDERED)
     gfc_error ("SOURCE dependence type only allowed "
 	       "on ORDERED directive at %L", &code->loc);
+  if (!openacc && code && omp_clauses->lists[OMP_LIST_MAP] == NULL)
+    {
+      const char *p = NULL;
+      switch (code->op)
+	{
+	case EXEC_OMP_TARGET_DATA: p = "TARGET DATA"; break;
+	case EXEC_OMP_TARGET_ENTER_DATA: p = "TARGET ENTER DATA"; break;
+	case EXEC_OMP_TARGET_EXIT_DATA: p = "TARGET EXIT DATA"; break;
+	default: break;
+	}
+      if (p)
+	gfc_error ("%s must contain at least one MAP clause at %L",
+		   p, &code->loc);
+    }
 }
 
 

@@ -4775,6 +4775,36 @@ gfc_trans_omp_target_data (gfc_code *code)
 }
 
 static tree
+gfc_trans_omp_target_enter_data (gfc_code *code)
+{
+  stmtblock_t block;
+  tree stmt, omp_clauses;
+
+  gfc_start_block (&block);
+  omp_clauses = gfc_trans_omp_clauses (&block, code->ext.omp_clauses,
+				       code->loc);
+  stmt = build1_loc (input_location, OMP_TARGET_ENTER_DATA, void_type_node,
+		     omp_clauses);
+  gfc_add_expr_to_block (&block, stmt);
+  return gfc_finish_block (&block);
+}
+
+static tree
+gfc_trans_omp_target_exit_data (gfc_code *code)
+{
+  stmtblock_t block;
+  tree stmt, omp_clauses;
+
+  gfc_start_block (&block);
+  omp_clauses = gfc_trans_omp_clauses (&block, code->ext.omp_clauses,
+				       code->loc);
+  stmt = build1_loc (input_location, OMP_TARGET_EXIT_DATA, void_type_node,
+		     omp_clauses);
+  gfc_add_expr_to_block (&block, stmt);
+  return gfc_finish_block (&block);
+}
+
+static tree
 gfc_trans_omp_target_update (gfc_code *code)
 {
   stmtblock_t block;
@@ -5060,6 +5090,10 @@ gfc_trans_omp_directive (gfc_code *code)
       return gfc_trans_omp_target (code);
     case EXEC_OMP_TARGET_DATA:
       return gfc_trans_omp_target_data (code);
+    case EXEC_OMP_TARGET_ENTER_DATA:
+      return gfc_trans_omp_target_enter_data (code);
+    case EXEC_OMP_TARGET_EXIT_DATA:
+      return gfc_trans_omp_target_exit_data (code);
     case EXEC_OMP_TARGET_UPDATE:
       return gfc_trans_omp_target_update (code);
     case EXEC_OMP_TASK:

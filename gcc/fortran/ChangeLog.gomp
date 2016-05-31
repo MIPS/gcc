@@ -1,5 +1,13 @@
 2016-05-31  Jakub Jelinek  <jakub@redhat.com>
 
+	* trans-openmp.c (gfc_trans_omp_target_enter_data,
+	gfc_trans_omp_target_exit_data): New functions.
+	(gfc_trans_omp_directive): Handle EXEC_OMP_TARGET_ENTER_DATA
+	and EXEC_OMP_TARGET_EXIT_DATA.
+	* openmp.c (resolve_omp_clauses): Diagnose map kinds not allowed
+	for various constructs.  Diagnose target {enter ,exit ,}data without
+	any map clauses.
+
 	* openmp.c (gfc_match_omp_declare_simd): Make (proc-name) optional.
 	If not present, set proc_name to NULL.
 	(gfc_resolve_omp_declare_simd): Allow ods->proc_name to be NULL.
