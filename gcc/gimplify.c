@@ -7188,6 +7188,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 				   pre_p, NULL, is_gimple_val, fb_rvalue);
 		  deps = TREE_CHAIN (deps);
 		}
+	      break;
 	    }
 	  else if (OMP_CLAUSE_DEPEND_KIND (c) == OMP_CLAUSE_DEPEND_SOURCE)
 	    break;

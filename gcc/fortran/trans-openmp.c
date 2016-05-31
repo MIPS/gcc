@@ -3637,9 +3637,24 @@ gfc_trans_omp_do (gfc_code *code, gfc_exec_op op, stmtblock_t *pblock,
 		 OMP_CLAUSE_LASTPRIVATE_STMT, otherwise the copied dovar
 		 will have the value on entry of the last loop, rather
 		 than value after iterator increment.  */
-	      tmp = gfc_evaluate_now (step, pblock);
-	      tmp = fold_build2_loc (input_location, PLUS_EXPR, type, dovar,
-				     tmp);
+	      if (clauses->orderedc)
+		{
+		  if (clauses->collapse <= 1 || i >= clauses->collapse)
+		    tmp = count;
+		  else
+		    tmp = fold_build2_loc (input_location, PLUS_EXPR,
+					   type, count, build_one_cst (type));
+		  tmp = fold_build2_loc (input_location, MULT_EXPR, type,
+					 tmp, step);
+		  tmp = fold_build2_loc (input_location, PLUS_EXPR, type,
+					 from, tmp);
+		}
+	      else
+		{
+		  tmp = gfc_evaluate_now (step, pblock);
+		  tmp = fold_build2_loc (input_location, PLUS_EXPR, type,
+					 dovar, tmp);
+		}
 	      tmp = fold_build2_loc (input_location, MODIFY_EXPR, type,
 				     dovar, tmp);
 	      for (c = omp_clauses; c ; c = OMP_CLAUSE_CHAIN (c))
