@@ -1,3 +1,100 @@
+2016-05-31  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/71306
+	* g++.dg/warn/Wplacement-new-size-3.C: New test.
+
+2016-05-31  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2016-05-11  Richard Biener  <rguenther@suse.de>
+
+	PR debug/71057
+	* g++.dg/debug/pr71057.C: New testcase.
+
+2016-05-31  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/71056
+	* gcc.target/arm/pr71056.c: New test.
+
+2016-05-31  Tom de Vries  <tom@codesourcery.com>
+
+	backport:
+	2016-05-31  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/69068
+	* gcc.dg/graphite/pr69068.c: New test.
+
+2016-05-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71349
+	* c-c++-common/gomp/clauses-1.c (bar): Add dd argument.  Add
+	nowait depend(inout: dd[0]) clauses where permitted.
+
+2016-05-30  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2016-04-29  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vsx-elemrev-1.c: New.
+	* gcc.target/powerpc/vsx-elemrev-2.c: New.
+	* gcc.target/powerpc/vsx-elemrev-3.c: New.
+	* gcc.target/powerpc/vsx-elemrev-4.c: New.
+
+2016-05-30  Tom de Vries  <tom@codesourcery.com>
+
+	backport:
+	2016-05-30  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/graphite/pr69067.c (main): Remove superfluous argument in call
+	to ce.
+
+2016-05-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/iamcu/args.h (clear_non_sret_int_hardware_registers):
+	Use correct register when clearing %edx.
+
+2016-05-30  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2016-05-11  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/71002
+	* g++.dg/torture/pr71002.C: New testcase.
+
+	2016-05-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/71071
+	* gcc.dg/pr71071.c: New test.
+
+2016-05-30  Tom de Vries  <tom@codesourcery.com>
+
+	backport:
+	2016-05-30  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/69067
+	* gcc.dg/graphite/pr69067.c: New test.
+
+2016-05-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71105
+	* g++.dg/cpp0x/lambda/lambda-conv11.C: New.
+	* g++.dg/cpp1y/lambda-conv1.C: Likewise.
+	* g++.dg/cpp1y/lambda-conv2.C: Likewise.
+
+2016-05-27  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	Backport from mainline r236810.
+	2016-05-27  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR middle-end/71279
+	* gcc.dg/pr71279.c: New test.
+
+2016-05-26  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from trunk.
+	PR fortran/66461
+	* gfortran.dg/unexpected_eof.f: New test
+
 2016-05-25  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gnat.dg/opt55.ad[sb]: New test.
