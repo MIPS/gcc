@@ -21341,19 +21341,12 @@ mips_skip_stack_frame_alloc (void)
   return true;
 }
 
-/* Update stack related instructions.  */
+/* Helper to update stack related instructions.  */
 
 static void
-mips_frame_header_update_insn (rtx insn)
+mips_frame_header_update_insn_1 (rtx set_insn)
 {
-  rtx set_insn, src, dst;
-
-  if (insn == NULL_RTX || !USEFUL_INSN_P (insn))
-    return;
-
-  set_insn = single_set (insn);
-  if (set_insn == NULL_RTX)
-    return;
+  rtx src, dst;
 
   src = SET_SRC (set_insn);
   dst = SET_DEST (set_insn);
@@ -21383,13 +21376,43 @@ mips_frame_header_update_insn (rtx insn)
         = GEN_INT (mips_get_updated_offset (INTVAL (XEXP (XEXP (src, 0), 1))));
       return;
     }
+}
 
-  if (GET_CODE (src) == PLUS
-      && GET_CODE (XEXP (src, 0)) == REG
-      && CONST_INT_P (XEXP (src, 1))
-      && REGNO (XEXP (src, 0)) == STACK_POINTER_REGNUM
-      && REGNO (SET_DEST (set_insn)) == STACK_POINTER_REGNUM)
-    delete_insn (insn);
+/* Update stack related instructions.  */
+
+static void
+mips_frame_header_update_insn (rtx insn)
+{
+  rtx set_insn, src, dst;
+
+  if (insn == NULL_RTX || !USEFUL_INSN_P (insn))
+    return;
+
+  set_insn = single_set (insn);
+  if (set_insn)
+    {
+      mips_frame_header_update_insn_1 (set_insn);
+
+      src = SET_SRC (set_insn);
+      dst = SET_DEST (set_insn);
+
+      if (GET_CODE (src) == PLUS
+	  && GET_CODE (XEXP (src, 0)) == REG
+	  && CONST_INT_P (XEXP (src, 1))
+	  && REGNO (XEXP (src, 0)) == STACK_POINTER_REGNUM
+	  && REGNO (dst) == STACK_POINTER_REGNUM)
+	delete_insn (insn);
+    }
+  else if (GET_CODE (PATTERN (insn)) == PARALLEL)
+    {
+      int i;
+      for (i = XVECLEN (PATTERN (insn), 0) - 1; i >= 0; i--)
+	{
+	  set_insn = XVECEXP (PATTERN (insn), 0, i);
+	  if (GET_CODE (set_insn) == SET)
+	    mips_frame_header_update_insn_1 (set_insn);
+	}
+    }
 }
 
 /* Entry function for the frame header optimization.  */
