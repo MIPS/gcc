@@ -776,8 +776,8 @@
   [(set_attr "type" "vecperm")])
 
 (define_insn "xxspltib_<mode>_nosplit"
-  [(set (match_operand:VSINT_842 0 "vsx_register_operand" "=wa")
-	(match_operand:VSINT_842 1 "xxspltib_constant_nosplit" "wE"))]
+  [(set (match_operand:VSINT_842 0 "vsx_register_operand" "=wa,wa")
+	(match_operand:VSINT_842 1 "xxspltib_constant_nosplit" "jwM,wE"))]
   "TARGET_P9_VECTOR"
 {
   rtx op1 = operands[1];
@@ -2386,7 +2386,7 @@
 (define_insn "vsx_splat_<mode>"
   [(set (match_operand:VSX_D 0 "vsx_register_operand" "=<VSa>,<VSa>,we")
 	(vec_duplicate:VSX_D
-	 (match_operand:<VS_scalar> 1 "splat_input_operand" "<VS_64reg>,Z,r")))]
+	 (match_operand:<VS_scalar> 1 "splat_input_operand" "<VS_64reg>,Z,b")))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "@
    xxpermdi %x0,%x1,%x1,0

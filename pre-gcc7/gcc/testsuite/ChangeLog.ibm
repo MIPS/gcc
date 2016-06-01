@@ -1,3 +1,7 @@
+2016-06-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 237008.
+
 2016-06-01  Kelvin Nilsen  <kelvin@gcc.gnu.org>
 
 	* gcc.target/powerpc/darn-0.c: Remove trailing space after and add
