@@ -21649,9 +21649,7 @@ mips_option_override (void)
   if ((target_flags_explicit & MASK_IMADD) == 0)
     {
       if ((ISA_HAS_MADD_MSUB &&
-	   (mips_tune_info->tune_flags & PTF_AVOID_IMADD) == 0)
-	  /* Enable for DSP by default */
-	  || TARGET_DSP)
+	   (mips_tune_info->tune_flags & PTF_AVOID_IMADD) == 0))
 	target_flags |= MASK_IMADD;
       else
 	target_flags &= ~MASK_IMADD;
