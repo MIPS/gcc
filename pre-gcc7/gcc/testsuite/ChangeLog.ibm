@@ -1,5 +1,14 @@
 2016-06-01  Kelvin Nilsen  <kelvin@gcc.gnu.org>
 
+	* gcc.target/powerpc/darn-0.c: Remove trailing space after and add
+	space before parameter list of get_random function.
+	* gcc.target/powerpc/darn-1.c: Remove trailing space after and add
+	space before parameter list of get_conditioned_random function.
+	* gcc.target/powerpc/darn-2.c: Remove trailing space after and add
+	space before parameter list of get_raw_random function.
+
+2016-06-01  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
 	* gcc.target/powerpc/vslv-0.c: Add dg-skip-if directive to prevent
 	overriding of -mcpu=.
 	* gcc.target/powerpc/vslv-1.c: Likewise.

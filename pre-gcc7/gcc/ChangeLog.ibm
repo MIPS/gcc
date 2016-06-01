@@ -1,5 +1,13 @@
 2016-06-01  Kelvin Nilsen  <kelvin@gcc.gnu.org>
 
+	* config/rs6000/rs6000.c (rs6000_builtin_mask_calculate): Remove
+	redundant inclusion of RS6000_BTM_MODULO and RS6000_BTM_64BIT in
+	calcluation of result value.
+	* config/rs6000/rs6000.h (RS6000_BTM_P9_VECTOR): Change spelling
+	of ISA 3.00 to ISA 3.0 in comment.
+
+2016-06-01  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
 	* doc/extend.texi: Correct spelling of "The" and remove redundant
 	"in parallel" in description of vec_slv and vec_srv built-in
 	functions.
