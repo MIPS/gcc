@@ -14695,7 +14695,7 @@ __vector unsigned char
 vec_srv (__vector unsigned char src, __vector unsigned char shift_distance);
 @end smallexample
 
-Tne @code{vec_slv} and @code{vec_srv} functions operate in parallel on
+The @code{vec_slv} and @code{vec_srv} functions operate on
 all of the bytes of their @code{src} and @code{shift_distance}
 arguments in parallel.  The behavior of the @code{vec_slv} is as if
 there existed a temporary array of 17 unsigned characters

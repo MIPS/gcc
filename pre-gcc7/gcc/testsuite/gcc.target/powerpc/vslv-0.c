@@ -1,4 +1,5 @@
 /* { dg-do compile { target { powerpc*-*-* } } } */
+/* { dg-skip-if "do not override -mcpu" { powerpc*-*-* } { "-mcpu=*" } { "-mcpu=power9" } } */
 /* { dg-options "-mcpu=power9" } */
 
 #include <altivec.h>
@@ -11,4 +12,4 @@ doCharShiftLeft (__vector unsigned char *p, __vector unsigned char *q)
   return result;
 }
 
-/* { dg-final { scan-assembler	   "vslv" } } */
+/* { dg-final { scan-assembler "vslv" } } */
