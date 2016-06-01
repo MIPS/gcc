@@ -1,3 +1,10 @@
+2016-06-01  Cesar Philippidis  <cesar@codesourcery.com>
+
+	Backport from trunk r237011.
+	2016-06-01  Cesar Philippidis  <cesar@codesourcery.com>
+	PR c/70688
+	* pr70688.c: New file.
+
 2016-05-27  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c++/non-scalar-data.C: Adjust test.
