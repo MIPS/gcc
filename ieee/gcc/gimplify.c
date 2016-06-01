@@ -1609,10 +1609,17 @@ gimplify_switch_expr (tree *expr_p, gimple_seq *pre_p)
 	  while (gimple_code (seq) == GIMPLE_BIND)
 	    seq = gimple_bind_body (as_a <gbind *> (seq));
 	  gimple *stmt = gimple_seq_first_stmt (seq);
-	  enum gimple_code code = gimple_code (stmt);
-	  if (code != GIMPLE_LABEL && code != GIMPLE_TRY)
+	  if (gimple_code (stmt) == GIMPLE_TRY)
 	    {
-	      if (code == GIMPLE_GOTO
+	      /* A compiler-generated cleanup or a user-written try block.
+		 Try to get the first statement in its try-block, for better
+		 location.  */
+	      if ((seq = gimple_try_eval (stmt)))
+		stmt = gimple_seq_first_stmt (seq);
+	    }
+	  if (gimple_code (stmt) != GIMPLE_LABEL)
+	    {
+	      if (gimple_code (stmt) == GIMPLE_GOTO
 		  && TREE_CODE (gimple_goto_dest (stmt)) == LABEL_DECL
 		  && DECL_ARTIFICIAL (gimple_goto_dest (stmt)))
 		/* Don't warn for compiler-generated gotos.  These occur
@@ -7531,10 +7538,6 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	    }
 	  break;
 
-	case OMP_CLAUSE_DEVICE_RESIDENT:
-	  remove = true;
-	  break;
-
 	case OMP_CLAUSE_NOWAIT:
 	case OMP_CLAUSE_ORDERED:
 	case OMP_CLAUSE_UNTIED:
@@ -8268,7 +8271,6 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, gimple_seq body, tree *list_p,
 	case OMP_CLAUSE__CILK_FOR_COUNT_:
 	case OMP_CLAUSE_ASYNC:
 	case OMP_CLAUSE_WAIT:
-	case OMP_CLAUSE_DEVICE_RESIDENT:
 	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_NUM_GANGS:
 	case OMP_CLAUSE_NUM_WORKERS:
@@ -9007,7 +9009,12 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	       || (ort == ORT_SIMD
 		   && TREE_VEC_LENGTH (OMP_FOR_INIT (for_stmt)) > 1))
 	{
+	  struct gimplify_omp_ctx *ctx = gimplify_omp_ctxp;
+	  /* Make sure omp_add_variable is not called on it prematurely.
+	     We call it ourselves a few lines later.  */
+	  gimplify_omp_ctxp = NULL;
 	  var = create_tmp_var (TREE_TYPE (decl), get_name (decl));
+	  gimplify_omp_ctxp = ctx;
 	  TREE_OPERAND (t, 0) = var;
 
 	  gimplify_seq_add_stmt (&for_body, gimple_build_assign (decl, var));

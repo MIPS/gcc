@@ -1,3 +1,88 @@
+2016-05-31  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (instantiate_decl): Avoid recalculation.
+
+	PR c++/60095
+	PR c++/69515
+	PR c++/69009
+	* pt.c (instantiate_template_1): Don't put the partial
+	specialization in DECL_TI_TEMPLATE.
+	(partial_specialization_p, impartial_args): Remove.
+	(regenerate_decl_from_template): Add args parm.
+	(instantiate_decl): Look up the partial specialization again.
+
+	PR c++/71227
+	* pt.c (check_explicit_specialization): Give better diagnostic about
+	specializing a hidden friend.
+
+2016-05-31  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71248
+	* decl.c (check_static_variable_definition): Use DECL_SOURCE_LOCATION
+	to obtain correct locations; avoid redundant diagnostics on
+	out-of-class definitions.
+
+2016-05-30  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/71306
+	* init.c (warn_placement_new_too_small): Handle placement new arguments
+	that are elements of arrays more carefully.  Remove a pointless loop.
+
+2016-05-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71349
+	* parser.c (cp_parser_omp_for): Don't disallow nowait clause
+	when combined with target construct.
+	(cp_parser_omp_parallel): Pass cclauses == NULL as last argument
+	to cp_parser_omp_all_clauses.
+
+2016-05-30  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71238
+	* lex.c (unqualified_name_lookup_error): Take a location too.
+	(unqualified_fn_lookup_error): Take a cp_expr.
+	* cp-tree.h (unqualified_name_lookup_error,
+	unqualified_fn_lookup_error): Adjust declarations.
+	* semantics.c (perform_koenig_lookup): Adjust
+	unqualified_fn_lookup_error call, pass the location of
+	the identifier too as part of a cp_expr.
+
+2016-05-30  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71099
+	* parser.c (cp_parser_function_specifier_opt): Use current_class_type
+	to improve the diagnostic about wrong uses of 'virtual'.
+
+2016-05-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71105
+	* lambda.c (maybe_add_lambda_conv_op): Early return also when
+	LAMBDA_EXPR_DEFAULT_CAPTURE_MODE != CPLD_NONE.
+
+2016-05-28  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Revert:
+	PR c++/69855
+	* name-lookup.c (pushdecl_maybe_friend_1): Push local function
+	decls into the global scope after stripping template bits
+	and setting DECL_ANTICIPATED.
+
+2016-05-27  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60385
+	* name-lookup.c (push_namespace): Return bool, false when pushdecl
+	fails.
+	* name-lookup.h (push_namespace): Adjust declaration.
+	* parser.c (cp_parser_namespace_definition): Check push_namespace
+	return value.
+
+2016-05-27  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	PR c++/69855
+	* name-lookup.c (pushdecl_maybe_friend_1): Push local function
+	decls into the global scope after stripping template bits
+	and setting DECL_ANTICIPATED.
+
 2016-05-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* semantics.c (finish_omp_clauses) <case OMP_CLAUSE_SCHEDULE>: Warn

@@ -1,3 +1,593 @@
+2016-05-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (vsx_splat_<mode>, V2DI/V2DF): Simplify
+	alternatives, eliminating preferred register class.  Add support
+	for the MTVSRDD instruction in ISA 3.0.
+	(vsx_splat_v4si_internal): Use splat_input_operand instead of
+	reg_or_indexed_operand.
+	(vsx_splat_v4sf_internal): Likewise.
+
+2016-05-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/71186
+	* config/rs6000/vsx.md (xxspltib_<mode>_nosplit): Add alternatives
+	for loading up all 0's or all 1's.
+
+2016-06-01  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* doc/sourcebuild.texi (arm_acq_rel): Document new effective target.
+
+2016-06-01  Eduard Sanou  <dhole@openmailbox.org>
+
+	* doc/cppenv.texi: Note that the `%s` in `date` is a non-standard
+	extension.
+	* gcc.c (driver_handle_option): Call set_source_date_epoch_envvar.
+	* gcc.c (set_source_date_epoch_envvar): New function, sets
+	the SOURCE_DATE_EPOCH environment variable to the current time.
+
+2016-06-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-vect-loop.c (vect_determine_vectorization_factor): Also compute
+	the factor for live Phi nodes.
+
+2016-06-01  Jan Hubicka  <hubicka@ucw.cz>
+
+	* loop-dolop.c (doloop_optimize): Us likely max iteration bound.
+	* tree-parloops.c (parallelize_loops): likewise.
+	* tree-ssa-loop-unswitch.c (tree_unswitch_single_loop,
+	tree_unswitch_outer_loop): likewise.
+
+2016-06-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/71371
+	* gimplify.c (gimplify_omp_for): Temporarily clear gimplify_omp_ctxp
+	around creation of the temporary.
+
+2016-06-01  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71366
+	* tree-ssa-loop-ivcanon.c (edges_to_remove): New global.
+	(unloop_loops): Move removing edges here ...
+	(try_unroll_loop_completely): ... from here.
+	(try_peel_loop): ... and here.
+	(tree_unroll_loops_completely_1): Track parent loops via
+	bitmap of header BBs.
+	(tree_unroll_loops_completely): Adjust for that.
+
+2016-06-01  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* config/rs6000/altivec.h (vec_slv): New macro.
+	(vec_srv): New macro.
+	* config/rs6000/altivec.md (UNSPEC_VSLV): New value.
+	(UNSPEC_VSRV): New value.
+	(vslv): New insn.
+	(vsrv): New insn.
+	* config/rs6000/rs6000-builtin.def (vslv): New builtin definition.
+	(vsrv): New builtin definition.
+	* config/rs6000/rs6000-c.c (P9V_BUILTIN_VSLV): Macro expansion to
+	define argument types for new builtin.
+	(P9V_BUILTIN_VSRV): Macro expansion to define argument types for
+	new builtin.
+	* doc/extend.texi: Document the new vec_vslv and vec_srv built-in
+	functions. 
+
+2016-06-01  Uros Bizjak  <ubizjak@gmail.com>
+	    Jocelyn Mayer  <l_indien@magic.fr>
+
+	PR target/67310
+	* config/i386/driver-i386.c (host_detect_local_cpu): Correctly
+	detect processor family for signature_CENTAUR_ebx.
+	<case PROCESSOR_I486>: Pass c3, winchip2 or winchip-c6 for
+	signature_CENTAUR_ebx.
+	<case PROCESSOR _PENTIUMPRO>: Pass c3-2 for signature_CENTAUR_ebx.
+	<default>: Pass x86-64 for has_longmode.
+
+2016-06-01  Nathan Sidwell  <nathan@acm.org>
+
+	* config/nvptx/nvptx.c (nvptx_assemble_undefined_decl): Reject
+	undefined weak.
+
+2016-06-01  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71261
+	* tree-vect-patterns.c (check_bool_pattern): Gather a hash-set
+	of stmts successfully put in the bool pattern.  Remove
+	single-use restriction.
+	(adjust_bool_pattern_cast): Add cast at the use site via the
+	pattern def sequence.
+	(adjust_bool_pattern): Remove recursion, maintain a hash-map
+	of patterned defs.  Use the pattern def seqence instead of
+	multiple independent patterns.
+	(sort_after_uid): New qsort compare function.
+	(adjust_bool_stmts): New function to process stmts in the bool
+	pattern in IL order.
+	(vect_recog_bool_pattern): Adjust.
+	* tree-if-conv.c (ifcvt_split_def_stmt): Remove.
+	(ifcvt_walk_pattern_tree): Likewise.
+	(stmt_is_root_of_bool_pattern): Likewise.
+	(ifcvt_repair_bool_pattern): Likewise.
+	(tree_if_conversion): Do not call ifcvt_repair_bool_pattern.
+
+2016-06-01  Jan Hubicka  <hubicka@ucw.cz>
+
+	* loop-unroll.c (decide_unroll_constant_iterations,
+	decide_unroll_runtime_iterations, decide_unroll_stupid): Use
+	likely upper bounds.
+	* loop-iv.c (find_simple_exit): Dump likely upper bounds.
+
+2016-06-01  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* tree-core.h (enum omp_clause_code): Remove
+	OMP_CLAUSE_DEVICE_RESIDENT.  Adjust all users.
+
+2016-06-01  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/sync.md (arm_store_exclusive<mode>):
+	Use 'H' output modifier on operands[2] rather than creating a new
+	entry in out-of-bounds memory of the operands array.
+	(arm_store_release_exclusivedi): Likewise.
+
+2016-06-01  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm.c (arm_fusion_enabled_p): New function.
+	* config/arm/arm-protos.h (arm_fusion_enabled_p): Declare prototype.
+	* config/arm/crypto.md (crypto_<crypto_pattern>, CRYPTO_UNARY):
+	Add "=w,0" alternative.  Enable it when AES/AESMC fusion is enabled.
+
+2016-06-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-vect-loop.c (vect_determine_vectorization_factor): Also take
+	into account live statements for mask producers.
+
+2016-06-01  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71311
+	* match.pd (@0 < @1 && @0 < @2 -> @0 < min(@1,@2)): Add :c and
+	restrict to non-INTEGER_CST @0.
+
+2016-06-01  Richard Biener  <rguenther@suse.de>
+
+	* match.pd ((A & B) - (A & ~B) -> B - (A ^ B)): Add missing :c.
+	(relational patterns): Use :c to avoid pattern duplications.
+
+2016-06-01  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (comparison_code_p): New predicate.
+	(swap_tree_comparison): New function.
+	(commutate): Add for_vec parameter to append new for entries.
+	Support commutating relational operators by swapping it alongside
+	operands.
+	(lower_commutative): Adjust.
+	(dt_simplify::gen): Do not pass artificial operators to gen
+	functions.
+	(decision_tree::gen): Do not add artificial operators as parameters.
+	(parser::parse_expr): Verify operator commutativity when :c is
+	applied.  Allow :C to override this.
+	* match.pd: Adjust patterns to use :C instead of :c where required.
+
+2016-06-01  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR tree-optimization/71077
+	* tree-ssa-threadedge.c (simplify_control_stmt_condition_1): In
+	the combining step, use boolean_false_node and boolean_true_node
+	as the designated false/true return values.
+
+2016-05-31  Jan Hubicka  <hubicka@ucw.cz>
+
+	* predict.def (PRED_LOOP_EXTRA_EXIT): Define.
+	* predict.c (predict_iv_comparison): Also check PRED_LOOP_EXTRA_EXIT.
+	(predict_extra_loop_exits): Use PRED_LOOP_EXTRA_EXIT instead of
+	PRED_LOOP_EXIT.
+
+2016-05-31  Jan Hubicka  <hubicka@ucw.cz>
+
+	* doc/invoke.texi (-frename-registers): Drop -fpeel-loops from list
+	of flags impliying the register renaming.
+	* toplev.c (process_options): Do not imply flag_rename_registers with
+	loop peeling.
+
+2016-05-31  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* config/sh/sh.h (ASM_OUTPUT_SYMBOL_REF): Remove macro and use the
+	default implementation.
+
+2016-05-31  Nathan Sidwell  <nathan@acm.org>
+
+	* dwarf2out.c (cur_line_info_table): Add GTY marker.
+
+2016-05-31  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* config/sh/constraints.md (b): Remove constraint.
+	* config/sh/predicates.md (arith_reg_operand): Remove
+	TARGET_REGISTER_P.
+	* config/sh/sh-modes.def (PDI): Remove.
+	* config/sh/sh.c (sh_target_reg_class,
+	sh_optimize_target_register_callee_saved): Remove functions.
+	(sh_option_override): Don't set MASK_SAVE_ALL_TARGET_REGS.
+	(sh_expand_epilogue): Update comment.
+	(sh_hard_regno_mode_ok, sh_register_move_cost, calc_live_regs,
+	sh_secondary_reload): Remove TARGET_REGS related code.
+	* config/sh/sh.h (FIRST_TARGET_REG, LAST_TARGET_REG,
+	TARGET_REGISTER_P): Remove macros.
+	(SH_DBX_REGISTER_NUMBER, REG_ALLOC_ORDER): Remove target regs.
+	* config/sh/sh.md (PR_MEDIA_REG, T_MEDIA_REG, FR23_REG, TR0_REG,
+	TR1_REG, TR2_REG): Remove constants.
+	* config/sh/sh.opt (SAVE_ALL_TARGET_REGS): Remove.
+
+2016-05-31  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* config/sh/sh.md (adddi3, subdi3, negdi2, abs<mode>2): Remove
+	define_expand patterns.
+	(adddi3_compact): Rename to adddi3.
+	(subdi3_compact): Rename to subdi3.
+	(*negdi2): Rename to negdi2.
+	(*abs<mode>2): Rename to abs<mode>2.
+
+2016-05-31  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* config/rx/rx.md (FETCHOP_NO_MINUS): New code iterator.
+	(atomic_<fetchop_name>_fetchsi): Extract minus operator into ...
+	(atomic_sub_fetchsi): ... this new pattern.
+	(mvtc): Add CC_REG clobber.
+
+2016-05-31  Marek Polacek  <polacek@redhat.com>
+
+	* gimplify.c (gimplify_switch_expr): Also handle GIMPLE_TRY.
+
+2016-05-31  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.c (aarch_macro_fusion_pair_p): Use
+	aarch64_fusion_enabled_p to check for fusion capabilities.
+
+2016-05-31  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71352
+	* tree-ssa-reassoc.c (zero_one_operation): Handle op equal to
+	minus one and a negate.
+
+2016-05-31  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_simd_attr_length_move): Delete.
+	* config/aarch64/aarch64-protos.h (aarch64_simd_attr_length_move):
+	Delete prototype.
+	* config/aarch64/iterators.md (insn_count): Add descriptive comment.
+	* config/aarch64/aarch64-simd.md (*aarch64_mov<mode>, VSTRUCT modes):
+	Remove use of aarch64_simd_attr_length_move, set length attribute
+	directly.
+	(*aarch64_be_movoi): Likewise.
+	(*aarch64_be_movci): Likewise.
+	(*aarch64_be_movxi): Likewise.
+
+2016-05-31  Jan Hubicka  <hubicka@ucw.cz>
+
+	* loop-init.c (gate): Do not enale RTL loop unroller with -fpeel-loops.
+	It no longer does that.
+	* toplev.c (process_options): Do not enable flag_web with -fpeel-loops.
+
+2016-05-31  Wladimir J. van der Laan  <laanwj@gmail.com>
+
+	* config/aarch64/arm_neon.h (vdupb_laneq_s8): Remove spurious
+	attribute __unused__.
+
+2016-05-31  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/arm-protos.h (arm_arch_thumb1): Declare.
+	* config/arm/arm.c (arm_arch_thumb1): Define.
+	(arm_option_override): Initialize arm_arch_thumb1.
+	* config/arm/arm.h (arm_arch_thumb1): Declare.
+	(TARGET_ARM_ARCH_ISA_THUMB): Use arm_arch_thumb to determine if target
+	support Thumb-1 ISA.
+
+2016-05-31  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	PR target/71346
+	* config/i386/sse.md (define_insn_and_split "*vec_extractv4sf_0"): Use
+	`Yv' for scalar operand.
+
+2016-05-31  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/69068
+	* graphite-isl-ast-to-gimple.c (copy_bb_and_scalar_dependences): Handle
+	phis with more than two args.
+
+2016-05-30  Andreas Tobler  <andreast@gcc.gnu.org>
+
+	* config.gcc: Move hard float support for arm*hf*-*-freebsd* into
+	armv6*-*-freebsd* for FreeBSD 11. Eliminate the arm*hf*-*-freebsd*
+	target.
+
+2016-05-30  Jose E. Marchesi  <jose.marchesi@oracle.com>
+
+	* config.gcc (sparc*-*-*): Support cpu_32, cpu_64, tune_32 and
+	tune_64.
+	* doc/install.texi (--with-cpu-32, --with-cpu-64): Document
+	support on SPARC.
+	* config/sparc/linux64.h (OPTION_DEFAULT_SPECS): Add entries for
+	cpu_32, cpu_64, tune_32 and tune_64.
+	* config/sparc/sol2.h (OPTION_DEFAULT_SPECS): Likewise.
+
+2016-05-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sync.md (mfence_nosse): Use "lock orl $0, -4(%esp)".
+
+2016-05-30  Andi Kleen  <ak@linux.intel.com>
+
+	* auto-profile.c (read_profile): Replace asserts with errors
+	when file does not exist.
+	* gcov-io.c (gcov_read_words): Dito.
+
+2016-05-30  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-cfg.c (print_loop): Print likely upper bounds.
+
+2016-05-30  Jan Hubicka  <hubicka@ucw.cz>
+
+	* doc/invoke.texi (-fpeel-loops,-O3): Update documentation.
+	* opts.c (default_options): Enable peel loops at -O3.
+	* tree-ssa-loop-ivcanon.c (peeled_loops): New static var.
+	(try_peel_loop): Do not re-peel already peeled loops;
+	use likely upper bounds; fix profile updating.
+	(pass_complete_unroll::execute): Initialize peeled_loops.
+
+2016-05-30  Martin Liska  <mliska@suse.cz>
+
+	* tree-ssa-loop-ivopts.c (get_computation_cost_at): Scale
+	computed costs by frequency of BB they belong to.
+	(get_scaled_computation_cost_at): New function.
+
+2016-05-30  Alexander Monakov  <amonakov@ispras.ru>
+	    Marc Glisse  <marc.glisse@inria.fr>
+
+	PR tree-optimization/71289
+	* match.pd (-1 / B < A, A > -1 / B): New transformations.
+
+2016-05-30  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-vect-loop.c (vect_transform_loop): Update likely bounds.
+
+2016-05-30  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-ssa-loop-ivcanon.c (try_peel_loop): Correctly set wont_exit
+	for peeled copies; avoid underflow when updating estimates; correctly
+	scale loop profile.
+
+2016-05-30  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* tree-ssa-reassoc.ci (swap_ops_for_binary_stmt): Fix typo from commit
+	r236875. Corrected oe3 to oe2 as obvious.
+
+2016-05-30  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/71269
+	PR middle-end/71252
+	* tree-ssa-reassoc.c (insert_stmt_before_use): Use find_insert_point so
+	that inserted stmt will not dominate stmts that defines its operand.
+	(rewrite_expr_tree): Add stmt_to_insert before adding the use stmt.
+	(rewrite_expr_tree_parallel): Likewise.
+
+2016-05-30  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/71252
+	* tree-ssa-reassoc.c (swap_ops_for_binary_stmt): Fix swap such that
+	all fields including stmt_to_insert are swapped.
+
+2016-05-30  Jan Hubicka  <hubicka@ucw.cz>
+
+	* predict.h (force_edge_cold): Declare.
+	* predict.c (force_edge_cold): New function.
+	* tree-ssa-loop-ivcanon.c (try_unroll_loop_completely): Fix profile
+	updating.
+	(canonicalize_loop_induction_variables): Fix formating.
+
+2016-05-30  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/visium/visium.c (visium_split_double_add): Minor tweaks.
+	(visium_expand_copysign): Use gen_int_mode directly.
+	(visium_compute_frame_size): Minor tweaks.
+
+2016-05-30  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-vect-loop.c (vect_analyze_loop_2): Use
+	likely_max_stmt_executions_int.
+
+2016-05-30  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/69067
+	* graphite-isl-ast-to-gimple.c (get_def_bb_for_const): Remove assert.
+
+2016-05-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/71245
+	* config/i386/sync.md (define_peephole2 atomic_storedi_fpu):
+	New peepholes to remove unneeded fild/fistp pairs.
+	(define_peephole2 atomic_loaddi_fpu): Ditto.
+
+2016-05-27  Jan Hubicka  <hubicka@ucw.cz>
+
+	* predict.c (maybe_hot_frequency_p): Avoid division.
+
+2016-05-28  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/install.texi: Use https for shop.fsf.org.
+
+2016-05-27  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-ssa-loop-ivopts.c (estimated_stmt_executions_int): Use
+	likely_max_stmt_executions_int.
+
+2016-05-27  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-ssa-loop-prefetch.c (loop_prefetch_arrays): Use
+	likely_max_stmt_executions_int.
+
+2016-05-27  Jan Hubicka  <hubicka@ucw.cz>
+
+	* profile.c (compute_branch_probabilities): Do not report hitrates
+	here.
+	(branch_prob): Report hitrates here.
+	* predict.c (gimple_predict_edge): Do not assert profile status;
+	fix formatting issues.
+
+2016-05-27  Jan Hubicka  <hubicka@ucw.cz>
+
+	* predict.c (edge_predicted_by_p): New function.
+	(predict_paths_for_bb): Do not put multiple predictions of the same type
+	on one edge.
+
+2016-05-27  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-ssa-loop-niter.c (number_of_iterations_exit): Revert accidental
+	commit.
+
+2016-05-28  Alan Modra  <amodra@gmail.com>
+
+	* dominance.c (verify_dominators): Don't segfault on NULL imm_bb.
+
+2016-05-28  Alan Modra  <amodra@gmail.com>
+
+	PR rtl-optimization/71275
+	* ira.c (ira): Free dominance info.
+
+2016-05-27  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/sourcebuild.texi: New address for upstream Go repository.
+
+2016-05-27  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/arm.h (TARGET_ARM_V6M): Remove.
+	(TARGET_ARM_V7M): Likewise.
+
+2016-05-26  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-threadedge.c: Remove include of tree-ssa-threadbackward.h.
+	(thread_across_edge): Remove calls to find_jump_threads_backwards.
+	* passes.def: Add jump threading passes before DOM/VRP.
+	* tree-ssa-threadbackward.c (find_jump_threads_backwards): Change
+	argument to a basic block from an edge.  Remove tests which are
+	handled elsewhere.
+	(pass_data_thread_jumps, class pass_thread_jumps): New.
+	(pass_thread_jumps::gate, pass_thread_jumps::execute): New.
+	(make_pass_thread_jumps): Likewise.
+	* tree-pass.h (make_pass_thread_jumps): Declare.
+
+2016-05-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/visium/visium-protos.h (split_double_move): Rename into...
+	(visium_split_double_move): ...this.
+	(visium_split_double_add): Declare.
+	* config/visium/visium.c (split_double_move): Rename into...
+	(visium_split_double_move): ...this.
+	(visium_split_double_add): New function.
+	(visium_expand_copysign): Renumber operands for consistency.
+	* config/visium/visium.md (DImode move splitter): Adjust to renaming.
+	(DFmode move splitter): Likewise.
+	(*addi3_insn): Split by means of visium_split_double_add.
+	(*adddi3_insn_flags): Delete.
+	(*plus_plus_sltu<subst_arith>): New insn.
+	(*subdi3_insn): Split by means of visium_split_double_add.
+	(subdi3_insn_flags): Delete.
+	(*minus_minus_sltu<subst_arith>): New insn.
+	(*negdi2_insn): Split by means of visium_split_double_add.
+	(*negdi2_insn_flags): Delete.
+
+2016-05-27  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* configure.ac: Treat a --with-headers option without argument
+	the same as the default (i.e. consult sys-include directory).
+	* configure: Regenerate.
+
+2016-05-27  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_fusion_enabled_p): New function.
+	* config/aarch64/aarch64-protos.h (aarch64_fusion_enabled_p): Declare
+	prototype.
+	* config/aarch64/aarch64-simd.md (aarch64_crypto_aes<aesmc_op>v16qi):
+	Add "=w,0" alternative.  Enable it when AES/AESMC fusion is enabled.
+
+2016-05-27  Jiong Wang  <jiong.wang@arm.com>
+
+	PR target/63596
+	* config/aarch64/aarch64.c (aarch64_expand_builtin_va_start): Honor
+	tree-stdarg analysis results.
+	(aarch64_setup_incoming_varargs): Likewise.
+
+2016-05-27  Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_build_builtin_va_list): Initialize
+	va_list_gpr_counter_field and va_list_fpr_counter_field.
+
+2016-05-27  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	PR67609
+	* config/aarch64/aarch64.h (CANNOT_CHANGE_MODE_CLASS): Remove.
+	* config/aarch64/aarch64.c
+	(aarch64_cannot_change_mode_class): Remove function.
+	* config/aarch64/aarch64-protos.h
+	(aarch64_cannot_change_mode_class): Remove.
+
+2016-05-27  Jan Hubicka  <hubicka@ucw.cz>
+
+	* cfgloop.c (record_niter_bound): Record likely upper bounds.
+	(likely_max_stmt_executions_int, get_likely_max_loop_iterations,
+	get_likely_max_loop_iterations_int): New.
+	* cfgloop.h (struct loop): Add nb_iterations_likely_upper_bound,
+	any_likely_upper_bound.
+	(get_likely_max_loop_iterations_int, get_likely_max_loop_iterations):
+	Declare.
+	* cfgloopmanip.c (copy_loop_info): Copy likely upper bounds.
+	* loop-unroll.c (unroll_loop_constant_iterations): Update likely
+	upper bound.
+	(unroll_loop_constant_iterations): Likewise.
+	(unroll_loop_runtime_iterations): Likewise.
+	* lto-streamer-in.c (input_cfg): Stream likely upper bounds.
+	* lto-streamer-out.c (output_cfg): Likewise.
+	* tree-ssa-loop-ivcanon.c (try_peel_loop): Update likely upper
+	bounds.
+	(canonicalize_loop_induction_variables): Dump likely upper bounds.
+	* tree-ssa-loop-niter.c (record_estimate): Record likely upper bounds.
+	(likely_max_loop_iterations): New.
+	(likely_max_loop_iterations_int): New.
+	(likely_max_stmt_executions): New.
+	* tree-ssa-loop-niter.h (likely_max_loop_iterations,
+	likely_max_loop_iterations_int, likely_max_stmt_executions_int,
+	likely_max_stmt_executions): Declare.
+
+2016-05-27  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/71308
+	* gimple-fold.c (gimple_fold_call): Check that LHS is not null.
+
+2016-05-27  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.md (2x risbg splitters): Use
+	reg_overlap_mentioned_p instead of rtx_equal_p.
+
+2016-05-27  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* combine.c (make_compound_operation): Take known zero bits into
+	account when checking for possible zero_extend.
+
+2016-05-27  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.md (ashl<mode>3, SHORT modes):
+	Use const_int_operand for operand 2 predicate.  Simplify expand code
+	as a result.
+
+2016-05-27  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR middle-end/71279
+	* fold-const.c (fold_ternary_loc): Don't fold VEC_COND_EXPR
+	into comparison.
+
+2016-05-27  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64-modes.def (CC_ZESWP, CC_SESWP): Delete.
+	* config/aarch64/aarch64.c (aarch64_select_cc_mode): Remove condition
+	that returns CC_SESWPmode and CC_ZESWPmode.
+	(aarch64_get_condition_code_1): Remove handling of CC_SESWPmode
+	and CC_SESWPmode.
+	(aarch64_rtx_costs): Likewise.
+
 2016-05-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_emit_p9_fp_minmax): New function
@@ -381,7 +971,7 @@
 2016-05-24  Martin Sebor  <msebor@redhat.com>
 
 	PR c++/71147
-	* gcc/tree.h (complete_or_array_type_p): New inline function.
+	* tree.h (complete_or_array_type_p): New inline function.
 
 2016-05-24  Jakub Jelinek  <jakub@redhat.com>
 
