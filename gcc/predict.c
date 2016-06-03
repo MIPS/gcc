@@ -115,8 +115,8 @@ maybe_hot_frequency_p (struct function *fun, int freq)
     return false;
   if (PARAM_VALUE (HOT_BB_FREQUENCY_FRACTION) == 0)
     return false;
-  if (freq < (ENTRY_BLOCK_PTR_FOR_FN (fun)->frequency
-	      / PARAM_VALUE (HOT_BB_FREQUENCY_FRACTION)))
+  if (freq * PARAM_VALUE (HOT_BB_FREQUENCY_FRACTION)
+      < ENTRY_BLOCK_PTR_FOR_FN (fun)->frequency)
     return false;
   return true;
 }
@@ -478,6 +478,31 @@ gimple_predicted_by_p (const_basic_block bb, enum br_predictor predictor)
   return false;
 }
 
+/* Return true if the one of outgoing edges is already predicted by
+   PREDICTOR for edge E predicted as TAKEN.  */
+
+bool
+edge_predicted_by_p (edge e, enum br_predictor predictor, bool taken)
+{
+  struct edge_prediction *i;
+  basic_block bb = e->src;
+  edge_prediction **preds = bb_predictions->get (bb);
+  if (!preds)
+    return false;
+
+  int probability = predictor_info[(int) predictor].hitrate;
+
+  if (taken != TAKEN)
+    probability = REG_BR_PROB_BASE - probability;
+
+  for (i = *preds; i; i = i->ep_next)
+    if (i->ep_predictor == predictor
+	&& i->ep_edge == e
+	&& i->ep_probability == probability)
+      return true;
+  return false;
+}
+
 /* Return true when the probability of edge is reliable.
 
    The profile guessing code is good at predicting branch outcome (ie.
@@ -568,10 +593,10 @@ rtl_predict_edge (edge e, enum br_predictor predictor, int probability)
 void
 gimple_predict_edge (edge e, enum br_predictor predictor, int probability)
 {
-  gcc_assert (profile_status_for_fn (cfun) != PROFILE_GUESSED);
-  if ((e->src != ENTRY_BLOCK_PTR_FOR_FN (cfun) && EDGE_COUNT (e->src->succs) >
-       1)
-      && flag_guess_branch_prob && optimize)
+  if (e->src != ENTRY_BLOCK_PTR_FOR_FN (cfun)
+      && EDGE_COUNT (e->src->succs) > 1
+      && flag_guess_branch_prob
+      && optimize)
     {
       struct edge_prediction *i = XNEW (struct edge_prediction);
       edge_prediction *&preds = bb_predictions->get_or_insert (e->src);
@@ -914,7 +939,7 @@ combine_predictions_for_bb (basic_block bb, bool dry_run)
 		   pred2; pred2 = pred2->ep_next)
 	       if (pred2 != pred && pred2->ep_predictor == pred->ep_predictor)
 	         {
-	           int probability2 = pred->ep_probability;
+		   int probability2 = pred2->ep_probability;
 
 		   if (pred2->ep_edge != first)
 		     probability2 = REG_BR_PROB_BASE - probability2;
@@ -1220,7 +1245,8 @@ predict_iv_comparison (struct loop *loop, basic_block bb,
 
   if (predicted_by_p (bb, PRED_LOOP_ITERATIONS_GUESSED)
       || predicted_by_p (bb, PRED_LOOP_ITERATIONS)
-      || predicted_by_p (bb, PRED_LOOP_EXIT))
+      || predicted_by_p (bb, PRED_LOOP_EXIT)
+      || predicted_by_p (bb, PRED_LOOP_EXTRA_EXIT))
     return;
 
   stmt = last_stmt (bb);
@@ -1393,7 +1419,7 @@ predict_iv_comparison (struct loop *loop, basic_block bb,
    The edge BB7->BB8 is loop exit because BB8 is outside of the loop.
    From the dataflow, we can infer that BB4->BB6 and BB5->BB6 are also loop
    exits. This function takes BB7->BB8 as input, and finds out the extra loop
-   exits to predict them using PRED_LOOP_EXIT.  */
+   exits to predict them using PRED_LOOP_EXTRA_EXIT.  */
 
 static void
 predict_extra_loop_exits (edge exit_edge)
@@ -1449,12 +1475,12 @@ predict_extra_loop_exits (edge exit_edge)
 	continue;
       if (EDGE_COUNT (e->src->succs) != 1)
 	{
-	  predict_paths_leading_to_edge (e, PRED_LOOP_EXIT, NOT_TAKEN);
+	  predict_paths_leading_to_edge (e, PRED_LOOP_EXTRA_EXIT, NOT_TAKEN);
 	  continue;
 	}
 
       FOR_EACH_EDGE (e1, ei, e->src->preds)
-	predict_paths_leading_to_edge (e1, PRED_LOOP_EXIT, NOT_TAKEN);
+	predict_paths_leading_to_edge (e1, PRED_LOOP_EXTRA_EXIT, NOT_TAKEN);
     }
 }
 
@@ -2415,7 +2441,10 @@ predict_paths_for_bb (basic_block cur, basic_block bb,
 	 regions that are only reachable by abnormal edges.  We simply
 	 prevent visiting given BB twice.  */
       if (found)
-        predict_edge_def (e, pred, taken);
+	{
+	  if (!edge_predicted_by_p (e, pred, taken))
+            predict_edge_def (e, pred, taken);
+	}
       else if (bitmap_set_bit (visited, e->src->index))
 	predict_paths_for_bb (e->src, e->src, pred, taken, visited);
     }
@@ -3221,3 +3250,99 @@ report_predictor_hitrates (void)
   loop_optimizer_finalize ();
 }
 
+/* Force edge E to be cold.
+   If IMPOSSIBLE is true, for edge to have count and probability 0 otherwise
+   keep low probability to represent possible error in a guess.  This is used
+   i.e. in case we predict loop to likely iterate given number of times but
+   we are not 100% sure.
+
+   This function locally updates profile without attempt to keep global
+   consistency which can not be reached in full generality without full profile
+   rebuild from probabilities alone.  Doing so is not necessarily a good idea
+   because frequencies and counts may be more realistic then probabilities.
+
+   In some cases (such as for elimination of early exits during full loop
+   unrolling) the caller can ensure that profile will get consistent
+   afterwards.  */
+
+void
+force_edge_cold (edge e, bool impossible)
+{
+  gcov_type count_sum = 0;
+  int prob_sum = 0;
+  edge_iterator ei;
+  edge e2;
+  gcov_type old_count = e->count;
+  int old_probability = e->probability;
+  gcov_type gcov_scale = REG_BR_PROB_BASE;
+  int prob_scale = REG_BR_PROB_BASE;
+
+  /* If edge is already improbably or cold, just return.  */
+  if (e->probability <= impossible ? PROB_VERY_UNLIKELY : 0
+      && (!impossible || !e->count))
+    return;
+  FOR_EACH_EDGE (e2, ei, e->src->succs)
+    if (e2 != e)
+      {
+	count_sum += e2->count;
+	prob_sum += e2->probability;
+      }
+
+  /* If there are other edges out of e->src, redistribute probabilitity
+     there.  */
+  if (prob_sum)
+    {
+      e->probability
+	 = MIN (e->probability, impossible ? 0 : PROB_VERY_UNLIKELY);
+      if (old_probability)
+	e->count = RDIV (e->count * e->probability, old_probability);
+      else
+        e->count = MIN (e->count, impossible ? 0 : 1);
+
+      if (count_sum)
+	gcov_scale = RDIV ((count_sum + old_count - e->count) * REG_BR_PROB_BASE,
+			   count_sum);
+      prob_scale = RDIV ((REG_BR_PROB_BASE - e->probability) * REG_BR_PROB_BASE,
+			 prob_sum);
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "Making edge %i->%i %s by redistributing "
+		 "probability to other edges.\n",
+		 e->src->index, e->dest->index,
+		 impossible ? "imposisble" : "cold");
+      FOR_EACH_EDGE (e2, ei, e->src->succs)
+	if (e2 != e)
+	  {
+	    e2->count = RDIV (e2->count * gcov_scale, REG_BR_PROB_BASE);
+	    e2->probability = RDIV (e2->probability * prob_scale,
+				    REG_BR_PROB_BASE);
+	  }
+    }
+  /* If all edges out of e->src are unlikely, the basic block itself
+     is unlikely.  */
+  else
+    {
+      e->probability = REG_BR_PROB_BASE;
+
+      /* If we did not adjusting, the source basic block has no likely edeges
+ 	 leaving other direction. In that case force that bb cold, too.
+	 This in general is difficult task to do, but handle special case when
+	 BB has only one predecestor.  This is common case when we are updating
+	 after loop transforms.  */
+      if (!prob_sum && !count_sum && single_pred_p (e->src)
+	  && e->src->frequency > (impossible ? 0 : 1))
+	{
+	  int old_frequency = e->src->frequency;
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file, "Making bb %i %s.\n", e->src->index,
+		     impossible ? "imposisble" : "cold");
+	  e->src->frequency = MIN (e->src->frequency, impossible ? 0 : 1);
+	  e->src->count = e->count = RDIV (e->src->count * e->src->frequency,
+					   old_frequency);
+	  force_edge_cold (single_pred_edge (e->src), impossible);
+	}
+      else if (dump_file && (dump_flags & TDF_DETAILS)
+	       && maybe_hot_bb_p (cfun, e->src))
+	fprintf (dump_file, "Giving up on making bb %i %s.\n", e->src->index,
+		 impossible ? "imposisble" : "cold");
+    }
+}

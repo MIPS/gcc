@@ -1,3 +1,227 @@
+2016-06-03  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* semantics.c (finish_omp_clauses): Mark OpenACC reduction
+	arguments as addressable when async clause exists.
+
+2016-06-02  Jan Hubicka  <jh@suse.cz>
+
+	* cp-gimplify.c (genericize_continue_stmt): Force addition of
+	predict stmt.
+
+2016-06-02  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* decl.c (xref_tag_1): Change pairs of errors to error + inform.
+	(start_enum): Likewise.
+	* parser.c (cp_parser_class_head): Likewise.
+
+2016-06-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71372
+	* cp-gimplify.c (cp_fold): For INDIRECT_REF, if the folded expression
+	is INDIRECT_REF or MEM_REF, copy over TREE_READONLY, TREE_SIDE_EFFECTS
+	and TREE_THIS_VOLATILE flags.  For ARRAY_REF and ARRAY_RANGE_REF, copy
+	over TREE_READONLY, TREE_SIDE_EFFECTS and TREE_THIS_VOLATILE flags
+	to the newly built tree.
+
+2016-05-31  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (instantiate_decl): Avoid recalculation.
+
+	PR c++/60095
+	PR c++/69515
+	PR c++/69009
+	* pt.c (instantiate_template_1): Don't put the partial
+	specialization in DECL_TI_TEMPLATE.
+	(partial_specialization_p, impartial_args): Remove.
+	(regenerate_decl_from_template): Add args parm.
+	(instantiate_decl): Look up the partial specialization again.
+
+	PR c++/71227
+	* pt.c (check_explicit_specialization): Give better diagnostic about
+	specializing a hidden friend.
+
+2016-05-31  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71248
+	* decl.c (check_static_variable_definition): Use DECL_SOURCE_LOCATION
+	to obtain correct locations; avoid redundant diagnostics on
+	out-of-class definitions.
+
+2016-05-30  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/71306
+	* init.c (warn_placement_new_too_small): Handle placement new arguments
+	that are elements of arrays more carefully.  Remove a pointless loop.
+
+2016-05-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71349
+	* parser.c (cp_parser_omp_for): Don't disallow nowait clause
+	when combined with target construct.
+	(cp_parser_omp_parallel): Pass cclauses == NULL as last argument
+	to cp_parser_omp_all_clauses.
+
+2016-05-30  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71238
+	* lex.c (unqualified_name_lookup_error): Take a location too.
+	(unqualified_fn_lookup_error): Take a cp_expr.
+	* cp-tree.h (unqualified_name_lookup_error,
+	unqualified_fn_lookup_error): Adjust declarations.
+	* semantics.c (perform_koenig_lookup): Adjust
+	unqualified_fn_lookup_error call, pass the location of
+	the identifier too as part of a cp_expr.
+
+2016-05-30  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71099
+	* parser.c (cp_parser_function_specifier_opt): Use current_class_type
+	to improve the diagnostic about wrong uses of 'virtual'.
+
+2016-05-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71105
+	* lambda.c (maybe_add_lambda_conv_op): Early return also when
+	LAMBDA_EXPR_DEFAULT_CAPTURE_MODE != CPLD_NONE.
+
+2016-05-28  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Revert:
+	PR c++/69855
+	* name-lookup.c (pushdecl_maybe_friend_1): Push local function
+	decls into the global scope after stripping template bits
+	and setting DECL_ANTICIPATED.
+
+2016-05-27  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60385
+	* name-lookup.c (push_namespace): Return bool, false when pushdecl
+	fails.
+	* name-lookup.h (push_namespace): Adjust declaration.
+	* parser.c (cp_parser_namespace_definition): Check push_namespace
+	return value.
+
+2016-05-27  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	PR c++/69855
+	* name-lookup.c (pushdecl_maybe_friend_1): Push local function
+	decls into the global scope after stripping template bits
+	and setting DECL_ANTICIPATED.
+
+2016-05-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* semantics.c (finish_omp_clauses) <case OMP_CLAUSE_SCHEDULE>: Warn
+	if OMP_CLAUSE_SCHEDULE_CHUNK_EXPR is known not to be positive.
+
+2016-05-26  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/70822
+	PR c++/70106
+	* cp-tree.h (REF_PARENTHESIZED_P): Make this flag apply to
+	SCOPE_REFs too.
+	* pt.c (tsubst_qualified_id): If REF_PARENTHESIZED_P is set
+	on the qualified_id then propagate it to the resulting
+	expression.
+	(do_auto_deduction): Check REF_PARENTHESIZED_P on SCOPE_REFs
+	too.
+	* semantics.c (force_paren_expr): If given a SCOPE_REF, just set
+	its REF_PARENTHESIZED_P flag.
+
+2016-05-25  Jason Merrill  <jason@redhat.com>
+
+	PR c++/71173
+	PR c++/70522
+	* cp-tree.h (enum tag_types): Add scope_type.
+	* parser.c (cp_parser_class_name): Use scope_type.
+	(prefer_type_arg): Handle scope_type.
+	(cp_parser_lookup_name): Use prefer_type_arg.
+	* name-lookup.c (lookup_qualified_name): Change bool is_type_p to
+	int prefer_type, use lookup_flags.
+	* name-lookup.h: Adjust.
+
+2016-05-24  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* parser.c (cp_parser_oacc_declare): Add support for
+	GOMP_MAP_FIRSTPRIVATE_POINTER.
+	* semantics.c (handle_omp_array_sections_1): Replace bool is_omp
+	argument with enum c_omp_region_type ort.  Don't privatize OpenACC
+	non-static members.
+	(handle_omp_array_sections): Replace bool is_omp argument with enum
+	c_omp_region_type ort.  Update call to handle_omp_array_sections_1.
+	(finish_omp_clauses): Add specific errors and warning messages for
+	OpenACC.  Use firsrtprivate pointers for OpenACC subarrays.  Update
+	call to handle_omp_array_sections.
+
+2016-05-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/70584
+	* cp-gimplify.c (cp_fold_maybe_rvalue): Loop in case cp_fold
+	returns a decl.
+	(cp_fold) [INDIRECT_REF]: Don't fold to an rvalue.
+
+2016-05-24  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/71147
+	* decl.c (layout_var_decl, grokdeclarator): Use complete_or_array_type_p.
+	* pt.c (instantiate_class_template_1): Try to complete the element
+	type of a flexible array member.
+	(can_complete_type_without_circularity): Handle arrays of unknown bound.
+	* typeck.c (complete_type): Also complete the type of the elements of
+	arrays with an unspecified bound.
+
+2016-05-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/69872
+	* typeck2.c (check_narrowing): Check pedwarn return value.
+
+2016-05-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71257
+	* semantics.c (finish_omp_clauses) <case OMP_CLAUSE_LINEAR>:
+	For OMP_CLAUSE_LINEAR_REF don't require type to be
+	integral or pointer.
+
+2016-05-24  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70434
+	PR c/69504
+	* expr.c (mark_exp_read): Handle VIEW_CONVERT_EXPR.
+	* constexpr.c (cxx_eval_array_reference): Handle indexed
+	vectors.
+	* typeck.c (cp_build_array_ref): Adjust.
+
+2016-05-23  Jason Merrill  <jason@redhat.com>
+
+	PR c++/70344
+	* constexpr.c (cxx_eval_call_expression): Check for
+	fun == current_function_decl again.
+
+	PR c++/70584
+	* cp-gimplify.c (cp_fold) [INDIRECT_REF]: Call
+	maybe_undo_parenthesized_ref.
+
+	PR c++/70735
+	* pt.c (tsubst_copy): Just return a local variable from
+	non-template context.  Don't call rest_of_decl_compilation for
+	duplicated static locals.
+	(tsubst_decl): Set DECL_CONTEXT of local static from another
+	function.
+
+2016-05-23  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/70972
+	* method.c (forward_parm): Use cp_build_reference_type.
+
+2016-05-23  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/69095
+	* parser.c (cp_parser_initializer): Use check_for_bare_parameter_packs.
+
+2016-05-23  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* pt.c (check_for_bare_parameter_packs): Improve error message
+	location for expressions.
+
 2016-05-20  Nathan Sidwell  <nathan@acm.org>
 
 	* constexpr.c (cxx_bind_parameters_in_call): Avoid gratuitous if

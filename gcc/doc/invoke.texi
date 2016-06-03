@@ -297,7 +297,8 @@ Objective-C and Objective-C++ Dialects}.
 -Wsuggest-attribute=@r{[}pure@r{|}const@r{|}noreturn@r{|}format@r{]} @gol
 -Wsuggest-final-types @gol -Wsuggest-final-methods -Wsuggest-override @gol
 -Wmissing-format-attribute -Wsubobject-linkage @gol
--Wswitch  -Wswitch-default  -Wswitch-enum -Wswitch-bool -Wsync-nand @gol
+-Wswitch  -Wswitch-bool  -Wswitch-default  -Wswitch-enum @gol
+-Wswitch-unreachable  -Wsync-nand @gol
 -Wsystem-headers  -Wtautological-compare  -Wtrampolines  -Wtrigraphs @gol
 -Wtype-limits  -Wundef @gol
 -Wuninitialized  -Wunknown-pragmas  -Wunsafe-loop-optimizations @gol
@@ -369,9 +370,9 @@ Objective-C and Objective-C++ Dialects}.
 -flto-partition=@var{alg} -fmerge-all-constants @gol
 -fmerge-constants -fmodulo-sched -fmodulo-sched-allow-regmoves @gol
 -fmove-loop-invariants -fno-branch-count-reg @gol
--fno-defer-pop -fno-function-cse -fno-guess-branch-probability @gol
--fno-inline -fno-math-errno -fno-peephole -fno-peephole2 @gol
--fno-sched-interblock -fno-sched-spec -fno-signed-zeros @gol
+-fno-defer-pop -fno-fp-int-builtin-inexact -fno-function-cse @gol
+-fno-guess-branch-probability -fno-inline -fno-math-errno -fno-peephole @gol
+-fno-peephole2 -fno-sched-interblock -fno-sched-spec -fno-signed-zeros @gol
 -fno-toplevel-reorder -fno-trapping-math -fno-zero-initialized-in-bss @gol
 -fomit-frame-pointer -foptimize-sibling-calls @gol
 -fpartial-inlining -fpeel-loops -fpredictive-commoning @gol
@@ -1172,7 +1173,7 @@ See RS/6000 and PowerPC Options.
 -msse2avx -mfentry -mrecord-mcount -mnop-mcount -m8bit-idiv @gol
 -mavx256-split-unaligned-load -mavx256-split-unaligned-store @gol
 -malign-data=@var{type} -mstack-protector-guard=@var{guard} @gol
--mmitigate-rop}
+-mmitigate-rop -mgeneral-regs-only}
 
 @emph{x86 Windows Options}
 @gccoptlist{-mconsole -mcygwin -mno-cygwin -mdll @gol
@@ -4144,6 +4145,39 @@ switch ((int) (a == 4))
 @end smallexample
 This warning is enabled by default for C and C++ programs.
 
+@item -Wswitch-unreachable
+@opindex Wswitch-unreachable
+@opindex Wno-switch-unreachable
+Warn whenever a @code{switch} statement contains statements between the
+controlling expression and the first case label, which will never be
+executed.  For example:
+@smallexample
+@group
+switch (cond)
+  @{
+   i = 15;
+  @dots{}
+   case 5:
+  @dots{}
+  @}
+@end group
+@end smallexample
+@option{-Wswitch-unreachable} does not warn if the statement between the
+controlling expression and the first case label is just a declaration:
+@smallexample
+@group
+switch (cond)
+  @{
+   int i;
+  @dots{}
+   case 5:
+   i = 5;
+  @dots{}
+  @}
+@end group
+@end smallexample
+This warning is enabled by default for C and C++ programs.
+
 @item -Wsync-nand @r{(C and C++ only)}
 @opindex Wsync-nand
 @opindex Wno-sync-nand
@@ -6304,7 +6338,8 @@ by @option{-O2} and also turns on the @option{-finline-functions},
 @option{-fgcse-after-reload}, @option{-ftree-loop-vectorize},
 @option{-ftree-loop-distribute-patterns}, @option{-fsplit-paths}
 @option{-ftree-slp-vectorize}, @option{-fvect-cost-model},
-@option{-ftree-partial-pre} and @option{-fipa-cp-clone} options.
+@option{-ftree-partial-pre}, @option{-fpeel-loops}
+and @option{-fipa-cp-clone} options.
 
 @item -O0
 @opindex O0
@@ -8497,6 +8532,24 @@ The default is @option{-fno-signaling-nans}.
 This option is experimental and does not currently guarantee to
 disable all GCC optimizations that affect signaling NaN behavior.
 
+@item -fno-fp-int-builtin-inexact
+@opindex fno-fp-int-builtin-inexact
+Do not allow the built-in functions @code{ceil}, @code{floor},
+@code{round} and @code{trunc}, and their @code{float} and @code{long
+double} variants, to generate code that raises the ``inexact''
+floating-point exception for noninteger arguments.  ISO C99 and C11
+allow these functions to raise the ``inexact'' exception, but ISO/IEC
+TS 18661-1:2014, the C bindings to IEEE 754-2008, does not allow these
+functions to do so.
+
+The default is @option{-ffp-int-builtin-inexact}, allowing the
+exception to be raised.  This option does nothing unless
+@option{-ftrapping-math} is in effect.
+
+Even if @option{-fno-fp-int-builtin-inexact} is used, if the functions
+generate a call to a library function then the ``inexact'' exception
+may be raised if the library implementation does not follow TS 18661.
+
 @item -fsingle-precision-constant
 @opindex fsingle-precision-constant
 Treat floating-point constants as single precision instead of
@@ -8588,7 +8641,7 @@ debug information format adopted by the target, however, it can
 make debugging impossible, since variables no longer stay in
 a ``home register''.
 
-Enabled by default with @option{-funroll-loops} and @option{-fpeel-loops}.
+Enabled by default with @option{-funroll-loops}.
 
 @item -fschedule-fusion
 @opindex fschedule-fusion
@@ -8627,10 +8680,11 @@ the loop is entered.  This usually makes programs run more slowly.
 @item -fpeel-loops
 @opindex fpeel-loops
 Peels loops for which there is enough information that they do not
-roll much (from profile feedback).  It also turns on complete loop peeling
-(i.e.@: complete removal of loops with small constant number of iterations).
+roll much (from profile feedback or static analysis).  It also turns on
+complete loop peeling (i.e.@: complete removal of loops with small constant
+number of iterations).
 
-Enabled with @option{-fprofile-use}.
+Enabled with @option{-O3} and/or @option{-fprofile-use}.
 
 @item -fmove-loop-invariants
 @opindex fmove-loop-invariants
@@ -24263,6 +24317,12 @@ Try to avoid generating code sequences that contain unintended return
 opcodes, to mitigate against certain forms of attack. At the moment,
 this option is limited in what it can do and should not be relied
 on to provide serious protection.
+
+@item -mgeneral-regs-only
+@opindex mgeneral-regs-only
+Generate code that uses only the general-purpose registers.  This
+prevents the compiler from using floating-point, vector, mask and bound
+registers.
 
 @end table
 

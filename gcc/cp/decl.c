@@ -5305,10 +5305,7 @@ layout_var_decl (tree decl)
     complete_type (type);
   if (!DECL_SIZE (decl)
       && TREE_TYPE (decl) != error_mark_node
-      && (COMPLETE_TYPE_P (type)
-	  || (TREE_CODE (type) == ARRAY_TYPE
-	      && !TYPE_DOMAIN (type)
-	      && COMPLETE_TYPE_P (TREE_TYPE (type)))))
+      && complete_or_array_type_p (type))
     layout_decl (decl, 0);
 
   if (!DECL_EXTERNAL (decl) && DECL_SIZE (decl) == NULL_TREE)
@@ -8584,6 +8581,9 @@ build_ptrmem_type (tree class_type, tree member_type)
 static int
 check_static_variable_definition (tree decl, tree type)
 {
+  /* Avoid redundant diagnostics on out-of-class definitions.  */
+  if (!current_class_type || !TYPE_BEING_DEFINED (current_class_type))
+    return 0;
   /* Can't check yet if we don't know the type.  */
   if (dependent_type_p (type))
     return 0;
@@ -8594,15 +8594,17 @@ check_static_variable_definition (tree decl, tree type)
   else if (cxx_dialect >= cxx11 && !INTEGRAL_OR_ENUMERATION_TYPE_P (type))
     {
       if (!COMPLETE_TYPE_P (type))
-	error ("in-class initialization of static data member %q#D of "
-	       "incomplete type", decl);
+	error_at (DECL_SOURCE_LOCATION (decl),
+		  "in-class initialization of static data member %q#D of "
+		  "incomplete type", decl);
       else if (literal_type_p (type))
-	permerror (input_location,
+	permerror (DECL_SOURCE_LOCATION (decl),
 		   "%<constexpr%> needed for in-class initialization of "
 		   "static data member %q#D of non-integral type", decl);
       else
-	error ("in-class initialization of static data member %q#D of "
-	       "non-literal type", decl);
+	error_at (DECL_SOURCE_LOCATION (decl),
+		  "in-class initialization of static data member %q#D of "
+		  "non-literal type", decl);
       return 1;
     }
 
@@ -8614,17 +8616,20 @@ check_static_variable_definition (tree decl, tree type)
      required.  */
   if (!ARITHMETIC_TYPE_P (type) && TREE_CODE (type) != ENUMERAL_TYPE)
     {
-      error ("invalid in-class initialization of static data member "
-	     "of non-integral type %qT",
-	     type);
+      error_at (DECL_SOURCE_LOCATION (decl),
+		"invalid in-class initialization of static data member "
+		"of non-integral type %qT",
+		type);
       return 1;
     }
   else if (!CP_TYPE_CONST_P (type))
-    error ("ISO C++ forbids in-class initialization of non-const "
-	   "static member %qD",
-	   decl);
+    error_at (DECL_SOURCE_LOCATION (decl),
+	      "ISO C++ forbids in-class initialization of non-const "
+	      "static member %qD",
+	      decl);
   else if (!INTEGRAL_OR_ENUMERATION_TYPE_P (type))
-    pedwarn (input_location, OPT_Wpedantic, "ISO C++ forbids initialization of member constant "
+    pedwarn (DECL_SOURCE_LOCATION (decl), OPT_Wpedantic,
+	     "ISO C++ forbids initialization of member constant "
 	     "%qD of non-integral type %qT", decl, type);
 
   return 0;
@@ -11165,8 +11170,7 @@ grokdeclarator (const cp_declarator *declarator,
 	  }
 	else if (!staticp && !dependent_type_p (type)
 		 && !COMPLETE_TYPE_P (complete_type (type))
-		 && (TREE_CODE (type) != ARRAY_TYPE
-		     || !COMPLETE_TYPE_P (TREE_TYPE (type))
+		 && (!complete_or_array_type_p (type)
 		     || initialized == 0))
 	  {
 	    if (TREE_CODE (type) != ARRAY_TYPE
@@ -12789,7 +12793,7 @@ xref_tag_1 (enum tag_types tag_code, tree name,
 	       && CLASSTYPE_IS_TEMPLATE (t))
 	{
 	  error ("redeclaration of %qT as a non-template", t);
-	  error ("previous declaration %q+D", t);
+	  inform (location_of (t), "previous declaration %qD", t);
 	  return error_mark_node;
 	}
 
@@ -13145,16 +13149,16 @@ start_enum (tree name, tree enumtype, tree underlying_type,
 	{
 	  error_at (input_location, "scoped/unscoped mismatch "
 		    "in enum %q#T", enumtype);
-	  error_at (DECL_SOURCE_LOCATION (TYPE_MAIN_DECL (enumtype)),
-		    "previous definition here");
+	  inform (DECL_SOURCE_LOCATION (TYPE_MAIN_DECL (enumtype)),
+		  "previous definition here");
 	  enumtype = error_mark_node;
 	}
       else if (ENUM_FIXED_UNDERLYING_TYPE_P (enumtype) != !! underlying_type)
 	{
 	  error_at (input_location, "underlying type mismatch "
 		    "in enum %q#T", enumtype);
-	  error_at (DECL_SOURCE_LOCATION (TYPE_MAIN_DECL (enumtype)),
-		    "previous definition here");
+	  inform (DECL_SOURCE_LOCATION (TYPE_MAIN_DECL (enumtype)),
+		  "previous definition here");
 	  enumtype = error_mark_node;
 	}
       else if (underlying_type && ENUM_UNDERLYING_TYPE (enumtype)
@@ -13165,8 +13169,8 @@ start_enum (tree name, tree enumtype, tree underlying_type,
 	{
 	  error_at (input_location, "different underlying type "
 		    "in enum %q#T", enumtype);
-	  error_at (DECL_SOURCE_LOCATION (TYPE_MAIN_DECL (enumtype)),
-		    "previous definition here");
+	  inform (DECL_SOURCE_LOCATION (TYPE_MAIN_DECL (enumtype)),
+		  "previous definition here");
 	  underlying_type = NULL_TREE;
 	}
     }

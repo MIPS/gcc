@@ -2586,7 +2586,7 @@ enum ix86_function_specific_strings
   IX86_FUNCTION_SPECIFIC_MAX
 };
 
-static char *ix86_target_string (HOST_WIDE_INT, int, const char *,
+static char *ix86_target_string (HOST_WIDE_INT, int, int, const char *,
 				 const char *, enum fpmath_unit, bool);
 static void ix86_function_specific_save (struct cl_target_option *,
 					 struct gcc_options *opts);
@@ -4084,9 +4084,9 @@ ix86_using_red_zone (void)
    responsible for freeing the string.  */
 
 static char *
-ix86_target_string (HOST_WIDE_INT isa, int flags, const char *arch,
-		    const char *tune, enum fpmath_unit fpmath,
-		    bool add_nl_p)
+ix86_target_string (HOST_WIDE_INT isa, int flags, int ix86_flags,
+		    const char *arch, const char *tune,
+		    enum fpmath_unit fpmath, bool add_nl_p)
 {
   struct ix86_target_opts
   {
@@ -4189,10 +4189,18 @@ ix86_target_string (HOST_WIDE_INT isa, int flags, const char *arch,
     { "-mprefer-avx128",		MASK_PREFER_AVX128},
   };
 
-  const char *opts[ARRAY_SIZE (isa_opts) + ARRAY_SIZE (flag_opts) + 6][2];
+  /* Additional flag options.  */
+  static struct ix86_target_opts ix86_flag_opts[] =
+  {
+    { "-mgeneral-regs-only",		OPTION_MASK_GENERAL_REGS_ONLY },
+  };
+
+  const char *opts[ARRAY_SIZE (isa_opts) + ARRAY_SIZE (flag_opts)
+		   + ARRAY_SIZE (ix86_flag_opts) + 6][2];
 
   char isa_other[40];
   char target_other[40];
+  char ix86_target_other[40];
   unsigned num = 0;
   unsigned i, j;
   char *ret;
@@ -4264,6 +4272,22 @@ ix86_target_string (HOST_WIDE_INT isa, int flags, const char *arch,
     {
       opts[num++][0] = target_other;
       sprintf (target_other, "(other flags: %#x)", flags);
+    }
+
+    /* Add additional flag options.  */
+  for (i = 0; i < ARRAY_SIZE (ix86_flag_opts); i++)
+    {
+      if ((ix86_flags & ix86_flag_opts[i].mask) != 0)
+	{
+	  opts[num++][0] = ix86_flag_opts[i].option;
+	  ix86_flags &= ~ ix86_flag_opts[i].mask;
+	}
+    }
+
+  if (ix86_flags && add_nl_p)
+    {
+      opts[num++][0] = ix86_target_other;
+      sprintf (ix86_target_other, "(other flags: %#x)", ix86_flags);
     }
 
   /* Add -fpmath= option.  */
@@ -4360,6 +4384,7 @@ void ATTRIBUTE_UNUSED
 ix86_debug_options (void)
 {
   char *opts = ix86_target_string (ix86_isa_flags, target_flags,
+				   ix86_target_flags,
 				   ix86_arch_string, ix86_tune_string,
 				   ix86_fpmath, true);
 
@@ -5337,7 +5362,10 @@ ix86_option_override_internal (bool main_args_p,
 	    && !(opts->x_ix86_isa_flags_explicit & OPTION_MASK_ISA_PKU))
 	  opts->x_ix86_isa_flags |= OPTION_MASK_ISA_PKU;
 
-	if (!(opts_set->x_target_flags & MASK_80387))
+	/* Don't enable x87 instructions if only
+	   general registers are allowed.  */
+	if (!(opts_set->x_ix86_target_flags & OPTION_MASK_GENERAL_REGS_ONLY)
+	    && !(opts_set->x_target_flags & MASK_80387))
 	  {
 	    if (processor_alias_table[i].flags & PTA_NO_80387)
 	      opts->x_target_flags &= ~MASK_80387;
@@ -5996,6 +6024,15 @@ ix86_conditional_register_usage (void)
 {
   int i, c_mask;
 
+  /* If there are no caller-saved registers, preserve all registers.
+     except fixed_regs and registers used for function return value
+     since aggregate_value_p checks call_used_regs[regno] on return
+     value.  */
+  if (cfun && cfun->machine->no_caller_saved_registers)
+    for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+      if (!fixed_regs[i] && !ix86_function_value_regno_p (i))
+	call_used_regs[i] = 0;
+
   /* For 32-bit targets, squash the REX registers.  */
   if (! TARGET_64BIT)
     {
@@ -6075,7 +6112,6 @@ ix86_function_specific_save (struct cl_target_option *ptr,
   ptr->tune_defaulted = ix86_tune_defaulted;
   ptr->arch_specified = ix86_arch_specified;
   ptr->x_ix86_isa_flags_explicit = opts->x_ix86_isa_flags_explicit;
-  ptr->x_ix86_target_flags_explicit = opts->x_ix86_target_flags_explicit;
   ptr->x_recip_mask_explicit = opts->x_recip_mask_explicit;
   ptr->x_ix86_arch_string = opts->x_ix86_arch_string;
   ptr->x_ix86_tune_string = opts->x_ix86_tune_string;
@@ -6132,7 +6168,6 @@ ix86_function_specific_restore (struct gcc_options *opts,
   ix86_tune_defaulted = ptr->tune_defaulted;
   ix86_arch_specified = ptr->arch_specified;
   opts->x_ix86_isa_flags_explicit = ptr->x_ix86_isa_flags_explicit;
-  opts->x_ix86_target_flags_explicit = ptr->x_ix86_target_flags_explicit;
   opts->x_recip_mask_explicit = ptr->x_recip_mask_explicit;
   opts->x_ix86_arch_string = ptr->x_ix86_arch_string;
   opts->x_ix86_tune_string = ptr->x_ix86_tune_string;
@@ -6239,7 +6274,8 @@ ix86_function_specific_print (FILE *file, int indent,
 {
   char *target_string
     = ix86_target_string (ptr->x_ix86_isa_flags, ptr->x_target_flags,
-			  NULL, NULL, ptr->x_ix86_fpmath, false);
+			  ptr->x_ix86_target_flags, NULL, NULL,
+			  ptr->x_ix86_fpmath, false);
 
   gcc_assert (ptr->arch < PROCESSOR_max);
   fprintf (file, "%*sarch = %d (%s)\n",
@@ -6768,6 +6804,40 @@ ix86_reset_previous_fndecl (void)
   ix86_previous_fndecl = NULL_TREE;
 }
 
+/* Set the func_type field from the function FNDECL.  */
+
+static void
+ix86_set_func_type (tree fndecl)
+{
+  if (cfun->machine->func_type == TYPE_UNKNOWN)
+    {
+      if (lookup_attribute ("interrupt",
+			    TYPE_ATTRIBUTES (TREE_TYPE (fndecl))))
+	{
+	  int nargs = 0;
+	  for (tree arg = DECL_ARGUMENTS (fndecl);
+	       arg;
+	       arg = TREE_CHAIN (arg))
+	    nargs++;
+	  cfun->machine->no_caller_saved_registers = true;
+	  cfun->machine->func_type
+	    = nargs == 2 ? TYPE_EXCEPTION : TYPE_INTERRUPT;
+
+	  /* Only dwarf2out.c can handle -WORD(AP) as a pointer argument.  */
+	  if (write_symbols != NO_DEBUG && write_symbols != DWARF2_DEBUG)
+	    sorry ("Only DWARF debug format is supported for interrupt "
+		   "service routine.");
+	}
+      else
+	{
+	  cfun->machine->func_type = TYPE_NORMAL;
+	  if (lookup_attribute ("no_caller_saved_registers",
+				TYPE_ATTRIBUTES (TREE_TYPE (fndecl))))
+	    cfun->machine->no_caller_saved_registers = true;
+	}
+    }
+}
+
 /* Establish appropriate back-end context for processing the function
    FNDECL.  The argument might be NULL to indicate processing at top
    level, outside of any function scope.  */
@@ -6778,7 +6848,14 @@ ix86_set_current_function (tree fndecl)
      several times in the course of compiling a function, and we don't want to
      slow things down too much or call target_reinit when it isn't safe.  */
   if (fndecl == ix86_previous_fndecl)
-    return;
+    {
+      /* There may be 2 function bodies for the same function FNDECL,
+	 one is extern inline and one isn't.  Call ix86_set_func_type
+	 to set the func_type field.  */
+      if (fndecl != NULL_TREE)
+	ix86_set_func_type (fndecl);
+      return;
+    }
 
   tree old_tree;
   if (ix86_previous_fndecl == NULL_TREE)
@@ -6794,6 +6871,8 @@ ix86_set_current_function (tree fndecl)
 	ix86_reset_previous_fndecl ();
       return;
     }
+
+  ix86_set_func_type (fndecl);
 
   tree new_tree = DECL_FUNCTION_SPECIFIC_TARGET (fndecl);
   if (new_tree == NULL_TREE)
@@ -6811,6 +6890,8 @@ ix86_set_current_function (tree fndecl)
     }
   ix86_previous_fndecl = fndecl;
 
+  static bool prev_no_caller_saved_registers;
+
   /* 64-bit MS and SYSV ABI have different set of call used registers.
      Avoid expensive re-initialization of init_regs each time we switch
      function context.  */
@@ -6818,6 +6899,45 @@ ix86_set_current_function (tree fndecl)
       && (call_used_regs[SI_REG]
 	  == (cfun->machine->call_abi == MS_ABI)))
     reinit_regs ();
+  /* Need to re-initialize init_regs if caller-saved registers are
+     changed.  */
+  else if (prev_no_caller_saved_registers
+	   != cfun->machine->no_caller_saved_registers)
+    reinit_regs ();
+
+  if (cfun->machine->func_type != TYPE_NORMAL
+      || cfun->machine->no_caller_saved_registers)
+    {
+      /* Don't allow MPX, SSE, MMX nor x87 instructions since they
+	 may change processor state.  */
+      const char *isa;
+      if (TARGET_MPX)
+	isa = "MPX";
+      else if (TARGET_SSE)
+	isa = "SSE";
+      else if (TARGET_MMX)
+	isa = "MMX/3Dnow";
+      else if (TARGET_80387)
+	isa = "80387";
+      else
+	isa = NULL;
+      if (isa != NULL)
+	{
+	  if (cfun->machine->func_type != TYPE_NORMAL)
+	    sorry ("%s instructions aren't allowed in %s service routine",
+		   isa, (cfun->machine->func_type == TYPE_EXCEPTION
+			 ? "exception" : "interrupt"));
+	  else
+	    sorry ("%s instructions aren't allowed in function with "
+		   "no_caller_saved_registers attribute", isa);
+	  /* Don't issue the same error twice.  */
+	  cfun->machine->func_type = TYPE_NORMAL;
+	  cfun->machine->no_caller_saved_registers = false;
+	}
+    }
+
+  prev_no_caller_saved_registers
+    = cfun->machine->no_caller_saved_registers;
 }
 
 
@@ -7098,6 +7218,11 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
   tree type, decl_or_type;
   rtx a, b;
   bool bind_global = decl && !targetm.binds_local_p (decl);
+
+  /* Sibling call isn't OK if there are no caller-saved registers
+     since all registers must be preserved before return.  */
+  if (cfun->machine->no_caller_saved_registers)
+    return false;
 
   /* If we are generating position-independent code, we cannot sibcall
      optimize direct calls to global functions, as the PLT requires
@@ -8267,6 +8392,8 @@ type_natural_mode (const_tree type, const CUMULATIVE_ARGS *cum,
 		      }
 		  }
 		else if ((size == 8 && !TARGET_64BIT)
+			 && (!cfun
+			     || cfun->machine->func_type == TYPE_NORMAL)
 			 && !TARGET_MMX
 			 && !TARGET_IAMCU)
 		  {
@@ -9245,6 +9372,11 @@ ix86_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
   HOST_WIDE_INT bytes, words;
   int nregs;
 
+  /* The argument of interrupt handler is a special case and is
+     handled in ix86_function_arg.  */
+  if (!cum->caller && cfun->machine->func_type != TYPE_NORMAL)
+    return;
+
   if (mode == BLKmode)
     bytes = int_size_in_bytes (type);
   else
@@ -9560,6 +9692,36 @@ ix86_function_arg (cumulative_args_t cum_v, machine_mode omode,
   machine_mode mode = omode;
   HOST_WIDE_INT bytes, words;
   rtx arg;
+
+  if (!cum->caller && cfun->machine->func_type != TYPE_NORMAL)
+    {
+      gcc_assert (type != NULL_TREE);
+      if (POINTER_TYPE_P (type))
+	{
+	  /* This is the pointer argument.  */
+	  gcc_assert (TYPE_MODE (type) == Pmode);
+	  if (cfun->machine->func_type == TYPE_INTERRUPT)
+	    /* -WORD(AP) in the current frame in interrupt handler.  */
+	    arg = plus_constant (Pmode, arg_pointer_rtx,
+				 -UNITS_PER_WORD);
+	  else
+	    /* (AP) in the current frame in exception handler.  */
+	    arg = arg_pointer_rtx;
+	}
+      else
+	{
+	  gcc_assert (cfun->machine->func_type == TYPE_EXCEPTION
+		      && TREE_CODE (type) == INTEGER_TYPE
+		      && TYPE_MODE (type) == word_mode);
+	  /* The integer argument is the error code at -WORD(AP) in
+	     the current frame in exception handler.  */
+	  arg = gen_rtx_MEM (word_mode,
+			     plus_constant (Pmode,
+					    arg_pointer_rtx,
+					    -UNITS_PER_WORD));
+	}
+      return arg;
+    }
 
   /* All pointer bounds arguments are handled separately here.  */
   if ((type && POINTER_BOUNDS_TYPE_P (type))
@@ -10122,14 +10284,16 @@ ix86_function_value_bounds (const_tree valtype,
 }
 
 /* Pointer function arguments and return values are promoted to
-   word_mode.  */
+   word_mode for normal functions.  */
 
 static machine_mode
 ix86_promote_function_mode (const_tree type, machine_mode mode,
 			    int *punsignedp, const_tree fntype,
 			    int for_return)
 {
-  if (type != NULL_TREE && POINTER_TYPE_P (type))
+  if (cfun->machine->func_type == TYPE_NORMAL
+      && type != NULL_TREE
+      && POINTER_TYPE_P (type))
     {
       *punsignedp = POINTERS_EXTEND_UNSIGNED;
       return word_mode;
@@ -11340,7 +11504,10 @@ ix86_can_use_return_insn_p (void)
 {
   struct ix86_frame frame;
 
-  if (! reload_completed || frame_pointer_needed)
+  /* Don't use `ret' instruction in interrupt handler.  */
+  if (! reload_completed
+      || frame_pointer_needed
+      || cfun->machine->func_type != TYPE_NORMAL)
     return 0;
 
   /* Don't allow more than 32k pop, since that's all we can do
@@ -11655,11 +11822,77 @@ ix86_select_alt_pic_regnum (void)
   return INVALID_REGNUM;
 }
 
+/* Return true if REGNO is used by the epilogue.  */
+
+bool
+ix86_epilogue_uses (int regno)
+{
+  /* If there are no caller-saved registers, we preserve all registers,
+     except for MMX and x87 registers which aren't supported when saving
+     and restoring registers.  Don't explicitly save SP register since
+     it is always preserved.  */
+  return (epilogue_completed
+	  && cfun->machine->no_caller_saved_registers
+	  && !fixed_regs[regno]
+	  && !STACK_REGNO_P (regno)
+	  && !MMX_REGNO_P (regno));
+}
+
+/* Return nonzero if register REGNO can be used as a scratch register
+   in peephole2.  */
+
+static bool
+ix86_hard_regno_scratch_ok (unsigned int regno)
+{
+  /* If there are no caller-saved registers, we can't use any register
+     as a scratch register after epilogue and use REGNO as scratch
+     register only if it has been used before to avoid saving and
+     restoring it.  */
+  return (!cfun->machine->no_caller_saved_registers
+	  || (!epilogue_completed
+	      && df_regs_ever_live_p (regno)));
+}
+
 /* Return TRUE if we need to save REGNO.  */
 
 static bool
 ix86_save_reg (unsigned int regno, bool maybe_eh_return)
 {
+  /* If there are no caller-saved registers, we preserve all registers,
+     except for MMX and x87 registers which aren't supported when saving
+     and restoring registers.  Don't explicitly save SP register since
+     it is always preserved.  */
+  if (cfun->machine->no_caller_saved_registers)
+    {
+      /* Don't preserve registers used for function return value.  */
+      rtx reg = crtl->return_rtx;
+      if (reg)
+	{
+	  unsigned int i = REGNO (reg);
+	  unsigned int nregs = hard_regno_nregs[i][GET_MODE (reg)];
+	  while (nregs-- > 0)
+	    if ((i + nregs) == regno)
+	      return false;
+
+	  reg = crtl->return_bnd;
+	  if (reg)
+	    {
+	      i = REGNO (reg);
+	      nregs = hard_regno_nregs[i][GET_MODE (reg)];
+	      while (nregs-- > 0)
+		if ((i + nregs) == regno)
+		  return false;
+	    }
+	}
+
+      return (df_regs_ever_live_p (regno)
+	      && !fixed_regs[regno]
+	      && !STACK_REGNO_P (regno)
+	      && !MMX_REGNO_P (regno)
+	      && (regno != HARD_FRAME_POINTER_REGNUM
+		  || !frame_pointer_needed));
+    }
+
   if (regno == REAL_PIC_OFFSET_TABLE_REGNUM
       && pic_offset_table_rtx)
     {
@@ -12373,13 +12606,17 @@ find_drap_reg (void)
 {
   tree decl = cfun->decl;
 
+  /* Always use callee-saved register if there are no caller-saved
+     registers.  */
   if (TARGET_64BIT)
     {
       /* Use R13 for nested function or function need static chain.
 	 Since function with tail call may use any caller-saved
 	 registers in epilogue, DRAP must not use caller-saved
 	 register in such case.  */
-      if (DECL_STATIC_CHAIN (decl) || crtl->tail_call_emit)
+      if (DECL_STATIC_CHAIN (decl)
+	  || cfun->machine->no_caller_saved_registers
+	  || crtl->tail_call_emit)
 	return R13_REG;
 
       return R10_REG;
@@ -12390,7 +12627,9 @@ find_drap_reg (void)
 	 Since function with tail call may use any caller-saved
 	 registers in epilogue, DRAP must not use caller-saved
 	 register in such case.  */
-      if (DECL_STATIC_CHAIN (decl) || crtl->tail_call_emit)
+      if (DECL_STATIC_CHAIN (decl)
+	  || cfun->machine->no_caller_saved_registers
+	  || crtl->tail_call_emit)
 	return DI_REG;
 
       /* Reuse static chain register if it isn't used for parameter
@@ -12431,8 +12670,12 @@ ix86_minimum_incoming_stack_boundary (bool sibcall)
 {
   unsigned int incoming_stack_boundary;
 
+  /* Stack of interrupt handler is always aligned to MIN_STACK_BOUNDARY.
+   */
+  if (cfun->machine->func_type != TYPE_NORMAL)
+    incoming_stack_boundary = MIN_STACK_BOUNDARY;
   /* Prefer the one specified at command line. */
-  if (ix86_user_incoming_stack_boundary)
+  else if (ix86_user_incoming_stack_boundary)
     incoming_stack_boundary = ix86_user_incoming_stack_boundary;
   /* In 32bit, use MIN_STACK_BOUNDARY for incoming stack boundary
      if -mstackrealign is used, it isn't used for sibcall check and
@@ -13193,6 +13436,12 @@ ix86_expand_prologue (void)
     {
       int align_bytes = crtl->stack_alignment_needed / BITS_PER_UNIT;
 
+      /* Can't use DRAP in interrupt function.  */
+      if (cfun->machine->func_type != TYPE_NORMAL)
+	sorry ("Dynamic Realign Argument Pointer (DRAP) not supported "
+	       "in interrupt service routine.  This may be worked "
+	       "around by avoiding functions with aggregate return.");
+
       /* Only need to push parameter pointer reg if it is caller saved.  */
       if (!call_used_regs[REGNO (crtl->drap_reg)])
 	{
@@ -13568,8 +13817,14 @@ ix86_expand_prologue (void)
   if (frame_pointer_needed && frame.red_zone_size)
     emit_insn (gen_memory_blockage ());
 
-  /* Emit cld instruction if stringops are used in the function.  */
-  if (TARGET_CLD && ix86_current_function_needs_cld)
+  /* Emit cld instruction if stringops are used in the function.  Since
+     we can't assume the direction flag in interrupt handler, we must
+     emit cld instruction if stringops are used in interrupt handler or
+     interrupt handler isn't a leaf function.  */
+  if ((TARGET_CLD && ix86_current_function_needs_cld)
+      || (!TARGET_CLD
+	  && cfun->machine->func_type != TYPE_NORMAL
+	  && (ix86_current_function_needs_cld || !crtl->is_leaf)))
     emit_insn (gen_cld ());
 
   /* SEH requires that the prologue end within 256 bytes of the start of
@@ -14052,7 +14307,20 @@ ix86_expand_epilogue (int style)
       return;
     }
 
-  if (crtl->args.pops_args && crtl->args.size)
+  if (cfun->machine->func_type != TYPE_NORMAL)
+    {
+      /* Return with the "IRET" instruction from interrupt handler.
+	 Pop the 'ERROR_CODE' off the stack before the 'IRET'
+	 instruction in exception handler.  */
+      if (cfun->machine->func_type == TYPE_EXCEPTION)
+	{
+	  rtx r = plus_constant (Pmode, stack_pointer_rtx,
+				 UNITS_PER_WORD);
+	  emit_insn (gen_rtx_SET (stack_pointer_rtx, r));
+	}
+      emit_jump_insn (gen_interrupt_return ());
+    }
+  else if (crtl->args.pops_args && crtl->args.size)
     {
       rtx popc = GEN_INT (crtl->args.pops_args);
 
@@ -27372,6 +27640,18 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
   rtx vec[3];
   rtx use = NULL, call;
   unsigned int vec_len = 0;
+  tree fndecl;
+
+  if (GET_CODE (XEXP (fnaddr, 0)) == SYMBOL_REF)
+    {
+      fndecl = SYMBOL_REF_DECL (XEXP (fnaddr, 0));
+      if (fndecl
+	  && (lookup_attribute ("interrupt",
+				TYPE_ATTRIBUTES (TREE_TYPE (fndecl)))))
+	error ("interrupt service routine can't be called directly");
+    }
+  else
+    fndecl = NULL_TREE;
 
   if (pop == const0_rtx)
     pop = NULL;
@@ -27508,8 +27788,30 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
       vec[vec_len++] = pop;
     }
 
-  if (TARGET_64BIT_MS_ABI
-      && (!callarg2 || INTVAL (callarg2) != -2))
+  if (cfun->machine->no_caller_saved_registers
+      && (!fndecl
+	  || (!TREE_THIS_VOLATILE (fndecl)
+	      && !lookup_attribute ("no_caller_saved_registers",
+				    TYPE_ATTRIBUTES (TREE_TYPE (fndecl))))))
+    {
+      static const char ix86_call_used_regs[] = CALL_USED_REGISTERS;
+      bool is_64bit_ms_abi = (TARGET_64BIT
+			      && ix86_function_abi (fndecl) == MS_ABI);
+      char c_mask = CALL_USED_REGISTERS_MASK (is_64bit_ms_abi);
+
+      /* If there are no caller-saved registers, add all registers
+	 that are clobbered by the call which returns.  */
+      for (int i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	if (!fixed_regs[i]
+	    && (ix86_call_used_regs[i] == 1
+		|| (ix86_call_used_regs[i] & c_mask))
+	    && !STACK_REGNO_P (i)
+	    && !MMX_REGNO_P (i))
+	  clobber_reg (&use,
+		       gen_rtx_REG (GET_MODE (regno_reg_rtx[i]), i));
+    }
+  else if (TARGET_64BIT_MS_ABI
+	   && (!callarg2 || INTVAL (callarg2) != -2))
     {
       int const cregs_size
 	= ARRAY_SIZE (x86_64_ms_sysv_extra_clobbered_registers);
@@ -30935,7 +31237,7 @@ enum ix86_builtins
   IX86_BUILTIN_CVTPD2PS512,
   IX86_BUILTIN_CVTPD2UDQ512,
   IX86_BUILTIN_CVTPH2PS512,
-  IX86_BUILTIN_CVTPS2DQ512,
+  IX86_BUILTIN_CVTPS2DQ512_MASK,
   IX86_BUILTIN_CVTPS2PD512,
   IX86_BUILTIN_CVTPS2PH512,
   IX86_BUILTIN_CVTPS2UDQ512,
@@ -32375,14 +32677,25 @@ enum ix86_builtins
   IX86_BUILTIN_COPYSIGNQ,
 
   /* Vectorizer support builtins.  */
-  IX86_BUILTIN_CEILPD_VEC_PACK_SFIX512,
   IX86_BUILTIN_CPYSGNPS,
   IX86_BUILTIN_CPYSGNPD,
   IX86_BUILTIN_CPYSGNPS256,
   IX86_BUILTIN_CPYSGNPS512,
   IX86_BUILTIN_CPYSGNPD256,
   IX86_BUILTIN_CPYSGNPD512,
+  IX86_BUILTIN_FLOORPS512,
+  IX86_BUILTIN_FLOORPD512,
+  IX86_BUILTIN_CEILPS512,
+  IX86_BUILTIN_CEILPD512,
+  IX86_BUILTIN_TRUNCPS512,
+  IX86_BUILTIN_TRUNCPD512,
+  IX86_BUILTIN_CVTPS2DQ512,
+  IX86_BUILTIN_VEC_PACK_SFIX512,
+  IX86_BUILTIN_FLOORPS_SFIX512,
   IX86_BUILTIN_FLOORPD_VEC_PACK_SFIX512,
+  IX86_BUILTIN_CEILPS_SFIX512,
+  IX86_BUILTIN_CEILPD_VEC_PACK_SFIX512,
+  IX86_BUILTIN_ROUNDPS_AZ_SFIX512,
   IX86_BUILTIN_ROUNDPD_AZ_VEC_PACK_SFIX512,
 
 
@@ -34197,6 +34510,17 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_sqrtv8df2, "__builtin_ia32_sqrtpd512", IX86_BUILTIN_SQRTPD512, UNKNOWN, (int) V8DF_FTYPE_V8DF },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_sqrtv16sf2, "__builtin_ia32_sqrtps512", IX86_BUILTIN_SQRTPS_NR512, UNKNOWN, (int) V16SF_FTYPE_V16SF },
   { OPTION_MASK_ISA_AVX512ER, CODE_FOR_avx512er_exp2v16sf, "__builtin_ia32_exp2ps", IX86_BUILTIN_EXP2PS, UNKNOWN, (int) V16SF_FTYPE_V16SF },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_roundps512, "__builtin_ia32_floorps512", IX86_BUILTIN_FLOORPS512, (enum rtx_code) ROUND_FLOOR, (int) V16SF_FTYPE_V16SF_ROUND },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_roundps512, "__builtin_ia32_ceilps512", IX86_BUILTIN_CEILPS512, (enum rtx_code) ROUND_CEIL, (int) V16SF_FTYPE_V16SF_ROUND },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_roundps512, "__builtin_ia32_truncps512", IX86_BUILTIN_TRUNCPS512, (enum rtx_code) ROUND_TRUNC, (int) V16SF_FTYPE_V16SF_ROUND },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_roundpd512, "__builtin_ia32_floorpd512", IX86_BUILTIN_FLOORPD512, (enum rtx_code) ROUND_FLOOR, (int) V8DF_FTYPE_V8DF_ROUND },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_roundpd512, "__builtin_ia32_ceilpd512", IX86_BUILTIN_CEILPD512, (enum rtx_code) ROUND_CEIL, (int) V8DF_FTYPE_V8DF_ROUND },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_roundpd512, "__builtin_ia32_truncpd512", IX86_BUILTIN_TRUNCPD512, (enum rtx_code) ROUND_TRUNC, (int) V8DF_FTYPE_V8DF_ROUND },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_fix_notruncv16sfv16si, "__builtin_ia32_cvtps2dq512", IX86_BUILTIN_CVTPS2DQ512, UNKNOWN, (int) V16SI_FTYPE_V16SF },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_vec_pack_sfix_v8df, "__builtin_ia32_vec_pack_sfix512", IX86_BUILTIN_VEC_PACK_SFIX512, UNKNOWN, (int) V16SI_FTYPE_V8DF_V8DF },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_roundv16sf2_sfix, "__builtin_ia32_roundps_az_sfix512", IX86_BUILTIN_ROUNDPS_AZ_SFIX512, UNKNOWN, (int) V16SI_FTYPE_V16SF },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_roundps512_sfix, "__builtin_ia32_floorps_sfix512", IX86_BUILTIN_FLOORPS_SFIX512, (enum rtx_code) ROUND_FLOOR, (int) V16SI_FTYPE_V16SF_ROUND },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_roundps512_sfix, "__builtin_ia32_ceilps_sfix512", IX86_BUILTIN_CEILPS_SFIX512, (enum rtx_code) ROUND_CEIL, (int) V16SI_FTYPE_V16SF_ROUND },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_roundv8df2_vec_pack_sfix, "__builtin_ia32_roundpd_az_vec_pack_sfix512", IX86_BUILTIN_ROUNDPD_AZ_VEC_PACK_SFIX512, UNKNOWN, (int) V16SI_FTYPE_V8DF_V8DF },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_roundpd_vec_pack_sfix512, "__builtin_ia32_floorpd_vec_pack_sfix512", IX86_BUILTIN_FLOORPD_VEC_PACK_SFIX512, (enum rtx_code) ROUND_FLOOR, (int) V16SI_FTYPE_V8DF_V8DF_ROUND },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_roundpd_vec_pack_sfix512, "__builtin_ia32_ceilpd_vec_pack_sfix512", IX86_BUILTIN_CEILPD_VEC_PACK_SFIX512, (enum rtx_code) ROUND_CEIL, (int) V16SI_FTYPE_V8DF_V8DF_ROUND },
@@ -35113,7 +35437,7 @@ static const struct builtin_description bdesc_round_args[] =
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_cvtpd2ps512_mask_round,  "__builtin_ia32_cvtpd2ps512_mask", IX86_BUILTIN_CVTPD2PS512, UNKNOWN, (int) V8SF_FTYPE_V8DF_V8SF_QI_INT },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_ufix_notruncv8dfv8si2_mask_round, "__builtin_ia32_cvtpd2udq512_mask", IX86_BUILTIN_CVTPD2UDQ512, UNKNOWN, (int) V8SI_FTYPE_V8DF_V8SI_QI_INT },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_vcvtph2ps512_mask_round,  "__builtin_ia32_vcvtph2ps512_mask", IX86_BUILTIN_CVTPH2PS512, UNKNOWN, (int) V16SF_FTYPE_V16HI_V16SF_HI_INT },
-  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_fix_notruncv16sfv16si_mask_round, "__builtin_ia32_cvtps2dq512_mask", IX86_BUILTIN_CVTPS2DQ512, UNKNOWN, (int) V16SI_FTYPE_V16SF_V16SI_HI_INT },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_fix_notruncv16sfv16si_mask_round, "__builtin_ia32_cvtps2dq512_mask", IX86_BUILTIN_CVTPS2DQ512_MASK, UNKNOWN, (int) V16SI_FTYPE_V16SF_V16SI_HI_INT },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_cvtps2pd512_mask_round, "__builtin_ia32_cvtps2pd512_mask", IX86_BUILTIN_CVTPS2PD512, UNKNOWN, (int) V8DF_FTYPE_V8SF_V8DF_QI_INT },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_ufix_notruncv16sfv16si_mask_round, "__builtin_ia32_cvtps2udq512_mask", IX86_BUILTIN_CVTPS2UDQ512, UNKNOWN, (int) V16SI_FTYPE_V16SF_V16SI_HI_INT },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_sse2_cvtsd2ss_round, "__builtin_ia32_cvtsd2ss_round", IX86_BUILTIN_CVTSD2SS_ROUND, UNKNOWN, (int) V4SF_FTYPE_V4SF_V2DF_INT },
@@ -38690,10 +39014,13 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     {
     case V2DF_FTYPE_V2DF_ROUND:
     case V4DF_FTYPE_V4DF_ROUND:
+    case V8DF_FTYPE_V8DF_ROUND:
     case V4SF_FTYPE_V4SF_ROUND:
     case V8SF_FTYPE_V8SF_ROUND:
+    case V16SF_FTYPE_V16SF_ROUND:
     case V4SI_FTYPE_V4SF_ROUND:
     case V8SI_FTYPE_V8SF_ROUND:
+    case V16SI_FTYPE_V16SF_ROUND:
       return ix86_expand_sse_round (d, exp, target);
     case V4SI_FTYPE_V2DF_V2DF_ROUND:
     case V8SI_FTYPE_V4DF_V4DF_ROUND:
@@ -38807,6 +39134,7 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     case V16SI_FTYPE_V8SI:
     case V16SF_FTYPE_V4SF:
     case V16SI_FTYPE_V4SI:
+    case V16SI_FTYPE_V16SF:
     case V16SF_FTYPE_V16SF:
     case V8DI_FTYPE_UQI:
     case V8DF_FTYPE_V4DF:
@@ -40567,9 +40895,9 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
   if (ix86_builtins_isa[fcode].isa
       && !(ix86_builtins_isa[fcode].isa & ix86_isa_flags))
     {
-      char *opts = ix86_target_string (ix86_builtins_isa[fcode].isa, 0, NULL,
-				       NULL, (enum fpmath_unit) 0, false);
-
+      char *opts = ix86_target_string (ix86_builtins_isa[fcode].isa, 0, 0,
+				       NULL, NULL, (enum fpmath_unit) 0,
+				       false);
       if (!opts)
 	error ("%qE needs unknown isa option", fndecl);
       else
@@ -42536,6 +42864,8 @@ ix86_builtin_vectorized_function (unsigned int fn, tree type_out,
 	    return ix86_get_builtin (IX86_BUILTIN_FLOORPS_SFIX);
 	  else if (out_n == 8 && in_n == 8)
 	    return ix86_get_builtin (IX86_BUILTIN_FLOORPS_SFIX256);
+	  else if (out_n == 16 && in_n == 16)
+	    return ix86_get_builtin (IX86_BUILTIN_FLOORPS_SFIX512);
 	}
       break;
 
@@ -42561,6 +42891,8 @@ ix86_builtin_vectorized_function (unsigned int fn, tree type_out,
 	    return ix86_get_builtin (IX86_BUILTIN_CEILPS_SFIX);
 	  else if (out_n == 8 && in_n == 8)
 	    return ix86_get_builtin (IX86_BUILTIN_CEILPS_SFIX256);
+	  else if (out_n == 16 && in_n == 16)
+	    return ix86_get_builtin (IX86_BUILTIN_CEILPS_SFIX512);
 	}
       break;
 
@@ -42573,6 +42905,8 @@ ix86_builtin_vectorized_function (unsigned int fn, tree type_out,
 	    return ix86_get_builtin (IX86_BUILTIN_VEC_PACK_SFIX);
 	  else if (out_n == 8 && in_n == 4)
 	    return ix86_get_builtin (IX86_BUILTIN_VEC_PACK_SFIX256);
+	  else if (out_n == 16 && in_n == 8)
+	    return ix86_get_builtin (IX86_BUILTIN_VEC_PACK_SFIX512);
 	}
       if (out_mode == SImode && in_mode == SFmode)
 	{
@@ -42580,6 +42914,8 @@ ix86_builtin_vectorized_function (unsigned int fn, tree type_out,
 	    return ix86_get_builtin (IX86_BUILTIN_CVTPS2DQ);
 	  else if (out_n == 8 && in_n == 8)
 	    return ix86_get_builtin (IX86_BUILTIN_CVTPS2DQ256);
+	  else if (out_n == 16 && in_n == 16)
+	    return ix86_get_builtin (IX86_BUILTIN_CVTPS2DQ512);
 	}
       break;
 
@@ -42605,6 +42941,8 @@ ix86_builtin_vectorized_function (unsigned int fn, tree type_out,
 	    return ix86_get_builtin (IX86_BUILTIN_ROUNDPS_AZ_SFIX);
 	  else if (out_n == 8 && in_n == 8)
 	    return ix86_get_builtin (IX86_BUILTIN_ROUNDPS_AZ_SFIX256);
+	  else if (out_n == 16 && in_n == 16)
+	    return ix86_get_builtin (IX86_BUILTIN_ROUNDPS_AZ_SFIX512);
 	}
       break;
 
@@ -42619,6 +42957,8 @@ ix86_builtin_vectorized_function (unsigned int fn, tree type_out,
 	    return ix86_get_builtin (IX86_BUILTIN_FLOORPD);
 	  else if (out_n == 4 && in_n == 4)
 	    return ix86_get_builtin (IX86_BUILTIN_FLOORPD256);
+	  else if (out_n == 8 && in_n == 8)
+	    return ix86_get_builtin (IX86_BUILTIN_FLOORPD512);
 	}
       if (out_mode == SFmode && in_mode == SFmode)
 	{
@@ -42626,6 +42966,8 @@ ix86_builtin_vectorized_function (unsigned int fn, tree type_out,
 	    return ix86_get_builtin (IX86_BUILTIN_FLOORPS);
 	  else if (out_n == 8 && in_n == 8)
 	    return ix86_get_builtin (IX86_BUILTIN_FLOORPS256);
+	  else if (out_n == 16 && in_n == 16)
+	    return ix86_get_builtin (IX86_BUILTIN_FLOORPS512);
 	}
       break;
 
@@ -42640,6 +42982,8 @@ ix86_builtin_vectorized_function (unsigned int fn, tree type_out,
 	    return ix86_get_builtin (IX86_BUILTIN_CEILPD);
 	  else if (out_n == 4 && in_n == 4)
 	    return ix86_get_builtin (IX86_BUILTIN_CEILPD256);
+	  else if (out_n == 8 && in_n == 8)
+	    return ix86_get_builtin (IX86_BUILTIN_CEILPD512);
 	}
       if (out_mode == SFmode && in_mode == SFmode)
 	{
@@ -42647,6 +42991,8 @@ ix86_builtin_vectorized_function (unsigned int fn, tree type_out,
 	    return ix86_get_builtin (IX86_BUILTIN_CEILPS);
 	  else if (out_n == 8 && in_n == 8)
 	    return ix86_get_builtin (IX86_BUILTIN_CEILPS256);
+	  else if (out_n == 16 && in_n == 16)
+	    return ix86_get_builtin (IX86_BUILTIN_CEILPS512);
 	}
       break;
 
@@ -42661,6 +43007,8 @@ ix86_builtin_vectorized_function (unsigned int fn, tree type_out,
 	    return ix86_get_builtin (IX86_BUILTIN_TRUNCPD);
 	  else if (out_n == 4 && in_n == 4)
 	    return ix86_get_builtin (IX86_BUILTIN_TRUNCPD256);
+	  else if (out_n == 8 && in_n == 8)
+	    return ix86_get_builtin (IX86_BUILTIN_TRUNCPD512);
 	}
       if (out_mode == SFmode && in_mode == SFmode)
 	{
@@ -42668,6 +43016,8 @@ ix86_builtin_vectorized_function (unsigned int fn, tree type_out,
 	    return ix86_get_builtin (IX86_BUILTIN_TRUNCPS);
 	  else if (out_n == 8 && in_n == 8)
 	    return ix86_get_builtin (IX86_BUILTIN_TRUNCPS256);
+	  else if (out_n == 16 && in_n == 16)
+	    return ix86_get_builtin (IX86_BUILTIN_TRUNCPS512);
 	}
       break;
 
@@ -43301,52 +43651,51 @@ ix86_preferred_reload_class (rtx x, reg_class_t regclass)
 	  || MAYBE_MASK_CLASS_P (regclass)))
     return NO_REGS;
 
-  /* Prefer SSE regs only, if we can use them for math.  */
-  if (TARGET_SSE_MATH && !TARGET_MIX_SSE_I387 && SSE_FLOAT_MODE_P (mode))
-    return SSE_CLASS_P (regclass) ? regclass : NO_REGS;
-
   /* Floating-point constants need more complex checks.  */
   if (CONST_DOUBLE_P (x))
     {
       /* General regs can load everything.  */
-      if (reg_class_subset_p (regclass, GENERAL_REGS))
+      if (INTEGER_CLASS_P (regclass))
         return regclass;
 
       /* Floats can load 0 and 1 plus some others.  Note that we eliminated
 	 zero above.  We only want to wind up preferring 80387 registers if
 	 we plan on doing computation with them.  */
-      if (TARGET_80387
+      if (IS_STACK_MODE (mode)
 	  && standard_80387_constant_p (x) > 0)
 	{
-	  /* Limit class to non-sse.  */
-	  if (regclass == FLOAT_SSE_REGS)
+	  /* Limit class to FP regs.  */
+	  if (FLOAT_CLASS_P (regclass))
 	    return FLOAT_REGS;
-	  if (regclass == FP_TOP_SSE_REGS)
+	  else if (regclass == FP_TOP_SSE_REGS)
 	    return FP_TOP_REG;
-	  if (regclass == FP_SECOND_SSE_REGS)
+	  else if (regclass == FP_SECOND_SSE_REGS)
 	    return FP_SECOND_REG;
-	  if (regclass == FLOAT_INT_REGS || regclass == FLOAT_REGS)
-	    return regclass;
 	}
 
       return NO_REGS;
     }
 
+  /* Prefer SSE regs only, if we can use them for math.  */
+  if (SSE_FLOAT_MODE_P (mode) && TARGET_SSE_MATH)
+    return SSE_CLASS_P (regclass) ? regclass : NO_REGS;
+
   /* Generally when we see PLUS here, it's the function invariant
      (plus soft-fp const_int).  Which can only be computed into general
      regs.  */
   if (GET_CODE (x) == PLUS)
-    return reg_class_subset_p (regclass, GENERAL_REGS) ? regclass : NO_REGS;
+    return INTEGER_CLASS_P (regclass) ? regclass : NO_REGS;
 
   /* QImode constants are easy to load, but non-constant QImode data
      must go into Q_REGS.  */
   if (GET_MODE (x) == QImode && !CONSTANT_P (x))
     {
-      if (reg_class_subset_p (regclass, Q_REGS))
+      if (Q_CLASS_P (regclass))
 	return regclass;
-      if (reg_class_subset_p (Q_REGS, regclass))
+      else if (reg_class_subset_p (Q_REGS, regclass))
 	return Q_REGS;
-      return NO_REGS;
+      else
+	return NO_REGS;
     }
 
   return regclass;
@@ -43363,10 +43712,10 @@ ix86_preferred_output_reload_class (rtx x, reg_class_t regclass)
      math on.  If we would like not to return a subset of CLASS, reject this
      alternative: if reload cannot do this, it will still use its choice.  */
   mode = GET_MODE (x);
-  if (TARGET_SSE_MATH && SSE_FLOAT_MODE_P (mode))
+  if (SSE_FLOAT_MODE_P (mode) && TARGET_SSE_MATH)
     return MAYBE_SSE_CLASS_P (regclass) ? ALL_SSE_REGS : NO_REGS;
 
-  if (X87_FLOAT_MODE_P (mode))
+  if (IS_STACK_MODE (mode))
     {
       if (regclass == FP_TOP_SSE_REGS)
 	return FP_TOP_REG;
@@ -44071,7 +44420,7 @@ ix86_rtx_costs (rtx x, machine_mode mode, int outer_code_i, int opno,
       return true;
 
     case CONST_DOUBLE:
-      if (TARGET_80387 && IS_STACK_MODE (mode))
+      if (IS_STACK_MODE (mode))
 	switch (standard_80387_constant_p (x))
 	  {
 	  case -1:
@@ -44829,6 +45178,54 @@ ix86_handle_fndecl_attribute (tree *node, tree name, tree, int,
                name);
       *no_add_attrs = true;
     }
+  return NULL_TREE;
+}
+
+static tree
+ix86_handle_no_caller_saved_registers_attribute (tree *, tree, tree,
+						 int, bool *)
+{
+  return NULL_TREE;
+}
+
+static tree
+ix86_handle_interrupt_attribute (tree *node, tree, tree, int, bool *)
+{
+  /* DECL_RESULT and DECL_ARGUMENTS do not exist there yet,
+     but the function type contains args and return type data.  */
+  tree func_type = *node;
+  tree return_type = TREE_TYPE (func_type);
+
+  int nargs = 0;
+  tree current_arg_type = TYPE_ARG_TYPES (func_type);
+  while (current_arg_type
+	 && ! VOID_TYPE_P (TREE_VALUE (current_arg_type)))
+    {
+      if (nargs == 0)
+	{
+	  if (! POINTER_TYPE_P (TREE_VALUE (current_arg_type)))
+	    error ("interrupt service routine should have a pointer "
+		   "as the first argument");
+	}
+      else if (nargs == 1)
+	{
+	  if (TREE_CODE (TREE_VALUE (current_arg_type)) != INTEGER_TYPE
+	      || TYPE_MODE (TREE_VALUE (current_arg_type)) != word_mode)
+	    error ("interrupt service routine should have unsigned %s"
+		   "int as the second argument",
+		   TARGET_64BIT
+		   ? (TARGET_X32 ? "long long " : "long ")
+		   : "");
+	}
+      nargs++;
+      current_arg_type = TREE_CHAIN (current_arg_type);
+    }
+  if (!nargs || nargs > 2)
+    error ("interrupt service routine can only have a pointer argument "
+	   "and an optional integer argument");
+  if (! VOID_TYPE_P (return_type))
+    error ("interrupt service routine can't have non-void return value");
+
   return NULL_TREE;
 }
 
@@ -49047,6 +49444,11 @@ static const struct attribute_spec ix86_attribute_table[] =
     false },
   { "callee_pop_aggregate_return", 1, 1, false, true, true,
     ix86_handle_callee_pop_aggregate_return, true },
+  { "interrupt", 0, 0, false, true, true,
+    ix86_handle_interrupt_attribute, false },
+  { "no_caller_saved_registers", 0, 0, false, true, true,
+    ix86_handle_no_caller_saved_registers_attribute, false },
+
   /* End element.  */
   { NULL,        0, 0, false, false, false, NULL, false }
 };
@@ -55107,6 +55509,9 @@ ix86_addr_space_zero_address_valid (addr_space_t as)
 
 #undef TARGET_OPTAB_SUPPORTED_P
 #define TARGET_OPTAB_SUPPORTED_P ix86_optab_supported_p
+
+#undef TARGET_HARD_REGNO_SCRATCH_OK
+#define TARGET_HARD_REGNO_SCRATCH_OK ix86_hard_regno_scratch_ok
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

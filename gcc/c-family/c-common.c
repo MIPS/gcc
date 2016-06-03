@@ -12496,66 +12496,34 @@ build_userdef_literal (tree suffix_id, tree value,
   return literal;
 }
 
-/* For vector[index], convert the vector to a
-   pointer of the underlying type.  Return true if the resulting
-   ARRAY_REF should not be an lvalue.  */
+/* For vector[index], convert the vector to an array of the underlying type.
+   Return true if the resulting ARRAY_REF should not be an lvalue.  */
 
 bool
-convert_vector_to_pointer_for_subscript (location_t loc,
-					 tree *vecp, tree index)
+convert_vector_to_array_for_subscript (location_t loc,
+				       tree *vecp, tree index)
 {
   bool ret = false;
   if (VECTOR_TYPE_P (TREE_TYPE (*vecp)))
     {
       tree type = TREE_TYPE (*vecp);
-      tree type1;
 
       ret = !lvalue_p (*vecp);
+
       if (TREE_CODE (index) == INTEGER_CST)
         if (!tree_fits_uhwi_p (index)
             || tree_to_uhwi (index) >= TYPE_VECTOR_SUBPARTS (type))
           warning_at (loc, OPT_Warray_bounds, "index value is out of bound");
 
-      if (ret)
-	{
-	  tree tmp = create_tmp_var_raw (type);
-	  DECL_SOURCE_LOCATION (tmp) = loc;
-	  *vecp = c_save_expr (*vecp);
-	  if (TREE_CODE (*vecp) == C_MAYBE_CONST_EXPR)
-	    {
-	      bool non_const = C_MAYBE_CONST_EXPR_NON_CONST (*vecp);
-	      *vecp = C_MAYBE_CONST_EXPR_EXPR (*vecp);
-	      *vecp
-		= c_wrap_maybe_const (build4 (TARGET_EXPR, type, tmp,
-					      *vecp, NULL_TREE, NULL_TREE),
-				      non_const);
-	    }
-	  else
-	    *vecp = build4 (TARGET_EXPR, type, tmp, *vecp,
-			    NULL_TREE, NULL_TREE);
-	  SET_EXPR_LOCATION (*vecp, loc);
-	  c_common_mark_addressable_vec (tmp);
-	}
-      else
-	c_common_mark_addressable_vec (*vecp);
-      type = build_qualified_type (TREE_TYPE (type), TYPE_QUALS (type));
-      type1 = build_pointer_type (TREE_TYPE (*vecp));
-      bool ref_all = TYPE_REF_CAN_ALIAS_ALL (type1);
-      if (!ref_all
-	  && !DECL_P (*vecp))
-	{
-	  /* If the original vector isn't declared may_alias and it
-	     isn't a bare vector look if the subscripting would
-	     alias the vector we subscript, and if not, force ref-all.  */
-	  alias_set_type vecset = get_alias_set (*vecp);
-	  alias_set_type sset = get_alias_set (type);
-	  if (!alias_sets_must_conflict_p (sset, vecset)
-	      && !alias_set_subset_of (sset, vecset))
-	    ref_all = true;
-	}
-      type = build_pointer_type_for_mode (type, ptr_mode, ref_all);
-      *vecp = build1 (ADDR_EXPR, type1, *vecp);
-      *vecp = convert (type, *vecp);
+      /* We are building an ARRAY_REF so mark the vector as addressable
+         to not run into the gimplifiers premature setting of DECL_GIMPLE_REG_P
+	 for function parameters.  */
+      c_common_mark_addressable_vec (*vecp);
+
+      *vecp = build1 (VIEW_CONVERT_EXPR,
+		      build_array_type_nelts (TREE_TYPE (type),
+					      TYPE_VECTOR_SUBPARTS (type)),
+		      *vecp);
     }
   return ret;
 }
@@ -12794,8 +12762,9 @@ valid_array_size_p (location_t loc, tree type, tree name)
 /* Read SOURCE_DATE_EPOCH from environment to have a deterministic
    timestamp to replace embedded current dates to get reproducible
    results.  Returns -1 if SOURCE_DATE_EPOCH is not defined.  */
+
 time_t
-get_source_date_epoch ()
+cb_get_source_date_epoch (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   char *source_date_epoch;
   long long epoch;
@@ -12807,19 +12776,14 @@ get_source_date_epoch ()
 
   errno = 0;
   epoch = strtoll (source_date_epoch, &endptr, 10);
-  if ((errno == ERANGE && (epoch == LLONG_MAX || epoch == LLONG_MIN))
-      || (errno != 0 && epoch == 0))
-    fatal_error (UNKNOWN_LOCATION, "environment variable $SOURCE_DATE_EPOCH: "
-		 "strtoll: %s\n", xstrerror(errno));
-  if (endptr == source_date_epoch)
-    fatal_error (UNKNOWN_LOCATION, "environment variable $SOURCE_DATE_EPOCH: "
-		 "no digits were found: %s\n", endptr);
-  if (*endptr != '\0')
-    fatal_error (UNKNOWN_LOCATION, "environment variable $SOURCE_DATE_EPOCH: "
-		 "trailing garbage: %s\n", endptr);
-  if (epoch < 0)
-    fatal_error (UNKNOWN_LOCATION, "environment variable $SOURCE_DATE_EPOCH: "
-		 "value must be nonnegative: %lld \n", epoch);
+  if (errno != 0 || endptr == source_date_epoch || *endptr != '\0'
+      || epoch < 0 || epoch > MAX_SOURCE_DATE_EPOCH)
+    {
+      error_at (input_location, "environment variable SOURCE_DATE_EPOCH must "
+	        "expand to a non-negative integer less than or equal to %wd",
+		MAX_SOURCE_DATE_EPOCH);
+      return (time_t) -1;
+    }
 
   return (time_t) epoch;
 }
