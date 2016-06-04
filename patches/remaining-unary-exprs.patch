@@ -1,5 +1,5 @@
 Bottom: 373462ad2cf38abb380391e69eea4c01e818b338
-Top:    d5ef12c8001b374eb85c8f7c27e79892812b6c7f
+Top:    847bd975bd5e8663708bd9df45ee6b7bfb0ea603
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-06-04 02:54:27 -0300
 
@@ -7,20 +7,97 @@ implemented remaining unary exprs
 
 ---
 
+diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
+index ecf46e4..b4d5a02 100644
+--- a/include/gcc-cp-fe.def
++++ b/include/gcc-cp-fe.def
+@@ -490,14 +490,27 @@ GCC_METHOD2 (gcc_expr, decl_expr,
+ 	     int /* bool */)		/* Argument QUALIFIED_P.  */
+ 
+ /* Build a gcc_expr that denotes the unary operation UNARY_OP applied
+-   to the gcc_expr OPERAND.  */
++   to the gcc_expr OPERAND.  For non-expr operands, see
++   unary_type_expr.  Besides the UNARY_OP encodings used for operator
++   names, we support "pp_" for preincrement, and "mm_" for
++   predecrement, "nx" for noexcept, "tw" for throw, "tr" for rethrow
++   (pass NULL as the operand), "te" for typeid, "sz" for sizeof, "az"
++   for alignof, "dl" for delete, "gsdl" for ::delete, "da" for
++   delete[], "gsda" for ::delete[], "sp" for pack expansion, "sZ" for
++   sizeof...(function argument pack).  */
+ 
+ GCC_METHOD2 (gcc_expr, unary_value_expr,
+ 	     const char *,	  /* Argument UNARY_OP.  */
+ 	     gcc_expr)		  /* Argument OPERAND.  */
+ 
+ /* Build a gcc_expr that denotes the binary operation BINARY_OP
+-   applied to gcc_exprs OPERAND1 and OPERAND2.  */
++   applied to gcc_exprs OPERAND1 and OPERAND2.  Besides the BINARY_OP
++   encodings used for operator names, we support "ds" for the operator
++   token ".*" and "dt" for the operator token ".".  When using
++   operators that take a name as their second operand ("." and "->")
++   use decl_expr to convert the gcc_decl of the member name to a
++   gcc_expr, if the member name wasn't created with
++   e.g. new_dependent_value_expr.  */
+ 
+ GCC_METHOD3 (gcc_expr, binary_value_expr,
+ 	     const char *,	  /* Argument BINARY_OP.  */
+@@ -505,7 +518,8 @@ GCC_METHOD3 (gcc_expr, binary_value_expr,
+ 	     gcc_expr)		  /* Argument OPERAND2.  */
+ 
+ /* Build a gcc_expr that denotes the ternary operation TERNARY_OP
+-   applied to gcc_exprs OPERAND1, OPERAND2 and OPERAND3.  */
++   applied to gcc_exprs OPERAND1, OPERAND2 and OPERAND3.  The only
++   supported TERNARY_OP is "qu", for the "?:" operator.  */
+ 
+ GCC_METHOD4 (gcc_expr, ternary_value_expr,
+ 	     const char *,	  /* Argument TERNARY_OP.  */
+@@ -514,7 +528,9 @@ GCC_METHOD4 (gcc_expr, ternary_value_expr,
+ 	     gcc_expr)		  /* Argument OPERAND3.  */
+ 
+ /* Build a gcc_expr that denotes the unary operation UNARY_OP applied
+-   to the gcc_type OPERAND, e.g., sizeof.  */
++   to the gcc_type OPERAND.  Supported unary operations taking types
++   are "ti" for typeid, "st" for sizeof, "at" for alignof, and "sZ"
++   for sizeof...(template argument pack).  */
+ 
+ GCC_METHOD2 (gcc_expr, unary_type_expr,
+ 	     const char *,	  /* Argument UNARY_OP.  */
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index bba2fa7..89ddf15 100644
+index bba2fa7..d5b6913 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
-@@ -868,7 +868,7 @@ plugin_new_decl (cc1_plugin::connection *self,
+@@ -868,7 +868,11 @@ plugin_new_decl (cc1_plugin::connection *self,
  	      opcode = POSTINCREMENT_EXPR;
  	      break;
  	    case CHARS2 ('m', 'm'): // operator --
 -	      opcode = POSTDECREMENT_EXPR;
++	      /* This stands for either one as an operator name, and
++		 "pp" and "mm" stand for POST??CREMENT, but for some
++		 reason the parser uses this opcode name for
++		 operator--; let's follow their practice.  */
 +	      opcode = PREDECREMENT_EXPR;
  	      break;
  	    case CHARS2 ('c', 'm'): // operator ,
  	      opcode = COMPOUND_EXPR;
-@@ -2319,7 +2319,9 @@ plugin_unary_value_expr (cc1_plugin::connection *self,
+@@ -2199,7 +2203,7 @@ plugin_new_dependent_value_expr (cc1_plugin::connection *self,
+ 	  opcode = POSTINCREMENT_EXPR;
+ 	  break;
+ 	case CHARS2 ('m', 'm'): // operator --
+-	  opcode = POSTDECREMENT_EXPR;
++	  opcode = PREDECREMENT_EXPR;
+ 	  break;
+ 	case CHARS2 ('c', 'm'): // operator ,
+ 	  opcode = COMPOUND_EXPR;
+@@ -2306,7 +2310,7 @@ plugin_decl_expr (cc1_plugin::connection *self,
+     {
+       gcc_assert (DECL_CLASS_SCOPE_P (decl));
+       result = build_offset_ref (DECL_CONTEXT (decl), decl,
+-				 /*address_p=*/true, tf_warning_or_error);
++				 /*address_p=*/true, tf_error);
+     }
+   return convert_out (ctx->preserve (result));
+ }
+@@ -2319,7 +2323,9 @@ plugin_unary_value_expr (cc1_plugin::connection *self,
    plugin_context *ctx = static_cast<plugin_context *> (self);
    tree op0 = convert_in (operand);
    tree_code opcode = ERROR_MARK;
@@ -30,7 +107,7 @@ index bba2fa7..89ddf15 100644
    switch (CHARS2 (unary_op[0], unary_op[1]))
      {
      case CHARS2 ('p', 's'): // operator + (unary)
-@@ -2340,29 +2342,114 @@ plugin_unary_value_expr (cc1_plugin::connection *self,
+@@ -2340,29 +2346,114 @@ plugin_unary_value_expr (cc1_plugin::connection *self,
      case CHARS2 ('n', 't'): // operator !
        opcode = TRUTH_NOT_EXPR;
        break;
@@ -109,7 +186,7 @@ index bba2fa7..89ddf15 100644
 +  switch (opcode)
 +    {
 +    case NOEXCEPT_EXPR:
-+      result = finish_noexcept_expr (op0, tf_warning_or_error);
++      result = finish_noexcept_expr (op0, tf_error);
 +      break;
 +
 +    case THROW_EXPR:
@@ -117,7 +194,7 @@ index bba2fa7..89ddf15 100644
 +      break;
 +
 +    case TYPEID_EXPR:
-+      result = build_typeid (op0, tf_warning_or_error);
++      result = build_typeid (op0, tf_error);
 +      break;
 +
 +    case SIZEOF_EXPR:
@@ -128,7 +205,7 @@ index bba2fa7..89ddf15 100644
 +    case DELETE_EXPR:
 +    case VEC_DELETE_EXPR:
 +      result = delete_sanity (op0, NULL_TREE, opcode == VEC_DELETE_EXPR,
-+			      global_scope_p, tf_warning_or_error);
++			      global_scope_p, tf_error);
 +      break;
 +
 +    case EXPR_PACK_EXPANSION:
@@ -154,7 +231,62 @@ index bba2fa7..89ddf15 100644
  }
  
  gcc_expr
-@@ -2508,7 +2595,25 @@ plugin_unary_type_expr (cc1_plugin::connection *self,
+@@ -2439,11 +2530,20 @@ plugin_binary_value_expr (cc1_plugin::connection *self,
+       opcode = MEMBER_REF;
+       break;
+     case CHARS2 ('p', 't'): // operator ->
+-      opcode = COMPONENT_REF;
++      opcode = INDIRECT_REF; // Not really!  This will stand for
++			     // INDIRECT_REF followed by COMPONENT_REF
++			     // later on.
+       break;
+     case CHARS2 ('i', 'x'): // operator []
+       opcode = ARRAY_REF;
+       break;
++    case CHARS2 ('d', 's'): // operator .*
++      opcode = DOTSTAR_EXPR;
++      break;
++    case CHARS2 ('d', 't'): // operator .
++      opcode = COMPONENT_REF;
++      break;
++
+     default:
+       gcc_unreachable ();
+     }
+@@ -2456,13 +2556,29 @@ plugin_binary_value_expr (cc1_plugin::connection *self,
+   if (!template_dependent_p)
+     processing_template_decl--;
+ 
+-  tree val = build_x_binary_op (/*loc=*/0, opcode, op0, ERROR_MARK,
+-				op1, ERROR_MARK, NULL, tf_error);
++  tree result;
++
++  switch (opcode)
++    {
++    case INDIRECT_REF: // This is actually a "->".
++      op0 = build_x_arrow (/*loc=*/0, op0, tf_error);
++      /* Fall through.  */
++    case COMPONENT_REF:
++      result = finish_class_member_access_expr (op0, op1,
++						/*template_p=*/false,
++						tf_error);
++      break;
++
++    default:
++      result = build_x_binary_op (/*loc=*/0, opcode, op0, ERROR_MARK,
++				  op1, ERROR_MARK, NULL, tf_error);
++      break;
++    }
+ 
+   if (template_dependent_p)
+     processing_template_decl--;
+ 
+-  return convert_out (ctx->preserve (val));
++  return convert_out (ctx->preserve (result));
+ }
+ 
+ gcc_expr
+@@ -2508,7 +2624,25 @@ plugin_unary_type_expr (cc1_plugin::connection *self,
  
    switch (CHARS2 (unary_op[0], unary_op[1]))
      {
@@ -181,7 +313,7 @@ index bba2fa7..89ddf15 100644
      default:
        gcc_unreachable ();
      }
-@@ -2518,12 +2623,28 @@ plugin_unary_type_expr (cc1_plugin::connection *self,
+@@ -2518,12 +2652,28 @@ plugin_unary_type_expr (cc1_plugin::connection *self,
    if (!template_dependent_p)
      processing_template_decl--;
  
@@ -191,7 +323,7 @@ index bba2fa7..89ddf15 100644
 +  switch (opcode)
 +    {
 +    case TYPEID_EXPR:
-+      result = get_typeid (type, tf_warning_or_error);
++      result = get_typeid (type, tf_error);
 +      break;
 +
 +      // We're using this for sizeof...(pack).  */
@@ -212,3 +344,47 @@ index bba2fa7..89ddf15 100644
  }
  
  gcc_expr
+@@ -2570,7 +2720,7 @@ plugin_type_value_expr (cc1_plugin::connection *self,
+   if (!template_dependent_p)
+     processing_template_decl--;
+ 
+-  tree val = build_cast (type, expr, tf_warning_or_error);
++  tree val = build_cast (type, expr, tf_error);
+ 
+   if (template_dependent_p)
+     processing_template_decl--;
+@@ -2624,7 +2774,7 @@ plugin_values_expr (cc1_plugin::connection *self,
+     case CHARS2 ('c', 'v'): // conversion with parenthesized expression list
+       gcc_assert (TYPE_P (type));
+       args = args_to_tree_list (values_in);
+-      result = build_functional_cast (type, args, tf_warning_or_error);
++      result = build_functional_cast (type, args, tf_error);
+       break;
+ 
+     case CHARS2 ('t', 'l'): // conversion with braced expression list
+@@ -2633,7 +2783,7 @@ plugin_values_expr (cc1_plugin::connection *self,
+       args = make_node (CONSTRUCTOR);
+       CONSTRUCTOR_ELTS (args) = args_to_ctor_elts (values_in);
+       CONSTRUCTOR_IS_DIRECT_INIT (args) = 1;
+-      result = finish_compound_literal (type, args, tf_warning_or_error);
++      result = finish_compound_literal (type, args, tf_error);
+       break;
+ 
+     case CHARS2 ('i', 'l'): // untyped braced expression list
+@@ -2724,7 +2874,7 @@ plugin_alloc_expr (cc1_plugin::connection *self,
+     processing_template_decl--;
+ 
+   tree result = build_new (&placement, type, nelts, &initializer,
+-			   global_scope_p, tf_warning_or_error);
++			   global_scope_p, tf_error);
+ 
+   if (template_dependent_p)
+     processing_template_decl--;
+@@ -3019,7 +3169,7 @@ plugin_build_vla_array_type (cc1_plugin::connection *self,
+   tree size = fold_build2 (PLUS_EXPR, TREE_TYPE (upper_bound), upper_bound,
+ 			   build_one_cst (TREE_TYPE (upper_bound)));
+   tree range = compute_array_index_type (NULL_TREE, size,
+-					 tf_warning_or_error);
++					 tf_error);
+ 
+   tree result = build_cplus_array_type (element_type, range);
