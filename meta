@@ -1,5 +1,5 @@
 Version: 1
-Previous: 8041d96b4bf6da8ab07f44eaf9390104b6155c3c
+Previous: 0b7e195f7f105eb46ec2281c538524ae1d4774eb
 Head: 05110eaf1d60d4caa34e5be8d0c9f24f54524ab6
 Applied:
   adjust-type-align-propagation.patch: 9d26d91ff0e9848b3d73088db0bb27dfe4ad6e53
@@ -9,8 +9,9 @@ Applied:
   fix-template-arguments.patch: cc53b6eea1607214b81cb44f967b378bce9ea353
   call-exprs.patch: c771dc3bff306045d20159803630d56315d13b99
   lambda-closures.patch: 03d21127853e0a096cdf6f24922761a1e10b8d73
-  lambda-more-contexts.patch: d1a89515edbb5afce09ff89a0ebea629d35ddfb0
+  more-lambda-contexts: 05110eaf1d60d4caa34e5be8d0c9f24f54524ab6
 Unapplied:
+  lambda-more-contexts.patch: d1a89515edbb5afce09ff89a0ebea629d35ddfb0
   special-memfuncs-testing.patch: 5dadb8e81f23ef0a3a559dc1776fa25b2cc8c5db
 Hidden:
   debug-aliases-and-trampolines.patch: a63d78e18413a855742c1d76467b90f455e3ed0e
