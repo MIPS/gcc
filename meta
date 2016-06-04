@@ -1,6 +1,6 @@
 Version: 1
-Previous: 0889f7b50f3ec51d2b118bd0a5f901f175b3afae
-Head: 0d76e78c65a86acdc773d98afb9d2d09f514411d
+Previous: 5f7244dace8087106608547a3554a483fd5af9bf
+Head: a2bf9ff5f2b3b47f96a5c4bd52c2d3de8542dfc4
 Applied:
   adjust-type-align-propagation.patch: 9d26d91ff0e9848b3d73088db0bb27dfe4ad6e53
   using-inline-ns-aliases-etc.patch: 1a6b7b9481c075e616afd1335f1a1b417edc0008
@@ -11,7 +11,7 @@ Applied:
   lambda-closures.patch: 03d21127853e0a096cdf6f24922761a1e10b8d73
   lambda-more-contexts.patch: 05110eaf1d60d4caa34e5be8d0c9f24f54524ab6
   alloc-conv-cast-exprs.patch: f832a22df8aefbefc50aef2c5a2e1a676c8e8929
-  remaining-unary-exprs.patch: 0d76e78c65a86acdc773d98afb9d2d09f514411d
+  remaining-unary-exprs.patch: a2bf9ff5f2b3b47f96a5c4bd52c2d3de8542dfc4
 Unapplied:
   special-memfuncs-testing.patch: 5dadb8e81f23ef0a3a559dc1776fa25b2cc8c5db
 Hidden:

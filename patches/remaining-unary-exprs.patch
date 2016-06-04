@@ -1,9 +1,10 @@
 Bottom: 373462ad2cf38abb380391e69eea4c01e818b338
 Top:    847bd975bd5e8663708bd9df45ee6b7bfb0ea603
 Author: Alexandre Oliva <aoliva@redhat.com>
-Date:   2016-06-04 02:54:27 -0300
+Date:   2016-06-04 04:39:27 -0300
 
-implemented remaining unary exprs
+implemented remaining unary exprs, improved exprs interface documentation
+
 
 ---
 
