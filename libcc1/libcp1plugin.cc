@@ -2294,11 +2294,21 @@ plugin_literal_expr (cc1_plugin::connection *self,
 }
 
 gcc_expr
-plugin_decl_expr (cc1_plugin::connection *, gcc_decl decl_in)
+plugin_decl_expr (cc1_plugin::connection *self,
+		  gcc_decl decl_in,
+		  int qualified_p)
 {
+  plugin_context *ctx = static_cast<plugin_context *> (self);
   tree decl = convert_in (decl_in);
   gcc_assert (DECL_P (decl));
-  return convert_out (decl);
+  tree result = decl;
+  if (qualified_p)
+    {
+      gcc_assert (DECL_CLASS_SCOPE_P (decl));
+      result = build_offset_ref (DECL_CONTEXT (decl), decl,
+				 /*address_p=*/true, tf_warning_or_error);
+    }
+  return convert_out (ctx->preserve (result));
 }
 
 gcc_expr
@@ -2309,6 +2319,7 @@ plugin_unary_value_expr (cc1_plugin::connection *self,
   plugin_context *ctx = static_cast<plugin_context *> (self);
   tree op0 = convert_in (operand);
   tree_code opcode = ERROR_MARK;
+
   switch (CHARS2 (unary_op[0], unary_op[1]))
     {
     case CHARS2 ('p', 's'): // operator + (unary)
@@ -2318,11 +2329,6 @@ plugin_unary_value_expr (cc1_plugin::connection *self,
       opcode = NEGATE_EXPR;
       break;
     case CHARS2 ('a', 'd'): // operator & (unary)
-      /* FIXME: how do we distinguish taking the address of a data
-	 member from creating a pointer-to-member value?  Both would
-	 take the same decl as the operand, unless we require
-	 different expr codes for e.g. this->member and
-	 class::member.  */
       opcode = ADDR_EXPR;
       break;
     case CHARS2 ('d', 'e'): // operator * (unary)
@@ -2334,18 +2340,28 @@ plugin_unary_value_expr (cc1_plugin::connection *self,
     case CHARS2 ('n', 't'): // operator !
       opcode = TRUTH_NOT_EXPR;
       break;
-      /* FIXME: __real__, __imag__, (global-scope) delete, delete[],
+      /* FIXME: __real__, __imag__,
+	 [global-scope] delete, delete[],
 	 preinc, predec, noexcept,
-	 non-type (and type) typeid, sizeof, alignof,
+	 non-type typeid, sizeof, alignof,
 	 sizeof...(pack), pack... (expansion), throw (rethrow?).  */
     case CHARS2 ('p', 'p'): // operator ++
     case CHARS2 ('m', 'm'): // operator --
     default:
       gcc_unreachable ();
     }
+
   processing_template_decl++;
+  bool template_dependent_p = type_dependent_expression_p (op0)
+    || value_dependent_expression_p (op0);
+  if (!template_dependent_p)
+    processing_template_decl--;
+
   tree val = build_x_unary_op (/*loc=*/0, opcode, op0, tf_error);
-  processing_template_decl--;
+
+  if (template_dependent_p)
+    processing_template_decl--;
+
   return convert_out (ctx->preserve (val));
 }
 
@@ -2359,6 +2375,7 @@ plugin_binary_value_expr (cc1_plugin::connection *self,
   tree op0 = convert_in (operand1);
   tree op1 = convert_in (operand2);
   tree_code opcode = ERROR_MARK;
+
   switch (CHARS2 (binary_op[0], binary_op[1]))
     {
     case CHARS2 ('p', 'l'): // operator +
@@ -2430,10 +2447,21 @@ plugin_binary_value_expr (cc1_plugin::connection *self,
     default:
       gcc_unreachable ();
     }
+
   processing_template_decl++;
+  bool template_dependent_p = type_dependent_expression_p (op0)
+    || value_dependent_expression_p (op0)
+    || type_dependent_expression_p (op1)
+    || value_dependent_expression_p (op1);
+  if (!template_dependent_p)
+    processing_template_decl--;
+
   tree val = build_x_binary_op (/*loc=*/0, opcode, op0, ERROR_MARK,
 				op1, ERROR_MARK, NULL, tf_error);
-  processing_template_decl--;
+
+  if (template_dependent_p)
+    processing_template_decl--;
+
   return convert_out (ctx->preserve (val));
 }
 
@@ -2450,9 +2478,22 @@ plugin_ternary_value_expr (cc1_plugin::connection *self,
   tree op2 = convert_in (operand3);
   gcc_assert (CHARS2 (ternary_op[0], ternary_op[1])
 	      == CHARS2 ('q', 'u')); // ternary operator
+
   processing_template_decl++;
+  bool template_dependent_p = type_dependent_expression_p (op0)
+    || value_dependent_expression_p (op0)
+    || type_dependent_expression_p (op1)
+    || value_dependent_expression_p (op1)
+    || type_dependent_expression_p (op2)
+    || value_dependent_expression_p (op2);
+  if (!template_dependent_p)
+    processing_template_decl--;
+
   tree val = build_x_conditional_expr (/*loc=*/0, op0, op1, op2, tf_error);
-  processing_template_decl--;
+
+  if (template_dependent_p)
+    processing_template_decl--;
+
   return convert_out (ctx->preserve (val));
 }
 
@@ -2464,42 +2505,236 @@ plugin_unary_type_expr (cc1_plugin::connection *self,
   plugin_context *ctx = static_cast<plugin_context *> (self);
   tree type = convert_in (operand);
   tree_code opcode = ERROR_MARK;
+
   switch (CHARS2 (unary_op[0], unary_op[1]))
     {
-      /* FIXME: implement sizeof, alignof, new, new[] (but how about
-	 placement new args, ctor arguments, global scope?), ...  */
+      /* FIXME: implement typeid, sizeof, alignof, ...  */
     default:
       gcc_unreachable ();
     }
+
   processing_template_decl++;
+  bool template_dependent_p = dependent_type_p (type);
+  if (!template_dependent_p)
+    processing_template_decl--;
+
   tree val = cxx_sizeof_or_alignof_type (type, opcode, true);
-  processing_template_decl--;
+
+  if (template_dependent_p)
+    processing_template_decl--;
+
   return convert_out (ctx->preserve (val));
 }
 
 gcc_expr
 plugin_type_value_expr (cc1_plugin::connection *self,
 			const char *binary_op,
-			gcc_type /* operand1 */,
-			gcc_expr /* operand2 */)
+			gcc_type operand1,
+			gcc_expr operand2)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
-#if 0
+  tree (*build_cast)(tree type, tree expr, tsubst_flags_t complain) = NULL;
   tree type = convert_in (operand1);
   tree expr = convert_in (operand2);
-  tree_code opcode = ERROR_MARK;
-#endif
+
   switch (CHARS2 (binary_op[0], binary_op[1]))
     {
-      /* FIXME: implement type casts; conversions taking argument
-	 lists or braced initializers?  */
+    case CHARS2 ('d', 'c'): // dynamic_cast
+      build_cast = build_dynamic_cast;
+      break;
+
+    case CHARS2 ('s', 'c'): // static_cast
+      build_cast = build_static_cast;
+      break;
+
+    case CHARS2 ('c', 'c'): // const_cast
+      build_cast = build_const_cast;
+      break;
+
+    case CHARS2 ('r', 'c'): // reinterpret_cast
+      build_cast = build_reinterpret_cast;
+      break;
+
+    case CHARS2 ('c', 'v'): // C cast, conversion with one argument
+      build_cast = cp_build_c_cast;
+      break;
+
     default:
       gcc_unreachable ();
     }
+
   processing_template_decl++;
-  tree val = NULL_TREE;
-  processing_template_decl--;
+  bool template_dependent_p = dependent_type_p (type)
+    || type_dependent_expression_p (expr)
+    || value_dependent_expression_p (expr);
+  if (!template_dependent_p)
+    processing_template_decl--;
+
+  tree val = build_cast (type, expr, tf_warning_or_error);
+
+  if (template_dependent_p)
+    processing_template_decl--;
+
   return convert_out (ctx->preserve (val));
+}
+
+static inline vec<tree, va_gc> *
+args_to_tree_vec (const struct gcc_cp_function_args *args_in)
+{
+  vec<tree, va_gc> *args = make_tree_vector ();
+  for (int i = 0; i < args_in->n_elements; i++)
+    vec_safe_push (args, convert_in (args_in->elements[i]));
+  return args;
+}
+
+static inline tree
+args_to_tree_list (const struct gcc_cp_function_args *args_in)
+{
+  tree args, *tail = &args;
+  for (int i = 0; i < args_in->n_elements; i++)
+    {
+      *tail = build_tree_list (NULL, convert_in (args_in->elements[i]));
+      tail = &TREE_CHAIN (*tail);
+    }
+  return args;
+}
+
+static inline vec<constructor_elt, va_gc> *
+args_to_ctor_elts (const struct gcc_cp_function_args *args_in)
+{
+  vec<constructor_elt, va_gc> *args = NULL;
+  for (int i = 0; i < args_in->n_elements; i++)
+    CONSTRUCTOR_APPEND_ELT (args, NULL_TREE, convert_in (args_in->elements[i]));
+  return args;
+}
+
+gcc_expr
+plugin_values_expr (cc1_plugin::connection *self,
+		    const char *conv_op,
+		    gcc_type type_in,
+		    const struct gcc_cp_function_args *values_in)
+{
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree type = convert_in (type_in);
+  tree args;
+  tree result;
+
+  switch (CHARS2 (conv_op[0], conv_op[1]))
+    {
+    case CHARS2 ('c', 'v'): // conversion with parenthesized expression list
+      gcc_assert (TYPE_P (type));
+      args = args_to_tree_list (values_in);
+      result = build_functional_cast (type, args, tf_warning_or_error);
+      break;
+
+    case CHARS2 ('t', 'l'): // conversion with braced expression list
+      gcc_assert (type);
+      gcc_assert (TYPE_P (type));
+      args = make_node (CONSTRUCTOR);
+      CONSTRUCTOR_ELTS (args) = args_to_ctor_elts (values_in);
+      CONSTRUCTOR_IS_DIRECT_INIT (args) = 1;
+      result = finish_compound_literal (type, args, tf_warning_or_error);
+      break;
+
+    case CHARS2 ('i', 'l'): // untyped braced expression list
+      gcc_assert (!type);
+      result = make_node (CONSTRUCTOR);
+      CONSTRUCTOR_ELTS (result) = args_to_ctor_elts (values_in);
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  return convert_out (ctx->preserve (result));
+}
+
+gcc_expr
+plugin_alloc_expr (cc1_plugin::connection *self,
+		   const char *new_op,
+		   const struct gcc_cp_function_args *placement_in,
+		   gcc_type type_in,
+		   const struct gcc_cp_function_args *initializer_in)
+{
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree type = convert_in (type_in);
+  vec<tree, va_gc> *placement = NULL, *initializer = NULL;
+  bool global_scope_p = false;
+  tree nelts = NULL;
+
+  if (placement_in)
+    placement = args_to_tree_vec (placement_in);
+  if (initializer_in)
+    initializer = args_to_tree_vec (initializer_in);
+
+  gcc_assert (TYPE_P (type));
+
+ once_more:
+  switch (CHARS2 (new_op[0], new_op[1]))
+    {
+    case CHARS2 ('g', 's'):
+      gcc_assert (!global_scope_p);
+      global_scope_p = true;
+      new_op += 2;
+      goto once_more;
+
+    case CHARS2 ('n', 'w'): // non-array new
+      gcc_assert (TREE_CODE (type) != ARRAY_TYPE);
+      break;
+
+    case CHARS2 ('n', 'a'): // array new
+      gcc_assert (TREE_CODE (type) == ARRAY_TYPE);
+      gcc_assert (TYPE_DOMAIN (type));
+      {
+	// Compute the length of the outermost array type, then discard it.
+	tree maxelt = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
+	tree eltype = TREE_TYPE (maxelt);
+	tree onecst = integer_one_node;
+
+	processing_template_decl++;
+	bool template_dependent_p = value_dependent_expression_p (maxelt)
+	  || type_dependent_expression_p (maxelt);
+	if (!template_dependent_p)
+	  {
+	    processing_template_decl--;
+	    onecst = fold_convert (eltype, onecst);
+	  }
+
+	nelts = fold_build2 (PLUS_EXPR, eltype, nelts, onecst);
+
+	if (template_dependent_p)
+	  processing_template_decl--;
+
+	type = TREE_TYPE (type);
+      }
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  processing_template_decl++;
+  bool template_dependent_p = dependent_type_p (type)
+    || value_dependent_expression_p (nelts)
+    || (placement
+	&& any_type_dependent_arguments_p (placement))
+    || (initializer
+	&& any_type_dependent_arguments_p (initializer));
+  if (!template_dependent_p)
+    processing_template_decl--;
+
+  tree result = build_new (&placement, type, nelts, &initializer,
+			   global_scope_p, tf_warning_or_error);
+
+  if (template_dependent_p)
+    processing_template_decl--;
+
+  if (placement != NULL)
+    release_tree_vector (placement);
+  if (initializer != NULL)
+    release_tree_vector (initializer);
+
+  return convert_out (ctx->preserve (result));
 }
 
 gcc_expr
@@ -2511,9 +2746,7 @@ plugin_call_expr (cc1_plugin::connection *self,
   tree callable = convert_in (callable_in);
   tree call_expr;
 
-  vec<tree, va_gc> *args = make_tree_vector ();
-  for (int i = 0; i < args_in->n_elements; i++)
-    vec_safe_push (args, convert_in (args_in->elements[i]));
+  vec<tree, va_gc> *args = args_to_tree_vec (args_in);
 
   bool koenig_p = false;
   if (!qualified_p && !args->is_empty ())
@@ -2566,9 +2799,10 @@ plugin_call_expr (cc1_plugin::connection *self,
 }
 
 gcc_type
-plugin_expr_type (cc1_plugin::connection *,
+plugin_expr_type (cc1_plugin::connection *self,
 		  gcc_expr operand)
 {
+  plugin_context *ctx = static_cast<plugin_context *> (self);
   tree op0 = convert_in (operand);
   tree type;
   if (op0)
@@ -2578,7 +2812,7 @@ plugin_expr_type (cc1_plugin::connection *,
       type = make_decltype_auto ();
       AUTO_IS_DECLTYPE (type) = true;
     }
-  return convert_out (type);
+  return convert_out (ctx->preserve (type));
 }
 
 gcc_decl
@@ -2760,9 +2994,17 @@ plugin_build_dependent_array_type (cc1_plugin::connection *self,
   tree name = get_identifier ("dependent array type");
 
   processing_template_decl++;
+  bool template_dependent_p = dependent_type_p (element_type)
+    || type_dependent_expression_p (size)
+    || value_dependent_expression_p (size);
+  if (!template_dependent_p)
+    processing_template_decl--;
+
   tree itype = compute_array_index_type (name, size, tf_error);
   tree type = build_cplus_array_type (element_type, itype);
-  processing_template_decl--;
+
+  if (template_dependent_p)
+    processing_template_decl--;
 
   return convert_out (ctx->preserve (type));
 }
