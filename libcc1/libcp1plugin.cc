@@ -868,7 +868,11 @@ plugin_new_decl (cc1_plugin::connection *self,
 	      opcode = POSTINCREMENT_EXPR;
 	      break;
 	    case CHARS2 ('m', 'm'): // operator --
-	      opcode = POSTDECREMENT_EXPR;
+	      /* This stands for either one as an operator name, and
+		 "pp" and "mm" stand for POST??CREMENT, but for some
+		 reason the parser uses this opcode name for
+		 operator--; let's follow their practice.  */
+	      opcode = PREDECREMENT_EXPR;
 	      break;
 	    case CHARS2 ('c', 'm'): // operator ,
 	      opcode = COMPOUND_EXPR;
@@ -2199,7 +2203,7 @@ plugin_new_dependent_value_expr (cc1_plugin::connection *self,
 	  opcode = POSTINCREMENT_EXPR;
 	  break;
 	case CHARS2 ('m', 'm'): // operator --
-	  opcode = POSTDECREMENT_EXPR;
+	  opcode = PREDECREMENT_EXPR;
 	  break;
 	case CHARS2 ('c', 'm'): // operator ,
 	  opcode = COMPOUND_EXPR;
@@ -2306,7 +2310,7 @@ plugin_decl_expr (cc1_plugin::connection *self,
     {
       gcc_assert (DECL_CLASS_SCOPE_P (decl));
       result = build_offset_ref (DECL_CONTEXT (decl), decl,
-				 /*address_p=*/true, tf_warning_or_error);
+				 /*address_p=*/true, tf_error);
     }
   return convert_out (ctx->preserve (result));
 }
@@ -2319,7 +2323,9 @@ plugin_unary_value_expr (cc1_plugin::connection *self,
   plugin_context *ctx = static_cast<plugin_context *> (self);
   tree op0 = convert_in (operand);
   tree_code opcode = ERROR_MARK;
+  bool global_scope_p = false;
 
+ once_more:
   switch (CHARS2 (unary_op[0], unary_op[1]))
     {
     case CHARS2 ('p', 's'): // operator + (unary)
@@ -2340,29 +2346,114 @@ plugin_unary_value_expr (cc1_plugin::connection *self,
     case CHARS2 ('n', 't'): // operator !
       opcode = TRUTH_NOT_EXPR;
       break;
-      /* FIXME: __real__, __imag__,
-	 [global-scope] delete, delete[],
-	 preinc, predec, noexcept,
-	 non-type typeid, sizeof, alignof,
-	 sizeof...(pack), pack... (expansion), throw (rethrow?).  */
     case CHARS2 ('p', 'p'): // operator ++
+      opcode = unary_op[2] == '_' ? PREINCREMENT_EXPR : POSTINCREMENT_EXPR;
+      break;
     case CHARS2 ('m', 'm'): // operator --
+      opcode = unary_op[2] == '_' ? PREDECREMENT_EXPR : POSTDECREMENT_EXPR;
+      break;
+    case CHARS2 ('n', 'x'): // noexcept
+      opcode = NOEXCEPT_EXPR;
+      break;
+    case CHARS2 ('t', 'w'): // throw
+      gcc_assert (op0);
+      opcode = THROW_EXPR;
+      break;
+    case CHARS2 ('t', 'r'): // rethrow
+      gcc_assert (!op0);
+      opcode = THROW_EXPR;
+      break;
+    case CHARS2 ('t', 'e'): // typeid (value)
+      opcode = TYPEID_EXPR;
+      break;
+    case CHARS2 ('s', 'z'): // sizeof (value)
+      opcode = SIZEOF_EXPR;
+      break;
+    case CHARS2 ('a', 'z'): // alignof (value)
+      opcode = ALIGNOF_EXPR;
+      break;
+    case CHARS2 ('g', 's'): // global scope (for delete, delete[])
+      gcc_assert (!global_scope_p);
+      global_scope_p = true;
+      unary_op += 2;
+      goto once_more;
+    case CHARS2 ('d', 'l'): // delete
+      opcode = DELETE_EXPR;
+      break;
+    case CHARS2 ('d', 'a'): // delete[]
+      opcode = VEC_DELETE_EXPR;
+      break;
+    case CHARS2 ('s', 'p'): // pack...
+      opcode = EXPR_PACK_EXPANSION;
+      break;
+    case CHARS2 ('s', 'Z'): // sizeof...(pack)
+      opcode = TYPE_PACK_EXPANSION; // Not really, but let's use its code.
+      break;
+
+      /* FIXME: __real__, __imag__?  */
+
     default:
       gcc_unreachable ();
     }
 
+  gcc_assert (!global_scope_p
+	      || opcode == DELETE_EXPR || opcode == VEC_DELETE_EXPR);
+
   processing_template_decl++;
-  bool template_dependent_p = type_dependent_expression_p (op0)
-    || value_dependent_expression_p (op0);
+  bool template_dependent_p = op0
+    && (type_dependent_expression_p (op0)
+	|| value_dependent_expression_p (op0));
   if (!template_dependent_p)
     processing_template_decl--;
 
-  tree val = build_x_unary_op (/*loc=*/0, opcode, op0, tf_error);
+  tree result;
+
+  gcc_assert (op0 || opcode == THROW_EXPR);
+
+  switch (opcode)
+    {
+    case NOEXCEPT_EXPR:
+      result = finish_noexcept_expr (op0, tf_error);
+      break;
+
+    case THROW_EXPR:
+      result = build_throw (op0);
+      break;
+
+    case TYPEID_EXPR:
+      result = build_typeid (op0, tf_error);
+      break;
+
+    case SIZEOF_EXPR:
+    case ALIGNOF_EXPR:
+      result = cxx_sizeof_or_alignof_expr (op0, opcode, true);
+      break;
+
+    case DELETE_EXPR:
+    case VEC_DELETE_EXPR:
+      result = delete_sanity (op0, NULL_TREE, opcode == VEC_DELETE_EXPR,
+			      global_scope_p, tf_error);
+      break;
+
+    case EXPR_PACK_EXPANSION:
+      result = make_pack_expansion (op0);
+      break;
+
+      // We're using this for sizeof...(pack).  */
+    case TYPE_PACK_EXPANSION:
+      result = make_pack_expansion (op0);
+      PACK_EXPANSION_SIZEOF_P (result) = true;
+      break;
+
+    default:
+      result = build_x_unary_op (/*loc=*/0, opcode, op0, tf_error);
+      break;
+    }
 
   if (template_dependent_p)
     processing_template_decl--;
 
-  return convert_out (ctx->preserve (val));
+  return convert_out (ctx->preserve (result));
 }
 
 gcc_expr
@@ -2439,11 +2530,20 @@ plugin_binary_value_expr (cc1_plugin::connection *self,
       opcode = MEMBER_REF;
       break;
     case CHARS2 ('p', 't'): // operator ->
-      opcode = COMPONENT_REF;
+      opcode = INDIRECT_REF; // Not really!  This will stand for
+			     // INDIRECT_REF followed by COMPONENT_REF
+			     // later on.
       break;
     case CHARS2 ('i', 'x'): // operator []
       opcode = ARRAY_REF;
       break;
+    case CHARS2 ('d', 's'): // operator .*
+      opcode = DOTSTAR_EXPR;
+      break;
+    case CHARS2 ('d', 't'): // operator .
+      opcode = COMPONENT_REF;
+      break;
+
     default:
       gcc_unreachable ();
     }
@@ -2456,13 +2556,29 @@ plugin_binary_value_expr (cc1_plugin::connection *self,
   if (!template_dependent_p)
     processing_template_decl--;
 
-  tree val = build_x_binary_op (/*loc=*/0, opcode, op0, ERROR_MARK,
-				op1, ERROR_MARK, NULL, tf_error);
+  tree result;
+
+  switch (opcode)
+    {
+    case INDIRECT_REF: // This is actually a "->".
+      op0 = build_x_arrow (/*loc=*/0, op0, tf_error);
+      /* Fall through.  */
+    case COMPONENT_REF:
+      result = finish_class_member_access_expr (op0, op1,
+						/*template_p=*/false,
+						tf_error);
+      break;
+
+    default:
+      result = build_x_binary_op (/*loc=*/0, opcode, op0, ERROR_MARK,
+				  op1, ERROR_MARK, NULL, tf_error);
+      break;
+    }
 
   if (template_dependent_p)
     processing_template_decl--;
 
-  return convert_out (ctx->preserve (val));
+  return convert_out (ctx->preserve (result));
 }
 
 gcc_expr
@@ -2508,7 +2624,25 @@ plugin_unary_type_expr (cc1_plugin::connection *self,
 
   switch (CHARS2 (unary_op[0], unary_op[1]))
     {
-      /* FIXME: implement typeid, sizeof, alignof, ...  */
+    case CHARS2 ('t', 'i'): // typeid (type)
+      opcode = TYPEID_EXPR;
+      break;
+
+    case CHARS2 ('s', 't'): // sizeof (type)
+      opcode = SIZEOF_EXPR;
+      break;
+    case CHARS2 ('a', 't'): // alignof (type)
+      opcode = ALIGNOF_EXPR;
+      break;
+
+    case CHARS2 ('s', 'Z'): // sizeof...(pack)
+      opcode = TYPE_PACK_EXPANSION; // Not really, but let's use its code.
+      break;
+
+      // FIXME: do we have to handle "sp", for the size of a captured
+      // template parameter pack from an alias template, taking
+      // multiple template arguments?
+
     default:
       gcc_unreachable ();
     }
@@ -2518,12 +2652,28 @@ plugin_unary_type_expr (cc1_plugin::connection *self,
   if (!template_dependent_p)
     processing_template_decl--;
 
-  tree val = cxx_sizeof_or_alignof_type (type, opcode, true);
+  tree result;
+
+  switch (opcode)
+    {
+    case TYPEID_EXPR:
+      result = get_typeid (type, tf_error);
+      break;
+
+      // We're using this for sizeof...(pack).  */
+    case TYPE_PACK_EXPANSION:
+      result = make_pack_expansion (type);
+      PACK_EXPANSION_SIZEOF_P (result) = true;
+      break;
+
+    default:
+      result = cxx_sizeof_or_alignof_type (type, opcode, true);
+    }
 
   if (template_dependent_p)
     processing_template_decl--;
 
-  return convert_out (ctx->preserve (val));
+  return convert_out (ctx->preserve (result));
 }
 
 gcc_expr
@@ -2570,7 +2720,7 @@ plugin_type_value_expr (cc1_plugin::connection *self,
   if (!template_dependent_p)
     processing_template_decl--;
 
-  tree val = build_cast (type, expr, tf_warning_or_error);
+  tree val = build_cast (type, expr, tf_error);
 
   if (template_dependent_p)
     processing_template_decl--;
@@ -2624,7 +2774,7 @@ plugin_values_expr (cc1_plugin::connection *self,
     case CHARS2 ('c', 'v'): // conversion with parenthesized expression list
       gcc_assert (TYPE_P (type));
       args = args_to_tree_list (values_in);
-      result = build_functional_cast (type, args, tf_warning_or_error);
+      result = build_functional_cast (type, args, tf_error);
       break;
 
     case CHARS2 ('t', 'l'): // conversion with braced expression list
@@ -2633,7 +2783,7 @@ plugin_values_expr (cc1_plugin::connection *self,
       args = make_node (CONSTRUCTOR);
       CONSTRUCTOR_ELTS (args) = args_to_ctor_elts (values_in);
       CONSTRUCTOR_IS_DIRECT_INIT (args) = 1;
-      result = finish_compound_literal (type, args, tf_warning_or_error);
+      result = finish_compound_literal (type, args, tf_error);
       break;
 
     case CHARS2 ('i', 'l'): // untyped braced expression list
@@ -2724,7 +2874,7 @@ plugin_alloc_expr (cc1_plugin::connection *self,
     processing_template_decl--;
 
   tree result = build_new (&placement, type, nelts, &initializer,
-			   global_scope_p, tf_warning_or_error);
+			   global_scope_p, tf_error);
 
   if (template_dependent_p)
     processing_template_decl--;
@@ -3019,7 +3169,7 @@ plugin_build_vla_array_type (cc1_plugin::connection *self,
   tree size = fold_build2 (PLUS_EXPR, TREE_TYPE (upper_bound), upper_bound,
 			   build_one_cst (TREE_TYPE (upper_bound)));
   tree range = compute_array_index_type (NULL_TREE, size,
-					 tf_warning_or_error);
+					 tf_error);
 
   tree result = build_cplus_array_type (element_type, range);
 
