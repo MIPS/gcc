@@ -2633,7 +2633,7 @@ plugin_unary_type_expr (cc1_plugin::connection *self,
 
       // We're using this for sizeof...(pack).  */
     case TYPE_PACK_EXPANSION:
-      result = make_pack_expansion (op0);
+      result = make_pack_expansion (type);
       PACK_EXPANSION_SIZEOF_P (result) = true;
       break;
 
@@ -2644,7 +2644,7 @@ plugin_unary_type_expr (cc1_plugin::connection *self,
   if (template_dependent_p)
     processing_template_decl--;
 
-  return convert_out (ctx->preserve (val));
+  return convert_out (ctx->preserve (result));
 }
 
 gcc_expr
