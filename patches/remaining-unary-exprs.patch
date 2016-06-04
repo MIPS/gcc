@@ -1,5 +1,5 @@
 Bottom: 373462ad2cf38abb380391e69eea4c01e818b338
-Top:    94f7360bf39acd1dc322e495f7d49bc02f64e57e
+Top:    d5ef12c8001b374eb85c8f7c27e79892812b6c7f
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-06-04 02:54:27 -0300
 
@@ -8,7 +8,7 @@ implemented remaining unary exprs
 ---
 
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index bba2fa7..af22bb3 100644
+index bba2fa7..89ddf15 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -868,7 +868,7 @@ plugin_new_decl (cc1_plugin::connection *self,
@@ -181,7 +181,7 @@ index bba2fa7..af22bb3 100644
      default:
        gcc_unreachable ();
      }
-@@ -2518,7 +2623,23 @@ plugin_unary_type_expr (cc1_plugin::connection *self,
+@@ -2518,12 +2623,28 @@ plugin_unary_type_expr (cc1_plugin::connection *self,
    if (!template_dependent_p)
      processing_template_decl--;
  
@@ -196,7 +196,7 @@ index bba2fa7..af22bb3 100644
 +
 +      // We're using this for sizeof...(pack).  */
 +    case TYPE_PACK_EXPANSION:
-+      result = make_pack_expansion (op0);
++      result = make_pack_expansion (type);
 +      PACK_EXPANSION_SIZEOF_P (result) = true;
 +      break;
 +
@@ -206,3 +206,9 @@ index bba2fa7..af22bb3 100644
  
    if (template_dependent_p)
      processing_template_decl--;
+ 
+-  return convert_out (ctx->preserve (val));
++  return convert_out (ctx->preserve (result));
+ }
+ 
+ gcc_expr
