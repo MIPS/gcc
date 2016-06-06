@@ -1,3 +1,58 @@
+2016-06-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/71404
+	* io.c (match_io): For READ, commit in pending symbols in the
+	current statement before trying to match an expression so that
+	if the match fails and we undo symbols we dont toss good symbols.
+
+2016-06-05  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/69659
+	* trans-array.c (gfc_trans_dummy_array_bias): For class arrays use
+	the address of the _data component to reference the arrays data
+	component.
+
+2016-06-03  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* trans-openmp.c (gfc_trans_omp_reduction_list): Add mark_addressable
+	bool parameter, set reduction clause DECLs as addressable when true.
+	(gfc_trans_omp_clauses): Pass clauses->async to
+	gfc_trans_omp_reduction_list, add comment describing OpenACC situation.
+
+2016-06-01  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/52393
+	* io.c (match_io): For READ, try to match a default character
+	expression. If found, set the dt format expression to this,
+	otherwise go back and try control list.
+
+2016-06-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/71156
+	* decl.c (copy_prefix): Add checks that the module procedure
+	declaration prefixes are compliant with the interface. Invert
+	order of existing elemental and pure checks.
+	* resolve.c (resolve_fl_procedure): Invert order of elemental
+	and pure errors.
+
+2016-06-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* parse.c (case_decl): Move ST_OMP_* to ...
+	(case_omp_decl): ... here, new macro.
+	(verify_st_order): For case_omp_decl, complain about
+	p->state >= ORDER_EXEC, but don't change p->state otherwise.
+
+2016-05-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* openmp.c (resolve_omp_clauses): Warn if chunk_size is known not to
+	be positive.
+
+2016-05-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/66461
+	* scanner.c (gfc_next_char_literal): Clear end_flag when adjusting
+	current locus back to old_locus.
+
 2016-05-20  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/71204

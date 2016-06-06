@@ -465,6 +465,8 @@ extern unsigned char ix86_tune_features[X86_TUNE_LAST];
 	ix86_tune_features[X86_TUNE_SLOW_PSHUFB]
 #define TARGET_VECTOR_PARALLEL_EXECUTION \
 	ix86_tune_features[X86_TUNE_VECTOR_PARALLEL_EXECUTION]
+#define TARGET_AVOID_4BYTE_PREFIXES \
+	ix86_tune_features[X86_TUNE_AVOID_4BYTE_PREFIXES]
 #define TARGET_FUSE_CMP_AND_BRANCH_32 \
 	ix86_tune_features[X86_TUNE_FUSE_CMP_AND_BRANCH_32]
 #define TARGET_FUSE_CMP_AND_BRANCH_64 \
@@ -957,10 +959,10 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 
 #define STACK_REGS
 
-#define IS_STACK_MODE(MODE)					\
-  (((MODE) == SFmode && !(TARGET_SSE && TARGET_SSE_MATH))	\
-   || ((MODE) == DFmode && !(TARGET_SSE2 && TARGET_SSE_MATH))	\
-   || (MODE) == XFmode)
+#define IS_STACK_MODE(MODE)				\
+  (X87_FLOAT_MODE_P (MODE)				\
+   && (!(SSE_FLOAT_MODE_P (MODE) && TARGET_SSE_MATH)	\
+       || TARGET_MIX_SSE_I387))
 
 /* Number of actual hardware registers.
    The hardware registers are assigned numbers for the compiler
@@ -1635,11 +1637,18 @@ enum reg_class
 
    If stack probes are required, the space used for large function
    arguments on the stack must also be probed, so enable
-   -maccumulate-outgoing-args so this happens in the prologue.  */
+   -maccumulate-outgoing-args so this happens in the prologue.
+
+   We must use argument accumulation in interrupt function if stack
+   may be realigned to avoid DRAP.  */
 
 #define ACCUMULATE_OUTGOING_ARGS \
-  ((TARGET_ACCUMULATE_OUTGOING_ARGS && optimize_function_for_speed_p (cfun)) \
-   || TARGET_STACK_PROBE || TARGET_64BIT_MS_ABI \
+  ((TARGET_ACCUMULATE_OUTGOING_ARGS \
+    && optimize_function_for_speed_p (cfun)) \
+   || (cfun->machine->func_type != TYPE_NORMAL \
+       && crtl->stack_realign_needed) \
+   || TARGET_STACK_PROBE \
+   || TARGET_64BIT_MS_ABI \
    || (TARGET_MACHO && crtl->profile))
 
 /* If defined, a C expression whose value is nonzero when we want to use PUSH
@@ -1748,6 +1757,11 @@ typedef struct ix86_args {
    use pop */
 
 #define EXIT_IGNORE_STACK 1
+
+/* Define this macro as a C expression that is nonzero for registers
+   used by the epilogue or the `return' pattern.  */
+
+#define EPILOGUE_USES(REGNO) ix86_epilogue_uses (REGNO)
 
 /* Output assembler code for a block containing the constant parts
    of a trampoline, leaving space for the variable parts.  */
@@ -2464,6 +2478,19 @@ struct GTY(()) machine_frame_state
 /* Private to winnt.c.  */
 struct seh_frame_state;
 
+enum function_type
+{
+  TYPE_UNKNOWN = 0,
+  TYPE_NORMAL,
+  /* The current function is an interrupt service routine with a
+     pointer argument as specified by the "interrupt" attribute.  */
+  TYPE_INTERRUPT,
+  /* The current function is an interrupt service routine with a
+     pointer argument and an integer argument as specified by the
+     "interrupt" attribute.  */
+  TYPE_EXCEPTION
+};
+
 struct GTY(()) machine_function {
   struct stack_local_entry *stack_locals;
   const char *some_ld_name;
@@ -2517,6 +2544,13 @@ struct GTY(()) machine_function {
 
   /* If true, it is safe to not save/restore DRAP register.  */
   BOOL_BITFIELD no_drap_save_restore : 1;
+
+  /* Function type.  */
+  ENUM_BITFIELD(function_type) func_type : 2;
+
+  /* If true, the current function is a function specified with
+     the "interrupt" or "no_caller_saved_registers" attribute.  */
+  BOOL_BITFIELD no_caller_saved_registers : 1;
 
   /* If true, there is register available for argument passing.  This
      is used only in ix86_function_ok_for_sibcall by 32-bit to determine

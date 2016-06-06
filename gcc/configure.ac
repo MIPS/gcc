@@ -2035,7 +2035,7 @@ elif test "x$TARGET_SYSTEM_ROOT" != x; then
 fi
 
 if test x$host != x$target || test "x$TARGET_SYSTEM_ROOT" != x; then
-  if test "x$with_headers" != x; then
+  if test "x$with_headers" != x && test "x$with_headers" != xyes; then
     target_header_dir=$with_headers
   elif test "x$with_sysroot" = x; then
     target_header_dir="${test_exec_prefix}/${target_noncanonical}/sys-include"
@@ -3927,6 +3927,18 @@ foo:
        kasumi_fi_xor %f46, %f48, %f50, %f52],,
       [AC_DEFINE(HAVE_AS_SPARC4, 1,
                 [Define if your assembler supports SPARC4 instructions.])])
+
+    gcc_GAS_CHECK_FEATURE([SPARC5 and VIS 4.0 instructions],
+      gcc_cv_as_sparc_sparc5,,
+      [-xarch=sparc5],
+      [.text
+       .register %g2, #scratch
+       .register %g3, #scratch
+       .align 4
+       subxc %g1, %g2, %g3
+       fpadd8 %f0, %f2, %f4],,
+      [AC_DEFINE(HAVE_AS_SPARC5_VIS4, 1,
+                [Define if your assembler supports SPARC5 and VIS 4.0 instructions.])])
 
     gcc_GAS_CHECK_FEATURE([LEON instructions],
       gcc_cv_as_sparc_leon,,

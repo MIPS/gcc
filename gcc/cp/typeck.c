@@ -112,7 +112,7 @@ complete_type (tree type)
 
   if (type == error_mark_node || COMPLETE_TYPE_P (type))
     ;
-  else if (TREE_CODE (type) == ARRAY_TYPE && TYPE_DOMAIN (type))
+  else if (TREE_CODE (type) == ARRAY_TYPE)
     {
       tree t = complete_type (TREE_TYPE (type));
       unsigned int needs_constructing, has_nontrivial_dtor;
@@ -3161,8 +3161,7 @@ cp_build_array_ref (location_t loc, tree array, tree idx,
       break;
     }
 
-  bool non_lvalue
-    = convert_vector_to_pointer_for_subscript (loc, &array, idx);
+  bool non_lvalue = convert_vector_to_array_for_subscript (loc, &array, idx);
 
   if (TREE_CODE (TREE_TYPE (array)) == ARRAY_TYPE)
     {
