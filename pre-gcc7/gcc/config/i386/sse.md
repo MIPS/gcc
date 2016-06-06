@@ -13488,16 +13488,17 @@
 
 (define_insn "*vec_concatv2si_sse4_1"
   [(set (match_operand:V2SI 0 "register_operand"
-	  "=Yr,*x,x, Yr,*x,x, x, *y,*y")
+	  "=Yr,*x, x, v,Yr,*x, v, v, *y,*y")
 	(vec_concat:V2SI
 	  (match_operand:SI 1 "nonimmediate_operand"
-	  "  0, 0,x,  0,0, x,rm,  0,rm")
+	  "  0, 0, x,Yv, 0, 0,Yv,rm,  0,rm")
 	  (match_operand:SI 2 "vector_move_operand"
-	  " rm,rm,rm,Yr,*x,x, C,*ym, C")))]
+	  " rm,rm,rm,rm,Yr,*x,Yv, C,*ym, C")))]
   "TARGET_SSE4_1 && !(MEM_P (operands[1]) && MEM_P (operands[2]))"
   "@
    pinsrd\t{$1, %2, %0|%0, %2, 1}
    pinsrd\t{$1, %2, %0|%0, %2, 1}
+   vpinsrd\t{$1, %2, %1, %0|%0, %1, %2, 1}
    vpinsrd\t{$1, %2, %1, %0|%0, %1, %2, 1}
    punpckldq\t{%2, %0|%0, %2}
    punpckldq\t{%2, %0|%0, %2}
@@ -13505,26 +13506,26 @@
    %vmovd\t{%1, %0|%0, %1}
    punpckldq\t{%2, %0|%0, %2}
    movd\t{%1, %0|%0, %1}"
-  [(set_attr "isa" "noavx,noavx,avx,noavx,noavx,avx,*,*,*")
+  [(set_attr "isa" "noavx,noavx,avx,avx512dq,noavx,noavx,avx,*,*,*")
    (set (attr "type")
-     (cond [(eq_attr "alternative" "6")
+     (cond [(eq_attr "alternative" "7")
 	      (const_string "ssemov")
-	    (eq_attr "alternative" "7")
-	      (const_string "mmxcvt")
 	    (eq_attr "alternative" "8")
+	      (const_string "mmxcvt")
+	    (eq_attr "alternative" "9")
 	      (const_string "mmxmov")
 	   ]
 	   (const_string "sselog")))
    (set (attr "prefix_extra")
-     (if_then_else (eq_attr "alternative" "0,1,2")
+     (if_then_else (eq_attr "alternative" "0,1,2,3")
 		   (const_string "1")
 		   (const_string "*")))
    (set (attr "length_immediate")
-     (if_then_else (eq_attr "alternative" "0,1,2")
+     (if_then_else (eq_attr "alternative" "0,1,2,3")
 		   (const_string "1")
 		   (const_string "*")))
-   (set_attr "prefix" "orig,orig,vex,orig,orig,vex,maybe_vex,orig,orig")
-   (set_attr "mode" "TI,TI,TI,TI,TI,TI,TI,DI,DI")])
+   (set_attr "prefix" "orig,orig,vex,evex,orig,orig,maybe_evex,maybe_vex,orig,orig")
+   (set_attr "mode" "TI,TI,TI,TI,TI,TI,TI,TI,DI,DI")])
 
 ;; ??? In theory we can match memory for the MMX alternative, but allowing
 ;; nonimmediate_operand for operand 2 and *not* allowing memory for the SSE
@@ -13548,10 +13549,10 @@
    (set_attr "mode" "TI,TI,DI,V4SF,SF,DI,DI")])
 
 (define_insn "*vec_concatv4si"
-  [(set (match_operand:V4SI 0 "register_operand"       "=x,x,x,x,x")
+  [(set (match_operand:V4SI 0 "register_operand"       "=x,v,x,x,v")
 	(vec_concat:V4SI
-	  (match_operand:V2SI 1 "register_operand"     " 0,x,0,0,x")
-	  (match_operand:V2SI 2 "nonimmediate_operand" " x,x,x,m,m")))]
+	  (match_operand:V2SI 1 "register_operand"     " 0,v,0,0,v")
+	  (match_operand:V2SI 2 "nonimmediate_operand" " x,v,x,m,m")))]
   "TARGET_SSE"
   "@
    punpcklqdq\t{%2, %0|%0, %2}
@@ -13561,22 +13562,23 @@
    vmovhps\t{%2, %1, %0|%0, %1, %q2}"
   [(set_attr "isa" "sse2_noavx,avx,noavx,noavx,avx")
    (set_attr "type" "sselog,sselog,ssemov,ssemov,ssemov")
-   (set_attr "prefix" "orig,vex,orig,orig,vex")
+   (set_attr "prefix" "orig,maybe_evex,orig,orig,maybe_evex")
    (set_attr "mode" "TI,TI,V4SF,V2SF,V2SF")])
 
 ;; movd instead of movq is required to handle broken assemblers.
 (define_insn "vec_concatv2di"
   [(set (match_operand:V2DI 0 "register_operand"
-	  "=Yr,*x,x ,Yi,x ,!x,x,x,x,x,x")
+	  "=Yr,*x,x ,v ,Yi,v ,!x,x,v ,x,x,v")
 	(vec_concat:V2DI
 	  (match_operand:DI 1 "nonimmediate_operand"
-	  "  0, 0,x ,r ,xm,*y,0,x,0,0,x")
+	  "  0, 0,x ,Yv,r ,vm,*y,0,Yv,0,0,v")
 	  (match_operand:DI 2 "vector_move_operand"
-	  "*rm,rm,rm,C ,C ,C ,x,x,x,m,m")))]
+	  "*rm,rm,rm,rm,C ,C ,C ,x,Yv,x,m,m")))]
   "TARGET_SSE"
   "@
    pinsrq\t{$1, %2, %0|%0, %2, 1}
    pinsrq\t{$1, %2, %0|%0, %2, 1}
+   vpinsrq\t{$1, %2, %1, %0|%0, %1, %2, 1}
    vpinsrq\t{$1, %2, %1, %0|%0, %1, %2, 1}
    * return HAVE_AS_IX86_INTERUNIT_MOVQ ? \"%vmovq\t{%1, %0|%0, %1}\" : \"%vmovd\t{%1, %0|%0, %1}\";
    %vmovq\t{%1, %0|%0, %1}
@@ -13592,40 +13594,46 @@
 	    (eq_attr "alternative" "2")
 	      (const_string "x64_avx")
 	    (eq_attr "alternative" "3")
+	      (const_string "x64_avx512dq")
+	    (eq_attr "alternative" "4")
 	      (const_string "x64")
-	    (eq_attr "alternative" "4,5")
+	    (eq_attr "alternative" "5,6")
 	      (const_string "sse2")
-	    (eq_attr "alternative" "6")
+	    (eq_attr "alternative" "7")
 	      (const_string "sse2_noavx")
-	    (eq_attr "alternative" "7,10")
+	    (eq_attr "alternative" "8,11")
 	      (const_string "avx")
 	   ]
 	   (const_string "noavx")))
    (set (attr "type")
      (if_then_else
-       (eq_attr "alternative" "0,1,2,6,7")
+       (eq_attr "alternative" "0,1,2,3,7,8")
        (const_string "sselog")
        (const_string "ssemov")))
    (set (attr "prefix_rex")
-     (if_then_else (eq_attr "alternative" "0,1,2,3")
+     (if_then_else (eq_attr "alternative" "0,1,2,3,4")
 		   (const_string "1")
 		   (const_string "*")))
    (set (attr "prefix_extra")
-     (if_then_else (eq_attr "alternative" "0,1,2")
+     (if_then_else (eq_attr "alternative" "0,1,2,3")
 		   (const_string "1")
 		   (const_string "*")))
    (set (attr "length_immediate")
-     (if_then_else (eq_attr "alternative" "0,1,2")
+     (if_then_else (eq_attr "alternative" "0,1,2,3")
 		   (const_string "1")
 		   (const_string "*")))
    (set (attr "prefix")
-     (cond [(eq_attr "alternative" "2,7,10")
+     (cond [(eq_attr "alternative" "2")
 	      (const_string "vex")
-	    (eq_attr "alternative" "3,4")
+	    (eq_attr "alternative" "3")
+	      (const_string "evex")
+	    (eq_attr "alternative" "4,5")
 	      (const_string "maybe_vex")
+	    (eq_attr "alternative" "8,11")
+	      (const_string "maybe_evex")
 	   ]
 	   (const_string "orig")))
-   (set_attr "mode" "TI,TI,TI,TI,TI,TI,TI,TI,V4SF,V2SF,V2SF")])
+   (set_attr "mode" "TI,TI,TI,TI,TI,TI,TI,TI,TI,V4SF,V2SF,V2SF")])
 
 (define_expand "vec_unpacks_lo_<mode>"
   [(match_operand:<sseunpackmode> 0 "register_operand")

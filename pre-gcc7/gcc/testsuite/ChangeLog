@@ -1,3 +1,290 @@
+2016-06-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/71259
+	* gcc.dg/vect/pr71259.c: New test.
+
+2016-06-06  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc.dg/plugin/levenshtein-test-1.c: Delete.
+	* gcc.dg/plugin/levenshtein_plugin.c: Delete.
+	* gcc.dg/plugin/plugin.exp (plugin_test_list): Remove the
+	above.
+
+2016-06-06  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR middle-end/37780
+	* gcc.c-torture/execute/pr37780.c: New test.
+	* gcc.target/aarch64/pr37780_1.c: Likewise.
+	* gcc.target/arm/pr37780_1.c: Likewise.
+
+2016-06-06  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/attr-may-alias-1.c: New test.
+	* c-c++-common/attr-may-alias-2.c: New test.
+	* gcc.dg/pr39464.c: Turn dg-warning into dg-bogus.
+
+2016-06-06  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR c/24414
+	* gcc.target/i386/pr24414.c: New test.
+
+2016-06-06  Jose E. Marchesi  <jose.marchesi@oracle.com>
+
+	* gcc.target/sparc/vis4misc.c: New file.
+	* gcc.target/sparc/fpcmp.c: Likewise.
+	* gcc.target/sparc/fpcmpu.c: Likewise.
+
+2016-06-06  Alan Hayward  <alan.hayward@arm.com>
+
+	* gcc.dg/vect/vect-live-1.c: Use additional-options.
+	* gcc.dg/vect/vect-live-3.c: Likewise.
+
+2016-06-06  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71398
+	* gcc.dg/torture/pr71398.c: New testcase.
+
+2016-06-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/71389
+	* g++.dg/pr71389.C: New test.
+
+2016-06-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/71404
+	* gfortran.dg/fmt_read_5.f: New test.
+
+2016-06-05  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/69659
+	* gfortran.dg/class_array_22.f03: New test.
+
+2016-06-05  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gcc.dg/tree-prof/peel-1.c: Fix testcase.
+
+2016-06-05  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gcc.dg/predict-9.c: Update template.
+
+2016-06-05  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/49377
+	* g++.dg/template/pr49377.C: New.
+
+2016-06-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/71405
+	* g++.dg/torture/pr71405.C: New test.
+
+2016-06-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/70202
+	* g++.dg/inherit/crash5.C: New.
+	* g++.dg/inherit/virtual1.C: Adjust.
+
+2016-06-03  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/71316
+	* gcc.dg/tree-ssa/ssa-dom-thread-4.c: Update expected output.
+
+2016-06-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/vect/vect-live-1.c: Remove dg-options.  Add
+	dg-additional-options with just -fno-tree-scev-cprop in it.
+	* gcc.dg/vect/vect-live-2.c: Likewise.
+	* gcc.dg/vect/vect-live-5.c: Likewise.
+	* gcc.dg/vect/vect-live-slp-1.c: Likewise.
+	* gcc.dg/vect/vect-live-slp-2.c: Likewise.
+	* gcc.dg/vect/vect-live-slp-3.c: Likewise.
+
+2016-06-03  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/27100
+	* g++.dg/other/friend6.C: New test.
+
+2016-06-03  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* g++.dg/torture/ppc-ldst-array.C: New.
+
+2016-06-03  Joseph Myers  <joseph@codesourcery.com>
+
+	PR target/71276
+	PR target/71277
+	* gcc.dg/torture/builtin-fp-int-inexact.c,
+	gcc.target/i386/387-builtin-fp-int-inexact.c,
+	gcc.target/i386/387-rint-inline-1.c,
+	gcc.target/i386/387-rint-inline-2.c,
+	gcc.target/i386/sse2-builtin-fp-int-inexact.c,
+	gcc.target/i386/sse2-rint-inline-1.c,
+	gcc.target/i386/sse2-rint-inline-2.c,
+	gcc.target/i386/sse4_1-builtin-fp-int-inexact.c,
+	gcc.target/i386/sse4_1-rint-inline.c: New tests.
+
+2016-06-03  H.J. Lu  <hongjiu.lu@intel.com>
+	    Julia Koval  <julia.koval@intel.com>
+
+	PR target/66960
+	PR target/67630
+	PR target/67634
+	PR target/67841
+	PR target/68037
+	PR target/68618
+	PR target/68661
+	PR target/69575
+	PR target/69596
+	PR target/69734
+	* gcc.dg/guality/pr68037-1.c: New test.
+	* gcc.dg/guality/pr68037-2.c: Likewise.
+	* gcc.dg/guality/pr68037-3.c: Likewise.
+	* gcc.dg/torture/pr68037-1.c: Likewise.
+	* gcc.dg/torture/pr68037-2.c: Likewise.
+	* gcc.dg/torture/pr68037-3.c: Likewise.
+	* gcc.dg/torture/pr68661-1a.c: Likewise.
+	* gcc.dg/torture/pr68661-1b.c: Likewise.
+	* gcc.target/i386/interrupt-1.c: Likewise.
+	* gcc.target/i386/interrupt-2.c: Likewise.
+	* gcc.target/i386/interrupt-3.c: Likewise.
+	* gcc.target/i386/interrupt-4.c: Likewise.
+	* gcc.target/i386/interrupt-5.c: Likewise.
+	* gcc.target/i386/interrupt-6.c: Likewise.
+	* gcc.target/i386/interrupt-7.c: Likewise.
+	* gcc.target/i386/interrupt-8.c: Likewise.
+	* gcc.target/i386/interrupt-9.c: Likewise.
+	* gcc.target/i386/interrupt-10.c: Likewise.
+	* gcc.target/i386/interrupt-11.c: Likewise.
+	* gcc.target/i386/interrupt-12.c: Likewise.
+	* gcc.target/i386/interrupt-13.c: Likewise.
+	* gcc.target/i386/interrupt-14.c: Likewise.
+	* gcc.target/i386/interrupt-15.c: Likewise.
+	* gcc.target/i386/interrupt-16.c: Likewise.
+	* gcc.target/i386/interrupt-17.c: Likewise.
+	* gcc.target/i386/interrupt-18.c: Likewise.
+	* gcc.target/i386/interrupt-19.c: Likewise.
+	* gcc.target/i386/interrupt-20.c: Likewise.
+	* gcc.target/i386/interrupt-21.c: Likewise.
+	* gcc.target/i386/interrupt-22.c: Likewise.
+	* gcc.target/i386/interrupt-23.c: Likewise.
+	* gcc.target/i386/interrupt-24.c: Likewise.
+	* gcc.target/i386/interrupt-25.c: Likewise.
+	* gcc.target/i386/interrupt-26.c: Likewise.
+	* gcc.target/i386/interrupt-27.c: Likewise.
+	* gcc.target/i386/interrupt-28.c: Likewise.
+	* gcc.target/i386/interrupt-387-err-1.c: Likewise.
+	* gcc.target/i386/interrupt-387-err-2.c: Likewise.
+	* gcc.target/i386/interrupt-bnd-err-1.c: Likewise.
+	* gcc.target/i386/interrupt-bnd-err-2.c: Likewise.
+	* gcc.target/i386/interrupt-iamcu.c: Likewise.
+	* gcc.target/i386/interrupt-mmx-err-1.c: Likewise.
+	* gcc.target/i386/interrupt-mmx-err-2.c: Likewise.
+	* gcc.target/i386/interrupt-redzone-1.c: Likewise.
+	* gcc.target/i386/interrupt-redzone-2.c: Likewise.
+	* gcc.target/i386/interrupt-sibcall-1.c: Likewise.
+	* gcc.target/i386/interrupt-sibcall-2.c: Likewise.
+	* gcc.target/i386/interrupt-switch-abi.c: Likewise.
+
+2016-06-03  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR tree-optimization/52171
+	* gcc.dg/pr52171.c: New test.
+	* gcc.target/i386/pr52171.c: New test.
+
+2016-06-03  Jan Hubicka  <jh@suse.cz>
+
+	* g++.dg/tree-ssa/pred-1.C: New testcase
+	* gcc.dg/tree-ssa/pred-1.c: New testcase
+
+2016-06-03  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/70957
+	* gcc.target/powerpc/vsx-elemrev-2.c: Require p9vector hardware
+	support.
+	* gcc.target/powerpc/vsx-elemrev-4.c: Likewise.
+
+2016-06-03  Alan Hayward  <alan.hayward@arm.com>
+
+	* gcc.dg/vect/vect-live-slp-5.c: Remove dg check.
+
+2016-06-03  Alan Hayward  <alan.hayward@arm.com>
+
+	* gcc.dg/tree-ssa/pr64183.c: Ensure test does not vectorize.
+	* testsuite/gcc.dg/vect/no-scevccp-vect-iv-2.c: Remove xfail.
+	* gcc.dg/vect/vect-live-1.c: New test.
+	* gcc.dg/vect/vect-live-2.c: New test.
+	* gcc.dg/vect/vect-live-3.c: New test.
+	* gcc.dg/vect/vect-live-4.c: New test.
+	* gcc.dg/vect/vect-live-5.c: New test.
+	* gcc.dg/vect/vect-live-slp-1.c: New test.
+	* gcc.dg/vect/vect-live-slp-2.c: New test.
+	* gcc.dg/vect/vect-live-slp-3.c: New test.
+
+2016-06-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/71387
+	* g++.dg/opt/pr71387.C: New test.
+
+2016-06-02  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/71328
+	* gcc.c-torture/compile/pr71328.c: New test.
+
+2016-06-02  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/52393
+	* gfortran.dg/fmt_read_3.f90: Fix typo.
+	* gfortran.dg/fmt_read_4.f90: New test.
+
+2016-06-02  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/cpp0x/forw_enum10.C: Adjust for dg-message vs dg-error.
+	* g++.dg/cpp0x/forw_enum6.C: Likewise.
+	* g++.dg/cpp0x/forw_enum8.C: Likewise.
+	* g++.dg/cpp0x/override2.C: Likewise.
+	* g++.dg/parse/crash5.C: Likewise.
+	* g++.dg/parse/error16.C: Likewise.
+	* g++.dg/parse/error27.C: Likewise.
+	* g++.dg/template/qualttp15.C: Likewise.
+	* g++.dg/template/redecl4.C: Likewise.
+	* g++.old-deja/g++.other/crash39.C: Likewise.
+	* g++.old-deja/g++.other/struct1.C: Likewise.
+	* g++.old-deja/g++.pt/m9a.C: Likewise.
+	* g++.old-deja/g++.pt/memclass10.C: Likewise.
+
+2016-06-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71372
+	* c-c++-common/pr71372.c: New test.
+
+	* gcc.dg/cpp/source_date_epoch-1.c (main): Test __DATE__ and
+	__TIME__ strings with __builtin_strcmp instead of printf and
+	dg-output.
+
+2016-06-02  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/predict-9.c: New test.
+
+2016-06-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* lib/gcc-dg.exp (cleanup-after-saved-dg-test): Add missing
+	global set_compiler_env_var and global saved_compiler_env_var.
+
+2016-06-02  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/71295
+	* gcc.c-torture/compile/pr71295.c: New test.
+
+2016-06-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.target/i386/avx512vl-concatv4si-1.c: New test.
+
+	* gcc.target/i386/avx512dq-concatv2si-1.c: New test.
+	* gcc.target/i386/avx512vl-concatv2si-1.c: New test.
+
+	* gcc.target/i386/avx512dq-concatv2di-1.c: New test.
+	* gcc.target/i386/avx512vl-concatv2di-1.c: New test.
+	* gcc.target/i386/sse2-init-v2di-2.c: Adjust expected vec_concatv2di
+	alternative number.
+
 2016-05-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/p9-splat-4.c: New test.
