@@ -1,6 +1,6 @@
 Version: 1
-Previous: 28da1159a42257fa58a0a0e0e3756e96a66d0b85
-Head: db51c50091bcc3ebcd907968a9059ec56898d533
+Previous: d614a2e231b8b45cdf5f0ca7f9054d3e7832e5cd
+Head: b7016f715af71b6ee96770e42d0f54de72916588
 Applied:
 Unapplied:
   adjust-type-align-propagation.patch: 9d26d91ff0e9848b3d73088db0bb27dfe4ad6e53
