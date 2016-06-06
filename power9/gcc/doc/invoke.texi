@@ -370,9 +370,9 @@ Objective-C and Objective-C++ Dialects}.
 -flto-partition=@var{alg} -fmerge-all-constants @gol
 -fmerge-constants -fmodulo-sched -fmodulo-sched-allow-regmoves @gol
 -fmove-loop-invariants -fno-branch-count-reg @gol
--fno-defer-pop -fno-function-cse -fno-guess-branch-probability @gol
--fno-inline -fno-math-errno -fno-peephole -fno-peephole2 @gol
--fno-sched-interblock -fno-sched-spec -fno-signed-zeros @gol
+-fno-defer-pop -fno-fp-int-builtin-inexact -fno-function-cse @gol
+-fno-guess-branch-probability -fno-inline -fno-math-errno -fno-peephole @gol
+-fno-peephole2 -fno-sched-interblock -fno-sched-spec -fno-signed-zeros @gol
 -fno-toplevel-reorder -fno-trapping-math -fno-zero-initialized-in-bss @gol
 -fomit-frame-pointer -foptimize-sibling-calls @gol
 -fpartial-inlining -fpeel-loops -fpredictive-commoning @gol
@@ -4056,8 +4056,12 @@ Warn whenever a function is defined with a return type that defaults
 to @code{int}.  Also warn about any @code{return} statement with no
 return value in a function whose return type is not @code{void}
 (falling off the end of the function body is considered returning
-without a value), and about a @code{return} statement with an
-expression in a function whose return type is @code{void}.
+without a value).
+
+For C only, warn about a @code{return} statement with an expression in a
+function whose return type is @code{void}, unless the expression type is
+also @code{void}.  As a GNU extension, the latter case is accepted
+without a warning unless @option{-Wpedantic} is used.
 
 For C++, a function without return type always produces a diagnostic
 message, even when @option{-Wno-return-type} is specified.  The only
@@ -8532,6 +8536,24 @@ The default is @option{-fno-signaling-nans}.
 
 This option is experimental and does not currently guarantee to
 disable all GCC optimizations that affect signaling NaN behavior.
+
+@item -fno-fp-int-builtin-inexact
+@opindex fno-fp-int-builtin-inexact
+Do not allow the built-in functions @code{ceil}, @code{floor},
+@code{round} and @code{trunc}, and their @code{float} and @code{long
+double} variants, to generate code that raises the ``inexact''
+floating-point exception for noninteger arguments.  ISO C99 and C11
+allow these functions to raise the ``inexact'' exception, but ISO/IEC
+TS 18661-1:2014, the C bindings to IEEE 754-2008, does not allow these
+functions to do so.
+
+The default is @option{-ffp-int-builtin-inexact}, allowing the
+exception to be raised.  This option does nothing unless
+@option{-ftrapping-math} is in effect.
+
+Even if @option{-fno-fp-int-builtin-inexact} is used, if the functions
+generate a call to a library function then the ``inexact'' exception
+may be raised if the library implementation does not follow TS 18661.
 
 @item -fsingle-precision-constant
 @opindex fsingle-precision-constant
@@ -22187,7 +22209,7 @@ for machine type @var{cpu_type}.  Supported values for @var{cpu_type} are
 @samp{leon}, @samp{leon3}, @samp{leon3v7}, @samp{sparclite}, @samp{f930},
 @samp{f934}, @samp{sparclite86x}, @samp{sparclet}, @samp{tsc701}, @samp{v9},
 @samp{ultrasparc}, @samp{ultrasparc3}, @samp{niagara}, @samp{niagara2},
-@samp{niagara3} and @samp{niagara4}.
+@samp{niagara3}, @samp{niagara4} and @samp{niagara7}.
 
 Native Solaris and GNU/Linux toolchains also support the value @samp{native},
 which selects the best architecture option for the host processor.
@@ -22215,7 +22237,7 @@ f930, f934, sparclite86x
 tsc701
 
 @item v9
-ultrasparc, ultrasparc3, niagara, niagara2, niagara3, niagara4
+ultrasparc, ultrasparc3, niagara, niagara2, niagara3, niagara4, niagara7
 @end table
 
 By default (unless configured otherwise), GCC generates code for the V7
@@ -22257,7 +22279,9 @@ Sun UltraSPARC T1 chips.  With @option{-mcpu=niagara2}, the compiler
 additionally optimizes it for Sun UltraSPARC T2 chips. With
 @option{-mcpu=niagara3}, the compiler additionally optimizes it for Sun
 UltraSPARC T3 chips.  With @option{-mcpu=niagara4}, the compiler
-additionally optimizes it for Sun UltraSPARC T4 chips.
+additionally optimizes it for Sun UltraSPARC T4 chips.  With
+@option{-mcpu=niagara7}, the compiler additionally optimizes it for
+Oracle SPARC M7 chips.
 
 @item -mtune=@var{cpu_type}
 @opindex mtune
@@ -22267,12 +22291,13 @@ option @option{-mcpu=@var{cpu_type}} does.
 
 The same values for @option{-mcpu=@var{cpu_type}} can be used for
 @option{-mtune=@var{cpu_type}}, but the only useful values are those
-that select a particular CPU implementation.  Those are @samp{cypress},
-@samp{supersparc}, @samp{hypersparc}, @samp{leon}, @samp{leon3},
-@samp{leon3v7}, @samp{f930}, @samp{f934}, @samp{sparclite86x}, @samp{tsc701},
-@samp{ultrasparc}, @samp{ultrasparc3}, @samp{niagara}, @samp{niagara2},
-@samp{niagara3} and @samp{niagara4}.  With native Solaris and GNU/Linux
-toolchains, @samp{native} can also be used.
+that select a particular CPU implementation.  Those are
+@samp{cypress}, @samp{supersparc}, @samp{hypersparc}, @samp{leon},
+@samp{leon3}, @samp{leon3v7}, @samp{f930}, @samp{f934},
+@samp{sparclite86x}, @samp{tsc701}, @samp{ultrasparc},
+@samp{ultrasparc3}, @samp{niagara}, @samp{niagara2}, @samp{niagara3},
+@samp{niagara4} and @samp{niagara7}.  With native Solaris and
+GNU/Linux toolchains, @samp{native} can also be used.
 
 @item -mv8plus
 @itemx -mno-v8plus
@@ -22309,6 +22334,16 @@ version 3.0 of the UltraSPARC Visual Instruction Set extensions.  The
 default is @option{-mvis3} when targeting a cpu that supports such
 instructions, such as niagara-3 and later.  Setting @option{-mvis3}
 also sets @option{-mvis2} and @option{-mvis}.
+
+@item -mvis4
+@itemx -mno-vis4
+@opindex mvis4
+@opindex mno-vis4
+With @option{-mvis4}, GCC generates code that takes advantage of
+version 4.0 of the UltraSPARC Visual Instruction Set extensions.  The
+default is @option{-mvis4} when targeting a cpu that supports such
+instructions, such as niagara-7 and later.  Setting @option{-mvis4}
+also sets @option{-mvis3}, @option{-mvis2} and @option{-mvis}.
 
 @item -mcbcond
 @itemx -mno-cbcond

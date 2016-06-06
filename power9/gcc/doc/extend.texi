@@ -5266,6 +5266,79 @@ On x86-32 targets, the @code{stdcall} attribute causes the compiler to
 assume that the called function pops off the stack space used to
 pass arguments, unless it takes a variable number of arguments.
 
+@item no_caller_saved_registers
+@cindex @code{no_caller_saved_registers} function attribute, x86
+Use this attribute to indicate that the specified function has no
+caller-saved registers. That is, all registers are callee-saved. For
+example, this attribute can be used for a function called from an
+interrupt handler. The compiler generates proper function entry and
+exit sequences to save and restore any modified registers, except for
+the EFLAGS register.  Since GCC doesn't preserve MPX, SSE, MMX nor x87
+states, the GCC option @option{-mgeneral-regs-only} should be used to
+compile functions with @code{no_caller_saved_registers} attribute.
+
+@item interrupt
+@cindex @code{interrupt} function attribute, x86
+Use this attribute to indicate that the specified function is an
+interrupt handler or an exception handler (depending on parameters passed
+to the function, explained further).  The compiler generates function
+entry and exit sequences suitable for use in an interrupt handler when
+this attribute is present.  The @code{IRET} instruction, instead of the
+@code{RET} instruction, is used to return from interrupt handlers.  All
+registers, except for the EFLAGS register which is restored by the
+@code{IRET} instruction, are preserved by the compiler.  Since GCC
+doesn't preserve MPX, SSE, MMX nor x87 states, the GCC option
+@option{-mgeneral-regs-only} should be used to compile interrupt and
+exception handlers.
+
+Any interruptible-without-stack-switch code must be compiled with
+@option{-mno-red-zone} since interrupt handlers can and will, because
+of the hardware design, touch the red zone.
+
+An interrupt handler must be declared with a mandatory pointer
+argument:
+
+@smallexample
+struct interrupt_frame;
+
+__attribute__ ((interrupt))
+void
+f (struct interrupt_frame *frame)
+@{
+@}
+@end smallexample
+
+@noindent
+and you must define @code{struct interrupt_frame} as described in the
+processor's manual.
+
+Exception handlers differ from interrupt handlers because the system
+pushes an error code on the stack.  An exception handler declaration is
+similar to that for an interrupt handler, but with a different mandatory
+function signature.  The compiler arranges to pop the error code off the
+stack before the @code{IRET} instruction.
+
+@smallexample
+#ifdef __x86_64__
+typedef unsigned long long int uword_t;
+#else
+typedef unsigned int uword_t;
+#endif
+
+struct interrupt_frame;
+
+__attribute__ ((interrupt))
+void
+f (struct interrupt_frame *frame, uword_t error_code)
+@{
+  ...
+@}
+@end smallexample
+
+Exception handlers should only be used for exceptions that push an error
+code; you should use an interrupt handler in other cases.  The system
+will crash if the wrong kind of handler is used.
+
 @item target (@var{options})
 @cindex @code{target} function attribute
 As discussed in @ref{Common Function Attributes}, this attribute 
@@ -7508,7 +7581,7 @@ means there is no way to communicate to the compiler what is happening
 inside them.  GCC has no visibility of symbols in the @code{asm} and may
 discard them as unreferenced.  It also does not know about side effects of
 the assembler code, such as modifications to memory or registers.  Unlike
-some compilers, GCC assumes that no changes to either memory or registers
+some compilers, GCC assumes that no changes to general purpose registers
 occur.  This assumption may change in a future release.
 
 To avoid complications from future changes to the semantics and the
@@ -7531,6 +7604,10 @@ all basic @code{asm} blocks use the assembler dialect specified by the
 @option{-masm} command-line option (@pxref{x86 Options}).  
 Basic @code{asm} provides no
 mechanism to provide different assembler strings for different dialects.
+
+For basic @code{asm} with non-empty assembler string GCC assumes
+the assembler block does not change any general purpose registers,
+but it may read or write any globally accessible variable.
 
 Here is an example of basic @code{asm} for i386:
 
@@ -18088,6 +18165,45 @@ double __builtin_vis_fnhaddd (double, double);
 int64_t __builtin_vis_umulxhi (int64_t, int64_t);
 int64_t __builtin_vis_xmulx (int64_t, int64_t);
 int64_t __builtin_vis_xmulxhi (int64_t, int64_t);
+@end smallexample
+
+When you use the @option{-mvis4} switch, the VIS version 4.0 built-in
+functions also become available:
+
+@smallexample
+v8qi __builtin_vis_fpadd8 (v8qi, v8qi);
+v8qi __builtin_vis_fpadds8 (v8qi, v8qi);
+v8qi __builtin_vis_fpaddus8 (v8qi, v8qi);
+v4hi __builtin_vis_fpaddus16 (v4hi, v4hi);
+
+v8qi __builtin_vis_fpsub8 (v8qi, v8qi);
+v8qi __builtin_vis_fpsubs8 (v8qi, v8qi);
+v8qi __builtin_vis_fpsubus8 (v8qi, v8qi);
+v4hi __builtin_vis_fpsubus16 (v4hi, v4hi);
+
+long __builtin_vis_fpcmple8 (v8qi, v8qi);
+long __builtin_vis_fpcmpgt8 (v8qi, v8qi);
+long __builtin_vis_fpcmpule16 (v4hi, v4hi);
+long __builtin_vis_fpcmpugt16 (v4hi, v4hi);
+long __builtin_vis_fpcmpule32 (v2si, v2si);
+long __builtin_vis_fpcmpugt32 (v2si, v2si);
+
+v8qi __builtin_vis_fpmax8 (v8qi, v8qi);
+v4hi __builtin_vis_fpmax16 (v4hi, v4hi);
+v2si __builtin_vis_fpmax32 (v2si, v2si);
+
+v8qi __builtin_vis_fpmaxu8 (v8qi, v8qi);
+v4hi __builtin_vis_fpmaxu16 (v4hi, v4hi);
+v2si __builtin_vis_fpmaxu32 (v2si, v2si);
+
+
+v8qi __builtin_vis_fpmin8 (v8qi, v8qi);
+v4hi __builtin_vis_fpmin16 (v4hi, v4hi);
+v2si __builtin_vis_fpmin32 (v2si, v2si);
+
+v8qi __builtin_vis_fpminu8 (v8qi, v8qi);
+v4hi __builtin_vis_fpminu16 (v4hi, v4hi);
+v2si __builtin_vis_fpminu32 (v2si, v2si);
 @end smallexample
 
 @node SPU Built-in Functions
