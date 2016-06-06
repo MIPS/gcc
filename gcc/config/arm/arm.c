@@ -847,6 +847,9 @@ int arm_tune_cortex_a9 = 0;
    interworking clean.  */
 int arm_cpp_interwork = 0;
 
+/* Nonzero if chip supports Thumb 1.  */
+int arm_arch_thumb1;
+
 /* Nonzero if chip supports Thumb 2.  */
 int arm_arch_thumb2;
 
@@ -3165,6 +3168,7 @@ arm_option_override (void)
   arm_arch7em = ARM_FSET_HAS_CPU1 (insn_flags, FL_ARCH7EM);
   arm_arch8 = ARM_FSET_HAS_CPU1 (insn_flags, FL_ARCH8);
   arm_arch8_1 = ARM_FSET_HAS_CPU2 (insn_flags, FL2_ARCH8_1);
+  arm_arch_thumb1 = ARM_FSET_HAS_CPU1 (insn_flags, FL_THUMB);
   arm_arch_thumb2 = ARM_FSET_HAS_CPU1 (insn_flags, FL_THUMB2);
   arm_arch_xscale = ARM_FSET_HAS_CPU1 (insn_flags, FL_XSCALE);
 
@@ -17777,10 +17781,8 @@ arm_output_multireg_pop (rtx *operands, bool return_pc, rtx cond, bool reverse,
 
   conditional = reverse ? "%?%D0" : "%?%d0";
   /* Can't use POP if returning from an interrupt.  */
-  if ((regno_base == SP_REGNUM) && !(interrupt_p && return_pc))
-    {
-      sprintf (pattern, "pop%s\t{", conditional);
-    }
+  if ((regno_base == SP_REGNUM) && update && !(interrupt_p && return_pc))
+    sprintf (pattern, "pop%s\t{", conditional);
   else
     {
       /* Output ldmfd when the base register is SP, otherwise output ldmia.
@@ -29852,6 +29854,13 @@ aarch_macro_fusion_pair_p (rtx_insn* prev, rtx_insn* curr)
 	     return true;
     }
   return false;
+}
+
+/* Return true iff the instruction fusion described by OP is enabled.  */
+bool
+arm_fusion_enabled_p (tune_params::fuse_ops op)
+{
+  return current_tune->fusible_ops & op;
 }
 
 /* Implement the TARGET_ASAN_SHADOW_OFFSET hook.  */

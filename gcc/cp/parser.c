@@ -12888,7 +12888,8 @@ cp_parser_function_specifier_opt (cp_parser* parser,
       /* 14.5.2.3 [temp.mem]
 
 	 A member function template shall not be virtual.  */
-      if (PROCESSING_REAL_TEMPLATE_DECL_P ())
+      if (PROCESSING_REAL_TEMPLATE_DECL_P ()
+	  && current_class_type)
 	error_at (token->location, "templates may not be %<virtual%>");
       else
 	set_and_check_decl_spec_loc (decl_specs, ds_virtual, token);
@@ -22007,8 +22008,8 @@ cp_parser_class_head (cp_parser* parser,
     {
       error_at (type_start_token->location, "redefinition of %q#T",
 		type);
-      error_at (type_start_token->location, "previous definition of %q+#T",
-		type);
+      inform (location_of (type), "previous definition of %q#T",
+	      type);
       type = NULL_TREE;
       goto done;
     }
@@ -22049,9 +22050,8 @@ cp_parser_class_head (cp_parser* parser,
 
   /* If we're really defining a class, process the base classes.
      If they're invalid, fail.  */
-  if (type && cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE)
-      && !xref_basetypes (type, bases))
-    type = NULL_TREE;
+  if (type && cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
+    xref_basetypes (type, bases);
 
  done:
   /* Leave the scope given by the nested-name-specifier.  We will
@@ -33918,7 +33918,9 @@ cp_parser_omp_for (cp_parser *parser, cp_token *pragma_tok,
 
   strcat (p_name, " for");
   mask |= OMP_FOR_CLAUSE_MASK;
-  if (cclauses)
+  /* parallel for{, simd} disallows nowait clause, but for
+     target {teams distribute ,}parallel for{, simd} it should be accepted.  */
+  if (cclauses && (mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_MAP)) == 0)
     mask &= ~(OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NOWAIT);
   /* Composite distribute parallel for{, simd} disallows ordered clause.  */
   if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_DIST_SCHEDULE)) != 0)
@@ -34257,7 +34259,8 @@ cp_parser_omp_parallel (cp_parser *parser, cp_token *pragma_tok,
 	}
     }
 
-  clauses = cp_parser_omp_all_clauses (parser, mask, p_name, pragma_tok);
+  clauses = cp_parser_omp_all_clauses (parser, mask, p_name, pragma_tok,
+				       cclauses == NULL);
   if (cclauses)
     {
       cp_omp_split_clauses (loc, OMP_PARALLEL, mask, clauses, cclauses);

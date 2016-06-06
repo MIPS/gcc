@@ -1,3 +1,96 @@
+2016-06-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/70202
+	* parser.c (cp_parser_class_head): When xref_basetypes fails and
+	emits an error do not zero the type.
+
+2016-06-03  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/27100
+	* decl.c (duplicate_decls): Properly copy the
+	DECL_PENDING_INLINE_P, DECL_PENDING_INLINE_INFO and
+	DECL_SAVED_FUNCTION_DATA fields from OLDDECL to NEWDECL.
+
+2016-06-03  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* semantics.c (finish_omp_clauses): Mark OpenACC reduction
+	arguments as addressable when async clause exists.
+
+2016-06-02  Jan Hubicka  <jh@suse.cz>
+
+	* cp-gimplify.c (genericize_continue_stmt): Force addition of
+	predict stmt.
+
+2016-06-02  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* decl.c (xref_tag_1): Change pairs of errors to error + inform.
+	(start_enum): Likewise.
+	* parser.c (cp_parser_class_head): Likewise.
+
+2016-06-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71372
+	* cp-gimplify.c (cp_fold): For INDIRECT_REF, if the folded expression
+	is INDIRECT_REF or MEM_REF, copy over TREE_READONLY, TREE_SIDE_EFFECTS
+	and TREE_THIS_VOLATILE flags.  For ARRAY_REF and ARRAY_RANGE_REF, copy
+	over TREE_READONLY, TREE_SIDE_EFFECTS and TREE_THIS_VOLATILE flags
+	to the newly built tree.
+
+2016-05-31  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (instantiate_decl): Avoid recalculation.
+
+	PR c++/60095
+	PR c++/69515
+	PR c++/69009
+	* pt.c (instantiate_template_1): Don't put the partial
+	specialization in DECL_TI_TEMPLATE.
+	(partial_specialization_p, impartial_args): Remove.
+	(regenerate_decl_from_template): Add args parm.
+	(instantiate_decl): Look up the partial specialization again.
+
+	PR c++/71227
+	* pt.c (check_explicit_specialization): Give better diagnostic about
+	specializing a hidden friend.
+
+2016-05-31  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71248
+	* decl.c (check_static_variable_definition): Use DECL_SOURCE_LOCATION
+	to obtain correct locations; avoid redundant diagnostics on
+	out-of-class definitions.
+
+2016-05-30  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/71306
+	* init.c (warn_placement_new_too_small): Handle placement new arguments
+	that are elements of arrays more carefully.  Remove a pointless loop.
+
+2016-05-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71349
+	* parser.c (cp_parser_omp_for): Don't disallow nowait clause
+	when combined with target construct.
+	(cp_parser_omp_parallel): Pass cclauses == NULL as last argument
+	to cp_parser_omp_all_clauses.
+
+2016-05-30  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71238
+	* lex.c (unqualified_name_lookup_error): Take a location too.
+	(unqualified_fn_lookup_error): Take a cp_expr.
+	* cp-tree.h (unqualified_name_lookup_error,
+	unqualified_fn_lookup_error): Adjust declarations.
+	* semantics.c (perform_koenig_lookup): Adjust
+	unqualified_fn_lookup_error call, pass the location of
+	the identifier too as part of a cp_expr.
+
+2016-05-30  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71099
+	* parser.c (cp_parser_function_specifier_opt): Use current_class_type
+	to improve the diagnostic about wrong uses of 'virtual'.
+
 2016-05-29  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/71105

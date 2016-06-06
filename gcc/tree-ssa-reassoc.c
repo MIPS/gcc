@@ -1199,11 +1199,20 @@ zero_one_operation (tree *def, enum tree_code opcode, tree op)
 		propagate_op_to_single_use (op, stmt, def);
 	      return;
 	    }
-	  else if (gimple_assign_rhs_code (stmt) == NEGATE_EXPR
-		   && gimple_assign_rhs1 (stmt) == op)
+	  else if (gimple_assign_rhs_code (stmt) == NEGATE_EXPR)
 	    {
-	      propagate_op_to_single_use (op, stmt, def);
-	      return;
+	      if (gimple_assign_rhs1 (stmt) == op)
+		{
+		  propagate_op_to_single_use (op, stmt, def);
+		  return;
+		}
+	      else if (integer_minus_onep (op)
+		       || real_minus_onep (op))
+		{
+		  gimple_assign_set_rhs_code
+		    (stmt, TREE_CODE (gimple_assign_rhs1 (stmt)));
+		  return;
+		}
 	    }
 	}
 
@@ -1238,11 +1247,20 @@ zero_one_operation (tree *def, enum tree_code opcode, tree op)
 	      return;
 	    }
 	  else if (is_gimple_assign (stmt2)
-		   && gimple_assign_rhs_code (stmt2) == NEGATE_EXPR
-		   && gimple_assign_rhs1 (stmt2) == op)
+		   && gimple_assign_rhs_code (stmt2) == NEGATE_EXPR)
 	    {
-	      propagate_op_to_single_use (op, stmt2, def);
-	      return;
+	      if (gimple_assign_rhs1 (stmt2) == op)
+		{
+		  propagate_op_to_single_use (op, stmt2, def);
+		  return;
+		}
+	      else if (integer_minus_onep (op)
+		       || real_minus_onep (op))
+		{
+		  gimple_assign_set_rhs_code
+		    (stmt2, TREE_CODE (gimple_assign_rhs1 (stmt2)));
+		  return;
+		}
 	    }
 	}
 
@@ -1775,16 +1793,6 @@ eliminate_redundant_comparison (enum tree_code opcode,
     }
 
   return false;
-}
-
-/* If the stmt that defines operand has to be inserted, insert it
-   before the use.  */
-static void
-insert_stmt_before_use (gimple *stmt, gimple *stmt_to_insert)
-{
-  gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
-  gimple_set_uid (stmt_to_insert, gimple_uid (stmt));
-  gsi_insert_before (&gsi, stmt_to_insert, GSI_NEW_STMT);
 }
 
 
@@ -3763,25 +3771,13 @@ swap_ops_for_binary_stmt (vec<operand_entry *> ops,
       || (stmt && is_phi_for_stmt (stmt, oe3->op)
 	  && !is_phi_for_stmt (stmt, oe1->op)
 	  && !is_phi_for_stmt (stmt, oe2->op)))
-    {
-      operand_entry temp = *oe3;
-      oe3->op = oe1->op;
-      oe3->rank = oe1->rank;
-      oe1->op = temp.op;
-      oe1->rank= temp.rank;
-    }
+    std::swap (*oe1, *oe3);
   else if ((oe1->rank == oe3->rank
 	    && oe2->rank != oe3->rank)
 	   || (stmt && is_phi_for_stmt (stmt, oe2->op)
 	       && !is_phi_for_stmt (stmt, oe1->op)
 	       && !is_phi_for_stmt (stmt, oe3->op)))
-    {
-      operand_entry temp = *oe2;
-      oe2->op = oe1->op;
-      oe2->rank = oe1->rank;
-      oe1->op = temp.op;
-      oe1->rank = temp.rank;
-    }
+    std::swap (*oe1, *oe2);
 }
 
 /* If definition of RHS1 or RHS2 dominates STMT, return the later of those
@@ -3798,6 +3794,29 @@ find_insert_point (gimple *stmt, tree rhs1, tree rhs2)
     stmt = SSA_NAME_DEF_STMT (rhs2);
   return stmt;
 }
+
+/* If the stmt that defines operand has to be inserted, insert it
+   before the use.  */
+static void
+insert_stmt_before_use (gimple *stmt, gimple *stmt_to_insert)
+{
+  gcc_assert (is_gimple_assign (stmt_to_insert));
+  tree rhs1 = gimple_assign_rhs1 (stmt_to_insert);
+  tree rhs2 = gimple_assign_rhs2 (stmt_to_insert);
+  gimple *insert_point = find_insert_point (stmt, rhs1, rhs2);
+  gimple_stmt_iterator gsi = gsi_for_stmt (insert_point);
+  gimple_set_uid (stmt_to_insert, gimple_uid (insert_point));
+
+  /* If the insert point is not stmt, then insert_point would be
+     the point where operand rhs1 or rhs2 is defined. In this case,
+     stmt_to_insert has to be inserted afterwards. This would
+     only happen when the stmt insertion point is flexible. */
+  if (stmt == insert_point)
+    gsi_insert_before (&gsi, stmt_to_insert, GSI_NEW_STMT);
+  else
+    insert_stmt_after (stmt_to_insert, insert_point);
+}
+
 
 /* Recursively rewrite our linearized statements so that the operators
    match those in OPS[OPINDEX], putting the computation in rank
@@ -3835,6 +3854,12 @@ rewrite_expr_tree (gimple *stmt, unsigned int opindex,
 	      print_gimple_stmt (dump_file, stmt, 0, 0);
 	    }
 
+	  /* If the stmt that defines operand has to be inserted, insert it
+	     before the use.  */
+	  if (oe1->stmt_to_insert)
+	    insert_stmt_before_use (stmt, oe1->stmt_to_insert);
+	  if (oe2->stmt_to_insert)
+	    insert_stmt_before_use (stmt, oe2->stmt_to_insert);
 	  /* Even when changed is false, reassociation could have e.g. removed
 	     some redundant operations, so unless we are just swapping the
 	     arguments or unless there is no change at all (then we just
@@ -3843,12 +3868,6 @@ rewrite_expr_tree (gimple *stmt, unsigned int opindex,
 	    {
 	      gimple *insert_point
 		= find_insert_point (stmt, oe1->op, oe2->op);
-	      /* If the stmt that defines operand has to be inserted, insert it
-		 before the use.  */
-	      if (oe1->stmt_to_insert)
-		insert_stmt_before_use (stmt, oe1->stmt_to_insert);
-	      if (oe2->stmt_to_insert)
-		insert_stmt_before_use (stmt, oe2->stmt_to_insert);
 	      lhs = make_ssa_name (TREE_TYPE (lhs));
 	      stmt
 		= gimple_build_assign (lhs, gimple_assign_rhs_code (stmt),
@@ -3864,12 +3883,6 @@ rewrite_expr_tree (gimple *stmt, unsigned int opindex,
 	    {
 	      gcc_checking_assert (find_insert_point (stmt, oe1->op, oe2->op)
 				   == stmt);
-	      /* If the stmt that defines operand has to be inserted, insert it
-		 before the use.  */
-	      if (oe1->stmt_to_insert)
-		insert_stmt_before_use (stmt, oe1->stmt_to_insert);
-	      if (oe2->stmt_to_insert)
-		insert_stmt_before_use (stmt, oe2->stmt_to_insert);
 	      gimple_assign_set_rhs1 (stmt, oe1->op);
 	      gimple_assign_set_rhs2 (stmt, oe2->op);
 	      update_stmt (stmt);
@@ -4109,16 +4122,18 @@ rewrite_expr_tree_parallel (gassign *stmt, int width,
 	  print_gimple_stmt (dump_file, stmts[i], 0, 0);
 	}
 
+      /* If the stmt that defines operand has to be inserted, insert it
+	 before the use.  */
+      if (stmt1)
+	insert_stmt_before_use (stmts[i], stmt1);
+      if (stmt2)
+	insert_stmt_before_use (stmts[i], stmt2);
+      stmt1 = stmt2 = NULL;
+
       /* We keep original statement only for the last one.  All
 	 others are recreated.  */
       if (i == stmt_num - 1)
 	{
-	  /* If the stmt that defines operand has to be inserted, insert it
-	     before the use.  */
-	  if (stmt1)
-	    insert_stmt_before_use (stmts[i], stmt1);
-	  if (stmt2)
-	    insert_stmt_before_use (stmts[i], stmt2);
 	  gimple_assign_set_rhs1 (stmts[i], op1);
 	  gimple_assign_set_rhs2 (stmts[i], op2);
 	  update_stmt (stmts[i]);
@@ -4126,12 +4141,6 @@ rewrite_expr_tree_parallel (gassign *stmt, int width,
       else
 	{
 	  stmts[i] = build_and_add_sum (TREE_TYPE (last_rhs1), op1, op2, opcode);
-	  /* If the stmt that defines operand has to be inserted, insert it
-	     before new build_and_add stmt after it is created.  */
-	  if (stmt1)
-	    insert_stmt_before_use (stmts[i], stmt1);
-	  if (stmt2)
-	    insert_stmt_before_use (stmts[i], stmt2);
 	}
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{

@@ -189,7 +189,7 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
 /* Optimize -A / A to -1.0 if we don't care about
    NaNs or Infinities.  */
 (simplify
- (rdiv:c @0 (negate @0))
+ (rdiv:C @0 (negate @0))
  (if (FLOAT_TYPE_P (type)
       && ! HONOR_NANS (type)
       && ! HONOR_INFINITIES (type))
@@ -493,7 +493,7 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
 
 /* Fold (A & B) - (A & ~B) into B - (A ^ B).  */
 (simplify
- (minus (bit_and:s @0 @1) (bit_and:cs @0 (bit_not @1)))
+ (minus (bit_and:cs @0 @1) (bit_and:cs @0 (bit_not @1)))
   (minus @1 (bit_xor @0 @1)))
 
 /* Simplify (X & ~Y) | (~X & Y) -> X ^ Y.  */
@@ -2615,18 +2615,7 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
 (for cmp (lt le ge gt)
      out (gt gt le le)
  (simplify
-  (cmp (plus@2 @0 INTEGER_CST@1) @0)
-  (if (TYPE_UNSIGNED (TREE_TYPE (@0))
-       && TYPE_OVERFLOW_WRAPS (TREE_TYPE (@0))
-       && wi::ne_p (@1, 0)
-       && single_use (@2))
-   (out @0 { wide_int_to_tree (TREE_TYPE (@0), wi::max_value
-	       (TYPE_PRECISION (TREE_TYPE (@0)), UNSIGNED) - @1); }))))
-/* A CMP A + CST  ->  A CMP' CST' */
-(for cmp (gt ge le lt)
-     out (gt gt le le)
- (simplify
-  (cmp @0 (plus@2 @0 INTEGER_CST@1))
+  (cmp:c (plus@2 @0 INTEGER_CST@1) @0)
   (if (TYPE_UNSIGNED (TREE_TYPE (@0))
        && TYPE_OVERFLOW_WRAPS (TREE_TYPE (@0))
        && wi::ne_p (@1, 0)
@@ -2639,35 +2628,19 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
    expects the long form, so we restrict the transformation for now.  */
 (for cmp (gt le)
  (simplify
-  (cmp (minus@2 @0 @1) @0)
+  (cmp:c (minus@2 @0 @1) @0)
   (if (single_use (@2)
        && ANY_INTEGRAL_TYPE_P (TREE_TYPE (@0))
        && TYPE_UNSIGNED (TREE_TYPE (@0))
        && TYPE_OVERFLOW_WRAPS (TREE_TYPE (@0)))
    (cmp @1 @0))))
-(for cmp (lt ge)
- (simplify
-  (cmp @0 (minus@2 @0 @1))
-  (if (single_use (@2)
-       && ANY_INTEGRAL_TYPE_P (TREE_TYPE (@0))
-       && TYPE_UNSIGNED (TREE_TYPE (@0))
-       && TYPE_OVERFLOW_WRAPS (TREE_TYPE (@0)))
-   (cmp @0 @1))))
 
 /* Testing for overflow is unnecessary if we already know the result.  */
-/* A < A - B  */
-(for cmp (lt ge)
-     out (ne eq)
- (simplify
-  (cmp @0 (realpart (IFN_SUB_OVERFLOW@2 @0 @1)))
-  (if (TYPE_UNSIGNED (TREE_TYPE (@0))
-       && types_match (TREE_TYPE (@0), TREE_TYPE (@1)))
-   (out (imagpart @2) { build_zero_cst (TREE_TYPE (@0)); }))))
 /* A - B > A  */
 (for cmp (gt le)
      out (ne eq)
  (simplify
-  (cmp (realpart (IFN_SUB_OVERFLOW@2 @0 @1)) @0)
+  (cmp:c (realpart (IFN_SUB_OVERFLOW@2 @0 @1)) @0)
   (if (TYPE_UNSIGNED (TREE_TYPE (@0))
        && types_match (TREE_TYPE (@0), TREE_TYPE (@1)))
    (out (imagpart @2) { build_zero_cst (TREE_TYPE (@0)); }))))
@@ -2675,19 +2648,30 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
 (for cmp (lt ge)
      out (ne eq)
  (simplify
-  (cmp (realpart (IFN_ADD_OVERFLOW:c@2 @0 @1)) @0)
-  (if (TYPE_UNSIGNED (TREE_TYPE (@0))
-       && types_match (TREE_TYPE (@0), TREE_TYPE (@1)))
-   (out (imagpart @2) { build_zero_cst (TREE_TYPE (@0)); }))))
-/* A > A + B  */
-(for cmp (gt le)
-     out (ne eq)
- (simplify
-  (cmp @0 (realpart (IFN_ADD_OVERFLOW:c@2 @0 @1)))
+  (cmp:c (realpart (IFN_ADD_OVERFLOW:c@2 @0 @1)) @0)
   (if (TYPE_UNSIGNED (TREE_TYPE (@0))
        && types_match (TREE_TYPE (@0), TREE_TYPE (@1)))
    (out (imagpart @2) { build_zero_cst (TREE_TYPE (@0)); }))))
 
+/* For unsigned operands, A > -1 / B checks whether A * B would overflow.
+   Simplify it to __builtin_mul_overflow (A, B, <unused>).  */
+/* -1 / B < A */
+(for cmp (lt ge)
+     out (ne eq)
+ (simplify
+  (cmp (trunc_div:s integer_all_onesp @1) @0)
+  (if (TYPE_UNSIGNED (TREE_TYPE (@0)) && !VECTOR_TYPE_P (TREE_TYPE (@0)))
+   (with { tree t = TREE_TYPE (@0), cpx = build_complex_type (t); }
+    (out (imagpart (IFN_MUL_OVERFLOW:cpx @0 @1)) { build_zero_cst (t); })))))
+
+/* A > -1 / B */
+(for cmp (gt le)
+     out (ne eq)
+ (simplify
+  (cmp @0 (trunc_div:s integer_all_onesp @1))
+  (if (TYPE_UNSIGNED (TREE_TYPE (@0)) && !VECTOR_TYPE_P (TREE_TYPE (@0)))
+   (with { tree t = TREE_TYPE (@0), cpx = build_complex_type (t); }
+    (out (imagpart (IFN_MUL_OVERFLOW:cpx @0 @1)) { build_zero_cst (t); })))))
 
 /* Simplification of math builtins.  These rules must all be optimizations
    as well as IL simplifications.  If there is a possibility that the new
@@ -2842,7 +2826,7 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
 
 /* cabs(x+0i) or cabs(0+xi) -> abs(x).  */
 (simplify
- (CABS (complex:c @0 real_zerop@1))
+ (CABS (complex:C @0 real_zerop@1))
  (abs @0))
 
 /* trunc(trunc(x)) -> trunc(x), etc.  */
@@ -3277,8 +3261,9 @@ DEFINE_INT_AND_FLOAT_ROUND_FN (RINT)
 (for op (lt le gt ge)
      ext (min min max max)
  (simplify
-  (bit_and (op:s @0 @1) (op:s @0 @2))
-  (if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  (bit_and (op:cs @0 @1) (op:cs @0 @2))
+  (if (INTEGRAL_TYPE_P (TREE_TYPE (@0))
+       && TREE_CODE (@0) != INTEGER_CST)
    (op @0 (ext @1 @2)))))
 
 (simplify
