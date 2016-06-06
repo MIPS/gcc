@@ -1,3 +1,11 @@
+2016-06-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.md (movdi32_internal): Rework 32/64-bit
+	patterns.  Add support for using XXSPLTIB and VSPLTIB to load
+	constants in the floating point and vector registers.  Add ?* to
+	the floating point and vector registers.
+	(movdi64_internal): Likewise.
+
 2016-06-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 237008.
