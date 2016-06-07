@@ -1,3 +1,31 @@
+2016-06-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (xxspltib_constant_split): Update
+	comments.
+	(xxspltib_constant_nosplit): Likewise.
+	(xxspltib_constant): New predicate that matches XXSPLTIB
+	constants, whether they are being split or not.
+
+	* config/rs6000/rs6000.c (xxspltib_constant_p): Eliminate check
+	for mode != GET_MODE (op), since it doesn't work for integer
+	constants.
+	(rs6000_secondary_reload) Update code to know about various
+	constants that can be loaded directly into VSX registers.
+	(rs6000_preferred_reload_class): Add support for additional
+	integer constants that can be loaded into vector registers.  Deal
+	with CONST_INT having VOIDmode, and use DImode separately.
+
+	* config/rs6000/vsx.md (VSINT_84): Add DImode, to allow creation
+	of DImode constants via XXSPLTIB.
+
+	* config/rs6000/rs6000.md (movdi_internal32): Replace with the
+	original insn.
+	(movdi_internal64): Rework, adding more XXSPLTIB/VSPLTISW
+	constants.
+	(movdi splitters): Do not split pseudo registers, just integer
+	registers.  Add splitters for constants loaded with XXSPLTIB and
+	VSPLTISW.
+
 2016-06-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 237150.

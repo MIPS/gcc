@@ -6359,9 +6359,6 @@ xxspltib_constant_p (rtx op,
   if (mode == VOIDmode)
     mode = GET_MODE (op);
 
-  else if (mode != GET_MODE (op))
-    return false;
-
   /* Handle (vec_duplicate <constant>).  */
   if (GET_CODE (op) == VEC_DUPLICATE)
     {
@@ -19398,25 +19395,25 @@ rs6000_secondary_reload (bool in_p,
 	}
     }
 
-  /* Make sure 0.0 is not reloaded or forced into memory.  */
-  if (!done_p && x == CONST0_RTX (mode) && VSX_REG_CLASS_P (rclass))
-    {
-      ret = NO_REGS;
-      default_p = false;
-      done_p = true;
-    }
-
-  /* If this is an integer constant that is being tried to be loaded into a
-     vector register, and we can do a direct move, load the constant in a GPR
-     register first. Also recognize the constants that can be directly loaded
-     into the Altivec registers.  */
+  /* Make sure constants that can be loaded directly into VSX registers is not
+     reloaded or forced into memory.  If it can't be loaded, see if we can do a
+     direct move from a GPR register.  */
   if (!done_p && CONST_INT_P (x) && VSX_REG_CLASS_P (rclass))
     {
       HOST_WIDE_INT value = INTVAL (x);
 
-      if (TARGET_UPPER_REGS_DI
-	  && ((value == -1)
-	      || (TARGET_P8_VECTOR && IN_RANGE (value, -16, 15))))
+      /* XXLXOR (0) or XXLORC (-1).  */
+      if (value == 0 || (value == -1 && TARGET_P8_VECTOR))
+	{
+	  ret = NO_REGS;
+	  default_p = false;
+	  done_p = true;
+	}
+
+      /* VSPLTISW/VUPKHSW or XXSPLTIB/VEXTSB2W.  */
+      else if (TARGET_UPPER_REGS_DI
+	       && (IN_RANGE (value, -16, 15)
+		   || (TARGET_P9_VECTOR && IN_RANGE (value, -128, 127))))
 	{
 	  ret = (rclass == ALTIVEC_REGS) ? NO_REGS : ALTIVEC_REGS;
 	  default_p = false;
@@ -20000,25 +19997,32 @@ rs6000_preferred_reload_class (rtx x, enum reg_class rclass)
   machine_mode mode = GET_MODE (x);
   bool is_constant = CONSTANT_P (x);
 
-  /* If a mode can't go in FPR/ALTIVEC/VSX registers, don't return a preferred
-     reload class for it.  */
-  if ((rclass == ALTIVEC_REGS || rclass == VSX_REGS)
-      && (reg_addr[mode].addr_mask[RELOAD_REG_VMX] & RELOAD_REG_VALID) == 0)
-    return NO_REGS;
-
-  if ((rclass == FLOAT_REGS || rclass == VSX_REGS)
-      && (reg_addr[mode].addr_mask[RELOAD_REG_FPR] & RELOAD_REG_VALID) == 0)
-    return NO_REGS;
-
   /* For VSX, see if we should prefer FLOAT_REGS or ALTIVEC_REGS.  Do not allow
      the reloading of address expressions using PLUS into floating point
-     registers.  */
+     registers.  If the mode isn't legitimate for the registers, don't return a
+     preferred reload class for it.  Assume VOIDmode is an integer constant.  */
   if (TARGET_VSX && VSX_REG_CLASS_P (rclass) && GET_CODE (x) != PLUS)
     {
+      machine_mode mode2 = mode == VOIDmode ? DImode : mode;
+      if ((rclass == ALTIVEC_REGS || rclass == VSX_REGS)
+	  && (reg_addr[mode2].addr_mask[RELOAD_REG_VMX] & RELOAD_REG_VALID) == 0)
+	return NO_REGS;
+
+      if ((rclass == FLOAT_REGS || rclass == VSX_REGS)
+	  && (reg_addr[mode2].addr_mask[RELOAD_REG_FPR] & RELOAD_REG_VALID) == 0)
+	return NO_REGS;
+
       if (is_constant)
 	{
-	  /* Zero is always allowed in all VSX registers.  */
-	  if (x == CONST0_RTX (mode))
+	  /* Zero is always allowed in all VSX registers.  Don't allow decimal
+	     0.0, because it does not have all bits set to 0.  */
+	  if (x == CONST0_RTX (mode) && !DECIMAL_FLOAT_MODE_P (mode))
+	    return rclass;
+
+	  /* -1 is allowed in any register for integer types, if we can
+              generate XXLORC.  */
+	  if (x == CONSTM1_RTX (mode) && TARGET_P8_VECTOR
+	      && !FLOAT_MODE_P (mode))
 	    return rclass;
 
 	  /* If this is a vector constant that can be formed with a few Altivec
@@ -20027,10 +20031,18 @@ rs6000_preferred_reload_class (rtx x, enum reg_class rclass)
 	    return ALTIVEC_REGS;
 
 	  /* Allow constants that can be created with vspltisw/vupkhsw to get
-	     the Altivec registers if this is a scalar integer.  */
-	  if (TARGET_UPPER_REGS_DI && CONST_INT_P (x)
-	      && IN_RANGE (INTVAL (x), -16, 15))
-	    return ALTIVEC_REGS;
+	     the Altivec registers if this is a scalar integer.  Similarly,
+	     allow constants that can be created with xxspltib/vextbt{d,w}.  */
+	  if (TARGET_UPPER_REGS_DI && CONST_INT_P (x))
+	    {
+	      HOST_WIDE_INT value = INTVAL (x);
+
+	      if (IN_RANGE (value, -16, 15))
+		return ALTIVEC_REGS;
+
+	      if (TARGET_P9_VECTOR && IN_RANGE (value, -128, 127))
+		return ALTIVEC_REGS;
+	    }
 
 	  /* Force constant to memory.  */
 	  return NO_REGS;
