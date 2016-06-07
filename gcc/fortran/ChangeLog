@@ -1,3 +1,26 @@
+2016-06-05  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/69659
+	* trans-array.c (gfc_trans_dummy_array_bias): For class arrays use
+	the address of the _data component to reference the arrays data
+	component.
+
+2016-06-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/71156
+	* decl.c (copy_prefix): Add checks that the module procedure
+	declaration prefixes are compliant with the interface. Invert
+	order of existing elemental and pure checks.
+	* resolve.c (resolve_fl_procedure): Invert order of elemental
+	and pure errors.
+
+2016-06-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* parse.c (case_decl): Move ST_OMP_* to ...
+	(case_omp_decl): ... here, new macro.
+	(verify_st_order): For case_omp_decl, complain about
+	p->state >= ORDER_EXEC, but don't change p->state otherwise.
+
 2016-05-26  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	Backport from trunk.
@@ -17,7 +40,7 @@
 	* interface.c (compare_parameter): Check for non-NULL pointer.
 
 2016-05-14  Fritz Reese  <fritzoreese@gmail.com>
-	
+
 	Backport from trunk: r236242
 	* gfortran.texi: Update example of DEC UNION extension.
 

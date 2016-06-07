@@ -1877,13 +1877,21 @@ cp_fully_fold (tree x)
 static tree
 cp_fold_maybe_rvalue (tree x, bool rval)
 {
-  if (rval && DECL_P (x))
+  while (true)
     {
-      tree v = decl_constant_value (x);
-      if (v != error_mark_node)
-	x = v;
+      x = cp_fold (x);
+      if (rval && DECL_P (x))
+	{
+	  tree v = decl_constant_value (x);
+	  if (v != x && v != error_mark_node)
+	    {
+	      x = v;
+	      continue;
+	    }
+	}
+      break;
     }
-  return cp_fold (x);
+  return x;
 }
 
 /* Fold expression X which is used as an rvalue.  */
@@ -1995,6 +2003,15 @@ cp_fold (tree x)
 
       break;
 
+    case INDIRECT_REF:
+      /* We don't need the decltype(auto) obfuscation anymore.  */
+      if (REF_PARENTHESIZED_P (x))
+	{
+	  tree p = maybe_undo_parenthesized_ref (x);
+	  return cp_fold (p);
+	}
+      goto unary;
+
     case ADDR_EXPR:
     case REALPART_EXPR:
     case IMAGPART_EXPR:
@@ -2007,7 +2024,7 @@ cp_fold (tree x)
     case BIT_NOT_EXPR:
     case TRUTH_NOT_EXPR:
     case FIXED_CONVERT_EXPR:
-    case INDIRECT_REF:
+    unary:
 
       loc = EXPR_LOCATION (x);
       op0 = cp_fold_maybe_rvalue (TREE_OPERAND (x, 0), rval_ops);
@@ -2017,7 +2034,16 @@ cp_fold (tree x)
 	  if (op0 == error_mark_node)
 	    x = error_mark_node;
 	  else
-	    x = fold_build1_loc (loc, code, TREE_TYPE (x), op0);
+	    {
+	      x = fold_build1_loc (loc, code, TREE_TYPE (x), op0);
+	      if (code == INDIRECT_REF
+		  && (INDIRECT_REF_P (x) || TREE_CODE (x) == MEM_REF))
+		{
+		  TREE_READONLY (x) = TREE_READONLY (org_x);
+		  TREE_SIDE_EFFECTS (x) = TREE_SIDE_EFFECTS (org_x);
+		  TREE_THIS_VOLATILE (x) = TREE_THIS_VOLATILE (org_x);
+		}
+	    }
 	}
       else
 	x = fold (x);
@@ -2294,7 +2320,12 @@ cp_fold (tree x)
 	      || op3 == error_mark_node)
 	    x = error_mark_node;
 	  else
-	    x = build4_loc (loc, code, TREE_TYPE (x), op0, op1, op2, op3);
+	    {
+	      x = build4_loc (loc, code, TREE_TYPE (x), op0, op1, op2, op3);
+	      TREE_READONLY (x) = TREE_READONLY (org_x);
+	      TREE_SIDE_EFFECTS (x) = TREE_SIDE_EFFECTS (org_x);
+	      TREE_THIS_VOLATILE (x) = TREE_THIS_VOLATILE (org_x);
+	    }
 	}
 
       x = fold (x);

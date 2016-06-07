@@ -182,7 +182,6 @@ static tree copy_template_args (tree);
 static tree tsubst_template_arg (tree, tree, tsubst_flags_t, tree);
 static tree tsubst_template_args (tree, tree, tsubst_flags_t, tree);
 static tree tsubst_template_parms (tree, tree, tsubst_flags_t);
-static void regenerate_decl_from_template (tree, tree);
 static tree most_specialized_partial_spec (tree, tsubst_flags_t);
 static tree tsubst_aggr_type (tree, tree, tsubst_flags_t, tree, int);
 static tree tsubst_arg_types (tree, tree, tree, tsubst_flags_t, tree);
@@ -2808,6 +2807,13 @@ check_explicit_specialization (tree declarator,
 		 context.  */
 	      fns = lookup_qualified_name (CP_DECL_CONTEXT (decl), dname,
 					   false, true);
+	      if (fns == error_mark_node)
+		/* If lookup fails, look for a friend declaration so we can
+		   give a better diagnostic.  */
+		fns = lookup_qualified_name (CP_DECL_CONTEXT (decl), dname,
+					     /*type*/false, /*complain*/true,
+					     /*hidden*/true);
+
 	      if (fns == error_mark_node || !is_overloaded_fn (fns))
 		{
 		  error ("%qD is not a template function", dname);
@@ -2953,6 +2959,15 @@ check_explicit_specialization (tree declarator,
 					   CP_DECL_CONTEXT (tmpl)))
 	    error ("%qD is not declared in %qD",
 		   tmpl, current_namespace);
+	  else if (TREE_CODE (decl) == FUNCTION_DECL
+		   && DECL_HIDDEN_FRIEND_P (tmpl))
+	    {
+	      if (pedwarn (DECL_SOURCE_LOCATION (decl), 0,
+			   "friend declaration %qD is not visible to "
+			   "explicit specialization", tmpl))
+		inform (DECL_SOURCE_LOCATION (tmpl),
+			"friend declaration here");
+	    }
 
 	  tree gen_tmpl = most_general_template (tmpl);
 
@@ -12280,6 +12295,14 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    local_p = true;
 	    /* Subsequent calls to pushdecl will fill this in.  */
 	    ctx = NULL_TREE;
+	    /* Unless this is a reference to a static variable from an
+	       enclosing function, in which case we need to fill it in now.  */
+	    if (TREE_STATIC (t))
+	      {
+		tree fn = tsubst (DECL_CONTEXT (t), args, complain, in_decl);
+		if (fn != current_function_decl)
+		  ctx = fn;
+	      }
 	    spec = retrieve_local_specialization (t);
 	  }
 	/* If we already have the specialization we need, there is
@@ -13991,7 +14014,8 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     case FUNCTION_DECL:
       if (DECL_LANG_SPECIFIC (t) && DECL_TEMPLATE_INFO (t))
 	r = tsubst (t, args, complain, in_decl);
-      else if (local_variable_p (t))
+      else if (local_variable_p (t)
+	       && uses_template_parms (DECL_CONTEXT (t)))
 	{
 	  r = retrieve_local_specialization (t);
 	  if (r == NULL_TREE)
@@ -14035,14 +14059,9 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 		  gcc_assert (cp_unevaluated_operand || TREE_STATIC (r)
 			      || decl_constant_var_p (r)
 			      || errorcount || sorrycount);
-		  if (!processing_template_decl)
-		    {
-		      if (TREE_STATIC (r))
-			rest_of_decl_compilation (r, toplevel_bindings_p (),
-						  at_eof);
-		      else
-			r = process_outer_var_ref (r, complain);
-		    }
+		  if (!processing_template_decl
+		      && !TREE_STATIC (r))
+		    r = process_outer_var_ref (r, complain);
 		}
 	      /* Remember this for subsequent uses.  */
 	      if (local_specializations)
@@ -17371,6 +17390,7 @@ instantiate_template_1 (tree tmpl, tree orig_args, tsubst_flags_t complain)
 
   tree pattern = DECL_TEMPLATE_RESULT (gen_tmpl);
 
+  fndecl = NULL_TREE;
   if (VAR_P (pattern))
     {
       /* We need to determine if we're using a partial or explicit
@@ -17382,14 +17402,16 @@ instantiate_template_1 (tree tmpl, tree orig_args, tsubst_flags_t complain)
 	pattern = error_mark_node;
       else if (elt)
 	{
-	  tmpl = TREE_VALUE (elt);
-	  pattern = DECL_TEMPLATE_RESULT (tmpl);
-	  targ_ptr = TREE_PURPOSE (elt);
+	  tree partial_tmpl = TREE_VALUE (elt);
+	  tree partial_args = TREE_PURPOSE (elt);
+	  tree partial_pat = DECL_TEMPLATE_RESULT (partial_tmpl);
+	  fndecl = tsubst (partial_pat, partial_args, complain, gen_tmpl);
 	}
     }
 
   /* Substitute template parameters to obtain the specialization.  */
-  fndecl = tsubst (pattern, targ_ptr, complain, gen_tmpl);
+  if (fndecl == NULL_TREE)
+    fndecl = tsubst (pattern, targ_ptr, complain, gen_tmpl);
   if (DECL_CLASS_SCOPE_P (gen_tmpl))
     pop_nested_class ();
   pop_from_top_level ();
@@ -20843,36 +20865,6 @@ most_general_template (tree decl)
   return decl;
 }
 
-/* True iff the TEMPLATE_DECL tmpl is a partial specialization.  */
-
-static bool
-partial_specialization_p (tree tmpl)
-{
-  /* Any specialization has DECL_TEMPLATE_SPECIALIZATION.  */
-  if (!DECL_TEMPLATE_SPECIALIZATION (tmpl))
-    return false;
-  tree t = DECL_TI_TEMPLATE (tmpl);
-  /* A specialization that fully specializes one of the containing classes is
-     not a partial specialization.  */
-  return (list_length (DECL_TEMPLATE_PARMS (tmpl))
-	  == list_length (DECL_TEMPLATE_PARMS (t)));
-}
-
-/* If TMPL is a partial specialization, return the arguments for its primary
-   template.  */
-
-static tree
-impartial_args (tree tmpl, tree args)
-{
-  if (!partial_specialization_p (tmpl))
-    return args;
-
-  /* If TMPL is a partial specialization, we need to substitute to get
-     the args for the primary template.  */
-  return tsubst_template_args (DECL_TI_ARGS (tmpl), args,
-			       tf_warning_or_error, tmpl);
-}
-
 /* Return the most specialized of the template partial specializations
    which can produce TARGET, a specialization of some class or variable
    template.  The value returned is actually a TREE_LIST; the TREE_VALUE is
@@ -21374,14 +21366,12 @@ do_type_instantiation (tree t, tree storage, tsubst_flags_t complain)
    to instantiate the DECL, we regenerate it.  */
 
 static void
-regenerate_decl_from_template (tree decl, tree tmpl)
+regenerate_decl_from_template (tree decl, tree tmpl, tree args)
 {
   /* The arguments used to instantiate DECL, from the most general
      template.  */
-  tree args;
   tree code_pattern;
 
-  args = DECL_TI_ARGS (decl);
   code_pattern = DECL_TEMPLATE_RESULT (tmpl);
 
   /* Make sure that we can see identifiers, and compute access
@@ -21697,7 +21687,7 @@ instantiate_decl (tree d, int defer_ok,
     return d;
 
   gen_tmpl = most_general_template (tmpl);
-  gen_args = impartial_args (tmpl, DECL_TI_ARGS (d));
+  gen_args = DECL_TI_ARGS (d);
 
   if (tmpl != gen_tmpl)
     /* We should already have the extra args.  */
@@ -21716,6 +21706,20 @@ instantiate_decl (tree d, int defer_ok,
   /* Set TD to the template whose DECL_TEMPLATE_RESULT is the pattern
      for the instantiation.  */
   td = template_for_substitution (d);
+  args = gen_args;
+
+  if (VAR_P (d))
+    {
+      /* Look up an explicit specialization, if any.  */
+      tree tid = lookup_template_variable (gen_tmpl, gen_args);
+      tree elt = most_specialized_partial_spec (tid, tf_warning_or_error);
+      if (elt && elt != error_mark_node)
+	{
+	  td = TREE_VALUE (elt);
+	  args = TREE_PURPOSE (elt);
+	}
+    }
+
   code_pattern = DECL_TEMPLATE_RESULT (td);
 
   /* We should never be trying to instantiate a member of a class
@@ -21728,9 +21732,7 @@ instantiate_decl (tree d, int defer_ok,
        outside the class, we may have too many arguments.  Drop the
        ones we don't need.  The same is true for specializations.  */
     args = get_innermost_template_args
-      (gen_args, TMPL_PARMS_DEPTH  (DECL_TEMPLATE_PARMS (td)));
-  else
-    args = gen_args;
+      (args, TMPL_PARMS_DEPTH (DECL_TEMPLATE_PARMS (td)));
 
   if (TREE_CODE (d) == FUNCTION_DECL)
     {
@@ -21896,7 +21898,7 @@ instantiate_decl (tree d, int defer_ok,
 
   /* Regenerate the declaration in case the template has been modified
      by a subsequent redeclaration.  */
-  regenerate_decl_from_template (d, td);
+  regenerate_decl_from_template (d, td, args);
 
   /* We already set the file and line above.  Reset them now in case
      they changed as a result of calling regenerate_decl_from_template.  */

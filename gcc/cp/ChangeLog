@@ -1,3 +1,71 @@
+2016-06-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71372
+	* cp-gimplify.c (cp_fold): For INDIRECT_REF, if the folded expression
+	is INDIRECT_REF or MEM_REF, copy over TREE_READONLY, TREE_SIDE_EFFECTS
+	and TREE_THIS_VOLATILE flags.  For ARRAY_REF and ARRAY_RANGE_REF, copy
+	over TREE_READONLY, TREE_SIDE_EFFECTS and TREE_THIS_VOLATILE flags
+	to the newly built tree.
+
+2016-06-02  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/70972
+	* method.c (forward_parm): Use cp_build_reference_type.
+
+2016-05-31  Jason Merrill  <jason@redhat.com>
+
+	PR c++/71166
+	* decl2.c (c_parse_final_cleanups): Don't call fini_constexpr.
+
+	PR c++/71227
+	* pt.c (check_explicit_specialization): Give better diagnostic about
+	specializing a hidden friend.
+
+	PR c++/60095
+	PR c++/69515
+	PR c++/69009
+	* pt.c (instantiate_template_1): Don't put the partial
+	specialization in DECL_TI_TEMPLATE.
+	(partial_specialization_p, impartial_args): Remove.
+	(regenerate_decl_from_template): Add args parm.
+	(instantiate_decl): Look up the partial specialization again.
+
+	PR c++/71173
+	PR c++/70522
+	* cp-tree.h (enum tag_types): Add scope_type.
+	* parser.c (cp_parser_class_name): Use scope_type.
+	(prefer_type_arg): Handle scope_type.
+	(cp_parser_lookup_name): Use prefer_type_arg.
+	* name-lookup.c (lookup_qualified_name): Change bool is_type_p to
+	int prefer_type, use lookup_flags.
+	* name-lookup.h: Adjust.
+
+	PR c++/70584
+	* cp-gimplify.c (cp_fold_maybe_rvalue): Loop in case cp_fold
+	returns a decl.
+	(cp_fold) [INDIRECT_REF]: Call maybe_undo_parenthesized_ref.
+
+	PR c++/70735
+	* pt.c (tsubst_copy): Just return a local variable from
+	non-template context.  Don't call rest_of_decl_compilation for
+	duplicated static locals.
+	(tsubst_decl): Set DECL_CONTEXT of local static from another
+	function.
+
+2016-05-31  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/71306
+	* init.c (warn_placement_new_too_small): Handle placement new arguments
+	that are elements of arrays more carefully.  Remove a pointless loop.
+
+2016-05-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71349
+	* parser.c (cp_parser_omp_for): Don't disallow nowait clause
+	when combined with target construct.
+	(cp_parser_omp_parallel): Pass cclauses == NULL as last argument
+	to cp_parser_omp_all_clauses.
+
 2016-05-29  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/71105
