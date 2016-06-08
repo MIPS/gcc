@@ -22,7 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #undef MULTILIB_DEFAULTS
 
 #define MIPS_SYSVERSION_SPEC \
-    "%{mips32|mips64:r1;mips32r6|mips64r6:r6;mips32r*|mips64r*:r2}%{mips16:-mips16}"
+    "%{mips32|mips64:r1;mips32r6|mips64r6|mips32r7|mips64r7:r6;mips32r*|mips64r*:r2}%{mips16:-mips16}"
 
 #undef SYSROOT_SUFFIX_SPEC
 #define SYSROOT_SUFFIX_SPEC \
