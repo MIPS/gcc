@@ -829,6 +829,13 @@
 		    || (GET_CODE (XEXP (op, 0)) == PRE_MODIFY
 			&& indexed_address (XEXP (XEXP (op, 0), 1), mode))))"))
 
+;; Return 1 if the operand is a MEM with an indirect address form.
+(define_predicate "indirect_address_mem"
+  (match_code "mem")
+{
+  return base_reg_operand (XEXP (op, 0), Pmode);
+})
+
 ;; Return 1 if the operand is either a non-special register or can be used
 ;; as the operand of a `mode' add insn.
 (define_predicate "add_operand"
@@ -1958,4 +1965,52 @@
     return 0;
 
   return offsettable_nonstrict_memref_p (op);
+})
+
+
+;; Return true if the operand is a register that can hold normal offsettable
+;; addressing (d-form). This is used for peephole2 processing, so don't
+;; allow pseudo registers.
+(define_predicate "dform_reg_operand_no_pseudo"
+  (match_code "reg,subreg")
+{
+  HOST_WIDE_INT r;
+
+  if (GET_CODE (op) == SUBREG)
+    op = SUBREG_REG (op);
+
+  if (!REG_P (op))
+    return 0;
+
+  r = REGNO (op);
+  if (r >= FIRST_PSEUDO_REGISTER)
+    return 0;
+
+  if (INT_REGNO_P (r))
+    return (mode == QImode || mode == HImode || mode == SImode || mode == SFmode
+	    || (TARGET_POWERPC64 && (mode == DImode || mode == DFmode)));
+
+  if (mode != DFmode && mode != SFmode && mode != DImode)
+    return 0;
+
+  if (FP_REGNO_P (r))
+    return 1;
+
+  if (ALTIVEC_REGNO_P (r) && TARGET_P9_VECTOR)
+    return 1;
+
+  return 0;
+})
+
+;; Return true if the operand is LO_SUM
+(define_predicate "lo_sum_operand"
+  (match_code "lo_sum")
+{
+  if (mode != Pmode)
+    return 0;
+
+  if (!base_reg_operand (XEXP (op, 0), mode))
+    return 0;
+
+  return 1;
 })
