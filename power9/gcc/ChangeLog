@@ -1,3 +1,355 @@
+2016-06-08  David Malcolm  <dmalcolm@redhat.com>
+
+	* pretty-print.c: Include "selftest.h".
+	(pp_format): Fix comment.
+	(identifier_to_locale): Likewise.
+	(selftest::test_basic_printing): New function.
+	(selftest::assert_pp_format): New function.
+	(selftest::test_pp_format): New function.
+	(selftest::pretty_print_c_tests): New function.
+	* selftest-run-tests.c (selftest::run_tests): Call
+	selftest::pretty_print_c_tests.
+	* selftest.h (pretty_print_c_tests): New declaration.
+
+2016-06-07  Jan Hubicka  <hubicka@ucw.cz>
+
+	* invoke.texi (max-loop-headers-insns): Document.
+	* params.def (PARAM_MAX_LOOP_HEADER_INSNS): New.
+	* tree-ssa-loop-ch.c (should_duplicate_loop_header_p): Update comment.
+	(ch_base::copy_headers): Use PARAM_MAX_LOOP_HEADER_INSNS.
+
+2016-06-08  Richard Biener  <rguenther@suse.de>
+
+	* tree-vect-stmts.c (vectorizable_load): Remove restrictions
+	on strided SLP loads and fall back to scalar loads in case
+	we can't chunk them.
+
+2016-06-08  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71452
+	* tree-ssa.c (non_rewritable_lvalue_p): Make sure that the
+	type used for the SSA rewrite has enough precision to cover
+	the dynamic type of the location.
+
+2016-06-08  Jakub Jelinek  <jakub@redhat.com>
+	    Richard Biener  <rguenther@suse.de>
+
+	PR c++/71448
+	* fold-const.c (fold_comparison): Handle CONSTANT_CLASS_P (base0)
+	the same as DECL_P (base0) for indirect_base0.  Use equality_code
+	in one further place.
+
+2016-06-08  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* expmed.c (store_bit_field_1): Do not restrict a multiword op0
+	to one word if the field is known to overlap other words.
+	(extract_bit_field_1): Likewise.
+	(store_split_bit_field): Remove compensating code.
+	(extract_split_bit_field): Likewise.
+
+2016-06-08  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR debug/71432
+	PR ada/71413
+	* tree-ssa-strlen.c (handle_builtin_memcmp): Ignore debug insns.
+
+2016-06-08  Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/aarch64-builtins.def (faddp): New builtins for modes in
+	VDQF.
+	* config/aarch64/aarch64-simd.md (aarch64_faddp<mode>): New.
+	(arch64_addpv4sf): Delete.
+	(reduc_plus_scal_v4sf): Use "gen_aarch64_faddpv4sf" instead of
+	"gen_aarch64_addpv4sf".
+	* config/aarch64/arm_neon.h (vpadd_f32): Remove inline assembly.  Use
+	builtin.
+	(vpadds_f32): Likewise.
+	(vpaddq_f32): Likewise.
+	(vpaddq_f64): Likewise.
+
+2016-06-08  Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/aarch64-builtins.def (fabd): New builtins for modes
+	VALLF.
+	* config/aarch64/aarch64-simd.md (fabd<mode>_3): Extend modes from VDQF
+	to VALLF.  Rename to "fabd<mode>3".
+	"*fabd_scalar<mode>3): Delete.
+	* config/aarch64/arm_neon.h (vabds_f32): Remove inline assembly.
+	Use builtin.
+	(vabdd_f64): Likewise.
+	(vabd_f32): Likewise.
+	(vabd_f64): Likewise.
+	(vabdq_f32): Likewise.
+	(vabdq_f64): Likewise.
+
+2016-06-08  Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/aarch64-builtins.def (rsqrts): New builtins for modes
+	VALLF.
+	* config/aarch64/aarch64-simd.md (aarch64_rsqrts_<mode>3): Rename to
+	"aarch64_rsqrts<mode>".
+	* config/aarch64/aarch64.c (get_rsqrts_type): Update gen* name.
+	* config/aarch64/arm_neon.h (vrsqrtss_f32): Remove inline assembly.  Use
+	builtin.
+	(vrsqrtsd_f64): Likewise.
+	(vrsqrts_f32): Likewise.
+	(vrsqrts_f64): Likewise.
+	(vrsqrtsq_f32): Likewise.
+	(vrsqrtsq_f64): Likewise.
+
+2016-06-08  Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/aarch64-builtins.def (rsqrte): New builtins for modes
+	VALLF.
+	* config/aarch64/aarch64-simd.md (aarch64_rsqrte_<mode>2): Rename to
+	"aarch64_rsqrte<mode>".
+	* config/aarch64/aarch64.c (get_rsqrte_type): Update gen* name.
+	* config/aarch64/arm_neon.h (vrsqrts_f32): Remove inline assembly.  Use
+	builtin.
+	(vrsqrted_f64): Likewise.
+	(vrsqrte_f32): Likewise.
+	(vrsqrte_f64): Likewise.
+	(vrsqrteq_f32): Likewise.
+	(vrsqrteq_f64): Likewise.
+
+2016-06-08  Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/aarch64-builtins.def (scvtf): Register vector modes.
+	(ucvtf): Likewise.
+	(fcvtzs): Likewise.
+	(fcvtzu): Likewise.
+	* config/aarch64/aarch64-simd.md
+	(<FCVT_F2FIXED:fcvt_fixed_insn><VDQF:mode>3): New.
+	(<FCVT_FIXED2F:fcvt_fixed_insn><VDQ_SDI:mode>3): Likewise.
+	* config/aarch64/arm_neon.h (vcvt_n_f32_s32): Remove inline assembly.
+	Use builtin.
+	(vcvt_n_f32_u32): Likewise.
+	(vcvt_n_s32_f32): Likewise.
+	(vcvt_n_u32_f32): Likewise.
+	(vcvtq_n_f32_s32): Likewise.
+	(vcvtq_n_f32_u32): Likewise.
+	(vcvtq_n_f64_s64): Likewise.
+	(vcvtq_n_f64_u64): Likewise.
+	(vcvtq_n_s32_f32): Likewise.
+	(vcvtq_n_s64_f64): Likewise.
+	(vcvtq_n_u32_f32): Likewise.
+	(vcvtq_n_u64_f64): Likewise.
+	* config/aarch64/iterators.md (VDQ_SDI): New mode iterator.
+	(VSDQ_SDI): Likewise.
+	(fcvt_target): Support V4DI, V4SI and V2SI.
+	(FCVT_TARGET): Likewise.
+
+2016-06-08  Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/aarch64-builtins.c (TYPES_BINOP_USS): New
+	(TYPES_BINOP_SUS): Likewise.
+	(aarch64_simd_builtin_data): Update include file name.
+	(aarch64_builtins): Likewise.
+	* config/aarch64/aarch64-simd-builtins.def (scvtf): New entries
+	for conversion between scalar float-point and fixed-point.
+	(ucvtf): Likewise.
+	(fcvtzs): Likewise.
+	(fcvtzu): Likewise.
+	* config/aarch64/aarch64.md
+	(<FCVT_F2FIXED:fcvt_fixed_insn><GPF:mode>3: New
+	pattern for conversion between scalar float to fixed-pointer.
+	(<FCVT_FIXED2F:fcvt_fixed_insn><GPI:mode>: Likewise.
+	(UNSPEC_FCVTZS): New UNSPEC enumeration.
+	(UNSPEC_FCVTZU): Likewise.
+	(UNSPEC_SCVTF): Likewise.
+	(UNSPEC_UCVTF): Likewise.
+	* config/aarch64/arm_neon.h (vcvtd_n_f64_s64): Remove inline assembly.
+	Use builtin.
+	(vcvtd_n_f64_u64): Likewise.
+	(vcvtd_n_s64_f64): Likewise.
+	(vcvtd_n_u64_f64): Likewise.
+	(vcvtd_n_f32_s32): Likewise.
+	(vcvts_n_f32_u32): Likewise.
+	(vcvtd_n_s32_f32): Likewise.
+	(vcvts_n_u32_f32): Likewise.
+	* config/aarch64/iterators.md (fcvt_target): Support integer to float
+	mapping.
+	(FCVT_TARGET): Likewise.
+	(FCVT_FIXED2F): New iterator.
+	(FCVT_F2FIXED): Likewise.
+	(fcvt_fixed_insn): New define_int_attr.
+
+2016-06-07  Jan Hubicka  <hubicka@ucw.cz>
+
+	* predict.c (pass_strip_predict_hints::execute): Cleanup CFG if
+	some statements was removed.
+
+2016-06-08  Alan Hayward  <alan.hayward@arm.com>
+
+	* tree-vect-data-refs.c (vect_analyze_data_refs): Remove debug newline.
+	* tree-vect-loop-manip.c (slpeel_make_loop_iterate_ntimes): likewise.
+	(vect_can_advance_ivs_p): likewise.
+	(vect_update_ivs_after_vectorizer): likewise.
+	* tree-vect-loop.c (vect_determine_vectorization_factor): likewise.
+	(vect_analyze_scalar_cycles_1): likewise.
+	(vect_analyze_loop_operations): likewise.
+	(report_vect_op): likewise.
+	(vect_is_slp_reduction): likewise.
+	(vect_is_simple_reduction): likewise.
+	(get_initial_def_for_induction): likewise.
+	(vect_transform_loop): likewise.
+	* tree-vect-patterns.c (vect_recog_dot_prod_pattern): likewise.
+	(vect_recog_sad_pattern): likewise.
+	(vect_recog_widen_sum_pattern): likewise.
+	(vect_recog_widening_pattern): likewise.
+	(vect_recog_divmod_pattern): likewise.
+	* tree-vect-slp.c (vect-build-slp_tree_1): likewise.
+	(vect_analyze_slp_instance): likewise.
+	(vect_transform_slp_perm_load): likewise.
+	(vect_schedule_slp_instance): likewise.
+
+2016-06-07  Jan Hubicka  <hubicka@ucw.cz>
+
+	* predict.c (predict_iv_comparison): Mention that heuristics is broken.
+	(return_prediction): PRED_CONST_RETURN predict return as not taken.
+	* predict.def (PRED_CONTINUE): Change hitrate 50->67
+	(PRED_LOOP_BRANCH): Document predictor as broken.
+	(PRED_LOOP_EXIT): Change hitrate 91->92.
+	(PRED_LOOP_EXTRA_EXIT): Change hitrate 91->83.
+	(PRED_POINTER, PRED_TREE_POINTER): Change hitrate 85->70.
+	(PRED_OPCODE_POSITIVE): Change hitrate 79->64.
+	(PRED_OPCODE_NONEQUAL): Change hitrate 91->66.
+	(PRED_TREE_OPCODE_POSITIVE): Change hitrate 73->64
+	(PRED_TREE_OPCODE_NONEQUAL): Chnage hitrate 72->66
+	(PRED_CALL): Chane hitrate 71->67.
+	(PRED_TREE_EARLY_RETURN): Document issues, change hitrate 61->54.
+	(PRED_GOTO): Document as unused right now.
+	(PRED_CONST_RETURN): Change hitrate 67->69
+	(PRED_NEGATIVE_RETURN): Change hitrate 96->98
+	(PRED_NULL_RETURN): Change hitrate 91->90.
+	(PRED_LOOP_IV_COMPARE_GUESS): Change hitrate to 98.
+	(PRED_FORTRAN_FAIL_ALLOC): Change hitrate to 62; document issues.
+	(PRED_FORTRAN_SIZE_ZERO): Change hitrate to 99.
+
+2016-06-07  Bill Seurer  <seurer@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.h: Add __builtin_vec_mul.
+	* config/rs6000/rs6000-builtin.def (vec_mul): Change vec_mul to a
+	special case Altivec builtin.
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Remove
+	VSX_BUILTIN_VEC_MUL (replaced with special case code).
+	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin): Add
+	code for ALTIVEC_BUILTIN_VEC_MUL.
+	* config/rs6000/rs6000.c (altivec_init_builtins): Add definition
+	for __builtin_vec_mul.
+
+2016-06-07  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document -mhtm and
+	-mno-htm.
+
+2016-06-07  David Malcolm  <dmalcolm@redhat.com>
+
+	* spellcheck.c (selftest::test_find_closest_string): New function.
+	(spellcheck_c_tests): Call the above.
+
+2016-06-07  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* simplify-rtx.c (simplify_cond_clz_ctz): Delete 'mode' local
+	variable.
+
+2016-06-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/sse.md (avx_vec_concat<mode>): Add v=v,vm and
+	Yv=Yv,C alternatives.
+
+2016-06-07  Richard Biener  <rguenther@suse.de>
+
+	PR c/61564
+	* common.opt (ffast-math): Make Optimization.
+
+2016-06-07  Simon Dardis  <simon.dardis@imgtec.com>
+	    Prachi Godbole  <prachi.godbole@imgtec.com>
+
+	* config/mips/p5600.md (p5600_fpu_fadd): Remove checking for
+	`fabs' and `fneg' type attributes.
+	(p5600_fpu_fabs): Add `fmove' to the comment.
+
+2016-06-07  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gimple.c: Include builtins.h
+	(gimple_inexpensive_call_p): New function.
+	* gimple.h (gimple_inexpensive_call_p): Declare.
+	* tree-ssa-loop-ch.c (should_duplicate_loop_header_p): Use it.
+	* tree-ssa-loop-ivcanon.c (tree_estimate_loop_size): Likewise;
+	fix formatting.
+
+2016-06-07  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* diagnostic.c (diagnostic_impl, diagnostic_n_impl): New.
+	(inform, inform_at_rich_loc, inform_n, warning, warning_at,
+	warning_at_rich_loc, warning_n, pedwarn, permerror,
+	permerror_at_rich_loc, error, error_n, error_at, error_at_rich_loc,
+	sorry, fatal_error, internal_error, internal_error_no_backtrace):
+	Use the above.
+
+2016-06-07  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71428
+	* tree-ssa-math-opts.c (perform_symbolic_merge): Properly distinguish
+	BIT_FIELD_REF op vs. load.
+
+2016-06-07  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/71423
+	* match.pd ((X | ~Y) -> Y <= X): Properly invert the comparison
+	for signed ops.
+
+2016-06-06  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.md (call): Generate indirect long calls to non-local
+	functions on TARGET_64BIT.
+	(call_value): Likewise.
+
+2016-06-06  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.md (call_val_reg_64bit): Remove "reg: DI " clobber from
+	pattern and subsequent splitters.
+	(call_val_reg_64bit_post_reload): Likewise.
+
+2016-06-07  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/71408
+	* tree-ssa-reassoc.c (zero_one_operation): Fix NEGATE_EXPR operand for
+	propagate_op_to_single_use.
+
+2016-06-07  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/71281
+	* tree-ssa-reassoc.c (reassociate_bb): Set uid for negate stmt.
+
+2016-06-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.h (enum ix86_enitity): Add X86_DIRFLAG.
+	(enum x86_dirflag_state): New enum.
+	(NUM_MODES_FOR_MODE_SWITCHING): Add X86_DIRFLAG_ANY.
+	(machine_function): Remove needs_cld.
+	(ix86_current_function_needs_cld): Remove.
+	* config/i386/i386.c (ix86_set_func_type): Set
+	ix86_optimize_mode_switching[X86_DIRFLAG] to 1.
+	(ix86_expand_prologue): Do not emit CLD here.
+	(ix86_dirflag_mode_needed): New function.
+	(ix86_dirflag_mode_entry): Ditto.
+	(ix86_mode_needed): Handle X86_DIRFLAG entity.
+	(ix86_mode_after): Ditto.
+	(ix86_mode_entry): Ditto.
+	(ix86_mode_exit): Ditto.
+	(ix86_emit_mode_set): Ditto.
+	* config/i386/i386.md (strmov_singleop): Set
+	ix86_optimize_mode_switching[X86_DIRFLAG] to 1 for TARGET_CLD.
+	Do not set ix86_current_function_needs_cld.
+	(rep_mov): Ditto.
+	(strset_singleop): Ditto.
+	(rep_stos): Ditto.
+	(cmpstrnqi_nz_1): Ditto.
+	(cmpstrnqi_1): Ditto.
+	(strlenqi_1): Ditto.
+
 2016-06-06  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/71259
@@ -229,7 +581,7 @@
 
 	* config/ft32/ft32.c (ft32_setup_incoming_varargs,
 	ft32_expand_prolog, ft32_expand_epilogue):
-        Handle pretend_args.
+	Handle pretend_args.
 	* config/ft32/ft32.h: Remove OUTGOING_REG_PARM_STACK_SPACE.
 	* config/ft32/ft32.md: Add pretend_returner.
 

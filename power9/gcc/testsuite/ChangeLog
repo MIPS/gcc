@@ -1,3 +1,114 @@
+2016-06-08  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/68558
+	* gcc.dg/vect/slp-44.c: New testcase.
+
+2016-06-08  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/vect/slp-43.c: New testcase.
+
+2016-06-08  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71452
+	* gcc.dg/torture/pr71452.c: New testcase.
+
+2016-06-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71448
+	* g++.dg/torture/pr71448.C: New test.
+
+2016-06-08  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR debug/71432
+	PR ada/71413
+	* g++.dg/debug/pr71432.C: New test.
+
+2016-06-08  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* gcc.dg/vect/section-anchors-vect-70.c: Rename to aligned-section-anchors-vect-71.c.
+	* gcc.dg/vect/section-anchors-vect-71.c: Rename to aligned-section-anchors-vect-72.c.
+	* gcc.dg/vect/section-anchors-vect-72.c: Rename to aligned-section-anchors-vect-72.c.
+
+2016-06-08  Alan Hayward  <alan.hayward@arm.com>
+
+	* gcc.dg/vect/vect-live-2.c: Update effective target.
+	* gcc.dg/vect/vect-live-slp-3.c: Likewise.
+	* lib/target-supports.exp: Add aarch64 to vect_long.
+
+2016-06-08  Marek Polacek  <polacek@redhat.com>
+
+	PR c/71418
+	* gcc.dg/noncompile/pr71418.c: New test.
+
+	PR c/71426
+	* gcc.dg/noncompile/pr71426.c: New test.
+
+2016-06-07  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gcc.dg/ipa/inlinehint-4.c: Disable partial inlining.
+	* gcc.dg/predict-1.c: Update template for new predictor hitrates.
+	* gcc.dg/predict-3.c: Update template.
+	* gcc.dg/predict-5.c: Update template.
+	* gcc.dg/predict-6.c: Update template.
+	* gcc.dg/predict-9.c: Update template.
+	* gcc.dg/tree-ssa/attr-hotcold-2.c: Update template.
+
+2016-06-07  Bill Seurer  <seurer@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vec-mul.c: New test.
+
+2016-06-07  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc.dg/spellcheck-fields-2.c: New test case.
+
+2016-06-07  Richard Biener  <rguenther@suse.de>
+
+	PR c/61564
+	* gcc.dg/Wpragmas-1.c: New testcase.
+	* gcc.dg/Wattributes-4.c: Likewise.
+	* gcc.dg/ipa/pr70646.c: Drop optimize pragma in favor of dg-option
+	entry.
+
+2016-06-07  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/advsimd-intrinsics/p64_p128.c: Remove
+	spurious debug code.
+
+2016-06-07  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71428
+	* gcc.dg/torture/pr71428.c: New testcase.
+
+2016-06-07  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/71423
+	* gcc.dg/torture/pr71423.c: New testcase.
+
+2016-06-07  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/71408
+	* gcc.dg/tree-ssa/pr71408.c: New test.
+
+2016-06-07  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/71281
+	* g++.dg/torture/pr71281.C: New test.
+
+2016-06-06  Marek Polacek  <polacek@redhat.com>
+
+	PR c/71362
+	* gcc.dg/pr71362.c: New test.
+
+2016-06-06  Jakub Jelinek  <jakub@redhat.com>
+	    Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/70847
+	PR c++/71330
+	PR c++/71393
+	* g++.dg/opt/pr70847.C: New test.
+	* g++.dg/ubsan/pr70847.C: New test.
+	* g++.dg/ubsan/pr71393.C: New test.
+
 2016-06-06  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/71259
@@ -208,7 +319,7 @@
 2016-06-03  Alan Hayward  <alan.hayward@arm.com>
 
 	* gcc.dg/tree-ssa/pr64183.c: Ensure test does not vectorize.
-	* testsuite/gcc.dg/vect/no-scevccp-vect-iv-2.c: Remove xfail.
+	* gcc.dg/vect/no-scevccp-vect-iv-2.c: Remove xfail.
 	* gcc.dg/vect/vect-live-1.c: New test.
 	* gcc.dg/vect/vect-live-2.c: New test.
 	* gcc.dg/vect/vect-live-3.c: New test.
@@ -772,8 +883,8 @@
 
 2016-05-25  Richard Biener  <rguenther@suse.de>
 
-	* gcc/testsuite/gcc.dg/vect/pr58135.c: Rename to ...
-	* gcc/testsuite/gcc.dg/vect/bb-slp-pr58135.c: ... this.
+	* gcc.dg/vect/pr58135.c: Rename to ...
+	* gcc.dg/vect/bb-slp-pr58135.c: ... this.
 
 2016-05-25  Marek Polacek  <polacek@redhat.com>
 
@@ -2216,13 +2327,12 @@
 
 2016-04-29  Dominik Vogt  <vogt@linux.vnet.ibm.com>
 
-	* gcc/testsuite/gcc.dg/cpp/mac-dir-2.c: Remove pointless duplicate
-	dg-do.
-	* gcc/testsuite/gcc.dg/pr27003.c: Likewise.
-	* gcc/testsuite/gcc.dg/tree-ssa/cswtch.c: Likewise.
-	* gcc/testsuite/gcc.dg/tree-ssa/predcom-2.c: Likewise.
-	* gcc/testsuite/gcc.dg/tree-ssa/predcom-4.c: Likewise.
-	* gcc/testsuite/gcc.dg/tree-ssa/predcom-5.c: Likewise.
+	* gcc.dg/cpp/mac-dir-2.c: Remove pointless duplicate dg-do.
+	* gcc.dg/pr27003.c: Likewise.
+	* gcc.dg/tree-ssa/cswtch.c: Likewise.
+	* gcc.dg/tree-ssa/predcom-2.c: Likewise.
+	* gcc.dg/tree-ssa/predcom-4.c: Likewise.
+	* gcc.dg/tree-ssa/predcom-5.c: Likewise.
 	* gcc.target/arc/mxy.c: Likewise.
 	* gcc.target/arc/mswape.c: Likewise.
 	* gcc.target/arc/mrtsc.c: Likewise.
@@ -2546,12 +2656,12 @@
 
 2016-04-25  Michael Collison <michael.collison@arm.com>
 
-	* testsuite/gcc.target/arm/neon-vaddws16.c: New test.
-	* testsuite/gcc.target/arm/neon-vaddws32.c: New test.
-	* testsuite/gcc.target/arm/neon-vaddwu16.c: New test.
-	* testsuite/gcc.target/arm/neon-vaddwu32.c: New test.
-	* testsuite/gcc.target/arm/neon-vaddwu8.c: New test.
-	* testsuite/lib/target-supports.exp
+	* gcc.target/arm/neon-vaddws16.c: New test.
+	* gcc.target/arm/neon-vaddws32.c: New test.
+	* gcc.target/arm/neon-vaddwu16.c: New test.
+	* gcc.target/arm/neon-vaddwu32.c: New test.
+	* gcc.target/arm/neon-vaddwu8.c: New test.
+	* lib/target-supports.exp
 	(check_effective_target_vect_widen_sum_hi_to_si_pattern): Indicate
 	that arm neon support vector widen sum of HImode TO SImode.
 
@@ -2731,7 +2841,7 @@
 2016-04-18  Vladimir Makarov  <vmakarov@redhat.com>
 
 	PR middle-end/70689
-	* testsuite/gcc.target/i386/pr70689.c: New.
+	* gcc.target/i386/pr70689.c: New.
 
 2016-04-18  H.J. Lu  <hongjiu.lu@intel.com>
 
@@ -2852,7 +2962,7 @@
 	* g++.dg/cpp1y/vla13.C: Same.
 	* g++.dg/cpp1y/vla14.C: Same.
 	* g++.dg/cpp1y/vla3.C: Same.
-	* gcc/testsuite/g++.dg/init/array24.C: Same.
+	* g++.dg/init/array24.C: Same.
 	* g++.dg/ubsan/vla-1.C: Same.
 
 2016-04-14  Marek Polacek  <polacek@redhat.com>
@@ -2884,7 +2994,7 @@
 	* g++.dg/cpp1y/vla13.C: New test.
 	* g++.dg/cpp1y/vla14.C: New test.
 	* g++.dg/cpp1y/vla3.C: Restore deleted test.
-	* gcc/testsuite/g++.dg/init/array24.C: Fully brace VLA initializer.
+	* g++.dg/init/array24.C: Fully brace VLA initializer.
 	* g++.dg/ubsan/vla-1.C: Disable exceptions.
 
 2016-04-13  Jakub Jelinek  <jakub@redhat.com>
@@ -2912,8 +3022,8 @@
 2016-04-13  Marek Polacek  <polacek@redhat.com>
 
 	PR c/70436
-	* testsuite/gcc.dg/Wparentheses-12.c: New test.
-	* testsuite/gcc.dg/Wparentheses-13.c: New test.
+	* gcc.dg/Wparentheses-12.c: New test.
+	* gcc.dg/Wparentheses-13.c: New test.
 
 2016-04-13  Ilya Enkovich  <ilya.enkovich@intel.com>
 
@@ -3160,7 +3270,7 @@
 2016-04-06  Vladimir Makarov  <vmakarov@redhat.com>
 
 	PR rtl-optimization/70398
-	* testsuite/gcc.target/aarch64/pr70398.c: New.
+	* gcc.target/aarch64/pr70398.c: New.
 
 2016-04-06  Eric Botcazou  <ebotcazou@adacore.com>
 
