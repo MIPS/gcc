@@ -365,8 +365,8 @@ extern void mips_expand_vec_minmax (rtx, rtx, rtx,
 extern int mips_ldst_scaled_shift (machine_mode);
 extern bool mips_signed_immediate_p (unsigned HOST_WIDE_INT, int, int);
 extern bool mips_unsigned_immediate_p (unsigned HOST_WIDE_INT, int, int);
-extern const char *umips_output_save_restore (bool, rtx);
-extern bool umips_save_restore_pattern_p (bool, rtx);
+extern const char *umips_output_word_multiple (bool, rtx);
+extern bool umips_word_multiple_pattern_p (bool, rtx);
 extern bool umips_load_store_pair_p (bool, rtx *);
 extern void umips_output_load_store_pair (bool, rtx *);
 extern bool umips_movep_target_p (rtx, rtx);
