@@ -1,5 +1,10 @@
 2016-06-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.md (movdi_internal32): Add support for
+	-mupper-regs-di.
+
+2016-06-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* config/rs6000/constraints.md (comment): Eliminate a comment
 	about DImode not being allowed in Altivec registers.
 	(wB constraint): New constraint for signed 5-bit integer constants
@@ -50,6 +55,7 @@
 	constants being loaded into vector registers.  Add splitters for
 	loading constants into vector registers via XXSPLTIB and
 	VSPLTISW.
+
 	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
 	-mupper-regs-di.  Update -mupper-regs-df and -mupper-regs-sf to
 	mention -mcpu=power9 sets these options.
