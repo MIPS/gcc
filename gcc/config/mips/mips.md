@@ -1260,6 +1260,15 @@
   if (which_alternative == 0 
       || which_alternative == 1)
     return "<d>addu\t%0,%1,%2";
+  else if (which_alternative == 4 && TARGET_MICROMIPS_R7)
+    {
+      if (IN_RANGE (INTVAL (operands[2]), 8, 120))
+	/* FIXME.  Remove nop.  */
+	return "sdbbp16 0 # restore16\t%2";
+      else
+	/* FIXME.  Remove nops.  */
+	return "sdbbp32 0 # restore32\t%2";
+    }
   else
     return "<d>addiu\t%0,%1,%2";
 }
@@ -1476,14 +1485,31 @@
    (set_attr "mode" "<UNITMODE>")])
 
 (define_insn "sub<mode>3"
-  [(set (match_operand:GPR 0 "register_operand" "=!u,d")
-	(minus:GPR (match_operand:GPR 1 "register_operand" "!u,d")
-		   (match_operand:GPR 2 "register_operand" "!u,d")))]
+  [(set (match_operand:GPR 0 "register_operand" "=!u,d,!ks")
+	(minus:GPR (match_operand:GPR 1 "register_operand" "!u,d,!ks")
+		   (match_operand:GPR 2 "register_operand" "!u,d,Uesp")))]
   ""
-  "<d>subu\t%0,%1,%2"
+{
+  if (which_alternative == 2)
+    {
+      if (IN_RANGE (INTVAL (operands[2]), 8, 120))
+	/* FIXME.  Remove nop.  */
+	return "sdbbp16 0 # save16\t%2";
+      else
+	/* FIXME.  Remove nops.  */
+	return "sdbbp32 0 # save32\t%2";
+    }
+  else
+    return "<d>subu\t%0,%1,%2";
+}
   [(set_attr "alu_type" "sub")
-   (set_attr "compression" "micromips32,*")
-   (set_attr "mode" "<MODE>")])
+   (set_attr "compression" "micromips32,*,micromips32")
+   (set_attr "mode" "<MODE>")
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "2")
+		    (not (match_test "TARGET_MICROMIPS_R7")))
+		  (const_string "no")]
+	      (const_string "yes")))])
 
 (define_insn "*subsi3_extended"
   [(set (match_operand:DI 0 "register_operand" "=d")

@@ -296,9 +296,12 @@
 
 (define_predicate "addiusp_operand"
   (and (match_code "const_int")
-       (not (match_test "TARGET_MICROMIPS_R7"))
-       (ior (match_test "(IN_RANGE (INTVAL (op), 2, 257))")
-	    (match_test "(IN_RANGE (INTVAL (op), -258, -3))"))))
+       (match_test "TARGET_MICROMIPS")
+       (ior (and (not (match_test "TARGET_MICROMIPS_R7"))
+		 (ior (match_test "(IN_RANGE (INTVAL (op), 2, 257))")
+		      (match_test "(IN_RANGE (INTVAL (op), -258, -3))")))
+	    (and (match_test "TARGET_MICROMIPS_R7")
+		 (match_test "(IN_RANGE (INTVAL (op), 0x8, 0x7ff8))")))))
 
 (define_predicate "andi16_operand"
   (and (match_code "const_int")
