@@ -1249,9 +1249,9 @@
   "")
 
 (define_insn "*add<mode>3"
-  [(set (match_operand:GPR 0 "register_operand" "=!u,d,!u,!u,!ks,!d,d")
-	(plus:GPR (match_operand:GPR 1 "register_operand" "!u,d,!u,!ks,!ks,0,d")
-		  (match_operand:GPR 2 "arith_operand" "!u,d,Uead,Uuw6,Uesp,Usb4,Q")))]
+  [(set (match_operand:GPR 0 "register_operand" "=!u,d,!u,!u,!d,d")
+	(plus:GPR (match_operand:GPR 1 "register_operand" "!u,d,!u,!ks,0,d")
+		  (match_operand:GPR 2 "arith_operand" "!u,d,Uead,Uuw6,Usb4,Q")))]
   "!TARGET_MIPS16"
 {
   if (which_alternative == 0 
@@ -1261,7 +1261,7 @@
     return "<d>addiu\t%0,%1,%2";
 }
   [(set_attr "alu_type" "add")
-   (set_attr "compression" "micromips32,*,micromips32,micromips32,micromips32,micromips32,*")
+   (set_attr "compression" "micromips32,*,micromips32,micromips32,micromips32,*")
    (set_attr "mode" "<MODE>")])
 
 (define_insn "*add<mode>3_mips16"
@@ -1477,7 +1477,9 @@
 	(minus:GPR (match_operand:GPR 1 "register_operand" "!u,d")
 		   (match_operand:GPR 2 "register_operand" "!u,d")))]
   ""
-  "<d>subu\t%0,%1,%2"
+{
+  return "<d>subu\t%0,%1,%2";
+}
   [(set_attr "alu_type" "sub")
    (set_attr "compression" "micromips32,*")
    (set_attr "mode" "<MODE>")])
@@ -7667,10 +7669,28 @@
 		      (match_operand:SI 2 "const_int_operand")))])]
   "GET_CODE (operands[1]) == REG && REGNO (operands[1]) == STACK_POINTER_REGNUM
    && mips16e_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL)"
-  { return mips16e_output_save_restore (operands[0], INTVAL (operands[2])); }
+  { return mips16e_output_save_restore (operands[0], INTVAL (operands[2]),
+					false); }
   [(set_attr "type" "arith")
    (set_attr "extended_mips16" "yes")
    (set_attr "can_delay" "no")])
+
+(define_insn "mips_restore_jrc"
+  [(return)
+   (match_parallel 0 ""
+     [(set (match_operand:SI 1 "register_operand")
+	   (plus:SI (match_dup 1)
+		    (match_operand:SI 2 "const_int_operand")))])]
+  "TARGET_MICROMIPS_R7
+   && TARGET_ADD_RESTORE_JRC
+   && GET_CODE (operands[1]) == REG
+   && REGNO (operands[1]) == STACK_POINTER_REGNUM
+   && mips16e_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL)
+   && reload_completed"
+  { return mips16e_output_save_restore (operands[0], INTVAL (operands[2]),
+					true); }
+  [(set_attr "type"     "jump")
+   (set_attr "mode"     "none")])
 
 ;; Thread-Local Storage
 
