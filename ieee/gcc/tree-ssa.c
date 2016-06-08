@@ -1292,6 +1292,14 @@ non_rewritable_lvalue_p (tree lhs)
       if (integer_zerop (TREE_OPERAND (lhs, 1))
 	  && DECL_P (decl)
 	  && DECL_SIZE (decl) == TYPE_SIZE (TREE_TYPE (lhs))
+	  /* If the dynamic type of the decl has larger precision than
+	     the decl itself we can't use the decls type for SSA rewriting.  */
+	  && ((! INTEGRAL_TYPE_P (TREE_TYPE (decl))
+	       || compare_tree_int (DECL_SIZE (decl),
+				    TYPE_PRECISION (TREE_TYPE (decl))) == 0)
+	      || (INTEGRAL_TYPE_P (TREE_TYPE (lhs))
+		  && (TYPE_PRECISION (TREE_TYPE (decl))
+		      >= TYPE_PRECISION (TREE_TYPE (lhs)))))
 	  && (TREE_THIS_VOLATILE (decl) == TREE_THIS_VOLATILE (lhs)))
 	return false;
 
@@ -1622,9 +1630,16 @@ execute_update_addresses_taken (void)
 		if (gimple_assign_lhs (stmt) != lhs
 		    && !useless_type_conversion_p (TREE_TYPE (lhs),
 						   TREE_TYPE (rhs)))
-		  rhs = fold_build1 (VIEW_CONVERT_EXPR,
-				     TREE_TYPE (lhs), rhs);
-
+		  {
+		    if (gimple_clobber_p (stmt))
+		      {
+			rhs = build_constructor (TREE_TYPE (lhs), NULL);
+			TREE_THIS_VOLATILE (rhs) = 1;
+		      }
+		    else
+		      rhs = fold_build1 (VIEW_CONVERT_EXPR,
+					 TREE_TYPE (lhs), rhs);
+		  }
 		if (gimple_assign_lhs (stmt) != lhs)
 		  gimple_assign_set_lhs (stmt, lhs);
 

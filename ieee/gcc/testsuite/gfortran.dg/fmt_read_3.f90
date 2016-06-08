@@ -1,5 +1,5 @@
 ! { dg-do compile }
-! PR52392 "READ format" statement with parenthesed default-char-expr
+! PR52393 "READ format" statement with parenthesed default-char-expr
 PROGRAM ReadMeTwo
   IMPLICIT NONE
   CHARACTER(10) :: var

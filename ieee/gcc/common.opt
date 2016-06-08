@@ -1287,7 +1287,7 @@ EnumValue
 Enum(excess_precision) String(standard) Value(EXCESS_PRECISION_STANDARD)
 
 ffast-math
-Common
+Common Optimization
 
 ffat-lto-objects
 Common Var(flag_fat_lto_objects)
@@ -1329,6 +1329,10 @@ Enum(fp_contract_mode) String(on) Value(FP_CONTRACT_OFF)
 
 EnumValue
 Enum(fp_contract_mode) String(fast) Value(FP_CONTRACT_FAST)
+
+ffp-int-builtin-inexact
+Common Report Var(flag_fp_int_builtin_inexact) Init(1) Optimization
+Allow built-in functions ceil, floor, round, trunc to raise \"inexact\" exceptions.
 
 ; Nonzero means don't put addresses of constant functions in registers.
 ; Used for compiling the Unix kernel, where strange substitutions are
@@ -2061,6 +2065,10 @@ Schedule instructions using selective scheduling algorithm.
 fselective-scheduling2
 Common Report Var(flag_selective_scheduling2) Optimization
 Run selective scheduling after reload.
+
+fself-test
+Common Undocumented Var(flag_self_test)
+Run self-tests.
 
 fsel-sched-pipelining
 Common Report Var(flag_sel_sched_pipelining) Init(0) Optimization
