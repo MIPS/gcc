@@ -21,7 +21,7 @@
   [(match_parallel 0 ""
        [(set (match_operand:SI 1 "memory_operand")
 	     (match_operand:SI 2 "register_operand"))])]
-  "TARGET_MICROMIPS
+  "TARGET_MICROMIPS && !(TARGET_MICROMIPS_R7 && TARGET_REMOVE_LWM_SWM)
    && umips_save_restore_pattern_p (true, operands[0])"
   { return umips_output_save_restore (true, operands[0]); }
   [(set_attr "type" "multimem")
@@ -32,7 +32,7 @@
   [(match_parallel 0 ""
        [(set (match_operand:SI 1 "register_operand")
 	     (match_operand:SI 2 "memory_operand"))])]
-  "TARGET_MICROMIPS
+  "TARGET_MICROMIPS && !(TARGET_MICROMIPS_R7 && TARGET_REMOVE_LWM_SWM)
    && umips_save_restore_pattern_p (false, operands[0])"
   { return umips_output_save_restore (false, operands[0]); }
   [(set_attr "type" "multimem")
