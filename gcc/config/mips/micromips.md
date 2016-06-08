@@ -102,7 +102,7 @@
 	      (set (reg:SI 29)
 		   (plus:SI (reg:SI 29)
 			    (match_operand 0 "uw5_operand")))])]
-  "TARGET_MICROMIPS"
+  "TARGET_MICROMIPS && !(TARGET_MICROMIPS_R7 && TARGET_REMOVE_ADDIUSP_JRCADDIUSP)"
   "jraddiusp\t%0"
   [(set_attr "type"	"trap")
    (set_attr "can_delay" "no")
