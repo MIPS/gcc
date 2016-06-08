@@ -516,3 +516,6 @@ Target Undocumented Var(TARGET_MIPS16_COPY_PEEP) Init(1)
 
 mforbidden-slots
 Target Undocumented Var(TARGET_FORBIDDEN_SLOTS) Init(1)
+
+mremove-addiusp-jrcaddiusp
+Target Undocumented Var(TARGET_REMOVE_ADDIUSP_JRCADDIUSP) Init(0)
