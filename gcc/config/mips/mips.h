@@ -92,6 +92,9 @@ struct mips_cpu_info {
 /* True if we are targetting micromips R6 onwards.  */
 #define TARGET_MICROMIPS_R6 (TARGET_MICROMIPS && mips_isa_rev >= 6)
 
+/* True if we are targetting micromips R7 onwards.  */
+#define TARGET_MICROMIPS_R7 (TARGET_MICROMIPS && mips_isa_rev >= 7)
+
 /* True if we are generating position-independent VxWorks RTP code.  */
 #define TARGET_RTP_PIC (TARGET_VXWORKS_RTP && flag_pic)
 
@@ -254,11 +257,13 @@ struct mips_cpu_info {
 #define ISA_MIPS32R3		    (mips_isa == 34)
 #define ISA_MIPS32R5		    (mips_isa == 36)
 #define ISA_MIPS32R6		    (mips_isa == 37)
+#define ISA_MIPS32R7		    (mips_isa == 38)
 #define ISA_MIPS64                  (mips_isa == 64)
 #define ISA_MIPS64R2		    (mips_isa == 65)
 #define ISA_MIPS64R3		    (mips_isa == 66)
 #define ISA_MIPS64R5		    (mips_isa == 68)
 #define ISA_MIPS64R6		    (mips_isa == 69)
+#define ISA_MIPS64R7		    (mips_isa == 70)
 
 /* Architecture target defines.  */
 #define TARGET_LOONGSON_2E          (mips_arch == PROCESSOR_LOONGSON_2E)
@@ -707,12 +712,16 @@ struct mips_cpu_info {
 #define MULTILIB_ISA_DEFAULT "mips32r2"
 #elif MIPS_ISA_DEFAULT == 37
 #define MULTILIB_ISA_DEFAULT "mips32r6"
+#elif MIPS_ISA_DEFAULT == 38
+#define MULTILIB_ISA_DEFAULT "mips32r7"
 #elif MIPS_ISA_DEFAULT == 64
 #define MULTILIB_ISA_DEFAULT "mips64"
 #elif MIPS_ISA_DEFAULT == 65
 #define MULTILIB_ISA_DEFAULT "mips64r2"
 #elif MIPS_ISA_DEFAULT == 69
 #define MULTILIB_ISA_DEFAULT "mips64r6"
+#elif MIPS_ISA_DEFAULT == 70
+#define MULTILIB_ISA_DEFAULT "mips64r7"
 #else
 #define MULTILIB_ISA_DEFAULT "mips1"
 #endif
@@ -780,12 +789,14 @@ struct mips_cpu_info {
      %{march=mips32r3: -mips32r3} \
      %{march=mips32r5|march=p5600|march=m5100|march=m5101: -mips32r5} \
      %{march=mips32r6: -mips32r6} \
+     %{march=mips32r7: -mips32r7} \
      %{march=mips64|march=5k*|march=20k*|march=sb1*|march=sr71000 \
        |march=xlr: -mips64} \
      %{march=mips64r2|march=loongson3a|march=octeon|march=xlp: -mips64r2} \
      %{march=mips64r3: -mips64r3} \
      %{march=mips64r5: -mips64r5} \
-     %{march=mips64r6|march=i6400: -mips64r6}}"
+     %{march=mips64r6|march=i6400: -mips64r6} \
+     %{march=mips64r7: -mips64r7}}"
 
 /* A spec that injects the default multilib ISA if no architecture is
    specified.  */
@@ -820,12 +831,12 @@ struct mips_cpu_info {
 /* Infer a -msynci setting from a -mips argument, on the assumption that
    -msynci is desired where possible.  */
 #define MIPS_ISA_SYNCI_SPEC \
-  "%{msynci|mno-synci:;:%{mips32r2|mips32r3|mips32r5|mips32r6|mips64r2 \
-			  |mips64r3|mips64r5|mips64r6:-msynci;:-mno-synci}}"
+  "%{msynci|mno-synci:;:%{mips32r2|mips32r3|mips32r5|mips32r6|mips32r7 \
+     |mips64r2|mips64r3|mips64r5|mips64r6|mips64r7:-msynci;:-mno-synci}}"
 
 /* Infer a -mnan=2008 setting from a -mips argument.  */
 #define MIPS_ISA_NAN2008_SPEC \
-  "%{mnan*:;mips32r6|mips64r6:-mnan=2008; \
+  "%{mnan*:;mips32r6|mips32r7|mips64r6|mips64r7:-mnan=2008; \
      march=m51*|mclib=small|mclib=tiny:%{!msoft-float:-mnan=2008}}"
 
 #if (MIPS_ABI_DEFAULT == ABI_O64 \
@@ -885,7 +896,7 @@ struct mips_cpu_info {
        |march=interaptiv*: -mdsp} \
      %{march=74k*|march=m14ke*: %{!mno-dspr2: -mdspr2 -mdsp}}}" \
   "%{!mforbidden-slots:	\
-     %{mips32r6|mips64r6:%{mmicromips:-mno-forbidden-slots}}}" \
+     %{mips32r6|mips32r7|mips64r6|mips64r7:%{mmicromips:-mno-forbidden-slots}}}" \
   "%{!mno-mips16e2: \
      %{march=interaptiv-mr2: -mmips16e2}}"
 
