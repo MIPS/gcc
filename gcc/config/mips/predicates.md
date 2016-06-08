@@ -296,6 +296,7 @@
 
 (define_predicate "addiusp_operand"
   (and (match_code "const_int")
+       (not (match_test "TARGET_MICROMIPS_R7"))
        (ior (match_test "(IN_RANGE (INTVAL (op), 2, 257))")
 	    (match_test "(IN_RANGE (INTVAL (op), -258, -3))"))))
 

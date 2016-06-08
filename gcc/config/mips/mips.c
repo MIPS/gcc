@@ -14484,6 +14484,7 @@ mips_expand_epilogue (bool sibcall_p)
 				    gen_rtx_REG (SImode, K1_REG_NUM)));
 	}
       else if (TARGET_MICROMIPS
+	       && !TARGET_MICROMIPS_R7
 	       && !crtl->calls_eh_return
 	       && !sibcall_p
 	       && step2 > 0
