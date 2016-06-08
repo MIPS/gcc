@@ -519,3 +519,6 @@ Target Undocumented Var(TARGET_FORBIDDEN_SLOTS) Init(1)
 
 mremove-addiusp-jrcaddiusp
 Target Undocumented Var(TARGET_REMOVE_ADDIUSP_JRCADDIUSP) Init(0)
+
+mremove-lwm-swm
+Target Undocumented Var(TARGET_REMOVE_LWM_SWM) Init(0)

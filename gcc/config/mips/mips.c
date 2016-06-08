@@ -12838,7 +12838,7 @@ mips_for_each_saved_gpr_and_fpr (HOST_WIDE_INT sp_offset,
   offset = frame->gp_sp_offset - sp_offset;
   mask = frame->mask;
 
-  if (TARGET_MICROMIPS)
+  if (TARGET_MICROMIPS && !(TARGET_MICROMIPS_R7 && TARGET_REMOVE_LWM_SWM))
     umips_build_save_restore (fn, &mask, &offset);
 
   for (regno = GP_REG_LAST; regno >= GP_REG_FIRST; regno--)
