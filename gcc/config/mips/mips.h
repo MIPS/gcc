@@ -252,6 +252,7 @@ struct mips_cpu_info {
 					    && !TARGET_MICROMIPS \
 					    && TARGET_SOFT_FLOAT)) \
 				       && mips_abi == ABI_32)
+#define ISA_HAS_LWM_SWM		TARGET_MICROMIPS
 
 /* True if we're generating a form of MIPS16 code in which general
    text loads are allowed.  */

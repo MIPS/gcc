@@ -21,9 +21,8 @@
   [(match_parallel 0 ""
        [(set (match_operand:SI 1 "memory_operand")
 	     (match_operand:SI 2 "register_operand"))])]
-  "TARGET_MICROMIPS
-   && umips_save_restore_pattern_p (true, operands[0])"
-  { return umips_output_save_restore (true, operands[0]); }
+  "ISA_HAS_LWM_SWM && umips_word_multiple_pattern_p (true, operands[0])"
+  { return umips_output_word_multiple (true, operands[0]); }
   [(set_attr "type" "multimem")
    (set_attr "mode" "SI")
    (set_attr "can_delay" "no")])
@@ -32,9 +31,8 @@
   [(match_parallel 0 ""
        [(set (match_operand:SI 1 "register_operand")
 	     (match_operand:SI 2 "memory_operand"))])]
-  "TARGET_MICROMIPS
-   && umips_save_restore_pattern_p (false, operands[0])"
-  { return umips_output_save_restore (false, operands[0]); }
+  "ISA_HAS_LWM_SWM && umips_word_multiple_pattern_p (false, operands[0])"
+  { return umips_output_word_multiple (false, operands[0]); }
   [(set_attr "type" "multimem")
    (set_attr "mode" "SI")
    (set_attr "can_delay" "no")])
