@@ -544,3 +544,6 @@ Target Undocumented Var(TARGET_REMOVE_LWM_SWM) Init(0)
 
 mremove-lwp-swp
 Target Undocumented Var(TARGET_REMOVE_LWP_SWP) Init(0)
+
+mremove-sel
+Target Undocumented Var(TARGET_REMOVE_SEL) Init(0)

@@ -7548,6 +7548,14 @@
   if (ISA_HAS_SEL && !INTEGRAL_MODE_P (GET_MODE (XEXP (operands[1], 0))))
     FAIL;
 
+  /* mips_option_override() resets the compression flags and hence it may
+     reenable this pattern unconditionally during startup.  If this is
+     the case make sure it fails here during runtime.
+     This may not be necessary in the newer compiler where we can add
+     the check for this optab to TARGET_OPTAB_SUPPORTED_P hook.  */
+  if (TARGET_MICROMIPS_R7 && TARGET_REMOVE_SEL)
+    FAIL;
+
   mips_expand_conditional_move (operands);
   DONE;
 })
@@ -7573,6 +7581,10 @@
      the unusual duality between single and double precision values.  */
   if (ISA_HAS_SEL && <MODE>mode == DFmode
       && (!TARGET_ODD_SPREG || TARGET_FLOATXX))
+    FAIL;
+
+  /* See description in the previous pattern.  */
+  if (TARGET_MICROMIPS_R7 && TARGET_REMOVE_SEL)
     FAIL;
 
   mips_expand_conditional_move (operands);
