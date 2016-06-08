@@ -1,3 +1,29 @@
+2016-06-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.h (symbol_attribute): Add omp_declare_target_link bitfield.
+	(struct gfc_omp_namelist): Add u.common field.
+	(struct gfc_common_head): Change omp_declare_target into bitfield.
+	Add omp_declare_target_link bitfield.
+	(gfc_add_omp_declare_target_link): New prototype.
+	* openmp.c (gfc_match_omp_to_link): New function.
+	(gfc_match_omp_clauses): Use it for to and link clauses in declare
+	target construct.
+	(OMP_DECLARE_TARGET_CLAUSES): Define.
+	(gfc_match_omp_declare_target): Rewritten for OpenMP 4.5.
+	* symbol.c (check_conflict): Handle omp_declare_target_link.
+	(gfc_add_omp_declare_target_link): New function.
+	(gfc_copy_attr): Copy omp_declare_target_link.
+	* module.c (enum ab_attribute): Add AB_OMP_DECLARE_TARGET_LINK.
+	(attr_bits): Add AB_OMP_DECLARE_TARGET_LINK entry.
+	(mio_symbol_attribute): Save and restore omp_declare_target_link bit.
+	* f95-lang.c (gfc_attribute_table): Add "omp declare target link".
+	* trans-decl.c (add_attributes_to_decl): Add "omp declare target link"
+	instead of "omp declare target" for omp_declare_target_link.
+	* trans-common.c (build_common_decl): Likewise.
+
+	* openmp.c (gfc_match_omp_declare_simd): If not using the form with
+	(proc-name), require space before first clause.
+
 2016-05-31  Jakub Jelinek  <jakub@redhat.com>
 
 	* trans-openmp.c (gfc_trans_omp_target_enter_data,

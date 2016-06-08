@@ -849,6 +849,7 @@ typedef struct
 
   /* Mentioned in OMP DECLARE TARGET.  */
   unsigned omp_declare_target:1;
+  unsigned omp_declare_target_link:1;
 
   /* Mentioned in OACC DECLARE.  */
   unsigned oacc_declare_create:1;
@@ -1157,6 +1158,7 @@ typedef struct gfc_omp_namelist
       gfc_omp_depend_op depend_op;
       gfc_omp_map_op map_op;
       gfc_omp_linear_op linear_op;
+      struct gfc_common_head *common;
     } u;
   struct gfc_omp_namelist_udr *udr;
   struct gfc_omp_namelist *next;
@@ -1561,7 +1563,9 @@ struct gfc_undo_change_set
 typedef struct gfc_common_head
 {
   locus where;
-  char use_assoc, saved, threadprivate, omp_declare_target;
+  char use_assoc, saved, threadprivate;
+  unsigned char omp_declare_target : 1;
+  unsigned char omp_declare_target_link : 1;
   char name[GFC_MAX_SYMBOL_LEN + 1];
   struct gfc_symbol *head;
   const char* binding_label;
@@ -2840,6 +2844,8 @@ bool gfc_add_result (symbol_attribute *, const char *, locus *);
 bool gfc_add_save (symbol_attribute *, save_state, const char *, locus *);
 bool gfc_add_threadprivate (symbol_attribute *, const char *, locus *);
 bool gfc_add_omp_declare_target (symbol_attribute *, const char *, locus *);
+bool gfc_add_omp_declare_target_link (symbol_attribute *, const char *,
+				      locus *);
 bool gfc_add_saved_common (symbol_attribute *, locus *);
 bool gfc_add_target (symbol_attribute *, locus *);
 bool gfc_add_dummy (symbol_attribute *, const char *, locus *);

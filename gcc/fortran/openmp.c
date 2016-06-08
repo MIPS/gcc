@@ -340,6 +340,96 @@ cleanup:
   return MATCH_ERROR;
 }
 
+/* Match a variable/procedure/common block list and construct a namelist
+   from it.  */
+
+static match
+gfc_match_omp_to_link (const char *str, gfc_omp_namelist **list)
+{
+  gfc_omp_namelist *head, *tail, *p;
+  locus old_loc, cur_loc;
+  char n[GFC_MAX_SYMBOL_LEN+1];
+  gfc_symbol *sym;
+  match m;
+  gfc_symtree *st;
+
+  head = tail = NULL;
+
+  old_loc = gfc_current_locus;
+
+  m = gfc_match (str);
+  if (m != MATCH_YES)
+    return m;
+
+  for (;;)
+    {
+      cur_loc = gfc_current_locus;
+      m = gfc_match_symbol (&sym, 1);
+      switch (m)
+	{
+	case MATCH_YES:
+	  p = gfc_get_omp_namelist ();
+	  if (head == NULL)
+	    head = tail = p;
+	  else
+	    {
+	      tail->next = p;
+	      tail = tail->next;
+	    }
+	  tail->sym = sym;
+	  tail->where = cur_loc;
+	  goto next_item;
+	case MATCH_NO:
+	  break;
+	case MATCH_ERROR:
+	  goto cleanup;
+	}
+
+      m = gfc_match (" / %n /", n);
+      if (m == MATCH_ERROR)
+	goto cleanup;
+      if (m == MATCH_NO)
+	goto syntax;
+
+      st = gfc_find_symtree (gfc_current_ns->common_root, n);
+      if (st == NULL)
+	{
+	  gfc_error ("COMMON block /%s/ not found at %C", n);
+	  goto cleanup;
+	}
+      p = gfc_get_omp_namelist ();
+      if (head == NULL)
+	head = tail = p;
+      else
+	{
+	  tail->next = p;
+	  tail = tail->next;
+	}
+      tail->u.common = st->n.common;
+      tail->where = cur_loc;
+
+    next_item:
+      if (gfc_match_char (')') == MATCH_YES)
+	break;
+      if (gfc_match_char (',') != MATCH_YES)
+	goto syntax;
+    }
+
+  while (*list)
+    list = &(*list)->next;
+
+  *list = head;
+  return MATCH_YES;
+
+syntax:
+  gfc_error ("Syntax error in OpenMP variable list at %C");
+
+cleanup:
+  gfc_free_omp_namelist (head);
+  gfc_current_locus = old_loc;
+  return MATCH_ERROR;
+}
+
 /* Match depend(sink : ...) construct a namelist from it.  */
 
 static match
@@ -1249,6 +1339,12 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 					      &c->lists[OMP_LIST_LINK])
 		  == MATCH_YES))
 	    continue;
+	  else if ((mask & OMP_CLAUSE_LINK)
+		   && !openacc
+		   && (gfc_match_omp_to_link ("link (",
+					      &c->lists[OMP_LIST_LINK])
+		       == MATCH_YES))
+	    continue;
 	  break;
 	case 'm':
 	  if ((mask & OMP_CLAUSE_MAP)
@@ -1688,7 +1784,13 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 	      && match_oacc_expr_list ("tile (", &c->tile_list,
 				       true) == MATCH_YES)
 	    continue;
-	  if ((mask & OMP_CLAUSE_TO)
+	  if ((mask & OMP_CLAUSE_TO) && (mask & OMP_CLAUSE_LINK))
+	    {
+	      if (gfc_match_omp_to_link ("to (", &c->lists[OMP_LIST_TO])
+		  == MATCH_YES)
+		continue;
+	    }
+	  else if ((mask & OMP_CLAUSE_TO)
 	      && gfc_match_omp_variable_list ("to (",
 					      &c->lists[OMP_LIST_TO], false,
 					      NULL, &head, true) == MATCH_YES)
@@ -2324,6 +2426,8 @@ cleanup:
   (omp_mask (OMP_CLAUSE_PRIVATE) | OMP_CLAUSE_FIRSTPRIVATE)
 #define OMP_ORDERED_CLAUSES \
   (omp_mask (OMP_CLAUSE_THREADS) | OMP_CLAUSE_SIMD)
+#define OMP_DECLARE_TARGET_CLAUSES \
+  (omp_mask (OMP_CLAUSE_TO) | OMP_CLAUSE_LINK)
 
 
 static match
@@ -2457,16 +2561,17 @@ gfc_match_omp_declare_simd (void)
   gfc_symbol *proc_name;
   gfc_omp_clauses *c;
   gfc_omp_declare_simd *ods;
+  bool needs_space = false;
 
   switch (gfc_match (" ( %s ) ", &proc_name))
     {
     case MATCH_YES: break;
-    case MATCH_NO: proc_name = NULL; break;
+    case MATCH_NO: proc_name = NULL; needs_space = true; break;
     case MATCH_ERROR: return MATCH_ERROR;
     }
 
   if (gfc_match_omp_clauses (&c, OMP_DECLARE_SIMD_CLAUSES, true,
-			     false) != MATCH_YES)
+			     needs_space) != MATCH_YES)
     return MATCH_ERROR;
 
   ods = gfc_get_omp_declare_simd ();
@@ -2874,26 +2979,15 @@ match
 gfc_match_omp_declare_target (void)
 {
   locus old_loc;
-  char n[GFC_MAX_SYMBOL_LEN+1];
-  gfc_symbol *sym;
   match m;
-  gfc_symtree *st;
+  gfc_omp_clauses *c = NULL;
+  int list;
+  gfc_omp_namelist *n;
+  gfc_symbol *s;
 
   old_loc = gfc_current_locus;
 
-  m = gfc_match (" (");
-
   if (gfc_current_ns->proc_name
-      && gfc_current_ns->proc_name->attr.if_source == IFSRC_IFBODY
-      && m == MATCH_YES)
-    {
-      gfc_error ("Only the !$OMP DECLARE TARGET form without "
-		 "list is allowed in interface block at %C");
-      goto cleanup;
-    }
-
-  if (m == MATCH_NO
-      && gfc_current_ns->proc_name
       && gfc_match_omp_eos () == MATCH_YES)
     {
       if (!gfc_add_omp_declare_target (&gfc_current_ns->proc_name->attr,
@@ -2903,58 +2997,111 @@ gfc_match_omp_declare_target (void)
       return MATCH_YES;
     }
 
-  if (m != MATCH_YES)
-    return m;
-
-  for (;;)
+  if (gfc_current_ns->proc_name
+      && gfc_current_ns->proc_name->attr.if_source == IFSRC_IFBODY)
     {
-      m = gfc_match_symbol (&sym, 0);
-      switch (m)
-	{
-	case MATCH_YES:
-	  if (sym->attr.in_common)
-	    gfc_error_now ("OMP DECLARE TARGET on a variable at %C is an "
-			   "element of a COMMON block");
-	  else if (!gfc_add_omp_declare_target (&sym->attr, sym->name,
-						&sym->declared_at))
-	    goto cleanup;
-	  goto next_item;
-	case MATCH_NO:
-	  break;
-	case MATCH_ERROR:
-	  goto cleanup;
-	}
-
-      m = gfc_match (" / %n /", n);
-      if (m == MATCH_ERROR)
-	goto cleanup;
-      if (m == MATCH_NO || n[0] == '\0')
-	goto syntax;
-
-      st = gfc_find_symtree (gfc_current_ns->common_root, n);
-      if (st == NULL)
-	{
-	  gfc_error ("COMMON block /%s/ not found at %C", n);
-	  goto cleanup;
-	}
-      st->n.common->omp_declare_target = 1;
-      for (sym = st->n.common->head; sym; sym = sym->common_next)
-	if (!gfc_add_omp_declare_target (&sym->attr, sym->name,
-					 &sym->declared_at))
-	  goto cleanup;
-
-    next_item:
-      if (gfc_match_char (')') == MATCH_YES)
-	break;
-      if (gfc_match_char (',') != MATCH_YES)
-	goto syntax;
-    }
-
-  if (gfc_match_omp_eos () != MATCH_YES)
-    {
-      gfc_error ("Unexpected junk after !$OMP DECLARE TARGET at %C");
+      gfc_error ("Only the !$OMP DECLARE TARGET form without "
+		 "clauses is allowed in interface block at %C");
       goto cleanup;
     }
+
+  m = gfc_match (" (");
+  if (m == MATCH_YES)
+    {
+      c = gfc_get_omp_clauses ();
+      gfc_current_locus = old_loc;
+      m = gfc_match_omp_to_link (" (", &c->lists[OMP_LIST_TO]);
+      if (m != MATCH_YES)
+	goto syntax;
+      if (gfc_match_omp_eos () != MATCH_YES)
+	{
+	  gfc_error ("Unexpected junk after !$OMP DECLARE TARGET at %C");
+	  goto cleanup;
+	}
+    }
+  else if (gfc_match_omp_clauses (&c, OMP_DECLARE_TARGET_CLAUSES) != MATCH_YES)
+    return MATCH_ERROR;
+
+  gfc_buffer_error (false);
+
+  for (list = OMP_LIST_TO; list != OMP_LIST_NUM;
+       list = (list == OMP_LIST_TO ? OMP_LIST_LINK : OMP_LIST_NUM))
+    for (n = c->lists[list]; n; n = n->next)
+      if (n->sym)
+	n->sym->mark = 0;
+      else if (n->u.common->head)
+	n->u.common->head->mark = 0;
+
+  for (list = OMP_LIST_TO; list != OMP_LIST_NUM;
+       list = (list == OMP_LIST_TO ? OMP_LIST_LINK : OMP_LIST_NUM))
+    for (n = c->lists[list]; n; n = n->next)
+      if (n->sym)
+	{
+	  if (n->sym->attr.in_common)
+	    gfc_error_now ("OMP DECLARE TARGET variable at %L is an "
+			   "element of a COMMON block", &n->where);
+	  else if (n->sym->attr.omp_declare_target
+		   && n->sym->attr.omp_declare_target_link
+		   && list != OMP_LIST_LINK)
+	    gfc_error_now ("OMP DECLARE TARGET variable at %L previously "
+			   "mentioned in LINK clause and later in TO clause",
+			   &n->where);
+	  else if (n->sym->attr.omp_declare_target
+		   && !n->sym->attr.omp_declare_target_link
+		   && list == OMP_LIST_LINK)
+	    gfc_error_now ("OMP DECLARE TARGET variable at %L previously "
+			   "mentioned in TO clause and later in LINK clause",
+			   &n->where);
+	  else if (n->sym->mark)
+	    gfc_error_now ("Variable at %L mentioned multiple times in "
+			   "clauses of the same OMP DECLARE TARGET directive",
+			   &n->where);
+	  else if (gfc_add_omp_declare_target (&n->sym->attr, n->sym->name,
+					       &n->sym->declared_at))
+	    {
+	      if (list == OMP_LIST_LINK)
+		gfc_add_omp_declare_target_link (&n->sym->attr, n->sym->name,
+						 &n->sym->declared_at);
+	    }
+	  n->sym->mark = 1;
+	}
+      else if (n->u.common->omp_declare_target
+	       && n->u.common->omp_declare_target_link
+	       && list != OMP_LIST_LINK)
+	gfc_error_now ("OMP DECLARE TARGET COMMON at %L previously "
+		       "mentioned in LINK clause and later in TO clause",
+		       &n->where);
+      else if (n->u.common->omp_declare_target
+	       && !n->u.common->omp_declare_target_link
+	       && list == OMP_LIST_LINK)
+	gfc_error_now ("OMP DECLARE TARGET COMMON at %L previously "
+		       "mentioned in TO clause and later in LINK clause",
+		       &n->where);
+      else if (n->u.common->head && n->u.common->head->mark)
+	gfc_error_now ("COMMON at %L mentioned multiple times in "
+		       "clauses of the same OMP DECLARE TARGET directive",
+		       &n->where);
+      else
+	{
+	  n->u.common->omp_declare_target = 1;
+	  n->u.common->omp_declare_target_link = (list == OMP_LIST_LINK);
+	  for (s = n->u.common->head; s; s = s->common_next)
+	    {
+	      s->mark = 1;
+	      if (gfc_add_omp_declare_target (&s->attr, s->name,
+					      &s->declared_at))
+		{
+		  if (list == OMP_LIST_LINK)
+		    gfc_add_omp_declare_target_link (&s->attr, s->name,
+						     &s->declared_at);
+		}
+	    }
+	}
+
+  gfc_buffer_error (true);
+
+  if (c)
+    gfc_free_omp_clauses (c);
   return MATCH_YES;
 
 syntax:
@@ -2962,6 +3109,8 @@ syntax:
 
 cleanup:
   gfc_current_locus = old_loc;
+  if (c)
+    gfc_free_omp_clauses (c);
   return MATCH_ERROR;
 }
 
