@@ -260,7 +260,7 @@
 			    (V2DI	"wi")])
 
 ;; Iterators for loading constants with xxspltib
-(define_mode_iterator VSINT_84  [V4SI V2DI])
+(define_mode_iterator VSINT_84  [V4SI V2DI DI])
 (define_mode_iterator VSINT_842 [V8HI V4SI V2DI])
 
 ;; Constants for creating unspecs

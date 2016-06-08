@@ -1,3 +1,61 @@
+2016-06-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (comment): Eliminate a comment
+	about DImode not being allowed in Altivec registers.
+	(wB constraint): New constraint for signed 5-bit integer constants
+	that can be loaded into Altivec registers.
+	* config/rs6000/predicates.md (xxspltib_constant_split): Update
+	comments.  Do not split constant integers that could be created
+	with VSPLTISW/VUPKHSW.
+	(xxspltib_constant_nosplit): Update comments.
+	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Add
+	support for -mupper-regs-di.
+	(POWERPC_MASKS): Likewise.
+	(power7 cpu): Likewise.
+	* config/rs6000/rs6000.opt (-mupper-regs-di): Likewise.
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Allow DImode
+	into Altivec registers if -mupper-regs-di.
+	(rs6000_init_hard_regno_mode_ok): Adjust wi/wj constraints
+	depending on whether DImode values are allowed in Altivec
+	registers.  Also set scalar_in_vmx flag.
+	(rs6000_option_override_internal): Add checking for
+	-mupper-regs-di.
+	(xxspltib_constant_p): Drop mode check, since that fails for
+	CONST_INT having VOIDmode.  Prefer using Altivec instructions
+	where we can use them.
+	(rs6000_secondary_reload): Add support for constants being loaded
+	into vector registers using either XXSPLTIB or VSPLTISW.
+	(rs6000_preferred_reload_class): Prefer using Altivec registers
+	instead of forcing the constant to memory for constants loaded to
+	vector registers.  Deal with CONST_INT's mode being VOIDmode.
+	(rs6000_opt_masks): Add -mupper-regs-di.
+	* config/rs6000/vsx.md (VSINT_84): Add DImode to allow creation of
+	DImode on ISA 3.0 with XXSPLTIB via the VEXTB2D instruction.
+	* config/rs6000/rs6000.md (floatsi<mode>2_lfiwax): Use wi
+	constraint instead of wj, since direct move is not used.
+	(floatsi<mode>2_lfiwax_mem): Likewise.
+	(lfiwzx): Likewise.
+	(floatunssi<mode>2_lfiwzx_mem): Combine alternatives, since the
+	insn is split before register allocation.
+	(fix_trunc<mode>di2_fctidz): Use <Fv> instead of <Fa>, so the
+	second alternative does not require an Altivec register.
+	(fixuns_trunc<mode>di2_fctiduz): Likewise.
+	(movdi_internal64): Reformat, so alternatives and attributes are
+	easier to read and line up.  Add support for DImode in Altivec
+	registers.  Add support for ISA 3.0 XXSPLTIB to load certain
+	constants into vector registers.  Prefer using VSPLTISW to load
+	0/-1 instead of XXLXOR/XXORC.
+	(DImode splitters for 64-bit): Use int_reg_operand_not_pseudo
+	instead of gpc_reg_operand to prevent unintentional splitting of
+	constants being loaded into vector registers.  Add splitters for
+	loading constants into vector registers via XXSPLTIB and
+	VSPLTISW.
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
+	-mupper-regs-di.  Update -mupper-regs-df and -mupper-regs-sf to
+	mention -mcpu=power9 sets these options.
+	* doc/md.texi (PowerPC and IBM RS6000 constraints): Document the
+	wB constraint.
+
 2016-06-08   Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch subversion id 237222
