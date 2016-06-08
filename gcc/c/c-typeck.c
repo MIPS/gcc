@@ -12508,6 +12508,7 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
   tree *nowait_clause = NULL;
   bool ordered_seen = false;
   tree schedule_clause = NULL_TREE;
+  bool oacc_async = false;
 
   bitmap_obstack_initialize (NULL);
   bitmap_initialize (&generic_head, &bitmap_default_obstack);
@@ -12518,6 +12519,14 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
   bitmap_initialize (&map_field_head, &bitmap_default_obstack);
   bitmap_initialize (&oacc_reduction_head, &bitmap_default_obstack);
 
+  if (ort & C_ORT_ACC)
+    for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
+      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_ASYNC)
+	{
+	  oacc_async = true;
+	  break;
+	}
+	  
   for (pc = &clauses, c = clauses; c ; c = *pc)
     {
       bool remove = false;
@@ -12554,6 +12563,8 @@ c_finish_omp_clauses (tree clauses, enum c_omp_region_type ort)
 	      remove = true;
 	      break;
 	    }
+	  if (oacc_async)
+	    c_mark_addressable (t);
 	  type = TREE_TYPE (t);
 	  if (TREE_CODE (t) == MEM_REF)
 	    type = TREE_TYPE (type);
