@@ -6260,6 +6260,12 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 
       if (src_code == MEM)
 	{
+	  if (TARGET_MICROMIPS_R7
+	      && M16LOAD_REG_P (REGNO (dest))
+	      && lw_r4_16_operand (src, GET_MODE (src)))
+	    /* FIXME.  Remove nop.  */
+	    return "sdbbp 2 # lw.r4.16\t%0,%1";
+
 	  if (TARGET_DEAD_LOADS
 	      && MEM_VOLATILE_P (src)
 	      && find_regno_note (insn, REG_UNUSED, REGNO (dest))
