@@ -163,6 +163,7 @@ enum gf_mask {
     GF_OMP_FOR_COMBINED		= 1 << 4,
     GF_OMP_FOR_COMBINED_INTO	= 1 << 5,
     GF_OMP_FOR_GRID_PHONY	= 1 << 6,
+    GF_OMP_FOR_GRID_GROUP_ITER  = 1 << 7,
     GF_OMP_TARGET_KIND_MASK	= (1 << 4) - 1,
     GF_OMP_TARGET_KIND_REGION	= 0,
     GF_OMP_TARGET_KIND_DATA	= 1,
@@ -5122,6 +5123,26 @@ gimple_omp_for_set_grid_phony (gomp_for *omp_for, bool value)
     omp_for->subcode |= GF_OMP_FOR_GRID_PHONY;
   else
     omp_for->subcode &= ~GF_OMP_FOR_GRID_PHONY;
+}
+
+/* Return true if iterations of a grid OMP_FOR statement correspond to HSA
+   groups.  */
+
+static inline bool
+gimple_omp_for_grid_group_iter (const gomp_for *omp_for)
+{
+  return (gimple_omp_subcode (omp_for) & GF_OMP_FOR_GRID_GROUP_ITER) != 0;
+}
+
+/* Set group_iter flag of OMP_FOR to VALUE.  */
+
+static inline void
+gimple_omp_for_set_grid_group_iter (gomp_for *omp_for, bool value)
+{
+  if (value)
+    omp_for->subcode |= GF_OMP_FOR_GRID_GROUP_ITER;
+  else
+    omp_for->subcode &= ~GF_OMP_FOR_GRID_GROUP_ITER;
 }
 
 /* Return the clauses associated with OMP_PARALLEL GS.  */

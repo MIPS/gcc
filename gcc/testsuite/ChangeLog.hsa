@@ -1,0 +1,4 @@
+2016-06-09  Martin Jambor  <mjambor@suse.cz>
+
+	* c-c++-common/gomp/gridify-2.c: New test.
+        * c-c++-common/gomp/gridify-3.c: Likewise.

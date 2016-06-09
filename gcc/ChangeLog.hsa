@@ -1,5 +1,49 @@
 2016-06-09  Martin Jambor  <mjambor@suse.cz>
 
+	* gimple.h (enum gf_mask): New element GF_OMP_FOR_GRID_GROUP_ITER.
+	(gimple_omp_for_grid_group_iter): New function.
+	(gimple_omp_for_set_grid_group_iter): Likewise.
+	* omp-low.c (check_omp_nesting_restrictions): Allow kernel loop in
+	place of a distribute one.
+	(grid_expand_omp_for_loop): New parameter specifying whether the loop
+	is an intra-group one.  If so or if the loop is over groups, use the
+	respective builtins for expansion.  Emit barriers for intra-group
+	ones.  Moved a branch removeal here from grid_expand_target_grid_body.
+	(grid_expand_target_grid_body): If the loop iterates over groups, find
+	the intra-group ones, expand them and remove them from the OMP
+	construct tree.
+	(grid_prop): New type.
+	(grid_safe_assignment_p): New parameter grid, do not consider safe
+	assignments to variables holding group sizes.
+	(grid_seq_only_contains_local_assignments): New parameter grid, pass
+	it to grid_safe_assignment_p.
+	(grid_find_single_omp_among_assignments_1): Likewise.  Also tkae
+	target location from grid.  Emit more missed-optimizations
+	information.
+	(grid_find_single_omp_among_assignments): Likewise.
+	(grid_parallel_clauses_gridifiable): New function.
+	(grid_inner_loop_gridifiable_p): Likewise.
+	(grid_dist_follows_simple_pattern): Likewise.
+	(grid_gfor_follows_tiling_pattern): Likewise.
+	(grid_call_permissible_in_distribute_p): Likewise.
+	(grid_handle_call_in_distribute): Likewise.
+	(grid_dist_follows_tiling_pattern): Likewise.
+	(grid_target_follows_gridifiable_pattern): New parameter grid.  If
+	distribute is not in a combined construct, attempt tiled
+	gridification.  Parts of simple gridification moved to the new
+	functions.
+	(grid_var_segment): New enum.
+	(grid_mark_variable_segment): New function.
+	(grid_copy_leading_local_assignments): Also call
+	grid_mark_variable_segment if requested by a new parameter.
+	(grid_mark_tiling_loops): New function.
+	(grid_mark_tiling_parallels_and_loops): Likewise.
+	(grid_process_kernel_body_copy): Also handle tiled grids.
+	(grid_attempt_target_gridification): new variable grid to be passed
+	around.  Get group sizes from it.
+
+2016-06-09  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa-builtins.def (BUILT_IN_HSA_GET_WORKGROUP_ID): New.
 	(BUILT_IN_HSA_GET_WORKITEM_ID): Likewise.
 	* hsa-gen.c (gen_hsa_insns_for_call): Emit HSAIL for the above
