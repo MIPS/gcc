@@ -1,5 +1,24 @@
 2016-06-09  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa.h (hsa_insn_br): Renamed to hsa_insn_cbr, renamed all
+	occurences in all files too.
+	(hsa_insn_br): New class, now the ancestor of hsa_incn_cbr.
+	(is_a_helper <hsa_insn_br *>::test): New function.
+	(is_a_helper <hsa_insn_cbr *>::test): Adjust to only cover conditional
+	branch instructions.
+	* hsa-brig.c (emit_branch_insn): Renamed to emit_cond_branch_insn.
+	Emit the width stored in the class.
+	(emit_generic_branch_insn): New function.
+	(emit_insn): Call emit_generic_branch_insn.
+	* hsa-dump.c (hsa_width_specifier_name): New function.
+	(dump_hsa_insn_1): Dump generic branch instructions.
+	* hsa-gen.c (hsa_insn_br::hsa_insn_br): New.
+	(hsa_insn_br::operator new): Likewise.
+	(hsa_insn_cbr::hsa_insn_cbr): Set width via ancestor constructor.
+	* hsa.c (hsa_destroy_insn): Also handle instances of hsa_insn_br.
+
+2016-06-09  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa-brig.c (emit_insn_operands): Cope with zero operands in an
 	instruction.
 

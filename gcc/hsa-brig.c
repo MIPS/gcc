@@ -1496,11 +1496,29 @@ emit_cmp_insn (hsa_insn_cmp *cmp)
   brig_insn_count++;
 }
 
-/* Emit an HSA branching instruction and all necessary directives, schedule
-   necessary operands for writing.  */
+/* Emit an HSA generic branching/sycnronization instruction.  */
 
 static void
-emit_branch_insn (hsa_insn_br *br)
+emit_generic_branch_insn (hsa_insn_br *br)
+{
+  struct BrigInstBr repr;
+  repr.base.base.byteCount = lendian16 (sizeof (repr));
+  repr.base.base.kind = lendian16 (BRIG_KIND_INST_BR);
+  repr.base.opcode = lendian16 (br->m_opcode);
+  repr.width = br->m_width;
+  repr.base.type = lendian16 (br->m_type);
+  repr.base.operands = lendian32 (emit_insn_operands (br));
+  memset (&repr.reserved, 0, sizeof (repr.reserved));
+
+  brig_code.add (&repr, sizeof (repr));
+  brig_insn_count++;
+}
+
+/* Emit an HSA conditional branching instruction and all necessary directives,
+   schedule necessary operands for writing.  */
+
+static void
+emit_cond_branch_insn (hsa_insn_cbr *br)
 {
   struct BrigInstBr repr;
 
@@ -1513,7 +1531,7 @@ emit_branch_insn (hsa_insn_br *br)
   repr.base.base.byteCount = lendian16 (sizeof (repr));
   repr.base.base.kind = lendian16 (BRIG_KIND_INST_BR);
   repr.base.opcode = lendian16 (br->m_opcode);
-  repr.width = BRIG_WIDTH_1;
+  repr.width = br->m_width;
   /* For Conditional jumps the type is always B1.  */
   repr.base.type = lendian16 (BRIG_TYPE_B1);
 
@@ -1885,8 +1903,8 @@ emit_insn (hsa_insn_basic *insn)
     emit_segment_insn (seg);
   else if (hsa_insn_cmp *cmp = dyn_cast <hsa_insn_cmp *> (insn))
     emit_cmp_insn (cmp);
-  else if (hsa_insn_br *br = dyn_cast <hsa_insn_br *> (insn))
-    emit_branch_insn (br);
+  else if (hsa_insn_cbr *br = dyn_cast <hsa_insn_cbr *> (insn))
+    emit_cond_branch_insn (br);
   else if (hsa_insn_sbr *sbr = dyn_cast <hsa_insn_sbr *> (insn))
     {
       if (switch_instructions == NULL)
@@ -1895,6 +1913,8 @@ emit_insn (hsa_insn_basic *insn)
       switch_instructions->safe_push (sbr);
       emit_switch_insn (sbr);
     }
+  else if (hsa_insn_br *br = dyn_cast <hsa_insn_br *> (insn))
+    emit_generic_branch_insn (br);
   else if (hsa_insn_arg_block *block = dyn_cast <hsa_insn_arg_block *> (insn))
     emit_arg_block_insn (block);
   else if (hsa_insn_call *call = dyn_cast <hsa_insn_call *> (insn))

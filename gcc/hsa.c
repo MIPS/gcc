@@ -605,8 +605,8 @@ hsa_destroy_insn (hsa_insn_basic *insn)
 {
   if (hsa_insn_phi *phi = dyn_cast <hsa_insn_phi *> (insn))
     phi->~hsa_insn_phi ();
-  else if (hsa_insn_br *br = dyn_cast <hsa_insn_br *> (insn))
-    br->~hsa_insn_br ();
+  else if (hsa_insn_cbr *br = dyn_cast <hsa_insn_cbr *> (insn))
+    br->~hsa_insn_cbr ();
   else if (hsa_insn_cmp *cmp = dyn_cast <hsa_insn_cmp *> (insn))
     cmp->~hsa_insn_cmp ();
   else if (hsa_insn_mem *mem = dyn_cast <hsa_insn_mem *> (insn))
@@ -621,6 +621,8 @@ hsa_destroy_insn (hsa_insn_basic *insn)
     block->~hsa_insn_arg_block ();
   else if (hsa_insn_sbr *sbr = dyn_cast <hsa_insn_sbr *> (insn))
     sbr->~hsa_insn_sbr ();
+  else if (hsa_insn_br *br = dyn_cast <hsa_insn_br *> (insn))
+    br->~hsa_insn_br ();
   else if (hsa_insn_comment *comment = dyn_cast <hsa_insn_comment *> (insn))
     comment->~hsa_insn_comment ();
   else

@@ -1420,13 +1420,15 @@ hsa_insn_phi::operator new (size_t size)
   return obstack_alloc (&hsa_obstack, size);
 }
 
-/* Constructor of class representing instruction for conditional jump, CTRL is
-   the control register determining whether the jump will be carried out, the
-   new instruction is automatically added to its uses list.  */
+/* Constructor of class representing instructions for control flow and
+   sychronization,   */
 
-hsa_insn_br::hsa_insn_br (hsa_op_reg *ctrl)
-  : hsa_insn_basic (1, BRIG_OPCODE_CBR, BRIG_TYPE_B1, ctrl),
-    m_width (BRIG_WIDTH_1)
+hsa_insn_br::hsa_insn_br (unsigned nops, int opc, BrigType16_t t,
+			  BrigWidth8_t width, hsa_op_base *arg0,
+			  hsa_op_base *arg1, hsa_op_base *arg2,
+			  hsa_op_base *arg3)
+  : hsa_insn_basic (nops, opc, t, arg0, arg1, arg2, arg3),
+    m_width (width)
 {
 }
 
@@ -1434,6 +1436,23 @@ hsa_insn_br::hsa_insn_br (hsa_op_reg *ctrl)
 
 void *
 hsa_insn_br::operator new (size_t size)
+{
+  return obstack_alloc (&hsa_obstack, size);
+}
+
+/* Constructor of class representing instruction for conditional jump, CTRL is
+   the control register determining whether the jump will be carried out, the
+   new instruction is automatically added to its uses list.  */
+
+hsa_insn_cbr::hsa_insn_cbr (hsa_op_reg *ctrl)
+  : hsa_insn_br (1, BRIG_OPCODE_CBR, BRIG_TYPE_B1, BRIG_WIDTH_1, ctrl)
+{
+}
+
+/* New operator to allocate branch instruction from obstack.  */
+
+void *
+hsa_insn_cbr::operator new (size_t size)
 {
   return obstack_alloc (&hsa_obstack, size);
 }
@@ -3323,14 +3342,14 @@ static void
 gen_hsa_insns_for_cond_stmt (gimple *cond, hsa_bb *hbb)
 {
   hsa_op_reg *ctrl = new hsa_op_reg (BRIG_TYPE_B1);
-  hsa_insn_br *cbr;
+  hsa_insn_cbr *cbr;
 
   gen_hsa_cmp_insn_from_gimple (gimple_cond_code (cond),
 				gimple_cond_lhs (cond),
 				gimple_cond_rhs (cond),
 				ctrl, hbb);
 
-  cbr = new hsa_insn_br (ctrl);
+  cbr = new hsa_insn_cbr (ctrl);
   hbb->append_insn (cbr);
 }
 
@@ -3407,7 +3426,7 @@ gen_hsa_insns_for_switch_stmt (gswitch *s, hsa_bb *hbb)
   hbb->append_insn (new hsa_insn_basic (3, BRIG_OPCODE_AND, cmp_reg->m_type,
 					cmp_reg, cmp1_reg, cmp2_reg));
 
-  hbb->append_insn (new hsa_insn_br (cmp_reg));
+  hbb->append_insn (new hsa_insn_cbr (cmp_reg));
 
   tree default_label = gimple_switch_default_label (s);
   basic_block default_label_bb = label_to_block_fn (func,
@@ -4824,7 +4843,7 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 					signal_result_reg, imm);
 
   new_hbb->append_insn (cmp);
-  new_hbb->append_insn (new hsa_insn_br (ctrl));
+  new_hbb->append_insn (new hsa_insn_cbr (ctrl));
 
   if (TREE_CODE (argument) == ADDR_EXPR)
     {
@@ -4983,7 +5002,7 @@ expand_string_operation_builtin (gimple *stmt, hsa_bb *hbb,
 {
   edge e = split_block (hbb->m_bb, stmt);
   basic_block condition_bb = e->src;
-  hbb->append_insn (new hsa_insn_br (misaligned_flag));
+  hbb->append_insn (new hsa_insn_cbr (misaligned_flag));
 
   /* Prepare the control flow.  */
   edge condition_edge = EDGE_SUCC (condition_bb, 0);

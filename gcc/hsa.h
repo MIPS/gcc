@@ -513,35 +513,66 @@ is_a_helper <hsa_insn_phi *>::test (hsa_insn_basic *p)
   return p->m_opcode == HSA_OPCODE_PHI;
 }
 
-/* HSA instruction for branches.  Currently we explicitely represent only
-   conditional branches.  */
-
+/* HSA instruction for  */
 class hsa_insn_br : public hsa_insn_basic
 {
 public:
-  hsa_insn_br (hsa_op_reg *ctrl);
+  hsa_insn_br (unsigned nops, int opc, BrigType16_t t, BrigWidth8_t width,
+	       hsa_op_base *arg0 = NULL, hsa_op_base *arg1 = NULL,
+	       hsa_op_base *arg2 = NULL, hsa_op_base *arg3 = NULL);
 
   void *operator new (size_t);
 
-  /* Width as described in HSA documentation.  */
+  /* Number of work-items affected in the same way by the instruction.  */
   BrigWidth8_t m_width;
+
 private:
   /* Make the default constructor inaccessible.  */
-  hsa_insn_br () : hsa_insn_basic (1, BRIG_OPCODE_CBR) {}
+  hsa_insn_br () : hsa_insn_basic (0, BRIG_OPCODE_BR) {}
   /* All objects are deallocated by destroying their pool, so make delete
      inaccessible too.  */
   void operator delete (void *) {}
 };
 
-/* Report whether P is a branching instruction.  */
+/* Return true if P is a branching/synchronization instruction.  */
 
 template <>
 template <>
 inline bool
 is_a_helper <hsa_insn_br *>::test (hsa_insn_basic *p)
 {
-  return p->m_opcode == BRIG_OPCODE_BR
-    || p->m_opcode == BRIG_OPCODE_CBR;
+  return p->m_opcode == BRIG_OPCODE_BARRIER
+    || p->m_opcode == BRIG_OPCODE_BR;
+}
+
+/* HSA instruction for conditional branches.  Structurally the same as
+   hsa_insn_br but we represent it specially because of inherent control
+   flow it represents.  */
+
+class hsa_insn_cbr : public hsa_insn_br
+{
+public:
+  hsa_insn_cbr (hsa_op_reg *ctrl);
+
+  void *operator new (size_t);
+
+private:
+  /* Make the default constructor inaccessible.  */
+  hsa_insn_cbr () : hsa_insn_br (0, BRIG_OPCODE_CBR, BRIG_TYPE_B1,
+				 BRIG_WIDTH_1) {}
+  /* All objects are deallocated by destroying their pool, so make delete
+     inaccessible too.  */
+  void operator delete (void *) {}
+};
+
+/* Report whether P is a contitional branching instruction.  */
+
+template <>
+template <>
+inline bool
+is_a_helper <hsa_insn_cbr *>::test (hsa_insn_basic *p)
+{
+  return p->m_opcode == BRIG_OPCODE_CBR;
 }
 
 /* HSA instruction for switch branches.  */
