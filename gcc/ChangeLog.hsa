@@ -1,5 +1,10 @@
 2016-06-09  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa-brig.c (emit_insn_operands): Cope with zero operands in an
+	instruction.
+
+2016-06-09  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa-gen.c (get_symbol_for_decl): Fix dinstinguishing between
 	global and local functions.  Put local variables into a segment
 	according to their attribute or static flag, if there is one.

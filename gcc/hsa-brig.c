@@ -1236,20 +1236,20 @@ emit_insn_operands (hsa_insn_basic *insn)
     operand_offsets;
 
   unsigned l = insn->operand_count ();
-  operand_offsets.safe_grow (l);
-
-  for (unsigned i = 0; i < l; i++)
-    operand_offsets[i] = lendian32 (enqueue_op (insn->get_op (i)));
 
   /* We have N operands so use 4 * N for the byte_count.  */
   uint32_t byte_count = lendian32 (4 * l);
-
   unsigned offset = brig_data.add (&byte_count, sizeof (byte_count));
-  brig_data.add (operand_offsets.address (),
-		 l * sizeof (BrigOperandOffset32_t));
+  if (l > 0)
+    {
+      operand_offsets.safe_grow (l);
+      for (unsigned i = 0; i < l; i++)
+	operand_offsets[i] = lendian32 (enqueue_op (insn->get_op (i)));
 
+      brig_data.add (operand_offsets.address (),
+		     l * sizeof (BrigOperandOffset32_t));
+    }
   brig_data.round_size_up (4);
-
   return offset;
 }
 
