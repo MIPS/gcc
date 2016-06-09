@@ -133,9 +133,12 @@
 (define_register_constraint "wz" "rs6000_constraints[RS6000_CONSTRAINT_wz]"
   "Floating point register if the LFIWZX instruction is enabled or NO_REGS.")
 
+;; wB needs ISA 2.07 VUPKHSW
 (define_constraint "wB"
   "Signed 5-bit constant integer that can be loaded into an altivec register."
-  (match_operand 0 "s5bit_cint_operand_not_0_or_m1"))
+  (and (match_code "const_int")
+       (and (match_test "TARGET_P8_VECTOR")
+	    (match_operand 0 "s5bit_cint_operand"))))
 
 (define_constraint "wD"
   "Int constant that is the element number of the 64-bit scalar in a vector."

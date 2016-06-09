@@ -2165,11 +2165,25 @@ rs6000_debug_print_mode (ssize_t m)
   ssize_t rc;
   int spaces = 0;
   bool fuse_extra_p;
+  const char *tstr;
+
+  switch (rs6000_tieable[m])
+    {
+    case TIEABLE_NORMAL: tstr = "norm"; break;
+    case TIEABLE_PTI:    tstr = "pti";  break;
+    case TIEABLE_VECTOR: tstr = "vect"; break;
+    case TIEABLE_FP:     tstr = "fp";   break;
+    case TIEABLE_SPE:	 tstr = "spe";  break;
+    case TIEABLE_CC:     tstr = "cc";   break;
+    default:             tstr = "bad";  break;
+    }
 
   fprintf (stderr, "Mode: %-5s", GET_MODE_NAME (m));
   for (rc = 0; rc < N_RELOAD_REG; rc++)
     fprintf (stderr, " %s: %s", reload_reg_map[rc].name,
 	     rs6000_debug_addr_mask (reg_addr[m].addr_mask[rc], true));
+
+  fprintf (stderr, " Tie: %-4s", tstr);
 
   if ((reg_addr[m].reload_store != CODE_FOR_nothing)
       || (reg_addr[m].reload_load != CODE_FOR_nothing))
@@ -2285,9 +2299,8 @@ static void
 rs6000_debug_reg_global (void)
 {
   static const char *const tf[2] = { "false", "true" };
-  const char *nl = (const char *)0;
   int m;
-  size_t m1, m2, v;
+  size_t v;
   char costly_num[20];
   char nop_num[20];
   char flags_buffer[40];
@@ -2297,45 +2310,6 @@ rs6000_debug_reg_global (void)
   const char *abi_str;
   const char *cmodel_str;
   struct cl_target_option cl_opts;
-
-  /* Modes we want tieable information on.  */
-  static const machine_mode print_tieable_modes[] = {
-    QImode,
-    HImode,
-    SImode,
-    DImode,
-    TImode,
-    PTImode,
-    SFmode,
-    DFmode,
-    TFmode,
-    IFmode,
-    KFmode,
-    SDmode,
-    DDmode,
-    TDmode,
-    V8QImode,
-    V4HImode,
-    V2SImode,
-    V16QImode,
-    V8HImode,
-    V4SImode,
-    V2DImode,
-    V1TImode,
-    V32QImode,
-    V16HImode,
-    V8SImode,
-    V4DImode,
-    V2TImode,
-    V2SFmode,
-    V4SFmode,
-    V2DFmode,
-    V8SFmode,
-    V4DFmode,
-    CCmode,
-    CCUNSmode,
-    CCEQmode,
-  };
 
   /* Virtual regs we are interested in.  */
   const static struct {
@@ -2437,40 +2411,10 @@ rs6000_debug_reg_global (void)
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wy]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wz]]);
 
-  nl = "\n";
   for (m = 0; m < NUM_MACHINE_MODES; ++m)
     rs6000_debug_print_mode (m);
 
   fputs ("\n", stderr);
-
-  for (m1 = 0; m1 < ARRAY_SIZE (print_tieable_modes); m1++)
-    {
-      machine_mode mode1 = print_tieable_modes[m1];
-      bool first_time = true;
-
-      nl = (const char *)0;
-      for (m2 = 0; m2 < ARRAY_SIZE (print_tieable_modes); m2++)
-	{
-	  machine_mode mode2 = print_tieable_modes[m2];
-	  if (mode1 != mode2 && MODES_TIEABLE_P (mode1, mode2))
-	    {
-	      if (first_time)
-		{
-		  fprintf (stderr, "Tieable modes %s:", GET_MODE_NAME (mode1));
-		  nl = "\n";
-		  first_time = false;
-		}
-
-	      fprintf (stderr, " %s", GET_MODE_NAME (mode2));
-	    }
-	}
-
-      if (!first_time)
-	fputs ("\n", stderr);
-    }
-
-  if (nl)
-    fputs (nl, stderr);
 
   if (rs6000_recip_control)
     {
@@ -3593,8 +3537,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
       else if (ALTIVEC_OR_VSX_VECTOR_MODE (m2))
 	tieable = TIEABLE_VECTOR;
 
-      else if (SCALAR_FLOAT_MODE_P (m2) && TARGET_HARD_FLOAT
-	       && TARGET_FPRS)
+      else if (SCALAR_FLOAT_MODE_P (m2) && TARGET_HARD_FLOAT && TARGET_FPRS)
 	tieable = TIEABLE_FP;
 
       else if (SPE_VECTOR_MODE (m2))
@@ -6409,8 +6352,8 @@ xxspltib_constant_p (rtx op,
     }
 
   /* Handle integer constants being loaded into the upper part of the VSX
-     register as a scalar.  If the value isn't 0/-1, only allow it if
-     the mode can go in Altivec registers.  */
+     register as a scalar.  If the value isn't 0/-1, only allow it if the mode
+     can go in Altivec registers.  Prefer VSPLTISW/VUPKHSW over XXSPLITIB.  */
   else if (CONST_INT_P (op))
     {
       if (!SCALAR_INT_MODE_P (mode))
@@ -6420,9 +6363,14 @@ xxspltib_constant_p (rtx op,
       if (!IN_RANGE (value, -128, 127))
 	return false;
 
-      if (!IN_RANGE (value, -1, 0)
-	  && (reg_addr[mode].addr_mask[RELOAD_REG_VMX] & RELOAD_REG_VALID) == 0)
-	return false;
+      if (!IN_RANGE (value, -1, 0))
+	{
+	  if (!(reg_addr[mode].addr_mask[RELOAD_REG_VMX] & RELOAD_REG_VALID))
+	    return false;
+
+	  if (EASY_VECTOR_15 (value))
+	    return false;
+	}
     }
 
   else

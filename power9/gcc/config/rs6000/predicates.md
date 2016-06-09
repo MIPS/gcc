@@ -132,14 +132,6 @@
   (and (match_code "const_int")
        (match_test "INTVAL (op) >= -16 && INTVAL (op) <= 15")))
 
-;; Like s5bit_cint_operand, but don't allow 0/-1 used for creating small
-;; constants on ISA 2.07 (power8) systems and above in vector registers.
-(define_predicate "s5bit_cint_operand_not_0_or_m1"
-  (and (match_code "const_int")
-       (and (match_test ("TARGET_UPPER_REGS_DI && TARGET_P8_VECTOR"))
-	    (and (match_test ("IN_RANGE (INTVAL (op), -16, 15)"))
-		 (match_test ("!IN_RANGE (INTVAL (op), -1, 0)"))))))
-
 ;; Return 1 if op is a unsigned 3-bit constant integer.
 (define_predicate "u3bit_cint_operand"
   (and (match_code "const_int")
@@ -604,21 +596,6 @@
   return num_insns == 1;
 })
 
-;; Return 1 if the operand is a constant that can be loaded with the XXSPLIT
-;; instruction, that may or may not be split.
-
-(define_predicate "xxspltib_constant"
-  (match_code "const_vector,vec_duplicate,const_int")
-{
-  int value = 256;
-  int num_insns = -1;
-
-  if (!xxspltib_constant_p (op, mode, &num_insns, &value))
-    return false;
-
-  return 1;
-})
-
 ;; Return 1 if the operand is a CONST_VECTOR and can be loaded into a
 ;; vector register without using memory.
 (define_predicate "easy_vector_constant"
@@ -850,13 +827,6 @@
 		&& (indexed_address (XEXP (op, 0), mode)
 		    || (GET_CODE (XEXP (op, 0)) == PRE_MODIFY
 			&& indexed_address (XEXP (XEXP (op, 0), 1), mode))))"))
-
-;; Return 1 if the operand is a MEM with an indirect address form.
-(define_predicate "indirect_address_mem"
-  (match_code "mem")
-{
-  return base_reg_operand (XEXP (op, 0), Pmode);
-})
 
 ;; Return 1 if the operand is either a non-special register or can be used
 ;; as the operand of a `mode' add insn.
@@ -1987,52 +1957,4 @@
     return 0;
 
   return offsettable_nonstrict_memref_p (op);
-})
-
-
-;; Return true if the operand is a register that can hold normal offsettable
-;; addressing (d-form). This is used for peephole2 processing, so don't
-;; allow pseudo registers.
-(define_predicate "dform_reg_operand_no_pseudo"
-  (match_code "reg,subreg")
-{
-  HOST_WIDE_INT r;
-
-  if (GET_CODE (op) == SUBREG)
-    op = SUBREG_REG (op);
-
-  if (!REG_P (op))
-    return 0;
-
-  r = REGNO (op);
-  if (r >= FIRST_PSEUDO_REGISTER)
-    return 0;
-
-  if (INT_REGNO_P (r))
-    return (mode == QImode || mode == HImode || mode == SImode || mode == SFmode
-	    || (TARGET_POWERPC64 && (mode == DImode || mode == DFmode)));
-
-  if (mode != DFmode && mode != SFmode && mode != DImode)
-    return 0;
-
-  if (FP_REGNO_P (r))
-    return 1;
-
-  if (ALTIVEC_REGNO_P (r) && TARGET_P9_VECTOR)
-    return 1;
-
-  return 0;
-})
-
-;; Return true if the operand is LO_SUM
-(define_predicate "lo_sum_operand"
-  (match_code "lo_sum")
-{
-  if (mode != Pmode)
-    return 0;
-
-  if (!base_reg_operand (XEXP (op, 0), mode))
-    return 0;
-
-  return 1;
 })

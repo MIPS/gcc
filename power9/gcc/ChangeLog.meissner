@@ -1,3 +1,31 @@
+2016-06-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (wB cosntraint): Limit wB to ISA
+	2.07 and above.
+
+	* config/rs6000/predicates.md (s5bit_cint_operand_not_0_or_m1):
+	Delete.
+	(xxspltib_constant): Likewise.
+	(indirect_address_mem): Likewise.
+	(dform_reg_operand_no_pseudo): Likewise.
+	(lo_sum_operand): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_debug_print_mode): Print mode
+	tieable category.
+	(rs6000_debug_reg_global): Delete printing mode tieable
+	information here.
+	(rs6000_init_hard_regno_mode_ok): Whitespace change.
+	(xxspltib_constant_p): Don't allow
+	-16..-2 and 1..15, since these can be generated via VSPLATISW.
+
+	* config/rs6000/rs6000.h (MODES_TIEABLE_P): White space.
+
+	* config/rs6000/rs6000.md (movdi_internal32): Support DImode in
+	Altivec registers.
+	(32-bit DImode splitters): Return to the original code.
+	(peephole2's for fixing up register allocation): Delete, this code
+	doesn't improve things.
+
 2016-06-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 237222.

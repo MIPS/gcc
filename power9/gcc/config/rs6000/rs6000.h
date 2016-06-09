@@ -1313,7 +1313,7 @@ typedef enum {
 extern rs6000_tieable_type rs6000_tieable[];
 
 #define MODES_TIEABLE_P(MODE1, MODE2)					\
-(rs6000_tieable[(int)(MODE1)] == rs6000_tieable[(int)(MODE2)])
+  (rs6000_tieable[(int)(MODE1)] == rs6000_tieable[(int)(MODE2)])
 
 /* Post-reload, we can't use any new AltiVec registers, as we already
    emitted the vrsave mask.  */
