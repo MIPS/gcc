@@ -738,12 +738,12 @@ static mips_one_only_stub *mips16_set_fcsr_stub;
 
 /* Index R is the smallest register class that contains register R.  */
 const enum reg_class mips_regno_to_class[FIRST_PSEUDO_REGISTER] = {
-  LEA_REGS,        LEA_REGS,        M16_STORE_REGS,  V1_REG,
+  M16_LD_ST_REGS,  M16_LD_ST_REGS,  M16_STORE_REGS,  V1_REG,
   M16_STORE_REGS,  M16_STORE_REGS,  M16_STORE_REGS,  M16_STORE_REGS,
   LEA_REGS,        LEA_REGS,        LEA_REGS,        LEA_REGS,
   LEA_REGS,        LEA_REGS,        LEA_REGS,        LEA_REGS,
-  M16_REGS,        M16_STORE_REGS,  LEA_REGS,        LEA_REGS,
-  LEA_REGS,        LEA_REGS,        LEA_REGS,        LEA_REGS,
+  M16_REGS,        M16_STORE_REGS,  M16_LD_ST_REGS,  M16_LD_ST_REGS,
+  M16_LD_ST_REGS,  M16_LD_ST_REGS,  M16_LD_ST_REGS,  M16_LD_ST_REGS,
   T_REG,           PIC_FN_ADDR_REG, LEA_REGS,        LEA_REGS,
   LEA_REGS,        M16_SP_REGS,     LEA_REGS,        LEA_REGS,
 
@@ -3843,6 +3843,17 @@ m16_based_address_p (rtx x, machine_mode mode,
 	  && offset_predicate (addr.offset, mode));
 }
 
+bool
+m16_based_address_p2 (rtx x, machine_mode mode,
+		     insn_operand_predicate_fn offset_predicate)
+{
+  struct mips_address_info addr;
+
+  return (mips_classify_address (&addr, x, mode, false)
+	  && addr.type == ADDRESS_REG
+	  && M16LOAD_REG_P (REGNO (addr.reg))
+	  && offset_predicate (addr.offset, mode));
+}
 /* Return true if X is a legitimate address that conforms to the requirements
    for a microMIPS LWSP or SWSP insn.  */
 
@@ -6206,14 +6217,24 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	    }
 	}
       if (dest_code == MEM)
-	switch (GET_MODE_SIZE (mode))
-	  {
-	  case 1: return "sb\t%z1,%0";
-	  case 2: return "sh\t%z1,%0";
-	  case 4: return "sw\t%z1,%0";
-	  case 8: return "sd\t%z1,%0";
-	  default: gcc_unreachable ();
-	  }
+	{
+	  if (TARGET_MICROMIPS_R7
+	      && M16LOAD_REG_P (REGNO (src))
+	      && TARGET_ADD_SW4X4
+	      && GET_MODE_SIZE (mode) == 4
+	      && sw4x4_lw4x4_operand (dest, GET_MODE (dest)))
+	    /* FIXME.  Remove nop.  */
+	    return "sdbbp16 3 # sw4x4\t%z1,%0";
+
+	  switch (GET_MODE_SIZE (mode))
+	    {
+	    case 1: return "sb\t%z1,%0";
+	    case 2: return "sh\t%z1,%0";
+	    case 4: return "sw\t%z1,%0";
+	    case 8: return "sd\t%z1,%0";
+	    default: gcc_unreachable ();
+	    }
+	}
     }
   if (dest_code == REG && GP_REG_P (REGNO (dest)))
     {
@@ -6260,6 +6281,14 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 
       if (src_code == MEM)
 	{
+	  if (TARGET_MICROMIPS_R7
+	      && M16LOAD_REG_P (REGNO (dest))
+	      && TARGET_ADD_LW4X4
+	      && GET_MODE_SIZE (mode) == 4
+	      && sw4x4_lw4x4_operand (src, GET_MODE (src)))
+	    /* FIXME.  Remove nop.  */
+	    return "sdbbp16 2 # lw4x4\t%0,%1";
+
 	  if (TARGET_DEAD_LOADS
 	      && MEM_VOLATILE_P (src)
 	      && find_regno_note (insn, REG_UNUSED, REGNO (dest))

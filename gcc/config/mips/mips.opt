@@ -556,3 +556,9 @@ Target Undocumented Var(TARGET_ADD_SAVE_RESTORE) Init(0)
 
 madd-restorejrc
 Target Undocumented Var(TARGET_ADD_RESTORE_JRC) Init(0)
+
+madd-lw4x4
+Target Undocumented Var(TARGET_ADD_LW4X4) Init(0)
+
+madd-sw4x4
+Target Undocumented Var(TARGET_ADD_SW4X4) Init(0)
