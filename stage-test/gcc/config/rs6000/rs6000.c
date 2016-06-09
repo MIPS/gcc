@@ -8758,8 +8758,6 @@ rs6000_legitimize_reload_address (rtx x, machine_mode mode,
       return x;
     }
 
-  /* If the type is allowed in Altivec registers, but we don't have d-form
-     instructions for Altivec registers, don't allow this optimization.  */
   if (TARGET_TOC
       && reg_offset_p
       && GET_CODE (x) == SYMBOL_REF
