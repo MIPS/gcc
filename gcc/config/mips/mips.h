@@ -1939,6 +1939,8 @@ FP_ASM_SPEC "\
   ((unsigned int) ((int) (REGNO) - GP_REG_FIRST) < GP_REG_NUM)
 #define M16_REG_P(REGNO) \
   (((REGNO) >= 2 && (REGNO) <= 7) || (REGNO) == 16 || (REGNO) == 17)
+#define M16LOAD_REG_P(REGNO) \
+  (((REGNO) >= 0 && (REGNO) <= 7) || ((REGNO) >= 16 && (REGNO) <= 23))
 #define M16STORE_REG_P(REGNO) \
   (((REGNO) >= 2 && (REGNO) <= 7) || (REGNO) == 0 || (REGNO) == 17)
 #define FP_REG_P(REGNO)  \
@@ -2105,6 +2107,7 @@ enum reg_class
   M16_TAIL_REGS,		/* mips sibling call registers  */
   M16_STORE_REGS,		/* microMIPS store registers  */
   M16_REGS,			/* mips16 directly accessible registers */
+  M16_LD_ST_REGS,		/* microMIPS load registers $0-$7,$16-$23 */
   M16_SP_REGS,			/* mips16 + $sp */
   T_REG,			/* mips16 T register ($24) */
   M16_T_REGS,			/* mips16 registers plus T register */
@@ -2146,6 +2149,7 @@ enum reg_class
   "M16_TAIL_REGS",							\
   "M16_STORE_REGS",							\
   "M16_REGS",								\
+  "M16_LD_ST_REGS",							\
   "M16_SP_REGS",							\
   "T_REG",								\
   "M16_T_REGS",								\
@@ -2190,6 +2194,7 @@ enum reg_class
   { 0x000000fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_TAIL_REGS */	\
   { 0x000200fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_STORE_REGS */	\
   { 0x000300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_REGS */		\
+  { 0x00ff00ff, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_LD_ST_REGS */	\
   { 0x200300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_SP_REGS */	\
   { 0x01000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* T_REG */		\
   { 0x010300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_T_REGS */	\
