@@ -1,5 +1,13 @@
 2016-06-09  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa-builtins.def (BUILT_IN_HSA_GET_WORKGROUP_ID): New.
+	(BUILT_IN_HSA_GET_WORKITEM_ID): Likewise.
+	* hsa-gen.c (gen_hsa_insns_for_call): Emit HSAIL for the above
+	builtins and for BUILT_IN_GOMP_BARRIER.  Move emiting of
+	BUILT_IN_HSA_GET_WORKITEM_ABSID up in the function.
+
+2016-06-09  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa.h (hsa_insn_br): Renamed to hsa_insn_cbr, renamed all
 	occurences in all files too.
 	(hsa_insn_br): New class, now the ancestor of hsa_incn_cbr.

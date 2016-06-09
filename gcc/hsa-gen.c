@@ -5783,6 +5783,36 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 	hbb->append_insn (atominsn);
 	break;
       }
+
+    case BUILT_IN_HSA_GET_WORKGROUP_ID:
+      {
+	hsa_op_immed *bdim = new hsa_op_immed (gimple_call_arg (stmt, 0), true);
+	if (bdim->m_type != BRIG_TYPE_U32)
+	  bdim->get_in_type (BRIG_TYPE_U32, hbb);
+	query_hsa_grid (stmt, BRIG_OPCODE_WORKGROUPID, bdim, hbb);
+	break;
+      }
+    case BUILT_IN_HSA_GET_WORKITEM_ID:
+      {
+	hsa_op_immed *bdim = new hsa_op_immed (gimple_call_arg (stmt, 0), true);
+	if (bdim->m_type != BRIG_TYPE_U32)
+	  bdim->get_in_type (BRIG_TYPE_U32, hbb);
+	query_hsa_grid (stmt, BRIG_OPCODE_WORKITEMID, bdim, hbb);
+	break;
+      }
+    case BUILT_IN_HSA_GET_WORKITEM_ABSID:
+      {
+	hsa_op_immed *bdim = new hsa_op_immed (gimple_call_arg (stmt, 0), true);
+	if (bdim->m_type != BRIG_TYPE_U32)
+	  bdim->get_in_type (BRIG_TYPE_U32, hbb);
+	query_hsa_grid (stmt, BRIG_OPCODE_WORKITEMABSID, bdim, hbb);
+	break;
+      }
+
+    case BUILT_IN_GOMP_BARRIER:
+      hbb->append_insn (new hsa_insn_br (0, BRIG_OPCODE_BARRIER, BRIG_TYPE_NONE,
+					 BRIG_WIDTH_ALL));
+      break;
     case BUILT_IN_GOMP_PARALLEL:
       {
 	gcc_checking_assert (gimple_call_num_args (stmt) == 4);
@@ -5796,14 +5826,6 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 	hsa_add_kernel_dependency (hsa_cfun->m_decl, name);
 	gen_hsa_insns_for_kernel_call (hbb, as_a <gcall *> (stmt));
 
-	break;
-      }
-    case BUILT_IN_HSA_GET_WORKITEM_ABSID:
-      {
-	hsa_op_immed *bdim = new hsa_op_immed (gimple_call_arg (stmt, 0), true);
-	if (bdim->m_type != BRIG_TYPE_U32)
-	  bdim->get_in_type (BRIG_TYPE_U32, hbb);
-	query_hsa_grid (stmt, BRIG_OPCODE_WORKITEMABSID, bdim, hbb);
 	break;
       }
     case BUILT_IN_OMP_GET_THREAD_NUM:
