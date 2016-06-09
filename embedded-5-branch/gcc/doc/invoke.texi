@@ -924,7 +924,7 @@ See RS/6000 and PowerPC Options.
 -mpointers-to-nested-functions -mno-pointers-to-nested-functions @gol
 -msave-toc-indirect -mno-save-toc-indirect @gol
 -mpower8-fusion -mno-mpower8-fusion -mpower8-vector -mno-power8-vector @gol
--mcrypto -mno-crypto -mdirect-move -mno-direct-move @gol
+-mcrypto -mno-crypto -mhtm -mno-htm -mdirect-move -mno-direct-move @gol
 -mquad-memory -mno-quad-memory @gol
 -mquad-memory-atomic -mno-quad-memory-atomic @gol
 -mcompat-align-parm -mno-compat-align-parm @gol
@@ -2119,6 +2119,9 @@ scope.
 Version 8, which first appeared in G++ 4.9, corrects the substitution
 behavior of function types with function-cv-qualifiers.
 
+Version 9, which first appeared in G++ 5.2, corrects the alignment of
+@code{nullptr_t}.
+
 See also @option{-Wabi}.
 
 @item -fabi-compat-version=@var{n}
@@ -2620,7 +2623,15 @@ When mangling a function type with function-cv-qualifiers, the
 un-qualified function type was incorrectly treated as a substitution
 candidate.
 
-This was fixed in @option{-fabi-version=8}.
+This was fixed in @option{-fabi-version=8}, the default for GCC 5.1.
+
+@item
+@code{decltype(nullptr)} incorrectly had an alignment of 1, leading to
+unaligned accesses.  Note that this did not affect the ABI of a
+function with a @code{nullptr_t} parameter, as parameters have a
+minimum alignment.
+
+This was fixed in @option{-fabi-version=9}, the default for GCC 5.2.
 @end itemize
 
 It also warns about psABI-related changes.  The known psABI changes at this
@@ -18893,7 +18904,7 @@ following options:
 -mpopcntb -mpopcntd  -mpowerpc64 @gol
 -mpowerpc-gpopt  -mpowerpc-gfxopt  -msingle-float -mdouble-float @gol
 -msimple-fpu -mstring  -mmulhw  -mdlmzb  -mmfpgpr -mvsx @gol
--mcrypto -mdirect-move -mpower8-fusion -mpower8-vector @gol
+-mcrypto -mdirect-move -mhtm -mpower8-fusion -mpower8-vector @gol
 -mquad-memory -mquad-memory-atomic}
 
 The particular options set for any particular CPU varies between
@@ -19059,6 +19070,14 @@ access to the cryptographic instructions that were added in version
 Generate code that uses (does not use) the instructions to move data
 between the general purpose registers and the vector/scalar (VSX)
 registers that were added in version 2.07 of the PowerPC ISA.
+
+@item -mhtm
+@itemx -mno-htm
+@opindex mhtm
+@opindex mno-htm
+Enable (disable) the use of the built-in functions that allow direct
+access to the Hardware Transactional Memory (HTM) instructions that
+were added in version 2.07 of the PowerPC ISA.
 
 @item -mpower8-fusion
 @itemx -mno-power8-fusion
@@ -22988,7 +23007,7 @@ useful together with @option{-mrecord-mcount}.
 @itemx -mno-skip-rax-setup
 @opindex mskip-rax-setup
 When generating code for the x86-64 architecture with SSE extensions
-disabled, @option{-skip-rax-setup} can be used to skip setting up RAX
+disabled, @option{-mskip-rax-setup} can be used to skip setting up RAX
 register when there are no variable arguments passed in vector registers.
 
 @strong{Warning:} Since RAX register is used to avoid unnecessarily

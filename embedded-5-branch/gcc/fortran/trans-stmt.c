@@ -647,7 +647,9 @@ gfc_trans_stop (gfc_code *code, bool error_stop)
 				 ? (flag_coarray == GFC_FCOARRAY_LIB
 				    ? gfor_fndecl_caf_error_stop_str
 				    : gfor_fndecl_error_stop_string)
-				 : gfor_fndecl_stop_string,
+				 : (flag_coarray == GFC_FCOARRAY_LIB
+				    ? gfor_fndecl_caf_stop_str
+				    : gfor_fndecl_stop_string),
 				 2, build_int_cst (pchar_type_node, 0), tmp);
     }
   else if (code->expr1->ts.type == BT_INTEGER)
@@ -658,7 +660,9 @@ gfc_trans_stop (gfc_code *code, bool error_stop)
 				 ? (flag_coarray == GFC_FCOARRAY_LIB
 				    ? gfor_fndecl_caf_error_stop
 				    : gfor_fndecl_error_stop_numeric)
-				 : gfor_fndecl_stop_numeric_f08, 1,
+				 : (flag_coarray == GFC_FCOARRAY_LIB
+				    ? gfor_fndecl_caf_stop_numeric
+				    : gfor_fndecl_stop_numeric_f08), 1,
 				 fold_convert (gfc_int4_type_node, se.expr));
     }
   else
@@ -669,7 +673,9 @@ gfc_trans_stop (gfc_code *code, bool error_stop)
 				 ? (flag_coarray == GFC_FCOARRAY_LIB
 				    ? gfor_fndecl_caf_error_stop_str
 				    : gfor_fndecl_error_stop_string)
-				 : gfor_fndecl_stop_string,
+				 : (flag_coarray == GFC_FCOARRAY_LIB
+				    ? gfor_fndecl_caf_stop_str
+				    : gfor_fndecl_stop_string),
 				 2, se.expr, se.string_length);
     }
 
@@ -5287,7 +5293,7 @@ gfc_trans_allocate (gfc_code * code)
   tree label_finish;
   tree memsz;
   tree al_vptr, al_len;
-  tree def_str_len = NULL_TREE;
+
   /* If an expr3 is present, then store the tree for accessing its
      _vptr, and _len components in the variables, respectively.  The
      element size, i.e. _vptr%size, is stored in expr3_esize.  Any of
@@ -5530,13 +5536,22 @@ gfc_trans_allocate (gfc_code * code)
 	  if (expr3_len == NULL_TREE
 	      && code->expr3->ts.type == BT_CHARACTER)
 	    {
+	      gfc_init_se (&se, NULL);
 	      if (code->expr3->ts.u.cl
 		  && code->expr3->ts.u.cl->length)
 		{
-		  gfc_init_se (&se, NULL);
 		  gfc_conv_expr (&se, code->expr3->ts.u.cl->length);
 		  gfc_add_block_to_block (&block, &se.pre);
 		  expr3_len = gfc_evaluate_now (se.expr, &block);
+		}
+	      else
+		{
+		  /* The string_length is not set in the symbol, which prevents
+		     it being set in the ts.  Deduce it by converting expr3.  */
+		  gfc_conv_expr (&se, code->expr3);
+		  gfc_add_block_to_block (&block, &se.pre);
+		  gcc_assert (se.string_length);
+		  expr3_len = gfc_evaluate_now (se.string_length, &block);
 		}
 	      gcc_assert (expr3_len);
 	    }
@@ -5639,7 +5654,6 @@ gfc_trans_allocate (gfc_code * code)
 	  expr3_esize = fold_build2_loc (input_location, MULT_EXPR,
 					 TREE_TYPE (se_sz.expr),
 					 tmp, se_sz.expr);
-	  def_str_len = gfc_evaluate_now (se_sz.expr, &block);
 	}
     }
 
@@ -5691,16 +5705,6 @@ gfc_trans_allocate (gfc_code * code)
 
       se.want_pointer = 1;
       se.descriptor_only = 1;
-
-      if (expr->ts.type == BT_CHARACTER
-	  && expr->ts.deferred
-	  && TREE_CODE (expr->ts.u.cl->backend_decl) == VAR_DECL
-	  && def_str_len != NULL_TREE)
-	{
-	  tmp = expr->ts.u.cl->backend_decl;
-	  gfc_add_modify (&block, tmp,
-			  fold_convert (TREE_TYPE (tmp), def_str_len));
-	}
 
       gfc_conv_expr (&se, expr);
       if (expr->ts.type == BT_CHARACTER && expr->ts.deferred)
@@ -5833,6 +5837,20 @@ gfc_trans_allocate (gfc_code * code)
 	      gfc_add_modify (&block, al_len,
 			      fold_convert (TREE_TYPE (al_len), expr3_len));
 	      /* Prevent setting the length twice.  */
+	      al_len_needs_set = false;
+	    }
+	  else if (expr->ts.type == BT_CHARACTER && al_len != NULL_TREE
+		   && code->ext.alloc.ts.u.cl->length)
+	    {
+	      /* Cover the cases where a string length is explicitly
+		 specified by a type spec for deferred length character
+		 arrays or unlimited polymorphic objects without a
+		 source= or mold= expression.  */
+	      gfc_init_se (&se_sz, NULL);
+	      gfc_conv_expr (&se_sz, code->ext.alloc.ts.u.cl->length);
+	      gfc_add_modify (&block, al_len,
+			      fold_convert (TREE_TYPE (al_len),
+					    se_sz.expr));
 	      al_len_needs_set = false;
 	    }
 	}

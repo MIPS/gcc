@@ -1,6 +1,51 @@
+2016-06-03  Release Manager
+
+	* GCC 5.4.0 released.
+
+2016-05-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* s-osinte-kfreebsd-gnu.ads (clock_getres): Define.
+
+2016-05-31  Jan Sommer  <soja-lists@aries.uberspace.de>
+
+	PR ada/71317
+	* s-osinte-rtems.ads (clock_getres): Define.
+
+2016-05-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/70969
+	* system-darwin-ppc64.ads: Add pragma No_Elaboration_Code_All.
+	* system-linux-armeb.ads: Likewise.
+	* system-linux-mips64el.ads: Likewise.
+	* system-linux-mips.ads: Likewise.
+	* system-linux-mipsel.ads: Likewise.
+	* system-linux-ppc64.ads: Likewise.
+	* system-linux-sparcv9.ads: Likewise.
+	* system-rtems.ads: Likewise.
+
+2016-05-02  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc-interface/Makefile.in (install-gcc-specs): Use foreach.
+	Honor DESTDIR.
+
+2016-04-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/70786
+	* a-textio.adb (Get_Immediate): Add missing 'not' in expression.
+
+2016-04-02  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (components_to_record): Restrict the previous
+	change to fields with variable size.
+
+2016-03-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (components_to_record): Add special case for
+	single field with representation clause at offset 0.
+
 2016-02-17  Eric Botcazou  <ebotcazou@adacore.com>
 
-	* exp_ch4.adb (Expand_N_Indexed_Component): Active synchronization if
+	* exp_ch4.adb (Expand_N_Indexed_Component): Activate synchronization if
 	the prefix denotes an entity which Has_Atomic_Components.
 
 2016-02-16  Eric Botcazou  <ebotcazou@adacore.com>

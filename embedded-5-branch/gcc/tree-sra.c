@@ -1589,7 +1589,7 @@ build_ref_for_offset (location_t loc, tree base, HOST_WIDE_INT offset,
     }
   else
     {
-      off = build_int_cst (reference_alias_ptr_type (base),
+      off = build_int_cst (reference_alias_ptr_type (prev_base),
 			   base_offset + offset / BITS_PER_UNIT);
       base = build_fold_addr_expr (unshare_expr (base));
     }
@@ -4609,6 +4609,8 @@ replace_removed_params_ssa_names (tree old_name, gimple stmt,
 
   repl = get_replaced_param_substitute (adj);
   new_name = make_ssa_name (repl, stmt);
+  SSA_NAME_OCCURS_IN_ABNORMAL_PHI (new_name)
+    = SSA_NAME_OCCURS_IN_ABNORMAL_PHI (old_name);
 
   if (dump_file)
     {
