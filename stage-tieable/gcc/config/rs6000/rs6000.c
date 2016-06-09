@@ -381,6 +381,9 @@ bool cpu_builtin_p;
    don't link in rs6000-c.c, so we can't call it directly.  */
 void (*rs6000_target_modify_macros_ptr) (bool, HOST_WIDE_INT, HOST_WIDE_INT);
 
+/* Simplify MODES_TIEABLE_P classification.  */
+rs6000_tieable_type rs6000_tieable[NUM_MACHINE_MODES];
+
 /* Simplfy register classes into simpler classifications.  We assume
    GPR_REG_TYPE - FPR_REG_TYPE are ordered so that we can use a simple range
    check for standard register classes (gpr/floating/altivec/vsx) and
@@ -2161,11 +2164,25 @@ rs6000_debug_print_mode (ssize_t m)
   ssize_t rc;
   int spaces = 0;
   bool fuse_extra_p;
+  const char *tstr;
+
+  switch (rs6000_tieable[m])
+    {
+    case TIEABLE_NORMAL: tstr = "norm"; break;
+    case TIEABLE_PTI:    tstr = "pti";  break;
+    case TIEABLE_VECTOR: tstr = "vect"; break;
+    case TIEABLE_FP:     tstr = "fp";   break;
+    case TIEABLE_SPE:	 tstr = "spe";  break;
+    case TIEABLE_CC:     tstr = "cc";   break;
+    default:             tstr = "bad";  break;
+    }
 
   fprintf (stderr, "Mode: %-5s", GET_MODE_NAME (m));
   for (rc = 0; rc < N_RELOAD_REG; rc++)
     fprintf (stderr, " %s: %s", reload_reg_map[rc].name,
 	     rs6000_debug_addr_mask (reg_addr[m].addr_mask[rc], true));
+
+  fprintf (stderr, " Tie: %-4s", tstr);
 
   if ((reg_addr[m].reload_store != CODE_FOR_nothing)
       || (reg_addr[m].reload_load != CODE_FOR_nothing))
@@ -2281,9 +2298,8 @@ static void
 rs6000_debug_reg_global (void)
 {
   static const char *const tf[2] = { "false", "true" };
-  const char *nl = (const char *)0;
   int m;
-  size_t m1, m2, v;
+  size_t v;
   char costly_num[20];
   char nop_num[20];
   char flags_buffer[40];
@@ -2293,45 +2309,6 @@ rs6000_debug_reg_global (void)
   const char *abi_str;
   const char *cmodel_str;
   struct cl_target_option cl_opts;
-
-  /* Modes we want tieable information on.  */
-  static const machine_mode print_tieable_modes[] = {
-    QImode,
-    HImode,
-    SImode,
-    DImode,
-    TImode,
-    PTImode,
-    SFmode,
-    DFmode,
-    TFmode,
-    IFmode,
-    KFmode,
-    SDmode,
-    DDmode,
-    TDmode,
-    V8QImode,
-    V4HImode,
-    V2SImode,
-    V16QImode,
-    V8HImode,
-    V4SImode,
-    V2DImode,
-    V1TImode,
-    V32QImode,
-    V16HImode,
-    V8SImode,
-    V4DImode,
-    V2TImode,
-    V2SFmode,
-    V4SFmode,
-    V2DFmode,
-    V8SFmode,
-    V4DFmode,
-    CCmode,
-    CCUNSmode,
-    CCEQmode,
-  };
 
   /* Virtual regs we are interested in.  */
   const static struct {
@@ -2433,40 +2410,10 @@ rs6000_debug_reg_global (void)
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wy]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wz]]);
 
-  nl = "\n";
   for (m = 0; m < NUM_MACHINE_MODES; ++m)
     rs6000_debug_print_mode (m);
 
   fputs ("\n", stderr);
-
-  for (m1 = 0; m1 < ARRAY_SIZE (print_tieable_modes); m1++)
-    {
-      machine_mode mode1 = print_tieable_modes[m1];
-      bool first_time = true;
-
-      nl = (const char *)0;
-      for (m2 = 0; m2 < ARRAY_SIZE (print_tieable_modes); m2++)
-	{
-	  machine_mode mode2 = print_tieable_modes[m2];
-	  if (mode1 != mode2 && MODES_TIEABLE_P (mode1, mode2))
-	    {
-	      if (first_time)
-		{
-		  fprintf (stderr, "Tieable modes %s:", GET_MODE_NAME (mode1));
-		  nl = "\n";
-		  first_time = false;
-		}
-
-	      fprintf (stderr, " %s", GET_MODE_NAME (mode2));
-	    }
-	}
-
-      if (!first_time)
-	fputs ("\n", stderr);
-    }
-
-  if (nl)
-    fputs (nl, stderr);
 
   if (rs6000_recip_control)
     {
@@ -3553,6 +3500,49 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
      legitimate address support to figure out the appropriate addressing to
      use.  */
   rs6000_setup_reg_addr_masks ();
+
+  /* Precalculate the classifications for MODES_TIEABLE_P.
+
+     Value is 1 if it is a good idea to tie two pseudo registers when one has
+     mode MODE1 and one has mode MODE2.  If HARD_REGNO_MODE_OK could produce
+     different values for MODE1 and MODE2, for any hard reg, then this must be
+     0 for correct output.
+
+     PTImode cannot tie with other modes because PTImode is restricted to even
+     GPR registers, and TImode can go in any GPR as well as VSX registers (PR
+     57744).
+
+     Altivec/VSX vector tests were moved ahead of scalar float mode, so that
+     IEEE 128-bit floating point on VSX systems ties with other vectors.
+
+     SPE vectors don't tie with anything else, due to the GPR size being
+     different.  */
+
+  for (m = 0; m < NUM_MACHINE_MODES; ++m)
+    {
+      machine_mode m2 = (machine_mode)m;
+      rs6000_tieable_type tieable;
+
+      if (m2 == PTImode)
+	tieable = TIEABLE_PTI;
+
+      else if (ALTIVEC_OR_VSX_VECTOR_MODE (m2))
+	tieable = TIEABLE_VECTOR;
+
+      else if (SCALAR_FLOAT_MODE_P (m2) && TARGET_HARD_FLOAT && TARGET_FPRS)
+	tieable = TIEABLE_FP;
+
+      else if (SPE_VECTOR_MODE (m2))
+	tieable = TIEABLE_SPE;
+
+      else if (GET_MODE_CLASS (m2) == MODE_CC)
+	tieable = TIEABLE_CC;
+
+      else
+	tieable = TIEABLE_NORMAL;
+
+      rs6000_tieable[m] = tieable;
+    }
 
   if (global_init_p || TARGET_DEBUG_TARGET)
     {
