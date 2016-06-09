@@ -794,8 +794,8 @@ get_symbol_for_decl (tree decl)
 
   dummy.m_decl = decl;
 
-  bool is_in_global_vars
-    = TREE_CODE (decl) == VAR_DECL && is_global_var (decl);
+  bool is_in_global_vars = ((TREE_CODE (decl) == VAR_DECL)
+			    && !decl_function_context (decl));
 
   if (is_in_global_vars)
     slot = hsa_global_variable_symbols->find_slot (&dummy, INSERT);
@@ -861,8 +861,17 @@ get_symbol_for_decl (tree decl)
 	  /* PARM_DECL and RESULT_DECL should be already in m_local_symbols.  */
 	  gcc_assert (TREE_CODE (decl) == VAR_DECL);
 
-	  sym = new hsa_symbol (BRIG_TYPE_NONE, BRIG_SEGMENT_PRIVATE,
-				BRIG_LINKAGE_FUNCTION);
+	  BrigSegment8_t segment;
+	  if (lookup_attribute ("hsa_group_segment", DECL_ATTRIBUTES (decl)))
+	    segment = BRIG_SEGMENT_GROUP;
+	  else if (TREE_STATIC (decl)
+		   || lookup_attribute ("hsa_global_segment",
+					DECL_ATTRIBUTES (decl)))
+	    segment = BRIG_SEGMENT_GLOBAL;
+	  else
+	    segment = BRIG_SEGMENT_PRIVATE;
+
+	  sym = new hsa_symbol (BRIG_TYPE_NONE, segment, BRIG_LINKAGE_FUNCTION);
 	  sym->m_align = align;
 	  sym->fillup_for_decl (decl);
 	  hsa_cfun->m_private_variables.safe_push (sym);
