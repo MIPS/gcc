@@ -1,3 +1,10 @@
+2016-06-10  Thomas Schwinge  <thomas@codesourcery.com>
+
+	Backport trunk r235802:
+	2016-05-03  Marek Polacek  <polacek@redhat.com>
+
+	* c-common.h (enum c_omp_region_type): Remove stray comma.
+
 2016-05-09  Cesar Philippidis  <cesar@codesourcery.com>
 
 	Backport trunk r235651:
