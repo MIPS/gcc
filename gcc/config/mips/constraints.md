@@ -383,6 +383,15 @@
   (and (match_code "const_vector")
        (match_test "mips_const_vector_same_bytes_p (op, mode)")))
 
+(define_memory_constraint "ZB"
+  "@internal
+  A memory address suitable for a load/store from/to FPR."
+  (and (match_code "mem")
+       (match_test "mips_legitimate_address_p (mode, XEXP (op, 0), 1)")
+       (not (and (match_test "GET_CODE (XEXP (op, 0)) == PLUS")
+		 (ior (match_test "mips_index_address_p (XEXP (op, 0), mode)")
+		      (match_test "mips_index_scaled_address_p (XEXP (op, 0), mode)"))))))
+
 (define_memory_constraint "ZC"
   "A memory operand whose address is formed by a base register and offset
    that is suitable for use in instructions with the same addressing mode

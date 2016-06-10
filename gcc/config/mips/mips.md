@@ -3602,10 +3602,18 @@
         (zero_extend:GPR
 	     (match_operand:SHORT 1 "nonimmediate_operand" "!u,d,m")))]
   "!TARGET_MIPS16"
-  "@
-   andi\t%0,%1,<SHORT:mask>
-   andi\t%0,%1,<SHORT:mask>
-   l<SHORT:size>u\t%0,%1"
+{
+  switch (which_alternative)
+    {
+    case 0: return "andi\t%0,%1,<SHORT:mask>";
+    case 1: return "andi\t%0,%1,<SHORT:mask>";
+    case 2: return mips_index_address_p (XEXP (operands[1], 0), <MODE>mode)
+		   ? "l<SHORT:size>ux\t%0,%1"
+		   : "l<SHORT:size>u\t%0,%1";
+    default:
+      gcc_unreachable ();
+    }
+}
   [(set_attr "move_type" "andi,andi,load")
    (set_attr "compression" "micromips,*,*")
    (set_attr "mode" "<GPR:MODE>")])
@@ -3644,9 +3652,17 @@
   [(set (match_operand:HI 0 "register_operand" "=d,d")
         (zero_extend:HI (match_operand:QI 1 "nonimmediate_operand" "d,m")))]
   "!TARGET_MIPS16"
-  "@
-   andi\t%0,%1,0x00ff
-   lbu\t%0,%1"
+{
+  switch (which_alternative)
+    {
+    case 0: return "andi\t%0,%1,0x00ff";
+    case 1: return mips_index_address_p (XEXP (operands[1], 0), QImode)
+		   ? "lbux\t%0,%1"
+		   : "lbu\t%0,%1";
+    default:
+      gcc_unreachable ();
+    }
+}
   [(set_attr "move_type" "andi,load")
    (set_attr "mode" "HI")])
 
@@ -3760,9 +3776,16 @@
         (sign_extend:GPR
 	     (match_operand:SHORT 1 "nonimmediate_operand" "d,m")))]
   "ISA_HAS_SEB_SEH"
-  "@
-   se<SHORT:size>\t%0,%1
-   l<SHORT:size>\t%0,%1"
+{
+  if (which_alternative == 0)
+    return "se<SHORT:size>\t%0,%1";
+  else if (mips_index_address_p (XEXP (operands[1], 0), <MODE>mode))
+    return "l<SHORT:size>x\t%0,%1";
+  else if (mips_index_scaled_address_p (XEXP (operands[1], 0), <MODE>mode))
+    return "l<SHORT:size>xs\t%0,%1";
+  else
+    return "l<SHORT:size>\t%0,%1";
+}
   [(set_attr "move_type" "signext,load")
    (set_attr "mode" "<GPR:MODE>")])
 
@@ -3806,9 +3829,17 @@
         (sign_extend:HI
 	     (match_operand:QI 1 "nonimmediate_operand" "d,m")))]
   "ISA_HAS_SEB_SEH"
-  "@
-   seb\t%0,%1
-   lb\t%0,%1"
+{
+  switch (which_alternative)
+    {
+    case 0: return "seb\t%0,%1";
+    case 1: return mips_index_address_p (XEXP (operands[1], 0), QImode)
+		   ? "lbx\t%0,%1"
+		   : "lb\t%0,%1";
+    default:
+      gcc_unreachable ();
+    }
+}
   [(set_attr "move_type" "signext,load")
    (set_attr "mode" "SI")])
 
@@ -4954,8 +4985,8 @@
 ;; in FP registers (off by default, use -mdebugh to enable).
 
 (define_insn "*mov<mode>_internal"
-  [(set (match_operand:IMOVE32 0 "nonimmediate_operand" "=d,!u,!u,d,e,!u,!ks,d,ZS,ZT,m,*f,*f,*d,*m,*d,*z,*a,*d,*B*C*D,*B*C*D,*d,*m,kd,ZY")
-	(match_operand:IMOVE32 1 "move_operand" "d,J,Udb7,Yd,Yf,ZT,ZS,m,!ks,!kbJ,dJ,*d*J,*m,*f,*f,*z,*d,*J*d,*a,*d,*m,*B*C*D,*B*C*D,ZY,kd"))]
+  [(set (match_operand:IMOVE32 0 "nonimmediate_operand" "=d,!u,!u,d,e,!u,!ks,d,ZS,ZT,m,*f,*f,*d,*ZB,*d,*z,*a,*d,*B*C*D,*B*C*D,*d,*m,kd,ZY")
+	(match_operand:IMOVE32 1 "move_operand" "d,J,Udb7,Yd,Yf,ZT,ZS,m,!ks,!kbJ,dJ,*d*J,*ZB,*f,*f,*z,*d,*J*d,*a,*d,*m,*B*C*D,*B*C*D,ZY,kd"))]
   "!TARGET_MIPS16
    && (register_operand (operands[0], <MODE>mode)
        || reg_or_0_operand (operands[1], <MODE>mode))"
@@ -5085,6 +5116,17 @@
 		  (match_operand:P 2 "register_operand" "d"))))]
   "ISA_HAS_LWXS"
   "lwxs\t%0,%1(%2)"
+  [(set_attr "type"	"load")
+   (set_attr "mode"	"SI")])
+
+(define_insn "*swxs"
+  [(set	(mem:IMOVE32
+	  (plus:P (mult:P (match_operand:P 0 "register_operand" "d")
+			  (const_int 4))
+		  (match_operand:P 1 "register_operand" "d")))
+	(match_operand:IMOVE32 2 "register_operand" "=d"))]
+  "ISA_HAS_SWXS"
+  "swxs\t%2,%0(%1)"
   [(set_attr "type"	"load")
    (set_attr "mode"	"SI")])
 
@@ -5247,8 +5289,8 @@
   [(set_attr "move_type" "fmove,fpload,fpstore")])
 
 (define_insn "*movsf_hardfloat"
-  [(set (match_operand:SF 0 "nonimmediate_operand" "=f,f,f,m,m,*f,*d,*d,*d,*m")
-	(match_operand:SF 1 "move_operand" "f,G,m,f,G,*d,*f,*G*d,*m,*d"))]
+  [(set (match_operand:SF 0 "nonimmediate_operand" "=f,f,f,ZB,m,*f,*d,*d,*d,*m")
+	(match_operand:SF 1 "move_operand" "f,G,ZB,f,G,*d,*f,*G*d,*m,*d"))]
   "TARGET_HARD_FLOAT
    && (register_operand (operands[0], SFmode)
        || reg_or_0_operand (operands[1], SFmode))"
@@ -5288,8 +5330,8 @@
 })
 
 (define_insn "*movdf_hardfloat"
-  [(set (match_operand:DF 0 "nonimmediate_operand" "=f,f,f,m,m,*f,*d,*d,*d,*m")
-	(match_operand:DF 1 "move_operand" "f,G,m,f,G,*d,*f,*d*G,*m,*d"))]
+  [(set (match_operand:DF 0 "nonimmediate_operand" "=f,f,f,ZB,m,*f,*d,*d,*d,*m")
+	(match_operand:DF 1 "move_operand" "f,G,ZB,f,G,*d,*f,*d*G,*m,*d"))]
   "TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT
    && (register_operand (operands[0], DFmode)
        || reg_or_0_operand (operands[1], DFmode))"
