@@ -1,3 +1,7 @@
+2016-06-10  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c++/template-reduction.C: Remove XFAIL.
+
 2016-06-08  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	Backport from trunk r237070:

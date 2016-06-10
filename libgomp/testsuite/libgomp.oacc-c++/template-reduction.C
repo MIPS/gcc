@@ -1,7 +1,3 @@
-// TODO: async_sum is currently failing on nvptx.
-
-// { dg-xfail-run-if "TODO" { openacc_nvidia_accel_selected } }
-
 const int n = 100;
 
 // Check explicit template copy map
