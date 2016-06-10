@@ -571,3 +571,9 @@ Target Undocumented Var(TARGET_ADD_NEW_MOVEP23) Init(0)
 
 madd-movep-reversed
 Target Undocumented Var(TARGET_ADD_MOVEP_REVERSED) Init(0)
+
+madd-ldst-xs
+Target Undocumented Var(TARGET_ADD_LDST_XS) Init(0)
+
+madd-ldst-x
+Target Undocumented Var(TARGET_ADD_LDST_X) Init(0)
