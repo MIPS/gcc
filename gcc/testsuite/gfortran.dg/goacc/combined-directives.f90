@@ -162,6 +162,7 @@ end subroutine test
 ! { dg-final { scan-tree-dump-times "acc loop private.i. private.j. vector" 2 "gimple" { xfail *-*-* } } }
 ! { dg-final { scan-tree-dump-times "acc loop private.i. private.j. seq" 2 "gimple" { xfail *-*-* } } }
 ! { dg-final { scan-tree-dump-times "acc loop private.i. private.j. auto" 2 "gimple" { xfail *-*-* } } }
+! XFAILed: OpenACC tile clauses are discarded during gimplification.
 ! { dg-final { scan-tree-dump-times "acc loop private.i. private.j. tile.2, 3" 2 "gimple" { xfail *-*-* } } }
 ! { dg-final { scan-tree-dump-times "acc loop private.i. independent" 2 "gimple" { xfail *-*-* } } }
 ! { dg-final { scan-tree-dump-times "private.z" 2 "gimple" } }
