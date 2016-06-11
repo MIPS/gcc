@@ -1096,6 +1096,8 @@ uptr GetPageSize() {
   return EXEC_PAGESIZE;
 #elif SANITIZER_USE_GETAUXVAL
   return getauxval(AT_PAGESZ);
+#elif defined(__mips__) && SANITIZER_UCLIBC
+  return 4096;
 #else
   return sysconf(_SC_PAGESIZE);  // EXEC_PAGESIZE may not be trustworthy.
 #endif
