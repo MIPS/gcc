@@ -34,7 +34,7 @@ void *GetFuncAddrVer(const char *func_name, const char *ver);
       (::__interception::uptr) & WRAP(func))
 
 // Android,  Solaris and OpenBSD do not have dlvsym
-#if !SANITIZER_ANDROID && !SANITIZER_SOLARIS && !SANITIZER_OPENBSD
+#if !SANITIZER_ANDROID && !SANITIZER_SOLARIS && !SANITIZER_OPENBSD && !SANITIZER_UCLIBC
 #define INTERCEPT_FUNCTION_VER_LINUX_OR_FREEBSD(func, symver) \
   (::__interception::real_##func = (func##_type)(                \
        unsigned long)::__interception::GetFuncAddrVer(#func, symver))
