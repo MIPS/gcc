@@ -25,7 +25,7 @@ const char *SecondaryAllocatorName = "LargeMmapAllocator";
 
 // ThreadSanitizer for Go uses libc malloc/free.
 #if SANITIZER_GO || defined(SANITIZER_USE_MALLOC)
-# if SANITIZER_LINUX && !SANITIZER_ANDROID
+# if SANITIZER_LINUX && !SANITIZER_ANDROID && !SANITIZER_UCLIBC
 extern "C" void *__libc_malloc(uptr size);
 #  if !SANITIZER_GO
 extern "C" void *__libc_memalign(uptr alignment, uptr size);

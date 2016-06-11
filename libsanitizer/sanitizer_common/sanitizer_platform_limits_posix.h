@@ -85,10 +85,14 @@ namespace __sanitizer {
   const unsigned struct_kernel_stat_sz = 144;
   const unsigned struct_kernel_stat64_sz = 104;
 #elif defined(__mips__)
+  #ifdef __UCLIBC__ /* 32-bit only */
+  const unsigned struct_kernel_stat_sz = 152;
+  #else
   const unsigned struct_kernel_stat_sz =
                  SANITIZER_ANDROID ? FIRST_32_SECOND_64(104, 128) :
                                      FIRST_32_SECOND_64(144, 216);
   const unsigned struct_kernel_stat64_sz = 104;
+  #endif
 #elif defined(__s390__) && !defined(__s390x__)
   const unsigned struct_kernel_stat_sz = 64;
   const unsigned struct_kernel_stat64_sz = 104;
@@ -593,6 +597,11 @@ namespace __sanitizer {
 # endif
 #elif SANITIZER_MAC
   typedef unsigned __sanitizer_sigset_t;
+#elif SANITIZER_UCLIBC
+  struct __sanitizer_sigset_t {
+    // The size is determined by looking at sizeof of real sigset_t on linux.
+    uptr val[128 / (sizeof(unsigned long) * 8)];
+  };
 #elif SANITIZER_LINUX
   struct __sanitizer_sigset_t {
     // The size is determined by looking at sizeof of real sigset_t on linux.
@@ -683,7 +692,7 @@ namespace __sanitizer {
 #if SANITIZER_LINUX
     void (*sa_restorer)();
 #endif
-#if defined(__mips__) && (SANITIZER_WORDSIZE == 32)
+#if defined(__mips__) && (SANITIZER_WORDSIZE == 32) && !SANITIZER_UCLIBC
     int sa_resv[1];
 #endif
 #if defined(__s390x__)

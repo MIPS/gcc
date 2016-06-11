@@ -61,7 +61,9 @@
 #include <malloc.h>
 #include <mntent.h>
 #include <netinet/ether.h>
+#if !SANITIZER_UCLIBC //for redefine
 #include <sys/sysinfo.h>
+#endif
 #include <sys/vt.h>
 #include <linux/cdrom.h>
 #include <linux/fd.h>
@@ -131,7 +133,9 @@ typedef struct user_fpregs elf_fpregset_t;
 #if !SANITIZER_ANDROID
 #include <ifaddrs.h>
 #include <sys/ucontext.h>
+#if !SANITIZER_UCLIBC
 #include <wordexp.h>
+#endif
 #endif
 
 #if SANITIZER_LINUX && !SANITIZER_ANDROID
@@ -141,7 +145,9 @@ typedef struct user_fpregs elf_fpregset_t;
 #include <net/if_ppp.h>
 #include <netax25/ax25.h>
 #include <netipx/ipx.h>
+#if !SANITIZER_UCLIBC
 #include <netrom/netrom.h>
+#endif
 #if HAVE_RPC_XDR_H
 # include <rpc/xdr.h>
 #elif HAVE_TIRPC_RPC_XDR_H
@@ -478,7 +484,9 @@ unsigned struct_ElfW_Phdr_sz = sizeof(Elf_Phdr);
   unsigned struct_kbkeycode_sz = sizeof(struct kbkeycode);
   unsigned struct_kbsentry_sz = sizeof(struct kbsentry);
   unsigned struct_mtconfiginfo_sz = sizeof(struct mtconfiginfo);
+#if !SANITIZER_UCLIBC
   unsigned struct_nr_parms_struct_sz = sizeof(struct nr_parms_struct);
+#endif
   unsigned struct_scc_modem_sz = sizeof(struct scc_modem);
   unsigned struct_scc_stat_sz = sizeof(struct scc_stat);
   unsigned struct_serial_multiport_struct_sz
@@ -850,7 +858,11 @@ unsigned struct_ElfW_Phdr_sz = sizeof(Elf_Phdr);
   unsigned IOCTL_EQL_SETSLAVECFG = EQL_SETSLAVECFG;
 #if EV_VERSION > (0x010000)
   unsigned IOCTL_EVIOCGKEYCODE_V2 = EVIOCGKEYCODE_V2;
+#if !SANITIZER_UCLIBC
   unsigned IOCTL_EVIOCGPROP = EVIOCGPROP(0);
+#else
+  unsigned IOCTL_EVIOCGPROP = IOCTL_NOT_PRESENT;
+#endif
   unsigned IOCTL_EVIOCSKEYCODE_V2 = EVIOCSKEYCODE_V2;
 #else
   unsigned IOCTL_EVIOCGKEYCODE_V2 = IOCTL_NOT_PRESENT;
@@ -913,10 +925,12 @@ unsigned struct_ElfW_Phdr_sz = sizeof(Elf_Phdr);
   unsigned IOCTL_SIOCAX25SETPARMS = SIOCAX25SETPARMS;
   unsigned IOCTL_SIOCDEVPLIP = SIOCDEVPLIP;
   unsigned IOCTL_SIOCIPXCFGDATA = SIOCIPXCFGDATA;
+#if !SANITIZER_UCLIBC
   unsigned IOCTL_SIOCNRDECOBS = SIOCNRDECOBS;
   unsigned IOCTL_SIOCNRGETPARMS = SIOCNRGETPARMS;
   unsigned IOCTL_SIOCNRRTCTL = SIOCNRRTCTL;
   unsigned IOCTL_SIOCNRSETPARMS = SIOCNRSETPARMS;
+#endif
   unsigned IOCTL_TIOCGSERIAL = TIOCGSERIAL;
   unsigned IOCTL_TIOCSERGETMULTI = TIOCSERGETMULTI;
   unsigned IOCTL_TIOCSERSETMULTI = TIOCSERSETMULTI;
@@ -987,7 +1001,7 @@ CHECK_SIZE_AND_OFFSET(dl_phdr_info, dlpi_phdr);
 CHECK_SIZE_AND_OFFSET(dl_phdr_info, dlpi_phnum);
 #endif // SANITIZER_LINUX || SANITIZER_FREEBSD
 
-#if (SANITIZER_LINUX || SANITIZER_FREEBSD) && !SANITIZER_ANDROID
+#if (SANITIZER_LINUX || SANITIZER_FREEBSD) && !SANITIZER_ANDROID && !SANITIZER_UCLIBC
 CHECK_TYPE_SIZE(glob_t);
 CHECK_SIZE_AND_OFFSET(glob_t, gl_pathc);
 CHECK_SIZE_AND_OFFSET(glob_t, gl_pathv);
@@ -1111,7 +1125,7 @@ CHECK_TYPE_SIZE(__kernel_loff_t);
 CHECK_TYPE_SIZE(__kernel_fd_set);
 #endif
 
-#if !SANITIZER_ANDROID
+#if !SANITIZER_ANDROID && !SANITIZER_UCLIBC
 CHECK_TYPE_SIZE(wordexp_t);
 CHECK_SIZE_AND_OFFSET(wordexp_t, we_wordc);
 CHECK_SIZE_AND_OFFSET(wordexp_t, we_wordv);
@@ -1255,7 +1269,7 @@ COMPILER_CHECK(__sanitizer_XDR_DECODE == XDR_DECODE);
 COMPILER_CHECK(__sanitizer_XDR_FREE == XDR_FREE);
 #endif
 
-#if SANITIZER_LINUX && !SANITIZER_ANDROID
+#if SANITIZER_LINUX && !SANITIZER_ANDROID && !SANITIZER_UCLIBC
 COMPILER_CHECK(sizeof(__sanitizer_FILE) <= sizeof(FILE));
 CHECK_SIZE_AND_OFFSET(FILE, _flags);
 CHECK_SIZE_AND_OFFSET(FILE, _IO_read_ptr);
