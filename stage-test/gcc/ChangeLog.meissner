@@ -1,3 +1,12 @@
+2016-06-12  Michael Meissner  <meissner@the-meissners.org>
+
+	* config/rs6000/vsx.md (vsx_extract_<mode>): Combine both sets of
+	insns to help with constant vec_select of 64-bit into a single
+	insn.  Restrict VSX registers to FPR registers, due to reload
+	issues.
+	(vsx_extract_<mode>1): Likewise.
+	(vsx_extract_<mode>2): Likewise.
+
 2016-06-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (xxspltib_constant_p): Keep mode check,
