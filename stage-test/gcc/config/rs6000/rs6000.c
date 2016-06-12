@@ -6312,6 +6312,9 @@ xxspltib_constant_p (rtx op,
   if (mode == VOIDmode)
     mode = GET_MODE (op);
 
+  else if (mode != GET_MODE (op) && GET_MODE (op) != VOIDmode)
+    return false;
+
   /* Handle (vec_duplicate <constant>).  */
   if (GET_CODE (op) == VEC_DUPLICATE)
     {
@@ -8548,16 +8551,14 @@ rs6000_legitimize_reload_address (rtx x, machine_mode mode,
 {
   bool reg_offset_p = reg_offset_addressing_ok_p (mode);
 
-  /* Nasty hack for vsx_splat_v2df/v2di load from mem, which takes a
-     DFmode/DImode MEM.  Ditto for ISA 3.0 vsx_splat_v4sf/v4si.  */
+  /* Assume that if the size of the mode != operand mode that we have a load
+     splat, load with conversion, or a store of vector element, don't use
+     offsetable addressing, since most of these instruction are only
+     REG+REG.  */
   if (reg_offset_p
       && opnum == 1
-      && ((mode == DFmode && recog_data.operand_mode[0] == V2DFmode)
-	  || (mode == DImode && recog_data.operand_mode[0] == V2DImode)
-	  || (mode == SFmode && recog_data.operand_mode[0] == V4SFmode
-	      && TARGET_P9_VECTOR)
-	  || (mode == SImode && recog_data.operand_mode[0] == V4SImode
-	      && TARGET_P9_VECTOR)))
+      && recog_data.operand_mode[0] != VOIDmode
+      && GET_MODE_SIZE (mode) != GET_MODE_SIZE (recog_data.operand_mode[0]))
     reg_offset_p = false;
 
   /* We must recognize output that we have already generated ourselves.  */
