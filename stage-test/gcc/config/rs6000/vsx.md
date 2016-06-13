@@ -2103,15 +2103,15 @@
 
 (define_insn "vsx_extract_<mode>"
   [(set (match_operand:<VS_scalar> 0 "gpc_reg_operand"
-            "=0, d,     wm,      wo,    d")
+            "=d,     wm,      wo,    d")
 
 	(vec_select:<VS_scalar>
 	 (match_operand:VSX_D 1 "gpc_reg_operand"
-            "d,  <VSa>, <VSa>,  <VSa>,  <VSa>")
+            "<VSa>, <VSa>,  <VSa>,  <VSa>")
 
 	 (parallel
 	  [(match_operand:QI 2 "const_0_to_1_operand"
-            "wD, wD,    wD,     wL,     n")])))]
+            "wD,    wD,     wL,     n")])))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
 {
   int element = INTVAL (operands[2]);
@@ -2157,7 +2157,7 @@
   else
     gcc_unreachable ();
 }
-  [(set_attr "type" "integer,vecsimple,mftgpr,mftgpr,vecperm")])
+  [(set_attr "type" "vecsimple,mftgpr,mftgpr,vecperm")])
 
 ;; Optimize extracting a single scalar element from memory if the scalar is in
 ;; the correct location to use a single load.
