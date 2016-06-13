@@ -469,10 +469,6 @@ mlong-double-
 Target RejectNegative Joined UInteger Var(rs6000_long_double_type_size) Save
 -mlong-double-<n>	Specify size of long double (64 or 128 bits).
 
-mno-lra
-Target Report RejectNegative Mask(NO_LRA) Var(rs6000_isa_flags)
-Use the old reload register allocator instead of the LRA register allocator.
-
 mlra
 Target Report Mask(LRA) Var(rs6000_isa_flags)
 Enable Local Register Allocation.
@@ -600,6 +596,10 @@ Allow float variables in upper registers with -mcpu=power8 or -mpower8-vector.
 mupper-regs
 Target Report Var(TARGET_UPPER_REGS) Init(-1) Save
 Allow float/double variables in upper registers if cpu allows it.
+
+mupper-regs-di
+Target Report Mask(UPPER_REGS_DI) Var(rs6000_isa_flags)
+Allow 64-bit integer variables in upper registers with -mcpu=power7 or -mvsx.
 
 moptimize-swaps
 Target Undocumented Var(rs6000_optimize_swaps) Init(1) Save
