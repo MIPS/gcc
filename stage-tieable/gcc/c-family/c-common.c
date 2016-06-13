@@ -9040,10 +9040,14 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
 
   /* If no arguments are specified, all pointer arguments should be
      non-null.  Verify a full prototype is given so that the arguments
-     will have the correct types when we actually check them later.  */
+     will have the correct types when we actually check them later.
+     Avoid diagnosing type-generic built-ins since those have no
+     prototype.  */
   if (!args)
     {
-      if (!prototype_p (type))
+      if (!prototype_p (type)
+	  && (!TYPE_ATTRIBUTES (type)
+	      || !lookup_attribute ("type generic", TYPE_ATTRIBUTES (type))))
 	{
 	  error ("nonnull attribute without arguments on a non-prototype");
 	  *no_add_attrs = true;
@@ -9828,7 +9832,7 @@ builtin_function_validate_nargs (location_t loc, tree fndecl, int nargs,
 {
   if (nargs < required)
     {
-      error_at (loc, "not enough arguments to function %qE", fndecl);
+      error_at (loc, "too few arguments to function %qE", fndecl);
       return false;
     }
   else if (nargs > required)
@@ -9985,6 +9989,23 @@ check_builtin_function_arguments (location_t loc, vec<location_t> arg_loc,
 			"does not have pointer to integer type", fndecl);
 	      return false;
 	    }
+	  return true;
+	}
+      return false;
+
+    case BUILT_IN_ADD_OVERFLOW_P:
+    case BUILT_IN_SUB_OVERFLOW_P:
+    case BUILT_IN_MUL_OVERFLOW_P:
+      if (builtin_function_validate_nargs (loc, fndecl, nargs, 3))
+	{
+	  unsigned i;
+	  for (i = 0; i < 3; i++)
+	    if (!INTEGRAL_TYPE_P (TREE_TYPE (args[i])))
+	      {
+		error_at (ARG_LOCATION (i), "argument %u in call to function "
+			  "%qE does not have integral type", i + 1, fndecl);
+		return false;
+	      }
 	  return true;
 	}
       return false;
