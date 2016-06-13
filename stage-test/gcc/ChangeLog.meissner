@@ -6,9 +6,6 @@
 	issues.
 	(vsx_extract_<mode>1): Likewise.
 	(vsx_extract_<mode>2): Likewise.
-	(vsx_extract_<mode>_load): Add ISA 3.0 scalar d-form support.  Fix
-	bug where the wrong double word was loaded in little endian.
-	(vsx_extract_<mode>_store): Add ISA 3.0 scalar d-form support.
 
 2016-06-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 

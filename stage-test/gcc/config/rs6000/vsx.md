@@ -2162,32 +2162,30 @@
 ;; Optimize extracting a single scalar element from memory if the scalar is in
 ;; the correct location to use a single load.
 (define_insn "*vsx_extract_<mode>_load"
-  [(set (match_operand:<VS_scalar> 0 "register_operand" "=d,wb,wv,wr")
+  [(set (match_operand:<VS_scalar> 0 "register_operand" "=d,wv,wr")
 	(vec_select:<VS_scalar>
-	 (match_operand:VSX_D 1 "memory_operand" "m,Z,m,m")
-	 (parallel [(match_operand:QI 2 "vsx_scalar_64bit" "wD,wD,wD,wD")])))]
+	 (match_operand:VSX_D 1 "memory_operand" "m,Z,m")
+	 (parallel [(const_int 0)])))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "@
    lfd%U1%X1 %0,%1
-   lxsd %x0,%1
-   lxsdx %x0,%y1
+   lxsd%U1x %x0,%y1
    ld%U1%X1 %0,%1"
-  [(set_attr "type" "fpload,fpload,fpload,load")
+  [(set_attr "type" "fpload,fpload,load")
    (set_attr "length" "4")])
 
 ;; Optimize storing a single scalar element that is the right location to
 ;; memory
 (define_insn "*vsx_extract_<mode>_store"
-  [(set (match_operand:<VS_scalar> 0 "memory_operand" "=m,m,Z,m")
+  [(set (match_operand:<VS_scalar> 0 "memory_operand" "=m,Z,?Z")
 	(vec_select:<VS_scalar>
-	 (match_operand:VSX_D 1 "register_operand" "d,wb,wd,wr")
-	 (parallel [(match_operand:QI 2 "vsx_scalar_64bit" "wD,wD,wD,wD")])))]
+	 (match_operand:VSX_D 1 "register_operand" "d,wd,<VSa>")
+	 (parallel [(match_operand:QI 2 "vsx_scalar_64bit" "wD,wD,wD")])))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "@
    stfd%U0%X0 %1,%0
-   stxsd %x1,%0
-   stxsdx %x1,%y0
-   std%U0%X0 %1,%0"
+   stxsd%U0x %x1,%y0
+   stxsd%U0x %x1,%y0"
   [(set_attr "type" "fpstore")
    (set_attr "length" "4")])
 
