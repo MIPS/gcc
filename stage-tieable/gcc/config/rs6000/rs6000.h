@@ -1303,8 +1303,9 @@ enum data_align { align_abi, align_opt, align_both };
 
 typedef enum {
   TIEABLE_NORMAL,		/* mode ties normally.  */
-  TIEABLE_PTI,			/* PTImode requires even regs & can't tie.  */
-  TIEABLE_VECTOR,		/* Altivec/VSX vectors.  */
+  TIEABLE_PTI,			/* PTImode requires even GPRs & can't tie.  */
+  TIEABLE_TD,			/* TDmode requires even FPRs & can't tie.  */
+  TIEABLE_VECTOR,		/* Altivec/VSX/IEEE-128 vectors.  */
   TIEABLE_FP,			/* Scalar floating point.  */
   TIEABLE_SPE,			/* SPE vector mode.  */
   TIEABLE_CC			/* Condition codes.  */

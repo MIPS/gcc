@@ -2170,6 +2170,7 @@ rs6000_debug_print_mode (ssize_t m)
     {
     case TIEABLE_NORMAL: tstr = "norm"; break;
     case TIEABLE_PTI:    tstr = "pti";  break;
+    case TIEABLE_TD:     tstr = "td";   break;
     case TIEABLE_VECTOR: tstr = "vect"; break;
     case TIEABLE_FP:     tstr = "fp";   break;
     case TIEABLE_SPE:	 tstr = "spe";  break;
@@ -3512,6 +3513,9 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
      GPR registers, and TImode can go in any GPR as well as VSX registers (PR
      57744).
 
+     TDmode cannot tie with other modes because TDmode is restricted to even
+     FPR registers.
+
      Altivec/VSX vector tests were moved ahead of scalar float mode, so that
      IEEE 128-bit floating point on VSX systems ties with other vectors.
 
@@ -3525,6 +3529,9 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 
       if (m2 == PTImode)
 	tieable = TIEABLE_PTI;
+
+      else if (m2 == TDmode)
+	tieable = TIEABLE_TD;
 
       else if (ALTIVEC_OR_VSX_VECTOR_MODE (m2))
 	tieable = TIEABLE_VECTOR;
