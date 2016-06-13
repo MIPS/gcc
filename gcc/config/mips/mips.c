@@ -120,7 +120,8 @@ static int *consumer_luid = NULL;
    to save and restore registers, and to allocate and deallocate the top
    part of the frame.  */
 #define MIPS_MAX_FIRST_STACK_STEP					\
-  (!TARGET_COMPRESSION && !TARGET_USE_SAVE_RESTORE ? 0x7ff0	\
+  (!TARGET_COMPRESSION && !TARGET_USE_SAVE_RESTORE ? 0x7ff0		\
+   : (ISA_HAS_SAVE_RESTORE && TARGET_MICROMIPS_R7) ? 0xff8		\
    : TARGET_MICROMIPS || GENERATE_MIPS16E_SAVE_RESTORE ? 0x7f8		\
    : TARGET_64BIT ? 0x100 : 0x400)
 
@@ -11482,11 +11483,20 @@ static const unsigned char mips16e_s2_s8_regs[] = {
 static const unsigned char mips16e_a0_a3_regs[] = {
   4, 5, 6, 7
 };
+static const unsigned char umipsr7_s0_s7_regs[] = {
+  23, 22, 21, 20, 19, 18, 17, 16
+};
 
 /* A list of the registers that can be saved by the MIPS16e SAVE instruction,
    ordered from the uppermost in memory to the lowest in memory.  */
 static const unsigned char mips16e_save_restore_regs[] = {
   31, 30, 23, 22, 21, 20, 19, 18, 17, 16, 7, 6, 5, 4
+};
+
+/* A list of the registers that can be saved by the uMIPS++ SAVE instruction,
+   ordered from the uppermost in memory to the lowest in memory.  */
+static const unsigned char umipsr7_save_restore_regs[] = {
+  31, 30, 28, 23, 22, 21, 20, 19, 18, 17, 16
 };
 
 /* Return the index of the lowest X in the range [0, SIZE) for which
@@ -11612,6 +11622,9 @@ mips16e_collect_argument_saves (void)
   rtx insn, next, set, dest, src;
   unsigned int nargs, regno;
 
+  if (ISA_HAS_SAVE_RESTORE && TARGET_MICROMIPS_R7)
+    return 0;
+
   push_topmost_sequence ();
   nargs = 0;
   memset (reg_values, 0, sizeof (reg_values));
@@ -11703,15 +11716,29 @@ mips16e_build_save_restore (bool restore_p, unsigned int *mask_ptr,
   unsigned int i, regno;
   int n;
 
-  gcc_assert (cfun->machine->frame.num_fp == 0);
 
-  /* Calculate the number of elements in the PARALLEL.  We need one element
-     for the stack adjustment, one for each argument register save, and one
-     for each additional register move.  */
-  n = 1 + nargs;
-  for (i = 0; i < ARRAY_SIZE (mips16e_save_restore_regs); i++)
-    if (BITSET_P (*mask_ptr, mips16e_save_restore_regs[i]))
-      n++;
+  if (GENERATE_MIPS16E_SAVE_RESTORE)
+    {
+      gcc_assert (cfun->machine->frame.num_fp == 0);
+
+      /* Calculate the number of elements in the PARALLEL.  We need one
+	 element for the stack adjustment, one for each argument register
+	 save, and one for each additional register move.  */
+      n = 1 + nargs;
+      for (i = 0; i < ARRAY_SIZE (mips16e_save_restore_regs); i++)
+	if (BITSET_P (*mask_ptr, mips16e_save_restore_regs[i]))
+	  n++;
+    }
+  else
+    {
+      /* Calculate the number of elements in the PARALLEL.  We need one
+	 element for the stack adjustment, one for each argument register
+	 save, and one for each additional register move.  */
+      n = 1;
+      for (i = 0; i < ARRAY_SIZE (umipsr7_save_restore_regs); i++)
+	if (BITSET_P (*mask_ptr, umipsr7_save_restore_regs[i]))
+	  n++;
+    }
 
   /* Create the final PARALLEL.  */
   pattern = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (n));
@@ -11727,28 +11754,44 @@ mips16e_build_save_restore (bool restore_p, unsigned int *mask_ptr,
   /* Stack offsets in the PARALLEL are relative to the old stack pointer.  */
   top_offset = restore_p ? size : 0;
 
-  /* Save the arguments.  */
-  for (i = 0; i < nargs; i++)
+  if (GENERATE_MIPS16E_SAVE_RESTORE)
     {
-      offset = top_offset + i * UNITS_PER_WORD;
-      set = mips16e_save_restore_reg (restore_p, true, offset,
-				      GP_ARG_FIRST + i);
-      XVECEXP (pattern, 0, n++) = set;
+      /* Save the arguments.  */
+      for (i = 0; i < nargs; i++)
+	{
+	  offset = top_offset + i * UNITS_PER_WORD;
+	  set = mips16e_save_restore_reg (restore_p, true, offset,
+					  GP_ARG_FIRST + i);
+	  XVECEXP (pattern, 0, n++) = set;
+	}
     }
 
   /* Then fill in the other register moves.  */
   offset = top_offset;
-  for (i = 0; i < ARRAY_SIZE (mips16e_save_restore_regs); i++)
-    {
-      regno = mips16e_save_restore_regs[i];
-      if (BITSET_P (*mask_ptr, regno))
-	{
-	  offset -= UNITS_PER_WORD;
-	  set = mips16e_save_restore_reg (restore_p, false, offset, regno);
-	  XVECEXP (pattern, 0, n++) = set;
-	  *mask_ptr &= ~(1 << regno);
-	}
-    }
+  if (GENERATE_MIPS16E_SAVE_RESTORE)
+    for (i = 0; i < ARRAY_SIZE (mips16e_save_restore_regs); i++)
+      {
+	regno = mips16e_save_restore_regs[i];
+	if (BITSET_P (*mask_ptr, regno))
+	  {
+	    offset -= UNITS_PER_WORD;
+	    set = mips16e_save_restore_reg (restore_p, false, offset, regno);
+	    XVECEXP (pattern, 0, n++) = set;
+	    *mask_ptr &= ~(1 << regno);
+	  }
+      }
+  else
+    for (i = 0; i < ARRAY_SIZE (umipsr7_save_restore_regs); i++)
+      {
+	regno = umipsr7_save_restore_regs[i];
+	if (BITSET_P (*mask_ptr, regno))
+	  {
+	    offset -= UNITS_PER_WORD;
+	    set = mips16e_save_restore_reg (restore_p, false, offset, regno);
+	    XVECEXP (pattern, 0, n++) = set;
+	    *mask_ptr &= ~(1 << regno);
+	  }
+      }
 
   /* Tell the caller what offset it should use for the remaining registers.  */
   *offset_ptr = size + (offset - top_offset);
@@ -11772,7 +11815,7 @@ mips16e_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
   rtx set, reg, mem, base;
   int n;
 
-  if (!GENERATE_MIPS16E_SAVE_RESTORE)
+  if (!ISA_HAS_SAVE_RESTORE)
     return false;
 
   /* Stack offsets in the PARALLEL are relative to the old stack pointer.  */
@@ -11808,14 +11851,20 @@ mips16e_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
 	return false;
 
       /* Check for argument saves.  */
-      if (offset == top_offset + nargs * UNITS_PER_WORD
+      if (GENERATE_MIPS16E_SAVE_RESTORE
+	  && offset == top_offset + nargs * UNITS_PER_WORD
 	  && REGNO (reg) == GP_ARG_FIRST + nargs)
 	nargs++;
       else if (offset == save_offset)
 	{
-	  while (mips16e_save_restore_regs[i++] != REGNO (reg))
-	    if (i == ARRAY_SIZE (mips16e_save_restore_regs))
-	      return false;
+	  if (GENERATE_MIPS16E_SAVE_RESTORE)
+	    while (mips16e_save_restore_regs[i++] != REGNO (reg))
+	      if (i == ARRAY_SIZE (mips16e_save_restore_regs))
+		return false;
+	  else
+	    while (umipsr7_save_restore_regs[i++] != REGNO (reg))
+	      if (i == ARRAY_SIZE (umipsr7_save_restore_regs))
+		return false;
 
 	  mask |= 1 << REGNO (reg);
 	  save_offset -= UNITS_PER_WORD;
@@ -11826,10 +11875,17 @@ mips16e_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
 
   /* Check that the restrictions on register ranges are met.  */
   extra = 0;
-  mips16e_mask_registers (&mask, mips16e_s2_s8_regs,
-			  ARRAY_SIZE (mips16e_s2_s8_regs), &extra);
-  mips16e_mask_registers (&mask, mips16e_a0_a3_regs,
-			  ARRAY_SIZE (mips16e_a0_a3_regs), &extra);
+  if (GENERATE_MIPS16E_SAVE_RESTORE)
+    {
+      mips16e_mask_registers (&mask, mips16e_s2_s8_regs,
+			      ARRAY_SIZE (mips16e_s2_s8_regs), &extra);
+      mips16e_mask_registers (&mask, mips16e_a0_a3_regs,
+			      ARRAY_SIZE (mips16e_a0_a3_regs), &extra);
+    }
+  else
+    mips16e_mask_registers (&mask, umipsr7_s0_s7_regs,
+			    ARRAY_SIZE (umipsr7_s0_s7_regs), &extra);
+
   if (extra != 0)
     return false;
 
@@ -11876,49 +11932,105 @@ mips16e_output_save_restore (rtx pattern, HOST_WIDE_INT adjust)
   struct mips16e_save_restore_info info;
   unsigned int i, end;
   char *s;
+  bool insn16_p = false;
 
   /* Parse the pattern.  */
   if (!mips16e_save_restore_pattern_p (pattern, adjust, &info))
     gcc_unreachable ();
 
+  if (ISA_HAS_SAVE_RESTORE && TARGET_MICROMIPS_R7)
+    {
+      int n = 0;
+      for (i = 0; i < ARRAY_SIZE (umipsr7_s0_s7_regs); i++)
+	if (BITSET_P (info.mask, umipsr7_s0_s7_regs[i]))
+	  n++;
+      if (BITSET_P (info.mask, RETURN_ADDR_REGNUM)
+	  && info.size < 120 // u4 << 3 bytes
+	  && !BITSET_P (info.mask, GLOBAL_POINTER_REGNUM)
+	  && ((n >= 0 && !BITSET_P (info.mask, HARD_FRAME_POINTER_REGNUM))
+	      || (n == 8 && BITSET_P (info.mask, HARD_FRAME_POINTER_REGNUM))))
+	insn16_p = true;
+    }
+
   /* Add the mnemonic.  */
-  s = strcpy (buffer, adjust > 0 ? "restore\t" : "save\t");
+  /* FIXME */
+  if (GENERATE_MIPS16E_SAVE_RESTORE)
+    s = strcpy (buffer, adjust > 0 ? "restore\t" : "save\t");
+  else
+    {
+      if (insn16_p)
+	s = strcpy (buffer, adjust > 0 ? "sdbbp16 0 # restore16\t"
+				       : "sdbbp16 0 # save16\t");
+      else
+	s = strcpy (buffer, adjust > 0 ? "sdbbp32 0 # restore\t"
+				       : "sdbbp32 0 # save\t");
+    }
   s += strlen (s);
 
-  /* Save the arguments.  */
-  if (info.nargs > 1)
-    s += sprintf (s, "%s-%s,", reg_names[GP_ARG_FIRST],
-		  reg_names[GP_ARG_FIRST + info.nargs - 1]);
-  else if (info.nargs == 1)
-    s += sprintf (s, "%s,", reg_names[GP_ARG_FIRST]);
+  if (GENERATE_MIPS16E_SAVE_RESTORE)
+    {
+      /* Save the arguments.  */
+      if (info.nargs > 1)
+	s += sprintf (s, "%s-%s,", reg_names[GP_ARG_FIRST],
+		      reg_names[GP_ARG_FIRST + info.nargs - 1]);
+      else if (info.nargs == 1)
+	s += sprintf (s, "%s,", reg_names[GP_ARG_FIRST]);
+    }
 
   /* Emit the amount of stack space to allocate or deallocate.  */
   s += sprintf (s, "%d", (int) info.size);
 
-  /* Save or restore $16.  */
-  if (BITSET_P (info.mask, 16))
-    s += sprintf (s, ",%s", reg_names[GP_REG_FIRST + 16]);
+  if (GENERATE_MIPS16E_SAVE_RESTORE)
+    {
+      /* Save or restore $16.  */
+      if (BITSET_P (info.mask, 16))
+	s += sprintf (s, ",%s", reg_names[GP_REG_FIRST + 16]);
 
-  /* Save or restore $17.  */
-  if (BITSET_P (info.mask, 17))
-    s += sprintf (s, ",%s", reg_names[GP_REG_FIRST + 17]);
+      /* Save or restore $17.  */
+      if (BITSET_P (info.mask, 17))
+	s += sprintf (s, ",%s", reg_names[GP_REG_FIRST + 17]);
+    }
 
-  /* Save or restore registers in the range $s2...$s8, which
-     mips16e_s2_s8_regs lists in decreasing order.  Note that this
-     is a software register range; the hardware registers are not
-     numbered consecutively.  */
-  end = ARRAY_SIZE (mips16e_s2_s8_regs);
-  i = mips16e_find_first_register (info.mask, mips16e_s2_s8_regs, end);
-  if (i < end)
-    s = mips16e_add_register_range (s, mips16e_s2_s8_regs[end - 1],
-				    mips16e_s2_s8_regs[i]);
+  if (GENERATE_MIPS16E_SAVE_RESTORE)
+    {
+      /* Save or restore registers in the range $s2...$s8, which
+	 mips16e_s2_s8_regs lists in decreasing order.  Note that this
+	 is a software register range; the hardware registers are not
+	 numbered consecutively.  */
+      end = ARRAY_SIZE (mips16e_s2_s8_regs);
+      i = mips16e_find_first_register (info.mask, mips16e_s2_s8_regs, end);
+      if (i < end)
+	s = mips16e_add_register_range (s, mips16e_s2_s8_regs[end - 1],
+					mips16e_s2_s8_regs[i]);
+    }
+  else
+    {
+      /* Save or restore registers in the range $s2...$s8, which
+	 mips16e_s2_s8_regs lists in decreasing order.  Note that this
+	 is a software register range; the hardware registers are not
+	 numbered consecutively.  */
+      end = ARRAY_SIZE (umipsr7_s0_s7_regs);
+      i = mips16e_find_first_register (info.mask, umipsr7_s0_s7_regs, end);
+      if (i < end)
+	s = mips16e_add_register_range (s, umipsr7_s0_s7_regs[end - 1],
+					umipsr7_s0_s7_regs[i]);
+    }
 
-  /* Save or restore registers in the range $a0...$a3.  */
-  end = ARRAY_SIZE (mips16e_a0_a3_regs);
-  i = mips16e_find_first_register (info.mask, mips16e_a0_a3_regs, end);
-  if (i < end)
-    s = mips16e_add_register_range (s, mips16e_a0_a3_regs[i],
-				    mips16e_a0_a3_regs[end - 1]);
+  if (GENERATE_MIPS16E_SAVE_RESTORE)
+    {
+      /* Save or restore registers in the range $a0...$a3.  */
+      end = ARRAY_SIZE (mips16e_a0_a3_regs);
+      i = mips16e_find_first_register (info.mask, mips16e_a0_a3_regs, end);
+      if (i < end)
+	s = mips16e_add_register_range (s, mips16e_a0_a3_regs[i],
+					mips16e_a0_a3_regs[end - 1]);
+    }
+
+  /* Save or restore $30.  */
+  if (ISA_HAS_SAVE_RESTORE
+      && TARGET_MICROMIPS_R7
+      && BITSET_P (info.mask, HARD_FRAME_POINTER_REGNUM))
+    s += sprintf (s, ",%s", reg_names[HARD_FRAME_POINTER_REGNUM]);
 
   /* Save or restore $31.  */
   if (BITSET_P (info.mask, RETURN_ADDR_REGNUM))
@@ -12677,34 +12789,52 @@ mips_compute_frame_info (bool recalculate, struct mips_frame_info *frame)
   global_reg_used = 0;
   local_reg_used = 0;
 
-  for (i = 0 ; i < ARRAY_SIZE (mips16e_s2_s8_regs) ; i++)
-     {
-       regno = mips16e_s2_s8_regs[i];
-       if (global_regs [regno])
-	 global_reg_used = 1;
+  if (GENERATE_MIPS16E_SAVE_RESTORE)
+    {
+      for (i = 0 ; i < ARRAY_SIZE (mips16e_s2_s8_regs) ; i++)
+	 {
+	   regno = mips16e_s2_s8_regs[i];
+	   if (global_regs [regno])
+	     global_reg_used = 1;
 
-       if (BITSET_P (frame->mask, regno))
-	 local_reg_used = 1;
-     }
+	   if (BITSET_P (frame->mask, regno))
+	     local_reg_used = 1;
+	 }
 
-  if (global_reg_used && local_reg_used)
-    cfun->machine->safe_to_use_save_restore = false;
+      if (global_reg_used && local_reg_used)
+	cfun->machine->safe_to_use_save_restore = false;
 
-  global_reg_used = 0;
-  local_reg_used = 0;
+      global_reg_used = 0;
+      local_reg_used = 0;
 
-  for (i = 0 ; i < ARRAY_SIZE (mips16e_a0_a3_regs) ; i++)
-     {
-       regno = mips16e_a0_a3_regs[i];
-       if (global_regs [regno])
-	 global_reg_used = 1;
+      for (i = 0 ; i < ARRAY_SIZE (mips16e_a0_a3_regs) ; i++)
+	 {
+	   regno = mips16e_a0_a3_regs[i];
+	   if (global_regs [regno])
+	     global_reg_used = 1;
 
-       if (BITSET_P (frame->mask, regno))
-	 local_reg_used = 1;
-     }
+	   if (BITSET_P (frame->mask, regno))
+	     local_reg_used = 1;
+	 }
 
-  if (global_reg_used && local_reg_used)
-    cfun->machine->safe_to_use_save_restore = false;
+      if (global_reg_used && local_reg_used)
+	cfun->machine->safe_to_use_save_restore = false;
+    }
+  else if (ISA_HAS_SAVE_RESTORE && TARGET_MICROMIPS_R7)
+    {
+      for (i = 0 ; i < ARRAY_SIZE (umipsr7_s0_s7_regs) ; i++)
+	 {
+	   regno = umipsr7_s0_s7_regs[i];
+	   if (global_regs [regno])
+	     global_reg_used = 1;
+
+	   if (BITSET_P (frame->mask, regno))
+	     local_reg_used = 1;
+	 }
+
+      if (global_reg_used && local_reg_used)
+	cfun->machine->safe_to_use_save_restore = false;
+    }
 
   /* The MIPS16e SAVE and RESTORE instructions have two ranges of registers:
      $a3-$a0 and $s2-$s8.  If we save one register in the range, we must
@@ -12715,6 +12845,12 @@ mips_compute_frame_info (bool recalculate, struct mips_frame_info *frame)
  			      ARRAY_SIZE (mips16e_s2_s8_regs), &frame->num_gp);
       mips16e_mask_registers (&frame->mask, mips16e_a0_a3_regs,
  			      ARRAY_SIZE (mips16e_a0_a3_regs), &frame->num_gp);
+    }
+  else if (ISA_HAS_SAVE_RESTORE && TARGET_MICROMIPS_R7
+	   && cfun->machine->safe_to_use_save_restore)
+    {
+      mips16e_mask_registers (&frame->mask, umipsr7_s0_s7_regs,
+			      ARRAY_SIZE (umipsr7_s0_s7_regs), &frame->num_gp);
     }
 
   /* Move above the GPR save area.  */
@@ -13849,7 +13985,7 @@ mips_expand_prologue (void)
       HOST_WIDE_INT step1;
 
       step1 = MIN (size, MIPS_MAX_FIRST_STACK_STEP);
-      if (GENERATE_MIPS16E_SAVE_RESTORE
+      if (ISA_HAS_SAVE_RESTORE
 	  && !cfun->machine->interrupt_handler_p
 	  && cfun->machine->safe_to_use_save_restore)
  	{
@@ -14353,7 +14489,7 @@ mips_expand_epilogue (bool sibcall_p)
     emit_insn (gen_blockage ());
 
   mips_epilogue.cfa_restore_sp_offset = step2;
-  if (GENERATE_MIPS16E_SAVE_RESTORE && frame->mask != 0
+  if (ISA_HAS_SAVE_RESTORE && frame->mask != 0
       && !cfun->machine->interrupt_handler_p
       && cfun->machine->safe_to_use_save_restore)
     {
