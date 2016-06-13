@@ -4397,6 +4397,7 @@ c_parser_initelt (c_parser *parser, struct obstack * braced_init_obstack)
       /* Old-style structure member designator.  */
       set_init_label (c_parser_peek_token (parser)->location,
 		      c_parser_peek_token (parser)->value,
+		      c_parser_peek_token (parser)->location,
 		      braced_init_obstack);
       /* Use the colon as the error location.  */
       pedwarn (c_parser_peek_2nd_token (parser)->location, OPT_Wpedantic,
@@ -4426,6 +4427,7 @@ c_parser_initelt (c_parser *parser, struct obstack * braced_init_obstack)
 	      if (c_parser_next_token_is (parser, CPP_NAME))
 		{
 		  set_init_label (des_loc, c_parser_peek_token (parser)->value,
+				  c_parser_peek_token (parser)->location,
 				  braced_init_obstack);
 		  c_parser_consume_token (parser);
 		}
@@ -10613,6 +10615,8 @@ c_parser_omp_variable_list (c_parser *parser,
 	  switch (kind)
 	    {
 	    case OMP_CLAUSE__CACHE_:
+	      /* The OpenACC cache directive explicitly only allows "array
+		 elements or subarrays".  */
 	      if (c_parser_peek_token (parser)->type != CPP_OPEN_SQUARE)
 		{
 		  c_parser_error (parser, "expected %<[%>");
@@ -10676,25 +10680,6 @@ c_parser_omp_variable_list (c_parser *parser,
 		    {
 		      t = error_mark_node;
 		      break;
-		    }
-
-		  if (kind == OMP_CLAUSE__CACHE_)
-		    {
-		      if (TREE_CODE (low_bound) != INTEGER_CST
-			  && !TREE_READONLY (low_bound))
-			{
-			  error_at (clause_loc,
-				    "%qD is not a constant", low_bound);
-			  t = error_mark_node;
-			}
-
-		      if (TREE_CODE (length) != INTEGER_CST
-			  && !TREE_READONLY (length))
-			{
-			  error_at (clause_loc,
-				    "%qD is not a constant", length);
-			  t = error_mark_node;
-			}
 		    }
 
 		  t = tree_cons (low_bound, length, t);

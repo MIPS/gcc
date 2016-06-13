@@ -1,3 +1,311 @@
+2016-06-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/71478
+	* gcc.dg/pr71478.c: Remove dg-require-effective-target vect_int.
+	Add -Wno-psabi -w to dg-options.
+
+2016-06-13  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* gcc.target/powerpc/vadsdu-0.c: New test.
+	* gcc.target/powerpc/vadsdu-1.c: New test.
+	* gcc.target/powerpc/vadsdu-2.c: New test.
+	* gcc.target/powerpc/vadsdu-3.c: New test.
+	* gcc.target/powerpc/vadsdu-4.c: New test.
+	* gcc.target/powerpc/vadsdu-5.c: New test.
+	* gcc.target/powerpc/vadsdub-1.c: New test.
+	* gcc.target/powerpc/vadsdub-2.c: New test.
+	* gcc.target/powerpc/vadsduh-1.c: New test.
+	* gcc.target/powerpc/vadsduh-2.c: New test.
+	* gcc.target/powerpc/vadsduw-1.c: New test.
+	* gcc.target/powerpc/vadsduw-2.c: New test.
+
+2016-06-13  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc.dg/c99-init-2.c (c): Update expected error message.
+	* gcc.dg/init-bad-8.c (foo): Likewise.
+	* gcc.dg/spellcheck-fields-3.c: New test case.
+
+2016-06-13  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/predict-1.c: Distinguish between "loop iv compare"
+	and "guess loop iv compared" heuristics.
+	* gcc.dg/predict-2.c: Likewise.
+	* gcc.dg/predict-3.c: Likewise.
+	* gcc.dg/predict-4.c: Likewise.
+	* gcc.dg/predict-5.c: Likewise.
+	* gcc.dg/predict-6.c: Likewise.
+
+2016-06-13  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/71476
+	* c-c++-common/Wswitch-unreachable-4.c: New test.
+	* gcc.dg/Wswitch-unreachable-2.c: New test.
+	* g++.dg/tm/jump1.C: Move dg-warning.
+
+2016-06-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/renaming10.ad[sb]: New test.
+
+2016-06-13  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/70673
+	* gfortran.dg/pr70673.f90: New test.
+
+2016-06-13  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/64516
+	* gcc.dg/align-3.c: New testcase.
+
+2016-06-13  Martin Liska  <mliska@suse.cz>
+
+	* gcc.target/i386/pr71458.c: New test.
+
+2016-06-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/71241
+	* testsuite/gcc.dg/torture/float128-nan.c: New test.
+
+2016-06-12  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR target/60751
+	* gfortran.dg/guality/pr41558.f90: Remove extra comma in WRITE
+	statement.
+
+2016-06-11  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR target/60751
+	* gfortran.dg/comma_IO_extension_1.f90: New test.
+	* gfortran.dg/comma_IO_extension_2.f90: Likewise.
+	* gfortran.dg/array_constructor_49.f90: Remove extra comma in WRITE
+	statement.
+	* gfortran.dg/graphite/pr38083.f90: Likewise.
+	* gfortran.dg/integer_exponentiation_6.F90: Likewise and add
+	missing format.
+
+2016-06-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/case_character.adb: New test.
+
+2016-06-11  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR middle-end/71310
+	* gcc.target/powerpc/pr71310.c: New testcase.
+
+2016-06-11  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/71478
+	* gcc.dg/pr71478.c: New test.
+
+2016-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/71494
+	* gcc.c-torture/execute/pr71494.c: New test.
+
+	PR c/68657
+	* gcc.target/i386/pr68657.c: New test.
+
+	PR inline-asm/68843
+	* gcc.target/i386/pr68843-2.c: Add dg-do run and empty dg-options.
+	(test): Add -masm=intel alternatives.
+
+2016-06-10  Martin Sebor  <msebor@redhat.com>
+
+	PR c/71392
+	* c-c++-common/builtin-arith-overflow-1.c: Add test cases.
+
+2016-06-10  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/71335
+	* gcc.c-torture/execute/pr71335.c: New test.
+
+2016-06-10  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc.dg/plugin/must-tail-call-2.c: Remove all details from
+	the various "cannot tail-call: " messages.
+
+2016-06-10  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/arm/pr37780_1.c: Use arm_arch_v6t2 effective target
+	and options.
+
+2016-06-10  Maxim Ostapenko  <m.ostapenko@samsung.com>
+
+	PR sanitizer/71480
+	* c-c++-common/asan/pr71480.c: New test.
+
+2016-06-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.dg/guality/pr68037-1.c (ASMNAME): New.
+	(ASMNAME2): Likewise.
+	(main): Replace fn in asm statement with ASMNAME ("fn").
+	* gcc.dg/guality/pr68037-2.c: Likewise.
+	* gcc.dg/guality/pr68037-3.c: Likewise.
+	* gcc.dg/torture/pr68037-1.c: Likewise.
+	* gcc.dg/torture/pr68037-2.c: Likewise.
+	* gcc.dg/torture/pr68037-3.c: Likewise.
+
+2016-06-10  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR inline-asm/68843
+	* gcc.target/i386/pr68843-1.c: New test.
+	* gcc.target/i386/pr68843-2.c: New test.
+
+2016-06-10  Thomas Schwinge  <thomas@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+
+	PR middle-end/71373
+	* gcc.dg/goacc/nested-function-1.c: New file.
+	* gcc.dg/goacc/nested-function-2.c: Likewise.
+	* gcc.dg/goacc/pr71373.c: Likewise.
+	* gfortran.dg/goacc/cray-2.f95: Likewise.
+	* gfortran.dg/goacc/loop-1-2.f95: Likewise.
+	* gfortran.dg/goacc/loop-3-2.f95: Likewise.
+	* gfortran.dg/goacc/cray.f95: Update.
+	* gfortran.dg/goacc/loop-1.f95: Likewise.
+	* gfortran.dg/goacc/loop-3.f95: Likewise.
+	* gfortran.dg/goacc/subroutines.f90: Update, and rename to...
+	* gfortran.dg/goacc/nested-function-1.f90: ... this new file.
+
+2016-06-10  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc/combined-directives.c: XFAIL tree scanning
+	for OpenACC tile clauses.
+	* gfortran.dg/goacc/combined-directives.f90: Likewise.
+
+	PR c/71381
+	* c-c++-common/goacc/cache-1.c: Update.  Move invalid usage tests
+	to...
+	* c-c++-common/goacc/cache-2.c: ... this new file.
+	* gfortran.dg/goacc/cache-1.f95: Move invalid usage tests to...
+	* gfortran.dg/goacc/cache-2.f95: ... this new file.
+	* gfortran.dg/goacc/coarray.f95: Update OpenACC cache directive
+	usage.
+	* gfortran.dg/goacc/cray.f95: Likewise.
+	* gfortran.dg/goacc/loop-1.f95: Likewise.
+
+2016-06-10  Alan Hayward  <alan.hayward@arm.com>
+
+	PR tree-optimization/71407
+	PR tree-optimization/71416
+	* gcc.dg/vect/pr71407.c: New
+	* gcc.dg/vect/pr71416-1.c: New
+	* gcc.dg/vect/pr71416-2.c: New
+
+2016-06-10  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/71477
+	* gcc.dg/torture/pr71477.c: New testcase.
+
+2016-06-09  Julia Koval  <julia.koval@intel.com>
+
+	* gcc.target/i386/interrupt-12.c: Fix test for -fpic and corei7.
+	* gcc.target/i386/interrupt-13.c: Likewise.
+	* gcc.target/i386/interrupt-15.c: Likewise.
+	* gcc.target/i386/interrupt-14.c: Fix test for -fpic.
+	* gcc.target/i386/interrupt-24.c: Likewise.
+	* gcc.target/i386/interrupt-3.c: Fix test for corei7.
+	* gcc.target/i386/interrupt-9.c: Likewise.
+	* gcc.target/i386/interrupt-redzone-2.c: Likewise.
+
+2016-06-09  Martin Sebor  <msebor@redhat.com>
+
+	PR c/70883
+	* c-c++-common/builtin-arith-overflow-1.c: Adjust diagnostic text.
+	* gcc.dg/builtin-constant_p-1.c: Same.
+	* gcc.dg/builtins-error.c: Same.
+	* gcc.dg/pr70859.c: Same.
+
+2016-06-09  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.c-torture/execute/bswap-2.c: Require int32plus.
+	* gcc.dg/torture/pr68067-1.c: Likewise.
+	* gcc.dg/torture/pr68067-2.c: Likewise.
+
+2016-06-09  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.dg/stack-usage-1.c (SIZE): Consider return address
+	  when setting SIZE.
+
+2016-06-09  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71465
+	* g++.dg/inherit/crash5.C: New.
+	Revert:
+	2016-06-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/70202
+	* g++.dg/inherit/crash5.C: New.
+	* g++.dg/inherit/virtual1.C: Adjust.
+
+2016-06-09  Martin Liska  <mliska@suse.cz>
+
+	* g++.dg/predict-loop-exit-1.C: Scan for a new dump format.
+	* g++.dg/predict-loop-exit-2.C: Likewise.
+	* g++.dg/predict-loop-exit-3.C: Likewise.
+	* gcc.dg/predict-1.c: Likewise.
+	* gcc.dg/predict-2.c: Likewise.
+	* gcc.dg/predict-3.c: Likewise.
+	* gcc.dg/predict-4.c: Likewise.
+	* gcc.dg/predict-5.c: Likewise.
+	* gcc.dg/predict-6.c: Likewise.
+	* gcc.dg/predict-7.c: Likewise.
+
+2016-06-09  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71462
+	* gcc.dg/torture/pr71462.c: New testcase.
+
+2016-06-09  Marek Polacek  <polacek@redhat.com>
+
+	PR c/65471
+	* gcc.dg/c11-generic-3.c: New test.
+
+2016-06-08  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/init/array42.C: New.
+	* g++.dg/init/array43.C: Likewise.
+	* g++.dg/init/array44.C: Likewise.
+	* g++.dg/init/array45.C: Likewise.
+	* g++.dg/cpp0x/constexpr-ice10.C: Test column number too.
+	* g++.dg/cpp0x/constexpr-incomplete1.C: Likewise.
+	* g++.dg/cpp1y/auto-fn27.C: Likewise.
+	* g++.dg/gomp/pr35751.C: Likewise.
+	* g++.dg/init/array23.C: Likewise.
+	* g++.dg/init/brace2.C: Likewise.
+	* g++.dg/init/brace6.C: Likewise.
+
+2016-06-08  Martin Sebor  <msebor@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/70507
+	PR c/68120
+	* c-c++-common/builtin-arith-overflow-1.c: Add test cases.
+	* c-c++-common/builtin-arith-overflow-2.c: New test.
+	* g++.dg/ext/builtin-arith-overflow-1.C: New test.
+	* g++.dg/cpp0x/constexpr-arith-overflow.C: New test.
+	* g++.dg/cpp1y/constexpr-arith-overflow.C: New test.
+
+2016-06-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71442
+	* g++.dg/cpp0x/Wunused-variable-1.C: New test.
+
+2016-06-08  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* gcc.target/aarch64/aapcs64/aapcs64.exp: Also execute rec_*.c
+	* gcc.target/aarch64/aapcs64/rec_align-5.c: New.
+	* gcc.target/aarch64/aapcs64/rec_align-6.c: New.
+	* gcc.target/aarch64/aapcs64/rec_align-7.c: New.
+	* gcc.target/aarch64/aapcs64/rec_align-8.c: New.
+	* gcc.target/aarch64/aapcs64/rec_align-9.c: New.
+	* gcc.target/aarch64/aapcs64/test_align-5.c: New.
+	* gcc.target/aarch64/aapcs64/test_align-6.c: New.
+	* gcc.target/aarch64/aapcs64/test_align-7.c: New.
+	* gcc.target/aarch64/aapcs64/test_align-8.c: New.
+	* gcc.target/aarch64/aapcs64/test_align-9.c: New.
+	* gcc.target/aarch64/aapcs64/rec_vaarg-1.c: New.
+	* gcc.target/aarch64/aapcs64/rec_vaarg-2.c: New.
+
 2016-06-08  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/68558

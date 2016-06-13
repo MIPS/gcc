@@ -1,3 +1,401 @@
+2016-06-13  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* config/rs6000/rs6000.h (RS6000_BTM_COMMON): Add the
+	RS6000_BTM_MODULO flag into the set of flags that are considered
+	to be part of the common configuration.
+
+2016-06-13  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* config/rs6000/altivec.h (vec_absd): New macro for vector absolute
+	difference unsigned.
+	(vec_absdb): New macro for vector absolute difference unsigned
+	byte.
+	(vec_absdh): New macro for vector absolute difference unsigned
+	half-word.
+	(vec_absdw): New macro for vector absolute difference unsigned word.
+	* config/rs6000/altivec.md (UNSPEC_VADU): New value.
+	(vadu<mode>3): New insn.
+	(*p9_vadu<mode>3): New insn.
+	* config/rs6000/rs6000-builtin.def (vadub): New built-in
+	definition.
+	(vaduh): New built-in definition.
+	(vaduw): New built-in definition.
+	(vadu): New overloaded built-in definition.
+	(vadub): New overloaded built-in definition.
+	(vaduh): New overloaded built-in definition.
+	(vaduw): New overloaded built-in definition.
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Add
+	overloaded vector absolute difference unsigned functions.
+	* doc/extend.texi (PowerPC AltiVec Built-in Functions): Document
+	the ISA 3.0 vector absolute difference unsigned built-in functions.
+
+2016-06-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-ssa-sccvn.c (vn_reference_lookup_3): Use a uniform test and
+	update shared_lookup_references only once after changing operands.
+
+2016-06-13  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR middle-end/71373
+	* tree-nested.c (convert_nonlocal_omp_clauses)
+	(convert_local_omp_clauses): Document missing OMP_CLAUSE_*.
+
+	* tree-cfg.c (edge_to_cases_cleanup): Fix CASE_CHAIN typo.
+	* tree.def (CASE_LABEL_EXPR): Likewise.
+
+2016-06-13  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR bootstrap/71481
+	* input.c (test_builtins): Fix an assertion.
+
+2016-06-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (paritydi2): Use ix86_expand_setcc.
+	(paritysi2): Ditto.
+	(isinfxf2): Ditto.
+	(isinf<mode>2): Ditto.
+
+2016-06-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	* ggc-tests.c (test_finalization): Only test need_finalization_p
+	for GCC_VERSION >= 4003.
+
+2016-06-13  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/vecintrin.h: Fix file description in comment.
+
+2016-06-13  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390-builtin-types.def: Change builtin type naming
+	scheme to match builtin-types.def.
+
+2016-06-13  Marc Glisse  <marc.glisse@inria.fr>
+
+	* fold-const.c (optimize_minmax_comparison): Remove.
+	(fold_comparison): Remove call to the above.
+	* match.pd (MIN (X, Y) == X, MIN (X, 5) == 0, MIN (X, C1) < C2):
+	New transformations.
+
+2016-06-13  Alan Hayward  <alan.hayward@arm.com>
+
+	PR tree-optimization/71416
+	* tree-vect-loop.c (vectorizable_live_operation): Let worklist have
+	multiple entries
+
+2016-06-13  Martin Liska  <mliska@suse.cz>
+
+	* predict.c (enum predictor_reason): Prefix enum with REASON_.
+	(combine_predictions_for_insn): Likewise.
+	(prune_predictions_for_bb): Likewise.
+	(combine_predictions_for_bb): Likewise.
+
+2016-06-13  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71505
+	* tree-vect-data-refs.c (vect_analyze_data_ref_accesses): Make
+	assert match comment.
+
+2016-06-13  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/71476
+	* gimplify.c (maybe_warn_switch_unreachable): Factored out of
+	gimplify_switch_expr.
+	(warn_switch_unreachable_r): New function.
+
+2016-06-13  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	PR target/71379
+	* config/s390/s390.c (s390_expand_builtin): Increase MAX_ARGS by
+	one.
+
+2016-06-13  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/64516
+	* fold-const.c (fold_unary_loc): Preserve alignment when
+	folding a VIEW_CONVERT_EXPR into a MEM_REF.
+
+2016-06-13  Martin Liska  <mliska@suse.cz>
+
+	PR sanitizer/71458
+	* toplev.c (process_options): Do not enable -fcheck-pointer-bounds
+	w/ -fsanitize=bounds.
+
+2016-06-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_init_builtins): Calculate
+	FLOAT128_FTYPE_CONST_STRING function type only once.
+	* doc/extend.texi (x86 Built-in Functions): Update text, __float128
+	built-in functions are available for x86-32 and x86-64 targets.
+
+2016-06-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/71241
+	* config/i386/i386.i386-builtin-types.def (CONST_STRING):
+	New primitive type.
+	(FLOAT128_FTYPE_CONST_STRING): New function type.
+	* config/i386/i386.c (enum ix86_builtins) [IX86_BUILTIN_NANQ]: New.
+	[IX86_BUILTIN_NANSQ]: Ditto.
+	(ix86_fold_builtin): Handle IX86_BUILTIN_NANQ and IX86_BUILTIN_NANSQ.
+	(ix86_init_builtin_types) Declare const_string_type_node.
+	Add __builtin_nanq and __builtin_nansq builtin functions.
+	(ix86_expand_builtin): Handle IX86_BUILTIN_NANQ and IX86_BUILTIN_NANSQ.
+	* doc/extend.texi (x86 Built-in Functions): Document
+	__builtin_nanq and __builtin_nansq.
+
+2016-06-11  Jiong Wang  <jiong.wang@arm.com>
+
+	PR target/71061
+	* config/arm/arm-protos.h (arm_attr_length_pop_multi): New declaration.
+	* config/arm/arm.c (arm_attr_length_pop_multi): New function to return
+	length for pop patterns.
+	(arm_attr_length_push_multi): Update comments.
+	* config/arm/arm.md (*load_multiple_with_writeback): Set "length"
+	attribute.
+	(*pop_multiple_with_writeback_and_return): Likewise.
+	(*pop_multiple_with_return): Likewise.
+
+2016-06-11  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR middle-end/71310
+	* fold-const.c (optimize_bit_field_compare): Don't try to use
+	word_mode unconditionally for reading the bit field, look at
+	DECL_BIT_FIELD_REPRESENTATIVE instead.
+
+2016-06-11  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/71478
+	* tree-ssa-reassoc.c (reassociate_bb): Remove (-1) from ops list for
+	vector integer type.
+
+2016-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/71494
+	* tree-nested.c (convert_nonlocal_reference_stmt): For GIMPLE_GOTO
+	without LABEL_DECL, set *handled_ops_p to false instead of true.
+
+2016-06-10  Martin Sebor  <msebor@redhat.com>
+
+	PR c/71392
+	* builtin-attrs.def (ATTR_NOTHROW_NONNULL_LEAF_LIST): New macro.
+	(ATTR_NOTHROW_NONNULL_TYPEGENERIC_LEAF): Same.
+	* builtins.def (BUILT_IN_SADD_OVERFLOW, BUILT_IN_SADDL_OVERFLOW): Use
+	them.
+	(BUILT_IN_SADDLL_OVERFLOW, BUILT_IN_SSUB_OVERFLOW): Same.
+	(BUILT_IN_SSUBL_OVERFLOW, BUILT_IN_SSUBLL_OVERFLOW): Same.
+	(BUILT_IN_SMUL_OVERFLOW, BUILT_IN_SMULL_OVERFLOW): Same.
+	(BUILT_IN_SMULLL_OVERFLOW, BUILT_IN_UADD_OVERFLOW): Same.
+	(BUILT_IN_UADDL_OVERFLOW, BUILT_IN_UADDLL_OVERFLOW): Same.
+	(BUILT_IN_USUB_OVERFLOW, BUILT_IN_USUBL_OVERFLOW): Same.
+	(BUILT_IN_USUBLL_OVERFLOW, BUILT_IN_UMUL_OVERFLOW): Same.
+	(BUILT_IN_UMULL_OVERFLOW, BUILT_IN_UMULLL_OVERFLOW): Same.
+
+2016-06-10  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* config/arm/arm.h (pool_vector_label,
+	return_used_this_function): Remove.
+
+2016-06-10  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/71335
+	* tree-ssa-threadbackward.c (profitable_jump_thread_path): Filter out
+	zero length paths here.
+	(convert_and_register_jump_thread_path): Remove hacks related to
+	duplicated blocks in the jump thread path.
+	(fsm_find_control_statement_thread_paths): Avoid putting the same
+	block on the thread path twice, but ensure the thread path is
+	unchanged from the caller's point of view.
+
+2016-06-10  Jan Hubicka  <hubicka@ucw.cz>
+
+	* predict.c (predict_loops): Remove PRED_LOOP_BRANCH.
+	* predict.def (PRED_LOOP_BRANCH): Remove.
+
+2016-06-10  David Malcolm  <dmalcolm@redhat.com>
+
+	* Makefile.in (OBJS): Add ggc-tests.o.
+	(GTFILES): Add ggc-tests.c.
+	* ggc-tests.c: New file.
+	* selftest-run-tests.c (selftest::run_tests): Call
+	selftest::ggc_tests_c_tests.
+	* selftest.h (selftest::ggc_tests_c_tests): New prototype.
+
+2016-06-10  Alexander Monakov  <amonakov@ispras.ru>
+
+	* match.pd (-1 / B < A): Use :c to avoid pattern duplication.
+
+2016-06-10  Maxim Ostapenko  <m.ostapenko@samsung.com>
+
+	PR sanitizer/71480
+	* varasm.c (place_block_symbol): Adjust alignment for asan protected
+	STRING_CSTs even if TREE_CONSTANT_POOL_ADDRESS_P.
+
+2016-06-10  Jan Hubicka  <hubicka@ucw.cz>
+
+	* profile.c: Include cfgloop.h.
+	(branch_prob): Compute estimated number of iterations.
+	* tree-ssa-loop-niter.c (estimate_numbers_of_iterations_loop): Do not
+	recompute estimate number of iterations from profile.
+
+2016-06-10  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR inline-asm/68843
+	* reg-stack.c (check_asm_stack_operands): Explicit input arguments
+	must be grouped on top of stack.  Don't force early clobber
+	on ordinary reg outputs.
+
+2016-06-10  Richard Biener  <rguenther@suse.de>
+
+	* targhooks.c (default_builtin_vectorization_cost): Adjust
+	vec_construct cost.
+
+2016-06-10  Richard Biener  <rguenther@suse.de>
+
+	* gimple-fold.c (gimple_fold_builtin_memory_op): Make sure
+	to fold the RHS to a constant if possible.
+
+2016-06-10  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR middle-end/71373
+	* tree-nested.c (convert_nonlocal_omp_clauses)
+	(convert_local_omp_clauses): Handle OMP_CLAUSE_ASYNC,
+	OMP_CLAUSE_WAIT, OMP_CLAUSE_INDEPENDENT, OMP_CLAUSE_AUTO,
+	OMP_CLAUSE__CACHE_, OMP_CLAUSE_TILE.
+
+	* gimplify.c (gimplify_adjust_omp_clauses): Discard
+	OMP_CLAUSE_TILE.
+	* omp-low.c (scan_sharing_clauses): Don't expect OMP_CLAUSE_TILE.
+
+	* omp-low.c (scan_sharing_clauses): Don't expect
+	OMP_CLAUSE__CACHE_.
+
+2016-06-10  Alan Hayward  <alan.hayward@arm.com>
+
+	PR tree-optimization/71407
+	PR tree-optimization/71416
+	* tree-vect-loop.c (vectorizable_live_operation): Use vectype for
+	BIT_FIELD_REF type.
+
+2016-06-10  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/71477
+	* cfgloop.c (alloc_loop): Initialize nb_iterations_likely_upper_bound.
+
+2016-06-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* df-problems.c (df_note_bb_compute): Guard use of DF_INSN_INFO_GET.
+
+2016-06-09  Vladimir Makarov  <vmakarov@redhat.com>
+	    Jiong Wang  <jiong.wang@arm.com>
+
+	PR rtl-optimization/70751
+	* lra-constraints.c (process_alt_operands): Recognize Non-pseudo
+	spilled into memory.
+
+2016-06-09  Jonathan Yong  <10walls@gmail.com>
+
+	Revert:
+	2015-09-21  Jonathan Yong  <10walls@gmail.com>
+
+	* config/i386/cygwin.h (STARTFILE_SPEC): Explicitly search
+	sysroot/usr/lib/32api for additional win32 libraries,
+	fixes failing Cygwin bootstrapping.
+
+2016-06-09  Marcin Baczyński  <marbacz@gmail.com>
+
+	* diagnostic.h (diagnostic_line_cutoff, diagnostic_flush_buffer):
+	Delete.
+
+2016-06-09  David Malcolm  <dmalcolm@redhat.com>
+
+	PR bootstrap/71471
+	* pretty-print.c (pp_indent): Specify that %p is printed in a
+	host-dependent manner.
+	(test_pp_format): Remove the test for %p.
+
+2016-06-09  Maciej W. Rozycki  <macro@imgtec.com>
+
+	* config/mips/mips.c (mips_output_jump): Fix formatting.
+
+2016-06-09  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71462
+	* tree-ssa-loop-manip.c (find_uses_to_rename): Guard against
+	removed blocks.
+
+2016-06-09  Martin Liska  <mliska@suse.cz>
+
+	* predict.c (dump_prediction): Add new argument.
+	(enum predictor_reason): New enum.
+	(struct predictor_hash): New struct.
+	(predictor_hash::hash): New function.
+	(predictor_hash::equal): Likewise.
+	(not_removed_prediction_p): New function.
+	(prune_predictions_for_bb): Likewise.
+	(combine_predictions_for_bb): Prune predictions.
+
+2016-06-09  Martin Liska  <mliska@suse.cz>
+
+	* predict.c (filter_predictions): New function.
+	(remove_predictions_associated_with_edge): Use the filter
+	function.
+	(equal_edge_p): New function.
+
+2016-06-09  Stefan Bruens  <stefan.bruens@rwth-aachen.de>
+
+	* doc/invoke.texi (ARM Options): Use lexicographical ordering.
+	Correct usage of @samp vs @option, add @samp where appropriate.
+	Add -march={armv6k,armv6z,arm6zk}, remove -march=ep9312.
+	Add armv6s-m and document it, as it is no official ARM name.
+
+2016-06-09  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* ifcvt.c (struct noce_if_info): Add transform_name field.
+	(noce_try_move): Set if_info->transform_name to the function name.
+	(noce_try_ifelse_collapse): Likewise.
+	(noce_try_store_flag): Likewise.
+	(noce_try_inverse_constants): Likewise.
+	(noce_try_store_flag_constants): Likewise.
+	(noce_try_addcc): Likewise.
+	(noce_try_store_flag_mask): Likewise.
+	(noce_try_cmove): Likewise.
+	(noce_try_cmove_arith): Likewise.
+	(noce_try_minmax): Likewise.
+	(noce_try_abs): Likewise.
+	(noce_try_sign_mask): Likewise.
+	(noce_try_bitop): Likewise.
+	(noce_convert_multiple_sets): Likewise.
+	(noce_process_if_block): Print if_info->transform_name to
+	dump_file if transformation succeeded.
+
+2016-06-09  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/cortex-a57.md (cortex_a57_alu):
+	Handle csel type.
+
+2016-06-08  Martin Sebor  <msebor@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/70507
+	PR c/68120
+	* builtins.def (BUILT_IN_ADD_OVERFLOW_P, BUILT_IN_SUB_OVERFLOW_P,
+	BUILT_IN_MUL_OVERFLOW_P): New builtins.
+	* builtins.c: Include gimple-fold.h.
+	(fold_builtin_arith_overflow): Handle
+	BUILT_IN_{ADD,SUB,MUL}_OVERFLOW_P.
+	(fold_builtin_3): Likewise.
+	* doc/extend.texi (Integer Overflow Builtins): Document
+	__builtin_{add,sub,mul}_overflow_p.
+
+2016-06-08  Jose E. Marchesi  <jose.marchesi@oracle.com>
+
+	* config/sparc/driver-sparc.c (cpu_names): Fix the entry for the
+	SPARC-M7 and add an entry for SPARC-S7 cpus (Sonoma).
+
+2016-06-08  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_function_arg_alignment):
+	Rewrite, looking one level down for records and arrays.
+
 2016-06-08  David Malcolm  <dmalcolm@redhat.com>
 
 	* pretty-print.c: Include "selftest.h".
@@ -250,8 +648,7 @@
 
 2016-06-07  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
 
-	* simplify-rtx.c (simplify_cond_clz_ctz): Delete 'mode' local
-	variable.
+	* simplify-rtx.c (simplify_cond_clz_ctz): Delete 'mode' local variable.
 
 2016-06-07  Jakub Jelinek  <jakub@redhat.com>
 
@@ -612,7 +1009,7 @@
 	only edges out of BB are EH edges.
 
 2016-06-04  Martin Sebor  <msebor@redhat.com>
-	    Marcin Baczyński <marbacz@gmail.com>
+	    Marcin Baczyński  <marbacz@gmail.com>
 
 	PR c/48116
 	* doc/invoke.texi (-Wreturn-type): Mention not warning on return with
