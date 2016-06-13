@@ -2216,6 +2216,11 @@ symtab_node::binds_to_current_def_p (symtab_node *ref)
 {
   if (!definition)
     return false;
+  /* The resolver for ifunc functions might resolve to a non-local
+     function.  */
+  if (TREE_CODE (decl) == FUNCTION_DECL
+      && lookup_attribute ("ifunc", DECL_ATTRIBUTES (decl)))
+    return false;
   if (decl_binds_to_current_def_p (decl))
     return true;
 
