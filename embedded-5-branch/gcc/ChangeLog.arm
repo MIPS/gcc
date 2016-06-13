@@ -1,6 +1,15 @@
 2016-06-13  Andre Vieira  <andre.simoesdiasvieira@arm.com>
 
 	Backport from Mainline
+	2015-09-25  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/61578
+	* lra-constarints.c (match_reload): Check presence of the input pseudo
+	  in the output pseudo.
+
+2016-06-13  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	Backport from Mainline
 	2015-09-01  Vladimir Makarov  <vmakarov@redhat.com>
 
 	PR target/61578
