@@ -1300,6 +1300,7 @@ BU_ALTIVEC_OVERLOAD_X (LVRX,	   "lvrx")
 BU_ALTIVEC_OVERLOAD_X (LVRXL,	   "lvrxl")
 BU_ALTIVEC_OVERLOAD_X (LVSL,	   "lvsl")
 BU_ALTIVEC_OVERLOAD_X (LVSR,	   "lvsr")
+BU_ALTIVEC_OVERLOAD_X (MUL,	   "mul")
 BU_ALTIVEC_OVERLOAD_X (PROMOTE,	   "promote")
 BU_ALTIVEC_OVERLOAD_X (SLD,	   "sld")
 BU_ALTIVEC_OVERLOAD_X (SPLAT,	   "splat")
@@ -1600,7 +1601,6 @@ BU_VSX_OVERLOAD_3V (XXPERMDI, "xxpermdi")
 BU_VSX_OVERLOAD_3V (XXSLDWI,  "xxsldwi")
 
 /* 2 argument VSX overloaded builtin functions.  */
-BU_VSX_OVERLOAD_2 (MUL,	     "mul")
 BU_VSX_OVERLOAD_2 (DIV,	     "div")
 BU_VSX_OVERLOAD_2 (XXMRGHW,  "xxmrghw")
 BU_VSX_OVERLOAD_2 (XXMRGLW,  "xxmrglw")
@@ -1756,6 +1756,17 @@ BU_P9V_AV_2 (VSRV,		"vsrv",			CONST, vsrv)
 /* ISA 3.0 vector overloaded 2-argument functions. */
 BU_P9V_OVERLOAD_2 (VSLV,	"vslv")
 BU_P9V_OVERLOAD_2 (VSRV,	"vsrv")
+
+/* 2 argument vector functions added in ISA 3.0 (power9). */
+BU_P9V_AV_2 (VADUB,		"vadub",		CONST,  vaduv16qi3)
+BU_P9V_AV_2 (VADUH,		"vaduh",		CONST,  vaduv8hi3)
+BU_P9V_AV_2 (VADUW,		"vaduw",		CONST,  vaduv4si3)
+
+/* ISA 3.0 vector overloaded 2 argument functions. */
+BU_P9V_OVERLOAD_2 (VADU,	"vadu")
+BU_P9V_OVERLOAD_2 (VADUB,	"vadub")
+BU_P9V_OVERLOAD_2 (VADUH,	"vaduh")
+BU_P9V_OVERLOAD_2 (VADUW,	"vaduw")
 
 
 /* 2 argument extended divide functions added in ISA 2.06.  */

@@ -3467,9 +3467,9 @@
 
 ;; Vector absolute difference unsigned
 (define_expand "vadu<mode>3"
-  [(set (match_operand:VI 0 "register_operand" "")
-        (unspec:VI [(match_operand:VI 1 "register_operand" "")
-		    (match_operand:VI 2 "register_operand" "")]
+  [(set (match_operand:VI 0 "register_operand")
+        (unspec:VI [(match_operand:VI 1 "register_operand")
+		    (match_operand:VI 2 "register_operand")]
          UNSPEC_VADU))]
   "TARGET_P9_VECTOR")
 
@@ -3480,9 +3480,8 @@
 		    (match_operand:VI 2 "register_operand" "v")]
          UNSPEC_VADU))]
   "TARGET_P9_VECTOR"
-  "vabsdu<wd> %0, %1, %2"
-  [(set_attr "type" "add")  
-   (set_attr "length" "4")])
+  "vabsdu<wd> %0,%1,%2"
+  [(set_attr "type" "vecsimple")])
 
 ;; Vector count trailing zeros
 (define_insn "*p9v_ctz<mode>2"

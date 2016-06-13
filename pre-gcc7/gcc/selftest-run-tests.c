@@ -46,7 +46,9 @@ selftest::run_tests ()
   hash_map_tests_c_tests ();
   hash_set_tests_c_tests ();
   vec_c_tests ();
+  pretty_print_c_tests ();
   wide_int_cc_tests ();
+  ggc_tests_c_tests ();
 
   /* Mid-level data structures.  */
   input_c_tests ();
