@@ -1,3 +1,14 @@
+2016-06-13  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	Backport from Mainline
+	2015-09-01  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/61578
+	* lra-lives.c (process_bb_lives): Process move pseudos with the
+	  same value for copies and preferences
+	* lra-constraints.c (match_reload): Create match reload pseudo
+	  with the same value from single dying input pseudo.
+
 2016-05-25  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	* config/arm/t-baremetal (MULTILIB_MATCHES): Match ARMv8-M Mainline
