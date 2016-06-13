@@ -2098,16 +2098,20 @@
 ;; Optimize cases were we can do a simple or direct move.
 ;; Or see if we can avoid doing the move at all
 
+;; There are some unresolved problems with reload that show up if an Altivec
+;; register was picked.  Limit the scalar value to FPRs for now.
+
 (define_insn "vsx_extract_<mode>"
   [(set (match_operand:<VS_scalar> 0 "gpc_reg_operand"
-            "=d,         wm,    wo,     d")
+            "=0, d,     wm,      wo,    d")
 
 	(vec_select:<VS_scalar>
 	 (match_operand:VSX_D 1 "gpc_reg_operand"
-            "<VSa>,      <VSa>,  <VSa>,  <VSa>")
+            "d,  <VSa>, <VSa>,  <VSa>,  <VSa>")
 
-	 (parallel [(match_operand:QI 2 "const_0_to_1_operand"
-            "wD,         wD,     wL,     n")])))]
+	 (parallel
+	  [(match_operand:QI 2 "const_0_to_1_operand"
+            "wD, wD,    wD,     wL,     n")])))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
 {
   int element = INTVAL (operands[2]);
@@ -2121,63 +2125,69 @@
   if (element == VECTOR_ELEMENT_SCALAR_64BIT)
     {
       if (op0_regno == op1_regno)
-	return ASM_COMMENT_START " xxpermdi to same register";
+	return ASM_COMMENT_START " vec_extract to same register";
 
-      if (INT_REGNO_P (op0_regno))
-	{
-	  gcc_assert (TARGET_DIRECT_MOVE && TARGET_POWERPC64);
-	  return "mfvsrd %0,%x1";
-	}
+      else if (INT_REGNO_P (op0_regno) && TARGET_DIRECT_MOVE
+	       && TARGET_POWERPC64)
+	return "mfvsrd %0,%x1";
 
-      if (FP_REGNO_P (op0_regno) && FP_REGNO_P (op1_regno))
+      else if (FP_REGNO_P (op0_regno) && FP_REGNO_P (op1_regno))
 	return "fmr %0,%1";
 
-      gcc_assert (VSX_REGNO_P (op0_regno));
-      return "xxlor %x0,%x1,%x1";
+      else if (VSX_REGNO_P (op0_regno))
+	return "xxlor %x0,%x1,%x1";
+
+      else
+	gcc_unreachable ();
     }
 
-  if (element == VECTOR_ELEMENT_MFVSRLD_64BIT && INT_REGNO_P (op0_regno))
+  else if (element == VECTOR_ELEMENT_MFVSRLD_64BIT && INT_REGNO_P (op0_regno)
+	   && TARGET_P9_VECTOR && TARGET_POWERPC64 && TARGET_DIRECT_MOVE)
+    return "mfvsrdl %0,%x1";
+
+  else if (VSX_REGNO_P (op0_regno))
     {
-      gcc_assert (TARGET_P9_VECTOR && TARGET_POWERPC64 && TARGET_DIRECT_MOVE);
-      return "mfvsrdl %0,%x1";
+      fldDM = element << 1;
+      if (!BYTES_BIG_ENDIAN)
+	fldDM = 3 - fldDM;
+      operands[3] = GEN_INT (fldDM);
+      return "xxpermdi %x0,%x1,%x1,%3";
     }
 
-  gcc_assert (VSX_REGNO_P (op0_regno));
-  fldDM = element << 1;
-  if (!BYTES_BIG_ENDIAN)
-    fldDM = 3 - fldDM;
-  operands[3] = GEN_INT (fldDM);
-  return "xxpermdi %x0,%x1,%x1,%3";
+  else
+    gcc_unreachable ();
 }
-  [(set_attr "type" "vecsimple,mftgpr,mftgpr,vecperm")])
+  [(set_attr "type" "integer,vecsimple,mftgpr,mftgpr,vecperm")])
 
 ;; Optimize extracting a single scalar element from memory if the scalar is in
 ;; the correct location to use a single load.
 (define_insn "*vsx_extract_<mode>_load"
-  [(set (match_operand:<VS_scalar> 0 "register_operand" "=d,wv,wr")
+  [(set (match_operand:<VS_scalar> 0 "register_operand" "=d,wb,wv,wr")
 	(vec_select:<VS_scalar>
-	 (match_operand:VSX_D 1 "memory_operand" "m,Z,m")
-	 (parallel [(const_int 0)])))]
+	 (match_operand:VSX_D 1 "memory_operand" "m,Z,m,m")
+	 (parallel [(match_operand:QI 2 "vsx_scalar_64bit" "wD,wD,wD,wD")])))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "@
    lfd%U1%X1 %0,%1
-   lxsd%U1x %x0,%y1
+   lxsd %x0,%1
+   lxsdx %x0,%y1
    ld%U1%X1 %0,%1"
-  [(set_attr "type" "fpload,fpload,load")
+  [(set_attr "type" "fpload,fpload,fpload,load")
    (set_attr "length" "4")])
 
 ;; Optimize storing a single scalar element that is the right location to
 ;; memory
 (define_insn "*vsx_extract_<mode>_store"
-  [(set (match_operand:<VS_scalar> 0 "memory_operand" "=m,Z,?Z")
+  [(set (match_operand:<VS_scalar> 0 "memory_operand" "=m,m,Z,m")
 	(vec_select:<VS_scalar>
-	 (match_operand:VSX_D 1 "register_operand" "d,wd,<VSa>")
-	 (parallel [(match_operand:QI 2 "vsx_scalar_64bit" "wD,wD,wD")])))]
+	 (match_operand:VSX_D 1 "register_operand" "d,wb,wd,wr")
+	 (parallel [(match_operand:QI 2 "vsx_scalar_64bit" "wD,wD,wD,wD")])))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "@
    stfd%U0%X0 %1,%0
-   stxsd%U0x %x1,%y0
-   stxsd%U0x %x1,%y0"
+   stxsd %x1,%0
+   stxsdx %x1,%y0
+   std%U0%X0 %1,%0"
   [(set_attr "type" "fpstore")
    (set_attr "length" "4")])
 
