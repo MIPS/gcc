@@ -7677,10 +7677,27 @@
 		      (match_operand:SI 2 "const_int_operand")))])]
   "GET_CODE (operands[1]) == REG && REGNO (operands[1]) == STACK_POINTER_REGNUM
    && mips16e_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL)"
-  { return mips16e_output_save_restore (operands[0], INTVAL (operands[2])); }
+  { return mips16e_output_save_restore (operands[0], INTVAL (operands[2]),
+					false); }
   [(set_attr "type" "arith")
    (set_attr "extended_mips16" "yes")
    (set_attr "can_delay" "no")])
+
+(define_insn "mips_restore_jrc"
+  [(return)
+   (match_parallel 0 ""
+     [(set (match_operand:SI 1 "register_operand")
+	   (plus:SI (match_dup 1)
+		    (match_operand:SI 2 "const_int_operand")))])]
+  "TARGET_MICROMIPS_R7
+   && GET_CODE (operands[1]) == REG
+   && REGNO (operands[1]) == STACK_POINTER_REGNUM
+   && mips16e_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL)
+   && reload_completed"
+  { return mips16e_output_save_restore (operands[0], INTVAL (operands[2]),
+					true); }
+  [(set_attr "type"     "jump")
+   (set_attr "mode"     "none")])
 
 ;; Thread-Local Storage
 
