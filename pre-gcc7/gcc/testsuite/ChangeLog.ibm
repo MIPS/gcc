@@ -1,3 +1,24 @@
+2016-06-14  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* gcc.target/powerpc/vadsdu-0.c: Add dg-skip-if and
+	dg-require-effective-target directives to disable test on
+	inappropriate platforms.  Remove trailing spaces and extraneous
+	spaces in the scan-assembler directive.
+	* gcc.target/powerpc/vadsdu-2.c: Likewise.
+	* gcc.target/powerpc/vadsdu-4.c: Likewise.
+	* gcc.target/powerpc/vadsdub-1.c: Likewise.
+	* gcc.target/powerpc/vadsduh-1.c: Likewise.
+	* gcc.target/powerpc/vadsduw-1.c: Likewise.
+	* gcc.target/powerpc/vadsdu-1.c: Likewise, and replace vec_adu
+	call with a vec_absd call.
+	* gcc.target/powerpc/vadsdu-3.c: Likewise.
+	* gcc.target/powerpc/vadsdu-5.c: Likewise.
+	* gcc.target/powerpc/vadsduh-2.c: Likewise.
+	* gcc.target/powerpc/vadsduw-2.c: Likewise.
+	* gcc.target/powerpc/vadsdub-2.c: Likewise, but replace the
+	__builtin_vec_vadub call with a vec_absdb call.  This change still
+	needs to merge with trunk as it was accidentally omitted.
+
 2016-06-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 237393.

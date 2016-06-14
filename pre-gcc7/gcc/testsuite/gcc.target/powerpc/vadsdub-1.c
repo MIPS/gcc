@@ -1,11 +1,13 @@
 /* { dg-do compile { target { powerpc*-*-* } } } */
+/* { dg-skip-if "do not override -mcpu" { powerpc*-*-* } { "-mcpu=*" } { "-mcpu=power9" } } */
+/* { dg-require-effective-target p9vector_hw } */
 /* { dg-options "-mcpu=power9" } */
 
 /* This test should succeed on both 32- and 64-bit configurations.  */
 #include <altivec.h>
 
-__vector unsigned char 
-doAbsoluteDifferenceUnsigned (__vector unsigned char *p, 
+__vector unsigned char
+doAbsoluteDifferenceUnsigned (__vector unsigned char *p,
 			      __vector unsigned char *q)
 {
   __vector unsigned char source_1, source_2;
@@ -18,5 +20,4 @@ doAbsoluteDifferenceUnsigned (__vector unsigned char *p,
   return uc_result;
 }
 
-
-/* { dg-final { scan-assembler	   "vabsdub" } } */
+/* { dg-final { scan-assembler "vabsdub" } } */
