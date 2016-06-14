@@ -1,3 +1,13 @@
+2016-06-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (UNSPEC_P9_MEMORY): New unspec.
+	(p9_lxsi<wd>zx): New code to implement load bye/halfword to the
+	vector registers on ISA 3.0.
+
+	* config/rs6000/rs6000.md (ISA 3.0 peepholes): Add new peepholes
+	to catch zero_extend of byte/half-word and converting it to
+	floating point.
+
 2016-06-14   Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch subversion id 237393
