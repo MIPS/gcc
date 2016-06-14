@@ -332,7 +332,7 @@ extern const char *current_section_name (void);
 extern unsigned int current_section_flags (void);
 extern bool mips_use_ins_ext_p (rtx, HOST_WIDE_INT, HOST_WIDE_INT);
 
-extern const char *mips16e_output_save_restore (rtx, HOST_WIDE_INT);
+extern const char *mips16e_output_save_restore (rtx, HOST_WIDE_INT, bool);
 extern bool mips16e_save_restore_pattern_p (rtx, HOST_WIDE_INT,
 					    struct mips16e_save_restore_info *);
 

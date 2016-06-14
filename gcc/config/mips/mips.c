@@ -11925,7 +11925,7 @@ mips16e_add_register_range (char *s, unsigned int min_reg,
    PATTERN and ADJUST are as for mips16e_save_restore_pattern_p.  */
 
 const char *
-mips16e_output_save_restore (rtx pattern, HOST_WIDE_INT adjust)
+mips16e_output_save_restore (rtx pattern, HOST_WIDE_INT adjust, bool jrc_p)
 {
   static char buffer[300];
 
@@ -11959,10 +11959,12 @@ mips16e_output_save_restore (rtx pattern, HOST_WIDE_INT adjust)
   else
     {
       if (insn16_p)
-	s = strcpy (buffer, adjust > 0 ? "sdbbp16 0 # restore16\t"
+	s = strcpy (buffer, adjust > 0 ? (jrc_p ? "sdbbp16 1 # restore16.jrc\t"
+						: "sdbbp16 0 # restore16\t")
 				       : "sdbbp16 0 # save16\t");
       else
-	s = strcpy (buffer, adjust > 0 ? "sdbbp32 0 # restore\t"
+	s = strcpy (buffer, adjust > 0 ? (jrc_p ? "sdbbp32 1 # restore.jrc\t"
+						: "sdbbp32 0 # restore\t")
 				       : "sdbbp32 0 # save\t");
     }
   s += strlen (s);
@@ -14512,7 +14514,18 @@ mips_expand_epilogue (bool sibcall_p)
       /* Restore the remaining registers and deallocate the final bit
 	 of the frame.  */
       mips_frame_barrier ();
-      emit_insn (restore);
+      if (!sibcall_p
+	  && ISA_HAS_SAVE_RESTORE
+	  && TARGET_MICROMIPS_R7
+	  && TARGET_ADD_RESTORE_JRC)
+	{
+	  rtx pat;
+	  mips_expand_before_return ();
+	  pat = gen_mips_restore_jrc (restore, NULL_RTX, NULL_RTX);
+	  emit_jump_insn (pat);
+	}
+      else
+	emit_insn (restore);
       mips_epilogue_set_cfa (stack_pointer_rtx, 0);
     }
   else if (cfun->machine->use_common_epilogue_p && !sibcall_p)
@@ -14652,7 +14665,7 @@ mips_expand_epilogue (bool sibcall_p)
 				  EH_RETURN_STACKADJ_RTX));
     }
 
-  if (!sibcall_p)
+  if (!sibcall_p && !(TARGET_MICROMIPS_R7 && TARGET_ADD_RESTORE_JRC))
     {
       mips_expand_before_return ();
       if (cfun->machine->interrupt_handler_p)
