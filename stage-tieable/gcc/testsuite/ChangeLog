@@ -1,3 +1,119 @@
+2016-06-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/p9-dimode1.c: New test.
+	* gcc.target/powerpc/p9-dimode2.c: Likewise.
+
+2016-06-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20160615-1.c: New test.
+
+	* g++.dg/cpp0x/ref-qual17.C: New test.
+
+2016-06-15  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR middle-end/71529
+	* gcc.target/i386/pr71529.C: New test.
+
+2016-06-15  Alan Hayward  <alan.hayward@arm.com>
+
+	PR tree-optimization/71483
+	* g++.dg/vect/pr71483.c: New
+
+2016-06-15  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/70202
+	* g++.dg/inherit/crash6.C: New.
+	* g++.dg/inherit/union2.C: Likewise.
+	* g++.dg/inherit/virtual12.C: Likewise.
+	* g++.dg/inherit/virtual13.C: Likewise.
+	* g++.dg/inherit/virtual1.C: Tweak dg-* tests.
+
+2016-06-15  Uros Bizjak  <ubizjak@gmail.com>
+
+        * gcc.dg/torture/float128-nan.c: Include stdint.h to define uint64_t.
+
+2016-06-15  Alan Hayward  <alan.hayward@arm.com>
+
+	PR tree-optimization/71439
+	* gcc.dg/vect/pr71439.c: New
+
+2016-06-15  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/ifcvt_multiple_sets_subreg_1.c: New test.
+
+2016-06-15  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/vect/slp-45.c: New testcase.
+
+2016-06-15  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/vect/bb-slp-pattern-2.c: Disable loop vectorization.
+
+2016-06-14  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vsx-elemrev-2.c: Change effective target
+	requirements, and disable for AIX for now.
+	* gcc.target/powerpc/vsx-elemrev-4.c: Likewise.
+
+2016-06-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71528
+	* g++.dg/opt/pr71528.C: New test.
+
+	PR c++/71516
+	* g++.dg/init/pr71516.C: New test.
+
+2016-06-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/init/array46.C: New.
+
+2016-06-14  Uros Bizjak  <ubizjak@gmail.com>
+
+        * gcc.target/i386/float128-3.c: New test.
+        * gcc.target/i386/quad-sse4.c: Ditto.
+        * gcc.target/i386/quad-sse.c: Use -msse instead of -msse2.
+        Update scan strings.
+
+2016-06-14  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/71526
+	* gfortran.dg/pr71526.f90: New testcase.
+
+2016-06-14  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	* gcc.dg/zero_bits_compound-1.c: Support aarch64.
+	* gcc.dg/zero_bits_compound-1.c: Likewise.
+
+2016-06-14  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71522
+	* gcc.dg/torture/pr71522.c: New testcase.
+
+2016-06-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/71520
+	* gcc.dg/tree-ssa/pr71520.c: New test.
+
+2016-06-14  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71521
+	* gcc.dg/tree-ssa/vrp101.c: New testcase.
+
+2016-06-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/71498
+	* c-c++-common/ubsan/bounds-13.c: New test.
+
+	PR preprocessor/71183
+	* gcc.dg/cpp/source_date_epoch-3.c: New test.
+
+2016-06-13  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/71403
+	* c-c++-common/ubsan/pr71403-1.c: New test.
+	* c-c++-common/ubsan/pr71403-2.c: New test.
+	* c-c++-common/ubsan/pr71403-3.c: New test.
+
 2016-06-13  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/71478

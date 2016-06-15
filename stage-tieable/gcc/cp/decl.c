@@ -2066,6 +2066,14 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       if (VAR_P (newdecl))
 	{
 	  DECL_THIS_EXTERN (newdecl) |= DECL_THIS_EXTERN (olddecl);
+	  /* For already initialized vars, TREE_READONLY could have been
+	     cleared in cp_finish_decl, because the var needs runtime
+	     initialization or destruction.  Make sure not to set
+	     TREE_READONLY on it again.  */
+	  if (DECL_INITIALIZED_P (olddecl)
+	      && !DECL_EXTERNAL (olddecl)
+	      && !TREE_READONLY (olddecl))
+	    TREE_READONLY (newdecl) = 0;
 	  DECL_INITIALIZED_P (newdecl) |= DECL_INITIALIZED_P (olddecl);
 	  DECL_NONTRIVIALLY_INITIALIZED_P (newdecl)
 	    |= DECL_NONTRIVIALLY_INITIALIZED_P (olddecl);
@@ -12871,12 +12879,9 @@ xref_tag_from_type (tree old, tree id, tag_scope scope)
 /* Create the binfo hierarchy for REF with (possibly NULL) base list
    BASE_LIST.  For each element on BASE_LIST the TREE_PURPOSE is an
    access_* node, and the TREE_VALUE is the type of the base-class.
-   Non-NULL TREE_TYPE indicates virtual inheritance.  
- 
-   Returns true if the binfo hierarchy was successfully created,
-   false if an error was detected. */
+   Non-NULL TREE_TYPE indicates virtual inheritance.  */
 
-bool
+void
 xref_basetypes (tree ref, tree base_list)
 {
   tree *basep;
@@ -12889,7 +12894,7 @@ xref_basetypes (tree ref, tree base_list)
   tree igo_prev; /* Track Inheritance Graph Order.  */
 
   if (ref == error_mark_node)
-    return false;
+    return;
 
   /* The base of a derived class is private by default, all others are
      public.  */
@@ -12933,11 +12938,7 @@ xref_basetypes (tree ref, tree base_list)
 
   /* The binfo slot should be empty, unless this is an (ill-formed)
      redefinition.  */
-  if (TYPE_BINFO (ref) && !TYPE_SIZE (ref))
-    {
-      error ("redefinition of %q#T", ref);
-      return false;
-    }
+  gcc_assert (!TYPE_BINFO (ref) || TYPE_SIZE (ref));
 
   gcc_assert (TYPE_MAIN_VARIANT (ref) == ref);
 
@@ -12957,19 +12958,13 @@ xref_basetypes (tree ref, tree base_list)
       CLASSTYPE_NON_AGGREGATE (ref) = 1;
 
       if (TREE_CODE (ref) == UNION_TYPE)
-        {
-	  error ("derived union %qT invalid", ref);
-          return false;
-        }
+	error ("derived union %qT invalid", ref);
     }
 
   if (max_bases > 1)
     {
       if (TYPE_FOR_JAVA (ref))
-        {
-	  error ("Java class %qT cannot have multiple bases", ref);
-          return false;
-        }
+	error ("Java class %qT cannot have multiple bases", ref);
       else
 	warning (OPT_Wmultiple_inheritance,
 		 "%qT defined with multiple direct bases", ref);
@@ -12980,10 +12975,7 @@ xref_basetypes (tree ref, tree base_list)
       vec_alloc (CLASSTYPE_VBASECLASSES (ref), max_vbases);
 
       if (TYPE_FOR_JAVA (ref))
-        {
-	  error ("Java class %qT cannot have virtual bases", ref);
-          return false;
-        }
+	error ("Java class %qT cannot have virtual bases", ref);
       else if (max_dvbases)
 	warning (OPT_Wvirtual_inheritance,
 		 "%qT defined with direct virtual base", ref);
@@ -13006,7 +12998,7 @@ xref_basetypes (tree ref, tree base_list)
 	{
 	  error ("base type %qT fails to be a struct or class type",
 		 basetype);
-	  return false;
+	  goto dropped_base;
 	}
 
       if (TYPE_FOR_JAVA (basetype) && (current_lang_depth () == 0))
@@ -13040,7 +13032,7 @@ xref_basetypes (tree ref, tree base_list)
 	    error ("recursive type %qT undefined", basetype);
 	  else
 	    error ("duplicate base type %qT invalid", basetype);
-	  return false;
+	  goto dropped_base;
 	}
 
       if (PACK_EXPANSION_P (TREE_VALUE (base_list)))
@@ -13056,7 +13048,24 @@ xref_basetypes (tree ref, tree base_list)
 
       BINFO_BASE_APPEND (binfo, base_binfo);
       BINFO_BASE_ACCESS_APPEND (binfo, access);
+      continue;
+
+    dropped_base:
+      /* Update max_vbases to reflect the reality that we are dropping
+	 this base:  if it reaches zero we want to undo the vec_alloc
+	 above to avoid inconsistencies during error-recovery: eg, in
+	 build_special_member_call, CLASSTYPE_VBASECLASSES non null
+	 and vtt null (c++/27952).  */
+      if (via_virtual)
+	max_vbases--;
+      if (CLASS_TYPE_P (basetype))
+	max_vbases
+	  -= vec_safe_length (CLASSTYPE_VBASECLASSES (basetype));
     }
+
+  if (CLASSTYPE_VBASECLASSES (ref)
+      && max_vbases == 0)
+    vec_free (CLASSTYPE_VBASECLASSES (ref));
 
   if (vec_safe_length (CLASSTYPE_VBASECLASSES (ref)) < max_vbases)
     /* If we didn't get max_vbases vbases, we must have shared at
@@ -13088,8 +13097,6 @@ xref_basetypes (tree ref, tree base_list)
 	else
 	  break;
     }
-
-  return true;
 }
 
 
@@ -15029,8 +15036,9 @@ complete_vars (tree type)
 	  tree var = iv->decl;
 	  tree type = TREE_TYPE (var);
 
-	  if (TYPE_MAIN_VARIANT (strip_array_types (type))
-	      == iv->incomplete_type)
+	  if (type != error_mark_node
+	      && (TYPE_MAIN_VARIANT (strip_array_types (type))
+		  == iv->incomplete_type))
 	    {
 	      /* Complete the type of the variable.  The VAR_DECL itself
 		 will be laid out in expand_expr.  */

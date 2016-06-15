@@ -4380,9 +4380,7 @@
 	(and:GPI (ashift:GPI (match_operand:GPI 1 "register_operand" "r")
 			     (match_operand 2 "const_int_operand" "n"))
 		 (match_operand 3 "const_int_operand" "n")))]
-  "(INTVAL (operands[2]) < (<GPI:sizen>))
-   && exact_log2 ((INTVAL (operands[3]) >> INTVAL (operands[2])) + 1) >= 0
-   && (INTVAL (operands[3]) & ((1 << INTVAL (operands[2])) - 1)) == 0"
+  "aarch64_mask_and_shift_for_ubfiz_p (<MODE>mode, operands[3], operands[2])"
   "ubfiz\\t%<w>0, %<w>1, %2, %P3"
   [(set_attr "type" "bfm")]
 )
@@ -4715,11 +4713,22 @@
   [(set_attr "type" "fmul<s>")]
 )
 
-(define_insn "div<mode>3"
+(define_expand "div<mode>3"
+ [(set (match_operand:GPF 0 "register_operand")
+       (div:GPF (match_operand:GPF 1 "general_operand")
+		(match_operand:GPF 2 "register_operand")))]
+ "TARGET_SIMD"
+{
+  if (aarch64_emit_approx_div (operands[0], operands[1], operands[2]))
+    DONE;
+
+  operands[1] = force_reg (<MODE>mode, operands[1]);
+})
+
+(define_insn "*div<mode>3"
   [(set (match_operand:GPF 0 "register_operand" "=w")
-        (div:GPF
-         (match_operand:GPF 1 "register_operand" "w")
-         (match_operand:GPF 2 "register_operand" "w")))]
+        (div:GPF (match_operand:GPF 1 "register_operand" "w")
+	         (match_operand:GPF 2 "register_operand" "w")))]
   "TARGET_FLOAT"
   "fdiv\\t%<s>0, %<s>1, %<s>2"
   [(set_attr "type" "fdiv<s>")]
@@ -4733,7 +4742,16 @@
   [(set_attr "type" "ffarith<s>")]
 )
 
-(define_insn "sqrt<mode>2"
+(define_expand "sqrt<mode>2"
+  [(set (match_operand:GPF 0 "register_operand")
+        (sqrt:GPF (match_operand:GPF 1 "register_operand")))]
+  "TARGET_FLOAT"
+{
+  if (aarch64_emit_approx_sqrt (operands[0], operands[1], false))
+    DONE;
+})
+
+(define_insn "*sqrt<mode>2"
   [(set (match_operand:GPF 0 "register_operand" "=w")
         (sqrt:GPF (match_operand:GPF 1 "register_operand" "w")))]
   "TARGET_FLOAT"

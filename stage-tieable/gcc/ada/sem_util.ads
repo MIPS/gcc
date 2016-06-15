@@ -1103,6 +1103,11 @@ package Sem_Util is
    --  as expressed in pragma Refined_State. This function does not take into
    --  account the visible refinement region of abstract state Id.
 
+   function Has_Null_Body (Proc_Id : Entity_Id) return Boolean;
+   --  Determine whether the body of procedure Proc_Id contains a sole
+   --  null statement, possibly followed by an optional return. Used to
+   --  optimize useless calls to assertion checks.
+
    function Has_Null_Exclusion (N : Node_Id) return Boolean;
    --  Determine whether node N has a null exclusion
 
@@ -2002,6 +2007,15 @@ package Sem_Util is
    --  (e for spec, t for body, see Lib.Xref spec for details). The
    --  parameter Ent gives the entity to which the End_Label refers,
    --  and to which cross-references are to be generated.
+
+   procedure Propagate_Concurrent_Flags
+     (Typ      : Entity_Id;
+      Comp_Typ : Entity_Id);
+   --  Set Has_Task, Has_Protected and Has_Timing_Event on Typ when the flags
+   --  are set on Comp_Typ. This follows the definition of these flags which
+   --  are set (recursively) on any composite type which has a component marked
+   --  by one of these flags. This procedure can only set flags for Typ, and
+   --  never clear them. Comp_Typ is the type of a component or a parent.
 
    procedure Record_Possible_Part_Of_Reference
      (Var_Id : Entity_Id;

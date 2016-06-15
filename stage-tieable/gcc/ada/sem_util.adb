@@ -9581,6 +9581,65 @@ package body Sem_Util is
           and then Nkind (Node (First_Elmt (Constits))) /= N_Null;
    end Has_Non_Null_Refinement;
 
+   -------------------
+   -- Has_Null_Body --
+   -------------------
+
+   function Has_Null_Body (Proc_Id : Entity_Id) return Boolean is
+      Body_Id : Entity_Id;
+      Decl    : Node_Id;
+      Spec    : Node_Id;
+      Stmt1   : Node_Id;
+      Stmt2   : Node_Id;
+
+   begin
+      Spec := Parent (Proc_Id);
+      Decl := Parent (Spec);
+
+      --  Retrieve the entity of the procedure body (e.g. invariant proc).
+
+      if Nkind (Spec) = N_Procedure_Specification
+        and then Nkind (Decl) = N_Subprogram_Declaration
+      then
+         Body_Id := Corresponding_Body (Decl);
+
+      --  The body acts as a spec
+
+      else
+         Body_Id := Proc_Id;
+      end if;
+
+      --  The body will be generated later
+
+      if No (Body_Id) then
+         return False;
+      end if;
+
+      Spec := Parent (Body_Id);
+      Decl := Parent (Spec);
+
+      pragma Assert
+        (Nkind (Spec) = N_Procedure_Specification
+          and then Nkind (Decl) = N_Subprogram_Body);
+
+      Stmt1 := First (Statements (Handled_Statement_Sequence (Decl)));
+
+      --  Look for a null statement followed by an optional return
+      --  statement.
+
+      if Nkind (Stmt1) = N_Null_Statement then
+         Stmt2 := Next (Stmt1);
+
+         if Present (Stmt2) then
+            return Nkind (Stmt2) = N_Simple_Return_Statement;
+         else
+            return True;
+         end if;
+      end if;
+
+      return False;
+   end Has_Null_Body;
+
    ------------------------
    -- Has_Null_Exclusion --
    ------------------------
@@ -13634,6 +13693,23 @@ package body Sem_Util is
         and then Is_OK_Volatile_Context
           (Context => Parent (Context),
            Obj_Ref => Context)
+      then
+         return True;
+
+      --  The volatile object appears as the prefix of attributes Address,
+      --  Alignment, Component_Size, First_Bit, Last_Bit, Position, Size,
+      --  Storage_Size.
+
+      elsif Nkind (Context) = N_Attribute_Reference
+        and then Prefix (Context) = Obj_Ref
+        and then Nam_In (Attribute_Name (Context), Name_Address,
+                                                   Name_Alignment,
+                                                   Name_Component_Size,
+                                                   Name_First_Bit,
+                                                   Name_Last_Bit,
+                                                   Name_Position,
+                                                   Name_Size,
+                                                   Name_Storage_Size)
       then
          return True;
 
@@ -18282,6 +18358,27 @@ package body Sem_Util is
 
       Set_Sloc (Endl, Loc);
    end Process_End_Label;
+
+   --------------------------------
+   -- Propagate_Concurrent_Flags --
+   --------------------------------
+
+   procedure Propagate_Concurrent_Flags
+     (Typ      : Entity_Id;
+      Comp_Typ : Entity_Id) is
+   begin
+      if Has_Task (Comp_Typ) then
+         Set_Has_Task (Typ);
+      end if;
+
+      if Has_Protected (Comp_Typ) then
+         Set_Has_Protected (Typ);
+      end if;
+
+      if Has_Timing_Event (Comp_Typ) then
+         Set_Has_Timing_Event (Typ);
+      end if;
+   end Propagate_Concurrent_Flags;
 
    ---------------------------------------
    -- Record_Possible_Part_Of_Reference --

@@ -3704,7 +3704,7 @@ package body Sem_Res is
 
          if Present (A)
            and then Is_Entity_Name (A)
-           and then Comes_From_Source (N)
+           and then Comes_From_Source (A)
          then
             Orig_A := Entity (A);
 
@@ -4596,8 +4596,8 @@ package body Sem_Res is
                        Extensions_Visible_True
             then
                Error_Msg_N
-                 ("formal parameter with Extensions_Visible False cannot act "
-                  & "as actual parameter", A);
+                 ("formal parameter cannot act as actual parameter when "
+                  & "Extensions_Visible is False", A);
                Error_Msg_NE
                  ("\subprogram & has Extensions_Visible True", A, Nam);
             end if;
