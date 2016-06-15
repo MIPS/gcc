@@ -57,6 +57,10 @@
   (and (match_code "const_int")
        (match_test "UIMM6_OPERAND (INTVAL (op))")))
 
+(define_predicate "const_uimm7_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 0, 127)")))
+
 (define_predicate "const_uimm8_operand"
   (and (match_code "const_int")
        (match_test "IN_RANGE (INTVAL (op), 0, 255)")))
@@ -68,6 +72,10 @@
 (define_predicate "const_imm10_operand"
   (and (match_code "const_int")
        (match_test "IMM10_OPERAND (INTVAL (op))")))
+
+(define_predicate "reg_uimm7_operand"
+  (ior (match_operand 0 "const_uimm7_operand")
+       (match_operand 0 "register_operand")))
 
 (define_predicate "reg_imm10_operand"
   (ior (match_operand 0 "const_imm10_operand")
@@ -262,6 +270,10 @@
 (define_predicate "ub4_operand"
   (and (match_code "const_int")
        (match_test "mips_unsigned_immediate_p (INTVAL (op), 4, 0)")))
+
+(define_predicate "ub7_operand"
+  (and (match_code "const_int")
+       (match_test "mips_unsigned_immediate_p (INTVAL (op), 7, 0)")))
 
 (define_predicate "ub8_operand"
   (and (match_code "const_int")
@@ -633,6 +645,16 @@
 {
   if (XEXP (op, 1) == const0_rtx)
     return true;
+
+  if (TARGET_MICROMIPS_R7
+      && TARGET_ADD_BR_IMM_ORDER
+      && const_uimm7_operand (XEXP (op, 1), mode)
+      && (GET_CODE (op) == LT || GET_CODE (op) == LTU
+	  || GET_CODE (op) == GE || GET_CODE (op) == GEU))
+    return true;
+
+  if (CONST_INT_P (XEXP (op, 1)))
+    return false;
 
   if (TARGET_CB_MAYBE
       && (GET_CODE (op) == LT || GET_CODE (op) == LTU

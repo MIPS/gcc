@@ -583,3 +583,9 @@ Target Undocumented Var(TARGET_ADD_LDST_C1X) Init(0)
 
 madd-ldst-c1x
 Target Undocumented Var(TARGET_ADD_LDST_C1XS) Init(0)
+
+madd-br-imm
+Target Undocumented Var(TARGET_ADD_BR_IMM) Init(0)
+
+madd-br-imm-order
+Target Undocumented Var(TARGET_ADD_BR_IMM_ORDER) Init(0)
