@@ -1,3 +1,49 @@
+2016-06-15  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/70202
+	* decl.c (xref_basetypes): Revert r117839 changes; add fix-up
+	code at the end of the for loop; also revert r159637 changes,
+	add back the gcc_assert.
+	* cp-tree.h (xref_basetypes): Adjust declaration.
+	* parser.c (cp_parser_class_head): Adjust xref_basetypes call.
+
+2016-06-14  David Malcolm  <dmalcolm@redhat.com>
+
+	* search.c: Include spellcheck-tree.h rather than spellcheck.h.
+
+2016-06-14  David Malcolm  <dmalcolm@redhat.com>
+
+	* typeck.c: Include "gcc-rich-location.h".
+	(finish_class_member_access_expr): Simplify fixit code by
+	using gcc_rich_location::add_fixit_misspelled_id.
+
+2016-06-14  Jason Merrill  <jason@redhat.com>
+
+	P0145R2: Refining Expression Order for C++.
+	* cp-tree.h (CALL_EXPR_OPERATOR_SYNTAX, CALL_EXPR_ORDERED_ARGS)
+	(CALL_EXPR_REVERSE_ARGS): New.
+	* call.c (build_new_op_1): Set them.
+	(extract_call_expr, op_is_ordered): New.
+	(build_over_call): Set CALL_EXPR_ORDERED_ARGS.
+	* cp-gimplify.c (cp_gimplify_expr) [CALL_EXPR]: Handle new flags.
+	* pt.c (tsubst_copy_and_build): Copy new flags.
+	* semantics.c (simplify_aggr_init_expr): Likewise.
+	* tree.c (build_aggr_init_expr): Likewise.
+	(build_min_non_dep_op_overload): Likewise.
+
+2016-06-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71528
+	* decl.c (duplicate_decls): For DECL_INITIALIZED_P non-external
+	olddecl vars, preserve their TREE_READONLY bit.
+
+	PR c++/71516
+	* decl.c (complete_vars): Handle gracefully type == error_mark_node.
+
+2016-06-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* typeck2.c (digest_init_r): Use EXPR_LOC_OR_LOC on init.
+
 2016-06-13  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	* decl.c (grokdeclarator): Fix typo in pedwarn text.

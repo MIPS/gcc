@@ -1,3 +1,221 @@
+2016-06-14  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch6.adb (Set_Actual_Subtypes): Do not generate actual
+	subtypes for unconstrained formals when analyzing the generated
+	body of an expression function, because it may lead to premature
+	and misplaced freezing of the types of formals.
+
+2016-06-14  Gary Dismukes  <dismukes@adacore.com>
+
+	* sem_elab.adb, sem_ch4.adb: Minor reformatting and typo fix.
+
+2016-06-14  Tristan Gingold  <gingold@adacore.com>
+
+	* einfo.adb (Set_Has_Timing_Event): Add assertion.
+	* sem_util.ads, sem_util.adb (Propagate_Concurrent_Flags): New
+	name for Propagate_Type_Has_Flags.
+	* exp_ch3.adb, sem_ch3.adb, sem_ch7.adb, sem_ch9.adb: Adjust after
+	renaming.
+
+2016-06-14  Bob Duff  <duff@adacore.com>
+
+	* sem_elab.adb (Check_A_Call): Do nothing if the callee is
+	(or is in) an instance, and the caller is outside.  Misc cleanup.
+
+2016-06-14  Javier Miranda  <miranda@adacore.com>
+
+	* sem_ch4.adb (Analyze_Quantified_Expression):
+	Generating C code avoid spurious warning on loop variable of
+	inlinined postconditions.
+
+2016-06-14  Javier Miranda  <miranda@adacore.com>
+
+	* sem_attr.adb (Analyze_Attribute_Old_Result): Adding assertion.
+	(Analyze_Attribute [Attribute_Old]): Generating C handle
+	analysis of 'old in inlined postconditions.
+	(Analyze_Attribute [Attribute_Result]): Generating C handle analysis
+	of 'result in inlined postconditions.
+	* exp_attr.adb (Expand_N_Attribute_Reference [Attribute_Old]):
+	Generating C handle expansion of 'old in inlined postconditions.
+	* inline.adb (Declare_Postconditions_Result): New subprogram.
+	* sem_ch12.adb (Copy_Generic_Node): Copy pragmas generated from
+	aspects when generating C code since pre/post conditions are
+	inlined and the frontend inlining relies on this routine to
+	perform inlining.
+	* exp_ch6.adb (Inlined_Subprogram): Replace Generate_C_Code
+	by Modify_Tree_For_C.
+	* exp_unst.adb (Visit_Node): Searching for up-level references
+	skip entities defined in inlined subprograms.
+
+2016-06-14  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_ch7.adb, sem_ch12.adb, freeze.adb, lib-xref.ads, exp_ch3.adb:
+	Minor reformatting.
+
+2016-06-14  Bob Duff  <duff@adacore.com>
+
+	* sem_elab.adb: Do nothing if the callee is intrinsic.
+	* sinfo.ads, einfo.ads: Minor comment fixes.
+
+2016-06-14  Ed Schonberg  <schonberg@adacore.com>
+
+	* contracts.adb (Has_Null_Body): Move to sem_util, for general
+	availability.
+	* sem_util.ads, sem_util.adb (Has_Null_Body): Predicate to
+	determine when an internal procedure created for some assertion
+	checking (e.g. type invariant) is a null procedure. Used to
+	eliminate redundant calls to such procedures when they apply to
+	components of composite types.
+	* exp_ch3.adb (Build_Component_Invariant_Call): Do not add call
+	if invariant procedure has a null body.
+
+2016-06-14  Thomas Quinot  <quinot@adacore.com>
+
+	* g-socket.ads (Check_Selector): Clarify effect on IN OUT socket
+	set parameters.
+
+2016-06-14  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* exp_ch4.adb (Process_Action): Pass the action
+	list to Process_Transient_Object.
+	(Process_If_Case_Statements): Pass the action list to
+	Process_Transient_Object.
+	(Process_Transient_Object): Add new parameter Stmts and update the
+	comment on usage. When the context is a Boolean evaluation, insert
+	any finalization calls after the last statement of the construct.
+
+2016-06-14  Tristan Gingold  <gingold@adacore.com>
+
+	* einfo.adb, einfo.ads (Has_Timing_Event,
+	Set_Has_Timing_Event): Add Has_Timing_Event flag.
+	(Write_Entity_Flags): Display * sem_util.ads, sem_util.adb:
+	(Propagate_Type_Has_Flags): New procedure to factorize code.
+	* exp_ch3.adb (Expand_Freeze_Array_Type,
+	Expand_Freeze_Record_Type): Call Propagate_Type_Has_Flags.
+	* sem_ch3.adb (Access_Type_Decalaration): Initialize
+	Has_Timing_Event flag.	(Analyze_Object_Declaration):
+	Move code that check No_Local_Timing_Events near
+	the code that check No_Local_Protected_Objects.
+	(Analyze_Private_Extension_Declaration, Array_Type_Declaration)
+	(Build_Derived_Type, Copy_Array_Base_Type_Attributes,
+	Process_Full_View) (Record_Type_Definition): Call
+	Propagate_Type_Has_Flags.
+	* sem_ch4.adb (Analyze_Allocator): Check No_Local_Timing_Events.
+	* sem_ch7.adb (New_Private_Type): Set Has_Timing_Event on the
+	Timing_Event type.
+	(Uninstall_Declaration): Call Propagate_Type_Has_Flags.
+	* sem_ch9.adb (Analyze_Protected_Definition): Call
+	Propagate_Type_Has_Flags.
+
+2016-06-14  Arnaud Charlet  <charlet@adacore.com>
+
+	* sem.ads: Minor style fix.
+
+2016-06-14  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch12.adb (Analyze_Associations): An actual parameter
+	with a box must be included in the count of actuals, to detect
+	possible superfluous named actuals that do not match any of the
+	formals of the generic unit in a formal package declaration.
+
+2016-06-14  Justin Squirek  <squirek@adacore.com>
+
+	* sem_ch3.adb (Analyze_Object_Declaration): Fix formatting
+	of error output related to SPARK RM 6.1.7(3) and pragma
+	Extensions_Visible.
+	* sem_ch4.adb (Analyze_Type_Conversion): Fix formatting of error
+	output related to SPARK RM 6.1.7(3) and pragma Extensions_Visible.
+	* sem_prag.adb (Analyze_Pragma): Fix formatting of error output
+	related to SPARK RM 7.1.2(15) and pragma Volatile_Function
+	so that the values True and False are no longer surrounded by
+	double quotes.
+	* sem_res.adb (Resolve_Actuals): Fix formatting of error output
+	related to SPARK RM 6.1.7(3) and pragma Extensions_Visible.
+
+2016-06-14  Arnaud Charlet  <charlet@adacore.com>
+
+	* gnat1drv.adb (Adjust_Global_Switches): Enable access checks
+	in codepeer mode.
+	* freeze.adb: Minor grammar fix in comment.
+2016-06-14  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* lib.adb: Minor reformatting.
+	* sem_util.adb (Is_OK_Volatile_Context): Do
+	include Address in the supported attributes.
+
+2016-06-14  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* exp_ch4.adb (Expand_N_Case_Expression):
+	Code cleanup. Finalize any transient controlled
+	objects on exit from a case expression alternative.
+	(Expand_N_If_Expression): Code cleanup.
+	(Process_Actions): Removed.
+	(Process_If_Case_Statements): New routine.
+	(Process_Transient_Object): Change the name of formal Rel_Node to
+	N and update all occurrences. Update the comment on usage. When
+	the type of the context is Boolean, the proper insertion point
+	for the finalization call is after the last declaration.
+
+2016-06-14  Ed Schonberg  <schonberg@adacore.com>
+
+	* lib-xref.ads, lib-xref.adb (Has_Deferred_Reference): new
+	predicate to determine whether an entity appears in a context
+	for which a Deferred_Reference was created, because it is not
+	possible to determine when reference is analyzed whether it
+	appears in a context in which the entity is modified.
+	* sem_ch5.adb (Analyze_Statement): Do not emit a useless warning
+	on assignment for an entity that has a deferred_reference.
+
+2016-06-14  Javier Miranda  <miranda@adacore.com>
+
+	* sem_res.adb (Resolve_Actuals): Generate a reference to actuals that
+	come from source. Previously the reference was generated only if the
+	call comes from source but the call may be rewritten by the expander
+	thus causing the notification of spurious warnings.
+
+2016-06-14  Arnaud Charlet  <charlet@adacore.com>
+
+	* gnat1drv.adb: Remove further references to AAMP.
+	* checks.adb (Apply_Scalar_Range_Check): Take
+	Check_Float_Overflow info account.
+	* live.ads, live.adb Added subprogram headers and
+	start-of-processing-for comments.
+	* sem_ch12.adb (Instantiate_Package_Body): Do not suppress
+	checks when instantiating runtime units in CodePeer mode.
+
+2016-06-14  Arnaud Charlet  <charlet@adacore.com>
+
+	* exp_ch3.adb (Expand_N_Object_Declaration): Only consider
+	nodes from sources.
+
+2016-06-14  Arnaud Charlet  <charlet@adacore.com>
+
+	* switch-c.adb, gnat1drv.adb (Adjust_Global_Switches): Only disable
+	simple value propagation in CodePeer mode when warnings are disabled.
+	(Scan_Front_End_Switches): Enable relevant front-end switches
+	when using -gnateC.
+
+2016-06-14  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_util.adb (Is_OK_Volatile_Context): A
+	reference to a volatile object is considered OK if appears as
+	the prefix of attributes Address, Alignment, Component_Size,
+	First_Bit, Last_Bit, Position, Size, Storage_Size.
+
+2016-06-14  Yannick Moy  <moy@adacore.com>
+
+	* lib-xref-spark_specific.adb (Add_SPARK_File): Do not traverse
+	subunits directly, as they are already traversed as part of the
+	top-level unit to which they belong.
+	(Add_SPARK_Xrefs): Add assertions to ensure correct sorting.
+	(Generate_Dereference): Use unique definition place for special
+	variable __HEAP, to ensure correct sorting of references.
+	* lib-xref.adb (Generate_Reference): Use top-level unit in case
+	of subunits.
+	* lib.adb, lib.ads (Get_Top_Level_Code_Unit): New functions that
+	compute the top-level code unit for a source location of AST node,
+	that go past subunits.
+
 2016-06-13  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gcc-interface/decl.c (gnat_to_gnu_subprog_type): Build only a minimal

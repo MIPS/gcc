@@ -189,7 +189,8 @@ in the following sections.
 
 @item C++ Language Options
 @xref{C++ Dialect Options,,Options Controlling C++ Dialect}.
-@gccoptlist{-fabi-version=@var{n}  -fno-access-control  -fcheck-new @gol
+@gccoptlist{-fabi-version=@var{n}  -fno-access-control @gol
+-fargs-in-order=@var{n} -fcheck-new @gol
 -fconstexpr-depth=@var{n}  -ffriend-injection @gol
 -fno-elide-constructors @gol
 -fno-enforce-eh-specs @gol
@@ -576,6 +577,8 @@ Objective-C and Objective-C++ Dialects}.
 -mfix-cortex-a53-835769  -mno-fix-cortex-a53-835769 @gol
 -mfix-cortex-a53-843419  -mno-fix-cortex-a53-843419 @gol
 -mlow-precision-recip-sqrt -mno-low-precision-recip-sqrt@gol
+-mlow-precision-sqrt -mno-low-precision-sqrt@gol
+-mlow-precision-div -mno-low-precision-div @gol
 -march=@var{name}  -mcpu=@var{name}  -mtune=@var{name}}
 
 @emph{Adapteva Epiphany Options}
@@ -640,7 +643,8 @@ Objective-C and Objective-C++ Dialects}.
 @emph{AVR Options}
 @gccoptlist{-mmcu=@var{mcu} -maccumulate-args -mbranch-cost=@var{cost} @gol
 -mcall-prologues -mint8 -mn_flash=@var{size} -mno-interrupts @gol
--mrelax -mrmw -mstrict-X -mtiny-stack -nodevicelib -Waddr-space-convert}
+-mrelax -mrmw -mstrict-X -mtiny-stack -nodevicelib -Waddr-space-convert @gol
+-Wmisspelled-isr}
 
 @emph{Blackfin Options}
 @gccoptlist{-mcpu=@var{cpu}@r{[}-@var{sirevision}@r{]} @gol
@@ -2231,6 +2235,14 @@ option is used for the warning.
 @opindex fno-access-control
 Turn off all access checking.  This switch is mainly useful for working
 around bugs in the access control code.
+
+@item -fargs-in-order
+@opindex fargs-in-order
+Evaluate function arguments and operands of some binary expressions in
+left-to-right order, and evaluate the right side of an assignment
+before the left side, as proposed in P0145R2.  Enabled by default with
+@option{-std=c++1z}.  @option{-fargs-in-order=1} implements all of the
+ordering requirements except function arguments.
 
 @item -fcheck-new
 @opindex fcheck-new
@@ -13023,10 +13035,31 @@ corresponding flag to the linker.
 @item -mno-low-precision-recip-sqrt
 @opindex mlow-precision-recip-sqrt
 @opindex mno-low-precision-recip-sqrt
-Enable or disable reciprocal square root approximation.
+Enable or disable the reciprocal square root approximation.
 This option only has an effect if @option{-ffast-math} or
 @option{-funsafe-math-optimizations} is used as well.  Enabling this reduces
 precision of reciprocal square root results to about 16 bits for
+single precision and to 32 bits for double precision.
+
+@item -mlow-precision-sqrt
+@item -mno-low-precision-sqrt
+@opindex -mlow-precision-sqrt
+@opindex -mno-low-precision-sqrt
+Enable or disable the square root approximation.
+This option only has an effect if @option{-ffast-math} or
+@option{-funsafe-math-optimizations} is used as well.  Enabling this reduces
+precision of square root results to about 16 bits for
+single precision and to 32 bits for double precision.
+If enabled, it implies @option{-mlow-precision-recip-sqrt}.
+
+@item -mlow-precision-div
+@item -mno-low-precision-div
+@opindex -mlow-precision-div
+@opindex -mno-low-precision-div
+Enable or disable the division approximation.
+This option only has an effect if @option{-ffast-math} or
+@option{-funsafe-math-optimizations} is used as well.  Enabling this reduces
+precision of division results to about 16 bits for
 single precision and to 32 bits for double precision.
 
 @item -march=@var{name}
@@ -14555,12 +14588,17 @@ Only change the lower 8@tie{}bits of the stack pointer.
 
 @item -nodevicelib
 @opindex nodevicelib
-Don't link against AVR-LibC's device specific library @code{libdev.a}.
+Don't link against AVR-LibC's device specific library @code{lib<mcu>.a}.
 
 @item -Waddr-space-convert
 @opindex Waddr-space-convert
 Warn about conversions between address spaces in the case where the
 resulting address space is not contained in the incoming address space.
+
+@item -Wmisspelled-isr
+@opindex Wmisspelled-isr
+Warn if the ISR is misspelled, i.e. without __vector prefix.
+Enabled by default.
 @end table
 
 @subsubsection @code{EIND} and Devices with More Than 128 Ki Bytes of Flash

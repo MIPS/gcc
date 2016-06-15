@@ -513,7 +513,7 @@ package body Sem_Ch12 is
    --  If the generic is a local entity and the corresponding body has not
    --  been seen yet, flag enclosing packages to indicate that it will be
    --  elaborated after the generic body. Subprograms declared in the same
-   --  package cannot be inlined by the front-end because front-end inlining
+   --  package cannot be inlined by the front end because front-end inlining
    --  requires a strict linear order of elaboration.
 
    function Check_Hidden_Primitives (Assoc_List : List_Id) return Elist_Id;
@@ -1496,10 +1496,12 @@ package body Sem_Ch12 is
 
          --  A named association may lack an actual parameter, if it was
          --  introduced for a default subprogram that turns out to be local
-         --  to the outer instantiation.
+         --  to the outer instantiation. If it has a box association it must
+         --  correspond to some formal in the generic.
 
          if Nkind (Named) /= N_Others_Choice
-           and then Present (Explicit_Generic_Actual_Parameter (Named))
+           and then (Present (Explicit_Generic_Actual_Parameter (Named))
+                      or else Box_Present (Named))
          then
             Num_Actuals := Num_Actuals + 1;
          end if;
@@ -7665,7 +7667,13 @@ package body Sem_Ch12 is
          --  not carry any semantic information, plus they will be regenerated
          --  in the instance.
 
-         elsif From_Aspect_Specification (N) then
+         --  However, generating C we need to copy them since postconditions
+         --  are inlined by the front end, and the front-end inlining machinery
+         --  relies on this routine to perform inlining.
+
+         elsif From_Aspect_Specification (N)
+           and then not Modify_Tree_For_C
+         then
             New_N := Make_Null_Statement (Sloc (N));
 
          else
@@ -11001,8 +11009,12 @@ package body Sem_Ch12 is
             --  Note that we do NOT apply this criterion to children of GNAT
             --  The latter units must suppress checks explicitly if needed.
 
-            if Is_Predefined_File_Name
-                 (Unit_File_Name (Get_Source_Unit (Gen_Decl)))
+            --  We also do not suppress checks in CodePeer mode where we are
+            --  interested in finding possible runtime errors.
+
+            if not CodePeer_Mode
+              and then Is_Predefined_File_Name
+                         (Unit_File_Name (Get_Source_Unit (Gen_Decl)))
             then
                Analyze (Act_Body, Suppress => All_Checks);
             else

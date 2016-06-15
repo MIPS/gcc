@@ -812,6 +812,14 @@ package body Sem_Ch4 is
          Check_Restriction (No_Local_Protected_Objects, N);
       end if;
 
+      --  Likewise for No_Local_Timing_Events
+
+      if Has_Timing_Event (Designated_Type (Acc_Type))
+        and then not Is_Library_Level_Entity (Acc_Type)
+      then
+         Check_Restriction (No_Local_Timing_Events, N);
+      end if;
+
       --  If the No_Streams restriction is set, check that the type of the
       --  object is not, and does not contain, any subtype derived from
       --  Ada.Streams.Root_Stream_Type. Note that we guard the call to
@@ -3909,7 +3917,16 @@ package body Sem_Ch4 is
       if Warn_On_Suspicious_Contract
         and then not Referenced (Loop_Id, Cond)
       then
-         Error_Msg_N ("?T?unused variable &", Loop_Id);
+         --  Generating C, this check causes spurious warnings on inlined
+         --  postconditions; we can safely disable it because this check
+         --  was previously performed when analyzing the internally built
+         --  postconditions procedure.
+
+         if Modify_Tree_For_C and then In_Inlined_Body then
+            null;
+         else
+            Error_Msg_N ("?T?unused variable &", Loop_Id);
+         end if;
       end if;
 
       --  Diagnose a possible misuse of the SOME existential quantifier. When
@@ -5246,8 +5263,8 @@ package body Sem_Ch4 is
         and then Is_EVF_Expression (Expr)
       then
          Error_Msg_N
-           ("formal parameter with Extensions_Visible False cannot be "
-            & "converted to class-wide type", Expr);
+           ("formal parameter cannot be converted to class-wide type when "
+            & "Extensions_Visible is False", Expr);
       end if;
    end Analyze_Type_Conversion;
 

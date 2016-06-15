@@ -1,3 +1,363 @@
+2016-06-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (VSINT_84): Add DImode to enable loading
+	DImode constants with XXSPLTIB in vector registers.
+	(vsx_extract_<mode>, V2DImode/V2DFmode): Combine both
+	vsx_extract_<mode>_internal{1,2} into a single insn that handles
+	direct move (both ISA 2.07 and ISA 3.0 versions), and optimizes
+	extraction of the element at the top of the register as a scalar
+	value.
+	(vsx_extract_<mode>_internal1): Likewise.
+	(vsx_extract_<mode>_internal2): Likewise.
+	* config/rs6000/constraints.md (wi constraint): Remove a comment
+	about DImode not being allowed in Altivec registers.
+	(wB constraint): New constraint for constants that can be
+	generated in Altivec registers with VSPLTISW/VUPKHSW.
+	* config/rs6000/predicates.md (xxspltib_constant_split): Update
+	comments.
+	(xxspltib_constant_nosplit): Likewise.
+	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Add
+	support for -mupper-regs-di to enable DImode to go into Altivec
+	registers.
+	(POWERPC_MASKS): Likewise.
+	(power7 cpu): Likewise.
+	* config/rs6000/rs6000.opt (-mupper-regs-di): Likewise.
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Add support
+	for DImode being allowed in Altivec registers.  Update wi/wj
+	constraints.  Set scalar_in_vmx_p flag.
+	(rs6000_option_override_internal): Add checks for -mupper-regs-di.
+	(xxspltib_constant_p): Allow CONST_INT's with VOIDmode.  Don't
+	return true if we could use VSPLTISW/VUPKHSW instead of XXSPLTIB.
+	(rs6000_opt_masks): Add -mupper-regs-di.
+	* config/rs6000/rs6000.md (lfiwax): Update clobbers that don't use
+	direct move to use wi and not wj.
+	(lfiwzx): Likewise.
+	(floatsi<mode>2_lfiwax_mem): Combine alternatives into a single
+	alternative.
+	(floatunssi<mode>2_lfiwzx_mem): Likewise.
+	(fix_trunc<mode>di2_fctidz): Change second alternative to allow
+	any VSX register, instead of just Altivec registers, to allow
+	either operand to be an Altivec register or both.
+	(fixuns_trunc<mode>di2_fctiduz): Likewise.
+	(movdi_internal32): Add support for -mupper-regs-di.  Add support
+	to load constants via XXSPLTIB or VSPLTISW.  Add spacing to allow
+	the alternatives and attributes to be lined up to be easier to
+	read.
+	(movdi_internal64): Likewise.
+	(64-bit DImode splitters): Change predicates to only split loading
+	up GPR registers.  Add splits for using XXSPLTIB or VSPLTISW to
+	load constants in ISA 3.0 or ISA 2.07 respectively.
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
+	-mupper-regs-di.  Update -mupper-regs-df and -mupper-regs-sf to
+	mention -mcpu=power9 sets these options.
+	* doc/md.texi (PowerPC and IBM RS6000 constraints): Document the
+	wB constraint.
+
+2016-06-15  Pitchumani Sivanupandi  <pitchumani.s@atmel.com>
+
+	PR target/67353
+	* config/avr/avr.c (avr_set_current_function): Warn misspelled
+	interrupt/ signal handler if -Wmisspelled-isr flag is enabled.
+	* config/avr/avr.opt (Wmisspelled-isr): New warning flag. Enabled
+	by default to warn misspelled interrupt/ signal handler.
+	* doc/invoke.texi (AVR Options): Document it. Update description
+	for -nodevicelib option.
+
+2016-06-15  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64-simd.md (aarch64_<sur>shll_n<mode>): Clean
+	up parentheses.  Use GET_MODE_UNIT_BITSIZE.
+	(aarch64_<sur>shll2_n<mode>): Likewise.
+
+2016-06-15  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR middle-end/71529
+	* ipa-chkp.c (chkp_build_instrumented_fndecl): Fix
+	DECL_CONTEXT for copied arguments.
+
+2016-06-15  Alan Hayward  <alan.hayward@arm.com>
+
+	PR tree-optimization/71483
+	* tree-vect-loop.c (vectorizable_live_operation): Pick correct index
+	for slp
+
+2016-06-15  Martin Liska  <mliska@suse.cz>
+
+	* predict.c (tree_predict_by_opcode): Call predict_edge_def
+	instead of predict_edge w/o a probability.
+
+2016-06-15  Alan Hayward  <alan.hayward@arm.com>
+
+	PR tree-optimization/71439
+	* tree-vect-loop.c (vect_analyze_loop_operations): Additional check for
+	live PHIs.
+
+2016-06-15  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* ifcvt.c (bb_ok_for_noce_multiple_sets): Allow simple lowpart
+	register subregs in SET_SRC.
+
+2016-06-15  Richard Biener  <rguenther@suse.de>
+
+	* tree-vect-stmts.c (vectorizable_store): Remove strided grouped
+	store restrictions.
+
+2016-06-15  Richard Biener  <rguenther@suse.de>
+
+	* tree-vect-data-refs.c (vect_analyze_data_ref_dependence): Do
+	not consider dependences between accesses that belong to the
+	same group.
+	(vect_analyze_data_ref_dependences): Do not analyze read-read
+	or self-dependences.
+
+2016-06-14  David Malcolm  <dmalcolm@redhat.com>
+
+	* spellcheck-tree.c: Include spellcheck-tree.h rather than
+	spellcheck.h.
+	(find_closest_identifier): Reimplement in terms of
+	best_match<tree,tree>.
+	* spellcheck-tree.h: New file.
+	* spellcheck.c (struct edit_distance_traits<const char *>): New
+	struct.
+	(find_closest_string): Reimplement in terms of
+	best_match<const char *, const char *>.
+	* spellcheck.h (levenshtein_distance): Move prototype of tree-based
+	overload to spellcheck-tree.h.
+	(find_closest_identifier): Likewise.
+	(struct edit_distance_traits<T>): New template.
+	(class best_match): New class.
+
+2016-06-14  David Malcolm  <dmalcolm@redhat.com>
+
+	* selftest-run-tests.c (selftest::run_tests): Call
+	selftest::spellcheck_tree_c_tests.
+	* selftest.h (selftest::spellcheck_tree_c_tests): New decl.
+	* spellcheck-tree.c: Include selftest.h and stringpool.h.
+	(selftest::test_find_closest_identifier): New function.
+	(selftest::spellcheck_tree_c_tests): New function.
+	* spellcheck.c (selftest::test_find_closest_string): Verify that
+	the order of the vec does not affect the results for this case.
+	(selftest::test_data): New array.
+	(selftest::test_metric_conditions): New function.
+	(selftest::spellcheck_c_tests): Add a test of case-comparison.
+	Call selftest::test_metric_conditions.
+
+2016-06-14  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-builtin.def (commentary): Typo.
+	(BU_P9_MISC_1): Likewise.
+	(BU_P9_64BIT_MISC_0): Likewise.
+	(BU_P9_MISC_0): Likewise.
+
+2016-06-14  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc-rich-location.c
+	(gcc_rich_location::add_fixit_misspelled_id): New method.
+	* gcc-rich-location.h
+	(gcc_rich_location::add_fixit_misspelled_id): Add decl.
+
+2016-06-14  Andreas Tobler  <andreast@gcc.gnu.org>
+
+	* config/arm/freebsd.h: Only enable unaligned access for armv6 on
+	FreeBSD 11 and above.
+
+2016-06-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (signbittf2): Emit sse_movmskps for TARGET_SSE.
+
+2016-06-14  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* expmed.h: Close parenthesis in "at your option" in copyright
+	boilerplate.
+	* lower-subreg.h: Likewise.
+
+2016-06-14  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/71526
+	* genmatch.c (expr::gen_transform): Use in_type for comparisons
+	if available.
+
+2015-06-14  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_mask_and_shift_for_ubfiz_p):
+	New function.
+	(aarch64_rtx_costs): Use it.  Rewrite CONST_INT_P (op1) case to handle
+	mask+shift version.
+	* config/aarch64/aarch64-protos.h (aarch64_mask_and_shift_for_ubfiz_p):
+	New prototype.
+	* config/aarch64/aarch64.md (*andim_ashift<mode>_bfiz): Replace
+	matching condition with aarch64_mask_and_shift_for_ubfiz_p.
+
+2016-06-14  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71522
+	* tree-ssa.c (non_rewritable_lvalue_p): Do not rewrite non-float
+	copying into float copying.
+
+2016-06-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/71520
+	* tree-ssa-tail-merge.c (find_duplicate): Handle labels.
+	(replace_block_by): Move user labels from bb1 to bb2.
+
+2016-06-14  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/71310
+	PR bootstrap/71510
+	* expr.h (get_bit_range): Declare.
+	* expr.c (get_bit_range): Export.
+	* fold-const.c (optimize_bit_field_compare): Use get_bit_range and
+	word_mode again to constrain the bitfield access.
+
+2016-06-14  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71521
+	* tree-vrp.c (extract_range_from_binary_expr_1): Guard
+	division int_const_binop against zero divisor.
+
+2016-06-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (signbittf2): New expander.
+	* config/i386/sse.md (ptesttf2): New insn pattern.
+
+2016-06-13  David Malcolm  <dmalcolm@redhat.com>
+
+	PR bootstrap/71481
+	* input.c (selftest::test_reading_source_line): Avoid reading from
+	__FILE__ by creating a tempfile with known content and reading
+	from that instead.
+
+2016-06-13  David Malcolm  <dmalcolm@redhat.com>
+
+	* pretty-print.c (assert_pp_format_colored): Skip the test if
+	GCC_COLORS is set.
+	(test_pp_format): Remove comment about GCC_COLORS.
+
+2016-06-13  David Malcolm  <dmalcolm@redhat.com>
+
+	* input.c (test_reading_source_line): Use SELFTEST_LOCATION.
+	* pretty-print.c (assert_pp_format_va): Add location param and use
+	it with ASSERT_STREQ_AT.
+	(assert_pp_format): Add location param and pass it to
+	assert_pp_format_va.
+	(assert_pp_format_colored): Likewise.
+	(ASSERT_PP_FORMAT_1): New.
+	(ASSERT_PP_FORMAT_2): New.
+	(ASSERT_PP_FORMAT_3): New.
+	(test_pp_format): Provide SELFTEST_LOCATION throughout, either
+	explicitly, or implicitly via the above macros.
+	* selftest.c (selftest::pass): Use a selftest::location rather
+	than file and line.
+	(selftest::fail): Likewise.  Print the function name.
+	(selftest::fail_formatted): Likewise.
+	(selftest::assert_streq): Use a selftest::location rather than
+	file and line.
+	* selftest.h (selftest::location): New struct.
+	(SELFTEST_LOCATION): New macro.
+	(selftest::pass): Accept a const location & rather than file
+	and line.
+	(selftest::fail): Likewise.
+	(selftest::fail_formatted): Likewise.
+	(selftest::assert_streq): Likewise.
+	(ASSERT_TRUE): Update for above changes, using SELFTEST_LOCATION.
+	(ASSERT_FALSE): Likewise.
+	(ASSERT_EQ): Likewise.
+	(ASSERT_NE): Likewise.
+	(ASSERT_STREQ): Likewise.
+	(ASSERT_PRED1): Likewise.
+	(ASSERT_STREQ_AT): New macro.
+
+2016-06-13  David Malcolm  <dmalcolm@redhat.com>
+
+	* selftest.c (selftest::fail_formatted): New function.
+	(selftest::assert_streq): New function.
+	* selftest.h (selftests::fail_formatted): New decl.
+	(selftest::assert_streq): New decl.
+	(ASSERT_STREQ): Reimplement in terms of selftest::assert_streq.
+
+2016-06-13  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/71403
+	* tree-ssa-threadbackward.c
+	(convert_and_register_jump_thread_path): No longer accept reference
+	to path.  Do not pop items off the path anymore.
+	(fsm_find_control_statement_thread_paths): Do not allow threading
+	to a deeper loop nest.  Pop the last item off the path here rather
+	than in convert_and_register_jump_thread_path.
+
+2016-06-13  Evandro Menezes  <e.menezes@samsung.com>
+	    Wilco Dijkstra  <Wilco.Dijkstra@arm.com>
+
+	[AArch64] Emit division using the Newton series
+
+	* config/aarch64/aarch64-protos.h
+	(cpu_approx_modes): Add new member "division".
+	(aarch64_emit_approx_div): Declare new function.
+	* config/aarch64/aarch64.c
+	(generic_approx_modes): New member "division".
+	(exynosm1_approx_modes): Likewise.
+	(xgene1_approx_modes): Likewise.
+	(aarch64_emit_approx_div): Define new function.
+	* config/aarch64/aarch64.md ("div<mode>3"): New expansion.
+	* config/aarch64/aarch64-simd.md ("div<mode>3"): Likewise.
+	* config/aarch64/aarch64.opt (-mlow-precision-div): Add new option.
+	* doc/invoke.texi (-mlow-precision-div): Describe new option.
+
+2016-06-13  Evandro Menezes  <e.menezes@samsung.com>
+	    Wilco Dijkstra  <wilco.dijkstra@arm.com>
+
+	[AArch64] Emit square root using the Newton series
+
+	* config/aarch64/aarch64-protos.h
+	(aarch64_emit_approx_rsqrt): Replace with new function
+	"aarch64_emit_approx_sqrt".
+	(cpu_approx_modes): New member "sqrt".
+	* config/aarch64/aarch64.c
+	(generic_approx_modes): New member "sqrt".
+	(exynosm1_approx_modes): Likewise.
+	(xgene1_approx_modes): Likewise.
+	(aarch64_emit_approx_rsqrt): Replace with new function
+	"aarch64_emit_approx_sqrt".
+	(aarch64_override_options_after_change_1): Handle new option.
+	* config/aarch64/aarch64-simd.md
+	(rsqrt<mode>2): Use new function instead.
+	(sqrt<mode>2): New expansion and insn definitions.
+	* config/aarch64/aarch64.md: Likewise.
+	* config/aarch64/aarch64.opt
+	(mlow-precision-sqrt): Add new option description.
+	* doc/invoke.texi (mlow-precision-sqrt): Likewise.
+
+2016-06-13  Evandro Menezes  <e.menezes@samsung.com>
+
+	[AArch64] Add more choices for the reciprocal square root approximation
+
+	Allow a target to prefer such operation depending on the operation mode.
+
+	* config/aarch64/aarch64-protos.h
+	(AARCH64_APPROX_MODE): New macro.
+	(AARCH64_APPROX_{NONE,ALL}): Likewise.
+	(cpu_approx_modes): New structure.
+	(tune_params): New member "approx_modes".
+	* config/aarch64/aarch64-tuning-flags.def
+	(AARCH64_EXTRA_TUNE_APPROX_RSQRT): Remove macro.
+	* config/aarch64/aarch64.c
+	(generic_approx_modes): New core "cpu_approx_modes" structure.
+	(exynosm1_approx_modes): Likewise.
+	(xgene1_approx_modes): Likewise.
+	(generic_tunings): New member "approx_modes".
+	(cortexa35_tunings): Likewise.
+	(cortexa53_tunings): Likewise.
+	(cortexa57_tunings): Likewise.
+	(cortexa72_tunings): Likewise.
+	(exynosm1_tunings): Likewise.
+	(thunderx_tunings): Likewise.
+	(xgene1_tunings): Likewise.
+	(use_rsqrt_p): New argument for the mode and use new member from
+	"tune_params".
+	(aarch64_builtin_reciprocal): Devise mode from builtin.
+	(aarch64_optab_supported_p): New argument for the mode.
+	* doc/invoke.texi (-mlow-precision-recip-sqrt): Reword description.
+
 2016-06-13  Kelvin Nilsen  <kelvin@gcc.gnu.org>
 
 	* config/rs6000/rs6000.h (RS6000_BTM_COMMON): Add the
@@ -136,8 +496,9 @@
 	* config/i386/i386.c (enum ix86_builtins) [IX86_BUILTIN_NANQ]: New.
 	[IX86_BUILTIN_NANSQ]: Ditto.
 	(ix86_fold_builtin): Handle IX86_BUILTIN_NANQ and IX86_BUILTIN_NANSQ.
-	(ix86_init_builtin_types) Declare const_string_type_node.
-	Add __builtin_nanq and __builtin_nansq builtin functions.
+	(ix86_init_builtin_types): Declare const_string_type_node.
+	(ix86_init_builtins): Add __builtin_nanq and __builtin_nansq
+	builtin functions.
 	(ix86_expand_builtin): Handle IX86_BUILTIN_NANQ and IX86_BUILTIN_NANSQ.
 	* doc/extend.texi (x86 Built-in Functions): Document
 	__builtin_nanq and __builtin_nansq.
