@@ -6458,7 +6458,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	}
       else if (TREE_CODE (type) == FUNCTION_TYPE)
 	error_at (loc, "alignment specified for function %qE", name);
-      else if (declspecs->align_log != -1)
+      else if (declspecs->align_log != -1 && TYPE_P (type))
 	{
 	  alignas_align = 1U << declspecs->align_log;
 	  if (alignas_align < min_align_of_type (type))
@@ -7241,9 +7241,9 @@ get_parm_info (bool ellipsis, tree expr)
 	  break;
 
 	case FUNCTION_DECL:
-	  /*  FUNCTION_DECLs appear when there is an implicit function
-	      declaration in the parameter list.  */
-	  gcc_assert (b->nested);
+	  /* FUNCTION_DECLs appear when there is an implicit function
+	     declaration in the parameter list.  */
+	  gcc_assert (b->nested || seen_error ());
 	  goto set_shadowed;
 
 	case CONST_DECL:

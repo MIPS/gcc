@@ -171,6 +171,10 @@ known_alignment (tree exp)
 
     case CALL_EXPR:
       {
+	tree func = get_callee_fndecl (exp);
+	if (func && DECL_IS_MALLOC (func))
+	  return get_target_system_allocator_alignment () * BITS_PER_UNIT;
+
 	tree t = maybe_inline_call_in_expr (exp);
 	if (t)
 	  return known_alignment (t);
@@ -2268,8 +2272,6 @@ build_call_alloc_dealloc (tree gnu_obj, tree gnu_size, tree gnu_type,
                           Entity_Id gnat_proc, Entity_Id gnat_pool,
                           Node_Id gnat_node)
 {
-  gnu_size = SUBSTITUTE_PLACEHOLDER_IN_EXPR (gnu_size, gnu_obj);
-
   /* Explicit proc to call ?  This one is assumed to deal with the type
      alignment constraints.  */
   if (Present (gnat_proc))

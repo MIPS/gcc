@@ -1,3 +1,129 @@
+2016-06-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_subprog_type): Build only a minimal
+	PARM_DECL when the parameter type is dummy.
+	* gcc-interface/trans.c (Call_to_gnu): Translate formal types before
+	formal objects.
+
+2016-06-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_entity) <E_Variable>: Deal with
+	PLUS_EXPR in the expression of a renaming.
+
+2016-06-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/utils2.c (known_alignment) <CALL_EXPR>: Deal specially
+	with calls to malloc.
+
+2016-06-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (build_binary_op_trapv): If no operand is a
+	constant, use the generic implementation of the middle-end; otherwise
+	turn the dynamic conditions into static conditions and simplify.
+
+2016-06-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (Case_Statement_to_gnu): Deal with characters.
+
+2016-06-11  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_entity): Do not clobber
+	gnat_entity_name with temporary names for XUP and XUT types.
+
+2016-06-10  Martin Sebor  <msebor@redhat.com>
+
+	PR c/71392
+	* gcc/ada/gcc-interface/utils.c (handle_nonnull_attribute): Accept
+	the nonnull attribute in type-generic builtins.
+
+2016-06-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (Gigi_Equivalent_Type): Make sure equivalent
+	types are present before returning them.  Remove final assertion.
+	(gnat_to_gnu_entity) <E_Access_Protected_Subprogram_Type>: Adjust to
+	above change.
+	<E_Protected_Type>: Likewise.
+
+2016-06-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (elaborate_all_entities_for_package): Also do
+	not elaborate Itypes.
+
+2016-06-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/utils.c (gnat_internal_attribute_table): Add support
+	for noinline and noclone attributes.
+	(handle_noinline_attribute): New handler.
+	(handle_noclone_attribute): Likewise.
+
+2016-06-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (process_type): Beef up comment.
+
+2016-06-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/utils2.c (build_call_alloc_dealloc): Do not substitute
+	placeholder expressions here but...
+	* gcc-interface/trans.c (gnat_to_gnu) <N_Free_Statement>: ...here.
+	Make an exception to the protection of a CALL_EXPR result with an
+	unconstrained type only in the same cases as Call_to_gnu.
+
+2016-06-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (gnat_to_gnu): Rework special code dealing
+	with boolean rvalues and set the location directly.  Do not set the
+	location in the other cases for a simple name.
+	(gnat_to_gnu_external): Clear the location on the expression.
+
+2016-06-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_entity) <E_Component>: Remove
+	useless 'else' statements and tidy up.
+	<E_Array_Subtype>: Fully deal with the declaration here.
+	<E_Incomplete_Type>: Use properly-typed constant.
+	Assert that we don't apply the special type treatment to dummy types.
+	Separate this treatment from the final back-annotation and simplify
+	the condition for the RM size.
+	(gnat_to_gnu_param): Add GNU_PARAM_TYPE parameter and adjust.
+	(gnat_to_gnu_subprog_type): Ajust call to gnat_to_gnu_param.
+	* gcc-interface/trans.c (gnat_to_gnu) <N_Subprogram_Declaration>: Add
+	comment.
+	(process_freeze_entity): Remove obsolete code.
+	(process_type): Minor tweaks.
+
+2016-06-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* einfo.ads (Returns_Limited_View): Remove.
+	(Set_Returns_Limited_View ): Likewise.
+	* einfo.adb (Returns_Limited_View): Likewise.
+	(Set_Returns_Limited_View ): Likewise.
+	* freeze.adb (Late_Freeze_Subprogram): Remove.
+	(Freeze_Entity): Do not defer the freezing of functions returning an
+	incomplete type coming from a limited context.
+
+2016-06-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/gigi.h (finish_subprog_decl): Add ASM_NAME parameter.
+	* gcc-interface/decl.c (gnu_ext_name_for_subprog): New function.
+	(gnat_to_gnu_entity) <E_Subprogram_Type>: Do not check compatibility
+	of profiles for builtins here...  Call gnu_ext_name_for_subprog.
+	Also update profiles if pointers to limited_with'ed types are
+	updated.
+	(gnat_to_gnu_param): Restore the correct source location information
+	for vector ABI warnings.
+	(associate_subprog_with_dummy_type): Add comment about AI05-019.
+	Set TYPE_DUMMY_IN_PROFILE_P flag unconditionally.
+	(update_profile): Deal with builtin declarations.
+	Call gnu_ext_name_for_subprog.  Adjust call to finish_subprog_decl.
+	(update_profiles_with): Add comment.
+	(gnat_to_gnu_subprog_type): Reuse the return type if it is complete.
+	Likewise for parameter declarations in most cases.  Do not change
+	the return type for the CICO mechanism if the profile is incomplete.
+	...but here instead.  Always reset the slot for the parameters.
+	* gcc-interface/utils.c (create_subprog_decl): Call
+	gnu_ext_name_for_subprog.  Do not set the assembler name here but...
+	(finish_subprog_decl): ...but here instead.  Add ASM_NAME parameter.
+
 2016-06-06  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* exp_ch9.adb (Expand_N_Protected_Type_Declaration): Insert the

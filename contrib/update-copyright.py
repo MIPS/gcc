@@ -632,15 +632,6 @@ class LibJavaFilter (GenericFilter):
             return re.compile ('.*icSigCopyrightTag')
         return GenericFilter.get_line_filter (self, dir, filename)
 
-class LibMudflapFilter (GenericFilter):
-    def __init__ (self):
-        GenericFilter.__init__ (self)
-
-        self.skip_dirs |= set ([
-                # Handled separately.
-                'testsuite',
-                ])
-
 class LibStdCxxFilter (GenericFilter):
     def __init__ (self):
         GenericFilter.__init__ (self)
@@ -729,31 +720,35 @@ class GCCCmdLine (CmdLine):
         self.add_dir ('gcc', GCCFilter())
         self.add_dir (os.path.join ('gcc', 'testsuite'), TestsuiteFilter())
         self.add_dir ('gnattools')
+        self.add_dir ('gotools')
         self.add_dir ('include')
+        # intl is imported from upstream.
         self.add_dir ('libada')
         self.add_dir ('libatomic')
         self.add_dir ('libbacktrace')
+        self.add_dir ('libcc1')
+        # libcilkrts is imported from upstream.
         self.add_dir ('libcpp', LibCppFilter())
         self.add_dir ('libdecnumber')
         # libffi is imported from upstream.
         self.add_dir ('libgcc', LibGCCFilter())
         self.add_dir ('libgfortran')
+        # libgo is imported from upstream.
         self.add_dir ('libgomp')
         self.add_dir ('libgupc')
         self.add_dir ('libiberty')
         self.add_dir ('libitm')
         self.add_dir ('libjava', LibJavaFilter())
         self.add_dir (os.path.join ('libjava', 'testsuite'), TestsuiteFilter())
-        self.add_dir ('libmudflap', LibMudflapFilter())
-        self.add_dir (os.path.join ('libmudflap', 'testsuite'),
-                      TestsuiteFilter())
         self.add_dir ('libobjc')
+        # liboffloadmic is imported from upstream.
         self.add_dir ('libquadmath')
-        # libsanitiser is imported from upstream.
+        # libsanitizer is imported from upstream.
         self.add_dir ('libssp')
         self.add_dir ('libstdc++-v3', LibStdCxxFilter())
         self.add_dir ('libvtv')
         self.add_dir ('lto-plugin')
+        # maintainer-scripts maintainer-scripts
         # zlib is imported from upstream.
 
         self.default_dirs = [
@@ -767,7 +762,6 @@ class GCCCmdLine (CmdLine):
             'libgfortran',
             'libgomp',
             'libitm',
-            'libmudflap',
             'libobjc',
             'libstdc++-v3',
             ]

@@ -6823,6 +6823,8 @@ ix86_set_func_type (tree fndecl)
 	  cfun->machine->func_type
 	    = nargs == 2 ? TYPE_EXCEPTION : TYPE_INTERRUPT;
 
+	  ix86_optimize_mode_switching[X86_DIRFLAG] = 1;
+
 	  /* Only dwarf2out.c can handle -WORD(AP) as a pointer argument.  */
 	  if (write_symbols != NO_DEBUG && write_symbols != DWARF2_DEBUG)
 	    sorry ("Only DWARF debug format is supported for interrupt "
@@ -13832,16 +13834,6 @@ ix86_expand_prologue (void)
   if (frame_pointer_needed && frame.red_zone_size)
     emit_insn (gen_memory_blockage ());
 
-  /* Emit cld instruction if stringops are used in the function.  Since
-     we can't assume the direction flag in interrupt handler, we must
-     emit cld instruction if stringops are used in interrupt handler or
-     interrupt handler isn't a leaf function.  */
-  if ((TARGET_CLD && ix86_current_function_needs_cld)
-      || (!TARGET_CLD
-	  && cfun->machine->func_type != TYPE_NORMAL
-	  && (ix86_current_function_needs_cld || !crtl->is_leaf)))
-    emit_insn (gen_cld ());
-
   /* SEH requires that the prologue end within 256 bytes of the start of
      the function.  Prevent instruction schedules that would extend that.
      Further, prevent alloca modifications to the stack pointer from being
@@ -18615,6 +18607,35 @@ output_387_binary_op (rtx insn, rtx *operands)
   return buf;
 }
 
+/* Return needed mode for entity in optimize_mode_switching pass.  */
+
+static int
+ix86_dirflag_mode_needed (rtx_insn *insn)
+{
+  if (CALL_P (insn))
+    {
+      if (cfun->machine->func_type == TYPE_NORMAL)
+	return X86_DIRFLAG_ANY;
+      else
+	/* No need to emit CLD in interrupt handler for TARGET_CLD.  */
+	return TARGET_CLD ? X86_DIRFLAG_ANY : X86_DIRFLAG_RESET;
+    }
+
+  if (recog_memoized (insn) < 0)
+    return X86_DIRFLAG_ANY;
+
+  if (get_attr_type (insn) == TYPE_STR)
+    {
+      /* Emit cld instruction if stringops are used in the function.  */
+      if (cfun->machine->func_type == TYPE_NORMAL)
+	return TARGET_CLD ? X86_DIRFLAG_RESET : X86_DIRFLAG_ANY;
+      else
+	return X86_DIRFLAG_RESET;
+    }
+
+  return X86_DIRFLAG_ANY;
+}
+
 /* Check if a 256bit AVX register is referenced inside of EXP.   */
 
 static bool
@@ -18727,6 +18748,8 @@ ix86_mode_needed (int entity, rtx_insn *insn)
 {
   switch (entity)
     {
+    case X86_DIRFLAG:
+      return ix86_dirflag_mode_needed (insn);
     case AVX_U128:
       return ix86_avx_u128_mode_needed (insn);
     case I387_TRUNC:
@@ -18786,6 +18809,8 @@ ix86_mode_after (int entity, int mode, rtx_insn *insn)
 {
   switch (entity)
     {
+    case X86_DIRFLAG:
+      return mode;
     case AVX_U128:
       return ix86_avx_u128_mode_after (mode, insn);
     case I387_TRUNC:
@@ -18796,6 +18821,18 @@ ix86_mode_after (int entity, int mode, rtx_insn *insn)
     default:
       gcc_unreachable ();
     }
+}
+
+static int
+ix86_dirflag_mode_entry (void)
+{
+  /* For TARGET_CLD or in the interrupt handler we can't assume
+     direction flag state at function entry.  */
+  if (TARGET_CLD
+      || cfun->machine->func_type != TYPE_NORMAL)
+    return X86_DIRFLAG_ANY;
+
+  return X86_DIRFLAG_RESET;
 }
 
 static int
@@ -18825,6 +18862,8 @@ ix86_mode_entry (int entity)
 {
   switch (entity)
     {
+    case X86_DIRFLAG:
+      return ix86_dirflag_mode_entry ();
     case AVX_U128:
       return ix86_avx_u128_mode_entry ();
     case I387_TRUNC:
@@ -18858,6 +18897,8 @@ ix86_mode_exit (int entity)
 {
   switch (entity)
     {
+    case X86_DIRFLAG:
+      return X86_DIRFLAG_ANY;
     case AVX_U128:
       return ix86_avx_u128_mode_exit ();
     case I387_TRUNC:
@@ -19001,6 +19042,10 @@ ix86_emit_mode_set (int entity, int mode, int prev_mode ATTRIBUTE_UNUSED,
 {
   switch (entity)
     {
+    case X86_DIRFLAG:
+      if (mode == X86_DIRFLAG_RESET)
+	emit_insn (gen_cld ());
+      break;
     case AVX_U128:
       if (mode == AVX_U128_CLEAN)
 	ix86_avx_emit_vzeroupper (regs_live);
@@ -32688,6 +32733,8 @@ enum ix86_builtins
   /* TFmode support builtins.  */
   IX86_BUILTIN_INFQ,
   IX86_BUILTIN_HUGE_VALQ,
+  IX86_BUILTIN_NANQ,
+  IX86_BUILTIN_NANSQ,
   IX86_BUILTIN_FABSQ,
   IX86_BUILTIN_COPYSIGNQ,
 
@@ -38075,11 +38122,28 @@ ix86_fold_builtin (tree fndecl, int n_args,
     {
       enum ix86_builtins fn_code = (enum ix86_builtins)
 				   DECL_FUNCTION_CODE (fndecl);
-      if (fn_code ==  IX86_BUILTIN_CPU_IS
-	  || fn_code == IX86_BUILTIN_CPU_SUPPORTS)
+      switch (fn_code)
 	{
+	case IX86_BUILTIN_CPU_IS:
+	case IX86_BUILTIN_CPU_SUPPORTS:
 	  gcc_assert (n_args == 1);
-          return fold_builtin_cpu (fndecl, args);
+	  return fold_builtin_cpu (fndecl, args);
+
+	case IX86_BUILTIN_NANQ:
+	case IX86_BUILTIN_NANSQ:
+	  {
+	    tree type = TREE_TYPE (TREE_TYPE (fndecl));
+	    const char *str = c_getstr (*args);
+	    int quiet = fn_code == IX86_BUILTIN_NANQ;
+	    REAL_VALUE_TYPE real;
+
+	    if (str && real_nan (&real, str, quiet, TYPE_MODE (type)))
+	      return build_real (type, real);
+	    return NULL_TREE;
+	  }
+
+	default:
+	  break;
 	}
     }
 
@@ -38180,7 +38244,7 @@ ix86_init_builtins_va_builtins_abi (void)
 static void
 ix86_init_builtin_types (void)
 {
-  tree float128_type_node, float80_type_node;
+  tree float128_type_node, float80_type_node, const_string_type_node;
 
   /* The __float80 type.  */
   float80_type_node = long_double_type_node;
@@ -38200,6 +38264,10 @@ ix86_init_builtin_types (void)
   layout_type (float128_type_node);
   lang_hooks.types.register_builtin_type (float128_type_node, "__float128");
 
+  const_string_type_node
+    = build_pointer_type (build_qualified_type
+			  (char_type_node, TYPE_QUAL_CONST));
+
   /* This macro is built by i386-builtin-types.awk.  */
   DEFINE_BUILTIN_PRIMITIVE_TYPES;
 }
@@ -38207,7 +38275,7 @@ ix86_init_builtin_types (void)
 static void
 ix86_init_builtins (void)
 {
-  tree t;
+  tree ftype, decl;
 
   ix86_init_builtin_types ();
 
@@ -38220,19 +38288,31 @@ ix86_init_builtins (void)
   def_builtin_const (0, "__builtin_huge_valq",
 		     FLOAT128_FTYPE_VOID, IX86_BUILTIN_HUGE_VALQ);
 
+  ftype = ix86_get_builtin_func_type (FLOAT128_FTYPE_CONST_STRING);
+  decl = add_builtin_function ("__builtin_nanq", ftype, IX86_BUILTIN_NANQ,
+			       BUILT_IN_MD, "nanq", NULL_TREE);
+  TREE_READONLY (decl) = 1;
+  ix86_builtins[(int) IX86_BUILTIN_NANQ] = decl;
+
+  decl = add_builtin_function ("__builtin_nansq", ftype, IX86_BUILTIN_NANSQ,
+			       BUILT_IN_MD, "nansq", NULL_TREE);
+  TREE_READONLY (decl) = 1;
+  ix86_builtins[(int) IX86_BUILTIN_NANSQ] = decl;
+
   /* We will expand them to normal call if SSE isn't available since
      they are used by libgcc. */
-  t = ix86_get_builtin_func_type (FLOAT128_FTYPE_FLOAT128);
-  t = add_builtin_function ("__builtin_fabsq", t, IX86_BUILTIN_FABSQ,
-			    BUILT_IN_MD, "__fabstf2", NULL_TREE);
-  TREE_READONLY (t) = 1;
-  ix86_builtins[(int) IX86_BUILTIN_FABSQ] = t;
+  ftype = ix86_get_builtin_func_type (FLOAT128_FTYPE_FLOAT128);
+  decl = add_builtin_function ("__builtin_fabsq", ftype, IX86_BUILTIN_FABSQ,
+			       BUILT_IN_MD, "__fabstf2", NULL_TREE);
+  TREE_READONLY (decl) = 1;
+  ix86_builtins[(int) IX86_BUILTIN_FABSQ] = decl;
 
-  t = ix86_get_builtin_func_type (FLOAT128_FTYPE_FLOAT128_FLOAT128);
-  t = add_builtin_function ("__builtin_copysignq", t, IX86_BUILTIN_COPYSIGNQ,
-			    BUILT_IN_MD, "__copysigntf3", NULL_TREE);
-  TREE_READONLY (t) = 1;
-  ix86_builtins[(int) IX86_BUILTIN_COPYSIGNQ] = t;
+  ftype = ix86_get_builtin_func_type (FLOAT128_FTYPE_FLOAT128_FLOAT128);
+  decl = add_builtin_function ("__builtin_copysignq", ftype,
+			       IX86_BUILTIN_COPYSIGNQ, BUILT_IN_MD,
+			       "__copysigntf3", NULL_TREE);
+  TREE_READONLY (decl) = 1;
+  ix86_builtins[(int) IX86_BUILTIN_COPYSIGNQ] = decl;
 
   ix86_init_tm_builtins ();
   ix86_init_mmx_sse_builtins ();
@@ -41432,6 +41512,10 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
 	emit_move_insn (target, tmp);
 	return target;
       }
+
+    case IX86_BUILTIN_NANQ:
+    case IX86_BUILTIN_NANSQ:
+      return expand_call (exp, target, ignore);
 
     case IX86_BUILTIN_RDPMC:
     case IX86_BUILTIN_RDTSC:
