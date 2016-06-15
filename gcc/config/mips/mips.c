@@ -15495,6 +15495,12 @@ mips_output_equal_conditional_branch (rtx_insn* insn, rtx *operands,
 	  branch[!inverted_p] = MIPS_BRANCH_C ("b%C1z", "%2,%0");
 	  branch[inverted_p] = MIPS_BRANCH_C ("b%N1z", "%2,%0");
 	}
+      else if (CONST_INT_P (operands[3]) && TARGET_ADD_BR_IMM)
+	{
+	  /* FIXME */
+	  branch[!inverted_p] = MIPS_BRANCH_C ("sdbbp32 14 # b%C1i", "%2,%3,%0");
+	  branch[inverted_p] = MIPS_BRANCH_C ("sdbbp32 14 # b%N1i", "%2,%3,%0");
+	}
       else if (REGNO (operands[2]) != REGNO (operands[3]))
 	{
 	  branch[!inverted_p] = MIPS_BRANCH_C ("b%C1", "%2,%3,%0");
@@ -15552,6 +15558,12 @@ mips_output_order_conditional_branch (rtx_insn *insn, rtx *operands,
 	   default:
 	      gcc_unreachable ();
 	    }
+	}
+      else if (CONST_INT_P (operands[3]) && TARGET_ADD_BR_IMM_ORDER)
+	{
+	  /* FIXME */
+	  branch[!inverted_p] = MIPS_BRANCH_C ("sdbbp32 15 # b%C1i", "%2,%3,%0");
+	  branch[inverted_p] = MIPS_BRANCH_C ("sdbbp32 15 # b%N1i", "%2,%3,%0");
 	}
       else
 	{

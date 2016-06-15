@@ -6157,29 +6157,39 @@
   [(set (pc)
 	(if_then_else
 	 (match_operator 1 "order_operator"
-			 [(match_operand:GPR 2 "register_operand" "d,d")
-			  (match_operand:GPR 3 "reg_or_0_operand" "J,d")])
+			 [(match_operand:GPR 2 "register_operand" "d,d,d")
+			  (match_operand:GPR 3 "reg_uimm7_operand" "J,d,Uub7")])
 	 (label_ref (match_operand 0 "" ""))
 	 (pc)))]
   "!TARGET_MIPS16"
   { return mips_output_order_conditional_branch (insn, operands, false); }
   [(set_attr "type" "branch")
-   (set_attr "compact_form" "maybe,always")
-   (set_attr "hazard" "forbidden_slot")])
+   (set_attr "compact_form" "maybe,always,always")
+   (set_attr "hazard" "forbidden_slot")
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "2")
+		    (not (match_test "TARGET_ADD_BR_IMM_ORDER")))
+		  (const_string "no")]
+	      (const_string "yes")))])
 
 (define_insn "*branch_order<mode>_inverted"
   [(set (pc)
 	(if_then_else
 	 (match_operator 1 "order_operator"
-			 [(match_operand:GPR 2 "register_operand" "d,d")
-			  (match_operand:GPR 3 "reg_or_0_operand" "J,d")])
+			 [(match_operand:GPR 2 "register_operand" "d,d,d")
+			  (match_operand:GPR 3 "reg_uimm7_operand" "J,d,Uub7")])
 	 (pc)
 	 (label_ref (match_operand 0 "" ""))))]
   "!TARGET_MIPS16"
   { return mips_output_order_conditional_branch (insn, operands, true); }
   [(set_attr "type" "branch")
-   (set_attr "compact_form" "maybe,always")
-   (set_attr "hazard" "forbidden_slot")])
+   (set_attr "compact_form" "maybe,always,always")
+   (set_attr "hazard" "forbidden_slot")
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "2")
+		    (not (match_test "TARGET_ADD_BR_IMM_ORDER")))
+		  (const_string "no")]
+	      (const_string "yes")))])
 
 ;; Conditional branch on equality comparison.
 
@@ -6187,29 +6197,39 @@
   [(set (pc)
 	(if_then_else
 	 (match_operator 1 "equality_operator"
-			 [(match_operand:GPR 2 "register_operand" "d")
-			  (match_operand:GPR 3 "reg_or_0_operand" "dJ")])
+			 [(match_operand:GPR 2 "register_operand" "d,d")
+			  (match_operand:GPR 3 "reg_uimm7_operand" "dJ,Uub7")])
 	 (label_ref (match_operand 0 "" ""))
 	 (pc)))]
   "!TARGET_MIPS16"
   { return mips_output_equal_conditional_branch (insn, operands, false); }
   [(set_attr "type" "branch")
    (set_attr "compact_form" "maybe")
-   (set_attr "hazard" "forbidden_slot")])
+   (set_attr "hazard" "forbidden_slot")
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "1")
+		    (not (match_test "TARGET_ADD_BR_IMM")))
+		  (const_string "no")]
+	      (const_string "yes")))])
 
 (define_insn "*branch_equality<mode>_inverted"
   [(set (pc)
 	(if_then_else
 	 (match_operator 1 "equality_operator"
-			 [(match_operand:GPR 2 "register_operand" "d")
-			  (match_operand:GPR 3 "reg_or_0_operand" "dJ")])
+			 [(match_operand:GPR 2 "register_operand" "d,d")
+			  (match_operand:GPR 3 "reg_uimm7_operand" "dJ,Uub7")])
 	 (pc)
 	 (label_ref (match_operand 0 "" ""))))]
   "!TARGET_MIPS16"
   { return mips_output_equal_conditional_branch (insn, operands, true); }
   [(set_attr "type" "branch")
    (set_attr "compact_form" "maybe")
-   (set_attr "hazard" "forbidden_slot")])
+   (set_attr "hazard" "forbidden_slot")
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "1")
+		    (not (match_test "TARGET_ADD_BR_IMM")))
+		  (const_string "no")]
+	      (const_string "yes")))])
 
 ;; MIPS16 branches
 
