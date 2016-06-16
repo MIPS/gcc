@@ -570,3 +570,6 @@ Target Undocumented Var(TARGET_ADD_BR_IMM) Init(0)
 
 madd-br-imm-order
 Target Undocumented Var(TARGET_ADD_BR_IMM_ORDER) Init(0)
+
+madd-movebalc
+Target Undocumented Var(TARGET_ADD_MOVEBALC) Init(0)
