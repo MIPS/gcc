@@ -6641,7 +6641,7 @@
   [(set (pc) (match_operand:P 0 "register_operand" "d"))]
   ""
   {
-    return mips_output_jump (operands, 0, -1, false);
+    return mips_output_jump (operands, 0, -1, false, false);
   }
   [(set_attr "type" "jump")
    (set_attr "mode" "none")])
@@ -6687,7 +6687,7 @@
    (use (label_ref (match_operand 1 "" "")))]
   ""
   {
-    return mips_output_jump (operands, 0, -1, false);
+    return mips_output_jump (operands, 0, -1, false, false);
   }
   [(set_attr "type" "jump")
    (set_attr "mode" "none")])
@@ -6901,7 +6901,7 @@
   ""
   {
     operands[0] = gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM);
-    return mips_output_jump (operands, 0, -1, false);
+    return mips_output_jump (operands, 0, -1, false, false);
   }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")])
@@ -6928,7 +6928,7 @@
   ""
   {
     operands[0] = gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM);
-    return mips_output_jump (operands, 0, -1, false);
+    return mips_output_jump (operands, 0, -1, false, false);
   }
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")])
@@ -7185,7 +7185,7 @@
   [(call (mem:SI (match_operand 0 "sibcall_insn_operand" "kc,YS"))
 	 (match_operand 1 "" ""))]
   "TARGET_SIBCALLS && SIBLING_CALL_P (insn)"
-  { return mips_output_jump (operands, 0, 1, false); }
+  { return mips_output_jump (operands, 0, 1, false, false); }
   [(set_attr "jal" "indirect,direct")
    (set_attr "jal_macro" "no")
    (set (attr "tail_branch_mips16")
@@ -7211,7 +7211,7 @@
 	(call (mem:SI (match_operand 1 "sibcall_insn_operand" "kc,YS"))
               (match_operand 2 "" "")))]
   "TARGET_SIBCALLS && SIBLING_CALL_P (insn)"
-  { return mips_output_jump (operands, 1, 2, false); }
+  { return mips_output_jump (operands, 1, 2, false, false); }
   [(set_attr "jal" "indirect,direct")
    (set_attr "jal_macro" "no")
    (set (attr "tail_branch_mips16")
@@ -7228,7 +7228,7 @@
 	(call (mem:SI (match_dup 1))
 	      (match_dup 2)))]
   "TARGET_SIBCALLS && SIBLING_CALL_P (insn)"
-  { return mips_output_jump (operands, 1, 2, false); }
+  { return mips_output_jump (operands, 1, 2, false, false); }
   [(set_attr "jal" "indirect,direct")
    (set_attr "jal_macro" "no")
    (set (attr "tail_branch_mips16")
@@ -7291,7 +7291,7 @@
   ""
   {
     return (TARGET_SPLIT_CALLS ? "#"
-	    : mips_output_jump (operands, 0, 1, true));
+	    : mips_output_jump (operands, 0, 1, true, false));
   }
   "reload_completed && TARGET_SPLIT_CALLS"
   [(const_int 0)]
@@ -7307,7 +7307,7 @@
    (clobber (reg:SI RETURN_ADDR_REGNUM))
    (clobber (reg:SI 28))]
   "TARGET_SPLIT_CALLS"
-  { return mips_output_jump (operands, 0, 1, true); }
+  { return mips_output_jump (operands, 0, 1, true, false); }
   [(set_attr "jal" "indirect,direct")
    (set_attr "jal_macro" "no")])
 
@@ -7323,7 +7323,7 @@
   ""
   {
     return (TARGET_SPLIT_CALLS ? "#"
-	    : mips_output_jump (operands, 0, -1, true));
+	    : mips_output_jump (operands, 0, -1, true, false));
   }
   "reload_completed && TARGET_SPLIT_CALLS"
   [(const_int 0)]
@@ -7341,7 +7341,7 @@
    (clobber (reg:SI RETURN_ADDR_REGNUM))
    (clobber (reg:SI 28))]
   "TARGET_SPLIT_CALLS"
-  { return mips_output_jump (operands, 0, -1, true); }
+  { return mips_output_jump (operands, 0, -1, true, false); }
   [(set_attr "jal" "direct")
    (set_attr "jal_macro" "no")])
 
@@ -7366,7 +7366,7 @@
   ""
   {
     return (TARGET_SPLIT_CALLS ? "#"
-	    : mips_output_jump (operands, 1, 2, true));
+	    : mips_output_jump (operands, 1, 2, true, false));
   }
   "reload_completed && TARGET_SPLIT_CALLS"
   [(const_int 0)]
@@ -7385,7 +7385,7 @@
    (clobber (reg:SI RETURN_ADDR_REGNUM))
    (clobber (reg:SI 28))]
   "TARGET_SPLIT_CALLS"
-  { return mips_output_jump (operands, 1, 2, true); }
+  { return mips_output_jump (operands, 1, 2, true, false); }
   [(set_attr "jal" "indirect,direct")
    (set_attr "jal_macro" "no")])
 
@@ -7399,7 +7399,7 @@
   ""
   {
     return (TARGET_SPLIT_CALLS ? "#"
-	    : mips_output_jump (operands, 1, -1, true));
+	    : mips_output_jump (operands, 1, -1, true, false));
   }
   "reload_completed && TARGET_SPLIT_CALLS"
   [(const_int 0)]
@@ -7419,7 +7419,7 @@
    (clobber (reg:SI RETURN_ADDR_REGNUM))
    (clobber (reg:SI 28))]
   "TARGET_SPLIT_CALLS"
-  { return mips_output_jump (operands, 1, -1, true); }
+  { return mips_output_jump (operands, 1, -1, true, false); }
   [(set_attr "jal" "direct")
    (set_attr "jal_macro" "no")])
 
@@ -7435,7 +7435,7 @@
   ""
   {
     return (TARGET_SPLIT_CALLS ? "#"
-	    : mips_output_jump (operands, 1, 2, true));
+	    : mips_output_jump (operands, 1, 2, true, false));
   }
   "reload_completed && TARGET_SPLIT_CALLS"
   [(const_int 0)]
@@ -7457,7 +7457,7 @@
    (clobber (reg:SI RETURN_ADDR_REGNUM))
    (clobber (reg:SI 28))]
   "TARGET_SPLIT_CALLS"
-  { return mips_output_jump (operands, 1, 2, true); }
+  { return mips_output_jump (operands, 1, 2, true, false); }
   [(set_attr "jal" "indirect,direct")
    (set_attr "jal_macro" "no")])
 
@@ -7872,7 +7872,7 @@
    (clobber (reg:P PIC_FUNCTION_ADDR_REGNUM))
    (clobber (reg:P RETURN_ADDR_REGNUM))]
   "HAVE_AS_TLS && TARGET_MIPS16"
-  { return mips_output_jump (operands, 0, -1, true); }
+  { return mips_output_jump (operands, 0, -1, true, false); }
   [(set_attr "type" "call")
    (set_attr "insn_count" "3")
    (set_attr "mode" "<MODE>")])
@@ -7913,7 +7913,7 @@
    (clobber (reg:P PIC_FUNCTION_ADDR_REGNUM))
    (clobber (reg:P RETURN_ADDR_REGNUM))]
   "TARGET_HARD_FLOAT_ABI && TARGET_MIPS16"
-  { return mips_output_jump (operands, 0, -1, true); }
+  { return mips_output_jump (operands, 0, -1, true, false); }
   [(set_attr "type" "call")
    (set_attr "insn_count" "3")])
 
@@ -7943,7 +7943,7 @@
    (clobber (reg:P PIC_FUNCTION_ADDR_REGNUM))
    (clobber (reg:P RETURN_ADDR_REGNUM))]
   "TARGET_HARD_FLOAT_ABI && TARGET_MIPS16"
-  { return mips_output_jump (operands, 0, -1, true); }
+  { return mips_output_jump (operands, 0, -1, true, false); }
   [(set_attr "type" "call")
    (set_attr "insn_count" "3")])
 

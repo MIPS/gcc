@@ -74,6 +74,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "context.h"
 #include "dumpfile.h"
+#include "tm-constrs.h"
 
 /* Definitions used in ready queue reordering for first scheduling pass.  */
 
@@ -8952,7 +8953,7 @@ mips16_build_call_stub (rtx retval, rtx *fn_ptr, rtx args_size, int fp_code)
 	     $18 is usually a call-saved register.  */
 	  fprintf (asm_out_file, "\tmove\t%s,%s\n",
 		   reg_names[GP_REG_FIRST + 18], reg_names[RETURN_ADDR_REGNUM]);
-	  output_asm_insn (mips_output_jump (&fn, 0, -1, true), &fn);
+	  output_asm_insn (mips_output_jump (&fn, 0, -1, true, false), &fn);
 	  fprintf (asm_out_file, "\t.cfi_register 31,18\n");
 
 	  /* Move the result from floating-point registers to
@@ -15821,7 +15822,8 @@ mips_adjust_insn_length (rtx insn, int length)
    anyway).  */
 
 const char *
-mips_output_jump (rtx *operands, int target_opno, int size_opno, bool link_p)
+mips_output_jump (rtx *operands, int target_opno, int size_opno, bool link_p,
+		  bool move_balc_p)
 {
   static char buffer[300];
   char *s = buffer;
@@ -15867,8 +15869,14 @@ mips_output_jump (rtx *operands, int target_opno, int size_opno, bool link_p)
       else
 	s += sprintf (s, "%%*");
 
-      s += sprintf (s, "%s%s%s%s%s\t%%%d%s", insn_name, and_link, reg, compact, short_delay,
-					    target_opno, nop);
+      /* FIXME */
+      if (move_balc_p)
+	s += sprintf (s, "sdbbp32 16 # move.%s%s%s%s%s\t%%0,%%1,%%%d%s",
+		      insn_name, and_link, reg, compact, short_delay,
+		      target_opno, nop);
+      else
+	s += sprintf (s, "%s%s%s%s%s\t%%%d%s", insn_name, and_link, reg,
+		      compact, short_delay, target_opno, nop);
 
       if (!reg_p && TARGET_ABICALLS_PIC2)
 	s += sprintf (s, "\n\t.option\tpic2");
@@ -23018,6 +23026,22 @@ umips_movep_target_p (rtx reg1, rtx reg2)
 	return true;
 
   return false;
+}
+
+bool
+umips_move_balc_p (rtx *operands)
+{
+  /* FIXME */
+  if (!TARGET_ADD_MOVEBALC)
+    return false;
+  if (REGNO (operands[0]) != 4 && REGNO (operands[0]) != 5)
+    return false;
+  if (!IN_RANGE (REGNO (operands[1]), 16, 21)
+      && REGNO (operands[1]) != 2 && operands[1] != const0_rtx)
+    return false;
+  if (!satisfies_constraint_S (operands[2]))
+    return false;
+  return true;
 }
 
 /* Return the size in bytes of the trampoline code, padded to

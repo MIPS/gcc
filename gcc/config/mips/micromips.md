@@ -166,3 +166,64 @@
   [(set_attr "type" "move")
    (set_attr "mode" "<MODE>")
    (set_attr "can_delay" "no")])
+
+(define_peephole2
+  [(set (match_operand 0 "register_operand")
+	(match_operand 1 "register_operand"))
+   (parallel [(set (match_operand 4 "register_operand")
+		   (call (mem:SI (match_operand 2 ""))
+			 (match_operand 3 "" "")))
+	      (clobber (reg:SI RETURN_ADDR_REGNUM))])]
+  "TARGET_MICROMIPS_R7
+   && umips_move_balc_p (operands)"
+  [(parallel [(set (match_dup 4)
+		   (call (mem:SI (match_dup 2))
+			 (match_dup 3)))
+	      (set (match_dup 0)
+		   (match_dup 1))
+	      (use (match_dup 0))
+	      (clobber (reg:SI RETURN_ADDR_REGNUM))])])
+
+(define_peephole2
+  [(set (match_operand 0 "register_operand")
+	(match_operand 1 "register_operand"))
+   (parallel [(call (mem:SI (match_operand 2 ""))
+			 (match_operand 3 "" ""))
+	      (clobber (reg:SI RETURN_ADDR_REGNUM))])]
+  "TARGET_MICROMIPS_R7
+   && umips_move_balc_p (operands)"
+  [(parallel [(call (mem:SI (match_dup 2))
+		    (match_dup 3))
+	      (set (match_dup 0)
+		   (match_dup 1))
+	      (use (match_dup 0))
+	      (clobber (reg:SI RETURN_ADDR_REGNUM))])])
+
+(define_insn "*move_balc_call_value"
+  [(parallel [(set (match_operand 4 "" "")
+		   (call (mem:SI (match_operand 2 "" ""))
+			 (match_operand 3 "" "")))
+	      (set (match_operand 0 "register_operand" "")
+		   (match_operand 1 "register_operand" ""))
+	      (use (match_dup 0))
+	      (clobber (reg:SI RETURN_ADDR_REGNUM))])]
+  "TARGET_MICROMIPS_R7
+   && umips_move_balc_p (operands)"
+  {
+    return mips_output_jump (operands, 3, 4, true, true);
+  }
+  [(set_attr "jal" "direct")])
+
+(define_insn "*move_balc_call"
+  [(parallel [(call (mem:SI (match_operand 2 "" ""))
+		    (match_operand 3 "" ""))
+	      (set (match_operand 0 "register_operand" "")
+		   (match_operand 1 "register_operand" ""))
+	      (use (match_dup 0))
+	      (clobber (reg:SI RETURN_ADDR_REGNUM))])]
+  "TARGET_MICROMIPS_R7
+   && umips_move_balc_p (operands)"
+  {
+    return mips_output_jump (operands, 3, 4, true, true);
+  }
+  [(set_attr "jal" "direct")])
