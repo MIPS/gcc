@@ -129,3 +129,84 @@
   [(set_attr "type" "move")
    (set_attr "mode" "<MODE>")
    (set_attr "can_delay" "no")])
+
+(define_peephole2
+  [(set (match_operand 0 "register_operand")
+	(match_operand 1 "register_operand"))
+   (parallel [(set (match_operand 4 "register_operand")
+		   (call (mem:SI (match_operand 2 ""))
+			 (match_operand 3 "" "")))
+	      (clobber (reg:SI RETURN_ADDR_REGNUM))])]
+  "TARGET_MICROMIPS_R7
+   && umips_move_balc_p (operands)"
+  [(const_int 0)]
+{
+  rtx move_balc = gen_move_balc_call_value (operands[0], operands[1],
+					    operands[2], operands[3],
+					    operands[4]);
+  rtx_insn *insn = emit_call_insn (move_balc);
+
+  rtx note = find_reg_note (NEXT_INSN (curr_insn), REG_EH_REGION, NULL_RTX);
+  if (note != NULL_RTX)
+    add_reg_note (insn, REG_EH_REGION, XEXP (note, 0));
+
+  note = find_reg_note (NEXT_INSN (curr_insn), REG_CALL_DECL, NULL_RTX);
+  if (note != NULL_RTX)
+    add_reg_note (insn, REG_CALL_DECL, XEXP (note, 0));
+
+  DONE;
+})
+
+(define_peephole2
+  [(set (match_operand 0 "register_operand")
+	(match_operand 1 "register_operand"))
+   (parallel [(call (mem:SI (match_operand 2 ""))
+			 (match_operand 3 "" ""))
+	      (clobber (reg:SI RETURN_ADDR_REGNUM))])]
+  "TARGET_MICROMIPS_R7
+   && umips_move_balc_p (operands)"
+  [(const_int 0)]
+{
+  rtx move_balc = gen_move_balc_call (operands[0], operands[1],
+				      operands[2], operands[3]);
+  rtx_insn *insn = emit_call_insn (move_balc);
+
+  rtx note = find_reg_note (NEXT_INSN (curr_insn), REG_EH_REGION, NULL_RTX);
+  if (note != NULL_RTX)
+    add_reg_note (insn, REG_EH_REGION, XEXP (note, 0));
+
+  note = find_reg_note (NEXT_INSN (curr_insn), REG_CALL_DECL, NULL_RTX);
+  if (note != NULL_RTX)
+    add_reg_note (insn, REG_CALL_DECL, XEXP (note, 0));
+
+  DONE;
+})
+
+(define_insn "move_balc_call_value"
+  [(parallel [(set (match_operand 4 "" "")
+		   (call (mem:SI (match_operand 2 "" ""))
+			 (match_operand 3 "" "")))
+	      (set (match_operand 0 "register_operand" "")
+		   (match_operand 1 "register_operand" ""))
+	      (use (match_dup 0))
+	      (clobber (reg:SI RETURN_ADDR_REGNUM))])]
+  "TARGET_MICROMIPS_R7
+   && umips_move_balc_p (operands)"
+  {
+    return mips_output_jump (operands, 2, -1, true, true);
+  }
+  [(set_attr "jal" "direct")])
+
+(define_insn "move_balc_call"
+  [(parallel [(call (mem:SI (match_operand 2 "" ""))
+		    (match_operand 3 "" ""))
+	      (set (match_operand 0 "register_operand" "")
+		   (match_operand 1 "register_operand" ""))
+	      (use (match_dup 0))
+	      (clobber (reg:SI RETURN_ADDR_REGNUM))])]
+  "TARGET_MICROMIPS_R7
+   && umips_move_balc_p (operands)"
+  {
+    return mips_output_jump (operands, 2, -1, true, true);
+  }
+  [(set_attr "jal" "direct")])
