@@ -22050,9 +22050,8 @@ cp_parser_class_head (cp_parser* parser,
 
   /* If we're really defining a class, process the base classes.
      If they're invalid, fail.  */
-  if (type && cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE)
-      && !xref_basetypes (type, bases))
-    type = NULL_TREE;
+  if (type && cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
+    xref_basetypes (type, bases);
 
  done:
   /* Leave the scope given by the nested-name-specifier.  We will
@@ -29984,6 +29983,8 @@ cp_parser_omp_var_list_no_open (cp_parser *parser, enum omp_clause_code kind,
 	  switch (kind)
 	    {
 	    case OMP_CLAUSE__CACHE_:
+	      /* The OpenACC cache directive explicitly only allows "array
+		 elements or subarrays".  */
 	      if (cp_lexer_peek_token (parser->lexer)->type != CPP_OPEN_SQUARE)
 		{
 		  error_at (token->location, "expected %<[%>");
@@ -30034,25 +30035,6 @@ cp_parser_omp_var_list_no_open (cp_parser *parser, enum omp_clause_code kind,
 		  if (!cp_parser_require (parser, CPP_CLOSE_SQUARE,
 					  RT_CLOSE_SQUARE))
 		    goto skip_comma;
-
-		  if (kind == OMP_CLAUSE__CACHE_)
-		    {
-		      if (TREE_CODE (low_bound) != INTEGER_CST
-			  && !TREE_READONLY (low_bound))
-			{
-			  error_at (token->location,
-				    "%qD is not a constant", low_bound);
-			  decl = error_mark_node;
-			}
-
-		      if (TREE_CODE (length) != INTEGER_CST
-			  && !TREE_READONLY (length))
-			{
-			  error_at (token->location,
-				    "%qD is not a constant", length);
-			  decl = error_mark_node;
-			}
-		    }
 
 		  decl = tree_cons (low_bound, length, decl);
 		}

@@ -3700,28 +3700,28 @@ package body Exp_Ch3 is
       --  Recursive procedure that generates a list of checks for components
       --  that need it, and recurses through variant parts when present.
 
-      function Build_Component_Invariant_Call (Comp : Entity_Id)
-      return Node_Id;
-      --  Build call to invariant procedure for a record component.
+      function Build_Component_Invariant_Call
+        (Comp : Entity_Id) return Node_Id;
+      --  Build call to invariant procedure for a record component
 
       ------------------------------------
       -- Build_Component_Invariant_Call --
       ------------------------------------
 
-      function Build_Component_Invariant_Call (Comp : Entity_Id)
-      return Node_Id
+      function Build_Component_Invariant_Call
+        (Comp : Entity_Id) return Node_Id
       is
+         Call     : Node_Id;
+         Proc     : Entity_Id;
          Sel_Comp : Node_Id;
          Typ      : Entity_Id;
-         Call     : Node_Id;
 
       begin
-         Invariant_Found := True;
          Typ := Etype (Comp);
 
          Sel_Comp :=
            Make_Selected_Component (Loc,
-             Prefix      => New_Occurrence_Of (Object_Entity, Loc),
+             Prefix        => New_Occurrence_Of (Object_Entity, Loc),
              Selector_Name => New_Occurrence_Of (Comp, Loc));
 
          if Is_Access_Type (Typ) then
@@ -3744,22 +3744,29 @@ package body Exp_Ch3 is
 
          --  The aspect is type-specific, so retrieve it from the base type
 
+         Proc := Invariant_Procedure (Base_Type (Typ));
+
+         if Has_Null_Body (Proc) then
+            return Make_Null_Statement (Loc);
+         end if;
+
+         Invariant_Found := True;
          Call :=
            Make_Procedure_Call_Statement (Loc,
-             Name                   =>
-               New_Occurrence_Of (Invariant_Procedure (Base_Type (Typ)), Loc),
+             Name                   => New_Occurrence_Of (Proc, Loc),
              Parameter_Associations => New_List (Sel_Comp));
 
          if Is_Access_Type (Etype (Comp)) then
             Call :=
               Make_If_Statement (Loc,
-                Condition =>
+                Condition       =>
                   Make_Op_Ne (Loc,
                     Left_Opnd   => Make_Null (Loc),
                     Right_Opnd  =>
-                       Make_Selected_Component (Loc,
-                         Prefix      => New_Occurrence_Of (Object_Entity, Loc),
-                         Selector_Name => New_Occurrence_Of (Comp, Loc))),
+                      Make_Selected_Component (Loc,
+                        Prefix        =>
+                          New_Occurrence_Of (Object_Entity, Loc),
+                        Selector_Name => New_Occurrence_Of (Comp, Loc))),
                 Then_Statements => New_List (Call));
          end if;
 
@@ -4612,13 +4619,10 @@ package body Exp_Ch3 is
          --  been a private type at the point of definition. Same if component
          --  type is controlled or contains protected objects.
 
-         Set_Has_Task       (Base, Has_Task      (Comp_Typ));
-         Set_Has_Protected  (Base, Has_Protected (Comp_Typ));
+         Propagate_Concurrent_Flags (Base, Comp_Typ);
          Set_Has_Controlled_Component
-                            (Base, Has_Controlled_Component
-                                                 (Comp_Typ)
-                                     or else
-                                   Is_Controlled (Comp_Typ));
+           (Base, Has_Controlled_Component (Comp_Typ)
+                    or else Is_Controlled (Comp_Typ));
 
          if No (Init_Proc (Base)) then
 
@@ -5185,13 +5189,7 @@ package body Exp_Ch3 is
       while Present (Comp) loop
          Comp_Typ := Etype (Comp);
 
-         if Has_Task (Comp_Typ) then
-            Set_Has_Task (Typ);
-         end if;
-
-         if Has_Protected (Comp_Typ) then
-            Set_Has_Protected (Typ);
-         end if;
+         Propagate_Concurrent_Flags (Typ, Comp_Typ);
 
          --  Do not set Has_Controlled_Component on a class-wide equivalent
          --  type. See Make_CW_Equivalent_Type.
@@ -6868,6 +6866,7 @@ package body Exp_Ch3 is
             --  from previous instantiation errors.
 
             if Validity_Checks_On
+              and then Comes_From_Source (N)
               and then Validity_Check_Copies
               and then not Is_Generic_Type (Etype (Def_Id))
             then
@@ -6961,9 +6960,9 @@ package body Exp_Ch3 is
 
       if Comes_From_Source (Def_Id)
         and then (Has_Default_Init_Cond (Typ)
-                    or else
-                  Has_Inherited_Default_Init_Cond (Typ))
+                   or else Has_Inherited_Default_Init_Cond (Typ))
         and then not Has_Init_Expression (N)
+        and then Present (Default_Init_Cond_Procedure (Typ))
       then
          declare
             DIC_Call : constant Node_Id :=

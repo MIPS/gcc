@@ -1103,6 +1103,11 @@ package Sem_Util is
    --  as expressed in pragma Refined_State. This function does not take into
    --  account the visible refinement region of abstract state Id.
 
+   function Has_Null_Body (Proc_Id : Entity_Id) return Boolean;
+   --  Determine whether the body of procedure Proc_Id contains a sole
+   --  null statement, possibly followed by an optional return. Used to
+   --  optimize useless calls to assertion checks.
+
    function Has_Null_Exclusion (N : Node_Id) return Boolean;
    --  Determine whether node N has a null exclusion
 
@@ -1226,6 +1231,12 @@ package Sem_Util is
    --  Given the entity of a constant or a type, retrieve the incomplete or
    --  partial view of the same entity. Note that Id may not have a partial
    --  view in which case the function returns Empty.
+
+   function Indexed_Component_Bit_Offset (N : Node_Id) return Uint;
+   --  Given an N_Indexed_Component node, return the first bit position of the
+   --  component if it is known at compile time. A value of No_Uint means that
+   --  either the value is not yet known before back-end processing or it is
+   --  not known at compile time after back-end processing.
 
    procedure Inherit_Default_Init_Cond_Procedure (Typ : Entity_Id);
    --  Inherit the default initial condition procedure from the parent type of
@@ -1928,6 +1939,14 @@ package Sem_Util is
    --  (e.g. target of assignment, or out parameter), and to False if the
    --  modification is only potential (e.g. address of entity taken).
 
+   function Null_To_Null_Address_Convert_OK
+     (N   : Node_Id;
+      Typ : Entity_Id := Empty) return Boolean;
+   --  Return True if we are compiling in relaxed RM semantics mode and:
+   --   1) N is a N_Null node and Typ is a descendant of System.Address, or
+   --   2) N is a comparison operator, one of the operands is null, and the
+   --      type of the other operand is a descendant of System.Address.
+
    function Object_Access_Level (Obj : Node_Id) return Uint;
    --  Return the accessibility level of the view of the object Obj. For
    --  convenience, qualified expressions applied to object names are also
@@ -2003,6 +2022,15 @@ package Sem_Util is
    --  parameter Ent gives the entity to which the End_Label refers,
    --  and to which cross-references are to be generated.
 
+   procedure Propagate_Concurrent_Flags
+     (Typ      : Entity_Id;
+      Comp_Typ : Entity_Id);
+   --  Set Has_Task, Has_Protected and Has_Timing_Event on Typ when the flags
+   --  are set on Comp_Typ. This follows the definition of these flags which
+   --  are set (recursively) on any composite type which has a component marked
+   --  by one of these flags. This procedure can only set flags for Typ, and
+   --  never clear them. Comp_Typ is the type of a component or a parent.
+
    procedure Record_Possible_Part_Of_Reference
      (Var_Id : Entity_Id;
       Ref    : Node_Id);
@@ -2015,8 +2043,8 @@ package Sem_Util is
    --  Determine whether entity Id is referenced within expression Expr
 
    function References_Generic_Formal_Type (N : Node_Id) return Boolean;
-   --  Returns True if the expression Expr contains any references to a
-   --  generic type. This can only happen within a generic template.
+   --  Returns True if the expression Expr contains any references to a generic
+   --  type. This can only happen within a generic template.
 
    procedure Remove_Homonym (E : Entity_Id);
    --  Removes E from the homonym chain
@@ -2029,6 +2057,11 @@ package Sem_Util is
 
    function Remove_Suffix (E : Entity_Id; Suffix : Character) return Name_Id;
    --  Returns the name of E without Suffix
+
+   procedure Replace_Null_By_Null_Address (N : Node_Id);
+   --  N is N_Null or a binary comparison operator, we are compiling in relaxed
+   --  RM semantics mode, and one of the operands is null. Replace null with
+   --  System.Null_Address.
 
    function Rep_To_Pos_Flag (E : Entity_Id; Loc : Source_Ptr) return Node_Id;
    --  This is used to construct the second argument in a call to Rep_To_Pos

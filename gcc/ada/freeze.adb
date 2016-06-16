@@ -1161,10 +1161,12 @@ package body Freeze is
       ADC              : Node_Id;
       Comp_ADC_Present : out Boolean)
    is
-      Encl_Base : Entity_Id;
       Comp_Base : Entity_Id;
       Comp_ADC  : Node_Id;
+      Encl_Base : Entity_Id;
       Err_Node  : Node_Id;
+
+      Component_Aliased : Boolean;
 
       Comp_Byte_Aligned : Boolean;
       --  Set for the record case, True if Comp starts on a byte boundary
@@ -1173,8 +1175,6 @@ package body Freeze is
       Comp_SSO_Differs  : Boolean;
       --  Set True when the component is a nested composite, and it does not
       --  have the same scalar storage order as Encl_Type.
-
-      Component_Aliased : Boolean;
 
    begin
       --  Record case
@@ -1226,9 +1226,9 @@ package body Freeze is
          Comp_Base := Underlying_Type (Comp_Base);
       end if;
 
-      Comp_ADC := Get_Attribute_Definition_Clause
-                    (First_Subtype (Comp_Base),
-                     Attribute_Scalar_Storage_Order);
+      Comp_ADC :=
+        Get_Attribute_Definition_Clause
+          (First_Subtype (Comp_Base), Attribute_Scalar_Storage_Order);
       Comp_ADC_Present := Present (Comp_ADC);
 
       --  Case of record or array component: check storage order compatibility.
@@ -1240,9 +1240,8 @@ package body Freeze is
         or else Is_Array_Type (Comp_Base)
       then
          Comp_SSO_Differs :=
-           Reverse_Storage_Order (Encl_Base)
-             /=
-           Reverse_Storage_Order (Comp_Base);
+           Reverse_Storage_Order (Encl_Base) /=
+             Reverse_Storage_Order (Comp_Base);
 
          --  Parent and extension must have same storage order
 
@@ -1934,9 +1933,6 @@ package body Freeze is
       Has_Default_Initialization : Boolean := False;
       --  This flag gets set to true for a variable with default initialization
 
-      Late_Freezing : Boolean := False;
-      --  Used to detect attempt to freeze function declared in another unit
-
       Result : List_Id := No_List;
       --  List of freezing actions, left at No_List if none
 
@@ -1973,9 +1969,8 @@ package body Freeze is
 
       function Freeze_Profile (E : Entity_Id) return Boolean;
       --  Freeze formals and return type of subprogram. If some type in the
-      --  profile is a limited view, freezing of the entity will take place
-      --  elsewhere, and the function returns False. This routine will be
-      --  modified if and when we can implement AI05-019 efficiently ???
+      --  profile is incomplete and we are in an instance, freezing of the
+      --  entity will take place elsewhere, and the function returns False.
 
       procedure Freeze_Record_Type (Rec : Entity_Id);
       --  Freeze record type, including freezing component types, and freezing
@@ -1984,16 +1979,6 @@ package body Freeze is
       function Has_Boolean_Aspect_Import (E : Entity_Id) return Boolean;
       --  Determine whether an arbitrary entity is subject to Boolean aspect
       --  Import and its value is specified as True.
-
-      procedure Late_Freeze_Subprogram (E : Entity_Id);
-      --  Following AI05-151, a function can return a limited view of a type
-      --  declared elsewhere. In that case the function cannot be frozen at
-      --  the end of its enclosing package. If its first use is in a different
-      --  unit, it cannot be frozen there, but if the call is legal the full
-      --  view of the return type is available and the subprogram can now be
-      --  frozen. However the freeze node cannot be inserted at the point of
-      --  call, but rather must go in the package holding the function, so that
-      --  the backend can process it in the proper context.
 
       function New_Freeze_Node return Node_Id;
       --  Create a new freeze node for entity E
@@ -3300,15 +3285,6 @@ package body Freeze is
 
          if Ekind (E) = E_Function then
 
-            --  Check whether function is declared elsewhere. Previous code
-            --  used Get_Source_Unit on both arguments, but the values are
-            --  equal in the case of a parent and a child unit.
-            --  Confusion with subunits in code  ????
-
-            Late_Freezing :=
-              not In_Same_Extended_Unit (E, N)
-                and then Returns_Limited_View (E);
-
             --  Freeze return type
 
             R_Type := Etype (E);
@@ -3326,24 +3302,6 @@ package body Freeze is
             then
                R_Type := Full_View (R_Type);
                Set_Etype (E, R_Type);
-
-            --  If the return type is a limited view and the non-limited
-            --  view is still incomplete, the function has to be frozen at a
-            --  later time. If the function is abstract there is no place at
-            --  which the full view will become available, and no code to be
-            --  generated for it, so mark type as frozen.
-
-            elsif Ekind (R_Type) = E_Incomplete_Type
-              and then From_Limited_With (R_Type)
-              and then Ekind (Non_Limited_View (R_Type)) = E_Incomplete_Type
-            then
-               if Is_Abstract_Subprogram (E) then
-                  null;
-               else
-                  Set_Is_Frozen (E, False);
-                  Set_Returns_Limited_View (E);
-                  return False;
-               end if;
             end if;
 
             Freeze_And_Append (R_Type, N, Result);
@@ -4613,25 +4571,6 @@ package body Freeze is
          return False;
       end Has_Boolean_Aspect_Import;
 
-      ----------------------------
-      -- Late_Freeze_Subprogram --
-      ----------------------------
-
-      procedure Late_Freeze_Subprogram (E : Entity_Id) is
-         Spec  : constant Node_Id :=
-                   Specification (Unit_Declaration_Node (Scope (E)));
-         Decls : List_Id;
-
-      begin
-         if Present (Private_Declarations (Spec)) then
-            Decls := Private_Declarations (Spec);
-         else
-            Decls := Visible_Declarations (Spec);
-         end if;
-
-         Append_List (Result, Decls);
-      end Late_Freeze_Subprogram;
-
       ---------------------
       -- New_Freeze_Node --
       ---------------------
@@ -5109,12 +5048,6 @@ package body Freeze is
               or else Is_Predefined_Dispatching_Operation (E)
             then
                Freeze_Subprogram (E);
-            end if;
-
-            if Late_Freezing then
-               Late_Freeze_Subprogram (E);
-               Ghost_Mode := Save_Ghost_Mode;
-               return No_List;
             end if;
 
             --  If warning on suspicious contracts then check for the case of
@@ -8139,7 +8072,7 @@ package body Freeze is
 
             --  Else construct and analyze the body of a wrapper procedure
             --  that contains an object declaration to hold the expression.
-            --  Given that this is done only to complete the analysis, it
+            --  Given that this is done only to complete the analysis, it is
             --  simpler to build a procedure than a function which might
             --  involve secondary stack expansion.
 

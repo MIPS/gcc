@@ -1437,8 +1437,9 @@ package body Sem_Ch3 is
       --  and to Has_Protected.
 
       Set_Has_Task                 (T, False);
-      Set_Has_Controlled_Component (T, False);
       Set_Has_Protected            (T, False);
+      Set_Has_Timing_Event         (T, False);
+      Set_Has_Controlled_Component (T, False);
 
       --  Initialize field Finalization_Master explicitly to Empty, to avoid
       --  problems where an incomplete view of this entity has been previously
@@ -2164,11 +2165,18 @@ package body Sem_Ch3 is
       --  (They have the sloc of the label as found in the source, and that
       --  is ahead of the current declarative part).
 
+      procedure Check_Entry_Contracts;
+      --  Perform a pre-analysis of the pre- and postconditions of an entry
+      --  declaration. This must be done before full resolution and creation
+      --  of the parameter block, etc. to catch illegal uses within the
+      --  contract expression. Full analysis of the expression is done when
+      --  the contract is processed.
+
       procedure Handle_Late_Controlled_Primitive (Body_Decl : Node_Id);
       --  Determine whether Body_Decl denotes the body of a late controlled
       --  primitive (either Initialize, Adjust or Finalize). If this is the
       --  case, add a proper spec if the body lacks one. The spec is inserted
-      --  before Body_Decl and immedately analyzed.
+      --  before Body_Decl and immediately analyzed.
 
       procedure Remove_Visible_Refinements (Spec_Id : Entity_Id);
       --  Spec_Id is the entity of a package that may define abstract states.
@@ -2187,6 +2195,56 @@ package body Sem_Ch3 is
             Prev (Decl);
          end loop;
       end Adjust_Decl;
+
+      ---------------------------
+      -- Check_Entry_Contracts --
+      ---------------------------
+
+      procedure Check_Entry_Contracts is
+         ASN : Node_Id;
+         Ent : Entity_Id;
+         Exp : Node_Id;
+
+      begin
+         Ent := First_Entity (Current_Scope);
+         while Present (Ent) loop
+
+            --  This only concerns entries with pre/postconditions
+
+            if Ekind (Ent) = E_Entry
+              and then Present (Contract (Ent))
+              and then Present (Pre_Post_Conditions (Contract (Ent)))
+            then
+               ASN := Pre_Post_Conditions (Contract (Ent));
+               Push_Scope (Ent);
+               Install_Formals (Ent);
+
+               --  Pre/postconditions are rewritten as Check pragmas. Analysis
+               --  is performed on a copy of the pragma expression, to prevent
+               --  modifying the original expression.
+
+               while Present (ASN) loop
+                  if Nkind (ASN) = N_Pragma then
+                     Exp :=
+                       New_Copy_Tree
+                         (Expression
+                           (First (Pragma_Argument_Associations (ASN))));
+                     Set_Parent (Exp, ASN);
+
+                     --  ??? why not Preanalyze_Assert_Expression
+
+                     Preanalyze (Exp);
+                  end if;
+
+                  ASN := Next_Pragma (ASN);
+               end loop;
+
+               End_Scope;
+            end if;
+
+            Next_Entity (Ent);
+         end loop;
+      end Check_Entry_Contracts;
 
       --------------------------------------
       -- Handle_Late_Controlled_Primitive --
@@ -2269,8 +2327,12 @@ package body Sem_Ch3 is
 
          Set_Null_Present (Spec, False);
 
-         Insert_Before_And_Analyze (Body_Decl,
-           Make_Subprogram_Declaration (Loc, Specification => Spec));
+         --  Ensure that the freeze node is inserted after the declaration of
+         --  the primitive since its expansion will freeze the primitive.
+
+         Decl := Make_Subprogram_Declaration (Loc, Specification => Spec);
+
+         Insert_Before_And_Analyze (Body_Decl, Decl);
       end Handle_Late_Controlled_Primitive;
 
       --------------------------------
@@ -2344,11 +2406,13 @@ package body Sem_Ch3 is
          --  (This is needed in any case for early instantiations ???).
 
          if No (Next_Decl) then
-            if Nkind_In (Parent (L), N_Component_List,
-                                     N_Task_Definition,
-                                     N_Protected_Definition)
-            then
+            if Nkind (Parent (L)) = N_Component_List then
                null;
+
+            elsif Nkind_In (Parent (L), N_Protected_Definition,
+                                        N_Task_Definition)
+            then
+               Check_Entry_Contracts;
 
             elsif Nkind (Parent (L)) /= N_Package_Specification then
                if Nkind (Parent (L)) = N_Package_Body then
@@ -3466,7 +3530,7 @@ package body Sem_Ch3 is
 
          --  In case of aggregates we must also take care of the correct
          --  initialization of nested aggregates bug this is done at the
-         --  point of the analysis of the aggregate (see sem_aggr.adb).
+         --  point of the analysis of the aggregate (see sem_aggr.adb) ???
 
          if Present (Expression (N))
            and then Nkind (Expression (N)) = N_Aggregate
@@ -3579,6 +3643,12 @@ package body Sem_Ch3 is
             Error_Msg_N
               ("interrupt object can only be declared at library level", Id);
          end if;
+      end if;
+
+      --  Check for violation of No_Local_Timing_Events
+
+      if Has_Timing_Event (T) and then not Is_Library_Level_Entity (Id) then
+         Check_Restriction (No_Local_Timing_Events, Id);
       end if;
 
       --  The actual subtype of the object is the nominal subtype, unless
@@ -3792,8 +3862,8 @@ package body Sem_Ch3 is
            and then Is_EVF_Expression (E)
          then
             Error_Msg_N
-              ("formal parameter with Extensions_Visible False cannot be "
-               & "implicitly converted to class-wide type", E);
+              ("formal parameter cannot be implicitly converted to "
+               & "class-wide type when Extensions_Visible is False", E);
          end if;
       end if;
 
@@ -4027,7 +4097,10 @@ package body Sem_Ch3 is
 
       elsif Is_Array_Type (T)
         and then No_Initialization (N)
-        and then Nkind (Original_Node (E)) = N_Aggregate
+        and then (Nkind (Original_Node (E)) = N_Aggregate
+                   or else (Nkind (Original_Node (E)) = N_Qualified_Expression
+                             and then Nkind (Original_Node (Expression
+                                        (Original_Node (E)))) = N_Aggregate))
       then
          if not Is_Entity_Name (Object_Definition (N)) then
             Act_T := Etype (E);
@@ -4358,15 +4431,6 @@ package body Sem_Ch3 is
          Set_In_Private_Part (Id);
       end if;
 
-      --  Check for violation of No_Local_Timing_Events
-
-      if Restriction_Check_Required (No_Local_Timing_Events)
-        and then not Is_Library_Level_Entity (Id)
-        and then Is_RTE (Etype (Id), RE_Timing_Event)
-      then
-         Check_Restriction (No_Local_Timing_Events, N);
-      end if;
-
    <<Leave>>
       --  Initialize the refined state of a variable here because this is a
       --  common destination for legal and illegal object declarations.
@@ -4511,9 +4575,8 @@ package body Sem_Ch3 is
       Init_Size_Align      (T);
       Set_Default_SSO      (T);
 
-      Set_Etype            (T,            Parent_Base);
-      Set_Has_Task         (T, Has_Task  (Parent_Base));
-      Set_Has_Protected    (T, Has_Task  (Parent_Base));
+      Set_Etype            (T,                Parent_Base);
+      Propagate_Concurrent_Flags (T, Parent_Base);
 
       Set_Convention       (T, Convention     (Parent_Type));
       Set_First_Rep_Item   (T, First_Rep_Item (Parent_Type));
@@ -5246,20 +5309,6 @@ package body Sem_Ch3 is
          Set_Invariant_Procedure (Id, Invariant_Procedure (T));
       end if;
 
-      --  Make sure that generic actual types are properly frozen. The subtype
-      --  is marked as a generic actual type when the enclosing instance is
-      --  analyzed, so here we identify the subtype from the tree structure.
-
-      if Expander_Active
-        and then Is_Generic_Actual_Type (Id)
-        and then In_Instance
-        and then not Comes_From_Source (N)
-        and then Nkind (Subtype_Indication (N)) /= N_Subtype_Indication
-        and then Is_Frozen (T)
-      then
-         Freeze_Before (N, Id);
-      end if;
-
       Set_Optimize_Alignment_Flags (Id);
       Check_Eliminated (Id);
 
@@ -5586,8 +5635,7 @@ package body Sem_Ch3 is
 
          Set_First_Index       (Implicit_Base, First_Index (T));
          Set_Component_Type    (Implicit_Base, Element_Type);
-         Set_Has_Task          (Implicit_Base, Has_Task (Element_Type));
-         Set_Has_Protected     (Implicit_Base, Has_Protected (Element_Type));
+         Propagate_Concurrent_Flags (Implicit_Base, Element_Type);
          Set_Component_Size    (Implicit_Base, Uint_0);
          Set_Packed_Array_Impl_Type (Implicit_Base, Empty);
          Set_Has_Controlled_Component (Implicit_Base,
@@ -5613,8 +5661,7 @@ package body Sem_Ch3 is
          Set_Is_Constrained           (T, False);
          Set_First_Index              (T, First (Subtype_Marks (Def)));
          Set_Has_Delayed_Freeze       (T, True);
-         Set_Has_Task                 (T, Has_Task      (Element_Type));
-         Set_Has_Protected            (T, Has_Protected (Element_Type));
+         Propagate_Concurrent_Flags   (T, Element_Type);
          Set_Has_Controlled_Component (T, Has_Controlled_Component
                                                         (Element_Type)
                                             or else
@@ -5851,15 +5898,20 @@ package body Sem_Ch3 is
       end if;
 
       --  Insert the new declaration in the nearest enclosing scope. If the
-      --  node is a body and N is its return type, the declaration belongs in
-      --  the enclosing scope.
+      --  parent is a body and N is its return type, the declaration belongs
+      --  in the enclosing scope. Likewise if N is the type of a parameter.
 
       P := Parent (N);
 
-      if Nkind (P) = N_Subprogram_Body
-        and then Nkind (N) = N_Function_Specification
+      if Nkind (N) = N_Function_Specification
+        and then Nkind (P) = N_Subprogram_Body
       then
          P := Parent (P);
+      elsif Nkind (N) = N_Parameter_Specification
+        and then Nkind (P) in N_Subprogram_Specification
+        and then Nkind (Parent (P)) = N_Subprogram_Body
+      then
+         P := Parent (Parent (P));
       end if;
 
       while Present (P) and then not Has_Declarations (P) loop
@@ -5973,6 +6025,11 @@ package body Sem_Ch3 is
 
          begin
             Copy_Node (Pbase, Ibase);
+
+            --  Restore Itype status after Copy_Node
+
+            Set_Is_Itype (Ibase);
+            Set_Associated_Node_For_Itype (Ibase, N);
 
             Set_Chars             (Ibase, Svg_Chars);
             Set_Next_Entity       (Ibase, Svg_Next_E);
@@ -8951,12 +9008,11 @@ package body Sem_Ch3 is
    begin
       --  Set common attributes
 
-      Set_Scope              (Derived_Type, Current_Scope);
+      Set_Scope                (Derived_Type, Current_Scope);
 
-      Set_Etype              (Derived_Type,                Parent_Base);
-      Set_Ekind              (Derived_Type, Ekind         (Parent_Base));
-      Set_Has_Task           (Derived_Type, Has_Task      (Parent_Base));
-      Set_Has_Protected      (Derived_Type, Has_Protected (Parent_Base));
+      Set_Etype                  (Derived_Type,        Parent_Base);
+      Set_Ekind                  (Derived_Type, Ekind (Parent_Base));
+      Propagate_Concurrent_Flags (Derived_Type,        Parent_Base);
 
       Set_Size_Info          (Derived_Type,                     Parent_Type);
       Set_RM_Size            (Derived_Type, RM_Size            (Parent_Type));
@@ -13713,8 +13769,7 @@ package body Sem_Ch3 is
       Set_Component_Size           (T1, Component_Size           (T2));
       Set_Has_Controlled_Component (T1, Has_Controlled_Component (T2));
       Set_Has_Non_Standard_Rep     (T1, Has_Non_Standard_Rep     (T2));
-      Set_Has_Protected            (T1, Has_Protected            (T2));
-      Set_Has_Task                 (T1, Has_Task                 (T2));
+      Propagate_Concurrent_Flags   (T1, T2);
       Set_Is_Packed                (T1, Is_Packed                (T2));
       Set_Has_Aliased_Components   (T1, Has_Aliased_Components   (T2));
       Set_Has_Atomic_Components    (T1, Has_Atomic_Components    (T2));
@@ -19931,9 +19986,7 @@ package body Sem_Ch3 is
                Set_Class_Wide_Type
                  (Base_Type (Full_T), Class_Wide_Type (Priv_T));
 
-               Set_Has_Task (Class_Wide_Type (Priv_T), Has_Task      (Full_T));
-               Set_Has_Protected
-                            (Class_Wide_Type (Priv_T), Has_Protected (Full_T));
+               Propagate_Concurrent_Flags (Class_Wide_Type (Priv_T), Full_T);
             end if;
          end;
       end if;
@@ -21289,13 +21342,7 @@ package body Sem_Ch3 is
             Init_Component_Location (Component);
          end if;
 
-         if Has_Task (Etype (Component)) then
-            Set_Has_Task (T);
-         end if;
-
-         if Has_Protected (Etype (Component)) then
-            Set_Has_Protected (T);
-         end if;
+         Propagate_Concurrent_Flags (T, Etype (Component));
 
          if Ekind (Component) /= E_Component then
             null;

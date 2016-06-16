@@ -18903,22 +18903,15 @@ package body Sem_Prag is
                --  where we ignore the value if out of range.
 
                else
-                  declare
-                     Val : constant Uint := Expr_Value (Arg);
-                  begin
-                     if not Relaxed_RM_Semantics
-                       and then
-                         (Val < 0
-                           or else Val > Expr_Value (Expression
-                                           (Parent (RTE (RE_Max_Priority)))))
-                     then
-                        Error_Pragma_Arg
-                          ("main subprogram priority is out of range", Arg1);
-                     else
-                        Set_Main_Priority
-                          (Current_Sem_Unit, UI_To_Int (Expr_Value (Arg)));
-                     end if;
-                  end;
+                  if not Relaxed_RM_Semantics
+                    and then not Is_In_Range (Arg, RTE (RE_Priority))
+                  then
+                     Error_Pragma_Arg
+                       ("main subprogram priority is out of range", Arg1);
+                  else
+                     Set_Main_Priority
+                       (Current_Sem_Unit, UI_To_Int (Expr_Value (Arg)));
+                  end if;
                end if;
 
                --  Load an arbitrary entity from System.Tasking.Stages or
@@ -22821,12 +22814,12 @@ package body Sem_Prag is
 
                Error_Msg_Sloc := Sloc (Over_Id);
                Error_Msg_N
-                 ("\& declared # with Volatile_Function value `False`",
+                 ("\& declared # with Volatile_Function value False",
                   Spec_Id);
 
                Error_Msg_Sloc := Sloc (Spec_Id);
                Error_Msg_N
-                 ("\overridden # with Volatile_Function value `True`",
+                 ("\overridden # with Volatile_Function value True",
                   Spec_Id);
             end if;
 
@@ -23286,6 +23279,74 @@ package body Sem_Prag is
       Disp_Typ      : Entity_Id;
       Restore_Scope : Boolean := False;
 
+      function Check_References (N : Node_Id) return Traverse_Result;
+      --  Check that the expression does not mention non-primitives of
+      --  the type, global objects of the type, or other illegalities
+      --  described and implied by AI12-0113.
+
+      ----------------------
+      -- Check_References --
+      ----------------------
+
+      function Check_References (N : Node_Id) return Traverse_Result is
+      begin
+         if Nkind (N) = N_Function_Call
+           and then Is_Entity_Name (Name (N))
+         then
+            declare
+               Func : constant Entity_Id := Entity (Name (N));
+               Form : Entity_Id;
+            begin
+
+               --  An operation of the type must be a primitive.
+
+               if No (Find_Dispatching_Type (Func)) then
+                  Form := First_Formal (Func);
+                  while Present (Form) loop
+                     if Etype (Form) = Disp_Typ then
+                        Error_Msg_NE ("operation in class-wide condition "
+                          & "must be primitive of&", N, Disp_Typ);
+                     end if;
+                     Next_Formal (Form);
+                  end loop;
+
+                  --  A return object of the type is illegal as well.
+
+                  if Etype (Func) = Disp_Typ
+                    or else Etype (Func) = Class_Wide_Type (Disp_Typ)
+                  then
+                     Error_Msg_NE ("operation in class-wide condition "
+                       & "must be primitive of&", N, Disp_Typ);
+                  end if;
+               end if;
+            end;
+
+         elsif Is_Entity_Name (N)
+           and then
+             (Etype (N) = Disp_Typ
+               or else Etype (N) = Class_Wide_Type (Disp_Typ))
+           and then Ekind_In (Entity (N),  E_Variable, E_Constant)
+         then
+            Error_Msg_NE
+              ("object in class-wide condition must be formal of type&",
+                N, Disp_Typ);
+
+         elsif Nkind (N) = N_Explicit_Dereference
+           and then (Etype (N) = Disp_Typ
+               or else Etype (N) = Class_Wide_Type (Disp_Typ))
+           and then (not Is_Entity_Name (Prefix (N))
+             or else not Is_Formal (Entity (Prefix (N))))
+         then
+            Error_Msg_NE ("operation in class-wide condition "
+              & "must be primitive of&", N, Disp_Typ);
+         end if;
+
+         return OK;
+      end Check_References;
+
+      procedure Check_Class_Wide_Condition is new
+        Traverse_Proc (Check_References);
+
    --  Start of processing for Analyze_Pre_Post_Condition_In_Decl_Part
 
    begin
@@ -23352,7 +23413,13 @@ package body Sem_Prag is
                  ("pragma % can only be specified for a primitive operation "
                   & "of a tagged type", N);
             end if;
+
+         else
+            --  Remaining semantic checks require a full tree traversal.
+
+            Check_Class_Wide_Condition (Expr);
          end if;
+
       end if;
 
       if Restore_Scope then
@@ -26349,13 +26416,18 @@ package body Sem_Prag is
             -------------------------
 
             function Overridden_Ancestor (S : Entity_Id) return Entity_Id is
+               Par : constant Entity_Id := Find_Dispatching_Type (Inher_Id);
                Anc : Entity_Id;
 
             begin
                Anc := S;
+
+               --  Locate the ancestor subprogram with the proper controlling
+               --  type.
+
                while Present (Overridden_Operation (Anc)) loop
-                  exit when Scope (Anc) = Scope (Inher_Id);
                   Anc := Overridden_Operation (Anc);
+                  exit when Find_Dispatching_Type (Anc) = Par;
                end loop;
 
                return Anc;
@@ -26381,7 +26453,9 @@ package body Sem_Prag is
             --  overridings between them.
 
             while Present (Decl) loop
-               if Nkind (Decl) = N_Subprogram_Declaration then
+               if Nkind_In (Decl,
+                  N_Subprogram_Declaration, N_Abstract_Subprogram_Declaration)
+               then
                   Prim := Defining_Entity (Decl);
 
                   if Is_Subprogram (Prim)

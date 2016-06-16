@@ -7581,7 +7581,7 @@ means there is no way to communicate to the compiler what is happening
 inside them.  GCC has no visibility of symbols in the @code{asm} and may
 discard them as unreferenced.  It also does not know about side effects of
 the assembler code, such as modifications to memory or registers.  Unlike
-some compilers, GCC assumes that no changes to either memory or registers
+some compilers, GCC assumes that no changes to general purpose registers
 occur.  This assumption may change in a future release.
 
 To avoid complications from future changes to the semantics and the
@@ -7604,6 +7604,10 @@ all basic @code{asm} blocks use the assembler dialect specified by the
 @option{-masm} command-line option (@pxref{x86 Options}).  
 Basic @code{asm} provides no
 mechanism to provide different assembler strings for different dialects.
+
+For basic @code{asm} with non-empty assembler string GCC assumes
+the assembler block does not change any general purpose registers,
+but it may read or write any globally accessible variable.
 
 Here is an example of basic @code{asm} for i386:
 
@@ -9863,6 +9867,47 @@ from the first one, instead of addition.
 These built-in functions are similar to the add overflow checking built-in
 functions above, except they perform multiplication, instead of addition.
 
+@end deftypefn
+
+The following built-in functions allow checking if simple arithmetic operation
+would overflow.
+
+@deftypefn {Built-in Function} bool __builtin_add_overflow_p (@var{type1} a, @var{type2} b, @var{type3} c)
+@deftypefnx {Built-in Function} bool __builtin_sub_overflow_p (@var{type1} a, @var{type2} b, @var{type3} c)
+@deftypefnx {Built-in Function} bool __builtin_mul_overflow_p (@var{type1} a, @var{type2} b, @var{type3} c)
+
+These built-in functions are similar to @code{__builtin_add_overflow},
+@code{__builtin_sub_overflow}, or @code{__builtin_mul_overflow}, except that
+they don't store the result of the arithmetic operation anywhere and the
+last argument is not a pointer, but some integral expression.
+
+The built-in functions promote the first two operands into infinite precision signed type
+and perform addition on those promoted operands. The result is then
+cast to the type of the third argument.  If the cast result is equal to the infinite
+precision result, the built-in functions return false, otherwise they return true.
+The value of the third argument is ignored, just the side-effects in the third argument
+are evaluated, and no integral argument promotions are performed on the last argument.
+
+For example, the following macro can be used to portably check, at
+compile-time, whether or not adding two constant integers will overflow,
+and perform the addition only when it is known to be safe and not to trigger
+a @option{-Woverflow} warning.
+
+@smallexample
+#define INT_ADD_OVERFLOW_P(a, b) \
+   __builtin_add_overflow_p (a, b, (__typeof__ ((a) + (b))) 0)
+
+enum @{
+    A = INT_MAX, B = 3,
+    C = INT_ADD_OVERFLOW_P (A, B) ? 0 : A + B,
+    D = __builtin_add_overflow_p (1, SCHAR_MAX, (signed char) 0)
+@};
+@end smallexample
+
+The compiler will attempt to use hardware instructions to implement
+these built-in functions where possible, like conditional jump on overflow
+after addition, conditional jump on carry etc.
+ 
 @end deftypefn
 
 @node x86 specific memory model extensions for transactional memory
@@ -17448,6 +17493,31 @@ result returned from the @code{vec_srv} function is a
 (0x07 & shift_distance[i]))},
 with this resulting value coerced to the @code{unsigned char} type.
 
+The following built-in functions are available for the PowerPC family
+of processors, starting with ISA 3.0 or later (@option{-mcpu=power9})
+or with @option{-mpower9-vector}:
+@smallexample
+__vector unsigned char
+vec_absd (__vector unsigned char arg1, __vector unsigned char arg2);
+__vector unsigned short
+vec_absd (__vector unsigned short arg1, __vector unsigned short arg2);
+__vector unsigned int
+vec_absd (__vector unsigned int arg1, __vector unsigned int arg2);
+
+__vector unsigned char
+vec_absdb (__vector unsigned char arg1, __vector unsigned char arg2);
+__vector unsigned short
+vec_absdh (__vector unsigned short arg1, __vector unsigned short arg2);
+__vector unsigned int
+vec_absdw (__vector unsigned int arg1, __vector unsigned int arg2);
+@end smallexample
+
+The @code{vec_absd}, @code{vec_absdb}, @code{vec_absdh}, and
+@code{vec_absdw} built-in functions each computes the absolute
+differences of the pairs of vector elements supplied in its two vector
+arguments, placing the absolute differences into the corresponding
+elements of the vector result.
+
 If the cryptographic instructions are enabled (@option{-mcrypto} or
 @option{-mcpu=power8}), the following builtins are enabled.
 
@@ -18163,6 +18233,45 @@ int64_t __builtin_vis_xmulx (int64_t, int64_t);
 int64_t __builtin_vis_xmulxhi (int64_t, int64_t);
 @end smallexample
 
+When you use the @option{-mvis4} switch, the VIS version 4.0 built-in
+functions also become available:
+
+@smallexample
+v8qi __builtin_vis_fpadd8 (v8qi, v8qi);
+v8qi __builtin_vis_fpadds8 (v8qi, v8qi);
+v8qi __builtin_vis_fpaddus8 (v8qi, v8qi);
+v4hi __builtin_vis_fpaddus16 (v4hi, v4hi);
+
+v8qi __builtin_vis_fpsub8 (v8qi, v8qi);
+v8qi __builtin_vis_fpsubs8 (v8qi, v8qi);
+v8qi __builtin_vis_fpsubus8 (v8qi, v8qi);
+v4hi __builtin_vis_fpsubus16 (v4hi, v4hi);
+
+long __builtin_vis_fpcmple8 (v8qi, v8qi);
+long __builtin_vis_fpcmpgt8 (v8qi, v8qi);
+long __builtin_vis_fpcmpule16 (v4hi, v4hi);
+long __builtin_vis_fpcmpugt16 (v4hi, v4hi);
+long __builtin_vis_fpcmpule32 (v2si, v2si);
+long __builtin_vis_fpcmpugt32 (v2si, v2si);
+
+v8qi __builtin_vis_fpmax8 (v8qi, v8qi);
+v4hi __builtin_vis_fpmax16 (v4hi, v4hi);
+v2si __builtin_vis_fpmax32 (v2si, v2si);
+
+v8qi __builtin_vis_fpmaxu8 (v8qi, v8qi);
+v4hi __builtin_vis_fpmaxu16 (v4hi, v4hi);
+v2si __builtin_vis_fpmaxu32 (v2si, v2si);
+
+
+v8qi __builtin_vis_fpmin8 (v8qi, v8qi);
+v4hi __builtin_vis_fpmin16 (v4hi, v4hi);
+v2si __builtin_vis_fpmin32 (v2si, v2si);
+
+v8qi __builtin_vis_fpminu8 (v8qi, v8qi);
+v4hi __builtin_vis_fpminu16 (v4hi, v4hi);
+v2si __builtin_vis_fpminu32 (v2si, v2si);
+@end smallexample
+
 @node SPU Built-in Functions
 @subsection SPU Built-in Functions
 
@@ -18361,28 +18470,19 @@ integers, these use @code{V4SI}.  Finally, some instructions operate on an
 entire vector register, interpreting it as a 128-bit integer, these use mode
 @code{TI}.
 
-In 64-bit mode, the x86-64 family of processors uses additional built-in
+The x86-32 and x86-64 family of processors use additional built-in
 functions for efficient use of @code{TF} (@code{__float128}) 128-bit
 floating point and @code{TC} 128-bit complex floating-point values.
 
-The following floating-point built-in functions are available in 64-bit
-mode.  All of them implement the function that is part of the name.
+The following floating-point built-in functions are always available.  All
+of them implement the function that is part of the name.
 
 @smallexample
 __float128 __builtin_fabsq (__float128)
 __float128 __builtin_copysignq (__float128, __float128)
 @end smallexample
 
-The following built-in function is always available.
-
-@table @code
-@item void __builtin_ia32_pause (void)
-Generates the @code{pause} machine instruction with a compiler memory
-barrier.
-@end table
-
-The following floating-point built-in functions are made available in the
-64-bit mode.
+The following built-in functions are always available.
 
 @table @code
 @item __float128 __builtin_infq (void)
@@ -18392,6 +18492,22 @@ Similar to @code{__builtin_inf}, except the return type is @code{__float128}.
 @item __float128 __builtin_huge_valq (void)
 Similar to @code{__builtin_huge_val}, except the return type is @code{__float128}.
 @findex __builtin_huge_valq
+
+@item __float128 __builtin_nanq (void)
+Similar to @code{__builtin_nan}, except the return type is @code{__float128}.
+@findex __builtin_nanq
+
+@item __float128 __builtin_nansq (void)
+Similar to @code{__builtin_nans}, except the return type is @code{__float128}.
+@findex __builtin_nansq
+@end table
+
+The following built-in function is always available.
+
+@table @code
+@item void __builtin_ia32_pause (void)
+Generates the @code{pause} machine instruction with a compiler memory
+barrier.
 @end table
 
 The following built-in functions are always available and can be used to

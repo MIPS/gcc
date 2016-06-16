@@ -47,7 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-ubsan.h"
 #include "cilk.h"
 #include "gomp-constants.h"
-#include "spellcheck.h"
+#include "spellcheck-tree.h"
 #include "gcc-rich-location.h"
 
 /* Possible cases of implicit bad conversions.  Used to select
@@ -1105,10 +1105,28 @@ comptypes_internal (const_tree type1, const_tree type2, bool *enum_and_int_p,
 
   switch (TREE_CODE (t1))
     {
+    case INTEGER_TYPE:
+    case FIXED_POINT_TYPE:
+    case REAL_TYPE:
+      /* With these nodes, we can't determine type equivalence by
+	 looking at what is stored in the nodes themselves, because
+	 two nodes might have different TYPE_MAIN_VARIANTs but still
+	 represent the same type.  For example, wchar_t and int could
+	 have the same properties (TYPE_PRECISION, TYPE_MIN_VALUE,
+	 TYPE_MAX_VALUE, etc.), but have different TYPE_MAIN_VARIANTs
+	 and are distinct types.  On the other hand, int and the
+	 following typedef
+
+	   typedef int INT __attribute((may_alias));
+
+	 have identical properties, different TYPE_MAIN_VARIANTs, but
+	 represent the same type.  The canonical type system keeps
+	 track of equivalence in this case, so we fall back on it.  */
+      return TYPE_CANONICAL (t1) == TYPE_CANONICAL (t2);
+
     case POINTER_TYPE:
-      /* Do not remove mode or aliasing information.  */
-      if (TYPE_MODE (t1) != TYPE_MODE (t2)
-	  || TYPE_REF_CAN_ALIAS_ALL (t1) != TYPE_REF_CAN_ALIAS_ALL (t2))
+      /* Do not remove mode information.  */
+      if (TYPE_MODE (t1) != TYPE_MODE (t2))
 	break;
       val = (TREE_TYPE (t1) == TREE_TYPE (t2)
 	     ? 1 : comptypes_internal (TREE_TYPE (t1), TREE_TYPE (t2),
@@ -2311,10 +2329,12 @@ should_suggest_deref_p (tree datum_type)
 
 /* Make an expression to refer to the COMPONENT field of structure or
    union value DATUM.  COMPONENT is an IDENTIFIER_NODE.  LOC is the
-   location of the COMPONENT_REF.  */
+   location of the COMPONENT_REF.  COMPONENT_LOC is the location
+   of COMPONENT.  */
 
 tree
-build_component_ref (location_t loc, tree datum, tree component)
+build_component_ref (location_t loc, tree datum, tree component,
+		     location_t component_loc)
 {
   tree type = TREE_TYPE (datum);
   enum tree_code code = TREE_CODE (type);
@@ -2346,8 +2366,19 @@ build_component_ref (location_t loc, tree datum, tree component)
 	{
 	  tree guessed_id = lookup_field_fuzzy (type, component);
 	  if (guessed_id)
-	    error_at (loc, "%qT has no member named %qE; did you mean %qE?",
-		      type, component, guessed_id);
+	    {
+	      /* Attempt to provide a fixit replacement hint, if
+		 we have a valid range for the component.  */
+	      location_t reported_loc
+		= (component_loc != UNKNOWN_LOCATION) ? component_loc : loc;
+	      gcc_rich_location rich_loc (reported_loc);
+	      if (component_loc != UNKNOWN_LOCATION)
+		rich_loc.add_fixit_misspelled_id (component_loc, guessed_id);
+	      error_at_rich_loc
+		(&rich_loc,
+		 "%qT has no member named %qE; did you mean %qE?",
+		 type, component, guessed_id);
+	    }
 	  else
 	    error_at (loc, "%qT has no member named %qE", type, component);
 	  return error_mark_node;
@@ -3150,6 +3181,7 @@ convert_arguments (location_t loc, vec<location_t> arg_loc, tree typelist,
   const bool type_generic = fundecl
     && lookup_attribute ("type generic", TYPE_ATTRIBUTES (TREE_TYPE (fundecl)));
   bool type_generic_remove_excess_precision = false;
+  bool type_generic_overflow_p = false;
   tree selector;
 
   /* Change pointer to function to the function itself for
@@ -3179,8 +3211,15 @@ convert_arguments (location_t loc, vec<location_t> arg_loc, tree typelist,
 	  type_generic_remove_excess_precision = true;
 	  break;
 
+	case BUILT_IN_ADD_OVERFLOW_P:
+	case BUILT_IN_SUB_OVERFLOW_P:
+	case BUILT_IN_MUL_OVERFLOW_P:
+	  /* The last argument of these type-generic builtins
+	     should not be promoted.  */
+	  type_generic_overflow_p = true;
+	  break;
+
 	default:
-	  type_generic_remove_excess_precision = false;
 	  break;
 	}
     }
@@ -3430,9 +3469,12 @@ convert_arguments (location_t loc, vec<location_t> arg_loc, tree typelist,
 	      parmval = convert (double_type_node, val);
 	    }
 	}
-      else if (excess_precision && !type_generic)
+      else if ((excess_precision && !type_generic)
+	       || (type_generic_overflow_p && parmnum == 2))
 	/* A "double" argument with excess precision being passed
-	   without a prototype or in variable arguments.  */
+	   without a prototype or in variable arguments.
+	   The last argument of __builtin_*_overflow_p should not be
+	   promoted.  */
 	parmval = convert (valtype, val);
       else if ((invalid_func_diag =
 		targetm.calls.invalid_arg_for_unprototyped_fn (typelist, fundecl, val)))
@@ -8164,7 +8206,7 @@ set_init_index (location_t loc, tree first, tree last,
 /* Within a struct initializer, specify the next field to be initialized.  */
 
 void
-set_init_label (location_t loc, tree fieldname,
+set_init_label (location_t loc, tree fieldname, location_t fieldname_loc,
 		struct obstack *braced_init_obstack)
 {
   tree field;
@@ -8183,7 +8225,21 @@ set_init_label (location_t loc, tree fieldname,
   field = lookup_field (constructor_type, fieldname);
 
   if (field == 0)
-    error_at (loc, "unknown field %qE specified in initializer", fieldname);
+    {
+      tree guessed_id = lookup_field_fuzzy (constructor_type, fieldname);
+      if (guessed_id)
+	{
+	  gcc_rich_location rich_loc (fieldname_loc);
+	  rich_loc.add_fixit_misspelled_id (fieldname_loc, guessed_id);
+	  error_at_rich_loc
+	    (&rich_loc,
+	     "%qT has no member named %qE; did you mean %qE?",
+	     constructor_type, fieldname, guessed_id);
+	}
+      else
+	error_at (fieldname_loc, "%qT has no member named %qE",
+		  constructor_type, fieldname);
+    }
   else
     do
       {

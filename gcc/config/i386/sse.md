@@ -15212,6 +15212,19 @@
      (const_string "*")))
    (set_attr "mode" "<sseinsnmode>")])
 
+(define_insn "ptesttf2"
+  [(set (reg:CC FLAGS_REG)
+	(unspec:CC [(match_operand:TF 0 "register_operand" "Yr, *x, x")
+		    (match_operand:TF 1 "vector_operand" "YrBm, *xBm, xm")]
+		   UNSPEC_PTEST))]
+  "TARGET_SSE4_1"
+  "%vptest\t{%1, %0|%0, %1}"
+  [(set_attr "isa" "noavx,noavx,avx")
+   (set_attr "type" "ssecomi")
+   (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "orig,orig,vex")
+   (set_attr "mode" "TI")])
+
 (define_insn "<sse4_1>_round<ssemodesuffix><avxsizesuffix>"
   [(set (match_operand:VF_128_256 0 "register_operand" "=Yr,*x,x")
 	(unspec:VF_128_256
@@ -18414,10 +18427,10 @@
    (set_attr "mode" "<sseinsnmode>")])
 
 (define_insn "avx_vec_concat<mode>"
-  [(set (match_operand:V_256_512 0 "register_operand" "=x,x")
+  [(set (match_operand:V_256_512 0 "register_operand" "=x,v,x,Yv")
 	(vec_concat:V_256_512
-	  (match_operand:<ssehalfvecmode> 1 "register_operand" "x,x")
-	  (match_operand:<ssehalfvecmode> 2 "vector_move_operand" "xm,C")))]
+	  (match_operand:<ssehalfvecmode> 1 "register_operand" "x,v,x,v")
+	  (match_operand:<ssehalfvecmode> 2 "vector_move_operand" "xm,vm,C,C")))]
   "TARGET_AVX"
 {
   switch (which_alternative)
@@ -18425,6 +18438,22 @@
     case 0:
       return "vinsert<i128>\t{$0x1, %2, %<concat_tg_mode>1, %0|%0, %<concat_tg_mode>1, %2, 0x1}";
     case 1:
+      if (<MODE_SIZE> == 64)
+	{
+	  if (TARGET_AVX512DQ && GET_MODE_SIZE (<ssescalarmode>mode) == 4)
+	    return "vinsert<shuffletype>32x8\t{$0x1, %2, %<concat_tg_mode>1, %0|%0, %<concat_tg_mode>1, %2, 0x1}";
+	  else
+	    return "vinsert<shuffletype>64x4\t{$0x1, %2, %<concat_tg_mode>1, %0|%0, %<concat_tg_mode>1, %2, 0x1}";
+	}
+      else
+	{
+	  if (TARGET_AVX512DQ && GET_MODE_SIZE (<ssescalarmode>mode) == 8)
+	    return "vinsert<shuffletype>64x2\t{$0x1, %2, %<concat_tg_mode>1, %0|%0, %<concat_tg_mode>1, %2, 0x1}";
+	  else
+	    return "vinsert<shuffletype>32x4\t{$0x1, %2, %<concat_tg_mode>1, %0|%0, %<concat_tg_mode>1, %2, 0x1}";
+	}
+    case 2:
+    case 3:
       switch (get_attr_mode (insn))
 	{
 	case MODE_V16SF:
@@ -18436,9 +18465,19 @@
 	case MODE_V4DF:
 	  return "vmovapd\t{%1, %x0|%x0, %1}";
 	case MODE_XI:
-	  return "vmovdqa\t{%1, %t0|%t0, %1}";
+	  if (which_alternative == 2)
+	    return "vmovdqa\t{%1, %t0|%t0, %1}";
+	  else if (GET_MODE_SIZE (<ssescalarmode>mode) == 8)
+	    return "vmovdqa64\t{%1, %t0|%t0, %1}";
+	  else
+	    return "vmovdqa32\t{%1, %t0|%t0, %1}";
 	case MODE_OI:
-	  return "vmovdqa\t{%1, %x0|%x0, %1}";
+	  if (which_alternative == 2)
+	    return "vmovdqa\t{%1, %x0|%x0, %1}";
+	  else if (GET_MODE_SIZE (<ssescalarmode>mode) == 8)
+	    return "vmovdqa64\t{%1, %x0|%x0, %1}";
+	  else
+	    return "vmovdqa32\t{%1, %x0|%x0, %1}";
 	default:
 	  gcc_unreachable ();
 	}
@@ -18446,9 +18485,9 @@
       gcc_unreachable ();
     }
 }
-  [(set_attr "type" "sselog,ssemov")
-   (set_attr "prefix_extra" "1,*")
-   (set_attr "length_immediate" "1,*")
+  [(set_attr "type" "sselog,sselog,ssemov,ssemov")
+   (set_attr "prefix_extra" "1,1,*,*")
+   (set_attr "length_immediate" "1,1,*,*")
    (set_attr "prefix" "maybe_evex")
    (set_attr "mode" "<sseinsnmode>")])
 

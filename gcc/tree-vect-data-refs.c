@@ -227,6 +227,12 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
       || (DR_IS_READ (dra) && DR_IS_READ (drb)))
     return false;
 
+  /* We do not have to consider dependences between accesses that belong
+     to the same group.  */
+  if (GROUP_FIRST_ELEMENT (stmtinfo_a)
+      && GROUP_FIRST_ELEMENT (stmtinfo_a) == GROUP_FIRST_ELEMENT (stmtinfo_b))
+    return false;
+
   /* Even if we have an anti-dependence then, as the vectorized loop covers at
      least two scalar iterations, there is always also a true dependence.
      As the vectorizer does not re-order loads and stores we can ignore
@@ -469,7 +475,7 @@ vect_analyze_data_ref_dependences (loop_vec_info loop_vinfo, int *max_vf)
   LOOP_VINFO_NO_DATA_DEPENDENCIES (loop_vinfo) = true;
   if (!compute_all_dependences (LOOP_VINFO_DATAREFS (loop_vinfo),
 				&LOOP_VINFO_DDRS (loop_vinfo),
-				LOOP_VINFO_LOOP_NEST (loop_vinfo), true))
+				LOOP_VINFO_LOOP_NEST (loop_vinfo), false))
     return false;
 
   FOR_EACH_VEC_ELT (LOOP_VINFO_DDRS (loop_vinfo), i, ddr)
@@ -2752,7 +2758,7 @@ vect_analyze_data_ref_accesses (vec_info *vinfo)
 	  /* Sorting has ensured that DR_INIT (dra) <= DR_INIT (drb).  */
 	  HOST_WIDE_INT init_a = TREE_INT_CST_LOW (DR_INIT (dra));
 	  HOST_WIDE_INT init_b = TREE_INT_CST_LOW (DR_INIT (drb));
-	  gcc_assert (init_a < init_b);
+	  gcc_assert (init_a <= init_b);
 
 	  /* If init_b == init_a + the size of the type * k, we have an
 	     interleaving, and DRA is accessed before DRB.  */
@@ -3557,7 +3563,6 @@ again:
                                    "not vectorized: data ref analysis "
                                    "failed ");
 		  dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt, 0);
-                  dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
 		}
 
 	      if (is_a <bb_vec_info> (vinfo))
@@ -3589,7 +3594,6 @@ again:
               dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
                                "not vectorized: volatile type ");
               dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt, 0);
-              dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
             }
 
           if (is_a <bb_vec_info> (vinfo))
@@ -3606,7 +3610,6 @@ again:
                                "not vectorized: statement can throw an "
                                "exception ");
               dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt, 0);
-              dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
             }
 
           if (is_a <bb_vec_info> (vinfo))
@@ -3626,7 +3629,6 @@ again:
                                "not vectorized: statement is bitfield "
                                "access ");
               dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt, 0);
-              dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
             }
 
           if (is_a <bb_vec_info> (vinfo))
@@ -3651,7 +3653,6 @@ again:
 	      dump_printf_loc (MSG_MISSED_OPTIMIZATION,  vect_location,
 	                       "not vectorized: dr in a call ");
 	      dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt, 0);
-	      dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
 	    }
 
 	  if (is_a <bb_vec_info> (vinfo))
@@ -3798,7 +3799,6 @@ again:
                                "not vectorized: more than one data ref "
                                "in stmt: ");
               dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt, 0);
-              dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
             }
 
           if (is_a <bb_vec_info> (vinfo))
@@ -3887,7 +3887,6 @@ again:
 				   "not vectorized: not suitable for scatter "
 				   "store ");
 		  dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt, 0);
-                  dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
 		}
 	      return false;
 	    }
@@ -3908,7 +3907,6 @@ again:
                                    "not vectorized: not suitable for strided "
                                    "load ");
 		  dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt, 0);
-                  dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
 		}
 	      return false;
 	    }

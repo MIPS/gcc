@@ -30,6 +30,7 @@
 #include "stor-layout.h"
 #include "c-family/c-pragma.h"
 #include "langhooks.h"
+#include "c/c-tree.h"
 
 
 
@@ -1940,14 +1941,6 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_unsigned_V16QI, RS6000_BTI_bool_V16QI, RS6000_BTI_unsigned_V16QI, 0 },
   { ALTIVEC_BUILTIN_VEC_VMINUB, ALTIVEC_BUILTIN_VMINUB,
     RS6000_BTI_unsigned_V16QI, RS6000_BTI_unsigned_V16QI, RS6000_BTI_bool_V16QI, 0 },
-  { VSX_BUILTIN_VEC_MUL, VSX_BUILTIN_XVMULSP,
-    RS6000_BTI_V4SF, RS6000_BTI_V4SF, RS6000_BTI_V4SF, 0 },
-  { VSX_BUILTIN_VEC_MUL, VSX_BUILTIN_XVMULDP,
-    RS6000_BTI_V2DF, RS6000_BTI_V2DF, RS6000_BTI_V2DF, 0 },
-  { VSX_BUILTIN_VEC_MUL, VSX_BUILTIN_MUL_V2DI,
-    RS6000_BTI_V2DI, RS6000_BTI_V2DI, RS6000_BTI_V2DI, 0 },
-  { VSX_BUILTIN_VEC_MUL, VSX_BUILTIN_MUL_V2DI,
-    RS6000_BTI_unsigned_V2DI, RS6000_BTI_unsigned_V2DI, RS6000_BTI_unsigned_V2DI, 0 },
   { ALTIVEC_BUILTIN_VEC_MULE, ALTIVEC_BUILTIN_VMULEUB,
     RS6000_BTI_unsigned_V8HI, RS6000_BTI_unsigned_V16QI, RS6000_BTI_unsigned_V16QI, 0 },
   { ALTIVEC_BUILTIN_VEC_MULE, ALTIVEC_BUILTIN_VMULESB,
@@ -4247,6 +4240,28 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
   { P9V_BUILTIN_VEC_VCTZD, P9V_BUILTIN_VCTZD,
     RS6000_BTI_unsigned_V2DI, RS6000_BTI_unsigned_V2DI, 0, 0 },
 
+  { P9V_BUILTIN_VEC_VADU, P9V_BUILTIN_VADUB,
+    RS6000_BTI_unsigned_V16QI, RS6000_BTI_unsigned_V16QI,
+    RS6000_BTI_unsigned_V16QI, 0 },
+  { P9V_BUILTIN_VEC_VADU, P9V_BUILTIN_VADUH,
+    RS6000_BTI_unsigned_V8HI, RS6000_BTI_unsigned_V8HI,
+    RS6000_BTI_unsigned_V8HI, 0 },
+  { P9V_BUILTIN_VEC_VADU, P9V_BUILTIN_VADUW,
+    RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V4SI,
+    RS6000_BTI_unsigned_V4SI, 0 },
+
+  { P9V_BUILTIN_VEC_VADUB, P9V_BUILTIN_VADUB,
+    RS6000_BTI_unsigned_V16QI, RS6000_BTI_unsigned_V16QI,
+    RS6000_BTI_unsigned_V16QI, 0 },
+
+  { P9V_BUILTIN_VEC_VADUH, P9V_BUILTIN_VADUH,
+    RS6000_BTI_unsigned_V8HI, RS6000_BTI_unsigned_V8HI,
+    RS6000_BTI_unsigned_V8HI, 0 },
+
+  { P9V_BUILTIN_VEC_VADUW, P9V_BUILTIN_VADUW,
+    RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V4SI,
+    RS6000_BTI_unsigned_V4SI, 0 },
+
   { P8V_BUILTIN_VEC_VGBBD, P8V_BUILTIN_VGBBD,
     RS6000_BTI_V16QI, RS6000_BTI_V16QI, 0, 0 },
   { P8V_BUILTIN_VEC_VGBBD, P8V_BUILTIN_VGBBD,
@@ -4682,6 +4697,57 @@ assignment for unaligned loads and stores");
     warning (OPT_Wdeprecated, "vec_lvsr is deprecated for little endian; use \
 assignment for unaligned loads and stores");
 
+  if (fcode == ALTIVEC_BUILTIN_VEC_MUL)
+    {
+      /* vec_mul needs to be special cased because there are no instructions
+	 for it for the {un}signed char, {un}signed short, and {un}signed int
+	 types.  */
+      if (nargs != 2)
+	{
+	  error ("vec_mul only accepts 2 arguments");
+	  return error_mark_node;
+	}
+
+      tree arg0 = (*arglist)[0];
+      tree arg0_type = TREE_TYPE (arg0);
+      tree arg1 = (*arglist)[1];
+      tree arg1_type = TREE_TYPE (arg1);
+
+      /* Both arguments must be vectors and the types must match.  */
+      if (arg0_type != arg1_type)
+	goto bad;
+      if (TREE_CODE (arg0_type) != VECTOR_TYPE)
+	goto bad;
+
+      switch (TYPE_MODE (TREE_TYPE (arg0_type)))
+	{
+	  case QImode:
+	  case HImode:
+	  case SImode:
+	  case DImode:
+	  case TImode:
+	    {
+	      /* For scalar types just use a multiply expression.  */
+	      return fold_build2_loc (loc, MULT_EXPR, TREE_TYPE (arg0),
+					arg0, arg1);
+	    }
+	  case SFmode:
+	    {
+	      /* For floats use the xvmulsp instruction directly.  */
+	      tree call = rs6000_builtin_decls[VSX_BUILTIN_XVMULSP];
+	      return build_call_expr (call, 2, arg0, arg1);
+	    }
+	  case DFmode:
+	    {
+	      /* For doubles use the xvmuldp instruction directly.  */
+	      tree call = rs6000_builtin_decls[VSX_BUILTIN_XVMULDP];
+	      return build_call_expr (call, 2, arg0, arg1);
+	    }
+	  /* Other types are errors.  */
+	  default:
+	    goto bad;
+	}
+    }
 
   if (fcode == ALTIVEC_BUILTIN_VEC_CMPNE)
     {
@@ -5203,6 +5269,14 @@ assignment for unaligned loads and stores");
 	    arg0 = build1 (NOP_EXPR, sizetype, arg0);
 
 	  tree arg1_type = TREE_TYPE (arg1);
+	  if (TREE_CODE (arg1_type) == ARRAY_TYPE)
+	    {
+	      arg1_type = TYPE_POINTER_TO (TREE_TYPE (arg1_type));
+	      tree const0 = build_int_cstu (sizetype, 0);
+	      tree arg1_elt0 = build_array_ref (loc, arg1, const0);
+	      arg1 = build1 (ADDR_EXPR, arg1_type, arg1_elt0);
+	    }
+
 	  tree addr = fold_build2_loc (loc, POINTER_PLUS_EXPR, arg1_type,
 				       arg1, arg0);
 	  tree aligned = fold_build2_loc (loc, BIT_AND_EXPR, arg1_type, addr,
@@ -5256,6 +5330,14 @@ assignment for unaligned loads and stores");
 	    arg1 = build1 (NOP_EXPR, sizetype, arg1);
 
 	  tree arg2_type = TREE_TYPE (arg2);
+	  if (TREE_CODE (arg2_type) == ARRAY_TYPE)
+	    {
+	      arg2_type = TYPE_POINTER_TO (TREE_TYPE (arg2_type));
+	      tree const0 = build_int_cstu (sizetype, 0);
+	      tree arg2_elt0 = build_array_ref (loc, arg2, const0);
+	      arg2 = build1 (ADDR_EXPR, arg2_type, arg2_elt0);
+	    }
+
 	  tree addr = fold_build2_loc (loc, POINTER_PLUS_EXPR, arg2_type,
 				       arg2, arg1);
 	  tree aligned = fold_build2_loc (loc, BIT_AND_EXPR, arg2_type, addr,

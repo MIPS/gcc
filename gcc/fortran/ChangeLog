@@ -1,3 +1,33 @@
+2016-06-13  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/70673
+	* frontend-passes.c (realloc_string_callback): Add a call to
+	gfc_dep_compare_expr.
+
+2016-06-11  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR fortran/60751
+	* io.c (gfc_resolve_dt): Replace GFC_STD_GNU with GFC_STD_LEGACY.
+
+2016-06-10  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR c/71381
+	* openmp.c (gfc_match_oacc_cache): Add comment.
+
+2016-06-05  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/71404
+	* io.c (match_io): For READ, commit in pending symbols in the
+	current statement before trying to match an expression so that
+	if the match fails and we undo symbols we dont toss good symbols.
+
+2016-06-05  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/69659
+	* trans-array.c (gfc_trans_dummy_array_bias): For class arrays use
+	the address of the _data component to reference the arrays data
+	component.
+
 2016-06-03  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* trans-openmp.c (gfc_trans_omp_reduction_list): Add mark_addressable

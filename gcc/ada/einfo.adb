@@ -432,7 +432,6 @@ package body Einfo is
    --    No_Pool_Assigned                Flag131
    --    Is_Default_Init_Cond_Procedure  Flag132
    --    Has_Inherited_Default_Init_Cond Flag133
-   --    Returns_Limited_View            Flag134
    --    Has_Aliased_Components          Flag135
    --    No_Strict_Aliasing              Flag136
    --    Is_Machine_Code_Subprogram      Flag137
@@ -602,10 +601,21 @@ package body Einfo is
    --    Is_Exception_Handler            Flag286
    --    Rewritten_For_C                 Flag287
    --    Predicates_Ignored              Flag288
+   --    Has_Timing_Event                Flag289
 
-   --    (unused)                        Flag289
+   --    (unused)                        Flag290
+
+   --    (unused)                        Flag291
+   --    (unused)                        Flag292
+   --    (unused)                        Flag293
+   --    (unused)                        Flag294
+   --    (unused)                        Flag295
+   --    (unused)                        Flag296
+   --    (unused)                        Flag297
+   --    (unused)                        Flag298
+   --    (unused)                        Flag299
+
    --    (unused)                        Flag300
-
    --    (unused)                        Flag301
    --    (unused)                        Flag302
    --    (unused)                        Flag303
@@ -1880,6 +1890,11 @@ package body Einfo is
       return Flag228 (Id);
    end Has_Thunks;
 
+   function Has_Timing_Event (Id : E) return B is
+   begin
+      return Flag289 (Base_Type (Id));
+   end Has_Timing_Event;
+
    function Has_Unchecked_Union (Id : E) return B is
    begin
       return Flag123 (Base_Type (Id));
@@ -3064,12 +3079,6 @@ package body Einfo is
    begin
       return Flag90 (Id);
    end Returns_By_Ref;
-
-   function Returns_Limited_View (Id : E) return B is
-   begin
-      pragma Assert (Ekind (Id) = E_Function);
-      return Flag134 (Id);
-   end Returns_Limited_View;
 
    function Reverse_Bit_Order (Id : E) return B is
    begin
@@ -4874,6 +4883,12 @@ package body Einfo is
       Set_Flag228 (Id, V);
    end Set_Has_Thunks;
 
+   procedure Set_Has_Timing_Event (Id : E; V : B := True) is
+   begin
+      pragma Assert (Id = Base_Type (Id));
+      Set_Flag289 (Id, V);
+   end Set_Has_Timing_Event;
+
    procedure Set_Has_Unchecked_Union (Id : E; V : B := True) is
    begin
       pragma Assert (Id = Base_Type (Id));
@@ -6141,12 +6156,6 @@ package body Einfo is
    begin
       Set_Flag90 (Id, V);
    end Set_Returns_By_Ref;
-
-   procedure Set_Returns_Limited_View (Id : E; V : B := True) is
-   begin
-      pragma Assert (Ekind (Id) = E_Function);
-      Set_Flag134 (Id, V);
-   end Set_Returns_Limited_View;
 
    procedure Set_Reverse_Bit_Order (Id : E; V : B := True) is
    begin
@@ -8558,6 +8567,13 @@ package body Einfo is
       Subp_Id  : Entity_Id;
 
    begin
+      --  Once set, this attribute cannot be reset
+
+      if No (V) then
+         pragma Assert (No (Default_Init_Cond_Procedure (Id)));
+         return;
+      end if;
+
       pragma Assert
         (Is_Type (Id)
           and then (Has_Default_Init_Cond (Id)
@@ -8985,6 +9001,7 @@ package body Einfo is
       W ("Has_Storage_Size_Clause",         Flag23  (Id));
       W ("Has_Stream_Size_Clause",          Flag184 (Id));
       W ("Has_Task",                        Flag30  (Id));
+      W ("Has_Timing_Event",                Flag289 (Id));
       W ("Has_Thunks",                      Flag228 (Id));
       W ("Has_Unchecked_Union",             Flag123 (Id));
       W ("Has_Unknown_Discriminants",       Flag72  (Id));
@@ -9141,7 +9158,6 @@ package body Einfo is
       W ("Requires_Overriding",             Flag213 (Id));
       W ("Return_Present",                  Flag54  (Id));
       W ("Returns_By_Ref",                  Flag90  (Id));
-      W ("Returns_Limited_View",            Flag134 (Id));
       W ("Reverse_Bit_Order",               Flag164 (Id));
       W ("Reverse_Storage_Order",           Flag93  (Id));
       W ("Rewritten_For_C",                 Flag287 (Id));

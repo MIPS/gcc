@@ -1,3 +1,134 @@
+2016-06-15  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* decl.c (wrapup_globals_for_namespace): Use DECL_SOURCE_LOCATION and
+	"%qF" in warning_at instead of "%q+F" in warning.
+	(check_redeclaration_exception_specification): Likewise in pedwarn
+	(and error, inform, for consistency).
+	* call.c (joust): Likewise.
+
+2016-06-15  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/70202
+	* decl.c (xref_basetypes): Revert r117839 changes; add fix-up
+	code at the end of the for loop; also revert r159637 changes,
+	add back the gcc_assert.
+	* cp-tree.h (xref_basetypes): Adjust declaration.
+	* parser.c (cp_parser_class_head): Adjust xref_basetypes call.
+
+2016-06-14  David Malcolm  <dmalcolm@redhat.com>
+
+	* search.c: Include spellcheck-tree.h rather than spellcheck.h.
+
+2016-06-14  David Malcolm  <dmalcolm@redhat.com>
+
+	* typeck.c: Include "gcc-rich-location.h".
+	(finish_class_member_access_expr): Simplify fixit code by
+	using gcc_rich_location::add_fixit_misspelled_id.
+
+2016-06-14  Jason Merrill  <jason@redhat.com>
+
+	P0145R2: Refining Expression Order for C++.
+	* cp-tree.h (CALL_EXPR_OPERATOR_SYNTAX, CALL_EXPR_ORDERED_ARGS)
+	(CALL_EXPR_REVERSE_ARGS): New.
+	* call.c (build_new_op_1): Set them.
+	(extract_call_expr, op_is_ordered): New.
+	(build_over_call): Set CALL_EXPR_ORDERED_ARGS.
+	* cp-gimplify.c (cp_gimplify_expr) [CALL_EXPR]: Handle new flags.
+	* pt.c (tsubst_copy_and_build): Copy new flags.
+	* semantics.c (simplify_aggr_init_expr): Likewise.
+	* tree.c (build_aggr_init_expr): Likewise.
+	(build_min_non_dep_op_overload): Likewise.
+
+2016-06-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71528
+	* decl.c (duplicate_decls): For DECL_INITIALIZED_P non-external
+	olddecl vars, preserve their TREE_READONLY bit.
+
+	PR c++/71516
+	* decl.c (complete_vars): Handle gracefully type == error_mark_node.
+
+2016-06-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* typeck2.c (digest_init_r): Use EXPR_LOC_OR_LOC on init.
+
+2016-06-13  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* decl.c (grokdeclarator): Fix typo in pedwarn text.
+
+2016-06-10  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR c/71381
+	* parser.c (cp_parser_omp_var_list_no_open) <OMP_CLAUSE__CACHE_>:
+	Loosen checking.
+
+2016-06-09  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71465
+	Revert:
+	2016-06-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/70202
+	* parser.c (cp_parser_class_head): When xref_basetypes fails and
+	emits an error do not zero the type.
+
+2016-06-08  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* decl.c (maybe_deduce_size_from_array_init): Use
+	DECL_SOURCE_LOCATION in error_at.
+	(layout_var_decl): Likewise.
+	(check_array_initializer): Likewise.
+	(check_initializer): Likewise.
+	(duplicate_decls, check_elaborated_type_specifier): Tidy.
+
+2016-06-08  Martin Sebor  <msebor@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/70507
+	PR c/68120
+	* constexpr.c: Include gimple-fold.h.
+	(cxx_eval_internal_function): New function.
+	(cxx_eval_call_expression): Call it.
+	(potential_constant_expression_1): Handle integer arithmetic
+	overflow built-ins.
+	* tree.c (builtin_valid_in_constant_expr_p): Handle
+	BUILT_IN_{ADD,SUB,MUL}_OVERFLOW_P.
+
+2016-06-08  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* pt.c (tsubst, case TYPENAME_TYPE): Don't delay checking the
+	return value of	tsubst_aggr_type for error_mark_node.
+
+2016-06-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71442
+	* pt.c (tsubst_copy): Only set TREE_USED on DECLs.
+
+2016-06-06  Jakub Jelinek  <jakub@redhat.com>
+	    Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/70847
+	PR c++/71330
+	PR c++/71393
+	* cp-gimplify.c (cp_fold_r): Set *walk_subtrees = 0 and return NULL
+	right after cp_fold call if cp_fold has returned the same stmt
+	already in some earlier cp_fold_r call.
+	(cp_fold_function): Add pset automatic variable, pass its address
+	to cp_walk_tree.
+
+2016-06-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/70202
+	* parser.c (cp_parser_class_head): When xref_basetypes fails and
+	emits an error do not zero the type.
+
+2016-06-03  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/27100
+	* decl.c (duplicate_decls): Properly copy the
+	DECL_PENDING_INLINE_P, DECL_PENDING_INLINE_INFO and
+	DECL_SAVED_FUNCTION_DATA fields from OLDDECL to NEWDECL.
+
 2016-06-03  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* semantics.c (finish_omp_clauses): Mark OpenACC reduction

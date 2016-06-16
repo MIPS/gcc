@@ -229,6 +229,7 @@
 #define vec_mladd __builtin_vec_mladd
 #define vec_msum __builtin_vec_msum
 #define vec_msums __builtin_vec_msums
+#define vec_mul __builtin_vec_mul
 #define vec_mule __builtin_vec_mule
 #define vec_mulo __builtin_vec_mulo
 #define vec_nor __builtin_vec_nor
@@ -400,6 +401,11 @@
 #ifdef _ARCH_PPC64
 #define vec_vprtybq __builtin_vec_vprtybq
 #endif
+
+#define vec_absd __builtin_vec_vadu
+#define vec_absdb __builtin_vec_vadub
+#define vec_absdh __builtin_vec_vaduh
+#define vec_absdw __builtin_vec_vaduw
 
 #define vec_slv __builtin_vec_vslv
 #define vec_srv __builtin_vec_vsrv

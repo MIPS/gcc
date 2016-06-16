@@ -1287,7 +1287,7 @@ EnumValue
 Enum(excess_precision) String(standard) Value(EXCESS_PRECISION_STANDARD)
 
 ffast-math
-Common
+Common Optimization
 
 ffat-lto-objects
 Common Var(flag_fat_lto_objects)
@@ -2065,6 +2065,10 @@ Schedule instructions using selective scheduling algorithm.
 fselective-scheduling2
 Common Report Var(flag_selective_scheduling2) Optimization
 Run selective scheduling after reload.
+
+fself-test
+Common Undocumented Var(flag_self_test)
+Run self-tests.
 
 fsel-sched-pipelining
 Common Report Var(flag_sel_sched_pipelining) Init(0) Optimization
