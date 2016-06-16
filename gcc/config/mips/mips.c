@@ -8906,7 +8906,7 @@ mips16_build_call_stub (rtx retval, rtx *fn_ptr, rtx args_size, int fp_code)
       if (fp_ret_p)
 	{
 	  /* Now call the non-MIPS16 function.  */
-	  output_asm_insn (mips_output_jump (&fn, 0, -1, true), &fn);
+	  output_asm_insn (mips_output_jump (&fn, 0, -1, true, false), &fn);
 	  fprintf (asm_out_file, "\t.cfi_register 31,18\n");
 
 	  /* Move the result from floating-point registers to
@@ -16573,7 +16573,8 @@ mips_adjust_insn_length (rtx_insn *insn, int length)
    anyway).  */
 
 const char *
-mips_output_jump (rtx *operands, int target_opno, int size_opno, bool link_p)
+mips_output_jump (rtx *operands, int target_opno, int size_opno, bool link_p,
+		  bool move_balc_p)
 {
   static char buffer[300];
   char *s = buffer;
@@ -16615,8 +16616,13 @@ mips_output_jump (rtx *operands, int target_opno, int size_opno, bool link_p)
       else
 	s += sprintf (s, "%%*");
 
-      s += sprintf (s, "%s%s%s%s%s\t%%%d%s", insn_name, and_link, reg, compact, short_delay,
-					    target_opno, nop);
+      if (move_balc_p)
+	s += sprintf (s, "move.%s%s%s%s%s\t%%0,%%1,%%%d%s",
+		      insn_name, and_link, reg, compact, short_delay,
+		      target_opno, nop);
+      else
+	s += sprintf (s, "%s%s%s%s%s\t%%%d%s", insn_name, and_link, reg,
+		      compact, short_delay, target_opno, nop);
 
       if (!reg_p && TARGET_ABICALLS_PIC2)
 	s += sprintf (s, "\n\t.option\tpic2");
@@ -24962,6 +24968,25 @@ umips_movep_target_p (rtx reg1, rtx reg2)
       return true;
 
   return false;
+}
+
+bool
+nanomips_move_balc_p (rtx *operands)
+{
+  if (TARGET_NANOMIPS != NANOMIPS_NMF)
+    return false;
+  if (GET_MODE (operands[1]) != ptr_mode
+      || GET_MODE (operands[0]) != GET_MODE (operands[1]))
+    return false;
+  if (REGNO (operands[0]) != 4 && REGNO (operands[0]) != 5)
+    return false;
+  if (!IN_RANGE (REGNO (operands[1]), 16, 23)
+      && !const_0_operand (operands[1], GET_MODE (operands[1]))
+      && !IN_RANGE (REGNO (operands[1]), 4, 10))
+    return false;
+  if (!satisfies_constraint_S (operands[2]))
+    return false;
+  return true;
 }
 
 /* Return the size in bytes of the trampoline code, padded to

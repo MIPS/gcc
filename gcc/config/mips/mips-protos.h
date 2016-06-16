@@ -324,7 +324,7 @@ extern const char *mips_output_order_conditional_branch (rtx_insn *, rtx *,
 							 bool);
 extern const char *mips_output_equal_conditional_branch (rtx_insn *, rtx *,
 							 bool);
-extern const char *mips_output_jump (rtx *, int, int, bool);
+extern const char *mips_output_jump (rtx *, int, int, bool, bool);
 extern const char *mips_output_sync (void);
 extern const char *mips_output_sync_loop (rtx_insn *, rtx *);
 extern unsigned int mips_sync_loop_insns (rtx_insn *, rtx *);
@@ -376,6 +376,7 @@ extern const char *umips_output_word_multiple (bool, rtx);
 extern bool umips_word_multiple_pattern_p (bool, rtx);
 extern bool umips_load_store_pair_p (bool, rtx *);
 extern void umips_output_load_store_pair (bool, rtx *);
+extern bool nanomips_move_balc_p (rtx *);
 extern bool umips_movep_target_p (rtx, rtx);
 extern bool umips_12bit_offset_address_p (rtx, machine_mode);
 extern bool mips_9bit_offset_address_p (rtx, machine_mode);
