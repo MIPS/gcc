@@ -4965,14 +4965,14 @@
 ;; in FP registers (off by default, use -mdebugh to enable).
 
 (define_insn "*mov<mode>_internal"
-  [(set (match_operand:IMOVE32 0 "nonimmediate_operand" "=d,!u,!u,d,e,!u,!ks,d,ZS,ZT,m,*f,*f,*d,*ZB,*d,*z,*a,*d,*B*C*D,*B*C*D,*d,*m,kd")
-	(match_operand:IMOVE32 1 "move_operand"          "d,J,Udb7,Yd,Yf,ZT,ZS,m,!ks,!kbJ,dJ,*d*J,*ZB,*f,*f,*z,*d,*J*d,*a,*d,*m,*B*C*D,*B*C*D,ZY"))]
+  [(set (match_operand:IMOVE32 0 "nonimmediate_operand" "=d,!u,!u,d,e,!u,!ks,d,ZS,ZT,m,*f,*f,*d,*ZB,*d,*z,*a,*d,*B*C*D,*B*C*D,*d,*m,kd,ZY")
+	(match_operand:IMOVE32 1 "move_operand"          "d,J,Udb7,Yd,Yf,ZT,ZS,m,!ks,!kbJ,dJ,*d*J,*ZB,*f,*f,*z,*d,*J*d,*a,*d,*m,*B*C*D,*B*C*D,ZY,kd"))]
   "!TARGET_MIPS16
    && (register_operand (operands[0], <MODE>mode)
        || reg_or_0_operand (operands[1], <MODE>mode))"
   { return mips_output_move (insn, operands[0], operands[1]); }
-  [(set_attr "move_type" "move,move,const,const,const,load,load,load,store,store,store,mtc,fpload,mfc,fpstore,mfc,mtc,mtlo,mflo,mtc,fpload,mfc,fpstore,load")
-   (set_attr "compression" "all,micromips,micromips,*,*,micromips,micromips,*,micromips,micromips,*,*,*,*,*,*,*,*,*,*,*,*,*,micromips")
+  [(set_attr "move_type" "move,move,const,const,const,load,load,load,store,store,store,mtc,fpload,mfc,fpstore,mfc,mtc,mtlo,mflo,mtc,fpload,mfc,fpstore,load,store")
+   (set_attr "compression" "all,micromips,micromips,*,*,micromips,micromips,*,micromips,micromips,*,*,*,*,*,*,*,*,*,*,*,*,*,micromips,micromips")
    (set_attr "mode" "SI")])
 
 (define_insn "*mov<mode>_mips16"
@@ -5109,7 +5109,7 @@
   /* There is nothing about SWXS16 in the spec.  Switching off
      for now.  This is triggered about 200 times vs ~1150 for
      LWXS16.  */
-  if (M16_REG_P (REGNO (operands[0]))
+  if (0 && M16_REG_P (REGNO (operands[0]))
       && M16_REG_P (REGNO (operands[1]))
       && M16_REG_P (REGNO (operands[2])))
     return "sdbbp16 5 # swxs16\t%2,%0(%1)";

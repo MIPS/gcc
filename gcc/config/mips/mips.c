@@ -6301,34 +6301,42 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	    }
 	}
       if (dest_code == MEM)
-	switch (GET_MODE_SIZE (mode))
-	  {
-	  /* FIXME here and the rest below.  */
-	  case 1: return mips_index_address_p (XEXP (dest, 0), mode)
-			 ? "sdbbp32 7 # sbx\t%z1,%0"
-			 : "sb\t%z1,%0";
-	  case 2: return mips_index_address_p (XEXP (dest, 0), mode)
-			 ? "sdbbp32 7 # shx\t%z1,%0"
-			 : mips_index_scaled_address_p (XEXP (dest, 0), mode)
-			   ? "sdbbp32 5 # shxs\t%z1,%0"
-			   : "sh\t%z1,%0";
-	  case 4:
-	    /* There is nothing about SWXS16 in the spec.  Switching off
-	       for now.  This is triggered about 200 times vs ~1150 for
-	       LWXS16.  */
-	    return 0 && mips_index_scaled_address_p (XEXP (dest, 0), mode)
-		   && M16_REG_P (REGNO (src))
-		   && M16_REG_P (REGNO (XEXP (XEXP (XEXP (dest, 0), 0), 0)))
-		   && M16_REG_P (REGNO (XEXP (XEXP (dest, 0), 1)))
-		   ? "sdbbp16 5 # swxs16\t%z1,%0"
-		   : mips_index_scaled_address_p (XEXP (dest, 0), mode)
-		     ? "sdbbp32 5 # swxs\t%z1,%0"
-		     : mips_index_address_p (XEXP (dest, 0), mode)
-		       ? "sdbbp32 7 # swx\t%z1,%0"
-		       : "sw\t%z1,%0";
-	  case 8: return "sd\t%z1,%0";
-	  default: gcc_unreachable ();
-	  }
+	{
+	  if (TARGET_MICROMIPS_R7
+	      && M16LOAD_REG_P (REGNO (src))
+	      && sw4x4_lw4x4_operand (dest, GET_MODE (dest)))
+	    /* FIXME.  Remove nop.  */
+	    return "sdbbp16 3 # sw4x4\t%z1,%0";
+
+	  switch (GET_MODE_SIZE (mode))
+	    {
+	    /* FIXME here and the rest below.  */
+	    case 1: return mips_index_address_p (XEXP (dest, 0), mode)
+			   ? "sdbbp32 7 # sbx\t%z1,%0"
+			   : "sb\t%z1,%0";
+	    case 2: return mips_index_address_p (XEXP (dest, 0), mode)
+			   ? "sdbbp32 7 # shx\t%z1,%0"
+			   : mips_index_scaled_address_p (XEXP (dest, 0), mode)
+			     ? "sdbbp32 5 # shxs\t%z1,%0"
+			     : "sh\t%z1,%0";
+	    case 4:
+	      /* There is nothing about SWXS16 in the spec.  Switching off
+		 for now.  This is triggered about 200 times vs ~1150 for
+		 LWXS16.  */
+	      return 0 && mips_index_scaled_address_p (XEXP (dest, 0), mode)
+		     && M16_REG_P (REGNO (src))
+		     && M16_REG_P (REGNO (XEXP (XEXP (XEXP (dest, 0), 0), 0)))
+		     && M16_REG_P (REGNO (XEXP (XEXP (dest, 0), 1)))
+		     ? "sdbbp16 5 # swxs16\t%z1,%0"
+		     : mips_index_scaled_address_p (XEXP (dest, 0), mode)
+		       ? "sdbbp32 5 # swxs\t%z1,%0"
+		       : mips_index_address_p (XEXP (dest, 0), mode)
+			 ? "sdbbp32 7 # swx\t%z1,%0"
+			 : "sw\t%z1,%0";
+	    case 8: return "sd\t%z1,%0";
+	    default: gcc_unreachable ();
+	    }
+	}
     }
   if (dest_code == REG && GP_REG_P (REGNO (dest)))
     {
