@@ -45,7 +45,7 @@
         (match_operand:SI 1 "non_volatile_mem_operand" ""))
    (set (match_operand:SI 2 "d_operand" "")
         (match_operand:SI 3 "non_volatile_mem_operand" ""))]
-  "TARGET_MICROMIPS
+  "TARGET_MICROMIPS && !(TARGET_MICROMIPS_R7 && TARGET_REMOVE_LWP_SWP)
    && umips_load_store_pair_p (true, operands)"
   [(parallel [(set (match_dup 0) (match_dup 1))
               (set (match_dup 2) (match_dup 3))])])
@@ -57,7 +57,7 @@
 	      (set (match_operand:SI 2 "d_operand")
 		   (match_operand:SI 3 "non_volatile_mem_operand"))])]
 
-  "TARGET_MICROMIPS
+  "TARGET_MICROMIPS && !(TARGET_MICROMIPS_R7 && TARGET_REMOVE_LWP_SWP)
    && umips_load_store_pair_p (true, operands)"
 {
   umips_output_load_store_pair (true, operands);
@@ -73,7 +73,7 @@
         (match_operand:SI 1 "d_operand" ""))
    (set (match_operand:SI 2 "non_volatile_mem_operand" "")
         (match_operand:SI 3 "d_operand" ""))]
-  "TARGET_MICROMIPS
+  "TARGET_MICROMIPS && !(TARGET_MICROMIPS_R7 && TARGET_REMOVE_LWP_SWP)
    && umips_load_store_pair_p (false, operands)"
   [(parallel [(set (match_dup 0) (match_dup 1))
               (set (match_dup 2) (match_dup 3))])])
@@ -84,7 +84,7 @@
 	(match_operand:SI 1 "d_operand"))
    (set (match_operand:SI 2 "non_volatile_mem_operand")
 	(match_operand:SI 3 "d_operand"))]
-  "TARGET_MICROMIPS
+  "TARGET_MICROMIPS && !(TARGET_MICROMIPS_R7 && TARGET_REMOVE_LWP_SWP)
    && umips_load_store_pair_p (false, operands)"
 {
   umips_output_load_store_pair (false, operands);
