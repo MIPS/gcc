@@ -259,7 +259,6 @@ proof_state::branch (iterator i)
   return insert (++i, g);
 }
 
-
 /* Discharge the current goal, setting it equal to the
    next non-satisfied goal. */
 
@@ -359,7 +358,7 @@ analyze_atom (term_list& ts, tree t)
   return invalid;
 }
 
-/* Search for a pack expansion that in the list of assumptions that would
+/* Search for a pack expansion in the list of assumptions that would
    make this expansion valid.  */
 
 proof_result
@@ -478,8 +477,8 @@ analyze_term (term_list& ts, tree t)
 }
 
 /* Check if a single term can be proven from a set of assumptions.
-   If the proof is no valid, then it is incomplete when either
-   the given term is non-atomic or any term in the list of assuumptions
+   If the proof is not valid, then it is incomplete when either
+   the given term is non-atomic or any term in the list of assumptions
    is not-atomic.  */
 
 proof_result
@@ -493,10 +492,10 @@ check_term (term_list& ts, tree t)
   return analyze_term (ts, t);
 }
 
-/* Check to see if any term is proven by the assuumptions in the
+/* Check to see if any term is proven by the assumptions in the
    proof goal. The proof is valid if the proof of any term is valid.
-   If validity cannot be determined, but there any particular
-   check was undecided than this goal is undecided.  */
+   If validity cannot be determined, but any particular
+   check was undecided, then this goal is undecided.  */
 
 proof_result
 check_goal (proof_goal& g)
@@ -662,7 +661,7 @@ explode_goal (proof_state& p, proof_state::iterator gi)
    creating a clone of that subgoal. */
 
 void
-explode_assumptions(proof_state& p)
+explode_assumptions (proof_state& p)
 {
   proof_state::iterator iter = p.begin();
   proof_state::iterator end = p.end();
@@ -706,7 +705,7 @@ load_conclusions (proof_goal& g)
 }
 
 void
-load_conclusions(proof_state& p)
+load_conclusions (proof_state& p)
 {
   proof_state::iterator iter = p.begin();
   while (iter != p.end())
@@ -743,7 +742,7 @@ prove_implication (tree a, tree c)
 
   int step_max = 1 << 10;
   int step_count = 0;              /* FIXME: We shouldn't have this. */
-  std::size_t branch_limit = 1024; /* FIXME: This nneds to be configurable. */
+  std::size_t branch_limit = 1024; /* FIXME: This needs to be configurable. */
   while (step_count < step_max && proof.size() < branch_limit)
     {
       /* Determine if we can prove that the assumptions entail the

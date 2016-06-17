@@ -38,7 +38,8 @@ static void pp_cxx_cast_expression (cxx_pretty_printer *, tree);
 static void pp_cxx_typeid_expression (cxx_pretty_printer *, tree);
 static void pp_cxx_unary_left_fold_expression (cxx_pretty_printer *, tree);
 static void pp_cxx_unary_right_fold_expression (cxx_pretty_printer *, tree);
-static void pp_cxx_binary_fold_expression (cxx_pretty_printer *, tree);
+static void pp_cxx_binary_fold_expression (cxx_pretty_printer *, tree);
+
 
 static inline void
 pp_cxx_nonconsecutive_character (cxx_pretty_printer *pp, int c)
@@ -2524,7 +2525,6 @@ pp_cxx_binary_fold_expression (cxx_pretty_printer *pp, tree t)
   pp->expression (t2);
   pp_cxx_right_paren (pp);
 }
-
 
 void
 pp_cxx_trait_expression (cxx_pretty_printer *pp, tree t)

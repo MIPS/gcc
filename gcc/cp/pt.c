@@ -8712,7 +8712,7 @@ finish_template_variable (tree var, tsubst_flags_t complain)
     {
       if (complain & tf_error)
 	{
-          error ("use invalid variable template %qE", var);
+	  error ("use of invalid variable template %qE", var);
 	  diagnose_constraints (location_of (var), templ, arglist);
 	}
       return error_mark_node;
@@ -12325,7 +12325,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
                        in order to evaluate the constraint.
 
                        FIXME: This seems to be masking a bug where the
-                       specialization lookup below fiails for a previously
+                       specialization lookup below fails for a previously
                        instantiated variable template.  */
                     r = t;
                     break;
@@ -24054,8 +24054,8 @@ do_auto_deduction (tree type, tree init, tree auto_node)
    The CONTEXT determines the context in which auto deduction is performed
    and is used to control error diagnostics.
 
-   For partial-concept-ids, EXTRA_ARGS may be appended to the list of
-   deduced template prior to determining constraint satisfaction.  */
+   For partial-concept-ids, extra args may be appended to the list of deduced
+   template arguments prior to determining constraint satisfaction.  */
 
 tree
 do_auto_deduction (tree type, tree init, tree auto_node,
@@ -24559,7 +24559,7 @@ remove_constraints (tree t)
     decl_constraints->clear_slot (slot);
 }
 
-/* Momoized satisfaction results for declarations. This associates
+/* Memoized satisfaction results for declarations. This
    maps the pair (constraint, arguments) to the result computed
    by constraints_satisfied_p.  */
 
@@ -24632,6 +24632,7 @@ hash_concept_and_args (tree tmpl, tree args)
 }
 
 /* Returns true if concept arguments are equal.  */
+
 static bool
 concept_args_equal (tree t1, tree t2)
 {
@@ -24641,7 +24642,7 @@ concept_args_equal (tree t1, tree t2)
   if (!t1 || !t2)
     return false;
 
-  /* Argument pack selections are equivalent only when the select
+  /* Argument pack selections are equivalent only when they select
      the same index from equivalent packs.  */
   if (TREE_CODE (t1) == ARGUMENT_PACK_SELECT)
     if (t2 && TREE_CODE (t2) == ARGUMENT_PACK_SELECT)
@@ -24712,8 +24713,8 @@ struct concept_spec_hasher : ggc_ptr_hash<concept_spec_entry>
 static GTY (()) hash_table<constraint_sat_hasher> *constraint_memos;
 static GTY (()) hash_table<concept_spec_hasher> *concept_memos;
 
-/* Search for a memoized satisfaction results. Returns one of the
-   truth value nodes if previously memoized,and NULL_TREE otherwise.   */
+/* Search for a memoized satisfaction result. Returns one of the
+   truth value nodes if previously memoized, or NULL_TREE otherwise.   */
 
 tree
 lookup_constraint_satisfaction (tree, tree)
@@ -24897,7 +24898,6 @@ init_constraint_processing (void)
   concept_expansions = hash_table<concept_spec_hasher>::create_ggc(37);
   subsumption_table = hash_table<subsumption_hasher>::create_ggc(37);
 }
-
 
 /* Set up the hash tables for template instantiations.  */
 

@@ -536,7 +536,6 @@ DEFTREECODE (NESTED_REQ, "nested_req", tcc_expression, 1)
    PRED_CONSTR_EXPR has the expression to be evaluated. */
 DEFTREECODE (PRED_CONSTR, "pred_constr", tcc_expression, 1)
 
-
 /* A check constraint represents the checking of a concept
    C. It has two operands: the template defining the concept
    and a sequence of template arguments.

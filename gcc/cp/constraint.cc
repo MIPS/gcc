@@ -232,7 +232,7 @@ resolve_constraint_check (tree ovl, tree args)
           if (subst == error_mark_node)
             ++nerrs;
           else
-          cands = tree_cons (subst, fn, cands);
+	    cands = tree_cons (subst, fn, cands);
         }
       --processing_template_decl;
     }
@@ -453,11 +453,12 @@ learn_implications (tree parent, tree constr, implication_context cxt)
 void
 learn_implications (tree tmpl, tree args, tree constr)
 {
-  /* Don't memoize relations between non-dependent arguemnts. It's not helpful. */
+  /* Don't memoize relations between non-dependent arguemnts. It's not
+     helpful. */
   if (!uses_template_parms (args))
     return;
 
-  /* Buiild a check constraint for the purpose of caching. */
+  /* Build a check constraint for the purpose of caching. */
   tree parent = build_nt (CHECK_CONSTR, tmpl, args);
 
   /* Start learning based on the kind of the top-level contraint. */
@@ -549,7 +550,7 @@ expand_concept (tree decl, tree args)
   expanding_concept_sentinel sentinel;
 
   if (TREE_CODE (decl) == TEMPLATE_DECL)
-      decl = DECL_TEMPLATE_RESULT (decl);
+    decl = DECL_TEMPLATE_RESULT (decl);
   tree tmpl = DECL_TI_TEMPLATE (decl);
 
   /* Check for a previous specialization. */
@@ -566,7 +567,7 @@ expand_concept (tree decl, tree args)
     return error_mark_node;
 
   /* And lastly, normalize it, check for implications, and save
-     the specialization for later.. */
+     the specialization for later.  */
   tree norm = normalize_expression (result);
   learn_implications (tmpl, args, norm);
   return save_concept_expansion (tmpl, args, norm);
@@ -834,19 +835,19 @@ normalize_atom (tree t)
 
   tree type = TREE_TYPE (t);
   if (!type || type_unknown_p (t) || TREE_CODE (type) == TEMPLATE_TYPE_PARM)
-    { }
+    ;
   else if (!dependent_type_p (type))
-  {
+    {
       if (check_for_logical_overloads (t))
         return error_mark_node;
 
       type = cv_unqualified (type);
-    if (!same_type_p (type, boolean_type_node))
-      {
-        error ("predicate constraint %q+E does not have type %<bool%>", t);
-        return error_mark_node;
-      }
-  }
+      if (!same_type_p (type, boolean_type_node))
+	{
+	  error ("predicate constraint %q+E does not have type %<bool%>", t);
+	  return error_mark_node;
+	}
+    }
 
   if (TREE_CODE (t) == TEMPLATE_ID_EXPR)
     return normalize_template_id_expression (t);
@@ -1907,7 +1908,7 @@ satisfy_predicate_constraint (tree t, tree args,
       the substitution below fails to preserve those instantiations, and
       instead creates new uninstantiated specializations, causing the
       constraint to fail with spurious constexpr errors.  This is explicitly
-      guarded against in tsbust_decl and satisfy_constraint.  */
+      guarded against in tsubst_decl and satisfy_constraint.  */
   expr = tsubst_expr (expr, args, complain, in_decl, false);
   if (expr == error_mark_node)
     return boolean_false_node;
@@ -2170,7 +2171,6 @@ satisfy_constraint_1 (tree t, tree args, tsubst_flags_t complain, tree in_decl)
   }
   return boolean_false_node;
 }
-
 
 static int eval_constr = 0;
 
@@ -2502,16 +2502,6 @@ equivalently_constrained (tree d1, tree d2)
                      Partial ordering of constraints
 ---------------------------------------------------------------------------*/
 
-
-/* Returns true when the the constraints in A subsume those in B, but
-   the constraints in B do not subsume the constraints in A.  */
-
-bool
-strictly_subsumes (tree a, tree b)
-{
-  return subsumes (a, b) && !subsumes (b, a);
-}
-
 /* Returns true when the the constraints in A subsume those in B.  */
 
 bool
@@ -2522,6 +2512,14 @@ subsumes_constraints (tree a, tree b)
   return subsumes (a, b);
 }
 
+/* Returns true when the the constraints in A subsume those in B, but
+   the constraints in B do not subsume the constraints in A.  */
+
+bool
+strictly_subsumes (tree a, tree b)
+{
+  return subsumes (a, b) && !subsumes (b, a);
+}
 
 /* Determines which of the declarations, A or B, is more constrained.
    That is, which declaration's constraints subsume but are not subsumed
@@ -2577,7 +2575,7 @@ int constraint_thresh = 20;
 
 
 /* Returns true if we should elide the diagnostic for a constraint failure.
-   This is the case when then number of errors has exceeded the pre-configured
+   This is the case when the number of errors has exceeded the pre-configured
    threshold.  */
 
 inline bool
@@ -2869,7 +2867,8 @@ diagnose_implicit_conversion_constraint (location_t loc, tree orig, tree cur, tr
   tree type = ICONV_CONSTR_TYPE (cur);
   if (error_operand_p (type))
     {
-      inform (loc, "substitution into type %qT failed", ICONV_CONSTR_TYPE (orig));
+      inform (loc, "substitution into type %qT failed",
+	      ICONV_CONSTR_TYPE (orig));
       return;
     }
 
@@ -2893,7 +2892,7 @@ diagnose_argument_deduction_constraint (location_t loc, tree orig, tree cur, tre
     return;
 
   /* Don't elide a previously diagnosed failure.  */
-  if (elide_constraint_failure_p())
+  if (elide_constraint_failure_p ())
     return;
 
   tree pattern = DEDUCT_CONSTR_PATTERN (cur);
@@ -2925,14 +2924,16 @@ diagnose_exception_constraint (location_t loc, tree orig, tree cur, tree args)
 }
 
 void
-diagnose_parameterized_constraint (location_t loc, tree orig, tree cur, tree args)
+diagnose_parameterized_constraint (location_t loc, tree orig, tree cur,
+				   tree args)
 {
   if (constraints_satisfied_p (cur, args))
     return;
 
   local_specialization_stack stack;
   tree parms = PARM_CONSTR_PARMS (cur);
-  tree vars = tsubst_constraint_variables (parms, args, tf_warning_or_error, NULL_TREE);
+  tree vars = tsubst_constraint_variables (parms, args, tf_warning_or_error,
+					   NULL_TREE);
   if (vars == error_mark_node)
     {
       if (elide_constraint_failure_p ())

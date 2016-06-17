@@ -14694,10 +14694,10 @@ cp_parser_type_parameter (cp_parser* parser, bool *is_parameter_pack)
         // If template requirements are present, parse them.
 	if (flag_concepts)
           {
-	tree reqs = get_shorthand_constraints (current_template_parms);
-	if (tree r = cp_parser_requires_clause_opt (parser))
+	    tree reqs = get_shorthand_constraints (current_template_parms);
+	    if (tree r = cp_parser_requires_clause_opt (parser))
               reqs = conjoin_constraints (reqs, normalize_expression (r));
-	TEMPLATE_PARMS_CONSTRAINTS (current_template_parms) = reqs;
+	    TEMPLATE_PARMS_CONSTRAINTS (current_template_parms) = reqs;
           }
 
 	/* Look for the `class' or 'typename' keywords.  */
@@ -25710,10 +25710,10 @@ cp_parser_explicit_template_declaration (cp_parser* parser, bool member_p)
   /* Manage template requirements */
   if (flag_concepts)
   {
-  tree reqs = get_shorthand_constraints (current_template_parms);
-  if (tree r = cp_parser_requires_clause_opt (parser))
+    tree reqs = get_shorthand_constraints (current_template_parms);
+    if (tree r = cp_parser_requires_clause_opt (parser))
       reqs = conjoin_constraints (reqs, normalize_expression (r));
-  TEMPLATE_PARMS_CONSTRAINTS (current_template_parms) = reqs;
+    TEMPLATE_PARMS_CONSTRAINTS (current_template_parms) = reqs;
   }
 
   cp_parser_template_declaration_after_parameters (parser, parameter_list,

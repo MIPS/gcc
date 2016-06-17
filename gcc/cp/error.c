@@ -965,7 +965,7 @@ dump_simple_decl (cxx_pretty_printer *pp, tree t, tree type, int flags)
               if (DECL_DECLARED_CONCEPT_P (t))
                 pp_cxx_ws_string (pp, "concept");
               else
-	pp_cxx_ws_string (pp, "constexpr");
+		pp_cxx_ws_string (pp, "constexpr");
             }
       dump_type_prefix (pp, type, flags & ~TFF_UNQUALIFIED_NAME);
       pp_maybe_space (pp);
@@ -1342,14 +1342,14 @@ dump_template_decl (cxx_pretty_printer *pp, tree t, int flags)
 
       /* Only print the requirements if we're also printing
          the template header.  */
-  if (flag_concepts)
-    if (tree ci = get_constraints (t))
-      if (check_constraint_info (ci))
-        if (tree reqs = CI_TEMPLATE_REQS (ci))
-	  {
-	    pp_cxx_requires_clause (pp, reqs);
-	    pp_cxx_whitespace (pp);
-	  }
+      if (flag_concepts)
+	if (tree ci = get_constraints (t))
+	  if (check_constraint_info (ci))
+	    if (tree reqs = CI_TEMPLATE_REQS (ci))
+	      {
+		pp_cxx_requires_clause (pp, reqs);
+		pp_cxx_whitespace (pp);
+	      }
     }
 
 
