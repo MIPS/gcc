@@ -113,6 +113,13 @@
   (and (match_code "const_int,const_double,const_vector")
        (match_test "op == CONSTM1_RTX (GET_MODE (op))")))
 
+(define_predicate "reg_uimm7_operand2"
+  (ior (and (ior (match_operand 0 "const_uimm7_operand")
+		 (match_operand 0 "register_operand"))
+	    (match_test "TARGET_ADD_CONDMOVE2"))
+       (and (match_operand 0 "const_0_operand")
+	    (not (match_test "TARGET_ADD_CONDMOVE2")))))
+
 (define_predicate "reg_or_m1_operand"
   (ior (match_operand 0 "const_m1_operand")
        (match_operand 0 "register_operand")))
@@ -663,6 +670,25 @@
   return false;
 })
 
+(define_predicate "mips_movcc_comparison_operator"
+  (match_code "eq,ne,lt,ltu,le,leu,ge,geu,gt,gtu")
+{
+  if (XEXP (op, 1) == const0_rtx)
+    return true;
+
+  if (TARGET_MICROMIPS_R7
+      && TARGET_ADD_CONDMOVE2
+      && (const_uimm7_operand (XEXP (op, 1), mode)
+	  || register_operand (XEXP (op, 1), mode))
+      && (GET_CODE (op) == LT || GET_CODE (op) == LTU
+	  || GET_CODE (op) == GE || GET_CODE (op) == GEU))
+    return true;
+
+  if (CONST_INT_P (XEXP (op, 1)))
+    return false;
+
+  return false;
+})
 ;; For NE, cstore uses sltu instructions in which the first operand is $0.
 ;; This isn't possible in mips16 code.
 

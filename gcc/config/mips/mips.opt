@@ -573,3 +573,9 @@ Target Undocumented Var(TARGET_ADD_BR_IMM_ORDER) Init(0)
 
 madd-movebalc
 Target Undocumented Var(TARGET_ADD_MOVEBALC) Init(0)
+
+madd-condmove
+Target Undocumented Var(TARGET_ADD_CONDMOVE) Init(0)
+
+madd-new-condmoves
+Target Undocumented Var(TARGET_ADD_CONDMOVE2) Init(0)
