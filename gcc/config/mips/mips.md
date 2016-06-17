@@ -7529,9 +7529,10 @@
 	 (match_operand:GPR 2 "reg_or_0_operand" "dJ,0")
 	 (match_operand:GPR 3 "reg_or_0_operand" "0,dJ")))]
   "!TARGET_MIPS16 && ISA_HAS_CONDMOVE"
+  ;; FIXME
   "@
-    mov%T4\t%0,%z2,%1
-    mov%t4\t%0,%z3,%1"
+    sdbbp32 9 # mov%T4\t%0,%z2,%1
+    sdbbp32 9 # mov%t4\t%0,%z3,%1"
   [(set_attr "type" "condmove")
    (set_attr "mode" "<GPR:MODE>")])
 
@@ -7560,9 +7561,10 @@
 	 (match_operand:GPR 2 "reg_or_0_operand" "dJ,0")
 	 (match_operand:GPR 3 "reg_or_0_operand" "0,dJ")))]
   "!TARGET_MIPS16 && ISA_HAS_CONDMOVE"
+  ;; FIXME
   "@
-    movn\t%0,%z2,%1
-    movz\t%0,%z3,%1"
+    sdbbp32 9 # movn\t%0,%z2,%1
+    sdbbp32 9 # movz\t%0,%z3,%1"
   [(set_attr "type" "condmove")
    (set_attr "mode" "<GPR:MODE>")])
 
