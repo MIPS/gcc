@@ -1173,10 +1173,6 @@ build_constraints (tree tmpl_reqs, tree decl_reqs)
   ci->declarator_reqs = decl_reqs;
   ci->associated_constr = conjoin_constraints (tmpl_reqs, decl_reqs);
 
-  /* FIXME: I'm not using these any more. */
-  ci->normalized_constr = NULL_TREE;
-  ci->assumptions = NULL_TREE;
-
   return (tree)ci;
 }
 
@@ -2200,10 +2196,6 @@ satisfy_associated_constraints (tree ci, tree args)
   if (args && uses_template_parms (args))
     return boolean_true_node;
 
-  /* Don't memoize this kind of result.  */
-  if (!valid_constraints_p (ci))
-    return boolean_false_node;
-
   /* Check if we've seen a previous result. */
   if (tree prev = lookup_constraint_satisfaction (ci, args))
     return prev;
@@ -2994,15 +2986,8 @@ diagnose_declaration_constraints (location_t loc, tree decl, tree args)
 	args = TI_ARGS (ti);
     }
 
-  /* Check that the constraints are actually valid.  */
-  tree ci = get_constraints (decl);
-  if (!valid_constraints_p (ci))
-    {
-      inform (loc, "    invalid constraints");
-      return;
-    }
-
   /* Recursively diagnose the associated constraints.  */
+  tree ci = get_constraints (decl);
   tree t = CI_ASSOCIATED_CONSTRAINTS (ci);
   diagnose_constraint (loc, t, t, args);
 }

@@ -893,10 +893,6 @@ struct GTY(()) tree_template_info {
 // - a constraint expression introduced by a function declarator
 // - the associated constraints, which are the conjunction of those,
 //   and used for declaration matching
-// - the cached normalized associated constraints which are used
-//   to support satisfaction and subsumption.
-// - assumptions which is the result of decomposing the normalized
-//   constraints.
 //
 // The template and declarator requirements are kept to support pretty
 // printing constrained declarations.
@@ -905,8 +901,6 @@ struct GTY(()) tree_constraint_info {
   tree template_reqs;
   tree declarator_reqs;
   tree associated_constr;
-  tree normalized_constr;
-  tree assumptions;
 };
 
 // Require that pointer P is non-null before returning.
@@ -944,14 +938,6 @@ check_constraint_info (tree t)
 // The computed associated constraint expression for a declaration.
 #define CI_ASSOCIATED_CONSTRAINTS(NODE) \
   check_constraint_info (check_nonnull(NODE))->associated_constr
-
-// The normalized associated constraints.
-#define CI_NORMALIZED_CONSTRAINTS(NODE) \
-  check_constraint_info (check_nonnull(NODE))->normalized_constr
-
-// Get the set of assumptions associated with the constraint info node.
-#define CI_ASSUMPTIONS(NODE) \
-  check_constraint_info (check_nonnull(NODE))->assumptions
 
 // Access the logical constraints on the template parameters introduced
 // at a given template parameter list level indicated by NODE.
@@ -6858,7 +6844,6 @@ extern void init_constraint_processing          ();
 extern bool constraint_p                        (tree);
 extern tree conjoin_constraints                 (tree, tree);
 extern tree conjoin_constraints                 (tree);
-extern bool valid_constraints_p                 (tree);
 extern tree get_constraints                     (tree);
 extern void set_constraints                     (tree, tree);
 extern void remove_constraints                  (tree);
@@ -6916,7 +6901,6 @@ extern int more_constrained                     (tree, tree);
 extern void diagnose_constraints                (location_t, tree, tree);
 
 /* in logic.cc */
-extern tree decompose_assumptions               (tree);
 extern tree decompose_conclusions               (tree);
 extern bool subsumes                            (tree, tree);
 
