@@ -219,9 +219,9 @@
   (and (match_code "mem")
        (match_test "m16_based_address_p (XEXP (op, 0), mode, uw4_operand)")))
 
-(define_predicate "lw_r4_16_operand"
+(define_predicate "sw4x4_lw4x4_operand"
   (and (match_code "mem")
-       (match_test "m16_based_address_p (XEXP (op, 0), mode, uw2_operand)")))
+       (match_test "m16_based_address_p2 (XEXP (op, 0), mode, uw2_operand)")))
 
 (define_predicate "lhu16_sh16_operand"
   (and (match_code "mem")
