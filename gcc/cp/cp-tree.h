@@ -6139,8 +6139,6 @@ extern tree tsubst_copy_and_build		(tree, tree, tsubst_flags_t,
 extern tree tsubst_expr                         (tree, tree, tsubst_flags_t,
                                                  tree, bool);
 extern tree tsubst_pack_expansion               (tree, tree, tsubst_flags_t, tree);
-extern tree tsubst_template_arg                 (tree, tree, tsubst_flags_t, tree);
-extern tree tsubst_template_args                (tree, tree, tsubst_flags_t, tree);
 extern tree most_general_template		(tree);
 extern tree get_mostly_instantiated_function_type (tree);
 extern bool problematic_instantiation_changed	(void);

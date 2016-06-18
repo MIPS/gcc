@@ -1926,7 +1926,7 @@ satisfy_check_constraint (tree t, tree args,
   tree cargs = CHECK_CONSTR_ARGS (t);
 
   /* Instantiate the concept check arguments.  */
-  tree targs = tsubst_template_args (cargs, args, tf_none, NULL_TREE);
+  tree targs = tsubst (cargs, args, tf_none, NULL_TREE);
   if (targs == error_mark_node)
     return memoize_concept_satisfaction (tmpl, args, boolean_false_node);
 
@@ -2725,13 +2725,13 @@ diagnose_check_constraint (location_t loc, tree orig, tree cur, tree args)
   tree check = build_nt (CHECK_CONSTR, decl, cargs);
 
   /* Instantiate the concept check arguments.  */
-  tree targs = tsubst_template_args (cargs, args, tf_none, NULL_TREE);
+  tree targs = tsubst (cargs, args, tf_none, NULL_TREE);
   if (targs == error_mark_node)
     {
       if (elide_constraint_failure_p ())
         return;
       inform (loc, "invalid use of the concept %qE", check);
-      tsubst_template_args (cargs, args, tf_warning_or_error, NULL_TREE);
+      tsubst (cargs, args, tf_warning_or_error, NULL_TREE);
       return;
     }
 
