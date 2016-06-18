@@ -3174,8 +3174,8 @@ cp_tree_equal (tree t1, tree t2)
 
     case CHECK_CONSTR:
       return (CHECK_CONSTR_CONCEPT (t1) == CHECK_CONSTR_CONCEPT (t2)
-              && cp_tree_equal (CHECK_CONSTR_CONCEPT (t1),
-                                CHECK_CONSTR_CONCEPT (t2)));
+              && comp_template_args (CHECK_CONSTR_ARGS (t1),
+				     CHECK_CONSTR_ARGS (t2)));
 
     case TREE_VEC:
       {
