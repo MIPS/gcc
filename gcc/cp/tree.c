@@ -3172,6 +3172,11 @@ cp_tree_equal (tree t1, tree t2)
       return cp_tree_equal (CI_ASSOCIATED_CONSTRAINTS (t1),
                             CI_ASSOCIATED_CONSTRAINTS (t2));
 
+    case CHECK_CONSTR:
+      return (CHECK_CONSTR_CONCEPT (t1) == CHECK_CONSTR_CONCEPT (t2)
+              && cp_tree_equal (CHECK_CONSTR_CONCEPT (t1),
+                                CHECK_CONSTR_CONCEPT (t2)));
+
     case TREE_VEC:
       {
 	unsigned ix;

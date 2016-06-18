@@ -31,6 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "target.h"
 #include "cp-tree.h"
+#include "print-tree.h"
 #include "c-family/c-common.h"
 #include "timevar.h"
 #include "stringpool.h"

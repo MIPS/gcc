@@ -976,6 +976,14 @@ check_constraint_info (tree t)
 #define PRED_CONSTR_EXPR(NODE) \
   TREE_OPERAND (TREE_CHECK (NODE, PRED_CONSTR), 0)
 
+/* The concept of a concept check. */
+#define CHECK_CONSTR_CONCEPT(NODE) \
+  TREE_OPERAND (TREE_CHECK (NODE, CHECK_CONSTR), 0)
+
+/* The template arguments of a concept check. */
+#define CHECK_CONSTR_ARGS(NODE) \
+  TREE_OPERAND (TREE_CHECK (NODE, CHECK_CONSTR), 1)
+
 /* The expression validated by the predicate constraint. */
 #define EXPR_CONSTR_EXPR(NODE) \
   TREE_OPERAND (TREE_CHECK (NODE, EXPR_CONSTR), 0)
@@ -6118,6 +6126,7 @@ extern bool is_specialization_of_friend		(tree, tree);
 extern tree get_pattern_parm			(tree, tree);
 extern int comp_template_args			(tree, tree, tree * = NULL,
 						 tree * = NULL);
+extern int template_args_equal                  (tree, tree);
 extern tree maybe_process_partial_specialization (tree);
 extern tree most_specialized_instantiation	(tree);
 extern void print_candidates			(tree);
@@ -6130,6 +6139,8 @@ extern tree tsubst_copy_and_build		(tree, tree, tsubst_flags_t,
 extern tree tsubst_expr                         (tree, tree, tsubst_flags_t,
                                                  tree, bool);
 extern tree tsubst_pack_expansion               (tree, tree, tsubst_flags_t, tree);
+extern tree tsubst_template_arg                 (tree, tree, tsubst_flags_t, tree);
+extern tree tsubst_template_args                (tree, tree, tsubst_flags_t, tree);
 extern tree most_general_template		(tree);
 extern tree get_mostly_instantiated_function_type (tree);
 extern bool problematic_instantiation_changed	(void);
@@ -6847,7 +6858,6 @@ extern tree strip_using_decl                    (tree);
 /* in constraint.cc */
 extern void init_constraint_processing          ();
 extern bool constraint_p                        (tree);
-extern tree make_predicate_constraint           (tree);
 extern tree conjoin_constraints                 (tree, tree);
 extern tree conjoin_constraints                 (tree);
 extern bool valid_constraints_p                 (tree);
@@ -6881,13 +6891,24 @@ extern tree tsubst_requires_expr                (tree, tree, tsubst_flags_t, tre
 extern tree tsubst_constraint                   (tree, tree, tsubst_flags_t, tree);
 extern tree tsubst_constraint_info              (tree, tree, tsubst_flags_t, tree);
 extern bool function_concept_check_p            (tree);
-
+extern tree normalize_expression                (tree);
+extern tree expand_concept                      (tree, tree);
+extern bool expanding_concept                   ();
 extern tree evaluate_constraints                (tree, tree);
 extern tree evaluate_function_concept           (tree, tree);
 extern tree evaluate_variable_concept           (tree, tree);
 extern tree evaluate_constraint_expression      (tree, tree);
 extern bool constraints_satisfied_p             (tree);
 extern bool constraints_satisfied_p             (tree, tree);
+extern bool evaluating_constraints_p            ();
+extern tree lookup_constraint_satisfaction      (tree, tree);
+extern tree memoize_constraint_satisfaction     (tree, tree, tree);
+extern tree lookup_concept_satisfaction         (tree, tree);
+extern tree memoize_concept_satisfaction        (tree, tree, tree);
+extern tree get_concept_expansion               (tree, tree);
+extern tree save_concept_expansion              (tree, tree, tree);
+extern bool* lookup_subsumption_result          (tree, tree);
+extern bool save_subsumption_result             (tree, tree, bool);
 
 extern bool equivalent_constraints              (tree, tree);
 extern bool equivalently_constrained            (tree, tree);
