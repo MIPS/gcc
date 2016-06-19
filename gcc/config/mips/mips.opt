@@ -537,4 +537,4 @@ muse-save-restore
 Target Undocumented Var(TARGET_USE_SAVE_RESTORE) Init(-1)
 
 muse-copyw-by-pieces
-Target Undocumented Var(TARGET_USE_COPYW_BY_PIECES) Init(0)
+Target Undocumented Var(TARGET_USE_COPYW_BY_PIECES) Init(1)
