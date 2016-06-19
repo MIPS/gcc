@@ -1897,15 +1897,7 @@ satisfy_predicate_constraint (tree t, tree args,
   gcc_assert (TREE_CODE (expr) != EXPR_PACK_EXPANSION);
 
   /* If substitution into the expression fails, the constraint
-     is not satisfied.
-
-     FIXME: There is a (likely) bug related to this substitution.  When a
-     concept check expands to refer to a variable template, this expression
-      may include references to instantiations of those templates.  However,
-      the substitution below fails to preserve those instantiations, and
-      instead creates new uninstantiated specializations, causing the
-      constraint to fail with spurious constexpr errors.  This is explicitly
-      guarded against in tsubst_decl and satisfy_constraint.  */
+     is not satisfied.  */
   expr = tsubst_expr (expr, args, complain, in_decl, false);
   if (expr == error_mark_node)
     return boolean_false_node;
@@ -2169,22 +2161,6 @@ satisfy_constraint_1 (tree t, tree args, tsubst_flags_t complain, tree in_decl)
   return boolean_false_node;
 }
 
-static int eval_constr = 0;
-
-struct evaluating_constraints_sentinel
-{
-  evaluating_constraints_sentinel()
-  {
-    ++eval_constr;
-  }
-
-  ~evaluating_constraints_sentinel()
-  {
-    --eval_constr;
-  }
-};
-
-
 /* Check that the constraint is satisfied, according to the rules
    for that constraint. Note that each satisfy_* function returns
    true or false, depending on whether it is satisfied or not.  */
@@ -2197,9 +2173,6 @@ satisfy_constraint (tree t, tree args)
   /* Turn off template processing. Constraint satisfaction only applies
      to non-dependent terms, so we want to ensure full checking here.  */
   processing_template_decl_sentinel proc (true);
-
-  /* Note that we are evaluating constraints.  */
-  evaluating_constraints_sentinel eval;
 
   /* Avoid early exit in tsubst and tsubst_copy from null args; since earlier
      substitution was done with processing_template_decl forced on, there will
@@ -2345,17 +2318,6 @@ constraint_expression_satisfied_p (tree expr, tree args)
 }
 
 } /* namespace */
-
-/* Returns true when constraints are being evaluated for satisfaction.
-
-   TODO: This is only used in tsubst_decl to guard against a possible
-   bug in specialization registration/lookup for variable templates
-   instantiated during concept expansion.  */
-bool
-evaluating_constraints_p ()
-{
-  return eval_constr;
-}
 
 /*---------------------------------------------------------------------------
                 Semantic analysis of requires-expressions

@@ -12314,23 +12314,6 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 
 	    if (!spec)
 	      {
-                if (evaluating_constraints_p()
-                    && VAR_P (t)
-                    && DECL_TEMPLATE_INSTANTIATED (t))
-                  {
-                    /* If the variable is already an instantiation, there are
-                       no viable substitutions.  We get here during constraint
-                       satisfaction where an expanded concept refers to a
-                       variable template, and later we later re-substitute
-                       in order to evaluate the constraint.
-
-                       FIXME: This seems to be masking a bug where the
-                       specialization lookup below fails for a previously
-                       instantiated variable template.  */
-                    r = t;
-                    break;
-                  }
-
 		tmpl = DECL_TI_TEMPLATE (t);
 		gen_tmpl = most_general_template (tmpl);
 		argvec = tsubst (DECL_TI_ARGS (t), args, complain, in_decl);

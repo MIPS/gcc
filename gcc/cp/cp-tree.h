@@ -6900,7 +6900,6 @@ extern tree evaluate_variable_concept           (tree, tree);
 extern tree evaluate_constraint_expression      (tree, tree);
 extern bool constraints_satisfied_p             (tree);
 extern bool constraints_satisfied_p             (tree, tree);
-extern bool evaluating_constraints_p            ();
 extern tree lookup_constraint_satisfaction      (tree, tree);
 extern tree memoize_constraint_satisfaction     (tree, tree, tree);
 extern tree lookup_concept_satisfaction         (tree, tree);
