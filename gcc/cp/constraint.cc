@@ -1643,13 +1643,11 @@ tsubst_constraint (tree t, tree args, tsubst_flags_t complain, tree in_decl)
   return error_mark_node;
 }
 
-namespace {
-
 /* A subroutine of tsubst_constraint_variables. Register local
    specializations for each of parameter in PARMS and its
    corresponding substituted constraint variable in VARS.
    Returns VARS. */
-tree
+static tree
 declare_constraint_vars (tree parms, tree vars)
 {
   tree s = vars;
@@ -1676,7 +1674,7 @@ declare_constraint_vars (tree parms, tree vars)
    Note that the caller must establish a local specialization stack
    prior to calling this function since this substitution will
    declare the substituted parameters. */
-tree
+static tree
 tsubst_constraint_variables (tree t, tree args,
                              tsubst_flags_t complain, tree in_decl)
 {
@@ -1695,7 +1693,7 @@ tsubst_constraint_variables (tree t, tree args,
    substitution may result in an ill-formed expression without
    causing the program to be ill-formed. In such cases, the
    requirement wraps an error_mark_node. */
-inline tree
+static inline tree
 tsubst_simple_requirement (tree t, tree args,
                            tsubst_flags_t complain, tree in_decl)
 {
@@ -1710,7 +1708,7 @@ tsubst_simple_requirement (tree t, tree args,
    causing the program to be ill-formed. In such cases, the
    requirement wraps an error_mark_node. */
 
-inline tree
+static inline tree
 tsubst_type_requirement (tree t, tree args,
                          tsubst_flags_t complain, tree in_decl)
 {
@@ -1726,7 +1724,7 @@ tsubst_type_requirement (tree t, tree args,
    preserves a requirement for the purpose of partial ordering, but
    it will never be satisfied. */
 
-tree
+static tree
 tsubst_compound_requirement (tree t, tree args,
                              tsubst_flags_t complain, tree in_decl)
 {
@@ -1740,7 +1738,7 @@ tsubst_compound_requirement (tree t, tree args,
 
 /* Substitute ARGS into the nested requirement T. */
 
-tree
+static tree
 tsubst_nested_requirement (tree t, tree args,
                            tsubst_flags_t complain, tree in_decl)
 {
@@ -1750,7 +1748,7 @@ tsubst_nested_requirement (tree t, tree args,
   return finish_nested_requirement (expr);
 }
 
-inline tree
+static inline tree
 tsubst_requirement (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 {
   switch (TREE_CODE (t))
@@ -1772,7 +1770,7 @@ tsubst_requirement (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 /* Substitute ARGS into the list of requirements T. Note that
    substitution failures here result in ill-formed programs. */
 
-tree
+static tree
 tsubst_requirement_body (tree t, tree args,
                          tsubst_flags_t complain, tree in_decl)
 {
@@ -1788,8 +1786,6 @@ tsubst_requirement_body (tree t, tree args,
   /* Ensure that the order of constraints is the same as the original.  */
   return nreverse (r);
 }
-
-} /* namespace */
 
 /* Substitute ARGS into the requires expression T. Note that this
    results in the re-declaration of local parameters when
