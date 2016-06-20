@@ -24582,8 +24582,10 @@ iterative_hash_concept_arg (tree arg, hashval_t val)
 
   if (TREE_CODE (arg) == ARGUMENT_PACK_SELECT)
     {
+      gcc_unreachable ();
       /* We can get these when checking the satisfaction of constraints
          during pack expansion. Hash over both the pack and index.  */
+      /* FIXME is this really needed?  */
       tree pack = ARGUMENT_PACK_SELECT_FROM_PACK (arg);
       int index = ARGUMENT_PACK_SELECT_INDEX (arg);
       val = iterative_hash_template_arg (pack, val);
@@ -24617,9 +24619,11 @@ concept_args_equal (tree t1, tree t2)
 
   /* Argument pack selections are equivalent only when they select
      the same index from equivalent packs.  */
+  /* FIXME is this what we want?  */
   if (TREE_CODE (t1) == ARGUMENT_PACK_SELECT)
     if (t2 && TREE_CODE (t2) == ARGUMENT_PACK_SELECT)
       {
+	gcc_unreachable ();
         tree p1 = ARGUMENT_PACK_SELECT_FROM_PACK (t1);
         tree p2 = ARGUMENT_PACK_SELECT_FROM_PACK (t2);
         int n1 = ARGUMENT_PACK_SELECT_INDEX (t1);
@@ -24630,9 +24634,7 @@ concept_args_equal (tree t1, tree t2)
   return template_args_equal (t1, t2);
 }
 
-/* Adjusted comparison of concept arguments. This guarantees that
-   argument pack selections are equivalent only when they select the
-   same element.  */
+/* Adjusted comparison of concept arguments.  */
 
 static bool
 comp_concept_args (tree a1, tree a2)
