@@ -1,7 +1,12 @@
+2016-06-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 237608.
+	* REVISION: Update subversion id.
+
 2016-06-14  Kelvin Nilsen  <kelvin@gcc.gnu.org>
 
 	* REVISION: Update subversion id.
-	* config/rs6000/altivec.h: Remove vec_adu, vec_adub, vec_aduh, 
+	* config/rs6000/altivec.h: Remove vec_adu, vec_adub, vec_aduh,
 	vec_aduw macro definitions as these were replaced with vec_absd,
 	vec_absdb, vec_absdh,and vec_absdw macros, which were added
 	previously.  Remove darn, darn_32, and darn_raw macro definitions

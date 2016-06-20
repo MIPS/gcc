@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2016, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -261,7 +261,7 @@ package Lib is
    -----------------
 
    --  The units table has an entry for each unit (source file) read in by the
-   --  current compilation. The table is indexed by the unit number value,
+   --  current compilation. The table is indexed by the unit number value.
    --  The first entry in the table, subscript Main_Unit, is for the main file.
    --  Each entry in this units table contains the following data.
 
@@ -286,7 +286,7 @@ package Lib is
    --    Dynamic_Elab
    --      A flag indicating if this unit was compiled with dynamic elaboration
    --      checks specified (as the result of using the -gnatE compilation
-   --      option or a pragma Elaboration_Checks (Dynamic).
+   --      option or a pragma Elaboration_Checks (Dynamic)).
 
    --    Error_Location
    --      This is copied from the Sloc field of the Enode argument passed
@@ -540,6 +540,14 @@ package Lib is
    --  it uses the location of the top level instantiation, rather than the
    --  template, so it returns the unit number containing the code that
    --  corresponds to the node N, or the source location S.
+
+   function Get_Top_Level_Code_Unit
+     (N : Node_Or_Entity_Id) return Unit_Number_Type;
+   pragma Inline (Get_Code_Unit);
+   function Get_Top_Level_Code_Unit (S : Source_Ptr) return Unit_Number_Type;
+   --  This is like Get_Code_Unit, except that in the case of subunits, it
+   --  returns the top-level unit to which the subunit belongs instead of
+   --  the subunit.
 
    function In_Extended_Main_Code_Unit
      (N : Node_Or_Entity_Id) return Boolean;
