@@ -13430,10 +13430,12 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       {
 	tree ctx = tsubst_aggr_type (TYPE_CONTEXT (t), args, complain,
 				     in_decl, /*entering_scope=*/1);
+	if (ctx == error_mark_node)
+	  return error_mark_node;
+
 	tree f = tsubst_copy (TYPENAME_TYPE_FULLNAME (t), args,
 			      complain, in_decl);
-
-	if (ctx == error_mark_node || f == error_mark_node)
+	if (f == error_mark_node)
 	  return error_mark_node;
 
 	if (!MAYBE_CLASS_TYPE_P (ctx))
@@ -14160,7 +14162,8 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	      len = TREE_VEC_LENGTH (expanded);
 	      /* Set TREE_USED for the benefit of -Wunused.  */
 	      for (int i = 0; i < len; i++)
-		TREE_USED (TREE_VEC_ELT (expanded, i)) = true;
+		if (DECL_P (TREE_VEC_ELT (expanded, i)))
+		  TREE_USED (TREE_VEC_ELT (expanded, i)) = true;
 	    }
 
 	  if (expanded == error_mark_node)
@@ -16648,6 +16651,20 @@ tsubst_copy_and_build (tree t,
 				  complain);
 
 	release_tree_vector (call_args);
+
+	if (ret != error_mark_node)
+	  {
+	    bool op = CALL_EXPR_OPERATOR_SYNTAX (t);
+	    bool ord = CALL_EXPR_ORDERED_ARGS (t);
+	    bool rev = CALL_EXPR_REVERSE_ARGS (t);
+	    if (op || ord || rev)
+	      {
+		function = extract_call_expr (ret);
+		CALL_EXPR_OPERATOR_SYNTAX (function) = op;
+		CALL_EXPR_ORDERED_ARGS (function) = ord;
+		CALL_EXPR_REVERSE_ARGS (function) = rev;
+	      }
+	  }
 
 	RETURN (ret);
       }

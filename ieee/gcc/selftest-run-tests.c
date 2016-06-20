@@ -48,6 +48,7 @@ selftest::run_tests ()
   vec_c_tests ();
   pretty_print_c_tests ();
   wide_int_cc_tests ();
+  ggc_tests_c_tests ();
 
   /* Mid-level data structures.  */
   input_c_tests ();
@@ -60,6 +61,7 @@ selftest::run_tests ()
   diagnostic_show_locus_c_tests ();
   fold_const_c_tests ();
   spellcheck_c_tests ();
+  spellcheck_tree_c_tests ();
   tree_cfg_c_tests ();
 
   /* This one relies on most of the above.  */

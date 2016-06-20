@@ -1020,14 +1020,20 @@ gimple_fold_builtin_memory_op (gimple_stmt_iterator *gsi,
       gimple *new_stmt;
       if (is_gimple_reg_type (TREE_TYPE (srcvar)))
 	{
-	  new_stmt = gimple_build_assign (NULL_TREE, srcvar);
-	  if (gimple_in_ssa_p (cfun))
-	    srcvar = make_ssa_name (TREE_TYPE (srcvar), new_stmt);
-	  else
-	    srcvar = create_tmp_reg (TREE_TYPE (srcvar));
-	  gimple_assign_set_lhs (new_stmt, srcvar);
-	  gimple_set_vuse (new_stmt, gimple_vuse (stmt));
-	  gsi_insert_before (gsi, new_stmt, GSI_SAME_STMT);
+	  tree tem = fold_const_aggregate_ref (srcvar);
+	  if (tem)
+	    srcvar = tem;
+	  if (! is_gimple_min_invariant (srcvar))
+	    {
+	      new_stmt = gimple_build_assign (NULL_TREE, srcvar);
+	      if (gimple_in_ssa_p (cfun))
+		srcvar = make_ssa_name (TREE_TYPE (srcvar), new_stmt);
+	      else
+		srcvar = create_tmp_reg (TREE_TYPE (srcvar));
+	      gimple_assign_set_lhs (new_stmt, srcvar);
+	      gimple_set_vuse (new_stmt, gimple_vuse (stmt));
+	      gsi_insert_before (gsi, new_stmt, GSI_SAME_STMT);
+	    }
 	}
       new_stmt = gimple_build_assign (destvar, srcvar);
       gimple_set_vuse (new_stmt, gimple_vuse (stmt));
@@ -5244,6 +5250,14 @@ gimple_fold_stmt_to_constant_1 (gimple *stmt, tree (*valueize) (tree),
 	      case IFN_UBSAN_CHECK_MUL:
 		subcode = MULT_EXPR;
 		break;
+	      case IFN_BUILTIN_EXPECT:
+		  {
+		    tree arg0 = gimple_call_arg (stmt, 0);
+		    tree op0 = (*valueize) (arg0);
+		    if (TREE_CODE (op0) == INTEGER_CST)
+		      return op0;
+		    return NULL_TREE;
+		  }
 	      default:
 		return NULL_TREE;
 	      }

@@ -1,3 +1,38 @@
+2016-06-17  Martin Liska  <mliska@suse.cz>
+
+	* analyze_brprob.py: Fix columns of script output.
+
+2016-06-13  Richard Biener  <rguenther@suse.de>
+
+	* download_prerequisites (ISL): Bump version to 0.16.1
+
+2016-06-10  Alan Hayward  <alan.hayward@arm.com>
+
+	* check_GNU_style.sh: Fix paste args for BSD
+
+2016-06-09  David Malcolm  <dmalcolm@redhat.com>
+
+	* config-list.mk (LIST): Add OPT-enable-obsolete to avr-rtems,
+	h8300-rtems, m32r-rtems, mep-elf.
+
+2016-06-09  David Malcolm  <dmalcolm@redhat.com>
+
+	* config-list.mk (GCC_SRC_DIR): New variable.
+	(make-log-dir): Use GCC_SRC_DIR.
+	($(LIST)): Likewise.
+
+2016-06-09  Martin Liska  <mliska@suse.cz>
+
+	* analyze_brprob_spec.py: New file.
+
+2016-06-09  Martin Liska  <mliska@suse.cz>
+
+	* analyze_brprob.py: Add new argument --sorting.
+
+2016-06-09  Martin Liska  <mliska@suse.cz>
+
+	* analyze_brprob.py: Cover new dump output format.
+
 2016-06-07  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
 	* update-copyright.py (LibMudflapFilter): Remove.

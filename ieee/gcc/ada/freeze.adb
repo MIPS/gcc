@@ -1161,10 +1161,12 @@ package body Freeze is
       ADC              : Node_Id;
       Comp_ADC_Present : out Boolean)
    is
-      Encl_Base : Entity_Id;
       Comp_Base : Entity_Id;
       Comp_ADC  : Node_Id;
+      Encl_Base : Entity_Id;
       Err_Node  : Node_Id;
+
+      Component_Aliased : Boolean;
 
       Comp_Byte_Aligned : Boolean;
       --  Set for the record case, True if Comp starts on a byte boundary
@@ -1173,8 +1175,6 @@ package body Freeze is
       Comp_SSO_Differs  : Boolean;
       --  Set True when the component is a nested composite, and it does not
       --  have the same scalar storage order as Encl_Type.
-
-      Component_Aliased : Boolean;
 
    begin
       --  Record case
@@ -1226,9 +1226,9 @@ package body Freeze is
          Comp_Base := Underlying_Type (Comp_Base);
       end if;
 
-      Comp_ADC := Get_Attribute_Definition_Clause
-                    (First_Subtype (Comp_Base),
-                     Attribute_Scalar_Storage_Order);
+      Comp_ADC :=
+        Get_Attribute_Definition_Clause
+          (First_Subtype (Comp_Base), Attribute_Scalar_Storage_Order);
       Comp_ADC_Present := Present (Comp_ADC);
 
       --  Case of record or array component: check storage order compatibility.
@@ -1240,9 +1240,8 @@ package body Freeze is
         or else Is_Array_Type (Comp_Base)
       then
          Comp_SSO_Differs :=
-           Reverse_Storage_Order (Encl_Base)
-             /=
-           Reverse_Storage_Order (Comp_Base);
+           Reverse_Storage_Order (Encl_Base) /=
+             Reverse_Storage_Order (Comp_Base);
 
          --  Parent and extension must have same storage order
 
@@ -2289,6 +2288,25 @@ package body Freeze is
 
             if Has_Unchecked_Union (Component_Type (Arr)) then
                Set_Has_Unchecked_Union (Arr);
+            end if;
+
+            --  The array type requires its own invariant procedure in order to
+            --  verify the component invariant over all elements.
+
+            if Has_Invariants (Component_Type (Arr))
+              or else
+                (Is_Access_Type (Component_Type (Arr))
+                  and then Has_Invariants
+                             (Designated_Type (Component_Type (Arr))))
+            then
+               Set_Has_Own_Invariants (Arr);
+
+               --  The array type is an implementation base type. Propagate the
+               --  same property to the first subtype.
+
+               if Is_Itype (Arr) then
+                  Set_Has_Own_Invariants (First_Subtype (Arr));
+               end if;
             end if;
 
             --  Warn for pragma Pack overriding foreign convention
@@ -4166,7 +4184,8 @@ package body Freeze is
                Freeze_And_Append (Corresponding_Remote_Type (Rec), N, Result);
             end if;
 
-            --  Check for controlled components and unchecked unions.
+            --  Check for controlled components, unchecked unions, and type
+            --  invariants.
 
             Comp := First_Component (Rec);
             while Present (Comp) loop
@@ -4193,6 +4212,22 @@ package body Freeze is
 
                if Has_Unchecked_Union (Etype (Comp)) then
                   Set_Has_Unchecked_Union (Rec);
+               end if;
+
+               --  The record type requires its own invariant procedure in
+               --  order to verify the invariant of each individual component.
+               --  Do not consider internal components such as _parent because
+               --  parent class-wide invariants are always inherited.
+
+               if Comes_From_Source (Comp)
+                 and then
+                   (Has_Invariants (Etype (Comp))
+                     or else
+                       (Is_Access_Type (Etype (Comp))
+                         and then Has_Invariants
+                                    (Designated_Type (Etype (Comp)))))
+               then
+                  Set_Has_Own_Invariants (Rec);
                end if;
 
                --  Scan component declaration for likely misuses of current
@@ -5225,8 +5260,7 @@ package body Freeze is
               and then not Is_Tagged_Type (E)
             then
                Error_Msg_NE
-                 ("Type_Invariant''Class cannot be specified for &",
-                  Prag, E);
+                 ("Type_Invariant''Class cannot be specified for &", Prag, E);
                Error_Msg_N
                  ("\can only be specified for a tagged type", Prag);
             end if;
@@ -8073,7 +8107,7 @@ package body Freeze is
 
             --  Else construct and analyze the body of a wrapper procedure
             --  that contains an object declaration to hold the expression.
-            --  Given that this is done only to complete the analysis, it
+            --  Given that this is done only to complete the analysis, it is
             --  simpler to build a procedure than a function which might
             --  involve secondary stack expansion.
 

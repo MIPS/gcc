@@ -1,3 +1,44 @@
+2016-06-14  Jason Merrill  <jason@redhat.com>
+
+	P0145R2: Refining Expression Order for C++.
+	* c.opt (fargs-in-order): New.
+	* c-opts.c (c_common_post_options): Adjust flag_args_in_order.
+
+2016-06-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/71498
+	* c-gimplify.c (ubsan_walk_array_refs_r): Set *walk_subtrees = 0 on
+	all BIND_EXPRs, and on all BIND_EXPRs recurse also on BIND_EXPR_BODY.
+
+	PR preprocessor/71183
+	* c-ppoutput.c (init_pp_output): Set cb->get_source_date_epoch
+	to cb_get_source_date_epoch.
+
+2016-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/68657
+	* c.opt (Wpsabi): Add Warning flag.
+
+2016-06-10  Martin Sebor  <msebor@redhat.com>
+
+	PR c/71392
+	* gcc/c-family/c-common.c (handle_nonnull_attribute): Accept
+	the nonnull attribute in type-generic builtins.
+
+2016-06-09  Martin Sebor  <msebor@redhat.com>
+
+	PR c/70883
+	* c-common.c (builtin_function_validate_nargs): Make text of error
+	message consistent with others like it.
+
+2016-06-08  Martin Sebor  <msebor@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/70507
+	PR c/68120
+	* c-common.c (check_builtin_function_arguments): Handle
+	BUILT_IN_{ADD,SUB,MUL}_OVERFLOW_P.
+
 2016-06-08  Richard Biener  <rguenther@suse.de>
 
 	* c-common.c (parse_optimize_options): Improve diagnostic messages.

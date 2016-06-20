@@ -4783,8 +4783,15 @@ ix86_option_override_internal (bool main_args_p,
       {"winchip-c6", PROCESSOR_I486, CPU_NONE, PTA_MMX},
       {"winchip2", PROCESSOR_I486, CPU_NONE, PTA_MMX | PTA_3DNOW | PTA_PRFCHW},
       {"c3", PROCESSOR_I486, CPU_NONE, PTA_MMX | PTA_3DNOW | PTA_PRFCHW},
+      {"samuel-2", PROCESSOR_I486, CPU_NONE, PTA_MMX | PTA_3DNOW | PTA_PRFCHW},
       {"c3-2", PROCESSOR_PENTIUMPRO, CPU_PENTIUMPRO,
 	PTA_MMX | PTA_SSE | PTA_FXSR},
+      {"nehemiah", PROCESSOR_PENTIUMPRO, CPU_PENTIUMPRO,
+        PTA_MMX | PTA_SSE | PTA_FXSR},
+      {"c7", PROCESSOR_PENTIUMPRO, CPU_PENTIUMPRO,
+        PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3 | PTA_FXSR},
+      {"esther", PROCESSOR_PENTIUMPRO, CPU_PENTIUMPRO,
+        PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3 | PTA_FXSR},
       {"i686", PROCESSOR_PENTIUMPRO, CPU_PENTIUMPRO, 0},
       {"pentiumpro", PROCESSOR_PENTIUMPRO, CPU_PENTIUMPRO, 0},
       {"pentium2", PROCESSOR_PENTIUMPRO, CPU_PENTIUMPRO, PTA_MMX | PTA_FXSR},
@@ -4843,6 +4850,29 @@ ix86_option_override_internal (bool main_args_p,
 	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE | PTA_PRFCHW | PTA_FXSR},
       {"x86-64", PROCESSOR_K8, CPU_K8,
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_NO_SAHF | PTA_FXSR},
+      {"eden-x2", PROCESSOR_K8, CPU_K8,
+        PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3 | PTA_FXSR},
+      {"nano", PROCESSOR_K8, CPU_K8,
+        PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
+        | PTA_SSSE3 | PTA_FXSR},
+      {"nano-1000", PROCESSOR_K8, CPU_K8,
+        PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
+        | PTA_SSSE3 | PTA_FXSR},
+      {"nano-2000", PROCESSOR_K8, CPU_K8,
+        PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
+        | PTA_SSSE3 | PTA_FXSR},
+      {"nano-3000", PROCESSOR_K8, CPU_K8,
+        PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
+        | PTA_SSSE3 | PTA_SSE4_1 | PTA_FXSR},
+      {"nano-x2", PROCESSOR_K8, CPU_K8,
+        PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
+        | PTA_SSSE3 | PTA_SSE4_1 | PTA_FXSR},
+      {"eden-x4", PROCESSOR_K8, CPU_K8,
+        PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
+        | PTA_SSSE3 | PTA_SSE4_1 | PTA_FXSR},
+      {"nano-x4", PROCESSOR_K8, CPU_K8,
+        PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
+        | PTA_SSSE3 | PTA_SSE4_1 | PTA_FXSR},
       {"k8", PROCESSOR_K8, CPU_K8,
 	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
 	| PTA_SSE2 | PTA_NO_SAHF | PTA_PRFCHW | PTA_FXSR},
@@ -4888,7 +4918,7 @@ ix86_option_override_internal (bool main_args_p,
 	| PTA_XOP | PTA_LWP | PTA_BMI | PTA_TBM | PTA_F16C
 	| PTA_FMA | PTA_PRFCHW | PTA_FXSR | PTA_XSAVE 
 	| PTA_XSAVEOPT | PTA_FSGSBASE},
-     {"bdver4", PROCESSOR_BDVER4, CPU_BDVER4,
+      {"bdver4", PROCESSOR_BDVER4, CPU_BDVER4,
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
 	| PTA_SSE4A | PTA_CX16 | PTA_ABM | PTA_SSSE3 | PTA_SSE4_1
 	| PTA_SSE4_2 | PTA_AES | PTA_PCLMUL | PTA_AVX | PTA_AVX2 
@@ -4905,7 +4935,7 @@ ix86_option_override_internal (bool main_args_p,
 	| PTA_RDRND | PTA_MOVBE | PTA_MWAITX | PTA_ADX | PTA_RDSEED
 	| PTA_CLZERO | PTA_CLFLUSHOPT | PTA_XSAVEC | PTA_XSAVES
 	| PTA_SHA | PTA_LZCNT | PTA_POPCNT},
-     {"btver1", PROCESSOR_BTVER1, CPU_GENERIC,
+      {"btver1", PROCESSOR_BTVER1, CPU_GENERIC,
 	PTA_64BIT | PTA_MMX |  PTA_SSE  | PTA_SSE2 | PTA_SSE3
 	| PTA_SSSE3 | PTA_SSE4A |PTA_ABM | PTA_CX16 | PTA_PRFCHW
 	| PTA_FXSR | PTA_XSAVE},
@@ -32718,6 +32748,8 @@ enum ix86_builtins
   /* TFmode support builtins.  */
   IX86_BUILTIN_INFQ,
   IX86_BUILTIN_HUGE_VALQ,
+  IX86_BUILTIN_NANQ,
+  IX86_BUILTIN_NANSQ,
   IX86_BUILTIN_FABSQ,
   IX86_BUILTIN_COPYSIGNQ,
 
@@ -38105,11 +38137,28 @@ ix86_fold_builtin (tree fndecl, int n_args,
     {
       enum ix86_builtins fn_code = (enum ix86_builtins)
 				   DECL_FUNCTION_CODE (fndecl);
-      if (fn_code ==  IX86_BUILTIN_CPU_IS
-	  || fn_code == IX86_BUILTIN_CPU_SUPPORTS)
+      switch (fn_code)
 	{
+	case IX86_BUILTIN_CPU_IS:
+	case IX86_BUILTIN_CPU_SUPPORTS:
 	  gcc_assert (n_args == 1);
-          return fold_builtin_cpu (fndecl, args);
+	  return fold_builtin_cpu (fndecl, args);
+
+	case IX86_BUILTIN_NANQ:
+	case IX86_BUILTIN_NANSQ:
+	  {
+	    tree type = TREE_TYPE (TREE_TYPE (fndecl));
+	    const char *str = c_getstr (*args);
+	    int quiet = fn_code == IX86_BUILTIN_NANQ;
+	    REAL_VALUE_TYPE real;
+
+	    if (str && real_nan (&real, str, quiet, TYPE_MODE (type)))
+	      return build_real (type, real);
+	    return NULL_TREE;
+	  }
+
+	default:
+	  break;
 	}
     }
 
@@ -38210,7 +38259,7 @@ ix86_init_builtins_va_builtins_abi (void)
 static void
 ix86_init_builtin_types (void)
 {
-  tree float128_type_node, float80_type_node;
+  tree float128_type_node, float80_type_node, const_string_type_node;
 
   /* The __float80 type.  */
   float80_type_node = long_double_type_node;
@@ -38230,6 +38279,10 @@ ix86_init_builtin_types (void)
   layout_type (float128_type_node);
   lang_hooks.types.register_builtin_type (float128_type_node, "__float128");
 
+  const_string_type_node
+    = build_pointer_type (build_qualified_type
+			  (char_type_node, TYPE_QUAL_CONST));
+
   /* This macro is built by i386-builtin-types.awk.  */
   DEFINE_BUILTIN_PRIMITIVE_TYPES;
 }
@@ -38237,7 +38290,7 @@ ix86_init_builtin_types (void)
 static void
 ix86_init_builtins (void)
 {
-  tree t;
+  tree ftype, decl;
 
   ix86_init_builtin_types ();
 
@@ -38250,19 +38303,31 @@ ix86_init_builtins (void)
   def_builtin_const (0, "__builtin_huge_valq",
 		     FLOAT128_FTYPE_VOID, IX86_BUILTIN_HUGE_VALQ);
 
+  ftype = ix86_get_builtin_func_type (FLOAT128_FTYPE_CONST_STRING);
+  decl = add_builtin_function ("__builtin_nanq", ftype, IX86_BUILTIN_NANQ,
+			       BUILT_IN_MD, "nanq", NULL_TREE);
+  TREE_READONLY (decl) = 1;
+  ix86_builtins[(int) IX86_BUILTIN_NANQ] = decl;
+
+  decl = add_builtin_function ("__builtin_nansq", ftype, IX86_BUILTIN_NANSQ,
+			       BUILT_IN_MD, "nansq", NULL_TREE);
+  TREE_READONLY (decl) = 1;
+  ix86_builtins[(int) IX86_BUILTIN_NANSQ] = decl;
+
   /* We will expand them to normal call if SSE isn't available since
      they are used by libgcc. */
-  t = ix86_get_builtin_func_type (FLOAT128_FTYPE_FLOAT128);
-  t = add_builtin_function ("__builtin_fabsq", t, IX86_BUILTIN_FABSQ,
-			    BUILT_IN_MD, "__fabstf2", NULL_TREE);
-  TREE_READONLY (t) = 1;
-  ix86_builtins[(int) IX86_BUILTIN_FABSQ] = t;
+  ftype = ix86_get_builtin_func_type (FLOAT128_FTYPE_FLOAT128);
+  decl = add_builtin_function ("__builtin_fabsq", ftype, IX86_BUILTIN_FABSQ,
+			       BUILT_IN_MD, "__fabstf2", NULL_TREE);
+  TREE_READONLY (decl) = 1;
+  ix86_builtins[(int) IX86_BUILTIN_FABSQ] = decl;
 
-  t = ix86_get_builtin_func_type (FLOAT128_FTYPE_FLOAT128_FLOAT128);
-  t = add_builtin_function ("__builtin_copysignq", t, IX86_BUILTIN_COPYSIGNQ,
-			    BUILT_IN_MD, "__copysigntf3", NULL_TREE);
-  TREE_READONLY (t) = 1;
-  ix86_builtins[(int) IX86_BUILTIN_COPYSIGNQ] = t;
+  ftype = ix86_get_builtin_func_type (FLOAT128_FTYPE_FLOAT128_FLOAT128);
+  decl = add_builtin_function ("__builtin_copysignq", ftype,
+			       IX86_BUILTIN_COPYSIGNQ, BUILT_IN_MD,
+			       "__copysigntf3", NULL_TREE);
+  TREE_READONLY (decl) = 1;
+  ix86_builtins[(int) IX86_BUILTIN_COPYSIGNQ] = decl;
 
   ix86_init_tm_builtins ();
   ix86_init_mmx_sse_builtins ();
@@ -41462,6 +41527,10 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
 	emit_move_insn (target, tmp);
 	return target;
       }
+
+    case IX86_BUILTIN_NANQ:
+    case IX86_BUILTIN_NANSQ:
+      return expand_call (exp, target, ignore);
 
     case IX86_BUILTIN_RDPMC:
     case IX86_BUILTIN_RDTSC:
