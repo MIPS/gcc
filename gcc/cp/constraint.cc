@@ -1621,7 +1621,22 @@ tsubst_logical_operator (tree t, tree args,
   return build_nt (TREE_CODE (t), r0, r1);
 }
 
+static tree
+tsubst_expr_constr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
+{
+  cp_unevaluated guard;
+
+  tree expr = EXPR_CONSTR_EXPR (t);
+  tree check = tsubst_expr (expr, args, complain, in_decl, false);
+  if (check == error_mark_node)
+    return error_mark_node;
+  return build_nt (EXPR_CONSTR, check);
+}
+
+static tree tsubst_parameterized_constraint (tree, tree, tsubst_flags_t, tree);
+
 /* Substitute ARGS into the constraint T. */
+
 tree
 tsubst_constraint (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 {
@@ -1629,15 +1644,18 @@ tsubst_constraint (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     return t;
   switch (TREE_CODE (t))
   {
-    case PRED_CONSTR:
+  case PRED_CONSTR:
     return tsubst_predicate_constraint (t, args, complain, in_decl);
-    case CHECK_CONSTR:
-      return tsubst_check_constraint (t, args, complain, in_decl);
-    case CONJ_CONSTR:
-      return tsubst_logical_operator (t, args, complain, in_decl);
-    case DISJ_CONSTR:
-      return tsubst_logical_operator (t, args, complain, in_decl);
-    default:
+  case CHECK_CONSTR:
+    return tsubst_check_constraint (t, args, complain, in_decl);
+  case CONJ_CONSTR:
+  case DISJ_CONSTR:
+    return tsubst_logical_operator (t, args, complain, in_decl);
+  case PARM_CONSTR:
+    return tsubst_parameterized_constraint (t, args, complain, in_decl);
+  case EXPR_CONSTR:
+    return tsubst_expr_constr (t, args, complain, in_decl);
+  default:
     gcc_unreachable ();
   }
   return error_mark_node;
@@ -1687,6 +1705,22 @@ tsubst_constraint_variables (tree t, tree args,
   if (vars == error_mark_node)
     return error_mark_node;
   return declare_constraint_vars (t, vars);
+}
+
+static tree
+tsubst_parameterized_constraint (tree t, tree args,
+				 tsubst_flags_t complain, tree in_decl)
+{
+  local_specialization_stack stack;
+  tree vars = tsubst_constraint_variables (PARM_CONSTR_PARMS (t),
+					   args, complain, in_decl);
+  if (vars == error_mark_node)
+    return error_mark_node;
+  tree expr = tsubst_constraint (PARM_CONSTR_OPERAND (t), args,
+				 complain, in_decl);
+  if (expr == error_mark_node)
+    return error_mark_node;
+  return build_nt (PARM_CONSTR, vars, expr);
 }
 
 /* Substitute ARGS into the simple requirement T. Note that
