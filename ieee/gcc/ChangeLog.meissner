@@ -1,5 +1,9 @@
 2016-06-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* stor-layout.c (layout_type): Move setting complex MODE to
+	layout_type, instead of setting it ahead of time.
+	* tree.c (build_complex_type): Likewise.
+
 	Merge up to 237608.
 	* REVISION: Update subversion id.
 
