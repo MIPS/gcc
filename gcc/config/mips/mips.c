@@ -22942,6 +22942,18 @@ umips_movep_target_p (rtx reg1, rtx reg2)
     0x00000050, /* 4, 6 */
     0x00000090  /* 4, 7 */
   };
+  static const int matchr7[10] = {
+    0x00000030, /* 4, 5 */
+    0x00000060, /* 5, 6 */
+    0x000000c0, /* 6, 7 */
+    0x00000090, /* 4, 7 */
+  };
+  static const int matchr7_23[10] = {
+    0x0000000c, /* 2, 3 */
+    0x00000030, /* 4, 5 */
+    0x00000060, /* 5, 6 */
+    0x000000c0, /* 6, 7 */
+  };
 
   if (!REG_P (reg1) || !REG_P (reg2))
     return false;
@@ -22954,9 +22966,23 @@ umips_movep_target_p (rtx reg1, rtx reg2)
 
   pair = (1 << regno1) | (1 << regno2);
 
-  for (i = 0; i < ARRAY_SIZE (match); i++)
-    if (pair == match[i])
-      return true;
+ if (TARGET_MICROMIPS_R7 && !TARGET_MOVEP_OLD)
+    {
+      if (TARGET_MOVEP_23)
+	{
+	  for (i = 0; i < ARRAY_SIZE (matchr7_23); i++)
+	    if (pair == matchr7_23[i])
+	      return true;
+	}
+      else
+	for (i = 0; i < ARRAY_SIZE (matchr7); i++)
+	  if (pair == matchr7[i])
+	    return true;
+    }
+  else
+    for (i = 0; i < ARRAY_SIZE (match); i++)
+      if (pair == match[i])
+	return true;
 
   return false;
 }

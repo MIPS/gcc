@@ -541,3 +541,12 @@ Target Undocumented Var(TARGET_SW4X4) Init(0)
 
 mret-in-args
 Target Undocumented Var(TARGET_RET_IN_ARGS) Init (0)
+
+mold-movep
+Target Undocumented Var(TARGET_MOVEP_OLD) Init(0)
+
+mmovep23
+Target Undocumented Var(TARGET_MOVEP_23) Init(0)
+
+mmovep-rev
+Target Undocumented Var(TARGET_MOVEP_REVERSED) Init(0)
