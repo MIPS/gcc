@@ -7140,7 +7140,7 @@ magic_varargs_p (tree fn)
   if (flag_cilkplus && is_cilkplus_reduce_builtin (fn) != BUILT_IN_NONE)
     return 2;
 
-  if (DECL_BUILT_IN (fn))
+  if (DECL_BUILT_IN_CLASS (fn) == BUILT_IN_NORMAL)
     switch (DECL_FUNCTION_CODE (fn))
       {
       case BUILT_IN_CLASSIFY_TYPE:
@@ -9495,10 +9495,10 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn,
 				     "default argument mismatch in "
 				     "overload resolution"))
 			{
-			  inform (input_location,
-				  " candidate 1: %q+#F", cand1->fn);
-			  inform (input_location,
-				  " candidate 2: %q+#F", cand2->fn);
+			  inform (DECL_SOURCE_LOCATION (cand1->fn),
+				  " candidate 1: %q#F", cand1->fn);
+			  inform (DECL_SOURCE_LOCATION (cand2->fn),
+				  " candidate 2: %q#F", cand2->fn);
 			}
 		    }
 		  else

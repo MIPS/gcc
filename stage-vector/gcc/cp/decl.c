@@ -914,8 +914,9 @@ wrapup_globals_for_namespace (tree name_space, void* data ATTRIBUTE_UNUSED)
 	    && !DECL_ARTIFICIAL (decl)
 	    && !TREE_NO_WARNING (decl))
 	  {
-	    warning (OPT_Wunused_function,
-		     "%q+F declared %<static%> but never defined", decl);
+	    warning_at (DECL_SOURCE_LOCATION (decl),
+			OPT_Wunused_function,
+			"%qF declared %<static%> but never defined", decl);
 	    TREE_NO_WARNING (decl) = 1;
 	  }
     }
@@ -1233,18 +1234,20 @@ check_redeclaration_exception_specification (tree new_decl,
       && !comp_except_specs (new_exceptions, old_exceptions, ce_normal))
     {
       const char *msg
-	= "declaration of %q+F has a different exception specifier";
+	= "declaration of %qF has a different exception specifier";
       bool complained = true;
+      location_t new_loc = DECL_SOURCE_LOCATION (new_decl);
       if (DECL_IN_SYSTEM_HEADER (old_decl))
-	complained = pedwarn (0, OPT_Wsystem_headers, msg, new_decl);
+	complained = pedwarn (new_loc, OPT_Wsystem_headers, msg, new_decl);
       else if (!flag_exceptions)
 	/* We used to silently permit mismatched eh specs with
 	   -fno-exceptions, so make them a pedwarn now.  */
-	complained = pedwarn (0, OPT_Wpedantic, msg, new_decl);
+	complained = pedwarn (new_loc, OPT_Wpedantic, msg, new_decl);
       else
-	error (msg, new_decl);
+	error_at (new_loc, msg, new_decl);
       if (complained)
-	inform (0, "from previous declaration %q+F", old_decl);
+	inform (DECL_SOURCE_LOCATION (old_decl),
+		"from previous declaration %qF", old_decl);
     }
 }
 
@@ -1278,8 +1281,11 @@ validate_constexpr_redeclaration (tree old_decl, tree new_decl)
 	  && DECL_TEMPLATE_SPECIALIZATION (new_decl))
 	return true;
 
-      error ("redeclaration %q+D differs in %<constexpr%>", new_decl);
-      error ("from previous declaration %q+D", old_decl);
+      error_at (DECL_SOURCE_LOCATION (new_decl),
+		"redeclaration %qD differs in %<constexpr%> "
+		"from previous declaration", new_decl);
+      inform (DECL_SOURCE_LOCATION (old_decl),
+	      "previous declaration %qD", old_decl);
       return false;
     }
   return true;
@@ -8292,7 +8298,8 @@ grokfndecl (tree ctype,
 	  else if (DECL_DEFAULTED_FN (old_decl))
 	    {
 	      error ("definition of explicitly-defaulted %q+D", decl);
-	      error ("%q+#D explicitly defaulted here", old_decl);
+	      inform (DECL_SOURCE_LOCATION (old_decl),
+		      "%q#D explicitly defaulted here", old_decl);
 	      return NULL_TREE;
 	    }
 
