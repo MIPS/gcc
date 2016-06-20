@@ -4973,7 +4973,13 @@
   { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,move,const,const,const,load,load,load,store,store,store,mtc,fpload,mfc,fpstore,mfc,mtc,mtlo,mflo,mtc,fpload,mfc,fpstore,load,store")
    (set_attr "compression" "all,micromips,micromips,*,*,micromips,micromips,*,micromips,micromips,*,*,*,*,*,*,*,*,*,*,*,*,*,micromips,micromips")
-   (set_attr "mode" "SI")])
+   (set_attr "mode" "SI")
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "24")
+		    (ior (not (match_test "TARGET_MICROMIPS_R7"))
+			 (not (match_test "TARGET_SW4X4"))))
+		  (const_string "no")]
+	      (const_string "yes")))])
 
 (define_insn "*mov<mode>_mips16"
   [(set (match_operand:IMOVE32 0 "nonimmediate_operand" "=d,y,d,d,d,d,d,d,m,*d")

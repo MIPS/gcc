@@ -6304,6 +6304,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	{
 	  if (TARGET_MICROMIPS_R7
 	      && M16LOAD_REG_P (REGNO (src))
+	      && TARGET_SW4X4
 	      && sw4x4_lw4x4_operand (dest, GET_MODE (dest)))
 	    /* FIXME.  Remove nop.  */
 	    return "sdbbp16 3 # sw4x4\t%z1,%0";
