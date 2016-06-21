@@ -380,6 +380,17 @@
   A memory address suitable for a load/store from/to FPR."
   (and (match_code "mem")
        (match_test "mips_legitimate_address_p (mode, XEXP (op, 0), 1)")
+       (ior (match_test "TARGET_ADD_LDST_C1X")
+	    (match_test "TARGET_ADD_LDST_C1XS")
+	    (not (and (match_test "GET_CODE (XEXP (op, 0)) == PLUS")
+		      (ior (match_test "mips_index_address_p (XEXP (op, 0), mode)")
+			   (match_test "mips_index_scaled_address_p (XEXP (op, 0), mode)")))))))
+
+(define_memory_constraint "ZE"
+  "@internal
+  A non-indexed memory address."
+  (and (match_code "mem")
+       (match_test "mips_legitimate_address_p (mode, XEXP (op, 0), 1)")
        (not (and (match_test "GET_CODE (XEXP (op, 0)) == PLUS")
 		 (ior (match_test "mips_index_address_p (XEXP (op, 0), mode)")
 		      (match_test "mips_index_scaled_address_p (XEXP (op, 0), mode)"))))))

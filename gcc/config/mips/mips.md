@@ -5324,8 +5324,8 @@
 })
 
 (define_insn "*movdf_hardfloat"
-  [(set (match_operand:DF 0 "nonimmediate_operand" "=f,f,f,ZB,m,*f,*d,*d,*d,*m")
-	(match_operand:DF 1 "move_operand" "f,G,ZB,f,G,*d,*f,*d*G,*m,*d"))]
+  [(set (match_operand:DF 0 "nonimmediate_operand" "=f,f,f,ZB,ZE,*f,*d,*d,*d,*ZE")
+	(match_operand:DF 1 "move_operand" "f,G,ZB,f,G,*d,*f,*d*G,*ZE,*d"))]
   "TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT
    && (register_operand (operands[0], DFmode)
        || reg_or_0_operand (operands[1], DFmode))"
