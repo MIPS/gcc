@@ -543,3 +543,12 @@ Target Undocumented Var(TARGET_ADD_LW4X4) Init(0)
 
 madd-sw4x4
 Target Undocumented Var(TARGET_ADD_SW4X4) Init(0)
+
+madd-new-movep
+Target Undocumented Var(TARGET_ADD_NEW_MOVEP) Init(0)
+
+madd-new-movep23
+Target Undocumented Var(TARGET_ADD_NEW_MOVEP23) Init(0)
+
+madd-movep-reversed
+Target Undocumented Var(TARGET_ADD_MOVEP_REVERSED) Init(0)

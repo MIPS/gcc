@@ -127,10 +127,50 @@
   "TARGET_MICROMIPS
    && umips_movep_target_p (operands[0], operands[2])"
 {
-  if (REGNO (operands[0]) < REGNO (operands[2]))
-    return "movep\t%0,%2,%z1,%z3";
+  if (TARGET_ADD_NEW_MOVEP || TARGET_ADD_NEW_MOVEP23)
+    {
+      if (REGNO (operands[0]) < REGNO (operands[2]))
+	return "sdbbp16 6 # movep\t%0,%2,%z1,%z3";
+      else
+	return "sdbbp16 6 # movep\t%2,%0,%z3,%z1";
+    }
   else
-    return "movep\t%2,%0,%z3,%z1";
+    {
+      if (REGNO (operands[0]) < REGNO (operands[2]))
+	return "movep\t%0,%2,%z1,%z3";
+      else
+	return "movep\t%2,%0,%z3,%z1";
+    }
+}
+  [(set_attr "type" "move")
+   (set_attr "mode" "<MODE>")
+   (set_attr "can_delay" "no")])
+
+;; MOVEP reversed, the pair is now a source rather than destination
+(define_peephole2
+  [(set (match_operand:MOVEP1 0 "movep_src_operand_rev" "")
+	(match_operand:MOVEP1 1 "register_operand" ""))
+   (set (match_operand:MOVEP2 2 "movep_src_operand_rev" "")
+	(match_operand:MOVEP2 3 "register_operand" ""))]
+  "TARGET_MICROMIPS_R7
+   && TARGET_ADD_MOVEP_REVERSED
+   && umips_movep_target_p (operands[1], operands[3])"
+  [(parallel [(set (match_dup 0) (match_dup 1))
+	      (set (match_dup 2) (match_dup 3))])])
+
+(define_insn "*movep<MOVEP1:mode><MOVEP2:mode>_rev"
+  [(parallel [(set (match_operand:MOVEP1 0 "movep_src_operand_rev")
+		   (match_operand:MOVEP1 1 "register_operand"))
+	      (set (match_operand:MOVEP2 2 "movep_src_operand_rev")
+		   (match_operand:MOVEP2 3 "register_operand"))])]
+  "TARGET_MICROMIPS_R7
+   && TARGET_ADD_MOVEP_REVERSED
+   && umips_movep_target_p (operands[1], operands[3])"
+{
+  if (REGNO (operands[1]) < REGNO (operands[3]))
+    return "sdbbp16 6 # movep\t%0,%2,%z1,%z3";
+  else
+    return "sdbbp16 6 # movep\t%2,%0,%z3,%z1";
 }
   [(set_attr "type" "move")
    (set_attr "mode" "<MODE>")
