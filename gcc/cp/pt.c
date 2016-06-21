@@ -9068,7 +9068,7 @@ uses_outer_template_parms (tree decl)
     return true;
   tree ci = get_constraints (decl);
   if (ci)
-    ci = CI_NORMALIZED_CONSTRAINTS (ci);
+    ci = CI_ASSOCIATED_CONSTRAINTS (ci);
   if (ci && for_each_template_parm (ci, template_parm_outer_level,
 				    &depth, NULL, /*nondeduced*/true))
     return true;
