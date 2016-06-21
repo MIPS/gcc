@@ -1,3 +1,21 @@
+2016-06-21  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* gcc.target/powerpc/vadsdu-0.c: Replace
+	dg-require-effective-target directive to allow test to run on more
+	platforms, and add dg-skip-if directive to disable test on aix
+	platforms because of known incompatibilities.
+	* gcc.target/powerpc/vadsdu-1.c: Likewise.
+	* gcc.target/powerpc/vadsdu-2.c: Likewise.
+	* gcc.target/powerpc/vadsdu-3.c: Likewise.
+	* gcc.target/powerpc/vadsdu-4.c: Likewise.
+	* gcc.target/powerpc/vadsdu-5.c: Likewise.
+	* gcc.target/powerpc/vadsdub-1.c: Likewise.
+	* gcc.target/powerpc/vadsdub-2.c: Likewise.
+	* gcc.target/powerpc/vadsduh-1.c: Likewise.
+	* gcc.target/powerpc/vadsduh-2.c: Likewise.
+	* gcc.target/powerpc/vadsduw-1.c: Likewise.
+	* gcc.target/powerpc/vadsduw-2.c: Likewise.
+
 2016-06-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 237608.
