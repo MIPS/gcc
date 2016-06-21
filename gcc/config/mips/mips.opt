@@ -558,3 +558,9 @@ Target Undocumented Var(TARGET_ADD_LDST_XS) Init(0)
 
 madd-ldst-x
 Target Undocumented Var(TARGET_ADD_LDST_X) Init(0)
+
+madd-ldst-c1xs
+Target Undocumented Var(TARGET_ADD_LDST_C1X) Init(0)
+
+madd-ldst-c1x
+Target Undocumented Var(TARGET_ADD_LDST_C1XS) Init(0)
