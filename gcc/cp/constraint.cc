@@ -806,12 +806,9 @@ check_for_logical_overloads (tree t)
   if (TREE_CODE (fn) != FUNCTION_DECL)
     return false;
 
-  tree name = DECL_NAME (fn);
-  if ((name == operator_name_info [TRUTH_ANDIF_EXPR].identifier)
-      || (name == operator_name_info [TRUTH_ORIF_EXPR].identifier))
+  if (DECL_OVERLOADED_OPERATOR_P (fn))
     {
-      location_t loc =
-        EXPR_HAS_LOCATION (t) ? EXPR_LOCATION (t) : input_location;
+      location_t loc = EXPR_LOC_OR_LOC (t, input_location);
       error_at (loc, "constraint %qE, uses overloaded operator", t);
       return true;
     }
