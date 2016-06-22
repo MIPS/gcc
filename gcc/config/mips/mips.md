@@ -7555,9 +7555,22 @@
 	 (match_operand:GPR 3 "reg_or_0_operand" "0,dJ")))]
   "!TARGET_MIPS16 && ISA_HAS_CONDMOVE"
   ;; FIXME
-  "@
-    sdbbp32 17 # mov%T4\t%0,%z2,%1
-    sdbbp32 17 # mov%t4\t%0,%z3,%1"
+{
+  if (TARGET_MICROMIPS_R7 && TARGET_ADD_CONDMOVE)
+    {
+      if (which_alternative == 0)
+	return "sdbbp32 17 # mov%T4\t%0,%z2,%1";
+      else
+	return "sdbbp32 17 # mov%t4\t%0,%z3,%1";
+    }
+  else
+    {
+      if (which_alternative == 0)
+	return "mov%T4\t%0,%z2,%1";
+      else
+	return "mov%t4\t%0,%z3,%1";
+    }
+}
   [(set_attr "type" "condmove")
    (set_attr "mode" "<GPR:MODE>")])
 
@@ -7587,9 +7600,22 @@
 	 (match_operand:GPR 3 "reg_or_0_operand" "0,dJ")))]
   "!TARGET_MIPS16 && ISA_HAS_CONDMOVE"
   ;; FIXME
-  "@
-    sdbbp32 17 # movn\t%0,%z2,%1
-    sdbbp32 17 # movz\t%0,%z3,%1"
+{
+  if (TARGET_MICROMIPS_R7 && TARGET_ADD_CONDMOVE)
+    {
+      if (which_alternative == 0)
+	return "sdbbp32 17 # movn\t%0,%z2,%1";
+      else
+	return "sdbbp32 17 # movz\t%0,%z3,%1";
+    }
+  else
+    {
+      if (which_alternative == 0)
+	return "movn\t%0,%z2,%1";
+      else
+	return "movz\t%0,%z3,%1";
+    }
+}
   [(set_attr "type" "condmove")
    (set_attr "mode" "<GPR:MODE>")])
 

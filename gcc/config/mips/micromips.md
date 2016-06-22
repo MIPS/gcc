@@ -128,10 +128,20 @@
   "TARGET_MICROMIPS
    && umips_movep_target_p (operands[0], operands[2])"
 {
-  if (REGNO (operands[0]) < REGNO (operands[2]))
-    return "sdbbp16 4 # movep\t%0,%2,%z1,%z3";
+  if (TARGET_ADD_NEW_MOVEP || TARGET_ADD_NEW_MOVEP23)
+    {
+      if (REGNO (operands[0]) < REGNO (operands[2]))
+	return "sdbbp16 4 # movep\t%0,%2,%z1,%z3";
+      else
+	return "sdbbp16 4 # movep\t%2,%0,%z3,%z1";
+    }
   else
-    return "sdbbp16 4 # movep\t%2,%0,%z3,%z1";
+    {
+      if (REGNO (operands[0]) < REGNO (operands[2]))
+	return "movep\t%0,%2,%z1,%z3";
+      else
+	return "movep\t%2,%0,%z3,%z1";
+    }
 }
   [(set_attr "type" "move")
    (set_attr "mode" "<MODE>")
