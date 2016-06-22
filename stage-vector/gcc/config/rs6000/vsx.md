@@ -2733,3 +2733,13 @@
   "TARGET_P9_VECTOR"
   "lxsi<wd>zx %x0,%y1"
   [(set_attr "type" "fpload")])
+
+(define_insn "p9_stxsi<wd>x"
+  [(set (match_operand:QHI 0 "reg_or_indexed_operand" "=r,Z")
+	(unspec:QHI [(match_operand:DI 1 "vsx_register_operand" "wi,wi")]
+		    UNSPEC_P9_MEMORY))]
+  "TARGET_P9_VECTOR"
+  "@
+   mfvsrd %0,%x1
+   stxsi<wd>x %x1,%y0"
+  [(set_attr "type" "mffgpr,fpstore")])
