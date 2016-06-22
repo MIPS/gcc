@@ -1,3 +1,438 @@
+2016-06-21  Andrew Burgess  <andrew.burgess@embecosm.com>
+
+	* bb-reorder.c (pass_partition_blocks::gate): Update comment.
+
+2016-06-21  John David Anglin  <danglin@gcc.gnu.org>
+
+	* gcov-tool.c (profile_rewrite): Use int64_t instead of long long.
+	(do_rewrite): likewise.
+
+2016-06-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* common/config/mep/mep-common.c: Remove.
+	* config.gcc: Remove mep-* support.
+	* config/mep/constraints.md: Remove.
+	* config/mep/default.h: Remove.
+	* config/mep/intrinsics.h: Remove.
+	* config/mep/intrinsics.md: Remove.
+	* config/mep/ivc2-template.h: Remove.
+	* config/mep/mep-c5.cpu: Remove.
+	* config/mep/mep-core.cpu: Remove.
+	* config/mep/mep-default.cpu: Remove.
+	* config/mep/mep-ext-cop.cpu: Remove.
+	* config/mep/mep-intrin.h: Remove.
+	* config/mep/mep-ivc2.cpu: Remove.
+	* config/mep/mep-pragma.c: Remove.
+	* config/mep/mep-protos.h: Remove.
+	* config/mep/mep.c: Remove.
+	* config/mep/mep.cpu: Remove.
+	* config/mep/mep.h: Remove.
+	* config/mep/mep.md: Remove.
+	* config/mep/mep.opt: Remove.
+	* config/mep/predicates.md: Remove.
+	* config/mep/t-mep: Remove.
+	* doc/install.texi: Remove mep-* documentation.
+	* doc/md.texi: Likewise.
+
+2016-06-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* config.gcc: Remove support for avr-rtems.
+	* config/avr/gen-avr-mmcu-specs.c: Likewise.
+	* config/avr/rtems.h: Remove.
+	* config/avr/t-rtems: Remove.
+
+2016-06-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* config.gcc: Remove m32r-rtems support.
+	* config/m32r/rtems.h: Remove.
+
+2016-06-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* config.gcc: Remove h8300-rtems support.
+	* config/h8300/rtems.h: Remove.
+	* config/h8300/t-rtems: Remove.
+
+2016-06-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* config.gcc: Remove support for knetbsd.
+	* configure.ac: Likewise.
+	* config/i386/knetbsd-gnu.h: Remove.  * config/i386/knetbsd-gnu64.h: Remove.
+	* config/knetbsd-gnu.h: Remove.
+	* configure: Regenerate.
+
+2016-06-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* config.gcc: Remove support for openbsd 2 and 3.
+	* config/openbsd-oldgas.h: Remove.
+
+2016-06-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* config.gcc: Remove interix support.
+	* config/i386/i386-interix.h: Remove.
+	* config/i386/interix.opt: Remove.
+	* config/i386/t-interix: Remove.
+	* configure: Regenerate.
+	* configure.ac: Remove interix support.
+	* doc/install.texi: Remove interix documentation.
+
+2016-06-21  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* config/rs6000/rs6000.h: Add conditional preprocessing directives
+	to disable Power9-specific compiler features if HAVE_AS_POWER9 is
+	not defined.
+
+2016-06-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree.c (verify_type_variant): Skip TYPE_SIZE and TYPE_SIZE_UNIT if
+	they are both PLACEHOLDER_EXPRs.
+
+2016-06-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* stor-layout.c (layout_type): Move setting complex MODE to
+	layout_type, instead of setting it ahead of time by the caller.
+	* tree.c (build_complex_type): Likewise.
+
+2016-06-21  Martin Liska  <mliska@suse.cz>
+
+	* predict.c (force_edge_cold): Replace imposisble with
+	impossible.
+
+2016-06-21  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* config/i386/i386.c (ix86_emit_swsqrtsf): Emit vrsqrt28ps.
+	* config/i386/sse.md (define_expand "rsqrtv16sf2"): New.
+
+2016-06-21  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* config/i386/i386.c (ix86_emit_swdivsf): Emit vrcp28ps.
+
+2016-06-21  H.J. Lu  <hongjiu.lu@intel.com>
+	    Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR target/71549
+	* config/i386/i386.c (timode_scalar_chain::fix_debug_reg_uses):
+	New member function to convert V1TImode register to SUBREG
+	TImode in debug insn.
+	(timode_scalar_chain::convert_insn): Call fix_debug_reg_uses
+	after changing register mode to V1TImode.
+
+2016-06-21  Virendra Pathak  <virendra.pathak@broadcom.com>
+
+	* config/aarch64/aarch64-cores.def (vulcan): New core.
+	* config/aarch64/aarch64-tune.md: Regenerate.
+	* doc/invoke.texi: Document vulcan as an available option.
+
+2016-06-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* cse.c (canon_asm_operands): New function extracted from...
+	(canonicalize_insn): ...here.  Call it to canonicalize an ASM_OPERANDS
+	either standalone or member of a PARALLEL.
+
+2016-06-21  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/30417
+	* config/avr/gen-avr-mmcu-specs.c (print_mcu):
+	[*link_data_start]: Wrap -Tdata into %{!Tdata:...}.
+	[*link_text_start]: Wrap -Ttext into %{!Ttext:...}.
+
+2016-06-21  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/71103
+	* config/avr/avr.md (movqi): Only handle loading subreg:qi of
+	constant addresses if can_create_pseudo_p.
+
+2016-06-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/71588
+	* tree-ssa-strlen.c (valid_builtin_call): New function.
+	(adjust_last_stmt, handle_builtin_memset, strlen_optimize_stmt): Use
+	it.
+
+2016-06-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/71581
+	* tree-ssa-uninit.c (warn_uninit): If EXPR and VAR are NULL,
+	see if T isn't anonymous SSA_NAME with COMPLEX_EXPR created
+	for conversion of scalar user var to complex type and use the
+	underlying SSA_NAME_VAR in that case.  If EXPR is still NULL,
+	punt.
+
+	PR rtl-optimization/71591
+	* toplev.c (toplev::run_self_tests): If no_backend, complain and
+	don't run any tests.
+
+2016-06-20  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/71571
+	* config/cris/cris.c (cris_asm_output_mi_thunk): Add missing "ba"
+	delay-slot "nop" for PIC with CRIS v32.  Also add missing leading
+	space for PIC with non-v32 and the common non-PIC "jump".
+
+2016-06-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/71559
+	* config/i386/i386.c (ix86_fp_cmp_code_to_pcmp_immediate): Fix up
+	returned values and add UN*/LTGT/*ORDERED cases with values matching
+	D operand modifier on vcmp for AVX.
+
+2016-06-20  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64.opt
+	(mpc-relative-literal-loads): Rename internal option name.
+	* config/aarch64/aarch64.c
+	(aarch64_nopcrelative_literal_loads): Rename to
+	aarch64_pcrelative_literal_loads.
+	(aarch64_expand_mov_immediate): Likewise.
+	(aarch64_secondary_reload): Likewise.
+	(aarch64_can_use_per_function_literal_pools_p): Likewise.
+	(aarch64_override_options_after_change_1): Rename and simplify logic.
+	(aarch64_classify_symbol): Merge large model checks into switch,
+	remove pc-relative load check.
+
+2016-06-20  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/arm/aarch-cost-tables.h (cortexa53_extra_costs): Make FP
+	costs relative to the cost of a register move.
+
+2016-06-20  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/arm_neon.h (vcvt_n_f64_s64): New.
+	(vcvt_n_f64_u64): Likewise.
+	(vcvt_n_s64_f64): Likewise.
+	(vcvt_n_u64_f64): Likewise.
+	(vcvt_f64_s64): Likewise.
+	(vrecpe_f64): Likewise.
+	(vcvt_f64_u64): Likewise.
+	(vrecps_f64): Likewise.
+
+2016-06-20  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64.md
+	(<FCVT_F2FIXED:fcvt_fixed_insn><GPF:mode>3): Add attributes to
+	iterators.
+	(<FCVT_FIXED2F:fcvt_fixed_insn><GPI:mode>3): Likewise.  Correct
+	attributes.
+	* config/aarch64/aarch64-builtins.c
+	(aarch64_types_binop_uss_qualifiers): Delete.
+	(TYPES_BINOP_USS): Likewise.
+	(aarch64_types_binop_sus_qualifiers): Likewise.
+	(TYPES_BINOP_SUS): Likewise.
+	(aarch64_types_fcvt_from_unsigned_qualifiers): New.
+	(TYPES_FCVTIMM_SUS): Likewise.
+	* config/aarch64/aarch64-simd-builtins.def (scvtf): Use SHIFTIMM
+	rather than BINOP.
+	(ucvtf): Use FCVTIMM_SUS rather than BINOP_SUS.
+	(fcvtzs): Use SHIFTIMM rather than BINOP.
+	(fcvtzu): Use SHIFTIMM_USS rather than BINOP_USS.
+
+2016-06-20  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/arm/aarch-cost-tables.h (cortexa57_extra_costs): Make FP
+	costs relative to the cost of a register move.
+
+2016-06-20  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_modes_tieable_p):
+	Allow scalar/single vector modes to be tieable.
+
+2016-06-20  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/arm/cortex-a57.md (cortex_a57_fp_cpys): Add fcsel.
+
+2016-06-20  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* params.def (PARAM_ALIGN_LOOP_ITERATIONS): Use "alignment" instead of
+	"alignement".
+	* tree.h (TYPE_ALIGN): Likewise.
+
+2016-06-20  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/71103
+	* config/avr/avr.md (movqi): Handle loading subreg:qi (const).
+
+2016-06-20  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr.c (avr_print_operand): Fix "format not a string
+	literal" build warnings.
+	(avr_print_operand_address): Dito.
+
+2016-06-19  David Edelsohn  <dje.gcc@gmail.com>
+
+	PR target/71375
+	* config/rs6000/aix51.h (TARGET_EXTRA_BUILTINS): Define as 0.
+	* config/rs6000/aix43.h (TARGET_EXTRA_BUILTINS): Same.
+
+2016-06-18  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.h (TARGET_LONG_PIC_PCREL_CALL): Remove.
+
+2016-06-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR bootstrap/71435
+	* reload1.c (reload): Pass 0 to finish_spills when called because
+	update_eliminables_and_spill returns true and remove did_spill.
+	(finish_spills): Adjust comment and document GLOBAL parameter.
+
+2016-06-17  DJ Delorie  <dj@redhat.com>
+
+	PR target/71338
+	* config/rl78/rl78-expand.c (umulqihi3): Enable for G10.
+	* config/rl78/rl78-virtual.c (umulhi3_shift_virt): Likewise.
+	(umulqihi3_virt): Likewise.
+	* config/rl78/rl78-real.c (umulhi3_shift_real): Likewise.
+	(umulqihi3_real): Likewise.
+
+2016-06-17  Martin Liska  <mliska@suse.cz>
+
+	* tree-ssa-reassoc.c (transform_add_to_multiply): Use auto_vec.
+
+2016-06-17  Martin Liska  <mliska@suse.cz>
+
+	* predict.def: PRED_LOOP_EXIT from 92 to 85.
+
+2016-06-17  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/arm/arm_neon.h (vadd_f32): replace __FAST_MATH with
+	__FAST_MATH__.
+	(vaddq_f32): Likewise.
+	(vmul_f32): Likewise.
+	(vmulq_f32): Likewise.
+	(vsub_f32): Likewise.
+	(vsubq_f32): Likewise.
+
+2016-06-17  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/71347
+	* tree-ssa-loop-ivopts.c (determine_group_iv_cost_address): Compute
+	cost for all uses in group.
+
+2016-06-17 Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-vect-loop.c (vect_create_epilog_for_reduction): Only
+	insert gimple seq if it's not empty.
+
+2016-06-17  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-vectorizer.h (struct dr_with_seg_len): Remove class
+	member OFFSET.
+	* tree-vect-data-refs.c (operator ==): Handle DR_OFFSET directly,
+	rather than OFFSET.
+	(comp_dr_with_seg_len_pair): Ditto.
+	(vect_prune_runtime_alias_test_list): Ditto.  Also Canonicalize
+	struct dr_with_seg_len_pair against DR_OFFSET.
+	* tree-vect-loop-manip.c (vect_create_cond_for_alias_checks): Handle
+	DR_OFFSET directly.
+
+2016-06-17  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	* config/aarch64/geniterators.sh: Handle parenthesised conditions.
+
+2016-06-16  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.c (pa_output_pic_pcrel_sequence): New.
+	(pa_output_lbranch): Use pa_output_pic_pcrel_sequence.
+	(pa_output_millicode_call): Likewise.
+	(pa_output_call): Likewise.
+	(pa_output_indirect_call): Likewise.
+	(pa_asm_output_mi_thunk): Likewise.
+
+2016-06-16  Bernhard Reutner-Fischer  <aldot@gcc.gnu.org>
+
+	* doc/invoke.texi (x86 Options): Fix -mno-fp-ret-in-387 typo.
+
+2016-06-16  Martin Liska  <mliska@suse.cz>
+
+	* predict.c (combine_predictions_for_insn): When we find a first
+	match predictor, we should consider just predictors with
+	PRED_FLAG_FIRST_MATCH.  Print either first match (if any) or
+	DS theory predictor.
+	(combine_predictions_for_bb): Likewise.
+
+2016-06-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimplify_scan_omp_clauses): Handle COMPONENT_REFs
+	with base of reference to struct.
+
+2016-06-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	* doc/invoke.texi (x86 Options): Document -m80387 and -mhard-float.
+
+2016-06-16  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* config/avr/avr.c (avr_asm_init_sections): Remove setup of
+	progmem_swtable_section.
+	(progmem_swtable_section): Remove.
+	(avr_asm_function_rodata_section): Remove.
+	(TARGET_ASM_FUNCTION_RODATA_SECTION): Remove.
+	* config/avr/avr.h (JUMP_TABLES_IN_TEXT_SECTION: Define to 1.
+
+2016-06-16  Jocelyn Mayer  <l_indien@magic.fr>
+
+	* config/i386/driver-i386.c (host_detect_local_cpu): Set
+	PROCESSOR_K8 for signature_CENTAUR_ebx with has_longmode.
+	<case PROCESSOR_K8>: Pass nano-3000, nano, eden-x2 or k8 for
+	signature_CENTAUR_ebx.
+	* config/i386/i386.c (ix86_option_override_internal): Add
+	definitions for VIA c7, samuel-2, nehemiah, esther, eden-x2, eden-x4,
+	nano, nano-1000, nano-2000, nano-3000, nano-x2 and nano-x4.
+	* doc/invoke.texi (x86 Options): Document new VIA -march entries.
+
+2016-06-16  Martin Liska  <mliska@suse.cz>
+
+	* predict.def: Add fortran loop preheader predictor.
+	* gimple-fold.c (gimple_fold_stmt_to_constant_1): Properly
+	fold IFN_BUILTIN_EXPECT with a known constant argument.
+
+2016-06-16  Martin Liska  <mliska@suse.cz>
+
+	* predict.def: Add 'Fortran' to display text of all
+	PRED_FORTRAN_* predictors.
+
+2016-06-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/71242
+	* config/ia64/ia64.c (enum ia64_builtins) [IA64_BUILTIN_NANQ]: New.
+	[IA64_BUILTIN_NANSQ]: Ditto.
+	(ia64_fold_builtin): New function.
+	(TARGET_FOLD_BUILTIN): New define.
+	(ia64_init_builtins) Declare const_string_type node.
+	Add __builtin_nanq and __builtin_nansq builtin functions.
+	(ia64_expand_builtin): Handle IA64_BUILTIN_NANQ and IA64_BUILTIN_NANSQ.
+
+2016-06-16  Nick Clifton  <nickc@redhat.com>
+
+	* config/msp430/msp430-opts.h (msp430_hwmult_types): Add
+	MSP430_HWMULT_ prefix to enum values.
+	(msp430_regions): Add MSP430_REGION_ prefix to enum values.
+	* config/msp430/msp430.c: Update use of enum values.
+	* config/msp430/msp430.md: Likewise.
+	* config/msp430/msp430.opt: Likewise.
+
+2016-06-16  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-ssa-loop-ivcanon.c (tree_estimate_loop_size): Fix estimation
+	of comparsions in the last iteration.
+
+2016-06-16  Claudiu Zissulescu  <claziss@synopsys.com>
+	    Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* config/arc/arc.c (arc_print_operand_address): Handle pc-relative
+	addresses.
+	(arc_needs_pcl_p): Add GOTOFFPC.
+	(arc_legitimate_pic_addr_p): Likewise.
+	(arc_output_pic_addr_const): Likewise.
+	(arc_legitimize_pic_address): Generate a pc-relative address using
+	GOTOFFPC.
+	(arc_output_libcall): Use @pcl syntax.
+	(arc_delegitimize_address_0): Delegitimize ARC_UNSPEC_GOTOFFPC.
+	* config/arc/arc.md ("unspec"): Add ARC_UNSPEC_GOTOFFPC.
+	(*movsi_insn): Use @pcl syntax.
+	(doloop_begin_i): Likewise.
+
+2016-06-16  Martin Liska  <mliska@suse.cz>
+
+	* predict.def: Define a new predictor.
+
 2016-06-16  Claudiu Zissulescu  <claziss@synopsys.com>
 
 	* config/arc/arc.opt (mtp-regno): Update text.
@@ -2512,7 +2947,7 @@
 	x87 instructions if only general registers are allowed.
 	(ix86_target_string): Add ix86_flags argument. Handle additional
 	flags options through ix86_flags argument.  Update all callers.
-	* doc/invoke.texi: Document -mgeneral-regs-only.
+	* doc/invoke.texi (x86 Options): Document -mgeneral-regs-only.
 
 2016-05-25  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
 

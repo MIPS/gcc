@@ -39,6 +39,7 @@ with Debug;     use Debug;
 with Einfo;     use Einfo;
 with Elists;    use Elists;
 with Errout;    use Errout;
+with Exp_Ch7;   use Exp_Ch7;
 with Exp_Dist;  use Exp_Dist;
 with Exp_Util;  use Exp_Util;
 with Freeze;    use Freeze;
@@ -16503,7 +16504,19 @@ package body Sem_Prag is
          when Pragma_Invariant => Invariant : declare
             Discard : Boolean;
             Typ     : Entity_Id;
-            Type_Id : Node_Id;
+            Typ_Arg : Node_Id;
+
+            CRec_Typ : Entity_Id;
+            --  The corresponding record type of Full_Typ
+
+            Full_Base : Entity_Id;
+            --  The base type of Full_Typ
+
+            Full_Typ : Entity_Id;
+            --  The full view of Typ
+
+            Priv_Typ : Entity_Id;
+            --  The partial view of Typ
 
          begin
             GNAT_Pragma;
@@ -16519,14 +16532,16 @@ package body Sem_Prag is
 
             Check_Arg_Is_Local_Name (Arg1);
 
-            Type_Id := Get_Pragma_Arg (Arg1);
-            Find_Type (Type_Id);
-            Typ := Entity (Type_Id);
+            Typ_Arg := Get_Pragma_Arg (Arg1);
+            Find_Type (Typ_Arg);
+            Typ := Entity (Typ_Arg);
+
+            --  Nothing to do of the related type is erroneous in some way
 
             if Typ = Any_Type then
                return;
 
-            --  Invariants allowed in interface types (RM 7.3.2(3/3))
+            --  AI12-0041: Invariants are allowed in interface types
 
             elsif Is_Interface (Typ) then
                null;
@@ -16536,26 +16551,46 @@ package body Sem_Prag is
             --  a class-wide invariant can only appear on a private declaration
             --  or private extension, not a completion.
 
-            elsif Ekind_In (Typ, E_Private_Type,
-                                 E_Record_Type_With_Private,
-                                 E_Limited_Private_Type)
+            --  A [class-wide] invariant may be associated a [limited] private
+            --  type or a private extension.
+
+            elsif Ekind_In (Typ, E_Limited_Private_Type,
+                                 E_Private_Type,
+                                 E_Record_Type_With_Private)
             then
                null;
 
-            elsif In_Private_Part (Current_Scope)
-              and then Has_Private_Declaration (Typ)
+            --  A non-class-wide invariant may be associated with the full view
+            --  of a [limited] private type or a private extension.
+
+            elsif Has_Private_Declaration (Typ)
               and then not Class_Present (N)
             then
                null;
 
-            elsif In_Private_Part (Current_Scope) then
+            --  A class-wide invariant may appear on the partial view only
+
+            elsif Class_Present (N) then
                Error_Pragma_Arg
-                 ("pragma% only allowed for private type declared in "
-                  & "visible part", Arg1);
+                 ("pragma % only allowed for private type", Arg1);
+               return;
+
+            --  A regular invariant may appear on both views
 
             else
                Error_Pragma_Arg
-                 ("pragma% only allowed for private type", Arg1);
+                 ("pragma % only allowed for private type or corresponding "
+                  & "full view", Arg1);
+               return;
+            end if;
+
+            --  An invariant associated with an abstract type (this includes
+            --  interfaces) must be class-wide.
+
+            if Is_Abstract_Type (Typ) and then not Class_Present (N) then
+               Error_Pragma_Arg
+                 ("pragma % not allowed for abstract type", Arg1);
+               return;
             end if;
 
             --  A pragma that applies to a Ghost entity becomes Ghost for the
@@ -16563,37 +16598,39 @@ package body Sem_Prag is
 
             Mark_Pragma_As_Ghost (N, Typ);
 
-            --  Not allowed for abstract type in the non-class case (it is
-            --  allowed to use Invariant'Class for abstract types).
+            --  The pragma defines a type-specific invariant, the type is said
+            --  to have invariants of its "own".
 
-            if Is_Abstract_Type (Typ) and then not Class_Present (N) then
-               Error_Pragma_Arg
-                 ("pragma% not allowed for abstract type", Arg1);
-            end if;
+            Set_Has_Own_Invariants (Typ);
 
-            --  Link the pragma on to the rep item chain, for processing when
-            --  the type is frozen.
-
-            Discard := Rep_Item_Too_Late (Typ, N, FOnly => True);
-
-            --  Note that the type has at least one invariant, and also that
-            --  it has inheritable invariants if we have Invariant'Class
-            --  or Type_Invariant'Class. Build the corresponding invariant
-            --  procedure declaration, so that calls to it can be generated
-            --  before the body is built (e.g. within an expression function).
-
-            --  Interface types have no invariant procedure; their invariants
-            --  are propagated to the build invariant procedure of all the
-            --  types covering the interface type.
-
-            if not Is_Interface (Typ) then
-               Insert_After_And_Analyze
-                 (N, Build_Invariant_Procedure_Declaration (Typ));
-            end if;
+            --  If the invariant is class-wide, then it can be inherited by
+            --  derived or interface implementing types. The type is said to
+            --  have "inheritable" invariants.
 
             if Class_Present (N) then
                Set_Has_Inheritable_Invariants (Typ);
             end if;
+
+            Get_Views (Typ, Priv_Typ, Full_Typ, Full_Base, CRec_Typ);
+
+            --  Propagate invariant-related attributes to all views of the type
+            --  and any additional types that may have been created.
+
+            Propagate_Invariant_Attributes (Priv_Typ,  From_Typ => Typ);
+            Propagate_Invariant_Attributes (Full_Typ,  From_Typ => Typ);
+            Propagate_Invariant_Attributes (Full_Base, From_Typ => Typ);
+            Propagate_Invariant_Attributes (CRec_Typ,  From_Typ => Typ);
+
+            --  Chain the pragma on to the rep item chain, for processing when
+            --  the type is frozen.
+
+            Discard := Rep_Item_Too_Late (Typ, N, FOnly => True);
+
+            --  Create the declaration of the invariant procedure which will
+            --  verify the invariant at run-time. Note that interfaces do not
+            --  carry such a declaration.
+
+            Build_Invariant_Procedure_Declaration (Typ);
          end Invariant;
 
          ----------------
@@ -23267,6 +23304,82 @@ package body Sem_Prag is
      (N         : Node_Id;
       Freeze_Id : Entity_Id := Empty)
    is
+      Disp_Typ : Entity_Id;
+      --  The dispatching type of the subprogram subject to the pre- or
+      --  postcondition.
+
+      function Check_References (Nod : Node_Id) return Traverse_Result;
+      --  Check that expression Nod does not mention non-primitives of the
+      --  type, global objects of the type, or other illegalities described
+      --  and implied by AI12-0113.
+
+      ----------------------
+      -- Check_References --
+      ----------------------
+
+      function Check_References (Nod : Node_Id) return Traverse_Result is
+      begin
+         if Nkind (Nod) = N_Function_Call
+           and then Is_Entity_Name (Name (Nod))
+         then
+            declare
+               Func : constant Entity_Id := Entity (Name (Nod));
+               Form : Entity_Id;
+
+            begin
+               --  An operation of the type must be a primitive
+
+               if No (Find_Dispatching_Type (Func)) then
+                  Form := First_Formal (Func);
+                  while Present (Form) loop
+                     if Etype (Form) = Disp_Typ then
+                        Error_Msg_NE
+                          ("operation in class-wide condition must be "
+                           & "primitive of &", Nod, Disp_Typ);
+                     end if;
+
+                     Next_Formal (Form);
+                  end loop;
+
+                  --  A return object of the type is illegal as well
+
+                  if Etype (Func) = Disp_Typ
+                    or else Etype (Func) = Class_Wide_Type (Disp_Typ)
+                  then
+                     Error_Msg_NE
+                       ("operation in class-wide condition must be primitive "
+                        & "of &", Nod, Disp_Typ);
+                  end if;
+               end if;
+            end;
+
+         elsif Is_Entity_Name (Nod)
+           and then
+             (Etype (Nod) = Disp_Typ
+               or else Etype (Nod) = Class_Wide_Type (Disp_Typ))
+           and then Ekind_In (Entity (Nod), E_Constant, E_Variable)
+         then
+            Error_Msg_NE
+              ("object in class-wide condition must be formal of type &",
+                Nod, Disp_Typ);
+
+         elsif Nkind (Nod) = N_Explicit_Dereference
+           and then (Etype (Nod) = Disp_Typ
+                      or else Etype (Nod) = Class_Wide_Type (Disp_Typ))
+           and then (not Is_Entity_Name (Prefix (Nod))
+                      or else not Is_Formal (Entity (Prefix (Nod))))
+         then
+            Error_Msg_NE
+              ("operation in class-wide condition must be primitive of &",
+               Nod, Disp_Typ);
+         end if;
+
+         return OK;
+      end Check_References;
+
+      procedure Check_Class_Wide_Condition is
+        new Traverse_Proc (Check_References);
+
       --  Local variables
 
       Subp_Decl : constant Node_Id   := Find_Related_Declaration_Or_Body (N);
@@ -23276,76 +23389,7 @@ package body Sem_Prag is
       Save_Ghost_Mode : constant Ghost_Mode_Type := Ghost_Mode;
 
       Errors        : Nat;
-      Disp_Typ      : Entity_Id;
       Restore_Scope : Boolean := False;
-
-      function Check_References (N : Node_Id) return Traverse_Result;
-      --  Check that the expression does not mention non-primitives of
-      --  the type, global objects of the type, or other illegalities
-      --  described and implied by AI12-0113.
-
-      ----------------------
-      -- Check_References --
-      ----------------------
-
-      function Check_References (N : Node_Id) return Traverse_Result is
-      begin
-         if Nkind (N) = N_Function_Call
-           and then Is_Entity_Name (Name (N))
-         then
-            declare
-               Func : constant Entity_Id := Entity (Name (N));
-               Form : Entity_Id;
-            begin
-
-               --  An operation of the type must be a primitive.
-
-               if No (Find_Dispatching_Type (Func)) then
-                  Form := First_Formal (Func);
-                  while Present (Form) loop
-                     if Etype (Form) = Disp_Typ then
-                        Error_Msg_NE ("operation in class-wide condition "
-                          & "must be primitive of&", N, Disp_Typ);
-                     end if;
-                     Next_Formal (Form);
-                  end loop;
-
-                  --  A return object of the type is illegal as well.
-
-                  if Etype (Func) = Disp_Typ
-                    or else Etype (Func) = Class_Wide_Type (Disp_Typ)
-                  then
-                     Error_Msg_NE ("operation in class-wide condition "
-                       & "must be primitive of&", N, Disp_Typ);
-                  end if;
-               end if;
-            end;
-
-         elsif Is_Entity_Name (N)
-           and then
-             (Etype (N) = Disp_Typ
-               or else Etype (N) = Class_Wide_Type (Disp_Typ))
-           and then Ekind_In (Entity (N),  E_Variable, E_Constant)
-         then
-            Error_Msg_NE
-              ("object in class-wide condition must be formal of type&",
-                N, Disp_Typ);
-
-         elsif Nkind (N) = N_Explicit_Dereference
-           and then (Etype (N) = Disp_Typ
-               or else Etype (N) = Class_Wide_Type (Disp_Typ))
-           and then (not Is_Entity_Name (Prefix (N))
-             or else not Is_Formal (Entity (Prefix (N))))
-         then
-            Error_Msg_NE ("operation in class-wide condition "
-              & "must be primitive of&", N, Disp_Typ);
-         end if;
-
-         return OK;
-      end Check_References;
-
-      procedure Check_Class_Wide_Condition is new
-        Traverse_Proc (Check_References);
 
    --  Start of processing for Analyze_Pre_Post_Condition_In_Decl_Part
 
@@ -23414,9 +23458,9 @@ package body Sem_Prag is
                   & "of a tagged type", N);
             end if;
 
-         else
-            --  Remaining semantic checks require a full tree traversal.
+         --  Remaining semantic checks require a full tree traversal
 
+         else
             Check_Class_Wide_Condition (Expr);
          end if;
 
@@ -26233,9 +26277,10 @@ package body Sem_Prag is
    -----------------------------------
 
    function Build_Pragma_Check_Equivalent
-     (Prag     : Node_Id;
-      Subp_Id  : Entity_Id := Empty;
-      Inher_Id : Entity_Id := Empty) return Node_Id
+     (Prag           : Node_Id;
+      Subp_Id        : Entity_Id := Empty;
+      Inher_Id       : Entity_Id := Empty;
+      Keep_Pragma_Id : Boolean := False) return Node_Id
    is
       Map : Elist_Id;
       --  List containing the following mappings
@@ -26315,6 +26360,15 @@ package body Sem_Prag is
                Error_Msg_NE
                  ("cannot call abstract subprogram in inherited condition "
                    & "for&#", N, Current_Scope);
+            end if;
+
+            --  Update type of function call node, which should be the same as
+            --  the function's return type.
+
+            if Is_Subprogram (Entity (N))
+              and then Nkind (Parent (N)) = N_Function_Call
+            then
+               Set_Etype (Parent (N), Etype (Entity (N)));
             end if;
 
          --  The whole expression will be reanalyzed
@@ -26453,8 +26507,8 @@ package body Sem_Prag is
             --  overridings between them.
 
             while Present (Decl) loop
-               if Nkind_In (Decl,
-                  N_Subprogram_Declaration, N_Abstract_Subprogram_Declaration)
+               if Nkind_In (Decl, N_Abstract_Subprogram_Declaration,
+                                  N_Subprogram_Declaration)
                then
                   Prim := Defining_Entity (Decl);
 
@@ -26551,7 +26605,6 @@ package body Sem_Prag is
 
       Set_Analyzed          (Check_Prag, False);
       Set_Comes_From_Source (Check_Prag, False);
-      Set_Class_Present     (Check_Prag, False);
 
       --  The tree of the original pragma may contain references to the
       --  formal parameters of the related subprogram. At the same time
@@ -26577,15 +26630,20 @@ package body Sem_Prag is
          Nam := Prag_Nam;
       end if;
 
-      --  Convert the copy into pragma Check by correcting the name and adding
-      --  a check_kind argument.
+      --  Unless Keep_Pragma_Id is True in order to keep the identifier of
+      --  the copied pragma in the newly created pragma, convert the copy into
+      --  pragma Check by correcting the name and adding a check_kind argument.
 
-      Set_Pragma_Identifier
-        (Check_Prag, Make_Identifier (Loc, Name_Check));
+      if not Keep_Pragma_Id then
+         Set_Class_Present (Check_Prag, False);
 
-      Prepend_To (Pragma_Argument_Associations (Check_Prag),
-        Make_Pragma_Argument_Association (Loc,
-          Expression => Make_Identifier (Loc, Nam)));
+         Set_Pragma_Identifier
+           (Check_Prag, Make_Identifier (Loc, Name_Check));
+
+         Prepend_To (Pragma_Argument_Associations (Check_Prag),
+           Make_Pragma_Argument_Association (Loc,
+             Expression => Make_Identifier (Loc, Nam)));
+      end if;
 
       --  Update the error message when the pragma is inherited
 
@@ -27110,7 +27168,8 @@ package body Sem_Prag is
                end if;
 
                New_Prag :=
-                 Build_Pragma_Check_Equivalent (Prag, Subp, Parent_Subp);
+                 Build_Pragma_Check_Equivalent (Prag, Subp, Parent_Subp,
+                                                Keep_Pragma_Id => True);
                Insert_After (Unit_Declaration_Node (Subp), New_Prag);
                Preanalyze (New_Prag);
 

@@ -1,3 +1,58 @@
+2016-06-21  Jason Merrill  <jason@redhat.com>
+
+	* constraint.cc (constraints_satisfied_p): Keep as many levels of
+	args as our template has levels of parms.
+
+	* pt.c (template_parm_outer_level, uses_outer_template_parms): New.
+	(type_dependent_expression_p): Use uses_outer_template_parms.
+
+2016-06-20  David Malcolm  <dmalcolm@redhat.com>
+
+	* parser.c (cp_parser_string_literal): Convert non-standard
+	concatenation error to directly use a rich_location, and
+	use that to add the location of the first literal to the
+	diagnostic.
+
+2016-06-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* decl.c (validate_constexpr_redeclaration): Change pair of errors
+	to error + inform.
+	* error.c (dump_function_decl): Save the constexpr specifier too.
+
+2016-06-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.c (builtin_valid_in_constant_expr_p): Test for
+	DECL_BUILT_IN_CLASS equal to BUILT_IN_NORMAL instead of just
+	DECL_BUILT_IN.
+	(bot_manip): Likewise.
+	* call.c (magic_varargs_p): Likewise.
+
+2016-06-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* decl.c (grokfndecl): Change pair of errors to error + inform.
+
+2016-06-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/71209
+	* typeck.c (finish_class_member_access_expr): Avoid "not a base"
+	warning when there are dependent bases.
+
+2016-06-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* semantics.c (handle_omp_array_sections_1): Don't ICE when
+	processing_template_decl when checking for bitfields and unions.
+	Look through REFERENCE_REF_P as base of COMPONENT_REF.
+	(finish_omp_clauses): Look through REFERENCE_REF_P even for
+	array sections with COMPONENT_REF bases.
+
+2016-06-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_var_list_no_open): Call
+	convert_from_reference before cp_parser_postfix_dot_deref_expression.
+	* semantics.c (finish_omp_clauses): Don't ICE when
+	processing_template_decl when checking for bitfields and unions.
+	Look through REFERENCE_REF_P as base of COMPONENT_REF.
+
 2016-06-15  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	* decl.c (wrapup_globals_for_namespace): Use DECL_SOURCE_LOCATION and

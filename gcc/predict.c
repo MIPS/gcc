@@ -835,7 +835,8 @@ combine_predictions_for_insn (rtx_insn *insn, basic_block bb)
 	int probability = INTVAL (XEXP (XEXP (note, 0), 1));
 
 	found = true;
-	if (best_predictor > predictor)
+	if (best_predictor > predictor
+	    && predictor_info[predictor].flags & PRED_FLAG_FIRST_MATCH)
 	  best_probability = probability, best_predictor = predictor;
 
 	d = (combined_probability * probability
@@ -855,7 +856,7 @@ combine_predictions_for_insn (rtx_insn *insn, basic_block bb)
      use no_prediction heuristic, in case we did match, use either
      first match or Dempster-Shaffer theory depending on the flags.  */
 
-  if (predictor_info [best_predictor].flags & PRED_FLAG_FIRST_MATCH)
+  if (best_predictor != END_PREDICTORS)
     first_match = true;
 
   if (!found)
@@ -863,10 +864,12 @@ combine_predictions_for_insn (rtx_insn *insn, basic_block bb)
 		     combined_probability, bb);
   else
     {
-      dump_prediction (dump_file, PRED_DS_THEORY, combined_probability,
-		       bb, !first_match ? REASON_NONE : REASON_IGNORED);
-      dump_prediction (dump_file, PRED_FIRST_MATCH, best_probability,
-		       bb, first_match ? REASON_NONE : REASON_IGNORED);
+      if (!first_match)
+	dump_prediction (dump_file, PRED_DS_THEORY, combined_probability,
+			 bb, !first_match ? REASON_NONE : REASON_IGNORED);
+      else
+	dump_prediction (dump_file, PRED_FIRST_MATCH, best_probability,
+			 bb, first_match ? REASON_NONE : REASON_IGNORED);
     }
 
   if (first_match)
@@ -1096,7 +1099,8 @@ combine_predictions_for_bb (basic_block bb, bool dry_run)
 	  found = true;
 	  /* First match heuristics would be widly confused if we predicted
 	     both directions.  */
-	  if (best_predictor > predictor)
+	  if (best_predictor > predictor
+	    && predictor_info[predictor].flags & PRED_FLAG_FIRST_MATCH)
 	    {
               struct edge_prediction *pred2;
 	      int prob = probability;
@@ -1142,17 +1146,19 @@ combine_predictions_for_bb (basic_block bb, bool dry_run)
      use no_prediction heuristic, in case we did match, use either
      first match or Dempster-Shaffer theory depending on the flags.  */
 
-  if (predictor_info [best_predictor].flags & PRED_FLAG_FIRST_MATCH)
+  if (best_predictor != END_PREDICTORS)
     first_match = true;
 
   if (!found)
     dump_prediction (dump_file, PRED_NO_PREDICTION, combined_probability, bb);
   else
     {
-      dump_prediction (dump_file, PRED_DS_THEORY, combined_probability, bb,
-		       !first_match ? REASON_NONE : REASON_IGNORED);
-      dump_prediction (dump_file, PRED_FIRST_MATCH, best_probability, bb,
-		       first_match ? REASON_NONE : REASON_IGNORED);
+      if (!first_match)
+	dump_prediction (dump_file, PRED_DS_THEORY, combined_probability, bb,
+			 !first_match ? REASON_NONE : REASON_IGNORED);
+      else
+	dump_prediction (dump_file, PRED_FIRST_MATCH, best_probability, bb,
+			 first_match ? REASON_NONE : REASON_IGNORED);
     }
 
   if (first_match)
@@ -3501,7 +3507,7 @@ force_edge_cold (edge e, bool impossible)
 	fprintf (dump_file, "Making edge %i->%i %s by redistributing "
 		 "probability to other edges.\n",
 		 e->src->index, e->dest->index,
-		 impossible ? "imposisble" : "cold");
+		 impossible ? "impossible" : "cold");
       FOR_EACH_EDGE (e2, ei, e->src->succs)
 	if (e2 != e)
 	  {
@@ -3527,7 +3533,7 @@ force_edge_cold (edge e, bool impossible)
 	  int old_frequency = e->src->frequency;
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "Making bb %i %s.\n", e->src->index,
-		     impossible ? "imposisble" : "cold");
+		     impossible ? "impossible" : "cold");
 	  e->src->frequency = MIN (e->src->frequency, impossible ? 0 : 1);
 	  e->src->count = e->count = RDIV (e->src->count * e->src->frequency,
 					   old_frequency);
@@ -3536,6 +3542,6 @@ force_edge_cold (edge e, bool impossible)
       else if (dump_file && (dump_flags & TDF_DETAILS)
 	       && maybe_hot_bb_p (cfun, e->src))
 	fprintf (dump_file, "Giving up on making bb %i %s.\n", e->src->index,
-		 impossible ? "imposisble" : "cold");
+		 impossible ? "impossible" : "cold");
     }
 }
