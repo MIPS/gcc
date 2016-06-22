@@ -1,3 +1,50 @@
+2016-06-22  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-c++-common/missing-header-1.c: New test case.
+	* c-c++-common/missing-header-2.c: New test case.
+	* c-c++-common/missing-header-3.c: New test case.
+	* c-c++-common/missing-header-4.c: New test case.
+
+2016-06-22  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/70339
+	* c-c++-common/attributes-1.c: Update dg-prune-output to include
+	hint.
+	* gcc.dg/diagnostic-token-ranges.c (undeclared_identifier): Update
+	expected results due to builtin "nanl" now being suggested for
+	"name".
+	* gcc.dg/pr67580.c: Update expected messages.
+	* gcc.dg/spellcheck-identifiers.c: New testcase.
+	* gcc.dg/spellcheck-typenames.c: New testcase.
+
+2016-06-22  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc.dg/plugin/diagnostic-test-show-locus-parseable-fixits.c: New
+	file.
+	* gcc.dg/plugin/plugin.exp (plugin_test_list): Add
+	diagnostic-test-show-locus-parseable-fixits.c to sources for
+	diagnostic_plugin_test_show_locus.c.
+	* lib/gcc-defs.exp (freeform_regexps): New global.
+	(dg-regexp): New function.
+	(handle-dg-regexps): New function.
+	* lib/gcc-dg.exp (cleanup-after-saved-dg-test): Reset
+	freeform_regexps to the empty list.
+	* lib/prune.exp (prune_gcc_output): Call handle-dg-regexps.
+
+2016-06-22  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR middle-end/71488
+	* g++.dg/pr71488.C: New test.
+	* gcc.dg/vect/vect-bool-cmp.c: New test.
+
+2016-06-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/guality/param-5.c: New test.
+
+2016-06-22  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* gcc.target/i386/asm-flag-7.c: New test.
+
 2016-06-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
 
 	* gcc.dg/tree-ssa/forwprop-28.c: Remove mep-* support.
@@ -244,6 +291,7 @@
 
 2016-06-16  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
 
+	PR target/71151
 	* gcc.target/avr/pr71151-1.c: New test.
 	* gcc.target/avr/pr71151-2.c: New test.
 	* gcc.target/avr/pr71151-3.c: New test.
