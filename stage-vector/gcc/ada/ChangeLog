@@ -1,3 +1,251 @@
+2016-06-22  Arnaud Charlet  <charlet@adacore.com>
+
+	* sem_prag.adb: Revert unwanted change in previous commit,
+	only keep message fix.
+
+2016-06-22  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_prag.ads (Build_Classwide_Expression): new procedure to
+	build the expression for an inherited classwide condition, and
+	to validate such expressions when they apply to an inherited
+	operation that is not overridden.
+	* sem_prag.adb (Primitives_Mapping): new data structure to
+	handle the mapping between operations of a root type and the
+	corresponding overriding operations of a type extension. Used
+	to construct the expression for an inherited classwide condition.
+	(Update_Primitives_Mapping): add to Primitives_Mapping the links
+	between primitive operations of a root type and those of a given
+	type extension.
+	(Build_Pragma_Check_Equivalent): use Primitives_Mapping.
+	* sem_ch6.adb (New_Overloaded_Entity): Remove call to
+	Collect_Iherited_Class_Wide_Conditions in GNATprove_Mode. This
+	needs to be done at freeze point of the type.
+	* freeze.adb (Check_Inherited_Conditions): new procedure to
+	verify the legality of inherited classwide conditions. In normal
+	compilation mode the procedure determines whether an inherited
+	operation needs a wrapper to handle an inherited condition that
+	differs from the condition of the root type.  In SPARK mode
+	the routine invokes Collect_Inherited_Class_Wide_Conditions to
+	produce the SPARK version of these inherited conditions.
+	(Freeze_Record_Type): For a type extension, call
+	Check_Inherited_Conditions.
+
+2016-06-22  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_ch3.adb, sem_type.adb, sem.adb, freeze.adb, sem_util.adb,
+	s-htable.adb, exp_ch11.adb, s-secsta.adb, restrict.adb, exp_disp.adb,
+	sem_ch8.adb, s-tpobop.adb, exp_aggr.ads, sem_ch13.adb: Minor
+	reformatting.
+
+2016-06-22  Yannick Moy  <moy@adacore.com>
+
+	* lib-xref-spark_specific.adb (Collect_SPARK_Xrefs): Inverse order of
+	treatments so that files without compilation unit are simply skipped
+	before more elaborate treatments.
+
+2016-06-22  Bob Duff  <duff@adacore.com>
+
+	* s-memory.ads: Minor typo fixes in comments.
+	* s-memory.adb: Code cleanup.
+
+2016-05-22  Olivier Hainque  <hainque@adacore.com>
+
+	* vxworks-crtbe-link.spec: Removed, no longer used.
+
+2016-06-22  Justin Squirek  <squirek@adacore.com>
+
+	* sem_ch8.adb (Push_Scope): Add a check for when the
+	scope table is empty to assign the global variable
+	Configuration_Component_Alignment.
+	* sem.adb (Do_Analyze): Add Configuration_Component_Alignment
+	to be assigned when the environment is cleaned instead of the
+	default.
+	* sem.ads Add a global variable Configuration_Component_Alignment
+	to store the value given by pragma Component_Alignment in the
+	context of a configuration file.
+	* sem_prag.adb (Analyze_Pragma): Correct the case for
+	Component_Alignment so that the pragma is verified and add
+	comments to explain how it is applied to the scope stack.
+
+2016-06-22  Justin Squirek  <squirek@adacore.com>
+
+	* sprint.adb (Sprint_Node_Actual): Add check in
+	the case of an N_Object_Declaration when evaluating an expression
+	to properly ignore errors.
+
+2016-06-22  Bob Duff  <duff@adacore.com>
+
+	* g-comlin.ads (Parameter_Type): Change subtype of Last to
+	Natural.
+	* g-comlin.adb (Set_Parameter): Change subtype of Last to
+	Natural.
+	(Getopt): Check for Arg = "", and Switches /= "".
+	(Internal_Initialize_Option_Scan): Check for Argument (Parser,
+	Index) /= "".
+
+2016-06-22  Gary Dismukes  <dismukes@adacore.com>
+
+	* sem_prag.adb, sem_ch8.adb: Minor reformatting.
+
+2016-06-22  Ed Schonberg  <schonberg@adacore.com>
+
+	* einfo.ads, einfo.adb (Is_Actual_Subtype): New flag, defined
+	on subtypes that are created within subprogram bodies to handle
+	unconstrained composite formals.
+	* checks.adb (Apply_Predicate_Check): Do not generate a check on
+	an object whose type is an actual subtype.
+	* sem_ch6.adb (Set_Actual_Subtypes): Do not generate an
+	actual subtype for a formal whose base type is private.
+	Set Is_Actual_Subtype on corresponding entity after analyzing
+	its declaration.
+
+2016-06-22  Justin Squirek  <squirek@adacore.com>
+
+	* sem_prag.adb (Check_Expr_Is_OK_Static_Expression): Fix ordering
+	of if-block and add in a condition to test for errors during
+	resolution.
+	* sem_res.adb (Resolution_Failed): Add comment to explain why
+	the type of a node which failed to resolve is set to the desired
+	type instead of Any_Type.
+	* sem_ch8.adb (Analyze_Object_Renaming): Add a check for Any_Type
+	to prevent crashes on Is_Access_Constant.
+
+2016-06-22  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* lib-xref-spark_specific.adb, checks.adb, sem_ch13.adb: Minor
+	reformatting.
+	* exp_ch7.adb: Minor typo fix.
+	* lib.ads (Get_Top_Level_Code_Unit): Add comment.
+
+2016-06-22  Bob Duff  <duff@adacore.com>
+
+	* s-tassta.adb (Task_Wrapper): Fix handling of Fall_Back_Handler
+	wrt independent tasks.
+
+2016-06-22  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_dim.adb (Analyze_Dimension): Propagate dimension for
+	explicit_dereference nodes when they do not come from source,
+	to handle correctly dimensional analysis on iterators over
+	containers whose elements have declared dimensions.
+
+2016-06-22  Arnaud Charlet  <charlet@adacore.com>
+
+	* spark_xrefs.ads (Scope_Num): type refined to positive integers.
+	* lib-xref-spark_specific.adb (Detect_And_Add_SPARK_Scope):
+	moved into scope of Collect_SPARK_Xrefs.
+	(Add_SPARK_Scope): moved into scope of Collect_SPARK_Xrefs;
+	now uses Dspec and Scope_Id from Collect_SPARK_Xrefs.
+	(Collect_SPARK_Xrefs): refactored to avoid retraversing the list
+	of scopes.
+	(Traverse_Compilation_Unit): refactored as a generic procedure.
+	* types.ads (Unit_Number_Type): range refined.
+
+2016-06-22  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* lib-xref-spark_specific.adb, a-cuprqu.ads, sem_ch6.adb: Minor
+	reformatting.
+
+2016-06-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* sem_util.ads (Address_Value): Declare new function.
+	* sem_util.adb (Address_Value): New function extracted
+	unmodified from Apply_Address_Clause_Check, which returns the
+	underlying value of the expression of an address clause.
+	* checks.adb (Compile_Time_Bad_Alignment): Delete.
+	(Apply_Address_Clause_Check): Call Address_Value on
+	the expression.  Do not issue the main warning here and
+	issue the secondary warning only when the value of the
+	expression is not known at compile time.
+	* sem_ch13.adb (Address_Clause_Check_Record): Add A component and
+	adjust the description.
+	(Analyze_Attribute_Definition_Clause): In the case
+	of an address, move up the code creating an entry in the table of
+	address clauses.  Also create an entry for an absolute address.
+	(Validate_Address_Clauses): Issue the warning for absolute
+	addresses here too.  Tweak condition associated with overlays
+	for consistency.
+
+2016-06-22  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch13.adb (Is_Predicate_Static): An inherited predicate
+	can be static only if it applies to a scalar type.
+
+2016-06-22  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_util.adb (Adjust_Result_Type): Convert operand to base
+	type to prevent spurious constraint checks on subtypes of Boolean.
+
+2016-06-22  Bob Duff  <duff@adacore.com>
+
+	* debug.adb: Document debug switch -gnatd.o.
+	* sem_elab.adb (Check_Internal_Call): Debug switch -gnatd.o
+	now causes a more conservative treatment of indirect calls,
+	treating P'Access as a call to P in more cases. We Can't make
+	this the default, because it breaks common idioms, for example
+	the soft links.
+	* sem_util.adb: Add an Assert.
+
+2016-06-22  Bob Duff  <duff@adacore.com>
+
+	* a-cuprqu.ads, a-cuprqu.adb: Completely rewrite this package. Use
+	red-black trees, which gives O(lg N) worst-case performance on
+	Enqueue and Dequeue. The previous version had O(N) Enqueue in
+	the worst case.
+
+2016-06-22  Arnaud Charlet  <charlet@adacore.com>
+
+	* sem_warn.adb: minor style fix in comment.
+	* spark_xrefs.ads (Scope_Num): type refined to positive integers.
+	* lib-xref-spark_specific.adb (Detect_And_Add_SPARK_Scope):
+	moved into scope of Collect_SPARK_Xrefs.
+	(Add_SPARK_Scope): moved into scope of Collect_SPARK_Xrefs;
+	now uses Dspec and Scope_Id from Collect_SPARK_Xrefs.
+	(Collect_SPARK_Xrefs): refactored to avoid retraversing the list
+	of scopes.
+	* sem_ch3.adb (Build_Discriminal): Set Parent of the discriminal.
+
+2016-06-22  Arnaud Charlet  <charlet@adacore.com>
+
+	* lib-xref-spark_specific.adb (Generate_Dereference): Assignment to not
+	commented local variables replaced with direct uses of their values.
+
+2016-06-22  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* exp_ch7.adb (Add_Invariant): Replace the
+	current type instance with the _object parameter even in ASIS mode.
+	(Build_Invariant_Procedure_Body): Do not insert the
+	invariant procedure body into the tree for ASIS and GNATprove.
+	(Build_Invariant_Procedure_Declaration): Do not insert the
+	invariant procedure declaration into the tree for ASIS and
+	GNATprove.
+	* lib-xref-spark_specific.adb (Add_SPARK_Scope): Update comment.
+
+2016-06-22  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch6.adb (Set_Actual_Subtypes): If the type of the actual
+	has predicates, the actual subtype must be frozen properly
+	because of the generated tests that may follow.  The predicate
+	may be specified by an explicit aspect, or may be inherited in
+	a derivation.
+
+2016-06-22  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_ch4.adb (In_Range_Chec)): New predicate, subsidiary of
+	Expand_N_In: within an expanded range check that might raise
+	Constraint_Error do not generate a predicate check as well. It
+	is redundant because the context will add an explicit predicate
+	check, and it will raise the wrong exception if it fails.
+	* lib-xref-spark_specific.adb (Add_SPARK_File): Remove useless checks
+	since dependency units always have an associated compilation unit.
+
+2016-06-22  Arnaud Charlet  <charlet@adacore.com>
+
+	* lib.ads: Code cleanup.
+	* inline.adb: Type refinement for a counter variable.
+	* lib-xref-spark_specific.adb (Add_SPARK_File): removal of no-op code.
+	Code cleanup.
+
 2016-06-21  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gcc-interface/decl.c (set_nonaliased_component_on_array_type): New
