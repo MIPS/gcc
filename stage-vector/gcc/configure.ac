@@ -3977,7 +3977,7 @@ changequote([,])dnl
 	   Cygwin DLL exports wrappers to support libstdc++ function replacement.])
     esac
     case $target_os in
-      cygwin* | pe | mingw32* | interix*)
+      cygwin* | pe | mingw32*)
 	# Recent binutils allows the three-operand form of ".comm" on PE.  This
 	# definition is used unconditionally to initialise the default state of
 	# the target option variable that governs usage of the feature.
@@ -5495,7 +5495,7 @@ AC_CACHE_CHECK(__stack_chk_fail in target C library,
        *-*-musl*)
 	 # All versions of musl provide stack protector
 	 gcc_cv_libc_provides_ssp=yes;;
-       *-*-linux* | *-*-kfreebsd*-gnu | *-*-knetbsd*-gnu)
+       *-*-linux* | *-*-kfreebsd*-gnu)
       # glibc 2.4 and later provides __stack_chk_fail and
       # either __stack_chk_guard, or TLS access to stack guard canary.
       GCC_GLIBC_VERSION_GTE_IFELSE([2], [4], [gcc_cv_libc_provides_ssp=yes], [

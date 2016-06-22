@@ -1,3 +1,171 @@
+2016-06-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* common/config/mep/mep-common.c: Remove.
+	* config.gcc: Remove mep-* support.
+	* config/mep/constraints.md: Remove.
+	* config/mep/default.h: Remove.
+	* config/mep/intrinsics.h: Remove.
+	* config/mep/intrinsics.md: Remove.
+	* config/mep/ivc2-template.h: Remove.
+	* config/mep/mep-c5.cpu: Remove.
+	* config/mep/mep-core.cpu: Remove.
+	* config/mep/mep-default.cpu: Remove.
+	* config/mep/mep-ext-cop.cpu: Remove.
+	* config/mep/mep-intrin.h: Remove.
+	* config/mep/mep-ivc2.cpu: Remove.
+	* config/mep/mep-pragma.c: Remove.
+	* config/mep/mep-protos.h: Remove.
+	* config/mep/mep.c: Remove.
+	* config/mep/mep.cpu: Remove.
+	* config/mep/mep.h: Remove.
+	* config/mep/mep.md: Remove.
+	* config/mep/mep.opt: Remove.
+	* config/mep/predicates.md: Remove.
+	* config/mep/t-mep: Remove.
+	* doc/install.texi: Remove mep-* documentation.
+	* doc/md.texi: Likewise.
+
+2016-06-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* config.gcc: Remove support for avr-rtems.
+	* config/avr/gen-avr-mmcu-specs.c: Likewise.
+	* config/avr/rtems.h: Remove.
+	* config/avr/t-rtems: Remove.
+
+2016-06-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* config.gcc: Remove m32r-rtems support.
+	* config/m32r/rtems.h: Remove.
+
+2016-06-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* config.gcc: Remove h8300-rtems support.
+	* config/h8300/rtems.h: Remove.
+	* config/h8300/t-rtems: Remove.
+
+2016-06-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* config.gcc: Remove support for knetbsd.
+	* configure.ac: Likewise.
+	* config/i386/knetbsd-gnu.h: Remove.  * config/i386/knetbsd-gnu64.h: Remove.
+	* config/knetbsd-gnu.h: Remove.
+	* configure: Regenerate.
+
+2016-06-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* config.gcc: Remove support for openbsd 2 and 3.
+	* config/openbsd-oldgas.h: Remove.
+
+2016-06-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* config.gcc: Remove interix support.
+	* config/i386/i386-interix.h: Remove.
+	* config/i386/interix.opt: Remove.
+	* config/i386/t-interix: Remove.
+	* configure: Regenerate.
+	* configure.ac: Remove interix support.
+	* doc/install.texi: Remove interix documentation.
+
+2016-06-21  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* config/rs6000/rs6000.h: Add conditional preprocessing directives
+	to disable Power9-specific compiler features if HAVE_AS_POWER9 is
+	not defined.
+
+2016-06-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree.c (verify_type_variant): Skip TYPE_SIZE and TYPE_SIZE_UNIT if
+	they are both PLACEHOLDER_EXPRs.
+
+2016-06-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* stor-layout.c (layout_type): Move setting complex MODE to
+	layout_type, instead of setting it ahead of time by the caller.
+	* tree.c (build_complex_type): Likewise.
+
+2016-06-21  Martin Liska  <mliska@suse.cz>
+
+	* predict.c (force_edge_cold): Replace imposisble with
+	impossible.
+
+2016-06-21  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* config/i386/i386.c (ix86_emit_swsqrtsf): Emit vrsqrt28ps.
+	* config/i386/sse.md (define_expand "rsqrtv16sf2"): New.
+
+2016-06-21  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* config/i386/i386.c (ix86_emit_swdivsf): Emit vrcp28ps.
+
+2016-06-21  H.J. Lu  <hongjiu.lu@intel.com>
+	    Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR target/71549
+	* config/i386/i386.c (timode_scalar_chain::fix_debug_reg_uses):
+	New member function to convert V1TImode register to SUBREG
+	TImode in debug insn.
+	(timode_scalar_chain::convert_insn): Call fix_debug_reg_uses
+	after changing register mode to V1TImode.
+
+2016-06-21  Virendra Pathak  <virendra.pathak@broadcom.com>
+
+	* config/aarch64/aarch64-cores.def (vulcan): New core.
+	* config/aarch64/aarch64-tune.md: Regenerate.
+	* doc/invoke.texi: Document vulcan as an available option.
+
+2016-06-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* cse.c (canon_asm_operands): New function extracted from...
+	(canonicalize_insn): ...here.  Call it to canonicalize an ASM_OPERANDS
+	either standalone or member of a PARALLEL.
+
+2016-06-21  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/30417
+	* config/avr/gen-avr-mmcu-specs.c (print_mcu):
+	[*link_data_start]: Wrap -Tdata into %{!Tdata:...}.
+	[*link_text_start]: Wrap -Ttext into %{!Ttext:...}.
+
+2016-06-21  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/71103
+	* config/avr/avr.md (movqi): Only handle loading subreg:qi of
+	constant addresses if can_create_pseudo_p.
+
+2016-06-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/71588
+	* tree-ssa-strlen.c (valid_builtin_call): New function.
+	(adjust_last_stmt, handle_builtin_memset, strlen_optimize_stmt): Use
+	it.
+
+2016-06-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/71581
+	* tree-ssa-uninit.c (warn_uninit): If EXPR and VAR are NULL,
+	see if T isn't anonymous SSA_NAME with COMPLEX_EXPR created
+	for conversion of scalar user var to complex type and use the
+	underlying SSA_NAME_VAR in that case.  If EXPR is still NULL,
+	punt.
+
+	PR rtl-optimization/71591
+	* toplev.c (toplev::run_self_tests): If no_backend, complain and
+	don't run any tests.
+
+2016-06-20  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR target/71571
+	* config/cris/cris.c (cris_asm_output_mi_thunk): Add missing "ba"
+	delay-slot "nop" for PIC with CRIS v32.  Also add missing leading
+	space for PIC with non-v32 and the common non-PIC "jump".
+
+2016-06-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/71559
+	* config/i386/i386.c (ix86_fp_cmp_code_to_pcmp_immediate): Fix up
+	returned values and add UN*/LTGT/*ORDERED cases with values matching
+	D operand modifier on vcmp for AVX.
+
 2016-06-20  Wilco Dijkstra  <wdijkstr@arm.com>
 
 	* config/aarch64/aarch64.opt
