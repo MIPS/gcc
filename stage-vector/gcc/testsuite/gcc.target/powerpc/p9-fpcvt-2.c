@@ -7,12 +7,9 @@ double sc (signed char    *p) { return (double)*p; }
 double uc (unsigned char  *p) { return (double)*p; }
 double ss (signed short   *p) { return (double)*p; }
 double us (unsigned short *p) { return (double)*p; }
-double si (signed int     *p) { return (double)*p; }
-double ui (unsigned int   *p) { return (double)*p; }
 
-/* { dg-final { scan-assembler     "lxsibx"   } } */
-/* { dg-final { scan-assembler     "lxsihx"   } } */
-/* { dg-final { scan-assembler     "lxsiwx"   } } */
+/* { dg-final { scan-assembler     "lxsibzx"  } } */
+/* { dg-final { scan-assembler     "lxsihzx"  } } */
 /* { dg-final { scan-assembler     "vextsb2d" } } */
 /* { dg-final { scan-assembler     "vextsh2d" } } */
 /* { dg-final { scan-assembler-not "mfvsrd"   } } */

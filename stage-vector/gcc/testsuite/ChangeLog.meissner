@@ -1,3 +1,8 @@
+2016-06-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/p9-fpcvt-1.c: Fix tests so it passes.
+	* gcc.target/powerpc/p9-fpcvt-2.c: Likewise.
+
 2016-06-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/p9-fpcvt-1.c: New test.
