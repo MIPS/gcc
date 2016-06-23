@@ -380,7 +380,8 @@
        (if_then_else (match_test "ISA_HAS_9BIT_DISPLACEMENT")
 	 (match_test "mips_9bit_offset_address_p (XEXP (op, 0), mode)")
 	   (if_then_else
-	     (match_test "TARGET_MICROMIPS")
+	     (ior (match_test "TARGET_MICROMIPS")
+		  (match_test "TARGET_NANOMIPS"))
 	     (match_test "umips_12bit_offset_address_p (XEXP (op, 0), mode)")
 	     (match_test "mips_address_insns (XEXP (op, 0), mode, false)")))))
 

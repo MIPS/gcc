@@ -405,7 +405,7 @@ struct mips_integer_op {
    The worst accepted case for 64-bit constants is LUI,ORI,SLL,ORI,SLL,ORI.
    When the lowest bit is clear, we can try, but reject a sequence with
    an extra SLL at the end.  */
-#define MIPS_MAX_INTEGER_OPS 7
+#define MIPS_MAX_INTEGER_OPS 10
 
 /* Information about a MIPS16e SAVE or RESTORE instruction.  */
 struct mips16e_save_restore_info {
@@ -2515,7 +2515,10 @@ mips_build_lower (struct mips_integer_op *codes, unsigned HOST_WIDE_INT value)
   unsigned HOST_WIDE_INT high;
   unsigned int i;
 
-  high = value & ~(unsigned HOST_WIDE_INT) 0xffff;
+  if (TARGET_NANOMIPS)
+    high = value & ~(unsigned HOST_WIDE_INT) 0xfff;
+  else
+    high = value & ~(unsigned HOST_WIDE_INT) 0xffff;
   if (!LUI_OPERAND (high) && (value & 0x18000) == 0x18000)
     {
       /* The constant is too complex to load with a simple LUI/ORI pair,
@@ -2536,7 +2539,11 @@ mips_build_lower (struct mips_integer_op *codes, unsigned HOST_WIDE_INT value)
 	codes[i].code = PLUS;
       else
 	codes[i].code = IOR;
-      codes[i].value = value & 0xffff;
+
+      if (TARGET_NANOMIPS)
+	codes[i].value = value & 0xfff;
+      else
+	codes[i].value = value & 0xffff;
     }
   return i + 1;
 }
@@ -2563,7 +2570,10 @@ mips_build_integer (struct mips_integer_op *codes,
 	 lowest bit is set.  We don't want to shift in this case.  */
       return mips_build_lower (codes, value);
     }
-  else if ((value & 0xffff) == 0)
+  else if ((!TARGET_NANOMIPS
+	     && (value & (unsigned HOST_WIDE_INT) 0xffff) == 0)
+	   || (TARGET_NANOMIPS
+	       && (value & (unsigned HOST_WIDE_INT) 0xfff) == 0))
     {
       /* The constant will need at least three actions.  The lowest
 	 16 bits are clear, so the final action will be a shift.  */
@@ -3126,7 +3136,7 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
 	 If the symbol is local, the linker should provide enough local
 	 GOT entries for a 16-bit offset, but larger offsets may lead
 	 to GOT overflow.  */
-      return SMALL_INT (offset);
+      return SMALL_INT9TO12 (offset);
 
     case SYMBOL_TPREL:
     case SYMBOL_DTPREL:
@@ -3311,7 +3321,7 @@ mips_cannot_force_const_mem (machine_mode mode, rtx x)
 	return false;
 
       /* The same optimization as for CONST_INT.  */
-      if (SMALL_INT (offset) && mips_symbol_insns (type, MAX_MACHINE_MODE) > 0)
+      if (SMALL_INT9TO12 (offset) && mips_symbol_insns (type, MAX_MACHINE_MODE) > 0)
 	return true;
 
       /* If MIPS16 constant pools live in the text section, they should
@@ -3387,9 +3397,16 @@ mips_valid_base_register_p (rtx x, machine_mode mode, bool strict_p)
 static bool
 mips_valid_offset_p (rtx x, machine_mode mode)
 {
-  /* Check that X is a signed 16-bit number.  */
-  if (!const_arith_operand (x, Pmode))
-    return false;
+  if (TARGET_NANOMIPS)
+    {
+      if (!const_uimm12_operand (x, mode)
+	  && !const_imm9_operand (x, mode))
+	return false;
+    }
+  else
+    /* Check that X is a signed 16-bit number.  */
+    if (!const_arith_operand (x, Pmode))
+      return false;
 
   /* We may need to split multiword moves, so make sure that every word
      is accessible.  */
@@ -3482,7 +3499,7 @@ mips_classify_address (struct mips_address_info *info, rtx x,
       /* Small-integer addresses don't occur very often, but they
 	 are legitimate if $0 is a valid base register.  */
       info->type = ADDRESS_CONST_INT;
-      return !TARGET_MIPS16 && SMALL_INT (x);
+      return !TARGET_MIPS16 && SMALL_INT9TO12 (x);
 
     case CONST:
     case LABEL_REF:
@@ -4295,7 +4312,7 @@ mips_split_symbol (rtx temp, rtx addr, machine_mode mode, rtx *low_out)
 static rtx
 mips_add_offset (rtx temp, rtx reg, HOST_WIDE_INT offset)
 {
-  if (!SMALL_OPERAND (offset))
+  if (!SMALL_OPERAND9TO12 (offset))
     {
       rtx high;
 
@@ -4532,11 +4549,11 @@ void
 mips_move_integer (rtx temp, rtx dest, unsigned HOST_WIDE_INT value)
 {
   struct mips_integer_op codes[MIPS_MAX_INTEGER_OPS];
-  machine_mode mode;
+  machine_mode mode, orig_mode;
   unsigned int i, num_ops;
   rtx x;
 
-  mode = GET_MODE (dest);
+  orig_mode = mode = GET_MODE (dest);
   num_ops = mips_build_integer (codes, value);
 
   /* Apply each binary operation to X.  Invariant: X is a legitimate
@@ -4544,6 +4561,8 @@ mips_move_integer (rtx temp, rtx dest, unsigned HOST_WIDE_INT value)
   x = GEN_INT (codes[0].value);
   for (i = 1; i < num_ops; i++)
     {
+      if (GET_MODE_SIZE (mode) < 4)
+	mode = SImode;
       if (!can_create_pseudo_p ())
 	{
 	  emit_insn (gen_rtx_SET (temp, x));
@@ -4554,7 +4573,8 @@ mips_move_integer (rtx temp, rtx dest, unsigned HOST_WIDE_INT value)
       x = gen_rtx_fmt_ee (codes[i].code, mode, x, GEN_INT (codes[i].value));
     }
 
-  emit_insn (gen_rtx_SET (dest, x));
+  emit_insn (gen_rtx_SET (GET_MODE_SIZE (orig_mode) < 4
+			  ? gen_rtx_SUBREG (mode, dest, 0) : dest, x));
 }
 
 /* Subroutine of mips_legitimize_move.  Move constant SRC into register
@@ -4820,8 +4840,13 @@ mips_immediate_operand_p (int code, HOST_WIDE_INT x)
       return SMALL_OPERAND_UNSIGNED (x);
 
     case PLUS:
-    case LT:
+      /* These instructions take 16-bit signed immediates.  */
+      return SMALL_OPERAND (x);
+
     case LTU:
+    case LT:
+      if (TARGET_NANOMIPS)
+	return SMALL_OPERAND_UNSIGNED (x);
       /* These instructions take 16-bit signed immediates.  */
       return SMALL_OPERAND (x);
 
@@ -4840,10 +4865,14 @@ mips_immediate_operand_p (int code, HOST_WIDE_INT x)
 
     case LE:
       /* We add 1 to the immediate and use SLT.  */
+      if (TARGET_NANOMIPS)
+	return SMALL_OPERAND_UNSIGNED (x+1);
       return SMALL_OPERAND (x + 1);
 
     case LEU:
       /* Likewise SLTU, but reject the always-true case.  */
+      if (TARGET_NANOMIPS)
+	return SMALL_OPERAND_UNSIGNED (x+1) && x + 1 != 0;
       return SMALL_OPERAND (x + 1) && x + 1 != 0;
 
     case SIGN_EXTRACT:
