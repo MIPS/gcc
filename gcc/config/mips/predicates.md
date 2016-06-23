@@ -113,7 +113,12 @@
 
 (define_predicate "sle_operand"
   (and (match_code "const_int")
-       (match_test "SMALL_OPERAND (INTVAL (op) + 1)")))
+       (ior (and (not (and (match_test "TARGET_MICROMIPS_R7")
+			   (match_test "TARGET_NEW_SLTI_SLTIU")))
+		 (match_test "SMALL_OPERAND (INTVAL (op) + 1)"))
+	    (and (match_test "TARGET_MICROMIPS_R7")
+		 (match_test "TARGET_NEW_SLTI_SLTIU")
+		 (match_test "IMM12_OPERAND (INTVAL (op) + 1)")))))
 
 (define_predicate "sleu_operand"
   (and (match_operand 0 "sle_operand")

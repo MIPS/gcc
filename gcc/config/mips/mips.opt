@@ -604,3 +604,6 @@ Target Undocumented Var(TARGET_NEW_ANDI) Init(0)
 
 mnew-ori-xori
 Target Undocumented Var(TARGET_NEW_ORI_XORI) Init(0)
+
+mnew-slti-sltiu
+Target Undocumented Var(TARGET_NEW_SLTI_SLTIU) Init(0)

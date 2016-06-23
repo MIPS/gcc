@@ -6492,13 +6492,28 @@
    (set_attr "mode" "<GPR:MODE>")])
 
 (define_insn "*slt<u>_<GPR:mode><GPR2:mode>"
-  [(set (match_operand:GPR2 0 "register_operand" "=d")
-	(any_lt:GPR2 (match_operand:GPR 1 "register_operand" "d")
-		     (match_operand:GPR 2 "arith_operand" "dI")))]
+  [(set (match_operand:GPR2 0 "register_operand" "=d,d")
+	(any_lt:GPR2 (match_operand:GPR 1 "register_operand" "d,d")
+		     (match_operand:GPR 2 "arith_operand" "dI,dYD")))]
   "!TARGET_MIPS16"
-  "slt<u>\t%0,%1,%2"
+{
+  if (TARGET_MICROMIPS_R7 && TARGET_NEW_SLTI_SLTIU)
+    return "sdbbp32 20 # slt<u>\t%0,%1,%2";
+  else
+    return "slt<u>\t%0,%1,%2";
+}
   [(set_attr "type" "slt")
-   (set_attr "mode" "<GPR:MODE>")])
+   (set_attr "mode" "<GPR:MODE>")
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "0")
+		    (match_test "TARGET_MICROMIPS_R7")
+		    (match_test "TARGET_NEW_SLTI_SLTIU"))
+		  (const_string "no")
+	       (and (eq_attr "alternative" "1")
+		    (not (and (match_test "TARGET_MICROMIPS_R7")
+			      (match_test "TARGET_NEW_SLTI_SLTIU"))))
+		  (const_string "no")]
+	      (const_string "yes")))])
 
 (define_insn "*slt<u>_<GPR:mode><GPR2:mode>_mips16"
   [(set (match_operand:GPR2 0 "register_operand" "=t,t,t")
@@ -6517,7 +6532,10 @@
   "!TARGET_MIPS16"
 {
   operands[2] = GEN_INT (INTVAL (operands[2]) + 1);
-  return "slt<u>\t%0,%1,%2";
+  if (TARGET_MICROMIPS_R7 && TARGET_NEW_SLTI_SLTIU)
+    return "sdbbp32 20 # slt<u>\t%0,%1,%2";
+  else
+    return "slt<u>\t%0,%1,%2";
 }
   [(set_attr "type" "slt")
    (set_attr "mode" "<GPR:MODE>")])
