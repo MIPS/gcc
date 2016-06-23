@@ -2754,13 +2754,10 @@
   rtx tmp_reg = operands[2];
   rtx addr = XEXP (dest, 0);
 
-  if (GET_CODE (addr) == PLUS)
+  if (GET_CODE (addr) == PLUS || GET_CODE (addr) == LO_SUM)
     {
-      rtx add0 = XEXP (addr, 0);
-      rtx add1 = XEXP (addr, 1);
-      emit_insn (gen_rtx_SET (tmp_reg, add0));
-      dest = change_address (dest, <MODE>mode,
-			     gen_rtx_PLUS (DImode, add0, tmp_reg));
+      emit_insn (gen_rtx_SET (tmp_reg, addr));
+      dest = change_address (dest, <MODE>mode, tmp_reg);
       emit_insn (gen_rtx_SET (dest, src));
     }
   else
