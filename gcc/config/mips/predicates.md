@@ -65,6 +65,10 @@
   (and (match_code "const_int")
        (match_test "IN_RANGE (INTVAL (op), 0, 255)")))
 
+(define_predicate "const_uimm12_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 0, 4095)")))
+
 (define_predicate "const_imm5_operand"
   (and (match_code "const_int")
        (match_test "IN_RANGE (INTVAL (op), -16, 15)")))
@@ -79,6 +83,16 @@
 
 (define_predicate "reg_imm10_operand"
   (ior (match_operand 0 "const_imm10_operand")
+       (match_operand 0 "register_operand")))
+
+;; Choose between 12-bit and 16-bit
+(define_predicate "reg_uimm_operand"
+  (ior (and (not (and (match_test "TARGET_MICROMIPS_R7")
+		      (match_test "TARGET_NEW_ORI_XORI")))
+	    (match_operand 0 "const_uns_arith_operand"))
+       (and (match_test "TARGET_MICROMIPS_R7")
+	    (match_test "TARGET_NEW_ORI_XORI")
+	    (match_operand 0 "const_uimm12_operand"))
        (match_operand 0 "register_operand")))
 
 (define_predicate "aq10b_operand"
@@ -99,7 +113,12 @@
 
 (define_predicate "sle_operand"
   (and (match_code "const_int")
-       (match_test "SMALL_OPERAND (INTVAL (op) + 1)")))
+       (ior (and (not (and (match_test "TARGET_MICROMIPS_R7")
+			   (match_test "TARGET_NEW_SLTI_SLTIU")))
+		 (match_test "SMALL_OPERAND (INTVAL (op) + 1)"))
+	    (and (match_test "TARGET_MICROMIPS_R7")
+		 (match_test "TARGET_NEW_SLTI_SLTIU")
+		 (match_test "IMM12_OPERAND (INTVAL (op) + 1)")))))
 
 (define_predicate "sleu_operand"
   (and (match_operand 0 "sle_operand")
@@ -201,9 +220,14 @@
 
 (define_predicate "and_reg_operand"
   (ior (match_operand 0 "register_operand")
-       (and (ior (not (match_test "TARGET_MIPS16"))
+       (and (ior (not (ior (match_test "TARGET_MIPS16")
+			   (and (match_test "TARGET_MICROMIPS_R7")
+				(match_test "TARGET_NEW_ANDI"))))
 		 (match_test "ISA_HAS_MIPS16E2"))
 	    (match_operand 0 "const_uns_arith_operand"))
+       (and (match_test "TARGET_MICROMIPS_R7")
+	    (match_test "TARGET_NEW_ANDI")
+	    (match_operand 0 "const_uimm12_operand"))
        (match_operand 0 "low_bitmask_operand")
        (match_operand 0 "si_mask_operand")
        (match_operand 0 "bit_clear_operand")))
@@ -334,14 +358,21 @@
 
 (define_predicate "andi16_operand"
   (and (match_code "const_int")
-	(ior (match_test "IN_RANGE (INTVAL (op), 1, 4)")
-	     (match_test "IN_RANGE (INTVAL (op), 7, 8)")
-	     (match_test "IN_RANGE (INTVAL (op), 15, 16)")
-	     (match_test "IN_RANGE (INTVAL (op), 31, 32)")
-	     (match_test "IN_RANGE (INTVAL (op), 63, 64)")
-	     (match_test "INTVAL (op) == 255")
-	     (match_test "INTVAL (op) == 32768")
-	     (match_test "INTVAL (op) == 65535"))))
+       (ior (and (not (match_test "TARGET_MICROMIPS_R7"))
+		 (ior (match_test "IN_RANGE (INTVAL (op), 1, 4)")
+		      (match_test "IN_RANGE (INTVAL (op), 7, 8)")
+		      (match_test "IN_RANGE (INTVAL (op), 15, 16)")
+		      (match_test "IN_RANGE (INTVAL (op), 31, 32)")
+		      (match_test "IN_RANGE (INTVAL (op), 63, 64)")
+		      (match_test "INTVAL (op) == 255")
+		      (match_test "INTVAL (op) == 32768")
+		      (match_test "INTVAL (op) == 65535")))
+	    (and (match_test "TARGET_MICROMIPS_R7")
+		 (match_test "TARGET_NEW_ANDI")
+		 (ior (match_test "IN_RANGE (INTVAL (op), 0, 11)")
+		      (match_test "IN_RANGE (INTVAL (op), 14, 15)")
+		      (match_test "INTVAL (op) == 0xff")
+		      (match_test "INTVAL (op) == 0xffff"))))))
 
 (define_predicate "movep_src_register"
   (and (match_code "reg")
@@ -681,6 +712,7 @@
       && (const_uimm7_operand (XEXP (op, 1), mode)
 	  || register_operand (XEXP (op, 1), mode))
       && (GET_CODE (op) == LT || GET_CODE (op) == LTU
+	  || GET_CODE (op) == EQ || GET_CODE (op) == NE
 	  || GET_CODE (op) == GE || GET_CODE (op) == GEU))
     return true;
 

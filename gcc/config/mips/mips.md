@@ -3356,7 +3356,7 @@
 (define_expand "ior<mode>3"
   [(set (match_operand:GPR 0 "register_operand")
 	(ior:GPR (match_operand:GPR 1 "register_operand")
-		 (match_operand:GPR 2 "uns_arith_operand")))]
+		 (match_operand:GPR 2 "reg_uimm_operand")))]
   ""
 {
   if (TARGET_MIPS16 && !ISA_HAS_MIPS16E2)
@@ -3366,12 +3366,17 @@
 (define_insn "*ior<mode>3"
   [(set (match_operand:GPR 0 "register_operand" "=!u,d,d")
 	(ior:GPR (match_operand:GPR 1 "register_operand" "%0,d,d")
-		 (match_operand:GPR 2 "uns_arith_operand" "!u,d,K")))]
+		 (match_operand:GPR 2 "reg_uimm_operand" "!u,d,K")))]
   "!TARGET_MIPS16"
-  "@
-   or\t%0,%1,%2
-   or\t%0,%1,%2
-   ori\t%0,%1,%x2"
+{
+  switch (which_alternative)
+    {
+    case 0: return "or\t%0,%1,%2";
+    case 1: return "or\t%0,%1,%2";
+    case 2: return "ori\t%0,%1,%x2";
+    default: gcc_unreachable ();
+    }
+}
   [(set_attr "alu_type" "or")
    (set_attr "compression" "micromips,*,*")
    (set_attr "mode" "<MODE>")])
@@ -3400,19 +3405,24 @@
 (define_expand "xor<mode>3"
   [(set (match_operand:GPR 0 "register_operand")
 	(xor:GPR (match_operand:GPR 1 "register_operand")
-		 (match_operand:GPR 2 "uns_arith_operand")))]
+		 (match_operand:GPR 2 "reg_uimm_operand")))]
   ""
   "")
 
 (define_insn "*xor<mode>3"
   [(set (match_operand:GPR 0 "register_operand" "=!u,d,d")
 	(xor:GPR (match_operand:GPR 1 "register_operand" "%0,d,d")
-		 (match_operand:GPR 2 "uns_arith_operand" "!u,d,K")))]
+		 (match_operand:GPR 2 "reg_uimm_operand" "!u,d,K")))]
   "!TARGET_MIPS16"
-  "@
-   xor\t%0,%1,%2
-   xor\t%0,%1,%2
-   xori\t%0,%1,%x2"
+{
+  switch (which_alternative)
+    {
+    case 0: return "xor\t%0,%1,%2";
+    case 1: return "xor\t%0,%1,%2";
+    case 2: return "xori\t%0,%1,%x2";
+    default: gcc_unreachable ();
+    }
+}
   [(set_attr "alu_type" "xor")
    (set_attr "compression" "micromips,*,*")
    (set_attr "mode" "<MODE>")])
@@ -6437,13 +6447,31 @@
    (set_attr "mode" "<GPR:MODE>")])
 
 (define_insn "*slt<u>_<GPR:mode><GPR2:mode>"
-  [(set (match_operand:GPR2 0 "register_operand" "=d")
-	(any_lt:GPR2 (match_operand:GPR 1 "register_operand" "d")
-		     (match_operand:GPR 2 "arith_operand" "dI")))]
+  [(set (match_operand:GPR2 0 "register_operand" "=d,d,d,d")
+	(any_lt:GPR2 (match_operand:GPR 1 "register_operand" "d,d,d,d")
+		     (match_operand:GPR 2 "arith_operand" "dI,d,YD,YE")))]
   "!TARGET_MIPS16"
-  "slt<u>\t%0,%1,%2"
+  "@
+   slt<u>\t%0,%1,%2
+   slt<u>\t%0,%1,%2
+   slti<u>\t%0,%1,%2
+   slti<u>\t%0,%1,%2"
   [(set_attr "type" "slt")
-   (set_attr "mode" "<GPR:MODE>")])
+   (set_attr "mode" "<GPR:MODE>")
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "0")
+		    (match_test "TARGET_MICROMIPS_R7")
+		    (match_test "TARGET_NEW_SLTI_SLTIU"))
+		  (const_string "no")
+	       (and (eq_attr "alternative" "2")
+		    (and (match_test "TARGET_MICROMIPS_R7")
+			 (match_test "TARGET_NEW_SLTI_SLTIU")))
+		  (const_string "no")
+	       (and (eq_attr "alternative" "3")
+		    (not (and (match_test "TARGET_MICROMIPS_R7")
+			      (match_test "TARGET_NEW_SLTI_SLTIU"))))
+		  (const_string "no")]
+	      (const_string "yes")))])
 
 (define_insn "*slt<u>_<GPR:mode><GPR2:mode>_mips16"
   [(set (match_operand:GPR2 0 "register_operand" "=t,t,t")
@@ -6460,10 +6488,7 @@
 	(any_le:GPR2 (match_operand:GPR 1 "register_operand" "d")
 		     (match_operand:GPR 2 "sle_operand" "")))]
   "!TARGET_MIPS16"
-{
-  operands[2] = GEN_INT (INTVAL (operands[2]) + 1);
-  return "slt<u>\t%0,%1,%2";
-}
+  "slt<u>\t%0,%1,%2"
   [(set_attr "type" "slt")
    (set_attr "mode" "<GPR:MODE>")])
 

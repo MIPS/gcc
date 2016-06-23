@@ -2338,6 +2338,11 @@ enum reg_class
 #define IMM10_OPERAND(VALUE) \
   ((unsigned HOST_WIDE_INT) (VALUE) + 0x200 < 0x400)
 
+/* True if VALUE is a signed 12-bit number.  */
+
+#define IMM12_OPERAND(VALUE) \
+  ((unsigned HOST_WIDE_INT) (VALUE) + 0x800 < 0x1000)
+
 /* True if VALUE is a signed 16-bit number.  */
 
 #define SMALL_OPERAND(VALUE) \

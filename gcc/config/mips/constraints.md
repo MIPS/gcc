@@ -295,6 +295,18 @@
    "@internal"
    (match_operand 0 "qi_mask_operand"))
 
+(define_constraint "YD"
+  "@internal
+   A signed 12-bit constant."
+  (and (match_code "const_int")
+       (match_test "IMM12_OPERAND (ival)")))
+
+(define_constraint "YE"
+  "@internal
+   An unsigned 12-bit constant."
+  (and (match_code "const_int")
+       (match_test "ival >= 0 && ival <= 0xfff")))
+
 (define_constraint "Yd"
   "@internal
    A constant @code{move_operand} that can be safely loaded into @code{$25}
