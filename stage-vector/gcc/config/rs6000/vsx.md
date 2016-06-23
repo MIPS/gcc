@@ -2734,37 +2734,12 @@
   "lxsi<wd>zx %x0,%y1"
   [(set_attr "type" "fpload")])
 
-(define_insn_and_split "p9_stxsi<wd>x"
-  [(set (match_operand:QHI 0 "nonimmediate_operand" "=r,Z,??o,???m")
-	(unspec:QHI [(match_operand:DI 1 "vsx_register_operand" "wi,wi,wi,wi")]
-		    UNSPEC_P9_MEMORY))
-   (clobber (match_scratch:DI 2 "=X,X,&b,&b"))]
-  "TARGET_P9_VECTOR && TARGET_POWERPC64"
+(define_insn "p9_stxsi<wd>x"
+  [(set (match_operand:QHI 0 "reg_or_indexed_operand" "=r,Z")
+	(unspec:QHI [(match_operand:DI 1 "vsx_register_operand" "wi,wi")]
+		    UNSPEC_P9_MEMORY))]
+  "TARGET_P9_VECTOR"
   "@
    mfvsrd %0,%x1
-   stxsi<wd>x %x1,%y0
-   #
-   #"
-  "&& reload_completed && MEM_P (operands[0])
-   && !indexed_or_indirect_operand (operands[0], <MODE>mode)"
-  [(const_int 0)]
-{
-  rtx dest = operands[0];
-  rtx src = operands[1];
-  rtx tmp_reg = operands[2];
-  rtx addr = XEXP (dest, 0);
-
-  if (GET_CODE (addr) == PLUS || GET_CODE (addr) == LO_SUM)
-    {
-      emit_insn (gen_rtx_SET (tmp_reg, addr));
-      dest = change_address (dest, <MODE>mode, tmp_reg);
-      emit_insn (gen_rtx_SET (dest, src));
-    }
-  else
-    {
-      emit_insn (gen_rtx_SET (tmp_reg, src));
-      emit_insn (gen_rtx_SET (dest, gen_rtx_REG (<MODE>mode, REGNO (tmp_reg))));
-    }
-  DONE;
-}
-  [(set_attr "type" "mffgpr,fpstore,fpstore,store")])
+   stxsi<wd>x %x1,%y0"
+  [(set_attr "type" "mffgpr,fpstore")])
