@@ -3243,8 +3243,15 @@
       operands[1] = gen_lowpart (SImode, operands[1]);
       return "lwu\t%0,%1";
     case 3:
+      if (TARGET_MICROMIPS_R7 && TARGET_NEW_ANDI)
+	return "sdbbp16 8 # andi\t%0,%1,%x2";
+      else
+	return "andi\t%0,%1,%x2";
     case 4:
-      return "andi\t%0,%1,%x2";
+      if (TARGET_MICROMIPS_R7 && TARGET_NEW_ANDI)
+	return "sdbbp32 18 # andi\t%0,%1,%x2";
+      else
+	return "andi\t%0,%1,%x2";
     case 5:
       len = low_bitmask_len (<MODE>mode, INTVAL (operands[2]));
       operands[2] = GEN_INT (len);

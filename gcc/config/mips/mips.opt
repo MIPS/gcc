@@ -598,3 +598,6 @@ Target Undocumented Var(TARGET_ADD_CONDMOVE) Init(0)
 
 mret-in-args
 Target Undocumented Var(TARGET_RET_IN_ARGS) Init (0)
+
+mnew-andi
+Target Undocumented Var(TARGET_NEW_ANDI) Init(0)
