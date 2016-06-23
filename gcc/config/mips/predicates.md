@@ -61,9 +61,17 @@
   (and (match_code "const_int")
        (match_test "IN_RANGE (INTVAL (op), 0, 255)")))
 
+(define_predicate "const_uimm12_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 0, 4095)")))
+
 (define_predicate "const_imm5_operand"
   (and (match_code "const_int")
        (match_test "IN_RANGE (INTVAL (op), -16, 15)")))
+
+(define_predicate "const_imm9_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), -256, 255)")))
 
 (define_predicate "const_imm10_operand"
   (and (match_code "const_int")
@@ -91,7 +99,10 @@
 
 (define_predicate "sle_operand"
   (and (match_code "const_int")
-       (match_test "SMALL_OPERAND (INTVAL (op) + 1)")))
+       (ior (and (not (match_test "TARGET_NANOMIPS"))
+		 (match_test "SMALL_OPERAND (INTVAL (op) + 1)"))
+	    (and (match_test "TARGET_NANOMIPS")
+		 (match_test "SMALL_OPERAND_UNSIGNED (INTVAL (op) + 1)")))))
 
 (define_predicate "sleu_operand"
   (and (match_operand 0 "sle_operand")
@@ -187,7 +198,10 @@
 (define_predicate "low_bitmask_operand"
   (and (match_test "ISA_HAS_EXT_INS")
        (match_code "const_int")
-       (match_test "low_bitmask_len (mode, INTVAL (op)) > 16")))
+       (ior (and (not (match_test "TARGET_NANOMIPS"))
+		 (match_test "low_bitmask_len (mode, INTVAL (op)) > 16"))
+	    (and (match_test "TARGET_NANOMIPS")
+		 (match_test "low_bitmask_len (mode, INTVAL (op)) > 12")))))
 
 (define_predicate "and_reg_operand"
   (ior (match_operand 0 "register_operand")
@@ -223,15 +237,15 @@
 
 (define_predicate "lhu16_sh16_operand"
   (and (match_code "mem")
-       (match_test "m16_based_address_p (XEXP (op, 0), mode, uh4_operand)")))
+       (match_test "m16_based_address_p (XEXP (op, 0), mode, TARGET_NANOMIPS ? uh2_operand : uh4_operand)")))
 
 (define_predicate "lbu16_operand"
   (and (match_code "mem")
-       (match_test "m16_based_address_p (XEXP (op, 0), mode, db4_operand)")))
+       (match_test "m16_based_address_p (XEXP (op, 0), mode, TARGET_NANOMIPS ? ub2_operand : db4_operand)")))
 
 (define_predicate "sb16_operand"
   (and (match_code "mem")
-       (match_test "m16_based_address_p (XEXP (op, 0), mode, ub4_operand)")))
+       (match_test "m16_based_address_p (XEXP (op, 0), mode, TARGET_NANOMIPS ? ub2_operand : ub4_operand)")))
 
 (define_predicate "db4_operand"
   (and (match_code "const_int")
@@ -265,6 +279,10 @@
   (and (match_code "const_int")
        (match_test "mips_signed_immediate_p (INTVAL (op), 8, 3)")))
 
+(define_predicate "ub2_operand"
+  (and (match_code "const_int")
+       (match_test "mips_unsigned_immediate_p (INTVAL (op), 2, 0)")))
+
 (define_predicate "ub4_operand"
   (and (match_code "const_int")
        (match_test "mips_unsigned_immediate_p (INTVAL (op), 4, 0)")))
@@ -272,6 +290,10 @@
 (define_predicate "ub8_operand"
   (and (match_code "const_int")
        (match_test "mips_unsigned_immediate_p (INTVAL (op), 8, 0)")))
+
+(define_predicate "uh2_operand"
+  (and (match_code "const_int")
+       (match_test "mips_unsigned_immediate_p (INTVAL (op), 2, 1)")))
 
 (define_predicate "uh4_operand"
   (and (match_code "const_int")
@@ -318,14 +340,20 @@
 
 (define_predicate "andi16_operand"
   (and (match_code "const_int")
-	(ior (match_test "IN_RANGE (INTVAL (op), 1, 4)")
-	     (match_test "IN_RANGE (INTVAL (op), 7, 8)")
-	     (match_test "IN_RANGE (INTVAL (op), 15, 16)")
-	     (match_test "IN_RANGE (INTVAL (op), 31, 32)")
-	     (match_test "IN_RANGE (INTVAL (op), 63, 64)")
-	     (match_test "INTVAL (op) == 255")
-	     (match_test "INTVAL (op) == 32768")
-	     (match_test "INTVAL (op) == 65535"))))
+       (ior (and (not (match_test "TARGET_NANOMIPS"))
+		 (ior (match_test "IN_RANGE (INTVAL (op), 1, 4)")
+		      (match_test "IN_RANGE (INTVAL (op), 7, 8)")
+		      (match_test "IN_RANGE (INTVAL (op), 15, 16)")
+		      (match_test "IN_RANGE (INTVAL (op), 31, 32)")
+		      (match_test "IN_RANGE (INTVAL (op), 63, 64)")
+		      (match_test "INTVAL (op) == 255")
+		      (match_test "INTVAL (op) == 32768")
+		      (match_test "INTVAL (op) == 65535")))
+	    (and (match_test "TARGET_NANOMIPS")
+		 (ior (match_test "IN_RANGE (INTVAL (op), 0, 11)")
+		      (match_test "IN_RANGE (INTVAL (op), 14, 15)")
+		      (match_test "INTVAL (op) == 0xff")
+		      (match_test "INTVAL (op) == 0xffff"))))))
 
 (define_predicate "movep_src_register"
   (and (match_code "reg")
