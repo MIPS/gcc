@@ -2703,7 +2703,11 @@ mips_build_lower (struct mips_integer_op *codes, unsigned HOST_WIDE_INT value)
 	codes[i].code = PLUS;
       else
 	codes[i].code = IOR;
-      codes[i].value = value & 0xffff;
+
+      if (TARGET_MICROMIPS_R7 && TARGET_NEW_ORI_XORI)
+	codes[i].value = value & 0xfff;
+      else
+	codes[i].value = value & 0xffff;
     }
   return i + 1;
 }

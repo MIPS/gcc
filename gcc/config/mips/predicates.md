@@ -85,6 +85,16 @@
   (ior (match_operand 0 "const_imm10_operand")
        (match_operand 0 "register_operand")))
 
+;; Choose between 12-bit and 16-bit
+(define_predicate "reg_uimm_operand"
+  (ior (and (not (and (match_test "TARGET_MICROMIPS_R7")
+		      (match_test "TARGET_NEW_ORI_XORI")))
+	    (match_operand 0 "const_uns_arith_operand"))
+       (and (match_test "TARGET_MICROMIPS_R7")
+	    (match_test "TARGET_NEW_ORI_XORI")
+	    (match_operand 0 "const_uimm12_operand"))
+       (match_operand 0 "register_operand")))
+
 (define_predicate "aq10b_operand"
   (and (match_code "const_int")
        (match_test "mips_signed_immediate_p (INTVAL (op), 10, 0)")))

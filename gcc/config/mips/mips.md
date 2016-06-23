@@ -3325,7 +3325,7 @@
 (define_expand "ior<mode>3"
   [(set (match_operand:GPR 0 "register_operand")
 	(ior:GPR (match_operand:GPR 1 "register_operand")
-		 (match_operand:GPR 2 "uns_arith_operand")))]
+		 (match_operand:GPR 2 "reg_uimm_operand")))]
   ""
 {
   if (TARGET_MIPS16 && !ISA_HAS_MIPS16E2)
@@ -3335,12 +3335,21 @@
 (define_insn "*ior<mode>3"
   [(set (match_operand:GPR 0 "register_operand" "=!u,d,d")
 	(ior:GPR (match_operand:GPR 1 "register_operand" "%0,d,d")
-		 (match_operand:GPR 2 "uns_arith_operand" "!u,d,K")))]
+		 (match_operand:GPR 2 "reg_uimm_operand" "!u,d,K")))]
   "!TARGET_MIPS16"
-  "@
-   or\t%0,%1,%2
-   or\t%0,%1,%2
-   ori\t%0,%1,%x2"
+{
+  switch (which_alternative)
+    {
+    case 0: return "or\t%0,%1,%2";
+    case 1: return "or\t%0,%1,%2";
+    case 2:
+      if (TARGET_MICROMIPS_R7 && TARGET_NEW_ORI_XORI)
+	return "sdbbp32 19 # ori\t%0,%1,%x2";
+      else
+	return "ori\t%0,%1,%x2";
+    default: gcc_unreachable ();
+    }
+}
   [(set_attr "alu_type" "or")
    (set_attr "compression" "micromips,*,*")
    (set_attr "mode" "<MODE>")])
@@ -3369,19 +3378,28 @@
 (define_expand "xor<mode>3"
   [(set (match_operand:GPR 0 "register_operand")
 	(xor:GPR (match_operand:GPR 1 "register_operand")
-		 (match_operand:GPR 2 "uns_arith_operand")))]
+		 (match_operand:GPR 2 "reg_uimm_operand")))]
   ""
   "")
 
 (define_insn "*xor<mode>3"
   [(set (match_operand:GPR 0 "register_operand" "=!u,d,d")
 	(xor:GPR (match_operand:GPR 1 "register_operand" "%0,d,d")
-		 (match_operand:GPR 2 "uns_arith_operand" "!u,d,K")))]
+		 (match_operand:GPR 2 "reg_uimm_operand" "!u,d,K")))]
   "!TARGET_MIPS16"
-  "@
-   xor\t%0,%1,%2
-   xor\t%0,%1,%2
-   xori\t%0,%1,%x2"
+{
+  switch (which_alternative)
+    {
+    case 0: return "xor\t%0,%1,%2";
+    case 1: return "xor\t%0,%1,%2";
+    case 2:
+      if (TARGET_MICROMIPS_R7 && TARGET_NEW_ORI_XORI)
+	return "sdbbp32 19 # xori\t%0,%1,%x2";
+      else
+	return "xori\t%0,%1,%x2";
+    default: gcc_unreachable ();
+    }
+}
   [(set_attr "alu_type" "xor")
    (set_attr "compression" "micromips,*,*")
    (set_attr "mode" "<MODE>")])
