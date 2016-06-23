@@ -418,6 +418,12 @@
 #endif
 
 
+/* Define 0/1 if your assembler and linker support @GOT. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_IX86_GOT32X
+#endif
+
+
 /* Define if your assembler supports HLE prefixes. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_IX86_HLE
