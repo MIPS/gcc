@@ -3231,9 +3231,9 @@
 ;;  register =op1                      x
 
 (define_insn "*and<mode>3"
-  [(set (match_operand:GPR 0 "register_operand" "=d,d,d,!u,d,d,d,!u,d,d")
-       (and:GPR (match_operand:GPR 1 "nonimmediate_operand" "o,o,W,!u,d,d,d,0,d,0")
-		(match_operand:GPR 2 "and_operand" "Yb,Yh,Yw,Uean,K,Yx,Yw,!u,d,Yz")))]
+  [(set (match_operand:GPR 0 "register_operand" "=d,d,d,u,u,!u,d,d,d,!u,d,d")
+       (and:GPR (match_operand:GPR 1 "nonimmediate_operand" "o,o,W,u,u,!u,d,d, d,0,d,0")
+		(match_operand:GPR 2 "and_operand" "Yb,Yh,Yw,Yb,Yh,Uean,K,Yx,Yw,!u,d,Yz")))]
   "!TARGET_MIPS16 && and_operands_ok (<MODE>mode, operands[1], operands[2])"
 {
   int len;
@@ -3252,17 +3252,19 @@
       return "lwu\t%0,%1";
     case 3:
     case 4:
-      return "andi\t%0,%1,%x2";
     case 5:
+    case 6:
+      return "andi\t%0,%1,%x2";
+    case 7:
       len = low_bitmask_len (<MODE>mode, INTVAL (operands[2]));
       operands[2] = GEN_INT (len);
       return "<d>ext\t%0,%1,0,%2";
-    case 6:
-      return "#";
-    case 7:
     case 8:
-      return "and\t%0,%1,%2";
+      return "#";
     case 9:
+    case 10:
+      return "and\t%0,%1,%2";
+    case 11:
       mips_bit_clear_info (INTVAL (operands[2]), &pos, &len);
       operands[1] = GEN_INT (pos);
       operands[2] = GEN_INT (len);
@@ -3271,9 +3273,14 @@
       gcc_unreachable ();
     }
 }
-  [(set_attr "move_type" "load,load,load,andi,andi,ext_ins,shift_shift,logical,logical,ext_ins")
-   (set_attr "compression" "*,*,*,micromips,*,*,*,micromips,*,*")
-   (set_attr "mode" "<MODE>")])
+  [(set_attr "move_type" "load,load,load,andi,andi,andi,andi,ext_ins,shift_shift,logical,logical,ext_ins")
+   (set_attr "compression" "*,*,*,micromips,micromips,micromips,*,*,*,micromips,*,*")
+   (set_attr "mode" "<MODE>")
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "3,4")
+		    (not (match_test "TARGET_NANOMIPS")))
+		  (const_string "no")]
+	      (const_string "yes")))])
 
 (define_insn "*and<mode>3_mips16"
   [(set (match_operand:GPR 0 "register_operand" "=d,d,d,d,d,d,d,d,d,d")
@@ -3575,17 +3582,36 @@
 })
 
 (define_insn "*zero_extend<SHORT:mode><GPR:mode>2"
-  [(set (match_operand:GPR 0 "register_operand" "=!u,d,d")
+  [(set (match_operand:GPR 0 "register_operand" "=!u,?u,d,d")
         (zero_extend:GPR
-	     (match_operand:SHORT 1 "nonimmediate_operand" "!u,d,m")))]
+	     (match_operand:SHORT 1 "nonimmediate_operand" "!u,?u,d,m")))]
   "!TARGET_MIPS16"
-  "@
-   andi\t%0,%1,<SHORT:mask>
-   andi\t%0,%1,<SHORT:mask>
-   l<SHORT:size>u\t%0,%1"
-  [(set_attr "move_type" "andi,andi,load")
-   (set_attr "compression" "micromips,*,*")
-   (set_attr "mode" "<GPR:MODE>")])
+{
+  switch (which_alternative)
+    {
+    case 0:
+    case 1: return "andi\t%0,%1,<SHORT:mask>";
+    case 2:
+      if (<SHORT:MODE>mode == HImode)
+	return "ext\t%0,%1,0,16";
+      else
+	return "andi\t%0,%1,<SHORT:mask>";
+    case 3: return "l<SHORT:size>u\t%0,%1";
+    default:
+      gcc_unreachable ();
+    }
+}
+  [(set_attr "move_type" "andi,andi,andi,load")
+   (set_attr "compression" "micromips,micromips,*,*")
+   (set_attr "mode" "<GPR:MODE>")
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "0,1")
+		    (not (match_test "TARGET_NANOMIPS")))
+		  (const_string "no")
+	       (and (eq_attr "alternative" "2")
+		    (not (match_test "TARGET_NANOMIPS == NANOMIPS_NMF")))
+		  (const_string "no")]
+	      (const_string "*")))])
 
 (define_insn "*zero_extend<SHORT:mode><GPR:mode>2_mips16e"
   [(set (match_operand:GPR 0 "register_operand" "=d")
@@ -4902,15 +4928,21 @@
 ;; in FP registers (off by default, use -mdebugh to enable).
 
 (define_insn "*mov<mode>_internal"
-  [(set (match_operand:IMOVE32 0 "nonimmediate_operand" "=d,!u,!u,d,e,!u,!ks,d,ZS,ZT,m,*f,*f,*d,*m,*d,*z,*a,*d,*B*C*D,*B*C*D,*d,*m")
-	(match_operand:IMOVE32 1 "move_operand" "d,J,Udb7,Yd,Yf,ZT,ZS,m,!ks,!kbJ,dJ,*d*J,*m,*f,*f,*z,*d,*J*d,*a,*d,*m,*B*C*D,*B*C*D"))]
+  [(set (match_operand:IMOVE32 0 "nonimmediate_operand" "=d,!u,!u,d,e,!u,!ks,d,ZS,ZT,m,*f,*f,*d,*m,*d,*z,*a,*d,*B*C*D,*B*C*D,*d,*m,d")
+	(match_operand:IMOVE32 1 "move_operand" "d,J,Udb7,Yd,Yf,ZT,ZS,m,!ks,!kbJ,dJ,*d*J,*m,*f,*f,*z,*d,*J*d,*a,*d,*m,*B*C*D,*B*C*D,n"))]
   "!TARGET_MIPS16
    && (register_operand (operands[0], <MODE>mode)
        || reg_or_0_operand (operands[1], <MODE>mode))"
   { return mips_output_move (insn, operands[0], operands[1]); }
-  [(set_attr "move_type" "move,move,const,const,const,load,load,load,store,store,store,mtc,fpload,mfc,fpstore,mfc,mtc,mtlo,mflo,mtc,fpload,mfc,fpstore")
-   (set_attr "compression" "all,micromips,micromips,*,*,micromips,micromips,*,micromips,micromips,*,*,*,*,*,*,*,*,*,*,*,*,*")
-   (set_attr "mode" "SI")])
+  [(set_attr "move_type" "move,move,const,const,const,load,load,load,store,store,store,mtc,fpload,mfc,fpstore,mfc,mtc,mtlo,mflo,mtc,fpload,mfc,fpstore,move")
+   (set_attr "compression" "all,micromips,micromips,*,*,micromips,micromips,*,micromips,micromips,*,*,*,*,*,*,*,*,*,*,*,*,*,*")
+   (set_attr "mode" "SI")
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "23")
+		    (match_test "!TARGET_NANOMIPS"))
+		  (const_string "no")]
+	      (const_string "yes")))])
+
 
 (define_insn "*mov<mode>_mips16"
   [(set (match_operand:IMOVE32 0 "nonimmediate_operand" "=d,y,d,d,d,d,d,d,m,*d")
@@ -5043,15 +5075,21 @@
 })
 
 (define_insn "*movhi_internal"
-  [(set (match_operand:HI 0 "nonimmediate_operand" "=d,!u,d,!u,d,ZU,m,*a,*d")
-	(match_operand:HI 1 "move_operand"         "d,J,I,ZU,m,!kbJ,dJ,*d*J,*a"))]
+  [(set (match_operand:HI 0 "nonimmediate_operand" "=d,!u,d,!u,d,ZU,m,*a,*d,d")
+	(match_operand:HI 1 "move_operand"         "d,J,I,ZU,m,!kbJ,dJ,*d*J,*a,i"))]
   "!TARGET_MIPS16
    && (register_operand (operands[0], HImode)
        || reg_or_0_operand (operands[1], HImode))"
   { return mips_output_move (insn, operands[0], operands[1]); }
-  [(set_attr "move_type" "move,const,const,load,load,store,store,mtlo,mflo")
-   (set_attr "compression" "all,micromips,*,micromips,*,micromips,*,*,*")
-   (set_attr "mode" "HI")])
+  [(set_attr "move_type" "move,const,const,load,load,store,store,mtlo,mflo,move")
+   (set_attr "compression" "all,micromips,*,micromips,*,micromips,*,*,*,*")
+   (set_attr "mode" "HI")
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "9")
+		    (match_test "!TARGET_NANOMIPS"))
+		  (const_string "no")]
+	      (const_string "yes")))])
+
 
 (define_insn "*movhi_mips16"
   [(set (match_operand:HI 0 "nonimmediate_operand" "=d,y,d,d,d,d,m,*d")
@@ -6350,13 +6388,24 @@
    (set_attr "mode" "<GPR:MODE>")])
 
 (define_insn "*slt<u>_<GPR:mode><GPR2:mode>"
-  [(set (match_operand:GPR2 0 "register_operand" "=d")
-	(any_lt:GPR2 (match_operand:GPR 1 "register_operand" "d")
-		     (match_operand:GPR 2 "arith_operand" "dI")))]
+  [(set (match_operand:GPR2 0 "register_operand" "=d,d,d")
+	(any_lt:GPR2 (match_operand:GPR 1 "register_operand" "d,d,d")
+		     (match_operand:GPR 2 "arith_operand" "dI,d,K")))]
   "!TARGET_MIPS16"
-  "slt<u>\t%0,%1,%2"
+  "@
+   slt<u>\t%0,%1,%2
+   slt<u>\t%0,%1,%2
+   slti<u>\t%0,%1,%2"
   [(set_attr "type" "slt")
-   (set_attr "mode" "<GPR:MODE>")])
+   (set_attr "mode" "<GPR:MODE>")
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "0")
+		    (match_test "TARGET_NANOMIPS"))
+		  (const_string "no")
+	       (and (eq_attr "alternative" "1,2")
+		    (not (match_test "TARGET_NANOMIPS")))
+		  (const_string "no")]
+	      (const_string "yes")))])
 
 (define_insn "*slt<u>_<GPR:mode><GPR2:mode>_mips16"
   [(set (match_operand:GPR2 0 "register_operand" "=t,t,t")

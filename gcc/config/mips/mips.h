@@ -2357,33 +2357,50 @@ enum reg_class
 /* True if VALUE is a signed 16-bit number.  */
 
 #define SMALL_OPERAND(VALUE) \
-  ((unsigned HOST_WIDE_INT) (VALUE) + 0x8000 < 0x10000)
+  ((TARGET_NANOMIPS) \
+   ? (IN_RANGE(((unsigned HOST_WIDE_INT) (VALUE) + 0x1000), 0x1, 0x1fff)) \
+   : ((unsigned HOST_WIDE_INT) (VALUE) + 0x8000 < 0x10000))
 
-/* True if VALUE is an unsigned 16-bit number.  */
+#define SMALL_OPERAND9TO12(VALUE) \
+  ((TARGET_NANOMIPS) \
+   ? ((unsigned HOST_WIDE_INT) (VALUE) + 0x100 < 0x200) \
+     || SMALL_OPERAND_UNSIGNED (VALUE) \
+   : SMALL_OPERAND (VALUE))
+
+/* True if VALUE is an unsigned 16-bit or 12-bit number.  */
 
 #define SMALL_OPERAND_UNSIGNED(VALUE) \
-  (((VALUE) & ~(unsigned HOST_WIDE_INT) 0xffff) == 0)
+  ((TARGET_NANOMIPS) \
+   ? (((VALUE) & ~(unsigned HOST_WIDE_INT) 0xfff) == 0) \
+   : (((VALUE) & ~(unsigned HOST_WIDE_INT) 0xffff) == 0))
 
 /* True if VALUE can be loaded into a register using LUI.  */
 
 #define LUI_OPERAND(VALUE)					\
-  (((VALUE) | 0x7fff0000) == 0x7fff0000				\
-   || ((VALUE) | 0x7fff0000) + 0x10000 == 0)
+  ((TARGET_NANOMIPS) \
+   ? (((VALUE) | 0x7ffff000) == 0x7ffff000				\
+      || ((VALUE) | 0x7ffff000) + 0x1000 == 0) \
+   : (((VALUE) | 0x7fff0000) == 0x7fff0000				\
+      || ((VALUE) | 0x7fff0000) + 0x10000 == 0)) \
 
 /* Return a value X with the low 16 bits clear, and such that
    VALUE - X is a signed 16-bit value.  */
 
 #define CONST_HIGH_PART(VALUE) \
-  (((VALUE) + 0x8000) & ~(unsigned HOST_WIDE_INT) 0xffff)
+  ((TARGET_NANOMIPS) \
+   ? ((VALUE) & ~(unsigned HOST_WIDE_INT) 0xfff) \
+   : (((VALUE) + 0x8000) & ~(unsigned HOST_WIDE_INT) 0xffff))
 
 #define CONST_LOW_PART(VALUE) \
   ((VALUE) - CONST_HIGH_PART (VALUE))
 
 #define SMALL_INT(X) SMALL_OPERAND (INTVAL (X))
+#define SMALL_INT9TO12(X) SMALL_OPERAND9TO12 (INTVAL (X))
 #define SMALL_INT_UNSIGNED(X) SMALL_OPERAND_UNSIGNED (INTVAL (X))
 #define LUI_INT(X) LUI_OPERAND (INTVAL (X))
 #define UMIPS_12BIT_OFFSET_P(OFFSET) (IN_RANGE (OFFSET, -2048, 2047))
 #define MIPS_9BIT_OFFSET_P(OFFSET) (IN_RANGE (OFFSET, -256, 255))
+#define LI32_INT(X) (!LUI_INT (X) && !SMALL_INT (X) && !SMALL_INT_UNSIGNED (X))
 
 /* The HI and LO registers can only be reloaded via the general
    registers.  Condition code registers can only be loaded to the
