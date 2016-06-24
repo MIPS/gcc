@@ -1346,6 +1346,7 @@ enum reg_class
   CLOBBERED_REGS,		/* call-clobbered integer registers */
   Q_REGS,			/* %eax %ebx %ecx %edx */
   NON_Q_REGS,			/* %esi %edi %ebp %esp */
+  TLS_GOTBASE_REGS,		/* %ebx %ecx %edx %esi %edi %ebp */
   INDEX_REGS,			/* %eax %ebx %ecx %edx %esi %edi %ebp */
   LEGACY_REGS,			/* %eax %ebx %ecx %edx %esi %edi %ebp %esp */
   GENERAL_REGS,			/* %eax %ebx %ecx %edx %esi %edi %ebp %esp
@@ -1406,6 +1407,7 @@ enum reg_class
    "AD_REGS",				\
    "CLOBBERED_REGS",			\
    "Q_REGS", "NON_Q_REGS",		\
+   "TLS_GOTBASE_REGS",			\
    "INDEX_REGS",			\
    "LEGACY_REGS",			\
    "GENERAL_REGS",			\
@@ -1446,6 +1448,7 @@ enum reg_class
       { 0x07,       0x0,    0x0 },       /* CLOBBERED_REGS */            \
       { 0x0f,       0x0,    0x0 },       /* Q_REGS */                    \
   { 0x1100f0,    0x1fe0,    0x0 },       /* NON_Q_REGS */                \
+      { 0x7e,    0x1fe0,    0x0 },       /* TLS_GOTBASE_REGS */		 \
       { 0x7f,    0x1fe0,    0x0 },       /* INDEX_REGS */                \
   { 0x1100ff,       0x0,    0x0 },       /* LEGACY_REGS */               \
   { 0x1100ff,    0x1fe0,    0x0 },       /* GENERAL_REGS */              \
