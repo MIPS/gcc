@@ -6286,14 +6286,7 @@ gen_easy_altivec_constant (rtx op)
    Return the number of instructions needed (1 or 2) into the address pointed
    via NUM_INSNS_PTR.
 
-   If NOSPLIT_P, only return true for constants that only generate the XXSPLTIB
-   instruction and can go in any VSX register.  If !NOSPLIT_P, only return true
-   for constants that generate XXSPLTIB and need a sign extend operation, which
-   restricts us to the Altivec registers.
-
-   Allow either (vec_const [...]) or (vec_duplicate <const>).  If OP is a valid
-   XXSPLTIB constant, return the constant being set via the CONST_PTR
-   pointer.  */
+   Return the constant that is being split via CONSTANT_PTR.  */
 
 bool
 xxspltib_constant_p (rtx op,
@@ -6359,13 +6352,6 @@ xxspltib_constant_p (rtx op,
 	  if (value != INTVAL (element))
 	    return false;
 	}
-
-      /* See if we could generate vspltisw/vspltish directly instead of
-	 xxspltib + sign extend.  Special case 0/-1 to allow getting
-         any VSX register instead of an Altivec register.  */
-      if (!IN_RANGE (value, -1, 0) && EASY_VECTOR_15 (value)
-	  && (mode == V4SImode || mode == V8HImode))
-	return false;
     }
 
   /* Handle integer constants being loaded into the upper part of the VSX
@@ -6391,6 +6377,13 @@ xxspltib_constant_p (rtx op,
     }
 
   else
+    return false;
+
+  /* See if we could generate vspltisw/vspltish directly instead of xxspltib +
+     sign extend.  Special case 0/-1 to allow getting any VSX register instead
+     of an Altivec register.  */
+  if ((mode == V4SImode || mode == V8HImode) && !IN_RANGE (value, -1, 0)
+      && EASY_VECTOR_15 (value))
     return false;
 
   /* Return # of instructions and the constant byte for XXSPLTIB.  */
