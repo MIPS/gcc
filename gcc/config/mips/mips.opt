@@ -607,3 +607,6 @@ Target Undocumented Var(TARGET_NEW_ORI_XORI) Init(0)
 
 mnew-slti-sltiu
 Target Undocumented Var(TARGET_NEW_SLTI_SLTIU) Init(0)
+
+mreduce-ldst-offsets
+Target Undocumented Var(TARGET_REDUCE_LDST_OFFSETS) Init(0)
