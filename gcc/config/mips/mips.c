@@ -3319,9 +3319,16 @@ mips_valid_index_register_p (rtx x, bool strict_p)
 static bool
 mips_valid_offset_p (rtx x, machine_mode mode)
 {
-  /* Check that X is a signed 16-bit number.  */
-  if (!const_arith_operand (x, Pmode))
-    return false;
+  if (TARGET_MICROMIPS_R7 && TARGET_REDUCE_LDST_OFFSETS)
+    {
+      if (!const_uimm12_operand (x, mode)
+	  && !const_imm9_operand (x, mode))
+	return false;
+    }
+  else
+    /* Check that X is a signed 16-bit number.  */
+    if (!const_arith_operand (x, Pmode))
+      return false;
 
   /* We may need to split multiword moves, so make sure that every word
      is accessible.  */
