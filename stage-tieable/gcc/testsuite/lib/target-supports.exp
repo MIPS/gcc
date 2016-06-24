@@ -508,6 +508,13 @@ proc check_effective_target_keeps_null_pointer_checks { } {
     return 0
 }
 
+# Return the autofdo profile wrapper
+
+proc profopt-perf-wrapper { } {
+    global srcdir
+    return "$srcdir/../config/i386/gcc-auto-profile -o perf.data "
+}
+
 # Return true if profiling is supported on the target.
 
 proc check_profiling_available { test_what } {
@@ -523,6 +530,36 @@ proc check_profiling_available { test_what } {
 	if { ![check_effective_target_tls_runtime] } {
 	    return 0
 	}
+    }
+
+    if { $test_what == "-fauto-profile" } {
+	if { ! ([istarget x86_64-*-linux*] || [istarget i?86-*-linux*]) } {
+            verbose "autofdo only supported on linux"
+            return 0
+        }
+	# not cross compiling?
+	if { ![isnative] } {
+	    verbose "autofdo not supported for non native builds"
+	    return 0
+	}
+	set event [profopt-perf-wrapper]
+	if {$event == "" } {
+	    verbose "autofdo not supported"
+	    return 0
+	}
+        global srcdir
+	set status [remote_exec host "$srcdir/../config/i386/gcc-auto-profile" "true -v >/dev/null"]
+	if { [lindex $status 0] != 0 } {
+	    verbose "autofdo not supported because perf does not work"
+	    return 0
+	}
+
+	# no good way to check this in advance -- check later instead.
+	#set status [remote_exec host "create_gcov" "2>/dev/null"]
+	#if { [lindex $status 0] != 255 } {
+        #    verbose "autofdo not supported due to missing create_gcov"
+        #    return 0
+        #}
     }
 
     # Support for -p on solaris2 relies on mcrt1.o which comes with the
@@ -1571,6 +1608,29 @@ proc check_sse2_hw_available { } {
     }]
 }
 
+# Return 1 if the target supports executing SSE4 instructions, 0
+# otherwise.  Cache the result.
+
+proc check_sse4_hw_available { } {
+    return [check_cached_effective_target sse4_hw_available {
+	# If this is not the right target then we can skip the test.
+	if { !([istarget x86_64-*-*] || [istarget i?86-*-*]) } {
+	    expr 0
+	} else {
+	    check_runtime_nocache sse4_hw_available {
+		#include "cpuid.h"
+		int main ()
+		{
+		  unsigned int eax, ebx, ecx, edx;
+		  if (__get_cpuid (1, &eax, &ebx, &ecx, &edx))
+		    return !(ecx & bit_SSE4_2);
+		  return 1;
+		}
+	    } ""
+	}
+    }]
+}
+
 # Return 1 if the target supports executing AVX instructions, 0
 # otherwise.  Cache the result.
 
@@ -1611,6 +1671,17 @@ proc check_effective_target_sse_runtime { } {
 proc check_effective_target_sse2_runtime { } {
     if { [check_effective_target_sse2]
 	 && [check_sse2_hw_available]
+	 && [check_sse_os_support_available] } {
+	return 1
+    }
+    return 0
+}
+
+# Return 1 if the target supports running SSE4 executables, 0 otherwise.
+
+proc check_effective_target_sse4_runtime { } {
+    if { [check_effective_target_sse4]
+	 && [check_sse4_hw_available]
 	 && [check_sse_os_support_available] } {
 	return 1
     }
@@ -6353,6 +6424,20 @@ proc check_effective_target_sse2 { } {
     } "-O2 -msse2" ]
 }
 
+# Return 1 if sse4.1 instructions can be compiled.
+proc check_effective_target_sse4 { } {
+    return [check_no_compiler_messages sse4.1 object {
+	typedef long long __m128i __attribute__ ((__vector_size__ (16)));
+	typedef int __v4si __attribute__ ((__vector_size__ (16)));
+
+	__m128i _mm_mullo_epi32 (__m128i __X, __m128i __Y)
+	{
+	    return (__m128i) __builtin_ia32_pmulld128 ((__v4si)__X,
+						       (__v4si)__Y);
+	}
+    } "-O2 -msse4.1" ]
+}
+
 # Return 1 if F16C instructions can be compiled.
 
 proc check_effective_target_f16c { } {
@@ -6973,6 +7058,108 @@ proc check_effective_target_pie_copyreloc { } {
     }
 
     return $pie_copyreloc_available_saved
+}
+
+# Return 1 if the x86 target supports R_386_GOT32X relocation, 0
+# otherwise.  Cache the result.
+
+proc check_effective_target_got32x_reloc { } {
+    global got32x_reloc_available_saved
+    global tool
+    global GCC_UNDER_TEST
+
+    if { !([istarget x86_64-*-*] || [istarget i?86-*-*]) } {
+	return 0
+    }
+
+    # Need auto-host.h to check linker support.
+    if { ![file exists ../../auto-host.h ] } {
+	return 0
+    }
+
+    if [info exists got32x_reloc_available_saved] {
+	verbose "check_effective_target_got32x_reloc returning saved $got32x_reloc_available_saved" 2
+    } else {
+	# Include the current process ID in the file names to prevent
+	# conflicts with invocations for multiple testsuites.
+
+	set src got32x[pid].c
+	set obj got32x[pid].o
+
+	set f [open $src "w"]
+	puts $f "#include \"../../auto-host.h\""
+	puts $f "#if HAVE_AS_IX86_GOT32X == 0"
+	puts $f "# error Assembler does not support R_386_GOT32X."
+	puts $f "#endif"
+	close $f
+
+	verbose "check_effective_target_got32x_reloc compiling testfile $src" 2
+	set lines [${tool}_target_compile $src $obj object ""]
+
+	file delete $src
+	file delete $obj
+
+	if [string match "" $lines] then {
+	    verbose "check_effective_target_got32x_reloc testfile compilation passed" 2
+	    set got32x_reloc_available_saved 1
+	} else {
+	    verbose "check_effective_target_got32x_reloc testfile compilation failed" 2
+	    set got32x_reloc_available_saved 0
+	}
+    }
+
+    return $got32x_reloc_available_saved
+}
+
+# Return 1 if the x86 target supports calling ___tls_get_addr via GOT,
+# 0 otherwise.  Cache the result.
+
+proc check_effective_target_tls_get_addr_via_got { } {
+    global tls_get_addr_via_got_available_saved
+    global tool
+    global GCC_UNDER_TEST
+
+    if { !([istarget x86_64-*-*] || [istarget i?86-*-*]) } {
+	return 0
+    }
+
+    # Need auto-host.h to check linker support.
+    if { ![file exists ../../auto-host.h ] } {
+	return 0
+    }
+
+    if [info exists tls_get_addr_via_got_available_saved] {
+	verbose "check_effective_target_tls_get_addr_via_got returning saved $tls_get_addr_via_got_available_saved" 2
+    } else {
+	# Include the current process ID in the file names to prevent
+	# conflicts with invocations for multiple testsuites.
+
+	set src tls_get_addr_via_got[pid].c
+	set obj tls_get_addr_via_got[pid].o
+
+	set f [open $src "w"]
+	puts $f "#include \"../../auto-host.h\""
+	puts $f "#if HAVE_AS_IX86_TLS_GET_ADDR_GOT == 0"
+	puts $f "# error Assembler/linker do not support calling ___tls_get_addr via GOT."
+	puts $f "#endif"
+	close $f
+
+	verbose "check_effective_target_tls_get_addr_via_got compiling testfile $src" 2
+	set lines [${tool}_target_compile $src $obj object ""]
+
+	file delete $src
+	file delete $obj
+
+	if [string match "" $lines] then {
+	    verbose "check_effective_target_tls_get_addr_via_got testfile compilation passed" 2
+	    set tls_get_addr_via_got_available_saved 1
+	} else {
+	    verbose "check_effective_target_tls_get_addr_via_got testfile compilation failed" 2
+	    set tls_get_addr_via_got_available_saved 0
+	}
+    }
+
+    return $tls_get_addr_via_got_available_saved
 }
 
 # Return 1 if the target uses comdat groups.
