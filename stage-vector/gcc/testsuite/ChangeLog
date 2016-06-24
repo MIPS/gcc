@@ -1,3 +1,246 @@
+2016-06-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/vect/vect-nb-iter-ub-1.c: Remove default vector
+	testsuite compile flags.
+	* gcc.dg/vect/vect-nb-iter-ub-2.c: Ditto.
+	* gcc.dg/vect/vect-nb-iter-ub-3.c: Ditto.
+
+2016-06-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	* g++dg/vect/pr36684.cc: Add dg-do compile.
+	* gcc.dg/vect/O3-pr70130.c: Remove dg-do run.
+	* gcc.dg/vect/pr70021.c: Ditto.
+	* gcc.dg/vect/pr70138-1.c: Ditto.
+	* gcc.dg/vect/pr70138-2.c: Ditto.
+	* gcc.dg/vect/pr70354-1.c: Ditto.
+	* gcc.dg/vect/pr70354-2.c: Ditto.
+	* gcc.dg/vect/pr71259.c: Ditto.
+	* gcc.dg/vect/pr71416-1.c: Ditto.
+	* gcc.dg/vect/slp-43.c: Ditto.
+	* gcc.dg/vect/slp-45.c: Ditto.
+	* gcc.dg/vect/vect-nb-iter-ub-1.c: Ditto.
+	* gcc.dg/vect/vect-nb-iter-ub-2.c: Ditto.
+	* gcc.dg/vect/vect-nb-iter-ub-3.c: Ditto.
+	* gfortran.dg/vect/pr69980.f90: Ditto.
+
+2016-06-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/vect/O3-pr70130.c: Include tree-vect.h and call check_vect.
+	* gcc.dg/vect/bb-slp-30.c: Ditto.
+	* gcc.dg/vect/costmodel/i386/costmodel-vect-33.c: Ditto.
+	* gcc.dg/vect/fast-math-bb-slp-call-3.c: Ditto.
+	* gcc.dg/vect/pr45902.c: Ditto.
+	* gcc.dg/vect/pr48172.c: Ditto.
+	* gcc.dg/vect/pr48377.c: Ditto.
+	* gcc.dg/vect/pr49038.c: Ditto.
+	* gcc.dg/vect/pr49771.c: Ditto.
+	* gcc.dg/vect/pr52091.c: Ditto.
+	* gcc.dg/vect/pr53185-2.c: Ditto.
+	* gcc.dg/vect/pr56826.c: Ditto.
+	* gcc.dg/vect/pr60276.c: Ditto.
+	* gcc.dg/vect/pr62021.c: Ditto.
+	* gcc.dg/vect/pr63530.c: Ditto.
+	* gcc.dg/vect/pr65518.c: Ditto.
+	* gcc.dg/vect/pr65947-1.c: Ditto.
+	* gcc.dg/vect/pr65947-10.c: Ditto.
+	* gcc.dg/vect/pr65947-11.c: Ditto.
+	* gcc.dg/vect/pr65947-12.c: Ditto.
+	* gcc.dg/vect/pr65947-13.c: Ditto.
+	* gcc.dg/vect/pr65947-2.c: Ditto.
+	* gcc.dg/vect/pr65947-3.c: Ditto.
+	* gcc.dg/vect/pr65947-4.c: Ditto.
+	* gcc.dg/vect/pr65947-5.c: Ditto.
+	* gcc.dg/vect/pr65947-6.c: Ditto.
+	* gcc.dg/vect/pr65947-7.c: Ditto.
+	* gcc.dg/vect/pr65947-8.c: Ditto.
+	* gcc.dg/vect/pr65947-9.c: Ditto.
+	* gcc.dg/vect/pr71416-1.c: Ditto.
+	* gcc.dg/vect/pr71439.c: Ditto.
+	* gcc.dg/vect/slp-widen-mult-half.c: Ditto.
+	* gcc.dg/vect/vect-bswap16.c: Ditto.
+	* gcc.dg/vect/vect-bswap32.c: Ditto.
+	* gcc.dg/vect/vect-bswap64.c: Ditto.
+	* gcc.dg/vect/vect-live-1.c: Ditto.
+	* gcc.dg/vect/vect-live-2.c: Ditto.
+	* gcc.dg/vect/vect-live-3.c: Ditto.
+	* gcc.dg/vect/vect-live-4.c: Ditto.
+	* gcc.dg/vect/vect-live-5.c: Ditto.
+	* gcc.dg/vect/vect-live-slp-1.c: Ditto.
+	* gcc.dg/vect/vect-live-slp-2.c: Ditto.
+	* gcc.dg/vect/vect-live-slp-3.c: Ditto.
+	* gcc.dg/vect/vect-nb-iter-ub-1.c: Ditto.
+	* gcc.dg/vect/vect-nb-iter-ub-2.c: Ditto.
+	* gcc.dg/vect/vect-nb-iter-ub-3.c: Ditto.
+	* gcc.dg/vect/vect-neg-store-1.c: Ditto.
+	* gcc.dg/vect/vect-neg-store-2.c: Ditto.
+	* gcc.dg/vect/vect-outer-pr69720.c: Ditto.
+	* gcc.dg/vect/vect-reduc-mul_1.c: Ditto.
+	* gcc.dg/vect/vect-reduc-mul_2.c: Ditto.
+	* gcc.dg/vect/vect-reduc-or_1.c: Ditto.
+	* gcc.dg/vect/vect-reduc-or_2.c: Ditto.
+	* gcc.dg/vect/vect-widen-mult-const-s16.c: Ditto.
+	* gcc.dg/vect/vect-widen-mult-const-u16.c: Ditto.
+	* gcc.dg/vect/vect-widen-mult-half-u8.c: Ditto.
+	* gcc.dg/vect/vect-widen-mult-half.c: Ditto.
+
+2016-06-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/torture/float128-cmp-invalid.c (main): Use __builtin_nanq.
+
+2016-06-24  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/noplt-1.c: Don't disable for ia32.  Scan for
+	ia32 if R_386_GOT32X relocation is supported.
+	* gcc.target/i386/noplt-3.c: Likewise.
+	* gcc.target/i386/noplt-2.c: Likewise.
+	(main): Renamed to ...
+	(bar): This.
+	* gcc.target/i386/noplt-4.c: Likewise.
+	(main): Renamed to ...
+	(bar): This.
+	* gcc.target/i386/pr67400-3.c: Don't disable for ia32.
+	* gcc.target/i386/pr67400-5.c: Likewise.
+
+2016-06-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/torture/builtin-arith-overflow-p-19.c: Run for C++ too.
+	* g++.dg/ext/builtin-arith-overflow-2.C: New test.
+
+	* c-c++-common/builtin-arith-overflow-1.c (generic_wrong_type, f3,
+	f4): Adjust expected diagnostics.
+	* c-c++-common/torture/builtin-arith-overflow.h (TP): New macro.
+	(T): If OVFP is defined, redefine to TP.
+	* c-c++-common/torture/builtin-arith-overflow-12.c: Adjust comment.
+	* c-c++-common/torture/builtin-arith-overflow-p-1.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-p-2.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-p-3.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-p-4.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-p-5.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-p-6.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-p-7.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-p-8.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-p-9.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-p-10.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-p-11.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-p-12.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-p-13.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-p-14.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-p-15.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-p-16.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-p-17.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-p-18.c: New test.
+	* c-c++-common/torture/builtin-arith-overflow-p-19.c: New test.
+	* g++.dg/ext/builtin-arith-overflow-1.C: Pass 0 instead of C
+	as last argument to __builtin_add_overflow_p.
+
+2016-06-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	* g++.dg/vect/pr33834_2.cc: Use dg-additional-options instead of
+	dg-options and remove default vector testsuite compile flags.
+	* g++.dg/vect/pr33860a.cc: Ditto.
+	* g++.dg/vect/pr45470-a.cc: Ditto.
+	* g++.dg/vect/pr45470-b.cc: Ditto.
+	* g++.dg/vect/pr60896.cc: Ditto.
+	* gcc.dg/vect/no-tree-pre-pr45241.c: Ditto.
+	* gcc.dg/vect/pr18308.c: Ditto.
+	* gcc.dg/vect/pr24049.c: Ditto.
+	* gcc.dg/vect/pr33373.c: Ditto.
+	* gcc.dg/vect/pr36228.c: Ditto.
+	* gcc.dg/vect/pr42395.c: Ditto.
+	* gcc.dg/vect/pr42604.c: Ditto.
+	* gcc.dg/vect/pr46663.c: Ditto.
+	* gcc.dg/vect/pr48765.c: Ditto.
+	* gcc.dg/vect/pr49093.c: Ditto.
+	* gcc.dg/vect/pr49352.c: Ditto.
+	* gcc.dg/vect/pr52298.c: Ditto.
+	* gcc.dg/vect/pr52870.c: Ditto.
+	* gcc.dg/vect/pr53185.c: Ditto.
+	* gcc.dg/vect/pr53773.c: Ditto.
+	* gcc.dg/vect/pr56695.c: Ditto.
+	* gcc.dg/vect/pr62171.c: Ditto.
+	* gcc.dg/vect/pr63530.c: Ditto.
+	* gcc.dg/vect/pr68339.c: Ditto.
+	* gcc.dg/vect/pr71259.c: Ditto.
+	* gcc.dg/vect/vect-82_64.c: Ditto.
+	* gcc.dg/vect/vect-83_64.c: Ditto.
+	* gcc.dg/vect/vect-debug-pr41926.c: Ditto.
+	* gcc.dg/vect/vect-shift-2-big-array.c: Ditto.
+	* gcc.dg/vect/vect-shift-2.c: Ditto.
+	* gfortran.dg/vect/fast-math-mgrid-resid.f: Ditto.
+	* gfortran.dg/vect/pr39318.f90: Ditto.
+	* gfortran.dg/vect/pr45714-a.f: Ditto.
+	* gfortran.dg/vect/pr45714-b.f: Ditto.
+	* gfortran.dg/vect/pr46213.f90: Ditto.
+
+2016-06-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/p9-splat-5.c: New test.
+
+2016-06-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/71488
+	* gcc.target/i386/i386.exp (check_effective_target_sse4): Move to ...
+	* lib/target-supports.exp: ... here.
+	(check_sse4_hw_available): New procedure.
+	(check_effective_target_sse4_runtime): Ditto.
+	* g++.dg/pr71488.C (dg-additional-options): Use -msse4 instead of
+	-march=westmere for sse4_runtime targets.
+	* gcc.dg/vect/tree-vect.h (check_vect): Handle __SSE4_2__.
+	* gcc.dg/vect/vect-bool-cmp.c: Include "tree-vect.h".
+	(dg-additional-options): Use for sse4_runtime targets.
+	(main): Call check_vect ().
+	(dg-final): Perform scan only for sse4_runtime targets.
+
+2016-06-23  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/66232
+	PR target/67400
+	* gcc.target/i386/pr66232-14.c: New file.
+	* gcc.target/i386/pr66232-15.c: Likewise.
+	* gcc.target/i386/pr66232-16.c: Likewise.
+	* gcc.target/i386/pr66232-17.c: Likewise.
+	* gcc.target/i386/pr67400-1.c: Don't disable for ia32.  Scan for
+	ia32 if R_386_GOT32X relocation is supported.
+	* gcc.target/i386/pr67400-2.c: Likewise.
+	* gcc.target/i386/pr67400-3.c: Likewise.
+	* gcc.target/i386/pr67400-4.c: Likewise.
+	* gcc.target/i386/pr67400-6.c: Likewise.
+	* gcc.target/i386/pr67400-7.c: Likewise.
+	* lib/target-supports.exp (check_effective_target_got32x_reloc): New.
+
+2016-06-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/48852
+	* gfortran.dg/char4_iunit_1.f03: Update test.
+	* gfortran.dg/f2003_io_5.f03: Update test.
+	* gfortran.dg/real_const_3.f90: Update test.
+
+2016-06-23  Andi Kleen  <ak@linux.intel.com>
+
+	* g++.dg/bprob/bprob.exp: Support autofdo.
+	* g++.dg/tree-prof/tree-prof.exp: dito.
+	* gcc.dg/tree-prof/tree-prof.exp: dito.
+	* gcc.misc-tests/bprob.exp: dito.
+	* gfortran.dg/prof/prof.exp: dito.
+	* lib/profopt.exp: dito.
+	* lib/target-supports.exp: Check for autofdo.
+
+2016-06-23  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/pr71619.c: New test.
+
+2016-06-23  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/67400
+	* gcc.target/i386/pr67400-1.c: New test.
+	* gcc.target/i386/pr67400-2.c: Likewise.
+	* gcc.target/i386/pr67400-3.c: Likewise.
+	* gcc.target/i386/pr67400-4.c: Likewise.
+	* gcc.target/i386/pr67400-5.c: Likewise.
+	* gcc.target/i386/pr67400-6.c: Likewise.
+	* gcc.target/i386/pr67400-7.c: Likewise.
+
 2016-06-22  David Malcolm  <dmalcolm@redhat.com>
 
 	* c-c++-common/missing-header-1.c: New test case.
@@ -33,7 +276,7 @@
 
 2016-06-22  Ilya Enkovich  <ilya.enkovich@intel.com>
 
-	PR middle-end/71488
+	PR tree-optimization/71488
 	* g++.dg/pr71488.C: New test.
 	* gcc.dg/vect/vect-bool-cmp.c: New test.
 
@@ -355,7 +598,7 @@
 
 2016-06-15  Uros Bizjak  <ubizjak@gmail.com>
 
-        * gcc.dg/torture/float128-nan.c: Include stdint.h to define uint64_t.
+	* gcc.dg/torture/float128-nan.c: Include stdint.h to define uint64_t.
 
 2016-06-15  Alan Hayward  <alan.hayward@arm.com>
 
@@ -394,10 +637,10 @@
 
 2016-06-14  Uros Bizjak  <ubizjak@gmail.com>
 
-        * gcc.target/i386/float128-3.c: New test.
-        * gcc.target/i386/quad-sse4.c: Ditto.
-        * gcc.target/i386/quad-sse.c: Use -msse instead of -msse2.
-        Update scan strings.
+	* gcc.target/i386/float128-3.c: New test.
+	* gcc.target/i386/quad-sse4.c: Ditto.
+	* gcc.target/i386/quad-sse.c: Use -msse instead of -msse2.
+	Update scan strings.
 
 2016-06-14  Richard Biener  <rguenther@suse.de>
 

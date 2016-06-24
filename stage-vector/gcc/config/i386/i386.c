@@ -15120,6 +15120,20 @@ darwin_local_data_pic (rtx disp)
 	  && XINT (disp, 1) == UNSPEC_MACHOPIC_OFFSET);
 }
 
+/* True if operand X should be loaded from GOT.  */
+
+bool
+ix86_force_load_from_GOT_p (rtx x)
+{
+  return ((TARGET_64BIT || HAVE_AS_IX86_GOT32X)
+	  && !TARGET_PECOFF && !TARGET_MACHO
+	  && !flag_plt && !flag_pic
+	  && ix86_cmodel != CM_LARGE
+	  && GET_CODE (x) == SYMBOL_REF
+	  && SYMBOL_REF_FUNCTION_P (x)
+	  && !SYMBOL_REF_LOCAL_P (x));
+}
+
 /* Determine if a given RTX is a valid constant.  We already know this
    satisfies CONSTANT_P.  */
 
@@ -15188,6 +15202,12 @@ ix86_legitimate_constant_p (machine_mode mode, rtx x)
       if (MACHO_DYNAMIC_NO_PIC_P)
 	return machopic_symbol_defined_p (x);
 #endif
+
+      /* External function address should be loaded
+	 via the GOT slot to avoid PLT.  */
+      if (ix86_force_load_from_GOT_p (x))
+	return false;
+
       break;
 
     CASE_CONST_SCALAR_INT:
@@ -15583,10 +15603,16 @@ ix86_legitimate_address_p (machine_mode, rtx addr, bool strict)
 	  && XINT (XEXP (disp, 0), 1) != UNSPEC_MACHOPIC_OFFSET)
 	switch (XINT (XEXP (disp, 0), 1))
 	  {
-	  /* Refuse GOTOFF and GOT in 64bit mode since it is always 64bit when
-	     used.  While ABI specify also 32bit relocations, we don't produce
-	     them at all and use IP relative instead.  */
+	  /* Refuse GOTOFF and GOT in 64bit mode since it is always 64bit
+	     when used.  While ABI specify also 32bit relocations, we
+	     don't produce them at all and use IP relative instead.
+	     Allow GOT in 32bit mode for both PIC and non-PIC if symbol
+	     should be loaded via GOT.  */
 	  case UNSPEC_GOT:
+	    if (!TARGET_64BIT
+		&& ix86_force_load_from_GOT_p (XVECEXP (XEXP (disp, 0), 0, 0)))
+	      goto is_legitimate_pic;
+	    /* FALLTHRU */
 	  case UNSPEC_GOTOFF:
 	    gcc_assert (flag_pic);
 	    if (!TARGET_64BIT)
@@ -15596,6 +15622,9 @@ ix86_legitimate_address_p (machine_mode, rtx addr, bool strict)
 	    return false;
 
 	  case UNSPEC_GOTPCREL:
+	    if (ix86_force_load_from_GOT_p (XVECEXP (XEXP (disp, 0), 0, 0)))
+	      goto is_legitimate_pic;
+	    /* FALLTHRU */
 	  case UNSPEC_PCREL:
 	    gcc_assert (flag_pic);
 	    goto is_legitimate_pic;
@@ -18169,6 +18198,13 @@ ix86_print_operand_address_as (FILE *file, rtx addr,
 	    fputs ("ds:", file);
 	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (disp));
 	}
+      /* Load the external function address via the GOT slot to avoid PLT.  */
+      else if (GET_CODE (disp) == CONST
+	       && GET_CODE (XEXP (disp, 0)) == UNSPEC
+	       && (XINT (XEXP (disp, 0), 1) == UNSPEC_GOTPCREL
+		   || XINT (XEXP (disp, 0), 1) == UNSPEC_GOT)
+	       && ix86_force_load_from_GOT_p (XVECEXP (XEXP (disp, 0), 0, 0)))
+	output_pic_addr_const (file, disp, 0);
       else if (flag_pic)
 	output_pic_addr_const (file, disp, 0);
       else
@@ -19417,6 +19453,17 @@ ix86_expand_move (machine_mode mode, rtx operands[])
 
       if (model)
 	op1 = legitimize_tls_address (op1, model, true);
+      else if (ix86_force_load_from_GOT_p (op1))
+	{
+	  /* Load the external function address via GOT slot to avoid PLT.  */
+	  op1 = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op1),
+				(TARGET_64BIT
+				 ? UNSPEC_GOTPCREL
+				 : UNSPEC_GOT));
+	  op1 = gen_rtx_CONST (Pmode, op1);
+	  op1 = gen_const_mem (Pmode, op1);
+	  set_mem_alias_set (op1, ix86_GOT_alias_set ());
+	}
       else
 	{
 	  tmp = legitimize_pe_coff_symbol (op1, addend != NULL_RTX);
@@ -27979,18 +28026,19 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
   return call;
 }
 
-/* Return true if the function being called was marked with attribute "noplt"
-   or using -fno-plt and we are compiling for non-PIC and x86_64.  We need to
-   handle the non-PIC case in the backend because there is no easy interface
-   for the front-end to force non-PLT calls to use the GOT.  This is currently
-   used only with 64-bit ELF targets to call the function marked "noplt"
-   indirectly.  */
+/* Return true if the function being called was marked with attribute
+   "noplt" or using -fno-plt and we are compiling for non-PIC.  We need
+   to handle the non-PIC case in the backend because there is no easy
+   interface for the front-end to force non-PLT calls to use the GOT.
+   This is currently used only with 64-bit or 32-bit GOT32X ELF targets
+   to call the function marked "noplt" indirectly.  */
 
 static bool
 ix86_nopic_noplt_attribute_p (rtx call_op)
 {
   if (flag_pic || ix86_cmodel == CM_LARGE
-      || !TARGET_64BIT || TARGET_MACHO || TARGET_SEH || TARGET_PECOFF
+      || !(TARGET_64BIT || HAVE_AS_IX86_GOT32X)
+      || TARGET_MACHO || TARGET_SEH || TARGET_PECOFF
       || SYMBOL_REF_LOCAL_P (call_op))
     return false;
 
@@ -28018,7 +28066,12 @@ ix86_output_call_insn (rtx_insn *insn, rtx call_op)
       if (direct_p)
 	{
 	  if (ix86_nopic_noplt_attribute_p (call_op))
-	    xasm = "%!jmp\t{*%p0@GOTPCREL(%%rip)|[QWORD PTR %p0@GOTPCREL[rip]]}";
+	    {
+	      if (TARGET_64BIT)
+		xasm = "%!jmp\t{*%p0@GOTPCREL(%%rip)|[QWORD PTR %p0@GOTPCREL[rip]]}";
+	      else
+		xasm = "%!jmp\t{*%p0@GOT|[DWORD PTR %p0@GOT]}";
+	    }
 	  else
 	    xasm = "%!jmp\t%P0";
 	}
@@ -28066,7 +28119,12 @@ ix86_output_call_insn (rtx_insn *insn, rtx call_op)
   if (direct_p)
     {
       if (ix86_nopic_noplt_attribute_p (call_op))
-	xasm = "%!call\t{*%p0@GOTPCREL(%%rip)|[QWORD PTR %p0@GOTPCREL[rip]]}";
+	{
+	  if (TARGET_64BIT)
+	    xasm = "%!call\t{*%p0@GOTPCREL(%%rip)|[QWORD PTR %p0@GOTPCREL[rip]]}";
+	  else
+	    xasm = "%!call\t{*%p0@GOT|[DWORD PTR %p0@GOT]}";
+	}
       else
 	xasm = "%!call\t%P0";
     }

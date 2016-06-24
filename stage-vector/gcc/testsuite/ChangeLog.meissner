@@ -1,3 +1,7 @@
+2016-06-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 237765.
+
 2016-06-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/p9-fpcvt-1.c: Fix tests so it passes.
