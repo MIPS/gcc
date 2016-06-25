@@ -1,0 +1,10 @@
+Bottom: 0617e867c0d25ec183f0efb0b88cacffa7b8f191
+Top:    0617e867c0d25ec183f0efb0b88cacffa7b8f191
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-06-25 00:03:47 -0300
+
+split class decl from defs, enable reactivation of local decls
+
+---
+
+

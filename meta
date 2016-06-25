@@ -1,7 +1,8 @@
 Version: 1
-Previous: 080ee3fba3bc631825a77902f0478912d6ec3bd3
-Head: 2083d6be1b160ef098426161e57eae89d8a2977f
+Previous: 5ca6092b27a446a5230e4dd02981ab61a60eda4c
+Head: 176354163ce0c6359d1e224a348c45fd218a236d
 Applied:
+  split-class-decl-reactivate-local-decls.patch: 176354163ce0c6359d1e224a348c45fd218a236d
 Unapplied:
   special-memfuncs-testing.patch: 5dadb8e81f23ef0a3a559dc1776fa25b2cc8c5db
 Hidden:
