@@ -62,6 +62,8 @@
 #include "langhooks.h"
 #include "langhooks-def.h"
 #include "decl.h"
+#include "function.h"
+#undef cfun // we want to assign to it, and function.h won't let us
 
 #include "callbacks.hh"
 #include "connection.hh"
@@ -261,21 +263,422 @@ plugin_binding_oracle (enum cp_oracle_request kind, tree identifier)
 		    request, IDENTIFIER_POINTER (identifier));
 }
 
-static void
-plugin_pragma_user_expression (cpp_reader *)
+static int push_count;
+
+/* at_function_scope_p () tests cfun, indicating we're actually
+   compiling the function, but we don't even set it when pretending to
+   enter a function scope.  We use this distinction to tell these two
+   cases apart: we don't want to define e.g. class names in the user
+   expression function's scope, when they're local to the original
+   function, because they'd get the wrong linkage name.  */
+
+static bool
+at_fake_function_scope_p ()
 {
+  return (!cfun || cfun->decl != current_function_decl)
+    && current_scope () == current_function_decl;
+}
+
+static void
+push_fake_function (tree fndecl, scope_kind kind = sk_function_parms)
+{
+  current_function_decl = fndecl;
+  begin_scope (kind, fndecl);
+  ++function_depth;
+  begin_scope (sk_block, NULL);
+}
+
+static void
+pop_scope ()
+{
+  if (toplevel_bindings_p () && current_namespace == global_namespace)
+    pop_from_top_level ();
+  else if (at_namespace_scope_p ())
+    pop_namespace ();
+  else if (at_class_scope_p ())
+    popclass ();
+  else
+    {
+      gcc_assert (at_fake_function_scope_p ());
+      gcc_assert (!at_function_scope_p ());
+      gcc_assert (current_binding_level->kind == sk_block
+		  && current_binding_level->this_entity == NULL);
+      leave_scope ();
+      --function_depth;
+      gcc_assert (current_binding_level->this_entity
+		  == current_function_decl);
+      leave_scope ();
+      current_function_decl = NULL;
+      for (cp_binding_level *scope = current_binding_level;
+	   scope; scope = scope->level_chain)
+	if (scope->kind == sk_function_parms)
+	  {
+	    current_function_decl = scope->this_entity;
+	    break;
+	  }
+    }
+}
+
+static void
+supplement_binding (cxx_binding *binding, tree decl)
+{
+  /* FIXME: this is pretty much a copy of supplement_binding_1 in
+     ../gcc/cp/name-lookup.c; the few replaced/removed bits are marked
+     with "// _1:".  */
+  tree bval = binding->value;
+  bool ok = true;
+  tree target_bval = strip_using_decl (bval);
+  tree target_decl = strip_using_decl (decl);
+
+  if (TREE_CODE (target_decl) == TYPE_DECL && DECL_ARTIFICIAL (target_decl)
+      && target_decl != target_bval
+      && (TREE_CODE (target_bval) != TYPE_DECL
+	  /* We allow pushing an enum multiple times in a class
+	     template in order to handle late matching of underlying
+	     type on an opaque-enum-declaration followed by an
+	     enum-specifier.  */
+	  || (processing_template_decl
+	      && TREE_CODE (TREE_TYPE (target_decl)) == ENUMERAL_TYPE
+	      && TREE_CODE (TREE_TYPE (target_bval)) == ENUMERAL_TYPE
+	      && (dependent_type_p (ENUM_UNDERLYING_TYPE
+				    (TREE_TYPE (target_decl)))
+		  || dependent_type_p (ENUM_UNDERLYING_TYPE
+				       (TREE_TYPE (target_bval)))))))
+    /* The new name is the type name.  */
+    binding->type = decl;
+  else if (/* TARGET_BVAL is null when push_class_level_binding moves
+	      an inherited type-binding out of the way to make room
+	      for a new value binding.  */
+	   !target_bval
+	   /* TARGET_BVAL is error_mark_node when TARGET_DECL's name
+	      has been used in a non-class scope prior declaration.
+	      In that case, we should have already issued a
+	      diagnostic; for graceful error recovery purpose, pretend
+	      this was the intended declaration for that name.  */
+	   || target_bval == error_mark_node
+	   /* If TARGET_BVAL is anticipated but has not yet been
+	      declared, pretend it is not there at all.  */
+	   || (TREE_CODE (target_bval) == FUNCTION_DECL
+	       && DECL_ANTICIPATED (target_bval)
+	       && !DECL_HIDDEN_FRIEND_P (target_bval)))
+    binding->value = decl;
+  else if (TREE_CODE (target_bval) == TYPE_DECL
+	   && DECL_ARTIFICIAL (target_bval)
+	   && target_decl != target_bval
+	   && (TREE_CODE (target_decl) != TYPE_DECL
+	       || same_type_p (TREE_TYPE (target_decl),
+			       TREE_TYPE (target_bval))))
+    {
+      /* The old binding was a type name.  It was placed in
+	 VALUE field because it was thought, at the point it was
+	 declared, to be the only entity with such a name.  Move the
+	 type name into the type slot; it is now hidden by the new
+	 binding.  */
+      binding->type = bval;
+      binding->value = decl;
+      binding->value_is_inherited = false;
+    }
+  else if (TREE_CODE (target_bval) == TYPE_DECL
+	   && TREE_CODE (target_decl) == TYPE_DECL
+	   && DECL_NAME (target_decl) == DECL_NAME (target_bval)
+	   && binding->scope->kind != sk_class
+	   && (same_type_p (TREE_TYPE (target_decl), TREE_TYPE (target_bval))
+	       /* If either type involves template parameters, we must
+		  wait until instantiation.  */
+	       || uses_template_parms (TREE_TYPE (target_decl))
+	       || uses_template_parms (TREE_TYPE (target_bval))))
+    /* We have two typedef-names, both naming the same type to have
+       the same name.  In general, this is OK because of:
+
+	 [dcl.typedef]
+
+	 In a given scope, a typedef specifier can be used to redefine
+	 the name of any type declared in that scope to refer to the
+	 type to which it already refers.
+
+       However, in class scopes, this rule does not apply due to the
+       stricter language in [class.mem] prohibiting redeclarations of
+       members.  */
+    ok = false;
+  /* There can be two block-scope declarations of the same variable,
+     so long as they are `extern' declarations.  However, there cannot
+     be two declarations of the same static data member:
+
+       [class.mem]
+
+       A member shall not be declared twice in the
+       member-specification.  */
+  else if (VAR_P (target_decl)
+	   && VAR_P (target_bval)
+	   && DECL_EXTERNAL (target_decl) && DECL_EXTERNAL (target_bval)
+	   && !DECL_CLASS_SCOPE_P (target_decl))
+    {
+      duplicate_decls (decl, binding->value, /*newdecl_is_friend=*/false);
+      ok = false;
+    }
+  else if (TREE_CODE (decl) == NAMESPACE_DECL
+	   && TREE_CODE (bval) == NAMESPACE_DECL
+	   && DECL_NAMESPACE_ALIAS (decl)
+	   && DECL_NAMESPACE_ALIAS (bval)
+	   && ORIGINAL_NAMESPACE (bval) == ORIGINAL_NAMESPACE (decl))
+    /* [namespace.alias]
+
+      In a declarative region, a namespace-alias-definition can be
+      used to redefine a namespace-alias declared in that declarative
+      region to refer only to the namespace to which it already
+      refers.  */
+    ok = false;
+  else if (maybe_remove_implicit_alias (bval))
+    {
+      /* There was a mangling compatibility alias using this mangled name,
+	 but now we have a real decl that wants to use it instead.  */
+      binding->value = decl;
+    }
+  else
+    {
+      // _1: diagnose_name_conflict (decl, bval);
+      ok = false;
+    }
+
+  gcc_assert (ok); // _1: return ok;
+}
+
+static void
+reactivate_decl (tree decl, cp_binding_level *b)
+{
+  bool in_function_p = TREE_CODE (b->this_entity) == FUNCTION_DECL;
+  gcc_assert (in_function_p
+	      || (b == current_binding_level
+		  && !at_class_scope_p ()));
+      
+  tree id = DECL_NAME (decl);
+  tree type = NULL_TREE;
+  if (TREE_CODE (decl) == TYPE_DECL)
+    type = TREE_TYPE (decl);
+
+  if (type && TYPE_NAME (type) == decl
+      && (RECORD_OR_UNION_CODE_P (TREE_CODE (type))
+	  || TREE_CODE (type) == ENUMERAL_TYPE))
+    {
+      gcc_assert (in_function_p && DECL_CONTEXT (decl) == b->this_entity);
+      type = TREE_TYPE (decl);
+    }
+  else
+    {
+      gcc_assert (DECL_CONTEXT (decl) == b->this_entity
+		  || DECL_CONTEXT (decl) == global_namespace
+		  || TREE_CODE (DECL_CONTEXT (decl)) == FUNCTION_DECL);
+      type = NULL_TREE;
+    }
+
+  /* Adjust IDENTIFIER_BINDING to what it would have been if we were
+     at binding level B.  Save the binding chain up to that point in
+     [binding, *chainp), and take note of the outermost bindings found
+     before B.  */
+  cxx_binding *binding = IDENTIFIER_BINDING (id), **chainp = NULL;
+  tree *shadowing_type_p = NULL;
+  if (binding)
+    {
+      cp_binding_level *bc = current_binding_level;
+      for (cxx_binding *prev_binding = binding;
+	   prev_binding; prev_binding = prev_binding->previous)
+	{
+	  while (bc != b && bc != prev_binding->scope)
+	    bc = bc->level_chain;
+	  if (bc == b)
+	    {
+	      if (!chainp)
+		binding = NULL;
+	      break;
+	    }
+	  chainp = &prev_binding->previous;
+	  if (type)
+	    for (tree tshadow = prev_binding->scope->type_shadowed;
+		 tshadow; tshadow = TREE_CHAIN (tshadow))
+	      if (TREE_PURPOSE (tshadow) == id)
+		{
+		  shadowing_type_p = &TREE_VALUE (tshadow);
+		  break;
+		}
+	}
+    }
+  if (chainp)
+    {
+      IDENTIFIER_BINDING (id) = *chainp;
+      *chainp = NULL;
+    }
+
+  /* Like push_local_binding, supplement or add a binding to the
+     desired level.  */
+  if (IDENTIFIER_BINDING (id) && IDENTIFIER_BINDING (id)->scope == b)
+    supplement_binding (IDENTIFIER_BINDING (id), decl);
+  else
+    push_binding (id, decl, b);
+
+  /* Now restore the binding chain we'd temporarily removed.  */
+  if (chainp)
+    {
+      *chainp = IDENTIFIER_BINDING (id);
+      IDENTIFIER_BINDING (id) = binding;
+
+      if (type)
+	{
+	  /* Insert the new type binding in the shadowing_type_p
+	     TREE_VALUE chain.  */
+	  tree shadowed_type = NULL_TREE;
+	  if (shadowing_type_p)
+	    {
+	      shadowed_type = *shadowing_type_p;
+	      *shadowing_type_p = type;
+	    }
+
+	  b->type_shadowed = tree_cons (id, shadowed_type, b->type_shadowed);
+	  TREE_TYPE (b->type_shadowed) = type;
+	}
+    }
+  else if (type)
+    {
+      /* Our new binding is the active one, so shadow the earlier
+	 binding.  */
+      b->type_shadowed = tree_cons (id, REAL_IDENTIFIER_TYPE_VALUE (id),
+				    b->type_shadowed);
+      TREE_TYPE (b->type_shadowed) = type;
+      SET_IDENTIFIER_TYPE_VALUE (id, type);
+    }
+
+  /* Record that we have a binding for ID, like add_decl_to_level.  */
+  tree node = build_tree_list (NULL_TREE, decl);
+  TREE_CHAIN (node) = b->names;
+  b->names = node;
+}
+
+static void
+plugin_pragma_push_user_expression (cpp_reader *)
+{
+  if (push_count++)
+    return;
+
+  gcc_assert (!current_class_ptr);
+  gcc_assert (!current_class_ref);
+
+  gcc_assert (!cp_binding_oracle);
   cp_binding_oracle = plugin_binding_oracle;
 
   /* Make the function containing the user expression a global
      friend, so as to bypass access controls in it.  */
   if (at_function_scope_p ())
     add_to_global_friend_list (current_function_decl);
+
+  gcc_assert (at_function_scope_p ());
+  function *save_cfun = cfun;
+  cp_binding_level *orig_binding_level = current_binding_level;
+  {
+    int success;
+    cc1_plugin::call (current_context, "enter_scope", &success);
+  }
+  gcc_assert (at_fake_function_scope_p () || at_function_scope_p ());
+
+  function *unchanged_cfun = cfun;
+  tree changed_func_decl = current_function_decl;
+
+  gcc_assert (TREE_CODE (DECL_CONTEXT (current_function_decl)) == NAMESPACE_DECL
+	      || current_class_type == DECL_CONTEXT (current_function_decl));
+  push_fake_function (save_cfun->decl, sk_block);
+  current_class_type = NULL_TREE;
+  if (unchanged_cfun)
+    {
+      /* If we get here, GDB did NOT change the context.  */
+      gcc_assert (cfun == save_cfun);
+      gcc_assert (orig_binding_level == current_binding_level->level_chain);
+      gcc_assert (at_function_scope_p ());
+    }
+  else
+    {
+      cfun = save_cfun;
+      gcc_assert (at_function_scope_p ());
+
+      cp_binding_level *b = current_binding_level->level_chain;
+      gcc_assert (b->this_entity == cfun->decl);
+
+      /* Reactivate local names from the previous context.  Use
+	 IDENTIFIER_MARKED to avoid reactivating shadowed names.  */
+      for (cp_binding_level *level = orig_binding_level;;)
+	{
+	  for (tree name = level->names;
+	       name; name = TREE_CHAIN (name))
+	    {
+	      tree decl = name;
+	      if (TREE_CODE (decl) == TREE_LIST)
+		decl = TREE_VALUE (decl);
+	      if (IDENTIFIER_MARKED (DECL_NAME (decl)))
+		continue;
+	      IDENTIFIER_MARKED (DECL_NAME (decl)) = 1;
+	      reactivate_decl (decl, b);
+	    }
+	  if (level->kind == sk_function_parms
+	      && level->this_entity == cfun->decl)
+	    break;
+	  gcc_assert (!level->this_entity);
+	  level = level->level_chain;
+	}
+
+      /* Now, clear the markers.  */
+      for (tree name = b->names; name; name = TREE_CHAIN (name))
+	{
+	  tree decl = name;
+	  if (TREE_CODE (decl) == TREE_LIST)
+	    decl = TREE_VALUE (decl);
+	  gcc_assert (IDENTIFIER_MARKED (DECL_NAME (decl)));
+	  IDENTIFIER_MARKED (DECL_NAME (decl)) = 0;
+	}
+    }
+
+  if (unchanged_cfun || DECL_NONSTATIC_MEMBER_FUNCTION_P (changed_func_decl))
+    {
+      /* Check whether the oracle supplies us with a "this", and if
+	 so, arrange for data members and this itself to be
+	 usable.  */
+      tree this_val = lookup_name (get_identifier ("this"));
+      current_class_ref = !this_val ? NULL_TREE
+	: cp_build_indirect_ref (this_val, RO_NULL, tf_warning_or_error);
+      current_class_ptr = this_val;
+    }
+}
+
+static void
+plugin_pragma_pop_user_expression (cpp_reader *)
+{
+  if (--push_count)
+    return;
+
+  gcc_assert (cp_binding_oracle);
+
+  gcc_assert (at_function_scope_p ());
+  function *save_cfun = cfun;
+  current_class_ptr = NULL_TREE;
+  current_class_ref = NULL_TREE;
+
+  cfun = NULL;
+  pop_scope ();
+  if (TREE_CODE (DECL_CONTEXT (current_function_decl)) != NAMESPACE_DECL)
+    current_class_type = DECL_CONTEXT (current_function_decl);
+  {
+    int success;
+    cc1_plugin::call (current_context, "leave_scope", &success);
+  }
+  gcc_assert (cfun == save_cfun);
+
+  cp_binding_oracle = NULL;
+  gcc_assert (at_function_scope_p ());
 }
 
 static void
 plugin_init_extra_pragmas (void *, void *)
 {
-  c_register_pragma ("GCC", "user_expression", plugin_pragma_user_expression);
+  c_register_pragma ("GCC", "push_user_expression", plugin_pragma_push_user_expression);
+  c_register_pragma ("GCC", "pop_user_expression", plugin_pragma_pop_user_expression);
+  /* FIXME: this one should go once we get GDB to use push and pop.  */
+  c_register_pragma ("GCC", "user_expression", plugin_pragma_push_user_expression);
 }
 
 
@@ -430,59 +833,64 @@ plugin_push_namespace (cc1_plugin::connection *,
 }
 
 int
-plugin_push_function (cc1_plugin::connection *,
-		      gcc_decl function_decl_in)
+plugin_push_class (cc1_plugin::connection *,
+		   gcc_type type_in)
 {
-  current_function_decl = convert_in (function_decl_in);
-  begin_scope (sk_function_parms, current_function_decl);
-  ++function_depth;
-  begin_scope (sk_block, NULL);
+  tree type = convert_in (type_in);
+  gcc_assert (RECORD_OR_UNION_CODE_P (TREE_CODE (type)));
+  gcc_assert (TYPE_CONTEXT (type) == FROB_CONTEXT (current_scope ()));
+
+  pushclass (type);
 
   return 1;
 }
 
-/* at_function_scope_p () tests cfun, indicating we're actually
-   compiling the function, but we don't even set it when pretending to
-   enter a function scope.  We use this distinction to tell these two
-   cases apart: we don't want to define e.g. class names in the user
-   expression function's scope, when they're local to the original
-   function, because they'd get the wrong linkage name.  */
-
-static bool
-at_fake_function_scope_p ()
+int
+plugin_push_function (cc1_plugin::connection *,
+		      gcc_decl function_decl_in)
 {
-  return !cfun && current_scope () == current_function_decl;
+  tree fndecl = convert_in (function_decl_in);
+  gcc_assert (TREE_CODE (fndecl) == FUNCTION_DECL);
+  gcc_assert (DECL_CONTEXT (fndecl) == FROB_CONTEXT (current_scope ()));
+
+  push_fake_function (fndecl);
+
+  return 1;
 }
 
 int
 plugin_pop_namespace (cc1_plugin::connection *)
 {
-  if (toplevel_bindings_p () && current_namespace == global_namespace)
-    pop_from_top_level ();
-  else if (at_namespace_scope_p ())
-    pop_namespace ();
+  pop_scope ();
+  return 1;
+}
+
+int
+plugin_reactivate_decl (cc1_plugin::connection *,
+			gcc_decl decl_in,
+			gcc_decl scope_in)
+{
+  tree decl = convert_in (decl_in);
+  tree scope = convert_in (scope_in);
+  gcc_assert (TREE_CODE (decl) == VAR_DECL
+	      || TREE_CODE (decl) == FUNCTION_DECL
+	      || TREE_CODE (decl) == TYPE_DECL);
+  cp_binding_level *b;
+  if (scope)
+    {
+      gcc_assert (TREE_CODE (scope) == FUNCTION_DECL);
+      for (b = current_binding_level;
+	   b->this_entity != scope;
+	   b = b->level_chain)
+	gcc_assert (b->this_entity != global_namespace);
+    }
   else
     {
-      gcc_assert (at_fake_function_scope_p ());
-      gcc_assert (!at_function_scope_p ());
-      gcc_assert (current_binding_level->kind == sk_block
-		  && current_binding_level->this_entity == NULL);
-      leave_scope ();
-      --function_depth;
-      gcc_assert (current_binding_level->kind == sk_function_parms
-		  && (current_binding_level->this_entity
-		      == current_function_decl));
-      leave_scope ();
-      current_function_decl = NULL;
-      for (cp_binding_level *scope = current_binding_level;
-	   scope; scope = scope->level_chain)
-	if (scope->kind == sk_function_parms)
-	  {
-	    current_function_decl = scope->this_entity;
-	    break;
-	  }
+      gcc_assert (!at_class_scope_p ());
+      b = current_binding_level;
     }
 
+  reactivate_decl (decl, b);
   return 1;
 }
 
@@ -623,6 +1031,22 @@ plugin_new_using_decl (cc1_plugin::connection *,
   return 1;
 }
 
+static tree
+build_named_class_type (enum tree_code code,
+			tree id,
+			source_location loc)
+{
+  /* See at_fake_function_scope_p.  */
+  gcc_assert (!at_function_scope_p ());
+  tree type = make_class_type (code);
+  tree type_decl = build_decl (loc, TYPE_DECL, id, type);
+  TYPE_NAME (type) = type_decl;
+  TYPE_STUB_DECL (type) = type_decl;
+  DECL_CONTEXT (type_decl) = TYPE_CONTEXT (type);
+
+  return type_decl;
+}
+
 /* Abuse an unused field of the dummy template parms entry to hold the
    parm list.  */
 #define TP_PARM_LIST TREE_TYPE (current_template_parms)
@@ -638,7 +1062,7 @@ plugin_new_decl (cc1_plugin::connection *self,
 		 unsigned int line_number)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
-  gcc_assert (!strchr (name, ':')); // FIXME: this can go eventually.
+  gcc_assert (!name || !strchr (name, ':')); // FIXME: this can go eventually.
 
   enum tree_code code;
   tree decl;
@@ -679,6 +1103,12 @@ plugin_new_decl (cc1_plugin::connection *self,
       gcc_assert (!sym_type);
       break;
 
+    case GCC_CP_SYMBOL_UNION:
+      code = UNION_TYPE;
+      gcc_assert (!sym_flags);
+      gcc_assert (!sym_type);
+      break;
+
     default:
       gcc_unreachable ();
     }
@@ -707,7 +1137,15 @@ plugin_new_decl (cc1_plugin::connection *self,
   tree identifier;
   if (code != FUNCTION_DECL
       || !(sym_flags & GCC_CP_FLAG_SPECIAL_FUNCTION))
-    identifier = get_identifier (name);
+    {
+      if (name)
+	identifier = get_identifier (name);
+      else
+	{
+	  gcc_assert (RECORD_OR_UNION_CODE_P (code));
+	  identifier = make_anon_name ();
+	}
+    }
 
   if (code == FUNCTION_DECL)
     {
@@ -1001,15 +1439,13 @@ plugin_new_decl (cc1_plugin::connection *self,
 	    DECL_ASSIGNMENT_OPERATOR_P (decl) = true;
 	}
     }
-  else if (code == RECORD_TYPE)
+  else if (RECORD_OR_UNION_CODE_P (code))
     {
-      tree type = make_class_type (code);
-      decl = build_decl (loc, TYPE_DECL, identifier, type);
-      TYPE_NAME (type) = decl;
-      TYPE_STUB_DECL (type) = decl;
-      DECL_CONTEXT (decl) = TYPE_CONTEXT (type);
+      decl = build_named_class_type (code, identifier, loc);
+      tree type = TREE_TYPE (decl);
 
-      if (!(sym_flags & GCC_CP_FLAG_CLASS_IS_STRUCT))
+      if (code == RECORD_TYPE
+	  && !(sym_flags & GCC_CP_FLAG_CLASS_IS_STRUCT))
 	CLASSTYPE_DECLARED_CLASS (type) = true;
     }
   else if (class_member_p)
@@ -1057,6 +1493,7 @@ plugin_new_decl (cc1_plugin::connection *self,
 
   if (sym_kind != GCC_CP_SYMBOL_TYPEDEF
       && sym_kind != GCC_CP_SYMBOL_CLASS
+      && sym_kind != GCC_CP_SYMBOL_UNION
       && !template_decl_p && !ctor && !dtor)
     {
       decl_addr_value value;
@@ -1100,7 +1537,7 @@ plugin_new_decl (cc1_plugin::connection *self,
 	 specializations.  */
       gcc_assert (!template_parm_scope_p ());
     }
-  else if (code == RECORD_TYPE)
+  else if (RECORD_OR_UNION_CODE_P (code))
     safe_pushtag (identifier, TREE_TYPE (decl), ts_current);
   else if (class_member_p)
     finish_member_declaration (decl);
@@ -1303,51 +1740,26 @@ start_class_def (tree type,
   return type;
 }
 
-static tree
-build_named_class_type (enum tree_code code,
-			const char *name,
-			const gcc_vbase_array *base_classes,
-			source_location loc)
-{
-  /* See at_fake_function_scope_p.  */
-  gcc_assert (!at_function_scope_p ());
-  tree type = make_class_type (code);
-  tree id = name ? get_identifier (name) : make_anon_name ();
-  tree type_decl = build_decl (loc, TYPE_DECL, id, type);
-  TYPE_NAME (type) = type_decl;
-  TYPE_STUB_DECL (type) = type_decl;
-  DECL_CONTEXT (type_decl) = TYPE_CONTEXT (type);
-  safe_pushtag (id, type, ts_current);
-
-  return start_class_def (type, base_classes);
-}
-
 gcc_type
-plugin_start_new_class_type (cc1_plugin::connection *self,
-			     const char *name,
-			     enum gcc_cp_symbol_kind flags,
-			     const gcc_vbase_array *base_classes,
-			     const char *filename,
-			     unsigned int line_number)
+plugin_start_class_definition (cc1_plugin::connection *self,
+			       gcc_decl typedecl_in,
+			       const gcc_vbase_array *base_classes,
+			       const char *filename,
+			       unsigned int line_number)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
+  source_location loc = ctx->get_source_location (filename, line_number);
+  tree typedecl = convert_in (typedecl_in);
+  tree type = TREE_TYPE (typedecl);
 
-  gcc_assert ((flags & GCC_CP_SYMBOL_MASK) == GCC_CP_SYMBOL_CLASS);
-  gcc_assert ((flags & (~(GCC_CP_SYMBOL_MASK | GCC_CP_ACCESS_MASK
-			  | GCC_CP_FLAG_MASK_CLASS))) == 0);
-  gcc_assert (!(flags & GCC_CP_ACCESS_MASK) == !at_class_scope_p ());
+  gcc_assert (RECORD_OR_UNION_CODE_P (TREE_CODE (type)));
+  gcc_assert (!COMPLETE_TYPE_P (type));
 
-  tree type = build_named_class_type (RECORD_TYPE, name, base_classes,
-				      ctx->get_source_location (filename,
-								line_number));
-  tree decl = TYPE_NAME (type);
+  DECL_SOURCE_LOCATION (typedecl) = loc;
 
-  set_access_flags (decl, flags);
+  tree result = start_class_def (type, base_classes);
 
-  if (!(flags & GCC_CP_FLAG_CLASS_IS_STRUCT))
-    CLASSTYPE_DECLARED_CLASS (type) = true;
-
-  return convert_out (ctx->preserve (type));
+  return convert_out (ctx->preserve (result));
 }
 
 gcc_type
@@ -1426,29 +1838,6 @@ plugin_get_lambda_expr (cc1_plugin::connection *self,
   tree lambda_object = build_lambda_object (lambda_expr);
 
   return convert_out (ctx->preserve (lambda_object));
-}
-
-gcc_type
-plugin_start_new_union_type (cc1_plugin::connection *self,
-			     const char *name,
-			     enum gcc_cp_symbol_kind flags,
-			     const char *filename,
-			     unsigned int line_number)
-{
-  plugin_context *ctx = static_cast<plugin_context *> (self);
-
-  gcc_assert ((flags & GCC_CP_SYMBOL_MASK) == GCC_CP_SYMBOL_UNION);
-  gcc_assert ((flags & (~(GCC_CP_SYMBOL_MASK | GCC_CP_ACCESS_MASK))) == 0);
-  gcc_assert (!(flags & GCC_CP_ACCESS_MASK) == !at_class_scope_p ());
-
-  tree type = build_named_class_type (UNION_TYPE, name, NULL,
-				      ctx->get_source_location (filename,
-								line_number));
-  tree decl = TYPE_NAME (type);
-
-  set_access_flags (decl, flags);
-
-  return convert_out (ctx->preserve (type));
 }
 
 gcc_decl
@@ -2990,13 +3379,12 @@ plugin_specialize_function_template (cc1_plugin::connection *self,
   return convert_out (ctx->preserve (decl));
 }
 
-gcc_type
-plugin_start_specialize_class_template (cc1_plugin::connection *self,
-					gcc_decl template_decl,
-					const gcc_cp_template_args *args,
-					const gcc_vbase_array *base_classes,
-					const char *filename,
-					unsigned int line_number)
+gcc_decl
+plugin_specialize_class_template (cc1_plugin::connection *self,
+				  gcc_decl template_decl,
+				  const gcc_cp_template_args *args,
+				  const char *filename,
+				  unsigned int line_number)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   source_location loc = ctx->get_source_location (filename, line_number);
@@ -3005,9 +3393,7 @@ plugin_start_specialize_class_template (cc1_plugin::connection *self,
   tree tdecl = finish_template_type (name, targlist (args), false);;
   DECL_SOURCE_LOCATION (tdecl) = loc;
 
-  tree type = start_class_def (TREE_TYPE (tdecl), base_classes);
-
-  return convert_out (ctx->preserve (type));
+  return convert_out (ctx->preserve (tdecl));
 }
 
 /* Return a builtin type associated with BUILTIN_NAME.  */
