@@ -59,6 +59,8 @@ struct libcp1 : public gcc_cp_context
 
   gcc_cp_oracle_function *binding_oracle;
   gcc_cp_symbol_address_function *address_oracle;
+  gcc_cp_enter_leave_user_expr_scope_function *enter_scope;
+  gcc_cp_enter_leave_user_expr_scope_function *leave_scope;
   void *oracle_datum;
 
   void (*print_function) (void *datum, const char *message);
@@ -138,6 +140,24 @@ namespace {
 
     return self->address_oracle (self->oracle_datum, self, identifier);
   }
+
+  int
+  cp_call_enter_scope (cc1_plugin::connection *conn)
+  {
+    libcp1 *self = ((libcp1_connection *) conn)->back_ptr;
+
+    self->enter_scope (self->oracle_datum, self);
+    return 1;
+  }
+
+  int
+  cp_call_leave_scope (cc1_plugin::connection *conn)
+  {
+    libcp1 *self = ((libcp1_connection *) conn)->back_ptr;
+
+    self->leave_scope (self->oracle_datum, self);
+    return 1;
+  }
 } /* anonymous namespace */
 
 
@@ -146,12 +166,16 @@ static void
 set_callbacks (struct gcc_cp_context *s,
 	       gcc_cp_oracle_function *binding_oracle,
 	       gcc_cp_symbol_address_function *address_oracle,
+	       gcc_cp_enter_leave_user_expr_scope_function *enter_scope,
+	       gcc_cp_enter_leave_user_expr_scope_function *leave_scope,
 	       void *datum)
 {
   libcp1 *self = (libcp1 *) s;
 
   self->binding_oracle = binding_oracle;
   self->address_oracle = address_oracle;
+  self->enter_scope = enter_scope;
+  self->leave_scope = leave_scope;
   self->oracle_datum = datum;
 }
 
@@ -487,6 +511,14 @@ libcp1_compile (struct gcc_base_context *s,
 			     const char *,
 			     cp_call_symbol_address>;
   self->connection->add_callback ("address_oracle", fun);
+
+  fun = cc1_plugin::callback<int,
+			     cp_call_enter_scope>;
+  self->connection->add_callback ("enter_scope", fun);
+
+  fun = cc1_plugin::callback<int,
+			     cp_call_leave_scope>;
+  self->connection->add_callback ("leave_scope", fun);
 
   char **argv = new (std::nothrow) char *[self->args.size () + 1];
   if (argv == NULL)
