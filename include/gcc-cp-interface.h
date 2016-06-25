@@ -41,7 +41,7 @@ struct gcc_cp_context;
 
 enum gcc_cp_api_version
 {
-  GCC_CP_FE_VERSION_0 = 0xffffffff-15
+  GCC_CP_FE_VERSION_0 = 0xffffffff-16
 };
 
 /* Qualifiers.  */
@@ -134,13 +134,15 @@ enum gcc_cp_symbol_kind
 
   GCC_CP_SYMBOL_LABEL,
 
-  /* A class (forward declared in new_decl, or introduced in
-     start_new_class_type), or, in a template parameter list scope, a
-     declaration of a template class, closing the parameter list.  */
+  /* A class, forward declared in new_decl (to be later defined in
+     start_class_definition), or, in a template parameter list scope,
+     a declaration of a template class, closing the parameter
+     list.  */
 
   GCC_CP_SYMBOL_CLASS,
 
-  /* A union being introduced with start_new_union_type.  */
+  /* A union, forward declared in new_decl (to be later defined in
+     start_class_definition).  */
 
   GCC_CP_SYMBOL_UNION,
 
@@ -480,6 +482,20 @@ struct gcc_cp_context
    holds its name as a symbol.  */
 
 #define GCC_CP_FE_CONTEXT gcc_cp_fe_context
+
+/* The (invalid) symbol libcc1 will look up to signal that it is
+   entering the user expression region.  The oracle should use this
+   opportunity to switch to the context in which names in the user
+   expression should be resolved.  */
+
+#define GCC_CP_FE_PUSH_CONTEXT_SYMBOL "::::"
+
+/* The (invalid) symbol libcc1 will look up to signal that it is
+   leaving the user expression region.  The oracle should use this
+   opportunity to pop any contexts pushed for the compilation of the
+   user expression.  */
+
+#define GCC_CP_FE_POP_CONTEXT_SYMBOL ":::::"
 
 /* The type of the initialization function.  The caller passes in the
    desired base version and desired C-specific version.  If the
