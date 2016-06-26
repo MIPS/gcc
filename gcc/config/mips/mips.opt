@@ -538,3 +538,6 @@ Target Undocumented Var(TARGET_USE_SAVE_RESTORE) Init(-1)
 
 muse-copyw-by-pieces
 Target Undocumented Var(TARGET_USE_COPYW_BY_PIECES) Init(1)
+
+mmips16-ze-policy=
+Target Undocumented Joined UInteger Var(mips16e2_ze_policy) Init(0)
