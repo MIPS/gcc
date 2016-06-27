@@ -1262,6 +1262,10 @@
   if (which_alternative == 0 
       || which_alternative == 1)
     return "<d>addu\t%0,%1,%2";
+  else if (which_alternative == 2
+	   && TARGET_MICROMIPS_R7
+	   && TARGET_ADD_NEW_ADDIUR2)
+    return "sdbbp16 9 # <d>addiu\t%0,%1,%2";
   else if (which_alternative == 4 && ISA_HAS_SAVE_RESTORE)
     {
       if (IN_RANGE (INTVAL (operands[2]), 8, 120))

@@ -333,14 +333,20 @@
 
 (define_predicate "addiur2_operand"
   (and (match_code "const_int")
-	(ior (match_test "INTVAL (op) == -1")
-	     (match_test "INTVAL (op) == 1")
-	     (match_test "INTVAL (op) == 4")
-	     (match_test "INTVAL (op) == 8")
-	     (match_test "INTVAL (op) == 12")
-	     (match_test "INTVAL (op) == 16")
-	     (match_test "INTVAL (op) == 20")
-	     (match_test "INTVAL (op) == 24"))))
+	(ior (and (not (and (match_test "TARGET_MICROMIPS_R7")
+			    (match_test "TARGET_ADD_NEW_ADDIUR2")))
+		  (ior (match_test "INTVAL (op) == -1")
+		       (match_test "INTVAL (op) == 1")
+		       (match_test "INTVAL (op) == 4")
+		       (match_test "INTVAL (op) == 8")
+		       (match_test "INTVAL (op) == 12")
+		       (match_test "INTVAL (op) == 16")
+		       (match_test "INTVAL (op) == 20")
+		       (match_test "INTVAL (op) == 24")))
+	     (and (match_test "TARGET_MICROMIPS_R7")
+		  (match_test "TARGET_ADD_NEW_ADDIUR2")
+		  (match_test "mips_unsigned_immediate_p (INTVAL (op), 3, 2)")))))
+
 
 (define_predicate "addiusp_operand"
   (and (match_code "const_int")
