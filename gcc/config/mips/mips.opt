@@ -597,3 +597,6 @@ Target Undocumented Var(TARGET_REDUCE_LDST_OFFSETS) Init(0)
 
 madd-ualw-uasw
 Target Undocumented Var(TARGET_ADD_UALW_UASW) Init(0)
+
+madd-new-addiur2
+Target Undocumented Var(TARGET_ADD_NEW_ADDIUR2) Init(0)
