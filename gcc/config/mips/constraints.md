@@ -388,6 +388,12 @@
   (and (match_code "const_vector")
        (match_test "mips_const_vector_same_bytes_p (op, mode)")))
 
+(define_memory_constraint "ZA"
+  "@internal
+   A microMIPS memory operand for use with the UALW/UASW insns."
+  (and (match_code "mem")
+       (match_operand 0 "ualw_uasw_operand")))
+
 (define_memory_constraint "ZE"
   "@internal
   A non-indexed memory address."
