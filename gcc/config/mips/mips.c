@@ -8971,7 +8971,7 @@ mips_store_by_pieces_p (unsigned HOST_WIDE_INT size, unsigned int align)
 	  LW/SWL/SWR sequence.  This is often better than the 4 LIs and
 	  4 SBs that we would generate when storing by pieces.  */
   if (align <= BITS_PER_UNIT)
-    return size < 4;
+    return size < 4 || !(ISA_HAS_LWL_LWR || ISA_HAS_UALW_UASW);
 
   /* If the data is 2-byte aligned, then:
 
@@ -9006,7 +9006,9 @@ mips_store_by_pieces_p (unsigned HOST_WIDE_INT size, unsigned int align)
      (c4) A block move of 8 bytes can use two LW/SW sequences or a single
 	  LD/SD sequence, and in these cases we've traditionally preferred
 	  the memory copy over the more bulky constant moves.  */
-  return size < 8;
+  return (size < 8
+	  || (align < 4 * BITS_PER_UNIT
+	      && !(ISA_HAS_LWL_LWR || ISA_HAS_UALW_UASW)));
 }
 
 /* Emit straight-line code to move LENGTH bytes from SRC to DEST.
@@ -9032,7 +9034,7 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length,
      picking the minimum of alignment or BITS_PER_WORD gets us the
      desired size for bits.  */
 
-  if (!ISA_HAS_LWL_LWR)
+  if (!(ISA_HAS_LWL_LWR || ISA_HAS_UALW_UASW))
     bits = MIN (BITS_PER_WORD, MIN (MEM_ALIGN (src), MEM_ALIGN (dest)));
   else
     {
@@ -9357,7 +9359,11 @@ mips_expand_block_move (rtx dest, rtx src, rtx length, rtx alignment)
       && INTVAL (alignment) * BITS_PER_UNIT < MIPS_MIN_MOVE_MEM_ALIGN)
     return false;
 
-  if (CONST_INT_P (length))
+  if (CONST_INT_P (length)
+      && (ISA_HAS_LWL_LWR
+	  || ISA_HAS_UALW_UASW
+	  || INTVAL (alignment) * BITS_PER_UNIT >= MIPS_MIN_MOVE_MEM_ALIGN
+	  || ISA_HAS_COPY))
     {
       if (mips_movmem_limit == -1 || INTVAL (length) < mips_movmem_limit)
 	{
@@ -9586,42 +9592,53 @@ bool
 mips_expand_ext_as_unaligned_load (rtx dest, rtx src, HOST_WIDE_INT width,
 				   HOST_WIDE_INT bitpos, bool unsigned_p)
 {
-  rtx left, right, temp;
-  rtx dest1 = NULL_RTX;
-
-  /* If TARGET_64BIT, the destination of a 32-bit "extz" or "extzv" will
-     be a DImode, create a new temp and emit a zero extend at the end.  */
-  if (GET_MODE (dest) == DImode
-      && REG_P (dest)
-      && GET_MODE_BITSIZE (SImode) == width)
+  if (ISA_HAS_UALW_UASW)
     {
-      dest1 = dest;
-      dest = gen_reg_rtx (SImode);
-    }
-
-  if (!mips_get_unaligned_mem (src, width, bitpos, &left, &right))
-    return false;
-
-  temp = gen_reg_rtx (GET_MODE (dest));
-  if (GET_MODE (dest) == DImode)
-    {
-      emit_insn (gen_mov_ldl (temp, src, left));
-      emit_insn (gen_mov_ldr (dest, copy_rtx (src), right, temp));
+      if (width != 32
+	  || bitpos % BITS_PER_UNIT != 0
+	  || MEM_ALIGN (src) >= width)
+	return false;
+      emit_insn (gen_mov_ualw (dest, copy_rtx (src)));
     }
   else
     {
-      emit_insn (gen_mov_lwl (temp, src, left));
-      emit_insn (gen_mov_lwr (dest, copy_rtx (src), right, temp));
-    }
+      rtx left, right, temp;
+      rtx dest1 = NULL_RTX;
 
-  /* If we were loading 32bits and the original register was DI then
-     sign/zero extend into the orignal dest.  */
-  if (dest1)
-    {
-      if (unsigned_p)
-        emit_insn (gen_zero_extendsidi2 (dest1, dest));
+      /* If TARGET_64BIT, the destination of a 32-bit "extz" or "extzv" will
+	 be a DImode, create a new temp and emit a zero extend at the end.  */
+      if (GET_MODE (dest) == DImode
+	  && REG_P (dest)
+	  && GET_MODE_BITSIZE (SImode) == width)
+	{
+	  dest1 = dest;
+	  dest = gen_reg_rtx (SImode);
+	}
+
+      if (!mips_get_unaligned_mem (src, width, bitpos, &left, &right))
+	return false;
+
+      temp = gen_reg_rtx (GET_MODE (dest));
+      if (GET_MODE (dest) == DImode)
+	{
+	  emit_insn (gen_mov_ldl (temp, src, left));
+	  emit_insn (gen_mov_ldr (dest, copy_rtx (src), right, temp));
+	}
       else
-        emit_insn (gen_extendsidi2 (dest1, dest));
+	{
+	  emit_insn (gen_mov_lwl (temp, src, left));
+	  emit_insn (gen_mov_lwr (dest, copy_rtx (src), right, temp));
+	}
+
+      /* If we were loading 32bits and the original register was DI then
+	 sign/zero extend into the orignal dest.  */
+      if (dest1)
+	{
+	  if (unsigned_p)
+	    emit_insn (gen_zero_extendsidi2 (dest1, dest));
+	  else
+	    emit_insn (gen_extendsidi2 (dest1, dest));
+	}
     }
   return true;
 }
@@ -9638,23 +9655,34 @@ bool
 mips_expand_ins_as_unaligned_store (rtx dest, rtx src, HOST_WIDE_INT width,
 				    HOST_WIDE_INT bitpos)
 {
-  rtx left, right;
-  machine_mode mode;
-
-  if (!mips_get_unaligned_mem (dest, width, bitpos, &left, &right))
-    return false;
-
-  mode = mode_for_size (width, MODE_INT, 0);
-  src = gen_lowpart (mode, src);
-  if (mode == DImode)
+  if (ISA_HAS_UALW_UASW)
     {
-      emit_insn (gen_mov_sdl (dest, src, left));
-      emit_insn (gen_mov_sdr (copy_rtx (dest), copy_rtx (src), right));
+      if (width != 32
+	  || bitpos % BITS_PER_UNIT != 0
+	  || MEM_ALIGN (dest) >= width)
+	return false;
+      emit_insn (gen_mov_uasw (copy_rtx (dest), copy_rtx (src)));
     }
   else
     {
-      emit_insn (gen_mov_swl (dest, src, left));
-      emit_insn (gen_mov_swr (copy_rtx (dest), copy_rtx (src), right));
+      rtx left, right;
+      machine_mode mode;
+
+      if (!mips_get_unaligned_mem (dest, width, bitpos, &left, &right))
+	return false;
+
+      mode = mode_for_size (width, MODE_INT, 0);
+      src = gen_lowpart (mode, src);
+      if (mode == DImode)
+	{
+	  emit_insn (gen_mov_sdl (dest, src, left));
+	  emit_insn (gen_mov_sdr (copy_rtx (dest), copy_rtx (src), right));
+	}
+      else
+	{
+	  emit_insn (gen_mov_swl (dest, src, left));
+	  emit_insn (gen_mov_swr (copy_rtx (dest), copy_rtx (src), right));
+	}
     }
   return true;
 }

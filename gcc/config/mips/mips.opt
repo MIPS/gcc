@@ -594,3 +594,6 @@ Target Undocumented Var(TARGET_NEW_SLTI_SLTIU) Init(0)
 
 mreduce-ldst-offsets
 Target Undocumented Var(TARGET_REDUCE_LDST_OFFSETS) Init(0)
+
+madd-ualw-uasw
+Target Undocumented Var(TARGET_ADD_UALW_UASW) Init(0)
