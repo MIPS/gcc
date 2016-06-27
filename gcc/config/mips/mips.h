@@ -1209,6 +1209,7 @@ struct mips_cpu_info {
 				 && !TARGET_MIPS16)
 
 #define ISA_HAS_LWL_LWR		(mips_isa_rev <= 5 && !TARGET_MIPS16)
+#define ISA_HAS_UALW_UASW	(TARGET_NANOMIPS == NANOMIPS_NMF)
 
 #define ISA_HAS_UNALIGNED_SCALARS					\
 				(TARGET_UNALIGNED_SCALARS		\
