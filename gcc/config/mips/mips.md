@@ -80,8 +80,10 @@
   ;; Unaligned accesses.
   UNSPEC_LOAD_LEFT
   UNSPEC_LOAD_RIGHT
+  UNSPEC_UALW
   UNSPEC_STORE_LEFT
   UNSPEC_STORE_RIGHT
+  UNSPEC_UASW
 
   ;; Integer operations that are too cumbersome to describe directly.
   UNSPEC_WSBH
@@ -4262,7 +4264,7 @@
 	(sign_extract:GPR (match_operand:BLK 1 "memory_operand")
 			  (match_operand 2 "const_int_operand")
 			  (match_operand 3 "const_int_operand")))]
-  "ISA_HAS_LWL_LWR || ISA_HAS_MIPS16E2"
+  "ISA_HAS_LWL_LWR || ISA_HAS_MIPS16E2 || ISA_HAS_UALW_UASW"
 {
   if (mips_expand_ext_as_unaligned_load (operands[0], operands[1],
 					 INTVAL (operands[2]),
@@ -4299,7 +4301,7 @@
 	(zero_extract:GPR (match_operand:BLK 1 "memory_operand")
 			  (match_operand 2 "const_int_operand")
 			  (match_operand 3 "const_int_operand")))]
-  "ISA_HAS_LWL_LWR || ISA_HAS_MIPS16E2"
+  "ISA_HAS_LWL_LWR || ISA_HAS_MIPS16E2 || ISA_HAS_UALW_UASW"
 {
   if (mips_expand_ext_as_unaligned_load (operands[0], operands[1],
 					 INTVAL (operands[2]),
@@ -4351,7 +4353,7 @@
 			  (match_operand 1 "const_int_operand")
 			  (match_operand 2 "const_int_operand"))
 	(match_operand:GPR 3 "reg_or_0_operand"))]
-  "ISA_HAS_LWL_LWR || ISA_HAS_MIPS16E2"
+  "ISA_HAS_LWL_LWR || ISA_HAS_MIPS16E2 || ISA_HAS_UALW_UASW"
 {
   if (mips_expand_ins_as_unaligned_store (operands[0], operands[3],
 					  INTVAL (operands[1]),
@@ -4444,6 +4446,15 @@
    (set_attr "mode" "<MODE>")
    (set_attr "extended_mips16" "yes")])
 
+(define_insn "mov_ualw"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(unspec:SI [(match_operand:BLK 1 "memory_operand" "m")]
+		    UNSPEC_UALW))]
+  "ISA_HAS_UALW_UASW"
+  "sdbbp32 21 # ualw %0,%1"
+  [(set_attr "move_type" "load")
+   (set_attr "mode" "SI")])
+
 (define_insn "mov_<store>l"
   [(set (match_operand:BLK 0 "memory_operand" "=m")
 	(unspec:BLK [(match_operand:GPR 1 "reg_or_0_operand" "dJ")
@@ -4468,6 +4479,15 @@
   [(set_attr "move_type" "store")
    (set_attr "mode" "<MODE>")
    (set_attr "extended_mips16" "yes")])
+
+(define_insn "mov_uasw"
+  [(set (match_operand:BLK 0 "memory_operand" "=m")
+	(unspec:BLK [(match_operand:SI 1 "reg_or_0_operand" "dJ")]
+		    UNSPEC_UASW))]
+  "ISA_HAS_UALW_UASW"
+  "sdbbp32 21 # uasw %1,%0"
+  [(set_attr "move_type" "store")
+   (set_attr "mode" "SI")])
 
 ;; An instruction to calculate the high part of a 64-bit SYMBOL_ABSOLUTE.
 ;; The required value is:
