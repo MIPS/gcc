@@ -50,6 +50,8 @@ class Bblock;
 class Bvariable;
 class Blabel;
 class Bfunction;
+class Escape_context;
+class Node;
 
 // This file declares the basic classes used to hold the internal
 // representation of Go which is built by the parser.
@@ -345,6 +347,16 @@ class Gogo
   add_label_reference(const std::string&, Location,
 		      bool issue_goto_errors);
 
+  // An analysis set is a list of functions paired with a boolean that indicates
+  // whether the list of functions are recursive.
+  typedef std::pair<std::vector<Named_object*>, bool> Analysis_set;
+
+  // Add a GROUP of possibly RECURSIVE functions to the Analysis_set for this
+  // package.
+  void
+  add_analysis_set(const std::vector<Named_object*>& group, bool recursive)
+  { this->analysis_sets_.push_back(std::make_pair(group, recursive)); }
+
   // Return a snapshot of the current binding state.
   Bindings_snapshot*
   bindings_snapshot(Location);
@@ -543,6 +555,28 @@ class Gogo
   // Check for return statements.
   void
   check_return_statements();
+
+  // Analyze the program flow for escape information.
+  void
+  analyze_escape();
+
+  // Discover the groups of possibly recursive functions in this package.
+  void
+  discover_analysis_sets();
+
+  // Build a connectivity graph between the objects in each analyzed function.
+  void
+  assign_connectivity(Escape_context*, Named_object*);
+
+  // Traverse the objects in the connecitivty graph from the sink, adjusting the
+  // escape levels of each object.
+  void
+  propagate_escape(Escape_context*, Node*);
+
+  // Add notes about the escape level of a function's input and output
+  // parameters for exporting and importing top level functions. 
+  void
+  tag_function(Escape_context*, Named_object*);
 
   // Do all exports.
   void
@@ -762,6 +796,9 @@ class Gogo
   bool specific_type_functions_are_written_;
   // Whether named types have been converted.
   bool named_types_are_converted_;
+  // A list containing groups of possibly mutually recursive functions to be
+  // considered during escape analysis.
+  std::vector<Analysis_set> analysis_sets_;
 };
 
 // A block of statements.
@@ -2541,7 +2578,7 @@ class Label
  public:
   Label(const std::string& name)
     : name_(name), location_(Linemap::unknown_location()), snapshot_(NULL),
-      refs_(), is_used_(false), blabel_(NULL)
+      refs_(), is_used_(false), blabel_(NULL), depth_(DEPTH_UNKNOWN)
   { }
 
   // Return the label's name.
@@ -2563,6 +2600,26 @@ class Label
   void
   set_is_used()
   { this->is_used_ = true; }
+
+  // Return whether this label is looping.
+  bool
+  looping() const
+  { return this->depth_ == DEPTH_LOOPING; }
+
+  // Set this label as looping.
+  void
+  set_looping()
+  { this->depth_ = DEPTH_LOOPING; }
+
+  // Return whether this label is nonlooping.
+  bool
+  nonlooping() const
+  { return this->depth_ == DEPTH_NONLOOPING; }
+
+  // Set this label as nonlooping.
+  void
+  set_nonlooping()
+  { this->depth_ = DEPTH_NONLOOPING; }
 
   // Return the location of the definition.
   Location
@@ -2623,6 +2680,16 @@ class Label
   is_dummy_label() const
   { return this->name_ == "_"; }
 
+  // A classification of a label's looping depth.
+  enum Loop_depth
+  {
+    DEPTH_UNKNOWN,
+    // A label never jumped to.
+    DEPTH_NONLOOPING,
+    // A label jumped to.
+    DEPTH_LOOPING
+  };
+
  private:
   // The name of the label.
   std::string name_;
@@ -2638,6 +2705,8 @@ class Label
   bool is_used_;
   // The backend representation.
   Blabel* blabel_;
+  // The looping depth of this label, for escape analysis.
+  Loop_depth depth_;
 };
 
 // An unnamed label.  These are used when lowering loops.

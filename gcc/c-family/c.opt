@@ -265,7 +265,7 @@ C++ ObjC++ Var(warn_abi_tag) Warning
 Warn if a subobject has an abi_tag attribute that the complete object type does not have.
 
 Wpsabi
-C ObjC C++ ObjC++ LTO Var(warn_psabi) Init(1) Undocumented LangEnabledBy(C ObjC C++ ObjC++,Wabi)
+C ObjC C++ ObjC++ LTO Var(warn_psabi) Init(1) Warning Undocumented LangEnabledBy(C ObjC C++ ObjC++,Wabi)
 
 Waddress
 C ObjC C++ ObjC++ Var(warn_address) Warning LangEnabledBy(C ObjC C++ ObjC++,Wall)
@@ -1008,6 +1008,10 @@ Wsubobject-linkage
 C++ ObjC++ Var(warn_subobject_linkage) Warning Init(1)
 Warn if a class type has a base or a field whose type uses the anonymous namespace or depends on a type with no linkage.
 
+Wduplicate-decl-specifier
+C ObjC Var(warn_duplicate_decl_specifier) Warning LangEnabledBy(C ObjC,Wall)
+Warn when a declaration has duplicate const, volatile, restrict or _Atomic specifier.
+
 ansi
 C ObjC C++ ObjC++
 A synonym for -std=c89 (for C) or -std=c++98 (for C++).
@@ -1038,6 +1042,14 @@ Allow variadic functions without named parameter.
 falt-external-templates
 C++ ObjC++ Ignore Warn(switch %qs is no longer supported)
 No longer supported.
+
+fargs-in-order
+C++ ObjC++ Alias(fargs-in-order=, 2, 0)
+Always evaluate function arguments in left-to-right order.
+
+fargs-in-order=
+C++ ObjC++ Var(flag_args_in_order) Joined UInteger Init(-1)
+Always evaluate function arguments in left-to-right order.
 
 fasm
 C ObjC C++ ObjC++ Var(flag_no_asm, 0)

@@ -143,6 +143,15 @@ struct c_expr
      of this expression.  */
   location_t get_start () const { return src_range.m_start; }
   location_t get_finish () const { return src_range.m_finish; }
+
+  /* Set the value to error_mark_node whilst ensuring that src_range
+     is initialized.  */
+  void set_error ()
+  {
+    value = error_mark_node;
+    src_range.m_start = UNKNOWN_LOCATION;
+    src_range.m_finish = UNKNOWN_LOCATION;
+  }
 };
 
 /* Type alias for struct c_expr. This allows to use the structure
@@ -253,6 +262,7 @@ enum c_declspec_word {
   cdw_const,
   cdw_volatile,
   cdw_restrict,
+  cdw_atomic,
   cdw_saturating,
   cdw_alignas,
   cdw_address_space,
@@ -472,6 +482,7 @@ enum c_inline_static_type {
 
 /* in c-parser.c */
 extern void c_parse_init (void);
+extern bool c_keyword_starts_typename (enum rid keyword);
 
 /* in c-aux-info.c */
 extern void gen_aux_info_record (tree, int, int, int);
@@ -588,13 +599,13 @@ extern tree c_last_sizeof_arg;
 extern struct c_switch *c_switch_stack;
 
 extern tree c_objc_common_truthvalue_conversion (location_t, tree);
-extern tree require_complete_type (tree);
+extern tree require_complete_type (location_t, tree);
 extern int same_translation_unit_p (const_tree, const_tree);
 extern int comptypes (tree, tree);
 extern int comptypes_check_different_types (tree, tree, bool *);
 extern bool c_vla_type_p (const_tree);
 extern bool c_mark_addressable (tree);
-extern void c_incomplete_type_error (const_tree, const_tree);
+extern void c_incomplete_type_error (location_t, const_tree, const_tree);
 extern tree c_type_promotes_to (tree);
 extern struct c_expr default_function_array_conversion (location_t,
 							struct c_expr);
@@ -604,7 +615,7 @@ extern struct c_expr convert_lvalue_to_rvalue (location_t, struct c_expr,
 					       bool, bool);
 extern void mark_exp_read (tree);
 extern tree composite_type (tree, tree);
-extern tree build_component_ref (location_t, tree, tree);
+extern tree build_component_ref (location_t, tree, tree, location_t);
 extern tree build_array_ref (location_t, tree, tree);
 extern tree build_external_ref (location_t, tree, int, tree *);
 extern void pop_maybe_used (bool);
@@ -629,7 +640,7 @@ extern void finish_implicit_inits (location_t, struct obstack *);
 extern void push_init_level (location_t, int, struct obstack *);
 extern struct c_expr pop_init_level (location_t, int, struct obstack *);
 extern void set_init_index (location_t, tree, tree, struct obstack *);
-extern void set_init_label (location_t, tree, struct obstack *);
+extern void set_init_label (location_t, tree, location_t, struct obstack *);
 extern void process_init_element (location_t, struct c_expr, bool,
 				  struct obstack *);
 extern tree build_compound_literal (location_t, tree, tree, bool);
@@ -716,7 +727,7 @@ extern void c_bind (location_t, tree, bool);
 extern bool tag_exists_p (enum tree_code, tree);
 
 /* In c-errors.c */
-extern void pedwarn_c90 (location_t, int opt, const char *, ...)
+extern bool pedwarn_c90 (location_t, int opt, const char *, ...)
     ATTRIBUTE_GCC_DIAG(3,4);
 extern bool pedwarn_c99 (location_t, int opt, const char *, ...)
     ATTRIBUTE_GCC_DIAG(3,4);

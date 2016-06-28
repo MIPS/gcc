@@ -1929,101 +1929,63 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
    | OMP_CLAUSE_SEQ)
 
 
+static match
+match_acc (gfc_exec_op op, uint64_t mask)
+{
+  gfc_omp_clauses *c;
+  if (gfc_match_omp_clauses (&c, mask, false, false, true) != MATCH_YES)
+    return MATCH_ERROR;
+  new_st.op = op;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
 match
 gfc_match_oacc_parallel_loop (void)
 {
-  gfc_omp_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_PARALLEL_LOOP_CLAUSES, false, false,
-			     true) != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_PARALLEL_LOOP;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
+  return match_acc (EXEC_OACC_PARALLEL_LOOP, OACC_PARALLEL_LOOP_CLAUSES);
 }
 
 
 match
 gfc_match_oacc_parallel (void)
 {
-  gfc_omp_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_PARALLEL_CLAUSES, false, false, true)
-      != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_PARALLEL;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
+  return match_acc (EXEC_OACC_PARALLEL, OACC_PARALLEL_CLAUSES);
 }
 
 
 match
 gfc_match_oacc_kernels_loop (void)
 {
-  gfc_omp_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_KERNELS_LOOP_CLAUSES, false, false,
-			     true) != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_KERNELS_LOOP;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
+  return match_acc (EXEC_OACC_KERNELS_LOOP, OACC_KERNELS_LOOP_CLAUSES);
 }
 
 
 match
 gfc_match_oacc_kernels (void)
 {
-  gfc_omp_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_KERNELS_CLAUSES, false, false, true)
-      != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_KERNELS;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
+  return match_acc (EXEC_OACC_KERNELS, OACC_KERNELS_CLAUSES);
 }
 
 
 match
 gfc_match_oacc_data (void)
 {
-  gfc_omp_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_DATA_CLAUSES, false, false, true)
-      != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_DATA;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
+  return match_acc (EXEC_OACC_DATA, OACC_DATA_CLAUSES);
 }
 
 
 match
 gfc_match_oacc_host_data (void)
 {
-  gfc_omp_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_HOST_DATA_CLAUSES, false, false, true)
-      != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_HOST_DATA;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
+  return match_acc (EXEC_OACC_HOST_DATA, OACC_HOST_DATA_CLAUSES);
 }
 
 
 match
 gfc_match_oacc_loop (void)
 {
-  gfc_omp_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_LOOP_CLAUSES, false, false, true)
-      != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_LOOP;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
+  return match_acc (EXEC_OACC_LOOP, OACC_LOOP_CLAUSES);
 }
 
 
@@ -2135,28 +2097,14 @@ gfc_match_oacc_update (void)
 match
 gfc_match_oacc_enter_data (void)
 {
-  gfc_omp_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_ENTER_DATA_CLAUSES, false, false, true)
-      != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_ENTER_DATA;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
+  return match_acc (EXEC_OACC_ENTER_DATA, OACC_ENTER_DATA_CLAUSES);
 }
 
 
 match
 gfc_match_oacc_exit_data (void)
 {
-  gfc_omp_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_EXIT_DATA_CLAUSES, false, false, true)
-      != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_EXIT_DATA;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
+  return match_acc (EXEC_OACC_EXIT_DATA, OACC_EXIT_DATA_CLAUSES);
 }
 
 
@@ -2206,6 +2154,10 @@ match
 gfc_match_oacc_cache (void)
 {
   gfc_omp_clauses *c = gfc_get_omp_clauses ();
+  /* The OpenACC cache directive explicitly only allows "array elements or
+     subarrays", which we're currently not checking here.  Either check this
+     after the call of gfc_match_omp_variable_list, or add something like a
+     only_sections variant next to its allow_sections parameter.  */
   match m = gfc_match_omp_variable_list (" (",
 					 &c->lists[OMP_LIST_CACHE], true,
 					 NULL, NULL, true);
@@ -4056,6 +4008,11 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
 	  || expr->ts.type != BT_INTEGER || expr->rank != 0)
 	gfc_error ("SCHEDULE clause's chunk_size at %L requires "
 		   "a scalar INTEGER expression", &expr->where);
+      else if (expr->expr_type == EXPR_CONSTANT
+	       && expr->ts.type == BT_INTEGER
+	       && mpz_sgn (expr->value.integer) <= 0)
+	gfc_warning (0, "INTEGER expression of SCHEDULE clause's chunk_size "
+		     "at %L must be positive", &expr->where);
     }
 
   /* Check that no symbol appears on multiple clauses, except that

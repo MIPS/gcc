@@ -363,14 +363,17 @@ ptrs_compare_unequal (tree ptr1, tree ptr2)
   else if (obj1 && TREE_CODE (ptr2) == SSA_NAME)
     {
       struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr2);
-      if (!pi)
+      /* We may not use restrict to optimize pointer comparisons.
+         See PR71062.  So we have to assume that restrict-pointed-to
+	 may be in fact obj1.  */
+      if (!pi || pi->pt.vars_contains_restrict)
 	return false;
       return !pt_solution_includes (&pi->pt, obj1);
     }
   else if (TREE_CODE (ptr1) == SSA_NAME && obj2)
     {
       struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr1);
-      if (!pi)
+      if (!pi || pi->pt.vars_contains_restrict)
 	return false;
       return !pt_solution_includes (&pi->pt, obj2);
     }
@@ -521,17 +524,31 @@ dump_points_to_solution (FILE *file, struct pt_solution *pt)
       fprintf (file, ", points-to vars: ");
       dump_decl_set (file, pt->vars);
       if (pt->vars_contains_nonlocal
-	  && pt->vars_contains_escaped_heap)
-	fprintf (file, " (nonlocal, escaped heap)");
-      else if (pt->vars_contains_nonlocal
-	       && pt->vars_contains_escaped)
-	fprintf (file, " (nonlocal, escaped)");
-      else if (pt->vars_contains_nonlocal)
-	fprintf (file, " (nonlocal)");
-      else if (pt->vars_contains_escaped_heap)
-	fprintf (file, " (escaped heap)");
-      else if (pt->vars_contains_escaped)
-	fprintf (file, " (escaped)");
+	  || pt->vars_contains_escaped
+	  || pt->vars_contains_escaped_heap
+	  || pt->vars_contains_restrict)
+	{
+	  const char *comma = "";
+	  fprintf (file, " (");
+	  if (pt->vars_contains_nonlocal)
+	    {
+	      fprintf (file, "nonlocal");
+	      comma = ", ";
+	    }
+	  if (pt->vars_contains_escaped)
+	    {
+	      fprintf (file, "%sescaped", comma);
+	      comma = ", ";
+	    }
+	  if (pt->vars_contains_escaped_heap)
+	    {
+	      fprintf (file, "%sescaped heap", comma);
+	      comma = ", ";
+	    }
+	  if (pt->vars_contains_restrict)
+	    fprintf (file, "%srestrict", comma);
+	  fprintf (file, ")");
+	}
     }
 }
 
@@ -912,13 +929,20 @@ nonoverlapping_component_refs_of_decl_p (tree ref1, tree ref2)
       if (type1 != type2 || TREE_CODE (type1) != RECORD_TYPE)
 	 goto may_overlap;
 
-      /* Different fields of the same record type cannot overlap.
-	 ??? Bitfields can overlap at RTL level so punt on them.  */
       if (field1 != field2)
 	{
 	  component_refs1.release ();
 	  component_refs2.release ();
-	  return !(DECL_BIT_FIELD (field1) && DECL_BIT_FIELD (field2));
+	  /* A field and its representative need to be considered the
+	     same.  */
+	  if (DECL_BIT_FIELD_REPRESENTATIVE (field1) == field2
+	      || DECL_BIT_FIELD_REPRESENTATIVE (field2) == field1)
+	    return false;
+	  /* Different fields of the same record type cannot overlap.
+	     ??? Bitfields can overlap at RTL level so punt on them.  */
+	  if (DECL_BIT_FIELD (field1) && DECL_BIT_FIELD (field2))
+	    return false;
+	  return true;
 	}
     }
 
@@ -1014,9 +1038,20 @@ nonoverlapping_component_refs_p (const_tree x, const_tree y)
       if (typex == typey)
 	{
 	  /* We're left with accessing different fields of a structure,
-	     no possible overlap, unless they are both bitfields.  */
+	     no possible overlap.  */
 	  if (fieldx != fieldy)
-	    return !(DECL_BIT_FIELD (fieldx) && DECL_BIT_FIELD (fieldy));
+	    {
+	      /* A field and its representative need to be considered the
+		 same.  */
+	      if (DECL_BIT_FIELD_REPRESENTATIVE (fieldx) == fieldy
+		  || DECL_BIT_FIELD_REPRESENTATIVE (fieldy) == fieldx)
+		return false;
+	      /* Different fields of the same record type cannot overlap.
+		 ??? Bitfields can overlap at RTL level so punt on them.  */
+	      if (DECL_BIT_FIELD (fieldx) && DECL_BIT_FIELD (fieldy))
+		return false;
+	      return true;
+	    }
 	}
       if (TYPE_UID (typex) < TYPE_UID (typey))
 	{

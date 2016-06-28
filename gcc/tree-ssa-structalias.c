@@ -4492,7 +4492,7 @@ find_func_aliases_for_builtin_call (struct function *fn, gcall *t)
 	  tree valist = gimple_call_arg (t, 0);
 	  struct constraint_expr rhs, *lhsp;
 	  unsigned i;
-	  get_constraint_for (valist, &lhsc);
+	  get_constraint_for_ptr_offset (valist, NULL_TREE, &lhsc);
 	  do_deref (&lhsc);
 	  /* The va_list gets access to pointers in variadic
 	     arguments.  Which we know in the case of IPA analysis
@@ -6254,6 +6254,9 @@ set_uids_in_ptset (bitmap into, bitmap from, struct pt_solution *pt,
 	  pt->vars_contains_escaped_heap = vi->is_heap_var;
 	}
 
+      if (vi->is_restrict_var)
+	pt->vars_contains_restrict = true;
+
       if (TREE_CODE (vi->decl) == VAR_DECL
 	  || TREE_CODE (vi->decl) == PARM_DECL
 	  || TREE_CODE (vi->decl) == RESULT_DECL)
@@ -7505,7 +7508,7 @@ make_pass_build_ealias (gcc::context *ctxt)
 
 /* IPA PTA solutions for ESCAPED.  */
 struct pt_solution ipa_escaped_pt
-  = { true, false, false, false, false, false, false, false, NULL };
+  = { true, false, false, false, false, false, false, false, false, NULL };
 
 /* Associate node with varinfo DATA. Worker for
    cgraph_for_symbol_thunks_and_aliases.  */

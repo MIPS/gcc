@@ -1526,12 +1526,6 @@ package body Exp_Ch9 is
       Set_Stored_Constraint             (Rec_Ent, No_Elist);
       Cdecls := New_List;
 
-      --  Propagate type invariants to the corresponding record type
-
-      Set_Has_Invariants                (Rec_Ent, Has_Invariants (Ctyp));
-      Set_Has_Inheritable_Invariants    (Rec_Ent,
-        Has_Inheritable_Invariants (Ctyp));
-
       --  Use discriminals to create list of discriminants for record, and
       --  create new discriminals for use in default expressions, etc. It is
       --  worth noting that a task discriminant gives rise to 5 entities;
@@ -6257,7 +6251,10 @@ package body Exp_Ch9 is
           Defining_Identifier => D_T2,
           Type_Definition     => Def1);
 
-      Insert_After_And_Analyze (N, Decl1);
+      --  Declare the new types before the original one since the latter will
+      --  refer to them through the Equivalent_Type slot.
+
+      Insert_Before_And_Analyze (N, Decl1);
 
       --  Associate the access to subprogram with its original access to
       --  protected subprogram type. Needed by the backend to know that this
@@ -6292,7 +6289,7 @@ package body Exp_Ch9 is
               Component_List =>
                 Make_Component_List (Loc, Component_Items => Comps)));
 
-      Insert_After_And_Analyze (Decl1, Decl2);
+      Insert_Before_And_Analyze (N, Decl2);
       Set_Equivalent_Type (T, E_T);
    end Expand_Access_Protected_Subprogram_Type;
 
@@ -9316,6 +9313,9 @@ package body Exp_Ch9 is
 
       pragma Assert (Present (Pdef));
 
+      Insert_After (Current_Node, Rec_Decl);
+      Current_Node := Rec_Decl;
+
       --  Add private field components
 
       if Present (Private_Declarations (Pdef)) then
@@ -9575,9 +9575,6 @@ package body Exp_Ch9 is
 
          Append_To (Cdecls, Object_Comp);
       end if;
-
-      Insert_After (Current_Node, Rec_Decl);
-      Current_Node := Rec_Decl;
 
       --  Analyze the record declaration immediately after construction,
       --  because the initialization procedure is needed for single object
@@ -14139,7 +14136,7 @@ package body Exp_Ch9 is
          --  or, in the case of Ravenscar:
 
          --  Install_Restricted_Handlers
-         --    (Prio, (Expr1, Proc1'access), ...., (ExprN, ProcN'access));
+         --    (Prio, ((Expr1, Proc1'access), ...., (ExprN, ProcN'access)));
 
          declare
             Args  : constant List_Id := New_List;

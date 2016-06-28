@@ -362,7 +362,7 @@ genericize_continue_stmt (tree *stmt_p)
   tree label = get_bc_label (bc_continue);
   location_t location = EXPR_LOCATION (*stmt_p);
   tree jump = build1_loc (location, GOTO_EXPR, void_type_node, label);
-  append_to_statement_list (pred, &stmt_list);
+  append_to_statement_list_force (pred, &stmt_list);
   append_to_statement_list (jump, &stmt_list);
   *stmt_p = stmt_list;
 }
@@ -565,6 +565,7 @@ int
 cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 {
   int saved_stmts_are_full_exprs_p = 0;
+  location_t loc = EXPR_LOC_OR_LOC (*expr_p, input_location);
   enum tree_code code = TREE_CODE (*expr_p);
   enum gimplify_status ret;
 
@@ -752,21 +753,45 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 	  cilk_cp_gimplify_call_params_in_spawned_fn (expr_p, pre_p, post_p);
 	  return (enum gimplify_status) gimplify_cilk_spawn (expr_p);
 	}
-      /* DR 1030 says that we need to evaluate the elements of an
-	 initializer-list in forward order even when it's used as arguments to
-	 a constructor.  So if the target wants to evaluate them in reverse
-	 order and there's more than one argument other than 'this', gimplify
-	 them in order.  */
       ret = GS_OK;
-      if (PUSH_ARGS_REVERSED && CALL_EXPR_LIST_INIT_P (*expr_p)
-	  && call_expr_nargs (*expr_p) > 2)
+      if (!CALL_EXPR_FN (*expr_p))
+	/* Internal function call.  */;
+      else if (CALL_EXPR_REVERSE_ARGS (*expr_p))
 	{
-	  int nargs = call_expr_nargs (*expr_p);
-	  location_t loc = EXPR_LOC_OR_LOC (*expr_p, input_location);
-	  for (int i = 1; i < nargs; ++i)
+	  /* This is a call to a (compound) assignment operator that used
+	     the operator syntax; gimplify the RHS first.  */
+	  gcc_assert (call_expr_nargs (*expr_p) == 2);
+	  gcc_assert (!CALL_EXPR_ORDERED_ARGS (*expr_p));
+	  enum gimplify_status t
+	    = gimplify_arg (&CALL_EXPR_ARG (*expr_p, 1), pre_p, loc);
+	  if (t == GS_ERROR)
+	    ret = GS_ERROR;
+	}
+      else if (CALL_EXPR_ORDERED_ARGS (*expr_p))
+	{
+	  /* Leave the last argument for gimplify_call_expr, to avoid problems
+	     with __builtin_va_arg_pack().  */
+	  int nargs = call_expr_nargs (*expr_p) - 1;
+	  for (int i = 0; i < nargs; ++i)
 	    {
 	      enum gimplify_status t
 		= gimplify_arg (&CALL_EXPR_ARG (*expr_p, i), pre_p, loc);
+	      if (t == GS_ERROR)
+		ret = GS_ERROR;
+	    }
+	}
+      else if (flag_args_in_order == 1
+	       && !CALL_EXPR_OPERATOR_SYNTAX (*expr_p))
+	{
+	  /* If flag_args_in_order == 1, we don't force an order on all
+	     function arguments, but do evaluate the object argument first.  */
+	  tree fntype = TREE_TYPE (CALL_EXPR_FN (*expr_p));
+	  if (POINTER_TYPE_P (fntype))
+	    fntype = TREE_TYPE (fntype);
+	  if (TREE_CODE (fntype) == METHOD_TYPE)
+	    {
+	      enum gimplify_status t
+		= gimplify_arg (&CALL_EXPR_ARG (*expr_p, 0), pre_p, loc);
 	      if (t == GS_ERROR)
 		ret = GS_ERROR;
 	    }
@@ -940,6 +965,17 @@ cp_fold_r (tree *stmt_p, int *walk_subtrees, void *data)
 
   *stmt_p = stmt = cp_fold (*stmt_p);
 
+  if (((hash_set<tree> *) data)->add (stmt))
+    {
+      /* Don't walk subtrees of stmts we've already walked once, otherwise
+	 we can have exponential complexity with e.g. lots of nested
+	 SAVE_EXPRs or TARGET_EXPRs.  cp_fold uses a cache and will return
+	 always the same tree, which the first time cp_fold_r has been
+	 called on it had the subtrees walked.  */
+      *walk_subtrees = 0;
+      return NULL;
+    }
+
   code = TREE_CODE (stmt);
   if (code == OMP_FOR || code == OMP_SIMD || code == OMP_DISTRIBUTE
       || code == OMP_TASKLOOP || code == CILK_FOR || code == CILK_SIMD
@@ -997,7 +1033,8 @@ cp_fold_r (tree *stmt_p, int *walk_subtrees, void *data)
 void
 cp_fold_function (tree fndecl)
 {
-  cp_walk_tree (&DECL_SAVED_TREE (fndecl), cp_fold_r, NULL, NULL);
+  hash_set<tree> pset;
+  cp_walk_tree (&DECL_SAVED_TREE (fndecl), cp_fold_r, &pset, NULL);
 }
 
 /* Perform any pre-gimplification lowering of C++ front end trees to
@@ -1878,13 +1915,21 @@ cp_fully_fold (tree x)
 static tree
 cp_fold_maybe_rvalue (tree x, bool rval)
 {
-  if (rval && DECL_P (x))
+  while (true)
     {
-      tree v = decl_constant_value (x);
-      if (v != error_mark_node)
-	x = v;
+      x = cp_fold (x);
+      if (rval && DECL_P (x))
+	{
+	  tree v = decl_constant_value (x);
+	  if (v != x && v != error_mark_node)
+	    {
+	      x = v;
+	      continue;
+	    }
+	}
+      break;
     }
-  return cp_fold (x);
+  return x;
 }
 
 /* Fold expression X which is used as an rvalue.  */
@@ -1996,6 +2041,15 @@ cp_fold (tree x)
 
       break;
 
+    case INDIRECT_REF:
+      /* We don't need the decltype(auto) obfuscation anymore.  */
+      if (REF_PARENTHESIZED_P (x))
+	{
+	  tree p = maybe_undo_parenthesized_ref (x);
+	  return cp_fold (p);
+	}
+      goto unary;
+
     case ADDR_EXPR:
     case REALPART_EXPR:
     case IMAGPART_EXPR:
@@ -2008,7 +2062,7 @@ cp_fold (tree x)
     case BIT_NOT_EXPR:
     case TRUTH_NOT_EXPR:
     case FIXED_CONVERT_EXPR:
-    case INDIRECT_REF:
+    unary:
 
       loc = EXPR_LOCATION (x);
       op0 = cp_fold_maybe_rvalue (TREE_OPERAND (x, 0), rval_ops);
@@ -2018,7 +2072,16 @@ cp_fold (tree x)
 	  if (op0 == error_mark_node)
 	    x = error_mark_node;
 	  else
-	    x = fold_build1_loc (loc, code, TREE_TYPE (x), op0);
+	    {
+	      x = fold_build1_loc (loc, code, TREE_TYPE (x), op0);
+	      if (code == INDIRECT_REF
+		  && (INDIRECT_REF_P (x) || TREE_CODE (x) == MEM_REF))
+		{
+		  TREE_READONLY (x) = TREE_READONLY (org_x);
+		  TREE_SIDE_EFFECTS (x) = TREE_SIDE_EFFECTS (org_x);
+		  TREE_THIS_VOLATILE (x) = TREE_THIS_VOLATILE (org_x);
+		}
+	    }
 	}
       else
 	x = fold (x);
@@ -2295,7 +2358,12 @@ cp_fold (tree x)
 	      || op3 == error_mark_node)
 	    x = error_mark_node;
 	  else
-	    x = build4_loc (loc, code, TREE_TYPE (x), op0, op1, op2, op3);
+	    {
+	      x = build4_loc (loc, code, TREE_TYPE (x), op0, op1, op2, op3);
+	      TREE_READONLY (x) = TREE_READONLY (org_x);
+	      TREE_SIDE_EFFECTS (x) = TREE_SIDE_EFFECTS (org_x);
+	      TREE_THIS_VOLATILE (x) = TREE_THIS_VOLATILE (org_x);
+	    }
 	}
 
       x = fold (x);
