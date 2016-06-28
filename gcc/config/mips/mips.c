@@ -6519,23 +6519,32 @@ mips_emit_compare (enum rtx_code *code, rtx *op0, rtx *op1, bool need_eq_ne_p)
       else if (!need_eq_ne_p && TARGET_CB_MAYBE)
 	{
 	  bool swap = false;
+	  bool const_add_one = false;
+	  bool force_reg_p = true;
 	  switch (*code)
 	    {
 	    case LE:
-	      swap = true;
-	      *code = GE;
-	      break;
 	    case GT:
-	      swap = true;
-	      *code = LT;
-	      break;
 	    case LEU:
-	      swap = true;
-	      *code = GEU;
-	      break;
 	    case GTU:
-	      swap = true;
-	      *code = LTU;
+	      if (TARGET_MICROMIPS_R7
+		  && TARGET_ADD_BR_IMM_ORDER
+		  && const_uimm7_operand (cmp_op1, GET_MODE (cmp_op1)))
+		{
+		  const_add_one = true;
+		  switch (*code)
+		    {
+		    case LE: *code = LT; break;
+		    case LEU: *code = LTU; break;
+		    case GT: *code = GE; break;
+		    case GTU: *code = GEU; break;
+		    }
+		}
+	      else
+		{
+		  swap = true;
+		  *code = swap_condition (*code);
+		}
 	      break;
 	    case GE:
 	    case LT:
@@ -6546,7 +6555,30 @@ mips_emit_compare (enum rtx_code *code, rtx *op0, rtx *op1, bool need_eq_ne_p)
 	    default:
 	      gcc_unreachable ();
 	    }
-	  *op1 = force_reg (GET_MODE (cmp_op0), cmp_op1);
+	  if (TARGET_MICROMIPS_R7
+	      && TARGET_ADD_BR_IMM_ORDER
+	      && !swap
+	      && const_uimm7_operand (cmp_op1, GET_MODE (cmp_op1)))
+	    {
+	      if (const_add_one)
+		{
+		  rtx val_plus_one = GEN_INT (INTVAL (cmp_op1) + 1);
+
+		  if (const_uimm7_operand (val_plus_one,
+					   GET_MODE (val_plus_one)))
+		    {
+		      *op1 = val_plus_one;
+		      force_reg_p = false;
+		    }
+		  else
+		    cmp_op1 = val_plus_one;
+		}
+	      else
+		force_reg_p = false;
+	    }
+
+	  if (force_reg_p)
+	    *op1 = force_reg (GET_MODE (cmp_op0), cmp_op1);
 	  if (swap)
 	    {
 	      rtx tmp = *op1;
@@ -15588,9 +15620,8 @@ mips_output_equal_conditional_branch (rtx_insn* insn, rtx *operands,
 	}
       else if (CONST_INT_P (operands[3]) && TARGET_ADD_BR_IMM)
 	{
-	  /* FIXME */
-	  branch[!inverted_p] = MIPS_BRANCH_C ("sdbbp32 14 # b%C1i", "%2,%3,%0");
-	  branch[inverted_p] = MIPS_BRANCH_C ("sdbbp32 14 # b%N1i", "%2,%3,%0");
+	  branch[!inverted_p] = MIPS_BRANCH_C ("b%C1i", "%2,%3,%0");
+	  branch[inverted_p] = MIPS_BRANCH_C ("b%N1i", "%2,%3,%0");
 	}
       else if (REGNO (operands[2]) != REGNO (operands[3]))
 	{
@@ -15633,8 +15664,10 @@ mips_output_order_conditional_branch (rtx_insn *insn, rtx *operands,
   if (operands[3] != const0_rtx)
     {
       /* Handle degenerate cases that should not, but do, occur.  */
-      if (REGNO (operands[2]) == REGNO (operands[3]))
+      if (REG_P (operands[3])
+	  && REGNO (operands[2]) == REGNO (operands[3]))
 	{
+	  gcc_assert (REG_P (operands[2]));
 	  switch (GET_CODE (operands[1]))
 	    {
 	    case LT:
@@ -15652,9 +15685,8 @@ mips_output_order_conditional_branch (rtx_insn *insn, rtx *operands,
 	}
       else if (CONST_INT_P (operands[3]) && TARGET_ADD_BR_IMM_ORDER)
 	{
-	  /* FIXME */
-	  branch[!inverted_p] = MIPS_BRANCH_C ("sdbbp32 15 # b%C1i", "%2,%3,%0");
-	  branch[inverted_p] = MIPS_BRANCH_C ("sdbbp32 15 # b%N1i", "%2,%3,%0");
+	  branch[!inverted_p] = MIPS_BRANCH_C ("b%C1i", "%2,%3,%0");
+	  branch[inverted_p] = MIPS_BRANCH_C ("b%N1i", "%2,%3,%0");
 	}
       else
 	{
