@@ -1930,7 +1930,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, const omp_mask mask,
 
 
 static match
-match_acc (gfc_exec_op op, uint64_t mask)
+match_acc (gfc_exec_op op, const omp_mask mask)
 {
   gfc_omp_clauses *c;
   if (gfc_match_omp_clauses (&c, mask, false, false, true) != MATCH_YES)

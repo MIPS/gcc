@@ -1,3 +1,8 @@
+2016-06-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* openmp.c (match_acc): Change mask type from uint64_t to
+	const omp_mask.
+
 2016-06-08  Jakub Jelinek  <jakub@redhat.com>
 
 	* gfortran.h (symbol_attribute): Add omp_declare_target_link bitfield.
