@@ -3,7 +3,48 @@ Top:    b346058b9caf4e13c50a37fe0429903073983a5f
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-06-25 00:03:47 -0300
 
-split class decl from defs, enable reactivation of local decls
+kFrom: Alexandre Oliva <aoliva@redhat.com>
+
+split class decl from defs, manage scopes and decl reactivation
+
+classes (and template class specializations) must now be declared
+before they can be defined, IOW the definition can now be deferred to
+a later time when a complete type is needed.  this enables us to
+define classes that reference each others' member classes in ways that
+the language allows, but that our earlier interface didn't.
+
+when a class is declared as a member of another class, or in a local
+scope, in order to define it later, we may need to reenter the scope,
+so we can now enter (and reenter) class and function scopes.
+
+we can (and should) now enter the scope in which a user expression is
+supposed to be parsed: gcc will call the new enter_scope callback when
+it encounters the push_user_expression pragma, that supersedes the
+user_expression pragma.  when it encounters pop_user_expression, it
+will call the new leave_scope callback, which is supposed to pop the
+scopes pushed by enter_scope.
+
+when we leave a namespace or class scope, declarations of their
+members are automatically restored, but this doesn't happen for
+declarations in function-local scopes.  this enables us to introduce
+the multiple definitions for the same name that may be declared within
+a single function; the program would have them in different block
+scopes, but we can just declare them all in the same function scope,
+as long as we leave and reenter the scope between conflicting
+declarations.  each declaration gets a discriminator number, and the
+only additional requirement is that we must declare bindings for a
+name within a function scope in discriminator order.
+
+since leaving and reentering a function scope forgets all bindings
+(but declarations are retained, just not visible by name), in order to
+make them visible (and to select which of multiple declarations of the
+same name to make visible), we can now reactivate the declarations we
+want to make visible again.  we can even introduce declarations of an
+enclosing local scope upon an oracle lookup, reentering the function
+from the top level, introducing the declaration, returning to the user
+expression scope, and then reactivating the declaration in the
+enclosing binding level.
+
 
 ---
 
