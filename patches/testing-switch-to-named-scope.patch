@@ -1,5 +1,5 @@
-Bottom: b346058b9caf4e13c50a37fe0429903073983a5f
-Top:    6a3908fe42fc5043de6c43e85636b7f43f2737d5
+Bottom: 4e942fb245aab600f7bdbb15aed09df5bf5b1819
+Top:    ae4f7c175dff08ab1c53dbeb558e1829e21b88d5
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-06-28 23:54:58 -0300
 
@@ -8,7 +8,7 @@ testing: switch to named scope
 ---
 
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index 69f6817..f0e88c2 100644
+index 530ee29..7c93626 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -552,6 +552,9 @@ reactivate_decl (tree decl, cp_binding_level *b)
