@@ -1,0 +1,72 @@
+Bottom: 6a3908fe42fc5043de6c43e85636b7f43f2737d5
+Top:    b346058b9caf4e13c50a37fe0429903073983a5f
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-06-28 23:56:34 -0300
+
+Refresh of split-class-decl-reactivate-local-decls.patch
+
+---
+
+diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
+index f0e88c2..69f6817 100644
+--- a/libcc1/libcp1plugin.cc
++++ b/libcc1/libcp1plugin.cc
+@@ -552,9 +552,6 @@ reactivate_decl (tree decl, cp_binding_level *b)
+   b->names = node;
+ }
+ 
+-/* FIXME: this is for testing purposes.  */
+-const char *user_expr_scope = "foo::fool::testme";
+-
+ static void
+ plugin_pragma_push_user_expression (cpp_reader *)
+ {
+@@ -576,36 +573,6 @@ plugin_pragma_push_user_expression (cpp_reader *)
+   function *save_cfun = cfun;
+   cp_binding_level *orig_binding_level = current_binding_level;
+   {
+-    if (user_expr_scope)
+-      {
+-	push_to_top_level ();
+-	char scope[strlen (user_expr_scope) + 1];
+-	memcpy (scope, user_expr_scope, sizeof (scope));
+-	for (char *save, *tok = strtok_r (scope, ":", &save);
+-	     tok; tok = strtok_r (NULL, ":", &save))
+-	  {
+-	    tree decl = lookup_name (get_identifier (tok));
+-	    if (!decl || DECL_CONTEXT (decl) != FROB_CONTEXT (current_scope ()))
+-	      {
+-		fprintf (stderr, "failed: %s\n", scope);
+-		gcc_unreachable ();
+-	      }
+-
+-	    extern int plugin_push_namespace (cc1_plugin::connection *, const char *);
+-	    extern int plugin_push_class (cc1_plugin::connection *, gcc_type);
+-	    extern int plugin_push_function (cc1_plugin::connection *, gcc_decl);
+-
+-	    if (TREE_CODE (decl) == NAMESPACE_DECL)
+-	      plugin_push_namespace (NULL, tok);
+-	    else if (TREE_CODE (decl) == TYPE_DECL)
+-	      plugin_push_class (NULL, convert_out (TREE_TYPE (decl)));
+-	    else if (TREE_CODE (decl) == FUNCTION_DECL)
+-	      plugin_push_function (NULL, convert_out (decl));
+-	    else
+-	      gcc_unreachable ();
+-	  }
+-      }
+-
+     int success;
+     cc1_plugin::call (current_context, "enter_scope", &success);
+   }
+@@ -698,12 +665,6 @@ plugin_pragma_pop_user_expression (cpp_reader *)
+   {
+     int success;
+     cc1_plugin::call (current_context, "leave_scope", &success);
+-
+-    if (user_expr_scope)
+-      while (!cfun)
+-	pop_scope ();
+-    else if (!success)
+-      cfun = save_cfun;
+   }
+   gcc_assert (cfun == save_cfun);
