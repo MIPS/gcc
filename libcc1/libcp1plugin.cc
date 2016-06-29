@@ -450,7 +450,7 @@ reactivate_decl (tree decl, cp_binding_level *b)
   gcc_assert (in_function_p
 	      || (b == current_binding_level
 		  && !at_class_scope_p ()));
-      
+
   tree id = DECL_NAME (decl);
   tree type = NULL_TREE;
   if (TREE_CODE (decl) == TYPE_DECL)
