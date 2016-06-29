@@ -2347,29 +2347,49 @@ enum reg_class
 /* True if VALUE is a signed 16-bit number.  */
 
 #define SMALL_OPERAND(VALUE) \
-  ((unsigned HOST_WIDE_INT) (VALUE) + 0x8000 < 0x10000)
+  ((TARGET_MICROMIPS_R7) \
+   ? ((unsigned HOST_WIDE_INT) (VALUE) + 0x2000 < 0x4000) \
+   : ((unsigned HOST_WIDE_INT) (VALUE) + 0x8000 < 0x10000))
+
+#define SMALL_OPERAND9TO12(VALUE) \
+  ((TARGET_MICROMIPS_R7) \
+   ? ((unsigned HOST_WIDE_INT) (VALUE) + 0x100 < 0x200) \
+     || SMALL_OPERAND_UNSIGNED (VALUE) \
+   : SMALL_OPERAND (VALUE))
+
+#define SMALL_OPERAND12(VALUE) \
+   ((unsigned HOST_WIDE_INT) (VALUE) + 0x800 < 0x1000)
 
 /* True if VALUE is an unsigned 16-bit number.  */
 
 #define SMALL_OPERAND_UNSIGNED(VALUE) \
-  (((VALUE) & ~(unsigned HOST_WIDE_INT) 0xffff) == 0)
+  ((TARGET_MICROMIPS_R7) \
+   ? (((VALUE) & ~(unsigned HOST_WIDE_INT) 0xfff) == 0) \
+   : (((VALUE) & ~(unsigned HOST_WIDE_INT) 0xffff) == 0))
 
 /* True if VALUE can be loaded into a register using LUI.  */
 
 #define LUI_OPERAND(VALUE)					\
-  (((VALUE) | 0x7fff0000) == 0x7fff0000				\
-   || ((VALUE) | 0x7fff0000) + 0x10000 == 0)
+  ((TARGET_MICROMIPS_R7) \
+   ? (((VALUE) | 0x7ffff000) == 0x7ffff000				\
+      || ((VALUE) | 0x7ffff000) + 0x1000 == 0) \
+   : (((VALUE) | 0x7fff0000) == 0x7fff0000				\
+      || ((VALUE) | 0x7fff0000) + 0x10000 == 0)) \
 
 /* Return a value X with the low 16 bits clear, and such that
    VALUE - X is a signed 16-bit value.  */
 
 #define CONST_HIGH_PART(VALUE) \
-  (((VALUE) + 0x8000) & ~(unsigned HOST_WIDE_INT) 0xffff)
+  ((TARGET_MICROMIPS_R7) \
+   ? ((VALUE) & ~(unsigned HOST_WIDE_INT) 0xfff) \
+   : (((VALUE) + 0x8000) & ~(unsigned HOST_WIDE_INT) 0xffff))
 
 #define CONST_LOW_PART(VALUE) \
   ((VALUE) - CONST_HIGH_PART (VALUE))
 
 #define SMALL_INT(X) SMALL_OPERAND (INTVAL (X))
+#define SMALL_INT12(X) SMALL_OPERAND12 (INTVAL (X))
+#define SMALL_INT9TO12(X) SMALL_OPERAND9TO12 (INTVAL (X))
 #define SMALL_INT_UNSIGNED(X) SMALL_OPERAND_UNSIGNED (INTVAL (X))
 #define LUI_INT(X) LUI_OPERAND (INTVAL (X))
 #define UMIPS_12BIT_OFFSET_P(OFFSET) (IN_RANGE (OFFSET, -2048, 2047))

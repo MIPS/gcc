@@ -2454,7 +2454,8 @@ mips_build_integer (struct mips_integer_op *codes,
 {
   if (SMALL_OPERAND (value)
       || SMALL_OPERAND_UNSIGNED (value)
-      || LUI_OPERAND (value))
+      || LUI_OPERAND (value)
+      || (TARGET_MICROMIPS_R7 && TARGET_LI48))
     {
       /* The value can be loaded with a single instruction.  */
       codes[0].code = UNKNOWN;
@@ -2963,6 +2964,25 @@ mips_offset_within_alignment_p (rtx x, HOST_WIDE_INT offset)
   return IN_RANGE (offset, 0, align - 1);
 }
 
+bool
+mips_string_constant_p (rtx x)
+{
+  tree decl, exp;
+  if (!TARGET_MICROMIPS_R7 || !TARGET_LI48)
+    return false;
+
+  if (GET_CODE (x) == CONST
+      && GET_CODE (XEXP (x, 0)) == PLUS)
+    x = XEXP (XEXP (x, 0), 0);
+
+  if (GET_CODE (x) == SYMBOL_REF
+      && (decl = SYMBOL_REF_DECL (x))
+      && TREE_CODE (decl) == VAR_DECL
+      && (exp = DECL_INITIAL (decl))
+      && TREE_CODE (exp) == STRING_CST)
+    return true;
+  return false;
+}
 /* Return true if X is a symbolic constant that can be used in context
    CONTEXT.  If it is, store the type of the symbol in *SYMBOL_TYPE.  */
 
@@ -3030,7 +3050,7 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
 	 If the symbol is local, the linker should provide enough local
 	 GOT entries for a 16-bit offset, but larger offsets may lead
 	 to GOT overflow.  */
-      return SMALL_INT (offset);
+      return SMALL_INT9TO12 (offset);
 
     case SYMBOL_TPREL:
     case SYMBOL_DTPREL:
@@ -3088,7 +3108,11 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
 	 a preparatory LI and SLL for MIPS16.  */
       return ABI_HAS_64BIT_SYMBOLS
 	     ? 6
-	     : (TARGET_MIPS16 && !ISA_HAS_MIPS16E2) ? 3 : 2;
+	     : (TARGET_MIPS16 && !ISA_HAS_MIPS16E2)
+	       ? 3
+	       : (TARGET_MICROMIPS_R7 && TARGET_LI48)
+		 ? 1
+		 : 2;
 
     case SYMBOL_GP_RELATIVE:
       /* Treat GP-relative accesses as taking a single instruction on
@@ -3215,7 +3239,7 @@ mips_cannot_force_const_mem (machine_mode mode, rtx x)
 	return false;
 
       /* The same optimization as for CONST_INT.  */
-      if (SMALL_INT (offset) && mips_symbol_insns (type, MAX_MACHINE_MODE) > 0)
+      if (SMALL_INT9TO12 (offset) && mips_symbol_insns (type, MAX_MACHINE_MODE) > 0)
 	return true;
 
       /* If MIPS16 constant pools live in the text section, they should
@@ -3452,7 +3476,7 @@ mips_classify_address (struct mips_address_info *info, rtx x,
       /* Small-integer addresses don't occur very often, but they
 	 are legitimate if $0 is a valid base register.  */
       info->type = ADDRESS_CONST_INT;
-      return !TARGET_MIPS16 && SMALL_INT (x);
+      return !TARGET_MIPS16 && SMALL_INT9TO12 (x);
 
     case CONST:
     case LABEL_REF:
@@ -4288,6 +4312,13 @@ mips_split_symbol (rtx temp, rtx addr, machine_mode mode, rtx *low_out)
 		*low_out = gen_rtx_LO_SUM (Pmode, high, addr);
 		break;
 
+	      case SYMBOL_ABSOLUTE:
+		if (mips_string_constant_p (addr))
+		  {
+		    *low_out = addr;
+		    break;
+		  }
+		/* Otherwise, fall through to the default.  */
 	      default:
 		high = gen_rtx_HIGH (Pmode, copy_rtx (addr));
 		high = mips_force_temporary (temp, high);
@@ -4307,7 +4338,7 @@ mips_split_symbol (rtx temp, rtx addr, machine_mode mode, rtx *low_out)
 static rtx
 mips_add_offset (rtx temp, rtx reg, HOST_WIDE_INT offset)
 {
-  if (!SMALL_OPERAND (offset))
+  if (!SMALL_OPERAND9TO12 (offset))
     {
       rtx high;
 
@@ -4832,8 +4863,15 @@ mips_immediate_operand_p (int code, HOST_WIDE_INT x)
       return SMALL_OPERAND_UNSIGNED (x);
 
     case PLUS:
-    case LT:
+      /* These instructions take 16-bit signed immediates.  */
+      return SMALL_OPERAND (x);
+
     case LTU:
+      if (TARGET_MICROMIPS_R7)
+	return SMALL_OPERAND_UNSIGNED (x);
+    case LT:
+      if (TARGET_MICROMIPS_R7)
+	return SMALL_OPERAND12 (x);
       /* These instructions take 16-bit signed immediates.  */
       return SMALL_OPERAND (x);
 
@@ -4852,10 +4890,14 @@ mips_immediate_operand_p (int code, HOST_WIDE_INT x)
 
     case LE:
       /* We add 1 to the immediate and use SLT.  */
+      if (TARGET_MICROMIPS_R7)
+	return SMALL_OPERAND12 (x+1);
       return SMALL_OPERAND (x + 1);
 
     case LEU:
       /* Likewise SLTU, but reject the always-true case.  */
+      if (TARGET_MICROMIPS_R7)
+	return SMALL_OPERAND12 (x+1) && x + 1 != 0;
       return SMALL_OPERAND (x + 1) && x + 1 != 0;
 
     case SIGN_EXTRACT:
@@ -6167,6 +6209,12 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	  /* Don't use the X format for the operand itself, because that
 	     will give out-of-range numbers for 64-bit hosts and 32-bit
 	     targets.  */
+	  if (TARGET_MICROMIPS_R7 && TARGET_LI48)
+	    {
+	      if (!LUI_INT (src) && !SMALL_OPERAND_UNSIGNED (INTVAL (src)) && !SMALL_INT (src))
+		return "nop16; sdbbp32 4; # li48\t%0,%1";
+	    }
+
 	  if (!TARGET_MIPS16)
 	    return "li\t%0,%1\t\t\t# %X1";
 
@@ -6189,7 +6237,8 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	return "move\t%0,%1";
 
       if (mips_symbolic_constant_p (src, SYMBOL_CONTEXT_LEA, &symbol_type)
-	  && mips_lo_relocs[symbol_type] != 0)
+	  && mips_lo_relocs[symbol_type] != 0
+	  && !mips_string_constant_p (src))
 	{
 	  /* A signed 16-bit constant formed by applying a relocation
 	     operator to a symbolic address.  */
@@ -6199,10 +6248,15 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 
       if (symbolic_operand (src, VOIDmode))
 	{
-	  gcc_assert (TARGET_MIPS16
-		      ? TARGET_MIPS16_TEXT_LOADS
-		      : !TARGET_EXPLICIT_RELOCS);
-	  return dbl_p ? "dla\t%0,%1" : "la\t%0,%1";
+	  if (mips_string_constant_p (src))
+	    return "nop16; sdbbp32 4 # li48\t%0,%1";
+	  else
+	    {
+	      gcc_assert (TARGET_MIPS16
+			  ? TARGET_MIPS16_TEXT_LOADS
+			  : !TARGET_EXPLICIT_RELOCS);
+	      return dbl_p ? "dla\t%0,%1" : "la\t%0,%1";
+	    }
 	}
     }
   if (src_code == REG && FP_REG_P (REGNO (src)))

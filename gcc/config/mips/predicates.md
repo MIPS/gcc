@@ -220,17 +220,18 @@
 (define_predicate "low_bitmask_operand"
   (and (match_test "ISA_HAS_EXT_INS")
        (match_code "const_int")
-       (match_test "low_bitmask_len (mode, INTVAL (op)) > 16")))
+       (ior (and (match_test "!(TARGET_MICROMIPS_R7 && TARGET_NEW_ANDI)")
+		 (match_test "low_bitmask_len (mode, INTVAL (op)) > 16"))
+	    (and (match_test "TARGET_MICROMIPS_R7 && TARGET_NEW_ANDI")
+		 (match_test "low_bitmask_len (mode, INTVAL (op)) > 12")))))
 
 (define_predicate "and_reg_operand"
   (ior (match_operand 0 "register_operand")
        (and (ior (not (ior (match_test "TARGET_MIPS16")
-			   (and (match_test "TARGET_MICROMIPS_R7")
-				(match_test "TARGET_NEW_ANDI"))))
+			   (match_test "TARGET_MICROMIPS_R7 && TARGET_NEW_ANDI")))
 		 (match_test "ISA_HAS_MIPS16E2"))
 	    (match_operand 0 "const_uns_arith_operand"))
-       (and (match_test "TARGET_MICROMIPS_R7")
-	    (match_test "TARGET_NEW_ANDI")
+       (and (match_test "TARGET_MICROMIPS_R7 && TARGET_NEW_ANDI")
 	    (match_operand 0 "const_uimm12_operand"))
        (match_operand 0 "low_bitmask_operand")
        (match_operand 0 "si_mask_operand")
@@ -372,7 +373,7 @@
 
 (define_predicate "andi16_operand"
   (and (match_code "const_int")
-       (ior (and (not (match_test "TARGET_MICROMIPS_R7"))
+       (ior (and (match_test "!(TARGET_MICROMIPS_R7 && TARGET_NEW_ANDI)")
 		 (ior (match_test "IN_RANGE (INTVAL (op), 1, 4)")
 		      (match_test "IN_RANGE (INTVAL (op), 7, 8)")
 		      (match_test "IN_RANGE (INTVAL (op), 15, 16)")
@@ -381,8 +382,7 @@
 		      (match_test "INTVAL (op) == 255")
 		      (match_test "INTVAL (op) == 32768")
 		      (match_test "INTVAL (op) == 65535")))
-	    (and (match_test "TARGET_MICROMIPS_R7")
-		 (match_test "TARGET_NEW_ANDI")
+	    (and (match_test "TARGET_MICROMIPS_R7 && TARGET_NEW_ANDI")
 		 (ior (match_test "IN_RANGE (INTVAL (op), 0, 11)")
 		      (match_test "IN_RANGE (INTVAL (op), 14, 15)")
 		      (match_test "INTVAL (op) == 0xff")
@@ -531,7 +531,7 @@
 
   /* Otherwise check whether the constant can be loaded in a single
      instruction.  */
-  return !LUI_INT (op) && !SMALL_INT (op) && !SMALL_INT_UNSIGNED (op);
+  return !LUI_INT (op) && !SMALL_INT (op) && !SMALL_INT_UNSIGNED (op) && !(TARGET_MICROMIPS_R7 && TARGET_LI48);
 })
 
 (define_predicate "move_operand"
@@ -584,7 +584,8 @@
       if (CONST_GP_P (op))
 	return true;
       return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &symbol_type)
-	      && !mips_split_p[symbol_type]);
+	      && (!mips_split_p[symbol_type]
+		  || mips_string_constant_p (op)));
 
     case HIGH:
       op = XEXP (op, 0);
