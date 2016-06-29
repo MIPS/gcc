@@ -272,12 +272,6 @@
 					 (V8HI  "const_0_to_7_operand")
 					 (V4SI  "const_0_to_3_operand")])
 
-;; Mode attribute to give the instruction for vector extract.  %3 contains the
-;; adjusted element count.
-(define_mode_attr VSX_EXTRACT_INSN [(V16QI "vextractub %0,%1,%3")
-				    (V8HI  "vextractuh %0,%1,%3")
-				    (V4SI  "xxextractuw %x0,%x1,%3")])
-
 ;; Mode attribute to give the constraint for vector extract and insert
 ;; operations.
 (define_mode_attr VSX_EX [(V16QI "v")
@@ -2406,8 +2400,11 @@
 		? unit_size * element
 		: unit_size * (GET_MODE_NUNITS (<MODE>mode) - 1 - element));
 
-  operands[3] = GEN_INT (offset);
-  return "<VSX_EXTRACT_INSN>";
+  operands[2] = GEN_INT (offset);
+  if (unit_size == 4)
+    return "xxextractuw %x0,%x1,%2";
+  else
+    return "vextractu<wd> %0,%1,%2";
 }
   [(set_attr "type" "vecsimple")])
 
