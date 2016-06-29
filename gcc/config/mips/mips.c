@@ -3210,6 +3210,21 @@ mips_offset_within_alignment_p (rtx x, HOST_WIDE_INT offset)
   return IN_RANGE (offset, 0, align - 1);
 }
 
+bool
+mips_string_constant_p (rtx x)
+{
+  tree decl, exp;
+  if (!TARGET_MICROMIPS_R7 || !TARGET_LI48)
+    return false;
+
+  if (GET_CODE (x) == SYMBOL_REF
+      && (decl = SYMBOL_REF_DECL (x))
+      && TREE_CODE (decl) == VAR_DECL
+      && (exp = DECL_INITIAL (decl))
+      && TREE_CODE (exp) == STRING_CST)
+    return true;
+  return false;
+}
 /* Return true if X is a symbolic constant that can be used in context
    CONTEXT.  If it is, store the type of the symbol in *SYMBOL_TYPE.  */
 
@@ -3717,7 +3732,8 @@ mips_classify_address (struct mips_address_info *info, rtx x,
       return (mips_symbolic_constant_p (x, SYMBOL_CONTEXT_MEM,
 					&info->symbol_type)
 	      && mips_symbol_insns (info->symbol_type, mode) > 0
-	      && !mips_split_p[info->symbol_type]);
+	      && (!mips_split_p[info->symbol_type]
+		  || mips_string_constant_p (x)));
 
     default:
       return false;
@@ -4545,6 +4561,13 @@ mips_split_symbol (rtx temp, rtx addr, machine_mode mode, rtx *low_out)
 		*low_out = gen_rtx_LO_SUM (Pmode, high, addr);
 		break;
 
+	      case SYMBOL_ABSOLUTE:
+		if (mips_string_constant_p (addr))
+		  {
+		    *low_out = addr;
+		    break;
+		  }
+		/* Otherwise, fall through to the default.  */
 	      default:
 		high = gen_rtx_HIGH (Pmode, copy_rtx (addr));
 		high = mips_force_temporary (temp, high);
@@ -6490,7 +6513,8 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	return "move\t%0,%1";
 
       if (mips_symbolic_constant_p (src, SYMBOL_CONTEXT_LEA, &symbol_type)
-	  && mips_lo_relocs[symbol_type] != 0)
+	  && mips_lo_relocs[symbol_type] != 0
+	  && !mips_string_constant_p (src))
 	{
 	  /* A signed 16-bit constant formed by applying a relocation
 	     operator to a symbolic address.  */
@@ -6500,10 +6524,15 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 
       if (symbolic_operand (src, VOIDmode))
 	{
-	  gcc_assert (TARGET_MIPS16
-		      ? TARGET_MIPS16_TEXT_LOADS
-		      : !TARGET_EXPLICIT_RELOCS);
-	  return dbl_p ? "dla\t%0,%1" : "la\t%0,%1";
+	  if (mips_string_constant_p (src))
+	    return "nop16; sdbbp32 22; # li48\t%0,%1";
+	  else
+	    {
+	      gcc_assert (TARGET_MIPS16
+			  ? TARGET_MIPS16_TEXT_LOADS
+			  : !TARGET_EXPLICIT_RELOCS);
+	      return dbl_p ? "dla\t%0,%1" : "la\t%0,%1";
+	    }
 	}
     }
   if (src_code == REG && FP_REG_P (REGNO (src)))

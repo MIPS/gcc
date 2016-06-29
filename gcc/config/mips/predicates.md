@@ -574,7 +574,8 @@
       if (CONST_GP_P (op))
 	return true;
       return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &symbol_type)
-	      && !mips_split_p[symbol_type]);
+	      && (!mips_split_p[symbol_type]
+		  || mips_string_constant_p (op)));
 
     case HIGH:
       op = XEXP (op, 0);
