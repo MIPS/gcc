@@ -1,10 +1,10 @@
 Version: 1
-Previous: 23b6bc5e265355dff06cdc33b4ef7db90e241c77
-Head: e28a7d861a21519fbdb589df782de8751f6fedf1
+Previous: 05ed0cf2ee185f183a6724bf6925516f4f8ae7b6
+Head: cbf3a32e14ace17aaaeb874a625045c8da9a0417
 Applied:
   split-class-decl-reactivate-local-decls.patch: e28a7d861a21519fbdb589df782de8751f6fedf1
+  testing-switch-to-named-scope.patch: cbf3a32e14ace17aaaeb874a625045c8da9a0417
 Unapplied:
-  testing-switch-to-named-scope.patch: 6f7354befa6f83627aed0c96048ba0b4961d1487
   special-memfuncs-testing.patch: 5dadb8e81f23ef0a3a559dc1776fa25b2cc8c5db
 Hidden:
   adjust-type-align-propagation.patch: 9d26d91ff0e9848b3d73088db0bb27dfe4ad6e53
