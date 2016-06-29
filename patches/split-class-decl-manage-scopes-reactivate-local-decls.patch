@@ -3,8 +3,6 @@ Top:    b346058b9caf4e13c50a37fe0429903073983a5f
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-06-25 00:03:47 -0300
 
-kFrom: Alexandre Oliva <aoliva@redhat.com>
-
 split class decl from defs, manage scopes and decl reactivation
 
 classes (and template class specializations) must now be declared
