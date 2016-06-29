@@ -6917,7 +6917,7 @@ rs6000_expand_vector_extract (rtx target, rtx vec, int elt)
 	  emit_insn (gen_vsx_extract_v4sf (target, vec, GEN_INT (elt)));
 	  return;
 	case V16QImode:
-	  if (TARGET_VEC_SELECT_ISA3)
+	  if (TARGET_VEXTRACTUB)
 	    {
 	      emit_insn (gen_vsx_extract_v16qi (target, vec, GEN_INT (elt)));
 	      return;
@@ -6925,7 +6925,7 @@ rs6000_expand_vector_extract (rtx target, rtx vec, int elt)
 	  else
 	    break;
 	case V8HImode:
-	  if (TARGET_VEC_SELECT_ISA3)
+	  if (TARGET_VEXTRACTUB)
 	    {
 	      emit_insn (gen_vsx_extract_v8hi (target, vec, GEN_INT (elt)));
 	      return;
@@ -6933,7 +6933,7 @@ rs6000_expand_vector_extract (rtx target, rtx vec, int elt)
 	  else
 	    break;
 	case V4SImode:
-	  if (TARGET_VEC_SELECT_ISA3)
+	  if (TARGET_VEXTRACTUB)
 	    {
 	      emit_insn (gen_vsx_extract_v4si (target, vec, GEN_INT (elt)));
 	      return;

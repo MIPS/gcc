@@ -1,3 +1,21 @@
+2016-06-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_extract): Change
+	TARGET_VEC_SELECT_ISA3 to TARGET_VEXTRACTUB.
+
+	* config/rs6000/vsx.md (VSX_EXTRACT_PREDICATE): Rename from
+	VSX_EXTRACT_ELEMENT.
+	(VSX_EXTRACT_INSN): Mode attribute to give the instruction to use
+	for the extracts.
+	(VSX_EX): Mode attribute to give the constraint to use for vector
+	extracts.
+	(vsx_extract_<mode>, VSX_EXTRACT_I case): Add support to use
+	XXEXTRACTUW for V4SI mode.  Fix subreg support.
+	(vsx_extract_<mode>_di, VSX_EXTRACT_I case): Likewise.
+
+	* config/rs6000/rs6000.h (TARGET_VEXTRACTUB): Rename from
+	TARGET_VEC_SELECT_ISA3.
+
 2016-06-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/predicates.md (const_0_7_operand): New predicate,

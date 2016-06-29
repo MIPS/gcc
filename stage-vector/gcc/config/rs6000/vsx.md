@@ -263,16 +263,26 @@
 (define_mode_iterator VSINT_84  [V4SI V2DI DI])
 (define_mode_iterator VSINT_842 [V8HI V4SI V2DI])
 
-;; Iterator for ISA 3.0 vector select of integer vectors
+;; Iterator for ISA 3.0 vector extract/insert of integer vectors
 (define_mode_iterator VSX_EXTRACT_I [V16QI V8HI V4SI])
 
-;; Mode attribute to give the correct predicate for ISA 3.0 vector select.
-(define_mode_attr VSX_EXTRACT_ELEMENT [(V16QI "const_0_to_15_operand")
-				     (V8HI  "const_0_to_7_operand")
-				     (V4SI  "const_0_to_3_operand")
-				     (V4SF  "const_0_to_3_operand")
-				     (V2DI  "const_0_to_1_operand")
-				     (V2DF  "const_0_to_1_operand")])
+;; Mode attribute to give the correct predicate for ISA 3.0 vector extract and
+;; insert to validate the operand number.
+(define_mode_attr VSX_EXTRACT_PREDICATE [(V16QI "const_0_to_15_operand")
+					 (V8HI  "const_0_to_7_operand")
+					 (V4SI  "const_0_to_3_operand")])
+
+;; Mode attribute to give the instruction for vector extract.  %3 contains the
+;; adjusted element count.
+(define_mode_attr VSX_EXTRACT_INSN [(V16QI "vextractub %0,%1,%3")
+				    (V8HI  "vextractuh %0,%1,%3")
+				    (V4SI  "xxextractuw %x0,%x1,%3")])
+
+;; Mode attribute to give the constraint for vector extract and insert
+;; operations.
+(define_mode_attr VSX_EX [(V16QI "v")
+			  (V8HI  "v")
+			  (V4SI  "wa")])
 
 ;; Constants for creating unspecs
 (define_c_enum "unspec"
@@ -2339,10 +2349,10 @@
 (define_insn_and_split  "vsx_extract_<mode>"
   [(set (match_operand:<VS_scalar> 0 "nonimmediate_operand" "=r,Z")
 	(vec_select:<VS_scalar>
-	 (match_operand:VSX_EXTRACT_I 1 "gpc_reg_operand" "v,v")
-	 (parallel [(match_operand:QI 2 "<VSX_EXTRACT_ELEMENT>" "n,n")])))
-   (clobber (match_scratch:DI 3 "=wv,wv"))]
-  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_VEC_SELECT_ISA3"
+	 (match_operand:VSX_EXTRACT_I 1 "gpc_reg_operand" "<VSX_EX>,<VSX_EX>")
+	 (parallel [(match_operand:QI 2 "<VSX_EXTRACT_PREDICATE>" "n,n")])))
+   (clobber (match_scratch:DI 3 "=<VSX_EX>,<VSX_EX>"))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_VEXTRACTUB"
   "#"
   "&& (reload_completed || MEM_P (operands[0]))"
   [(const_int 0)]
@@ -2357,8 +2367,10 @@
 
   emit_insn (gen_vsx_extract_<mode>_di (di_tmp, src, element));
 
-  if (REG_P (dest) || SUBREG_P (dest))
+  if (REG_P (dest))
     emit_move_insn (gen_rtx_REG (DImode, REGNO (dest)), di_tmp);
+  else if (SUBREG_P (dest))
+    emit_move_insn (gen_rtx_REG (DImode, subreg_regno (dest)), di_tmp);
   else if (MEM_P (operands[0]))
     {
       if (can_create_pseudo_p ())
@@ -2381,12 +2393,12 @@
   [(set_attr "type" "vecsimple,fpstore")])
 
 (define_insn  "vsx_extract_<mode>_di"
-  [(set (match_operand:DI 0 "gpc_reg_operand" "=wv")
+  [(set (match_operand:DI 0 "gpc_reg_operand" "=<VSX_EX>")
 	(zero_extend:DI
 	 (vec_select:<VS_scalar>
-	  (match_operand:VSX_EXTRACT_I 1 "gpc_reg_operand" "v")
-	  (parallel [(match_operand:QI 2 "<VSX_EXTRACT_ELEMENT>" "n")]))))]
-  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_VEC_SELECT_ISA3"
+	  (match_operand:VSX_EXTRACT_I 1 "gpc_reg_operand" "<VSX_EX>")
+	  (parallel [(match_operand:QI 2 "<VSX_EXTRACT_PREDICATE>" "n")]))))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_VEXTRACTUB"
 {
   int element = INTVAL (operands[2]);
   int unit_size = GET_MODE_UNIT_SIZE (<MODE>mode);
@@ -2395,9 +2407,10 @@
 		: unit_size * (GET_MODE_NUNITS (<MODE>mode) - 1 - element));
 
   operands[3] = GEN_INT (offset);
-  return "vextractu<wd> %0,%1,%3";
+  return "<VSX_EXTRACT_INSN>";
 }
   [(set_attr "type" "vecsimple")])
+
 
 ;; Expanders for builtins
 (define_expand "vsx_mergel_<mode>"
