@@ -1,5 +1,5 @@
 Bottom: 0617e867c0d25ec183f0efb0b88cacffa7b8f191
-Top:    4e942fb245aab600f7bdbb15aed09df5bf5b1819
+Top:    8e616ce5d337e4dd771ce42edee69c21d3c856fc
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-06-25 00:03:47 -0300
 
@@ -421,7 +421,7 @@ index 3827be3..52285b4 100644
    if (argv == NULL)
      return 0;
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index d5b6913..530ee29 100644
+index d5b6913..1e2efc2 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -62,6 +62,8 @@
@@ -433,7 +433,7 @@ index d5b6913..530ee29 100644
  
  #include "callbacks.hh"
  #include "connection.hh"
-@@ -261,21 +263,422 @@ plugin_binding_oracle (enum cp_oracle_request kind, tree identifier)
+@@ -261,21 +263,427 @@ plugin_binding_oracle (enum cp_oracle_request kind, tree identifier)
  		    request, IDENTIFIER_POINTER (identifier));
  }
  
@@ -493,8 +493,7 @@ index d5b6913..530ee29 100644
 +    }
 +}
 +
- static void
--plugin_pragma_user_expression (cpp_reader *)
++static void
 +supplement_binding (cxx_binding *binding, tree decl)
 +{
 +  /* FIXME: this is pretty much a copy of supplement_binding_1 in
@@ -620,7 +619,7 @@ index d5b6913..530ee29 100644
 +
 +static void
 +reactivate_decl (tree decl, cp_binding_level *b)
- {
++{
 +  bool in_function_p = TREE_CODE (b->this_entity) == FUNCTION_DECL;
 +  gcc_assert (in_function_p
 +	      || (b == current_binding_level
@@ -727,9 +726,10 @@ index d5b6913..530ee29 100644
 +  b->names = node;
 +}
 +
-+static void
+ static void
+-plugin_pragma_user_expression (cpp_reader *)
 +plugin_pragma_push_user_expression (cpp_reader *)
-+{
+ {
 +  if (push_count++)
 +    return;
 +
@@ -756,16 +756,18 @@ index d5b6913..530ee29 100644
 +  function *unchanged_cfun = cfun;
 +  tree changed_func_decl = current_function_decl;
 +
-+  gcc_assert (TREE_CODE (DECL_CONTEXT (current_function_decl)) == NAMESPACE_DECL
-+	      || current_class_type == DECL_CONTEXT (current_function_decl));
++  gcc_assert (current_class_type == DECL_CONTEXT (current_function_decl)
++	      || !(RECORD_OR_UNION_CODE_P
++		   (TREE_CODE (DECL_CONTEXT (current_function_decl)))));
 +  push_fake_function (save_cfun->decl, sk_block);
 +  current_class_type = NULL_TREE;
 +  if (unchanged_cfun)
 +    {
 +      /* If we get here, GDB did NOT change the context.  */
 +      gcc_assert (cfun == save_cfun);
-+      gcc_assert (orig_binding_level == current_binding_level->level_chain);
 +      gcc_assert (at_function_scope_p ());
++      gcc_assert (orig_binding_level
++		  == current_binding_level->level_chain->level_chain);
 +    }
 +  else
 +    {
@@ -835,13 +837,16 @@ index d5b6913..530ee29 100644
 +
 +  cfun = NULL;
 +  pop_scope ();
-+  if (TREE_CODE (DECL_CONTEXT (current_function_decl)) != NAMESPACE_DECL)
++  if (RECORD_OR_UNION_CODE_P (TREE_CODE (DECL_CONTEXT (current_function_decl))))
 +    current_class_type = DECL_CONTEXT (current_function_decl);
 +  {
 +    int success;
 +    cc1_plugin::call (current_context, "leave_scope", &success);
 +  }
-+  gcc_assert (cfun == save_cfun);
++  if (!cfun)
++    cfun = save_cfun;
++  else
++    gcc_assert (cfun == save_cfun);
 +
 +  cp_binding_oracle = NULL;
 +  gcc_assert (at_function_scope_p ());
@@ -858,7 +863,7 @@ index d5b6913..530ee29 100644
  }
  
  
-@@ -430,59 +833,64 @@ plugin_push_namespace (cc1_plugin::connection *,
+@@ -430,59 +838,64 @@ plugin_push_namespace (cc1_plugin::connection *,
  }
  
  int
@@ -960,7 +965,7 @@ index d5b6913..530ee29 100644
    return 1;
  }
  
-@@ -623,6 +1031,22 @@ plugin_new_using_decl (cc1_plugin::connection *,
+@@ -623,6 +1036,22 @@ plugin_new_using_decl (cc1_plugin::connection *,
    return 1;
  }
  
@@ -983,7 +988,7 @@ index d5b6913..530ee29 100644
  /* Abuse an unused field of the dummy template parms entry to hold the
     parm list.  */
  #define TP_PARM_LIST TREE_TYPE (current_template_parms)
-@@ -638,7 +1062,7 @@ plugin_new_decl (cc1_plugin::connection *self,
+@@ -638,7 +1067,7 @@ plugin_new_decl (cc1_plugin::connection *self,
  		 unsigned int line_number)
  {
    plugin_context *ctx = static_cast<plugin_context *> (self);
@@ -992,7 +997,7 @@ index d5b6913..530ee29 100644
  
    enum tree_code code;
    tree decl;
-@@ -679,6 +1103,12 @@ plugin_new_decl (cc1_plugin::connection *self,
+@@ -679,6 +1108,12 @@ plugin_new_decl (cc1_plugin::connection *self,
        gcc_assert (!sym_type);
        break;
  
@@ -1005,7 +1010,7 @@ index d5b6913..530ee29 100644
      default:
        gcc_unreachable ();
      }
-@@ -707,7 +1137,15 @@ plugin_new_decl (cc1_plugin::connection *self,
+@@ -707,7 +1142,15 @@ plugin_new_decl (cc1_plugin::connection *self,
    tree identifier;
    if (code != FUNCTION_DECL
        || !(sym_flags & GCC_CP_FLAG_SPECIAL_FUNCTION))
@@ -1022,7 +1027,7 @@ index d5b6913..530ee29 100644
  
    if (code == FUNCTION_DECL)
      {
-@@ -1001,15 +1439,13 @@ plugin_new_decl (cc1_plugin::connection *self,
+@@ -1001,15 +1444,13 @@ plugin_new_decl (cc1_plugin::connection *self,
  	    DECL_ASSIGNMENT_OPERATOR_P (decl) = true;
  	}
      }
@@ -1043,7 +1048,7 @@ index d5b6913..530ee29 100644
  	CLASSTYPE_DECLARED_CLASS (type) = true;
      }
    else if (class_member_p)
-@@ -1057,6 +1493,7 @@ plugin_new_decl (cc1_plugin::connection *self,
+@@ -1057,6 +1498,7 @@ plugin_new_decl (cc1_plugin::connection *self,
  
    if (sym_kind != GCC_CP_SYMBOL_TYPEDEF
        && sym_kind != GCC_CP_SYMBOL_CLASS
@@ -1051,7 +1056,7 @@ index d5b6913..530ee29 100644
        && !template_decl_p && !ctor && !dtor)
      {
        decl_addr_value value;
-@@ -1100,7 +1537,7 @@ plugin_new_decl (cc1_plugin::connection *self,
+@@ -1100,7 +1542,7 @@ plugin_new_decl (cc1_plugin::connection *self,
  	 specializations.  */
        gcc_assert (!template_parm_scope_p ());
      }
@@ -1060,7 +1065,7 @@ index d5b6913..530ee29 100644
      safe_pushtag (identifier, TREE_TYPE (decl), ts_current);
    else if (class_member_p)
      finish_member_declaration (decl);
-@@ -1303,51 +1740,26 @@ start_class_def (tree type,
+@@ -1303,51 +1745,26 @@ start_class_def (tree type,
    return type;
  }
  
@@ -1125,7 +1130,7 @@ index d5b6913..530ee29 100644
  }
  
  gcc_type
-@@ -1428,29 +1840,6 @@ plugin_get_lambda_expr (cc1_plugin::connection *self,
+@@ -1428,29 +1845,6 @@ plugin_get_lambda_expr (cc1_plugin::connection *self,
    return convert_out (ctx->preserve (lambda_object));
  }
  
@@ -1155,7 +1160,7 @@ index d5b6913..530ee29 100644
  gcc_decl
  plugin_new_field (cc1_plugin::connection *,
  		  const char *field_name,
-@@ -2990,13 +3379,12 @@ plugin_specialize_function_template (cc1_plugin::connection *self,
+@@ -2990,13 +3384,12 @@ plugin_specialize_function_template (cc1_plugin::connection *self,
    return convert_out (ctx->preserve (decl));
  }
  
@@ -1175,7 +1180,7 @@ index d5b6913..530ee29 100644
  {
    plugin_context *ctx = static_cast<plugin_context *> (self);
    source_location loc = ctx->get_source_location (filename, line_number);
-@@ -3005,9 +3393,7 @@ plugin_start_specialize_class_template (cc1_plugin::connection *self,
+@@ -3005,9 +3398,7 @@ plugin_start_specialize_class_template (cc1_plugin::connection *self,
    tree tdecl = finish_template_type (name, targlist (args), false);;
    DECL_SOURCE_LOCATION (tdecl) = loc;
  
