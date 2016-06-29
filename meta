@@ -1,9 +1,8 @@
 Version: 1
-Previous: 242f7f2c44db05a41245df6d5117c850e8c89e65
-Head: 8d793509506ba7522905162d49c0cf4300576c22
+Previous: d652a0539d8b014e1adcb72b6e5d0bcb072c5a76
+Head: 31f7a3633f2c632dbab59df4c95c5050aadabb88
 Applied:
-  split-class-decl-reactivate-local-decls.patch: 31799ad40777cc9c3c95e576cfd617d6a3cfa6bb
-  refresh-temp: 8d793509506ba7522905162d49c0cf4300576c22
+  split-class-decl-reactivate-local-decls.patch: 31f7a3633f2c632dbab59df4c95c5050aadabb88
 Unapplied:
   special-memfuncs-testing.patch: 5dadb8e81f23ef0a3a559dc1776fa25b2cc8c5db
 Hidden:
