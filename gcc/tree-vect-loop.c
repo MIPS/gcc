@@ -212,7 +212,6 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 	    {
 	      dump_printf_loc (MSG_NOTE, vect_location, "==> examining phi: ");
 	      dump_gimple_stmt (MSG_NOTE, TDF_SLIM, phi, 0);
-	      dump_printf (MSG_NOTE, "\n");
 	    }
 
 	  gcc_assert (stmt_info);
@@ -282,7 +281,6 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 	      dump_printf_loc (MSG_NOTE, vect_location,
                                "==> examining statement: ");
 	      dump_gimple_stmt (MSG_NOTE, TDF_SLIM, stmt, 0);
-              dump_printf (MSG_NOTE, "\n");
 	    }
 
 	  gcc_assert (stmt_info);
@@ -304,7 +302,6 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
                       dump_printf_loc (MSG_NOTE, vect_location,
                                        "==> examining pattern statement: ");
                       dump_gimple_stmt (MSG_NOTE, TDF_SLIM, stmt, 0);
-                      dump_printf (MSG_NOTE, "\n");
                     }
                 }
               else
@@ -355,7 +352,6 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
                                            "==> examining pattern def stmt: ");
 			  dump_gimple_stmt (MSG_NOTE, TDF_SLIM,
                                             pattern_def_stmt, 0);
-                          dump_printf (MSG_NOTE, "\n");
 			}
 
 		      stmt = pattern_def_stmt;
@@ -396,7 +392,6 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
                                    "not vectorized: irregular stmt.");
 		  dump_gimple_stmt (MSG_MISSED_OPTIMIZATION,  TDF_SLIM, stmt,
                                     0);
-                  dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
 		}
 	      return false;
 	    }
@@ -408,7 +403,6 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 	          dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
                                    "not vectorized: vector stmt in loop:");
 	          dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt, 0);
-                  dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
 	        }
 	      return false;
 	    }
@@ -625,7 +619,6 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 				       "for statement, ");
 		      dump_gimple_stmt (MSG_MISSED_OPTIMIZATION,  TDF_SLIM, stmt,
 					0);
-		      dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
 		    }
 		  return false;
 		}
@@ -695,7 +688,6 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 			       "for statement, ");
 	      dump_gimple_stmt (MSG_MISSED_OPTIMIZATION,  TDF_SLIM, stmt,
 				0);
-	      dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
 	    }
 	  return false;
 	}
@@ -799,7 +791,6 @@ vect_analyze_scalar_cycles_1 (loop_vec_info loop_vinfo, struct loop *loop)
 	{
 	  dump_printf_loc (MSG_NOTE, vect_location, "Analyze phi: ");
 	  dump_gimple_stmt (MSG_NOTE, TDF_SLIM, phi, 0);
-          dump_printf (MSG_NOTE, "\n");
 	}
 
       /* Skip virtual phi's.  The data dependences that are associated with
@@ -859,7 +850,6 @@ vect_analyze_scalar_cycles_1 (loop_vec_info loop_vinfo, struct loop *loop)
         {
           dump_printf_loc (MSG_NOTE, vect_location, "Analyze phi: ");
           dump_gimple_stmt (MSG_NOTE, TDF_SLIM, phi, 0);
-          dump_printf (MSG_NOTE, "\n");
         }
 
       gcc_assert (!virtual_operand_p (def)
@@ -1623,7 +1613,6 @@ vect_analyze_loop_operations (loop_vec_info loop_vinfo)
             {
               dump_printf_loc (MSG_NOTE, vect_location, "examining phi: ");
               dump_gimple_stmt (MSG_NOTE, TDF_SLIM, phi, 0);
-              dump_printf (MSG_NOTE, "\n");
             }
 	  if (virtual_operand_p (gimple_phi_result (phi)))
 	    continue;
@@ -1680,7 +1669,8 @@ vect_analyze_loop_operations (loop_vec_info loop_vinfo)
 
           gcc_assert (stmt_info);
 
-          if (STMT_VINFO_RELEVANT (stmt_info) == vect_used_in_scope
+          if ((STMT_VINFO_RELEVANT (stmt_info) == vect_used_in_scope
+               || STMT_VINFO_LIVE_P (stmt_info))
               && STMT_VINFO_DEF_TYPE (stmt_info) != vect_induction_def)
             {
               /* A scalar-dependence cycle that we don't support.  */
@@ -1697,6 +1687,9 @@ vect_analyze_loop_operations (loop_vec_info loop_vinfo)
                 ok = vectorizable_induction (phi, NULL, NULL);
             }
 
+	  if (ok && STMT_VINFO_LIVE_P (stmt_info))
+	    ok = vectorizable_live_operation (phi, NULL, NULL, -1, NULL);
+
           if (!ok)
             {
               if (dump_enabled_p ())
@@ -1705,7 +1698,6 @@ vect_analyze_loop_operations (loop_vec_info loop_vinfo)
 				   "not vectorized: relevant phi not "
 				   "supported: ");
                   dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, phi, 0);
-                  dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
                 }
 	      return false;
             }
@@ -2337,7 +2329,6 @@ report_vect_op (int msg_type, gimple *stmt, const char *msg)
 {
   dump_printf_loc (msg_type, vect_location, "%s", msg);
   dump_gimple_stmt (msg_type, TDF_SLIM, stmt, 0);
-  dump_printf (msg_type, "\n");
 }
 
 
@@ -2508,7 +2499,6 @@ vect_is_slp_reduction (loop_vec_info loop_info, gimple *phi,
 		{
 		  dump_printf_loc (MSG_NOTE, vect_location, "swapping oprnds: ");
 		  dump_gimple_stmt (MSG_NOTE, TDF_SLIM, next_stmt, 0);
-                  dump_printf (MSG_NOTE, "\n");
 		}
 
 	      swap_ssa_operands (next_stmt,
@@ -2667,10 +2657,7 @@ vect_is_simple_reduction (loop_vec_info loop_info, gimple *phi,
   if (!is_gimple_assign (def_stmt) && gimple_code (def_stmt) != GIMPLE_PHI)
     {
       if (dump_enabled_p ())
-        {
-          dump_gimple_stmt (MSG_NOTE, TDF_SLIM, def_stmt, 0);
-          dump_printf (MSG_NOTE, "\n");
-        }
+	dump_gimple_stmt (MSG_NOTE, TDF_SLIM, def_stmt, 0);
       return NULL;
     }
 
@@ -3978,7 +3965,6 @@ get_initial_def_for_induction (gimple *iv_phi)
 	      dump_printf_loc (MSG_NOTE, vect_location,
 			       "vector of inductions after inner-loop:");
 	      dump_gimple_stmt (MSG_NOTE, TDF_SLIM, new_stmt, 0);
-              dump_printf (MSG_NOTE, "\n");
 	    }
 	}
     }
@@ -3989,10 +3975,8 @@ get_initial_def_for_induction (gimple *iv_phi)
       dump_printf_loc (MSG_NOTE, vect_location,
 		       "transform induction: created def-use cycle: ");
       dump_gimple_stmt (MSG_NOTE, TDF_SLIM, induction_phi, 0);
-      dump_printf (MSG_NOTE, "\n");
       dump_gimple_stmt (MSG_NOTE, TDF_SLIM,
 			SSA_NAME_DEF_STMT (vec_def), 0);
-      dump_printf (MSG_NOTE, "\n");
     }
 
   STMT_VINFO_VEC_STMT (phi_info) = induction_phi;
@@ -4369,7 +4353,9 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple *stmt,
       gimple_seq stmts;
       vec_init_def = force_gimple_operand (vec_initial_defs[i], &stmts,
 					   true, NULL_TREE);
-      gsi_insert_seq_on_edge_immediate (loop_preheader_edge (loop), stmts);
+      if (stmts)
+	gsi_insert_seq_on_edge_immediate (loop_preheader_edge (loop), stmts);
+
       def = vect_defs[i];
       for (j = 0; j < ncopies; j++)
         {
@@ -4414,9 +4400,7 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple *stmt,
               dump_printf_loc (MSG_NOTE, vect_location,
 			       "transform reduction: created def-use cycle: ");
               dump_gimple_stmt (MSG_NOTE, TDF_SLIM, phi, 0);
-              dump_printf (MSG_NOTE, "\n");
               dump_gimple_stmt (MSG_NOTE, TDF_SLIM, SSA_NAME_DEF_STMT (def), 0);
-              dump_printf (MSG_NOTE, "\n");
             }
         }
     }
@@ -5166,7 +5150,6 @@ vect_finalize_reduction:
                       dump_printf_loc (MSG_NOTE, vect_location,
 				       "created double reduction phi node: ");
                       dump_gimple_stmt (MSG_NOTE, TDF_SLIM, vect_phi, 0);
-                      dump_printf (MSG_NOTE, "\n");
                     }
 
                   vect_phi_res = PHI_RESULT (vect_phi);
@@ -6374,9 +6357,9 @@ vectorizable_live_operation (gimple *stmt,
   FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, lhs)
     if (!flow_bb_inside_loop_p (loop, gimple_bb (use_stmt)))
 	worklist.safe_push (use_stmt);
-  gcc_assert (worklist.length () == 1);
+  gcc_assert (worklist.length () >= 1);
 
-  bitsize = TYPE_SIZE (lhs_type);
+  bitsize = TYPE_SIZE (TREE_TYPE (vectype));
   vec_bitsize = TYPE_SIZE (vectype);
 
   /* Get the vectorized lhs of STMT and the lane to use (counted in bits).  */
@@ -6387,24 +6370,20 @@ vectorizable_live_operation (gimple *stmt,
 
       int num_scalar = SLP_TREE_SCALAR_STMTS (slp_node).length ();
       int num_vec = SLP_TREE_NUMBER_OF_VEC_STMTS (slp_node);
-      int scalar_per_vec = num_scalar / num_vec;
 
-      /* There are three possibilites here:
-	 1: All scalar stmts fit in a single vector.
-	 2: All scalar stmts fit multiple times into a single vector.
-	    We must choose the last occurence of stmt in the vector.
-	 3: Scalar stmts are split across multiple vectors.
-	    We must choose the correct vector and mod the lane accordingly.  */
+      /* Get the last occurrence of the scalar index from the concatenation of
+	 all the slp vectors. Calculate which slp vector it is and the index
+	 within.  */
+      int pos = (num_vec * nunits) - num_scalar + slp_index;
+      int vec_entry = pos / nunits;
+      int vec_index = pos % nunits;
 
       /* Get the correct slp vectorized stmt.  */
-      int vec_entry = slp_index / scalar_per_vec;
       vec_lhs = gimple_get_lhs (SLP_TREE_VEC_STMTS (slp_node)[vec_entry]);
 
       /* Get entry to use.  */
-      bitstart = build_int_cst (unsigned_type_node,
-				scalar_per_vec - (slp_index % scalar_per_vec));
+      bitstart = build_int_cst (unsigned_type_node, vec_index);
       bitstart = int_const_binop (MULT_EXPR, bitsize, bitstart);
-      bitstart = int_const_binop (MINUS_EXPR, vec_bitsize, bitstart);
     }
   else
     {
@@ -6422,16 +6401,22 @@ vectorizable_live_operation (gimple *stmt,
 
   /* Create a new vectorized stmt for the uses of STMT and insert outside the
      loop.  */
-  tree new_name = make_ssa_name (lhs_type);
-  tree new_tree = build3 (BIT_FIELD_REF, lhs_type, vec_lhs, bitsize, bitstart);
-  gimple *new_stmt = gimple_build_assign (new_name, new_tree);
-  gsi_insert_on_edge_immediate (single_exit (loop), new_stmt);
+  gimple_seq stmts = NULL;
+  tree new_tree = build3 (BIT_FIELD_REF, TREE_TYPE (vectype), vec_lhs, bitsize,
+			  bitstart);
+  new_tree = force_gimple_operand (fold_convert (lhs_type, new_tree), &stmts,
+				   true, NULL_TREE);
+  if (stmts)
+    gsi_insert_seq_on_edge_immediate (single_exit (loop), stmts);
 
   /* Replace all uses of the USE_STMT in the worklist with the newly inserted
      statement.  */
-  use_stmt = worklist.pop ();
-  replace_uses_by (gimple_phi_result (use_stmt), new_name);
-  update_stmt (use_stmt);
+  while (!worklist.is_empty ())
+    {
+      use_stmt = worklist.pop ();
+      replace_uses_by (gimple_phi_result (use_stmt), new_tree);
+      update_stmt (use_stmt);
+    }
 
   return true;
 }
@@ -6719,7 +6704,6 @@ vect_transform_loop (loop_vec_info loop_vinfo)
 	      dump_printf_loc (MSG_NOTE, vect_location,
                                "------>vectorizing phi: ");
 	      dump_gimple_stmt (MSG_NOTE, TDF_SLIM, phi, 0);
-              dump_printf (MSG_NOTE, "\n");
 	    }
 	  stmt_info = vinfo_for_stmt (phi);
 	  if (!stmt_info)
@@ -6772,7 +6756,6 @@ vect_transform_loop (loop_vec_info loop_vinfo)
 	      dump_printf_loc (MSG_NOTE, vect_location,
 			       "------>vectorizing statement: ");
 	      dump_gimple_stmt (MSG_NOTE, TDF_SLIM, stmt, 0);
-              dump_printf (MSG_NOTE, "\n");
 	    }
 
 	  stmt_info = vinfo_for_stmt (stmt);
@@ -6847,7 +6830,6 @@ vect_transform_loop (loop_vec_info loop_vinfo)
 					   "stmt: ");
 			  dump_gimple_stmt (MSG_NOTE, TDF_SLIM,
 					    pattern_def_stmt, 0);
-                          dump_printf (MSG_NOTE, "\n");
 			}
 
 		      stmt = pattern_def_stmt;

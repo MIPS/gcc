@@ -61,6 +61,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "print-tree.h"
 #include "ipa-utils.h"
+#include "selftest.h"
 
 /* Tree code classes.  */
 
@@ -8782,7 +8783,6 @@ build_complex_type (tree component_type)
   t = make_node (COMPLEX_TYPE);
 
   TREE_TYPE (t) = TYPE_MAIN_VARIANT (component_type);
-  SET_TYPE_MODE (t, GET_MODE_COMPLEX_MODE (TYPE_MODE (component_type)));
 
   /* If we already have such a type, use the old one.  */
   hstate.add_object (TYPE_HASH (component_type));
@@ -13220,9 +13220,13 @@ verify_type_variant (const_tree t, tree tv)
 
   if (COMPLETE_TYPE_P (t))
     {
-      verify_variant_match (TYPE_SIZE);
       verify_variant_match (TYPE_MODE);
-      if (TYPE_SIZE_UNIT (t) != TYPE_SIZE_UNIT (tv)
+      if (TREE_CODE (TYPE_SIZE (t)) != PLACEHOLDER_EXPR
+	  && TREE_CODE (TYPE_SIZE (tv)) != PLACEHOLDER_EXPR)
+	verify_variant_match (TYPE_SIZE);
+      if (TREE_CODE (TYPE_SIZE_UNIT (t)) != PLACEHOLDER_EXPR
+	  && TREE_CODE (TYPE_SIZE_UNIT (tv)) != PLACEHOLDER_EXPR
+	  && TYPE_SIZE_UNIT (t) != TYPE_SIZE_UNIT (tv)
 	  /* FIXME: ideally we should compare pointer equality, but java FE
 	     produce variants where size is INTEGER_CST of different type (int
 	     wrt size_type) during libjava biuld.  */
@@ -14202,5 +14206,66 @@ combined_fn_name (combined_fn fn)
   else
     return internal_fn_name (as_internal_fn (fn));
 }
+
+#if CHECKING_P
+
+namespace selftest {
+
+/* Selftests for tree.  */
+
+/* Verify that integer constants are sane.  */
+
+static void
+test_integer_constants ()
+{
+  ASSERT_TRUE (integer_type_node != NULL);
+  ASSERT_TRUE (build_int_cst (integer_type_node, 0) != NULL);
+
+  tree type = integer_type_node;
+
+  tree zero = build_zero_cst (type);
+  ASSERT_EQ (INTEGER_CST, TREE_CODE (zero));
+  ASSERT_EQ (type, TREE_TYPE (zero));
+
+  tree one = build_int_cst (type, 1);
+  ASSERT_EQ (INTEGER_CST, TREE_CODE (one));
+  ASSERT_EQ (type, TREE_TYPE (zero));
+}
+
+/* Verify identifiers.  */
+
+static void
+test_identifiers ()
+{
+  tree identifier = get_identifier ("foo");
+  ASSERT_EQ (3, IDENTIFIER_LENGTH (identifier));
+  ASSERT_STREQ ("foo", IDENTIFIER_POINTER (identifier));
+}
+
+/* Verify LABEL_DECL.  */
+
+static void
+test_labels ()
+{
+  tree identifier = get_identifier ("err");
+  tree label_decl = build_decl (UNKNOWN_LOCATION, LABEL_DECL,
+				identifier, void_type_node);
+  ASSERT_EQ (-1, LABEL_DECL_UID (label_decl));
+  ASSERT_FALSE (FORCED_LABEL (label_decl));
+}
+
+/* Run all of the selftests within this file.  */
+
+void
+tree_c_tests ()
+{
+  test_integer_constants ();
+  test_identifiers ();
+  test_labels ();
+}
+
+} // namespace selftest
+
+#endif /* CHECKING_P */
 
 #include "gt-tree.h"

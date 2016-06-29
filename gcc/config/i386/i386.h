@@ -1347,6 +1347,7 @@ enum reg_class
   CLOBBERED_REGS,		/* call-clobbered integer registers */
   Q_REGS,			/* %eax %ebx %ecx %edx */
   NON_Q_REGS,			/* %esi %edi %ebp %esp */
+  TLS_GOTBASE_REGS,		/* %ebx %ecx %edx %esi %edi %ebp */
   INDEX_REGS,			/* %eax %ebx %ecx %edx %esi %edi %ebp */
   LEGACY_REGS,			/* %eax %ebx %ecx %edx %esi %edi %ebp %esp */
   GENERAL_REGS,			/* %eax %ebx %ecx %edx %esi %edi %ebp %esp
@@ -1407,6 +1408,7 @@ enum reg_class
    "AD_REGS",				\
    "CLOBBERED_REGS",			\
    "Q_REGS", "NON_Q_REGS",		\
+   "TLS_GOTBASE_REGS",			\
    "INDEX_REGS",			\
    "LEGACY_REGS",			\
    "GENERAL_REGS",			\
@@ -1447,6 +1449,7 @@ enum reg_class
       { 0x07,       0x0,    0x0 },       /* CLOBBERED_REGS */            \
       { 0x0f,       0x0,    0x0 },       /* Q_REGS */                    \
   { 0x1100f0,    0x1fe0,    0x0 },       /* NON_Q_REGS */                \
+      { 0x7e,    0x1fe0,    0x0 },       /* TLS_GOTBASE_REGS */		 \
       { 0x7f,    0x1fe0,    0x0 },       /* INDEX_REGS */                \
   { 0x1100ff,       0x0,    0x0 },       /* LEGACY_REGS */               \
   { 0x1100ff,    0x1fe0,    0x0 },       /* GENERAL_REGS */              \
@@ -2376,16 +2379,6 @@ enum ix86_fpcmp_strategy {
    Post-reload pass may be later used to eliminate the redundant fildcw if
    needed.  */
 
-enum ix86_entity
-{
-  AVX_U128 = 0,
-  I387_TRUNC,
-  I387_FLOOR,
-  I387_CEIL,
-  I387_MASK_PM,
-  MAX_386_ENTITIES
-};
-
 enum ix86_stack_slot
 {
   SLOT_TEMP = 0,
@@ -2395,6 +2388,23 @@ enum ix86_stack_slot
   SLOT_CW_CEIL,
   SLOT_CW_MASK_PM,
   MAX_386_STACK_LOCALS
+};
+
+enum ix86_entity
+{
+  X86_DIRFLAG = 0,
+  AVX_U128,
+  I387_TRUNC,
+  I387_FLOOR,
+  I387_CEIL,
+  I387_MASK_PM,
+  MAX_386_ENTITIES
+};
+
+enum x86_dirflag_state
+{
+  X86_DIRFLAG_RESET,
+  X86_DIRFLAG_ANY
 };
 
 enum avx_u128_state
@@ -2418,8 +2428,9 @@ enum avx_u128_state
    starting counting at zero - determines the integer that is used to
    refer to the mode-switched entity in question.  */
 
-#define NUM_MODES_FOR_MODE_SWITCHING \
-  { AVX_U128_ANY, I387_CW_ANY, I387_CW_ANY, I387_CW_ANY, I387_CW_ANY }
+#define NUM_MODES_FOR_MODE_SWITCHING			\
+  { X86_DIRFLAG_ANY, AVX_U128_ANY,			\
+    I387_CW_ANY, I387_CW_ANY, I387_CW_ANY, I387_CW_ANY }
 
 
 /* Avoid renaming of stack registers, as doing so in combination with
@@ -2516,9 +2527,6 @@ struct GTY(()) machine_function {
   /* Nonzero if the function accesses a previous frame.  */
   BOOL_BITFIELD accesses_prev_frame : 1;
 
-  /* Nonzero if the function requires a CLD in the prologue.  */
-  BOOL_BITFIELD needs_cld : 1;
-
   /* Set by ix86_compute_frame_layout and used by prologue/epilogue
      expander to determine the style used.  */
   BOOL_BITFIELD use_fast_prologue_epilogue : 1;
@@ -2572,7 +2580,6 @@ struct GTY(()) machine_function {
 #define ix86_varargs_gpr_size (cfun->machine->varargs_gpr_size)
 #define ix86_varargs_fpr_size (cfun->machine->varargs_fpr_size)
 #define ix86_optimize_mode_switching (cfun->machine->optimize_mode_switching)
-#define ix86_current_function_needs_cld (cfun->machine->needs_cld)
 #define ix86_pc_thunk_call_expanded (cfun->machine->pc_thunk_call_expanded)
 #define ix86_tls_descriptor_calls_expanded_in_cfun \
   (cfun->machine->tls_descriptor_call_expanded_p)

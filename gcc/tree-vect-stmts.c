@@ -5234,6 +5234,7 @@ vectorizable_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
   enum vect_def_type scatter_idx_dt = vect_unknown_def_type;
   enum vect_def_type scatter_src_dt = vect_unknown_def_type;
   gimple *new_stmt;
+  int vf;
 
   if (!STMT_VINFO_RELEVANT_P (stmt_info) && !bb_vinfo)
     return false;
@@ -5270,7 +5271,12 @@ vectorizable_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
   unsigned int nunits = TYPE_VECTOR_SUBPARTS (vectype);
 
   if (loop_vinfo)
-    loop = LOOP_VINFO_LOOP (loop_vinfo);
+    {
+      loop = LOOP_VINFO_LOOP (loop_vinfo);
+      vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
+    }
+  else
+    vf = 1;
 
   /* Multiple types in SLP are handled by creating the appropriate number of
      vectorized stmts for each SLP node.  Hence, NCOPIES is always 1 in
@@ -5363,16 +5369,6 @@ vectorizable_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	    store_lanes_p = true;
 	  else if (!vect_grouped_store_supported (vectype, group_size))
 	    return false;
-	}
-
-      if (STMT_VINFO_STRIDED_P (stmt_info)
-	  && slp
-	  && (group_size > nunits
-	      || nunits % group_size != 0))
-	{
-	  dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			   "unhandled strided group store\n");
-	  return false;
 	}
 
       if (first_stmt == stmt)
@@ -5653,23 +5649,31 @@ vectorizable_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
          */
 
       unsigned nstores = nunits;
+      unsigned lnel = 1;
       tree ltype = elem_type;
       if (slp)
 	{
-	  nstores = nunits / group_size;
-	  if (group_size < nunits)
-	    ltype = build_vector_type (elem_type, group_size);
-	  else
-	    ltype = vectype;
+	  if (group_size < nunits
+	      && nunits % group_size == 0)
+	    {
+	      nstores = nunits / group_size;
+	      lnel = group_size;
+	      ltype = build_vector_type (elem_type, group_size);
+	    }
+	  else if (group_size >= nunits
+		   && group_size % nunits == 0)
+	    {
+	      nstores = 1;
+	      lnel = nunits;
+	      ltype = vectype;
+	    }
 	  ltype = build_aligned_type (ltype, TYPE_ALIGN (elem_type));
 	  ncopies = SLP_TREE_NUMBER_OF_VEC_STMTS (slp_node);
-	  group_size = 1;
 	}
 
       ivstep = stride_step;
       ivstep = fold_build2 (MULT_EXPR, TREE_TYPE (ivstep), ivstep,
-			    build_int_cst (TREE_TYPE (ivstep),
-					   ncopies * nstores));
+			    build_int_cst (TREE_TYPE (ivstep), vf));
 
       standard_iv_increment_position (loop, &incr_gsi, &insert_after);
 
@@ -5700,6 +5704,9 @@ vectorizable_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	      vect_finish_stmt_generation (stmt, incr, gsi);
 	      running_off = newoff;
 	    }
+	  unsigned int group_el = 0;
+	  unsigned HOST_WIDE_INT
+	    elsz = tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (vectype)));
 	  for (j = 0; j < ncopies; j++)
 	    {
 	      /* We've set op and dt above, from gimple_assign_rhs1(stmt),
@@ -5745,19 +5752,27 @@ vectorizable_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 						   NULL_TREE, true,
 						   GSI_SAME_STMT);
 
+		  tree this_off = build_int_cst (TREE_TYPE (alias_off),
+						 group_el * elsz);
 		  newref = build2 (MEM_REF, ltype,
-				   running_off, alias_off);
+				   running_off, this_off);
 
 		  /* And store it to *running_off.  */
 		  assign = gimple_build_assign (newref, elem);
 		  vect_finish_stmt_generation (stmt, assign, gsi);
 
-		  newoff = copy_ssa_name (running_off, NULL);
-		  incr = gimple_build_assign (newoff, POINTER_PLUS_EXPR,
-					      running_off, stride_step);
-		  vect_finish_stmt_generation (stmt, incr, gsi);
+		  group_el += lnel;
+		  if (! slp
+		      || group_el == group_size)
+		    {
+		      newoff = copy_ssa_name (running_off, NULL);
+		      incr = gimple_build_assign (newoff, POINTER_PLUS_EXPR,
+						  running_off, stride_step);
+		      vect_finish_stmt_generation (stmt, incr, gsi);
 
-		  running_off = newoff;
+		      running_off = newoff;
+		      group_el = 0;
+		    }
 		  if (g == group_size - 1
 		      && !slp)
 		    {
@@ -5771,6 +5786,8 @@ vectorizable_store (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 		}
 	    }
 	  next_stmt = GROUP_NEXT_ELEMENT (vinfo_for_stmt (next_stmt));
+	  if (slp)
+	    break;
 	}
       return true;
     }
@@ -6440,17 +6457,7 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	}
     }
   else if (STMT_VINFO_STRIDED_P (stmt_info))
-    {
-      if (grouped_load
-	  && slp
-	  && (group_size > nunits
-	      || nunits % group_size != 0))
-	{
-	  dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			   "unhandled strided group load\n");
-	  return false;
-	}
-    }
+    ;
   else
     {
       negative = tree_int_cst_compare (nested_in_vect_loop
@@ -6744,16 +6751,29 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
       running_off = offvar;
       alias_off = build_int_cst (reference_alias_ptr_type (DR_REF (first_dr)), 0);
       int nloads = nunits;
+      int lnel = 1;
       tree ltype = TREE_TYPE (vectype);
       auto_vec<tree> dr_chain;
       if (slp)
 	{
-	  nloads = nunits / group_size;
-	  if (group_size < nunits)
-	    ltype = build_vector_type (TREE_TYPE (vectype), group_size);
-	  else
-	    ltype = vectype;
-	  ltype = build_aligned_type (ltype, TYPE_ALIGN (TREE_TYPE (vectype)));
+	  if (group_size < nunits
+	      && nunits % group_size == 0)
+	    {
+	      nloads = nunits / group_size;
+	      lnel = group_size;
+	      ltype = build_vector_type (TREE_TYPE (vectype), group_size);
+	      ltype = build_aligned_type (ltype,
+					  TYPE_ALIGN (TREE_TYPE (vectype)));
+	    }
+	  else if (group_size >= nunits
+		   && group_size % nunits == 0)
+	    {
+	      nloads = 1;
+	      lnel = nunits;
+	      ltype = vectype;
+	      ltype = build_aligned_type (ltype,
+					  TYPE_ALIGN (TREE_TYPE (vectype)));
+	    }
 	  /* For SLP permutation support we need to load the whole group,
 	     not only the number of vector stmts the permutation result
 	     fits in.  */
@@ -6765,48 +6785,43 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	  else
 	    ncopies = SLP_TREE_NUMBER_OF_VEC_STMTS (slp_node);
 	}
+      int group_el = 0;
+      unsigned HOST_WIDE_INT
+	elsz = tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (vectype)));
       for (j = 0; j < ncopies; j++)
 	{
-	  tree vec_inv;
-
 	  if (nloads > 1)
+	    vec_alloc (v, nloads);
+	  for (i = 0; i < nloads; i++)
 	    {
-	      vec_alloc (v, nloads);
-	      for (i = 0; i < nloads; i++)
-		{
-		  tree newref, newoff;
-		  gimple *incr;
-		  newref = build2 (MEM_REF, ltype, running_off, alias_off);
+	      tree this_off = build_int_cst (TREE_TYPE (alias_off),
+					     group_el * elsz);
+	      new_stmt = gimple_build_assign (make_ssa_name (ltype),
+					      build2 (MEM_REF, ltype,
+						      running_off, this_off));
+	      vect_finish_stmt_generation (stmt, new_stmt, gsi);
+	      if (nloads > 1)
+		CONSTRUCTOR_APPEND_ELT (v, NULL_TREE,
+					gimple_assign_lhs (new_stmt));
 
-		  newref = force_gimple_operand_gsi (gsi, newref, true,
-						     NULL_TREE, true,
-						     GSI_SAME_STMT);
-		  CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, newref);
-		  newoff = copy_ssa_name (running_off);
-		  incr = gimple_build_assign (newoff, POINTER_PLUS_EXPR,
-					      running_off, stride_step);
+	      group_el += lnel;
+	      if (! slp
+		  || group_el == group_size)
+		{
+		  tree newoff = copy_ssa_name (running_off);
+		  gimple *incr = gimple_build_assign (newoff, POINTER_PLUS_EXPR,
+						      running_off, stride_step);
 		  vect_finish_stmt_generation (stmt, incr, gsi);
 
 		  running_off = newoff;
+		  group_el = 0;
 		}
-
-	      vec_inv = build_constructor (vectype, v);
+	    }
+	  if (nloads > 1)
+	    {
+	      tree vec_inv = build_constructor (vectype, v);
 	      new_temp = vect_init_vector (stmt, vec_inv, vectype, gsi);
 	      new_stmt = SSA_NAME_DEF_STMT (new_temp);
-	    }
-	  else
-	    {
-	      new_stmt = gimple_build_assign (make_ssa_name (ltype),
-					      build2 (MEM_REF, ltype,
-						      running_off, alias_off));
-	      vect_finish_stmt_generation (stmt, new_stmt, gsi);
-
-	      tree newoff = copy_ssa_name (running_off);
-	      gimple *incr = gimple_build_assign (newoff, POINTER_PLUS_EXPR,
-					  running_off, stride_step);
-	      vect_finish_stmt_generation (stmt, incr, gsi);
-
-	      running_off = newoff;
 	    }
 
 	  if (slp)
@@ -7741,7 +7756,7 @@ vectorizable_comparison (gimple *stmt, gimple_stmt_iterator *gsi,
   enum vect_def_type dts[2] = {vect_unknown_def_type, vect_unknown_def_type};
   unsigned nunits;
   int ncopies;
-  enum tree_code code;
+  enum tree_code code, bitop1 = NOP_EXPR, bitop2 = NOP_EXPR;
   stmt_vec_info prev_stmt_info = NULL;
   int i, j;
   bb_vec_info bb_vinfo = STMT_VINFO_BB_VINFO (stmt_info);
@@ -7814,11 +7829,74 @@ vectorizable_comparison (gimple *stmt, gimple_stmt_iterator *gsi,
   else if (nunits != TYPE_VECTOR_SUBPARTS (vectype))
     return false;
 
+  /* Can't compare mask and non-mask types.  */
+  if (vectype1 && vectype2
+      && (VECTOR_BOOLEAN_TYPE_P (vectype1) ^ VECTOR_BOOLEAN_TYPE_P (vectype2)))
+    return false;
+
+  /* Boolean values may have another representation in vectors
+     and therefore we prefer bit operations over comparison for
+     them (which also works for scalar masks).  We store opcodes
+     to use in bitop1 and bitop2.  Statement is vectorized as
+       BITOP2 (rhs1 BITOP1 rhs2) or
+       rhs1 BITOP2 (BITOP1 rhs2)
+     depending on bitop1 and bitop2 arity.  */
+  if (VECTOR_BOOLEAN_TYPE_P (vectype))
+    {
+      if (code == GT_EXPR)
+	{
+	  bitop1 = BIT_NOT_EXPR;
+	  bitop2 = BIT_AND_EXPR;
+	}
+      else if (code == GE_EXPR)
+	{
+	  bitop1 = BIT_NOT_EXPR;
+	  bitop2 = BIT_IOR_EXPR;
+	}
+      else if (code == LT_EXPR)
+	{
+	  bitop1 = BIT_NOT_EXPR;
+	  bitop2 = BIT_AND_EXPR;
+	  std::swap (rhs1, rhs2);
+	}
+      else if (code == LE_EXPR)
+	{
+	  bitop1 = BIT_NOT_EXPR;
+	  bitop2 = BIT_IOR_EXPR;
+	  std::swap (rhs1, rhs2);
+	}
+      else
+	{
+	  bitop1 = BIT_XOR_EXPR;
+	  if (code == EQ_EXPR)
+	    bitop2 = BIT_NOT_EXPR;
+	}
+    }
+
   if (!vec_stmt)
     {
       STMT_VINFO_TYPE (stmt_info) = comparison_vec_info_type;
-      vect_model_simple_cost (stmt_info, ncopies, dts, NULL, NULL);
-      return expand_vec_cmp_expr_p (vectype, mask_type);
+      vect_model_simple_cost (stmt_info, ncopies * (1 + (bitop2 != NOP_EXPR)),
+			      dts, NULL, NULL);
+      if (bitop1 == NOP_EXPR)
+	return expand_vec_cmp_expr_p (vectype, mask_type);
+      else
+	{
+	  machine_mode mode = TYPE_MODE (vectype);
+	  optab optab;
+
+	  optab = optab_for_tree_code (bitop1, vectype, optab_default);
+	  if (!optab || optab_handler (optab, mode) == CODE_FOR_nothing)
+	    return false;
+
+	  if (bitop2 != NOP_EXPR)
+	    {
+	      optab = optab_for_tree_code (bitop2, vectype, optab_default);
+	      if (!optab || optab_handler (optab, mode) == CODE_FOR_nothing)
+		return false;
+	    }
+	  return true;
+	}
     }
 
   /* Transform.  */
@@ -7875,8 +7953,31 @@ vectorizable_comparison (gimple *stmt, gimple_stmt_iterator *gsi,
 	  vec_rhs2 = vec_oprnds1[i];
 
 	  new_temp = make_ssa_name (mask);
-	  new_stmt = gimple_build_assign (new_temp, code, vec_rhs1, vec_rhs2);
-	  vect_finish_stmt_generation (stmt, new_stmt, gsi);
+	  if (bitop1 == NOP_EXPR)
+	    {
+	      new_stmt = gimple_build_assign (new_temp, code,
+					      vec_rhs1, vec_rhs2);
+	      vect_finish_stmt_generation (stmt, new_stmt, gsi);
+	    }
+	  else
+	    {
+	      if (bitop1 == BIT_NOT_EXPR)
+		new_stmt = gimple_build_assign (new_temp, bitop1, vec_rhs2);
+	      else
+		new_stmt = gimple_build_assign (new_temp, bitop1, vec_rhs1,
+						vec_rhs2);
+	      vect_finish_stmt_generation (stmt, new_stmt, gsi);
+	      if (bitop2 != NOP_EXPR)
+		{
+		  tree res = make_ssa_name (mask);
+		  if (bitop2 == BIT_NOT_EXPR)
+		    new_stmt = gimple_build_assign (res, bitop2, new_temp);
+		  else
+		    new_stmt = gimple_build_assign (res, bitop2, vec_rhs1,
+						    new_temp);
+		  vect_finish_stmt_generation (stmt, new_stmt, gsi);
+		}
+	    }
 	  if (slp_node)
 	    SLP_TREE_VEC_STMTS (slp_node).quick_push (new_stmt);
 	}

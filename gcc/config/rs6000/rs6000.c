@@ -1328,6 +1328,7 @@ static bool rs6000_secondary_reload_move (enum rs6000_reg_type,
 					  bool);
 rtl_opt_pass *make_pass_analyze_swaps (gcc::context*);
 static bool rs6000_keep_leaf_when_profiled () __attribute__ ((unused));
+static tree rs6000_fold_builtin (tree, int, tree *, bool);
 
 /* Hash table stuff for keeping track of TOC entries.  */
 
@@ -1601,6 +1602,9 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #define TARGET_INIT_BUILTINS rs6000_init_builtins
 #undef TARGET_BUILTIN_DECL
 #define TARGET_BUILTIN_DECL rs6000_builtin_decl
+
+#undef TARGET_FOLD_BUILTIN
+#define TARGET_FOLD_BUILTIN rs6000_fold_builtin
 
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN rs6000_expand_builtin
@@ -1938,7 +1942,8 @@ rs6000_hard_regno_mode_ok (int regno, machine_mode mode)
 	  || FLOAT128_VECTOR_P (mode)
 	  || reg_addr[mode].scalar_in_vmx_p
 	  || (TARGET_VSX_TIMODE && mode == TImode)
-	  || (TARGET_VADDUQM && mode == V1TImode)))
+	  || (TARGET_VADDUQM && mode == V1TImode)
+	  || (TARGET_UPPER_REGS_DI && mode == DImode)))
     {
       if (FP_REGNO_P (regno))
 	return FP_REGNO_P (last_regno);
@@ -3082,7 +3087,6 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
       rs6000_constraints[RS6000_CONSTRAINT_wa] = VSX_REGS;
       rs6000_constraints[RS6000_CONSTRAINT_wd] = VSX_REGS;	/* V2DFmode  */
       rs6000_constraints[RS6000_CONSTRAINT_wf] = VSX_REGS;	/* V4SFmode  */
-      rs6000_constraints[RS6000_CONSTRAINT_wi] = FLOAT_REGS;	/* DImode  */
 
       if (TARGET_VSX_TIMODE)
 	rs6000_constraints[RS6000_CONSTRAINT_wt] = VSX_REGS;	/* TImode  */
@@ -3094,6 +3098,11 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	}
       else
 	rs6000_constraints[RS6000_CONSTRAINT_ws] = FLOAT_REGS;
+
+      if (TARGET_UPPER_REGS_DF)					/* DImode  */
+	rs6000_constraints[RS6000_CONSTRAINT_wi] = VSX_REGS;
+      else
+	rs6000_constraints[RS6000_CONSTRAINT_wi] = FLOAT_REGS;
     }
 
   /* Add conditional constraints based on various options, to allow us to
@@ -3305,6 +3314,9 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 
       if (TARGET_UPPER_REGS_DF)
 	reg_addr[DFmode].scalar_in_vmx_p = true;
+
+      if (TARGET_UPPER_REGS_DI)
+	reg_addr[DImode].scalar_in_vmx_p = true;
 
       if (TARGET_UPPER_REGS_SF)
 	reg_addr[SFmode].scalar_in_vmx_p = true;
@@ -3674,7 +3686,8 @@ rs6000_builtin_mask_calculate (void)
 	  | ((TARGET_HTM)		    ? RS6000_BTM_HTM	   : 0)
 	  | ((TARGET_DFP)		    ? RS6000_BTM_DFP	   : 0)
 	  | ((TARGET_HARD_FLOAT)	    ? RS6000_BTM_HARD_FLOAT : 0)
-	  | ((TARGET_LONG_DOUBLE_128)	    ? RS6000_BTM_LDBL128 : 0));
+	  | ((TARGET_LONG_DOUBLE_128)	    ? RS6000_BTM_LDBL128   : 0)
+	  | ((TARGET_FLOAT128)		    ? RS6000_BTM_FLOAT128  : 0));
 }
 
 /* Implement TARGET_MD_ASM_ADJUST.  All asm statements are considered
@@ -4085,9 +4098,9 @@ rs6000_option_override_internal (bool global_init_p)
       rs6000_isa_flags &= ~OPTION_MASK_DFP;
     }
 
-  /* Allow an explicit -mupper-regs to set both -mupper-regs-df and
-     -mupper-regs-sf, depending on the cpu, unless the user explicitly also set
-     the individual option.  */
+  /* Allow an explicit -mupper-regs to set -mupper-regs-df, -mupper-regs-di,
+     and -mupper-regs-sf, depending on the cpu, unless the user explicitly also
+     set the individual option.  */
   if (TARGET_UPPER_REGS > 0)
     {
       if (TARGET_VSX
@@ -4095,6 +4108,12 @@ rs6000_option_override_internal (bool global_init_p)
 	{
 	  rs6000_isa_flags |= OPTION_MASK_UPPER_REGS_DF;
 	  rs6000_isa_flags_explicit |= OPTION_MASK_UPPER_REGS_DF;
+	}
+      if (TARGET_VSX
+	  && !(rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_DI))
+	{
+	  rs6000_isa_flags |= OPTION_MASK_UPPER_REGS_DI;
+	  rs6000_isa_flags_explicit |= OPTION_MASK_UPPER_REGS_DI;
 	}
       if (TARGET_P8_VECTOR
 	  && !(rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_SF))
@@ -4111,6 +4130,12 @@ rs6000_option_override_internal (bool global_init_p)
 	  rs6000_isa_flags &= ~OPTION_MASK_UPPER_REGS_DF;
 	  rs6000_isa_flags_explicit |= OPTION_MASK_UPPER_REGS_DF;
 	}
+      if (TARGET_VSX
+	  && !(rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_DI))
+	{
+	  rs6000_isa_flags &= ~OPTION_MASK_UPPER_REGS_DI;
+	  rs6000_isa_flags_explicit |= OPTION_MASK_UPPER_REGS_DI;
+	}
       if (TARGET_P8_VECTOR
 	  && !(rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_SF))
 	{
@@ -4123,6 +4148,13 @@ rs6000_option_override_internal (bool global_init_p)
     {
       if (rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_DF)
 	error ("-mupper-regs-df requires -mvsx");
+      rs6000_isa_flags &= ~OPTION_MASK_UPPER_REGS_DF;
+    }
+
+  if (TARGET_UPPER_REGS_DI && !TARGET_VSX)
+    {
+      if (rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_DF)
+	error ("-mupper-regs-di requires -mvsx");
       rs6000_isa_flags &= ~OPTION_MASK_UPPER_REGS_DF;
     }
 
@@ -4239,13 +4271,10 @@ rs6000_option_override_internal (bool global_init_p)
     rs6000_isa_flags |= OPTION_MASK_TOC_FUSION;
 
   /* -mpower9-dform turns on both -mpower9-dform-scalar and
-      -mpower9-dform-vector. There are currently problems if
-      -mpower9-dform-vector instructions are enabled when we use the RELOAD
-      register allocator.  */
+      -mpower9-dform-vector.  */
   if (TARGET_P9_DFORM_BOTH > 0)
     {
-      if (!(rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_VECTOR)
-	  && TARGET_LRA)
+      if (!(rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_VECTOR))
 	rs6000_isa_flags |= OPTION_MASK_P9_DFORM_VECTOR;
 
       if (!(rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_SCALAR))
@@ -4291,11 +4320,10 @@ rs6000_option_override_internal (bool global_init_p)
       rs6000_isa_flags &= ~OPTION_MASK_P9_VECTOR;
     }
 
-  /* There have been bugs with both -mvsx-timode and -mpower9-dform-vector that
-     don't show up with -mlra, but do show up with -mno-lra.  Given -mlra will
-     become the default once PR 69847 is fixed, turn off the options with
-     problems by default if -mno-lra was used, and warn if the user explicitly
-     asked for the option.
+  /* There have been bugs with -mvsx-timode that don't show up with -mlra,
+     but do show up with -mno-lra.  Given -mlra will become the default once
+     PR 69847 is fixed, turn off the options with problems by default if
+     -mno-lra was used, and warn if the user explicitly asked for the option.
 
      Enable -mpower9-dform-vector by default if LRA and other power9 options.
      Enable -mvsx-timode by default if LRA and VSX.  */
@@ -4309,15 +4337,6 @@ rs6000_option_override_internal (bool global_init_p)
 	  else
 	    rs6000_isa_flags &= ~OPTION_MASK_VSX_TIMODE;
 	}
-
-      if (TARGET_P9_DFORM_VECTOR)
-	{
-	  if ((rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_VECTOR) != 0)
-	    warning (0, "-mpower9-dform-vector might need -mlra");
-
-	  else
-	    rs6000_isa_flags &= ~OPTION_MASK_P9_DFORM_VECTOR;
-	}
     }
 
   else
@@ -4325,11 +4344,6 @@ rs6000_option_override_internal (bool global_init_p)
       if (TARGET_VSX && !TARGET_VSX_TIMODE
 	  && (rs6000_isa_flags_explicit & OPTION_MASK_VSX_TIMODE) == 0)
 	rs6000_isa_flags |= OPTION_MASK_VSX_TIMODE;
-
-      if (TARGET_VSX && TARGET_P9_VECTOR && !TARGET_P9_DFORM_VECTOR
-	  && TARGET_P9_DFORM_SCALAR && TARGET_P9_DFORM_BOTH < 0
-	  && (rs6000_isa_flags_explicit & OPTION_MASK_P9_DFORM_VECTOR) == 0)
-	rs6000_isa_flags |= OPTION_MASK_P9_DFORM_VECTOR;
     }
 
   /* Set -mallow-movmisalign to explicitly on if we have full ISA 2.07
@@ -4386,6 +4400,7 @@ rs6000_option_override_internal (bool global_init_p)
   if (TARGET_FLOAT128_HW
       && (rs6000_isa_flags & (OPTION_MASK_P9_VECTOR
 			      | OPTION_MASK_DIRECT_MOVE
+			      | OPTION_MASK_UPPER_REGS_DI
 			      | OPTION_MASK_UPPER_REGS_DF
 			      | OPTION_MASK_UPPER_REGS_SF)) == 0)
     {
@@ -6254,14 +6269,7 @@ gen_easy_altivec_constant (rtx op)
    Return the number of instructions needed (1 or 2) into the address pointed
    via NUM_INSNS_PTR.
 
-   If NOSPLIT_P, only return true for constants that only generate the XXSPLTIB
-   instruction and can go in any VSX register.  If !NOSPLIT_P, only return true
-   for constants that generate XXSPLTIB and need a sign extend operation, which
-   restricts us to the Altivec registers.
-
-   Allow either (vec_const [...]) or (vec_duplicate <const>).  If OP is a valid
-   XXSPLTIB constant, return the constant being set via the CONST_PTR
-   pointer.  */
+   Return the constant that is being split via CONSTANT_PTR.  */
 
 bool
 xxspltib_constant_p (rtx op,
@@ -6284,7 +6292,7 @@ xxspltib_constant_p (rtx op,
   if (mode == VOIDmode)
     mode = GET_MODE (op);
 
-  else if (mode != GET_MODE (op))
+  else if (mode != GET_MODE (op) && GET_MODE (op) != VOIDmode)
     return false;
 
   /* Handle (vec_duplicate <constant>).  */
@@ -6327,18 +6335,11 @@ xxspltib_constant_p (rtx op,
 	  if (value != INTVAL (element))
 	    return false;
 	}
-
-      /* See if we could generate vspltisw/vspltish directly instead of
-	 xxspltib + sign extend.  Special case 0/-1 to allow getting
-         any VSX register instead of an Altivec register.  */
-      if (!IN_RANGE (value, -1, 0) && EASY_VECTOR_15 (value)
-	  && (mode == V4SImode || mode == V8HImode))
-	return false;
     }
 
   /* Handle integer constants being loaded into the upper part of the VSX
-     register as a scalar.  If the value isn't 0/-1, only allow it if
-     the mode can go in Altivec registers.  */
+     register as a scalar.  If the value isn't 0/-1, only allow it if the mode
+     can go in Altivec registers.  Prefer VSPLTISW/VUPKHSW over XXSPLITIB.  */
   else if (CONST_INT_P (op))
     {
       if (!SCALAR_INT_MODE_P (mode))
@@ -6348,12 +6349,24 @@ xxspltib_constant_p (rtx op,
       if (!IN_RANGE (value, -128, 127))
 	return false;
 
-      if (!IN_RANGE (value, -1, 0)
-	  && (reg_addr[mode].addr_mask[RELOAD_REG_VMX] & RELOAD_REG_VALID) == 0)
-	return false;
+      if (!IN_RANGE (value, -1, 0))
+	{
+	  if (!(reg_addr[mode].addr_mask[RELOAD_REG_VMX] & RELOAD_REG_VALID))
+	    return false;
+
+	  if (EASY_VECTOR_15 (value))
+	    return false;
+	}
     }
 
   else
+    return false;
+
+  /* See if we could generate vspltisw/vspltish directly instead of xxspltib +
+     sign extend.  Special case 0/-1 to allow getting any VSX register instead
+     of an Altivec register.  */
+  if ((mode == V4SImode || mode == V8HImode) && !IN_RANGE (value, -1, 0)
+      && EASY_VECTOR_15 (value))
     return false;
 
   /* Return # of instructions and the constant byte for XXSPLTIB.  */
@@ -7217,34 +7230,24 @@ quad_address_offset_p (HOST_WIDE_INT offset)
    3.0 LXV/STXV instruction.  */
 
 bool
-quad_address_p (rtx addr, machine_mode mode, bool gpr_p)
+quad_address_p (rtx addr, machine_mode mode, bool strict)
 {
   rtx op0, op1;
 
   if (GET_MODE_SIZE (mode) != 16)
     return false;
 
-  if (gpr_p)
-    {
-      if (!TARGET_QUAD_MEMORY && !TARGET_SYNC_TI)
-	return false;
+  if (legitimate_indirect_address_p (addr, strict))
+    return true;
 
-      /* LQ/STQ can handle indirect addresses.  */
-      if (base_reg_operand (addr, Pmode))
-	return true;
-    }
-
-  else
-    {
-      if (!mode_supports_vsx_dform_quad (mode))
-	return false;
-    }
+  if (VECTOR_MODE_P (mode) && !mode_supports_vsx_dform_quad (mode))
+    return false;
 
   if (GET_CODE (addr) != PLUS)
     return false;
 
   op0 = XEXP (addr, 0);
-  if (!base_reg_operand (op0, Pmode))
+  if (!REG_P (op0) || !INT_REG_OK_FOR_BASE_P (op0, strict))
     return false;
 
   op1 = XEXP (addr, 1);
@@ -7613,8 +7616,7 @@ rs6000_legitimate_offset_address_p (machine_mode mode, rtx x,
   if (!INT_REG_OK_FOR_BASE_P (XEXP (x, 0), strict))
     return false;
   if (mode_supports_vsx_dform_quad (mode))
-    return (virtual_stack_registers_memory_p (x)
-	    || quad_address_p (x, mode, false));
+    return quad_address_p (x, mode, strict);
   if (!reg_offset_addressing_ok_p (mode))
     return virtual_stack_registers_memory_p (x);
   if (legitimate_constant_pool_address_p (x, mode, strict || lra_in_progress))
@@ -8517,6 +8519,7 @@ rs6000_legitimize_reload_address (rtx x, machine_mode mode,
 				  int ind_levels ATTRIBUTE_UNUSED, int *win)
 {
   bool reg_offset_p = reg_offset_addressing_ok_p (mode);
+  bool quad_offset_p = mode_supports_vsx_dform_quad (mode);
 
   /* Nasty hack for vsx_splat_v2df/v2di load from mem, which takes a
      DFmode/DImode MEM.  Ditto for ISA 3.0 vsx_splat_v4sf/v4si.  */
@@ -8586,6 +8589,7 @@ rs6000_legitimize_reload_address (rtx x, machine_mode mode,
 
   if (TARGET_CMODEL != CMODEL_SMALL
       && reg_offset_p
+      && !quad_offset_p
       && small_toc_ref (x, VOIDmode))
     {
       rtx hi = gen_rtx_HIGH (Pmode, copy_rtx (x));
@@ -8603,22 +8607,24 @@ rs6000_legitimize_reload_address (rtx x, machine_mode mode,
     }
 
   if (GET_CODE (x) == PLUS
-      && GET_CODE (XEXP (x, 0)) == REG
+      && REG_P (XEXP (x, 0))
       && REGNO (XEXP (x, 0)) < FIRST_PSEUDO_REGISTER
       && INT_REG_OK_FOR_BASE_P (XEXP (x, 0), 1)
-      && GET_CODE (XEXP (x, 1)) == CONST_INT
+      && CONST_INT_P (XEXP (x, 1))
       && reg_offset_p
       && !SPE_VECTOR_MODE (mode)
       && !(TARGET_E500_DOUBLE && GET_MODE_SIZE (mode) > UNITS_PER_WORD)
-      && (!VECTOR_MODE_P (mode) || VECTOR_MEM_NONE_P (mode)))
+      && (quad_offset_p || !VECTOR_MODE_P (mode) || VECTOR_MEM_NONE_P (mode)))
     {
       HOST_WIDE_INT val = INTVAL (XEXP (x, 1));
       HOST_WIDE_INT low = ((val & 0xffff) ^ 0x8000) - 0x8000;
       HOST_WIDE_INT high
 	= (((val - low) & 0xffffffff) ^ 0x80000000) - 0x80000000;
 
-      /* Check for 32-bit overflow.  */
-      if (high + low != val)
+      /* Check for 32-bit overflow or quad addresses with one of the
+	 four least significant bits set.  */
+      if (high + low != val
+	  || (quad_offset_p && (low & 0xf)))
 	{
 	  *win = 0;
 	  return x;
@@ -8646,6 +8652,7 @@ rs6000_legitimize_reload_address (rtx x, machine_mode mode,
 
   if (GET_CODE (x) == SYMBOL_REF
       && reg_offset_p
+      && !quad_offset_p
       && (!VECTOR_MODE_P (mode) || VECTOR_MEM_NONE_P (mode))
       && !SPE_VECTOR_MODE (mode)
 #if TARGET_MACHO
@@ -8730,6 +8737,7 @@ rs6000_legitimize_reload_address (rtx x, machine_mode mode,
 
   if (TARGET_TOC
       && reg_offset_p
+      && !quad_offset_p
       && GET_CODE (x) == SYMBOL_REF
       && use_toc_relative_ref (x, mode))
     {
@@ -8818,15 +8826,14 @@ rs6000_legitimate_address_p (machine_mode mode, rtx x, bool reg_ok_strict)
       && mode_supports_pre_incdec_p (mode)
       && legitimate_indirect_address_p (XEXP (x, 0), reg_ok_strict))
     return 1;
-  if (virtual_stack_registers_memory_p (x))
-    return 1;
-
   /* Handle restricted vector d-form offsets in ISA 3.0.  */
   if (quad_offset_p)
     {
-      if (quad_address_p (x, mode, false))
+      if (quad_address_p (x, mode, reg_ok_strict))
 	return 1;
     }
+  else if (virtual_stack_registers_memory_p (x))
+    return 1;
 
   else if (reg_offset_p)
     {
@@ -15477,9 +15484,55 @@ rs6000_invalid_builtin (enum rs6000_builtins fncode)
 	   " -mlong-double-128 options", name);
   else if ((fnmask & RS6000_BTM_HARD_FLOAT) != 0)
     error ("Builtin function %s requires the -mhard-float option", name);
+  else if ((fnmask & RS6000_BTM_FLOAT128) != 0)
+    error ("Builtin function %s requires the -mfloat128 option", name);
   else
     error ("Builtin function %s is not supported with the current options",
 	   name);
+}
+
+/* Target hook for early folding of built-ins, shamelessly stolen
+   from ia64.c.  */
+
+static tree
+rs6000_fold_builtin (tree fndecl, int n_args ATTRIBUTE_UNUSED,
+		     tree *args, bool ignore ATTRIBUTE_UNUSED)
+{
+  if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
+    {
+      enum rs6000_builtins fn_code
+	= (enum rs6000_builtins) DECL_FUNCTION_CODE (fndecl);
+      switch (fn_code)
+	{
+	case RS6000_BUILTIN_NANQ:
+	case RS6000_BUILTIN_NANSQ:
+	  {
+	    tree type = TREE_TYPE (TREE_TYPE (fndecl));
+	    const char *str = c_getstr (*args);
+	    int quiet = fn_code == RS6000_BUILTIN_NANQ;
+	    REAL_VALUE_TYPE real;
+
+	    if (str && real_nan (&real, str, quiet, TYPE_MODE (type)))
+	      return build_real (type, real);
+	    return NULL_TREE;
+	  }
+	case RS6000_BUILTIN_INFQ:
+	case RS6000_BUILTIN_HUGE_VALQ:
+	  {
+	    tree type = TREE_TYPE (TREE_TYPE (fndecl));
+	    REAL_VALUE_TYPE inf;
+	    real_inf (&inf);
+	    return build_real (type, inf);
+	  }
+	default:
+	  break;
+	}
+    }
+#ifdef SUBTARGET_FOLD_BUILTIN
+  return SUBTARGET_FOLD_BUILTIN (fndecl, n_args, args, ignore);
+#else
+  return NULL_TREE;
+#endif
 }
 
 /* Expand an expression EXP that calls a built-in function,
@@ -15736,6 +15789,10 @@ rs6000_init_builtins (void)
   opaque_p_V2SI_type_node = build_pointer_type (opaque_V2SI_type_node);
   opaque_V4SI_type_node = build_opaque_vector_type (intSI_type_node, 4);
 
+  const_str_type_node
+    = build_pointer_type (build_qualified_type (char_type_node,
+						TYPE_QUAL_CONST));
+
   /* We use V1TI mode as a special container to hold __int128_t items that
      must live in VSX registers.  */
   if (intTI_type_node)
@@ -15797,6 +15854,12 @@ rs6000_init_builtins (void)
 
       lang_hooks.types.register_builtin_type (ibm128_float_type_node,
 					      "__ibm128");
+    }
+  else
+    {
+      /* All types must be nonzero, or self-test barfs during bootstrap.  */
+      ieee128_float_type_node = long_double_type_node;
+      ibm128_float_type_node = long_double_type_node;
     }
 
   /* Initialize the modes for builtin_function_type, mapping a machine mode to
@@ -15938,6 +16001,15 @@ rs6000_init_builtins (void)
 
   if (TARGET_EXTRA_BUILTINS || TARGET_SPE || TARGET_PAIRED_FLOAT)
     rs6000_common_init_builtins ();
+
+  ftype = build_function_type_list (ieee128_float_type_node,
+				    const_str_type_node, NULL_TREE);
+  def_builtin ("__builtin_nanq", ftype, RS6000_BUILTIN_NANQ);
+  def_builtin ("__builtin_nansq", ftype, RS6000_BUILTIN_NANSQ);
+
+  ftype = build_function_type_list (ieee128_float_type_node, NULL_TREE);
+  def_builtin ("__builtin_infq", ftype, RS6000_BUILTIN_INFQ);
+  def_builtin ("__builtin_huge_valq", ftype, RS6000_BUILTIN_HUGE_VALQ);
 
   ftype = builtin_function_type (DFmode, DFmode, DFmode, VOIDmode,
 				 RS6000_BUILTIN_RECIP, "__builtin_recipdiv");
@@ -16573,6 +16645,8 @@ altivec_init_builtins (void)
 		ALTIVEC_BUILTIN_VEC_ADDEC);
   def_builtin ("__builtin_vec_cmpne", opaque_ftype_opaque_opaque,
 		ALTIVEC_BUILTIN_VEC_CMPNE);
+  def_builtin ("__builtin_vec_mul", opaque_ftype_opaque_opaque,
+		ALTIVEC_BUILTIN_VEC_MUL);
 
   /* Cell builtins.  */
   def_builtin ("__builtin_altivec_lvlx",  v16qi_ftype_long_pcvoid, ALTIVEC_BUILTIN_LVLX);
@@ -20365,7 +20439,7 @@ rs6000_output_move_128bit (rtx operands[])
       else if (TARGET_VSX && dest_vsx_p)
 	{
 	  if (mode_supports_vsx_dform_quad (mode)
-	      && quad_address_p (XEXP (src, 0), mode, false))
+	      && quad_address_p (XEXP (src, 0), mode, true))
 	    return "lxv %x0,%1";
 
 	  else if (TARGET_P9_VECTOR)
@@ -20403,7 +20477,7 @@ rs6000_output_move_128bit (rtx operands[])
       else if (TARGET_VSX && src_vsx_p)
 	{
 	  if (mode_supports_vsx_dform_quad (mode)
-	      && quad_address_p (XEXP (dest, 0), mode, false))
+	      && quad_address_p (XEXP (dest, 0), mode, true))
 	    return "stxv %x1,%0";
 
 	  else if (TARGET_P9_VECTOR)
@@ -30097,7 +30171,9 @@ rs6000_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
           switch (attr_type)
             {
             case TYPE_FP:
-              if (get_attr_type (dep_insn) == TYPE_FP)
+            case TYPE_FPSIMPLE:
+              if (get_attr_type (dep_insn) == TYPE_FP
+		  || get_attr_type (dep_insn) == TYPE_FPSIMPLE)
                 return 1;
               break;
             case TYPE_FPLOAD:
@@ -35483,6 +35559,7 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "string",			OPTION_MASK_STRING,		false, true  },
   { "toc-fusion",		OPTION_MASK_TOC_FUSION,		false, true  },
   { "update",			OPTION_MASK_NO_UPDATE,		true , true  },
+  { "upper-regs-di",		OPTION_MASK_UPPER_REGS_DI,	false, true  },
   { "upper-regs-df",		OPTION_MASK_UPPER_REGS_DF,	false, true  },
   { "upper-regs-sf",		OPTION_MASK_UPPER_REGS_SF,	false, true  },
   { "vsx",			OPTION_MASK_VSX,		false, true  },
@@ -35533,6 +35610,7 @@ static struct rs6000_opt_mask const rs6000_builtin_mask_names[] =
   { "hard-dfp",		 RS6000_BTM_DFP,	false, false },
   { "hard-float",	 RS6000_BTM_HARD_FLOAT,	false, false },
   { "long-double-128",	 RS6000_BTM_LDBL128,	false, false },
+  { "float128",		 RS6000_BTM_FLOAT128,   false, false },
 };
 
 /* Option variables that we want to support inside attribute((target)) and

@@ -1185,6 +1185,10 @@ Enum(diagnostic_color_rule) String(always) Value(DIAGNOSTICS_COLOR_YES)
 EnumValue
 Enum(diagnostic_color_rule) String(auto) Value(DIAGNOSTICS_COLOR_AUTO)
 
+fdiagnostics-parseable-fixits
+Common Var(flag_diagnostics_parseable_fixits)
+Print fixit hints in machine-readable form.
+
 fdiagnostics-show-option
 Common Var(flag_diagnostics_show_option) Init(1)
 Amend appropriate diagnostic messages with the command line option that controls them.
@@ -1287,7 +1291,7 @@ EnumValue
 Enum(excess_precision) String(standard) Value(EXCESS_PRECISION_STANDARD)
 
 ffast-math
-Common
+Common Optimization
 
 ffat-lto-objects
 Common Var(flag_fat_lto_objects)
@@ -2065,6 +2069,10 @@ Schedule instructions using selective scheduling algorithm.
 fselective-scheduling2
 Common Report Var(flag_selective_scheduling2) Optimization
 Run selective scheduling after reload.
+
+fself-test
+Common Undocumented Var(flag_self_test)
+Run self-tests.
 
 fsel-sched-pipelining
 Common Report Var(flag_sel_sched_pipelining) Init(0) Optimization

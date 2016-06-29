@@ -1,3 +1,117 @@
+2016-06-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* Make-lang.in: Don't cat ../stage_current if it does not exist.
+
+2016-06-23  Andi Kleen  <ak@linux.intel.com>
+
+	* Make-lang.in: Add support for autofdo.
+
+2016-06-22  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/70339
+	* c-decl.c: Include spellcheck-tree.h and gcc-rich-location.h.
+	(implicit_decl_warning): When issuing warnings for implicit
+	declarations, attempt to provide a suggestion via
+	lookup_name_fuzzy.
+	(undeclared_variable): Likewise when issuing errors.
+	(lookup_name_in_scope): Likewise.
+	(struct edit_distance_traits<cpp_hashnode *>): New struct.
+	(best_macro_match): New typedef.
+	(find_closest_macro_cpp_cb): New function.
+	(lookup_name_fuzzy): New function.
+	* c-parser.c: Include gcc-rich-location.h.
+	(c_token_starts_typename): Split out case CPP_KEYWORD into...
+	(c_keyword_starts_typename): ...this new function.
+	(c_parser_declaration_or_fndef): When issuing errors about
+	missing "struct" etc, add a fixit.  For other kinds of errors,
+	attempt to provide a suggestion via lookup_name_fuzzy.
+	(c_parser_parms_declarator): When looking ahead to detect typos in
+	type names, also reject CPP_KEYWORD.
+	(c_parser_parameter_declaration): When issuing errors about
+	unknown type names, attempt to provide a suggestion via
+	lookup_name_fuzzy.
+	* c-tree.h (c_keyword_starts_typename): New prototype.
+
+2016-06-20  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/71601
+	* c-typeck.c (build_conditional_expr): Return error_mark_node if
+	c_common_type returns error_mark_node.
+
+2016-06-19 Martin Sebor  <msebor@redhat.com>
+
+	PR c/69507
+	* c-parser.c (c_parser_alignof_expression): Avoid diagnosing
+	__alignof__ (expression).
+
+2016-06-14  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-typeck.c: Include spellcheck-tree.h rather than spellcheck.h.
+
+2016-06-14  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-typeck.c (build_component_ref): Simplify fixit code by
+	using gcc_rich_location::add_fixit_misspelled_id.
+	(set_init_label): Likewise.
+
+2016-06-13  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-parser.c (c_parser_initelt): Provide location of name for new
+	location_t param of set_init_label.
+	* c-tree.h (set_init_label): Add location_t param.
+	* c-typeck.c (set_init_index): Add "fieldname_loc" location_t
+	param and use it when issuing error messages about unrecognized
+	field names.  Attempt to provide a fixit hint if appropriate,
+	otherwise update the error message to provide the type name.
+
+2016-06-10  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR c/71381
+	* c-parser.c (c_parser_omp_variable_list) <OMP_CLAUSE__CACHE_>:
+	Loosen checking.
+
+2016-06-08  Martin Sebor  <msebor@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/70507
+	PR c/68120
+	* c-typeck.c (convert_arguments): Don't promote last argument
+	of BUILT_IN_{ADD,SUB,MUL}_OVERFLOW_P.
+
+2016-06-08  Marek Polacek  <polacek@redhat.com>
+
+	PR c/71418
+	* c-decl.c (grokdeclarator): Check TYPE_P.
+
+	PR c/71426
+	* c-decl.c (get_parm_info): Don't crash on an assert on invalid
+	code.
+
+2016-06-07  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-parser.c (c_parser_postfix_expression): In __builtin_offsetof
+	and structure element reference, capture the location of the
+	element name token and pass it to build_component_ref.
+	(c_parser_postfix_expression_after_primary): Likewise for
+	structure element dereference.
+	(c_parser_omp_variable_list): Likewise for
+	OMP_CLAUSE_{_CACHE, MAP, FROM, TO},
+	* c-tree.h (build_component_ref): Add location_t param.
+	* c-typeck.c (build_component_ref): Add location_t param
+	COMPONENT_LOC.  Use it, if available, when issuing hints about
+	mispelled member names to provide a fixit replacement hint.
+
+2016-06-06  Marek Polacek  <polacek@redhat.com>
+
+	PR c/71362
+	* c-parser.c (c_parser_direct_declarator): Set location.
+
+2016-06-06  Marek Polacek  <polacek@redhat.com>
+
+	* c-typeck.c (comptypes_internal): Handle comparisons of
+	INTEGER_TYPE, FIXED_POINT_TYPE, and REAL_TYPE nodes.  Don't check
+	TYPE_REF_CAN_ALIAS_ALL.
+
 2016-06-03  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* c-typeck.c (c_finish_omp_clauses): Mark OpenACC reduction

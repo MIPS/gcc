@@ -1265,11 +1265,13 @@ OBJS = \
 	fold-const.o \
 	fold-const-call.o \
 	function.o \
+	function-tests.o \
 	fwprop.o \
 	gcc-rich-location.o \
 	gcse.o \
 	gcse-common.o \
 	ggc-common.o \
+	ggc-tests.o \
 	gimple.o \
 	gimple-builder.o \
 	gimple-expr.o \
@@ -1300,6 +1302,8 @@ OBJS = \
 	graphite-sese-to-poly.o \
 	gtype-desc.o \
 	haifa-sched.o \
+	hash-map-tests.o \
+	hash-set-tests.o \
 	hsa.o \
 	hsa-gen.o \
 	hsa-regalloc.o \
@@ -1400,6 +1404,7 @@ OBJS = \
 	resource.o \
 	rtl-chkp.o \
 	rtl-error.o \
+	rtl-tests.o \
 	rtl.o \
 	rtlhash.o \
 	rtlanal.o \
@@ -1412,6 +1417,7 @@ OBJS = \
 	sel-sched-ir.o \
 	sel-sched-dump.o \
 	sel-sched.o \
+	selftest-run-tests.o \
 	sese.o \
 	shrink-wrap.o \
 	simplify-rtx.o \
@@ -1544,13 +1550,14 @@ OBJS = \
 # no target dependencies.
 OBJS-libcommon = diagnostic.o diagnostic-color.o diagnostic-show-locus.o \
 	pretty-print.o intl.o \
-	vec.o input.o version.o hash-table.o ggc-none.o memory-block.o
+	vec.o input.o version.o hash-table.o ggc-none.o memory-block.o \
+	selftest.o
 
 # Objects in libcommon-target.a, used by drivers and by the core
 # compiler and containing target-dependent code.
 OBJS-libcommon-target = $(common_out_object_file) prefix.o params.o \
 	opts.o opts-common.o options.o vec.o hooks.o common/common-targhooks.o \
-	hash-table.o file-find.o spellcheck.o
+	hash-table.o file-find.o spellcheck.o selftest.o
 
 # This lists all host objects for the front ends.
 ALL_HOST_FRONTEND_OBJS = $(foreach v,$(CONFIG_LANGUAGES),$($(v)_OBJS))
@@ -1560,6 +1567,14 @@ ALL_HOST_BACKEND_OBJS = $(GCC_OBJS) $(OBJS) $(OBJS-libcommon) \
   $(COLLECT2_OBJS) $(EXTRA_GCC_OBJS) $(GCOV_OBJS) $(GCOV_DUMP_OBJS) \
   $(GCOV_TOOL_OBJS) $(GENGTYPE_OBJS) gcc-ar.o gcc-nm.o gcc-ranlib.o \
   lto-wrapper.o collect-utils.o
+
+# for anything that is shared use the cc1plus profile data, as that
+# is likely the most exercised during the build
+ifeq ($(if $(wildcard ../stage_current),$(shell cat \
+  ../stage_current)),stageautofeedback)
+$(ALL_HOST_BACKEND_OBJS): ALL_COMPILERFLAGS += -fauto-profile=cc1plus.fda
+$(ALL_HOST_BACKEND_OBJS): cc1plus.fda
+endif
 
 # This lists all host object files, whether they are included in this
 # compilation or not.
@@ -1590,7 +1605,7 @@ MOSTLYCLEANFILES = insn-flags.h insn-config.h insn-codes.h \
  gcov-iov$(build_exeext) gcov$(exeext) gcov-dump$(exeext) \
  gcov-tool$(exeect) \
  gengtype$(exeext) *.[0-9][0-9].* *.[si] *-checksum.c libbackend.a \
- libcommon-target.a libcommon.a libgcc.mk
+ libcommon-target.a libcommon.a libgcc.mk perf.data
 
 # This symlink makes the full installation name of the driver be available
 # from within the *build* directory, for use when running the JIT library
@@ -1817,10 +1832,10 @@ config.status: $(srcdir)/configure $(srcdir)/config.gcc
 quickstrap: all
 	cd $(toplevel_builddir) && $(MAKE) all-target-libgcc
 
-all.internal: start.encap rest.encap doc
+all.internal: start.encap rest.encap doc selftest
 # This is what to compile if making a cross-compiler.
 all.cross: native gcc-cross$(exeext) cpp$(exeext) specs \
-	libgcc-support lang.all.cross doc @GENINSRC@ srcextra
+	libgcc-support lang.all.cross doc selftest @GENINSRC@ srcextra
 # This is what must be made before installing GCC and converting libraries.
 start.encap: native xgcc$(exeext) cpp$(exeext) specs \
 	libgcc-support lang.start.encap @GENINSRC@ srcextra
@@ -1839,6 +1854,21 @@ endif
 # On the target machine, finish building a cross compiler.
 # This does the things that can't be done on the host machine.
 rest.cross: specs
+
+# Run the selftests during the build once we have a driver and a cc1,
+# so that self-test failures are caught as early as possible.
+# Use "s-selftest" to ensure that we only run the selftests if the
+# driver or cc1 change.
+.PHONY: selftest
+selftest: s-selftest
+s-selftest: $(GCC_PASSES) cc1$(exeext) stmp-int-hdrs
+	$(GCC_FOR_TARGET) -xc -S -c /dev/null -fself-test
+	$(STAMP) $@
+
+# Convenience method for running selftests under gdb:
+.PHONY: selftest-gdb
+selftest-gdb: $(GCC_PASSES) cc1$(exeext) stmp-int-hdrs
+	$(GCC_FOR_TARGET) -xc -S -c /dev/null -fself-test -wrapper gdb,--args
 
 # Recompile all the language-independent object files.
 # This is used only if the user explicitly asks for it.
@@ -1987,7 +2017,7 @@ gcc-nm.c: gcc-ar.c
 	cp $^ $@
 
 COLLECT2_OBJS = collect2.o collect2-aix.o tlink.o vec.o ggc-none.o \
-  collect-utils.o file-find.o hash-table.o
+  collect-utils.o file-find.o hash-table.o selftest.o
 COLLECT2_LIBS = @COLLECT2_LIBS@
 collect2$(exeext): $(COLLECT2_OBJS) $(LIBDEPS)
 # Don't try modifying collect2 (aka ld) in place--it might be linking this.
@@ -2378,6 +2408,7 @@ GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/emit-rtl.c $(srcdir)/except.h $(srcdir)/explow.c $(srcdir)/expr.c \
   $(srcdir)/expr.h \
   $(srcdir)/function.c $(srcdir)/except.c \
+  $(srcdir)/ggc-tests.c \
   $(srcdir)/gcse.c $(srcdir)/godump.c \
   $(srcdir)/lists.c $(srcdir)/optabs-libfuncs.c \
   $(srcdir)/profile.c $(srcdir)/mcf.c \

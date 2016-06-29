@@ -64,6 +64,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl-chkp.h"
 #include "internal-fn.h"
 #include "case-cfn-macros.h"
+#include "gimple-fold.h"
 
 
 struct target_builtins default_target_builtins;
@@ -5157,6 +5158,123 @@ expand_builtin_atomic_compare_exchange (machine_mode mode, tree exp,
   return target;
 }
 
+/* Helper function for expand_ifn_atomic_compare_exchange - expand
+   internal ATOMIC_COMPARE_EXCHANGE call into __atomic_compare_exchange_N
+   call.  The weak parameter must be dropped to match the expected parameter
+   list and the expected argument changed from value to pointer to memory
+   slot.  */
+
+static void
+expand_ifn_atomic_compare_exchange_into_call (gcall *call, machine_mode mode)
+{
+  unsigned int z;
+  vec<tree, va_gc> *vec;
+
+  vec_alloc (vec, 5);
+  vec->quick_push (gimple_call_arg (call, 0));
+  tree expected = gimple_call_arg (call, 1);
+  rtx x = assign_stack_temp_for_type (mode, GET_MODE_SIZE (mode),
+				      TREE_TYPE (expected));
+  rtx expd = expand_expr (expected, x, mode, EXPAND_NORMAL);
+  if (expd != x)
+    emit_move_insn (x, expd);
+  tree v = make_tree (TREE_TYPE (expected), x);
+  vec->quick_push (build1 (ADDR_EXPR,
+			   build_pointer_type (TREE_TYPE (expected)), v));
+  vec->quick_push (gimple_call_arg (call, 2));
+  /* Skip the boolean weak parameter.  */
+  for (z = 4; z < 6; z++)
+    vec->quick_push (gimple_call_arg (call, z));
+  built_in_function fncode
+    = (built_in_function) ((int) BUILT_IN_ATOMIC_COMPARE_EXCHANGE_1
+			   + exact_log2 (GET_MODE_SIZE (mode)));
+  tree fndecl = builtin_decl_explicit (fncode);
+  tree fn = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (fndecl)),
+		    fndecl);
+  tree exp = build_call_vec (boolean_type_node, fn, vec);
+  tree lhs = gimple_call_lhs (call);
+  rtx boolret = expand_call (exp, NULL_RTX, lhs == NULL_TREE);
+  if (lhs)
+    {
+      rtx target = expand_expr (lhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
+      if (GET_MODE (boolret) != mode)
+	boolret = convert_modes (mode, GET_MODE (boolret), boolret, 1);
+      x = force_reg (mode, x);
+      write_complex_part (target, boolret, true);
+      write_complex_part (target, x, false);
+    }
+}
+
+/* Expand IFN_ATOMIC_COMPARE_EXCHANGE internal function.  */
+
+void
+expand_ifn_atomic_compare_exchange (gcall *call)
+{
+  int size = tree_to_shwi (gimple_call_arg (call, 3)) & 255;
+  gcc_assert (size == 1 || size == 2 || size == 4 || size == 8 || size == 16);
+  machine_mode mode = mode_for_size (BITS_PER_UNIT * size, MODE_INT, 0);
+  rtx expect, desired, mem, oldval, boolret;
+  enum memmodel success, failure;
+  tree lhs;
+  bool is_weak;
+  source_location loc
+    = expansion_point_location_if_in_system_header (gimple_location (call));
+
+  success = get_memmodel (gimple_call_arg (call, 4));
+  failure = get_memmodel (gimple_call_arg (call, 5));
+
+  if (failure > success)
+    {
+      warning_at (loc, OPT_Winvalid_memory_model,
+		  "failure memory model cannot be stronger than success "
+		  "memory model for %<__atomic_compare_exchange%>");
+      success = MEMMODEL_SEQ_CST;
+    }
+
+  if (is_mm_release (failure) || is_mm_acq_rel (failure))
+    {
+      warning_at (loc, OPT_Winvalid_memory_model,
+		  "invalid failure memory model for "
+		  "%<__atomic_compare_exchange%>");
+      failure = MEMMODEL_SEQ_CST;
+      success = MEMMODEL_SEQ_CST;
+    }
+
+  if (!flag_inline_atomics)
+    {
+      expand_ifn_atomic_compare_exchange_into_call (call, mode);
+      return;
+    }
+
+  /* Expand the operands.  */
+  mem = get_builtin_sync_mem (gimple_call_arg (call, 0), mode);
+
+  expect = expand_expr_force_mode (gimple_call_arg (call, 1), mode);
+  desired = expand_expr_force_mode (gimple_call_arg (call, 2), mode);
+
+  is_weak = (tree_to_shwi (gimple_call_arg (call, 3)) & 256) != 0;
+
+  boolret = NULL;
+  oldval = NULL;
+
+  if (!expand_atomic_compare_and_swap (&boolret, &oldval, mem, expect, desired,
+				       is_weak, success, failure))
+    {
+      expand_ifn_atomic_compare_exchange_into_call (call, mode);
+      return;
+    }
+
+  lhs = gimple_call_lhs (call);
+  if (lhs)
+    {
+      rtx target = expand_expr (lhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
+      if (GET_MODE (boolret) != mode)
+	boolret = convert_modes (mode, GET_MODE (boolret), boolret, 1);
+      write_complex_part (target, boolret, true);
+      write_complex_part (target, oldval, false);
+    }
+}
+
 /* Expand the __atomic_load intrinsic:
    	TYPE __atomic_load (TYPE *object, enum memmodel)
    EXP is the CALL_EXPR.
@@ -7943,18 +8061,28 @@ fold_builtin_unordered_cmp (location_t loc, tree fndecl, tree arg0, tree arg1,
 /* Fold __builtin_{,s,u}{add,sub,mul}{,l,ll}_overflow, either into normal
    arithmetics if it can never overflow, or into internal functions that
    return both result of arithmetics and overflowed boolean flag in
-   a complex integer result, or some other check for overflow.  */
+   a complex integer result, or some other check for overflow.
+   Similarly fold __builtin_{add,sub,mul}_overflow_p to just the overflow
+   checking part of that.  */
 
 static tree
 fold_builtin_arith_overflow (location_t loc, enum built_in_function fcode,
 			     tree arg0, tree arg1, tree arg2)
 {
   enum internal_fn ifn = IFN_LAST;
-  tree type = TREE_TYPE (TREE_TYPE (arg2));
-  tree mem_arg2 = build_fold_indirect_ref_loc (loc, arg2);
+  /* The code of the expression corresponding to the type-generic
+     built-in, or ERROR_MARK for the type-specific ones.  */
+  enum tree_code opcode = ERROR_MARK;
+  bool ovf_only = false;
+
   switch (fcode)
     {
+    case BUILT_IN_ADD_OVERFLOW_P:
+      ovf_only = true;
+      /* FALLTHRU */
     case BUILT_IN_ADD_OVERFLOW:
+      opcode = PLUS_EXPR;
+      /* FALLTHRU */
     case BUILT_IN_SADD_OVERFLOW:
     case BUILT_IN_SADDL_OVERFLOW:
     case BUILT_IN_SADDLL_OVERFLOW:
@@ -7963,7 +8091,12 @@ fold_builtin_arith_overflow (location_t loc, enum built_in_function fcode,
     case BUILT_IN_UADDLL_OVERFLOW:
       ifn = IFN_ADD_OVERFLOW;
       break;
+    case BUILT_IN_SUB_OVERFLOW_P:
+      ovf_only = true;
+      /* FALLTHRU */
     case BUILT_IN_SUB_OVERFLOW:
+      opcode = MINUS_EXPR;
+      /* FALLTHRU */
     case BUILT_IN_SSUB_OVERFLOW:
     case BUILT_IN_SSUBL_OVERFLOW:
     case BUILT_IN_SSUBLL_OVERFLOW:
@@ -7972,7 +8105,12 @@ fold_builtin_arith_overflow (location_t loc, enum built_in_function fcode,
     case BUILT_IN_USUBLL_OVERFLOW:
       ifn = IFN_SUB_OVERFLOW;
       break;
+    case BUILT_IN_MUL_OVERFLOW_P:
+      ovf_only = true;
+      /* FALLTHRU */
     case BUILT_IN_MUL_OVERFLOW:
+      opcode = MULT_EXPR;
+      /* FALLTHRU */
     case BUILT_IN_SMUL_OVERFLOW:
     case BUILT_IN_SMULL_OVERFLOW:
     case BUILT_IN_SMULLL_OVERFLOW:
@@ -7984,6 +8122,25 @@ fold_builtin_arith_overflow (location_t loc, enum built_in_function fcode,
     default:
       gcc_unreachable ();
     }
+
+  /* For the "generic" overloads, the first two arguments can have different
+     types and the last argument determines the target type to use to check
+     for overflow.  The arguments of the other overloads all have the same
+     type.  */
+  tree type = ovf_only ? TREE_TYPE (arg2) : TREE_TYPE (TREE_TYPE (arg2));
+
+  /* For the __builtin_{add,sub,mul}_overflow_p builtins, when the first two
+     arguments are constant, attempt to fold the built-in call into a constant
+     expression indicating whether or not it detected an overflow.  */
+  if (ovf_only
+      && TREE_CODE (arg0) == INTEGER_CST
+      && TREE_CODE (arg1) == INTEGER_CST)
+    /* Perform the computation in the target type and check for overflow.  */
+    return omit_one_operand_loc (loc, boolean_type_node,
+				 arith_overflowed_p (opcode, type, arg0, arg1)
+				 ? boolean_true_node : boolean_false_node,
+				 arg2);
+
   tree ctype = build_complex_type (type);
   tree call = build_call_expr_internal_loc (loc, ifn, ctype,
 					    2, arg0, arg1);
@@ -7991,6 +8148,11 @@ fold_builtin_arith_overflow (location_t loc, enum built_in_function fcode,
   tree intres = build1_loc (loc, REALPART_EXPR, type, tgt);
   tree ovfres = build1_loc (loc, IMAGPART_EXPR, type, tgt);
   ovfres = fold_convert_loc (loc, boolean_type_node, ovfres);
+
+  if (ovf_only)
+    return omit_one_operand_loc (loc, boolean_type_node, ovfres, arg2);
+
+  tree mem_arg2 = build_fold_indirect_ref_loc (loc, arg2);
   tree store
     = fold_build2_loc (loc, MODIFY_EXPR, void_type_node, mem_arg2, intres);
   return build2_loc (loc, COMPOUND_EXPR, boolean_type_node, store, ovfres);
@@ -8340,6 +8502,9 @@ fold_builtin_3 (location_t loc, tree fndecl,
     case BUILT_IN_ADD_OVERFLOW:
     case BUILT_IN_SUB_OVERFLOW:
     case BUILT_IN_MUL_OVERFLOW:
+    case BUILT_IN_ADD_OVERFLOW_P:
+    case BUILT_IN_SUB_OVERFLOW_P:
+    case BUILT_IN_MUL_OVERFLOW_P:
     case BUILT_IN_SADD_OVERFLOW:
     case BUILT_IN_SADDL_OVERFLOW:
     case BUILT_IN_SADDLL_OVERFLOW:

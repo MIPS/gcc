@@ -76,6 +76,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "case-cfn-macros.h"
 #include "stringpool.h"
 #include "tree-ssanames.h"
+#include "selftest.h"
 
 #ifndef LOAD_EXTEND_OP
 #define LOAD_EXTEND_OP(M) UNKNOWN
@@ -127,8 +128,6 @@ static tree range_successor (tree);
 static tree fold_range_test (location_t, enum tree_code, tree, tree, tree);
 static tree fold_cond_expr_with_comparison (location_t, tree, tree, tree, tree);
 static tree unextend (tree, int, int, tree);
-static tree optimize_minmax_comparison (location_t, enum tree_code,
-					tree, tree, tree);
 static tree extract_muldiv (tree, tree, enum tree_code, tree, bool *);
 static tree extract_muldiv_1 (tree, tree, enum tree_code, tree, bool *);
 static tree fold_binary_op_with_conditional_arg (location_t,
@@ -3903,9 +3902,19 @@ optimize_bit_field_compare (location_t loc, enum tree_code code,
        return 0;
    }
 
+  /* Honor the C++ memory model and mimic what RTL expansion does.  */
+  unsigned HOST_WIDE_INT bitstart = 0;
+  unsigned HOST_WIDE_INT bitend = 0;
+  if (TREE_CODE (lhs) == COMPONENT_REF)
+    {
+      get_bit_range (&bitstart, &bitend, lhs, &lbitpos, &offset);
+      if (offset != NULL_TREE)
+	return 0;
+    }
+
   /* See if we can find a mode to refer to this field.  We should be able to,
      but fail if we can't.  */
-  nmode = get_best_mode (lbitsize, lbitpos, 0, 0,
+  nmode = get_best_mode (lbitsize, lbitpos, bitstart, bitend,
 			 const_p ? TYPE_ALIGN (TREE_TYPE (linner))
 			 : MIN (TYPE_ALIGN (TREE_TYPE (linner)),
 				TYPE_ALIGN (TREE_TYPE (rinner))),
@@ -5967,110 +5976,6 @@ fold_truth_andor_1 (location_t loc, enum tree_code code, tree truth_type,
 		     const_binop (BIT_IOR_EXPR, l_const, r_const));
 }
 
-/* Optimize T, which is a comparison of a MIN_EXPR or MAX_EXPR with a
-   constant.  */
-
-static tree
-optimize_minmax_comparison (location_t loc, enum tree_code code, tree type,
-			    tree op0, tree op1)
-{
-  tree arg0 = op0;
-  enum tree_code op_code;
-  tree comp_const;
-  tree minmax_const;
-  int consts_equal, consts_lt;
-  tree inner;
-
-  STRIP_SIGN_NOPS (arg0);
-
-  op_code = TREE_CODE (arg0);
-  minmax_const = TREE_OPERAND (arg0, 1);
-  comp_const = fold_convert_loc (loc, TREE_TYPE (arg0), op1);
-  consts_equal = tree_int_cst_equal (minmax_const, comp_const);
-  consts_lt = tree_int_cst_lt (minmax_const, comp_const);
-  inner = TREE_OPERAND (arg0, 0);
-
-  /* If something does not permit us to optimize, return the original tree.  */
-  if ((op_code != MIN_EXPR && op_code != MAX_EXPR)
-      || TREE_CODE (comp_const) != INTEGER_CST
-      || TREE_OVERFLOW (comp_const)
-      || TREE_CODE (minmax_const) != INTEGER_CST
-      || TREE_OVERFLOW (minmax_const))
-    return NULL_TREE;
-
-  /* Now handle all the various comparison codes.  We only handle EQ_EXPR
-     and GT_EXPR, doing the rest with recursive calls using logical
-     simplifications.  */
-  switch (code)
-    {
-    case NE_EXPR:  case LT_EXPR:  case LE_EXPR:
-      {
-	tree tem
-	  = optimize_minmax_comparison (loc,
-					invert_tree_comparison (code, false),
-					type, op0, op1);
-	if (tem)
-	  return invert_truthvalue_loc (loc, tem);
-	return NULL_TREE;
-      }
-
-    case GE_EXPR:
-      return
-	fold_build2_loc (loc, TRUTH_ORIF_EXPR, type,
-		     optimize_minmax_comparison
-		     (loc, EQ_EXPR, type, arg0, comp_const),
-		     optimize_minmax_comparison
-		     (loc, GT_EXPR, type, arg0, comp_const));
-
-    case EQ_EXPR:
-      if (op_code == MAX_EXPR && consts_equal)
-	/* MAX (X, 0) == 0  ->  X <= 0  */
-	return fold_build2_loc (loc, LE_EXPR, type, inner, comp_const);
-
-      else if (op_code == MAX_EXPR && consts_lt)
-	/* MAX (X, 0) == 5  ->  X == 5   */
-	return fold_build2_loc (loc, EQ_EXPR, type, inner, comp_const);
-
-      else if (op_code == MAX_EXPR)
-	/* MAX (X, 0) == -1  ->  false  */
-	return omit_one_operand_loc (loc, type, integer_zero_node, inner);
-
-      else if (consts_equal)
-	/* MIN (X, 0) == 0  ->  X >= 0  */
-	return fold_build2_loc (loc, GE_EXPR, type, inner, comp_const);
-
-      else if (consts_lt)
-	/* MIN (X, 0) == 5  ->  false  */
-	return omit_one_operand_loc (loc, type, integer_zero_node, inner);
-
-      else
-	/* MIN (X, 0) == -1  ->  X == -1  */
-	return fold_build2_loc (loc, EQ_EXPR, type, inner, comp_const);
-
-    case GT_EXPR:
-      if (op_code == MAX_EXPR && (consts_equal || consts_lt))
-	/* MAX (X, 0) > 0  ->  X > 0
-	   MAX (X, 0) > 5  ->  X > 5  */
-	return fold_build2_loc (loc, GT_EXPR, type, inner, comp_const);
-
-      else if (op_code == MAX_EXPR)
-	/* MAX (X, 0) > -1  ->  true  */
-	return omit_one_operand_loc (loc, type, integer_one_node, inner);
-
-      else if (op_code == MIN_EXPR && (consts_equal || consts_lt))
-	/* MIN (X, 0) > 0  ->  false
-	   MIN (X, 0) > 5  ->  false  */
-	return omit_one_operand_loc (loc, type, integer_zero_node, inner);
-
-      else
-	/* MIN (X, 0) > -1  ->  X > -1  */
-	return fold_build2_loc (loc, GT_EXPR, type, inner, comp_const);
-
-    default:
-      return NULL_TREE;
-    }
-}
-
 /* T is an integer expression that is being multiplied, divided, or taken a
    modulus (CODE says which and what kind of divide or modulus) by a
    constant C.  See if we can eliminate that operation by folding it with
@@ -7963,6 +7868,8 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
     case VIEW_CONVERT_EXPR:
       if (TREE_CODE (op0) == MEM_REF)
         {
+	  if (TYPE_ALIGN (TREE_TYPE (op0)) != TYPE_ALIGN (type))
+	    type = build_aligned_type (type, TYPE_ALIGN (TREE_TYPE (op0)));
 	  tem = fold_build2_loc (loc, MEM_REF, type,
 				 TREE_OPERAND (op0, 0), TREE_OPERAND (op0, 1));
 	  REF_REVERSE_STORAGE_ORDER (tem) = REF_REVERSE_STORAGE_ORDER (op0);
@@ -8526,9 +8433,9 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 	  if ((offset0 == offset1
 	       || (offset0 && offset1
 		   && operand_equal_p (offset0, offset1, 0)))
-	      && (code == EQ_EXPR
-		  || code == NE_EXPR
-		  || (indirect_base0 && DECL_P (base0))
+	      && (equality_code
+		  || (indirect_base0
+		      && (DECL_P (base0) || CONSTANT_CLASS_P (base0)))
 		  || POINTER_TYPE_OVERFLOW_UNDEFINED))
 
 	    {
@@ -8567,7 +8474,8 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 	     6.5.6/8 and /9 with respect to the signed ptrdiff_t.  */
 	  else if (bitpos0 == bitpos1
 		   && (equality_code
-		       || (indirect_base0 && DECL_P (base0))
+		       || (indirect_base0
+			   && (DECL_P (base0) || CONSTANT_CLASS_P (base0)))
 		       || POINTER_TYPE_OVERFLOW_UNDEFINED))
 	    {
 	      /* By converting to signed sizetype we cover middle-end pointer
@@ -8705,18 +8613,6 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
   tem = maybe_canonicalize_comparison (loc, code, type, arg0, arg1);
   if (tem)
     return tem;
-
-  /* If this is comparing a constant with a MIN_EXPR or a MAX_EXPR of a
-     constant, we can simplify it.  */
-  if (TREE_CODE (arg1) == INTEGER_CST
-      && (TREE_CODE (arg0) == MIN_EXPR
-	  || TREE_CODE (arg0) == MAX_EXPR)
-      && TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST)
-    {
-      tem = optimize_minmax_comparison (loc, code, type, op0, op1);
-      if (tem)
-	return tem;
-    }
 
   /* If we are comparing an expression that just has comparisons
      of two integer values, arithmetic expressions of those comparisons,
@@ -14496,3 +14392,82 @@ c_getstr (tree src)
 
   return TREE_STRING_POINTER (src) + tree_to_uhwi (offset_node);
 }
+
+#if CHECKING_P
+
+namespace selftest {
+
+/* Helper functions for writing tests of folding trees.  */
+
+/* Verify that the binary op (LHS CODE RHS) folds to CONSTANT.  */
+
+static void
+assert_binop_folds_to_const (tree lhs, enum tree_code code, tree rhs,
+			     tree constant)
+{
+  ASSERT_EQ (constant, fold_build2 (code, TREE_TYPE (lhs), lhs, rhs));
+}
+
+/* Verify that the binary op (LHS CODE RHS) folds to an NON_LVALUE_EXPR
+   wrapping WRAPPED_EXPR.  */
+
+static void
+assert_binop_folds_to_nonlvalue (tree lhs, enum tree_code code, tree rhs,
+				 tree wrapped_expr)
+{
+  tree result = fold_build2 (code, TREE_TYPE (lhs), lhs, rhs);
+  ASSERT_NE (wrapped_expr, result);
+  ASSERT_EQ (NON_LVALUE_EXPR, TREE_CODE (result));
+  ASSERT_EQ (wrapped_expr, TREE_OPERAND (result, 0));
+}
+
+/* Verify that various arithmetic binary operations are folded
+   correctly.  */
+
+static void
+test_arithmetic_folding ()
+{
+  tree type = integer_type_node;
+  tree x = create_tmp_var_raw (type, "x");
+  tree zero = build_zero_cst (type);
+  tree one = build_int_cst (type, 1);
+
+  /* Addition.  */
+  /* 1 <-- (0 + 1) */
+  assert_binop_folds_to_const (zero, PLUS_EXPR, one,
+			       one);
+  assert_binop_folds_to_const (one, PLUS_EXPR, zero,
+			       one);
+
+  /* (nonlvalue)x <-- (x + 0) */
+  assert_binop_folds_to_nonlvalue (x, PLUS_EXPR, zero,
+				   x);
+
+  /* Subtraction.  */
+  /* 0 <-- (x - x) */
+  assert_binop_folds_to_const (x, MINUS_EXPR, x,
+			       zero);
+  assert_binop_folds_to_nonlvalue (x, MINUS_EXPR, zero,
+				   x);
+
+  /* Multiplication.  */
+  /* 0 <-- (x * 0) */
+  assert_binop_folds_to_const (x, MULT_EXPR, zero,
+			       zero);
+
+  /* (nonlvalue)x <-- (x * 1) */
+  assert_binop_folds_to_nonlvalue (x, MULT_EXPR, one,
+				   x);
+}
+
+/* Run all of the selftests within this file.  */
+
+void
+fold_const_c_tests ()
+{
+  test_arithmetic_folding ();
+}
+
+} // namespace selftest
+
+#endif /* CHECKING_P */

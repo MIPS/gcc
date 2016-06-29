@@ -1,4 +1,4 @@
-/* { dg-require-effective-target vect_int } */
+/* { dg-require-effective-target vect_long } */
 /* { dg-additional-options "-fno-tree-scev-cprop" } */
 
 #include "tree-vect.h"
@@ -41,6 +41,8 @@ main (void)
   long a[MAX*4];
   long b[MAX*4];
   int i;
+
+  check_vect ();
 
   for (i=0; i<MAX*4; i++)
     {
