@@ -581,16 +581,18 @@ plugin_pragma_push_user_expression (cpp_reader *)
   function *unchanged_cfun = cfun;
   tree changed_func_decl = current_function_decl;
 
-  gcc_assert (TREE_CODE (DECL_CONTEXT (current_function_decl)) == NAMESPACE_DECL
-	      || current_class_type == DECL_CONTEXT (current_function_decl));
+  gcc_assert (current_class_type == DECL_CONTEXT (current_function_decl)
+	      || !(RECORD_OR_UNION_CODE_P
+		   (TREE_CODE (DECL_CONTEXT (current_function_decl)))));
   push_fake_function (save_cfun->decl, sk_block);
   current_class_type = NULL_TREE;
   if (unchanged_cfun)
     {
       /* If we get here, GDB did NOT change the context.  */
       gcc_assert (cfun == save_cfun);
-      gcc_assert (orig_binding_level == current_binding_level->level_chain);
       gcc_assert (at_function_scope_p ());
+      gcc_assert (orig_binding_level
+		  == current_binding_level->level_chain->level_chain);
     }
   else
     {
@@ -660,13 +662,16 @@ plugin_pragma_pop_user_expression (cpp_reader *)
 
   cfun = NULL;
   pop_scope ();
-  if (TREE_CODE (DECL_CONTEXT (current_function_decl)) != NAMESPACE_DECL)
+  if (RECORD_OR_UNION_CODE_P (TREE_CODE (DECL_CONTEXT (current_function_decl))))
     current_class_type = DECL_CONTEXT (current_function_decl);
   {
     int success;
     cc1_plugin::call (current_context, "leave_scope", &success);
   }
-  gcc_assert (cfun == save_cfun);
+  if (!cfun)
+    cfun = save_cfun;
+  else
+    gcc_assert (cfun == save_cfun);
 
   cp_binding_oracle = NULL;
   gcc_assert (at_function_scope_p ());
