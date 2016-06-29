@@ -398,6 +398,13 @@ typedef gcc_address gcc_cp_symbol_address_function (void *datum,
 						    struct gcc_cp_context *ctxt,
 						    const char *identifier);
 
+/* The type of the function called by GCC to ask GDB to enter or leave
+   the user expression scope.  */
+
+typedef void gcc_cp_enter_leave_user_expr_scope_function (void *datum,
+							  struct gcc_cp_context
+							  *context);
+
 /* The vtable used by the C front end.  */
 
 struct gcc_cp_fe_vtable
@@ -430,6 +437,8 @@ struct gcc_cp_fe_vtable
   void (*set_callbacks) (struct gcc_cp_context *self,
 			 gcc_cp_oracle_function *binding_oracle,
 			 gcc_cp_symbol_address_function *address_oracle,
+			 gcc_cp_enter_leave_user_expr_scope_function *enter_scope,
+			 gcc_cp_enter_leave_user_expr_scope_function *leave_scope,
 			 void *datum);
 
 #define GCC_METHOD0(R, N) \
@@ -482,20 +491,6 @@ struct gcc_cp_context
    holds its name as a symbol.  */
 
 #define GCC_CP_FE_CONTEXT gcc_cp_fe_context
-
-/* The (invalid) symbol libcc1 will look up to signal that it is
-   entering the user expression region.  The oracle should use this
-   opportunity to switch to the context in which names in the user
-   expression should be resolved.  */
-
-#define GCC_CP_FE_PUSH_CONTEXT_SYMBOL "::::"
-
-/* The (invalid) symbol libcc1 will look up to signal that it is
-   leaving the user expression region.  The oracle should use this
-   opportunity to pop any contexts pushed for the compilation of the
-   user expression.  */
-
-#define GCC_CP_FE_POP_CONTEXT_SYMBOL ":::::"
 
 /* The type of the initialization function.  The caller passes in the
    desired base version and desired C-specific version.  If the

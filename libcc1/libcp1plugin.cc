@@ -264,7 +264,6 @@ plugin_binding_oracle (enum cp_oracle_request kind, tree identifier)
 }
 
 static int push_count;
-static cp_binding_level *locals_binding_level;
 
 /* at_function_scope_p () tests cfun, indicating we're actually
    compiling the function, but we don't even set it when pretending to
@@ -321,10 +320,11 @@ pop_scope ()
 }
 
 static void
-plugin_supplement_binding (cxx_binding *binding, tree decl)
+supplement_binding (cxx_binding *binding, tree decl)
 {
-  /* FIXME: this is pretty much a copy of supplement_binding_1.  
-     Export it for us somehow?  */
+  /* FIXME: this is pretty much a copy of supplement_binding_1 in
+     ../gcc/cp/name-lookup.c; the few replaced/removed bits are marked
+     with "// _1:".  */
   tree bval = binding->value;
   bool ok = true;
   tree target_bval = strip_using_decl (bval);
@@ -436,24 +436,20 @@ plugin_supplement_binding (cxx_binding *binding, tree decl)
     }
   else
     {
-      // diagnose_name_conflict (decl, bval);
+      // _1: diagnose_name_conflict (decl, bval);
       ok = false;
     }
 
-  gcc_assert (ok);
+  gcc_assert (ok); // _1: return ok;
 }
 
 static void
-reactivate_decl (tree decl)
+reactivate_decl (tree decl, cp_binding_level *b)
 {
-  cp_binding_level *b = locals_binding_level;
-  bool in_function_p = true;
-  if (!b)
-    {
-      gcc_assert (!at_class_scope_p ());
-      b = current_binding_level;
-      in_function_p = at_fake_function_scope_p () || at_function_scope_p ();
-    }
+  bool in_function_p = TREE_CODE (b->this_entity) == FUNCTION_DECL;
+  gcc_assert (in_function_p
+	      || (b == current_binding_level
+		  && !at_class_scope_p ()));
       
   tree id = DECL_NAME (decl);
   tree type = NULL_TREE;
@@ -496,13 +492,14 @@ reactivate_decl (tree decl)
 	      break;
 	    }
 	  chainp = &prev_binding->previous;
-	  for (tree tshadow = prev_binding->scope->type_shadowed;
-	       tshadow; tshadow = TREE_CHAIN (tshadow))
-	    if (TREE_PURPOSE (tshadow) == id)
-	      {
-		shadowing_type_p = &TREE_VALUE (tshadow);
-		break;
-	      }
+	  if (type)
+	    for (tree tshadow = prev_binding->scope->type_shadowed;
+		 tshadow; tshadow = TREE_CHAIN (tshadow))
+	      if (TREE_PURPOSE (tshadow) == id)
+		{
+		  shadowing_type_p = &TREE_VALUE (tshadow);
+		  break;
+		}
 	}
     }
   if (chainp)
@@ -514,7 +511,7 @@ reactivate_decl (tree decl)
   /* Like push_local_binding, supplement or add a binding to the
      desired level.  */
   if (IDENTIFIER_BINDING (id) && IDENTIFIER_BINDING (id)->scope == b)
-    plugin_supplement_binding (IDENTIFIER_BINDING (id), decl);
+    supplement_binding (IDENTIFIER_BINDING (id), decl);
   else
     push_binding (id, decl, b);
 
@@ -524,19 +521,22 @@ reactivate_decl (tree decl)
       *chainp = IDENTIFIER_BINDING (id);
       IDENTIFIER_BINDING (id) = binding;
 
-      /* Insert the new type binding in the shadowing_type_p
-	 TREE_VALUE chain.  */
-      tree shadowed_type = NULL_TREE;
-      if (shadowing_type_p)
+      if (type)
 	{
-	  shadowed_type = *shadowing_type_p;
-	  *shadowing_type_p = type;
-	}
+	  /* Insert the new type binding in the shadowing_type_p
+	     TREE_VALUE chain.  */
+	  tree shadowed_type = NULL_TREE;
+	  if (shadowing_type_p)
+	    {
+	      shadowed_type = *shadowing_type_p;
+	      *shadowing_type_p = type;
+	    }
 
-      b->type_shadowed = tree_cons (id, shadowed_type, b->type_shadowed);
-      TREE_TYPE (b->type_shadowed) = type;
+	  b->type_shadowed = tree_cons (id, shadowed_type, b->type_shadowed);
+	  TREE_TYPE (b->type_shadowed) = type;
+	}
     }
-  else
+  else if (type)
     {
       /* Our new binding is the active one, so shadow the earlier
 	 binding.  */
@@ -551,6 +551,9 @@ reactivate_decl (tree decl)
   TREE_CHAIN (node) = b->names;
   b->names = node;
 }
+
+/* FIXME: this is for testing purposes.  */
+const char *user_expr_scope = "foo::fool::testme";
 
 static void
 plugin_pragma_push_user_expression (cpp_reader *)
@@ -572,23 +575,98 @@ plugin_pragma_push_user_expression (cpp_reader *)
   gcc_assert (at_function_scope_p ());
   function *save_cfun = cfun;
   cp_binding_level *orig_binding_level = current_binding_level;
-  plugin_binding_oracle (CP_ORACLE_SYMBOL, get_identifier
-			 (GCC_CP_FE_PUSH_CONTEXT_SYMBOL));
-  if (1)
-    {
-      push_to_top_level ();
-      extern int plugin_push_namespace (cc1_plugin::connection *, const char *);
-      plugin_push_namespace (NULL, "foo");
-      extern int plugin_push_class (cc1_plugin::connection *, gcc_type);
-      plugin_push_class (NULL, convert_out
-			 (TREE_TYPE (lookup_name_prefer_type (get_identifier ("fool"), 1))));
-      extern int plugin_push_function (cc1_plugin::connection *, gcc_decl);
-      plugin_push_function (NULL, convert_out
-			    (lookup_name (get_identifier ("testme"))));
-    }
+  {
+    if (user_expr_scope)
+      {
+	push_to_top_level ();
+	char scope[strlen (user_expr_scope) + 1];
+	memcpy (scope, user_expr_scope, sizeof (scope));
+	for (char *save, *tok = strtok_r (scope, ":", &save);
+	     tok; tok = strtok_r (NULL, ":", &save))
+	  {
+	    tree decl = lookup_name (get_identifier (tok));
+	    if (!decl || DECL_CONTEXT (decl) != FROB_CONTEXT (current_scope ()))
+	      {
+		fprintf (stderr, "failed: %s\n", scope);
+		gcc_unreachable ();
+	      }
+
+	    extern int plugin_push_namespace (cc1_plugin::connection *, const char *);
+	    extern int plugin_push_class (cc1_plugin::connection *, gcc_type);
+	    extern int plugin_push_function (cc1_plugin::connection *, gcc_decl);
+
+	    if (TREE_CODE (decl) == NAMESPACE_DECL)
+	      plugin_push_namespace (NULL, tok);
+	    else if (TREE_CODE (decl) == TYPE_DECL)
+	      plugin_push_class (NULL, convert_out (TREE_TYPE (decl)));
+	    else if (TREE_CODE (decl) == FUNCTION_DECL)
+	      plugin_push_function (NULL, convert_out (decl));
+	    else
+	      gcc_unreachable ();
+	  }
+      }
+
+    int success;
+    cc1_plugin::call (current_context, "enter_scope", &success);
+  }
   gcc_assert (at_fake_function_scope_p () || at_function_scope_p ());
 
-  if (cfun || DECL_NONSTATIC_MEMBER_FUNCTION_P (current_function_decl))
+  function *unchanged_cfun = cfun;
+  tree changed_func_decl = current_function_decl;
+
+  gcc_assert (TREE_CODE (DECL_CONTEXT (current_function_decl)) == NAMESPACE_DECL
+	      || current_class_type == DECL_CONTEXT (current_function_decl));
+  push_fake_function (save_cfun->decl, sk_block);
+  current_class_type = NULL_TREE;
+  if (unchanged_cfun)
+    {
+      /* If we get here, GDB did NOT change the context.  */
+      gcc_assert (cfun == save_cfun);
+      gcc_assert (orig_binding_level == current_binding_level->level_chain);
+      gcc_assert (at_function_scope_p ());
+    }
+  else
+    {
+      cfun = save_cfun;
+      gcc_assert (at_function_scope_p ());
+
+      cp_binding_level *b = current_binding_level->level_chain;
+      gcc_assert (b->this_entity == cfun->decl);
+
+      /* Reactivate local names from the previous context.  Use
+	 IDENTIFIER_MARKED to avoid reactivating shadowed names.  */
+      for (cp_binding_level *level = orig_binding_level;;)
+	{
+	  for (tree name = level->names;
+	       name; name = TREE_CHAIN (name))
+	    {
+	      tree decl = name;
+	      if (TREE_CODE (decl) == TREE_LIST)
+		decl = TREE_VALUE (decl);
+	      if (IDENTIFIER_MARKED (DECL_NAME (decl)))
+		continue;
+	      IDENTIFIER_MARKED (DECL_NAME (decl)) = 1;
+	      reactivate_decl (decl, b);
+	    }
+	  if (level->kind == sk_function_parms
+	      && level->this_entity == cfun->decl)
+	    break;
+	  gcc_assert (!level->this_entity);
+	  level = level->level_chain;
+	}
+
+      /* Now, clear the markers.  */
+      for (tree name = b->names; name; name = TREE_CHAIN (name))
+	{
+	  tree decl = name;
+	  if (TREE_CODE (decl) == TREE_LIST)
+	    decl = TREE_VALUE (decl);
+	  gcc_assert (IDENTIFIER_MARKED (DECL_NAME (decl)));
+	  IDENTIFIER_MARKED (DECL_NAME (decl)) = 0;
+	}
+    }
+
+  if (unchanged_cfun || DECL_NONSTATIC_MEMBER_FUNCTION_P (changed_func_decl))
     {
       /* Check whether the oracle supplies us with a "this", and if
 	 so, arrange for data members and this itself to be
@@ -597,47 +675,6 @@ plugin_pragma_push_user_expression (cpp_reader *)
       current_class_ref = !this_val ? NULL_TREE
 	: cp_build_indirect_ref (this_val, RO_NULL, tf_warning_or_error);
       current_class_ptr = this_val;
-    }
-
-  push_fake_function (save_cfun->decl, sk_block);
-  locals_binding_level = current_binding_level->level_chain;
-  if (cfun)
-    {
-      /* If we get here, GDB did NOT change the context.  */
-      gcc_assert (cfun == save_cfun);
-      gcc_assert (orig_binding_level == locals_binding_level->level_chain);
-      gcc_assert (at_function_scope_p ());
-    }
-  else
-    {
-      cfun = save_cfun;
-      /* Reactivate local names from the previous context.  Use
-	 IDENTIFIER_MARKED to avoid reactivating shadowed names.  */
-      for (cp_binding_level *level = orig_binding_level;
-	   level->this_entity == orig_binding_level->this_entity;
-	   level = level->level_chain)
-	for (tree name = level->names;
-	     name; name = TREE_CHAIN (name))
-	  {
-	    tree decl = name;
-	    if (TREE_CODE (decl) == TREE_LIST)
-	      decl = TREE_VALUE (decl);
-	    if (IDENTIFIER_MARKED (DECL_NAME (decl)))
-	      continue;
-	    IDENTIFIER_MARKED (DECL_NAME (decl)) = 1;
-	    reactivate_decl (decl);
-	  }
-      /* Now, clear the markers.  */
-      for (tree name = locals_binding_level->names;
-	   name; name = TREE_CHAIN (name))
-	{
-	  tree decl = name;
-	  if (TREE_CODE (decl) == TREE_LIST)
-	    decl = TREE_VALUE (decl);
-	  gcc_assert (IDENTIFIER_MARKED (DECL_NAME (decl)));
-	  IDENTIFIER_MARKED (DECL_NAME (decl)) = 0;
-	}
-      gcc_assert (at_function_scope_p ());
     }
 }
 
@@ -654,20 +691,20 @@ plugin_pragma_pop_user_expression (cpp_reader *)
   current_class_ptr = NULL_TREE;
   current_class_ref = NULL_TREE;
 
-  locals_binding_level = NULL;
-  pop_scope ();
-  current_function_decl = save_cfun->decl;
   cfun = NULL;
-  if (1)
-    {
-      pop_scope ();
-      pop_scope ();
-      pop_scope ();
-      pop_scope ();
-    }
+  pop_scope ();
+  if (TREE_CODE (DECL_CONTEXT (current_function_decl)) != NAMESPACE_DECL)
+    current_class_type = DECL_CONTEXT (current_function_decl);
+  {
+    int success;
+    cc1_plugin::call (current_context, "leave_scope", &success);
 
-  plugin_binding_oracle (CP_ORACLE_SYMBOL, get_identifier
-			 (GCC_CP_FE_POP_CONTEXT_SYMBOL));
+    if (user_expr_scope)
+      while (!cfun)
+	pop_scope ();
+    else if (!success)
+      cfun = save_cfun;
+  }
   gcc_assert (cfun == save_cfun);
 
   cp_binding_oracle = NULL;
@@ -840,7 +877,7 @@ plugin_push_class (cc1_plugin::connection *,
 {
   tree type = convert_in (type_in);
   gcc_assert (RECORD_OR_UNION_CODE_P (TREE_CODE (type)));
-  gcc_assert (TYPE_CONTEXT (type) == current_scope ());
+  gcc_assert (TYPE_CONTEXT (type) == FROB_CONTEXT (current_scope ()));
 
   pushclass (type);
 
@@ -853,7 +890,7 @@ plugin_push_function (cc1_plugin::connection *,
 {
   tree fndecl = convert_in (function_decl_in);
   gcc_assert (TREE_CODE (fndecl) == FUNCTION_DECL);
-  gcc_assert (DECL_CONTEXT (fndecl) == current_scope ());
+  gcc_assert (DECL_CONTEXT (fndecl) == FROB_CONTEXT (current_scope ()));
 
   push_fake_function (fndecl);
 
@@ -869,14 +906,30 @@ plugin_pop_namespace (cc1_plugin::connection *)
 
 int
 plugin_reactivate_decl (cc1_plugin::connection *,
-			gcc_decl decl_in)
+			gcc_decl decl_in,
+			gcc_decl scope_in)
 {
   tree decl = convert_in (decl_in);
+  tree scope = convert_in (scope_in);
   gcc_assert (TREE_CODE (decl) == VAR_DECL
 	      || TREE_CODE (decl) == FUNCTION_DECL
 	      || TREE_CODE (decl) == TYPE_DECL);
+  cp_binding_level *b;
+  if (scope)
+    {
+      gcc_assert (TREE_CODE (scope) == FUNCTION_DECL);
+      for (b = current_binding_level;
+	   b->this_entity != scope;
+	   b = b->level_chain)
+	gcc_assert (b->this_entity != global_namespace);
+    }
+  else
+    {
+      gcc_assert (!at_class_scope_p ());
+      b = current_binding_level;
+    }
 
-  reactivate_decl (decl);
+  reactivate_decl (decl, b);
   return 1;
 }
 

@@ -51,14 +51,19 @@ GCC_METHOD1 (int /* bool */, push_class,
 GCC_METHOD1 (int /* bool */, push_function,
 	     gcc_decl)	     /* Argument FUNCTION_DECL.  */
 
-/* Make DECL visible (again?) within a scope.  This can be used to
-   make e.g. a global function or variable visible in a namespace or
-   local scope (overriding another enclosing definition of the same
-   name), but its most common expected use of this primitive, that
-   gives it its name, is to make declarations visible when reentering
-   a function scope, because when a function is entered with
-   push_function, that does NOT make any of the declarations nested in
-   it visible for name lookup.
+/* Make DECL visible (again?) within SCOPE.  When SCOPE is NULL, it
+   means the current scope; if it is not NULL, it must name a function
+   that is currently active, even if not at the top of the binding
+   chain.
+
+   This function can be used to make e.g. a global function or
+   variable visible in a namespace or local scope (overriding another
+   enclosing definition of the same name), but its most common
+   expected use of this primitive, that gives it its name, is to make
+   declarations visible again after reentering a function scope,
+   because when a function is entered with push_function, that does
+   NOT make any of the declarations nested in it visible for name
+   lookup.
 
    There is a reason/excuse for that: unlike namespaces and classes,
    G++ doesn't ever have to reenter function scopes, so its name
@@ -125,12 +130,13 @@ GCC_METHOD1 (int /* bool */, push_function,
    Then, as we set up the binding context to compile a code snippet at
    point 3, we have to activate c_1, o_0 and p.  If the code snippet
    is at point 2, we don't need to (re)activate anything: just
-   entering the scope of member function f will enter the scope of its
-   enclosing class, making the names of its members, including the
-   class name itself, visible.  */
+   entering the scope of the class containing member function f
+   reactivates the names of its members, including the class name
+   itself.  */
 
-GCC_METHOD1 (int /* bool */, reactivate_decl,
-	     gcc_decl)		/* Argument DECL.  */
+GCC_METHOD2 (int /* bool */, reactivate_decl,
+	     gcc_decl,		/* Argument DECL.  */
+	     gcc_decl)		/* Argument SCOPE.  */
 
 /* Pop the namespace last entered with push_namespace, or class last
    entered with push_class, or function last entered with
@@ -140,7 +146,7 @@ GCC_METHOD1 (int /* bool */, reactivate_decl,
 GCC_METHOD0 (int /* bool */, pop_namespace)
 
 /* Return the NAMESPACE_DECL, TYPE_DECL or FUNCTION_DECL of the
-   current binding level.  */
+   binding level that would be popped by pop_namespace.  */
 
 GCC_METHOD0 (gcc_decl, get_current_binding_level)
 
