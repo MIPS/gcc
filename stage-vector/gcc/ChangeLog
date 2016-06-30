@@ -1,3 +1,112 @@
+2016-06-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (const_0_to_7_operand): New
+	predicate, recognize 0..7.
+	* config/rs6000/rs6000.c (rs6000_expand_vector_extract): Add
+	support for doing extracts from V16QImode, V8HImode, V4SImode
+	under ISA 3.0.
+	* config/rs6000/vsx.md (VSX_EXTRACT_I): Mode iterator for ISA 3.0
+	vector extract support.
+	(VSX_EXTRACT_PREDICATE): Mode attribute to validate element number
+	for ISA 3.0 vector extract.
+	(VSX_EX): Constraints to use for ISA 3.0 vector extract.
+	(vsx_extract_<mode>, VSX_EXTRACT_I): Add support for doing
+	extracts of a constant element number from small integer vectors
+	on 64-bit ISA 3.0 systems.
+	(vsx_extract_<mode>_di): Likewise.
+	* config/rs6000/rs6000.h (TARGET_VEXTRACTUB): New target macro to
+	say when we can do ISA 3.0 vector extracts.
+	* config/rs6000/rs6000.md (stfiwx): Allow DImode in Altivec
+	registers, using the stxsiwx instruction.
+
+2016-06-29  Jim Wilson  <jim.wilson@linaro.org>
+
+	* config/aarch64/aarch64-cores.def (qdf24xx): Use qdf24xx tuning.
+	* config/aarch64/aarch64.c (qdf24xx_addrcost_table,
+	qdf24xx_regmove_cost, qdf24xx_tunings): New.
+	* config/arm/aarch64-cost-tables.h (qdf24xx_extra_costs): New.
+	* config/arm/arm-cores.def (qdf24xx): Use qdf24xx tuning.
+	* config/arm/arm.c (arm_qdf24xx_tune): New.
+
+2016-06-29  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64.c (cortexa53_tunings):
+	Increase loop alignment to 8.  Set function alignment to 16.
+	(cortexa35_tunings): Likewise.
+	(cortexa57_tunings): Increase loop alignment to 8.
+	(cortexa72_tunings): Likewise.
+	(cortexa73_tunings): Likewise.
+
+2016-06-29  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* doc/sourcebuild.texi (Effective-Target keywords): Add entries
+	for arm_fp16_ok and arm_fp16_hw.
+	(Add Options): Add entries for arm_fp16, arm_fp16_ieee and
+	arm_fp16_alternative.
+
+2016-06-29  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR tree-optimization/71655
+	* tree-vect-stmts.c (vectorizable_comparison): Swap definition
+	types when swapping operands.
+
+2016-06-29  Martin Liska  <mliska@suse.cz>
+
+	PR middle-end/71585
+	* common.opt (flag_stack_protect): Mark the flag as optimization
+	flag.
+	* ipa-inline-transform.c (inline_call): Remove unnecessary call
+	of build_optimization_node.
+
+2016-06-29  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR tree-optimization/70729
+	* tree-ssa-loop-im.c (ref_indep_loop_p_1): Consider memory reference as
+	independent in loops having positive safelen value.
+	* tree-vect-loop.c (vect_transform_loop): Clear-up safelen value since
+	it may be not valid after vectorization.
+
+2016-06-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/71625
+	* tree-ssa-strlen.c (get_addr_stridx): Add PTR argument.  Assume list
+	is sorted by ascending list->offset.  If PTR is non-NULL and there is
+	previous strinfo, call get_stridx_plus_constant.
+	(get_stridx): Pass exp as second argument to get_addr_stridx.
+	(addr_stridxptr): Add missing list = list->next, so that there can be
+	more than one entries in the list.  Bump limit from 16 to 32.  Ensure
+	the list is sorted by ascending list->offset.
+	(get_stridx_plus_constant): Adjust so that it can be also called with
+	ADDR_EXPR instead of SSA_NAME as PTR.
+	(handle_char_store): Pass NULL_TREE as second argument to
+	get_addr_stridx.
+
+2016-06-29  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/68961
+	* simplify-rtx.c (simplify_subreg): Handle VEC_CONCAT like CONCAT.
+
+2016-06-29  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/71002
+	* alias.c (component_uses_parent_alias_set_from): Handle
+	type punning through union accesses by using the union alias set.
+	* gimple.c (gimple_get_alias_set): Remove union type punning case.
+
+2016-07-29  Richard Biener  <rguenther@suse.de>
+
+	* match.pd ((T)(T2)x -> (T)x): Remove restriction on final
+	precision not matching mode precision.
+
+2016-06-28  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.md (call_symref_64bit_post_reload): Don't call
+	pa_output_arg_descriptor.
+	(call_val_symref_64bit_post_reload): Likewise.
+	(call_val_powf_64bit_post_reload): Likewise.
+	(sibcall_internal_symref_64bit): Likewise.
+	(sibcall_value_internal_symref_64bit): Likewise.
+
 2016-06-28  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/71626
