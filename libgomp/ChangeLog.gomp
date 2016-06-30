@@ -1,3 +1,9 @@
+2016-06-30  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/avoid-offloading-1.c:
+	Update.
+	* testsuite/libgomp.oacc-fortran/avoid-offloading-1.f: Update.
+
 2016-06-10  Thomas Schwinge  <thomas@codesourcery.com>
 
 	PR middle-end/71373

@@ -4152,8 +4152,13 @@ nvptx_goacc_validate_dims (tree decl, int dims[], int fn_level)
   /* Detect if a function is unsuitable for offloading.  */
   if (!flag_offload_force && decl)
     {
+      /* Trigger the "avoid offloading" mechanism if a OpenACC kernels
+	 construct could not be parallelized, but only do that for -O2 and
+	 higher, as otherwise we're not expecting any parallelization to
+	 happen.  */
       tree oacc_function_attr = get_oacc_fn_attrib (decl);
-      if (oacc_function_attr
+      if (optimize >= 2
+	  && oacc_function_attr
 	  && oacc_fn_attrib_kernels_p (oacc_function_attr))
 	{
 	  bool avoid_offloading_p = true;
@@ -4167,14 +4172,10 @@ nvptx_goacc_validate_dims (tree decl, int dims[], int fn_level)
 	    }
 	  if (avoid_offloading_p)
 	    {
-	      /* OpenACC kernels constructs will never be parallelized for
-		 optimization levels smaller than -O2; avoid the diagnostic in
-		 this case.  */
-	      if (optimize >= 2)
-		warning_at (DECL_SOURCE_LOCATION (decl), 0,
-			    "OpenACC kernels construct will be executed "
-			    "sequentially; will by default avoid offloading "
-			    "to prevent data copy penalty");
+	      warning_at (DECL_SOURCE_LOCATION (decl), 0,
+			  "OpenACC kernels construct will be executed"
+			  " sequentially; will by default avoid offloading to"
+			  " prevent data copy penalty");
 	      DECL_ATTRIBUTES (decl)
 		= tree_cons (get_identifier ("omp avoid offloading"),
 			     NULL_TREE, DECL_ATTRIBUTES (decl));

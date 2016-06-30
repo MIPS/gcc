@@ -15,7 +15,15 @@ int main(void)
 
   if (x != 33)
     __builtin_abort();
-#if defined ACC_DEVICE_TYPE_host || defined ACC_DEVICE_TYPE_nvidia
+#if defined ACC_DEVICE_TYPE_nvidia
+# if !defined __OPTIMIZE__
+  if (y != 0)
+    __builtin_abort();
+# else
+  if (y != 1)
+    __builtin_abort();
+# endif
+#elif defined ACC_DEVICE_TYPE_host
   if (y != 1)
     __builtin_abort();
 #else

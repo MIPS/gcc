@@ -1,3 +1,8 @@
+2016-06-30  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_goacc_validate_dims): Only trigger
+	the "avoid offloading" mechanism for -O2 and higher.
+
 2016-06-10  James Norris  <jnorris@codesourcery.com>
 
 	Backport from mainline r236098.
