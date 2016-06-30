@@ -34395,7 +34395,8 @@ cp_parser_omp_cancel (cp_parser *parser, cp_token *pragma_tok)
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_TASKGROUP))
 
 static void
-cp_parser_omp_cancellation_point (cp_parser *parser, cp_token *pragma_tok)
+cp_parser_omp_cancellation_point (cp_parser *parser, cp_token *pragma_tok,
+				  enum pragma_context context)
 {
   tree clauses;
   bool point_seen = false;
@@ -34414,7 +34415,19 @@ cp_parser_omp_cancellation_point (cp_parser *parser, cp_token *pragma_tok)
   if (!point_seen)
     {
       cp_parser_error (parser, "expected %<point%>");
-      cp_parser_require_pragma_eol (parser, pragma_tok);
+      cp_parser_skip_to_pragma_eol (parser, pragma_tok);
+      return;
+    }
+
+  if (context != pragma_compound)
+    {
+      if (context == pragma_stmt)
+	error_at (pragma_tok->location,
+		  "%<#pragma omp cancellation point%> may only be used in"
+		  " compound statements");
+      else
+	cp_parser_error (parser, "expected declaration specifiers");
+      cp_parser_skip_to_pragma_eol (parser, pragma_tok);
       return;
     }
 
@@ -37203,7 +37216,7 @@ cp_parser_pragma (cp_parser *parser, enum pragma_context context, bool *if_p)
   parser->lexer->in_pragma = true;
 
   id = cp_parser_pragma_kind (pragma_tok);
-  if (id != PRAGMA_OMP_DECLARE_REDUCTION && id != PRAGMA_OACC_ROUTINE)
+  if (id != PRAGMA_OMP_DECLARE && id != PRAGMA_OACC_ROUTINE)
     cp_ensure_no_omp_declare_simd (parser);
   switch (id)
     {
@@ -37291,26 +37304,14 @@ cp_parser_pragma (cp_parser *parser, enum pragma_context context, bool *if_p)
       break;
 
     case PRAGMA_OMP_CANCELLATION_POINT:
-      switch (context)
-	{
-	case pragma_compound:
-	  cp_parser_omp_cancellation_point (parser, pragma_tok);
-	  return false;
-	case pragma_stmt:
-	  error_at (pragma_tok->location,
-		    "%<#pragma omp cancellation point%> may only be "
-		    "used in compound statements");
-	  break;
-	default:
-	  goto bad_stmt;
-	}
-      break;
+      cp_parser_omp_cancellation_point (parser, pragma_tok, context);
+      return false;
 
     case PRAGMA_OMP_THREADPRIVATE:
       cp_parser_omp_threadprivate (parser, pragma_tok);
       return false;
 
-    case PRAGMA_OMP_DECLARE_REDUCTION:
+    case PRAGMA_OMP_DECLARE:
       cp_parser_omp_declare (parser, pragma_tok, context);
       return false;
 

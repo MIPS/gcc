@@ -454,7 +454,7 @@ expand_arith_overflow_result_store (tree lhs, rtx target,
 	    = immed_wide_int_const (wi::shifted_mask (0, prec, false, tgtprec),
 				    tgtmode);
 	  lres = expand_simple_binop (tgtmode, AND, res, mask, NULL_RTX,
-				      true, OPTAB_DIRECT);
+				      true, OPTAB_LIB_WIDEN);
 	}
       else
 	{
@@ -2183,6 +2183,14 @@ static void
 expand_ATOMIC_BIT_TEST_AND_RESET (internal_fn, gcall *call)
 {
   expand_ifn_atomic_bit_test_and (call);
+}
+
+/* Expand atomic bit test and set.  */
+
+static void
+expand_ATOMIC_COMPARE_EXCHANGE (internal_fn, gcall *call)
+{
+  expand_ifn_atomic_compare_exchange (call);
 }
 
 /* Expand a call to FN using the operands in STMT.  FN has a single

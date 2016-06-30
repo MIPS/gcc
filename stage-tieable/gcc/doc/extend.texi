@@ -9888,6 +9888,9 @@ cast to the type of the third argument.  If the cast result is equal to the infi
 precision result, the built-in functions return false, otherwise they return true.
 The value of the third argument is ignored, just the side-effects in the third argument
 are evaluated, and no integral argument promotions are performed on the last argument.
+If the third argument is a bit-field, the type used for the result cast has the
+precision and signedness of the given bit-field, rather than precision and signedness
+of the underlying type.
 
 For example, the following macro can be used to portably check, at
 compile-time, whether or not adding two constant integers will overflow,
@@ -14781,6 +14784,40 @@ instructions and always returns the 64 bits of the Time Base Register.
 The @code{__builtin_ppc_mftb} function always generates one instruction and
 returns the Time Base Register value as an unsigned long, throwing away
 the most significant word on 32-bit environments.
+
+Additional built-in functions are available for the 64-bit PowerPC
+family of processors, for efficient use of 128-bit floating point
+(@code{__float128}) values.
+
+The following floating-point built-in functions are available with
+@code{-mfloat128} and Altivec support.  All of them implement the
+function that is part of the name.
+
+@smallexample
+__float128 __builtin_fabsq (__float128)
+__float128 __builtin_copysignq (__float128, __float128)
+@end smallexample
+
+The following built-in functions are available with @code{-mfloat128}
+and Altivec support.
+
+@table @code
+@item __float128 __builtin_infq (void)
+Similar to @code{__builtin_inf}, except the return type is @code{__float128}.
+@findex __builtin_infq
+
+@item __float128 __builtin_huge_valq (void)
+Similar to @code{__builtin_huge_val}, except the return type is @code{__float128}.
+@findex __builtin_huge_valq
+
+@item __float128 __builtin_nanq (void)
+Similar to @code{__builtin_nan}, except the return type is @code{__float128}.
+@findex __builtin_nanq
+
+@item __float128 __builtin_nansq (void)
+Similar to @code{__builtin_nans}, except the return type is @code{__float128}.
+@findex __builtin_nansq
+@end table
 
 The following built-in functions are available for the PowerPC family
 of processors, starting with ISA 2.06 or later (@option{-mcpu=power7}

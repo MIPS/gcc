@@ -1,3 +1,197 @@
+2016-06-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/p9-extract-1.c: New file to test ISA 3.0
+	vector extract instructions.
+	* gcc.target/powerpc/p9-extract-2.c: Likewise.
+
+2016-06-29  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/71686
+	* gfortran.dg/unexpected_eof_2.f90: New test.
+	* gfortran.dg/unexpected_eof_3.f90: New test.
+
+2016-06-29  Jim Wilson  <jim.wilson@linaro.org>
+
+	* gcc.dg/asr_div1.c: Add aarch64 specific dg-options.
+
+2016-06-29  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.dg/goacc/asyncwait-2.f95: Updated expected diagnostics.
+	* gfortran.dg/goacc/asyncwait-3.f95: Likewise.
+	* gfortran.dg/goacc/asyncwait-4.f95: Add test coverage.
+
+2016-06-29  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/15256
+	* gcc.dg/tree-ssa/forwprop-34.c: New testcase.
+
+2016-06-29  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* gcc.target/arm/aapcs/neon-vect10.c: Require
+	-mfloat-ab=hard.  Replace arm_neon_fp16_ok with arm_neon_fp16_hw.
+	* gcc.target/arm/aapcs/neon-vect9.c: Likewise.
+	* gcc.target/arm/aapcs/vfp18.c: Likewise.
+	* gcc.target/arm/aapcs/vfp19.c: Likewise.
+	* gcc.target/arm/aapcs/vfp20.c: Likewise.
+	* gcc.target/arm/aapcs/vfp21.c: Likewise.
+	* gcc.target/arm/fp16-aapcs-1.c: Require
+	-mfloat-ab=hard.  Also simplify the test.
+	* gcc.target/arm/fp16-aapcs-2.c: New.
+
+2016-06-29  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* lib/target-supports.exp (add_options_for_arm_fp16): Reword
+	comment.
+	(add_options_for_arm_fp16_ieee): New.
+	(add_options_for_arm_fp16_alternative): New.
+	(effective_target_arm_fp16_ok_nocache): Add to comment.  Fix a
+	long-line.
+	(effective_target_arm_fp16_hw): New.
+
+2016-06-29  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR tree-optimization/71655
+	* g++.dg/pr71655.C: New test.
+
+2016-06-29  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/pr71585.c: New test.
+	* gcc.dg/pr71585-2.c: New test.
+	* gcc.dg/pr71585-3.c: New test.
+
+2016-06-29  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR tree-optimization/70729
+	* g++.dg/vect/pr70729.cc: New test.
+
+2016-06-29  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/gomp/cancel-1.c: Extend.
+
+2016-06-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/71625
+	* gcc.dg/strlenopt-28.c: New test.
+
+2016-06-29  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/71002
+	* g++.dg/torture/pr71002.C: Adjust testcase.
+
+2016-06-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/71685
+	* gcc.dg/pr71685.c: New test.
+
+2016-06-28  Martin Sebor  <msebor@redhat.com>
+
+	PR c/71552
+	* gcc.dg/init-bad-9.c: New test.
+
+2016-06-28  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/abs128-1.c: Require VSX.
+	* gcc.target/powerpc/copysign128-1.c: Likewise.
+	* gcc.target/powerpc/inf128-1.c: Likewise.
+	* gcc.target/powerpc/nan128-1.c: Likewise.
+
+2016-06-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/71626
+	* gcc.c-torture/execute/pr71626-1.c: New test.
+	* gcc.c-torture/execute/pr71626-2.c: New test.
+
+2016-06-28  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/71656
+	* gcc.target/powerpc/pr71656-2.c: Fix syntax errors.
+
+2016-06-27  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/71670
+	* gcc.target/powerpc/pr71670.c: New testcase.
+
+2016-06-27  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/71656
+	* gcc.target/powerpc/pr71656-1.c: New test.
+	* gcc.target/powerpc/pr71656-2.c: New test.
+
+2016-06-27  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vget_lane.c: Add ifdef
+	around fp16 code.
+	* gcc.target/aarch64/advsimd-intrinsics/vreinterpret.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vreinterpret_p128.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vreinterpret_p64.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vstX_lane.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vld2_lane_f16_indices_1.c:
+	Add arm_neon_fp16_ok effective target.
+	* gcc.target/aarch64/advsimd-intrinsics/vld2q_lane_f16_indices_1.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vld3_lane_f16_indices_1.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vld3q_lane_f16_indices_1.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vld4_lane_f16_indices_1.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vld4q_lane_f16_indices_1.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vst2_lane_f16_indices_1.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vst2q_lane_f16_indices_1.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vst3_lane_f16_indices_1.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vst3q_lane_f16_indices_1.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vst4_lane_f16_indices_1.c: Likewise.
+	* gcc.target/aarch64/advsimd-intrinsics/vst4q_lane_f16_indices_1.c: Likewise.
+
+2016-06-26  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gcc.dg/predict-12.c: New testcase.
+
+2016-06-25  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/71649
+	* gfortran.dg/pr71649.f90: New test.
+
+2016-06-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/71643
+	* g++.dg/opt/pr71643.C: New test.
+
+	PR tree-optimization/71631
+	* gcc.c-torture/execute/pr71631.c: New test.
+
+2016-06-24  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gcc.dg/predict-11.c: New testcase.
+	* gfortran.dg/predict-2.f90: New testcase.
+
+2016-06-24  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gcc.dg/predict-10.c: New test.
+
+2016-06-24  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/abs128-1.c: New.
+	* gcc.target/powerpc/copysign128-1.c: New.
+	* gcc.target/powerpc/inf128-1.c: New.
+	* gcc.target/powerpc/nan128-1.c: New.
+
+2016-06-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gfortran.dg/pr71642.f90: New test.
+
+2016-06-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/71647
+	* gcc.target/i386/pr71647.c: New test.
+
+2016-06-24  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/noplt-gd-1.c: New test.
+	* gcc.target/i386/noplt-gd-2.c: Likewise.
+	* gcc.target/i386/noplt-gd-3.c: Likewise.
+	* gcc.target/i386/noplt-ld-1.c: Likewise.
+	* gcc.target/i386/noplt-ld-2.c: Likewise.
+	* gcc.target/i386/noplt-ld-3.c: Likewise.
+	* lib/target-supports.exp
+	(check_effective_target_tls_get_addr_via_got): New.
+
 2016-06-24  Uros Bizjak  <ubizjak@gmail.com>
 
 	* gcc.dg/vect/vect-nb-iter-ub-1.c: Remove default vector
