@@ -58,45 +58,43 @@ cxx11_sources = \
 	compatibility-chrono.cc \
 	compatibility-condvar.cc
 
-if ENABLE_BIONIC_LIBS
-  libgnustl_shared_la_SOURCES = $(cxx98_sources) $(cxx11_sources)
+libgnustl_shared_la_SOURCES = $(cxx98_sources) $(cxx11_sources)
 
-  libgnustl_shared_la_LIBADD = \
+libgnustl_shared_la_LIBADD = \
 	$(GLIBCXX_LIBS) \
 	$(top_builddir)/libsupc++/libsupc++convenience.la \
 	$(top_builddir)/src/c++98/libc++98convenience.la \
 	$(top_builddir)/src/c++11/libc++11convenience.la
 
-  libgnustl_shared_la_DEPENDENCIES = \
+libgnustl_shared_la_DEPENDENCIES = \
 	${version_dep} \
 	$(top_builddir)/libsupc++/libsupc++convenience.la \
 	$(top_builddir)/src/c++98/libc++98convenience.la \
 	$(top_builddir)/src/c++11/libc++11convenience.la
 
-  libgnustl_shared_la_LDFLAGS = \
+libgnustl_shared_la_LDFLAGS = \
 	${libtool_version_info_string} ${version_arg} -lm
 
-  libgnustl_shared_la_LINK = $(CXXLINK) $(libstdc___la_LDFLAGS)
-else
-  libstdc___la_SOURCES = $(cxx98_sources) $(cxx11_sources)
+libgnustl_shared_la_LINK = $(CXXLINK) $(libstdc___la_LDFLAGS)
 
-  libstdc___la_LIBADD = \
+libstdc___la_SOURCES = $(cxx98_sources) $(cxx11_sources)
+
+libstdc___la_LIBADD = \
 	$(GLIBCXX_LIBS) \
 	$(top_builddir)/libsupc++/libsupc++convenience.la \
 	$(top_builddir)/src/c++98/libc++98convenience.la \
 	$(top_builddir)/src/c++11/libc++11convenience.la
 
-  libstdc___la_DEPENDENCIES = \
+libstdc___la_DEPENDENCIES = \
 	${version_dep} \
 	$(top_builddir)/libsupc++/libsupc++convenience.la \
 	$(top_builddir)/src/c++98/libc++98convenience.la \
 	$(top_builddir)/src/c++11/libc++11convenience.la
 
-  libstdc___la_LDFLAGS = \
+libstdc___la_LDFLAGS = \
 	${libtool_version_info_string} ${version_arg} -lm
 
-  libstdc___la_LINK = $(CXXLINK) $(libstdc___la_LDFLAGS)
-endif
+libstdc___la_LINK = $(CXXLINK) $(libstdc___la_LDFLAGS)
 
 # Use special rules for compatibility-ldbl.cc compilation, as we need to
 # pass -mlong-double-64.
@@ -247,8 +245,7 @@ endif
 if ENABLE_SYMVERS_SUN
 version_arg = -Wl,-M,libstdc++-symbols.ver-sun
 version_dep = libstdc++-symbols.ver-sun
-  if ENABLE_BIONIC_LIBS
-    libstdc++-symbols.ver-sun : libstdc++-symbols.ver \
+libstdc++-symbols.ver-sun : libstdc++-symbols.ver \
 		$(toplevel_srcdir)/contrib/make_sunver.pl \
 		$(libgnustl_shared_la_OBJECTS) $(libgnustl_shared_la_LIBADD)
 	CXXFILT="$(CXXFILT)"; export CXXFILT; \
@@ -258,34 +255,11 @@ version_dep = libstdc++-symbols.ver-sun
 	 `echo $(libgnustl_shared_la_LIBADD) | \
 	    sed 's,/\([^/.]*\)\.la,/.libs/\1.a,g'` \
 	 > $@ || (rm -f $@ ; exit 1)
-  else
-    libstdc++-symbols.ver-sun : libstdc++-symbols.ver \
-		$(toplevel_srcdir)/contrib/make_sunver.pl \
-		$(libstdc___la_OBJECTS) $(libstdc___la_LIBADD)
-	CXXFILT="$(CXXFILT)"; export CXXFILT; \
-	perl $(toplevel_srcdir)/contrib/make_sunver.pl \
-	  libstdc++-symbols.ver \
-	  $(libstdc___la_OBJECTS:%.lo=.libs/%.o) \
-	 `echo $(libstdc___la_LIBADD) | \
-	    sed 's,/\([^/.]*\)\.la,/.libs/\1.a,g'` \
-	 > $@ || (rm -f $@ ; exit 1)
-  endif
 endif
 if ENABLE_SYMVERS_DARWIN
 version_arg = -Wl,-exported_symbols_list,libstdc++-symbols.explist
 version_dep = libstdc++-symbols.explist
-  if ENABLE_BIONIC_LIBS
-    libstdc++-symbols.explist : libstdc++-symbols.ver \
-		${glibcxx_srcdir}/scripts/make_exports.pl \
-		$(libgnustl_shared_la_OBJECTS) $(libgnustl_shared_la_LIBADD)
-	perl ${glibcxx_srcdir}/scripts/make_exports.pl \
-	  libstdc++-symbols.ver \
-	  $(libgnustl_shared_la_OBJECTS:%.lo=.libs/%.o) \
-	 `echo $(libgnustl_shared_la_LIBADD) | \
-	    sed 's,/\([^/.]*\)\.la,/.libs/\1.a,g'` \
-	 > $@ || (rm -f $@ ; exit 1)
-  else
-    libstdc++-symbols.explist : libstdc++-symbols.ver \
+libstdc++-symbols.explist : libstdc++-symbols.ver \
 		${glibcxx_srcdir}/scripts/make_exports.pl \
 		$(libstdc___la_OBJECTS) $(libstdc___la_LIBADD)
 	perl ${glibcxx_srcdir}/scripts/make_exports.pl \
@@ -294,7 +268,6 @@ version_dep = libstdc++-symbols.explist
 	 `echo $(libstdc___la_LIBADD) | \
 	    sed 's,/\([^/.]*\)\.la,/.libs/\1.a,g'` \
 	 > $@ || (rm -f $@ ; exit 1)
-  endif
 endif
 
 CLEANFILES += $(version_dep)

@@ -785,6 +785,7 @@ with_debug_prefix_map
 with_build_config
 enable_vtable_verify
 enable_bionic_libs
+enable_libatomic_ifuncs
 enable_serial_configure
 with_build_time_tools
 enable_maintainer_mode
@@ -1485,6 +1486,7 @@ Optional Features:
                           Objective-C runtime
   --enable-vtable-verify    Enable vtable verification feature
   --enable-bionic-libs    Use bionic libstdc++ libraries
+  --enable-libatomic-ifuncs    Enable/disable IFUNCs in libatomic library
   --enable-serial-[{host,target,build}-]configure
                           force sequential configuration of sub-packages for
                           the host, target or build machine, or all
@@ -7239,6 +7241,23 @@ fi
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_bionic_libs" >&5
 $as_echo "$enable_bionic_libs" >&6; }
+
+# Use same top-level configure hooks in libatomic.
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for --enable-libatomic-ifuncs" >&5
+$as_echo_n "checking for --enable-libatomic-ifuncs... " >&6; }
+# Check whether --enable-libatomic-ifuncs was given.
+if test "${enable_libatomic_ifuncs+set}" = set; then :
+  enableval=$enable_libatomic_ifuncs; case "$enableval" in
+ yes) enable_libatomic_ifuncs=yes ;;
+ no)  enable_libatomic_ifuncs=no ;;
+ *)   enable_libatomic_ifuncs=yes;;
+ esac
+else
+  enable_libatomic_ifuncs=yes
+fi
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_libatomic_ifuncs" >&5
+$as_echo "$enable_libatomic_ifuncs" >&6; }
 
 # Record target_configdirs and the configure arguments for target and
 # build configuration in Makefile.
