@@ -19610,12 +19610,29 @@ ix86_expand_vector_move (machine_mode mode, rtx operands[])
      of the register, once we have that information we may be able
      to handle some of them more efficiently.  */
   if (can_create_pseudo_p ()
-      && register_operand (op0, mode)
       && (CONSTANT_P (op1)
 	  || (SUBREG_P (op1)
 	      && CONSTANT_P (SUBREG_REG (op1))))
-      && !standard_sse_constant_p (op1, mode))
-    op1 = validize_mem (force_const_mem (mode, op1));
+      && ((register_operand (op0, mode)
+	   && !standard_sse_constant_p (op1, mode))
+	  /* ix86_expand_vector_move_misalign() does not like constants.  */
+	  || (SSE_REG_MODE_P (mode)
+	      && MEM_P (op0)
+	      && MEM_ALIGN (op0) < align)))
+    {
+      if (SUBREG_P (op1))
+	{
+	  machine_mode imode = GET_MODE (SUBREG_REG (op1));
+	  rtx r = force_const_mem (imode, SUBREG_REG (op1));
+	  if (r)
+	    r = validize_mem (r);
+	  else
+	    r = force_reg (imode, SUBREG_REG (op1));
+	  op1 = simplify_gen_subreg (mode, r, imode, SUBREG_BYTE (op1));
+	}
+      else
+	op1 = validize_mem (force_const_mem (mode, op1));
+    }
 
   /* We need to check memory alignment for SSE mode since attribute
      can make operands unaligned.  */
@@ -19626,13 +19643,8 @@ ix86_expand_vector_move (machine_mode mode, rtx operands[])
     {
       rtx tmp[2];
 
-      /* ix86_expand_vector_move_misalign() does not like constants ... */
-      if (CONSTANT_P (op1)
-	  || (SUBREG_P (op1)
-	      && CONSTANT_P (SUBREG_REG (op1))))
-	op1 = validize_mem (force_const_mem (mode, op1));
-
-      /* ... nor both arguments in memory.  */
+      /* ix86_expand_vector_move_misalign() does not like both
+	 arguments in memory.  */
       if (!register_operand (op0, mode)
 	  && !register_operand (op1, mode))
 	op1 = force_reg (mode, op1);
@@ -54583,10 +54595,13 @@ ix86_get_mask_mode (unsigned nunits, unsigned vector_size)
 /* Return class of registers which could be used for pseudo of MODE
    and of class RCLASS for spilling instead of memory.  Return NO_REGS
    if it is not possible or non-profitable.  */
+
+/* Disabled due to PRs 70902, 71453, 71555, 71596 and 71657.  */
+
 static reg_class_t
 ix86_spill_class (reg_class_t rclass, machine_mode mode)
 {
-  if (TARGET_GENERAL_REGS_SSE_SPILL
+  if (0 && TARGET_GENERAL_REGS_SSE_SPILL
       && TARGET_SSE2
       && TARGET_INTER_UNIT_MOVES_TO_VEC
       && TARGET_INTER_UNIT_MOVES_FROM_VEC
@@ -55700,6 +55715,7 @@ ix86_addr_space_zero_address_valid (addr_space_t as)
 #undef TARGET_LOOP_UNROLL_ADJUST
 #define TARGET_LOOP_UNROLL_ADJUST ix86_loop_unroll_adjust
 
+/* Disabled due to PRs 70902, 71453, 71555, 71596 and 71657.  */
 #undef TARGET_SPILL_CLASS
 #define TARGET_SPILL_CLASS ix86_spill_class
 
