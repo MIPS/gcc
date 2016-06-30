@@ -4846,6 +4846,8 @@ build_conditional_expr (location_t colon_loc, tree ifexp, bool ifexp_bcp,
 	       || code2 == COMPLEX_TYPE))
     {
       result_type = c_common_type (type1, type2);
+      if (result_type == error_mark_node)
+	return error_mark_node;
       do_warn_double_promotion (result_type, type1, type2,
 				"implicit conversion from %qT to %qT to "
 				"match other result of conditional",
@@ -8752,6 +8754,22 @@ output_init_element (location_t loc, tree value, tree origtype,
   if (!maybe_const)
     constructor_nonconst = 1;
 
+  /* Digest the initializer and issue any errors about incompatible
+     types before issuing errors about non-constant initializers.  */
+  tree new_value = value;
+  if (semantic_type)
+    new_value = build1 (EXCESS_PRECISION_EXPR, semantic_type, value);
+  new_value = digest_init (loc, type, new_value, origtype, npc, strict_string,
+			   require_constant_value);
+  if (new_value == error_mark_node)
+    {
+      constructor_erroneous = 1;
+      return;
+    }
+  if (require_constant_value || require_constant_elements)
+    constant_expression_warning (new_value);
+
+  /* Proceed to check the constness of the original initializer.  */
   if (!initializer_constant_valid_p (value, TREE_TYPE (value)))
     {
       if (require_constant_value)
@@ -8796,17 +8814,8 @@ output_init_element (location_t loc, tree value, tree origtype,
 		  || DECL_CHAIN (field)))))
     return;
 
-  if (semantic_type)
-    value = build1 (EXCESS_PRECISION_EXPR, semantic_type, value);
-  value = digest_init (loc, type, value, origtype, npc, strict_string,
-		       require_constant_value);
-  if (value == error_mark_node)
-    {
-      constructor_erroneous = 1;
-      return;
-    }
-  if (require_constant_value || require_constant_elements)
-    constant_expression_warning (value);
+  /* Finally, set VALUE to the initializer value digested above.  */
+  value = new_value;
 
   /* If this element doesn't come next in sequence,
      put it on constructor_pending_elts.  */
@@ -11924,7 +11933,7 @@ c_finish_omp_cancel (location_t loc, tree clauses)
     mask = 8;
   else
     {
-      error_at (loc, "%<#pragma omp cancel must specify one of "
+      error_at (loc, "%<#pragma omp cancel%> must specify one of "
 		     "%<parallel%>, %<for%>, %<sections%> or %<taskgroup%> "
 		     "clauses");
       return;
@@ -11963,7 +11972,7 @@ c_finish_omp_cancellation_point (location_t loc, tree clauses)
     mask = 8;
   else
     {
-      error_at (loc, "%<#pragma omp cancellation point must specify one of "
+      error_at (loc, "%<#pragma omp cancellation point%> must specify one of "
 		     "%<parallel%>, %<for%>, %<sections%> or %<taskgroup%> "
 		     "clauses");
       return;
@@ -13667,7 +13676,8 @@ c_build_qualified_type (tree type, int type_quals, tree orig_qual_type,
 		   : build_qualified_type (type, type_quals));
   /* A variant type does not inherit the list of incomplete vars from the
      type main variant.  */
-  if (RECORD_OR_UNION_TYPE_P (var_type))
+  if (RECORD_OR_UNION_TYPE_P (var_type)
+      && TYPE_MAIN_VARIANT (var_type) != var_type)
     C_TYPE_INCOMPLETE_VARS (var_type) = 0;
   return var_type;
 }

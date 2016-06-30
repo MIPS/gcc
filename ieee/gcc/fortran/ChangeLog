@@ -1,3 +1,51 @@
+2016-06-29  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/71686
+	* scanner.c (gfc_next_char_literal): Only decrement nextc if it
+	is not NULL.
+
+2016-06-29  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* openmp.c (match_oacc_clause_gang): Rename to ...
+	(match_oacc_clause_gwv): this.  Add support for OpenACC worker and
+	vector clauses.
+	(gfc_match_omp_clauses): Use match_oacc_clause_gwv for
+	OMP_CLAUSE_{GANG,WORKER,VECTOR}.  Propagate any MATCH_ERRORs for
+	invalid OMP_CLAUSE_{ASYNC,WAIT,GANG,WORKER,VECTOR} clauses.
+	(gfc_match_oacc_wait): Propagate MATCH_ERROR for invalid
+	oacc_expr_lists.  Adjust the first and needs_space arguments to
+	gfc_match_omp_clauses.
+
+2016-06-29  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/71002
+	* f95-lang.c (LANG_HOOKS_GET_ALIAS_SET): Remove (un-)define.
+	(gfc_get_alias_set): Remove.
+
+2016-06-25  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/71649
+	* module.c (create_intrinsic_function): Check for NULL values and
+	return after giving error.
+
+2016-06-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* trans-types.c (gfc_build_complex_type): Move setting complex
+	MODE to layout_type, instead of setting it ahead of time by the
+	caller.
+
+2016-06-21  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/71068
+	* resolve.c (resolve_function): Don't resolve caf_get/caf_send.
+	(check_data_variable): Strip-off caf_get before checking.
+
+2016-06-20  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/71194
+	* trans-expr.c (gfc_trans_pointer_assignment): Correctly handle
+	RHS pointer functions.
+
 2016-06-19  Bernhard Reutner-Fischer  <aldot@gcc.gnu.org>
 
 	* class.c (gfc_add_class_array_ref): Call gfc_add_data_component()

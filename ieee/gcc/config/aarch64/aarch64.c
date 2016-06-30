@@ -250,6 +250,22 @@ static const struct cpu_addrcost_table xgene1_addrcost_table =
   0, /* imm_offset  */
 };
 
+static const struct cpu_addrcost_table qdf24xx_addrcost_table =
+{
+    {
+      1, /* hi  */
+      0, /* si  */
+      0, /* di  */
+      1, /* ti  */
+    },
+  0, /* pre_modify  */
+  0, /* post_modify  */
+  0, /* register_offset  */
+  0, /* register_sextend  */
+  0, /* register_zextend  */
+  0 /* imm_offset  */
+};
+
 static const struct cpu_regmove_cost generic_regmove_cost =
 {
   1, /* GP2GP  */
@@ -306,6 +322,15 @@ static const struct cpu_regmove_cost xgene1_regmove_cost =
   8, /* GP2FP  */
   8, /* FP2GP  */
   2 /* FP2FP  */
+};
+
+static const struct cpu_regmove_cost qdf24xx_regmove_cost =
+{
+  2, /* GP2GP  */
+  /* Avoid the use of int<->fp moves for spilling.  */
+  6, /* GP2FP  */
+  6, /* FP2GP  */
+  4 /* FP2FP  */
 };
 
 /* Generic costs for vector insn classes.  */
@@ -454,9 +479,9 @@ static const struct tune_params cortexa35_tunings =
   1, /* issue_rate  */
   (AARCH64_FUSE_MOV_MOVK | AARCH64_FUSE_ADRP_ADD
    | AARCH64_FUSE_MOVK_MOVK | AARCH64_FUSE_ADRP_LDR), /* fusible_ops  */
-  8,	/* function_align.  */
+  16,	/* function_align.  */
   8,	/* jump_align.  */
-  4,	/* loop_align.  */
+  8,	/* loop_align.  */
   2,	/* int_reassoc_width.  */
   4,	/* fp_reassoc_width.  */
   1,	/* vec_reassoc_width.  */
@@ -480,9 +505,9 @@ static const struct tune_params cortexa53_tunings =
   2, /* issue_rate  */
   (AARCH64_FUSE_AES_AESMC | AARCH64_FUSE_MOV_MOVK | AARCH64_FUSE_ADRP_ADD
    | AARCH64_FUSE_MOVK_MOVK | AARCH64_FUSE_ADRP_LDR), /* fusible_ops  */
-  8,	/* function_align.  */
+  16,	/* function_align.  */
   8,	/* jump_align.  */
-  4,	/* loop_align.  */
+  8,	/* loop_align.  */
   2,	/* int_reassoc_width.  */
   4,	/* fp_reassoc_width.  */
   1,	/* vec_reassoc_width.  */
@@ -508,7 +533,7 @@ static const struct tune_params cortexa57_tunings =
    | AARCH64_FUSE_MOVK_MOVK), /* fusible_ops  */
   16,	/* function_align.  */
   8,	/* jump_align.  */
-  4,	/* loop_align.  */
+  8,	/* loop_align.  */
   2,	/* int_reassoc_width.  */
   4,	/* fp_reassoc_width.  */
   1,	/* vec_reassoc_width.  */
@@ -534,7 +559,7 @@ static const struct tune_params cortexa72_tunings =
    | AARCH64_FUSE_MOVK_MOVK), /* fusible_ops  */
   16,	/* function_align.  */
   8,	/* jump_align.  */
-  4,	/* loop_align.  */
+  8,	/* loop_align.  */
   2,	/* int_reassoc_width.  */
   4,	/* fp_reassoc_width.  */
   1,	/* vec_reassoc_width.  */
@@ -543,6 +568,32 @@ static const struct tune_params cortexa72_tunings =
   0,	/* max_case_values.  */
   0,	/* cache_line_size.  */
   tune_params::AUTOPREFETCHER_OFF,	/* autoprefetcher_model.  */
+  (AARCH64_EXTRA_TUNE_NONE)	/* tune_flags.  */
+};
+
+static const struct tune_params cortexa73_tunings =
+{
+  &cortexa57_extra_costs,
+  &cortexa57_addrcost_table,
+  &cortexa57_regmove_cost,
+  &cortexa57_vector_cost,
+  &generic_branch_cost,
+  &generic_approx_modes,
+  4, /* memmov_cost.  */
+  2, /* issue_rate.  */
+  (AARCH64_FUSE_AES_AESMC | AARCH64_FUSE_MOV_MOVK | AARCH64_FUSE_ADRP_ADD
+   | AARCH64_FUSE_MOVK_MOVK | AARCH64_FUSE_ADRP_LDR), /* fusible_ops  */
+  16,	/* function_align.  */
+  8,	/* jump_align.  */
+  8,	/* loop_align.  */
+  2,	/* int_reassoc_width.  */
+  4,	/* fp_reassoc_width.  */
+  1,	/* vec_reassoc_width.  */
+  2,	/* min_div_recip_mul_sf.  */
+  2,	/* min_div_recip_mul_df.  */
+  0,	/* max_case_values.  */
+  0,	/* cache_line_size.  */
+  tune_params::AUTOPREFETCHER_WEAK,	/* autoprefetcher_model.  */
   (AARCH64_EXTRA_TUNE_NONE)	/* tune_flags.  */
 };
 
@@ -619,6 +670,32 @@ static const struct tune_params xgene1_tunings =
   0,	/* cache_line_size.  */
   tune_params::AUTOPREFETCHER_OFF,	/* autoprefetcher_model.  */
   (AARCH64_EXTRA_TUNE_NONE)	/* tune_flags.  */
+};
+
+static const struct tune_params qdf24xx_tunings =
+{
+  &qdf24xx_extra_costs,
+  &qdf24xx_addrcost_table,
+  &qdf24xx_regmove_cost,
+  &generic_vector_cost,
+  &generic_branch_cost,
+  &generic_approx_modes,
+  4, /* memmov_cost  */
+  4, /* issue_rate  */
+  (AARCH64_FUSE_MOV_MOVK | AARCH64_FUSE_ADRP_ADD
+   | AARCH64_FUSE_MOVK_MOVK), /* fuseable_ops  */
+  16,	/* function_align.  */
+  8,	/* jump_align.  */
+  16,	/* loop_align.  */
+  2,	/* int_reassoc_width.  */
+  4,	/* fp_reassoc_width.  */
+  1,	/* vec_reassoc_width.  */
+  2,	/* min_div_recip_mul_sf.  */
+  2,	/* min_div_recip_mul_df.  */
+  0,	/* max_case_values.  */
+  64,	/* cache_line_size.  */
+  tune_params::AUTOPREFETCHER_STRONG,	/* autoprefetcher_model.  */
+  (AARCH64_EXTRA_TUNE_NONE)		/* tune_flags.  */
 };
 
 /* Support for fine-grained override of the tuning structures.  */

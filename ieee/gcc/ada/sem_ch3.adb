@@ -2436,8 +2436,8 @@ package body Sem_Ch3 is
                null;
 
             elsif L /= Visible_Declarations (Parent (L))
-               or else No (Private_Declarations (Parent (L)))
-               or else Is_Empty_List (Private_Declarations (Parent (L)))
+              or else No (Private_Declarations (Parent (L)))
+              or else Is_Empty_List (Private_Declarations (Parent (L)))
             then
                Adjust_Decl;
                Freeze_All (First_Entity (Current_Scope), Decl);
@@ -9182,6 +9182,7 @@ package body Sem_Ch3 is
       Set_Mechanism (D_Minal, Default_Mechanism);
       Set_Etype     (D_Minal, Etype (Discrim));
       Set_Scope     (D_Minal, Current_Scope);
+      Set_Parent    (D_Minal, Parent (Discrim));
 
       Set_Discriminal (Discrim, D_Minal);
       Set_Discriminal_Link (D_Minal, Discrim);

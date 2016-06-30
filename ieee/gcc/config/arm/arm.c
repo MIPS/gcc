@@ -104,7 +104,6 @@ static void arm_print_operand_address (FILE *, machine_mode, rtx);
 static bool arm_print_operand_punct_valid_p (unsigned char code);
 static const char *fp_const_from_val (REAL_VALUE_TYPE *);
 static arm_cc get_arm_condition_code (rtx);
-static HOST_WIDE_INT int_log2 (HOST_WIDE_INT);
 static const char *output_multi_immediate (rtx *, const char *, const char *,
 					   int, HOST_WIDE_INT);
 static const char *shift_op (rtx, HOST_WIDE_INT *);
@@ -2053,6 +2052,29 @@ const struct tune_params arm_xgene1_tune =
   tune_params::SCHED_AUTOPREF_OFF
 };
 
+const struct tune_params arm_qdf24xx_tune =
+{
+  arm_9e_rtx_costs,
+  &qdf24xx_extra_costs,
+  NULL,                                         /* Scheduler cost adjustment.  */
+  arm_default_branch_cost,
+  &arm_default_vec_cost,			/* Vectorizer costs.  */
+  1,						/* Constant limit.  */
+  2,						/* Max cond insns.  */
+  8,						/* Memset max inline.  */
+  4,						/* Issue rate.  */
+  ARM_PREFETCH_BENEFICIAL (0, -1, 64),
+  tune_params::PREF_CONST_POOL_FALSE,
+  tune_params::PREF_LDRD_TRUE,
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,	/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,	/* ARM.  */
+  tune_params::DISPARAGE_FLAGS_ALL,
+  tune_params::PREF_NEON_64_FALSE,
+  tune_params::PREF_NEON_STRINGOPS_TRUE,
+  FUSE_OPS (tune_params::FUSE_MOVW_MOVT),
+  tune_params::SCHED_AUTOPREF_FULL
+};
+
 /* Branches can be dual-issued on Cortex-A5, so conditional execution is
    less appealing.  Set max_insns_skipped to a low value.  */
 
@@ -2123,6 +2145,29 @@ const struct tune_params arm_cortex_a12_tune =
   tune_params::PREF_NEON_STRINGOPS_TRUE,
   FUSE_OPS (tune_params::FUSE_MOVW_MOVT),
   tune_params::SCHED_AUTOPREF_OFF
+};
+
+const struct tune_params arm_cortex_a73_tune =
+{
+  arm_9e_rtx_costs,
+  &cortexa57_extra_costs,
+  NULL,						/* Sched adj cost.  */
+  arm_default_branch_cost,
+  &arm_default_vec_cost,			/* Vectorizer costs.  */
+  1,						/* Constant limit.  */
+  2,						/* Max cond insns.  */
+  8,						/* Memset max inline.  */
+  2,						/* Issue rate.  */
+  ARM_PREFETCH_NOT_BENEFICIAL,
+  tune_params::PREF_CONST_POOL_FALSE,
+  tune_params::PREF_LDRD_TRUE,
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
+  tune_params::DISPARAGE_FLAGS_ALL,
+  tune_params::PREF_NEON_64_FALSE,
+  tune_params::PREF_NEON_STRINGOPS_TRUE,
+  FUSE_OPS (tune_params::FUSE_AES_AESMC | tune_params::FUSE_MOVW_MOVT),
+  tune_params::SCHED_AUTOPREF_FULL
 };
 
 /* armv7m tuning.  On Cortex-M4 cores for example, MOVW/MOVT take a single
@@ -19071,7 +19116,8 @@ shift_op (rtx op, HOST_WIDE_INT *amountp)
 	  return NULL;
 	}
 
-      *amountp = int_log2 (*amountp);
+      *amountp = exact_log2 (*amountp);
+      gcc_assert (IN_RANGE (*amountp, 0, 31));
       return ARM_LSL_NAME;
 
     default:
@@ -19101,22 +19147,6 @@ shift_op (rtx op, HOST_WIDE_INT *amountp)
     return NULL;
 
   return mnem;
-}
-
-/* Obtain the shift from the POWER of two.  */
-
-static HOST_WIDE_INT
-int_log2 (HOST_WIDE_INT power)
-{
-  HOST_WIDE_INT shift = 0;
-
-  while ((((HOST_WIDE_INT) 1 << shift) & power) == 0)
-    {
-      gcc_assert (shift <= 31);
-      shift++;
-    }
-
-  return shift;
 }
 
 /* Output a .ascii pseudo-op, keeping track of lengths.  This is
@@ -27908,7 +27938,11 @@ vfp3_const_double_for_fract_bits (rtx operand)
 	  HOST_WIDE_INT value = real_to_integer (&r0);
 	  value = value & 0xffffffff;
 	  if ((value != 0) && ( (value & (value - 1)) == 0))
-	    return int_log2 (value);
+	    {
+	      int ret = exact_log2 (value);
+	      gcc_assert (IN_RANGE (ret, 0, 31));
+	      return ret;
+	    }
 	}
     }
   return 0;

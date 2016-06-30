@@ -1,3 +1,42 @@
+2016-06-29  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* parser.c (cp_parser_pragma) <PRAGMA_OMP_CANCELLATION_POINT>:
+	Move pragma context checking into...
+	(cp_parser_omp_cancellation_point): ... here, and improve
+	diagnostic messages.
+	* semantics.c (finish_omp_cancel, finish_omp_cancellation_point):
+	Improve diagnostic messages.
+
+2016-06-28  Jakub Jelinek  <jakub@redhat.com>
+
+	* Make-lang.in: Don't cat ../stage_current if it does not exist.
+
+2016-06-24  Jason Merrill  <jason@redhat.com>
+
+	P0145R2: Refining Expression Order for C++.
+	* typeck.c (cp_build_modify_expr): Leave COMPOUND_EXPR on LHS.
+
+	* tree.c (get_target_expr_sfinae): Handle bit-fields.
+	(build_target_expr): Call mark_rvalue_use.
+
+2016-06-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* call.c (magic_varargs_p): Return 3 for __builtin_*_overflow_p.
+	(build_over_call): For magic == 3, do no conversion only on 3rd
+	argument.
+
+2016-06-23  Andi Kleen  <ak@linux.intel.com>
+
+	* Make-lang.in: Add support for autofdo.
+
+2016-06-21  Jason Merrill  <jason@redhat.com>
+
+	* constraint.cc (constraints_satisfied_p): Keep as many levels of
+	args as our template has levels of parms.
+
+	* pt.c (template_parm_outer_level, uses_outer_template_parms): New.
+	(type_dependent_expression_p): Use uses_outer_template_parms.
+
 2016-06-20  David Malcolm  <dmalcolm@redhat.com>
 
 	* parser.c (cp_parser_string_literal): Convert non-standard

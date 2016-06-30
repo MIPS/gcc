@@ -1,3 +1,50 @@
+2016-06-28  Walter Lee  <walt@tilera.com>
+
+	* config/tilepro/atomic.h: Do not include arch/spr_def.h and
+	asm/unistd.h.
+	(SPR_CMPEXCH_VALUE): Define for tilegx.
+	(__NR_FAST_cmpxchg): Define for tilepro.
+	(__NR_FAST_atomic_update): Define for tilepro.
+	(__NR_FAST_cmpxchg64): Define for tilepro.
+
+2016-06-23  Jakub Sejdak  <jakub.sejdak@phoesys.com>
+
+   * config.host: Add suport for arm*-*-phoenix* targets.
+
+2016-06-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* config.host: Remove support for mep-*.
+	* config/mep/lib1funcs.S: Remove.
+	* config/mep/lib2funcs.c: Remove.
+	* config/mep/t-mep: Remove.
+	* config/mep/tramp.c: Remove.
+
+2016-06-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* config.host: Remove support for avr-rtems.
+	* config/avr/t-rtems: Remove.
+
+2016-06-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* config.host: Remove m32r-rtems support.
+
+2016-06-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* config.host: Remove h8300-rtems support.
+
+2016-06-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* config.host: Remove support for knetbsd.
+
+2016-06-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* config.host: Remove support for openbsd 2 and 3.
+
+2016-06-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* config.host: Remove interix support.
+	* config/i386/t-interix: Remove.
+
 2016-06-18  John David Anglin  <danglin@gcc.gnu.org>
 
 	* config/pa/fptr.c (__canonicalize_funcptr_for_compare): Don't set
