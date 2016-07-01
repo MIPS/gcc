@@ -572,3 +572,6 @@ Target Undocumented Joined UInteger Var(TARGET_LI48) Init(0)
 
 madd-new-condmoves
 Target Undocumented Var(TARGET_ADD_CONDMOVES) Init(0)
+
+madd-new-ins-xor
+Target Undocumented Var(TARGET_NEW_INS_XOR) Init(0)
