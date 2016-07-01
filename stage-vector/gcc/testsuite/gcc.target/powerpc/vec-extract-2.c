@@ -19,10 +19,10 @@ vector long deoptimize (vector long a)
 }
 
 void
-test_element (vector long a, long e, long n)
+test_element (vector long v, long expected, long n)
 {
-  long v = vec_extract (a, n);
-  if (v != n)
+  long value = vec_extract (v, n);
+  if (value != expected)
     abort ();
 }
 
