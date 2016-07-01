@@ -7912,17 +7912,21 @@
 ;; MIPS4 Conditional move instructions.
 
 (define_insn "*mov<GPR:mode>_on_<MOVECC:mode>"
-  [(set (match_operand:GPR 0 "register_operand" "=d,d")
+  [(set (match_operand:GPR 0 "register_operand" "=d,d,d,d,d,d")
 	(if_then_else:GPR
-	 (match_operator 4 "equality_operator"
-		[(match_operand:MOVECC 1 "register_operand" "<MOVECC:reg>,<MOVECC:reg>")
-		 (const_int 0)])
-	 (match_operand:GPR 2 "reg_or_0_operand" "dJ,0")
-	 (match_operand:GPR 3 "reg_or_0_operand" "0,dJ")))]
+	 (match_operator 4 "mips_movcc_comparison_operator"
+		[(match_operand:MOVECC 1 "register_operand" "<MOVECC:reg>,<MOVECC:reg>,<MOVECC:reg>,<MOVECC:reg>,<MOVECC:reg>,<MOVECC:reg>")
+		 (match_operand:SI 5 "cmove_operand" "J,J,d,d,Uub7,Uub7")])
+	 (match_operand:GPR 2 "reg_or_0_operand" "dJ,0,d,0,d,0")
+	 (match_operand:GPR 3 "reg_or_0_operand" "0,dJ,0,d,0,d")))]
   "!TARGET_MIPS16 && ISA_HAS_CONDMOVE"
   "@
     mov%T4\t%0,%z2,%1
-    mov%t4\t%0,%z3,%1"
+    mov%t4\t%0,%z3,%1
+    sdbbp32 3 # mov%T4\t%0,%z2,%1,%5
+    sdbbp32 3 # mov%t4\t%0,%z3,%1,%5
+    sdbbp32 3 # mov%T4\t%0,%z2,%1,%5
+    sdbbp32 3 # mov%t4\t%0,%z3,%1,%5"
   [(set_attr "type" "condmove")
    (set_attr "mode" "<GPR:MODE>")])
 
