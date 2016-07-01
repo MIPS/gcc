@@ -7638,22 +7638,28 @@
 ;; MIPS4 Conditional move instructions.
 
 (define_insn "*mov<GPR:mode>_on_<MOVECC:mode>"
-  [(set (match_operand:GPR 0 "register_operand" "=d,d")
+  [(set (match_operand:GPR 0 "register_operand" "=d,d,d,d,d,d")
 	(if_then_else:GPR
-	 (match_operator 4 "equality_operator"
-		[(match_operand:MOVECC 1 "register_operand" "<MOVECC:reg>,<MOVECC:reg>")
-		 (const_int 0)])
-	 (match_operand:GPR 2 "reg_or_0_operand" "dJ,0")
-	 (match_operand:GPR 3 "reg_or_0_operand" "0,dJ")))]
+	 (match_operator 4 "mips_movcc_comparison_operator"
+		[(match_operand:MOVECC 1 "register_operand" "<MOVECC:reg>,<MOVECC:reg>,<MOVECC:reg>,<MOVECC:reg>,<MOVECC:reg>,<MOVECC:reg>")
+		 (match_operand:SI 5 "reg_uimm7_operand2" "J,J,d,d,Uub7,Uub7")])
+	 (match_operand:GPR 2 "reg_or_0_operand" "dJ,0,d,0,d,0")
+	 (match_operand:GPR 3 "reg_or_0_operand" "0,dJ,0,d,0,d")))]
   "!TARGET_MIPS16 && ISA_HAS_CONDMOVE"
   ;; FIXME
 {
   if (TARGET_MICROMIPS_R7 && TARGET_ADD_CONDMOVE)
     {
-      if (which_alternative == 0)
-	return "sdbbp32 17 # mov%T4\t%0,%z2,%1";
-      else
-	return "sdbbp32 17 # mov%t4\t%0,%z3,%1";
+      switch (which_alternative)
+	{
+	case 0: return "sdbbp32 17 # mov%T4\t%0,%z2,%1";
+	case 1: return "sdbbp32 17 # mov%t4\t%0,%z3,%1";
+	case 2: return "sdbbp32 23 # mov%T4\t%0,%z2,%1,%5";
+	case 3: return "sdbbp32 23 # mov%t4\t%0,%z3,%1,%5";
+	case 4: return "sdbbp32 24 # mov%T4\t%0,%z2,%1,%5";
+	case 5: return "sdbbp32 24 # mov%t4\t%0,%z3,%1,%5";
+	default: gcc_unreachable (); break;
+	}
     }
   else
     {
@@ -7664,7 +7670,12 @@
     }
 }
   [(set_attr "type" "condmove")
-   (set_attr "mode" "<GPR:MODE>")])
+   (set_attr "mode" "<GPR:MODE>")
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "2,3,4,5")
+		    (not (match_test "TARGET_ADD_CONDMOVE2")))
+		  (const_string "no")]
+	      (const_string "yes")))])
 
 (define_insn "*mov<GPR:mode>_on_<MOVECC:mode>_mips16e2"
   [(set (match_operand:GPR 0 "register_operand" "=d,d,d,d")

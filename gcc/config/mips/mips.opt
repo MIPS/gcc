@@ -619,3 +619,6 @@ Target Undocumented Var(TARGET_ADD_NEW_ADDIUR2) Init(0)
 
 mli48
 Target Undocumented Var(TARGET_LI48) Init(0)
+
+madd-new-condmoves
+Target Undocumented Var(TARGET_ADD_CONDMOVE2) Init(0)

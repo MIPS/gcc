@@ -7103,7 +7103,10 @@ mips_expand_conditional_move (rtx *operands)
   rtx op0 = XEXP (operands[1], 0);
   rtx op1 = XEXP (operands[1], 1);
 
-  mips_emit_compare (&code, &op0, &op1, true);
+  if (TARGET_ADD_CONDMOVE2)
+    mips_emit_compare (&code, &op0, &op1, false);
+  else
+    mips_emit_compare (&code, &op0, &op1, true);
   cond = gen_rtx_fmt_ee (code, GET_MODE (op0), op0, op1);
 
   /* There is no direct support for general conditional GP move involving
@@ -10844,10 +10847,52 @@ mips_print_operand (FILE *file, rtx op, int letter)
       break;
 
     case 'T':
+      {
+	int truth = (code == NE) == (letter == 'T');
+	if (GP_REG_P (REGNO (XEXP (op, 0)))
+	    && ((GET_CODE (XEXP (op, 1)) == CONST_INT
+		 && INTVAL (XEXP (op, 1)) != 0)
+		|| GET_CODE (XEXP (op, 1)) == REG))
+	  {
+	    switch (code)
+	      {
+	      case NE: fprintf (file, "ne"); break;
+	      case EQ: fprintf (file, "eq"); break;
+	      case LT: fprintf (file, "lt"); break;
+	      case LTU: fprintf (file, "ltu"); break;
+	      case GE: fprintf (file, "ge"); break;
+	      case GEU: fprintf (file, "ge"); break;
+	      default: gcc_unreachable ();
+	      }
+	  }
+	else
+	  fputc ("zfnt"[truth * 2 + ST_REG_P (REGNO (XEXP (op, 0)))], file);
+      }
+    break;
     case 't':
       {
 	int truth = (code == NE) == (letter == 'T');
-	fputc ("zfnt"[truth * 2 + ST_REG_P (REGNO (XEXP (op, 0)))], file);
+	if (GP_REG_P (REGNO (XEXP (op, 0)))
+	    && ((GET_CODE (XEXP (op, 1)) == CONST_INT
+		 && INTVAL (XEXP (op, 1)) != 0)
+		|| GET_CODE (XEXP (op, 1)) == REG))
+	  {
+	    if (ST_REG_P (REGNO (XEXP (op, 0))) != 0)
+	      fputc ("zfnt"[truth * 2 + ST_REG_P (REGNO (XEXP (op, 0)))], file);
+	    else
+	      switch (code)
+		{
+		case NE: fprintf (file, "eq"); break;
+		case EQ: fprintf (file, "ne"); break;
+		case LT: fprintf (file, "ge"); break;
+		case LTU: fprintf (file, "geu"); break;
+		case GE: fprintf (file, "lt"); break;
+		case GEU: fprintf (file, "ltu"); break;
+		default: gcc_unreachable ();
+		}
+	  }
+	else
+	  fputc ("zfnt"[truth * 2 + ST_REG_P (REGNO (XEXP (op, 0)))], file);
       }
       break;
 
