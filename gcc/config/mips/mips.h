@@ -1031,7 +1031,7 @@ struct mips_cpu_info {
    FP register.  */
 #define ISA_HAS_CCF		(mips_isa_rev >= 6)
 
-#define ISA_HAS_SEL		(mips_isa_rev >= 6 && !(TARGET_MICROMIPS_R7 && TARGET_REMOVE_SEL))
+#define ISA_HAS_SEL		(mips_isa_rev >= 6 && !(mips_isa_rev >= 7 && TARGET_REMOVE_SEL))
 
 /* This is a catch all for other mips4 instructions: indexed load, the
    FP madd and msub instructions, and the FP recip and recip sqrt
