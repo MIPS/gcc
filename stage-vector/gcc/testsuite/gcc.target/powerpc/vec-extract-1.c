@@ -18,7 +18,7 @@ get_long (vector long a, int n)
   return vec_extract (a, n);
 }
 
-/* { dg-final { scan-assmebler     "vslo"    } } */
+/* { dg-final { scan-assembler     "vslo"    } } */
 /* { dg-final { scan-assembler     "mtvsrd"  } } */
 /* { dg-final { scan-assembler     "mfvsrd"  } } */
 /* { dg-final { scan-assembler-not "stxvd2x" } } */
