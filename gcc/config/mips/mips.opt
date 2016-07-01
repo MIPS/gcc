@@ -578,3 +578,6 @@ Target Undocumented Var(TARGET_ADD_MOVEP_REVERSED) Init(0)
 
 madd-new-condmoves
 Target Undocumented Var(TARGET_ADD_CONDMOVES) Init(0)
+
+madd-new-ins-xor
+Target Undocumented Var(TARGET_NEW_INS_XOR) Init(0)
