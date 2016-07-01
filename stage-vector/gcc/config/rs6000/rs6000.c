@@ -6896,7 +6896,6 @@ rs6000_expand_vector_extract (rtx target, rtx vec, rtx elt)
 {
   machine_mode mode = GET_MODE (vec);
   machine_mode inner_mode = GET_MODE_INNER (mode);
-  int inner_size = GET_MODE_SIZE (inner_mode);
   rtx mem;
 
   if (VECTOR_MEM_VSX_P (mode) && CONST_INT_P (elt))
@@ -6947,7 +6946,11 @@ rs6000_expand_vector_extract (rtx target, rtx vec, rtx elt)
   else if (!CONST_INT_P (elt) && TARGET_VARIABLE_EXTRACT (mode))
     {
       if (GET_MODE (elt) != DImode)
-	elt = copy_to_mode_reg (DImode, elt);
+	{
+	  rtx tmp = gen_reg_rtx (DImode);
+	  convert_move (tmp, elt, 0);
+	  elt = tmp;
+	}
 
       switch (mode)
 	{
