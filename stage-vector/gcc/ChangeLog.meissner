@@ -1,3 +1,34 @@
+2016-07-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin):
+	Use the RTL extract built-in code for 64-bit power8 and above to
+	extract DImode/DFmode with a variable element number.  Use string
+	pasting for warnings, instead of spliting a string across multiple
+	lines.
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_extract): Change
+	calling signature to take a RTX instead of an integer constant for
+	element number.  Add support for variable extract from V2DImode
+	and V2DFmode.
+	(altivec_expand_vec_ext_builtin): Likewise.
+
+	* config/rs6000/rs6000.h (TARGET_VARIABLE_EXTRACT): New macro to
+	say whether all of the conditions are met to allow for the element
+	number of vec_extract to be a variable.
+
+	* config/rs6000/altivec.md (reduc_plus_scal_<mode>): Deal wtih
+	rs6000_expand_vector_extract calling signature changes.
+	* config/rs6000/vector.md (vec_extract<mode>): Likewise.
+	* config/rs6000/rs6000-protos.h (rs6000_expand_vector_extract):
+	Likewise.
+
+	* config/rs6000/vsx.md (UNSPEC_VSX_VSLO): New unspec.
+	(vsx_vslo_<mode>): New insns to generate VSLO to isolate the
+	correct element if vec_extract element number is variable.
+	(vsx_extract_<mode>_variable): New expanders to generate the
+	appropriate code to support vec_extract element number being
+	variable.
+
 2016-06-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 237888.

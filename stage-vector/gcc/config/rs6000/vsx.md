@@ -309,6 +309,7 @@
    UNSPEC_VSX_XVCVDPUXDS
    UNSPEC_VSX_SIGN_EXTEND
    UNSPEC_P9_MEMORY
+   UNSPEC_VSX_VSLO
   ])
 
 ;; VSX moves
@@ -2174,6 +2175,48 @@
     gcc_unreachable ();
 }
   [(set_attr "type" "veclogical,mftgpr,mftgpr,vecperm")])
+
+;; Variable V2DI/V2DF extract
+(define_insn "vsx_vslo_<mode>"
+  [(set (match_operand:<VS_scalar> 0 "gpc_reg_operand" "=v")
+	(unspec:<VS_scalar> [(match_operand:VSX_D 1 "gpc_reg_operand" "v")
+			     (match_operand:V2DI 2 "gpc_reg_operand" "v")]
+			    UNSPEC_VSX_VSLO))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_DIRECT_MOVE && TARGET_POWERPC64
+   && ((<MODE>mode == V2DImode && TARGET_UPPER_REGS_DI)
+       || (<MODE>mode == V2DFmode && TARGET_UPPER_REGS_DF))"
+  "vslo %0,%1,%2"
+  [(set_attr "type" "vecperm")])
+
+(define_expand "vsx_extract_<mode>_variable"
+  [(use (match_operand:<VS_scalar> 0 "gpc_reg_operand" ""))
+   (use (match_operand:VSX_D 1 "gpc_reg_operand" ""))
+   (use (match_operand:DI 2 "gpc_reg_operand" ""))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_DIRECT_MOVE && TARGET_POWERPC64
+   && ((<MODE>mode == V2DImode && TARGET_UPPER_REGS_DI)
+       || (<MODE>mode == V2DFmode && TARGET_UPPER_REGS_DF))"
+{
+  rtx dest = operands[0];
+  rtx src = operands[1];
+  rtx element = operands[2];
+  rtx and_1 = gen_reg_rtx (DImode);
+  rtx times_64 = gen_reg_rtx (DImode);
+  rtx shift = gen_reg_rtx (V2DImode);
+
+  /* Isolate element # to 0/1.  */
+  emit_insn (gen_anddi3 (and_1, element, const1_rtx));
+
+  /* Multiply by 64, so that VSLO either does no shift, or it shifts the bottom
+     element into the top element.  */
+  emit_insn (gen_ashldi3 (times_64, and_1, GEN_INT (6)));
+
+  /* Get shift amount into lower byte of vector register.  */
+  emit_insn (gen_vsx_concat_v2di (shift, times_64, times_64));
+
+  /* Use VSLO to get correct element into the upper part of the register.  */
+  emit_insn (gen_vsx_vslo_<mode> (dest, src, shift));
+  DONE;
+})
 
 ;; Optimize extracting a single scalar element from memory if the scalar is in
 ;; the correct location to use a single load.
