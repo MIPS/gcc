@@ -654,3 +654,6 @@ Target Undocumented Var(TARGET_V0_V1_CALLEE_SAVED) Init(0)
 
 mopt-movep
 Target Undocumented Var(TARGET_OPT_MOVEP) Init(0)
+
+madd-new-ins-xor
+Target Undocumented Var(TARGET_NEW_INS_XOR) Init(0)
