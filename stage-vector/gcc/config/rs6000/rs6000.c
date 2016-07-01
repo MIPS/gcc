@@ -6946,6 +6946,9 @@ rs6000_expand_vector_extract (rtx target, rtx vec, rtx elt)
     }
   else if (!CONST_INT_P (elt) && TARGET_VARIABLE_EXTRACT (mode))
     {
+      if (GET_MODE (elt) != DImode)
+	elt = copy_to_mode_reg (DImode, elt);
+
       switch (mode)
 	{
 	default:

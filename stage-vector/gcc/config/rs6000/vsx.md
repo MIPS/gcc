@@ -2203,8 +2203,8 @@
   rtx times_64 = gen_reg_rtx (DImode);
   rtx shift = gen_reg_rtx (V2DImode);
 
-  /* If little endian invert 0/1.  */
-  if (VECTOR_ELT_ORDER_BIG)
+  /* If little endian, adjust element ordering.  */
+  if (!VECTOR_ELT_ORDER_BIG)
     {
       rtx tmp = gen_reg_rtx (DImode);
       emit_insn (gen_xordi3 (tmp, element, const1_rtx));
