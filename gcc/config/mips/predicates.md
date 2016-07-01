@@ -227,6 +227,10 @@
        (match_operand 0 "hi_mask_operand")
        (match_operand 0 "si_mask_operand")))
 
+(define_predicate "any_low_bitmask_operand"
+  (and (match_code "const_int")
+       (match_test "low_bitmask_len (mode, INTVAL (op)) != -1")))
+
 (define_predicate "low_bitmask_operand"
   (and (match_test "ISA_HAS_EXT_INS")
        (match_code "const_int")

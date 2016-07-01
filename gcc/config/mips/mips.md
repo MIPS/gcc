@@ -6327,6 +6327,104 @@
    (set (attr "insn_count")
 	(symbol_ref "mips_load_store_insns (operands[1], insn) + 2"))])
 
+(define_special_predicate "shiftable_operator"
+  (and (match_code "ior,xor,and")
+       (match_test "mode == GET_MODE (op)")))
+
+(define_special_predicate "shift_operator"
+  (and (ior (and (match_code "rotate")
+		 (match_test "CONST_INT_P (XEXP (op, 1))
+			      && ((unsigned HOST_WIDE_INT) INTVAL (XEXP (op, 1))) < 32"))
+	    (and (match_code "ashift,ashiftrt,lshiftrt,rotatert")
+		 (match_test "!CONST_INT_P (XEXP (op, 1))
+			      || ((unsigned HOST_WIDE_INT) INTVAL (XEXP (op, 1))) < 32")))
+       (match_test "mode == GET_MODE (op)")))
+
+(define_insn "*arith_shiftsi"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(match_operator:SI 1 "shiftable_operator"
+	    [(match_operator:SI 3 "shift_operator"
+		[(match_operand:SI 4 "register_operand" "r")
+		 (match_operand:SI 5 "immediate_operand" "I")])
+		(match_operand:SI 2 "register_operand" "r")]))]
+  "TARGET_MICROMIPS_R7 && TARGET_NEW_INS_XOR"
+  "sdbbp32 300 #"
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "*rotr.xor"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(xor:SI	(rotatert:SI (match_operand:SI 1 "register_operand" "d")
+			     (match_operand:SI 2 "immediate_operand" "I"))
+		(match_operand:SI 3 "register_operand" "0")))]
+  "TARGET_MICROMIPS_R7 && TARGET_NEW_INS_XOR"
+{
+  return "sdbbp32 101 # ins.xor\t%0,%1,%2,32";
+}
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+(define_insn "*rotr.ior"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(ior:SI	(rotatert:SI (match_operand:SI 1 "register_operand" "d")
+			     (match_operand:SI 2 "immediate_operand" "I"))
+		(match_operand:SI 3 "register_operand" "0")))]
+  "TARGET_MICROMIPS_R7 && TARGET_NEW_INS_XOR"
+{
+  return "sdbbp32 101 # ins.ior\t%0,%1,%2,32";
+}
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "*shift.ior"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(ior:SI	(ashift:SI (match_operand:SI 1 "register_operand" "d")
+			   (match_operand:SI 2 "immediate_operand" "I"))
+		(match_operand:SI 3 "register_operand" "0")))]
+  "TARGET_MICROMIPS_R7 && TARGET_NEW_INS_XOR"
+{
+  return "sdbbp32 101 # ins.ior\t%0,%1,%2,xx";
+}
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "*shift.and"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(and:SI	(ashift:SI (match_operand:SI 1 "register_operand" "d")
+			   (match_operand:SI 2 "immediate_operand" "I"))
+		(match_operand:SI 3 "register_operand" "0")))]
+  "TARGET_MICROMIPS_R7 && TARGET_NEW_INS_XOR"
+{
+  return "sdbbp32 101 # ins.and\t%0,%1,%2,xx";
+}
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "*shift.xor"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(xor:SI	(ashift:SI (and:SI (match_operand:SI 1 "register_operand" "d")
+				   (match_operand:SI 2 "any_low_bitmask_operand" "I"))
+			   (match_operand:SI 3 "immediate_operand" "I"))
+		(match_operand:SI 4 "register_operand" "0")))]
+  "TARGET_MICROMIPS_R7 && TARGET_NEW_INS_XOR"
+{
+  return "sdbbp32 101 # ins.xor\t%0,%1,%3,log2(%4)";
+}
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
+(define_insn "*shift.or"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(ior:SI	(ashift:SI (and:SI (match_operand:SI 1 "register_operand" "d")
+				   (match_operand:SI 2 "any_low_bitmask_operand" "I"))
+			   (match_operand:SI 3 "immediate_operand" "I"))
+		(match_operand:SI 4 "register_operand" "0")))]
+  "TARGET_MICROMIPS_R7 && TARGET_NEW_INS_XOR"
+{
+  return "sdbbp32 101 # ins.or\t%0,%1,%3,log2(%4)";
+}
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")])
+
 (define_insn "rotr<mode>3"
   [(set (match_operand:GPR 0 "register_operand" "=d")
 	(rotatert:GPR (match_operand:GPR 1 "register_operand" "d")
