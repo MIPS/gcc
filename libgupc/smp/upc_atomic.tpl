@@ -40,7 +40,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 /**
  * @file __upc_atomic.upc
- * GUPC Portals4 UPC atomics implementation.
+ * GUPC UPC atomics implementation.
  */
 
 /**
@@ -392,7 +392,10 @@ __upc_atomic_[=type_abbrev=] (
       default: break;
     }
   if (fetch_ptr != NULL)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
     *fetch_ptr = orig_value;
+#pragma GCC diagnostic pop
 }[=
   ENDIF =][=
 ENDFOR =]
@@ -475,7 +478,7 @@ upc_atomic_strict (upc_atomicdomain_t *domain,
 /**
  * Collective allocation of atomic domain.
  *
- * Implementation uses native Portals4 atomic functions and the
+ * Implementation uses native atomic functions and the
  * hint field is ignored.
  *
  * @parm [in] type Atomic operation type
