@@ -1262,10 +1262,6 @@
   if (which_alternative == 0 
       || which_alternative == 1)
     return "<d>addu\t%0,%1,%2";
-  else if (which_alternative == 2
-	   && TARGET_MICROMIPS_R7
-	   && TARGET_ADD_NEW_ADDIUR2)
-    return "sdbbp16 9 # <d>addiu\t%0,%1,%2";
   else if (which_alternative == 4 && ISA_HAS_SAVE_RESTORE)
     {
       if (IN_RANGE (INTVAL (operands[2]), 8, 120))
@@ -3251,14 +3247,7 @@
     case 3:
     case 4:
     case 5:
-      if (TARGET_MICROMIPS_R7 && TARGET_NEW_ANDI)
-	return "sdbbp16 8 # andi\t%0,%1,%x2";
-      else
-	return "andi\t%0,%1,%x2";
     case 6:
-      if (TARGET_MICROMIPS_R7 && TARGET_NEW_ANDI)
-	return "sdbbp32 18 # andi\t%0,%1,%x2";
-      else
 	return "andi\t%0,%1,%x2";
     case 7:
       len = low_bitmask_len (<MODE>mode, INTVAL (operands[2]));
@@ -3355,11 +3344,7 @@
     {
     case 0: return "or\t%0,%1,%2";
     case 1: return "or\t%0,%1,%2";
-    case 2:
-      if (TARGET_MICROMIPS_R7 && TARGET_NEW_ORI_XORI)
-	return "sdbbp32 19 # ori\t%0,%1,%x2";
-      else
-	return "ori\t%0,%1,%x2";
+    case 2: return "ori\t%0,%1,%x2";
     default: gcc_unreachable ();
     }
 }
@@ -3405,11 +3390,7 @@
     {
     case 0: return "xor\t%0,%1,%2";
     case 1: return "xor\t%0,%1,%2";
-    case 2:
-      if (TARGET_MICROMIPS_R7 && TARGET_NEW_ORI_XORI)
-	return "sdbbp32 19 # xori\t%0,%1,%x2";
-      else
-	return "xori\t%0,%1,%x2";
+    case 2: return "xori\t%0,%1,%x2";
     default: gcc_unreachable ();
     }
 }
@@ -6516,12 +6497,7 @@
 	(any_lt:GPR2 (match_operand:GPR 1 "register_operand" "d,d")
 		     (match_operand:GPR 2 "arith_operand" "dI,dYD")))]
   "!TARGET_MIPS16"
-{
-  if (TARGET_MICROMIPS_R7 && TARGET_NEW_SLTI_SLTIU)
-    return "sdbbp32 20 # slt<u>\t%0,%1,%2";
-  else
-    return "slt<u>\t%0,%1,%2";
-}
+  "slt<u>\t%0,%1,%2"
   [(set_attr "type" "slt")
    (set_attr "mode" "<GPR:MODE>")
    (set (attr "enabled")
@@ -6550,13 +6526,7 @@
 	(any_le:GPR2 (match_operand:GPR 1 "register_operand" "d")
 		     (match_operand:GPR 2 "sle_operand" "")))]
   "!TARGET_MIPS16"
-{
-  operands[2] = GEN_INT (INTVAL (operands[2]) + 1);
-  if (TARGET_MICROMIPS_R7 && TARGET_NEW_SLTI_SLTIU)
-    return "sdbbp32 20 # slt<u>\t%0,%1,%2";
-  else
-    return "slt<u>\t%0,%1,%2";
-}
+  "slt<u>\t%0,%1,%2"
   [(set_attr "type" "slt")
    (set_attr "mode" "<GPR:MODE>")])
 
