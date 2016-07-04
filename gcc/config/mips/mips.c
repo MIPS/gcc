@@ -6480,7 +6480,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	  if (TARGET_MICROMIPS_R7 && TARGET_LI48)
 	    {
 	      if (!LUI_INT (src) && !SMALL_OPERAND_UNSIGNED (INTVAL (src)) && !SMALL_INT (src))
-		return "nop16; sdbbp32 22; # li48\t%0,%1";
+		return "nop16; sdbbp32 4; # li48\t%0,%1";
 	    }
 
 	  if (!TARGET_MIPS16)
@@ -6522,7 +6522,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
       if (symbolic_operand (src, VOIDmode))
 	{
 	  if (mips_string_constant_p (src))
-	    return "nop16; sdbbp32 22; # li48\t%0,%1";
+	    return "nop16; sdbbp32 4 # li48\t%0,%1";
 	  else
 	    {
 	      gcc_assert (TARGET_MIPS16
