@@ -1129,8 +1129,7 @@
 	  (mem:SHORT (plus:P (match_operand:P 1 "register_operand" "d")
 			     (match_operand:P 2 "register_operand" "d")))))]
   "ISA_HAS_L<SHORT:SIZE><U>X"
-  ;; FIXME
-  "sdbbp32 10 # l<SHORT:size><u>x\t%0,%2(%1)"
+  "l<SHORT:size><u>x\t%0,%2(%1)"
   [(set_attr "type"	"load")
    (set_attr "mode"	"<GPR:MODE>")])
 
@@ -1163,8 +1162,7 @@
 	(mem:GPR (plus:P (match_operand:P 1 "register_operand" "d")
 			 (match_operand:P 2 "register_operand" "d"))))]
   "ISA_HAS_L<GPR:SIZE>X"
-  ;; FIXME
-  "sdbbp32 10 # l<GPR:size>x\t%0,%2(%1)"
+  "l<GPR:size>x\t%0,%2(%1)"
   [(set_attr "type"	"load")
    (set_attr "mode"	"<GPR:MODE>")])
 
@@ -1174,7 +1172,7 @@
 	  (mem:SI (plus:P (match_operand:P 1 "register_operand" "d")
 			     (match_operand:P 2 "register_operand" "d")))))]
   "ISA_HAS_LW<U>X && TARGET_64BIT"
-  "sdbbp32 10 # lw<u>x\t%0,%2(%1)"
+  "lw<u>x\t%0,%2(%1)"
   [(set_attr "type"	"load")
    (set_attr "mode"	"DI")])
 

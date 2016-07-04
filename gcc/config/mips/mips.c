@@ -6377,29 +6377,19 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 
 	  switch (GET_MODE_SIZE (mode))
 	    {
-	    /* FIXME here and the rest below.  */
 	    case 1: return mips_index_address_p (XEXP (dest, 0), mode)
-			   ? "sdbbp32 11 # sbx\t%z1,%0"
+			   ? "sbx\t%z1,%0"
 			   : "sb\t%z1,%0";
-	    case 2: return mips_index_address_p (XEXP (dest, 0), mode)
-			   ? "sdbbp32 11 # shx\t%z1,%0"
-			   : mips_index_scaled_address_p (XEXP (dest, 0), mode)
-			     ? "sdbbp32 7 # shxs\t%z1,%0"
+	    case 2: return mips_index_scaled_address_p (XEXP (dest, 0), mode)
+			   ? "shxs\t%z1,%0"
+			   : mips_index_address_p (XEXP (dest, 0), mode)
+			     ? "shx\t%z1,%0"
 			     : "sh\t%z1,%0";
-	    case 4:
-	      /* There is nothing about SWXS16 in the spec.  Switching off
-		 for now.  This is triggered about 200 times vs ~1150 for
-		 LWXS16.  */
-	      return 0 && mips_index_scaled_address_p (XEXP (dest, 0), mode)
-		     && M16_REG_P (REGNO (src))
-		     && M16_REG_P (REGNO (XEXP (XEXP (XEXP (dest, 0), 0), 0)))
-		     && M16_REG_P (REGNO (XEXP (XEXP (dest, 0), 1)))
-		     ? "sdbbp16 7 # swxs16\t%z1,%0"
-		     : mips_index_scaled_address_p (XEXP (dest, 0), mode)
-		       ? "sdbbp32 7 # swxs\t%z1,%0"
-		       : mips_index_address_p (XEXP (dest, 0), mode)
-			 ? "sdbbp32 11 # swx\t%z1,%0"
-			 : "sw\t%z1,%0";
+	    case 4: return mips_index_scaled_address_p (XEXP (dest, 0), mode)
+			   ? " swxs\t%z1,%0"
+			   : mips_index_address_p (XEXP (dest, 0), mode)
+			     ? "swx\t%z1,%0"
+			     : "sw\t%z1,%0";
 	    case 8: return "sd\t%z1,%0";
 	    default: gcc_unreachable ();
 	    }
@@ -6473,28 +6463,19 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	  else
 	    switch (GET_MODE_SIZE (mode))
 	      {
-	      /* FIXME here and the rest below.  */
-	      case 1:
-		return mips_index_address_p (XEXP (src, 0), mode)
-		       ? "sdbbp32 10 # lbux\t%0,%1"
-		       : "lbu\t%0,%1";
-	      case 2:
-		return mips_index_address_p (XEXP (src, 0), mode)
-		       ? "sdbbp32 10 # lhux\t%0,%1"
-		       : mips_index_scaled_address_p (XEXP (src, 0), mode)
-			 ? "sdbbp32 6 # lhuxs\t%0,%1"
-			 : "lhu\t%0,%1";
-	      case 4:
-		return mips_index_scaled_address_p (XEXP (src, 0), mode)
-		       && M16_REG_P (REGNO (dest))
-		       && M16_REG_P (REGNO (XEXP (XEXP (XEXP (src, 0), 0), 0)))
-		       && M16_REG_P (REGNO (XEXP (XEXP (src, 0), 1)))
-		       ? "sdbbp16 6 # lwxs16\t%0,%1"
-		       : mips_index_scaled_address_p (XEXP (src, 0), mode)
-			 ? "sdbbp32 6 # lwxs\t%0,%1"
-			 : mips_index_address_p (XEXP (src, 0), mode)
-			   ? "sdbbp32 10 # lwx\t%0,%1"
-			   : "lw\t%0,%1";
+	      case 1: return mips_index_address_p (XEXP (src, 0), mode)
+			     ? "lbux\t%0,%1"
+			     : "lbu\t%0,%1";
+	      case 2: return mips_index_scaled_address_p (XEXP (src, 0), mode)
+			     ? "lhuxs\t%0,%1"
+			     : mips_index_address_p (XEXP (src, 0), mode)
+			       ? "lhux\t%0,%1"
+			       : "lhu\t%0,%1";
+	      case 4: return mips_index_scaled_address_p (XEXP (src, 0), mode)
+			     ? "lwxs\t%0,%1"
+			     : mips_index_address_p (XEXP (src, 0), mode)
+			       ? "lwx\t%0,%1"
+			       : "lw\t%0,%1";
 	      case 8: return "ld\t%0,%1";
 	      default: gcc_unreachable ();
 	      }
@@ -6579,12 +6560,12 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 
 	  if (TARGET_MICROMIPS_R7
 	      && mips_index_scaled_address_p (XEXP (dest, 0), mode))
-	    return dbl_p ? "sdbbp32 9 # sdc1xs\t%1,%0"
-			 : "sdbbp32 9 # swc1xs\t%1,%0";
+	    return dbl_p ? "sdc1xs\t%1,%0"
+			 : "swc1xs\t%1,%0";
 	  else if (TARGET_MICROMIPS_R7
 		   && mips_index_address_p (XEXP (dest, 0), mode))
-	    return dbl_p ? "sdbbp32 13 # sdc1x\t%1,%0"
-			 : "sdbbp32 13 # swc1x\t%1,%0";
+	    return dbl_p ? "sdc1x\t%1,%0"
+			 : "swc1x\t%1,%0";
 
 	  return dbl_p ? "sdc1\t%1,%0" : "swc1\t%1,%0";
 	}
@@ -6598,12 +6579,12 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 
 	  if (TARGET_MICROMIPS_R7
 	      && mips_index_scaled_address_p (XEXP (src, 0), mode))
-	    return dbl_p ? "sdbbp32 8 # ldc1xs\t%0,%1"
-			 : "sdbbp32 8 # lwc1xs\t%0,%1";
+	    return dbl_p ? "ldc1xs\t%0,%1"
+			 : "lwc1xs\t%0,%1";
 	  else if (TARGET_MICROMIPS_R7
 		   && mips_index_address_p (XEXP (src, 0), mode))
-	    return dbl_p ? "sdbbp32 12 # ldc1x\t%0,%1"
-			 : "sdbbp32 12 # lwc1x\t%0,%1";
+	    return dbl_p ? "ldc1x\t%0,%1"
+			 : "lwc1x\t%0,%1";
 
 	  return dbl_p ? "ldc1\t%0,%1" : "lwc1\t%0,%1";
 	}

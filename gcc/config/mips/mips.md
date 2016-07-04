@@ -3603,7 +3603,6 @@
 	     (match_operand:SHORT 1 "nonimmediate_operand" "!u,?u,d,m")))]
   "!TARGET_MIPS16"
 {
-  /* FIXME */
   switch (which_alternative)
     {
     case 0:
@@ -3613,11 +3612,9 @@
 	return "ext\t%0,%1,0,16";
       else
 	return "andi\t%0,%1,<SHORT:mask>";
-    case 3:
-      if (mips_index_address_p (XEXP (operands[1], 0), <MODE>mode))
-	return "sdbbp32 10 # l<SHORT:size>ux\t%0,%1";
-      else
-	return "l<SHORT:size>u\t%0,%1";
+    case 3: return mips_index_address_p (XEXP (operands[1], 0), <MODE>mode)
+		   ? "l<SHORT:size>ux\t%0,%1"
+		   : "l<SHORT:size>u\t%0,%1";
     default:
       gcc_unreachable ();
     }
@@ -3666,15 +3663,12 @@
         (zero_extend:HI (match_operand:QI 1 "nonimmediate_operand" "d,m")))]
   "!TARGET_MIPS16"
 {
-  /* FIXME */
   switch (which_alternative)
     {
     case 0: return "andi\t%0,%1,0x00ff";
-    case 1:
-      if (mips_index_address_p (XEXP (operands[1], 0), QImode))
-	return "sdbbp32 10 # lbux\t%0,%1";
-      else
-	return "lbu\t%0,%1";
+    case 1: return mips_index_address_p (XEXP (operands[1], 0), QImode)
+		   ? "lbux\t%0,%1"
+		   : "lbu\t%0,%1";
     default:
       gcc_unreachable ();
     }
@@ -3793,13 +3787,12 @@
 	     (match_operand:SHORT 1 "nonimmediate_operand" "d,m")))]
   "ISA_HAS_SEB_SEH"
 {
-  /* FIXME */
   if (which_alternative == 0)
     return "se<SHORT:size>\t%0,%1";
   else if (mips_index_address_p (XEXP (operands[1], 0), <MODE>mode))
-    return "sdbbp32 10 # l<SHORT:size>x\t%0,%1";
+    return "l<SHORT:size>x\t%0,%1";
   else if (mips_index_scaled_address_p (XEXP (operands[1], 0), <MODE>mode))
-    return "sdbbp32 6 # l<SHORT:size>xs\t%0,%1";
+    return "l<SHORT:size>xs\t%0,%1";
   else
     return "l<SHORT:size>\t%0,%1";
 }
@@ -3847,15 +3840,12 @@
 	     (match_operand:QI 1 "nonimmediate_operand" "d,m")))]
   "ISA_HAS_SEB_SEH"
 {
-  /* FIXME */
   switch (which_alternative)
     {
     case 0: return "seb\t%0,%1";
-    case 1:
-      if (mips_index_address_p (XEXP (operands[1], 0), QImode))
-	return "sdbbp32 10 # lbx\t%0,%1";
-      else
-	return "lb\t%0,%1";
+    case 1: return mips_index_address_p (XEXP (operands[1], 0), QImode)
+		   ? "lbx\t%0,%1"
+		   : "lb\t%0,%1";
     default:
       gcc_unreachable ();
     }
@@ -5159,15 +5149,7 @@
 			  (const_int 4))
 		  (match_operand:P 2 "register_operand" "d"))))]
   "ISA_HAS_LWXS"
-{
-  /* FIXME.  Remove NOPS.  */
-  if (M16_REG_P (REGNO (operands[0]))
-      && M16_REG_P (REGNO (operands[1]))
-      && M16_REG_P (REGNO (operands[2])))
-    return "sdbbp16 6 # lwxs16\t%0,%1(%2)";
-  else
-    return "sdbbp32 6 # lwxs\t%0,%1(%2)";
-}
+  "lwxs\t%0,%1(%2)"
   [(set_attr "type"	"load")
    (set_attr "mode"	"SI")])
 
@@ -5178,18 +5160,7 @@
 		  (match_operand:P 1 "register_operand" "d")))
 	(match_operand:IMOVE32 2 "register_operand" "=d"))]
   "ISA_HAS_SWXS"
-{
-  /* FIXME.  Remove NOPS.  */
-  /* There is nothing about SWXS16 in the spec.  Switching off
-     for now.  This is triggered about 200 times vs ~1150 for
-     LWXS16.  */
-  if (0&&M16_REG_P (REGNO (operands[0]))
-      && M16_REG_P (REGNO (operands[1]))
-      && M16_REG_P (REGNO (operands[2])))
-    return "sdbbp16 7 # swxs16\t%2,%0(%1)";
-  else
-    return "sdbbp32 7 # swxs\t%2,%0(%1)";
-}
+  "swxs\t%2,%0(%1)"
   [(set_attr "type"	"load")
    (set_attr "mode"	"SI")])
 
