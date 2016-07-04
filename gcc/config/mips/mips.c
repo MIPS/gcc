@@ -6372,8 +6372,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	      && TARGET_ADD_SW4X4
 	      && GET_MODE_SIZE (mode) == 4
 	      && sw4x4_lw4x4_operand (dest, GET_MODE (dest)))
-	    /* FIXME.  Remove nop.  */
-	    return "sdbbp16 3 # sw4x4\t%z1,%0";
+	    return "sdbbp 1 # sw4x4\t%z1,%0";
 
 	  switch (GET_MODE_SIZE (mode))
 	    {
@@ -6440,14 +6439,6 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 
       if (src_code == MEM)
 	{
-	  if (TARGET_MICROMIPS_R7
-	      && M16LOAD_REG_P (REGNO (dest))
-	      && TARGET_ADD_LW4X4
-	      && GET_MODE_SIZE (mode) == 4
-	      && sw4x4_lw4x4_operand (src, GET_MODE (src)))
-	    /* FIXME.  Remove nop.  */
-	    return "sdbbp16 2 # lw4x4\t%0,%1";
-
 	  if (TARGET_DEAD_LOADS
 	      && MEM_VOLATILE_P (src)
 	      && find_regno_note (insn, REG_UNUSED, REGNO (dest))
