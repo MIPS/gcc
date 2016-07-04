@@ -405,7 +405,7 @@
 		     UNSPEC_RSQRT))]
   "TARGET_SIMD"
 {
-  aarch64_emit_approx_rsqrt (operands[0], operands[1]);
+  aarch64_emit_approx_sqrt (operands[0], operands[1], true);
   DONE;
 })
 
@@ -544,6 +544,49 @@
      }
   }
   [(set_attr "type" "neon_from_gp<q>, neon_ins<q>, neon_load1_1reg<q>")]
+)
+
+(define_insn "*aarch64_simd_vec_copy_lane<mode>"
+  [(set (match_operand:VALL 0 "register_operand" "=w")
+	(vec_merge:VALL
+	    (vec_duplicate:VALL
+	      (vec_select:<VEL>
+		(match_operand:VALL 3 "register_operand" "w")
+		(parallel
+		  [(match_operand:SI 4 "immediate_operand" "i")])))
+	    (match_operand:VALL 1 "register_operand" "0")
+	    (match_operand:SI 2 "immediate_operand" "i")))]
+  "TARGET_SIMD"
+  {
+    int elt = ENDIAN_LANE_N (<MODE>mode, exact_log2 (INTVAL (operands[2])));
+    operands[2] = GEN_INT (HOST_WIDE_INT_1 << elt);
+    operands[4] = GEN_INT (ENDIAN_LANE_N (<MODE>mode, INTVAL (operands[4])));
+
+    return "ins\t%0.<Vetype>[%p2], %3.<Vetype>[%4]";
+  }
+  [(set_attr "type" "neon_ins<q>")]
+)
+
+(define_insn "*aarch64_simd_vec_copy_lane_<vswap_width_name><mode>"
+  [(set (match_operand:VALL 0 "register_operand" "=w")
+	(vec_merge:VALL
+	    (vec_duplicate:VALL
+	      (vec_select:<VEL>
+		(match_operand:<VSWAP_WIDTH> 3 "register_operand" "w")
+		(parallel
+		  [(match_operand:SI 4 "immediate_operand" "i")])))
+	    (match_operand:VALL 1 "register_operand" "0")
+	    (match_operand:SI 2 "immediate_operand" "i")))]
+  "TARGET_SIMD"
+  {
+    int elt = ENDIAN_LANE_N (<MODE>mode, exact_log2 (INTVAL (operands[2])));
+    operands[2] = GEN_INT (HOST_WIDE_INT_1 << elt);
+    operands[4] = GEN_INT (ENDIAN_LANE_N (<VSWAP_WIDTH>mode,
+			   INTVAL (operands[4])));
+
+    return "ins\t%0.<Vetype>[%p2], %3.<Vetype>[%4]";
+  }
+  [(set_attr "type" "neon_ins<q>")]
 )
 
 (define_insn "aarch64_simd_lshr<mode>"
@@ -1500,7 +1543,19 @@
   [(set_attr "type" "neon_fp_mul_<Vetype><q>")]
 )
 
-(define_insn "div<mode>3"
+(define_expand "div<mode>3"
+ [(set (match_operand:VDQF 0 "register_operand")
+       (div:VDQF (match_operand:VDQF 1 "general_operand")
+		 (match_operand:VDQF 2 "register_operand")))]
+ "TARGET_SIMD"
+{
+  if (aarch64_emit_approx_div (operands[0], operands[1], operands[2]))
+    DONE;
+
+  operands[1] = force_reg (<MODE>mode, operands[1]);
+})
+
+(define_insn "*div<mode>3"
  [(set (match_operand:VDQF 0 "register_operand" "=w")
        (div:VDQF (match_operand:VDQF 1 "register_operand" "w")
 		 (match_operand:VDQF 2 "register_operand" "w")))]
@@ -3938,15 +3993,12 @@
 			   "aarch64_simd_shift_imm_bitsize_<ve_mode>" "i")]
                          VSHLL))]
   "TARGET_SIMD"
-  "*
-  int bit_width = GET_MODE_UNIT_SIZE (<MODE>mode) * BITS_PER_UNIT;
-  if (INTVAL (operands[2]) == bit_width)
   {
-    return \"shll\\t%0.<Vwtype>, %1.<Vtype>, %2\";
+    if (INTVAL (operands[2]) == GET_MODE_UNIT_BITSIZE (<MODE>mode))
+      return "shll\\t%0.<Vwtype>, %1.<Vtype>, %2";
+    else
+      return "<sur>shll\\t%0.<Vwtype>, %1.<Vtype>, %2";
   }
-  else {
-    return \"<sur>shll\\t%0.<Vwtype>, %1.<Vtype>, %2\";
-  }"
   [(set_attr "type" "neon_shift_imm_long")]
 )
 
@@ -3958,15 +4010,12 @@
 			 (match_operand:SI 2 "immediate_operand" "i")]
                          VSHLL))]
   "TARGET_SIMD"
-  "*
-  int bit_width = GET_MODE_UNIT_SIZE (<MODE>mode) * BITS_PER_UNIT;
-  if (INTVAL (operands[2]) == bit_width)
   {
-    return \"shll2\\t%0.<Vwtype>, %1.<Vtype>, %2\";
+    if (INTVAL (operands[2]) == GET_MODE_UNIT_BITSIZE (<MODE>mode))
+      return "shll2\\t%0.<Vwtype>, %1.<Vtype>, %2";
+    else
+      return "<sur>shll2\\t%0.<Vwtype>, %1.<Vtype>, %2";
   }
-  else {
-    return \"<sur>shll2\\t%0.<Vwtype>, %1.<Vtype>, %2\";
-  }"
   [(set_attr "type" "neon_shift_imm_long")]
 )
 
@@ -4298,7 +4347,16 @@
 
 ;; sqrt
 
-(define_insn "sqrt<mode>2"
+(define_expand "sqrt<mode>2"
+  [(set (match_operand:VDQF 0 "register_operand")
+	(sqrt:VDQF (match_operand:VDQF 1 "register_operand")))]
+  "TARGET_SIMD"
+{
+  if (aarch64_emit_approx_sqrt (operands[0], operands[1], false))
+    DONE;
+})
+
+(define_insn "*sqrt<mode>2"
   [(set (match_operand:VDQF 0 "register_operand" "=w")
         (sqrt:VDQF (match_operand:VDQF 1 "register_operand" "w")))]
   "TARGET_SIMD"

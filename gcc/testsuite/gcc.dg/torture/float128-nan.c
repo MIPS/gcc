@@ -1,12 +1,14 @@
 /* Test __float128 NaN generation.  */
-/* { dg-do run { target i?86-*-* x86_64-*-* } } */
+/* { dg-do run } */
 /* { dg-require-effective-target fenv_exceptions } */
+/* { dg-require-effective-target __float128 } */
+/* { dg-require-effective-target base_quadfloat_support } */
 /* { dg-options "" } */
+/* { dg-add-options __float128 } */
 
 #include <fenv.h>
 #include <stdbool.h>
-
-typedef unsigned long long int uint64_t;
+#include <stdint.h>
 
 typedef union
 {
