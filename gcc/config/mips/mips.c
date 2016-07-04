@@ -16006,9 +16006,8 @@ mips_output_jump (rtx *operands, int target_opno, int size_opno, bool link_p,
       else
 	s += sprintf (s, "%%*");
 
-      /* FIXME */
       if (move_balc_p)
-	s += sprintf (s, "sdbbp32 16 # move.%s%s%s%s%s\t%%0,%%1,%%%d%s",
+	s += sprintf (s, "move.%s%s%s%s%s\t%%0,%%1,%%%d%s",
 		      insn_name, and_link, reg, compact, short_delay,
 		      target_opno, nop);
       else
