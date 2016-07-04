@@ -7593,12 +7593,12 @@
     {
       switch (which_alternative)
 	{
-	case 0: return "sdbbp32 17 # mov%T4\t%0,%z2,%1";
-	case 1: return "sdbbp32 17 # mov%t4\t%0,%z3,%1";
-	case 2: return "sdbbp32 23 # mov%T4\t%0,%z2,%1,%5";
-	case 3: return "sdbbp32 23 # mov%t4\t%0,%z3,%1,%5";
-	case 4: return "sdbbp32 24 # mov%T4\t%0,%z2,%1,%5";
-	case 5: return "sdbbp32 24 # mov%t4\t%0,%z3,%1,%5";
+	case 0: return "mov%T4\t%0,%z2,%1";
+	case 1: return "mov%t4\t%0,%z3,%1";
+	case 2: return "sdbbp32 3 # mov%T4\t%0,%z2,%1,%5";
+	case 3: return "sdbbp32 3 # mov%t4\t%0,%z3,%1,%5";
+	case 4: return "sdbbp32 3 # mov%T4\t%0,%z2,%1,%5";
+	case 5: return "sdbbp32 3 # mov%t4\t%0,%z3,%1,%5";
 	default: gcc_unreachable (); break;
 	}
     }
@@ -7643,23 +7643,9 @@
 	 (match_operand:GPR 2 "reg_or_0_operand" "dJ,0")
 	 (match_operand:GPR 3 "reg_or_0_operand" "0,dJ")))]
   "!TARGET_MIPS16 && ISA_HAS_CONDMOVE"
-  ;; FIXME
-{
-  if (TARGET_MICROMIPS_R7 && TARGET_ADD_CONDMOVE)
-    {
-      if (which_alternative == 0)
-	return "sdbbp32 17 # movn\t%0,%z2,%1";
-      else
-	return "sdbbp32 17 # movz\t%0,%z3,%1";
-    }
-  else
-    {
-      if (which_alternative == 0)
-	return "movn\t%0,%z2,%1";
-      else
-	return "movz\t%0,%z3,%1";
-    }
-}
+  "@
+   movn\t%0,%z2,%1
+   movz\t%0,%z3,%1"
   [(set_attr "type" "condmove")
    (set_attr "mode" "<GPR:MODE>")])
 
