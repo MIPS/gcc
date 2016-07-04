@@ -4443,7 +4443,7 @@
 	(unspec:SI [(match_operand:BLK 1 "memory_operand" "ZA")]
 		    UNSPEC_UALW))]
   "ISA_HAS_UALW_UASW"
-  "sdbbp32 21 # ualw %0,%1"
+  "ualw %0,%1"
   [(set_attr "move_type" "load")
    (set_attr "mode" "SI")])
 
@@ -4477,7 +4477,7 @@
 	(unspec:BLK [(match_operand:SI 1 "reg_or_0_operand" "dJ")]
 		    UNSPEC_UASW))]
   "ISA_HAS_UALW_UASW"
-  "sdbbp32 21 # uasw %z1,%0"
+  "uasw %z1,%0"
   [(set_attr "move_type" "store")
    (set_attr "mode" "SI")])
 
