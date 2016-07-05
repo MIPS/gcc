@@ -3218,6 +3218,10 @@ mips_string_constant_p (rtx x)
   if (!TARGET_MICROMIPS_R7 || !TARGET_LI48)
     return false;
 
+  if (GET_CODE (x) == CONST
+      && GET_CODE (XEXP (x, 0)) == PLUS)
+    x = XEXP (XEXP (x, 0), 0);
+
   if (GET_CODE (x) == SYMBOL_REF
       && (decl = SYMBOL_REF_DECL (x))
       && TREE_CODE (decl) == VAR_DECL
@@ -3351,7 +3355,11 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
 	 a preparatory LI and SLL for MIPS16.  */
       return ABI_HAS_64BIT_SYMBOLS
 	     ? 6
-	     : (TARGET_MIPS16 && !ISA_HAS_MIPS16E2) ? 3 : 2;
+	     : (TARGET_MIPS16 && !ISA_HAS_MIPS16E2)
+	       ? 3
+	       : (TARGET_MICROMIPS_R7 && TARGET_LI48)
+		 ? 1
+		 : 2;
 
     case SYMBOL_GP_RELATIVE:
       /* Treat GP-relative accesses as taking a single instruction on
@@ -3733,8 +3741,7 @@ mips_classify_address (struct mips_address_info *info, rtx x,
       return (mips_symbolic_constant_p (x, SYMBOL_CONTEXT_MEM,
 					&info->symbol_type)
 	      && mips_symbol_insns (info->symbol_type, mode) > 0
-	      && (!mips_split_p[info->symbol_type]
-		  || mips_string_constant_p (x)));
+	      && !mips_split_p[info->symbol_type]);
 
     default:
       return false;
