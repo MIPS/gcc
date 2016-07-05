@@ -265,15 +265,15 @@
 
 (define_predicate "lhu16_sh16_operand"
   (and (match_code "mem")
-       (match_test "m16_based_address_p (XEXP (op, 0), mode, uh4_operand)")))
+       (match_test "m16_based_address_p (XEXP (op, 0), mode, TARGET_MICROMIPS_R7 ? uh2_operand : uh4_operand)")))
 
 (define_predicate "lbu16_operand"
   (and (match_code "mem")
-       (match_test "m16_based_address_p (XEXP (op, 0), mode, db4_operand)")))
+       (match_test "m16_based_address_p (XEXP (op, 0), mode, TARGET_MICROMIPS_R7 ? ub2_operand : db4_operand)")))
 
 (define_predicate "sb16_operand"
   (and (match_code "mem")
-       (match_test "m16_based_address_p (XEXP (op, 0), mode, ub4_operand)")))
+       (match_test "m16_based_address_p (XEXP (op, 0), mode, TARGET_MICROMIPS_R7 ? ub2_operand : ub4_operand)")))
 
 (define_predicate "db4_operand"
   (and (match_code "const_int")
@@ -307,6 +307,10 @@
   (and (match_code "const_int")
        (match_test "mips_signed_immediate_p (INTVAL (op), 8, 3)")))
 
+(define_predicate "ub2_operand"
+  (and (match_code "const_int")
+       (match_test "mips_unsigned_immediate_p (INTVAL (op), 2, 0)")))
+
 (define_predicate "ub4_operand"
   (and (match_code "const_int")
        (match_test "mips_unsigned_immediate_p (INTVAL (op), 4, 0)")))
@@ -318,6 +322,10 @@
 (define_predicate "ub8_operand"
   (and (match_code "const_int")
        (match_test "mips_unsigned_immediate_p (INTVAL (op), 8, 0)")))
+
+(define_predicate "uh2_operand"
+  (and (match_code "const_int")
+       (match_test "mips_unsigned_immediate_p (INTVAL (op), 2, 1)")))
 
 (define_predicate "uh4_operand"
   (and (match_code "const_int")
