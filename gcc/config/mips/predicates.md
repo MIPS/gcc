@@ -540,7 +540,7 @@
 
   /* Otherwise check whether the constant can be loaded in a single
      instruction.  */
-  return !LUI_INT (op) && !SMALL_INT (op) && !SMALL_INT_UNSIGNED (op) && !(TARGET_MICROMIPS_R6 && TARGET_LI48);
+  return !LUI_INT (op) && !SMALL_INT (op) && !SMALL_INT_UNSIGNED (op) && !(TARGET_MICROMIPS_R7 && TARGET_LI48);
 })
 
 (define_predicate "move_operand"
