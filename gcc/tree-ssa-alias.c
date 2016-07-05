@@ -305,7 +305,16 @@ ptr_derefs_may_alias_p (tree ptr1, tree ptr2)
   pi1 = SSA_NAME_PTR_INFO (ptr1);
   pi2 = SSA_NAME_PTR_INFO (ptr2);
   if (!pi1 || !pi2)
-    return true;
+    {
+      if (dump_file)
+	{
+	  if (! pi1)
+	    fprintf (dump_file, "%s pi1 is NULL\n", __FUNCTION__);
+	  if (! pi2)
+	    fprintf (dump_file, "%s pi2 is NULL\n", __FUNCTION__);
+	}
+      return true;
+    }
 
   /* ???  This does not use TBAA to prune decls from the intersection
      that not both pointers may access.  */

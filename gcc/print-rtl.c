@@ -121,6 +121,7 @@ print_rtx (const_rtx in_rtx)
     }
 
   is_insn = INSN_P (in_rtx);
+  fprintf (outfile, " %p ", (const void *)in_rtx);
 
   /* Print name of expression code.  */
   if (flag_simple && CONST_INT_P (in_rtx))

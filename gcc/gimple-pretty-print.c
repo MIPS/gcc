@@ -1752,6 +1752,13 @@ dump_ssaname_info (pretty_printer *buffer, tree node, int spc)
 	}
     }
 
+  if (POINTER_TYPE_P (TREE_TYPE (node))
+      && ! SSA_NAME_PTR_INFO (node))
+    {
+      pp_string (buffer, "# PT = NULL");
+      newline_and_indent (buffer, spc);
+    }
+
   if (!POINTER_TYPE_P (TREE_TYPE (node))
       && SSA_NAME_RANGE_INFO (node))
     {
