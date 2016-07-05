@@ -6372,7 +6372,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	      && TARGET_ADD_SW4X4
 	      && GET_MODE_SIZE (mode) == 4
 	      && sw4x4_lw4x4_operand (dest, GET_MODE (dest)))
-	    return "sdbbp 1 # sw4x4\t%z1,%0";
+	    return "sdbbp16 5 # sw4x4\t%z1,%0";
 
 	  switch (GET_MODE_SIZE (mode))
 	    {
