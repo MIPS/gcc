@@ -12286,13 +12286,13 @@ mips16e_output_save_restore (rtx pattern, HOST_WIDE_INT adjust, bool jrc_p)
   else
     {
       if (insn16_p)
-	s = strcpy (buffer, adjust > 0 ? (jrc_p ? "sdbbp16 1 # restore16.jrc\t"
-						: "sdbbp16 0 # restore16\t")
-				       : "sdbbp16 0 # save16\t");
+	s = strcpy (buffer, adjust > 0 ? (jrc_p ? "sdbbp16 2 # restore16.jrc\t"
+						: "sdbbp16 1 # restore16\t")
+				       : "sdbbp16 1 # save16\t");
       else
-	s = strcpy (buffer, adjust > 0 ? (jrc_p ? "sdbbp32 1 # restore.jrc\t"
-						: "sdbbp32 0 # restore\t")
-				       : "sdbbp32 0 # save\t");
+	s = strcpy (buffer, adjust > 0 ? (jrc_p ? "sdbbp32 2 # restore.jrc\t"
+						: "sdbbp32 1 # restore\t")
+				       : "sdbbp32 1 # save\t");
     }
   s += strlen (s);
 
