@@ -131,9 +131,9 @@
   if (TARGET_ADD_NEW_MOVEP || TARGET_ADD_NEW_MOVEP23)
     {
       if (REGNO (operands[0]) < REGNO (operands[2]))
-	return "sdbbp16 4 # movep\t%0,%2,%z1,%z3";
+	return "sdbbp16 6 # movep\t%0,%2,%z1,%z3";
       else
-	return "sdbbp16 4 # movep\t%2,%0,%z3,%z1";
+	return "sdbbp16 6 # movep\t%2,%0,%z3,%z1";
     }
   else
     {
@@ -169,9 +169,9 @@
    && umips_movep_target_p (operands[1], operands[3])"
 {
   if (REGNO (operands[1]) < REGNO (operands[3]))
-    return "sdbbp16 5 # movep\t%0,%2,%z1,%z3";
+    return "sdbbp16 6 # movep\t%0,%2,%z1,%z3";
   else
-    return "sdbbp16 5 # movep\t%2,%0,%z3,%z1";
+    return "sdbbp16 6 # movep\t%2,%0,%z3,%z1";
 }
   [(set_attr "type" "move")
    (set_attr "mode" "<MODE>")
