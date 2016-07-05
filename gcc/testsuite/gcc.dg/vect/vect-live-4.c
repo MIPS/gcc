@@ -27,8 +27,6 @@ main (void)
   int b[MAX];
   int i;
 
-  check_vect ();
-
   for (i=0; i<MAX; i++)
     {
       __asm__ volatile ("");

@@ -1,6 +1,7 @@
 /* PR middle-end/71478 */
+/* { dg-require-effective-target vect_int } */
 /* { dg-do compile } */
-/* { dg-options "-O3 -Wno-psabi -w" } */
+/* { dg-options "-O3" } */
 
 typedef unsigned int __attribute__ ((vector_size (8))) uv2si;
 typedef int __attribute__ ((vector_size (8))) v2si;
@@ -17,3 +18,4 @@ foo (void)
   uv2si j = k * __builtin_shuffle (z, z, (uv2si) {1, 3});
   return k * j;
 }
+

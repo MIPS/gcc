@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-additional-options "-O1 -fnon-call-exceptions" } */
+/* { dg-options "-O1 -ftree-vectorize -fno-vect-cost-model -fnon-call-exceptions" } */
 
 template < typename _Tp > struct new_allocator
 {

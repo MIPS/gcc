@@ -822,9 +822,6 @@ case "${target}" in
   *-*-netware*)
     noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
-  *-*-phoenix*)
-    noconfigdirs="$noconfigdirs ${libgcj}"
-    ;;
   *-*-rtems*)
     noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
@@ -1081,9 +1078,6 @@ case "${target}" in
     ;;
   *-*-netware*)
     ;;
-  *-*-phoenix*)
-    noconfigdirs="$noconfigdirs target-libgloss"
-    ;;
   *-*-rtems*)
     noconfigdirs="$noconfigdirs target-libgloss"
     # this is not caught below because this stanza matches earlier
@@ -1120,6 +1114,8 @@ case "${target}" in
     ;;
   arm-*-riscix*)
     noconfigdirs="$noconfigdirs ld target-libgloss"
+    ;;
+  avr-*-rtems*)
     ;;
   avr-*-*)
     if test x${with_avrlibc} != xno; then

@@ -56,10 +56,10 @@ package System.Memory is
    --  memory. The implementation of this routine is guaranteed to be
    --  task safe, and also aborts are deferred if necessary.
    --
-   --  If Size is set to size_t'Last on entry, then a Storage_Error
+   --  If size_t is set to size_t'Last on entry, then a Storage_Error
    --  exception is raised with a message "object too large".
    --
-   --  If Size is set to zero on entry, then a minimal (but non-zero)
+   --  If size_t is set to zero on entry, then a minimal (but non-zero)
    --  size block is allocated.
    --
    --  Note: this is roughly equivalent to the standard C malloc call
@@ -87,10 +87,10 @@ package System.Memory is
    --  routine is guaranteed to be task safe, and also aborts are
    --  deferred as necessary.
    --
-   --  If Size is set to size_t'Last on entry, then a Storage_Error
+   --  If size_t is set to size_t'Last on entry, then a Storage_Error
    --  exception is raised with a message "object too large".
    --
-   --  If Size is set to zero on entry, then a minimal (but non-zero)
+   --  If size_t is set to zero on entry, then a minimal (but non-zero)
    --  size block is allocated.
    --
    --  Note: this is roughly equivalent to the standard C realloc call

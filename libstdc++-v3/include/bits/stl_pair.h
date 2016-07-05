@@ -341,8 +341,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       void
       swap(pair& __p)
-      noexcept(__and_<__is_nothrow_swappable<_T1>,
-                      __is_nothrow_swappable<_T2>>::value)
+      noexcept(__is_nothrow_swappable<_T1>::value
+               && __is_nothrow_swappable<_T2>::value)
       {
 	using std::swap;
 	swap(first, __p.first);
@@ -399,18 +399,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   // Note:  no std::swap overloads in C++03 mode, this has performance
   //        implications, see, eg, libstdc++/38466.
   template<typename _T1, typename _T2>
-    inline
-#if __cplusplus > 201402L || !defined(__STRICT_ANSI__) // c++1z or gnu++11
-    // Constrained free swap overload, see p0185r1
-    typename enable_if<__and_<__is_swappable<_T1>,
-                              __is_swappable<_T2>>::value>::type
-#else
-    void
-#endif
+    inline void
     swap(pair<_T1, _T2>& __x, pair<_T1, _T2>& __y)
     noexcept(noexcept(__x.swap(__y)))
     { __x.swap(__y); }
-#endif // __cplusplus >= 201103L
+#endif
 
   /**
    *  @brief A convenience wrapper for creating a pair from two objects.

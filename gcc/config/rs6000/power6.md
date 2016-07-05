@@ -500,7 +500,7 @@
 (define_bypass 9 "power6-mtcr" "power6-branch")
 
 (define_insn_reservation "power6-fp" 6
-  (and (eq_attr "type" "fp,fpsimple,dmul,dfp")
+  (and (eq_attr "type" "fp,dmul")
        (eq_attr "cpu" "power6"))
   "FPU_power6")
 
@@ -556,7 +556,7 @@
   "LSF_power6")
 
 (define_insn_reservation "power6-vecsimple" 3
-  (and (eq_attr "type" "vecsimple,veclogical,vecmove")
+  (and (eq_attr "type" "vecsimple")
        (eq_attr "cpu" "power6"))
   "FPU_power6")
 
@@ -568,7 +568,7 @@
 (define_bypass 4 "power6-vecsimple" "power6-vecstore" )
 
 (define_insn_reservation "power6-veccmp" 1
-  (and (eq_attr "type" "veccmp,veccmpfx")
+  (and (eq_attr "type" "veccmp")
        (eq_attr "cpu" "power6"))
   "FPU_power6")
 

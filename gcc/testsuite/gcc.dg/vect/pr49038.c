@@ -2,7 +2,6 @@
 
 #include <sys/mman.h>
 #include <stdio.h>
-#include "tree-vect.h"
 
 #define COUNT 320
 #define MMAP_SIZE 0x10000
@@ -27,8 +26,6 @@ main (void)
 {
   void *x;
   size_t b_offset;
-
-  check_vect ();
 
   x = mmap ((void *) ADDRESS, MMAP_SIZE, PROT_READ | PROT_WRITE,
 	    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);

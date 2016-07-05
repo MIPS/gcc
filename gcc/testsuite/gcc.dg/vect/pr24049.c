@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-additional-options "-O1 --param ggc-min-heapsize=0 --param ggc-min-expand=0" } */
+/* { dg-options "-O1 -ftree-vectorize --param ggc-min-heapsize=0 --param ggc-min-expand=0" } */
 
 void unscrunch (unsigned char *, int *);
 

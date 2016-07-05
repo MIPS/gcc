@@ -1,11 +1,8 @@
 /* Test for correct rounding of conversions from __int128 to
    __float128.  */
-/* { dg-do run } */
-/* { dg-require-effective-target __float128 } */
-/* { dg-require-effective-target base_quadfloat_support } */
+/* { dg-do run { target i?86-*-* x86_64-*-* ia64-*-* } } */
 /* { dg-require-effective-target int128 } */
 /* { dg-options "-frounding-math" } */
-/* { dg-add-options __float128 } */
 
 #include <fenv.h>
 #include <stdlib.h>

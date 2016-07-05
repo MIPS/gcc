@@ -205,10 +205,6 @@ struct diagnostic_context
   /* Usable by plugins; if true, print a debugging ruler above the
      source output.  */
   bool show_ruler_p;
-
-  /* If true, print fixits in machine-parseable form after the
-     rest of the diagnostic.  */
-  bool parseable_fixits_p;
 };
 
 static inline void

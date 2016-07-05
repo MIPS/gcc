@@ -1,3 +1,4 @@
+! { dg-do run }
 ! { dg-additional-options "-Ofast -fno-inline" }
 
 subroutine check (a, b)

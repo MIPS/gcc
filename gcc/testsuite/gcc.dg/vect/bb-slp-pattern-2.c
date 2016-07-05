@@ -1,5 +1,4 @@
 /* { dg-require-effective-target vect_condition } */
-/* { dg-additional-options "-fno-tree-vectorize -ftree-slp-vectorize -ftree-loop-if-convert" } */
 
 #include "tree-vect.h"
 

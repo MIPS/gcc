@@ -930,39 +930,35 @@ package body Bindgen is
 
       Gen_Elab_Calls;
 
-      if not CodePeer_Mode then
+      --  Call System.Elaboration_Allocators.Mark_Start_Of_Elaboration if
+      --  restriction No_Standard_Allocators_After_Elaboration is active.
 
-         --  Call System.Elaboration_Allocators.Mark_Start_Of_Elaboration if
-         --  restriction No_Standard_Allocators_After_Elaboration is active.
+      if Cumulative_Restrictions.Set
+        (No_Standard_Allocators_After_Elaboration)
+      then
+         WBI ("      System.Elaboration_Allocators.Mark_End_Of_Elaboration;");
+      end if;
 
-         if Cumulative_Restrictions.Set
-              (No_Standard_Allocators_After_Elaboration)
-         then
-            WBI
-              ("      System.Elaboration_Allocators.Mark_End_Of_Elaboration;");
+      --  From this point, no new dispatching domain can be created
+
+      if Dispatching_Domains_Used then
+         WBI ("      Freeze_Dispatching_Domains;");
+      end if;
+
+      --  Sequential partition elaboration policy
+
+      if Partition_Elaboration_Policy_Specified = 'S' then
+         if System_Interrupts_Used then
+            WBI ("      Install_Restricted_Handlers_Sequential;");
          end if;
 
-         --  From this point, no new dispatching domain can be created
-
-         if Dispatching_Domains_Used then
-            WBI ("      Freeze_Dispatching_Domains;");
+         if System_Tasking_Restricted_Stages_Used then
+            WBI ("      Activate_All_Tasks_Sequential;");
          end if;
+      end if;
 
-         --  Sequential partition elaboration policy
-
-         if Partition_Elaboration_Policy_Specified = 'S' then
-            if System_Interrupts_Used then
-               WBI ("      Install_Restricted_Handlers_Sequential;");
-            end if;
-
-            if System_Tasking_Restricted_Stages_Used then
-               WBI ("      Activate_All_Tasks_Sequential;");
-            end if;
-         end if;
-
-         if System_BB_CPU_Primitives_Multiprocessors_Used then
-            WBI ("      Start_Slave_CPUs;");
-         end if;
+      if System_BB_CPU_Primitives_Multiprocessors_Used then
+         WBI ("      Start_Slave_CPUs;");
       end if;
 
       WBI ("   end " & Ada_Init_Name.all & ";");

@@ -200,11 +200,6 @@
   (and (match_code "const_int")
        (match_test "IN_RANGE (INTVAL (op), 2, 3)")))
 
-;; Match op = 0..7.
-(define_predicate "const_0_to_7_operand"
-  (and (match_code "const_int")
-       (match_test "IN_RANGE (INTVAL (op), 0, 7)")))
-
 ;; Match op = 0..15
 (define_predicate "const_0_to_15_operand"
   (and (match_code "const_int")
@@ -570,8 +565,9 @@
     }
 })
 
-;; Return 1 if the operand is a constant that can loaded with a XXSPLTIB
-;; instruction and then a VUPKHSB, VECSB2W or VECSB2D instruction.
+;; Return 1 if the operand is a CONST_VECTOR or VEC_DUPLICATE of a constant
+;; that can loaded with a XXSPLTIB instruction and then a VUPKHSB, VECSB2W or
+;; VECSB2D instruction.
 
 (define_predicate "xxspltib_constant_split"
   (match_code "const_vector,vec_duplicate,const_int")
@@ -586,8 +582,8 @@
 })
 
 
-;; Return 1 if the operand is constant that can loaded directly with a XXSPLTIB
-;; instruction.
+;; Return 1 if the operand is a CONST_VECTOR that can loaded directly with a
+;; XXSPLTIB instruction.
 
 (define_predicate "xxspltib_constant_nosplit"
   (match_code "const_vector,vec_duplicate,const_int")
@@ -734,15 +730,6 @@
   (and (match_operand 0 "memory_operand")
        (match_test "offsettable_nonstrict_memref_p (op)")))
 
-;; Return 1 if the operand is an offsettable memory operand for ISA 3.0
-;; scalar LXSD/STXSD that must have the bottom 2 bits 0 and no update
-;; form
-(define_predicate "offsettable_mem_14bit_operand"
-  (and (match_operand 0 "memory_operand")
-       (match_test "offsettable_nonstrict_memref_p (op)")
-       (match_test "mem_operand_gpr (op, mode)")
-       (not (match_test "update_address_mem  (op, mode)"))))
-
 ;; Return 1 if the operand is suitable for load/store quad memory.
 ;; This predicate only checks for non-atomic loads/stores (not lqarx/stqcx).
 (define_predicate "quad_memory_operand"
@@ -754,7 +741,7 @@
   if (GET_MODE_SIZE (mode) != 16 || !MEM_P (op) || MEM_ALIGN (op) < 128)
     return false;
 
-  return quad_address_p (XEXP (op, 0), mode, false);
+  return quad_address_p (XEXP (op, 0), mode, true);
 })
 
 ;; Return 1 if the operand is suitable for load/store to vector registers with
@@ -1070,34 +1057,27 @@
 
 ;; Return 1 if this operand is a valid input for a vsx_splat insn.
 (define_predicate "splat_input_operand"
-  (match_code "reg,subreg,mem")
+  (match_code "symbol_ref,const,reg,subreg,mem,
+	       const_double,const_wide_int,const_vector,const_int")
 {
-  machine_mode vmode;
-
-  if (mode == DFmode)
-    vmode = V2DFmode;
-  else if (mode == DImode)
-    vmode = V2DImode;
-  else if (mode == SImode && TARGET_P9_VECTOR)
-    vmode = V4SImode;
-  else if (mode == SFmode && TARGET_P9_VECTOR)
-    vmode = V4SFmode;
-  else
-    return false;
-
   if (MEM_P (op))
     {
-      rtx addr = XEXP (op, 0);
-
       if (! volatile_ok && MEM_VOLATILE_P (op))
 	return 0;
-
-      if (reload_in_progress || lra_in_progress || reload_completed)
-	return indexed_or_indirect_address (addr, vmode);
+      if (mode == DFmode)
+	mode = V2DFmode;
+      else if (mode == DImode)
+	mode = V2DImode;
+      else if (mode == SImode && TARGET_P9_VECTOR)
+	mode = V4SImode;
+      else if (mode == SFmode && TARGET_P9_VECTOR)
+	mode = V4SFmode;
       else
-	return memory_address_addr_space_p (vmode, addr, MEM_ADDR_SPACE (op));
+	gcc_unreachable ();
+      return memory_address_addr_space_p (mode, XEXP (op, 0),
+					  MEM_ADDR_SPACE (op));
     }
-  return gpc_reg_operand (op, mode);
+  return input_operand (op, mode);
 })
 
 ;; Return true if OP is a non-immediate operand and not an invalid

@@ -1,8 +1,6 @@
 /* PR tree-optimization/48377 */
 /* { dg-require-effective-target non_strict_align } */
 
-#include "tree-vect.h"
-
 typedef unsigned int U __attribute__((__aligned__ (1), __may_alias__));
 
 __attribute__((noinline, noclone)) unsigned int
@@ -21,7 +19,6 @@ char buf[64] __attribute__((aligned (32)));
 int
 main (void)
 {
-  check_vect ();
   return foo (buf + 1, 26) != 26;
 }
 

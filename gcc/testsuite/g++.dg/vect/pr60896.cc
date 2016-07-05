@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-additional-options "-O3" } */
+/* { dg-options "-O3" } */
 
 struct A
 {

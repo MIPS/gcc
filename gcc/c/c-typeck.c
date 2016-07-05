@@ -49,7 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-ubsan.h"
 #include "cilk.h"
 #include "gomp-constants.h"
-#include "spellcheck-tree.h"
+#include "spellcheck.h"
 #include "gcc-rich-location.h"
 
 /* Possible cases of implicit bad conversions.  Used to select
@@ -1936,7 +1936,6 @@ mark_exp_read (tree exp)
     case IMAGPART_EXPR:
     CASE_CONVERT:
     case ADDR_EXPR:
-    case VIEW_CONVERT_EXPR:
       mark_exp_read (TREE_OPERAND (exp, 0));
       break;
     case COMPOUND_EXPR:
@@ -2416,9 +2415,14 @@ build_component_ref (location_t loc, tree datum, tree component,
 		 we have a valid range for the component.  */
 	      location_t reported_loc
 		= (component_loc != UNKNOWN_LOCATION) ? component_loc : loc;
-	      gcc_rich_location rich_loc (reported_loc);
+	      rich_location rich_loc (line_table, reported_loc);
 	      if (component_loc != UNKNOWN_LOCATION)
-		rich_loc.add_fixit_misspelled_id (component_loc, guessed_id);
+		{
+		  source_range component_range =
+		    get_range_from_loc (line_table, component_loc);
+		  rich_loc.add_fixit_replace (component_range,
+					      IDENTIFIER_POINTER (guessed_id));
+		}
 	      error_at_rich_loc
 		(&rich_loc,
 		 "%qT has no member named %qE; did you mean %qE?",
@@ -4933,8 +4937,6 @@ build_conditional_expr (location_t colon_loc, tree ifexp, bool ifexp_bcp,
 	       || code2 == COMPLEX_TYPE))
     {
       result_type = c_common_type (type1, type2);
-      if (result_type == error_mark_node)
-	return error_mark_node;
       do_warn_double_promotion (result_type, type1, type2,
 				"implicit conversion from %qT to %qT to "
 				"match other result of conditional",
@@ -8456,7 +8458,7 @@ set_init_index (location_t loc, tree first, tree last,
 /* Within a struct initializer, specify the next field to be initialized.  */
 
 void
-set_init_label (location_t loc, tree fieldname, location_t fieldname_loc,
+set_init_label (location_t loc, tree fieldname,
 		struct obstack *braced_init_obstack)
 {
   tree field;
@@ -8475,21 +8477,7 @@ set_init_label (location_t loc, tree fieldname, location_t fieldname_loc,
   field = lookup_field (constructor_type, fieldname);
 
   if (field == 0)
-    {
-      tree guessed_id = lookup_field_fuzzy (constructor_type, fieldname);
-      if (guessed_id)
-	{
-	  gcc_rich_location rich_loc (fieldname_loc);
-	  rich_loc.add_fixit_misspelled_id (fieldname_loc, guessed_id);
-	  error_at_rich_loc
-	    (&rich_loc,
-	     "%qT has no member named %qE; did you mean %qE?",
-	     constructor_type, fieldname, guessed_id);
-	}
-      else
-	error_at (fieldname_loc, "%qT has no member named %qE",
-		  constructor_type, fieldname);
-    }
+    error_at (loc, "unknown field %qE specified in initializer", fieldname);
   else
     do
       {
@@ -9002,22 +8990,6 @@ output_init_element (location_t loc, tree value, tree origtype,
   if (!maybe_const)
     constructor_nonconst = 1;
 
-  /* Digest the initializer and issue any errors about incompatible
-     types before issuing errors about non-constant initializers.  */
-  tree new_value = value;
-  if (semantic_type)
-    new_value = build1 (EXCESS_PRECISION_EXPR, semantic_type, value);
-  new_value = digest_init (loc, type, new_value, origtype, npc, strict_string,
-			   require_constant_value);
-  if (new_value == error_mark_node)
-    {
-      constructor_erroneous = 1;
-      return;
-    }
-  if (require_constant_value || require_constant_elements)
-    constant_expression_warning (new_value);
-
-  /* Proceed to check the constness of the original initializer.  */
   if (!initializer_constant_valid_p (value, TREE_TYPE (value)))
     {
       if (require_constant_value)
@@ -9062,8 +9034,17 @@ output_init_element (location_t loc, tree value, tree origtype,
 		  || DECL_CHAIN (field)))))
     return;
 
-  /* Finally, set VALUE to the initializer value digested above.  */
-  value = new_value;
+  if (semantic_type)
+    value = build1 (EXCESS_PRECISION_EXPR, semantic_type, value);
+  value = digest_init (loc, type, value, origtype, npc, strict_string,
+		       require_constant_value);
+  if (value == error_mark_node)
+    {
+      constructor_erroneous = 1;
+      return;
+    }
+  if (require_constant_value || require_constant_elements)
+    constant_expression_warning (value);
 
   /* If this element doesn't come next in sequence,
      put it on constructor_pending_elts.  */
@@ -12260,7 +12241,7 @@ c_finish_omp_cancel (location_t loc, tree clauses)
     mask = 8;
   else
     {
-      error_at (loc, "%<#pragma omp cancel%> must specify one of "
+      error_at (loc, "%<#pragma omp cancel must specify one of "
 		     "%<parallel%>, %<for%>, %<sections%> or %<taskgroup%> "
 		     "clauses");
       return;
@@ -12299,7 +12280,7 @@ c_finish_omp_cancellation_point (location_t loc, tree clauses)
     mask = 8;
   else
     {
-      error_at (loc, "%<#pragma omp cancellation point%> must specify one of "
+      error_at (loc, "%<#pragma omp cancellation point must specify one of "
 		     "%<parallel%>, %<for%>, %<sections%> or %<taskgroup%> "
 		     "clauses");
       return;
@@ -14016,8 +13997,7 @@ c_build_qualified_type (tree type, int type_quals,
 					   layout_qualifier));
   /* A variant type does not inherit the list of incomplete vars from the
      type main variant.  */
-  if (RECORD_OR_UNION_TYPE_P (var_type)
-      && TYPE_MAIN_VARIANT (var_type) != var_type)
+  if (RECORD_OR_UNION_TYPE_P (var_type))
     C_TYPE_INCOMPLETE_VARS (var_type) = 0;
   return var_type;
 }

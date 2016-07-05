@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-additional-options "-fdump-tree-optimized" } */
+/* { dg-options "-fdump-tree-optimized" } */
 
 int
 foo (int integral, int decimal, int power_ten)

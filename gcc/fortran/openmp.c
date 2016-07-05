@@ -396,67 +396,43 @@ cleanup:
 }
 
 static match
-match_oacc_clause_gwv (gfc_omp_clauses *cp, unsigned gwv)
+match_oacc_clause_gang (gfc_omp_clauses *cp)
 {
   match ret = MATCH_YES;
 
   if (gfc_match (" ( ") != MATCH_YES)
     return MATCH_NO;
 
-  if (gwv == GOMP_DIM_GANG)
-    {
-        /* The gang clause accepts two optional arguments, num and static.
-	 The num argument may either be explicit (num: <val>) or
-	 implicit without (<val> without num:).  */
+  /* The gang clause accepts two optional arguments, num and static.
+     The num argument may either be explicit (num: <val>) or
+     implicit without (<val> without num:).  */
 
-      while (ret == MATCH_YES)
+  while (ret == MATCH_YES)
+    {
+      if (gfc_match (" static :") == MATCH_YES)
 	{
-	  if (gfc_match (" static :") == MATCH_YES)
-	    {
-	      if (cp->gang_static)
-		return MATCH_ERROR;
-	      else
-		cp->gang_static = true;
-	      if (gfc_match_char ('*') == MATCH_YES)
-		cp->gang_static_expr = NULL;
-	      else if (gfc_match (" %e ", &cp->gang_static_expr) != MATCH_YES)
-		return MATCH_ERROR;
-	    }
+	  if (cp->gang_static)
+	    return MATCH_ERROR;
 	  else
-	    {
-	      if (cp->gang_num_expr)
-		return MATCH_ERROR;
-
-	      /* The 'num' argument is optional.  */
-	      gfc_match (" num :");
-
-	      if (gfc_match (" %e ", &cp->gang_num_expr) != MATCH_YES)
-		return MATCH_ERROR;
-	    }
-
-	  ret = gfc_match (" , ");
+	    cp->gang_static = true;
+	  if (gfc_match_char ('*') == MATCH_YES)
+	    cp->gang_static_expr = NULL;
+	  else if (gfc_match (" %e ", &cp->gang_static_expr) != MATCH_YES)
+	    return MATCH_ERROR;
 	}
-    }
-  else if (gwv == GOMP_DIM_WORKER)
-    {
-      /* The 'num' argument is optional.  */
-      gfc_match (" num :");
+      else
+	{
+	  /* This is optional.  */
+	  if (cp->gang_num_expr || gfc_match (" num :") == MATCH_ERROR)
+	    return MATCH_ERROR;
+	  else if (gfc_match (" %e ", &cp->gang_num_expr) != MATCH_YES)
+	    return MATCH_ERROR;
+	}
 
-      if (gfc_match (" %e ", &cp->worker_expr) != MATCH_YES)
-	return MATCH_ERROR;
+      ret = gfc_match (" , ");
     }
-  else if (gwv == GOMP_DIM_VECTOR)
-    {
-      /* The 'length' argument is optional.  */
-      gfc_match (" length :");
 
-      if (gfc_match (" %e ", &cp->vector_expr) != MATCH_YES)
-	return MATCH_ERROR;
-    }
-  else
-    gfc_fatal_error ("Unexpected OpenACC parallelism.");
-
-  return gfc_match (" )");
+  return gfc_match (" ) ");
 }
 
 static match
@@ -701,20 +677,14 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
 	      && gfc_match ("async") == MATCH_YES)
 	    {
 	      c->async = true;
-	      match m = gfc_match (" ( %e )", &c->async_expr);
-	      if (m == MATCH_ERROR)
-		{
-		  gfc_current_locus = old_loc;
-		  break;
-		}
-	      else if (m == MATCH_NO)
+	      needs_space = false;
+	      if (gfc_match (" ( %e )", &c->async_expr) != MATCH_YES)
 		{
 		  c->async_expr
 		    = gfc_get_constant_expr (BT_INTEGER,
 					     gfc_default_integer_kind,
 					     &gfc_current_locus);
 		  mpz_set_si (c->async_expr->value.integer, GOMP_ASYNC_NOVAL);
-		  needs_space = true;
 		}
 	      continue;
 	    }
@@ -907,13 +877,9 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
 	      && gfc_match ("gang") == MATCH_YES)
 	    {
 	      c->gang = true;
-	      match m = match_oacc_clause_gwv (c, GOMP_DIM_GANG);
-	      if (m == MATCH_ERROR)
-		{
-		  gfc_current_locus = old_loc;
-		  break;
-		}
-	      else if (m == MATCH_NO)
+	      if (match_oacc_clause_gang(c) == MATCH_YES)
+		needs_space = false;
+	      else
 		needs_space = true;
 	      continue;
 	    }
@@ -1343,13 +1309,10 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
 	      && gfc_match ("vector") == MATCH_YES)
 	    {
 	      c->vector = true;
-	      match m = match_oacc_clause_gwv (c, GOMP_DIM_VECTOR);
-	      if (m == MATCH_ERROR)
-		{
-		  gfc_current_locus = old_loc;
-		  break;
-		}
-	      if (m == MATCH_NO)
+	      if (gfc_match (" ( length : %e )", &c->vector_expr) == MATCH_YES
+		  || gfc_match (" ( %e )", &c->vector_expr) == MATCH_YES)
+		needs_space = false;
+	      else
 		needs_space = true;
 	      continue;
 	    }
@@ -1365,14 +1328,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
 	      && gfc_match ("wait") == MATCH_YES)
 	    {
 	      c->wait = true;
-	      match m = match_oacc_expr_list (" (", &c->wait_list, false);
-	      if (m == MATCH_ERROR)
-		{
-		  gfc_current_locus = old_loc;
-		  break;
-		}
-	      else if (m == MATCH_NO)
-		needs_space = true;
+	      match_oacc_expr_list (" (", &c->wait_list, false);
 	      continue;
 	    }
 	  if ((mask & OMP_CLAUSE_WORKER)
@@ -1380,13 +1336,10 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
 	      && gfc_match ("worker") == MATCH_YES)
 	    {
 	      c->worker = true;
-	      match m = match_oacc_clause_gwv (c, GOMP_DIM_WORKER);
-	      if (m == MATCH_ERROR)
-		{
-		  gfc_current_locus = old_loc;
-		  break;
-		}
-	      else if (m == MATCH_NO)
+	      if (gfc_match (" ( num : %e )", &c->worker_expr) == MATCH_YES
+		  || gfc_match (" ( %e )", &c->worker_expr) == MATCH_YES)
+		needs_space = false;
+	      else
 		needs_space = true;
 	      continue;
 	    }
@@ -1458,63 +1411,101 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
   (OMP_CLAUSE_GANG | OMP_CLAUSE_WORKER | OMP_CLAUSE_VECTOR | OMP_CLAUSE_SEQ)
 
 
-static match
-match_acc (gfc_exec_op op, uint64_t mask)
-{
-  gfc_omp_clauses *c;
-  if (gfc_match_omp_clauses (&c, mask, false, false, true) != MATCH_YES)
-    return MATCH_ERROR;
-  new_st.op = op;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
-}
-
 match
 gfc_match_oacc_parallel_loop (void)
 {
-  return match_acc (EXEC_OACC_PARALLEL_LOOP, OACC_PARALLEL_LOOP_CLAUSES);
+  gfc_omp_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_PARALLEL_LOOP_CLAUSES, false, false,
+			     true) != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_PARALLEL_LOOP;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
 }
 
 
 match
 gfc_match_oacc_parallel (void)
 {
-  return match_acc (EXEC_OACC_PARALLEL, OACC_PARALLEL_CLAUSES);
+  gfc_omp_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_PARALLEL_CLAUSES, false, false, true)
+      != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_PARALLEL;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
 }
 
 
 match
 gfc_match_oacc_kernels_loop (void)
 {
-  return match_acc (EXEC_OACC_KERNELS_LOOP, OACC_KERNELS_LOOP_CLAUSES);
+  gfc_omp_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_KERNELS_LOOP_CLAUSES, false, false,
+			     true) != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_KERNELS_LOOP;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
 }
 
 
 match
 gfc_match_oacc_kernels (void)
 {
-  return match_acc (EXEC_OACC_KERNELS, OACC_KERNELS_CLAUSES);
+  gfc_omp_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_KERNELS_CLAUSES, false, false, true)
+      != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_KERNELS;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
 }
 
 
 match
 gfc_match_oacc_data (void)
 {
-  return match_acc (EXEC_OACC_DATA, OACC_DATA_CLAUSES);
+  gfc_omp_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_DATA_CLAUSES, false, false, true)
+      != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_DATA;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
 }
 
 
 match
 gfc_match_oacc_host_data (void)
 {
-  return match_acc (EXEC_OACC_HOST_DATA, OACC_HOST_DATA_CLAUSES);
+  gfc_omp_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_HOST_DATA_CLAUSES, false, false, true)
+      != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_HOST_DATA;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
 }
 
 
 match
 gfc_match_oacc_loop (void)
 {
-  return match_acc (EXEC_OACC_LOOP, OACC_LOOP_CLAUSES);
+  gfc_omp_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_LOOP_CLAUSES, false, false, true)
+      != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_LOOP;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
 }
 
 
@@ -1626,14 +1617,28 @@ gfc_match_oacc_update (void)
 match
 gfc_match_oacc_enter_data (void)
 {
-  return match_acc (EXEC_OACC_ENTER_DATA, OACC_ENTER_DATA_CLAUSES);
+  gfc_omp_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_ENTER_DATA_CLAUSES, false, false, true)
+      != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_ENTER_DATA;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
 }
 
 
 match
 gfc_match_oacc_exit_data (void)
 {
-  return match_acc (EXEC_OACC_EXIT_DATA, OACC_EXIT_DATA_CLAUSES);
+  gfc_omp_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_EXIT_DATA_CLAUSES, false, false, true)
+      != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_EXIT_DATA;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
 }
 
 
@@ -1642,18 +1647,15 @@ gfc_match_oacc_wait (void)
 {
   gfc_omp_clauses *c = gfc_get_omp_clauses ();
   gfc_expr_list *wait_list = NULL, *el;
-  bool space = true;
-  match m;
 
-  m = match_oacc_expr_list (" (", &wait_list, true);
-  if (m == MATCH_ERROR)
-    return m;
-  else if (m == MATCH_YES)
-    space = false;
+  match_oacc_expr_list (" (", &wait_list, true);
+  gfc_match_omp_clauses (&c, OACC_WAIT_CLAUSES, false, false, true);
 
-  if (gfc_match_omp_clauses (&c, OACC_WAIT_CLAUSES, space, space, true)
-      == MATCH_ERROR)
-    return MATCH_ERROR;
+  if (gfc_match_omp_eos () != MATCH_YES)
+    {
+      gfc_error ("Unexpected junk in !$ACC WAIT at %C");
+      return MATCH_ERROR;
+    }
 
   if (wait_list)
     for (el = wait_list; el; el = el->next)

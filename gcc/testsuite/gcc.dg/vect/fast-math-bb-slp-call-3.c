@@ -1,5 +1,3 @@
-#include "tree-vect.h"
-
 extern double sqrt (double);
 extern double fabs (double);
 extern double ceil (double);
@@ -65,7 +63,6 @@ int main()
 {
   ufraw_data uf_data;
   ufraw_data *uf = &uf_data;
-  check_vect ();
   uf->initialWidth = 4;
   uf->initialHeight = 5;
   ufraw_test(uf);

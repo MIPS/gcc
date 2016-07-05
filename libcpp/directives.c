@@ -818,7 +818,7 @@ do_include_common (cpp_reader *pfile, enum include_type type)
 			   pfile->directive->name, fname, angle_brackets,
 			   buf);
 
-      _cpp_stack_include (pfile, fname, angle_brackets, type, location);
+      _cpp_stack_include (pfile, fname, angle_brackets, type);
     }
 
   XDELETEVEC (fname);

@@ -75,9 +75,6 @@
    |mcpu=cortex-a57.cortex-a53				\
    |mcpu=cortex-a72					\
    |mcpu=cortex-a72.cortex-a53				\
-   |mcpu=cortex-a73					\
-   |mcpu=cortex-a73.cortex-a35				\
-   |mcpu=cortex-a73.cortex-a53				\
    |mcpu=exynos-m1                                      \
    |mcpu=qdf24xx					\
    |mcpu=xgene1                                         \
@@ -108,9 +105,6 @@
    |mcpu=cortex-a57.cortex-a53				\
    |mcpu=cortex-a72					\
    |mcpu=cortex-a72.cortex-a53				\
-   |mcpu=cortex-a73					\
-   |mcpu=cortex-a73.cortex-a35				\
-   |mcpu=cortex-a73.cortex-a53				\
    |mcpu=exynos-m1                                      \
    |mcpu=qdf24xx					\
    |mcpu=xgene1                                         \

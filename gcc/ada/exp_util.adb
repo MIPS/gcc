@@ -355,15 +355,12 @@ package body Exp_Util is
                return;
 
             --  Otherwise we perform a conversion from the current type, which
-            --  must be Standard.Boolean, to the desired type. Use the base
-            --  type to prevent spurious constraint checks that are extraneous
-            --  to the transformation. The type and its base have the same
-            --  representation, standard or otherwise.
+            --  must be Standard.Boolean, to the desired type.
 
             else
                Set_Analyzed (N);
-               Rewrite (N, Convert_To (Base_Type (T), N));
-               Analyze_And_Resolve (N, Base_Type (T));
+               Rewrite (N, Convert_To (T, N));
+               Analyze_And_Resolve (N, T);
             end if;
          end;
       end if;
@@ -2951,9 +2948,10 @@ package body Exp_Util is
                                           N_Discriminant_Association,
                                           N_Parameter_Association,
                                           N_Pragma_Argument_Association)
-              and then not Nkind_In (Parent (Par), N_Function_Call,
-                                                   N_Procedure_Call_Statement,
-                                                   N_Entry_Call_Statement)
+              and then not Nkind_In
+                             (Parent (Par), N_Function_Call,
+                                            N_Procedure_Call_Statement,
+                                            N_Entry_Call_Statement)
 
             then
                return Par;
@@ -4722,41 +4720,25 @@ package body Exp_Util is
          Expr : Node_Id := Original_Node (N);
 
       begin
+         if Nkind (Expr) = N_Function_Call then
+            Expr := Name (Expr);
+
          --  When a function call appears in Object.Operation format, the
-         --  original representation has several possible forms depending on
-         --  the availability and form of actual parameters:
+         --  original representation has two possible forms depending on the
+         --  availability of actual parameters:
 
-         --    Obj.Func                    N_Selected_Component
-         --    Obj.Func (Actual)           N_Indexed_Component
-         --    Obj.Func (Formal => Actual) N_Function_Call, whose Name is an
-         --                                N_Selected_Component
+         --    Obj.Func_Call           N_Selected_Component
+         --    Obj.Func_Call (Param)   N_Indexed_Component
 
-         case Nkind (Expr) is
-            when N_Function_Call =>
-               Expr := Name (Expr);
-
-               --  Check for "Obj.Func (Formal => Actual)" case
-
-               if Nkind (Expr) = N_Selected_Component then
-                  Expr := Selector_Name (Expr);
-               end if;
-
-            --  "Obj.Func (Actual)" case
-
-            when N_Indexed_Component =>
+         else
+            if Nkind (Expr) = N_Indexed_Component then
                Expr := Prefix (Expr);
+            end if;
 
-               if Nkind (Expr) = N_Selected_Component then
-                  Expr := Selector_Name (Expr);
-               end if;
-
-            --  "Obj.Func" case
-
-            when N_Selected_Component =>
+            if Nkind (Expr) = N_Selected_Component then
                Expr := Selector_Name (Expr);
-
-            when others => null;
-         end case;
+            end if;
+         end if;
 
          return
            Nkind_In (Expr, N_Expanded_Name, N_Identifier)
@@ -6408,19 +6390,30 @@ package body Exp_Util is
    -------------------------
 
    function Make_Invariant_Call (Expr : Node_Id) return Node_Id is
-      Loc     : constant Source_Ptr := Sloc (Expr);
-      Typ     : constant Entity_Id  := Base_Type (Etype (Expr));
-      Proc_Id : Entity_Id;
+      Loc : constant Source_Ptr := Sloc (Expr);
+      Typ : Entity_Id;
 
    begin
-      pragma Assert (Has_Invariants (Typ));
+      Typ := Etype (Expr);
 
-      Proc_Id := Invariant_Procedure (Typ);
-      pragma Assert (Present (Proc_Id));
+      --  Subtypes may be subject to invariants coming from their respective
+      --  base types. The subtype may be fully or partially private.
+
+      if Ekind_In (Typ, E_Array_Subtype,
+                        E_Private_Subtype,
+                        E_Record_Subtype,
+                        E_Record_Subtype_With_Private)
+      then
+         Typ := Base_Type (Typ);
+      end if;
+
+      pragma Assert
+        (Has_Invariants (Typ) and then Present (Invariant_Procedure (Typ)));
 
       return
         Make_Procedure_Call_Statement (Loc,
-          Name                   => New_Occurrence_Of (Proc_Id, Loc),
+          Name                   =>
+            New_Occurrence_Of (Invariant_Procedure (Typ), Loc),
           Parameter_Associations => New_List (Relocate_Node (Expr)));
    end Make_Invariant_Call;
 
@@ -8270,21 +8263,16 @@ package body Exp_Util is
                return False;
 
             --  The object is of the form:
-            --    Obj : [constant] Typ [:= Expr];
+            --    Obj : Typ [:= Expr];
             --
-            --  Do not process tag-to-class-wide conversions because they do
-            --  not yield an object. Do not process the incomplete view of a
-            --  deferred constant. Note that an object initialized by means
-            --  of a build-in-place function call may appear as a deferred
-            --  constant after expansion activities. These kinds of objects
-            --  must be finalized.
+            --  Do not process the incomplete view of a deferred constant. Do
+            --  not consider tag-to-class-wide conversions.
 
             elsif not Is_Imported (Obj_Id)
               and then Needs_Finalization (Obj_Typ)
-              and then not Is_Tag_To_Class_Wide_Conversion (Obj_Id)
               and then not (Ekind (Obj_Id) = E_Constant
-                             and then not Has_Completion (Obj_Id)
-                             and then No (BIP_Initialization_Call (Obj_Id)))
+                             and then not Has_Completion (Obj_Id))
+              and then not Is_Tag_To_Class_Wide_Conversion (Obj_Id)
             then
                return True;
 
@@ -8637,7 +8625,7 @@ package body Exp_Util is
       --  alignment is known to be at least the maximum alignment for the
       --  target or if both alignments are known and the output type's
       --  alignment is no stricter than the input's. We can use the component
-      --  type alignment for an array if a type is an unpacked array type.
+      --  type alignement for an array if a type is an unpacked array type.
 
       if Present (Alignment_Clause (Otyp)) then
          Oalign := Expr_Value (Expression (Alignment_Clause (Otyp)));

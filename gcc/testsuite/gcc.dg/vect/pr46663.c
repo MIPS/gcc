@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-additional-options "-O -fexceptions" } */
+/* { dg-options "-O -ftree-vectorize -fdump-tree-vect-details -fexceptions" } */
 
 typedef __attribute__ ((const)) int (*bart) (void);
 

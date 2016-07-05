@@ -1009,8 +1009,6 @@ digest_init_r (tree type, tree init, bool nested, int flags,
   if (TREE_CODE (init) == NON_LVALUE_EXPR)
     init = TREE_OPERAND (init, 0);
 
-  location_t loc = EXPR_LOC_OR_LOC (init, input_location);
-
   /* Initialization of an array of chars from a string constant. The initializer
      can be optionally enclosed in braces, but reshape_init has already removed
      them if they were present.  */
@@ -1019,7 +1017,7 @@ digest_init_r (tree type, tree init, bool nested, int flags,
       if (nested && !TYPE_DOMAIN (type))
 	{
 	  /* C++ flexible array members have a null domain.  */
-	  pedwarn (loc, OPT_Wpedantic,
+	  pedwarn (EXPR_LOC_OR_LOC (init, input_location), OPT_Wpedantic,
 		   "initialization of a flexible array member");
 	}
 
@@ -1035,7 +1033,7 @@ digest_init_r (tree type, tree init, bool nested, int flags,
 	      if (char_type != char_type_node)
 		{
 		  if (complain & tf_error)
-		    error_at (loc, "char-array initialized from wide string");
+		    error ("char-array initialized from wide string");
 		  return error_mark_node;
 		}
 	    }
@@ -1044,15 +1042,14 @@ digest_init_r (tree type, tree init, bool nested, int flags,
 	      if (char_type == char_type_node)
 		{
 		  if (complain & tf_error)
-		    error_at (loc,
-			      "int-array initialized from non-wide string");
+		    error ("int-array initialized from non-wide string");
 		  return error_mark_node;
 		}
 	      else if (char_type != typ1)
 		{
 		  if (complain & tf_error)
-		    error_at (loc, "int-array initialized from incompatible "
-			      "wide string");
+		    error ("int-array initialized from incompatible "
+			   "wide string");
 		  return error_mark_node;
 		}
 	    }
@@ -1072,7 +1069,7 @@ digest_init_r (tree type, tree init, bool nested, int flags,
 		 counted in the length of the constant, but in C++ this would
 		 be invalid.  */
 	      if (size < TREE_STRING_LENGTH (init))
-		permerror (loc, "initializer-string for array "
+		permerror (input_location, "initializer-string for array "
 			   "of chars is too long");
 	    }
 	  return init;
@@ -1125,8 +1122,8 @@ digest_init_r (tree type, tree init, bool nested, int flags,
       if (COMPOUND_LITERAL_P (init) && TREE_CODE (type) == ARRAY_TYPE)
 	{
 	  if (complain & tf_error)
-	    error_at (loc, "cannot initialize aggregate of type %qT with "
-		      "a compound literal", type);
+	    error ("cannot initialize aggregate of type %qT with "
+		   "a compound literal", type);
 
 	  return error_mark_node;
 	}
@@ -1143,8 +1140,8 @@ digest_init_r (tree type, tree init, bool nested, int flags,
 	    return init;
 
 	  if (complain & tf_error)
-	    error_at (loc, "array must be initialized with a brace-enclosed"
-		      " initializer");
+	    error ("array must be initialized with a brace-enclosed"
+		   " initializer");
 	  return error_mark_node;
 	}
 

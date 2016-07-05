@@ -1871,10 +1871,6 @@ common_handle_option (struct gcc_options *opts,
       diagnostic_color_init (dc, value);
       break;
 
-    case OPT_fdiagnostics_parseable_fixits:
-      dc->parseable_fixits_p = value;
-      break;
-
     case OPT_fdiagnostics_show_option:
       dc->show_option_requested = value;
       break;
@@ -2228,14 +2224,7 @@ handle_param (struct gcc_options *opts, struct gcc_options *opts_set,
 
       enum compiler_param index;
       if (!find_param (arg, &index))
-	{
-	  const char *suggestion = find_param_fuzzy (arg);
-	  if (suggestion)
-	    error_at (loc, "invalid --param name %qs; did you mean %qs?",
-		      arg, suggestion);
-	  else
-	    error_at (loc, "invalid --param name %qs", arg);
-	}
+	error_at (loc, "invalid --param name %qs", arg);
       else
 	{
 	  if (!param_string_value_p (index, equal + 1, &value))

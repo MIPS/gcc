@@ -59,10 +59,8 @@ selftest::run_tests ()
   /* Higher-level tests, or for components that other selftests don't
      rely on.  */
   diagnostic_show_locus_c_tests ();
-  diagnostic_c_tests ();
   fold_const_c_tests ();
   spellcheck_c_tests ();
-  spellcheck_tree_c_tests ();
   tree_cfg_c_tests ();
 
   /* This one relies on most of the above.  */

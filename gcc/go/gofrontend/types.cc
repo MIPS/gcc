@@ -4502,7 +4502,10 @@ class Call_multiple_result_type : public Type
  protected:
   bool
   do_has_pointer() const
-  { return false; }
+  {
+    go_assert(saw_errors());
+    return false;
+  }
 
   bool
   do_compare_is_identity(Gogo*)

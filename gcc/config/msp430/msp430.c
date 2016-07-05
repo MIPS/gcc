@@ -777,21 +777,20 @@ msp430_option_override (void)
 			   target_mcu, xisa ? "430X" : "430", msp430x ? "430X" : "430");
 
 		if (msp430_mcu_data[i].hwmpy == 0
-		    && msp430_hwmult_type != MSP430_HWMULT_AUTO
-		    && msp430_hwmult_type != MSP430_HWMULT_NONE)
+		    && msp430_hwmult_type != AUTO
+		    && msp430_hwmult_type != NONE)
 		  warning (0, "MCU '%s' does not have hardware multiply support, but -mhwmult is set to %s",
 			   target_mcu,
-			   msp430_hwmult_type == MSP430_HWMULT_SMALL ? "16-bit"
-			   : msp430_hwmult_type == MSP430_HWMULT_LARGE ? "32-bit" : "f5series");
-		else if (msp430_hwmult_type == MSP430_HWMULT_SMALL
+			   msp430_hwmult_type == SMALL ? "16-bit" : msp430_hwmult_type == LARGE ? "32-bit" : "f5series");
+		else if (msp430_hwmult_type == SMALL
 		    && msp430_mcu_data[i].hwmpy != 1
 		    && msp430_mcu_data[i].hwmpy != 2 )
 		  warning (0, "MCU '%s' supports %s hardware multiply, but -mhwmult is set to 16-bit",
 			   target_mcu, hwmult_name (msp430_mcu_data[i].hwmpy));
-		else if (msp430_hwmult_type == MSP430_HWMULT_LARGE && msp430_mcu_data[i].hwmpy != 4)
+		else if (msp430_hwmult_type == LARGE && msp430_mcu_data[i].hwmpy != 4)
 		  warning (0, "MCU '%s' supports %s hardware multiply, but -mhwmult is set to 32-bit",
 			   target_mcu, hwmult_name (msp430_mcu_data[i].hwmpy));
-		else if (msp430_hwmult_type == MSP430_HWMULT_F5SERIES && msp430_mcu_data[i].hwmpy != 8)
+		else if (msp430_hwmult_type == F5SERIES && msp430_mcu_data[i].hwmpy != 8)
 		  warning (0, "MCU '%s' supports %s hardware multiply, but -mhwmult is set to f5series",
 			   target_mcu, hwmult_name (msp430_mcu_data[i].hwmpy));
 	      }
@@ -802,7 +801,7 @@ msp430_option_override (void)
 
       if (i < 0)
 	{
-	  if (msp430_hwmult_type == MSP430_HWMULT_AUTO)
+	  if (msp430_hwmult_type == AUTO)
 	    {
 	      if (msp430_warn_mcu)
 		{
@@ -816,7 +815,7 @@ msp430_option_override (void)
 			     target_mcu);
 		}
 
-	      msp430_hwmult_type = MSP430_HWMULT_NONE;
+	      msp430_hwmult_type = NONE;
 	    }
 	  else if (target_cpu == NULL)
 	    {
@@ -834,15 +833,15 @@ msp430_option_override (void)
     }
 
   /* The F5 series are all able to support the 430X ISA.  */
-  if (target_cpu == NULL && target_mcu == NULL && msp430_hwmult_type == MSP430_HWMULT_F5SERIES)
+  if (target_cpu == NULL && target_mcu == NULL && msp430_hwmult_type == F5SERIES)
     msp430x = true;
 
   if (TARGET_LARGE && !msp430x)
     error ("-mlarge requires a 430X-compatible -mmcu=");
 
-  if (msp430_code_region == MSP430_REGION_UPPER && ! msp430x)
+  if (msp430_code_region == UPPER && ! msp430x)
     error ("-mcode-region=upper requires 430X-compatible cpu");
-  if (msp430_data_region == MSP430_REGION_UPPER && ! msp430x)
+  if (msp430_data_region == UPPER && ! msp430x)
     error ("-mdata-region=upper requires 430X-compatible cpu");
 
   if (flag_exceptions || flag_non_call_exceptions
@@ -2167,24 +2166,24 @@ gen_prefix (tree decl)
 
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
-      if (msp430_code_region == MSP430_REGION_LOWER)
+      if (msp430_code_region == LOWER)
 	return lower_prefix;
 
-      if (msp430_code_region == MSP430_REGION_UPPER)
+      if (msp430_code_region == UPPER)
 	return upper_prefix;
 
-      if (msp430_code_region == MSP430_REGION_EITHER)
+      if (msp430_code_region == EITHER)
 	return either_prefix;
     }
   else
     {
-      if (msp430_data_region == MSP430_REGION_LOWER)
+      if (msp430_data_region == LOWER)
 	return lower_prefix;
 
-      if (msp430_data_region == MSP430_REGION_UPPER)
+      if (msp430_data_region == UPPER)
 	return upper_prefix;
 
-      if (msp430_data_region == MSP430_REGION_EITHER)
+      if (msp430_data_region == EITHER)
 	return either_prefix;
     }
 
@@ -2355,7 +2354,7 @@ msp430_output_aligned_decl_common (FILE *                 stream,
 				   unsigned HOST_WIDE_INT size,
 				   unsigned int           align)
 {
-  if (msp430_data_region == MSP430_REGION_ANY)
+  if (msp430_data_region == ANY)
     {
       fprintf (stream, COMMON_ASM_OP);
       assemble_name (stream, name);
@@ -2371,9 +2370,9 @@ msp430_output_aligned_decl_common (FILE *                 stream,
       else
 	switch (msp430_data_region)
 	  {
-	  case MSP430_REGION_UPPER: sec = get_named_section (NULL, ".upper.bss", 0); break;
-	  case MSP430_REGION_LOWER: sec = get_named_section (NULL, ".lower.bss", 0); break;
-	  case MSP430_REGION_EITHER: sec = get_named_section (NULL, ".either.bss", 0); break;
+	  case UPPER: sec = get_named_section (NULL, ".upper.bss", 0); break;
+	  case LOWER: sec = get_named_section (NULL, ".lower.bss", 0); break;
+	  case EITHER: sec = get_named_section (NULL, ".either.bss", 0); break;
 	  default:
 	    gcc_unreachable ();
 	  }
@@ -2397,8 +2396,8 @@ msp430_do_not_relax_short_jumps (void)
      short jumps when there is a chance that the instructions will end up in a low
      section.  */
   return
-    msp430_code_region == MSP430_REGION_EITHER
-    || msp430_code_region == MSP430_REGION_LOWER
+    msp430_code_region == EITHER
+    || msp430_code_region == LOWER
     || has_attr (ATTR_EITHER, current_function_decl)
     || has_attr (ATTR_LOWER, current_function_decl);
 }
@@ -3205,10 +3204,10 @@ msp430_use_f5_series_hwmult (void)
   static const char * cached_match = NULL;
   static bool         cached_result;
 
-  if (msp430_hwmult_type == MSP430_HWMULT_F5SERIES)
+  if (msp430_hwmult_type == F5SERIES)
     return true;
 
-  if (target_mcu == NULL || msp430_hwmult_type != MSP430_HWMULT_AUTO)
+  if (target_mcu == NULL || msp430_hwmult_type != AUTO)
     return false;
 
   if (target_mcu == cached_match)
@@ -3243,10 +3242,10 @@ use_32bit_hwmult (void)
   static bool         cached_result;
   int i;
 
-  if (msp430_hwmult_type == MSP430_HWMULT_LARGE)
+  if (msp430_hwmult_type == LARGE)
     return true;
 
-  if (target_mcu == NULL || msp430_hwmult_type != MSP430_HWMULT_AUTO)
+  if (target_mcu == NULL || msp430_hwmult_type != AUTO)
     return false;
 
   if (target_mcu == cached_match)
@@ -3272,10 +3271,10 @@ msp430_no_hwmult (void)
   static bool         cached_result;
   int i;
 
-  if (msp430_hwmult_type == MSP430_HWMULT_NONE)
+  if (msp430_hwmult_type == NONE)
     return true;
 
-  if (msp430_hwmult_type != MSP430_HWMULT_AUTO)
+  if (msp430_hwmult_type != AUTO)
     return false;
 
   if (target_mcu == NULL)
@@ -3313,7 +3312,7 @@ msp430_output_labelref (FILE *file, const char *name)
 
   /* If we have been given a specific MCU name then we may be
      able to make use of its hardware multiply capabilities.  */
-  if (msp430_hwmult_type != MSP430_HWMULT_NONE)
+  if (msp430_hwmult_type != NONE)
     {
       if (strcmp ("__mspabi_mpyi", name) == 0)
 	{

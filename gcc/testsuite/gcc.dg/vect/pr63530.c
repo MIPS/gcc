@@ -1,11 +1,9 @@
-/* { dg-additional-options "-funroll-loops --param \"max-completely-peeled-insns=400\"" } */
+/* { dg-options "-O2 -ftree-vectorize -funroll-loops --param \"max-completely-peeled-insns=400\"" } */
 
 /* PR tree-optimization/63530 */
 /* On armv7 hardware, following options cause run time failure  */
 /*   -march=armv7-a -mfloat-abi=hard -mfpu=neon -marm -O2 -ftree-vectorize  */
 /*   -funroll-loops --param "max-completely-peeled-insns=400"  */
-
-#include "tree-vect.h"
 
 #include <stdlib.h>
 
@@ -28,6 +26,5 @@ int
 main()
 {
   AP p = foo(3);
-  check_vect ();
   return p->map[30] - p->map[20] - p->map[10];
 }

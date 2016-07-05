@@ -1,6 +1,6 @@
 /* PR tree-optimization/49352 */
 /* { dg-do compile } */
-/* { dg-additional-options "-O2 -fcompare-debug" } */
+/* { dg-options "-O2 -ftree-vectorize -fcompare-debug" } */
 /* { dg-xfail-if "" { powerpc-ibm-aix* } { "*" } { "" } } */
 
 int

@@ -1,12 +1,11 @@
-/* { dg-do compile { target *-*-linux* } } */
+/* { dg-do compile { target { *-*-linux* && { ! ia32 } } } } */
 /* { dg-options "-O2 -fno-pic -fno-plt" } */
 
 int foo();
 
-int bar()
+int main()
 {
   return foo();
 }
 
-/* { dg-final { scan-assembler "jmp\[ \t\]*.foo@GOTPCREL" { target { ! ia32 } } } } */
-/* { dg-final { scan-assembler "jmp\[ \t\]*.foo@GOT" { target { ia32 && got32x_reloc } } } } */
+/* { dg-final { scan-assembler "jmp\[ \t\]\\*.*foo.*@GOTPCREL\\(%rip\\)" } } */

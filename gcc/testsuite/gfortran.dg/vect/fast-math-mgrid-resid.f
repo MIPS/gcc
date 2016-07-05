@@ -1,6 +1,7 @@
-! { dg-do compile }
+! { dg-do compile { target i?86-*-* x86_64-*-* } }
 ! { dg-require-effective-target vect_double }
-! { dg-options "-O3 -fpredictive-commoning -fdump-tree-pcom-details" }
+! { dg-require-effective-target sse2 }
+! { dg-options "-O3 -ffast-math -msse2 -fpredictive-commoning -ftree-vectorize -fdump-tree-pcom-details" }
 
 
 ******* RESID COMPUTES THE RESIDUAL:  R = V - AU

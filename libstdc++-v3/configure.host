@@ -114,6 +114,10 @@ case "${host_cpu}" in
   hppa*)
     try_cpu=hppa
     ;;
+  mep*)
+    EXTRA_CXX_FLAGS=-mm
+    try_cpu=generic
+    ;;
   mips*)
     try_cpu=mips
     ;;
@@ -261,7 +265,7 @@ case "${host_os}" in
   linux-musl*)
     os_include_dir="os/generic"
     ;;
-  gnu* | linux* | kfreebsd*-gnu)
+  gnu* | linux* | kfreebsd*-gnu | knetbsd*-gnu)
     if [ "$uclibc" = "yes" ]; then
       os_include_dir="os/uclibc"
     elif [ "$bionic" = "yes" ]; then

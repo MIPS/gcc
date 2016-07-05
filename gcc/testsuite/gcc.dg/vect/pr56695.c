@@ -1,5 +1,6 @@
 /* PR tree-optimization/56695 */
 /* { dg-do compile } */
+/* { dg-options "-O2 -ftree-vectorize" } */
 
 int a, b, i;
 

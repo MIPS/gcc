@@ -93,11 +93,9 @@
 #endif
 
 #ifdef __tilegx__
-#define SPR_CMPEXCH_VALUE 0x2780
+#include <arch/spr_def.h>
 #else
-#define __NR_FAST_cmpxchg	-1
-#define __NR_FAST_atomic_update	-2
-#define __NR_FAST_cmpxchg64	-3
+#include <asm/unistd.h>
 #endif
 
 

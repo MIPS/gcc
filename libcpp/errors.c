@@ -27,24 +27,6 @@ along with this program; see the file COPYING3.  If not see
 #include "cpplib.h"
 #include "internal.h"
 
-/* Print a diagnostic at the given location.  */
-
-ATTRIBUTE_FPTR_PRINTF(5,0)
-static bool
-cpp_diagnostic_at (cpp_reader * pfile, int level, int reason,
-		   source_location src_loc,
-		   const char *msgid, va_list *ap)
-{
-  bool ret;
-
-  if (!pfile->cb.error)
-    abort ();
-  rich_location richloc (pfile->line_table, src_loc);
-  ret = pfile->cb.error (pfile, level, reason, &richloc, _(msgid), ap);
-
-  return ret;
-}
-
 /* Print a diagnostic at the location of the previously lexed token.  */
 
 ATTRIBUTE_FPTR_PRINTF(4,0)
@@ -53,6 +35,7 @@ cpp_diagnostic (cpp_reader * pfile, int level, int reason,
                 const char *msgid, va_list *ap)
 {
   source_location src_loc;
+  bool ret;
 
   if (CPP_OPTION (pfile, traditional))
     {
@@ -71,7 +54,13 @@ cpp_diagnostic (cpp_reader * pfile, int level, int reason,
     {
       src_loc = pfile->cur_token[-1].src_loc;
     }
-  return cpp_diagnostic_at (pfile, level, reason, src_loc, msgid, ap);
+
+  if (!pfile->cb.error)
+    abort ();
+  rich_location richloc (pfile->line_table, src_loc);
+  ret = pfile->cb.error (pfile, level, reason, &richloc, _(msgid), ap);
+
+  return ret;
 }
 
 /* Print a warning or error, depending on the value of LEVEL.  */
@@ -236,25 +225,6 @@ cpp_warning_with_line_syshdr (cpp_reader *pfile, int reason,
   return ret;
 }
 
-/* As cpp_error, but use SRC_LOC as the location of the error, without
-   a column override.  */
-
-bool
-cpp_error_at (cpp_reader * pfile, int level, source_location src_loc,
-	      const char *msgid, ...)
-{
-  va_list ap;
-  bool ret;
-
-  va_start (ap, msgid);
-
-  ret = cpp_diagnostic_at (pfile, level, CPP_W_NONE, src_loc,
-			   msgid, &ap);
-
-  va_end (ap);
-  return ret;
-}
-
 /* Print a warning or error, depending on the value of LEVEL.  Include
    information from errno.  */
 
@@ -269,12 +239,10 @@ cpp_errno (cpp_reader *pfile, int level, const char *msgid)
    that is not localized, but "" is replaced with localized "stdout".  */
 
 bool
-cpp_errno_filename (cpp_reader *pfile, int level, const char *filename,
-		    source_location loc)
+cpp_errno_filename (cpp_reader *pfile, int level, const char *filename)
 {
   if (filename[0] == '\0')
     filename = _("stdout");
 
-  return cpp_error_at (pfile, level, loc, "%s: %s", filename,
-		       xstrerror (errno));
+  return cpp_error (pfile, level, "%s: %s", filename, xstrerror (errno));
 }

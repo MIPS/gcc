@@ -21,8 +21,6 @@ main (void)
   unsigned int expect[N];
   int i;
 
-  check_vect ();
-
   for (i = 0; i < N; ++i)
     {
       arr[i] = i;

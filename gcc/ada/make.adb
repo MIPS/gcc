@@ -84,11 +84,8 @@ package body Make is
    --  Make control characters visible
 
    Standard_Library_Package_Body_Name : constant String := "s-stalib.adb";
-   System_Package_Spec_Name : constant String := "system.ads";
-   --  Every program depends on one of these packages: usually the first one,
-   --  or if Supress_Standard_Library is true on the second one. The dependency
-   --  is not always explicit and considering it is important when -f and -a
-   --  are used.
+   --  Every program depends on this package, that must then be checked,
+   --  especially when -f and -a are used.
 
    type Sigint_Handler is access procedure;
    pragma Convention (C, Sigint_Handler);
@@ -2703,43 +2700,40 @@ package body Make is
       procedure Check_Standard_Library is
       begin
          Need_To_Check_Standard_Library := False;
-         Name_Len := 0;
 
          if not Targparm.Suppress_Standard_Library_On_Target then
-            Add_Str_To_Name_Buffer (Standard_Library_Package_Body_Name);
-         else
-            Add_Str_To_Name_Buffer (System_Package_Spec_Name);
-         end if;
+            declare
+               Sfile  : File_Name_Type;
+               Add_It : Boolean := True;
 
-         declare
-            Add_It : Boolean := True;
-            Sfile  : File_Name_Type;
+            begin
+               Name_Len := 0;
+               Add_Str_To_Name_Buffer (Standard_Library_Package_Body_Name);
+               Sfile := Name_Enter;
 
-         begin
-            Sfile := Name_Enter;
+               --  If we have a special runtime, we add the standard
+               --  library only if we can find it.
 
-            --  If we have a special runtime, we add the standard library only
-            --  if we can find it.
+               if RTS_Switch then
+                  Add_It := Full_Source_Name (Sfile) /= No_File;
+               end if;
 
-            if RTS_Switch then
-               Add_It := Full_Source_Name (Sfile) /= No_File;
-            end if;
-
-            if Add_It then
-               if not Queue.Insert
-                        ((Format  => Format_Gnatmake,
-                          File    => Sfile,
-                          Unit    => No_Unit_Name,
-                          Project => No_Project,
-                          Index   => 0,
-                          Sid     => No_Source))
-               then
-                  if Is_In_Obsoleted (Sfile) then
-                     Executable_Obsolete := True;
+               if Add_It then
+                  if not Queue.Insert
+                           ((Format  => Format_Gnatmake,
+                             File    => Sfile,
+                             Unit    => No_Unit_Name,
+                             Project => No_Project,
+                             Index   => 0,
+                             Sid     => No_Source))
+                  then
+                     if Is_In_Obsoleted (Sfile) then
+                        Executable_Obsolete := True;
+                     end if;
                   end if;
                end if;
-            end if;
-         end;
+            end;
+         end if;
       end Check_Standard_Library;
 
       -----------------------------------

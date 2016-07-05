@@ -7314,6 +7314,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
   "TARGET_64BIT"
   "*
 {
+  pa_output_arg_descriptor (insn);
   return pa_output_call (insn, operands[0], 0);
 }"
   [(set_attr "type" "call")
@@ -7923,6 +7924,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
   "TARGET_64BIT"
   "*
 {
+  pa_output_arg_descriptor (insn);
   return pa_output_call (insn, operands[1], 0);
 }"
   [(set_attr "type" "call")
@@ -8017,6 +8019,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
   "TARGET_64BIT && TARGET_HPUX"
   "*
 {
+  pa_output_arg_descriptor (insn);
   return pa_output_call (insn, operands[1], 0);
 }"
   [(set_attr "type" "call")
@@ -8312,6 +8315,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
   "TARGET_64BIT"
   "*
 {
+  pa_output_arg_descriptor (insn);
   return pa_output_call (insn, operands[0], 1);
 }"
   [(set_attr "type" "sibcall")
@@ -8400,6 +8404,7 @@ add,l %2,%3,%3\;bv,n %%r0(%3)"
   "TARGET_64BIT"
   "*
 {
+  pa_output_arg_descriptor (insn);
   return pa_output_call (insn, operands[1], 1);
 }"
   [(set_attr "type" "sibcall")

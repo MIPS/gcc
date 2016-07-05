@@ -1,7 +1,6 @@
+/* { dg-do run } */
 /* { dg-require-effective-target vsx_hw { target powerpc*-*-* } } */
 /* { dg-additional-options "-mcpu=power7" { target powerpc*-*-* } } */
-
-#include "tree-vect.h"
 
 struct foo
 {
@@ -84,8 +83,6 @@ int
 main (void)
 {
   int i;
-
-  check_vect ();
 
   for (i = 0; i < 8; i++)
     Loop_err (images + i, s, -1);

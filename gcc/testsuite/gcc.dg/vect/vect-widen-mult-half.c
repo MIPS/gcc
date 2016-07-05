@@ -26,8 +26,6 @@ int main (void)
 {
   int i;
 
-  check_vect ();
-
   for (i = 0; i < N; i++)
     {
       in[i] = i;

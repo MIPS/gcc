@@ -2,8 +2,6 @@
 
 /* PR tree-optimization/52091 */
 
-#include "tree-vect.h"
-
 int b, c, d, f;
 unsigned h;
 extern void abort (void);
@@ -11,7 +9,6 @@ extern void abort (void);
 int
 main ()
 {
-  check_vect ();
   d = -1;
   h = 65;
   asm volatile ("" : : : "memory");

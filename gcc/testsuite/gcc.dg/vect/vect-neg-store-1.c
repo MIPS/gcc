@@ -1,7 +1,4 @@
 /* { dg-require-effective-target vect_int } */
-
-#include "tree-vect.h"
-
 extern void abort (void);
 
 __attribute__((noinline, noclone))
@@ -18,8 +15,6 @@ int main (void)
   short x[128 + 32];
   int i;
   
-  check_vect ();
-
   for (i = 0; i < 16; i ++)
     {
       asm ("");

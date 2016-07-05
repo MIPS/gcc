@@ -1014,7 +1014,7 @@ find_call_crossed_cheap_reg (rtx_insn *insn)
 		  break;
 		}
 
-	      if (reg_set_p (reg, prev))
+	      if (reg_overlap_mentioned_p (reg, PATTERN (prev)))
 		break;
 	    }
 	  prev = PREV_INSN (prev);

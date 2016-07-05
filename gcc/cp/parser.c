@@ -3893,12 +3893,13 @@ cp_parser_string_literal (cp_parser *parser, bool translate, bool wide_ok,
     }
   else
     {
-      location_t last_tok_loc = tok->location;
+      location_t last_tok_loc;
       gcc_obstack_init (&str_ob);
       count = 0;
 
       do
 	{
+	  last_tok_loc = tok->location;
 	  cp_lexer_consume_token (parser->lexer);
 	  count++;
 	  str.text = (const unsigned char *)TREE_STRING_POINTER (string_tree);
@@ -3930,18 +3931,12 @@ cp_parser_string_literal (cp_parser *parser, bool translate, bool wide_ok,
 	      if (type == CPP_STRING)
 		type = curr_type;
 	      else if (curr_type != CPP_STRING)
-		{
-		  rich_location rich_loc (line_table, tok->location);
-		  rich_loc.add_range (last_tok_loc, false);
-		  error_at_rich_loc (&rich_loc,
-				     "unsupported non-standard concatenation "
-				     "of string literals");
-		}
+		error_at (tok->location,
+			  "unsupported non-standard concatenation "
+			  "of string literals");
 	    }
 
 	  obstack_grow (&str_ob, &str, sizeof (cpp_string));
-
-	  last_tok_loc = tok->location;
 
 	  tok = cp_lexer_peek_token (parser->lexer);
 	  if (cpp_userdef_string_p (tok->type))
@@ -22055,8 +22050,9 @@ cp_parser_class_head (cp_parser* parser,
 
   /* If we're really defining a class, process the base classes.
      If they're invalid, fail.  */
-  if (type && cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
-    xref_basetypes (type, bases);
+  if (type && cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE)
+      && !xref_basetypes (type, bases))
+    type = NULL_TREE;
 
  done:
   /* Leave the scope given by the nested-name-specifier.  We will
@@ -30006,7 +30002,6 @@ cp_parser_omp_var_list_no_open (cp_parser *parser, enum omp_clause_code kind,
 		    = cp_lexer_peek_token (parser->lexer)->location;
 		  cp_id_kind idk = CP_ID_KIND_NONE;
 		  cp_lexer_consume_token (parser->lexer);
-		  decl = convert_from_reference (decl);
 		  decl
 		    = cp_parser_postfix_dot_deref_expression (parser, CPP_DOT,
 							      decl, false,
@@ -34395,8 +34390,7 @@ cp_parser_omp_cancel (cp_parser *parser, cp_token *pragma_tok)
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_TASKGROUP))
 
 static void
-cp_parser_omp_cancellation_point (cp_parser *parser, cp_token *pragma_tok,
-				  enum pragma_context context)
+cp_parser_omp_cancellation_point (cp_parser *parser, cp_token *pragma_tok)
 {
   tree clauses;
   bool point_seen = false;
@@ -34415,19 +34409,7 @@ cp_parser_omp_cancellation_point (cp_parser *parser, cp_token *pragma_tok,
   if (!point_seen)
     {
       cp_parser_error (parser, "expected %<point%>");
-      cp_parser_skip_to_pragma_eol (parser, pragma_tok);
-      return;
-    }
-
-  if (context != pragma_compound)
-    {
-      if (context == pragma_stmt)
-	error_at (pragma_tok->location,
-		  "%<#pragma omp cancellation point%> may only be used in"
-		  " compound statements");
-      else
-	cp_parser_error (parser, "expected declaration specifiers");
-      cp_parser_skip_to_pragma_eol (parser, pragma_tok);
+      cp_parser_require_pragma_eol (parser, pragma_tok);
       return;
     }
 
@@ -37216,7 +37198,7 @@ cp_parser_pragma (cp_parser *parser, enum pragma_context context, bool *if_p)
   parser->lexer->in_pragma = true;
 
   id = cp_parser_pragma_kind (pragma_tok);
-  if (id != PRAGMA_OMP_DECLARE && id != PRAGMA_OACC_ROUTINE)
+  if (id != PRAGMA_OMP_DECLARE_REDUCTION && id != PRAGMA_OACC_ROUTINE)
     cp_ensure_no_omp_declare_simd (parser);
   switch (id)
     {
@@ -37304,14 +37286,26 @@ cp_parser_pragma (cp_parser *parser, enum pragma_context context, bool *if_p)
       break;
 
     case PRAGMA_OMP_CANCELLATION_POINT:
-      cp_parser_omp_cancellation_point (parser, pragma_tok, context);
-      return false;
+      switch (context)
+	{
+	case pragma_compound:
+	  cp_parser_omp_cancellation_point (parser, pragma_tok);
+	  return false;
+	case pragma_stmt:
+	  error_at (pragma_tok->location,
+		    "%<#pragma omp cancellation point%> may only be "
+		    "used in compound statements");
+	  break;
+	default:
+	  goto bad_stmt;
+	}
+      break;
 
     case PRAGMA_OMP_THREADPRIVATE:
       cp_parser_omp_threadprivate (parser, pragma_tok);
       return false;
 
-    case PRAGMA_OMP_DECLARE:
+    case PRAGMA_OMP_DECLARE_REDUCTION:
       cp_parser_omp_declare (parser, pragma_tok, context);
       return false;
 

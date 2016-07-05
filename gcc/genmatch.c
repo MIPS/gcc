@@ -2288,14 +2288,8 @@ expr::gen_transform (FILE *f, int indent, const char *dest, bool gimple,
     {
       /* comparisons use boolean_type_node (or what gets in), but
          their operands need to figure out the types themselves.  */
-      if (in_type)
-	type = in_type;
-      else
-	{
-	  sprintf (optype, "boolean_type_node");
-	  type = optype;
-	}
-      in_type = NULL;
+      sprintf (optype, "boolean_type_node");
+      type = optype;
     }
   else if (*opr == COND_EXPR
 	   || *opr == VEC_COND_EXPR)

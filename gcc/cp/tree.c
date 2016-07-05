@@ -341,8 +341,7 @@ cp_stabilize_reference (tree ref)
 bool
 builtin_valid_in_constant_expr_p (const_tree decl)
 {
-  if (!(TREE_CODE (decl) == FUNCTION_DECL
-	&& DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL))
+  if (!(TREE_CODE (decl) == FUNCTION_DECL && DECL_BUILT_IN (decl)))
     /* Not a built-in.  */
     return false;
   switch (DECL_FUNCTION_CODE (decl))
@@ -376,8 +375,6 @@ build_target_expr (tree decl, tree value, tsubst_flags_t complain)
 {
   tree t;
   tree type = TREE_TYPE (decl);
-
-  value = mark_rvalue_use (value);
 
   gcc_checking_assert (VOID_TYPE_P (TREE_TYPE (value))
 		       || TREE_TYPE (decl) == TREE_TYPE (value)
@@ -527,9 +524,7 @@ build_aggr_init_expr (tree type, tree init)
       TREE_SIDE_EFFECTS (rval) = 1;
       AGGR_INIT_VIA_CTOR_P (rval) = is_ctor;
       TREE_NOTHROW (rval) = TREE_NOTHROW (init);
-      CALL_EXPR_OPERATOR_SYNTAX (rval) = CALL_EXPR_OPERATOR_SYNTAX (init);
-      CALL_EXPR_ORDERED_ARGS (rval) = CALL_EXPR_ORDERED_ARGS (init);
-      CALL_EXPR_REVERSE_ARGS (rval) = CALL_EXPR_REVERSE_ARGS (init);
+      CALL_EXPR_LIST_INIT_P (rval) = CALL_EXPR_LIST_INIT_P (init);
     }
   else
     rval = init;
@@ -731,10 +726,7 @@ get_target_expr_sfinae (tree init, tsubst_flags_t complain)
   else if (TREE_CODE (init) == VEC_INIT_EXPR)
     return build_target_expr (VEC_INIT_EXPR_SLOT (init), init, complain);
   else
-    {
-      init = convert_bitfield_to_declared_type (init);
-      return build_target_expr_with_type (init, TREE_TYPE (init), complain);
-    }
+    return build_target_expr_with_type (init, TREE_TYPE (init), complain);
 }
 
 tree
@@ -2544,7 +2536,7 @@ bot_manip (tree* tp, int* walk_subtrees, void* data)
       /* builtin_LINE and builtin_FILE get the location where the default
 	 argument is expanded, not where the call was written.  */
       tree callee = get_callee_fndecl (*tp);
-      if (callee && DECL_BUILT_IN_CLASS (callee) == BUILT_IN_NORMAL)
+      if (callee && DECL_BUILT_IN (callee))
 	switch (DECL_FUNCTION_CODE (callee))
 	  {
 	  case BUILT_IN_FILE:
@@ -2864,7 +2856,8 @@ build_min_non_dep_op_overload (enum tree_code op,
   tree fn, call;
   vec<tree, va_gc> *args;
 
-  non_dep = extract_call_expr (non_dep);
+  if (REFERENCE_REF_P (non_dep))
+    non_dep = TREE_OPERAND (non_dep, 0);
 
   nargs = call_expr_nargs (non_dep);
 
@@ -2906,11 +2899,10 @@ build_min_non_dep_op_overload (enum tree_code op,
   call = build_min_non_dep_call_vec (non_dep, fn, args);
   release_tree_vector (args);
 
-  tree call_expr = extract_call_expr (call);
+  tree call_expr = call;
+  if (REFERENCE_REF_P (call_expr))
+    call_expr = TREE_OPERAND (call_expr, 0);
   KOENIG_LOOKUP_P (call_expr) = KOENIG_LOOKUP_P (non_dep);
-  CALL_EXPR_OPERATOR_SYNTAX (call_expr) = true;
-  CALL_EXPR_ORDERED_ARGS (call_expr) = CALL_EXPR_ORDERED_ARGS (non_dep);
-  CALL_EXPR_REVERSE_ARGS (call_expr) = CALL_EXPR_REVERSE_ARGS (non_dep);
 
   return call;
 }

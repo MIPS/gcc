@@ -57,8 +57,6 @@ int main (void)
   unsigned int a[N];
   unsigned short b[N];
 
-  check_vect ();
-
   for (i = 0; i < N; i++)
     {
       a[i] = 0;

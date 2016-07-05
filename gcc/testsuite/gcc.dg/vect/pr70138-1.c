@@ -1,3 +1,5 @@
+/* { dg-do run } */
+
 #include "tree-vect.h"
 
 double u[33 * 33];

@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-additional-options "-O -funroll-loops" } */
+/* { dg-options "-O -ftree-vectorize -funroll-loops" } */
 void foo();
 
 void bar(int j)

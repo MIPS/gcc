@@ -1793,6 +1793,40 @@ Statement::make_statement(Expression* expr, bool is_ignored)
   return new Expression_statement(expr, is_ignored);
 }
 
+// A block statement--a list of statements which may include variable
+// definitions.
+
+class Block_statement : public Statement
+{
+ public:
+  Block_statement(Block* block, Location location)
+    : Statement(STATEMENT_BLOCK, location),
+      block_(block)
+  { }
+
+ protected:
+  int
+  do_traverse(Traverse* traverse)
+  { return this->block_->traverse(traverse); }
+
+  void
+  do_determine_types()
+  { this->block_->determine_types(); }
+
+  bool
+  do_may_fall_through() const
+  { return this->block_->may_fall_through(); }
+
+  Bstatement*
+  do_get_backend(Translate_context* context);
+
+  void
+  do_dump_statement(Ast_dump_context*) const;
+
+ private:
+  Block* block_;
+};
+
 // Convert a block to the backend representation of a statement.
 
 Bstatement*
@@ -2910,13 +2944,37 @@ Statement::make_continue_statement(Unnamed_label* label,
   return new Bc_statement(false, label, location);
 }
 
-// Class Goto_statement.
+// A goto statement.
 
-int
-Goto_statement::do_traverse(Traverse*)
+class Goto_statement : public Statement
 {
-  return TRAVERSE_CONTINUE;
-}
+ public:
+  Goto_statement(Label* label, Location location)
+    : Statement(STATEMENT_GOTO, location),
+      label_(label)
+  { }
+
+ protected:
+  int
+  do_traverse(Traverse*)
+  { return TRAVERSE_CONTINUE; }
+
+  void
+  do_check_types(Gogo*);
+
+  bool
+  do_may_fall_through() const
+  { return false; }
+
+  Bstatement*
+  do_get_backend(Translate_context*);
+
+  void
+  do_dump_statement(Ast_dump_context*) const;
+
+ private:
+  Label* label_;
+};
 
 // Check types for a label.  There aren't any types per se, but we use
 // this to give an error if the label was never defined.
@@ -2958,21 +3016,35 @@ Statement::make_goto_statement(Label* label, Location location)
   return new Goto_statement(label, location);
 }
 
-// Class Goto_unnamed_statement.
+// A goto statement to an unnamed label.
 
-int
-Goto_unnamed_statement::do_traverse(Traverse*)
+class Goto_unnamed_statement : public Statement
 {
-  return TRAVERSE_CONTINUE;
-}
+ public:
+  Goto_unnamed_statement(Unnamed_label* label, Location location)
+    : Statement(STATEMENT_GOTO_UNNAMED, location),
+      label_(label)
+  { }
 
-// Convert the goto unnamed statement to the backend representation.
+ protected:
+  int
+  do_traverse(Traverse*)
+  { return TRAVERSE_CONTINUE; }
 
-Bstatement*
-Goto_unnamed_statement::do_get_backend(Translate_context* context)
-{
-  return this->label_->get_goto(context, this->location());
-}
+  bool
+  do_may_fall_through() const
+  { return false; }
+
+  Bstatement*
+  do_get_backend(Translate_context* context)
+  { return this->label_->get_goto(context, this->location()); }
+
+  void
+  do_dump_statement(Ast_dump_context*) const;
+
+ private:
+  Unnamed_label* label_;
+};
 
 // Dump the AST representation for an unnamed goto statement
 
@@ -3037,27 +3109,32 @@ Statement::make_label_statement(Label* label, Location location)
   return new Label_statement(label, location);
 }
 
-// Class Unnamed_label_statement.
+// An unnamed label statement.
 
-Unnamed_label_statement::Unnamed_label_statement(Unnamed_label* label)
-  : Statement(STATEMENT_UNNAMED_LABEL, label->location()),
-    label_(label)
-{ }
-
-int
-Unnamed_label_statement::do_traverse(Traverse*)
+class Unnamed_label_statement : public Statement
 {
-  return TRAVERSE_CONTINUE;
-}
+ public:
+  Unnamed_label_statement(Unnamed_label* label)
+    : Statement(STATEMENT_UNNAMED_LABEL, label->location()),
+      label_(label)
+  { }
 
-// Get the backend definition for this unnamed label statement.
+ protected:
+  int
+  do_traverse(Traverse*)
+  { return TRAVERSE_CONTINUE; }
 
-Bstatement*
-Unnamed_label_statement::do_get_backend(Translate_context* context)
-{
-  return this->label_->get_definition(context);
-}
+  Bstatement*
+  do_get_backend(Translate_context* context)
+  { return this->label_->get_definition(context); }
 
+  void
+  do_dump_statement(Ast_dump_context*) const;
+
+ private:
+  // The label.
+  Unnamed_label* label_;
+};
 
 // Dump the AST representation for an unnamed label definition statement.
 
@@ -5132,9 +5209,7 @@ For_statement::do_lower(Gogo*, Named_object*, Block* enclosing,
 
   b->set_end_location(end_loc);
 
-  Statement* bs = Statement::make_block_statement(b, loc);
-  bs->block_statement()->set_is_lowered_for_statement();
-  return bs;
+  return Statement::make_block_statement(b, loc);
 }
 
 // Return the break label, creating it if necessary.

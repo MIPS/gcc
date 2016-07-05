@@ -138,7 +138,6 @@ namespace __gnu_debug
 	  return __dist.first >= 0;
 	}
 
-      // Can't tell so assume it is fine.
       return true;
     }
 

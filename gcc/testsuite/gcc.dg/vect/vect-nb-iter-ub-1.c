@@ -1,6 +1,6 @@
-/* { dg-additional-options "-fdump-tree-cunroll-details" } */
-
-#include "tree-vect.h"
+/* { dg-do run } */
+/* { dg-require-effective-target sse2 { target { i?86-*-* x86_64-*-* } } } */
+/* { dg-additional-options "-msse2 -fdump-tree-cunroll-details" { target { i?86-*-* x86_64-*-* } } } */
 
 int ii[31];
 char cc[31] =
@@ -18,7 +18,6 @@ foo (int s)
 int main (int argc, const char **argv)
 {
   int i;
-  check_vect ();
   foo (31);
   for (i = 0; i < 31; i++)
     if (ii[i] != i)

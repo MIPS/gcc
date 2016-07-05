@@ -53,7 +53,6 @@ if $tracelevel then {
 
 set profile_options "-fprofile-arcs"
 set feedback_options "-fbranch-probabilities"
-set profile_wrapper ""
 
 # Main loop.
 foreach profile_option $profile_options feedback_option $feedback_options {
@@ -64,13 +63,6 @@ foreach profile_option $profile_options feedback_option $feedback_options {
         }
         profopt-execute $src
     }
-}
-
-foreach src [lsort [glob -nocomplain $srcdir/$subdir/*.C]] {
-    if ![runtest_file_p $runtests $src] then {
-        continue
-    }
-    auto-profopt-execute $src
 }
 
 set PROFOPT_OPTIONS $bprob_save_profopt_options

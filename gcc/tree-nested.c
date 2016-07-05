@@ -1203,29 +1203,17 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_AUTO:
 	  break;
 
-	  /* OpenACC tile clauses are discarded during gimplification.  */
 	case OMP_CLAUSE_TILE:
-	  /* The following clause belongs to the OpenACC cache directive, which
-	     is discarded during gimplification.  */
+	  /* OpenACC tile clauses are discarded during gimplification, so we
+	     don't expect to see anything here.  */
+	  gcc_unreachable ();
+
 	case OMP_CLAUSE__CACHE_:
-	  /* The following clauses are only allowed in the OpenMP declare simd
-	     directive, so not seen here.  */
-	case OMP_CLAUSE_UNIFORM:
-	case OMP_CLAUSE_INBRANCH:
-	case OMP_CLAUSE_NOTINBRANCH:
-	  /* The following clauses are only allowed on OpenMP cancel and
-	     cancellation point directives, which at this point have already
-	     been lowered into a function call.  */
-	case OMP_CLAUSE_FOR:
-	case OMP_CLAUSE_PARALLEL:
-	case OMP_CLAUSE_SECTIONS:
-	case OMP_CLAUSE_TASKGROUP:
-	  /* The following clauses are only added during OMP lowering; nested
-	     function decomposition happens before that.  */
-	case OMP_CLAUSE__LOOPTEMP_:
-	case OMP_CLAUSE__SIMDUID_:
-	case OMP_CLAUSE__GRIDDIM_:
-	  /* Anything else.  */
+	  /* These clauses belong to the OpenACC cache directive, which is
+	     discarded during gimplification, so we don't expect to see
+	     anything here.  */
+	  gcc_unreachable ();
+
 	default:
 	  gcc_unreachable ();
 	}
@@ -1911,29 +1899,17 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_AUTO:
 	  break;
 
-	  /* OpenACC tile clauses are discarded during gimplification.  */
 	case OMP_CLAUSE_TILE:
-	  /* The following clause belongs to the OpenACC cache directive, which
-	     is discarded during gimplification.  */
+	  /* OpenACC tile clauses are discarded during gimplification, so we
+	     don't expect to see anything here.  */
+	  gcc_unreachable ();
+
 	case OMP_CLAUSE__CACHE_:
-	  /* The following clauses are only allowed in the OpenMP declare simd
-	     directive, so not seen here.  */
-	case OMP_CLAUSE_UNIFORM:
-	case OMP_CLAUSE_INBRANCH:
-	case OMP_CLAUSE_NOTINBRANCH:
-	  /* The following clauses are only allowed on OpenMP cancel and
-	     cancellation point directives, which at this point have already
-	     been lowered into a function call.  */
-	case OMP_CLAUSE_FOR:
-	case OMP_CLAUSE_PARALLEL:
-	case OMP_CLAUSE_SECTIONS:
-	case OMP_CLAUSE_TASKGROUP:
-	  /* The following clauses are only added during OMP lowering; nested
-	     function decomposition happens before that.  */
-	case OMP_CLAUSE__LOOPTEMP_:
-	case OMP_CLAUSE__SIMDUID_:
-	case OMP_CLAUSE__GRIDDIM_:
-	  /* Anything else.  */
+	  /* These clauses belong to the OpenACC cache directive, which is
+	     discarded during gimplification, so we don't expect to see
+	     anything here.  */
+	  gcc_unreachable ();
+
 	default:
 	  gcc_unreachable ();
 	}

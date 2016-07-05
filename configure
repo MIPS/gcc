@@ -3494,9 +3494,6 @@ case "${target}" in
   *-*-netware*)
     noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
-  *-*-phoenix*)
-    noconfigdirs="$noconfigdirs ${libgcj}"
-    ;;
   *-*-rtems*)
     noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
@@ -3753,9 +3750,6 @@ case "${target}" in
     ;;
   *-*-netware*)
     ;;
-  *-*-phoenix*)
-    noconfigdirs="$noconfigdirs target-libgloss"
-    ;;
   *-*-rtems*)
     noconfigdirs="$noconfigdirs target-libgloss"
     # this is not caught below because this stanza matches earlier
@@ -3792,6 +3786,8 @@ case "${target}" in
     ;;
   arm-*-riscix*)
     noconfigdirs="$noconfigdirs ld target-libgloss"
+    ;;
+  avr-*-rtems*)
     ;;
   avr-*-*)
     if test x${with_avrlibc} != xno; then
@@ -6159,7 +6155,7 @@ target_elf=no
 case $target in
   *-darwin* | *-aix* | *-cygwin* | *-mingw* | *-aout* | *-*coff* | \
   *-msdosdjgpp* | *-vms* | *-wince* | *-*-pe* | \
-  alpha*-dec-osf* | hppa[12]*-*-hpux* | \
+  alpha*-dec-osf* | *-interix* | hppa[12]*-*-hpux* | \
   nvptx-*-none)
     target_elf=no
     ;;

@@ -206,9 +206,7 @@ class Node
   void
   set_encoding(int enc);
 
-  bool
-  is_big(Escape_context*) const;
-
+  // Is this node a sink?
   bool
   is_sink() const;
 
@@ -251,11 +249,6 @@ class Node
   // escape type.
   static int
   max_encoding(int e, int etype);
-
-  // Return a modified encoding for an input parameter that flows into an
-  // output parameter.
-  static int
-  note_inout_flows(int e, int index, Level level);
 
  private:
   // The classification of this Node.
