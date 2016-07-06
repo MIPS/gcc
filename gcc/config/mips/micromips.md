@@ -128,7 +128,7 @@
   "TARGET_MICROMIPS
    && umips_movep_target_p (operands[0], operands[2])"
 {
-  if (TARGET_ADD_NEW_MOVEP || TARGET_ADD_NEW_MOVEP23)
+  if (TARGET_ADD_NEW_MOVEP23)
     {
       if (REGNO (operands[0]) < REGNO (operands[2]))
 	return "sdbbp16 6 # movep\t%0,%2,%z1,%z3";
