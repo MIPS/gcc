@@ -377,7 +377,7 @@
 		      (match_test "(IN_RANGE (INTVAL (op), -258, -3))")))
 	    (and (match_test "TARGET_MICROMIPS_R7")
 		 (match_test "TARGET_REPLACE_ADDIUSP")
-		 (match_test "(IN_RANGE (INTVAL (op), 0x8, 0x7ff8))")))))
+		 (match_test "(IN_RANGE (INTVAL (op), 0x8, 0x78))")))))
 
 (define_predicate "andi16_operand"
   (and (match_code "const_int")
