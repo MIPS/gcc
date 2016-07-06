@@ -883,6 +883,9 @@ struct mips_cpu_info {
 /* A spec that infers the -mdsp setting from an -march argument.  */
 #define BASE_DRIVER_SELF_SPECS \
   MIPS_ISA_NAN2008_SPEC,       \
+  "%{mips32r7: %{!mcode-readable*: -mcode-readable=no} \
+	       %{!mno-grow-frame-downwards: -mgrow-frame-downwards} \
+	       %{!mcheck-zero-division: -mno-check-zero-division}}" \
   "%{!mno-dsp: \
      %{march=24ke*|march=34kc*|march=34kf*|march=34kx*|march=1004k* \
        |march=interaptiv*: -mdsp} \
