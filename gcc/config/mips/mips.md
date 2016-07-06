@@ -1265,11 +1265,9 @@
   else if (which_alternative == 4 && ISA_HAS_SAVE_RESTORE)
     {
       if (IN_RANGE (INTVAL (operands[2]), 8, 120))
-	/* FIXME.  Remove nop.  */
-	return "sdbbp16 1 # restore16\t%2";
+	return "restore16\t%2";
       else
-	/* FIXME.  Remove nops.  */
-	return "sdbbp32 1 # restore32\t%2";
+	return "restore32\t%2";
     }
   else
     return "<d>addiu\t%0,%1,%2";
@@ -1495,11 +1493,9 @@
   if (which_alternative == 2 && ISA_HAS_SAVE_RESTORE)
     {
       if (IN_RANGE (INTVAL (operands[2]), 8, 120))
-	/* FIXME.  Remove nop.  */
-	return "sdbbp16 1 # save16\t%2";
+	return "save16\t%2";
       else
-	/* FIXME.  Remove nops.  */
-	return "sdbbp32 1 # save32\t%2";
+	return "save32\t%2";
     }
   else
     return "<d>subu\t%0,%1,%2";
