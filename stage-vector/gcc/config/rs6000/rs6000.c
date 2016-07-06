@@ -2409,6 +2409,7 @@ rs6000_debug_reg_global (void)
 	   "wx reg_class = %s\n"
 	   "wy reg_class = %s\n"
 	   "wz reg_class = %s\n"
+	   "wA reg_class = %s\n"
 	   "\n",
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_d]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_f]],
@@ -2436,7 +2437,8 @@ rs6000_debug_reg_global (void)
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_ww]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wx]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wy]],
-	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wz]]);
+	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wz]],
+	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wA]]);
 
   nl = "\n";
   for (m = 0; m < NUM_MACHINE_MODES; ++m)
@@ -3074,7 +3076,8 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	ww - Register class to do SF conversions in with VSX operations.
 	wx - Float register if we can do 32-bit int stores.
 	wy - Register class to do ISA 2.07 SF operations.
-	wz - Float register if we can do 32-bit unsigned int loads.  */
+	wz - Float register if we can do 32-bit unsigned int loads.
+	wA - Altivec register for 64-bit instructions & direct moves.  */
 
   if (TARGET_HARD_FLOAT && TARGET_FPRS)
     rs6000_constraints[RS6000_CONSTRAINT_f] = FLOAT_REGS;	/* SFmode  */
@@ -3124,6 +3127,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
       rs6000_constraints[RS6000_CONSTRAINT_wk]			/* DFmode  */
 	= rs6000_constraints[RS6000_CONSTRAINT_ws];
       rs6000_constraints[RS6000_CONSTRAINT_wm] = VSX_REGS;
+      rs6000_constraints[RS6000_CONSTRAINT_wA] = ALTIVEC_REGS;
     }
 
   if (TARGET_POWERPC64)
@@ -7078,7 +7082,7 @@ split_extract_reg_reg_var (rtx dest,		/* destination scalar.  */
   else
     {
       rtx vector_di = gen_rtx_REG (scalar_mode, REGNO (vector_tmp));
-      emit_move_insn (vector_di, gpr_tmp2);
+      emit_move_insn (vector_di, gpr_element);
       emit_insn (gen_vsx_concat_v2di (vector_tmp, vector_di, vector_di));
     }
 
@@ -7117,72 +7121,75 @@ split_extract_memory (rtx dest,			/* destination scalar.  */
   rtx addr = XEXP (src, 0);
   rtx src2 = NULL_RTX;
 
-  gcc_assert (REG_P (gpr_tmp1));
-  gcc_assert (REG_P (gpr_tmp2));
-
   /* Vector extract of element 0 from memory: Use normal memory address.  */
   if (element == const0_rtx)
     src2 = adjust_address (src, scalar_mode, 0);
 
-  /* Vector extract of a constant element from memory: Try to fold the
-     offset into the address.  */
-  else if (CONST_INT_P (element))
+  else
     {
-      HOST_WIDE_INT offset = INTVAL (element) * scalar_size;
-      int dest_regno = REGNO (dest);
-      bool dest_xform_p;
+      gcc_assert (REG_P (gpr_tmp1));
+      gcc_assert (REG_P (gpr_tmp2));
 
-      if (INT_REGNO_P (dest_regno))
+      /* Vector extract of a constant element from memory: Try to fold the
+	 offset into the address.  */
+      if (CONST_INT_P (element))
 	{
-	  if (!TARGET_POWERPC64 && scalar_size == 8)
-	    return false;
+	  HOST_WIDE_INT offset = INTVAL (element) * scalar_size;
+	  int dest_regno = REGNO (dest);
+	  bool dest_xform_p;
 
-	  dest_xform_p = true;
+	  if (INT_REGNO_P (dest_regno))
+	    {
+	      if (!TARGET_POWERPC64 && scalar_size == 8)
+		return false;
+
+	      dest_xform_p = true;
+	    }
+
+	  else if (FP_REGNO_P (dest_regno)
+		   || (TARGET_P9_DFORM_SCALAR && ALTIVEC_REGNO_P (dest_regno)))
+	    dest_xform_p = (scalar_mode == DFmode
+			    || scalar_mode == DImode
+			    || scalar_mode == SFmode);
+
+	  else
+	    dest_xform_p = false;
+
+	  if (dest_xform_p
+	      && (REG_P (addr)
+		  || (GET_CODE (addr) == PLUS
+		      && CONST_INT_P (XEXP (addr, 1))
+		      && INTVAL (XEXP (addr, 1)) < (32768 - scalar_size))))
+	    src2 = adjust_address (src, scalar_mode, offset);
+
+	  else
+	    {
+	      emit_move_insn (gpr_tmp1, addr);
+	      emit_move_insn (gpr_tmp2, GEN_INT (offset));
+	      src2 = change_address (src, scalar_mode,
+				     gen_rtx_PLUS (Pmode, gpr_tmp1,
+						   gpr_tmp2));
+	    }
 	}
 
-      else if (FP_REGNO_P (dest_regno)
-	       || (TARGET_P9_DFORM_SCALAR && ALTIVEC_REGNO_P (dest_regno)))
-	dest_xform_p = (scalar_mode == DFmode
-			|| scalar_mode == DImode
-			|| scalar_mode == SFmode);
-
-      else
-	dest_xform_p = false;
-
-      if (dest_xform_p
-	  && (REG_P (addr)
-	      || (GET_CODE (addr) == PLUS
-		  && CONST_INT_P (XEXP (addr, 1))
-		  && INTVAL (XEXP (addr, 1)) < (32768 - scalar_size))))
-	src2 = adjust_address (src, scalar_mode, offset);
-
+      /* Vector extract of a variable element from memory.  */
       else
 	{
+	  int shift = exact_log2 (scalar_size);
+	  HOST_WIDE_INT mask = (scalar_size << shift);
+	  rtx shift_rtx;
+	  rtx rotl_rtx;
+
+	  gcc_assert (shift > 0);
 	  emit_move_insn (gpr_tmp1, addr);
-	  emit_move_insn (gpr_tmp2, GEN_INT (offset));
+
+	  shift_rtx = gen_rtx_ASHIFT (Pmode, element, GEN_INT (shift));
+	  rotl_rtx = gen_rtx_AND (Pmode, shift_rtx, GEN_INT (-mask));
+	  emit_insn (gen_rtx_SET (gpr_tmp2, rotl_rtx));
 	  src2 = change_address (src, scalar_mode,
 				 gen_rtx_PLUS (Pmode, gpr_tmp1,
 					       gpr_tmp2));
 	}
-    }
-
-  /* Vector extract of a variable element from memory.  */
-  else
-    {
-      int shift = exact_log2 (scalar_size);
-      HOST_WIDE_INT mask = (scalar_size << shift);
-      rtx shift_rtx;
-      rtx rotl_rtx;
-
-      gcc_assert (shift > 0);
-      emit_move_insn (gpr_tmp1, addr);
-
-      shift_rtx = gen_rtx_ASHIFT (Pmode, element, GEN_INT (shift));
-      rotl_rtx = gen_rtx_AND (Pmode, shift_rtx, GEN_INT (-mask));
-      emit_insn (gen_rtx_SET (gpr_tmp2, rotl_rtx));
-      src2 = change_address (src, scalar_mode,
-			     gen_rtx_PLUS (Pmode, gpr_tmp1,
-					   gpr_tmp2));
     }
 
   gcc_assert (src2 != NULL_RTX);
@@ -7201,10 +7208,6 @@ rs6000_split_vector_extract (rtx dest,		/* destination scalar.  */
 			     rtx gpr_tmp2,	/* GPR temporary #2.  */
 			     rtx vector_tmp)	/* Vector temporary.  */
 {
-  machine_mode vector_mode = GET_MODE (src);
-  machine_mode scalar_mode = GET_MODE_INNER (vector_mode);
-  unsigned scalar_size = GET_MODE_SIZE (scalar_mode);
-
   if (REG_P (dest))
     {
       if (REG_P (src))
@@ -7233,6 +7236,23 @@ rs6000_split_vector_extract (rtx dest,		/* destination scalar.  */
 	    return;
 
 	  gcc_unreachable ();
+	}
+    }
+
+  /* Optimize a store of the element that has the same address as the vector.
+     Only allow this optimization for 64-bit scalars, since we don't currently
+     allow small integers in vector registers.  */
+  else if (MEM_P (dest) && REG_P (src) && CONST_INT_P (element)
+	   && INTVAL (element) == VECTOR_ELEMENT_SCALAR_64BIT)
+    {
+      machine_mode vector_mode = GET_MODE (src);
+      machine_mode scalar_mode = GET_MODE_INNER (vector_mode);
+
+      if (GET_MODE_SIZE (scalar_mode) == 8)
+	{
+	  rtx dest2 = adjust_address (dest, scalar_mode, 0);
+	  emit_move_insn (dest2, gen_rtx_REG (scalar_mode, REGNO (src)));
+	  return;
 	}
     }
 

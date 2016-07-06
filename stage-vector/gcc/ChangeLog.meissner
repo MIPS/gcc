@@ -1,5 +1,31 @@
 2016-07-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/constraints.md (wA constraint): New constraint for
+	vector extract that matches Altivec registers if -m64 and
+	-mdirect-move.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Set up and
+	debug wA constraint.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(split_extract_reg_reg_var): Fix thinkos.  Add scalar store.
+	(split_extract_memory): Likewise.
+	(rs6000_split_vector_extract): Likewise.
+
+	* config/rs6000/vsx.md (vsx_extract_<VSX_D:mode>_<P:mode>): Fix
+	problems with constraints.  Add scalar store support.
+	(vsx_extract_<mode>_const): Likewise.
+	(vsx_vslo_<mode>): Likewise.
+	(vsx_extract_<mode>_load): Delete, insn folded into the main
+	vector extract support.
+	(vsx_extract_<mode>_store): Likewise.
+
+	* config/rs6000/rs6000.h (enum r6000_reg_class_enum): Add wA
+	constraint.
+
+	* doc/md.texi (PowerPC constraints): Document wA constraint.
+
+2016-07-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* config/rs6000/rs6000-protos.h (rs6000_split_vector_extract): Add
 	declaration.
 

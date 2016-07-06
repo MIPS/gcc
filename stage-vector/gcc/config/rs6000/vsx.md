@@ -2141,25 +2141,25 @@
 
 (define_insn_and_split "*vsx_extract_<VSX_D:mode>_<P:mode>"
   [(set (match_operand:<VSX_D:VS_scalar> 0 "nonimmediate_operand"
-            "=<VS_64reg>, wm,      wo,    d,     wr,  d,   wv")
+            "=<VS_64reg>, wr, wr, wrd, wrd, wv, wb, wA, m,   Z")
 
 	(unspec:<VSX_D:VS_scalar>
 	 [(match_operand:VSX_D 1 "input_operand"
-            "<VSa>,       <VSa>,  <VSa>,  <VSa>, m,   m,   v")
+            "<VSa>,       wm, wo, m,   m,   Z,  m,  wv, dwo, wv")
 
 	  (match_operand:P 2 "input_operand"
-            "wD,          wD,     wL,     n,     nr,  nr,  r")]
+            " n,          wD, n,  O,   nr,  nr, nr, r,  wD,  wD")]
 
 	 UNSPEC_VSX_EXTRACT))
 
    (clobber (match_scratch:P 3
-            "=X,          X,      X,      X,     &b,  &b,  &b"))
+            "=X,          X,  X,  X,   &b,  &b, &b, &b, X,   X"))
 
    (clobber (match_scratch:P 4
-            "=X,          X,      X,      X,     &b,  &b,  &b"))
+            "=X,          X,  X,  X,   &b,  &b, &b, &b, X,   X"))
 
    (clobber (match_scratch:V2DI 5
-            "=X,          X,      X,      X,     X,   X,   v"))]
+            "=X,          X,  X,  X,   X,   X,  X,  &v, X,   X"))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "#"
   "&& reload_completed"
@@ -2172,15 +2172,15 @@
 
 (define_insn "vsx_extract_<mode>_const"
   [(set (match_operand:<VS_scalar> 0 "gpc_reg_operand"
-            "=<VS_64reg>, wm,      wo,    d")
+		"=<VS_64reg>, <VS_64reg>, wr, wr")
 
 	(vec_select:<VS_scalar>
 	 (match_operand:VSX_D 1 "gpc_reg_operand"
-            "<VSa>,       <VSa>,  <VSa>,  <VSa>")
+		"<VSa>,       <VSa>,      wm, wo")
 
 	 (parallel
 	  [(match_operand:QI 2 "const_0_to_1_operand"
-            "wD,          wD,     wL,     n")])))]
+		"wD,          n,          wD, n")])))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
 {
   int element = INTVAL (operands[2]);
@@ -2226,49 +2226,19 @@
   else
     gcc_unreachable ();
 }
-  [(set_attr "type" "veclogical,mftgpr,mftgpr,vecperm")])
+  [(set_attr "type" "veclogical,vecperm,mftgpr,mftgpr")])
 
-;; Variable V2DI/V2DF extract
+;; VSLO instruction used for V2DI/V2DF extract, leaving the element in the
+;; upper part of the register as a 64-bit scalar.
 (define_insn "vsx_vslo_<mode>"
   [(set (match_operand:<VS_scalar> 0 "gpc_reg_operand" "=v")
 	(unspec:<VS_scalar> [(match_operand:VSX_D 1 "gpc_reg_operand" "v")
 			     (match_operand:V2DI 2 "gpc_reg_operand" "v")]
 			    UNSPEC_VSX_VSLO))]
   "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_DIRECT_MOVE && TARGET_POWERPC64
-   && ((<MODE>mode == V2DImode && TARGET_UPPER_REGS_DI)
-       || (<MODE>mode == V2DFmode && TARGET_UPPER_REGS_DF))"
+   && TARGET_UPPER_REGS_DI && (<MODE>mode != V2DFmode || TARGET_UPPER_REGS_DF)"
   "vslo %0,%1,%2"
   [(set_attr "type" "vecperm")])
-
-;; Optimize extracting a single scalar element from memory if the scalar is in
-;; the correct location to use a single load.
-(define_insn "*vsx_extract_<mode>_load"
-  [(set (match_operand:<VS_scalar> 0 "register_operand" "=d,wv,wr")
-	(vec_select:<VS_scalar>
-	 (match_operand:VSX_D 1 "memory_operand" "m,Z,m")
-	 (parallel [(const_int 0)])))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
-  "@
-   lfd%U1%X1 %0,%1
-   lxsd%U1x %x0,%y1
-   ld%U1%X1 %0,%1"
-  [(set_attr "type" "fpload,fpload,load")
-   (set_attr "length" "4")])
-
-;; Optimize storing a single scalar element that is the right location to
-;; memory
-(define_insn "*vsx_extract_<mode>_store"
-  [(set (match_operand:<VS_scalar> 0 "memory_operand" "=m,Z,?Z")
-	(vec_select:<VS_scalar>
-	 (match_operand:VSX_D 1 "register_operand" "d,wd,<VSa>")
-	 (parallel [(match_operand:QI 2 "vsx_scalar_64bit" "wD,wD,wD")])))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
-  "@
-   stfd%U0%X0 %1,%0
-   stxsd%U0x %x1,%y0
-   stxsd%U0x %x1,%y0"
-  [(set_attr "type" "fpstore")
-   (set_attr "length" "4")])
 
 ;; Extract a SF element from V4SF
 (define_insn_and_split "vsx_extract_v4sf"
