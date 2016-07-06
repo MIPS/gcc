@@ -893,6 +893,29 @@ struct mips_cpu_info {
    -mdsp setting from a -march argument.  */
 #define BASE_DRIVER_SELF_SPECS \
   MIPS_ISA_NAN2008_SPEC,       \
+  "%{mips32r7: %{!mno-remove-addiusp-jrcaddiusp: -mremove-addiusp-jrcaddiusp} \
+	       %{!mno-remove-lwm-swm: -mremove-lwm-swm} \
+	       %{!mno-remove-lwp-swp: -mremove-lwp-swp} \
+	       %{!mno-add-save-restore: -madd-save-restore} \
+	       %{!mno-add-restorejrc: -madd-restorejrc} \
+	       %{!mno-add-br-imm: -madd-br-imm} \
+	       %{!mno-add-br-imm-order: -madd-br-imm-order} \
+	       %{!mno-add-ldst-x: -madd-ldst-x} \
+	       %{!mno-add-ldst-c1x: -madd-ldst-c1x} \
+	       %{!mno-add-ldst-xs: -madd-ldst-xs} \
+	       %{!mno-add-ldst-c1xs: -madd-ldst-c1xs} \
+	       %{!mno-remove-sel: -mremove-sel} \
+	       %{!mno-add-condmove: -madd-condmove} \
+	       %{!mno-grow-frame-downwards: -mgrow-frame-downwards} \
+	       %{!mno-add-lw4x4: -madd-lw4x4} \
+	       %{!mno-add-new-movep: -madd-new-movep} \
+	       %{!mno-add-movebalc: -madd-movebalc} \
+	       %{!mno-new-andi: -mnew-andi} \
+	       %{!mno-new-ori-xori: -mnew-ori-xori} \
+	       %{!mno-new-slti-sltiu: -mnew-slti-sltiu} \
+	       %{!mno-reduce-ldst-offsets: -mreduce-ldst-offsets} \
+	       %{!mno-add-ualw-uasw: -madd-ualw-uasw} \
+	       %{!mno-add-new-addiur2: -madd-new-addiur2}}" \
   "%{!mno-dsp: \
      %{march=24ke*|march=34kc*|march=34kf*|march=34kx*|march=1004k* \
        |march=interaptiv*: -mdsp} \
