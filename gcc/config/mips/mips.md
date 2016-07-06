@@ -5012,7 +5012,7 @@
 			 (not (match_test "TARGET_ADD_SW4X4"))))
 		  (const_string "no")
 	       (and (eq_attr "alternative" "25")
-		    (match_test "!(TARGET_MICROMIPS_R7 && TARGET_LI48)"))
+		    (match_test "!(TARGET_MICROMIPS_R7 /*&& TARGET_LI48*/)"))
 		  (const_string "no")]
 	      (const_string "yes")))])
 
@@ -5169,7 +5169,7 @@
    (set_attr "mode" "HI")
    (set (attr "enabled")
 	(cond [(and (eq_attr "alternative" "9")
-		    (match_test "!(TARGET_MICROMIPS_R7 && TARGET_LI48)"))
+		    (match_test "!(TARGET_MICROMIPS_R7 /*&& TARGET_LI48*/)"))
 		  (const_string "no")]
 	      (const_string "yes")))])
 

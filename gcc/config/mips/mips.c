@@ -2722,7 +2722,7 @@ mips_build_integer (struct mips_integer_op *codes,
   if (SMALL_OPERAND (value)
       || SMALL_OPERAND_UNSIGNED (value)
       || LUI_OPERAND (value)
-      || (TARGET_MICROMIPS_R7 && TARGET_LI48))
+      || (TARGET_MICROMIPS_R7 /* && TARGET_LI48 */))
     {
       /* The value can be loaded with a single instruction.  */
       codes[0].code = UNKNOWN;
