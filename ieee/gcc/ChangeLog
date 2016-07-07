@@ -1,3 +1,428 @@
+2016-07-07  Martin Liska  <mliska@suse.cz>
+
+	* file-find.c (remove_prefix): New function.
+	* file-find.h (remove_prefix): Declare the function.
+	* gcc-ar.c (main): Skip a folder of the wrapper if
+	a wrapped binary would point to the same file.
+
+2016-07-07  Jan Hubicka  <jh@suse.cz>
+
+	* tree-scalar-evolution.c (iv_can_overflow_p): export.
+	* tree-scalar-evolution.h (iv_can_overflow_p): Declare.
+	* tree-ssa-loop-ivopts.c (alloc_iv): Use it.
+
+2016-07-07  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR ipa/71624
+	* ipa-inline-analysis.c (compute_inline_parameters): Set
+	local.can_change_signature to false for intrumentation
+	thunk callees.
+
+2016-07-07  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/arm.h (TARGET_USE_MOVT): Check MOVT/MOVW availability
+	with TARGET_HAVE_MOVT.
+	(TARGET_HAVE_MOVT): Define.
+	* config/arm/arm.c (const_ok_for_op): Check MOVT/MOVW
+	availability with TARGET_HAVE_MOVT.
+	* config/arm/arm.md (arm_movt): Use TARGET_HAVE_MOVT to check MOVT
+	availability.
+	(addsi splitter): Use TARGET_THUMB && TARGET_HAVE_MOVT rather than
+	TARGET_THUMB2.
+	(symbol_refs movsi splitter): Remove TARGET_32BIT check.
+	(arm_movtas_ze): Use TARGET_HAVE_MOVT to check MOVT availability.
+	* config/arm/constraints.md (define_constraint "j"): Use
+	TARGET_HAVE_MOVT to check MOVT availability.
+
+2016-07-07  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/arm-protos.h: Reindent FL_FOR_* macro definitions.
+
+2016-07-07  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/arm-arches.def (armv8-m.base): Define new architecture.
+	(armv8-m.main): Likewise.
+	(armv8-m.main+dsp): Likewise.
+	* config/arm/arm-protos.h (FL_FOR_ARCH8M_BASE): Define.
+	(FL_FOR_ARCH8M_MAIN): Likewise.
+	* config/arm/arm-tables.opt: Regenerate.
+	* config/arm/bpabi.h: Add armv8-m.base, armv8-m.main and
+	armv8-m.main+dsp to BE8_LINK_SPEC.
+	* config/arm/arm.h (TARGET_HAVE_LDACQ): Exclude ARMv8-M.
+	(enum base_architecture): Add BASE_ARCH_8M_BASE and BASE_ARCH_8M_MAIN.
+	* config/arm/arm.c (arm_arch_name): Increase size to work with ARMv8-M
+	Baseline and Mainline.
+	(arm_option_override_internal): Also disable arm_restrict_it when
+	!arm_arch_notm.  Update comment for -munaligned-access to also cover
+	ARMv8-M Baseline.
+	(arm_file_start): Increase buffer size for printing architecture name.
+	* doc/invoke.texi: Document architectures armv8-m.base, armv8-m.main
+	and armv8-m.main+dsp.
+	(mno-unaligned-access): Clarify that this is disabled by default for
+	ARMv8-M Baseline architectures as well.
+
+2016-07-07  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/elf.h: Use __ARM_ARCH_ISA_THUMB and __ARM_ARCH_ISA_ARM to
+	decide whether to prevent some libgcc routines being included for some
+	multilibs rather than __ARM_ARCH_6M__ and add comment to indicate the
+	link between this condition and the one in
+	libgcc/config/arm/lib1func.S.
+
+2016-07-07  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-pre.c: Include alias.h.
+	(compute_avail): If we have multiple VN_REFERENCEs with the
+	same hashtable entry adjust that to make it a valid replacement
+	for all of them with respect to alignment and aliasing
+	when doing insertion.
+	* tree-ssa-sccvn.h (vn_reference_operands_for_lookup): Declare.
+	* tree-ssa-sccvn.c (vn_reference_operands_for_lookup): New function.
+
+2016-07-06  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/70098
+	PR target/71763
+	* config/rs6000/rs6000.md (*ctr<mode>_internal1, *ctr<mode>_internal2,
+	*ctr<mode>_internal5, *ctr<mode>_internal6): Add *wi to the output
+	constraint.
+
+2016-07-06  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* var-tracking.c (struct adjust_mem_data): Make side_effects a vector.
+	(adjust_mems): Adjust.
+	(adjust_insn): Likewise.
+	(prepare_call_arguments): Likewise.
+
+2016-07-06  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* gcse.c (struct ls_expr): Make stores field a vector.
+	(ldst_entry): Adjust.
+	(free_ldst_entry): Likewise.
+	(print_ldst_list): Likewise.
+	(compute_ld_motion_mems): Likewise.
+	(update_ld_motion_stores): Likewise.
+
+2016-07-06  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* gcse.c (struct ls_expr): Remove loads field.
+	(ldst_entry): Adjust.
+	(free_ldst_entry): Likewise.
+	(print_ldst_list): Likewise.
+	(compute_ld_motion_mems): Likewise.
+
+2016-07-06  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* store-motion.c (struct st_expr): Make antic_stores a vector.
+	(st_expr_entry): Adjust.
+	(free_st_expr_entry): Likewise.
+	(print_store_motion_mems): Likewise.
+	(find_moveable_store): Likewise.
+	(compute_store_table): Likewise.
+	(remove_reachable_equiv_notes): Likewise.
+	(replace_store_insn): Likewise.
+	(build_store_vectors): Likewise.
+
+2016-07-06  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/driver-arm.c (arm_cpu_table): Add entries for cortex-a32,
+	cortex-a35, cortex-a53, cortex-a57, cortex-a72, cortex-a73.
+
+2016-07-06  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR tree-optimization/71518
+	* tree-vect-data-refs.c (vect_compute_data_ref_alignment): Adjust
+	misalign also for outer loops with negative step.
+
+2016-07-06  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/arm/cortex-a53.md: Use final_presence_set for in-order.
+	(cortex_a53_shift): Add mov_shift.
+	(cortex_a53_shift_reg): Add new reservation for register shifts.
+	(cortex_a53_alu): Remove bfm.
+	(cortex_a53_alu_shift): Add bfm, remove mov_shift.
+	(cortex_a53_alu_extr): Add new reservation for EXTR.
+	(bypasses): Improve bypass modelling.
+
+2016-07-06  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	PR target/50739	
+	* config/avr/avr.c (avr_asm_select_section): Strip off
+	SECTION_DECLARED from flags when calling get_section.
+
+2016-07-06  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* tree-vectorizer.h (vect_memory_access_type): Add
+	VMAT_INVARIANT, VMAT_CONTIGUOUS_DOWN and VMAT_CONTIGUOUS_REVERSED.
+	* tree-vect-stmts.c (compare_step_with_zero): New function.
+	(perm_mask_for_reverse): Move further up file.
+	(get_group_load_store_type): Stick to VMAT_ELEMENTWISE if the
+	step is negative.
+	(get_negative_load_store_type): New function.
+	(get_load_store_type): Call it.  Add an ncopies argument.
+	(vectorizable_mask_load_store): Update call accordingly and
+	remove tests for negative steps.
+	(vectorizable_store, vectorizable_load): Likewise.  Handle new
+	memory_access_types.
+
+2016-07-06  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* tree-vectorizer.h (vect_memory_access_type): New enum.
+	(_stmt_vec_info): Add a memory_access_type field.
+	(STMT_VINFO_MEMORY_ACCESS_TYPE): New macro.
+	(vect_model_store_cost): Take an access type instead of a boolean.
+	(vect_model_load_cost): Likewise.
+	* tree-vect-slp.c (vect_analyze_slp_cost_1): Update calls to
+	vect_model_store_cost and vect_model_load_cost.
+	* tree-vect-stmts.c (vec_load_store_type): New enum.
+	(vect_model_store_cost): Take an access type instead of a
+	store_lanes_p boolean.  Simplify tests.
+	(vect_model_load_cost): Likewise, but for load_lanes_p.
+	(get_group_load_store_type, get_load_store_type): New functions.
+	(vectorizable_store): Use get_load_store_type.  Record the access
+	type in STMT_VINFO_MEMORY_ACCESS_TYPE.
+	(vectorizable_load): Likewise.
+	(vectorizable_mask_load_store): Likewise.  Replace is_store
+	variable with vls_type.
+
+2016-07-06  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* tree-vectorizer.h (vect_grouped_load_supported): Add a
+	single_element_p parameter.
+	* tree-vect-data-refs.c (vect_grouped_load_supported): Likewise.
+	Check the PR65518 case here rather than in vectorizable_load.
+	* tree-vect-loop.c (vect_analyze_loop_2): Update call accordignly.
+	* tree-vect-stmts.c (vectorizable_load): Likewise.
+
+2016-07-06  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* tree-vectorizer.h (gather_scatter_info): New structure.
+	(vect_check_gather_scatter): Return a bool rather than a decl.
+	Replace return-by-pointer arguments with a single
+	gather_scatter_info *.
+	* tree-vect-data-refs.c (vect_check_gather_scatter): Likewise.
+	(vect_analyze_data_refs): Update call accordingly.
+	* tree-vect-stmts.c (vect_mark_stmts_to_be_vectorized): Likewise.
+	(vectorizable_mask_load_store): Likewise.  Also record the
+	offset dt and vectype in the gather_scatter_info.
+	(vectorizable_store): Likewise.
+	(vectorizable_load): Likewise.
+
+2016-07-06  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* tree-vect-stmts.c (vect_model_store_cost): For non-SLP
+	strided groups, use the cost of N scalar accesses instead
+	of ncopies vector accesses.
+	(vect_model_load_cost): Likewise.
+
+2016-07-06  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* tree-vect-stmts.c (vect_cost_group_size): Delete.
+	(vect_model_store_cost): Avoid calling it.  Use first_stmt_p
+	variable to indicate when once-per-group costs are being used.
+	(vect_model_load_cost): Likewise.  Fix comment and misindented code.
+
+2016-07-06  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* tree-vect-stmts.c (vectorizable_load): Remove unnecessary
+	peeling-for-gaps condition.
+
+2016-07-06  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.c (s390_expand_vec_init): Force initializer
+	element to register if it doesn't match general_operand.
+
+2016-07-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-protos.h (rs6000_split_signbit): New
+	prototype.
+	* config/rs6000/rs6000.c (rs6000_split_signbit): New function.
+	* config/rs6000/rs6000.md (UNSPEC_SIGNBIT): New constant.
+	(SIGNBIT): New mode iterator.
+	(Fsignbit): New mode attribute.
+	(signbit<mode>2): Change operand1 to match FLOAT128 instead of
+	IBM128; dispatch to gen_signbit{kf,tf}2_dm for __float128
+	when direct moves are available.
+	(signbit<mode>2_dm): New define_insn_and_split).
+	(signbit<mode>2_dm2): New define_insn.
+
+2016-07-05  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/71594
+	* ifcvt.c (noce_convert_multiple_sets): Wrap new_val or old_val
+	into subregs of appropriate mode before trying to emit a conditional
+	move.
+
+2016-07-05  Jan Hubicka  <jh@suse.cz>
+
+	* tree-scalar-evolution.c (iv_can_overflow_p): New function.
+	(simple_iv): Use it.
+
+2016-07-05  Jan Hubicka  <jh@suse.cz>
+
+	* tree-ssa-loop-niter.c (nowrap_type_p): Use ANY_INTEGRAL_TYPE_P.
+
+2016-07-05  Jiong Wang  <jiong.wang@arm.com>
+
+	* lra-constraints.c (process_alt_operands): Don't add spilling cost for
+	"offmemok".
+
+2016-07-05  Jan Hubicka  <jh@suse.cz>
+
+	* tree-scalar-evoluiton.c (simple_iv): Use nowrap_type to check if
+	IV can overflow.
+
+2016-07-05  Richard Biener  <rguenther@suse.de>
+
+	* gimple-ssa-split-paths.c (find_block_to_duplicate_for_splitting_pa):
+	Handle empty else block.
+	(is_feasible_trace): Likewise.
+	(split_paths): Likewise.
+
+2016-07-05  Richard Biener  <rguenther@suse.de>
+
+	* tree-loop-distribution.c (distribute_loop): Fix issue with
+	the cost model loop.
+
+2016-07-05  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* config/arm/neon-testgen.ml: Delete.
+	* config/arm/neon.ml: Delete.
+
+2016-07-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71739
+	* tree.c (attribute_value_equal): Use get_attribute_name instead of
+	directly using TREE_PURPOSE.
+
+2016-07-04  Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/aarch64.h: Rename "ARMv8.1" to "ARMv8.1-A".
+	* config/aarch64/aarch64_neon.h: Likewise.
+	* config/aarch64/arm_neon.h: Likewise.
+	* config/aarch64/atomics.md: Likewise.
+	* config/aarch64/aarch64-simd-builtins.def: Likewise.
+	* doc/invoke.texi: Likewise.
+
+2016-07-04  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* config/s390/s390.md: Add "z13" cpu_facility.
+	("*mov<mode>cc"): Add support for z13 instructions lochi and locghi.
+	* config/s390/predicates.md ("loc_operand"): New predicate for "load on
+	condition" type instructions.
+
+2016-07-04  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+	    Jeff Law  <law@redhat.com>
+
+	* explow.c (allocate_dynamic_stack_space): Simplify knowing that
+	MUST_ALIGN was always true and extra_align ist always BITS_PER_UNIT.
+
+2016-07-04  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	* config/i386/i386.c (ix86_expand_vec_perm): Add handle one-operand
+	permutation for TARGET_AVX512F.
+	(ix86_expand_vec_one_operand_perm_avx512): New function.
+	(expand_vec_perm_1): Invoke introduced function.
+	* tree-vect-loop.c (vect_transform_loop): Clear-up safelen value since
+	it may be not valid after vectorization.
+
+2016-07-04  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/63874
+	* config/aarch64/aarch64.c (aarch64_classify_symbol): Fix
+	typo in comment.  Only force to memory if it is a weak
+	external reference.
+
+2016-07-04  Matthew Wahab  <matthew.wahab@arm.com>
+	    Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/aarch64-arches.def: Add "armv8.2-a".
+	* config/aarch64/aarch64.h (AARCH64_FL_V8_2): New.
+	(AARCH64_FL_F16): New.
+	(AARCH64_FL_FOR_ARCH8_2): New.
+	(AARCH64_ISA_8_2): New.
+	(AARCH64_ISA_F16): New.
+	(TARGET_FP_F16INST): New.
+	(TARGET_SIMD_F16INST): New.
+	* config/aarch64/aarch64-option-extensions.def ("fp16"): New entry.
+	("fp"): Disabling "fp" also disables "fp16".
+	* config/aarch64/aarch64-c.c (arch64_update_cpp_builtins): Conditionally define
+	__ARM_FEATURE_FP16_SCALAR_ARITHMETIC and __ARM_FEATURE_FP16_VECTOR_ARITHMETIC.
+	* doc/invoke.texi (AArch64 Options): Document "armv8.2-a" and "fp16".
+
+2016-07-04  Jan Beulich  <jbeulich@suse.com>
+
+	* gcc.c (default_compilers["@c-header"]): Conditionalize "-o".
+
+2016-07-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/71720
+	* config/rs6000/vsx.md (vsx_splat_v4sf_internal): When splitting
+	the insns, use an insn form that does not adjust the offset on
+	little endian systems.
+
+2016-07-01  Jan Beulich  <jbeulich@suse.com>
+
+	* varasm.c (get_variable_section): Validate initializer in
+	named .bss-like sections.
+
+2016-07-01  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* config/rs6000/altivec.md (*altivec_vpermr_<mode>_internal):
+	Exchange the order of the second and third operands in the vpermr
+	instruction tmeplate.
+
+2016-07-01  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/71698
+	* config/rs6000/rs6000.c (rs6000_secondary_reload_simple_move): Disallow
+	TDmode values.
+
+2016-07-01  Alan Modra  <amodra@gmail.com>
+
+	PR rtl-optimization/71709
+	* ira-lives.c (find_call_crossed_cheap_reg): Exit loop on arg reg
+	being set, not referenced.
+
+2016-07-01  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR tree-optimization/70729
+	* tree-vectorizer.c (adjust_simduid_builtins): Nullify safelen field
+	of loop since it can be not valid after transformation.
+
+2016-07-01  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm.c (thumb_reload_in_hi): Delete.
+	* config/arm/arm-protos.h (thumb_reload_in_hi): Delete prototype.
+
+2016-07-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/arm/arm.c (arm_function_ok_for_sibcall): Add another check
+	for NULL decl.
+
+2016-06-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/71677
+	* config/rs6000/constraints.md (wY constraint): New constraint to
+	match the requirements for the LXSD and STXSD instructions.
+	* config/rs6000/predicates.md (offsettable_mem_14bit_operand): New
+	predicate to match the requirements for the LXSD and STXSD
+	instructions.
+	* config/rs6000/rs6000.md (mov<mode>_hardfloat32, FMOVE64 case):
+	Use constaint wY for LXSD/STXSD instructions instead of 'o' or 'Y'
+	to make sure that the bottom 2 bits of offset are 0, the address
+	form is offsettable, and no updating is done in the address mode.
+	(mov<mode>_hardfloat64, FMOVE64 case): Likewise.
+	(movdi_internal32): Likewise
+	(movdi_internal64): Likewise.
+
+2016-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/71707
+	* tree-ssa-strlen.c (get_stridx_plus_constant): Handle already present
+	strinfo even for ADDR_EXPR ptr.
+
 2016-06-30  Kelvin Nilsen  <kelvin@gcc.gnu.org>
 
 	* config/rs6000/altivec.md (darn_32): Change the condition to

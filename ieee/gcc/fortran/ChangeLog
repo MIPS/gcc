@@ -1,3 +1,63 @@
+2016-07-07  Martin Liska  <mliska@suse.cz>
+
+	* lang.opt (Wundefined-do-loop): New option.
+        * resolve.c (gfc_resolve_iterator): Warn for Wundefined-do-loop.
+	(gfc_trans_simple_do): Generate a c-style loop.
+	(gfc_trans_do): Fix GNU coding style.
+	* invoke.texi: Mention the new warning.
+
+2016-07-07  Martin Liska  <mliska@suse.cz>
+
+	* trans-stmt.c (gfc_trans_do): Add expect builtin for DO
+	loops with step bigger than +-1.
+
+2016-07-05  Alessandro Fanfarillo  <fanfarillo.gcc@gmail.com>
+
+	* array.c (gfc_match_array_ref): Add parsing support for
+	STAT= attribute in CAF reference.
+	* expr.c (gfc_find_stat_co): New function that returns
+	the STAT= assignment.
+	* gfortran.h (gfc_array_ref): New member.
+	* trans-decl.c (gfc_build_builtin_function_decls):
+	new attribute for caf_get and caf_send functions.
+	* trans-intrinsic.c (gfc_conv_intrinsic_caf_get): Passing
+	the stat attribute to external function.
+	(gfc_conv_intrinsic_caf_send): Ditto.
+
+2016-07-05  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/71623
+	* trans-stmt.c (gfc_trans_allocate): Add code of pre block of typespec
+	in allocate to parent block.
+
+2016-07-04  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/66575
+	* decl.c (match_procedure_interface): Exit loop if procedure
+	interface refers to itself.
+
+2016-07-04  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+	    Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/35849
+	* simplify.c (gfc_simplify_ishftc): Check that absolute value of
+	SHIFT is less than or equal to SIZE.
+
+2016-07-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/71687
+	* f95-lang.c (struct binding_level): Add reversed field.
+	(clear_binding_level): Adjust initializer.
+	(getdecls): If reversed is clear, set it and nreverse the names
+	chain before returning it.
+	(poplevel): Use getdecls.
+	* trans-decl.c (gfc_generate_function_code, gfc_process_block_locals):
+	Use nreverse to pushdecl decls in the declaration order.
+
+	PR fortran/71717
+	* trans-openmp.c (gfc_omp_privatize_by_reference): Return false
+	for GFC_DECL_ASSOCIATE_VAR_P with POINTER_TYPE.
+
 2016-06-30  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/71704
