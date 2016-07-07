@@ -4302,6 +4302,96 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V4SI,
     RS6000_BTI_unsigned_V4SI, 0 },
 
+  /* kelvin's new items: not sure where to encode target type,
+   * not sure where type names are defined.  processing entries from
+   * rs6000-builtin.def, around line 1853.
+   *  See rs6000.h for type definitions
+
+struct altivec_builtin_types
+{
+  enum rs6000_builtins code;
+  enum rs6000_builtins overloaded_code;
+  signed char ret_type;
+  signed char op1;
+  signed char op2;
+  signed char op3;
+};
+
+ */
+  { P9V_BUILTIN_VEC_VES, P9V_BUILTIN_VESSP,
+    RS6000_BTI_V4SI, RS6000_BTI_V4SF, 0, 0 },   
+  { P9V_BUILTIN_VEC_VES, P9V_BUILTIN_VESDP,
+    RS6000_BTI_V2DI, RS6000_BTI_V2DF, 0, 0 },   
+
+  { P9V_BUILTIN_VEC_VESSP, P9V_BUILTIN_VESSP,
+    RS6000_BTI_V4SI, RS6000_BTI_V4SF, 0, 0 },   
+  { P9V_BUILTIN_VEC_VESDP, P9V_BUILTIN_VESDP,
+    RS6000_BTI_V2DI, RS6000_BTI_V2DF, 0, 0 },   
+
+  { P9V_BUILTIN_VEC_VEE, P9V_BUILTIN_VEESP,
+    RS6000_BTI_V4SI, RS6000_BTI_V4SF, 0, 0 },   
+  { P9V_BUILTIN_VEC_VEE, P9V_BUILTIN_VEEDP,
+    RS6000_BTI_V2DI, RS6000_BTI_V2DF, 0, 0 },   
+
+  { P9V_BUILTIN_VEC_VEESP, P9V_BUILTIN_VEESP,
+    RS6000_BTI_V4SI, RS6000_BTI_V4SF, 0, 0 },   
+  { P9V_BUILTIN_VEC_VEEDP, P9V_BUILTIN_VEEDP,
+    RS6000_BTI_V2DI, RS6000_BTI_V2DF, 0, 0 },   
+
+  { P9V_BUILTIN_VEC_VTDC, P9V_BUILTIN_VTDCSP,
+    RS6000_BTI_V4SI, RS6000_BTI_V4SF, RS6000_BTI_UINTSI, 0 },   
+  { P9V_BUILTIN_VEC_VTDC, P9V_BUILTIN_VTDCDP,
+    RS6000_BTI_V2DI, RS6000_BTI_V2DF, RS6000_BTI_UINTSI, 0 },   
+
+  { P9V_BUILTIN_VEC_VTDCSP, P9V_BUILTIN_VTDCSP,
+    RS6000_BTI_V4SI, RS6000_BTI_V4SF, RS6000_BTI_UINTSI, 0 },   
+  { P9V_BUILTIN_VEC_VTDCDP, P9V_BUILTIN_VTDCDP,
+    RS6000_BTI_V2DI, RS6000_BTI_V2DF, RS6000_BTI_UINTSI, 0 },   
+
+  { P9V_BUILTIN_VEC_VIE, P9V_BUILTIN_VIESP,
+    RS6000_BTI_V4SF, RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V4SI, 0 },
+  { P9V_BUILTIN_VEC_VIE, P9V_BUILTIN_VIEDP,
+    RS6000_BTI_V2DF, RS6000_BTI_unsigned_V2DI, RS6000_BTI_unsigned_V2DI, 0 },
+
+  { P9V_BUILTIN_VEC_VIESP, P9V_BUILTIN_VIESP,
+    RS6000_BTI_V4SF, RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V4SI, 0 },
+  { P9V_BUILTIN_VEC_VIEDP, P9V_BUILTIN_VIEDP,
+    RS6000_BTI_V2DF, RS6000_BTI_unsigned_V2DI, RS6000_BTI_unsigned_V2DI, 0 },
+
+  { P9V_BUILTIN_VEC_VSTDC, P9V_BUILTIN_VSTDCSP,
+    RS6000_BTI_UINTSI, RS6000_BTI_float, RS6000_BTI_UINTSI, 0 },
+  { P9V_BUILTIN_VEC_VSTDC, P9V_BUILTIN_VSTDCDP,
+    RS6000_BTI_UINTSI, RS6000_BTI_double, RS6000_BTI_UINTSI, 0 },
+
+  { P9V_BUILTIN_VEC_VSTDCSP, P9V_BUILTIN_VSTDCSP,
+    RS6000_BTI_UINTSI, RS6000_BTI_float, RS6000_BTI_UINTSI, 0 },
+  { P9V_BUILTIN_VEC_VSTDCDP, P9V_BUILTIN_VSTDCDP,
+    RS6000_BTI_UINTSI, RS6000_BTI_double, RS6000_BTI_UINTSI, 0 },
+
+  /* for extract exp and extract sig, the manual says results are in
+  unsigned integer format, but that seems "wrong" because both exp and
+  sig can be negative values.  but the reason we identify results as
+  unsigned is because we don't sign extend even though the sign
+  bit is preserved.  i.e. the sign bit is preserved as 0x400 for
+  exponent and 0x10_000_000_000 for significand. */
+  { P9V_BUILTIN_VEC_VSEEDP, P9V_BUILTIN_VSEEDP,
+    RS6000_BTI_UINTSI, RS6000_BTI_double, 0, 0 },
+
+  { P9V_BUILTIN_VEC_VSESDP, P9V_BUILTIN_VSESDP,
+    RS6000_BTI_UINTDI, RS6000_BTI_double, 0, 0 },
+
+  { P9V_BUILTIN_VEC_VSIEDP, P9V_BUILTIN_VSIEDP,
+    RS6000_BTI_double, RS6000_BTI_UINTSI, RS6000_BTI_UINTSI, 0 },
+
+  { P9V_BUILTIN_VEC_VSCEDPGT, P9V_BUILTIN_VSCEDPGT,
+    RS6000_BTI_INTSI, RS6000_BTI_double, RS6000_BTI_double, 0 },
+  { P9V_BUILTIN_VEC_VSCEDPLT, P9V_BUILTIN_VSCEDPLT,
+    RS6000_BTI_INTSI, RS6000_BTI_double, RS6000_BTI_double, 0 },
+  { P9V_BUILTIN_VEC_VSCEDPEQ, P9V_BUILTIN_VSCEDPEQ,
+    RS6000_BTI_INTSI, RS6000_BTI_double, RS6000_BTI_double, 0 },
+  { P9V_BUILTIN_VEC_VSCEDPUO, P9V_BUILTIN_VSCEDPUO,
+    RS6000_BTI_INTSI, RS6000_BTI_double, RS6000_BTI_double, 0 },
+
   { P8V_BUILTIN_VEC_VGBBD, P8V_BUILTIN_VGBBD,
     RS6000_BTI_V16QI, RS6000_BTI_V16QI, 0, 0 },
   { P8V_BUILTIN_VEC_VGBBD, P8V_BUILTIN_VGBBD,
