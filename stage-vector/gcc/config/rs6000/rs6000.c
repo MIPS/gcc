@@ -6958,7 +6958,7 @@ rs6000_expand_vector_extract (rtx target, rtx vec, rtx elt)
 	{
 	  rtx tmp = gen_reg_rtx (DImode);
 	  convert_move (tmp, elt, 0);
-	  elt = tmp;
+	  gpr_element = tmp;
 	}
 
       /* If little endian, adjust element ordering.  For V2DI/V2DF, we can use
