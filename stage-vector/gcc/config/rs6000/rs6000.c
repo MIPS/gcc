@@ -19272,7 +19272,8 @@ rs6000_secondary_reload_simple_move (enum rs6000_reg_type to_type,
      simple move insns are issued.  At present, 32-bit integers are not allowed
      in FPR/VSX registers.  Single precision binary floating is not a simple
      move because we need to convert to the single precision memory layout.
-     The 4-byte SDmode can be moved.  */
+     The 4-byte SDmode can be moved.  TDmode values are disallowed since they
+     need special direct move handling, which we do not support yet.  */
   size = GET_MODE_SIZE (mode);
   if (TARGET_DIRECT_MOVE
       && ((mode == SDmode) || (TARGET_POWERPC64 && size == 8))
@@ -19280,7 +19281,7 @@ rs6000_secondary_reload_simple_move (enum rs6000_reg_type to_type,
 	  || (to_type == VSX_REG_TYPE && from_type == GPR_REG_TYPE)))
     return true;
 
-  else if (TARGET_DIRECT_MOVE_128 && size == 16
+  else if (TARGET_DIRECT_MOVE_128 && size == 16 && mode != TDmode
 	   && ((to_type == VSX_REG_TYPE && from_type == GPR_REG_TYPE)
 	       || (to_type == GPR_REG_TYPE && from_type == VSX_REG_TYPE)))
     return true;
@@ -23220,6 +23221,48 @@ rs6000_emit_minmax (rtx dest, enum rtx_code code, rtx op0, rtx op1)
   gcc_assert (target);
   if (target != dest)
     emit_move_insn (dest, target);
+}
+
+/* Split a signbit operation on 64-bit machines with direct move.  Also allow
+   for the value to come from memory or if it is already loaded into a GPR.  */
+
+void
+rs6000_split_signbit (rtx dest, rtx src)
+{
+  machine_mode d_mode = GET_MODE (dest);
+  machine_mode s_mode = GET_MODE (src);
+  rtx dest_di = (d_mode == DImode) ? dest : gen_lowpart (DImode, dest);
+  rtx shift_reg = dest_di;
+
+  gcc_assert (REG_P (dest));
+  gcc_assert (REG_P (src) || MEM_P (src));
+  gcc_assert (s_mode == KFmode || s_mode == TFmode);
+
+  if (MEM_P (src))
+    {
+      rtx mem = (WORDS_BIG_ENDIAN
+		 ? adjust_address (src, DImode, 0)
+		 : adjust_address (src, DImode, 8));
+      emit_insn (gen_rtx_SET (dest_di, mem));
+    }
+
+  else
+    {
+      unsigned int r = REGNO (src);
+
+      /* If this is a VSX register, generate the special mfvsrd instruction
+	 to get it in a GPR.  Until we support SF and DF modes, that will
+	 always be true.  */
+      gcc_assert (VSX_REGNO_P (r));
+
+      if (s_mode == KFmode)
+	emit_insn (gen_signbitkf2_dm2 (dest_di, src));
+      else
+	emit_insn (gen_signbittf2_dm2 (dest_di, src));
+    }
+
+  emit_insn (gen_lshrdi3 (dest_di, shift_reg, GEN_INT (63)));
+  return;
 }
 
 /* A subroutine of the atomic operation splitters.  Jump to LABEL if

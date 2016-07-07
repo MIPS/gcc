@@ -1,3 +1,108 @@
+2016-07-07  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/status_cxx2014.xml: Update LFTS status table.
+	* doc/html/*: Regenerate.
+
+2016-07-07  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement std::any.
+	* include/Makefile.am: Add any and c++17_warning.h to exported headers.
+	* include/Makefile.in: Likewise.
+	* include/std/any: New.
+	* testsuite/20_util/any/assign/1.cc: Likewise.
+	* testsuite/20_util/any/assign/2.cc: Likewise.
+	* testsuite/20_util/any/assign/self.cc: Likewise.
+	* testsuite/20_util/any/cons/1.cc: Likewise.
+	* testsuite/20_util/any/cons/2.cc: Likewise.
+	* testsuite/20_util/any/cons/aligned.cc: Likewise.
+	* testsuite/20_util/any/cons/nontrivial.cc: Likewise.
+	* testsuite/20_util/any/misc/any_cast.cc: Likewise.
+	* testsuite/20_util/any/misc/any_cast_neg.cc: Likewise.
+	* testsuite/20_util/any/misc/any_cast_no_rtti.cc: Likewise.
+	* testsuite/20_util/any/misc/swap.cc: Likewise.
+	* testsuite/20_util/any/modifiers/1.cc: Likewise.
+	* testsuite/20_util/any/observers/type.cc: Likewise.
+	* testsuite/20_util/any/typedefs.cc: Likewise.
+
+2016-07-06  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Add a new header for diagnosing the use of C++17 facilities
+	in pre-C++17 modes.
+	* include/bits/c++17_warning.h:	New.
+
+2016-07-06  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement LWG 2451, optional<T> should 'forward' T's
+	implicit conversions.
+	* include/experimental/optional (__is_optional_impl, __is_optional):
+	New.
+	(optional()): Make constexpr and default.
+	(optional(_Up&&), optional(const optional<_Up>&),
+	optional(optional<_Up>&& __t): New.
+	(operator=(_Up&&)): Constrain.
+	(operator=(const optional<_Up>&), operator=(optional<_Up>&&)): New.
+	* testsuite/experimental/optional/cons/value.cc:
+	Add tests for the functionality added by LWG 2451.
+	* testsuite/experimental/optional/cons/value_neg.cc: New.
+
+2016-07-05  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement LWG 2509,
+	any_cast doesn't work with rvalue reference targets and cannot
+	move with a value target.
+	* include/experimental/any (any(_ValueType&&)): Constrain and
+	add an overload that doesn't forward.
+	(any_cast(any&&)): Constrain and add an overload that moves.
+	* testsuite/experimental/any/misc/any_cast.cc: Add tests for
+	the functionality added by LWG 2509.
+
+2016-07-04  François Dumont  <fdumont@gcc.gnu.org>
+
+	* testsuite/23_containers/vector/modifiers/emplace/self_emplace.cc:
+	New test.
+	* testsuite/23_containers/vector/modifiers/insert/self_insert.cc: New
+	test.
+
+2016-07-04  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/stl_vector.h (emplace(const_iterator, _Args&&...)):
+	Define inline. Forward to _M_emplace_aux.
+	(insert(const_iterator, value_type&&)): Forward to _M_insert_rval.
+	(_M_insert_rval, _M_emplace_aux): Declare new functions.
+	(_Temporary_value): New RAII type using allocator to construct/destroy.
+	(_S_insert_aux_assign): Remove.
+	(_M_insert_aux): Make non-variadic.
+	* include/bits/vector.tcc (insert(const_iterator, const value_type&)):
+	Use _Temporary_value.
+	(emplace(const_iterator, _Args&&...)): Remove definition.
+	(_M_insert_rval, _M_emplace_aux): Define.
+	(_M_insert_aux): Make non-variadic, stop using _S_insert_aux_assign.
+	(_M_fill_insert): Use _Temporary_value.
+	* testsuite/23_containers/vector/allocator/construction.cc: New test.
+	* testsuite/23_containers/vector/modifiers/insert_vs_emplace.cc:
+	Adjust expected results for emplacing an lvalue with reallocation.
+	* testsuite/23_containers/vector/check_construct_destroy.cc: Adjust
+	expected results to account for construction/destruction of temporary
+	using allocator.
+	* testsuite/backward/hash_set/check_construct_destroy.cc: Likewise.
+
+2016-07-04  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	PR libstdc++/71313
+	* src/filesystem/ops.cc (remove_all(const path&, error_code&)):
+	Call remove_all for children of a directory.
+	* testsuite/experimental/filesystem/operations/create_directories.cc:
+	Adjust.
+
+2016-07-02  François Dumont  <fdumont@gcc.gnu.org>
+
+	* testsuite/23_containers/array/tuple_interface/get_debug_neg.cc: Adjust
+	dg-error line numbers.
+	* testsuite/23_containers/array/tuple_interface/
+	tuple_element_debug_neg.cc: Likewise.
+	* testsuite/25_algorithms/lexicographical_compare/debug/
+	irreflexive_neg.cc: Remove.
+
 2016-06-30  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
 	* testsuite/29_atomics/atomic/65913.cc: Require atomic-builtins rather
