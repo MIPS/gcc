@@ -7081,7 +7081,7 @@ split_extract_reg_reg_var (rtx dest,		/* destination scalar.  */
     emit_insn (gen_vsx_splat_v2di (vector_tmp, gpr_element));
   else
     {
-      rtx vector_di = gen_rtx_REG (scalar_mode, REGNO (vector_tmp));
+      rtx vector_di = gen_rtx_REG (DImode, REGNO (vector_tmp));
       emit_move_insn (vector_di, gpr_element);
       emit_insn (gen_vsx_concat_v2di (vector_tmp, vector_di, vector_di));
     }
