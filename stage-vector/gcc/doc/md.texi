@@ -3110,9 +3110,6 @@ FP or VSX register to perform ISA 2.07 float ops or NO_REGS.
 @item wz
 Floating point register if the LFIWZX instruction is enabled or NO_REGS.
 
-@item wA
-Altivec register if 64-bit instructions & direct moves are enabled or NO_REGS.
-
 @item wB
 Signed 5-bit constant integer that can be loaded into an altivec register.
 

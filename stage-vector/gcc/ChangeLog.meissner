@@ -1,3 +1,26 @@
+2016-07-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md: Undo 7/6 changes.
+	* config/rs6000/rs6000-protos: Likewise.
+	* config/rs6000/rs6000.c: Likewise.
+	* config/rs6000/vsx.md: Likewise.
+	* config/rs6000/rs6000.h: Likewise.
+	* doc/md.text: Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_extract): Move code
+	to do variable extract here from the vsx.md insn.  Add future
+	support for extracting other vector types.
+
+	* config/rs6000/vsx.md (vsx_extract_<mode>, VSX_D case):
+	Reformat.  Fixup constraint cases so that direct move can be
+	generated.
+	(vsx_vslo_<mode>): Move to later in the file.
+	(vsx_extract_<mode>_variable): Move insn to
+	rs6000_expand_vector_extract.
+
+	* config/rs6000/rs6000.h (TARGET_VARIABLE_EXTRACT): Do not require
+	-mupper-regs-df unless mode is V2DFmode.
+
 2016-07-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/constraints.md (wA constraint): New constraint for

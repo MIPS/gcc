@@ -611,7 +611,8 @@ extern int rs6000_vector_align[];
 					 && TARGET_DIRECT_MOVE		\
 					 && TARGET_POWERPC64		\
 					 && TARGET_UPPER_REGS_DI	\
-					 && TARGET_UPPER_REGS_DF)
+					 && ((MODE) != V2DFmode 	\
+					     || TARGET_UPPER_REGS_DF))
 
 /* Byte/char syncs were added as phased in for ISA 2.06B, but are not present
    in power7, so conditionalize them on p8 features.  TImode syncs need quad
@@ -1591,7 +1592,6 @@ enum r6000_reg_class_enum {
   RS6000_CONSTRAINT_wx,		/* FPR register for STFIWX */
   RS6000_CONSTRAINT_wy,		/* VSX register for SF */
   RS6000_CONSTRAINT_wz,		/* FPR register for LFIWZX */
-  RS6000_CONSTRAINT_wA,		/* Altivec register for 64-bit direct move.  */
   RS6000_CONSTRAINT_MAX
 };
 

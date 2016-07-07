@@ -309,7 +309,6 @@
    UNSPEC_VSX_XVCVDPUXDS
    UNSPEC_VSX_SIGN_EXTEND
    UNSPEC_P9_MEMORY
-   UNSPEC_VSX_EXTRACT
    UNSPEC_VSX_VSLO
   ])
 
@@ -2116,71 +2115,17 @@
 ;; Optimize cases were we can do a simple or direct move.
 ;; Or see if we can avoid doing the move at all
 
-(define_expand "vsx_extract_<mode>"
-  [(parallel [(set (match_operand:<VS_scalar> 0 "nonimmediate_operand" "")
-		   (unspec:<VS_scalar>
-		    [(match_operand:VSX_D 1 "input_operand" "")
-		     (match_operand 2 "input_operand" "")]
-		    UNSPEC_VSX_EXTRACT))
-	      (clobber (match_dup 3))
-	      (clobber (match_dup 4))
-	      (clobber (match_scratch:V2DI 5 ""))])]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
-{
-  machine_mode op2_mode = GET_MODE (operands[2]);
-  if (op2_mode != <VSX_D:VS_scalar>mode && op2_mode != VOIDmode)
-    {
-      rtx tmp = gen_reg_rtx (Pmode);
-      convert_move (tmp, operands[2], 0);
-      operands[2] = tmp;
-    }
+;; There are some unresolved problems with reload that show up if an Altivec
+;; register was picked.  Limit the scalar value to FPRs for now.
 
-  operands[3] = gen_rtx_SCRATCH (Pmode);
-  operands[4] = gen_rtx_SCRATCH (Pmode);
-})
-
-(define_insn_and_split "*vsx_extract_<VSX_D:mode>_<P:mode>"
-  [(set (match_operand:<VSX_D:VS_scalar> 0 "nonimmediate_operand"
-            "=<VS_64reg>, wr, wr, wrd, wrd, wv, wb, wA, m,   Z")
-
-	(unspec:<VSX_D:VS_scalar>
-	 [(match_operand:VSX_D 1 "input_operand"
-            "<VSa>,       wm, wo, m,   m,   Z,  m,  wv, dwo, wv")
-
-	  (match_operand:P 2 "input_operand"
-            " n,          wD, n,  O,   nr,  nr, nr, r,  wD,  wD")]
-
-	 UNSPEC_VSX_EXTRACT))
-
-   (clobber (match_scratch:P 3
-            "=X,          X,  X,  X,   &b,  &b, &b, &b, X,   X"))
-
-   (clobber (match_scratch:P 4
-            "=X,          X,  X,  X,   &b,  &b, &b, &b, X,   X"))
-
-   (clobber (match_scratch:V2DI 5
-            "=X,          X,  X,  X,   X,   X,  X,  &v, X,   X"))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
-  "#"
-  "&& reload_completed"
-  [(const_int 0)]
-{
-  rs6000_split_vector_extract (operands[0], operands[1], operands[2],
-			       operands[3], operands[4], operands[5]);
-  DONE;
-})
-
-(define_insn "vsx_extract_<mode>_const"
-  [(set (match_operand:<VS_scalar> 0 "gpc_reg_operand"
-		"=<VS_64reg>, <VS_64reg>, wr, wr")
+(define_insn "vsx_extract_<mode>"
+  [(set (match_operand:<VS_scalar> 0 "gpc_reg_operand" "=d,    d,     wr, wr")
 
 	(vec_select:<VS_scalar>
-	 (match_operand:VSX_D 1 "gpc_reg_operand"
-		"<VSa>,       <VSa>,      wm, wo")
+	 (match_operand:VSX_D 1 "gpc_reg_operand"      "<VSa>, <VSa>, wm, wo")
 
 	 (parallel
-	  [(match_operand:QI 2 "const_0_to_1_operand"
-		"wD,          n,          wD, n")])))]
+	  [(match_operand:QI 2 "const_0_to_1_operand"  "wD,    n,     wD, n")])))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
 {
   int element = INTVAL (operands[2]);
@@ -2226,17 +2171,45 @@
   else
     gcc_unreachable ();
 }
-  [(set_attr "type" "veclogical,vecperm,mftgpr,mftgpr")])
+  [(set_attr "type" "veclogical,mftgpr,mftgpr,vecperm")])
 
-;; VSLO instruction used for V2DI/V2DF extract, leaving the element in the
-;; upper part of the register as a 64-bit scalar.
+;; Optimize extracting a single scalar element from memory if the scalar is in
+;; the correct location to use a single load.
+(define_insn "*vsx_extract_<mode>_load"
+  [(set (match_operand:<VS_scalar> 0 "register_operand" "=d,wv,wr")
+	(vec_select:<VS_scalar>
+	 (match_operand:VSX_D 1 "memory_operand" "m,Z,m")
+	 (parallel [(const_int 0)])))]
+  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "@
+   lfd%U1%X1 %0,%1
+   lxsd%U1x %x0,%y1
+   ld%U1%X1 %0,%1"
+  [(set_attr "type" "fpload,fpload,load")
+   (set_attr "length" "4")])
+
+;; Optimize storing a single scalar element that is the right location to
+;; memory
+(define_insn "*vsx_extract_<mode>_store"
+  [(set (match_operand:<VS_scalar> 0 "memory_operand" "=m,Z,?Z")
+	(vec_select:<VS_scalar>
+	 (match_operand:VSX_D 1 "register_operand" "d,wd,<VSa>")
+	 (parallel [(match_operand:QI 2 "vsx_scalar_64bit" "wD,wD,wD")])))]
+  "VECTOR_MEM_VSX_P (<MODE>mode)"
+  "@
+   stfd%U0%X0 %1,%0
+   stxsd%U0x %x1,%y0
+   stxsd%U0x %x1,%y0"
+  [(set_attr "type" "fpstore")
+   (set_attr "length" "4")])
+
+;; Variable V2DI/V2DF extract
 (define_insn "vsx_vslo_<mode>"
   [(set (match_operand:<VS_scalar> 0 "gpc_reg_operand" "=v")
 	(unspec:<VS_scalar> [(match_operand:VSX_D 1 "gpc_reg_operand" "v")
 			     (match_operand:V2DI 2 "gpc_reg_operand" "v")]
 			    UNSPEC_VSX_VSLO))]
-  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_DIRECT_MOVE && TARGET_POWERPC64
-   && TARGET_UPPER_REGS_DI && (<MODE>mode != V2DFmode || TARGET_UPPER_REGS_DF)"
+  "TARGET_VARIABLE_EXTRACT (<MODE>mode)"
   "vslo %0,%1,%2"
   [(set_attr "type" "vecperm")])
 

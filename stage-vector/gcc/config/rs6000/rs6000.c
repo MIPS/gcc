@@ -2409,7 +2409,6 @@ rs6000_debug_reg_global (void)
 	   "wx reg_class = %s\n"
 	   "wy reg_class = %s\n"
 	   "wz reg_class = %s\n"
-	   "wA reg_class = %s\n"
 	   "\n",
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_d]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_f]],
@@ -2437,8 +2436,7 @@ rs6000_debug_reg_global (void)
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_ww]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wx]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wy]],
-	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wz]],
-	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wA]]);
+	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wz]]);
 
   nl = "\n";
   for (m = 0; m < NUM_MACHINE_MODES; ++m)
@@ -3076,8 +3074,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	ww - Register class to do SF conversions in with VSX operations.
 	wx - Float register if we can do 32-bit int stores.
 	wy - Register class to do ISA 2.07 SF operations.
-	wz - Float register if we can do 32-bit unsigned int loads.
-	wA - Altivec register for 64-bit instructions & direct moves.  */
+	wz - Float register if we can do 32-bit unsigned int loads.  */
 
   if (TARGET_HARD_FLOAT && TARGET_FPRS)
     rs6000_constraints[RS6000_CONSTRAINT_f] = FLOAT_REGS;	/* SFmode  */
@@ -3127,7 +3124,6 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
       rs6000_constraints[RS6000_CONSTRAINT_wk]			/* DFmode  */
 	= rs6000_constraints[RS6000_CONSTRAINT_ws];
       rs6000_constraints[RS6000_CONSTRAINT_wm] = VSX_REGS;
-      rs6000_constraints[RS6000_CONSTRAINT_wA] = ALTIVEC_REGS;
     }
 
   if (TARGET_POWERPC64)
@@ -6902,16 +6898,8 @@ rs6000_expand_vector_extract (rtx target, rtx vec, rtx elt)
   machine_mode inner_mode = GET_MODE_INNER (mode);
   rtx mem;
 
-  if (VECTOR_MEM_VSX_P (mode)
-      && (CONST_INT_P (elt) || TARGET_VARIABLE_EXTRACT (mode)))
+  if (VECTOR_MEM_VSX_P (mode) && CONST_INT_P (elt))
     {
-      if (!CONST_INT_P (elt) && GET_MODE (elt) != Pmode)
-	{
-	  rtx tmp = gen_reg_rtx (Pmode);
-	  convert_move (tmp, elt, 0);
-	  elt = tmp;
-	}
-
       switch (mode)
 	{
 	default:
@@ -6955,6 +6943,77 @@ rs6000_expand_vector_extract (rtx target, rtx vec, rtx elt)
 	    break;
 	}
     }
+  else if (!CONST_INT_P (elt) && TARGET_VARIABLE_EXTRACT (mode))
+    {
+      machine_mode scalar_mode = GET_MODE_INNER (mode);
+      unsigned scalar_size = GET_MODE_SIZE (scalar_mode);
+      int byte_shift = exact_log2 (scalar_size);
+      int bit_shift = byte_shift + 3;
+      rtx gpr_element = elt;
+      rtx tmp1, tmp2;
+
+      gcc_assert (byte_shift > 0);
+
+      if (GET_MODE (elt) != DImode)
+	{
+	  rtx tmp = gen_reg_rtx (DImode);
+	  convert_move (tmp, elt, 0);
+	  elt = tmp;
+	}
+
+      /* If little endian, adjust element ordering.  For V2DI/V2DF, we can use
+	 an XOR, otherwise we need to subtract.  */
+      if (!VECTOR_ELT_ORDER_BIG)
+	{
+	  if (scalar_size == 8)
+	    {
+	      tmp1 = gen_reg_rtx (DImode);
+	      tmp2 = gen_reg_rtx (DImode);
+	      emit_insn (gen_xordi3 (tmp1, gpr_element, const1_rtx));
+	      emit_insn (gen_anddi3 (tmp2, tmp1, const1_rtx));
+	      gpr_element = tmp2;
+	    }
+	  else
+	    {
+	      rtx num_ele_m1 = GEN_INT (GET_MODE_NUNITS (mode) - 1);
+
+	      tmp1 = gen_reg_rtx (DImode);
+	      tmp2 = gen_reg_rtx (DImode);
+	      emit_insn (gen_anddi3 (tmp1, gpr_element, num_ele_m1));
+	      emit_insn (gen_subdi3 (tmp2, num_ele_m1, tmp1));
+	      gpr_element = tmp2;
+	    }
+	}
+
+      /* Shift amount so that VSLO will shift the element into the upper
+	 position.  Adding 3 converts the byte shift to a bit shift,
+	 expected the by the instruction.  */
+      tmp1 = gen_reg_rtx (DImode);
+      emit_insn (gen_ashldi3 (tmp1, gpr_element, GEN_INT (bit_shift)));
+      gpr_element = tmp1;
+
+      /* Get the value into the lower byte where VSLO expects it.  */
+      tmp1 = gen_reg_rtx (V2DImode);
+      if (TARGET_P9_VECTOR)
+	emit_insn (gen_vsx_splat_v2di (tmp1, gpr_element));
+      else
+	emit_insn (gen_vsx_concat_v2di (tmp1, gpr_element, gpr_element));
+
+      /* Do the VSLO and any final cleanup.  */
+      switch (mode)
+	{
+	case V2DFmode:
+	  emit_insn (gen_vsx_vslo_v2df (target, vec, tmp1));
+	  return;
+
+	case V2DImode:
+	  emit_insn (gen_vsx_vslo_v2di (target, vec, tmp1));
+	  return;
+
+	default:
+	  gcc_unreachable ();
+	}
+    }
 
   gcc_assert (CONST_INT_P (elt));
 
@@ -6968,295 +7027,6 @@ rs6000_expand_vector_extract (rtx target, rtx vec, rtx elt)
 			   INTVAL (elt) * GET_MODE_SIZE (inner_mode));
 
   emit_move_insn (target, adjust_address_nv (mem, inner_mode, 0));
-}
-
-/* Subroutine for rs6000_split_vector_extract.  Extract a constant element from
-   a vector in a register, returning the result in a register.  Return true, if
-   the split was handled.  */
-
-static bool
-split_extract_reg_reg_const (rtx dest,		/* destination scalar.  */
-			     rtx src,		/* source vector.  */
-			     rtx element)	/* element to extract.  */
-{
-  switch (GET_MODE (src))
-    {
-    case V2DImode:
-      emit_insn (gen_vsx_extract_v2di_const (dest, src, element));
-      return true;
-
-    case V2DFmode:
-      emit_insn (gen_vsx_extract_v2df_const (dest, src, element));
-      return true;
-
-    default:
-      break;
-    }
-
-  return false;
-}
-
-/* Subroutine for rs6000_split_vector_extract.  Extract a variable element from
-   a vector in a register, returning the result in a register.  Return true, if
-   the split was handled.  */
-
-static bool
-split_extract_reg_reg_var (rtx dest,		/* destination scalar.  */
-			   rtx src,		/* source vector.  */
-			   rtx element,		/* element to extract.  */
-			   rtx gpr_tmp1,	/* GPR temporary #1.  */
-			   rtx gpr_tmp2,	/* GPR temporary #2.  */
-			   rtx vector_tmp)	/* Vector temporary.  */
-{
-  machine_mode vector_mode = GET_MODE (src);
-  machine_mode scalar_mode = GET_MODE_INNER (vector_mode);
-  unsigned scalar_size = GET_MODE_SIZE (scalar_mode);
-  int byte_shift = exact_log2 (scalar_size);
-  int bit_shift = byte_shift + 3;
-  unsigned mask = GET_MODE_NUNITS (vector_mode) - 1;
-  rtx gpr_element;
-
-  /* We need to use the Altivec registers to use the VSLO instruction, and we
-     need to use DIRECT_MOVE to move the element number to an Altivec
-     register.  */
-  if (!TARGET_UPPER_REGS_DI || !TARGET_DIRECT_MOVE || !TARGET_POWERPC64)
-    return false;
-
-  if (vector_mode == V2DFmode && !TARGET_UPPER_REGS_DF)
-    return false;
-
-  if (vector_mode == V4SFmode && !TARGET_UPPER_REGS_SF)
-    return false;
-
-  gcc_assert (byte_shift > 0);
-  gcc_assert (REG_P (gpr_tmp1));
-  gcc_assert (REG_P (gpr_tmp2));
-  gcc_assert (REG_P (vector_tmp));
-
-  /* If a constant handler was not provided, load it up here.  */
-  if (CONST_INT_P (element))
-    {
-      unsigned value = UINTVAL (element) & mask;
-
-      if (!VECTOR_ELT_ORDER_BIG)
-	value = GET_MODE_NUNITS (vector_mode) - 1 - value;
-
-      emit_move_insn (gpr_tmp1, GEN_INT (value << bit_shift));
-      gpr_element = gpr_tmp1;
-    }
-
-  else
-    {
-      /* If little endian, adjust element ordering.  For V2DI/V2DF, we can use
-	 an XOR, otherwise we need to subtract.  */
-      if (VECTOR_ELT_ORDER_BIG)
-	gpr_element = element;
-      else if (scalar_size == 8)
-	{
-	  emit_insn (gen_rtx_SET (gpr_tmp1,
-				  gen_rtx_XOR (Pmode, element, const1_rtx)));
-	  gpr_element = gpr_tmp1;
-	}
-      else
-	{
-	  rtx num_ele_m1 = GEN_INT (mask);
-	  emit_insn (gen_rtx_SET (gpr_tmp2,
-				  gen_rtx_AND (Pmode, element, num_ele_m1)));
-	  emit_insn (gen_rtx_SET (gpr_tmp1,
-				  gen_rtx_MINUS (Pmode, num_ele_m1, gpr_tmp2)));
-	  gpr_element = gpr_tmp1;
-	}
-
-      /* Shift amount so that VSLO will shift the element into the upper
-	 position.  Adding 3 converts the byte shift to a bit shift,
-	 expected the by the instruction.  */
-      emit_insn (gen_rtx_SET (gpr_element,
-			      gen_rtx_ASHIFT (Pmode, gpr_element,
-					      GEN_INT (bit_shift))));
-
-    }
-
-  /* Get the value into the lower byte where VSLO expects it.  */
-  if (TARGET_P9_VECTOR)
-    emit_insn (gen_vsx_splat_v2di (vector_tmp, gpr_element));
-  else
-    {
-      rtx vector_di = gen_rtx_REG (DImode, REGNO (vector_tmp));
-      emit_move_insn (vector_di, gpr_element);
-      emit_insn (gen_vsx_concat_v2di (vector_tmp, vector_di, vector_di));
-    }
-
-  /* Do the VSLO and any final cleanup.  */
-  switch (vector_mode)
-    {
-    case V2DFmode:
-      emit_insn (gen_vsx_vslo_v2df (dest, src, vector_tmp));
-      return true;
-
-    case V2DImode:
-      emit_insn (gen_vsx_vslo_v2di (dest, src, vector_tmp));
-      return true;
-
-    default:
-      break;
-    }
-
-  return false;
-}
-
-/* Subroutine for rs6000_split_vector_extract.  Extract anelement from a vector
-   in memory, returning the result in a register.  Return true, if the split
-   was handled.  */
-
-static bool
-split_extract_memory (rtx dest,			/* destination scalar.  */
-		      rtx src,			/* source vector.  */
-		      rtx element,		/* element to extract.  */
-		      rtx gpr_tmp1,		/* GPR temporary #1.  */
-		      rtx gpr_tmp2)		/* GPR temporary #2.  */
-{
-  machine_mode vector_mode = GET_MODE (src);
-  machine_mode scalar_mode = GET_MODE_INNER (vector_mode);
-  unsigned scalar_size = GET_MODE_SIZE (scalar_mode);
-  rtx addr = XEXP (src, 0);
-  rtx src2 = NULL_RTX;
-
-  /* Vector extract of element 0 from memory: Use normal memory address.  */
-  if (element == const0_rtx)
-    src2 = adjust_address (src, scalar_mode, 0);
-
-  else
-    {
-      gcc_assert (REG_P (gpr_tmp1));
-      gcc_assert (REG_P (gpr_tmp2));
-
-      /* Vector extract of a constant element from memory: Try to fold the
-	 offset into the address.  */
-      if (CONST_INT_P (element))
-	{
-	  HOST_WIDE_INT offset = INTVAL (element) * scalar_size;
-	  int dest_regno = REGNO (dest);
-	  bool dest_xform_p;
-
-	  if (INT_REGNO_P (dest_regno))
-	    {
-	      if (!TARGET_POWERPC64 && scalar_size == 8)
-		return false;
-
-	      dest_xform_p = true;
-	    }
-
-	  else if (FP_REGNO_P (dest_regno)
-		   || (TARGET_P9_DFORM_SCALAR && ALTIVEC_REGNO_P (dest_regno)))
-	    dest_xform_p = (scalar_mode == DFmode
-			    || scalar_mode == DImode
-			    || scalar_mode == SFmode);
-
-	  else
-	    dest_xform_p = false;
-
-	  if (dest_xform_p
-	      && (REG_P (addr)
-		  || (GET_CODE (addr) == PLUS
-		      && CONST_INT_P (XEXP (addr, 1))
-		      && INTVAL (XEXP (addr, 1)) < (32768 - scalar_size))))
-	    src2 = adjust_address (src, scalar_mode, offset);
-
-	  else
-	    {
-	      emit_move_insn (gpr_tmp1, addr);
-	      emit_move_insn (gpr_tmp2, GEN_INT (offset));
-	      src2 = change_address (src, scalar_mode,
-				     gen_rtx_PLUS (Pmode, gpr_tmp1,
-						   gpr_tmp2));
-	    }
-	}
-
-      /* Vector extract of a variable element from memory.  */
-      else
-	{
-	  int shift = exact_log2 (scalar_size);
-	  HOST_WIDE_INT mask = (scalar_size << shift);
-	  rtx shift_rtx;
-	  rtx rotl_rtx;
-
-	  gcc_assert (shift > 0);
-	  emit_move_insn (gpr_tmp1, addr);
-
-	  shift_rtx = gen_rtx_ASHIFT (Pmode, element, GEN_INT (shift));
-	  rotl_rtx = gen_rtx_AND (Pmode, shift_rtx, GEN_INT (-mask));
-	  emit_insn (gen_rtx_SET (gpr_tmp2, rotl_rtx));
-	  src2 = change_address (src, scalar_mode,
-				 gen_rtx_PLUS (Pmode, gpr_tmp1,
-					       gpr_tmp2));
-	}
-    }
-
-  gcc_assert (src2 != NULL_RTX);
-  emit_move_insn (dest, src2);
-  return true;
-}
-
-/* Split a vector extract operation.  This must be run after register
-   allocation, so that we can properly adjust memory, etc.  */
-
-void
-rs6000_split_vector_extract (rtx dest,		/* destination scalar.  */
-			     rtx src,		/* source vector.  */
-			     rtx element,	/* element to extract.  */
-			     rtx gpr_tmp1,	/* GPR temporary #1.  */
-			     rtx gpr_tmp2,	/* GPR temporary #2.  */
-			     rtx vector_tmp)	/* Vector temporary.  */
-{
-  if (REG_P (dest))
-    {
-      if (REG_P (src))
-	{
-	  /* Extract a scalar register from a vector register at a constant
-	     element number.  */
-	  if (CONST_INT_P (element)
-	      && split_extract_reg_reg_const (dest, src, element))
-	    return;
-
-	  /* Extract a scalar register from a vector register at a variable
-	     element number (or a constant element number if there wasn't a
-	     handler for the constant case).  */
-	  if (split_extract_reg_reg_var (dest, src, element, gpr_tmp1, gpr_tmp2,
-					 vector_tmp))
-	    return;
-
-	  gcc_unreachable ();
-	}
-
-      /* Extract a scalar register from a memory location.  The element number
-	 can be constant or variable.  */
-      else if (MEM_P (src))
-	{
-	  if (split_extract_memory (dest, src, element, gpr_tmp1, gpr_tmp2))
-	    return;
-
-	  gcc_unreachable ();
-	}
-    }
-
-  /* Optimize a store of the element that has the same address as the vector.
-     Only allow this optimization for 64-bit scalars, since we don't currently
-     allow small integers in vector registers.  */
-  else if (MEM_P (dest) && REG_P (src) && CONST_INT_P (element)
-	   && INTVAL (element) == VECTOR_ELEMENT_SCALAR_64BIT)
-    {
-      machine_mode vector_mode = GET_MODE (src);
-      machine_mode scalar_mode = GET_MODE_INNER (vector_mode);
-
-      if (GET_MODE_SIZE (scalar_mode) == 8)
-	{
-	  rtx dest2 = adjust_address (dest, scalar_mode, 0);
-	  emit_move_insn (dest2, gen_rtx_REG (scalar_mode, REGNO (src)));
-	  return;
-	}
-    }
-
-  gcc_unreachable ();
 }
 
 /* Return TRUE if OP is an invalid SUBREG operation on the e500.  */
