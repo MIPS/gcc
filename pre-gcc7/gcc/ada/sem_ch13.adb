@@ -1937,9 +1937,11 @@ package body Sem_Ch13 is
             if not Implementation_Defined_Aspect (A_Id) then
                Error_Msg_Name_1 := Nam;
 
-               --  Not allowed for renaming declarations
+               --  Not allowed for renaming declarations. Examine the original
+               --  node because a subprogram renaming may have been rewritten
+               --  as a body.
 
-               if Nkind (N) in N_Renaming_Declaration then
+               if Nkind (Original_Node (N)) in N_Renaming_Declaration then
                   Error_Msg_N
                     ("aspect % not allowed for renaming declaration",
                      Aspect);
@@ -3821,8 +3823,8 @@ package body Sem_Ch13 is
       U_Ent : Entity_Id;
       --  The underlying entity to which the attribute applies. Generally this
       --  is the Underlying_Type of Ent, except in the case where the clause
-      --  applies to full view of incomplete type or private type in which case
-      --  U_Ent is just a copy of Ent.
+      --  applies to the full view of an incomplete or private type, in which
+      --  case U_Ent is just a copy of Ent.
 
       FOnly : Boolean := False;
       --  Reset to True for subtype specific attribute (Alignment, Size)
@@ -6616,7 +6618,13 @@ package body Sem_Ch13 is
    -----------------------------------
 
    procedure Analyze_Freeze_Generic_Entity (N : Node_Id) is
+      E : constant Entity_Id := Entity (N);
+
    begin
+      if not Is_Frozen (E) and then Has_Delayed_Aspects (E) then
+         Analyze_Aspects_At_Freeze_Point (E);
+      end if;
+
       Freeze_Entity_Checks (N);
    end Analyze_Freeze_Generic_Entity;
 
@@ -11941,7 +11949,9 @@ package body Sem_Ch13 is
       --  at the freeze point, and we must generate only a completion of this
       --  declaration. We do the same for private types, because the full view
       --  might be tagged. Otherwise we generate a declaration at the point of
-      --  the attribute definition clause.
+      --  the attribute definition clause. If the attribute definition comes
+      --  from an aspect specification the declaration is part of the freeze
+      --  actions of the type.
 
       function Build_Spec return Node_Id;
       --  Used for declaration and renaming declaration, so that this is
@@ -12033,18 +12043,32 @@ package body Sem_Ch13 is
              Object_Definition   => New_Occurrence_Of (Standard_Boolean, Loc));
       end if;
 
-      Insert_Action (N, Subp_Decl);
-      Set_Entity (N, Subp_Id);
+      if not Defer_Declaration
+        and then From_Aspect_Specification (N)
+        and then Has_Delayed_Freeze (Ent)
+      then
+         Append_Freeze_Action (Ent, Subp_Decl);
+
+      else
+         Insert_Action (N, Subp_Decl);
+         Set_Entity (N, Subp_Id);
+      end if;
 
       Subp_Decl :=
         Make_Subprogram_Renaming_Declaration (Loc,
           Specification => Build_Spec,
-          Name => New_Occurrence_Of (Subp, Loc));
+          Name          => New_Occurrence_Of (Subp, Loc));
 
       if Defer_Declaration then
          Set_TSS (Base_Type (Ent), Subp_Id);
+
       else
-         Insert_Action (N, Subp_Decl);
+         if From_Aspect_Specification (N) then
+            Append_Freeze_Action (Ent, Subp_Decl);
+         else
+            Insert_Action (N, Subp_Decl);
+         end if;
+
          Copy_TSS (Subp_Id, Base_Type (Ent));
       end if;
    end New_Stream_Subprogram;

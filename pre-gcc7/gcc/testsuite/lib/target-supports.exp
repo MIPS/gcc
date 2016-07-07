@@ -2370,6 +2370,40 @@ proc check_effective_target_has_q_floating_suffix { } {
 	float dummy = 1.0q;
     } "$opts"]
 }
+
+# Return 1 if the target supports __float128,
+# 0 otherwise.
+
+proc check_effective_target___float128 { } {
+    if { [istarget powerpc*-*-*] } {
+	return [check_ppc_float128_sw_available]
+    }
+    if { [istarget ia64-*-*]
+	 || [istarget i?86-*-*]
+	 || [istarget x86_64-*-*] } {
+	return 1
+    }
+    return 0
+}
+
+proc add_options_for___float128 { flags } {
+    if { [istarget powerpc*-*-*] } {
+	return "$flags -mfloat128 -mvsx"
+    }
+    return "$flags"
+}
+
+# Return 1 if the target supports any special run-time requirements
+# for __float128 or _Float128,
+# 0 otherwise.
+
+proc check_effective_target_base_quadfloat_support { } {
+    if { [istarget powerpc*-*-*] } {
+	return [check_vsx_hw_available]
+    }
+    return 1
+}
+
 # Return 1 if the target supports compiling fixed-point,
 # 0 otherwise.
 
@@ -3314,7 +3348,9 @@ foreach { armfunc armflag armdef } { v4 "-march=armv4 -marm" __ARM_ARCH_4__
 				     v7m "-march=armv7-m -mthumb" __ARM_ARCH_7M__
 				     v7em "-march=armv7e-m -mthumb" __ARM_ARCH_7EM__
 				     v8a "-march=armv8-a" __ARM_ARCH_8A__
-				     v8_1a "-march=armv8.1a" __ARM_ARCH_8A__ } {
+				     v8_1a "-march=armv8.1a" __ARM_ARCH_8A__
+				     v8m_base "-march=armv8-m.base -mthumb" __ARM_ARCH_8M_BASE__
+				     v8m_main "-march=armv8-m.main -mthumb" __ARM_ARCH_8M_MAIN__ } {
     eval [string map [list FUNC $armfunc FLAG $armflag DEF $armdef ] {
 	proc check_effective_target_arm_arch_FUNC_ok { } {
 	    if { [ string match "*-marm*" "FLAG" ] &&
@@ -3442,10 +3478,8 @@ proc check_effective_target_arm_cortex_m { } {
 	return 0
     }
     return [check_no_compiler_messages arm_cortex_m assembly {
-	#if !defined(__ARM_ARCH_7M__) \
-            && !defined (__ARM_ARCH_7EM__) \
-            && !defined (__ARM_ARCH_6M__)
-	#error !__ARM_ARCH_7M__ && !__ARM_ARCH_7EM__ && !__ARM_ARCH_6M__
+	#if defined(__ARM_ARCH_ISA_ARM)
+	#error __ARM_ARCH_ISA_ARM is defined
 	#endif
 	int i;
     } "-mthumb"]
