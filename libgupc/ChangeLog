@@ -1,5 +1,11 @@
 2016-07-04  Gary Funck  <gary@intrepid.com>
 
+	* smp/upc_atomic.tpl: Move the placement of the
+	"#pragma diagnostic ignore".
+	* smp/upc_atomic.upc: Re-generate.
+
+2016-07-04  Gary Funck  <gary@intrepid.com>
+
 	* smp/upc_atomic.tpl: Disable maybe-uninitialized warning.
 	Remove reference to Portals.
 	* smp/upc_atomic.upc: Re-generate.

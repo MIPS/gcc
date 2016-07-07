@@ -391,9 +391,9 @@ __upc_atomic_[=type_abbrev=] (
   ENDFOR =]
       default: break;
     }
-  if (fetch_ptr != NULL)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+  if (fetch_ptr != NULL)
     *fetch_ptr = orig_value;
 #pragma GCC diagnostic pop
 }[=

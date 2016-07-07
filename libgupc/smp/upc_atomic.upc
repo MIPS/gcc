@@ -411,9 +411,9 @@ __upc_atomic_I (
         break;
       default: break;
     }
-  if (fetch_ptr != NULL)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+  if (fetch_ptr != NULL)
     *fetch_ptr = orig_value;
 #pragma GCC diagnostic pop
 }
@@ -516,9 +516,9 @@ __upc_atomic_UI (
         break;
       default: break;
     }
-  if (fetch_ptr != NULL)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+  if (fetch_ptr != NULL)
     *fetch_ptr = orig_value;
 #pragma GCC diagnostic pop
 }
@@ -621,9 +621,9 @@ __upc_atomic_L (
         break;
       default: break;
     }
-  if (fetch_ptr != NULL)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+  if (fetch_ptr != NULL)
     *fetch_ptr = orig_value;
 #pragma GCC diagnostic pop
 }
@@ -726,9 +726,9 @@ __upc_atomic_UL (
         break;
       default: break;
     }
-  if (fetch_ptr != NULL)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+  if (fetch_ptr != NULL)
     *fetch_ptr = orig_value;
 #pragma GCC diagnostic pop
 }
@@ -831,9 +831,9 @@ __upc_atomic_LL (
         break;
       default: break;
     }
-  if (fetch_ptr != NULL)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+  if (fetch_ptr != NULL)
     *fetch_ptr = orig_value;
 #pragma GCC diagnostic pop
 }
@@ -936,9 +936,9 @@ __upc_atomic_ULL (
         break;
       default: break;
     }
-  if (fetch_ptr != NULL)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+  if (fetch_ptr != NULL)
     *fetch_ptr = orig_value;
 #pragma GCC diagnostic pop
 }
@@ -1041,9 +1041,9 @@ __upc_atomic_I32 (
         break;
       default: break;
     }
-  if (fetch_ptr != NULL)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+  if (fetch_ptr != NULL)
     *fetch_ptr = orig_value;
 #pragma GCC diagnostic pop
 }
@@ -1146,9 +1146,9 @@ __upc_atomic_UI32 (
         break;
       default: break;
     }
-  if (fetch_ptr != NULL)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+  if (fetch_ptr != NULL)
     *fetch_ptr = orig_value;
 #pragma GCC diagnostic pop
 }
@@ -1251,9 +1251,9 @@ __upc_atomic_I64 (
         break;
       default: break;
     }
-  if (fetch_ptr != NULL)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+  if (fetch_ptr != NULL)
     *fetch_ptr = orig_value;
 #pragma GCC diagnostic pop
 }
@@ -1356,9 +1356,9 @@ __upc_atomic_UI64 (
         break;
       default: break;
     }
-  if (fetch_ptr != NULL)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+  if (fetch_ptr != NULL)
     *fetch_ptr = orig_value;
 #pragma GCC diagnostic pop
 }
@@ -1477,9 +1477,9 @@ __upc_atomic_F (
         break;
       default: break;
     }
-  if (fetch_ptr != NULL)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+  if (fetch_ptr != NULL)
     *fetch_ptr = orig_value;
 #pragma GCC diagnostic pop
 }
@@ -1598,9 +1598,9 @@ __upc_atomic_D (
         break;
       default: break;
     }
-  if (fetch_ptr != NULL)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+  if (fetch_ptr != NULL)
     *fetch_ptr = orig_value;
 #pragma GCC diagnostic pop
 }
@@ -1653,9 +1653,9 @@ __upc_atomic_PTS (
         break;
       default: break;
     }
-  if (fetch_ptr != NULL)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+  if (fetch_ptr != NULL)
     *fetch_ptr = orig_value;
 #pragma GCC diagnostic pop
 }
