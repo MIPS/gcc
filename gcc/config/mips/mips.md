@@ -5197,17 +5197,20 @@
 })
 
 (define_insn "*movhi_internal"
-  [(set (match_operand:HI 0 "nonimmediate_operand" "=d,!u,d,!u,d,ZU,m,*a,*d,d")
-	(match_operand:HI 1 "move_operand"         "d,J,I,ZU,m,!kbJ,dJ,*d*J,*a,i"))]
+  [(set (match_operand:HI 0 "nonimmediate_operand" "=d,!u,d,!u,d,ZU,m,*a,*d,d,d")
+	(match_operand:HI 1 "move_operand"         "d,J,I,ZU,m,!kbJ,dJ,*d*J,*a,L,i"))]
   "!TARGET_MIPS16
    && (register_operand (operands[0], HImode)
        || reg_or_0_operand (operands[1], HImode))"
   { return mips_output_move (insn, operands[0], operands[1]); }
-  [(set_attr "move_type" "move,const,const,load,load,store,store,mtlo,mflo,move")
-   (set_attr "compression" "all,micromips,*,micromips,*,micromips,*,*,*,*")
+  [(set_attr "move_type" "move,const,const,load,load,store,store,mtlo,mflo,move,move")
+   (set_attr "compression" "all,micromips,*,micromips,*,micromips,*,*,*,*,*")
    (set_attr "mode" "HI")
    (set (attr "enabled")
 	(cond [(and (eq_attr "alternative" "9")
+		    (match_test "!TARGET_MICROMIPS_R7"))
+		  (const_string "no")
+	       (and (eq_attr "alternative" "10")
 		    (match_test "!(TARGET_MICROMIPS_R7 && TARGET_LI48)"))
 		  (const_string "no")]
 	      (const_string "yes")))])

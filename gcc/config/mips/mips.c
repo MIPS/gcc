@@ -390,7 +390,7 @@ struct mips_integer_op {
    The worst accepted case for 64-bit constants is LUI,ORI,SLL,ORI,SLL,ORI.
    When the lowest bit is clear, we can try, but reject a sequence with
    an extra SLL at the end.  */
-#define MIPS_MAX_INTEGER_OPS 7
+#define MIPS_MAX_INTEGER_OPS 15
 
 /* Information about a MIPS16e SAVE or RESTORE instruction.  */
 struct mips16e_save_restore_info {
@@ -2415,8 +2415,15 @@ mips_build_lower (struct mips_integer_op *codes, unsigned HOST_WIDE_INT value)
   unsigned HOST_WIDE_INT high;
   unsigned int i;
 
-  high = value & ~(unsigned HOST_WIDE_INT) 0xffff;
-  if (!LUI_OPERAND (high) && (value & 0x18000) == 0x18000)
+  if (TARGET_MICROMIPS_R7)
+    high = value & ~(unsigned HOST_WIDE_INT) 0xfff;
+  else
+    high = value & ~(unsigned HOST_WIDE_INT) 0xffff;
+
+  if ((!TARGET_MICROMIPS_R7
+       && !LUI_OPERAND (high) && (value & 0x18000) == 0x18000)
+      || (TARGET_MICROMIPS_R7
+	   && !LUI_OPERAND (high) && (value & 0x1800) == 0x1800))
     {
       /* The constant is too complex to load with a simple LUI/ORI pair,
 	 so we want to give the recursive call as many trailing zeros as
@@ -2468,7 +2475,10 @@ mips_build_integer (struct mips_integer_op *codes,
 	 lowest bit is set.  We don't want to shift in this case.  */
       return mips_build_lower (codes, value);
     }
-  else if ((value & 0xffff) == 0)
+  else if ((!TARGET_MICROMIPS_R7
+	    && (value & (unsigned HOST_WIDE_INT) 0xffff) == 0)
+	   || (TARGET_MICROMIPS_R7
+	       && (value & (unsigned HOST_WIDE_INT) 0xfff) == 0))
     {
       /* The constant will need at least three actions.  The lowest
 	 16 bits are clear, so the final action will be a shift.  */
@@ -4575,11 +4585,11 @@ void
 mips_move_integer (rtx temp, rtx dest, unsigned HOST_WIDE_INT value)
 {
   struct mips_integer_op codes[MIPS_MAX_INTEGER_OPS];
-  machine_mode mode;
+  machine_mode mode, orig_mode;
   unsigned int i, num_ops;
   rtx x;
 
-  mode = GET_MODE (dest);
+  orig_mode = mode = GET_MODE (dest);
   num_ops = mips_build_integer (codes, value);
 
   /* Apply each binary operation to X.  Invariant: X is a legitimate
@@ -4587,6 +4597,8 @@ mips_move_integer (rtx temp, rtx dest, unsigned HOST_WIDE_INT value)
   x = GEN_INT (codes[0].value);
   for (i = 1; i < num_ops; i++)
     {
+      if (GET_MODE_SIZE (mode) < 4)
+	mode = SImode;
       if (!can_create_pseudo_p ())
 	{
 	  emit_insn (gen_rtx_SET (temp, x));
@@ -4597,7 +4609,8 @@ mips_move_integer (rtx temp, rtx dest, unsigned HOST_WIDE_INT value)
       x = gen_rtx_fmt_ee (codes[i].code, mode, x, GEN_INT (codes[i].value));
     }
 
-  emit_insn (gen_rtx_SET (dest, x));
+  emit_insn (gen_rtx_SET (GET_MODE_SIZE (orig_mode) < 4
+			  ? gen_rtx_SUBREG (mode, dest, 0) : dest, x));
 }
 
 /* Subroutine of mips_legitimize_move.  Move constant SRC into register
