@@ -5,6 +5,7 @@
 	* config/rs6000/rs6000.c: Likewise.
 	* config/rs6000/vsx.md: Likewise.
 	* config/rs6000/rs6000.h: Likewise.
+
 	* doc/md.text: Likewise.
 
 	* config/rs6000/rs6000.c (rs6000_expand_vector_extract): Move code
@@ -19,7 +20,8 @@
 	rs6000_expand_vector_extract.
 
 	* config/rs6000/rs6000.h (TARGET_VARIABLE_EXTRACT): Do not require
-	-mupper-regs-df unless mode is V2DFmode.
+	-mupper-regs-df unless mode is V2DFmode.  Turn off for now if
+	-moptimize-swaps on power8.
 
 2016-07-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 

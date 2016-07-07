@@ -605,11 +605,16 @@ extern int rs6000_vector_align[];
 				 && TARGET_UPPER_REGS_DF \
 				 && TARGET_UPPER_REGS_DI && TARGET_POWERPC64)
 
+/* The optimize-swaps support seems to delete some swaps needed for variable
+   vec_extracts, so don't allow it for now.  */
 #define TARGET_VARIABLE_EXTRACT(MODE)	(((MODE) == V2DImode		\
 					  || (MODE) == V2DFmode)	\
 					 && VECTOR_MEM_VSX_P (MODE)	\
 					 && TARGET_DIRECT_MOVE		\
 					 && TARGET_POWERPC64		\
+					 && (TARGET_P9_VECTOR		\
+					     || VECTOR_ELT_ORDER_BIG	\
+					     || !rs6000_optimize_swaps)	\
 					 && TARGET_UPPER_REGS_DI	\
 					 && ((MODE) != V2DFmode 	\
 					     || TARGET_UPPER_REGS_DF))
