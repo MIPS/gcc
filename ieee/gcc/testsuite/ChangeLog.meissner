@@ -1,5 +1,7 @@
 2016-07-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* gcc.target/powerpc/p9-lxvx-stxvx-3.c: Add -mfloat128 option.
+
 	Merge up to 238127.
 
 2016-06-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
