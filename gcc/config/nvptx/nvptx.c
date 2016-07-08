@@ -4193,8 +4193,11 @@ nvptx_file_end (void)
   if (need_softstack_decl)
     {
       write_var_marker (asm_out_file, false, true, "__nvptx_stacks");
-      fprintf (asm_out_file, ".extern .shared .u%d __nvptx_stacks[];\n",
-	       POINTER_SIZE);
+      /* 32 is the maximum number of warps in a block.  Even though it's an
+         external declaration, emit the array size explicitly; otherwise, it
+        may fail at PTX JIT time if the definition is later in link order.  */
+      fprintf (asm_out_file, ".extern .shared .u%d __nvptx_stacks[32];\n",
+              POINTER_SIZE);
     }
   if (need_unisimt_decl)
     {

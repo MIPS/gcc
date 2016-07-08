@@ -1,3 +1,8 @@
+2016-07-08  Alexander Monakov  <amonakov@ispras.ru>
+
+	* config/nvptx/nvptx.c (nvptx_file_end): Do emit element count in
+	external declaration of __nvptx_stacks.
+
 2016-06-02  Alexander Monakov  <amonakov@ispras.ru>
 
 	* doc/invoke.texi (msoft-stack): Reword, fix errors.
