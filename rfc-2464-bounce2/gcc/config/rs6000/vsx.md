@@ -316,20 +316,14 @@
    UNSPEC_VSX_XVCVDPUXDS
    UNSPEC_VSX_SIGN_EXTEND
    UNSPEC_P9_MEMORY
-;; kelvin's new unspecs for rfc02464
    UNSPEC_VSX_SXEXPDP
    UNSPEC_VSX_SXSIGDP
    UNSPEC_VSX_SIEXPDP
    UNSPEC_VSX_SCMPEXPDP
-;; vsx scalar test data class double- and single-precision
    UNSPEC_VSX_STSTDC
-;; vsx vector extract exponent double- and single-precision
    UNSPEC_VSX_VXEXP
-;; vsx vector extract significand double- and single-precision
    UNSPEC_VSX_VXSIG
-;; vsx vector insert exponent double- and single-precision
    UNSPEC_VSX_VIEXP
-;; vsx vector test data class double- and single-precision
    UNSPEC_VSX_VTSTDC
   ])
 
@@ -2859,7 +2853,7 @@
   [(set (match_operand:DI 0 "register_operand" "=r")
   	(unspec:DI [(match_operand:DF 1 "vsx_register_operand" "wa")] 
         UNSPEC_VSX_SXEXPDP))]
-  "TARGET_P9_VECTOR"
+  "TARGET_P9_VECTOR && TARGET_64BIT"
   "xsxexpdp %0,%x1"
   [(set_attr "type" "fp")])
 
@@ -2868,7 +2862,7 @@
   [(set (match_operand:DI 0 "register_operand" "=r")
   	(unspec:DI [(match_operand:DF 1 "vsx_register_operand" "wa")] 
         UNSPEC_VSX_SXSIGDP))]
-  "TARGET_P9_VECTOR"
+  "TARGET_P9_VECTOR && TARGET_64BIT"
   "xsxsigdp %0,%x1"
   [(set_attr "type" "fp")])
 
@@ -2878,19 +2872,8 @@
   	(unspec:DF [(match_operand:DI 1 "register_operand" "r")
 		    (match_operand:DI 2 "register_operand" "r")]
         UNSPEC_VSX_SIEXPDP))]
-  "TARGET_P9_VECTOR"
-  "xsxsigdp %x0,%1"
-  [(set_attr "type" "fp")])
-
-(define_insn "*xsiexpdp"
-  [(set (match_operand:CCFP 0 "" "=y")
-        (compare:CCFP
-         (unspec:DF [(match_operand:DF 1 "vsx_register_operand" "wa")
-                     (match_operand:DF 2 "vsx_register_operand" "wa")]
-	  UNSPEC_VSX_SIEXPDP)
-         (match_operand:SI 3 "zero_constant" "j")))]
-  "TARGET_P9_VECTOR"
-  "xsiexpdp %0,%x1,%x2"
+  "TARGET_P9_VECTOR && TARGET_64BIT"
+  "xsiexpdp %x0,%1,%2"
   [(set_attr "type" "fp")])
 
 ;; VSX Scalar Compare Exponents Double-Precision
@@ -2911,6 +2894,17 @@
   operands[3] = gen_reg_rtx (CCFPmode);
   operands[4] = CONST0_RTX (SImode);
 })
+
+(define_insn "*xscmpexpdp"
+  [(set (match_operand:CCFP 0 "" "=y")
+        (compare:CCFP
+         (unspec:VSX_F [(match_operand:DF 1 "vsx_register_operand" "wa")
+	                (match_operand:DF 2 "vsx_register_operand" "wa")]
+          UNSPEC_VSX_SCMPEXPDP)
+         (match_operand:SI 3 "zero_constant" "j")))]
+  "TARGET_P9_VECTOR"
+  "xscmpexpdp %0,%x1,%x2"
+  [(set_attr "type" "fp")])
 
 ;; VSX Scalar Test Data Class Double- and Single-Precision
 ;;  (The lt bit is set if operand 1 is negative.  The eq bit is set 
@@ -2936,7 +2930,7 @@
 
 ;; The VSX Scalar Test Data Class Double- and Single-Precision
 ;; instruction may also be used to test for negative value.
-(define_expand "xststdc<vsx_f_suffix>_neg"
+(define_expand "xststdcneg<vsx_f_suffix>"
   [(set (match_dup 2)
         (compare:CCFP
          (unspec:VSX_F
@@ -2958,7 +2952,7 @@
   [(set (match_operand:CCFP 0 "" "=y")
         (compare:CCFP
          (unspec:VSX_F [(match_operand:VSX_F 1 "vsx_register_operand" "wa")
-                     (match_operand:SI 2 "u7bit_cint_operand" "n")]
+                        (match_operand:SI 2 "u7bit_cint_operand" "n")]
           UNSPEC_VSX_STSTDC)
          (match_operand:SI 3 "zero_constant" "j")))]
   "TARGET_P9_VECTOR"

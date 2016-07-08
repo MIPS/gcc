@@ -4368,12 +4368,11 @@ struct altivec_builtin_types
   { P9V_BUILTIN_VEC_VSTDCDP, P9V_BUILTIN_VSTDCDP,
     RS6000_BTI_UINTSI, RS6000_BTI_double, RS6000_BTI_UINTSI, 0 },
 
-  /* for extract exp and extract sig, the manual says results are in
-  unsigned integer format, but that seems "wrong" because both exp and
-  sig can be negative values.  but the reason we identify results as
-  unsigned is because we don't sign extend even though the sign
-  bit is preserved.  i.e. the sign bit is preserved as 0x400 for
-  exponent and 0x10_000_000_000 for significand. */
+  { P9V_BUILTIN_VEC_VSTDCNSP, P9V_BUILTIN_VSTDCNSP,
+    RS6000_BTI_INTSI, RS6000_BTI_float, 0, 0 },
+  { P9V_BUILTIN_VEC_VSTDCNDP, P9V_BUILTIN_VSTDCNDP,
+    RS6000_BTI_INTSI, RS6000_BTI_double, 0, 0 },
+
   { P9V_BUILTIN_VEC_VSEEDP, P9V_BUILTIN_VSEEDP,
     RS6000_BTI_UINTSI, RS6000_BTI_double, 0, 0 },
 
@@ -4381,7 +4380,7 @@ struct altivec_builtin_types
     RS6000_BTI_UINTDI, RS6000_BTI_double, 0, 0 },
 
   { P9V_BUILTIN_VEC_VSIEDP, P9V_BUILTIN_VSIEDP,
-    RS6000_BTI_double, RS6000_BTI_UINTSI, RS6000_BTI_UINTSI, 0 },
+    RS6000_BTI_double, RS6000_BTI_UINTDI, RS6000_BTI_UINTDI, 0 },
 
   { P9V_BUILTIN_VEC_VSCEDPGT, P9V_BUILTIN_VSCEDPGT,
     RS6000_BTI_INTSI, RS6000_BTI_double, RS6000_BTI_double, 0 },

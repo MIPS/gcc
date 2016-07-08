@@ -419,6 +419,7 @@
 #define scalar_extract_sig __builtin_vec_scalar_extract_sig
 #define scalar_insert_exp __builtin_vec_scalar_insert_exp
 #define scalar_test_data_class __builtin_vec_scalar_test_data_class
+#define scalar_test_neg __builtin_vec_scalar_test_neg
 
 #define scalar_cmp_exp_gt __builtin_vec_scalar_cmp_exp_gt
 #define scalar_cmp_exp_lt __builtin_vec_scalar_cmp_exp_lt
