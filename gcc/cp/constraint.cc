@@ -1625,12 +1625,70 @@ static tree
 tsubst_expr_constr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 {
   cp_unevaluated guard;
-
   tree expr = EXPR_CONSTR_EXPR (t);
-  tree check = tsubst_expr (expr, args, complain, in_decl, false);
-  if (check == error_mark_node)
+  tree ret = tsubst_expr (expr, args, complain, in_decl, false);
+  if (ret == error_mark_node)
     return error_mark_node;
-  return build_nt (EXPR_CONSTR, check);
+  return build_nt (EXPR_CONSTR, ret);
+}
+
+static tree
+tsubst_type_constr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
+{
+  tree type = TYPE_CONSTR_TYPE (t);
+  tree ret = tsubst (type, args, complain, in_decl);
+  if (ret == error_mark_node)
+    return error_mark_node;
+  return build_nt (TYPE_CONSTR, ret);
+}
+
+static tree
+tsubst_implicit_conversion_constr (tree t, tree args, tsubst_flags_t complain,
+                                   tree in_decl)
+{
+  cp_unevaluated guard;
+  tree expr = ICONV_CONSTR_EXPR (t);
+  tree type = ICONV_CONSTR_TYPE (t);
+  tree new_expr = tsubst_expr (expr, args, complain, in_decl, false);
+  if (new_expr == error_mark_node)
+    return error_mark_node;
+  tree new_type = tsubst (type, args, complain, in_decl);
+  if (new_type == error_mark_node)
+    return error_mark_node;
+  return build_nt (ICONV_CONSTR, new_expr, new_type);
+}
+
+static tree
+tsubst_argument_deduction_constr (tree t, tree args, tsubst_flags_t complain,
+                                  tree in_decl)
+{
+  cp_unevaluated guard;
+  tree expr = DEDUCT_CONSTR_EXPR (t);
+  tree pattern = DEDUCT_CONSTR_PATTERN (t);
+  tree autos = DEDUCT_CONSTR_PLACEHOLDER(t);
+  tree new_expr = tsubst_expr (expr, args, complain, in_decl, false);
+  if (new_expr == error_mark_node)
+    return error_mark_node;
+  /* It seems like substituting through the pattern will not affect the
+     placeholders.  We should (?) be able to reuse the existing list
+     without any problems.  If not, then we probably want to create a
+     new list of placeholders and then instantiate the pattern using
+     those.  */
+  tree new_pattern = tsubst (pattern, args, complain, in_decl);
+  if (new_pattern == error_mark_node)
+    return error_mark_node;
+  return build_nt (DEDUCT_CONSTR, new_expr, new_pattern, autos);
+}
+
+static tree
+tsubst_exception_constr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
+{
+  cp_unevaluated guard;
+  tree expr = EXCEPT_CONSTR_EXPR (t);
+  tree ret = tsubst_expr (expr, args, complain, in_decl, false);
+  if (ret == error_mark_node)
+    return error_mark_node;
+  return build_nt (EXCEPT_CONSTR, ret);
 }
 
 static tree tsubst_parameterized_constraint (tree, tree, tsubst_flags_t, tree);
@@ -1655,6 +1713,14 @@ tsubst_constraint (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     return tsubst_parameterized_constraint (t, args, complain, in_decl);
   case EXPR_CONSTR:
     return tsubst_expr_constr (t, args, complain, in_decl);
+  case TYPE_CONSTR:
+    return tsubst_type_constr (t, args, complain, in_decl);
+  case ICONV_CONSTR:
+    return tsubst_implicit_conversion_constr (t, args, complain, in_decl);
+  case DEDUCT_CONSTR:
+    return tsubst_argument_deduction_constr (t, args, complain, in_decl);
+  case EXCEPT_CONSTR:
+    return tsubst_exception_constr (t, args, complain, in_decl);
   default:
     gcc_unreachable ();
   }
@@ -1665,6 +1731,7 @@ tsubst_constraint (tree t, tree args, tsubst_flags_t complain, tree in_decl)
    specializations for each of parameter in PARMS and its
    corresponding substituted constraint variable in VARS.
    Returns VARS. */
+
 static tree
 declare_constraint_vars (tree parms, tree vars)
 {
