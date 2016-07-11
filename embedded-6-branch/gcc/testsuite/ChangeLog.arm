@@ -1,0 +1,7 @@
+2016-07-11  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	Backport from mainline
+	2016-07-07  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* lib/target-supports.exp (check_effective_target_arm_cortex_m): Use
+	__ARM_ARCH_ISA_ARM to test for Cortex-M devices.
