@@ -1371,11 +1371,17 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
   else
     {
       new_call.fundef = retrieve_constexpr_fundef (fun);
-      if (new_call.fundef == NULL || new_call.fundef->body == NULL)
+      if (new_call.fundef == NULL || new_call.fundef->body == NULL
+	  || fun == current_function_decl)
         {
 	  if (!ctx->quiet)
 	    {
-	      if (DECL_INITIAL (fun) == error_mark_node)
+	      /* We need to check for current_function_decl here in case we're
+		 being called during cp_fold_function, because at that point
+		 DECL_INITIAL is set properly and we have a fundef but we
+		 haven't lowered invisirefs yet (c++/70344).  */
+	      if (DECL_INITIAL (fun) == error_mark_node
+		  || fun == current_function_decl)
 		error_at (loc, "%qD called in a constant expression before its "
 			  "definition is complete", fun);
 	      else if (DECL_INITIAL (fun))
@@ -4924,6 +4930,8 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
     case NON_DEPENDENT_EXPR:
       /* For convenience.  */
     case RETURN_EXPR:
+    case LOOP_EXPR:
+    case EXIT_EXPR:
       return RECUR (TREE_OPERAND (t, 0), want_rval);
 
     case TRY_FINALLY_EXPR:
@@ -5134,6 +5142,15 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
 
     case EMPTY_CLASS_EXPR:
       return false;
+
+    case GOTO_EXPR:
+      {
+	tree *target = &TREE_OPERAND (t, 0);
+	/* Gotos representing break and continue are OK; we should have
+	   rejected other gotos in parsing.  */
+	gcc_assert (breaks (target) || continues (target));
+	return true;
+      }
 
     default:
       if (objc_is_property_ref (t))
