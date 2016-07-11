@@ -1661,6 +1661,26 @@ Using the GNU Compiler Collection (GCC)},
 See ``RS/6000 and PowerPC Options'' in the main manual
 @end ifhtml
 
+@item --enable-lra
+This option enables @option{-mlra} by default for powerpc-linux.
+@ifnothtml
+@xref{RS/6000 and PowerPC Options,, RS/6000 and PowerPC Options, gcc,
+Using the GNU Compiler Collection (GCC)},
+@end ifnothtml
+@ifhtml
+See ``RS/6000 and PowerPC Options'' in the main manual
+@end ifhtml
+
+@item --enable-float128
+This option enables @option{-mfloat128} by default for powerpc-linux.
+@ifnothtml
+@xref{RS/6000 and PowerPC Options,, RS/6000 and PowerPC Options, gcc,
+Using the GNU Compiler Collection (GCC)},
+@end ifnothtml
+@ifhtml
+See ``RS/6000 and PowerPC Options'' in the main manual
+@end ifhtml
+
 @item --enable-default-ssp
 Turn on @option{-fstack-protector-strong} by default.
 

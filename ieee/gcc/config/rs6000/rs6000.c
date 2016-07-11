@@ -4306,6 +4306,17 @@ rs6000_option_override_internal (bool global_init_p)
       rs6000_isa_flags &= ~OPTION_MASK_P9_VECTOR;
     }
 
+  /* Enable LRA if the compiler was configured with --enable-lra.  */
+#ifdef ENABLE_LRA
+  if ((rs6000_isa_flags_explicit & OPTION_MASK_LRA) == 0)
+    {
+      if (ENABLE_LRA)
+	rs6000_isa_flags |= OPTION_MASK_LRA;
+      else
+	rs6000_isa_flags &= ~OPTION_MASK_LRA;
+    }
+#endif
+
   /* There have been bugs with -mvsx-timode that don't show up with -mlra,
      but do show up with -mno-lra.  Given -mlra will become the default once
      PR 69847 is fixed, turn off the options with problems by default if
@@ -4371,6 +4382,17 @@ rs6000_option_override_internal (bool global_init_p)
 	  rs6000_isa_flags &= ~OPTION_MASK_EFFICIENT_UNALIGNED_VSX;
 	}
     }
+
+  /* Enable FLOAT128 if the compiler was configured with --enable-float128.  */
+#ifdef ENABLE_FLOAT128
+  if (TARGET_VSX && (rs6000_isa_flags_explicit & OPTION_MASK_FLOAT128) == 0)
+    {
+      if (ENABLE_FLOAT128)
+	rs6000_isa_flags |= OPTION_MASK_FLOAT128;
+      else
+	rs6000_isa_flags &= ~(OPTION_MASK_FLOAT128 | OPTION_MASK_FLOAT128_HW);
+    }
+#endif
 
   /* __float128 requires VSX support.  */
   if (TARGET_FLOAT128 && !TARGET_VSX)

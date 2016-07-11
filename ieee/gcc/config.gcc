@@ -2414,6 +2414,12 @@ powerpc*-*-linux*)
 	if test x${enable_secureplt} = xyes; then
 		tm_file="rs6000/secureplt.h ${tm_file}"
 	fi
+	if test x${enable_lra} = xyes; then
+	    tm_defines="${tm_defines} ENABLE_LRA=1"
+	fi
+	if test x${enable_float128} = xyes; then
+	    tm_defines="${tm_defines} ENABLE_FLOAT128=1"
+	fi
 	;;
 powerpc-wrs-vxworks|powerpc-wrs-vxworksae|powerpc-wrs-vxworksmils)
 	tm_file="${tm_file} elfos.h freebsd-spec.h rs6000/sysv4.h"

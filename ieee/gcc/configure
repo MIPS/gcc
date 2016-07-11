@@ -918,6 +918,8 @@ enable_rpath
 with_libiconv_prefix
 enable_sjlj_exceptions
 enable_secureplt
+enable_lra
+enable_float128
 enable_leading_mingw64_underscores
 enable_cld
 enable_frame_pointer
@@ -1630,6 +1632,9 @@ Optional Features:
   --enable-sjlj-exceptions
                           arrange to use setjmp/longjmp exception handling
   --enable-secureplt      enable -msecure-plt by default for PowerPC
+  --enable-lra            enable -mlra by default for PowerPC
+  --enable-float128       enable -mfloat128 by default for PowerPC on Linux
+                          VSX systems
   --enable-leading-mingw64-underscores
                           enable leading underscores on 64 bit mingw targets
   --enable-cld            enable -mcld by default for 32bit x86
@@ -11984,6 +11989,18 @@ if test "${enable_secureplt+set}" = set; then :
 fi
 
 
+# Check whether --enable-lra was given.
+if test "${enable_lra+set}" = set; then :
+  enableval=$enable_lra;
+fi
+
+
+# Check whether --enable-float128 was given.
+if test "${enable_float128+set}" = set; then :
+  enableval=$enable_float128;
+fi
+
+
 # Check whether --enable-leading-mingw64-underscores was given.
 if test "${enable_leading_mingw64_underscores+set}" = set; then :
   enableval=$enable_leading_mingw64_underscores;
@@ -18475,7 +18492,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18478 "configure"
+#line 18495 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -18581,7 +18598,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18584 "configure"
+#line 18601 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H

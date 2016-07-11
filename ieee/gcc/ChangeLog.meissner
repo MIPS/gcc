@@ -1,3 +1,15 @@
+2016-07-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/install.texi (Configuration): Document PowerPC specific
+	configuration options --enable-lra and --enable-float128.
+	* configure.ac: Add --enable-lra and --enable-float128 to turn on
+	-mlra and -mfloat128 by default in the PowerPC compiler.
+	* configure: Regenerate.
+	* config.gcc (powerpc*-*-linux*): Add --enable-lra and
+	--enable-float128 support.
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Add
+	support for --enable-lra and --enable-float128.
+
 2016-07-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
