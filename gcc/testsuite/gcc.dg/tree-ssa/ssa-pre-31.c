@@ -43,5 +43,5 @@ int foo (S1 *root, int N)
   return 0;
 } 
 
-/* { dg-final { scan-tree-dump-times "key" 4 "pre" } } */
+/* { dg-final { scan-tree-dump-times "key" 3 "pre" } } */
 /* { dg-final { cleanup-tree-dump "pre" } } */

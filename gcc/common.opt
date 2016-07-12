@@ -921,6 +921,10 @@ fcheck-new
 Common Var(flag_check_new)
 Check the return value of new in C++
 
+fcode-hoisting
+Common Report Var(flag_code_hoisting) Init(0) Optimization
+Enable code hoisting.
+
 fcombine-stack-adjustments
 Common Report Var(flag_combine_stack_adjustments) Optimization
 Looks for opportunities to reduce stack adjustments and stack references.
