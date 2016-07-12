@@ -15517,6 +15517,10 @@ rs6000_invalid_builtin (enum rs6000_builtins fncode)
     error ("Builtin function %s requires the -mhard-dfp option", name);
   else if ((fnmask & RS6000_BTM_P8_VECTOR) != 0)
     error ("Builtin function %s requires the -mpower8-vector option", name);
+  else if ((fnmask & (RS6000_BTM_P9_VECTOR | RS6000_BTM_64BIT))
+	   == (RS6000_BTM_P9_VECTOR | RS6000_BTM_64BIT))
+    error ("Builtin function %s requires the -mpower9-vector and"
+	   " -m64 options", name);
   else if ((fnmask & RS6000_BTM_P9_VECTOR) != 0)
     error ("Builtin function %s requires the -mpower9-vector option", name);
   else if ((fnmask & (RS6000_BTM_P9_MISC | RS6000_BTM_64BIT))

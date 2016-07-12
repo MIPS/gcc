@@ -8,10 +8,10 @@
 /* This test should succeed only on 64-bit configuration.  */
 #include <altivec.h>
 
-double insert_exponent (unsigned int *exponent_p, 
+double insert_exponent (unsigned long long int *exponent_p, 
 			unsigned long long int *significand_p)
 {
-  unsigned int exponent = *exponent_p;
+  unsigned long long int exponent = *exponent_p;
   unsigned long long int significand = *significand_p;
 
   return __builtin_vec_scalar_insert_exp (exponent, significand);	/* { dg-error "Builtin function __builtin_vsx_scalar_insert_exp requires" } */

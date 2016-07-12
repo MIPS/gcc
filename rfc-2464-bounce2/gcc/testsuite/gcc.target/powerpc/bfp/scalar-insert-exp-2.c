@@ -11,10 +11,10 @@
 
 #include <altivec.h>
 
-double insert_exponent (unsigned int *exponent_p, 
+double insert_exponent (unsigned long long int *exponent_p, 
 			unsigned long long int *significand_p)
 {
-  unsigned int exponent = *exponent_p;
+  unsigned long long int exponent = *exponent_p;
   unsigned long long int significand = *significand_p;
 
   /* kelvin not sure about this error message on big-endian 32 bit */

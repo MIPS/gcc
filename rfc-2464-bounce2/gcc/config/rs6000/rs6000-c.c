@@ -32,7 +32,8 @@
 #include "langhooks.h"
 #include "c/c-tree.h"
 
-
+/* kelvin debug */
+#define TARGET_DEBUG_BUILTIN 1
 
 /* Handle the machine specific pragma longcall.  Its syntax is
 
@@ -310,7 +311,6 @@ rs6000_macro_to_expand (cpp_reader *pfile, const cpp_token *tok)
 
   return expand_this;
 }
-
 
 /* Define or undefine a single macro.  */
 
