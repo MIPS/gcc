@@ -1,3 +1,32 @@
+2016-07-11  Jason Merrill  <jason@redhat.com>
+
+	* decl.c (store_parm_decls): Remove check for void parm.
+
+2016-07-08  Jason Merrill  <jason@redhat.com>
+
+	* cp-tree.h: Unpoison lvalue_p.
+	* call.c, class.c, constexpr.c, cvt.c, init.c, lambda.c, pt.c,
+	tree.c, typeck.c, typeck2.c: Use lvalue_p instead of
+	real_lvalue_p.
+
+	* tree.c (obvalue_p): Rename from lvalue_p.
+	(lvalue_p): Define for c-common.
+	* call.c, cp-tree.h, cvt.c, init.c: Adjust.
+	* typeck.c: Adjust.
+	(cp_build_addr_expr_1): Remove obsolete code.
+
+	* tree.c (glvalue_p): Rename from lvalue_or_rvalue_with_address_p.
+	* call.c, cp-tree.h, typeck.c: Adjust.
+
+	* lambda.c (maybe_add_lambda_conv_op): Fix null object argument.
+
+	P0145R2: Refining Expression Order for C++.
+	* cp-gimplify.c (lvalue_has_side_effects): New.
+	(cp_gimplify_expr): Implement assignment ordering.
+	* call.c (op_is_ordered, build_over_call): Adjust for
+	-fargs-in-order renaming to -fstrong-eval-order.
+	* cp-gimplify.c (cp_gimplify_expr): Likewise.
+
 2016-07-07  Jakub Jelinek  <jakub@redhat.com>
 	    Kai Tietz  <ktietz70@googlemail.com>
 

@@ -1,3 +1,275 @@
+2016-07-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/predicates.md (x86_64_immediate_operand)
+	<case CONST_INT>: Remove unneeded truncation to DImode.
+	<case CONST>: Ditto.
+	(x86_64_zext_immediate_operand) <case CONST>: Ditto.
+
+2016-07-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/71805
+	* config/rs6000/altivec.md (altivec_vperm_<mode>_internal):
+	The xxperm and xxpermr instructions require that the 2nd input
+	operand overlap with the output operand, and not the 1st.
+	(altivec_vperm_v8hiv16qi): Likewise.
+	(altivec_vperm_<mode>_uns_internal): Likewise.
+	(altivec_vpermr_<mode>_internal): Likewise.
+	(vperm_v8hiv4si): Likewise.
+	(vperm_v16qiv8hi): Likewise.
+
+2016-07-12  Martin Liska  <mliska@suse.cz>
+
+	* params.def: Add avg-loop niter.
+	* tree-ssa-loop-ivopts.c (avg_loop_niter): Use the param.
+	* cfgloopanal.c (expected_loop_iterations_unbounded): Likewise.
+	* doc/invoke.texi: Document the new parameter.
+
+2016-07-12  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR middle-end/71700
+	* expr.c (store_constructor): Mask sign-extended bits when widening
+	sub-word constructor element at the start of a word.
+
+2016-07-12  Martin Liska  <mliska@suse.cz>
+
+	* Makefile.in: Append rule for params-options.h.
+	* params-options.h: New file.
+
+2016-07-12  Martin Liska  <mliska@suse.cz>
+
+	* ira-build.c (mark_loops_for_removal): Properly iterate
+	loops.
+
+2016-07-12  Steven Bosscher  <steven@gcc.gnu.org>
+	Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/23286
+	PR tree-optimization/70159
+	* doc/invoke.texi: Document -fcode-hoisting.
+	* common.opt (fcode-hoisting): New flag.
+	* opts.c (default_options_table): Enable -fcode-hoisting at -O2+.
+	* tree-ssa-pre.c (pre_stats): Add hoist_insert.
+	(do_regular_insertion): Rename to ...
+	(do_pre_regular_insertion): ... this and amend general comments
+	on insertion strathegy.
+	(do_partial_partial_insertion): Rename to ...
+	(do_pre_partial_partial_insertion): ... this.
+	(do_hoist_insertion): New function.
+	(insert_aux): Take flags on whether to do PRE and/or hoist insertion
+	and call do_hoist_insertion properly.
+	(insert): Adjust.
+	(pass_pre::gate): Enable also if -fcode-hoisting is enabled.
+	(pass_pre::execute): Register hoist_insert stats.
+
+2016-07-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/71716
+	* gimple-fold.c (optimize_atomic_compare_exchange_p): Return false
+	for SCALAR_FLOAT_TYPE_P type of expected var, or if TYPE_PRECISION
+	is different from mode's bitsize.  Small cleanup.
+
+2016-07-12  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/68961
+	* fwprop.c (propagate_rtx): Allow SUBREGs of VEC_CONCAT and CONCAT
+	to simplify to a non-constant.
+
+2016-07-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/71758
+	* omp-low.c (expand_omp_target): Gimplify device.
+
+	PR tree-optimization/71823
+	* tree-vect-stmts.c (vectorizable_operation): Use vect_get_vec_defs
+	to get vec_oprnds2 from op2.
+
+2016-07-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/predicates.md (x86_64_immediate_operand) <case CONST>:
+	Hoist common subexpressions.
+	(x86_64_zext_immediate_operand) <case CONST>: Ditto.
+
+2016-07-11  Pat Haugen  <pthaugen@us.ibm.com>
+
+	PR target/71800
+	* config/rs6000/rs6000.md (stfiwx): Change constraint to 'wu' to
+	prevent generation of 'stxsiwx' on pre Power8 hardware.
+
+2016-07-11  David Malcolm  <dmalcolm@redhat.com>
+
+	* input.c: Include cpplib.h.
+	(selftest::temp_source_file): New class.
+	(selftest::temp_source_file::temp_source_file): New ctor.
+	(selftest::temp_source_file::~temp_source_file): New dtor.
+	(selftest::should_have_column_data_p): New function.
+	(selftest::test_should_have_column_data_p): New function.
+	(selftest::temp_line_table): New class.
+	(selftest::temp_line_table::temp_line_table): New ctor.
+	(selftest::temp_line_table::~temp_line_table): New dtor.
+	(selftest::test_accessing_ordinary_linemaps): Add case_ param; use
+	it to create a temp_line_table.
+	(selftest::assert_loceq): Only verify LOCATION_COLUMN for
+	locations that are known to have column data.
+	(selftest::line_table_case): New struct.
+	(selftest::test_reading_source_line): Move tempfile handling
+	to class temp_source_file.
+	(ASSERT_TOKEN_AS_TEXT_EQ): New macro.
+	(selftest::assert_token_loc_eq): New function.
+	(ASSERT_TOKEN_LOC_EQ): New macro.
+	(selftest::test_lexer): New function.
+	(selftest::boundary_locations): New array.
+	(selftest::input_c_tests): Call test_should_have_column_data_p.
+	Loop over a test matrix of interesting values of location and
+	default_range_bits, calling test_lexer on each case in the matrix.
+	Move call to test_accessing_ordinary_linemaps into the matrix.
+	* selftest.h (ASSERT_EQ): Reimplement in terms of...
+	(ASSERT_EQ_AT): New macro.
+
+2016-07-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/71801
+	* config/i386/i386.c (timode_scalar_chain::fix_debug_reg_uses):
+	Don't convert TImode in debug insn.
+
+2016-07-11  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	Convert TYPE_ALIGN_OK to a TYPE_LANG_FLAG.
+	* tree-core.h (tree_base::nothrow_flag): Adjust comment.
+	(tree_type_common::lang_flag_7): New.
+	(tree_type_common::spare): Reduce size.
+	* tree.h (TYPE_ALIGN_OK): Remove.
+	(TYPE_LANG_FLAG_7): New.
+	(get_inner_reference): Adjust header.
+	* print-tree.c (print_node): Adjust.
+	* expr.c (get_inner_reference): Remove parameter keep_aligning.
+	(get_bit_range, expand_assignment, expand_expr_addr_expr_1): Adjust
+	calls to get_inner_reference.
+	(expand_expr_real_1): Adjust call to get_inner_reference.  Remove
+	handling of TYPE_ALIGN_OK.
+	* builtins.c (get_object_alignment_2): Adjust call to
+	get_inner_reference.  Remove handling of VIEW_CONVERT_EXPR.
+	* emit-rtl.c (set_mem_attributes_minus_bitpos): Remove handling of
+	TYPE_ALIGN_OK.
+	* asan.c (instrument_derefs): Adjust calls to get_inner_reference.
+	* cfgexpand.c (expand_debug_expr): Likewise.
+	* dbxout.c (dbxout_expand_expr): Likewise.
+	* dwarf2out.c (loc_list_for_address_of_addr_expr_of_indirect_ref,
+	loc_list_from_tree, fortran_common): Likewise.
+	* fold-const.c (optimize_bit_field_compare,
+	decode_field_reference, fold_unary_loc, fold_comparison,
+	split_address_to_core_and_offset): Likewise.
+	* gimple-laddress.c (execute): Likewise.
+	* gimple-ssa-strength-reduction.c (slsr_process_ref): Likewise.
+	* gimplify.c (gimplify_scan_omp_clauses): Likewise.
+	* hsa-gen.c (gen_hsa_addr): Likewise.
+	* simplifx-rtx.c (delegitimize_mem_from_attrs): Likewise.
+	* tsan.c (instrument_expr): Likewise.
+	* ubsan.c (instrument_bool_enum_load, instrument_object_size): Likewise.
+	* tree.c (verify_type_variant): Remove handling of TYPE_ALIGN_OK.
+	* tree-affine.c (tree_to_aff_combination,
+	get_inner_reference_aff): Adjust calls to get_inner_reference.
+	* tree-data-ref.c (split_constant_offset_1,
+	dr_analyze_innermost): Likewise.
+	* tree-scalar-evolution.c (interpret_rhs_expr): Likewise.
+	* tree-sra.c (ipa_sra_check_caller): Likewise.
+	* tree-ssa-loop-ivopts.c (split_address_cost): Likewise.
+	* tree-ssa-math-opts.c (find_bswap_or_nop_load,
+	bswap_replace): Likewise.
+	* tree-vect-data-refs.c (vect_check_gather,
+	vect_analyze_data_refs): Likewise.
+	* config/mips/mips.c (r10k_safe_mem_expr_p): Likewise.
+	* config/pa/pa.c (pa_emit_move_sequence): Remove handling of
+	TYPE_ALIGN_OK.
+
+2016-07-11  David Malcolm  <dmalcolm@redhat.com>
+
+	* Makefile.in (selftest-valgrind): New phony target.
+	* function-tests.c (selftest::build_cfg): Delete pass instances
+	created by the test.
+	(selftest::convert_to_ssa): Likewise.
+	(selftest::test_expansion_to_rtl): Likewise.
+	* tree-cfg.c (selftest::test_linear_chain): Release dominator
+	vectors.
+	(selftest::test_diamond): Likewise.
+
+2016-07-11  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71816
+	* tree-ssa-pre.c (compute_avail): Adjust alignment of ref rather
+	than replacing all of its operands.
+
+2016-07-11  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.md (UNSPEC_DOLOOP): New unspec.
+	(ctr<mode>): Add unspec.
+	(ctr<mode>_internal*): Likewise.
+
+2016-07-08  James Bowman  <james.bowman@ftdichip.com>
+
+	* config/ft32/ft32.c (ft32_elf_encode_section_info): New function.
+	* config/ft32/ft32.h (ASM_OUTPUT_SYMBOL_REF): New function.
+
+2016-07-08  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/71621
+	* lra-constraints.c (process_alt_operands): Check combination of
+	reg class and mode.
+
+2016-07-08  Jason Merrill  <jason@redhat.com>
+	    Richard Biener  <rguenther@suse.de>
+
+	P0145: Refining Expression Order for C++.
+	* gimplify.c (initial_rhs_predicate_for): New.
+	(gimplfy_modify_expr): Gimplify RHS before LHS.
+
+2016-07-08  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/71297
+	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin):
+	Allow standard error handling to take over when a wrong number
+	of arguments is presented to __builtin_vec_ld () or
+	__builtin_vec_st ().
+
+2016-07-08  Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/aarch64-simd-builtins.def (smax): Remove float
+	variants.
+	(smin): Likewise.
+	(fmax): New entry.
+	(fmin): Likewise.
+	* config/aarch64/arm_neon.h (vmaxnm_f32): Use
+	__builtin_aarch64_fmaxv2sf.
+	(vmaxnmq_f32): Likewise.
+	(vmaxnmq_f64): Likewise.
+	(vminnm_f32): Likewise.
+	(vminnmq_f32): Likewise.
+	(vminnmq_f64): Likewise.
+
+2016-07-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/71806
+	* config/rs6000/rs6000-cpus.def (ISA_3_0_MASKS_SERVER): Do not
+	enable -mfloat128-hardware by default.
+	(ISA_3_0_MASKS_IEEE): New macro to give all of the VSX options
+	that IEEE 128-bit hardware support needs.
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): If
+	-mcpu=power9 -mfloat128, enable -mfloat128-hardware by default.
+	Use ISA_3_0_MASKS_IEEE as the set of options that IEEE 128-bit
+	floating point requires.
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
+	-mfloat128 and -mfloat128-hardware changes.
+
+2016-07-08  Alan Hayward  <alan.hayward@arm.com>
+
+	PR tree-optimization/71667
+	* tree-vect-loop.c (vectorizable_live_operation): ignore DEBUG stmts
+
+2016-07-08  Martin Liska  <mliska@suse.cz>
+
+	PR middle-end/71606
+	* fold-const.c (fold_convertible_p): As COMPLEX_TYPE
+	folding produces SAVE_EXPRs, thus return false for the type.
+
 2016-07-07  Martin Liska  <mliska@suse.cz>
 
 	* file-find.c (remove_prefix): New function.
@@ -146,7 +418,7 @@
 
 2016-07-06  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
 
-	PR target/50739	
+	PR target/50739
 	* config/avr/avr.c (avr_asm_select_section): Strip off
 	SECTION_DECLARED from flags when calling get_section.
 
@@ -347,8 +619,9 @@
 	(TARGET_SIMD_F16INST): New.
 	* config/aarch64/aarch64-option-extensions.def ("fp16"): New entry.
 	("fp"): Disabling "fp" also disables "fp16".
-	* config/aarch64/aarch64-c.c (arch64_update_cpp_builtins): Conditionally define
-	__ARM_FEATURE_FP16_SCALAR_ARITHMETIC and __ARM_FEATURE_FP16_VECTOR_ARITHMETIC.
+	* config/aarch64/aarch64-c.c (arch64_update_cpp_builtins):
+	Conditionally define __ARM_FEATURE_FP16_SCALAR_ARITHMETIC
+	and __ARM_FEATURE_FP16_VECTOR_ARITHMETIC.
 	* doc/invoke.texi (AArch64 Options): Document "armv8.2-a" and "fp16".
 
 2016-07-04  Jan Beulich  <jbeulich@suse.com>
@@ -376,8 +649,8 @@
 2016-07-01  Peter Bergner  <bergner@vnet.ibm.com>
 
 	PR target/71698
-	* config/rs6000/rs6000.c (rs6000_secondary_reload_simple_move): Disallow
-	TDmode values.
+	* config/rs6000/rs6000.c (rs6000_secondary_reload_simple_move):
+	Disallow TDmode values.
 
 2016-07-01  Alan Modra  <amodra@gmail.com>
 
@@ -505,7 +778,7 @@
 	(cortexa73_tunings): Use cortexa57_branch_cost.
 
 2016-06-30  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
-            James Greenhalgh  <james.greenhalgh@arm.com>
+	    James Greenhalgh  <james.greenhalgh@arm.com>
 
 	* config/aarch64/arm_neon.h (vcopyq_lane_f32, vcopyq_lane_f64,
 	vcopyq_lane_p8, vcopyq_lane_p16, vcopyq_lane_s8, vcopyq_lane_s16,
@@ -523,7 +796,7 @@
 	New intrinsics.
 
 2016-06-30  James Greenhalgh  <james.greenhalgh@arm.com>
-            Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+	    Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
 
 	* config/aarch64/aarch64-simd.md (*aarch64_simd_vec_copy_lane<mode>):
 	New define_insn.
@@ -554,8 +827,7 @@
 	* params.c: Include spellcheck.h.
 	(find_param_fuzzy): New function.
 	* params.h (find_param_fuzzy): New prototype.
-	* spellcheck.c (struct edit_distance_traits<const char *>): Move
-	to...
+	* spellcheck.c (struct edit_distance_traits<const char *>): Move to...
 	* spellcheck.h (struct edit_distance_traits<const char *>):
 	...here.
 
@@ -614,8 +886,7 @@
 2016-06-29  Martin Liska  <mliska@suse.cz>
 
 	PR middle-end/71585
-	* common.opt (flag_stack_protect): Mark the flag as optimization
-	flag.
+	* common.opt (flag_stack_protect): Mark the flag as optimization flag.
 	* ipa-inline-transform.c (inline_call): Remove unnecessary call
 	of build_optimization_node.
 
