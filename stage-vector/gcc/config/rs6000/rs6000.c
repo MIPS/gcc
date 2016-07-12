@@ -6994,81 +6994,121 @@ rs6000_split_vec_extract_var (rtx dest, rtx src, rtx element, rtx tmp_gpr,
   machine_mode scalar_mode = GET_MODE (dest);
   unsigned scalar_size = GET_MODE_SIZE (scalar_mode);
   int byte_shift = exact_log2 (scalar_size);
-  int bit_shift = byte_shift + 3;
-  rtx element2;
 
   gcc_assert (byte_shift > 0);
 
-  if (!REG_P (tmp_gpr))
-    tmp_gpr = gen_reg_rtx (DImode);
-
-  if (!REG_P (tmp_altivec))
-    tmp_altivec = gen_reg_rtx (V2DImode);
-
-  /* If little endian, adjust element ordering.  For V2DI/V2DF, we can use an
-     XOR, otherwise we need to subtract.  The shift amount is so VSLO will
-     shift the element into the upper position (adding 3 to convert a byte
-     shift into a bit shift). */
-  if (scalar_size == 8)
+  /* If we are given a memory address, optimize to load just the element.  We
+     don't have to adjust the vector element number on little endian systems.
+     For now, we only allow indexed or indirect addresses to simplify
+     things.  */
+  if (MEM_P (src))
     {
-      if (!VECTOR_ELT_ORDER_BIG)
+      rtx addr = XEXP (src, 0);
+      rtx new_addr;
+      rtx new_mem;
+
+      if (!REG_P (tmp_gpr))
+	tmp_gpr = gen_reg_rtx (DImode);
+
+      emit_insn (gen_ashldi3 (tmp_gpr, element, GEN_INT (byte_shift)));
+
+      if (GET_CODE (addr) == PLUS)
 	{
-	  emit_insn (gen_xordi3 (tmp_gpr, element, const1_rtx));
-	  element2 = tmp_gpr;
+	  rtx op0 = XEXP (addr, 0);
+	  rtx op1 = XEXP (addr, 1);
+	  if (!REG_P (op0) || !REG_P (op1))
+	    gcc_unreachable ();
+
+	  emit_insn (gen_adddi3 (tmp_gpr, op1, tmp_gpr));
+	}
+      else if (!REG_P (addr))
+	gcc_unreachable ();
+
+      new_addr = gen_rtx_PLUS (DImode, addr, tmp_gpr);
+      new_mem = change_address (src, scalar_mode, new_addr);
+      emit_move_insn (dest, new_mem);
+    }
+
+  else if (REG_P (src) || SUBREG_P (src))
+    {
+      int bit_shift = byte_shift + 3;
+      rtx element2;
+
+      if (!REG_P (tmp_gpr))
+	tmp_gpr = gen_reg_rtx (DImode);
+
+      if (!REG_P (tmp_altivec))
+	tmp_altivec = gen_reg_rtx (V2DImode);
+
+      /* If little endian, adjust element ordering.  For V2DI/V2DF, we can use
+	 an XOR, otherwise we need to subtract.  The shift amount is so VSLO
+	 will shift the element into the upper position (adding 3 to convert a
+	 byte shift into a bit shift). */
+      if (scalar_size == 8)
+	{
+	  if (!VECTOR_ELT_ORDER_BIG)
+	    {
+	      emit_insn (gen_xordi3 (tmp_gpr, element, const1_rtx));
+	      element2 = tmp_gpr;
+	    }
+	  else
+	    element2 = element;
+
+	  /* Generate RLDIC directly to shift left 6 bits and retrieve 1
+	     bit.  */
+	  emit_insn (gen_rtx_SET (tmp_gpr,
+				  gen_rtx_AND (DImode,
+					       gen_rtx_ASHIFT (DImode,
+							       element2,
+							       GEN_INT (6)),
+					       GEN_INT (64))));
 	}
       else
-	element2 = element;
-
-      /* Generate RLDIC directly to shift left 6 bits and retrieve 1 bit.  */
-      emit_insn (gen_rtx_SET (tmp_gpr,
-			      gen_rtx_AND (DImode,
-					   gen_rtx_ASHIFT (DImode, element2,
-							   GEN_INT (6)),
-					   GEN_INT (64))));
-    }
-  else
-    {
-      if (!VECTOR_ELT_ORDER_BIG)
 	{
-	  rtx num_ele_m1 = GEN_INT (GET_MODE_NUNITS (mode) - 1);
+	  if (!VECTOR_ELT_ORDER_BIG)
+	    {
+	      rtx num_ele_m1 = GEN_INT (GET_MODE_NUNITS (mode) - 1);
 
-	  emit_insn (gen_anddi3 (tmp_gpr, element, num_ele_m1));
-	  emit_insn (gen_subdi3 (tmp_gpr, num_ele_m1, tmp_gpr));
-	  element2 = tmp_gpr;
+	      emit_insn (gen_anddi3 (tmp_gpr, element, num_ele_m1));
+	      emit_insn (gen_subdi3 (tmp_gpr, num_ele_m1, tmp_gpr));
+	      element2 = tmp_gpr;
+	    }
+	  else
+	    element2 = element;
+
+	  emit_insn (gen_ashldi3 (tmp_gpr, element2, GEN_INT (bit_shift)));
 	}
+
+      /* Get the value into the lower byte of the Altivec register where VSLO
+	 expects it.  */
+      if (TARGET_P9_VECTOR)
+	emit_insn (gen_vsx_splat_v2di (tmp_altivec, tmp_gpr));
+      else if (can_create_pseudo_p ())
+	emit_insn (gen_vsx_concat_v2di (tmp_altivec, tmp_gpr, tmp_gpr));
       else
-	element2 = element;
+	{
+	  rtx tmp_di = gen_rtx_REG (DImode, REGNO (tmp_altivec));
+	  emit_move_insn (tmp_di, tmp_gpr);
+	  emit_insn (gen_vsx_concat_v2di (tmp_altivec, tmp_di, tmp_di));
+	}
 
-      emit_insn (gen_ashldi3 (tmp_gpr, element2, GEN_INT (bit_shift)));
+      /* Do the VSLO to get the value into the final location.  */
+      switch (mode)
+	{
+	case V2DFmode:
+	  emit_insn (gen_vsx_vslo_v2df (dest, src, tmp_altivec));
+	  return;
+
+	case V2DImode:
+	  emit_insn (gen_vsx_vslo_v2di (dest, src, tmp_altivec));
+	  return;
+
+	default:
+	  gcc_unreachable ();
+	}
     }
-
-  /* Get the value into the lower byte of the Altivec register where VSLO
-     expects it.  */
-  if (TARGET_P9_VECTOR)
-    emit_insn (gen_vsx_splat_v2di (tmp_altivec, tmp_gpr));
-  else if (can_create_pseudo_p ())
-    emit_insn (gen_vsx_concat_v2di (tmp_altivec, tmp_gpr, tmp_gpr));
   else
-    {
-      rtx tmp_di = gen_rtx_REG (DImode, REGNO (tmp_altivec));
-      emit_move_insn (tmp_di, tmp_gpr);
-      emit_insn (gen_vsx_concat_v2di (tmp_altivec, tmp_di, tmp_di));
-    }
-
-  /* Do the VSLO to get the value into the final location.  */
-  switch (mode)
-    {
-    case V2DFmode:
-      emit_insn (gen_vsx_vslo_v2df (dest, src, tmp_altivec));
-      return;
-
-    case V2DImode:
-      emit_insn (gen_vsx_vslo_v2di (dest, src, tmp_altivec));
-      return;
-
-    default:
-      gcc_unreachable ();
-    }
+    gcc_unreachable ();
 
   return;
  }

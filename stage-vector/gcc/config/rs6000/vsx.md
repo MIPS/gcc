@@ -2215,13 +2215,14 @@
   [(set_attr "type" "vecperm")])
 
 ;; Variable V2DI/V2DF extract
+;; At present, only optimize simple memory (reg or reg+reg).
 (define_insn_and_split "vsx_extract_<mode>_var"
-  [(set (match_operand:<VS_scalar> 0 "gpc_reg_operand" "=v")
-	(unspec:<VS_scalar> [(match_operand:VSX_D 1 "gpc_reg_operand" "v")
-			     (match_operand:DI 2 "gpc_reg_operand" "r")]
+  [(set (match_operand:<VS_scalar> 0 "gpc_reg_operand" "=v,<VSa>,r")
+	(unspec:<VS_scalar> [(match_operand:VSX_D 1 "input_operand" "v,Z,Z")
+			     (match_operand:DI 2 "gpc_reg_operand" "r,r,r")]
 			    UNSPEC_VSX_EXTRACT))
-   (clobber (match_scratch:DI 3 "=r"))
-   (clobber (match_scratch:V2DI 4 "=&v"))]
+   (clobber (match_scratch:DI 3 "=r,b,b"))
+   (clobber (match_scratch:V2DI 4 "=&v,X,X"))]
   "TARGET_VARIABLE_EXTRACT (<MODE>mode)"
   "#"
   "&& reload_completed"
