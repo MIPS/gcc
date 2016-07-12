@@ -1,3 +1,128 @@
+2016-07-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/71805
+	* gcc.target/powerpc/pr71805.c: New test.
+
+2016-07-12  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/divkc3-1.c: New.
+	* gcc.target/powerpc/mulkc3-1.c: New.
+
+2016-07-12  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/params/blocksort-part.c: New test.
+	* gcc.dg/params/params.exp: New file.
+
+2016-07-12  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR middle-end/71700
+	* gcc.c-torture/execute/pr71700.c: New test.
+
+2016-07-12  Steven Bosscher  <steven@gcc.gnu.org>
+	Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/23286
+	PR tree-optimization/70159
+	* gcc.dg/tree-ssa/ssa-pre-11.c: Disable code hosting.
+	* gcc.dg/tree-ssa/ssa-pre-27.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-pre-28.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-pre-2.c: Likewise.
+	* gcc.dg/tree-ssa/pr35286.c: Likewise.
+	* gcc.dg/tree-ssa/pr35287.c: Likewise.
+	* gcc.dg/hoist-register-pressure-1.c: Likewise.
+	* gcc.dg/hoist-register-pressure-2.c: Likewise.
+	* gcc.dg/hoist-register-pressure-3.c: Likewise.
+	* gcc.dg/pr51879-12.c: Likewise.
+	* gcc.dg/strlenopt-9.c: Likewise.
+	* gcc.dg/tree-ssa/pr47392.c: Likewise.
+	* gcc.dg/tree-ssa/pr68619-4.c: Likewise.
+	* gcc.dg/tree-ssa/split-path-5.c: Likewise.
+	* gcc.dg/tree-ssa/slsr-35.c: Likewise.
+	* gcc.dg/tree-ssa/slsr-36.c: Likewise.
+	* gcc.dg/tree-ssa/loadpre3.c: Adjust so hosting doesn't apply.
+	* gcc.dg/tree-ssa/pr43491.c: Scan optimized dump for desired result.
+	* gcc.dg/tree-ssa/ssa-pre-31.c: Adjust expected outcome for hoisting.
+	* gcc.dg/tree-ssa/ssa-hoist-1.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-hoist-2.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-hoist-3.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-hoist-4.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-hoist-5.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-hoist-6.c: New testcase.
+	* gfortran.dg/pr43984.f90: Adjust expected outcome.
+
+2016-07-12  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/68961
+	* gcc.target/i386/pr68961.c: New testcase.
+
+2016-07-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/71758
+	* c-c++-common/gomp/pr71758.c: New test.
+	* gfortran.dg/gomp/pr71758.f90: New test.
+
+	PR tree-optimization/71823
+	* gcc.dg/vect/pr71823.c: New test.
+
+2016-07-11  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc.dg/plugin/location_overflow_plugin.c (plugin_init): Avoid
+	hardcoding the values of LINE_MAP_MAX_LOCATION_WITH_PACKED_RANGES
+	and LINE_MAP_MAX_LOCATION_WITH_COLS.
+
+2016-07-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/71801
+	* gcc.target/i386/pr71801.c: New test.
+
+2016-07-11  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71816
+	* gcc.dg/torture/pr71816.c: New testcase.
+
+2016-07-09  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/71783
+	* gfortran.dg/dependency_46.f90:  New test.
+
+2016-07-08  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/71621
+	* gcc.target/i386/pr71621-1.c: New.
+	* gcc.target/i386/pr71621-2.c: New.
+
+2016-07-08  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.dg/goacc/pr71704.f90: New test.
+
+2016-07-08  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/71297
+	* gcc.target/powerpc/pr71297.c: New.
+
+2016-07-08  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/aarch64/simd/vminmaxnm_1.c: New.
+
+2016-07-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/71806
+	* gcc.target/powerpc/p9-lxvx-stxvx-3.c: Add -mfloat128 option.
+
+2016-07-08  Alan Hayward  <alan.hayward@arm.com>
+
+	PR tree-optimization/71667
+	* gcc.dg/vect/pr71667.c: New
+
+2016-07-08  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/torture/pr71606.c: New test.
+
+2016-07-07  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/71764
+	* gfortran.dg/pr71764.f90: New test.
+
 2016-07-07  Jakub Jelinek  <jakub@redhat.com>
 	    Kai Tietz  <ktietz70@googlemail.com>
 

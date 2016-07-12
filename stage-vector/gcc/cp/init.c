@@ -3332,7 +3332,7 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
     rval = build2 (COMPOUND_EXPR, TREE_TYPE (rval), init_preeval_expr, rval);
 
   /* A new-expression is never an lvalue.  */
-  gcc_assert (!lvalue_p (rval));
+  gcc_assert (!obvalue_p (rval));
 
   return convert (pointer_type, rval);
 }
@@ -3750,7 +3750,7 @@ static bool
 vec_copy_assign_is_trivial (tree inner_elt_type, tree init)
 {
   tree fromtype = inner_elt_type;
-  if (real_lvalue_p (init))
+  if (lvalue_p (init))
     fromtype = cp_build_reference_type (fromtype, /*rval*/false);
   return is_trivially_xible (MODIFY_EXPR, inner_elt_type, fromtype);
 }
