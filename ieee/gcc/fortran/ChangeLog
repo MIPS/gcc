@@ -1,3 +1,31 @@
+2016-07-09  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/71783
+	* frontend-passes.c (create_var):  Always allocate a charlen
+	for character variables.
+
+2016-07-08  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/68426
+	* simplify (gfc_simplify_spread): Adjust locus.
+
+2016-07-08  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* parse.c (matcha): Define.
+	(decode_oacc_directive): Add spec_only local var and set it.  Use
+	matcha to parse acc directives except for routine and declare.  Return
+	ST_GET_FCN_CHARACTERISTICS if a non-declarative directive could be
+	matched.
+
+2016-07-08  Martin Liska  <mliska@suse.cz>
+
+	* invoke.texi (Wundefined-do-loop): Enhance documentation.
+
+2016-07-07  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/71764
+	* trans-expr.c (gfc_trans_structure_assign): Remove assert.
+
 2016-07-07  Martin Liska  <mliska@suse.cz>
 
 	* lang.opt (Wundefined-do-loop): New option.

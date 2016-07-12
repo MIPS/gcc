@@ -61,7 +61,8 @@
 				 | OPTION_MASK_UPPER_REGS_SF)
 
 /* Add ISEL back into ISA 3.0, since it is supposed to be a win.  Do not add
-   P9_MINMAX until the hardware that supports it is available.  */
+   P9_MINMAX until the hardware that supports it is available.  Do not add
+   FLOAT128_HW here until we are ready to make -mfloat128 on by default.  */
 #define ISA_3_0_MASKS_SERVER	(ISA_2_7_MASKS_SERVER			\
 				 | OPTION_MASK_ISEL			\
 				 | OPTION_MASK_MODULO			\
