@@ -1,5 +1,10 @@
 2016-07-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.h (TARGET_VARIABLE_EXTRACT): Remove #if 0
+	code.
+
+2016-07-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* config/rs6000/rs6000-protos.h (rs6000_split_vec_extract_var):
 	Add declaration.
 
@@ -13,8 +18,10 @@
 	(vsx_extract_<mode>_var): New insn/split to handle variable
 	vector extracts.
 
-	* config/rs6000/rs6000.h (TARGET_VARIABLE_EXTRACT): #if out tess
+	* config/rs6000/rs6000.h (TARGET_VARIABLE_EXTRACT): #if out test
 	against swap optimization.
+
+2016-07-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 238261.
 	* REVISION: Update subversion id.

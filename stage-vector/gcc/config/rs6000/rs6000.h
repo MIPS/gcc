@@ -605,26 +605,9 @@ extern int rs6000_vector_align[];
 				 && TARGET_UPPER_REGS_DF \
 				 && TARGET_UPPER_REGS_DI && TARGET_POWERPC64)
 
-#if 0
-/* Target macro to say we can optimize variable vector extracts or not using
-   direct move and VLSO to shift the bytes.  The optimize-swaps support seems
-   to delete some swaps needed for variable vec_extracts, so don't allow
-   variable extracts on little endian power8 for now.  */
-#define TARGET_VARIABLE_EXTRACT(MODE)	(((MODE) == V2DImode		\
-					  || (MODE) == V2DFmode)	\
-					 && VECTOR_MEM_VSX_P (MODE)	\
-					 && TARGET_DIRECT_MOVE		\
-					 && TARGET_POWERPC64		\
-					 && (TARGET_P9_VECTOR		\
-					     || VECTOR_ELT_ORDER_BIG	\
-					     || !rs6000_optimize_swaps)	\
-					 && TARGET_UPPER_REGS_DI	\
-					 && ((MODE) != V2DFmode 	\
-					     || TARGET_UPPER_REGS_DF))
-
-#else
-/* Target macro to say we can optimize variable vector extracts or not using
-   direct move and VLSO to shift the bytes.  */
+/* Target macro to say we can optimize variable vector extracts.  We need
+   direct move and 64-bit in order to move the variable part to the Altivec
+   register to use the VSLO instruction.  */
 #define TARGET_VARIABLE_EXTRACT(MODE)	(((MODE) == V2DImode		\
 					  || (MODE) == V2DFmode)	\
 					 && VECTOR_MEM_VSX_P (MODE)	\
@@ -633,7 +616,6 @@ extern int rs6000_vector_align[];
 					 && TARGET_UPPER_REGS_DI	\
 					 && ((MODE) != V2DFmode 	\
 					     || TARGET_UPPER_REGS_DF))
-#endif
 
 /* Byte/char syncs were added as phased in for ISA 2.06B, but are not present
    in power7, so conditionalize them on p8 features.  TImode syncs need quad
