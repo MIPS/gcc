@@ -310,6 +310,7 @@
    UNSPEC_VSX_SIGN_EXTEND
    UNSPEC_P9_MEMORY
    UNSPEC_VSX_VSLO
+   UNSPEC_VSX_EXTRACT
   ])
 
 ;; VSX moves
@@ -2203,7 +2204,7 @@
   [(set_attr "type" "fpstore")
    (set_attr "length" "4")])
 
-;; Variable V2DI/V2DF extract
+;; Variable V2DI/V2DF extract shift
 (define_insn "vsx_vslo_<mode>"
   [(set (match_operand:<VS_scalar> 0 "gpc_reg_operand" "=v")
 	(unspec:<VS_scalar> [(match_operand:VSX_D 1 "gpc_reg_operand" "v")
@@ -2212,6 +2213,24 @@
   "TARGET_VARIABLE_EXTRACT (<MODE>mode)"
   "vslo %0,%1,%2"
   [(set_attr "type" "vecperm")])
+
+;; Variable V2DI/V2DF extract
+(define_insn_and_split "vsx_extract_<mode>_var"
+  [(set (match_operand:<VS_scalar> 0 "gpc_reg_operand" "=v")
+	(unspec:<VS_scalar> [(match_operand:VSX_D 1 "gpc_reg_operand" "v")
+			     (match_operand:DI 2 "gpc_reg_operand" "r")]
+			    UNSPEC_VSX_EXTRACT))
+   (clobber (match_scratch:DI 3 "=r"))
+   (clobber (match_scratch:V2DI 4 "=&v"))]
+  "TARGET_VARIABLE_EXTRACT (<MODE>mode)"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+{
+  rs6000_split_vec_extract_var (operands[0], operands[1], operands[2],
+				operands[3], operands[4]);
+  DONE;
+})
 
 ;; Extract a SF element from V4SF
 (define_insn_and_split "vsx_extract_v4sf"
