@@ -1,3 +1,506 @@
+2016-07-09  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/71783
+	* gfortran.dg/dependency_46.f90:  New test.
+
+2016-07-08  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/71621
+	* gcc.target/i386/pr71621-1.c: New.
+	* gcc.target/i386/pr71621-2.c: New.
+
+2016-07-08  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.dg/goacc/pr71704.f90: New test.
+
+2016-07-08  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/71297
+	* gcc.target/powerpc/pr71297.c: New.
+
+2016-07-08  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/aarch64/simd/vminmaxnm_1.c: New.
+
+2016-07-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/71806
+	* gcc.target/powerpc/p9-lxvx-stxvx-3.c: Add -mfloat128 option.
+
+2016-07-08  Alan Hayward  <alan.hayward@arm.com>
+
+	PR tree-optimization/71667
+	* gcc.dg/vect/pr71667.c: New
+
+2016-07-08  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/torture/pr71606.c: New test.
+
+2016-07-07  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/71764
+	* gfortran.dg/pr71764.f90: New test.
+
+2016-07-07  Jakub Jelinek  <jakub@redhat.com>
+	    Kai Tietz  <ktietz70@googlemail.com>
+
+	PR c++/70869
+	PR c++/71054
+	* g++.dg/cpp0x/pr70869.C: New test.
+	* g++.dg/cpp0x/pr71054.C: New test.
+
+2016-07-07  David Edelsohn  <dje.gcc@gmail.com>
+
+	* g++.dg/debug/pr71432.C: Fail on AIX.
+
+2016-07-07  Martin Liska  <mliska@suse.cz>
+
+	* gfortran.dg/do_1.f90: Remove a corner case that triggers
+	an undefined behavior.
+	* gfortran.dg/do_3.F90: Likewise.
+	* gfortran.dg/do_check_11.f90: New test.
+	* gfortran.dg/do_check_12.f90: New test.
+	* gfortran.dg/do_corner_warn.f90: New test.
+
+2016-07-07  Martin Liska  <mliska@suse.cz>
+
+	* gfortran.dg/predict-1.f90: Ammend the test.
+	* gfortran.dg/predict-2.f90: Likewise.
+
+2016-07-07  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR ipa/71624
+	* g++.dg/pr71624.C: New test.
+
+2016-07-07  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* lib/target-supports.exp: Generate add_options_for_arm_arch_FUNC and
+	check_effective_target_arm_arch_FUNC_multilib for ARMv8-M Baseline and
+	ARMv8-M Mainline architectures.
+
+2016-07-07  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* lib/target-supports.exp (check_effective_target_arm_cortex_m): Use
+	__ARM_ARCH_ISA_ARM to test for Cortex-M devices.
+
+2016-07-06  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/70098
+	PR target/71763
+	* gcc.target/powerpc/pr71763.c: New file.
+
+2016-07-06  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR tree-optimization/71518
+        * gcc.dg/pr71518.c: New test.
+
+2016-07-06  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* gcc.target/arm/vst1Q_laneu64-1.c (foo): Use unsigned char*.
+
+2016-07-06  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	PR target/50739	
+	* gcc.target/avr/pr50739.c: New test.
+
+2016-07-05  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/tree-ssa/scev-14.c: update template.
+
+2016-07-06  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* gcc.dg/vect/group-no-gaps-1.c: New test.
+
+2016-07-05  Andi Kleen  <ak@linux.intel.com>
+
+	* gcc.target/i386/mpx/mpx-check.h: Check XGETBV output
+	if kernel supports MPX.
+
+2016-07-05  Kito Cheng <kito.cheng@gmail.com>
+
+	* gcc.c-torture/compile/pr69102.c: Require fpic support.
+
+2016-07-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/signbit-1.c: New test.
+	* gcc.target/powerpc/signbit-2.c: New test.
+	* gcc.target/powerpc/signbit-3.c: New test.
+
+2016-07-05  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/71594
+	* gcc.dg/torture/pr71594.c: New test.
+
+2016-07-05  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/tree-ssa/scev-14.c: new testcase.
+
+2016-07-05  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c++/62314
+	* gcc/testsuite/g++.dg/parse/error5.C: Update column
+	number of missing semicolon error.
+	* g++.dg/pr62314-2.C: New test case.
+
+2016-07-05  Alessandro Fanfarillo  <fanfarillo.gcc@gmail.com>
+
+	* gfortran.dg/coarray_stat_function.f90: New test.
+	* gfortran.dg/coarray_stat_whitespace.f90: New test.
+	* gfortran.dg/coarray_lib_comm_1: Adapting old test
+	to new interfaces.
+
+2016-07-05  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/71623
+	* gfortran.dg/deferred_character_17.f90: New test.
+
+2016-07-05  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/arm/neon/polytypes.c: Move to ...
+	* gcc.target/arm/polytypes.c: ... here.
+	* gcc.target/arm/neon/pr51534.c: Move to ...
+	* gcc.target/arm/pr51534.c: ... here.
+	* gcc.target/arm/neon/vect-vcvt.c: Move to ...
+	* gcc.target/arm/vect-vcvt.c: ... here.
+	* gcc.target/arm/neon/vect-vcvtq.c: Move to ...
+	* gcc.target/arm/vect-vcvtq.c: ... here.
+	* gcc.target/arm/neon/vfp-shift-a2t2.c: Move to ...
+	* gcc.target/arm/vfp-shift-a2t2.c: ... here.
+	* gcc.target/arm/neon/vst1Q_laneu64-1.c: Move to ...
+	* gcc.target/arm/vst1Q_laneu64-1.c: ... here. Fix foo() prototype.
+	* gcc.target/arm/neon/neon.exp: Delete.
+	* gcc.target/arm/neon/: Delete.
+
+2016-07-04  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/65575
+	* gfortran.dg: pr65575.f90: New test.
+
+2016-07-04  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/35849
+	* gfortran.dg: pr35849.f90: New test.
+
+2016-07-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71739
+	* g++.dg/cpp0x/pr71739.C: New test.
+
+2016-07-04  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* c-c++-common/asan/clone-test-1.c (main): Handle clone() failure.
+
+2016-07-04  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* gcc.target/s390/vector/vec-scalar-cmp-1.c: Expect lochi instead of
+	locr.
+	* gcc.target/s390/loc-1.c: New test.
+
+2016-07-04  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	* gcc/testsuite/gcc.target/i386/avx512f-vect-perm-1.c: New test.
+	* gcc/testsuite/gcc.target/i386/avx512f-vect-perm-2.c: New test.
+
+2016-07-04  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/63874
+	* gcc.target/aarch64/pr63874.c: New test.
+
+2016-07-04  Jan Beulich  <jbeulich@suse.com>
+
+	* g++.dg/header.c: New.
+	* gcc.dg/header.c: New.
+
+2016-07-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/71719
+	* c-c++-common/Wunused-var-15.c: New test.
+
+2016-07-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/71687
+	* gfortran.dg/gomp/pr71687.f90: New test.
+
+2016-07-01  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.dg/const-float128-ped.c: Require __float128 effective
+	target and options.
+	* gcc.dg/const-float128.c: Likewise.
+	* gcc.dg/torture/float128-cmp-invalid.c: Require
+	__float128 and base_quadfloat_support effective targets, and
+	__float128 options.
+	* gcc.dg/torture/float128-div-underflow.c: Likewise.
+	* gcc.dg/torture/float128-extend-nan.c: Likewise.
+	* gcc.dg/torture/float128-nan.c: Likewise.
+	* gcc.dg/torture/fp-int-convert-float128-timode-2.c: Likewise.
+	* gcc.dg/torture/fp-int-convert-float128-timode-3.c: Likewise.
+	* gcc.dg/torture/fp-int-convert-float128-timode.c: Likewise.
+	* lib/target-supports.exp (check_effective_target___float128):
+	New.
+	(add_options_for___float128): New.
+	(check_effective_target_base_quadword_support): New.
+
+2016-07-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/71720
+	* gcc.target/powerpc/pr71720.c: New test.
+
+2016-07-01  Jan Beulich  <jbeulich@suse.com>
+
+	* gcc.dg/bss.c: New.
+
+2016-07-01  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/71698
+	* gcc.target/powerpc/pr71698.c: New test.
+
+2016-07-01  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/71151
+	* gcc.target/avr/pr71151-common.h (foo): Use macro SECTION_NAME
+	instead of ".foo" for its section name.
+	* gcc.target/avr/pr71151-2.c (SECTION_NAME): Define appropriately
+	depending on MCU's flash size.
+	* gcc.target/avr/pr71151-3.c (SECTION_NAME): Dito.
+	* gcc.target/avr/pr71151-4.c (SECTION_NAME): Dito.
+	* gcc.target/avr/pr71151-5.c (SECTION_NAME): Dito.
+	* gcc.target/avr/pr71151-6.c (SECTION_NAME): Dito.
+	* gcc.target/avr/pr71151-7.c (SECTION_NAME): Dito.
+	* gcc.target/avr/pr71151-8.c (SECTION_NAME): Dito.
+
+2016-07-01  Jan Beulich  <jbeulich@suse.com>
+
+	* gcc.target/i386/pr65105-2.c: Add -msse2.
+
+2016-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/71707
+	* gcc.dg/strlenopt-29.c: New test.
+
+	PR fortran/71704
+	* gfortran.dg/gomp/pr71704.f90: New test.
+
+	PR fortran/71705
+	* gfortran.dg/gomp/pr71705.f90: New test.
+
+2016-06-30  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* gcc.target/powerpc/dfp/dfp.exp: New dejagnu test script.
+	* gcc.target/powerpc/dfp/dtstsfi-0.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-1.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-10.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-11.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-12.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-13.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-14.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-15.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-16.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-17.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-18.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-19.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-2.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-20.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-21.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-22.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-23.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-24.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-25.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-26.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-27.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-28.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-29.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-3.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-30.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-31.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-32.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-33.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-34.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-35.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-36.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-37.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-38.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-39.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-4.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-40.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-41.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-42.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-43.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-44.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-45.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-46.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-47.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-48.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-49.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-5.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-50.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-51.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-52.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-53.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-54.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-55.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-56.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-57.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-58.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-59.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-6.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-60.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-61.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-62.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-63.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-64.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-65.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-66.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-67.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-68.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-69.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-7.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-70.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-71.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-72.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-73.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-74.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-75.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-76.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-77.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-78.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-79.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-8.c: New test.
+	* gcc.target/powerpc/dfp/dtstsfi-9.c: New test.
+
+2016-06-30  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+            James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.target/aarch64/vect_copy_lane_1.c: New test.
+
+2016-06-30  James Greenhalgh  <james.greenhalgh@arm.com>
+            Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/vget_set_lane_1.c: New test.
+
+2016-06-30  David Malcolm  <dmalcolm@redhat.com>
+
+	PR driver/71651
+	* gcc.dg/spellcheck-options-12.c: New test case.
+
+2016-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/71693
+	* gcc.c-torture/compile/pr71693.c: New test.
+
+2016-06-29  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc.dg/spellcheck-params.c: New testcase.
+	* gcc.dg/spellcheck-params-2.c: New testcase.
+
+2016-06-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/p9-extract-1.c: New file to test ISA 3.0
+	vector extract instructions.
+	* gcc.target/powerpc/p9-extract-2.c: Likewise.
+
+2016-06-29  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/71686
+	* gfortran.dg/unexpected_eof_2.f90: New test.
+	* gfortran.dg/unexpected_eof_3.f90: New test.
+
+2016-06-29  Jim Wilson  <jim.wilson@linaro.org>
+
+	* gcc.dg/asr_div1.c: Add aarch64 specific dg-options.
+
+2016-06-29  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.dg/goacc/asyncwait-2.f95: Updated expected diagnostics.
+	* gfortran.dg/goacc/asyncwait-3.f95: Likewise.
+	* gfortran.dg/goacc/asyncwait-4.f95: Add test coverage.
+
+2016-06-29  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/15256
+	* gcc.dg/tree-ssa/forwprop-34.c: New testcase.
+
+2016-06-29  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* gcc.target/arm/aapcs/neon-vect10.c: Require
+	-mfloat-ab=hard.  Replace arm_neon_fp16_ok with arm_neon_fp16_hw.
+	* gcc.target/arm/aapcs/neon-vect9.c: Likewise.
+	* gcc.target/arm/aapcs/vfp18.c: Likewise.
+	* gcc.target/arm/aapcs/vfp19.c: Likewise.
+	* gcc.target/arm/aapcs/vfp20.c: Likewise.
+	* gcc.target/arm/aapcs/vfp21.c: Likewise.
+	* gcc.target/arm/fp16-aapcs-1.c: Require
+	-mfloat-ab=hard.  Also simplify the test.
+	* gcc.target/arm/fp16-aapcs-2.c: New.
+
+2016-06-29  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* lib/target-supports.exp (add_options_for_arm_fp16): Reword
+	comment.
+	(add_options_for_arm_fp16_ieee): New.
+	(add_options_for_arm_fp16_alternative): New.
+	(effective_target_arm_fp16_ok_nocache): Add to comment.  Fix a
+	long-line.
+	(effective_target_arm_fp16_hw): New.
+
+2016-06-29  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR tree-optimization/71655
+	* g++.dg/pr71655.C: New test.
+
+2016-06-29  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/pr71585.c: New test.
+	* gcc.dg/pr71585-2.c: New test.
+	* gcc.dg/pr71585-3.c: New test.
+
+2016-06-29  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR tree-optimization/70729
+	* g++.dg/vect/pr70729.cc: New test.
+
+2016-06-29  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/gomp/cancel-1.c: Extend.
+
+2016-06-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/71625
+	* gcc.dg/strlenopt-28.c: New test.
+
+2016-06-29  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/71002
+	* g++.dg/torture/pr71002.C: Adjust testcase.
+
+2016-06-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/71685
+	* gcc.dg/pr71685.c: New test.
+
+2016-06-28  Martin Sebor  <msebor@redhat.com>
+
+	PR c/71552
+	* gcc.dg/init-bad-9.c: New test.
+
+2016-06-28  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/abs128-1.c: Require VSX.
+	* gcc.target/powerpc/copysign128-1.c: Likewise.
+	* gcc.target/powerpc/inf128-1.c: Likewise.
+	* gcc.target/powerpc/nan128-1.c: Likewise.
+
+2016-06-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/71626
+	* gcc.c-torture/execute/pr71626-1.c: New test.
+	* gcc.c-torture/execute/pr71626-2.c: New test.
+
+2016-06-28  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/71656
+	* gcc.target/powerpc/pr71656-2.c: Fix syntax errors.
+
 2016-06-27  Segher Boessenkool  <segher@kernel.crashing.org>
 
 	PR target/71670

@@ -250,6 +250,22 @@ static const struct cpu_addrcost_table xgene1_addrcost_table =
   0, /* imm_offset  */
 };
 
+static const struct cpu_addrcost_table qdf24xx_addrcost_table =
+{
+    {
+      1, /* hi  */
+      0, /* si  */
+      0, /* di  */
+      1, /* ti  */
+    },
+  0, /* pre_modify  */
+  0, /* post_modify  */
+  0, /* register_offset  */
+  0, /* register_sextend  */
+  0, /* register_zextend  */
+  0 /* imm_offset  */
+};
+
 static const struct cpu_regmove_cost generic_regmove_cost =
 {
   1, /* GP2GP  */
@@ -306,6 +322,15 @@ static const struct cpu_regmove_cost xgene1_regmove_cost =
   8, /* GP2FP  */
   8, /* FP2GP  */
   2 /* FP2FP  */
+};
+
+static const struct cpu_regmove_cost qdf24xx_regmove_cost =
+{
+  2, /* GP2GP  */
+  /* Avoid the use of int<->fp moves for spilling.  */
+  6, /* GP2FP  */
+  6, /* FP2GP  */
+  4 /* FP2FP  */
 };
 
 /* Generic costs for vector insn classes.  */
@@ -448,15 +473,15 @@ static const struct tune_params cortexa35_tunings =
   &generic_addrcost_table,
   &cortexa53_regmove_cost,
   &generic_vector_cost,
-  &generic_branch_cost,
+  &cortexa57_branch_cost,
   &generic_approx_modes,
   4, /* memmov_cost  */
   1, /* issue_rate  */
-  (AARCH64_FUSE_MOV_MOVK | AARCH64_FUSE_ADRP_ADD
+  (AARCH64_FUSE_AES_AESMC | AARCH64_FUSE_MOV_MOVK | AARCH64_FUSE_ADRP_ADD
    | AARCH64_FUSE_MOVK_MOVK | AARCH64_FUSE_ADRP_LDR), /* fusible_ops  */
-  8,	/* function_align.  */
+  16,	/* function_align.  */
   8,	/* jump_align.  */
-  4,	/* loop_align.  */
+  8,	/* loop_align.  */
   2,	/* int_reassoc_width.  */
   4,	/* fp_reassoc_width.  */
   1,	/* vec_reassoc_width.  */
@@ -474,15 +499,15 @@ static const struct tune_params cortexa53_tunings =
   &generic_addrcost_table,
   &cortexa53_regmove_cost,
   &generic_vector_cost,
-  &generic_branch_cost,
+  &cortexa57_branch_cost,
   &generic_approx_modes,
   4, /* memmov_cost  */
   2, /* issue_rate  */
   (AARCH64_FUSE_AES_AESMC | AARCH64_FUSE_MOV_MOVK | AARCH64_FUSE_ADRP_ADD
    | AARCH64_FUSE_MOVK_MOVK | AARCH64_FUSE_ADRP_LDR), /* fusible_ops  */
-  8,	/* function_align.  */
+  16,	/* function_align.  */
   8,	/* jump_align.  */
-  4,	/* loop_align.  */
+  8,	/* loop_align.  */
   2,	/* int_reassoc_width.  */
   4,	/* fp_reassoc_width.  */
   1,	/* vec_reassoc_width.  */
@@ -508,7 +533,7 @@ static const struct tune_params cortexa57_tunings =
    | AARCH64_FUSE_MOVK_MOVK), /* fusible_ops  */
   16,	/* function_align.  */
   8,	/* jump_align.  */
-  4,	/* loop_align.  */
+  8,	/* loop_align.  */
   2,	/* int_reassoc_width.  */
   4,	/* fp_reassoc_width.  */
   1,	/* vec_reassoc_width.  */
@@ -526,7 +551,7 @@ static const struct tune_params cortexa72_tunings =
   &cortexa57_addrcost_table,
   &cortexa57_regmove_cost,
   &cortexa57_vector_cost,
-  &generic_branch_cost,
+  &cortexa57_branch_cost,
   &generic_approx_modes,
   4, /* memmov_cost  */
   3, /* issue_rate  */
@@ -534,7 +559,7 @@ static const struct tune_params cortexa72_tunings =
    | AARCH64_FUSE_MOVK_MOVK), /* fusible_ops  */
   16,	/* function_align.  */
   8,	/* jump_align.  */
-  4,	/* loop_align.  */
+  8,	/* loop_align.  */
   2,	/* int_reassoc_width.  */
   4,	/* fp_reassoc_width.  */
   1,	/* vec_reassoc_width.  */
@@ -542,7 +567,7 @@ static const struct tune_params cortexa72_tunings =
   2,	/* min_div_recip_mul_df.  */
   0,	/* max_case_values.  */
   0,	/* cache_line_size.  */
-  tune_params::AUTOPREFETCHER_OFF,	/* autoprefetcher_model.  */
+  tune_params::AUTOPREFETCHER_WEAK,	/* autoprefetcher_model.  */
   (AARCH64_EXTRA_TUNE_NONE)	/* tune_flags.  */
 };
 
@@ -552,7 +577,7 @@ static const struct tune_params cortexa73_tunings =
   &cortexa57_addrcost_table,
   &cortexa57_regmove_cost,
   &cortexa57_vector_cost,
-  &generic_branch_cost,
+  &cortexa57_branch_cost,
   &generic_approx_modes,
   4, /* memmov_cost.  */
   2, /* issue_rate.  */
@@ -560,7 +585,7 @@ static const struct tune_params cortexa73_tunings =
    | AARCH64_FUSE_MOVK_MOVK | AARCH64_FUSE_ADRP_LDR), /* fusible_ops  */
   16,	/* function_align.  */
   8,	/* jump_align.  */
-  4,	/* loop_align.  */
+  8,	/* loop_align.  */
   2,	/* int_reassoc_width.  */
   4,	/* fp_reassoc_width.  */
   1,	/* vec_reassoc_width.  */
@@ -645,6 +670,32 @@ static const struct tune_params xgene1_tunings =
   0,	/* cache_line_size.  */
   tune_params::AUTOPREFETCHER_OFF,	/* autoprefetcher_model.  */
   (AARCH64_EXTRA_TUNE_NONE)	/* tune_flags.  */
+};
+
+static const struct tune_params qdf24xx_tunings =
+{
+  &qdf24xx_extra_costs,
+  &qdf24xx_addrcost_table,
+  &qdf24xx_regmove_cost,
+  &generic_vector_cost,
+  &generic_branch_cost,
+  &generic_approx_modes,
+  4, /* memmov_cost  */
+  4, /* issue_rate  */
+  (AARCH64_FUSE_MOV_MOVK | AARCH64_FUSE_ADRP_ADD
+   | AARCH64_FUSE_MOVK_MOVK), /* fuseable_ops  */
+  16,	/* function_align.  */
+  8,	/* jump_align.  */
+  16,	/* loop_align.  */
+  2,	/* int_reassoc_width.  */
+  4,	/* fp_reassoc_width.  */
+  1,	/* vec_reassoc_width.  */
+  2,	/* min_div_recip_mul_sf.  */
+  2,	/* min_div_recip_mul_df.  */
+  0,	/* max_case_values.  */
+  64,	/* cache_line_size.  */
+  tune_params::AUTOPREFETCHER_STRONG,	/* autoprefetcher_model.  */
+  (AARCH64_EXTRA_TUNE_NONE)		/* tune_flags.  */
 };
 
 /* Support for fine-grained override of the tuning structures.  */
@@ -9372,15 +9423,18 @@ aarch64_classify_symbol (rtx x, rtx offset)
       switch (aarch64_cmodel)
 	{
 	case AARCH64_CMODEL_TINY:
-	  /* When we retreive symbol + offset address, we have to make sure
+	  /* When we retrieve symbol + offset address, we have to make sure
 	     the offset does not cause overflow of the final address.  But
 	     we have no way of knowing the address of symbol at compile time
 	     so we can't accurately say if the distance between the PC and
 	     symbol + offset is outside the addressible range of +/-1M in the
 	     TINY code model.  So we rely on images not being greater than
 	     1M and cap the offset at 1M and anything beyond 1M will have to
-	     be loaded using an alternative mechanism.  */
-	  if (SYMBOL_REF_WEAK (x)
+	     be loaded using an alternative mechanism.  Furthermore if the
+	     symbol is a weak reference to something that isn't known to
+	     resolve to a symbol in this module, then force to memory.  */
+	  if ((SYMBOL_REF_WEAK (x)
+	       && !aarch64_symbol_binds_local_p (x))
 	      || INTVAL (offset) < -1048575 || INTVAL (offset) > 1048575)
 	    return SYMBOL_FORCE_TO_MEM;
 	  return SYMBOL_TINY_ABSOLUTE;
@@ -9388,7 +9442,8 @@ aarch64_classify_symbol (rtx x, rtx offset)
 	case AARCH64_CMODEL_SMALL:
 	  /* Same reasoning as the tiny code model, but the offset cap here is
 	     4G.  */
-	  if (SYMBOL_REF_WEAK (x)
+	  if ((SYMBOL_REF_WEAK (x)
+	       && !aarch64_symbol_binds_local_p (x))
 	      || !IN_RANGE (INTVAL (offset), HOST_WIDE_INT_C (-4294967263),
 			    HOST_WIDE_INT_C (4294967264)))
 	    return SYMBOL_FORCE_TO_MEM;

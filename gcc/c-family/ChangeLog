@@ -1,3 +1,25 @@
+2016-07-08  Jason Merrill  <jason@redhat.com>
+
+	P0145: Refining Expression Order for C++.
+	* c.opts (-fargs-in-order): Rename to -fstrong-eval-order.
+	* c-opts.c: Adjust.
+
+2016-07-05  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR c++/71214
+	* c-cppbuiltin.c (c_cpp_builtins): Define __cpp_rvalue_references.
+
+2016-06-29  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-pragma.h (enum pragma_kind): Rename
+	PRAGMA_OMP_DECLARE_REDUCTION to PRAGMA_OMP_DECLARE.  Adjust all
+	users.
+
+2016-06-29  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/71002
+	* c-common.c (c_common_get_alias_set): Remove union type punning case.
+
 2016-06-24  Jason Merrill  <jason@redhat.com>
 
 	P0145R2: Refining Expression Order for C++.

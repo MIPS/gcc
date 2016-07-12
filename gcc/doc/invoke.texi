@@ -644,8 +644,8 @@ Objective-C and Objective-C++ Dialects}.
 @emph{AVR Options}
 @gccoptlist{-mmcu=@var{mcu} -maccumulate-args -mbranch-cost=@var{cost} @gol
 -mcall-prologues -mint8 -mn_flash=@var{size} -mno-interrupts @gol
--mrelax -mrmw -mstrict-X -mtiny-stack -nodevicelib -Waddr-space-convert @gol
--Wmisspelled-isr}
+-mrelax -mrmw -mstrict-X -mtiny-stack -mfract-convert-truncate -nodevicelib @gol
+-Waddr-space-convert -Wmisspelled-isr}
 
 @emph{Blackfin Options}
 @gccoptlist{-mcpu=@var{cpu}@r{[}-@var{sirevision}@r{]} @gol
@@ -2237,14 +2237,6 @@ option is used for the warning.
 Turn off all access checking.  This switch is mainly useful for working
 around bugs in the access control code.
 
-@item -fargs-in-order
-@opindex fargs-in-order
-Evaluate function arguments and operands of some binary expressions in
-left-to-right order, and evaluate the right side of an assignment
-before the left side, as proposed in P0145R2.  Enabled by default with
-@option{-std=c++1z}.  @option{-fargs-in-order=1} implements all of the
-ordering requirements except function arguments.
-
 @item -fcheck-new
 @opindex fcheck-new
 Check that the pointer returned by @code{operator new} is non-null
@@ -2482,6 +2474,15 @@ defined in the C++ standard; basically, a value that can be
 represented in the minimum number of bits needed to represent all the
 enumerators).  This assumption may not be valid if the program uses a
 cast to convert an arbitrary integer value to the enumerated type.
+
+@item -fstrong-eval-order
+@opindex fstrong-eval-order
+Evaluate member access, array subscripting, and shift expressions in
+left-to-right order, and evaluate assignment in right-to-left order,
+as adopted for C++17.  Enabled by default with @option{-std=c++1z}.
+@option{-fstrong-eval-order=some} enables just the ordering of member
+access and shift expressions, and is the default without
+@option{-std=c++1z}.
 
 @item -ftemplate-backtrace-limit=@var{n}
 @opindex ftemplate-backtrace-limit
@@ -4078,6 +4079,13 @@ Examples of code with undefined behavior are @code{a = a++;}, @code{a[n]
 diagnosed by this option, and it may give an occasional false positive
 result, but in general it has been found fairly effective at detecting
 this sort of problem in programs.
+
+The C++17 standard will define the order of evaluation of operands in
+more cases: in particular it requires that the right-hand side of an
+assignment be evaluated before the left-hand side, so the above
+examples are no longer undefined.  But this warning will still warn
+about them, to help people avoid writing code that is undefined in C
+and earlier revisions of C++.
 
 The standard is worded confusingly, therefore there is some debate
 over the precise meaning of the sequence point rules in subtle cases.
@@ -13108,10 +13116,13 @@ more feature modifiers.  This option has the form
 @option{-march=@var{arch}@r{@{}+@r{[}no@r{]}@var{feature}@r{@}*}}.
 
 The permissible values for @var{arch} are @samp{armv8-a},
-@samp{armv8.1-a} or @var{native}.
+@samp{armv8.1-a}, @samp{armv8.2-a} or @var{native}.
+
+The value @samp{armv8.2-a} implies @samp{armv8.1-a} and enables compiler
+support for the ARMv8.2-A architecture extensions.
 
 The value @samp{armv8.1-a} implies @samp{armv8-a} and enables compiler
-support for the ARMv8.1 architecture extension.  In particular, it
+support for the ARMv8.1-A architecture extension.  In particular, it
 enables the @samp{+crc} and @samp{+lse} features.
 
 The value @samp{native} is available on native AArch64 GNU/Linux and
@@ -13215,6 +13226,8 @@ instructions.  This is on by default for all possible values for options
 @item lse
 Enable Large System Extension instructions.  This is on by default for
 @option{-march=armv8.1-a}.
+@item fp16
+Enable FP16 extension.  This also enables floating-point instructions.
 
 @end table
 
@@ -14150,7 +14163,8 @@ of the @option{-mcpu=} option.  Permissible names are: @samp{armv2},
 @samp{armv6t2}, @samp{armv6z}, @samp{armv6zk},
 @samp{armv7}, @samp{armv7-a}, @samp{armv7-m}, @samp{armv7-r}, @samp{armv7e-m},
 @samp{armv7ve}, @samp{armv8-a}, @samp{armv8-a+crc}, @samp{armv8.1-a},
-@samp{armv8.1-a+crc}, @samp{iwmmxt}, @samp{iwmmxt2}.
+@samp{armv8.1-a+crc}, @samp{armv8-m.base}, @samp{armv8-m.main},
+@samp{armv8-m.main+dsp}, @samp{iwmmxt}, @samp{iwmmxt2}.
 
 Architecture revisions older than @samp{armv4t} are deprecated.
 
@@ -14462,10 +14476,10 @@ generating these instructions.  This option is enabled by default when
 @opindex mno-unaligned-access
 Enables (or disables) reading and writing of 16- and 32- bit values
 from addresses that are not 16- or 32- bit aligned.  By default
-unaligned access is disabled for all pre-ARMv6 and all ARMv6-M
-architectures, and enabled for all other architectures.  If unaligned
-access is not enabled then words in packed data structures are
-accessed a byte at a time.
+unaligned access is disabled for all pre-ARMv6, all ARMv6-M and for
+ARMv8-M Baseline architectures, and enabled for all other
+architectures.  If unaligned access is not enabled then words in packed
+data structures are accessed a byte at a time.
 
 The ARM attribute @code{Tag_CPU_unaligned_access} is set in the
 generated object file to either true or false, depending upon the
@@ -14627,6 +14641,10 @@ sbiw r26, const   ; X -= const
 @item -mtiny-stack
 @opindex mtiny-stack
 Only change the lower 8@tie{}bits of the stack pointer.
+
+@item -mfract-convert-truncate
+@opindex mfract-convert-truncate
+Allow to use truncation instead of rounding towards zero for fractional fixed-point types.
 
 @item -nodevicelib
 @opindex nodevicelib
@@ -20352,8 +20370,13 @@ hardware instructions.
 
 The VSX instruction set (@option{-mvsx}, @option{-mcpu=power7}, or
 @option{-mcpu=power8}) must be enabled to use the @option{-mfloat128}
-option.  The @code{-mfloat128} option only works on PowerPC 64-bit
+option.  The @option{-mfloat128} option only works on PowerPC 64-bit
 Linux systems.
+
+If you use the ISA 3.0 instruction set (@option{-mcpu=power9}), the
+@option{-mfloat128} option will also enable the generation of ISA 3.0
+IEEE 128-bit floating point instructions.  Otherwise, IEEE 128-bit
+floating point will be done with software emulation.
 
 @item -mfloat128-hardware
 @itemx -mno-float128-hardware
@@ -20361,6 +20384,13 @@ Linux systems.
 @opindex mno-float128-hardware
 Enable/disable using ISA 3.0 hardware instructions to support the
 @var{__float128} data type.
+
+If you use @option{-mfloat128-hardware}, it will enable the option
+@option{-mfloat128} as well.
+
+If you select ISA 3.0 instructions with @option{-mcpu=power9}, but do
+not use either @option{-mfloat128} or @option{-mfloat128-hardware},
+the IEEE 128-bit floating point support will not be enabled.
 
 @item -mmodulo
 @itemx -mno-modulo
