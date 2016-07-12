@@ -1029,6 +1029,10 @@ fchecking
 Common Var(flag_checking) Init(CHECKING_P)
 Perform internal consistency checkings.
 
+fcode-hoisting
+Common Report Var(flag_code_hoisting) Optimization
+Enable code hoisting.
+
 fcombine-stack-adjustments
 Common Report Var(flag_combine_stack_adjustments) Optimization
 Looks for opportunities to reduce stack adjustments and stack references.
