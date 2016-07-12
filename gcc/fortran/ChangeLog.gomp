@@ -1,3 +1,21 @@
+2016-07-12  Cesar Philippidis  <cesar@codesourcery.com>
+
+	Backport from trunk:
+	2016-07-08  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* parse.c (matcha): Define.
+	(decode_oacc_directive): Add spec_only local var and set it.  Use
+	matcha to parse acc directives except for routine and declare.  Return
+	ST_GET_FCN_CHARACTERISTICS if a non-declarative directive could be
+	matched.
+
+	2016-06-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* parse.c (case_decl): Move ST_OMP_* to ...
+	(case_omp_decl): ... here, new macro.
+	(verify_st_order): For case_omp_decl, complain about
+	p->state >= ORDER_EXEC, but don't change p->state otherwise.
+
 2016-07-01  Cesar Philippidis  <cesar@codesourcery.com>
 
 	Back port from trunk
