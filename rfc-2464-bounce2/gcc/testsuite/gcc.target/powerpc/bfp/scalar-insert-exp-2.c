@@ -11,8 +11,8 @@
 
 #include <altivec.h>
 
-double get_exponent (unsigned int *exponent_p, 
-		     unsigned long long int *signficand_p)
+double insert_exponent (unsigned int *exponent_p, 
+			unsigned long long int *significand_p)
 {
   unsigned int exponent = *exponent_p;
   unsigned long long int significand = *significand_p;

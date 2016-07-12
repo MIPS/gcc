@@ -13,5 +13,5 @@ int compare_exponents_gt (double *exponent1_p,
   double exponent1 = *exponent1_p;
   double exponent2 = *exponent2_p;
 
-  return scalar_cmp_exp_gt (exponent1, exponent2);	/* { dg-error "Builtin function __builtin_vsx_scalar_cmp_exp_gt requires" } */
+  return __builtin_vec_scalar_cmp_exp_gt (exponent1, exponent2);	/* { dg-error "Builtin function __builtin_vsx_scalar_cmp_exp_gt requires" } */
 }
