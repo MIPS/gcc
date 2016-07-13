@@ -6298,6 +6298,59 @@
    bt%N1z\t%0"
   [(set_attr "type" "branch")])
 
+;; Peepholes to combine scc and branch instructions where combine
+;; does not see the XORI/SEQ/BEQ sequence as an BNEI.
+
+(define_peephole2
+  [(set (match_operand:SI 0 "register_operand")
+	(xor:SI (match_operand:SI 1 "register_operand")
+		(match_operand:SI 2 "const_uimm7_operand")))
+   (set (match_operand:SI 3 "register_operand")
+	(eq:SI (match_dup 0)
+	       (const_int 0)))
+   (set (pc)
+	(if_then_else
+	 (eq
+			 (match_dup 3)
+			  (const_int 0))
+	 (label_ref (match_operand 5 ""))
+	 (pc)))]
+  "TARGET_MICROMIPS_R7 && TARGET_ADD_BR_IMM
+   && peep2_reg_dead_p (3, operands[0])
+   && peep2_reg_dead_p (3, operands[3])"
+  [(set (pc)
+	(if_then_else
+	 (ne
+			 (match_dup 1)
+			  (match_dup 2))
+	 (label_ref (match_dup 5))
+	 (pc)))])
+
+(define_peephole2
+  [(set (match_operand:SI 0 "register_operand")
+	(xor:SI (match_operand:SI 1 "register_operand")
+		(match_operand:SI 2 "const_uimm7_operand")))
+   (set (match_operand:SI 3 "register_operand")
+	(ne:SI (match_dup 0)
+	       (const_int 0)))
+   (set (pc)
+	(if_then_else
+	 (eq
+			 (match_dup 3)
+			  (const_int 0))
+	 (label_ref (match_operand 5 ""))
+	 (pc)))]
+  "TARGET_MICROMIPS_R7 && TARGET_ADD_BR_IMM
+   && peep2_reg_dead_p (3, operands[0])
+   && peep2_reg_dead_p (3, operands[3])"
+  [(set (pc)
+	(if_then_else
+	 (eq
+			 (match_dup 1)
+			  (match_dup 2))
+	 (label_ref (match_dup 5))
+	 (pc)))])
+
 (define_expand "cbranch<mode>4"
   [(set (pc)
 	(if_then_else (match_operator 0 "comparison_operator"
