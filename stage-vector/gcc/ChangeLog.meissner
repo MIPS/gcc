@@ -1,5 +1,22 @@
 2016-07-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000-protos.h (rs6000_adjust_vec_address): Add
+	declaration.
+
+	* config/rs6000/rs6000.c (rs6000_adjust_vec_address): New function
+	to take a vector address, and convert it to an address of an
+	element within the vector.
+	(rs6000_split_vec_extract_var): Use rs6000_adjust_vec_address to
+	handle memory addresses.
+
+	* config/rs6000/vsx.md (vsx_extract_<mode>_load): Combine
+	vsx_extract_<mode>_load0 and vsx_extract_<mode>_load1.  Use
+	rs6000_adjust_vec_address to adjust the memory address.
+	(vsx_extract_<mode>_var): Use 'm' memory constraint instead of
+	'Z'.
+
+2016-07-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* config/rs6000/vsx.md (vsx_extract_<mode>_load1): Add
 	gcc_unreachble () to silence variable might not be used warning.
 
