@@ -2230,6 +2230,8 @@
       emit_insn (gen_adddi3 (tmp, op1, eight));
       new_addr = gen_rtx_PLUS (DImode, op0, tmp);
     }
+  else
+    gcc_unreachable ();
 
   operands[3] = change_address (src, <VS_scalar>mode, new_addr);
 }

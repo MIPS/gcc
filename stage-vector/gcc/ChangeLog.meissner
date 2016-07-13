@@ -1,3 +1,8 @@
+2016-07-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (vsx_extract_<mode>_load1): Add
+	gcc_unreachble () to silence variable might not be used warning.
+
 2016-07-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vsx.md (vsx_extract_<mode>_load0): Rename from
