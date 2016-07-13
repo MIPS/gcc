@@ -1,5 +1,12 @@
 2016-07-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/vsx.md (vsx_extract_<mode>_load0): Rename from
+	vsx_extract_<mode>_load.
+	(vsx_extract_<mode>_load1): Add insn to get the second element in
+	a vector from memory.
+
+2016-07-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* config/rs6000/rs6000.c (rs6000_split_vec_extract_var): Add
 	support for variable exraction from indirect or indexed memory.
 	* config/rs6000/vsx.md (vsx_extract_<mode>_var): Likewise.

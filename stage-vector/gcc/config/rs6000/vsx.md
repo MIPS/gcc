@@ -2176,7 +2176,7 @@
 
 ;; Optimize extracting a single scalar element from memory if the scalar is in
 ;; the correct location to use a single load.
-(define_insn "*vsx_extract_<mode>_load"
+(define_insn "*vsx_extract_<mode>_load0"
   [(set (match_operand:<VS_scalar> 0 "register_operand" "=d,wv,wr")
 	(vec_select:<VS_scalar>
 	 (match_operand:VSX_D 1 "memory_operand" "m,Z,m")
@@ -2188,6 +2188,53 @@
    ld%U1%X1 %0,%1"
   [(set_attr "type" "fpload,fpload,load")
    (set_attr "length" "4")])
+
+(define_insn_and_split "*vsx_extract_<mode>_load1"
+  [(set (match_operand:<VS_scalar> 0 "register_operand" "=d,wv,r")
+	(vec_select:<VS_scalar>
+	 (match_operand:VSX_D 1 "memory_operand" "Z,Z,Z")
+	 (parallel [(const_int 1)])))
+   (clobber (match_scratch:DI 2 "=&b,&b,&b"))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_POWERPC64"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (match_dup 3))]
+{
+  rtx dest = operands[0];
+  rtx src = operands[1];
+  rtx tmp = operands[2];
+  rtx addr = XEXP (src, 0);
+  int dest_regno = REGNO (dest);
+  rtx eight = GEN_INT (8);
+  rtx new_addr;
+
+  if (REG_P (addr))
+    {
+       if (INT_REGNO_P (dest_regno)
+	   || FP_REGNO_P (dest_regno)
+	   || (ALTIVEC_REGNO_P (dest_regno) && TARGET_P9_DFORM_SCALAR))
+	new_addr = gen_rtx_PLUS (DImode, addr, eight);
+       else
+	{
+	  emit_move_insn (tmp, eight);
+	  new_addr = gen_rtx_PLUS (DImode, addr, tmp);
+	}
+    }
+  else if (GET_CODE (addr) == PLUS)
+    {
+      rtx op0 = XEXP (addr, 0);
+      rtx op1 = XEXP (addr, 1);
+      if (!REG_P (op0) || !REG_P (op1))
+	gcc_unreachable ();
+
+      emit_insn (gen_adddi3 (tmp, op1, eight));
+      new_addr = gen_rtx_PLUS (DImode, op0, tmp);
+    }
+
+  operands[3] = change_address (src, <VS_scalar>mode, new_addr);
+}
+  [(set_attr "type" "fpload,fpload,load")
+   (set_attr "length" "8")])
 
 ;; Optimize storing a single scalar element that is the right location to
 ;; memory
