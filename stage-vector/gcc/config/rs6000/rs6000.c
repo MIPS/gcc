@@ -7066,7 +7066,7 @@ rs6000_adjust_vec_address (rtx scalar_reg,
      allows for D-FORM or X-FORM addressing.  */
   if (GET_CODE (new_addr) == PLUS)
     {
-      rtx op1 = XEXP (addr, 1);
+      rtx op1 = XEXP (new_addr, 1);
       addr_mask_type addr_mask;
       int scalar_regno;
 
