@@ -6840,6 +6840,10 @@ mips_emit_compare (enum rtx_code *code, rtx *op0, rtx *op1, bool need_eq_ne_p)
 	      *op0 = mips_zero_if_equal (cmp_op0, cmp_op1);
 	      *op1 = const0_rtx;
 	    }
+	  else if (TARGET_MICROMIPS_R7
+		   && TARGET_ADD_BR_IMM
+		   && const_uimm7_operand (cmp_op1, GET_MODE (cmp_op1)))
+	    ;
 	  else
 	    *op1 = force_reg (GET_MODE (cmp_op0), cmp_op1);
 	}
