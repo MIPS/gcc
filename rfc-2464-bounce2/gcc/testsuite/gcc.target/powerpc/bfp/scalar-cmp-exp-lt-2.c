@@ -13,5 +13,5 @@ int compare_exponents_lt (double *exponent1_p,
   double exponent1 = *exponent1_p;
   double exponent2 = *exponent2_p;
 
-  return __builtin_vec_scalar_cmp_exp_lt (exponent1, exponent2);	/* { dg-error "Builtin function __builtin_vsx_scalar_cmp_exp_lt requires" } */
+  return __builtin_vec_scalar_cmp_exp_lt (exponent1, exponent2);	/* { dg-error "Builtin function __builtin_vsx_scalar_cmp_exp_dp_lt requires" } */
 }

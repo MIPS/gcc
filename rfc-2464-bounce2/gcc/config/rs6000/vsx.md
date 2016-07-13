@@ -2898,7 +2898,7 @@
 (define_insn "*xscmpexpdp"
   [(set (match_operand:CCFP 0 "" "=y")
         (compare:CCFP
-         (unspec:VSX_F [(match_operand:DF 1 "vsx_register_operand" "wa")
+         (unspec:DF [(match_operand:DF 1 "vsx_register_operand" "wa")
 	                (match_operand:DF 2 "vsx_register_operand" "wa")]
           UNSPEC_VSX_SCMPEXPDP)
          (match_operand:SI 3 "zero_constant" "j")))]

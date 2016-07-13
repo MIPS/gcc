@@ -7,7 +7,7 @@
 /* This test should succeed on 32-bit and 64-bit configuration.  */
 #include <altivec.h>
 
-byte compare_exponents_unordered (double *exponent1_p, 
+char compare_exponents_unordered (double *exponent1_p, 
 				  double *exponent2_p)
 {
   double exponent1 = *exponent1_p;

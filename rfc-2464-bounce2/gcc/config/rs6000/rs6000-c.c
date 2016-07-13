@@ -32,9 +32,6 @@
 #include "langhooks.h"
 #include "c/c-tree.h"
 
-/* kelvin debug */
-#define TARGET_DEBUG_BUILTIN 1
-
 /* Handle the machine specific pragma longcall.  Its syntax is
 
    # pragma longcall ( TOGGLE )
@@ -4814,6 +4811,11 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
   if (!rs6000_overloaded_builtin_p (fcode))
     return NULL_TREE;
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "altivec_resolve_overloaded_builtin, code = %4d, %s\n",
+	   (int)fcode, IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+#endif
+  
   if (TARGET_DEBUG_BUILTIN)
     fprintf (stderr, "altivec_resolve_overloaded_builtin, code = %4d, %s\n",
 	     (int)fcode, IDENTIFIER_POINTER (DECL_NAME (fndecl)));
