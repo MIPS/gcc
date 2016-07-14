@@ -1,3 +1,10 @@
+2016-07-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vec-extract-1.c: Restrict to 64-bit to allow
+	vector long.
+	* gcc.target/powerpc/vec-extract-2.c: Use double instead of long
+	type.
+
 2016-07-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/vec-extract-4.c: New test.

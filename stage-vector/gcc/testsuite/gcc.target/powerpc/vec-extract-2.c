@@ -9,11 +9,7 @@
 #include <altivec.h>
 
 #ifndef TYPE
-#ifdef _ARCH_PPC64
-#define TYPE long
-#else
-#define TYPE long long
-#endif
+#define TYPE double
 #endif
 
 extern void		check_auto_element	(vector TYPE, TYPE, int)	__attribute__((__noinline__));
