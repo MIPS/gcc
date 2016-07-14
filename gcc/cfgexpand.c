@@ -1030,10 +1030,10 @@ struct stack_vars_data
   /* Vector of offset pairs, always end of some padding followed
      by start of the padding that needs Address Sanitizer protection.
      The vector is in reversed, highest offset pairs come first.  */
-  vec<HOST_WIDE_INT> asan_vec;
+  auto_vec<HOST_WIDE_INT> asan_vec;
 
   /* Vector of partition representative decls in between the paddings.  */
-  vec<tree> asan_decl_vec;
+  auto_vec<tree> asan_decl_vec;
 
   /* Base pseudo register for Address Sanitizer protected automatic vars.  */
   rtx asan_base;
@@ -2012,7 +2012,7 @@ static rtx_insn *
 expand_used_vars (void)
 {
   tree var, outer_block = DECL_INITIAL (current_function_decl);
-  vec<tree> maybe_local_decls = vNULL;
+  auto_vec<tree> maybe_local_decls;
   rtx_insn *var_end_seq = NULL;
   unsigned i;
   unsigned len;
@@ -2179,8 +2179,6 @@ expand_used_vars (void)
     {
       struct stack_vars_data data;
 
-      data.asan_vec = vNULL;
-      data.asan_decl_vec = vNULL;
       data.asan_base = NULL_RTX;
       data.asan_alignb = 0;
 
@@ -2239,9 +2237,6 @@ expand_used_vars (void)
 	}
 
       expand_stack_vars (NULL, &data);
-
-      data.asan_vec.release ();
-      data.asan_decl_vec.release ();
     }
 
   fini_vars_expansion ();
@@ -2258,7 +2253,6 @@ expand_used_vars (void)
       if (rtl && (MEM_P (rtl) || GET_CODE (rtl) == CONCAT))
 	add_local_decl (cfun, var);
     }
-  maybe_local_decls.release ();
 
   /* If the target requires that FRAME_OFFSET be aligned, do it.  */
   if (STACK_ALIGNMENT_NEEDED)
@@ -4444,7 +4438,7 @@ expand_debug_expr (tree exp)
 	int reversep, volatilep = 0;
 	tree tem
 	  = get_inner_reference (exp, &bitsize, &bitpos, &offset, &mode1,
-				 &unsignedp, &reversep, &volatilep, false);
+				 &unsignedp, &reversep, &volatilep);
 	rtx orig_op0;
 
 	if (bitsize == 0)

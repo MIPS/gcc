@@ -1171,9 +1171,6 @@ struct GTY(()) tree_base {
            CALL_EXPR
            FUNCTION_DECL
 
-       TYPE_ALIGN_OK in
-           all types
-
        TREE_THIS_NOTRAP in
           INDIRECT_REF, MEM_REF, TARGET_MEM_REF, ARRAY_REF, ARRAY_RANGE_REF
 
@@ -1464,6 +1461,7 @@ struct GTY(()) tree_type_common {
   unsigned lang_flag_4 : 1;
   unsigned lang_flag_5 : 1;
   unsigned lang_flag_6 : 1;
+  unsigned lang_flag_7 : 1;
 
   /* TYPE_ALIGN in log2; this has to be large enough to hold values
      of the maximum of BIGGEST_ALIGNMENT and MAX_OFILE_ALIGNMENT,
@@ -1471,7 +1469,7 @@ struct GTY(()) tree_type_common {
      so we need to store the value 32 (not 31, as we need the zero
      as well), hence six bits.  */
   unsigned align : 6;
-  unsigned spare : 26;
+  unsigned spare : 25;
   alias_set_type alias_set;
   tree pointer_to;
   tree reference_to;

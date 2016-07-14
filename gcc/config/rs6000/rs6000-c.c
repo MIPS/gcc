@@ -4203,6 +4203,46 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
   { P8V_BUILTIN_VEC_VCLZD, P8V_BUILTIN_VCLZD,
     RS6000_BTI_unsigned_V2DI, RS6000_BTI_unsigned_V2DI, 0, 0 },
 
+  { P9_BUILTIN_DFP_TSTSFI_LT, MISC_BUILTIN_TSTSFI_LT_TD,
+    RS6000_BTI_INTSI, RS6000_BTI_UINTSI, RS6000_BTI_dfloat128, 0 },
+  { P9_BUILTIN_DFP_TSTSFI_LT, MISC_BUILTIN_TSTSFI_LT_DD,
+    RS6000_BTI_INTSI, RS6000_BTI_UINTSI, RS6000_BTI_dfloat64, 0 },
+
+  { P9_BUILTIN_DFP_TSTSFI_LT_TD, MISC_BUILTIN_TSTSFI_LT_TD,
+    RS6000_BTI_INTSI, RS6000_BTI_UINTSI, RS6000_BTI_dfloat128, 0 },
+  { P9_BUILTIN_DFP_TSTSFI_LT_DD, MISC_BUILTIN_TSTSFI_LT_DD,
+    RS6000_BTI_INTSI, RS6000_BTI_UINTSI, RS6000_BTI_dfloat64, 0 },
+
+  { P9_BUILTIN_DFP_TSTSFI_EQ, MISC_BUILTIN_TSTSFI_EQ_TD,
+    RS6000_BTI_INTSI, RS6000_BTI_UINTSI, RS6000_BTI_dfloat128, 0 },
+  { P9_BUILTIN_DFP_TSTSFI_EQ, MISC_BUILTIN_TSTSFI_EQ_DD,
+    RS6000_BTI_INTSI, RS6000_BTI_UINTSI, RS6000_BTI_dfloat64, 0 },
+
+  { P9_BUILTIN_DFP_TSTSFI_EQ_TD, MISC_BUILTIN_TSTSFI_EQ_TD,
+    RS6000_BTI_INTSI, RS6000_BTI_UINTSI, RS6000_BTI_dfloat128, 0 },
+  { P9_BUILTIN_DFP_TSTSFI_EQ_DD, MISC_BUILTIN_TSTSFI_EQ_DD,
+    RS6000_BTI_INTSI, RS6000_BTI_UINTSI, RS6000_BTI_dfloat64, 0 },
+
+  { P9_BUILTIN_DFP_TSTSFI_GT, MISC_BUILTIN_TSTSFI_GT_TD,
+    RS6000_BTI_INTSI, RS6000_BTI_UINTSI, RS6000_BTI_dfloat128, 0 },
+  { P9_BUILTIN_DFP_TSTSFI_GT, MISC_BUILTIN_TSTSFI_GT_DD,
+    RS6000_BTI_INTSI, RS6000_BTI_UINTSI, RS6000_BTI_dfloat64, 0 },
+
+  { P9_BUILTIN_DFP_TSTSFI_GT_TD, MISC_BUILTIN_TSTSFI_GT_TD,
+    RS6000_BTI_INTSI, RS6000_BTI_UINTSI, RS6000_BTI_dfloat128, 0 },
+  { P9_BUILTIN_DFP_TSTSFI_GT_DD, MISC_BUILTIN_TSTSFI_GT_DD,
+    RS6000_BTI_INTSI, RS6000_BTI_UINTSI, RS6000_BTI_dfloat64, 0 },
+
+  { P9_BUILTIN_DFP_TSTSFI_OV, MISC_BUILTIN_TSTSFI_OV_TD,
+    RS6000_BTI_INTSI, RS6000_BTI_UINTSI, RS6000_BTI_dfloat128, 0 },
+  { P9_BUILTIN_DFP_TSTSFI_OV, MISC_BUILTIN_TSTSFI_OV_DD,
+    RS6000_BTI_INTSI, RS6000_BTI_UINTSI, RS6000_BTI_dfloat64, 0 },
+
+  { P9_BUILTIN_DFP_TSTSFI_OV_TD, MISC_BUILTIN_TSTSFI_OV_TD,
+    RS6000_BTI_INTSI, RS6000_BTI_UINTSI, RS6000_BTI_dfloat128, 0 },
+  { P9_BUILTIN_DFP_TSTSFI_OV_DD, MISC_BUILTIN_TSTSFI_OV_DD,
+    RS6000_BTI_INTSI, RS6000_BTI_UINTSI, RS6000_BTI_dfloat64, 0 },
+
   { P9V_BUILTIN_VEC_VCTZ, P9V_BUILTIN_VCTZB,
     RS6000_BTI_V16QI, RS6000_BTI_V16QI, 0, 0 },
   { P9V_BUILTIN_VEC_VCTZ, P9V_BUILTIN_VCTZB,
@@ -4239,6 +4279,28 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_V2DI, RS6000_BTI_V2DI, 0, 0 },
   { P9V_BUILTIN_VEC_VCTZD, P9V_BUILTIN_VCTZD,
     RS6000_BTI_unsigned_V2DI, RS6000_BTI_unsigned_V2DI, 0, 0 },
+
+  { P9V_BUILTIN_VEC_VADU, P9V_BUILTIN_VADUB,
+    RS6000_BTI_unsigned_V16QI, RS6000_BTI_unsigned_V16QI,
+    RS6000_BTI_unsigned_V16QI, 0 },
+  { P9V_BUILTIN_VEC_VADU, P9V_BUILTIN_VADUH,
+    RS6000_BTI_unsigned_V8HI, RS6000_BTI_unsigned_V8HI,
+    RS6000_BTI_unsigned_V8HI, 0 },
+  { P9V_BUILTIN_VEC_VADU, P9V_BUILTIN_VADUW,
+    RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V4SI,
+    RS6000_BTI_unsigned_V4SI, 0 },
+
+  { P9V_BUILTIN_VEC_VADUB, P9V_BUILTIN_VADUB,
+    RS6000_BTI_unsigned_V16QI, RS6000_BTI_unsigned_V16QI,
+    RS6000_BTI_unsigned_V16QI, 0 },
+
+  { P9V_BUILTIN_VEC_VADUH, P9V_BUILTIN_VADUH,
+    RS6000_BTI_unsigned_V8HI, RS6000_BTI_unsigned_V8HI,
+    RS6000_BTI_unsigned_V8HI, 0 },
+
+  { P9V_BUILTIN_VEC_VADUW, P9V_BUILTIN_VADUW,
+    RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V4SI,
+    RS6000_BTI_unsigned_V4SI, 0 },
 
   { P8V_BUILTIN_VEC_VGBBD, P8V_BUILTIN_VGBBD,
     RS6000_BTI_V16QI, RS6000_BTI_V16QI, 0, 0 },
@@ -5219,10 +5281,11 @@ assignment for unaligned loads and stores");
      are able to honor __restrict__, for example.  We may want to
      consider this for all memory access built-ins.
 
-     When -maltivec=be is specified, simply punt to existing
-     built-in processing.  */
+     When -maltivec=be is specified, or the wrong number of arguments
+     is provided, simply punt to existing built-in processing.  */
   if (fcode == ALTIVEC_BUILTIN_VEC_LD
-      && (BYTES_BIG_ENDIAN || !VECTOR_ELT_ORDER_BIG))
+      && (BYTES_BIG_ENDIAN || !VECTOR_ELT_ORDER_BIG)
+      && nargs == 2)
     {
       tree arg0 = (*arglist)[0];
       tree arg1 = (*arglist)[1];
@@ -5292,7 +5355,8 @@ assignment for unaligned loads and stores");
 
   /* Similarly for stvx.  */
   if (fcode == ALTIVEC_BUILTIN_VEC_ST
-      && (BYTES_BIG_ENDIAN || !VECTOR_ELT_ORDER_BIG))
+      && (BYTES_BIG_ENDIAN || !VECTOR_ELT_ORDER_BIG)
+      && nargs == 3)
     {
       tree arg0 = (*arglist)[0];
       tree arg1 = (*arglist)[1];

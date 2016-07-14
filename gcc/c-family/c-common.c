@@ -3008,13 +3008,15 @@ verify_tree (tree x, struct tlist **pbefore_sp, struct tlist **pno_sp,
     case COMPOUND_EXPR:
     case TRUTH_ANDIF_EXPR:
     case TRUTH_ORIF_EXPR:
-      tmp_before = tmp_nosp = tmp_list3 = 0;
+      tmp_before = tmp_nosp = tmp_list2 = tmp_list3 = 0;
       verify_tree (TREE_OPERAND (x, 0), &tmp_before, &tmp_nosp, NULL_TREE);
       warn_for_collisions (tmp_nosp);
       merge_tlist (pbefore_sp, tmp_before, 0);
       merge_tlist (pbefore_sp, tmp_nosp, 0);
-      verify_tree (TREE_OPERAND (x, 1), &tmp_list3, pno_sp, NULL_TREE);
+      verify_tree (TREE_OPERAND (x, 1), &tmp_list3, &tmp_list2, NULL_TREE);
+      warn_for_collisions (tmp_list2);
       merge_tlist (pbefore_sp, tmp_list3, 0);
+      merge_tlist (pno_sp, tmp_list2, 0);
       return;
 
     case COND_EXPR:
@@ -4778,8 +4780,6 @@ static GTY(()) hash_table<c_type_hasher> *type_hash_table;
 alias_set_type
 c_common_get_alias_set (tree t)
 {
-  tree u;
-
   /* For VLAs, use the alias set of the element type rather than the
      default of alias set 0 for types compared structurally.  */
   if (TYPE_P (t) && TYPE_STRUCTURAL_EQUALITY_P (t))
@@ -4788,19 +4788,6 @@ c_common_get_alias_set (tree t)
 	return get_alias_set (TREE_TYPE (t));
       return -1;
     }
-
-  /* Permit type-punning when accessing a union, provided the access
-     is directly through the union.  For example, this code does not
-     permit taking the address of a union member and then storing
-     through it.  Even the type-punning allowed here is a GCC
-     extension, albeit a common and useful one; the C standard says
-     that such accesses have implementation-defined behavior.  */
-  for (u = t;
-       TREE_CODE (u) == COMPONENT_REF || TREE_CODE (u) == ARRAY_REF;
-       u = TREE_OPERAND (u, 0))
-    if (TREE_CODE (u) == COMPONENT_REF
-	&& TREE_CODE (TREE_TYPE (TREE_OPERAND (u, 0))) == UNION_TYPE)
-      return 0;
 
   /* That's all the expressions we handle specially.  */
   if (!TYPE_P (t))
@@ -10090,10 +10077,22 @@ check_builtin_function_arguments (location_t loc, vec<location_t> arg_loc,
 		return false;
 	      }
 	  if (TREE_CODE (TREE_TYPE (args[2])) != POINTER_TYPE
-	      || TREE_CODE (TREE_TYPE (TREE_TYPE (args[2]))) != INTEGER_TYPE)
+	      || !INTEGRAL_TYPE_P (TREE_TYPE (TREE_TYPE (args[2]))))
 	    {
 	      error_at (ARG_LOCATION (2), "argument 3 in call to function %qE "
-			"does not have pointer to integer type", fndecl);
+			"does not have pointer to integral type", fndecl);
+	      return false;
+	    }
+	  else if (TREE_CODE (TREE_TYPE (TREE_TYPE (args[2]))) == ENUMERAL_TYPE)
+	    {
+	      error_at (ARG_LOCATION (2), "argument 3 in call to function %qE "
+			"has pointer to enumerated type", fndecl);
+	      return false;
+	    }
+	  else if (TREE_CODE (TREE_TYPE (TREE_TYPE (args[2]))) == BOOLEAN_TYPE)
+	    {
+	      error_at (ARG_LOCATION (2), "argument 3 in call to function %qE "
+			"has pointer to boolean type", fndecl);
 	      return false;
 	    }
 	  return true;
@@ -10113,6 +10112,18 @@ check_builtin_function_arguments (location_t loc, vec<location_t> arg_loc,
 			  "%qE does not have integral type", i + 1, fndecl);
 		return false;
 	      }
+	  if (TREE_CODE (TREE_TYPE (args[2])) == ENUMERAL_TYPE)
+	    {
+	      error_at (ARG_LOCATION (2), "argument 3 in call to function "
+			"%qE has enumerated type", fndecl);
+	      return false;
+	    }
+	  else if (TREE_CODE (TREE_TYPE (args[2])) == BOOLEAN_TYPE)
+	    {
+	      error_at (ARG_LOCATION (2), "argument 3 in call to function "
+			"%qE has boolean type", fndecl);
+	      return false;
+	    }
 	  return true;
 	}
       return false;
@@ -12924,7 +12935,7 @@ time_t
 cb_get_source_date_epoch (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   char *source_date_epoch;
-  long long epoch;
+  int64_t epoch;
   char *endptr;
 
   source_date_epoch = getenv ("SOURCE_DATE_EPOCH");
@@ -12932,7 +12943,11 @@ cb_get_source_date_epoch (cpp_reader *pfile ATTRIBUTE_UNUSED)
     return (time_t) -1;
 
   errno = 0;
+#if defined(INT64_T_IS_LONG)
+  epoch = strtol (source_date_epoch, &endptr, 10);
+#else
   epoch = strtoll (source_date_epoch, &endptr, 10);
+#endif
   if (errno != 0 || endptr == source_date_epoch || *endptr != '\0'
       || epoch < 0 || epoch > MAX_SOURCE_DATE_EPOCH)
     {

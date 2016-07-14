@@ -1625,10 +1625,12 @@ vn_lookup_simplify_result (code_helper rcode, tree type, tree *ops)
 }
 
 /* Return a value-number for RCODE OPS... either by looking up an existing
-   value-number for the simplified result or by inserting the operation.  */
+   value-number for the simplified result or by inserting the operation if
+   INSERT is true.  */
 
 static tree
-vn_nary_build_or_lookup (code_helper rcode, tree type, tree *ops)
+vn_nary_build_or_lookup_1 (code_helper rcode, tree type, tree *ops,
+			   bool insert)
 {
   tree result = NULL_TREE;
   /* We will be creating a value number for
@@ -1658,7 +1660,7 @@ vn_nary_build_or_lookup (code_helper rcode, tree type, tree *ops)
   else
     {
       tree val = vn_lookup_simplify_result (rcode, type, ops);
-      if (!val)
+      if (!val && insert)
 	{
 	  gimple_seq stmts = NULL;
 	  result = maybe_push_res_to_seq (rcode, type, ops, &stmts);
@@ -1718,6 +1720,29 @@ vn_nary_build_or_lookup (code_helper rcode, tree type, tree *ops)
     }
   return result;
 }
+
+/* Return a value-number for RCODE OPS... either by looking up an existing
+   value-number for the simplified result or by inserting the operation.  */
+
+static tree
+vn_nary_build_or_lookup (code_helper rcode, tree type, tree *ops)
+{
+  return vn_nary_build_or_lookup_1 (rcode, type, ops, true);
+}
+
+/* Try to simplify the expression RCODE OPS... of type TYPE and return
+   its value if present.  */
+
+tree
+vn_nary_simplify (vn_nary_op_t nary)
+{
+  if (nary->length > 3)
+    return NULL_TREE;
+  tree ops[3];
+  memcpy (ops, nary->op, sizeof (tree) * nary->length);
+  return vn_nary_build_or_lookup_1 (nary->opcode, nary->type, ops, false);
+}
+
 
 /* Callback for walk_non_aliased_vuses.  Tries to perform a lookup
    from the statement defining VUSE and if not successful tries to
@@ -2089,11 +2114,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
       /* We need to pre-pend vr->operands[0..i] to rhs.  */
       vec<vn_reference_op_s> old = vr->operands;
       if (i + 1 + rhs.length () > vr->operands.length ())
-	{
-	  vr->operands.safe_grow (i + 1 + rhs.length ());
-	  if (old == shared_lookup_references)
-	    shared_lookup_references = vr->operands;
-	}
+	vr->operands.safe_grow (i + 1 + rhs.length ());
       else
 	vr->operands.truncate (i + 1 + rhs.length ());
       FOR_EACH_VEC_ELT (rhs, j, vro)
@@ -2244,8 +2265,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	{
 	  vec<vn_reference_op_s> old = vr->operands;
 	  vr->operands.safe_grow_cleared (2);
-	  if (old == shared_lookup_references
-	      && vr->operands != old)
+	  if (old == shared_lookup_references)
 	    shared_lookup_references = vr->operands;
 	}
       else
@@ -2288,6 +2308,17 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 
   /* Bail out and stop walking.  */
   return (void *)-1;
+}
+
+/* Return a reference op vector from OP that can be used for
+   vn_reference_lookup_pieces.  The caller is responsible for releasing
+   the vector.  */
+
+vec<vn_reference_op_s>
+vn_reference_operands_for_lookup (tree op)
+{
+  bool valueized;
+  return valueize_shared_reference_ops_from_ref (op, &valueized).copy ();
 }
 
 /* Lookup a reference operation by it's parts, in the current hash table.
@@ -4114,8 +4145,8 @@ extract_and_process_scc_for_name (tree name)
 static bool
 DFS (tree name)
 {
-  vec<ssa_op_iter> itervec = vNULL;
-  vec<tree> namevec = vNULL;
+  auto_vec<ssa_op_iter> itervec;
+  auto_vec<tree> namevec;
   use_operand_p usep = NULL;
   gimple *defstmt;
   tree use;
@@ -4152,19 +4183,11 @@ start_over:
 	  /* See if we found an SCC.  */
 	  if (VN_INFO (name)->low == VN_INFO (name)->dfsnum)
 	    if (!extract_and_process_scc_for_name (name))
-	      {
-		namevec.release ();
-		itervec.release ();
-		return false;
-	      }
+	      return false;
 
 	  /* Check if we are done.  */
 	  if (namevec.is_empty ())
-	    {
-	      namevec.release ();
-	      itervec.release ();
-	      return true;
-	    }
+	    return true;
 
 	  /* Restore the last use walker and continue walking there.  */
 	  use = name;
@@ -4449,8 +4472,7 @@ class sccvn_dom_walker : public dom_walker
 {
 public:
   sccvn_dom_walker ()
-    : dom_walker (CDI_DOMINATORS, true), fail (false), cond_stack (vNULL) {}
-  ~sccvn_dom_walker ();
+    : dom_walker (CDI_DOMINATORS, true), fail (false), cond_stack (0) {}
 
   virtual edge before_dom_children (basic_block);
   virtual void after_dom_children (basic_block);
@@ -4461,14 +4483,9 @@ public:
 		     enum tree_code code, tree lhs, tree rhs, bool value);
 
   bool fail;
-  vec<std::pair <basic_block, std::pair <vn_nary_op_t, vn_nary_op_t> > >
+  auto_vec<std::pair <basic_block, std::pair <vn_nary_op_t, vn_nary_op_t> > >
     cond_stack;
 };
-
-sccvn_dom_walker::~sccvn_dom_walker ()
-{
-  cond_stack.release ();
-}
 
 /* Record a temporary condition for the BB and its dominated blocks.  */
 

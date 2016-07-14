@@ -559,12 +559,40 @@ simple_empty_class_p (tree type, tree op)
     && is_really_empty_class (type);
 }
 
+/* Returns true if evaluating E as an lvalue has side-effects;
+   specifically, a volatile lvalue has TREE_SIDE_EFFECTS, but it doesn't really
+   have side-effects until there is a read or write through it.  */
+
+static bool
+lvalue_has_side_effects (tree e)
+{
+  if (!TREE_SIDE_EFFECTS (e))
+    return false;
+  while (handled_component_p (e))
+    {
+      if (TREE_CODE (e) == ARRAY_REF
+	  && TREE_SIDE_EFFECTS (TREE_OPERAND (e, 1)))
+	return true;
+      e = TREE_OPERAND (e, 0);
+    }
+  if (DECL_P (e))
+    /* Just naming a variable has no side-effects.  */
+    return false;
+  else if (INDIRECT_REF_P (e))
+    /* Similarly, indirection has no side-effects.  */
+    return TREE_SIDE_EFFECTS (TREE_OPERAND (e, 0));
+  else
+    /* For anything else, trust TREE_SIDE_EFFECTS.  */
+    return TREE_SIDE_EFFECTS (e);
+}
+
 /* Do C++-specific gimplification.  Args are as for gimplify_expr.  */
 
 int
 cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 {
   int saved_stmts_are_full_exprs_p = 0;
+  location_t loc = EXPR_LOC_OR_LOC (*expr_p, input_location);
   enum tree_code code = TREE_CODE (*expr_p);
   enum gimplify_status ret;
 
@@ -658,8 +686,6 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 	    /* Remove any copies of empty classes.  Also drop volatile
 	       variables on the RHS to avoid infinite recursion from
 	       gimplify_expr trying to load the value.  */
-	    gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
-			   is_gimple_lvalue, fb_lvalue);
 	    if (TREE_SIDE_EFFECTS (op1))
 	      {
 		if (TREE_THIS_VOLATILE (op1)
@@ -668,8 +694,29 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 
 		gimplify_and_add (op1, pre_p);
 	      }
+	    gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+			   is_gimple_lvalue, fb_lvalue);
 	    *expr_p = TREE_OPERAND (*expr_p, 0);
 	  }
+	/* P0145 says that the RHS is sequenced before the LHS.
+	   gimplify_modify_expr gimplifies the RHS before the LHS, but that
+	   isn't quite strong enough in two cases:
+
+	   1) gimplify.c wants to leave a CALL_EXPR on the RHS, which would
+	   mean it's evaluated after the LHS.
+
+	   2) the value calculation of the RHS is also sequenced before the
+	   LHS, so for scalar assignment we need to preevaluate if the
+	   RHS could be affected by LHS side-effects even if it has no
+	   side-effects of its own.  We don't need this for classes because
+	   class assignment takes its RHS by reference.  */
+       else if (flag_strong_eval_order > 1
+                && TREE_CODE (*expr_p) == MODIFY_EXPR
+                && lvalue_has_side_effects (op0)
+		&& (TREE_CODE (op1) == CALL_EXPR
+		    || (SCALAR_TYPE_P (TREE_TYPE (op1))
+			&& !TREE_CONSTANT (op1))))
+	 TREE_OPERAND (*expr_p, 1) = get_formal_tmp_var (op1, pre_p);
       }
       ret = GS_OK;
       break;
@@ -752,21 +799,44 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 	  cilk_cp_gimplify_call_params_in_spawned_fn (expr_p, pre_p, post_p);
 	  return (enum gimplify_status) gimplify_cilk_spawn (expr_p);
 	}
-      /* DR 1030 says that we need to evaluate the elements of an
-	 initializer-list in forward order even when it's used as arguments to
-	 a constructor.  So if the target wants to evaluate them in reverse
-	 order and there's more than one argument other than 'this', gimplify
-	 them in order.  */
       ret = GS_OK;
-      if (PUSH_ARGS_REVERSED && CALL_EXPR_LIST_INIT_P (*expr_p)
-	  && call_expr_nargs (*expr_p) > 2)
+      if (!CALL_EXPR_FN (*expr_p))
+	/* Internal function call.  */;
+      else if (CALL_EXPR_REVERSE_ARGS (*expr_p))
 	{
-	  int nargs = call_expr_nargs (*expr_p);
-	  location_t loc = EXPR_LOC_OR_LOC (*expr_p, input_location);
-	  for (int i = 1; i < nargs; ++i)
+	  /* This is a call to a (compound) assignment operator that used
+	     the operator syntax; gimplify the RHS first.  */
+	  gcc_assert (call_expr_nargs (*expr_p) == 2);
+	  gcc_assert (!CALL_EXPR_ORDERED_ARGS (*expr_p));
+	  enum gimplify_status t
+	    = gimplify_arg (&CALL_EXPR_ARG (*expr_p, 1), pre_p, loc);
+	  if (t == GS_ERROR)
+	    ret = GS_ERROR;
+	}
+      else if (CALL_EXPR_ORDERED_ARGS (*expr_p))
+	{
+	  /* Leave the last argument for gimplify_call_expr, to avoid problems
+	     with __builtin_va_arg_pack().  */
+	  int nargs = call_expr_nargs (*expr_p) - 1;
+	  for (int i = 0; i < nargs; ++i)
 	    {
 	      enum gimplify_status t
 		= gimplify_arg (&CALL_EXPR_ARG (*expr_p, i), pre_p, loc);
+	      if (t == GS_ERROR)
+		ret = GS_ERROR;
+	    }
+	}
+      else if (flag_strong_eval_order
+	       && !CALL_EXPR_OPERATOR_SYNTAX (*expr_p))
+	{
+	  /* If flag_strong_eval_order, evaluate the object argument first.  */
+	  tree fntype = TREE_TYPE (CALL_EXPR_FN (*expr_p));
+	  if (POINTER_TYPE_P (fntype))
+	    fntype = TREE_TYPE (fntype);
+	  if (TREE_CODE (fntype) == METHOD_TYPE)
+	    {
+	      enum gimplify_status t
+		= gimplify_arg (&CALL_EXPR_ARG (*expr_p, 0), pre_p, loc);
 	      if (t == GS_ERROR)
 		ret = GS_ERROR;
 	    }
@@ -1279,7 +1349,15 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
     {
       tree d = DECL_EXPR_DECL (stmt);
       if (TREE_CODE (d) == VAR_DECL)
-	gcc_assert (CP_DECL_THREAD_LOCAL_P (d) == DECL_THREAD_LOCAL_P (d));
+	{
+	  gcc_assert (CP_DECL_THREAD_LOCAL_P (d) == DECL_THREAD_LOCAL_P (d));
+	  /* User var initializers should be genericized during containing
+	     BIND_EXPR genericization when walk_tree walks DECL_INITIAL
+	     of BIND_EXPR_VARS.  Artificial temporaries might not be
+	     mentioned there though, so walk them now.  */
+	  if (DECL_ARTIFICIAL (d) && !TREE_STATIC (d) && DECL_INITIAL (d))
+	    cp_walk_tree (&DECL_INITIAL (d), cp_genericize_r, data, NULL);
+	}
     }
   else if (TREE_CODE (stmt) == OMP_PARALLEL
 	   || TREE_CODE (stmt) == OMP_TASK

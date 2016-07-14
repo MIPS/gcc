@@ -3813,6 +3813,18 @@ rhs_predicate_for (tree lhs)
     return is_gimple_mem_rhs_or_call;
 }
 
+/* Return the initial guess for an appropriate RHS predicate for this LHS,
+   before the LHS has been gimplified.  */
+
+static gimple_predicate
+initial_rhs_predicate_for (tree lhs)
+{
+  if (is_gimple_reg_type (TREE_TYPE (lhs)))
+    return is_gimple_reg_rhs_or_call;
+  else
+    return is_gimple_mem_rhs_or_call;
+}
+
 /* Gimplify a C99 compound literal expression.  This just means adding
    the DECL_EXPR before the current statement and using its anonymous
    decl instead.  */
@@ -4778,10 +4790,6 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
      that is what we must do here.  */
   maybe_with_size_expr (from_p);
 
-  ret = gimplify_expr (to_p, pre_p, post_p, is_gimple_lvalue, fb_lvalue);
-  if (ret == GS_ERROR)
-    return ret;
-
   /* As a special case, we have to temporarily allow for assignments
      with a CALL_EXPR on the RHS.  Since in GIMPLE a function call is
      a toplevel statement, when gimplifying the GENERIC expression
@@ -4794,10 +4802,39 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
      reaches the CALL_EXPR.  On return from gimplify_expr, the newly
      created GIMPLE_CALL <foo> will be the last statement in *PRE_P
      and all we need to do here is set 'a' to be its LHS.  */
-  ret = gimplify_expr (from_p, pre_p, post_p, rhs_predicate_for (*to_p),
-		       fb_rvalue);
+
+  /* Gimplify the RHS first for C++17 and bug 71104.  */
+  gimple_predicate initial_pred = initial_rhs_predicate_for (*to_p);
+  ret = gimplify_expr (from_p, pre_p, post_p, initial_pred, fb_rvalue);
   if (ret == GS_ERROR)
     return ret;
+
+  /* Then gimplify the LHS.  */
+  /* If we gimplified the RHS to a CALL_EXPR and that call may return
+     twice we have to make sure to gimplify into non-SSA as otherwise
+     the abnormal edge added later will make those defs not dominate
+     their uses.
+     ???  Technically this applies only to the registers used in the
+     resulting non-register *TO_P.  */
+  bool saved_into_ssa = gimplify_ctxp->into_ssa;
+  if (saved_into_ssa
+      && TREE_CODE (*from_p) == CALL_EXPR
+      && call_expr_flags (*from_p) & ECF_RETURNS_TWICE)
+    gimplify_ctxp->into_ssa = false;
+  ret = gimplify_expr (to_p, pre_p, post_p, is_gimple_lvalue, fb_lvalue);
+  gimplify_ctxp->into_ssa = saved_into_ssa;
+  if (ret == GS_ERROR)
+    return ret;
+
+  /* Now that the LHS is gimplified, re-gimplify the RHS if our initial
+     guess for the predicate was wrong.  */
+  gimple_predicate final_pred = rhs_predicate_for (*to_p);
+  if (final_pred != initial_pred)
+    {
+      ret = gimplify_expr (from_p, pre_p, post_p, final_pred, fb_rvalue);
+      if (ret == GS_ERROR)
+	return ret;
+    }
 
   /* In case of va_arg internal fn wrappped in a WITH_SIZE_EXPR, add the type
      size as argument to the call.  */
@@ -6983,6 +7020,11 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		{
 		  while (TREE_CODE (decl) == COMPONENT_REF)
 		    decl = TREE_OPERAND (decl, 0);
+		  if (TREE_CODE (decl) == INDIRECT_REF
+		      && DECL_P (TREE_OPERAND (decl, 0))
+		      && (TREE_CODE (TREE_TYPE (TREE_OPERAND (decl, 0)))
+			  == REFERENCE_TYPE))
+		    decl = TREE_OPERAND (decl, 0);
 		}
 	      if (gimplify_expr (pd, pre_p, NULL, is_gimple_lvalue, fb_lvalue)
 		  == GS_ERROR)
@@ -6998,9 +7040,11 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		      break;
 		    }
 
-		  if (TYPE_SIZE_UNIT (TREE_TYPE (decl)) == NULL
-		      || (TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (decl)))
-			  != INTEGER_CST))
+		  tree stype = TREE_TYPE (decl);
+		  if (TREE_CODE (stype) == REFERENCE_TYPE)
+		    stype = TREE_TYPE (stype);
+		  if (TYPE_SIZE_UNIT (stype) == NULL
+		      || TREE_CODE (TYPE_SIZE_UNIT (stype)) != INTEGER_CST)
 		    {
 		      error_at (OMP_CLAUSE_LOCATION (c),
 				"mapping field %qE of variable length "
@@ -7039,7 +7083,15 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		    base = TREE_OPERAND (base, 0);
 		  base = get_inner_reference (base, &bitsize, &bitpos, &offset,
 					      &mode, &unsignedp, &reversep,
-					      &volatilep, false);
+					      &volatilep);
+		  tree orig_base = base;
+		  if ((TREE_CODE (base) == INDIRECT_REF
+		       || (TREE_CODE (base) == MEM_REF
+			   && integer_zerop (TREE_OPERAND (base, 1))))
+		      && DECL_P (TREE_OPERAND (base, 0))
+		      && (TREE_CODE (TREE_TYPE (TREE_OPERAND (base, 0)))
+			  == REFERENCE_TYPE))
+		    base = TREE_OPERAND (base, 0);
 		  gcc_assert (base == decl
 			      && (offset == NULL_TREE
 				  || TREE_CODE (offset) == INTEGER_CST));
@@ -7053,7 +7105,10 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		      tree l = build_omp_clause (OMP_CLAUSE_LOCATION (c),
 						 OMP_CLAUSE_MAP);
 		      OMP_CLAUSE_SET_MAP_KIND (l, GOMP_MAP_STRUCT);
-		      OMP_CLAUSE_DECL (l) = decl;
+		      if (orig_base != base)
+			OMP_CLAUSE_DECL (l) = unshare_expr (orig_base);
+		      else
+			OMP_CLAUSE_DECL (l) = decl;
 		      OMP_CLAUSE_SIZE (l) = size_int (1);
 		      if (struct_map_to_clause == NULL)
 			struct_map_to_clause = new hash_map<tree, tree>;
@@ -7095,6 +7150,18 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 			  *list_p = l;
 			  list_p = &OMP_CLAUSE_CHAIN (l);
 			}
+		      if (orig_base != base && code == OMP_TARGET)
+			{
+			  tree c2 = build_omp_clause (OMP_CLAUSE_LOCATION (c),
+						      OMP_CLAUSE_MAP);
+			  enum gomp_map_kind mkind
+			    = GOMP_MAP_FIRSTPRIVATE_REFERENCE;
+			  OMP_CLAUSE_SET_MAP_KIND (c2, mkind);
+			  OMP_CLAUSE_DECL (c2) = decl;
+			  OMP_CLAUSE_SIZE (c2) = size_zero_node;
+			  OMP_CLAUSE_CHAIN (c2) = OMP_CLAUSE_CHAIN (l);
+			  OMP_CLAUSE_CHAIN (l) = c2;
+			}
 		      flags = GOVD_MAP | GOVD_EXPLICIT;
 		      if (GOMP_MAP_ALWAYS_P (OMP_CLAUSE_MAP_KIND (c)) || ptr)
 			flags |= GOVD_SEEN;
@@ -7113,8 +7180,12 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 			o1 = 0;
 		      if (bitpos)
 			o1 = o1 + bitpos / BITS_PER_UNIT;
-		      for (sc = &OMP_CLAUSE_CHAIN (*osc);
-			   *sc != c; sc = &OMP_CLAUSE_CHAIN (*sc))
+		      sc = &OMP_CLAUSE_CHAIN (*osc);
+		      if (*sc != c
+			  && (OMP_CLAUSE_MAP_KIND (*sc)
+			      == GOMP_MAP_FIRSTPRIVATE_REFERENCE)) 
+			sc = &OMP_CLAUSE_CHAIN (*sc);
+		      for (; *sc != c; sc = &OMP_CLAUSE_CHAIN (*sc))
 			if (ptr && sc == prev_list_p)
 			  break;
 			else if (TREE_CODE (OMP_CLAUSE_DECL (*sc))
@@ -7148,8 +7219,16 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 			    base = get_inner_reference (base, &bitsize2,
 							&bitpos2, &offset2,
 							&mode, &unsignedp,
-							&reversep, &volatilep,
-							false);
+							&reversep, &volatilep);
+			    if ((TREE_CODE (base) == INDIRECT_REF
+				 || (TREE_CODE (base) == MEM_REF
+				     && integer_zerop (TREE_OPERAND (base,
+								     1))))
+				&& DECL_P (TREE_OPERAND (base, 0))
+				&& (TREE_CODE (TREE_TYPE (TREE_OPERAND (base,
+									0)))
+				    == REFERENCE_TYPE))
+			      base = TREE_OPERAND (base, 0);
 			    if (base != decl)
 			      break;
 			    if (scp)

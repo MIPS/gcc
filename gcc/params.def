@@ -405,7 +405,7 @@ DEFPARAM (PARAM_ALIGN_THRESHOLD,
 
 DEFPARAM (PARAM_ALIGN_LOOP_ITERATIONS,
 	  "align-loop-iterations",
-	  "Loops iterating at least selected number of iterations will get loop alignement..",
+	  "Loops iterating at least selected number of iterations will get loop alignment..",
 	  4, 0, 0)
 
 /* For guessed profiles, the loops having unknown number of iterations
@@ -526,6 +526,11 @@ DEFPARAM(PARAM_IV_ALWAYS_PRUNE_CAND_SET_BOUND,
 	 "iv-always-prune-cand-set-bound",
 	 "If number of candidates in the set is smaller, we always try to remove unused ivs during its optimization.",
 	 10, 0, 0)
+
+DEFPARAM(PARAM_AVG_LOOP_NITER,
+	 "avg-loop-niter",
+	 "Average number of iterations of a loop.",
+	 10, 1, 0)
 
 DEFPARAM(PARAM_SCEV_MAX_EXPR_SIZE,
  	 "scev-max-expr-size",

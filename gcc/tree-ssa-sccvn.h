@@ -214,6 +214,7 @@ vn_nary_op_t vn_nary_op_insert_pieces (unsigned int, enum tree_code,
 				       tree, tree *, tree, unsigned int);
 bool ao_ref_init_from_vn_reference (ao_ref *, alias_set_type, tree,
 				    vec<vn_reference_op_s> );
+vec<vn_reference_op_s> vn_reference_operands_for_lookup (tree);
 tree vn_reference_lookup_pieces (tree, alias_set_type, tree,
 				 vec<vn_reference_op_s> ,
 				 vn_reference_t *, vn_lookup_kind);
@@ -233,6 +234,7 @@ unsigned int get_constant_value_id (tree);
 unsigned int get_or_alloc_constant_value_id (tree);
 bool value_id_constant_p (unsigned int);
 tree fully_constant_vn_reference_p (vn_reference_t);
+tree vn_nary_simplify (vn_nary_op_t);
 
 /* Valueize NAME if it is an SSA name, otherwise just return it.  */
 

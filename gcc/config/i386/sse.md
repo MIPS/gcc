@@ -1169,10 +1169,10 @@
 
 ;; Merge movsd/movhpd to movupd for TARGET_SSE_UNALIGNED_LOAD_OPTIMAL targets.
 (define_peephole2
-  [(set (match_operand:V2DF 0 "register_operand")
+  [(set (match_operand:V2DF 0 "sse_reg_operand")
 	(vec_concat:V2DF (match_operand:DF 1 "memory_operand")
 			 (match_operand:DF 4 "const0_operand")))
-   (set (match_operand:V2DF 2 "register_operand")
+   (set (match_operand:V2DF 2 "sse_reg_operand")
 	(vec_concat:V2DF (vec_select:DF (match_dup 2)
 					(parallel [(const_int 0)]))
 			 (match_operand:DF 3 "memory_operand")))]
@@ -1181,13 +1181,25 @@
   [(set (match_dup 2) (match_dup 4))]
   "operands[4] = adjust_address (operands[1], V2DFmode, 0);")
 
+(define_peephole2
+  [(set (match_operand:DF 0 "sse_reg_operand")
+	(match_operand:DF 1 "memory_operand"))
+   (set (match_operand:V2DF 2 "sse_reg_operand")
+	(vec_concat:V2DF (match_operand:DF 4 "sse_reg_operand")
+			 (match_operand:DF 3 "memory_operand")))]
+  "TARGET_SSE2 && TARGET_SSE_UNALIGNED_LOAD_OPTIMAL
+   && REGNO (operands[4]) == REGNO (operands[2])
+   && ix86_operands_ok_for_move_multiple (operands, true, DFmode)"
+  [(set (match_dup 2) (match_dup 4))]
+  "operands[4] = adjust_address (operands[1], V2DFmode, 0);")
+
 ;; Merge movlpd/movhpd to movupd for TARGET_SSE_UNALIGNED_STORE_OPTIMAL targets.
 (define_peephole2
   [(set (match_operand:DF 0 "memory_operand")
-	(vec_select:DF (match_operand:V2DF 1 "register_operand")
+	(vec_select:DF (match_operand:V2DF 1 "sse_reg_operand")
 		       (parallel [(const_int 0)])))
    (set (match_operand:DF 2 "memory_operand")
-	(vec_select:DF (match_operand:V2DF 3 "register_operand")
+	(vec_select:DF (match_operand:V2DF 3 "sse_reg_operand")
 		       (parallel [(const_int 1)])))]
   "TARGET_SSE2 && TARGET_SSE_UNALIGNED_STORE_OPTIMAL
    && ix86_operands_ok_for_move_multiple (operands, false, DFmode)"
@@ -1556,6 +1568,17 @@
   "TARGET_SSE_MATH"
 {
   ix86_emit_swsqrtsf (operands[0], operands[1], <MODE>mode, true);
+  DONE;
+})
+
+(define_expand "rsqrtv16sf2"
+  [(set (match_operand:V16SF 0 "register_operand")
+	(unspec:V16SF
+	  [(match_operand:V16SF 1 "vector_operand")]
+	  UNSPEC_RSQRT28))]
+  "TARGET_SSE_MATH && TARGET_AVX512ER"
+{
+  ix86_emit_swsqrtsf (operands[0], operands[1], V16SFmode, true);
   DONE;
 })
 
@@ -15211,6 +15234,19 @@
      (const_string "vector")
      (const_string "*")))
    (set_attr "mode" "<sseinsnmode>")])
+
+(define_insn "ptesttf2"
+  [(set (reg:CC FLAGS_REG)
+	(unspec:CC [(match_operand:TF 0 "register_operand" "Yr, *x, x")
+		    (match_operand:TF 1 "vector_operand" "YrBm, *xBm, xm")]
+		   UNSPEC_PTEST))]
+  "TARGET_SSE4_1"
+  "%vptest\t{%1, %0|%0, %1}"
+  [(set_attr "isa" "noavx,noavx,avx")
+   (set_attr "type" "ssecomi")
+   (set_attr "prefix_extra" "1")
+   (set_attr "prefix" "orig,orig,vex")
+   (set_attr "mode" "TI")])
 
 (define_insn "<sse4_1>_round<ssemodesuffix><avxsizesuffix>"
   [(set (match_operand:VF_128_256 0 "register_operand" "=Yr,*x,x")

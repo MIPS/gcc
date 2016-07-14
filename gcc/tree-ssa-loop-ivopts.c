@@ -115,8 +115,6 @@ along with GCC; see the file COPYING3.  If not see
 /* The infinite cost.  */
 #define INFTY 10000000
 
-#define AVG_LOOP_NITER(LOOP) 5
-
 /* Returns the expected number of loop iterations for LOOP.
    The average trip count is computed from profile data if it
    exists. */
@@ -128,8 +126,9 @@ avg_loop_niter (struct loop *loop)
   if (niter == -1)
     {
       niter = likely_max_stmt_executions_int (loop);
-      if (niter == -1 || niter > AVG_LOOP_NITER (loop))
-	return AVG_LOOP_NITER (loop);
+
+      if (niter == -1 || niter > PARAM_VALUE (PARAM_AVG_LOOP_NITER))
+	return PARAM_VALUE (PARAM_AVG_LOOP_NITER);
     }
 
   return niter;
@@ -1181,6 +1180,10 @@ alloc_iv (struct ivopts_data *data, tree base, tree step,
   iv->biv_p = false;
   iv->nonlin_use = NULL;
   iv->ssa_name = NULL_TREE;
+  if (!no_overflow
+       && !iv_can_overflow_p (data->current_loop, TREE_TYPE (base),
+			      base, step))
+    no_overflow = true;
   iv->no_overflow = no_overflow;
   iv->have_address_use = false;
 
@@ -4522,7 +4525,7 @@ split_address_cost (struct ivopts_data *data,
   int unsignedp, reversep, volatilep;
 
   core = get_inner_reference (addr, &bitsize, &bitpos, &toffset, &mode,
-			      &unsignedp, &reversep, &volatilep, false);
+			      &unsignedp, &reversep, &volatilep);
 
   if (toffset != 0
       || bitpos % BITS_PER_UNIT != 0
@@ -5115,7 +5118,7 @@ determine_group_iv_cost_address (struct ivopts_data *data,
 {
   unsigned i;
   bitmap depends_on;
-  bool can_autoinc, first = true;
+  bool can_autoinc;
   iv_inv_expr_ent *inv_expr = NULL;
   struct iv_use *use = group->vuses[0];
   comp_cost sum_cost = no_cost, cost;
@@ -5142,30 +5145,11 @@ determine_group_iv_cost_address (struct ivopts_data *data,
     {
       struct iv_use *next = group->vuses[i];
 
-      /* Compute cost for the first use with different offset to the main
-	 use and add it afterwards.  Costs for these uses could be quite
-	 different.  Given below uses in a group:
-	   use 0  : {base + A + offset_0, step}
-	   use 0.1: {base + A + offset_0, step}
-	   use 0.2: {base + A + offset_1, step}
-	   use 0.3: {base + A + offset_2, step}
-	 when we need to compute costs with candidate:
-	   cand 1 : {base + B + offset_0, step}
-
-	 The first use with different offset is use 0.2, its cost is larger
-	 than cost of use 0/0.1 because we need to compute:
-	   A - B + offset_1 - offset_0
-	   rather than:
-	   A - B.  */
-      if (first && next->addr_offset != use->addr_offset)
-	{
-	  first = false;
-	  cost = get_computation_cost (data, next, cand, true,
-				       NULL, &can_autoinc, NULL);
-	  /* Remove setup cost.  */
-	  if (!cost.infinite_cost_p ())
-	    cost -= cost.scratch;
-	}
+      /* TODO: We could skip computing cost for sub iv_use when it has the
+	 same cost as the first iv_use, but the cost really depends on the
+	 offset and where the iv_use is.  */
+	cost = get_computation_cost (data, next, cand, true,
+				     NULL, &can_autoinc, NULL);
       sum_cost += cost;
     }
   set_group_iv_cost (data, group, cand, sum_cost, depends_on,

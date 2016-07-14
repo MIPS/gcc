@@ -1567,6 +1567,14 @@ ALL_HOST_BACKEND_OBJS = $(GCC_OBJS) $(OBJS) $(OBJS-libcommon) \
   $(GCOV_TOOL_OBJS) $(GENGTYPE_OBJS) gcc-ar.o gcc-nm.o gcc-ranlib.o \
   lto-wrapper.o collect-utils.o
 
+# for anything that is shared use the cc1plus profile data, as that
+# is likely the most exercised during the build
+ifeq ($(if $(wildcard ../stage_current),$(shell cat \
+  ../stage_current)),stageautofeedback)
+$(ALL_HOST_BACKEND_OBJS): ALL_COMPILERFLAGS += -fauto-profile=cc1plus.fda
+$(ALL_HOST_BACKEND_OBJS): cc1plus.fda
+endif
+
 # This lists all host object files, whether they are included in this
 # compilation or not.
 ALL_HOST_OBJS = $(ALL_HOST_FRONTEND_OBJS) $(ALL_HOST_BACKEND_OBJS)
@@ -1596,7 +1604,7 @@ MOSTLYCLEANFILES = insn-flags.h insn-config.h insn-codes.h \
  gcov-iov$(build_exeext) gcov$(exeext) gcov-dump$(exeext) \
  gcov-tool$(exeect) \
  gengtype$(exeext) *.[0-9][0-9].* *.[si] *-checksum.c libbackend.a \
- libcommon-target.a libcommon.a libgcc.mk
+ libcommon-target.a libcommon.a libgcc.mk perf.data
 
 # This symlink makes the full installation name of the driver be available
 # from within the *build* directory, for use when running the JIT library
@@ -1860,6 +1868,12 @@ s-selftest: $(GCC_PASSES) cc1$(exeext) stmp-int-hdrs
 .PHONY: selftest-gdb
 selftest-gdb: $(GCC_PASSES) cc1$(exeext) stmp-int-hdrs
 	$(GCC_FOR_TARGET) -xc -S -c /dev/null -fself-test -wrapper gdb,--args
+
+# Convenience method for running selftests under valgrind:
+.PHONY: selftest-valgrind
+selftest-valgrind: $(GCC_PASSES) cc1$(exeext) stmp-int-hdrs
+	$(GCC_FOR_TARGET) -xc -S -c /dev/null -fself-test \
+	  -wrapper valgrind,--leak-check=full
 
 # Recompile all the language-independent object files.
 # This is used only if the user explicitly asks for it.
@@ -2488,7 +2502,7 @@ generated_files = config.h tm.h $(TM_P_H) $(TM_H) multilib.h \
        $(ALL_GTFILES_H) gtype-desc.c gtype-desc.h gcov-iov.h \
        options.h target-hooks-def.h insn-opinit.h \
        common/common-target-hooks-def.h pass-instances.def \
-       c-family/c-target-hooks-def.h params.list case-cfn-macros.h \
+       c-family/c-target-hooks-def.h params.list params.options case-cfn-macros.h \
        cfn-operators.pd
 
 #
@@ -3322,6 +3336,13 @@ s-params.list: $(srcdir)/params-list.h $(srcdir)/params.def
 	$(CPP) $(srcdir)/params-list.h | sed 's/^#.*//;/^$$/d' > tmp-params.list
 	$(SHELL) $(srcdir)/../move-if-change tmp-params.list params.list
 	$(STAMP) s-params.list
+
+params.options: s-params.options; @true
+s-params.options: $(srcdir)/params-options.h $(srcdir)/params.def
+	$(CPP) $(srcdir)/params-options.h | sed 's/^#.*//;/^$$/d' > tmp-params.options
+	$(SHELL) $(srcdir)/../move-if-change tmp-params.options params.options
+	$(STAMP) s-params.options
+
 
 PLUGIN_HEADERS = $(TREE_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
   toplev.h $(DIAGNOSTIC_CORE_H) $(BASIC_BLOCK_H) $(HASH_TABLE_H) \

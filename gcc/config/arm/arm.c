@@ -104,7 +104,6 @@ static void arm_print_operand_address (FILE *, machine_mode, rtx);
 static bool arm_print_operand_punct_valid_p (unsigned char code);
 static const char *fp_const_from_val (REAL_VALUE_TYPE *);
 static arm_cc get_arm_condition_code (rtx);
-static HOST_WIDE_INT int_log2 (HOST_WIDE_INT);
 static const char *output_multi_immediate (rtx *, const char *, const char *,
 					   int, HOST_WIDE_INT);
 static const char *shift_op (rtx, HOST_WIDE_INT *);
@@ -2053,6 +2052,29 @@ const struct tune_params arm_xgene1_tune =
   tune_params::SCHED_AUTOPREF_OFF
 };
 
+const struct tune_params arm_qdf24xx_tune =
+{
+  arm_9e_rtx_costs,
+  &qdf24xx_extra_costs,
+  NULL,                                         /* Scheduler cost adjustment.  */
+  arm_default_branch_cost,
+  &arm_default_vec_cost,			/* Vectorizer costs.  */
+  1,						/* Constant limit.  */
+  2,						/* Max cond insns.  */
+  8,						/* Memset max inline.  */
+  4,						/* Issue rate.  */
+  ARM_PREFETCH_BENEFICIAL (0, -1, 64),
+  tune_params::PREF_CONST_POOL_FALSE,
+  tune_params::PREF_LDRD_TRUE,
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,	/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,	/* ARM.  */
+  tune_params::DISPARAGE_FLAGS_ALL,
+  tune_params::PREF_NEON_64_FALSE,
+  tune_params::PREF_NEON_STRINGOPS_TRUE,
+  FUSE_OPS (tune_params::FUSE_MOVW_MOVT),
+  tune_params::SCHED_AUTOPREF_FULL
+};
+
 /* Branches can be dual-issued on Cortex-A5, so conditional execution is
    less appealing.  Set max_insns_skipped to a low value.  */
 
@@ -2123,6 +2145,29 @@ const struct tune_params arm_cortex_a12_tune =
   tune_params::PREF_NEON_STRINGOPS_TRUE,
   FUSE_OPS (tune_params::FUSE_MOVW_MOVT),
   tune_params::SCHED_AUTOPREF_OFF
+};
+
+const struct tune_params arm_cortex_a73_tune =
+{
+  arm_9e_rtx_costs,
+  &cortexa57_extra_costs,
+  NULL,						/* Sched adj cost.  */
+  arm_default_branch_cost,
+  &arm_default_vec_cost,			/* Vectorizer costs.  */
+  1,						/* Constant limit.  */
+  2,						/* Max cond insns.  */
+  8,						/* Memset max inline.  */
+  2,						/* Issue rate.  */
+  ARM_PREFETCH_NOT_BENEFICIAL,
+  tune_params::PREF_CONST_POOL_FALSE,
+  tune_params::PREF_LDRD_TRUE,
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
+  tune_params::DISPARAGE_FLAGS_ALL,
+  tune_params::PREF_NEON_64_FALSE,
+  tune_params::PREF_NEON_STRINGOPS_TRUE,
+  FUSE_OPS (tune_params::FUSE_AES_AESMC | tune_params::FUSE_MOVW_MOVT),
+  tune_params::SCHED_AUTOPREF_FULL
 };
 
 /* armv7m tuning.  On Cortex-M4 cores for example, MOVW/MOVT take a single
@@ -2262,9 +2307,11 @@ static const struct processors *arm_selected_arch;
 static const struct processors *arm_selected_cpu;
 static const struct processors *arm_selected_tune;
 
-/* The name of the preprocessor macro to define for this architecture.  */
+/* The name of the preprocessor macro to define for this architecture.  PROFILE
+   is replaced by the architecture name (eg. 8A) in arm_option_override () and
+   is thus chosen to be big enough to hold the longest architecture name.  */
 
-char arm_arch_name[] = "__ARM_ARCH_0UNK__";
+char arm_arch_name[] = "__ARM_ARCH_PROFILE__";
 
 /* Available values for -mfpu=.  */
 
@@ -2905,7 +2952,8 @@ arm_option_override_internal (struct gcc_options *opts,
   if (! opts_set->x_arm_restrict_it)
     opts->x_arm_restrict_it = arm_arch8;
 
-  if (!TARGET_THUMB2_P (opts->x_target_flags))
+  /* ARM execution state and M profile don't have [restrict] IT.  */
+  if (!TARGET_THUMB2_P (opts->x_target_flags) || !arm_arch_notm)
     opts->x_arm_restrict_it = 0;
 
   /* Enable -munaligned-access by default for
@@ -2916,7 +2964,8 @@ arm_option_override_internal (struct gcc_options *opts,
 
      Disable -munaligned-access by default for
      - all pre-ARMv6 architecture-based processors
-     - ARMv6-M architecture-based processors.  */
+     - ARMv6-M architecture-based processors
+     - ARMv8-M Baseline processors.  */
 
   if (! opts_set->x_unaligned_access)
     {
@@ -3297,6 +3346,20 @@ arm_option_override (void)
 	}
     }
 
+  if (TARGET_VXWORKS_RTP)
+    {
+      if (!global_options_set.x_arm_pic_data_is_text_relative)
+	arm_pic_data_is_text_relative = 0;
+    }
+  else if (flag_pic
+	   && !arm_pic_data_is_text_relative
+	   && !(global_options_set.x_target_flags & MASK_SINGLE_PIC_BASE))
+    /* When text & data segments don't have a fixed displacement, the
+       intended use is with a single, read only, pic base register.
+       Unless the user explicitly requested not to do that, set
+       it.  */
+    target_flags |= MASK_SINGLE_PIC_BASE;
+
   /* If stack checking is disabled, we can use r10 as the PIC register,
      which keeps r9 available.  The EABI specifies r9 as the PIC register.  */
   if (flag_pic && TARGET_SINGLE_PIC_BASE)
@@ -3327,10 +3390,6 @@ arm_option_override (void)
       else
 	arm_pic_register = pic_register;
     }
-
-  if (TARGET_VXWORKS_RTP
-      && !global_options_set.x_arm_pic_data_is_text_relative)
-    arm_pic_data_is_text_relative = 0;
 
   /* Enable -mfix-cortex-m3-ldrd by default for Cortex-M3 cores.  */
   if (fix_cm3_ldrd == 2)
@@ -3898,7 +3957,7 @@ const_ok_for_op (HOST_WIDE_INT i, enum rtx_code code)
     {
     case SET:
       /* See if we can use movw.  */
-      if (arm_arch_thumb2 && (i & 0xffff0000) == 0)
+      if (TARGET_HAVE_MOVT && (i & 0xffff0000) == 0)
 	return 1;
       else
 	/* Otherwise, try mvn.  */
@@ -6711,7 +6770,7 @@ arm_function_ok_for_sibcall (tree decl, tree exp)
 
   /* The PIC register is live on entry to VxWorks PLT entries, so we
      must make the call before restoring the PIC register.  */
-  if (TARGET_VXWORKS_RTP && flag_pic && !targetm.binds_local_p (decl))
+  if (TARGET_VXWORKS_RTP && flag_pic && decl && !targetm.binds_local_p (decl))
     return false;
 
   /* If we are interworking and the function is not declared static
@@ -8221,6 +8280,12 @@ arm_legitimate_constant_p_1 (machine_mode, rtx x)
 static bool
 thumb_legitimate_constant_p (machine_mode mode ATTRIBUTE_UNUSED, rtx x)
 {
+  /* Splitters for TARGET_USE_MOVT call arm_emit_movpair which creates high
+     RTX.  These RTX must therefore be allowed for Thumb-1 so that when run
+     for ARMv8-M Baseline or later the result is valid.  */
+  if (TARGET_HAVE_MOVT && GET_CODE (x) == HIGH)
+    x = XEXP (x, 0);
+
   return (CONST_INT_P (x)
 	  || CONST_DOUBLE_P (x)
 	  || CONSTANT_ADDRESS_P (x)
@@ -8307,7 +8372,9 @@ thumb1_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer)
     case CONST_INT:
       if (outer == SET)
 	{
-	  if ((unsigned HOST_WIDE_INT) INTVAL (x) < 256)
+	  if (UINTVAL (x) < 256
+	      /* 16-bit constant.  */
+	      || (TARGET_HAVE_MOVT && !(INTVAL (x) & 0xffff0000)))
 	    return 0;
 	  if (thumb_shiftable_const (INTVAL (x)))
 	    return COSTS_N_INSNS (2);
@@ -9010,7 +9077,7 @@ static inline int
 thumb1_size_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer)
 {
   machine_mode mode = GET_MODE (x);
-  int words;
+  int words, cost;
 
   switch (code)
     {
@@ -9056,17 +9123,26 @@ thumb1_size_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer)
       /* A SET doesn't have a mode, so let's look at the SET_DEST to get
 	 the mode.  */
       words = ARM_NUM_INTS (GET_MODE_SIZE (GET_MODE (SET_DEST (x))));
-      return COSTS_N_INSNS (words)
-	     + COSTS_N_INSNS (1) * (satisfies_constraint_J (SET_SRC (x))
-				    || satisfies_constraint_K (SET_SRC (x))
-				       /* thumb1_movdi_insn.  */
-				    || ((words > 1) && MEM_P (SET_SRC (x))));
+      cost = COSTS_N_INSNS (words);
+      if (satisfies_constraint_J (SET_SRC (x))
+	  || satisfies_constraint_K (SET_SRC (x))
+	     /* Too big an immediate for a 2-byte mov, using MOVT.  */
+	  || (UINTVAL (SET_SRC (x)) >= 256
+	      && TARGET_HAVE_MOVT
+	      && satisfies_constraint_j (SET_SRC (x)))
+	     /* thumb1_movdi_insn.  */
+	  || ((words > 1) && MEM_P (SET_SRC (x))))
+	cost += COSTS_N_INSNS (1);
+      return cost;
 
     case CONST_INT:
       if (outer == SET)
         {
           if (UINTVAL (x) < 256)
             return COSTS_N_INSNS (1);
+	  /* movw is 4byte long.  */
+	  if (TARGET_HAVE_MOVT && !(INTVAL (x) & 0xffff0000))
+	    return COSTS_N_INSNS (2);
 	  /* See split "TARGET_THUMB1 && satisfies_constraint_J".  */
 	  if (INTVAL (x) >= -255 && INTVAL (x) <= -1)
             return COSTS_N_INSNS (2);
@@ -19071,7 +19147,8 @@ shift_op (rtx op, HOST_WIDE_INT *amountp)
 	  return NULL;
 	}
 
-      *amountp = int_log2 (*amountp);
+      *amountp = exact_log2 (*amountp);
+      gcc_assert (IN_RANGE (*amountp, 0, 31));
       return ARM_LSL_NAME;
 
     default:
@@ -19101,22 +19178,6 @@ shift_op (rtx op, HOST_WIDE_INT *amountp)
     return NULL;
 
   return mnem;
-}
-
-/* Obtain the shift from the POWER of two.  */
-
-static HOST_WIDE_INT
-int_log2 (HOST_WIDE_INT power)
-{
-  HOST_WIDE_INT shift = 0;
-
-  while ((((HOST_WIDE_INT) 1 << shift) & power) == 0)
-    {
-      gcc_assert (shift <= 31);
-      shift++;
-    }
-
-  return shift;
 }
 
 /* Output a .ascii pseudo-op, keeping track of lengths.  This is
@@ -25838,13 +25899,6 @@ thumb_reload_out_hi (rtx *operands)
   emit_insn (gen_thumb_movhi_clobber (operands[0], operands[1], operands[2]));
 }
 
-/* Handle reading a half-word from memory during reload.  */
-void
-thumb_reload_in_hi (rtx *operands ATTRIBUTE_UNUSED)
-{
-  gcc_unreachable ();
-}
-
 /* Return the length of a function name prefix
     that starts with the character 'c'.  */
 static int
@@ -25982,7 +26036,7 @@ arm_file_start (void)
 	      const char* pos = strchr (arm_selected_arch->name, '+');
 	      if (pos)
 		{
-		  char buf[15];
+		  char buf[32];
 		  gcc_assert (strlen (arm_selected_arch->name)
 			      <= sizeof (buf) / sizeof (*pos));
 		  strncpy (buf, arm_selected_arch->name,
@@ -27908,7 +27962,11 @@ vfp3_const_double_for_fract_bits (rtx operand)
 	  HOST_WIDE_INT value = real_to_integer (&r0);
 	  value = value & 0xffffffff;
 	  if ((value != 0) && ( (value & (value - 1)) == 0))
-	    return int_log2 (value);
+	    {
+	      int ret = exact_log2 (value);
+	      gcc_assert (IN_RANGE (ret, 0, 31));
+	      return ret;
+	    }
 	}
     }
   return 0;

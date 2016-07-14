@@ -1669,7 +1669,8 @@ vect_analyze_loop_operations (loop_vec_info loop_vinfo)
 
           gcc_assert (stmt_info);
 
-          if (STMT_VINFO_RELEVANT (stmt_info) == vect_used_in_scope
+          if ((STMT_VINFO_RELEVANT (stmt_info) == vect_used_in_scope
+               || STMT_VINFO_LIVE_P (stmt_info))
               && STMT_VINFO_DEF_TYPE (stmt_info) != vect_induction_def)
             {
               /* A scalar-dependence cycle that we don't support.  */
@@ -1685,6 +1686,9 @@ vect_analyze_loop_operations (loop_vec_info loop_vinfo)
               if (STMT_VINFO_DEF_TYPE (stmt_info) == vect_induction_def)
                 ok = vectorizable_induction (phi, NULL, NULL);
             }
+
+	  if (ok && STMT_VINFO_LIVE_P (stmt_info))
+	    ok = vectorizable_live_operation (phi, NULL, NULL, -1, NULL);
 
           if (!ok)
             {
@@ -1957,15 +1961,7 @@ start_over:
      since we use grouping information gathered by interleaving analysis.  */
   ok = vect_prune_runtime_alias_test_list (loop_vinfo);
   if (!ok)
-    {
-      if (dump_enabled_p ())
-	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			 "number of versioning for alias "
-			 "run-time tests exceeds %d "
-			 "(--param vect-max-version-for-alias-checks)\n",
-			 PARAM_VALUE (PARAM_VECT_MAX_VERSION_FOR_ALIAS_CHECKS));
-      return false;
-    }
+    return false;
 
   /* This pass will decide on using loop versioning and/or loop peeling in
      order to enhance the alignment of data references in the loop.  */
@@ -2148,10 +2144,12 @@ again:
 	{
 	  vinfo = vinfo_for_stmt (SLP_TREE_SCALAR_STMTS (node)[0]);
 	  vinfo = vinfo_for_stmt (STMT_VINFO_GROUP_FIRST_ELEMENT (vinfo));
+	  bool single_element_p = !STMT_VINFO_GROUP_NEXT_ELEMENT (vinfo);
 	  size = STMT_VINFO_GROUP_SIZE (vinfo);
 	  vectype = STMT_VINFO_VECTYPE (vinfo);
 	  if (! vect_load_lanes_supported (vectype, size)
-	      && ! vect_grouped_load_supported (vectype, size))
+	      && ! vect_grouped_load_supported (vectype, single_element_p,
+						size))
 	    return false;
 	}
     }
@@ -4349,7 +4347,9 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple *stmt,
       gimple_seq stmts;
       vec_init_def = force_gimple_operand (vec_initial_defs[i], &stmts,
 					   true, NULL_TREE);
-      gsi_insert_seq_on_edge_immediate (loop_preheader_edge (loop), stmts);
+      if (stmts)
+	gsi_insert_seq_on_edge_immediate (loop_preheader_edge (loop), stmts);
+
       def = vect_defs[i];
       for (j = 0; j < ncopies; j++)
         {
@@ -6346,12 +6346,13 @@ vectorizable_live_operation (gimple *stmt,
 	: gimple_get_lhs (stmt);
   lhs_type = TREE_TYPE (lhs);
 
-  /* Find all uses of STMT outside the loop - there should be exactly one.  */
+  /* Find all uses of STMT outside the loop - there should be at least one.  */
   auto_vec<gimple *, 4> worklist;
   FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, lhs)
-    if (!flow_bb_inside_loop_p (loop, gimple_bb (use_stmt)))
-	worklist.safe_push (use_stmt);
-  gcc_assert (worklist.length () == 1);
+    if (!flow_bb_inside_loop_p (loop, gimple_bb (use_stmt))
+	&& !is_gimple_debug (use_stmt))
+      worklist.safe_push (use_stmt);
+  gcc_assert (worklist.length () >= 1);
 
   bitsize = TYPE_SIZE (TREE_TYPE (vectype));
   vec_bitsize = TYPE_SIZE (vectype);
@@ -6364,24 +6365,20 @@ vectorizable_live_operation (gimple *stmt,
 
       int num_scalar = SLP_TREE_SCALAR_STMTS (slp_node).length ();
       int num_vec = SLP_TREE_NUMBER_OF_VEC_STMTS (slp_node);
-      int scalar_per_vec = num_scalar / num_vec;
 
-      /* There are three possibilites here:
-	 1: All scalar stmts fit in a single vector.
-	 2: All scalar stmts fit multiple times into a single vector.
-	    We must choose the last occurence of stmt in the vector.
-	 3: Scalar stmts are split across multiple vectors.
-	    We must choose the correct vector and mod the lane accordingly.  */
+      /* Get the last occurrence of the scalar index from the concatenation of
+	 all the slp vectors. Calculate which slp vector it is and the index
+	 within.  */
+      int pos = (num_vec * nunits) - num_scalar + slp_index;
+      int vec_entry = pos / nunits;
+      int vec_index = pos % nunits;
 
       /* Get the correct slp vectorized stmt.  */
-      int vec_entry = slp_index / scalar_per_vec;
       vec_lhs = gimple_get_lhs (SLP_TREE_VEC_STMTS (slp_node)[vec_entry]);
 
       /* Get entry to use.  */
-      bitstart = build_int_cst (unsigned_type_node,
-				scalar_per_vec - (slp_index % scalar_per_vec));
+      bitstart = build_int_cst (unsigned_type_node, vec_index);
       bitstart = int_const_binop (MULT_EXPR, bitsize, bitstart);
-      bitstart = int_const_binop (MINUS_EXPR, vec_bitsize, bitstart);
     }
   else
     {
@@ -6409,9 +6406,12 @@ vectorizable_live_operation (gimple *stmt,
 
   /* Replace all uses of the USE_STMT in the worklist with the newly inserted
      statement.  */
-  use_stmt = worklist.pop ();
-  replace_uses_by (gimple_phi_result (use_stmt), new_tree);
-  update_stmt (use_stmt);
+  while (!worklist.is_empty ())
+    {
+      use_stmt = worklist.pop ();
+      replace_uses_by (gimple_phi_result (use_stmt), new_tree);
+      update_stmt (use_stmt);
+    }
 
   return true;
 }
@@ -6963,6 +6963,9 @@ vect_transform_loop (loop_vec_info loop_vinfo)
   FOR_EACH_VEC_ELT (LOOP_VINFO_SLP_INSTANCES (loop_vinfo), i, instance)
     vect_free_slp_instance (instance);
   LOOP_VINFO_SLP_INSTANCES (loop_vinfo).release ();
+  /* Clear-up safelen field since its value is invalid after vectorization
+     since vectorized loop can have loop-carried dependencies.  */
+  loop->safelen = 0;
 }
 
 /* The code below is trying to perform simple optimization - revert

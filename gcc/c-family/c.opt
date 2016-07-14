@@ -1514,6 +1514,28 @@ Assume that values of enumeration type are always within the minimum range of th
 fstrict-prototype
 C++ ObjC++ Ignore Warn(switch %qs is no longer supported)
 
+fstrong-eval-order
+C++ ObjC++ Common Alias(fstrong-eval-order=, all, none)
+Follow the C++17 evaluation order requirements for assignment expressions,
+shift, member function calls, etc.
+
+fstrong-eval-order=
+C++ ObjC++ Common Var(flag_strong_eval_order) Joined Enum(strong_eval_order) Init(-1)
+Follow the C++17 evaluation order requirements for assignment expressions,
+shift, member function calls, etc.
+
+Enum
+Name(strong_eval_order) Type(int)
+
+EnumValue
+Enum(strong_eval_order) String(none) Value(0)
+
+EnumValue
+Enum(strong_eval_order) String(some) Value(1)
+
+EnumValue
+Enum(strong_eval_order) String(all) Value(2)
+
 ftabstop=
 C ObjC C++ ObjC++ Joined RejectNegative UInteger
 -ftabstop=<number>	Distance between tab stops for column reporting.

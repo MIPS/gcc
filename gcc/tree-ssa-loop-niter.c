@@ -2159,7 +2159,6 @@ loop_only_exit_p (const struct loop *loop, const_edge exit)
   basic_block *body;
   gimple_stmt_iterator bsi;
   unsigned i;
-  gimple *call;
 
   if (exit != single_exit (loop))
     return false;
@@ -2168,17 +2167,8 @@ loop_only_exit_p (const struct loop *loop, const_edge exit)
   for (i = 0; i < loop->num_nodes; i++)
     {
       for (bsi = gsi_start_bb (body[i]); !gsi_end_p (bsi); gsi_next (&bsi))
-	{
-	  call = gsi_stmt (bsi);
-	  if (gimple_code (call) != GIMPLE_CALL)
-	    continue;
-
-	  if (gimple_has_side_effects (call))
-	    {
-	      free (body);
-	      return false;
-	    }
-	}
+	if (stmt_can_terminate_bb_p (gsi_stmt (bsi)))
+	  return true;
     }
 
   free (body);
@@ -3438,7 +3428,7 @@ static void
 discover_iteration_bound_by_body_walk (struct loop *loop)
 {
   struct nb_iter_bound *elt;
-  vec<widest_int> bounds = vNULL;
+  auto_vec<widest_int> bounds;
   vec<vec<basic_block> > queues = vNULL;
   vec<basic_block> queue = vNULL;
   ptrdiff_t queue_index;
@@ -3593,7 +3583,6 @@ discover_iteration_bound_by_body_walk (struct loop *loop)
     }
 
   queues.release ();
-  bounds.release ();
 }
 
 /* See if every path cross the loop goes through a statement that is known
@@ -3606,7 +3595,7 @@ maybe_lower_iteration_bound (struct loop *loop)
   hash_set<gimple *> *not_executed_last_iteration = NULL;
   struct nb_iter_bound *elt;
   bool found_exit = false;
-  vec<basic_block> queue = vNULL;
+  auto_vec<basic_block> queue;
   bitmap visited;
 
   /* Collect all statements with interesting (i.e. lower than
@@ -3698,7 +3687,6 @@ maybe_lower_iteration_bound (struct loop *loop)
     }
 
   BITMAP_FREE (visited);
-  queue.release ();
   delete not_executed_last_iteration;
 }
 
@@ -4105,7 +4093,7 @@ n_of_executions_at_most (gimple *stmt,
 bool
 nowrap_type_p (tree type)
 {
-  if (INTEGRAL_TYPE_P (type)
+  if (ANY_INTEGRAL_TYPE_P (type)
       && TYPE_OVERFLOW_UNDEFINED (type))
     return true;
 
