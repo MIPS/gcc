@@ -31,7 +31,10 @@
 #include "c-family/c-pragma.h"
 #include "langhooks.h"
 #include "c/c-tree.h"
-
+#define KELVIN_DEBUG
+#ifdef KELVIN_DEBUG
+#include "print-tree.h"
+#endif
 /* Handle the machine specific pragma longcall.  Its syntax is
 
    # pragma longcall ( TOGGLE )
@@ -4811,7 +4814,6 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
   if (!rs6000_overloaded_builtin_p (fcode))
     return NULL_TREE;
 
-#define KELVIN_DEBUG
 #ifdef KELVIN_DEBUG
   fprintf (stderr, "altivec_resolve_overloaded_builtin, code = %4d, %s\n",
 	   (int)fcode, IDENTIFIER_POINTER (DECL_NAME (fndecl)));
@@ -5511,8 +5513,8 @@ assignment for unaligned loads and stores");
   fprintf (stderr, 
 "Done looking at the special cases in resolve_overloaded_builtin\n");
   fprintf (stderr, 
-	   " about to iterate through args, nargs: %d, fnargs: %d\n",
-	   nargs, TREE_CHAIN (fnargs));
+	   " about to iterate through args, nargs: %d, fnargs: ", nargs);
+  debug_tree (TREE_CHAIN (fnargs));
 #endif
   for (n = 0;
        !VOID_TYPE_P (TREE_VALUE (fnargs)) && n < nargs;
@@ -5562,7 +5564,8 @@ assignment for unaligned loads and stores");
       args[n] = arg;
       types[n] = type;
 #ifdef KELVIN_DEBUG
-      fprintf (stderr, "  in loop, types[%d] set to %d\n", n, types[n]);
+      fprintf (stderr, "  in loop, types[%d] set to ", n);
+      debug (types[n]);
 #endif
     }
 #ifdef KELVIN_DEBUG
@@ -5603,20 +5606,26 @@ assignment for unaligned loads and stores");
 	       desc->code, desc->overloaded_code);
       
       fprintf (stderr, "in loop, desc->op1 is %d\n", desc->op1);
-      if (desc->op1 != RS6000_BTI_NOT_OPAQUE)
-	fprintf (stderr, "type compatible with %d? %d\n",
-		 types[0], rs6000_builtin_type_compatible (types[0],
-							   desc->op1));
+      if (desc->op1 != RS6000_BTI_NOT_OPAQUE) {
+	fprintf (stderr, "types[0]: ");
+	debug (types[0]);
+	fprintf (stderr, "type compatible? %d\n",
+		 rs6000_builtin_type_compatible (types[0], desc->op1));
+      }
       fprintf (stderr, "desc->op2 is %d\n", desc->op2);
-      if (desc->op2 != RS6000_BTI_NOT_OPAQUE)
-	fprintf (stderr, "type compatible with %d? %d\n",
-		 types[1], rs6000_builtin_type_compatible (types[1],
-							   desc->op2));
+      if (desc->op2 != RS6000_BTI_NOT_OPAQUE) {
+	fprintf (stderr, "types[1]: ");
+	debug (types[1]);
+	fprintf (stderr, "type compatible? %d\n",
+		 rs6000_builtin_type_compatible (types[1], desc->op2));
+      }
       fprintf (stderr, "desc->op3 is %d\n", desc->op3);
-      if (desc->op3 != RS6000_BTI_NOT_OPAQUE)
-	fprintf (stderr, "type compatible with %d? %d\n",
-		 types[2], rs6000_builtin_type_compatible (types[2],
-							   desc->op3));
+      if (desc->op3 != RS6000_BTI_NOT_OPAQUE) {
+	fprintf (stderr, "types[2]: ");
+	debug (types[2]);
+	fprintf (stderr, "type compatible? %d\n",
+		 rs6000_builtin_type_compatible (types[2], desc->op3));
+      }
       
 
       
