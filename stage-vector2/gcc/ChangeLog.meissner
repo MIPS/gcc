@@ -1,3 +1,51 @@
+2016-07-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (vec_extract_<mode>): Change
+	rs6000_expand_vector_init calling sequence to take an RTX instead
+	of an integer for an element number.
+	* config/rs6000/rs6000-protos.h (rs6000_expand_vector_extract):
+	Likewise.
+	(rs6000_split_vec_extract_var): New function to support optimizing
+	the vec_extract built-in function with variable arguments.
+	(rs6000_adjust_vec_address): Likewise.
+	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin):
+	Add support for V2DFmode/V2DImode vec_extract with the element
+	number being variable on power8 64-bit machines calling the
+	built-in function, instead of converting the code to tree code
+	that uses pointers.  Use lexical string pasting instead of having
+	a long string that goes over multiple lines.
+	* config/rs6000/rs6000.c (rs6000_expand_vector_extract): Change
+	the calling signature so that the element is passes as an rtx
+	instead of an integer.  Add support optimizing vec_extract with a
+	variable element number for V2DFmode/V2DImode vectors.
+	(rs6000_expand_vector_extract): Likewise.
+	(rs6000_adjust_vec_address): New function that is given a vector
+	address in memory, an element number, and a temporary base
+	register.  It adjusts the address to point to the element in
+	question.
+	(rs6000_split_vec_extract_var): New function that takes a
+	vec_extract with a variable argument, and emits the insns needed
+	to do the extract.
+	(altivec_expand_vec_ext_builtin): Deal with the changes to
+	rs6000_expand_vector_extract calling signature.
+	(rtx_is_swappable_p): UNSPEC_VSX_EXTRACT insn are not swappable.
+	* config/rs6000/vsx.md (UNSPEC_VSX_VSLO): New UNSPECs.
+	(UNSPEC_VSX_EXTRACT): Likewise.
+	(vsx_extract_<mode>): Add support to use direct move if the
+	destination is in a GPR.
+	(vsx_extract_<mode>_load): Rework insn, so that it can load either
+	element from memory rather than just the 0 element.  Allow for
+	using the ISA 3.0 Altivec d-form load instructions.
+	(vsx_vslo_<mode>): New insn to do VSLO on V2DFmode/V2DImode to
+	support vec_extract variable element.
+	(vsx_extract_<mode>_var): New insn/split to support vec_extract
+	variable elements.
+	* config/rs6000/rs6000.h (VEC_EXTRACT_OPTIMIZE_P): New macro to
+	say we can do more optimizations for the vec_extract built-in
+	function.
+	* config/rs6000/altivec.md (reduc_plus_scal_<mode>): Deal with the
+	changes to rs6000_expand_vector_extract calling signature.
+
 2016-07-14   Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch subversion id 238261

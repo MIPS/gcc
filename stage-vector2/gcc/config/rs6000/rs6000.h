@@ -760,6 +760,11 @@ extern int rs6000_vector_align[];
 				 && TARGET_SINGLE_FLOAT			\
 				 && TARGET_DOUBLE_FLOAT)
 
+/* Macro to say whether we can optimize vector extracts.  */
+#define VEC_EXTRACT_OPTIMIZE_P	(TARGET_DIRECT_MOVE 			\
+				 && TARGET_POWERPC64			\
+				 && TARGET_UPPER_REGS_DI)
+
 /* Whether the various reciprocal divide/square root estimate instructions
    exist, and whether we should automatically generate code for the instruction
    by default.  */

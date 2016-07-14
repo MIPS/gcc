@@ -6895,35 +6895,35 @@ rs6000_expand_vector_set (rtx target, rtx val, int elt)
 /* Extract field ELT from VEC into TARGET.  */
 
 void
-rs6000_expand_vector_extract (rtx target, rtx vec, int elt)
+rs6000_expand_vector_extract (rtx target, rtx vec, rtx elt)
 {
   machine_mode mode = GET_MODE (vec);
   machine_mode inner_mode = GET_MODE_INNER (mode);
   rtx mem;
 
-  if (VECTOR_MEM_VSX_P (mode))
+  if (VECTOR_MEM_VSX_P (mode) && CONST_INT_P (elt))
     {
       switch (mode)
 	{
 	default:
 	  break;
 	case V1TImode:
-	  gcc_assert (elt == 0 && inner_mode == TImode);
+	  gcc_assert (INTVAL (elt) == 0 && inner_mode == TImode);
 	  emit_move_insn (target, gen_lowpart (TImode, vec));
 	  break;
 	case V2DFmode:
-	  emit_insn (gen_vsx_extract_v2df (target, vec, GEN_INT (elt)));
+	  emit_insn (gen_vsx_extract_v2df (target, vec, elt));
 	  return;
 	case V2DImode:
-	  emit_insn (gen_vsx_extract_v2di (target, vec, GEN_INT (elt)));
+	  emit_insn (gen_vsx_extract_v2di (target, vec, elt));
 	  return;
 	case V4SFmode:
-	  emit_insn (gen_vsx_extract_v4sf (target, vec, GEN_INT (elt)));
+	  emit_insn (gen_vsx_extract_v4sf (target, vec, elt));
 	  return;
 	case V16QImode:
 	  if (TARGET_VEXTRACTUB)
 	    {
-	      emit_insn (gen_vsx_extract_v16qi (target, vec, GEN_INT (elt)));
+	      emit_insn (gen_vsx_extract_v16qi (target, vec, elt));
 	      return;
 	    }
 	  else
@@ -6931,7 +6931,7 @@ rs6000_expand_vector_extract (rtx target, rtx vec, int elt)
 	case V8HImode:
 	  if (TARGET_VEXTRACTUB)
 	    {
-	      emit_insn (gen_vsx_extract_v8hi (target, vec, GEN_INT (elt)));
+	      emit_insn (gen_vsx_extract_v8hi (target, vec, elt));
 	      return;
 	    }
 	  else
@@ -6939,13 +6939,39 @@ rs6000_expand_vector_extract (rtx target, rtx vec, int elt)
 	case V4SImode:
 	  if (TARGET_VEXTRACTUB)
 	    {
-	      emit_insn (gen_vsx_extract_v4si (target, vec, GEN_INT (elt)));
+	      emit_insn (gen_vsx_extract_v4si (target, vec, elt));
 	      return;
 	    }
 	  else
 	    break;
 	}
     }
+  else if (VECTOR_MEM_VSX_P (mode) && !CONST_INT_P (elt)
+	   && VEC_EXTRACT_OPTIMIZE_P)
+    {
+      if (GET_MODE (elt) != DImode)
+	{
+	  rtx tmp = gen_reg_rtx (DImode);
+	  convert_move (tmp, elt, 0);
+	  elt = tmp;
+	}
+
+      switch (mode)
+	{
+	case V2DFmode:
+	  emit_insn (gen_vsx_extract_v2df_var (target, vec, elt));
+	  return;
+
+	case V2DImode:
+	  emit_insn (gen_vsx_extract_v2di_var (target, vec, elt));
+	  return;
+
+	default:
+	  gcc_unreachable ();
+	}
+    }
+
+  gcc_assert (CONST_INT_P (elt));
 
   /* Allocate mode-sized buffer.  */
   mem = assign_stack_temp (mode, GET_MODE_SIZE (mode));
@@ -6953,10 +6979,248 @@ rs6000_expand_vector_extract (rtx target, rtx vec, int elt)
   emit_move_insn (mem, vec);
 
   /* Add offset to field within buffer matching vector element.  */
-  mem = adjust_address_nv (mem, inner_mode, elt * GET_MODE_SIZE (inner_mode));
+  mem = adjust_address_nv (mem, inner_mode,
+			   INTVAL (elt) * GET_MODE_SIZE (inner_mode));
 
   emit_move_insn (target, adjust_address_nv (mem, inner_mode, 0));
 }
+
+/* Adjust a memory address (MEM) of a vector type to point to a scalar field
+   within the vector (ELEMENT) with a type (SCALAR_TYPE).  Use a base register
+   temporary (BASE_TMP) to fixup the address.  Return the new memory address
+   that is valid for reads or writes to a given register (SCALAR_REG).  */
+
+rtx
+rs6000_adjust_vec_address (rtx scalar_reg,
+			   rtx mem,
+			   rtx element,
+			   rtx base_tmp,
+			   machine_mode scalar_mode)
+{
+  unsigned scalar_size = GET_MODE_SIZE (scalar_mode);
+  rtx addr = XEXP (mem, 0);
+  rtx element_offset;
+  rtx new_addr;
+  bool valid_addr_p;
+
+  /* Vector addresses should not have PRE_INC, PRE_DEC, or PRE_MODIFY.  */
+  gcc_assert (GET_RTX_CLASS (GET_CODE (addr)) != RTX_AUTOINC);
+ 
+  /* Calculate what we need to add to the address to get the element
+     address.  */
+  if (CONST_INT_P (element))
+    element_offset = GEN_INT (INTVAL (element) * scalar_size);
+  else
+    {
+      int byte_shift = exact_log2 (scalar_size);
+      gcc_assert (byte_shift > 0);
+
+      if (TARGET_POWERPC64)
+	emit_insn (gen_ashldi3 (base_tmp, element, GEN_INT (byte_shift)));
+      else
+	emit_insn (gen_ashlsi3 (base_tmp, element, GEN_INT (byte_shift)));
+
+      element_offset = base_tmp;
+    }
+
+  /* Create the new address pointing to the element within the vector.  If we
+     are adding 0, we don't have to change the address.  */
+  if (element_offset == const0_rtx)
+    new_addr = addr;
+
+  /* A simple indirect address can be converted into a reg + offset
+     address.  */
+  else if (REG_P (addr) || SUBREG_P (addr))
+    new_addr = gen_rtx_PLUS (Pmode, addr, element_offset);
+
+  /* Optimize D-FORM addresses with constant offset with a constant element, to
+     include the element offset in the address directly.  */
+  else if (GET_CODE (addr) == PLUS)
+    {
+      rtx op0 = XEXP (addr, 0);
+      rtx op1 = XEXP (addr, 1);
+
+      new_addr = NULL_RTX;
+      gcc_assert (REG_P (op0));
+      if (CONST_INT_P (op1) && CONST_INT_P (element_offset))
+	{
+	  HOST_WIDE_INT offset = INTVAL (op1) + INTVAL (element_offset);
+	  if (IN_RANGE (offset, -32768, 32767)
+	      && (scalar_size < 8 || (offset & 0x3) == 0))
+	    new_addr = gen_rtx_PLUS (Pmode, addr, GEN_INT (offset));
+	}
+
+      if (!new_addr)
+	{
+	  emit_move_insn (base_tmp, gen_rtx_PLUS (Pmode, op1, element_offset));
+	  new_addr = gen_rtx_PLUS (Pmode, op0, base_tmp);
+	}
+    }
+
+  else
+    {
+      emit_move_insn (base_tmp, addr);
+      new_addr = gen_rtx_PLUS (Pmode, base_tmp, element_offset);
+    }
+
+  /* If we have a PLUS, we need to see whether the particular register class
+     allows for D-FORM or X-FORM addressing.  */
+  if (GET_CODE (new_addr) == PLUS)
+    {
+      rtx op1 = XEXP (new_addr, 1);
+      addr_mask_type addr_mask;
+      int scalar_regno;
+
+      if (REG_P (scalar_reg))
+	scalar_regno = REGNO (scalar_reg);
+      else if (SUBREG_P (scalar_reg))
+	scalar_regno = REGNO (SUBREG_REG (scalar_reg));
+      else
+	gcc_unreachable ();
+
+      gcc_assert (scalar_regno < FIRST_PSEUDO_REGISTER);
+      if (INT_REGNO_P (scalar_regno))
+	addr_mask = reg_addr[scalar_mode].addr_mask[RELOAD_REG_GPR];
+
+      else if (FP_REGNO_P (scalar_regno))
+	addr_mask = reg_addr[scalar_mode].addr_mask[RELOAD_REG_FPR];
+
+      else if (ALTIVEC_REGNO_P (scalar_regno))
+	addr_mask = reg_addr[scalar_mode].addr_mask[RELOAD_REG_VMX];
+
+      else
+	gcc_unreachable ();
+
+      if (REG_P (op1) || SUBREG_P (op1))
+	valid_addr_p = (addr_mask & RELOAD_REG_INDEXED) != 0;
+      else
+	valid_addr_p = (addr_mask & RELOAD_REG_OFFSET) != 0;
+    }
+
+  else if (REG_P (new_addr) || SUBREG_P (new_addr))
+    valid_addr_p = true;
+
+  else
+    valid_addr_p = false;
+
+  if (!valid_addr_p)
+    {
+      emit_move_insn (base_tmp, new_addr);
+      new_addr = base_tmp;
+    }
+
+  return change_address (mem, scalar_mode, new_addr);
+}
+
+/* Split a variable vec_extract operation into the component instructions.  */
+
+void
+rs6000_split_vec_extract_var (rtx dest, rtx src, rtx element, rtx tmp_gpr,
+			      rtx tmp_altivec)
+{
+  machine_mode mode = GET_MODE (src);
+  machine_mode scalar_mode = GET_MODE (dest);
+  unsigned scalar_size = GET_MODE_SIZE (scalar_mode);
+  int byte_shift = exact_log2 (scalar_size);
+
+  gcc_assert (byte_shift > 0);
+
+  /* If we are given a memory address, optimize to load just the element.  We
+     don't have to adjust the vector element number on little endian
+     systems.  */
+  if (MEM_P (src))
+    {
+      if (!REG_P (tmp_gpr))
+	tmp_gpr = gen_reg_rtx (Pmode);
+
+      emit_move_insn (dest, rs6000_adjust_vec_address (dest, src, element,
+						       tmp_gpr, scalar_mode));
+      return;
+    }
+
+  else if (REG_P (src) || SUBREG_P (src))
+    {
+      int bit_shift = byte_shift + 3;
+      rtx element2;
+
+      if (!REG_P (tmp_gpr))
+	tmp_gpr = gen_reg_rtx (DImode);
+
+      if (!REG_P (tmp_altivec))
+	tmp_altivec = gen_reg_rtx (V2DImode);
+
+      /* For little endian, adjust element ordering.  For V2DI/V2DF, we can use
+	 an XOR, otherwise we need to subtract.  The shift amount is so VSLO
+	 will shift the element into the upper position (adding 3 to convert a
+	 byte shift into a bit shift). */
+      if (scalar_size == 8)
+	{
+	  if (!VECTOR_ELT_ORDER_BIG)
+	    {
+	      emit_insn (gen_xordi3 (tmp_gpr, element, const1_rtx));
+	      element2 = tmp_gpr;
+	    }
+	  else
+	    element2 = element;
+
+	  /* Generate RLDIC directly to shift left 6 bits and retrieve 1
+	     bit.  */
+	  emit_insn (gen_rtx_SET (tmp_gpr,
+				  gen_rtx_AND (DImode,
+					       gen_rtx_ASHIFT (DImode,
+							       element2,
+							       GEN_INT (6)),
+					       GEN_INT (64))));
+	}
+      else
+	{
+	  if (!VECTOR_ELT_ORDER_BIG)
+	    {
+	      rtx num_ele_m1 = GEN_INT (GET_MODE_NUNITS (mode) - 1);
+
+	      emit_insn (gen_anddi3 (tmp_gpr, element, num_ele_m1));
+	      emit_insn (gen_subdi3 (tmp_gpr, num_ele_m1, tmp_gpr));
+	      element2 = tmp_gpr;
+	    }
+	  else
+	    element2 = element;
+
+	  emit_insn (gen_ashldi3 (tmp_gpr, element2, GEN_INT (bit_shift)));
+	}
+
+      /* Get the value into the lower byte of the Altivec register where VSLO
+	 expects it.  */
+      if (TARGET_P9_VECTOR)
+	emit_insn (gen_vsx_splat_v2di (tmp_altivec, tmp_gpr));
+      else if (can_create_pseudo_p ())
+	emit_insn (gen_vsx_concat_v2di (tmp_altivec, tmp_gpr, tmp_gpr));
+      else
+	{
+	  rtx tmp_di = gen_rtx_REG (DImode, REGNO (tmp_altivec));
+	  emit_move_insn (tmp_di, tmp_gpr);
+	  emit_insn (gen_vsx_concat_v2di (tmp_altivec, tmp_di, tmp_di));
+	}
+
+      /* Do the VSLO to get the value into the final location.  */
+      switch (mode)
+	{
+	case V2DFmode:
+	  emit_insn (gen_vsx_vslo_v2df (dest, src, tmp_altivec));
+	  return;
+
+	case V2DImode:
+	  emit_insn (gen_vsx_vslo_v2di (dest, src, tmp_altivec));
+	  return;
+
+	default:
+	  gcc_unreachable ();
+	}
+
+      return;
+    }
+  else
+    gcc_unreachable ();
+ }
 
 /* Return TRUE if OP is an invalid SUBREG operation on the e500.  */
 
@@ -14642,14 +14906,18 @@ altivec_expand_vec_ext_builtin (tree exp, rtx target)
 {
   machine_mode tmode, mode0;
   tree arg0, arg1;
-  int elt;
   rtx op0;
+  rtx op1;
 
   arg0 = CALL_EXPR_ARG (exp, 0);
   arg1 = CALL_EXPR_ARG (exp, 1);
 
   op0 = expand_normal (arg0);
-  elt = get_element_number (TREE_TYPE (arg0), arg1);
+  op1 = expand_normal (arg1);
+
+  /* Call get_element_number to validate arg1 if it is a constant.  */
+  if (TREE_CODE (arg1) == INTEGER_CST)
+    (void) get_element_number (TREE_TYPE (arg0), arg1);
 
   tmode = TYPE_MODE (TREE_TYPE (TREE_TYPE (arg0)));
   mode0 = TYPE_MODE (TREE_TYPE (arg0));
@@ -14660,7 +14928,7 @@ altivec_expand_vec_ext_builtin (tree exp, rtx target)
   if (optimize || !target || !register_operand (target, tmode))
     target = gen_reg_rtx (tmode);
 
-  rs6000_expand_vector_extract (target, op0, elt);
+  rs6000_expand_vector_extract (target, op0, op1);
 
   return target;
 }
@@ -38576,6 +38844,7 @@ rtx_is_swappable_p (rtx op, unsigned int *special)
 	  case UNSPEC_VSX_CVDPSPN:
 	  case UNSPEC_VSX_CVSPDP:
 	  case UNSPEC_VSX_CVSPDPN:
+	  case UNSPEC_VSX_EXTRACT:
 	    return 0;
 	  case UNSPEC_VSPLT_DIRECT:
 	    *special = SH_SPLAT;

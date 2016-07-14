@@ -309,6 +309,8 @@
    UNSPEC_VSX_XVCVDPUXDS
    UNSPEC_VSX_SIGN_EXTEND
    UNSPEC_P9_MEMORY
+   UNSPEC_VSX_VSLO
+   UNSPEC_VSX_EXTRACT
   ])
 
 ;; VSX moves
@@ -2118,16 +2120,13 @@
 ;; register was picked.  Limit the scalar value to FPRs for now.
 
 (define_insn "vsx_extract_<mode>"
-  [(set (match_operand:<VS_scalar> 0 "gpc_reg_operand"
-            "=d,     wm,      wo,    d")
+  [(set (match_operand:<VS_scalar> 0 "gpc_reg_operand" "=d,    d,     wr, wr")
 
 	(vec_select:<VS_scalar>
-	 (match_operand:VSX_D 1 "gpc_reg_operand"
-            "<VSa>, <VSa>,  <VSa>,  <VSa>")
+	 (match_operand:VSX_D 1 "gpc_reg_operand"      "<VSa>, <VSa>, wm, wo")
 
 	 (parallel
-	  [(match_operand:QI 2 "const_0_to_1_operand"
-            "wD,    wD,     wL,     n")])))]
+	  [(match_operand:QI 2 "const_0_to_1_operand"  "wD,    n,     wD, n")])))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
 {
   int element = INTVAL (operands[2]);
@@ -2175,20 +2174,23 @@
 }
   [(set_attr "type" "veclogical,mftgpr,mftgpr,vecperm")])
 
-;; Optimize extracting a single scalar element from memory if the scalar is in
-;; the correct location to use a single load.
-(define_insn "*vsx_extract_<mode>_load"
-  [(set (match_operand:<VS_scalar> 0 "register_operand" "=d,wv,wr")
+;; Optimize extracting a single scalar element from memory.
+(define_insn_and_split "*vsx_extract_<mode>_load"
+  [(set (match_operand:<VS_scalar> 0 "register_operand" "=<VSa>,r")
 	(vec_select:<VS_scalar>
-	 (match_operand:VSX_D 1 "memory_operand" "m,Z,m")
-	 (parallel [(const_int 0)])))]
+	 (match_operand:VSX_D 1 "memory_operand" "m,m")
+	 (parallel [(match_operand:QI 2 "const_0_to_1_operand" "n,n")])))
+   (clobber (match_scratch:DI 3 "=&b,&b"))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
-  "@
-   lfd%U1%X1 %0,%1
-   lxsd%U1x %x0,%y1
-   ld%U1%X1 %0,%1"
-  [(set_attr "type" "fpload,fpload,load")
-   (set_attr "length" "4")])
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (match_dup 3))]
+{
+  operands[3] = rs6000_adjust_vec_address (operands[0], operands[1], operands[2],
+					   operands[3], <VS_scalar>mode);
+}
+  [(set_attr "type" "fpload,load")
+   (set_attr "length" "8")])
 
 ;; Optimize storing a single scalar element that is the right location to
 ;; memory
@@ -2204,6 +2206,34 @@
    stxsd%U0x %x1,%y0"
   [(set_attr "type" "fpstore")
    (set_attr "length" "4")])
+
+;; Variable V2DI/V2DF extract shift
+(define_insn "vsx_vslo_<mode>"
+  [(set (match_operand:<VS_scalar> 0 "gpc_reg_operand" "=v")
+	(unspec:<VS_scalar> [(match_operand:VSX_D 1 "gpc_reg_operand" "v")
+			     (match_operand:V2DI 2 "gpc_reg_operand" "v")]
+			    UNSPEC_VSX_VSLO))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && VEC_EXTRACT_OPTIMIZE_P"
+  "vslo %0,%1,%2"
+  [(set_attr "type" "vecperm")])
+
+;; Variable V2DI/V2DF extract
+(define_insn_and_split "vsx_extract_<mode>_var"
+  [(set (match_operand:<VS_scalar> 0 "gpc_reg_operand" "=v,<VSa>,r")
+	(unspec:<VS_scalar> [(match_operand:VSX_D 1 "input_operand" "v,m,m")
+			     (match_operand:DI 2 "gpc_reg_operand" "r,r,r")]
+			    UNSPEC_VSX_EXTRACT))
+   (clobber (match_scratch:DI 3 "=r,&b,&b"))
+   (clobber (match_scratch:V2DI 4 "=&v,X,X"))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && VEC_EXTRACT_OPTIMIZE_P"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+{
+  rs6000_split_vec_extract_var (operands[0], operands[1], operands[2],
+				operands[3], operands[4]);
+  DONE;
+})
 
 ;; Extract a SF element from V4SF
 (define_insn_and_split "vsx_extract_v4sf"
