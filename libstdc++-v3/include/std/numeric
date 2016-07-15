@@ -61,6 +61,10 @@
 #include <bits/stl_iterator_base_types.h>
 #include <bits/stl_numeric.h>
 
+#if __cplusplus > 201402L
+# include <bits/par_numeric.h>
+#endif
+
 #ifdef _GLIBCXX_PARALLEL
 # include <parallel/numeric>
 #endif

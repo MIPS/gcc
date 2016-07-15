@@ -61,6 +61,10 @@
 #include <bits/stl_algobase.h>
 #include <bits/stl_algo.h>
 
+#if __cplusplus > 201402L
+# include <bits/par_algo.h>
+#endif
+
 #ifdef _GLIBCXX_PARALLEL
 # include <parallel/algorithm>
 #endif

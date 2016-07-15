@@ -1,0 +1,116 @@
+// <execution> -*- C++ -*-
+
+// Copyright (C) 2016 Free Software Foundation, Inc.
+//
+// This file is part of the GNU ISO C++ Library.  This library is free
+// software; you can redistribute it and/or modify it under the
+// terms of the GNU General Public License as published by the
+// Free Software Foundation; either version 3, or (at your option)
+// any later version.
+
+// This library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
+
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
+
+/** @file include/execution
+ *  This is a Standard C++ Library header.
+ */
+
+#ifndef _GLIBCXX_EXECUTION
+#define _GLIBCXX_EXECUTION 1
+
+#pragma GCC system_header
+
+#if __cplusplus <= 201402L
+# include <bits/c++17_warning.h>
+#else
+
+#include <bits/c++config.h>
+
+// Define this here so it's defined by both <algorithm> and <numeric>
+// Define when fully supported: #define __cpp_lib_parallel_algorithm 201603
+
+namespace std _GLIBCXX_VISIBILITY(default)
+{
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
+
+  /**
+   * @defgroup execution_policies Execution Policies
+   * @ingroup algorithms
+   *
+   * For C++17 the Standard Library adds parallel versions of most algorithms,
+   * in the form of overloads taking an additional argument specifying an
+   * Execution Policy.
+   */
+
+  /// [execpol.type], execution policy type trait:
+  template<typename _Tp>
+    struct is_execution_policy : std::false_type
+    { };
+
+  template<typename _Tp>
+    constexpr bool is_execution_policy_v = is_execution_policy<_Tp>::value;
+
+_GLIBCXX_END_NAMESPACE_VERSION
+
+namespace execution
+{
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
+
+  /// [execpol.seq], sequenced execution policy:
+  class sequenced_policy
+  {
+    explicit sequenced_policy(__execpol_tag) { };
+  }
+
+  /// [execpol.par], parallel execution policy:
+  class parallel_policy;
+
+  /// [execpol.vec], parallel+unsequenced execution policy:
+  class parallel_unsequenced_policy;
+
+  /** [parallel.execpol.objects], execution policy objects:
+   * @{
+   */
+  constexpr sequenced_policy seq{ unspecified };
+  constexpr parallel_policy par{ unspecified };
+  constexpr parallel_unsequenced_policy par_unseq{ unspecified };
+  // @}
+
+  _GLIBCXX_END_NAMESPACE_VERSION
+} // namespace execution
+
+  template<>
+    struct is_execution_policy<execution::sequenced_policy>
+    : std::true_type
+    { };
+
+  template<>
+    struct is_execution_policy<execution::parallel_policy>
+    : std::true_type
+    { };
+
+  template<>
+    struct is_execution_policy<execution::parallel_unsequenced_policy>
+    : std::true_type
+    { };
+
+
+  template<typename _Ep, _Ret>
+    using __if_execpol = enable_if_t<is_execution_policy_v<_Ep>, _Ret>;
+
+} // namespace std
+
+#endif // C++17
+#endif
+
