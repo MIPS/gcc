@@ -5632,6 +5632,7 @@ assignment for unaligned loads and stores");
       }
       fprintf (stderr, "does the overloaded decl equal NULL_TREE? %d\n",
 	       (rs6000_builtin_decls[desc->overloaded_code] == NULL_TREE));
+
       /* so i'm seeing that desc->op1 is 45. types[0] is empty, and 
        *  desc->op1 is type-compatible.
        * But the other values are zero, which equals BTI_NOT_OPAQUE,  
@@ -5660,16 +5661,15 @@ assignment for unaligned loads and stores");
 #endif
     if (rs6000_builtin_decls[desc->overloaded_code] == NULL_TREE)
       {
-	size_t uns_fncode = (size_t)fcode;
-	const char *name = rs6000_builtin_info[uns_fncode].name;
-	error ("Builtin function %s is not supported in this compiler configuration");
+	const char *name = rs6000_overloaded_builtin_name (fcode);
+	error ("Builtin function %s not supported in this compiler configuration", 
+	       name);
 	return error_mark_node;
       }
 
  bad:
     {
-      size_t uns_fncode = (size_t)fcode;
-      const char *name = rs6000_builtin_info[uns_fncode].name;
+      const char *name = rs6000_overloaded_builtin_name (fcode);
       error ("invalid parameter combination for AltiVec intrinsic %s", name);
       return error_mark_node;
     }
