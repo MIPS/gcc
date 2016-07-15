@@ -31,7 +31,7 @@
 #include "c-family/c-pragma.h"
 #include "langhooks.h"
 #include "c/c-tree.h"
-#define KELVIN_DEBUG
+#undef KELVIN_DEBUG
 #ifdef KELVIN_DEBUG
 #include "print-tree.h"
 #endif
@@ -5599,6 +5599,10 @@ assignment for unaligned loads and stores");
 
   /* For arguments after the last, we have RS6000_BTI_NOT_OPAQUE in
      the opX fields.  */
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "P9V_BUILTIN_VSEEDP is %d, P9V_BUILTIN_VEC_VSEEDP is %d\n",
+	   P9V_BUILTIN_VSEEDP, P9V_BUILTIN_VEC_VSEEDP);
+#endif
   for (; desc->code == fcode; desc++)
 #ifdef KELVIN_DEBUG
     {
@@ -5626,10 +5630,15 @@ assignment for unaligned loads and stores");
 	fprintf (stderr, "type compatible? %d\n",
 		 rs6000_builtin_type_compatible (types[2], desc->op3));
       }
-      
-
-      
-
+      fprintf (stderr, "does the overloaded decl equal NULL_TREE? %d\n",
+	       (rs6000_builtin_decls[desc->overloaded_code] == NULL_TREE));
+      /* so i'm seeing that desc->op1 is 45. types[0] is empty, and 
+       *  desc->op1 is type-compatible.
+       * But the other values are zero, which equals BTI_NOT_OPAQUE,  
+       *  so all of those are matching.
+       * Maybe the problem is that
+       *  rs6000_builtin_decls[desc->overloaded_code] equals NULL_TREE?
+       */
     if ((desc->op1 == RS6000_BTI_NOT_OPAQUE
 	 || rs6000_builtin_type_compatible (types[0], desc->op1))
 	&& (desc->op2 == RS6000_BTI_NOT_OPAQUE
@@ -5649,8 +5658,19 @@ assignment for unaligned loads and stores");
 	&& rs6000_builtin_decls[desc->overloaded_code] != NULL_TREE)
       return altivec_build_resolved_builtin (args, n, desc);
 #endif
+    if (rs6000_builtin_decls[desc->overloaded_code] == NULL_TREE)
+      {
+	size_t uns_fncode = (size_t)fcode;
+	const char *name = rs6000_builtin_info[uns_fncode].name;
+	error ("Builtin function %s is not supported in this compiler configuration");
+	return error_mark_node;
+      }
 
  bad:
-  error ("invalid parameter combination for AltiVec intrinsic");
-  return error_mark_node;
+    {
+      size_t uns_fncode = (size_t)fcode;
+      const char *name = rs6000_builtin_info[uns_fncode].name;
+      error ("invalid parameter combination for AltiVec intrinsic %s", name);
+      return error_mark_node;
+    }
 }
