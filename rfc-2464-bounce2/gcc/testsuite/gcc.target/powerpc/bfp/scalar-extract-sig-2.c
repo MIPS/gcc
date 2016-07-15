@@ -12,6 +12,5 @@ unsigned long long int get_significand (double *p)
 {
   double source = *p;
 
-  /* kelvin not sure about this error message on big-endian 32 bit */
-  return __builtin_vec_scalar_extract_sig (source);	/* { dg-error "Builtin function __builtin_vsx_scalar_extract_sig requires" } */
+  return __builtin_vec_scalar_extract_sig (source); /* { dg-error "Builtin function __builtin_vec_scalar_extract_sig notsupported in this compiler configuration" } */
 }

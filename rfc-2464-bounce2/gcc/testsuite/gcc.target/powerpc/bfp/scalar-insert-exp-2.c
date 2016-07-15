@@ -17,6 +17,5 @@ double insert_exponent (unsigned long long int *exponent_p,
   unsigned long long int exponent = *exponent_p;
   unsigned long long int significand = *significand_p;
 
-  /* kelvin not sure about this error message on big-endian 32 bit */
-  return scalar_insert_exp (exponent, significand);	/* { dg-error "Builtin function __builtin_vsx_scalar_insert_exp requires" } */
+  return scalar_insert_exp (exponent, significand); /* { dg-error "Builtin function __builtin_vec_scalar_insert_exp not supported in this compiler configuration" } */
 }

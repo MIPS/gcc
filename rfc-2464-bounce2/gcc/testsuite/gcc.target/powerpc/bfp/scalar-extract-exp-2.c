@@ -15,8 +15,7 @@ unsigned int get_exponent (double *p)
 {
   double source = *p;
 
-  /* kelvin not sure about this error message on big-endian 32 bit */
-  return scalar_extract_exp (source);	/* { dg-error "Builtin function __builtin_vsx_scalar_extract_exp requires" } */
+  return scalar_extract_exp (source);	/* { dg-error "Builtin function __builtin_vec_scalar_extract_exp notsupported in this compiler configuration" } */
 }
 
 
