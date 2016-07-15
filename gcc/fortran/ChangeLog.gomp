@@ -1,3 +1,9 @@
+2016-07-15  Cesar Philippidis  <cesar@codesourcery.com>
+
+	Backport from trunk:
+	* openmp.c (gfc_match_omp_clauses): Scan for clause vector_length
+	before vector.
+
 2016-07-12  Cesar Philippidis  <cesar@codesourcery.com>
 
 	Backport from trunk:
