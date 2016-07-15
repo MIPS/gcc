@@ -5630,23 +5630,13 @@ assignment for unaligned loads and stores");
 	fprintf (stderr, "type compatible? %d\n",
 		 rs6000_builtin_type_compatible (types[2], desc->op3));
       }
-      fprintf (stderr, "does the overloaded decl equal NULL_TREE? %d\n",
-	       (rs6000_builtin_decls[desc->overloaded_code] == NULL_TREE));
-
-      /* so i'm seeing that desc->op1 is 45. types[0] is empty, and 
-       *  desc->op1 is type-compatible.
-       * But the other values are zero, which equals BTI_NOT_OPAQUE,  
-       *  so all of those are matching.
-       * Maybe the problem is that
-       *  rs6000_builtin_decls[desc->overloaded_code] equals NULL_TREE?
-       */
-    if ((desc->op1 == RS6000_BTI_NOT_OPAQUE
+      if ((desc->op1 == RS6000_BTI_NOT_OPAQUE
 	 || rs6000_builtin_type_compatible (types[0], desc->op1))
 	&& (desc->op2 == RS6000_BTI_NOT_OPAQUE
 	    || rs6000_builtin_type_compatible (types[1], desc->op2))
 	&& (desc->op3 == RS6000_BTI_NOT_OPAQUE
 	    || rs6000_builtin_type_compatible (types[2], desc->op3))
-	&& rs6000_builtin_decls[desc->overloaded_code] != NULL_TREE)
+	  && rs6000_builtin_decls[desc->overloaded_code] != NULL_TREE) 
       return altivec_build_resolved_builtin (args, n, desc);
     }
 #else
@@ -5656,9 +5646,11 @@ assignment for unaligned loads and stores");
 	    || rs6000_builtin_type_compatible (types[1], desc->op2))
 	&& (desc->op3 == RS6000_BTI_NOT_OPAQUE
 	    || rs6000_builtin_type_compatible (types[2], desc->op3))
-	&& rs6000_builtin_decls[desc->overloaded_code] != NULL_TREE)
+      && rs6000_builtin_decls[desc->overloaded_code] !=
+		NULL_TREE)
       return altivec_build_resolved_builtin (args, n, desc);
 #endif
+    
     if (rs6000_builtin_decls[desc->overloaded_code] == NULL_TREE)
       {
 	const char *name = rs6000_overloaded_builtin_name (fcode);
