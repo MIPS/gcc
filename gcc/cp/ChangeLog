@@ -1,3 +1,63 @@
+2016-06-21  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2016-06-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* semantics.c (handle_omp_array_sections_1): Don't ICE when
+	processing_template_decl when checking for bitfields and unions.
+	Look through REFERENCE_REF_P as base of COMPONENT_REF.
+	(finish_omp_clauses): Look through REFERENCE_REF_P even for
+	array sections with COMPONENT_REF bases.
+
+	2016-06-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_var_list_no_open): Call
+	convert_from_reference before cp_parser_postfix_dot_deref_expression.
+	* semantics.c (finish_omp_clauses): Don't ICE when
+	processing_template_decl when checking for bitfields and unions.
+	Look through REFERENCE_REF_P as base of COMPONENT_REF.
+
+	2016-06-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71528
+	* decl.c (duplicate_decls): For DECL_INITIALIZED_P non-external
+	olddecl vars, preserve their TREE_READONLY bit.
+
+2016-06-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/70572
+	* decl.c (cp_finish_decl): Check do_auto_deduction return value
+	and return immediately in case of erroneous code.
+
+2016-06-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71516
+	* decl.c (complete_vars): Handle gracefully type == error_mark_node.
+
+2016-06-10  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR c/71381
+	Backport from trunk r237290:
+	* parser.c (cp_parser_omp_var_list_no_open) <OMP_CLAUSE__CACHE_>:
+	Loosen checking.
+
+2016-06-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71442
+	* pt.c (tsubst_copy): Only set TREE_USED on DECLs.
+
+2016-06-06  Jakub Jelinek  <jakub@redhat.com>
+	    Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/70847
+	PR c++/71330
+	PR c++/71393
+	* cp-gimplify.c (cp_fold_r): Set *walk_subtrees = 0 and return NULL
+	right after cp_fold call if cp_fold has returned the same stmt
+	already in some earlier cp_fold_r call.
+	(cp_fold_function): Add pset automatic variable, pass its address
+	to cp_walk_tree.
+
 2016-06-02  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/71372
