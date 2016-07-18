@@ -1,3 +1,75 @@
+2016-07-17  Fritz Reese  <fritzoreese@gmail.com>
+
+	PR fortran/71523
+	* gfortran.dg/pr71523_1.f90: New test.
+	* gfortran.dg/pr71523_2.f90: New test.
+
+2016-07-16  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* g++.dg/cpp0x/nullptr35.C (caught): Fix typo.
+
+2016-07-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+	    Marco Restelli <mrestelli@gmail.com>
+
+	PR fortran/62125
+	* gfortran.dg/pr62125.f90: New test.
+
+2016-07-15  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/divkc3-1.c: Require p8vector support.
+	* gcc.target/powerpc/mulkc3-1.c: Likewise.
+
+2016-07-15  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR c++/58796
+	* g++.dg/cpp0x/nullptr21.C: Remove void* handlers.
+	* g++.dg/cpp0x/nullptr35.C: New test.
+
+2016-07-15  Bin Cheng  <bin.cheng@arm.com>
+
+	* gcc.dg/tree-ssa/scev-8.c: Update test string.
+
+2016-07-15  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.dg/goacc/vector_length.f90: New test.
+
+2016-07-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71881
+	* gcc.dg/torture/pr71881.c: New testcase.
+
+2016-07-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71887
+	* gcc.dg/torture/pr71887.c: New testcase.
+
+2016-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/71858
+	* gcc.dg/spellcheck-identifiers-3.c: New test.
+
+2016-07-15  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/71807
+	* gfortran.dg/null_9.f90: New test.
+
+2016-07-15  Bin Cheng  <bin.cheng@arm.com>
+
+	* gcc.dg/tree-ssa/loop-41.c: New test.
+
+2016-07-15  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/71347
+	* gcc.dg/tree-ssa/pr71347.c: XFAIL on ia64, arm, m68k and sparc.
+
+2016-07-14  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/29819
+	* gfortran.dg/bind_c_usage_9.f03: Move dg-error.
+	* gfortran.dg/contains.f90: Ditto.
+	* gfortran.dg/contains_empty_1.f03: Ditto.
+	* gfortran.dg/submodule_3.f08: Ditto.
+
 2016-07-14  Jakub Jelinek  <jakub@redhat.com>
 
 	PR testsuite/71865

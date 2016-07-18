@@ -1,3 +1,103 @@
+2016-07-18  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71893
+	* tree-ssa-pre.c (create_component_ref_by_pieces_1): Compensate
+	for sizetype cast added by array_ref_element_size.
+	* tree-ssa-sccvn.c (copy_reference_ops_from_ref): Likewise.
+
+2016-07-16  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.c (hppa_profile_hook): Allocate stack space for
+	register parameters.  Remove code to initialize argument pointer
+	on TARGET_64BIT.  Optimize call to _mcount when it can be reached
+	using a pc-relative branch.  Cleanup conditional code.
+	* config/pa/pa.md (call_mcount): New expander.
+	(call_mcount_nonpic): New insn.
+	(call_mcount_pic): New insn and split.
+	(call_mcount_pic_post_reload): New insn.
+	(call_mcount_64bit): New insn and split.
+	(call_mcount_64bit_post_reload): New insn.
+
+2016-07-15  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/predicates.md (const_m255_to_m1_operand): New.
+	* config/avr/constraints.md (Cn8, Ca1, Co1, Yx2): New constraints.
+	* config/avr/avr.md (add<mode>3) <ALL1>: Fix set_vzn for +/-2.
+	(*cmphi.zero-extend.0, *cmphi.zero-extend.1)
+	(*usum_widenqihi3, *udiff_widenqihi3)
+	(*addhi3_zero_extend.const): New combiner insns.
+	(andqi3, iorqi3): Provide "l" (NO_LD_REGS) alternative if
+	just 1 bit is affected.
+	* config/avr/avr.c (avr_out_bitop) <QImode>: Don't access xop[3].
+	(avr_out_compare) [EQ,NE]: Tweak comparing d-regs against -1.
+
+2016-07-15  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* omp-low.c (lower_omp_target): Mark data clauses with
+	GOMP_MAP_FORCE_{PRESENT,TO,FROM,TOFROM} as potentially having
+	zero-length subarrays.
+
+2016-07-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71881
+	* tree-loop-distribution.c (destroy_loop): Remove blocks in
+	reverse DOM order to make debug temp generation happy.
+
+2016-07-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71887
+	* tree-ssa-phiopt.c (absorbing_element_p): Add rhs arg and
+	verify it is not zero for division / modulo handling.
+	(value_replacement): Adjust.
+
+2016-07-15  Virendra Pathak  <virendra.pathak@broadcom.com>
+	    Julian Brown  <julian@codesourcery.com>
+
+	* config/aarch64/aarch64-cores.def: Update vulcan COSTS.
+	* config/aarch64/aarch64-cost-tables.h
+	(vulcan_extra_costs): New variable.
+	* config/aarch64/aarch64.c
+	(vulcan_addrcost_table): Likewise.
+	(vulcan_regmove_cost): Likewise.
+	(vulcan_vector_cost): Likewise.
+	(vulcan_branch_cost): Likewise.
+	(vulcan_tunings): Likewise.
+
+2016-07-15  Alexander Monakov  <amonakov@ispras.ru>
+
+	* cgraphunit.c (cgraph_order_sort_kind): New entry ORDER_VAR_UNDEF.
+	(output_in_order): Loop over undefined variables too.  Output them
+	via assemble_undefined_decl.  Skip variables that correspond to hard
+	registers or have value-exprs.
+	* varpool.c (symbol_table::output_variables): Handle undefined
+	variables together with defined ones.
+
+2016-07-15  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-pre.c (get_representative_for): Make sure to return
+	the value number of SSA names.
+	(phi_translate_1): get_representative_for cannot return NULL.
+	(do_pre_regular_insertion): Remove redundant call to
+	fully_constant_expression.
+	(do_pre_partial_partial_insertion): Likewise.
+
+2016-07-15  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-scalar-evolution.c (simple_iv_with_niters): New funcion.
+	(derive_simple_iv_with_niters): New function.
+	(simple_iv): Rewrite using simple_iv_with_niters.
+	* tree-scalar-evolution.h (simple_iv_with_niters): New decl.
+	* tree-ssa-loop-niter.c (number_of_iterations_exit_assumptions): New
+	function.
+	(number_of_iterations_exit): Rewrite using above function.
+	* tree-ssa-loop-niter.h (number_of_iterations_exit_assumptions): New
+	Decl.
+
+2016-07-15  Richard Biener  <rguenther@suse.de>
+
+	* config/i386/i386.c (ix86_builtin_vectorization_cost): Adjust
+	vec_construct cost.
+
 2016-07-14  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/71872
