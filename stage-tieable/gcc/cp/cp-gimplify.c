@@ -621,6 +621,8 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 				  init, VEC_INIT_EXPR_VALUE_INIT (*expr_p),
 				  from_array,
 				  tf_warning_or_error);
+	hash_set<tree> pset;
+	cp_walk_tree (expr_p, cp_fold_r, &pset, NULL);
 	cp_genericize_tree (expr_p);
 	ret = GS_OK;
 	input_location = loc;
@@ -1349,15 +1351,7 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
     {
       tree d = DECL_EXPR_DECL (stmt);
       if (TREE_CODE (d) == VAR_DECL)
-	{
-	  gcc_assert (CP_DECL_THREAD_LOCAL_P (d) == DECL_THREAD_LOCAL_P (d));
-	  /* User var initializers should be genericized during containing
-	     BIND_EXPR genericization when walk_tree walks DECL_INITIAL
-	     of BIND_EXPR_VARS.  Artificial temporaries might not be
-	     mentioned there though, so walk them now.  */
-	  if (DECL_ARTIFICIAL (d) && !TREE_STATIC (d) && DECL_INITIAL (d))
-	    cp_walk_tree (&DECL_INITIAL (d), cp_genericize_r, data, NULL);
-	}
+	gcc_assert (CP_DECL_THREAD_LOCAL_P (d) == DECL_THREAD_LOCAL_P (d));
     }
   else if (TREE_CODE (stmt) == OMP_PARALLEL
 	   || TREE_CODE (stmt) == OMP_TASK

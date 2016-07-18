@@ -1,3 +1,84 @@
+2016-07-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/70869
+	PR c++/71054
+	* cp-gimplify.c (cp_genericize_r): Revert the 2016-07-07 change.
+	* tree.c (cp_walk_subtrees): For DECL_EXPR on DECL_ARTIFICIAL
+	non-static VAR_DECL, walk the decl's DECL_INITIAL, DECL_SIZE and
+	DECL_SIZE_UNIT.
+
+	PR c++/71835
+	* call.c (build_op_call_1): Use convert_like_with_context only
+	if cand->fn is a decl.
+
+	PR c++/71828
+	* constexpr.c (cxx_eval_constant_expression) <case REALPART_EXPR>:
+	For lval don't use cxx_eval_unary_expression and instead recurse
+	and if needed rebuild the reference.
+
+	PR c++/71826
+	* pt.c (tsubst_baselink): Only set BASELINK_OPTYPE for BASELINK_P.
+
+	PR c++/71822
+	* cp-gimplify.c (cp_gimplify_expr) <case VEC_INIT_EXPR>: Recursively
+	fold *expr_p before genericizing it.
+
+	PR c++/71871
+	* typeck.c (build_x_conditional_expr): Revert the 2012-10-25 change.
+
+2016-07-15  Jason Merrill  <jason@redhat.com>
+
+	PR c++/71495
+	* call.c (convert_like_real): Mask complain.
+	* semantics.c (perform_koenig_lookup): Likewise.
+
+	PR c++/71092
+	* constexpr.c (cxx_eval_call_expression): Fail quietly when cgraph
+	threw away DECL_SAVED_TREE.
+
+	PR c++/71117
+	Core 2189
+	* call.c (add_template_conv_candidate): Disable if there are
+	viable candidates.
+
+	PR c++/71511
+	* typeck2.c (cxx_incomplete_type_diagnostic): Handle DECLTYPE_TYPE.
+
+	PR c++/71513
+	* pt.c (tsubst_attributes): Fix loop logic.
+
+	PR c++/71604
+	PR c++/54430
+	* parser.c (cp_parser_range_for): Modify IDENTIFIER_BINDING directly.
+	(cp_parser_simple_declaration): Diagnose type definition in
+	for-range-declaration.
+
+	PR c++/71711
+	* operators.def: Add *_FOLD_EXPR.
+	* cp-tree.h (FOLD_EXPR_P): Parenthesize.
+	* mangle.c (write_expression): Handle fold-expressions.
+	* pt.c (tsubst_unary_left_fold, tsubst_binary_left_fold)
+	(tsubst_unary_right_fold, tsubst_binary_right_fold): Handle
+	partial instantiation.
+
+	PR c++/71814
+	* mangle.c (write_expression): Handle sizeof... an argument pack.
+
+	PR c++/71718
+	* pt.c (push_tinst_level_loc): Set at_eof before fatal_error.
+
+	PR c++/70824
+	* init.c (constant_value_1): Don't instantiated DECL_INITIAL of
+	artificial variables.
+
+2016-07-15  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* parser.c (cp_parser_oacc_declare): Don't scan for
+	GOMP_MAP_POINTER.
+	* semantics.c (handle_omp_array_sections): Mark data clauses with
+	GOMP_MAP_FORCE_{PRESENT,TO,FROM,TOFROM} as potentially having
+	zero-length subarrays.
+
 2016-07-11  Jason Merrill  <jason@redhat.com>
 
 	* decl.c (store_parm_decls): Remove check for void parm.
