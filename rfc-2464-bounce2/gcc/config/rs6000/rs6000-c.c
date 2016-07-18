@@ -31,7 +31,7 @@
 #include "c-family/c-pragma.h"
 #include "langhooks.h"
 #include "c/c-tree.h"
-#undef KELVIN_DEBUG
+#define KELVIN_DEBUG
 #ifdef KELVIN_DEBUG
 #include "print-tree.h"
 #endif
