@@ -24685,40 +24685,34 @@ struct concept_spec_hasher : ggc_ptr_hash<concept_spec_entry>
   }
 };
 
-//static GTY (()) hash_table<constraint_sat_hasher> *constraint_memos;
+static GTY (()) hash_table<constraint_sat_hasher> *constraint_memos;
 static GTY (()) hash_table<concept_spec_hasher> *concept_memos;
 
 /* Search for a memoized satisfaction result. Returns one of the
    truth value nodes if previously memoized, or NULL_TREE otherwise.   */
 
 tree
-lookup_constraint_satisfaction (tree, tree)
+lookup_constraint_satisfaction (tree ci, tree args)
 {
-  return NULL_TREE;
-  /* FIXME
   constraint_sat_entry elt = { ci, args, NULL_TREE };
   constraint_sat_entry* found = constraint_memos->find (&elt);
   if (found)
     return found->result;
   else
     return NULL_TREE;
-  */
 }
 
 /* Memoize the result of a satisfication test. Returns the saved result.  */
 
 tree
-memoize_constraint_satisfaction (tree, tree, tree result)
+memoize_constraint_satisfaction (tree ci, tree args, tree result)
 {
-  return result;
-  /*
   constraint_sat_entry elt = {ci, args, result};
   constraint_sat_entry** slot = constraint_memos->find_slot (&elt, INSERT);
   constraint_sat_entry* entry = ggc_alloc<constraint_sat_entry> ();
   *entry = elt;
   *slot = entry;
   return result;
-  */
 }
 
 /* Search for a memoized satisfaction result for a concept. */
@@ -24868,7 +24862,7 @@ void
 init_constraint_processing (void)
 {
   decl_constraints = hash_table<constr_hasher>::create_ggc(37);
-  //  constraint_memos = hash_table<constraint_sat_hasher>::create_ggc(37);
+  constraint_memos = hash_table<constraint_sat_hasher>::create_ggc(37);
   concept_memos = hash_table<concept_spec_hasher>::create_ggc(37);
   concept_expansions = hash_table<concept_spec_hasher>::create_ggc(37);
   subsumption_table = hash_table<subsumption_hasher>::create_ggc(37);
