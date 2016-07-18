@@ -2021,7 +2021,7 @@ satisfy_check_constraint (tree t, tree args,
   /* Instantiate the concept check arguments.  */
   tree targs = tsubst (cargs, args, tf_none, NULL_TREE);
   if (targs == error_mark_node)
-    return memoize_concept_satisfaction (tmpl, args, boolean_false_node);
+    return boolean_false_node;
 
   /* Search for a previous value.  */
   if (tree prev = lookup_concept_satisfaction (tmpl, targs))
