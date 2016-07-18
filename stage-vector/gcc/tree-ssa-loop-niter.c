@@ -2159,7 +2159,6 @@ loop_only_exit_p (const struct loop *loop, const_edge exit)
   basic_block *body;
   gimple_stmt_iterator bsi;
   unsigned i;
-  gimple *call;
 
   if (exit != single_exit (loop))
     return false;
@@ -2168,17 +2167,8 @@ loop_only_exit_p (const struct loop *loop, const_edge exit)
   for (i = 0; i < loop->num_nodes; i++)
     {
       for (bsi = gsi_start_bb (body[i]); !gsi_end_p (bsi); gsi_next (&bsi))
-	{
-	  call = gsi_stmt (bsi);
-	  if (gimple_code (call) != GIMPLE_CALL)
-	    continue;
-
-	  if (gimple_has_side_effects (call))
-	    {
-	      free (body);
-	      return false;
-	    }
-	}
+	if (stmt_can_terminate_bb_p (gsi_stmt (bsi)))
+	  return true;
     }
 
   free (body);
@@ -2186,20 +2176,17 @@ loop_only_exit_p (const struct loop *loop, const_edge exit)
 }
 
 /* Stores description of number of iterations of LOOP derived from
-   EXIT (an exit edge of the LOOP) in NITER.  Returns true if some
-   useful information could be derived (and fields of NITER has
-   meaning described in comments at struct tree_niter_desc
-   declaration), false otherwise.  If WARN is true and
-   -Wunsafe-loop-optimizations was given, warn if the optimizer is going to use
-   potentially unsafe assumptions.  
+   EXIT (an exit edge of the LOOP) in NITER.  Returns true if some useful
+   information could be derived (and fields of NITER have meaning described
+   in comments at struct tree_niter_desc declaration), false otherwise.
    When EVERY_ITERATION is true, only tests that are known to be executed
-   every iteration are considered (i.e. only test that alone bounds the loop). 
+   every iteration are considered (i.e. only test that alone bounds the loop).
  */
 
 bool
-number_of_iterations_exit (struct loop *loop, edge exit,
-			   struct tree_niter_desc *niter,
-			   bool warn, bool every_iteration)
+number_of_iterations_exit_assumptions (struct loop *loop, edge exit,
+				       struct tree_niter_desc *niter,
+				       bool every_iteration)
 {
   gimple *last;
   gcond *stmt;
@@ -2251,9 +2238,16 @@ number_of_iterations_exit (struct loop *loop, edge exit,
       && !POINTER_TYPE_P (type))
     return false;
 
-  if (!simple_iv (loop, loop_containing_stmt (stmt), op0, &iv0, false))
+  tree iv0_niters = NULL_TREE;
+  if (!simple_iv_with_niters (loop, loop_containing_stmt (stmt),
+			      op0, &iv0, &iv0_niters, false))
     return false;
-  if (!simple_iv (loop, loop_containing_stmt (stmt), op1, &iv1, false))
+  tree iv1_niters = NULL_TREE;
+  if (!simple_iv_with_niters (loop, loop_containing_stmt (stmt),
+			      op1, &iv1, &iv1_niters, false))
+    return false;
+  /* Give up on complicated case.  */
+  if (iv0_niters && iv1_niters)
     return false;
 
   /* We don't want to see undefined signed overflow warnings while
@@ -2267,6 +2261,24 @@ number_of_iterations_exit (struct loop *loop, edge exit,
     {
       fold_undefer_and_ignore_overflow_warnings ();
       return false;
+    }
+
+  /* Incorporate additional assumption implied by control iv.  */
+  tree iv_niters = iv0_niters ? iv0_niters : iv1_niters;
+  if (iv_niters)
+    {
+      tree assumption = fold_build2 (LE_EXPR, boolean_type_node, niter->niter,
+				     fold_convert (TREE_TYPE (niter->niter),
+						   iv_niters));
+
+      if (!integer_nonzerop (assumption))
+	niter->assumptions = fold_build2 (TRUTH_AND_EXPR, boolean_type_node,
+					  niter->assumptions, assumption);
+
+      /* Refine upper bound if possible.  */
+      if (TREE_CODE (iv_niters) == INTEGER_CST
+	  && niter->max > wi::to_widest (iv_niters))
+	niter->max = wi::to_widest (iv_niters);
     }
 
   if (optimize >= 3)
@@ -2291,44 +2303,22 @@ number_of_iterations_exit (struct loop *loop, edge exit,
   if (TREE_CODE (niter->niter) == INTEGER_CST)
     niter->max = wi::to_widest (niter->niter);
 
-  if (integer_onep (niter->assumptions))
-    return true;
+  return (!integer_zerop (niter->assumptions));
+}
 
-  /* With -funsafe-loop-optimizations we assume that nothing bad can happen.
-     But if we can prove that there is overflow or some other source of weird
-     behavior, ignore the loop even with -funsafe-loop-optimizations.  */
-  if (integer_zerop (niter->assumptions) || !single_exit (loop))
+/* Like number_of_iterations_exit, but return TRUE only if the niter
+   information holds unconditionally.  */
+
+bool
+number_of_iterations_exit (struct loop *loop, edge exit,
+			   struct tree_niter_desc *niter,
+			   bool, bool every_iteration)
+{
+  if (!number_of_iterations_exit_assumptions (loop, exit, niter,
+					      every_iteration))
     return false;
 
-  if (flag_unsafe_loop_optimizations)
-    niter->assumptions = boolean_true_node;
-
-  if (warn)
-    {
-      const char *wording;
-      location_t loc = gimple_location (stmt);
-
-      /* We can provide a more specific warning if one of the operator is
-	 constant and the other advances by +1 or -1.  */
-      if (!integer_zerop (iv1.step)
-	  ? (integer_zerop (iv0.step)
-	     && (integer_onep (iv1.step) || integer_all_onesp (iv1.step)))
-	  : (integer_onep (iv0.step) || integer_all_onesp (iv0.step)))
-        wording =
-          flag_unsafe_loop_optimizations
-          ? N_("assuming that the loop is not infinite")
-          : N_("cannot optimize possibly infinite loops");
-      else
-	wording =
-	  flag_unsafe_loop_optimizations
-	  ? N_("assuming that the loop counter does not overflow")
-	  : N_("cannot optimize loop, the loop counter may overflow");
-
-      warning_at ((LOCATION_LINE (loc) > 0) ? loc : input_location,
-		  OPT_Wunsafe_loop_optimizations, "%s", gettext (wording));
-    }
-
-  return flag_unsafe_loop_optimizations;
+  return (integer_nonzerop (niter->assumptions));
 }
 
 /* Try to determine the number of iterations of LOOP.  If we succeed,
@@ -3438,7 +3428,7 @@ static void
 discover_iteration_bound_by_body_walk (struct loop *loop)
 {
   struct nb_iter_bound *elt;
-  vec<widest_int> bounds = vNULL;
+  auto_vec<widest_int> bounds;
   vec<vec<basic_block> > queues = vNULL;
   vec<basic_block> queue = vNULL;
   ptrdiff_t queue_index;
@@ -3593,7 +3583,6 @@ discover_iteration_bound_by_body_walk (struct loop *loop)
     }
 
   queues.release ();
-  bounds.release ();
 }
 
 /* See if every path cross the loop goes through a statement that is known
@@ -3606,7 +3595,7 @@ maybe_lower_iteration_bound (struct loop *loop)
   hash_set<gimple *> *not_executed_last_iteration = NULL;
   struct nb_iter_bound *elt;
   bool found_exit = false;
-  vec<basic_block> queue = vNULL;
+  auto_vec<basic_block> queue;
   bitmap visited;
 
   /* Collect all statements with interesting (i.e. lower than
@@ -3698,7 +3687,6 @@ maybe_lower_iteration_bound (struct loop *loop)
     }
 
   BITMAP_FREE (visited);
-  queue.release ();
   delete not_executed_last_iteration;
 }
 

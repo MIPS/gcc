@@ -1,5 +1,10 @@
 2016-07-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 238445.
+	* REVISION: Update subversion id.
+
+2016-07-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin):
 	In the vec_extract section, test for VEC_EXTRACT_OPTIMIZE_P
 	instead of TARGET_VARIABLE_EXTRACT(mode).  Add support for
