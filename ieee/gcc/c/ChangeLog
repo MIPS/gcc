@@ -1,3 +1,37 @@
+2016-07-15  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-parser.c (c_parser_oacc_declare): Don't scan for
+	GOMP_MAP_POINTER.
+	* c-typeck.c (handle_omp_array_sections): Mark data clauses with
+	GOMP_MAP_FORCE_{PRESENT,TO,FROM,TOFROM} as potentially having
+	zero-length subarrays.
+
+2016-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/71858
+	* c-decl.c (implicit_decl_warning): Use FUZZY_LOOKUP_FUNCTION_NAME
+	instead of FUZZY_LOOKUP_NAME.
+	(lookup_name_fuzzy): For FUZZY_LOOKUP_FUNCTION_NAME consider
+	FUNCTION_DECLs, {VAR,PARM}_DECLs function pointers and macros.
+
+2016-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/71858
+	* c-decl.c (lookup_name_fuzzy): Ignore binding->invisible.
+
+2016-07-12  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* c-parser.c (c_parser_generic_selection): Make type of variable
+	auto_vec.
+	(c_parser_omp_declare_simd): Likewise.
+
+2016-07-12  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* c-decl.c (struct c_struct_parse_info): Change member types
+	from vec to auto_vec.
+	(start_struct): Adjust.
+	(finish_struct): Likewise.
+
 2016-07-02  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/71719
