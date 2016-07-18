@@ -5109,7 +5109,7 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
       mode = TYPE_MODE (arg1_type);
       if ((mode == V2DFmode || mode == V2DImode) && VECTOR_MEM_VSX_P (mode)
 	  && ((TREE_CODE (arg2) == INTEGER_CST && wi::ltu_p (arg2, 2))
-	      || TARGET_VARIABLE_EXTRACT (mode)))
+	      || VEC_EXTRACT_OPTIMIZE_P))
 	{
 	  tree call = NULL_TREE;
 
@@ -5118,6 +5118,25 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	  else if (mode == V2DImode)
 	    call = rs6000_builtin_decls[VSX_BUILTIN_VEC_EXT_V2DI];
 
+	  if (call)
+	    return build_call_expr (call, 2, arg1, arg2);
+	}
+      if (mode == V16QImode && VECTOR_MEM_VSX_P (mode)
+	  && VEC_EXTRACT_OPTIMIZE_P)
+	{
+	  tree call = rs6000_builtin_decls[ALTIVEC_BUILTIN_VEC_EXT_V16QI];
+	  if (call)
+	    return build_call_expr (call, 2, arg1, arg2);
+	}
+      if (mode == V8HImode && VECTOR_MEM_VSX_P (mode) && VEC_EXTRACT_OPTIMIZE_P)
+	{
+	  tree call = rs6000_builtin_decls[ALTIVEC_BUILTIN_VEC_EXT_V8HI];
+	  if (call)
+	    return build_call_expr (call, 2, arg1, arg2);
+	}
+      if (mode == V4SImode && VECTOR_MEM_VSX_P (mode) && VEC_EXTRACT_OPTIMIZE_P)
+	{
+	  tree call = rs6000_builtin_decls[ALTIVEC_BUILTIN_VEC_EXT_V4SI];
 	  if (call)
 	    return build_call_expr (call, 2, arg1, arg2);
 	}

@@ -602,20 +602,7 @@ extern int rs6000_vector_align[];
 #define TARGET_DIRECT_MOVE_128	(TARGET_P9_VECTOR && TARGET_DIRECT_MOVE \
 				 && TARGET_POWERPC64)
 #define TARGET_VEXTRACTUB	(TARGET_P9_VECTOR && TARGET_DIRECT_MOVE \
-				 && TARGET_UPPER_REGS_DF \
 				 && TARGET_UPPER_REGS_DI && TARGET_POWERPC64)
-
-/* Target macro to say we can optimize variable vector extracts.  We need
-   direct move and 64-bit in order to move the variable part to the Altivec
-   register to use the VSLO instruction.  */
-#define TARGET_VARIABLE_EXTRACT(MODE)	(((MODE) == V2DImode		\
-					  || (MODE) == V2DFmode)	\
-					 && VECTOR_MEM_VSX_P (MODE)	\
-					 && TARGET_DIRECT_MOVE		\
-					 && TARGET_POWERPC64		\
-					 && TARGET_UPPER_REGS_DI	\
-					 && ((MODE) != V2DFmode 	\
-					     || TARGET_UPPER_REGS_DF))
 
 /* Byte/char syncs were added as phased in for ISA 2.06B, but are not present
    in power7, so conditionalize them on p8 features.  TImode syncs need quad
@@ -771,6 +758,11 @@ extern int rs6000_vector_align[];
 				 && TARGET_FPRS				\
 				 && TARGET_SINGLE_FLOAT			\
 				 && TARGET_DOUBLE_FLOAT)
+
+/* Macro to say whether we can optimize vector extracts.  */
+#define VEC_EXTRACT_OPTIMIZE_P	(TARGET_DIRECT_MOVE			\
+				 && TARGET_POWERPC64			\
+				 && TARGET_UPPER_REGS_DI)
 
 /* Whether the various reciprocal divide/square root estimate instructions
    exist, and whether we should automatically generate code for the instruction

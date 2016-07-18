@@ -1,3 +1,40 @@
+2016-07-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin):
+	In the vec_extract section, test for VEC_EXTRACT_OPTIMIZE_P
+	instead of TARGET_VARIABLE_EXTRACT(mode).  Add support for
+	optimizing V16QImode, V8HImode, and V4SImode built-ins functions.
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_extract): Change to
+	use VEC_EXTRACT_OPTIMIZE_P instead of TARGET_VEXTRACTUB, to allow
+	optimizing on 64-bit power8 systems as well.  Add support for
+	variable extraction of V16QImode, V8HImode, and V4SImode.
+	(rs6000_split_vec_extract_var): Assert that reload has allocated
+	the temporary register.    Add support for variable extraction of
+	V16QImode, V8HImode, and V4SImode.
+
+	* config/rs6000/vsx.md (vsx_vslo_<mode>, VSX_D mode): Test for
+	VEC_EXTRACT_OPTIMIZE_P instead of TARGET_VARIABLE_EXTRACT(mode).
+	(vsx_extract_<mode>_var, VSX_D mode): Likewise.
+	(vsx_extract_<mode>): Change to be a define_expand, and generate
+	the scratch register of the appropriate mode for ISA 2.07 and ISA
+	3.0 support.
+	(vsx_extract_<mode>_p8): New insn and split to support V16QI,
+	V8HI, V4SI extracts on 64-bit ISA 2.07 systems.
+	(vsx_extract_<mode>_p9): Rename from vsx_extract_<mode>.
+	(vsx_extract_<mode>_load): Rewrite to allow loading up any
+	constant element of a vector, instead of just element 0.  Add
+	support for ISA 3.0 new memory instructions.
+	(vsx_extract_<mode>_var): New insn/split for variable extracts of
+	V16QI, V8HI, and V4SI vectors.
+
+	* config/rs6000/rs6000.h (TARGET_VEXTRACTUB): Don't require
+	-mupper-regs-df.
+	(TARGET_VARIABLE_EXTRACT): Delete, in favor of
+	VEC_EXTRACT_OPTIMIZE_P.
+	(VEC_EXTRACT_OPTIMIZE_P): New macro to say whether we support
+	optimizing vec_extract on 64-bit ISA 2.07 and above systems.
+
 2016-07-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000-protos.h (rs6000_adjust_vec_address): Add

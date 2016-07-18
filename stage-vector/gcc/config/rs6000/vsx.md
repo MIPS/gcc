@@ -2213,7 +2213,7 @@
 	(unspec:<VS_scalar> [(match_operand:VSX_D 1 "gpc_reg_operand" "v")
 			     (match_operand:V2DI 2 "gpc_reg_operand" "v")]
 			    UNSPEC_VSX_VSLO))]
-  "TARGET_VARIABLE_EXTRACT (<MODE>mode)"
+  "VECTOR_MEM_VSX_P (<MODE>mode) && VEC_EXTRACT_OPTIMIZE_P"
   "vslo %0,%1,%2"
   [(set_attr "type" "vecperm")])
 
@@ -2225,7 +2225,7 @@
 			    UNSPEC_VSX_EXTRACT))
    (clobber (match_scratch:DI 3 "=r,&b,&b"))
    (clobber (match_scratch:V2DI 4 "=&v,X,X"))]
-  "TARGET_VARIABLE_EXTRACT (<MODE>mode)"
+  "VECTOR_MEM_VSX_P (<MODE>mode) && VEC_EXTRACT_OPTIMIZE_P"
   "#"
   "&& reload_completed"
   [(const_int 0)]
@@ -2370,7 +2370,21 @@
 ;; Extraction of a single element in a small integer vector.  None of the small
 ;; types are currently allowed in a vector register, so we extract to a DImode
 ;; and either do a direct move or store.
-(define_insn_and_split  "vsx_extract_<mode>"
+(define_expand  "vsx_extract_<mode>"
+  [(parallel [(set (match_operand:<VS_scalar> 0 "nonimmediate_operand" "")
+		   (vec_select:<VS_scalar>
+		    (match_operand:VSX_EXTRACT_I 1 "gpc_reg_operand" "")
+		    (parallel [(match_operand:QI 2 "const_int_operand" "")])))
+	      (clobber (match_dup 3))])]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && VEC_EXTRACT_OPTIMIZE_P"
+{
+  operands[3] = gen_rtx_SCRATCH ((TARGET_VEXTRACTUB) ? DImode : <MODE>mode);
+})
+
+;; Under ISA 3.0, we can use the byte/half-word/word integer stores if we are
+;; extracting a vector element and storing it to memory, rather than using
+;; direct move to a GPR and a GPR store.
+(define_insn_and_split  "*vsx_extract_<mode>_p9"
   [(set (match_operand:<VS_scalar> 0 "nonimmediate_operand" "=r,Z")
 	(vec_select:<VS_scalar>
 	 (match_operand:VSX_EXTRACT_I 1 "gpc_reg_operand" "<VSX_EX>,<VSX_EX>")
@@ -2438,6 +2452,95 @@
 }
   [(set_attr "type" "vecsimple")])
 
+(define_insn_and_split  "*vsx_extract_<mode>_p8"
+  [(set (match_operand:<VS_scalar> 0 "nonimmediate_operand" "=r")
+	(vec_select:<VS_scalar>
+	 (match_operand:VSX_EXTRACT_I 1 "gpc_reg_operand" "v")
+	 (parallel [(match_operand:QI 2 "<VSX_EXTRACT_PREDICATE>" "n")])))
+   (clobber (match_scratch:VSX_EXTRACT_I 3 "=v"))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && VEC_EXTRACT_OPTIMIZE_P"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+{
+  rtx dest = operands[0];
+  rtx src = operands[1];
+  rtx element = operands[2];
+  rtx vec_tmp = operands[3];
+  int value;
+
+  if (!VECTOR_ELT_ORDER_BIG)
+    element = GEN_INT (GET_MODE_NUNITS (<MODE>mode) - 1 - INTVAL (element));
+
+  /* If the value is in the correct position, we can avoid doing the VSPLT<x>
+     instruction.  */
+  value = INTVAL (element);
+  if (<MODE>mode == V16QImode)
+    {
+      if (value != 7)
+	emit_insn (gen_altivec_vspltb_direct (vec_tmp, src, element));
+      else
+	vec_tmp = src;
+    }
+  else if (<MODE>mode == V8HImode)
+    {
+      if (value != 3)
+	emit_insn (gen_altivec_vsplth_direct (vec_tmp, src, element));
+      else
+	vec_tmp = src;
+    }
+  else if (<MODE>mode == V4SImode)
+    {
+      if (value != 1)
+	emit_insn (gen_altivec_vspltw_direct (vec_tmp, src, element));
+      else
+	vec_tmp = src;
+    }
+  else
+    gcc_unreachable ();
+
+  emit_move_insn (gen_rtx_REG (DImode, REGNO (dest)),
+		  gen_rtx_REG (DImode, REGNO (vec_tmp)));
+  DONE;
+}
+  [(set_attr "type" "mftgpr")])
+
+;; Optimize extracting a single scalar element from memory.
+(define_insn_and_split "*vsx_extract_<mode>_load"
+  [(set (match_operand:<VS_scalar> 0 "register_operand" "=r")
+	(vec_select:<VS_scalar>
+	 (match_operand:VSX_EXTRACT_I 1 "memory_operand" "m")
+	 (parallel [(match_operand:QI 2 "<VSX_EXTRACT_PREDICATE>" "n")])))
+   (clobber (match_scratch:DI 3 "=&b"))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && VEC_EXTRACT_OPTIMIZE_P"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (match_dup 3))]
+{
+  operands[3] = rs6000_adjust_vec_address (operands[0], operands[1], operands[2],
+					   operands[3], <VS_scalar>mode);
+}
+  [(set_attr "type" "load")
+   (set_attr "length" "8")])
+
+;; Variable V16QI/V8HI/V4SI extract
+(define_insn_and_split "vsx_extract_<mode>_var"
+  [(set (match_operand:<VS_scalar> 0 "gpc_reg_operand" "=r,r")
+	(unspec:<VS_scalar>
+	 [(match_operand:VSX_EXTRACT_I 1 "input_operand" "v,m")
+	  (match_operand:DI 2 "gpc_reg_operand" "r,r")]
+	 UNSPEC_VSX_EXTRACT))
+   (clobber (match_scratch:DI 3 "=r,&b"))
+   (clobber (match_scratch:V2DI 4 "=&v,X"))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && VEC_EXTRACT_OPTIMIZE_P"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+{
+  rs6000_split_vec_extract_var (operands[0], operands[1], operands[2],
+				operands[3], operands[4]);
+  DONE;
+})
 
 ;; Expanders for builtins
 (define_expand "vsx_mergel_<mode>"

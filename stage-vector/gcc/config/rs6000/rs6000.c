@@ -6921,32 +6921,30 @@ rs6000_expand_vector_extract (rtx target, rtx vec, rtx elt)
 	  emit_insn (gen_vsx_extract_v4sf (target, vec, elt));
 	  return;
 	case V16QImode:
-	  if (TARGET_VEXTRACTUB)
+	  if (VEC_EXTRACT_OPTIMIZE_P)
 	    {
 	      emit_insn (gen_vsx_extract_v16qi (target, vec, elt));
 	      return;
 	    }
-	  else
-	    break;
+	  break;
 	case V8HImode:
-	  if (TARGET_VEXTRACTUB)
+	  if (VEC_EXTRACT_OPTIMIZE_P)
 	    {
 	      emit_insn (gen_vsx_extract_v8hi (target, vec, elt));
 	      return;
 	    }
-	  else
-	    break;
+	  break;
 	case V4SImode:
-	  if (TARGET_VEXTRACTUB)
+	  if (VEC_EXTRACT_OPTIMIZE_P)
 	    {
 	      emit_insn (gen_vsx_extract_v4si (target, vec, elt));
 	      return;
 	    }
-	  else
-	    break;
+	  break;
 	}
     }
-  else if (!CONST_INT_P (elt) && TARGET_VARIABLE_EXTRACT (mode))
+  else if (VECTOR_MEM_VSX_P (mode) && !CONST_INT_P (elt)
+	   && VEC_EXTRACT_OPTIMIZE_P)
     {
       if (GET_MODE (elt) != DImode)
 	{
@@ -6963,6 +6961,18 @@ rs6000_expand_vector_extract (rtx target, rtx vec, rtx elt)
 
 	case V2DImode:
 	  emit_insn (gen_vsx_extract_v2di_var (target, vec, elt));
+	  return;
+
+	case V4SImode:
+	  emit_insn (gen_vsx_extract_v4si_var (target, vec, elt));
+	  return;
+
+	case V8HImode:
+	  emit_insn (gen_vsx_extract_v8hi_var (target, vec, elt));
+	  return;
+
+	case V16QImode:
+	  emit_insn (gen_vsx_extract_v16qi_var (target, vec, elt));
 	  return;
 
 	default:
@@ -7129,9 +7139,7 @@ rs6000_split_vec_extract_var (rtx dest, rtx src, rtx element, rtx tmp_gpr,
      systems.  */
   if (MEM_P (src))
     {
-      if (!REG_P (tmp_gpr))
-	tmp_gpr = gen_reg_rtx (Pmode);
-
+      gcc_assert (REG_P (tmp_gpr));
       emit_move_insn (dest, rs6000_adjust_vec_address (dest, src, element,
 						       tmp_gpr, scalar_mode));
       return;
@@ -7142,11 +7150,7 @@ rs6000_split_vec_extract_var (rtx dest, rtx src, rtx element, rtx tmp_gpr,
       int bit_shift = byte_shift + 3;
       rtx element2;
 
-      if (!REG_P (tmp_gpr))
-	tmp_gpr = gen_reg_rtx (DImode);
-
-      if (!REG_P (tmp_altivec))
-	tmp_altivec = gen_reg_rtx (V2DImode);
+      gcc_assert (REG_P (tmp_gpr) && REG_P (tmp_altivec));
 
       /* For little endian, adjust element ordering.  For V2DI/V2DF, we can use
 	 an XOR, otherwise we need to subtract.  The shift amount is so VSLO
@@ -7210,6 +7214,21 @@ rs6000_split_vec_extract_var (rtx dest, rtx src, rtx element, rtx tmp_gpr,
 	case V2DImode:
 	  emit_insn (gen_vsx_vslo_v2di (dest, src, tmp_altivec));
 	  return;
+
+	case V4SImode:
+	case V8HImode:
+	case V16QImode:
+	  {
+	    rtx tmp_altivec_di = gen_rtx_REG (DImode, REGNO (tmp_altivec));
+	    rtx src_v2di = gen_rtx_REG (V2DImode, REGNO (src));
+	    rtx tmp_gpr_di = gen_rtx_REG (DImode, REGNO (dest));
+	    emit_insn (gen_vsx_vslo_v2di (tmp_altivec_di, src_v2di,
+					  tmp_altivec));
+	    emit_move_insn (tmp_gpr_di, tmp_altivec_di);
+	    emit_insn (gen_ashrdi3 (tmp_gpr_di, tmp_gpr_di,
+				    GEN_INT (64 - (8 * scalar_size))));
+	    return;
+	  }
 
 	default:
 	  gcc_unreachable ();
