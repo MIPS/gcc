@@ -1621,7 +1621,9 @@ tsubst_logical_operator (tree t, tree args,
   return build_nt (TREE_CODE (t), r0, r1);
 }
 
-static tree
+namespace {
+
+tree
 tsubst_expr_constr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 {
   cp_unevaluated guard;
@@ -1632,7 +1634,7 @@ tsubst_expr_constr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
   return build_nt (EXPR_CONSTR, ret);
 }
 
-static tree
+tree
 tsubst_type_constr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 {
   tree type = TYPE_CONSTR_TYPE (t);
@@ -1642,7 +1644,7 @@ tsubst_type_constr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
   return build_nt (TYPE_CONSTR, ret);
 }
 
-static tree
+tree
 tsubst_implicit_conversion_constr (tree t, tree args, tsubst_flags_t complain,
                                    tree in_decl)
 {
@@ -1658,7 +1660,7 @@ tsubst_implicit_conversion_constr (tree t, tree args, tsubst_flags_t complain,
   return build_nt (ICONV_CONSTR, new_expr, new_type);
 }
 
-static tree
+tree
 tsubst_argument_deduction_constr (tree t, tree args, tsubst_flags_t complain,
                                   tree in_decl)
 {
@@ -1680,7 +1682,7 @@ tsubst_argument_deduction_constr (tree t, tree args, tsubst_flags_t complain,
   return build_nt (DEDUCT_CONSTR, new_expr, new_pattern, autos);
 }
 
-static tree
+tree
 tsubst_exception_constr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 {
   cp_unevaluated guard;
@@ -1691,48 +1693,11 @@ tsubst_exception_constr (tree t, tree args, tsubst_flags_t complain, tree in_dec
   return build_nt (EXCEPT_CONSTR, ret);
 }
 
-static tree tsubst_parameterized_constraint (tree, tree, tsubst_flags_t, tree);
-
-/* Substitute ARGS into the constraint T. */
-
-tree
-tsubst_constraint (tree t, tree args, tsubst_flags_t complain, tree in_decl)
-{
-  if (t == NULL_TREE)
-    return t;
-  switch (TREE_CODE (t))
-  {
-  case PRED_CONSTR:
-    return tsubst_predicate_constraint (t, args, complain, in_decl);
-  case CHECK_CONSTR:
-    return tsubst_check_constraint (t, args, complain, in_decl);
-  case CONJ_CONSTR:
-  case DISJ_CONSTR:
-    return tsubst_logical_operator (t, args, complain, in_decl);
-  case PARM_CONSTR:
-    return tsubst_parameterized_constraint (t, args, complain, in_decl);
-  case EXPR_CONSTR:
-    return tsubst_expr_constr (t, args, complain, in_decl);
-  case TYPE_CONSTR:
-    return tsubst_type_constr (t, args, complain, in_decl);
-  case ICONV_CONSTR:
-    return tsubst_implicit_conversion_constr (t, args, complain, in_decl);
-  case DEDUCT_CONSTR:
-    return tsubst_argument_deduction_constr (t, args, complain, in_decl);
-  case EXCEPT_CONSTR:
-    return tsubst_exception_constr (t, args, complain, in_decl);
-  default:
-    gcc_unreachable ();
-  }
-  return error_mark_node;
-}
-
 /* A subroutine of tsubst_constraint_variables. Register local
    specializations for each of parameter in PARMS and its
    corresponding substituted constraint variable in VARS.
    Returns VARS. */
-
-static tree
+tree
 declare_constraint_vars (tree parms, tree vars)
 {
   tree s = vars;
@@ -1759,7 +1724,7 @@ declare_constraint_vars (tree parms, tree vars)
    Note that the caller must establish a local specialization stack
    prior to calling this function since this substitution will
    declare the substituted parameters. */
-static tree
+tree
 tsubst_constraint_variables (tree t, tree args,
                              tsubst_flags_t complain, tree in_decl)
 {
@@ -1774,7 +1739,7 @@ tsubst_constraint_variables (tree t, tree args,
   return declare_constraint_vars (t, vars);
 }
 
-static tree
+tree
 tsubst_parameterized_constraint (tree t, tree args,
 				 tsubst_flags_t complain, tree in_decl)
 {
@@ -1794,7 +1759,7 @@ tsubst_parameterized_constraint (tree t, tree args,
    substitution may result in an ill-formed expression without
    causing the program to be ill-formed. In such cases, the
    requirement wraps an error_mark_node. */
-static inline tree
+inline tree
 tsubst_simple_requirement (tree t, tree args,
                            tsubst_flags_t complain, tree in_decl)
 {
@@ -1809,7 +1774,7 @@ tsubst_simple_requirement (tree t, tree args,
    causing the program to be ill-formed. In such cases, the
    requirement wraps an error_mark_node. */
 
-static inline tree
+inline tree
 tsubst_type_requirement (tree t, tree args,
                          tsubst_flags_t complain, tree in_decl)
 {
@@ -1825,7 +1790,7 @@ tsubst_type_requirement (tree t, tree args,
    preserves a requirement for the purpose of partial ordering, but
    it will never be satisfied. */
 
-static tree
+tree
 tsubst_compound_requirement (tree t, tree args,
                              tsubst_flags_t complain, tree in_decl)
 {
@@ -1839,7 +1804,7 @@ tsubst_compound_requirement (tree t, tree args,
 
 /* Substitute ARGS into the nested requirement T. */
 
-static tree
+tree
 tsubst_nested_requirement (tree t, tree args,
                            tsubst_flags_t complain, tree in_decl)
 {
@@ -1849,7 +1814,7 @@ tsubst_nested_requirement (tree t, tree args,
   return finish_nested_requirement (expr);
 }
 
-static inline tree
+inline tree
 tsubst_requirement (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 {
   switch (TREE_CODE (t))
@@ -1871,7 +1836,7 @@ tsubst_requirement (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 /* Substitute ARGS into the list of requirements T. Note that
    substitution failures here result in ill-formed programs. */
 
-static tree
+tree
 tsubst_requirement_body (tree t, tree args,
                          tsubst_flags_t complain, tree in_decl)
 {
@@ -1887,6 +1852,8 @@ tsubst_requirement_body (tree t, tree args,
   /* Ensure that the order of constraints is the same as the original.  */
   return nreverse (r);
 }
+
+} /* namespace */
 
 /* Substitute ARGS into the requires expression T. Note that this
    results in the re-declaration of local parameters when
@@ -1935,6 +1902,39 @@ tsubst_constraint_info (tree t, tree args,
   return build_constraints (tmpl_constr, decl_constr);
 }
 
+/* Substitute ARGS into the constraint T. */
+
+tree
+tsubst_constraint (tree t, tree args, tsubst_flags_t complain, tree in_decl)
+{
+  if (t == NULL_TREE)
+    return t;
+  switch (TREE_CODE (t))
+  {
+  case PRED_CONSTR:
+    return tsubst_predicate_constraint (t, args, complain, in_decl);
+  case CHECK_CONSTR:
+    return tsubst_check_constraint (t, args, complain, in_decl);
+  case CONJ_CONSTR:
+  case DISJ_CONSTR:
+    return tsubst_logical_operator (t, args, complain, in_decl);
+  case PARM_CONSTR:
+    return tsubst_parameterized_constraint (t, args, complain, in_decl);
+  case EXPR_CONSTR:
+    return tsubst_expr_constr (t, args, complain, in_decl);
+  case TYPE_CONSTR:
+    return tsubst_type_constr (t, args, complain, in_decl);
+  case ICONV_CONSTR:
+    return tsubst_implicit_conversion_constr (t, args, complain, in_decl);
+  case DEDUCT_CONSTR:
+    return tsubst_argument_deduction_constr (t, args, complain, in_decl);
+  case EXCEPT_CONSTR:
+    return tsubst_exception_constr (t, args, complain, in_decl);
+  default:
+    gcc_unreachable ();
+  }
+  return error_mark_node;
+}
 
 /*---------------------------------------------------------------------------
                         Constraint satisfaction
