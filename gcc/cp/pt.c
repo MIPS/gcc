@@ -24533,7 +24533,7 @@ remove_constraints (tree t)
 }
 
 /* Memoized satisfaction results for declarations. This
-   maps the pair (constraint, arguments) to the result computed
+   maps the pair (constraint_info, arguments) to the result computed
    by constraints_satisfied_p.  */
 
 struct GTY((for_user)) constraint_sat_entry

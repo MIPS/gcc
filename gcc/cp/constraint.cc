@@ -371,14 +371,14 @@ namespace {
 
 /* The implication context determines how we memoize concept checks.
    Given two checks C1 and C2, the direction of implication depends
-   on whether we are learning implications a conjunction or disjunction.
+   on whether we are learning implications of a conjunction or disjunction.
    For example:
 
       template<typename T> concept bool C = ...;
       template<typenaem T> concept bool D = C<T> && true;
 
    From this, we can learn that D<T> implies C<T>. We cannot learn,
-   without further testing, that C<T> does not implies D<T>. If, for
+   without further testing, that C<T> does not imply D<T>. If, for
    example, C<T> were defined as true, then these constraints would
    be logically equivalent.
 
@@ -578,7 +578,7 @@ expand_concept (tree decl, tree args)
                 Stepwise normalization of expressions
 
 This set of functions will transform an expression into a constraint
-in a sequecne of steps. Normalization does not not look into concept
+in a sequence of steps. Normalization does not not look into concept
 definitions.
 ---------------------------------------------------------------------------*/
 
@@ -1612,16 +1612,22 @@ tsubst_check_constraint (tree t, tree args,
 
 tree
 tsubst_logical_operator (tree t, tree args,
-                    tsubst_flags_t complain, tree in_decl)
+			 tsubst_flags_t complain, tree in_decl)
 {
   tree t0 = TREE_OPERAND (t, 0);
   tree r0 = tsubst_constraint (t0, args, complain, in_decl);
+  if (r0 == error_mark_node)
+    return error_mark_node;
   tree t1 = TREE_OPERAND (t, 1);
   tree r1 = tsubst_constraint (t1, args, complain, in_decl);
+  if (r1 == error_mark_node)
+    return error_mark_node;
   return build_nt (TREE_CODE (t), r0, r1);
 }
 
 namespace {
+
+/* Substitute ARGS into the expression constraint T.  */
 
 tree
 tsubst_expr_constr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
@@ -1634,6 +1640,8 @@ tsubst_expr_constr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
   return build_nt (EXPR_CONSTR, ret);
 }
 
+/* Substitute ARGS into the type constraint T.  */
+
 tree
 tsubst_type_constr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 {
@@ -1643,6 +1651,8 @@ tsubst_type_constr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     return error_mark_node;
   return build_nt (TYPE_CONSTR, ret);
 }
+
+/* Substitute ARGS into the implicit conversion constraint T.  */
 
 tree
 tsubst_implicit_conversion_constr (tree t, tree args, tsubst_flags_t complain,
@@ -1659,6 +1669,8 @@ tsubst_implicit_conversion_constr (tree t, tree args, tsubst_flags_t complain,
     return error_mark_node;
   return build_nt (ICONV_CONSTR, new_expr, new_type);
 }
+
+/* Substitute ARGS into the argument deduction constraint T.  */
 
 tree
 tsubst_argument_deduction_constr (tree t, tree args, tsubst_flags_t complain,
@@ -1682,8 +1694,11 @@ tsubst_argument_deduction_constr (tree t, tree args, tsubst_flags_t complain,
   return build_nt (DEDUCT_CONSTR, new_expr, new_pattern, autos);
 }
 
+/* Substitute ARGS into the exception constraint T.  */
+
 tree
-tsubst_exception_constr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
+tsubst_exception_constr (tree t, tree args, tsubst_flags_t complain,
+			 tree in_decl)
 {
   cp_unevaluated guard;
   tree expr = EXCEPT_CONSTR_EXPR (t);
@@ -1697,6 +1712,7 @@ tsubst_exception_constr (tree t, tree args, tsubst_flags_t complain, tree in_dec
    specializations for each of parameter in PARMS and its
    corresponding substituted constraint variable in VARS.
    Returns VARS. */
+
 tree
 declare_constraint_vars (tree parms, tree vars)
 {
@@ -1724,6 +1740,7 @@ declare_constraint_vars (tree parms, tree vars)
    Note that the caller must establish a local specialization stack
    prior to calling this function since this substitution will
    declare the substituted parameters. */
+
 tree
 tsubst_constraint_variables (tree t, tree args,
                              tsubst_flags_t complain, tree in_decl)
@@ -1738,6 +1755,8 @@ tsubst_constraint_variables (tree t, tree args,
     return error_mark_node;
   return declare_constraint_vars (t, vars);
 }
+
+/* Substitute ARGS into the parameterized constraint T.  */
 
 tree
 tsubst_parameterized_constraint (tree t, tree args,
@@ -1759,6 +1778,7 @@ tsubst_parameterized_constraint (tree t, tree args,
    substitution may result in an ill-formed expression without
    causing the program to be ill-formed. In such cases, the
    requirement wraps an error_mark_node. */
+
 inline tree
 tsubst_simple_requirement (tree t, tree args,
                            tsubst_flags_t complain, tree in_decl)
@@ -1813,6 +1833,8 @@ tsubst_nested_requirement (tree t, tree args,
   --processing_template_decl;
   return finish_nested_requirement (expr);
 }
+
+/* Substitute ARGS into the requirement T.  */
 
 inline tree
 tsubst_requirement (tree t, tree args, tsubst_flags_t complain, tree in_decl)
@@ -1884,6 +1906,7 @@ tsubst_requires_expr (tree t, tree args,
 
 /* Substitute ARGS into the constraint information CI, producing a new
    constraint record. */
+
 tree
 tsubst_constraint_info (tree t, tree args,
                         tsubst_flags_t complain, tree in_decl)
@@ -2009,6 +2032,9 @@ satisfy_predicate_constraint (tree t, tree args,
 
   return cxx_constant_value (expr);
 }
+
+/* A concept check constraint like C<CARGS> is satisfied if substituting ARGS
+   into CARGS succeeds and C is satisfied for the resulting arguments.  */
 
 tree
 satisfy_check_constraint (tree t, tree args,
@@ -2802,6 +2828,9 @@ diagnose_pack_expansion (location_t loc, tree, tree cur, tree args)
     }
 }
 
+/* Diagnose a potentially unsatisfied concept check constraint DECL<CARGS>.
+   Parameters are as for diagnose_constraint.  */
+
 void
 diagnose_check_constraint (location_t loc, tree orig, tree cur, tree args)
 {
@@ -2845,6 +2874,9 @@ diagnose_check_constraint (location_t loc, tree orig, tree cur, tree args)
   diagnose_constraint (dloc, orig, cur, targs);
 }
 
+/* Diagnose a potentially unsatisfied conjunction or disjunction.  Parameters
+   are as for diagnose_constraint.  */
+
 void
 diagnose_logical_constraint (location_t loc, tree orig, tree cur, tree args)
 {
@@ -2852,11 +2884,13 @@ diagnose_logical_constraint (location_t loc, tree orig, tree cur, tree args)
   tree t1 = TREE_OPERAND (cur, 1);
   if (!constraints_satisfied_p (t0, args))
     diagnose_constraint (loc, TREE_OPERAND (orig, 0), t0, args);
+  else if (TREE_CODE (orig) == TRUTH_ORIF_EXPR)
+    return;
   if (!constraints_satisfied_p (t1, args))
     diagnose_constraint (loc, TREE_OPERAND (orig, 1), t1, args);
 }
 
-/* Diagnose a constraint failure. */
+/* Diagnose a potential expression constraint failure. */
 
 void
 diagnose_expression_constraint (location_t loc, tree orig, tree cur, tree args)
@@ -2877,7 +2911,6 @@ diagnose_expression_constraint (location_t loc, tree orig, tree cur, tree args)
   // inform (input_location, "==== END DUMP ====");
 }
 
-
 /* Diagnose a potentially failed type constraint. */
 
 void
@@ -2895,7 +2928,8 @@ diagnose_type_constraint (location_t loc, tree orig, tree cur, tree args)
 /* Diagnose a potentially unsatisfied conversion constraint. */
 
 void
-diagnose_implicit_conversion_constraint (location_t loc, tree orig, tree cur, tree args)
+diagnose_implicit_conversion_constraint (location_t loc, tree orig, tree cur,
+					 tree args)
 {
   if (constraints_satisfied_p (cur, args))
     return;
@@ -2926,7 +2960,8 @@ diagnose_implicit_conversion_constraint (location_t loc, tree orig, tree cur, tr
 /* Diagnose an argument deduction constraint. */
 
 void
-diagnose_argument_deduction_constraint (location_t loc, tree orig, tree cur, tree args)
+diagnose_argument_deduction_constraint (location_t loc, tree orig, tree cur,
+					tree args)
 {
   if (constraints_satisfied_p (cur, args))
     return;
@@ -2946,11 +2981,13 @@ diagnose_argument_deduction_constraint (location_t loc, tree orig, tree cur, tre
   tree pattern = DEDUCT_CONSTR_PATTERN (cur);
   if (error_operand_p (pattern))
     {
-      inform (loc, "substitution into type %qT failed", DEDUCT_CONSTR_PATTERN (orig));
+      inform (loc, "substitution into type %qT failed",
+	      DEDUCT_CONSTR_PATTERN (orig));
       return;
     }
 
-  inform (loc, "unable to deduce placeholder type %qT from %qE", pattern, expr);
+  inform (loc, "unable to deduce placeholder type %qT from %qE",
+	  pattern, expr);
 }
 
 /* Diagnose an exception constraint. */
@@ -2970,6 +3007,8 @@ diagnose_exception_constraint (location_t loc, tree orig, tree cur, tree args)
 
   inform (loc, "%qE evaluated to false", EXCEPT_CONSTR_EXPR (orig));
 }
+
+/* Diagnose a potentially unsatisfied parameterized constraint.  */
 
 void
 diagnose_parameterized_constraint (location_t loc, tree orig, tree cur,

@@ -293,7 +293,8 @@ proof_state::discharge (iterator i)
                         Atomicity of constraints
 ---------------------------------------------------------------------------*/
 
-/* Returns true if T is an atomic constraint.  */
+/* Returns true if T is not an atomic constraint.  */
+
 bool
 non_atomic_constraint_p (tree t)
 {
@@ -316,7 +317,7 @@ non_atomic_constraint_p (tree t)
     }
 }
 
-/* Returns true if any constraints in T are atomic.  */
+/* Returns true if any constraints in T are not atomic.  */
 
 bool
 any_non_atomic_constraints_p (term_list& t)
@@ -602,7 +603,6 @@ load_assumptions (proof_goal& g)
     }
 }
 
-
 /* In each subgoal, load constraints into the assumption set.  */
 
 void
@@ -685,7 +685,6 @@ load_disjunction_conclusion (term_list& g, term_list::iterator i)
   tree t2 = TREE_OPERAND (*i, 1);
   return g.replace(i, t1, t2);
 }
-
 
 /* Apply logical rules to the right hand side. This will load the
    conclusion set with all tpp-level disjunctions.  */
