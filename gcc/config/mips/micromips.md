@@ -219,7 +219,7 @@
   "TARGET_MICROMIPS_R7
    && umips_move_balc_p (operands)"
   {
-    return mips_output_jump (operands, 3, 4, true, true);
+    return mips_output_jump (operands, 2, -1, true, true);
   }
   [(set_attr "jal" "direct")])
 
@@ -233,6 +233,6 @@
   "TARGET_MICROMIPS_R7
    && umips_move_balc_p (operands)"
   {
-    return mips_output_jump (operands, 3, 4, true, true);
+    return mips_output_jump (operands, 2, -1, true, true);
   }
   [(set_attr "jal" "direct")])
