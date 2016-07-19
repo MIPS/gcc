@@ -1661,8 +1661,12 @@ Using the GNU Compiler Collection (GCC)},
 See ``RS/6000 and PowerPC Options'' in the main manual
 @end ifhtml
 
-@item --enable-lra
-This option enables @option{-mlra} by default for powerpc-linux.
+@item --enable-powerpc-lra
+This option enables @option{-mlra} by default for powerpc-linux.  This
+switch is a temporary configuration switch that is intended to allow
+for the transition from the reload register allocator to the newer lra
+register allocator.  When the transition is complete, this switch
+may be deleted.
 @ifnothtml
 @xref{RS/6000 and PowerPC Options,, RS/6000 and PowerPC Options, gcc,
 Using the GNU Compiler Collection (GCC)},
@@ -1671,8 +1675,13 @@ Using the GNU Compiler Collection (GCC)},
 See ``RS/6000 and PowerPC Options'' in the main manual
 @end ifhtml
 
-@item --enable-float128
+@item --enable-powerpc-float128
 This option enables @option{-mfloat128} by default for powerpc-linux.
+This switch is a temporary configuation switch that is intended to
+allow the PowerPC GCC developers to work on implementing library
+support for PowerPC IEEE 128-bit floating point functions.  When the
+standard GCC libraries are enhanced to support @code{__float128} by
+default, this switch may be deleted.
 @ifnothtml
 @xref{RS/6000 and PowerPC Options,, RS/6000 and PowerPC Options, gcc,
 Using the GNU Compiler Collection (GCC)},

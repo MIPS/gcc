@@ -1798,13 +1798,13 @@ AC_ARG_ENABLE(secureplt,
 		[enable -msecure-plt by default for PowerPC])],
 [], [])
 
-AC_ARG_ENABLE(lra,
-[AS_HELP_STRING([--enable-lra],
+AC_ARG_ENABLE(powerpc-lra,
+[AS_HELP_STRING([--enable-powerpc-lra],
 		[enable -mlra by default for PowerPC])],
 [], [])
 
-AC_ARG_ENABLE(float128,
-[AS_HELP_STRING([--enable-float128],
+AC_ARG_ENABLE(powerpc-float128,
+[AS_HELP_STRING([--enable-powerpc-float128],
 		[enable -mfloat128 by default for PowerPC on Linux VSX
 		 systems])],
 [], [])
