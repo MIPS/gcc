@@ -7022,14 +7022,20 @@ rs6000_adjust_vec_address (rtx scalar_reg,
   else
     {
       int byte_shift = exact_log2 (scalar_size);
-      gcc_assert (byte_shift > 0);
+      gcc_assert (byte_shift >= 0);
 
-      if (TARGET_POWERPC64)
-	emit_insn (gen_ashldi3 (base_tmp, element, GEN_INT (byte_shift)));
+      if (byte_shift == 0)
+	element_offset = element;
+
       else
-	emit_insn (gen_ashlsi3 (base_tmp, element, GEN_INT (byte_shift)));
+	{
+	  if (TARGET_POWERPC64)
+	    emit_insn (gen_ashldi3 (base_tmp, element, GEN_INT (byte_shift)));
+	  else
+	    emit_insn (gen_ashlsi3 (base_tmp, element, GEN_INT (byte_shift)));
 
-      element_offset = base_tmp;
+	  element_offset = base_tmp;
+	}
     }
 
   /* Create the new address pointing to the element within the vector.  If we
@@ -7132,7 +7138,7 @@ rs6000_split_vec_extract_var (rtx dest, rtx src, rtx element, rtx tmp_gpr,
   unsigned scalar_size = GET_MODE_SIZE (scalar_mode);
   int byte_shift = exact_log2 (scalar_size);
 
-  gcc_assert (byte_shift > 0);
+  gcc_assert (byte_shift >= 0);
 
   /* If we are given a memory address, optimize to load just the element.  We
      don't have to adjust the vector element number on little endian

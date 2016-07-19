@@ -1,7 +1,7 @@
 /* { dg-do run { target { powerpc*-*-linux* && lp64 } } } */
 /* { dg-skip-if "" { powerpc*-*-darwin* } { "*" } { "" } } */
 /* { dg-skip-if "" { powerpc*-*-*spe* } { "*" } { "" } } */
-/* { dg-require-effective-target vsx_hw } */
+/* { dg-require-effective-target p8vector_hw } */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,7 +9,7 @@
 #include <altivec.h>
 
 #ifndef TYPE
-#define TYPE long
+#define TYPE int
 #endif
 
 extern void		check_auto_element	(vector TYPE, TYPE, int)	__attribute__((__noinline__));
@@ -76,6 +76,8 @@ do_auto (vector TYPE a)
 {
   check_auto_element (a, vec_extract (a, 0), 0);
   check_auto_element (a, vec_extract (a, 1), 1);
+  check_auto_element (a, vec_extract (a, 2), 2);
+  check_auto_element (a, vec_extract (a, 3), 3);
 }
 
 void
@@ -83,6 +85,8 @@ do_pointer (vector TYPE *p)
 {
   check_pointer_element (p, vec_extract (*p, 0), 0);
   check_pointer_element (p, vec_extract (*p, 1), 1);
+  check_pointer_element (p, vec_extract (*p, 2), 2);
+  check_pointer_element (p, vec_extract (*p, 3), 3);
 }
 
 void
@@ -90,6 +94,8 @@ do_static (void)
 {
   check_static_element (vec_extract (s, 0), 0);
   check_static_element (vec_extract (s, 1), 1);
+  check_static_element (vec_extract (s, 2), 2);
+  check_static_element (vec_extract (s, 3), 3);
 }
 
 void
@@ -97,12 +103,14 @@ do_global (void)
 {
   check_global_element (vec_extract (g, 0), 0);
   check_global_element (vec_extract (g, 1), 1);
+  check_global_element (vec_extract (g, 2), 2);
+  check_global_element (vec_extract (g, 3), 3);
 }
 
 int
 main (void)
 {
-  vector TYPE x = { (TYPE)10, (TYPE)-20 };
+  vector TYPE x = { (TYPE)10, (TYPE)-20, (TYPE)30, (TYPE)-40 };
   vector TYPE *p, a, y;
 
   a = deoptimize (x);
