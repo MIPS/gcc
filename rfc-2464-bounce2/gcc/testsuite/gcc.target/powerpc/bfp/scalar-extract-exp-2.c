@@ -15,7 +15,7 @@ unsigned int get_exponent (double *p)
 {
   double source = *p;
 
-  return scalar_extract_exp (source);	/* { dg-error "Builtin function __builtin_vec_scalar_extract_exp notsupported in this compiler configuration" } */
+  return scalar_extract_exp (source);	/* { dg-error "Builtin function __builtin_vec_scalar_extract_exp not supported in this compiler configuration" } */
 }
 
 

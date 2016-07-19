@@ -12,5 +12,5 @@ unsigned long long int get_significand (double *p)
 {
   double source = *p;
 
-  return __builtin_vec_scalar_extract_sig (source); /* { dg-error "Builtin function __builtin_vec_scalar_extract_sig notsupported in this compiler configuration" } */
+  return __builtin_vec_scalar_extract_sig (source); /* { dg-error "Builtin function __builtin_vec_scalar_extract_sig not supported in this compiler configuration" } */
 }

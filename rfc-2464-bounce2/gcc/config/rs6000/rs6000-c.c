@@ -31,7 +31,7 @@
 #include "c-family/c-pragma.h"
 #include "langhooks.h"
 #include "c/c-tree.h"
-#define KELVIN_DEBUG
+#undef KELVIN_DEBUG
 #ifdef KELVIN_DEBUG
 #include "print-tree.h"
 #endif
@@ -4810,6 +4810,7 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
   tree types[3], args[3];
   const struct altivec_builtin_types *desc;
   unsigned int n;
+  bool unsupported_builtin;
 
   if (!rs6000_overloaded_builtin_p (fcode))
     return NULL_TREE;
@@ -5593,6 +5594,7 @@ assignment for unaligned loads and stores");
       return build_int_cst (NULL_TREE, TYPE_VECTOR_SUBPARTS (types[0]));
     }
 
+  unsupported_builtin = false;
   for (desc = altivec_overloaded_builtins;
        desc->code && desc->code != fcode; desc++)
     continue;
@@ -5600,12 +5602,12 @@ assignment for unaligned loads and stores");
   /* For arguments after the last, we have RS6000_BTI_NOT_OPAQUE in
      the opX fields.  */
 #ifdef KELVIN_DEBUG
-  fprintf (stderr, "P9V_BUILTIN_VSEEDP is %d, P9V_BUILTIN_VEC_VSEEDP is %d\n",
-	   P9V_BUILTIN_VSEEDP, P9V_BUILTIN_VEC_VSEEDP);
+  fprintf (stderr, "P9V_BUILTIN_VSIEDP is %d, P9V_BUILTIN_VEC_VSIEDP is %d\n",
+	   P9V_BUILTIN_VSIEDP, P9V_BUILTIN_VEC_VSIEDP);
 #endif
   for (; desc->code == fcode; desc++)
-#ifdef KELVIN_DEBUG
     {
+#ifdef KELVIN_DEBUG
       fprintf (stderr, "in loop, desc->code is: %d, ->overloaded_code: %d\n",
 	       desc->code, desc->overloaded_code);
       
@@ -5630,34 +5632,30 @@ assignment for unaligned loads and stores");
 	fprintf (stderr, "type compatible? %d\n",
 		 rs6000_builtin_type_compatible (types[2], desc->op3));
       }
-      if ((desc->op1 == RS6000_BTI_NOT_OPAQUE
-	 || rs6000_builtin_type_compatible (types[0], desc->op1))
-	&& (desc->op2 == RS6000_BTI_NOT_OPAQUE
-	    || rs6000_builtin_type_compatible (types[1], desc->op2))
-	&& (desc->op3 == RS6000_BTI_NOT_OPAQUE
-	    || rs6000_builtin_type_compatible (types[2], desc->op3))
-	  && rs6000_builtin_decls[desc->overloaded_code] != NULL_TREE) 
-      return altivec_build_resolved_builtin (args, n, desc);
-    }
-#else
-    if ((desc->op1 == RS6000_BTI_NOT_OPAQUE
-	 || rs6000_builtin_type_compatible (types[0], desc->op1))
-	&& (desc->op2 == RS6000_BTI_NOT_OPAQUE
-	    || rs6000_builtin_type_compatible (types[1], desc->op2))
-	&& (desc->op3 == RS6000_BTI_NOT_OPAQUE
-	    || rs6000_builtin_type_compatible (types[2], desc->op3))
-      && rs6000_builtin_decls[desc->overloaded_code] !=
-		NULL_TREE)
-      return altivec_build_resolved_builtin (args, n, desc);
 #endif
+      if ((desc->op1 == RS6000_BTI_NOT_OPAQUE
+	   || rs6000_builtin_type_compatible (types[0], desc->op1))
+	  && (desc->op2 == RS6000_BTI_NOT_OPAQUE
+	      || rs6000_builtin_type_compatible (types[1], desc->op2))
+	  && (desc->op3 == RS6000_BTI_NOT_OPAQUE
+	      || rs6000_builtin_type_compatible (types[2], desc->op3)))
+	{
+	  if (rs6000_builtin_decls[desc->overloaded_code] != NULL_TREE)
+	    return altivec_build_resolved_builtin (args, n, desc);
+	  else
+	    {
+	      unsupported_builtin = true;
+	    }
+	}
+    }
     
-    if (rs6000_builtin_decls[desc->overloaded_code] == NULL_TREE)
-      {
-	const char *name = rs6000_overloaded_builtin_name (fcode);
-	error ("Builtin function %s not supported in this compiler configuration", 
-	       name);
-	return error_mark_node;
-      }
+  if (unsupported_builtin)
+    {
+      const char *name = rs6000_overloaded_builtin_name (fcode);
+      error ("Builtin function %s not supported in this compiler configuration", 
+	     name);
+      return error_mark_node;
+    }
 
  bad:
     {
