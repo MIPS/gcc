@@ -24559,105 +24559,6 @@ struct constraint_sat_hasher : ggc_ptr_hash<constraint_sat_entry>
   }
 };
 
-/* Adjusted hash function for concept arguments. This guarantees
-   that pack selections of different indexes into the same pack
-   yield (likely) different hash values.  */
-
-hashval_t
-iterative_hash_concept_arg (tree arg, hashval_t val)
-{
-  if (arg == NULL_TREE)
-    return iterative_hash_object (arg, val);
-
-  if (!TYPE_P (arg))
-    STRIP_NOPS (arg);
-
-  if (TREE_CODE (arg) == TREE_VEC)
-    {
-      /* Recurse on template arguments. */
-      for (int i = 0; i < TREE_VEC_LENGTH (arg); ++i)
-        val = iterative_hash_concept_arg (TREE_VEC_ELT (arg, i), val);
-      return val;
-    }
-
-  if (TREE_CODE (arg) == ARGUMENT_PACK_SELECT)
-    {
-      gcc_unreachable ();
-      /* We can get these when checking the satisfaction of constraints
-         during pack expansion. Hash over both the pack and index.  */
-      /* FIXME is this really needed?  */
-      tree pack = ARGUMENT_PACK_SELECT_FROM_PACK (arg);
-      int index = ARGUMENT_PACK_SELECT_INDEX (arg);
-      val = iterative_hash_template_arg (pack, val);
-      val = iterative_hash_object (index, val);
-      return val;
-    }
-
-  return iterative_hash_template_arg (arg, val);
-}
-
-
-/* Adjusted hash function for concept checks. */
-
-static hashval_t
-hash_concept_and_args (tree tmpl, tree args)
-{
-  hashval_t val = iterative_hash_object (DECL_UID (tmpl), 0);
-  return iterative_hash_concept_arg (args, val);
-}
-
-/* Returns true if concept arguments are equal.  */
-
-static bool
-concept_args_equal (tree t1, tree t2)
-{
-  if (t1 == t2)
-    return true;
-
-  if (!t1 || !t2)
-    return false;
-
-  /* Argument pack selections are equivalent only when they select
-     the same index from equivalent packs.  */
-  /* FIXME is this what we want?  */
-  if (TREE_CODE (t1) == ARGUMENT_PACK_SELECT)
-    if (t2 && TREE_CODE (t2) == ARGUMENT_PACK_SELECT)
-      {
-	gcc_unreachable ();
-        tree p1 = ARGUMENT_PACK_SELECT_FROM_PACK (t1);
-        tree p2 = ARGUMENT_PACK_SELECT_FROM_PACK (t2);
-        int n1 = ARGUMENT_PACK_SELECT_INDEX (t1);
-        int n2 = ARGUMENT_PACK_SELECT_INDEX (t2);
-        return n1 == n2 && template_args_equal (p1, p2);
-      }
-
-  return template_args_equal (t1, t2);
-}
-
-/* Adjusted comparison of concept arguments.  */
-
-static bool
-comp_concept_args (tree a1, tree a2)
-{
-  if (a1 == a2)
-    return true;
-
-  if (!a1 || !a2)
-    return false;
-
-  if (TREE_VEC_LENGTH (a1) != TREE_VEC_LENGTH (a2))
-    return false;
-
-  for (int i = 0; i < TREE_VEC_LENGTH (a1); ++i)
-    {
-      tree t1 = TREE_VEC_ELT (a1, i);
-      tree t2 = TREE_VEC_ELT (a2, i);
-      if (!concept_args_equal (t1, t2))
-        return false;
-    }
-  return true;
-}
-
 /* Memoized satisfaction results for concept checks. */
 
 struct GTY((for_user)) concept_spec_entry
@@ -24673,13 +24574,13 @@ struct concept_spec_hasher : ggc_ptr_hash<concept_spec_entry>
 {
   static hashval_t hash (concept_spec_entry *e)
   {
-    return hash_concept_and_args (e->tmpl, e->args);
+    return hash_tmpl_and_args (e->tmpl, e->args);
   }
 
   static bool equal (concept_spec_entry *e1, concept_spec_entry *e2)
   {
     ++comparing_specializations;
-    bool eq = e1->tmpl == e2->tmpl && comp_concept_args (e1->args, e2->args);
+    bool eq = e1->tmpl == e2->tmpl && comp_template_args (e1->args, e2->args);
     --comparing_specializations;
     return eq;
   }
@@ -24777,9 +24678,9 @@ hash_subsumption_args (tree t1, tree t2)
   gcc_assert (TREE_CODE (t2) == CHECK_CONSTR);
   int val = 0;
   val = iterative_hash_object (CHECK_CONSTR_CONCEPT (t1), val);
-  val = iterative_hash_concept_arg (CHECK_CONSTR_ARGS (t1), val);
+  val = iterative_hash_template_arg (CHECK_CONSTR_ARGS (t1), val);
   val = iterative_hash_object (CHECK_CONSTR_CONCEPT (t2), val);
-  val = iterative_hash_concept_arg (CHECK_CONSTR_ARGS (t2), val);
+  val = iterative_hash_template_arg (CHECK_CONSTR_ARGS (t2), val);
   return val;
 }
 
@@ -24792,9 +24693,9 @@ comp_subsumption_args (tree left1, tree left2, tree right1, tree right2)
 {
   if (CHECK_CONSTR_CONCEPT (left1) == CHECK_CONSTR_CONCEPT (right1))
     if (CHECK_CONSTR_CONCEPT (left2) == CHECK_CONSTR_CONCEPT (right2))
-      if (comp_concept_args (CHECK_CONSTR_ARGS (left1),
+      if (comp_template_args (CHECK_CONSTR_ARGS (left1),
                              CHECK_CONSTR_ARGS (right1)))
-        return comp_concept_args (CHECK_CONSTR_ARGS (left2),
+        return comp_template_args (CHECK_CONSTR_ARGS (left2),
                                   CHECK_CONSTR_ARGS (right2));
   return false;
 }
