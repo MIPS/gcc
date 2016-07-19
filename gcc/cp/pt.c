@@ -24861,6 +24861,9 @@ save_subsumption_result (tree t1, tree t2, bool result)
 void
 init_constraint_processing (void)
 {
+  if (!flag_concepts)
+    return;
+
   decl_constraints = hash_table<constr_hasher>::create_ggc(37);
   constraint_memos = hash_table<constraint_sat_hasher>::create_ggc(37);
   concept_memos = hash_table<concept_spec_hasher>::create_ggc(37);
