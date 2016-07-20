@@ -1,6 +1,6 @@
 /* { dg-do run { target { powerpc*-*-linux* } } } */
 /* { dg-require-effective-target vsx_hw } */
-/* { dg-options "-O2" } */
+/* { dg-options "-O2 -mvsx" } */
 
 #define TYPE unsigned int
 #define ELEMENTS 4

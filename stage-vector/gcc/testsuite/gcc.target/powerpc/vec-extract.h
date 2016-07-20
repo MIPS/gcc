@@ -472,6 +472,154 @@ do_indexed (vector TYPE *p, size_t x)
 }
 
 
+TYPE
+get_ptr_plus1_n (vector TYPE *p, ssize_t n)
+{
+  return vec_extract (p[1], n);
+}
+
+TYPE
+get_ptr_plus1_0 (vector TYPE *p)
+{
+  return vec_extract (p[1], 0);
+}
+
+TYPE
+get_ptr_plus1_1 (vector TYPE *p)
+{
+  return vec_extract (p[1], 1);
+}
+
+#if ELEMENTS >= 4
+TYPE
+get_ptr_plus1_2 (vector TYPE *p)
+{
+  return vec_extract (p[1], 2);
+}
+
+TYPE
+get_ptr_plus1_3 (vector TYPE *p)
+{
+  return vec_extract (p[1], 3);
+}
+
+#if ELEMENTS >= 8
+TYPE
+get_ptr_plus1_4 (vector TYPE *p)
+{
+  return vec_extract (p[1], 4);
+}
+
+static TYPE
+get_ptr_plus1_5 (vector TYPE *p)
+{
+  return vec_extract (p[1], 5);
+}
+
+TYPE
+get_ptr_plus1_6 (vector TYPE *p)
+{
+  return vec_extract (p[1], 6);
+}
+
+TYPE
+get_ptr_plus1_7 (vector TYPE *p)
+{
+  return vec_extract (p[1], 7);
+}
+
+#if ELEMENTS >= 16
+TYPE
+get_ptr_plus1_8 (vector TYPE *p)
+{
+  return vec_extract (p[1], 8);
+}
+
+TYPE
+get_ptr_plus1_9 (vector TYPE *p)
+{
+  return vec_extract (p[1], 9);
+}
+
+TYPE
+get_ptr_plus1_10 (vector TYPE *p)
+{
+  return vec_extract (p[1], 10);
+}
+
+TYPE
+get_ptr_plus1_11 (vector TYPE *p)
+{
+  return vec_extract (p[1], 11);
+}
+
+TYPE
+get_ptr_plus1_12 (vector TYPE *p)
+{
+  return vec_extract (p[1], 12);
+}
+
+TYPE
+get_ptr_plus1_13 (vector TYPE *p)
+{
+  return vec_extract (p[1], 13);
+}
+
+TYPE
+get_ptr_plus1_14 (vector TYPE *p)
+{
+  return vec_extract (p[1], 14);
+}
+
+TYPE
+get_ptr_plus1_15 (vector TYPE *p)
+{
+  return vec_extract (p[1], 15);
+}
+
+#endif
+#endif
+#endif
+
+typedef TYPE (*pointer_func_type) (vector TYPE *);
+
+static pointer_func_type get_ptr_plus1_const[] = {
+  get_ptr_plus1_0,
+  get_ptr_plus1_1,
+#if ELEMENTS >= 4
+  get_ptr_plus1_2,
+  get_ptr_plus1_3,
+#if ELEMENTS >= 8
+  get_ptr_plus1_4,
+  get_ptr_plus1_5,
+  get_ptr_plus1_6,
+  get_ptr_plus1_7,
+#if ELEMENTS >= 16
+  get_ptr_plus1_8,
+  get_ptr_plus1_9,
+  get_ptr_plus1_10,
+  get_ptr_plus1_11,
+  get_ptr_plus1_12,
+  get_ptr_plus1_13,
+  get_ptr_plus1_14,
+  get_ptr_plus1_15,
+#endif
+#endif
+#endif
+};
+
+extern void do_ptr_plus1 (vector TYPE *p) __attribute__((__noinline__));
+
+void
+do_ptr_plus1 (vector TYPE *p)
+{
+  size_t i;
+
+  for (i = 0; i < sizeof (get_ptr_plus1_const) / sizeof (get_ptr_plus1_const[0]); i++)
+    check (get_ptr_plus1_n (p, i),  (get_ptr_plus1_const[i]) (p));
+}
+
+
 static vector TYPE s;
 
 TYPE
@@ -793,6 +941,7 @@ main (void)
   do_pointer (p);
   for (i = 0; i < 2; i++)
     do_indexed (p2, i);
+  do_ptr_plus1 (p2);
   do_static ();
   do_global ();
   return 0;
