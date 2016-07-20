@@ -28,7 +28,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "cp-tree.h"
-#include "print-tree.h"
 #include "timevar.h"
 #include "stringpool.h"
 #include "varasm.h"
@@ -16324,7 +16323,6 @@ tsubst_copy_and_build (tree t,
 	    --cp_unevaluated_operand;
 	    --c_inhibit_evaluation_warnings;
 	  }
-
         if (TYPE_P (op1))
 	  r = cxx_sizeof_or_alignof_type (op1, TREE_CODE (t),
 					  complain & tf_error);
@@ -17522,7 +17520,6 @@ instantiate_template_1 (tree tmpl, tree orig_args, tsubst_flags_t complain)
 	}
       return error_mark_node;
     }
-
   return fndecl;
 }
 

@@ -22,7 +22,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "cp-tree.h"
-#include "print-tree.h"
 #include "cxx-pretty-print.h"
 #include "tree-pretty-print.h"
 
