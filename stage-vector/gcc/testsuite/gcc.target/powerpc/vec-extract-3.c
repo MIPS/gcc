@@ -1,43 +1,37 @@
 /* { dg-do compile { target { powerpc*-*-* && lp64 } } } */
 /* { dg-skip-if "" { powerpc*-*-darwin* } { "*" } { "" } } */
-/* { dg-require-effective-target powerpc_vsx_ok } */
-/* { dg-options "-O2 -mvsx" } */
+/* { dg-require-effective-target powerpc_p8vector_ok } */
+/* { dg-skip-if "do not override -mcpu" { powerpc*-*-* } { "-mcpu=*" } { "-mcpu=power8" } } */
+/* { dg-options "-O2 -mcpu=power8" } */
 
 #include <altivec.h>
 
-double
-add_double_0 (vector double *p)
-{
-  return vec_extract (*p, 0) + 1.0;
-}
-
-double
-add_double_1 (vector double *p)
-{
-  return vec_extract (*p, 1) + 1.0;
-}
-
-
-double
-add_double_n (vector double *p, long n)
-{
-  return vec_extract (*p, n) + 1.0;
-}
-
-long
-add_long_0 (vector long *p)
+int
+add_int_0 (vector int *p)
 {
   return vec_extract (*p, 0) + 1;
 }
 
-long
-add_long_1 (vector long *p)
+int
+add_int_1 (vector int *p)
 {
   return vec_extract (*p, 1) + 1;
 }
 
-long
-add_long_n (vector long *p, long n)
+int
+add_int_2 (vector int *p)
+{
+  return vec_extract (*p, 2) + 1;
+}
+
+int
+add_int_3 (vector int *p)
+{
+  return vec_extract (*p, 3) + 1;
+}
+
+int
+add_int_n (vector int *p, int n)
 {
   return vec_extract (*p, n) + 1;
 }
