@@ -1,3 +1,29 @@
+2016-07-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vec-extract.h: New tests for all vector
+	types, to test all combinations of variable and constant
+	vec_extracts.
+	* gcc.target/powerpc/vec-extract-v2df.c: Likewise.
+	* gcc.target/powerpc/vec-extract-v2di.c: Likewise.
+	* gcc.target/powerpc/vec-extract-v4sf.c: Likewise.
+	* gcc.target/powerpc/vec-extract-v4si.c: Likewise.
+	* gcc.target/powerpc/vec-extract-v4siu.c: Likewise.
+	* gcc.target/powerpc/vec-extract-v8hi.c: Likewise.
+	* gcc.target/powerpc/vec-extract-v8hiu.c: Likewise.
+	* gcc.target/powerpc/vec-extract-v16qi.c: Likewise.
+	* gcc.target/powerpc/vec-extract-v16qiu.c: Likewise.
+
+	* gcc.target/powerpc/vec-extract-2.c: New test for vec_extract of
+	64-bit elements from memory.
+
+	* gcc.target/powerpc/vec-extract-3.c: Delete.
+	* gcc.target/powerpc/vec-extract-4.c: Likewise.
+	* gcc.target/powerpc/vec-extract-5.c: Likewise.
+	* gcc.target/powerpc/vec-extract-6.c: Likewise.
+	* gcc.target/powerpc/vec-extract-7.c: Likewise.
+	* gcc.target/powerpc/vec-extract-8.c: Likewise.
+	* gcc.target/powerpc/vec-extract-9.c: Likewise.
+
 2016-07-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/vec-extract-3.c: Clone from vec-extract-2.c,
