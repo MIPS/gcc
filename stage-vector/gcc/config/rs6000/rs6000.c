@@ -7064,7 +7064,7 @@ rs6000_adjust_vec_address (rtx scalar_reg,
       rtx op1 = XEXP (addr, 1);
 
       new_addr = NULL_RTX;
-      gcc_assert (REG_P (op0));
+      gcc_assert (REG_P (op0) || SUBREG_P (op0));
       if (CONST_INT_P (op1) && CONST_INT_P (element_offset))
 	{
 	  HOST_WIDE_INT offset = INTVAL (op1) + INTVAL (element_offset);
