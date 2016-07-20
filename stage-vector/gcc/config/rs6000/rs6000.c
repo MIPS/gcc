@@ -7097,7 +7097,7 @@ rs6000_adjust_vec_address (rtx scalar_reg,
       if (REG_P (scalar_reg))
 	scalar_regno = REGNO (scalar_reg);
       else if (SUBREG_P (scalar_reg))
-	scalar_regno = REGNO (SUBREG_REG (scalar_reg));
+	scalar_regno = subreg_regno (scalar_reg);
       else
 	gcc_unreachable ();
 
