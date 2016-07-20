@@ -1663,7 +1663,7 @@
 
 ;; Same as vsx_xscvspdp, but use SF as the type
 (define_insn "vsx_xscvspdp_scalar2"
-  [(set (match_operand:SF 0 "vsx_register_operand" "=f")
+  [(set (match_operand:SF 0 "vsx_register_operand" "=ww")
 	(unspec:SF [(match_operand:V4SF 1 "vsx_register_operand" "wa")]
 		   UNSPEC_VSX_CVSPDP))]
   "VECTOR_UNIT_VSX_P (V4SFmode)"
@@ -2184,9 +2184,9 @@
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "#"
   "&& reload_completed"
-  [(set (match_dup 0) (match_dup 3))]
+  [(set (match_dup 0) (match_dup 4))]
 {
-  operands[3] = rs6000_adjust_vec_address (operands[0], operands[1], operands[2],
+  operands[4] = rs6000_adjust_vec_address (operands[0], operands[1], operands[2],
 					   operands[3], <VS_scalar>mode);
 }
   [(set_attr "type" "fpload,load")
@@ -2237,18 +2237,15 @@
 
 ;; Extract a SF element from V4SF
 (define_insn_and_split "vsx_extract_v4sf"
-  [(set (match_operand:SF 0 "vsx_register_operand" "=f,f")
+  [(set (match_operand:SF 0 "vsx_register_operand" "=ww")
 	(vec_select:SF
-	 (match_operand:V4SF 1 "vsx_register_operand" "wa,wa")
-	 (parallel [(match_operand:QI 2 "u5bit_cint_operand" "O,i")])))
-   (clobber (match_scratch:V4SF 3 "=X,0"))]
+	 (match_operand:V4SF 1 "vsx_register_operand" "wa")
+	 (parallel [(match_operand:QI 2 "u5bit_cint_operand" "n")])))
+   (clobber (match_scratch:V4SF 3 "=0"))]
   "VECTOR_UNIT_VSX_P (V4SFmode)"
-  "@
-   xscvspdp %x0,%x1
-   #"
-  ""
+  "#"
+  "&& 1"
   [(const_int 0)]
-  "
 {
   rtx op0 = operands[0];
   rtx op1 = operands[1];
@@ -2268,9 +2265,45 @@
     }
   emit_insn (gen_vsx_xscvspdp_scalar2 (op0, tmp));
   DONE;
-}"
-  [(set_attr "length" "4,8")
+}
+  [(set_attr "length" "8")
    (set_attr "type" "fp")])
+
+(define_insn_and_split "*vsx_extract_v4sf_load"
+  [(set (match_operand:SF 0 "register_operand" "=f,wv,wb,?r")
+	(vec_select:SF
+	 (match_operand:V4SF 1 "memory_operand" "m,Z,m,m")
+	 (parallel [(match_operand:QI 2 "const_0_to_3_operand" "n,n,n,n")])))
+   (clobber (match_scratch:DI 3 "=&b,&b,&b,&b"))]
+  "VECTOR_MEM_VSX_P (V4SFmode)"
+  "#"
+  "&& reload_completed"
+  [(set (match_dup 0) (match_dup 4))]
+{
+  operands[4] = rs6000_adjust_vec_address (operands[0], operands[1], operands[2],
+					   operands[3], SFmode);
+}
+  [(set_attr "type" "fpload,fpload,fpload,load")
+   (set_attr "length" "8")])
+
+;; Variable V4SF extract
+(define_insn_and_split "vsx_extract_v4sf_var"
+  [(set (match_operand:SF 0 "gpc_reg_operand" "=ww,ww,?r")
+	(unspec:SF [(match_operand:V4SF 1 "input_operand" "v,m,m")
+		    (match_operand:DI 2 "gpc_reg_operand" "r,r,r")]
+		   UNSPEC_VSX_EXTRACT))
+   (clobber (match_scratch:DI 3 "=r,&b,&b"))
+   (clobber (match_scratch:V2DI 4 "=&v,X,X"))]
+  "VECTOR_MEM_VSX_P (V4SFmode) && VEC_EXTRACT_OPTIMIZE_P
+   && TARGET_UPPER_REGS_SF"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+{
+  rs6000_split_vec_extract_var (operands[0], operands[1], operands[2],
+				operands[3], operands[4]);
+  DONE;
+})
 
 ;; Expand the builtin form of xxpermdi to canonical rtl.
 (define_expand "vsx_xxpermdi_<mode>"
@@ -2515,9 +2548,9 @@
   "VECTOR_MEM_VSX_P (<MODE>mode) && VEC_EXTRACT_OPTIMIZE_P"
   "#"
   "&& reload_completed"
-  [(set (match_dup 0) (match_dup 3))]
+  [(set (match_dup 0) (match_dup 4))]
 {
-  operands[3] = rs6000_adjust_vec_address (operands[0], operands[1], operands[2],
+  operands[4] = rs6000_adjust_vec_address (operands[0], operands[1], operands[2],
 					   operands[3], <VS_scalar>mode);
 }
   [(set_attr "type" "load")

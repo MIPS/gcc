@@ -16,141 +16,118 @@ static vector TYPE *deoptimize_ptr (vector TYPE *)	__attribute__((__noinline__))
 static vector TYPE
 deoptimize (vector TYPE a)
 {
+  __asm__ (" # %x0" : "+wa" (a));
   return a;
 }
 
 static vector TYPE *
 deoptimize_ptr (vector TYPE *p)
 {
+  __asm__ (" # %0" : "+r" (p));
   return p;
 }
 
 
-static void do_auto     (vector TYPE)		__attribute__((__noinline__));
-static TYPE get_auto_n  (vector TYPE, ssize_t)	__attribute__((__noinline__));
-static TYPE get_auto_0  (vector TYPE)		__attribute__((__noinline__));
-static TYPE get_auto_1  (vector TYPE)		__attribute__((__noinline__));
-#if ELEMENTS >= 4
-static TYPE get_auto_2  (vector TYPE)		__attribute__((__noinline__));
-static TYPE get_auto_3  (vector TYPE)		__attribute__((__noinline__));
-#if ELEMENTS >= 8
-static TYPE get_auto_4  (vector TYPE)		__attribute__((__noinline__));
-static TYPE get_auto_5  (vector TYPE)		__attribute__((__noinline__));
-static TYPE get_auto_6  (vector TYPE)		__attribute__((__noinline__));
-static TYPE get_auto_7  (vector TYPE)		__attribute__((__noinline__));
-#if ELEMENTS >= 16
-static TYPE get_auto_8  (vector TYPE)		__attribute__((__noinline__));
-static TYPE get_auto_9  (vector TYPE)		__attribute__((__noinline__));
-static TYPE get_auto_10 (vector TYPE)		__attribute__((__noinline__));
-static TYPE get_auto_11 (vector TYPE)		__attribute__((__noinline__));
-static TYPE get_auto_12 (vector TYPE)		__attribute__((__noinline__));
-static TYPE get_auto_13 (vector TYPE)		__attribute__((__noinline__));
-static TYPE get_auto_14 (vector TYPE)		__attribute__((__noinline__));
-static TYPE get_auto_15 (vector TYPE)		__attribute__((__noinline__));
-#endif
-#endif
-#endif
-
-static TYPE
+TYPE
 get_auto_n (vector TYPE a, ssize_t n)
 {
   return vec_extract (a, n);
 }
 
-static TYPE
+TYPE
 get_auto_0 (vector TYPE a)
 {
   return vec_extract (a, 0);
 }
 
-static TYPE
+TYPE
 get_auto_1 (vector TYPE a)
 {
   return vec_extract (a, 1);
 }
 
 #if ELEMENTS >= 4
-static TYPE
+TYPE
 get_auto_2 (vector TYPE a)
 {
   return vec_extract (a, 2);
 }
 
-static TYPE
+TYPE
 get_auto_3 (vector TYPE a)
 {
   return vec_extract (a, 3);
 }
 
 #if ELEMENTS >= 8
-static TYPE
+TYPE
 get_auto_4 (vector TYPE a)
 {
   return vec_extract (a, 4);
 }
 
-static TYPE
+TYPE
 get_auto_5 (vector TYPE a)
 {
   return vec_extract (a, 5);
 }
 
-static TYPE
+TYPE
 get_auto_6 (vector TYPE a)
 {
   return vec_extract (a, 6);
 }
 
-static TYPE
+TYPE
 get_auto_7 (vector TYPE a)
 {
   return vec_extract (a, 7);
 }
 
 #if ELEMENTS >= 16
-static TYPE
+TYPE
 get_auto_8 (vector TYPE a)
 {
   return vec_extract (a, 8);
 }
 
-static TYPE
+TYPE
 get_auto_9 (vector TYPE a)
 {
   return vec_extract (a, 9);
 }
 
-static TYPE
+TYPE
 get_auto_10 (vector TYPE a)
 {
   return vec_extract (a, 10);
 }
 
-static TYPE
+TYPE
 get_auto_11 (vector TYPE a)
 {
   return vec_extract (a, 11);
 }
 
-static TYPE
+TYPE
 get_auto_12 (vector TYPE a)
 {
   return vec_extract (a, 12);
 }
 
-static TYPE
+TYPE
 get_auto_13 (vector TYPE a)
 {
   return vec_extract (a, 13);
 }
 
-static TYPE
+TYPE
 get_auto_14 (vector TYPE a)
 {
   return vec_extract (a, 14);
 }
 
-static TYPE
+TYPE
 get_auto_15 (vector TYPE a)
 {
   return vec_extract (a, 15);
@@ -160,92 +137,78 @@ get_auto_15 (vector TYPE a)
 #endif
 #endif
 
-static void
+typedef TYPE (*auto_func_type) (vector TYPE);
+
+static auto_func_type get_auto_const[] = {
+  get_auto_0,
+  get_auto_1,
+#if ELEMENTS >= 4
+  get_auto_2,
+  get_auto_3,
+#if ELEMENTS >= 8
+  get_auto_4,
+  get_auto_5,
+  get_auto_6,
+  get_auto_7,
+#if ELEMENTS >= 16
+  get_auto_8,
+  get_auto_9,
+  get_auto_10,
+  get_auto_11,
+  get_auto_12,
+  get_auto_13,
+  get_auto_14,
+  get_auto_15,
+#endif
+#endif
+#endif
+};
+
+extern void do_auto (vector TYPE a) __attribute__((__noinline__));
+
+void
 do_auto (vector TYPE a)
 {
-  check (get_auto_n (a, 0),  get_auto_0  (a));
-  check (get_auto_n (a, 1),  get_auto_1  (a));
-#if ELEMENTS >= 4
-  check (get_auto_n (a, 2),  get_auto_2  (a));
-  check (get_auto_n (a, 3),  get_auto_3  (a));
-#if ELEMENTS >= 8
-  check (get_auto_n (a, 4),  get_auto_4  (a));
-  check (get_auto_n (a, 5),  get_auto_5  (a));
-  check (get_auto_n (a, 6),  get_auto_6  (a));
-  check (get_auto_n (a, 7),  get_auto_7  (a));
-#if ELEMENTS >= 16
-  check (get_auto_n (a, 8),  get_auto_8  (a));
-  check (get_auto_n (a, 9),  get_auto_9  (a));
-  check (get_auto_n (a, 10), get_auto_10 (a));
-  check (get_auto_n (a, 11), get_auto_11 (a));
-  check (get_auto_n (a, 12), get_auto_12 (a));
-  check (get_auto_n (a, 13), get_auto_13 (a));
-  check (get_auto_n (a, 14), get_auto_14 (a));
-  check (get_auto_n (a, 15), get_auto_15 (a));
-#endif
-#endif
-#endif
+  size_t i;
+
+  for (i = 0; i < sizeof (get_auto_const) / sizeof (get_auto_const[0]); i++)
+    check (get_auto_n (a, i),  (get_auto_const[i]) (a));
 }
 
 
-static void do_pointer     (vector TYPE *)		__attribute__((__noinline__));
-static TYPE get_pointer_n  (vector TYPE *, ssize_t)	__attribute__((__noinline__));
-static TYPE get_pointer_0  (vector TYPE *)		__attribute__((__noinline__));
-static TYPE get_pointer_1  (vector TYPE *)		__attribute__((__noinline__));
-#if ELEMENTS >= 4
-static TYPE get_pointer_2  (vector TYPE *)		__attribute__((__noinline__));
-static TYPE get_pointer_3  (vector TYPE *)		__attribute__((__noinline__));
-#if ELEMENTS >= 8
-static TYPE get_pointer_4  (vector TYPE *)		__attribute__((__noinline__));
-static TYPE get_pointer_5  (vector TYPE *)		__attribute__((__noinline__));
-static TYPE get_pointer_6  (vector TYPE *)		__attribute__((__noinline__));
-static TYPE get_pointer_7  (vector TYPE *)		__attribute__((__noinline__));
-#if ELEMENTS >= 16
-static TYPE get_pointer_8  (vector TYPE *)		__attribute__((__noinline__));
-static TYPE get_pointer_9  (vector TYPE *)		__attribute__((__noinline__));
-static TYPE get_pointer_10 (vector TYPE *)		__attribute__((__noinline__));
-static TYPE get_pointer_11 (vector TYPE *)		__attribute__((__noinline__));
-static TYPE get_pointer_12 (vector TYPE *)		__attribute__((__noinline__));
-static TYPE get_pointer_13 (vector TYPE *)		__attribute__((__noinline__));
-static TYPE get_pointer_14 (vector TYPE *)		__attribute__((__noinline__));
-static TYPE get_pointer_15 (vector TYPE *)		__attribute__((__noinline__));
-#endif
-#endif
-#endif
-
-static TYPE
+TYPE
 get_pointer_n (vector TYPE *p, ssize_t n)
 {
   return vec_extract (*p, n);
 }
 
-static TYPE
+TYPE
 get_pointer_0 (vector TYPE *p)
 {
   return vec_extract (*p, 0);
 }
 
-static TYPE
+TYPE
 get_pointer_1 (vector TYPE *p)
 {
   return vec_extract (*p, 1);
 }
 
 #if ELEMENTS >= 4
-static TYPE
+TYPE
 get_pointer_2 (vector TYPE *p)
 {
   return vec_extract (*p, 2);
 }
 
-static TYPE
+TYPE
 get_pointer_3 (vector TYPE *p)
 {
   return vec_extract (*p, 3);
 }
 
 #if ELEMENTS >= 8
-static TYPE
+TYPE
 get_pointer_4 (vector TYPE *p)
 {
   return vec_extract (*p, 4);
@@ -257,62 +220,62 @@ get_pointer_5 (vector TYPE *p)
   return vec_extract (*p, 5);
 }
 
-static TYPE
+TYPE
 get_pointer_6 (vector TYPE *p)
 {
   return vec_extract (*p, 6);
 }
 
-static TYPE
+TYPE
 get_pointer_7 (vector TYPE *p)
 {
   return vec_extract (*p, 7);
 }
 
 #if ELEMENTS >= 16
-static TYPE
+TYPE
 get_pointer_8 (vector TYPE *p)
 {
   return vec_extract (*p, 8);
 }
 
-static TYPE
+TYPE
 get_pointer_9 (vector TYPE *p)
 {
   return vec_extract (*p, 9);
 }
 
-static TYPE
+TYPE
 get_pointer_10 (vector TYPE *p)
 {
   return vec_extract (*p, 10);
 }
 
-static TYPE
+TYPE
 get_pointer_11 (vector TYPE *p)
 {
   return vec_extract (*p, 11);
 }
 
-static TYPE
+TYPE
 get_pointer_12 (vector TYPE *p)
 {
   return vec_extract (*p, 12);
 }
 
-static TYPE
+TYPE
 get_pointer_13 (vector TYPE *p)
 {
   return vec_extract (*p, 13);
 }
 
-static TYPE
+TYPE
 get_pointer_14 (vector TYPE *p)
 {
   return vec_extract (*p, 14);
 }
 
-static TYPE
+TYPE
 get_pointer_15 (vector TYPE *p)
 {
   return vec_extract (*p, 15);
@@ -322,162 +285,295 @@ get_pointer_15 (vector TYPE *p)
 #endif
 #endif
 
-static void
+typedef TYPE (*pointer_func_type) (vector TYPE *);
+
+static pointer_func_type get_pointer_const[] = {
+  get_pointer_0,
+  get_pointer_1,
+#if ELEMENTS >= 4
+  get_pointer_2,
+  get_pointer_3,
+#if ELEMENTS >= 8
+  get_pointer_4,
+  get_pointer_5,
+  get_pointer_6,
+  get_pointer_7,
+#if ELEMENTS >= 16
+  get_pointer_8,
+  get_pointer_9,
+  get_pointer_10,
+  get_pointer_11,
+  get_pointer_12,
+  get_pointer_13,
+  get_pointer_14,
+  get_pointer_15,
+#endif
+#endif
+#endif
+};
+
+extern void do_pointer (vector TYPE *p) __attribute__((__noinline__));
+
+void
 do_pointer (vector TYPE *p)
 {
-  check (get_pointer_n (p, 0),  get_pointer_0  (p));
-  check (get_pointer_n (p, 1),  get_pointer_1  (p));
-#if ELEMENTS >= 4
-  check (get_pointer_n (p, 2),  get_pointer_2  (p));
-  check (get_pointer_n (p, 3),  get_pointer_3  (p));
-#if ELEMENTS >= 8
-  check (get_pointer_n (p, 4),  get_pointer_4  (p));
-  check (get_pointer_n (p, 5),  get_pointer_5  (p));
-  check (get_pointer_n (p, 6),  get_pointer_6  (p));
-  check (get_pointer_n (p, 7),  get_pointer_7  (p));
-#if ELEMENTS >= 16
-  check (get_pointer_n (p, 8),  get_pointer_8  (p));
-  check (get_pointer_n (p, 9),  get_pointer_9  (p));
-  check (get_pointer_n (p, 10), get_pointer_10 (p));
-  check (get_pointer_n (p, 11), get_pointer_11 (p));
-  check (get_pointer_n (p, 12), get_pointer_12 (p));
-  check (get_pointer_n (p, 13), get_pointer_13 (p));
-  check (get_pointer_n (p, 14), get_pointer_14 (p));
-  check (get_pointer_n (p, 15), get_pointer_15 (p));
-#endif
-#endif
-#endif
+  size_t i;
+
+  for (i = 0; i < sizeof (get_pointer_const) / sizeof (get_pointer_const[0]); i++)
+    check (get_pointer_n (p, i),  (get_pointer_const[i]) (p));
 }
 
+
+TYPE
+get_indexed_n (vector TYPE *p, size_t x, ssize_t n)
+{
+  return vec_extract (p[x], n);
+}
+
+TYPE
+get_indexed_0 (vector TYPE *p, size_t x)
+{
+  return vec_extract (p[x], 0);
+}
+
+TYPE
+get_indexed_1 (vector TYPE *p, size_t x)
+{
+  return vec_extract (p[x], 1);
+}
+
+#if ELEMENTS >= 4
+TYPE
+get_indexed_2 (vector TYPE *p, size_t x)
+{
+  return vec_extract (p[x], 2);
+}
+
+TYPE
+get_indexed_3 (vector TYPE *p, size_t x)
+{
+  return vec_extract (p[x], 3);
+}
+
+#if ELEMENTS >= 8
+TYPE
+get_indexed_4 (vector TYPE *p, size_t x)
+{
+  return vec_extract (p[x], 4);
+}
+
+static TYPE
+get_indexed_5 (vector TYPE *p, size_t x)
+{
+  return vec_extract (p[x], 5);
+}
+
+TYPE
+get_indexed_6 (vector TYPE *p, size_t x)
+{
+  return vec_extract (p[x], 6);
+}
+
+TYPE
+get_indexed_7 (vector TYPE *p, size_t x)
+{
+  return vec_extract (p[x], 7);
+}
+
+#if ELEMENTS >= 16
+TYPE
+get_indexed_8 (vector TYPE *p, size_t x)
+{
+  return vec_extract (p[x], 8);
+}
+
+TYPE
+get_indexed_9 (vector TYPE *p, size_t x)
+{
+  return vec_extract (p[x], 9);
+}
+
+TYPE
+get_indexed_10 (vector TYPE *p, size_t x)
+{
+  return vec_extract (p[x], 10);
+}
+
+TYPE
+get_indexed_11 (vector TYPE *p, size_t x)
+{
+  return vec_extract (p[x], 11);
+}
+
+TYPE
+get_indexed_12 (vector TYPE *p, size_t x)
+{
+  return vec_extract (p[x], 12);
+}
+
+TYPE
+get_indexed_13 (vector TYPE *p, size_t x)
+{
+  return vec_extract (p[x], 13);
+}
+
+TYPE
+get_indexed_14 (vector TYPE *p, size_t x)
+{
+  return vec_extract (p[x], 14);
+}
+
+TYPE
+get_indexed_15 (vector TYPE *p, size_t x)
+{
+  return vec_extract (p[x], 15);
+}
+
+#endif
+#endif
+#endif
+
+typedef TYPE (*indexed_func_type) (vector TYPE *, size_t);
+
+static indexed_func_type get_indexed_const[] = {
+  get_indexed_0,
+  get_indexed_1,
+#if ELEMENTS >= 4
+  get_indexed_2,
+  get_indexed_3,
+#if ELEMENTS >= 8
+  get_indexed_4,
+  get_indexed_5,
+  get_indexed_6,
+  get_indexed_7,
+#if ELEMENTS >= 16
+  get_indexed_8,
+  get_indexed_9,
+  get_indexed_10,
+  get_indexed_11,
+  get_indexed_12,
+  get_indexed_13,
+  get_indexed_14,
+  get_indexed_15,
+#endif
+#endif
+#endif
+};
+
+extern void do_indexed (vector TYPE *p, size_t x) __attribute__((__noinline__));
+
+void
+do_indexed (vector TYPE *p, size_t x)
+{
+  size_t i;
+
+  for (i = 0; i < sizeof (get_indexed_const) / sizeof (get_indexed_const[0]); i++)
+    check (get_indexed_n (p, x, i),  (get_indexed_const[i]) (p, x));
+}
 
 
 static vector TYPE s;
 
-static void do_static     (void)	__attribute__((__noinline__));
-static TYPE get_static_n  (ssize_t)	__attribute__((__noinline__));
-static TYPE get_static_0  (void)	__attribute__((__noinline__));
-static TYPE get_static_1  (void)	__attribute__((__noinline__));
-#if ELEMENTS >= 4
-static TYPE get_static_2  (void)	__attribute__((__noinline__));
-static TYPE get_static_3  (void)	__attribute__((__noinline__));
-#if ELEMENTS >= 8
-static TYPE get_static_4  (void)	__attribute__((__noinline__));
-static TYPE get_static_5  (void)	__attribute__((__noinline__));
-static TYPE get_static_6  (void)	__attribute__((__noinline__));
-static TYPE get_static_7  (void)	__attribute__((__noinline__));
-#if ELEMENTS >= 16
-static TYPE get_static_8  (void)	__attribute__((__noinline__));
-static TYPE get_static_9  (void)	__attribute__((__noinline__));
-static TYPE get_static_10 (void)	__attribute__((__noinline__));
-static TYPE get_static_11 (void)	__attribute__((__noinline__));
-static TYPE get_static_12 (void)	__attribute__((__noinline__));
-static TYPE get_static_13 (void)	__attribute__((__noinline__));
-static TYPE get_static_14 (void)	__attribute__((__noinline__));
-static TYPE get_static_15 (void)	__attribute__((__noinline__));
-#endif
-#endif
-#endif
-
-static TYPE
+TYPE
 get_static_n (ssize_t n)
 {
   return vec_extract (s, n);
 }
 
-static TYPE
+TYPE
 get_static_0 (void)
 {
   return vec_extract (s, 0);
 }
 
-static TYPE
+TYPE
 get_static_1 (void)
 {
   return vec_extract (s, 1);
 }
 
 #if ELEMENTS >= 4
-static TYPE
+TYPE
 get_static_2 (void)
 {
   return vec_extract (s, 2);
 }
 
-static TYPE
+TYPE
 get_static_3 (void)
 {
   return vec_extract (s, 3);
 }
 
 #if ELEMENTS >= 8
-static TYPE
+TYPE
 get_static_4 (void)
 {
   return vec_extract (s, 4);
 }
 
-static TYPE
+TYPE
 get_static_5 (void)
 {
   return vec_extract (s, 5);
 }
 
-static TYPE
+TYPE
 get_static_6 (void)
 {
   return vec_extract (s, 6);
 }
 
-static TYPE
+TYPE
 get_static_7 (void)
 {
   return vec_extract (s, 7);
 }
 
 #if ELEMENTS >= 16
-static TYPE
+TYPE
 get_static_8 (void)
 {
   return vec_extract (s, 8);
 }
 
-static TYPE
+TYPE
 get_static_9 (void)
 {
   return vec_extract (s, 9);
 }
 
-static TYPE
+TYPE
 get_static_10 (void)
 {
   return vec_extract (s, 10);
 }
 
-static TYPE
+TYPE
 get_static_11 (void)
 {
   return vec_extract (s, 11);
 }
 
-static TYPE
+TYPE
 get_static_12 (void)
 {
   return vec_extract (s, 12);
 }
 
-static TYPE
+TYPE
 get_static_13 (void)
 {
   return vec_extract (s, 13);
 }
 
-static TYPE
+TYPE
 get_static_14 (void)
 {
   return vec_extract (s, 14);
 }
 
-static TYPE
+TYPE
 get_static_15 (void)
 {
   return vec_extract (s, 15);
@@ -487,162 +583,147 @@ get_static_15 (void)
 #endif
 #endif
 
-static void
+typedef TYPE (*static_func_type) (void);
+
+static static_func_type get_static_const[] = {
+  get_static_0,
+  get_static_1,
+#if ELEMENTS >= 4
+  get_static_2,
+  get_static_3,
+#if ELEMENTS >= 8
+  get_static_4,
+  get_static_5,
+  get_static_6,
+  get_static_7,
+#if ELEMENTS >= 16
+  get_static_8,
+  get_static_9,
+  get_static_10,
+  get_static_11,
+  get_static_12,
+  get_static_13,
+  get_static_14,
+  get_static_15,
+#endif
+#endif
+#endif
+};
+
+extern void do_static (void) __attribute__((__noinline__));
+
+void
 do_static (void)
 {
-  check (get_static_n (0),  get_static_0  ());
-  check (get_static_n (1),  get_static_1  ());
-#if ELEMENTS >= 4
-  check (get_static_n (2),  get_static_2  ());
-  check (get_static_n (3),  get_static_3  ());
-#if ELEMENTS >= 8
-  check (get_static_n (4),  get_static_4  ());
-  check (get_static_n (5),  get_static_5  ());
-  check (get_static_n (6),  get_static_6  ());
-  check (get_static_n (7),  get_static_7  ());
-#if ELEMENTS >= 16
-  check (get_static_n (8),  get_static_8  ());
-  check (get_static_n (9),  get_static_9  ());
-  check (get_static_n (10), get_static_10 ());
-  check (get_static_n (11), get_static_11 ());
-  check (get_static_n (12), get_static_12 ());
-  check (get_static_n (13), get_static_13 ());
-  check (get_static_n (14), get_static_14 ());
-  check (get_static_n (15), get_static_15 ());
-#endif
-#endif
-#endif
-}
+  size_t i;
 
+  for (i = 0; i < sizeof (get_static_const) / sizeof (get_static_const[0]); i++)
+    check (get_static_n (i),  (get_static_const[i]) ());
+}
 
 
 vector TYPE g;
 
-static void do_global     (void)	__attribute__((__noinline__));
-static TYPE get_global_n  (ssize_t)	__attribute__((__noinline__));
-static TYPE get_global_0  (void)	__attribute__((__noinline__));
-static TYPE get_global_1  (void)	__attribute__((__noinline__));
-#if ELEMENTS >= 4
-static TYPE get_global_2  (void)	__attribute__((__noinline__));
-static TYPE get_global_3  (void)	__attribute__((__noinline__));
-#if ELEMENTS >= 8
-static TYPE get_global_4  (void)	__attribute__((__noinline__));
-static TYPE get_global_5  (void)	__attribute__((__noinline__));
-static TYPE get_global_6  (void)	__attribute__((__noinline__));
-static TYPE get_global_7  (void)	__attribute__((__noinline__));
-#if ELEMENTS >= 16
-static TYPE get_global_8  (void)	__attribute__((__noinline__));
-static TYPE get_global_9  (void)	__attribute__((__noinline__));
-static TYPE get_global_10 (void)	__attribute__((__noinline__));
-static TYPE get_global_11 (void)	__attribute__((__noinline__));
-static TYPE get_global_12 (void)	__attribute__((__noinline__));
-static TYPE get_global_13 (void)	__attribute__((__noinline__));
-static TYPE get_global_14 (void)	__attribute__((__noinline__));
-static TYPE get_global_15 (void)	__attribute__((__noinline__));
-#endif
-#endif
-#endif
-
-static TYPE
+TYPE
 get_global_n (ssize_t n)
 {
   return vec_extract (g, n);
 }
 
-static TYPE
+TYPE
 get_global_0 (void)
 {
   return vec_extract (g, 0);
 }
 
-static TYPE
+TYPE
 get_global_1 (void)
 {
   return vec_extract (g, 1);
 }
 
 #if ELEMENTS >= 4
-static TYPE
+TYPE
 get_global_2 (void)
 {
   return vec_extract (g, 2);
 }
 
-static TYPE
+TYPE
 get_global_3 (void)
 {
   return vec_extract (g, 3);
 }
 
 #if ELEMENTS >= 8
-static TYPE
+TYPE
 get_global_4 (void)
 {
   return vec_extract (g, 4);
 }
 
-static TYPE
+TYPE
 get_global_5 (void)
 {
   return vec_extract (g, 5);
 }
 
-static TYPE
+TYPE
 get_global_6 (void)
 {
   return vec_extract (g, 6);
 }
 
-static TYPE
+TYPE
 get_global_7 (void)
 {
   return vec_extract (g, 7);
 }
 
 #if ELEMENTS >= 16
-static TYPE
+TYPE
 get_global_8 (void)
 {
   return vec_extract (g, 8);
 }
 
-static TYPE
+TYPE
 get_global_9 (void)
 {
   return vec_extract (g, 9);
 }
 
-static TYPE
+TYPE
 get_global_10 (void)
 {
   return vec_extract (g, 10);
 }
 
-static TYPE
+TYPE
 get_global_11 (void)
 {
   return vec_extract (g, 11);
 }
 
-static TYPE
+TYPE
 get_global_12 (void)
 {
   return vec_extract (g, 12);
 }
 
-static TYPE
+TYPE
 get_global_13 (void)
 {
   return vec_extract (g, 13);
 }
 
-static TYPE
+TYPE
 get_global_14 (void)
 {
   return vec_extract (g, 14);
 }
 
-static TYPE
+TYPE
 get_global_15 (void)
 {
   return vec_extract (g, 15);
@@ -652,48 +733,66 @@ get_global_15 (void)
 #endif
 #endif
 
-static void
+typedef TYPE (*global_func_type) (void);
+
+static global_func_type get_global_const[] = {
+  get_global_0,
+  get_global_1,
+#if ELEMENTS >= 4
+  get_global_2,
+  get_global_3,
+#if ELEMENTS >= 8
+  get_global_4,
+  get_global_5,
+  get_global_6,
+  get_global_7,
+#if ELEMENTS >= 16
+  get_global_8,
+  get_global_9,
+  get_global_10,
+  get_global_11,
+  get_global_12,
+  get_global_13,
+  get_global_14,
+  get_global_15,
+#endif
+#endif
+#endif
+};
+
+extern void do_global (void) __attribute__((__noinline__));
+
+void
 do_global (void)
 {
-  check (get_global_n (0),  get_global_0  ());
-  check (get_global_n (1),  get_global_1  ());
-#if ELEMENTS >= 4
-  check (get_global_n (2),  get_global_2  ());
-  check (get_global_n (3),  get_global_3  ());
-#if ELEMENTS >= 8
-  check (get_global_n (4),  get_global_4  ());
-  check (get_global_n (5),  get_global_5  ());
-  check (get_global_n (6),  get_global_6  ());
-  check (get_global_n (7),  get_global_7  ());
-#if ELEMENTS >= 16
-  check (get_global_n (8),  get_global_8  ());
-  check (get_global_n (9),  get_global_9  ());
-  check (get_global_n (10), get_global_10 ());
-  check (get_global_n (11), get_global_11 ());
-  check (get_global_n (12), get_global_12 ());
-  check (get_global_n (13), get_global_13 ());
-  check (get_global_n (14), get_global_14 ());
-  check (get_global_n (15), get_global_15 ());
-#endif
-#endif
-#endif
+  size_t i;
+
+  for (i = 0; i < sizeof (get_global_const) / sizeof (get_global_const[0]); i++)
+    check (get_global_n (i),  (get_global_const[i]) ());
 }
 
 
 int
 main (void)
 {
+  size_t i;
   vector TYPE x = INITIAL;
-  vector TYPE *p, a, y;
+  vector TYPE *p, *p2, a, y;
+  vector TYPE z[2];
 
   a = deoptimize (x);
   s = deoptimize (x);
   g = deoptimize (x);
   y = deoptimize (x);
+  z[0] = deoptimize (x);
+  z[1] = deoptimize (x);
   p = deoptimize_ptr (&y);
+  p2 = deoptimize_ptr (&z[0]);
 
   do_auto (a);
   do_pointer (p);
+  for (i = 0; i < 2; i++)
+    do_indexed (p2, i);
   do_static ();
   do_global ();
   return 0;
