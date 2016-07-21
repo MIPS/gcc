@@ -7063,19 +7063,38 @@ rs6000_adjust_vec_address (rtx scalar_reg,
       rtx op0 = XEXP (addr, 0);
       rtx op1 = XEXP (addr, 1);
 
-      new_addr = NULL_RTX;
       gcc_assert (REG_P (op0) || SUBREG_P (op0));
       if (CONST_INT_P (op1) && CONST_INT_P (element_offset))
 	{
 	  HOST_WIDE_INT offset = INTVAL (op1) + INTVAL (element_offset);
+	  rtx offset_rtx = GEN_INT (offset);
+
 	  if (IN_RANGE (offset, -32768, 32767)
 	      && (scalar_size < 8 || (offset & 0x3) == 0))
-	    new_addr = gen_rtx_PLUS (Pmode, op0, GEN_INT (offset));
+	    new_addr = gen_rtx_PLUS (Pmode, op0, offset_rtx);
+	  else
+	    {
+	      emit_move_insn (base_tmp, offset_rtx);
+	      new_addr = base_tmp;
+	    }
 	}
-
-      if (!new_addr)
+      else
 	{
-	  emit_move_insn (base_tmp, gen_rtx_PLUS (Pmode, op1, element_offset));
+	  if (REG_P (op1) || SUBREG_P (op1))
+	    emit_move_insn (base_tmp, gen_rtx_PLUS (Pmode, op1,
+						    element_offset));
+
+	  else if (REG_P (element_offset) || SUBREG_P (element_offset))
+	    emit_move_insn (base_tmp, gen_rtx_PLUS (Pmode, element_offset,
+						    op1));
+
+	  else
+	    {
+	      emit_move_insn (base_tmp, op1);
+	      emit_move_insn (base_tmp, gen_rtx_PLUS (Pmode, base_tmp,
+						      element_offset));
+	    }
+
 	  new_addr = gen_rtx_PLUS (Pmode, op0, base_tmp);
 	}
     }
