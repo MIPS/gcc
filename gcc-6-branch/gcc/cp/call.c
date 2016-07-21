@@ -3184,6 +3184,12 @@ add_template_conv_candidate (struct z_candidate **candidates, tree tmpl,
 			     tree return_type, tree access_path,
 			     tree conversion_path, tsubst_flags_t complain)
 {
+  /* Making this work broke PR 71117, so until the committee resolves core
+     issue 2189, let's disable this candidate if there are any viable call
+     operators.  */
+  if (any_strictly_viable (*candidates))
+    return NULL;
+
   return
     add_template_candidate_real (candidates, tmpl, NULL_TREE, NULL_TREE,
 				 NULL_TREE, arglist, return_type, access_path,
@@ -4386,8 +4392,11 @@ build_op_call_1 (tree obj, vec<tree, va_gc> **args, tsubst_flags_t complain)
 	result = build_over_call (cand, LOOKUP_NORMAL, complain);
       else
 	{
-	  obj = convert_like_with_context (cand->convs[0], obj, cand->fn, -1,
-					   complain);
+	  if (DECL_P (cand->fn))
+	    obj = convert_like_with_context (cand->convs[0], obj, cand->fn,
+					     -1, complain);
+	  else
+	    obj = convert_like (cand->convs[0], obj, complain);
 	  obj = convert_from_reference (obj);
 	  result = cp_build_function_call_vec (obj, args, complain);
 	}
@@ -6547,7 +6556,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
       expr = decay_conversion (expr, complain);
       if (expr == error_mark_node)
 	{
-	  if (complain)
+	  if (complain & tf_error)
 	    {
 	      maybe_print_user_conv_context (convs);
 	      if (fn)
