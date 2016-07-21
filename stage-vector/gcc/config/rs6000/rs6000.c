@@ -7062,6 +7062,7 @@ rs6000_adjust_vec_address (rtx scalar_reg,
     {
       rtx op0 = XEXP (addr, 0);
       rtx op1 = XEXP (addr, 1);
+      rtx insn;
 
       gcc_assert (REG_P (op0) || SUBREG_P (op0));
       if (CONST_INT_P (op1) && CONST_INT_P (element_offset))
@@ -7081,18 +7082,23 @@ rs6000_adjust_vec_address (rtx scalar_reg,
       else
 	{
 	  if (REG_P (op1) || SUBREG_P (op1))
-	    emit_move_insn (base_tmp, gen_rtx_PLUS (Pmode, op1,
-						    element_offset));
+	    {
+	      insn = gen_add3_insn (base_tmp, op1, element_offset);
+	      gcc_assert (insn != NULL_RTX);
+	      emit_insn (insn);
+	    }
 
 	  else if (REG_P (element_offset) || SUBREG_P (element_offset))
-	    emit_move_insn (base_tmp, gen_rtx_PLUS (Pmode, element_offset,
-						    op1));
+	    {
+	      insn = gen_add3_insn (base_tmp, element_offset, op1);
+	      gcc_assert (insn != NULL_RTX);
+	      emit_insn (insn);
+	    }
 
 	  else
 	    {
 	      emit_move_insn (base_tmp, op1);
-	      emit_move_insn (base_tmp, gen_rtx_PLUS (Pmode, base_tmp,
-						      element_offset));
+	      emit_insn (gen_add2_insn (base_tmp, element_offset));
 	    }
 
 	  new_addr = gen_rtx_PLUS (Pmode, op0, base_tmp);
