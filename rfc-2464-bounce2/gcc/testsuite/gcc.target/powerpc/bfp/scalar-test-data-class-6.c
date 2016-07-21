@@ -10,5 +10,5 @@ unsigned int test_data_class (double *p)
 {
   double source = *p;
 
-  return __builtin_vec_scalar_test_data_class (source, 3); /* { dg-error "Builtin function __builtin_vsx_scalar_test_data_class requires" } */
+  return __builtin_vec_scalar_test_data_class (source, 3); /* { dg-error "Builtin function __builtin_vsx_scalar_test_data_class_dp requires" } */
 }

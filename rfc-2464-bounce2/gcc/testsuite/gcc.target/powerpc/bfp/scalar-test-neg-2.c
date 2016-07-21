@@ -10,5 +10,5 @@ unsigned int test_neg (float *p)
 {
   float source = *p;
 
-  return __builtin_vec_scalar_test_neg (source); /* { dg-error "Builtin function __builtin_vsx_scalar_test_neg requires" } */
+  return __builtin_vec_scalar_test_neg_sp (source); /* { dg-error "Builtin function __builtin_vsx_scalar_test_neg_sp requires" } */
 }

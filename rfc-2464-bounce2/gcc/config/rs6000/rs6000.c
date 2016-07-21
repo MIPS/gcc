@@ -72,6 +72,10 @@
 #endif
 #include "case-cfn-macros.h"
 #include "ppc-auxv.h"
+#undef KELVIN_DEBUG
+#ifdef KELVIN_DEBUG
+#include "tree-pretty-print.h"
+#endif
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -12724,6 +12728,12 @@ def_builtin (const char *name, tree type, enum rs6000_builtins code)
   tree t;
   unsigned classify = rs6000_builtin_info[(int)code].attr;
   const char *attr_string = "";
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "def_builtin, processing %s, code: %d\n",
+	   name, (int) code);
+  fprintf (stderr, "type is ");
+  debug_generic_expr (type);
+#endif
 
   gcc_assert (name != NULL);
   gcc_assert (IN_RANGE ((int)code, 0, (int)RS6000_BUILTIN_COUNT));
@@ -17290,6 +17300,9 @@ rs6000_common_init_builtins (void)
   if (TARGET_EXTRA_BUILTINS)
     builtin_mask |= RS6000_BTM_COMMON;
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "doing bdesc_3arg\n");
+#endif
   /* Add the ternary operators.  */
   d = bdesc_3arg;
   for (i = 0; i < ARRAY_SIZE (bdesc_3arg); i++, d++)
@@ -17345,6 +17358,9 @@ rs6000_common_init_builtins (void)
       def_builtin (d->name, type, d->code);
     }
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "doing bdesc_2arg\n");
+#endif
   /* Add the binary operators.  */
   d = bdesc_2arg;
   for (i = 0; i < ARRAY_SIZE (bdesc_2arg); i++, d++)
@@ -17423,6 +17439,9 @@ rs6000_common_init_builtins (void)
       def_builtin (d->name, type, d->code);
     }
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "doing bdesc_1arg\n");
+#endif
   /* Add the simple unary operators.  */
   d = bdesc_1arg;
   for (i = 0; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
@@ -17487,6 +17506,9 @@ rs6000_common_init_builtins (void)
       def_builtin (d->name, type, d->code);
     }
 
+#ifdef KELVIN_DEBUG
+  fprintf (stderr, "doing bdesc_0arg\n");
+#endif
   /* Add the simple no-argument operators.  */
   d = bdesc_0arg;
   for (i = 0; i < ARRAY_SIZE (bdesc_0arg); i++, d++)

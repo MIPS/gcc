@@ -13,4 +13,4 @@ unsigned int test_neg (float *p)
   return scalar_test_neg (source);
 }
 
-/* { dg-final { scan-assembler "xststdcdp" } } */
+/* { dg-final { scan-assembler "xststdcsp" } } */

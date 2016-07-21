@@ -1847,6 +1847,7 @@ BU_P9V_VSX_2 (VSTDCSP,	"scalar_test_data_class_sp",	CONST,	xststdcsp)
 BU_P9V_OVERLOAD_1 (VSEEDP,	"scalar_extract_exp")
 BU_P9V_OVERLOAD_1 (VSESDP,	"scalar_extract_sig")
 
+BU_P9V_OVERLOAD_1 (VSTDCN,	"scalar_test_neg")
 BU_P9V_OVERLOAD_1 (VSTDCNDP,	"scalar_test_neg_dp")
 BU_P9V_OVERLOAD_1 (VSTDCNSP,	"scalar_test_neg_sp")
 

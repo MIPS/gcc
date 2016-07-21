@@ -40,6 +40,11 @@
 ;; Iterator for the 2 32-bit vector types
 (define_mode_iterator VSX_W [V4SF V4SI])
 
+;; Iterator for scalar floating point types
+(define_mode_iterator VSX_SF [DF SF])
+
+(define_mode_attr vsx_sf_suffix [(DF "dp") (SF "sp")])
+
 ;; Iterator for the DF types
 (define_mode_iterator VSX_DF [V2DF DF])
 
@@ -2910,11 +2915,11 @@
 ;;  (The lt bit is set if operand 1 is negative.  The eq bit is set 
 ;;   if any of the conditions tested by operand 2 are satisfied.  
 ;;   The gt and unordered bits are cleared to zero.)
-(define_expand "xststdc<vsx_f_suffix>"
+(define_expand "xststdc<vsx_sf_suffix>"
   [(set (match_dup 3)
         (compare:CCFP
-         (unspec:VSX_F
-          [(match_operand:VSX_F 1 "vsx_register_operand" "wa")
+         (unspec:VSX_SF
+          [(match_operand:VSX_SF 1 "vsx_register_operand" "wa")
            (match_operand:SI 2 "u7bit_cint_operand" "n")]
           UNSPEC_VSX_STSTDC)
         (match_dup 4)))
@@ -2930,11 +2935,11 @@
 
 ;; The VSX Scalar Test Data Class Double- and Single-Precision
 ;; instruction may also be used to test for negative value.
-(define_expand "xststdcneg<vsx_f_suffix>"
+(define_expand "xststdcneg<vsx_sf_suffix>"
   [(set (match_dup 2)
         (compare:CCFP
-         (unspec:VSX_F
-          [(match_operand:VSX_F 1 "vsx_register_operand" "wa")
+         (unspec:VSX_SF
+          [(match_operand:VSX_SF 1 "vsx_register_operand" "wa")
            (const_int 0)]
           UNSPEC_VSX_STSTDC)
         (match_dup 3)))
@@ -2948,15 +2953,15 @@
   operands[3] = CONST0_RTX (SImode);
 })
 
-(define_insn "*xststdc<vsx_f_suffix>"
+(define_insn "*xststdc<vsx_sf_suffix>"
   [(set (match_operand:CCFP 0 "" "=y")
         (compare:CCFP
-         (unspec:VSX_F [(match_operand:VSX_F 1 "vsx_register_operand" "wa")
+         (unspec:VSX_SF [(match_operand:VSX_SF 1 "vsx_register_operand" "wa")
                         (match_operand:SI 2 "u7bit_cint_operand" "n")]
           UNSPEC_VSX_STSTDC)
          (match_operand:SI 3 "zero_constant" "j")))]
   "TARGET_P9_VECTOR"
-  "xststdc<vsx_f_suffix> %0,%x1,%2"
+  "xststdc<vsx_sf_suffix> %0,%x1,%2"
   [(set_attr "type" "fp")])
 
 ;; VSX Vector Extract Exponent Double and Single Precision
