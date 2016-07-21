@@ -7075,7 +7075,7 @@ rs6000_adjust_vec_address (rtx scalar_reg,
 	  else
 	    {
 	      emit_move_insn (base_tmp, offset_rtx);
-	      new_addr = base_tmp;
+	      new_addr = gen_rtx_PLUS (Pmode, op0, base_tmp);
 	    }
 	}
       else
