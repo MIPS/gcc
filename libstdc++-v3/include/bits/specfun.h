@@ -42,13 +42,9 @@
 # error include <cmath> and define __STDCPP_WANT_MATH_SPEC_FUNCS__
 #endif
 
-#include <limits>
 #include <bits/stl_algobase.h>
-#if __cplusplus >= 201103L
-#  include <type_traits>
-#else
-#  include <tr1/type_traits>
-#endif
+#include <limits>
+#include <type_traits>
 
 #include <tr1/gamma.tcc>
 #include <tr1/bessel_function.tcc>
