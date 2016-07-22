@@ -1,3 +1,17 @@
+2016-07-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vec-extract.h: Delete from branch, tests are
+	now in the trunk.
+	* gcc.target/powerpc/vec-extract-v2df.c: Likewise.
+	* gcc.target/powerpc/vec-extract-v2di.c: Likewise.
+	* gcc.target/powerpc/vec-extract-v4sf.c: Likewise.
+	* gcc.target/powerpc/vec-extract-v4si.c: Likewise.
+	* gcc.target/powerpc/vec-extract-v4siu.c: Likewise.
+	* gcc.target/powerpc/vec-extract-v8hi.c: Likewise.
+	* gcc.target/powerpc/vec-extract-v8hiu.c: Likewise.
+	* gcc.target/powerpc/vec-extract-v16qi.c: Likewise.
+	* gcc.target/powerpc/vec-extract-v16qiu.c: Likewise.
+
 2016-07-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/vec-extract.h: New tests for all vector
