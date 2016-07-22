@@ -1,3 +1,83 @@
+2016-07-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	<summary of previous changes>
+	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin):
+	Break a string that goes over one line.  Add support for V4SFmode,
+	V4SImode, V8HImode, and V16QImode vec_extract's with constant
+	element numbers.  Add support for V2DImode, V2DFmode, V4SFmode,
+	V4SImode, V8HImode, and V16QImode vec_extract with variable
+	element number if we are on a 64-bit power8 system or newer.
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_extract): Change
+	calling signature to to element number as a RTX instead of an
+	integer constant.  Add 64-bit ISA 2.07 support for V4SImode,
+	V8HImode, and V16QImode vec_extract's with constant element.  Add
+	support for V2DImode, V2DFmode, V4SFmode, V4SImode, V8HImode, and
+	V16QImode vec_extract with variable element number if we are on a
+	64-bit power8 system or newer.
+	(rs6000_adjust_vec_address): New function to take a vector address
+	and a base register temporary register and return the appropriate
+	address to address a scalar element within the vector with an
+	appropriate address mode for a given register type.
+	(rs6000_split_vec_extract_var): New function to take a vec_extract
+	with a variable element number and issue the appropriate
+	instructions to extract the element.
+	(altivec_expand_vec_ext_builtin): The function
+	rs6000_expand_vector_extract now expects the element number to be
+	an RTX instead of an integer constant.
+	(rtx_is_swappable_p): Variable vec_extracts (UNSPEC_VSX_EXTRACT)
+	are not swappable.
+
+	* config/rs6000/vsx.md (UNSPEC_VSX_VSLO): New unspec.
+	(UNSPEC_VSX_EXTRACT): Likewise.
+	(vsx_extract_<mode>, VSX_D iterator): Add support for direct
+	move.  Spell mfvsrld correctly.
+	(vsx_extract_<mode>_load, VSX_D iterator): Add support ISA 3.0
+	memory modes.  Add support for loading the 2nd element from
+	memory.  Use rs6000_adjust_vec_address to adjust the memory
+	address.
+	(vsx_vslo_<mode>, VSX_D iterator): New VSLO insn that is generated
+	for vec_extract with variable element number.
+	(vsx_extract_<mode>_var, VSX_D iterator): Add vec_extract with
+	variable element number insn/spiltter.
+	(vsx_extract_v4sf): Elimate 0 offset alternative, which does not
+	work on little endian systems.  Use 'n' constraint instead of 'i'
+	for constants.  Add support for extracting a SFmode to an Altivec
+	register.
+	(vsx_extract_v4sf_load): New insn to optimize V4SFmode vec_extract
+	with a constant element from memory.
+	(vsx_extract_<mode>, VSX_EXTRACT_I iterator): Turn into a
+	define_expand, to generate either ISA 2.07 or 3.0 code.  Rename
+	exisitng insn to vsx_extract_<mode>_p9.
+	(vsx_extract_<mode>_p9, VSX_EXTRACT_I iterator): Likewise.
+	(vsx_extract_<mode>_p8, VSX_EXTRACT_I iterator): New insn for
+	64-bit ISA 2.07 vec_extract support.
+	(vsx_extract_<mode>_load, VSX_EXTRACT_I iterator): New insn to
+	optimize V4SImode, V8HImode, and V16QI vec_extract with a constant
+	element from memory.
+	(vsx_extract_<mode>_var, VSX_EXTRACT_I iterator): New insn for
+	V4SImode, V8HImode, and V16QImode vec_extract with a variable
+	element number.
+
+	* config/rs600/vector.md (vec_extract<mode>): The function
+	rs6000_expand_vector_extract now expects the element number to be
+	an RTX instead of an integer constant.
+
+	* config/rs6000/rs6000-protos.h (rs6000_expand_vector_extract):
+	The function rs6000_expand_vector_extract now expects the element
+	number to be an RTX instead of an integer constant.
+	(rs6000_split_vec_extract_var): New function declaration.
+	(rs6000_adjust_vec_address): Likewise.
+
+	* config/rs6000/rs6000.h (TARGET_VEXTRACTUB): Remove
+	-mupper-regs-df requirement.
+	(VEC_EXTRACT_OPTIMIZE_P): New macro to say whether we can do
+	optimized vec_extract built-in calls.
+
+	* config/rs6000/altivec.md (reduc_plus_scal_<mode>): The function
+	rs6000_expand_vector_extract now expects the element number to be
+	an RTX instead of an integer constant.
+
 2016-07-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_adjust_vec_address): Fix issues
