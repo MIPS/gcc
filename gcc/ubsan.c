@@ -1360,7 +1360,7 @@ instrument_bool_enum_load (gimple_stmt_iterator *gsi)
   machine_mode mode;
   int volatilep = 0, reversep, unsignedp = 0;
   tree base = get_inner_reference (rhs, &bitsize, &bitpos, &offset, &mode,
-				   &unsignedp, &reversep, &volatilep, false);
+				   &unsignedp, &reversep, &volatilep);
   tree utype = build_nonstandard_integer_type (modebitsize, 1);
 
   if ((TREE_CODE (base) == VAR_DECL && DECL_HARD_REGISTER (base))
@@ -1781,7 +1781,7 @@ instrument_object_size (gimple_stmt_iterator *gsi, bool is_lhs)
   machine_mode mode;
   int volatilep = 0, reversep, unsignedp = 0;
   tree inner = get_inner_reference (t, &bitsize, &bitpos, &offset, &mode,
-				    &unsignedp, &reversep, &volatilep, false);
+				    &unsignedp, &reversep, &volatilep);
 
   if (bitpos % BITS_PER_UNIT != 0
       || bitsize != size_in_bytes * BITS_PER_UNIT)
@@ -1827,7 +1827,7 @@ instrument_object_size (gimple_stmt_iterator *gsi, bool is_lhs)
     base_addr = build1 (ADDR_EXPR,
 			build_pointer_type (TREE_TYPE (base)), base);
   unsigned HOST_WIDE_INT size = compute_builtin_object_size (base_addr, 0);
-  if (size != (unsigned HOST_WIDE_INT) -1)
+  if (size != HOST_WIDE_INT_M1U)
     sizet = build_int_cst (sizetype, size);
   else if (optimize)
     {

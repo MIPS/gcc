@@ -1105,7 +1105,7 @@ cxx_eval_builtin_function_call (const constexpr_ctx *ctx, tree t, tree fun,
   for (i = 0; i < nargs; ++i)
     {
       args[i] = cxx_eval_constant_expression (&new_ctx, CALL_EXPR_ARG (t, i),
-					      lval, &dummy1, &dummy2);
+					      false, &dummy1, &dummy2);
       if (bi_const_p)
 	/* For __built_in_constant_p, fold all expressions with constant values
 	   even if they aren't C++ constant-expressions.  */
@@ -1114,13 +1114,31 @@ cxx_eval_builtin_function_call (const constexpr_ctx *ctx, tree t, tree fun,
 
   bool save_ffbcp = force_folding_builtin_constant_p;
   force_folding_builtin_constant_p = true;
-  new_call = fold_build_call_array_loc (EXPR_LOCATION (t), TREE_TYPE (t),
-					CALL_EXPR_FN (t), nargs, args);
-  /* Fold away the NOP_EXPR from fold_builtin_n.  */
-  new_call = fold (new_call);
+  new_call = fold_builtin_call_array (EXPR_LOCATION (t), TREE_TYPE (t),
+				      CALL_EXPR_FN (t), nargs, args);
   force_folding_builtin_constant_p = save_ffbcp;
-  VERIFY_CONSTANT (new_call);
-  return new_call;
+  if (new_call == NULL)
+    {
+      if (!*non_constant_p && !ctx->quiet)
+	{
+	  new_call = build_call_array_loc (EXPR_LOCATION (t), TREE_TYPE (t),
+					   CALL_EXPR_FN (t), nargs, args);
+	  error ("%q+E is not a constant expression", new_call);
+	}
+      *non_constant_p = true;
+      return t;
+    }
+
+  if (!potential_constant_expression (new_call))
+    {
+      if (!*non_constant_p && !ctx->quiet)
+	error ("%q+E is not a constant expression", new_call);
+      *non_constant_p = true;
+      return t;
+    }
+
+  return cxx_eval_constant_expression (&new_ctx, new_call, lval,
+				       non_constant_p, overflow_p);
 }
 
 /* TEMP is the constant value of a temporary object of type TYPE.  Adjust
@@ -1504,9 +1522,19 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
     }
   else
     {
-      if (!result || result == error_mark_node)
+      if (result && result != error_mark_node)
+	/* OK */;
+      else if (!DECL_SAVED_TREE (fun))
 	{
-	  gcc_assert (DECL_SAVED_TREE (fun));
+	  /* When at_eof >= 2, cgraph has started throwing away
+	     DECL_SAVED_TREE, so fail quietly.  FIXME we get here because of
+	     late code generation for VEC_INIT_EXPR, which needs to be
+	     completely reconsidered.  */
+	  gcc_assert (at_eof >= 2 && ctx->quiet);
+	  *non_constant_p = true;
+	}
+      else
+	{
 	  tree body, parms, res;
 
 	  /* Reuse or create a new unshared copy of this function's body.  */
@@ -1810,6 +1838,10 @@ cxx_eval_binary_expression (const constexpr_ctx *ctx, tree t,
 	       && (null_member_pointer_value_p (lhs)
 		   || null_member_pointer_value_p (rhs)))
 	r = constant_boolean_node (!is_code_eq, type);
+      else if (TREE_CODE (lhs) == PTRMEM_CST)
+	lhs = cplus_expand_constant (lhs);
+      else if (TREE_CODE (rhs) == PTRMEM_CST)
+	rhs = cplus_expand_constant (rhs);
     }
 
   if (r == NULL_TREE)
@@ -2620,7 +2652,7 @@ cxx_eval_vec_init_1 (const constexpr_ctx *ctx, tree atype, tree init,
 		      (atype, TREE_TYPE (init)));
 	  eltinit = cp_build_array_ref (input_location, init, idx,
 					tf_warning_or_error);
-	  if (!real_lvalue_p (init))
+	  if (!lvalue_p (init))
 	    eltinit = move (eltinit);
 	  eltinit = force_rvalue (eltinit, tf_warning_or_error);
 	  eltinit = (cxx_eval_constant_expression
@@ -3790,6 +3822,19 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 
     case REALPART_EXPR:
     case IMAGPART_EXPR:
+      if (lval)
+	{
+	  r = cxx_eval_constant_expression (ctx, TREE_OPERAND (t, 0), lval,
+					    non_constant_p, overflow_p);
+	  if (r == error_mark_node)
+	    ;
+	  else if (r == TREE_OPERAND (t, 0))
+	    r = t;
+	  else
+	    r = fold_build1 (TREE_CODE (t), TREE_TYPE (t), r);
+	  break;
+	}
+      /* FALLTHRU */
     case CONJ_EXPR:
     case FIX_TRUNC_EXPR:
     case FLOAT_EXPR:
@@ -5244,10 +5289,12 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
     case GOTO_EXPR:
       {
 	tree *target = &TREE_OPERAND (t, 0);
-	/* Gotos representing break and continue are OK; we should have
-	   rejected other gotos in parsing.  */
-	gcc_assert (breaks (target) || continues (target));
-	return true;
+	/* Gotos representing break and continue are OK.  */
+	if (breaks (target) || continues (target))
+	  return true;
+	if (flags & tf_error)
+	  error ("%<goto%> is not a constant-expression");
+	return false;
       }
 
     default:
@@ -5255,7 +5302,7 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
 	return false;
 
       sorry ("unexpected AST of kind %s", get_tree_code_name (TREE_CODE (t)));
-      gcc_unreachable();
+      gcc_unreachable ();
       return false;
     }
 #undef RECUR

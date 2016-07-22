@@ -1422,7 +1422,7 @@ wide_int_to_tree (tree type, const wide_int_ref &pcst)
     {
       if (pcst.elt (l - 1) == 0)
 	gcc_checking_assert (pcst.elt (l - 2) < 0);
-      if (pcst.elt (l - 1) == (HOST_WIDE_INT) -1)
+      if (pcst.elt (l - 1) == HOST_WIDE_INT_M1)
 	gcc_checking_assert (pcst.elt (l - 2) >= 0);
     }
 
@@ -5009,7 +5009,7 @@ attribute_value_equal (const_tree attr1, const_tree attr2)
       && TREE_CODE (TREE_VALUE (attr2)) == TREE_LIST)
     {
       /* Handle attribute format.  */
-      if (is_attribute_p ("format", TREE_PURPOSE (attr1)))
+      if (is_attribute_p ("format", get_attribute_name (attr1)))
 	{
 	  attr1 = TREE_VALUE (attr1);
 	  attr2 = TREE_VALUE (attr2);
@@ -5500,17 +5500,19 @@ free_lang_data_in_decl (tree decl)
 
 struct free_lang_data_d
 {
+  free_lang_data_d () : decls (100), types (100) {}
+
   /* Worklist to avoid excessive recursion.  */
-  vec<tree> worklist;
+  auto_vec<tree> worklist;
 
   /* Set of traversed objects.  Used to avoid duplicate visits.  */
-  hash_set<tree> *pset;
+  hash_set<tree> pset;
 
   /* Array of symbols to process with free_lang_data_in_decl.  */
-  vec<tree> decls;
+  auto_vec<tree> decls;
 
   /* Array of types to process with free_lang_data_in_type.  */
-  vec<tree> types;
+  auto_vec<tree> types;
 };
 
 
@@ -5569,7 +5571,7 @@ add_tree_to_fld_list (tree t, struct free_lang_data_d *fld)
 static inline void
 fld_worklist_push (tree t, struct free_lang_data_d *fld)
 {
-  if (t && !is_lang_specific (t) && !fld->pset->contains (t))
+  if (t && !is_lang_specific (t) && !fld->pset.contains (t))
     fld->worklist.safe_push ((t));
 }
 
@@ -5738,8 +5740,8 @@ find_decls_types (tree t, struct free_lang_data_d *fld)
 {
   while (1)
     {
-      if (!fld->pset->contains (t))
-	walk_tree (&t, find_decls_types_r, fld, fld->pset);
+      if (!fld->pset.contains (t))
+	walk_tree (&t, find_decls_types_r, fld, &fld->pset);
       if (fld->worklist.is_empty ())
 	break;
       t = fld->worklist.pop ();
@@ -5793,7 +5795,7 @@ find_decls_types_in_eh_region (eh_region r, struct free_lang_data_d *fld)
 	for (c = r->u.eh_try.first_catch; c ; c = c->next_catch)
 	  {
 	    c->type_list = get_eh_types_for_runtime (c->type_list);
-	    walk_tree (&c->type_list, find_decls_types_r, fld, fld->pset);
+	    walk_tree (&c->type_list, find_decls_types_r, fld, &fld->pset);
 	  }
       }
       break;
@@ -5801,12 +5803,12 @@ find_decls_types_in_eh_region (eh_region r, struct free_lang_data_d *fld)
     case ERT_ALLOWED_EXCEPTIONS:
       r->u.allowed.type_list
 	= get_eh_types_for_runtime (r->u.allowed.type_list);
-      walk_tree (&r->u.allowed.type_list, find_decls_types_r, fld, fld->pset);
+      walk_tree (&r->u.allowed.type_list, find_decls_types_r, fld, &fld->pset);
       break;
 
     case ERT_MUST_NOT_THROW:
       walk_tree (&r->u.must_not_throw.failure_decl,
-		 find_decls_types_r, fld, fld->pset);
+		 find_decls_types_r, fld, &fld->pset);
       break;
     }
 }
@@ -5948,12 +5950,6 @@ free_lang_data_in_cgraph (void)
   unsigned i;
   alias_pair *p;
 
-  /* Initialize sets and arrays to store referenced decls and types.  */
-  fld.pset = new hash_set<tree>;
-  fld.worklist.create (0);
-  fld.decls.create (100);
-  fld.types.create (100);
-
   /* Find decls and types in the body of every function in the callgraph.  */
   FOR_EACH_FUNCTION (n)
     find_decls_types_in_node (n, &fld);
@@ -5983,11 +5979,6 @@ free_lang_data_in_cgraph (void)
       FOR_EACH_VEC_ELT (fld.types, i, t)
 	verify_type (t);
     }
-
-  delete fld.pset;
-  fld.worklist.release ();
-  fld.decls.release ();
-  fld.types.release ();
 }
 
 
@@ -11347,9 +11338,9 @@ int_cst_value (const_tree x)
     {
       bool negative = ((val >> (bits - 1)) & 1) != 0;
       if (negative)
-	val |= (~(unsigned HOST_WIDE_INT) 0) << (bits - 1) << 1;
+	val |= HOST_WIDE_INT_M1U << (bits - 1) << 1;
       else
-	val &= ~((~(unsigned HOST_WIDE_INT) 0) << (bits - 1) << 1);
+	val &= ~(HOST_WIDE_INT_M1U << (bits - 1) << 1);
     }
 
   return val;
@@ -13204,7 +13195,6 @@ verify_type_variant (const_tree t, tree tv)
     verify_variant_match (TYPE_REF_CAN_ALIAS_ALL);
   /* FIXME: TYPE_SIZES_GIMPLIFIED may differs for Ada build.  */
   verify_variant_match (TYPE_UNSIGNED);
-  verify_variant_match (TYPE_ALIGN_OK);
   verify_variant_match (TYPE_PACKED);
   if (TREE_CODE (t) == REFERENCE_TYPE)
     verify_variant_match (TYPE_REF_IS_RVALUE);

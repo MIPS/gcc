@@ -7919,14 +7919,19 @@ gimple_block_ends_with_condjump_p (const_basic_block bb)
 }
 
 
-/* Return true if we need to add fake edge to exit at statement T.
-   Helper function for gimple_flow_call_edges_add.  */
+/* Return true if statement T may terminate execution of BB in ways not
+   explicitly represtented in the CFG.  */
 
-static bool
-need_fake_edge_p (gimple *t)
+bool
+stmt_can_terminate_bb_p (gimple *t)
 {
   tree fndecl = NULL_TREE;
   int call_flags = 0;
+
+  /* Eh exception not handled internally terminates execution of the whole
+     function.  */
+  if (stmt_can_throw_external (t))
+    return true;
 
   /* NORETURN and LONGJMP calls already have an edge to exit.
      CONST and PURE calls do not need one.
@@ -7960,6 +7965,13 @@ need_fake_edge_p (gimple *t)
       edge e;
       basic_block bb;
 
+      if (call_flags & (ECF_PURE | ECF_CONST)
+	  && !(call_flags & ECF_LOOPING_CONST_OR_PURE))
+	return false;
+
+      /* Function call may do longjmp, terminate program or do other things.
+	 Special case noreturn that have non-abnormal edges out as in this case
+	 the fact is sufficiently represented by lack of edges out of T.  */
       if (!(call_flags & ECF_NORETURN))
 	return true;
 
@@ -8024,7 +8036,7 @@ gimple_flow_call_edges_add (sbitmap blocks)
       if (!gsi_end_p (gsi))
 	t = gsi_stmt (gsi);
 
-      if (t && need_fake_edge_p (t))
+      if (t && stmt_can_terminate_bb_p (t))
 	{
 	  edge e;
 
@@ -8059,7 +8071,7 @@ gimple_flow_call_edges_add (sbitmap blocks)
 	  do
 	    {
 	      stmt = gsi_stmt (gsi);
-	      if (need_fake_edge_p (stmt))
+	      if (stmt_can_terminate_bb_p (stmt))
 		{
 		  edge e;
 
@@ -9276,6 +9288,7 @@ test_linear_chain ()
   ASSERT_EQ (1, dom_by_b.length ());
   ASSERT_EQ (bb_c, dom_by_b[0]);
   free_dominance_info (CDI_DOMINATORS);
+  dom_by_b.release ();
 
   /* Similarly for post-dominance: each BB in our chain is post-dominated
      by the one after it.  */
@@ -9286,6 +9299,7 @@ test_linear_chain ()
   ASSERT_EQ (1, postdom_by_b.length ());
   ASSERT_EQ (bb_a, postdom_by_b[0]);
   free_dominance_info (CDI_POST_DOMINATORS);
+  postdom_by_b.release ();
 
   pop_cfun ();
 }
@@ -9346,8 +9360,10 @@ test_diamond ()
   ASSERT_EQ (bb_a, get_immediate_dominator (CDI_DOMINATORS, bb_d));
   vec<basic_block> dom_by_a = get_dominated_by (CDI_DOMINATORS, bb_a);
   ASSERT_EQ (3, dom_by_a.length ()); /* B, C, D, in some order.  */
+  dom_by_a.release ();
   vec<basic_block> dom_by_b = get_dominated_by (CDI_DOMINATORS, bb_b);
   ASSERT_EQ (0, dom_by_b.length ());
+  dom_by_b.release ();
   free_dominance_info (CDI_DOMINATORS);
 
   /* Similarly for post-dominance.  */
@@ -9357,8 +9373,10 @@ test_diamond ()
   ASSERT_EQ (bb_d, get_immediate_dominator (CDI_POST_DOMINATORS, bb_c));
   vec<basic_block> postdom_by_d = get_dominated_by (CDI_POST_DOMINATORS, bb_d);
   ASSERT_EQ (3, postdom_by_d.length ()); /* A, B, C in some order.  */
+  postdom_by_d.release ();
   vec<basic_block> postdom_by_b = get_dominated_by (CDI_POST_DOMINATORS, bb_b);
   ASSERT_EQ (0, postdom_by_b.length ());
+  postdom_by_b.release ();
   free_dominance_info (CDI_POST_DOMINATORS);
 
   pop_cfun ();

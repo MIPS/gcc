@@ -3814,6 +3814,9 @@ timode_scalar_chain::fix_debug_reg_uses (rtx reg)
 	    continue;
 	  gcc_assert (GET_CODE (val) == VAR_LOCATION);
 	  rtx loc = PAT_VAR_LOCATION_LOC (val);
+	  /* It may have been converted to TImode already.  */
+	  if (GET_MODE (loc) == TImode)
+	    continue;
 	  gcc_assert (REG_P (loc)
 		      && GET_MODE (loc) == V1TImode);
 	  /* Convert V1TImode register, which has been updated by a SET
@@ -15120,6 +15123,20 @@ darwin_local_data_pic (rtx disp)
 	  && XINT (disp, 1) == UNSPEC_MACHOPIC_OFFSET);
 }
 
+/* True if operand X should be loaded from GOT.  */
+
+bool
+ix86_force_load_from_GOT_p (rtx x)
+{
+  return ((TARGET_64BIT || HAVE_AS_IX86_GOT32X)
+	  && !TARGET_PECOFF && !TARGET_MACHO
+	  && !flag_plt && !flag_pic
+	  && ix86_cmodel != CM_LARGE
+	  && GET_CODE (x) == SYMBOL_REF
+	  && SYMBOL_REF_FUNCTION_P (x)
+	  && !SYMBOL_REF_LOCAL_P (x));
+}
+
 /* Determine if a given RTX is a valid constant.  We already know this
    satisfies CONSTANT_P.  */
 
@@ -15188,6 +15205,12 @@ ix86_legitimate_constant_p (machine_mode mode, rtx x)
       if (MACHO_DYNAMIC_NO_PIC_P)
 	return machopic_symbol_defined_p (x);
 #endif
+
+      /* External function address should be loaded
+	 via the GOT slot to avoid PLT.  */
+      if (ix86_force_load_from_GOT_p (x))
+	return false;
+
       break;
 
     CASE_CONST_SCALAR_INT:
@@ -15583,10 +15606,16 @@ ix86_legitimate_address_p (machine_mode, rtx addr, bool strict)
 	  && XINT (XEXP (disp, 0), 1) != UNSPEC_MACHOPIC_OFFSET)
 	switch (XINT (XEXP (disp, 0), 1))
 	  {
-	  /* Refuse GOTOFF and GOT in 64bit mode since it is always 64bit when
-	     used.  While ABI specify also 32bit relocations, we don't produce
-	     them at all and use IP relative instead.  */
+	  /* Refuse GOTOFF and GOT in 64bit mode since it is always 64bit
+	     when used.  While ABI specify also 32bit relocations, we
+	     don't produce them at all and use IP relative instead.
+	     Allow GOT in 32bit mode for both PIC and non-PIC if symbol
+	     should be loaded via GOT.  */
 	  case UNSPEC_GOT:
+	    if (!TARGET_64BIT
+		&& ix86_force_load_from_GOT_p (XVECEXP (XEXP (disp, 0), 0, 0)))
+	      goto is_legitimate_pic;
+	    /* FALLTHRU */
 	  case UNSPEC_GOTOFF:
 	    gcc_assert (flag_pic);
 	    if (!TARGET_64BIT)
@@ -15596,6 +15625,9 @@ ix86_legitimate_address_p (machine_mode, rtx addr, bool strict)
 	    return false;
 
 	  case UNSPEC_GOTPCREL:
+	    if (ix86_force_load_from_GOT_p (XVECEXP (XEXP (disp, 0), 0, 0)))
+	      goto is_legitimate_pic;
+	    /* FALLTHRU */
 	  case UNSPEC_PCREL:
 	    gcc_assert (flag_pic);
 	    goto is_legitimate_pic;
@@ -17246,9 +17278,14 @@ print_reg (rtx x, int code, FILE *file)
 
   gcc_assert (regno != ARG_POINTER_REGNUM
 	      && regno != FRAME_POINTER_REGNUM
-	      && regno != FLAGS_REG
 	      && regno != FPSR_REG
 	      && regno != FPCR_REG);
+
+  if (regno == FLAGS_REG)
+    {
+      output_operand_lossage ("invalid use of asm flag output");
+      return;
+    }
 
   duplicated = code == 'd' && TARGET_AVX;
 
@@ -18164,6 +18201,13 @@ ix86_print_operand_address_as (FILE *file, rtx addr,
 	    fputs ("ds:", file);
 	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (disp));
 	}
+      /* Load the external function address via the GOT slot to avoid PLT.  */
+      else if (GET_CODE (disp) == CONST
+	       && GET_CODE (XEXP (disp, 0)) == UNSPEC
+	       && (XINT (XEXP (disp, 0), 1) == UNSPEC_GOTPCREL
+		   || XINT (XEXP (disp, 0), 1) == UNSPEC_GOT)
+	       && ix86_force_load_from_GOT_p (XVECEXP (XEXP (disp, 0), 0, 0)))
+	output_pic_addr_const (file, disp, 0);
       else if (flag_pic)
 	output_pic_addr_const (file, disp, 0);
       else
@@ -19388,50 +19432,73 @@ void
 ix86_expand_move (machine_mode mode, rtx operands[])
 {
   rtx op0, op1;
+  rtx tmp, addend = NULL_RTX;
   enum tls_model model;
 
   op0 = operands[0];
   op1 = operands[1];
 
-  if (GET_CODE (op1) == SYMBOL_REF)
+  switch (GET_CODE (op1))
     {
-      rtx tmp;
+    case CONST:
+      tmp = XEXP (op1, 0);
 
+      if (GET_CODE (tmp) != PLUS
+	  || GET_CODE (XEXP (tmp, 0)) != SYMBOL_REF)
+	break;
+
+      op1 = XEXP (tmp, 0);
+      addend = XEXP (tmp, 1);
+      /* FALLTHRU */
+
+    case SYMBOL_REF:
       model = SYMBOL_REF_TLS_MODEL (op1);
-      if (model)
-	{
-	  op1 = legitimize_tls_address (op1, model, true);
-	  op1 = force_operand (op1, op0);
-	  if (op1 == op0)
-	    return;
-	  op1 = convert_to_mode (mode, op1, 1);
-	}
-      else if ((tmp = legitimize_pe_coff_symbol (op1, false)) != NULL_RTX)
-	op1 = tmp;
-    }
-  else if (GET_CODE (op1) == CONST
-	   && GET_CODE (XEXP (op1, 0)) == PLUS
-	   && GET_CODE (XEXP (XEXP (op1, 0), 0)) == SYMBOL_REF)
-    {
-      rtx addend = XEXP (XEXP (op1, 0), 1);
-      rtx symbol = XEXP (XEXP (op1, 0), 0);
-      rtx tmp;
 
-      model = SYMBOL_REF_TLS_MODEL (symbol);
       if (model)
-	tmp = legitimize_tls_address (symbol, model, true);
+	op1 = legitimize_tls_address (op1, model, true);
+      else if (ix86_force_load_from_GOT_p (op1))
+	{
+	  /* Load the external function address via GOT slot to avoid PLT.  */
+	  op1 = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op1),
+				(TARGET_64BIT
+				 ? UNSPEC_GOTPCREL
+				 : UNSPEC_GOT));
+	  op1 = gen_rtx_CONST (Pmode, op1);
+	  op1 = gen_const_mem (Pmode, op1);
+	  set_mem_alias_set (op1, ix86_GOT_alias_set ());
+	}
       else
-        tmp = legitimize_pe_coff_symbol (symbol, true);
-
-      if (tmp)
 	{
-	  tmp = force_operand (tmp, NULL);
-	  tmp = expand_simple_binop (Pmode, PLUS, tmp, addend,
-				     op0, 1, OPTAB_DIRECT);
-	  if (tmp == op0)
-	    return;
-	  op1 = convert_to_mode (mode, tmp, 1);
+	  tmp = legitimize_pe_coff_symbol (op1, addend != NULL_RTX);
+	  if (tmp)
+	    {
+	      op1 = tmp;
+	      if (!addend)
+		break;
+	    }
+	  else
+	    {
+	      op1 = operands[1];
+	      break;
+	    }
 	}
+
+      if (addend)
+	{
+	  op1 = force_operand (op1, NULL_RTX);
+	  op1 = expand_simple_binop (Pmode, PLUS, op1, addend,
+				     op0, 1, OPTAB_DIRECT);
+	}
+      else
+	op1 = force_operand (op1, op0);
+
+      if (op1 == op0)
+	return;
+
+      op1 = convert_to_mode (mode, op1, 1);
+
+    default:
+      break;
     }
 
   if ((flag_pic || MACHOPIC_INDIRECT)
@@ -19546,12 +19613,29 @@ ix86_expand_vector_move (machine_mode mode, rtx operands[])
      of the register, once we have that information we may be able
      to handle some of them more efficiently.  */
   if (can_create_pseudo_p ()
-      && register_operand (op0, mode)
       && (CONSTANT_P (op1)
 	  || (SUBREG_P (op1)
 	      && CONSTANT_P (SUBREG_REG (op1))))
-      && !standard_sse_constant_p (op1, mode))
-    op1 = validize_mem (force_const_mem (mode, op1));
+      && ((register_operand (op0, mode)
+	   && !standard_sse_constant_p (op1, mode))
+	  /* ix86_expand_vector_move_misalign() does not like constants.  */
+	  || (SSE_REG_MODE_P (mode)
+	      && MEM_P (op0)
+	      && MEM_ALIGN (op0) < align)))
+    {
+      if (SUBREG_P (op1))
+	{
+	  machine_mode imode = GET_MODE (SUBREG_REG (op1));
+	  rtx r = force_const_mem (imode, SUBREG_REG (op1));
+	  if (r)
+	    r = validize_mem (r);
+	  else
+	    r = force_reg (imode, SUBREG_REG (op1));
+	  op1 = simplify_gen_subreg (mode, r, imode, SUBREG_BYTE (op1));
+	}
+      else
+	op1 = validize_mem (force_const_mem (mode, op1));
+    }
 
   /* We need to check memory alignment for SSE mode since attribute
      can make operands unaligned.  */
@@ -19562,13 +19646,8 @@ ix86_expand_vector_move (machine_mode mode, rtx operands[])
     {
       rtx tmp[2];
 
-      /* ix86_expand_vector_move_misalign() does not like constants ... */
-      if (CONSTANT_P (op1)
-	  || (SUBREG_P (op1)
-	      && CONSTANT_P (SUBREG_REG (op1))))
-	op1 = validize_mem (force_const_mem (mode, op1));
-
-      /* ... nor both arguments in memory.  */
+      /* ix86_expand_vector_move_misalign() does not like both
+	 arguments in memory.  */
       if (!register_operand (op0, mode)
 	  && !register_operand (op1, mode))
 	op1 = force_reg (mode, op1);
@@ -24231,6 +24310,33 @@ ix86_expand_vec_perm (rtx operands[])
   e = GET_MODE_UNIT_SIZE (mode);
   gcc_assert (w <= 64);
 
+  if (TARGET_AVX512F && one_operand_shuffle)
+    {
+      rtx (*gen) (rtx, rtx, rtx) = NULL;
+      switch (mode)
+	{
+	case V16SImode:
+	  gen =gen_avx512f_permvarv16si;
+	  break;
+	case V16SFmode:
+	  gen = gen_avx512f_permvarv16sf;
+	  break;
+	case V8DImode:
+	  gen = gen_avx512f_permvarv8di;
+	  break;
+	case V8DFmode:
+	  gen = gen_avx512f_permvarv8df;
+	  break;
+	default:
+	  break;
+	}
+      if (gen != NULL)
+	{
+	  emit_insn (gen (target, op0, mask));
+	  return;
+	}
+    }
+
   if (ix86_expand_vec_perm_vpermi2 (target, op0, mask, op1, NULL))
     return;
 
@@ -27962,18 +28068,19 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
   return call;
 }
 
-/* Return true if the function being called was marked with attribute "noplt"
-   or using -fno-plt and we are compiling for non-PIC and x86_64.  We need to
-   handle the non-PIC case in the backend because there is no easy interface
-   for the front-end to force non-PLT calls to use the GOT.  This is currently
-   used only with 64-bit ELF targets to call the function marked "noplt"
-   indirectly.  */
+/* Return true if the function being called was marked with attribute
+   "noplt" or using -fno-plt and we are compiling for non-PIC.  We need
+   to handle the non-PIC case in the backend because there is no easy
+   interface for the front-end to force non-PLT calls to use the GOT.
+   This is currently used only with 64-bit or 32-bit GOT32X ELF targets
+   to call the function marked "noplt" indirectly.  */
 
 static bool
 ix86_nopic_noplt_attribute_p (rtx call_op)
 {
   if (flag_pic || ix86_cmodel == CM_LARGE
-      || !TARGET_64BIT || TARGET_MACHO || TARGET_SEH || TARGET_PECOFF
+      || !(TARGET_64BIT || HAVE_AS_IX86_GOT32X)
+      || TARGET_MACHO || TARGET_SEH || TARGET_PECOFF
       || SYMBOL_REF_LOCAL_P (call_op))
     return false;
 
@@ -28001,7 +28108,12 @@ ix86_output_call_insn (rtx_insn *insn, rtx call_op)
       if (direct_p)
 	{
 	  if (ix86_nopic_noplt_attribute_p (call_op))
-	    xasm = "%!jmp\t{*%p0@GOTPCREL(%%rip)|[QWORD PTR %p0@GOTPCREL[rip]]}";
+	    {
+	      if (TARGET_64BIT)
+		xasm = "%!jmp\t{*%p0@GOTPCREL(%%rip)|[QWORD PTR %p0@GOTPCREL[rip]]}";
+	      else
+		xasm = "%!jmp\t{*%p0@GOT|[DWORD PTR %p0@GOT]}";
+	    }
 	  else
 	    xasm = "%!jmp\t%P0";
 	}
@@ -28049,7 +28161,12 @@ ix86_output_call_insn (rtx_insn *insn, rtx call_op)
   if (direct_p)
     {
       if (ix86_nopic_noplt_attribute_p (call_op))
-	xasm = "%!call\t{*%p0@GOTPCREL(%%rip)|[QWORD PTR %p0@GOTPCREL[rip]]}";
+	{
+	  if (TARGET_64BIT)
+	    xasm = "%!call\t{*%p0@GOTPCREL(%%rip)|[QWORD PTR %p0@GOTPCREL[rip]]}";
+	  else
+	    xasm = "%!call\t{*%p0@GOT|[DWORD PTR %p0@GOT]}";
+	}
       else
 	xasm = "%!call\t%P0";
     }
@@ -49653,8 +49770,6 @@ static int
 ix86_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
                                  tree vectype, int)
 {
-  unsigned elements;
-
   switch (type_of_cost)
     {
       case scalar_stmt:
@@ -49696,8 +49811,7 @@ ix86_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
         return ix86_cost->vec_stmt_cost;
 
       case vec_construct:
-	elements = TYPE_VECTOR_SUBPARTS (vectype);
-	return ix86_cost->vec_stmt_cost * (elements / 2 + 1);
+	return ix86_cost->vec_stmt_cost * (TYPE_VECTOR_SUBPARTS (vectype) - 1);
 
       default:
         gcc_unreachable ();
@@ -50357,6 +50471,52 @@ canonicalize_vector_int_perm (const struct expand_vec_perm_d *d,
   return true;
 }
 
+/* Try to expand one-operand permutation with constant mask.  */
+
+static bool
+ix86_expand_vec_one_operand_perm_avx512 (struct expand_vec_perm_d *d)
+{
+  machine_mode mode = GET_MODE (d->op0);
+  machine_mode maskmode = mode;
+  rtx (*gen) (rtx, rtx, rtx) = NULL;
+  rtx target, op0, mask;
+  rtx vec[64];
+
+  if (!rtx_equal_p (d->op0, d->op1))
+    return false;
+
+  if (!TARGET_AVX512F)
+    return false;
+
+  switch (mode)
+    {
+    case V16SImode:
+      gen = gen_avx512f_permvarv16si;
+      break;
+    case V16SFmode:
+      gen = gen_avx512f_permvarv16sf;
+      maskmode = V16SImode;
+      break;
+    case V8DImode:
+      gen = gen_avx512f_permvarv8di;
+      break;
+    case V8DFmode:
+      gen = gen_avx512f_permvarv8df;
+      maskmode = V8DImode;
+      break;
+    default:
+      return false;
+    }
+
+  target = d->target;
+  op0 = d->op0;
+  for (int i = 0; i < d->nelt; ++i)
+    vec[i] = GEN_INT (d->perm[i]);
+  mask = gen_rtx_CONST_VECTOR (maskmode, gen_rtvec_v (d->nelt, vec));
+  emit_insn (gen (target, op0, force_reg (maskmode, mask)));
+  return true;
+}
+
 /* A subroutine of ix86_expand_vec_perm_builtin_1.  Try to instantiate D
    in a single instruction.  */
 
@@ -50522,6 +50682,10 @@ expand_vec_perm_1 (struct expand_vec_perm_d *d)
 
   /* Try the AVX2 vpalignr instruction.  */
   if (expand_vec_perm_palignr (d, true))
+    return true;
+
+  /* Try the AVX512F vperm{s,d} instructions.  */
+  if (ix86_expand_vec_one_operand_perm_avx512 (d))
     return true;
 
   /* Try the AVX512F vpermi2 instructions.  */
@@ -54508,10 +54672,13 @@ ix86_get_mask_mode (unsigned nunits, unsigned vector_size)
 /* Return class of registers which could be used for pseudo of MODE
    and of class RCLASS for spilling instead of memory.  Return NO_REGS
    if it is not possible or non-profitable.  */
+
+/* Disabled due to PRs 70902, 71453, 71555, 71596 and 71657.  */
+
 static reg_class_t
 ix86_spill_class (reg_class_t rclass, machine_mode mode)
 {
-  if (TARGET_GENERAL_REGS_SSE_SPILL
+  if (0 && TARGET_GENERAL_REGS_SSE_SPILL
       && TARGET_SSE2
       && TARGET_INTER_UNIT_MOVES_TO_VEC
       && TARGET_INTER_UNIT_MOVES_FROM_VEC
@@ -55625,6 +55792,7 @@ ix86_addr_space_zero_address_valid (addr_space_t as)
 #undef TARGET_LOOP_UNROLL_ADJUST
 #define TARGET_LOOP_UNROLL_ADJUST ix86_loop_unroll_adjust
 
+/* Disabled due to PRs 70902, 71453, 71555, 71596 and 71657.  */
 #undef TARGET_SPILL_CLASS
 #define TARGET_SPILL_CLASS ix86_spill_class
 

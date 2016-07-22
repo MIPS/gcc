@@ -48,6 +48,24 @@ find_closest_string (const char *target,
 template <typename TYPE>
 struct edit_distance_traits {};
 
+/* Specialization of edit_distance_traits for C-style strings.  */
+
+template <>
+struct edit_distance_traits<const char *>
+{
+  static size_t get_length (const char *str)
+  {
+    gcc_assert (str);
+    return strlen (str);
+  }
+
+  static const char *get_string (const char *str)
+  {
+    gcc_assert (str);
+    return str;
+  }
+};
+
 /* A type for use when determining the best match against a string,
    expressed as a template so that we can match against various
    string-like types (const char *, frontend identifiers, and preprocessor
@@ -69,11 +87,12 @@ class best_match
 
   /* Constructor.  */
 
-  best_match (goal_t goal)
+  best_match (GOAL_TYPE goal,
+	      edit_distance_t best_distance_so_far = MAX_EDIT_DISTANCE)
   : m_goal (goal_traits::get_string (goal)),
     m_goal_len (goal_traits::get_length (goal)),
     m_best_candidate (NULL),
-    m_best_distance (MAX_EDIT_DISTANCE)
+    m_best_distance (best_distance_so_far)
   {}
 
   /* Compare the edit distance between CANDIDATE and m_goal,
@@ -118,6 +137,20 @@ class best_match
       }
   }
 
+  /* Assuming that BEST_CANDIDATE is known to be better than
+     m_best_candidate, update (without recomputing the edit distance to
+     the goal).  */
+
+  void set_best_so_far (CANDIDATE_TYPE best_candidate,
+			edit_distance_t best_distance,
+			size_t best_candidate_len)
+  {
+    gcc_assert (best_distance < m_best_distance);
+    m_best_candidate = best_candidate;
+    m_best_distance = best_distance;
+    m_best_candidate_len = best_candidate_len;
+  }
+
   /* Get the best candidate so far, but applying a filter to ensure
      that we return NULL if none of the candidates are close to the goal,
      to avoid offering nonsensical suggestions to the user.  */
@@ -134,6 +167,9 @@ class best_match
     }
     return m_best_candidate;
   }
+
+  edit_distance_t get_best_distance () const { return m_best_distance; }
+  size_t get_best_candidate_length () const { return m_best_candidate_len; }
 
  private:
   const char *m_goal;

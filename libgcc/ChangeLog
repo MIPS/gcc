@@ -1,3 +1,80 @@
+2016-07-21  Aurelien Jarno <aurelien@aurel32.net>
+
+	PR target/59833
+	* config/arm/ieee754-df.S (extendsfdf2): Convert sNaN to qNaN.
+
+2016-07-19  Nick Clifton  <nickc@redhat.com>
+
+	* config.host (m32r): Add m32r/t-m32r to tmake_file.
+	Add crtinit.o and crtfini.o to extra_parts.
+
+2016-07-12  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/_divkc3.c: New.
+	* config/rs6000/_mulkc3.c: New.
+	* config/rs6000/quad-float128.h: Define TFtype; declare _mulkc3
+	and _divkc3.
+	* config/rs6000/t-float128: Add _mulkc3 and _divkc3 to
+	fp128_ppc_funcs.
+
+2016-07-11  Hale Wang  <hale.wang@arm.com>
+	    Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	* config/arm/lib1funcs.S: Add new wrapper.
+
+2016-07-07  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/lib1funcs.S (__ARM_ARCH__): Define to 8 for ARMv8-M.
+
+2016-07-07  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/lib1funcs.S (HAVE_ARM_CLZ): Define for ARMv6* or later
+	and ARMv5t* rather than for a fixed list of architectures.
+
+2016-07-07  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* config/arm/bpabi-v6m.S: Clarify what architectures is the
+	implementation suitable for.
+	* config/arm/lib1funcs.S (__prefer_thumb__): Define among other cases
+	for all Thumb-1 only targets.
+	(NOT_ISA_TARGET_32BIT): Define for Thumb-1 only targets.
+	(THUMB_LDIV0): Test for NOT_ISA_TARGET_32BIT rather than
+	__ARM_ARCH_6M__.
+	(EQUIV): Likewise.
+	(ARM_FUNC_ALIAS): Likewise.
+	(umodsi3): Add check to __ARM_ARCH_ISA_THUMB != 1 to guard the idiv
+	version.
+	(modsi3): Likewise.
+	(clzsi2): Test for NOT_ISA_TARGET_32BIT rather than __ARM_ARCH_6M__.
+	(clzdi2): Likewise.
+	(ctzsi2): Likewise.
+	(L_interwork_call_via_rX): Test for __ARM_ARCH_ISA_ARM rather than
+	__ARM_ARCH_6M__ in guard for checking whether it is defined.
+	(final includes): Test for NOT_ISA_TARGET_32BIT rather than
+	__ARM_ARCH_6M__ and add comment to indicate the connection between
+	this condition and the one in gcc/config/arm/elf.h.
+	* config/arm/libunwind.S: Test for __ARM_ARCH_ISA_THUMB and
+	__ARM_ARCH_ISA_ARM rather than __ARM_ARCH_6M__.
+	* config/arm/t-softfp: Likewise.
+
+2016-07-06  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* libgcc2.c (SYMBOL__MAIN): Remove checks for
+	CTOR_LISTS_DEFINED_EXTERNALLY.
+
+2016-06-28  Walter Lee  <walt@tilera.com>
+
+	* config/tilepro/atomic.h: Do not include arch/spr_def.h and
+	asm/unistd.h.
+	(SPR_CMPEXCH_VALUE): Define for tilegx.
+	(__NR_FAST_cmpxchg): Define for tilepro.
+	(__NR_FAST_atomic_update): Define for tilepro.
+	(__NR_FAST_cmpxchg64): Define for tilepro.
+
+2016-06-23  Jakub Sejdak  <jakub.sejdak@phoesys.com>
+
+   * config.host: Add suport for arm*-*-phoenix* targets.
+
 2016-06-21  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
 
 	* config.host: Remove support for mep-*.

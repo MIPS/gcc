@@ -2245,7 +2245,7 @@ perform_koenig_lookup (cp_expr fn, vec<tree, va_gc> *args,
       if (!fn)
 	{
 	  /* The unqualified name could not be resolved.  */
-	  if (complain)
+	  if (complain & tf_error)
 	    fn = unqualified_fn_lookup_error (cp_expr (identifier, loc));
 	  else
 	    fn = identifier;
@@ -5002,6 +5002,10 @@ handle_omp_array_sections (tree c, enum c_omp_region_type ort)
 	      case GOMP_MAP_ALWAYS_TOFROM:
 	      case GOMP_MAP_RELEASE:
 	      case GOMP_MAP_DELETE:
+	      case GOMP_MAP_FORCE_TO:
+	      case GOMP_MAP_FORCE_FROM:
+	      case GOMP_MAP_FORCE_TOFROM:
+	      case GOMP_MAP_FORCE_PRESENT:
 		OMP_CLAUSE_MAP_MAYBE_ZERO_LENGTH_ARRAY_SECTION (c) = 1;
 		break;
 	      default:
@@ -8571,7 +8575,7 @@ finish_omp_cancel (tree clauses)
     mask = 8;
   else
     {
-      error ("%<#pragma omp cancel must specify one of "
+      error ("%<#pragma omp cancel%> must specify one of "
 	     "%<parallel%>, %<for%>, %<sections%> or %<taskgroup%> clauses");
       return;
     }
@@ -8608,7 +8612,7 @@ finish_omp_cancellation_point (tree clauses)
     mask = 8;
   else
     {
-      error ("%<#pragma omp cancellation point must specify one of "
+      error ("%<#pragma omp cancellation point%> must specify one of "
 	     "%<parallel%>, %<for%>, %<sections%> or %<taskgroup%> clauses");
       return;
     }
@@ -9275,6 +9279,10 @@ apply_deduced_return_type (tree fco, tree return_type)
   if (TREE_TYPE (result) == return_type)
     return;
 
+  if (!processing_template_decl && !VOID_TYPE_P (return_type)
+      && !complete_type_or_else (return_type, NULL_TREE))
+    return;
+
   /* We already have a DECL_RESULT from start_preparsed_function.
      Now we need to redo the work it and allocate_struct_function
      did to reflect the new type.  */
@@ -9290,8 +9298,6 @@ apply_deduced_return_type (tree fco, tree return_type)
 
   if (!processing_template_decl)
     {
-      if (!VOID_TYPE_P (TREE_TYPE (result)))
-	complete_type_or_else (TREE_TYPE (result), NULL_TREE);
       bool aggr = aggregate_value_p (result, fco);
 #ifdef PCC_STATIC_STRUCT_RETURN
       cfun->returns_pcc_struct = aggr;

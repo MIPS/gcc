@@ -1929,16 +1929,7 @@ pa_emit_move_sequence (rtx *operands, machine_mode mode, rtx scratch_reg)
 		  type = strip_array_types (type);
 
 		  if (POINTER_TYPE_P (type))
-		    {
-		      int align;
-
-		      type = TREE_TYPE (type);
-		      /* Using TYPE_ALIGN_OK is rather conservative as
-			 only the ada frontend actually sets it.  */
-		      align = (TYPE_ALIGN_OK (type) ? TYPE_ALIGN (type)
-			       : BITS_PER_UNIT);
-		      mark_reg_pointer (operand0, align);
-		    }
+		    mark_reg_pointer (operand0, BITS_PER_UNIT);
 		}
 	    }
 
@@ -4541,63 +4532,78 @@ hppa_profile_hook (int label_no)
      lcla2 and load_offset_label_address insn patterns.  */
   rtx reg = gen_reg_rtx (SImode);
   rtx_code_label *label_rtx = gen_label_rtx ();
-  rtx begin_label_rtx;
+  rtx mcount = gen_rtx_MEM (Pmode, gen_rtx_SYMBOL_REF (Pmode, "_mcount"));
+  int reg_parm_stack_space = REG_PARM_STACK_SPACE (NULL_TREE);
+  rtx arg_bytes, begin_label_rtx;
   rtx_insn *call_insn;
   char begin_label_name[16];
+  bool use_mcount_pcrel_call;
+
+  /* If we can reach _mcount with a pc-relative call, we can optimize
+     loading the address of the current function.  This requires linker
+     long branch stub support.  */
+  if (!TARGET_PORTABLE_RUNTIME
+      && !TARGET_LONG_CALLS
+      && (TARGET_SOM || flag_function_sections))
+    use_mcount_pcrel_call = TRUE;
+  else
+    use_mcount_pcrel_call = FALSE;
 
   ASM_GENERATE_INTERNAL_LABEL (begin_label_name, FUNC_BEGIN_PROLOG_LABEL,
 			       label_no);
   begin_label_rtx = gen_rtx_SYMBOL_REF (SImode, ggc_strdup (begin_label_name));
 
-  if (TARGET_64BIT)
-    emit_move_insn (arg_pointer_rtx,
-		    gen_rtx_PLUS (word_mode, virtual_outgoing_args_rtx,
-				  GEN_INT (64)));
-
   emit_move_insn (gen_rtx_REG (word_mode, 26), gen_rtx_REG (word_mode, 2));
 
-  /* The address of the function is loaded into %r25 with an instruction-
-     relative sequence that avoids the use of relocations.  The sequence
-     is split so that the load_offset_label_address instruction can
-     occupy the delay slot of the call to _mcount.  */
-  if (TARGET_PA_20)
-    emit_insn (gen_lcla2 (reg, label_rtx));
+  if (!use_mcount_pcrel_call)
+    {
+      /* The address of the function is loaded into %r25 with an instruction-
+	 relative sequence that avoids the use of relocations.  The sequence
+	 is split so that the load_offset_label_address instruction can
+	 occupy the delay slot of the call to _mcount.  */
+      if (TARGET_PA_20)
+	emit_insn (gen_lcla2 (reg, label_rtx));
+      else
+	emit_insn (gen_lcla1 (reg, label_rtx));
+
+      emit_insn (gen_load_offset_label_address (gen_rtx_REG (SImode, 25), 
+						reg,
+						begin_label_rtx,
+						label_rtx));
+    }
+
+  if (!NO_DEFERRED_PROFILE_COUNTERS)
+    {
+      rtx count_label_rtx, addr, r24;
+      char count_label_name[16];
+
+      funcdef_nos.safe_push (label_no);
+      ASM_GENERATE_INTERNAL_LABEL (count_label_name, "LP", label_no);
+      count_label_rtx = gen_rtx_SYMBOL_REF (Pmode,
+					    ggc_strdup (count_label_name));
+
+      addr = force_reg (Pmode, count_label_rtx);
+      r24 = gen_rtx_REG (Pmode, 24);
+      emit_move_insn (r24, addr);
+
+      arg_bytes = GEN_INT (TARGET_64BIT ? 24 : 12);
+      if (use_mcount_pcrel_call)
+	call_insn = emit_call_insn (gen_call_mcount (mcount, arg_bytes,
+						     begin_label_rtx));
+      else
+	call_insn = emit_call_insn (gen_call (mcount, arg_bytes));
+
+      use_reg (&CALL_INSN_FUNCTION_USAGE (call_insn), r24);
+    }
   else
-    emit_insn (gen_lcla1 (reg, label_rtx));
-
-  emit_insn (gen_load_offset_label_address (gen_rtx_REG (SImode, 25), 
-					    reg, begin_label_rtx, label_rtx));
-
-#if !NO_DEFERRED_PROFILE_COUNTERS
-  {
-    rtx count_label_rtx, addr, r24;
-    char count_label_name[16];
-
-    funcdef_nos.safe_push (label_no);
-    ASM_GENERATE_INTERNAL_LABEL (count_label_name, "LP", label_no);
-    count_label_rtx = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (count_label_name));
-
-    addr = force_reg (Pmode, count_label_rtx);
-    r24 = gen_rtx_REG (Pmode, 24);
-    emit_move_insn (r24, addr);
-
-    call_insn =
-      emit_call_insn (gen_call (gen_rtx_MEM (Pmode, 
-					     gen_rtx_SYMBOL_REF (Pmode, 
-								 "_mcount")),
-				GEN_INT (TARGET_64BIT ? 24 : 12)));
-
-    use_reg (&CALL_INSN_FUNCTION_USAGE (call_insn), r24);
-  }
-#else
-
-  call_insn =
-    emit_call_insn (gen_call (gen_rtx_MEM (Pmode, 
-					   gen_rtx_SYMBOL_REF (Pmode, 
-							       "_mcount")),
-			      GEN_INT (TARGET_64BIT ? 16 : 8)));
-
-#endif
+    {
+      arg_bytes = GEN_INT (TARGET_64BIT ? 16 : 8);
+      if (use_mcount_pcrel_call)
+	call_insn = emit_call_insn (gen_call_mcount (mcount, arg_bytes,
+						     begin_label_rtx));
+      else
+	call_insn = emit_call_insn (gen_call (mcount, arg_bytes));
+    }
 
   use_reg (&CALL_INSN_FUNCTION_USAGE (call_insn), gen_rtx_REG (SImode, 25));
   use_reg (&CALL_INSN_FUNCTION_USAGE (call_insn), gen_rtx_REG (SImode, 26));
@@ -4605,6 +4611,10 @@ hppa_profile_hook (int label_no)
   /* Indicate the _mcount call cannot throw, nor will it execute a
      non-local goto.  */
   make_reg_eh_region_note_nothrow_nononlocal (call_insn);
+
+  /* Allocate space for fixed arguments.  */
+  if (reg_parm_stack_space > crtl->outgoing_args_size)
+    crtl->outgoing_args_size = reg_parm_stack_space;
 }
 
 /* Fetch the return address for the frame COUNT steps up from
@@ -8111,72 +8121,148 @@ pa_attr_length_indirect_call (rtx_insn *insn)
   if (TARGET_64BIT)
     return 12;
 
-  if (TARGET_FAST_INDIRECT_CALLS
-      || (!TARGET_LONG_CALLS
-	  && !TARGET_PORTABLE_RUNTIME
-	  && ((TARGET_PA_20 && !TARGET_SOM && distance < 7600000)
-	      || distance < MAX_PCREL17F_OFFSET)))
+  if (TARGET_FAST_INDIRECT_CALLS)
     return 8;
-
-  if (flag_pic)
-    return 20;
 
   if (TARGET_PORTABLE_RUNTIME)
     return 16;
 
+  /* Inline version of $$dyncall.  */
+  if ((TARGET_NO_SPACE_REGS || TARGET_PA_20) && !optimize_size)
+    return 20;
+
+  if (!TARGET_LONG_CALLS
+      && ((TARGET_PA_20 && !TARGET_SOM && distance < 7600000)
+	  || distance < MAX_PCREL17F_OFFSET))
+    return 8;
+
   /* Out of reach, can use ble.  */
-  return 12;
+  if (!flag_pic)
+    return 12;
+
+  /* Inline version of $$dyncall.  */
+  if (TARGET_NO_SPACE_REGS || TARGET_PA_20)
+    return 20;
+
+  if (!optimize_size)
+    return 36;
+
+  /* Long PIC pc-relative call.  */
+  return 20;
 }
 
 const char *
 pa_output_indirect_call (rtx_insn *insn, rtx call_dest)
 {
   rtx xoperands[4];
+  int length;
 
   if (TARGET_64BIT)
     {
       xoperands[0] = call_dest;
-      output_asm_insn ("ldd 16(%0),%%r2", xoperands);
-      output_asm_insn ("bve,l (%%r2),%%r2\n\tldd 24(%0),%%r27", xoperands);
+      output_asm_insn ("ldd 16(%0),%%r2\n\t"
+		       "bve,l (%%r2),%%r2\n\t"
+		       "ldd 24(%0),%%r27", xoperands);
       return "";
     }
 
   /* First the special case for kernels, level 0 systems, etc.  */
   if (TARGET_FAST_INDIRECT_CALLS)
-    return "ble 0(%%sr4,%%r22)\n\tcopy %%r31,%%r2"; 
+    {
+      pa_output_arg_descriptor (insn);
+      if (TARGET_PA_20)
+	return "bve,l,n (%%r22),%%r2\n\tnop";
+      return "ble 0(%%sr4,%%r22)\n\tcopy %%r31,%%r2"; 
+    }
+
+  if (TARGET_PORTABLE_RUNTIME)
+    {
+      output_asm_insn ("ldil L'$$dyncall,%%r31\n\t"
+		       "ldo R'$$dyncall(%%r31),%%r31", xoperands);
+      pa_output_arg_descriptor (insn);
+      return "blr %%r0,%%r2\n\tbv,n %%r0(%%r31)";
+    }
+
+  /* Maybe emit a fast inline version of $$dyncall.  */
+  if ((TARGET_NO_SPACE_REGS || TARGET_PA_20) && !optimize_size)
+    {
+      output_asm_insn ("bb,>=,n %%r22,30,.+12\n\t"
+		       "ldw 2(%%r22),%%r19\n\t"
+		       "ldw -2(%%r22),%%r22", xoperands);
+      pa_output_arg_descriptor (insn);
+      if (TARGET_NO_SPACE_REGS)
+	{
+	  if (TARGET_PA_20)
+	    return "bve,l,n (%%r22),%%r2\n\tnop";
+	  return "ble 0(%%sr4,%%r22)\n\tcopy %%r31,%%r2";
+	}
+      return "bve,l (%%r22),%%r2\n\tstw %%r2,-24(%%sp)";
+    }
 
   /* Now the normal case -- we can reach $$dyncall directly or
      we're sure that we can get there via a long-branch stub. 
 
      No need to check target flags as the length uniquely identifies
      the remaining cases.  */
-  if (pa_attr_length_indirect_call (insn) == 8)
+  length = pa_attr_length_indirect_call (insn);
+  if (length == 8)
     {
+      pa_output_arg_descriptor (insn);
+
       /* The HP linker sometimes substitutes a BLE for BL/B,L calls to
 	 $$dyncall.  Since BLE uses %r31 as the link register, the 22-bit
 	 variant of the B,L instruction can't be used on the SOM target.  */
       if (TARGET_PA_20 && !TARGET_SOM)
-	return ".CALL\tARGW0=GR\n\tb,l $$dyncall,%%r2\n\tcopy %%r2,%%r31";
+	return "b,l,n $$dyncall,%%r2\n\tnop";
       else
-	return ".CALL\tARGW0=GR\n\tbl $$dyncall,%%r31\n\tcopy %%r31,%%r2";
+	return "bl $$dyncall,%%r31\n\tcopy %%r31,%%r2";
     }
 
   /* Long millicode call, but we are not generating PIC or portable runtime
      code.  */
-  if (pa_attr_length_indirect_call (insn) == 12)
-    return ".CALL\tARGW0=GR\n\tldil L'$$dyncall,%%r2\n\tble R'$$dyncall(%%sr4,%%r2)\n\tcopy %%r31,%%r2";
+  if (length == 12)
+    {
+      output_asm_insn ("ldil L'$$dyncall,%%r2", xoperands);
+      pa_output_arg_descriptor (insn);
+      return "ble R'$$dyncall(%%sr4,%%r2)\n\tcopy %%r31,%%r2";
+    }
 
-  /* Long millicode call for portable runtime.  */
-  if (pa_attr_length_indirect_call (insn) == 16)
-    return "ldil L'$$dyncall,%%r31\n\tldo R'$$dyncall(%%r31),%%r31\n\tblr %%r0,%%r2\n\tbv,n %%r0(%%r31)";
-
+  /* Maybe emit a fast inline version of $$dyncall.  The long PIC
+     pc-relative call sequence is five instructions.  The inline PA 2.0
+     version of $$dyncall is also five instructions.  The PA 1.X versions
+     are longer but still an overall win.  */
+  if (TARGET_NO_SPACE_REGS || TARGET_PA_20 || !optimize_size)
+    {
+      output_asm_insn ("bb,>=,n %%r22,30,.+12\n\t"
+		       "ldw 2(%%r22),%%r19\n\t"
+		       "ldw -2(%%r22),%%r22", xoperands);
+      if (TARGET_NO_SPACE_REGS)
+	{
+	  pa_output_arg_descriptor (insn);
+	  if (TARGET_PA_20)
+	    return "bve,l,n (%%r22),%%r2\n\tnop";
+	  return "ble 0(%%sr4,%%r22)\n\tcopy %%r31,%%r2";
+	}
+      if (TARGET_PA_20)
+	{
+	  pa_output_arg_descriptor (insn);
+	  return "bve,l (%%r22),%%r2\n\tstw %%r2,-24(%%sp)";
+	}
+      output_asm_insn ("bl .+8,%%r2\n\t"
+		       "ldo 16(%%r2),%%r2\n\t"
+		       "ldsid (%%r22),%%r1\n\t"
+		       "mtsp %%r1,%%sr0", xoperands);
+      pa_output_arg_descriptor (insn);
+      return "be 0(%%sr0,%%r22)\n\tstw %%r2,-24(%%sp)";
+    }
+ 
   /* We need a long PIC call to $$dyncall.  */
   xoperands[0] = gen_rtx_SYMBOL_REF (Pmode, "$$dyncall");
   xoperands[1] = gen_rtx_REG (Pmode, 2);
   xoperands[2] = gen_rtx_REG (Pmode, 1);
   pa_output_pic_pcrel_sequence (xoperands);
-  output_asm_insn ("bv %%r0(%%r1)", xoperands);
-  return "ldo {12|20}(%%r2),%%r2";
+  pa_output_arg_descriptor (insn);
+  return "bv %%r0(%%r1)\n\tldo {12|20}(%%r2),%%r2";
 }
 
 /* In HPUX 8.0's shared library scheme, special relocations are needed

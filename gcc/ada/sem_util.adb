@@ -286,6 +286,49 @@ package body Sem_Util is
       end if;
    end Address_Integer_Convert_OK;
 
+   -------------------
+   -- Address_Value --
+   -------------------
+
+   function Address_Value (N : Node_Id) return Node_Id is
+      Expr : Node_Id := N;
+
+   begin
+      loop
+         --  For constant, get constant expression
+
+         if Is_Entity_Name (Expr)
+           and then Ekind (Entity (Expr)) = E_Constant
+         then
+            Expr := Constant_Value (Entity (Expr));
+
+         --  For unchecked conversion, get result to convert
+
+         elsif Nkind (Expr) = N_Unchecked_Type_Conversion then
+            Expr := Expression (Expr);
+
+         --  For (common case) of To_Address call, get argument
+
+         elsif Nkind (Expr) = N_Function_Call
+           and then Is_Entity_Name (Name (Expr))
+           and then Is_RTE (Entity (Name (Expr)), RE_To_Address)
+         then
+            Expr := First (Parameter_Associations (Expr));
+
+            if Nkind (Expr) = N_Parameter_Association then
+               Expr := Explicit_Actual_Parameter (Expr);
+            end if;
+
+         --  We finally have the real expression
+
+         else
+            exit;
+         end if;
+      end loop;
+
+      return Expr;
+   end Address_Value;
+
    -----------------
    -- Addressable --
    -----------------
@@ -4822,7 +4865,7 @@ package body Sem_Util is
          Msgl := Msg'Length;
 
          for J in 1 .. Msgl loop
-            if Msg (J) = '?' and then (J = 1 or else Msg (J) /= ''') then
+            if Msg (J) = '?' and then (J = 1 or else Msg (J - 1) /= ''') then
                Msgc (J) := '<';
             else
                Msgc (J) := Msg (J);
@@ -6314,6 +6357,7 @@ package body Sem_Util is
          Encl_Unit := Library_Unit (Encl_Unit);
       end loop;
 
+      pragma Assert (Nkind (Encl_Unit) = N_Compilation_Unit);
       return Encl_Unit;
    end Enclosing_Lib_Unit_Node;
 
@@ -11456,7 +11500,7 @@ package body Sem_Util is
    ------------------------------------------
 
    procedure Inspect_Deferred_Constant_Completion (Decls : List_Id) is
-      Decl   : Node_Id;
+      Decl : Node_Id;
 
    begin
       Decl := First (Decls);
@@ -16229,9 +16273,9 @@ package body Sem_Util is
 
    function New_Copy_Tree
      (Source    : Node_Id;
-      Map       : Elist_Id := No_Elist;
+      Map       : Elist_Id   := No_Elist;
       New_Sloc  : Source_Ptr := No_Location;
-      New_Scope : Entity_Id := Empty) return Node_Id
+      New_Scope : Entity_Id  := Empty) return Node_Id
    is
       Actual_Map : Elist_Id := Map;
       --  This is the actual map for the copy. It is initialized with the
@@ -17574,11 +17618,20 @@ package body Sem_Util is
                if Comes_From_Source (Exp)
                  or else Modification_Comes_From_Source
                then
-                  --  Give warning if pragma unmodified given and we are
+                  --  Give warning if pragma unmodified is given and we are
                   --  sure this is a modification.
 
                   if Has_Pragma_Unmodified (Ent) and then Sure then
-                     Error_Msg_NE ("??pragma Unmodified given for &!", N, Ent);
+
+                     --  Note that the entity may be present only as a result
+                     --  of pragma Unused.
+
+                     if Has_Pragma_Unused (Ent) then
+                        Error_Msg_NE ("??pragma Unused given for &!", N, Ent);
+                     else
+                        Error_Msg_NE
+                          ("??pragma Unmodified given for &!", N, Ent);
+                     end if;
                   end if;
 
                   Set_Never_Set_In_Source (Ent, False);

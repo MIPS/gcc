@@ -273,9 +273,10 @@ package body Sem_Ch13 is
 
    --    for X'Address use Expr
 
-   --  where Expr is of the form Y'Address or recursively is a reference to a
-   --  constant of either of these forms, and X and Y are entities of objects,
-   --  then if Y has a smaller alignment than X, that merits a warning about
+   --  where Expr has a value known at compile time or is of the form Y'Address
+   --  or recursively is a reference to a constant initialized with either of
+   --  these forms, and the value of Expr is not a multiple of X's alignment,
+   --  or if Y has a smaller alignment than X, then that merits a warning about
    --  possible bad alignment. The following table collects address clauses of
    --  this kind. We put these in a table so that they can be checked after the
    --  back end has completed annotation of the alignments of objects, since we
@@ -286,13 +287,16 @@ package body Sem_Ch13 is
       --  The address clause
 
       X : Entity_Id;
-      --  The entity of the object overlaying Y
+      --  The entity of the object subject to the address clause
+
+      A : Uint;
+      --  The value of the address in the first case
 
       Y : Entity_Id;
-      --  The entity of the object being overlaid
+      --  The entity of the object being overlaid in the second case
 
       Off : Boolean;
-      --  Whether the address is offset within Y
+      --  Whether the address is offset within Y in the second case
    end record;
 
    package Address_Clause_Checks is new Table.Table (
@@ -1933,9 +1937,11 @@ package body Sem_Ch13 is
             if not Implementation_Defined_Aspect (A_Id) then
                Error_Msg_Name_1 := Nam;
 
-               --  Not allowed for renaming declarations
+               --  Not allowed for renaming declarations. Examine the original
+               --  node because a subprogram renaming may have been rewritten
+               --  as a body.
 
-               if Nkind (N) in N_Renaming_Declaration then
+               if Nkind (Original_Node (N)) in N_Renaming_Declaration then
                   Error_Msg_N
                     ("aspect % not allowed for renaming declaration",
                      Aspect);
@@ -3817,8 +3823,8 @@ package body Sem_Ch13 is
       U_Ent : Entity_Id;
       --  The underlying entity to which the attribute applies. Generally this
       --  is the Underlying_Type of Ent, except in the case where the clause
-      --  applies to full view of incomplete type or private type in which case
-      --  U_Ent is just a copy of Ent.
+      --  applies to the full view of an incomplete or private type, in which
+      --  case U_Ent is just a copy of Ent.
 
       FOnly : Boolean := False;
       --  Reset to True for subtype specific attribute (Alignment, Size)
@@ -4849,6 +4855,40 @@ package body Sem_Ch13 is
                         Set_Overlays_Constant (U_Ent);
                      end if;
 
+                     --  If the address clause is of the form:
+
+                     --    for X'Address use Y'Address;
+
+                     --  or
+
+                     --    C : constant Address := Y'Address;
+                     --    ...
+                     --    for X'Address use C;
+
+                     --  then we make an entry in the table to check the size
+                     --  and alignment of the overlaying variable. But we defer
+                     --  this check till after code generation to take full
+                     --  advantage of the annotation done by the back end.
+
+                     --  If the entity has a generic type, the check will be
+                     --  performed in the instance if the actual type justifies
+                     --  it, and we do not insert the clause in the table to
+                     --  prevent spurious warnings.
+
+                     --  Note: we used to test Comes_From_Source and only give
+                     --  this warning for source entities, but we have removed
+                     --  this test. It really seems bogus to generate overlays
+                     --  that would trigger this warning in generated code.
+                     --  Furthermore, by removing the test, we handle the
+                     --  aspect case properly.
+
+                     if Is_Object (O_Ent)
+                       and then not Is_Generic_Type (Etype (U_Ent))
+                       and then Address_Clause_Overlay_Warnings
+                     then
+                        Address_Clause_Checks.Append
+                          ((N, U_Ent, No_Uint, O_Ent, Off));
+                     end if;
                   else
                      --  If this is not an overlay, mark a variable as being
                      --  volatile to prevent unwanted optimizations. It's a
@@ -4861,6 +4901,21 @@ package body Sem_Ch13 is
                      if Ekind (U_Ent) = E_Variable then
                         Set_Treat_As_Volatile (U_Ent);
                      end if;
+
+                     --  Make an entry in the table for an absolute address as
+                     --  above to check that the value is compatible with the
+                     --  alignment of the object.
+
+                     declare
+                        Addr : constant Node_Id := Address_Value (Expr);
+                     begin
+                        if Compile_Time_Known_Value (Addr)
+                          and then Address_Clause_Overlay_Warnings
+                        then
+                           Address_Clause_Checks.Append
+                             ((N, U_Ent, Expr_Value (Addr), Empty, False));
+                        end if;
+                     end;
                   end if;
 
                   --  Overlaying controlled objects is erroneous. Emit warning
@@ -4950,41 +5005,6 @@ package body Sem_Ch13 is
                   --  the variable, it is somewhere else.
 
                   Kill_Size_Check_Code (U_Ent);
-
-                  --  If the address clause is of the form:
-
-                  --    for Y'Address use X'Address
-
-                  --  or
-
-                  --    Const : constant Address := X'Address;
-                  --    ...
-                  --    for Y'Address use Const;
-
-                  --  then we make an entry in the table for checking the size
-                  --  and alignment of the overlaying variable. We defer this
-                  --  check till after code generation to take full advantage
-                  --  of the annotation done by the back end.
-
-                  --  If the entity has a generic type, the check will be
-                  --  performed in the instance if the actual type justifies
-                  --  it, and we do not insert the clause in the table to
-                  --  prevent spurious warnings.
-
-                  --  Note: we used to test Comes_From_Source and only give
-                  --  this warning for source entities, but we have removed
-                  --  this test. It really seems bogus to generate overlays
-                  --  that would trigger this warning in generated code.
-                  --  Furthermore, by removing the test, we handle the
-                  --  aspect case properly.
-
-                  if Present (O_Ent)
-                    and then Is_Object (O_Ent)
-                    and then not Is_Generic_Type (Etype (U_Ent))
-                    and then Address_Clause_Overlay_Warnings
-                  then
-                     Address_Clause_Checks.Append ((N, U_Ent, O_Ent, Off));
-                  end if;
                end;
 
             --  Not a valid entity for an address clause
@@ -6598,7 +6618,13 @@ package body Sem_Ch13 is
    -----------------------------------
 
    procedure Analyze_Freeze_Generic_Entity (N : Node_Id) is
+      E : constant Entity_Id := Entity (N);
+
    begin
+      if not Is_Frozen (E) and then Has_Delayed_Aspects (E) then
+         Analyze_Aspects_At_Freeze_Point (E);
+      end if;
+
       Freeze_Entity_Checks (N);
    end Analyze_Freeze_Generic_Entity;
 
@@ -8552,8 +8578,7 @@ package body Sem_Ch13 is
                         Expression => Expr))));
 
             --  If declaration has not been analyzed yet, Insert declaration
-            --  before freeze node.
-            --  Insert body after freeze node.
+            --  before freeze node.  Insert body itself after freeze node.
 
             if not Analyzed (FDecl) then
                Insert_Before_And_Analyze (N, FDecl);
@@ -11644,9 +11669,11 @@ package body Sem_Ch13 is
       --  to specify a static predicate for a subtype which is inheriting a
       --  dynamic predicate, so the static predicate validation here ignores
       --  the inherited predicate even if it is dynamic.
+      --  In all cases, a static predicate can only apply to a scalar type.
 
       elsif Nkind (Expr) = N_Function_Call
         and then Is_Predicate_Function (Entity (Name (Expr)))
+        and then Is_Scalar_Type (Etype (First_Entity (Entity (Name (Expr)))))
       then
          return True;
 
@@ -11922,7 +11949,9 @@ package body Sem_Ch13 is
       --  at the freeze point, and we must generate only a completion of this
       --  declaration. We do the same for private types, because the full view
       --  might be tagged. Otherwise we generate a declaration at the point of
-      --  the attribute definition clause.
+      --  the attribute definition clause. If the attribute definition comes
+      --  from an aspect specification the declaration is part of the freeze
+      --  actions of the type.
 
       function Build_Spec return Node_Id;
       --  Used for declaration and renaming declaration, so that this is
@@ -12014,18 +12043,32 @@ package body Sem_Ch13 is
              Object_Definition   => New_Occurrence_Of (Standard_Boolean, Loc));
       end if;
 
-      Insert_Action (N, Subp_Decl);
-      Set_Entity (N, Subp_Id);
+      if not Defer_Declaration
+        and then From_Aspect_Specification (N)
+        and then Has_Delayed_Freeze (Ent)
+      then
+         Append_Freeze_Action (Ent, Subp_Decl);
+
+      else
+         Insert_Action (N, Subp_Decl);
+         Set_Entity (N, Subp_Id);
+      end if;
 
       Subp_Decl :=
         Make_Subprogram_Renaming_Declaration (Loc,
           Specification => Build_Spec,
-          Name => New_Occurrence_Of (Subp, Loc));
+          Name          => New_Occurrence_Of (Subp, Loc));
 
       if Defer_Declaration then
          Set_TSS (Base_Type (Ent), Subp_Id);
+
       else
-         Insert_Action (N, Subp_Decl);
+         if From_Aspect_Specification (N) then
+            Append_Freeze_Action (Ent, Subp_Decl);
+         else
+            Insert_Action (N, Subp_Decl);
+         end if;
+
          Copy_TSS (Subp_Id, Base_Type (Ent));
       end if;
    end New_Stream_Subprogram;
@@ -12348,7 +12391,7 @@ package body Sem_Ch13 is
 
             if Chars (N) /= TName then
                if Present (Current_Entity (N))
-                  and then Is_Type (Current_Entity (N))
+                 and then Is_Type (Current_Entity (N))
                then
                   Freeze_Before (Freeze_Node (T), Current_Entity (N));
                end if;
@@ -13182,15 +13225,15 @@ package body Sem_Ch13 is
             if not Address_Warning_Posted (ACCR.N) then
                Expr := Original_Node (Expression (ACCR.N));
 
-               --  Get alignments
+               --  Get alignments, sizes and offset, if any
 
                X_Alignment := Alignment (ACCR.X);
-               Y_Alignment := Alignment (ACCR.Y);
+               X_Size      := Esize (ACCR.X);
 
-               --  Similarly obtain sizes and offset
-
-               X_Size := Esize (ACCR.X);
-               Y_Size := Esize (ACCR.Y);
+               if Present (ACCR.Y) then
+                  Y_Alignment := Alignment (ACCR.Y);
+                  Y_Size      := Esize (ACCR.Y);
+               end if;
 
                if ACCR.Off
                  and then Nkind (Expr) = N_Attribute_Reference
@@ -13201,9 +13244,27 @@ package body Sem_Ch13 is
                   X_Offs := Uint_0;
                end if;
 
+               --  Check for known value not multiple of alignment
+
+               if No (ACCR.Y) then
+                  if not Alignment_Checks_Suppressed (ACCR.X)
+                    and then X_Alignment /= 0
+                    and then ACCR.A mod X_Alignment /= 0
+                  then
+                     Error_Msg_NE
+                       ("??specified address for& is inconsistent with "
+                        & "alignment", ACCR.N, ACCR.X);
+                     Error_Msg_N
+                       ("\??program execution may be erroneous (RM 13.3(27))",
+                        ACCR.N);
+
+                     Error_Msg_Uint_1 := X_Alignment;
+                     Error_Msg_NE ("\??alignment of & is ^", ACCR.N, ACCR.X);
+                  end if;
+
                --  Check for large object overlaying smaller one
 
-               if Y_Size > Uint_0
+               elsif Y_Size > Uint_0
                  and then X_Size > Uint_0
                  and then X_Offs + X_Size > Y_Size
                then
@@ -13231,7 +13292,7 @@ package body Sem_Ch13 is
                --  Note: we do not check the alignment if we gave a size
                --  warning, since it would likely be redundant.
 
-               elsif not Alignment_Checks_Suppressed (ACCR.Y)
+               elsif not Alignment_Checks_Suppressed (ACCR.X)
                  and then Y_Alignment /= Uint_0
                  and then
                    (Y_Alignment < X_Alignment

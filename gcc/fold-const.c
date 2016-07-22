@@ -2058,7 +2058,7 @@ fold_convert_const_fixed_from_int (tree type, const_tree arg1)
 
   di.low = TREE_INT_CST_ELT (arg1, 0);
   if (TREE_INT_CST_NUNITS (arg1) == 1)
-    di.high = (HOST_WIDE_INT) di.low < 0 ? (HOST_WIDE_INT) -1 : 0;
+    di.high = (HOST_WIDE_INT) di.low < 0 ? HOST_WIDE_INT_M1 : 0;
   else
     di.high = TREE_INT_CST_ELT (arg1, 1);
 
@@ -2192,7 +2192,6 @@ fold_convertible_p (const_tree type, const_tree arg)
 
     case REAL_TYPE:
     case FIXED_POINT_TYPE:
-    case COMPLEX_TYPE:
     case VECTOR_TYPE:
     case VOID_TYPE:
       return TREE_CODE (type) == TREE_CODE (orig);
@@ -3881,7 +3880,7 @@ optimize_bit_field_compare (location_t loc, enum tree_code code,
      do anything if the inner expression is a PLACEHOLDER_EXPR since we
      then will no longer be able to replace it.  */
   linner = get_inner_reference (lhs, &lbitsize, &lbitpos, &offset, &lmode,
-				&lunsignedp, &lreversep, &lvolatilep, false);
+				&lunsignedp, &lreversep, &lvolatilep);
   if (linner == lhs || lbitsize == GET_MODE_BITSIZE (lmode) || lbitsize < 0
       || offset != 0 || TREE_CODE (linner) == PLACEHOLDER_EXPR || lvolatilep)
     return 0;
@@ -3894,7 +3893,7 @@ optimize_bit_field_compare (location_t loc, enum tree_code code,
 	sizes, signedness and storage order are the same.  */
      rinner
        = get_inner_reference (rhs, &rbitsize, &rbitpos, &offset, &rmode,
-			      &runsignedp, &rreversep, &rvolatilep, false);
+			      &runsignedp, &rreversep, &rvolatilep);
 
      if (rinner == rhs || lbitpos != rbitpos || lbitsize != rbitsize
 	 || lunsignedp != runsignedp || lreversep != rreversep || offset != 0
@@ -4076,7 +4075,7 @@ decode_field_reference (location_t loc, tree *exp_, HOST_WIDE_INT *pbitsize,
     }
 
   inner = get_inner_reference (exp, pbitsize, pbitpos, &offset, pmode,
-			       punsignedp, preversep, pvolatilep, false);
+			       punsignedp, preversep, pvolatilep);
   if ((inner == exp && and_mask == 0)
       || *pbitsize < 0 || offset != 0
       || TREE_CODE (inner) == PLACEHOLDER_EXPR)
@@ -7731,7 +7730,7 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
 	  tree base
 	    = get_inner_reference (TREE_OPERAND (op0, 0), &bitsize, &bitpos,
 				   &offset, &mode, &unsignedp, &reversep,
-				   &volatilep, false);
+				   &volatilep);
 	  /* If the reference was to a (constant) zero offset, we can use
 	     the address of the base if it has the same base type
 	     as the result type and the pointer type is unqualified.  */
@@ -8335,7 +8334,7 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 	  base0
 	    = get_inner_reference (TREE_OPERAND (arg0, 0),
 				   &bitsize, &bitpos0, &offset0, &mode,
-				   &unsignedp, &reversep, &volatilep, false);
+				   &unsignedp, &reversep, &volatilep);
 	  if (TREE_CODE (base0) == INDIRECT_REF)
 	    base0 = TREE_OPERAND (base0, 0);
 	  else
@@ -8350,8 +8349,7 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 	      base0
 		= get_inner_reference (TREE_OPERAND (base0, 0),
 				       &bitsize, &bitpos0, &offset0, &mode,
-				       &unsignedp, &reversep, &volatilep,
-				       false);
+				       &unsignedp, &reversep, &volatilep);
 	      if (TREE_CODE (base0) == INDIRECT_REF)
 		base0 = TREE_OPERAND (base0, 0);
 	      else
@@ -8382,7 +8380,7 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 	  base1
 	    = get_inner_reference (TREE_OPERAND (arg1, 0),
 				   &bitsize, &bitpos1, &offset1, &mode,
-				   &unsignedp, &reversep, &volatilep, false);
+				   &unsignedp, &reversep, &volatilep);
 	  if (TREE_CODE (base1) == INDIRECT_REF)
 	    base1 = TREE_OPERAND (base1, 0);
 	  else
@@ -8397,8 +8395,7 @@ fold_comparison (location_t loc, enum tree_code code, tree type,
 	      base1
 		= get_inner_reference (TREE_OPERAND (base1, 0),
 				       &bitsize, &bitpos1, &offset1, &mode,
-				       &unsignedp, &reversep, &volatilep,
-				       false);
+				       &unsignedp, &reversep, &volatilep);
 	      if (TREE_CODE (base1) == INDIRECT_REF)
 		base1 = TREE_OPERAND (base1, 0);
 	      else
@@ -10294,11 +10291,15 @@ fold_binary_loc (location_t loc,
 	      || TREE_CODE (arg0) == BIT_IOR_EXPR
 	      || TREE_CODE (arg0) == BIT_XOR_EXPR)
 	  && TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST)
-	return fold_build2_loc (loc, TREE_CODE (arg0), type,
-			    fold_build2_loc (loc, code, type,
-					 TREE_OPERAND (arg0, 0), arg1),
-			    fold_build2_loc (loc, code, type,
-					 TREE_OPERAND (arg0, 1), arg1));
+	{
+	  tree arg00 = fold_convert_loc (loc, type, TREE_OPERAND (arg0, 0));
+	  tree arg01 = fold_convert_loc (loc, type, TREE_OPERAND (arg0, 1));
+	  return fold_build2_loc (loc, TREE_CODE (arg0), type,
+				  fold_build2_loc (loc, code, type,
+						   arg00, arg1),
+				  fold_build2_loc (loc, code, type,
+						   arg01, arg1));
+	}
 
       /* Two consecutive rotates adding up to the some integer
 	 multiple of the precision of the type can be ignored.  */
@@ -10307,7 +10308,7 @@ fold_binary_loc (location_t loc,
 	  && TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST
 	  && wi::umod_trunc (wi::add (arg1, TREE_OPERAND (arg0, 1)),
 			     prec) == 0)
-	return TREE_OPERAND (arg0, 0);
+	return fold_convert_loc (loc, type, TREE_OPERAND (arg0, 0));
 
       return NULL_TREE;
 
@@ -14292,7 +14293,7 @@ split_address_to_core_and_offset (tree exp,
     {
       core = get_inner_reference (TREE_OPERAND (exp, 0), &bitsize, pbitpos,
 				  poffset, &mode, &unsignedp, &reversep,
-				  &volatilep, false);
+				  &volatilep);
       core = build_fold_addr_expr_loc (loc, core);
     }
   else

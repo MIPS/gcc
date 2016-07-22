@@ -1808,6 +1808,11 @@ start_bitfield_representative (tree field)
   DECL_SIZE_UNIT (repr) = DECL_SIZE_UNIT (field);
   DECL_PACKED (repr) = DECL_PACKED (field);
   DECL_CONTEXT (repr) = DECL_CONTEXT (field);
+  /* There are no indirect accesses to this field.  If we introduce
+     some then they have to use the record alias set.  This makes
+     sure to properly conflict with [indirect] accesses to addressable
+     fields of the bitfield group.  */
+  DECL_NONADDRESSABLE_P (repr) = 1;
   return repr;
 }
 
@@ -2894,13 +2899,13 @@ get_mode_bounds (machine_mode mode, int sign,
     }
   else if (sign)
     {
-      min_val = -((unsigned HOST_WIDE_INT) 1 << (size - 1));
-      max_val = ((unsigned HOST_WIDE_INT) 1 << (size - 1)) - 1;
+      min_val = -(HOST_WIDE_INT_1U << (size - 1));
+      max_val = (HOST_WIDE_INT_1U << (size - 1)) - 1;
     }
   else
     {
       min_val = 0;
-      max_val = ((unsigned HOST_WIDE_INT) 1 << (size - 1) << 1) - 1;
+      max_val = (HOST_WIDE_INT_1U << (size - 1) << 1) - 1;
     }
 
   *mmin = gen_int_mode (min_val, target_mode);

@@ -259,7 +259,7 @@ get_object_alignment_2 (tree exp, unsigned int *alignp,
   /* Get the innermost object and the constant (bitpos) and possibly
      variable (offset) offset of the access.  */
   exp = get_inner_reference (exp, &bitsize, &bitpos, &offset, &mode,
-			     &unsignedp, &reversep, &volatilep, true);
+			     &unsignedp, &reversep, &volatilep);
 
   /* Extract alignment information from the innermost object and
      possibly adjust bitpos and offset.  */
@@ -288,10 +288,6 @@ get_object_alignment_2 (tree exp, unsigned int *alignp,
     {
       align = DECL_ALIGN (exp);
       known_alignment = true;
-    }
-  else if (TREE_CODE (exp) == VIEW_CONVERT_EXPR)
-    {
-      align = TYPE_ALIGN (TREE_TYPE (exp));
     }
   else if (TREE_CODE (exp) == INDIRECT_REF
 	   || TREE_CODE (exp) == MEM_REF
@@ -672,11 +668,11 @@ target_char_cast (tree cst, char *p)
   val = TREE_INT_CST_LOW (cst);
 
   if (CHAR_TYPE_SIZE < HOST_BITS_PER_WIDE_INT)
-    val &= (((unsigned HOST_WIDE_INT) 1) << CHAR_TYPE_SIZE) - 1;
+    val &= (HOST_WIDE_INT_1U << CHAR_TYPE_SIZE) - 1;
 
   hostval = val;
   if (HOST_BITS_PER_CHAR < HOST_BITS_PER_WIDE_INT)
-    hostval &= (((unsigned HOST_WIDE_INT) 1) << HOST_BITS_PER_CHAR) - 1;
+    hostval &= (HOST_WIDE_INT_1U << HOST_BITS_PER_CHAR) - 1;
 
   if (val != hostval)
     return 1;
@@ -5156,6 +5152,123 @@ expand_builtin_atomic_compare_exchange (machine_mode mode, tree exp,
   emit_label (label);
 
   return target;
+}
+
+/* Helper function for expand_ifn_atomic_compare_exchange - expand
+   internal ATOMIC_COMPARE_EXCHANGE call into __atomic_compare_exchange_N
+   call.  The weak parameter must be dropped to match the expected parameter
+   list and the expected argument changed from value to pointer to memory
+   slot.  */
+
+static void
+expand_ifn_atomic_compare_exchange_into_call (gcall *call, machine_mode mode)
+{
+  unsigned int z;
+  vec<tree, va_gc> *vec;
+
+  vec_alloc (vec, 5);
+  vec->quick_push (gimple_call_arg (call, 0));
+  tree expected = gimple_call_arg (call, 1);
+  rtx x = assign_stack_temp_for_type (mode, GET_MODE_SIZE (mode),
+				      TREE_TYPE (expected));
+  rtx expd = expand_expr (expected, x, mode, EXPAND_NORMAL);
+  if (expd != x)
+    emit_move_insn (x, expd);
+  tree v = make_tree (TREE_TYPE (expected), x);
+  vec->quick_push (build1 (ADDR_EXPR,
+			   build_pointer_type (TREE_TYPE (expected)), v));
+  vec->quick_push (gimple_call_arg (call, 2));
+  /* Skip the boolean weak parameter.  */
+  for (z = 4; z < 6; z++)
+    vec->quick_push (gimple_call_arg (call, z));
+  built_in_function fncode
+    = (built_in_function) ((int) BUILT_IN_ATOMIC_COMPARE_EXCHANGE_1
+			   + exact_log2 (GET_MODE_SIZE (mode)));
+  tree fndecl = builtin_decl_explicit (fncode);
+  tree fn = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (fndecl)),
+		    fndecl);
+  tree exp = build_call_vec (boolean_type_node, fn, vec);
+  tree lhs = gimple_call_lhs (call);
+  rtx boolret = expand_call (exp, NULL_RTX, lhs == NULL_TREE);
+  if (lhs)
+    {
+      rtx target = expand_expr (lhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
+      if (GET_MODE (boolret) != mode)
+	boolret = convert_modes (mode, GET_MODE (boolret), boolret, 1);
+      x = force_reg (mode, x);
+      write_complex_part (target, boolret, true);
+      write_complex_part (target, x, false);
+    }
+}
+
+/* Expand IFN_ATOMIC_COMPARE_EXCHANGE internal function.  */
+
+void
+expand_ifn_atomic_compare_exchange (gcall *call)
+{
+  int size = tree_to_shwi (gimple_call_arg (call, 3)) & 255;
+  gcc_assert (size == 1 || size == 2 || size == 4 || size == 8 || size == 16);
+  machine_mode mode = mode_for_size (BITS_PER_UNIT * size, MODE_INT, 0);
+  rtx expect, desired, mem, oldval, boolret;
+  enum memmodel success, failure;
+  tree lhs;
+  bool is_weak;
+  source_location loc
+    = expansion_point_location_if_in_system_header (gimple_location (call));
+
+  success = get_memmodel (gimple_call_arg (call, 4));
+  failure = get_memmodel (gimple_call_arg (call, 5));
+
+  if (failure > success)
+    {
+      warning_at (loc, OPT_Winvalid_memory_model,
+		  "failure memory model cannot be stronger than success "
+		  "memory model for %<__atomic_compare_exchange%>");
+      success = MEMMODEL_SEQ_CST;
+    }
+
+  if (is_mm_release (failure) || is_mm_acq_rel (failure))
+    {
+      warning_at (loc, OPT_Winvalid_memory_model,
+		  "invalid failure memory model for "
+		  "%<__atomic_compare_exchange%>");
+      failure = MEMMODEL_SEQ_CST;
+      success = MEMMODEL_SEQ_CST;
+    }
+
+  if (!flag_inline_atomics)
+    {
+      expand_ifn_atomic_compare_exchange_into_call (call, mode);
+      return;
+    }
+
+  /* Expand the operands.  */
+  mem = get_builtin_sync_mem (gimple_call_arg (call, 0), mode);
+
+  expect = expand_expr_force_mode (gimple_call_arg (call, 1), mode);
+  desired = expand_expr_force_mode (gimple_call_arg (call, 2), mode);
+
+  is_weak = (tree_to_shwi (gimple_call_arg (call, 3)) & 256) != 0;
+
+  boolret = NULL;
+  oldval = NULL;
+
+  if (!expand_atomic_compare_and_swap (&boolret, &oldval, mem, expect, desired,
+				       is_weak, success, failure))
+    {
+      expand_ifn_atomic_compare_exchange_into_call (call, mode);
+      return;
+    }
+
+  lhs = gimple_call_lhs (call);
+  if (lhs)
+    {
+      rtx target = expand_expr (lhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
+      if (GET_MODE (boolret) != mode)
+	boolret = convert_modes (mode, GET_MODE (boolret), boolret, 1);
+      write_complex_part (target, boolret, true);
+      write_complex_part (target, oldval, false);
+    }
 }
 
 /* Expand the __atomic_load intrinsic:

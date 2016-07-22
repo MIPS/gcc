@@ -6443,11 +6443,17 @@ s390_expand_vec_init (rtx target, rtx vals)
   /* Unfortunately the vec_init expander is not allowed to fail.  So
      we have to implement the fallback ourselves.  */
   for (i = 0; i < n_elts; i++)
-    emit_insn (gen_rtx_SET (target,
-			    gen_rtx_UNSPEC (mode,
-					    gen_rtvec (3, XVECEXP (vals, 0, i),
-						       GEN_INT (i), target),
-					    UNSPEC_VEC_SET)));
+    {
+      rtx elem = XVECEXP (vals, 0, i);
+      if (!general_operand (elem, GET_MODE (elem)))
+	elem = force_reg (inner_mode, elem);
+
+      emit_insn (gen_rtx_SET (target,
+			      gen_rtx_UNSPEC (mode,
+					      gen_rtvec (3, elem,
+							 GEN_INT (i), target),
+					      UNSPEC_VEC_SET)));
+    }
 }
 
 /* Structure to hold the initial parameters for a compare_and_swap operation
@@ -12406,17 +12412,13 @@ s390_encode_section_info (tree decl, rtx rtl, int first)
     {
       /* Store the alignment to be able to check if we can use
 	 a larl/load-relative instruction.  We only handle the cases
-	 that can go wrong (i.e. no FUNC_DECLs).  If a symref does
-	 not have any flag we assume it to be correctly aligned.  */
-
-      if (DECL_ALIGN (decl) % 64)
-	SYMBOL_FLAG_SET_NOTALIGN8 (XEXP (rtl, 0));
-
-      if (DECL_ALIGN (decl) % 32)
-	SYMBOL_FLAG_SET_NOTALIGN4 (XEXP (rtl, 0));
-
+	 that can go wrong (i.e. no FUNC_DECLs).  */
       if (DECL_ALIGN (decl) == 0 || DECL_ALIGN (decl) % 16)
 	SYMBOL_FLAG_SET_NOTALIGN2 (XEXP (rtl, 0));
+      else if (DECL_ALIGN (decl) % 32)
+	SYMBOL_FLAG_SET_NOTALIGN4 (XEXP (rtl, 0));
+      else if (DECL_ALIGN (decl) % 64)
+	SYMBOL_FLAG_SET_NOTALIGN8 (XEXP (rtl, 0));
     }
 
   /* Literal pool references don't have a decl so they are handled
@@ -12424,18 +12426,14 @@ s390_encode_section_info (tree decl, rtx rtl, int first)
      entry to decide upon the alignment.  */
   if (MEM_P (rtl)
       && GET_CODE (XEXP (rtl, 0)) == SYMBOL_REF
-      && TREE_CONSTANT_POOL_ADDRESS_P (XEXP (rtl, 0))
-      && MEM_ALIGN (rtl) != 0
-      && GET_MODE_BITSIZE (GET_MODE (rtl)) != 0)
+      && TREE_CONSTANT_POOL_ADDRESS_P (XEXP (rtl, 0)))
     {
-      if (MEM_ALIGN (rtl) % 64)
-	SYMBOL_FLAG_SET_NOTALIGN8 (XEXP (rtl, 0));
-
-      if (MEM_ALIGN (rtl) % 32)
-	SYMBOL_FLAG_SET_NOTALIGN4 (XEXP (rtl, 0));
-
       if (MEM_ALIGN (rtl) == 0 || MEM_ALIGN (rtl) % 16)
 	SYMBOL_FLAG_SET_NOTALIGN2 (XEXP (rtl, 0));
+      else if (MEM_ALIGN (rtl) % 32)
+	SYMBOL_FLAG_SET_NOTALIGN4 (XEXP (rtl, 0));
+      else if (MEM_ALIGN (rtl) % 64)
+	SYMBOL_FLAG_SET_NOTALIGN8 (XEXP (rtl, 0));
     }
 }
 

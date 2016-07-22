@@ -252,9 +252,7 @@ lvalue_kind (const_tree ref)
   return op1_lvalue_kind;
 }
 
-/* Returns the kind of lvalue that REF is, in the sense of
-   [basic.lval].  This function should really be named lvalue_p; it
-   computes the C++ definition of lvalue.  */
+/* Returns the kind of lvalue that REF is, in the sense of [basic.lval].  */
 
 cp_lvalue_kind
 real_lvalue_p (const_tree ref)
@@ -266,20 +264,18 @@ real_lvalue_p (const_tree ref)
     return kind;
 }
 
-/* This differs from real_lvalue_p in that class rvalues are considered
-   lvalues.  */
+/* c-common wants us to return bool.  */
 
 bool
-lvalue_p (const_tree ref)
+lvalue_p (const_tree t)
 {
-  return (lvalue_kind (ref) != clk_none);
+  return real_lvalue_p (t);
 }
 
-/* This differs from real_lvalue_p in that rvalues formed by dereferencing
-   rvalue references are considered rvalues.  */
+/* This differs from lvalue_p in that xvalues are included.  */
 
 bool
-lvalue_or_rvalue_with_address_p (const_tree ref)
+glvalue_p (const_tree ref)
 {
   cp_lvalue_kind kind = lvalue_kind (ref);
   if (kind & clk_class)
@@ -288,7 +284,16 @@ lvalue_or_rvalue_with_address_p (const_tree ref)
     return (kind != clk_none);
 }
 
-/* Returns true if REF is an xvalue, false otherwise.  */
+/* This differs from glvalue_p in that class prvalues are included.  */
+
+bool
+obvalue_p (const_tree ref)
+{
+  return (lvalue_kind (ref) != clk_none);
+}
+
+/* Returns true if REF is an xvalue (the result of dereferencing an rvalue
+   reference), false otherwise.  */
 
 bool
 xvalue_p (const_tree ref)
@@ -376,6 +381,8 @@ build_target_expr (tree decl, tree value, tsubst_flags_t complain)
 {
   tree t;
   tree type = TREE_TYPE (decl);
+
+  value = mark_rvalue_use (value);
 
   gcc_checking_assert (VOID_TYPE_P (TREE_TYPE (value))
 		       || TREE_TYPE (decl) == TREE_TYPE (value)
@@ -606,7 +613,7 @@ build_vec_init_elt (tree type, tree init, tsubst_flags_t complain)
     {
       tree init_type = strip_array_types (TREE_TYPE (init));
       tree dummy = build_dummy_object (init_type);
-      if (!real_lvalue_p (init))
+      if (!lvalue_p (init))
 	dummy = move (dummy);
       argvec->quick_push (dummy);
     }
@@ -729,7 +736,10 @@ get_target_expr_sfinae (tree init, tsubst_flags_t complain)
   else if (TREE_CODE (init) == VEC_INIT_EXPR)
     return build_target_expr (VEC_INIT_EXPR_SLOT (init), init, complain);
   else
-    return build_target_expr_with_type (init, TREE_TYPE (init), complain);
+    {
+      init = convert_bitfield_to_declared_type (init);
+      return build_target_expr_with_type (init, TREE_TYPE (init), complain);
+    }
 }
 
 tree
@@ -776,7 +786,7 @@ rvalue (tree expr)
 
   /* We need to do this for rvalue refs as well to get the right answer
      from decltype; see c++/36628.  */
-  if (!processing_template_decl && lvalue_or_rvalue_with_address_p (expr))
+  if (!processing_template_decl && glvalue_p (expr))
     expr = build1 (NON_LVALUE_EXPR, type, expr);
   else if (type != TREE_TYPE (expr))
     expr = build_nop (type, expr);
@@ -3172,6 +3182,11 @@ cp_tree_equal (tree t1, tree t2)
       return cp_tree_equal (CI_ASSOCIATED_CONSTRAINTS (t1),
                             CI_ASSOCIATED_CONSTRAINTS (t2));
 
+    case CHECK_CONSTR:
+      return (CHECK_CONSTR_CONCEPT (t1) == CHECK_CONSTR_CONCEPT (t2)
+              && comp_template_args (CHECK_CONSTR_ARGS (t1),
+				     CHECK_CONSTR_ARGS (t2)));
+
     case TREE_VEC:
       {
 	unsigned ix;
@@ -3319,7 +3334,7 @@ error_type (tree arg)
     ;
   else if (TREE_CODE (type) == ERROR_MARK)
     ;
-  else if (real_lvalue_p (arg))
+  else if (lvalue_p (arg))
     type = build_reference_type (lvalue_type (arg));
   else if (MAYBE_CLASS_TYPE_P (type))
     type = lvalue_type (arg);
@@ -4065,6 +4080,22 @@ cp_walk_subtrees (tree *tp, int *walk_subtrees_p, walk_tree_fn func,
       *walk_subtrees_p = 0;
       break;
 
+    case DECL_EXPR:
+      /* User variables should be mentioned in BIND_EXPR_VARS
+	 and their initializers and sizes walked when walking
+	 the containing BIND_EXPR.  Compiler temporaries are
+	 handled here.  */
+      if (VAR_P (TREE_OPERAND (*tp, 0))
+	  && DECL_ARTIFICIAL (TREE_OPERAND (*tp, 0))
+	  && !TREE_STATIC (TREE_OPERAND (*tp, 0)))
+	{
+	  tree decl = TREE_OPERAND (*tp, 0);
+	  WALK_SUBTREE (DECL_INITIAL (decl));
+	  WALK_SUBTREE (DECL_SIZE (decl));
+	  WALK_SUBTREE (DECL_SIZE_UNIT (decl));
+	}
+      break;
+
     default:
       return NULL_TREE;
     }
@@ -4255,7 +4286,7 @@ stabilize_expr (tree exp, tree* initp)
      arguments with such a type; just treat it as a pointer.  */
   else if (TREE_CODE (TREE_TYPE (exp)) == REFERENCE_TYPE
 	   || SCALAR_TYPE_P (TREE_TYPE (exp))
-	   || !lvalue_or_rvalue_with_address_p (exp))
+	   || !glvalue_p (exp))
     {
       init_expr = get_target_expr (exp);
       exp = TARGET_EXPR_SLOT (init_expr);
@@ -4266,7 +4297,7 @@ stabilize_expr (tree exp, tree* initp)
     }
   else
     {
-      bool xval = !real_lvalue_p (exp);
+      bool xval = !lvalue_p (exp);
       exp = cp_build_addr_expr (exp, tf_warning_or_error);
       init_expr = get_target_expr (exp);
       exp = TARGET_EXPR_SLOT (init_expr);
@@ -4383,7 +4414,7 @@ stabilize_init (tree init, tree *initp)
       && TREE_CODE (t) != CONSTRUCTOR
       && TREE_CODE (t) != AGGR_INIT_EXPR
       && (SCALAR_TYPE_P (TREE_TYPE (t))
-	  || lvalue_or_rvalue_with_address_p (t)))
+	  || glvalue_p (t)))
     {
       TREE_OPERAND (init, 1) = stabilize_expr (t, initp);
       return true;

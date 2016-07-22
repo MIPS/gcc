@@ -115,8 +115,6 @@ along with GCC; see the file COPYING3.  If not see
 /* The infinite cost.  */
 #define INFTY 10000000
 
-#define AVG_LOOP_NITER(LOOP) 5
-
 /* Returns the expected number of loop iterations for LOOP.
    The average trip count is computed from profile data if it
    exists. */
@@ -128,8 +126,9 @@ avg_loop_niter (struct loop *loop)
   if (niter == -1)
     {
       niter = likely_max_stmt_executions_int (loop);
-      if (niter == -1 || niter > AVG_LOOP_NITER (loop))
-	return AVG_LOOP_NITER (loop);
+
+      if (niter == -1 || niter > PARAM_VALUE (PARAM_AVG_LOOP_NITER))
+	return PARAM_VALUE (PARAM_AVG_LOOP_NITER);
     }
 
   return niter;
@@ -1181,6 +1180,10 @@ alloc_iv (struct ivopts_data *data, tree base, tree step,
   iv->biv_p = false;
   iv->nonlin_use = NULL;
   iv->ssa_name = NULL_TREE;
+  if (!no_overflow
+       && !iv_can_overflow_p (data->current_loop, TREE_TYPE (base),
+			      base, step))
+    no_overflow = true;
   iv->no_overflow = no_overflow;
   iv->have_address_use = false;
 
@@ -2485,14 +2488,14 @@ compute_max_addr_offset (struct iv_use *use)
 
   for (i = width; i > 0; i--)
     {
-      off = ((unsigned HOST_WIDE_INT) 1 << i) - 1;
+      off = (HOST_WIDE_INT_1U << i) - 1;
       XEXP (addr, 1) = gen_int_mode (off, addr_mode);
       if (memory_address_addr_space_p (mem_mode, addr, as))
 	break;
 
       /* For some strict-alignment targets, the offset must be naturally
 	 aligned.  Try an aligned offset if mem_mode is not QImode.  */
-      off = ((unsigned HOST_WIDE_INT) 1 << i);
+      off = (HOST_WIDE_INT_1U << i);
       if (off > GET_MODE_SIZE (mem_mode) && mem_mode != QImode)
 	{
 	  off -= GET_MODE_SIZE (mem_mode);
@@ -3999,7 +4002,7 @@ get_address_cost (bool symbol_present, bool var_present,
 
       for (i = width; i >= 0; i--)
 	{
-	  off = -((unsigned HOST_WIDE_INT) 1 << i);
+	  off = -(HOST_WIDE_INT_1U << i);
 	  XEXP (addr, 1) = gen_int_mode (off, address_mode);
 	  if (memory_address_addr_space_p (mem_mode, addr, as))
 	    break;
@@ -4008,14 +4011,14 @@ get_address_cost (bool symbol_present, bool var_present,
 
       for (i = width; i >= 0; i--)
 	{
-	  off = ((unsigned HOST_WIDE_INT) 1 << i) - 1;
+	  off = (HOST_WIDE_INT_1U << i) - 1;
 	  XEXP (addr, 1) = gen_int_mode (off, address_mode);
 	  if (memory_address_addr_space_p (mem_mode, addr, as))
 	    break;
 	  /* For some strict-alignment targets, the offset must be naturally
 	     aligned.  Try an aligned offset if mem_mode is not QImode.  */
 	  off = mem_mode != QImode
-		? ((unsigned HOST_WIDE_INT) 1 << i)
+		? (HOST_WIDE_INT_1U << i)
 		    - GET_MODE_SIZE (mem_mode)
 		: 0;
 	  if (off > 0)
@@ -4214,7 +4217,7 @@ get_address_cost (bool symbol_present, bool var_present,
     }
 
   bits = GET_MODE_BITSIZE (address_mode);
-  mask = ~(~(unsigned HOST_WIDE_INT) 0 << (bits - 1) << 1);
+  mask = ~(HOST_WIDE_INT_M1U << (bits - 1) << 1);
   offset &= mask;
   if ((offset >> (bits - 1) & 1))
     offset |= ~mask;
@@ -4522,7 +4525,7 @@ split_address_cost (struct ivopts_data *data,
   int unsignedp, reversep, volatilep;
 
   core = get_inner_reference (addr, &bitsize, &bitpos, &toffset, &mode,
-			      &unsignedp, &reversep, &volatilep, false);
+			      &unsignedp, &reversep, &volatilep);
 
   if (toffset != 0
       || bitpos % BITS_PER_UNIT != 0

@@ -459,11 +459,12 @@ package body Inline is
             --  Do not inline it either if it is in the main unit.
             --  Extend the -gnatn2 processing to -gnatn1 for Inline_Always
             --  calls if the back-end takes care of inlining the call.
+            --  Note that Level in Inline_Package | Inline_Call here.
 
-            elsif (Level = Inline_Package
-                    or else (Level = Inline_Call
-                              and then Has_Pragma_Inline_Always (E)
-                              and then Back_End_Inlining))
+            elsif ((Level = Inline_Call
+                      and then Has_Pragma_Inline_Always (E)
+                      and then Back_End_Inlining)
+                    or else Level = Inline_Package)
               and then not Is_Inlined (Pack)
               and then not Is_Internal (E)
               and then not In_Main_Unit_Or_Subunit (Pack)
@@ -3868,7 +3869,7 @@ package body Inline is
    --  the body is an internal error.
 
    procedure Instantiate_Bodies is
-      J    : Int;
+      J    : Nat;
       Info : Pending_Body_Info;
 
    begin

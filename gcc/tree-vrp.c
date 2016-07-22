@@ -1513,10 +1513,13 @@ extract_range_from_assert (value_range *vr_p, tree expr)
   limit_vr = (TREE_CODE (limit) == SSA_NAME) ? get_value_range (limit) : NULL;
 
   /* LIMIT's range is only interesting if it has any useful information.  */
-  if (limit_vr
-      && (limit_vr->type == VR_UNDEFINED
-	  || limit_vr->type == VR_VARYING
-	  || symbolic_range_p (limit_vr)))
+  if (! limit_vr
+      || limit_vr->type == VR_UNDEFINED
+      || limit_vr->type == VR_VARYING
+      || (symbolic_range_p (limit_vr)
+	  && ! (limit_vr->type == VR_RANGE
+		&& (limit_vr->min == limit_vr->max
+		    || operand_equal_p (limit_vr->min, limit_vr->max, 0)))))
     limit_vr = NULL;
 
   /* Initially, the new range has the same set of equivalences of
@@ -4016,6 +4019,9 @@ extract_range_basic (value_range *vr, gimple *stmt)
 			set_value_range_to_value (vr,
 						  build_int_cst (type, ovf),
 						  NULL);
+		      else if (TYPE_PRECISION (type) == 1
+			       && !TYPE_UNSIGNED (type))
+			set_value_range_to_varying (vr);
 		      else
 			set_value_range (vr, VR_RANGE, build_int_cst (type, 0),
 					 build_int_cst (type, 1), NULL);
@@ -4153,8 +4159,8 @@ adjust_range_with_scev (value_range *vr, struct loop *loop,
 	 or decreases,  ... */
       dir == EV_DIR_UNKNOWN
       /* ... or if it may wrap.  */
-      || scev_probably_wraps_p (init, step, stmt, get_chrec_loop (chrec),
-				true))
+      || scev_probably_wraps_p (NULL_TREE, init, step, stmt,
+				get_chrec_loop (chrec), true))
     return;
 
   /* We use TYPE_MIN_VALUE and TYPE_MAX_VALUE here instead of

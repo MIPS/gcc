@@ -367,7 +367,20 @@ remap_decl (tree decl, copy_body_data *id)
       /* Remap types, if necessary.  */
       TREE_TYPE (t) = remap_type (TREE_TYPE (t), id);
       if (TREE_CODE (t) == TYPE_DECL)
-        DECL_ORIGINAL_TYPE (t) = remap_type (DECL_ORIGINAL_TYPE (t), id);
+	{
+	  DECL_ORIGINAL_TYPE (t) = remap_type (DECL_ORIGINAL_TYPE (t), id);
+
+	  /* Preserve the invariant that DECL_ORIGINAL_TYPE != TREE_TYPE,
+	     which is enforced in gen_typedef_die when DECL_ABSTRACT_ORIGIN
+	     is not set on the TYPE_DECL, for example in LTO mode.  */
+	  if (DECL_ORIGINAL_TYPE (t) == TREE_TYPE (t))
+	    {
+	      tree x = build_variant_type_copy (TREE_TYPE (t));
+	      TYPE_STUB_DECL (x) = TYPE_STUB_DECL (TREE_TYPE (t));
+	      TYPE_NAME (x) = TYPE_NAME (TREE_TYPE (t));
+	      DECL_ORIGINAL_TYPE (t) = x;
+	    }
+	}
 
       /* Remap sizes as necessary.  */
       walk_tree (&DECL_SIZE (t), copy_tree_body_r, id, NULL);
@@ -3564,7 +3577,7 @@ inline_forbidden_p_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	 RAM instead of 256MB.  Don't do so for alloca calls emitted for
 	 VLA objects as those can't cause unbounded growth (they're always
 	 wrapped inside stack_save/stack_restore regions.  */
-      if (gimple_alloca_call_p (stmt)
+      if (gimple_maybe_alloca_call_p (stmt)
 	  && !gimple_call_alloca_for_var_p (as_a <gcall *> (stmt))
 	  && !lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)))
 	{

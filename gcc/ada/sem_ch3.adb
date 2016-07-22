@@ -1415,7 +1415,7 @@ package body Sem_Ch3 is
       elsif Is_Class_Wide_Type (Full_Desig) and then Etype (Full_Desig) = T
       then
          Error_Msg_N
-           ("access type cannot designate its own classwide type", S);
+           ("access type cannot designate its own class-wide type", S);
 
          --  Clean up indication of tagged status to prevent cascaded errors
 
@@ -2436,8 +2436,8 @@ package body Sem_Ch3 is
                null;
 
             elsif L /= Visible_Declarations (Parent (L))
-               or else No (Private_Declarations (Parent (L)))
-               or else Is_Empty_List (Private_Declarations (Parent (L)))
+              or else No (Private_Declarations (Parent (L)))
+              or else Is_Empty_List (Private_Declarations (Parent (L)))
             then
                Adjust_Decl;
                Freeze_All (First_Entity (Current_Scope), Decl);
@@ -3466,7 +3466,17 @@ package body Sem_Ch3 is
                                                N_Package_Renaming_Declaration
                    and then not Comes_From_Source (Prev_Entity)
                    and then
-                     Is_Generic_Instance (Renamed_Entity (Prev_Entity))))
+                     Is_Generic_Instance (Renamed_Entity (Prev_Entity)))
+
+               --  The entity may be a homonym of a private component of the
+               --  enclosing protected object, for which we create a local
+               --  renaming declaration. The declaration is legal, even if
+               --  useless when it just captures that component.
+
+               or else
+                 (Ekind (Scope (Current_Scope)) = E_Protected_Type
+                   and then Nkind (Parent (Prev_Entity)) =
+                              N_Object_Renaming_Declaration))
          then
             Prev_Entity := Empty;
          end if;
@@ -4384,7 +4394,7 @@ package body Sem_Ch3 is
       --  type, rewrite the declaration as a renaming of the result of the
       --  call. The exceptions below are cases where the copy is expected,
       --  either by the back end (Aliased case) or by the semantics, as for
-      --  initializing controlled types or copying tags for classwide types.
+      --  initializing controlled types or copying tags for class-wide types.
 
       if Present (E)
         and then Nkind (E) = N_Explicit_Dereference
@@ -4792,6 +4802,24 @@ package body Sem_Ch3 is
       then
          Set_Has_Predicates (Id);
          Set_Has_Delayed_Freeze (Id);
+
+         --  Generated subtypes inherit the predicate function from the parent
+         --  (no aspects to examine on the generated declaration).
+
+         if not Comes_From_Source (N) then
+            Set_Ekind (Id, Ekind (T));
+
+            if Present (Predicate_Function (T)) then
+               Set_Predicate_Function (Id, Predicate_Function (T));
+
+            elsif Present (Ancestor_Subtype (T))
+              and then Has_Predicates (Ancestor_Subtype (T))
+              and then Present (Predicate_Function (Ancestor_Subtype (T)))
+            then
+               Set_Predicate_Function (Id,
+                 Predicate_Function (Ancestor_Subtype (T)));
+            end if;
+         end if;
       end if;
 
       --  Subtype of Boolean cannot have a constraint in SPARK
@@ -9182,6 +9210,7 @@ package body Sem_Ch3 is
       Set_Mechanism (D_Minal, Default_Mechanism);
       Set_Etype     (D_Minal, Etype (Discrim));
       Set_Scope     (D_Minal, Current_Scope);
+      Set_Parent    (D_Minal, Parent (Discrim));
 
       Set_Discriminal (Discrim, D_Minal);
       Set_Discriminal_Link (D_Minal, Discrim);
@@ -14490,7 +14519,7 @@ package body Sem_Ch3 is
    -----------------------
 
    procedure Derive_Subprogram
-     (New_Subp     : in out Entity_Id;
+     (New_Subp     : out Entity_Id;
       Parent_Subp  : Entity_Id;
       Derived_Type : Entity_Id;
       Parent_Type  : Entity_Id;
@@ -15071,7 +15100,7 @@ package body Sem_Ch3 is
       --  the list of primitives of Derived_Type exactly in the same order.
 
       procedure Derive_Interface_Subprogram
-        (New_Subp    : in out Entity_Id;
+        (New_Subp    : out Entity_Id;
          Subp        : Entity_Id;
          Actual_Subp : Entity_Id);
       --  Derive New_Subp from the ultimate alias of the parent subprogram Subp
@@ -15157,7 +15186,7 @@ package body Sem_Ch3 is
       ---------------------------------
 
       procedure Derive_Interface_Subprogram
-        (New_Subp    : in out Entity_Id;
+        (New_Subp    : out Entity_Id;
          Subp        : Entity_Id;
          Actual_Subp : Entity_Id)
       is
@@ -16650,9 +16679,9 @@ package body Sem_Ch3 is
                Set_Ekind (Id, Ekind (Prev));         --  will be reset later
                Set_Class_Wide_Type (Id, Class_Wide_Type (Prev));
 
-               --  The type of the classwide type is the current Id. Previously
+               --  Type of the class-wide type is the current Id. Previously
                --  this was not done for private declarations because of order-
-               --  of elaboration issues in the back-end, but gigi now handles
+               --  of-elaboration issues in the back end, but gigi now handles
                --  this properly.
 
                Set_Etype (Class_Wide_Type (Id), Id);

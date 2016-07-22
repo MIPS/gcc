@@ -1961,15 +1961,7 @@ start_over:
      since we use grouping information gathered by interleaving analysis.  */
   ok = vect_prune_runtime_alias_test_list (loop_vinfo);
   if (!ok)
-    {
-      if (dump_enabled_p ())
-	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			 "number of versioning for alias "
-			 "run-time tests exceeds %d "
-			 "(--param vect-max-version-for-alias-checks)\n",
-			 PARAM_VALUE (PARAM_VECT_MAX_VERSION_FOR_ALIAS_CHECKS));
-      return false;
-    }
+    return false;
 
   /* This pass will decide on using loop versioning and/or loop peeling in
      order to enhance the alignment of data references in the loop.  */
@@ -2152,10 +2144,12 @@ again:
 	{
 	  vinfo = vinfo_for_stmt (SLP_TREE_SCALAR_STMTS (node)[0]);
 	  vinfo = vinfo_for_stmt (STMT_VINFO_GROUP_FIRST_ELEMENT (vinfo));
+	  bool single_element_p = !STMT_VINFO_GROUP_NEXT_ELEMENT (vinfo);
 	  size = STMT_VINFO_GROUP_SIZE (vinfo);
 	  vectype = STMT_VINFO_VECTYPE (vinfo);
 	  if (! vect_load_lanes_supported (vectype, size)
-	      && ! vect_grouped_load_supported (vectype, size))
+	      && ! vect_grouped_load_supported (vectype, single_element_p,
+						size))
 	    return false;
 	}
     }
@@ -3071,7 +3065,15 @@ vect_get_known_peeling_cost (loop_vec_info loop_vinfo, int peel_iters_prologue,
 
    Return the number of iterations required for the vector version of the
    loop to be profitable relative to the cost of the scalar version of the
-   loop.  */
+   loop.
+
+   *RET_MIN_PROFITABLE_NITERS is a cost model profitability threshold
+   of iterations for vectorization.  -1 value means loop vectorization
+   is not profitable.  This returned value may be used for dynamic
+   profitability check.
+
+   *RET_MIN_PROFITABLE_ESTIMATE is a profitability threshold to be used
+   for static check against estimated number of iterations.  */
 
 static void
 vect_estimate_min_profitable_iters (loop_vec_info loop_vinfo,
@@ -6352,11 +6354,12 @@ vectorizable_live_operation (gimple *stmt,
 	: gimple_get_lhs (stmt);
   lhs_type = TREE_TYPE (lhs);
 
-  /* Find all uses of STMT outside the loop - there should be exactly one.  */
+  /* Find all uses of STMT outside the loop - there should be at least one.  */
   auto_vec<gimple *, 4> worklist;
   FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, lhs)
-    if (!flow_bb_inside_loop_p (loop, gimple_bb (use_stmt)))
-	worklist.safe_push (use_stmt);
+    if (!flow_bb_inside_loop_p (loop, gimple_bb (use_stmt))
+	&& !is_gimple_debug (use_stmt))
+      worklist.safe_push (use_stmt);
   gcc_assert (worklist.length () >= 1);
 
   bitsize = TYPE_SIZE (TREE_TYPE (vectype));
@@ -6968,6 +6971,9 @@ vect_transform_loop (loop_vec_info loop_vinfo)
   FOR_EACH_VEC_ELT (LOOP_VINFO_SLP_INSTANCES (loop_vinfo), i, instance)
     vect_free_slp_instance (instance);
   LOOP_VINFO_SLP_INSTANCES (loop_vinfo).release ();
+  /* Clear-up safelen field since its value is invalid after vectorization
+     since vectorized loop can have loop-carried dependencies.  */
+  loop->safelen = 0;
 }
 
 /* The code below is trying to perform simple optimization - revert

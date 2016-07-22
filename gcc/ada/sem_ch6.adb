@@ -486,6 +486,15 @@ package body Sem_Ch6 is
 
          Set_Is_Inlined (Defining_Entity (N));
 
+         --  If the expression function is Ghost, mark its body entity as
+         --  Ghost too. This avoids spurious errors on unanalyzed body entities
+         --  of expression functions, which are not yet marked as ghost, yet
+         --  identified as the Corresponding_Body of the ghost declaration.
+
+         if Is_Ghost_Entity (Def_Id) then
+            Set_Is_Ghost_Entity (Defining_Entity (New_Body));
+         end if;
+
          --  Establish the linkages between the spec and the body. These are
          --  used when the expression function acts as the prefix of attribute
          --  'Access in order to freeze the original expression which has been
@@ -774,9 +783,8 @@ package body Sem_Ch6 is
          --  If the return object is of an anonymous access type, then report
          --  an error if the function's result type is not also anonymous.
 
-         elsif R_Stm_Type_Is_Anon_Access
-           and then not R_Type_Is_Anon_Access
-         then
+         elsif R_Stm_Type_Is_Anon_Access then
+            pragma Assert (not R_Type_Is_Anon_Access);
             Error_Msg_N ("anonymous access not allowed for function with "
                          & "named access result", Subtype_Ind);
 
@@ -2144,17 +2152,18 @@ package body Sem_Ch6 is
    --  the subprogram, or to perform conformance checks.
 
    procedure Analyze_Subprogram_Body_Helper (N : Node_Id) is
-      Loc          : constant Source_Ptr := Sloc (N);
-      Body_Spec    : Node_Id             := Specification (N);
-      Body_Id      : Entity_Id           := Defining_Entity (Body_Spec);
-      Prev_Id      : constant Entity_Id  := Current_Entity_In_Scope (Body_Id);
-      Exch_Views   : Elist_Id            := No_Elist;
-      Desig_View   : Entity_Id           := Empty;
-      Conformant   : Boolean;
-      HSS          : Node_Id;
-      Prot_Typ     : Entity_Id := Empty;
-      Spec_Id      : Entity_Id;
-      Spec_Decl    : Node_Id   := Empty;
+      Body_Spec : Node_Id             := Specification (N);
+      Body_Id   : Entity_Id           := Defining_Entity (Body_Spec);
+      Loc       : constant Source_Ptr := Sloc (N);
+      Prev_Id   : constant Entity_Id  := Current_Entity_In_Scope (Body_Id);
+
+      Conformant : Boolean;
+      Desig_View : Entity_Id := Empty;
+      Exch_Views : Elist_Id  := No_Elist;
+      HSS        : Node_Id;
+      Prot_Typ   : Entity_Id := Empty;
+      Spec_Decl  : Node_Id   := Empty;
+      Spec_Id    : Entity_Id;
 
       Last_Real_Spec_Entity : Entity_Id := Empty;
       --  When we analyze a separate spec, the entity chain ends up containing
@@ -2654,6 +2663,12 @@ package body Sem_Ch6 is
                      Plist := Copy_Parameter_List (Body_Id);
                      Set_Parameter_Specifications
                        (Specification (Decl), Plist);
+                  end if;
+
+                  --  Move aspects to the new spec
+
+                  if Has_Aspects (N) then
+                     Move_Aspects (N, To => Decl);
                   end if;
 
                   Insert_Before (N, Decl);
@@ -3716,7 +3731,7 @@ package body Sem_Ch6 is
          return;
       end if;
 
-      --  Handle front-end inlining
+      --  Handle inlining
 
       --  Note: Normally we don't do any inlining if expansion is off, since
       --  we won't generate code in any case. An exception arises in GNATprove
@@ -3733,15 +3748,14 @@ package body Sem_Ch6 is
 
          if not Back_End_Inlining then
             if (Has_Pragma_Inline_Always (Spec_Id)
-                  and then not Opt.Disable_FE_Inline_Always)
-              or else
-              (Has_Pragma_Inline (Spec_Id) and then Front_End_Inlining
-                 and then not Opt.Disable_FE_Inline)
+                 and then not Opt.Disable_FE_Inline_Always)
+              or else (Front_End_Inlining
+                        and then not Opt.Disable_FE_Inline)
             then
                Build_Body_To_Inline (N, Spec_Id);
             end if;
 
-         --  New implementation (relying on backend inlining)
+         --  New implementation (relying on back-end inlining)
 
          else
             if Has_Pragma_Inline_Always (Spec_Id)
@@ -9077,6 +9091,7 @@ package body Sem_Ch6 is
          --  tested.
 
          Formal := First_Formal (Prev_E);
+         F_Typ  := Empty;
          while Present (Formal) loop
             F_Typ := Base_Type (Etype (Formal));
 
@@ -9089,6 +9104,8 @@ package body Sem_Ch6 is
 
             Next_Formal (Formal);
          end loop;
+
+         --  If the function dispatches on result check the result type
 
          if No (G_Typ) and then Ekind (Prev_E) = E_Function then
             G_Typ := Get_Generic_Parent_Type (Base_Type (Etype (Prev_E)));
@@ -9168,7 +9185,7 @@ package body Sem_Ch6 is
                --  private part of the instance. Emit a warning now, which will
                --  make the subsequent error message easier to understand.
 
-               if not Is_Abstract_Type (F_Typ)
+               if Present (F_Typ) and then not Is_Abstract_Type (F_Typ)
                  and then Is_Abstract_Subprogram (Prev_E)
                  and then In_Private_Part (Current_Scope)
                then
@@ -10535,13 +10552,6 @@ package body Sem_Ch6 is
                         Set_Convention (S, Convention (E));
                         Check_Dispatching_Operation (S, E);
 
-                        --  In GNATprove_Mode, create the pragmas corresponding
-                        --  to inherited class-wide conditions.
-
-                        if GNATprove_Mode then
-                           Collect_Inherited_Class_Wide_Conditions (S);
-                        end if;
-
                      else
                         Check_Dispatching_Operation (S, Empty);
                      end if;
@@ -10808,8 +10818,8 @@ package body Sem_Ch6 is
                     and then not Is_Class_Wide_Type (Formal_Type)
                   then
                      if not Nkind_In
-                       (Parent (T), N_Access_Function_Definition,
-                                    N_Access_Procedure_Definition)
+                              (Parent (T), N_Access_Function_Definition,
+                                           N_Access_Procedure_Definition)
                      then
                         Append_Elmt (Current_Scope,
                           Private_Dependents (Base_Type (Formal_Type)));
@@ -10963,6 +10973,13 @@ package body Sem_Ch6 is
          end if;
 
          Set_Etype (Formal, Formal_Type);
+
+         --  A formal parameter declared within a Ghost region is automatically
+         --  Ghost (SPARK RM 6.9(2)).
+
+         if Ghost_Mode > None then
+            Set_Is_Ghost_Entity (Formal);
+         end if;
 
          --  Deal with default expression if present
 
@@ -11226,9 +11243,12 @@ package body Sem_Ch6 is
 
          --  At this stage we have an unconstrained type that may need an
          --  actual subtype. For sure the actual subtype is needed if we have
-         --  an unconstrained array type.
+         --  an unconstrained array type. However, in an instance, the type
+         --  may appear as a subtype of the full view, while the actual is
+         --  in fact private (in which case no actual subtype is needed) so
+         --  check the kind of the base type.
 
-         elsif Is_Array_Type (T) then
+         elsif Is_Array_Type (Base_Type (T)) then
             AS_Needed := True;
 
          --  The only other case needing an actual subtype is an unconstrained
@@ -11299,6 +11319,7 @@ package body Sem_Ch6 is
             --  therefore needs no constraint checks.
 
             Analyze (Decl, Suppress => All_Checks);
+            Set_Is_Actual_Subtype (Defining_Identifier (Decl));
 
             --  We need to freeze manually the generated type when it is
             --  inserted anywhere else than in a declarative part.
@@ -11308,9 +11329,10 @@ package body Sem_Ch6 is
                  Freeze_Entity (Defining_Identifier (Decl), N));
 
             --  Ditto if the type has a dynamic predicate, because the
-            --  generated function will mention the actual subtype.
+            --  generated function will mention the actual subtype. The
+            --  predicate may come from an explicit aspect of be inherited.
 
-            elsif Has_Dynamic_Predicate_Aspect (T) then
+            elsif Has_Predicates (T) then
                Insert_List_Before_And_Analyze (Decl,
                  Freeze_Entity (Defining_Identifier (Decl), N));
             end if;

@@ -916,14 +916,6 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 /* In a CALL_EXPR, means call was instrumented by Pointer Bounds Checker.  */
 #define CALL_WITH_BOUNDS_P(NODE) (CALL_EXPR_CHECK (NODE)->base.deprecated_flag)
 
-/* In a type, nonzero means that all objects of the type are guaranteed by the
-   language or front-end to be properly aligned, so we can indicate that a MEM
-   of this type is aligned at least to the alignment of the type, even if it
-   doesn't appear that it is.  We see this, for example, in object-oriented
-   languages where a tag field may show this is an object of a more-aligned
-   variant of the more generic type.  */
-#define TYPE_ALIGN_OK(NODE) (TYPE_CHECK (NODE)->base.nothrow_flag)
-
 /* Used in classes in C++.  */
 #define TREE_PRIVATE(NODE) ((NODE)->base.private_flag)
 /* Used in classes in C++. */
@@ -1960,6 +1952,7 @@ extern machine_mode element_mode (const_tree t);
 #define TYPE_LANG_FLAG_4(NODE) (TYPE_CHECK (NODE)->type_common.lang_flag_4)
 #define TYPE_LANG_FLAG_5(NODE) (TYPE_CHECK (NODE)->type_common.lang_flag_5)
 #define TYPE_LANG_FLAG_6(NODE) (TYPE_CHECK (NODE)->type_common.lang_flag_6)
+#define TYPE_LANG_FLAG_7(NODE) (TYPE_CHECK (NODE)->type_common.lang_flag_7)
 
 /* Used to keep track of visited nodes in tree traversals.  This is set to
    0 by copy_node and make_node.  */
@@ -1972,7 +1965,7 @@ extern machine_mode element_mode (const_tree t);
 
 /* For a VECTOR_TYPE, this is the number of sub-parts of the vector.  */
 #define TYPE_VECTOR_SUBPARTS(VECTOR_TYPE) \
-  (((unsigned HOST_WIDE_INT) 1) \
+  (HOST_WIDE_INT_1U \
    << VECTOR_TYPE_CHECK (VECTOR_TYPE)->type_common.precision)
 
 /* Set precision to n when we have 2^n sub-parts of the vector.  */
@@ -3985,8 +3978,8 @@ extern tree build_call_expr_loc (location_t, tree, int, ...);
 extern tree build_call_expr (tree, int, ...);
 extern tree build_call_expr_internal_loc (location_t, enum internal_fn,
 					  tree, int, ...);
-extern tree build_call_expr_internal_loc (location_t, enum internal_fn,
-					  tree, int, tree *);
+extern tree build_call_expr_internal_loc_array (location_t, enum internal_fn,
+						tree, int, const tree *);
 extern tree maybe_build_call_expr_loc (location_t, combined_fn, tree,
 				       int, ...);
 extern tree build_string_literal (int, const char *);
@@ -5387,8 +5380,7 @@ extern bool complete_ctor_at_level_p (const_tree, HOST_WIDE_INT, const_tree);
    look for the ultimate containing object, which is returned and specify
    the access position and size.  */
 extern tree get_inner_reference (tree, HOST_WIDE_INT *, HOST_WIDE_INT *,
-				 tree *, machine_mode *, int *, int *,
-				 int *, bool);
+				 tree *, machine_mode *, int *, int *, int *);
 
 extern tree build_personality_function (const char *);
 

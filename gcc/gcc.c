@@ -1330,7 +1330,7 @@ static const struct compiler default_compilers[] =
 					       %W{o*:--output-pch=%*}}%V}}\
 	  %{!save-temps*:%{!traditional-cpp:%{!no-integrated-cpp:\
 		cc1 %(cpp_unique_options) %(cc1_options)\
-		    %{!fsyntax-only:-o %g.s \
+		    %{!fsyntax-only:%{!S:-o %g.s} \
 		        %{!fdump-ada-spec*:%{!o*:--output-pch=%i.gch}\
 					   %W{o*:--output-pch=%*}}%V}}}}}}}", 0, 0, 0},
   {".i", "@cpp-output", 0, 0, 0},
@@ -7700,12 +7700,14 @@ driver::build_option_suggestions (void)
 	      for (unsigned j = 0; e->values[j].arg != NULL; j++)
 		{
 		  char *with_arg = concat (opt_text, e->values[j].arg, NULL);
-		  add_misspelling_candidates (m_option_suggestions, with_arg);
+		  add_misspelling_candidates (m_option_suggestions, option,
+					      with_arg);
 		  free (with_arg);
 		}
 	    }
 	  else
-	    add_misspelling_candidates (m_option_suggestions, opt_text);
+	    add_misspelling_candidates (m_option_suggestions, option,
+					opt_text);
 	  break;
 
 	case OPT_fsanitize_:
@@ -7729,7 +7731,8 @@ driver::build_option_suggestions (void)
 		/* Add with_arg and all of its variant spellings e.g.
 		   "-fno-sanitize=address" to candidates (albeit without
 		   leading dashes).  */
-		add_misspelling_candidates (m_option_suggestions, with_arg);
+		add_misspelling_candidates (m_option_suggestions, option,
+					    with_arg);
 		free (with_arg);
 	      }
 	  }

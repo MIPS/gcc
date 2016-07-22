@@ -49,6 +49,8 @@ selftest::run_tests ()
   pretty_print_c_tests ();
   wide_int_cc_tests ();
   ggc_tests_c_tests ();
+  sreal_c_tests ();
+  fibonacci_heap_c_tests ();
 
   /* Mid-level data structures.  */
   input_c_tests ();
@@ -59,6 +61,7 @@ selftest::run_tests ()
   /* Higher-level tests, or for components that other selftests don't
      rely on.  */
   diagnostic_show_locus_c_tests ();
+  diagnostic_c_tests ();
   fold_const_c_tests ();
   spellcheck_c_tests ();
   spellcheck_tree_c_tests ();

@@ -249,6 +249,7 @@ build_trivial_generic_function ()
   tsi_link_after (&stmt_iter, return_stmt, TSI_CONTINUE_LINKING);
 
   DECL_INITIAL (fndecl) = block;
+  BLOCK_SUPERCONTEXT (block) = fndecl;
 
   /* how to add to function? the following appears to be how to
      set the body of a fndecl: */
@@ -296,6 +297,7 @@ build_cfg (tree fndecl)
   push_cfun (fun);
   lower_cf_pass->execute (fun);
   pop_cfun ();
+  delete lower_cf_pass;
 
   /* We can now convert to CFG form; for our trivial test function this
      gives us:
@@ -310,6 +312,7 @@ build_cfg (tree fndecl)
   push_cfun (fun);
   build_cfg_pass->execute (fun);
   pop_cfun ();
+  delete build_cfg_pass;
 }
 
 /* Convert a gimple+CFG function to SSA form.  */
@@ -325,6 +328,7 @@ convert_to_ssa (tree fndecl)
   push_cfun (fun);
   build_ssa_pass->execute (fun);
   pop_cfun ();
+  delete build_ssa_pass;
 }
 
 /* Assuming we have a simple 3-block CFG like this:
@@ -430,14 +434,14 @@ verify_three_block_rtl_cfg (function *fun)
 
   basic_block exit = EXIT_BLOCK_PTR_FOR_FN (fun);
   ASSERT_TRUE (exit != NULL);
-  ASSERT_EQ (BB_RTL, entry->flags & BB_RTL);
+  ASSERT_EQ (BB_RTL, exit->flags & BB_RTL);
   ASSERT_EQ (NULL, BB_HEAD (exit));
 
   /* The "real" basic block should be flagged as RTL, and have one
      or more insns.  */
   basic_block bb2 = get_real_block (fun);
   ASSERT_TRUE (bb2 != NULL);
-  ASSERT_EQ (BB_RTL, entry->flags & BB_RTL);
+  ASSERT_EQ (BB_RTL, bb2->flags & BB_RTL);
   ASSERT_TRUE (BB_HEAD (bb2) != NULL);
 }
 
@@ -594,6 +598,7 @@ test_expansion_to_rtl ()
   init_function_start (fndecl);
   expand_pass->execute (fun);
   pop_cfun ();
+  delete expand_pass;
 
   /* On x86_64, I get this:
        (note 3 1 2 2 [bb 2] NOTE_INSN_BASIC_BLOCK)

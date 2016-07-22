@@ -698,6 +698,7 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   tree base, base_addr;
   tree misalign = NULL_TREE;
   tree aligned_to;
+  tree step;
   unsigned HOST_WIDE_INT alignment;
 
   if (dump_enabled_p ())
@@ -828,16 +829,20 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
       DR_VECT_AUX (dr)->base_element_aligned = true;
     }
 
+  if (loop && nested_in_vect_loop_p (loop, stmt))
+    step = STMT_VINFO_DR_STEP (stmt_info);
+  else
+    step = DR_STEP (dr);
   /* If this is a backward running DR then first access in the larger
      vectype actually is N-1 elements before the address in the DR.
      Adjust misalign accordingly.  */
-  if (tree_int_cst_sgn (DR_STEP (dr)) < 0)
+  if (tree_int_cst_sgn (step) < 0)
     {
       tree offset = ssize_int (TYPE_VECTOR_SUBPARTS (vectype) - 1);
       /* DR_STEP(dr) is the same as -TYPE_SIZE of the scalar type,
 	 otherwise we wouldn't be here.  */
-      offset = fold_build2 (MULT_EXPR, ssizetype, offset, DR_STEP (dr));
-      /* PLUS because DR_STEP was negative.  */
+      offset = fold_build2 (MULT_EXPR, ssizetype, offset, step);
+      /* PLUS because STEP was negative.  */
       misalign = size_binop (PLUS_EXPR, misalign, offset);
     }
 
@@ -2933,6 +2938,56 @@ vect_vfa_segment_size (struct data_reference *dr, tree length_factor)
   return segment_length;
 }
 
+/* Function vect_no_alias_p.
+
+   Given data references A and B with equal base and offset, the alias
+   relation can be decided at compilation time, return TRUE if they do
+   not alias to each other; return FALSE otherwise.  SEGMENT_LENGTH_A
+   and SEGMENT_LENGTH_B are the memory lengths accessed by A and B
+   respectively.  */
+
+static bool
+vect_no_alias_p (struct data_reference *a, struct data_reference *b,
+                 tree segment_length_a, tree segment_length_b)
+{
+  gcc_assert (TREE_CODE (DR_INIT (a)) == INTEGER_CST
+	      && TREE_CODE (DR_INIT (b)) == INTEGER_CST);
+  if (tree_int_cst_equal (DR_INIT (a), DR_INIT (b)))
+    return false;
+
+  tree seg_a_min = DR_INIT (a);
+  tree seg_a_max = fold_build2 (PLUS_EXPR, TREE_TYPE (seg_a_min),
+				seg_a_min, segment_length_a);
+  /* For negative step, we need to adjust address range by TYPE_SIZE_UNIT
+     bytes, e.g., int a[3] -> a[1] range is [a+4, a+16) instead of
+     [a, a+12) */
+  if (tree_int_cst_compare (DR_STEP (a), size_zero_node) < 0)
+    {
+      tree unit_size = TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (a)));
+      seg_a_min = fold_build2 (PLUS_EXPR, TREE_TYPE (seg_a_max),
+			       seg_a_max, unit_size);
+      seg_a_max = fold_build2 (PLUS_EXPR, TREE_TYPE (DR_INIT (a)),
+			       DR_INIT (a), unit_size);
+    }
+  tree seg_b_min = DR_INIT (b);
+  tree seg_b_max = fold_build2 (PLUS_EXPR, TREE_TYPE (seg_b_min),
+				seg_b_min, segment_length_b);
+  if (tree_int_cst_compare (DR_STEP (b), size_zero_node) < 0)
+    {
+      tree unit_size = TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (b)));
+      seg_b_min = fold_build2 (PLUS_EXPR, TREE_TYPE (seg_b_max),
+			       seg_b_max, unit_size);
+      seg_b_max = fold_build2 (PLUS_EXPR, TREE_TYPE (DR_INIT (b)),
+			       DR_INIT (b), unit_size);
+    }
+
+  if (tree_int_cst_le (seg_a_max, seg_b_min)
+      || tree_int_cst_le (seg_b_max, seg_a_min))
+    return true;
+
+  return false;
+}
+
 /* Function vect_prune_runtime_alias_test_list.
 
    Prune a list of ddrs to be tested at run-time by versioning for alias.
@@ -3025,15 +3080,33 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
       segment_length_a = vect_vfa_segment_size (dr_a, length_factor);
       segment_length_b = vect_vfa_segment_size (dr_b, length_factor);
 
+      comp_res = compare_tree (DR_BASE_ADDRESS (dr_a), DR_BASE_ADDRESS (dr_b));
+      if (comp_res == 0)
+	comp_res = compare_tree (DR_OFFSET (dr_a), DR_OFFSET (dr_b));
+
+      /* Alias is known at compilation time.  */
+      if (comp_res == 0
+	  && TREE_CODE (DR_STEP (dr_a)) == INTEGER_CST
+	  && TREE_CODE (DR_STEP (dr_b)) == INTEGER_CST
+	  && TREE_CODE (segment_length_a) == INTEGER_CST
+	  && TREE_CODE (segment_length_b) == INTEGER_CST)
+	{
+	  if (vect_no_alias_p (dr_a, dr_b, segment_length_a, segment_length_b))
+	    continue;
+
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_NOTE, vect_location,
+			     "not vectorized: compilation time alias.\n");
+
+	  return false;
+	}
+
       dr_with_seg_len_pair_t dr_with_seg_len_pair
 	  (dr_with_seg_len (dr_a, segment_length_a),
 	   dr_with_seg_len (dr_b, segment_length_b));
 
       /* Canonicalize pairs by sorting the two DR members.  */
-      comp_res = compare_tree (DR_BASE_ADDRESS (dr_a), DR_BASE_ADDRESS (dr_b));
-      if (comp_res > 0
-          || (comp_res == 0
-              && compare_tree (DR_OFFSET (dr_a), DR_OFFSET (dr_b)) > 0))
+      if (comp_res > 0)
 	std::swap (dr_with_seg_len_pair.first, dr_with_seg_len_pair.second);
 
       comp_alias_ddrs.safe_push (dr_with_seg_len_pair);
@@ -3182,17 +3255,29 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 		   may_alias_ddrs.length (), comp_alias_ddrs.length ());
   if ((int) comp_alias_ddrs.length () >
       PARAM_VALUE (PARAM_VECT_MAX_VERSION_FOR_ALIAS_CHECKS))
-    return false;
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			 "number of versioning for alias "
+			 "run-time tests exceeds %d "
+			 "(--param vect-max-version-for-alias-checks)\n",
+			 PARAM_VALUE (PARAM_VECT_MAX_VERSION_FOR_ALIAS_CHECKS));
+      return false;
+    }
+
+  /* All alias checks have been resolved at compilation time.  */
+  if (!comp_alias_ddrs.length ())
+    LOOP_VINFO_MAY_ALIAS_DDRS (loop_vinfo).truncate (0);
 
   return true;
 }
 
-/* Check whether a non-affine read or write in stmt is suitable for gather load
-   or scatter store and if so, return a builtin decl for that operation.  */
+/* Return true if a non-affine read or write in STMT is suitable for a
+   gather load or scatter store.  Describe the operation in *INFO if so.  */
 
-tree
-vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo, tree *basep,
-			   tree *offp, int *scalep)
+bool
+vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo,
+			   gather_scatter_info *info)
 {
   HOST_WIDE_INT scale = 1, pbitpos, pbitsize;
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
@@ -3234,7 +3319,7 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo, tree *basep,
      SSA_NAME OFF and put the loop invariants into a tree BASE
      that can be gimplified before the loop.  */
   base = get_inner_reference (base, &pbitsize, &pbitpos, &off, &pmode,
-			      &punsignedp, &reversep, &pvolatilep, false);
+			      &punsignedp, &reversep, &pvolatilep);
   gcc_assert (base && (pbitpos % BITS_PER_UNIT) == 0 && !reversep);
 
   if (TREE_CODE (base) == MEM_REF)
@@ -3266,7 +3351,7 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo, tree *basep,
   if (!expr_invariant_in_loop_p (loop, base))
     {
       if (!integer_zerop (off))
-	return NULL_TREE;
+	return false;
       off = base;
       base = size_int (pbitpos / BITS_PER_UNIT);
     }
@@ -3292,7 +3377,7 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo, tree *basep,
 	  gimple *def_stmt = SSA_NAME_DEF_STMT (off);
 
 	  if (expr_invariant_in_loop_p (loop, off))
-	    return NULL_TREE;
+	    return false;
 
 	  if (gimple_code (def_stmt) != GIMPLE_ASSIGN)
 	    break;
@@ -3304,7 +3389,7 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo, tree *basep,
       else
 	{
 	  if (get_gimple_rhs_class (TREE_CODE (off)) == GIMPLE_TERNARY_RHS)
-	    return NULL_TREE;
+	    return false;
 	  code = TREE_CODE (off);
 	  extract_ops_from_tree (off, &code, &op0, &op1);
 	}
@@ -3379,7 +3464,7 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo, tree *basep,
      defined in the loop, punt.  */
   if (TREE_CODE (off) != SSA_NAME
       || expr_invariant_in_loop_p (loop, off))
-    return NULL_TREE;
+    return false;
 
   if (offtype == NULL_TREE)
     offtype = TREE_TYPE (off);
@@ -3392,15 +3477,15 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo, tree *basep,
 					      offtype, scale);
 
   if (decl == NULL_TREE)
-    return NULL_TREE;
+    return false;
 
-  if (basep)
-    *basep = base;
-  if (offp)
-    *offp = off;
-  if (scalep)
-    *scalep = scale;
-  return decl;
+  info->decl = decl;
+  info->base = base;
+  info->offset = off;
+  info->offset_dt = vect_unknown_def_type;
+  info->offset_vectype = NULL_TREE;
+  info->scale = scale;
+  return true;
 }
 
 /* Function vect_analyze_data_refs.
@@ -3704,7 +3789,7 @@ again:
 
 	  outer_base = get_inner_reference (inner_base, &pbitsize, &pbitpos,
 					    &poffset, &pmode, &punsignedp,
-					    &preversep, &pvolatilep, false);
+					    &preversep, &pvolatilep);
 	  gcc_assert (outer_base != NULL_TREE);
 
 	  if (pbitpos % BITS_PER_UNIT != 0)
@@ -3878,10 +3963,10 @@ again:
 
       if (gatherscatter != SG_NONE)
 	{
-	  tree off;
+	  gather_scatter_info gs_info;
 	  if (!vect_check_gather_scatter (stmt, as_a <loop_vec_info> (vinfo),
-					  NULL, &off, NULL)
-	      || get_vectype_for_scalar_type (TREE_TYPE (off)) == NULL_TREE)
+					  &gs_info)
+	      || !get_vectype_for_scalar_type (TREE_TYPE (gs_info.offset)))
 	    {
 	      STMT_VINFO_DATA_REF (stmt_info) = NULL;
 	      free_data_ref (dr);
@@ -5144,13 +5229,30 @@ vect_setup_realignment (gimple *stmt, gimple_stmt_iterator *gsi,
 
 /* Function vect_grouped_load_supported.
 
-   Returns TRUE if even and odd permutations are supported,
-   and FALSE otherwise.  */
+   COUNT is the size of the load group (the number of statements plus the
+   number of gaps).  SINGLE_ELEMENT_P is true if there is actually
+   only one statement, with a gap of COUNT - 1.
+
+   Returns true if a suitable permute exists.  */
 
 bool
-vect_grouped_load_supported (tree vectype, unsigned HOST_WIDE_INT count)
+vect_grouped_load_supported (tree vectype, bool single_element_p,
+			     unsigned HOST_WIDE_INT count)
 {
   machine_mode mode = TYPE_MODE (vectype);
+
+  /* If this is single-element interleaving with an element distance
+     that leaves unused vector loads around punt - we at least create
+     very sub-optimal code in that case (and blow up memory,
+     see PR65518).  */
+  if (single_element_p && count > TYPE_VECTOR_SUBPARTS (vectype))
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			 "single-element interleaving not supported "
+			 "for not adjacent vector loads\n");
+      return false;
+    }
 
   /* vect_permute_load_chain requires the group size to be equal to 3 or
      be a power of two.  */

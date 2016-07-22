@@ -805,6 +805,9 @@ case "${target}" in
   *-*-netware*)
     noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
+  *-*-phoenix*)
+    noconfigdirs="$noconfigdirs ${libgcj}"
+    ;;
   *-*-rtems*)
     noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
@@ -1061,6 +1064,9 @@ case "${target}" in
     ;;
   *-*-netware*)
     ;;
+  *-*-phoenix*)
+    noconfigdirs="$noconfigdirs target-libgloss"
+    ;;
   *-*-rtems*)
     noconfigdirs="$noconfigdirs target-libgloss"
     # this is not caught below because this stanza matches earlier
@@ -1265,9 +1271,6 @@ case "${target}" in
     ;;
   mips*-*-*)
     noconfigdirs="$noconfigdirs gprof"
-    ;;
-  nds32*-*-*)
-    noconfigdirs="$noconfigdirs gdb"
     ;;
   nvptx*-*-*)
     noconfigdirs="$noconfigdirs target-libssp target-libstdc++-v3 target-libobjc"

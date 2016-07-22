@@ -535,7 +535,7 @@ package Einfo is
 --       a build-in-place function call. Contains the relocated build-in-place
 --       call after the expansion has decoupled the call from the object. This
 --       attribute is used by the finalization machinery to insert cleanup code
---       for all additional transient variables found in the transient block.
+--       for all additional transient objects found in the transient block.
 
 --    C_Pass_By_Copy (Flag125) [implementation base type only]
 --       Defined in record types. Set if a pragma Convention for the record
@@ -1902,12 +1902,19 @@ package Einfo is
 --       that clients should generally not test this flag directly, but instead
 --       use function Has_Unreferenced.
 
+--  ??? this real description was clobbered
+
 --    Has_Pragma_Unreferenced_Objects (Flag212)
---       Defined in type and subtype entities. Set if a valid pragma
---       Unreferenced_Objects applies to the type, indicating that no warning
---       should be given for objects of such a type for being unreferenced
---       (but unlike the case with pragma Unreferenced, it is ok to reference
---       such an object and no warning is generated.
+--       Defined in all entities. Set if a valid pragma Unused applies to an
+--       entity, indicating that warnings should be given if the entity is
+--       modified or referenced. This pragma is equivalent to a pair of
+--       Unmodified and Unreferenced pragmas.
+
+--    Has_Pragma_Unused (Flag294)
+--       Defined in all entries. Set if a valid pragma Unused applies to a
+--       variable or entity, indicating that warnings should not be given if
+--       it is never modified or referenced. Note: This pragma is exactly
+--       equivalent Unmodified and Unreference combined.
 
 --    Has_Predicates (Flag250)
 --       Defined in type and subtype entities. Set if a pragma Predicate or
@@ -2232,6 +2239,10 @@ package Einfo is
 --    Is_Access_Type (synthesized)
 --       Applies to all entities, true for access types and subtypes
 
+--    Is_Actual_Subtype (Flag293)
+--       Defined on all types, true for the generated constrained subtypes
+--       that are built for unconstrained composite actuals.
+
 --    Is_Ada_2005_Only (Flag185)
 --       Defined in all entities, true if a valid pragma Ada_05 or Ada_2005
 --       applies to the entity which specifically names the entity, indicating
@@ -2277,7 +2288,7 @@ package Einfo is
 
 --    Is_Bit_Packed_Array (Flag122) [implementation base type only]
 --       Defined in all entities. This flag is set for a packed array type that
---       is bit packed (i.e. the component size is known by the front end and
+--       is bit-packed (i.e. the component size is known by the front end and
 --       is in the range 1-7, 9-15, 17-31, or 33-63). Is_Packed is always set
 --       if Is_Bit_Packed_Array is set, but it is possible for Is_Packed to be
 --       set without Is_Bit_Packed_Array if the component size is not known by
@@ -2473,6 +2484,12 @@ package Einfo is
 --       Applies to all entities, true for abstract states that are subject to
 --       option External.
 
+--    Is_Finalized_Transient (Flag252)
+--       Defined in constants, loop parameters of generalized iterators, and
+--       variables. Set when a transient object has been finalized by one of
+--       the transient finalization mechanisms. The flag prevents the double
+--       finalization of the object.
+
 --    Is_Finalizer (synthesized)
 --       Applies to all entities, true for procedures containing finalization
 --       code to process local or library level objects.
@@ -2583,6 +2600,13 @@ package Einfo is
 --       objects, package bodies, subprogram bodies, and [sub]types subject to
 --       pragma Ghost or inherit "ghostness" from an enclosing construct, and
 --       subject to Assertion_Policy Ghost => Ignore.
+
+--    Is_Ignored_Transient (Flag295)
+--       Defined in constants, loop parameters of generalized iterators, and
+--       variables. Set when a transient object must be processed by one of
+--       the transient finalization mechanisms. Once marked, a transient is
+--       intentionally ignored by the general finalization mechanism because
+--       its clean up actions are context specific.
 
 --    Is_Immediately_Visible (Flag7)
 --       Defined in all entities. Set if entity is immediately visible, i.e.
@@ -2896,7 +2920,7 @@ package Einfo is
 --       out that the component size doesn't require packing, the Is_Packed
 --       flag gets turned off.
 
---       In the bit packed array case (i.e. component size is known at compile
+--       In the bit-packed array case (i.e. component size is known at compile
 --       time and is 1-7, 9-15, 17-31 or 33-63), Is_Bit_Packed_Array will be
 --       set once the array type is frozen.
 --
@@ -2906,7 +2930,7 @@ package Einfo is
 --    Is_Packed_Array_Impl_Type (Flag138)
 --       Defined in all entities. This flag is set on the entity for the type
 --       used to implement a packed array (either a modular type or a subtype
---       of Packed_Bytes{1,2,4} in the bit packed array case, a regular array
+--       of Packed_Bytes{1,2,4} in the bit-packed array case, a regular array
 --       in the non-standard enumeration index case). It is set if and only
 --       if the type appears in the Packed_Array_Impl_Type field of some other
 --       entity. It is used by the back end to activate the special processing
@@ -2985,13 +3009,6 @@ package Einfo is
 --    Is_Private_Type (synthesized)
 --       Applies to all entities, true for private types and subtypes,
 --       as well as for record with private types as subtypes.
-
---    Is_Processed_Transient (Flag252)
---       Defined in variables, loop parameters, and constants, including the
---       loop parameters of generalized iterators. Set when a transient object
---       needs to be finalized and has already been processed by the transient
---       scope machinery. This flag signals the general finalization mechanism
---       to ignore the transient object.
 
 --    Is_Protected_Component (synthesized)
 --       Applicable to all entities, true if the entity denotes a private
@@ -3720,10 +3737,10 @@ package Einfo is
 --    Packed_Array_Impl_Type (Node23)
 --       Defined in array types and subtypes, except for the string literal
 --       subtype case, if the corresponding type is packed and implemented
---       specially (either bit packed or packed to eliminate holes in the
+--       specially (either bit-packed or packed to eliminate holes in the
 --       non-contiguous enumeration index types). References the type used to
 --       represent the packed array, which is either a modular type for short
---       static arrays or an array of System.Unsigned in the bit packed case,
+--       static arrays or an array of System.Unsigned in the bit-packed case,
 --       or a regular array in the non-standard enumeration index case). Note
 --       that in some situations (internal types and references to fields of
 --       variant records), it is not always possible to construct this type in
@@ -5393,6 +5410,7 @@ package Einfo is
    --    Has_Pragma_Thread_Local_Storage     (Flag169)
    --    Has_Pragma_Unmodified               (Flag233)
    --    Has_Pragma_Unreferenced             (Flag180)
+   --    Has_Pragma_Unused                   (Flag294)
    --    Has_Private_Declaration             (Flag155)
    --    Has_Qualified_Name                  (Flag161)
    --    Has_Stream_Size_Clause              (Flag184)
@@ -5484,7 +5502,7 @@ package Einfo is
 
    --  The following list of access functions applies to all entities for
    --  types and subtypes. References to this list appear subsequently as
-   --  as "(plus type attributes)" for each appropriate Entity_Kind.
+   --  "(plus type attributes)" for each appropriate Entity_Kind.
 
    --    Associated_Node_For_Itype           (Node8)
    --    Class_Wide_Type                     (Node9)
@@ -5774,8 +5792,9 @@ package Einfo is
    --    Has_Volatile_Components             (Flag87)
    --    Is_Atomic                           (Flag85)
    --    Is_Eliminated                       (Flag124)
+   --    Is_Finalized_Transient              (Flag252)
+   --    Is_Ignored_Transient                (Flag295)
    --    Is_Independent                      (Flag268)
-   --    Is_Processed_Transient              (Flag252)  (constants only)
    --    Is_Return_Object                    (Flag209)
    --    Is_True_Constant                    (Flag163)
    --    Is_Uplevel_Referenced_Entity        (Flag283)
@@ -6540,8 +6559,9 @@ package Einfo is
    --    Has_Volatile_Components             (Flag87)
    --    Is_Atomic                           (Flag85)
    --    Is_Eliminated                       (Flag124)
+   --    Is_Finalized_Transient              (Flag252)
+   --    Is_Ignored_Transient                (Flag295)
    --    Is_Independent                      (Flag268)
-   --    Is_Processed_Transient              (Flag252)
    --    Is_Return_Object                    (Flag209)
    --    Is_Safe_To_Reevaluate               (Flag249)
    --    Is_Shared_Passive                   (Flag60)
@@ -6972,6 +6992,7 @@ package Einfo is
    function Has_Pragma_Unmodified               (Id : E) return B;
    function Has_Pragma_Unreferenced             (Id : E) return B;
    function Has_Pragma_Unreferenced_Objects     (Id : E) return B;
+   function Has_Pragma_Unused                   (Id : E) return B;
    function Has_Predicates                      (Id : E) return B;
    function Has_Primitive_Operations            (Id : E) return B;
    function Has_Private_Ancestor                (Id : E) return B;
@@ -7017,6 +7038,7 @@ package Einfo is
    function Is_Abstract_Subprogram              (Id : E) return B;
    function Is_Abstract_Type                    (Id : E) return B;
    function Is_Access_Constant                  (Id : E) return B;
+   function Is_Actual_Subtype                   (Id : E) return B;
    function Is_Ada_2005_Only                    (Id : E) return B;
    function Is_Ada_2012_Only                    (Id : E) return B;
    function Is_Aliased                          (Id : E) return B;
@@ -7048,6 +7070,7 @@ package Einfo is
    function Is_Entry_Formal                     (Id : E) return B;
    function Is_Exception_Handler                (Id : E) return B;
    function Is_Exported                         (Id : E) return B;
+   function Is_Finalized_Transient              (Id : E) return B;
    function Is_First_Subtype                    (Id : E) return B;
    function Is_For_Access_Subtype               (Id : E) return B;
    function Is_Frozen                           (Id : E) return B;
@@ -7056,6 +7079,7 @@ package Einfo is
    function Is_Hidden_Non_Overridden_Subpgm     (Id : E) return B;
    function Is_Hidden_Open_Scope                (Id : E) return B;
    function Is_Ignored_Ghost_Entity             (Id : E) return B;
+   function Is_Ignored_Transient                (Id : E) return B;
    function Is_Immediately_Visible              (Id : E) return B;
    function Is_Implementation_Defined           (Id : E) return B;
    function Is_Imported                         (Id : E) return B;
@@ -7094,7 +7118,6 @@ package Einfo is
    function Is_Private_Composite                (Id : E) return B;
    function Is_Private_Descendant               (Id : E) return B;
    function Is_Private_Primitive                (Id : E) return B;
-   function Is_Processed_Transient              (Id : E) return B;
    function Is_Public                           (Id : E) return B;
    function Is_Pure                             (Id : E) return B;
    function Is_Pure_Unit_Access_Type            (Id : E) return B;
@@ -7644,6 +7667,7 @@ package Einfo is
    procedure Set_Has_Pragma_Unmodified           (Id : E; V : B := True);
    procedure Set_Has_Pragma_Unreferenced         (Id : E; V : B := True);
    procedure Set_Has_Pragma_Unreferenced_Objects (Id : E; V : B := True);
+   procedure Set_Has_Pragma_Unused               (Id : E; V : B := True);
    procedure Set_Has_Predicates                  (Id : E; V : B := True);
    procedure Set_Has_Primitive_Operations        (Id : E; V : B := True);
    procedure Set_Has_Private_Ancestor            (Id : E; V : B := True);
@@ -7689,6 +7713,7 @@ package Einfo is
    procedure Set_Is_Abstract_Subprogram          (Id : E; V : B := True);
    procedure Set_Is_Abstract_Type                (Id : E; V : B := True);
    procedure Set_Is_Access_Constant              (Id : E; V : B := True);
+   procedure Set_Is_Actual_Subtype               (Id : E; V : B := True);
    procedure Set_Is_Ada_2005_Only                (Id : E; V : B := True);
    procedure Set_Is_Ada_2012_Only                (Id : E; V : B := True);
    procedure Set_Is_Aliased                      (Id : E; V : B := True);
@@ -7720,6 +7745,7 @@ package Einfo is
    procedure Set_Is_Entry_Formal                 (Id : E; V : B := True);
    procedure Set_Is_Exception_Handler            (Id : E; V : B := True);
    procedure Set_Is_Exported                     (Id : E; V : B := True);
+   procedure Set_Is_Finalized_Transient          (Id : E; V : B := True);
    procedure Set_Is_First_Subtype                (Id : E; V : B := True);
    procedure Set_Is_For_Access_Subtype           (Id : E; V : B := True);
    procedure Set_Is_Formal_Subprogram            (Id : E; V : B := True);
@@ -7732,6 +7758,7 @@ package Einfo is
    procedure Set_Is_Hidden_Non_Overridden_Subpgm (Id : E; V : B := True);
    procedure Set_Is_Hidden_Open_Scope            (Id : E; V : B := True);
    procedure Set_Is_Ignored_Ghost_Entity         (Id : E; V : B := True);
+   procedure Set_Is_Ignored_Transient            (Id : E; V : B := True);
    procedure Set_Is_Immediately_Visible          (Id : E; V : B := True);
    procedure Set_Is_Implementation_Defined       (Id : E; V : B := True);
    procedure Set_Is_Imported                     (Id : E; V : B := True);
@@ -7771,7 +7798,6 @@ package Einfo is
    procedure Set_Is_Private_Composite            (Id : E; V : B := True);
    procedure Set_Is_Private_Descendant           (Id : E; V : B := True);
    procedure Set_Is_Private_Primitive            (Id : E; V : B := True);
-   procedure Set_Is_Processed_Transient          (Id : E; V : B := True);
    procedure Set_Is_Public                       (Id : E; V : B := True);
    procedure Set_Is_Pure                         (Id : E; V : B := True);
    procedure Set_Is_Pure_Unit_Access_Type        (Id : E; V : B := True);
@@ -8433,6 +8459,7 @@ package Einfo is
    pragma Inline (Has_Pragma_Unmodified);
    pragma Inline (Has_Pragma_Unreferenced);
    pragma Inline (Has_Pragma_Unreferenced_Objects);
+   pragma Inline (Has_Pragma_Unused);
    pragma Inline (Has_Predicates);
    pragma Inline (Has_Primitive_Operations);
    pragma Inline (Has_Private_Ancestor);
@@ -8477,6 +8504,7 @@ package Einfo is
    pragma Inline (Is_Abstract_Subprogram);
    pragma Inline (Is_Abstract_Type);
    pragma Inline (Is_Access_Constant);
+   pragma Inline (Is_Actual_Subtype);
    pragma Inline (Is_Access_Protected_Subprogram_Type);
    pragma Inline (Is_Access_Subprogram_Type);
    pragma Inline (Is_Access_Type);
@@ -8526,6 +8554,7 @@ package Einfo is
    pragma Inline (Is_Enumeration_Type);
    pragma Inline (Is_Exception_Handler);
    pragma Inline (Is_Exported);
+   pragma Inline (Is_Finalized_Transient);
    pragma Inline (Is_First_Subtype);
    pragma Inline (Is_Fixed_Point_Type);
    pragma Inline (Is_Floating_Point_Type);
@@ -8545,6 +8574,7 @@ package Einfo is
    pragma Inline (Is_Hidden_Non_Overridden_Subpgm);
    pragma Inline (Is_Hidden_Open_Scope);
    pragma Inline (Is_Ignored_Ghost_Entity);
+   pragma Inline (Is_Ignored_Transient);
    pragma Inline (Is_Immediately_Visible);
    pragma Inline (Is_Implementation_Defined);
    pragma Inline (Is_Imported);
@@ -8594,7 +8624,6 @@ package Einfo is
    pragma Inline (Is_Private_Descendant);
    pragma Inline (Is_Private_Primitive);
    pragma Inline (Is_Private_Type);
-   pragma Inline (Is_Processed_Transient);
    pragma Inline (Is_Protected_Type);
    pragma Inline (Is_Public);
    pragma Inline (Is_Pure);
@@ -8989,6 +9018,7 @@ package Einfo is
    pragma Inline (Set_Is_Abstract_Subprogram);
    pragma Inline (Set_Is_Abstract_Type);
    pragma Inline (Set_Is_Access_Constant);
+   pragma Inline (Set_Is_Actual_Subtype);
    pragma Inline (Set_Is_Ada_2005_Only);
    pragma Inline (Set_Is_Ada_2012_Only);
    pragma Inline (Set_Is_Aliased);
@@ -9020,6 +9050,7 @@ package Einfo is
    pragma Inline (Set_Is_Entry_Formal);
    pragma Inline (Set_Is_Exception_Handler);
    pragma Inline (Set_Is_Exported);
+   pragma Inline (Set_Is_Finalized_Transient);
    pragma Inline (Set_Is_First_Subtype);
    pragma Inline (Set_Is_For_Access_Subtype);
    pragma Inline (Set_Is_Formal_Subprogram);
@@ -9032,6 +9063,7 @@ package Einfo is
    pragma Inline (Set_Is_Hidden_Non_Overridden_Subpgm);
    pragma Inline (Set_Is_Hidden_Open_Scope);
    pragma Inline (Set_Is_Ignored_Ghost_Entity);
+   pragma Inline (Set_Is_Ignored_Transient);
    pragma Inline (Set_Is_Immediately_Visible);
    pragma Inline (Set_Is_Implementation_Defined);
    pragma Inline (Set_Is_Imported);
@@ -9071,7 +9103,6 @@ package Einfo is
    pragma Inline (Set_Is_Private_Composite);
    pragma Inline (Set_Is_Private_Descendant);
    pragma Inline (Set_Is_Private_Primitive);
-   pragma Inline (Set_Is_Processed_Transient);
    pragma Inline (Set_Is_Public);
    pragma Inline (Set_Is_Pure);
    pragma Inline (Set_Is_Pure_Unit_Access_Type);

@@ -2472,6 +2472,7 @@ create_omp_child_function (omp_context *ctx, bool task_copy)
   DECL_EXTERNAL (decl) = 0;
   DECL_CONTEXT (decl) = NULL_TREE;
   DECL_INITIAL (decl) = make_node (BLOCK);
+  BLOCK_SUPERCONTEXT (DECL_INITIAL (decl)) = decl;
   if (cgraph_node::get (current_function_decl)->offloadable)
     cgraph_node::get_create (decl)->offloadable = 1;
   else
@@ -4475,8 +4476,9 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 		  if (new_var == NULL_TREE)
 		    new_var = maybe_lookup_decl_in_outer_ctx (var, ctx);
 		  x = builtin_decl_explicit (BUILT_IN_ASSUME_ALIGNED);
-		  x = build_call_expr_loc (clause_loc, x, 2, new_var,
-					   omp_clause_aligned_alignment (c));
+		  tree alarg = omp_clause_aligned_alignment (c);
+		  alarg = fold_convert_loc (clause_loc, size_type_node, alarg);
+		  x = build_call_expr_loc (clause_loc, x, 2, new_var, alarg);
 		  x = fold_convert_loc (clause_loc, TREE_TYPE (new_var), x);
 		  x = build2 (MODIFY_EXPR, TREE_TYPE (new_var), new_var, x);
 		  gimplify_and_add (x, ilist);
@@ -4489,8 +4491,9 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 		  t = maybe_lookup_decl_in_outer_ctx (var, ctx);
 		  t = build_fold_addr_expr_loc (clause_loc, t);
 		  t2 = builtin_decl_explicit (BUILT_IN_ASSUME_ALIGNED);
-		  t = build_call_expr_loc (clause_loc, t2, 2, t,
-					   omp_clause_aligned_alignment (c));
+		  tree alarg = omp_clause_aligned_alignment (c);
+		  alarg = fold_convert_loc (clause_loc, size_type_node, alarg);
+		  t = build_call_expr_loc (clause_loc, t2, 2, t, alarg);
 		  t = fold_convert_loc (clause_loc, ptype, t);
 		  x = create_tmp_var (ptype);
 		  t = build2 (MODIFY_EXPR, ptype, x, t);
@@ -13348,9 +13351,15 @@ expand_omp_target (struct omp_region *region)
       make_edge (else_bb, new_bb, EDGE_FALLTHRU);
 
       device = tmp_var;
+      gsi = gsi_last_bb (new_bb);
+    }
+  else
+    {
+      gsi = gsi_last_bb (new_bb);
+      device = force_gimple_operand_gsi (&gsi, device, true, NULL_TREE,
+					 true, GSI_SAME_STMT);
     }
 
-  gsi = gsi_last_bb (new_bb);
   t = gimple_omp_target_data_arg (entry_stmt);
   if (t == NULL)
     {
@@ -13662,6 +13671,7 @@ grid_expand_target_grid_body (struct omp_region *target)
   BLOCK_ABSTRACT_ORIGIN (fniniblock) = tgtblock;
   BLOCK_SOURCE_LOCATION (fniniblock) = BLOCK_SOURCE_LOCATION (tgtblock);
   BLOCK_SOURCE_END_LOCATION (fniniblock) = BLOCK_SOURCE_END_LOCATION (tgtblock);
+  BLOCK_SUPERCONTEXT (fniniblock) = kern_fndecl;
   DECL_INITIAL (kern_fndecl) = fniniblock;
   push_struct_function (kern_fndecl);
   cfun->function_end_locus = gimple_location (tgt_stmt);
@@ -16202,6 +16212,10 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		    case GOMP_MAP_ALWAYS_FROM:
 		    case GOMP_MAP_ALWAYS_TOFROM:
 		    case GOMP_MAP_RELEASE:
+		    case GOMP_MAP_FORCE_TO:
+		    case GOMP_MAP_FORCE_FROM:
+		    case GOMP_MAP_FORCE_TOFROM:
+		    case GOMP_MAP_FORCE_PRESENT:
 		      tkind_zero = GOMP_MAP_ZERO_LEN_ARRAY_SECTION;
 		      break;
 		    case GOMP_MAP_DELETE:

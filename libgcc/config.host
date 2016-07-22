@@ -402,6 +402,13 @@ arm*-*-uclinux*)		# ARM ucLinux
 	unwind_header=config/arm/unwind-arm.h
 	extra_parts="$extra_parts crti.o crtn.o"
 	;;
+arm*-*-phoenix*)
+	tmake_file="t-hardfp t-softfp arm/t-arm arm/t-elf arm/t-softfp arm/t-phoenix"
+	tmake_file="${tmake_file} arm/t-bpabi"
+	tm_file="$tm_file arm/bpabi-lib.h"
+	extra_parts="crtbegin.o crtend.o crti.o crtn.o"
+	unwind_header=config/arm/unwind-arm.h
+	;;
 arm*-*-eabi* | arm*-*-symbianelf* | arm*-*-rtems*)
 	tmake_file="${tmake_file} arm/t-arm arm/t-elf t-fixedpoint-gnu-prefix"
 	tm_file="$tm_file arm/bpabi-lib.h"
@@ -780,7 +787,8 @@ lm32-*-uclinux*)
         tmake_file="lm32/t-lm32 lm32/t-uclinux t-libgcc-pic t-softfp-sfdf t-softfp"
 	;;	
 m32r-*-elf*)
-	tmake_file=t-fdpbit
+	tmake_file="$tmake_file m32r/t-m32r t-fdpbit"
+	extra_parts="$extra_parts crtinit.o crtfini.o"
  	;;
 m32rle-*-elf*)
 	tmake_file=t-fdpbit

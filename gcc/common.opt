@@ -882,6 +882,9 @@ Driver Undocumented
 ;     identity, such as ia32 calling convention attributes (stdcall, etc.)
 ;     Default in G++ 6 (set in c_common_post_options).
 ;
+; 11: The version of the ABI that corrects mangling of sizeof... expressions.
+;     Default in G++ 7.
+;
 ; Additional positive integers will be assigned as new versions of
 ; the ABI become the default version of the ABI.
 fabi-version=
@@ -1038,6 +1041,10 @@ fchecking=
 Common Joined RejectNegative UInteger Var(flag_checking)
 Perform internal consistency checkings.
 
+fcode-hoisting
+Common Report Var(flag_code_hoisting) Optimization
+Enable code hoisting.
+
 fcombine-stack-adjustments
 Common Report Var(flag_combine_stack_adjustments) Optimization
 Looks for opportunities to reduce stack adjustments and stack references.
@@ -1184,6 +1191,10 @@ Enum(diagnostic_color_rule) String(always) Value(DIAGNOSTICS_COLOR_YES)
 
 EnumValue
 Enum(diagnostic_color_rule) String(auto) Value(DIAGNOSTICS_COLOR_AUTO)
+
+fdiagnostics-parseable-fixits
+Common Var(flag_diagnostics_parseable_fixits)
+Print fixit hints in machine-readable form.
 
 fdiagnostics-show-option
 Common Var(flag_diagnostics_show_option) Init(1)
@@ -2217,19 +2228,19 @@ Common RejectNegative Joined Var(common_deferred_options) Defer
 -fstack-limit-symbol=<name>	Trap if the stack goes past symbol <name>.
 
 fstack-protector
-Common Report Var(flag_stack_protect, 1) Init(-1)
+Common Report Var(flag_stack_protect, 1) Init(-1) Optimization
 Use propolice as a stack protection method.
 
 fstack-protector-all
-Common Report RejectNegative Var(flag_stack_protect, 2) Init(-1)
+Common Report RejectNegative Var(flag_stack_protect, 2) Init(-1) Optimization
 Use a stack protection method for every function.
 
 fstack-protector-strong
-Common Report RejectNegative Var(flag_stack_protect, 3) Init(-1)
+Common Report RejectNegative Var(flag_stack_protect, 3) Init(-1) Optimization
 Use a smart stack protection method for certain functions.
 
 fstack-protector-explicit
-Common Report RejectNegative Var(flag_stack_protect, 4)
+Common Report RejectNegative Var(flag_stack_protect, 4) Optimization
 Use stack protection method only for functions with the stack_protect attribute.
 
 fstack-usage
@@ -2496,8 +2507,8 @@ Perform loop unrolling for all loops.
 ; that control loops do not overflow and that the loops with nontrivial
 ; exit condition are not infinite
 funsafe-loop-optimizations
-Common Report Var(flag_unsafe_loop_optimizations) Optimization
-Allow loop optimizations to assume that the loops behave in normal way.
+Common Ignore
+Does nothing.  Preserved for backward compatibility.
 
 fassociative-math
 Common Report Var(flag_associative_math) SetByCombined Optimization

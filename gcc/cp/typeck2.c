@@ -537,6 +537,7 @@ cxx_incomplete_type_diagnostic (location_t loc, const_tree value,
       break;
 
     case TYPENAME_TYPE:
+    case DECLTYPE_TYPE:
       emit_diagnostic (diag_kind, loc, 0,
 		       "invalid use of dependent type %qT", type);
       break;
@@ -1895,7 +1896,7 @@ build_m_component_ref (tree datum, tree component, tsubst_flags_t complain)
 	 operand is a pointer to member function with ref-qualifier &&.  */
       if (FUNCTION_REF_QUALIFIED (type))
 	{
-	  bool lval = real_lvalue_p (datum);
+	  bool lval = lvalue_p (datum);
 	  if (lval && FUNCTION_RVALUE_QUALIFIED (type))
 	    {
 	      if (complain & tf_error)

@@ -314,12 +314,14 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #undef  TARGET_P9_MINMAX
 #undef  TARGET_P9_DFORM_SCALAR
 #undef  TARGET_P9_DFORM_VECTOR
+#undef  TARGET_P9_MISC
 #define TARGET_FLOAT128_HW 0
 #define TARGET_MODULO 0
 #define TARGET_P9_VECTOR 0
 #define TARGET_P9_MINMAX 0
 #define TARGET_P9_DFORM_SCALAR 0
 #define TARGET_P9_DFORM_VECTOR 0
+#define TARGET_P9_MISC 0
 #endif
 
 /* Define TARGET_LWSYNC_INSTRUCTION if the assembler knows about lwsync.  If
@@ -599,6 +601,9 @@ extern int rs6000_vector_align[];
 #define TARGET_VADDUQM		(TARGET_P8_VECTOR && TARGET_POWERPC64)
 #define TARGET_DIRECT_MOVE_128	(TARGET_P9_VECTOR && TARGET_DIRECT_MOVE \
 				 && TARGET_POWERPC64)
+#define TARGET_VEXTRACTUB	(TARGET_P9_VECTOR && TARGET_DIRECT_MOVE \
+				 && TARGET_UPPER_REGS_DF \
+				 && TARGET_UPPER_REGS_DI && TARGET_POWERPC64)
 
 /* Byte/char syncs were added as phased in for ISA 2.06B, but are not present
    in power7, so conditionalize them on p8 features.  TImode syncs need quad
@@ -633,6 +638,7 @@ extern int rs6000_vector_align[];
 #define MASK_DIRECT_MOVE		OPTION_MASK_DIRECT_MOVE
 #define MASK_DLMZB			OPTION_MASK_DLMZB
 #define MASK_EABI			OPTION_MASK_EABI
+#define MASK_FLOAT128			OPTION_MASK_FLOAT128
 #define MASK_FPRND			OPTION_MASK_FPRND
 #define MASK_P8_FUSION			OPTION_MASK_P8_FUSION
 #define MASK_HARD_FLOAT			OPTION_MASK_HARD_FLOAT
@@ -645,6 +651,7 @@ extern int rs6000_vector_align[];
 #define MASK_NO_UPDATE			OPTION_MASK_NO_UPDATE
 #define MASK_P8_VECTOR			OPTION_MASK_P8_VECTOR
 #define MASK_P9_VECTOR			OPTION_MASK_P9_VECTOR
+#define MASK_P9_MISC			OPTION_MASK_P9_MISC
 #define MASK_POPCNTB			OPTION_MASK_POPCNTB
 #define MASK_POPCNTD			OPTION_MASK_POPCNTD
 #define MASK_PPC_GFXOPT			OPTION_MASK_PPC_GFXOPT
@@ -2695,6 +2702,7 @@ extern int frame_pointer_needed;
 #define RS6000_BTM_VSX		MASK_VSX	/* VSX (vector/scalar).  */
 #define RS6000_BTM_P8_VECTOR	MASK_P8_VECTOR	/* ISA 2.07 vector.  */
 #define RS6000_BTM_P9_VECTOR	MASK_P9_VECTOR	/* ISA 3.0 vector.  */
+#define RS6000_BTM_P9_MISC	MASK_P9_MISC	/* ISA 3.0 misc. non-vector */
 #define RS6000_BTM_CRYPTO	MASK_CRYPTO	/* crypto funcs.  */
 #define RS6000_BTM_HTM		MASK_HTM	/* hardware TM funcs.  */
 #define RS6000_BTM_SPE		MASK_STRING	/* E500 */
@@ -2709,11 +2717,13 @@ extern int frame_pointer_needed;
 #define RS6000_BTM_HARD_FLOAT	MASK_SOFT_FLOAT	/* Hardware floating point.  */
 #define RS6000_BTM_LDBL128	MASK_MULTIPLE	/* 128-bit long double.  */
 #define RS6000_BTM_64BIT	MASK_64BIT	/* 64-bit addressing.  */
+#define RS6000_BTM_FLOAT128	MASK_FLOAT128	/* IEEE 128-bit float.  */
 
 #define RS6000_BTM_COMMON	(RS6000_BTM_ALTIVEC			\
 				 | RS6000_BTM_VSX			\
 				 | RS6000_BTM_P8_VECTOR			\
 				 | RS6000_BTM_P9_VECTOR			\
+				 | RS6000_BTM_P9_MISC			\
 				 | RS6000_BTM_MODULO                    \
 				 | RS6000_BTM_CRYPTO			\
 				 | RS6000_BTM_FRE			\
@@ -2725,7 +2735,8 @@ extern int frame_pointer_needed;
 				 | RS6000_BTM_CELL			\
 				 | RS6000_BTM_DFP			\
 				 | RS6000_BTM_HARD_FLOAT		\
-				 | RS6000_BTM_LDBL128)
+				 | RS6000_BTM_LDBL128			\
+				 | RS6000_BTM_FLOAT128)
 
 /* Define builtin enum index.  */
 
@@ -2829,6 +2840,7 @@ enum rs6000_builtin_type_index
   RS6000_BTI_void,	         /* void_type_node */
   RS6000_BTI_ieee128_float,	 /* ieee 128-bit floating point */
   RS6000_BTI_ibm128_float,	 /* IBM 128-bit floating point */
+  RS6000_BTI_const_str,		 /* pointer to const char * */
   RS6000_BTI_MAX
 };
 
@@ -2885,6 +2897,7 @@ enum rs6000_builtin_type_index
 #define void_type_internal_node		 (rs6000_builtin_types[RS6000_BTI_void])
 #define ieee128_float_type_node		 (rs6000_builtin_types[RS6000_BTI_ieee128_float])
 #define ibm128_float_type_node		 (rs6000_builtin_types[RS6000_BTI_ibm128_float])
+#define const_str_type_node		 (rs6000_builtin_types[RS6000_BTI_const_str])
 
 extern GTY(()) tree rs6000_builtin_types[RS6000_BTI_MAX];
 extern GTY(()) tree rs6000_builtin_decls[RS6000_BUILTIN_COUNT];

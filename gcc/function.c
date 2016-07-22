@@ -233,7 +233,7 @@ frame_offset_overflow (HOST_WIDE_INT offset, tree func)
 {
   unsigned HOST_WIDE_INT size = FRAME_GROWS_DOWNWARD ? -offset : offset;
 
-  if (size > ((unsigned HOST_WIDE_INT) 1 << (GET_MODE_BITSIZE (Pmode) - 1))
+  if (size > (HOST_WIDE_INT_1U << (GET_MODE_BITSIZE (Pmode) - 1))
 	       /* Leave room for the fixed part of the frame.  */
 	       - 64 * UNITS_PER_WORD)
     {
@@ -3314,6 +3314,8 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 	  set_mem_attributes (parmreg, parm, 1);
 	}
 
+      /* We need to preserve an address based on VIRTUAL_STACK_VARS_REGNUM for
+	 the debug info in case it is not legitimate.  */
       if (GET_MODE (parmreg) != GET_MODE (rtl))
 	{
 	  rtx tempreg = gen_reg_rtx (GET_MODE (rtl));
@@ -3323,7 +3325,8 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 			     all->last_conversion_insn);
 	  emit_move_insn (tempreg, rtl);
 	  tempreg = convert_to_mode (GET_MODE (parmreg), tempreg, unsigned_p);
-	  emit_move_insn (parmreg, tempreg);
+	  emit_move_insn (MEM_P (parmreg) ? copy_rtx (parmreg) : parmreg,
+			  tempreg);
 	  all->first_conversion_insn = get_insns ();
 	  all->last_conversion_insn = get_last_insn ();
 	  end_sequence ();
@@ -3331,7 +3334,7 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 	  did_conversion = true;
 	}
       else
-	emit_move_insn (parmreg, rtl);
+	emit_move_insn (MEM_P (parmreg) ? copy_rtx (parmreg) : parmreg, rtl);
 
       rtl = parmreg;
 
