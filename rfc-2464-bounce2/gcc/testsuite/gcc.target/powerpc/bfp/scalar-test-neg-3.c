@@ -6,7 +6,8 @@
 
 #include <altivec.h>
 
-unsigned int test_neg (double *p)
+unsigned int
+test_neg (double *p)
 {
   double source = *p;
 

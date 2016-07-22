@@ -25,15 +25,19 @@ uintsi scalar_test_data_class (double, unsigned int);
 int scalar_test_neg (float);
 int scalar_test_neg (double);
 
+# vec-extract-sig-[0123].c
 v4si vec_extract_sig (v4sf);
 v2di vec_extract_sig (v2df);
 
+# vec-extract-exp-[0123].c
 v4si vec_extract_exp (v4sf);
 v2di vec_extract_exp (v2df);
 
+# vec-test-data-class-[01234567].c
 v4si vec_test_data_class (v4sf, uint7);
 v2di vec_test_data_class (v2df, uint7);
 
+# vec-insert-exp-[0123].c
 v4sf vec_insert_exp (unsigned_v4si, unsigned_v4si)
 v2df vec_insert_exp (unsigned_v2di, unsigned_v2di)
 

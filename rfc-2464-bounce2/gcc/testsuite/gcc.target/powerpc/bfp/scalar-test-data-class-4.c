@@ -6,10 +6,11 @@
 
 #include <altivec.h>
 
-unsigned int test_data_class (double *p, unsigned int condition_flag)
+unsigned int
+test_data_class (double *p, unsigned int condition_flag)
 {
   double source = *p;
 
-  return scalar_test_data_class (source, condition_flag);	/* { dg-error "argument 2 must be a 7-bit unsigned literal" } */
+  return scalar_test_data_class (source, condition_flag); /* { dg-error "argument 2 must be a 7-bit unsigned literal" } */
 }
 

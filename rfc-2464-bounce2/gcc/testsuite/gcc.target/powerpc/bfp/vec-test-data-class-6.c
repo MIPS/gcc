@@ -6,12 +6,10 @@
 
 #include <altivec.h>
 
-unsigned int
-test_data_class (double *p)
+__vector int
+get_data_class_flags (__vector float *p, unsigned int condition_flag)
 {
-  double source = *p;
+  __vector float source = *p;
 
-  return scalar_test_data_class (source, 3);
+  return vec_test_data_class (source, condition_flag); /* { dg-error "argument 2 must be a 7-bit unsigned literal" } */
 }
-
-/* { dg-final { scan-assembler "xststdcdp" } } */

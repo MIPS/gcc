@@ -6,12 +6,12 @@
 
 #include <altivec.h>
 
-unsigned int
-test_data_class (double *p)
+__vector int
+get_data_class_flags (__vector float *p)
 {
-  double source = *p;
+  __vector float source = *p;
 
-  return scalar_test_data_class (source, 3);
+  return vec_test_data_class (source, 0x37);
 }
 
-/* { dg-final { scan-assembler "xststdcdp" } } */
+/* { dg-final { scan-assembler "xvtstdcsp" } } */

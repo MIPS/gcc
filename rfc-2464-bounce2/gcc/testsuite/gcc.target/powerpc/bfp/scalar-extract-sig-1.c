@@ -8,7 +8,8 @@
 /* This test should succeed only 64-bit configuration.  */
 #include <altivec.h>
 
-unsigned long long int get_significand (double *p)
+unsigned long long int
+get_significand (double *p)
 {
   double source = *p;
 

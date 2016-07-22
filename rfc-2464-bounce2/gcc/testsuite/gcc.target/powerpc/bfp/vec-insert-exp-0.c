@@ -6,12 +6,13 @@
 
 #include <altivec.h>
 
-unsigned int
-test_data_class (double *p)
+__vector float
+make_floats (__vector int *significands_p, __vector int *exponents_p)
 {
-  double source = *p;
+  __vector int significands = *significands_p;
+  __vector int exponents = *exponents_p;
 
-  return scalar_test_data_class (source, 3);
+  return vec_insert_exp (significands, exponents);
 }
 
-/* { dg-final { scan-assembler "xststdcdp" } } */
+/* { dg-final { scan-assembler "xviexpsp" } } */

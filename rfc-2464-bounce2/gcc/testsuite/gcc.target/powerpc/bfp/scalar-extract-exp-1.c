@@ -8,7 +8,8 @@
 /* This test should succeed only on 64-bit configuration.  */
 #include <altivec.h>
 
-unsigned int get_exponent (double *p)
+unsigned int
+get_exponent (double *p)
 {
   double source = *p;
 

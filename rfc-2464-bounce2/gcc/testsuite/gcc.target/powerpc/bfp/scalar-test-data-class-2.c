@@ -6,7 +6,8 @@
 
 #include <altivec.h>
 
-unsigned int test_data_class (double *p)
+unsigned int
+test_data_class (double *p)
 {
   double source = *p;
 

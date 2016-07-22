@@ -6,7 +6,8 @@
 
 #include <altivec.h>
 
-unsigned int test_data_class (float *p, unsigned int condition_flag)
+unsigned int
+test_data_class (float *p, unsigned int condition_flag)
 {
   float source = *p;
 

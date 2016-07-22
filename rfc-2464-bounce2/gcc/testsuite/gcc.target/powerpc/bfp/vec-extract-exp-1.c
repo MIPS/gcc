@@ -6,12 +6,12 @@
 
 #include <altivec.h>
 
-unsigned int
-test_data_class (double *p)
+__vector long long int
+get_exponents (__vector double *p)
 {
-  double source = *p;
+  __vector double source = *p;
 
-  return scalar_test_data_class (source, 3);
+  return vec_extract_exp (source);
 }
 
-/* { dg-final { scan-assembler "xststdcdp" } } */
+/* { dg-final { scan-assembler "xvxexpdp" } } */

@@ -1,5 +1,5 @@
 /* { dg-do compile { target { powerpc*-*-* } } } */
-/* { dg-skip-if "do not override -mcpu" { powerpc*-*-* } { "-mcpu=*" } { "-mcpu=power9" } } */
+y/* { dg-skip-if "do not override -mcpu" { powerpc*-*-* } { "-mcpu=*" } { "-mcpu=power9" } } */
 /* { dg-require-effective-target ilp32 } */
 /* { dg-require-effective-target powerpc_p9vector_ok } */
 /* { dg-skip-if "" { powerpc*-*-aix* } } */
@@ -11,7 +11,8 @@
 
 #include <altivec.h>
 
-unsigned int get_exponent (double *p)
+unsigned int
+get_exponent (double *p)
 {
   double source = *p;
 

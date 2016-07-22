@@ -6,10 +6,11 @@
 
 #include <altivec.h>
 
-unsigned int
-test_neg (float *p)
+__vector float
+make_floats (__vector int *significands_p, __vector int *exponents_p)
 {
-  float source = *p;
+  __vector int significands = *significands_p;
+  __vector int exponents = *exponents_p;
 
-  return __builtin_vec_scalar_test_neg_sp (source); /* { dg-error "Builtin function __builtin_vsx_scalar_test_neg_sp requires" } */
+  return vec_insert_exp (significands, exponents); /* { dg-error "Builtin function __builtin_vsx_vector_insert_exp requires" } */
 }

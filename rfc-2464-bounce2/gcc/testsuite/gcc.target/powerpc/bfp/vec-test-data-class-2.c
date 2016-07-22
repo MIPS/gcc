@@ -6,10 +6,10 @@
 
 #include <altivec.h>
 
-unsigned int
-test_neg (float *p)
+__vector long long int
+get_data_class_flags (__vector double *p)
 {
-  float source = *p;
+  __vector double source = *p;
 
-  return __builtin_vec_scalar_test_neg_sp (source); /* { dg-error "Builtin function __builtin_vsx_scalar_test_neg_sp requires" } */
+  return vec_test_data_class (source, 0x37); /* { dg-error "Builtin function __builtin_vsx_vector_test_data_class requires" } */
 }

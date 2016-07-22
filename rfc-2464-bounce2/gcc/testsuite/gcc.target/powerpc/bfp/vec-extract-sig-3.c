@@ -6,10 +6,10 @@
 
 #include <altivec.h>
 
-unsigned int
-test_neg (float *p)
+__vector int
+get_significands (__vector float *p)
 {
-  float source = *p;
+  __vector float source = *p;
 
-  return __builtin_vec_scalar_test_neg_sp (source); /* { dg-error "Builtin function __builtin_vsx_scalar_test_neg_sp requires" } */
+  return vec_extract_sig (source);	/* { dg-error "Builtin function __builtin_vsx_vector_extract_sig requires" } */
 }

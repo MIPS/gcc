@@ -5,10 +5,12 @@
 /* { dg-skip-if "" { powerpc*-*-aix* } } */
 /* { dg-options "-mcpu=power9" } */
 
-/* This test should succeed only 64-bit configuration.  */
+/* This test only runs on 32-bit configuration, producing compiler
+   error because the builtin requires 64 bits.  */
 #include <altivec.h>
 
-unsigned long long int get_significand (double *p)
+unsigned long long int
+get_significand (double *p)
 {
   double source = *p;
 
