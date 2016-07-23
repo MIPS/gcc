@@ -1,5 +1,5 @@
 Bottom: 8e616ce5d337e4dd771ce42edee69c21d3c856fc
-Top:    8b88e62703f28aaa82c9fff50589c293647bf573
+Top:    631471f936f26c0438e184dd44ed9b79225b7946
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-07-23 06:04:35 -0300
 
@@ -142,40 +142,45 @@ index 0000000..5708350
 +template <void (S::*MF)()> void t() {}
 diff --git a/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12f.C b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12f.C
 new file mode 100644
-index 0000000..d445964
+index 0000000..e2da829
 --- /dev/null
 +++ b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12f.C
-@@ -0,0 +1,5 @@
+@@ -0,0 +1,7 @@
 +// { dg-options "-gdwarf-2 -dA" }
 +// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param" 1 } }
 +// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param\[^\n\]*\n\[^\n\]* DW_AT_name\n\[^\n\]* DW_AT_type\n\[^\n\]*\[^\n\]* DW_AT_location\n\[^\n\]* DW_OP_addr\n\[^\n\]*_ZN1S1fEv\[^\n\]*\n\[^\n\]* DW_OP_stack_value\n\[^\n\]* DW_OP_piece\n\[^\n\]*\n\[^\n\]* DW_OP_lit0\n\[^\n\]* DW_OP_stack_value\n\[^\n\]* DW_OP_piece" 1 } }
 +#include "template-params-12.H"
++/* We get a location list with a pair of DW_OP_pieces for pointers to
++   non-virtual member functions.  */
 +template void t<&S::f>();
 diff --git a/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12g.C b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12g.C
 new file mode 100644
-index 0000000..0fe53fd
+index 0000000..813f71d
 --- /dev/null
 +++ b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12g.C
-@@ -0,0 +1,5 @@
+@@ -0,0 +1,7 @@
 +// { dg-options "-gdwarf-2 -dA" }
 +// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param" 1 } }
 +// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param\[^\n\]*\n\[^\n\]* DW_AT_name\n\[^\n\]* DW_AT_type\n\[^\n\]*\[^\n\]* DW_AT_location\n\[^\n\]* DW_OP_addr\n\[^\n\]*_ZN1B1gEv\[^\n\]*\n\[^\n\]* DW_OP_stack_value\n\[^\n\]* DW_OP_piece\n\[^\n\]*\n\[^\n\]* DW_OP_lit0\n\[^\n\]* DW_OP_stack_value\n\[^\n\]* DW_OP_piece" 1 } }
 +#include "template-params-12.H"
++/* We get a location list with a pair of DW_OP_pieces for pointers to
++   non-virtual member functions.  */
 +template void t<&S::g>();
 diff --git a/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12n.C b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12n.C
 new file mode 100644
-index 0000000..e9b5c6e
+index 0000000..d3c1f58
 --- /dev/null
 +++ b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12n.C
-@@ -0,0 +1,9 @@
+@@ -0,0 +1,10 @@
 +// { dg-options "-gdwarf-2 -dA" }
 +// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param" 1 } }
 +// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param\[^\n\]*\n\[^\n\]* DW_AT_name\n\[^\n\]* DW_AT_type\n\[^\n\]* DW_AT_const_value" 1 } }
 +#include "template-params-12.H"
-+#if __cplusplus > 199711L
++/* We get const_value for NULL pointers to member functions.  */
++#if __cplusplus > 199711L // Ugh, C++98 barfs at both the cast and the overload.
 +template void t<static_cast<void (S::*)()>(0)>();
 +#else
-+template void t<&S::v>(); // Ugh, C++98 barfs at both the cast and the overload.
++template void t<&S::v>();
 +#endif
 diff --git a/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12s.C b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12s.C
 new file mode 100644
@@ -206,23 +211,25 @@ index 0000000..f79fa84
 +template void t<&S::u>();
 diff --git a/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12v.C b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12v.C
 new file mode 100644
-index 0000000..4114f96
+index 0000000..11aabae
 --- /dev/null
 +++ b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12v.C
-@@ -0,0 +1,5 @@
+@@ -0,0 +1,6 @@
 +// { dg-options "-gdwarf-2 -dA" }
 +// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param" 1 } }
 +// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param\[^\n\]*\n\[^\n\]* DW_AT_name\n\[^\n\]* DW_AT_type\n\[^\n\]* DW_AT_const_value" 1 } }
 +#include "template-params-12.H"
++/* We get const_value for pointers to virtual member functions.  */
 +template void t<&S::v>();
 diff --git a/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12w.C b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12w.C
 new file mode 100644
-index 0000000..4114f96
+index 0000000..11aabae
 --- /dev/null
 +++ b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12w.C
-@@ -0,0 +1,5 @@
+@@ -0,0 +1,6 @@
 +// { dg-options "-gdwarf-2 -dA" }
 +// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param" 1 } }
 +// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param\[^\n\]*\n\[^\n\]* DW_AT_name\n\[^\n\]* DW_AT_type\n\[^\n\]* DW_AT_const_value" 1 } }
 +#include "template-params-12.H"
++/* We get const_value for pointers to virtual member functions.  */
 +template void t<&S::v>();
