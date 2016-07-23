@@ -1,5 +1,9 @@
 2016-07-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 238675.
+
+2016-07-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* gcc.target/powerpc/vec-extract.h: Delete from branch, tests are
 	now in the trunk.
 	* gcc.target/powerpc/vec-extract-v2df.c: Likewise.

@@ -7271,11 +7271,15 @@ is_base_field_ref (tree t)
 static bool
 unsafe_copy_elision_p (tree target, tree exp)
 {
-  tree type = TYPE_MAIN_VARIANT (TREE_TYPE (exp));
-  if (type == CLASSTYPE_AS_BASE (type))
+  /* Copy elision only happens with a TARGET_EXPR.  */
+  if (TREE_CODE (exp) != TARGET_EXPR)
     return false;
-  if (!is_base_field_ref (target)
-      && resolves_to_fixed_type_p (target, NULL))
+  tree type = TYPE_MAIN_VARIANT (TREE_TYPE (exp));
+  /* It's safe to elide the copy for a class with no tail padding.  */
+  if (tree_int_cst_equal (TYPE_SIZE (type), CLASSTYPE_SIZE (type)))
+    return false;
+  /* It's safe to elide the copy if we aren't initializing a base object.  */
+  if (!is_base_field_ref (target))
     return false;
   tree init = TARGET_EXPR_INITIAL (exp);
   /* build_compound_expr pushes COMPOUND_EXPR inside TARGET_EXPR.  */
@@ -7726,9 +7730,8 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 	  else if (trivial)
 	    return force_target_expr (DECL_CONTEXT (fn), arg, complain);
 	}
-      else if (trivial
-	       || (TREE_CODE (arg) == TARGET_EXPR
-		   && !unsafe_copy_elision_p (fa, arg)))
+      else if ((trivial || TREE_CODE (arg) == TARGET_EXPR)
+	       && !unsafe_copy_elision_p (fa, arg))
 	{
 	  tree to = cp_stabilize_reference (cp_build_indirect_ref (fa,
 								   RO_NULL,

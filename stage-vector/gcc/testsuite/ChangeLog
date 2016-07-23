@@ -1,3 +1,154 @@
+2016-07-22  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/71935
+	* gfortran.dg/c_sizeof_1.f90: Move invalid code to ...
+	* gfortran.dg/c_sizeof_6.f90: here.  Test for error.
+	* gfortran.dg/pr71935.f90: New test.
+
+2016-07-22 Martin Sebor  <msebor@redhat.com>
+
+	PR c++/71675
+	* g++.dg/ext/atomic-3.C: New test.
+	* gcc.dg/atomic/pr71675.c: New test.
+
+2016-07-22  Evgeny Stupachenko  <evstupac@gmail.com>
+
+	* gcc.target/i386/mvc8.c: New test.
+
+2016-07-22  Bin Cheng  <bin.cheng@arm.com>
+
+	* gcc.dg/tree-ssa/pr19210-1.c: Refine test strings.
+	* gcc.dg/tree-ssa/pr19210-2.c: Delete.
+
+2016-07-22  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/71795
+	* gfortran.dg/constructor_50.f90:  New test.
+
+2016-07-22  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/69028
+	PR gcov-profile/62047
+	* g++.dg/cilk-plus/pr69028.C: New test.
+
+2016-07-22  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	* gfortran.dg/coarray_stat_2.f90: New test.
+
+2016-07-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vec-extract.h: New files to check the
+	vec_extract built-in functions for all vector types, testing
+	accessing each element, both with constant and variable element
+	numbers.
+	* gcc.target/powerpc/vec-extract-v16qi.c: Likewise.
+	* gcc.target/powerpc/vec-extract-v16qiu.c: Likewise.
+	* gcc.target/powerpc/vec-extract-v2df.c: Likewise.
+	* gcc.target/powerpc/vec-extract-v2di.c: Likewise.
+	* gcc.target/powerpc/vec-extract-v4sf.c: Likewise.
+	* gcc.target/powerpc/vec-extract-v4si.c: Likewise.
+	* gcc.target/powerpc/vec-extract-v4siu.c: Likewise.
+	* gcc.target/powerpc/vec-extract-v8hi.c: Likewise.
+	* gcc.target/powerpc/vec-extract-v8hiu.c: Likewise.
+
+2016-07-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71728
+	* g++.dg/other/pr71728.C: New test.
+
+2016-07-21  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.dg/ifcvt-2.c: Use parameter to guide if-conversion heuristics.
+	* gcc.dg/ifcvt-3.c: Use parameter to guide if-conversion heuristics.
+	* gcc.dg/pr68435.c: Use parameter to guide if-conversion heuristics.
+	* gcc.dg/ifcvt-4.c: Use parameter to guide if-conversion heuristics.
+	* gcc.dg/ifcvt-5.c: Use parameter to guide if-conversion heuristics.
+
+2016-07-21  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71947
+	* gcc.dg/tree-ssa/vrp102.c: New testcase.
+
+2016-07-21  Bin Cheng  <bin.cheng@arm.com>
+
+	* gcc.dg/tree-ssa/scev-15.c: New.
+
+2016-07-21  Bin Cheng  <bin.cheng@arm.com>
+
+	* gcc.dg/vect/vect-mask-store-move-1.c: XFAIL.
+
+2016-07-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71941
+	* g++.dg/gomp/pr71941.C: New test.
+
+2016-07-20  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/70339
+	PR c/71858
+	* g++.dg/spellcheck-identifiers.C: New test case, based on
+	gcc.dg/spellcheck-identifiers.c.
+	* g++.dg/spellcheck-identifiers-2.C: New test case, based on
+	gcc.dg/spellcheck-identifiers-2.c.
+	* g++.dg/spellcheck-typenames.C: New test case, based on
+	gcc.dg/spellcheck-typenames.c
+
+2016-07-20  Jonathan Wakely  <jwakely@redhat.com>
+
+	* g++.dg/cpp0x/nullptr35.C: Change expected result for catching as
+	pointer to member function and also test catching by reference.
+
+2016-07-20  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* gcc.target/s390/pr67443.c: Fix test case.
+
+2016-07-20  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* gcc.target/s390/insv-1.c: Xfail some tests.
+	* gcc.target/s390/insv-2.c: Likewise.
+
+2016-07-20  Georg-Johann Lay  <avr@gjlay.de>
+
+	* gcc.target/avr/torture/get-mem.c: New test.
+	* gcc.target/avr/torture/set-mem.c: New test.
+
+2016-07-20  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/71948
+	* gcc.target/avr/torture/tiny-progmem.c: New test.
+
+2016-07-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/71909
+	* g++.dg/parse/pr71909.C: New test.
+	* g++.dg/tm/pr71909.C: New test.
+
+	PR c++/50060
+	* g++.dg/cpp0x/constexpr-50060.C: New test.
+	* g++.dg/cpp1y/constexpr-50060.C: New test.
+
+2016-07-20  Martin Liska  <mliska@suse.cz>
+
+	* gfortran.dg/graphite/pr71898.f90: New test.
+
+2016-07-20  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/71503
+	PR tree-optimization/71683
+	* gcc.dg/tree-ssa/ifc-pr71503.c: New test.
+	* gcc.dg/tree-ssa/ifc-pr71683.c: New test.
+
+2016-07-20  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/plugin/plugin.exp: Remove sreal test.
+	* gcc.dg/plugin/sreal-test-1.c: Remove.
+	* gcc.dg/plugin/sreal_plugin.c: Remove.
+
+2016-07-19  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/71902
+	* gfortran.dg/dependency_47.f90:  New test.
+
 2016-07-19  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/71916

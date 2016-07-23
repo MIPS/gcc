@@ -29,7 +29,7 @@ extern bool number_of_iterations_exit (struct loop *, edge,
 				       bool every_iteration = true);
 extern bool number_of_iterations_exit_assumptions (struct loop *, edge,
 						   struct tree_niter_desc *,
-						   bool = true);
+						   gcond **, bool = true);
 extern tree find_loop_niter (struct loop *, edge *);
 extern bool finite_loop_p (struct loop *);
 extern tree loop_niter_by_eval (struct loop *, edge);
@@ -49,7 +49,8 @@ extern bool estimated_stmt_executions (struct loop *, widest_int *);
 extern void estimate_numbers_of_iterations (void);
 extern bool stmt_dominates_stmt_p (gimple *, gimple *);
 extern bool nowrap_type_p (tree);
-extern bool scev_probably_wraps_p (tree, tree, gimple *, struct loop *, bool);
+extern bool scev_probably_wraps_p (tree, tree, tree, gimple *,
+				   struct loop *, bool);
 extern void free_loop_control_ivs (struct loop *);
 extern void free_numbers_of_iterations_estimates_loop (struct loop *);
 extern void free_numbers_of_iterations_estimates (function *);
