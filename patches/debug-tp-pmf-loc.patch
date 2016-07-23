@@ -5,6 +5,28 @@ Date:   2016-07-23 06:04:35 -0300
 
 emit loc exprs for C++ non-virtual pmf template value parms
 
+for  gcc/ChangeLog
+
+	PR debug/49366
+	* dwarf2out.c (loc_list_from_tree_1): Expand some CONSTRUCTORs
+	in DW_OP_pieces, just enough to handle pointers to member
+	functions.
+	(gen_remaining_tmpl_value_param_die_attribute): Use a location
+	expression on DWARFv5 if a constant value doesn't work.
+
+for  gcc/testsuite/ChangeLog
+
+	PR debug/49366
+	* g++.dg/debug/dwarf2/template-params-12.H: New.
+	* g++.dg/debug/dwarf2/template-params-12f.C: New.
+	* g++.dg/debug/dwarf2/template-params-12g.C: New.
+	* g++.dg/debug/dwarf2/template-params-12n.C: New.
+	* g++.dg/debug/dwarf2/template-params-12s.C: New.
+	* g++.dg/debug/dwarf2/template-params-12u.C: New.
+	* g++.dg/debug/dwarf2/template-params-12v.C: New.
+	* g++.dg/debug/dwarf2/template-params-12w.C: New.
+
+
 ---
 
 diff --git a/gcc/dwarf2out.c b/gcc/dwarf2out.c
