@@ -1,3 +1,4 @@
+// Tests for the fix for PR debug/49366.
 struct B {
   void g();
   virtual void v() = 0;
