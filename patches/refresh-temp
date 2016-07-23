@@ -1,0 +1,18 @@
+Bottom: 631471f936f26c0438e184dd44ed9b79225b7946
+Top:    4c1b7f5d15a8d8f110c8b0a6b90aa6ed18e0d7fb
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-07-23 07:19:29 -0300
+
+Refresh of debug-tp-pmf-loc.patch
+
+---
+
+diff --git a/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12.H b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12.H
+index 5708350..24c26e7 100644
+--- a/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12.H
++++ b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12.H
+@@ -1,3 +1,4 @@
++// Tests for the fix for PR debug/49366.
+ struct B {
+   void g();
+   virtual void v() = 0;
