@@ -1,0 +1,53 @@
+Bottom: 9b81f5326001d63a00b2ced5620afaa7cfa2a7d2
+Top:    fa353229d949ffa98ae3cbdfb26389f5ac97ae84
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-07-23 06:37:22 -0300
+
+Refresh of debug-tp-pmf-loc.patch
+
+---
+
+diff --git a/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12f.C b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12f.C
+index 8b8b40c..ac2662c 100644
+--- a/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12f.C
++++ b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12f.C
+@@ -1,5 +1,5 @@
+ // { dg-options "-gdwarf-2 -dA" }
+ // { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param" 1 } }
+-// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param\[^\n\]*\n\[^#\n\]*# DW_AT_name\n\[^#\n\]*# DW_AT_type\n\[^#\n\]*# DW_AT_location\n\[^#\n\]*# DW_OP_addr\n\[^\n\]*_ZN1S1fEv\[^\n\]*\n\[^#\n\]*# DW_OP_stack_value\n\[^#\n\]*# DW_OP_piece\n\[^\n\]*\n\[^#\n\]*# DW_OP_lit0\n\[^#\n\]*# DW_OP_stack_value\n\[^#\n\]*# DW_OP_piece" 1 } }
++// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param\[^\n\]*\n\[^\n\]* DW_AT_name\n\[^\n\]* DW_AT_type\n\[^\n\]*\[^#\n\]* DW_AT_location\n\[^\n\]* DW_OP_addr\n\[^\n\]*_ZN1S1fEv\[^\n\]*\n\[^\n\]* DW_OP_stack_value\n\[^\n\]* DW_OP_piece\n\[^\n\]*\n\[^\n\]* DW_OP_lit0\n\[^\n\]* DW_OP_stack_value\n\[^\n\]* DW_OP_piece" 1 } }
+ #include "template-params-12.H"
+ template void t<&S::f>();
+diff --git a/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12g.C b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12g.C
+index 2d330f8..eb90b38 100644
+--- a/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12g.C
++++ b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12g.C
+@@ -1,5 +1,5 @@
+ // { dg-options "-gdwarf-2 -dA" }
+ // { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param" 1 } }
+-// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param\[^\n\]*\n\[^#\n\]*# DW_AT_name\n\[^#\n\]*# DW_AT_type\n\[^#\n\]*# DW_AT_location\n\[^#\n\]*# DW_OP_addr\n\[^\n\]*_ZN1B1gEv\[^\n\]*\n\[^#\n\]*# DW_OP_stack_value\n\[^#\n\]*# DW_OP_piece\n\[^\n\]*\n\[^#\n\]*# DW_OP_lit0\n\[^#\n\]*# DW_OP_stack_value\n\[^#\n\]*# DW_OP_piece" 1 } }
++// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param\[^\n\]*\n\[^\n\]* DW_AT_name\n\[^\n\]* DW_AT_type\n\[^\n\]*\[^#\n\]* DW_AT_location\n\[^\n\]* DW_OP_addr\n\[^\n\]*_ZN1B1gEv\[^\n\]*\n\[^\n\]* DW_OP_stack_value\n\[^\n\]* DW_OP_piece\n\[^\n\]*\n\[^\n\]* DW_OP_lit0\n\[^\n\]* DW_OP_stack_value\n\[^\n\]* DW_OP_piece" 1 } }
+ #include "template-params-12.H"
+ template void t<&S::g>();
+diff --git a/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12v.C b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12v.C
+index 142f7d8..4114f96 100644
+--- a/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12v.C
++++ b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12v.C
+@@ -1,5 +1,5 @@
+ // { dg-options "-gdwarf-2 -dA" }
+ // { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param" 1 } }
+-// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param\[^\n\]*\n\[^#\n\]*# DW_AT_name\n\[^#\n\]*# DW_AT_type\n\[^#\n\]*# DW_AT_const_value" 1 } }
++// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param\[^\n\]*\n\[^\n\]* DW_AT_name\n\[^\n\]* DW_AT_type\n\[^\n\]* DW_AT_const_value" 1 } }
+ #include "template-params-12.H"
+ template void t<&S::v>();
+diff --git a/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12w.C b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12w.C
+index 142f7d8..4114f96 100644
+--- a/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12w.C
++++ b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12w.C
+@@ -1,5 +1,5 @@
+ // { dg-options "-gdwarf-2 -dA" }
+ // { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param" 1 } }
+-// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param\[^\n\]*\n\[^#\n\]*# DW_AT_name\n\[^#\n\]*# DW_AT_type\n\[^#\n\]*# DW_AT_const_value" 1 } }
++// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param\[^\n\]*\n\[^\n\]* DW_AT_name\n\[^\n\]* DW_AT_type\n\[^\n\]* DW_AT_const_value" 1 } }
+ #include "template-params-12.H"
+ template void t<&S::v>();
