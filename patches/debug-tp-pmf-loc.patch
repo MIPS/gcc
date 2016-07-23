@@ -3,7 +3,7 @@ Top:    4c1b7f5d15a8d8f110c8b0a6b90aa6ed18e0d7fb
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-07-23 06:04:35 -0300
 
-emit loc exprs for C++ non-virtual pmf template value parms
+[PR49366] emit loc exprs for C++ non-virtual pmf template value parms
 
 We used to emit, in debug information, the value bound to pointer to
 member function template parameters only when they were NULL or
