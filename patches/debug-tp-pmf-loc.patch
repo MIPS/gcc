@@ -1,5 +1,5 @@
 Bottom: 8e616ce5d337e4dd771ce42edee69c21d3c856fc
-Top:    8e616ce5d337e4dd771ce42edee69c21d3c856fc
+Top:    fd3fe498edd0698f56b6e64604fe27a85da4abc4
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-07-23 06:04:35 -0300
 
@@ -7,4 +7,222 @@ emit loc exprs for C++ non-virtual pmf template value parms
 
 ---
 
-
+diff --git a/gcc/dwarf2out.c b/gcc/dwarf2out.c
+index e022d8f..6091a8d 100644
+--- a/gcc/dwarf2out.c
++++ b/gcc/dwarf2out.c
+@@ -16155,6 +16155,89 @@ loc_list_from_tree_1 (tree loc, int want_address,
+     case COMPLEX_CST:
+       if ((ret = cst_pool_loc_descr (loc)))
+ 	have_address = 1;
++      else if (TREE_CODE (loc) == CONSTRUCTOR)
++	{
++	  tree type = TREE_TYPE (loc);
++	  unsigned HOST_WIDE_INT size = int_size_in_bytes (type);
++	  unsigned HOST_WIDE_INT offset = 0;
++	  unsigned HOST_WIDE_INT cnt;
++	  constructor_elt *ce;
++	  
++	  if (TREE_CODE (type) == RECORD_TYPE)
++	    {
++	      /* This is very limited, but it's enough to output
++		 pointers to member functions, as long as the
++		 referenced function is defined in the current
++		 translation unit.  */
++	      FOR_EACH_VEC_SAFE_ELT (CONSTRUCTOR_ELTS (loc), cnt, ce)
++		{
++		  tree val = ce->value;
++
++		  tree field = ce->index;
++
++		  if (val)
++		    STRIP_NOPS (val);
++
++		  if (!field || DECL_BIT_FIELD (field))
++		    {
++		      expansion_failed (loc, NULL_RTX,
++					"bitfield in record type constructor");
++		      size = offset = (unsigned HOST_WIDE_INT)-1;
++		      ret = NULL;
++		      break;
++		    }
++
++		  HOST_WIDE_INT fieldsize = tree_to_shwi (DECL_SIZE_UNIT (field));
++		  unsigned HOST_WIDE_INT pos = int_byte_position (field);
++		  gcc_assert (pos + fieldsize <= size);
++		  if (pos < offset)
++		    {
++		      expansion_failed (loc, NULL_RTX,
++					"out-of-order fields in record constructor");
++		      size = offset = (unsigned HOST_WIDE_INT)-1;
++		      ret = NULL;
++		      break;
++		    }
++		  if (pos > offset)
++		    {
++		      ret1 = new_loc_descr (DW_OP_piece, pos - offset, 0);
++		      add_loc_descr (&ret, ret1);
++		      offset = pos;
++		    }
++		  if (val && fieldsize != 0)
++		    {
++		      ret1 = loc_descriptor_from_tree (val, want_address, context);
++		      if (!ret1)
++			{
++			  expansion_failed (loc, NULL_RTX,
++					    "unsupported expression in field");
++			  size = offset = (unsigned HOST_WIDE_INT)-1;
++			  ret = NULL;
++			  break;
++			}
++		      add_loc_descr (&ret, ret1);
++		    }
++		  if (fieldsize)
++		    {
++		      ret1 = new_loc_descr (DW_OP_piece, fieldsize, 0);
++		      add_loc_descr (&ret, ret1);
++		      offset = pos + fieldsize;
++		    }
++		}
++
++	      if (offset != size)
++		{
++		  ret1 = new_loc_descr (DW_OP_piece, size - offset, 0);
++		  add_loc_descr (&ret, ret1);
++		  offset = size;
++		}
++
++	      have_address = !!want_address;
++	    }
++	  else
++	    expansion_failed (loc, NULL_RTX,
++			      "constructor of non-record type");
++	}
+       else
+       /* We can construct small constants here using int_loc_descriptor.  */
+ 	expansion_failed (loc, NULL_RTX,
+@@ -24276,7 +24359,15 @@ gen_remaining_tmpl_value_param_die_attribute (void)
+       FOR_EACH_VEC_ELT (*tmpl_value_parm_die_table, i, e)
+ 	{
+ 	  if (!tree_add_const_value_attribute (e->die, e->arg))
+-	    (*tmpl_value_parm_die_table)[j++] = *e;
++	    {
++	      dw_loc_descr_ref loc = NULL;
++	      if (dwarf_version >= 5 || !dwarf_strict)
++		loc = loc_descriptor_from_tree (e->arg, 2, NULL);
++	      if (loc)
++		add_AT_loc (e->die, DW_AT_location, loc);
++	      else
++		(*tmpl_value_parm_die_table)[j++] = *e;
++	    }
+ 	}
+       tmpl_value_parm_die_table->truncate (j);
+     }
+diff --git a/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12.H b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12.H
+new file mode 100644
+index 0000000..5708350
+--- /dev/null
++++ b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12.H
+@@ -0,0 +1,16 @@
++struct B {
++  void g();
++  virtual void v() = 0;
++  virtual void w();
++};
++void B::g() {}
++void B::w() {}
++struct S : B {
++  void f();
++  void v();
++  void u();
++};
++void S::f() {}
++void S::v() {}
++template <void (B::*MF)()> void t() {}
++template <void (S::*MF)()> void t() {}
+diff --git a/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12f.C b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12f.C
+new file mode 100644
+index 0000000..8b8b40c
+--- /dev/null
++++ b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12f.C
+@@ -0,0 +1,5 @@
++// { dg-options "-gdwarf-2 -dA" }
++// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param" 1 } }
++// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param\[^\n\]*\n\[^#\n\]*# DW_AT_name\n\[^#\n\]*# DW_AT_type\n\[^#\n\]*# DW_AT_location\n\[^#\n\]*# DW_OP_addr\n\[^\n\]*_ZN1S1fEv\[^\n\]*\n\[^#\n\]*# DW_OP_stack_value\n\[^#\n\]*# DW_OP_piece\n\[^\n\]*\n\[^#\n\]*# DW_OP_lit0\n\[^#\n\]*# DW_OP_stack_value\n\[^#\n\]*# DW_OP_piece" 1 } }
++#include "template-params-12.H"
++template void t<&S::f>();
+diff --git a/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12g.C b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12g.C
+new file mode 100644
+index 0000000..2d330f8
+--- /dev/null
++++ b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12g.C
+@@ -0,0 +1,5 @@
++// { dg-options "-gdwarf-2 -dA" }
++// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param" 1 } }
++// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param\[^\n\]*\n\[^#\n\]*# DW_AT_name\n\[^#\n\]*# DW_AT_type\n\[^#\n\]*# DW_AT_location\n\[^#\n\]*# DW_OP_addr\n\[^\n\]*_ZN1B1gEv\[^\n\]*\n\[^#\n\]*# DW_OP_stack_value\n\[^#\n\]*# DW_OP_piece\n\[^\n\]*\n\[^#\n\]*# DW_OP_lit0\n\[^#\n\]*# DW_OP_stack_value\n\[^#\n\]*# DW_OP_piece" 1 } }
++#include "template-params-12.H"
++template void t<&S::g>();
+diff --git a/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12n.C b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12n.C
+new file mode 100644
+index 0000000..c28e196
+--- /dev/null
++++ b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12n.C
+@@ -0,0 +1,9 @@
++// { dg-options "-gdwarf-2 -dA" }
++// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param" 1 } }
++// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param\[^\n\]*\n\[^#\n\]*# DW_AT_name\n\[^#\n\]*# DW_AT_type\n\[^#\n\]*# DW_AT_const_value" 1 } }
++#include "template-params-12.H"
++#if __cplusplus > 199711L
++template void t<static_cast<void (S::*)()>(0)>();
++#else
++template void t<&S::v>(); // Ugh, C++98 barfs at both the cast and the overload.
++#endif
+diff --git a/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12s.C b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12s.C
+new file mode 100644
+index 0000000..24744e4
+--- /dev/null
++++ b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12s.C
+@@ -0,0 +1,8 @@
++// { dg-options "-gdwarf-4 -gstrict-dwarf -dA" }
++// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param" 1 } }
++// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param\[^\n\]*\n\[^#\n\]*# DW_AT_name\n\[^#\n\]*# DW_AT_type\n\[^#\n\]*# \[^\n\]*DIE" 1 } }
++#include "template-params-12.H"
++/* We do NOT get a value or location for this one, because we've
++   enabled strict DWARF 4, and it could only be emitted as a location,
++   which is DWARF 5 only for template value params.  */
++template void t<&S::f>();
+diff --git a/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12u.C b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12u.C
+new file mode 100644
+index 0000000..8710a59
+--- /dev/null
++++ b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12u.C
+@@ -0,0 +1,7 @@
++// { dg-options "-gdwarf-2 -dA" }
++// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param" 1 } }
++// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param\[^\n\]*\n\[^#\n\]*# DW_AT_name\n\[^#\n\]*# DW_AT_type\n\[^#\n\]*# \[^\n\]*DIE" 1 } }
++#include "template-params-12.H"
++/* We do NOT get a value or location for this one, because it would
++   require a relocation to an undefined symbol in a debug section.  */
++template void t<&S::u>();
+diff --git a/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12v.C b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12v.C
+new file mode 100644
+index 0000000..142f7d8
+--- /dev/null
++++ b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12v.C
+@@ -0,0 +1,5 @@
++// { dg-options "-gdwarf-2 -dA" }
++// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param" 1 } }
++// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param\[^\n\]*\n\[^#\n\]*# DW_AT_name\n\[^#\n\]*# DW_AT_type\n\[^#\n\]*# DW_AT_const_value" 1 } }
++#include "template-params-12.H"
++template void t<&S::v>();
+diff --git a/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12w.C b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12w.C
+new file mode 100644
+index 0000000..142f7d8
+--- /dev/null
++++ b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12w.C
+@@ -0,0 +1,5 @@
++// { dg-options "-gdwarf-2 -dA" }
++// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param" 1 } }
++// { dg-final { scan-assembler-times "DIE \\(\[^\n\]*\\) DW_TAG_template_value_param\[^\n\]*\n\[^#\n\]*# DW_AT_name\n\[^#\n\]*# DW_AT_type\n\[^#\n\]*# DW_AT_const_value" 1 } }
++#include "template-params-12.H"
++template void t<&S::v>();
