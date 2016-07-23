@@ -5,6 +5,25 @@ Date:   2016-07-23 06:04:35 -0300
 
 emit loc exprs for C++ non-virtual pmf template value parms
 
+We used to emit, in debug information, the value bound to pointer to
+member function template parameters only when they were NULL or
+virtual member functions, because those can be represented with
+DW_AT_const_value.
+
+In order to represent the symbolic pointer to member function
+constants for non-virtual member functions, we'd need to be able to
+emit relocations for part of DW_AT_const_value, which we don't.  The
+more viable alternative is to use DW_AT_location to represent such
+values, as slated for inclusion in DWARFv5, according to
+<URL:http://www.dwarfstd.org/ShowIssue.php?issue=130412.1>.
+
+With this patch, when we can't emit a DW_AT_const_value, we emit each
+"member" of the pointer to member function "record" as a
+DW_OP_stack_value DW_OP_piece, as long as the referenced member
+function is output in the same translation unit, otherwise we'd get
+relocations to external symbols, something to avoid in debug sections.
+
+
 for  gcc/ChangeLog
 
 	PR debug/49366
