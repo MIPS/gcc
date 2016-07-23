@@ -1,5 +1,5 @@
 Bottom: 8e616ce5d337e4dd771ce42edee69c21d3c856fc
-Top:    631471f936f26c0438e184dd44ed9b79225b7946
+Top:    4c1b7f5d15a8d8f110c8b0a6b90aa6ed18e0d7fb
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-07-23 06:04:35 -0300
 
@@ -142,10 +142,11 @@ index e022d8f..6b02b0a 100644
      }
 diff --git a/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12.H b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12.H
 new file mode 100644
-index 0000000..5708350
+index 0000000..24c26e7
 --- /dev/null
 +++ b/gcc/testsuite/g++.dg/debug/dwarf2/template-params-12.H
-@@ -0,0 +1,16 @@
+@@ -0,0 +1,17 @@
++// Tests for the fix for PR debug/49366.
 +struct B {
 +  void g();
 +  virtual void v() = 0;
