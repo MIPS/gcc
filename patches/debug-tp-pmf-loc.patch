@@ -1,0 +1,10 @@
+Bottom: 8e616ce5d337e4dd771ce42edee69c21d3c856fc
+Top:    8e616ce5d337e4dd771ce42edee69c21d3c856fc
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-07-23 06:04:35 -0300
+
+emit loc exprs for C++ non-virtual pmf template value parms
+
+---
+
+
