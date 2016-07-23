@@ -1,5 +1,5 @@
 Bottom: 8e616ce5d337e4dd771ce42edee69c21d3c856fc
-Top:    fd3fe498edd0698f56b6e64604fe27a85da4abc4
+Top:    9b81f5326001d63a00b2ced5620afaa7cfa2a7d2
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2016-07-23 06:04:35 -0300
 
@@ -8,7 +8,7 @@ emit loc exprs for C++ non-virtual pmf template value parms
 ---
 
 diff --git a/gcc/dwarf2out.c b/gcc/dwarf2out.c
-index e022d8f..6091a8d 100644
+index e022d8f..6b02b0a 100644
 --- a/gcc/dwarf2out.c
 +++ b/gcc/dwarf2out.c
 @@ -16155,6 +16155,89 @@ loc_list_from_tree_1 (tree loc, int want_address,
@@ -22,7 +22,7 @@ index e022d8f..6091a8d 100644
 +	  unsigned HOST_WIDE_INT offset = 0;
 +	  unsigned HOST_WIDE_INT cnt;
 +	  constructor_elt *ce;
-+	  
++
 +	  if (TREE_CODE (type) == RECORD_TYPE)
 +	    {
 +	      /* This is very limited, but it's enough to output
