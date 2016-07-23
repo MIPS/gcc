@@ -5,7 +5,7 @@ Date:   2016-07-23 06:04:35 -0300
 
 [PR49366] emit loc exprs for C++ non-virtual pmf template value parms
 
-We used to emit, in debug information, the value bound to pointer to
+We used to emit, in debug information, the values bound to pointer to
 member function template parameters only when they were NULL or
 virtual member functions, because those can be represented with
 DW_AT_const_value.
