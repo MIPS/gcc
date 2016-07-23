@@ -1,0 +1,22 @@
+Bottom: fd3fe498edd0698f56b6e64604fe27a85da4abc4
+Top:    9b81f5326001d63a00b2ced5620afaa7cfa2a7d2
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-07-23 06:07:28 -0300
+
+Refresh of debug-tp-pmf-loc.patch
+
+---
+
+diff --git a/gcc/dwarf2out.c b/gcc/dwarf2out.c
+index 6091a8d..6b02b0a 100644
+--- a/gcc/dwarf2out.c
++++ b/gcc/dwarf2out.c
+@@ -16162,7 +16162,7 @@ loc_list_from_tree_1 (tree loc, int want_address,
+ 	  unsigned HOST_WIDE_INT offset = 0;
+ 	  unsigned HOST_WIDE_INT cnt;
+ 	  constructor_elt *ce;
+-	  
++
+ 	  if (TREE_CODE (type) == RECORD_TYPE)
+ 	    {
+ 	      /* This is very limited, but it's enough to output
