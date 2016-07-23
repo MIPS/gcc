@@ -16162,7 +16162,7 @@ loc_list_from_tree_1 (tree loc, int want_address,
 	  unsigned HOST_WIDE_INT offset = 0;
 	  unsigned HOST_WIDE_INT cnt;
 	  constructor_elt *ce;
-	  
+
 	  if (TREE_CODE (type) == RECORD_TYPE)
 	    {
 	      /* This is very limited, but it's enough to output
