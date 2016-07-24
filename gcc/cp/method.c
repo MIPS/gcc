@@ -219,6 +219,7 @@ make_alias_for (tree target, tree newid)
     }
   DECL_EXTERNAL (alias) = 0;
   DECL_ARTIFICIAL (alias) = 1;
+  DECL_IGNORED_P (alias) = DECL_IGNORED_P (target);
   DECL_TEMPLATE_INSTANTIATED (alias) = 0;
   if (TREE_CODE (alias) == FUNCTION_DECL)
     {

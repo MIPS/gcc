@@ -1154,6 +1154,10 @@ public:
      external means.  */
   inline void mark_force_output (void);
 
+  /* Return true when function is a language-defined trampoline, e.g.,
+     C++ ctor and dtor "thunks" that just call the unified cdtor.  */
+  bool is_lang_trampoline (void);
+
   /* Return true when function can be marked local.  */
   bool local_p (void);
 
