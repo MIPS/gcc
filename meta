@@ -1,13 +1,13 @@
 Version: 1
-Previous: ddc728c964acb3bef909396a65e9d6c5329e6034
+Previous: 5d1fb34e0e7df1514db201897fb72575047f5126
 Head: 2083d6be1b160ef098426161e57eae89d8a2977f
 Applied:
 Unapplied:
-  split-class-decl-manage-scopes-reactivate-local-decls.patch: 61ebf376846f76c850ea13ed2e6b02b21f535f34
   debug-tp-pmf-loc.patch: 146a6cb5f77e0ea5555f9b3b97ef7bbf0f90bca5
   testing-switch-to-named-scope.patch: 5a7eb232b8cb1fce480585a1914fb9e0b458b99e
   special-memfuncs-testing.patch: 5dadb8e81f23ef0a3a559dc1776fa25b2cc8c5db
 Hidden:
+  split-class-decl-manage-scopes-reactivate-local-decls.patch: 61ebf376846f76c850ea13ed2e6b02b21f535f34
   adjust-type-align-propagation.patch: 9d26d91ff0e9848b3d73088db0bb27dfe4ad6e53
   using-inline-ns-aliases-etc.patch: 1a6b7b9481c075e616afd1335f1a1b417edc0008
   more-dependent-value-exprs.patch: 6cbf729b2a8de3c0bcce6b01d1246f24dc47c53e
