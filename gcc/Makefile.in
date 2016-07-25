@@ -275,6 +275,17 @@ else
 LLINKER = $(LINKER)
 endif
 
+THIN_ARCHIVE_SUPPORT = @thin_archive_support@
+
+USE_THIN_ARCHIVES = no
+ifeq ($(THIN_ARCHIVE_SUPPORT),yes)
+ifeq ($(AR_FLAGS),rc)
+ifeq ($(RANLIB_FLAGS),)
+USE_THIN_ARCHIVES = yes
+endif
+endif
+endif
+
 # -------------------------------------------
 # Programs which operate on the build machine
 # -------------------------------------------
@@ -1260,6 +1271,7 @@ OBJS = \
 	explow.o \
 	expmed.o \
 	expr.o \
+	fibonacci_heap.o \
 	final.o \
 	fixed-value.o \
 	fold-const.o \
@@ -1870,6 +1882,12 @@ s-selftest: $(GCC_PASSES) cc1$(exeext) stmp-int-hdrs
 selftest-gdb: $(GCC_PASSES) cc1$(exeext) stmp-int-hdrs
 	$(GCC_FOR_TARGET) -xc -S -c /dev/null -fself-test -wrapper gdb,--args
 
+# Convenience method for running selftests under valgrind:
+.PHONY: selftest-valgrind
+selftest-valgrind: $(GCC_PASSES) cc1$(exeext) stmp-int-hdrs
+	$(GCC_FOR_TARGET) -xc -S -c /dev/null -fself-test \
+	  -wrapper valgrind,--leak-check=full
+
 # Recompile all the language-independent object files.
 # This is used only if the user explicitly asks for it.
 compilations: $(BACKEND)
@@ -1877,8 +1895,14 @@ compilations: $(BACKEND)
 # This archive is strictly for the host.
 libbackend.a: $(OBJS)
 	-rm -rf libbackend.a
+	@# Build libbackend.a as a thin archive if possible, as doing so
+	@# significantly reduces build times.
+ifeq ($(USE_THIN_ARCHIVES),yes)
+	$(AR) $(AR_FLAGS)T libbackend.a $(OBJS)
+else
 	$(AR) $(AR_FLAGS) libbackend.a $(OBJS)
 	-$(RANLIB) $(RANLIB_FLAGS) libbackend.a
+endif
 
 libcommon-target.a: $(OBJS-libcommon-target)
 	-rm -rf libcommon-target.a
@@ -2497,7 +2521,7 @@ generated_files = config.h tm.h $(TM_P_H) $(TM_H) multilib.h \
        $(ALL_GTFILES_H) gtype-desc.c gtype-desc.h gcov-iov.h \
        options.h target-hooks-def.h insn-opinit.h \
        common/common-target-hooks-def.h pass-instances.def \
-       c-family/c-target-hooks-def.h params.list case-cfn-macros.h \
+       c-family/c-target-hooks-def.h params.list params.options case-cfn-macros.h \
        cfn-operators.pd
 
 #
@@ -3328,6 +3352,13 @@ s-params.list: $(srcdir)/params-list.h $(srcdir)/params.def
 	$(CPP) $(srcdir)/params-list.h | sed 's/^#.*//;/^$$/d' > tmp-params.list
 	$(SHELL) $(srcdir)/../move-if-change tmp-params.list params.list
 	$(STAMP) s-params.list
+
+params.options: s-params.options; @true
+s-params.options: $(srcdir)/params-options.h $(srcdir)/params.def
+	$(CPP) $(srcdir)/params-options.h | sed 's/^#.*//;/^$$/d' > tmp-params.options
+	$(SHELL) $(srcdir)/../move-if-change tmp-params.options params.options
+	$(STAMP) s-params.options
+
 
 PLUGIN_HEADERS = $(TREE_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
   toplev.h $(DIAGNOSTIC_CORE_H) $(BASIC_BLOCK_H) $(HASH_TABLE_H) \

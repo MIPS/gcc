@@ -1,3 +1,376 @@
+2016-07-22  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/71964
+	* include/bits/basic_string.h [_GLIBCXX_USE_CXX11_ABI]
+	(basic_string::_Alloc_hider(pointer, _Alloc&&)): Add constructor.
+	* include/bits/stl_tree.h (_Rb_tree(_Rb_tree&&)): Move allocator.
+	* testsuite/21_strings/basic_string/allocator/71964.cc: New test.
+	* testsuite/23_containers/set/allocator/71964.cc: New test.
+
+	* testsuite/lib/libstdc++.exp (check_v3_target_namedlocale): Use
+	delete[] instead of delete.
+
+2016-07-21  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/experimental/propagate_const (propagate_const::__t): Rename
+	to _M_t and remove comment. Qualify std::move and std::forward.
+	* testsuite/experimental/propagate_const/cons/default.cc: Fix test.
+
+	* testsuite/23_containers/vector/zero_sized_allocations.cc:
+	Define sized deallocation function.
+	* testsuite/util/testsuite_new_operators.h:
+	(operator delete(void*, const std::nothrow_t&)): Define nothrow
+	deallocation function.
+
+	* testsuite/21_strings/basic_string/modifiers/append/char/1.cc: Fix
+	reads past the end of strings.
+	* testsuite/21_strings/basic_string/operations/compare/char/1.cc:
+	Likewise.
+	* testsuite/21_strings/char_traits/requirements/short/1.cc: Fix
+	invalid array accesses.
+	* testsuite/experimental/string_view/operations/compare/char/1.cc:
+	Fix read past the end of string.
+	* testsuite/util/testsuite_character.cc: Fix out-of-bounds write.
+
+	* testsuite/24_iterators/container_access.cc: Fix missing returns.
+	* testsuite/24_iterators/range_access_cpp14.cc: Likewise.
+
+	* testsuite/18_support/new_delete_placement.cc: Don't allocate (and
+	leak) memory for arguments to placement delete.
+	* testsuite/20_util/addressof/1.cc: Don't leak memory.
+	* testsuite/22_locale/locale/global_locale_objects/3.cc: Likewise.
+	* testsuite/23_containers/unordered_multimap/insert/55028-debug.cc:
+	Likewise.
+
+2016-07-20  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/intro.xml: Document DR 2684 status.
+	* doc/html/*: Regenerate.
+
+	* include/std/atomic (atomic_int8_t, atomic_uint8_t, atomic_int16_t)
+	(atomic_uint16_t, atomic_int32_t, atomic_uint32_t, atomic_int64_t)
+	(atomic_uint64_t): Define (LWG 2441).
+	* testsuite/29_atomics/headers/atomic/std_c++0x_neg.cc: Remove empty
+	lines.
+	* testsuite/29_atomics/headers/atomic/types_std_c++0x.cc: Test for
+	the new types.
+	* doc/xml/manual/intro.xml: Document DR 2441 status.
+
+	* include/std/istream (operator>>(basic_istream&&, _Tp&)): Adjust
+	to use perfect forwarding (LWG 2328).
+	* testsuite/27_io/rvalue_streams.cc: Test perfect forwarding.
+	* doc/xml/manual/intro.xml: Document DR 2328 status.
+
+	* libsupc++/pbase_type_info.cc (__pbase_type_info::__do_catch): Use
+	static objects for catching nullptr as pointer to member types.
+
+2016-07-18  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Clean up optional's comments.
+	* include/std/optional: Remove incorrect section headers
+	from comments when redundant, replace bare section
+	headers with more descriptive comments.
+
+2016-07-15  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/algorithmfwd.h: Change C++0x to C++11 in comments.
+	* include/bits/move.h: Likewise.
+	* include/bits/postypes.h: Likewise.
+	* include/debug/bitset: Likewise.
+	* include/ext/pb_ds/detail/type_utils.hpp: Likewise.
+	* include/ext/string_conversions.h: Change C++0x to __cxx11 in
+	comment.
+	* testsuite/27_io/fpos/14320-1.cc: Change C++0x to C++11 in comment.
+	* testsuite/util/thread/all.h: Likewise.
+
+	* include/bits/stl_algo.h (for_each): Remove redundant _GLIBCXX_MOVE
+	and adjust comment.
+
+	PR c++/58796
+	* libsupc++/pbase_type_info.cc (__pbase_type_info::__do_catch): Make
+	nullptr match handlers of pointer type.
+
+2016-07-15  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	Implement C++17 P0025 clamp.
+	* include/bits/algorithmfwd.h: Declare clamp overloads.
+	* include/bits/stl_algo.h: Implement clamp.  Feature __cpp_lib_clamp.
+	* testsuite/25_algorithms/clamp/1.cc: New test.
+	* testsuite/25_algorithms/clamp/2.cc: New test.
+	* testsuite/25_algorithms/clamp/constexpr.cc: New test.
+	* testsuite/25_algorithms/clamp/requirements/explicit_instantiation/
+	1.cc: New test.
+	* testsuite/25_algorithms/clamp/requirements/explicit_instantiation/
+	pod.cc: New test.
+
+2016-07-14  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Fix the constraints for any's assignment operator template to properly
+	reject assignment from a non-copyable lvalue.
+	* include/std/any (operator=(_ValueType&&)): Constrain the decayed
+	type for is_copy_constructible,
+	* testsuite/20_util/any/requirements.cc: Add a test for
+	non-copyable lvalues.
+
+2016-07-14  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/experimental/functional: Include <parallel/algorithm> in
+	Parallel Mode.
+
+	* testsuite/experimental/functional/searchers.cc: Include <algorithm>
+	for std::search.
+
+	PR libstdc++/70716
+	* include/bits/forward_list.h (forward_list): Update doxygen comments
+	to reflect allocator propagation semantics. Remove ambiguous
+	statements about data being lost.
+	* include/bits/stl_deque.h (deque): Likewise.
+	* include/bits/stl_list.h (list): Likewise.
+	* include/bits/stl_map.h (map): Likewise.
+	* include/bits/stl_multimap.h (multimap): Likewise.
+	* include/bits/stl_multiset.h (multiset): Likewise.
+	* include/bits/stl_set.h (set): Likewise.
+	* include/bits/stl_vector.h (vector): Likewise.
+	* include/bits/unordered_map.h (unordered_map, unordered_multimap):
+	Likewise.
+	* include/bits/unordered_set.h (unordered_set, unordered_multiset):
+	Likewise.
+
+2016-07-14  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement P0032R3, Homogeneous interface for variant, any and optional,
+	for the parts concerning any and optional.
+	* include/std/any (_Storage()): Make constexpr and have it
+	initialize _M_ptr.
+	(any()): Make constexpr.
+	(any(const any&)): Adjust.
+	(any(any&&)): Likewise.
+	(__any_constructible_t): New.
+	(any(_ValueType&&)): Constrain.
+	(any(in_place_type_t<_Tp>, _Args&&...)): New.
+	(any(in_place_type_t<_Tp>, initializer_list<_Up>, _Args&&...)):
+	Likewise.
+	(~any()): Adjust.
+	(operator=(const any&)): Likewise.
+	(operator=(any&&)): Likewise.
+	(operator=(_ValueType&&)): Constrain.
+	(emplace(_Args&&...)): New.
+	(emplace(initializer_list<_Up>, _Args&&...)): Likewise.
+	(clear()): Remove.
+	(reset()): New.
+	(swap(any&)): Adjust.
+	(empty()): Remove.
+	(has_value()): New.
+	(type()): Adjust.
+	(_Manager_internal::_S_create(_Storage&, _Args&&...)): New.
+	(_Manager_external::_S_create(_Storage&, _Args&&...)): Likewise.
+	(make_any(_Args&&...)): Likewise.
+	(make_any(initializer_list<_Up>, _Args&&...)): Likewise.
+	* include/std/optional (in_place_t, in_place): Remove.
+	(bad_optional_access): Add a comment referring to LEWG 72.
+	(emplace(_Args&&...)): Constrain.
+	(has_value()): New.
+	(reset()): Likewise.
+	(make_optional(_Args&&...)): Likewise.
+	(make_optional(initializer_list<_Up>, _Args&&...)): Likewise.
+	* include/std/utility (in_place_tag): New.
+	(__in_place, __in_place_type, __in_place_index): Likewise.
+	(in_place_t, in_place_type_t, in_place_index_t): Likewise.
+	(in_place(__in_place*)): Likewise.
+	(in_place(__in_place_type<_Tp>*)): Likewise.
+	(in_place(__in_place_index<_Idx>*)): Likewise.
+	* testsuite/20_util/any/assign/1.cc: Adjust.
+	* testsuite/20_util/any/assign/emplace.cc: New.
+	* testsuite/20_util/any/assign/self.cc: Adjust.
+	* testsuite/20_util/any/cons/1.cc: Likewise.
+	* testsuite/20_util/any/cons/in_place.cc: New.
+	* testsuite/20_util/any/make_any.cc: Likewise.
+	* testsuite/20_util/any/misc/any_cast_neg.cc: Adjust.
+	* testsuite/20_util/any/misc/swap.cc: Likewise.
+	* testsuite/20_util/any/modifiers/1.cc: Likewise.
+	* testsuite/20_util/any/requirements.cc: New.
+	* testsuite/20_util/in_place/requirements.cc: Likewise.
+	* testsuite/20_util/optional/constexpr/in_place.cc: Adjust.
+	* testsuite/20_util/optional/in_place.cc: Likewise.
+	* testsuite/20_util/optional/make_optional.cc: Add tests for
+	the new overloads of make_optional.
+
+2016-07-13  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement P0307R2, Making Optional Greater Equal Again.
+	* include/experimental/optional (_Has_addressof): Fix the comment.
+	* include/std/optional (_Has_addressof): Likewise.
+	(operator=(_Up&&)): Constrain.
+	(operator=(const optional<_Up>&)): Likewise.
+	(operator=(optional<_Up>&&)): Likewise.
+	(__optional_relop_t): New.
+	(operator==(const optional<_Tp>&, const optional<_Tp>&)): Constrain.
+	(operator!=(const optional<_Tp>&, const optional<_Tp>&)):
+	Constrain and make transparent.
+	(operator<(const optional<_Tp>&, const optional<_Tp>&)): Constrain.
+	(operator>(const optional<_Tp>&, const optional<_Tp>&)):
+	Constrain and make transparent.
+	(operator<=(const optional<_Tp>&, const optional<_Tp>&)): Likewise.
+	(operator>=(const optional<_Tp>&, const optional<_Tp>&)): Likewise.
+	(operator==(const optional<_Tp>&, const _Tp&): Constrain.
+	(operator==(const _Tp&, const optional<_Tp>&)): Likewise.
+	(operator!=(const optional<_Tp>&, _Tp const&)):
+	Constrain and make transparent.
+	(operator!=(const _Tp&, const optional<_Tp>&)): Likewise.
+	(operator<(const optional<_Tp>&, const _Tp&)): Constrain.
+	(operator<(const _Tp&, const optional<_Tp>&)): Likewise.
+	(operator>(const optional<_Tp>&, const _Tp&)):
+	Constrain and make transparent.
+	(operator>(const _Tp&, const optional<_Tp>&)): Likewise.
+	(operator<=(const optional<_Tp>&, const _Tp&)): Likewise.
+	(operator<=(const _Tp&, const optional<_Tp>&)): Likewise.
+	(operator>=(const optional<_Tp>&, const _Tp&)): Likewise.
+	(operator>=(const _Tp&, const optional<_Tp>&)): Likewise.
+	* testsuite/20_util/optional/constexpr/relops/2.cc: Adjust.
+	* testsuite/20_util/optional/constexpr/relops/4.cc: Likewise.
+	* testsuite/20_util/optional/relops/1.cc: Likewise.
+	* testsuite/20_util/optional/relops/2.cc: Likewise.
+	* testsuite/20_util/optional/relops/3.cc: Likewise.
+	* testsuite/20_util/optional/relops/4.cc: Likewise.
+	* testsuite/20_util/optional/requirements.cc: Add tests to verify
+	that optional's relops are transparent and don't synthesize
+	operators. Also test that assignment sfinaes.
+
+2016-07-13  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/71856
+	* include/bits/c++config (_GLIBCXX_ASSERTIONS): Define to 1 not empty.
+	* include/parallel/compiletime_settings.h (_GLIBCXX_ASSERTIONS):
+	Rename to _GLIBCXX_PARALLEL_ASSERTIONS and make default value depend
+	on _GLIBCXX_ASSERTIONS.
+	* include/parallel/balanced_quicksort.h: Rename _GLIBCXX_ASSERTIONS.
+	Include <unistd.h> for sleep.
+	* include/parallel/losertree.h: Rename _GLIBCXX_ASSERTIONS.
+	* include/parallel/merge.h: Likewise.
+	* include/parallel/multiway_merge.h: Likewise.
+	* include/parallel/partition.h: Likewise.
+	* include/parallel/queue.h: Likewise.
+	* include/parallel/sort.h: Likewise.
+	* testsuite/25_algorithms/headers/algorithm/
+	parallel_algorithm_assert.cc: New.
+
+	* include/bits/basic_string.h [_GLIBCXX_USE_CXX11_ABI]
+	(replace(__const_iterator, __const_iterator, initializer_list<C>)):
+	Forward to different overload.
+
+	* include/bits/allocated_ptr.h (__allocated_ptr::_S_raw_ptr): Make
+	static.
+
+2016-07-13  Jonathan Wakely  <jwakely@redhat.com>
+
+	Revert "Add non-const overload of std::string::data()".
+
+2016-07-13  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement P0307R2, Making Optional Greater Equal Again.
+	* include/experimental/optional (_Has_addressof): Fix the comment.
+	* include/std/optional (_Has_addressof): Likewise.
+	(operator=(_Up&&)): Constrain.
+	(operator=(const optional<_Up>&)): Likewise.
+	(operator=(optional<_Up>&&)): Likewise.
+	(__optional_relop_t): New.
+	(operator==(const optional<_Tp>&, const optional<_Tp>&)): Constrain.
+	(operator!=(const optional<_Tp>&, const optional<_Tp>&)):
+	Constrain and make transparent.
+	(operator<(const optional<_Tp>&, const optional<_Tp>&)): Constrain.
+	(operator>(const optional<_Tp>&, const optional<_Tp>&)):
+	Constrain and make transparent.
+	(operator<=(const optional<_Tp>&, const optional<_Tp>&)): Likewise.
+	(operator>=(const optional<_Tp>&, const optional<_Tp>&)): Likewise.
+	(operator==(const optional<_Tp>&, const _Tp&): Constrain.
+	(operator==(const _Tp&, const optional<_Tp>&)): Likewise.
+	(operator!=(const optional<_Tp>&, _Tp const&)):
+	Constrain and make transparent.
+	(operator!=(const _Tp&, const optional<_Tp>&)): Likewise.
+	(operator<(const optional<_Tp>&, const _Tp&)): Constrain.
+	(operator<(const _Tp&, const optional<_Tp>&)): Likewise.
+	(operator>(const optional<_Tp>&, const _Tp&)):
+	Constrain and make transparent.
+	(operator>(const _Tp&, const optional<_Tp>&)): Likewise.
+	(operator<=(const optional<_Tp>&, const _Tp&)): Likewise.
+	(operator<=(const _Tp&, const optional<_Tp>&)): Likewise.
+	(operator>=(const optional<_Tp>&, const _Tp&)): Likewise.
+	(operator>=(const _Tp&, const optional<_Tp>&)): Likewise.
+	* testsuite/20_util/optional/constexpr/relops/2.cc: Adjust.
+	* testsuite/20_util/optional/constexpr/relops/4.cc: Likewise.
+	* testsuite/20_util/optional/relops/1.cc: Likewise.
+	* testsuite/20_util/optional/relops/2.cc: Likewise.
+	* testsuite/20_util/optional/relops/3.cc: Likewise.
+	* testsuite/20_util/optional/relops/4.cc: Likewise.
+	* testsuite/20_util/optional/requirements.cc: Add tests to verify
+	that optional's relops are transparent and don't synthesize
+	operators. Also test that assignment sfinaes.
+
+2016-07-13  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/basic_string.h [_GLIBCXX_USE_CXX11_ABI] (_M_c_str):
+	New function.
+	(_M_disjunct, basic_string(const basic_string&, size_t)): Use data()
+	instead of _M_data().
+	(basic_string(const basic_string&, size_t, size_t, const _Alloc&)):
+	Likewise.
+	(append(const basic_string&)): Likewise.
+	(append(const basic_string&, size_type, size_type)): Likewise.
+	(assign(const basic_string&, size_type, size_type)): Likewise.
+	(insert(size_type, const basic_string&)): Likewise.
+	(insert(size_type, const basic_string&, size_type, size_type)):
+	Likewise.
+	(replace(size_type, size_type, const basic_string&, size_type,
+	size_type)): Likewise.
+	(replace(__const_iterator, __const_iterator, const basic_string&)):
+	Likewise.
+	(c_str(), data()): Use c_str() instead of _M_data().
+	(data()): Add non-const overload as per LWG 2391 and P0272R1.
+	(compare(const basic_string&)): Use data() instead of _M_data().
+	[!_GLIBCXX_USE_CXX11_ABI] (data()): Add non-const overload.
+	* include/bits/basic_string.tcc [_GLIBCXX_USE_CXX11_ABI] (_M_mutate):
+	Pass raw pointers to _S_copy.
+	(_M_erase, _M_replace_aux): Pass raw pointers to _S_move and
+	_S_assign.
+	(find(const _CharT*, size_type, size_type)): Use data instead of
+	_M_data().
+	* testsuite/21_strings/basic_string/allocator/char/ext_ptr.cc: New.
+	* testsuite/21_strings/basic_string/operations/data/char/2.cc: New.
+	* testsuite/21_strings/basic_string/operations/data/wchar_t/2.cc: New.
+
+2016-07-12  Jonathan Wakely  <jwakely@redhat.com>
+
+	* libsupc++/new: Remove nothrow sized deletes (LWG 2458).
+	* doc/xml/manual/intro.xml: Document DR 2458 status.
+	* doc/html*: Regenerate.
+
+	* testsuite/20_util/pair/astuple/astuple.cc: Only include <utility>.
+	* testsuite/23_containers/array/tuple_interface/tuple_element.cc:
+	Only include <array>.
+	* testsuite/23_containers/array/tuple_interface/tuple_size.cc:
+	Likewise.
+	* doc/xml/manual/intro.xml: Document LWG 2212 support.
+	* doc/html*: Regenerate.
+
+	* testsuite/23_containers/vector/modifiers/emplace/self_emplace.cc:
+	Add testcase from LWG 2164.
+
+2016-07-11  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/bits/stl_vector.h (push_back(const value_type&)): Forward
+	to _M_realloc_insert.
+	(insert(const_iterator, value_type&&)): Forward to _M_insert_rval.
+	(_M_realloc_insert): Declare new function.
+	(_M_emplace_back_aux): Remove definition.
+	* include/bits/vector.tcc (emplace_back(_Args...)):
+	Use _M_realloc_insert.
+	(insert(const_iterator, const value_type&)): Likewise.
+	(_M_insert_rval, _M_emplace_aux): Likewise.
+	(_M_emplace_back_aux): Remove declaration.
+	(_M_realloc_insert): Define.
+	* testsuite/23_containers/vector/modifiers/insert_vs_emplace.cc:
+	Adjust expected results for emplacing an lvalue with reallocation.
+
 2016-07-10  Ville Voutilainen  <ville.voutilainen@gmail.com>
 
 	Implement std::optional.

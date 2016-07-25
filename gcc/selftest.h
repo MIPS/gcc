@@ -76,6 +76,7 @@ extern void diagnostic_c_tests ();
 extern void diagnostic_show_locus_c_tests ();
 extern void et_forest_c_tests ();
 extern void fold_const_c_tests ();
+extern void fibonacci_heap_c_tests ();
 extern void function_tests_c_tests ();
 extern void gimple_c_tests ();
 extern void ggc_tests_c_tests ();
@@ -86,6 +87,7 @@ extern void pretty_print_c_tests ();
 extern void rtl_tests_c_tests ();
 extern void spellcheck_c_tests ();
 extern void spellcheck_tree_c_tests ();
+extern void sreal_c_tests ();
 extern void tree_c_tests ();
 extern void tree_cfg_c_tests ();
 extern void vec_c_tests ();
@@ -129,13 +131,19 @@ extern int num_passes;
    ::selftest::pass if they are equal,
    ::selftest::fail if they are non-equal.  */
 
-#define ASSERT_EQ(EXPECTED, ACTUAL)			       \
+#define ASSERT_EQ(EXPECTED, ACTUAL) \
+  ASSERT_EQ_AT ((SELFTEST_LOCATION), (EXPECTED), (ACTUAL))
+
+/* Like ASSERT_EQ, but treat LOC as the effective location of the
+   selftest.  */
+
+#define ASSERT_EQ_AT(LOC, EXPECTED, ACTUAL)		       \
   SELFTEST_BEGIN_STMT					       \
   const char *desc = "ASSERT_EQ (" #EXPECTED ", " #ACTUAL ")"; \
   if ((EXPECTED) == (ACTUAL))				       \
-    ::selftest::pass (SELFTEST_LOCATION, desc);			       \
+    ::selftest::pass ((LOC), desc);			       \
   else							       \
-    ::selftest::fail (SELFTEST_LOCATION, desc);			       \
+    ::selftest::fail ((LOC), desc);			       \
   SELFTEST_END_STMT
 
 /* Evaluate EXPECTED and ACTUAL and compare them with !=, calling

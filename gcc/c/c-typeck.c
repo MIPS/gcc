@@ -8594,7 +8594,7 @@ set_nonincremental_init_from_string (tree str,
 	  bitpos = ((wchar_bytes - 1) * charwidth) + HOST_BITS_PER_CHAR;
 	  if (bitpos < HOST_BITS_PER_WIDE_INT)
 	    {
-	      if (val[0] & (((HOST_WIDE_INT) 1) << (bitpos - 1)))
+	      if (val[0] & (HOST_WIDE_INT_1 << (bitpos - 1)))
 		{
 		  val[0] |= HOST_WIDE_INT_M1U << bitpos;
 		  val[1] = -1;
@@ -8605,7 +8605,7 @@ set_nonincremental_init_from_string (tree str,
 	      if (val[0] < 0)
 		val[1] = -1;
 	    }
-	  else if (val[1] & (((HOST_WIDE_INT) 1)
+	  else if (val[1] & (HOST_WIDE_INT_1
 			     << (bitpos - 1 - HOST_BITS_PER_WIDE_INT)))
 	    val[1] |= HOST_WIDE_INT_M1U << (bitpos - HOST_BITS_PER_WIDE_INT);
 	}
@@ -12505,6 +12505,10 @@ handle_omp_array_sections (tree c, enum c_omp_region_type ort)
 	  case GOMP_MAP_ALWAYS_TOFROM:
 	  case GOMP_MAP_RELEASE:
 	  case GOMP_MAP_DELETE:
+	  case GOMP_MAP_FORCE_TO:
+	  case GOMP_MAP_FORCE_FROM:
+	  case GOMP_MAP_FORCE_TOFROM:
+	  case GOMP_MAP_FORCE_PRESENT:
 	    OMP_CLAUSE_MAP_MAYBE_ZERO_LENGTH_ARRAY_SECTION (c) = 1;
 	    break;
 	  default:

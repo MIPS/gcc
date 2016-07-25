@@ -3814,6 +3814,9 @@ timode_scalar_chain::fix_debug_reg_uses (rtx reg)
 	    continue;
 	  gcc_assert (GET_CODE (val) == VAR_LOCATION);
 	  rtx loc = PAT_VAR_LOCATION_LOC (val);
+	  /* It may have been converted to TImode already.  */
+	  if (GET_MODE (loc) == TImode)
+	    continue;
 	  gcc_assert (REG_P (loc)
 		      && GET_MODE (loc) == V1TImode);
 	  /* Convert V1TImode register, which has been updated by a SET
@@ -49767,8 +49770,6 @@ static int
 ix86_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
                                  tree vectype, int)
 {
-  unsigned elements;
-
   switch (type_of_cost)
     {
       case scalar_stmt:
@@ -49810,8 +49811,7 @@ ix86_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
         return ix86_cost->vec_stmt_cost;
 
       case vec_construct:
-	elements = TYPE_VECTOR_SUBPARTS (vectype);
-	return ix86_cost->vec_stmt_cost * (elements / 2 + 1);
+	return ix86_cost->vec_stmt_cost * (TYPE_VECTOR_SUBPARTS (vectype) - 1);
 
       default:
         gcc_unreachable ();

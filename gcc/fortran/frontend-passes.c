@@ -185,7 +185,7 @@ realloc_string_callback (gfc_code **c, int *walk_subtrees ATTRIBUTE_UNUSED,
   current_code = c;
   inserted_block = NULL;
   changed_statement = NULL;
-  n = create_var (expr2, "trim");
+  n = create_var (expr2, "realloc_string");
   co->expr2 = n;
   return 0;
 }
@@ -1253,6 +1253,11 @@ combine_array_constructor (gfc_expr *e)
 
   /* With FORALL, the BLOCKS created by create_var will cause an ICE.  */
   if (forall_level > 0)
+    return false;
+
+  /* Inside an iterator, things can get hairy; we are likely to create
+     an invalid temporary variable.  */
+  if (iterator_level > 0)
     return false;
 
   op1 = e->value.op.op1;

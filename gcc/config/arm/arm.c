@@ -3346,6 +3346,20 @@ arm_option_override (void)
 	}
     }
 
+  if (TARGET_VXWORKS_RTP)
+    {
+      if (!global_options_set.x_arm_pic_data_is_text_relative)
+	arm_pic_data_is_text_relative = 0;
+    }
+  else if (flag_pic
+	   && !arm_pic_data_is_text_relative
+	   && !(global_options_set.x_target_flags & MASK_SINGLE_PIC_BASE))
+    /* When text & data segments don't have a fixed displacement, the
+       intended use is with a single, read only, pic base register.
+       Unless the user explicitly requested not to do that, set
+       it.  */
+    target_flags |= MASK_SINGLE_PIC_BASE;
+
   /* If stack checking is disabled, we can use r10 as the PIC register,
      which keeps r9 available.  The EABI specifies r9 as the PIC register.  */
   if (flag_pic && TARGET_SINGLE_PIC_BASE)
@@ -3376,10 +3390,6 @@ arm_option_override (void)
       else
 	arm_pic_register = pic_register;
     }
-
-  if (TARGET_VXWORKS_RTP
-      && !global_options_set.x_arm_pic_data_is_text_relative)
-    arm_pic_data_is_text_relative = 0;
 
   /* Enable -mfix-cortex-m3-ldrd by default for Cortex-M3 cores.  */
   if (fix_cm3_ldrd == 2)
@@ -8270,6 +8280,12 @@ arm_legitimate_constant_p_1 (machine_mode, rtx x)
 static bool
 thumb_legitimate_constant_p (machine_mode mode ATTRIBUTE_UNUSED, rtx x)
 {
+  /* Splitters for TARGET_USE_MOVT call arm_emit_movpair which creates high
+     RTX.  These RTX must therefore be allowed for Thumb-1 so that when run
+     for ARMv8-M Baseline or later the result is valid.  */
+  if (TARGET_HAVE_MOVT && GET_CODE (x) == HIGH)
+    x = XEXP (x, 0);
+
   return (CONST_INT_P (x)
 	  || CONST_DOUBLE_P (x)
 	  || CONSTANT_ADDRESS_P (x)
@@ -8356,7 +8372,9 @@ thumb1_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer)
     case CONST_INT:
       if (outer == SET)
 	{
-	  if ((unsigned HOST_WIDE_INT) INTVAL (x) < 256)
+	  if (UINTVAL (x) < 256
+	      /* 16-bit constant.  */
+	      || (TARGET_HAVE_MOVT && !(INTVAL (x) & 0xffff0000)))
 	    return 0;
 	  if (thumb_shiftable_const (INTVAL (x)))
 	    return COSTS_N_INSNS (2);
@@ -9059,7 +9077,7 @@ static inline int
 thumb1_size_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer)
 {
   machine_mode mode = GET_MODE (x);
-  int words;
+  int words, cost;
 
   switch (code)
     {
@@ -9105,17 +9123,26 @@ thumb1_size_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer)
       /* A SET doesn't have a mode, so let's look at the SET_DEST to get
 	 the mode.  */
       words = ARM_NUM_INTS (GET_MODE_SIZE (GET_MODE (SET_DEST (x))));
-      return COSTS_N_INSNS (words)
-	     + COSTS_N_INSNS (1) * (satisfies_constraint_J (SET_SRC (x))
-				    || satisfies_constraint_K (SET_SRC (x))
-				       /* thumb1_movdi_insn.  */
-				    || ((words > 1) && MEM_P (SET_SRC (x))));
+      cost = COSTS_N_INSNS (words);
+      if (satisfies_constraint_J (SET_SRC (x))
+	  || satisfies_constraint_K (SET_SRC (x))
+	     /* Too big an immediate for a 2-byte mov, using MOVT.  */
+	  || (UINTVAL (SET_SRC (x)) >= 256
+	      && TARGET_HAVE_MOVT
+	      && satisfies_constraint_j (SET_SRC (x)))
+	     /* thumb1_movdi_insn.  */
+	  || ((words > 1) && MEM_P (SET_SRC (x))))
+	cost += COSTS_N_INSNS (1);
+      return cost;
 
     case CONST_INT:
       if (outer == SET)
         {
           if (UINTVAL (x) < 256)
             return COSTS_N_INSNS (1);
+	  /* movw is 4byte long.  */
+	  if (TARGET_HAVE_MOVT && !(INTVAL (x) & 0xffff0000))
+	    return COSTS_N_INSNS (2);
 	  /* See split "TARGET_THUMB1 && satisfies_constraint_J".  */
 	  if (INTVAL (x) >= -255 && INTVAL (x) <= -1)
             return COSTS_N_INSNS (2);

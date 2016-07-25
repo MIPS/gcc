@@ -796,22 +796,21 @@ gimple_fold_builtin_memory_op (gimple_stmt_iterator *gsi,
 	    {
 	      tree src_base, dest_base, fn;
 	      HOST_WIDE_INT src_offset = 0, dest_offset = 0;
-	      HOST_WIDE_INT size = -1;
-	      HOST_WIDE_INT maxsize = -1;
-	      bool reverse;
+	      HOST_WIDE_INT maxsize;
 
 	      srcvar = TREE_OPERAND (src, 0);
-	      src_base = get_ref_base_and_extent (srcvar, &src_offset,
-						  &size, &maxsize, &reverse);
+	      src_base = get_addr_base_and_unit_offset (srcvar, &src_offset);
+	      if (src_base == NULL)
+		src_base = srcvar;
 	      destvar = TREE_OPERAND (dest, 0);
-	      dest_base = get_ref_base_and_extent (destvar, &dest_offset,
-						   &size, &maxsize, &reverse);
+	      dest_base = get_addr_base_and_unit_offset (destvar,
+							 &dest_offset);
+	      if (dest_base == NULL)
+		dest_base = destvar;
 	      if (tree_fits_uhwi_p (len))
 		maxsize = tree_to_uhwi (len);
 	      else
 		maxsize = -1;
-	      src_offset /= BITS_PER_UNIT;
-	      dest_offset /= BITS_PER_UNIT;
 	      if (SSA_VAR_P (src_base)
 		  && SSA_VAR_P (dest_base))
 		{
@@ -2984,12 +2983,19 @@ optimize_atomic_compare_exchange_p (gimple *stmt)
 
   tree expected = gimple_call_arg (stmt, 1);
   if (TREE_CODE (expected) != ADDR_EXPR
-      || !SSA_VAR_P (TREE_OPERAND (expected, 0))
-      || !is_gimple_reg_type (TREE_TYPE (TREE_OPERAND (expected, 0)))
+      || !SSA_VAR_P (TREE_OPERAND (expected, 0)))
+    return false;
+
+  tree etype = TREE_TYPE (TREE_OPERAND (expected, 0));
+  if (!is_gimple_reg_type (etype)
       || !auto_var_in_fn_p (TREE_OPERAND (expected, 0), current_function_decl)
-      || TREE_THIS_VOLATILE (TREE_TYPE (TREE_OPERAND (expected, 0)))
-      || TREE_CODE (TREE_TYPE (TREE_OPERAND (expected, 0))) == VECTOR_TYPE
-      || TREE_CODE (TREE_TYPE (TREE_OPERAND (expected, 0))) == COMPLEX_TYPE)
+      || TREE_THIS_VOLATILE (etype)
+      || VECTOR_TYPE_P (etype)
+      || TREE_CODE (etype) == COMPLEX_TYPE
+      /* Don't optimize floating point expected vars, VIEW_CONVERT_EXPRs
+	 might not preserve all the bits.  See PR71716.  */
+      || SCALAR_FLOAT_TYPE_P (etype)
+      || TYPE_PRECISION (etype) != GET_MODE_BITSIZE (TYPE_MODE (etype)))
     return false;
 
   tree weak = gimple_call_arg (stmt, 3);
@@ -3005,8 +3011,7 @@ optimize_atomic_compare_exchange_p (gimple *stmt)
       && optab_handler (sync_compare_and_swap_optab, mode) == CODE_FOR_nothing)
     return false;
 
-  if (int_size_in_bytes (TREE_TYPE (TREE_OPERAND (expected, 0)))
-      != GET_MODE_SIZE (mode))
+  if (int_size_in_bytes (etype) != GET_MODE_SIZE (mode))
     return false;
 
   return true;
@@ -5502,6 +5507,9 @@ get_base_constructor (tree base, HOST_WIDE_INT *bit_offset,
         return NULL_TREE;
       base = TREE_OPERAND (base, 0);
     }
+  else if (valueize
+	   && TREE_CODE (base) == SSA_NAME)
+    base = valueize (base);
 
   /* Get a CONSTRUCTOR.  If BASE is a VAR_DECL, get its
      DECL_INITIAL.  If BASE is a nested reference into another
@@ -5523,6 +5531,10 @@ get_base_constructor (tree base, HOST_WIDE_INT *bit_offset,
 	return init;
       }
 
+    case VIEW_CONVERT_EXPR:
+      return get_base_constructor (TREE_OPERAND (base, 0),
+				   bit_offset, valueize);
+
     case ARRAY_REF:
     case COMPONENT_REF:
       base = get_ref_base_and_extent (base, &bit_offset2, &size, &max_size,
@@ -5532,11 +5544,13 @@ get_base_constructor (tree base, HOST_WIDE_INT *bit_offset,
       *bit_offset +=  bit_offset2;
       return get_base_constructor (base, bit_offset, valueize);
 
-    case STRING_CST:
     case CONSTRUCTOR:
       return base;
 
     default:
+      if (CONSTANT_CLASS_P (base))
+	return base;
+
       return NULL_TREE;
     }
 }

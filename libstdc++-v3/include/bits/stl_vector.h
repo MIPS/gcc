@@ -314,10 +314,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *  @brief  %Vector copy constructor.
        *  @param  __x  A %vector of identical element and allocator types.
        *
-       *  The newly-created %vector uses a copy of the allocation
-       *  object used by @a __x.  All the elements of @a __x are copied,
-       *  but any extra memory in
-       *  @a __x (for fast expansion) will not be copied.
+       *  All the elements of @a __x are copied, but any unused capacity in
+       *  @a __x  will not be copied
+       *  (i.e. capacity() == size() in the new %vector).
+       *
+       *  The newly-created %vector uses a copy of the allocator object used
+       *  by @a __x (unless the allocator traits dictate a different object).
        */
       vector(const vector& __x)
       : _Base(__x.size(),
@@ -434,9 +436,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *  @brief  %Vector assignment operator.
        *  @param  __x  A %vector of identical element and allocator types.
        *
-       *  All the elements of @a __x are copied, but any extra memory in
-       *  @a __x (for fast expansion) will not be copied.  Unlike the
-       *  copy constructor, the allocator object is not copied.
+       *  All the elements of @a __x are copied, but any unused capacity in
+       *  @a __x will not be copied.
+       *
+       *  Whether the allocator is copied depends on the allocator traits.
        */
       vector&
       operator=(const vector& __x);
@@ -448,7 +451,9 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *
        *  The contents of @a __x are moved into this %vector (without copying,
        *  if the allocators permit it).
-       *  @a __x is a valid, but unspecified %vector.
+       *  Afterwards @a __x is a valid, but unspecified %vector.
+       *
+       *  Whether the allocator is moved depends on the allocator traits.
        */
       vector&
       operator=(vector&& __x) noexcept(_Alloc_traits::_S_nothrow_move())
@@ -469,7 +474,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *
        *  Note that the assignment completely changes the %vector and
        *  that the resulting %vector's size is the same as the number
-       *  of elements assigned.  Old data may be lost.
+       *  of elements assigned.
        */
       vector&
       operator=(initializer_list<value_type> __l)
@@ -488,7 +493,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *  This function fills a %vector with @a __n copies of the given
        *  value.  Note that the assignment completely changes the
        *  %vector and that the resulting %vector's size is the same as
-       *  the number of elements assigned.  Old data may be lost.
+       *  the number of elements assigned.
        */
       void
       assign(size_type __n, const value_type& __val)
@@ -504,7 +509,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *
        *  Note that the assignment completely changes the %vector and
        *  that the resulting %vector's size is the same as the number
-       *  of elements assigned.  Old data may be lost.
+       *  of elements assigned.
        */
 #if __cplusplus >= 201103L
       template<typename _InputIterator,
@@ -533,7 +538,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *
        *  Note that the assignment completely changes the %vector and
        *  that the resulting %vector's size is the same as the number
-       *  of elements assigned.  Old data may be lost.
+       *  of elements assigned.
        */
       void
       assign(initializer_list<value_type> __l)
@@ -946,11 +951,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 	    ++this->_M_impl._M_finish;
 	  }
 	else
-#if __cplusplus >= 201103L
-	  _M_emplace_back_aux(__x);
-#else
-	  _M_insert_aux(end(), __x);
-#endif
+	  _M_realloc_insert(end(), __x);
       }
 
 #if __cplusplus >= 201103L
@@ -1223,6 +1224,8 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        *  (Three pointers, so it should be quite fast.)
        *  Note that the global std::swap() function is specialized such that
        *  std::swap(v1,v2) will feed to this function.
+       *
+       *  Whether the allocators are swapped depends on the allocator traits.
        */
       void
       swap(vector& __x) _GLIBCXX_NOEXCEPT
@@ -1436,6 +1439,9 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       // Called by insert(p,x)
       void
       _M_insert_aux(iterator __position, const value_type& __x);
+
+      void
+      _M_realloc_insert(iterator __position, const value_type& __x);
 #else
       // A value_type object constructed with _Alloc_traits::construct()
       // and destroyed with _Alloc_traits::destroy().
@@ -1469,15 +1475,13 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 	void
 	_M_insert_aux(iterator __position, _Arg&& __arg);
 
+      template<typename... _Args>
+	void
+	_M_realloc_insert(iterator __position, _Args&&... __args);
+
       // Either move-construct at the end, or forward to _M_insert_aux.
       iterator
       _M_insert_rval(const_iterator __position, value_type&& __v);
-
-      // Called by push_back(x) and emplace_back(args) when they need to
-      // reallocate.
-      template<typename... _Args>
-	void
-	_M_emplace_back_aux(_Args&&... __args);
 
       // Try to emplace at the end, otherwise forward to _M_insert_aux.
       template<typename... _Args>
