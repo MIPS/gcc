@@ -1,3 +1,545 @@
+2016-07-25  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/64874
+	* gcov-io.h: Update command about file format.
+	* gcov-iov.c (main): Adapt the numbering scheme.
+
+2016-07-24  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/66726
+	* tree-ssa-reassoc.c (optimize_vec_cond_expr): Handle tcc_compare stmt
+	whose result is used in PHI.
+	(final_range_test_p): Likewise.
+	(maybe_optimize_range_tests): Likewise.
+
+2016-07-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin):
+	Reformat two multi-line strings.
+
+2016-07-22 Martin Sebor  <msebor@redhat.com>
+
+	* doc/extend.texi (Compound Literals): Add '@' missed in last commit.
+
+2016-07-22 Martin Sebor  <msebor@redhat.com>
+
+	PR c/71560
+	* doc/extend.texi (Compound Literals): Correct and clarify.
+	(Cast to Union): Same.
+
+2016-07-22  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Add
+	comments to explain why certain error messages make mention of
+	undocumented options.
+	(rs6000_invalid_builtin): Change error messages to replace mention
+	of undocumented options with mention of the -mcpu=power9 option
+	that enables those undocumented options.
+	* config/rs6000/rs6000.h (MASK_FLOAT128): New macro.
+	(RS6000_BTM_FLOAT128): Use the new MASK_FLOAT128 macro in the
+	definition of this macro to correct an existing error.
+	* config/rs6000/rs6000.opt: Add the Undocumented qualifier to the
+	mpower9-fusion, mpower9-vector, mpower9-dform, and mmodulo entries.
+	* doc/extend.texi (PowerPC AltiVec Built-in Functions): Modify
+	descriptions of built-in functions so that they depend on
+	-mcpu=power9 instead of on the corresponding undocumented flags.
+	* doc/invoke.texi (Option Summary):  Remove all mention of newly
+	undocumented flags.
+	(IBM RS/6000 and PowerPC Options): Likewise.
+	* doc/md.texi (Constraints for Particuliar Machines): Remove all
+	mention of newly undocumented flags.
+
+2016-07-22  Evgeny Stupachenko  <evstupac@gmail.com>
+
+	* ipa-cp.c (determine_versionability): Do not create constprop clones,
+	when target_clones attribute is set.
+
+2016-07-22  Bin Cheng  <bin.cheng@arm.com>
+
+	* common.opt (funsafe-loop-optimizations): Mark ignore.
+	* doc/invoke.texi (funsafe-loop-optimizations): Remove.
+	* loop-iv.c (get_simple_loop_desc): Remove unsafe-loop-optimizations
+	related code.
+	* tree-ssa-loop-niter.c (finite_loop_p): Ditto.
+	* config/bfin/bfin.c (bfin_can_use_doloop_p): Ditto.
+
+2016-07-22  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-ssa-loop-niter.h (number_of_iterations_exit_assumptions): New
+	Parameter.
+	* tree-ssa-loop-niter.c (number_of_iterations_exit_assumptions): New
+	Parameter.
+	(number_of_iterations_exit): Warn missed loop optimization for
+	possible infinite loops.
+
+2016-07-22  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* config/rs6000/rs6000.c (rs6000_file_start): Fix condition for
+	when to emit a ".machine" pseudo-op.
+
+2016-07-22  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/69028
+	PR gcov-profile/62047
+	* coverage.c (coverage_compute_lineno_checksum): Do not
+	calculate checksum for fns w/o xloc.file.
+	(coverage_compute_profile_id): Likewise.
+
+2016-07-22  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr.c (TARGET_SECONDARY_RELOAD): Remove hook define...
+	(avr_secondary_reload): ...and implementation.
+	(avr_adjust_insn_length) [ADJUST_LEN_LPM]: Remove handling.
+	* config/avr/avr.md (reload_in<mode>): Remove insns.
+	(adjust_len) [lpm]: Remove insn attribute value.
+	* config/avr/predicates.md (flash_operand): Remove insn predicate.
+
+2016-07-21  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR middle-end/71876
+	* builtin-attrs.def (ATTR_RT_NOTHROW_LEAF_LIST): New return twice
+	attribute.
+	* builtins.def (BUILT_IN_SETJMP): Use ATTR_RT_NOTHROW_LEAF_LIST here.
+	* calls.c (special_function_p): Remove the special handling of the
+	"__builtin_" prefix.
+
+2016-07-21  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR middle-end/71876
+	* calls.c (gimple_maybe_alloca_call_p): New function.  Return true
+	if STMT may be an alloca call.
+	(gimple_alloca_call_p, alloca_call_p): Return only true for the
+	builtin alloca call.
+	* calls.h (gimple_maybe_alloca_call_p): New function.
+	* tree-inline.c (inline_forbidden_p_stmt): Use
+	gimple_maybe_alloca_call_p here.
+
+2016-07-21  David Malcolm  <dmalcolm@redhat.com>
+
+	* spellcheck-tree.c (best_macro_match::best_macro_match):
+	Explictly specify the template arguments when invoking the base
+	class constructor, to help older C++ compilers.
+
+2016-07-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/71953
+	* asan.c (asan_dynamic_init_call): Call asan_init_shadow_ptr_types
+	before builtin_decl_implicit.
+
+2016-07-21  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* optabs.c (emit_condiitonal_move): Short circuit for identical
+	sources.
+
+2016-07-21  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* ifcvt.c (noce_if_info): New fields: speed_p, original_cost,
+	max_seq_cost.  Removed fields: then_cost, else_cost, branch_cost.
+	(noce_conversion_profitable_p): New.
+	(noce_try_store_flag_constants): Use it.
+	(noce_try_addcc): Likewise.
+	(noce_try_store_flag_mask): Likewise.
+	(noce_try_cmove): Likewise.
+	(noce_try_cmove_arith): Likewise.
+	(bb_valid_for_noce_process_p): Add to the cost parameter rather than
+	overwriting it.
+	(noce_convert_multiple_sets): Move cost model to here, from...
+	(bb_ok_for_noce_convert_multiple_sets) ...here.
+	(noce_process_if_block): Update calls for above changes.
+	(noce_find_if_block): Record new noce_if_info parameters.
+
+2016-07-21  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* target.def (max_noce_ifcvt_seq_cost): New.
+	* doc/tm.texi.in (TARGET_MAX_NOCE_IFCVT_SEQ_COST): Document it.
+	* doc/tm.texi: Regenerate.
+	* targhooks.h (default_max_noce_ifcvt_seq_cost): New.
+	* targhooks.c (default_max_noce_ifcvt_seq_cost): New.
+	* params.def (PARAM_MAX_RTL_IF_CONVERSION_PREDICTABLE_COST): New.
+	(PARAM_MAX_RTL_IF_CONVERSION_UNPREDICTABLE_COST): Likewise.
+	* doc/invoke.texi: Document new params.
+
+2016-07-21  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71947
+	* tree-vrp.c (extract_range_from_assert): Singleton symbolic
+	ranges have useful limit_vr information.
+
+2016-07-21  Richard Biener  <rguenther@suse.de>
+
+	* function-tests.c (build_trivial_generic_function): Set
+	BLOCK_SUPERCONTEXT of DECL_INITIAL.
+	* omp-low.c (create_omp_child_function): Likewise.
+	(grid_expand_target_grid_body): Likewise.
+	* cgraphunit.c (init_lowered_empty_function): Likewise.
+	(cgraph_node::expand_thunk): Likewise.
+	* tree-parloops.c (create_loop_fn): Likewise.
+	* ipa.c (cgraph_build_static_cdtor_1): Likewise.
+
+2016-07-21  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* tree-ssa-strlen.c (strlen_dom_walker::before_dom_children): Fix typo
+	in comment.
+
+2016-07-21  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr.md (any_extract, any_shiftrt): New code iterators.
+	(*insv.extract, *insv.shiftrt, *insv.not-bit.0, *insv.not-bit.7)
+	(*insv.xor-extract, *insv.xor1-bit.0): New insns.
+	(adjust_len) [insv_notbit, insv_notbit_0, insv_notbit_7]: New
+	values for insn attribute.
+	* config/avr/avr.c (avr_out_insert_notbit): New function.
+	(avr_adjust_insn_length): Handle ADJUST_LEN_INSV_NOTBIT,
+	ADJUST_LEN_INSV_NOTBIT_0/_7.
+	* config/avr/avr-protos.h (avr_out_insert_notbit): New proto.
+
+2016-07-21  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-chrec.c (convert_affine_scev): New parameter.  Pass new arg.
+	(chrec_convert_1, chrec_convert): Ditto.
+	* tree-chrec.h (chrec_convert, convert_affine_scev): New parameter.
+	* tree-scalar-evolution.c (interpret_rhs_expr): Pass new arg.
+	* tree-vrp.c (adjust_range_with_scev): Ditto.
+	* tree-ssa-loop-niter.c (idx_infer_loop_bounds): Ditto.
+	(scev_var_range_cant_overflow): New function.
+	(scev_probably_wraps_p): New parameter.  Call above function.
+	* tree-ssa-loop-niter.h (scev_probably_wraps_p): New parameter.
+
+2016-07-21  Bin Cheng  <bin.cheng@arm.com>
+
+	* tree-ssa-loop-niter.c (number_of_iterations_lt_to_ne): Clean up
+	by removing computation of may_be_zero.
+
+2016-07-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-object-size.c (unknown): Use HOST_WIDE_INT_M1U instead of -1.
+
+2016-07-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
+
+	Improving concepts performance and diagnostics.
+	* timevar.def (TV_CONSTRAINT_SAT, TV_CONSTRAINT_SUB): New time vars
+	for constraint satisfaction and subsumption.
+	* timevar.h (auto_timevar): New constructor that matches the push/pop
+	pattern of usage in pt.c.
+
+2016-07-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	* hwint.h (HOST_WIDE_INT_0): New define.
+	(HOST_WIDE_INT_0U): Ditto.
+	* double-int.c: Use HOST_WIDE_INT_0 instead of (HOST_WIDE_INT) 0.
+	* dse.c: Use HOST_WIDE_INT_0U instead of (unsigned HOST_WIDE_INT) 0.
+	* simplify-rtx.c: Ditto.
+	* tree-object-size.c: Ditto.
+
+2016-07-20  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.c (s390_encode_section_info): Remove mode size
+	check.
+
+2016-07-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	* cse.c: Use HOST_WIDE_INT_M1 instead of ~(HOST_WIDE_INT) 0.
+	* combine.c: Use HOST_WIDE_INT_M1U instead of
+	~(unsigned HOST_WIDE_INT) 0.
+	* double-int.h: Ditto.
+	* dse.c: Ditto.
+	* dwarf2asm.c:Ditto.
+	* expmed.c: Ditto.
+	* genmodes.c: Ditto.
+	* match.pd: Ditto.
+	* read-rtl.c: Ditto.
+	* tree-ssa-loop-ivopts.c: Ditto.
+	* tree-ssa-loop-prefetch.c: Ditto.
+	* tree-vect-generic.c: Ditto.
+	* tree-vect-patterns.c: Ditto.
+	* tree.c: Ditto.
+
+2016-07-20  Georg-Johann Lay  <avr@gjlay.de>
+
+	* gcc/config/avr.c (avr_legitimize_address) [AVR_TINY]: Force
+	constant addresses outside [0,0xc0] into a register.
+	(avr_out_movhi_r_mr_reg_no_disp_tiny): Pass insn.  And handle
+	cases where the base address register is unused after.
+	(avr_out_movhi_r_mr_reg_disp_tiny): Same.
+	(avr_out_movhi_mr_r_reg_disp_tiny): Same.
+	(avr_out_store_psi_reg_disp_tiny): Same.
+
+2016-07-20  Georg-Johann Lay  <avr@gjlay.de>
+
+	Implement attribute progmem on reduced Tiny cores by adding
+	flash offset 0x4000 to respective symbols.
+
+	PR target/71948
+	* doc/extend.texi (AVR Variable Attributes) [progmem]: Add
+	documentation how it works on reduced Tiny cores.
+	(AVR Named Address Spaces): No support for reduced Tiny.
+	* config/avr/avr.c (AVR_SYMBOL_FLAG_TINY_PM): New macro.
+	(avr_address_tiny_pm_p): New static function.
+	(avr_print_operand_address) [AVR_TINY]: Add AVR_TINY_PM_OFFSET
+	if the address is in progmem.
+	(avr_assemble_integer): Same.
+	(avr_encode_section_info) [AVR_TINY]: Set AVR_SYMBOL_FLAG_TINY_PM
+	for symbol_ref in progmem.
+	* config/avr/avr.h (AVR_TINY_PM_OFFSET): New macro.
+	* config/avr/avr-c.c (avr_cpu_cpp_builtins): Use it instead of
+	magic 0x4000 when built-in def'ing __AVR_TINY_PM_BASE_ADDRESS__.
+
+2016-07-20  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	* configure.ac (thin_archive_support): New variable.  AC_SUBST it.
+	* configure: Regenerate.
+	* Makefile.in (THIN_ARCHIVE_SUPPORT): New variable.
+	(USE_THIN_ARCHIVES): New variable.
+	(libbackend.a): If USE_THIN_ARCHIVES then pass T to ar to build
+	this archive as a thin archive.
+
+2016-07-20  David Malcolm  <dmalcolm@redhat.com>
+
+	* diagnostic-show-locus.c (diagnostic_show_locus): If this is the
+	same location as last time, don't skip if we have fix-it hints.
+	Clarify the skipping logic by converting it from one "if" clause
+	to repeated "if" clauses.
+	* spellcheck-tree.c: Include "cpplib.h".
+	(find_closest_macro_cpp_cb): Move here from c/c-decl.c.
+	(best_macro_match::best_macro_match): New constructor.
+	* spellcheck-tree.h (struct edit_distance_traits<cpp_hashnode *>):
+	Move here from c/c-decl.c.
+	(class best_macro_match): Move here from c/c-decl.c, converting
+	from a typedef to a subclass, gaining a ctor.
+
+2016-07-20  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr-protos.h (avr_addr_space_supported_p): New prototype.
+	* config/avr/avr.c (TARGET_ADDR_SPACE_DIAGNOSE_USAGE): New hook
+	define...
+	(avr_addr_space_diagnose_usage): ...and implementation.
+	(avr_addr_space_supported_p): New function.
+	(avr_nonconst_pointer_addrspace, avr_pgm_check_var_decl): Only
+	report bad address space usage if that space is supported.
+	(avr_insert_attributes): Same.  No more complain about unsupported
+	address spaces.
+	* config/avr/avr-c.c (tm_p.h): Include it.
+	(avr_cpu_cpp_builtins):	Only define addr-space related built-in
+	macro if avr_addr_space_supported_p.
+
+2016-07-20  Alexander Monakov  <amonakov@ispras.ru>
+
+	* config/nvptx/nvptx.c (nvptx_option_override): Do not set
+	flag_toplevel_reorder.
+
+2016-07-20  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc-rich-location.c
+	(gcc_rich_location::add_fixit_misspelled_id): New overload, taking
+	a const char *.
+	* gcc-rich-location.h
+	(gcc_rich_location::add_fixit_misspelled_id): Likewise.
+
+2016-07-20  Georg-Johann Lay  <avr@gjlay.de>
+
+	* target.def (addr_space): Add new diagnose_usage to hook vector.
+	* targhooks.c (default_addr_space_diagnose_usage): Add default
+	implementation and...
+	* targhooks.h (default_addr_space_diagnose_usage): ... its prototype.
+	* c/c-parser.c (c_lex_one_token) [CPP_NAME]: If the token
+	is some address space, call targetm.addr_space.diagnose_usage.
+	* doc/tm.texi.in (Named Address Spaces): Add anchor for
+	TARGET_ADDR_SPACE_DIAGNOSE_USAGE documentation.
+	* doc/tm.texi: Regenerate.
+
+2016-07-20  Martin Liska  <mliska@suse.cz>
+
+	PR middle-end/71898
+	* graphite-isl-ast-to-gimple.c (later_of_the_two):
+	Properly handly PHI stmts.
+
+2016-07-20  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/71503
+	PR tree-optimization/71683
+	* tree-if-conv.c (gen_phi_arg_condition): Record true predicate
+	and break.
+
+2016-07-20  Martin Liska  <mliska@suse.cz>
+
+	* doc/invoke.texi (-fipa-ra): Document when the option is
+	disabled. Fix a typo.
+
+2016-07-20  Martin Liska  <mliska@suse.cz>
+
+	* Makefile.in: Include fibonacci_heap.c
+	* fibonacci_heap.c: New file.
+	* fibonacci_heap.h (fibonacci_heap::insert): Use insert_node.
+	(fibonacci_heap::union_with): Fix deletion of the second heap.
+	* selftest-run-tests.c (selftest::run_tests): Incorporate
+	fibonacci heap tests.
+	* selftest.h: Declare fibonacci_heap_c_tests.
+
+2016-07-20  Martin Liska  <mliska@suse.cz>
+
+	* selftest-run-tests.c (selftest::run_tests): New function.
+	* selftest.h (sreal_c_tests): Declare.
+	* sreal.c (sreal_verify_basics): New function.
+	(verify_aritmetics): Likewise.
+	(sreal_verify_arithmetics): Likewise.
+	(verify_shifting): Likewise.
+	(sreal_verify_shifting): Likewise.
+	(void sreal_c_tests): Likewise.
+
+2016-07-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/71916
+	* cfgrtl.c (contains_no_active_insn_p): Return false also for
+	bb which have a single succ fake edge.
+
+2016-07-19  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR debug/71855
+	* dwarf2out.c (gen_subprogram_die): Only call
+	gen_unspecified_parameters_die while dumping early dwarf.
+
+2016-07-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/71874
+	* gimple-fold.c (fold_builtin_memory_op): Use
+	get_addr_base_and_unit_offset instead of get_ref_base_and_extent.
+
+2016-07-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	* builtins.c: Use HOST_WIDE_INT_1 instead of (HOST_WIDE_INT) 1,
+	HOST_WIDE_INT_1U instead of (unsigned HOST_WIDE_INT) 1,
+	HOST_WIDE_INT_M1 instead of (HOST_WIDE_INT) -1 and
+	HOST_WIDE_INT_M1U instead of (unsigned HOST_WIDE_INT) -1.
+	* combine.c: Ditto.
+	* cse.c: Ditto.
+	* dojump.c: Ditto.
+	* double-int.c: Ditto.
+	* dse.c: Ditto.
+	* dwarf2out.c: Ditto.
+	* expmed.c: Ditto.
+	* expr.c: Ditto.
+	* fold-const.c: Ditto.
+	* function.c: Ditto.
+	* fwprop.c: Ditto.
+	* genmodes.c: Ditto.
+	* hwint.c: Ditto.
+	* hwint.h: Ditto.
+	* ifcvt.c: Ditto.
+	* loop-doloop.c: Ditto.
+	* loop-invariant.c: Ditto.
+	* loop-iv.c: Ditto.
+	* match.pd: Ditto.
+	* optabs.c: Ditto.
+	* real.c: Ditto.
+	* reload.c: Ditto.
+	* rtlanal.c: Ditto.
+	* simplify-rtx.c: Ditto.
+	* stor-layout.c: Ditto.
+	* toplev.c: Ditto.
+	* tree-ssa-loop-ivopts.c: Ditto.
+	* tree-vect-generic.c: Ditto.
+	* tree-vect-patterns.c: Ditto.
+	* tree.c: Ditto.
+	* tree.h: Ditto.
+	* ubsan.c: Ditto.
+	* varasm.c: Ditto.
+	* wide-int-print.cc: Ditto.
+	* wide-int.cc: Ditto.
+	* wide-int.h: Ditto.
+
+2016-07-19  David Malcolm  <dmalcolm@redhat.com>
+
+	* selftest.c (selftest::assert_streq): Handle NULL values of
+	val_actual and val_expected.
+
+2016-07-19  Martin Jambor  <mjambor@suse.cz>
+
+	PR fortran/71688
+	* trans-decl.c (gfc_generate_function_code): Use cgraph_get_create_node
+	rather than cgraph_create_node to get a call graph node.
+
+2016-07-19  Richard Biener  <rguenther@suse.de>
+
+	* gimple-fold.c (get_base_constructor): Add VIEW_CONVERT case,
+	handle all tcc_constant bases and valueize SSA names.
+	* tree-ssa-sccvn.c (fully_constant_vn_reference_p): Handle
+	tcc_constant bases.
+
+2016-07-19  David Malcolm  <dmalcolm@redhat.com>
+
+	* function-tests.c (selftest::verify_three_block_rtl_cfg): Verify
+	the flags of the exit block and bb2, not just the entry block.
+
+2016-07-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71901
+	* tree-ssa-sccvn.h (struct vn_reference_op_struct): Add
+	align member, group stuff with the bitfield.
+	(vn_ref_op_align_unit): New inline.
+	* tree-ssa-sccvn.c (copy_reference_ops_from_ref): For ARRAY_REFs
+	record element alignment and operand 3 unchanged.
+	(ao_ref_init_from_vn_reference): Adjust.
+	(valueize_refs_1): Likewise.
+	* tree-ssa-pre.c (create_component_ref_by_pieces_1): Likewise.
+
+2016-07-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71908
+	* tree-ssa-structalias.c (get_constraint_for_component_ref): Handle
+	symbolic constants in a more reliable way.
+
+2016-07-19  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* tree-vect-loop-manip.c (vect_update_ivs_after_vectorizer): Update
+	comment.
+	(vect_update_inits_of_drs): Likewise.
+	(vect_create_cond_for_alias_checks): Likewise.
+	* tree-vect-loop.c (vect_get_known_peeling_cost): Likewise.
+
+2016-07-19  Richard Biener  <rguenther@suse.de>
+
+	PR lto/71907
+	* lto-streamer-out.c (DFS::DFS_write_tree_body): For blocks
+	with an abstract origin that is not an inlined function outer
+	scope add a self-reference as abstract origin.
+	* tree-streamer-out.c (write_ts_block_tree_pointers): Likewise.
+
+2016-07-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/71493
+	* config/rs6000/rs6000.c (rs6000_function_value): Fix
+	unintentional System V.4 structure return breakage for structures
+	with a single floating point element.
+
+2016-07-18  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR tree-optimization/71734
+	* tree-ssa-loop-im.c (ref_indep_loop_p_1): Add REF_LOOP argument which
+	contains REF, use it to check safelen, assume that safelen value
+	must be greater 1, fix style.
+	(ref_indep_loop_p_2): Add REF_LOOP argument.
+	(ref_indep_loop_p): Pass LOOP as additional argument to
+	ref_indep_loop_p_2.
+
+2016-07-18  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* cfgexpand.c (expand_stack_vars): Implement synamic stack space
+	allocation in the prologue.
+	* explow.c (get_dynamic_stack_base): New function to return an address
+	expression for the dynamic stack base.
+	(get_dynamic_stack_size): New function to do the required dynamic stack
+	space size calculations.
+	(allocate_dynamic_stack_space): Use new functions.
+	(align_dynamic_address): Move some code from
+	allocate_dynamic_stack_space to new function.
+	* explow.h (get_dynamic_stack_base, get_dynamic_stack_size): Export.
+
+2016-07-18  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.c (s390_encode_section_info): Always set
+	notaligned marker if mode size is 0 or no MEM_ALIGN info could be
+	found.
+
 2016-07-18  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/71893
@@ -274,7 +816,8 @@
 
 2016-07-12  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
 
-	* cfgexpand.c (expand_used_vars): Make the type of a local variable auto_vec.
+	* cfgexpand.c (expand_used_vars): Make the type of a local
+	variable auto_vec.
 	* genmatch.c (lower_for): Likewise.
 	* haifa-sched.c (haifa_sched_init): Likewise.
 	(add_to_speculative_block): Likewise.
@@ -282,7 +825,8 @@
 	* predict.c (handle_missing_profiles): Likewise.
 	* tree-data-ref.c (loop_nest_has_data_refs): Likewise.
 	* tree-diagnostic.c (maybe_unwind_expanded_macro_loc): Likewise.
-	* tree-ssa-loop-niter.c (discover_iteration_bound_by_body_walk): Likewise.
+	* tree-ssa-loop-niter.c (discover_iteration_bound_by_body_walk):
+	Likewise.
 	(maybe_lower_iteration_bound): Likewise.
 	* tree-ssa-sccvn.c (DFS): Likewise.
 	* tree-stdarg.c (reachable_at_most_once): Likewise.

@@ -1409,8 +1409,8 @@ emit_mode_mask (void)
   puts ("\
 #define MODE_MASK(m)                          \\\n\
   ((m) >= HOST_BITS_PER_WIDE_INT)             \\\n\
-   ? ~(unsigned HOST_WIDE_INT) 0              \\\n\
-   : ((unsigned HOST_WIDE_INT) 1 << (m)) - 1\n");
+   ? HOST_WIDE_INT_M1U                        \\\n\
+   : (HOST_WIDE_INT_1U << (m)) - 1\n");
 
   for_all_modes (c, m)
     if (m->precision != (unsigned int)-1)

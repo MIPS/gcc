@@ -1444,7 +1444,7 @@ wide_int_to_tree (tree type, const wide_int_ref &pcst)
     {
       if (pcst.elt (l - 1) == 0)
 	gcc_checking_assert (pcst.elt (l - 2) < 0);
-      if (pcst.elt (l - 1) == (HOST_WIDE_INT) -1)
+      if (pcst.elt (l - 1) == HOST_WIDE_INT_M1)
 	gcc_checking_assert (pcst.elt (l - 2) >= 0);
     }
 
@@ -11422,9 +11422,9 @@ int_cst_value (const_tree x)
     {
       bool negative = ((val >> (bits - 1)) & 1) != 0;
       if (negative)
-	val |= (~(unsigned HOST_WIDE_INT) 0) << (bits - 1) << 1;
+	val |= HOST_WIDE_INT_M1U << (bits - 1) << 1;
       else
-	val &= ~((~(unsigned HOST_WIDE_INT) 0) << (bits - 1) << 1);
+	val &= ~(HOST_WIDE_INT_M1U << (bits - 1) << 1);
     }
 
   return val;

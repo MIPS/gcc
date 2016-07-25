@@ -1,3 +1,76 @@
+2016-07-22  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/71964
+	* include/bits/basic_string.h [_GLIBCXX_USE_CXX11_ABI]
+	(basic_string::_Alloc_hider(pointer, _Alloc&&)): Add constructor.
+	* include/bits/stl_tree.h (_Rb_tree(_Rb_tree&&)): Move allocator.
+	* testsuite/21_strings/basic_string/allocator/71964.cc: New test.
+	* testsuite/23_containers/set/allocator/71964.cc: New test.
+
+	* testsuite/lib/libstdc++.exp (check_v3_target_namedlocale): Use
+	delete[] instead of delete.
+
+2016-07-21  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/experimental/propagate_const (propagate_const::__t): Rename
+	to _M_t and remove comment. Qualify std::move and std::forward.
+	* testsuite/experimental/propagate_const/cons/default.cc: Fix test.
+
+	* testsuite/23_containers/vector/zero_sized_allocations.cc:
+	Define sized deallocation function.
+	* testsuite/util/testsuite_new_operators.h:
+	(operator delete(void*, const std::nothrow_t&)): Define nothrow
+	deallocation function.
+
+	* testsuite/21_strings/basic_string/modifiers/append/char/1.cc: Fix
+	reads past the end of strings.
+	* testsuite/21_strings/basic_string/operations/compare/char/1.cc:
+	Likewise.
+	* testsuite/21_strings/char_traits/requirements/short/1.cc: Fix
+	invalid array accesses.
+	* testsuite/experimental/string_view/operations/compare/char/1.cc:
+	Fix read past the end of string.
+	* testsuite/util/testsuite_character.cc: Fix out-of-bounds write.
+
+	* testsuite/24_iterators/container_access.cc: Fix missing returns.
+	* testsuite/24_iterators/range_access_cpp14.cc: Likewise.
+
+	* testsuite/18_support/new_delete_placement.cc: Don't allocate (and
+	leak) memory for arguments to placement delete.
+	* testsuite/20_util/addressof/1.cc: Don't leak memory.
+	* testsuite/22_locale/locale/global_locale_objects/3.cc: Likewise.
+	* testsuite/23_containers/unordered_multimap/insert/55028-debug.cc:
+	Likewise.
+
+2016-07-20  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/intro.xml: Document DR 2684 status.
+	* doc/html/*: Regenerate.
+
+	* include/std/atomic (atomic_int8_t, atomic_uint8_t, atomic_int16_t)
+	(atomic_uint16_t, atomic_int32_t, atomic_uint32_t, atomic_int64_t)
+	(atomic_uint64_t): Define (LWG 2441).
+	* testsuite/29_atomics/headers/atomic/std_c++0x_neg.cc: Remove empty
+	lines.
+	* testsuite/29_atomics/headers/atomic/types_std_c++0x.cc: Test for
+	the new types.
+	* doc/xml/manual/intro.xml: Document DR 2441 status.
+
+	* include/std/istream (operator>>(basic_istream&&, _Tp&)): Adjust
+	to use perfect forwarding (LWG 2328).
+	* testsuite/27_io/rvalue_streams.cc: Test perfect forwarding.
+	* doc/xml/manual/intro.xml: Document DR 2328 status.
+
+	* libsupc++/pbase_type_info.cc (__pbase_type_info::__do_catch): Use
+	static objects for catching nullptr as pointer to member types.
+
+2016-07-18  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Clean up optional's comments.
+	* include/std/optional: Remove incorrect section headers
+	from comments when redundant, replace bare section
+	headers with more descriptive comments.
+
 2016-07-15  Jonathan Wakely  <jwakely@redhat.com>
 
 	* include/bits/algorithmfwd.h: Change C++0x to C++11 in comments.

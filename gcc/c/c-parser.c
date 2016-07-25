@@ -307,6 +307,9 @@ c_lex_one_token (c_parser *parser, c_token *token)
 	    else if (rid_code >= RID_FIRST_ADDR_SPACE
 		     && rid_code <= RID_LAST_ADDR_SPACE)
 	      {
+		addr_space_t as;
+		as = (addr_space_t) (rid_code - RID_FIRST_ADDR_SPACE);
+		targetm.addr_space.diagnose_usage (as, token->location);
 		token->id_kind = C_ID_ADDRSPACE;
 		token->keyword = rid_code;
 		break;
@@ -1724,12 +1727,12 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 	}
       else
 	{
-	  tree hint = lookup_name_fuzzy (name, FUZZY_LOOKUP_TYPENAME);
+	  const char *hint = lookup_name_fuzzy (name, FUZZY_LOOKUP_TYPENAME);
 	  if (hint)
 	    {
 	      richloc.add_fixit_misspelled_id (here, hint);
 	      error_at_rich_loc (&richloc,
-				 "unknown type name %qE; did you mean %qE?",
+				 "unknown type name %qE; did you mean %qs?",
 				 name, hint);
 	    }
 	  else
@@ -3890,14 +3893,14 @@ c_parser_parameter_declaration (c_parser *parser, tree attrs)
       c_parser_set_source_position_from_token (token);
       if (c_parser_next_tokens_start_typename (parser, cla_prefer_type))
 	{
-	  tree hint = lookup_name_fuzzy (token->value, FUZZY_LOOKUP_TYPENAME);
+	  const char *hint = lookup_name_fuzzy (token->value,
+						FUZZY_LOOKUP_TYPENAME);
 	  if (hint)
 	    {
-	      gcc_assert (TREE_CODE (hint) == IDENTIFIER_NODE);
 	      gcc_rich_location richloc (token->location);
 	      richloc.add_fixit_misspelled_id (token->location, hint);
 	      error_at_rich_loc (&richloc,
-				 "unknown type name %qE; did you mean %qE?",
+				 "unknown type name %qE; did you mean %qs?",
 				 token->value, hint);
 	    }
 	  else
