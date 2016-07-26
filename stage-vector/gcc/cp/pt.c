@@ -7403,11 +7403,12 @@ coerce_template_parameter_pack (tree parms,
 
   /* Convert the remaining arguments, which will be a part of the
      parameter pack "parm".  */
+  int first_pack_arg = arg_idx;
   for (; arg_idx < nargs; ++arg_idx)
     {
       tree arg = TREE_VEC_ELT (inner_args, arg_idx);
       tree actual_parm = TREE_VALUE (parm);
-      int pack_idx = arg_idx - parm_idx;
+      int pack_idx = arg_idx - first_pack_arg;
 
       if (packed_parms)
         {
@@ -7436,12 +7437,12 @@ coerce_template_parameter_pack (tree parms,
       TREE_VEC_ELT (packed_args, pack_idx) = arg;
     }
 
-  if (arg_idx - parm_idx < TREE_VEC_LENGTH (packed_args)
+  if (arg_idx - first_pack_arg < TREE_VEC_LENGTH (packed_args)
       && TREE_VEC_LENGTH (packed_args) > 0)
     {
       if (complain & tf_error)
 	error ("wrong number of template arguments (%d, should be %d)",
-	       arg_idx - parm_idx, TREE_VEC_LENGTH (packed_args));
+	       arg_idx - first_pack_arg, TREE_VEC_LENGTH (packed_args));
       return error_mark_node;
     }
 
@@ -8601,7 +8602,9 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
 	     for parameters in the TYPE_DECL of the alias template
 	     done earlier.  So be careful while getting the template
 	     of FOUND.  */
-	  found = TREE_CODE (found) == TYPE_DECL
+	  found = TREE_CODE (found) == TEMPLATE_DECL
+	    ? found
+	    : TREE_CODE (found) == TYPE_DECL
 	    ? TYPE_TI_TEMPLATE (TREE_TYPE (found))
 	    : CLASSTYPE_TI_TEMPLATE (found);
 	}
@@ -13230,13 +13233,20 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
 		if (code == BOUND_TEMPLATE_TEMPLATE_PARM)
 		  {
-		    tree argvec = tsubst (TYPE_TI_ARGS (t), args,
+		    tree tinfo = TYPE_TEMPLATE_INFO (t);
+		    /* We might need to substitute into the types of non-type
+		       template parameters.  */
+		    tree tmpl = tsubst (TI_TEMPLATE (tinfo), args,
+					complain, in_decl);
+		    if (tmpl == error_mark_node)
+		      return error_mark_node;
+		    tree argvec = tsubst (TI_ARGS (tinfo), args,
 					  complain, in_decl);
 		    if (argvec == error_mark_node)
 		      return error_mark_node;
 
 		    TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (r)
-		      = build_template_info (TYPE_TI_TEMPLATE (t), argvec);
+		      = build_template_info (tmpl, argvec);
 		  }
 	      }
 	    break;
@@ -13610,6 +13620,18 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 				      /*function_p*/false,
 				      /*integral_constant_expression*/false);
 
+	if (DECLTYPE_FOR_INIT_CAPTURE (t))
+	  {
+	    if (type == NULL_TREE)
+	      {
+		if (complain & tf_error)
+		  error ("empty initializer in lambda init-capture");
+		type = error_mark_node;
+	      }
+	    else if (TREE_CODE (type) == TREE_LIST)
+	      type = build_x_compound_expr_from_list (type, ELK_INIT, complain);
+	  }
+
 	--cp_unevaluated_operand;
 	--c_inhibit_evaluation_warnings;
 
@@ -13760,10 +13782,17 @@ tsubst_baselink (tree baselink, tree object_type,
     if (!object_type)
       object_type = current_class_type;
 
-    if (qualified)
-      baselink = adjust_result_of_qualified_name_lookup (baselink,
-							 qualifying_scope,
-							 object_type);
+    if (qualified || name == complete_dtor_identifier)
+      {
+	baselink = adjust_result_of_qualified_name_lookup (baselink,
+							   qualifying_scope,
+							   object_type);
+	if (!qualified)
+	  /* We need to call adjust_result_of_qualified_name_lookup in case the
+	     destructor names a base class, but we unset BASELINK_QUALIFIED_P
+	     so that we still get virtual function binding.  */
+	  BASELINK_QUALIFIED_P (baselink) = false;
+      }
     return baselink;
 }
 
@@ -23662,29 +23691,26 @@ resolve_typename_type (tree type, bool only_current_p)
     }
   /* If we don't know what SCOPE refers to, then we cannot resolve the
      TYPENAME_TYPE.  */
-  if (TREE_CODE (scope) == TYPENAME_TYPE)
-    return type;
-  /* If the SCOPE is a template type parameter, we have no way of
-     resolving the name.  */
-  if (TREE_CODE (scope) == TEMPLATE_TYPE_PARM)
-    return type;
-  /* If the SCOPE is not the current instantiation, there's no reason
-     to look inside it.  */
-  if (only_current_p && !currently_open_class (scope))
+  if (!CLASS_TYPE_P (scope))
     return type;
   /* If this is a typedef, we don't want to look inside (c++/11987).  */
   if (typedef_variant_p (type))
     return type;
   /* If SCOPE isn't the template itself, it will not have a valid
      TYPE_FIELDS list.  */
-  if (CLASS_TYPE_P (scope)
-      && same_type_p (scope, CLASSTYPE_PRIMARY_TEMPLATE_TYPE (scope)))
+  if (same_type_p (scope, CLASSTYPE_PRIMARY_TEMPLATE_TYPE (scope)))
     /* scope is either the template itself or a compatible instantiation
        like X<T>, so look up the name in the original template.  */
     scope = CLASSTYPE_PRIMARY_TEMPLATE_TYPE (scope);
-  else
-    /* scope is a partial instantiation, so we can't do the lookup or we
-       will lose the template arguments.  */
+  /* We shouldn't have built a TYPENAME_TYPE with a non-dependent scope.  */
+  gcc_checking_assert (uses_template_parms (scope));
+  /* If scope has no fields, it can't be a current instantiation.  Check this
+     before currently_open_class to avoid infinite recursion (71515).  */
+  if (!TYPE_FIELDS (scope))
+    return type;
+  /* If the SCOPE is not the current instantiation, there's no reason
+     to look inside it.  */
+  if (only_current_p && !currently_open_class (scope))
     return type;
   /* Enter the SCOPE so that name lookup will be resolved as if we
      were in the class definition.  In particular, SCOPE will no
