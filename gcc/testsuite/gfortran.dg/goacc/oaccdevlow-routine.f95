@@ -24,5 +24,5 @@ end subroutine ROUTINE
 
 ! Check the offloaded function's classification and compute dimensions (will
 ! always be [1, 1, 1] for target compilation).
-! { dg-final { scan-tree-dump-times "(?n)Function is routine level 1" 1 "oaccdevlow" } }
+! { dg-final { scan-tree-dump-times "(?n)Function is OpenACC routine level 1" 1 "oaccdevlow" } }
 ! { dg-final { scan-tree-dump-times "(?n)Compute dimensions \\\[1, 1, 1\\\]" 1 "oaccdevlow" } }

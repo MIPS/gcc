@@ -22,7 +22,7 @@ program main
 end program main
 
 ! Check the offloaded function's attributes.
-! { dg-final { scan-tree-dump-times "(?n)__attribute__\\(\\(omp target entrypoint\\)\\)" 1 "ompexp" } }
+! { dg-final { scan-tree-dump-times "(?n)__attribute__\\(\\(oacc kernels, omp target entrypoint\\)\\)" 1 "ompexp" } }
 
 ! Check that exactly one OpenACC kernels loop is analyzed, and that it can be
 ! parallelized.
@@ -32,5 +32,5 @@ end program main
 
 ! Check the offloaded function's classification and compute dimensions (will
 ! always be [1, 1, 1] for target compilation).
-! { dg-final { scan-tree-dump-times "(?n)Function is kernels offload" 1 "oaccdevlow" } }
+! { dg-final { scan-tree-dump-times "(?n)Function is OpenACC kernels offload" 1 "oaccdevlow" } }
 ! { dg-final { scan-tree-dump-times "(?n)Compute dimensions \\\[1, 1, 1\\\]" 1 "oaccdevlow" } }
