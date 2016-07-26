@@ -4880,11 +4880,9 @@ mips_immediate_operand_p (int code, HOST_WIDE_INT x)
       return SMALL_OPERAND (x);
 
     case LTU:
-      if (TARGET_MICROMIPS_R7)
-	return SMALL_OPERAND_UNSIGNED (x);
     case LT:
       if (TARGET_MICROMIPS_R7)
-	return SMALL_OPERAND12 (x);
+	return SMALL_OPERAND_UNSIGNED (x);
       /* These instructions take 16-bit signed immediates.  */
       return SMALL_OPERAND (x);
 
@@ -4904,13 +4902,13 @@ mips_immediate_operand_p (int code, HOST_WIDE_INT x)
     case LE:
       /* We add 1 to the immediate and use SLT.  */
       if (TARGET_MICROMIPS_R7)
-	return SMALL_OPERAND12 (x+1);
+	return SMALL_OPERAND_UNSIGNED (x+1);
       return SMALL_OPERAND (x + 1);
 
     case LEU:
       /* Likewise SLTU, but reject the always-true case.  */
       if (TARGET_MICROMIPS_R7)
-	return SMALL_OPERAND12 (x+1) && x + 1 != 0;
+	return SMALL_OPERAND_UNSIGNED (x+1) && x + 1 != 0;
       return SMALL_OPERAND (x + 1) && x + 1 != 0;
 
     case SIGN_EXTRACT:
