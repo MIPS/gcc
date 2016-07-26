@@ -2347,11 +2347,6 @@ enum reg_class
 #define IMM10_OPERAND(VALUE) \
   ((unsigned HOST_WIDE_INT) (VALUE) + 0x200 < 0x400)
 
-/* True if VALUE is a signed 12-bit number.  */
-
-#define IMM12_OPERAND(VALUE) \
-  ((unsigned HOST_WIDE_INT) (VALUE) + 0x800 < 0x1000)
-
 /* True if VALUE is a signed 16-bit number.  */
 
 #define SMALL_OPERAND(VALUE) \
@@ -2364,9 +2359,6 @@ enum reg_class
    ? ((unsigned HOST_WIDE_INT) (VALUE) + 0x100 < 0x200) \
      || SMALL_OPERAND_UNSIGNED (VALUE) \
    : SMALL_OPERAND (VALUE))
-
-#define SMALL_OPERAND12(VALUE) \
-   ((unsigned HOST_WIDE_INT) (VALUE) + 0x800 < 0x1000)
 
 /* True if VALUE is an unsigned 16-bit number.  */
 
@@ -2396,7 +2388,6 @@ enum reg_class
   ((VALUE) - CONST_HIGH_PART (VALUE))
 
 #define SMALL_INT(X) SMALL_OPERAND (INTVAL (X))
-#define SMALL_INT12(X) SMALL_OPERAND12 (INTVAL (X))
 #define SMALL_INT9TO12(X) SMALL_OPERAND9TO12 (INTVAL (X))
 #define SMALL_INT_UNSIGNED(X) SMALL_OPERAND_UNSIGNED (INTVAL (X))
 #define LUI_INT(X) LUI_OPERAND (INTVAL (X))
