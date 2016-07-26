@@ -5105,8 +5105,8 @@
 ;; address expression, not shift.
 
 (define_insn "*lwxs"
-  [(set (match_operand:IMOVE32 0 "register_operand" "=d")
-	(mem:IMOVE32
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(mem:SI
 	  (plus:P (mult:P (match_operand:P 1 "register_operand" "d")
 			  (const_int 4))
 		  (match_operand:P 2 "register_operand" "d"))))]
@@ -5116,15 +5116,49 @@
    (set_attr "mode"	"SI")])
 
 (define_insn "*swxs"
-  [(set	(mem:IMOVE32
+  [(set	(mem:SI
 	  (plus:P (mult:P (match_operand:P 0 "register_operand" "d")
 			  (const_int 4))
 		  (match_operand:P 1 "register_operand" "d")))
-	(match_operand:IMOVE32 2 "register_operand" "=d"))]
+	(match_operand:SI 2 "register_operand" "d"))]
   "ISA_HAS_SWXS"
   "swxs\t%2,%0(%1)"
-  [(set_attr "type"	"load")
+  [(set_attr "type"	"store")
    (set_attr "mode"	"SI")])
+
+(define_insn "*lhxs"
+  [(set (match_operand:HI 0 "register_operand" "=d")
+	(mem:HI
+	  (plus:P (mult:P (match_operand:P 1 "register_operand" "d")
+			  (const_int 2))
+		  (match_operand:P 2 "register_operand" "d"))))]
+  "ISA_HAS_LHXS"
+  "lhxs\t%0,%1(%2)"
+  [(set_attr "type"	"load")
+   (set_attr "mode"	"HI")])
+
+(define_insn "*lhuxs"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(zero_extend:SI
+	  (mem:HI
+	    (plus:P (mult:P (match_operand:P 1 "register_operand" "d")
+			    (const_int 2))
+		    (match_operand:P 2 "register_operand" "d")))))]
+  "ISA_HAS_LHUXS"
+  "lhuxs\t%0,%1(%2)"
+  [(set_attr "type"	"load")
+   (set_attr "mode"	"HI")])
+
+(define_insn "*shxs"
+  [(set	(mem:HI
+	  (plus:P (mult:P (match_operand:P 0 "register_operand" "d")
+			  (const_int 2))
+		  (match_operand:P 1 "register_operand" "d")))
+	(match_operand:HI 2 "register_operand" "d"))]
+  "ISA_HAS_SHXS"
+  "shxs\t%2,%0(%1)"
+  [(set_attr "type"	"store")
+   (set_attr "mode"	"HI")])
 
 ;; 16-bit Integer moves
 
