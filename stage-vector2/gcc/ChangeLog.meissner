@@ -1,5 +1,39 @@
 2016-07-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin):
+	Add support for optimizing vec_extract on vector float, vector
+	int, vector short, and vector char, with either constant or
+	variable elements.
+	* config/rs6000/rs6000.c (rs6000_expand_vector_extract): Add
+	support for vec_extract with variable or constant elements for
+	vector float, vector int, vector short, or vector char vectors.
+	* config/rs6000/vsx.md (vsx_xscvspdp_scalar2): Use ww constraint
+	instead of f to allow SFmode in Altivec registers.
+	(vsx_extract_v4sf): Use ww constraint instead of f to allow SFmode
+	in Altivec registers.  Remove alternative for 0 element that would
+	not work on little endian, instead allowing any supported integer
+	constant.  Use {} for C++ code, not "{ ... }".
+	(sx_extract_v4sf_load): Optimize vec_extracts of V4SFmode if the
+	vector happens to be in memory for both constant and variable
+	elements.
+	(vsx_extract_v4sf_var): Add support for variable vec_extract
+	element numbers.
+	(vsx_extract_<mode>, VSX_EXTRACT_I iterator): Change
+	vsx_extract_<mode> to be a define_expand, which can handle either
+	ISA 2.07 or ISA 3.0 vec_extracts.  Rename old ISA 3.0 insn to
+	vsx_extract_<mode>_p9.
+	(vsx_extract_<mode>_p9, VSX_EXTRACT_I iterator): Likewise.
+	(vsx_extract_<mode>_p8, VSX_EXTRACT_I iterator): New insn to
+	support vec_extracts for small integer vectors on 64-bit ISA 2.07
+	systems.
+	(vsx_extract_<mode>_load, VSX_EXTRACT_I iterator): Optimize
+	vec_extracts of small integer vectors if the vector happens to be
+	in memory for both constant and variable elements.
+	(vsx_extract_<mode>_var): Optimize vec_extracts of small integer
+	vectors if the element is variable on 64-bit ISA 2.07 systems.
+
+2016-07-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* config/rs6000/rs6000-protos.h (rs6000_adjust_vec_address): New
 	declaration.
 	* config/rs6000/rs6000.c (rs6000_adjust_vec_address): New function
