@@ -1,0 +1,10 @@
+Bottom: 4c1b7f5d15a8d8f110c8b0a6b90aa6ed18e0d7fb
+Top:    4c1b7f5d15a8d8f110c8b0a6b90aa6ed18e0d7fb
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2016-07-27 05:43:56 -0300
+
+fix class-member templates; remove dead specialization code
+
+---
+
+
