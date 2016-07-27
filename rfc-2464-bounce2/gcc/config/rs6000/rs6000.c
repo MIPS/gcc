@@ -72,10 +72,6 @@
 #endif
 #include "case-cfn-macros.h"
 #include "ppc-auxv.h"
-#undef KELVIN_DEBUG
-#ifdef KELVIN_DEBUG
-#include "tree-pretty-print.h"
-#endif
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -12728,12 +12724,6 @@ def_builtin (const char *name, tree type, enum rs6000_builtins code)
   tree t;
   unsigned classify = rs6000_builtin_info[(int)code].attr;
   const char *attr_string = "";
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "def_builtin, processing %s, code: %d\n",
-	   name, (int) code);
-  fprintf (stderr, "type is ");
-  debug_generic_expr (type);
-#endif
 
   gcc_assert (name != NULL);
   gcc_assert (IN_RANGE ((int)code, 0, (int)RS6000_BUILTIN_COUNT));
@@ -13422,8 +13412,8 @@ rs6000_expand_binop_builtin (enum insn_code icode, tree exp, rtx target)
     {
       /* Only allow 7-bit unsigned literals. */
       STRIP_NOPS (arg1);
-       if (TREE_CODE (arg1) != INTEGER_CST
-	  || TREE_INT_CST_LOW (arg1) & ~0x7f)
+      if (TREE_CODE (arg1) != INTEGER_CST
+	  || !IN_RANGE (TREE_INT_CST_LOW (arg1), 0, 127))
 	{
 	  error ("argument 2 must be a 7-bit unsigned literal");
 	  return CONST0_RTX (tmode);
@@ -15535,7 +15525,7 @@ rs6000_invalid_builtin (enum rs6000_builtins fncode)
     error ("Builtin function %s requires the -mpower8-vector option", name);
   else if ((fnmask & (RS6000_BTM_P9_VECTOR | RS6000_BTM_64BIT))
 	   == (RS6000_BTM_P9_VECTOR | RS6000_BTM_64BIT))
-    error ("Builtin function %s requires the -mpower9-vector and"
+    error ("Builtin function %s requires the -mcpu=power9 and"
 	   " -m64 options", name);
   else if ((fnmask & RS6000_BTM_P9_VECTOR) != 0)
     error ("Builtin function %s requires the -mpower9-vector option", name);
@@ -17300,9 +17290,6 @@ rs6000_common_init_builtins (void)
   if (TARGET_EXTRA_BUILTINS)
     builtin_mask |= RS6000_BTM_COMMON;
 
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "doing bdesc_3arg\n");
-#endif
   /* Add the ternary operators.  */
   d = bdesc_3arg;
   for (i = 0; i < ARRAY_SIZE (bdesc_3arg); i++, d++)
@@ -17358,9 +17345,6 @@ rs6000_common_init_builtins (void)
       def_builtin (d->name, type, d->code);
     }
 
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "doing bdesc_2arg\n");
-#endif
   /* Add the binary operators.  */
   d = bdesc_2arg;
   for (i = 0; i < ARRAY_SIZE (bdesc_2arg); i++, d++)
@@ -17439,9 +17423,6 @@ rs6000_common_init_builtins (void)
       def_builtin (d->name, type, d->code);
     }
 
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "doing bdesc_1arg\n");
-#endif
   /* Add the simple unary operators.  */
   d = bdesc_1arg;
   for (i = 0; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
@@ -17506,9 +17487,6 @@ rs6000_common_init_builtins (void)
       def_builtin (d->name, type, d->code);
     }
 
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "doing bdesc_0arg\n");
-#endif
   /* Add the simple no-argument operators.  */
   d = bdesc_0arg;
   for (i = 0; i < ARRAY_SIZE (bdesc_0arg); i++, d++)

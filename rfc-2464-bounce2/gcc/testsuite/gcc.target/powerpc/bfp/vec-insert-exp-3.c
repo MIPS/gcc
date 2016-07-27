@@ -7,11 +7,11 @@
 #include <altivec.h>
 
 __vector double
-make_doubles (__vector long long int *significands_p,
-	      __vector long long int *exponents_p)
+make_doubles (__vector unsigned long long int *significands_p,
+	      __vector unsigned long long int *exponents_p)
 {
-  __vector long long int significands = *significands_p;
-  __vector long long int exponents = *exponents_p;
+  __vector unsigned long long int significands = *significands_p;
+  __vector unsigned long long int exponents = *exponents_p;
 
-  return vec_insert_exp (significands, exponents); /* { dg-error "Builtin function __builtin_vsx_vector_insert_exp requires" } */
+  return __builtin_vec_insert_exp (significands, exponents); /* { dg-error "Builtin function __builtin_vsx_insert_exp_dp requires" } */
 }

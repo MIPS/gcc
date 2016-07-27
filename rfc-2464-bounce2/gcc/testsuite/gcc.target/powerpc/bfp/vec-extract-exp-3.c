@@ -11,5 +11,5 @@ get_exponents (__vector float *p)
 {
   __vector float source = *p;
 
-  return vec_extract_exp (source);	/* { dg-error "Builtin function __builtin_vsx_vector_extract_expy requires" } */
+  return __builtin_vec_extract_exp (source);	/* { dg-error "Builtin function __builtin_vsx_extract_exp_sp requires" } */
 }

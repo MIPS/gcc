@@ -52,7 +52,7 @@
 (define_mode_iterator VSX_F [V4SF V2DF])
 
 (define_mode_attr vsx_f_suffix [(V4SF "dp") (V2DF "sp")])
-;; (define_mode_attr VSX_F_SUFFIX [(V4SF "DP") (V2DF "SP")])
+
 (define_mode_attr VSX_F_INTEGER [(V4SF "V4SI") (V2DF "V2DI")])
 
 ;; Iterator for logical types supported by VSX
@@ -3005,5 +3005,5 @@
           (match_operand:SI 2 "u7bit_cint_operand" "n")]
          UNSPEC_VSX_VTSTDC))]
   "TARGET_P9_VECTOR"
-  "xvtstdc<vsx_f_suffix> %x0,%x1,%x2"
+  "xvtstdc<vsx_f_suffix> %x0,%x1,%2"
   [(set_attr "type" "fp")])

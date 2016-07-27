@@ -11,5 +11,5 @@ get_data_class_flags (__vector float *p)
 {
   __vector float source = *p;
 
-  return vec_test_data_class (source, 0x37); /* { dg-error "Builtin function __builtin_vsx_vector_test_data_class requires" } */
+  return __builtin_vec_test_data_class (source, 0x37); /* { dg-error "Builtin function __builtin_vsx_test_data_class_sp requires" } */
 }

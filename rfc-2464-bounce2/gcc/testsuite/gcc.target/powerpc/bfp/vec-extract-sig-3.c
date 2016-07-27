@@ -11,5 +11,5 @@ get_significands (__vector float *p)
 {
   __vector float source = *p;
 
-  return vec_extract_sig (source);	/* { dg-error "Builtin function __builtin_vsx_vector_extract_sig requires" } */
+  return __builtin_vec_extract_sig (source);	/* { dg-error "Builtin function __builtin_vsx_extract_sig_sp requires" } */
 }

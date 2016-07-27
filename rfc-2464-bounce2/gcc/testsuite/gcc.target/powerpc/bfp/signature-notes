@@ -6,7 +6,7 @@ uintsi scalar_extract_exp (double);
 uintdi scalar_extract_sig (double);
 
 # scalar-insert-exp-[012].c
-double scalar_insert_exp (uintsi, uintdi);
+double scalar_insert_exp (uintdi, uintdi);
 
 # scalar-cmp-exp-gt-[012].c
 intsi scalar_cmp_exp_gt (double, double);

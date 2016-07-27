@@ -31,10 +31,9 @@
 #include "c-family/c-pragma.h"
 #include "langhooks.h"
 #include "c/c-tree.h"
-#undef KELVIN_DEBUG
-#ifdef KELVIN_DEBUG
-#include "print-tree.h"
-#endif
+
+
+
 /* Handle the machine specific pragma longcall.  Its syntax is
 
    # pragma longcall ( TOGGLE )
@@ -4302,22 +4301,6 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V4SI,
     RS6000_BTI_unsigned_V4SI, 0 },
 
-  /* kelvin's new items: not sure where to encode target type,
-   * not sure where type names are defined.  processing entries from
-   * rs6000-builtin.def, around line 1853.
-   *  See rs6000.h for type definitions
-
-struct altivec_builtin_types
-{
-  enum rs6000_builtins code;
-  enum rs6000_builtins overloaded_code;
-  signed char ret_type;
-  signed char op1;
-  signed char op2;
-  signed char op3;
-};
-
- */
   { P9V_BUILTIN_VEC_VES, P9V_BUILTIN_VESSP,
     RS6000_BTI_V4SI, RS6000_BTI_V4SF, 0, 0 },   
   { P9V_BUILTIN_VEC_VES, P9V_BUILTIN_VESDP,
@@ -4820,11 +4803,6 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
   if (!rs6000_overloaded_builtin_p (fcode))
     return NULL_TREE;
 
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "altivec_resolve_overloaded_builtin, code = %4d, %s\n",
-	   (int)fcode, IDENTIFIER_POINTER (DECL_NAME (fndecl)));
-#endif
-  
   if (TARGET_DEBUG_BUILTIN)
     fprintf (stderr, "altivec_resolve_overloaded_builtin, code = %4d, %s\n",
 	     (int)fcode, IDENTIFIER_POINTER (DECL_NAME (fndecl)));
@@ -5515,13 +5493,6 @@ assignment for unaligned loads and stores");
 	}
     }
 
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, 
-"Done looking at the special cases in resolve_overloaded_builtin\n");
-  fprintf (stderr, 
-	   " about to iterate through args, nargs: %d, fnargs: ", nargs);
-  debug_tree (TREE_CHAIN (fnargs));
-#endif
   for (n = 0;
        !VOID_TYPE_P (TREE_VALUE (fnargs)) && n < nargs;
        fnargs = TREE_CHAIN (fnargs), n++)
@@ -5569,19 +5540,7 @@ assignment for unaligned loads and stores");
 
       args[n] = arg;
       types[n] = type;
-#ifdef KELVIN_DEBUG
-      fprintf (stderr, "  in loop, types[%d] set to ", n);
-      debug (types[n]);
-#endif
     }
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "Done looking at the argument list: n: %d, nargs: %d\n",
-	   n, nargs);
-  fprintf (stderr, "VOID_TYPE_P (TREE_VALUE (fnargs)) is %d\n",
-	   VOID_TYPE_P (TREE_VALUE (fnargs)));
-  fprintf (stderr, "fcode is %d\n", fcode);
-  fprintf (stderr, "  RS6000_BTI_NOT_OPAQUE is %d\n", RS6000_BTI_NOT_OPAQUE);
-#endif
 
   /* If the number of arguments did not match the prototype, return NULL
      and the generic code will issue the appropriate error message.  */
@@ -5606,38 +5565,8 @@ assignment for unaligned loads and stores");
 
   /* For arguments after the last, we have RS6000_BTI_NOT_OPAQUE in
      the opX fields.  */
-#ifdef KELVIN_DEBUG
-  fprintf (stderr, "P9V_BUILTIN_VSIEDP is %d, P9V_BUILTIN_VEC_VSIEDP is %d\n",
-	   P9V_BUILTIN_VSIEDP, P9V_BUILTIN_VEC_VSIEDP);
-#endif
   for (; desc->code == fcode; desc++)
     {
-#ifdef KELVIN_DEBUG
-      fprintf (stderr, "in loop, desc->code is: %d, ->overloaded_code: %d\n",
-	       desc->code, desc->overloaded_code);
-      
-      fprintf (stderr, "in loop, desc->op1 is %d\n", desc->op1);
-      if (desc->op1 != RS6000_BTI_NOT_OPAQUE) {
-	fprintf (stderr, "types[0]: ");
-	debug (types[0]);
-	fprintf (stderr, "type compatible? %d\n",
-		 rs6000_builtin_type_compatible (types[0], desc->op1));
-      }
-      fprintf (stderr, "desc->op2 is %d\n", desc->op2);
-      if (desc->op2 != RS6000_BTI_NOT_OPAQUE) {
-	fprintf (stderr, "types[1]: ");
-	debug (types[1]);
-	fprintf (stderr, "type compatible? %d\n",
-		 rs6000_builtin_type_compatible (types[1], desc->op2));
-      }
-      fprintf (stderr, "desc->op3 is %d\n", desc->op3);
-      if (desc->op3 != RS6000_BTI_NOT_OPAQUE) {
-	fprintf (stderr, "types[2]: ");
-	debug (types[2]);
-	fprintf (stderr, "type compatible? %d\n",
-		 rs6000_builtin_type_compatible (types[2], desc->op3));
-      }
-#endif
       if ((desc->op1 == RS6000_BTI_NOT_OPAQUE
 	   || rs6000_builtin_type_compatible (types[0], desc->op1))
 	  && (desc->op2 == RS6000_BTI_NOT_OPAQUE
@@ -5648,9 +5577,7 @@ assignment for unaligned loads and stores");
 	  if (rs6000_builtin_decls[desc->overloaded_code] != NULL_TREE)
 	    return altivec_build_resolved_builtin (args, n, desc);
 	  else
-	    {
-	      unsupported_builtin = true;
-	    }
+	    unsupported_builtin = true;
 	}
     }
     

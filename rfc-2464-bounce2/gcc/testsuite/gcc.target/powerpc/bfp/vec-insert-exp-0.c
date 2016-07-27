@@ -7,10 +7,11 @@
 #include <altivec.h>
 
 __vector float
-make_floats (__vector int *significands_p, __vector int *exponents_p)
+make_floats (__vector unsigned int *significands_p, 
+	     __vector unsigned int *exponents_p)
 {
-  __vector int significands = *significands_p;
-  __vector int exponents = *exponents_p;
+  __vector unsigned int significands = *significands_p;
+  __vector unsigned int exponents = *exponents_p;
 
   return vec_insert_exp (significands, exponents);
 }
