@@ -1535,12 +1535,19 @@ plugin_new_decl (cc1_plugin::connection *self,
     {
       decl = safe_push_template_decl (decl);
 
+      tree tdecl = NULL_TREE;
+      if (class_member_p)
+	tdecl = finish_member_template_decl (decl);
+
       end_template_decl ();
 
       /* We only support one level of templates, because we only
 	 support declaring generics; actual definitions are only of
 	 specializations.  */
       gcc_assert (!template_parm_scope_p ());
+
+      if (class_member_p)
+	finish_member_declaration (tdecl);
     }
   else if (RECORD_OR_UNION_CODE_P (code))
     safe_pushtag (identifier, TREE_TYPE (decl), ts_current);
@@ -3371,10 +3378,6 @@ plugin_specialize_function_template (cc1_plugin::connection *self,
   source_location loc = ctx->get_source_location (filename, line_number);
   tree name = convert_in (template_decl);
   tree targsl = targlist (targs);
-
-  tree fnid = lookup_template_function (name, targsl);
-  if (TREE_CODE (fnid) == TEMPLATE_ID_EXPR)
-    SET_EXPR_LOCATION (fnid, loc);
 
   tree decl = tsubst (name, targsl, tf_error, NULL_TREE);
   DECL_SOURCE_LOCATION (decl) = loc;
