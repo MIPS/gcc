@@ -1,10 +1,10 @@
 Version: 1
-Previous: 953a6ba32e9e219bced9c06ede645b834a41d26a
-Head: ab3cf878012989231f41e3cf56ebc19a8b336e31
+Previous: bb55e88f29bcd32998f9c99d8babf36c7e847c58
+Head: 61ebf376846f76c850ea13ed2e6b02b21f535f34
 Applied:
+Unapplied:
   debug-tp-pmf-loc.patch: 146a6cb5f77e0ea5555f9b3b97ef7bbf0f90bca5
   class-member-templates.patch: ab3cf878012989231f41e3cf56ebc19a8b336e31
-Unapplied:
   testing-switch-to-named-scope.patch: 5a7eb232b8cb1fce480585a1914fb9e0b458b99e
   special-memfuncs-testing.patch: 5dadb8e81f23ef0a3a559dc1776fa25b2cc8c5db
 Hidden:
