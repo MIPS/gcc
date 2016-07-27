@@ -1738,6 +1738,7 @@ symtab_node::nonzero_address ()
 	      return true;
 	  if (target->resolution != LDPR_UNKNOWN
 	      && target->resolution != LDPR_UNDEF
+	      && !target->can_be_discarded_p ()
 	      && flag_delete_null_pointer_checks)
 	    return true;
 	  return false;
@@ -1776,6 +1777,7 @@ symtab_node::nonzero_address ()
   /* As the last resort, check the resolution info.  */
   if (resolution != LDPR_UNKNOWN
       && resolution != LDPR_UNDEF
+      && !can_be_discarded_p ()
       && flag_delete_null_pointer_checks)
     return true;
   return false;
