@@ -16504,13 +16504,20 @@ darwin_local_data_pic (rtx disp)
 bool
 ix86_force_load_from_GOT_p (rtx x)
 {
-  return ((TARGET_64BIT || HAVE_AS_IX86_GOT32X)
-	  && !TARGET_PECOFF && !TARGET_MACHO
-	  && !flag_plt && !flag_pic
-	  && ix86_cmodel != CM_LARGE
-	  && GET_CODE (x) == SYMBOL_REF
-	  && SYMBOL_REF_FUNCTION_P (x)
-	  && !SYMBOL_REF_LOCAL_P (x));
+  if ((TARGET_64BIT || HAVE_AS_IX86_GOT32X)
+      && !TARGET_PECOFF
+      && !flag_pic
+      && !TARGET_MACHO
+      && ix86_cmodel != CM_LARGE
+      && GET_CODE (x) == SYMBOL_REF
+      && !SYMBOL_REF_LOCAL_P (x))
+    {
+      if (SYMBOL_REF_FUNCTION_P (x))
+	return !flag_plt;
+      else
+	return !flag_copy_reloc;
+    }
+  return false;
 }
 
 /* Determine if a given RTX is a valid constant.  We already know this
@@ -16771,6 +16778,7 @@ legitimate_pic_address_disp_p (rtx disp)
 	  else if (!SYMBOL_REF_FAR_ADDR_P (op0)
 		   && (SYMBOL_REF_LOCAL_P (op0)
 		       || (HAVE_LD_PIE_COPYRELOC
+			   && flag_copy_reloc
 			   && flag_pie
 			   && !SYMBOL_REF_WEAK (op0)
 			   && !SYMBOL_REF_FUNCTION_P (op0)))

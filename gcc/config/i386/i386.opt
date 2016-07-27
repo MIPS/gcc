@@ -949,3 +949,7 @@ Attempt to avoid generating instruction sequences containing ret bytes.
 mgeneral-regs-only
 Target Report RejectNegative Mask(GENERAL_REGS_ONLY) Var(ix86_target_flags) Save
 Generate code which uses only the general registers.
+
+mcopy-reloc
+Target Report Var(flag_copy_reloc) Init(1)
+Allow copy relocation when accessing external data.
