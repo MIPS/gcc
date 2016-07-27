@@ -1735,6 +1735,9 @@ static int mips_register_move_cost (machine_mode, reg_class_t,
 static unsigned int mips_function_arg_boundary (machine_mode, const_tree);
 static machine_mode mips_get_reg_raw_mode (int regno);
 static rtx mips_gen_const_int_vector_shuffle (machine_mode, int);
+
+/* Used to track the mode of an address for indexed scaled load/stores.  */
+static machine_mode mips_memref_mode;
 
 /* This hash table keeps track of implicit "mips16" and "nomips16" attributes
    for -mflip_mips16.  It maps decl names onto a boolean mode setting.  */
@@ -3548,10 +3551,6 @@ mips_index_scaled_address_p (rtx addr, machine_mode mode)
     return false;
 
   shift = exact_log2 (INTVAL (XEXP (offset, 1)));
-
-  if (shift != -1
-      || shift != GET_MODE_SIZE (mode))
-    return false;
 
   if ((ISA_HAS_LHXS || ISA_HAS_LHUXS || ISA_HAS_SHXS)
       && shift == 1 && mode == HImode)
@@ -10575,6 +10574,7 @@ mips_print_operand (FILE *file, rtx op, int letter)
 	  break;
 
 	case MEM:
+	  mips_memref_mode = GET_MODE (op);
 	  if (letter == 'D')
 	    output_address (GET_MODE (op), plus_constant (Pmode,
 							  XEXP (op, 0), 4));
@@ -10610,7 +10610,7 @@ mips_print_operand_address (FILE *file, machine_mode /*mode*/, rtx x)
 {
   struct mips_address_info addr;
 
-  if (mips_classify_address (&addr, x, word_mode, true))
+  if (mips_classify_address (&addr, x, mips_memref_mode, true))
     switch (addr.type)
       {
       case ADDRESS_REG:
