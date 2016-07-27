@@ -14075,6 +14075,9 @@ c_parser_oacc_routine (c_parser *parser, enum pragma_context context)
       data.clauses
 	= c_parser_oacc_all_clauses (parser, OACC_ROUTINE_CLAUSE_MASK,
 				     "#pragma acc routine");
+      /* The clauses are in reverse order; fix that to make later diagnostic
+	 emission easier.  */
+      data.clauses = nreverse (data.clauses);
 
       if (TREE_CODE (decl) != FUNCTION_DECL)
 	{
@@ -14089,6 +14092,9 @@ c_parser_oacc_routine (c_parser *parser, enum pragma_context context)
       data.clauses
 	= c_parser_oacc_all_clauses (parser, OACC_ROUTINE_CLAUSE_MASK,
 				     "#pragma acc routine");
+      /* The clauses are in reverse order; fix that to make later diagnostic
+	 emission easier.  */
+      data.clauses = nreverse (data.clauses);
 
       /* Emit a helpful diagnostic if there's another pragma following this
 	 one.  Also don't allow a static assertion declaration, as in the
@@ -14151,6 +14157,8 @@ c_finish_oacc_routine (struct oacc_routine_data *data, tree fndecl,
       data->error_seen = true;
       return;
     }
+
+  verify_oacc_routine_clauses (&data->clauses, data->loc);
 
   if (get_oacc_fn_attrib (fndecl))
     {
