@@ -1201,15 +1201,8 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
 
   int success = flag_ltrans || (!node->in_other_partition
 				&& !node->used_from_other_partition);
-
   if (!success)
-    {
-      gcc_assert (flag_openacc);
-      if (TREE_CODE (node->decl) == FUNCTION_DECL)
-	error ("missing OpenACC %<routine%> function %qD", node->decl);
-      else
-	error ("missing OpenACC %<declare%> variable %qD", node->decl);
-    }
+    error ("Missing %<%s%>", node->name ());
 }
 
 /* Return string alias is alias of.  */

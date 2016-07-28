@@ -86,6 +86,15 @@ const mstring save_status[] =
     minit ("IMPLICIT-SAVE", SAVE_IMPLICIT),
 };
 
+const mstring oacc_function_types[] =
+{
+  minit ("NONE", OACC_FUNCTION_NONE),
+  minit ("OACC_FUNCTION_SEQ", OACC_FUNCTION_SEQ),
+  minit ("OACC_FUNCTION_GANG", OACC_FUNCTION_GANG),
+  minit ("OACC_FUNCTION_WORKER", OACC_FUNCTION_WORKER),
+  minit ("OACC_FUNCTION_VECTOR", OACC_FUNCTION_VECTOR)
+};
+
 /* This is to make sure the backend generates setup code in the correct
    order.  */
 

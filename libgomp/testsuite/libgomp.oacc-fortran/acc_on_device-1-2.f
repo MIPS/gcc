@@ -6,6 +6,7 @@
 
       USE OPENACC
       IMPLICIT NONE
+!$ACC ROUTINE(ABORT) SEQ
 
 !Host.
 

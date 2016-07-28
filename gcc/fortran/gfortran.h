@@ -292,6 +292,15 @@ enum save_state
 { SAVE_NONE = 0, SAVE_EXPLICIT, SAVE_IMPLICIT
 };
 
+/* Flags to keep track of ACC routine states.  */
+enum oacc_function
+{ OACC_FUNCTION_NONE = 0,
+  OACC_FUNCTION_SEQ,
+  OACC_FUNCTION_GANG,
+  OACC_FUNCTION_WORKER,
+  OACC_FUNCTION_VECTOR
+};
+
 /* Strings for all symbol attributes.  We use these for dumping the
    parse tree, in error messages, and also when reading and writing
    modules.  In symbol.c.  */
@@ -301,6 +310,7 @@ extern const mstring intents[];
 extern const mstring access_types[];
 extern const mstring ifsrc_types[];
 extern const mstring save_status[];
+extern const mstring oacc_function_types[];
 
 /* Enumeration of all the generic intrinsic functions.  Used by the
    backend for identification of a function.  */
@@ -851,7 +861,7 @@ typedef struct
   unsigned oacc_declare_link:1;
 
   /* This is an OpenACC acclerator function at level N - 1  */
-  unsigned oacc_function:3;
+  ENUM_BITFIELD (oacc_function) oacc_function:3;
   unsigned oacc_function_nohost:1;
 
   /* Attributes set by compiler extensions (!GCC$ ATTRIBUTES).  */

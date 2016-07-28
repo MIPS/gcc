@@ -1,3 +1,18 @@
+2016-07-27  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.h (enum oacc_function): Define.
+	(oacc_function_type): Declare.
+	(symbol_attribute): Change the type of oacc_function from unsigned
+	to an ENUM_BITFIELD.
+	* module.c (oacc_function): New DECL_MIO_NAME.
+	(mio_symbol_attribute): Set the oacc_function attribute.
+	* openmp.c (gfc_oacc_routine_dims): Change the return type from
+	int to oacc_function.
+	(gfc_match_oacc_routine): Handle intrinsic procedures.
+	* symbol.c (oacc_function_types): Define.
+	* trans-decl.c (add_attributes_to_decl): Update to handle the
+	retyped oacc_function attribute.
+
 2016-07-15  Cesar Philippidis  <cesar@codesourcery.com>
 
 	Backport from trunk:

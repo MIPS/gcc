@@ -1879,21 +1879,31 @@ gfc_match_oacc_cache (void)
 
 /* Determine the loop level for a routine.   */
 
-static int
+static oacc_function
 gfc_oacc_routine_dims (gfc_omp_clauses *clauses)
 {
   int level = -1;
+  oacc_function ret = OACC_FUNCTION_SEQ;
 
   if (clauses)
     {
       unsigned mask = 0;
 
       if (clauses->gang)
-	level = GOMP_DIM_GANG, mask |= GOMP_DIM_MASK (level);
+	{
+	  level = GOMP_DIM_GANG, mask |= GOMP_DIM_MASK (level);
+	  ret = OACC_FUNCTION_GANG;
+	}
       if (clauses->worker)
-	level = GOMP_DIM_WORKER, mask |= GOMP_DIM_MASK (level);
+	{
+	  level = GOMP_DIM_WORKER, mask |= GOMP_DIM_MASK (level);
+	  ret = OACC_FUNCTION_WORKER;
+	}
       if (clauses->vector)
-	level = GOMP_DIM_VECTOR, mask |= GOMP_DIM_MASK (level);
+	{
+	  level = GOMP_DIM_VECTOR, mask |= GOMP_DIM_MASK (level);
+	  ret = OACC_FUNCTION_VECTOR;
+	}
       if (clauses->seq)
 	level = GOMP_DIM_MAX, mask |= GOMP_DIM_MASK (level);
 
@@ -1901,10 +1911,7 @@ gfc_oacc_routine_dims (gfc_omp_clauses *clauses)
 	gfc_error ("Multiple loop axes specified for routine");
     }
 
-  if (level < 0)
-    level = GOMP_DIM_MAX;
-
-  return level;
+  return ret;
 }
 
 match
@@ -1915,6 +1922,7 @@ gfc_match_oacc_routine (void)
   match m;
   gfc_omp_clauses *c = NULL;
   gfc_oacc_routine_name *n = NULL;
+  gfc_intrinsic_sym *isym = NULL;
 
   old_loc = gfc_current_locus;
 
@@ -1932,12 +1940,14 @@ gfc_match_oacc_routine (void)
   if (m == MATCH_YES)
     {
       char buffer[GFC_MAX_SYMBOL_LEN + 1];
-      gfc_symtree *st;
+      gfc_symtree *st = NULL;
 
       m = gfc_match_name (buffer);
       if (m == MATCH_YES)
 	{
-	  st = gfc_find_symtree (gfc_current_ns->sym_root, buffer);
+	  if ((isym = gfc_find_function (buffer)) == NULL
+	      && (isym = gfc_find_subroutine (buffer)) == NULL)
+	    st = gfc_find_symtree (gfc_current_ns->sym_root, buffer);
 	  if (st)
 	    {
 	      sym = st->n.sym;
@@ -1945,7 +1955,7 @@ gfc_match_oacc_routine (void)
 	        sym = NULL;
 	    }
 
-	  if (st == NULL
+	  if ((st == NULL && isym == NULL)
 	      || (sym
 		  && !sym->attr.external
 		  && !sym->attr.function
@@ -1981,7 +1991,10 @@ gfc_match_oacc_routine (void)
 	  != MATCH_YES))
     return MATCH_ERROR;
 
-  if (sym != NULL)
+  if (isym != NULL)
+    /* There is nothing to do for intrinsic procedures.  */
+    ;
+  else if (sym != NULL)
     {
       n = gfc_get_oacc_routine_name ();
       n->sym = sym;
@@ -1999,7 +2012,7 @@ gfc_match_oacc_routine (void)
 				       &old_loc))
 	goto cleanup;
       gfc_current_ns->proc_name->attr.oacc_function
-	= gfc_oacc_routine_dims (c) + 1;
+	= gfc_oacc_routine_dims (c);
       gfc_current_ns->proc_name->attr.oacc_function_nohost
 	= c ? c->nohost : false;
     }

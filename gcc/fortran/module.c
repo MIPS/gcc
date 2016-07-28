@@ -2095,6 +2095,7 @@ DECL_MIO_NAME (procedure_type)
 DECL_MIO_NAME (ref_type)
 DECL_MIO_NAME (sym_flavor)
 DECL_MIO_NAME (sym_intent)
+DECL_MIO_NAME (oacc_function)
 #undef DECL_MIO_NAME
 
 /* Symbol attributes are stored in list with the first three elements
@@ -2116,6 +2117,8 @@ mio_symbol_attribute (symbol_attribute *attr)
   attr->proc = MIO_NAME (procedure_type) (attr->proc, procedures);
   attr->if_source = MIO_NAME (ifsrc) (attr->if_source, ifsrc_types);
   attr->save = MIO_NAME (save_state) (attr->save, save_status);
+  attr->oacc_function = MIO_NAME (oacc_function) (attr->oacc_function,
+						  oacc_function_types);
 
   ext_attr = attr->ext_attr;
   mio_integer ((int *) &ext_attr);

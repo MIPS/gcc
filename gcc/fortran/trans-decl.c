@@ -1327,11 +1327,26 @@ add_attributes_to_decl (symbol_attribute sym_attr, tree list)
 		      NULL_TREE, list);
 #endif
 
-  if (sym_attr.oacc_function)
+  if (sym_attr.oacc_function != OACC_FUNCTION_NONE)
     {
       tree dims = NULL_TREE;
       int ix;
-      int level = sym_attr.oacc_function - 1;
+      int level = GOMP_DIM_MAX;
+
+      switch (sym_attr.oacc_function)
+	{
+	case OACC_FUNCTION_GANG:
+	  level = GOMP_DIM_GANG;
+	  break;
+	case OACC_FUNCTION_WORKER:
+	  level = GOMP_DIM_WORKER;
+	  break;
+	case OACC_FUNCTION_VECTOR:
+	  level = GOMP_DIM_VECTOR;
+	  break;
+	case OACC_FUNCTION_SEQ:
+	default:;
+	}
 
       for (ix = GOMP_DIM_MAX; ix--;)
 	dims = tree_cons (build_int_cst (boolean_type_node, ix >= level),

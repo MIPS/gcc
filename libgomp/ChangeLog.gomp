@@ -1,3 +1,9 @@
+2016-07-27  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-fortran/abort-1.f90:
+	* testsuite/libgomp.oacc-fortran/acc_on_device-1-2.f: Add test
+	coverage.
+
 2016-07-15  Cesar Philippidis  <cesar@codesourcery.com>
 
 	Backport from trunk:

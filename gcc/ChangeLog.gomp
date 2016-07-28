@@ -1,3 +1,8 @@
+2016-07-27  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* lto-cgraph.c (input_overwrite_node): Change the assertion to an
+	error for missing symbols.
+
 2016-07-15  Cesar Philippidis  <cesar@codesourcery.com>
 
 	Backport from trunk:
