@@ -1,3 +1,13 @@
+2016-07-28   Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vec-extract-3.c: Delete, to revisit patch
+	#2.
+	* gcc.target/powerpc/vec-extract-4.c: Likewise.
+	* gcc.target/powerpc/vec-extract-5.c: Likewise.
+	* gcc.target/powerpc/vec-extract-6.c: Likewise.
+	* gcc.target/powerpc/vec-extract-7.c: Likewise.
+	* gcc.target/powerpc/vec-extract-2.c: New test.
+
 2016-07-27   Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/vec-extract-3.c: New tests.
