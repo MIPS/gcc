@@ -6,6 +6,8 @@
 
       USE OPENACC
       IMPLICIT NONE
+!$ACC ROUTINE(ABORT) SEQ
+! { dg-bogus "invalid function name abort" "" { xfail *-*-* } 9 }
 
 !Host.
 
