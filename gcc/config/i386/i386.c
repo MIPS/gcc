@@ -52237,7 +52237,10 @@ ix86_initialize_bounds (tree var, tree lb, tree ub, tree *stmts)
 static bool
 ix86_binds_local_p (const_tree exp)
 {
-  return default_binds_local_p_3 (exp, flag_shlib != 0, true, true,
+  return default_binds_local_p_3 (exp, flag_shlib != 0, true,
+				  (flag_copy_reloc
+				   || !(TARGET_64BIT
+					|| HAVE_AS_IX86_GOT32X)),
 				  (!flag_pic
 				   || (TARGET_64BIT
 				       && HAVE_LD_PIE_COPYRELOC != 0)));
