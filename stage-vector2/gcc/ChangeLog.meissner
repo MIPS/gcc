@@ -1,5 +1,22 @@
 2016-07-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	<rework patch #3>
+	* config/rs6000/rs6000-protos.h (rs6000_adjust_vec_address): New
+	declaration.
+	* config/rs6000/rs6000.c (rs6000_adjust_vec_address): New function
+	to adjust a vector memory address to point to one of its
+	elements.
+	(rs6000_split_vec_extract_var): Handle variable vec_extract coming
+	from a memory location by calling rs6000_split_vec_extract_var.
+	* config/rs6000/vsx.md (vsx_extract_<mode>_load, VSX_D iterator):
+	Rework to load either vector element from memory, or to load a
+	variable vector element.
+	(vsx_extract_<mode>_var): Add constraints to allow variable
+	extracts from memory.
+
+2016-07-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	<rework patch #2>
 	* config/rs6000/rs6000-protos.h (rs6000_split_vec_extract_var):
 	New declaration.
 	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin):
