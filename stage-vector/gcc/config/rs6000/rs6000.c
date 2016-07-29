@@ -6943,14 +6943,16 @@ rs6000_expand_vector_extract (rtx target, rtx vec, rtx elt)
 	      emit_insn (gen_vsx_extract_v16qi (target, vec, elt));
 	      return;
 	    }
-	  break;
+	  else
+	    break;
 	case V8HImode:
 	  if (TARGET_DIRECT_MOVE_64BIT)
 	    {
 	      emit_insn (gen_vsx_extract_v8hi (target, vec, elt));
 	      return;
 	    }
-	  break;
+	  else
+	    break;
 	case V4SImode:
 	  if (TARGET_DIRECT_MOVE_64BIT)
 	    {
