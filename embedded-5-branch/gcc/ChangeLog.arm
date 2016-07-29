@@ -1,5 +1,14 @@
 2016-07-29  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
+	Revert changes made in lra-constraints.c by:
+
+	2016-07-27  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	Backport from mainline
+	2015-11-29  Jan Hubicka  <hubicka@ucw.cz>
+
+2016-07-29  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
 	Revert
 	2016-07-27  Thomas Preud'homme  <thomas.preudhomme@arm.com>
 
