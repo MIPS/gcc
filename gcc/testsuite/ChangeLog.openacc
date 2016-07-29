@@ -1,5 +1,14 @@
 2018-05-14  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* gfortran.dg/goacc/pr72741.f90: Add XFAILs.
+
+2016-07-28  Cesar Philippidis  <cesar@codesourcery.com>
+
+	PR fortran/72741
+	* gfortran.dg/goacc/pr72741.f90: New test.
+
+2018-05-14  Thomas Schwinge  <thomas@codesourcery.com>
+
 	* gfortran.dg/goacc/fixed-1.f: Add XFAIL.
 
 2016-07-27  Cesar Philippidis  <cesar@codesourcery.com>
