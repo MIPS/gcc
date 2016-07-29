@@ -3633,6 +3633,8 @@
 	return "andi\t%0,%1,<SHORT:mask>";
     case 3: return mips_index_address_p (XEXP (operands[1], 0), <MODE>mode)
 		   ? "l<SHORT:size>ux\t%0,%1"
+		   : mips_index_scaled_address_p (XEXP (operands[1], 0), <MODE>mode)
+		   ? "l<SHORT:size>uxs\t%0,%1"
 		   : "l<SHORT:size>u\t%0,%1";
     default:
       gcc_unreachable ();
