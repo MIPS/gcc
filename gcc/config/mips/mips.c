@@ -2988,6 +2988,9 @@ mips_string_constant_p (rtx x)
       && GET_CODE (XEXP (x, 0)) == PLUS)
     x = XEXP (XEXP (x, 0), 0);
 
+  if (TARGET_LI48 >= 2 && GET_CODE (x) == SYMBOL_REF)
+    return true;
+
   if (GET_CODE (x) == SYMBOL_REF
       && (decl = SYMBOL_REF_DECL (x))
       && TREE_CODE (decl) == VAR_DECL
