@@ -5576,6 +5576,18 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	    }
 	}
 
+      if (TARGET_MICROMIPS_R7
+	  && mips_valid_base_register_p (XEXP (x, 1), mode, false)
+	  && ((mips_index_scaled_address_p (x, mode)
+	       && mips_valid_index_register_p (XEXP (XEXP (x, 0), 0), false))
+	       || (mips_index_address_p (x, mode)
+		   && mips_valid_index_register_p (XEXP (x, 0), false))))
+	{
+	  /* Treat indexed (scaled) addresses as free.  */
+	  *total = 0;
+	  return true;
+	}
+
       /* Double-word operations require three single-word operations and
 	 an SLTU.  The MIPS16 version then needs to move the result of
 	 the SLTU from $24 to a MIPS16 register.  */
