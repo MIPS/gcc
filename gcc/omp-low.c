@@ -12605,11 +12605,14 @@ set_oacc_fn_attrib (tree fn, tree clauses, vec<tree> *args)
 
 /* Verify OpenACC routine clauses.
 
-   Upon returning, the chain of clauses will contain exactly one clause
-   specifying the level of parallelism.  */
+   Returns 0 if FNDECL should be marked as an accelerator routine, 1 if it has
+   already been marked in compatible way, and -1 if incompatible.  Upon
+   returning, the chain of clauses will contain exactly one clause specifying
+   the level of parallelism.  */
 
-void
-verify_oacc_routine_clauses (tree *clauses, location_t loc)
+int
+verify_oacc_routine_clauses (tree fndecl, tree *clauses, location_t loc,
+			     const char *routine_str)
 {
   tree c_level = NULL_TREE;
   tree c_p = NULL_TREE;
@@ -12655,6 +12658,56 @@ verify_oacc_routine_clauses (tree *clauses, location_t loc)
       OMP_CLAUSE_CHAIN (c_level) = *clauses;
       *clauses = c_level;
     }
+  /* In *clauses, we now have exactly one clause specifying the level of
+     parallelism.  */
+
+  /* Still got some work to do for Fortran...  */
+  if (fndecl == NULL_TREE)
+    return 0;
+
+  tree attr
+    = lookup_attribute ("omp declare target", DECL_ATTRIBUTES (fndecl));
+  if (attr != NULL_TREE)
+    {
+      /* If a "#pragma acc routine" has already been applied, just verify
+	 this one for compatibility.  */
+      /* Collect previous directive's clauses.  */
+      tree c_level_p = NULL_TREE;
+      for (tree c = TREE_VALUE (attr); c; c = OMP_CLAUSE_CHAIN (c))
+	switch (OMP_CLAUSE_CODE (c))
+	  {
+	  case OMP_CLAUSE_GANG:
+	  case OMP_CLAUSE_WORKER:
+	  case OMP_CLAUSE_VECTOR:
+	  case OMP_CLAUSE_SEQ:
+	    gcc_checking_assert (c_level_p == NULL_TREE);
+	    c_level_p = c;
+	    break;
+	  default:
+	    gcc_unreachable ();
+	  }
+      gcc_checking_assert (c_level_p != NULL_TREE);
+      /* ..., and compare to current directive's, which we've already collected
+	 above.  */
+      if (OMP_CLAUSE_CODE (c_level) != OMP_CLAUSE_CODE (c_level_p))
+	{
+	  error_at (OMP_CLAUSE_LOCATION (c_level),
+		    "incompatible %qs clause when applying"
+		    " %<%s%> to %qD, which has already been"
+		    " marked as an accelerator routine",
+		    omp_clause_code_name[OMP_CLAUSE_CODE (c_level)],
+		    routine_str, fndecl);
+	  inform (OMP_CLAUSE_LOCATION (c_level_p),
+		  "... with %qs clause here",
+		  omp_clause_code_name[OMP_CLAUSE_CODE (c_level_p)]);
+	  /* Incompatible.  */
+	  return -1;
+	}
+      /* Compatible.  */
+      return 1;
+    }
+
+  return 0;
 }
 
 /*  Process the OpenACC routine's clauses to generate an attribute

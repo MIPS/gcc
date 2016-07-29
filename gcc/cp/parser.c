@@ -36813,34 +36813,39 @@ cp_finalize_oacc_routine (cp_parser *parser, tree fndecl, bool is_defn)
 	  return;
 	}
 
-      verify_oacc_routine_clauses (&parser->oacc_routine->clauses,
-				   parser->oacc_routine->loc);
-
-      if (get_oacc_fn_attrib (fndecl))
+      int compatible
+	= verify_oacc_routine_clauses (fndecl, &parser->oacc_routine->clauses,
+				       parser->oacc_routine->loc,
+				       "#pragma acc routine");
+      if (compatible < 0)
 	{
-	  error_at (parser->oacc_routine->loc,
-		    "%<#pragma acc routine%> already applied to %qD", fndecl);
 	  parser->oacc_routine = NULL;
 	  return;
 	}
-
-      if (TREE_USED (fndecl) || (!is_defn && DECL_SAVED_TREE (fndecl)))
+      if (compatible > 0)
 	{
-	  error_at (parser->oacc_routine->loc,
-		    "%<#pragma acc routine%> must be applied before %s",
-		    TREE_USED (fndecl) ? "use" : "definition");
-	  parser->oacc_routine = NULL;
-	  return;
 	}
+      else
+	{
+	  if (TREE_USED (fndecl) || (!is_defn && DECL_SAVED_TREE (fndecl)))
+	    {
+	      error_at (parser->oacc_routine->loc,
+			"%<#pragma acc routine%> must be applied before %s",
+			TREE_USED (fndecl) ? "use" : "definition");
+	      parser->oacc_routine = NULL;
+	      return;
+	    }
 
-      /* Process the routine's dimension clauses.  */
-      tree dims = build_oacc_routine_dims (parser->oacc_routine->clauses);
-      replace_oacc_fn_attrib (fndecl, dims);
-      
-      /* Add an "omp declare target" attribute.  */
-      DECL_ATTRIBUTES (fndecl)
-	= tree_cons (get_identifier ("omp declare target"),
-		     NULL_TREE, DECL_ATTRIBUTES (fndecl));
+	  /* Set the routine's level of parallelism.  */
+	  tree dims = build_oacc_routine_dims (parser->oacc_routine->clauses);
+	  replace_oacc_fn_attrib (fndecl, dims);
+
+	  /* Add an "omp declare target" attribute.  */
+	  DECL_ATTRIBUTES (fndecl)
+	    = tree_cons (get_identifier ("omp declare target"),
+			 parser->oacc_routine->clauses,
+			 DECL_ATTRIBUTES (fndecl));
+	}
 
       /* Don't unset parser->oacc_routine here: we may still need it to
 	 diagnose wrong usage.  But, remember that we've used this "#pragma acc
