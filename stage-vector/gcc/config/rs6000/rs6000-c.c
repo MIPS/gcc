@@ -5141,17 +5141,17 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 		  break;
 
 		case V4SImode:
-		  if (VEC_EXTRACT_OPTIMIZE_P)
+		  if (TARGET_DIRECT_MOVE_64BIT)
 		    call = rs6000_builtin_decls[ALTIVEC_BUILTIN_VEC_EXT_V4SI];
 		  break;
 
 		case V8HImode:
-		  if (VEC_EXTRACT_OPTIMIZE_P)
+		  if (TARGET_DIRECT_MOVE_64BIT)
 		    call = rs6000_builtin_decls[ALTIVEC_BUILTIN_VEC_EXT_V8HI];
 		  break;
 
 		case V16QImode:
-		  if (VEC_EXTRACT_OPTIMIZE_P)
+		  if (TARGET_DIRECT_MOVE_64BIT)
 		    call = rs6000_builtin_decls[ALTIVEC_BUILTIN_VEC_EXT_V16QI];
 		  break;
 		}
@@ -5159,7 +5159,7 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 
 	  /* If the second argument is variable, we can optimize it if we are
 	     generating 64-bit code on a machine with direct move.  */
-	  else if (TREE_CODE (arg2) != INTEGER_CST && VEC_EXTRACT_OPTIMIZE_P)
+	  else if (TREE_CODE (arg2) != INTEGER_CST && TARGET_DIRECT_MOVE_64BIT)
 	    {
 	      switch (mode)
 		{

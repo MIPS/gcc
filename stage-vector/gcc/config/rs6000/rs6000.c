@@ -6937,21 +6937,21 @@ rs6000_expand_vector_extract (rtx target, rtx vec, rtx elt)
 	  emit_insn (gen_vsx_extract_v4sf (target, vec, elt));
 	  return;
 	case V16QImode:
-	  if (VEC_EXTRACT_OPTIMIZE_P)
+	  if (TARGET_DIRECT_MOVE_64BIT)
 	    {
 	      emit_insn (gen_vsx_extract_v16qi (target, vec, elt));
 	      return;
 	    }
 	  break;
 	case V8HImode:
-	  if (VEC_EXTRACT_OPTIMIZE_P)
+	  if (TARGET_DIRECT_MOVE_64BIT)
 	    {
 	      emit_insn (gen_vsx_extract_v8hi (target, vec, elt));
 	      return;
 	    }
 	  break;
 	case V4SImode:
-	  if (VEC_EXTRACT_OPTIMIZE_P)
+	  if (TARGET_DIRECT_MOVE_64BIT)
 	    {
 	      emit_insn (gen_vsx_extract_v4si (target, vec, elt));
 	      return;
@@ -6960,7 +6960,7 @@ rs6000_expand_vector_extract (rtx target, rtx vec, rtx elt)
 	}
     }
   else if (VECTOR_MEM_VSX_P (mode) && !CONST_INT_P (elt)
-	   && VEC_EXTRACT_OPTIMIZE_P)
+	   && TARGET_DIRECT_MOVE_64BIT)
     {
       if (GET_MODE (elt) != DImode)
 	{

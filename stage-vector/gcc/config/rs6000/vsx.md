@@ -2175,19 +2175,19 @@
   [(set_attr "type" "veclogical,mftgpr,mftgpr,vecperm")])
 
 ;; Optimize extracting a single scalar element from memory.
-(define_insn_and_split "*vsx_extract_<mode>_load"
-  [(set (match_operand:<VS_scalar> 0 "register_operand" "=<VSa>,r")
-	(vec_select:<VS_scalar>
+(define_insn_and_split "*vsx_extract_<P:mode>_<VSX_D:mode>_load"
+  [(set (match_operand:<VS_scalar> 0 "register_operand" "=<VSX_D:VS_64reg>,wr")
+	(vec_select:<VSX_D:VS_scalar>
 	 (match_operand:VSX_D 1 "memory_operand" "m,m")
 	 (parallel [(match_operand:QI 2 "const_0_to_1_operand" "n,n")])))
-   (clobber (match_scratch:DI 3 "=&b,&b"))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+   (clobber (match_scratch:P 3 "=&b,&b"))]
+  "VECTOR_MEM_VSX_P (<VSX_D:MODE>mode)"
   "#"
   "&& reload_completed"
   [(set (match_dup 0) (match_dup 4))]
 {
   operands[4] = rs6000_adjust_vec_address (operands[0], operands[1], operands[2],
-					   operands[3], <VS_scalar>mode);
+					   operands[3], <VSX_D:VS_scalar>mode);
 }
   [(set_attr "type" "fpload,load")
    (set_attr "length" "8")])
@@ -2195,15 +2195,15 @@
 ;; Optimize storing a single scalar element that is the right location to
 ;; memory
 (define_insn "*vsx_extract_<mode>_store"
-  [(set (match_operand:<VS_scalar> 0 "memory_operand" "=m,Z,?Z")
+  [(set (match_operand:<VS_scalar> 0 "memory_operand" "=m,Z,o")
 	(vec_select:<VS_scalar>
-	 (match_operand:VSX_D 1 "register_operand" "d,wd,<VSa>")
+	 (match_operand:VSX_D 1 "register_operand" "d,wv,wb")
 	 (parallel [(match_operand:QI 2 "vsx_scalar_64bit" "wD,wD,wD")])))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "@
    stfd%U0%X0 %1,%0
    stxsd%U0x %x1,%y0
-   stxsd%U0x %x1,%y0"
+   stxsd %1.%0"
   [(set_attr "type" "fpstore")
    (set_attr "length" "4")])
 
@@ -2213,7 +2213,7 @@
 	(unspec:<VS_scalar> [(match_operand:VSX_D 1 "gpc_reg_operand" "v")
 			     (match_operand:V2DI 2 "gpc_reg_operand" "v")]
 			    UNSPEC_VSX_VSLO))]
-  "VECTOR_MEM_VSX_P (<MODE>mode) && VEC_EXTRACT_OPTIMIZE_P"
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_DIRECT_MOVE_64BIT"
   "vslo %0,%1,%2"
   [(set_attr "type" "vecperm")])
 
@@ -2225,7 +2225,7 @@
 			    UNSPEC_VSX_EXTRACT))
    (clobber (match_scratch:DI 3 "=r,&b,&b"))
    (clobber (match_scratch:V2DI 4 "=&v,X,X"))]
-  "VECTOR_MEM_VSX_P (<MODE>mode) && VEC_EXTRACT_OPTIMIZE_P"
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_DIRECT_MOVE_64BIT"
   "#"
   "&& reload_completed"
   [(const_int 0)]
@@ -2269,12 +2269,12 @@
   [(set_attr "length" "8")
    (set_attr "type" "fp")])
 
-(define_insn_and_split "*vsx_extract_v4sf_load"
+(define_insn_and_split "*vsx_extract_v4sf_<mode>_load"
   [(set (match_operand:SF 0 "register_operand" "=f,wv,wb,?r")
 	(vec_select:SF
 	 (match_operand:V4SF 1 "memory_operand" "m,Z,m,m")
 	 (parallel [(match_operand:QI 2 "const_0_to_3_operand" "n,n,n,n")])))
-   (clobber (match_scratch:DI 3 "=&b,&b,&b,&b"))]
+   (clobber (match_scratch:P 3 "=&b,&b,&b,&b"))]
   "VECTOR_MEM_VSX_P (V4SFmode)"
   "#"
   "&& reload_completed"
@@ -2294,7 +2294,7 @@
 		   UNSPEC_VSX_EXTRACT))
    (clobber (match_scratch:DI 3 "=r,&b,&b"))
    (clobber (match_scratch:V2DI 4 "=&v,X,X"))]
-  "VECTOR_MEM_VSX_P (V4SFmode) && VEC_EXTRACT_OPTIMIZE_P
+  "VECTOR_MEM_VSX_P (V4SFmode) && TARGET_DIRECT_MOVE_64BIT
    && TARGET_UPPER_REGS_SF"
   "#"
   "&& reload_completed"
@@ -2409,7 +2409,7 @@
 		    (match_operand:VSX_EXTRACT_I 1 "gpc_reg_operand" "")
 		    (parallel [(match_operand:QI 2 "const_int_operand" "")])))
 	      (clobber (match_dup 3))])]
-  "VECTOR_MEM_VSX_P (<MODE>mode) && VEC_EXTRACT_OPTIMIZE_P"
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_DIRECT_MOVE_64BIT"
 {
   operands[3] = gen_rtx_SCRATCH ((TARGET_VEXTRACTUB) ? DImode : <MODE>mode);
 })
@@ -2491,7 +2491,7 @@
 	 (match_operand:VSX_EXTRACT_I 1 "gpc_reg_operand" "v")
 	 (parallel [(match_operand:QI 2 "<VSX_EXTRACT_PREDICATE>" "n")])))
    (clobber (match_scratch:VSX_EXTRACT_I 3 "=v"))]
-  "VECTOR_MEM_VSX_P (<MODE>mode) && VEC_EXTRACT_OPTIMIZE_P"
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_DIRECT_MOVE_64BIT"
   "#"
   "&& reload_completed"
   [(const_int 0)]
@@ -2545,7 +2545,7 @@
 	 (match_operand:VSX_EXTRACT_I 1 "memory_operand" "m")
 	 (parallel [(match_operand:QI 2 "<VSX_EXTRACT_PREDICATE>" "n")])))
    (clobber (match_scratch:DI 3 "=&b"))]
-  "VECTOR_MEM_VSX_P (<MODE>mode) && VEC_EXTRACT_OPTIMIZE_P"
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_DIRECT_MOVE_64BIT"
   "#"
   "&& reload_completed"
   [(set (match_dup 0) (match_dup 4))]
@@ -2565,7 +2565,7 @@
 	 UNSPEC_VSX_EXTRACT))
    (clobber (match_scratch:DI 3 "=r,&b"))
    (clobber (match_scratch:V2DI 4 "=&v,X"))]
-  "VECTOR_MEM_VSX_P (<MODE>mode) && VEC_EXTRACT_OPTIMIZE_P"
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_DIRECT_MOVE_64BIT"
   "#"
   "&& reload_completed"
   [(const_int 0)]
