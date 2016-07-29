@@ -1,3 +1,9 @@
+2016-07-29  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	PR fortran/70598
+	* openmp.c (resolve_omp_clauses): Adjust use_device clause
+	handling to only allow pointers and arrays.
+
 2016-07-28  Cesar Philippidis  <cesar@codesourcery.com>
 
 	PR fortran/72741

@@ -1,3 +1,7 @@
+2016-07-29  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* testsuite/libgomp.oacc-fortran/host_data-1.f90: Adjust testcase.
+
 2016-07-27  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* testsuite/libgomp.oacc-fortran/abort-1.f90:
