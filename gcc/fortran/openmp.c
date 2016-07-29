@@ -1877,7 +1877,8 @@ gfc_match_oacc_cache (void)
   return MATCH_YES;
 }
 
-/* Determine the loop level for a routine.   */
+/* Determine the loop level for a routine.  Returns OACC_FUNCTION_NONE if
+   any error is detected.  */
 
 static oacc_function
 gfc_oacc_routine_dims (gfc_omp_clauses *clauses)
@@ -1908,7 +1909,7 @@ gfc_oacc_routine_dims (gfc_omp_clauses *clauses)
 	level = GOMP_DIM_MAX, mask |= GOMP_DIM_MASK (level);
 
       if (mask != (mask & -mask))
-	gfc_error ("Multiple loop axes specified for routine");
+	ret = OACC_FUNCTION_NONE;
     }
 
   return ret;
@@ -1923,6 +1924,7 @@ gfc_match_oacc_routine (void)
   gfc_omp_clauses *c = NULL;
   gfc_oacc_routine_name *n = NULL;
   gfc_intrinsic_sym *isym = NULL;
+  oacc_function dims = OACC_FUNCTION_NONE;
 
   old_loc = gfc_current_locus;
 
@@ -1991,6 +1993,14 @@ gfc_match_oacc_routine (void)
 	  != MATCH_YES))
     return MATCH_ERROR;
 
+  dims = gfc_oacc_routine_dims (c);
+  if (dims == OACC_FUNCTION_NONE)
+    {
+      gfc_error ("Multiple loop axes specified for routine %C");
+      gfc_current_locus = old_loc;
+      return MATCH_ERROR;
+    }
+
   if (isym != NULL)
     /* There is nothing to do for intrinsic procedures.  */
     ;
@@ -2011,8 +2021,7 @@ gfc_match_oacc_routine (void)
 				       gfc_current_ns->proc_name->name,
 				       &old_loc))
 	goto cleanup;
-      gfc_current_ns->proc_name->attr.oacc_function
-	= gfc_oacc_routine_dims (c);
+      gfc_current_ns->proc_name->attr.oacc_function = dims;
       gfc_current_ns->proc_name->attr.oacc_function_nohost
 	= c ? c->nohost : false;
     }
