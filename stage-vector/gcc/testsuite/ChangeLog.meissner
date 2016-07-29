@@ -1,5 +1,9 @@
 2016-07-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 238882.
+
+2016-07-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* gcc.target/powerpc/vec-extract-2.c: Move variable tests to
 	vec-extract-3.c.  Move vec-extract-3.c to vec-extract-8.c.  Change
 	addinging 1.0/1 to adding arguments.

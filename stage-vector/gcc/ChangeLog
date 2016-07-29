@@ -1,3 +1,290 @@
+2016-07-29  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr.c (avr_out_compare): Use const0_rtx instead of 0
+	when testing for compares against constants of the form 0xabab.
+
+2016-07-29  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/57558
+	* tree-vect-loop-manip.c (vect_create_cond_for_niters_checks): New
+	function.
+	(vect_loop_versioning): Support versioning with niter assumptions.
+	* tree-vect-loop.c (tree-ssa-loop.h): Include header file.
+	(vect_get_loop_niters): New parameter.  Reimplement to support
+	assumptions in loop niter info.
+	(vect_analyze_loop_form_1, vect_analyze_loop_form): Ditto.
+	(new_loop_vec_info): Init LOOP_VINFO_NITERS_ASSUMPTIONS.
+	(vect_estimate_min_profitable_iters): Use LOOP_REQUIRES_VERSIONING.
+	Support loop versioning for niters.
+	* tree-vectorizer.c (tree-ssa-loop-niter.h): Include header file.
+	(vect_free_loop_info_assumptions): New function.
+	(vectorize_loops): Free loop niter info for loops with flag
+	LOOP_F_ASSUMPTIONS set if vectorization failed.
+	* tree-vectorizer.h (struct _loop_vec_info): New field
+	num_iters_assumptions.
+	(LOOP_VINFO_NITERS_ASSUMPTIONS): New macro.
+	(LOOP_REQUIRES_VERSIONING_FOR_NITERS): New macro.
+	(LOOP_REQUIRES_VERSIONING): New macro.
+	(vect_free_loop_info_assumptions): New decl.
+
+2016-07-29  Bin Cheng  <bin.cheng@arm.com>
+
+	* cfgloop.h (struct loop): New field constraints.
+	(LOOP_C_INFINITE, LOOP_C_FINITE): New macros.
+	(loop_constraint_set, loop_constraint_clr, loop_constraint_set_p): New
+	functions.
+	* cfgloop.c (alloc_loop): Initialize new field.
+	* cfgloopmanip.c (copy_loop_info): Copy constraints.
+	* tree-ssa-loop-niter.c (number_of_iterations_exit_assumptions):
+	Adjust niter analysis wrto loop constraints.
+	* doc/loop.texi (@node Number of iterations): Add description for loop
+	constraints.
+
+2016-07-29  Marek Polacek  <polacek@redhat.com>
+
+	PR c/7652
+	* config/i386/i386.c (ix86_expand_args_builtin): Add break.
+	(ix86_expand_round_builtin): Likewise.
+
+2016-07-29  Segher Boessenkool  <segher@kernel.crashing.org>
+	    Georg-Johann Lay  <avr@gjlay.de>
+
+	PR rtl-optimization/71976
+	* combine.c (get_last_value): Return 0 if the argument for which
+	the function is called has a wider mode than the recorded value.
+
+2016-07-29  Marek Polacek  <polacek@redhat.com>
+
+	PR c/7652
+	* config/rs6000/rs6000.c (altivec_expand_ld_builtin): Add break.
+	(altivec_expand_st_builtin): Likewise.
+
+2016-07-29  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr.md (addqi3) [cc]: Revert glitch in insn attribute
+	introduced in r238381.
+
+2016-07-29  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/68217
+	* tree-vrp.c (extract_range_from_binary_expr_1): In case of signed
+	& sign-bit-CST, generate [-INF, 0] instead of [-INF, INF].
+
+2016-07-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-protos.h (rs6000_split_vec_extract_var):
+	New declaration.
+	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin):
+	Add support for vec_extract of vector double or vector long having
+	a variable element number on 64-bit ISA 2.07 systems or newer.
+	* config/rs6000/rs6000.c (rs6000_expand_vector_extract):
+	Likewise.
+	(rs6000_split_vec_extract_var): New function to split a
+	vec_extract built-in function with variable element number.
+	(rtx_is_swappable_p): Variable vec_extracts and shifts are not
+	swappable.
+	* config/rs6000/vsx.md (UNSPEC_VSX_VSLO): New unspec.
+	(UNSPEC_VSX_EXTRACT): Likewise.
+	(vsx_extract_<mode>, VSX_D iterator): Fix constraints to allow
+	direct move instructions to be generated on 64-bit ISA 2.07
+	systems and newer, and to take advantage of the ISA 3.0 MFVSRLD
+	instruction.
+	(vsx_vslo_<mode>): New insn to do VSLO on V2DFmode and V2DImode
+	arguments for vec_extract variable element.
+	(vsx_extract_<mode>_var, VSX_D iterator): New insn to support
+	vec_extract with variable element on V2DFmode and V2DImode
+	vectors.
+	* config/rs6000/rs6000.h (TARGET_VEXTRACTUB): Remove
+	-mupper-regs-df requirement, since it isn't needed.
+	(TARGET_DIRECT_MOVE_64BIT): New macro to say whether we can
+	do direct moves on 64-bit systems, which allows optimization of
+	vec_extract on 64-bit ISA 2.07 systems and newer.
+
+2016-07-28  Kristina Martsenko  <kristina.martsenko@arm.com>
+2016-07-28  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	 * config/aarch64/aarch64.md
+	(zero_extend<SHORT:mode><GPI:mode>2_aarch64): Change output
+	statement and type.
+	(<optab>qihi2_aarch64): Likewise, and split into two.
+	(extendqihi2_aarch64): New.
+	(zero_extendqihi2_aarch64): New.
+	* config/aarch64/iterators.md (ldrxt): Remove.
+	* config/aarch64/aarch64.c (aarch64_rtx_costs): Change cost of
+	uxtb/uxth.
+
+2016-07-28  Kristina Martsenko  <kristina.martsenko@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_rtx_costs): Fix cost of zero extend.
+
+2016-07-28  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_pushwb_pair_reg): Rename.
+	(aarch64_push_reg): New function to push 1 or 2 registers.
+	(aarch64_pop_reg): New function to pop 1 or 2 registers.
+	(aarch64_expand_prologue): Use aarch64_push_regs.
+	(aarch64_expand_epilogue): Use aarch64_pop_regs.
+
+2016-07-28  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR tree-optimization/71734
+	* tree-ssa-loop-im.c (ref_indep_loop_p_1): Pass value of safelen
+	attribute instead of REF_LOOP and use it.
+	(ref_indep_loop_p_2): Use SAFELEN argument instead of REF_LOOP and
+	set it for Loops having non-zero safelen attribute.
+	(ref_indep_loop_p): Pass zero as initial value for safelen.
+
+2016-07-28  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR middle-end/72657
+	PR target/72683
+	* tree-chkp.c (chkp_retbnd_call_by_val): Check for instrumentation
+	call using chkp_gimple_call_builtin_p.
+	(chkp_copy_bounds_for_assign): Likewise.
+
+2016-07-28  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* config/alpha/alpha.c (alpha_adjust_cost): Adjust.
+	* config/arm/arm-protos.h (struct tune_params): Likewise.
+	* config/arm/arm.c (xscale_sched_adjust_cost): Likewise.
+	(cortex_a9_sched_adjust_cost): Likewise.
+	(fa726te_sched_adjust_cost): Likewise.
+	(arm_adjust_cost): Likewise.
+	* config/bfin/bfin.c (bfin_adjust_cost): Likewise.
+	* config/c6x/c6x.c (c6x_adjust_cost): Likewise.
+	* config/epiphany/epiphany.c (epiphany_adjust_cost): Likewise.
+	* config/i386/i386.c (ix86_adjust_cost): Likewise.
+	* config/ia64/ia64.c: Likewise.
+	* config/m68k/m68k.c: Likewise.
+	* config/mep/mep.c (mep_adjust_cost): Likewise.
+	* config/microblaze/microblaze.c (microblaze_adjust_cost):
+	* Likewise.
+	* config/mips/mips.c (mips_adjust_cost): Likewise.
+	* config/mn10300/mn10300.c (mn10300_adjust_sched_cost):
+	* Likewise.
+	* config/pa/pa.c (pa_adjust_cost): Likewise.
+	* config/rs6000/rs6000.c (rs6000_adjust_cost): Likewise.
+	(rs6000_debug_adjust_cost): Likewise.
+	* config/sh/sh.c (sh_adjust_cost): Likewise.
+	* config/sparc/sparc.c (supersparc_adjust_cost): Likewise.
+	(hypersparc_adjust_cost): Likewise.
+	(sparc_adjust_cost): Likewise.
+	* config/spu/spu.c (spu_sched_adjust_cost): Likewise.
+	* config/tilegx/tilegx.c (tilegx_sched_adjust_cost): Likewise.
+	* config/tilepro/tilepro.c (tilepro_sched_adjust_cost):
+	* Likewise.
+	* config/visium/visium.c (visium_adjust_cost): Likewise.
+	* doc/tm.texi: Regenerate.
+	* haifa-sched.c (dep_cost_1): Adjust.
+	* target.def: Merge adjust_cost and adjust_cost_2.
+
+2016-07-28  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* haifa-sched.c (add_to_speculative_block): Make twins a vector.
+
+2016-07-28  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* store-motion.c (struct st_expr): Make pattern_regs a vector.
+	(extract_mentioned_regs): Append to a vector instead of
+	returning a rtx_expr_list.
+	(st_expr_entry): Adjust.
+	(free_st_expr_entry): Likewise.
+	(store_ops_ok): Likewise.
+	(store_killed_in_insn): Likewise.
+	(find_moveable_store): Likewise.
+
+2016-07-28  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/68025
+	* tree-profile.c (tree_profiling): Respect
+	no_profile_instrument_function attribute.
+	* doc/extend.texi: Document no_profile_instrument_function
+	attribute.
+
+2016-07-28  Martin Liska  <mliska@suse.cz>
+
+	PR rtl-optimization/70944
+	* combine.c (make_compound_operation):
+	Do not allow make_compound_operation for vector mode
+
+2016-07-28  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/71994
+	* tree-ssa-reassoc.c (maybe_optimize_range_tests): Check tcc_comparison
+	 before calling get_ops.
+
+2016-07-27  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* defaults.h (LOG2_BITS_PER_UNIT): Move from here...
+	* tree.h (LOG2_BITS_PER_UNIT): ...to here.
+	(BITS_PER_UNIT_LOG): Remove.
+	(int_bit_position): Use LOG2_BITS_PER_UNIT instead of BITS_PER_UNIT_LOG.
+	* expr.c (expand_assignment): Likewise.
+	* stor-layout.c (initialize_sizetypes): Likewise.
+
+2016-07-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (vec_extract<mode>): Change the calling
+	signature of rs6000_expand_vector_extract so that the element
+	number is a RTX instead of a constant integer.
+	* config/rs6000/rs6000-protos.h (rs6000_expand_vector_extract):
+	Likewise.
+	* config/rs6000/rs6000.c (rs6000_expand_vector_extract): Likewise.
+	(altivec_expand_vec_ext_builtin): Likewise.
+	* config/rs6000/altivec.md (reduc_plus_scal_<mode>): Likewise.
+	* config/rs6000/vsx.md (vsx_extract_<mode>): Fix spelling of the
+	MFVSRLD instruction.
+
+2016-07-27  David Malcolm  <dmalcolm@redhat.com>
+
+	* input.c (get_pure_location): Move here from tree.c.
+	(make_location): Likewise.  Add header comment.
+	(selftest::test_accessing_ordinary_linemaps): Verify
+	pure_location_p, make_location, get_location_from_adhoc_loc and
+	get_range_from_loc.
+	* input.h (get_pure_location): Move declaration here from tree.h.
+	(get_finish): Likewise for inline function.
+	(make_location): Likewise for declaration.
+	* tree.c (get_pure_location): Move to input.c.
+	(make_location): Likewise.
+	* tree.h (get_pure_location): Move declaration to tree.h.
+	(get_finish): Likewise for inline function.
+	(make_location): Likewise for declaration.
+
+2016-07-27  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	PR middle-end/71078
+	* match.pd (x / abs(x) -> copysign(1.0, x)): New pattern.
+
+2016-07-27  David Malcolm  <dmalcolm@redhat.com>
+
+	* system.h (STATIC_ASSERT): Use static_assert if building
+	with C++11 onwards.
+
+2016-07-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/72517
+	* tree-vect-data-refs.c (vect_analyze_data_ref_dependences):
+	Revert change to not compute read-read dependences.
+
+2016-07-27  Richard Biener  <rguenther@suse.de>
+
+	* predict.c (set_even_probabilities): Make nedges unsigned.
+
+2016-07-27  Martin Liska  <mliska@suse.cz>
+
+	* predict.c (set_even_probabilities): Handle unlikely edges.
+	(combine_predictions_for_bb): Likewise.
+
+2016-07-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/71869
+	* config/rs6000/rs6000.c (rs6000_generate_compare): Rework
+	__float128 support when we don't have hardware support, so that
+	the IEEE built-in functions like isgreater, first call __unordkf3
+	to make sure neither operand is a NaN, and if both operands are
+	ordered, do the normal comparison.
+
 2016-07-26  Patrick Palka  <ppalka@gcc.gnu.org>
 
 	* tree-vrp.c (dump_asserts_for): Print loc->expr instead of
@@ -532,6 +819,7 @@
 
 2016-07-22  Segher Boessenkool  <segher@kernel.crashing.org>
 
+	PR target/71216
 	* config/rs6000/rs6000.c (rs6000_file_start): Fix condition for
 	when to emit a ".machine" pseudo-op.
 

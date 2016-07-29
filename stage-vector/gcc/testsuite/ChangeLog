@@ -1,3 +1,143 @@
+2016-07-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/pr59833.c: Use dg-add-options ieee.
+
+2016-07-29  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/57558
+	* gcc.dg/vect/pr57558-1.c: New test.
+	* gcc.dg/vect/pr57558-2.c: New test.
+
+2016-07-29  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* gcc.dg/pr70920-4.c: Restrict to lp64 targets and make scan-tree-dump
+	to scan forwprop1 dump pass.
+
+2016-07-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51488
+	* g++.dg/template/pr51488.C: New.
+
+2016-07-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/71969
+	* gcc.dg/alias-11.c (add_cfi, new_cfi): Change __inline__ to
+	static __inline__.
+	* gcc.dg/pr71969-1.c: New test.
+	* gcc.dg/pr71969-2.c: New test.
+	* gcc.dg/pr71969-3.c: New test.
+
+2016-07-29  Marek Polacek  <polacek@redhat.com>
+
+	PR c/71574
+	* c-c++-common/pr71574.c: New test.
+
+	PR c/71583
+	* gcc.dg/noncompile/pr71583.c: New test.
+
+2016-07-29  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/68217
+	* gcc.dg/pr68217.c: New test.
+
+2016-07-28  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/71067
+	* gfortran.dg/pr71067_1.f90: New test.
+	* gfortran.dg/pr71067_2.f90: Ditto.
+
+2016-07-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vec-extract-1.c: New test.
+
+2016-07-28  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/71799
+	* gfortran.dg/pr71799.f90: New test.
+
+2016-07-28  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71665
+	* g++.dg/cpp0x/pr71665-1.C: New.
+	* g++.dg/cpp0x/pr71665-2.C: Likewise.
+	* g++.dg/cpp0x/enum29.C: Adjust dg-error string.
+	* g++.dg/ext/label10.C: Likewise.
+	* g++.dg/parse/constant5.C: Likewise.
+
+2016-07-28  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/71859
+	* gfortran.dg/pr71859.f90: New test.
+	* gfortran.dg/intrinsic_numeric_arg.f: Update error message.
+	* gfortran.dg/coarray_collectives_1.f90: Ditto.
+
+2016-07-28  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/71883
+	* gfortran.dg/pr71883.f90 : New test.
+
+2016-07-28  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR tree-optimization/71734
+	* g++.dg/vect/pr70729-nest.cc: New test.
+
+2016-07-28  Renlin Li  <renlin.li@arm.com>
+
+	Revert
+	2016-07-19  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/71902
+	* gfortran.dg/dependency_47.f90:  New test.
+
+2016-07-28  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/68025
+	* gcc.dg/no_profile_instrument_function-attr-1.c: New test.
+
+2016-07-28  Martin Liska  <mliska@suse.cz>
+
+	* g++.dg/vect/pr70944.cc: New test.
+
+2016-07-28  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR middle-end/71994
+	* gcc.dg/torture/pr71994.c: New test.
+
+2016-07-27  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	PR middle-end/71078
+	* gcc.dg/tree-ssa/pr71078-1.c: New test-case.
+	* gcc.dg/tree-ssa/pr71078-2.c: Likewise.
+	* gcc.dg/tree-ssa/pr71078-3.c: Likewise.
+
+2016-07-27  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/vect/costmodel/x86_64/costmodel-pr68961.c: Remove.
+
+2016-07-27  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/predict-13.c: New test.
+	* gcc.dg/predict-14.c: New test.
+
+2016-07-27  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.dg/torture/pr69352.c: Use  __INTPTR_TYPE__ instead of
+	including stdint.h.
+	* gcc.dg/torture/pr71866.c: Use __UINTPTR_TYPE__ isntead of
+	including stdint.h.
+
+2016-07-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/71869
+	* gcc.target/powerpc/float128-cmp.c: New test to make sure that
+	IEEE built-in functions handle quiet and signalling NaNs
+	correctly.
+
+2016-07-26  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/71862
+	* gfortran.dg/pr71862.f90: New test.
+
 2016-07-26  Martin Sebor  <msebor@redhat.com>
 
 	* gcc.dg/atomic/pr71675.c: Replace the unsupported c11 target
@@ -306,8 +446,8 @@
 
 2016-07-19  Martin Jambor  <mjambor@suse.cz>
 
-        PR fortran/71688
-        * gfortran.dg/pr71688.f90: New test.
+	PR fortran/71688
+	* gfortran.dg/pr71688.f90: New test.
 
 2016-07-19  Richard Biener  <rguenther@suse.de>
 
@@ -316,7 +456,7 @@
 
 2016-07-19  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
 
-	* gcc.dg/params/blocksort-part.c: Conditionally define Int32 
+	* gcc.dg/params/blocksort-part.c: Conditionally define Int32
 	and UInt32 based on __SIZEOF_INT__.
 
 2016-07-19  Richard Biener  <rguenther@suse.de>
