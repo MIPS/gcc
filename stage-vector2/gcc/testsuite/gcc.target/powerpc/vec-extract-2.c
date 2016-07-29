@@ -6,40 +6,22 @@
 #include <altivec.h>
 
 double
-add_double_0 (vector double *p)
+add_double_0 (vector double *p, double x)
 {
-  return vec_extract (*p, 0) + 1.0;
+  return vec_extract (*p, 0) + x;
 }
 
 double
-add_double_1 (vector double *p)
+add_double_1 (vector double *p, double x)
 {
-  return vec_extract (*p, 1) + 1.0;
+  return vec_extract (*p, 1) + x;
 }
 
 
 double
-add_double_n (vector double *p, long n)
+ret_double_n (vector double *p, long n, double x)
 {
-  return vec_extract (*p, n) + 1.0;
-}
-
-long
-add_long_0 (vector long *p)
-{
-  return vec_extract (*p, 0) + 1;
-}
-
-long
-add_long_1 (vector long *p)
-{
-  return vec_extract (*p, 1) + 1;
-}
-
-long
-add_long_n (vector long *p, long n)
-{
-  return vec_extract (*p, n) + 1;
+  return vec_extract (*p, n) + x;
 }
 
 /* { dg-final { scan-assembler-not "lxvd2x"   } } */

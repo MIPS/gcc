@@ -6937,7 +6937,7 @@ rs6000_expand_vector_extract (rtx target, rtx vec, rtx elt)
 	  emit_insn (gen_vsx_extract_v4sf (target, vec, elt));
 	  return;
 	case V16QImode:
-	  if (TARGET_DIRECT_MOVE_64BIT)
+	  if (TARGET_VEXTRACTUB)
 	    {
 	      emit_insn (gen_vsx_extract_v16qi (target, vec, elt));
 	      return;
@@ -6945,7 +6945,7 @@ rs6000_expand_vector_extract (rtx target, rtx vec, rtx elt)
 	  else
 	    break;
 	case V8HImode:
-	  if (TARGET_DIRECT_MOVE_64BIT)
+	  if (TARGET_VEXTRACTUB)
 	    {
 	      emit_insn (gen_vsx_extract_v8hi (target, vec, elt));
 	      return;
@@ -6953,7 +6953,7 @@ rs6000_expand_vector_extract (rtx target, rtx vec, rtx elt)
 	  else
 	    break;
 	case V4SImode:
-	  if (TARGET_DIRECT_MOVE_64BIT)
+	  if (TARGET_VEXTRACTUB)
 	    {
 	      emit_insn (gen_vsx_extract_v4si (target, vec, elt));
 	      return;
@@ -6979,26 +6979,6 @@ rs6000_expand_vector_extract (rtx target, rtx vec, rtx elt)
 
 	case V2DImode:
 	  emit_insn (gen_vsx_extract_v2di_var (target, vec, elt));
-	  return;
-
-	case V4SFmode:
-	  if (TARGET_UPPER_REGS_SF)
-	    {
-	      emit_insn (gen_vsx_extract_v4sf_var (target, vec, elt));
-	      return;
-	    }
-	  break;
-
-	case V4SImode:
-	  emit_insn (gen_vsx_extract_v4si_var (target, vec, elt));
-	  return;
-
-	case V8HImode:
-	  emit_insn (gen_vsx_extract_v8hi_var (target, vec, elt));
-	  return;
-
-	case V16QImode:
-	  emit_insn (gen_vsx_extract_v16qi_var (target, vec, elt));
 	  return;
 
 	default:
@@ -7271,33 +7251,6 @@ rs6000_split_vec_extract_var (rtx dest, rtx src, rtx element, rtx tmp_gpr,
 	case V2DImode:
 	  emit_insn (gen_vsx_vslo_v2di (dest, src, tmp_altivec));
 	  return;
-
-	case V4SFmode:
-	  {
-	    rtx tmp_altivec_di = gen_rtx_REG (DImode, REGNO (tmp_altivec));
-	    rtx tmp_altivec_v4sf = gen_rtx_REG (V4SFmode, REGNO (tmp_altivec));
-	    rtx src_v2di = gen_rtx_REG (V2DImode, REGNO (src));
-	    emit_insn (gen_vsx_vslo_v2di (tmp_altivec_di, src_v2di,
-					  tmp_altivec));
-
-	    emit_insn (gen_vsx_xscvspdp_scalar2 (dest, tmp_altivec_v4sf));
-	    return;
-	  }
-
-	case V4SImode:
-	case V8HImode:
-	case V16QImode:
-	  {
-	    rtx tmp_altivec_di = gen_rtx_REG (DImode, REGNO (tmp_altivec));
-	    rtx src_v2di = gen_rtx_REG (V2DImode, REGNO (src));
-	    rtx tmp_gpr_di = gen_rtx_REG (DImode, REGNO (dest));
-	    emit_insn (gen_vsx_vslo_v2di (tmp_altivec_di, src_v2di,
-					  tmp_altivec));
-	    emit_move_insn (tmp_gpr_di, tmp_altivec_di);
-	    emit_insn (gen_ashrdi3 (tmp_gpr_di, tmp_gpr_di,
-				    GEN_INT (64 - (8 * scalar_size))));
-	    return;
-	  }
 
 	default:
 	  gcc_unreachable ();
