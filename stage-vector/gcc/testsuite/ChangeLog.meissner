@@ -1,5 +1,9 @@
 2016-07-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* gcc.target/powerpc/vec-extract-4.c: Move old test to
+	vec-extract-9.c.  Replace with a test for power9 stxsd.
+	* gcc.target/powerpc/vec-extract-9.c: Likewise.
+
 	Merge up to 238882.
 
 2016-07-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
