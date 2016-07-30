@@ -67,6 +67,7 @@ std_headers = \
 	${std_srcdir}/stdexcept \
 	${std_srcdir}/streambuf \
 	${std_srcdir}/string \
+	${std_srcdir}/string_view \
 	${std_srcdir}/system_error \
 	${std_srcdir}/thread \
 	${std_srcdir}/tuple \
@@ -97,10 +98,15 @@ bits_headers = \
 	${bits_srcdir}/c++17_warning.h \
 	${bits_srcdir}/char_traits.h \
 	${bits_srcdir}/codecvt.h \
+	${bits_srcdir}/complex128.h \
+	${bits_srcdir}/complex_util.h \
+	${bits_srcdir}/complex_util.tcc \
 	${bits_srcdir}/concept_check.h \
 	${bits_srcdir}/cpp_type_traits.h \
 	${bits_srcdir}/deque.tcc \
 	${bits_srcdir}/enable_special_members.h \
+	${bits_srcdir}/float128.h \
+	${bits_srcdir}/float128.tcc \
 	${bits_srcdir}/forward_list.h \
 	${bits_srcdir}/forward_list.tcc \
 	${bits_srcdir}/fstream.tcc \
@@ -123,10 +129,9 @@ bits_headers = \
 	${bits_srcdir}/locale_facets_nonio.tcc \
 	${bits_srcdir}/localefwd.h \
 	${bits_srcdir}/mask_array.h \
-	${bits_srcdir}/specfun.h \
 	${bits_srcdir}/memoryfwd.h \
 	${bits_srcdir}/move.h \
-	${bits_srcdir}/std_mutex.h \
+	${bits_srcdir}/numeric_limits.h \
 	${bits_srcdir}/ostream.tcc \
 	${bits_srcdir}/ostream_insert.h \
 	${bits_srcdir}/parse_numbers.h \
@@ -149,13 +154,40 @@ bits_headers = \
 	${bits_srcdir}/regex_compiler.tcc \
 	${bits_srcdir}/regex_executor.h \
 	${bits_srcdir}/regex_executor.tcc \
-	${bits_srcdir}/stream_iterator.h \
-	${bits_srcdir}/streambuf_iterator.h \
+	${bits_srcdir}/sf_airy.tcc \
+	${bits_srcdir}/sf_bessel.tcc \
+	${bits_srcdir}/sf_beta.tcc \
+	${bits_srcdir}/sf_cardinal.tcc \
+	${bits_srcdir}/sf_chebyshev.tcc \
+	${bits_srcdir}/sf_dawson.tcc \
+	${bits_srcdir}/sf_distributions.tcc \
+	${bits_srcdir}/sf_ellint.tcc \
+	${bits_srcdir}/sf_expint.tcc \
+	${bits_srcdir}/sf_fresnel.tcc \
+	${bits_srcdir}/sf_gamma.tcc \
+	${bits_srcdir}/sf_gegenbauer.tcc \
+	${bits_srcdir}/sf_hankel.tcc \
+	${bits_srcdir}/sf_hermite.tcc \
+	${bits_srcdir}/sf_hydrogen.tcc \
+	${bits_srcdir}/sf_hyperg.tcc \
+	${bits_srcdir}/sf_hypint.tcc \
+	${bits_srcdir}/sf_jacobi.tcc \
+	${bits_srcdir}/sf_laguerre.tcc \
+	${bits_srcdir}/sf_legendre.tcc \
+	${bits_srcdir}/sf_mod_bessel.tcc \
+	${bits_srcdir}/sf_owens_t.tcc \
+	${bits_srcdir}/sf_polylog.tcc \
+	${bits_srcdir}/sf_theta.tcc \
+	${bits_srcdir}/sf_trigint.tcc \
+	${bits_srcdir}/sf_zeta.tcc \
 	${bits_srcdir}/shared_ptr.h \
 	${bits_srcdir}/shared_ptr_atomic.h \
 	${bits_srcdir}/shared_ptr_base.h \
 	${bits_srcdir}/slice_array.h \
+	${bits_srcdir}/specfun.h \
+	${bits_srcdir}/specfun_util.h \
 	${bits_srcdir}/sstream.tcc \
+	${bits_srcdir}/std_mutex.h \
 	${bits_srcdir}/stl_algo.h \
 	${bits_srcdir}/stl_algobase.h \
 	${bits_srcdir}/stl_bvector.h \
@@ -181,8 +213,13 @@ bits_headers = \
 	${bits_srcdir}/stl_tree.h \
 	${bits_srcdir}/stl_uninitialized.h \
 	${bits_srcdir}/stl_vector.h \
+	${bits_srcdir}/stream_iterator.h \
+	${bits_srcdir}/streambuf_iterator.h \
 	${bits_srcdir}/streambuf.tcc \
 	${bits_srcdir}/stringfwd.h \
+	${bits_srcdir}/string_view.tcc \
+	${bits_srcdir}/summation.h \
+	${bits_srcdir}/summation.tcc \
 	${bits_srcdir}/uniform_int_dist.h \
 	${bits_srcdir}/unique_ptr.h \
 	${bits_srcdir}/unordered_map.h \
@@ -531,6 +568,8 @@ ext_headers = \
 	${ext_srcdir}/functional \
 	${ext_srcdir}/iterator \
 	${ext_srcdir}/malloc_allocator.h \
+	${ext_srcdir}/math_const.h \
+	${ext_srcdir}/math_util.h \
 	${ext_srcdir}/memory \
 	${ext_srcdir}/mt_allocator.h \
 	${ext_srcdir}/new_allocator.h \
@@ -538,6 +577,7 @@ ext_headers = \
 	${ext_srcdir}/numeric_traits.h \
 	${ext_srcdir}/pod_char_traits.h \
 	${ext_srcdir}/pointer.h \
+	${ext_srcdir}/polynomial.h \
 	${ext_srcdir}/pool_allocator.h \
 	${ext_srcdir}/rb_tree \
 	${ext_srcdir}/random \
@@ -596,9 +636,9 @@ tr1_headers = \
 	${tr1_srcdir}/functional \
 	${tr1_srcdir}/functional_hash.h \
 	${tr1_srcdir}/gamma.tcc \
-	${tr1_srcdir}/hypergeometric.tcc \
 	${tr1_srcdir}/hashtable.h \
 	${tr1_srcdir}/hashtable_policy.h \
+	${tr1_srcdir}/hypergeometric.tcc \
 	${tr1_srcdir}/inttypes.h \
 	${tr1_srcdir}/limits.h \
 	${tr1_srcdir}/math.h \

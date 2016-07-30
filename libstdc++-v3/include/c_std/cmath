@@ -588,4 +588,8 @@ _GLIBCXX_END_NAMESPACE_VERSION
 #endif /* _GLIBCXX_USE_C99_FP_MACROS_DYNAMIC */
 #endif
 
+#if __cplusplus > 201402L || __STDCPP_WANT_MATH_SPEC_FUNCS__ == 1
+#  include <bits/specfun.h>
+#endif
+
 #endif
