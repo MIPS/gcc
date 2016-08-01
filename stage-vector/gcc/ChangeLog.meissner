@@ -1,3 +1,8 @@
+2016-08-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Add support
+	to initialize V4SImode in GPRs without doing 4 stores and a load.
+
 2016-07-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 238882.

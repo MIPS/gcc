@@ -6736,6 +6736,44 @@ rs6000_expand_vector_init (rtx target, rtx vals)
       return;
     }
 
+  /* Special case initializing vector int if we are on 64-bit systems with
+     direct move.  */
+  if (mode == V4SImode && TARGET_DIRECT_MOVE_64BIT)
+    {
+      rtx di_hi, di_lo, elements[4], tmp;
+      size_t i;
+
+      for (i = 0; i < 4; i++)
+	{
+	  rtx element_si = XVECEXP (vals, 0, VECTOR_ELT_ORDER_BIG ? i : 3 - i);
+	  elements[i] = gen_reg_rtx (DImode);
+	  convert_move (elements[i], element_si, true);
+	}
+
+      di_hi = gen_reg_rtx (DImode);
+      tmp = gen_reg_rtx (DImode);
+      emit_insn (gen_ashldi3 (tmp, elements[0], GEN_INT (32)));
+      emit_insn (gen_iordi3 (di_hi, tmp, elements[1]));
+
+      di_lo = gen_reg_rtx (DImode);
+      tmp = gen_reg_rtx (DImode);
+      emit_insn (gen_ashldi3 (tmp, elements[2], GEN_INT (32)));
+      emit_insn (gen_iordi3 (di_lo, tmp, elements[3]));
+
+      emit_insn (gen_rtx_CLOBBER (VOIDmode, target));
+      if (WORDS_BIG_ENDIAN)
+	{
+	  emit_move_insn (gen_highpart (DImode, target), di_hi);
+	  emit_move_insn (gen_lowpart (DImode, target), di_lo);
+	}
+      else
+	{
+	  emit_move_insn (gen_highpart (DImode, target), di_lo);
+	  emit_move_insn (gen_lowpart (DImode, target), di_hi);
+	}
+      return;
+    }
+
   /* With single precision floating point on VSX, know that internally single
      precision is actually represented as a double, and either make 2 V2DF
      vectors, and convert these vectors to single precision, or do one
