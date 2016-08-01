@@ -6745,7 +6745,7 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 
       for (i = 0; i < 4; i++)
 	{
-	  rtx element_si = XVECEXP (vals, 0, i);
+	  rtx element_si = XVECEXP (vals, 0, VECTOR_ELT_ORDER_BIG ? i : 3 - i);
 	  elements[i] = gen_reg_rtx (DImode);
 	  convert_move (elements[i], element_si, true);
 	}
@@ -6761,16 +6761,8 @@ rs6000_expand_vector_init (rtx target, rtx vals)
       emit_insn (gen_iordi3 (di_lo, tmp, elements[3]));
 
       emit_insn (gen_rtx_CLOBBER (VOIDmode, target));
-      if (WORDS_BIG_ENDIAN)
-	{
-	  emit_move_insn (gen_highpart (DImode, target), di_hi);
-	  emit_move_insn (gen_lowpart (DImode, target), di_lo);
-	}
-      else
-	{
-	  emit_move_insn (gen_highpart (DImode, target), di_lo);
-	  emit_move_insn (gen_lowpart (DImode, target), di_hi);
-	}
+      emit_move_insn (gen_highpart (DImode, target), di_hi);
+      emit_move_insn (gen_lowpart (DImode, target), di_lo);
       return;
     }
 
