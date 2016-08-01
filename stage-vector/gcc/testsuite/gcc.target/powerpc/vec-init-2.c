@@ -6,8 +6,8 @@
 #include <stddef.h>
 #include <altivec.h>
 
-extern void check (vector long a)       __attribute__((__noinline__));
-extern vector int pack (long a, long b) __attribute__((__noinline__));
+extern void check (vector long a)        __attribute__((__noinline__));
+extern vector long pack (long a, long b) __attribute__((__noinline__));
 
 void
 check (vector long a)
