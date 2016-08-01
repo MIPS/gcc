@@ -6745,7 +6745,7 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 
       for (i = 0; i < 4; i++)
 	{
-	  rtx element_si = XVECEXP (vals, 0, VECTOR_ELT_ORDER_BIG ? i : 3 - i);
+	  rtx element_si = XVECEXP (vals, 0, i);
 	  elements[i] = gen_reg_rtx (DImode);
 	  convert_move (elements[i], element_si, true);
 	}
