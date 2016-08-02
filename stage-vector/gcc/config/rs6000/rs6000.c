@@ -6740,48 +6740,35 @@ rs6000_expand_vector_init (rtx target, rtx vals)
      direct move.  */
   if (mode == V4SImode && TARGET_DIRECT_MOVE_64BIT)
     {
-      rtx di_regs[2];
+      rtx di_regs[2], target_v2di;
       size_t i;
 
       for (i = 0; i < 2; i++)
 	{
 	  size_t j = 2*i;
-	  rtx tmp = XVECEXP (vals, 0, VECTOR_ELT_ORDER_BIG ? j : 3 - j);
-	  rtx hi_si, lo_si;
+	  rtx ele, hi, lo, tmp;
 
-	  if (CONST_INT_P (tmp) &&satisfies_constraint_K (tmp))
-	    hi_si = GEN_INT (INTVAL (tmp) << 32);
-	  else
-	    {
-	      hi_si = gen_reg_rtx (DImode);
-	      if (CONST_INT_P (tmp))
-		tmp = force_reg (SImode, tmp);
-	      convert_move (hi_si, tmp, true);
-	    }
+	  ele = XVECEXP (vals, 0, VECTOR_ELT_ORDER_BIG ? j : 3 - j);
+	  if (CONST_INT_P (ele))
+	    ele = force_reg (SImode, GEN_INT (INTVAL (ele) & 0xffff));
+	  hi = gen_reg_rtx (DImode);
+	  tmp = gen_reg_rtx (DImode);
+	  convert_move (tmp, ele, true);
+	  emit_insn (gen_ashldi3 (hi, tmp, GEN_INT (32)));
 
 	  j++;
-	  tmp = XVECEXP (vals, 0, VECTOR_ELT_ORDER_BIG ? j : 3 - j);
-	  if (CONST_INT_P (tmp) &&satisfies_constraint_K (tmp))
-	    lo_si = tmp;
-	  else
-	    {
-	      lo_si = gen_reg_rtx (DImode);
-	      if (CONST_INT_P (tmp))
-		tmp = force_reg (SImode, tmp);
-	      convert_move (lo_si, tmp, true);
-	    }
+	  ele = XVECEXP (vals, 0, VECTOR_ELT_ORDER_BIG ? j : 3 - j);
+	  if (CONST_INT_P (ele) && !satisfies_constraint_K (ele))
+	    ele = GEN_INT (INTVAL (ele) & 0xffff);
+	  lo = gen_reg_rtx (DImode);
+	  convert_move (lo, ele, true);
 
 	  di_regs[i] = gen_reg_rtx (DImode);
-	  if (CONST_INT_P (hi_si) && CONST_INT_P (lo_si))
-	    emit_move_insn (di_regs[i], GEN_INT (INTVAL (hi_si)
-						 | INTVAL (lo_si)));
-	  else
-	    emit_insn (gen_iordi3 (di_regs[i], force_reg (DImode, hi_si),
-				   force_reg (DImode, lo_si)));
+	  emit_insn (gen_iordi3 (di_regs[i], hi, lo));
 	}
 
-      emit_insn (gen_vsx_concat_v2di (gen_lowpart (V2DImode, target),
-				      di_regs[0], di_regs[1]));
+      target_v2di = gen_lowpart (V2DImode, target);
+      emit_insn (gen_vsx_concat_v2di (target_v2di, di_regs[0], di_regs[1]));
       return;
     }
 
@@ -7397,8 +7384,9 @@ rs6000_output_vec_concat (rtx dest, rtx hi, rtx lo)
 	  && VSX_REGNO_P (lo_regno))
 	return xxpermdi[be_or_le];
 
+      gcc_assert (TARGET_POWERPC64);
       if (VSX_REGNO_P (dest_regno) && INT_REGNO_P (hi_regno)
-	  && INT_REGNO_P (lo_regno))
+	  && INT_REGNO_P (lo_regno) && TARGET_P9_VECTOR)
 	return mtvsrdd[be_or_le];
 
       if (INT_REGNO_P (dest_regno) && INT_REGNO_P (hi_regno)
