@@ -28805,7 +28805,8 @@ exact_store_load_dependency (rtx_insn *store, rtx_insn *load)
 }
 
 static int
-ix86_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
+ix86_adjust_cost (rtx_insn *insn, int dep_type, rtx_insn *dep_insn, int cost,
+		  unsigned int)
 {
   enum attr_type insn_type, dep_insn_type;
   enum attr_memory memory;
@@ -28813,7 +28814,7 @@ ix86_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
   int dep_insn_code_number;
 
   /* Anti and output dependencies have zero cost on all CPUs.  */
-  if (REG_NOTE_KIND (link) != 0)
+  if (dep_type != 0)
     return 0;
 
   dep_insn_code_number = recog_memoized (dep_insn);
@@ -40186,6 +40187,7 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     case 5:
       pat = GEN_FCN (icode) (real_target, args[0].op, args[1].op,
 			     args[2].op, args[3].op, args[4].op);
+      break;
     case 6:
       pat = GEN_FCN (icode) (real_target, args[0].op, args[1].op,
 			     args[2].op, args[3].op, args[4].op,
@@ -40560,6 +40562,7 @@ ix86_expand_round_builtin (const struct builtin_description *d,
     case 5:
       pat = GEN_FCN (icode) (target, args[0].op, args[1].op,
 			     args[2].op, args[3].op, args[4].op);
+      break;
     case 6:
       pat = GEN_FCN (icode) (target, args[0].op, args[1].op,
 			     args[2].op, args[3].op, args[4].op,

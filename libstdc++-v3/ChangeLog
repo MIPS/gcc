@@ -1,3 +1,396 @@
+2016-08-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/abi/post/alpha-linux-gnu/baseline_symbols.txt: Update.
+
+2016-07-31  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/20_util/conditional/requirements/typedefs.cc: Change to
+	compile-only test.
+
+	* testsuite/29_atomics/atomic_flag/test_and_set/explicit-hle.cc:
+	Ensure test is compiled with optimization.
+
+	* testsuite/23_containers/list/requirements/dr438/insert_neg.cc:
+	Adjust dg-prune-output pattern for error in C++98 mode.
+
+	* testsuite/28_regex/basic_regex/ctors/basic/raw_string.cc: Only
+	run for C++11 or later.
+
+	* testsuite/28_regex/basic_regex/ctors/basic/raw_string.cc: Fix
+	test to not rely on GNU extension (escaped normal characters in POSIX
+	BRE). Enable tests for other strings which are now supported.
+
+	* testsuite/20_util/pair/astuple/get_neg.cc: Use effective-target
+	c++11 instead of setting -std=gnu++14.
+
+	PR libstdc++/72745
+	* include/std/array (get): Use positive message for static assertions.
+	* include/std/functional (_Safe_tuple_element_t): Fix indentation.
+	* include/std/tuple (tuple_element<I, tuple<>>): Add partial
+	specialization for invalid indices, with static assertion.
+	* testsuite/20_util/tuple/element_access/get_neg.cc: New test.
+
+	* testsuite/20_util/duration/requirements/typedefs_neg3.cc: Move
+	dg-error to relevant line.
+	* testsuite/20_util/headers/type_traits/types_std_c++0x_neg.cc:
+	Likewise.
+	* testsuite/23_containers/forward_list/requirements/dr438/
+	assign_neg.cc: Likewise.
+	* testsuite/23_containers/forward_list/requirements/dr438/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/forward_list/requirements/dr438/
+	constructor_2_neg.cc: Likewise.
+	* testsuite/23_containers/forward_list/requirements/dr438/
+	insert_neg.cc: Likewise.
+	* testsuite/26_numerics/headers/cmath/types_std_c++0x_neg.cc:
+	Likewise.
+	* testsuite/26_numerics/random/linear_congruential_engine/
+	requirements/non_uint_neg.cc: Likewise.
+	* testsuite/29_atomics/headers/atomic/types_std_c++0x_neg.cc:
+	Likewise. Also test for std::atomic_address.
+
+2016-07-31  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Add missing variable traits, fix testsuite failures.
+	* include/bits/uses_allocator.h (uses_allocator_v): New.
+	* include/std/functional (is_bind_expression_v, is_placeholder_v):
+	Likewise.
+	* testsuite/20_util/bind/is_placeholder_v.cc: Likewise.
+	* testsuite/20_util/declval/requirements/1_neg.cc: Adjust.
+	* testsuite/20_util/duration/literals/range.cc: Likewise.
+	* testsuite/20_util/duration/requirements/typedefs_neg1.cc: Likewise.
+	* testsuite/20_util/duration/requirements/typedefs_neg2.cc: Likewise.
+	* testsuite/20_util/duration/requirements/typedefs_neg3.cc: Likewise.
+	* testsuite/20_util/make_signed/requirements/typedefs_neg.cc: Likewise.
+	* testsuite/20_util/make_unsigned/requirements/typedefs_neg.cc:
+	Likewise.
+	* testsuite/20_util/ratio/operations/ops_overflow_neg.cc: Likewise.
+	* testsuite/20_util/uses_allocator/requirements/uses_allocator_v.cc:
+	New.
+
+2016-07-31  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/18_support/numeric_limits/40856.cc [__STRICT_ANSI__]: Do
+	not test 128-bit types.
+	* testsuite/20_util/is_floating_point/value.cc: Likewise.
+	* testsuite/20_util/is_integral/value.cc: Likewise.
+	* testsuite/20_util/is_signed/value.cc: Likewise.
+	* testsuite/20_util/is_unsigned/value.cc: Likewise.
+	* testsuite/20_util/make_signed/requirements/typedefs-1.cc: Likewise.
+	* testsuite/20_util/make_signed/requirements/typedefs-2.cc: Likewise.
+	* testsuite/20_util/make_unsigned/requirements/typedefs-1.cc:
+	Likewise.
+	* testsuite/20_util/make_unsigned/requirements/typedefs-2.cc:
+	Likewise.
+
+	* testsuite/26_numerics/headers/cstdlib/54686.c: Rename to 54686.cc.
+
+2016-07-29  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement C++17 variable templates for type traits.
+	* include/std/chrono (treat_as_floating_point_v): New.
+	* include/std/ratio (ratio_equal_v, ratio_not_equal_v)
+	(ratio_less_v, ratio_less_equal_v, ratio_greater_v)
+	(ratio_greater_equal_v): Likewise.
+	* include/std/system_error (is_error_code_enum_v)
+	(is_error_condition_enum_v): Likewise.
+	* include/std/tuple (tuple_size_v): Likewise.
+	* type_traits (conjunction_v, disjunction_v, negation_v)
+	(is_void_v, is_null_pointer_v, is_integral_v, is_floating_point_v)
+	(is_array_v, is_pointer_v, is_lvalue_reference_v)
+	(is_rvalue_reference_v, is_member_object_pointer_v)
+	(is_member_function_pointer_v, is_enum_v, is_union_v)
+	(is_class_v, is_function_v, is_reference_v, is_arithmetic_v)
+	(is_fundamental_v, is_object_v, is_scalar_v, is_compound_v)
+	(is_member_pointer_v, is_const_v, is_volatile_v, is_trivial_v)
+	(is_trivially_copyable_v, is_standard_layout_v)
+	(is_pod_v, is_literal_type_v, is_empty_v, is_polymorphic_v)
+	(is_abstract_v, is_final_v, is_signed_v, is_unsigned_v)
+	(is_constructible_v, is_default_constructible_v)
+	(is_copy_constructible_v, is_move_constructible_v)
+	(is_assignable_v, is_copy_assignable_v, is_move_assignable_v)
+	(is_destructible_v, is_trivially_constructible_v)
+	(is_trivially_default_constructible_v)
+ 	(is_trivially_copy_constructible_v, is_trivially_move_constructible_v)
+	(is_trivially_assignable_v, is_trivially_copy_assignable_v)
+	(is_trivially_move_assignable_v, is_trivially_destructible_v)
+	(is_nothrow_constructible_v, is_nothrow_default_constructible_v)
+	(is_nothrow_copy_constructible_v, is_nothrow_move_constructible_v)
+	(is_nothrow_assignable_v, is_nothrow_copy_assignable_v)
+	(is_nothrow_move_assignable_v, is_nothrow_destructible_v)
+	(has_virtual_destructor_v, alignment_of_v, rank_v, extent_v)
+	(is_same_v, is_base_of_v, is_convertible_v): Likewise.
+	* testsuite/19_diagnostics/error_code/is_error_code_v.cc: Likewise.
+	* testsuite/20_util/duration/requirements/treat_as_floating_point_v.cc:
+	Likewise.
+	* testsuite/20_util/ratio/requirements/ratio_equal_v.cc: Likewise.
+	* testsuite/20_util/tuple/tuple_size_v.cc: Likewise.
+	* testsuite/20_util/variable_templates_for_traits.cc: Likewise.
+
+2016-07-29  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* config/abi/post/aarch64-linux-gnu/baseline_symbols.txt: Update.
+	* config/abi/post/ia64-linux-gnu/baseline_symbols.txt: Update.
+	* config/abi/post/m68k-linux-gnu/baseline_symbols.txt: Update.
+
+2016-07-29  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/abi.xml: Document 6.0.22 library version.
+	* doc/html/manual/abi.html: Regenerate.
+
+	* acinclude.m4 (libtool_VERSION): Bump to 6:23:0.
+	* config/abi/pre/gnu.ver: Add 3.4.23 version for new basic_string
+	symbols.
+	* configure: Regenerate.
+	* testsuite/util/testsuite_abi.cc: Add new symbol version.
+
+	* config/abi/post/i386-linux-gnu/baseline_symbols.txt: Update.
+	* config/abi/post/i486-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/powerpc-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/powerpc64-linux-gnu/32/baseline_symbols.txt:
+	Likewise.
+	* config/abi/post/powerpc64-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/x86_64-linux-gnu/32/baseline_symbols.txt: Likewise.
+	* config/abi/post/x86_64-linux-gnu/baseline_symbols.txt: Likewise.
+
+2016-07-28  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/23_containers/deque/requirements/dr438/assign_neg.cc:
+	Adjust dg-prune-output pattern for error in C++98 mode.
+	* testsuite/23_containers/deque/requirements/dr438/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/deque/requirements/dr438/
+	constructor_2_neg.cc: Likewise.
+	* testsuite/23_containers/deque/requirements/dr438/insert_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/assign_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/list/requirements/dr438/insert_neg.cc:
+	Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/assign_neg.cc:
+	Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_2_neg.cc: Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/insert_neg.cc:
+	Likewise.
+
+	* testsuite/23_containers/vector/check_construct_destroy.cc: Account
+	for different construct/destroy counts in C++98 mode.
+
+	* testsuite/17_intro/headers/c++2011/stdc++.cc: Change target-specific
+	dg-options to dg-additional-options so that default options are used.
+	* testsuite/17_intro/headers/c++2011/stdc++_multiple_inclusion.cc:
+	Likewise.
+	* testsuite/17_intro/headers/c++2014/stdc++.cc: Likewise.
+	* testsuite/17_intro/headers/c++2014/stdc++_multiple_inclusion.cc:
+	Likewise.
+	* testsuite/29_atomics/atomic_flag/test_and_set/explicit-hle.cc:
+	Use dg-additional-options instead of repeating the common options.
+
+	* testsuite/22_locale/conversions/string/1.cc: Remove unintended
+	dg-do compile directive.
+	* testsuite/26_numerics/headers/cmath/fabs_inline.cc: Fix syntax of
+	dg-do directive.
+	* testsuite/26_numerics/valarray/const_bracket.cc: Likewise.
+
+2016-07-28  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement std::string_view and P0254r2,
+	Integrating std::string_view and std::string.
+	* include/Makefile.am: Add string_view and string_view.tcc
+	to the exported headers.
+	* include/Makefile.in: Likewise.
+	* include/bits/basic_string.h: Include <string_view> in C++17 mode.
+	(__sv_type): New.
+	(basic_string(__sv_type, const _Alloc&)): Likewise.
+	(operator=(__sv_type)): Likewise.
+	(operator __sv_type()): Likewise.
+	(operator+=(__sv_type)): Likewise.
+	(append(__sv_type __sv)): Likewise.
+	(append(__sv_type, size_type, size_type)): Likewise.
+	(assign(__sv_type)): Likewise.
+	(assign(__sv_type, size_type, size_type)): Likewise.
+	(insert(size_type, __sv_type)): Likewise.
+	(insert(size_type, __sv_type, size_type, size_type)): Likewise.
+	(replace(size_type, size_type, __sv_type)): Likewise.
+	(replace(size_type, size_type, __sv_type, size_type, size_type)):
+	Likewise.
+	(replace(const_iterator, const_iterator, __sv_type)): Likewise.
+	(find(__sv_type, size_type)): Likewise.
+	(rfind(__sv_type, size_type)): Likewise.
+	(find_first_of(__sv_type, size_type)): Likewise.
+	(find_last_of(__sv_type, size_type)): Likewise.
+	(find_first_not_of(__sv_type, size_type)): Likewise.
+	(find_last_not_of(__sv_type, size_type)): Likewise.
+	(compare(__sv_type)): Likewise.
+	(compare(size_type, size_type, __sv_type)): Likewise.
+	(compare(size_type, size_type, __sv_type, size_type, size_type)):
+	Likewise.
+	* include/bits/string_view.tcc: New.
+	* include/std/string_view: Likewise.
+	* testsuite/21_strings/basic_string/cons/char/7.cc: Likewise.
+	* testsuite/21_strings/basic_string/cons/wchar_t/7.cc: Likewise.
+	* testsuite/21_strings/basic_string/modifiers/append/char/4.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/modifiers/append/wchar_t/4.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/modifiers/assign/char/4.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/modifiers/assign/wchar_t/4.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/modifiers/insert/char/3.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/modifiers/insert/wchar_t/3.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/modifiers/replace/char/7.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/modifiers/replace/wchar_t/7.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/operations/compare/char/2.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/operations/compare/wchar_t/2.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/operations/find/char/5.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/operations/find/wchar_t/5.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/operators/char/5.cc: Likewise.
+	* testsuite/21_strings/basic_string/operators/wchar_t/5.cc: Likewise.
+	* testsuite/21_strings/basic_string_view/capacity/1.cc: Likewise.
+	* testsuite/21_strings/basic_string_view/cons/char/1.cc: Likewise.
+	* testsuite/21_strings/basic_string_view/cons/char/2.cc: Likewise.
+	* testsuite/21_strings/basic_string_view/cons/char/3.cc: Likewise.
+	* testsuite/21_strings/basic_string_view/cons/wchar_t/1.cc: Likewise.
+	* testsuite/21_strings/basic_string_view/cons/wchar_t/2.cc: Likewise.
+	* testsuite/21_strings/basic_string_view/cons/wchar_t/3.cc: Likewise.
+	* testsuite/21_strings/basic_string_view/element_access/char/1.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/element_access/char/2.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/element_access/char/empty.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/element_access/char/front_back.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/element_access/wchar_t/1.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/element_access/wchar_t/2.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/element_access/wchar_t/empty.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/element_access/wchar_t/front_back.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/include.cc: Likewise.
+	* testsuite/21_strings/basic_string_view/inserters/char/1.cc: Likewise.
+	* testsuite/21_strings/basic_string_view/inserters/char/2.cc: Likewise.
+	* testsuite/21_strings/basic_string_view/inserters/char/3.cc: Likewise.
+	* testsuite/21_strings/basic_string_view/inserters/pod/10081-out.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/inserters/wchar_t/1.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/inserters/wchar_t/2.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/inserters/wchar_t/3.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/modifiers/remove_prefix/char/1.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/modifiers/remove_prefix/wchar_t/1.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/modifiers/remove_suffix/char/1.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/modifiers/remove_suffix/wchar_t/1.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/operations/compare/char/1.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/operations/compare/char/13650.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/operations/compare/wchar_t/1.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/operations/compare/wchar_t/13650.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/operations/copy/char/1.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/operations/copy/wchar_t/1.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/operations/data/char/1.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/operations/data/wchar_t/1.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/operations/find/char/1.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/operations/find/char/2.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/operations/find/char/3.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/operations/find/char/4.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/operations/find/wchar_t/1.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/operations/find/wchar_t/2.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/operations/find/wchar_t/3.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/operations/find/wchar_t/4.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/operations/rfind/char/1.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/operations/rfind/char/2.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/operations/rfind/char/3.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/operations/rfind/wchar_t/1.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/operations/rfind/wchar_t/2.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/operations/rfind/wchar_t/3.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/operations/string_conversion/1.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/operations/substr/char/1.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/operations/substr/wchar_t/1.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/operators/char/2.cc: Likewise.
+	* testsuite/21_strings/basic_string_view/operators/wchar_t/2.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/range_access/char/1.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/range_access/wchar_t/1.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/requirements/explicit_instantiation/1.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/requirements/explicit_instantiation/char/1.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/requirements/explicit_instantiation/char16_t/1.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/requirements/explicit_instantiation/char32_t/1.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/requirements/explicit_instantiation/wchar_t/1.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/requirements/typedefs.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string_view/typedefs.cc: Likewise.
+	* testsuite/21_strings/basic_string_view/types/1.cc: Likewise.
+
+2016-07-27  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/20_util/forward/1_neg.cc: Move dg-error to right line.
+
+2016-07-25  Georeth Chow  <georeth2010@gmail.com>
+
+	* include/ext/ropeimpl.h (rope<>::_S_dump(_RopeRep*, int)): Qualify
+	_S_concat enumerator.
+	* testsuite/ext/rope/6.cc: New test.
+
+2016-07-25  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/20_util/shared_ptr/thread/default_weaktoshared.cc: Use
+	std::mt19937, std::thread and std::atomic to simplify test.
+	* testsuite/20_util/shared_ptr/thread/mutex_weaktoshared.cc: Likewise.
+
 2016-07-22  Jonathan Wakely  <jwakely@redhat.com>
 
 	PR libstdc++/71964

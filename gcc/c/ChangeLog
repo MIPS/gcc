@@ -1,3 +1,28 @@
+2016-07-29  Marek Polacek  <polacek@redhat.com>
+
+	PR c/71742
+	* c-decl.c (finish_struct): Rephrase an error message.
+
+	PR c/71853
+	* c-parser.c (c_parser_switch_statement): Initialize ce.original_type
+	to error node for invalid code.
+
+	PR c/71573
+	* c-decl.c (implicitly_declare): Return decl early not only for
+	error_mark_nodes, but for anything that is not a FUNCTION_DECL.
+
+2016-07-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/71969
+	* c-decl.c (finish_function): Only set DECL_DISREGARD_INLINE_LIMITS
+	on GNU extern inline functions.
+
+2016-07-29  Marek Polacek  <polacek@redhat.com>
+
+	PR c/71583
+	* c-parser.c (c_parser_postfix_expression_after_paren_type): Also
+	check expr.value.
+
 2016-07-22  Uros Bizjak  <ubizjak@gmail.com>
 
 	* c-typeck.c: Use HOST_WIDE_INT_1 instead of (HOST_WIDE_INT) 1,

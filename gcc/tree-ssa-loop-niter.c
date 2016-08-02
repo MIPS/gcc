@@ -2119,7 +2119,10 @@ loop_only_exit_p (const struct loop *loop, const_edge exit)
     {
       for (bsi = gsi_start_bb (body[i]); !gsi_end_p (bsi); gsi_next (&bsi))
 	if (stmt_can_terminate_bb_p (gsi_stmt (bsi)))
-	  return true;
+	  {
+	    free (body);
+	    return true;
+	  }
     }
 
   free (body);
@@ -2147,6 +2150,10 @@ number_of_iterations_exit_assumptions (struct loop *loop, edge exit,
   enum tree_code code;
   affine_iv iv0, iv1;
   bool safe;
+
+  /* Nothing to analyze if the loop is known to be infinite.  */
+  if (loop_constraint_set_p (loop, LOOP_C_INFINITE))
+    return false;
 
   safe = dominated_by_p (CDI_DOMINATORS, loop->latch, exit->src);
 
@@ -2232,6 +2239,11 @@ number_of_iterations_exit_assumptions (struct loop *loop, edge exit,
 	  && niter->max > wi::to_widest (iv_niters))
 	niter->max = wi::to_widest (iv_niters);
     }
+
+  /* There is no assumptions if the loop is known to be finite.  */
+  if (!integer_zerop (niter->assumptions)
+      && loop_constraint_set_p (loop, LOOP_C_FINITE))
+    niter->assumptions = boolean_true_node;
 
   if (optimize >= 3)
     {
