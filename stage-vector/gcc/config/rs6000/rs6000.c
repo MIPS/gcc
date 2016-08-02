@@ -6750,7 +6750,7 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 
 	  ele = XVECEXP (vals, 0, VECTOR_ELT_ORDER_BIG ? j : 3 - j);
 	  if (CONST_INT_P (ele))
-	    ele = force_reg (SImode, GEN_INT (INTVAL (ele) & 0xffff));
+	    ele = force_reg (DImode, GEN_INT (INTVAL (ele) & 0xffff));
 	  hi = gen_reg_rtx (DImode);
 	  tmp = gen_reg_rtx (DImode);
 	  convert_move (tmp, ele, true);
@@ -6758,7 +6758,7 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 
 	  j++;
 	  ele = XVECEXP (vals, 0, VECTOR_ELT_ORDER_BIG ? j : 3 - j);
-	  if (CONST_INT_P (ele) && !satisfies_constraint_K (ele))
+	  if (CONST_INT_P (ele))
 	    ele = GEN_INT (INTVAL (ele) & 0xffff);
 	  lo = gen_reg_rtx (DImode);
 	  convert_move (lo, ele, true);
