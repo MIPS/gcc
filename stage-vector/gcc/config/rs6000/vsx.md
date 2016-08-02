@@ -1898,25 +1898,49 @@
 ;; Permute operations
 
 ;; Build a V2DF/V2DI vector from two scalars
-(define_insn "vsx_concat_<mode>"
-  [(set (match_operand:VSX_D 0 "gpc_reg_operand" "=<VSa>,we")
+(define_expand "vsx_concat_<mode>"
+  [(set (match_operand:VSX_D 0 "gpc_reg_operand" "")
 	(vec_concat:VSX_D
-	 (match_operand:<VS_scalar> 1 "gpc_reg_operand" "<VS_64reg>,r")
-	 (match_operand:<VS_scalar> 2 "gpc_reg_operand" "<VS_64reg>,r")))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)"
+	 (match_operand:<VS_scalar> 1 "gpc_reg_operand" "")
+	 (match_operand:<VS_scalar> 2 "gpc_reg_operand" "")))]
+  "VECTOR_MEM_VSX_P (<MODE>mode)")
+
+(define_insn "*vsx_concat_<mode>_nodm"
+  [(set (match_operand:VSX_D 0 "vsx_register_operand" "=<VSa>")
+	(vec_concat:VSX_D
+	 (match_operand:<VS_scalar> 1 "vsx_register_operand" "<VS_64reg>")
+	 (match_operand:<VS_scalar> 2 "vsx_register_operand" "<VS_64reg>")))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && !TARGET_DIRECT_MOVE_64BIT"
 {
-  if (which_alternative == 0)
-    return (BYTES_BIG_ENDIAN
-	    ? "xxpermdi %x0,%x1,%x2,0"
-	    : "xxpermdi %x0,%x2,%x1,0");
-  else if (which_alternative == 1 && TARGET_POWERPC64 && TARGET_P9_VECTOR)
-    return (BYTES_BIG_ENDIAN
-	    ? "mtvsrdd %x0,%1,%2"
-	    : "mtvsrdd %x0,%2,%1");
-  else
-   gcc_unreachable ();
+  return rs6000_output_vec_concat (operands[0], operands[1], operands[2]);
 }
-  [(set_attr "type" "vecperm,mftgpr")])
+  [(set_attr "type" "vecperm")])
+
+(define_insn "*vsx_concat_<mode>_be_dm"
+  [(set (match_operand:VSX_D 0 "gpc_reg_operand" "=<VSa>,we,r,&r")
+	(vec_concat:VSX_D
+	 (match_operand:<VS_scalar> 1 "gpc_reg_operand" "<VS_64reg>,r,0,r")
+	 (match_operand:<VS_scalar> 2 "gpc_reg_operand" "<VS_64reg>,r,r,r")))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_DIRECT_MOVE_64BIT
+   && BYTES_BIG_ENDIAN"
+{
+  return rs6000_output_vec_concat (operands[0], operands[1], operands[2]);
+}
+  [(set_attr "type" "vecperm,mftgpr,integer,two")
+   (set_attr "length" "4,4,4,8")])
+
+(define_insn "*vsx_concat_<mode>_le_dm"
+  [(set (match_operand:VSX_D 0 "gpc_reg_operand" "=<VSa>,we,r,&r")
+	(vec_concat:VSX_D
+	 (match_operand:<VS_scalar> 1 "gpc_reg_operand" "<VS_64reg>,r,r,r")
+	 (match_operand:<VS_scalar> 2 "gpc_reg_operand" "<VS_64reg>,r,0,r")))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_DIRECT_MOVE_64BIT
+   && !BYTES_BIG_ENDIAN"
+{
+  return rs6000_output_vec_concat (operands[0], operands[1], operands[2]);
+}
+  [(set_attr "type" "vecperm,mftgpr,integer,two")
+   (set_attr "length" "4,4,4,8")])
 
 ;; Special purpose concat using xxpermdi to glue two single precision values
 ;; together, relying on the fact that internally scalar floats are represented

@@ -1,3 +1,21 @@
+2016-08-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-protos.h (rs6000_output_vec_concat): New
+	declaration.
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Rework
+	support for initializing V4SImode in GPRs.
+	(regno_or_subregno): New helper function to get the real register
+	number of an insn.
+	(rs6000_adjust_vec_address): Call regno_or_subregno.
+	(rs6000_output_vec_concat): New function handle the output of the
+	vector concatenation of two 64-bit elements.
+
+	* config/rs6000/vsx.md (vsx_concat_<mode>, VSX_D iterator): Split
+	concat into 3 insns, one without 64-bit/direct move, one for big
+	endian 64-bit/direct move, and one for little endian 64-bit/direct
+	move.  Add support moving to GPR registers.
+
 2016-08-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Add support

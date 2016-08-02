@@ -6740,29 +6740,48 @@ rs6000_expand_vector_init (rtx target, rtx vals)
      direct move.  */
   if (mode == V4SImode && TARGET_DIRECT_MOVE_64BIT)
     {
-      rtx di_hi, di_lo, elements[4], tmp;
+      rtx di_regs[2];
       size_t i;
 
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 2; i++)
 	{
-	  rtx element_si = XVECEXP (vals, 0, VECTOR_ELT_ORDER_BIG ? i : 3 - i);
-	  elements[i] = gen_reg_rtx (DImode);
-	  convert_move (elements[i], element_si, true);
+	  size_t j = 2*i;
+	  rtx tmp = XVECEXP (vals, 0, VECTOR_ELT_ORDER_BIG ? j : 3 - j);
+	  rtx hi_si, lo_si;
+
+	  if (CONST_INT_P (tmp) &&satisfies_constraint_K (tmp))
+	    hi_si = GEN_INT (INTVAL (tmp) << 32);
+	  else
+	    {
+	      hi_si = gen_reg_rtx (DImode);
+	      if (CONST_INT_P (tmp))
+		tmp = force_reg (SImode, tmp);
+	      convert_move (hi_si, tmp, true);
+	    }
+
+	  j++;
+	  tmp = XVECEXP (vals, 0, VECTOR_ELT_ORDER_BIG ? j : 3 - j);
+	  if (CONST_INT_P (tmp) &&satisfies_constraint_K (tmp))
+	    lo_si = tmp;
+	  else
+	    {
+	      lo_si = gen_reg_rtx (DImode);
+	      if (CONST_INT_P (tmp))
+		tmp = force_reg (SImode, tmp);
+	      convert_move (lo_si, tmp, true);
+	    }
+
+	  di_regs[i] = gen_reg_rtx (DImode);
+	  if (CONST_INT_P (hi_si) && CONST_INT_P (lo_si))
+	    emit_move_insn (di_regs[i], GEN_INT (INTVAL (hi_si)
+						 | INTVAL (lo_si)));
+	  else
+	    emit_insn (gen_iordi3 (di_regs[i], force_reg (DImode, hi_si),
+				   force_reg (DImode, lo_si)));
 	}
 
-      di_hi = gen_reg_rtx (DImode);
-      tmp = gen_reg_rtx (DImode);
-      emit_insn (gen_ashldi3 (tmp, elements[0], GEN_INT (32)));
-      emit_insn (gen_iordi3 (di_hi, tmp, elements[1]));
-
-      di_lo = gen_reg_rtx (DImode);
-      tmp = gen_reg_rtx (DImode);
-      emit_insn (gen_ashldi3 (tmp, elements[2], GEN_INT (32)));
-      emit_insn (gen_iordi3 (di_lo, tmp, elements[3]));
-
-      emit_insn (gen_rtx_CLOBBER (VOIDmode, target));
-      emit_move_insn (gen_highpart (DImode, target), di_hi);
-      emit_move_insn (gen_lowpart (DImode, target), di_lo);
+      emit_insn (gen_vsx_concat_v2di (gen_lowpart (V2DImode, target),
+				      di_regs[0], di_regs[1]));
       return;
     }
 
@@ -7051,6 +7070,18 @@ rs6000_expand_vector_extract (rtx target, rtx vec, rtx elt)
   emit_move_insn (target, adjust_address_nv (mem, inner_mode, 0));
 }
 
+/* Helper function to return the register number of a RTX.  */
+static inline int
+regno_or_subregno (rtx op)
+{
+  if (REG_P (op))
+    return REGNO (op);
+  else if (SUBREG_P (op))
+    return subreg_regno (op);
+  else
+    gcc_unreachable ();
+}
+
 /* Adjust a memory address (MEM) of a vector type to point to a scalar field
    within the vector (ELEMENT) with a type (SCALAR_TYPE).  Use a base register
    temporary (BASE_TMP) to fixup the address.  Return the new memory address
@@ -7166,14 +7197,7 @@ rs6000_adjust_vec_address (rtx scalar_reg,
     {
       rtx op1 = XEXP (new_addr, 1);
       addr_mask_type addr_mask;
-      int scalar_regno;
-
-      if (REG_P (scalar_reg))
-	scalar_regno = REGNO (scalar_reg);
-      else if (SUBREG_P (scalar_reg))
-	scalar_regno = subreg_regno (scalar_reg);
-      else
-	gcc_unreachable ();
+      int scalar_regno = regno_or_subregno (scalar_reg);
 
       gcc_assert (scalar_regno < FIRST_PSEUDO_REGISTER);
       if (INT_REGNO_P (scalar_regno))
@@ -7339,6 +7363,61 @@ rs6000_split_vec_extract_var (rtx dest, rtx src, rtx element, rtx tmp_gpr,
   else
     gcc_unreachable ();
  }
+
+/* Return the appropriate insns to concatenate two DI/DFmode variables
+   into a 128-bit vector.  */
+
+const char *
+rs6000_output_vec_concat (rtx dest, rtx hi, rtx lo)
+{
+  int be_or_le = (BYTES_BIG_ENDIAN != 0);
+
+  static const char *const xxpermdi[2] = {
+    "xxpermdi %x0,%x1,%x2,0",
+    "xxpermdi %x0,%x2,%x1,0"
+  };
+  static const char *const mtvsrdd[2] = {
+    "mtvsrdd %x0,%1,%2",
+    "mtvsrdd %x0,%2,%1"
+  };
+  static const char *const mr[2] = {
+    "mr %0,%1\n\tmr %L0,%2",
+    "mr %0,%2\n\tmr %L0,%1",
+  };
+
+  if ((REG_P (dest) || SUBREG_P (dest))
+      && (REG_P (hi) || SUBREG_P (hi))
+      && (REG_P (lo) || SUBREG_P (lo)))
+    {
+      int dest_regno = regno_or_subregno (dest);
+      int hi_regno = regno_or_subregno (hi);
+      int lo_regno = regno_or_subregno (lo);
+
+      if (VSX_REGNO_P (dest_regno) && VSX_REGNO_P (hi_regno)
+	  && VSX_REGNO_P (lo_regno))
+	return xxpermdi[be_or_le];
+
+      if (VSX_REGNO_P (dest_regno) && INT_REGNO_P (hi_regno)
+	  && INT_REGNO_P (lo_regno))
+	return mtvsrdd[be_or_le];
+
+      if (INT_REGNO_P (dest_regno) && INT_REGNO_P (hi_regno)
+	  && INT_REGNO_P (lo_regno))
+	{
+	  if (dest_regno != hi_regno && dest_regno+1 != hi_regno
+	      && dest_regno != lo_regno && dest_regno+1 != lo_regno)
+	    return mr[be_or_le];
+
+	  if (BYTES_BIG_ENDIAN && dest_regno == hi_regno)
+	    return (dest_regno+1 == lo_regno) ? "" : "mr %L0,%2";
+
+	  if (!BYTES_BIG_ENDIAN && dest_regno == lo_regno)
+	    return (dest_regno+1 == hi_regno) ? "" : "mr %L0,%1";
+	}
+    }
+
+  gcc_unreachable ();
+}
 
 /* Return TRUE if OP is an invalid SUBREG operation on the e500.  */
 
