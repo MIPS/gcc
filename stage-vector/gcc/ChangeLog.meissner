@@ -12,9 +12,10 @@
 	vector concatenation of two 64-bit elements.
 
 	* config/rs6000/vsx.md (vsx_concat_<mode>, VSX_D iterator): Split
-	concat into 3 insns, one without 64-bit/direct move, one for big
-	endian 64-bit/direct move, and one for little endian 64-bit/direct
-	move.  Add support moving to GPR registers.
+	concat into 2 insns, one without 64-bit/direct move, one with it.
+	Add support moving to GPR registers and mtvsrdd.
+	(vsx_concat_<mode>_nodm): Likewise.
+	(vsx_concat_<mode>_dm): Likewise.
 
 2016-08-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
 

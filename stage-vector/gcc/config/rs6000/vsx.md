@@ -1916,31 +1916,17 @@
 }
   [(set_attr "type" "vecperm")])
 
-(define_insn "*vsx_concat_<mode>_be_dm"
-  [(set (match_operand:VSX_D 0 "gpc_reg_operand" "=<VSa>,we,r,&r")
+(define_insn "*vsx_concat_<mode>_dm"
+  [(set (match_operand:VSX_D 0 "gpc_reg_operand" "=<VSa>,we,&r")
 	(vec_concat:VSX_D
-	 (match_operand:<VS_scalar> 1 "gpc_reg_operand" "<VS_64reg>,r,0,r")
-	 (match_operand:<VS_scalar> 2 "gpc_reg_operand" "<VS_64reg>,r,r,r")))]
-  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_DIRECT_MOVE_64BIT
-   && BYTES_BIG_ENDIAN"
+	 (match_operand:<VS_scalar> 1 "gpc_reg_operand" "<VS_64reg>,r,r")
+	 (match_operand:<VS_scalar> 2 "gpc_reg_operand" "<VS_64reg>,r,r")))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_DIRECT_MOVE_64BIT"
 {
   return rs6000_output_vec_concat (operands[0], operands[1], operands[2]);
 }
-  [(set_attr "type" "vecperm,mftgpr,integer,two")
-   (set_attr "length" "4,4,4,8")])
-
-(define_insn "*vsx_concat_<mode>_le_dm"
-  [(set (match_operand:VSX_D 0 "gpc_reg_operand" "=<VSa>,we,r,&r")
-	(vec_concat:VSX_D
-	 (match_operand:<VS_scalar> 1 "gpc_reg_operand" "<VS_64reg>,r,r,r")
-	 (match_operand:<VS_scalar> 2 "gpc_reg_operand" "<VS_64reg>,r,0,r")))]
-  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_DIRECT_MOVE_64BIT
-   && !BYTES_BIG_ENDIAN"
-{
-  return rs6000_output_vec_concat (operands[0], operands[1], operands[2]);
-}
-  [(set_attr "type" "vecperm,mftgpr,integer,two")
-   (set_attr "length" "4,4,4,8")])
+  [(set_attr "type" "vecperm,mftgpr,two")
+   (set_attr "length" "4,4,8")])
 
 ;; Special purpose concat using xxpermdi to glue two single precision values
 ;; together, relying on the fact that internally scalar floats are represented
