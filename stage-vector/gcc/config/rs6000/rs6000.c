@@ -7360,16 +7360,16 @@ rs6000_output_vec_concat (rtx dest, rtx hi, rtx lo)
   int be_or_le = (BYTES_BIG_ENDIAN != 0);
 
   static const char *const xxpermdi[2] = {
-    "xxpermdi %x0,%x1,%x2,0",
-    "xxpermdi %x0,%x2,%x1,0"
+    "xxpermdi %x0,%x2,%x1,0",
+    "xxpermdi %x0,%x1,%x2,0"
   };
   static const char *const mtvsrdd[2] = {
-    "mtvsrdd %x0,%1,%2",
-    "mtvsrdd %x0,%2,%1"
+    "mtvsrdd %x0,%2,%1",
+    "mtvsrdd %x0,%1,%2"
   };
   static const char *const mr[2] = {
-    "mr %0,%1\n\tmr %L0,%2",
     "mr %0,%2\n\tmr %L0,%1",
+    "mr %0,%1\n\tmr %L0,%2"
   };
 
   if ((REG_P (dest) || SUBREG_P (dest))
