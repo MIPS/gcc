@@ -1,3 +1,9 @@
+2016-08-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_declare_function_name): Round frame
+	size to DImode boundary.
+	(nvptx_propagate): Likewise.
+
 2016-07-27  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* lto-cgraph.c (input_overwrite_node): Change the assertion to an

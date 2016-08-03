@@ -1,3 +1,7 @@
+2016-08-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/crash-1.c: New.
+
 2016-07-29  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* testsuite/libgomp.oacc-fortran/host_data-1.f90: Adjust testcase.
