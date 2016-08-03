@@ -1904,7 +1904,7 @@
 	 (match_operand:<VS_scalar> 1 "gpc_reg_operand" "<VS_64reg>,r")
 	 (match_operand:<VS_scalar> 2 "gpc_reg_operand" "<VS_64reg>,r")))
    (clobber (match_scratch:DI 3 "=X,X"))]
-  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_DIRECT_MOVE_64BIT"
+  "VECTOR_MEM_VSX_P (<MODE>mode)"
 {
   if (which_alternative == 0)
     return (BYTES_BIG_ENDIAN
