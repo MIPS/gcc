@@ -6189,6 +6189,17 @@ mips_output_load_store (rtx dest, rtx src, machine_mode mode,
 
   s = buffer;
 
+  if (load_p
+      && GET_MODE_SIZE (mode) == 4
+      && !indexed_scaled_p
+      && !indexed_p
+      && TARGET_NANOMIPS
+      && GET_CODE (addr) == CONST)
+    s += sprintf (s, "%s", fp_p
+			   ? "sdbbp32 10 # "
+			   : (M16_REG_P (REGNO (dest))
+			      ? "sdbbp16 7 # " : "sdbbp32 4 # "));
+
   s += sprintf (s, "%s", load_p ? "l" : "s");
   s += sprintf (s, "%s", sz[pos]);
   if (fp_p)

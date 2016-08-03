@@ -262,12 +262,12 @@ struct mips_cpu_info {
 /* True if we're generating a form of MIPS16 code in which general
    text loads are allowed.  */
 #define TARGET_MIPS16_TEXT_LOADS \
-  (TARGET_MIPS16 && mips_code_readable == CODE_READABLE_YES)
+  ((TARGET_MIPS16 || TARGET_NANOMIPS) && mips_code_readable == CODE_READABLE_YES)
 
 /* True if we're generating a form of MIPS16 code in which PC-relative
    loads are allowed.  */
 #define TARGET_MIPS16_PCREL_LOADS \
-  (TARGET_MIPS16 && mips_code_readable >= CODE_READABLE_PCREL)
+  ((TARGET_MIPS16 || TARGET_NANOMIPS) && mips_code_readable >= CODE_READABLE_PCREL)
 
 /* Generic ISA defines.  */
 #define ISA_MIPS1		    (mips_isa == 1)
@@ -943,6 +943,7 @@ struct mips_cpu_info {
 	       %{!mno-explicit-relocs: -mexplicit-relocs} \
 	       %{!mno-grow-frame-downwards: -mgrow-frame-downwards} \
 	       %{!mno-xlp: -mxlp} \
+	       %{!mcode-readable*: -mcode-readable=no} \
 	       %{!-fuse-ld=*: -fuse-ld=gold}}" \
   "%{!mno-dsp: \
      %{march=24ke*|march=34kc*|march=34kf*|march=34kx*|march=1004k* \
@@ -2829,7 +2830,7 @@ typedef struct mips_args {
    offsets.  This is only possible when general text loads are allowed,
    since the table access itself will be an "lh" instruction.  If the
    PC-relative offsets grow too large, 32-bit offsets are used instead.  */
-#define TARGET_MIPS16_SHORT_JUMP_TABLES TARGET_MIPS16_TEXT_LOADS
+#define TARGET_MIPS16_SHORT_JUMP_TABLES (TARGET_MIPS16 && TARGET_MIPS16_TEXT_LOADS)
 
 #define JUMP_TABLES_IN_TEXT_SECTION TARGET_MIPS16_SHORT_JUMP_TABLES
 
