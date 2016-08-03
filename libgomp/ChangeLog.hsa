@@ -1,3 +1,11 @@
+2016-08-03  Martin Jambor  <mjambor@suse.cz>
+
+	* plugin/plugin-hsa.c (init_basic_kernel_info): New function.
+	(GOMP_OFFLOAD_load_image): Outline kernel initialization into it.
+	(run_kernel): New function.
+	(GOMP_OFFLOAD_run): Outlined most of functionality to the function
+	above.
+
 2016-06-09  Martin Jambor  <mjambor@suse.cz>
 
 	* testsuite/libgomp.hsa.c/tiling-1.c: New test.

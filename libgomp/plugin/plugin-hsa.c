@@ -837,6 +837,29 @@ destroy_hsa_program (struct agent_info *agent)
   return true;
 }
 
+/* Initialize KERNEL from D and other parameters.  Return true on success. */
+
+static bool
+init_basic_kernel_info (struct kernel_info *kernel,
+			struct hsa_kernel_description *d,
+			struct agent_info *agent,
+			struct module_info *module)
+{
+  kernel->agent = agent;
+  kernel->module = module;
+  kernel->name = d->name;
+  kernel->omp_data_size = d->omp_data_size;
+  kernel->gridified_kernel_p = d->gridified_kernel_p;
+  kernel->dependencies_count = d->kernel_dependencies_count;
+  kernel->dependencies = d->kernel_dependencies;
+  if (pthread_mutex_init (&kernel->init_mutex, NULL))
+    {
+      GOMP_PLUGIN_error ("Failed to initialize an HSA kernel mutex");
+      return false;
+    }
+  return true;
+}
+
 /* Part of the libgomp plugin interface.  Load BRIG module described by struct
    brig_image_desc in TARGET_DATA and return references to kernel descriptors
    in TARGET_TABLE.  */
@@ -891,19 +914,8 @@ GOMP_OFFLOAD_load_image (int ord, unsigned version, void *target_data,
       pair->end = (uintptr_t) (kernel + 1);
 
       struct hsa_kernel_description *d = &image_desc->kernel_infos[i];
-      kernel->agent = agent;
-      kernel->module = module;
-      kernel->name = d->name;
-      kernel->omp_data_size = d->omp_data_size;
-      kernel->gridified_kernel_p = d->gridified_kernel_p;
-      kernel->dependencies_count = d->kernel_dependencies_count;
-      kernel->dependencies = d->kernel_dependencies;
-      if (pthread_mutex_init (&kernel->init_mutex, NULL))
-	{
-	  GOMP_PLUGIN_error ("Failed to initialize an HSA kernel mutex");
-	  return -1;
-	}
-
+      if (!init_basic_kernel_info (kernel, d, agent, module))
+	return -1;
       kernel++;
       pair++;
     }
@@ -1456,22 +1468,14 @@ packet_store_release (uint32_t* packet, uint16_t header, uint16_t rest)
   __atomic_store_n (packet, header | (rest << 16), __ATOMIC_RELEASE);
 }
 
-/* Part of the libgomp plugin interface.  Run a kernel on device N and pass it
-   an array of pointers in VARS as a parameter.  The kernel is identified by
-   FN_PTR which must point to a kernel_info structure.  */
+/* Run KERNEL on its agent, pass VARS to it as arguments and take
+   launchattributes from KLA.  */
 
 void
-GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, void **args)
+run_kernel (struct kernel_info *kernel, void *vars,
+	    struct GOMP_kernel_launch_attributes *kla)
 {
-  struct kernel_info *kernel = (struct kernel_info *) fn_ptr;
   struct agent_info *agent = kernel->agent;
-  struct GOMP_kernel_launch_attributes def;
-  struct GOMP_kernel_launch_attributes *kla;
-  if (!parse_target_attributes (args, &def, &kla))
-    {
-      HSA_DEBUG ("Will not run HSA kernel because the grid size is zero\n");
-      return;
-    }
   if (pthread_rwlock_rdlock (&agent->modules_rwlock))
     GOMP_PLUGIN_fatal ("Unable to read-lock an HSA agent rwlock");
 
@@ -1594,6 +1598,26 @@ GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, void **args)
 
   if (pthread_rwlock_unlock (&agent->modules_rwlock))
     GOMP_PLUGIN_fatal ("Unable to unlock an HSA agent rwlock");
+}
+
+/* Part of the libgomp plugin interface.  Run a kernel on device N (the number
+   is actually ignored, we assume the FN_PTR has been mapped using the correct
+   device) and pass it an array of pointers in VARS as a parameter.  The kernel
+   is identified by FN_PTR which must point to a kernel_info structure.  */
+
+void
+GOMP_OFFLOAD_run (int n __attribute__((unused)),
+		  void *fn_ptr, void *vars, void **args)
+{
+  struct kernel_info *kernel = (struct kernel_info *) fn_ptr;
+  struct GOMP_kernel_launch_attributes def;
+  struct GOMP_kernel_launch_attributes *kla;
+  if (!parse_target_attributes (args, &def, &kla))
+    {
+      HSA_DEBUG ("Will not run HSA kernel because the grid size is zero\n");
+      return;
+    }
+  run_kernel (kernel, vars, kla);
 }
 
 /* Information to be passed to a thread running a kernel asycnronously.  */
