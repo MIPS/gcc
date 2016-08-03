@@ -7066,7 +7066,7 @@ regno_or_subregno (rtx op)
 }
 
 /* Adjust a memory address (MEM) of a vector type to point to a scalar field
-   within the vector (ELEMENT) with a type (SCALAR_TYPE).  Use a base register
+   within the vector (ELEMENT) with a mode (SCALAR_MODE).  Use a base register
    temporary (BASE_TMP) to fixup the address.  Return the new memory address
    that is valid for reads or writes to a given register (SCALAR_REG).  */
 
@@ -7085,7 +7085,7 @@ rs6000_adjust_vec_address (rtx scalar_reg,
 
   /* Vector addresses should not have PRE_INC, PRE_DEC, or PRE_MODIFY.  */
   gcc_assert (GET_RTX_CLASS (GET_CODE (addr)) != RTX_AUTOINC);
- 
+
   /* Calculate what we need to add to the address to get the element
      address.  */
   if (CONST_INT_P (element))
