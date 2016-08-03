@@ -69,7 +69,7 @@ along with GCC; see the file COPYING3.  If not see
 		    HSA_SORRY_MSG)) \
       inform (location, message, __VA_ARGS__); \
   } \
-  while (false);
+  while (false)
 
 /* Same as previous, but highlight a location.  */
 
@@ -81,7 +81,7 @@ along with GCC; see the file COPYING3.  If not see
 		    HSA_SORRY_MSG)) \
       inform (location, message); \
   } \
-  while (false);
+  while (false)
 
 /* Default number of threads used by kernel dispatch.  */
 
@@ -4379,11 +4379,11 @@ omp_simple_builtin::generate (gimple *stmt, hsa_bb *hbb)
   if (m_sorry)
     {
       if (m_warning_message)
-	HSA_SORRY_AT (gimple_location (stmt), m_warning_message)
+	HSA_SORRY_AT (gimple_location (stmt), m_warning_message);
       else
 	HSA_SORRY_ATV (gimple_location (stmt),
 		       "Support for HSA does not implement calls to %s\n",
-		       m_name)
+		       m_name);
     }
   else if (m_warning_message != NULL)
     warning_at (gimple_location (stmt), OPT_Whsa, m_warning_message);

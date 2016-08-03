@@ -1,5 +1,11 @@
 2016-08-03  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa-gen.c (HSA_SORRY_ATV): Remove semicolon after macro.
+	(HSA_SORRY_AT): Likewise.
+	(omp_simple_builtin::generate): Add missing semicolons.
+
+2016-08-03  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa-builtins.def (BUILT_IN_HSA_GET_WORKGROUP_ID): Renamed to
 	BUILT_IN_HSA_WORKGROUPID.
 	(BUILT_IN_HSA_GET_WORKITEM_ID): Renamed to BUILT_IN_HSA_WORKITEMID.
