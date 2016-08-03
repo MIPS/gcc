@@ -79,7 +79,7 @@ process_hsa_functions (void)
       hsa_function_summary *s = hsa_summaries->get (node);
 
       /* A linked function is skipped.  */
-      if (s->m_binded_function != NULL)
+      if (s->m_bound_function != NULL)
 	continue;
 
       if (s->m_kind != HSA_NONE)
@@ -131,7 +131,7 @@ process_hsa_functions (void)
 	      hsa_function_summary *dst = hsa_summaries->get (e->callee);
 	      if (dst->m_kind != HSA_NONE && !dst->m_gpu_implementation_p)
 		{
-		  e->redirect_callee (dst->m_binded_function);
+		  e->redirect_callee (dst->m_bound_function);
 		  if (dump_file)
 		    fprintf (dump_file,
 			     "Redirecting edge to HSA function: %s->%s\n",
@@ -193,10 +193,10 @@ ipa_hsa_write_summary (void)
 	  bp = bitpack_create (ob->main_stream);
 	  bp_pack_value (&bp, s->m_kind, 2);
 	  bp_pack_value (&bp, s->m_gpu_implementation_p, 1);
-	  bp_pack_value (&bp, s->m_binded_function != NULL, 1);
+	  bp_pack_value (&bp, s->m_bound_function != NULL, 1);
 	  streamer_write_bitpack (&bp);
-	  if (s->m_binded_function)
-	    stream_write_tree (ob, s->m_binded_function->decl, true);
+	  if (s->m_bound_function)
+	    stream_write_tree (ob, s->m_bound_function->decl, true);
 	}
     }
 
@@ -249,7 +249,7 @@ ipa_hsa_read_section (struct lto_file_decl_data *file_data, const char *data,
       if (has_tree)
 	{
 	  tree decl = stream_read_tree (&ib_main, data_in);
-	  s->m_binded_function = cgraph_node::get_create (decl);
+	  s->m_bound_function = cgraph_node::get_create (decl);
 	}
     }
   lto_free_section_data (file_data, LTO_section_ipa_hsa, NULL, data,

@@ -894,7 +894,7 @@ hsa_get_host_function (tree decl)
   gcc_assert (s->m_kind != HSA_NONE);
   gcc_assert (s->m_gpu_implementation_p);
 
-  return s->m_binded_function->decl;
+  return s->m_bound_function ? s->m_bound_function->decl : NULL;
 }
 
 /* Return true if function DECL has a host equivalent function.  */
@@ -905,8 +905,10 @@ get_brig_function_name (tree decl)
   tree d = decl;
 
   hsa_function_summary *s = hsa_summaries->get (cgraph_node::get_create (d));
-  if (s->m_kind != HSA_NONE && s->m_gpu_implementation_p)
-    d = s->m_binded_function->decl;
+  if (s->m_kind != HSA_NONE
+      && s->m_gpu_implementation_p
+      && s->m_bound_function)
+    d = s->m_bound_function->decl;
 
   /* IPA split can create a function that has no host equivalent.  */
   if (d == NULL)

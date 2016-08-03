@@ -847,8 +847,8 @@ hsa_summary_t::link_functions (cgraph_node *gpu, cgraph_node *host,
   gpu_summary->m_gridified_kernel_p = gridified_kernel_p;
   host_summary->m_gridified_kernel_p = gridified_kernel_p;
 
-  gpu_summary->m_binded_function = host;
-  host_summary->m_binded_function = gpu;
+  gpu_summary->m_bound_function = host;
+  host_summary->m_bound_function = gpu;
 
   process_gpu_implementation_attributes (gpu->decl);
 

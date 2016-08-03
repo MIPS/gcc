@@ -1291,9 +1291,9 @@ struct hsa_function_summary
   hsa_function_kind m_kind;
 
   /* Pointer to a cgraph node which is a HSA implementation of the function.
-     In case of the function is a HSA function, the binded function points
+     In case of the function is a HSA function, the bound function points
      to the host function.  */
-  cgraph_node *m_binded_function;
+  cgraph_node *m_bound_function;
 
   /* Identifies if the function is an HSA function or a host function.  */
   bool m_gpu_implementation_p;
@@ -1304,7 +1304,7 @@ struct hsa_function_summary
 
 inline
 hsa_function_summary::hsa_function_summary (): m_kind (HSA_NONE),
-  m_binded_function (NULL), m_gpu_implementation_p (false)
+  m_bound_function (NULL), m_gpu_implementation_p (false)
 {
 }
 

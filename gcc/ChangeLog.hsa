@@ -1,5 +1,18 @@
 2016-08-03  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa.h (hsa_function_summary): Rename m_binded_function to
+	m_bound_function.
+	* hsa-gen.c (hsa_get_host_function): Handle functions with no
+	bound CPU implementation.  Fix binded to bound.
+	(get_brig_function_name): Likewise.
+	* hsa.c (link_functions): Adjust after renaming m_binded_functions
+	to m_bound_functions.
+	* ipa-hsa.c (process_hsa_functions): Likewise.
+	(ipa_hsa_write_summary): Likewise.
+	(ipa_hsa_read_section): Likewise.
+
+2016-08-03  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa.h (hsa_summary_t): Add provate member function
 	process_gpu_implementation_attributes.
 	* hsa.c (process_gpu_implementation_attributes): New function.
