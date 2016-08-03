@@ -1542,10 +1542,9 @@ hsa_insn_mem::operator new (size_t size)
   return obstack_alloc (&hsa_obstack, size);
 }
 
-/* Constructor of class representing atomic instructions and signals.  OPC is
-   the principal opcode, aop is the specific atomic operation opcode.  T is the
-   type of the instruction.  The instruction operands
-   are provided as ARG[0-3].  */
+/* Constructor of class representing atomic instructions.  OPC is the principal
+   opcode, AOP is the specific atomic operation opcode.  T is the type of the
+   instruction.  The instruction operands are provided as ARG[0-3].  */
 
 hsa_insn_atomic::hsa_insn_atomic (int nops, int opc,
 				  enum BrigAtomicOperation aop,
@@ -1572,16 +1571,16 @@ hsa_insn_atomic::operator new (size_t size)
 }
 
 /* Constructor of class representing signal instructions.  OPC is the prinicpal
-   opcode, sop is the specific signal operation opcode.  T is the type of the
+   opcode, SOP is the specific signal operation opcode.  T is the type of the
    instruction.  The instruction operands are provided as ARG[0-3].  */
 
 hsa_insn_signal::hsa_insn_signal (int nops, int opc,
 				  enum BrigAtomicOperation sop,
-				  BrigType16_t t, hsa_op_base *arg0,
-				  hsa_op_base *arg1, hsa_op_base *arg2,
-				  hsa_op_base *arg3)
-  : hsa_insn_atomic (nops, opc, sop, t, BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE,
-		     arg0, arg1, arg2, arg3)
+				  BrigType16_t t, BrigMemoryOrder memorder,
+				  hsa_op_base *arg0, hsa_op_base *arg1,
+				  hsa_op_base *arg2, hsa_op_base *arg3)
+  : hsa_insn_basic (nops, opc, t, arg0, arg1, arg2, arg3),
+    m_memory_order (memorder), m_signalop (sop)
 {
 }
 
@@ -1695,8 +1694,13 @@ hsa_insn_comment::~hsa_insn_comment ()
 }
 
 /* Constructor of class representing the queue instruction in HSAIL.  */
-hsa_insn_queue::hsa_insn_queue (int nops, BrigOpcode opcode)
-  : hsa_insn_basic (nops, opcode, BRIG_TYPE_U64)
+
+hsa_insn_queue::hsa_insn_queue (int nops, int opcode, BrigSegment segment,
+				BrigMemoryOrder memory_order,
+				hsa_op_base *arg0, hsa_op_base *arg1,
+				hsa_op_base *arg2, hsa_op_base *arg3)
+  : hsa_insn_basic (nops, opcode, BRIG_TYPE_U64, arg0, arg1, arg2, arg3),
+    m_segment (segment), m_memory_order (memory_order)
 {
 }
 
@@ -4489,11 +4493,10 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 
   c = new hsa_op_immed (1, BRIG_TYPE_U64);
 
-  hsa_insn_signal *signal= new hsa_insn_signal (2, BRIG_OPCODE_SIGNALNORET,
-						BRIG_ATOMIC_ST, BRIG_TYPE_B64,
-						signal_reg, c);
-  signal->m_memoryorder = BRIG_MEMORY_ORDER_RELAXED;
-  signal->m_memoryscope = BRIG_MEMORY_SCOPE_SYSTEM;
+  hsa_insn_signal *signal = new hsa_insn_signal (2, BRIG_OPCODE_SIGNALNORET,
+						 BRIG_ATOMIC_ST, BRIG_TYPE_B64,
+						 BRIG_MEMORY_ORDER_RELAXED,
+						 signal_reg, c);
   hbb->append_insn (signal);
 
   /* Get private segment size.  */
@@ -4522,14 +4525,11 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hsa_op_reg *queue_index_reg = new hsa_op_reg (BRIG_TYPE_U64);
 
   c = new hsa_op_immed (1, BRIG_TYPE_U64);
-  hsa_insn_queue *queue = new hsa_insn_queue (3,
-					      BRIG_OPCODE_ADDQUEUEWRITEINDEX);
-
   addr = new hsa_op_address (queue_reg);
-  queue->set_op (0, queue_index_reg);
-  queue->set_op (1, addr);
-  queue->set_op (2, c);
-
+  hsa_insn_queue *queue = new hsa_insn_queue (3, BRIG_OPCODE_ADDQUEUEWRITEINDEX,
+					      BRIG_SEGMENT_FLAT,
+					      BRIG_MEMORY_ORDER_SC_RELEASE,
+					      queue_index_reg, addr, c);
   hbb->append_insn (queue);
 
   /* Get packet base address.  */
@@ -4786,8 +4786,6 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
     = new hsa_insn_atomic (2, BRIG_OPCODE_ATOMICNORET, BRIG_ATOMIC_ST,
 			   BRIG_TYPE_B32, BRIG_MEMORY_ORDER_SC_RELEASE, addr,
 			   c);
-  atomic->m_memoryscope = BRIG_MEMORY_SCOPE_SYSTEM;
-
   hbb->append_insn (atomic);
 
   /* Ring doorbell signal.  */
@@ -4800,10 +4798,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hbb->append_insn (mem);
 
   signal = new hsa_insn_signal (2, BRIG_OPCODE_SIGNALNORET, BRIG_ATOMIC_ST,
-				BRIG_TYPE_B64, doorbell_signal_reg,
-				queue_index_reg);
-  signal->m_memoryorder = BRIG_MEMORY_ORDER_SC_RELEASE;
-  signal->m_memoryscope = BRIG_MEMORY_SCOPE_SYSTEM;
+				BRIG_TYPE_B64, BRIG_MEMORY_ORDER_SC_RELEASE,
+				doorbell_signal_reg, queue_index_reg);
   hbb->append_insn (signal);
 
   /* Prepare CFG for waiting loop.  */
@@ -4829,12 +4825,9 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   c = new hsa_op_immed (1, BRIG_TYPE_S64);
 
   signal = new hsa_insn_signal (3, BRIG_OPCODE_SIGNAL,
-				BRIG_ATOMIC_WAIT_LT, BRIG_TYPE_S64);
-  signal->m_memoryorder = BRIG_MEMORY_ORDER_SC_ACQUIRE;
-  signal->m_memoryscope = BRIG_MEMORY_SCOPE_SYSTEM;
-  signal->set_op (0, signal_result_reg);
-  signal->set_op (1, signal_reg);
-  signal->set_op (2, c);
+				BRIG_ATOMIC_WAIT_LT, BRIG_TYPE_S64,
+				BRIG_MEMORY_ORDER_SC_ACQUIRE,
+				signal_result_reg, signal_reg, c);
   new_hbb->append_insn (signal);
 
   hsa_op_reg *ctrl = new hsa_op_reg (BRIG_TYPE_B1);

@@ -1333,10 +1333,6 @@ emit_signal_insn (hsa_insn_signal *mem)
 {
   struct BrigInstSignal repr;
 
-  /* This is necessary because of the erroneous typedef of
-     BrigMemoryModifier8_t which introduces padding which may then contain
-     random stuff (which we do not want so that we can test things don't
-     change).  */
   memset (&repr, 0, sizeof (repr));
   repr.base.base.byteCount = lendian16 (sizeof (repr));
   repr.base.base.kind = lendian16 (BRIG_KIND_INST_SIGNAL);
@@ -1344,9 +1340,9 @@ emit_signal_insn (hsa_insn_signal *mem)
   repr.base.type = lendian16 (mem->m_type);
   repr.base.operands = lendian32 (emit_insn_operands (mem));
 
-  repr.memoryOrder = mem->m_memoryorder;
-  repr.signalOperation = mem->m_atomicop;
-  repr.signalType = BRIG_TYPE_SIG64;
+  repr.memoryOrder = mem->m_memory_order;
+  repr.signalOperation = mem->m_signalop;
+  repr.signalType = hsa_machine_large_p () ? BRIG_TYPE_SIG64 : BRIG_TYPE_SIG32;
 
   brig_code.add (&repr, sizeof (repr));
   brig_insn_count++;
@@ -1367,10 +1363,6 @@ emit_atomic_insn (hsa_insn_atomic *mem)
   else
     addr = as_a <hsa_op_address *> (mem->get_op (1));
 
-  /* This is necessary because of the erroneous typedef of
-     BrigMemoryModifier8_t which introduces padding which may then contain
-     random stuff (which we do not want so that we can test things don't
-     change).  */
   memset (&repr, 0, sizeof (repr));
   repr.base.base.byteCount = lendian16 (sizeof (repr));
   repr.base.base.kind = lendian16 (BRIG_KIND_INST_ATOMIC);
@@ -1447,10 +1439,6 @@ emit_alloca_insn (hsa_insn_alloca *alloca)
   struct BrigInstMem repr;
   gcc_checking_assert (alloca->operand_count () == 2);
 
-  /* This is necessary because of the erroneous typedef of
-     BrigMemoryModifier8_t which introduces padding which may then contain
-     random stuff (which we do not want so that we can test things don't
-     change).  */
   memset (&repr, 0, sizeof (repr));
   repr.base.base.byteCount = lendian16 (sizeof (repr));
   repr.base.base.kind = lendian16 (BRIG_KIND_INST_MEM);
@@ -1747,8 +1735,8 @@ emit_queue_insn (hsa_insn_queue *insn)
   repr.base.base.kind = lendian16 (BRIG_KIND_INST_QUEUE);
   repr.base.opcode = lendian16 (insn->m_opcode);
   repr.base.type = lendian16 (insn->m_type);
-  repr.segment = BRIG_SEGMENT_GLOBAL;
-  repr.memoryOrder = BRIG_MEMORY_ORDER_SC_RELEASE;
+  repr.segment = insn->m_segment;
+  repr.memoryOrder = insn->m_memory_order;
   repr.base.operands = lendian32 (emit_insn_operands (insn));
   brig_data.round_size_up (4);
   brig_code.add (&repr, sizeof (repr));

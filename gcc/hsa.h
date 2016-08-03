@@ -740,16 +740,21 @@ is_a_helper <hsa_insn_atomic *>::test (hsa_insn_basic *p)
 
 /* HSA instruction for signal operations.  */
 
-class hsa_insn_signal : public hsa_insn_atomic
+class hsa_insn_signal : public hsa_insn_basic
 {
 public:
   hsa_insn_signal (int nops, int opc, enum BrigAtomicOperation sop,
-		   BrigType16_t t, hsa_op_base *arg0 = NULL,
-		   hsa_op_base *arg1 = NULL,
+		   BrigType16_t t, BrigMemoryOrder memorder,
+		   hsa_op_base *arg0 = NULL, hsa_op_base *arg1 = NULL,
 		   hsa_op_base *arg2 = NULL, hsa_op_base *arg3 = NULL);
 
   void *operator new (size_t);
 
+  /* Things like acquire/release/aligned.  */
+  enum BrigMemoryOrder m_memory_order;
+
+  /* The operation itself.  */
+  enum BrigAtomicOperation m_signalop;
 private:
   /* All objects are deallocated by destroying their pool, so make delete
      inaccessible too.  */
@@ -951,10 +956,18 @@ is_a_helper <hsa_insn_comment *>::test (hsa_insn_basic *p)
 class hsa_insn_queue: public hsa_insn_basic
 {
 public:
-  hsa_insn_queue (int nops, BrigOpcode opcode);
+  hsa_insn_queue (int nops, int opcode, BrigSegment segment,
+		  BrigMemoryOrder memory_order,
+		  hsa_op_base *arg0 = NULL, hsa_op_base *arg1 = NULL,
+		  hsa_op_base *arg2 = NULL, hsa_op_base *arg3 = NULL);
 
   /* Destructor.  */
   ~hsa_insn_queue ();
+
+  /* Segment used to refer to the queue.  Must be global or flat.  */
+  BrigSegment m_segment;
+  /* Memory order used to specify synchronization.  */
+  BrigMemoryOrder m_memory_order;
 };
 
 /* Report whether or not P is a queue instruction.  */
@@ -964,7 +977,12 @@ template <>
 inline bool
 is_a_helper <hsa_insn_queue *>::test (hsa_insn_basic *p)
 {
-  return (p->m_opcode == BRIG_OPCODE_ADDQUEUEWRITEINDEX);
+  return (p->m_opcode == BRIG_OPCODE_ADDQUEUEWRITEINDEX
+	  || p->m_opcode == BRIG_OPCODE_CASQUEUEWRITEINDEX
+	  || p->m_opcode == BRIG_OPCODE_LDQUEUEREADINDEX
+	  || p->m_opcode == BRIG_OPCODE_LDQUEUEWRITEINDEX
+	  || p->m_opcode == BRIG_OPCODE_STQUEUEREADINDEX
+	  || p->m_opcode == BRIG_OPCODE_STQUEUEWRITEINDEX);
 }
 
 /* HSA source type instruction.  */

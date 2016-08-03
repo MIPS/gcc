@@ -1,3 +1,27 @@
+2016-08-03  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.h (hsa_insn_signal): Make a direct descendant of
+	hsa_insn_basic.  Add memorder constructor parameter and
+	m_memory_order and m_signalop member variables.
+	(hsa_insn_queue): Changed constructor parameters to common form.
+	Added m_segment and m_memory_order member variables.
+	* hsa-brig.c (emit_signal_insn): Remove obsolete comment.  Update
+	member variable name, pick a type according to profile.
+	(emit_alloca_insn): Remove obsolete comment.
+	(emit_atomic_insn): Likewise.
+	(emit_queue_insn): Get segment and memory order from the IR object.
+	* hsa-dump.c (dump_hsa_insn_1): Update signal member variable
+	name.  Special dumping for queue objects.
+	* hsa-gen.c (hsa_insn_atomic): Fix function comment.
+	(hsa_insn_signal::hsa_insn_signal): Fix comment.  Update call to
+	ancestor constructor and initialization of new member variables.
+	(hsa_insn_queue::hsa_insn_queue): Added initialization of new
+	member variables.
+	(gen_hsa_insns_for_kernel_call): Use constructor arguments to
+	initialize signal memory order, remove signal, memory scope
+	initialization.  Use new constructor arguments to initialize queue
+	members.  Remove atomic instruction scope initialization.
+
 2016-06-09  Martin Jambor  <mjambor@suse.cz>
 
 	* gimple.h (enum gf_mask): New element GF_OMP_FOR_GRID_GROUP_ITER.

@@ -875,9 +875,9 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
       hsa_insn_signal *mem = as_a <hsa_insn_signal *> (insn);
 
       fprintf (f, "%s", hsa_opcode_name (mem->m_opcode));
-      fprintf (f, "_%s", hsa_m_atomicop_name (mem->m_atomicop));
-      if (mem->m_memoryorder != BRIG_MEMORY_ORDER_NONE)
-	fprintf (f, "_%s", hsa_memsem_name (mem->m_memoryorder));
+      fprintf (f, "_%s", hsa_m_atomicop_name (mem->m_signalop));
+      if (mem->m_memory_order != BRIG_MEMORY_ORDER_NONE)
+	fprintf (f, "_%s", hsa_memsem_name (mem->m_memory_order));
       fprintf (f, "_%s ", hsa_type_name (mem->m_type));
 
       dump_hsa_operands (f, mem);
@@ -1105,6 +1105,15 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
 	       hsa_type_name (insn->m_type));
 
       dump_hsa_operands (f, insn);
+    }
+  else if (hsa_insn_queue *qi = dyn_cast <hsa_insn_queue *> (insn))
+    {
+      fprintf (f, "%s_%s_%s_%s ", hsa_opcode_name (qi->m_opcode),
+	       hsa_seg_name (qi->m_segment),
+	       hsa_memsem_name (qi->m_memory_order),
+	       hsa_type_name (qi->m_type));
+
+      dump_hsa_operands (f, qi);
     }
   else
     {
