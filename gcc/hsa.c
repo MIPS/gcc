@@ -170,6 +170,7 @@ hsa_insn_basic::op_output_p (unsigned opnum)
     case BRIG_OPCODE_SBR:
     case BRIG_OPCODE_ST:
     case BRIG_OPCODE_SIGNALNORET:
+    case BRIG_OPCODE_DEBUGTRAP:
       /* FIXME: There are probably missing cases here, double check.  */
       return false;
     case BRIG_OPCODE_EXPAND:

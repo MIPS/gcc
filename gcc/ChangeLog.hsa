@@ -1,5 +1,10 @@
 2016-08-03  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa.c (hsa_insn_basic::op_output_p): Add BRIG_OPCODE_DEBUGTRAP
+	to the list of instructions with no output registers.
+
+2016-08-03  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa-gen.c (HSA_SORRY_ATV): Remove semicolon after macro.
 	(HSA_SORRY_AT): Likewise.
 	(omp_simple_builtin::generate): Add missing semicolons.
