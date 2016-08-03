@@ -7250,7 +7250,7 @@ rs6000_split_vec_extract_var (rtx dest, rtx src, rtx element, rtx tmp_gpr,
       /* For little endian, adjust element ordering.  For V2DI/V2DF, we can use
 	 an XOR, otherwise we need to subtract.  The shift amount is so VSLO
 	 will shift the element into the upper position (adding 3 to convert a
-	 byte shift into a bit shift). */
+	 byte shift into a bit shift).  */
       if (scalar_size == 8)
 	{
 	  if (!VECTOR_ELT_ORDER_BIG)
