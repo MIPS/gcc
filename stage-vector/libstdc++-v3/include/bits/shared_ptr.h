@@ -97,6 +97,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  = typename enable_if<is_convertible<_Ptr, _Tp*>::value>::type;
 
     public:
+
+#if __cplusplus > 201402L
+# define __cpp_lib_shared_ptr_weak_type 201606
+      using weak_type = weak_ptr<_Tp>;
+#endif
       /**
        *  @brief  Construct an empty %shared_ptr.
        *  @post   use_count()==0 && get()==0
@@ -535,8 +540,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
 
   /// Primary template owner_less
-  template<typename _Tp>
+  template<typename _Tp = void>
     struct owner_less;
+
+  /// Void specialization of owner_less
+  template<>
+    struct owner_less<void> : _Sp_owner_less<void, void>
+    { };
 
   /// Partial specialization of owner_less for shared_ptr.
   template<typename _Tp>

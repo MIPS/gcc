@@ -1,3 +1,37 @@
+2016-08-01  Jason Merrill  <jason@redhat.com>
+
+	* mangle.c (mangle_decl): Warn about mangled name change even if
+	DECL_REALLY_EXTERN.
+
+	* mangle.c (get_abi_tags): New.
+	(find_substitution, write_unqualified_name, write_abi_tags)
+	(maybe_check_abi_tags): Use it.
+
+	* mangle.c (mangle_decl): Fix mangled name change warning.
+
+	PR c++/72766
+	* constexpr.c (cxx_eval_pointer_plus_expression): Check constancy
+	of nelts.
+	* cp-gimplify.c (cp_fully_fold): Only maybe_constant_value in
+	C++11 and up.
+
+2016-07-30 Martin Sebor  <msebor@redhat.com>
+
+	PR c++/60760
+	PR c++/71091
+	* constexpr.c (cxx_eval_binary_expression): Reject invalid expressions
+	involving null pointers.
+	(cxx_eval_component_reference): Reject null pointer dereferences.
+	(cxx_eval_indirect_ref): Reject indirecting through null pointers.
+	(cxx_eval_constant_expression): Reject invalid expressions involving
+	null pointers.
+
+2016-07-29  Marek Polacek  <polacek@redhat.com>
+
+	PR c/71926
+	* semantics.c (maybe_convert_cond): Use the location of COND for the
+	parentheses warning.
+
 2016-07-29  Jason Merrill  <jason@redhat.com>
 
 	* decl.c (build_enumerator): Tweak diagnostic.

@@ -876,6 +876,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     public:
       typedef _Tp   element_type;
 
+#if __cplusplus > 201402L
+      using weak_type = __weak_ptr<_Tp, _Lp>;
+#endif
+
       constexpr __shared_ptr() noexcept
       : _M_ptr(0), _M_refcount()
       { }
@@ -1468,6 +1472,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       void
       _M_assign(_Tp* __ptr, const __shared_count<_Lp>& __refcount) noexcept
       {
+#define __cpp_lib_enable_shared_from_this 201603
 	if (use_count() == 0)
 	  {
 	    _M_ptr = __ptr;
@@ -1504,6 +1509,18 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       bool
       operator()(const _Tp1& __lhs, const _Tp& __rhs) const
       { return __lhs.owner_before(__rhs); }
+    };
+
+  template<>
+    struct _Sp_owner_less<void, void>
+    {
+      template<typename _Tp, typename _Up>
+	auto
+	operator()(const _Tp& __lhs, const _Up& __rhs) const
+	-> decltype(__lhs.owner_before(__rhs))
+	{ return __lhs.owner_before(__rhs); }
+
+      using is_transparent = void;
     };
 
   template<typename _Tp, _Lock_policy _Lp>

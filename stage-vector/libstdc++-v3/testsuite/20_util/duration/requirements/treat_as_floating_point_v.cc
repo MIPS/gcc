@@ -1,8 +1,7 @@
-// { dg-options "-std=gnu++11 -Wno-deprecated" }
+// { dg-options "-std=gnu++17" }
 // { dg-do compile }
-// 2007-04-30 Benjamin Kosnik <bkoz@redhat.com>
 
-// Copyright (C) 2007-2016 Free Software Foundation, Inc.
+// Copyright (C) 2014-2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,17 +14,20 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License along
+// You should have received a moved_to of the GNU General Public License along
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
+#include <chrono>
 
-// NB: This file is for testing type_traits with NO OTHER INCLUDES.
+using namespace std::chrono;
 
-#include <type_traits>
+// These tests are rather simple, the front-end tests already test
+// variable templates, and the library tests for the underlying
+// traits are more elaborate. These are just simple sanity tests.
 
-namespace std
-{
-  typedef short test_type;
-  template struct has_trivial_copy_constructor<test_type>;
-}
+static_assert(!treat_as_floating_point_v<int>
+	      && !treat_as_floating_point<int>::value, "");
+
+static_assert(treat_as_floating_point_v<double>
+	      && treat_as_floating_point<double>::value, "");

@@ -1,3 +1,168 @@
+2016-08-03  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_intrinsic_ints.f90: New testcase.
+
+2016-08-03  Richard Biener  <rguenther@suse.de>
+
+	* c-c++-common/ubsan/pr71403-1.c: Use dg-additional-options
+	and remove -O3.
+	* c-c++-common/ubsan/pr71403-2.c: Likewise.
+	* c-c++-common/ubsan/pr71403-3.c: Likewise.
+
+2016-08-03  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/loadpre2.c: Disable LIM.
+	* gcc.dg/tree-ssa/loadpre21.c: Likewise.
+	* gcc.dg/tree-ssa/loadpre22.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-pre-23.c: Likewise.
+
+2016-08-03  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.dg/init-excess-2.c: Require int32plus.
+	* gcc.dg/pr44024.c: Skip if target keeps null pointer checks.
+	* gcc.dg/pr59963-2.c: Require int32plus.
+	* gcc.dg/pr71084.c: Cast pointer to intprt_t.
+	* gcc.dg/unroll-7.c: Require int32plus.
+
+2016-08-02  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/34114
+	* gcc.dg/tree-ssa/loop-42.c: New test.
+
+2016-08-02  Tamar Christina  <tamar.christina@arm.com>
+
+	* gcc.target/aarch64/vminmaxnm.c: New.
+	* gcc.target/aarch64/simd/vminmaxnm_1.c (main): Add float64x1_t
+	tests.
+
+2016-08-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vec-extract-5.c: New tests to test
+	vec_extract for vector float, vector int, vector short, and vector
+	char.
+	* gcc.target/powerpc/vec-extract-6.c: Likewise.
+	* gcc.target/powerpc/vec-extract-7.c: Likewise.
+	* gcc.target/powerpc/vec-extract-8.c: Likewise.
+	* gcc.target/powerpc/vec-extract-9.c: Likewise.
+
+2016-08-01  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* gcc.target/aarch64/test_frame_10.c: Fix test to check for a
+	single stack adjustment, no writeback.
+	* gcc.target/aarch64/test_frame_12.c: Likewise.
+	* gcc.target/aarch64/test_frame_13.c: Likewise.
+	* gcc.target/aarch64/test_frame_15.c: Likewise.
+	* gcc.target/aarch64/test_frame_6.c: Likewise.
+	* gcc.target/aarch64/test_frame_7.c: Likewise.
+	* gcc.target/aarch64/test_frame_8.c: Likewise.
+	* gcc.target/aarch64/test_frame_16.c: New test.
+
+2015-08-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/72748
+	* gcc.target/i386/pr72748.c: New test.
+
+2015-08-01  Alan Hayward <alan.hayward@arm.com>
+
+	PR tree-optimization/71818
+	* gcc.dg/vect/pr71818.c: New
+
+2016-08-01  Martin Liska  <mliska@suse.cz>
+
+	PR tree-optimization/71857
+	* gcc.dg/tree-ssa/ivopt_mult_4.c: Change expectation.
+
+2016-08-01  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/ldp_stp_unaligned_1.c: New test.
+
+2016-08-01  Jan Beulich  <jbeulich@suse.com>
+
+	* gcc.dg/vshift-6.c, gcc.dg/vshift-7.c: New.
+
+2016-07-31  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/divkc3-1.c: Require POWER8 hardware.
+	* gcc.target/powerpc/mulkc3-1.c: Likewise.
+
+2016-07-31  Jonathan Wakely  <jwakely@redhat.com>
+
+	* lib/target-supports.exp (check_effective_target_c): Fix indentation.
+	(check_effective_target_c++): Likewise. Also match for libstdc++.
+
+2016-07-30  Steven G. Kargl <kargl@gcc.gnu.org>
+
+	PR fortran/41922
+	* gfortran.dg/equiv_constraint_5.f90: Adjust the error message.
+	* gfortran.dg/equiv_constraint_7.f90: Ditto.
+	* gfortran.dg/pr41922.f90: New test.
+
+2016-07-30  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/68566
+	* gfortran.dg/pr68566.f90: new test.
+
+2016-07-30 Martin Sebor  <msebor@redhat.com>
+
+	PR c++/60760
+	PR c++/71091
+	* g++.dg/cpp0x/constexpr-cast.C: New test.
+	* g++.dg/cpp0x/constexpr-nullptr-2.C: New test.
+	* g++.dg/cpp1y/constexpr-sfinae.C: Correct.
+	* g++.dg/ubsan/pr63956.C: Correct.
+
+2016-07-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vec-extract-2.c: New tests for vec_extract of
+	vector double or vector long where the vector is in memory.
+	* gcc.target/powerpc/vec-extract-3.c: Likewise.
+	* gcc.target/powerpc/vec-extract-4.c: Likewise.
+
+2016-07-30  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/69867
+	* gfortran.dg/pr69867.f90: New test.
+
+2016-07-30  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/69962
+	* gfortran.dg/pr69962.f90: New test.
+
+2016-07-30  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/70006
+	* gfortran.dg/pr70006.f90: New test.
+
+2016-07-30  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/71730
+	* gfortran.dg/pr71730.f90: New test.
+	* gfortran.dg/bounds_check_strlen_2.f90: Fix invalid code.
+	* gfortran.dg/array_constructor_27.f03: Update dg-error message.
+	* gfortran.dg/array_constructor_26.f03: Ditto.
+
+2016-07-29  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* g++.dg/pr70098.C: Remove XFAIL for powerpc64_no_dm.
+	* gcc.target/powerpc/pr71763.c: Likewise.
+
+2016-07-29  Marek Polacek  <polacek@redhat.com>
+
+	PR c/71742
+	* gcc.dg/940510-1.c: Adjust dg-error.
+	* gcc.dg/c99-flex-array-1.c: Likewise.
+	* gcc.dg/c99-flex-array-typedef-1.c: Likewise.
+
+	PR c/71853
+	* gcc.dg/noncompile/pr71853.c: New test.
+
+	PR c/71573
+	* gcc.dg/noncompile/pr71573.c: New test.
+
+	PR c/71926
+	* g++.dg/warn/Wparentheses-30.C: New test.
+	* gcc.dg/Wparentheses-14.c: New test.
+
 2016-07-29  Uros Bizjak  <ubizjak@gmail.com>
 
 	* gcc.dg/pr59833.c: Use dg-add-options ieee.
@@ -521,6 +686,7 @@
 
 	* g++.dg/cpp0x/nullptr35.C (caught): Fix typo.
 
+>>>>>>> .r238890
 2016-07-15  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 	    Marco Restelli <mrestelli@gmail.com>
 
