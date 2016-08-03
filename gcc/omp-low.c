@@ -13553,16 +13553,16 @@ grid_expand_omp_for_loop (struct omp_region *kfor, bool intra_group)
 	{
 	  gcc_checking_assert (!intra_group);
 	  threadid = build_call_expr (builtin_decl_explicit
-				      (BUILT_IN_HSA_GET_WORKGROUP_ID), 1,
+				      (BUILT_IN_HSA_WORKGROUPID), 1,
 				      build_int_cstu (unsigned_type_node, dim));
 	}
       else if (intra_group)
 	threadid = build_call_expr (builtin_decl_explicit
-				    (BUILT_IN_HSA_GET_WORKITEM_ID), 1,
+				    (BUILT_IN_HSA_WORKITEMID), 1,
 				    build_int_cstu (unsigned_type_node, dim));
       else
 	threadid = build_call_expr (builtin_decl_explicit
-				    (BUILT_IN_HSA_GET_WORKITEM_ABSID), 1,
+				    (BUILT_IN_HSA_WORKITEMABSID), 1,
 				    build_int_cstu (unsigned_type_node, dim));
       threadid = fold_convert (itype, threadid);
       threadid = force_gimple_operand_gsi (&gsi, threadid, true, NULL_TREE,

@@ -1,5 +1,25 @@
 2016-08-03  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa-builtins.def (BUILT_IN_HSA_GET_WORKGROUP_ID): Renamed to
+	BUILT_IN_HSA_WORKGROUPID.
+	(BUILT_IN_HSA_GET_WORKITEM_ID): Renamed to BUILT_IN_HSA_WORKITEMID.
+	(BUILT_IN_HSA_GET_WORKITEM_ABSID): Renamed to
+	BUILT_IN_HSA_WORKITEMABSID.
+	* hsa-gen.c (query_hsa_grid): Renamed to
+	query_hsa_grid_dim, reimplemented, cut down to two overloads.
+	(query_hsa_grid_nodim): New function.
+	(multiply_grid_dim_characteristics): Likewise.
+	(gen_get_num_threads): Likewise.
+	(gen_get_num_teams): Reimplemented.
+	(gen_get_team_num): Likewise.
+	(gen_hsa_insns_for_known_library_call): Updated calls to the above
+	helper functions.
+	(gen_hsa_insns_for_call): Updated names of builtins, use
+	the above helper functions to handle them.
+	* omp-low.c (grid_expand_omp_for_loop): Update builtin names.
+
+2016-08-03  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa.h (hsa_function_summary): Rename m_binded_function to
 	m_bound_function.
 	* hsa-gen.c (hsa_get_host_function): Handle functions with no

@@ -3795,8 +3795,8 @@ hsa_insn_basic::set_output_in_type (hsa_op_reg *dest, unsigned op_index,
    HBB.  */
 
 static void
-query_hsa_grid (hsa_op_reg *dest, BrigType16_t opcode,  hsa_op_immed *dimension,
-		hsa_bb *hbb)
+query_hsa_grid_dim (hsa_op_reg *dest, int opcode, hsa_op_immed *dimension,
+		    hsa_bb *hbb)
 {
   hsa_insn_basic *insn = new hsa_insn_basic (2, opcode, BRIG_TYPE_U32, NULL,
 					     dimension);
@@ -3804,32 +3804,49 @@ query_hsa_grid (hsa_op_reg *dest, BrigType16_t opcode,  hsa_op_immed *dimension,
   insn->set_output_in_type (dest, 0, hbb);
 }
 
-/* Generate a special HSA-related instruction for gimple STMT.
-   Instructions are appended to basic block HBB.  */
+/* Generate instruction OPCODE to query a property of HSA grid along the given
+   dimension which is an immediate in first argument of STMT.  Store result
+   into the register corresponding to LHS of STMT and append the instruction to
+   HBB.  */
 
 static void
-query_hsa_grid (gimple *stmt, BrigOpcode16_t opcode, hsa_op_immed *dimension,
-		hsa_bb *hbb)
+query_hsa_grid_dim (gimple *stmt, int opcode, hsa_bb *hbb)
 {
   tree lhs = gimple_call_lhs (dyn_cast <gcall *> (stmt));
   if (lhs == NULL_TREE)
     return;
 
-  hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa (lhs);
+  tree arg = gimple_call_arg (stmt, 0);
+  unsigned HOST_WIDE_INT dim = 5;
+  if (tree_fits_uhwi_p (arg))
+    dim = tree_to_uhwi (arg);
+  if (dim > 2)
+    {
+      HSA_SORRY_AT (gimple_location (stmt),
+		    "HSA grid query dimension must be immediate constant 0, 1 "
+		    "or 2");
+      return;
+    }
 
-  query_hsa_grid (dest, opcode, dimension, hbb);
+  hsa_op_immed *hdim = new hsa_op_immed (dim, (BrigKind16_t) BRIG_TYPE_U32);
+  hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa (lhs);
+  query_hsa_grid_dim (dest, opcode, hdim, hbb);
 }
 
-/* Generate a special HSA-related instruction for gimple STMT.
-   Instructions are appended to basic block HBB.  */
+/* Generate instruction OPCODE to query a property of HSA grid that is
+   independent of any dimension.  Store result into the register corresponding
+   to LHS of STMT and append the instruction to HBB.  */
 
 static void
-query_hsa_grid (gimple *stmt, BrigOpcode16_t opcode, int dimension,
-		hsa_bb *hbb)
+query_hsa_grid_nodim (gimple *stmt, BrigOpcode16_t opcode, hsa_bb *hbb)
 {
-  hsa_op_immed *bdim = new hsa_op_immed (dimension,
-					 (BrigKind16_t) BRIG_TYPE_U32);
-  query_hsa_grid (stmt, opcode, bdim, hbb);
+  tree lhs = gimple_call_lhs (dyn_cast <gcall *> (stmt));
+  if (lhs == NULL_TREE)
+    return;
+  hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa (lhs);
+  BrigType16_t brig_type = hsa_unsigned_type_for_type (dest->m_type);
+  hsa_insn_basic *insn = new hsa_insn_basic (1, opcode, brig_type, dest);
+  hbb->append_insn (insn);
 }
 
 /* Emit instructions that set hsa_num_threads according to provided VALUE.
@@ -3976,6 +3993,44 @@ gen_num_threads_for_dispatch (hsa_bb *hbb)
   return as_a <hsa_op_reg *> (dest);
 }
 
+/* Build OPCODE query for all three hsa dimensions, multiply them and store the
+   result into DEST.  */
+
+static void
+multiply_grid_dim_characteristics (hsa_op_reg *dest, int opcode, hsa_bb *hbb)
+{
+  hsa_op_reg *dimx = new hsa_op_reg (BRIG_TYPE_U32);
+  query_hsa_grid_dim (dimx, opcode,
+		      new hsa_op_immed (0, (BrigKind16_t) BRIG_TYPE_U32), hbb);
+  hsa_op_reg *dimy = new hsa_op_reg (BRIG_TYPE_U32);
+  query_hsa_grid_dim (dimy, opcode,
+		      new hsa_op_immed (1, (BrigKind16_t) BRIG_TYPE_U32), hbb);
+  hsa_op_reg *dimz = new hsa_op_reg (BRIG_TYPE_U32);
+  query_hsa_grid_dim (dimz, opcode,
+		      new hsa_op_immed (2, (BrigKind16_t) BRIG_TYPE_U32), hbb);
+  hsa_op_reg *tmp = new hsa_op_reg (dest->m_type);
+  gen_hsa_binary_operation (BRIG_OPCODE_MUL, tmp,
+			    dimx->get_in_type (dest->m_type, hbb),
+			    dimy->get_in_type (dest->m_type, hbb), hbb);
+  gen_hsa_binary_operation (BRIG_OPCODE_MUL, dest, tmp,
+			    dimz->get_in_type (dest->m_type, hbb), hbb);
+}
+
+/* Emit instructions that assign number of threads to lhs of gimple STMT.
+   Instructions are appended to basic block HBB.  */
+
+static void
+gen_get_num_threads (gimple *stmt, hsa_bb *hbb)
+{
+  if (gimple_call_lhs (stmt) == NULL_TREE)
+    return;
+
+  hbb->append_insn (new hsa_insn_comment ("omp_get_num_threads"));
+  tree lhs = gimple_call_lhs (stmt);
+  hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa (lhs);
+  multiply_grid_dim_characteristics (dest, BRIG_OPCODE_CURRENTWORKGROUPSIZE,
+				     hbb);
+}
 
 /* Emit instructions that assign number of teams to lhs of gimple STMT.
    Instructions are appended to basic block HBB.  */
@@ -3987,15 +4042,9 @@ gen_get_num_teams (gimple *stmt, hsa_bb *hbb)
     return;
 
   hbb->append_insn (new hsa_insn_comment ("omp_get_num_teams"));
-
   tree lhs = gimple_call_lhs (stmt);
   hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa (lhs);
-  hsa_op_immed *one = new hsa_op_immed (1, dest->m_type);
-
-  hsa_insn_basic *basic
-    = new hsa_insn_basic (2, BRIG_OPCODE_MOV, dest->m_type, dest, one);
-
-  hbb->append_insn (basic);
+  multiply_grid_dim_characteristics (dest, BRIG_OPCODE_GRIDGROUPS, hbb);
 }
 
 /* Emit instructions that assign a team number to lhs of gimple STMT.
@@ -4008,15 +4057,42 @@ gen_get_team_num (gimple *stmt, hsa_bb *hbb)
     return;
 
   hbb->append_insn (new hsa_insn_comment ("omp_get_team_num"));
-
   tree lhs = gimple_call_lhs (stmt);
   hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa (lhs);
-  hsa_op_immed *zero = new hsa_op_immed (0, dest->m_type);
 
-  hsa_insn_basic *basic
-    = new hsa_insn_basic (2, BRIG_OPCODE_MOV, dest->m_type, dest, zero);
+  hsa_op_reg *gnum_x = new hsa_op_reg (BRIG_TYPE_U32);
+  query_hsa_grid_dim (gnum_x, BRIG_OPCODE_GRIDGROUPS,
+		      new hsa_op_immed (0, (BrigKind16_t) BRIG_TYPE_U32), hbb);
+  hsa_op_reg *gnum_y = new hsa_op_reg (BRIG_TYPE_U32);
+  query_hsa_grid_dim (gnum_y, BRIG_OPCODE_GRIDGROUPS,
+		      new hsa_op_immed (1, (BrigKind16_t) BRIG_TYPE_U32), hbb);
 
-  hbb->append_insn (basic);
+  hsa_op_reg *gno_z = new hsa_op_reg (BRIG_TYPE_U32);
+  query_hsa_grid_dim (gno_z, BRIG_OPCODE_WORKGROUPID,
+		      new hsa_op_immed (2, (BrigKind16_t) BRIG_TYPE_U32), hbb);
+
+  hsa_op_reg *tmp1 = new hsa_op_reg (dest->m_type);
+  gen_hsa_binary_operation (BRIG_OPCODE_MUL, tmp1,
+			    gnum_x->get_in_type (dest->m_type, hbb),
+			    gnum_y->get_in_type (dest->m_type, hbb), hbb);
+  hsa_op_reg *tmp2 = new hsa_op_reg (dest->m_type);
+  gen_hsa_binary_operation (BRIG_OPCODE_MUL, tmp2, tmp1,
+			    gno_z->get_in_type (dest->m_type, hbb), hbb);
+
+  hsa_op_reg *gno_y = new hsa_op_reg (BRIG_TYPE_U32);
+  query_hsa_grid_dim (gno_y, BRIG_OPCODE_WORKGROUPID,
+		      new hsa_op_immed (1, (BrigKind16_t) BRIG_TYPE_U32), hbb);
+  hsa_op_reg *tmp3 = new hsa_op_reg (dest->m_type);
+  gen_hsa_binary_operation (BRIG_OPCODE_MUL, tmp3,
+			    gnum_x->get_in_type (dest->m_type, hbb),
+			    gno_y->get_in_type (dest->m_type, hbb), hbb);
+  hsa_op_reg *tmp4 = new hsa_op_reg (dest->m_type);
+  gen_hsa_binary_operation (BRIG_OPCODE_ADD, tmp4, tmp3, tmp2, hbb);
+  hsa_op_reg *gno_x = new hsa_op_reg (BRIG_TYPE_U32);
+  query_hsa_grid_dim (gno_x, BRIG_OPCODE_WORKGROUPID,
+		      new hsa_op_immed (0, (BrigKind16_t) BRIG_TYPE_U32), hbb);
+  gen_hsa_binary_operation (BRIG_OPCODE_ADD, dest, tmp4,
+			    gno_x->get_in_type (dest->m_type, hbb), hbb);
 }
 
 /* Emit instructions that get levels-var ICV to lhs of gimple STMT.
@@ -4362,12 +4438,12 @@ gen_hsa_insns_for_known_library_call (gimple *stmt, hsa_bb *hbb)
       else if (strcmp (name, "omp_get_thread_num") == 0)
 	{
 	  hbb->append_insn (new hsa_insn_comment (name));
-	  query_hsa_grid (stmt, BRIG_OPCODE_WORKITEMABSID, 0, hbb);
+	  query_hsa_grid_nodim (stmt, BRIG_OPCODE_WORKITEMFLATABSID, hbb);
 	}
       else if (strcmp (name, "omp_get_num_threads") == 0)
 	{
 	  hbb->append_insn (new hsa_insn_comment (name));
-	  query_hsa_grid (stmt, BRIG_OPCODE_GRIDSIZE, 0, hbb);
+	  gen_get_num_threads (stmt, hbb);
 	}
       else if (strcmp (name, "omp_get_num_teams") == 0)
 	gen_get_num_teams (stmt, hbb);
@@ -5779,30 +5855,15 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 	break;
       }
 
-    case BUILT_IN_HSA_GET_WORKGROUP_ID:
-      {
-	hsa_op_immed *bdim = new hsa_op_immed (gimple_call_arg (stmt, 0), true);
-	if (bdim->m_type != BRIG_TYPE_U32)
-	  bdim->get_in_type (BRIG_TYPE_U32, hbb);
-	query_hsa_grid (stmt, BRIG_OPCODE_WORKGROUPID, bdim, hbb);
-	break;
-      }
-    case BUILT_IN_HSA_GET_WORKITEM_ID:
-      {
-	hsa_op_immed *bdim = new hsa_op_immed (gimple_call_arg (stmt, 0), true);
-	if (bdim->m_type != BRIG_TYPE_U32)
-	  bdim->get_in_type (BRIG_TYPE_U32, hbb);
-	query_hsa_grid (stmt, BRIG_OPCODE_WORKITEMID, bdim, hbb);
-	break;
-      }
-    case BUILT_IN_HSA_GET_WORKITEM_ABSID:
-      {
-	hsa_op_immed *bdim = new hsa_op_immed (gimple_call_arg (stmt, 0), true);
-	if (bdim->m_type != BRIG_TYPE_U32)
-	  bdim->get_in_type (BRIG_TYPE_U32, hbb);
-	query_hsa_grid (stmt, BRIG_OPCODE_WORKITEMABSID, bdim, hbb);
-	break;
-      }
+    case BUILT_IN_HSA_WORKGROUPID:
+      query_hsa_grid_dim (stmt, BRIG_OPCODE_WORKGROUPID, hbb);
+      break;
+    case BUILT_IN_HSA_WORKITEMID:
+      query_hsa_grid_dim (stmt, BRIG_OPCODE_WORKITEMID, hbb);
+      break;
+    case BUILT_IN_HSA_WORKITEMABSID:
+      query_hsa_grid_dim (stmt, BRIG_OPCODE_WORKITEMABSID, hbb);
+      break;
 
     case BUILT_IN_GOMP_BARRIER:
       hbb->append_insn (new hsa_insn_br (0, BRIG_OPCODE_BARRIER, BRIG_TYPE_NONE,
@@ -5825,13 +5886,13 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
       }
     case BUILT_IN_OMP_GET_THREAD_NUM:
       {
-	query_hsa_grid (stmt, BRIG_OPCODE_WORKITEMABSID, 0, hbb);
+	query_hsa_grid_nodim (stmt, BRIG_OPCODE_WORKITEMFLATABSID, hbb);
 	break;
       }
 
     case BUILT_IN_OMP_GET_NUM_THREADS:
       {
-	query_hsa_grid (stmt, BRIG_OPCODE_GRIDSIZE, 0, hbb);
+	gen_get_num_threads (stmt, hbb);
 	break;
       }
     case BUILT_IN_GOMP_TEAMS:
