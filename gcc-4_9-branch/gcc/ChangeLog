@@ -1,3 +1,350 @@
+2016-08-03  Release Manager
+
+	* GCC 4.9.4 released.
+
+2016-08-01  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2016-07-29  Marek Polacek  <polacek@redhat.com>
+
+	PR c/7652
+	* config/rs6000/rs6000.c (altivec_expand_ld_builtin): Add break.
+	(altivec_expand_st_builtin): Likewise.
+	* config/i386/i386.c (ix86_expand_args_builtin): Likewise.
+	(ix86_expand_round_builtin): Likewise.
+
+2016-07-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/71874
+	* builtins.c (fold_builtin_memory_op): Use
+	get_addr_base_and_unit_offset instead of get_ref_base_and_extent.
+
+2016-07-19  Martin Jambor  <mjambor@suse.cz>
+
+        PR fortran/71688
+        * trans-decl.c (gfc_generate_function_code): Use cgraph_get_create_node
+        rather than cgraph_create_node to get a call graph node.
+
+2016-07-19  Martin Liska  <mliska@suse.cz>
+
+	Backported from mainline
+	2016-03-15  Richard Henderson  <rth@redhat.com>
+
+	* line-map.c (new_linemap): Make alloc_size a size_t.
+
+2016-07-19  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2016-07-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/71758
+	* omp-low.c (expand_omp_target): Gimplify device.
+
+2016-07-18  Martin Liska  <mliska@suse.cz>
+
+	Backported from mainline
+	2016-07-12  Martin Liska  <mliska@suse.cz>
+
+	PR rtl-optimization/71634
+	* ira-build.c (mark_loops_for_removal): Properly iterate
+	loops.
+
+2016-07-08  Martin Liska  <mliska@suse.cz>
+
+	Backported from mainline
+	2016-07-08  Martin Liska  <mliska@suse.cz>
+
+	PR middle-end/71606
+	* fold-const.c (fold_convertible_p): As COMPLEX_TYPE
+	folding produces SAVE_EXPRs, thus return false for the type.
+
+2016-07-07  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2016-06-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/71626
+	* config/i386/i386.c (ix86_expand_vector_move): For SUBREG of
+	a constant, force its SUBREG_REG into memory or register instead
+	of whole op1.
+
+	2016-06-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/71588
+	* tree-ssa-strlen.c (valid_builtin_call): New function.
+	(adjust_last_stmt, strlen_optimize_stmt): Use it.
+
+	2016-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/71494
+	* tree-nested.c (convert_nonlocal_reference_stmt): For GIMPLE_GOTO
+	without LABEL_DECL, set *handled_ops_p to false instead of true.
+
+	2016-03-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/70429
+	* combine.c (simplify_shift_const_1): For ASHIFTRT don't optimize
+	(cst1 >> count) >> cst2 into (cst1 >> cst2) >> count if
+	mode != result_mode.
+
+	2016-03-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/70222
+	* combine.c (simplify_shift_const_1): For A >> B >> C LSHIFTRT
+	optimization if mode is different from result_mode, queue up masking
+	of the result in outer_op.  Formatting fix.
+
+	2016-03-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/70169
+	* tree-ssa-loop.c (gen_lsm_tmp_name): Handle FUNCTION_DECL and
+	LABEL_DECL like VAR_DECL.  Emit nothing instead of gcc_unreachable
+	for unknown codes.
+
+	2016-03-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/70152
+	* tree-sra.c (replace_removed_params_ssa_names): Copy over
+	SSA_NAME_OCCURS_IN_ABNORMAL_PHI from old_name to new_name.
+
+	2016-02-26  Jakub Jelinek  <jakub@redhat.com>
+		    Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/69891
+	* dse.c (scan_insn): If we can't figure out memset arguments
+	or they are non-constant, call clear_rhs_from_active_local_stores.
+
+	2016-02-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/69802
+	* tree-ssa-reassoc.c (update_range_test): If op is
+	SSA_NAME_IS_DEFAULT_DEF, give up unless tem is a positive
+	op == 1 test of precision 1 integral op, otherwise handle
+	that case as op itself.  Fix up formatting.
+	(optimize_range_tests_to_bit_test, optimize_range_tests): Fix
+	up formatting.
+
+	2014-12-12  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/64280
+	* tree-cfg.c (replace_uses_by): Guard assert properly.
+
+2016-07-07  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2016-04-04  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/70484
+	* rtl.h (canon_output_dependence): Declare.
+	* alias.c (canon_output_dependence): New function.
+	* dse.c (record_store): Use canon_output_dependence rather
+	than canon_true_dependence.
+
+	2016-06-08  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71452
+	* tree-ssa.c (non_rewritable_lvalue_p): Make sure that the
+	type used for the SSA rewrite has enough precision to cover
+	the dynamic type of the location.
+
+	2016-05-06  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70931
+	* dwarf2out.c (native_encode_initializer): Skip zero-sized fields.
+
+	2016-03-01  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/70022
+	* fold-const.c (fold_indirect_ref_1): Fix range checking for
+	vector BIT_FIELD_REF extract.
+
+2016-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/71693
+	* fold-const.c (fold_binary_loc) <case RROTATE_EXPR>: Cast
+	TREE_OPERAND (arg0, 0) and TREE_OPERAND (arg0, 1) to type
+	first when permuting bitwise operation with rotate.  Cast
+	TREE_OPERAND (arg0, 0) to type when cancelling two rotations.
+
+2016-06-21  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2016-06-21 trunk r237639.
+
+	PR target/30417
+	* config/avr/driver-avr.c (avr_device_to_data_start):
+	Wrap -Tdata into %{!Tdata:...}.
+
+2016-06-21  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/71103
+	* config/avr/avr.md (movqi): Only handle loading subreg:qi of
+	constant addresses if can_create_pseudo_p.
+
+2016-06-20  Georg-Johann Lay  <avr@gjlay.de>
+	    Pitchumani Sivanupandi  <pitchumani.s@atmel.com>
+
+	Backport from 2016-06-20 trunk r237589, r236558.
+
+	PR target/71103
+	* config/avr/avr.md (movqi): Handle loading subreg:qi (const,
+	symbol_ref,label_ref).
+
+2016-06-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/71554
+	* config/i386/i386.md (setcc + movzbl peephole2): Use reg_set_p.
+	(setcc + and peephole2): Likewise.
+
+	Backported from mainline
+	2015-04-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (setcc+movzbl peephole2): Check also clobbered
+	reg.
+	(setcc+andl peephole2): Ditto.
+
+2016-06-13  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71505
+	* tree-vect-data-refs.c (vect_analyze_data_ref_accesses): Make
+	assert match comment.
+
+2016-06-07  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2016-06-07  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document -mhtm and
+	-mno-htm.
+
+2016-06-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/71389
+	* config/i386/i386.c (ix86_avx256_split_vector_move_misalign):
+	Copy op1 RTX to avoid invalid sharing.
+	(ix86_expand_vector_move_misalign): Ditto.
+
+2016-06-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2016-06-01  Uros Bizjak  <ubizjak@gmail.com>
+		    Jocelyn Mayer  <l_indien@magic.fr>
+
+	PR target/67310
+	* config/i386/driver-i386.c (host_detect_local_cpu): Correctly
+	detect processor family for signature_CENTAUR_ebx.
+	<case PROCESSOR_I486>: Pass c3, winchip2 or winchip-c6 for
+	signature_CENTAUR_ebx.
+	<case PROCESSOR _PENTIUMPRO>: Pass c3-2 for signature_CENTAUR_ebx.
+	<default>: Pass x86-64 for has_longmode.
+
+2016-05-22  Iain Sandoe  <iain@codesourcery.com>
+	    Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	Backport from mainline
+	2015-12-17  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/67973
+	* configure.ac (gcc_cv_as_stabs_directive): New test.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* config/darwin.h (DBX_DEBUGGING_INFO): Wrap in
+	HAVE_AS_STABS_DIRECTIVE.
+	(PREFERRED_DEBUGGING_TYPE): Likewise.
+	* config/i386/darwin.h (PREFERRED_DEBUGGING_TYPE): Only include
+	DBX_DEBUG if HAVE_AS_STABS_DIRECTIVE.
+
+	* doc/sourcebuild.texi (Effective-Target Keywords, Environment
+	attributes): Document stabs.
+
+2016-05-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/arm/arm.c (arm_expand_prologue): Set the stack usage to 0
+	for naked functions.
+	(thumb1_expand_prologue): Likewise.
+
+2016-05-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	* sched-deps.c (sched_analyze_2) <case TRAP_IF>: Also
+	force pending loads from memory.
+
+2016-05-20  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2016-05-17  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/70809
+	* config/aarch64/aarch64-simd.md (aarch64_vmls<mode>): Delete.
+
+2016-05-19  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/70646
+	* ipa-prop.c (determine_locally_known_aggregate_parts): Bail out early
+	if parameter PARAM_IPA_MAX_AGG_ITEMS is zero.
+
+2016-05-19  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/70646
+	* ipa-inline.h (condition): New field size.
+	* ipa-inline-analysis.c (add_condition): New parameter SIZE, use it
+	for comaprison and store it into the new condition.
+	(evaluate_conditions_for_known_args): Use condition size to check
+	access sizes for all but CHANGED conditions.
+	(unmodified_parm_1): New parameter size_p, store access size into it.
+	(unmodified_parm): Likewise.
+	(unmodified_parm_or_parm_agg_item): Likewise.
+	(eliminated_by_inlining_prob): Pass NULL to unmodified_parm as size_p.
+	(set_cond_stmt_execution_predicate): Extract access sizes and store
+	them to conditions.
+	(set_switch_stmt_execution_predicate): Likewise.
+	(will_be_nonconstant_expr_predicate): Likewise.
+	(will_be_nonconstant_predicate): Likewise.
+	(inline_read_section): Stream condition size.
+	(inline_write_summary): Likewise.
+	* lto-streamer.h (LTO_minor_version): Bump.
+	* ipa-prop.c (ipa_load_from_parm_agg): Added size_p parameter, pass it
+	to ipa_load_from_parm_agg_1.
+	* ipa-prop.h (ipa_load_from_parm_agg): Update declaration.
+
+2016-05-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/71145
+	* config/alpha/alpha.md (trap): Add (use (reg:DI 29)).
+	(*exception_receiver_1): Return "#" for TARGET_EXPLICIT_RELOCS.
+
+2016-05-10  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2016-03-23  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR driver/70132
+	* config/arm/driver-arm.c (host_detect_local_cpu): Reorder exit logic
+	to not call fclose twice on file.
+
+2016-05-10  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2016-05-10  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/70963
+	* config/rs6000/vsx.md (vsx_xvcvdpsxds_scale): Generate correct
+	code for a zero scale factor.
+	(vsx_xvcvdpuxds_scale): Likewise.
+
+2016-05-09  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	Backport from mainline
+	2016-04-27  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* config/rtems.h (LIB_SPEC): Add -latomic.
+
+2016-05-09  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	Backport from mainline
+	2016-04-27  Joel Sherrill  <joel@rtems.org>
+
+	* config/microblaze/rtems.h: Redefine LINK_SPEC to avoid
+	xilink.ld and flags not relevant to RTEMS.
+
 2016-04-28  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/70858
@@ -704,7 +1051,7 @@
 
 	Backport from mainline
 	2015-11-26  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
-	            Bernd Schmidt  <bschmidt@redhat.com>
+		    Bernd Schmidt  <bschmidt@redhat.com>
 
 	PR rtl-optimization/67226
 	* calls.c (store_one_arg): Take into account
@@ -716,7 +1063,7 @@
 
 	Backport from mainline
 	2015-11-24  Bernd Schmidt <bschmidt@redhat.com>
-	            Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+		    Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
 
 	PR rtl-optimization/68194
 	PR rtl-optimization/68328
@@ -1852,7 +2199,7 @@
 
 	Backport from mainline r222205
 	2015-04-17  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
-	            Jakub Jelinek  <jakub@redhat.com>
+		    Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/65787
 	* config/rs6000/rs6000.c (rtx_is_swappable_p): Ensure that a

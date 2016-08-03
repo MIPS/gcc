@@ -22047,7 +22047,8 @@ cp_parser_std_attribute_spec (cp_parser *parser)
 static tree
 cp_parser_std_attribute_spec_seq (cp_parser *parser)
 {
-  tree attr_specs = NULL;
+  tree attr_specs = NULL_TREE;
+  tree attr_last = NULL_TREE;
 
   while (true)
     {
@@ -22057,11 +22058,13 @@ cp_parser_std_attribute_spec_seq (cp_parser *parser)
       if (attr_spec == error_mark_node)
 	return error_mark_node;
 
-      TREE_CHAIN (attr_spec) = attr_specs;
-      attr_specs = attr_spec;
+      if (attr_last)
+	TREE_CHAIN (attr_last) = attr_spec;
+      else
+	attr_specs = attr_last = attr_spec;
+      attr_last = tree_last (attr_last);
     }
 
-  attr_specs = nreverse (attr_specs);
   return attr_specs;
 }
 
@@ -23363,6 +23366,7 @@ cp_parser_save_member_function_body (cp_parser* parser,
   cp_token *first;
   cp_token *last;
   tree fn;
+  bool function_try_block = false;
 
   /* Create the FUNCTION_DECL.  */
   fn = grokmethod (decl_specifiers, declarator, attributes);
@@ -23383,9 +23387,48 @@ cp_parser_save_member_function_body (cp_parser* parser,
   /* Save away the tokens that make up the body of the
      function.  */
   first = parser->lexer->next_token;
+
+  if (cp_lexer_next_token_is_keyword (parser->lexer, RID_TRANSACTION_RELAXED))
+    cp_lexer_consume_token (parser->lexer);
+  else if (cp_lexer_next_token_is_keyword (parser->lexer,
+					   RID_TRANSACTION_ATOMIC))
+    {
+      cp_lexer_consume_token (parser->lexer);
+      /* Match cp_parser_txn_attribute_opt [[ identifier ]].  */
+      if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_SQUARE)
+	  && (cp_lexer_peek_nth_token (parser->lexer, 2)->type
+	      == CPP_OPEN_SQUARE)
+	  && (cp_lexer_peek_nth_token (parser->lexer, 3)->type == CPP_NAME
+	      || (cp_lexer_peek_nth_token (parser->lexer, 3)->type
+		  == CPP_KEYWORD))
+	  && (cp_lexer_peek_nth_token (parser->lexer, 4)->type
+	      == CPP_CLOSE_SQUARE)
+	  && (cp_lexer_peek_nth_token (parser->lexer, 5)->type
+	      == CPP_CLOSE_SQUARE))
+	{
+	  cp_lexer_consume_token (parser->lexer);
+	  cp_lexer_consume_token (parser->lexer);
+	  cp_lexer_consume_token (parser->lexer);
+	  cp_lexer_consume_token (parser->lexer);
+	  cp_lexer_consume_token (parser->lexer);
+	}
+      else
+	while (cp_next_tokens_can_be_gnu_attribute_p (parser)
+	       && (cp_lexer_peek_nth_token (parser->lexer, 2)->type
+		   == CPP_OPEN_PAREN))
+	  {
+	    cp_lexer_consume_token (parser->lexer);
+	    if (cp_parser_cache_group (parser, CPP_CLOSE_PAREN, /*depth=*/0))
+	      break;
+	  }
+    }
+
   /* Handle function try blocks.  */
   if (cp_lexer_next_token_is_keyword (parser->lexer, RID_TRY))
-    cp_lexer_consume_token (parser->lexer);
+    {
+      cp_lexer_consume_token (parser->lexer);
+      function_try_block = true;
+    }
   /* We can have braced-init-list mem-initializers before the fn body.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_COLON))
     {
@@ -23403,8 +23446,9 @@ cp_parser_save_member_function_body (cp_parser* parser,
     }
   cp_parser_cache_group (parser, CPP_CLOSE_BRACE, /*depth=*/0);
   /* Handle function try blocks.  */
-  while (cp_lexer_next_token_is_keyword (parser->lexer, RID_CATCH))
-    cp_parser_cache_group (parser, CPP_CLOSE_BRACE, /*depth=*/0);
+  if (function_try_block)
+    while (cp_lexer_next_token_is_keyword (parser->lexer, RID_CATCH))
+      cp_parser_cache_group (parser, CPP_CLOSE_BRACE, /*depth=*/0);
   last = parser->lexer->next_token;
 
   /* Save away the inline definition; we will process it when the

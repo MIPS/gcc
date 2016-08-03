@@ -16918,12 +16918,29 @@ ix86_expand_vector_move (enum machine_mode mode, rtx operands[])
      of the register, once we have that information we may be able
      to handle some of them more efficiently.  */
   if (can_create_pseudo_p ()
-      && register_operand (op0, mode)
       && (CONSTANT_P (op1)
 	  || (GET_CODE (op1) == SUBREG
 	      && CONSTANT_P (SUBREG_REG (op1))))
-      && !standard_sse_constant_p (op1))
-    op1 = validize_mem (force_const_mem (mode, op1));
+      && ((register_operand (op0, mode)
+	   && !standard_sse_constant_p (op1))
+	  /* ix86_expand_vector_move_misalign() does not like constants.  */
+	  || (SSE_REG_MODE_P (mode)
+	      && MEM_P (op0)
+	      && MEM_ALIGN (op0) < align)))
+    {
+      if (GET_CODE (op1) == SUBREG)
+	{
+	  machine_mode imode = GET_MODE (SUBREG_REG (op1));
+	  rtx r = force_const_mem (imode, SUBREG_REG (op1));
+	  if (r)
+	    r = validize_mem (r);
+	  else
+	    r = force_reg (imode, SUBREG_REG (op1));
+	  op1 = simplify_gen_subreg (mode, r, imode, SUBREG_BYTE (op1));
+	}
+      else
+	op1 = validize_mem (force_const_mem (mode, op1));
+    }
 
   /* We need to check memory alignment for SSE mode since attribute
      can make operands unaligned.  */
@@ -16934,13 +16951,8 @@ ix86_expand_vector_move (enum machine_mode mode, rtx operands[])
     {
       rtx tmp[2];
 
-      /* ix86_expand_vector_move_misalign() does not like constants ... */
-      if (CONSTANT_P (op1)
-	  || (GET_CODE (op1) == SUBREG
-	      && CONSTANT_P (SUBREG_REG (op1))))
-	op1 = validize_mem (force_const_mem (mode, op1));
-
-      /* ... nor both arguments in memory.  */
+      /* ix86_expand_vector_move_misalign() does not like both
+	 arguments in memory.  */
       if (!register_operand (op0, mode)
 	  && !register_operand (op1, mode))
 	op1 = force_reg (mode, op1);
@@ -17024,7 +17036,7 @@ ix86_avx256_split_vector_move_misalign (rtx op0, rtx op1)
 	  m = adjust_address (op0, mode, 0);
 	  emit_insn (extract (m, op1, const0_rtx));
 	  m = adjust_address (op0, mode, 16);
-	  emit_insn (extract (m, op1, const1_rtx));
+	  emit_insn (extract (m, copy_rtx (op1), const1_rtx));
 	}
       else
 	emit_insn (store_unaligned (op0, op1));
@@ -17332,7 +17344,7 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
 	      m = adjust_address (op0, V2SFmode, 0);
 	      emit_insn (gen_sse_storelps (m, op1));
 	      m = adjust_address (op0, V2SFmode, 8);
-	      emit_insn (gen_sse_storehps (m, op1));
+	      emit_insn (gen_sse_storehps (m, copy_rtx (op1)));
 	    }
 	}
     }
@@ -34248,6 +34260,7 @@ ix86_expand_args_builtin (const struct builtin_description *d,
     case 5:
       pat = GEN_FCN (icode) (real_target, args[0].op, args[1].op,
 			     args[2].op, args[3].op, args[4].op);
+      break;
     case 6:
       pat = GEN_FCN (icode) (real_target, args[0].op, args[1].op,
 			     args[2].op, args[3].op, args[4].op,
@@ -34617,6 +34630,7 @@ ix86_expand_round_builtin (const struct builtin_description *d,
     case 5:
       pat = GEN_FCN (icode) (target, args[0].op, args[1].op,
 			     args[2].op, args[3].op, args[4].op);
+      break;
     case 6:
       pat = GEN_FCN (icode) (target, args[0].op, args[1].op,
 			     args[2].op, args[3].op, args[4].op,
