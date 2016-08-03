@@ -1,5 +1,16 @@
 2016-08-03  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa-gen.c (get_memory_order_name): Removed.
+	(get_memory_order): Likewise.
+	(hsa_memorder_from_tree): New function.
+	(gen_hsa_ternary_atomic_for_builtin): Renamed to
+	gen_hsa_atomic_for_builtin, can also create signals.
+	(gen_hsa_insns_for_call): Adjust to use hsa_memory_order_from_tree
+	and gen_hsa_atomic_for_builtin.  Prepare for also handling signal
+	builtins.
+
+2016-08-03  Martin Jambor  <mjambor@suse.cz>
+
 	* params.def (PARAM_HSA_EXPAND_GOMP_PARALLEL): New.
 	* hsa-gen.c (gen_hsa_insns_for_call): Only expand gomp_parallel if
 	the above parameter is set to one.

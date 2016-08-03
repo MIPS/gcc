@@ -5202,95 +5202,86 @@ expand_memory_set (gimple *stmt, unsigned HOST_WIDE_INT n,
   expand_lhs_of_string_op (stmt, n, merge_bb, builtin);
 }
 
-/* Return string for MEMMODEL.  */
+/* Store into MEMORDER the memory order specified by tree T, which must be an
+   integer constant representing a C++ memory order.  If it isn't, issue an HSA
+   sorry message using LOC and return true, otherwise return false and store
+   the name of the requested order to *MNAME.  */
 
-static const char *
-get_memory_order_name (unsigned memmodel)
+static bool
+hsa_memorder_from_tree (tree t, BrigMemoryOrder *memorder, const char **mname,
+			location_t loc)
 {
-  switch (memmodel & MEMMODEL_BASE_MASK)
+  if (!tree_fits_uhwi_p (t))
     {
-    case MEMMODEL_RELAXED:
-      return "relaxed";
-    case MEMMODEL_CONSUME:
-      return "consume";
-    case MEMMODEL_ACQUIRE:
-      return "acquire";
-    case MEMMODEL_RELEASE:
-      return "release";
-    case MEMMODEL_ACQ_REL:
-      return "acq_rel";
-    case MEMMODEL_SEQ_CST:
-      return "seq_cst";
-    default:
-      return NULL;
+      HSA_SORRY_ATV (loc, "support for HSA does not implement memory model %E",
+		     t);
+      return true;
     }
-}
 
-/* Return memory order according to predefined __atomic memory model
-   constants.  LOCATION is provided to locate the problematic statement.  */
-
-static BrigMemoryOrder
-get_memory_order (unsigned memmodel, location_t location)
-{
-  switch (memmodel & MEMMODEL_BASE_MASK)
+  unsigned HOST_WIDE_INT mm = tree_to_uhwi (t);
+  switch (mm & MEMMODEL_BASE_MASK)
     {
     case MEMMODEL_RELAXED:
-      return BRIG_MEMORY_ORDER_RELAXED;
+      *memorder = BRIG_MEMORY_ORDER_RELAXED;
+      *mname = "relaxed";
+      break;
     case MEMMODEL_CONSUME:
       /* HSA does not have an equivalent, but we can use the slightly stronger
 	 ACQUIRE.  */
+      *memorder = BRIG_MEMORY_ORDER_SC_ACQUIRE;
+      *mname = "consume";
+      break;
     case MEMMODEL_ACQUIRE:
-      return BRIG_MEMORY_ORDER_SC_ACQUIRE;
+      *memorder = BRIG_MEMORY_ORDER_SC_ACQUIRE;
+      *mname = "acquire";
+      break;
     case MEMMODEL_RELEASE:
-      return BRIG_MEMORY_ORDER_SC_RELEASE;
+      *memorder = BRIG_MEMORY_ORDER_SC_RELEASE;
+      *mname = "release";
+      break;
     case MEMMODEL_ACQ_REL:
+      *memorder = BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE;
+      *mname = "acq_rel";
+      break;
     case MEMMODEL_SEQ_CST:
       /* Callers implementing a simple load or store need to remove the release
 	 or acquire part respectively.  */
-      return BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE;
+      *memorder = BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE;
+      *mname = "seq_cst";
+      break;
     default:
       {
-	const char *mmname = get_memory_order_name (memmodel);
-	HSA_SORRY_ATV (location,
-		       "support for HSA does not implement the specified "
-		       " memory model%s %s",
-		       mmname ? ": " : "", mmname ? mmname : "");
-	return BRIG_MEMORY_ORDER_NONE;
+	HSA_SORRY_AT (loc, "support for HSA does not implement the specified "
+		      "memory model");
+	return true;
       }
     }
+  return false;
 }
 
-/* Helper function to create an HSA atomic binary operation instruction out of
-   calls to atomic builtins.  RET_ORIG is true if the built-in is the variant
-   that return s the value before applying operation, and false if it should
-   return the value after applying the operation (if it returns value at all).
-   ACODE is the atomic operation code, STMT is a gimple call to a builtin.  HBB
-   is the HSA BB to which the instruction should be added.  */
+/* Helper function to create an HSA atomic operation instruction out of calls
+   to atomic builtins.  RET_ORIG is true if the built-in is the variant that
+   return s the value before applying operation, and false if it should return
+   the value after applying the operation (if it returns value at all).  ACODE
+   is the atomic operation code, STMT is a gimple call to a builtin.  HBB is
+   the HSA BB to which the instruction should be added.  If SIGNAL is true, the
+   created operation will work on HSA signals rather than atomic variables.  */
 
 static void
-gen_hsa_ternary_atomic_for_builtin (bool ret_orig,
- 				    enum BrigAtomicOperation acode,
-				    gimple *stmt,
-				    hsa_bb *hbb)
+gen_hsa_atomic_for_builtin (bool ret_orig, enum BrigAtomicOperation acode,
+			    gimple *stmt, hsa_bb *hbb, bool signal)
 {
   tree lhs = gimple_call_lhs (stmt);
 
   tree type = TREE_TYPE (gimple_call_arg (stmt, 1));
   BrigType16_t hsa_type = hsa_type_for_scalar_tree_type (type, false);
   BrigType16_t mtype = mem_type_for_type (hsa_type);
-  tree model = gimple_call_arg (stmt, 2);
+  BrigMemoryOrder memorder;
+  const char *mmname;
 
-  if (!tree_fits_uhwi_p (model))
-    {
-      HSA_SORRY_ATV (gimple_location (stmt),
-		     "support for HSA does not implement memory model %E",
-		     model);
-      return;
-    }
-
-  unsigned HOST_WIDE_INT mmodel = tree_to_uhwi (model);
-
-  BrigMemoryOrder memorder = get_memory_order (mmodel, gimple_location (stmt));
+  if (hsa_memorder_from_tree (gimple_call_arg (stmt, 2), &memorder, &mmname,
+			      gimple_location (stmt)))
+    return;
 
   /* Certain atomic insns must have Bx memory types.  */
   switch (acode)
@@ -5315,13 +5306,13 @@ gen_hsa_ternary_atomic_for_builtin (bool ret_orig,
 	dest = hsa_cfun->reg_for_gimple_ssa (lhs);
       else
 	dest = new hsa_op_reg (hsa_type);
-      opcode = BRIG_OPCODE_ATOMIC;
+      opcode = signal ? BRIG_OPCODE_SIGNAL : BRIG_OPCODE_ATOMIC;
       nops = 3;
     }
   else
     {
       dest = NULL;
-      opcode = BRIG_OPCODE_ATOMICNORET;
+      opcode = signal ? BRIG_OPCODE_SIGNALNORET : BRIG_OPCODE_ATOMICNORET;
       nops = 2;
     }
 
@@ -5336,35 +5327,44 @@ gen_hsa_ternary_atomic_for_builtin (bool ret_orig,
 	{
 	  HSA_SORRY_ATV (gimple_location (stmt),
 			 "support for HSA does not implement memory model for "
-			 "ATOMIC_ST: %s", get_memory_order_name (mmodel));
+			 "ATOMIC_ST: %s", mmname);
 	  return;
 	}
     }
 
-  hsa_insn_atomic *atominsn = new hsa_insn_atomic (nops, opcode, acode, mtype,
-						   memorder);
-
-  hsa_op_address *addr;
-  addr = get_address_from_value (gimple_call_arg (stmt, 0), hbb);
-  if (addr->m_symbol && addr->m_symbol->m_segment == BRIG_SEGMENT_PRIVATE)
+  hsa_insn_basic *atominsn;
+  hsa_op_base *tgt;
+  if (signal)
     {
-      HSA_SORRY_AT (gimple_location (stmt),
-		    "HSA does not implement atomic operations in private "
-		    "segment");
-      return;
+      atominsn = new hsa_insn_signal (nops, opcode, acode, mtype, memorder);
+      tgt = hsa_reg_or_immed_for_gimple_op (gimple_call_arg (stmt, 0), hbb);
     }
+  else
+    {
+      atominsn = new hsa_insn_atomic (nops, opcode, acode, mtype, memorder);
+      hsa_op_address *addr;
+      addr = get_address_from_value (gimple_call_arg (stmt, 0), hbb);
+      if (addr->m_symbol && addr->m_symbol->m_segment == BRIG_SEGMENT_PRIVATE)
+	{
+	  HSA_SORRY_AT (gimple_location (stmt),
+			"HSA does not implement atomic operations in private "
+			"segment");
+	  return;
+	}
+      tgt = addr;
+    }
+
   hsa_op_base *op = hsa_reg_or_immed_for_gimple_op (gimple_call_arg (stmt, 1),
 						    hbb);
-
   if (lhs)
     {
       atominsn->set_op (0, dest);
-      atominsn->set_op (1, addr);
+      atominsn->set_op (1, tgt);
       atominsn->set_op (2, op);
     }
   else
     {
-      atominsn->set_op (0, addr);
+      atominsn->set_op (0, tgt);
       atominsn->set_op (1, op);
     }
 
@@ -5668,21 +5668,14 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
     case BUILT_IN_ATOMIC_LOAD_16:
       {
 	BrigType16_t mtype;
-	hsa_op_address *addr;
-	addr = get_address_from_value (gimple_call_arg (stmt, 0), hbb);
-	tree model = gimple_call_arg (stmt, 1);
-	if (!tree_fits_uhwi_p (model))
-	  {
-	    HSA_SORRY_ATV (gimple_location (stmt),
-			   "support for HSA does not implement "
-			   "memory model: %E",
-			   model);
-	    return;
-	  }
+	hsa_op_base *src;
+	src = get_address_from_value (gimple_call_arg (stmt, 0), hbb);
 
-	unsigned HOST_WIDE_INT mmodel = tree_to_uhwi (model);
-	BrigMemoryOrder memorder = get_memory_order (mmodel,
-						     gimple_location (stmt));
+	BrigMemoryOrder memorder;
+	const char *mmname;
+	if (hsa_memorder_from_tree (gimple_call_arg (stmt, 1), &memorder,
+				    &mmname, gimple_location (stmt)))
+	  return;
 
 	if (memorder == BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE)
 	  memorder = BRIG_MEMORY_ORDER_SC_ACQUIRE;
@@ -5693,8 +5686,7 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 	  {
 	    HSA_SORRY_ATV (gimple_location (stmt),
 			   "support for HSA does not implement "
-			   "memory model for ATOMIC_LD: %s",
-			   get_memory_order_name (mmodel));
+			   "memory model for atomic loads: %s", mmname);
 	    return;
 	  }
 
@@ -5712,9 +5704,9 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 	    dest = new hsa_op_reg (mtype);
 	  }
 
-	hsa_insn_atomic *atominsn
-	  = new hsa_insn_atomic (2, BRIG_OPCODE_ATOMIC, BRIG_ATOMIC_LD, mtype,
-				 memorder, dest, addr);
+	hsa_insn_basic *atominsn;
+	atominsn = new hsa_insn_atomic (2, BRIG_OPCODE_ATOMIC, BRIG_ATOMIC_LD,
+					mtype, memorder, dest, src);
 
 	hbb->append_insn (atominsn);
 	break;
@@ -5725,7 +5717,8 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
     case BUILT_IN_ATOMIC_EXCHANGE_4:
     case BUILT_IN_ATOMIC_EXCHANGE_8:
     case BUILT_IN_ATOMIC_EXCHANGE_16:
-      gen_hsa_ternary_atomic_for_builtin (true, BRIG_ATOMIC_EXCH, stmt, hbb);
+      gen_hsa_atomic_for_builtin (true, BRIG_ATOMIC_EXCH, stmt, hbb, false);
+      break;
       break;
 
     case BUILT_IN_ATOMIC_FETCH_ADD_1:
@@ -5733,7 +5726,8 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
     case BUILT_IN_ATOMIC_FETCH_ADD_4:
     case BUILT_IN_ATOMIC_FETCH_ADD_8:
     case BUILT_IN_ATOMIC_FETCH_ADD_16:
-      gen_hsa_ternary_atomic_for_builtin (true, BRIG_ATOMIC_ADD, stmt, hbb);
+      gen_hsa_atomic_for_builtin (true, BRIG_ATOMIC_ADD, stmt, hbb, false);
+      break;
       break;
 
     case BUILT_IN_ATOMIC_FETCH_SUB_1:
@@ -5741,7 +5735,8 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
     case BUILT_IN_ATOMIC_FETCH_SUB_4:
     case BUILT_IN_ATOMIC_FETCH_SUB_8:
     case BUILT_IN_ATOMIC_FETCH_SUB_16:
-      gen_hsa_ternary_atomic_for_builtin (true, BRIG_ATOMIC_SUB, stmt, hbb);
+      gen_hsa_atomic_for_builtin (true, BRIG_ATOMIC_SUB, stmt, hbb, false);
+      break;
       break;
 
     case BUILT_IN_ATOMIC_FETCH_AND_1:
@@ -5749,7 +5744,8 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
     case BUILT_IN_ATOMIC_FETCH_AND_4:
     case BUILT_IN_ATOMIC_FETCH_AND_8:
     case BUILT_IN_ATOMIC_FETCH_AND_16:
-      gen_hsa_ternary_atomic_for_builtin (true, BRIG_ATOMIC_AND, stmt, hbb);
+      gen_hsa_atomic_for_builtin (true, BRIG_ATOMIC_AND, stmt, hbb, false);
+      break;
       break;
 
     case BUILT_IN_ATOMIC_FETCH_XOR_1:
@@ -5757,7 +5753,8 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
     case BUILT_IN_ATOMIC_FETCH_XOR_4:
     case BUILT_IN_ATOMIC_FETCH_XOR_8:
     case BUILT_IN_ATOMIC_FETCH_XOR_16:
-      gen_hsa_ternary_atomic_for_builtin (true, BRIG_ATOMIC_XOR, stmt, hbb);
+      gen_hsa_atomic_for_builtin (true, BRIG_ATOMIC_XOR, stmt, hbb, false);
+      break;
       break;
 
     case BUILT_IN_ATOMIC_FETCH_OR_1:
@@ -5765,7 +5762,8 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
     case BUILT_IN_ATOMIC_FETCH_OR_4:
     case BUILT_IN_ATOMIC_FETCH_OR_8:
     case BUILT_IN_ATOMIC_FETCH_OR_16:
-      gen_hsa_ternary_atomic_for_builtin (true, BRIG_ATOMIC_OR, stmt, hbb);
+      gen_hsa_atomic_for_builtin (true, BRIG_ATOMIC_OR, stmt, hbb, false);
+      break;
       break;
 
     case BUILT_IN_ATOMIC_STORE_1:
@@ -5774,7 +5772,8 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
     case BUILT_IN_ATOMIC_STORE_8:
     case BUILT_IN_ATOMIC_STORE_16:
       /* Since there cannot be any LHS, the first parameter is meaningless.  */
-      gen_hsa_ternary_atomic_for_builtin (true, BRIG_ATOMIC_ST, stmt, hbb);
+      gen_hsa_atomic_for_builtin (true, BRIG_ATOMIC_ST, stmt, hbb, false);
+      break;
       break;
 
     case BUILT_IN_ATOMIC_ADD_FETCH_1:
@@ -5782,7 +5781,7 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
     case BUILT_IN_ATOMIC_ADD_FETCH_4:
     case BUILT_IN_ATOMIC_ADD_FETCH_8:
     case BUILT_IN_ATOMIC_ADD_FETCH_16:
-      gen_hsa_ternary_atomic_for_builtin (false, BRIG_ATOMIC_ADD, stmt, hbb);
+      gen_hsa_atomic_for_builtin (false, BRIG_ATOMIC_ADD, stmt, hbb, false);
       break;
 
     case BUILT_IN_ATOMIC_SUB_FETCH_1:
@@ -5790,7 +5789,7 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
     case BUILT_IN_ATOMIC_SUB_FETCH_4:
     case BUILT_IN_ATOMIC_SUB_FETCH_8:
     case BUILT_IN_ATOMIC_SUB_FETCH_16:
-      gen_hsa_ternary_atomic_for_builtin (false, BRIG_ATOMIC_SUB, stmt, hbb);
+      gen_hsa_atomic_for_builtin (false, BRIG_ATOMIC_SUB, stmt, hbb, false);
       break;
 
     case BUILT_IN_ATOMIC_AND_FETCH_1:
@@ -5798,7 +5797,7 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
     case BUILT_IN_ATOMIC_AND_FETCH_4:
     case BUILT_IN_ATOMIC_AND_FETCH_8:
     case BUILT_IN_ATOMIC_AND_FETCH_16:
-      gen_hsa_ternary_atomic_for_builtin (false, BRIG_ATOMIC_AND, stmt, hbb);
+      gen_hsa_atomic_for_builtin (false, BRIG_ATOMIC_AND, stmt, hbb, false);
       break;
 
     case BUILT_IN_ATOMIC_XOR_FETCH_1:
@@ -5806,7 +5805,7 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
     case BUILT_IN_ATOMIC_XOR_FETCH_4:
     case BUILT_IN_ATOMIC_XOR_FETCH_8:
     case BUILT_IN_ATOMIC_XOR_FETCH_16:
-      gen_hsa_ternary_atomic_for_builtin (false, BRIG_ATOMIC_XOR, stmt, hbb);
+      gen_hsa_atomic_for_builtin (false, BRIG_ATOMIC_XOR, stmt, hbb, false);
       break;
 
     case BUILT_IN_ATOMIC_OR_FETCH_1:
@@ -5814,7 +5813,7 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
     case BUILT_IN_ATOMIC_OR_FETCH_4:
     case BUILT_IN_ATOMIC_OR_FETCH_8:
     case BUILT_IN_ATOMIC_OR_FETCH_16:
-      gen_hsa_ternary_atomic_for_builtin (false, BRIG_ATOMIC_OR, stmt, hbb);
+      gen_hsa_atomic_for_builtin (false, BRIG_ATOMIC_OR, stmt, hbb, false);
       break;
 
     case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_1:
@@ -5823,27 +5822,23 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
     case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_8:
     case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_16:
       {
-	/* TODO: Use the appropriate memory model for now.  */
 	tree type = TREE_TYPE (gimple_call_arg (stmt, 1));
-
 	BrigType16_t atype
 	  = hsa_bittype_for_type (hsa_type_for_scalar_tree_type (type, false));
-
-	hsa_insn_atomic *atominsn
-	  = new hsa_insn_atomic (4, BRIG_OPCODE_ATOMIC, BRIG_ATOMIC_CAS, atype,
-				 BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE);
-	hsa_op_address *addr;
-	addr = get_address_from_value (gimple_call_arg (stmt, 0), hbb);
+	BrigMemoryOrder memorder = BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE;
+	hsa_insn_basic *atominsn;
+	hsa_op_base *tgt;
+	atominsn = new hsa_insn_atomic (4, BRIG_OPCODE_ATOMIC,
+					BRIG_ATOMIC_CAS, atype, memorder);
+	tgt = get_address_from_value (gimple_call_arg (stmt, 0), hbb);
 
 	if (lhs != NULL)
 	  dest = hsa_cfun->reg_for_gimple_ssa (lhs);
 	else
 	  dest = new hsa_op_reg (atype);
 
-	/* Should check what the memory scope is.  */
-	atominsn->m_memoryscope = BRIG_MEMORY_SCOPE_WORKGROUP;
 	atominsn->set_op (0, dest);
-	atominsn->set_op (1, addr);
+	atominsn->set_op (1, tgt);
 
 	hsa_op_with_type *op
 	  = hsa_reg_or_immed_for_gimple_op (gimple_call_arg (stmt, 1), hbb);
