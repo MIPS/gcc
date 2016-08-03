@@ -6223,7 +6223,12 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 			     ? "lwxs\t%0,%1"
 			     : mips_index_address_p (XEXP (src, 0), mode)
 			       ? "lwx\t%0,%1"
-			       : "lw\t%0,%1";
+			       : GET_CODE (XEXP (src, 0)) == CONST
+				 ? (((REGNO(dest) >= 2 && REGNO(dest) <= 7)
+				     || REGNO(dest) == 16 || REGNO(dest) == 17)
+				    ? "sdbbp16 7 # lw\t%0,%1"
+				    : "sdbbp32 4; # lw\t%0,%1")
+				 : "lw\t%0,%1";
 	      case 8: return "ld\t%0,%1";
 	      default: gcc_unreachable ();
 	      }
@@ -6328,6 +6333,9 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 		   && mips_index_address_p (XEXP (src, 0), mode))
 	    return dbl_p ? "ldc1x\t%0,%1"
 			 : "lwc1x\t%0,%1";
+
+	  if (GET_CODE (XEXP (src, 0)) == CONST)
+	    return dbl_p ? "sdbbp32 10; # ldc1\t%0,%1" : "sdbbp32 10 # lwc1\t%0,%1";
 
 	  return dbl_p ? "ldc1\t%0,%1" : "lwc1\t%0,%1";
 	}
