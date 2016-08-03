@@ -1,3 +1,18 @@
+2016-08-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-protos.h (rs6000_output_vec_concat):
+	Delete.
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Go back to
+	using gen_highpart/gen_lowpart to setup vector, rather than trying
+	to use vsx_concat_vd2i.
+	(rs6000_output_vec_concat): Delete.
+
+	* config/rs6000/vsx.md (vsx_concat_<mode>): Go back to a single
+	vsx_concat_<mode> insn, but add mtvsrdd on ISA 3.0.
+	(vsx_concat_<mode>_nodm): Likewise.
+	(vsx_concat_<mode>_dm): Likewise.
+
 2016-08-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000-protos.h (rs6000_output_vec_concat): New

@@ -6738,37 +6738,34 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 
   /* Special case initializing vector int if we are on 64-bit systems with
      direct move.  */
+  /* Special case initializing vector int if we are on 64-bit systems with
+     direct move.  */
   if (mode == V4SImode && TARGET_DIRECT_MOVE_64BIT)
     {
-      rtx di_regs[2], target_v2di;
+      rtx di_hi, di_lo, elements[4], tmp;
       size_t i;
 
-      for (i = 0; i < 2; i++)
+      for (i = 0; i < 4; i++)
 	{
-	  size_t j = 2*i;
-	  rtx ele, hi, lo, tmp;
-
-	  ele = XVECEXP (vals, 0, VECTOR_ELT_ORDER_BIG ? j : 3 - j);
-	  if (CONST_INT_P (ele))
-	    ele = force_reg (DImode, GEN_INT (INTVAL (ele) & 0xffff));
-	  hi = gen_reg_rtx (DImode);
-	  tmp = gen_reg_rtx (DImode);
-	  convert_move (tmp, ele, true);
-	  emit_insn (gen_ashldi3 (hi, tmp, GEN_INT (32)));
-
-	  j++;
-	  ele = XVECEXP (vals, 0, VECTOR_ELT_ORDER_BIG ? j : 3 - j);
-	  if (CONST_INT_P (ele))
-	    ele = GEN_INT (INTVAL (ele) & 0xffff);
-	  lo = gen_reg_rtx (DImode);
-	  convert_move (lo, ele, true);
-
-	  di_regs[i] = gen_reg_rtx (DImode);
-	  emit_insn (gen_iordi3 (di_regs[i], hi, lo));
+	  rtx element_si = XVECEXP (vals, 0, VECTOR_ELT_ORDER_BIG ? i : 3 - i);
+	  element_si = copy_to_mode_reg (SImode, element_si);
+	  elements[i] = gen_reg_rtx (DImode);
+	  convert_move (elements[i], element_si, true);
 	}
 
-      target_v2di = gen_lowpart (V2DImode, target);
-      emit_insn (gen_vsx_concat_v2di (target_v2di, di_regs[0], di_regs[1]));
+      di_hi = gen_reg_rtx (DImode);
+      tmp = gen_reg_rtx (DImode);
+      emit_insn (gen_ashldi3 (tmp, elements[0], GEN_INT (32)));
+      emit_insn (gen_iordi3 (di_hi, tmp, elements[1]));
+
+      di_lo = gen_reg_rtx (DImode);
+      tmp = gen_reg_rtx (DImode);
+      emit_insn (gen_ashldi3 (tmp, elements[2], GEN_INT (32)));
+      emit_insn (gen_iordi3 (di_lo, tmp, elements[3]));
+
+      emit_insn (gen_rtx_CLOBBER (VOIDmode, target));
+      emit_move_insn (gen_highpart (DImode, target), di_hi);
+      emit_move_insn (gen_lowpart (DImode, target), di_lo);
       return;
     }
 
@@ -7350,62 +7347,6 @@ rs6000_split_vec_extract_var (rtx dest, rtx src, rtx element, rtx tmp_gpr,
   else
     gcc_unreachable ();
  }
-
-/* Return the appropriate insns to concatenate two DI/DFmode variables
-   into a 128-bit vector.  */
-
-const char *
-rs6000_output_vec_concat (rtx dest, rtx hi, rtx lo)
-{
-  int be_or_le = (BYTES_BIG_ENDIAN != 0);
-
-  static const char *const xxpermdi[2] = {
-    "xxpermdi %x0,%x2,%x1,0",
-    "xxpermdi %x0,%x1,%x2,0"
-  };
-  static const char *const mtvsrdd[2] = {
-    "mtvsrdd %x0,%2,%1",
-    "mtvsrdd %x0,%1,%2"
-  };
-  static const char *const mr[2] = {
-    "mr %0,%2\n\tmr %L0,%1",
-    "mr %0,%1\n\tmr %L0,%2"
-  };
-
-  if ((REG_P (dest) || SUBREG_P (dest))
-      && (REG_P (hi) || SUBREG_P (hi))
-      && (REG_P (lo) || SUBREG_P (lo)))
-    {
-      int dest_regno = regno_or_subregno (dest);
-      int hi_regno = regno_or_subregno (hi);
-      int lo_regno = regno_or_subregno (lo);
-
-      if (VSX_REGNO_P (dest_regno) && VSX_REGNO_P (hi_regno)
-	  && VSX_REGNO_P (lo_regno))
-	return xxpermdi[be_or_le];
-
-      gcc_assert (TARGET_POWERPC64);
-      if (VSX_REGNO_P (dest_regno) && INT_REGNO_P (hi_regno)
-	  && INT_REGNO_P (lo_regno) && TARGET_P9_VECTOR)
-	return mtvsrdd[be_or_le];
-
-      if (INT_REGNO_P (dest_regno) && INT_REGNO_P (hi_regno)
-	  && INT_REGNO_P (lo_regno))
-	{
-	  if (dest_regno != hi_regno && dest_regno+1 != hi_regno
-	      && dest_regno != lo_regno && dest_regno+1 != lo_regno)
-	    return mr[be_or_le];
-
-	  if (BYTES_BIG_ENDIAN && dest_regno == hi_regno)
-	    return (dest_regno+1 == lo_regno) ? "" : "mr %L0,%2";
-
-	  if (!BYTES_BIG_ENDIAN && dest_regno == lo_regno)
-	    return (dest_regno+1 == hi_regno) ? "" : "mr %L0,%1";
-	}
-    }
-
-  gcc_unreachable ();
-}
 
 /* Return TRUE if OP is an invalid SUBREG operation on the e500.  */
 
