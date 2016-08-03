@@ -1,3 +1,48 @@
+2016-08-03  Fritz Reese  <fritzoreese@gmail.com>
+
+	* lang.opt: New option -fdec-intrinsic-ints.
+	* options.c (set_dec_flags): Enable with -fdec.
+	* gfortran.texi, invoke.texi, intrinsics.texi: Update documentation.
+	* intrinsic.c (add_function, add_subroutine): New B/I/J/K intrinsic
+	variants.
+
+2016-07-30  Steven G. Kargl <kargl@gcc.gnu.org>
+
+	PR fortran/41922
+	* target-memory.c (expr_to_char): Pass in locus and use it in error
+	messages.
+	(gfc_merge_initializers): Ditto.
+	* target-memory.h: Update prototype for gfc_merge_initializers ().
+	* trans-common.c (get_init_field): Use the correct locus.
+
+2016-07-30  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/68566
+	* check.c (gfc_check_reshape): Check for constant expression.
+
+2016-07-30  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/69867
+	* decl.c (build_struct): Ensure that pointers point to something.
+
+2016-07-30  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/69962
+	* decl.c (gfc_set_constant_character_len):  if expr is not
+	constant issue an error instead of an ICE.
+
+2016-07-30  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/70006
+	* io.c (gfc_resolve_dt): Use correct locus.
+	* resolve.c (resolve_branch): Ditto.
+
+2016-07-30  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/71730
+	* decl.c (char_len_param_value): Check return value of
+	gfc_reduce_init_expr().
+
 2016-07-29  Dominik Vogt  <vogt@linux.vnet.ibm.com>
 
 	* trans-array.c (gfc_conv_array_ref): Fix allocation of diagnostic

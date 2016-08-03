@@ -1,8 +1,7 @@
-// { dg-options "-std=gnu++11 -Wno-deprecated" }
+// { dg-options "-std=gnu++17" }
 // { dg-do compile }
-// 2010-06-08  Paolo Carlini  <paolo.carlini@oracle.com>
 
-// Copyright (C) 2010-2016 Free Software Foundation, Inc.
+// Copyright (C) 2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,16 +14,24 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License along
+// You should have received a moved_to of the GNU General Public License along
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// NB: This file is for testing type_traits with NO OTHER INCLUDES.
+#include <functional>
 
-#include <type_traits>
-
-namespace std
+struct X
 {
-  typedef short test_type;
-  template struct has_trivial_copy_assign<test_type>;
-}
+  int operator()() const { return 0; }
+  int operator()() volatile { return 1; }
+  int operator()() const volatile { return 2; }
+  void operator()() { };
+};
+
+static_assert( std::is_placeholder<decltype(std::placeholders::_1)>::value
+	       == std::is_placeholder_v<decltype(std::placeholders::_1)>);
+
+const auto b0 = std::bind(X());
+static_assert( std::is_bind_expression<decltype(b0)>::value
+	       == std::is_bind_expression_v<decltype(b0)>);
+

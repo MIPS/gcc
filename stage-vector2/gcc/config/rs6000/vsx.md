@@ -2404,10 +2404,10 @@
 ;; types are currently allowed in a vector register, so we extract to a DImode
 ;; and either do a direct move or store.
 (define_expand  "vsx_extract_<mode>"
-  [(parallel [(set (match_operand:<VS_scalar> 0 "nonimmediate_operand" "")
+  [(parallel [(set (match_operand:<VS_scalar> 0 "nonimmediate_operand")
 		   (vec_select:<VS_scalar>
-		    (match_operand:VSX_EXTRACT_I 1 "gpc_reg_operand" "")
-		    (parallel [(match_operand:QI 2 "const_int_operand" "")])))
+		    (match_operand:VSX_EXTRACT_I 1 "gpc_reg_operand")
+		    (parallel [(match_operand:QI 2 "const_int_operand")])))
 	      (clobber (match_dup 3))])]
   "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_DIRECT_MOVE_64BIT"
 {

@@ -1,3 +1,246 @@
+2016-08-03  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR middle-end/71876
+	* calls.c (special_function_p): Remove special handling of
+	"setjmp_syscall", "qsetjmp", "longjmp", "siglongjmp" and the
+	prefix "__x".  Recognize "savectx", "vfork" and "getcontext" only
+	without prefix.  Remove potentially unsafe ECF_LEAF and ECF_NORETURN.
+
+2016-08-03  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR middle-end/72778
+	* lra-spills.c (regno_in_use_p): Check bb and regno modification.
+	Don't stop on regular insns.
+
+2016-08-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_declare_function_name): Round frame
+	size to DImode boundary.
+	(nvptx_propagate): Likewise.
+
+2016-08-03  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.h (SLOW_UNALIGNED_ACCESS): Make scalar
+	float access depend on TARGET_EFFICIENT_UNALIGNED_VSX.
+	* config/rs6000/rs6000.opt (-mefficient-unaligned-vsx): Renamed
+	from -mefficient-unaligned-vector.  Note that this affects fp too.
+
+2016-08-03  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_rtx_costs): Make unaligned mem
+	cost more.
+
+2016-08-03  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.md (fix_trunc<mode>si2): Force source operand
+	to a reg.  Localize vars.
+
+2016-08-03  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.opt: Remove negatives from help strings
+	and comments.
+
+2016-08-03  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_secondary_reload_direct_move):
+	Delete duplicated code.
+
+2016-08-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR middle-end/72778
+	* lra-spills.c (regno_in_use_p): New.
+	(lra_final_code_change): Use it.
+
+2016-08-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/69847
+	* lra-int.h (struct lra-reg): Use restore_rtx instead of
+	restore_regno.
+	(lra_rtx_hash): New.
+	* lra.c (initialize_lra_reg_info_element): Use restore_rtx instead
+	of restore_regno.
+	(lra_rtx_hash): Rename and move lra-remat.c::rtx_hash.
+	* lra-remat.c (rtx_hash): Rename and Move to lra.c.
+	* lra-spills.c (lra_final_code_change): Don't delete insn when the
+	next insn is USE with the same reg as the current insn source.
+	* lra-constraints.c (curr_insn_transform): Use restore_rtx instead
+	of restore_regno.
+	(lra_constraints_init): Call initiate_invariants.
+	(lra_constraints_finish): Call finish_invariants.
+	(struct invariant, invariant_t, invariant_ptr_t): New.
+	(const_invariant_ptr_t, invariants, invariants_pool): New.
+	(invariant_table, invariant_hash, invariant_eq_p): New.
+	(insert_invariant, initiate_invariants, finish_invariants): New.
+	(clear_invariants, invalid_invariant_regs): New.
+	(inherit_reload_reg, split_reg, fix_bb_live_info): Use restore_rtx
+	instead of restore_regno.
+	(invariant_p, process_invariant_for_inheritance): New.
+	(inherit_in_ebb): Implement invariant inheritance.
+	(lra_inheritance): Initialize and finalize invalid_invariant_regs.
+	(remove_inheritance_pseudos): Implement undoing invariant
+	inheritance.
+	(undo_optional_reloads, lra_undo_inheritance): Use restore_rtx
+	instead of restore_regno.
+	* lra-assigns.c (regno_live_length): New.
+	(reload_pseudo_compare_func): Use regno_live_length.
+	(assign_by_spills): Use restore_rtx instead of restore_regno.
+	(lra_assign): Ditto.  Initiate regno_live_length.
+
+2016-02-08  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/arm_neon.h (vminnm_f64): Add back missing 'f' from
+	__builtin_aarch64_fmindf.
+
+2016-08-02  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/34114
+	* tree-ssa-loop-niter.c (number_of_iterations_ne): Prove no-overflow
+	information for more control IVs.
+
+2016-08-02  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/34114
+	* fold-const.c (multiple_of_p): Improve MULT_EXPR, PLUS_EXPR,
+	PLUS_EXPR case.  Handle SSA_NAME case.
+
+2016-08-02  Tamar Christina  <tamar.christina@arm.com>
+
+	* config/aarch64/aarch64-simd-builtins.def
+	(__builtin_aarch64_fmindf): Change BUILTIN_VDQF to BUILTIN_VDQF_DF.
+	(__builtin_aarch64_fmaxdf): Likewise.
+	(__builtin_aarch64_smin_nandf): Likewise.
+	(__builtin_aarch64_smax_nandf): Likewise.
+	* config/aarch64/aarch64-simd.md (<fmaxmin><mode>3): Remove.
+	* config/aarch64/aarch64.md (<fmaxmin><mode>3): Rename to...
+	(<fmaxmin><mode>3): ...this.
+	* config/aarch64/arm_neon.h (vmaxnm_f64): New.
+	(vminnm_f64): Likewise.
+	(vmin_f64): Likewise.
+	(vmax_f64): Likewise.
+	* config/aarch64/iterators.md (FMAXMIN): Merge with...
+	(FMAXMIN_UNS): ...this.
+	(fmaxmin): Merged with
+	(fmaxmin_op): ...this...
+	(maxmin_uns_op): ...in to this.
+
+2016-08-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin):
+	Add support for vec_extract on vector float, vector int, vector
+	short, and vector char vector types.
+	* config/rs6000/rs6000.c (rs6000_expand_vector_extract): Add
+	vector float, vector int, vector short, and vector char
+	optimizations on 64-bit ISA 2.07 systems for both constant and
+	variable element numbers.
+	(rs6000_split_vec_extract_var): Likewise.
+	* config/rs6000/vsx.md (vsx_xscvspdp_scalar2): Allow SFmode to be
+	Altivec registers on ISA 2.07 and above.
+	(vsx_extract_v4sf): Delete alternative that hard coded element 0,
+	which never was matched due to the split occuring before register
+	allocation (and the code would not have worked on little endian
+	systems if it did match).  Allow extracts to go to the Altivec
+	registers if ISA 2.07 (power8).  Change from using "" around the
+	C++ code to using {}'s.
+	(vsx_extract_v4sf_<mode>_load): New insn to optimize vector float
+	vec_extracts when the vector is in memory.
+	(vsx_extract_v4sf_var): New insn to optimize vector float
+	vec_extracts when the element number is variable on 64-bit ISA
+	2.07 systems.
+	(vsx_extract_<mode>, VSX_EXTRACT_I iterator): Add optimizations
+	for 64-bit ISA 2.07 as well as ISA 3.0.
+	(vsx_extract_<mode>_p9, VSX_EXTRACT_I iterator): Likewise.
+	(vsx_extract_<mode>_p8, VSX_EXTRACT_I iterator): Likewise.
+	(vsx_extract_<mode>_load, VSX_EXTRACT_I iterator): New insn to
+	optimize vector int, vector short, and vector char vec_extracts
+	when the vector is in memory.
+	(vsx_extract_<mode>_var, VSX_EXTRACT_I iterator): New insn to
+	optimize vector int, vector short, and vector char vec_extracts
+	when the element number is variable.
+
+2016-08-01  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/71948
+	* config/avr/avr.c (AVR_SYMBOL_FLAG_TINY_PM): Use a value that
+	does not overlap with other symbol flags.
+
+2016-08-01  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64.h (aarch64_frame):
+	Remove padding0 and hardfp_offset.  Add locals_offset,
+	initial_adjust, callee_adjust, callee_offset and final_adjust.
+	* config/aarch64/aarch64.c (aarch64_layout_frame):
+	Remove unused padding0 and hardfp_offset initializations.
+	Choose frame layout and set frame variables accordingly.
+	Use INVALID_REGNUM instead of FIRST_PSEUDO_REGISTER.
+	(aarch64_push_regs): Use INVALID_REGNUM, not FIRST_PSEUDO_REGISTER.
+	(aarch64_pop_regs): Likewise.
+	(aarch64_expand_prologue): Remove all decision code, just emit
+	prolog according to frame variables.
+	(aarch64_expand_epilogue): Remove all decision code, just emit
+	epilog according to frame variables.
+	(aarch64_initial_elimination_offset): Use offset to local/arg area.
+
+2015-08-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/72748
+	* config/i386/i386.c (timode_scalar_chain::convert_insn): Call
+	fix_debug_reg_uses after changing source register mode to
+	V1TImode if source register is undefined.
+
+2015-08-01  Alan Hayward <alan.hayward@arm.com>
+
+	PR tree-optimization/71818
+	* tree-vect-loop-manip.c (vect_can_advance_ivs_p): Don't advance IVs
+	with non invariant evolutions
+
+2016-08-01  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/72767
+	* config/avr/avr.md (length) [branch]: Correct insn length
+	attribute for forward branches.
+
+2016-08-01  Georg-Johann Lay  <avr@gjlay.de>
+
+	* doc/extend.texi (AVR Built-in Functions): Document
+	__builtin_avr_nops.
+	* config/avr/builtins.def (NOPS): New.
+	* config/avr/avr.c (avr_expand_nops): New static function.
+	(avr_expand_builtin): Use it to handle AVR_BUILTIN_NOPS.
+
+2016-08-01  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_classify_address): Use DImode when
+	performing aarch64_offset_7bit_signed_scaled_p check for TImode LDP/STP
+	addresses.
+
+2016-08-01  Virendra Pathak  <virendra.pathak@broadcom.com>
+
+	* config/aarch64/aarch64.c (vulcan_tunings): Update
+	vulcan L1 cache_line_size.
+
+2016-07-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-protos.h (rs6000_adjust_vec_address): New
+	function that takes a vector memory address, a hard register, an
+	element number and a temporary base register, and recreates an
+	address that points to the appropriate element within the vector.
+	* config/rs6000/rs6000.c (rs6000_adjust_vec_address): Likewise.
+	(rs6000_split_vec_extract_var): Add support for the target of a
+	vec_extract with variable element number being a scalar memory
+	location.
+	(rtx_is_swappable_p): VLSO insns (UNSPEC_VSX_VSLOW) are not
+	swappable.
+	* config/rs6000/vsx.md (vsx_extract_<mode>_load): Replace
+	vsx_extract_<mode>_load insn with a new insn that optimizes
+	storing either element to a memory location, using scratch
+	registers to pick apart the vector and reconstruct the address.
+	(vsx_extract_<P:mode>_<VSX_D:mode>_load): Likewise.
+	(vsx_extract_<mode>_store): Rework alternatives to more correctly
+	support Altivec registers.  Add support for ISA 3.0 Altivec d-form
+	store instruction.
+	(vsx_extract_<mode>_var): Add support for extracting a variable
+	element number from memory.
+
 2016-07-29  Georg-Johann Lay  <avr@gjlay.de>
 
 	* config/avr/avr.c (avr_out_compare): Use const0_rtx instead of 0
