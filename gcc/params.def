@@ -1242,6 +1242,12 @@ DEFPARAM (PARAM_OMP_GPU_GRIDIFY,
 	  "constructs",
 	  1, 0, 1)
 
+DEFPARAM (PARAM_HSA_EXPAND_GOMP_PARALLEL,
+	  "hsa-expand-omp-parallel",
+	  "Expand ungridified OpenMP parallel via dynamic parallelism "
+	  "constructs",
+	  0, 0, 1)
+
 DEFPARAM (PARAM_HSA_GEN_DEBUG_STORES,
 	  "hsa-gen-debug-stores",
 	  "Level of hsa debug stores verbosity",

@@ -9769,6 +9769,12 @@ Enable creation of gridified GPU kernels out of loops within target
 OpenMP constructs.  This conversion is enabled by default when
 offloading to HSA, to disable it, use @option{--param omp-gpu-gridify=0}
 
+@item hsa-expand-omp-parallel
+Enable compiling non-gridified OpenMP parallel constructs into HSAIL as
+invocations of child kernels in their own grid.  This behavior is
+disabled by default because in many scenarios it does not work
+properly.  To enable it, use @option{--param hsa-expand-omp-parallel=1}.
+
 @item hsa-gen-debug-stores
 Enable emission of special debug stores within HSA kernels which are
 then read and reported by libgomp plugin.  Generation of these stores

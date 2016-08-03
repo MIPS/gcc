@@ -5870,20 +5870,25 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 					 BRIG_WIDTH_ALL));
       break;
     case BUILT_IN_GOMP_PARALLEL:
-      {
-	gcc_checking_assert (gimple_call_num_args (stmt) == 4);
-	tree called = gimple_call_arg (stmt, 0);
-	gcc_checking_assert (TREE_CODE (called) == ADDR_EXPR);
-	called = TREE_OPERAND (called, 0);
-	gcc_checking_assert (TREE_CODE (called) == FUNCTION_DECL);
+      if (PARAM_VALUE (PARAM_HSA_EXPAND_GOMP_PARALLEL) == 1)
+	{
+	  gcc_checking_assert (gimple_call_num_args (stmt) == 4);
+	  tree called = gimple_call_arg (stmt, 0);
+	  gcc_checking_assert (TREE_CODE (called) == ADDR_EXPR);
+	  called = TREE_OPERAND (called, 0);
+	  gcc_checking_assert (TREE_CODE (called) == FUNCTION_DECL);
 
-	const char *name
-	  = hsa_brig_function_name (hsa_get_declaration_name (called));
-	hsa_add_kernel_dependency (hsa_cfun->m_decl, name);
-	gen_hsa_insns_for_kernel_call (hbb, as_a <gcall *> (stmt));
+	  const char *name
+	    = hsa_brig_function_name (hsa_get_declaration_name (called));
+	  hsa_add_kernel_dependency (hsa_cfun->m_decl, name);
+	  gen_hsa_insns_for_kernel_call (hbb, as_a <gcall *> (stmt));
+	}
+      else
+	HSA_SORRY_AT (gimple_location (stmt), "expansion of ungridified "
+		      "omp parallel is epxerimental, enable with "
+		      "--param hsa-expand-omp-parallel");
+      break;
 
-	break;
-      }
     case BUILT_IN_OMP_GET_THREAD_NUM:
       {
 	query_hsa_grid_nodim (stmt, BRIG_OPCODE_WORKITEMFLATABSID, hbb);
