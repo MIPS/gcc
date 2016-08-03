@@ -6737,10 +6737,9 @@ rs6000_expand_vector_init (rtx target, rtx vals)
     }
 
   /* Special case initializing vector int if we are on 64-bit systems with
-     direct move.  */
-  /* Special case initializing vector int if we are on 64-bit systems with
-     direct move.  */
-  if (mode == V4SImode && TARGET_DIRECT_MOVE_64BIT)
+     direct move.  This bug tickles a bug in reload for fortran's
+     cray_pointers_2 test unless -mvsx-timode is enabled.  */
+  if (mode == V4SImode && TARGET_DIRECT_MOVE_64BIT && TARGET_VSX_TIMODE)
     {
       rtx di_hi, di_lo, elements[4], tmp;
       size_t i;
