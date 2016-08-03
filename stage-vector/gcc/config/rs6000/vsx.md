@@ -1908,13 +1908,13 @@
 {
   if (which_alternative == 0)
     return (BYTES_BIG_ENDIAN
-	    ? "xxpermdi %x0,%x2,%x1,0"
-	    : "xxpermdi %x0,%x1,%x2,0");
+	    ? "xxpermdi %x0,%x1,%x2,0"
+	    : "xxpermdi %x0,%x2,%x1,0");
 
   else if (which_alternative == 1)
     return (BYTES_BIG_ENDIAN
-	    ? "mtvsrdd %x0,%2,%1"
-	    : "mtvsrdd %x0,%1,%2");
+	    ? "mtvsrdd %x0,%1,%2"
+	    : "mtvsrdd %x0,%2,%1");
 
   else
     gcc_unreachable ();
