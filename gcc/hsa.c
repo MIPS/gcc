@@ -813,6 +813,24 @@ hsa_get_declaration_name (tree decl)
   return name;
 }
 
+/* Add a flatten attribute and disable vectorization for gpu implementation
+   function decl GDECL.  */
+
+void hsa_summary_t::process_gpu_implementation_attributes (tree gdecl)
+{
+  DECL_ATTRIBUTES (gdecl)
+    = tree_cons (get_identifier ("flatten"), NULL_TREE,
+		 DECL_ATTRIBUTES (gdecl));
+
+  tree fn_opts = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (gdecl);
+  if (fn_opts == NULL_TREE)
+    fn_opts = optimization_default_node;
+  fn_opts = copy_node (fn_opts);
+  TREE_OPTIMIZATION (fn_opts)->x_flag_tree_loop_vectorize = false;
+  TREE_OPTIMIZATION (fn_opts)->x_flag_tree_slp_vectorize = false;
+  DECL_FUNCTION_SPECIFIC_OPTIMIZATION (gdecl) = fn_opts;
+}
+
 void
 hsa_summary_t::link_functions (cgraph_node *gpu, cgraph_node *host,
 			       hsa_function_kind kind, bool gridified_kernel_p)
@@ -832,18 +850,7 @@ hsa_summary_t::link_functions (cgraph_node *gpu, cgraph_node *host,
   gpu_summary->m_binded_function = host;
   host_summary->m_binded_function = gpu;
 
-  tree gdecl = gpu->decl;
-  DECL_ATTRIBUTES (gdecl)
-    = tree_cons (get_identifier ("flatten"), NULL_TREE,
-		 DECL_ATTRIBUTES (gdecl));
-
-  tree fn_opts = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (gdecl);
-  if (fn_opts == NULL_TREE)
-    fn_opts = optimization_default_node;
-  fn_opts = copy_node (fn_opts);
-  TREE_OPTIMIZATION (fn_opts)->x_flag_tree_loop_vectorize = false;
-  TREE_OPTIMIZATION (fn_opts)->x_flag_tree_slp_vectorize = false;
-  DECL_FUNCTION_SPECIFIC_OPTIMIZATION (gdecl) = fn_opts;
+  process_gpu_implementation_attributes (gpu->decl);
 
   /* Create reference between a kernel and a corresponding host implementation
      to quarantee LTO streaming to a same LTRANS.  */

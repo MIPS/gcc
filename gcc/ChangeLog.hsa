@@ -1,5 +1,12 @@
 2016-08-03  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa.h (hsa_summary_t): Add provate member function
+	process_gpu_implementation_attributes.
+	* hsa.c (process_gpu_implementation_attributes): New function.
+	(link_functions): Move some functionality into it.
+
+2016-08-03  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa.h (hsa_insn_signal): Make a direct descendant of
 	hsa_insn_basic.  Add memorder constructor parameter and
 	m_memory_order and m_signalop member variables.

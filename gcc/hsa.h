@@ -1322,6 +1322,9 @@ public:
 
   void link_functions (cgraph_node *gpu, cgraph_node *host,
 		       hsa_function_kind kind, bool gridified_kernel_p);
+
+private:
+  void process_gpu_implementation_attributes (tree gdecl);
 };
 
 /* OMP simple builtin describes behavior that should be done for
