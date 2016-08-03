@@ -7852,7 +7852,7 @@
   [(unspec_volatile [(match_operand 0 "consttable_operand" "")
 		     (match_operand 1 "const_int_operand" "")]
 		    UNSPEC_CONSTTABLE_INT)]
-  "TARGET_MIPS16"
+  "TARGET_MIPS16_PCREL_LOADS"
 {
   assemble_integer (mips_strip_unspec_address (operands[0]),
 		    INTVAL (operands[1]),
@@ -7864,7 +7864,7 @@
 (define_insn "consttable_float"
   [(unspec_volatile [(match_operand 0 "consttable_operand" "")]
 		    UNSPEC_CONSTTABLE_FLOAT)]
-  "TARGET_MIPS16"
+  "TARGET_MIPS16_PCREL_LOADS"
 {
   REAL_VALUE_TYPE d;
 
