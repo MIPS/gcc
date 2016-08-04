@@ -1,3 +1,10 @@
+2016-08-04  Thomas Schwinge  <thomas@codesourcery.com>
+
+	Backport trunk r236639:
+	* c-c++-common/goacc/routine-5.c: Add tests.
+	* g++.dg/goacc/routine-2.C: Remove duplicate tests.
+	* gfortran.dg/goacc/routine-6.f90: Add tests.
+
 2016-07-29  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	PR fortran/70598
