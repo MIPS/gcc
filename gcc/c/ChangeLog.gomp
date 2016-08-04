@@ -1,5 +1,11 @@
 2016-08-04  Thomas Schwinge  <thomas@codesourcery.com>
 
+	Backport trunk r239127:
+	* c-parser.c (struct oacc_routine_data): New.
+	(c_parser_declaration_or_fndef, c_parser_oacc_routine): Use it.
+	Simplify code.
+	(c_finish_oacc_routine): Likewise.
+
 	Backport trunk r236639:
 	* c-parser.c (c_parser_oacc_routine): Tighten syntax checks.
 

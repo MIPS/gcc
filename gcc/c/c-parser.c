@@ -1264,11 +1264,17 @@ enum c_parser_prec {
   NUM_PRECS
 };
 
+/* Helper data structure for parsing #pragma acc routine.  */
+struct oacc_routine_data {
+  tree clauses;
+  location_t loc;
+};
+
 static void c_parser_external_declaration (c_parser *);
 static void c_parser_asm_definition (c_parser *);
 static void c_parser_declaration_or_fndef (c_parser *, bool, bool, bool,
 					   bool, bool, tree *, vec<c_token>,
-					   tree = NULL_TREE);
+					   struct oacc_routine_data * = NULL);
 static void c_parser_static_assert_declaration_no_semi (c_parser *);
 static void c_parser_static_assert_declaration (c_parser *);
 static void c_parser_declspecs (c_parser *, struct c_declspecs *, bool, bool,
@@ -1360,7 +1366,7 @@ static bool c_parser_omp_target (c_parser *, enum pragma_context, bool *);
 static void c_parser_omp_end_declare_target (c_parser *);
 static void c_parser_omp_declare (c_parser *, enum pragma_context);
 static bool c_parser_omp_ordered (c_parser *, enum pragma_context, bool *);
-static void c_parser_oacc_routine (c_parser *parser, enum pragma_context);
+static void c_parser_oacc_routine (c_parser *, enum pragma_context);
 
 /* These Objective-C parser functions are only ever called when
    compiling Objective-C.  */
@@ -1557,7 +1563,8 @@ c_parser_external_declaration (c_parser *parser)
 }
 
 static void c_finish_omp_declare_simd (c_parser *, tree, tree, vec<c_token>);
-static void c_finish_oacc_routine (c_parser *, tree, tree, bool, bool, bool);
+static void c_finish_oacc_routine (struct oacc_routine_data *, tree, bool,
+				   bool, bool);
 
 /* Parse a declaration or function definition (C90 6.5, 6.7.1, C99
    6.7, 6.9.1).  If FNDEF_OK is true, a function definition is
@@ -1636,7 +1643,7 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 			       bool nested, bool start_attr_ok,
 			       tree *objc_foreach_object_declaration,
 			       vec<c_token> omp_declare_simd_clauses,
-			       tree oacc_routine_clauses)
+			       struct oacc_routine_data *oacc_routine_data)
 {
   struct c_declspecs *specs;
   tree prefix_attrs;
@@ -1706,9 +1713,9 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 	  pedwarn (here, 0, "empty declaration");
 	}
       c_parser_consume_token (parser);
-      if (oacc_routine_clauses)
-	c_finish_oacc_routine (parser, NULL_TREE,
-			       oacc_routine_clauses, false, true, false);
+      if (oacc_routine_data)
+	c_finish_oacc_routine (oacc_routine_data, NULL_TREE, false, true,
+			       false);
       return;
     }
 
@@ -1825,9 +1832,8 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 	      || !vec_safe_is_empty (parser->cilk_simd_fn_tokens))
 	    c_finish_omp_declare_simd (parser, NULL_TREE, NULL_TREE,
 				       omp_declare_simd_clauses);
-	  if (oacc_routine_clauses)
-	    c_finish_oacc_routine (parser, NULL_TREE,
-				   oacc_routine_clauses,
+	  if (oacc_routine_data)
+	    c_finish_oacc_routine (oacc_routine_data, NULL_TREE,
 				   false, first, false);
 	  c_parser_skip_to_end_of_block_or_statement (parser);
 	  return;
@@ -1943,8 +1949,8 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 		  init = c_parser_initializer (parser);
 		  finish_init ();
 		}
-	      if (oacc_routine_clauses)
-		c_finish_oacc_routine (parser, d, oacc_routine_clauses,
+	      if (oacc_routine_data)
+		c_finish_oacc_routine (oacc_routine_data, d,
 				       false, first, false);
 	      if (d != error_mark_node)
 		{
@@ -1989,8 +1995,8 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 		  if (parms)
 		    temp_pop_parm_decls ();
 		}
-	      if (oacc_routine_clauses)
-		c_finish_oacc_routine (parser, d, oacc_routine_clauses,
+	      if (oacc_routine_data)
+		c_finish_oacc_routine (oacc_routine_data, d,
 				       false, first, false);
 	      if (d)
 		finish_decl (d, UNKNOWN_LOCATION, NULL_TREE,
@@ -2102,9 +2108,9 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 	  || !vec_safe_is_empty (parser->cilk_simd_fn_tokens))
 	c_finish_omp_declare_simd (parser, current_function_decl, NULL_TREE,
 				   omp_declare_simd_clauses);
-      if (oacc_routine_clauses)
-	c_finish_oacc_routine (parser, current_function_decl,
-			       oacc_routine_clauses, false, first, true);
+      if (oacc_routine_data)
+	c_finish_oacc_routine (oacc_routine_data, current_function_decl,
+			       false, first, true);
       DECL_STRUCT_FUNCTION (current_function_decl)->function_start_locus
 	= c_parser_peek_token (parser)->location;
       fnbody = c_parser_compound_statement (parser);
@@ -14155,10 +14161,10 @@ static void
 c_parser_oacc_routine (c_parser *parser, enum pragma_context context)
 {
   tree decl = NULL_TREE;
-  /* Create a dummy clause, to record the location.  */
-  tree c_head = build_omp_clause (c_parser_peek_token (parser)->location,
-				  OMP_CLAUSE_ERROR);
-
+  oacc_routine_data data;
+  data.clauses = NULL_TREE;
+  data.loc = c_parser_peek_token (parser)->location;
+  
   if (context != pragma_external)
     c_parser_error (parser, "%<#pragma acc routine%> not at file scope");
 
@@ -14192,58 +14198,53 @@ c_parser_oacc_routine (c_parser *parser, enum pragma_context context)
 
   /* Build a chain of clauses.  */
   parser->in_pragma = true;
-  tree clauses = c_parser_oacc_all_clauses
-    (parser, OACC_ROUTINE_CLAUSE_MASK, "#pragma acc routine",
-     OACC_ROUTINE_CLAUSE_DEVICE_TYPE_MASK);
-  /* Prepend the dummy clause.  */
-  OMP_CLAUSE_CHAIN (c_head) = clauses;
-  clauses = c_head;
-  
+  data.clauses
+    = c_parser_oacc_all_clauses (parser, OACC_ROUTINE_CLAUSE_MASK,
+				 "#pragma acc routine",
+				 OACC_ROUTINE_CLAUSE_DEVICE_TYPE_MASK);
+
   if (decl)
-    c_finish_oacc_routine (parser, decl, clauses, true, true, false);
+    c_finish_oacc_routine (&data, decl, true, true, false);
   else if (c_parser_peek_token (parser)->type == CPP_PRAGMA)
     /* This will emit an error.  */
-    c_finish_oacc_routine (parser, NULL_TREE, clauses, false, true, false);
+    c_finish_oacc_routine (&data, NULL_TREE, false, true, false);
   else
     c_parser_declaration_or_fndef (parser, true, false, false, false,
-				   true, NULL, vNULL, clauses);
+				   true, NULL, vNULL, &data);
 }
 
-/* Finalize an OpenACC routine pragma, applying it to FNDECL.  CLAUSES
-   are the parsed clauses.  IS_DEFN is true if we're applying it to
-   the definition (so expect FNDEF to look somewhat defined.  */
+/* Finalize an OpenACC routine pragma, applying it to FNDECL.
+   IS_DEFN is true if we're applying it to the definition.  */
 
 static void
-c_finish_oacc_routine (c_parser *ARG_UNUSED (parser), tree fndecl,
-		       tree clauses, bool named, bool first, bool is_defn)
+c_finish_oacc_routine (struct oacc_routine_data *data, tree fndecl,
+		       bool named, bool first, bool is_defn)
 {
-  location_t loc = OMP_CLAUSE_LOCATION (clauses);
-  /* Get rid of the dummy clause.  */
-  clauses = OMP_CLAUSE_CHAIN (clauses);
-
   if (!fndecl || TREE_CODE (fndecl) != FUNCTION_DECL || !first)
     {
       if (fndecl != error_mark_node)
-	error_at (loc, "%<#pragma acc routine%> %s",
+	error_at (data->loc, "%<#pragma acc routine%> %s",
 		  named ? "does not refer to a function"
 		  : "not followed by single function");
       return;
     }
 
   if (get_oacc_fn_attrib (fndecl))
-    error_at (loc, "%<#pragma acc routine%> already applied to %D", fndecl);
+    error_at (data->loc,
+	      "%<#pragma acc routine%> already applied to %D", fndecl);
 
   if (TREE_USED (fndecl) || (!is_defn && DECL_SAVED_TREE (fndecl)))
-    error_at (loc, "%<#pragma acc routine%> must be applied before %s",
+    error_at (data->loc, "%<#pragma acc routine%> must be applied before %s",
 	      TREE_USED (fndecl) ? "use" : "definition");
 
-  /* Process for function attrib  */
-  tree dims = build_oacc_routine_dims (clauses);
+  /* Process the routine's dimension clauses.  */
+  tree dims = build_oacc_routine_dims (data->clauses);
   replace_oacc_fn_attrib (fndecl, dims);
 
-  /* Also add an "omp declare target" attribute, with clauses.  */
-  DECL_ATTRIBUTES (fndecl) = tree_cons (get_identifier ("omp declare target"),
-					clauses, DECL_ATTRIBUTES (fndecl));
+  /* Add an "omp declare target" attribute.  */
+  DECL_ATTRIBUTES (fndecl)
+    = tree_cons (get_identifier ("omp declare target"),
+		 data->clauses, DECL_ATTRIBUTES (fndecl));
 }
 
 /* OpenACC 2.0:
