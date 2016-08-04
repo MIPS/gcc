@@ -1,5 +1,10 @@
 2016-08-04  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* g++.dg/goacc/routine-2.C: Update.
+
+	Backport trunk r239128:
+	* c-c++-common/goacc/routine-5.c: Update.
+
 	Backport trunk r236639:
 	* c-c++-common/goacc/routine-5.c: Add tests.
 	* g++.dg/goacc/routine-2.C: Remove duplicate tests.

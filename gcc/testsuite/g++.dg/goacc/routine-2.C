@@ -110,7 +110,7 @@ float my_div6 (float, float);
 
 struct astruct
 {
-  #pragma acc routine /* { dg-error "not at file scope before end of line" } */
+  #pragma acc routine /* { dg-error ".#pragma acc routine. must be at file scope" } */
   int sum (int a, int b)
   {
     return a + b;
@@ -119,7 +119,7 @@ struct astruct
 
 class aclass
 {
-  #pragma acc routine /* { dg-error "not at file scope before end of line" } */
+  #pragma acc routine /* { dg-error ".#pragma acc routine. must be at file scope" } */
   int sum (int a, int b)
   {
     return a + b;
