@@ -5106,6 +5106,121 @@
 ;; Per md.texi, we only need to look for a pattern with multiply in the
 ;; address expression, not shift.
 
+(define_insn "*ldx"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(mem:SI
+	  (plus:P (match_operand:P 1 "register_operand" "d")
+		  (match_operand:P 2 "register_operand" "d"))))]
+  "ISA_HAS_LDX"
+  "ldx\t%0,%1(%2)"
+  [(set_attr "type"	"load")
+   (set_attr "mode"	"DI")])
+
+(define_insn "*sdx"
+  [(set (mem:SI
+	  (plus:P (match_operand:P 0 "register_operand" "d")
+		  (match_operand:P 1 "register_operand" "d")))
+	(match_operand:SI 2 "register_operand" "d"))]
+  "ISA_HAS_SDX"
+  "sdx\t%2,%0(%1)"
+  [(set_attr "type"	"store")
+   (set_attr "mode"	"DI")])
+
+(define_insn "*ldxs"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(mem:SI
+	  (plus:P (mult:P (match_operand:P 1 "register_operand" "d")
+			  (const_int 8))
+		  (match_operand:P 2 "register_operand" "d"))))]
+  "ISA_HAS_LDXS"
+  "ldxs\t%0,%1(%2)"
+  [(set_attr "type"	"load")
+   (set_attr "mode"	"DI")])
+
+(define_insn "*sdxs"
+  [(set (mem:SI
+	  (plus:P (mult:P (match_operand:P 0 "register_operand" "d")
+			  (const_int 8))
+		  (match_operand:P 1 "register_operand" "d")))
+	(match_operand:SI 2 "register_operand" "d"))]
+  "ISA_HAS_SDXS"
+  "sdxs\t%2,%0(%1)"
+  [(set_attr "type"	"store")
+   (set_attr "mode"	"DI")])
+
+(define_insn "*ldc1x"
+  [(set (match_operand:DF 0 "register_operand" "=f")
+	(mem:DF
+	  (plus:P (match_operand:P 1 "register_operand" "d")
+		  (match_operand:P 2 "register_operand" "d"))))]
+  "ISA_HAS_LDC1X"
+  "ldc1x\t%0,%1(%2)"
+  [(set_attr "type"	"load")
+   (set_attr "mode"	"DF")])
+
+(define_insn "*sdc1x"
+  [(set (mem:DF
+	  (plus:P (match_operand:P 0 "register_operand" "d")
+		  (match_operand:P 1 "register_operand" "d")))
+	(match_operand:DF 2 "register_operand" "f"))]
+  "ISA_HAS_SDC1X"
+  "sdc1x\t%2,%0(%1)"
+  [(set_attr "type"	"store")
+   (set_attr "mode"	"DF")])
+
+(define_insn "*ldc1xs"
+  [(set (match_operand:DF 0 "register_operand" "=f")
+	(mem:DF
+	  (plus:P (mult:P (match_operand:P 1 "register_operand" "d")
+			  (const_int 8))
+		  (match_operand:P 2 "register_operand" "d"))))]
+  "ISA_HAS_LDC1XS"
+  "ldc1xs\t%0,%1(%2)"
+  [(set_attr "type"	"load")
+   (set_attr "mode"	"DF")])
+
+(define_insn "*sdc1xs"
+  [(set (mem:DF
+	  (plus:P (mult:P (match_operand:P 0 "register_operand" "d")
+			  (const_int 8))
+		  (match_operand:P 1 "register_operand" "d")))
+	(match_operand:DF 2 "register_operand" "f"))]
+  "ISA_HAS_SDC1XS"
+  "sdc1xs\t%2,%0(%1)"
+  [(set_attr "type"	"store")
+   (set_attr "mode"	"DF")])
+
+(define_insn "*lwx"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(mem:SI
+	  (plus:P (match_operand:P 1 "register_operand" "d")
+		  (match_operand:P 2 "register_operand" "d"))))]
+  "ISA_HAS_LWX"
+  "lwx\t%0,%1(%2)"
+  [(set_attr "type"	"load")
+   (set_attr "mode"	"SI")])
+
+(define_insn "*lwux"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(zero_extend:SI
+	  (mem:SI
+	    (plus:P (match_operand:P 1 "register_operand" "d")
+		    (match_operand:P 2 "register_operand" "d")))))]
+  "ISA_HAS_LWUX"
+  "lwux\t%0,%1(%2)"
+  [(set_attr "type"	"load")
+   (set_attr "mode"	"SI")])
+
+(define_insn "*swx"
+  [(set (mem:SI
+	  (plus:P (match_operand:P 0 "register_operand" "d")
+		  (match_operand:P 1 "register_operand" "d")))
+	(match_operand:SI 2 "register_operand" "d"))]
+  "ISA_HAS_SWX"
+  "swx\t%2,%0(%1)"
+  [(set_attr "type"	"store")
+   (set_attr "mode"	"SI")])
+
 (define_insn "*lwxs"
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(mem:SI
@@ -5114,6 +5229,18 @@
 		  (match_operand:P 2 "register_operand" "d"))))]
   "ISA_HAS_LWXS"
   "lwxs\t%0,%1(%2)"
+  [(set_attr "type"	"load")
+   (set_attr "mode"	"SI")])
+
+(define_insn "*lwuxs"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(zero_extend:SI
+	  (mem:SI
+	    (plus:P (mult:P (match_operand:P 1 "register_operand" "d")
+			    (const_int 4))
+		    (match_operand:P 2 "register_operand" "d")))))]
+  "ISA_HAS_LWUXS"
+  "lwuxs\t%0,%1(%2)"
   [(set_attr "type"	"load")
    (set_attr "mode"	"SI")])
 
@@ -5127,6 +5254,79 @@
   "swxs\t%2,%0(%1)"
   [(set_attr "type"	"store")
    (set_attr "mode"	"SI")])
+
+(define_insn "*lwc1x"
+  [(set (match_operand:SF 0 "register_operand" "=f")
+	(mem:SF
+	  (plus:P (match_operand:P 1 "register_operand" "d")
+		  (match_operand:P 2 "register_operand" "d"))))]
+  "ISA_HAS_LWC1X"
+  "lwc1x\t%0,%1(%2)"
+  [(set_attr "type"	"load")
+   (set_attr "mode"	"SF")])
+
+(define_insn "*swc1x"
+  [(set (mem:SF
+	  (plus:P (match_operand:P 0 "register_operand" "d")
+		  (match_operand:P 1 "register_operand" "d")))
+	(match_operand:SF 2 "register_operand" "f"))]
+  "ISA_HAS_SWC1X"
+  "swc1x\t%2,%0(%1)"
+  [(set_attr "type"	"store")
+   (set_attr "mode"	"SF")])
+
+(define_insn "*lwc1xs"
+  [(set (match_operand:SF 0 "register_operand" "=f")
+	(mem:SF
+	  (plus:P (mult:P (match_operand:P 1 "register_operand" "d")
+			  (const_int 4))
+		  (match_operand:P 2 "register_operand" "d"))))]
+  "ISA_HAS_LWC1XS"
+  "lwc1xs\t%0,%1(%2)"
+  [(set_attr "type"	"load")
+   (set_attr "mode"	"SF")])
+
+(define_insn "*swc1xs"
+  [(set (mem:SF
+	  (plus:P (mult:P (match_operand:P 0 "register_operand" "d")
+			  (const_int 4))
+		  (match_operand:P 1 "register_operand" "d")))
+	(match_operand:SF 2 "register_operand" "f"))]
+  "ISA_HAS_SWC1XS"
+  "swc1xs\t%2,%0(%1)"
+  [(set_attr "type"	"store")
+   (set_attr "mode"	"SF")])
+
+(define_insn "*lhx"
+  [(set (match_operand:HI 0 "register_operand" "=d")
+	(mem:HI
+	  (plus:P (match_operand:P 1 "register_operand" "d")
+		  (match_operand:P 2 "register_operand" "d"))))]
+  "ISA_HAS_LHX"
+  "lhx\t%0,%1(%2)"
+  [(set_attr "type"	"load")
+   (set_attr "mode"	"HI")])
+
+(define_insn "*lhux"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(zero_extend:SI
+	  (mem:HI
+	    (plus:P (match_operand:P 1 "register_operand" "d")
+		    (match_operand:P 2 "register_operand" "d")))))]
+  "ISA_HAS_LHUX"
+  "lhux\t%0,%1(%2)"
+  [(set_attr "type"	"load")
+   (set_attr "mode"	"HI")])
+
+(define_insn "*shx"
+  [(set (mem:HI
+	  (plus:P (match_operand:P 0 "register_operand" "d")
+		  (match_operand:P 1 "register_operand" "d")))
+	(match_operand:HI 2 "register_operand" "d"))]
+  "ISA_HAS_SHX"
+  "shx\t%2,%0(%1)"
+  [(set_attr "type"	"store")
+   (set_attr "mode"	"HI")])
 
 (define_insn "*lhxs"
   [(set (match_operand:HI 0 "register_operand" "=d")
@@ -5161,6 +5361,37 @@
   "shxs\t%2,%0(%1)"
   [(set_attr "type"	"store")
    (set_attr "mode"	"HI")])
+
+(define_insn "*lbx"
+  [(set (match_operand:QI 0 "register_operand" "=d")
+	(mem:QI
+	  (plus:P (match_operand:P 1 "register_operand" "d")
+		  (match_operand:P 2 "register_operand" "d"))))]
+  "ISA_HAS_LBX"
+  "lbx\t%0,%1(%2)"
+  [(set_attr "type"	"load")
+   (set_attr "mode"	"QI")])
+
+(define_insn "*lbux"
+  [(set (match_operand:QI 0 "register_operand" "=d")
+	(zero_extend:QI
+	  (mem:QI
+	    (plus:P (match_operand:P 1 "register_operand" "d")
+		    (match_operand:P 2 "register_operand" "d")))))]
+  "ISA_HAS_LBUX"
+  "lbux\t%0,%1(%2)"
+  [(set_attr "type"	"load")
+   (set_attr "mode"	"QI")])
+
+(define_insn "*sbx"
+  [(set	(mem:QI
+	  (plus:P (match_operand:P 0 "register_operand" "d")
+		  (match_operand:P 1 "register_operand" "d")))
+	(match_operand:QI 2 "register_operand" "d"))]
+  "ISA_HAS_SBX"
+  "sbx\t%2,%0(%1)"
+  [(set_attr "type"	"store")
+   (set_attr "mode"	"QI")])
 
 ;; 16-bit Integer moves
 
