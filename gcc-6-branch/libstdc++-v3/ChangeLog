@@ -1,3 +1,42 @@
+2016-08-02  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/lib/libstdc++.exp (v3-build_support): Add
+	-fno-lto to additional flags for compiling libtestc++.a objects.
+
+2016-07-29  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/abi.xml: Document 6.0.22 library version.
+	* doc/html/manual/abi.html: Regenerate.
+
+2016-07-19  Jonathan Wakely  <jwakely@redhat.com>
+
+	Backport from mainline
+	2016-07-14  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/experimental/functional: Include <parallel/algorithm> in
+	Parallel Mode.
+
+	Backport from mainline
+	2016-07-14  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/experimental/functional/searchers.cc: Include <algorithm>
+	for std::search.
+
+	PR libstdc++/71856
+	* include/bits/c++config (_GLIBCXX_ASSERTIONS): Define to 1 not empty.
+	* include/parallel/balanced_quicksort.h: Include <unistd.h> for sleep.
+	* include/parallel/compiletime_settings.h (_GLIBCXX_ASSERTIONS):
+	Do not define here.
+
+	Backport from mainline
+	2016-06-06  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/71320
+	* src/filesystem/ops.cc (permissions(const path&, perms, error_code&)):
+	Add or remove permissions according to perms argument.
+	* testsuite/experimental/filesystem/operations/permissions.cc: New
+	test.
+
 2016-07-06  Ville Voutilainen  <ville.voutilainen@gmail.com>
 
 	Implement LWG 2451, optional<T> should 'forward' T's
