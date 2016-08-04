@@ -1182,7 +1182,7 @@
 	(plus:FMSA (mult:FMSA (match_operand:FMSA 2 "register_operand" "f")
 			      (match_operand:FMSA 3 "register_operand" "f"))
 		   (match_operand:FMSA 1 "register_operand" "0")))]
-  "ISA_HAS_MSA"
+  "ISA_HAS_MSA && (flag_fp_contract_mode == FP_CONTRACT_FAST)"
   "fmadd.<msafmt>\t%w0,%w2,%w3"
   [(set_attr "type" "simd_fmadd")
    (set_attr "mode" "<MODE>")])
@@ -1192,7 +1192,7 @@
 	(minus:FMSA (match_operand:FMSA 1 "register_operand" "0")
 		    (mult:FMSA (match_operand:FMSA 2 "register_operand" "f")
 			       (match_operand:FMSA 3 "register_operand" "f"))))]
-  "ISA_HAS_MSA"
+  "ISA_HAS_MSA && (flag_fp_contract_mode == FP_CONTRACT_FAST)"
   "fmsub.<msafmt>\t%w0,%w2,%w3"
   [(set_attr "type" "simd_fmadd")
    (set_attr "mode" "<MODE>")])
