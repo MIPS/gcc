@@ -5091,7 +5091,7 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	      return true;
 	    }
 	}
-      else
+      else if (!TARGET_COST_TWEAK)
 	{
 	  /* When not optimizing for size, we care more about the cost
 	     of hot code, and hot code is often in a loop.  If a constant
@@ -5110,7 +5110,7 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
     case SYMBOL_REF:
     case LABEL_REF:
     case CONST_DOUBLE:
-      if (force_to_mem_operand (x, VOIDmode))
+      if (!TARGET_COST_TWEAK && force_to_mem_operand (x, VOIDmode))
 	{
 	  *total = COSTS_N_INSNS (1);
 	  return true;
@@ -5129,6 +5129,7 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	     an FPR at other times.  Also, moves between floating-point
 	     registers are sometimes cheaper than (D)MTC1 $0.  */
 	  if (cost == 1
+	      && !TARGET_COST_TWEAK
 	      && outer_code == SET
 	      && !(float_mode_p && TARGET_HARD_FLOAT))
 	    cost = 0;
@@ -5143,6 +5144,7 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	     for a word or doubleword operation, so we cannot rely on
 	     the result of mips_build_integer.  */
 	  else if (!TARGET_MIPS16
+		   && !TARGET_COST_TWEAK
 		   && (outer_code == SET || GET_MODE (x) == VOIDmode))
 	    cost = 1;
 	  *total = COSTS_N_INSNS (cost);
@@ -5159,12 +5161,16 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
       cost = mips_address_insns (addr, mode, true);
       if (cost > 0)
 	{
-	  *total = COSTS_N_INSNS (cost + 1);
+	  if (TARGET_COST_TWEAK)
+	    *total = COSTS_N_INSNS (cost) + 1;
+	  else
+	    *total = COSTS_N_INSNS (cost + 1);
 	  return true;
 	}
       /* Check for a scaled indexed address.  */
-      if (mips_index_scaled_address_p (addr, mode)
-	  || mips_index_address_p (addr, mode))
+      if (!TARGET_COST_TWEAK
+	  && (mips_index_scaled_address_p (addr, mode)
+	      || mips_index_address_p (addr, mode)))
 	{
 	  *total = COSTS_N_INSNS (2);
 	  return true;
@@ -5231,6 +5237,11 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
     case LSHIFTRT:
     case ROTATE:
     case ROTATERT:
+      if (TARGET_COST_TWEAK)
+	{
+	  *total = COSTS_N_INSNS (1);
+	  return true;
+	}
       if (CONSTANT_P (XEXP (x, 1)))
 	*total = mips_binary_cost (x, COSTS_N_INSNS (1), COSTS_N_INSNS (4),
 				   speed);
@@ -5308,7 +5319,7 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
       /* Fall through.  */
 
     case PLUS:
-      if (float_mode_p)
+      if (!TARGET_COST_TWEAK && float_mode_p)
 	{
 	  /* If this is part of a MADD or MSUB, treat the PLUS as
 	     being free.  */
@@ -5321,21 +5332,27 @@ mips_rtx_costs (rtx x, machine_mode mode, int outer_code,
 
       /* If it's an add + mult (which is equivalent to shift left) and
          it's immediate operand satisfies const_immlsa_operand predicate.  */
-      if (((ISA_HAS_LSA && mode == SImode)
-	   || (ISA_HAS_DLSA && mode == DImode))
+      if (code == PLUS
+	  && ((ISA_HAS_LSA && mode == SImode)
+	      || (ISA_HAS_DLSA && mode == DImode))
 	  && GET_CODE (XEXP (x, 0)) == MULT)
 	{
 	  rtx op2 = XEXP (XEXP (x, 0), 1);
 	  if (const_immlsa_operand (op2, mode))
 	    {
-	      *total = (COSTS_N_INSNS (1)
-			+ set_src_cost (XEXP (XEXP (x, 0), 0), mode, speed)
-			+ set_src_cost (XEXP (x, 1), mode, speed));
+	      if (TARGET_COST_TWEAK)
+		/* Disparage slightly the cost of LSA as it likely to prevent
+		   the use of indexed (scaled) loads and stores.  */
+		*total = COSTS_N_INSNS (1) + 1;
+	      else
+		*total = (COSTS_N_INSNS (1)
+			  + set_src_cost (XEXP (XEXP (x, 0), 0), mode, speed)
+			  + set_src_cost (XEXP (x, 1), mode, speed));
 	      return true;
 	    }
 	}
 
-      if (TARGET_MICROMIPS_R7
+      if (!TARGET_COST_TWEAK && TARGET_MICROMIPS_R7
 	  && mips_valid_base_register_p (XEXP (x, 1), mode, false)
 	  && ((mips_index_scaled_address_p (x, mode)
 	       && mips_valid_index_register_p (XEXP (XEXP (x, 0), 0), false))
