@@ -1,8 +1,16 @@
-#include <stdio.h>
+// Defaults, if not "#include"d from ../libgomp.oacc-c++/routine-1-*.C.
+#ifndef TEMPLATE
+# define TEMPLATE
+# define TYPE int
+# define RETURN_1 TYPE
+# define RETURN_2 
+#endif
+
 #include <stdlib.h>
 
 #pragma acc routine
-int fact(int n)
+TEMPLATE
+RETURN_1 fact(TYPE n) RETURN_2
 {
   if (n == 0 || n == 1)
     return 1;
