@@ -575,3 +575,6 @@ Target Undocumented Var(TARGET_ADD_CONDMOVES) Init(0)
 
 madd-new-ins-xor
 Target Undocumented Var(TARGET_NEW_INS_XOR) Init(0)
+
+mcost-tweak
+Target Undocumented Var(TARGET_COST_TWEAK) Init(0)
