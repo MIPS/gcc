@@ -1840,6 +1840,14 @@ mips_symbol_binds_local_p (const_rtx x)
 	  : SYMBOL_REF_LOCAL_P (x));
 }
 
+static bool
+mips_symbol_static_ifunc_p (const_rtx x)
+{
+  return (SYMBOL_REF_DECL (x)
+	  ? (lookup_attribute ("ifunc", DECL_ATTRIBUTES (SYMBOL_REF_DECL(x))))
+	     :false);
+}
+
 /* Return true if OP is a constant vector with the number of units in MODE,
    and each unit has the same bit set.  */
 
@@ -2100,7 +2108,7 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 	 In the third case we have more freedom since both forms of
 	 access will work for any kind of symbol.  However, there seems
 	 little point in doing things differently.  */
-      if (mips_global_symbol_p (x))
+      if (mips_global_symbol_p (x) || mips_symbol_static_ifunc_p (x))
 	return SYMBOL_GOT_DISP;
 
       return SYMBOL_GOT_PAGE_OFST;
