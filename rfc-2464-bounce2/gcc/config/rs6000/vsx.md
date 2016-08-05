@@ -40,20 +40,11 @@
 ;; Iterator for the 2 32-bit vector types
 (define_mode_iterator VSX_W [V4SF V4SI])
 
-;; Iterator for scalar floating point types
-(define_mode_iterator VSX_SF [DF SF])
-
-(define_mode_attr vsx_sf_suffix [(DF "dp") (SF "sp")])
-
 ;; Iterator for the DF types
 (define_mode_iterator VSX_DF [V2DF DF])
 
 ;; Iterator for vector floating point types supported by VSX
 (define_mode_iterator VSX_F [V4SF V2DF])
-
-(define_mode_attr vsx_f_suffix [(V4SF "dp") (V2DF "sp")])
-
-(define_mode_attr VSX_F_INTEGER [(V4SF "V4SI") (V2DF "V2DI")])
 
 ;; Iterator for logical types supported by VSX
 (define_mode_iterator VSX_L [V16QI
@@ -2856,77 +2847,74 @@
 ;; VSX Scalar Extract Exponent Double-Precision
 (define_insn "xsxexpdp"
   [(set (match_operand:DI 0 "register_operand" "=r")
-  	(unspec:DI [(match_operand:DF 1 "vsx_register_operand" "wa")] 
-        UNSPEC_VSX_SXEXPDP))]
+	(unspec:DI [(match_operand:DF 1 "vsx_register_operand" "wa")]
+	 UNSPEC_VSX_SXEXPDP))]
   "TARGET_P9_VECTOR && TARGET_64BIT"
   "xsxexpdp %0,%x1"
-  [(set_attr "type" "fp")])
+  [(set_attr "type" "vecsimple")])
 
 ;; VSX Scalar Extract Significand Double-Precision
 (define_insn "xsxsigdp"
   [(set (match_operand:DI 0 "register_operand" "=r")
-  	(unspec:DI [(match_operand:DF 1 "vsx_register_operand" "wa")] 
-        UNSPEC_VSX_SXSIGDP))]
+	(unspec:DI [(match_operand:DF 1 "vsx_register_operand" "wa")]
+	 UNSPEC_VSX_SXSIGDP))]
   "TARGET_P9_VECTOR && TARGET_64BIT"
   "xsxsigdp %0,%x1"
-  [(set_attr "type" "fp")])
+  [(set_attr "type" "vecsimple")])
 
 ;; VSX Scalar Insert Exponent Double-Precision
 (define_insn "xsiexpdp"
   [(set (match_operand:DF 0 "vsx_register_operand" "=wa")
-  	(unspec:DF [(match_operand:DI 1 "register_operand" "r")
+	(unspec:DF [(match_operand:DI 1 "register_operand" "r")
 		    (match_operand:DI 2 "register_operand" "r")]
-        UNSPEC_VSX_SIEXPDP))]
+	 UNSPEC_VSX_SIEXPDP))]
   "TARGET_P9_VECTOR && TARGET_64BIT"
   "xsiexpdp %x0,%1,%2"
-  [(set_attr "type" "fp")])
+  [(set_attr "type" "fpsimple")])
 
 ;; VSX Scalar Compare Exponents Double-Precision
 (define_expand "xscmpexpdp_<code>"
   [(set (match_dup 3)
-        (compare:CCFP
-         (unspec:DF
-          [(match_operand:DF 1 "vsx_register_operand" "wa")
-           (match_operand:DF 2 "vsx_register_operand" "wa")]
+	(compare:CCFP
+	 (unspec:DF
+	  [(match_operand:DF 1 "vsx_register_operand" "wa")
+	   (match_operand:DF 2 "vsx_register_operand" "wa")]
 	  UNSPEC_VSX_SCMPEXPDP)
-        (match_dup 4)))
+	 (const_int 0)))
    (set (match_operand:SI 0 "register_operand" "=r")
-        (CMP_TEST:SI (match_dup 3)
-                     (const_int 0)))
-  ]
+	(CMP_TEST:SI (match_dup 3)
+		     (const_int 0)))]
   "TARGET_P9_VECTOR"
 {
   operands[3] = gen_reg_rtx (CCFPmode);
-  operands[4] = CONST0_RTX (SImode);
 })
 
 (define_insn "*xscmpexpdp"
-  [(set (match_operand:CCFP 0 "" "=y")
-        (compare:CCFP
-         (unspec:DF [(match_operand:DF 1 "vsx_register_operand" "wa")
-	                (match_operand:DF 2 "vsx_register_operand" "wa")]
-          UNSPEC_VSX_SCMPEXPDP)
-         (match_operand:SI 3 "zero_constant" "j")))]
+  [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
+	(compare:CCFP
+	 (unspec:DF [(match_operand:DF 1 "vsx_register_operand" "wa")
+		     (match_operand:DF 2 "vsx_register_operand" "wa")]
+	  UNSPEC_VSX_SCMPEXPDP)
+	 (match_operand:SI 3 "zero_constant" "j")))]
   "TARGET_P9_VECTOR"
   "xscmpexpdp %0,%x1,%x2"
-  [(set_attr "type" "fp")])
+  [(set_attr "type" "fpcompare")])
 
 ;; VSX Scalar Test Data Class Double- and Single-Precision
-;;  (The lt bit is set if operand 1 is negative.  The eq bit is set 
-;;   if any of the conditions tested by operand 2 are satisfied.  
+;;  (The lt bit is set if operand 1 is negative.  The eq bit is set
+;;   if any of the conditions tested by operand 2 are satisfied.
 ;;   The gt and unordered bits are cleared to zero.)
-(define_expand "xststdc<vsx_sf_suffix>"
+(define_expand "xststdc<Fvsx>"
   [(set (match_dup 3)
-        (compare:CCFP
-         (unspec:VSX_SF
-          [(match_operand:VSX_SF 1 "vsx_register_operand" "wa")
-           (match_operand:SI 2 "u7bit_cint_operand" "n")]
-          UNSPEC_VSX_STSTDC)
-        (match_dup 4)))
+	(compare:CCFP
+	 (unspec:SFDF
+	  [(match_operand:SFDF 1 "vsx_register_operand" "wa")
+	   (match_operand:SI 2 "u7bit_cint_operand" "n")]
+	  UNSPEC_VSX_STSTDC)
+	 (match_dup 4)))
    (set (match_operand:SI 0 "register_operand" "=r")
-        (eq:SI (match_dup 3)
-               (const_int 0)))
-  ]
+	(eq:SI (match_dup 3)
+	       (const_int 0)))]
   "TARGET_P9_VECTOR"
 {
   operands[3] = gen_reg_rtx (CCFPmode);
@@ -2935,75 +2923,74 @@
 
 ;; The VSX Scalar Test Data Class Double- and Single-Precision
 ;; instruction may also be used to test for negative value.
-(define_expand "xststdcneg<vsx_sf_suffix>"
+(define_expand "xststdcneg<Fvsx>"
   [(set (match_dup 2)
-        (compare:CCFP
-         (unspec:VSX_SF
-          [(match_operand:VSX_SF 1 "vsx_register_operand" "wa")
-           (const_int 0)]
-          UNSPEC_VSX_STSTDC)
-        (match_dup 3)))
+	(compare:CCFP
+	 (unspec:SFDF
+	  [(match_operand:SFDF 1 "vsx_register_operand" "wa")
+	   (const_int 0)]
+	  UNSPEC_VSX_STSTDC)
+	 (match_dup 3)))
    (set (match_operand:SI 0 "register_operand" "=r")
-        (lt:SI (match_dup 2)
-               (const_int 0)))
-  ]
+	(lt:SI (match_dup 2)
+	       (const_int 0)))]
   "TARGET_P9_VECTOR"
 {
   operands[2] = gen_reg_rtx (CCFPmode);
   operands[3] = CONST0_RTX (SImode);
 })
 
-(define_insn "*xststdc<vsx_sf_suffix>"
+(define_insn "*xststdc<Fvsx>"
   [(set (match_operand:CCFP 0 "" "=y")
-        (compare:CCFP
-         (unspec:VSX_SF [(match_operand:VSX_SF 1 "vsx_register_operand" "wa")
-                        (match_operand:SI 2 "u7bit_cint_operand" "n")]
-          UNSPEC_VSX_STSTDC)
-         (match_operand:SI 3 "zero_constant" "j")))]
+	(compare:CCFP
+	 (unspec:SFDF [(match_operand:SFDF 1 "vsx_register_operand" "wa")
+		       (match_operand:SI 2 "u7bit_cint_operand" "n")]
+	  UNSPEC_VSX_STSTDC)
+	 (match_operand:SI 3 "zero_constant" "j")))]
   "TARGET_P9_VECTOR"
-  "xststdc<vsx_sf_suffix> %0,%x1,%2"
-  [(set_attr "type" "fp")])
+  "xststdc<Fvsx> %0,%x1,%2"
+  [(set_attr "type" "fpcompare")])
 
 ;; VSX Vector Extract Exponent Double and Single Precision
-(define_insn "xvxexp<vsx_f_suffix>"
+(define_insn "xvxexp<VSs>"
   [(set (match_operand:VSX_F 0 "vsx_register_operand" "=wa")
-        (unspec:VSX_F 
-         [(match_operand:VSX_F 1 "vsx_register_operand" "wa")]
-         UNSPEC_VSX_VXEXP))]
+	(unspec:VSX_F
+	 [(match_operand:VSX_F 1 "vsx_register_operand" "wa")]
+	 UNSPEC_VSX_VXEXP))]
   "TARGET_P9_VECTOR"
-  "xvxexp<vsx_f_suffix> %x0,%x1"
-  [(set_attr "type" "fp")])
+  "xvxexp<VSs> %x0,%x1"
+  [(set_attr "type" "fpsimple")])
 
 ;; VSX Vector Extract Significand Double and Single Precision
-(define_insn "xvxsig<vsx_f_suffix>"
+(define_insn "xvxsig<VSs>"
   [(set (match_operand:VSX_F 0 "vsx_register_operand" "=wa")
-        (unspec:VSX_F 
-         [(match_operand:VSX_F 1 "vsx_register_operand" "wa")]
-         UNSPEC_VSX_VXSIG))]
+	(unspec:VSX_F
+	 [(match_operand:VSX_F 1 "vsx_register_operand" "wa")]
+	 UNSPEC_VSX_VXSIG))]
   "TARGET_P9_VECTOR"
-  "xvxsig<vsx_f_suffix> %x0,%x1"
-  [(set_attr "type" "fp")])
+  "xvxsig<VSs> %x0,%x1"
+  [(set_attr "type" "fpsimple")])
 
 ;; VSX Vector Insert Exponent Double and Single Precision
-(define_insn "xviexp<vsx_f_suffix>"
+(define_insn "xviexp<VSs>"
   [(set (match_operand:VSX_F 0 "vsx_register_operand" "=wa")
-        (unspec:VSX_F 
-         [(match_operand:VSX_F 1 "vsx_register_operand" "wa")
-          (match_operand:VSX_F 2 "vsx_register_operand" "wa")]
-         UNSPEC_VSX_VIEXP))]
+	(unspec:VSX_F
+	 [(match_operand:VSX_F 1 "vsx_register_operand" "wa")
+	  (match_operand:VSX_F 2 "vsx_register_operand" "wa")]
+	 UNSPEC_VSX_VIEXP))]
   "TARGET_P9_VECTOR"
-  "xviexp<vsx_f_suffix> %x0,%x1,%x2"
-  [(set_attr "type" "fp")])
+  "xviexp<VSs> %x0,%x1,%x2"
+  [(set_attr "type" "vecsimple")])
 
 ;; VSX Vector Test Data Class Double and Single Precision
-;;  The corresponding elements of the result vector are all ones
-;;   if any of the conditions tested by operand 3 are satisfied.  
-(define_insn "xvtstdc<vsx_f_suffix>"
-  [(set (match_operand:<VSX_F_INTEGER> 0 "vsx_register_operand" "=wa")
-        (unspec:<VSX_F_INTEGER>
-         [(match_operand:VSX_F 1 "vsx_register_operand" "wa")
-          (match_operand:SI 2 "u7bit_cint_operand" "n")]
-         UNSPEC_VSX_VTSTDC))]
+;; The corresponding elements of the result vector are all ones
+;; if any of the conditions tested by operand 3 are satisfied.
+(define_insn "xvtstdc<VSs>"
+  [(set (match_operand:<VSI> 0 "vsx_register_operand" "=wa")
+	(unspec:<VSI>
+	 [(match_operand:VSX_F 1 "vsx_register_operand" "wa")
+	  (match_operand:SI 2 "u7bit_cint_operand" "n")]
+	 UNSPEC_VSX_VTSTDC))]
   "TARGET_P9_VECTOR"
-  "xvtstdc<vsx_f_suffix> %x0,%x1,%2"
-  [(set_attr "type" "fp")])
+  "xvtstdc<VSs> %x0,%x1,%2"
+  [(set_attr "type" "vecsimple")])

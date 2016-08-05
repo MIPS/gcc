@@ -1,10 +1,9 @@
 /* { dg-do compile { target { powerpc*-*-* } } } */
 /* { dg-skip-if "do not override -mcpu" { powerpc*-*-* } { "-mcpu=*" } { "-mcpu=power8" } } */
 /* { dg-require-effective-target powerpc_p9vector_ok } */
-/* { dg-skip-if "" { powerpc*-*-aix* } } */
 /* { dg-options "-mcpu=power8" } */
 
-/* This test should succeed on 32-bit and 64-bit configuration.  */
+/* This test should succeed on 32-bit and 64-bit configurations.  */
 #include <altivec.h>
 
 int

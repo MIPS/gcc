@@ -14882,8 +14882,8 @@ int scalar_cmp_exp_unordered (double arg1, double arg2);
 int scalar_test_data_class (float source, unsigned int condition);
 int scalar_test_data_class (double source, unsigned int condition);
 
-int scalar_test_neg (float source)
-int scalar_test_neg (double source)
+int scalar_test_neg (float source);
+int scalar_test_neg (double source);
 @end smallexample
 
 The @code{__builtin_darn} and @code{__builtin_darn_raw}
@@ -14898,7 +14898,7 @@ The @code{scalar_extract_sig} and @code{scalar_insert_exp}
 functions require a 64-bit environment supporting ISA 3.0 or later.
 The @code{scalar_extract_exp} and @code{vec_extract_sig} built-in
 functions return the significand and exponent respectively of their
-@code{source} arguments.  The 
+@code{source} arguments.  The
 @code{scalar_insert_exp} built-in function returns a double-precision
 floating point value that is constructed by assembling the values of its
 @code{significand} and @code{exponent} arguments.  The sign of the
@@ -17671,11 +17671,15 @@ elements of the vector result.
 The following built-in functions are available for the PowerPC family
 of processors, starting with ISA 3.0 or later (@option{-mcpu=power9}):
 @smallexample
-__vector int vec_extract_exp (__vector float source);
-__vector long long int vec_extract_exp (__vector double source);
+__vector int
+vec_extract_exp (__vector float source);
+__vector long long int
+vec_extract_exp (__vector double source);
 
-__vector int vec_extract_sig (__vector float source);
-__vector long long int vec_extract_sig (__vector double source);
+__vector int
+vec_extract_sig (__vector float source);
+__vector long long int
+vec_extract_sig (__vector double source);
 
 __vector float
 vec_insert_exp (__vector unsigned int significands,  __vector unsigned int exponents);

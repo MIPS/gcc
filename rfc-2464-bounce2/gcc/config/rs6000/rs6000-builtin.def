@@ -1835,10 +1835,10 @@ BU_P9V_VSX_1 (VSTDCNSP,	"scalar_test_neg_sp",	CONST,	xststdcnegsp)
 /* 2 argument vsx scalar functions added in ISA 3.0 (power9).  */
 BU_P9V_64BIT_VSX_2 (VSIEDP,	"scalar_insert_exp",	CONST,	xsiexpdp)
 
-BU_P9V_VSX_2 (VSCEDPGT,	"scalar_cmp_exp_dp_gt", CONST, xscmpexpdp_gt)
-BU_P9V_VSX_2 (VSCEDPLT,	"scalar_cmp_exp_dp_lt", CONST, xscmpexpdp_lt)
-BU_P9V_VSX_2 (VSCEDPEQ,	"scalar_cmp_exp_dp_eq", CONST, xscmpexpdp_eq)
-BU_P9V_VSX_2 (VSCEDPUO,	"scalar_cmp_exp_dp_unordered", CONST, xscmpexpdp_unordered)
+BU_P9V_VSX_2 (VSCEDPGT,	"scalar_cmp_exp_dp_gt",	CONST,	xscmpexpdp_gt)
+BU_P9V_VSX_2 (VSCEDPLT,	"scalar_cmp_exp_dp_lt",	CONST,	xscmpexpdp_lt)
+BU_P9V_VSX_2 (VSCEDPEQ,	"scalar_cmp_exp_dp_eq",	CONST,	xscmpexpdp_eq)
+BU_P9V_VSX_2 (VSCEDPUO,	"scalar_cmp_exp_dp_unordered",	CONST,	xscmpexpdp_unordered)
 
 BU_P9V_VSX_2 (VSTDCDP,	"scalar_test_data_class_dp",	CONST,	xststdcdp)
 BU_P9V_VSX_2 (VSTDCSP,	"scalar_test_data_class_sp",	CONST,	xststdcsp)

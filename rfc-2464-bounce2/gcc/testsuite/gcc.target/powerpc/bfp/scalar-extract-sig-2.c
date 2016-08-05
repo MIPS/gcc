@@ -2,10 +2,9 @@
 /* { dg-skip-if "do not override -mcpu" { powerpc*-*-* } { "-mcpu=*" } { "-mcpu=power9" } } */
 /* { dg-require-effective-target ilp32 } */
 /* { dg-require-effective-target powerpc_p9vector_ok } */
-/* { dg-skip-if "" { powerpc*-*-aix* } } */
 /* { dg-options "-mcpu=power9" } */
 
-/* This test only runs on 32-bit configuration, producing compiler
+/* This test only runs on 32-bit configurations, producing a compiler
    error because the builtin requires 64 bits.  */
 #include <altivec.h>
 

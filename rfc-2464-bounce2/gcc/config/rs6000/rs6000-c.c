@@ -311,6 +311,7 @@ rs6000_macro_to_expand (cpp_reader *pfile, const cpp_token *tok)
   return expand_this;
 }
 
+
 /* Define or undefine a single macro.  */
 
 static void
@@ -4302,34 +4303,34 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
     RS6000_BTI_unsigned_V4SI, 0 },
 
   { P9V_BUILTIN_VEC_VES, P9V_BUILTIN_VESSP,
-    RS6000_BTI_V4SI, RS6000_BTI_V4SF, 0, 0 },   
+    RS6000_BTI_V4SI, RS6000_BTI_V4SF, 0, 0 },
   { P9V_BUILTIN_VEC_VES, P9V_BUILTIN_VESDP,
-    RS6000_BTI_V2DI, RS6000_BTI_V2DF, 0, 0 },   
+    RS6000_BTI_V2DI, RS6000_BTI_V2DF, 0, 0 },
 
   { P9V_BUILTIN_VEC_VESSP, P9V_BUILTIN_VESSP,
-    RS6000_BTI_V4SI, RS6000_BTI_V4SF, 0, 0 },   
+    RS6000_BTI_V4SI, RS6000_BTI_V4SF, 0, 0 },
   { P9V_BUILTIN_VEC_VESDP, P9V_BUILTIN_VESDP,
-    RS6000_BTI_V2DI, RS6000_BTI_V2DF, 0, 0 },   
+    RS6000_BTI_V2DI, RS6000_BTI_V2DF, 0, 0 },
 
   { P9V_BUILTIN_VEC_VEE, P9V_BUILTIN_VEESP,
-    RS6000_BTI_V4SI, RS6000_BTI_V4SF, 0, 0 },   
+    RS6000_BTI_V4SI, RS6000_BTI_V4SF, 0, 0 },
   { P9V_BUILTIN_VEC_VEE, P9V_BUILTIN_VEEDP,
-    RS6000_BTI_V2DI, RS6000_BTI_V2DF, 0, 0 },   
+    RS6000_BTI_V2DI, RS6000_BTI_V2DF, 0, 0 },
 
   { P9V_BUILTIN_VEC_VEESP, P9V_BUILTIN_VEESP,
-    RS6000_BTI_V4SI, RS6000_BTI_V4SF, 0, 0 },   
+    RS6000_BTI_V4SI, RS6000_BTI_V4SF, 0, 0 },
   { P9V_BUILTIN_VEC_VEEDP, P9V_BUILTIN_VEEDP,
-    RS6000_BTI_V2DI, RS6000_BTI_V2DF, 0, 0 },   
+    RS6000_BTI_V2DI, RS6000_BTI_V2DF, 0, 0 },
 
   { P9V_BUILTIN_VEC_VTDC, P9V_BUILTIN_VTDCSP,
-    RS6000_BTI_V4SI, RS6000_BTI_V4SF, RS6000_BTI_UINTSI, 0 },   
+    RS6000_BTI_V4SI, RS6000_BTI_V4SF, RS6000_BTI_UINTSI, 0 },
   { P9V_BUILTIN_VEC_VTDC, P9V_BUILTIN_VTDCDP,
-    RS6000_BTI_V2DI, RS6000_BTI_V2DF, RS6000_BTI_UINTSI, 0 },   
+    RS6000_BTI_V2DI, RS6000_BTI_V2DF, RS6000_BTI_UINTSI, 0 },
 
   { P9V_BUILTIN_VEC_VTDCSP, P9V_BUILTIN_VTDCSP,
-    RS6000_BTI_V4SI, RS6000_BTI_V4SF, RS6000_BTI_UINTSI, 0 },   
+    RS6000_BTI_V4SI, RS6000_BTI_V4SF, RS6000_BTI_UINTSI, 0 },
   { P9V_BUILTIN_VEC_VTDCDP, P9V_BUILTIN_VTDCDP,
-    RS6000_BTI_V2DI, RS6000_BTI_V2DF, RS6000_BTI_UINTSI, 0 },   
+    RS6000_BTI_V2DI, RS6000_BTI_V2DF, RS6000_BTI_UINTSI, 0 },
 
   { P9V_BUILTIN_VEC_VIE, P9V_BUILTIN_VIESP,
     RS6000_BTI_V4SF, RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V4SI, 0 },
@@ -4798,7 +4799,6 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
   tree types[3], args[3];
   const struct altivec_builtin_types *desc;
   unsigned int n;
-  bool unsupported_builtin;
 
   if (!rs6000_overloaded_builtin_p (fcode))
     return NULL_TREE;
@@ -5558,37 +5558,38 @@ assignment for unaligned loads and stores");
       return build_int_cst (NULL_TREE, TYPE_VECTOR_SUBPARTS (types[0]));
     }
 
-  unsupported_builtin = false;
-  for (desc = altivec_overloaded_builtins;
-       desc->code && desc->code != fcode; desc++)
-    continue;
-
-  /* For arguments after the last, we have RS6000_BTI_NOT_OPAQUE in
-     the opX fields.  */
-  for (; desc->code == fcode; desc++)
-    {
-      if ((desc->op1 == RS6000_BTI_NOT_OPAQUE
-	   || rs6000_builtin_type_compatible (types[0], desc->op1))
-	  && (desc->op2 == RS6000_BTI_NOT_OPAQUE
-	      || rs6000_builtin_type_compatible (types[1], desc->op2))
-	  && (desc->op3 == RS6000_BTI_NOT_OPAQUE
-	      || rs6000_builtin_type_compatible (types[2], desc->op3)))
-	{
-	  if (rs6000_builtin_decls[desc->overloaded_code] != NULL_TREE)
-	    return altivec_build_resolved_builtin (args, n, desc);
-	  else
-	    unsupported_builtin = true;
-	}
-    }
+  {
+    bool unsupported_builtin = false;
+    for (desc = altivec_overloaded_builtins;
+	 desc->code && desc->code != fcode; desc++)
+      continue;
     
-  if (unsupported_builtin)
-    {
-      const char *name = rs6000_overloaded_builtin_name (fcode);
-      error ("Builtin function %s not supported in this compiler configuration", 
-	     name);
-      return error_mark_node;
-    }
-
+    /* For arguments after the last, we have RS6000_BTI_NOT_OPAQUE in
+       the opX fields.  */
+    for (; desc->code == fcode; desc++)
+      {
+	if ((desc->op1 == RS6000_BTI_NOT_OPAQUE
+	     || rs6000_builtin_type_compatible (types[0], desc->op1))
+	    && (desc->op2 == RS6000_BTI_NOT_OPAQUE
+		|| rs6000_builtin_type_compatible (types[1], desc->op2))
+	    && (desc->op3 == RS6000_BTI_NOT_OPAQUE
+		|| rs6000_builtin_type_compatible (types[2], desc->op3)))
+	  {
+	    if (rs6000_builtin_decls[desc->overloaded_code] != NULL_TREE)
+	      return altivec_build_resolved_builtin (args, n, desc);
+	    else
+	      unsupported_builtin = true;
+	  }
+      }
+    
+    if (unsupported_builtin)
+      {
+	const char *name = rs6000_overloaded_builtin_name (fcode);
+	error ("Builtin function %s not supported in this compiler configuration",
+	       name);
+	return error_mark_node;
+      }
+  }
  bad:
     {
       const char *name = rs6000_overloaded_builtin_name (fcode);
