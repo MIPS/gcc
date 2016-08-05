@@ -1902,8 +1902,7 @@
   [(set (match_operand:VSX_D 0 "gpc_reg_operand" "=<VSa>,we")
 	(vec_concat:VSX_D
 	 (match_operand:<VS_scalar> 1 "gpc_reg_operand" "<VS_64reg>,r")
-	 (match_operand:<VS_scalar> 2 "gpc_reg_operand" "<VS_64reg>,r")))
-   (clobber (match_scratch:DI 3 "=X,X"))]
+	 (match_operand:<VS_scalar> 2 "gpc_reg_operand" "<VS_64reg>,r")))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
 {
   if (which_alternative == 0)
@@ -1919,8 +1918,7 @@
   else
     gcc_unreachable ();
 }
-  [(set_attr "type" "vecperm,mftgpr")
-   (set_attr "length" "4")])
+  [(set_attr "type" "vecperm")])
 
 ;; Special purpose concat using xxpermdi to glue two single precision values
 ;; together, relying on the fact that internally scalar floats are represented
@@ -2648,7 +2646,7 @@
    xxpermdi %x0,%x1,%x1,0
    lxvdsx %x0,%y1
    mtvsrdd %x0,%1,%1"
-  [(set_attr "type" "vecperm,vecload,mftgpr")])
+  [(set_attr "type" "vecperm,vecload,vecperm")])
 
 ;; V4SI splat (ISA 3.0)
 ;; When SI's are allowed in VSX registers, add XXSPLTW support
