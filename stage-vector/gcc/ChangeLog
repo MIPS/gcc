@@ -1,3 +1,98 @@
+2016-08-05  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_preferred_reload_class): Delete
+	code accidentally committed 2016-05-02 providing class when given
+	NO_REGS.
+
+2016-08-04  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	* tree-vrp.c (simplify_switch_using_ranges): Try to truncate
+	the case label ranges that partially overlap with OP's value
+	range.
+
+2016-08-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/72805
+	* config/i386/avx512fintrin.h (_mm512_cmp_epi32_mask) [!__OPTIMIZE__]:
+	Cast builtin function result to __mmask16 instead of __mmask8.
+	(_mm512_cmp_epu32_mask) [!__OPTIMIZE__]: Ditto.
+	(_mm512_mask_cmp_epi32_mask) [!__OPTIMIZE__]: Ditto.
+	(_mm512_mask_cmp_epu32_mask) [!__OPTIMIZE__]: Ditto.
+
+2016-08-04  David Malcolm  <dmalcolm@redhat.com>
+
+	* selftest.h (ASSERT_TRUE): Reimplement in terms of...
+	(ASSERT_TRUE_AT): New macro.
+	(ASSERT_FALSE): Reimplement in terms of...
+	(ASSERT_FALSE_AT): New macro.
+	(ASSERT_STREQ_AT): Fix typo in comment.
+
+2016-08-04  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	* gimple.c (preprocess_case_label_vec_for_gimple): When the case
+	labels are exhaustive, designate the label with the widest
+	range to be the default label.
+
+2016-08-04  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/aarch64.c (thunderx_vector_cost): New variable.
+	(thunderx_tunings): Use thunderx_vector_cost instead of
+	generic_vector_cost.
+
+2016-08-04  Martin Liska  <mliska@suse.cz>
+
+	* gcov.c (main): Fix GNU coding style.
+	(output_intermediate_file): Likewise.
+	(process_file): Likewise.
+	(generate_results): Likewise.
+	(release_structures): Likewise.
+	(create_file_names): Likewise.
+	(find_source): Likewise.
+	(read_graph_file): Likewise.
+	(find_exception_blocks): Likewise.
+	(canonicalize_name): Likewise.
+	(make_gcov_file_name): Likewise.
+	(mangle_name): Likewise.
+	(accumulate_line_counts): Likewise.
+	(output_branch_count): Likewise.
+	(read_line): Likewise.
+
+2016-08-04  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR rtl-optimization/71779
+	* emit-rtl.c (set_reg_attrs_from_value): Only propagate REG_POINTER,
+	if the value was sign-extended according to POINTERS_EXTEND_UNSIGNED
+	or if it was truncated.
+
+	PR rtl-optimization/70903
+	* cse.c (cse_insn): If DEST is a paradoxical SUBREG, don't record DEST.
+
+2016-08-04  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* tree-inline.c (remap_ssa_name): Check for POINTER_TYPE_P before
+	accessing SSA_NAME_PTR_INFO.
+
+2016-08-04  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR 70677
+	* common/config/avr/avr-common.c (avr_option_optimization_table)
+	[OPT_LEVELS_ALL]: Turn off -fcaller-saves.
+
+2016-08-04  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR 55181
+	* config/avr/avr.md: New pattern to work around do_store_flag
+	generating shift instructions for bit extractions.
+
+2016-08-04  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* tree-vrp.c (set_value_range): Use vrp_equiv_obstack with
+	BITMAP_ALLOC.
+	(add_equivalence): Likewise.
+	(get_value_range): Allocate value range with vrp_value_range_pool.
+	(vrp_initialize): Initialize vrp_equiv_obstack for equiv allocation.
+	(vrp_finalize): Relase vrp_equiv_obstack and vrp_value_range_pool.
+
 2016-08-03  Peter Bergner  <bergner@vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_option_override_internal): Make LRA
@@ -15514,7 +15609,7 @@
 2016-02-14  Alan Modra  <amodra@gmail.com>
 
 	PR target/68973
-	* reloads.c (find_reloads_address_1): For pre/post-inc/dec
+	* reload.c (find_reloads_address_1): For pre/post-inc/dec
 	with an invalid hard reg, reload just the reg not the entire
 	pre/post-inc/dec address expression.
 

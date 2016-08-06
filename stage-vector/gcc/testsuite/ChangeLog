@@ -1,3 +1,70 @@
+2016-08-04  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	* gcc.dg/tree-ssa/vrp107.c: New test.
+	* gcc.dg/tree-ssa/vrp108.c: New test.
+	* gcc.dg/tree-ssa/vrp109.c: New test.
+
+2016-08-04  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* gcc.dg/pr70920-4.c: Move dg-require-effective-target before
+	dg-options.
+
+2016-08-04  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* gcc.dg/tree-ssa/pr71078-1.c: Remove double and long double
+	test-cases.
+	* gcc.dg/tree-ssa/pr71078-1-double.c: New test-case.
+	* gcc.dg/tree-ssa/pr71078-1-long-double.c: Likewise.
+	* gcc.dg/tree-ssa/pr71078-2.c: Remove double and long double
+	test-cases.
+	* gcc.dg/tree-ssa/pr71078-2-double.c: New test-case.
+	* gcc.dg/tree-ssa/pr71078-2-long-double.c: Likewise.
+	* gcc.dg/tree-ssa/pr71078-3.c: Add require-effective-check for
+	large_double.
+
+2016-08-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/72800
+	* g++.dg/cpp1y/lambda-ice1.C: New.
+
+2016-08-04  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/72759
+	* g++.dg/cpp1y/pr72759.C: New test.
+
+2016-08-04  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	* gcc.dg/switch-10.c: New test.
+
+2016-08-04  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.c-torture/execute/pr70903.c: Remove duplicate test body.
+
+2016-08-04  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc/routine-5.c: Update.
+
+2016-08-04  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR rtl-optimization/70903
+	* gcc.c-torture/execute/pr70903.c: New test.
+
+2016-08-04  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/params/params.exp: Replace file exists with
+	TESTING_IN_BUILD_TREE.
+
+2016-08-04  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/70229
+	* g++.dg/cpp0x/constexpr-ctor19.C: New test.
+
+2016-08-04  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/71984
+	* gcc.dg/torture/pr71984.c: Guard correctness check for
+	little-endian.
+
 2016-08-03  Andrew Pinski  <apinski@cavium.com>
 
 	* gcc.c-torture/compile/20160802-1.c: New testcase.
