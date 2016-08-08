@@ -149,6 +149,41 @@ Feature-testing recommendations for C++</link>.
     </row>
 
     <row>
+      <entry> Library Fundamentals V1 TS Components: <code>apply</code> </entry>
+      <entry>
+	<link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0220r1.html">
+	P0220R1
+	</link>
+      </entry>
+      <entry align="center"> 7 </entry>
+      <entry> <code>__cpp_lib_apply >= 201603</code> </entry>
+    </row>
+
+    <row>
+      <?dbhtml bgcolor="#C8B0B0" ?>
+      <entry> Library Fundamentals V1 TS Components: <code>shared_ptr&lt;T[]&gt;</code> </entry>
+      <entry>
+	<link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0220r1.html">
+	P0220R1
+	</link>
+      </entry>
+      <entry align="center"> No </entry>
+      <entry> <code>__cpp_lib_shared_ptr_arrays >= 201603</code> </entry>
+    </row>
+
+    <row>
+      <?dbhtml bgcolor="#C8B0B0" ?>
+      <entry> Library Fundamentals V1 TS Components: Searchers </entry>
+      <entry>
+	<link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0220r1.html">
+	P0220R1
+	</link>
+      </entry>
+      <entry align="center"> No </entry>
+      <entry> <code>__cpp_lib_boyer_moore_searcher >= 201603</code> </entry>
+    </row>
+
+    <row>
       <entry> Constant View: A proposal for a <code>std::as_const</code> helper function template	</entry>
       <entry>
 	<link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="">
@@ -261,7 +296,7 @@ Feature-testing recommendations for C++</link>.
 	P0033R1
 	</link>
       </entry>
-      <entry align="center"> 6.1 </entry>
+      <entry align="center"> 7 </entry>
       <entry><code>__cpp_lib_enable_shared_from_this >= 201603</code></entry>
     </row>
 
@@ -437,14 +472,13 @@ Feature-testing recommendations for C++</link>.
     </row>
 
     <row>
-      <?dbhtml bgcolor="#C8B0B0" ?>
       <entry> Polishing <code>&lt;chrono&gt;</code> </entry>
       <entry>
 	<link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2015/p0092r1.html">
 	P0092R1
 	</link>
       </entry>
-      <entry align="center"> No </entry>
+      <entry align="center"> 7 </entry>
       <entry><code> __cpp_lib_chrono >= 201510 </code></entry>
     </row>
 
@@ -499,9 +533,9 @@ Feature-testing recommendations for C++</link>.
 	N4510
 	</link>
       </entry>
-      <entry align="center"> 7 (3.0)</entry>
+      <entry align="center"> 6.2 (3.0)</entry>
       <entry><code> __cpp_lib_incomplete_container_elements >= 201505 </code>
-	     (the feature was always supported, but the macro was not defined until GCC 7)
+	     (the feature was always supported, but the macro was not defined until GCC 6.2)
       </entry>
     </row>
 

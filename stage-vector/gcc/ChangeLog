@@ -1,3 +1,220 @@
+2016-08-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/72821
+	* lra-spills.c (regno_in_use_p): Don't use BLOCK_FOR_INSN on barriers,
+	just return false for them.
+
+2016-08-08  Alan Modra  <amodra@gmail.com>
+
+	PR target/72771
+	* config/rs6000/rs6000.c (toc_relative_expr_p): Allow (lo_sum (high))
+	toc refs created during reload.  Update function comment.
+
+2016-08-08  Alan Modra  <amodra@gmail.com>
+
+	PR target/72802
+	* config/rs6000/rs6000.md (mov<mode>_hardfloat): Sort
+	alternatives.  Put loads first, then stores, and reg/reg moves
+	within same class later.  Delete attr length.
+
+2016-08-08  Alan Modra  <amodra@gmail.com>
+
+	PR target/72802
+	* config/rs6000/rs6000.c (mem_operand_gpr): Remove vsx dform test.
+	(mem_operand_ds_form): New predicate.
+	* config/rs6000/rs6000-protos.h (mem_operand_ds_form): Declare.
+	* config/rs6000/constraints.md (wY): Use mem_operand_df_form.
+	* config/rs6000/predicates.md (offsettable_mem_14bit_operand): Delete.
+	* config/rs6000/rs6000.md (f32_lm2, f32_sm2): Use wY for SF.
+	(extendsfdf2_fpr): Replace o constraint with wY.
+
+2016-08-07  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-ssa-threadbackward.c: Include tree-inline.h
+	(profitable_jump_thread_path): Use estimate_num_insns to estimate
+	size of copied block; for cold paths reduce duplication.
+	(find_jump_threads_backwards): Remove redundant tests.
+	(pass_thread_jumps::gate): Enable for -Os.
+
+2016-08-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/72816
+	* stor-layout.c (layout_decl): Fix up formatting.
+	(relayout_decl): Allow DECL to be FIELD_DECL.
+
+2016-08-07  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.md (fix_trunc<mode>si2): Fix mode of reg.
+
+2016-08-07  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* data-streamer-in.c (streamer_read_wide_int): New.
+	(streamer_read_widest_int): Renamed function.
+	* data-streamer-out.c (streamer_write_wide_int): New
+	(streamer_write_widest_int): Renamed function.
+	* lto-streamer-in.c (streamer_read_wi): Renamed and moved to
+	data-stream-in.c.
+	(input_cfg): Call renamed function.
+	* lto-streamer-out.c (streamer_write_wi): Renamed and moved to
+	data-stream-out.c.
+	(output_cfg): Call renamed function.
+	* data-streamer.h: Add declarations.
+
+2016-08-08  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* tree-ssa-ccp.c (extend_mask): New param sgn.
+	Remove ORing with wi::mask.
+	(get_default_value): Adjust call to extend_mask to pass sign.
+	(evaluate_stmt): Likewise.
+
+2016-08-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcov.c (handle_cycle): Use INTTYPE_MAXIMUM (int64_t) instead of
+	INT64_MAX.
+
+2016-08-06  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* match.pd ((intptr_t) x eq/ne CST to x eq/ne (typeof x) cst): Disable
+	transform if operand's type is pointer to function or method.
+
+2016-08-05  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR tree-optimization/18046
+	* tree-ssa-threadedge.c: Include cfganal.h.
+	(simplify_control_statement_condition): If simplifying a
+	GIMPLE_SWITCH, replace the index operand of the GIMPLE_SWITCH
+	with the dominating ASSERT_EXPR before handing it off to VRP.
+	Mention that a CASE_LABEL_EXPR may be returned.
+	(thread_around_empty_blocks): Adjust to handle
+	simplify_control_statement_condition() returning a
+	CASE_LABEL_EXPR.
+	(thread_through_normal_block): Likewise.
+	* tree-vrp.c (simplify_stmt_for_jump_threading): Simplify
+	a switch statement by trying to determine which case label
+	will be taken.
+
+2016-08-05  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/69847
+	* lra-constraints.c (process_invariant_for_inheritance): Save
+	pattern instead of src.
+	(remove_inheritance_pseudos): Use the pattern.  Add assert.
+
+2016-08-05  David Malcolm  <dmalcolm@redhat.com>
+
+	* input.c (string_concat::string_concat): New constructor.
+	(string_concat_db::string_concat_db): New constructor.
+	(string_concat_db::record_string_concatenation): New method.
+	(string_concat_db::get_string_concatenation): New method.
+	(string_concat_db::get_key_loc): New method.
+	(class auto_cpp_string_vec): New class.
+	(get_substring_ranges_for_loc): New function.
+	(get_source_range_for_substring): New function.
+	(get_num_source_ranges_for_substring): New function.
+	(class selftest::lexer_test_options): New class.
+	(struct selftest::lexer_test): New struct.
+	(class selftest::ebcdic_execution_charset): New class.
+	(selftest::ebcdic_execution_charset::s_singleton): New variable.
+	(selftest::lexer_test::lexer_test): New constructor.
+	(selftest::lexer_test::~lexer_test): New destructor.
+	(selftest::lexer_test::get_token): New method.
+	(selftest::assert_char_at_range): New function.
+	(ASSERT_CHAR_AT_RANGE): New macro.
+	(selftest::assert_num_substring_ranges): New function.
+	(ASSERT_NUM_SUBSTRING_RANGES): New macro.
+	(selftest::assert_has_no_substring_ranges): New function.
+	(ASSERT_HAS_NO_SUBSTRING_RANGES): New macro.
+	(selftest::test_lexer_string_locations_simple): New function.
+	(selftest::test_lexer_string_locations_ebcdic): New function.
+	(selftest::test_lexer_string_locations_hex): New function.
+	(selftest::test_lexer_string_locations_oct): New function.
+	(selftest::test_lexer_string_locations_letter_escape_1): New function.
+	(selftest::test_lexer_string_locations_letter_escape_2): New function.
+	(selftest::test_lexer_string_locations_ucn4): New function.
+	(selftest::test_lexer_string_locations_ucn8): New function.
+	(selftest::uint32_from_big_endian): New function.
+	(selftest::test_lexer_string_locations_wide_string): New function.
+	(selftest::uint16_from_big_endian): New function.
+	(selftest::test_lexer_string_locations_string16): New function.
+	(selftest::test_lexer_string_locations_string32): New function.
+	(selftest::test_lexer_string_locations_u8): New function.
+	(selftest::test_lexer_string_locations_utf8_source): New function.
+	(selftest::test_lexer_string_locations_concatenation_1): New
+	function.
+	(selftest::test_lexer_string_locations_concatenation_2): New
+	function.
+	(selftest::test_lexer_string_locations_concatenation_3): New
+	function.
+	(selftest::test_lexer_string_locations_macro): New function.
+	(selftest::test_lexer_string_locations_stringified_macro_argument):
+	New function.
+	(selftest::test_lexer_string_locations_non_string): New function.
+	(selftest::test_lexer_string_locations_long_line): New function.
+	(selftest::test_lexer_char_constants): New function.
+	(selftest::input_c_tests): Call the new test functions once per
+	case within the line_table test matrix.
+	* input.h (struct string_concat): New struct.
+	(struct location_hash): New struct.
+	(class string_concat_db): New class.
+	* substring-locations.h: New header.
+
+2016-08-05  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR tree-optimization/72810
+	* tree-vrp.c (simplify_switch_using_ranges): Avoid changing
+	the type of the case labels when truncating.
+
+2016-08-05  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	PR Target/72819
+	* config/aarch64/aarch64.h (aarch64_fp16_type_node): Declare.
+	(aarch64_fp16_ptr_type_node): Likewise.
+	* config/aarch64/aarch64-simd-builtins.c
+	(aarch64_fp16_ptr_type_node): Define.
+	(aarch64_init_fp16_types): New, refactored out of...
+	(aarch64_init_builtins): ...here, update to call
+	aarch64_init_fp16_types.
+	* config/aarch64/aarch64.c (aarch64_gimplify_va_arg_expr): Handle
+	HFmode.
+	(aapcs_vfp_sub_candidate): Likewise.
+
+2016-08-05  Martin Liska  <mliska@suse.cz>
+
+	    Joshua Cranmer  <Pidgeot18@gmail.com>
+
+	* gcov.c (line_t::has_block): New function.
+	(enum loop_type): New enum.
+	(handle_cycle): New function.
+	(unblock): Likewise.
+	(circuit): Likewise.
+	(get_cycles_count): Likewise.
+	(accumulate_line_counts): Use new loop detection algorithm.
+
+2016-08-05  Martin Liska  <mliska@suse.cz>
+
+	* gcov.c (output_intermediate_file): Rename
+	function_info::line_next to next_file_fn.
+	(process_file): Likewise.
+	(read_graph_file): Likewise.
+	(accumulate_line_counts): Likewise.
+	(output_lines): Likewise.
+
+2016-08-05  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-threadupdate.c (thread_block_1): Remove unnecessary
+	restriction on threading to a loop header.
+
+2016-08-05  Richard Biener  <rguenther@suse.de>
+
+	* tree-cfgcleanup.c (tree_forwarder_block_p): Use bb_loop_header_p.
+	* cfghooks.c (force_nonfallthru): If we ended up splitting a latch
+	adjust loop info accordingly.
+
+2016-08-05  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* tree-vrp.c (extract_range_basic): Check cfun->after_inlining
+	before folding call to __builtin_constant_p with parameters to false.
+
 2016-08-05  Alan Modra  <amodra@gmail.com>
 
 	* config/rs6000/rs6000.c (rs6000_preferred_reload_class): Delete

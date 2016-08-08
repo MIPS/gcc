@@ -1,3 +1,54 @@
+2016-08-06  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/status_cxx2017.xml: Update status table.
+	* doc/html/manual/status.html: Regenerate.
+
+	* testsuite/lib/libstdc++.exp: Fix typo in comment.
+
+	PR libstdc++/72820
+	* include/std/functional (_Function_base::_Base_manager::_M_clone):
+	Qualify new operator.
+	* testsuite/20_util/function/cons/72820.cc: New test.
+
+	* doc/xml/manual/status_cxx2017.xml: Add missing LFTSv2 features.
+	* doc/html/manual/status.html: Regenerate.
+	* include/Makefile.am: Add new header.
+	* include/Makefile.in: Regenerate.
+	* include/bits/invoke.h: New header.
+	(__invoke): Make constexpr. Add && to types in exception specification.
+	* include/experimental/tuple (apply, __apply_impl): Fix non-reserved
+	names. Include <bits/invoke.h> and use std::__invoke.
+	* include/std/functional (__invfwd, __invoke_impl, __invoke): Move to
+	new header.
+	(invoke): Add && to types in exception specification.
+	* include/std/tuple (apply, __apply_impl): Define for C++17.
+	* testsuite/20_util/tuple/apply/1.cc: New test.
+	* testsuite/20_util/tuple/element_access/get_neg.cc: Adjust dg-error
+	lineno.
+
+2016-08-05  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/status_cxx2017.xml: Correct shared_from_this status.
+	* doc/html/manual/status.html: Regenerate.
+
+	* include/std/chrono (floor, ceil, round, abs): New for C++17.
+	* testsuite/20_util/duration_cast/rounding.cc: New test.
+	* testsuite/20_util/time_point_cast/rounding.cc: New test.
+	* doc/xml/manual/status_cxx2017.xml: Update status table.
+	* doc/html/manual/status.html: Regenerate.
+	* testsuite/20_util/duration/requirements/typedefs_neg1.cc: Adjust
+	dg-error lineno.
+	* testsuite/20_util/duration/requirements/typedefs_neg2.cc: Likewise.
+	* testsuite/20_util/duration/requirements/typedefs_neg3.cc: Likewise.
+	* testsuite/20_util/duration/literals/range.cc: Likewise.
+
+	* include/std/functional (__callable_functor): Remove.
+	(_Function_handler::_M_invoke): Use __invoke instead of
+	__callable_functor or mem_fn.
+	(function::_Callable): Use lvalue in result_of expression.
+	(function): Remove TODO comments about allocators.
+	* testsuite/20_util/function/cons/refqual.cc: New test.
+
 2016-08-04  Jonathan Wakely  <jwakely@redhat.com>
 
 	* doc/xml/manual/status_cxx2017.xml: Update status table.
