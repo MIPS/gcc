@@ -425,7 +425,8 @@ check_constexpr_ctor_body_1 (tree last, tree list)
   switch (TREE_CODE (list))
     {
     case DECL_EXPR:
-      if (TREE_CODE (DECL_EXPR_DECL (list)) == USING_DECL)
+      if (TREE_CODE (DECL_EXPR_DECL (list)) == USING_DECL
+	  || TREE_CODE (DECL_EXPR_DECL (list)) == TYPE_DECL)
 	return true;
       return false;
 
@@ -3170,7 +3171,7 @@ cxx_eval_store_expression (const constexpr_ctx *ctx, tree t,
       /* A constant-expression cannot modify objects from outside the
 	 constant-expression.  */
       if (!ctx->quiet)
-	error ("modification of %qE is not a constant-expression", object);
+	error ("modification of %qE is not a constant expression", object);
       *non_constant_p = true;
       return t;
     }
@@ -3581,6 +3582,10 @@ cxx_eval_pointer_plus_expression (const constexpr_ctx *ctx, tree t,
       tree type = TREE_TYPE (op00);
       t = fold_convert_loc (loc, ssizetype, TREE_OPERAND (op00, 1));
       tree nelts = array_type_nelts_top (TREE_TYPE (TREE_OPERAND (op00, 0)));
+      nelts = cxx_eval_constant_expression (ctx, nelts, false, non_constant_p,
+					    overflow_p);
+      if (*non_constant_p)
+	return NULL_TREE;
       /* Don't fold an out-of-bound access.  */
       if (!tree_int_cst_le (t, nelts))
 	return NULL_TREE;
@@ -4093,7 +4098,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 	      {
 		if (!ctx->quiet)
 		  error_at (EXPR_LOC_OR_LOC (t, input_location),
-			    "a reinterpret_cast is not a constant-expression");
+			    "a reinterpret_cast is not a constant expression");
 		*non_constant_p = true;
 		return t;
 	      }
@@ -4135,7 +4140,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 		if (!ctx->quiet)
 		  error_at (EXPR_LOC_OR_LOC (t, input_location),
 			    "%<reinterpret_cast<%T>(%E)%> is not "
-			    "a constant-expression",
+			    "a constant expression",
 			    type, op);
 		*non_constant_p = true;
 		return t;
@@ -4197,7 +4202,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
     case OFFSET_REF:
       if (!ctx->quiet)
         error_at (EXPR_LOC_OR_LOC (t, input_location),
-		  "expression %qE is not a constant-expression", t);
+		  "expression %qE is not a constant expression", t);
       *non_constant_p = true;
       break;
 
@@ -4278,7 +4283,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 	     so for now just fail.  */
 	  if (!ctx->quiet)
 	    error_at (EXPR_LOCATION (t),
-		      "statement is not a constant-expression");
+		      "statement is not a constant expression");
 	}
       else
 	internal_error ("unexpected expression %qE of kind %s", t,
@@ -4365,7 +4370,7 @@ cxx_eval_outermost_constant_expr (tree t, bool allow_non_constant,
     {
       if (!allow_non_constant)
 	error ("conversion from pointer type %qT "
-	       "to arithmetic type %qT in a constant-expression",
+	       "to arithmetic type %qT in a constant expression",
 	       TREE_TYPE (TREE_OPERAND (r, 0)), TREE_TYPE (r));
       non_constant_p = true;
     }
@@ -5063,7 +5068,7 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
     case AT_ENCODE_EXPR:
     fail:
       if (flags & tf_error)
-        error ("expression %qE is not a constant-expression", t);
+	error ("expression %qE is not a constant expression", t);
       return false;
 
     case TYPEID_EXPR:
@@ -5224,7 +5229,7 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
 	if (integer_zerop (denom))
 	  {
 	    if (flags & tf_error)
-	      error ("division by zero is not a constant-expression");
+	      error ("division by zero is not a constant expression");
 	    return false;
 	  }
 	else
@@ -5329,7 +5334,7 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
 	{
 	  if (flags & tf_error)
 	    error_at (location_of (t),
-		      "%<delete[]%> is not a constant-expression");
+		      "%<delete[]%> is not a constant expression");
 	  return false;
 	}
       /* Fall through.  */
@@ -5352,7 +5357,7 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
 					     want_rval, strict, tf_none))
 	  return true;
       if (flags & tf_error)
-        error ("expression %qE is not a constant-expression", t);
+	error ("expression %qE is not a constant expression", t);
       return false;
 
     case VEC_INIT_EXPR:
@@ -5380,7 +5385,7 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
 	if (breaks (target) || continues (target))
 	  return true;
 	if (flags & tf_error)
-	  error ("%<goto%> is not a constant-expression");
+	  error ("%<goto%> is not a constant expression");
 	return false;
       }
 

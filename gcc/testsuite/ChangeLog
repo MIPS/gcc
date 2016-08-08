@@ -1,3 +1,255 @@
+2016-08-08  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/70524
+	* gfortran.dg/dependency_48.f90: New test.
+
+2016-08-07  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/70040
+	* gfortran.dg/pr70040.f90:  New testcase.
+
+2016-08-07  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/71961
+	* gfortran.dg/matmul_10.f90:  New testcase.
+
+2016-08-07  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gcc.dg/tree-ssa/ssa-dom-thread-7.c: Update testcase.
+
+2016-08-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/72816
+	* gcc.dg/pr72816.c: New test.
+
+2016-08-06  Jonathan Wakely  <jwakely@redhat.com>
+
+	* g++.dg/conversion/pr16333.C: Adjust dg-error regexp.
+	* g++.dg/conversion/pr41426.C: Likewise.
+	* g++.dg/conversion/pr66211.C: Likewise.
+	* g++.dg/cpp1y/lambda-init9.C: Likewise.
+	* g++.dg/init/ref8.C: Likewise.
+	* g++.old-deja/g++.law/cvt20.C: Likewise.
+	* g++.old-deja/g++.mike/p9732c.C: Likewise.
+
+2016-08-05  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR tree-optimization/18046
+	* gcc.dg/tree-ssa/vrp105.c: New test.
+	* gcc.dg/tree-ssa/vrp106.c: New test.
+
+2016-08-05 Martin Sebor  <msebor@redhat.com>
+
+	* g++.dg/cpp0x/constexpr-cast.C: Avoid assuming (void*)1 is spelled
+	1ul in diagnostics.  Remove hyphen from "constant-expression."
+	* g++.dg/cpp0x/constexpr-50060.C: Adjust.
+	* g++.dg/cpp0x/static_assert3.C: Same.
+	* g++.dg/cpp1y/constexpr-throw.C: Same.
+	* g++.dg/template/nontype3.C: Same.
+	* g++.dg/warn/overflow-warn-1.C: Same.
+	* g++.dg/warn/overflow-warn-3.C: Same.
+	* g++.dg/warn/overflow-warn-4.C: Same.
+
+2016-08-05  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc.dg/plugin/diagnostic-test-string-literals-1.c: New file.
+	* gcc.dg/plugin/diagnostic-test-string-literals-2.c: New file.
+	* gcc.dg/plugin/diagnostic_plugin_test_string_literals.c: New file.
+	* gcc.dg/plugin/plugin.exp (plugin_test_list): Add the above new files.
+
+2016-08-05  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR tree-optimization/72810
+	* gcc.dg/tree-ssa/vrp110.c: New test.
+
+2016-08-05  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	PR Target/72819
+	* gcc.target/aarch64/aapcs64/abitest-common.h: Define half-precision
+	registers.
+	* gcc.target/aarch64/aapcs64/abitest.S (dumpregs): Add assembly for
+	saving the half-precision registers.
+	* gcc.target/aarch64/aapcs64/func-ret-1.c: Test that an __fp16
+	value is returned in h0.
+	* gcc.target/aarch64/aapcs64/test_2.c: Check that __FP16 arguments
+	are passed in FP/SIMD registers.
+	* gcc.target/aarch64/aapcs64/test_27.c: New, test that __fp16 HFA
+	passing works corrcetly.
+	* gcc.target/aarch64/aapcs64/type-def.h (hfa_f16x1_t): New.
+	(hfa_f16x2_t): Likewise.
+	(hfa_f16x3_t): Likewise.
+	* gcc.target/aarch64/aapcs64/va_arg-1.c: Check that __fp16 values
+	are promoted to double and passed in a double register.
+	* gcc.target/aarch64/aapcs64/va_arg-2.c: Check that __fp16 values
+	are promoted to double and stacked.
+	* gcc.target/aarch64/aapcs64/va_arg-4.c: Check stacking of HFA of
+	__fp16 data types.
+	* gcc.target/aarch64/aapcs64/va_arg-5.c: Likewise.
+	* gcc.target/aarch64/aapcs64/va_arg-16.c: New, check HFAs of
+	__fp16 first get passed in FP/SIMD registers, then stacked.
+
+2016-08-05  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/68724
+	* g++.dg/cpp0x/pr68724.C: New.
+
+2016-08-05  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/ivopt_5.c: Make robust against edge swapping.
+
+2016-08-04  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	* gcc.dg/tree-ssa/vrp107.c: New test.
+	* gcc.dg/tree-ssa/vrp108.c: New test.
+	* gcc.dg/tree-ssa/vrp109.c: New test.
+
+2016-08-04  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* gcc.dg/pr70920-4.c: Move dg-require-effective-target before
+	dg-options.
+
+2016-08-04  Prathamesh Kulkarni  <prathamesh.kulkarni@linaro.org>
+
+	* gcc.dg/tree-ssa/pr71078-1.c: Remove double and long double
+	test-cases.
+	* gcc.dg/tree-ssa/pr71078-1-double.c: New test-case.
+	* gcc.dg/tree-ssa/pr71078-1-long-double.c: Likewise.
+	* gcc.dg/tree-ssa/pr71078-2.c: Remove double and long double
+	test-cases.
+	* gcc.dg/tree-ssa/pr71078-2-double.c: New test-case.
+	* gcc.dg/tree-ssa/pr71078-2-long-double.c: Likewise.
+	* gcc.dg/tree-ssa/pr71078-3.c: Add require-effective-check for
+	large_double.
+
+2016-08-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/72800
+	* g++.dg/cpp1y/lambda-ice1.C: New.
+
+2016-08-04  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/72759
+	* g++.dg/cpp1y/pr72759.C: New test.
+
+2016-08-04  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	* gcc.dg/switch-10.c: New test.
+
+2016-08-04  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.c-torture/execute/pr70903.c: Remove duplicate test body.
+
+2016-08-04  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc/routine-5.c: Update.
+
+2016-08-04  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR rtl-optimization/70903
+	* gcc.c-torture/execute/pr70903.c: New test.
+
+2016-08-04  Martin Liska  <mliska@suse.cz>
+
+	* gcc.dg/params/params.exp: Replace file exists with
+	TESTING_IN_BUILD_TREE.
+
+2016-08-04  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/70229
+	* g++.dg/cpp0x/constexpr-ctor19.C: New test.
+
+2016-08-04  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/71984
+	* gcc.dg/torture/pr71984.c: Guard correctness check for
+	little-endian.
+
+2016-08-03  Andrew Pinski  <apinski@cavium.com>
+
+	* gcc.c-torture/compile/20160802-1.c: New testcase.
+
+2016-08-03  Fritz Reese  <fritzoreese@gmail.com>
+
+	* gfortran.dg/dec_intrinsic_ints.f90: New testcase.
+
+2016-08-03  Richard Biener  <rguenther@suse.de>
+
+	* c-c++-common/ubsan/pr71403-1.c: Use dg-additional-options
+	and remove -O3.
+	* c-c++-common/ubsan/pr71403-2.c: Likewise.
+	* c-c++-common/ubsan/pr71403-3.c: Likewise.
+
+2016-08-03  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/loadpre2.c: Disable LIM.
+	* gcc.dg/tree-ssa/loadpre21.c: Likewise.
+	* gcc.dg/tree-ssa/loadpre22.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-pre-23.c: Likewise.
+
+2016-08-03  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.dg/init-excess-2.c: Require int32plus.
+	* gcc.dg/pr44024.c: Skip if target keeps null pointer checks.
+	* gcc.dg/pr59963-2.c: Require int32plus.
+	* gcc.dg/pr71084.c: Cast pointer to intprt_t.
+	* gcc.dg/unroll-7.c: Require int32plus.
+
+2016-08-02  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/34114
+	* gcc.dg/tree-ssa/loop-42.c: New test.
+
+2016-08-02  Tamar Christina  <tamar.christina@arm.com>
+
+	* gcc.target/aarch64/vminmaxnm.c: New.
+	* gcc.target/aarch64/simd/vminmaxnm_1.c (main): Add float64x1_t
+	tests.
+
+2016-08-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vec-extract-5.c: New tests to test
+	vec_extract for vector float, vector int, vector short, and vector
+	char.
+	* gcc.target/powerpc/vec-extract-6.c: Likewise.
+	* gcc.target/powerpc/vec-extract-7.c: Likewise.
+	* gcc.target/powerpc/vec-extract-8.c: Likewise.
+	* gcc.target/powerpc/vec-extract-9.c: Likewise.
+
+2016-08-01  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* gcc.target/aarch64/test_frame_10.c: Fix test to check for a
+	single stack adjustment, no writeback.
+	* gcc.target/aarch64/test_frame_12.c: Likewise.
+	* gcc.target/aarch64/test_frame_13.c: Likewise.
+	* gcc.target/aarch64/test_frame_15.c: Likewise.
+	* gcc.target/aarch64/test_frame_6.c: Likewise.
+	* gcc.target/aarch64/test_frame_7.c: Likewise.
+	* gcc.target/aarch64/test_frame_8.c: Likewise.
+	* gcc.target/aarch64/test_frame_16.c: New test.
+
+2015-08-01  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/72748
+	* gcc.target/i386/pr72748.c: New test.
+
+2015-08-01  Alan Hayward <alan.hayward@arm.com>
+
+	PR tree-optimization/71818
+	* gcc.dg/vect/pr71818.c: New
+
+2016-08-01  Martin Liska  <mliska@suse.cz>
+
+	PR tree-optimization/71857
+	* gcc.dg/tree-ssa/ivopt_mult_4.c: Change expectation.
+
+2016-08-01  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/ldp_stp_unaligned_1.c: New test.
+
+2016-08-01  Jan Beulich  <jbeulich@suse.com>
+
+	* gcc.dg/vshift-6.c, gcc.dg/vshift-7.c: New.
+
 2016-07-31  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/divkc3-1.c: Require POWER8 hardware.
