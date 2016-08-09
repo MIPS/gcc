@@ -1,5 +1,15 @@
 2016-08-09  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa-brig.c (hsa_brig_section): Make allocate_new_chunk, chunks
+	and cur_chunk provate, add a default NULL parameter to add method.
+	(hsa_brig_section::add): Added a new parameter, store pointer to
+	output data there if it is non-NULL.
+	(emit_function_directives): Use this new parameter instead of
+	calculating the pointer itself, fix function comment.
+	(hsa_brig_emit_function): Add forgotten endian conversion.
+
+2016-08-09  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa.h (hsa_insn_basic_p): Remove typedef.
 	(hsa_op_with_type): Change hsa_insn_basic_p into plain pointers.
 	(hsa_op_reg_p): Remove typedef.

@@ -160,19 +160,21 @@ public:
   /* The size of the header of the section without any padding.  */
   unsigned header_byte_delta;
 
+  void init (const char *name);
+  void release ();
+  void output ();
+  unsigned add (const void *data, unsigned len, void **output = NULL);
+  void round_size_up (int factor);
+  void *get_ptr_by_offset (unsigned int offset);
+
+private:
+  void allocate_new_chunk ();
+
   /* Buffers of binary data, each containing BRIG_CHUNK_MAX_SIZE bytes.  */
   vec <struct hsa_brig_data_chunk> chunks;
 
   /* More convenient access to the last chunk from the vector above.  */
   struct hsa_brig_data_chunk *cur_chunk;
-
-  void allocate_new_chunk ();
-  void init (const char *name);
-  void release ();
-  void output ();
-  unsigned add (const void *data, unsigned len);
-  void round_size_up (int factor);
-  void *get_ptr_by_offset (unsigned int offset);
 };
 
 static struct hsa_brig_section brig_data, brig_code, brig_operand;
@@ -270,10 +272,11 @@ hsa_brig_section::output ()
 }
 
 /* Add to the stream LEN bytes of opaque binary DATA.  Return the offset at
-   which it was stored.  */
+   which it was stored.  If OUTPUT is not NULL, store into it the pointer to
+   the place where DATA was actually stored.  */
 
 unsigned
-hsa_brig_section::add (const void *data, unsigned len)
+hsa_brig_section::add (const void *data, unsigned len, void **output)
 {
   unsigned offset = total_size;
 
@@ -281,7 +284,10 @@ hsa_brig_section::add (const void *data, unsigned len)
   if (cur_chunk->size > (BRIG_CHUNK_MAX_SIZE - len))
     allocate_new_chunk ();
 
-  memcpy (cur_chunk->data + cur_chunk->size, data, len);
+  char *dst = cur_chunk->data + cur_chunk->size;
+  memcpy (dst, data, len);
+  if (output)
+    *output = dst;
   cur_chunk->size += len;
   total_size += len;
 
@@ -625,8 +631,12 @@ emit_directive_variable (struct hsa_symbol *symbol)
   return symbol->m_directive_offset;
 }
 
-/* Emit directives describing either a function declaration or
-   definition F.  */
+/* Emit directives describing either a function declaration or definition F and
+   return the produced BrigDirectiveExecutable structure.  The function does
+   not take into account any instructions when calculating nextModuleEntry
+   field of the produced BrigDirectiveExecutable structure so when emitting
+   actual definitions, this field needs to be updated after all of the function
+   is actually added to the code section.  */
 
 static BrigDirectiveExecutable *
 emit_function_directives (hsa_function_representation *f, bool is_declaration)
@@ -634,7 +644,7 @@ emit_function_directives (hsa_function_representation *f, bool is_declaration)
   struct BrigDirectiveExecutable fndir;
   unsigned name_offset, inarg_off, scoped_off, next_toplev_off;
   int count = 0;
-  BrigDirectiveExecutable *ptr_to_fndir;
+  void *ptr_to_fndir;
   hsa_symbol *sym;
 
   if (!f->m_declaration_p)
@@ -692,17 +702,7 @@ emit_function_directives (hsa_function_representation *f, bool is_declaration)
       *slot = int_fn;
     }
 
-  brig_code.add (&fndir, sizeof (fndir));
-  /* terrible hack: we need to set instCount after we emit all
-     insns, but we need to emit directive in order, and we emit directives
-     during insn emitting.  So we need to emit the FUNCTION directive
-     early, then the insns, and then we need to set instCount, so remember
-     a pointer to it, in some horrible way.  cur_chunk.data+size points
-     directly to after fndir here.  */
-  ptr_to_fndir
-      = (BrigDirectiveExecutable *)(brig_code.cur_chunk->data
-				    + brig_code.cur_chunk->size
-				    - sizeof (fndir));
+  brig_code.add (&fndir, sizeof (fndir), &ptr_to_fndir);
 
   if (f->m_output_arg)
     emit_directive_variable (f->m_output_arg);
@@ -723,7 +723,7 @@ emit_function_directives (hsa_function_representation *f, bool is_declaration)
 	}
     }
 
-  return ptr_to_fndir;
+  return (BrigDirectiveExecutable *) ptr_to_fndir;
 }
 
 /* Emit a label directive for the given HBB.  We assume it is about to start on
@@ -2013,7 +2013,7 @@ hsa_brig_emit_function (void)
       prev_bb = bb;
     }
   perhaps_emit_branch (prev_bb, NULL);
-  ptr_to_fndir->nextModuleEntry = brig_code.total_size;
+  ptr_to_fndir->nextModuleEntry = lendian32 (brig_code.total_size);
 
   /* Fill up label references for all sbr instructions.  */
   if (switch_instructions)
