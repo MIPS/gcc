@@ -487,17 +487,12 @@ class hsa_insn_phi : public hsa_insn_basic
 public:
   hsa_insn_phi (unsigned nops, hsa_op_reg *dst);
 
-  void *operator new (size_t);
-
   /* Destination.  */
   hsa_op_reg *m_dest;
 
 private:
   /* Make the default constructor inaccessible.  */
   hsa_insn_phi () : hsa_insn_basic (1, HSA_OPCODE_PHI) {}
-  /* All objects are deallocated by destroying their pool, so make delete
-     inaccessible too.  */
-  void operator delete (void *) {}
 };
 
 /* Report whether or not P is a PHI node.  */
@@ -518,17 +513,12 @@ public:
 	       hsa_op_base *arg0 = NULL, hsa_op_base *arg1 = NULL,
 	       hsa_op_base *arg2 = NULL, hsa_op_base *arg3 = NULL);
 
-  void *operator new (size_t);
-
   /* Number of work-items affected in the same way by the instruction.  */
   BrigWidth8_t m_width;
 
 private:
   /* Make the default constructor inaccessible.  */
   hsa_insn_br () : hsa_insn_basic (0, BRIG_OPCODE_BR) {}
-  /* All objects are deallocated by destroying their pool, so make delete
-     inaccessible too.  */
-  void operator delete (void *) {}
 };
 
 /* Return true if P is a branching/synchronization instruction.  */
@@ -551,15 +541,10 @@ class hsa_insn_cbr : public hsa_insn_br
 public:
   hsa_insn_cbr (hsa_op_reg *ctrl);
 
-  void *operator new (size_t);
-
 private:
   /* Make the default constructor inaccessible.  */
   hsa_insn_cbr () : hsa_insn_br (0, BRIG_OPCODE_CBR, BRIG_TYPE_B1,
 				 BRIG_WIDTH_1) {}
-  /* All objects are deallocated by destroying their pool, so make delete
-     inaccessible too.  */
-  void operator delete (void *) {}
 };
 
 /* Report whether P is a contitional branching instruction.  */
@@ -582,8 +567,6 @@ public:
   /* Default destructor.  */
   ~hsa_insn_sbr ();
 
-  void *operator new (size_t);
-
   void replace_all_labels (basic_block old_bb, basic_block new_bb);
 
   /* Width as described in HSA documentation.  */
@@ -598,9 +581,6 @@ public:
 private:
   /* Make the default constructor inaccessible.  */
   hsa_insn_sbr () : hsa_insn_basic (1, BRIG_OPCODE_SBR) {}
-  /* All objects are deallocated by destroying their pool, so make delete
-     inaccessible too.  */
-  void operator delete (void *) {}
 };
 
 /* Report whether P is a switch branching instruction.  */
@@ -622,8 +602,6 @@ public:
 		hsa_op_base *arg0 = NULL, hsa_op_base *arg1 = NULL,
 		hsa_op_base *arg2 = NULL);
 
-  void *operator new (size_t);
-
   /* Source type should be derived from operand types.  */
 
   /* The comparison operation.  */
@@ -634,9 +612,6 @@ public:
 private:
   /* Make the default constructor inaccessible.  */
   hsa_insn_cmp () : hsa_insn_basic (1, BRIG_OPCODE_CMP) {}
-  /* All objects are deallocated by destroying their pool, so make delete
-     inaccessible too.  */
-  void operator delete (void *) {}
 };
 
 /* Report whether or not P is a comparison instruction.  */
@@ -655,8 +630,6 @@ class hsa_insn_mem : public hsa_insn_basic
 {
 public:
   hsa_insn_mem (int opc, BrigType16_t t, hsa_op_base *arg0, hsa_op_base *arg1);
-
-  void *operator new (size_t);
 
   /* Set alignment to VALUE.  */
 
@@ -680,9 +653,6 @@ protected:
 private:
   /* Make the default constructor inaccessible.  */
   hsa_insn_mem () : hsa_insn_basic (1, BRIG_OPCODE_LD) {}
-  /* All objects are deallocated by destroying their pool, so make delete
-     inaccessible too.  */
-  void operator delete (void *) {}
 };
 
 /* Report whether or not P is a memory instruction.  */
@@ -705,7 +675,6 @@ public:
 		   BrigType16_t t, BrigMemoryOrder memorder,
 		   hsa_op_base *arg0 = NULL, hsa_op_base *arg1 = NULL,
 		   hsa_op_base *arg2 = NULL, hsa_op_base *arg3 = NULL);
-  void *operator new (size_t);
 
   /* The operation itself.  */
   enum BrigAtomicOperation m_atomicop;
@@ -719,9 +688,6 @@ public:
 private:
   /* Make the default constructor inaccessible.  */
   hsa_insn_atomic () : hsa_insn_mem (1, BRIG_KIND_NONE, BRIG_TYPE_NONE) {}
-  /* All objects are deallocated by destroying their pool, so make delete
-     inaccessible too.  */
-  void operator delete (void *) {}
 };
 
 /* Report whether or not P is an atomic instruction.  */
@@ -745,17 +711,11 @@ public:
 		   hsa_op_base *arg0 = NULL, hsa_op_base *arg1 = NULL,
 		   hsa_op_base *arg2 = NULL, hsa_op_base *arg3 = NULL);
 
-  void *operator new (size_t);
-
   /* Things like acquire/release/aligned.  */
   enum BrigMemoryOrder m_memory_order;
 
   /* The operation itself.  */
   enum BrigAtomicOperation m_signalop;
-private:
-  /* All objects are deallocated by destroying their pool, so make delete
-     inaccessible too.  */
-  void operator delete (void *) {}
 };
 
 /* Report whether or not P is a signal instruction.  */
@@ -777,8 +737,6 @@ public:
   hsa_insn_seg (int opc, BrigType16_t destt, BrigType16_t srct,
 		BrigSegment8_t seg, hsa_op_base *arg0, hsa_op_base *arg1);
 
-  void *operator new (size_t);
-
   /* Source type.  Depends on the source addressing/segment.  */
   BrigType16_t m_src_type;
   /* The segment we are converting from or to.  */
@@ -786,9 +744,6 @@ public:
 private:
   /* Make the default constructor inaccessible.  */
   hsa_insn_seg () : hsa_insn_basic (1, BRIG_OPCODE_STOF) {}
-  /* All objects are deallocated by destroying their pool, so make delete
-     inaccessible too.  */
-  void operator delete (void *) {}
 };
 
 /* Report whether or not P is a segment conversion instruction.  */
@@ -845,8 +800,6 @@ public:
   /* Default destructor.  */
   ~hsa_insn_call ();
 
-  void *operator new (size_t);
-
   /* Called function.  */
   tree m_called_function;
 
@@ -873,9 +826,6 @@ public:
 private:
   /* Make the default constructor inaccessible.  */
   hsa_insn_call () : hsa_insn_basic (0, BRIG_OPCODE_CALL) {}
-  /* All objects are deallocated by destroying their pool, so make delete
-     inaccessible too.  */
-  void operator delete (void *) {}
 };
 
 /* Report whether or not P is a call instruction.  */
@@ -899,17 +849,11 @@ class hsa_insn_arg_block : public hsa_insn_basic
 public:
   hsa_insn_arg_block (BrigKind brig_kind, hsa_insn_call * call);
 
-  void *operator new (size_t);
-
   /* Kind of argument block.  */
   BrigKind m_kind;
 
   /* Call instruction.  */
   hsa_insn_call *m_call_insn;
-private:
-  /* All objects are deallocated by destroying their pool, so make delete
-     inaccessible too.  */
-  void operator delete (void *) {}
 };
 
 /* Report whether or not P is a call block instruction.  */
@@ -932,8 +876,6 @@ public:
 
   /* Default destructor.  */
   ~hsa_insn_comment ();
-
-  void *operator new (size_t);
 
   char *m_comment;
 };
@@ -991,9 +933,6 @@ public:
 		   BrigType16_t srct, hsa_op_base *arg0, hsa_op_base *arg1,
 		   hsa_op_base *arg2);
 
-  /* Pool allocator.  */
-  void *operator new (size_t);
-
   /* Source type.  */
   BrigType16_t m_source_type;
 
@@ -1022,9 +961,6 @@ public:
 		   BrigType16_t srct, hsa_op_base *arg0, hsa_op_base *arg1,
 		   hsa_op_base *arg2);
 
-  /* Pool allocator.  */
-  void *operator new (size_t);
-
   /* Operand list for an operand of the instruction.  */
   hsa_op_operand_list *m_operand_list;
 
@@ -1049,9 +985,6 @@ class hsa_insn_cvt: public hsa_insn_basic
 {
 public:
   hsa_insn_cvt (hsa_op_with_type *dest, hsa_op_with_type *src);
-
-  /* Pool allocator.  */
-  void *operator new (size_t);
 };
 
 /* Report whether or not P is a convert instruction.  */
@@ -1074,9 +1007,6 @@ public:
 
   /* Required alignment of the allocation.  */
   BrigAlignment8_t m_align;
-
-  /* Pool allocator.  */
-  void *operator new (size_t);
 };
 
 /* Report whether or not P is an alloca instruction.  */

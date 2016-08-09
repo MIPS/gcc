@@ -1452,14 +1452,6 @@ hsa_insn_phi::hsa_insn_phi (unsigned nops, hsa_op_reg *dst)
   dst->set_definition (this);
 }
 
-/* New operator to allocate PHI instruction from obstack.  */
-
-void *
-hsa_insn_phi::operator new (size_t size)
-{
-  return obstack_alloc (&hsa_obstack, size);
-}
-
 /* Constructor of class representing instructions for control flow and
    sychronization,   */
 
@@ -1472,14 +1464,6 @@ hsa_insn_br::hsa_insn_br (unsigned nops, int opc, BrigType16_t t,
 {
 }
 
-/* New operator to allocate branch instruction from obstack.  */
-
-void *
-hsa_insn_br::operator new (size_t size)
-{
-  return obstack_alloc (&hsa_obstack, size);
-}
-
 /* Constructor of class representing instruction for conditional jump, CTRL is
    the control register determining whether the jump will be carried out, the
    new instruction is automatically added to its uses list.  */
@@ -1487,14 +1471,6 @@ hsa_insn_br::operator new (size_t size)
 hsa_insn_cbr::hsa_insn_cbr (hsa_op_reg *ctrl)
   : hsa_insn_br (1, BRIG_OPCODE_CBR, BRIG_TYPE_B1, BRIG_WIDTH_1, ctrl)
 {
-}
-
-/* New operator to allocate branch instruction from obstack.  */
-
-void *
-hsa_insn_cbr::operator new (size_t size)
-{
-  return obstack_alloc (&hsa_obstack, size);
 }
 
 /* Constructor of class representing instruction for switch jump, CTRL is
@@ -1505,14 +1481,6 @@ hsa_insn_sbr::hsa_insn_sbr (hsa_op_reg *index, unsigned jump_count)
     m_width (BRIG_WIDTH_1), m_jump_table (vNULL),
     m_label_code_list (new hsa_op_code_list (jump_count))
 {
-}
-
-/* New operator to allocate switch branch instruction from obstack.  */
-
-void *
-hsa_insn_sbr::operator new (size_t size)
-{
-  return obstack_alloc (&hsa_obstack, size);
 }
 
 /* Replace all occurrences of OLD_BB with NEW_BB in the statements
@@ -1541,14 +1509,6 @@ hsa_insn_cmp::hsa_insn_cmp (BrigCompareOperation8_t cmp, BrigType16_t t,
 {
 }
 
-/* New operator to allocate compare instruction from obstack.  */
-
-void *
-hsa_insn_cmp::operator new (size_t size)
-{
-  return obstack_alloc (&hsa_obstack, size);
-}
-
 /* Constructor of classes representing memory accesses.  OPC is the opcode (must
    be BRIG_OPCODE_ST or BRIG_OPCODE_LD) and T is the type.  The instruction
    operands are provided as ARG0 and ARG1.  */
@@ -1574,14 +1534,6 @@ hsa_insn_mem::hsa_insn_mem (unsigned nops, int opc, BrigType16_t t,
 {
 }
 
-/* New operator to allocate memory instruction from obstack.  */
-
-void *
-hsa_insn_mem::operator new (size_t size)
-{
-  return obstack_alloc (&hsa_obstack, size);
-}
-
 /* Constructor of class representing atomic instructions.  OPC is the principal
    opcode, AOP is the specific atomic operation opcode.  T is the type of the
    instruction.  The instruction operands are provided as ARG[0-3].  */
@@ -1602,14 +1554,6 @@ hsa_insn_atomic::hsa_insn_atomic (int nops, int opc,
 		       opc == BRIG_OPCODE_SIGNALNORET);
 }
 
-/* New operator to allocate signal instruction from obstack.  */
-
-void *
-hsa_insn_atomic::operator new (size_t size)
-{
-  return obstack_alloc (&hsa_obstack, size);
-}
-
 /* Constructor of class representing signal instructions.  OPC is the prinicpal
    opcode, SOP is the specific signal operation opcode.  T is the type of the
    instruction.  The instruction operands are provided as ARG[0-3].  */
@@ -1622,14 +1566,6 @@ hsa_insn_signal::hsa_insn_signal (int nops, int opc,
   : hsa_insn_basic (nops, opc, t, arg0, arg1, arg2, arg3),
     m_memory_order (memorder), m_signalop (sop)
 {
-}
-
-/* New operator to allocate signal instruction from obstack.  */
-
-void *
-hsa_insn_signal::operator new (size_t size)
-{
-  return obstack_alloc (&hsa_obstack, size);
 }
 
 /* Constructor of class representing segment conversion instructions.  OPC is
@@ -1647,14 +1583,6 @@ hsa_insn_seg::hsa_insn_seg (int opc, BrigType16_t dest, BrigType16_t srct,
   gcc_checking_assert (opc == BRIG_OPCODE_STOF || opc == BRIG_OPCODE_FTOS);
 }
 
-/* New operator to allocate address conversion instruction from obstack.  */
-
-void *
-hsa_insn_seg::operator new (size_t size)
-{
-  return obstack_alloc (&hsa_obstack, size);
-}
-
 /* Constructor of class representing a call instruction.  CALLEE is the tree
    representation of the function being called.  */
 
@@ -1669,14 +1597,6 @@ hsa_insn_call::hsa_insn_call (hsa_internal_fn *fn)
     m_called_internal_fn (fn), m_output_arg (NULL), m_args_code_list (NULL),
     m_result_code_list (NULL)
 {
-}
-
-/* New operator to allocate call instruction from obstack.  */
-
-void *
-hsa_insn_call::operator new (size_t size)
-{
-  return obstack_alloc (&hsa_obstack, size);
 }
 
 hsa_insn_call::~hsa_insn_call ()
@@ -1699,14 +1619,6 @@ hsa_insn_arg_block::hsa_insn_arg_block (BrigKind brig_kind,
 {
 }
 
-/* New operator to allocate argument block instruction from obstack.  */
-
-void *
-hsa_insn_arg_block::operator new (size_t size)
-{
-  return obstack_alloc (&hsa_obstack, size);
-}
-
 hsa_insn_comment::hsa_insn_comment (const char *s)
   : hsa_insn_basic (0, BRIG_KIND_DIRECTIVE_COMMENT)
 {
@@ -1716,14 +1628,6 @@ hsa_insn_comment::hsa_insn_comment (const char *s)
   char *buf = XNEWVEC (char, l + 4);
   sprintf (buf, "// %s", s);
   m_comment = buf;
-}
-
-/* New operator to allocate comment instruction from obstack.  */
-
-void *
-hsa_insn_comment::operator new (size_t size)
-{
-  return obstack_alloc (&hsa_obstack, size);
 }
 
 hsa_insn_comment::~hsa_insn_comment ()
@@ -1744,14 +1648,6 @@ hsa_insn_queue::hsa_insn_queue (int nops, int opcode, BrigSegment segment,
 {
 }
 
-/* New operator to allocate source type instruction from obstack.  */
-
-void *
-hsa_insn_srctype::operator new (size_t size)
-{
-  return obstack_alloc (&hsa_obstack, size);
-}
-
 /* Constructor of class representing the source type instruction in HSAIL.  */
 
 hsa_insn_srctype::hsa_insn_srctype (int nops, BrigOpcode opcode,
@@ -1761,14 +1657,6 @@ hsa_insn_srctype::hsa_insn_srctype (int nops, BrigOpcode opcode,
   : hsa_insn_basic (nops, opcode, destt, arg0, arg1, arg2),
     m_source_type (srct)
 {}
-
-/* New operator to allocate packed instruction from obstack.  */
-
-void *
-hsa_insn_packed::operator new (size_t size)
-{
-  return obstack_alloc (&hsa_obstack, size);
-}
 
 /* Constructor of class representing the packed instruction in HSAIL.  */
 
@@ -1781,27 +1669,11 @@ hsa_insn_packed::hsa_insn_packed (int nops, BrigOpcode opcode,
   m_operand_list = new hsa_op_operand_list (nops - 1);
 }
 
-/* New operator to allocate convert instruction from obstack.  */
-
-void *
-hsa_insn_cvt::operator new (size_t size)
-{
-  return obstack_alloc (&hsa_obstack, size);
-}
-
 /* Constructor of class representing the convert instruction in HSAIL.  */
 
 hsa_insn_cvt::hsa_insn_cvt (hsa_op_with_type *dest, hsa_op_with_type *src)
   : hsa_insn_basic (2, BRIG_OPCODE_CVT, dest->m_type, dest, src)
 {
-}
-
-/* New operator to allocate alloca from obstack.  */
-
-void *
-hsa_insn_alloca::operator new (size_t size)
-{
-  return obstack_alloc (&hsa_obstack, size);
 }
 
 /* Constructor of class representing the alloca in HSAIL.  */

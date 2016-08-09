@@ -1,5 +1,40 @@
 2016-08-09  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa.h (hsa_insn_phi): Removed new and delete operators.
+	(hsa_insn_br): Likewise.
+	(hsa_insn_cbr): Likewise.
+	(hsa_insn_sbr): Likewise.
+	(hsa_insn_cmp): Likewise.
+	(hsa_insn_mem): Likewise.
+	(hsa_insn_atomic): Likewise.
+	(hsa_insn_signal): Likewise.
+	(hsa_insn_seg): Likewise.
+	(hsa_insn_call): Likewise.
+	(hsa_insn_arg_block): Likewise.
+	(hsa_insn_comment): Likewise.
+	(hsa_insn_srctype): Likewise.
+	(hsa_insn_packed): Likewise.
+	(hsa_insn_cvt): Likewise.
+	(hsa_insn_alloca): Likewise.
+	* hsa-gen.c (hsa_insn_phi::operator new): Removed.
+	(hsa_insn_br::operator new): Likewise.
+	(hsa_insn_cbr::operator new): Likewise.
+	(hsa_insn_sbr::operator new): Likewise.
+	(hsa_insn_cmp::operator new): Likewise.
+	(hsa_insn_mem::operator new): Likewise.
+	(hsa_insn_atomic::operator new): Likewise.
+	(hsa_insn_signal::operator new): Likewise.
+	(hsa_insn_seg::operator new): Likewise.
+	(hsa_insn_call::operator new): Likewise.
+	(hsa_insn_arg_block::operator new): Likewise.
+	(hsa_insn_comment::operator new): Likewise.
+	(hsa_insn_srctype::operator new): Likewise.
+	(hsa_insn_packed::operator new): Likewise.
+	(hsa_insn_cvt::operator new): Likewise.
+	(hsa_insn_alloca::operator new): Likewise.
+
+2016-08-09  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa.c (hsa_get_declaration_name): Moved to...
 	* hsa-gen.c (hsa_get_declaration_name): ...here.  Allocate
 	temporary string on an obstack instead from ggc.
