@@ -1,5 +1,11 @@
 2016-08-09  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa.c (hsa_get_declaration_name): Moved to...
+	* hsa-gen.c (hsa_get_declaration_name): ...here.  Allocate
+	temporary string on an obstack instead from ggc.
+
+2016-08-09  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa-brig.c (hsa_output_kernels): Remove unnecessary building of
 	kernel_dependencies_vector_type.
 

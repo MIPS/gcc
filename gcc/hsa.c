@@ -786,34 +786,6 @@ hsa_brig_function_name (const char *p)
   return buf;
 }
 
-/* Return declaration name if exists.  */
-
-const char *
-hsa_get_declaration_name (tree decl)
-{
-  if (!DECL_NAME (decl))
-    {
-      char buf[64];
-      snprintf (buf, 64, "__hsa_anonymous_%i", DECL_UID (decl));
-      const char *ggc_str = ggc_strdup (buf);
-      return ggc_str;
-    }
-
-  tree name_tree;
-  if (TREE_CODE (decl) == FUNCTION_DECL
-      || (TREE_CODE (decl) == VAR_DECL && is_global_var (decl)))
-    name_tree = DECL_ASSEMBLER_NAME (decl);
-  else
-    name_tree = DECL_NAME (decl);
-
-  const char *name = IDENTIFIER_POINTER (name_tree);
-  /* User-defined assembly names have prepended asterisk symbol.  */
-  if (name[0] == '*')
-    name++;
-
-  return name;
-}
-
 /* Add a flatten attribute and disable vectorization for gpu implementation
    function decl GDECL.  */
 

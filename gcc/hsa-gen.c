@@ -779,6 +779,36 @@ hsa_needs_cvt (BrigType16_t dtype, BrigType16_t stype)
   return false;
 }
 
+/* Return declaration name if exists.  */
+
+const char *
+hsa_get_declaration_name (tree decl)
+{
+  if (!DECL_NAME (decl))
+    {
+      char buf[64];
+      snprintf (buf, 64, "__hsa_anon_%i", DECL_UID (decl));
+      size_t len = strlen (buf);
+      char *copy = (char *) obstack_alloc (&hsa_obstack, len + 1);
+      memcpy (copy, buf, len + 1);
+      return copy;
+    }
+
+  tree name_tree;
+  if (TREE_CODE (decl) == FUNCTION_DECL
+      || (TREE_CODE (decl) == VAR_DECL && is_global_var (decl)))
+    name_tree = DECL_ASSEMBLER_NAME (decl);
+  else
+    name_tree = DECL_NAME (decl);
+
+  const char *name = IDENTIFIER_POINTER (name_tree);
+  /* User-defined assembly names have prepended asterisk symbol.  */
+  if (name[0] == '*')
+    name++;
+
+  return name;
+}
+
 /* Lookup or create the associated hsa_symbol structure with a given VAR_DECL
    or lookup the hsa_structure corresponding to a PARM_DECL.  */
 
