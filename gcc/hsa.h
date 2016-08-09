@@ -71,7 +71,8 @@ struct hsa_symbol
   void fillup_for_decl (tree decl);
 
   /* Pointer to the original tree, which is PARM_DECL for input parameters and
-     RESULT_DECL for the output parameters.  */
+     RESULT_DECL for the output parameters.  Also can be CONST_DECL for Fortran
+     constants which need to be put into readonly segment.  */
   tree m_decl;
 
   /* Name of the symbol, that will be written into output and dumps.  Can be

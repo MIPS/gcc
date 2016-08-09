@@ -820,7 +820,8 @@ get_symbol_for_decl (tree decl)
 
   gcc_assert (TREE_CODE (decl) == PARM_DECL
 	      || TREE_CODE (decl) == RESULT_DECL
-	      || TREE_CODE (decl) == VAR_DECL);
+	      || TREE_CODE (decl) == VAR_DECL
+	      || TREE_CODE (decl) == CONST_DECL);
 
   dummy.m_decl = decl;
 
@@ -862,11 +863,14 @@ get_symbol_for_decl (tree decl)
   else
     {
       hsa_symbol *sym;
-      gcc_assert (TREE_CODE (decl) == VAR_DECL);
+      /* PARM_DECLs and RESULT_DECL should be already in m_local_symbols.  */
+      gcc_assert (TREE_CODE (decl) == VAR_DECL
+		  || TREE_CODE (decl) == CONST_DECL);
       BrigAlignment8_t align = hsa_object_alignment (decl);
 
       if (is_in_global_vars)
 	{
+	  gcc_checking_assert (TREE_CODE (decl) != CONST_DECL);
 	  sym = new hsa_symbol (BRIG_TYPE_NONE, BRIG_SEGMENT_GLOBAL,
 				BRIG_LINKAGE_PROGRAM, true,
 				BRIG_ALLOCATION_PROGRAM, align);
@@ -888,11 +892,15 @@ get_symbol_for_decl (tree decl)
 	  if (AGGREGATE_TYPE_P (TREE_TYPE (decl)))
 	    align = MAX ((BrigAlignment8_t) BRIG_ALIGNMENT_8, align);
 
-	  /* PARM_DECL and RESULT_DECL should be already in m_local_symbols.  */
-	  gcc_assert (TREE_CODE (decl) == VAR_DECL);
-
+	  BrigAllocation allocation = BRIG_ALLOCATION_AUTOMATIC;
 	  BrigSegment8_t segment;
-	  if (lookup_attribute ("hsa_group_segment", DECL_ATTRIBUTES (decl)))
+	  if (TREE_CODE (decl) == CONST_DECL)
+	    {
+	      segment = BRIG_SEGMENT_READONLY;
+	      allocation = BRIG_ALLOCATION_AGENT;
+	    }
+	  else if (lookup_attribute ("hsa_group_segment",
+				     DECL_ATTRIBUTES (decl)))
 	    segment = BRIG_SEGMENT_GROUP;
 	  else if (TREE_STATIC (decl)
 		   || lookup_attribute ("hsa_global_segment",
@@ -901,8 +909,8 @@ get_symbol_for_decl (tree decl)
 	  else
 	    segment = BRIG_SEGMENT_PRIVATE;
 
-	  sym = new hsa_symbol (BRIG_TYPE_NONE, segment, BRIG_LINKAGE_FUNCTION);
-	  sym->m_align = align;
+	  sym = new hsa_symbol (BRIG_TYPE_NONE, segment, BRIG_LINKAGE_FUNCTION,
+				false, allocation, align);
 	  sym->fillup_for_decl (decl);
 	  hsa_cfun->m_private_variables.safe_push (sym);
 	}
@@ -1944,6 +1952,7 @@ gen_hsa_addr (tree ref, hsa_bb *hbb, HOST_WIDE_INT *output_bitsize = NULL,
     case PARM_DECL:
     case VAR_DECL:
     case RESULT_DECL:
+    case CONST_DECL:
       gcc_assert (!symbol);
       symbol = get_symbol_for_decl (ref);
       addrtype = hsa_get_segment_addr_type (symbol->m_segment);
@@ -2160,6 +2169,34 @@ gen_hsa_addr_insns (tree val, hsa_op_reg *dest, hsa_bb *hbb)
   if (TREE_CODE (val) == ADDR_EXPR)
     val = TREE_OPERAND (val, 0);
   addr = gen_hsa_addr (val, hbb);
+
+  if (TREE_CODE (val) == CONST_DECL
+      && is_gimple_reg_type (TREE_TYPE (val)))
+    {
+      gcc_assert (addr->m_symbol
+		  && addr->m_symbol->m_segment == BRIG_SEGMENT_READONLY);
+      /* CONST_DECLs are in readonly segment which however does not have
+	 addresses convertible to flat segments.  So copy it to a private one
+	 and take address of that.  */
+      BrigType16_t csttype
+	= mem_type_for_type (hsa_type_for_scalar_tree_type (TREE_TYPE (val),
+							    false));
+      hsa_op_reg *r = new hsa_op_reg (csttype);
+      hbb->append_insn (new hsa_insn_mem (BRIG_OPCODE_LD, csttype, r,
+					  new hsa_op_address (addr->m_symbol)));
+      hsa_symbol *copysym = hsa_cfun->create_hsa_temporary (csttype);
+      hbb->append_insn (new hsa_insn_mem (BRIG_OPCODE_ST, csttype, r,
+					  new hsa_op_address (copysym)));
+      addr->m_symbol = copysym;
+    }
+  else if (addr->m_symbol && addr->m_symbol->m_segment == BRIG_SEGMENT_READONLY)
+    {
+      HSA_SORRY_ATV (EXPR_LOCATION (val), "support for HSA does "
+		     "not implement taking addresses of complex "
+		     "CONST_DECLs such as %E", val);
+      return;
+    }
+
 
   convert_addr_to_flat_segment (addr, dest, hbb);
 }

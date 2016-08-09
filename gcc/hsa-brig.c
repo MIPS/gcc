@@ -570,6 +570,7 @@ enqueue_op (hsa_op_base *op)
   return ret;
 }
 
+static void emit_immediate_operand (hsa_op_immed *imm);
 
 /* Emit directive describing a symbol if it has not been emitted already.
    Return the offset of the directive.  */
@@ -608,7 +609,14 @@ emit_directive_variable (struct hsa_symbol *symbol)
     }
 
   dirvar.name = lendian32 (name_offset);
-  dirvar.init = 0;
+
+  if (symbol->m_decl && TREE_CODE (symbol->m_decl) == CONST_DECL)
+    {
+      hsa_op_immed *tmp = new hsa_op_immed (DECL_INITIAL (symbol->m_decl));
+      dirvar.init = lendian32 (enqueue_op (tmp));
+    }
+  else
+    dirvar.init = 0;
   dirvar.type = lendian16 (symbol->m_type);
   dirvar.segment = symbol->m_segment;
   dirvar.align = symbol->m_align;

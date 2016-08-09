@@ -1,5 +1,15 @@
 2016-08-09  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa-gen.c (get_symbol_for_decl): Accept CONST_DECLs, put them to
+	readonly segment.
+	(gen_hsa_addr): Also process CONST_DECLs.
+	(gen_hsa_addr_insns): Process CONST_DECLs by creating private
+	copies.
+	* hsa-brig.c (emit_immediate_operand): Declare.
+	(emit_directive_variable): Also emit initializers of CONST_DECLs.
+
+2016-08-09  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa.h (hsa_insn_phi): Removed new and delete operators.
 	(hsa_insn_br): Likewise.
 	(hsa_insn_cbr): Likewise.
