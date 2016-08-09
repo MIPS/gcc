@@ -628,3 +628,6 @@ Target Undocumented Var(TARGET_ADD_CONDMOVE2) Init(0)
 
 mcost-tweak
 Target Undocumented Var(TARGET_COST_TWEAK) Init(0)
+
+mseq-sne-sge
+Target Undocumented Var(TARGET_SEQ_SNE_SGE) Init(0)
