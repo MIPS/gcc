@@ -50,7 +50,6 @@ class hsa_insn_basic;
 class hsa_op_address;
 class hsa_op_reg;
 class hsa_bb;
-typedef hsa_insn_basic *hsa_insn_basic_p;
 
 /* Class representing an input argument, output argument (result) or a
    variable, that will eventually end up being a symbol directive.  */
@@ -259,10 +258,8 @@ private:
   /* Set definition where the register is defined.  */
   void set_definition (hsa_insn_basic *insn);
   /* Uses of the value while still in SSA.  */
-  auto_vec <hsa_insn_basic_p> m_uses;
+  auto_vec <hsa_insn_basic *> m_uses;
 };
-
-typedef class hsa_op_reg *hsa_op_reg_p;
 
 /* Report whether or not P is a register operand.  */
 
@@ -1269,7 +1266,7 @@ public:
   unsigned m_temp_symbol_count;
 
   /* SSA names mapping.  */
-  vec <hsa_op_reg_p> m_ssa_map;
+  vec <hsa_op_reg *> m_ssa_map;
 
   /* Flag whether a function needs update of dominators before RA.  */
   bool m_modified_cfg;

@@ -1,5 +1,13 @@
 2016-08-09  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa.h (hsa_insn_basic_p): Remove typedef.
+	(hsa_op_with_type): Change hsa_insn_basic_p into plain pointers.
+	(hsa_op_reg_p): Remove typedef.
+	(hsa_function_representation): Change hsa_op_reg_p into plain
+	pointers.
+
+2016-08-09  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa-gen.c (get_in_type): Return this if it is a register of
 	matching size.
 
