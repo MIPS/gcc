@@ -984,6 +984,14 @@ hsa_op_with_type::get_in_type (BrigType16_t dtype, hsa_bb *hbb)
       dest = new hsa_op_reg (dtype);
       hbb->append_insn (new hsa_insn_cvt (dest, this));
     }
+  else if (is_a <hsa_op_reg *> (this))
+    {
+      /* In the end, HSA registers do not really have types, only sizes, so if
+	 the sizes match, we can use the register directly.  */
+      gcc_checking_assert (hsa_type_bit_size (dtype)
+			   == hsa_type_bit_size (m_type));
+      return this;
+    }
   else
     {
       dest = new hsa_op_reg (m_type);

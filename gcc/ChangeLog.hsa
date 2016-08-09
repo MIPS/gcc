@@ -1,3 +1,8 @@
+2016-08-09  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (get_in_type): Return this if it is a register of
+	matching size.
+
 2016-08-03  Martin Jambor  <mjambor@suse.cz>
 
 	* hsa-gen.c (get_memory_order_name): Removed.
