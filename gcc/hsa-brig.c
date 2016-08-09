@@ -2232,11 +2232,6 @@ hsa_output_kernels (tree *host_func_table, tree *kernels)
       tree gridified_kernel_p_tree = build_int_cstu (boolean_type_node,
 						     gridified_kernel_p);
       unsigned count = 0;
-
-      kernel_dependencies_vector_type
-	= build_array_type (build_pointer_type (char_type_node),
-			    build_index_type (size_int (0)));
-
       vec<constructor_elt, va_gc> *kernel_dependencies_vec = NULL;
       if (hsa_decl_kernel_dependencies)
 	{
@@ -2286,6 +2281,7 @@ hsa_output_kernels (tree *host_func_table, tree *kernels)
       if (count > 0)
 	{
 	  ASM_GENERATE_INTERNAL_LABEL (tmp_name, "__hsa_dependencies_list", i);
+	  gcc_checking_assert (kernel_dependencies_vector_type);
 	  tree dependencies_list = build_decl (UNKNOWN_LOCATION, VAR_DECL,
 					       get_identifier (tmp_name),
 					       kernel_dependencies_vector_type);

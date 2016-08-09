@@ -1,5 +1,10 @@
 2016-08-09  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa-brig.c (hsa_output_kernels): Remove unnecessary building of
+	kernel_dependencies_vector_type.
+
+2016-08-09  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa-brig.c (hsa_brig_section): Make allocate_new_chunk, chunks
 	and cur_chunk provate, add a default NULL parameter to add method.
 	(hsa_brig_section::add): Added a new parameter, store pointer to
