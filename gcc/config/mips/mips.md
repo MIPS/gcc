@@ -6759,9 +6759,9 @@
 		 (match_operand:GPR 2 "reg_imm10_operand" "d,J,YB")))]
   "ISA_HAS_SEQ_SNE"
   "@
-   seq\t%0,%1,%2
+   sdbbp32 11; # seq\t%0,%1,%2
    sltiu\t%0,%1,1
-   seqi\t%0,%1,%2"
+   sdbbp32 12; # seqi\t%0,%1,%2"
   [(set_attr "type" "slt")
    (set_attr "mode" "<GPR:MODE>")])
 
@@ -6781,9 +6781,9 @@
 		 (match_operand:GPR 2 "reg_imm10_operand" "d,J,YB")))]
   "ISA_HAS_SEQ_SNE"
   "@
-   sne\t%0,%1,%2
+   sdbbp32 11; # sne\t%0,%1,%2
    sltu\t%0,%.,%1
-   snei\t%0,%1,%2"
+   sdbbp32 12; # snei\t%0,%1,%2"
   [(set_attr "type" "slt")
    (set_attr "mode" "<GPR:MODE>")])
 
@@ -6809,8 +6809,20 @@
   [(set (match_operand:GPR2 0 "register_operand" "=d")
 	(any_ge:GPR2 (match_operand:GPR 1 "register_operand" "d")
 		     (const_int 1)))]
-  "!TARGET_MIPS16"
+  "!TARGET_MIPS16 && !ISA_HAS_SGE"
   "slt<u>\t%0,%.,%1"
+  [(set_attr "type" "slt")
+   (set_attr "mode" "<GPR:MODE>")])
+
+(define_insn "*sge<u>_<GPR:mode><GPR2:mode>_new"
+  [(set (match_operand:GPR2 0 "register_operand" "=d,d,d")
+	(any_ge:GPR2 (match_operand:GPR 1 "register_operand" "%d,d,d")
+		     (match_operand:GPR 2 "reg_imm10_operand" "d,J,YB")))]
+  "ISA_HAS_SGE"
+  "@
+   sdbbp32 11; # sge<u>\t%0,%1,%2
+   sdbbp32 11; # sge<u>\t%0,%.,%1
+   sdbbp32 12; # sgei<u>\t%0,%1,%2"
   [(set_attr "type" "slt")
    (set_attr "mode" "<GPR:MODE>")])
 
