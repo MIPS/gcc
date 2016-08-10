@@ -7349,10 +7349,12 @@ rs6000_split_vec_extract_var (rtx dest, rtx src, rtx element, rtx tmp_gpr,
 static void
 rs6000_split_v4si_init_di_reg (rtx dest, rtx si1, rtx si2, rtx tmp)
 {
+  const unsigned HOST_WIDE_INT mask_32bit = HOST_WIDE_INT_C (0xffffffff);
+
   if (CONST_INT_P (si1) && CONST_INT_P (si2))
     {
-      HOST_WIDE_INT const1 = (INTVAL (si1) & 0xffff) << 16;
-      HOST_WIDE_INT const2 = INTVAL (si2) & 0xffff;
+      unsigned HOST_WIDE_INT const1 = (UINTVAL (si1) & mask_32bit) << 32;
+      unsigned HOST_WIDE_INT const2 = UINTVAL (si2) & mask_32bit;
 
       emit_move_insn (dest, GEN_INT (const1 | const2));
       return;
@@ -7360,13 +7362,13 @@ rs6000_split_v4si_init_di_reg (rtx dest, rtx si1, rtx si2, rtx tmp)
 
   /* Put si1 into upper 32-bits of dest.  */
   if (CONST_INT_P (si1))
-    emit_move_insn (dest, GEN_INT ((INTVAL (si1) & 0xffff) << 16));
+    emit_move_insn (dest, GEN_INT ((UINTVAL (si1) & mask_32bit) << 32));
   else
     {
       /* Generate RLDIC.  */
       rtx si1_di = gen_rtx_REG (DImode, regno_or_subregno (si1));
       rtx shift_rtx = gen_rtx_ASHIFT (DImode, si1_di, GEN_INT (32));
-      rtx mask_rtx = GEN_INT (0xffff00000000L);
+      rtx mask_rtx = GEN_INT (mask_32bit << 32);
       rtx and_rtx = gen_rtx_AND (DImode, shift_rtx, mask_rtx);
       gcc_assert (!reg_overlap_mentioned_p (dest, si1));
       emit_insn (gen_rtx_SET (dest, and_rtx));
@@ -7375,7 +7377,7 @@ rs6000_split_v4si_init_di_reg (rtx dest, rtx si1, rtx si2, rtx tmp)
   /* Put si2 into the temporary.  */
   gcc_assert (!reg_overlap_mentioned_p (dest, tmp));
   if (CONST_INT_P (si2))
-    emit_move_insn (tmp, GEN_INT (INTVAL (si2) & 0xffff));
+    emit_move_insn (tmp, GEN_INT (UINTVAL (si2) & mask_32bit));
   else
     emit_insn (gen_zero_extendsidi2 (tmp, si2));
 
