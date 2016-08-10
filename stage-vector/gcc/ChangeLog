@@ -1,3 +1,360 @@
+2016-08-10  Kelvin Nilsen  <kelvin@gcc.gnu.org>
+
+	* config/rs6000/altivec.h (vec_extract_exp): New macro.
+	(vec_extract_sig): New macro.
+	(vec_insert_exp): New macro.
+	(vec_test_data_class): New macro.
+	(scalar_extract_exp): New macro.
+	(scalar_extract_sig): New macro.
+	(scalar_insert_exp): New macro.
+	(scalar_test_data_class): New macro.
+	(scalar_test_neg): New macro.
+	(scalar_cmp_exp_gt): New macro.
+	(scalar_cmp_exp_lt): New macro.
+	(scalar_cmp_exp_eq): New macro.
+	(scalar_cmp_exp_unordered): New macro.
+	* config/rs6000/predicates.md (u7bit_cint_operand): New predicate
+	to enforce constraint that operand is a 7-bit unsigned literal.
+	* config/rs6000/rs6000-builtin.def (BU_P9V_64BIT_VSX_1): New macro
+	for power9 built-ins.
+	(BU_P9V_VSX_2): Likewise.
+	(BU_P9V_64BIT_VSX_2): Likewise.
+	(VSEEDP): Add scalar extract exponent support.
+	(VSEESP): Add scalar extract signature support.
+	(VSTDCNDP): Add scalar test negative support.
+	(VSTDCNSP): Likewise.
+	(VSIEDP): Add scalar insert exponent support.
+	(VSCEDPGT): Add scalar compare exponent greater than support.
+	(VSCEDPLT): Add scalar compare exponent less than support.
+	(VSCEDPEQ): Add scalar compare exponent test-for-equality support.
+	(VSCEDPUO): Add scalar compare exponent test-for-unordered support.
+	(VSTDCDP): Add scalar test data class support.
+	(VSTDCSP): Likewise.
+	(VSEEDP): Add overload support for scalar extract exponent
+	operation.
+	(VSESDP): Add overload support for scalar extract signature
+	operation.
+	(VSTDCN): Add overload support for scalar test negative
+	operation.
+	(VSTDCNDP): Add overload support for scalar test negative
+	operation.
+	(VSTDCNSP): Add overload support for scalar test negative
+	operation.
+	(VSIEDP): Add overload support for scalar insert exponent
+	operation.
+	(VSTDC): Add overload support for scalar test data class
+	operation.
+	(VSTDCDP): Add overload support for scalar test data class
+	operation.
+	(VSTDCSP): Add overload support for scalar test data class
+	opreation.
+	(VSCEDPGT): Add overload support for scalar compare exponent
+	greater than operation.
+	(VSCEDPLT): Add overload support for scalar compare exponent
+	less than operation.
+	(VSCEDPEQ): Add overload support for scalar compare exponent
+	test-for-equality operation.
+	(VSCEDPUO): Add overload support for scalar compare exponent
+	test-for-unordered operation.
+	(VEEDP): Add vector extract exponent support.
+	(VEESP): Likewise.
+	(VESDP): Add vector extract significand support.
+	(VESSP): Likewise.
+	(VIEDP): Add vector insert exponent support.
+	(VIESP): Likewise.
+	(VTDCDP): Add vector test data class support.
+	(VTDCSP): Likewise.
+	(VES): Add overload support for vector extract significand operation.
+	(VESDP): Likewise.
+	(VESSP): Likewise
+	(VEE): Add overload support for vector extract exponent operation.
+	(VEEDP): Likewise.
+	(VEESP): Likewise.
+	(VTDC): Add overload support for vector test data class operation.
+	(VTDCDP): Likewise.
+	(VTDCSP): Likewise.
+	(VIE): Add overload support for vector insert exponent operation.
+	(VIEDP): Likewise.
+	(VIESP): Likewise.
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Add
+	overloaded binary floating point functions.
+	(altivec_resolve_overloaded_builtin): Improve error messages to
+	distinguish between functions not supported in the current
+	compiler configuration and functions that were invoked with an
+	invalid parameter combination, and include the built-in function
+	name in both error messages.
+	* config/rs6000/rs6000-protos.h (rs6000_overloaded_builtin_name):
+	New prototype.
+	* config/rs6000/rs6000.c (rs6000_overloaded_builtin_name): New
+	function.
+	(rs6000_expand_binop_builtin): Add check to enforce that argument
+	2 of the test data class operations is a 7-bit unsigned literal.
+	(rs6000_invalid_builtin): Add code to issue an error message if a
+	built-in function that requires the power9_vector and -m32
+	command-line options is compiled without these options.
+	* config/rs6000/vsx.md (UNSPEC_VSX_SXEXPDP): New value.
+	(UNSPEC_VSX_SXSIGDP): New value.
+	(UNSPEC_VSX_SXSIGPDP): New value.
+	(UNSPEC_VSX_SIEXPDP): New value.
+	(UNSPEC_VSX_SCMPEXPDP): New value.
+	(UNSPEC_VSX_STSTDC): New value.
+	(UNSPEC_VSX_VXEXP): New value.
+	(UNSPEC_VSX_VXSIG): New value.
+	(UNSPEC_VSX_VIEXP): New value.
+	(UNSPEC_VSX_VTSTDC): New value.
+	(xsxexpdp): New insn for scalar extract exponent.
+	(xsxsigdp): New insn for scalar extract significand.
+	(xsiexpdp): New insn for scalar insert exponent.
+	(xscmpexpdp_<code>): New expansion for scalar compare exponents.
+	(*xscmpexpdp): New insn for scalar compare exponents.
+	(xststdc<Fvsx): New expansion for both single- and
+	double-precision scalar test data class operations.
+	(xststdcneg<Fvsx>): New expansion for both single- and
+	double-precision scalar test for negative value operations.
+	(*xststdc<Fvsx>): New insn for scalar test data class
+	operation.
+	(xvxexp<VSs>): New insn for single- and double-precision
+	vector extract exponent operation.
+	(xvxsig<VSs>): New insn for single- and double-precision
+	vector extract significand operation.
+	(xviexp<VSs>): New insn for single- and double-precision
+	vector insert exponent operation.
+	(xvtstdc<VSs>): New insn for single- and double-precision
+	vector test data class operation.
+	* doc/extend.texi (PowerPC AltiVec Built-in Functions): Document
+	built-in functions to represent the Power9 binary floating-point
+	support instructions.
+
+2016-08-10  bin cheng  <bin.cheng@arm.com>
+
+	* doc/sourcebuild.texi (@item vect_cond_mixed): New item.
+
+2016-08-10  Alan Lawrence  <alan.lawrence@arm.com>
+	    Renlin Li  <renlin.li@arm.com>
+	    Bin Cheng  <bin.cheng@arm.com>
+
+	* config/aarch64/iterators.md (V_cmp_mixed, v_cmp_mixed): New.
+	* config/aarch64/aarch64-simd.md (<su><maxmin>v2di3): Call
+	gen_vcondv2div2di instead of gen_aarch64_vcond_internalv2div2di.
+	(aarch64_vcond_internal<mode><mode>): Delete pattern.
+	(aarch64_vcond_internal<VDQF_COND:mode><VDQF:mode>): Ditto.
+	(vcond<v_cmp_result><mode>): Ditto.
+	(vcond<mode><mode>): Re-implement using vec_cmp and vcond_mask.
+	(vcondu<mode><mode>): Ditto.
+	(vcond<v_cmp_mixed><mode>): New pattern.
+	(vcondu<mode><v_cmp_mixed>): New pattern.
+	(aarch64_cmtst<mode>): Revise comment using aarch64_vcond instead
+	of aarch64_vcond_internal.
+
+2016-08-10  Alan Lawrence  <alan.lawrence@arm.com>
+	    Renlin Li  <renlin.li@arm.com>
+	    Bin Cheng  <bin.cheng@arm.com>
+
+	* config/aarch64/aarch64-simd.md (vec_cmp<mode><mode>): New pattern.
+	(vec_cmp<mode><v_cmp_result>): New pattern.
+	(vec_cmpu<mode><mode>): New pattern.
+	(vcond_mask_<mode><v_cmp_result>): New pattern.
+
+2016-08-10  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR tree-optimization/71734
+	* tree-ssa-loop-im.c (ref_indep_loop_p): Add new argument
+	REF_LOOP, invoke ref_indep_loop_p_1.
+	(outermost_indep_loop): Pass LOOP argumnet where REF was defined
+	to ref_indep_loop_p.
+	(ref_indep_loop_p_1): Fix commentary, add argument REF_LOOP,
+	combine it with ref_indep_lopp_p_2, update SAFELEN if only REF
+	is inside LOOP, do not cache dpendence value for loops with
+	non-zero SAFELEN.
+	(ref_indep_loop_p_2): Delete function.
+	(can_sm_ref_p): Pass LOOP as additional argument to
+	ref_indep_loop_p.
+
+2016-08-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/72853
+	* config/rs6000/rs6000.c (mem_operand_ds_form): Add check for op
+	being an offsettable address.
+
+2016-08-10  Martin Liska  <mliska@suse.cz>
+
+	PR gcov-profile/58306
+	* tree-profile.c (gimple_init_edge_profiler): Create conditionally
+	atomic variants of profile update functions.
+
+2016-08-10  Martin Liska  <mliska@suse.cz>
+
+	Cherry picked (and modified) from google-4_7 branch
+	2012-12-26  Rong Xu  <xur@google.com>
+	* common.opt (fprofile-update): Add new flag.
+	* coretypes.h: Define enum profile_update.
+	* doc/invoke.texi: Document -fprofile-update.
+	* gcov-io.h: Declare GCOV_TYPE_ATOMIC_FETCH_ADD and
+	GCOV_TYPE_ATOMIC_FETCH_ADD_FN.
+	* tree-profile.c (gimple_init_edge_profiler): Generate
+	also atomic profiler update.
+	(gimple_gen_edge_profiler): Likewise.
+
+2016-08-10  David Malcolm  <dmalcolm@redhat.com>
+
+	* toplev.c (finalize): Set aux_info_file, asm_out_file, and
+	stack_usage_file to NULL after fclose calls.
+
+2016-08-10  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	PR target/71873
+	* reload.c (push_reload): Compute subreg_in_class for
+	subregs of constants and plus expressions. Remove special
+	handling of SYMBOL_REFs.
+
+2016-08-10  Alan Modra  <amodra@gmail.com>
+
+	PR target/71680
+	* config/rs6000/rs6000.h (HARD_REGNO_CALLER_SAVE_MODE): Return
+	SImode for TARGET_E500_DOUBLE when given SImode.
+
+2016-08-09  David Wohlferd  <dw@LimeGreenSocks.com>
+
+	* config/i3836/avx512fintrin.h (_mm512_cvtsepi64_epi32): Remove
+	unused variable __O.
+
+2016-08-09  Martin Liska  <mliska@suse.cz>
+
+	* doc/gcov.texi: Change _gcov_dump to __gcov_dump and
+	_gcov_reset to __gcov_reset.
+	* doc/gcov-tool.texi: Fix typo.
+
+2016-08-09  Martin Liska  <mliska@suse.cz>
+
+	* value-prof.c (gimple_divmod_values_to_profile): Do not
+	instrument MOD histogram if a value is not a SSA name.
+
+2016-08-09  Martin Liska  <mliska@suse.cz>
+
+	* value-prof.c (dump_histogram_value): Swap pow2 and non-pow2
+	values.
+
+2016-08-09  Renlin Li  <renlin.li@arm.com>
+
+	PR middle-end/64971
+	* calls.c (prepare_call_address): Convert funexp to Pmode when
+	necessary.
+	* config/aarch64/aarch64.md (sibcall): Remove fix for PR 64971.
+	(sibcall_value): Likewise.
+
+2016-08-09  Marek Polacek  <polacek@redhat.com>
+
+	PR c/7652
+	* cselib.c (cselib_expand_value_rtx_1): Add return.
+	* gengtype.c (dbgprint_count_type_at): Likewise.
+	* hsa-gen.c (gen_hsa_insn_for_internal_fn_call): Likewise.
+	* reg-stack.c (get_true_reg): Restructure to avoid fallthrough warning.
+
+2016-08-09  Martin Jambor  <mjambor@suse.cz>
+
+        PR ipa/71981
+        * ipa-polymorphic-call.c (get_dynamic_type): Bail out gracefully
+        if instance is a MEM_REF.
+
+2016-08-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/72843
+	* config/i386/i386.md (*movtf_internal): Use
+	lra_in_progress || reload_completed instead of !can_create_pseudo_p
+	in the insn constraint.
+	(*movxf_internal): Ditto.
+	(*movdf_internal): Ditto.
+	(*movsf_internal): Ditto.
+
+2016-08-09  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/72772
+	* tree-ssa-loop-niter.c (loop_exits_before_overflow): Check equality
+	for expanded base.
+
+2016-08-09  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/72772
+	* tree-ssa-loop-niter.h (simplify_using_initial_conditions): Delete
+	parameter STOP.
+	* tree-ssa-loop-niter.c (tree_simplify_using_condition_1): Delete
+	parameter STOP and update calls.  Move expand_simple_operations
+	function call from here...
+	(simplify_using_initial_conditions): ...to here.  Delete parameter
+	STOP.
+	(tree_simplify_using_condition): Delete parameter STOP.
+	* tree-scalar-evolution.c (simple_iv_with_niters): Update call to
+	simplify_using_initial_conditions.
+
+2016-08-09  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	PR c/65345
+	* config/mips/mips.c (mips_atomic_assign_expand_fenv):
+	Use create_tmp_var_raw instead of create_tmp_var.
+
+2016-08-09  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-threadbackward.c (profitable_jump_thread_path):
+	Treat same SSA names related.
+
+2016-08-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/72824
+	* tree-loop-distribution.c (const_with_all_bytes_same): Verify
+	real_zerop is not negative.
+
+2016-08-09  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/71802
+	* tree-cfgcleanup.c (cleanup_tree_cfg_bb): Make sure to catch
+	all merge opportunities with the predecessor.
+
+2016-08-09  Richard Biener  <rguenther@suse.de>
+
+	PR ipa/68273
+	* ipa-prop.c (ipa_modify_formal_parameters): Build
+	parameter types with natural alignment also for the
+	over-aligned case.
+
+2016-08-08  Andi Kleen  <ak@linux.intel.com>
+
+	* tree-vrp.c (get_single_symbol): Always initialize inv and neg.
+
+2016-08-08  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/64955
+	* langhooks-def.h (LANG_HOOKS_RUN_LANG_SELFTESTS): New default
+	do-nothing langhook.
+	(LANG_HOOKS_INITIALIZER): Add LANG_HOOKS_RUN_LANG_SELFTESTS.
+	* langhooks.h (struct lang_hooks): Add run_lang_selftests.
+	* selftest-run-tests.c: Include "tree.h" and "langhooks.h".
+	(selftest::run_tests): Call lang_hooks.run_lang_selftests.
+
+2016-08-08  David Malcolm  <dmalcolm@redhat.com>
+
+	PR bootstrap/72844
+	* input.c: Ensure that HAVE_ICONV is defined.
+
+2016-08-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/72781
+	* omp-low.c (lower_lastprivate_clauses): Set TREE_NO_WARNING on the
+	private vars for lastprivate and for linear iterator.
+
+	PR middle-end/68762
+	* omp-simd-clone.c: Include varasm.h.
+	(simd_clone_create): Copy over DECL_COMDAT, DECL_WEAK, DECL_EXTERNAL,
+	DECL_VISIBILITY, DECL_VISIBILITY_SPECIFIED, DECL_DLLIMPORT_P and for
+	DECL_ONE_ONLY call make_decl_one_only.  Fix up spelling in comment and
+	update function name.
+
+2016-07-29  Pitchumani Sivanupandi  <pitchumani.s@atmel.com>
+
+	* config/avr/driver-avr.c (specfiles_doc_url): Remove.
+	(avr_diagnose_devicespecs_error): Remove.
+	(avr_devicespecs_file): Remove composing absolute path for specfile
+	and its verbose info. Remove conditions to check specs-file,
+
 2016-08-08  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/72821
