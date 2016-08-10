@@ -6740,6 +6740,42 @@ rs6000_expand_vector_init (rtx target, rtx vals)
       return;
     }
 
+  /* Special case initializing vector int if we are on 64-bit systems with
+     direct move.  This optimization tickles a bug in RELOAD for fortran's
+     cray_pointers_2 test unless -mvsx-timode is enabled (the register
+     allocator is trying to load up a V4SImode vector in GPRs with a TImode
+     address using a SUBREG).  Since RELOAD is no longer the default register
+     allocator, just don't do the optimization.  */
+  if (mode == V4SImode && TARGET_DIRECT_MOVE_64BIT
+      && (TARGET_LRA || TARGET_VSX_TIMODE))
+    {
+      rtx di_hi, di_lo, elements[4], tmp;
+      size_t i;
+
+      for (i = 0; i < 4; i++)
+	{
+	  rtx element_si = XVECEXP (vals, 0, VECTOR_ELT_ORDER_BIG ? i : 3 - i);
+	  element_si = copy_to_mode_reg (SImode, element_si);
+	  elements[i] = gen_reg_rtx (DImode);
+	  convert_move (elements[i], element_si, true);
+	}
+
+      di_hi = gen_reg_rtx (DImode);
+      tmp = gen_reg_rtx (DImode);
+      emit_insn (gen_ashldi3 (tmp, elements[0], GEN_INT (32)));
+      emit_insn (gen_iordi3 (di_hi, tmp, elements[1]));
+
+      di_lo = gen_reg_rtx (DImode);
+      tmp = gen_reg_rtx (DImode);
+      emit_insn (gen_ashldi3 (tmp, elements[2], GEN_INT (32)));
+      emit_insn (gen_iordi3 (di_lo, tmp, elements[3]));
+
+      emit_insn (gen_rtx_CLOBBER (VOIDmode, target));
+      emit_move_insn (gen_highpart (DImode, target), di_hi);
+      emit_move_insn (gen_lowpart (DImode, target), di_lo);
+      return;
+    }
+
   /* With single precision floating point on VSX, know that internally single
      precision is actually represented as a double, and either make 2 V2DF
      vectors, and convert these vectors to single precision, or do one
@@ -7025,6 +7061,18 @@ rs6000_expand_vector_extract (rtx target, rtx vec, rtx elt)
   emit_move_insn (target, adjust_address_nv (mem, inner_mode, 0));
 }
 
+/* Helper function to return the register number of a RTX.  */
+static inline int
+regno_or_subregno (rtx op)
+{
+  if (REG_P (op))
+    return REGNO (op);
+  else if (SUBREG_P (op))
+    return subreg_regno (op);
+  else
+    gcc_unreachable ();
+}
+
 /* Adjust a memory address (MEM) of a vector type to point to a scalar field
    within the vector (ELEMENT) with a mode (SCALAR_MODE).  Use a base register
    temporary (BASE_TMP) to fixup the address.  Return the new memory address
@@ -7140,14 +7188,7 @@ rs6000_adjust_vec_address (rtx scalar_reg,
     {
       rtx op1 = XEXP (new_addr, 1);
       addr_mask_type addr_mask;
-      int scalar_regno;
-
-      if (REG_P (scalar_reg))
-	scalar_regno = REGNO (scalar_reg);
-      else if (SUBREG_P (scalar_reg))
-	scalar_regno = subreg_regno (scalar_reg);
-      else
-	gcc_unreachable ();
+      int scalar_regno = regno_or_subregno (scalar_reg);
 
       gcc_assert (scalar_regno < FIRST_PSEUDO_REGISTER);
       if (INT_REGNO_P (scalar_regno))
