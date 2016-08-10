@@ -6749,12 +6749,18 @@ rs6000_expand_vector_init (rtx target, rtx vals)
   if (mode == V4SImode && TARGET_DIRECT_MOVE_64BIT
       && (TARGET_LRA || TARGET_VSX_TIMODE))
     {
-      rtx s1 = XVECEXP (vals, 0, 0);
-      rtx s2 = XVECEXP (vals, 0, 1);
-      rtx s3 = XVECEXP (vals, 0, 2);
-      rtx s4 = XVECEXP (vals, 0, 3);
+      rtx elements[4];
+      size_t i;
 
-      emit_insn (gen_vsx_init_v4si (target, s1, s2, s3, s4));
+      for (i = 0; i < 4; i++)
+	{
+	  elements[i] = XVECEXP (vals, 0, i);
+	  if (!CONST_INT_P (elements[i]) && !REG_P (elements[i]))
+	    elements[i] = copy_to_mode_reg (SImode, elements[i]);
+	}
+
+      emit_insn (gen_vsx_init_v4si (target, elements[0], elements[1],
+				    elements[2], elements[3]));
       return;
     }
 
