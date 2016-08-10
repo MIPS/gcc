@@ -7386,11 +7386,12 @@ coerce_template_parameter_pack (tree parms,
 
   /* Convert the remaining arguments, which will be a part of the
      parameter pack "parm".  */
+  int first_pack_arg = arg_idx;
   for (; arg_idx < nargs; ++arg_idx)
     {
       tree arg = TREE_VEC_ELT (inner_args, arg_idx);
       tree actual_parm = TREE_VALUE (parm);
-      int pack_idx = arg_idx - parm_idx;
+      int pack_idx = arg_idx - first_pack_arg;
 
       if (packed_parms)
         {
@@ -7419,12 +7420,12 @@ coerce_template_parameter_pack (tree parms,
       TREE_VEC_ELT (packed_args, pack_idx) = arg;
     }
 
-  if (arg_idx - parm_idx < TREE_VEC_LENGTH (packed_args)
+  if (arg_idx - first_pack_arg < TREE_VEC_LENGTH (packed_args)
       && TREE_VEC_LENGTH (packed_args) > 0)
     {
       if (complain & tf_error)
 	error ("wrong number of template arguments (%d, should be %d)",
-	       arg_idx - parm_idx, TREE_VEC_LENGTH (packed_args));
+	       arg_idx - first_pack_arg, TREE_VEC_LENGTH (packed_args));
       return error_mark_node;
     }
 
@@ -8594,7 +8595,9 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
 	     for parameters in the TYPE_DECL of the alias template
 	     done earlier.  So be careful while getting the template
 	     of FOUND.  */
-	  found = TREE_CODE (found) == TYPE_DECL
+	  found = TREE_CODE (found) == TEMPLATE_DECL
+	    ? found
+	    : TREE_CODE (found) == TYPE_DECL
 	    ? TYPE_TI_TEMPLATE (TREE_TYPE (found))
 	    : CLASSTYPE_TI_TEMPLATE (found);
 	}
@@ -11121,6 +11124,12 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
       local_specializations = saved_local_specializations;
     }
   
+  /* If the dependent pack arguments were such that we end up with only a
+     single pack expansion again, there's no need to keep it in a TREE_VEC.  */
+  if (len == 1 && TREE_CODE (result) == TREE_VEC
+      && PACK_EXPANSION_P (TREE_VEC_ELT (result, 0)))
+    return TREE_VEC_ELT (result, 0);
+
   return result;
 }
 
@@ -13201,13 +13210,20 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
 		if (code == BOUND_TEMPLATE_TEMPLATE_PARM)
 		  {
-		    tree argvec = tsubst (TYPE_TI_ARGS (t), args,
+		    tree tinfo = TYPE_TEMPLATE_INFO (t);
+		    /* We might need to substitute into the types of non-type
+		       template parameters.  */
+		    tree tmpl = tsubst (TI_TEMPLATE (tinfo), args,
+					complain, in_decl);
+		    if (tmpl == error_mark_node)
+		      return error_mark_node;
+		    tree argvec = tsubst (TI_ARGS (tinfo), args,
 					  complain, in_decl);
 		    if (argvec == error_mark_node)
 		      return error_mark_node;
 
 		    TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (r)
-		      = build_template_info (TYPE_TI_TEMPLATE (t), argvec);
+		      = build_template_info (tmpl, argvec);
 		  }
 	      }
 	    break;
@@ -13728,10 +13744,17 @@ tsubst_baselink (tree baselink, tree object_type,
     if (!object_type)
       object_type = current_class_type;
 
-    if (qualified)
-      baselink = adjust_result_of_qualified_name_lookup (baselink,
-							 qualifying_scope,
-							 object_type);
+    if (qualified || name == complete_dtor_identifier)
+      {
+	baselink = adjust_result_of_qualified_name_lookup (baselink,
+							   qualifying_scope,
+							   object_type);
+	if (!qualified)
+	  /* We need to call adjust_result_of_qualified_name_lookup in case the
+	     destructor names a base class, but we unset BASELINK_QUALIFIED_P
+	     so that we still get virtual function binding.  */
+	  BASELINK_QUALIFIED_P (baselink) = false;
+      }
     return baselink;
 }
 
@@ -20162,7 +20185,7 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
       /* An unresolved overload is a nondeduced context.  */
       if (is_overloaded_fn (parm) || type_unknown_p (parm))
 	return unify_success (explain_p);
-      gcc_assert (EXPR_P (parm));
+      gcc_assert (EXPR_P (parm) || TREE_CODE (parm) == TRAIT_EXPR);
     expr:
       /* We must be looking at an expression.  This can happen with
 	 something like:
@@ -21783,7 +21806,10 @@ instantiate_decl (tree d, int defer_ok,
   else
     {
       deleted_p = false;
-      pattern_defined = ! DECL_IN_AGGR_P (code_pattern);
+      if (DECL_CLASS_SCOPE_P (code_pattern))
+	pattern_defined = ! DECL_IN_AGGR_P (code_pattern);
+      else
+	pattern_defined = ! DECL_EXTERNAL (code_pattern);
     }
 
   /* We may be in the middle of deferred access check.  Disable it now.  */

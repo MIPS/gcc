@@ -390,7 +390,12 @@ build_data_member_initialization (tree t, vec<constructor_elt, va_gc> **vec)
 	gcc_assert (TREE_TYPE (member) == vtbl_ptr_type_node);
     }
 
-  CONSTRUCTOR_APPEND_ELT (*vec, member, init);
+  /* Value-initialization can produce multiple initializers for the
+     same field; use the last one.  */
+  if (!vec_safe_is_empty (*vec) && (*vec)->last().index == member)
+    (*vec)->last().value = init;
+  else
+    CONSTRUCTOR_APPEND_ELT (*vec, member, init);
   return true;
 }
 
@@ -5173,10 +5178,12 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
     case GOTO_EXPR:
       {
 	tree *target = &TREE_OPERAND (t, 0);
-	/* Gotos representing break and continue are OK; we should have
-	   rejected other gotos in parsing.  */
-	gcc_assert (breaks (target) || continues (target));
-	return true;
+	/* Gotos representing break and continue are OK.  */
+	if (breaks (target) || continues (target))
+	  return true;
+	if (flags & tf_error)
+	  error ("%<goto%> is not a constant-expression");
+	return false;
       }
 
     default:
@@ -5184,7 +5191,7 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
 	return false;
 
       sorry ("unexpected AST of kind %s", get_tree_code_name (TREE_CODE (t)));
-      gcc_unreachable();
+      gcc_unreachable ();
       return false;
     }
 #undef RECUR
