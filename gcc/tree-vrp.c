@@ -58,6 +58,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "omp-low.h"
 #include "target.h"
 #include "case-cfn-macros.h"
+#include "params.h"
+#include "alloc-pool.h"
 
 /* Range of values that can be associated with an SSA_NAME after VRP
    has executed.  */
@@ -86,6 +88,10 @@ struct value_range
 };
 
 #define VR_INITIALIZER { VR_UNDEFINED, NULL_TREE, NULL_TREE, NULL }
+
+/* Allocation pools for tree-vrp allocations.  */
+static object_allocator<value_range> vrp_value_range_pool ("Tree VRP value ranges");
+static bitmap_obstack vrp_equiv_obstack;
 
 /* Set of SSA names found live during the RPO traversal of the function
    for still active basic-blocks.  */
@@ -406,7 +412,7 @@ set_value_range (value_range *vr, enum value_range_type t, tree min,
      bitmaps, only do it if absolutely necessary.  */
   if (vr->equiv == NULL
       && equiv != NULL)
-    vr->equiv = BITMAP_ALLOC (NULL);
+    vr->equiv = BITMAP_ALLOC (&vrp_equiv_obstack);
 
   if (equiv != vr->equiv)
     {
@@ -688,7 +694,8 @@ get_value_range (const_tree var)
     return CONST_CAST (value_range *, &vr_const_varying);
 
   /* Create a default value range.  */
-  vr_value[ver] = vr = XCNEW (value_range);
+  vr_value[ver] = vr = vrp_value_range_pool.allocate ();
+  memset (vr, 0, sizeof (*vr));
 
   /* Defer allocating the equivalence set.  */
   vr->equiv = NULL;
@@ -817,7 +824,7 @@ add_equivalence (bitmap *equiv, const_tree var)
   value_range *vr = vr_value[ver];
 
   if (*equiv == NULL)
-    *equiv = BITMAP_ALLOC (NULL);
+    *equiv = BITMAP_ALLOC (&vrp_equiv_obstack);
   bitmap_set_bit (*equiv, ver);
   if (vr && vr->equiv)
     bitmap_ior_into (*equiv, vr->equiv);
@@ -3066,6 +3073,24 @@ extract_range_from_binary_expr_1 (value_range *vr,
 	  if (int_cst_range1 && tree_int_cst_sgn (vr1.min) >= 0)
 	    wmax = wi::min (wmax, vr1.max, TYPE_SIGN (expr_type));
 	  max = wide_int_to_tree (expr_type, wmax);
+	  cmp = compare_values (min, max);
+	  /* PR68217: In case of signed & sign-bit-CST should
+	     result in [-INF, 0] instead of [-INF, INF].  */
+	  if (cmp == -2 || cmp == 1)
+	    {
+	      wide_int sign_bit
+		= wi::set_bit_in_zero (TYPE_PRECISION (expr_type) - 1,
+				       TYPE_PRECISION (expr_type));
+	      if (!TYPE_UNSIGNED (expr_type)
+		  && ((value_range_constant_singleton (&vr0)
+		       && !wi::cmps (vr0.min, sign_bit))
+		      || (value_range_constant_singleton (&vr1)
+			  && !wi::cmps (vr1.min, sign_bit))))
+		{
+		  min = TYPE_MIN_VALUE (expr_type);
+		  max = build_int_cst (expr_type, 0);
+		}
+	    }
 	}
       else if (code == BIT_IOR_EXPR)
 	{
@@ -3760,7 +3785,8 @@ extract_range_basic (value_range *vr, gimple *stmt)
 	  arg = gimple_call_arg (stmt, 0);
 	  if (TREE_CODE (arg) == SSA_NAME
 	      && SSA_NAME_IS_DEFAULT_DEF (arg)
-	      && TREE_CODE (SSA_NAME_VAR (arg)) == PARM_DECL)
+	      && TREE_CODE (SSA_NAME_VAR (arg)) == PARM_DECL
+	      && cfun->after_inlining)
 	    {
 	      set_value_range_to_null (vr, type);
 	      return;
@@ -4827,7 +4853,7 @@ dump_asserts_for (FILE *file, tree name)
 	  dump_edge_info (file, loc->e, dump_flags, 0);
 	}
       fprintf (file, "\n\tPREDICATE: ");
-      print_generic_expr (file, name, 0);
+      print_generic_expr (file, loc->expr, 0);
       fprintf (file, " %s ", get_tree_code_name (loc->comp_code));
       print_generic_expr (file, loc->val, 0);
       fprintf (file, "\n\n");
@@ -5009,13 +5035,15 @@ extract_code_and_val_from_cond_with_ops (tree name, enum tree_code cond_code,
       comp_code = swap_tree_comparison (cond_code);
       val = cond_op0;
     }
-  else
+  else if (name == cond_op0)
     {
       /* The comparison is of the form NAME COMP VAL, so the
 	 comparison code remains unchanged.  */
       comp_code = cond_code;
       val = cond_op1;
     }
+  else
+    gcc_unreachable ();
 
   /* Invert the comparison code as necessary.  */
   if (invert)
@@ -5917,6 +5945,7 @@ find_switch_asserts (basic_block bb, gswitch *last)
       ci[idx].expr = gimple_switch_label (last, idx);
       ci[idx].bb = label_to_block (CASE_LABEL (ci[idx].expr));
     }
+  edge default_edge = find_edge (bb, ci[0].bb);
   qsort (ci, n, sizeof (struct case_info), compare_case_labels);
 
   for (idx = 0; idx < n; ++idx)
@@ -5945,8 +5974,8 @@ find_switch_asserts (basic_block bb, gswitch *last)
 	    max = CASE_LOW (ci[idx].expr);
 	}
 
-      /* Nothing to do if the range includes the default label until we
-	 can register anti-ranges.  */
+      /* Can't extract a useful assertion out of a range that includes the
+	 default label.  */
       if (min == NULL_TREE)
 	continue;
 
@@ -5964,6 +5993,62 @@ find_switch_asserts (basic_block bb, gswitch *last)
     }
 
   XDELETEVEC (ci);
+
+  if (!live_on_edge (default_edge, op))
+    return;
+
+  /* Now register along the default label assertions that correspond to the
+     anti-range of each label.  */
+  int insertion_limit = PARAM_VALUE (PARAM_MAX_VRP_SWITCH_ASSERTIONS);
+  for (idx = 1; idx < n; idx++)
+    {
+      tree min, max;
+      tree cl = gimple_switch_label (last, idx);
+
+      min = CASE_LOW (cl);
+      max = CASE_HIGH (cl);
+
+      /* Combine contiguous case ranges to reduce the number of assertions
+	 to insert.  */
+      for (idx = idx + 1; idx < n; idx++)
+	{
+	  tree next_min, next_max;
+	  tree next_cl = gimple_switch_label (last, idx);
+
+	  next_min = CASE_LOW (next_cl);
+	  next_max = CASE_HIGH (next_cl);
+
+	  wide_int difference = wi::sub (next_min, max ? max : min);
+	  if (wi::eq_p (difference, 1))
+	    max = next_max ? next_max : next_min;
+	  else
+	    break;
+	}
+      idx--;
+
+      if (max == NULL_TREE)
+	{
+	  /* Register the assertion OP != MIN.  */
+	  min = fold_convert (TREE_TYPE (op), min);
+	  register_edge_assert_for (op, default_edge, bsi, NE_EXPR, op, min);
+	}
+      else
+	{
+	  /* Register the assertion (unsigned)OP - MIN > (MAX - MIN),
+	     which will give OP the anti-range ~[MIN,MAX].  */
+	  tree uop = fold_convert (unsigned_type_for (TREE_TYPE (op)), op);
+	  min = fold_convert (TREE_TYPE (uop), min);
+	  max = fold_convert (TREE_TYPE (uop), max);
+
+	  tree lhs = fold_build2 (MINUS_EXPR, TREE_TYPE (uop), uop, min);
+	  tree rhs = int_const_binop (MINUS_EXPR, max, min);
+	  register_new_assert_for (op, lhs, GT_EXPR, rhs,
+				   NULL, default_edge, bsi);
+	}
+
+      if (--insertion_limit == 0)
+	break;
+    }
 }
 
 
@@ -6889,6 +6974,7 @@ vrp_initialize (void)
   num_vr_values = num_ssa_names;
   vr_value = XCNEWVEC (value_range *, num_vr_values);
   vr_phi_edge_counts = XCNEWVEC (int, num_ssa_names);
+  bitmap_obstack_initialize (&vrp_equiv_obstack);
 
   FOR_EACH_BB_FN (bb, cfun)
     {
@@ -9508,7 +9594,7 @@ static bool
 simplify_switch_using_ranges (gswitch *stmt)
 {
   tree op = gimple_switch_index (stmt);
-  value_range *vr;
+  value_range *vr = NULL;
   bool take_default;
   edge e;
   edge_iterator ei;
@@ -9547,6 +9633,89 @@ simplify_switch_using_ranges (gswitch *stmt)
     return false;
 
   n = gimple_switch_num_labels (stmt);
+
+  /* We can truncate the case label ranges that partially overlap with OP's
+     value range.  */
+  size_t min_idx = 1, max_idx = 0;
+  if (vr != NULL)
+    find_case_label_range (stmt, vr->min, vr->max, &min_idx, &max_idx);
+  if (min_idx <= max_idx)
+    {
+      tree min_label = gimple_switch_label (stmt, min_idx);
+      tree max_label = gimple_switch_label (stmt, max_idx);
+
+      /* Avoid changing the type of the case labels when truncating.  */
+      tree case_label_type = TREE_TYPE (CASE_LOW (min_label));
+      tree vr_min = fold_convert (case_label_type, vr->min);
+      tree vr_max = fold_convert (case_label_type, vr->max);
+
+      if (vr->type == VR_RANGE)
+	{
+	  /* If OP's value range is [2,8] and the low label range is
+	     0 ... 3, truncate the label's range to 2 .. 3.  */
+	  if (tree_int_cst_compare (CASE_LOW (min_label), vr_min) < 0
+	      && CASE_HIGH (min_label) != NULL_TREE
+	      && tree_int_cst_compare (CASE_HIGH (min_label), vr_min) >= 0)
+	    CASE_LOW (min_label) = vr_min;
+
+	  /* If OP's value range is [2,8] and the high label range is
+	     7 ... 10, truncate the label's range to 7 .. 8.  */
+	  if (tree_int_cst_compare (CASE_LOW (max_label), vr_max) <= 0
+	      && CASE_HIGH (max_label) != NULL_TREE
+	      && tree_int_cst_compare (CASE_HIGH (max_label), vr_max) > 0)
+	    CASE_HIGH (max_label) = vr_max;
+	}
+      else if (vr->type == VR_ANTI_RANGE)
+	{
+	  tree one_cst = build_one_cst (case_label_type);
+
+	  if (min_label == max_label)
+	    {
+	      /* If OP's value range is ~[7,8] and the label's range is
+		 7 ... 10, truncate the label's range to 9 ... 10.  */
+	      if (tree_int_cst_compare (CASE_LOW (min_label), vr_min) == 0
+		  && CASE_HIGH (min_label) != NULL_TREE
+		  && tree_int_cst_compare (CASE_HIGH (min_label), vr_max) > 0)
+		CASE_LOW (min_label)
+		  = int_const_binop (PLUS_EXPR, vr_max, one_cst);
+
+	      /* If OP's value range is ~[7,8] and the label's range is
+		 5 ... 8, truncate the label's range to 5 ... 6.  */
+	      if (tree_int_cst_compare (CASE_LOW (min_label), vr_min) < 0
+		  && CASE_HIGH (min_label) != NULL_TREE
+		  && tree_int_cst_compare (CASE_HIGH (min_label), vr_max) == 0)
+		CASE_HIGH (min_label)
+		  = int_const_binop (MINUS_EXPR, vr_min, one_cst);
+	    }
+	  else
+	    {
+	      /* If OP's value range is ~[2,8] and the low label range is
+		 0 ... 3, truncate the label's range to 0 ... 1.  */
+	      if (tree_int_cst_compare (CASE_LOW (min_label), vr_min) < 0
+		  && CASE_HIGH (min_label) != NULL_TREE
+		  && tree_int_cst_compare (CASE_HIGH (min_label), vr_min) >= 0)
+		CASE_HIGH (min_label)
+		  = int_const_binop (MINUS_EXPR, vr_min, one_cst);
+
+	      /* If OP's value range is ~[2,8] and the high label range is
+		 7 ... 10, truncate the label's range to 9 ... 10.  */
+	      if (tree_int_cst_compare (CASE_LOW (max_label), vr_max) <= 0
+		  && CASE_HIGH (max_label) != NULL_TREE
+		  && tree_int_cst_compare (CASE_HIGH (max_label), vr_max) > 0)
+		CASE_LOW (max_label)
+		  = int_const_binop (PLUS_EXPR, vr_max, one_cst);
+	    }
+	}
+
+      /* Canonicalize singleton case ranges.  */
+      if (tree_int_cst_equal (CASE_LOW (min_label), CASE_HIGH (min_label)))
+	CASE_HIGH (min_label) = NULL_TREE;
+      if (tree_int_cst_equal (CASE_LOW (max_label), CASE_HIGH (max_label)))
+	CASE_HIGH (max_label) = NULL_TREE;
+    }
+
+  /* We can also eliminate case labels that lie completely outside OP's value
+     range.  */
 
   /* Bail out if this is just all edges taken.  */
   if (i == 1
@@ -10014,6 +10183,67 @@ simplify_stmt_for_jump_threading (gimple *stmt, gimple *within_stmt,
 				     gimple_cond_rhs (cond_stmt),
 				     within_stmt);
 
+  /* We simplify a switch statement by trying to determine which case label
+     will be taken.  If we are successful then we return the corresponding
+     CASE_LABEL_EXPR.  */
+  if (gswitch *switch_stmt = dyn_cast <gswitch *> (stmt))
+    {
+      tree op = gimple_switch_index (switch_stmt);
+      if (TREE_CODE (op) != SSA_NAME)
+	return NULL_TREE;
+
+      value_range *vr = get_value_range (op);
+      if ((vr->type != VR_RANGE && vr->type != VR_ANTI_RANGE)
+	  || symbolic_range_p (vr))
+	return NULL_TREE;
+
+      if (vr->type == VR_RANGE)
+	{
+	  size_t i, j;
+	  /* Get the range of labels that contain a part of the operand's
+	     value range.  */
+	  find_case_label_range (switch_stmt, vr->min, vr->max, &i, &j);
+
+	  /* Is there only one such label?  */
+	  if (i == j)
+	    {
+	      tree label = gimple_switch_label (switch_stmt, i);
+
+	      /* The i'th label will be taken only if the value range of the
+		 operand is entirely within the bounds of this label.  */
+	      if (CASE_HIGH (label) != NULL_TREE
+		  ? (tree_int_cst_compare (CASE_LOW (label), vr->min) <= 0
+		     && tree_int_cst_compare (CASE_HIGH (label), vr->max) >= 0)
+		  : (tree_int_cst_equal (CASE_LOW (label), vr->min)
+		     && tree_int_cst_equal (vr->min, vr->max)))
+		return label;
+	    }
+
+	  /* If there are no such labels then the default label will be
+	     taken.  */
+	  if (i > j)
+	    return gimple_switch_label (switch_stmt, 0);
+	}
+
+      if (vr->type == VR_ANTI_RANGE)
+	{
+	  unsigned n = gimple_switch_num_labels (switch_stmt);
+	  tree min_label = gimple_switch_label (switch_stmt, 1);
+	  tree max_label = gimple_switch_label (switch_stmt, n - 1);
+
+	  /* The default label will be taken only if the anti-range of the
+	     operand is entirely outside the bounds of all the (non-default)
+	     case labels.  */
+	  if (tree_int_cst_compare (vr->min, CASE_LOW (min_label)) <= 0
+	      && (CASE_HIGH (max_label) != NULL_TREE
+		  ? tree_int_cst_compare (vr->max, CASE_HIGH (max_label)) >= 0
+		  : tree_int_cst_compare (vr->max, CASE_LOW (max_label)) >= 0))
+	  return gimple_switch_label (switch_stmt, 0);
+	}
+
+      return NULL_TREE;
+    }
+
   if (gassign *assign_stmt = dyn_cast <gassign *> (stmt))
     {
       value_range new_vr = VR_INITIALIZER;
@@ -10213,15 +10443,10 @@ vrp_finalize (bool warn_array_bounds_p)
   identify_jump_threads ();
 
   /* Free allocated memory.  */
-  for (i = 0; i < num_vr_values; i++)
-    if (vr_value[i])
-      {
-	BITMAP_FREE (vr_value[i]->equiv);
-	free (vr_value[i]);
-      }
-
   free (vr_value);
   free (vr_phi_edge_counts);
+  bitmap_obstack_release (&vrp_equiv_obstack);
+  vrp_value_range_pool.release ();
 
   /* So that we can distinguish between VRP data being available
      and not available.  */

@@ -45,6 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "opts.h"
 #include "gimplify.h"
+#include "substring-locations.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
@@ -353,6 +354,8 @@ static tree handle_tls_model_attribute (tree *, tree, tree, int,
 					bool *);
 static tree handle_no_instrument_function_attribute (tree *, tree,
 						     tree, int, bool *);
+static tree handle_no_profile_instrument_function_attribute (tree *, tree,
+							     tree, int, bool *);
 static tree handle_malloc_attribute (tree *, tree, tree, int, bool *);
 static tree handle_returns_twice_attribute (tree *, tree, tree, int, bool *);
 static tree handle_no_limit_stack_attribute (tree *, tree, tree, int,
@@ -716,6 +719,9 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_weakref_attribute, false },
   { "no_instrument_function", 0, 0, true,  false, false,
 			      handle_no_instrument_function_attribute,
+			      false },
+  { "no_profile_instrument_function",  0, 0, true, false, false,
+			      handle_no_profile_instrument_function_attribute,
 			      false },
   { "malloc",                 0, 0, true,  false, false,
 			      handle_malloc_attribute, false },
@@ -1093,6 +1099,67 @@ fix_string_type (tree value)
   TREE_STATIC (value) = 1;
   return value;
 }
+
+/* Given a string of type STRING_TYPE, determine what kind of string
+   token would give an equivalent execution encoding: CPP_STRING,
+   CPP_STRING16, or CPP_STRING32.  Return CPP_OTHER in case of error.
+   This may not be exactly the string token type that initially created
+   the string, since CPP_WSTRING is indistinguishable from the 16/32 bit
+   string type at this point.
+
+   This effectively reverses part of the logic in lex_string and
+   fix_string_type.  */
+
+static enum cpp_ttype
+get_cpp_ttype_from_string_type (tree string_type)
+{
+  gcc_assert (string_type);
+  if (TREE_CODE (string_type) != ARRAY_TYPE)
+    return CPP_OTHER;
+
+  tree element_type = TREE_TYPE (string_type);
+  if (TREE_CODE (element_type) != INTEGER_TYPE)
+    return CPP_OTHER;
+
+  int bits_per_character = TYPE_PRECISION (element_type);
+  switch (bits_per_character)
+    {
+    case 8:
+      return CPP_STRING;  /* It could have also been CPP_UTF8STRING.  */
+    case 16:
+      return CPP_STRING16;
+    case 32:
+      return CPP_STRING32;
+    }
+
+  return CPP_OTHER;
+}
+
+/* The global record of string concatentations, for use in
+   extracting locations within string literals.  */
+
+GTY(()) string_concat_db *g_string_concat_db;
+
+/* Attempt to determine the source range of the substring.
+   If successful, return NULL and write the source range to *OUT_RANGE.
+   Otherwise return an error message.  Error messages are intended
+   for GCC developers (to help debugging) rather than for end-users.  */
+
+const char *
+substring_loc::get_range (source_range *out_range) const
+{
+  gcc_assert (out_range);
+
+  enum cpp_ttype tok_type = get_cpp_ttype_from_string_type (m_string_type);
+  if (tok_type == CPP_OTHER)
+    return "unrecognized string type";
+
+  return get_source_range_for_substring (parse_in, g_string_concat_db,
+					 m_fmt_string_loc, tok_type,
+					 m_start_idx, m_end_idx,
+					 out_range);
+}
+
 
 /* Fold X for consideration by one of the warning functions when checking
    whether an expression has a constant value.  */
@@ -4586,8 +4653,9 @@ c_common_truthvalue_conversion (location_t location, tree expr)
       if (!TREE_NO_WARNING (expr)
 	  && warn_parentheses)
 	{
-	  warning (OPT_Wparentheses,
-		   "suggest parentheses around assignment used as truth value");
+	  warning_at (location, OPT_Wparentheses,
+		      "suggest parentheses around assignment used as "
+		      "truth value");
 	  TREE_NO_WARNING (expr) = 1;
 	}
       break;
@@ -7679,7 +7747,7 @@ check_user_alignment (const_tree align, bool allow_zero)
       error ("requested alignment is not a positive power of 2");
       return -1;
     }
-  else if (i >= HOST_BITS_PER_INT - BITS_PER_UNIT_LOG)
+  else if (i >= HOST_BITS_PER_INT - LOG2_BITS_PER_UNIT)
     {
       error ("requested alignment is too large");
       return -1;
@@ -8293,6 +8361,22 @@ handle_no_instrument_function_attribute (tree *node, tree name,
   return NULL_TREE;
 }
 
+/* Handle a "no_profile_instrument_function" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_no_profile_instrument_function_attribute (tree *node, tree name, tree,
+						 int, bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
 /* Handle a "malloc" attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -8349,7 +8433,8 @@ handle_alloc_align_attribute (tree *node, tree, tree args, int,
 {
   unsigned arg_count = type_num_arguments (*node);
   tree position = TREE_VALUE (args);
-  if (position && TREE_CODE (position) != IDENTIFIER_NODE)
+  if (position && TREE_CODE (position) != IDENTIFIER_NODE
+      && TREE_CODE (position) != FUNCTION_DECL)
     position = default_conversion (position);
 
   if (!tree_fits_uhwi_p (position)

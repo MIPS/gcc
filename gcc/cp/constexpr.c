@@ -391,7 +391,12 @@ build_data_member_initialization (tree t, vec<constructor_elt, va_gc> **vec)
 	gcc_assert (TREE_TYPE (member) == vtbl_ptr_type_node);
     }
 
-  CONSTRUCTOR_APPEND_ELT (*vec, member, init);
+  /* Value-initialization can produce multiple initializers for the
+     same field; use the last one.  */
+  if (!vec_safe_is_empty (*vec) && (*vec)->last().index == member)
+    (*vec)->last().value = init;
+  else
+    CONSTRUCTOR_APPEND_ELT (*vec, member, init);
   return true;
 }
 
@@ -420,7 +425,8 @@ check_constexpr_ctor_body_1 (tree last, tree list)
   switch (TREE_CODE (list))
     {
     case DECL_EXPR:
-      if (TREE_CODE (DECL_EXPR_DECL (list)) == USING_DECL)
+      if (TREE_CODE (DECL_EXPR_DECL (list)) == USING_DECL
+	  || TREE_CODE (DECL_EXPR_DECL (list)) == TYPE_DECL)
 	return true;
       return false;
 
@@ -1843,6 +1849,13 @@ cxx_eval_binary_expression (const constexpr_ctx *ctx, tree t,
       else if (TREE_CODE (rhs) == PTRMEM_CST)
 	rhs = cplus_expand_constant (rhs);
     }
+  if (code == POINTER_PLUS_EXPR && !*non_constant_p
+      && integer_zerop (lhs) && !integer_zerop (rhs))
+    {
+      if (!ctx->quiet)
+	error ("arithmetic involving a null pointer in %qE", lhs);
+      return t;
+    }
 
   if (r == NULL_TREE)
     r = fold_binary_loc (loc, code, type, lhs, rhs);
@@ -2129,42 +2142,49 @@ cxx_eval_array_reference (const constexpr_ctx *ctx, tree t,
   else
     found = (i < len);
 
-  if (!found)
+  if (found)
     {
-      if (TREE_CODE (ary) == CONSTRUCTOR
-	  && CONSTRUCTOR_NO_IMPLICIT_ZERO (ary))
+      tree r;
+      if (TREE_CODE (ary) == CONSTRUCTOR)
+	r = (*CONSTRUCTOR_ELTS (ary))[i].value;
+      else if (TREE_CODE (ary) == VECTOR_CST)
+	r = VECTOR_CST_ELT (ary, i);
+      else if (elem_nchars == 1)
+	r = build_int_cst (cv_unqualified (TREE_TYPE (TREE_TYPE (ary))),
+			   TREE_STRING_POINTER (ary)[i]);
+      else
 	{
-	  /* 'ary' is part of the aggregate initializer we're currently
-	     building; if there's no initializer for this element yet,
-	     that's an error.  */
-	  if (!ctx->quiet)
-	    error ("accessing uninitialized array element");
-	  *non_constant_p = true;
-	  return t;
+	  tree type = cv_unqualified (TREE_TYPE (TREE_TYPE (ary)));
+	  r = native_interpret_expr (type, (const unsigned char *)
+				     TREE_STRING_POINTER (ary)
+				     + i * elem_nchars, elem_nchars);
 	}
+      if (r)
+	/* Don't VERIFY_CONSTANT here.  */
+	return r;
 
-      /* If it's within the array bounds but doesn't have an explicit
-	 initializer, it's value-initialized.  */
-      tree val = build_value_init (elem_type, tf_warning_or_error);
-      return cxx_eval_constant_expression (ctx, val, lval, non_constant_p,
-					   overflow_p);
+      /* Otherwise the element doesn't have a value yet.  */
     }
 
-  if (TREE_CODE (ary) == CONSTRUCTOR)
-    return (*CONSTRUCTOR_ELTS (ary))[i].value;
-  else if (TREE_CODE (ary) == VECTOR_CST)
-    return VECTOR_CST_ELT (ary, i);
-  else if (elem_nchars == 1)
-    return build_int_cst (cv_unqualified (TREE_TYPE (TREE_TYPE (ary))),
-			  TREE_STRING_POINTER (ary)[i]);
-  else
+  /* Not found.  */
+
+  if (TREE_CODE (ary) == CONSTRUCTOR
+      && CONSTRUCTOR_NO_IMPLICIT_ZERO (ary))
     {
-      tree type = cv_unqualified (TREE_TYPE (TREE_TYPE (ary)));
-      return native_interpret_expr (type, (const unsigned char *)
-					  TREE_STRING_POINTER (ary)
-					  + i * elem_nchars, elem_nchars);
+      /* 'ary' is part of the aggregate initializer we're currently
+	 building; if there's no initializer for this element yet,
+	 that's an error.  */
+      if (!ctx->quiet)
+	error ("accessing uninitialized array element");
+      *non_constant_p = true;
+      return t;
     }
-  /* Don't VERIFY_CONSTANT here.  */
+
+  /* If it's within the array bounds but doesn't have an explicit
+     initializer, it's value-initialized.  */
+  tree val = build_value_init (elem_type, tf_warning_or_error);
+  return cxx_eval_constant_expression (ctx, val, lval, non_constant_p,
+				       overflow_p);
 }
 
 /* Subroutine of cxx_eval_constant_expression.
@@ -2183,6 +2203,11 @@ cxx_eval_component_reference (const constexpr_ctx *ctx, tree t,
   tree whole = cxx_eval_constant_expression (ctx, orig_whole,
 					     lval,
 					     non_constant_p, overflow_p);
+  if (TREE_CODE (whole) == INDIRECT_REF
+      && integer_zerop (TREE_OPERAND (whole, 0))
+      && !ctx->quiet)
+    error ("dereferencing a null pointer in %qE", orig_whole);
+
   if (TREE_CODE (whole) == PTRMEM_CST)
     whole = cplus_expand_constant (whole);
   if (whole == orig_whole)
@@ -2943,6 +2968,14 @@ cxx_eval_indirect_ref (const constexpr_ctx *ctx, tree t,
       if (*non_constant_p)
 	return t;
 
+      if (!lval && integer_zerop (op0))
+	{
+	  if (!ctx->quiet)
+	    error ("dereferencing a null pointer");
+	  *non_constant_p = true;
+	  return t;
+	}
+
       r = cxx_fold_indirect_ref (EXPR_LOCATION (t), TREE_TYPE (t), op0,
 				 &empty_base);
       if (r == NULL_TREE)
@@ -3138,7 +3171,7 @@ cxx_eval_store_expression (const constexpr_ctx *ctx, tree t,
       /* A constant-expression cannot modify objects from outside the
 	 constant-expression.  */
       if (!ctx->quiet)
-	error ("modification of %qE is not a constant-expression", object);
+	error ("modification of %qE is not a constant expression", object);
       *non_constant_p = true;
       return t;
     }
@@ -3461,6 +3494,7 @@ cxx_eval_loop_expr (const constexpr_ctx *ctx, tree t,
   constexpr_ctx new_ctx = *ctx;
 
   tree body = TREE_OPERAND (t, 0);
+  int count = 0;
   do
     {
       hash_set<tree> save_exprs;
@@ -3473,6 +3507,16 @@ cxx_eval_loop_expr (const constexpr_ctx *ctx, tree t,
       for (hash_set<tree>::iterator iter = save_exprs.begin();
 	   iter != save_exprs.end(); ++iter)
 	new_ctx.values->remove (*iter);
+      if (++count >= constexpr_loop_limit)
+	{
+	  if (!ctx->quiet)
+	    error_at (EXPR_LOC_OR_LOC (t, input_location),
+		      "constexpr loop iteration count exceeds limit of %d "
+		      "(use -fconstexpr-loop-limit= to increase the limit)",
+		      constexpr_loop_limit);
+	  *non_constant_p = true;
+	  break;
+	}
     }
   while (!returns (jump_target) && !breaks (jump_target) && !*non_constant_p);
 
@@ -3538,6 +3582,10 @@ cxx_eval_pointer_plus_expression (const constexpr_ctx *ctx, tree t,
       tree type = TREE_TYPE (op00);
       t = fold_convert_loc (loc, ssizetype, TREE_OPERAND (op00, 1));
       tree nelts = array_type_nelts_top (TREE_TYPE (TREE_OPERAND (op00, 0)));
+      nelts = cxx_eval_constant_expression (ctx, nelts, false, non_constant_p,
+					    overflow_p);
+      if (*non_constant_p)
+	return NULL_TREE;
       /* Don't fold an out-of-bound access.  */
       if (!tree_int_cst_le (t, nelts))
 	return NULL_TREE;
@@ -3591,10 +3639,22 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 	  if (!flag_permissive || ctx->quiet)
 	    *overflow_p = true;
 	}
+
+      if (TREE_CODE (t) == INTEGER_CST
+	  && TREE_CODE (TREE_TYPE (t)) == POINTER_TYPE
+	  && !integer_zerop (t))
+	{
+	  if (!ctx->quiet)
+	    error ("value %qE of type %qT is not a constant expression",
+		   t, TREE_TYPE (t));
+	  *non_constant_p = true;
+	}
+
       return t;
     }
 
-  switch (TREE_CODE (t))
+  tree_code tcode = TREE_CODE (t);
+  switch (tcode)
     {
     case RESULT_DECL:
       if (lval)
@@ -4018,7 +4078,6 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
     case NOP_EXPR:
     case UNARY_PLUS_EXPR:
       {
-	enum tree_code tcode = TREE_CODE (t);
 	tree oldop = TREE_OPERAND (t, 0);
 
 	tree op = cxx_eval_constant_expression (ctx, oldop,
@@ -4039,20 +4098,53 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 	      {
 		if (!ctx->quiet)
 		  error_at (EXPR_LOC_OR_LOC (t, input_location),
-			    "a reinterpret_cast is not a constant-expression");
+			    "a reinterpret_cast is not a constant expression");
 		*non_constant_p = true;
 		return t;
 	      }
 	  }
-	if (POINTER_TYPE_P (type)
-	    && TREE_CODE (op) == INTEGER_CST
-	    && !integer_zerop (op))
+
+	if (POINTER_TYPE_P (type) && TREE_CODE (op) == INTEGER_CST)
 	  {
-	    if (!ctx->quiet)
-	      error_at (EXPR_LOC_OR_LOC (t, input_location),
-			"reinterpret_cast from integer to pointer");
-	    *non_constant_p = true;
-	    return t;
+	    if (integer_zerop (op))
+	      {
+		if (TREE_CODE (type) == REFERENCE_TYPE)
+		  {
+		    if (!ctx->quiet)
+		      error_at (EXPR_LOC_OR_LOC (t, input_location),
+				"dereferencing a null pointer");
+		    *non_constant_p = true;
+		    return t;
+		  }
+		else if (TREE_CODE (TREE_TYPE (op)) == POINTER_TYPE)
+		  {
+		    tree from = TREE_TYPE (op);
+
+		    if (!can_convert (type, from, tf_none))
+		      {
+			if (!ctx->quiet)
+			  error_at (EXPR_LOC_OR_LOC (t, input_location),
+				    "conversion of %qT null pointer to %qT "
+				    "is not a constant expression",
+				    from, type);
+			*non_constant_p = true;
+			return t;
+		      }
+		  }
+	      }
+	    else
+	      {
+		/* This detects for example:
+		     reinterpret_cast<void*>(sizeof 0)
+		*/
+		if (!ctx->quiet)
+		  error_at (EXPR_LOC_OR_LOC (t, input_location),
+			    "%<reinterpret_cast<%T>(%E)%> is not "
+			    "a constant expression",
+			    type, op);
+		*non_constant_p = true;
+		return t;
+	      }
 	  }
 	if (op == oldop && tcode != UNARY_PLUS_EXPR)
 	  /* We didn't fold at the top so we could check for ptr-int
@@ -4110,7 +4202,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
     case OFFSET_REF:
       if (!ctx->quiet)
         error_at (EXPR_LOC_OR_LOC (t, input_location),
-		  "expression %qE is not a constant-expression", t);
+		  "expression %qE is not a constant expression", t);
       *non_constant_p = true;
       break;
 
@@ -4191,7 +4283,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 	     so for now just fail.  */
 	  if (!ctx->quiet)
 	    error_at (EXPR_LOCATION (t),
-		      "statement is not a constant-expression");
+		      "statement is not a constant expression");
 	}
       else
 	internal_error ("unexpected expression %qE of kind %s", t,
@@ -4278,7 +4370,7 @@ cxx_eval_outermost_constant_expr (tree t, bool allow_non_constant,
     {
       if (!allow_non_constant)
 	error ("conversion from pointer type %qT "
-	       "to arithmetic type %qT in a constant-expression",
+	       "to arithmetic type %qT in a constant expression",
 	       TREE_TYPE (TREE_OPERAND (r, 0)), TREE_TYPE (r));
       non_constant_p = true;
     }
@@ -4976,7 +5068,7 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
     case AT_ENCODE_EXPR:
     fail:
       if (flags & tf_error)
-        error ("expression %qE is not a constant-expression", t);
+	error ("expression %qE is not a constant expression", t);
       return false;
 
     case TYPEID_EXPR:
@@ -5137,7 +5229,7 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
 	if (integer_zerop (denom))
 	  {
 	    if (flags & tf_error)
-	      error ("division by zero is not a constant-expression");
+	      error ("division by zero is not a constant expression");
 	    return false;
 	  }
 	else
@@ -5242,7 +5334,7 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
 	{
 	  if (flags & tf_error)
 	    error_at (location_of (t),
-		      "%<delete[]%> is not a constant-expression");
+		      "%<delete[]%> is not a constant expression");
 	  return false;
 	}
       /* Fall through.  */
@@ -5265,7 +5357,7 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
 					     want_rval, strict, tf_none))
 	  return true;
       if (flags & tf_error)
-        error ("expression %qE is not a constant-expression", t);
+	error ("expression %qE is not a constant expression", t);
       return false;
 
     case VEC_INIT_EXPR:
@@ -5293,7 +5385,7 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
 	if (breaks (target) || continues (target))
 	  return true;
 	if (flags & tf_error)
-	  error ("%<goto%> is not a constant-expression");
+	  error ("%<goto%> is not a constant expression");
 	return false;
       }
 

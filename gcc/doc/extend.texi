@@ -2853,6 +2853,12 @@ If @option{-finstrument-functions} is given, profiling function calls are
 generated at entry and exit of most user-compiled functions.
 Functions with this attribute are not so instrumented.
 
+@item no_profile_instrument_function
+@cindex @code{no_profile_instrument_function} function attribute
+The @code{no_profile_instrument_function} attribute on functions is used
+to inform the compiler that it should not process any profile feedback based
+optimization code instrumentation.
+
 @item no_reorder
 @cindex @code{no_reorder} function attribute
 Do not reorder functions or variables marked @code{no_reorder}
@@ -12545,6 +12551,14 @@ __builtin_avr_insert_bits (0xffff3210, bits, val)
 // reverse the bit order of bits
 __builtin_avr_insert_bits (0x01234567, bits, 0)
 @end smallexample
+
+@smallexample
+void __builtin_avr_nops (unsigned count)
+@end smallexample
+
+@noindent
+Insert @code{count} @code{NOP} instructions.
+The number of instructions must be a compile-time integer constant.
 
 @node Blackfin Built-in Functions
 @subsection Blackfin Built-in Functions

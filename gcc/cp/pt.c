@@ -140,7 +140,7 @@ static int unify (tree, tree, tree, tree, int, bool);
 static void add_pending_template (tree);
 static tree reopen_tinst_level (struct tinst_level *);
 static tree tsubst_initializer_list (tree, tree);
-static tree get_partial_spec_bindings (tree, tree, tree, tree);
+static tree get_partial_spec_bindings (tree, tree, tree);
 static tree coerce_template_parms (tree, tree, tree, tsubst_flags_t,
 				   bool, bool);
 static tree coerce_innermost_template_parms (tree, tree, tree, tsubst_flags_t,
@@ -7403,11 +7403,12 @@ coerce_template_parameter_pack (tree parms,
 
   /* Convert the remaining arguments, which will be a part of the
      parameter pack "parm".  */
+  int first_pack_arg = arg_idx;
   for (; arg_idx < nargs; ++arg_idx)
     {
       tree arg = TREE_VEC_ELT (inner_args, arg_idx);
       tree actual_parm = TREE_VALUE (parm);
-      int pack_idx = arg_idx - parm_idx;
+      int pack_idx = arg_idx - first_pack_arg;
 
       if (packed_parms)
         {
@@ -7436,12 +7437,12 @@ coerce_template_parameter_pack (tree parms,
       TREE_VEC_ELT (packed_args, pack_idx) = arg;
     }
 
-  if (arg_idx - parm_idx < TREE_VEC_LENGTH (packed_args)
+  if (arg_idx - first_pack_arg < TREE_VEC_LENGTH (packed_args)
       && TREE_VEC_LENGTH (packed_args) > 0)
     {
       if (complain & tf_error)
 	error ("wrong number of template arguments (%d, should be %d)",
-	       arg_idx - parm_idx, TREE_VEC_LENGTH (packed_args));
+	       arg_idx - first_pack_arg, TREE_VEC_LENGTH (packed_args));
       return error_mark_node;
     }
 
@@ -11159,6 +11160,12 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
       local_specializations = saved_local_specializations;
     }
   
+  /* If the dependent pack arguments were such that we end up with only a
+     single pack expansion again, there's no need to keep it in a TREE_VEC.  */
+  if (len == 1 && TREE_CODE (result) == TREE_VEC
+      && PACK_EXPANSION_P (TREE_VEC_ELT (result, 0)))
+    return TREE_VEC_ELT (result, 0);
+
   return result;
 }
 
@@ -13619,6 +13626,18 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 				      /*function_p*/false,
 				      /*integral_constant_expression*/false);
 
+	if (DECLTYPE_FOR_INIT_CAPTURE (t))
+	  {
+	    if (type == NULL_TREE)
+	      {
+		if (complain & tf_error)
+		  error ("empty initializer in lambda init-capture");
+		type = error_mark_node;
+	      }
+	    else if (TREE_CODE (type) == TREE_LIST)
+	      type = build_x_compound_expr_from_list (type, ELK_INIT, complain);
+	  }
+
 	--cp_unevaluated_operand;
 	--c_inhibit_evaluation_warnings;
 
@@ -13813,6 +13832,8 @@ tsubst_qualified_id (tree qualified_id, tree args,
       if (template_args)
 	template_args = tsubst_template_args (template_args, args,
 					      complain, in_decl);
+      if (template_args == error_mark_node)
+	return error_mark_node;
       name = TREE_OPERAND (name, 0);
     }
   else
@@ -17327,8 +17348,8 @@ check_instantiated_arg (tree tmpl, tree t, tsubst_flags_t complain)
 	     type deduction to fail.  */
 	  if (complain & tf_error)
 	    {
-	      if (TYPE_ANONYMOUS_P (nt))
-		error ("%qT is/uses anonymous type", t);
+	      if (TYPE_UNNAMED_P (nt))
+		error ("%qT is/uses unnamed type", t);
 	      else
 		error ("template argument for %qD uses local type %qT",
 		       tmpl, t);
@@ -20248,7 +20269,7 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
       /* An unresolved overload is a nondeduced context.  */
       if (is_overloaded_fn (parm) || type_unknown_p (parm))
 	return unify_success (explain_p);
-      gcc_assert (EXPR_P (parm));
+      gcc_assert (EXPR_P (parm) || TREE_CODE (parm) == TRAIT_EXPR);
     expr:
       /* We must be looking at an expression.  This can happen with
 	 something like:
@@ -20676,8 +20697,6 @@ more_specialized_partial_spec (tree tmpl, tree pat1, tree pat2)
 
   tree tmpl1 = TREE_VALUE (pat1);
   tree tmpl2 = TREE_VALUE (pat2);
-  tree parms1 = DECL_INNERMOST_TEMPLATE_PARMS (tmpl1);
-  tree parms2 = DECL_INNERMOST_TEMPLATE_PARMS (tmpl2);
   tree specargs1 = TI_ARGS (get_template_info (DECL_TEMPLATE_RESULT (tmpl1)));
   tree specargs2 = TI_ARGS (get_template_info (DECL_TEMPLATE_RESULT (tmpl2)));
 
@@ -20686,14 +20705,14 @@ more_specialized_partial_spec (tree tmpl, tree pat1, tree pat2)
      types in the arguments, and we need our dependency check functions
      to behave correctly.  */
   ++processing_template_decl;
-  targs = get_partial_spec_bindings (tmpl, parms1, specargs1, specargs2);
+  targs = get_partial_spec_bindings (tmpl, tmpl1, specargs2);
   if (targs)
     {
       --winner;
       any_deductions = true;
     }
 
-  targs = get_partial_spec_bindings (tmpl, parms2, specargs2, specargs1);
+  targs = get_partial_spec_bindings (tmpl, tmpl2, specargs1);
   if (targs)
     {
       ++winner;
@@ -20777,23 +20796,23 @@ get_bindings (tree fn, tree decl, tree explicit_args, bool check_rettype)
 }
 
 /* Return the innermost template arguments that, when applied to a partial
-   specialization of TMPL whose innermost template parameters are
-   TPARMS, and whose specialization arguments are SPEC_ARGS, yield the
-   ARGS.
+   specialization SPEC_TMPL of TMPL, yield the ARGS.
 
    For example, suppose we have:
 
      template <class T, class U> struct S {};
      template <class T> struct S<T*, int> {};
 
-   Then, suppose we want to get `S<double*, int>'.  The TPARMS will be
-   {T}, the SPEC_ARGS will be {T*, int} and the ARGS will be {double*,
-   int}.  The resulting vector will be {double}, indicating that `T'
-   is bound to `double'.  */
+   Then, suppose we want to get `S<double*, int>'.  SPEC_TMPL will be the
+   partial specialization and the ARGS will be {double*, int}.  The resulting
+   vector will be {double}, indicating that `T' is bound to `double'.  */
 
 static tree
-get_partial_spec_bindings (tree tmpl, tree tparms, tree spec_args, tree args)
+get_partial_spec_bindings (tree tmpl, tree spec_tmpl, tree args)
 {
+  tree tparms = DECL_INNERMOST_TEMPLATE_PARMS (spec_tmpl);
+  tree spec_args
+    = TI_ARGS (get_template_info (DECL_TEMPLATE_RESULT (spec_tmpl)));
   int i, ntparms = TREE_VEC_LENGTH (tparms);
   tree deduced_args;
   tree innermost_deduced_args;
@@ -20819,6 +20838,13 @@ get_partial_spec_bindings (tree tmpl, tree tparms, tree spec_args, tree args)
     if (! TREE_VEC_ELT (innermost_deduced_args, i))
       return NULL_TREE;
 
+  tree tinst = build_tree_list (spec_tmpl, deduced_args);
+  if (!push_tinst_level (tinst))
+    {
+      excessive_deduction_depth = true;
+      return NULL_TREE;
+    }
+
   /* Verify that nondeduced template arguments agree with the type
      obtained from argument deduction.
 
@@ -20835,6 +20861,9 @@ get_partial_spec_bindings (tree tmpl, tree tparms, tree spec_args, tree args)
   spec_args = coerce_template_parms (DECL_INNERMOST_TEMPLATE_PARMS (tmpl),
 				     spec_args, tmpl,
 				     tf_none, false, false);
+
+  pop_tinst_level ();
+
   if (spec_args == error_mark_node
       /* We only need to check the innermost arguments; the other
 	 arguments will always agree.  */
@@ -21044,44 +21073,21 @@ most_specialized_partial_spec (tree target, tsubst_flags_t complain)
 
   for (t = DECL_TEMPLATE_SPECIALIZATIONS (main_tmpl); t; t = TREE_CHAIN (t))
     {
-      tree partial_spec_args;
       tree spec_args;
       tree spec_tmpl = TREE_VALUE (t);
 
-      partial_spec_args = TREE_PURPOSE (t);
-
-      ++processing_template_decl;
-
       if (outer_args)
 	{
-	  /* Discard the outer levels of args, and then substitute in the
-	     template args from the enclosing class.  */
-	  partial_spec_args = INNERMOST_TEMPLATE_ARGS (partial_spec_args);
-	  partial_spec_args = tsubst_template_args
-	    (partial_spec_args, outer_args, tf_none, NULL_TREE);
-
-	  /* And the same for the partial specialization TEMPLATE_DECL.  */
+	  /* Substitute in the template args from the enclosing class.  */
+	  ++processing_template_decl;
 	  spec_tmpl = tsubst (spec_tmpl, outer_args, tf_none, NULL_TREE);
+	  --processing_template_decl;
 	}
 
-      partial_spec_args =
-	  coerce_template_parms (DECL_INNERMOST_TEMPLATE_PARMS (tmpl),
-				 partial_spec_args,
-				 tmpl, tf_none,
-				 /*require_all_args=*/true,
-				 /*use_default_args=*/true);
-
-      --processing_template_decl;
-
-      if (partial_spec_args == error_mark_node)
-	return error_mark_node;
       if (spec_tmpl == error_mark_node)
 	return error_mark_node;
 
-      tree parms = DECL_INNERMOST_TEMPLATE_PARMS (spec_tmpl);
-      spec_args = get_partial_spec_bindings (tmpl, parms,
-				      partial_spec_args,
-				      args);
+      spec_args = get_partial_spec_bindings (tmpl, spec_tmpl, args);
       if (spec_args)
 	{
 	  if (outer_args)

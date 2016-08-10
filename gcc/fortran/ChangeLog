@@ -1,7 +1,121 @@
+2016-08-08  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/71936
+	* trans-array.c (gfc_array_allocate): When SOURCE= is a function
+	stick with the ref of the object to allocate.
+
+2016-08-08  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/72698
+	* trans-stmt.c (gfc_trans_allocate): Prevent generating code for
+	copy of zero sized string and with it an ICE.
+
+2016-08-08  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/70524
+	* trans-array.c (gfc_trans_dummy_array_bias): Ensure that the
+	location information is correctly set.
+	* trans-decl.c (gfc_trans_deferred_vars): Set the locus of the
+	current construct early.
+
+2016-08-03  Fritz Reese  <fritzoreese@gmail.com>
+
+	* lang.opt: New option -fdec-intrinsic-ints.
+	* options.c (set_dec_flags): Enable with -fdec.
+	* gfortran.texi, invoke.texi, intrinsics.texi: Update documentation.
+	* intrinsic.c (add_function, add_subroutine): New B/I/J/K intrinsic
+	variants.
+
+2016-07-30  Steven G. Kargl <kargl@gcc.gnu.org>
+
+	PR fortran/41922
+	* target-memory.c (expr_to_char): Pass in locus and use it in error
+	messages.
+	(gfc_merge_initializers): Ditto.
+	* target-memory.h: Update prototype for gfc_merge_initializers ().
+	* trans-common.c (get_init_field): Use the correct locus.
+
+2016-07-30  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/68566
+	* check.c (gfc_check_reshape): Check for constant expression.
+
+2016-07-30  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/69867
+	* decl.c (build_struct): Ensure that pointers point to something.
+
+2016-07-30  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/69962
+	* decl.c (gfc_set_constant_character_len):  if expr is not
+	constant issue an error instead of an ICE.
+
+2016-07-30  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/70006
+	* io.c (gfc_resolve_dt): Use correct locus.
+	* resolve.c (resolve_branch): Ditto.
+
+2016-07-30  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/71730
+	* decl.c (char_len_param_value): Check return value of
+	gfc_reduce_init_expr().
+
+2016-07-29  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* trans-array.c (gfc_conv_array_ref): Fix allocation of diagnostic
+	message (was too small).
+
+2016-07-28  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/71067
+	* decl.c (match_data_constant): On error, set 'result' to NULL.
+
+2016-07-28  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/71799
+	* resolve.c(gfc_resolve_iterator): Failure of type conversion need
+	not ICE.
+
+2016-07-28  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/71859
+	* check.c(numeric_check): Prevent ICE.  Issue error for invalid
+	subroutine as an actual argument when numeric argument is expected.
+
+2016-07-28  Steven G. Kargl  <kargl@gcc.gnu.org>
+	    Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/71883
+	* frontend-passes.c (gfc_run_passes): Bail out if there are any
+	errors.
+	* error.c (gfc_internal_error): If there are any errors in the
+	buffer, exit with EXIT_FAILURE.
+
+2016-07-28  Renlin Li  <renlin.li@arm.com>
+
+	Revert
+	2016-07-19  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/71902
+	* dependency.c (gfc_check_dependency): Use dep_ref.  Handle case
+	if identical is true and two array element references differ.
+	(gfc_dep_resovler):  Move most of the code to dep_ref.
+	(dep_ref):  New function.
+	* frontend-passes.c (realloc_string_callback):  Name temporary
+	variable "realloc_string".
+
+2016-07-26  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/71862
+	* class.c: Remove assert.  Iterate over component only if non-null.
+
 2016-07-22  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR fortran/71935
-	* check.c (is_c_interoperable): Simplify right expression. 
+	* check.c (is_c_interoperable): Simplify right expression.
 
 2016-07-22  Thomas Koenig  <tkoenig@gcc.gnu.org>
 
@@ -57,7 +171,7 @@
 
 	PR fortran/29819
 	* parse.c (parse_contained): Use proper locus.
- 
+
 2016-07-14  Andre Vehreschild  <vehre@gcc.gnu.org>
 
 	PR fortran/70842

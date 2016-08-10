@@ -1,3 +1,159 @@
+2016-08-06  Jonathan Wakely  <jwakely@redhat.com>
+
+	* call.c (convert_like_real): Harmonize diagnostics for invalid
+	reference binding.
+
+2016-08-05 Martin Sebor  <msebor@redhat.com>
+
+	* constexpr.c (cxx_eval_store_expression): Remove hyphen from
+	the spelling of "constant-expression" in diagnostic messages
+	for consistency.
+	(cxx_eval_constant_expression): Same.
+	(cxx_eval_outermost_constant_expr): Same.
+	(potential_constant_expression_1): Same.
+
+2016-08-05  Nathan Sidwell  <nathan@acm.org>
+
+	PR c++/68724
+	* pt.c (unify): TRAIT_EXPR is an expr.
+
+2016-08-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/72800
+	* lambda.c (add_capture): Check lambda_capture_field_type return
+	value for error_mark_node.
+
+2016-08-04  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/72759
+	* pt.c (tsubst_qualified_id): Return error_mark_node if
+	template_args is error_mark_node.
+
+2016-08-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/72415
+	* pt.c (tsubst_pack_expansion): Pull a single pack expansion out
+	of the TREE_VEC.
+
+	* cp-tree.h (TYPE_UNNAMED_P): Rename from TYPE_ANONYMOUS_P.
+	(TYPE_WAS_UNNAMED): Rename from TYPE_WAS_ANONYMOUS.
+	* class.c, decl.c, decl2.c, error.c, lambda.c, mangle.c,
+	name-lookup.c, parser.c, pt.c, semantics.c, tree.c: Adjust.
+
+	PR c++/72796
+	* typeck.c (finish_class_member_access_expr): Avoid stripping
+	SCOPE_REF to dependent base.
+
+2016-08-04  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* parser.c (cp_ensure_no_oacc_routine): Improve diagnostics.
+	(cp_parser_late_parsing_cilk_simd_fn_info): Fix diagnostics.
+	(cp_parser_late_parsing_oacc_routine, cp_finalize_oacc_routine):
+	Simplify code, and improve diagnostics.
+	(cp_parser_oacc_routine): Likewise.  Move pragma context
+	checking...
+	(cp_parser_pragma): ... here.
+
+	* parser.h (struct cp_omp_declare_simd_data): New.
+	(struct cp_parser): Use it for oacc_routine member.
+	* parser.c (cp_ensure_no_oacc_routine, cp_parser_oacc_routine)
+	(cp_parser_late_parsing_oacc_routine, cp_finalize_oacc_routine):
+	Use it.  Simplify code.
+	(cp_parser_new): Initialize all members pointing to special
+	parsing data structures.
+	(cp_parser_cilk_simd_fn_vector_attrs): Initialize
+	parser->cilk_simd_fn_info->clauses.
+	(cp_parser_omp_declare_simd): Initialize
+	parser->omp_declare_simd->clauses.
+	(cp_parser_late_parsing_omp_declare_simd): Simplify code.
+
+2016-08-04  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/70229
+	* constexpr.c (check_constexpr_ctor_body_1): Allow typedef
+	declarations.
+
+2016-08-01  Jason Merrill  <jason@redhat.com>
+
+	* mangle.c (mangle_decl): Warn about mangled name change even if
+	DECL_REALLY_EXTERN.
+
+	* mangle.c (get_abi_tags): New.
+	(find_substitution, write_unqualified_name, write_abi_tags)
+	(maybe_check_abi_tags): Use it.
+
+	* mangle.c (mangle_decl): Fix mangled name change warning.
+
+	PR c++/72766
+	* constexpr.c (cxx_eval_pointer_plus_expression): Check constancy
+	of nelts.
+	* cp-gimplify.c (cp_fully_fold): Only maybe_constant_value in
+	C++11 and up.
+
+2016-07-30 Martin Sebor  <msebor@redhat.com>
+
+	PR c++/60760
+	PR c++/71091
+	* constexpr.c (cxx_eval_binary_expression): Reject invalid expressions
+	involving null pointers.
+	(cxx_eval_component_reference): Reject null pointer dereferences.
+	(cxx_eval_indirect_ref): Reject indirecting through null pointers.
+	(cxx_eval_constant_expression): Reject invalid expressions involving
+	null pointers.
+
+2016-07-29  Marek Polacek  <polacek@redhat.com>
+
+	PR c/71926
+	* semantics.c (maybe_convert_cond): Use the location of COND for the
+	parentheses warning.
+
+2016-07-29  Jason Merrill  <jason@redhat.com>
+
+	* decl.c (build_enumerator): Tweak diagnostic.
+
+	PR c++/72457
+	* init.c (expand_aggr_init_1): Only handle value-init of bases.
+	* constexpr.c (build_data_member_initialization): Handle multiple
+	initializers for the same field.
+
+2016-07-28  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/71665
+	* decl.c (build_enumerator): Check the type of the enumerator before
+	calling cxx_constant_value.
+
+2016-07-27  Jason Merrill  <jason@redhat.com>
+
+	PR c++/71747
+	* pt.c (get_partial_spec_bindings): Replace tparms and spec_args
+	parameters with spec_tmpl.  Call push_tinst_level.
+	(most_specialized_partial_spec): Adjust.
+	(more_specialized_partial_spec): Adjust.
+
+2016-07-25  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65970
+	* cp-gimplify.c (genericize_cp_loop): Revert location change.
+
+	PR c++/71837
+	* lambda.c (add_capture): Leave a pack expansion in a TREE_LIST.
+	(build_lambda_object): Call build_x_compound_expr_from_list.
+	* pt.c (tsubst) [DECLTYPE_TYPE]: Likewise.
+
+	PR c++/71833
+	PR c++/54440
+	* pt.c (coerce_template_parameter_pack): Fix logic for
+	pack index.
+
+	PR c++/65970
+	* constexpr.c (cxx_eval_loop_expr): Count iterations.
+	* cp-gimplify.c (genericize_cp_loop): Use start_locus even for
+	infinite loops.
+
+	PR c++/71972
+	* constexpr.c (cxx_eval_array_reference): Handle looking for the
+	value of an element we're currently modifying.
+
 2016-07-24  Jason Merrill  <jason@redhat.com>
 
 	PR c++/71515
