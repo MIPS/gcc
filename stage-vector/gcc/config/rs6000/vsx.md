@@ -323,6 +323,7 @@
    UNSPEC_VSX_VXSIG
    UNSPEC_VSX_VIEXP
    UNSPEC_VSX_VTSTDC
+   UNSPEC_VSX_VEC_INIT
   ])
 
 ;; VSX moves
@@ -1932,6 +1933,34 @@
 }
   [(set_attr "type" "vecperm")])
 
+;; Optimize doing a concat and storing the result in memory
+(define_insn_and_split "*vsx_concat_<mode>_memory"
+  [(set (match_operand:VSX_D 0 "memory_operand" "=m")
+	(vec_concat:VSX_D
+	 (match_operand:<VS_scalar> 1 "gpc_reg_operand" "r<VS_64reg>")
+	 (match_operand:<VS_scalar> 2 "gpc_reg_operand" "r<VS_64reg>")))
+   (clobber (match_scratch:DI 3 "=&b"))]
+   "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_POWERPC64"
+   "#"
+   "&& reload_completed"
+   [(const_int 0)]
+{
+  rtx mem = operands[0];
+  rtx op1 = operands[1];
+  rtx op2 = operands[2];
+  rtx tmp = operands[3];
+  rtx index, s_mem;
+
+  index = GEN_INT (VECTOR_ELT_ORDER_BIG == 0);
+  s_mem = rs6000_adjust_vec_address (op1, mem, index, tmp, <VS_scalar>mode);
+  emit_move_insn (s_mem, op1);
+
+  index = GEN_INT (VECTOR_ELT_ORDER_BIG != 0);
+  s_mem = rs6000_adjust_vec_address (op2, mem, index, tmp, <VS_scalar>mode);
+  emit_move_insn (s_mem, op2);
+  DONE;
+})
+
 ;; Special purpose concat using xxpermdi to glue two single precision values
 ;; together, relying on the fact that internally scalar floats are represented
 ;; as doubles.  This is used to initialize a V4SF vector with 4 floats
@@ -1949,6 +1978,26 @@
     return "xxpermdi %x0,%x2,%x1,0";
 }
   [(set_attr "type" "vecperm")])
+
+;; V4SImode initialization splitter
+(define_insn_and_split "vsx_init_v4si"
+  [(set (match_operand:V4SI 0 "nonimmediate_operand" "=&r,m,m")
+	(unspec:V4SI
+	 [(match_operand:SI 1 "reg_or_cint_operand" "rn,r,rn")
+	  (match_operand:SI 2 "reg_or_cint_operand" "rn,r,rn")
+	  (match_operand:SI 3 "reg_or_cint_operand" "rn,r,rn")
+	  (match_operand:SI 4 "reg_or_cint_operand" "rn,r,rn")]
+	 UNSPEC_VSX_VEC_INIT))
+   (clobber (match_scratch:DI 5 "=&r,&b,&b"))
+   (clobber (match_scratch:DI 6 "=&r,X,&r"))]
+   "VECTOR_MEM_VSX_P (V4SImode) && TARGET_DIRECT_MOVE_64BIT"
+   "#"
+   "&& reload_completed"
+   [(const_int 0)]
+{
+  rs6000_split_v4si_init (operands);
+  DONE;
+})
 
 ;; xxpermdi for little endian loads and stores.  We need several of
 ;; these since the form of the PARALLEL differs by mode.

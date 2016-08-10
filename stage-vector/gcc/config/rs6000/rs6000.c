@@ -6749,30 +6749,12 @@ rs6000_expand_vector_init (rtx target, rtx vals)
   if (mode == V4SImode && TARGET_DIRECT_MOVE_64BIT
       && (TARGET_LRA || TARGET_VSX_TIMODE))
     {
-      rtx di_hi, di_lo, elements[4], tmp;
-      size_t i;
+      rtx s1 = XVECEXP (vals, 0, 0);
+      rtx s2 = XVECEXP (vals, 0, 1);
+      rtx s3 = XVECEXP (vals, 0, 2);
+      rtx s4 = XVECEXP (vals, 0, 3);
 
-      for (i = 0; i < 4; i++)
-	{
-	  rtx element_si = XVECEXP (vals, 0, VECTOR_ELT_ORDER_BIG ? i : 3 - i);
-	  element_si = copy_to_mode_reg (SImode, element_si);
-	  elements[i] = gen_reg_rtx (DImode);
-	  convert_move (elements[i], element_si, true);
-	}
-
-      di_hi = gen_reg_rtx (DImode);
-      tmp = gen_reg_rtx (DImode);
-      emit_insn (gen_ashldi3 (tmp, elements[0], GEN_INT (32)));
-      emit_insn (gen_iordi3 (di_hi, tmp, elements[1]));
-
-      di_lo = gen_reg_rtx (DImode);
-      tmp = gen_reg_rtx (DImode);
-      emit_insn (gen_ashldi3 (tmp, elements[2], GEN_INT (32)));
-      emit_insn (gen_iordi3 (di_lo, tmp, elements[3]));
-
-      emit_insn (gen_rtx_CLOBBER (VOIDmode, target));
-      emit_move_insn (gen_highpart (DImode, target), di_hi);
-      emit_move_insn (gen_lowpart (DImode, target), di_lo);
+      emit_insn (gen_vsx_init_v4si (target, s1, s2, s3, s4));
       return;
     }
 
@@ -7354,6 +7336,116 @@ rs6000_split_vec_extract_var (rtx dest, rtx src, rtx element, rtx tmp_gpr,
   else
     gcc_unreachable ();
  }
+
+/* Helper function for rs6000_split_v4si_init to build up a DImode value from
+   two SImode values.  */
+
+static void
+rs6000_split_v4si_init_di_reg (rtx dest, rtx si1, rtx si2, rtx tmp)
+{
+  if (CONST_INT_P (si1) && CONST_INT_P (si2))
+    {
+      HOST_WIDE_INT const1 = (INTVAL (si1) & 0xffff) << 16;
+      HOST_WIDE_INT const2 = INTVAL (si2) & 0xffff;
+
+      emit_move_insn (dest, GEN_INT (const1 | const2));
+      return;
+    }
+
+  /* Put si1 into upper 32-bits of dest.  */
+  if (CONST_INT_P (si1))
+    emit_move_insn (dest, GEN_INT ((INTVAL (si1) & 0xffff) << 16));
+  else
+    {
+      /* Generate RLDIC.  */
+      rtx si1_di = gen_rtx_REG (DImode, regno_or_subregno (si1));
+      rtx shift_rtx = gen_rtx_ASHIFT (DImode, si1_di, GEN_INT (32));
+      rtx mask_rtx = GEN_INT (0xffff00000000L);
+      rtx and_rtx = gen_rtx_AND (DImode, shift_rtx, mask_rtx);
+      gcc_assert (!reg_overlap_mentioned_p (dest, si1));
+      emit_insn (gen_rtx_SET (dest, and_rtx));
+    }
+
+  /* Put si2 into the temporary.  */
+  gcc_assert (!reg_overlap_mentioned_p (dest, tmp));
+  if (CONST_INT_P (si2))
+    emit_move_insn (tmp, GEN_INT (INTVAL (si2) & 0xffff));
+  else
+    emit_insn (gen_zero_extendsidi2 (tmp, si2));
+
+  /* Combine the two parts.  */
+  emit_insn (gen_iordi3 (dest, dest, tmp));
+  return;
+}
+
+/* Split a V4SI initialization.  */
+
+void
+rs6000_split_v4si_init (rtx operands[])
+{
+  rtx dest = operands[0];
+
+  /* Destination is a GPR, build up the two DImode parts in place.  */
+  if (REG_P (dest) || SUBREG_P (dest))
+    {
+      int d_regno = regno_or_subregno (dest);
+      rtx scalar1 = operands[1];
+      rtx scalar2 = operands[2];
+      rtx scalar3 = operands[3];
+      rtx scalar4 = operands[4];
+      rtx tmp1 = operands[5];
+      rtx tmp2 = operands[6];
+
+      /* Even though we only need one temporary (plus the destination, which
+	 has an early clobber constraint, try to use two temporaries, one for
+	 each double word created.  That way the 2nd insn scheduling pass can
+	 rearrange things so the two parts are done in parallel.  */
+      if (VECTOR_ELT_ORDER_BIG)
+	{
+	  rtx di_hi = gen_rtx_REG (DImode, d_regno + (BYTES_BIG_ENDIAN != 0));
+	  rtx di_lo = gen_rtx_REG (DImode, d_regno + (BYTES_BIG_ENDIAN == 0));
+
+	  rs6000_split_v4si_init_di_reg (di_hi, scalar1, scalar2, tmp1);
+	  rs6000_split_v4si_init_di_reg (di_lo, scalar3, scalar4, tmp2);
+	}
+      else
+	{
+	  rtx di_hi = gen_rtx_REG (DImode, d_regno + (BYTES_BIG_ENDIAN == 0));
+	  rtx di_lo = gen_rtx_REG (DImode, d_regno + (BYTES_BIG_ENDIAN != 0));
+
+	  rs6000_split_v4si_init_di_reg (di_hi, scalar4, scalar3, tmp1);
+	  rs6000_split_v4si_init_di_reg (di_lo, scalar2, scalar1, tmp2);
+	}
+      return;
+    }
+
+  /* Destination is in memory, store each part.  */
+  else if (MEM_P (dest))
+    {
+      rtx base_reg = operands[5];
+      rtx const_tmp = operands[6];
+      size_t i;
+
+      for (i = 0; i < 4; i++)
+	{
+	  rtx scalar = operands[i+1];
+	  rtx s_mem;
+
+	  if (CONST_INT_P (scalar))
+	    {
+	      emit_move_insn (const_tmp, scalar);
+	      scalar = const_tmp;
+	    }
+
+	  s_mem = rs6000_adjust_vec_address (scalar, dest, GEN_INT (i), base_reg,
+					     SImode);
+	  emit_move_insn (s_mem, scalar);
+	}
+    }
+
+  else
+    gcc_unreachable ();
+}
 
 /* Return TRUE if OP is an invalid SUBREG operation on the e500.  */
 

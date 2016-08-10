@@ -1,5 +1,22 @@
 2016-08-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000-protos.h (rs6000_split_v4si_init): New
+	declaration.
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Create a
+	combined insn for V4SImode initialization to allow optimizing for
+	storing the V4SImode directly.
+	(rs6000_split_v4si_init_di_reg): New functions to split the
+	V4SImode initialization into the component insns, handling
+	creating the insn in registers or in memory.
+	(rs6000_split_v4si_init): Likewise.
+
+	* config/rs6000/vsx.md (UNSPEC_VSX_VEC_INIT): New unspec.
+	(vsx_concat_<mode>_memory): Optimize creating V2DImode and
+	V2DFmode vectors that are in memory.
+	(vsx_init_v4si): New insn to create a V4Imode vector from 4 SImode
+	values.  Handle creating the vector in GPRs or in memory.
+
 	Merge up to 239334.
 	* REVISION: Update subversion id.
 
