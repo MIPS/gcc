@@ -7445,8 +7445,8 @@ rs6000_split_v4si_init (rtx operands[])
 	      scalar = const_tmp;
 	    }
 
-	  s_mem = rs6000_adjust_vec_address (scalar, dest, GEN_INT (i), base_reg,
-					     SImode);
+	  s_mem = rs6000_adjust_vec_address (scalar, copy_rtx (dest),
+					     GEN_INT (i), base_reg, SImode);
 	  emit_move_insn (s_mem, scalar);
 	}
     }

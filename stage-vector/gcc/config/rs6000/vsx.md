@@ -1953,15 +1953,15 @@
 
 ;; V4SImode initialization splitter
 (define_insn_and_split "vsx_init_v4si"
-  [(set (match_operand:V4SI 0 "nonimmediate_operand" "=&r,m,m")
+  [(set (match_operand:V4SI 0 "nonimmediate_operand" "=&r,m")
 	(unspec:V4SI
-	 [(match_operand:SI 1 "reg_or_cint_operand" "rn,r,rn")
-	  (match_operand:SI 2 "reg_or_cint_operand" "rn,r,rn")
-	  (match_operand:SI 3 "reg_or_cint_operand" "rn,r,rn")
-	  (match_operand:SI 4 "reg_or_cint_operand" "rn,r,rn")]
+	 [(match_operand:SI 1 "reg_or_cint_operand" "rn,rn")
+	  (match_operand:SI 2 "reg_or_cint_operand" "rn,rn")
+	  (match_operand:SI 3 "reg_or_cint_operand" "rn,rn")
+	  (match_operand:SI 4 "reg_or_cint_operand" "rn,rn")]
 	 UNSPEC_VSX_VEC_INIT))
-   (clobber (match_scratch:DI 5 "=&r,&b,&b"))
-   (clobber (match_scratch:DI 6 "=&r,X,&r"))]
+   (clobber (match_scratch:DI 5 "=&r,&b"))
+   (clobber (match_scratch:DI 6 "=&r,&b"))]
    "VECTOR_MEM_VSX_P (V4SImode) && TARGET_DIRECT_MOVE_64BIT"
    "#"
    "&& reload_completed"
