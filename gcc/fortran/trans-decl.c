@@ -46,6 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "trans-stmt.h"
 #include "gomp-constants.h"
 #include "gimplify.h"
+#include "omp-low.h"
 
 #define MAX_LABEL_VALUE 99999
 
@@ -1360,37 +1361,94 @@ add_attributes_to_decl (symbol_attribute sym_attr, tree list)
       }
 
   if (sym_attr.omp_declare_target)
-    list = tree_cons (get_identifier ("omp declare target"),
-		      NULL_TREE, list);
-
-  if (sym_attr.oacc_function != OACC_FUNCTION_NONE)
     {
-      tree dims = NULL_TREE;
-      int ix;
-      int level = GOMP_DIM_MAX;
-
-      switch (sym_attr.oacc_function)
+      tree clauses = NULL_TREE;
+      symbol_attribute *oacc_routine_attr = &sym_attr;
+      while (oacc_routine_attr != NULL
+	     && oacc_routine_attr->oacc_routine)
 	{
-	case OACC_FUNCTION_GANG:
-	  level = GOMP_DIM_GANG;
-	  break;
-	case OACC_FUNCTION_WORKER:
-	  level = GOMP_DIM_WORKER;
-	  break;
-	case OACC_FUNCTION_VECTOR:
-	  level = GOMP_DIM_VECTOR;
-	  break;
-	case OACC_FUNCTION_SEQ:
-	default:;
+	  location_t loc = oacc_routine_attr->omp_clauses_locus.lb->location;
+	  //TODO use gfc_trans_omp_clauses?
+	  tree clauses_ = NULL_TREE;
+	  if (oacc_routine_attr->oacc_routine_gang)
+	    {
+	      tree c = build_omp_clause (loc, OMP_CLAUSE_GANG);
+	      OMP_CLAUSE_CHAIN (c) = clauses_;
+	      clauses_ = c;
+	    }
+	  if (oacc_routine_attr->oacc_routine_worker)
+	    {
+	      tree c = build_omp_clause (loc, OMP_CLAUSE_WORKER);
+	      OMP_CLAUSE_CHAIN (c) = clauses_;
+	      clauses_ = c;
+	    }
+	  if (oacc_routine_attr->oacc_routine_vector)
+	    {
+	      tree c = build_omp_clause (loc, OMP_CLAUSE_VECTOR);
+	      OMP_CLAUSE_CHAIN (c) = clauses_;
+	      clauses_ = c;
+	    }
+	  /* Default to seq if nothing else has been specified.  */
+	  if (oacc_routine_attr->oacc_routine_seq
+	      || clauses_ == NULL_TREE)
+	    {
+	      tree c = build_omp_clause (loc, OMP_CLAUSE_SEQ);
+	      OMP_CLAUSE_CHAIN (c) = clauses_;
+	      clauses_ = c;
+	    }
+
+	  /* If we saw more than one clause specifying the level of
+	     parallelism...  */
+	  if (OMP_CLAUSE_CHAIN (clauses_) != NULL_TREE)
+	    {
+	      gfc_error ("Multiple loop axes specified for routine at %L",
+			 &oacc_routine_attr->omp_clauses_locus);
+
+	      /* ..., only one clause survives.  */
+	      OMP_CLAUSE_CHAIN (clauses_) = NULL_TREE;
+	    }
+
+	  OMP_CLAUSE_CHAIN (clauses_) = clauses;
+	  clauses = clauses_;
+
+	  oacc_routine_attr = oacc_routine_attr->next;
 	}
 
-      for (ix = GOMP_DIM_MAX; ix--;)
-	dims = tree_cons (build_int_cst (boolean_type_node, ix >= level),
-			  integer_zero_node, dims);
+      /* For any chained symbol attributes for OpenACC routine, handle, and
+	 clean these up.  */
+      while (sym_attr.next != NULL)
+	{
+	  symbol_attribute *sym_attr_next = sym_attr.next->next;
 
-      list = tree_cons (get_identifier ("oacc function"),
-			dims, list);
+	  gfc_error ("!$ACC ROUTINE already applied at %L",
+		     &sym_attr.next->omp_clauses_locus);
+
+	  free (sym_attr.next);
+
+	  sym_attr.next = sym_attr_next;
+	}
+
+      if (sym_attr.oacc_routine)
+	{
+	  gcc_checking_assert (clauses != NULL_TREE);
+	  /* If we saw more than one set of symbol attributes for OpenACC
+	     routine, only one clause survives.  */
+	  OMP_CLAUSE_CHAIN (clauses) = NULL_TREE;
+
+	  /* Set the routine's level of parallelism.  */
+	  tree dims = build_oacc_routine_dims (clauses);
+#if 0
+	  // TODO Can we call this before decl_attributes has been called, which happens only after returning from add_attributes_to_decl?
+	  replace_oacc_fn_attrib (fndecl, dims);
+#else
+	  list = tree_cons (get_identifier ("oacc function"),
+			    dims, list);
+#endif
+	}
+      list = tree_cons (get_identifier ("omp declare target"),
+			NULL_TREE, list);
     }
+  gcc_checking_assert (sym_attr.next == NULL);
 
   return list;
 }

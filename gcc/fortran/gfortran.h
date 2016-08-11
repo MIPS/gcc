@@ -303,15 +303,6 @@ enum save_state
 { SAVE_NONE = 0, SAVE_EXPLICIT, SAVE_IMPLICIT
 };
 
-/* Flags to keep track of ACC routine states.  */
-enum oacc_function
-{ OACC_FUNCTION_NONE = 0,
-  OACC_FUNCTION_SEQ,
-  OACC_FUNCTION_GANG,
-  OACC_FUNCTION_WORKER,
-  OACC_FUNCTION_VECTOR
-};
-
 /* Strings for all symbol attributes.  We use these for dumping the
    parse tree, in error messages, and also when reading and writing
    modules.  In symbol.c.  */
@@ -321,7 +312,6 @@ extern const mstring intents[];
 extern const mstring access_types[];
 extern const mstring ifsrc_types[];
 extern const mstring save_status[];
-extern const mstring oacc_function_types[];
 
 /* Enumeration of all the generic intrinsic functions.  Used by the
    backend for identification of a function.  */
@@ -705,6 +695,126 @@ CInteropKind_t;
 extern CInteropKind_t c_interop_kinds_table[];
 
 
+/* We need to store source lines as sequences of multibyte source
+   characters. We define here a type wide enough to hold any multibyte
+   source character, just like libcpp does.  A 32-bit type is enough.  */
+
+#if HOST_BITS_PER_INT >= 32
+typedef unsigned int gfc_char_t;
+#elif HOST_BITS_PER_LONG >= 32
+typedef unsigned long gfc_char_t;
+#elif defined(HAVE_LONG_LONG) && (HOST_BITS_PER_LONGLONG >= 32)
+typedef unsigned long long gfc_char_t;
+#else
+# error "Cannot find an integer type with at least 32 bits"
+#endif
+
+
+/* The following three structures are used to identify a location in
+   the sources.
+
+   gfc_file is used to maintain a tree of the source files and how
+   they include each other
+
+   gfc_linebuf holds a single line of source code and information
+   which file it resides in
+
+   locus point to the sourceline and the character in the source
+   line.
+*/
+
+typedef struct gfc_file
+{
+  struct gfc_file *next, *up;
+  int inclusion_line, line;
+  char *filename;
+} gfc_file;
+
+typedef struct gfc_linebuf
+{
+  source_location location;
+  struct gfc_file *file;
+  struct gfc_linebuf *next;
+
+  int truncated;
+  bool dbg_emitted;
+
+  gfc_char_t line[1];
+} gfc_linebuf;
+
+#define gfc_linebuf_header_size (offsetof (gfc_linebuf, line))
+
+#define gfc_linebuf_linenum(LBUF) (LOCATION_LINE ((LBUF)->location))
+
+typedef struct
+{
+  gfc_char_t *nextc;
+  gfc_linebuf *lb;
+} locus;
+
+/* In order for the "gfc" format checking to work correctly, you must
+   have declared a typedef locus first.  */
+#if GCC_VERSION >= 4001
+#define ATTRIBUTE_GCC_GFC(m, n) __attribute__ ((__format__ (__gcc_gfc__, m, n))) ATTRIBUTE_NONNULL(m)
+#else
+#define ATTRIBUTE_GCC_GFC(m, n) ATTRIBUTE_NONNULL(m)
+#endif
+
+
+/* Suppress error messages or re-enable them.  */
+
+void gfc_push_suppress_errors (void);
+void gfc_pop_suppress_errors (void);
+
+
+/* Character length structures hold the expression that gives the
+   length of a character variable.  We avoid putting these into
+   gfc_typespec because doing so prevents us from doing structure
+   copies and forces us to deallocate any typespecs we create, as well
+   as structures that contain typespecs.  They also can have multiple
+   character typespecs pointing to them.
+
+   These structures form a singly linked list within the current
+   namespace and are deallocated with the namespace.  It is possible to
+   end up with gfc_charlen structures that have nothing pointing to them.  */
+
+typedef struct gfc_charlen
+{
+  struct gfc_expr *length;
+  struct gfc_charlen *next;
+  bool length_from_typespec; /* Length from explicit array ctor typespec?  */
+  tree backend_decl;
+  tree passed_length; /* Length argument explicitly passed.  */
+
+  int resolved;
+}
+gfc_charlen;
+
+#define gfc_get_charlen() XCNEW (gfc_charlen)
+
+/* Type specification structure.  */
+typedef struct
+{
+  bt type;
+  int kind;
+
+  union
+  {
+    struct gfc_symbol *derived;	/* For derived types only.  */
+    gfc_charlen *cl;		/* For character types only.  */
+    int pad;			/* For hollerith types only.  */
+  }
+  u;
+
+  struct gfc_symbol *interface;	/* For PROCEDURE declarations.  */
+  int is_c_interop;
+  int is_iso_c;
+  bt f90_type;
+  bool deferred;
+}
+gfc_typespec;
+
+
 /* Structure and list of supported extension attributes.  */
 typedef enum
 {
@@ -729,7 +839,7 @@ ext_attr_t;
 extern const ext_attr_t ext_attr_list[];
 
 /* Symbol attribute structure.  */
-typedef struct
+typedef struct symbol_attribute
 {
   /* Variable attributes.  */
   unsigned allocatable:1, dimension:1, codimension:1, external:1, intrinsic:1,
@@ -864,6 +974,13 @@ typedef struct
   /* Mentioned in OMP DECLARE TARGET.  */
   unsigned omp_declare_target:1;
 
+  /* OpenACC routine.  */
+  unsigned oacc_routine:1;
+  unsigned oacc_routine_gang:1;
+  unsigned oacc_routine_worker:1;
+  unsigned oacc_routine_vector:1;
+  unsigned oacc_routine_seq:1;
+
   /* Mentioned in OACC DECLARE.  */
   unsigned oacc_declare_create:1;
   unsigned oacc_declare_copyin:1;
@@ -871,136 +988,23 @@ typedef struct
   unsigned oacc_declare_device_resident:1;
   unsigned oacc_declare_link:1;
 
-  /* This is an OpenACC acclerator function at level N - 1  */
-  ENUM_BITFIELD (oacc_function) oacc_function:3;
-
   /* Attributes set by compiler extensions (!GCC$ ATTRIBUTES).  */
   unsigned ext_attr:EXT_ATTR_NUM;
 
+  /* Location information for OMP clauses.  */
+  //TODO: how to handle in module.c/symbol.c?
+  locus omp_clauses_locus;
+
   /* The namespace where the attribute has been set.  */
   struct gfc_namespace *volatile_ns, *asynchronous_ns;
+
+  /* Chain to another set of symbol attributes.  Currently only used for
+     OpenACC routine.  */
+  //TODO: how to handle in module.c/symbol.c?
+  struct symbol_attribute *next;
 }
 symbol_attribute;
 
-
-/* We need to store source lines as sequences of multibyte source
-   characters. We define here a type wide enough to hold any multibyte
-   source character, just like libcpp does.  A 32-bit type is enough.  */
-
-#if HOST_BITS_PER_INT >= 32
-typedef unsigned int gfc_char_t;
-#elif HOST_BITS_PER_LONG >= 32
-typedef unsigned long gfc_char_t;
-#elif defined(HAVE_LONG_LONG) && (HOST_BITS_PER_LONGLONG >= 32)
-typedef unsigned long long gfc_char_t;
-#else
-# error "Cannot find an integer type with at least 32 bits"
-#endif
-
-
-/* The following three structures are used to identify a location in
-   the sources.
-
-   gfc_file is used to maintain a tree of the source files and how
-   they include each other
-
-   gfc_linebuf holds a single line of source code and information
-   which file it resides in
-
-   locus point to the sourceline and the character in the source
-   line.
-*/
-
-typedef struct gfc_file
-{
-  struct gfc_file *next, *up;
-  int inclusion_line, line;
-  char *filename;
-} gfc_file;
-
-typedef struct gfc_linebuf
-{
-  source_location location;
-  struct gfc_file *file;
-  struct gfc_linebuf *next;
-
-  int truncated;
-  bool dbg_emitted;
-
-  gfc_char_t line[1];
-} gfc_linebuf;
-
-#define gfc_linebuf_header_size (offsetof (gfc_linebuf, line))
-
-#define gfc_linebuf_linenum(LBUF) (LOCATION_LINE ((LBUF)->location))
-
-typedef struct
-{
-  gfc_char_t *nextc;
-  gfc_linebuf *lb;
-} locus;
-
-/* In order for the "gfc" format checking to work correctly, you must
-   have declared a typedef locus first.  */
-#if GCC_VERSION >= 4001
-#define ATTRIBUTE_GCC_GFC(m, n) __attribute__ ((__format__ (__gcc_gfc__, m, n))) ATTRIBUTE_NONNULL(m)
-#else
-#define ATTRIBUTE_GCC_GFC(m, n) ATTRIBUTE_NONNULL(m)
-#endif
-
-
-/* Suppress error messages or re-enable them.  */
-
-void gfc_push_suppress_errors (void);
-void gfc_pop_suppress_errors (void);
-
-
-/* Character length structures hold the expression that gives the
-   length of a character variable.  We avoid putting these into
-   gfc_typespec because doing so prevents us from doing structure
-   copies and forces us to deallocate any typespecs we create, as well
-   as structures that contain typespecs.  They also can have multiple
-   character typespecs pointing to them.
-
-   These structures form a singly linked list within the current
-   namespace and are deallocated with the namespace.  It is possible to
-   end up with gfc_charlen structures that have nothing pointing to them.  */
-
-typedef struct gfc_charlen
-{
-  struct gfc_expr *length;
-  struct gfc_charlen *next;
-  bool length_from_typespec; /* Length from explicit array ctor typespec?  */
-  tree backend_decl;
-  tree passed_length; /* Length argument explicitly passed.  */
-
-  int resolved;
-}
-gfc_charlen;
-
-#define gfc_get_charlen() XCNEW (gfc_charlen)
-
-/* Type specification structure.  */
-typedef struct
-{
-  bt type;
-  int kind;
-
-  union
-  {
-    struct gfc_symbol *derived;	/* For derived types only.  */
-    gfc_charlen *cl;		/* For character types only.  */
-    int pad;			/* For hollerith types only.  */
-  }
-  u;
-
-  struct gfc_symbol *interface;	/* For PROCEDURE declarations.  */
-  int is_c_interop;
-  int is_iso_c;
-  bt f90_type;
-  bool deferred;
-}
-gfc_typespec;
 
 /* Array specification.  */
 typedef struct
@@ -2816,6 +2820,11 @@ bool gfc_add_result (symbol_attribute *, const char *, locus *);
 bool gfc_add_save (symbol_attribute *, save_state, const char *, locus *);
 bool gfc_add_threadprivate (symbol_attribute *, const char *, locus *);
 bool gfc_add_omp_declare_target (symbol_attribute *, const char *, locus *);
+bool gfc_add_oacc_routine (symbol_attribute *, const char *, locus *);
+bool gfc_add_oacc_routine_gang (symbol_attribute *, const char *, locus *);
+bool gfc_add_oacc_routine_worker (symbol_attribute *, const char *, locus *);
+bool gfc_add_oacc_routine_vector (symbol_attribute *, const char *, locus *);
+bool gfc_add_oacc_routine_seq (symbol_attribute *, const char *, locus *);
 bool gfc_add_saved_common (symbol_attribute *, locus *);
 bool gfc_add_target (symbol_attribute *, locus *);
 bool gfc_add_dummy (symbol_attribute *, const char *, locus *);

@@ -1714,44 +1714,6 @@ gfc_match_oacc_cache (void)
   return MATCH_YES;
 }
 
-/* Determine the loop level for a routine.  Returns OACC_FUNCTION_NONE if
-   any error is detected.  */
-
-static oacc_function
-gfc_oacc_routine_dims (gfc_omp_clauses *clauses)
-{
-  int level = -1;
-  oacc_function ret = OACC_FUNCTION_SEQ;
-
-  if (clauses)
-    {
-      unsigned mask = 0;
-
-      if (clauses->gang)
-	{
-	  level = GOMP_DIM_GANG, mask |= GOMP_DIM_MASK (level);
-	  ret = OACC_FUNCTION_GANG;
-	}
-      if (clauses->worker)
-	{
-	  level = GOMP_DIM_WORKER, mask |= GOMP_DIM_MASK (level);
-	  ret = OACC_FUNCTION_WORKER;
-	}
-      if (clauses->vector)
-	{
-	  level = GOMP_DIM_VECTOR, mask |= GOMP_DIM_MASK (level);
-	  ret = OACC_FUNCTION_VECTOR;
-	}
-      if (clauses->seq)
-	level = GOMP_DIM_MAX, mask |= GOMP_DIM_MASK (level);
-
-      if (mask != (mask & -mask))
-	ret = OACC_FUNCTION_NONE;
-    }
-
-  return ret;
-}
-
 match
 gfc_match_oacc_routine (void)
 {
@@ -1761,7 +1723,8 @@ gfc_match_oacc_routine (void)
   gfc_omp_clauses *c = NULL;
   gfc_oacc_routine_name *n = NULL;
   gfc_intrinsic_sym *isym = NULL;
-  oacc_function dims = OACC_FUNCTION_NONE;
+  symbol_attribute *add_attr = NULL;
+  const char *add_attr_name = NULL;
 
   old_loc = gfc_current_locus;
 
@@ -1828,19 +1791,26 @@ gfc_match_oacc_routine (void)
 	  != MATCH_YES))
     return MATCH_ERROR;
 
-  dims = gfc_oacc_routine_dims (c);
-  if (dims == OACC_FUNCTION_NONE)
-    {
-      gfc_error ("Multiple loop axes specified for routine %C");
-      gfc_current_locus = old_loc;
-      return MATCH_ERROR;
-    }
-
   if (isym != NULL)
-    /* There is nothing to do for intrinsic procedures.  */
-    ;
+    {
+      //TODO gfc_intrinsic_sym doesn't have symbol_attribute?
+      //add_attr = &isym->attr;
+      //add_attr_name = NULL; //TODO
+      /* Fake it.  TODO: handle device_type clauses...  */
+      if (c->gang || c->worker || c->vector)
+	{
+	  gfc_error ("Intrinsic symbol specified in !$ACC ROUTINE ( NAME )"
+		     " at %C, with incompatible clauses specifying the level"
+		     " of parallelism");
+	  gfc_current_locus = old_loc;
+	  return MATCH_ERROR;
+	}
+    }
   else if (sym != NULL)
     {
+      add_attr = &sym->attr;
+      add_attr_name = NULL; //TODO
+
       n = gfc_get_oacc_routine_name ();
       n->sym = sym;
       n->clauses = NULL;
@@ -1852,11 +1822,41 @@ gfc_match_oacc_routine (void)
     }
   else if (gfc_current_ns->proc_name)
     {
-      if (!gfc_add_omp_declare_target (&gfc_current_ns->proc_name->attr,
-				       gfc_current_ns->proc_name->name,
-				       &old_loc))
+      add_attr = &gfc_current_ns->proc_name->attr;
+      add_attr_name = gfc_current_ns->proc_name->name;
+    }
+  else
+    gcc_unreachable ();
+
+  if (add_attr != NULL)
+    {
+      if (!gfc_add_omp_declare_target (add_attr, add_attr_name, &old_loc))
 	goto cleanup;
-      gfc_current_ns->proc_name->attr.oacc_function = dims;
+      /* Skip over any existing symbol attributes capturing OpenACC routine
+	 directives.  */
+      while (add_attr->next != NULL)
+	add_attr = add_attr->next;
+      if (add_attr->oacc_routine)
+	{
+	  add_attr->next = XCNEW (symbol_attribute);
+	  gfc_clear_attr (add_attr->next);
+	  add_attr = add_attr->next;
+	}
+      if (!gfc_add_oacc_routine (add_attr, add_attr_name, &old_loc))
+	goto cleanup;
+      if (c && c->gang
+	  && !gfc_add_oacc_routine_gang (add_attr, add_attr_name, &old_loc))
+	goto cleanup;
+      if (c && c->worker
+	  && !gfc_add_oacc_routine_worker (add_attr, add_attr_name, &old_loc))
+	goto cleanup;
+      if (c && c->vector
+	  && !gfc_add_oacc_routine_vector (add_attr, add_attr_name, &old_loc))
+	goto cleanup;
+      if (c && c->seq
+	  && !gfc_add_oacc_routine_seq (add_attr, add_attr_name, &old_loc))
+	goto cleanup;
+      add_attr->omp_clauses_locus = old_loc; //TODO OK to just assign that?
     }
 
   if (n)

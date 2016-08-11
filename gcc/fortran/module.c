@@ -1986,6 +1986,7 @@ enum ab_attribute
   AB_IS_CLASS, AB_PROCEDURE, AB_PROC_POINTER, AB_ASYNCHRONOUS, AB_CODIMENSION,
   AB_COARRAY_COMP, AB_VTYPE, AB_VTAB, AB_CONTIGUOUS, AB_CLASS_POINTER,
   AB_IMPLICIT_PURE, AB_ARTIFICIAL, AB_UNLIMITED_POLY, AB_OMP_DECLARE_TARGET,
+  AB_OACC_ROUTINE, AB_OACC_ROUTINE_GANG, AB_OACC_ROUTINE_WORKER, AB_OACC_ROUTINE_VECTOR, AB_OACC_ROUTINE_SEQ,
   AB_ARRAY_OUTER_DEPENDENCY, AB_MODULE_PROCEDURE, AB_OACC_DECLARE_CREATE,
   AB_OACC_DECLARE_COPYIN, AB_OACC_DECLARE_DEVICEPTR,
   AB_OACC_DECLARE_DEVICE_RESIDENT, AB_OACC_DECLARE_LINK
@@ -2044,6 +2045,11 @@ static const mstring attr_bits[] =
     minit ("IMPLICIT_PURE", AB_IMPLICIT_PURE),
     minit ("UNLIMITED_POLY", AB_UNLIMITED_POLY),
     minit ("OMP_DECLARE_TARGET", AB_OMP_DECLARE_TARGET),
+    minit ("OACC_ROUTINE", AB_OACC_ROUTINE),
+    minit ("OACC_ROUTINE_GANG", AB_OACC_ROUTINE_GANG),
+    minit ("OACC_ROUTINE_WORKER", AB_OACC_ROUTINE_WORKER),
+    minit ("OACC_ROUTINE_VECTOR", AB_OACC_ROUTINE_VECTOR),
+    minit ("OACC_ROUTINE_SEQ", AB_OACC_ROUTINE_SEQ),
     minit ("ARRAY_OUTER_DEPENDENCY", AB_ARRAY_OUTER_DEPENDENCY),
     minit ("MODULE_PROCEDURE", AB_MODULE_PROCEDURE),
     minit ("OACC_DECLARE_CREATE", AB_OACC_DECLARE_CREATE),
@@ -2095,7 +2101,6 @@ DECL_MIO_NAME (procedure_type)
 DECL_MIO_NAME (ref_type)
 DECL_MIO_NAME (sym_flavor)
 DECL_MIO_NAME (sym_intent)
-DECL_MIO_NAME (oacc_function)
 #undef DECL_MIO_NAME
 
 /* Symbol attributes are stored in list with the first three elements
@@ -2117,8 +2122,6 @@ mio_symbol_attribute (symbol_attribute *attr)
   attr->proc = MIO_NAME (procedure_type) (attr->proc, procedures);
   attr->if_source = MIO_NAME (ifsrc) (attr->if_source, ifsrc_types);
   attr->save = MIO_NAME (save_state) (attr->save, save_status);
-  attr->oacc_function = MIO_NAME (oacc_function) (attr->oacc_function,
-						  oacc_function_types);
 
   ext_attr = attr->ext_attr;
   mio_integer ((int *) &ext_attr);
@@ -2236,6 +2239,16 @@ mio_symbol_attribute (symbol_attribute *attr)
 	MIO_NAME (ab_attribute) (AB_VTAB, attr_bits);
       if (attr->omp_declare_target)
 	MIO_NAME (ab_attribute) (AB_OMP_DECLARE_TARGET, attr_bits);
+      if (attr->oacc_routine)
+	MIO_NAME (ab_attribute) (AB_OACC_ROUTINE, attr_bits);
+      if (attr->oacc_routine_gang)
+	MIO_NAME (ab_attribute) (AB_OACC_ROUTINE_GANG, attr_bits);
+      if (attr->oacc_routine_worker)
+	MIO_NAME (ab_attribute) (AB_OACC_ROUTINE_WORKER, attr_bits);
+      if (attr->oacc_routine_vector)
+	MIO_NAME (ab_attribute) (AB_OACC_ROUTINE_VECTOR, attr_bits);
+      if (attr->oacc_routine_seq)
+	MIO_NAME (ab_attribute) (AB_OACC_ROUTINE_SEQ, attr_bits);
       if (attr->array_outer_dependency)
 	MIO_NAME (ab_attribute) (AB_ARRAY_OUTER_DEPENDENCY, attr_bits);
       if (attr->module_procedure)
@@ -2421,6 +2434,21 @@ mio_symbol_attribute (symbol_attribute *attr)
 	      break;
 	    case AB_OMP_DECLARE_TARGET:
 	      attr->omp_declare_target = 1;
+	      break;
+	    case AB_OACC_ROUTINE:
+	      attr->oacc_routine = 1;
+	      break;
+	    case AB_OACC_ROUTINE_GANG:
+	      attr->oacc_routine_gang = 1;
+	      break;
+	    case AB_OACC_ROUTINE_WORKER:
+	      attr->oacc_routine_worker = 1;
+	      break;
+	    case AB_OACC_ROUTINE_VECTOR:
+	      attr->oacc_routine_vector = 1;
+	      break;
+	    case AB_OACC_ROUTINE_SEQ:
+	      attr->oacc_routine_seq = 1;
 	      break;
 	    case AB_ARRAY_OUTER_DEPENDENCY:
 	      attr->array_outer_dependency =1;

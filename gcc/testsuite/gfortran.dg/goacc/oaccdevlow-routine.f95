@@ -20,7 +20,7 @@ subroutine ROUTINE
 end subroutine ROUTINE
 
 ! Check the offloaded function's attributes.
-! { dg-final { scan-tree-dump-times "(?n)__attribute__\\(\\(omp declare target, oacc function \\(0 0, 1 0, 1 0\\)\\)\\)" 1 "ompexp" } }
+! { dg-final { scan-tree-dump-times "(?n)__attribute__\\(\\(oacc function \\(0 1, 1 0, 1 0\\), omp declare target\\)\\)" 1 "ompexp" } }
 
 ! Check the offloaded function's classification and compute dimensions (will
 ! always be [1, 1, 1] for target compilation).

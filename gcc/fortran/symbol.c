@@ -87,15 +87,6 @@ const mstring save_status[] =
     minit ("IMPLICIT-SAVE", SAVE_IMPLICIT),
 };
 
-const mstring oacc_function_types[] =
-{
-  minit ("NONE", OACC_FUNCTION_NONE),
-  minit ("OACC_FUNCTION_SEQ", OACC_FUNCTION_SEQ),
-  minit ("OACC_FUNCTION_GANG", OACC_FUNCTION_GANG),
-  minit ("OACC_FUNCTION_WORKER", OACC_FUNCTION_WORKER),
-  minit ("OACC_FUNCTION_VECTOR", OACC_FUNCTION_VECTOR)
-};
-
 /* This is to make sure the backend generates setup code in the correct
    order.  */
 
@@ -385,6 +376,11 @@ check_conflict (symbol_attribute *attr, const char *name, locus *where)
     *contiguous = "CONTIGUOUS", *generic = "GENERIC";
   static const char *threadprivate = "THREADPRIVATE";
   static const char *omp_declare_target = "OMP DECLARE TARGET";
+  static const char *oacc_routine = "OACC ROUTINE";
+  static const char *oacc_routine_gang = "OACC ROUTINE GANG";
+  static const char *oacc_routine_worker = "OACC ROUTINE WORKER";
+  static const char *oacc_routine_vector = "OACC ROUTINE VECTOR";
+  static const char *oacc_routine_seq = "OACC ROUTINE SEQ";
   static const char *oacc_declare_copyin = "OACC DECLARE COPYIN";
   static const char *oacc_declare_create = "OACC DECLARE CREATE";
   static const char *oacc_declare_deviceptr = "OACC DECLARE DEVICEPTR";
@@ -482,6 +478,11 @@ check_conflict (symbol_attribute *attr, const char *name, locus *where)
   conf (dummy, intrinsic);
   conf (dummy, threadprivate);
   conf (dummy, omp_declare_target);
+  conf (dummy, oacc_routine);
+  conf (dummy, oacc_routine_gang);
+  conf (dummy, oacc_routine_worker);
+  conf (dummy, oacc_routine_vector);
+  conf (dummy, oacc_routine_seq);
   conf (pointer, target);
   conf (pointer, intrinsic);
   conf (pointer, elemental);
@@ -526,6 +527,11 @@ check_conflict (symbol_attribute *attr, const char *name, locus *where)
   conf (in_equivalence, allocatable);
   conf (in_equivalence, threadprivate);
   conf (in_equivalence, omp_declare_target);
+  conf (in_equivalence, oacc_routine);
+  conf (in_equivalence, oacc_routine_gang);
+  conf (in_equivalence, oacc_routine_worker);
+  conf (in_equivalence, oacc_routine_vector);
+  conf (in_equivalence, oacc_routine_seq);
   conf (in_equivalence, oacc_declare_create);
   conf (in_equivalence, oacc_declare_copyin);
   conf (in_equivalence, oacc_declare_deviceptr);
@@ -579,6 +585,11 @@ check_conflict (symbol_attribute *attr, const char *name, locus *where)
   conf (cray_pointee, in_equivalence);
   conf (cray_pointee, threadprivate);
   conf (cray_pointee, omp_declare_target);
+  conf (cray_pointee, oacc_routine);
+  conf (cray_pointee, oacc_routine_gang);
+  conf (cray_pointee, oacc_routine_worker);
+  conf (cray_pointee, oacc_routine_vector);
+  conf (cray_pointee, oacc_routine_seq);
   conf (cray_pointee, oacc_declare_create);
   conf (cray_pointee, oacc_declare_copyin);
   conf (cray_pointee, oacc_declare_deviceptr);
@@ -637,6 +648,11 @@ check_conflict (symbol_attribute *attr, const char *name, locus *where)
   conf (proc_pointer, abstract)
 
   conf (entry, omp_declare_target)
+  conf (entry, oacc_routine)
+  conf (entry, oacc_routine_gang)
+  conf (entry, oacc_routine_worker)
+  conf (entry, oacc_routine_vector)
+  conf (entry, oacc_routine_seq)
   conf (entry, oacc_declare_create)
   conf (entry, oacc_declare_copyin)
   conf (entry, oacc_declare_deviceptr)
@@ -678,6 +694,11 @@ check_conflict (symbol_attribute *attr, const char *name, locus *where)
       conf2 (subroutine);
       conf2 (threadprivate);
       conf2 (omp_declare_target);
+      conf2 (oacc_routine);
+      conf2 (oacc_routine_gang);
+      conf2 (oacc_routine_worker);
+      conf2 (oacc_routine_vector);
+      conf2 (oacc_routine_seq);
       conf2 (oacc_declare_create);
       conf2 (oacc_declare_copyin);
       conf2 (oacc_declare_deviceptr);
@@ -764,6 +785,11 @@ check_conflict (symbol_attribute *attr, const char *name, locus *where)
       conf2 (threadprivate);
       conf2 (result);
       conf2 (omp_declare_target);
+      conf2 (oacc_routine);
+      conf2 (oacc_routine_gang);
+      conf2 (oacc_routine_worker);
+      conf2 (oacc_routine_vector);
+      conf2 (oacc_routine_seq);
       conf2 (oacc_declare_create);
       conf2 (oacc_declare_copyin);
       conf2 (oacc_declare_deviceptr);
@@ -1266,7 +1292,6 @@ bool
 gfc_add_omp_declare_target (symbol_attribute *attr, const char *name,
 			    locus *where)
 {
-
   if (check_used (attr, name, where))
     return false;
 
@@ -1274,6 +1299,81 @@ gfc_add_omp_declare_target (symbol_attribute *attr, const char *name,
     return true;
 
   attr->omp_declare_target = 1;
+  return check_conflict (attr, name, where);
+}
+
+
+bool
+gfc_add_oacc_routine (symbol_attribute *attr, const char *name,
+		      locus *where)
+{
+  if (check_used (attr, name, where))
+    return false;
+
+  if (attr->oacc_routine)
+    return true;
+
+  attr->oacc_routine = 1;
+  return check_conflict (attr, name, where);
+}
+
+
+bool
+gfc_add_oacc_routine_gang (symbol_attribute *attr, const char *name,
+			   locus *where)
+{
+  if (check_used (attr, name, where))
+    return false;
+
+  if (attr->oacc_routine_gang)
+    return true;
+
+  attr->oacc_routine_gang = 1;
+  return check_conflict (attr, name, where);
+}
+
+
+bool
+gfc_add_oacc_routine_worker (symbol_attribute *attr, const char *name,
+			     locus *where)
+{
+  if (check_used (attr, name, where))
+    return false;
+
+  if (attr->oacc_routine_worker)
+    return true;
+
+  attr->oacc_routine_worker = 1;
+  return check_conflict (attr, name, where);
+}
+
+
+bool
+gfc_add_oacc_routine_vector (symbol_attribute *attr, const char *name,
+			     locus *where)
+{
+  if (check_used (attr, name, where))
+    return false;
+
+  if (attr->oacc_routine_vector)
+    return true;
+
+  attr->oacc_routine_vector = 1;
+  return check_conflict (attr, name, where);
+}
+
+
+bool
+gfc_add_oacc_routine_seq (symbol_attribute *attr, const char *name,
+			  locus *where)
+{
+  if (check_used (attr, name, where))
+    return false;
+
+  if (attr->oacc_routine_seq)
+    return true;
+
+  attr->oacc_routine_seq = 1;
   return check_conflict (attr, name, where);
 }
 
@@ -1914,6 +2014,21 @@ gfc_copy_attr (symbol_attribute *dest, symbol_attribute *src, locus *where)
     goto fail;
   if (src->omp_declare_target
       && !gfc_add_omp_declare_target (dest, NULL, where))
+    goto fail;
+  if (src->oacc_routine
+      && !gfc_add_oacc_routine (dest, NULL, where))
+    goto fail;
+  if (src->oacc_routine_gang
+      && !gfc_add_oacc_routine_gang (dest, NULL, where))
+    goto fail;
+  if (src->oacc_routine_worker
+      && !gfc_add_oacc_routine_worker (dest, NULL, where))
+    goto fail;
+  if (src->oacc_routine_vector
+      && !gfc_add_oacc_routine_vector (dest, NULL, where))
+    goto fail;
+  if (src->oacc_routine_seq
+      && !gfc_add_oacc_routine_seq (dest, NULL, where))
     goto fail;
   if (src->oacc_declare_create
       && !gfc_add_oacc_declare_create (dest, NULL, where))
