@@ -1,92 +1,9 @@
-2016-08-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+2016-08-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	Merge up to 239334.
-	* REVISION: Update subversion id.
-
-2016-08-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
-
-	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Optimize
-	vector int initializations on 64-bit systems with direct move by
-	building up the part in GPRs and using direct move to the vector
-	registers, instead of doing 4 stores to a stack location and
-	loading the vector up into vector registers.
-	(regno_or_subregno): Move getting hard register number out to a
-	separate helper function.
-	(rs6000_adjust_vec_address): Call regno_or_subregno.
-	* config/rs6000/vsx.md (vsx_concat_<mode>, VSX_D iterator):
-	Eliminate preferred register class (<VSr>).  Add support for the
+	* config/rs6000/vsx.md (vsx_concat_<mode>): Add support for the
 	ISA 3.0 MTVSRDD instruction.
-	(vsx_splat_<mode>, VSX_D iterator): The MTVSRDD acts like a
-	permute operation in terms of scheduling.
-
-2016-08-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
-
-	Merge up to 239243.
-	* REVISION: Update subversion id.
-
-2016-08-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
-
-	Merge up to 239106.
-	* REVISION: Update subversion id.
-
-2016-08-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
-
-	Merge up to 239098.
-	* REVISION: Update subversion id.
-
-2016-07-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
-
-	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin):
-	Add support for vec_extract on vector float, vector int, vector
-	short, and vector char vector types.
-	* config/rs6000/rs6000.c (rs6000_expand_vector_extract): Add
-	vector float, vector int, vector short, and vector char
-	optimizations on 64-bit ISA 2.07 systems for both constant and
-	variable element numbers.
-	(rs6000_split_vec_extract_var): Likewise.
-	* config/rs6000/vsx.md (vsx_xscvspdp_scalar2): Allow SFmode to be
-	Altivec registers on ISA 2.07 and above.
-	(vsx_extract_v4sf): Delete alternative that hard coded element 0,
-	which never was matched due to the split occuring before register
-	allocation (and the code would not have worked on little endian
-	systems if it did match).  Allow extracts to go to the Altivec
-	registers if ISA 2.07 (power8).  Change from using "" around the
-	C++ code to using {}'s.
-	(vsx_extract_v4sf_<mode>_load): New insn to optimize vector float
-	vec_extracts when the vector is in memory.
-	(vsx_extract_v4sf_var): New insn to optimize vector float
-	vec_extracts when the element number is variable on 64-bit ISA
-	2.07 systems.
-	(vsx_extract_<mode>, VSX_EXTRACT_I iterator): Add optimizations
-	for 64-bit ISA 2.07 as well as ISA 3.0.
-	(vsx_extract_<mode>_p9, VSX_EXTRACT_I iterator): Likewise.
-	(vsx_extract_<mode>_p8, VSX_EXTRACT_I iterator): Likewise.
-	(vsx_extract_<mode>_load, VSX_EXTRACT_I iterator): New insn to
-	optimize vector int, vector short, and vector char vec_extracts
-	when the vector is in memory.
-	(vsx_extract_<mode>_var, VSX_EXTRACT_I iterator): New insn to
-	optimize vector int, vector short, and vector char vec_extracts
-	when the element number is variable.
-
-2016-07-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
-
-	* config/rs6000/rs6000-protos.h (rs6000_adjust_vec_address): New
-	function that takes a vector memory address, a hard register, an
-	element number and a temporary base register, and recreates an
-	address that points to the appropriate element within the vector.
-	(rs6000_split_vec_extract_var): Add support for the target of a
-	vec_extract with variable element number being a scalar memory
-	location.
-	* config/rs6000/vsx.md (vsx_extract_<mode>_load): Replace
-	vsx_extract_<mode>_load insn with a new insn that optimizes
-	storing either element to a memory location, using scratch
-	registers to pick apart the vector and reconstruct the address.
-	(vsx_extract_<P:mode>_<VSX_D:mode>_load): Likewise.
-	(vsx_extract_<mode>_store): Rework alternatives to more correctly
-	support Altivec registers.  Add support for ISA 3.0 Altivec d-form
-	store instruction.
-	(vsx_extract_<mode>_var): Add support for extracting a variable
-	element number from memory.
+	(vsx_splat_<mode>): Change cpu type of MTVSRDD instruction to
+	vecperm.
 
 2016-07-29   Michael Meissner  <meissner@linux.vnet.ibm.com>
 
