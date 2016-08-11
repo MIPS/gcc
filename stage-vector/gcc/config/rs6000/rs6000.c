@@ -7140,14 +7140,22 @@ rs6000_adjust_vec_address (rtx scalar_reg,
 	}
       else
 	{
-	  if (REG_P (op1) || SUBREG_P (op1))
+	  bool op1_reg_p = (REG_P (op1) || SUBREG_P (op1));
+	  bool ele_reg_p = (REG_P (element_offset) || SUBREG_P (element_offset));
+
+	  /* Note, ADDI requires the register being added to be a base
+	     register.  If the register was R0, load it up into the temporary
+	     and do the add.  */
+	  if (op1_reg_p
+	      && (ele_reg_p || reg_or_subregno (op1) != FIRST_GPR_REGNO))
 	    {
 	      insn = gen_add3_insn (base_tmp, op1, element_offset);
 	      gcc_assert (insn != NULL_RTX);
 	      emit_insn (insn);
 	    }
 
-	  else if (REG_P (element_offset) || SUBREG_P (element_offset))
+	  else if (ele_reg_p
+		   && reg_or_subregno (element_offset) != FIRST_GPR_REGNO)
 	    {
 	      insn = gen_add3_insn (base_tmp, element_offset, op1);
 	      gcc_assert (insn != NULL_RTX);
