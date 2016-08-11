@@ -95,6 +95,12 @@ pack_static (int a, int b, int c, int d)
   sv_static = (vector int) { a, b, c, d };
 }
 
+void
+pack_global (int a, int b, int c, int d)
+{
+  sv_global = (vector int) { a, b, c, d };
+}
+
 vector int
 splat_reg (int a)
 {
