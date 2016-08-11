@@ -95,6 +95,12 @@ pack_static (long a, long b)
   sv_static = (vector long) { a, b };
 }
 
+void
+pack_global (long a, long b)
+{
+  sv_global = (vector long) { a, b };
+}
+
 vector long
 splat_reg (long a)
 {
