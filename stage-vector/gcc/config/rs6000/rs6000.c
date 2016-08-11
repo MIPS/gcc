@@ -6741,13 +6741,8 @@ rs6000_expand_vector_init (rtx target, rtx vals)
     }
 
   /* Special case initializing vector int if we are on 64-bit systems with
-     direct move.  This optimization tickles a bug in RELOAD for fortran's
-     cray_pointers_2 test unless -mvsx-timode is enabled (the register
-     allocator is trying to load up a V4SImode vector in GPRs with a TImode
-     address using a SUBREG).  Since RELOAD is no longer the default register
-     allocator, just don't do the optimization.  */
-  if (mode == V4SImode && TARGET_DIRECT_MOVE_64BIT
-      && (TARGET_LRA || TARGET_VSX_TIMODE))
+     direct move.  */
+  if (mode == V4SImode && TARGET_DIRECT_MOVE_64BIT)
     {
       rtx elements[4];
       size_t i;
