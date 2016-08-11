@@ -1933,34 +1933,6 @@
 }
   [(set_attr "type" "vecperm")])
 
-;; Optimize doing a concat and storing the result in memory
-(define_insn_and_split "*vsx_concat_<mode>_memory"
-  [(set (match_operand:VSX_D 0 "memory_operand" "=m")
-	(vec_concat:VSX_D
-	 (match_operand:<VS_scalar> 1 "gpc_reg_operand" "r<VS_64reg>")
-	 (match_operand:<VS_scalar> 2 "gpc_reg_operand" "r<VS_64reg>")))
-   (clobber (match_scratch:DI 3 "=&b"))]
-   "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_POWERPC64"
-   "#"
-   "&& reload_completed"
-   [(const_int 0)]
-{
-  rtx mem = operands[0];
-  rtx op1 = operands[1];
-  rtx op2 = operands[2];
-  rtx tmp = operands[3];
-  rtx index, s_mem;
-
-  index = GEN_INT (VECTOR_ELT_ORDER_BIG == 0);
-  s_mem = rs6000_adjust_vec_address (op1, mem, index, tmp, <VS_scalar>mode);
-  emit_move_insn (s_mem, op1);
-
-  index = GEN_INT (VECTOR_ELT_ORDER_BIG != 0);
-  s_mem = rs6000_adjust_vec_address (op2, mem, index, tmp, <VS_scalar>mode);
-  emit_move_insn (s_mem, op2);
-  DONE;
-})
-
 ;; Special purpose concat using xxpermdi to glue two single precision values
 ;; together, relying on the fact that internally scalar floats are represented
 ;; as doubles.  This is used to initialize a V4SF vector with 4 floats
