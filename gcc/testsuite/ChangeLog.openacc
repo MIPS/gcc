@@ -1,5 +1,17 @@
 2018-05-14  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* gfortran.dg/goacc/pr72741-intrinsic-1.f: Add XFAILs.
+	* gfortran.dg/goacc/pr72741-intrinsic-2.f: Likewise.
+
+2016-08-12  Cesar Philippidis  <cesar@codesourcery.com>
+	    Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR fortran/72741
+	* gfortran.dg/goacc/pr72741-intrinsic-1.f: New file.
+	* gfortran.dg/goacc/pr72741-intrinsic-2.f: Likewise.
+
+2018-05-14  Thomas Schwinge  <thomas@codesourcery.com>
+
 	* gfortran.dg/goacc/pr72741.f90: Add XFAILs.
 
 2016-07-28  Cesar Philippidis  <cesar@codesourcery.com>
