@@ -612,3 +612,6 @@ Target Undocumented Var(TARGET_COST_TWEAK) Init(0)
 
 mseq-sne-sge
 Target Undocumented Var(TARGET_SEQ_SNE_SGE) Init(0)
+
+mopt-movebalc
+Target Undocumented Var(TARGET_OPT_MOVEBALC) Init(0)
