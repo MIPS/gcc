@@ -208,7 +208,7 @@
 		   (call (mem:SI (match_operand 2 "" ""))
 			 (match_operand 3 "" "")))
 	      (set (match_operand 0 "register_operand" "")
-		   (match_operand 1 "register_operand" ""))
+		   (match_operand 1 "reg_or_0_operand" ""))
 	      (use (match_dup 0))
 	      (clobber (reg:SI RETURN_ADDR_REGNUM))])]
   "TARGET_MICROMIPS_R7
@@ -222,7 +222,7 @@
   [(parallel [(call (mem:SI (match_operand 2 "" ""))
 		    (match_operand 3 "" ""))
 	      (set (match_operand 0 "register_operand" "")
-		   (match_operand 1 "register_operand" ""))
+		   (match_operand 1 "reg_or_0_operand" ""))
 	      (use (match_dup 0))
 	      (clobber (reg:SI RETURN_ADDR_REGNUM))])]
   "TARGET_MICROMIPS_R7
