@@ -10,7 +10,8 @@
 #define SPLAT 0x0123
 
 vector short sv = (vector short) { ELEMENTS };
-vector short splat = (vector short) { SPLAT, SPLAT, SPLAT, SPLAT };
+vector short splat = (vector short) { SPLAT, SPLAT, SPLAT, SPLAT,
+				      SPLAT, SPLAT, SPLAT, SPLAT };
 vector short sv_global, sp_global;
 static vector short sv_static, sp_static;
 static short expected[] = { ELEMENTS };
@@ -81,7 +82,7 @@ check_splat (vector short a)
 {
   size_t i;
 
-  for (i = 0; i < 4; i++)
+  for (i = 0; i < 8; i++)
     if (vec_extract (a, i) != SPLAT)
       abort ();
 }

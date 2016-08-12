@@ -1,7 +1,8 @@
 2016-08-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	* gcc.target/powerpc/vec-init-4.c: New test for vector short
-	initialization.
+	* gcc.target/powerpc/vec-init-4.c: New tests for vector short
+	and vector signed char initialization.
+	* gcc.target/powerpc/vec-init-5.c: Likewise.
 
 	* gcc.target/powerpc/vec-init-1.c: Update tests to include vector
 	initialization from variables stored in memory.
