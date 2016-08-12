@@ -547,3 +547,6 @@ Target Undocumented UInteger Var(TARGET_LI48) Init(1)
 
 mcost-tweak
 Target Undocumented Var(TARGET_COST_TWEAK) Init(1)
+
+mopt-movebalc
+Target Undocumented Var(TARGET_OPT_MOVEBALC) Init(1)
