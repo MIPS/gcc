@@ -1,16 +1,9 @@
-! Test host_data interoperability with CUDA blas.  This test was
-! derived from libgomp.oacc-c-c++-common/host_data-1.c.
+! Test host_data interoperability with CUDA blas using modules.
 
 ! { dg-do run { target openacc_nvidia_accel_selected } }
 ! { dg-additional-options "-lcublas -Wall -Wextra" }
 
-program test
-  implicit none
-
-  integer, parameter :: N = 10
-  integer :: i
-  real*4 :: x_ref(N), y_ref(N), x(N), y(N), a
-  
+module cublas
   interface
      subroutine cublassaxpy(N, alpha, x, incx, y, incy) bind(c, name="cublasSaxpy")
        use iso_c_binding
@@ -22,6 +15,36 @@ program test
        integer(kind=c_int), value :: incy
      end subroutine cublassaxpy
   end interface
+
+contains
+  subroutine saxpy (nn, aa, xx, yy)
+    integer :: nn
+    real*4 :: aa, xx(nn), yy(nn)
+    integer i
+    !$acc routine
+
+    do i = 1, nn
+       yy(i) = yy(i) + aa * xx(i)
+    end do
+  end subroutine saxpy
+
+  subroutine validate_results (n, a, b)
+    integer :: n
+    real*4 :: a(n), b(n)
+
+    do i = 1, N
+       if (abs(a(i) - b(i)) > 0.0001) call abort
+    end do
+  end subroutine validate_results
+end module cublas
+
+program test
+  use cublas
+  implicit none
+
+  integer, parameter :: N = 10
+  integer :: i
+  real*4 :: x_ref(N), y_ref(N), x(N), y(N), a
 
   a = 2.0
 
@@ -76,23 +99,3 @@ program test
 
   call validate_results (N, y, y_ref)
 end program test
-
-subroutine saxpy (nn, aa, xx, yy)
-  integer :: nn
-  real*4 :: aa, xx(nn), yy(nn)
-  integer i
-  !$acc routine
-
-  do i = 1, nn
-    yy(i) = yy(i) + aa * xx(i)
-  end do
-end subroutine saxpy
-
-subroutine validate_results (n, a, b)
-  integer :: n
-  real*4 :: a(n), b(n)
-
-  do i = 1, N
-     if (abs(a(i) - b(i)) > 0.0001) call abort
-  end do
-end subroutine validate_results

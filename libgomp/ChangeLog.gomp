@@ -1,3 +1,12 @@
+2016-08-12  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/host_data-1.c: Increase test
+	coverage.  Build with -Wall -Wextra.
+	* testsuite/libgomp.oacc-fortran/host_data-2.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/cublas-fixed.h: New test.
+	* testsuite/libgomp.oacc-fortran/host_data-3.f: New test.
+	* testsuite/libgomp.oacc-fortran/host_data-4.f90: New test.
+
 2016-08-11  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* testsuite/libgomp.oacc-fortran/host_data-1.f90: Remove stale xfail.
