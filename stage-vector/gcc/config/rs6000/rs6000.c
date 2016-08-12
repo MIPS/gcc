@@ -6688,7 +6688,7 @@ rs6000_expand_vector_init (rtx target, rtx vals)
       if ((int_vector_p || TARGET_VSX) && all_const_zero)
 	{
 	  /* Zero register.  */
-	  emit_insn (gen_rtx_SET (target, gen_rtx_XOR (mode, target, target)));
+	  emit_insn (gen_rtx_SET (target, CONST0_RTX (mode)));
 	  return;
 	}
       else if (int_vector_p && easy_vector_constant (const_vec, mode))
@@ -6731,21 +6731,26 @@ rs6000_expand_vector_init (rtx target, rtx vals)
       return;
     }
 
-  /* Word values on ISA 3.0 can use mtvsrws, lxvwsx, or vspltisw.  V4SF is
-     complicated since scalars are stored as doubles in the registers.  */
-  if (TARGET_P9_VECTOR && mode == V4SImode && all_same
-      && VECTOR_MEM_VSX_P (mode))
-    {
-      emit_insn (gen_vsx_splat_v4si (target, XVECEXP (vals, 0, 0)));
-      return;
-    }
-
   /* Special case initializing vector int if we are on 64-bit systems with
-     direct move.  */
-  if (mode == V4SImode && TARGET_DIRECT_MOVE_64BIT)
+     direct move or we have the ISA 3.0 instructions.  */
+  if (mode == V4SImode
+      && (TARGET_DIRECT_MOVE_64BIT || TARGET_P9_VECTOR))
     {
       rtx elements[4];
       size_t i;
+
+      if (all_same)
+	{
+	  rtx op0 = XVECEXP (vals, 0, 0);
+	  if (!MEM_P (op0) && !REG_P (op0))
+	    op0 = force_reg (SImode, op0);
+
+	  if (TARGET_P9_VECTOR)
+	    emit_insn (gen_vsx_splat_v4si_p9 (target, op0));
+	  else
+	    emit_insn (gen_vsx_splat_v4si_p8 (target, op0));
+	  return;
+	}
 
       for (i = 0; i < 4; i++)
 	{
@@ -6770,7 +6775,7 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 	  rtx op0 = XVECEXP (vals, 0, 0);
 
 	  if (TARGET_P9_VECTOR)
-	    emit_insn (gen_vsx_splat_v4sf (target, op0));
+	    emit_insn (gen_vsx_splat_v4sf_p9 (target, op0));
 
 	  else
 	    {

@@ -1,3 +1,19 @@
+2016-08-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Add support
+	for V4SImode splat on ISA 2.07 (power8) systems.  Change the name
+	of the ISA 3.0 V4SI/V4SF splat functions.
+
+	* config/rs6000/vsx.md (vsx_concat_v2sf): Add support for SFmode
+	variables being in the Altivec registers.
+	(vsx_splat_<mode>_p9): Rename ISA 3.0 V4SI/V4SF splat functions to
+	be <xxx>_p9.
+	(vsx_splat_v4si_p9_internal): Likewise.
+	(vsx_splat_v4sf_p9_internal): Likewise.
+	(vsx_splat_v4si_p8): Add support for doing V4SI splat on ISA 2.07
+	64-bit systems using direct move and XXSPLTW.
+	(vsx_xxspltw): Likewise.
+
 2016-08-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Remove check
