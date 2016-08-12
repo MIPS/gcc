@@ -1,3 +1,10 @@
+2016-08-12  Cesar Philippidis  <cesar@codesourcery.com>
+	    Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR fortran/72741
+	* openmp.c (gfc_match_oacc_routine): Check clauses of intrinsic
+	functions.
+
 2016-07-29  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	PR fortran/70598

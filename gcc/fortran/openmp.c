@@ -1919,11 +1919,11 @@ match
 gfc_match_oacc_routine (void)
 {
   locus old_loc;
-  gfc_symbol *sym = NULL;
   match m;
+  gfc_intrinsic_sym *isym = NULL;
+  gfc_symbol *sym = NULL;
   gfc_omp_clauses *c = NULL;
   gfc_oacc_routine_name *n = NULL;
-  gfc_intrinsic_sym *isym = NULL;
   oacc_function dims = OACC_FUNCTION_NONE;
 
   old_loc = gfc_current_locus;
@@ -1957,7 +1957,7 @@ gfc_match_oacc_routine (void)
 	        sym = NULL;
 	    }
 
-	  if ((st == NULL && isym == NULL)
+	  if ((isym == NULL && st == NULL)
 	      || (sym
 		  && !sym->attr.external
 		  && !sym->attr.function
@@ -1996,14 +1996,21 @@ gfc_match_oacc_routine (void)
   dims = gfc_oacc_routine_dims (c);
   if (dims == OACC_FUNCTION_NONE)
     {
-      gfc_error ("Multiple loop axes specified for routine %C");
-      gfc_current_locus = old_loc;
-      return MATCH_ERROR;
+      gfc_error ("Multiple loop axes specified in !$ACC ROUTINE at %C");
+      goto cleanup;
     }
 
   if (isym != NULL)
-    /* There is nothing to do for intrinsic procedures.  */
-    ;
+    {
+      if (c && (c->gang || c->worker || c->vector))
+	{
+	  gfc_error ("Intrinsic function specified in !$ACC ROUTINE ( NAME )"
+		     " at %C, with incompatible GANG, WORKER, or VECTOR clause");
+	  goto cleanup;
+	}
+      /* The intrinsic symbol has been marked with a SEQ, or with no clause at
+	 all, which is OK.  */
+    }
   else if (sym != NULL)
     {
       n = gfc_get_oacc_routine_name ();
@@ -2025,6 +2032,8 @@ gfc_match_oacc_routine (void)
       gfc_current_ns->proc_name->attr.oacc_function_nohost
 	= c ? c->nohost : false;
     }
+  else
+    gcc_unreachable ();
 
   if (n)
     n->clauses = c;

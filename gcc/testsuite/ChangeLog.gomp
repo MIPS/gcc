@@ -1,3 +1,10 @@
+2016-08-12  Cesar Philippidis  <cesar@codesourcery.com>
+	    Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR fortran/72741
+	* gfortran.dg/goacc/pr72741-intrinsic-1.f: New file.
+	* gfortran.dg/goacc/pr72741-intrinsic-2.f: Likewise.
+
 2016-08-04  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* g++.dg/goacc/routine-2.C: Update.
