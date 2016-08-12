@@ -2788,7 +2788,7 @@
     operands[2] = gen_reg_rtx (DImode);
 })
 
-(define_insn "*vsx_xxspltw"
+(define_insn "*vsx_xxspltw_di"
   [(set (match_operand:V4SI 0 "vsx_register_operand" "=wa")
 	(vec_duplicate:V4SI
 	 (truncate:SI
