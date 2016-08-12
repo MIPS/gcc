@@ -1,5 +1,19 @@
 2016-08-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Add support
+	for doing a vector short/vector char initialization that is a
+	splat on 64-bit systems with direct move.
+
+	* config/rs6000/vsx.md (VSX_SPLAT_I): New iterators/mode
+	attributes for vector short and vector char initializations that
+	are a splat.
+	(VSX_SPLAT_COUNT): Likewise.
+	(VSX_SPLAT_SUFFIX): Likewise.
+	(vsx_concat_<mode>_memory): Fix endian issue.
+	(vsx_xxspltw): Require TARGET_DIRECT_MOVE_64BIT.
+	(vsx_vsplt<VSX_SPLAT_SUFFIX>_di): New insns to support vspltb and
+	vsplth for initializing splat'ed vector char/short.
+
 	* config/rs6000/vsx.md (vsx_xxspltw_<mode>): Drop support for
 	preferred register set.
 	(vsx_xxspltw_<mode>_direct): Likewise.

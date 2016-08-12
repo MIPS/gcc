@@ -6810,6 +6810,32 @@ rs6000_expand_vector_init (rtx target, rtx vals)
       return;
     }
 
+  /* Special case initializing vector short/char that are splats if we are on
+     64-bit systems with direct move.  */
+  if (all_same && TARGET_DIRECT_MOVE_64BIT
+      && (mode == V16QImode || mode == V8HImode))
+    {
+      rtx op0 = XVECEXP (vals, 0, 0);
+      rtx di_tmp = gen_reg_rtx (DImode);
+
+      if (!REG_P (op0))
+	op0 = force_reg (GET_MODE_INNER (mode), op0);
+
+      if (mode == V16QImode)
+	{
+	  emit_insn (gen_zero_extendqidi2 (di_tmp, op0));
+	  emit_insn (gen_vsx_vspltb_di (target, di_tmp));
+	  return;
+	}
+
+      if (mode == V8HImode)
+	{
+	  emit_insn (gen_zero_extendhidi2 (di_tmp, op0));
+	  emit_insn (gen_vsx_vsplth_di (target, di_tmp));
+	  return;
+	}
+    }
+
   /* Store value to stack temp.  Load vector element.  Splat.  However, splat
      of 64-bit items is not supported on Altivec.  */
   if (all_same && GET_MODE_SIZE (inner_mode) <= 4)
