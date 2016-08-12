@@ -16764,7 +16764,7 @@ mips_output_jump (rtx *operands, int target_opno, int size_opno, bool link_p,
 	s += sprintf (s, "%%*");
 
       if (move_balc_p)
-	s += sprintf (s, "move.%s%s%s%s%s\t%%0,%%1,%%%d%s",
+	s += sprintf (s, "move.%s%s%s%s%s\t%%0,%%z1,%%%d%s",
 		      insn_name, and_link, reg, compact, short_delay,
 		      target_opno, nop);
       else
@@ -22694,6 +22694,204 @@ mips_insert_insn_pseudos (void)
       }
 }
 
+/* Helper function to nanomips_move_balc_opt.
+
+   Generates move.balc instruction RTL from OPERANDS.  */
+
+static rtx
+gen_move_balc (rtx *operands)
+{
+
+  rtx _val = 0;
+  rtx set_dest, set_src, call_mem, nbytes, retval;
+  start_sequence ();
+  set_dest = operands[0];
+  set_src = operands[1];
+  call_mem = operands[2];
+  nbytes = operands[3];
+  retval = operands[4];
+
+  if (retval != NULL)
+    {
+      emit_call_insn (gen_rtx_PARALLEL (VOIDmode,
+		      gen_rtvec (4,
+				 gen_rtx_SET (retval,
+					      gen_rtx_CALL (VOIDmode,
+						gen_rtx_MEM (SImode,
+							     call_mem),
+							    nbytes)),
+				  gen_rtx_SET (set_dest,
+					       set_src),
+				  gen_rtx_USE (VOIDmode,
+					       copy_rtx (set_dest)),
+				  gen_hard_reg_clobber (SImode, 31))));
+
+    }
+  else
+    {
+      emit_call_insn (gen_rtx_PARALLEL (VOIDmode,
+		      gen_rtvec (4,
+				 gen_rtx_CALL (VOIDmode,
+				    gen_rtx_MEM (SImode,
+						 call_mem),
+					       nbytes),
+				 gen_rtx_SET (set_dest,
+					      set_src),
+				 gen_rtx_USE (VOIDmode,
+					      copy_rtx (set_dest)),
+				 gen_hard_reg_clobber (SImode, 31))));
+    }
+
+  _val = get_insns ();
+  end_sequence ();
+  return _val;
+
+}
+
+/* Function for TARGET_MACHINE_DEPENDENT_REORG.
+
+   Find opportunities missed by peephole2 for move.balc
+   and generate RTL instructions accordingly.  */
+
+static void
+nanomips_move_balc_opt ()
+{
+  enum dest_reg { NONE, USE_4, USE_5, BOTH };
+  basic_block bb;
+  rtx_insn *insn, *prev, *call_insn;
+  unsigned int use_map, num_set;
+
+  if (dump_file)
+    fprintf (dump_file, "move_balc optimization\n");
+
+  FOR_EACH_BB_REVERSE_FN (bb, cfun)
+    {
+      call_insn = NULL;
+      use_map = NONE;
+      num_set = 0;
+      FOR_BB_INSNS_REVERSE_SAFE (bb, insn, prev)
+	{
+	  if (!INSN_P (insn))
+	    continue;
+
+	  rtx pattern = PATTERN (insn);
+
+	  /* Record call RTL along with argument register it uses.  */
+	  if (CALL_P (insn))
+	    {
+	      call_insn = NULL;
+	      use_map = NONE;
+	      num_set = 0;
+
+	      if (!SIBLING_CALL_P (insn) && GET_CODE (pattern) == PARALLEL)
+		{
+		  rtx call = XVECEXP (pattern, 0, 0);
+		  if (GET_CODE (call) == SET)
+		    call = SET_SRC (call);
+		  if (GET_CODE (call) != CALL)
+		    continue;
+
+		  if (GET_CODE (XVECEXP (pattern, 0, 1)) != CLOBBER)
+		    continue;
+
+		  if (find_regno_fusage (insn, USE, 4))
+		    use_map |= USE_4;
+		  if (find_regno_fusage (insn, USE, 5))
+		    use_map |= USE_5;
+
+		  /* Calls with no arguments are not valid candidates for
+		     move.balc.  */
+		  if (use_map != NONE)
+		    call_insn = insn;
+		}
+	    }
+
+	  /* Even though CALL_INSN uses arguments $a0/$a1, no corresponding
+	     register MOVE insn is guaranteed.
+	     1. No moves left: CALL_INSN will be set to NULL by next call or at
+		the start of next BB.
+	     2. Only one move: If call uses BOTH/$4 and only one move, try it.
+	     3. both moves: Try first from reverse direction. If unsuccessful,
+		try second.  */
+	  if (call_insn != NULL
+	      && GET_CODE (pattern) == SET
+	      && REG_P (SET_DEST (pattern))
+	      && (REG_P (SET_SRC (pattern))
+		  || (CONST_INT_P (SET_SRC (pattern))
+		      && INTVAL (SET_SRC (pattern)) == 0))
+	      && use_map != NONE
+	      && (REGNO (SET_DEST (pattern)) == 4
+		  || (use_map == BOTH && REGNO (SET_DEST (pattern)) == 5)))
+	    {
+	      num_set++;
+	      /* Prepare arguments.  */
+	      rtx operands[5];
+	      rtx x = PATTERN (call_insn);
+	      operands[4] = NULL;
+	      rtx call = XVECEXP (x, 0, 0);
+	      if (GET_CODE (call) == SET)
+		{
+		  operands[4] = SET_DEST (call);
+		  call = SET_SRC (call);
+		}
+	      operands[2] = XEXP (XEXP (call, 0), 0);
+	      operands[3] = XEXP (call, 1);
+
+	      operands[0] = SET_DEST (pattern);
+	      operands[1] = SET_SRC (pattern);
+
+	      /* New insn is generated at the call location.  Therefore, don't
+		 generate if move dest is used and/or src is set in between.  */
+	      if (nanomips_move_balc_p (operands)
+		  && (!reg_set_between_p (operands[1], insn, call_insn)
+			&& !reg_used_between_p (operands[0], insn, call_insn)))
+		{
+		  rtx mov_balc = gen_move_balc (operands);
+
+		  /* TODO: Not sure which other insn notes are to be copied.  */
+		  if (RTX_FRAME_RELATED_P (call_insn))
+		    {
+		      RTX_FRAME_RELATED_P (mov_balc) = 1;
+		    }
+
+		  CALL_INSN_FUNCTION_USAGE (mov_balc)
+		    = CALL_INSN_FUNCTION_USAGE (call_insn);
+		  SIBLING_CALL_P (mov_balc) = SIBLING_CALL_P (call_insn);
+
+		  rtx last = emit_insn_after_setloc (mov_balc, call_insn,
+						     INSN_LOCATION (call_insn));
+
+		  rtx note = find_reg_note (call_insn, REG_EH_REGION,
+					    NULL_RTX);
+		  if (note != NULL_RTX)
+		    add_reg_note (last, REG_EH_REGION, XEXP (note, 0));
+
+		  note = find_reg_note (call_insn, REG_CALL_DECL, NULL_RTX);
+		  if (note != NULL_RTX)
+		    add_reg_note (last, REG_CALL_DECL, XEXP (note, 0));
+
+		  if (dump_file)
+		    {
+		      print_rtl_single (dump_file, call_insn);
+		      print_rtl_single (dump_file, insn);
+		      fprintf (dump_file, "MOVE_BALC INSN\n");
+		      print_rtl_single (dump_file, last);
+		    }
+
+		  delete_insn (call_insn);
+		  delete_insn (insn);
+		}
+	      else if (use_map == BOTH && num_set < 2)
+		continue;
+
+	      call_insn = NULL;
+	      use_map = NONE;
+	      num_set = 0;
+	    }
+	}
+    }
+}
+
 /* Implement TARGET_MACHINE_DEPENDENT_REORG.  */
 
 static void
@@ -22710,6 +22908,9 @@ mips_reorg (void)
       mips_df_reorg ();
       free_bb_for_insn ();
     }
+
+  if (TARGET_NANOMIPS && TARGET_OPT_MOVEBALC)
+    nanomips_move_balc_opt ();
 }
 
 /* We use a machine specific pass to do a second machine dependent reorg
