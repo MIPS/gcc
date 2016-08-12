@@ -2760,7 +2760,7 @@
 	(vec_duplicate:V4SI
 	 (match_operand:SI 1 "input_operand" "r,Z")))
    (clobber (match_scratch:DI 2 "=wi,wi"))]
-  "TARGET_DIRECT_MOVE_64BIT && !TARGET_P9_VECTOR"
+  "VECTOR_MEM_VSX_P (V4SImode) && TARGET_DIRECT_MOVE_64BIT && !TARGET_P9_VECTOR"
   "#"
   "&& 1"
   [(set (match_dup 2) (zero_extend:DI (match_dup 1)))
@@ -2783,18 +2783,18 @@
 	(vec_duplicate:V4SI
 	 (truncate:SI
 	  (match_operand:DI 1 "vsx_register_operand" "wi"))))]
-  "TARGET_P8_VECTOR"
+  "VECTOR_MEM_VSX_P (V4SImode) && TARGET_P8_VECTOR"
   "xxspltw %x0,%x1,1"
   [(set_attr "type" "vecperm")])
 
 ;; V4SF/V4SI splat from a vector element
 (define_insn "vsx_xxspltw_<mode>"
-  [(set (match_operand:VSX_W 0 "vsx_register_operand" "=wf,?<VSa>")
+  [(set (match_operand:VSX_W 0 "vsx_register_operand" "=<VSa>")
 	(vec_duplicate:VSX_W
 	 (vec_select:<VS_scalar>
-	  (match_operand:VSX_W 1 "vsx_register_operand" "wf,<VSa>")
+	  (match_operand:VSX_W 1 "vsx_register_operand" "<VSa>")
 	  (parallel
-	   [(match_operand:QI 2 "u5bit_cint_operand" "i,i")]))))]
+	   [(match_operand:QI 2 "u5bit_cint_operand" "n")]))))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
 {
   if (!BYTES_BIG_ENDIAN)
@@ -2805,9 +2805,9 @@
   [(set_attr "type" "vecperm")])
 
 (define_insn "vsx_xxspltw_<mode>_direct"
-  [(set (match_operand:VSX_W 0 "vsx_register_operand" "=wf,?<VSa>")
-        (unspec:VSX_W [(match_operand:VSX_W 1 "vsx_register_operand" "wf,<VSa>")
-                       (match_operand:QI 2 "u5bit_cint_operand" "i,i")]
+  [(set (match_operand:VSX_W 0 "vsx_register_operand" "=<VSa>")
+        (unspec:VSX_W [(match_operand:VSX_W 1 "vsx_register_operand" "<VSa>")
+                       (match_operand:QI 2 "u5bit_cint_operand" "i")]
                       UNSPEC_VSX_XXSPLTW))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "xxspltw %x0,%x1,%2"
