@@ -6115,6 +6115,7 @@ extern vec<qualified_typedef_usage_t, va_gc> *get_types_needing_access_check (tr
 extern int template_class_depth			(tree);
 extern int is_specialization_of			(tree, tree);
 extern bool is_specialization_of_friend		(tree, tree);
+extern tree enumerate_friend_specializations	(tree);
 extern tree get_pattern_parm			(tree, tree);
 extern int comp_template_args			(tree, tree, tree * = NULL,
 						 tree * = NULL);

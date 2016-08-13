@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 
 extern int cp_get_ref_qualifier (const_tree);
 extern tree cp_get_ptrmemfn_type (const_tree, int);
+extern tree cp_get_friends (const_tree, int);
 
 extern tree objcp_tsubst_copy_and_build (tree, tree, tsubst_flags_t,
 					 tree, bool);
@@ -134,6 +135,8 @@ extern void cp_common_init_ts (void);
 #define LANG_HOOKS_GET_REF_QUALIFIER cp_get_ref_qualifier
 #undef LANG_HOOKS_GET_PTRMEMFN_TYPE
 #define LANG_HOOKS_GET_PTRMEMFN_TYPE cp_get_ptrmemfn_type
+#undef LANG_HOOKS_GET_FRIENDS
+#define LANG_HOOKS_GET_FRIENDS cp_get_friends
 #undef LANG_HOOKS_TO_TARGET_CHARSET
 #define LANG_HOOKS_TO_TARGET_CHARSET c_common_to_target_charset
 #undef LANG_HOOKS_GIMPLIFY_EXPR

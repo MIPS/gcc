@@ -22629,6 +22629,61 @@ gen_variant_part (tree variant_part_decl, struct vlr_context *vlr_ctx,
   free (discr_lists);
 }
 
+/* Types that have friends have to be revisited, because we want to
+   emit friend attributes for them once we know what types and decls
+   have DIEs, and we want to emit friend tags for specializations of
+   template friends.  We could create DIEs in limbo ourselves, but we
+   can't know the specializations before we've seen the entire
+   translation unit.  */
+
+static GTY (()) vec<tree, va_gc> *class_types_with_friends;
+
+/* Add any friend tags corresponding to the named TYPE.  */
+
+static void
+gen_friend_tags_for_type (tree type)
+{
+  dw_die_ref context_die = lookup_type_die (type);
+  gcc_assert (context_die);
+
+  for (tree friends = lang_hooks.types.get_friends (type, 3); friends;
+       friends = TREE_CHAIN (friends))
+    {
+      tree t = TREE_VALUE (friends);
+      dw_die_ref die = NULL;
+      if (!t)
+	/* If it's a friend template without any specializations, we
+	   can't refer to it in debug information.  */
+	continue;
+      else if (TYPE_P (t))
+	die = lookup_type_die (t);
+      else if (DECL_P (t))
+	die = lookup_decl_die (t);
+      else
+	gcc_unreachable ();
+      if (!die)
+	continue;
+      dw_die_ref child = new_die (DW_TAG_friend, context_die, type);
+      add_AT_die_ref (child, DW_AT_friend, die);
+      /* We don't distinguish between actual friend declarations, and
+	 template specializations of template friend declarations.  We
+	 could test TREE_PURPOSE at this point to that end.  */
+    }
+}
+
+/* Add any friend tags corresponding to class TYPEs that were found to
+   have friend declarations.  */
+
+static void
+gen_friend_tags ()
+{
+  if (!class_types_with_friends)
+    return;
+
+  while (!class_types_with_friends->is_empty ())
+    gen_friend_tags_for_type (class_types_with_friends->pop ());
+}
+
 /* Generate a DIE for a class member.  */
 
 static void
@@ -22714,6 +22769,9 @@ gen_member_die (tree type, dw_die_ref context_die)
 	else
 	  gen_decl_die (member, NULL, NULL, context_die);
       }
+
+  if (lang_hooks.types.get_friends (type, 0))
+    vec_safe_push (class_types_with_friends, type);
 }
 
 /* Generate a DIE for a structure or union type.  If TYPE_DECL_SUPPRESS_DEBUG
@@ -26187,6 +26245,97 @@ prune_unused_types_walk_local_classes (dw_die_ref die)
   FOR_EACH_CHILD (die, c, prune_unused_types_walk_local_classes (c));
 }
 
+/* Nodes to revisit after marking everything else, to decide whether
+   or not they can/should be emitted.  */
+
+static vec<dw_die_ref> deferred_marks;
+
+/* Return true if the mark is already decided, false otherwise.  */
+
+static bool
+prune_unused_types_defer_undecided_mark_p (dw_die_ref die)
+{
+  gcc_assert (!die->die_mark);
+
+  dw_attr_node *a;
+  unsigned ix;
+  bool can_mark_now = true;
+
+  FOR_EACH_VEC_SAFE_ELT (die->die_attr, ix, a)
+    switch (AT_class (a))
+      {
+      case dw_val_class_loc:
+      case dw_val_class_loc_list:
+	/* We don't support attributes of this type now.  Deferred
+	   walking of the location expressions might mark DIEs that
+	   we've already decided not to output, and we may have
+	   already based other decisions on it.  This is not
+	   insurmountable, but we don't need to tackle that right
+	   away.  */
+	gcc_unreachable ();
+
+      case dw_val_class_die_ref:
+	if (!a->dw_attr_val.v.val_die_ref.die->die_mark)
+	  can_mark_now = false;
+	break;
+
+      case dw_val_class_str:
+      default:
+	break;
+      }
+
+  return !can_mark_now;
+}
+
+/* Return true if we've deferred the decision on whether to mark DIE.
+   It must not have children or attributes with location expressions
+   or lists.  Attributes with strings and other DIEs are ok.  If any
+   of the DIEs referenced by attributes is not marked, we defer the
+   decision to give it a chance to be marked so that we output the
+   present DIE too.  In this case, we return TRUE, to indicate the
+   decision was deferred.  If they are all marked already, then we
+   know we can output this one as well, so we return FALSE to indicate
+   it was NOT deferred.  */
+
+static bool
+prune_unused_types_defer_mark (dw_die_ref die)
+{
+  gcc_assert (die->die_parent->die_mark);
+
+  /* We use this for friend DIEs only, and they have no children, so
+     don't make things more complicated than needed.  */
+  gcc_assert (!die->die_child);
+
+  if (die->die_mark || !prune_unused_types_defer_undecided_mark_p (die))
+    return false;
+
+  deferred_marks.safe_push (die);
+
+  return true;
+}
+
+/* This function revisits a deferred DIE, and marks it iff each DIE
+   its attributes reference is also marked.  */
+
+static void
+prune_unused_types_deferred_walk (dw_die_ref die)
+{
+  /* If we're marked, we're done.  Otherwise, if referenced DIEs
+     remain unmarked, then we don't mark this one either.  */
+  if (die->die_mark
+      || prune_unused_types_defer_undecided_mark_p (die))
+    return;
+
+  gcc_assert (!die->die_mark);
+  die->die_mark = 1;
+  /* This should do no more than resetting the refcount of
+     strings.  */
+  prune_unused_types_walk_attribs (die);
+  die->die_mark = 2;
+
+  /* We don't mark children because we know we have none.  */
+}
+
 /* Walk the tree DIE and mark types that we actually use.  */
 
 static void
@@ -26222,6 +26371,13 @@ prune_unused_types_walk (dw_die_ref die)
       /* It's a type node --- don't mark it.  */
       return;
 
+    case DW_TAG_friend:
+      if (die->die_perennial_p
+	  || !prune_unused_types_defer_mark (die))
+	break;
+
+      return;
+
     case DW_TAG_const_type:
     case DW_TAG_packed_type:
     case DW_TAG_pointer_type:
@@ -26231,7 +26387,6 @@ prune_unused_types_walk (dw_die_ref die)
     case DW_TAG_typedef:
     case DW_TAG_array_type:
     case DW_TAG_interface_type:
-    case DW_TAG_friend:
     case DW_TAG_enumeration_type:
     case DW_TAG_subroutine_type:
     case DW_TAG_string_type:
@@ -26347,6 +26502,8 @@ prune_unused_types (void)
   pubname_entry *pub;
   dw_die_ref base_type;
 
+  gcc_assert (deferred_marks.is_empty ());
+
 #if ENABLE_ASSERT_CHECKING
   /* All the marks should already be clear.  */
   verify_marks_clear (comp_unit_die ());
@@ -26378,6 +26535,10 @@ prune_unused_types (void)
       prune_unused_types_mark (pub->die, 1);
   for (i = 0; base_types.iterate (i, &base_type); i++)
     prune_unused_types_mark (base_type, 1);
+
+  while (!deferred_marks.is_empty ())
+    prune_unused_types_deferred_walk (deferred_marks.pop ());
+  deferred_marks.release ();
 
   if (debug_str_hash)
     debug_str_hash->empty ();
@@ -27938,6 +28099,7 @@ dwarf2out_finish (const char *filename)
   producer->dw_attr_val.v.val_str = find_AT_string (producer_string);
 
   gen_remaining_tmpl_value_param_die_attribute ();
+  gen_friend_tags ();
 
   /* Add the name for the main input file now.  We delayed this from
      dwarf2out_init to avoid complications with PCH.
@@ -28278,6 +28440,7 @@ dwarf2out_early_finish (void)
 
   gen_scheduled_generic_parms_dies ();
   gen_remaining_tmpl_value_param_die_attribute ();
+  gen_friend_tags ();
 
   /* Add DW_AT_linkage_name for all deferred DIEs.  */
   for (limbo_die_node *node = deferred_asm_name; node; node = node->next)

@@ -1469,6 +1469,192 @@ is_specialization_of_friend (tree decl, tree friend_decl)
   return false;
 }
 
+/* Return TRUE if TMPL is not a template itself, but rather a member
+   of a [template] class, so that, in order to catch all friends,
+   including corresponding members of partial and explicit
+   specializations, we should look for specializations of the
+   enclosing class.  */
+
+static bool
+optimize_friend_specialization_lookup_p (tree tmpl)
+{
+  return (optimize_specialization_lookup_p (tmpl)
+	  || ((TREE_CODE (tmpl) == FUNCTION_DECL
+	       || (DECL_CLASS_TEMPLATE_P (tmpl)
+		   && !DECL_MEMBER_TEMPLATE_P (tmpl)))
+	      && DECL_CLASS_SCOPE_P (tmpl)
+	      && CLASS_TYPE_P (DECL_CONTEXT (tmpl))
+	      && !CLASSTYPE_TEMPLATE_SPECIALIZATION (DECL_CONTEXT (tmpl))));
+}
+
+/* Retrieve the specialization of TMPL that is a member of CTX with
+   ARGS.  If retrieve_specialization can't find such a specialization,
+   or it yields a specialization that is not a member of CTX (say,
+   because CTX is a partial specialization, and ARGS has the arguments
+   for the partial specialization), look up TMPL's name in CTX, and
+   see which result, if any, is a friend specialization of TMPL.  */
+
+static tree
+retrieve_friend_specialization (tree tmpl, tree args, tree ctx)
+{
+  tree ret;
+
+  if (TREE_CODE (tmpl) == FUNCTION_DECL)
+    {
+      ret = retrieve_specialization (DECL_TI_TEMPLATE (tmpl), args, 0);
+      if (TREE_CODE (ctx) == FUNCTION_DECL)
+	{
+	  gcc_assert (ctx == ret);
+	  ctx = DECL_CONTEXT (ret);
+	}
+    }
+  else
+    ret = retrieve_specialization (tmpl, args, 0);
+
+  /* We have to test the context because ARGS could be from a partial
+     specialization, and using that in tmpl might get us a different
+     specialization.  We could improve this with a reverse
+     get_partial_spec_bindings, but this is simple and cheap
+     enough.  */
+  if (ret && (DECL_P (ret) ? DECL_CONTEXT (ret) : TYPE_CONTEXT (ret)) == ctx)
+    {
+    found:
+      tree testme = ret;
+      if (!DECL_P (testme))
+	testme = TYPE_NAME (ret);
+      if (is_specialization_of_friend (testme, tmpl))
+	return ret;
+      else
+	return NULL_TREE;
+    }
+
+  if (!optimize_friend_specialization_lookup_p (tmpl))
+    return NULL_TREE;
+
+  if (DECL_CLASS_TEMPLATE_P (tmpl))
+    {
+      ret = lookup_member (ctx, DECL_NAME (tmpl), 0, true, tf_none);
+      if (!ret)
+	return NULL_TREE;
+
+      goto found;
+    }
+
+  ret = lookup_fnfields (ctx, DECL_NAME (tmpl), 0);
+  for (tree fns = ret, prev_found = NULL_TREE; fns; fns = OVL_NEXT (fns))
+    {
+      tree fn = OVL_CURRENT (fns);
+
+      if (!is_specialization_of_friend (fn, tmpl))
+	continue;
+
+      if (prev_found)
+	return NULL_TREE;
+
+      ret = prev_found = fn;
+    }
+
+  return ret;
+}
+
+/* Return a list of instantiations/specializations that match
+   FRIEND_DECL.  */
+
+tree
+enumerate_friend_specializations (tree friend_decl)
+{
+  tree opt_decl = friend_decl;
+  if (optimize_friend_specialization_lookup_p (opt_decl))
+    opt_decl = CLASSTYPE_TI_TEMPLATE (DECL_CONTEXT (opt_decl));
+
+  if (TREE_CODE (opt_decl) == FUNCTION_DECL)
+    {
+      gcc_assert (uses_template_parms (opt_decl));
+      opt_decl = DECL_TI_TEMPLATE (opt_decl);
+    }
+
+  gcc_assert (TREE_CODE (opt_decl) == TEMPLATE_DECL);
+
+  /* For nested template classes, we might be able to enumerate the
+     enclosing template classes, and then locate their member
+     templates, but it's not clear it's worth the effort.  If we were
+     to use their DECL_TEMPLATE_INSTANTIATIONS, we'd only get partial
+     specializations (try g++.dg/debug/dwarf2/friend-12.C), so we
+     don't.  So we only use DECL_TEMPLATE_INSTANTIATIONS for template
+     classes in classes that are not templates, or that are
+     fully-specialized template, and for primary template functions in
+     namespace scopes (DECL_TEMPLATE_INSTANTIATIONS is not even
+     defined for other template functions).  */
+  if (DECL_CLASS_TEMPLATE_P (opt_decl)
+      ? (DECL_NAMESPACE_SCOPE_P (opt_decl)
+	 || !uses_template_parms (DECL_CONTEXT (opt_decl)))
+      : (DECL_NAMESPACE_SCOPE_P (opt_decl)
+	 && PRIMARY_TEMPLATE_P (opt_decl)))
+    {
+      tree list = NULL_TREE;
+      for (tree speclist = DECL_TEMPLATE_INSTANTIATIONS (opt_decl);
+	   speclist; speclist = TREE_CHAIN (speclist))
+	{
+	  tree spec = TREE_VALUE (speclist);
+	  if (opt_decl != friend_decl)
+	    {
+	      spec = retrieve_friend_specialization
+		(friend_decl, TREE_PURPOSE (speclist), spec);
+	      if (!spec)
+		continue;
+	    }
+	  if (TREE_CODE (spec) == TYPE_DECL)
+	    spec = TREE_TYPE (spec);
+	  list = tree_cons (friend_decl, spec, list);
+	}
+      return list;
+    }
+
+  typedef hash_table<spec_hasher> specs_t;
+  specs_t *specializations;
+  tree_code code;
+
+  if (DECL_CLASS_TEMPLATE_P (opt_decl))
+    {
+      specializations = type_specializations;
+      code = RECORD_TYPE;
+    }
+  else
+    {
+      specializations = decl_specializations;
+      code = FUNCTION_DECL;
+    }
+
+  tree list = NULL_TREE;
+
+  for (specs_t::iterator iter = specializations->begin(),
+	 end = specializations->end();
+       iter != end; ++iter)
+    {
+      tree ospec = (*iter)->spec;
+      if (TREE_CODE (ospec) != code)
+	continue;
+      tree spec = ospec;
+      if (TREE_CODE (spec) == RECORD_TYPE)
+	spec = TYPE_NAME (spec);
+      if (is_specialization_of_friend (spec, opt_decl))
+	{
+	  if (opt_decl != friend_decl)
+	    {
+	      spec = retrieve_friend_specialization
+		(friend_decl, (*iter)->args, ospec);
+	      if (!spec)
+		continue;
+	    }
+	  if (TREE_CODE (spec) == TYPE_DECL)
+	    spec = TREE_TYPE (spec);
+	  list = tree_cons (friend_decl, spec, list);
+	}
+    }
+
+  return list;
+}
+
 /* Register the specialization SPEC as a specialization of TMPL with
    the indicated ARGS.  IS_FRIEND indicates whether the specialization
    is actually just a friend declaration.  Returns SPEC, or an
@@ -1623,11 +1809,17 @@ register_specialization (tree spec, tree tmpl, tree args, bool is_friend,
       *slot = entry;
       if ((TREE_CODE (spec) == FUNCTION_DECL && DECL_NAMESPACE_SCOPE_P (spec)
 	   && PRIMARY_TEMPLATE_P (tmpl)
-	   && DECL_SAVED_TREE (DECL_TEMPLATE_RESULT (tmpl)) == NULL_TREE)
+	   && (DECL_SAVED_TREE (DECL_TEMPLATE_RESULT (tmpl)) == NULL_TREE
+	       || debug_info_level != DINFO_LEVEL_NONE))
 	  || variable_template_p (tmpl))
 	/* If TMPL is a forward declaration of a template function, keep a list
 	   of all specializations in case we need to reassign them to a friend
 	   template later in tsubst_friend_function.
+
+	   We also use DECL_TEMPLATE_INSTANTIATIONS to enumerate the
+	   specializations of a friend function template in debug
+	   information, so if we are emitting debug information, add
+	   specializations to the list.
 
 	   Also keep a list of all variable template instantiations so that
 	   process_partial_specialization can check whether a later partial

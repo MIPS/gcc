@@ -167,6 +167,112 @@ cp_get_ptrmemfn_type (const_tree type, int selector)
     }
 }
 
+/* At DETAIL level 0, returns non-NULL if the named class TYPE has any
+   friends, NULL otherwise.  At higher detail levels, return a tree
+   list with the friends of the named class type.  Each TREE_VALUE
+   contains one friend type or function decl.  For non-template
+   friends, TREE_PURPOSE is NULL.  For template friend declarations,
+   the returned entries depend on the DETAIL level.  At level 1, and
+   only at level 1, an entry with NULL TREE_VALUE and non-NULL
+   TREE_PURPOSE will START the returned list to indicate the named
+   class TYPE has at least one template friend.  At level 2, each
+   template friend will be in an entry with NULL TREE_VALUE, and with
+   the TEMPLATE_DECL in TREE_PURPOSE.  At level 3, instead of a NULL
+   TREE_VALUE, we add one entry for each instantiation or
+   specialization of the template that fits the template friend
+   declaration, as long as there is at least one instantiation or
+   specialization; if there isn't any, an entry with NULL TREE_VALUE
+   is created.  A negative detail level will omit non-template friends
+   from the returned list.  */
+
+tree
+cp_get_friends (const_tree type, int detail)
+{
+  tree list = NULL_TREE;
+  tree typedecl = TYPE_MAIN_DECL (type);
+  bool has_templates = false;
+  bool non_templates = true;
+
+  if (!typedecl)
+    return NULL_TREE;
+
+  if (detail == 0)
+    {
+      if (DECL_FRIENDLIST (typedecl)
+	  || CLASSTYPE_FRIEND_CLASSES (TREE_TYPE (typedecl)))
+	return integer_one_node;
+      else
+	return NULL_TREE;
+    }
+  else if (detail < 0)
+    {
+      detail = -detail;
+      non_templates = false;
+    }
+
+  gcc_assert (detail <= 3);
+
+  for (tree fnlist = DECL_FRIENDLIST (typedecl); fnlist;
+       fnlist = TREE_CHAIN (fnlist))
+    for (tree fns = FRIEND_DECLS (fnlist); fns; fns = TREE_CHAIN (fns))
+      {
+	tree fn = TREE_VALUE (fns);
+	if (TREE_CODE (fn) == FUNCTION_DECL
+	    && !uses_template_parms (fn))
+	  {
+	    if (non_templates)
+	      list = tree_cons (NULL_TREE, fn, list);
+	    continue;
+	  }
+
+	has_templates = true;
+
+	if (detail == 2)
+	  list = tree_cons (fn, NULL_TREE, list);
+
+	if (detail <= 2)
+	  continue;
+
+	tree new_list = enumerate_friend_specializations (fn);
+	if (new_list)
+	  list = chainon (new_list, list);
+	else
+	  list = tree_cons (fn, NULL_TREE, list);
+      }
+
+  for (tree cllist = CLASSTYPE_FRIEND_CLASSES (TREE_TYPE (typedecl));
+       cllist; cllist = TREE_CHAIN (cllist))
+    {
+      tree cl = TREE_VALUE (cllist);
+
+      if (TREE_CODE (cl) == RECORD_TYPE)
+	{
+	  if (non_templates)
+	    list = tree_cons (NULL_TREE, cl, list);
+	  continue;
+	}
+
+      has_templates = true;
+
+      if (detail == 2)
+	list = tree_cons (cl, NULL_TREE, list);
+
+      if (detail <= 2)
+	continue;
+
+      tree new_list = enumerate_friend_specializations (cl);
+      if (new_list)
+	list = chainon (new_list, list);
+      else
+	list = tree_cons (cl, NULL_TREE, list);
+    }
+
+  if (has_templates && detail == 1)
+    list = tree_cons (integer_one_node, NULL_TREE, list);
+
+  return list;
+}
+
 /* Return true if DECL is explicit member function.  */
 
 bool
