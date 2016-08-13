@@ -97,6 +97,7 @@ cat > sysinfo.c <<EOF
 #include <unistd.h>
 #include <netdb.h>
 #include <pwd.h>
+#include <grp.h>
 #if defined(HAVE_LINUX_FILTER_H)
 #include <linux/filter.h>
 #endif
@@ -427,6 +428,10 @@ if ! grep '^const AF_LOCAL ' ${OUT} >/dev/null 2>&1; then
     echo "const AF_LOCAL = AF_UNIX" >> ${OUT}
   fi
 fi
+
+# sysconf constants.
+grep '^const __SC' gen-sysinfo.go |
+  sed -e 's/^\(const \)__\(SC[^= ]*\)\(.*\)$/\1\2 = __\2/' >> ${OUT}
 
 # pathconf constants.
 grep '^const __PC' gen-sysinfo.go |
@@ -904,6 +909,12 @@ grep '^const _NI_' gen-sysinfo.go | \
 grep '^type _passwd ' gen-sysinfo.go | \
     sed -e 's/_passwd/Passwd/' \
       -e 's/ pw_/ Pw_/g' \
+    >> ${OUT}
+
+# The group struct.
+grep '^type _group ' gen-sysinfo.go | \
+    sed -e 's/_group/Group/' \
+      -e 's/ gr_/ Gr_/g' \
     >> ${OUT}
 
 # The ioctl flags for the controlling TTY.
@@ -1463,6 +1474,9 @@ grep '^const _CLONE_' gen-sysinfo.go | \
 # of glibc.
 if ! grep '^const CLONE_NEWUSER ' ${OUT} > /dev/null 2>&1; then
   echo "const CLONE_NEWUSER = 0x10000000" >> ${OUT}
+fi
+if ! grep '^const CLONE_NEWNET ' ${OUT} > /dev/null 2>&1; then
+  echo "const CLONE_NEWNET = 0x40000000" >> ${OUT}
 fi
 
 # Struct sizes.

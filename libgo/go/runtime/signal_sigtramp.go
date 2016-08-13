@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// +build ignore
+
 // +build dragonfly linux netbsd
 
 package runtime
@@ -18,7 +20,15 @@ func sigtrampgo(sig uint32, info *siginfo, ctx unsafe.Pointer) {
 	}
 	g := getg()
 	if g == nil {
-		badsignal(uintptr(sig))
+		if sig == _SIGPROF {
+			// Ignore profiling signals that arrive on
+			// non-Go threads. On some systems they will
+			// be handled directly by the signal handler,
+			// by calling sigprofNonGo, in which case we won't
+			// get here anyhow.
+			return
+		}
+		badsignal(uintptr(sig), &sigctxt{info, ctx})
 		return
 	}
 
@@ -29,12 +39,12 @@ func sigtrampgo(sig uint32, info *siginfo, ctx unsafe.Pointer) {
 		sigaltstack(nil, &st)
 		if st.ss_flags&_SS_DISABLE != 0 {
 			setg(nil)
-			cgocallback(unsafe.Pointer(funcPC(noSignalStack)), noescape(unsafe.Pointer(&sig)), unsafe.Sizeof(sig))
+			cgocallback(unsafe.Pointer(funcPC(noSignalStack)), noescape(unsafe.Pointer(&sig)), unsafe.Sizeof(sig), 0)
 		}
 		stsp := uintptr(unsafe.Pointer(st.ss_sp))
 		if sp < stsp || sp >= stsp+st.ss_size {
 			setg(nil)
-			cgocallback(unsafe.Pointer(funcPC(sigNotOnStack)), noescape(unsafe.Pointer(&sig)), unsafe.Sizeof(sig))
+			cgocallback(unsafe.Pointer(funcPC(sigNotOnStack)), noescape(unsafe.Pointer(&sig)), unsafe.Sizeof(sig), 0)
 		}
 		g.m.gsignal.stack.lo = stsp
 		g.m.gsignal.stack.hi = stsp + st.ss_size

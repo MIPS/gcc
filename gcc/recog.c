@@ -1792,6 +1792,7 @@ asm_operand_ok (rtx op, const char *constraint, const char **constraints)
 
 	     Match any memory and hope things are resolved after reload.  */
 	  incdec_ok = true;
+	  /* FALLTHRU */
 	default:
 	  cn = lookup_constraint (constraint);
 	  switch (get_constraint_type (cn))
@@ -2935,11 +2936,10 @@ split_insn (rtx_insn *insn)
 void
 split_all_insns (void)
 {
-  sbitmap blocks;
   bool changed;
   basic_block bb;
 
-  blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
+  auto_sbitmap blocks (last_basic_block_for_fn (cfun));
   bitmap_clear (blocks);
   changed = false;
 
@@ -2989,8 +2989,6 @@ split_all_insns (void)
     find_many_sub_basic_blocks (blocks);
 
   checking_verify_flow_info ();
-
-  sbitmap_free (blocks);
 }
 
 /* Same as split_all_insns, but do not expect CFG to be available.

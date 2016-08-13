@@ -3727,7 +3727,7 @@ find_placeholder_in_expr (tree exp, vec<tree> *refs)
 	    break;
 	  }
 
-        /* Fall through...  */
+        /* Fall through.  */
 
       case tcc_exceptional:
       case tcc_unary:
@@ -3816,7 +3816,7 @@ substitute_in_expr (tree exp, tree f, tree r)
 	if (exp == f)
 	  return r;
 
-        /* Fall through...  */
+        /* Fall through.  */
 
       case tcc_exceptional:
       case tcc_unary:
@@ -7027,7 +7027,7 @@ type_cache_hasher::equal (type_hash *a, type_hash *b)
 				   TYPE_VALUES (b->type))))
 	return 0;
 
-      /* ... fall through ... */
+      /* fall through */
 
     case INTEGER_TYPE:
     case REAL_TYPE:
@@ -11564,7 +11564,7 @@ walk_type_fields (tree type, walk_tree_fn func, void *data,
 	  break;
 	}
 
-      /* ... fall through ... */
+      /* fall through */
 
     case COMPLEX_TYPE:
       WALK_SUBTREE (TREE_TYPE (type));
@@ -14112,28 +14112,6 @@ nonnull_arg_p (const_tree arg)
   return false;
 }
 
-/* Given location LOC, strip away any packed range information
-   or ad-hoc information.  */
-
-location_t
-get_pure_location (location_t loc)
-{
-  if (IS_ADHOC_LOC (loc))
-    loc
-      = line_table->location_adhoc_data_map.data[loc & MAX_SOURCE_LOCATION].locus;
-
-  if (loc >= LINEMAPS_MACRO_LOWEST_LOCATION (line_table))
-    return loc;
-
-  if (loc < RESERVED_LOCATION_COUNT)
-    return loc;
-
-  const line_map *map = linemap_lookup (line_table, loc);
-  const line_map_ordinary *ordmap = linemap_check_ordinary (map);
-
-  return loc & ~((1 << ordmap->m_range_bits) - 1);
-}
-
 /* Combine LOC and BLOCK to a combined adhoc loc, retaining any range
    information.  */
 
@@ -14167,20 +14145,6 @@ set_source_range (tree expr, source_range src_range)
 					    NULL);
   SET_EXPR_LOCATION (expr, adhoc);
   return adhoc;
-}
-
-location_t
-make_location (location_t caret, location_t start, location_t finish)
-{
-  location_t pure_loc = get_pure_location (caret);
-  source_range src_range;
-  src_range.m_start = start;
-  src_range.m_finish = finish;
-  location_t combined_loc = COMBINE_LOCATION_DATA (line_table,
-						   pure_loc,
-						   src_range,
-						   NULL);
-  return combined_loc;
 }
 
 /* Return the name of combined function FN, for debugging purposes.  */

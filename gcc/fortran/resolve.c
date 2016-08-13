@@ -3542,7 +3542,7 @@ resolve_operator (gfc_expr *e)
       if (!gfc_resolve_expr (e->value.op.op2))
 	return false;
 
-    /* Fall through...  */
+    /* Fall through.  */
 
     case INTRINSIC_NOT:
     case INTRINSIC_UPLUS:
@@ -3660,7 +3660,7 @@ resolve_operator (gfc_expr *e)
 	  goto bad_op;
 	}
 
-      /* Fall through...  */
+      /* Fall through.  */
 
     case INTRINSIC_EQ:
     case INTRINSIC_EQ_OS:
@@ -5419,14 +5419,17 @@ fixup_charlen (gfc_expr *e)
     {
     case EXPR_OP:
       gfc_resolve_character_operator (e);
+      /* FALLTHRU */
 
     case EXPR_ARRAY:
       if (e->expr_type == EXPR_ARRAY)
 	gfc_resolve_character_array_constructor (e);
+      /* FALLTHRU */
 
     case EXPR_SUBSTRING:
       if (!e->ts.u.cl && e->ref)
 	gfc_resolve_substring_charlen (e);
+      /* FALLTHRU */
 
     default:
       if (!e->ts.u.cl)
@@ -6515,15 +6518,15 @@ gfc_resolve_iterator (gfc_iterator *iter, bool real_ok, bool own_scope)
   /* Convert start, end, and step to the same type as var.  */
   if (iter->start->ts.kind != iter->var->ts.kind
       || iter->start->ts.type != iter->var->ts.type)
-    gfc_convert_type (iter->start, &iter->var->ts, 2);
+    gfc_convert_type (iter->start, &iter->var->ts, 1);
 
   if (iter->end->ts.kind != iter->var->ts.kind
       || iter->end->ts.type != iter->var->ts.type)
-    gfc_convert_type (iter->end, &iter->var->ts, 2);
+    gfc_convert_type (iter->end, &iter->var->ts, 1);
 
   if (iter->step->ts.kind != iter->var->ts.kind
       || iter->step->ts.type != iter->var->ts.type)
-    gfc_convert_type (iter->step, &iter->var->ts, 2);
+    gfc_convert_type (iter->step, &iter->var->ts, 1);
 
   if (iter->start->expr_type == EXPR_CONSTANT
       && iter->end->expr_type == EXPR_CONSTANT
@@ -7301,7 +7304,7 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code, bool *array_alloc_wo_spec)
 	      && ar->stride[i] == NULL)
 	    break;
 
-	  /* Fall Through...  */
+	  /* Fall through.  */
 
 	case DIMEN_UNKNOWN:
 	case DIMEN_VECTOR:
@@ -8966,7 +8969,7 @@ resolve_branch (gfc_st_label *label, gfc_code *code)
   if (label->defined == ST_LABEL_UNKNOWN)
     {
       gfc_error ("Label %d referenced at %L is never defined", label->value,
-		 &label->where);
+		 &code->loc);
       return;
     }
 

@@ -231,6 +231,7 @@ lto_output_tree_ref (struct output_block *ob, tree expr)
     case VAR_DECL:
     case DEBUG_EXPR_DECL:
       gcc_assert (decl_function_context (expr) == NULL || TREE_STATIC (expr));
+      /* FALLTHRU */
     case PARM_DECL:
       streamer_write_record_start (ob, LTO_global_decl_ref);
       lto_output_var_decl_index (ob->decl_state, ob->main_stream, expr);
@@ -445,17 +446,8 @@ lto_output_tree_1 (struct output_block *ob, tree expr, hashval_t hash,
   bool exists_p = streamer_tree_cache_insert (ob->writer_cache,
 					      expr, hash, &ix);
   gcc_assert (!exists_p);
-  if (streamer_handle_as_builtin_p (expr))
-    {
-      /* MD and NORMAL builtins do not need to be written out
-	 completely as they are always instantiated by the
-	 compiler on startup.  The only builtins that need to
-	 be written out are BUILT_IN_FRONTEND.  For all other
-	 builtins, we simply write the class and code.  */
-      streamer_write_builtin (ob, expr);
-    }
-  else if (TREE_CODE (expr) == INTEGER_CST
-	   && !TREE_OVERFLOW (expr))
+  if (TREE_CODE (expr) == INTEGER_CST
+      && !TREE_OVERFLOW (expr))
     {
       /* Shared INTEGER_CST nodes are special because they need their
 	 original type to be materialized by the reader (to implement
@@ -559,10 +551,8 @@ DFS::DFS (struct output_block *ob, tree expr, bool ref_p, bool this_ref_p,
 	  cstate->low = cstate->dfsnum;
 	  w.cstate = cstate;
 
-	  if (streamer_handle_as_builtin_p (expr))
-	    ;
-	  else if (TREE_CODE (expr) == INTEGER_CST
-		   && !TREE_OVERFLOW (expr))
+	  if (TREE_CODE (expr) == INTEGER_CST
+	      && !TREE_OVERFLOW (expr))
 	    DFS_write_tree (ob, cstate, TREE_TYPE (expr), ref_p, ref_p);
 	  else
 	    {
@@ -674,8 +664,6 @@ DFS::DFS (struct output_block *ob, tree expr, bool ref_p, bool this_ref_p,
 		    internal_error ("tree code %qs is not supported "
 				    "in LTO streams",
 				    get_tree_code_name (TREE_CODE (t)));
-
-		  gcc_checking_assert (!streamer_handle_as_builtin_p (t));
 
 		  /* Write the header, containing everything needed to
 		     materialize EXPR on the reading side.  */
@@ -1841,20 +1829,6 @@ output_ssa_names (struct output_block *ob, struct function *fn)
 }
 
 
-/* Output a wide-int.  */
-
-static void
-streamer_write_wi (struct output_block *ob,
-		   const widest_int &w)
-{
-  int len = w.get_len ();
-
-  streamer_write_uhwi (ob, w.get_precision ());
-  streamer_write_uhwi (ob, len);
-  for (int i = 0; i < len; i++)
-    streamer_write_hwi (ob, w.elt (i));
-}
-
 
 /* Output the cfg.  */
 
@@ -1928,13 +1902,13 @@ output_cfg (struct output_block *ob, struct function *fn)
 			   loop_estimation, EST_LAST, loop->estimate_state);
       streamer_write_hwi (ob, loop->any_upper_bound);
       if (loop->any_upper_bound)
-	streamer_write_wi (ob, loop->nb_iterations_upper_bound);
+	streamer_write_widest_int (ob, loop->nb_iterations_upper_bound);
       streamer_write_hwi (ob, loop->any_likely_upper_bound);
       if (loop->any_likely_upper_bound)
-	streamer_write_wi (ob, loop->nb_iterations_likely_upper_bound);
+	streamer_write_widest_int (ob, loop->nb_iterations_likely_upper_bound);
       streamer_write_hwi (ob, loop->any_estimate);
       if (loop->any_estimate)
-	streamer_write_wi (ob, loop->nb_iterations_estimate);
+	streamer_write_widest_int (ob, loop->nb_iterations_estimate);
 
       /* Write OMP SIMD related info.  */
       streamer_write_hwi (ob, loop->safelen);
@@ -2074,7 +2048,9 @@ output_function (struct cgraph_node *node)
   streamer_write_chain (ob, DECL_ARGUMENTS (function), true);
 
   /* Output DECL_INITIAL for the function, which contains the tree of
-     lexical scopes.  */
+     lexical scopes.
+     ???  This only streams the outermost block because we do not
+     recurse into BLOCK_SUBBLOCKS but re-build those on stream-in.  */
   stream_write_tree (ob, DECL_INITIAL (function), true);
 
   /* We also stream abstract functions where we stream only stuff needed for

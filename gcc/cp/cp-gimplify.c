@@ -659,7 +659,7 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
       cp_gimplify_init_expr (expr_p);
       if (TREE_CODE (*expr_p) != INIT_EXPR)
 	return GS_OK;
-      /* Otherwise fall through.  */
+      /* Fall through.  */
     case MODIFY_EXPR:
     modify_expr_case:
       {
@@ -1967,7 +1967,8 @@ cp_fully_fold (tree x)
     return x;
   /* FIXME cp_fold ought to be a superset of maybe_constant_value so we don't
      have to call both.  */
-  x = maybe_constant_value (x);
+  if (cxx_dialect >= cxx11)
+    x = maybe_constant_value (x);
   return cp_fold (x);
 }
 
@@ -2067,6 +2068,7 @@ cp_fold (tree x)
 
     case VIEW_CONVERT_EXPR:
       rval_ops = false;
+      /* FALLTHRU */
     case CONVERT_EXPR:
     case NOP_EXPR:
     case NON_LVALUE_EXPR:
@@ -2115,6 +2117,7 @@ cp_fold (tree x)
     case REALPART_EXPR:
     case IMAGPART_EXPR:
       rval_ops = false;
+      /* FALLTHRU */
     case CONJ_EXPR:
     case FIX_TRUNC_EXPR:
     case FLOAT_EXPR:
@@ -2167,6 +2170,7 @@ cp_fold (tree x)
     case COMPOUND_EXPR:
     case MODIFY_EXPR:
       rval_ops = false;
+      /* FALLTHRU */
     case POINTER_PLUS_EXPR:
     case PLUS_EXPR:
     case MINUS_EXPR:

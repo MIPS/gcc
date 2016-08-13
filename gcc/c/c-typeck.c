@@ -4493,7 +4493,7 @@ build_unary_op (location_t location,
 	      return error_mark_node;
 	    }
 
-	  /* ... fall through ...  */
+	  /* fall through */
 
 	case ARRAY_REF:
 	  if (TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (TREE_OPERAND (arg, 0))))
@@ -4695,10 +4695,10 @@ c_mark_addressable (tree exp)
 	    return false;
 	  }
 
-	/* drops in */
+	/* FALLTHRU */
       case FUNCTION_DECL:
 	TREE_ADDRESSABLE (x) = 1;
-	/* drops out */
+	/* FALLTHRU */
       default:
 	return true;
     }
@@ -8558,6 +8558,8 @@ set_nonincremental_init_from_string (tree str,
 
   wchar_bytes = TYPE_PRECISION (TREE_TYPE (TREE_TYPE (str))) / BITS_PER_UNIT;
   charwidth = TYPE_PRECISION (char_type_node);
+  gcc_assert ((size_t) wchar_bytes * charwidth
+	      <= ARRAY_SIZE (val) * HOST_BITS_PER_WIDE_INT);
   type = TREE_TYPE (constructor_type);
   p = TREE_STRING_POINTER (str);
   end = p + TREE_STRING_LENGTH (str);
@@ -8583,7 +8585,7 @@ set_nonincremental_init_from_string (tree str,
 		bitpos = (wchar_bytes - byte - 1) * charwidth;
 	      else
 		bitpos = byte * charwidth;
-	      val[bitpos % HOST_BITS_PER_WIDE_INT]
+	      val[bitpos / HOST_BITS_PER_WIDE_INT]
 		|= ((unsigned HOST_WIDE_INT) ((unsigned char) *p++))
 		   << (bitpos % HOST_BITS_PER_WIDE_INT);
 	    }
@@ -10986,21 +10988,16 @@ build_binary_op (location_t location, enum tree_code code,
 	 Also set SHORT_SHIFT if shifting rightward.  */
 
     case RSHIFT_EXPR:
-      if (code0 == VECTOR_TYPE && code1 == INTEGER_TYPE
-          && TREE_CODE (TREE_TYPE (type0)) == INTEGER_TYPE)
-        {
-          result_type = type0;
-          converted = 1;
-        }
-      else if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE
-	       && TREE_CODE (TREE_TYPE (type0)) == INTEGER_TYPE
-	       && TREE_CODE (TREE_TYPE (type1)) == INTEGER_TYPE
-	       && TYPE_VECTOR_SUBPARTS (type0) == TYPE_VECTOR_SUBPARTS (type1))
+      if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE
+	  && TREE_CODE (TREE_TYPE (type0)) == INTEGER_TYPE
+	  && TREE_CODE (TREE_TYPE (type1)) == INTEGER_TYPE
+	  && TYPE_VECTOR_SUBPARTS (type0) == TYPE_VECTOR_SUBPARTS (type1))
 	{
 	  result_type = type0;
 	  converted = 1;
 	}
-      else if ((code0 == INTEGER_TYPE || code0 == FIXED_POINT_TYPE)
+      else if ((code0 == INTEGER_TYPE || code0 == FIXED_POINT_TYPE
+		|| code0 == VECTOR_TYPE)
 	       && code1 == INTEGER_TYPE)
 	{
 	  doing_shift = true;
@@ -11012,6 +11009,18 @@ build_binary_op (location_t location, enum tree_code code,
 		  if (c_inhibit_evaluation_warnings == 0)
 		    warning_at (location, OPT_Wshift_count_negative,
 				"right shift count is negative");
+		}
+	      else if (code0 == VECTOR_TYPE)
+		{
+		  if (compare_tree_int (op1,
+					TYPE_PRECISION (TREE_TYPE (type0)))
+		      >= 0)
+		    {
+		      int_const = false;
+		      if (c_inhibit_evaluation_warnings == 0)
+			warning_at (location, OPT_Wshift_count_overflow,
+				    "right shift count >= width of vector element");
+		    }
 		}
 	      else
 		{
@@ -11036,21 +11045,16 @@ build_binary_op (location_t location, enum tree_code code,
       break;
 
     case LSHIFT_EXPR:
-      if (code0 == VECTOR_TYPE && code1 == INTEGER_TYPE
-          && TREE_CODE (TREE_TYPE (type0)) == INTEGER_TYPE)
-        {
-          result_type = type0;
-          converted = 1;
-        }
-      else if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE
-	       && TREE_CODE (TREE_TYPE (type0)) == INTEGER_TYPE
-	       && TREE_CODE (TREE_TYPE (type1)) == INTEGER_TYPE
-	       && TYPE_VECTOR_SUBPARTS (type0) == TYPE_VECTOR_SUBPARTS (type1))
+      if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE
+	  && TREE_CODE (TREE_TYPE (type0)) == INTEGER_TYPE
+	  && TREE_CODE (TREE_TYPE (type1)) == INTEGER_TYPE
+	  && TYPE_VECTOR_SUBPARTS (type0) == TYPE_VECTOR_SUBPARTS (type1))
 	{
 	  result_type = type0;
 	  converted = 1;
 	}
-      else if ((code0 == INTEGER_TYPE || code0 == FIXED_POINT_TYPE)
+      else if ((code0 == INTEGER_TYPE || code0 == FIXED_POINT_TYPE
+		|| code0 == VECTOR_TYPE)
 	       && code1 == INTEGER_TYPE)
 	{
 	  doing_shift = true;
@@ -11073,6 +11077,18 @@ build_binary_op (location_t location, enum tree_code code,
 		  if (c_inhibit_evaluation_warnings == 0)
 		    warning_at (location, OPT_Wshift_count_negative,
 				"left shift count is negative");
+		}
+	      else if (code0 == VECTOR_TYPE)
+		{
+		  if (compare_tree_int (op1,
+					TYPE_PRECISION (TREE_TYPE (type0)))
+		      >= 0)
+		    {
+		      int_const = false;
+		      if (c_inhibit_evaluation_warnings == 0)
+			warning_at (location, OPT_Wshift_count_overflow,
+				    "left shift count >= width of vector element");
+		    }
 		}
 	      else if (compare_tree_int (op1, TYPE_PRECISION (type0)) >= 0)
 		{

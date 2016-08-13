@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// +build ignore
+
 package runtime
 
 import "unsafe"
@@ -209,7 +211,7 @@ func printstring(s string) {
 func printslice(s []byte) {
 	sp := (*slice)(unsafe.Pointer(&s))
 	print("[", len(s), "/", cap(s), "]")
-	printpointer(unsafe.Pointer(sp.array))
+	printpointer(sp.array)
 }
 
 func printeface(e eface) {

@@ -1056,6 +1056,7 @@ adjust_mems (rtx loc, const_rtx old_rtx, void *data)
 					 ? GET_MODE_SIZE (amd->mem_mode)
 					 : -GET_MODE_SIZE (amd->mem_mode),
 					 GET_MODE (loc)));
+      /* FALLTHRU */
     case POST_INC:
     case POST_DEC:
       if (addr == loc)
@@ -1076,6 +1077,7 @@ adjust_mems (rtx loc, const_rtx old_rtx, void *data)
       return addr;
     case PRE_MODIFY:
       addr = XEXP (loc, 1);
+      /* FALLTHRU */
     case POST_MODIFY:
       if (addr == loc)
 	addr = XEXP (loc, 0);
@@ -3148,7 +3150,7 @@ set_dv_changed (decl_or_value dv, bool newv)
     case ONEPART_DEXPR:
       if (newv)
 	NO_LOC_P (DECL_RTL_KNOWN_SET (dv_as_decl (dv))) = false;
-      /* Fall through...  */
+      /* Fall through.  */
 
     default:
       DECL_CHANGED (dv_as_decl (dv)) = newv;
@@ -6996,7 +6998,7 @@ vt_find_locations (void)
 {
   bb_heap_t *worklist = new bb_heap_t (LONG_MIN);
   bb_heap_t *pending = new bb_heap_t (LONG_MIN);
-  sbitmap visited, in_worklist, in_pending;
+  sbitmap in_worklist, in_pending;
   basic_block bb;
   edge e;
   int *bb_order;
@@ -7016,7 +7018,7 @@ vt_find_locations (void)
     bb_order[rc_order[i]] = i;
   free (rc_order);
 
-  visited = sbitmap_alloc (last_basic_block_for_fn (cfun));
+  auto_sbitmap visited (last_basic_block_for_fn (cfun));
   in_worklist = sbitmap_alloc (last_basic_block_for_fn (cfun));
   in_pending = sbitmap_alloc (last_basic_block_for_fn (cfun));
   bitmap_clear (in_worklist);
@@ -7185,7 +7187,6 @@ vt_find_locations (void)
   free (bb_order);
   delete worklist;
   delete pending;
-  sbitmap_free (visited);
   sbitmap_free (in_worklist);
   sbitmap_free (in_pending);
 

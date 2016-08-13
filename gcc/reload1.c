@@ -1280,11 +1280,9 @@ reload (rtx_insn *first, int global)
   /* We've possibly turned single trapping insn into multiple ones.  */
   if (cfun->can_throw_non_call_exceptions)
     {
-      sbitmap blocks;
-      blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
+      auto_sbitmap blocks (last_basic_block_for_fn (cfun));
       bitmap_ones (blocks);
       find_many_sub_basic_blocks (blocks);
-      sbitmap_free (blocks);
     }
 
   if (inserted)
@@ -2330,7 +2328,7 @@ set_label_offsets (rtx x, rtx_insn *insn, int initial_p)
 
       x = LABEL_REF_LABEL (x);
 
-      /* ... fall through ...  */
+      /* fall through */
 
     case CODE_LABEL:
       /* If we know nothing about this label, set the desired offsets.  Note
@@ -2377,7 +2375,7 @@ set_label_offsets (rtx x, rtx_insn *insn, int initial_p)
     case JUMP_INSN:
       set_label_offsets (PATTERN (insn), insn, initial_p);
 
-      /* ... fall through ...  */
+      /* fall through */
 
     case INSN:
     case CALL_INSN:
@@ -2692,7 +2690,7 @@ eliminate_regs_1 (rtx x, machine_mode mem_mode, rtx insn,
 			       ep->previous_offset * INTVAL (XEXP (x, 1)));
 	    }
 
-      /* ... fall through ...  */
+      /* fall through */
 
     case CALL:
     case COMPARE:
@@ -2739,7 +2737,7 @@ eliminate_regs_1 (rtx x, machine_mode mem_mode, rtx insn,
 	    }
 	}
 
-      /* ... fall through ...  */
+      /* fall through */
 
     case INSN_LIST:
     case INT_LIST:
@@ -5501,7 +5499,7 @@ reload_reg_reaches_end_p (unsigned int regno, int reloadnum)
 
       opnum = reload_n_operands;
 
-      /* ... fall through ...  */
+      /* fall through */
 
     case RELOAD_FOR_OUTPUT:
     case RELOAD_FOR_OUTPUT_ADDRESS:
