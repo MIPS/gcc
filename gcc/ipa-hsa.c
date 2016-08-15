@@ -90,6 +90,7 @@ process_hsa_functions (void)
 	    = node->create_virtual_clone (vec <cgraph_edge *> (),
 					  NULL, NULL, "hsa");
 	  TREE_PUBLIC (clone->decl) = TREE_PUBLIC (node->decl);
+	  clone->externally_visible = node->externally_visible;
 
 	  clone->force_output = true;
 	  hsa_summaries->link_functions (clone, node, s->m_kind, false);
@@ -107,6 +108,7 @@ process_hsa_functions (void)
 	    = node->create_virtual_clone (vec <cgraph_edge *> (),
 					  NULL, NULL, "hsa");
 	  TREE_PUBLIC (clone->decl) = TREE_PUBLIC (node->decl);
+	  clone->externally_visible = node->externally_visible;
 
 	  if (!cgraph_local_p (node))
 	    clone->force_output = true;
