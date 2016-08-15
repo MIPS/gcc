@@ -1,3 +1,10 @@
+2016-08-15  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (gen_hsa_unary_operation): Make sure the function does
+	not use bittype source type for firstbit and lastbit operations.
+	(gen_hsa_popcount_to_dest): Make sure the function uses a bittype
+	source type.
+
 2016-08-09  Martin Jambor  <mjambor@suse.cz>
 
 	* hsa-gen.c (get_symbol_for_decl): Accept CONST_DECLs, put them to

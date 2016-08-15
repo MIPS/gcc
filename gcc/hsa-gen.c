@@ -2957,8 +2957,12 @@ gen_hsa_unary_operation (BrigOpcode opcode, hsa_op_reg *dest,
   if (opcode == BRIG_OPCODE_MOV && hsa_needs_cvt (dest->m_type, op1->m_type))
     insn = new hsa_insn_cvt (dest, op1);
   else if (opcode == BRIG_OPCODE_FIRSTBIT || opcode == BRIG_OPCODE_LASTBIT)
-    insn = new hsa_insn_srctype (2, opcode, BRIG_TYPE_U32, op1->m_type, NULL,
-				 op1);
+    {
+      BrigType16_t srctype = hsa_type_integer_p (op1->m_type) ? op1->m_type
+	: hsa_unsigned_type_for_type (op1->m_type);
+      insn = new hsa_insn_srctype (2, opcode, BRIG_TYPE_U32, srctype, NULL,
+				   op1);
+    }
   else
     {
       insn = new hsa_insn_basic (2, opcode, dest->m_type, dest, op1);
@@ -4250,12 +4254,13 @@ gen_hsa_popcount_to_dest (hsa_op_reg *dest, hsa_op_with_type *arg, hsa_bb *hbb)
   if (hsa_type_bit_size (arg->m_type) < 32)
     arg = arg->get_in_type (BRIG_TYPE_B32, hbb);
 
+  BrigType16_t srctype = hsa_bittype_for_type (arg->m_type);
   if (!hsa_btype_p (arg->m_type))
-    arg = arg->get_in_type (hsa_bittype_for_type (arg->m_type), hbb);
+    arg = arg->get_in_type (srctype, hbb);
 
   hsa_insn_srctype *popcount
     = new hsa_insn_srctype (2, BRIG_OPCODE_POPCOUNT, BRIG_TYPE_U32,
-			    arg->m_type, NULL, arg);
+			    srctype, NULL, arg);
   hbb->append_insn (popcount);
   popcount->set_output_in_type (dest, 0, hbb);
 }

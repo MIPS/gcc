@@ -1,3 +1,7 @@
+2016-08-15  Martin Jambor  <mjambor@suse.cz>
+
+	* testsuite/libgomp.hsa.c/bits-insns.c: New test.
+
 2016-08-03  Martin Jambor  <mjambor@suse.cz>
 
 	* plugin/plugin-hsa.c (init_basic_kernel_info): New function.
