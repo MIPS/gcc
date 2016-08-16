@@ -4,7 +4,6 @@
 program main
   implicit none
   !$acc routine(abort) seq
-! { dg-bogus "invalid function name abort" "" { xfail *-*-* } 6 }
 
   print *, "CheCKpOInT"
   !$acc parallel

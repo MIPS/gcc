@@ -1,5 +1,10 @@
 2018-05-14  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* testsuite/libgomp.oacc-fortran/abort-1.f90: Remove XFAIL.
+	* testsuite/libgomp.oacc-fortran/acc_on_device-1-2.f: Likewise.
+
+2018-05-14  Thomas Schwinge  <thomas@codesourcery.com>
+
 	* testsuite/libgomp.oacc-fortran/abort-1.f90: Add XFAIL.
 	* testsuite/libgomp.oacc-fortran/acc_on_device-1-2.f: Likewise.
 

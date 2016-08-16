@@ -1,5 +1,4 @@
 !$ACC ROUTINE(ABORT) SEQ
-! { dg-bogus "invalid function name abort" "" { xfail *-*-* } .-1 }
 
       INTEGER :: ARGC
       ARGC = COMMAND_ARGUMENT_COUNT ()
