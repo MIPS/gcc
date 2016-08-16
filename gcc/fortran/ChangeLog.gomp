@@ -1,3 +1,12 @@
+2016-08-16  Cesar Philippidis  <cesar@codesourcery.com>
+
+	PR fortran/72741
+	* openmp.c (gfc_match_oacc_routine): Error on repeated ACC ROUTINE
+	directives.  Consider the optional NAME argument being the current
+	procedure name.
+	* trans-decl.c (add_attributes_to_decl): Use build_oacc_routine_dims
+	to construct the oacc_function attribute arguments.
+
 2016-08-12  Cesar Philippidis  <cesar@codesourcery.com>
 	    Thomas Schwinge  <thomas@codesourcery.com>
 

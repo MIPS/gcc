@@ -45,6 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Only for gfc_trans_code.  Shouldn't need to include this.  */
 #include "trans-stmt.h"
 #include "gomp-constants.h"
+#include "omp-low.h"
 
 #define MAX_LABEL_VALUE 99999
 
@@ -1329,29 +1330,27 @@ add_attributes_to_decl (symbol_attribute sym_attr, tree list)
 
   if (sym_attr.oacc_function != OACC_FUNCTION_NONE)
     {
-      tree dims = NULL_TREE;
-      int ix;
-      int level = GOMP_DIM_MAX;
-
+      omp_clause_code code = OMP_CLAUSE_ERROR;
+      tree clause, dims;
+      
       switch (sym_attr.oacc_function)
 	{
 	case OACC_FUNCTION_GANG:
-	  level = GOMP_DIM_GANG;
+	  code = OMP_CLAUSE_GANG;
 	  break;
 	case OACC_FUNCTION_WORKER:
-	  level = GOMP_DIM_WORKER;
+	  code = OMP_CLAUSE_WORKER;
 	  break;
 	case OACC_FUNCTION_VECTOR:
-	  level = GOMP_DIM_VECTOR;
+	  code = OMP_CLAUSE_VECTOR;
 	  break;
 	case OACC_FUNCTION_SEQ:
-	default:;
+	default:
+	  code = OMP_CLAUSE_SEQ;
 	}
 
-      for (ix = GOMP_DIM_MAX; ix--;)
-	dims = tree_cons (build_int_cst (boolean_type_node, ix >= level),
-			  integer_zero_node, dims);
-
+      clause = build_omp_clause (UNKNOWN_LOCATION, code);
+      dims = build_oacc_routine_dims (clause);
       list = tree_cons (get_identifier ("oacc function"),
 			dims, list);
     }
