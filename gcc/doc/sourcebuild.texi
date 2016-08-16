@@ -1321,6 +1321,12 @@ Target supports array and structure sizes that are 32 bits or longer.
 
 @item 4byte_wchar_t
 Target has @code{wchar_t} that is at least 4 bytes.
+
+@item float@var{n}
+Target has the @code{_Float@var{n}} type.
+
+@item float@var{n}x
+Target has the @code{_Float@var{n}x} type.
 @end table
 
 @subsubsection Fortran-specific attributes

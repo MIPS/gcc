@@ -91,10 +91,10 @@ static unsigned int
 interpret_float_suffix (cpp_reader *pfile, const uchar *s, size_t len)
 {
   size_t flags;
-  size_t f, d, l, w, q, i;
+  size_t f, d, l, w, q, i, fn, fnx, fn_bits;
 
   flags = 0;
-  f = d = l = w = q = i = 0;
+  f = d = l = w = q = i = fn = fnx = fn_bits = 0;
 
   /* Process decimal float suffixes, which are two letters starting
      with d or D.  Order and case are significant.  */
@@ -172,20 +172,58 @@ interpret_float_suffix (cpp_reader *pfile, const uchar *s, size_t len)
 
   /* In any remaining valid suffix, the case and order don't matter.  */
   while (len--)
-    switch (s[len])
-      {
-      case 'f': case 'F': f++; break;
-      case 'd': case 'D': d++; break;
-      case 'l': case 'L': l++; break;
-      case 'w': case 'W': w++; break;
-      case 'q': case 'Q': q++; break;
-      case 'i': case 'I':
-      case 'j': case 'J': i++; break;
-      default:
-	return 0;
-      }
+    {
+      switch (s[0])
+	{
+	case 'f': case 'F':
+	  f++;
+	  if (len > 0
+	      && !CPP_OPTION (pfile, cplusplus)
+	      && s[1] >= '1'
+	      && s[1] <= '9'
+	      && fn_bits == 0)
+	    {
+	      f--;
+	      while (len > 0
+		     && s[1] >= '0'
+		     && s[1] <= '9'
+		     && fn_bits < CPP_FLOATN_MAX)
+		{
+		  fn_bits = fn_bits * 10 + (s[1] - '0');
+		  len--;
+		  s++;
+		}
+	      if (len > 0 && s[1] == 'x')
+		{
+		  fnx++;
+		  len--;
+		  s++;
+		}
+	      else
+		fn++;
+	    }
+	  break;
+	case 'd': case 'D': d++; break;
+	case 'l': case 'L': l++; break;
+	case 'w': case 'W': w++; break;
+	case 'q': case 'Q': q++; break;
+	case 'i': case 'I':
+	case 'j': case 'J': i++; break;
+	default:
+	  return 0;
+	}
+      s++;
+    }
 
-  if (f + d + l + w + q > 1 || i > 1)
+  if (f + d + l + w + q + fn + fnx > 1 || i > 1)
+    return 0;
+  if (fn_bits > CPP_FLOATN_MAX)
+    return 0;
+  if (fnx && fn_bits != 32 && fn_bits != 64 && fn_bits != 128)
+    return 0;
+  if (fn && fn_bits != 16 && fn_bits % 32 != 0)
+    return 0;
+  if (fn && fn_bits == 96)
     return 0;
 
   if (i && !CPP_OPTION (pfile, ext_numeric_literals))
@@ -199,7 +237,10 @@ interpret_float_suffix (cpp_reader *pfile, const uchar *s, size_t len)
 	     d ? CPP_N_MEDIUM :
 	     l ? CPP_N_LARGE :
 	     w ? CPP_N_MD_W :
-	     q ? CPP_N_MD_Q : CPP_N_DEFAULT));
+	     q ? CPP_N_MD_Q :
+	     fn ? CPP_N_FLOATN | (fn_bits << CPP_FLOATN_SHIFT) :
+	     fnx ? CPP_N_FLOATNX | (fn_bits << CPP_FLOATN_SHIFT) :
+	     CPP_N_DEFAULT));
 }
 
 /* Return the classification flags for a float suffix.  */
