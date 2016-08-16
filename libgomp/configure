@@ -15448,9 +15448,13 @@ cat >>confdefs.h <<_ACEOF
 _ACEOF
 
 
+if test "$HSA_RUNTIME_LIB" != ""; then
+  HSA_RUNTIME_LIB="$HSA_RUNTIME_LIB/"
+fi
+
 
 cat >>confdefs.h <<_ACEOF
-#define HSA_RUNTIME_LIB "$HSA_RUNTIME_LIB/"
+#define HSA_RUNTIME_LIB "$HSA_RUNTIME_LIB"
 _ACEOF
 
 
