@@ -875,6 +875,7 @@ s390_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   arity = 0;
   FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
     {
+      rtx tmp_rtx;
       const struct insn_operand_data *insn_op;
       unsigned int op_flags = all_op_flags & ((1 << O_SHIFT) - 1);
 
@@ -949,6 +950,20 @@ s390_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	  op[arity] = replace_equiv_address (op[arity],
 					     copy_to_mode_reg (Pmode,
 					       XEXP (op[arity], 0)));
+	}
+      /* Some of the builtins require different modes/types than the
+	 pattern in order to implement a specific API.  Instead of
+	 adding many expanders which do the mode change we do it here.
+	 E.g. s390_vec_add_u128 required to have vector unsigned char
+	 arguments is mapped to addti3.  */
+      else if (insn_op->mode != VOIDmode
+	       && GET_MODE (op[arity]) != VOIDmode
+	       && GET_MODE (op[arity]) != insn_op->mode
+	       && ((tmp_rtx = simplify_gen_subreg (insn_op->mode, op[arity],
+						   GET_MODE (op[arity]), 0))
+		   != NULL_RTX))
+	{
+	  op[arity] = tmp_rtx;
 	}
       else if (GET_MODE (op[arity]) == insn_op->mode
 	       || GET_MODE (op[arity]) == VOIDmode
@@ -6442,11 +6457,17 @@ s390_expand_vec_init (rtx target, rtx vals)
   /* Unfortunately the vec_init expander is not allowed to fail.  So
      we have to implement the fallback ourselves.  */
   for (i = 0; i < n_elts; i++)
-    emit_insn (gen_rtx_SET (target,
-			    gen_rtx_UNSPEC (mode,
-					    gen_rtvec (3, XVECEXP (vals, 0, i),
-						       GEN_INT (i), target),
-					    UNSPEC_VEC_SET)));
+    {
+      rtx elem = XVECEXP (vals, 0, i);
+      if (!general_operand (elem, GET_MODE (elem)))
+	elem = force_reg (inner_mode, elem);
+
+      emit_insn (gen_rtx_SET (target,
+			      gen_rtx_UNSPEC (mode,
+					      gen_rtvec (3, elem,
+							 GEN_INT (i), target),
+					      UNSPEC_VEC_SET)));
+    }
 }
 
 /* Structure to hold the initial parameters for a compare_and_swap operation

@@ -1,3 +1,32 @@
+2016-08-16  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	* frontend-passes.c (create_var):  Set ts.deferred for
+	deferred-length character variables.
+	* dump-parse-tree.c (show_typespec):  Also dump
+	is_c_interop, is_iso_c and deferred flags.
+
+2016-08-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/71906
+	* trans-decl.c (gfc_get_symbol_decl): Call gfc_finish_var_decl
+	for decl's character length before gfc_finish_var_decl on the
+	decl itself.
+
+2016-08-11  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	Backport from trunk:
+	PR fortran/71936
+	* trans-array.c (gfc_array_allocate): When SOURCE= is a function
+	stick with the ref of the object to allocate.
+
+2016-08-11  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/72698
+	* trans-stmt.c (gfc_trans_allocate): Prevent generating code for
+	copy of zero sized string and with it an ICE.
+
 2016-08-08  Andre Vehreschild  <vehre@gcc.gnu.org>
 
 	Backport from trunk:
