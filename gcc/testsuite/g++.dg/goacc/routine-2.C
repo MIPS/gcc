@@ -58,12 +58,18 @@ broken_mult2 (float a, float b)
 {
   return a + b;
 }
+#pragma acc routine (broken_mult2) bind("mult")
+#pragma acc routine bind("mult")
+extern float broken_mult2 (float, float);
 
 #pragma acc routine bind(sum2) /* { dg-error "'sum2' has not been declared" } */
 int broken_mult3 (int a, int b);
 
 #pragma acc routine bind(foo::sub)
 int broken_mult4 (int a, int b);
+#pragma acc routine (broken_mult4) bind(foo::sub)
+#pragma acc routine bind(foo::sub)
+extern int broken_mult4 (int a, int b);
 
 namespace bar
 {
@@ -72,6 +78,9 @@ namespace bar
   {
     return a * b;
   }
+#pragma acc routine (working_mult) bind (mult)
+#pragma acc routine bind (mult)
+  float working_mult (float, float);
 }
 
 #pragma acc routine

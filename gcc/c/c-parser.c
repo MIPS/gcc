@@ -14289,33 +14289,37 @@ c_finish_oacc_routine (struct oacc_routine_data *data, tree fndecl,
       return;
     }
 
-  verify_oacc_routine_clauses (&data->clauses, data->loc);
-
-  if (get_oacc_fn_attrib (fndecl))
+  int compatible
+    = verify_oacc_routine_clauses (fndecl, &data->clauses, data->loc,
+				   "#pragma acc routine");
+  if (compatible < 0)
     {
-      error_at (data->loc,
-		"%<#pragma acc routine%> already applied to %qD", fndecl);
       data->error_seen = true;
       return;
     }
-
-  if (TREE_USED (fndecl) || (!is_defn && DECL_SAVED_TREE (fndecl)))
+  if (compatible > 0)
     {
-      error_at (data->loc,
-		"%<#pragma acc routine%> must be applied before %s",
-		TREE_USED (fndecl) ? "use" : "definition");
-      data->error_seen = true;
-      return;
     }
+  else
+    {
+      if (TREE_USED (fndecl) || (!is_defn && DECL_SAVED_TREE (fndecl)))
+	{
+	  error_at (data->loc,
+		    "%<#pragma acc routine%> must be applied before %s",
+		    TREE_USED (fndecl) ? "use" : "definition");
+	  data->error_seen = true;
+	  return;
+	}
 
-  /* Process the routine's dimension clauses.  */
-  tree dims = build_oacc_routine_dims (data->clauses);
-  replace_oacc_fn_attrib (fndecl, dims);
+      /* Set the routine's level of parallelism.  */
+      tree dims = build_oacc_routine_dims (data->clauses);
+      replace_oacc_fn_attrib (fndecl, dims);
 
-  /* Add an "omp declare target" attribute.  */
-  DECL_ATTRIBUTES (fndecl)
-    = tree_cons (get_identifier ("omp declare target"),
-		 data->clauses, DECL_ATTRIBUTES (fndecl));
+      /* Add an "omp declare target" attribute.  */
+      DECL_ATTRIBUTES (fndecl)
+	= tree_cons (get_identifier ("omp declare target"),
+		     data->clauses, DECL_ATTRIBUTES (fndecl));
+    }
 
   /* Remember that we've used this "#pragma acc routine".  */
   data->fndecl_seen = true;

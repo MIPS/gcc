@@ -1,5 +1,8 @@
 2016-08-17  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* c-parser.c (c_finish_oacc_routine): Rework checking if already
+	marked as an accelerator routine.
+
 	* c-parser.c (c_parser_oacc_routine): Normalize order of clauses.
 	(c_finish_oacc_routine): Call verify_oacc_routine_clauses.
 

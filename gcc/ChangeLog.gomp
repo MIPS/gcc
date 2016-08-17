@@ -1,5 +1,9 @@
 2016-08-17  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* omp-low.c (verify_oacc_routine_clauses): Change formal
+	parameters.  Add checking if already marked as an accelerator
+	routine.  Adjust all users.
+
 	* omp-low.c (build_oacc_routine_dims): Move some of its processing
 	into...
 	(verify_oacc_routine_clauses): ... this new function.

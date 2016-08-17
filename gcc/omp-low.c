@@ -12701,13 +12701,18 @@ set_oacc_fn_attrib (tree fn, tree clauses, bool is_kernel, vec<tree> *args)
 
 /* Verify OpenACC routine clauses.
 
-   The chain of clauses returned will contain exactly one clause specifying the
-   level of parallelism.  */
+   Returns 0 if FNDECL should be marked as an accelerator routine, 1 if it has
+   already been marked in compatible way, and -1 if incompatible.  Upon
+   returning, the chain of clauses will contain exactly one clause specifying
+   the level of parallelism.  */
 
-void
-verify_oacc_routine_clauses (tree *clauses, location_t loc)
+int
+verify_oacc_routine_clauses (tree fndecl, tree *clauses, location_t loc,
+			     const char *routine_str)
 {
   tree c_level = NULL_TREE;
+  tree c_bind = NULL_TREE;
+  tree c_nohost = NULL_TREE;
   tree c_p = NULL_TREE;
   for (tree c = *clauses; c; c_p = c, c = OMP_CLAUSE_CHAIN (c))
     switch (OMP_CLAUSE_CODE (c))
@@ -12740,6 +12745,19 @@ verify_oacc_routine_clauses (tree *clauses, location_t loc)
 	    c = c_p;
 	  }
 	break;
+      case OMP_CLAUSE_BIND:
+	/* Don't bother with duplicate clauses at this point.  */
+	c_bind = c;
+	break;
+      case OMP_CLAUSE_NOHOST:
+	/* Don't bother with duplicate clauses at this point.  */
+	c_nohost = c;
+	break;
+      case OMP_CLAUSE_DEVICE_TYPE:
+	/* TODO */
+	sorry ("%<device_type%> clause not yet supported with %qs",
+	       routine_str);
+	break;
       default:
 	gcc_unreachable ();
       }
@@ -12751,6 +12769,126 @@ verify_oacc_routine_clauses (tree *clauses, location_t loc)
       OMP_CLAUSE_CHAIN (c_level) = *clauses;
       *clauses = c_level;
     }
+  /* In *clauses, we now have exactly one clause specifying the level of
+     parallelism.  */
+
+  /* Still got some work to do for Fortran...  */
+  if (fndecl == NULL_TREE)
+    return 0;
+
+  tree attr
+    = lookup_attribute ("omp declare target", DECL_ATTRIBUTES (fndecl));
+  if (attr != NULL_TREE)
+    {
+      /* If a "#pragma acc routine" has already been applied, just verify
+	 this one for compatibility.  */
+      /* Collect previous directive's clauses.  */
+      tree c_level_p = NULL_TREE;
+      tree c_bind_p = NULL_TREE;
+      tree c_nohost_p = NULL_TREE;
+      for (tree c = TREE_VALUE (attr); c; c = OMP_CLAUSE_CHAIN (c))
+	switch (OMP_CLAUSE_CODE (c))
+	  {
+	  case OMP_CLAUSE_GANG:
+	  case OMP_CLAUSE_WORKER:
+	  case OMP_CLAUSE_VECTOR:
+	  case OMP_CLAUSE_SEQ:
+	    gcc_checking_assert (c_level_p == NULL_TREE);
+	    c_level_p = c;
+	    break;
+	  case OMP_CLAUSE_BIND:
+	    /* Don't bother with duplicate clauses at this point.  */
+	    c_bind_p = c;
+	    break;
+	  case OMP_CLAUSE_NOHOST:
+	    /* Don't bother with duplicate clauses at this point.  */
+	    c_nohost_p = c;
+	    break;
+	  case OMP_CLAUSE_DEVICE_TYPE:
+	    /* TODO */
+	    break;
+	  default:
+	    gcc_unreachable ();
+	  }
+      gcc_checking_assert (c_level_p != NULL_TREE);
+      /* ..., and compare to current directive's, which we've already collected
+	 above.  */
+      tree c_diag;
+      tree c_diag_p;
+      /* Matching level of parallelism?  */
+      if (OMP_CLAUSE_CODE (c_level) != OMP_CLAUSE_CODE (c_level_p))
+	{
+	  c_diag = c_level;
+	  c_diag_p = c_level_p;
+	  goto incompatible;
+	}
+      /* Matching bind clauses?  */
+      if ((c_bind == NULL_TREE) != (c_bind_p == NULL_TREE))
+	{
+	  c_diag = c_bind;
+	  c_diag_p = c_bind_p;
+	  goto incompatible;
+	}
+      /* Matching bind clauses' names?  */
+      if ((c_bind != NULL_TREE) && (c_bind_p != NULL_TREE))
+	{
+	  tree c_bind_name = OMP_CLAUSE_BIND_NAME (c_bind);
+	  tree c_bind_name_p = OMP_CLAUSE_BIND_NAME (c_bind_p);
+	  /* TODO: will/should actually be the trees/strings/string pointers be
+	     identical?  */
+	  if (strcmp (TREE_STRING_POINTER (c_bind_name),
+		      TREE_STRING_POINTER (c_bind_name_p)) != 0)
+	    {
+	      c_diag = c_bind;
+	      c_diag_p = c_bind_p;
+	      goto incompatible;
+	    }
+	}
+      /* Matching nohost clauses?  */
+      if ((c_nohost == NULL_TREE) != (c_nohost_p == NULL_TREE))
+	{
+	  c_diag = c_nohost;
+	  c_diag_p = c_nohost_p;
+	  goto incompatible;
+	}
+      /* Compatible.  */
+      return 1;
+
+    incompatible:
+      if (c_diag != NULL_TREE)
+	error_at (OMP_CLAUSE_LOCATION (c_diag),
+		  "incompatible %qs clause when applying"
+		  " %<%s%> to %qD, which has already been"
+		  " marked as an accelerator routine",
+		  omp_clause_code_name[OMP_CLAUSE_CODE (c_diag)],
+		  routine_str, fndecl);
+      else if (c_diag_p != NULL_TREE)
+	error_at (loc,
+		  "missing %qs clause when applying"
+		  " %<%s%> to %qD, which has already been"
+		  " marked as an accelerator routine",
+		  omp_clause_code_name[OMP_CLAUSE_CODE (c_diag_p)],
+		  routine_str, fndecl);
+      else
+	gcc_unreachable ();
+      if (c_diag_p != NULL_TREE)
+	inform (OMP_CLAUSE_LOCATION (c_diag_p),
+		"... with %qs clause here",
+		omp_clause_code_name[OMP_CLAUSE_CODE (c_diag_p)]);
+      else
+	{
+	  /* In the front ends, we don't preserve location information for the
+	     OpenACC routine directive itself.  However, that of c_level_p
+	     should be close.  */
+	  location_t loc_routine = OMP_CLAUSE_LOCATION (c_level_p);
+	  inform (loc_routine, "... without %qs clause near to here",
+		  omp_clause_code_name[OMP_CLAUSE_CODE (c_diag)]);
+	}
+      /* Incompatible.  */
+      return -1;
+    }
+
+  return 0;
 }
 
 /*  Process the OpenACC routine's clauses to generate an attribute
