@@ -1,5 +1,16 @@
 2016-08-17  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* c-c++-common/goacc/routine-1.c: Update.
+	* c-c++-common/goacc/routine-2.c: Likewise.
+	* c-c++-common/goacc/routine-nohost-1.c: Likewise.
+	* g++.dg/goacc/routine-2.C: Likewise.
+	* c-c++-common/goacc/routine-nohost-2.c: New file.
+
+	* c-c++-common/goacc/oaccdevlow-routine.c: Update.
+	* c-c++-common/goacc/routine-5.c: Likewise.
+	* c-c++-common/goacc/routine-level-of-parallelism-1.c: Likewise.
+	* c-c++-common/goacc/routine-level-of-parallelism-2.c: New file.
+
 	* c-c++-common/goacc/routine-2.c: Update, and move some test
 	into...
 	* c-c++-common/goacc/routine-level-of-parallelism-1.c: ... this

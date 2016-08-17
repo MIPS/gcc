@@ -38393,7 +38393,9 @@ cp_finalize_oacc_routine (cp_parser *parser, tree fndecl, bool is_defn)
 	}
 
       /* Process the bind clause, if present.  */
-      for (tree c = parser->oacc_routine->clauses; c; c = OMP_CLAUSE_CHAIN (c))
+      for (tree c = parser->oacc_routine->clauses;
+	   c;
+	   c = OMP_CLAUSE_CHAIN (c))
 	{
 	  if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_BIND)
 	    continue;
@@ -38421,36 +38423,42 @@ cp_finalize_oacc_routine (cp_parser *parser, tree fndecl, bool is_defn)
 	  break;
 	}
 
-      oacc_verify_routine_clauses (&parser->oacc_routine->clauses,
-				   parser->oacc_routine->loc);
-
-      if (oacc_get_fn_attrib (fndecl))
+      int compatible
+	= oacc_verify_routine_clauses (fndecl, &parser->oacc_routine->clauses,
+				       parser->oacc_routine->loc,
+				       "#pragma acc routine");
+      if (compatible < 0)
 	{
-	  error_at (parser->oacc_routine->loc,
-		    "%<#pragma acc routine%> already applied to %qD", fndecl);
 	  parser->oacc_routine = NULL;
 	  return;
 	}
-
-      if (TREE_USED (fndecl) || (!is_defn && DECL_SAVED_TREE (fndecl)))
+      if (compatible > 0)
 	{
-	  error_at (parser->oacc_routine->loc,
-		    TREE_USED (fndecl)
-		    ? G_("%<#pragma acc routine%> must be applied before use")
-		    : G_("%<#pragma acc routine%> must be applied before "
-			 "definition"));
-	  parser->oacc_routine = NULL;
-	  return;
 	}
+      else
+	{
+	  if (TREE_USED (fndecl) || (!is_defn && DECL_SAVED_TREE (fndecl)))
+	    {
+	      error_at (parser->oacc_routine->loc,
+			TREE_USED (fndecl)
+			? G_("%<#pragma acc routine%> must be applied before"
+			     " use")
+			: G_("%<#pragma acc routine%> must be applied before"
+			     " definition"));
+	      parser->oacc_routine = NULL;
+	      return;
+	    }
 
-      /* Process the routine's dimension clauses.  */
-      tree dims = oacc_build_routine_dims (parser->oacc_routine->clauses);
-      oacc_replace_fn_attrib (fndecl, dims);
+	  /* Set the routine's level of parallelism.  */
+	  tree dims = oacc_build_routine_dims (parser->oacc_routine->clauses);
+	  oacc_replace_fn_attrib (fndecl, dims);
 
-      /* Add an "omp declare target" attribute.  */
-      DECL_ATTRIBUTES (fndecl)
-	= tree_cons (get_identifier ("omp declare target"),
-		     parser->oacc_routine->clauses, DECL_ATTRIBUTES (fndecl));
+	  /* Add an "omp declare target" attribute.  */
+	  DECL_ATTRIBUTES (fndecl)
+	    = tree_cons (get_identifier ("omp declare target"),
+			 parser->oacc_routine->clauses,
+			 DECL_ATTRIBUTES (fndecl));
+	}
 
       /* Don't unset parser->oacc_routine here: we may still need it to
 	 diagnose wrong usage.  But, remember that we've used this "#pragma acc
