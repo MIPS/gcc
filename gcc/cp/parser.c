@@ -30252,13 +30252,13 @@ cp_parser_oacc_single_int_clause (cp_parser *parser, omp_clause_code code,
 */
 
 static tree
-cp_parser_oacc_shape_clause (cp_parser *parser, omp_clause_code kind,
+cp_parser_oacc_shape_clause (cp_parser *parser, location_t loc,
+			     omp_clause_code kind,
 			     const char *str, tree list)
 {
   const char *id = "num";
   cp_lexer *lexer = parser->lexer;
   tree ops[2] = { NULL_TREE, NULL_TREE }, c;
-  location_t loc = cp_lexer_peek_token (lexer)->location;
 
   if (kind == OMP_CLAUSE_VECTOR)
     id = "length";
@@ -32294,7 +32294,7 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	  break;
 	case PRAGMA_OACC_CLAUSE_GANG:
 	  c_name = "gang";
-	  clauses = cp_parser_oacc_shape_clause (parser, OMP_CLAUSE_GANG,
+	  clauses = cp_parser_oacc_shape_clause (parser, here, OMP_CLAUSE_GANG,
 						 c_name, clauses);
 	  break;
 	case PRAGMA_OACC_CLAUSE_HOST:
@@ -32377,7 +32377,8 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	  break;
 	case PRAGMA_OACC_CLAUSE_VECTOR:
 	  c_name = "vector";
-	  clauses = cp_parser_oacc_shape_clause (parser, OMP_CLAUSE_VECTOR,
+	  clauses = cp_parser_oacc_shape_clause (parser, here,
+						 OMP_CLAUSE_VECTOR,
 						 c_name, clauses);
 	  break;
 	case PRAGMA_OACC_CLAUSE_VECTOR_LENGTH:
@@ -32392,7 +32393,8 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	  break;
 	case PRAGMA_OACC_CLAUSE_WORKER:
 	  c_name = "worker";
-	  clauses = cp_parser_oacc_shape_clause (parser, OMP_CLAUSE_WORKER,
+	  clauses = cp_parser_oacc_shape_clause (parser, here,
+						 OMP_CLAUSE_WORKER,
 						 c_name, clauses);
 	  break;
 	default:
