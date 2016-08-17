@@ -36680,6 +36680,9 @@ cp_parser_oacc_routine (cp_parser *parser, cp_token *pragma_tok,
 	= cp_parser_oacc_all_clauses (parser, OACC_ROUTINE_CLAUSE_MASK,
 				      "#pragma acc routine",
 				      cp_lexer_peek_token (parser->lexer));
+      /* The clauses are in reverse order; fix that to make later diagnostic
+	 emission easier.  */
+      data.clauses = nreverse (data.clauses);
 
       if (decl && is_overloaded_fn (decl)
 	  && (TREE_CODE (decl) != FUNCTION_DECL
@@ -36767,6 +36770,9 @@ cp_parser_late_parsing_oacc_routine (cp_parser *parser, tree attrs)
     = cp_parser_oacc_all_clauses (parser, OACC_ROUTINE_CLAUSE_MASK,
 				  "#pragma acc routine", pragma_tok,
 				   OACC_ROUTINE_CLAUSE_DEVICE_TYPE_MASK);
+  /* The clauses are in reverse order; fix that to make later diagnostic
+     emission easier.  */
+  parser->oacc_routine->clauses = nreverse (parser->oacc_routine->clauses);
   cp_parser_pop_lexer (parser);
   /* Later, cp_finalize_oacc_routine will process the clauses, and then set
      fndecl_seen.  */
@@ -36801,23 +36807,6 @@ cp_finalize_oacc_routine (cp_parser *parser, tree fndecl, bool is_defn)
 	  return;
 	}
 
-      if (get_oacc_fn_attrib (fndecl))
-	{
-	  error_at (parser->oacc_routine->loc,
-		    "%<#pragma acc routine%> already applied to %qD", fndecl);
-	  parser->oacc_routine = NULL;
-	  return;
-	}
-
-      if (TREE_USED (fndecl) || (!is_defn && DECL_SAVED_TREE (fndecl)))
-	{
-	  error_at (parser->oacc_routine->loc,
-		    "%<#pragma acc routine%> must be applied before %s",
-		    TREE_USED (fndecl) ? "use" : "definition");
-	  parser->oacc_routine = NULL;
-	  return;
-	}
-
       /* Process the bind clause, if present.  */
       for (tree c = parser->oacc_routine->clauses; c; c = OMP_CLAUSE_CHAIN (c))
 	{
@@ -36845,6 +36834,26 @@ cp_finalize_oacc_routine (cp_parser *parser, tree fndecl, bool is_defn)
 	  OMP_CLAUSE_BIND_NAME (c) = name;
 
 	  break;
+	}
+
+      verify_oacc_routine_clauses (&parser->oacc_routine->clauses,
+				   parser->oacc_routine->loc);
+
+      if (get_oacc_fn_attrib (fndecl))
+	{
+	  error_at (parser->oacc_routine->loc,
+		    "%<#pragma acc routine%> already applied to %qD", fndecl);
+	  parser->oacc_routine = NULL;
+	  return;
+	}
+
+      if (TREE_USED (fndecl) || (!is_defn && DECL_SAVED_TREE (fndecl)))
+	{
+	  error_at (parser->oacc_routine->loc,
+		    "%<#pragma acc routine%> must be applied before %s",
+		    TREE_USED (fndecl) ? "use" : "definition");
+	  parser->oacc_routine = NULL;
+	  return;
 	}
 
       /* Process the routine's dimension clauses.  */

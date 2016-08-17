@@ -1,3 +1,10 @@
+2016-08-17  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc/routine-2.c: Update, and move some test
+	into...
+	* c-c++-common/goacc/routine-level-of-parallelism-1.c: ... this
+	new file.
+
 2016-08-16  Cesar Philippidis  <cesar@codesourcery.com>
 	    Thomas Schwinge  <thomas@codesourcery.com>
 

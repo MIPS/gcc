@@ -1,5 +1,8 @@
 2016-08-17  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* c-parser.c (c_parser_oacc_routine): Normalize order of clauses.
+	(c_finish_oacc_routine): Call verify_oacc_routine_clauses.
+
 	* c-parser.c (c_parser_oacc_shape_clause)
 	(c_parser_oacc_simple_clause): Add loc formal parameter.  Adjust
 	all users.

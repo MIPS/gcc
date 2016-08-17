@@ -1,3 +1,10 @@
+2016-08-17  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* omp-low.c (build_oacc_routine_dims): Move some of its processing
+	into...
+	(verify_oacc_routine_clauses): ... this new function.
+	* omp-low.h (verify_oacc_routine_clauses): New prototype.
+
 2016-08-15  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* omp-low.c (lower_oacc_reductions): Adjust variable lookup to use

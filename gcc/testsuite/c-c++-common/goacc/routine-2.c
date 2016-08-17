@@ -1,16 +1,4 @@
-/* Test invalid use of clauses with routine.  */
-
-#pragma acc routine gang worker /* { dg-error "multiple loop axes" } */
-extern void gang (void);
-
-#pragma acc routine worker vector /* { dg-error "multiple loop axes" } */
-extern void worker (void);
-
-#pragma acc routine vector seq /* { dg-error "multiple loop axes" } */
-extern void vector (void);
-
-#pragma acc routine seq gang /* { dg-error "multiple loop axes" } */
-extern void seq (void);
+/* Test invalid use of clauses with OpenACC routine.  */
 
 extern float F;
 #pragma acc routine bind (F) /* { dg-error ".F. does not refer to a function" } */
