@@ -6737,7 +6737,8 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 
   /* Special case initializing vector int if we are on 64-bit systems with
      direct move or we have the ISA 3.0 instructions.  */
-  if (mode == V4SImode && TARGET_DIRECT_MOVE_64BIT)
+  if (mode == V4SImode  && VECTOR_MEM_VSX_P (V4SImode)
+      && TARGET_DIRECT_MOVE_64BIT)
     {
       if (all_same)
 	{
@@ -6779,7 +6780,7 @@ rs6000_expand_vector_init (rtx target, rtx vals)
      precision is actually represented as a double, and either make 2 V2DF
      vectors, and convert these vectors to single precision, or do one
      conversion, and splat the result to the other elements.  */
-  if (mode == V4SFmode && VECTOR_MEM_VSX_P (mode))
+  if (mode == V4SFmode && VECTOR_MEM_VSX_P (V4SFmode))
     {
       if (all_same)
 	{
