@@ -190,6 +190,7 @@ enum mips_split_type {
   SPLIT_FOR_SIZE
 };
 
+extern rtl_opt_pass * make_pass_optimize_multi_refs (gcc::context *);
 extern bool mips_string_constant_p (rtx);
 bool mips_call_may_need_jalx_p (tree);
 extern bool mips_symbolic_constant_p (rtx, enum mips_symbol_context,
