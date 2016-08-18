@@ -409,6 +409,24 @@
 
 #define vec_slv __builtin_vec_vslv
 #define vec_srv __builtin_vec_vsrv
+
+#ifdef _ARCH_PPC64
+#define vec_xl_len __builtin_vec_lxvl
+#define vec_xst_len __builtin_vec_stxvl
+#endif
+
+#define vec_cmpne __builtin_vec_vcmpne
+#define vec_cmpnez __builtin_vec_vcmpnez
+#define vec_all_ne __builtin_vec_vcmp_all_ne
+#define vec_all_nez __builtin_vec_cmp_all_nez
+#define vec_any_eq __builtin_vec_cmp_any_eq
+#define vec_any_eqz __builtin_vec_cmp_any_eqz
+
+#define vec_cntlz_lsbb __builtin_vec_vclzlsbb
+#define vec_cnttz_lsbb __builtin_vec_vctzlsbb
+
+#define vec_xlx __builtin_vec_vextulx
+#define vec_xrx __builtin_vec_vexturx
 #endif
 
 /* Predicates.
