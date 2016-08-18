@@ -180,6 +180,7 @@ struct gimplify_omp_ctx
   bool target_map_scalars_firstprivate;
   bool target_map_pointers_as_0len_arrays;
   bool target_firstprivatize_array_bases;
+  tree clauses;
 };
 
 static struct gimplify_ctx *gimplify_ctxp;
@@ -396,6 +397,7 @@ new_omp_context (enum omp_region_type region_type)
   c->privatized_types = new hash_set<tree>;
   c->location = input_location;
   c->region_type = region_type;
+  c->clauses = NULL_TREE;
   if ((region_type & ORT_TASK) == 0)
     c->default_kind = OMP_CLAUSE_DEFAULT_SHARED;
   else
@@ -6546,6 +6548,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
   tree *prev_list_p = NULL;
 
   ctx = new_omp_context (region_type);
+  ctx->clauses = *list_p;
   outer_ctx = ctx->outer_context;
   if (code == OMP_TARGET && !lang_GNU_Fortran ())
     {
@@ -7694,6 +7697,58 @@ struct gimplify_adjust_omp_clauses_data
   gimple_seq *pre_p;
 };
 
+/* Return true if clause contains an array_ref of DECL.  */
+
+static bool
+omp_clause_matching_array_ref (tree clause, tree decl)
+{
+  tree cdecl = OMP_CLAUSE_DECL (clause);
+
+  if (TREE_CODE (cdecl) != ARRAY_REF)
+    return false;
+
+  return TREE_OPERAND (cdecl, 0) == decl;
+}
+
+/* Inside OpenACC parallel and kernels regions, the implicit data
+   clauses for arrays must respect the explicit data clauses set by a
+   containing acc data region.  Specifically, care must be taken
+   pointers or if an subarray of a local array is specified in an acc
+   data region, so that the referenced array inside the offloaded
+   region has a present data clasue for that array with an
+   approporiate subarray argument.  This function returns the tree
+   node of the acc data clause that utilizes DECL as an argument.  */
+
+static tree
+gomp_needs_data_present (tree decl)
+{
+  gimplify_omp_ctx *ctx = NULL;
+  bool found_match = false;
+  tree c = NULL_TREE;
+
+  if (TREE_CODE (TREE_TYPE (decl)) != ARRAY_TYPE)
+    return NULL_TREE;
+
+  if (gimplify_omp_ctxp->region_type != ORT_ACC_PARALLEL
+      && gimplify_omp_ctxp->region_type != ORT_ACC_KERNELS)
+    return NULL_TREE;
+
+  for (ctx = gimplify_omp_ctxp->outer_context; !found_match && ctx;
+       ctx = ctx->outer_context)
+    {
+      if (ctx->region_type != ORT_ACC_DATA)
+	break;
+
+      for (c = ctx->clauses; c; c = OMP_CLAUSE_CHAIN (c))
+	if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
+	    && (omp_clause_matching_array_ref (c, decl)
+		|| OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER))
+	  return c;
+    }
+
+  return NULL_TREE;
+}
+
 /* For all variables that were not actually used within the context,
    remove PRIVATE, SHARED, and FIRSTPRIVATE clauses.  */
 
@@ -7806,10 +7861,54 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
       int kind = (flags & GOVD_MAP_TO_ONLY
 		  ? GOMP_MAP_TO
 		  : GOMP_MAP_TOFROM);
+      tree c2 = NULL_TREE;
       if (flags & GOVD_MAP_FORCE)
 	kind |= GOMP_MAP_FLAG_FORCE;
       OMP_CLAUSE_SET_MAP_KIND (clause, kind);
-      if (DECL_SIZE (decl)
+      c2 = gomp_needs_data_present (decl);
+      /* Handle OpenACC pointers that were declared inside acc data
+	 regions.  */
+      if (c2 != NULL && OMP_CLAUSE_MAP_KIND (c2) == GOMP_MAP_POINTER)
+	{
+	  OMP_CLAUSE_SET_MAP_KIND (clause, GOMP_MAP_POINTER);
+	  OMP_CLAUSE_SIZE (clause) = unshare_expr (OMP_CLAUSE_SIZE (c2));
+	}
+      /* Handle OpenACC subarrays that were declared inside acc data
+	 regions.  */
+      else if (c2 != NULL)
+	{
+	  tree first = OMP_CLAUSE_DECL (c2);
+
+	  /* Adjust the existing clause to make it a present data
+	     clause with the proper subarray attributes.  */
+	  OMP_CLAUSE_DECL (clause) = unshare_expr (first);
+	  OMP_CLAUSE_SET_MAP_KIND (clause, GOMP_MAP_FORCE_PRESENT);
+	  OMP_CLAUSE_SIZE (clause) = unshare_expr (OMP_CLAUSE_SIZE (c2));
+
+	  /* Create a new data clause for the firstprivate pointer.  */
+	  tree nc = build_omp_clause (OMP_CLAUSE_LOCATION (clause),
+				      OMP_CLAUSE_MAP);
+	  OMP_CLAUSE_DECL (nc) = decl;
+	  OMP_CLAUSE_SET_MAP_KIND (nc, GOMP_MAP_FIRSTPRIVATE_POINTER);
+
+	  tree t = build_fold_addr_expr (first);
+	  t = fold_convert_loc (OMP_CLAUSE_LOCATION (clause),
+				ptrdiff_type_node, t);
+	  tree ptr = build_fold_addr_expr (decl);
+	  t = fold_build2_loc (OMP_CLAUSE_LOCATION (clause), MINUS_EXPR,
+			       ptrdiff_type_node, t,
+			       fold_convert_loc (OMP_CLAUSE_LOCATION (clause),
+						 ptrdiff_type_node, ptr));
+	  OMP_CLAUSE_SIZE (nc) = t;
+
+	  struct gimplify_omp_ctx *ctx = gimplify_omp_ctxp;
+	  gimplify_omp_ctxp = ctx->outer_context;
+	  gimplify_expr (&OMP_CLAUSE_SIZE (nc),
+			 pre_p, NULL, is_gimple_val, fb_rvalue);
+	  gimplify_omp_ctxp = ctx;
+	  OMP_CLAUSE_CHAIN (clause) = nc;
+	}
+      else if (DECL_SIZE (decl)
 	  && TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST)
 	{
 	  tree decl2 = DECL_VALUE_EXPR (decl);
