@@ -323,6 +323,7 @@
    UNSPEC_VSX_VXSIG
    UNSPEC_VSX_VIEXP
    UNSPEC_VSX_VTSTDC
+   UNSPEC_VSX_VEC_INIT
   ])
 
 ;; VSX moves
@@ -1950,10 +1951,10 @@
 ;; together, relying on the fact that internally scalar floats are represented
 ;; as doubles.  This is used to initialize a V4SF vector with 4 floats
 (define_insn "vsx_concat_v2sf"
-  [(set (match_operand:V2DF 0 "vsx_register_operand" "=wd,?wa")
+  [(set (match_operand:V2DF 0 "vsx_register_operand" "=wa")
 	(unspec:V2DF
-	 [(match_operand:SF 1 "vsx_register_operand" "f,f")
-	  (match_operand:SF 2 "vsx_register_operand" "f,f")]
+	 [(match_operand:SF 1 "vsx_register_operand" "ww")
+	  (match_operand:SF 2 "vsx_register_operand" "ww")]
 	 UNSPEC_VSX_CONCAT))]
   "VECTOR_MEM_VSX_P (V2DFmode)"
 {
@@ -1963,6 +1964,26 @@
     return "xxpermdi %x0,%x2,%x1,0";
 }
   [(set_attr "type" "vecperm")])
+
+;; V4SImode initialization splitter
+(define_insn_and_split "vsx_init_v4si"
+  [(set (match_operand:V4SI 0 "nonimmediate_operand" "=&r")
+	(unspec:V4SI
+	 [(match_operand:SI 1 "reg_or_cint_operand" "rn")
+	  (match_operand:SI 2 "reg_or_cint_operand" "rn")
+	  (match_operand:SI 3 "reg_or_cint_operand" "rn")
+	  (match_operand:SI 4 "reg_or_cint_operand" "rn")]
+	 UNSPEC_VSX_VEC_INIT))
+   (clobber (match_scratch:DI 5 "=&r"))
+   (clobber (match_scratch:DI 6 "=&r"))]
+   "VECTOR_MEM_VSX_P (V4SImode) && TARGET_DIRECT_MOVE_64BIT"
+   "#"
+   "&& reload_completed"
+   [(const_int 0)]
+{
+  rs6000_split_v4si_init (operands);
+  DONE;
+})
 
 ;; xxpermdi for little endian loads and stores.  We need several of
 ;; these since the form of the PARALLEL differs by mode.
@@ -2674,11 +2695,10 @@
    mtvsrdd %x0,%1,%1"
   [(set_attr "type" "vecperm,vecload,vecperm")])
 
-;; V4SI splat (ISA 3.0)
-;; When SI's are allowed in VSX registers, add XXSPLTW support
-(define_expand "vsx_splat_<mode>"
+;; V4SI/V4SF splat support
+(define_expand "vsx_splat_<mode>_p9"
   [(set (match_operand:VSX_W 0 "vsx_register_operand" "")
-	(vec_duplicate:VSX_W
+		   (vec_duplicate:VSX_W
 	 (match_operand:<VS_scalar> 1 "splat_input_operand" "")))]
   "TARGET_P9_VECTOR"
 {
@@ -2688,7 +2708,7 @@
     operands[1] = force_reg (<VS_scalar>mode, operands[1]);
 })
 
-(define_insn "*vsx_splat_v4si_internal"
+(define_insn "*vsx_splat_v4si_p9_internal"
   [(set (match_operand:V4SI 0 "vsx_register_operand" "=wa,wa")
 	(vec_duplicate:V4SI
 	 (match_operand:SI 1 "splat_input_operand" "r,Z")))]
@@ -2699,7 +2719,7 @@
   [(set_attr "type" "mftgpr,vecload")])
 
 ;; V4SF splat (ISA 3.0)
-(define_insn_and_split "*vsx_splat_v4sf_internal"
+(define_insn_and_split "*vsx_splat_v4sf_p9_internal"
   [(set (match_operand:V4SF 0 "vsx_register_operand" "=wa,wa,wa")
 	(vec_duplicate:V4SF
 	 (match_operand:SF 1 "splat_input_operand" "Z,wy,r")))]
@@ -2718,14 +2738,49 @@
   [(set_attr "type" "vecload,vecperm,mftgpr")
    (set_attr "length" "4,8,4")])
 
+;; V4SI splat support on ISA 2.07
+(define_insn_and_split "vsx_splat_v4si_p8"
+  [(set (match_operand:V4SI 0 "vsx_register_operand" "=wa,wa")
+	(vec_duplicate:V4SI
+	 (match_operand:SI 1 "input_operand" "r,Z")))
+   (clobber (match_scratch:DI 2 "=wi,wi"))]
+  "VECTOR_MEM_VSX_P (V4SImode) && TARGET_DIRECT_MOVE_64BIT && !TARGET_P9_VECTOR"
+  "#"
+  "&& 1"
+  [(set (match_dup 2) (zero_extend:DI (match_dup 1)))
+   (set (match_dup 0)
+	(vec_duplicate:V4SI
+	 (truncate:SI (match_dup 2))))]
+{
+  rtx op1 = operands[1];
+  if (MEM_P (op1))
+    operands[1] = rs6000_address_for_fpconvert (op1);
+  else if (!REG_P (op1))
+    operands[1] = force_reg (SImode, op1);
+
+  if (GET_CODE (operands[2]) == SCRATCH)
+    operands[2] = gen_reg_rtx (DImode);
+})
+
+(define_insn "*vsx_xxspltw_di"
+  [(set (match_operand:V4SI 0 "vsx_register_operand" "=wa,we")
+	(vec_duplicate:V4SI
+	 (truncate:SI
+	  (match_operand:DI 1 "vsx_register_operand" "wi,r"))))]
+  "VECTOR_MEM_VSX_P (V4SImode) && TARGET_DIRECT_MOVE_64BIT"
+  "@
+   xxspltw %x0,%x1,1
+   mtvsrws %x0,%1"
+  [(set_attr "type" "vecperm")])
+
 ;; V4SF/V4SI splat from a vector element
 (define_insn "vsx_xxspltw_<mode>"
-  [(set (match_operand:VSX_W 0 "vsx_register_operand" "=wf,?<VSa>")
+  [(set (match_operand:VSX_W 0 "vsx_register_operand" "=<VSa>")
 	(vec_duplicate:VSX_W
 	 (vec_select:<VS_scalar>
-	  (match_operand:VSX_W 1 "vsx_register_operand" "wf,<VSa>")
+	  (match_operand:VSX_W 1 "vsx_register_operand" "<VSa>")
 	  (parallel
-	   [(match_operand:QI 2 "u5bit_cint_operand" "i,i")]))))]
+	   [(match_operand:QI 2 "u5bit_cint_operand" "n")]))))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
 {
   if (!BYTES_BIG_ENDIAN)
@@ -2736,9 +2791,9 @@
   [(set_attr "type" "vecperm")])
 
 (define_insn "vsx_xxspltw_<mode>_direct"
-  [(set (match_operand:VSX_W 0 "vsx_register_operand" "=wf,?<VSa>")
-        (unspec:VSX_W [(match_operand:VSX_W 1 "vsx_register_operand" "wf,<VSa>")
-                       (match_operand:QI 2 "u5bit_cint_operand" "i,i")]
+  [(set (match_operand:VSX_W 0 "vsx_register_operand" "=<VSa>")
+        (unspec:VSX_W [(match_operand:VSX_W 1 "vsx_register_operand" "<VSa>")
+                       (match_operand:QI 2 "u5bit_cint_operand" "i")]
                       UNSPEC_VSX_XXSPLTW))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "xxspltw %x0,%x1,%2"

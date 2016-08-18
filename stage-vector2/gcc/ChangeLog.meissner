@@ -1,5 +1,37 @@
 2016-08-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000-protos.h (rs6000_split_v4si_init): Add
+	declaration.
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Set target
+	to CONST0_RTX instead of using XOR to clear register.  Add support
+	for V4SImode initialization on 64-bit systems with direct move.
+	Rename gen_vsx_splat_v4{si,sf} to gen_vsx_splat_v4{si,sf}_p9.
+	(regno_or_subregno): New helper function to return register number
+	for REG or SUBREG.
+	(rs6000_adjust_vec_address): Use regno_or_subregno.  Add special
+	code if we wanted to add an immediate to R0 in re-creating the
+	memory address.
+	(rs6000_split_v4si_init_di_reg): New functions to support doing
+	V4SImode initialization on 64-bit systems with direct move.
+	(rs6000_split_v4si_init): Likewise.
+	(rtx_is_swappable_p): UNSPEC_VSX_VEC_INIT is not swappable.
+
+	* config/rs6000/vsx.md (UNSPEC_VSX_VEC_INIT): New unspec.
+	(vsx_concat_v2sf): Eliminate preferred register.  Allow SFmode
+	values to be in Altivec registers.
+	(vsx_init_v4si): New insn to support initializing V4SImode without
+	using memory on 64-bit systems with direct move.
+	(vsx_splat_<mode>_p9): Rename word splat insns to have _p9
+	suffix.  Add V4SI word splat insn for 64-bit ISA 2.07 (power8)
+	systems.
+	(vsx_splat_v4si_p9_internal): Likewise.
+	(vsx_splat_v4si_p8): Likewise.
+	(vsx_xxspltw_di): Likewise.
+	(vsx_xxspltw_<mode>): Eliminate preferred register.  Use "n"
+	constraint instead of "i".
+	(vsx_xxspltw_<mode>_direct): Likewise.
+
 	* config/rs6000/vsx.md (vsx_concat_<mode>_memory): Undo all branch
 	local changes.
 
