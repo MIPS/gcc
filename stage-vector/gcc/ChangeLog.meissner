@@ -1,5 +1,24 @@
 2016-08-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Combine p8
+	and p9 V4SImode vector initializations.  Get memory address into
+	reg+reg format.
+
+	* config/rs6000/vsx.md (vsx_init_v4si): Don't allow target to be a
+	memory address.
+	(vsx_splat_<mode>_p9): Rework V4SImode and V4SFmode splats.  Add
+	support for 64-bit systems with direct move to initialize V4SImode
+	vectors without going through memory.
+	(vsx_splat_v4si): Likewise.
+	(vsx_splat_v4si_p9_internal): Likewise.
+	(vsx_splat_v4si_di): Likewise.
+	(vsx_splat_v4sf_p9_internal): Likewise.
+	(vsx_splat_v4sf): Likewise.
+	(vsx_splat_v4si_p8): Likewise.
+	(vsx_xxspltw_di): Likewise.
+	(vsx_vsplt<VSX_SPLAT_SUFFIX>_di): Move V8HI/V16QI splat code
+	later in the file.
+
 	* config/rs6000/vsx.md (vsx_xxspltw_di): On ISA 3.0, generate
 	MTVSRWS if register is a GPR.
 

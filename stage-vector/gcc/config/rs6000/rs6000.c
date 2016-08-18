@@ -6745,14 +6745,20 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 
       if (all_same)
 	{
-	  rtx op0 = XVECEXP (vals, 0, 0);
-	  if (!MEM_P (op0) && !REG_P (op0))
-	    op0 = force_reg (SImode, op0);
+	  rtx element0 = XVECEXP (vals, 0, 0);
+	  if (MEM_P (element0))
+	    element0 = rs6000_address_for_fpconvert (element0);
+	  else if (!REG_P (element0))
+	    element0 = force_reg (SImode, element0);
 
-	  if (TARGET_P9_VECTOR)
-	    emit_insn (gen_vsx_splat_v4si_p9 (target, op0));
-	  else
-	    emit_insn (gen_vsx_splat_v4si_p8 (target, op0));
+         if (TARGET_P9_VECTOR)
+           emit_insn (gen_vsx_splat_v4si (target, element0));
+         else
+           {
+             rtx tmp = gen_reg_rtx (DImode);
+             emit_insn (gen_zero_extendsidi2 (tmp, element0));
+             emit_insn (gen_vsx_splat_v4si_di (target, tmp));
+           }
 	  return;
 	}
 
@@ -6776,15 +6782,20 @@ rs6000_expand_vector_init (rtx target, rtx vals)
     {
       if (all_same)
 	{
-	  rtx op0 = XVECEXP (vals, 0, 0);
+	  rtx element0 = XVECEXP (vals, 0, 0);
 
 	  if (TARGET_P9_VECTOR)
-	    emit_insn (gen_vsx_splat_v4sf_p9 (target, op0));
+	    {
+	      if (MEM_P (element0))
+		element0 = rs6000_address_for_fpconvert (element0);
+
+	      emit_insn (gen_vsx_splat_v4sf (target, element0));
+	    }
 
 	  else
 	    {
 	      rtx freg = gen_reg_rtx (V4SFmode);
-	      rtx sreg = force_reg (SFmode, op0);
+	      rtx sreg = force_reg (SFmode, element0);
 	      rtx cvt  = (TARGET_XSCVDPSPN
 			  ? gen_vsx_xscvdpspn_scalar (freg, sreg)
 			  : gen_vsx_xscvdpsp_scalar (freg, sreg));
