@@ -587,3 +587,6 @@ Target Undocumented Var(TARGET_COST_TWEAK) Init(0)
 
 mopt-movebalc
 Target Undocumented Var(TARGET_OPT_MOVEBALC) Init(0)
+
+mopt-refs
+Target Undocumented Var(TARGET_OPTIMIZE_MULTIPLE_REFS) Init(0)
