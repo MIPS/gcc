@@ -6751,7 +6751,14 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 	  else if (!REG_P (element0))
 	    element0 = force_reg (SImode, element0);
 
-	  emit_insn (gen_vsx_splat_v4si (target, element0));
+	  if (TARGET_P9_VECTOR)
+	    emit_insn (gen_vsx_splat_v4si (target, element0));
+	  else
+	    {
+	      rtx tmp = gen_reg_rtx (DImode);
+	      emit_insn (gen_zero_extendsidi2 (tmp, element0));
+	      emit_insn (gen_vsx_splat_v4si_di (target, tmp));
+	    }
 	  return;
 	}
 
