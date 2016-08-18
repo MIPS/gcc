@@ -6737,12 +6737,8 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 
   /* Special case initializing vector int if we are on 64-bit systems with
      direct move or we have the ISA 3.0 instructions.  */
-  if (mode == V4SImode
-      && (TARGET_DIRECT_MOVE_64BIT || TARGET_P9_VECTOR))
+  if (mode == V4SImode && TARGET_DIRECT_MOVE_64BIT)
     {
-      rtx elements[4];
-      size_t i;
-
       if (all_same)
 	{
 	  rtx element0 = XVECEXP (vals, 0, 0);
@@ -6751,27 +6747,32 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 	  else if (!REG_P (element0))
 	    element0 = force_reg (SImode, element0);
 
-         if (TARGET_P9_VECTOR)
-           emit_insn (gen_vsx_splat_v4si (target, element0));
-         else
-           {
-             rtx tmp = gen_reg_rtx (DImode);
-             emit_insn (gen_zero_extendsidi2 (tmp, element0));
-             emit_insn (gen_vsx_splat_v4si_di (target, tmp));
-           }
+	  if (TARGET_P9_VECTOR)
+	    emit_insn (gen_vsx_splat_v4si (target, element0));
+	  else
+	    {
+	      rtx tmp = gen_reg_rtx (DImode);
+	      emit_insn (gen_zero_extendsidi2 (tmp, element0));
+	      emit_insn (gen_vsx_splat_v4si_di (target, tmp));
+	    }
 	  return;
 	}
-
-      for (i = 0; i < 4; i++)
+      else
 	{
-	  elements[i] = XVECEXP (vals, 0, i);
-	  if (!CONST_INT_P (elements[i]) && !REG_P (elements[i]))
-	    elements[i] = copy_to_mode_reg (SImode, elements[i]);
-	}
+	  rtx elements[4];
+	  size_t i;
 
-      emit_insn (gen_vsx_init_v4si (target, elements[0], elements[1],
-				    elements[2], elements[3]));
-      return;
+	  for (i = 0; i < 4; i++)
+	    {
+	      elements[i] = XVECEXP (vals, 0, i);
+	      if (!CONST_INT_P (elements[i]) && !REG_P (elements[i]))
+		elements[i] = copy_to_mode_reg (SImode, elements[i]);
+	    }
+
+	  emit_insn (gen_vsx_init_v4si (target, elements[0], elements[1],
+					elements[2], elements[3]));
+	  return;
+	}
     }
 
   /* With single precision floating point on VSX, know that internally single
