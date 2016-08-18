@@ -23734,6 +23734,263 @@ make_pass_shrink_mips_offsets (gcc::context *ctxt)
     return new pass_shrink_mips_offsets (ctxt);
 }
 
+/* New pass to exploit free callee saved registers when loading the same
+   symbol multiple times. */
+
+typedef struct reference_entry
+{
+  rtx symbol;
+  int count;
+  int sreg;
+  bool first_load_p;
+} reference_entry_t;
+
+typedef struct reference_entry_hasher : free_ptr_hash <reference_entry>
+{
+  static inline hashval_t hash (reference_entry *v)
+    { return mips_hash_base (v->symbol); };
+  static bool equal (reference_entry *v, reference_entry *c)
+    { return rtx_equal_p (v->symbol, c->symbol); };
+  static void remove (reference_entry *)
+    {};
+} reference_entry_hasher_t;
+
+typedef struct reference_entry *ref_info;
+
+typedef struct refs_and_sregs_info {
+  int free_regs;
+  int first_free;
+  vec<ref_info> all_refs;
+} refs_and_sregs_info_t;
+
+static int
+ref_count_cmp (const void *x, const void *y)
+{
+  const ref_info p1 = *((const ref_info *) x);
+  const ref_info p2 = *((const ref_info *) y);
+  if (p1->count > p2->count)
+    return -1;
+  if (p1->count < p2->count)
+    return 1;
+  return 0;
+}
+
+int
+process_symbol_stats (reference_entry_t **slot,
+		      refs_and_sregs_info_t *ras_info)
+{
+  reference_entry_t *ref = *slot;
+
+  if (ras_info->free_regs != 0
+      && ((ref->count == 2 && ras_info->free_regs < 8)
+	  || (ref->count >= 3)))
+    {
+      ref_info rs = XNEW (reference_entry_t);
+      rs->symbol = ref->symbol;
+      rs->count = ref->count;
+      rs->sreg = -1;
+      ras_info->all_refs.safe_push (rs);
+
+      if (dump_file)
+	{
+	  fprintf (dump_file, "Found ");
+	  output_addr_const (dump_file, ref->symbol);
+	  fprintf (dump_file, " with count=%d free_sregs=%d first=%d\n",
+		   ref->count,
+		   ras_info->free_regs,
+		   ras_info->first_free);
+	}
+    }
+  return 1;
+}
+
+namespace {
+
+const pass_data pass_data_optimize_multi_refs =
+{
+  RTL_PASS,                             /* type */
+  "optimize_multi_refs",                     /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
+  TV_NONE,                              /* tv_id */
+  PROP_cfglayout,                       /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_df_finish                        /* todo_flags_finish */
+};
+
+class pass_optimize_multi_refs : public rtl_opt_pass
+{
+  public:
+    pass_optimize_multi_refs (gcc::context *ctxt)
+      : rtl_opt_pass (pass_data_optimize_multi_refs, ctxt)
+    {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *)
+    {
+      return TARGET_NANOMIPS == NANOMIPS_NMF
+	     && TARGET_OPTIMIZE_MULTIPLE_REFS
+	     && TARGET_LI48;
+    }
+
+  virtual unsigned int execute (function *);
+
+}; // class pass_shrink_mips16_offsets
+
+unsigned int
+pass_optimize_multi_refs::execute (function *f ATTRIBUTE_UNUSED)
+{
+  rtx_insn *insn;
+  rtx set;
+  refs_and_sregs_info_t ras_info;
+
+  hash_table <reference_entry_hasher_t> *ref_table =
+   new hash_table<reference_entry_hasher_t> (10);
+
+  ras_info.free_regs = 0;
+  ras_info.first_free = -1;
+  ras_info.all_refs = vNULL;
+
+  for (int i = 16; i <= 23; i++)
+    if (!df_regs_ever_live_p (i))
+      {
+	ras_info.free_regs++;
+	if (ras_info.free_regs == 1)
+	  ras_info.first_free = i;
+      }
+
+  for (insn = get_insns (); insn != 0; insn = NEXT_INSN (insn))
+    {
+      set = single_set (insn);
+      if (set)
+	{
+	  rtx src = SET_SRC (set);
+	  rtx dest = SET_DEST (set);
+	  if (REG_P (dest)
+	      && absolute_symbolic_operand (src, VOIDmode))
+	    {
+	      reference_entry **slot;
+	      reference_entry *entry;
+	      reference_entry src_entry;
+	      src_entry.symbol = src;
+
+	      /* Look up the symbol in the hash table.  */
+	      slot = ref_table->find_slot_with_hash (
+		       &src_entry, mips_hash_base (src), INSERT);
+
+	      entry = *slot;
+	      if (entry == NULL)
+		{
+		  entry = XNEW (reference_entry_t);
+		  entry->symbol = src;
+		  entry->count = 1;
+		  entry->first_load_p = true;
+		  *slot = entry;
+		}
+	      else
+		entry->count++;
+	    }
+	}
+    }
+
+  ref_table->traverse <refs_and_sregs_info_t *,
+		       process_symbol_stats> (&ras_info);
+
+  /* Sort the symbols with the count descending.  */
+  ras_info.all_refs.qsort (ref_count_cmp);
+
+  for (insn = get_insns (); insn != 0; insn = NEXT_INSN (insn))
+    {
+      set = single_set (insn);
+      if (set)
+	{
+	  rtx *src = &SET_SRC (set);
+	  rtx *dest = &SET_DEST (set);
+	  if (REG_P (*dest)
+	      && absolute_symbolic_operand (*src, VOIDmode))
+	    {
+	      ref_info r;
+
+	      for (int i = 0;
+		   ras_info.all_refs.iterate (i, &r) && i < ras_info.free_regs;
+		   i++)
+		{
+		  rtx new_reg;
+		  reference_entry_t **slot;
+		  reference_entry_t *entry;
+		  reference_entry src_entry;
+		  src_entry.symbol = *src;
+
+		  if (!rtx_equal_p (r->symbol, *src))
+		    continue;
+
+		  if (r->sreg == -1)
+		    {
+		      /* There is no guarantee that the saved registers were
+			 allocated consecutively so we must find a free one
+			 again.  */
+		      while (df_regs_ever_live_p (ras_info.first_free)
+			     && ras_info.first_free <= 23)
+			ras_info.first_free++;
+		      gcc_assert (IN_RANGE (ras_info.first_free, 16, 23));
+		      r->sreg = ras_info.first_free;
+		      ras_info.first_free++;
+		    }
+
+		  /* Look up the symbol in the hash table.  */
+		  slot = ref_table->find_slot_with_hash (
+			   &src_entry, mips_hash_base (*src), NO_INSERT);
+
+		  entry = *slot;
+		  if (entry)
+		    {
+		      new_reg = gen_rtx_REG (Pmode, r->sreg);
+
+		      if (dump_file)
+			{
+			  fprintf (dump_file, "Replacing ");
+			  output_addr_const (dump_file, r->symbol);
+			  fprintf (dump_file, " with reg %d in insn %d\n",
+				   r->sreg, INSN_UID (insn));
+			}
+
+		      if (entry->first_load_p)
+			{
+			  rtx new_move;
+
+			  entry->first_load_p = false;
+			  df_set_regs_ever_live (r->sreg, true);
+			  mips_compute_frame_info ();
+
+			  new_move = gen_rtx_SET (*dest, new_reg);
+			  emit_insn_after (new_move, insn);
+			  simplify_replace_rtx (*dest, *dest, new_reg);
+			  validate_change (insn, dest, new_reg, 0);
+			}
+		      else
+			{
+			  simplify_replace_rtx (*src, *src, new_reg);
+			  validate_change (insn, src, new_reg, 0);
+			}
+		    }
+		}
+	    }
+	}
+    }
+  delete ref_table;
+
+  return 0;
+}
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_optimize_multi_refs (gcc::context *ctxt)
+{
+    return new pass_optimize_multi_refs (ctxt);
+}
+
 /* Implement TARGET_OPTION_OVERRIDE.  */
 
 static void
@@ -24406,6 +24663,21 @@ mips_option_override (void)
     };
 
   register_pass (&shrink_mips_offsets_info);
+
+  new_pass = make_pass_optimize_multi_refs (g);
+  /* May not be the right place for this, but .....  */
+//  static struct register_pass_info optimize_multi_refs_info =
+//    {
+//      new_pass,                 /* pass */
+//      "reload",                 /* reference_pass_name */
+//      1,                        /* ref_pass_instance_number */
+//      PASS_POS_INSERT_AFTER	/* po_op */
+//    };
+
+  /* FIXME: comment this out after finishing.
+     The pass is temporarily enabled in passes.def to enable
+     -fdump-rtl-optimize_multi_refs switch.  */
+//  register_pass (&optimize_multi_refs_info);
 }
 
 /* Swap the register information for registers I and I + 1, which
