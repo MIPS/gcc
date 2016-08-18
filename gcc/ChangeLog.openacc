@@ -1,3 +1,20 @@
+2016-12-06  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gimplify.c (gimplify_adjust_omp_clauses_1): Link ACC new clauses
+	with the old ones.
+
+2016-08-17  Cesar Philippidis  <cesar@codesourcery.com>
+
+	PR middle-end/70828
+	* gimplify.c (struct gimplify_omp_ctx): Add tree clauses member.
+	(new_omp_context): Initialize clauses to NULL_TREE.
+	(gimplify_scan_omp_clauses): Set clauses in the gimplify_omp_ctx.
+	(omp_clause_matching_array_ref): New function.
+	(gomp_needs_data_present): New function.
+	(gimplify_adjust_omp_clauses_1): Use preset or pointer omp clause map
+	kinds when creating implicit data clauses for OpenACC offloaded
+	variables defined used an acc data region as necessary.
+
 2016-08-17  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* omp-general.c (oacc_verify_routine_clauses): Change formal

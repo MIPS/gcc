@@ -1,5 +1,15 @@
 2018-05-14  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* testsuite/libgomp.oacc-fortran/lib-13.f90: Remove XFAIL.
+
+2016-08-17  Cesar Philippidis  <cesar@codesourcery.com>
+
+	PR middle-end/70828
+	* testsuite/libgomp.oacc-c-c++-common/pr70828.c: New test.
+	* testsuite/libgomp.oacc-fortran/pr70828.f90: New test.
+
+2018-05-14  Thomas Schwinge  <thomas@codesourcery.com>
+
 	* testsuite/libgomp.oacc-fortran/abort-1.f90: Remove XFAIL.
 	* testsuite/libgomp.oacc-fortran/acc_on_device-1-2.f: Likewise.
 
