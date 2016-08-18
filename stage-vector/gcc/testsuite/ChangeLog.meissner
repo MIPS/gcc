@@ -1,3 +1,7 @@
+2016-08-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 239554.
+
 2016-08-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/vec-init-4.c: New tests for vector short

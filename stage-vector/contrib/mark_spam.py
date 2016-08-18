@@ -34,8 +34,14 @@ def mark_as_spam(id, api_key, verbose):
     r = requests.get(u)
     response = json.loads(r.text)
 
+    if 'error' in response and response['error']:
+        print(response['message'])
+        return
+
     # 2) mark the bug as spam
-    cc_list = response['bugs'][0]['cc']
+    bug = response['bugs'][0]
+    creator = bug['creator']
+    cc_list = bug['cc']
     data = {
         'status': 'RESOLVED',
         'resolution': 'INVALID',
@@ -49,6 +55,7 @@ def mark_as_spam(id, api_key, verbose):
         'cc': {'remove': cc_list},
         'priority': 'P5',
         'severity': 'trivial',
+        'url': '',
         'assigned_to': 'unassigned@gcc.gnu.org' }
 
     r = requests.put(u, json = data)
@@ -59,13 +66,32 @@ def mark_as_spam(id, api_key, verbose):
     # 3) mark the first comment as spam
     r = requests.get(u + '/comment')
     response = json.loads(r.text)
-    comment_id = response['bugs'][str(id)]['comments'][0]['id']
+    for c in response['bugs'][str(id)]['comments']:
+        if c['creator'] == creator:
+            comment_id = c['id']
+            u2 = '%sbug/comment/%d/tags' % (base_url, comment_id)
+            print(u2)
+            r = requests.put(u2, json = {'comment_id': comment_id, 'add': ['spam'], 'api_key': api_key})
+            if verbose:
+                print(r)
+                print(r.text)
 
-    u2 = '%sbug/comment/%d/tags' % (base_url, comment_id)
-    r = requests.put(u2, json = {'comment_id': comment_id, 'add': ['spam'], 'api_key': api_key})
-    if verbose:
-        print(r)
-        print(r.text)
+    # 4) mark all attachments as spam
+    r = requests.get(u + '/attachment')
+    response = json.loads(r.text)
+    attachments = response['bugs'][str(id)]
+    for a in attachments:
+        attachment_id = a['id']
+        url = '%sbug/attachment/%d' % (base_url, attachment_id)
+        r = requests.put(url, json = {'ids': [attachment_id],
+            'summary': 'spam',
+            'file_name': 'spam',
+            'content_type': 'application/x-spam',
+            'is_obsolete': True,
+            'api_key': api_key})
+        if verbose:
+            print(r)
+            print(r.text)
 
 parser = argparse.ArgumentParser(description='Mark Bugzilla issues as spam.')
 parser.add_argument('api_key', help = 'API key')

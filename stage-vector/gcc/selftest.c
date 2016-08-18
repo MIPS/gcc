@@ -87,5 +87,59 @@ selftest::assert_streq (const location &loc,
 	 desc_expected, desc_actual, val_expected, val_actual);
 }
 
+/* Constructor.  Create a tempfile using SUFFIX, and write CONTENT to
+   it.  Abort if anything goes wrong, using LOC as the effective
+   location in the problem report.  */
+
+selftest::temp_source_file::temp_source_file (const location &loc,
+					      const char *suffix,
+					      const char *content)
+{
+  m_filename = make_temp_file (suffix);
+  ASSERT_NE (m_filename, NULL);
+
+  FILE *out = fopen (m_filename, "w");
+  if (!out)
+    ::selftest::fail_formatted (loc, "unable to open tempfile: %s",
+				m_filename);
+  fprintf (out, "%s", content);
+  fclose (out);
+}
+
+/* Destructor.  Delete the tempfile.  */
+
+selftest::temp_source_file::~temp_source_file ()
+{
+  unlink (m_filename);
+  free (m_filename);
+}
+
+/* Selftests for the selftest system itself.  */
+
+namespace selftest {
+
+/* Sanity-check the ASSERT_ macros with various passing cases.  */
+
+static void
+test_assertions ()
+{
+  ASSERT_TRUE (true);
+  ASSERT_FALSE (false);
+  ASSERT_EQ (1, 1);
+  ASSERT_EQ_AT (SELFTEST_LOCATION, 1, 1);
+  ASSERT_NE (1, 2);
+  ASSERT_STREQ ("test", "test");
+  ASSERT_STREQ_AT (SELFTEST_LOCATION, "test", "test");
+}
+
+/* Run all of the selftests within this file.  */
+
+void
+selftest_c_tests ()
+{
+  test_assertions ();
+}
+
+} // namespace selftest
 
 #endif /* #if CHECKING_P */

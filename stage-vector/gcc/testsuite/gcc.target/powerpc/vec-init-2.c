@@ -13,8 +13,7 @@ vector long sv = (vector long) { ELEMENTS };
 vector long splat = (vector long) { SPLAT, SPLAT };
 vector long sv_global, sp_global;
 static vector long sv_static, sp_static;
-static long expected[] = { ELEMENTS };
-static long splat_expected = SPLAT;
+static const int expected[] = { ELEMENTS };
 
 extern void check (vector long a)
   __attribute__((__noinline__));
@@ -23,9 +22,6 @@ extern void check_splat (vector long a)
   __attribute__((__noinline__));
 
 extern vector long pack_reg (long a, long b)
-  __attribute__((__noinline__));
-
-extern vector long pack_from_mem (long *p_a, long *p_b)
   __attribute__((__noinline__));
 
 extern vector long pack_const (void)
@@ -41,9 +37,6 @@ extern void pack_global (long a, long b)
   __attribute__((__noinline__));
 
 extern vector long splat_reg (long a)
-  __attribute__((__noinline__));
-
-extern vector long splat_from_mem (long *p_a)
   __attribute__((__noinline__));
 
 extern vector long splat_const (void)
@@ -85,12 +78,6 @@ pack_reg (long a, long b)
 }
 
 vector long
-pack_from_mem (long *p_a, long *p_b)
-{
-  return (vector long) { *p_a, *p_b };
-}
-
-vector long
 pack_const (void)
 {
   return (vector long) { ELEMENTS };
@@ -118,12 +105,6 @@ vector long
 splat_reg (long a)
 {
   return (vector long) { a, a };
-}
-
-vector long
-splat_from_mem (long *p_a)
-{
-  return (vector long) { *p_a, *p_a };
 }
 
 vector long
@@ -158,8 +139,6 @@ int  main (void)
 
   check (pack_reg (ELEMENTS));
 
-  check (pack_from_mem (&expected[0], &expected[1]));
-
   check (pack_const ());
 
   pack_ptr (&sv2, ELEMENTS);
@@ -174,8 +153,6 @@ int  main (void)
   check_splat (splat);
 
   check_splat (splat_reg (SPLAT));
-
-  check_splat (splat_from_mem (&splat_expected));
 
   check_splat (splat_const ());
 
