@@ -774,8 +774,20 @@ update_value_range (const_tree var, value_range *new_vr)
 	{
 	  value_range nr;
 	  nr.type = rtype;
-	  nr.min = wide_int_to_tree (TREE_TYPE (var), min);
-	  nr.max = wide_int_to_tree (TREE_TYPE (var), max);
+	  /* Range info on SSA names doesn't carry overflow information
+	     so make sure to preserve the overflow bit on the lattice.  */
+	  if (new_vr->type == VR_RANGE
+	      && is_negative_overflow_infinity (new_vr->min)
+	      && wi::eq_p (new_vr->min, min))
+	    nr.min = new_vr->min;
+	  else
+	    nr.min = wide_int_to_tree (TREE_TYPE (var), min);
+	  if (new_vr->type == VR_RANGE
+	      && is_positive_overflow_infinity (new_vr->max)
+	      && wi::eq_p (new_vr->max, max))
+	    nr.max = new_vr->max;
+	  else
+	    nr.max = wide_int_to_tree (TREE_TYPE (var), max);
 	  nr.equiv = NULL;
 	  vrp_intersect_ranges (new_vr, &nr);
 	}
@@ -1138,7 +1150,10 @@ operand_less_p (tree val, tree val2)
 {
   /* LT is folded faster than GE and others.  Inline the common case.  */
   if (TREE_CODE (val) == INTEGER_CST && TREE_CODE (val2) == INTEGER_CST)
-    return tree_int_cst_lt (val, val2);
+    {
+      if (! is_positive_overflow_infinity (val2))
+	return tree_int_cst_lt (val, val2);
+    }
   else
     {
       tree tcmp;
@@ -1422,7 +1437,7 @@ static tree
 value_range_constant_singleton (value_range *vr)
 {
   if (vr->type == VR_RANGE
-      && operand_equal_p (vr->min, vr->max, 0)
+      && vrp_operand_equal_p (vr->min, vr->max)
       && is_gimple_min_invariant (vr->min))
     return vr->min;
 
@@ -7028,8 +7043,7 @@ vrp_valueize (tree name)
     {
       value_range *vr = get_value_range (name);
       if (vr->type == VR_RANGE
-	  && (vr->min == vr->max
-	      || operand_equal_p (vr->min, vr->max, 0)))
+	  && vrp_operand_equal_p (vr->min, vr->max))
 	return vr->min;
     }
   return name;
@@ -7995,8 +8009,8 @@ union_ranges (enum value_range_type *vr0type,
 	      enum value_range_type vr1type,
 	      tree vr1min, tree vr1max)
 {
-  bool mineq = operand_equal_p (*vr0min, vr1min, 0);
-  bool maxeq = operand_equal_p (*vr0max, vr1max, 0);
+  bool mineq = vrp_operand_equal_p (*vr0min, vr1min);
+  bool maxeq = vrp_operand_equal_p (*vr0max, vr1max);
 
   /* [] is vr0, () is vr1 in the following classification comments.  */
   if (mineq && maxeq)
@@ -8266,8 +8280,8 @@ intersect_ranges (enum value_range_type *vr0type,
 		  enum value_range_type vr1type,
 		  tree vr1min, tree vr1max)
 {
-  bool mineq = operand_equal_p (*vr0min, vr1min, 0);
-  bool maxeq = operand_equal_p (*vr0max, vr1max, 0);
+  bool mineq = vrp_operand_equal_p (*vr0min, vr1min);
+  bool maxeq = vrp_operand_equal_p (*vr0max, vr1max);
 
   /* [] is vr0, () is vr1 in the following classification comments.  */
   if (mineq && maxeq)
@@ -8725,6 +8739,7 @@ vrp_visit_phi_node (gphi *phi)
       print_gimple_stmt (dump_file, phi, 0, dump_flags);
     }
 
+  bool may_simulate_backedge_again = false;
   edges = 0;
   for (i = 0; i < gimple_phi_num_args (phi); i++)
     {
@@ -8747,6 +8762,13 @@ vrp_visit_phi_node (gphi *phi)
 
 	  if (TREE_CODE (arg) == SSA_NAME)
 	    {
+	      /* See if we are eventually going to change one of the args.  */
+	      gimple *def_stmt = SSA_NAME_DEF_STMT (arg);
+	      if (! gimple_nop_p (def_stmt)
+		  && prop_simulate_again_p (def_stmt)
+		  && e->flags & EDGE_DFS_BACK)
+		may_simulate_backedge_again = true;
+
 	      vr_arg = *(get_value_range (arg));
 	      /* Do not allow equivalences or symbolic ranges to leak in from
 		 backedges.  That creates invalid equivalencies.
@@ -8822,11 +8844,13 @@ vrp_visit_phi_node (gphi *phi)
      previous one.  We don't do this if we have seen a new executable
      edge; this helps us avoid an overflow infinity for conditionals
      which are not in a loop.  If the old value-range was VR_UNDEFINED
-     use the updated range and iterate one more time.  */
+     use the updated range and iterate one more time.  If we will not
+     simulate this PHI again via the backedge allow us to iterate.  */
   if (edges > 0
       && gimple_phi_num_args (phi) > 1
       && edges == old_edges
-      && lhs_vr->type != VR_UNDEFINED)
+      && lhs_vr->type != VR_UNDEFINED
+      && may_simulate_backedge_again)
     {
       /* Compare old and new ranges, fall back to varying if the
          values are not comparable.  */
@@ -8880,6 +8904,31 @@ vrp_visit_phi_node (gphi *phi)
       goto infinite_check;
     }
 
+  goto update_range;
+
+varying:
+  set_value_range_to_varying (&vr_result);
+
+scev_check:
+  /* If this is a loop PHI node SCEV may known more about its value-range.
+     scev_check can be reached from two paths, one is a fall through from above
+     "varying" label, the other is direct goto from code block which tries to
+     avoid infinite simulation.  */
+  if ((l = loop_containing_stmt (phi))
+      && l->header == gimple_bb (phi))
+    adjust_range_with_scev (&vr_result, l, phi, lhs);
+
+infinite_check:
+  /* If we will end up with a (-INF, +INF) range, set it to
+     VARYING.  Same if the previous max value was invalid for
+     the type and we end up with vr_result.min > vr_result.max.  */
+  if ((vr_result.type == VR_RANGE || vr_result.type == VR_ANTI_RANGE)
+      && !((vrp_val_is_max (vr_result.max) && vrp_val_is_min (vr_result.min))
+	   || compare_values (vr_result.min, vr_result.max) > 0))
+    ;
+  else
+    set_value_range_to_varying (&vr_result);
+
   /* If the new range is different than the previous value, keep
      iterating.  */
 update_range:
@@ -8902,31 +8951,6 @@ update_range:
 
   /* Nothing changed, don't add outgoing edges.  */
   return SSA_PROP_NOT_INTERESTING;
-
-varying:
-  set_value_range_to_varying (&vr_result);
-
-scev_check:
-  /* If this is a loop PHI node SCEV may known more about its value-range.
-     scev_check can be reached from two paths, one is a fall through from above
-     "varying" label, the other is direct goto from code block which tries to
-     avoid infinite simulation.  */
-  if ((l = loop_containing_stmt (phi))
-      && l->header == gimple_bb (phi))
-    adjust_range_with_scev (&vr_result, l, phi, lhs);
-
-infinite_check:
-  /* If we will end up with a (-INF, +INF) range, set it to
-     VARYING.  Same if the previous max value was invalid for
-     the type and we end up with vr_result.min > vr_result.max.  */
-  if ((vr_result.type == VR_RANGE || vr_result.type == VR_ANTI_RANGE)
-      && !((vrp_val_is_max (vr_result.max) && vrp_val_is_min (vr_result.min))
-	   || compare_values (vr_result.min, vr_result.max) > 0))
-    goto update_range;
-
-  /* No match found.  Set the LHS to VARYING.  */
-  set_value_range_to_varying (lhs_vr);
-  return SSA_PROP_VARYING;
 }
 
 /* Simplify boolean operations if the source is known

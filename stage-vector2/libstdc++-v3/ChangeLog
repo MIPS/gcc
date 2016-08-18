@@ -1,3 +1,168 @@
+2016-08-17  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/20_util/reference_wrapper/invoke-2.cc: Fix invalid dg-do
+	directive and use effective target instead of dg-options.
+
+	* testsuite/20_util/hash/chi2_q_bit_flip_set.cc: Use effective target
+	instead of -std in dg-options.
+	* testsuite/20_util/hash/chi2_q_bit_string_set.cc: Likewise.
+	* testsuite/20_util/hash/chi2_q_numeric_pattern_set.cc: Likewise.
+	* testsuite/20_util/hash/chi2_q_uniform_random.cc: Likewise.
+	* testsuite/20_util/hash/quality.cc: Likewise.
+	* testsuite/25_algorithms/heap/moveable.cc: Likewise.
+	* testsuite/25_algorithms/heap/moveable2.cc: Likewise.
+	* testsuite/25_algorithms/nth_element/random_test.cc: Likewise.
+	* testsuite/25_algorithms/partial_sort/random_test.cc: Likewise.
+	* testsuite/25_algorithms/partial_sort_copy/random_test.cc: Likewise.
+	* testsuite/25_algorithms/sort/random_test.cc: Likewise.
+
+	* testsuite/20_util/tuple/67844.cc: Require c++11 effective target.
+	* testsuite/20_util/tuple/cons/nested_tuple_construct.cc: Likewise.
+	* testsuite/27_io/rvalue_streams.cc: Likewise.
+
+	* testsuite/26_numerics/complex/literals/types.cc: Add comment.
+
+	* testsuite/21_strings/basic_string_view/operations/rfind/char/2.cc:
+	Remove duplicate dg-options directive.
+
+	* testsuite/ext/profile/all.cc: Use effective target instead of
+	-std=gnu++11. Use dg-additional-options instead of repeating options.
+
+	* testsuite/20_util/bind/ref_neg.cc: Use effective target instead of
+	-std=gnu++11. Add -fno-show-columns to dg-options. Use dg-prune-output
+	instead of dg-excess-errors.
+
+	* testsuite/26_numerics/headers/cmath/types_std_c++0x_neg.cc: Disable
+	test for C++17.
+	* testsuite/experimental/chrono/value.cc: Avoid ambiguities in C++17.
+	* testsuite/experimental/ratio/value.cc: Likewise.
+	* testsuite/ext/pb_ds/regression/hash_map_rand.cc: Disable test for
+	C++17.
+	* testsuite/ext/pb_ds/regression/hash_set_rand.cc: Likewise.
+	* testsuite/ext/pb_ds/regression/list_update_map_rand.cc: Likewise.
+	* testsuite/ext/pb_ds/regression/list_update_set_rand.cc: Likewise.
+	* testsuite/ext/pb_ds/regression/priority_queue_rand.cc: Likewise.
+	* testsuite/ext/pb_ds/regression/tree_map_rand.cc: Likewise.
+	* testsuite/ext/pb_ds/regression/tree_set_rand.cc: Likewise.
+	* testsuite/ext/pb_ds/regression/trie_map_rand.cc: Likewise.
+	* testsuite/ext/pb_ds/regression/trie_set_rand.cc: Likewise.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	10_cyl_bessel_k/airy.cc: Adjust namespace of __detail::__airy for
+	C++17 compatibility.
+
+	* testsuite/24_iterators/headers/iterator/range_access.cc: Adjust
+	expected signatures for C++14 compatibility.
+
+	PR libstdc++/77264
+	* include/bits/basic_string.h (operator=(__sv_type)
+	(append(__sv_type), assign(__sv_type), insert(size_type, __sv_type))
+	(replace(size_type, size_type, __sv_type))
+	(replace(const_iterator, const_iterator, __sv_type))
+	(find(__sv_type, size_type), rfind(__sv_type, size_type))
+	(compare(size_type, size_type, __sv_type)): Reformat.
+	(_If_sv): Define helper for SFINAE constaints.
+	(append(const _Tp&, size_type, size_type))
+	(assign(const _Tp&, size_type, size_type))
+	(insert(size_type, const _Tp&, size_type, size_type))
+	(replace(size_type, size_type, const _Tp&, size_type, size_type)):
+	Use _If_sv.
+	* testsuite/21_strings/basic_string/modifiers/append/char/4.cc: Test
+	SFINAE constraints.
+	* testsuite/21_strings/basic_string/modifiers/append/wchar_t/4.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/modifiers/replace/char/7.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/modifiers/replace/wchar_t/7.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/modifiers/assign/char/4.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/modifiers/assign/wchar_t/4.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/modifiers/insert/char/3.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/modifiers/insert/wchar_t/3.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/modifiers/replace/char/7.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/operations/compare/char/2.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/operations/compare/wchar_t/2.cc:
+	Likewise.
+
+2016-08-16  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/72847
+	* include/bits/stl_bvector.h (_Bvector_base::_M_deallocate): Zero
+	pointers to start and end of storage.
+	* testsuite/23_containers/vector/bool/72847.cc: New test.
+	* include/bits/vector.tcc (vector<bool>::_M_reallocate): Only update
+	_M_finish after deallocating.
+	(vector<bool>::_M_fill_insert): Likewise.
+	(vector<bool>::_M_insert_range): Likewise.
+	(vector<bool>::_M_insert_aux): Likewise.
+
+2016-08-15  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement LWG 2744 and LWG 2754.
+	* include/std/any (any(ValueType&&)): Constrain with __is_in_place_type.
+	(any(in_place_type_t<_ValueType>, _Args&&...)): Use _Decay.
+	(any(in_place_type_t<_ValueType>, initializer_list<_Up>, _Args&&...)):
+	Likewise.
+	(emplace(_Args&&...)): Likewise.
+	(emplace(initializer_list<_Up>, _Args&&...)): Likewise.
+	* include/std/utility: (__is_in_place_type_impl): New.
+	(__is_in_place_type): Likewise.
+	* testsuite/20_util/any/assign/emplace.cc: Add tests for decaying
+	emplace.
+	* testsuite/20_util/any/cons/in_place.cc: Add tests for decaying
+	in_place constructor.
+	* testsuite/20_util/any/misc/any_cast_neg.cc: Adjust.
+	* testsuite/20_util/any/requirements.cc: Add a test for
+	in_place-constructing a non-default-constructible type.
+
+2016-08-15  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Add a feature macro for C++17 make_from_tuple.
+	* include/std/tuple (__cpp_lib_make_from_tuple): New.
+	(__make_from_tuple_impl(_Tuple&&, index_sequence<_Idx...>)):
+	Qualify the call to get<>().
+	* testsuite/20_util/tuple/make_from_tuple/1.cc: Adjust.
+
+2016-08-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* src/filesystem/ops.cc: Always include ostream and
+	ext/stdio_filebuf.h.
+	(do_copy_file): Check if _GLIBCXX_USE_FCHMODAT is defined.
+	[_GLIBCXX_USE_SENDFILE]: Fallback to read/write operations in case
+	sendfile fails with ENOSYS or EINVAL.
+
+2016-08-15  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR libstdc++/72840
+	* testsuite/20_util/ratio/cons/cons_overflow_neg.cc: Fix dg-error
+	syntax.
+
+2016-08-11  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement C++17 make_from_tuple.
+	* include/std/tuple (__make_from_tuple_impl, make_from_tuple): New.
+	* testsuite/20_util/tuple/make_from_tuple/1.cc: Likewise.
+
+2016-08-11  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement LWG 2758.
+	* include/bits/basic_string.h
+	(append(__sv_type, size_type, size_type)): Turn into a template,
+	change parameter type, constrain, add a conversion to __sv_type
+	from the dependent parameter type.
+	(assign(__sv_type, size_type, size_type)): Likewise.
+	(insert(size_type, __sv_type, size_type, size_type)): Likewise.
+	(replace(size_type, size_type, __sv_type, size_type, size_type)):
+	Likewise.
+	(compare(size_type, size_type,__sv_type, size_type, size_type)):
+	Likewise.
+	* testsuite/21_strings/basic_string/lwg2758.cc: New.
+
 2016-08-06  Jonathan Wakely  <jwakely@redhat.com>
 
 	* doc/xml/manual/status_cxx2017.xml: Update status table.
