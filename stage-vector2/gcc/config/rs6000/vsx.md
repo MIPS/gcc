@@ -1967,7 +1967,7 @@
 
 ;; V4SImode initialization splitter
 (define_insn_and_split "vsx_init_v4si"
-  [(set (match_operand:V4SI 0 "nonimmediate_operand" "=&r")
+  [(set (match_operand:V4SI 0 "gpc_reg_operand" "=&r")
 	(unspec:V4SI
 	 [(match_operand:SI 1 "reg_or_cint_operand" "rn")
 	  (match_operand:SI 2 "reg_or_cint_operand" "rn")
@@ -2695,31 +2695,49 @@
    mtvsrdd %x0,%1,%1"
   [(set_attr "type" "vecperm,vecload,vecperm")])
 
-;; V4SI/V4SF splat support
-(define_expand "vsx_splat_<mode>_p9"
-  [(set (match_operand:VSX_W 0 "vsx_register_operand" "")
-		   (vec_duplicate:VSX_W
-	 (match_operand:<VS_scalar> 1 "splat_input_operand" "")))]
-  "TARGET_P9_VECTOR"
-{
-  if (MEM_P (operands[1]))
-    operands[1] = rs6000_address_for_fpconvert (operands[1]);
-  else if (!REG_P (operands[1]))
-    operands[1] = force_reg (<VS_scalar>mode, operands[1]);
-})
-
-(define_insn "*vsx_splat_v4si_p9_internal"
-  [(set (match_operand:V4SI 0 "vsx_register_operand" "=wa,wa")
+;; V4SI splat support
+(define_insn_and_split "vsx_splat_v4si"
+  [(set (match_operand:V4SI 0 "vsx_register_operand" "=we,we,wa,wa")
 	(vec_duplicate:V4SI
-	 (match_operand:SI 1 "splat_input_operand" "r,Z")))]
-  "TARGET_P9_VECTOR"
+	 (match_operand:SI 1 "splat_input_operand" "r,Z,r,Z")))
+   (clobber (match_scratch:DI 2 "=X,X,wj,wi"))]
+  "TARGET_P9_VECTOR || TARGET_DIRECT_MOVE_64BIT"
   "@
    mtvsrws %x0,%1
-   lxvwsx %x0,%y1"
-  [(set_attr "type" "mftgpr,vecload")])
+   lxvwsx %x0,%y1
+   #
+   #"
+  "&& !TARGET_P9_VECTOR"
+  [(set (match_dup 2)
+	(zero_extend:DI (match_dup 1)))
+   (set (match_dup 0)
+	(vec_duplicate:SI (truncate:SI (match_dup 2))))]
+{
+  if (MEM_P (operands[1]) && can_create_pseudo_p ())
+    operands[1] = rs6000_address_for_fpconvert (operands[1]);
+
+  if (GET_CODE (operands[2]) == SCRATCH)
+    operands[2] = gen_reg_rtx (DImode);
+}
+  [(set_attr "type" "vecperm,vecload,vecperm,vecload")])
+
+;; SImode is not currently allowed in vector registers.  This pattern
+;; allows us to use direct move to get the value in a vector register
+;; so that we can use XXSPLTW
+(define_insn "*vsx_splat_v4si_di"
+  [(set (match_operand:V4SI 0 "vsx_register_operand" "=wa,we")
+	(vec_duplicate:V4SI
+	 (truncate:SI
+	  (match_operand:DI 1 "gpc_reg_operand" "wi,r"))))]
+  "VECTOR_MEM_VSX_P (V4SImode)
+   && (TARGET_DIRECT_MOVE_64BIT || TARGET_P9_VECTOR)"
+  "@
+   xxspltw %x0,%x1,1
+   mtvsrws %x0,%1"
+  [(set_attr "type" "vecperm")])
 
 ;; V4SF splat (ISA 3.0)
-(define_insn_and_split "*vsx_splat_v4sf_p9_internal"
+(define_insn_and_split "vsx_splat_v4sf"
   [(set (match_operand:V4SF 0 "vsx_register_operand" "=wa,wa,wa")
 	(vec_duplicate:V4SF
 	 (match_operand:SF 1 "splat_input_operand" "Z,wy,r")))]
@@ -2737,41 +2755,6 @@
   ""
   [(set_attr "type" "vecload,vecperm,mftgpr")
    (set_attr "length" "4,8,4")])
-
-;; V4SI splat support on ISA 2.07
-(define_insn_and_split "vsx_splat_v4si_p8"
-  [(set (match_operand:V4SI 0 "vsx_register_operand" "=wa,wa")
-	(vec_duplicate:V4SI
-	 (match_operand:SI 1 "input_operand" "r,Z")))
-   (clobber (match_scratch:DI 2 "=wi,wi"))]
-  "VECTOR_MEM_VSX_P (V4SImode) && TARGET_DIRECT_MOVE_64BIT && !TARGET_P9_VECTOR"
-  "#"
-  "&& 1"
-  [(set (match_dup 2) (zero_extend:DI (match_dup 1)))
-   (set (match_dup 0)
-	(vec_duplicate:V4SI
-	 (truncate:SI (match_dup 2))))]
-{
-  rtx op1 = operands[1];
-  if (MEM_P (op1))
-    operands[1] = rs6000_address_for_fpconvert (op1);
-  else if (!REG_P (op1))
-    operands[1] = force_reg (SImode, op1);
-
-  if (GET_CODE (operands[2]) == SCRATCH)
-    operands[2] = gen_reg_rtx (DImode);
-})
-
-(define_insn "*vsx_xxspltw_di"
-  [(set (match_operand:V4SI 0 "vsx_register_operand" "=wa,we")
-	(vec_duplicate:V4SI
-	 (truncate:SI
-	  (match_operand:DI 1 "vsx_register_operand" "wi,r"))))]
-  "VECTOR_MEM_VSX_P (V4SImode) && TARGET_DIRECT_MOVE_64BIT"
-  "@
-   xxspltw %x0,%x1,1
-   mtvsrws %x0,%1"
-  [(set_attr "type" "vecperm")])
 
 ;; V4SF/V4SI splat from a vector element
 (define_insn "vsx_xxspltw_<mode>"
