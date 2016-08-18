@@ -2803,12 +2803,14 @@
 })
 
 (define_insn "*vsx_xxspltw_di"
-  [(set (match_operand:V4SI 0 "vsx_register_operand" "=wa")
+  [(set (match_operand:V4SI 0 "vsx_register_operand" "=wa,we")
 	(vec_duplicate:V4SI
 	 (truncate:SI
-	  (match_operand:DI 1 "vsx_register_operand" "wi"))))]
+	  (match_operand:DI 1 "vsx_register_operand" "wi,r"))))]
   "VECTOR_MEM_VSX_P (V4SImode) && TARGET_DIRECT_MOVE_64BIT"
-  "xxspltw %x0,%x1,1"
+  "@
+   xxspltw %x0,%x1,1
+   mtvsrws %x0,%1"
   [(set_attr "type" "vecperm")])
 
 ;; V16QI/V8HI splat support on ISA 2.07
