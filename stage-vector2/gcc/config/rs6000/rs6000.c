@@ -7433,21 +7433,20 @@ rs6000_split_v4si_init (rtx operands[])
 	 has an early clobber constraint, try to use two temporaries, one for
 	 each double word created.  That way the 2nd insn scheduling pass can
 	 rearrange things so the two parts are done in parallel.  */
-      if (VECTOR_ELT_ORDER_BIG)
+      if (BYTES_BIG_ENDIAN)
 	{
-	  rtx di_hi = gen_rtx_REG (DImode, d_regno + (BYTES_BIG_ENDIAN != 0));
-	  rtx di_lo = gen_rtx_REG (DImode, d_regno + (BYTES_BIG_ENDIAN == 0));
-
-	  rs6000_split_v4si_init_di_reg (di_hi, scalar1, scalar2, tmp1);
-	  rs6000_split_v4si_init_di_reg (di_lo, scalar3, scalar4, tmp2);
+	  rtx di_lo = gen_rtx_REG (DImode, d_regno);
+	  rtx di_hi = gen_rtx_REG (DImode, d_regno + 1);
+	  rs6000_split_v4si_init_di_reg (di_lo, scalar1, scalar2, tmp1);
+	  rs6000_split_v4si_init_di_reg (di_hi, scalar3, scalar4, tmp2);
 	}
       else
 	{
-	  rtx di_hi = gen_rtx_REG (DImode, d_regno + (BYTES_BIG_ENDIAN == 0));
-	  rtx di_lo = gen_rtx_REG (DImode, d_regno + (BYTES_BIG_ENDIAN != 0));
-
-	  rs6000_split_v4si_init_di_reg (di_hi, scalar4, scalar3, tmp1);
-	  rs6000_split_v4si_init_di_reg (di_lo, scalar2, scalar1, tmp2);
+	  rtx di_lo = gen_rtx_REG (DImode, d_regno + 1);
+	  rtx di_hi = gen_rtx_REG (DImode, d_regno);
+	  gcc_assert (!VECTOR_ELT_ORDER_BIG);
+	  rs6000_split_v4si_init_di_reg (di_lo, scalar4, scalar3, tmp1);
+	  rs6000_split_v4si_init_di_reg (di_hi, scalar2, scalar1, tmp2);
 	}
       return;
     }
