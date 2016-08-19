@@ -7463,16 +7463,16 @@ rs6000_split_v4si_init (rtx operands[])
 	{
 	  rtx di_lo = gen_rtx_REG (DImode, d_regno);
 	  rtx di_hi = gen_rtx_REG (DImode, d_regno + 1);
-	  rs6000_split_v4si_init_di_reg (di_hi, scalar1, scalar2, tmp1);
-	  rs6000_split_v4si_init_di_reg (di_lo, scalar3, scalar4, tmp2);
+	  rs6000_split_v4si_init_di_reg (di_lo, scalar1, scalar2, tmp1);
+	  rs6000_split_v4si_init_di_reg (di_hi, scalar3, scalar4, tmp2);
 	}
       else
 	{
 	  rtx di_lo = gen_rtx_REG (DImode, d_regno + 1);
 	  rtx di_hi = gen_rtx_REG (DImode, d_regno);
 	  gcc_assert (!VECTOR_ELT_ORDER_BIG);
-	  rs6000_split_v4si_init_di_reg (di_hi, scalar4, scalar3, tmp1);
-	  rs6000_split_v4si_init_di_reg (di_lo, scalar2, scalar1, tmp2);
+	  rs6000_split_v4si_init_di_reg (di_lo, scalar4, scalar3, tmp1);
+	  rs6000_split_v4si_init_di_reg (di_hi, scalar2, scalar1, tmp2);
 	}
       return;
     }
