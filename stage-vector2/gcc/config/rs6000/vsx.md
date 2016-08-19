@@ -281,6 +281,16 @@
 			  (V8HI  "v")
 			  (V4SI  "wa")])
 
+;; Iterator for the 2 short vector types to do a splat from an integer
+(define_mode_iterator VSX_SPLAT_I [V16QI V8HI])
+
+;; Mode attribute to give the count for the splat instruction to splat
+;; the value in the 64-bit integer slot
+(define_mode_attr VSX_SPLAT_COUNT [(V16QI "7") (V8HI "3")])
+
+;; Mode attribute to give the suffix for the splat instruction
+(define_mode_attr VSX_SPLAT_SUFFIX [(V16QI "b") (V8HI "h")])
+
 ;; Constants for creating unspecs
 (define_c_enum "unspec"
   [UNSPEC_VSX_CONCAT
@@ -2764,6 +2774,16 @@
                       UNSPEC_VSX_XXSPLTW))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "xxspltw %x0,%x1,%2"
+  [(set_attr "type" "vecperm")])
+
+;; V16QI/V8HI splat support on ISA 2.07
+(define_insn "vsx_vsplt<VSX_SPLAT_SUFFIX>_di"
+  [(set (match_operand:VSX_SPLAT_I 0 "altivec_register_operand" "=v")
+	(vec_duplicate:VSX_SPLAT_I
+	 (truncate:<VS_scalar>
+	  (match_operand:DI 1 "altivec_register_operand" "v"))))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_DIRECT_MOVE_64BIT"
+  "vsplt<VSX_SPLAT_SUFFIX> %0,%1,<VSX_SPLAT_COUNT>"
   [(set_attr "type" "vecperm")])
 
 ;; V2DF/V2DI splat for use by vec_splat builtin

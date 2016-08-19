@@ -1,5 +1,20 @@
 2016-08-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Add support
+	for using VSPLTH/VSPLTB to initialize vector short and vector char
+	vectors with all of the same element.
+
+	* config/rs6000/vsx.md (VSX_SPLAT_I): New mode iterators and
+	attributes to initialize V8HImode and V16QImode vectors with the
+	same element.
+	(VSX_SPLAT_COUNT): Likewise.
+	(VSX_SPLAT_SUFFIX): Likewise.
+	(vsx_vsplt<VSX_SPLAT_SUFFIX>_di): New insns to support
+	initializing V8HImode and V16QImode vectors with the same
+	element.
+
+2016-08-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* config/rs6000/rs6000.c (rs6000_split_v4si_init): Fix endian
 	issues.
 
