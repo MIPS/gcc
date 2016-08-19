@@ -1,3 +1,8 @@
+2016-08-19  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.dg/goacc/routine-8.f90: New test.
+	* gfortran.dg/goacc/routine-level-of-parallelism-1.f90: New test.
+
 2015-08-14  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-c++-common/goacc/parallel-reduction.c: New test.
