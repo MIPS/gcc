@@ -6695,7 +6695,7 @@ rs6000_expand_vector_init (rtx target, rtx vals)
       if ((int_vector_p || TARGET_VSX) && all_const_zero)
 	{
 	  /* Zero register.  */
-	  emit_insn (gen_rtx_SET (target, CONST0_RTX (mode)));
+	  emit_move_insn (target, CONST0_RTX (mode));
 	  return;
 	}
       else if (int_vector_p && easy_vector_constant (const_vec, mode))
@@ -6748,7 +6748,7 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 	  rtx element0 = XVECEXP (vals, 0, 0);
 	  if (MEM_P (element0))
 	    element0 = rs6000_address_for_fpconvert (element0);
-	  else if (!REG_P (element0))
+	  else
 	    element0 = force_reg (SImode, element0);
 
 	  if (TARGET_P9_VECTOR)
