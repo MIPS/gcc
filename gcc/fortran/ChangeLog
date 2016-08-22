@@ -1,3 +1,72 @@
+2016-08-19  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/32187
+	* trans-types.h (float128_type_node): Rename to
+	gfc_float128_type_node.
+	(complex_float128_type_node): Rename to
+	gfc_complex_float128_type_node.
+	* iso-c-binding.def, trans-intrinsic.c, trans-types.c: All users
+	changed.
+
+2016-08-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/71014
+	* resolve.c (gfc_resolve): For ns->construct_entities don't save, clear
+	and restore omp state around the resolving.
+
+	PR fortran/69281
+	* trans-openmp.c (gfc_trans_omp_parallel, gfc_trans_omp_task,
+	gfc_trans_omp_target): Wrap gfc_trans_omp_code result in an extra
+	BIND_EXPR with its own forced BLOCK.
+
+2016-08-19  Janne Blomqvist  <jb@gcc.gnu.org>
+
+        * intrinsics.texi (RANDOM_NUMBER): Remove reference to
+        init_random_seed in example.
+        (RANDOM_SEED): Remove warning to not set all seed values to 0.
+
+2016-08-18  David Malcolm  <dmalcolm@redhat.com>
+
+	* error.c (gfc_diagnostic_starter): Update for change to
+	diagnostic_show_locus.
+
+2016-08-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/67496
+	* trans-array.c (trans_array_constructor): Load
+	expr->ts.u.cl->length_from_typespec only if expr->ts.type is
+	BT_CHARACTER.
+
+2016-08-15  Fritz Reese  <fritzoreese@gmail.com>
+
+	* lang.opt, invoke.texi: New flag -finit-derived.
+	* gfortran.h (gfc_build_default_init_expr, gfc_apply_init,
+	gfc_generate_initializer): New prototypes.
+	* expr.c (gfc_build_default_init_expr, gfc_apply_init,
+	component_initializer, gfc_generate_initializer): New functions.
+	* expr.c (gfc_default_initializer): Wrap gfc_generate_initializer.
+	* decl.c (build_struct): Move common code to gfc_apply_init.
+	* resolve.c (can_generate_init): New function.
+	* resolve.c (build_default_init_expr): Wrap gfc_build_default_init_expr.
+	* resolve.c (apply_default_init, resolve_fl_variable_derived): Use
+	gfc_generate_initializer.
+	* trans-decl.c (gfc_generate_function_code): Use
+	gfc_generate_initializer.
+
+2016-08-15  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	* frontend-passes.c (create_var):  Set ts.deferred for
+	deferred-length character variables.
+	* dump-parse-tree.c (show_typespec):  Also dump
+	is_c_interop, is_iso_c and deferred flags.
+
+2016-08-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/71906
+	* trans-decl.c (gfc_get_symbol_decl): Call gfc_finish_var_decl
+	for decl's character length before gfc_finish_var_decl on the
+	decl itself.
+
 2016-08-14  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	PR fortran/70598

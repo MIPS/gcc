@@ -105,6 +105,20 @@ enum rid
   RID_EXTENSION, RID_IMAGPART, RID_REALPART, RID_LABEL,      RID_CHOOSE_EXPR,
   RID_TYPES_COMPATIBLE_P,      RID_BUILTIN_COMPLEX,	     RID_BUILTIN_SHUFFLE,
   RID_DFLOAT32, RID_DFLOAT64, RID_DFLOAT128,
+
+  /* TS 18661-3 keywords, in the same sequence as the TI_* values.  */
+  RID_FLOAT16,
+  RID_FLOATN_NX_FIRST = RID_FLOAT16,
+  RID_FLOAT32,
+  RID_FLOAT64,
+  RID_FLOAT128,
+  RID_FLOAT32X,
+  RID_FLOAT64X,
+  RID_FLOAT128X,
+#define CASE_RID_FLOATN_NX						\
+  case RID_FLOAT16: case RID_FLOAT32: case RID_FLOAT64: case RID_FLOAT128: \
+  case RID_FLOAT32X: case RID_FLOAT64X: case RID_FLOAT128X
+
   RID_FRACT, RID_ACCUM, RID_AUTO_TYPE, RID_BUILTIN_CALL_WITH_STATIC_CHAIN,
 
   /* C11 */
@@ -1151,6 +1165,11 @@ extern time_t cb_get_source_date_epoch (cpp_reader *pfile);
    __TIME__ can store.  */
 #define MAX_SOURCE_DATE_EPOCH HOST_WIDE_INT_C (253402300799)
 
+/* Callback for libcpp for offering spelling suggestions for misspelled
+   directives.  */
+extern const char *cb_get_suggestion (cpp_reader *, const char *,
+				      const char *const *);
+
 extern GTY(()) string_concat_db *g_string_concat_db;
 
 /* libcpp can calculate location information about a range of characters
@@ -1165,17 +1184,20 @@ class substring_loc
 {
  public:
   substring_loc (location_t fmt_string_loc, tree string_type,
-		 int start_idx, int end_idx)
+		 int caret_idx, int start_idx, int end_idx)
   : m_fmt_string_loc (fmt_string_loc), m_string_type (string_type),
-    m_start_idx (start_idx), m_end_idx (end_idx) {}
+    m_caret_idx (caret_idx), m_start_idx (start_idx), m_end_idx (end_idx) {}
 
-  const char *get_range (source_range *out_range) const;
+  void set_caret_index (int caret_idx) { m_caret_idx = caret_idx; }
+
+  const char *get_location (location_t *out_loc) const;
 
   location_t get_fmt_string_loc () const { return m_fmt_string_loc; }
 
  private:
   location_t m_fmt_string_loc;
   tree m_string_type;
+  int m_caret_idx;
   int m_start_idx;
   int m_end_idx;
 };
