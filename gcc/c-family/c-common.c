@@ -782,7 +782,7 @@ const struct attribute_spec c_common_attribute_table[] =
   { "deprecated",             0, 1, false, false, false,
 			      handle_deprecated_attribute, false },
   { "vector_size",	      1, 1, false, true, false,
-			      handle_vector_size_attribute, false },
+			      handle_vector_size_attribute, true },
   { "visibility",	      1, 1, false, false, false,
 			      handle_visibility_attribute, false },
   { "tls_model",	      1, 1, true,  false, false,
@@ -12822,7 +12822,7 @@ scalar_to_vector (location_t loc, enum tree_code code, tree op0, tree op1,
       case BIT_XOR_EXPR:
       case BIT_AND_EXPR:
 	integer_only_op = true;
-	/* ... fall through ...  */
+	/* fall through */
 
       case VEC_COND_EXPR:
 

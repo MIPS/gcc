@@ -1669,7 +1669,7 @@ c_pretty_printer::postfix_expression (tree e)
           id_expression (TREE_OPERAND (e, 0));
 	  break;
 	}
-      /* else fall through.  */
+      /* fall through.  */
 
     default:
       primary_expression (e);
