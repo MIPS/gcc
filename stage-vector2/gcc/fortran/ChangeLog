@@ -1,3 +1,53 @@
+2016-08-22  Steven G. Kargl  <kargl@gcc.gnu.org>
+	    Bud Davis  <jmdavis@link.com>
+
+	PR fortran/60774
+	* parse.c (next_free,next_fixed): Issue error for statement label
+	without a statement.
+
+2016-08-22  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/61318
+	* interface.c (compare_parameter): Use better locus for error message.
+
+2016-08-22  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/77260
+	* gcc/fortran/trans-decl.c (generate_local_decl): Suppress warning
+	for unused variable if symbol is entry point.
+
+2016-08-19  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/32187
+	* trans-types.h (float128_type_node): Rename to
+	gfc_float128_type_node.
+	(complex_float128_type_node): Rename to
+	gfc_complex_float128_type_node.
+	* iso-c-binding.def, trans-intrinsic.c, trans-types.c: All users
+	changed.
+
+2016-08-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/71014
+	* resolve.c (gfc_resolve): For ns->construct_entities don't save, clear
+	and restore omp state around the resolving.
+
+	PR fortran/69281
+	* trans-openmp.c (gfc_trans_omp_parallel, gfc_trans_omp_task,
+	gfc_trans_omp_target): Wrap gfc_trans_omp_code result in an extra
+	BIND_EXPR with its own forced BLOCK.
+
+2016-08-19  Janne Blomqvist  <jb@gcc.gnu.org>
+
+        * intrinsics.texi (RANDOM_NUMBER): Remove reference to
+        init_random_seed in example.
+        (RANDOM_SEED): Remove warning to not set all seed values to 0.
+
+2016-08-18  David Malcolm  <dmalcolm@redhat.com>
+
+	* error.c (gfc_diagnostic_starter): Update for change to
+	diagnostic_show_locus.
+
 2016-08-17  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/67496

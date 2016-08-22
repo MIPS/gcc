@@ -1,3 +1,174 @@
+2016-08-22  Gleb Natapov  <gleb@scylladb.com>
+
+	PR libstdc++/68297
+	* config/abi/pre/gnu-versioned-namespace.ver: Export
+	__cxa_init_primary_exception and std::exception_ptr(void*).
+	* config/abi/pre/gnu.ver (CXXABI_1.3.11) : Add new symbol version and
+	export __cxa_init_primary_exception and std::exception_ptr(void*).
+	* include/Makefile.am: Add new headers.
+	* include/Makefile.in: Regenerate.
+	* libsupc++/Makefile.am: Add new headers.
+	* libsupc++/Makefile.in: Regenerate.
+	* libsupc++/cxxabi.h (__cxa_allocate_exception): Move to ...
+	* libsupc++/cxxabi_init_exception.h: New header.
+	(__cxa_init_primary_exception): Declare.
+	* libsupc++/eh_throw.cc (__cxa_init_primary_exception): Define.
+	(__cxa_throw): Use __cxa_init_primary_exception.
+	* libsupc++/exception (std::exception): Move to ...
+	* libsupc++/exception.h: New header.
+	* libsupc++/exception_ptr.h (__exception_ptr::exception_ptr): Add
+	friend declaration.
+	(__exception_ptr::__dest_thunk): New function template.
+	(std::make_exception_ptr) [__cpp_rtti && !_GLIBCXX_HAVE_CDTOR_CALLABI]:
+	Use __cxa_allocate_exception and __cxa_init_primary_exception to
+	create exception_ptr.
+	* libsupc++/typeinfo: Include bits/exception.h instead of exception.
+	* testsuite/util/testsuite_abi.cc: Add CXXABI_1.3.11 version.
+
+2016-08-22  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/api.xml: Replace hardcoded links for specific versions with
+	link to docs for all releases.
+	* doc/html/*: Regenerate.
+
+	PR libstdc++/77322
+	* doc/xml/manual/intro.xml: Document DR 2062 change.
+	* include/std/functional (function::swap): Add noexcept.
+	(swap(function<Res(Args...)&, function<Res(Args...)&)): Likewise.
+	* testsuite/20_util/function/77322.cc: New test.
+
+2016-08-19  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/21_strings/basic_string/pthread18185.cc: Use -pthread for
+	*-*-solaris* instead of -pthreads.
+	* testsuite/21_strings/basic_string/pthread4.cc : Likewise.
+	* testsuite/22_locale/locale/cons/12658_thread-1.cc: Likewise.
+	* testsuite/22_locale/locale/cons/12658_thread-2.cc: Likewise.
+	* testsuite/23_containers/list/pthread1.cc: Likewise.
+	* testsuite/23_containers/list/pthread5.cc: Likewise.
+	* testsuite/23_containers/map/pthread6.cc: Likewise.
+	* testsuite/27_io/basic_ofstream/pthread2.cc: Likewise.
+	* testsuite/27_io/basic_ostringstream/pthread3.cc: Likewise.
+	* testsuite/30_threads/shared_mutex/*: Likewise.
+	* testsuite/ext/rope/pthread7-rope.cc: Likewise.
+	* testsuite/tr1/2_general_utilities/shared_ptr/thread/
+	default_weaktoshared.cc: Likewise.
+	* testsuite/tr1/2_general_utilities/shared_ptr/thread/
+	mutex_weaktoshared.cc: Likewise.
+	* testsuite/20_util/shared_ptr/atomic/3.cc: Likewise. Use
+	dg-require-effective-target instead of using -std option.
+	* testsuite/20_util/shared_ptr/thread/default_weaktoshared.cc:
+	Likewise.
+	* testsuite/20_util/shared_ptr/thread/mutex_weaktoshared.cc: Likewise.
+	* testsuite/23_containers/vector/debug/multithreaded_swap.cc:
+	Likewise.
+	* testsuite/30_threads/async/*: Likewise.
+	* testsuite/30_threads/call_once/*: Likewise.
+	* testsuite/30_threads/condition_variable/*: Likewise.
+	* testsuite/30_threads/condition_variable_any/*: Likewise.
+	* testsuite/30_threads/future/*: Likewise.
+	* testsuite/30_threads/lock/*: Likewise.
+	* testsuite/30_threads/mutex/*: Likewise.
+	* testsuite/30_threads/packaged_task/*: Likewise.
+	* testsuite/30_threads/promise/*: Likewise.
+	* testsuite/30_threads/recursive_mutex/*: Likewise.
+	* testsuite/30_threads/recursive_timed_mutex/*: Likewise.
+	* testsuite/30_threads/shared_future/*: Likewise.
+	* testsuite/30_threads/shared_lock/*: Likewise.
+	* testsuite/30_threads/shared_timed_mutex/*: Likewise.
+	* testsuite/30_threads/this_thread/*: Likewise.
+	* testsuite/30_threads/thread/*: Likewise.
+	* testsuite/30_threads/timed_mutex/*: Likewise.
+	* testsuite/30_threads/try_lock/*: Likewise.
+	* testsuite/30_threads/unique_lock/*: Likewise.
+
+	* doc/xml/manual/status_cxx2017.xml: Update status of not_fn.
+	* doc/html/*: Regenerate.
+	* include/experimental/functional (_Not_fn, not_fn): Match C++17
+	semantics.
+	* include/std/functional (_Not_fn, not_fn): Define for C++17.
+	* testsuite/20_util/not_fn/1.cc: New.
+	* testsuite/experimental/functional/not_fn.cc: Test abstract class.
+	Remove test for volatile-qualified wrapper.
+
+	* include/std/atomic (atomic::is_always_lock_free): Define.
+	* testsuite/29_atomics/atomic/60695.cc: Adjust dg-error lineno.
+	* testsuite/29_atomics/atomic/is_always_lock_free.cc: New.
+	* testsuite/29_atomics/atomic_integral/is_always_lock_free.cc: New.
+	* doc/xml/manual/status_cxx2017.xml: Update status.
+	* doc/html/*: Regenerate.
+
+	* include/experimental/tuple (apply): Qualify call to __apply_impl.
+	* include/std/tuple (apply): Likewise.
+	* testsuite/experimental/system_error/value.cc: Fix ambiguities in
+	C++17 mode.
+	* testsuite/experimental/tuple/tuple_size.cc: Likewise.
+	* testsuite/experimental/type_traits/value.cc: Likewise.
+
+	* doc/xml/manual/status_cxx2017.xml: Update status of make_from_tuple
+	and variant.
+	* doc/html/*: Regenerate.
+
+2016-08-18  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement the latest proposed resolution of LWG 2756.
+	* include/std/optional (Optional_base(const _Tp&))
+	(Optional_base(_Tp&&), using _Base::_Base): Remove.
+	(optional(nullopt_t)): New.
+	(optional(_Up&&)): Invoke base directly with in_place
+	rather than creating a temporary, add default template
+	argument, change constraints.
+	(optional(const optional<_Up>&)): Invoke base directly
+	with in_place, remove unnecessary constraints.
+	(optional(optional<_Up>&& __t)): Likewise.
+	(optional(in_place_t, _Args&&...)): New.
+	(optional(in_place_t, initializer_list<_Up>, _Args&&...)): Likewise.
+	(operator=(_Up&&)): Add default template argument, change constraints.
+	(operator=(const optional<_Up>&)): Put is_same first in the
+	constraints.
+	(operator=(optional<_Up>&&)): Likewise.
+	* testsuite/20_util/optional/assignment/5.cc: Add a test to
+	verify assignment from something that can't be perfect-forwarded.
+	* testsuite/20_util/optional/cons/value.cc: Add tests to verify
+	that a nested optional is disengaged when constructed
+	from a disengaged element type,	and to verify that assignments
+	from an engaged element type engage the optional.
+
+2016-08-18  Tim Shen  <timshen@google.com>
+
+	Implement <variant>
+
+	* include/Makefile.am: Add new file std/variant.
+	* include/Makefile.in: Generated from Makefile.am.
+	* include/bits/enable_special_members.h: Add a tag type to allow
+	the construction in non-default constructor.
+	* include/bits/uses_allocator.h: Add convenience traits to
+	detect constructibility.
+	* include/std/variant: Implement <variant>.
+	* testsuite/20_util/variant/compile.cc: Compile-time tests.
+	* testsuite/20_util/variant/run.cc: Runtime tests.
+
+2016-08-18  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/test.xml (test.run.permutations): Expand section.
+	(test.new_tests): Rewrite section.
+	(tests.dg.directives): New section.
+	* doc/html/*: Regenerate.
+
+	* doc/xml/manual/test.xml: Improve documentation of test targets.
+	Document new-abi-baseline, check-debug, and check-parallel targets.
+
+	* doc/xml/manual/build_hacking.xml: New section on shared library
+	versioning.
+
+	* doc/xml/manual/build_hacking.xml: Improve markup.
+	* doc/xml/manual/test.xml: Likewise. Change section title from "Test"
+	to "Testing".
+	* doc/xml/faq.xml: Change link text to "Testing".
+
+	* testsuite/tr1/3_function_objects/function/10.cc: Remove unintended
+	dg-options directive.
+
 2016-08-17  Jonathan Wakely  <jwakely@redhat.com>
 
 	* testsuite/20_util/reference_wrapper/invoke-2.cc: Fix invalid dg-do

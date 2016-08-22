@@ -927,6 +927,8 @@ examine and set these two fictitious variables with your debugger.
 @node Floating Types
 @section Additional Floating Types
 @cindex additional floating types
+@cindex @code{_Float@var{n}} data types
+@cindex @code{_Float@var{n}x} data types
 @cindex @code{__float80} data type
 @cindex @code{__float128} data type
 @cindex @code{__ibm128} data type
@@ -935,9 +937,19 @@ examine and set these two fictitious variables with your debugger.
 @cindex @code{W} floating point suffix
 @cindex @code{Q} floating point suffix
 
-As an extension, GNU C supports additional floating
+ISO/IEC TS 18661-3:2015 defines C support for additional floating
+types @code{_Float@var{n}} and @code{_Float@var{n}x}, and GCC supports
+these type names; the set of types supported depends on the target
+architecture.  These types are not supported when compiling C++.
+Constants with these types use suffixes @code{f@var{n}} or
+@code{F@var{n}} and @code{f@var{n}x} or @code{F@var{n}x}.  These type
+names can be used together with @code{_Complex} to declare complex
+types.
+
+As an extension, GNU C and GNU C++ support additional floating
 types, @code{__float80} and @code{__float128} to support 80-bit
-(@code{XFmode}) and 128-bit (@code{TFmode}) floating types.
+(@code{XFmode}) and 128-bit (@code{TFmode}) floating types; these are
+aliases for the type names @code{_Float64x} and @code{_Float128}.
 Support for additional types includes the arithmetic operators:
 add, subtract, multiply, divide; unary arithmetic operators;
 relational operators; equality operators; and conversions to and from
@@ -954,9 +966,11 @@ typedef _Complex float __attribute__((mode(TC))) _Complex128;
 typedef _Complex float __attribute__((mode(XC))) _Complex80;
 @end smallexample
 
-In order to use @code{__float128} and @code{__ibm128} on PowerPC Linux
+In order to use @code{_Float128}, @code{__float128} and
+@code{__ibm128} on PowerPC Linux
 systems, you must use the @option{-mfloat128}. It is expected in
-future versions of GCC that @code{__float128} will be enabled
+future versions of GCC that @code{_Float128} and @code{__float128}
+will be enabled
 automatically.  In addition, there are currently problems in using the
 complex @code{__float128} type.  When these problems are fixed, you
 would use the following syntax to declare @code{_Complex128} to be a
@@ -976,7 +990,14 @@ Not all targets support additional floating-point types.
 IA-64 targets.  The @code{__float128} type is supported on hppa HP-UX.
 The @code{__float128} type is supported on PowerPC 64-bit Linux
 systems by default if the vector scalar instruction set (VSX) is
-enabled.
+enabled.  The @code{_Float128} type is supported on all systems where
+@code{__float128} is supported or where @code{long double} has the
+IEEE binary128 format.  The @code{_Float64x} type is supported on all
+systems where @code{__float128} is supported.  The @code{_Float32}
+type is supported on all systems supporting IEEE binary32; the
+@code{_Float64} and @code{Float32x} types are supported on all systems
+supporting IEEE binary64.  GCC does not currently support
+@code{_Float16} or @code{_Float128x} on any systems.
 
 On the PowerPC, @code{__ibm128} provides access to the IBM extended
 double format, and it is intended to be used by the library functions
@@ -10835,6 +10856,13 @@ that are recognized in any mode since ISO C90 reserves these names for
 the purpose to which ISO C99 puts them.  All these functions have
 corresponding versions prefixed with @code{__builtin_}.
 
+There are also built-in functions @code{__builtin_fabsf@var{n}},
+@code{__builtin_fabsf@var{n}x}, @code{__builtin_copysignf@var{n}} and
+@code{__builtin_copysignf@var{n}x}, corresponding to the TS 18661-3
+functions @code{fabsf@var{n}}, @code{fabsf@var{n}x},
+@code{copysignf@var{n}} and @code{copysignf@var{n}x}, for supported
+types @code{_Float@var{n}} and @code{_Float@var{n}x}.
+
 There are also GNU extension functions @code{clog10}, @code{clog10f} and
 @code{clog10l} which names are reserved by ISO C99 for future use.
 All these functions have versions prefixed with @code{__builtin_}.
@@ -11373,6 +11401,16 @@ Similar to @code{__builtin_huge_val}, except the return
 type is @code{long double}.
 @end deftypefn
 
+@deftypefn {Built-in Function} _Float@var{n} __builtin_huge_valf@var{n} (void)
+Similar to @code{__builtin_huge_val}, except the return type is
+@code{_Float@var{n}}.
+@end deftypefn
+
+@deftypefn {Built-in Function} _Float@var{n}x __builtin_huge_valf@var{n}x (void)
+Similar to @code{__builtin_huge_val}, except the return type is
+@code{_Float@var{n}x}.
+@end deftypefn
+
 @deftypefn {Built-in Function} int __builtin_fpclassify (int, int, int, int, int, ...)
 This built-in implements the C99 fpclassify functionality.  The first
 five int arguments should be the target library's notion of the
@@ -11409,6 +11447,16 @@ This function is suitable for implementing the ISO C99 macro @code{INFINITY}.
 @deftypefn {Built-in Function} {long double} __builtin_infl (void)
 Similar to @code{__builtin_inf}, except the return
 type is @code{long double}.
+@end deftypefn
+
+@deftypefn {Built-in Function} _Float@var{n} __builtin_inff@var{n} (void)
+Similar to @code{__builtin_inf}, except the return
+type is @code{_Float@var{n}}.
+@end deftypefn
+
+@deftypefn {Built-in Function} _Float@var{n} __builtin_inff@var{n}x (void)
+Similar to @code{__builtin_inf}, except the return
+type is @code{_Float@var{n}x}.
 @end deftypefn
 
 @deftypefn {Built-in Function} int __builtin_isinf_sign (...)
@@ -11457,6 +11505,16 @@ Similar to @code{__builtin_nan}, except the return type is @code{float}.
 Similar to @code{__builtin_nan}, except the return type is @code{long double}.
 @end deftypefn
 
+@deftypefn {Built-in Function} _Float@var{n} __builtin_nanf@var{n} (const char *str)
+Similar to @code{__builtin_nan}, except the return type is
+@code{_Float@var{n}}.
+@end deftypefn
+
+@deftypefn {Built-in Function} _Float@var{n}x __builtin_nanf@var{n}x (const char *str)
+Similar to @code{__builtin_nan}, except the return type is
+@code{_Float@var{n}x}.
+@end deftypefn
+
 @deftypefn {Built-in Function} double __builtin_nans (const char *str)
 Similar to @code{__builtin_nan}, except the significand is forced
 to be a signaling NaN@.  The @code{nans} function is proposed by
@@ -11469,6 +11527,16 @@ Similar to @code{__builtin_nans}, except the return type is @code{float}.
 
 @deftypefn {Built-in Function} {long double} __builtin_nansl (const char *str)
 Similar to @code{__builtin_nans}, except the return type is @code{long double}.
+@end deftypefn
+
+@deftypefn {Built-in Function} _Float@var{n} __builtin_nansf@var{n} (const char *str)
+Similar to @code{__builtin_nans}, except the return type is
+@code{_Float@var{n}}.
+@end deftypefn
+
+@deftypefn {Built-in Function} _Float@var{n}x __builtin_nansf@var{n}x (const char *str)
+Similar to @code{__builtin_nans}, except the return type is
+@code{_Float@var{n}x}.
 @end deftypefn
 
 @deftypefn {Built-in Function} int __builtin_ffs (int x)
