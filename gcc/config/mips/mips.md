@@ -5107,8 +5107,8 @@
 ;; address expression, not shift.
 
 (define_insn "*ldx"
-  [(set (match_operand:SI 0 "register_operand" "=d")
-	(mem:SI
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(mem:DI
 	  (plus:P (match_operand:P 1 "register_operand" "d")
 		  (match_operand:P 2 "register_operand" "d"))))]
   "ISA_HAS_LDX"
@@ -5117,18 +5117,18 @@
    (set_attr "mode"	"DI")])
 
 (define_insn "*sdx"
-  [(set (mem:SI
+  [(set (mem:DI
 	  (plus:P (match_operand:P 0 "register_operand" "d")
 		  (match_operand:P 1 "register_operand" "d")))
-	(match_operand:SI 2 "register_operand" "d"))]
+	(match_operand:DI 2 "register_operand" "d"))]
   "ISA_HAS_SDX"
   "sdx\t%2,%0(%1)"
   [(set_attr "type"	"store")
    (set_attr "mode"	"DI")])
 
 (define_insn "*ldxs"
-  [(set (match_operand:SI 0 "register_operand" "=d")
-	(mem:SI
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(mem:DI
 	  (plus:P (mult:P (match_operand:P 1 "register_operand" "d")
 			  (const_int 8))
 		  (match_operand:P 2 "register_operand" "d"))))]
@@ -5138,11 +5138,11 @@
    (set_attr "mode"	"DI")])
 
 (define_insn "*sdxs"
-  [(set (mem:SI
+  [(set (mem:DI
 	  (plus:P (mult:P (match_operand:P 0 "register_operand" "d")
 			  (const_int 8))
 		  (match_operand:P 1 "register_operand" "d")))
-	(match_operand:SI 2 "register_operand" "d"))]
+	(match_operand:DI 2 "register_operand" "d"))]
   "ISA_HAS_SDXS"
   "sdxs\t%2,%0(%1)"
   [(set_attr "type"	"store")
@@ -5155,7 +5155,7 @@
 		  (match_operand:P 2 "register_operand" "d"))))]
   "ISA_HAS_LDC1X"
   "ldc1x\t%0,%1(%2)"
-  [(set_attr "type"	"load")
+  [(set_attr "type"	"fpload")
    (set_attr "mode"	"DF")])
 
 (define_insn "*sdc1x"
@@ -5165,7 +5165,7 @@
 	(match_operand:DF 2 "register_operand" "f"))]
   "ISA_HAS_SDC1X"
   "sdc1x\t%2,%0(%1)"
-  [(set_attr "type"	"store")
+  [(set_attr "type"	"fpstore")
    (set_attr "mode"	"DF")])
 
 (define_insn "*ldc1xs"
@@ -5176,7 +5176,7 @@
 		  (match_operand:P 2 "register_operand" "d"))))]
   "ISA_HAS_LDC1XS"
   "ldc1xs\t%0,%1(%2)"
-  [(set_attr "type"	"load")
+  [(set_attr "type"	"fpload")
    (set_attr "mode"	"DF")])
 
 (define_insn "*sdc1xs"
@@ -5187,7 +5187,7 @@
 	(match_operand:DF 2 "register_operand" "f"))]
   "ISA_HAS_SDC1XS"
   "sdc1xs\t%2,%0(%1)"
-  [(set_attr "type"	"store")
+  [(set_attr "type"	"fpstore")
    (set_attr "mode"	"DF")])
 
 (define_insn "*lwx"
@@ -5201,8 +5201,8 @@
    (set_attr "mode"	"SI")])
 
 (define_insn "*lwux"
-  [(set (match_operand:SI 0 "register_operand" "=d")
-	(zero_extend:SI
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(zero_extend:DI
 	  (mem:SI
 	    (plus:P (match_operand:P 1 "register_operand" "d")
 		    (match_operand:P 2 "register_operand" "d")))))]
@@ -5233,8 +5233,8 @@
    (set_attr "mode"	"SI")])
 
 (define_insn "*lwuxs"
-  [(set (match_operand:SI 0 "register_operand" "=d")
-	(zero_extend:SI
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(zero_extend:DI
 	  (mem:SI
 	    (plus:P (mult:P (match_operand:P 1 "register_operand" "d")
 			    (const_int 4))
@@ -5262,7 +5262,7 @@
 		  (match_operand:P 2 "register_operand" "d"))))]
   "ISA_HAS_LWC1X"
   "lwc1x\t%0,%1(%2)"
-  [(set_attr "type"	"load")
+  [(set_attr "type"	"fpload")
    (set_attr "mode"	"SF")])
 
 (define_insn "*swc1x"
@@ -5272,7 +5272,7 @@
 	(match_operand:SF 2 "register_operand" "f"))]
   "ISA_HAS_SWC1X"
   "swc1x\t%2,%0(%1)"
-  [(set_attr "type"	"store")
+  [(set_attr "type"	"fpstore")
    (set_attr "mode"	"SF")])
 
 (define_insn "*lwc1xs"
@@ -5283,7 +5283,7 @@
 		  (match_operand:P 2 "register_operand" "d"))))]
   "ISA_HAS_LWC1XS"
   "lwc1xs\t%0,%1(%2)"
-  [(set_attr "type"	"load")
+  [(set_attr "type"	"fpload")
    (set_attr "mode"	"SF")])
 
 (define_insn "*swc1xs"
@@ -5294,7 +5294,7 @@
 	(match_operand:SF 2 "register_operand" "f"))]
   "ISA_HAS_SWC1XS"
   "swc1xs\t%2,%0(%1)"
-  [(set_attr "type"	"store")
+  [(set_attr "type"	"fpstore")
    (set_attr "mode"	"SF")])
 
 (define_insn "*lhx"
@@ -5373,8 +5373,8 @@
    (set_attr "mode"	"QI")])
 
 (define_insn "*lbux"
-  [(set (match_operand:QI 0 "register_operand" "=d")
-	(zero_extend:QI
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(zero_extend:SI
 	  (mem:QI
 	    (plus:P (match_operand:P 1 "register_operand" "d")
 		    (match_operand:P 2 "register_operand" "d")))))]
