@@ -406,7 +406,19 @@ lra_emit_add (rtx x, rtx y, rtx z)
 	    {
 	      /* Generate x = index_scale; x = x + base.  */
 	      lra_assert (index_scale != NULL_RTX && base != NULL_RTX);
-	      emit_move_insn (x, index_scale);
+	      last = get_last_insn ();
+	      rtx_insn *move_insn = emit_move_insn (x, index_scale);
+	      if (recog_memoized (move_insn) < 0)
+		{
+		  delete_insns_since (last);
+		  /* Generate x = scale; x = index * x.  */
+		  rtx_insn *move_scale_insn = emit_move_insn (x, scale);
+		  lra_assert (move_scale_insn != NULL_RTX);
+		  rtx_insn *mult_insn =
+		    emit_move_insn (x, gen_rtx_MULT (GET_MODE (index),
+						     index, x));
+		  lra_assert (mult_insn != NULL_RTX);
+		}
 	      rtx_insn *insn = emit_add2_insn (x, base);
 	      lra_assert (insn != NULL_RTX);
 	    }
