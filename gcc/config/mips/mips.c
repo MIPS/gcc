@@ -3696,7 +3696,7 @@ mips_classify_address (struct mips_address_info *info, rtx x,
 	       && ((mips_index_scaled_address_p (x, mode)
 		    && mips_valid_index_register_p (XEXP (op1, 0), strict_p))
 		   || (mips_index_address_p (x, mode)
-		       && mips_valid_index_register_p (op1, 0), strict_p)))
+		       && mips_valid_index_register_p (op1, strict_p))))
 	{
 	  info->type = ADDRESS_REG_REG;
 	  info->reg = op0;
