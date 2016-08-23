@@ -1,3 +1,159 @@
+2016-08-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2016-08-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/72867
+	* gcc.target/i386/pr72867.c: Add -msse to dg-options.
+
+	Backport from mainline
+	2016-08-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/72867
+	* gcc.target/i386/pr72867.c: New test.
+
+2016-08-22  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2016-07-12  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR middle-end/71700
+	* gcc.c-torture/execute/pr71700.c: New test.
+
+2016-08-22  Release Manager
+
+	* GCC 6.2.0 released.
+
+2016-08-22  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/62171
+	* gcc.dg/vect/pr62171.c: Remove default vector testsuite flags.
+
+2016-08-18  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	Backport from mainline
+	2016-08-18  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	PR middle-end/70895
+	* gfortran.dg/goacc/loop-tree-1.f90: Add gimple scan-tree-dump test.
+	* c-c++-common/goacc/reduction-1.c: Likewise.
+	* c-c++-common/goacc/reduction-2.c: Likewise.
+	* c-c++-common/goacc/reduction-3.c: Likewise.
+	* c-c++-common/goacc/reduction-4.c: Likewise.
+
+2016-08-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR testsuite/77034
+	Backported from mainline
+	2016-07-25  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/init/elide5.C (operator new): Use decltype(sizeof(1)) instead
+	of unsigned long.
+
+2016-08-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/73434
+	* gcc.dg/torture/pr73434.c: New testcase.
+
+2016-08-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/72824
+	* gcc.c-torture/execute/ieee/pr72824-2.c: New test.
+
+2016-08-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2016-08-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/76342
+	* gcc.target/i386/pr76342.c: New test.
+
+2016-08-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/71512
+	* g++.dg/ubsan/pr71512.C: New test.
+	* c-c++-common/ubsan/pr71512-1.c: New test.
+	* c-c++-common/ubsan/pr71512-2.c: New test.
+
+2016-08-12  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	Backport from mainline
+	2016-08-11  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR tree-optimization/71083
+	* gcc.c-torture/execute/pr71083.c: New test.
+	* gnat.dg/loop_optimization23.adb: New test.
+	* gnat.dg/loop_optimization23_pkg.ads: New test.
+	* gnat.dg/loop_optimization23_pkg.adb: New test.
+
+2016-08-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/67410
+	* gcc.dg/pr67410.c: New test.
+
+2016-08-12  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	Backport from mainline
+	2016-08-05  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	PR Target/72819
+	* gcc.target/aarch64/aapcs64/abitest-common.h: Define half-precision
+	registers.
+	* gcc.target/aarch64/aapcs64/abitest.S (dumpregs): Add assembly for
+	saving the half-precision registers.
+	* gcc.target/aarch64/aapcs64/func-ret-1.c: Test that an __fp16
+	value is returned in h0.
+	* gcc.target/aarch64/aapcs64/test_2.c: Check that __FP16 arguments
+	are passed in FP/SIMD registers.
+	* gcc.target/aarch64/aapcs64/test_27.c: New, test that __fp16 HFA
+	passing works corrcetly.
+	* gcc.target/aarch64/aapcs64/type-def.h (hfa_f16x1_t): New.
+	(hfa_f16x2_t): Likewise.
+	(hfa_f16x3_t): Likewise.
+	* gcc.target/aarch64/aapcs64/va_arg-1.c: Check that __fp16 values
+	are promoted to double and passed in a double register.
+	* gcc.target/aarch64/aapcs64/va_arg-2.c: Check that __fp16 values
+	are promoted to double and stacked.
+	* gcc.target/aarch64/aapcs64/va_arg-4.c: Check stacking of HFA of
+	__fp16 data types.
+	* gcc.target/aarch64/aapcs64/va_arg-5.c: Likewise.
+	* gcc.target/aarch64/aapcs64/va_arg-16.c: New, check HFAs of
+	__fp16 first get passed in FP/SIMD registers, then stacked.
+
+2016-08-11  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from trunk.
+	PR fortran/71123
+	* gfortran.dg/namelist_90.f: New test
+
+2016-08-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/72868
+	* constexpr.c (label_matches): Handle case range expressions.
+
+	Backported from mainline
+	2016-08-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/72816
+	* gcc.dg/pr72816.c: Remove dg-error.
+
+	2016-08-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/72816
+	* gcc.dg/pr72816.c: New test.
+
+2016-08-11  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	Backport from trunk:
+	PR fortran/71936
+	* gfortran.dg/allocate_with_source_21.f03: New test.
+
+2016-08-11  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	Backport from trunk:
+	PR fortran/72698
+	* gfortran.dg/allocate_with_source_20.f03: New test.
+
 2016-08-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport from mainline

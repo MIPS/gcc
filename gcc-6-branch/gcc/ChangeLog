@@ -1,3 +1,231 @@
+2016-08-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2016-08-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/72867
+	* config/i386/sse.md (<code><mode>3<mask_name><round_saeonly_name>):
+	Emit ieee_<ieee_maxmin><mode>3<mask_name><round_saeonly_name>
+	for !flag_finite_math_only or flag_signed_zeros.
+	(*<code><mode>3<mask_name><round_saeonly_name>): Rename from
+	*<code><mode>3_finite<mask_name><round_saeonly_name>.  Do not
+	depend on flag_finite_math_only.
+	(ieee_<ieee_maxmin><mode>3<mask_name><round_saeonly_name>):
+	New insn pattern.
+	(*<code><mode>3<mask_name><round_saeonly_name>): Remove.
+	(*ieee_smin<mode>3): Ditto.
+	(*ieee_smax<mode>3): Ditto.
+	* config/i386/mmx.md (mmx_<code>v2sf3): Emit
+	mmx_ieee_<ieee_maxmin>v2sf3 for !flag_finite_math_only or
+	flag_signed_zeros.
+	(*mmx_<code>v2sf3): Rename from *mmx_<code>v2sf3_finite.  Do not
+	depend on flag_finite_math_only.
+	(mmx_ieee_<ieee_maxmin>v2sf3): New insn pattern.
+	(*mmx_<code>v2sf3): Remove.
+	* config/i386/subst.md (round_saeonly_mask_arg3): New subst attribute.
+	* config/i386/i386.c (ix86_expand_sse_fp_mimnax): Check
+	flag_signed_zeros instead of !flag_unsafe_math_optimizations.
+
+2016-08-22  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2016-07-12  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR middle-end/71700
+	* expr.c (store_constructor): Mask sign-extended bits when widening
+	sub-word constructor element at the start of a word.
+
+2016-08-22  Richard Biener  <rguenther@suse.de>
+
+	* BASE-VER: Set to 6.2.1.
+
+2016-08-22  Release Manager
+
+	* GCC 6.2.0 released.
+
+2016-08-18  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	Backport from mainline
+	2016-08-18  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	PR middle-end/70895
+	* gimplify.c (omp_add_variable): Adjust/add variable mapping on
+	enclosing parallel construct for reduction variables on OpenACC loop
+	directives.
+
+2016-08-18  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2016-06-17  DJ Delorie  <dj@redhat.com>
+
+	PR target/71338
+	* config/rl78/rl78-expand.c (umulqihi3): Enable for G10.
+	* config/rl78/rl78-virtual.c (umulhi3_shift_virt): Likewise.
+	(umulqihi3_virt): Likewise.
+	* config/rl78/rl78-real.c (umulhi3_shift_real): Likewise.
+	(umulqihi3_real): Likewise.
+
+2016-08-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* doc/install.texi (*-*-solaris2*): Adjust latest change.
+
+2016-08-15  Martin Liska  <mliska@suse.cz>
+
+	Backported from mainline
+	2016-08-15  Martin Liska  <mliska@suse.cz>
+
+	PR driver/72765
+	* gcc.c (do_spec_1): Call save_string with the right size.
+
+2016-08-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/71906
+	* dwarf2out.c (string_types): New variable.
+	(gen_array_type_die): Change early_dwarf handling of
+	DW_AT_string_length, create DW_OP_call4 referencing the
+	length var temporarily.  Handle parameters that are pointers
+	to string length.
+	(adjust_string_types): New function.
+	(gen_subprogram_die): Temporarily set string_types to local var,
+	call adjust_string_types if needed.
+	(non_dwarf_expression, copy_deref_exprloc, optimize_string_length):
+	New functions.
+	(resolve_addr): Adjust DW_AT_string_length if it is DW_OP_call4.
+
+2016-08-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/73434
+	* tree-ssa-sccvn.c (vn_reference_maybe_forwprop_address): Preserve
+	TBAA info on the base when forwarding a non-invariant address.
+
+2016-08-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* doc/install.texi (*-*-solaris2*): Fix version number and document
+	requirement on GNU make for building libjava with the Solaris linker.
+
+2016-08-15  Martin Liska  <mliska@suse.cz>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/72824
+	* tree-loop-distribution.c (const_with_all_bytes_same)
+	<case VECTOR_CST>: Fix a typo.
+
+2016-08-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2016-08-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/76342
+	* config/i386/avx512fintrin.h (_mm512_undefined_epi32):
+	Renamed from _mm512_undefined_si512.
+	(_mm_undefined_si512): New definition.
+
+	Backport from mainline:
+	2016-08-09  David Wohlferd  <dw@LimeGreenSocks.com>
+
+	* config/i3836/avx512fintrin.h (_mm512_cvtsepi64_epi32): Remove
+	unused variable __O.
+
+	Backport from mainline:
+	2016-08-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/72843
+	* config/i386/i386.md (*movtf_internal): Use
+	lra_in_progress || reload_completed instead of !can_create_pseudo_p
+	in the insn constraint.
+	(*movxf_internal): Ditto.
+	(*movdf_internal): Ditto.
+	(*movsf_internal): Ditto.
+
+2016-08-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/71512
+	* ubsan.c (instrument_si_overflow): Pass true instead of false
+	to gsi_replace.
+	(pass_ubsan::execute): Call gimple_purge_dead_eh_edges at the end
+	of bbs.  Return TODO_cleanup_cfg if any returned true.
+
+2016-08-12  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	Backport from mainline
+	2016-08-11  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR tree-optimization/71083
+	* tree-predcom.c (ref_at_iteration): Correctly align the
+	reference type.
+
+2016-08-12  James Greenhalgh  <james.greenhalgh@arm.com
+
+	Backport from mainline
+	2016-08-05  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	PR Target/72819
+	* config/aarch64/aarch64.h (aarch64_fp16_type_node): Declare.
+	(aarch64_fp16_ptr_type_node): Likewise.
+	* config/aarch64/aarch64-simd-builtins.c
+	(aarch64_fp16_ptr_type_node): Define.
+	(aarch64_init_fp16_types): New, refactored out of...
+	(aarch64_init_builtins): ...here, update to call
+	aarch64_init_fp16_types.
+	* config/aarch64/aarch64.c (aarch64_gimplify_va_arg_expr): Handle
+	HFmode.
+	(aapcs_vfp_sub_candidate): Likewise.
+
+2016-08-11  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2016-08-11  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390-builtin-types.def: Add INT128 types.
+	* config/s390/s390-builtins.def: Add INT128 variants for the add
+	sub low-level builtins dealing with TImode.
+	* config/s390/s390.c (s390_expand_builtin): Allow mode conversions
+	via subreg when expanding a builtin.
+	* config/s390/s390.md: Remove UNSPEC_VEC_ADDC_U128,
+	UNSPEC_VEC_SUB_U128, and UNSPEC_VEC_SUBC_U128 constants.
+	Fix comment.
+	* config/s390/vecintrin.h: Adjust builtin names accordingly.
+	* config/s390/vx-builtins.md ("vec_add_u128"): Remove expander.
+	("vec_addc<mode>", "vec_addc_u128"): Merge to
+	"vacc<bhfgq>_<mode>".
+	("vec_adde_u128"): Rename to "vacq". Change mode to TImode.
+	("vec_addec_u128"): Rename to "vacccq". Change mode to TImode.
+	("vec_subc<mode>", "vec_subc_u128"): Merge to
+	"vscbi<bhfgq>_<mode>".
+	("vec_sube_u128"): Rename to "vsbiq". Change mode to TImode.
+	("vec_subec_u128"): Rename to "vsbcbiq". Change mode to TImode.
+
+2016-08-11  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2016-08-11  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390-builtins.def: Mark last operand of s390_vlvg*
+	and s390_vlgv* builtins as element selector.
+
+2016-08-11  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2016-07-06  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.c (s390_expand_vec_init): Force initializer
+	element to register if it doesn't match general_operand.
+
+2016-08-11  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2016-06-13  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/vecintrin.h: Fix file description in comment.
+
+2016-08-11  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2016-06-13  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390-builtin-types.def: Change builtin type naming
+	scheme to match builtin-types.def.
+
 2016-08-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport from mainline
