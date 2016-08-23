@@ -1,3 +1,13 @@
+2016-08-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_split_v4si_init): Add support for
+	storing V4SI elements directly to memory.
+
+	* config/rs6000/vsx.md (vsx_concat_<mode>_memory): New insn to do
+	CONCAT for DI/DF.  Disable for now.
+	(vsx_init_v4si): Add support for the target of a V4SImode
+	initialization being in memory.
+
 2016-08-23   Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch subversion id 239717

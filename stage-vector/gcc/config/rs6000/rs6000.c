@@ -7480,6 +7480,30 @@ rs6000_split_v4si_init (rtx operands[])
       return;
     }
 
+  /* Destination is in memory, store each part.  */
+  else if (MEM_P (dest))
+    {
+      rtx base_reg = operands[5];
+      rtx const_tmp = operands[6];
+      size_t i;
+
+      for (i = 0; i < 4; i++)
+	{
+	  rtx scalar = operands[i+1];
+	  rtx s_mem;
+
+	  if (CONST_INT_P (scalar))
+	    {
+	      emit_move_insn (const_tmp, scalar);
+	      scalar = const_tmp;
+	    }
+
+	  s_mem = rs6000_adjust_vec_address (scalar, copy_rtx (dest),
+					     GEN_INT (i), base_reg, SImode);
+	  emit_move_insn (s_mem, scalar);
+	}
+    }
+
   else
     gcc_unreachable ();
 }

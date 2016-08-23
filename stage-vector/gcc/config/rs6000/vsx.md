@@ -1957,6 +1957,36 @@
 }
   [(set_attr "type" "vecperm")])
 
+;; Optimize doing a concat and storing the result in memory
+(define_insn_and_split "*vsx_concat_<mode>_memory"
+  [(set (match_operand:VSX_D 0 "memory_operand" "=m")
+	(vec_concat:VSX_D
+	 (match_operand:<VS_scalar> 1 "gpc_reg_operand" "r<VS_64reg>")
+	 (match_operand:<VS_scalar> 2 "gpc_reg_operand" "r<VS_64reg>")))
+   (clobber (match_scratch:DI 3 "=&b"))]
+   "0 && VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_POWERPC64"
+   "#"
+   "&& reload_completed"
+   [(const_int 0)]
+{
+  rtx mem = operands[0];
+  rtx op1 = operands[1];
+  rtx op2 = operands[2];
+  rtx tmp = operands[3];
+  rtx index, s_mem, mem1, mem2;
+
+  index = GEN_INT (VECTOR_ELT_ORDER_BIG != 0);
+  mem1 = copy_rtx (mem);
+  s_mem = rs6000_adjust_vec_address (op1, mem1, index, tmp, <VS_scalar>mode);
+  emit_move_insn (s_mem, op1);
+
+  index = GEN_INT (VECTOR_ELT_ORDER_BIG == 0);
+  mem2 = copy_rtx (mem);
+  s_mem = rs6000_adjust_vec_address (op2, mem2, index, tmp, <VS_scalar>mode);
+  emit_move_insn (s_mem, op2);
+  DONE;
+})
+
 ;; Special purpose concat using xxpermdi to glue two single precision values
 ;; together, relying on the fact that internally scalar floats are represented
 ;; as doubles.  This is used to initialize a V4SF vector with 4 floats
@@ -1977,15 +2007,15 @@
 
 ;; V4SImode initialization splitter
 (define_insn_and_split "vsx_init_v4si"
-  [(set (match_operand:V4SI 0 "gpc_reg_operand" "=&r")
+  [(set (match_operand:V4SI 0 "nonimmediate_operand" "=&r,m")
 	(unspec:V4SI
-	 [(match_operand:SI 1 "reg_or_cint_operand" "rn")
-	  (match_operand:SI 2 "reg_or_cint_operand" "rn")
-	  (match_operand:SI 3 "reg_or_cint_operand" "rn")
-	  (match_operand:SI 4 "reg_or_cint_operand" "rn")]
+	 [(match_operand:SI 1 "reg_or_cint_operand" "rn,rn")
+	  (match_operand:SI 2 "reg_or_cint_operand" "rn,rn")
+	  (match_operand:SI 3 "reg_or_cint_operand" "rn,rn")
+	  (match_operand:SI 4 "reg_or_cint_operand" "rn,rn")]
 	 UNSPEC_VSX_VEC_INIT))
-   (clobber (match_scratch:DI 5 "=&r"))
-   (clobber (match_scratch:DI 6 "=&r"))]
+   (clobber (match_scratch:DI 5 "=&r,&b"))
+   (clobber (match_scratch:DI 6 "=&r,&b"))]
    "VECTOR_MEM_VSX_P (V4SImode) && TARGET_DIRECT_MOVE_64BIT"
    "#"
    "&& reload_completed"
