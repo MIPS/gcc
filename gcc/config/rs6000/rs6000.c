@@ -1703,6 +1703,9 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P rs6000_vector_mode_supported_p
 
+#undef TARGET_FLOATN_MODE
+#define TARGET_FLOATN_MODE rs6000_floatn_mode
+
 #undef TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN
 #define TARGET_INVALID_ARG_FOR_UNPROTOTYPED_FN invalid_arg_for_unprototyped_fn
 
@@ -5266,16 +5269,20 @@ rs6000_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
         return 2;
 
       case vec_construct:
-	elements = TYPE_VECTOR_SUBPARTS (vectype);
+	/* This is a rough approximation assuming non-constant elements
+	   constructed into a vector via element insertion.  FIXME:
+	   vec_construct is not granular enough for uniformly good
+	   decisions.  If the initialization is a splat, this is
+	   cheaper than we estimate.  Improve this someday.  */
 	elem_type = TREE_TYPE (vectype);
 	/* 32-bit vectors loaded into registers are stored as double
-	   precision, so we need n/2 converts in addition to the usual
-	   n/2 merges to construct a vector of short floats from them.  */
+	   precision, so we need 2 permutes, 2 converts, and 1 merge
+	   to construct a vector of short floats from them.  */
 	if (SCALAR_FLOAT_TYPE_P (elem_type)
 	    && TYPE_PRECISION (elem_type) == 32)
-	  return elements + 1;
+	  return 5;
 	else
-	  return elements / 2 + 1;
+	  return max (2, TYPE_VECTOR_SUBPARTS (vectype) - 1);
 
       default:
         gcc_unreachable ();
@@ -7738,6 +7745,9 @@ mem_operand_ds_form (rtx op, machine_mode mode)
   unsigned HOST_WIDE_INT offset;
   int extra;
   rtx addr = XEXP (op, 0);
+
+  if (!offsettable_address_p (false, mode, addr))
+    return false;
 
   op = address_offset (addr);
   if (op == NULL_RTX)
@@ -13569,6 +13579,12 @@ rs6000_overloaded_builtin_p (enum rs6000_builtins fncode)
   return (rs6000_builtin_info[(int)fncode].attr & RS6000_BTC_OVERLOADED) != 0;
 }
 
+const char *
+rs6000_overloaded_builtin_name (enum rs6000_builtins fncode)
+{
+  return rs6000_builtin_info[(int)fncode].name;
+}
+
 /* Expand an expression EXP that calls a builtin without arguments.  */
 static rtx
 rs6000_expand_zeroop_builtin (enum insn_code icode, rtx target)
@@ -13785,6 +13801,20 @@ rs6000_expand_binop_builtin (enum insn_code icode, tree exp, rtx target)
 	  || !IN_RANGE (TREE_INT_CST_LOW (arg0), 0, 63))
 	{
 	  error ("argument 1 must be a 6-bit unsigned literal");
+	  return CONST0_RTX (tmode);
+	}
+    }
+  else if (icode == CODE_FOR_xststdcdp
+	   || icode == CODE_FOR_xststdcsp
+	   || icode == CODE_FOR_xvtstdcdp
+	   || icode == CODE_FOR_xvtstdcsp)
+    {
+      /* Only allow 7-bit unsigned literals. */
+      STRIP_NOPS (arg1);
+      if (TREE_CODE (arg1) != INTEGER_CST
+	  || !IN_RANGE (TREE_INT_CST_LOW (arg1), 0, 127))
+	{
+	  error ("argument 2 must be a 7-bit unsigned literal");
 	  return CONST0_RTX (tmode);
 	}
     }
@@ -15898,6 +15928,10 @@ rs6000_invalid_builtin (enum rs6000_builtins fncode)
     error ("Builtin function %s requires the -mhard-dfp option", name);
   else if ((fnmask & RS6000_BTM_P8_VECTOR) != 0)
     error ("Builtin function %s requires the -mpower8-vector option", name);
+  else if ((fnmask & (RS6000_BTM_P9_VECTOR | RS6000_BTM_64BIT))
+	   == (RS6000_BTM_P9_VECTOR | RS6000_BTM_64BIT))
+    error ("Builtin function %s requires the -mcpu=power9 and"
+	   " -m64 options", name);
   else if ((fnmask & RS6000_BTM_P9_VECTOR) != 0)
     error ("Builtin function %s requires the -mcpu=power9 option", name);
   else if ((fnmask & (RS6000_BTM_P9_MISC | RS6000_BTM_64BIT))
@@ -16272,10 +16306,7 @@ rs6000_init_builtins (void)
       layout_type (ibm128_float_type_node);
       SET_TYPE_MODE (ibm128_float_type_node, IFmode);
 
-      ieee128_float_type_node = make_node (REAL_TYPE);
-      TYPE_PRECISION (ieee128_float_type_node) = 128;
-      layout_type (ieee128_float_type_node);
-      SET_TYPE_MODE (ieee128_float_type_node, KFmode);
+      ieee128_float_type_node = float128_type_node;
 
       lang_hooks.types.register_builtin_type (ieee128_float_type_node,
 					      "__float128");
@@ -22922,6 +22953,7 @@ rs6000_emit_vector_compare_inner (enum rtx_code code, rtx op0, rtx op1)
     case GE:
       if (GET_MODE_CLASS (mode) == MODE_VECTOR_INT)
 	return NULL_RTX;
+      /* FALLTHRU */
 
     case EQ:
     case GT:
@@ -30660,6 +30692,7 @@ rs6000_adjust_cost (rtx_insn *insn, int dep_type, rtx_insn *dep_insn, int cost,
             }
         }
       /* Fall through, no cost for output dependency.  */
+      /* FALLTHRU */
 
     case REG_DEP_ANTI:
       /* Anti dependency; DEP_INSN reads a register that INSN writes some
@@ -31806,6 +31839,7 @@ insn_must_be_first_in_group (rtx_insn *insn)
     case PROCESSOR_POWER5:
       if (is_cracked_insn (insn))
         return true;
+      /* FALLTHRU */
     case PROCESSOR_POWER4:
       if (is_microcoded_insn (insn))
         return true;
@@ -36163,6 +36197,54 @@ rs6000_vector_mode_supported_p (machine_mode mode)
 
   else
     return false;
+}
+
+/* Target hook for floatn_mode.  */
+static machine_mode
+rs6000_floatn_mode (int n, bool extended)
+{
+  if (extended)
+    {
+      switch (n)
+	{
+	case 32:
+	  return DFmode;
+
+	case 64:
+	  if (TARGET_FLOAT128)
+	    return (FLOAT128_IEEE_P (TFmode)) ? TFmode : KFmode;
+	  else
+	    return VOIDmode;
+
+	case 128:
+	  return VOIDmode;
+
+	default:
+	  /* Those are the only valid _FloatNx types.  */
+	  gcc_unreachable ();
+	}
+    }
+  else
+    {
+      switch (n)
+	{
+	case 32:
+	  return SFmode;
+
+	case 64:
+	  return DFmode;
+
+	case 128:
+	  if (TARGET_FLOAT128)
+	    return (FLOAT128_IEEE_P (TFmode)) ? TFmode : KFmode;
+	  else
+	    return VOIDmode;
+
+	default:
+	  return VOIDmode;
+	}
+    }
+
 }
 
 /* Target hook for c_mode_for_suffix.  */

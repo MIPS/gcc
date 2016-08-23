@@ -1201,7 +1201,7 @@ get_or_alloc_expr_for (tree t)
 }
 
 /* Return the folded version of T if T, when folded, is a gimple
-   min_invariant.  Otherwise, return T.  */
+   min_invariant or an SSA name.  Otherwise, return T.  */
 
 static pre_expr
 fully_constant_expression (pre_expr e)
@@ -1218,10 +1218,8 @@ fully_constant_expression (pre_expr e)
 	  return e;
 	if (is_gimple_min_invariant (res))
 	  return get_or_alloc_expr_for_constant (res);
-	/* We might have simplified the expression to a
-	   SSA_NAME for example from x_1 * 1.  But we cannot
-	   insert a PHI for x_1 unconditionally as x_1 might
-	   not be available readily.  */
+	if (TREE_CODE (res) == SSA_NAME)
+	  return get_or_alloc_expr_for_name (res);
 	return e;
       }
     case REFERENCE:
@@ -1464,7 +1462,20 @@ phi_translate_1 (pre_expr expr, bitmap_set_t set1, bitmap_set_t set2,
 	    constant = fully_constant_expression (expr);
 	    PRE_EXPR_NARY (expr) = nary;
 	    if (constant != expr)
-	      return constant;
+	      {
+		/* For non-CONSTANTs we have to make sure we can eventually
+		   insert the expression.  Which means we need to have a
+		   leader for it.  */
+		if (constant->kind != CONSTANT)
+		  {
+		    unsigned value_id = get_expr_value_id (constant);
+		    constant = find_leader_in_sets (value_id, set1, set2);
+		    if (constant)
+		      return constant;
+		  }
+		else
+		  return constant;
+	      }
 
 	    tree result = vn_nary_op_lookup_pieces (newnary->length,
 						    newnary->opcode,
@@ -4259,7 +4270,7 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 	  if (sprime
 	      && TREE_CODE (sprime) == SSA_NAME
 	      && do_pre
-	      && flag_tree_loop_vectorize
+	      && (flag_tree_loop_vectorize || flag_tree_parallelize_loops > 1)
 	      && loop_outer (b->loop_father)
 	      && has_zero_uses (sprime)
 	      && bitmap_bit_p (inserted_exprs, SSA_NAME_VERSION (sprime))
@@ -4532,6 +4543,15 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 				       lang_hooks.decl_printable_name (fn, 2));
 		    }
 		  gimple_call_set_fndecl (call_stmt, fn);
+		  /* If changing the call to __builtin_unreachable
+		     or similar noreturn function, adjust gimple_call_fntype
+		     too.  */
+		  if (gimple_call_noreturn_p (call_stmt)
+		      && VOID_TYPE_P (TREE_TYPE (TREE_TYPE (fn)))
+		      && TYPE_ARG_TYPES (TREE_TYPE (fn))
+		      && (TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (fn)))
+			  == void_type_node))
+		    gimple_call_set_fntype (call_stmt, TREE_TYPE (fn));
 		  maybe_remove_unused_call_args (cfun, call_stmt);
 		  gimple_set_modified (stmt, true);
 		}

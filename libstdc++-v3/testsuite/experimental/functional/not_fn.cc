@@ -29,7 +29,6 @@ struct F
   bool operator()() { return false; }
   bool operator()() const { return true; }
   bool operator()(int) { return false; }
-  bool operator()(int) volatile { return true; }
 };
 
 void
@@ -46,8 +45,6 @@ test01()
   VERIFY( f3(1) == true );
   const auto f4 = f3;
   VERIFY( f4() == false );
-  volatile auto f5 = f3;
-  VERIFY( f5(1) == false );
 }
 
 template<typename F, typename Arg>
@@ -76,10 +73,22 @@ test03()
   VERIFY( not_fn(&X::b)(x) );
 }
 
+void
+test04()
+{
+  struct abstract { virtual void f() = 0; };
+  struct derived : abstract { void f() { } };
+  struct F { bool operator()(abstract&) { return false; } };
+  F f;
+  derived d;
+  VERIFY( not_fn(f)(d) );
+}
+
 int
 main()
 {
   test01();
   test02();
   test03();
+  test04();
 }

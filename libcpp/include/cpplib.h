@@ -597,6 +597,9 @@ struct cpp_callbacks
 
   /* Callback to parse SOURCE_DATE_EPOCH from environment.  */
   time_t (*get_source_date_epoch) (cpp_reader *);
+
+  /* Callback for providing suggestions for misspelled directives.  */
+  const char *(*get_suggestion) (cpp_reader *, const char *, const char *const *);
 };
 
 #ifdef VMS
@@ -953,8 +956,15 @@ struct cpp_num
 
 #define CPP_N_FRACT	0x100000 /* Fract types.  */
 #define CPP_N_ACCUM	0x200000 /* Accum types.  */
+#define CPP_N_FLOATN	0x400000 /* _FloatN types.  */
+#define CPP_N_FLOATNX	0x800000 /* _FloatNx types.  */
 
 #define CPP_N_USERDEF	0x1000000 /* C++0x user-defined literal.  */
+
+#define CPP_N_WIDTH_FLOATN_NX	0xF0000000 /* _FloatN / _FloatNx value
+					      of N, divided by 16.  */
+#define CPP_FLOATN_SHIFT	24
+#define CPP_FLOATN_MAX	0xF0
 
 /* Classify a CPP_NUMBER token.  The return value is a combination of
    the flags from the above sets.  */
@@ -1064,6 +1074,11 @@ extern bool cpp_warning_with_line_syshdr (cpp_reader *, int, source_location,
 
 extern bool cpp_error_at (cpp_reader * pfile, int level,
 			  source_location src_loc, const char *msgid, ...)
+  ATTRIBUTE_PRINTF_4;
+
+extern bool cpp_error_at_richloc (cpp_reader * pfile, int level,
+				  rich_location *richloc, const char *msgid,
+				  ...)
   ATTRIBUTE_PRINTF_4;
 
 /* In lex.c */

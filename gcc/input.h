@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "line-map.h"
 
 extern GTY(()) struct line_maps *line_table;
+extern GTY(()) struct line_maps *saved_line_table;
 
 /* A value which will never be used to represent a real location.  */
 #define UNKNOWN_LOCATION ((source_location) 0)
@@ -94,6 +95,8 @@ void dump_line_table_statistics (void);
 void dump_location_info (FILE *stream);
 
 void diagnostics_file_cache_fini (void);
+
+void diagnostics_file_cache_forcibly_evict_file (const char *file_path);
 
 struct GTY(()) string_concat
 {

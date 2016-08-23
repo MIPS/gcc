@@ -1676,26 +1676,23 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 	  && !(sym->attr.use_assoc && !intrinsic_array_parameter)))
     gfc_defer_symbol_init (sym);
 
+  /* Associate names can use the hidden string length variable
+     of their associated target.  */
+  if (sym->ts.type == BT_CHARACTER
+      && TREE_CODE (length) != INTEGER_CST)
+    {
+      gfc_finish_var_decl (length, sym);
+      gcc_assert (!sym->value);
+    }
+
   gfc_finish_var_decl (decl, sym);
 
   if (sym->ts.type == BT_CHARACTER)
-    {
-      /* Character variables need special handling.  */
-      gfc_allocate_lang_decl (decl);
-
-      /* Associate names can use the hidden string length variable
-	 of their associated target.  */
-      if (TREE_CODE (length) != INTEGER_CST)
-	{
-	  gfc_finish_var_decl (length, sym);
-	  gcc_assert (!sym->value);
-	}
-    }
+    /* Character variables need special handling.  */
+    gfc_allocate_lang_decl (decl);
   else if (sym->attr.subref_array_pointer)
-    {
-      /* We need the span for these beasts.  */
-      gfc_allocate_lang_decl (decl);
-    }
+    /* We need the span for these beasts.  */
+    gfc_allocate_lang_decl (decl);
 
   if (sym->attr.subref_array_pointer)
     {
@@ -6259,7 +6256,8 @@ gfc_generate_function_code (gfc_namespace * ns)
 	      /* Arrays are not initialized using the default initializer of
 		 their elements.  Therefore only check if a default
 		 initializer is available when the result is scalar.  */
-	      init_exp = rsym->as ? NULL : gfc_default_initializer (&rsym->ts);
+              init_exp = rsym->as ? NULL
+                                  : gfc_generate_initializer (&rsym->ts, true);
 	      if (init_exp)
 		{
 		  tmp = gfc_trans_structure_assign (result, init_exp, 0);

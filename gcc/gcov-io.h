@@ -177,8 +177,6 @@ typedef uint64_t gcov_type_unsigned;
 #if IN_GCOV > 0
 #include <sys/types.h>
 #endif
-#else /*!IN_GCOV */
-#define GCOV_TYPE_SIZE (LONG_LONG_TYPE_SIZE > 32 ? 64 : 32)
 #endif
 
 #if defined (HOST_HAS_F_SETLKW)

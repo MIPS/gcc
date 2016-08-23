@@ -1,7 +1,37 @@
-2016-08-16  Martin Liska  <mliska@suse.cz>
+2016-08-19  Jakub Jelinek  <jakub@redhat.com>
 
-	* configure: Add conditionally slash to HSA_RUNTIME_LIB.
-	* plugin/configfrag.ac: Likewise.
+	PR fortran/71014
+	* testsuite/libgomp.fortran/pr71014.f90: New test.
+
+2016-08-18  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	PR middle-end/70895
+	* testsuite/libgomp.oacc-fortran/reduction-7.f90: Add explicit
+	firstprivate clauses.
+	* testsuite/libgomp.oacc-fortran/reduction-6.f90: Remove explicit
+	copy clauses.
+	* testsuite/libgomp.oacc-c-c++-common/reduction-7.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/reduction-cplx-flt.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/reduction-flt.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/collapse-2.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/loop-red-wv-1.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/collapse-4.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/loop-red-v-1.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/reduction-cplx-dbl.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/loop-red-g-1.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/loop-red-gwv-1.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/loop-red-w-1.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/reduction-dbl.c: Likewise.
+
+2016-08-14  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	PR fortran/70598
+	* testsuite/libgomp.oacc-fortran/host_data-1.f90: New test.
+
+2016-08-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/58706
+	* testsuite/libgomp.c++/pr58706.C: New test.
 
 2016-08-04  Thomas Schwinge  <thomas@codesourcery.com>
 

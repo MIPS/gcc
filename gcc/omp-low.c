@@ -5455,7 +5455,15 @@ lower_lastprivate_clauses (tree clauses, tree predicate, gimple_seq *stmt_list,
 	      new_var = lookup_decl (var, ctx->outer);
 	    }
 	  else
-	    new_var = lookup_decl (var, ctx);
+	    {
+	      new_var = lookup_decl (var, ctx);
+	      /* Avoid uninitialized warnings for lastprivate and
+		 for linear iterators.  */
+	      if (predicate
+		  && (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE
+		      || OMP_CLAUSE_LINEAR_NO_COPYIN (c)))
+		TREE_NO_WARNING (new_var) = 1;
+	    }
 
 	  if (simduid && DECL_HAS_VALUE_EXPR_P (new_var))
 	    {
@@ -5652,10 +5660,19 @@ lower_oacc_reductions (location_t loc, tree clauses, tree level, bool inner,
 		outgoing = var;
 		incoming = omp_reduction_init_op (loc, rcode, type);
 	      }
-	    else if (ctx->outer)
-	      incoming = outgoing = lookup_decl (orig, ctx->outer);
 	    else
-	      incoming = outgoing = orig;
+	      {
+		/* Try to look at enclosing contexts for reduction var,
+		   use original if no mapping found.  */
+		tree t = NULL_TREE;
+		omp_context *c = ctx->outer;
+		while (c && !t)
+		  {
+		    t = maybe_lookup_decl (orig, c);
+		    c = c->outer;
+		  }
+		incoming = outgoing = (t ? t : orig);
+	      }
 	      
 	  has_outer_reduction:;
 	  }

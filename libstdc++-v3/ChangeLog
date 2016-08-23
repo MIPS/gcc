@@ -1,3 +1,300 @@
+2016-08-19  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/21_strings/basic_string/pthread18185.cc: Use -pthread for
+	*-*-solaris* instead of -pthreads.
+	* testsuite/21_strings/basic_string/pthread4.cc : Likewise.
+	* testsuite/22_locale/locale/cons/12658_thread-1.cc: Likewise.
+	* testsuite/22_locale/locale/cons/12658_thread-2.cc: Likewise.
+	* testsuite/23_containers/list/pthread1.cc: Likewise.
+	* testsuite/23_containers/list/pthread5.cc: Likewise.
+	* testsuite/23_containers/map/pthread6.cc: Likewise.
+	* testsuite/27_io/basic_ofstream/pthread2.cc: Likewise.
+	* testsuite/27_io/basic_ostringstream/pthread3.cc: Likewise.
+	* testsuite/30_threads/shared_mutex/*: Likewise.
+	* testsuite/ext/rope/pthread7-rope.cc: Likewise.
+	* testsuite/tr1/2_general_utilities/shared_ptr/thread/
+	default_weaktoshared.cc: Likewise.
+	* testsuite/tr1/2_general_utilities/shared_ptr/thread/
+	mutex_weaktoshared.cc: Likewise.
+	* testsuite/20_util/shared_ptr/atomic/3.cc: Likewise. Use
+	dg-require-effective-target instead of using -std option.
+	* testsuite/20_util/shared_ptr/thread/default_weaktoshared.cc:
+	Likewise.
+	* testsuite/20_util/shared_ptr/thread/mutex_weaktoshared.cc: Likewise.
+	* testsuite/23_containers/vector/debug/multithreaded_swap.cc:
+	Likewise.
+	* testsuite/30_threads/async/*: Likewise.
+	* testsuite/30_threads/call_once/*: Likewise.
+	* testsuite/30_threads/condition_variable/*: Likewise.
+	* testsuite/30_threads/condition_variable_any/*: Likewise.
+	* testsuite/30_threads/future/*: Likewise.
+	* testsuite/30_threads/lock/*: Likewise.
+	* testsuite/30_threads/mutex/*: Likewise.
+	* testsuite/30_threads/packaged_task/*: Likewise.
+	* testsuite/30_threads/promise/*: Likewise.
+	* testsuite/30_threads/recursive_mutex/*: Likewise.
+	* testsuite/30_threads/recursive_timed_mutex/*: Likewise.
+	* testsuite/30_threads/shared_future/*: Likewise.
+	* testsuite/30_threads/shared_lock/*: Likewise.
+	* testsuite/30_threads/shared_timed_mutex/*: Likewise.
+	* testsuite/30_threads/this_thread/*: Likewise.
+	* testsuite/30_threads/thread/*: Likewise.
+	* testsuite/30_threads/timed_mutex/*: Likewise.
+	* testsuite/30_threads/try_lock/*: Likewise.
+	* testsuite/30_threads/unique_lock/*: Likewise.
+
+	* doc/xml/manual/status_cxx2017.xml: Update status of not_fn.
+	* doc/html/*: Regenerate.
+	* include/experimental/functional (_Not_fn, not_fn): Match C++17
+	semantics.
+	* include/std/functional (_Not_fn, not_fn): Define for C++17.
+	* testsuite/20_util/not_fn/1.cc: New.
+	* testsuite/experimental/functional/not_fn.cc: Test abstract class.
+	Remove test for volatile-qualified wrapper.
+
+	* include/std/atomic (atomic::is_always_lock_free): Define.
+	* testsuite/29_atomics/atomic/60695.cc: Adjust dg-error lineno.
+	* testsuite/29_atomics/atomic/is_always_lock_free.cc: New.
+	* testsuite/29_atomics/atomic_integral/is_always_lock_free.cc: New.
+	* doc/xml/manual/status_cxx2017.xml: Update status.
+	* doc/html/*: Regenerate.
+
+	* include/experimental/tuple (apply): Qualify call to __apply_impl.
+	* include/std/tuple (apply): Likewise.
+	* testsuite/experimental/system_error/value.cc: Fix ambiguities in
+	C++17 mode.
+	* testsuite/experimental/tuple/tuple_size.cc: Likewise.
+	* testsuite/experimental/type_traits/value.cc: Likewise.
+
+	* doc/xml/manual/status_cxx2017.xml: Update status of make_from_tuple
+	and variant.
+	* doc/html/*: Regenerate.
+
+2016-08-18  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement the latest proposed resolution of LWG 2756.
+	* include/std/optional (Optional_base(const _Tp&))
+	(Optional_base(_Tp&&), using _Base::_Base): Remove.
+	(optional(nullopt_t)): New.
+	(optional(_Up&&)): Invoke base directly with in_place
+	rather than creating a temporary, add default template
+	argument, change constraints.
+	(optional(const optional<_Up>&)): Invoke base directly
+	with in_place, remove unnecessary constraints.
+	(optional(optional<_Up>&& __t)): Likewise.
+	(optional(in_place_t, _Args&&...)): New.
+	(optional(in_place_t, initializer_list<_Up>, _Args&&...)): Likewise.
+	(operator=(_Up&&)): Add default template argument, change constraints.
+	(operator=(const optional<_Up>&)): Put is_same first in the
+	constraints.
+	(operator=(optional<_Up>&&)): Likewise.
+	* testsuite/20_util/optional/assignment/5.cc: Add a test to
+	verify assignment from something that can't be perfect-forwarded.
+	* testsuite/20_util/optional/cons/value.cc: Add tests to verify
+	that a nested optional is disengaged when constructed
+	from a disengaged element type,	and to verify that assignments
+	from an engaged element type engage the optional.
+
+2016-08-18  Tim Shen  <timshen@google.com>
+
+	Implement <variant>
+
+	* include/Makefile.am: Add new file std/variant.
+	* include/Makefile.in: Generated from Makefile.am.
+	* include/bits/enable_special_members.h: Add a tag type to allow
+	the construction in non-default constructor.
+	* include/bits/uses_allocator.h: Add convenience traits to
+	detect constructibility.
+	* include/std/variant: Implement <variant>.
+	* testsuite/20_util/variant/compile.cc: Compile-time tests.
+	* testsuite/20_util/variant/run.cc: Runtime tests.
+
+2016-08-18  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/test.xml (test.run.permutations): Expand section.
+	(test.new_tests): Rewrite section.
+	(tests.dg.directives): New section.
+	* doc/html/*: Regenerate.
+
+	* doc/xml/manual/test.xml: Improve documentation of test targets.
+	Document new-abi-baseline, check-debug, and check-parallel targets.
+
+	* doc/xml/manual/build_hacking.xml: New section on shared library
+	versioning.
+
+	* doc/xml/manual/build_hacking.xml: Improve markup.
+	* doc/xml/manual/test.xml: Likewise. Change section title from "Test"
+	to "Testing".
+	* doc/xml/faq.xml: Change link text to "Testing".
+
+	* testsuite/tr1/3_function_objects/function/10.cc: Remove unintended
+	dg-options directive.
+
+2016-08-17  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/20_util/reference_wrapper/invoke-2.cc: Fix invalid dg-do
+	directive and use effective target instead of dg-options.
+
+	* testsuite/20_util/hash/chi2_q_bit_flip_set.cc: Use effective target
+	instead of -std in dg-options.
+	* testsuite/20_util/hash/chi2_q_bit_string_set.cc: Likewise.
+	* testsuite/20_util/hash/chi2_q_numeric_pattern_set.cc: Likewise.
+	* testsuite/20_util/hash/chi2_q_uniform_random.cc: Likewise.
+	* testsuite/20_util/hash/quality.cc: Likewise.
+	* testsuite/25_algorithms/heap/moveable.cc: Likewise.
+	* testsuite/25_algorithms/heap/moveable2.cc: Likewise.
+	* testsuite/25_algorithms/nth_element/random_test.cc: Likewise.
+	* testsuite/25_algorithms/partial_sort/random_test.cc: Likewise.
+	* testsuite/25_algorithms/partial_sort_copy/random_test.cc: Likewise.
+	* testsuite/25_algorithms/sort/random_test.cc: Likewise.
+
+	* testsuite/20_util/tuple/67844.cc: Require c++11 effective target.
+	* testsuite/20_util/tuple/cons/nested_tuple_construct.cc: Likewise.
+	* testsuite/27_io/rvalue_streams.cc: Likewise.
+
+	* testsuite/26_numerics/complex/literals/types.cc: Add comment.
+
+	* testsuite/21_strings/basic_string_view/operations/rfind/char/2.cc:
+	Remove duplicate dg-options directive.
+
+	* testsuite/ext/profile/all.cc: Use effective target instead of
+	-std=gnu++11. Use dg-additional-options instead of repeating options.
+
+	* testsuite/20_util/bind/ref_neg.cc: Use effective target instead of
+	-std=gnu++11. Add -fno-show-columns to dg-options. Use dg-prune-output
+	instead of dg-excess-errors.
+
+	* testsuite/26_numerics/headers/cmath/types_std_c++0x_neg.cc: Disable
+	test for C++17.
+	* testsuite/experimental/chrono/value.cc: Avoid ambiguities in C++17.
+	* testsuite/experimental/ratio/value.cc: Likewise.
+	* testsuite/ext/pb_ds/regression/hash_map_rand.cc: Disable test for
+	C++17.
+	* testsuite/ext/pb_ds/regression/hash_set_rand.cc: Likewise.
+	* testsuite/ext/pb_ds/regression/list_update_map_rand.cc: Likewise.
+	* testsuite/ext/pb_ds/regression/list_update_set_rand.cc: Likewise.
+	* testsuite/ext/pb_ds/regression/priority_queue_rand.cc: Likewise.
+	* testsuite/ext/pb_ds/regression/tree_map_rand.cc: Likewise.
+	* testsuite/ext/pb_ds/regression/tree_set_rand.cc: Likewise.
+	* testsuite/ext/pb_ds/regression/trie_map_rand.cc: Likewise.
+	* testsuite/ext/pb_ds/regression/trie_set_rand.cc: Likewise.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	10_cyl_bessel_k/airy.cc: Adjust namespace of __detail::__airy for
+	C++17 compatibility.
+
+	* testsuite/24_iterators/headers/iterator/range_access.cc: Adjust
+	expected signatures for C++14 compatibility.
+
+	PR libstdc++/77264
+	* include/bits/basic_string.h (operator=(__sv_type)
+	(append(__sv_type), assign(__sv_type), insert(size_type, __sv_type))
+	(replace(size_type, size_type, __sv_type))
+	(replace(const_iterator, const_iterator, __sv_type))
+	(find(__sv_type, size_type), rfind(__sv_type, size_type))
+	(compare(size_type, size_type, __sv_type)): Reformat.
+	(_If_sv): Define helper for SFINAE constaints.
+	(append(const _Tp&, size_type, size_type))
+	(assign(const _Tp&, size_type, size_type))
+	(insert(size_type, const _Tp&, size_type, size_type))
+	(replace(size_type, size_type, const _Tp&, size_type, size_type)):
+	Use _If_sv.
+	* testsuite/21_strings/basic_string/modifiers/append/char/4.cc: Test
+	SFINAE constraints.
+	* testsuite/21_strings/basic_string/modifiers/append/wchar_t/4.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/modifiers/replace/char/7.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/modifiers/replace/wchar_t/7.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/modifiers/assign/char/4.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/modifiers/assign/wchar_t/4.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/modifiers/insert/char/3.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/modifiers/insert/wchar_t/3.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/modifiers/replace/char/7.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/operations/compare/char/2.cc:
+	Likewise.
+	* testsuite/21_strings/basic_string/operations/compare/wchar_t/2.cc:
+	Likewise.
+
+2016-08-16  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/72847
+	* include/bits/stl_bvector.h (_Bvector_base::_M_deallocate): Zero
+	pointers to start and end of storage.
+	* testsuite/23_containers/vector/bool/72847.cc: New test.
+	* include/bits/vector.tcc (vector<bool>::_M_reallocate): Only update
+	_M_finish after deallocating.
+	(vector<bool>::_M_fill_insert): Likewise.
+	(vector<bool>::_M_insert_range): Likewise.
+	(vector<bool>::_M_insert_aux): Likewise.
+
+2016-08-15  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement LWG 2744 and LWG 2754.
+	* include/std/any (any(ValueType&&)): Constrain with __is_in_place_type.
+	(any(in_place_type_t<_ValueType>, _Args&&...)): Use _Decay.
+	(any(in_place_type_t<_ValueType>, initializer_list<_Up>, _Args&&...)):
+	Likewise.
+	(emplace(_Args&&...)): Likewise.
+	(emplace(initializer_list<_Up>, _Args&&...)): Likewise.
+	* include/std/utility: (__is_in_place_type_impl): New.
+	(__is_in_place_type): Likewise.
+	* testsuite/20_util/any/assign/emplace.cc: Add tests for decaying
+	emplace.
+	* testsuite/20_util/any/cons/in_place.cc: Add tests for decaying
+	in_place constructor.
+	* testsuite/20_util/any/misc/any_cast_neg.cc: Adjust.
+	* testsuite/20_util/any/requirements.cc: Add a test for
+	in_place-constructing a non-default-constructible type.
+
+2016-08-15  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Add a feature macro for C++17 make_from_tuple.
+	* include/std/tuple (__cpp_lib_make_from_tuple): New.
+	(__make_from_tuple_impl(_Tuple&&, index_sequence<_Idx...>)):
+	Qualify the call to get<>().
+	* testsuite/20_util/tuple/make_from_tuple/1.cc: Adjust.
+
+2016-08-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* src/filesystem/ops.cc: Always include ostream and
+	ext/stdio_filebuf.h.
+	(do_copy_file): Check if _GLIBCXX_USE_FCHMODAT is defined.
+	[_GLIBCXX_USE_SENDFILE]: Fallback to read/write operations in case
+	sendfile fails with ENOSYS or EINVAL.
+
+2016-08-15  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR libstdc++/72840
+	* testsuite/20_util/ratio/cons/cons_overflow_neg.cc: Fix dg-error
+	syntax.
+
+2016-08-11  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement C++17 make_from_tuple.
+	* include/std/tuple (__make_from_tuple_impl, make_from_tuple): New.
+	* testsuite/20_util/tuple/make_from_tuple/1.cc: Likewise.
+
+2016-08-11  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement LWG 2758.
+	* include/bits/basic_string.h
+	(append(__sv_type, size_type, size_type)): Turn into a template,
+	change parameter type, constrain, add a conversion to __sv_type
+	from the dependent parameter type.
+	(assign(__sv_type, size_type, size_type)): Likewise.
+	(insert(size_type, __sv_type, size_type, size_type)): Likewise.
+	(replace(size_type, size_type, __sv_type, size_type, size_type)):
+	Likewise.
+	(compare(size_type, size_type,__sv_type, size_type, size_type)):
+	Likewise.
+	* testsuite/21_strings/basic_string/lwg2758.cc: New.
+
 2016-08-06  Jonathan Wakely  <jwakely@redhat.com>
 
 	* doc/xml/manual/status_cxx2017.xml: Update status table.
