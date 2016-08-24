@@ -92,6 +92,13 @@
   (ior (match_operand 0 "const_imm10_operand")
        (match_operand 0 "register_operand")))
 
+(define_predicate "reg_imm10_uimm12_operand"
+  (ior (and (match_test "ISA_HAS_SEQI")
+	    (match_operand 0 "const_uimm12_operand"))
+       (and (match_test "TARGET_SEQ_SNE_SGE")
+	    (match_operand 0 "const_imm10_operand"))
+       (match_operand 0 "register_operand")))
+
 ;; Choose between 12-bit and 16-bit
 (define_predicate "reg_uimm_operand"
   (ior (and (not (and (match_test "TARGET_MICROMIPS_R7")

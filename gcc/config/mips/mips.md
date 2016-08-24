@@ -6733,16 +6733,22 @@
 
 ;; Generate sltiu unless using seq results in better code.
 (define_insn "*seq_<GPR:mode><GPR2:mode>_seq"
-  [(set (match_operand:GPR2 0 "register_operand" "=d,d,d")
-	(eq:GPR2 (match_operand:GPR 1 "register_operand" "%d,d,d")
-		 (match_operand:GPR 2 "reg_imm10_operand" "d,J,YB")))]
-  "ISA_HAS_SEQ_SNE"
+  [(set (match_operand:GPR2 0 "register_operand" "=d,d,d,d")
+	(eq:GPR2 (match_operand:GPR 1 "register_operand" "%d,d,d,d")
+		 (match_operand:GPR 2 "reg_imm10_uimm12_operand" "d,J,YB,K")))]
+  "ISA_HAS_SEQ_SNE || ISA_HAS_SEQI"
   "@
    sdbbp32 11; # seq\t%0,%1,%2
    sltiu\t%0,%1,1
+   sdbbp32 12; # seqi\t%0,%1,%2
    sdbbp32 12; # seqi\t%0,%1,%2"
   [(set_attr "type" "slt")
-   (set_attr "mode" "<GPR:MODE>")])
+   (set_attr "mode" "<GPR:MODE>")
+   (set (attr "enabled")
+	(cond [(and (eq_attr "alternative" "3")
+		    (match_test "!ISA_HAS_SEQI"))
+		  (const_string "no")]
+	      (const_string "yes")))])
 
 (define_insn "*sne_zero_<GPR:mode><GPR2:mode>"
   [(set (match_operand:GPR2 0 "register_operand" "=d")
