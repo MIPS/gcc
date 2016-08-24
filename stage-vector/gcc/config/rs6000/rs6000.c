@@ -7501,7 +7501,7 @@ rs6000_split_v4si_init (rtx operands[])
 
       for (i = 0; i < 4; i++)
 	{
-	  rtx scalar = operands[1 + ((big_endian_p) ? i : 3 - i)];
+	  rtx scalar = operands[1+i];
 	  rtx dest2;
 
 	  if (CONST_INT_P (scalar))
