@@ -1,3 +1,9 @@
+2016-08-23  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* oacc-parallel.c (GOACC_parallel_keyed): Add offset to devaddrs.
+	* testsuite/libgomp.oacc-c-c++-common/data_offset.c: New test.
+	* testsuite/libgomp.oacc-fortran/data_offset.f90: New test.
+
 2016-08-18  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	Backport from mainline

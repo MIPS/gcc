@@ -235,7 +235,8 @@ GOACC_parallel_keyed (int device, void (*fn) (void *),
     {
       if (tgt->list[i].key != NULL)
 	devaddrs[i] = (void *) (tgt->list[i].key->tgt->tgt_start
-				+ tgt->list[i].key->tgt_offset);
+				+ tgt->list[i].key->tgt_offset
+				+ tgt->list[i].offset);
       else
 	devaddrs[i] = NULL;
     }
