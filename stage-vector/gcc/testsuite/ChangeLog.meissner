@@ -1,3 +1,14 @@
+2016-08-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vec-init-4.c: New runtime tests for vector
+	short and vector char initialization.
+	* gcc.target/powerpc/vec-init-5.c: Likewise.
+	* gcc.target/powerpc/vec-init-6.c: New compile time tests to test
+	ISA 2.07 (power8) 64-bit optimizations to initialize vectors with
+	direct move instead of stores and a load.
+	* gcc.target/powerpc/vec-init-7.c: Likewise.
+	* gcc.target/powerpc/vec-init-8.c: Likewise.
+
 2016-08-23   Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch subversion id 239717
