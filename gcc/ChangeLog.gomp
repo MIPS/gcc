@@ -1,3 +1,13 @@
+2016-08-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_emit_forking, nvptx_emit_joining):
+	Emit insns for calls too.
+	(nvptx_find_par): Always look for worker-level predecessor insn.
+	(nvptx_propagate): Add is_call parm, return bool.  Copy frame for
+	calls.
+	(nvptx_vpropagate, nvptx_wpropagate): Adjust.
+	(nvptx_process_pars): Propagate frames for calls.
+
 2016-08-17  Cesar Philippidis  <cesar@codesourcery.com>
 
 	PR middle-end/70828
