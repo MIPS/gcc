@@ -1,5 +1,11 @@
 2016-08-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/vsx.md (vsx_splat_v4si_mem): Replace with a more
+	general insn to covert storing splated vector elements.
+	(SPLAT_ST): Likewise.
+	(SPLAT_REG): Likewise.
+	(vsx_splat_<mode>_mem): Likewise.
+
 	* config/rs6000/vsx.md (vsx_concat_<mode>_memory): Delete.
 	(vsx_splat_v4si_mem): New combiner insn to short circuit building
 	a V4SI if the V4SI initialization is in memory.

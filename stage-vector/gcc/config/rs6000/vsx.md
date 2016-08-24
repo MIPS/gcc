@@ -2730,33 +2730,6 @@
    mtvsrws %x0,%1"
   [(set_attr "type" "vecperm")])
 
-;; V4SI splat where the target is a memory address
-(define_insn_and_split "*vsx_splat_v4si_mem"
-  [(set (match_operand:V4SI 0 "memory_operand" "=m")
-	(vec_duplicate:V4SI
-	 (match_operand:SI 1 "gpc_reg_operand" "r")))
-   (clobber (match_scratch:DI 2 "=&b"))]
-   "VECTOR_MEM_VSX_P (V4SImode) && TARGET_DIRECT_MOVE_64BIT"
-   "#"
-   "&& reload_completed"
-   [(const_int 0)]
-{
-  /* Use the normal v4si initialization code with the the same register
-     duplicated as 4 separate arguments.  */
-  rtx op1 = operands[1];
-  rtx xoperands[6];
-
-  xoperands[0] = operands[0];
-  xoperands[1] = op1;
-  xoperands[2] = op1;
-  xoperands[3] = op1;
-  xoperands[4] = op1;
-  xoperands[5] = operands[2];
-  xoperands[6] = NULL_RTX;
-  rs6000_split_v4si_init (xoperands);
-  DONE;
-})
-
 ;; V4SF splat (ISA 3.0)
 (define_insn_and_split "vsx_splat_v4sf"
   [(set (match_operand:V4SF 0 "vsx_register_operand" "=wa,wa,wa")
@@ -2812,6 +2785,50 @@
   "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_DIRECT_MOVE_64BIT"
   "vsplt<VSX_SPLAT_SUFFIX> %0,%1,<VSX_SPLAT_COUNT>"
   [(set_attr "type" "vecperm")])
+
+;; Optimize splats where the target is a memory address
+(define_mode_iterator SPLAT_ST  [V16QI V8HI V4SI V4SF V2DI V2DF])
+(define_mode_attr     SPLAT_REG [(V16QI "r")
+				 (V8HI  "r")
+				 (V4SI  "r")
+				 (V4SF  "dwbr")
+				 (V2DI  "rdwb")
+				 (V2DF  "dwbr")])
+
+(define_insn_and_split "*vsx_splat_<mode>_mem"
+  [(set (match_operand:SPLAT_ST 0 "memory_operand" "=m")
+	(vec_duplicate:SPLAT_ST
+	 (match_operand:<VS_scalar> 1 "gpc_reg_operand" "<SPLAT_REG>")))
+   (clobber (match_scratch:DI 2 "=&b"))]
+   "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_DIRECT_MOVE_64BIT"
+   "#"
+   "&& reload_completed"
+   [(const_int 0)]
+{
+  rtx dest = operands[0];
+  rtx src = operands[1];
+  rtx base_reg = operands[2];
+  rtx addr = XEXP (dest, 0);
+  machine_mode s_mode = <VS_scalar>mode;
+  size_t ele_num = GET_MODE_NUNITS (<MODE>mode);
+  size_t ele_size = GET_MODE_UNIT_SIZE (<MODE>mode);
+  size_t i;
+
+  /* Build up consecutive stores in order.  If we don't have a simple
+     indirect or d-form address, move the address into the base register
+     temporary.  */
+  if (!REG_P (addr)
+      && !rs6000_legitimate_offset_address_p (s_mode, addr, true, true))
+    {
+      emit_move_insn (base_reg, addr);
+      dest = change_address (dest, <MODE>mode, base_reg);
+    }
+
+  for (i = 0; i < ele_num; i++)
+    emit_move_insn (adjust_address (copy_rtx (dest), s_mode, ele_size*i), src);
+
+  DONE;
+})
 
 ;; V2DF/V2DI splat for use by vec_splat builtin
 (define_insn "vsx_xxspltd_<mode>"
