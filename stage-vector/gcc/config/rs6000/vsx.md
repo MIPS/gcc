@@ -1957,36 +1957,59 @@
 }
   [(set_attr "type" "vecperm")])
 
-(define_mode_attr CONCAT1 [(V2DF "ws") (V2DI "r")])
-(define_mode_attr CONCAT2 [(V2DF "r")  (V2DI "wi")])
-
 ;; Optimize doing a concat and storing the result in memory
 (define_insn_and_split "*vsx_concat_<mode>_memory"
-  [(set (match_operand:VSX_D 0 "memory_operand" "=m,m")
+  [(set (match_operand:VSX_D 0 "memory_operand" "=m,?m,?m")
 	(vec_concat:VSX_D
-	 (match_operand:<VS_scalar> 1 "gpc_reg_operand" "<CONCAT1>,<CONCAT2>")
-	 (match_operand:<VS_scalar> 2 "gpc_reg_operand" "<CONCAT1>,<CONCAT2>")))
-   (clobber (match_scratch:DI 3 "=&b,&b"))]
+	 (match_operand:<VS_scalar> 1 "gpc_reg_operand" "rdwb,wv,r<Fv>")
+	 (match_operand:<VS_scalar> 2 "gpc_reg_operand" "rdwb,r<Fv>,wv")))
+   (clobber (match_scratch:DI 3 "=&b,&b,&b"))]
    "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_POWERPC64"
    "#"
    "&& reload_completed"
    [(const_int 0)]
 {
   rtx mem = operands[0];
-  rtx op1 = operands[1];
-  rtx op2 = operands[2];
+  rtx reg_hi = operands[1];
+  rtx reg_lo = operands[2];
+  rtx addr = XEXP (mem, 0);
   rtx tmp = operands[3];
-  rtx index, s_mem, mem1, mem2;
+  machine_mode s_mode = <VS_scalar>mode;
 
-  index = GEN_INT (VECTOR_ELT_ORDER_BIG != 0);
-  mem1 = copy_rtx (mem);
-  s_mem = rs6000_adjust_vec_address (op1, mem1, index, tmp, <VS_scalar>mode);
-  emit_move_insn (s_mem, op1);
+  if (which_alternative == 0)
+    {
+      /* Both of the registers can use d-form (reg+offset) addressing.  If the
+	 address is not a simple d-form address, move it into the base
+	 register temporary.  */
+      if (!REG_P (addr)
+	  && !rs6000_legitimate_offset_address_p (s_mode, addr, true, true))
+	{
+	  emit_move_insn (tmp, addr);
+	  mem = change_address (mem, <MODE>mode, tmp);
+	}
 
-  index = GEN_INT (VECTOR_ELT_ORDER_BIG == 0);
-  mem2 = copy_rtx (mem);
-  s_mem = rs6000_adjust_vec_address (op2, mem2, index, tmp, <VS_scalar>mode);
-  emit_move_insn (s_mem, op2);
+     if (!VECTOR_ELT_ORDER_BIG)
+	std::swap (reg_hi, reg_lo);
+
+      emit_move_insn (adjust_address (copy_rtx (mem), s_mode, 0), reg_hi);
+      emit_move_insn (adjust_address (copy_rtx (mem), s_mode, 8), reg_lo);
+    }
+  else
+    {
+      /* One or both registers are Altivec registers and we don't have the ISA
+	 3.0 d-form scalar instructions.  Use the base register temporary
+	 to create each separate move.  */
+      rtx mem1, mem2;
+
+      mem1 = copy_rtx (mem);
+      mem2 = rs6000_adjust_vec_address (reg_hi, mem1, const0_rtx, tmp, s_mode);
+      emit_move_insn (mem2, reg_hi);
+
+      mem1 = copy_rtx (mem);
+      mem2 = rs6000_adjust_vec_address (reg_lo, mem1, const1_rtx, tmp, s_mode);
+      emit_move_insn (mem2, reg_lo);
+    }
+
   DONE;
 })
 

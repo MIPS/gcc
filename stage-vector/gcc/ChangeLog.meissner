@@ -1,3 +1,18 @@
+2016-08-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_split_v4si_init): Generate 4
+	d-form stores in order if the V4SI initialization targets a memory
+	address.
+
+	* config/rs6000/vsx.md (CONCAT1): Delete.
+	(CONCAT2): Delete.
+	(vsx_concat_<mode>_memory): Use D-FORM addressing if we can.
+
+	* config/rs6000/rs6000.md (peephole2): Add a peephole2 case to
+	match loading up a register with a constant integer, and then
+	adding that register.  This shows up in vector initialization on
+	pre-ISA 3.0 systems.
+
 2016-08-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vsx.md (CONCAT1): New mode attributes.

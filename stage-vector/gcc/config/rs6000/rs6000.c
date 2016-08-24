@@ -7485,12 +7485,24 @@ rs6000_split_v4si_init (rtx operands[])
     {
       rtx base_reg = operands[5];
       rtx const_tmp = operands[6];
+      rtx addr = XEXP (dest, 0);
+      bool big_endian_p = VECTOR_ELT_ORDER_BIG;
       size_t i;
+
+      /* Build up 4 consecutive stores in order.  If we don't have a simple
+	 indirect or d-form address, move the address into the base register
+	 temporary.  */
+      if (!REG_P (addr)
+	  && !rs6000_legitimate_offset_address_p (SImode, addr, true, true))
+	{
+	  emit_move_insn (base_reg, addr);
+	  dest = change_address (dest, V4SImode, base_reg);
+	}
 
       for (i = 0; i < 4; i++)
 	{
-	  rtx scalar = operands[i+1];
-	  rtx s_mem;
+	  rtx scalar = operands[1 + ((big_endian_p) ? i : 3 - i)];
+	  rtx dest2;
 
 	  if (CONST_INT_P (scalar))
 	    {
@@ -7498,9 +7510,8 @@ rs6000_split_v4si_init (rtx operands[])
 	      scalar = const_tmp;
 	    }
 
-	  s_mem = rs6000_adjust_vec_address (scalar, copy_rtx (dest),
-					     GEN_INT (i), base_reg, SImode);
-	  emit_move_insn (s_mem, scalar);
+	  dest2 = copy_rtx (dest);
+	  emit_move_insn (adjust_address (dest2, SImode, 4*i), scalar);
 	}
     }
 
