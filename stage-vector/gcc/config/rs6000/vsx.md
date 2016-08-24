@@ -1957,14 +1957,17 @@
 }
   [(set_attr "type" "vecperm")])
 
+(define_mode_attr CONCAT1 [(V2DF "ws") (V2DI "r")])
+(define_mode_attr CONCAT2 [(V2DF "r")  (V2DI "wi")])
+
 ;; Optimize doing a concat and storing the result in memory
 (define_insn_and_split "*vsx_concat_<mode>_memory"
-  [(set (match_operand:VSX_D 0 "memory_operand" "=m")
+  [(set (match_operand:VSX_D 0 "memory_operand" "=m,m")
 	(vec_concat:VSX_D
-	 (match_operand:<VS_scalar> 1 "gpc_reg_operand" "r<VS_64reg>")
-	 (match_operand:<VS_scalar> 2 "gpc_reg_operand" "r<VS_64reg>")))
-   (clobber (match_scratch:DI 3 "=&b"))]
-   "0 && VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_POWERPC64"
+	 (match_operand:<VS_scalar> 1 "gpc_reg_operand" "<CONCAT1>,<CONCAT2>")
+	 (match_operand:<VS_scalar> 2 "gpc_reg_operand" "<CONCAT1>,<CONCAT2>")))
+   (clobber (match_scratch:DI 3 "=&b,&b"))]
+   "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_POWERPC64"
    "#"
    "&& reload_completed"
    [(const_int 0)]
