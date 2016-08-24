@@ -1957,62 +1957,6 @@
 }
   [(set_attr "type" "vecperm")])
 
-;; Optimize doing a concat and storing the result in memory
-(define_insn_and_split "*vsx_concat_<mode>_memory"
-  [(set (match_operand:VSX_D 0 "memory_operand" "=m,?m,?m")
-	(vec_concat:VSX_D
-	 (match_operand:<VS_scalar> 1 "gpc_reg_operand" "rdwb,wv,r<Fv>")
-	 (match_operand:<VS_scalar> 2 "gpc_reg_operand" "rdwb,r<Fv>,wv")))
-   (clobber (match_scratch:DI 3 "=&b,&b,&b"))]
-   "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_POWERPC64"
-   "#"
-   "&& reload_completed"
-   [(const_int 0)]
-{
-  rtx mem = operands[0];
-  rtx reg_hi = operands[1];
-  rtx reg_lo = operands[2];
-  rtx addr = XEXP (mem, 0);
-  rtx tmp = operands[3];
-  machine_mode s_mode = <VS_scalar>mode;
-
-  if (which_alternative == 0)
-    {
-      /* Both of the registers can use d-form (reg+offset) addressing.  If the
-	 address is not a simple d-form address, move it into the base
-	 register temporary.  */
-      if (!REG_P (addr)
-	  && !rs6000_legitimate_offset_address_p (s_mode, addr, true, true))
-	{
-	  emit_move_insn (tmp, addr);
-	  mem = change_address (mem, <MODE>mode, tmp);
-	}
-
-     if (!VECTOR_ELT_ORDER_BIG)
-	std::swap (reg_hi, reg_lo);
-
-      emit_move_insn (adjust_address (copy_rtx (mem), s_mode, 0), reg_hi);
-      emit_move_insn (adjust_address (copy_rtx (mem), s_mode, 8), reg_lo);
-    }
-  else
-    {
-      /* One or both registers are Altivec registers and we don't have the ISA
-	 3.0 d-form scalar instructions.  Use the base register temporary
-	 to create each separate move.  */
-      rtx mem1, mem2;
-
-      mem1 = copy_rtx (mem);
-      mem2 = rs6000_adjust_vec_address (reg_hi, mem1, const0_rtx, tmp, s_mode);
-      emit_move_insn (mem2, reg_hi);
-
-      mem1 = copy_rtx (mem);
-      mem2 = rs6000_adjust_vec_address (reg_lo, mem1, const1_rtx, tmp, s_mode);
-      emit_move_insn (mem2, reg_lo);
-    }
-
-  DONE;
-})
-
 ;; Special purpose concat using xxpermdi to glue two single precision values
 ;; together, relying on the fact that internally scalar floats are represented
 ;; as doubles.  This is used to initialize a V4SF vector with 4 floats
@@ -2785,6 +2729,33 @@
    xxspltw %x0,%x1,1
    mtvsrws %x0,%1"
   [(set_attr "type" "vecperm")])
+
+;; V4SI splat where the target is a memory address
+(define_insn_and_split "*vsx_splat_v4si_mem"
+  [(set (match_operand:V4SI 0 "memory_operand" "=m")
+	(vec_duplicate:V4SI
+	 (match_operand:SI 1 "gpc_reg_operand" "r")))
+   (clobber (match_scratch:DI 2 "=&b"))]
+   "VECTOR_MEM_VSX_P (V4SImode) && TARGET_DIRECT_MOVE_64BIT"
+   "#"
+   "&& reload_completed"
+   [(const_int 0)]
+{
+  /* Use the normal v4si initialization code with the the same register
+     duplicated as 4 separate arguments.  */
+  rtx op1 = operands[1];
+  rtx xoperands[6];
+
+  xoperands[0] = operands[0];
+  xoperands[1] = op1;
+  xoperands[2] = op1;
+  xoperands[3] = op1;
+  xoperands[4] = op1;
+  xoperands[5] = operands[2];
+  xoperands[6] = NULL_RTX;
+  rs6000_split_v4si_init (xoperands);
+  DONE;
+})
 
 ;; V4SF splat (ISA 3.0)
 (define_insn_and_split "vsx_splat_v4sf"

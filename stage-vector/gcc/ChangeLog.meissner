@@ -1,5 +1,9 @@
 2016-08-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/vsx.md (vsx_concat_<mode>_memory): Delete.
+	(vsx_splat_v4si_mem): New combiner insn to short circuit building
+	a V4SI if the V4SI initialization is in memory.
+
 	* config/rs6000/rs6000.c (rs6000_split_v4si_init): Generate 4
 	d-form stores in order if the V4SI initialization targets a memory
 	address.
