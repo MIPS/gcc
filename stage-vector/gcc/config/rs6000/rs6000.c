@@ -7486,7 +7486,6 @@ rs6000_split_v4si_init (rtx operands[])
       rtx base_reg = operands[5];
       rtx const_tmp = operands[6];
       rtx addr = XEXP (dest, 0);
-      bool big_endian_p = VECTOR_ELT_ORDER_BIG;
       size_t i;
 
       /* Build up 4 consecutive stores in order.  If we don't have a simple
