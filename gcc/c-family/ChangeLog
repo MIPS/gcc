@@ -1,4 +1,14 @@
-2016-07-22  Joseph Myers  <joseph@codesourcery.com>
+2016-08-22  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/77321
+	* c-common.c (warn_for_memset): Check type for null.
+
+2016-08-22  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-family/c-cppbuiltin.c (c_cpp_builtins): Check _FloatN and
+	_FloatNx types for suffixes for built-in functions.
+
+2016-08-19  Joseph Myers  <joseph@codesourcery.com>
 
 	PR c/32187
 	* c-common.h (RID_FLOAT16, RID_FLOATN_NX_FIRST, RID_FLOAT32)
@@ -22,6 +32,53 @@
 	constants.
 	* c-pretty-print.c (pp_c_floating_constant): Handle _FloatN and
 	_FloatNx types.
+
+2016-08-18  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-opts.c (c_diagnostic_finalizer): Update for change to
+	diagnostic_show_locus.
+
+2016-08-18  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-common.c: Include "spellcheck.h".
+	(cb_get_suggestion): New function.
+	* c-common.h (cb_get_suggestion): New decl.
+	* c-lex.c (init_c_lex): Initialize cb->get_suggestion to
+	cb_get_suggestion.
+
+2016-08-18  Marek Polacek  <polacek@redhat.com>
+
+	PR c/71514
+	* c-common.c (get_atomic_generic_size): Disallow pointer-to-function
+	and pointer-to-VLA.
+
+2016-08-16  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/72857
+	* c-common.c (substring_loc::get_range): Rename to...
+	(substring_loc::get_location): ...this, converting param from a
+	source_range * to a location_t *.  Call
+	get_source_location_for_substring rather than
+	get_source_range_for_substring, and pass in m_caret_idx.
+	* c-common.h (substring_loc::substring_loc): Add param "caret_idx".
+	(substring_loc::get_range): Replace with...
+	(substring_loc::get_location): ...this.
+	(substring_loc::set_caret_index): New method.
+	(substring_loc): Add field m_caret_idx.
+	* c-format.c (format_warning_va): Update for above changes.
+	Rename local "substring_loc" to "fmt_substring_loc" to avoid
+	clashing with type name.
+	(format_warning_at_char): Add caret_idx param to substring_loc ctor.
+	(check_argument_type): Likewise.
+	(format_type_warning): Rename param "fmt_loc" to "whole_fmt_loc"
+	Use a copy when emitting warnings, setting the caret index from TYPE.
+
+2016-08-16  Eric Botcazou  <ebotcazou@adacore.com>
+            Arnaud Charlet  <charlet@adacore.com>
+
+	* c-ada-spec.c (dump_number): New function.
+	(handle_escape_character): Likewise.
+	(print_ada_macros): Add handling of constant integers and strings.
 
 2016-08-12  Marek Polacek  <polacek@redhat.com>
 

@@ -1235,7 +1235,7 @@ get_dynamic_stack_size (rtx *psize, unsigned size_align,
     size_align = BITS_PER_UNIT;
 
   /* Round the size to a multiple of the required stack alignment.
-     Since the stack if presumed to be rounded before this allocation,
+     Since the stack is presumed to be rounded before this allocation,
      this will maintain the required alignment.
 
      If the stack grows downward, we could save an insn by subtracting

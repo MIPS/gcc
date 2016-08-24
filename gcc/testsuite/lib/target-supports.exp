@@ -2437,45 +2437,129 @@ proc check_effective_target_has_q_floating_suffix { } {
 # indicated in the function name, 0 otherwise.
 
 proc check_effective_target_float16 {} {
-    return [check_no_compiler_messages float16 object {
+    return [check_no_compiler_messages_nocache float16 object {
         _Float16 x;
     }]
 }
 
 proc check_effective_target_float32 {} {
-    return [check_no_compiler_messages float32 object {
+    return [check_no_compiler_messages_nocache float32 object {
         _Float32 x;
     }]
 }
 
 proc check_effective_target_float64 {} {
-    return [check_no_compiler_messages float64 object {
+    return [check_no_compiler_messages_nocache float64 object {
         _Float64 x;
     }]
 }
 
 proc check_effective_target_float128 {} {
-    return [check_no_compiler_messages float128 object {
+    return [check_no_compiler_messages_nocache float128 object {
         _Float128 x;
     }]
 }
 
 proc check_effective_target_float32x {} {
-    return [check_no_compiler_messages float32x object {
+    return [check_no_compiler_messages_nocache float32x object {
         _Float32x x;
     }]
 }
 
 proc check_effective_target_float64x {} {
-    return [check_no_compiler_messages float64x object {
+    return [check_no_compiler_messages_nocache float64x object {
         _Float64x x;
     }]
 }
 
 proc check_effective_target_float128x {} {
-    return [check_no_compiler_messages float128x object {
+    return [check_no_compiler_messages_nocache float128x object {
         _Float128x x;
     }]
+}
+
+# Likewise, but runtime support for any special options used as well
+# as compile-time support is required.
+
+proc check_effective_target_float16_runtime {} {
+    return [check_effective_target_float16]
+}
+
+proc check_effective_target_float32_runtime {} {
+    return [check_effective_target_float32]
+}
+
+proc check_effective_target_float64_runtime {} {
+    return [check_effective_target_float64]
+}
+
+proc check_effective_target_float128_runtime {} {
+    if { ![check_effective_target_float128] } {
+	return 0
+    }
+    if { [istarget powerpc*-*-*] } {
+	return [check_effective_target_base_quadfloat_support]
+    }
+    return 1
+}
+
+proc check_effective_target_float32x_runtime {} {
+    return [check_effective_target_float32x]
+}
+
+proc check_effective_target_float64x_runtime {} {
+    if { ![check_effective_target_float64x] } {
+	return 0
+    }
+    if { [istarget powerpc*-*-*] } {
+	return [check_effective_target_base_quadfloat_support]
+    }
+    return 1
+}
+
+proc check_effective_target_float128x_runtime {} {
+    return [check_effective_target_float128x]
+}
+
+# Return 1 if the target hardware supports any options added for
+# _FloatN and _FloatNx types, 0 otherwise.
+
+proc check_effective_target_floatn_nx_runtime {} {
+    if { [istarget powerpc*-*-*] } {
+	return [check_effective_target_base_quadfloat_support]
+    }
+    return 1
+}
+
+# Add options needed to use the _FloatN / _FloatNx type indicated in
+# the function name.
+
+proc add_options_for_float16 { flags } {
+    return "$flags"
+}
+
+proc add_options_for_float32 { flags } {
+    return "$flags"
+}
+
+proc add_options_for_float64 { flags } {
+    return "$flags"
+}
+
+proc add_options_for_float128 { flags } {
+    return [add_options_for___float128 "$flags"]
+}
+
+proc add_options_for_float32x { flags } {
+    return "$flags"
+}
+
+proc add_options_for_float64x { flags } {
+    return [add_options_for___float128 "$flags"]
+}
+
+proc add_options_for_float128x { flags } {
+    return "$flags"
 }
 
 # Return 1 if the target supports __float128,
@@ -5225,32 +5309,22 @@ proc check_effective_target_vect_hw_misalign { } {
 
 # Return 1 if arrays are aligned to the vector alignment
 # boundary, 0 otherwise.
-#
-# This won't change for different subtargets so cache the result.
 
 proc check_effective_target_vect_aligned_arrays { } {
-    global et_vect_aligned_arrays_saved
-    global et_index
-
-    if [info exists et_vect_aligned_arrays_saved($et_index)] {
-	verbose "check_effective_target_vect_aligned_arrays:\
-		 using cached result" 2
-    } else {
-	set et_vect_aligned_arrays_saved($et_index) 0
-        if { ([istarget x86_64-*-*] || [istarget i?86-*-*]) } {
-	    if { ([is-effective-target lp64]
-	          && ( ![check_avx_available]
-		     || [check_prefer_avx128])) } {
-		 set et_vect_aligned_arrays_saved($et_index) 1
-	    }
-	}
-        if [istarget spu-*-*] {
-	    set et_vect_aligned_arrays_saved($et_index) 1
+    set et_vect_aligned_arrays 0
+    if { ([istarget x86_64-*-*] || [istarget i?86-*-*]) } {
+	if { ([is-effective-target lp64]
+	      && ( ![check_avx_available]
+		 || [check_prefer_avx128])) } {
+	     set et_vect_aligned_arrays 1
 	}
     }
+    if [istarget spu-*-*] {
+	set et_vect_aligned_arrays 1
+    }
     verbose "check_effective_target_vect_aligned_arrays:\
-	     returning $et_vect_aligned_arrays_saved($et_index)" 2
-    return $et_vect_aligned_arrays_saved($et_index)
+	     returning $et_vect_aligned_arrays" 2
+    return $et_vect_aligned_arrays
 }
 
 # Return 1 if types of size 32 bit or less are naturally aligned
@@ -5266,7 +5340,8 @@ proc check_effective_target_natural_alignment_32 { } {
     } else {
         # FIXME: 32bit powerpc: guaranteed only if MASK_ALIGN_NATURAL/POWER.
         set et_natural_alignment_32_saved 1
-        if { ([istarget *-*-darwin*] && [is-effective-target lp64]) } {
+        if { ([istarget *-*-darwin*] && [is-effective-target lp64])
+             || [istarget avr-*-*] } {
             set et_natural_alignment_32_saved 0
         }
     }
@@ -5297,74 +5372,43 @@ proc check_effective_target_natural_alignment_64 { } {
 
 # Return 1 if all vector types are naturally aligned (aligned to their
 # type-size), 0 otherwise.
-#
-# This won't change for different subtargets so cache the result.
 
 proc check_effective_target_vect_natural_alignment { } {
-    global et_vect_natural_alignment_saved
-    global et_index
-
-    if [info exists et_vect_natural_alignment_saved($et_index)] {
-        verbose "check_effective_target_vect_natural_alignment: using cached result" 2
-    } else {
-	set et_vect_natural_alignment_saved($et_index) 1
-        if { [check_effective_target_arm_eabi]
-	     || [istarget nvptx-*-*]
-	     || [istarget s390*-*-*] } {
-	    set et_vect_natural_alignment_saved($et_index) 0
-        }
+    set et_vect_natural_alignment 1
+    if { [check_effective_target_arm_eabi]
+	 || [istarget nvptx-*-*]
+	 || [istarget s390*-*-*] } {
+	set et_vect_natural_alignment 0
     }
     verbose "check_effective_target_vect_natural_alignment:\
-	     returning $et_vect_natural_alignment_saved($et_index)" 2
-    return $et_vect_natural_alignment_saved($et_index)
+	     returning $et_vect_natural_alignment" 2
+    return $et_vect_natural_alignment
 }
 
 # Return 1 if vector alignment (for types of size 32 bit or less) is reachable, 0 otherwise.
-#
-# This won't change for different subtargets so cache the result.
 
 proc check_effective_target_vector_alignment_reachable { } {
-    global et_vector_alignment_reachable_saved
-    global et_index
-
-    if [info exists et_vector_alignment_reachable_saved($et_index)] {
-	verbose "check_effective_target_vector_alignment_reachable:\
-		 using cached result" 2
-    } else {
-        if { [check_effective_target_vect_aligned_arrays]
-             || [check_effective_target_natural_alignment_32] } {
-	    set et_vector_alignment_reachable_saved($et_index) 1
-        } else {
-	    set et_vector_alignment_reachable_saved($et_index) 0
-        }
+    set et_vector_alignment_reachable 0
+    if { [check_effective_target_vect_aligned_arrays]
+	 || [check_effective_target_natural_alignment_32] } {
+	set et_vector_alignment_reachable 1
     }
     verbose "check_effective_target_vector_alignment_reachable:\
-	     returning $et_vector_alignment_reachable_saved($et_index)" 2
-    return $et_vector_alignment_reachable_saved($et_index)
+	     returning $et_vector_alignment_reachable" 2
+    return $et_vector_alignment_reachable
 }
 
 # Return 1 if vector alignment for 64 bit is reachable, 0 otherwise.
-#
-# This won't change for different subtargets so cache the result.
 
 proc check_effective_target_vector_alignment_reachable_for_64bit { } {
-    global et_vector_alignment_reachable_for_64bit_saved
-    global et_index
-
-    if [info exists et_vector_alignment_reachable_for_64bit_saved($et_index)] {
-	verbose "check_effective_target_vector_alignment_reachable_for_64bit:\
-		 using cached result" 2
-    } else {
-        if { [check_effective_target_vect_aligned_arrays] 
-             || [check_effective_target_natural_alignment_64] } {
-	    set et_vector_alignment_reachable_for_64bit_saved($et_index) 1
-        } else {
-	    set et_vector_alignment_reachable_for_64bit_saved($et_index) 0
-        }
+    set et_vector_alignment_reachable_for_64bit 0
+    if { [check_effective_target_vect_aligned_arrays] 
+	 || [check_effective_target_natural_alignment_64] } {
+	set et_vector_alignment_reachable_for_64bit 1
     }
     verbose "check_effective_target_vector_alignment_reachable_for_64bit:\
-	 returning $et_vector_alignment_reachable_for_64bit_saved($et_index)" 2
-    return $et_vector_alignment_reachable_for_64bit_saved($et_index)
+	     returning $et_vector_alignment_reachable_for_64bit" 2
+    return $et_vector_alignment_reachable_for_64bit
 }
 
 # Return 1 if the target only requires element alignment for vector accesses

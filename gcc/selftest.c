@@ -87,6 +87,66 @@ selftest::assert_streq (const location &loc,
 	 desc_expected, desc_actual, val_expected, val_actual);
 }
 
+/* Implementation detail of ASSERT_STR_CONTAINS.
+   Use strstr to determine if val_needle is is within val_haystack.
+   ::selftest::pass if it is found.
+   ::selftest::fail if it is not found.  */
+
+void
+selftest::assert_str_contains (const location &loc,
+			       const char *desc_haystack,
+			       const char *desc_needle,
+			       const char *val_haystack,
+			       const char *val_needle)
+{
+  /* If val_haystack is NULL, fail with a custom error message.  */
+  if (val_haystack == NULL)
+    ::selftest::fail_formatted
+	(loc, "ASSERT_STR_CONTAINS (%s, %s) haystack=NULL",
+	 desc_haystack, desc_needle);
+
+  /* If val_needle is NULL, fail with a custom error message.  */
+  if (val_needle == NULL)
+    ::selftest::fail_formatted
+	(loc, "ASSERT_STR_CONTAINS (%s, %s) haystack=\"%s\" needle=NULL",
+	 desc_haystack, desc_needle, val_haystack);
+
+  const char *test = strstr (val_haystack, val_needle);
+  if (test)
+    ::selftest::pass (loc, "ASSERT_STR_CONTAINS");
+  else
+    ::selftest::fail_formatted
+	(loc, "ASSERT_STR_CONTAINS (%s, %s) haystack=\"%s\" needle=\"%s\"",
+	 desc_haystack, desc_needle, val_haystack, val_needle);
+}
+
+/* Constructor.  Create a tempfile using SUFFIX, and write CONTENT to
+   it.  Abort if anything goes wrong, using LOC as the effective
+   location in the problem report.  */
+
+selftest::temp_source_file::temp_source_file (const location &loc,
+					      const char *suffix,
+					      const char *content)
+{
+  m_filename = make_temp_file (suffix);
+  ASSERT_NE (m_filename, NULL);
+
+  FILE *out = fopen (m_filename, "w");
+  if (!out)
+    ::selftest::fail_formatted (loc, "unable to open tempfile: %s",
+				m_filename);
+  fprintf (out, "%s", content);
+  fclose (out);
+}
+
+/* Destructor.  Delete the tempfile.  */
+
+selftest::temp_source_file::~temp_source_file ()
+{
+  unlink (m_filename);
+  diagnostics_file_cache_forcibly_evict_file (m_filename);
+  free (m_filename);
+}
 
 /* Selftests for the selftest system itself.  */
 
@@ -104,6 +164,7 @@ test_assertions ()
   ASSERT_NE (1, 2);
   ASSERT_STREQ ("test", "test");
   ASSERT_STREQ_AT (SELFTEST_LOCATION, "test", "test");
+  ASSERT_STR_CONTAINS ("foo bar baz", "bar");
 }
 
 /* Run all of the selftests within this file.  */

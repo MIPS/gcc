@@ -1486,23 +1486,14 @@ vect_analyze_loop_form_1 (struct loop *loop, gcond **loop_cond,
       return false;
     }
 
-  /* Make sure there exists a single-predecessor exit bb:  */
-  if (!single_pred_p (single_exit (loop)->dest))
+  /* Make sure the exit is not abnormal.  */
+  edge e = single_exit (loop);
+  if (e->flags & EDGE_ABNORMAL)
     {
-      edge e = single_exit (loop);
-      if (!(e->flags & EDGE_ABNORMAL))
-	{
-	  split_loop_exit_edge (e);
-	  if (dump_enabled_p ())
-	    dump_printf (MSG_NOTE, "split exit edge.\n");
-	}
-      else
-	{
-	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "not vectorized: abnormal loop exit edge.\n");
-	  return false;
-	}
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			 "not vectorized: abnormal loop exit edge.\n");
+      return false;
     }
 
   *loop_cond = vect_get_loop_niters (loop, assumptions, number_of_iterations,
@@ -5444,7 +5435,7 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
   auto_vec<tree> vect_defs;
   auto_vec<gimple *> phis;
   int vec_num;
-  tree def0, def1, tem, op0, op1 = NULL_TREE;
+  tree def0, def1, tem, op1 = NULL_TREE;
   bool first_p = true;
   tree cr_index_scalar_type = NULL_TREE, cr_index_vector_type = NULL_TREE;
   tree cond_reduc_val = NULL_TREE, const_cond_cmp = NULL_TREE;
@@ -6090,29 +6081,36 @@ vectorizable_reduction (gimple *stmt, gimple_stmt_iterator *gsi,
       /* Handle uses.  */
       if (j == 0)
         {
-          op0 = ops[!reduc_index];
-          if (op_type == ternary_op)
-            {
-              if (reduc_index == 0)
-                op1 = ops[2];
-              else
-                op1 = ops[1];
-            }
+	  if (slp_node)
+	    {
+	      /* Get vec defs for all the operands except the reduction index,
+		ensuring the ordering of the ops in the vector is kept.  */
+	      auto_vec<tree, 3> slp_ops;
+	      auto_vec<vec<tree>, 3> vec_defs;
 
-          if (slp_node)
-            vect_get_vec_defs (op0, op1, stmt, &vec_oprnds0, &vec_oprnds1,
-                               slp_node, -1);
+	      slp_ops.quick_push ((reduc_index == 0) ? NULL : ops[0]);
+	      slp_ops.quick_push ((reduc_index == 1) ? NULL : ops[1]);
+	      if (op_type == ternary_op)
+		slp_ops.quick_push ((reduc_index == 2) ? NULL : ops[2]);
+
+	      vect_get_slp_defs (slp_ops, slp_node, &vec_defs, -1);
+
+	      vec_oprnds0.safe_splice (vec_defs[(reduc_index == 0) ? 1 : 0]);
+	      if (op_type == ternary_op)
+		vec_oprnds1.safe_splice (vec_defs[(reduc_index == 2) ? 1 : 2]);
+	    }
           else
-            {
+	    {
               loop_vec_def0 = vect_get_vec_def_for_operand (ops[!reduc_index],
                                                             stmt);
               vec_oprnds0.quick_push (loop_vec_def0);
               if (op_type == ternary_op)
                {
+		 op1 = (reduc_index == 0) ? ops[2] : ops[1];
                  loop_vec_def1 = vect_get_vec_def_for_operand (op1, stmt);
                  vec_oprnds1.quick_push (loop_vec_def1);
                }
-            }
+	    }
         }
       else
         {
@@ -6752,6 +6750,16 @@ vect_transform_loop (loop_vec_info loop_vinfo)
       check_profitability = true;
     }
 
+  /* Make sure there exists a single-predecessor exit bb.  Do this before 
+     versioning.   */
+  edge e = single_exit (loop);
+  if (! single_pred_p (e->dest))
+    {
+      split_loop_exit_edge (e);
+      if (dump_enabled_p ())
+	dump_printf (MSG_NOTE, "split exit edge\n");
+    }
+
   /* Version the loop first, if required, so the profitability check
      comes first.  */
 
@@ -6759,6 +6767,22 @@ vect_transform_loop (loop_vec_info loop_vinfo)
     {
       vect_loop_versioning (loop_vinfo, th, check_profitability);
       check_profitability = false;
+    }
+
+  /* Make sure there exists a single-predecessor exit bb also on the
+     scalar loop copy.  Do this after versioning but before peeling
+     so CFG structure is fine for both scalar and if-converted loop
+     to make slpeel_duplicate_current_defs_from_edges face matched
+     loop closed PHI nodes on the exit.  */
+  if (LOOP_VINFO_SCALAR_LOOP (loop_vinfo))
+    {
+      e = single_exit (LOOP_VINFO_SCALAR_LOOP (loop_vinfo));
+      if (! single_pred_p (e->dest))
+	{
+	  split_loop_exit_edge (e);
+	  if (dump_enabled_p ())
+	    dump_printf (MSG_NOTE, "split exit edge of scalar loop\n");
+	}
     }
 
   tree ni_name = vect_build_loop_niters (loop_vinfo);

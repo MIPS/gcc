@@ -4270,7 +4270,7 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 	  if (sprime
 	      && TREE_CODE (sprime) == SSA_NAME
 	      && do_pre
-	      && flag_tree_loop_vectorize
+	      && (flag_tree_loop_vectorize || flag_tree_parallelize_loops > 1)
 	      && loop_outer (b->loop_father)
 	      && has_zero_uses (sprime)
 	      && bitmap_bit_p (inserted_exprs, SSA_NAME_VERSION (sprime))
@@ -4543,6 +4543,15 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 				       lang_hooks.decl_printable_name (fn, 2));
 		    }
 		  gimple_call_set_fndecl (call_stmt, fn);
+		  /* If changing the call to __builtin_unreachable
+		     or similar noreturn function, adjust gimple_call_fntype
+		     too.  */
+		  if (gimple_call_noreturn_p (call_stmt)
+		      && VOID_TYPE_P (TREE_TYPE (TREE_TYPE (fn)))
+		      && TYPE_ARG_TYPES (TREE_TYPE (fn))
+		      && (TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (fn)))
+			  == void_type_node))
+		    gimple_call_set_fntype (call_stmt, TREE_TYPE (fn));
 		  maybe_remove_unused_call_args (cfun, call_stmt);
 		  gimple_set_modified (stmt, true);
 		}

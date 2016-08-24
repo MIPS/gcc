@@ -46,6 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 #include "gimplify.h"
 #include "substring-locations.h"
+#include "spellcheck.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
@@ -1147,24 +1148,24 @@ get_cpp_ttype_from_string_type (tree string_type)
 
 GTY(()) string_concat_db *g_string_concat_db;
 
-/* Attempt to determine the source range of the substring.
-   If successful, return NULL and write the source range to *OUT_RANGE.
+/* Attempt to determine the source location of the substring.
+   If successful, return NULL and write the source location to *OUT_LOC.
    Otherwise return an error message.  Error messages are intended
    for GCC developers (to help debugging) rather than for end-users.  */
 
 const char *
-substring_loc::get_range (source_range *out_range) const
+substring_loc::get_location (location_t *out_loc) const
 {
-  gcc_assert (out_range);
+  gcc_assert (out_loc);
 
   enum cpp_ttype tok_type = get_cpp_ttype_from_string_type (m_string_type);
   if (tok_type == CPP_OTHER)
     return "unrecognized string type";
 
-  return get_source_range_for_substring (parse_in, g_string_concat_db,
-					 m_fmt_string_loc, tok_type,
-					 m_start_idx, m_end_idx,
-					 out_range);
+  return get_source_location_for_substring (parse_in, g_string_concat_db,
+					    m_fmt_string_loc, tok_type,
+					    m_caret_idx, m_start_idx, m_end_idx,
+					    out_loc);
 }
 
 
@@ -11118,6 +11119,20 @@ get_atomic_generic_size (location_t loc, tree function,
 		    function);
 	  return 0;
 	}
+      else if (TYPE_SIZE_UNIT (TREE_TYPE (type))
+	       && TREE_CODE ((TYPE_SIZE_UNIT (TREE_TYPE (type))))
+		  != INTEGER_CST)
+	{
+	  error_at (loc, "argument %d of %qE must be a pointer to a constant "
+		    "size type", x + 1, function);
+	  return 0;
+	}
+      else if (FUNCTION_POINTER_TYPE_P (type))
+	{
+	  error_at (loc, "argument %d of %qE must not be a pointer to a "
+		    "function", x + 1, function);
+	  return 0;
+	}
       tree type_size = TYPE_SIZE_UNIT (TREE_TYPE (type));
       size = type_size ? tree_to_uhwi (type_size) : 0;
       if (size != size_0)
@@ -11976,7 +11991,7 @@ warn_for_memset (location_t loc, tree arg0, tree arg2,
       if (TREE_CODE (arg0) == ADDR_EXPR)
 	arg0 = TREE_OPERAND (arg0, 0);
       tree type = TREE_TYPE (arg0);
-      if (TREE_CODE (type) == ARRAY_TYPE)
+      if (type != NULL_TREE && TREE_CODE (type) == ARRAY_TYPE)
 	{
 	  tree elt_type = TREE_TYPE (type);
 	  tree domain = TYPE_DOMAIN (type);
@@ -12970,6 +12985,22 @@ cb_get_source_date_epoch (cpp_reader *pfile ATTRIBUTE_UNUSED)
     }
 
   return (time_t) epoch;
+}
+
+/* Callback for libcpp for offering spelling suggestions for misspelled
+   directives.  GOAL is an unrecognized string; CANDIDATES is a
+   NULL-terminated array of candidate strings.  Return the closest
+   match to GOAL within CANDIDATES, or NULL if none are good
+   suggestions.  */
+
+const char *
+cb_get_suggestion (cpp_reader *, const char *goal,
+		   const char *const *candidates)
+{
+  best_match<const char *, const char *> bm (goal);
+  while (*candidates)
+    bm.consider (*candidates++);
+  return bm.get_best_meaningful_candidate ();
 }
 
 /* Check and possibly warn if two declarations have contradictory
