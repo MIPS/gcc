@@ -7501,7 +7501,6 @@ rs6000_split_v4si_init (rtx operands[])
       for (i = 0; i < 4; i++)
 	{
 	  rtx scalar = operands[1+i];
-	  rtx dest2;
 
 	  if (CONST_INT_P (scalar))
 	    {
@@ -7509,8 +7508,8 @@ rs6000_split_v4si_init (rtx operands[])
 	      scalar = const_tmp;
 	    }
 
-	  dest2 = copy_rtx (dest);
-	  emit_move_insn (adjust_address (dest2, SImode, 4*i), scalar);
+	  emit_move_insn (adjust_address (copy_rtx (dest), SImode, 4*i),
+			  scalar);
 	}
     }
 
