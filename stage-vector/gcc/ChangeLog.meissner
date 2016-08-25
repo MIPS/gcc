@@ -1,8 +1,27 @@
 2016-08-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	<patch submission>
+	* config/rs6000/rs6000.c (rs6000_split_v4si_init): Add support for
+	the target of V4SI initialization being a memory location.
+	* config/rs6000/vsx.md (vsx_init_v4si): Likewise.
+	(SPLAT_ST): New mode iterator/attribute for combining vector splat
+	initialization and a store.
+	(SPLAT_REG): Likewise.
+	(vsx_splat_<mode>_mem): New combiner insn to combine a vector
+	initialization from a splat and a store to memory.
+	* config/rs6000/rs6000.md (peephole2): Add peephole2 to combine
+	loading up an integer constant into a register and then adding
+	that register to another register into a single ADDI operation.
+	This shows up due to power7/power8 vector memory addresses being
+	only indexed or indirect, and the vector splat store optimizations
+	generating individual stores.
+
+2016-08-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* config/rs6000/rs6000.c (rs6000_split_v4si_init): Remove support
 	for loading up constants if the V4SI being initialized is a memory
 	location.
+
 	* config/rs6000/vsx.md (vsx_init_v4si): Likewise.
 
 2016-08-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
