@@ -7484,7 +7484,6 @@ rs6000_split_v4si_init (rtx operands[])
   else if (MEM_P (dest))
     {
       rtx base_reg = operands[5];
-      rtx const_tmp = operands[6];
       rtx addr = XEXP (dest, 0);
       size_t i;
 
@@ -7499,18 +7498,8 @@ rs6000_split_v4si_init (rtx operands[])
 	}
 
       for (i = 0; i < 4; i++)
-	{
-	  rtx scalar = operands[1+i];
-
-	  if (CONST_INT_P (scalar))
-	    {
-	      emit_move_insn (const_tmp, scalar);
-	      scalar = const_tmp;
-	    }
-
-	  emit_move_insn (adjust_address (copy_rtx (dest), SImode, 4*i),
-			  scalar);
-	}
+	emit_move_insn (adjust_address (copy_rtx (dest), SImode, 4*i),
+			operands[i+1]);
     }
 
   else
