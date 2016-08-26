@@ -1,3 +1,21 @@
+2016-08-26  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.h (enum oacc_function): Make OACC_FUNCTION_SEQ the last
+	entry the enum.
+	(gfc_oacc_routine_name): Add a loc member.
+	(gfc_resolve_oacc_routine_call): Declare.
+	(gfc_resolve_oacc_routines): Declare.
+	* openmp.c (gfc_match_oacc_routine): Make error reporting more
+	precise.  Defer rejection of non-function and subroutine symbols
+	until gfc_resolve_oacc_routines.
+	(struct fortran_omp_context): Add a dims member.
+	(gfc_resolve_oacc_blocks): Update ctx->dims.
+	(gfc_resolve_oacc_routine_call): New function.
+	(gfc_resolve_oacc_routines): New function.
+	* resolve.c (resolve_function): Call gfc_resolve_oacc_routine_call.
+	(resolve_call): Likewise.
+	(resolve_codes): Call gfc_resolve_oacc_routines.
+
 2016-08-16  Cesar Philippidis  <cesar@codesourcery.com>
 
 	PR fortran/72741
