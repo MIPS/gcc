@@ -4383,8 +4383,10 @@ inline_write_summary (void)
 	  int i;
 	  size_time_entry *e;
 	  struct condition *c;
+	  int index = lto_symtab_encoder_encode (encoder, cnode);
+	  bool body = encoder->nodes[index].body;
 
-	  streamer_write_uhwi (ob, lto_symtab_encoder_encode (encoder, cnode));
+	  streamer_write_uhwi (ob, index);
 	  streamer_write_hwi (ob, info->estimated_self_stack_size);
 	  streamer_write_hwi (ob, info->self_size);
 	  streamer_write_hwi (ob, info->self_time);
@@ -4415,10 +4417,17 @@ inline_write_summary (void)
 	  write_predicate (ob, info->loop_iterations);
 	  write_predicate (ob, info->loop_stride);
 	  write_predicate (ob, info->array_index);
-	  for (edge = cnode->callees; edge; edge = edge->next_callee)
-	    write_inline_edge_summary (ob, edge);
-	  for (edge = cnode->indirect_calls; edge; edge = edge->next_callee)
-	    write_inline_edge_summary (ob, edge);
+	  if (body)
+	    {
+	      /* Only write callee counts when we're emitting the
+		 body, as the reader only knows about the callees when
+		 the body's emitted.  */
+	      for (edge = cnode->callees; edge; edge = edge->next_callee)
+		write_inline_edge_summary (ob, edge);
+	      for (edge = cnode->indirect_calls; edge;
+		   edge = edge->next_callee)
+		write_inline_edge_summary (ob, edge);
+	    }
 	}
     }
   streamer_write_char_stream (ob->main_stream, 0);

@@ -1,5 +1,10 @@
 2016-08-26  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* ipa-inline-analysis.c (inline_write_summary): Only dump callee
+	counts when dumping the function's body.
+
+2016-08-26  Nathan Sidwell  <nathan@codesourcery.com>
+
 	Merge from trunk:
 	* ipa-inline-analysis.c (inline_write_summary): Remove unnecessary
 	assignment inside if condition.
