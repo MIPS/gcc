@@ -22228,7 +22228,13 @@ pass_optimize_multi_refs::execute (function *f ATTRIBUTE_UNUSED)
 
 		  if (r->sreg == -1)
 		    {
-		      gcc_assert (!df_regs_ever_live_p (ras_info.first_free));
+		      /* There is no guarantee that the saved registers were
+			 allocated consecutively so we must find a free one
+			 again.  */
+		      while (df_regs_ever_live_p (ras_info.first_free)
+			     && ras_info.first_free <= 23)
+			ras_info.first_free++;
+		      gcc_assert (IN_RANGE (ras_info.first_free, 16, 23));
 		      r->sreg = ras_info.first_free;
 		      ras_info.first_free++;
 		    }
