@@ -3438,8 +3438,10 @@ ipa_fn_summary_write (void)
 	  int i;
 	  size_time_entry *e;
 	  struct condition *c;
+	  int index = lto_symtab_encoder_encode (encoder, cnode);
+	  bool body = encoder->nodes[index].body;
 
-	  streamer_write_uhwi (ob, lto_symtab_encoder_encode (encoder, cnode));
+	  streamer_write_uhwi (ob, index);
 	  streamer_write_hwi (ob, info->estimated_self_stack_size);
 	  streamer_write_hwi (ob, info->self_size);
 	  info->time.stream_out (ob);
@@ -3482,10 +3484,16 @@ ipa_fn_summary_write (void)
 	    info->array_index->stream_out (ob);
 	  else
 	    streamer_write_uhwi (ob, 0);
-	  for (edge = cnode->callees; edge; edge = edge->next_callee)
-	    write_ipa_call_summary (ob, edge);
-	  for (edge = cnode->indirect_calls; edge; edge = edge->next_callee)
-	    write_ipa_call_summary (ob, edge);
+	  if (body)
+	    {
+	      /* Only write callee counts when we're emitting the
+		 body, as the reader only knows about the callees when
+		 the body's emitted.  */
+	      for (edge = cnode->callees; edge; edge = edge->next_callee)
+		write_ipa_call_summary (ob, edge);
+	      for (edge = cnode->indirect_calls; edge; edge = edge->next_callee)
+		write_ipa_call_summary (ob, edge);
+	    }
 	}
     }
   streamer_write_char_stream (ob->main_stream, 0);
