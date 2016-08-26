@@ -3131,6 +3131,11 @@ resolve_function (gfc_expr *expr)
     /* typebound procedure: Assume the worst.  */
     gfc_current_ns->proc_name->attr.array_outer_dependency = 1;
 
+  /* Calls to OpenACC routines have imposed restrictions on gang,
+     worker and vector parallelism.  */
+  if (sym)
+    gfc_resolve_oacc_routine_call (sym, &expr->where);
+
   return t;
 }
 
@@ -3473,6 +3478,11 @@ resolve_call (gfc_code *c)
   else
     /* Typebound procedure: Assume the worst.  */
     gfc_current_ns->proc_name->attr.array_outer_dependency = 1;
+
+  /* Calls to OpenACC routines have imposed restrictions on gang,
+     worker and vector parallelism.  */
+  if (csym)
+    gfc_resolve_oacc_routine_call (csym, &c->loc);
 
   return t;
 }
@@ -15551,6 +15561,7 @@ resolve_codes (gfc_namespace *ns)
   bitmap_obstack_initialize (&labels_obstack);
 
   gfc_resolve_oacc_declare (ns);
+  gfc_resolve_oacc_routines (ns);
   gfc_resolve_code (ns->code, ns);
 
   bitmap_obstack_release (&labels_obstack);

@@ -295,10 +295,10 @@ enum save_state
 /* Flags to keep track of ACC routine states.  */
 enum oacc_function
 { OACC_FUNCTION_NONE = 0,
-  OACC_FUNCTION_SEQ,
   OACC_FUNCTION_GANG,
   OACC_FUNCTION_WORKER,
-  OACC_FUNCTION_VECTOR
+  OACC_FUNCTION_VECTOR,
+  OACC_FUNCTION_SEQ
 };
 
 /* Strings for all symbol attributes.  We use these for dumping the
@@ -1631,6 +1631,7 @@ typedef struct gfc_oacc_routine_name
   struct gfc_symbol *sym;
   struct gfc_omp_clauses *clauses;
   struct gfc_oacc_routine_name *next;
+  locus loc;
 }
 gfc_oacc_routine_name;
 
@@ -2994,6 +2995,8 @@ void gfc_resolve_oacc_directive (gfc_code *, gfc_namespace *);
 void gfc_resolve_oacc_declare (gfc_namespace *);
 void gfc_resolve_oacc_parallel_loop_blocks (gfc_code *, gfc_namespace *);
 void gfc_resolve_oacc_blocks (gfc_code *, gfc_namespace *);
+void gfc_resolve_oacc_routine_call (gfc_symbol *, locus *);
+void gfc_resolve_oacc_routines (gfc_namespace *);
 
 /* expr.c */
 void gfc_free_actual_arglist (gfc_actual_arglist *);

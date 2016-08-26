@@ -1951,25 +1951,25 @@ gfc_match_oacc_routine (void)
 	{
 	  if ((isym = gfc_find_function (buffer)) == NULL
 	      && (isym = gfc_find_subroutine (buffer)) == NULL)
-	    st = gfc_find_symtree (gfc_current_ns->sym_root, buffer);
+	    {
+	      st = gfc_find_symtree (gfc_current_ns->sym_root, buffer);
+	      if (st == NULL && gfc_current_ns->proc_name->attr.contained
+		  && gfc_current_ns->parent)
+		st = gfc_find_symtree (gfc_current_ns->parent->sym_root,
+				       buffer);
+	    }
 	  if (st)
 	    {
 	      sym = st->n.sym;
 	      if (strcmp (sym->name, gfc_current_ns->proc_name->name) == 0)
 	        sym = NULL;
 	    }
-
-	  if ((isym == NULL && st == NULL)
-	      || (sym
-		  && !sym->attr.external
-		  && !sym->attr.function
-		  && !sym->attr.subroutine))
+	  else if (isym == NULL)
 	    {
-	      gfc_error ("Syntax error in !$ACC ROUTINE ( NAME ) at %C, "
-			 "invalid function name %s",
-			 (sym) ? sym->name : buffer);
-	      gfc_current_locus = old_loc;
-	      return MATCH_ERROR;
+	      gfc_error ("Syntax error in !$ACC ROUTINE ( NAME ) at %L, "
+			 "invalid function name %qs", &old_loc, buffer);\
+	      goto cleanup;
+
 	    }
 
 	  /* Set sym to NULL if it matches the current procedure's
@@ -1981,17 +1981,15 @@ gfc_match_oacc_routine (void)
 	}
       else
         {
-	  gfc_error ("Syntax error in !$ACC ROUTINE ( NAME ) at %C");
-	  gfc_current_locus = old_loc;
-	  return MATCH_ERROR;
+	  gfc_error ("Syntax error in !$ACC ROUTINE ( NAME ) at %L", &old_loc);
+	  goto cleanup;
 	}
 
       if (gfc_match_char (')') != MATCH_YES)
 	{
-	  gfc_error ("Syntax error in !$ACC ROUTINE ( NAME ) at %C, expecting"
-		     " ')' after NAME");
-	  gfc_current_locus = old_loc;
-	  return MATCH_ERROR;
+	  gfc_error ("Syntax error in !$ACC ROUTINE ( NAME ) at %L, expecting"
+		     " ')' after NAME", &old_loc);
+	  goto cleanup;
 	}
     }
 
@@ -2006,7 +2004,8 @@ gfc_match_oacc_routine (void)
   dims = gfc_oacc_routine_dims (c);
   if (dims == OACC_FUNCTION_NONE)
     {
-      gfc_error ("Multiple loop axes specified in !$ACC ROUTINE at %C");
+      gfc_error ("Multiple loop axes specified in !$ACC ROUTINE at %L",
+		 &old_loc);
 
       /* Don't abort early, because it's important to let the user
 	 know of any potential duplicate routine directives.  */
@@ -2018,8 +2017,8 @@ gfc_match_oacc_routine (void)
       if (c && (c->gang || c->worker || c->vector))
 	{
 	  gfc_error ("Intrinsic symbol specified in !$ACC ROUTINE ( NAME ) "
-		     "at %C, with incompatible clauses specifying the level "
-		     "of parallelism");
+		     "at %L, with incompatible clauses specifying the level "
+		     "of parallelism", &old_loc);
 	  goto cleanup;
 	}
       /* The intrinsic symbol has been marked with a SEQ, or with no clause at
@@ -2038,7 +2037,7 @@ gfc_match_oacc_routine (void)
 	    needs_entry = false;
 	    if (dims != gfc_oacc_routine_dims (n->clauses))
 	      {
-		gfc_error ("$!ACC ROUTINE already applied at %C");
+		gfc_error ("$!ACC ROUTINE already applied at %L", &old_loc);
 		goto cleanup;
 	      }
 	  }
@@ -2049,6 +2048,7 @@ gfc_match_oacc_routine (void)
 	  n->sym = sym;
 	  n->clauses = c;
 	  n->next = NULL;
+	  n->loc = old_loc;
 
 	  if (gfc_current_ns->oacc_routine_names != NULL)
 	    n->next = gfc_current_ns->oacc_routine_names;
@@ -2064,7 +2064,7 @@ gfc_match_oacc_routine (void)
       if (gfc_current_ns->proc_name->attr.oacc_function != OACC_FUNCTION_NONE
 	  && !seen_error)
 	{
-	  gfc_error ("!$ACC ROUTINE already applied at %C");
+	  gfc_error ("!$ACC ROUTINE already applied at %L", &old_loc);
 	  goto cleanup;
 	}
 
@@ -4559,6 +4559,7 @@ struct fortran_omp_context
   hash_set<gfc_symbol *> *private_iterators;
   struct fortran_omp_context *previous;
   bool is_openmp;
+  oacc_function dims;
 } *omp_current_ctx;
 static gfc_code *omp_current_do_code;
 static int omp_current_do_collapse;
@@ -5198,6 +5199,7 @@ void
 gfc_resolve_oacc_blocks (gfc_code *code, gfc_namespace *ns)
 {
   fortran_omp_context ctx;
+  oacc_function dims = OACC_FUNCTION_NONE;
 
   resolve_oacc_loop_blocks (code);
 
@@ -5206,6 +5208,21 @@ gfc_resolve_oacc_blocks (gfc_code *code, gfc_namespace *ns)
   ctx.private_iterators = new hash_set<gfc_symbol *>;
   ctx.previous = omp_current_ctx;
   ctx.is_openmp = false;
+
+  if (code->ext.omp_clauses->gang)
+    dims = OACC_FUNCTION_GANG;
+  if (code->ext.omp_clauses->worker)
+    dims = OACC_FUNCTION_WORKER;
+  if (code->ext.omp_clauses->vector)
+    dims = OACC_FUNCTION_VECTOR;
+  if (code->ext.omp_clauses->seq)
+    dims = OACC_FUNCTION_SEQ;
+
+  if (dims == OACC_FUNCTION_NONE && ctx.previous != NULL
+      && !ctx.previous->is_openmp)
+    dims = ctx.previous->dims;
+
+  ctx.dims = dims;
   omp_current_ctx = &ctx;
 
   gfc_resolve_blocks (code->block, ns);
@@ -5547,4 +5564,55 @@ gfc_resolve_omp_udrs (gfc_symtree *st)
   gfc_resolve_omp_udrs (st->right);
   for (omp_udr = st->n.omp_udr; omp_udr; omp_udr = omp_udr->next)
     gfc_resolve_omp_udr (omp_udr);
+}
+
+/* Ensure that any calls to OpenACC routines respects the current
+   level of parallelism of the innermost loop.  */
+
+void
+gfc_resolve_oacc_routine_call (gfc_symbol *sym, locus *loc)
+{
+  gfc_oacc_routine_name *n = NULL;
+  oacc_function loop_dims = OACC_FUNCTION_NONE;
+  oacc_function routine_dims;
+
+  if (!omp_current_ctx)
+    return;
+
+  loop_dims = omp_current_ctx->dims;
+
+  if (omp_current_ctx->is_openmp || loop_dims == OACC_FUNCTION_NONE)
+    return;
+
+  for (n = gfc_current_ns->oacc_routine_names; n; n = n->next)
+    if (n->sym == sym)
+      break;
+
+  if (n == NULL)
+    return;
+
+  routine_dims = gfc_oacc_routine_dims (n->clauses);
+
+  if (routine_dims == OACC_FUNCTION_SEQ)
+    return;
+  if (routine_dims <= loop_dims)
+    gfc_error ("Insufficient !$ACC LOOP parallelism available to call "
+	       "%qs at %L", sym->name, loc);
+}
+
+void
+gfc_resolve_oacc_routines (gfc_namespace *ns)
+{
+  gfc_oacc_routine_name *routines = NULL;
+
+  for (routines = ns->oacc_routine_names; routines; routines = routines->next)
+    {
+      gfc_symbol *sym = routines->sym;
+
+      if (!sym->attr.external
+	  && !sym->attr.function
+	  && !sym->attr.subroutine)
+	gfc_error ("Syntax error in !$ACC ROUTINE ( NAME ) at %L, "
+		   "invalid function name %qs", &routines->loc, sym->name);
+    }
 }
