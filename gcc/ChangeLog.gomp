@@ -1,3 +1,9 @@
+2016-08-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Merge from trunk:
+	* ipa-inline-analysis.c (inline_write_summary): Remove unnecessary
+	assignment inside if condition.
+
 2016-08-24  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* config/nvptx/nvptx.c (nvptx_emit_forking, nvptx_emit_joining):
